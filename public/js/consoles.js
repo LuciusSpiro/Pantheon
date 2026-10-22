@@ -742,7 +742,7 @@
     capRadio(ctx, view, a) {
       const st = view.state, m = st.mission || {};
       const lw = 352;
-      let y = a.y + 4;
+      let y = a.y + 4 + (H.szeneVon && H.szeneVon(view) ? 28 : 0);   // Client-Runde S3: unter der Szenenzeile (sie überdeckte sonst die erste Meldung)
       let shown = false;
       if (m.radio) {
         shown = true;
@@ -897,6 +897,8 @@
       const dist = KL.abstaende(quellen, mod.adj);
       const o = { rx, rw, y, ohneArt: rw < 190, sel: hex, verborgen: (h) => !!(mod.verborgen && mod.verborgen.has(h)), name: (h) => hd(h).name || h, art: (h) => hd(h).art || '', hafen: (h) => hd(h).hafen || '', karteFraktion: (h) => KL.kartenFraktion(hd(h).fraktion), dist: (h) => dist[h], kurs: (q) => (q.v ? KL.winkelHex(q.v, q.h) : q.n ? KL.winkelHex(q.h, q.n) : 0) };
       y = KL.ortsinfo(ctx, A, o) + 4;
+      // Client-Runde A3: Im eigenen Hex steht während einer Sim-Szene „Feindkontakt“ (sonst „Keine Flotten gemeldet“ – die Meldeliste ist Wissen von Rom, die Szene die Wahrheit vor Ort)
+      if (H.szeneVon && H.szeneVon(view) && mod.hier && hex === mod.hier) { R.text(ctx, 'FEINDKONTAKT', rx, y, { color: KarteTokens.PULT.rot }); y += 12; }
       // Platz: unten bleiben 14 px für die Frachtleiste des Pults; Sprung (Knopf, Ziel, Balken, Grund) braucht etwa 71, die Legende ihre Zeilen
       // SUND-01 G: Höhenbilanz in KL.spaltenPlan (Meldeliste mindestens 3 Zeilen, Sprunghinweis eine Zeile für den Standardfall, höchstens zwei sonst)
       const unten = a.y + a.h - 14;

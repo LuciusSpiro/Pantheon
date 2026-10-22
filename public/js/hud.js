@@ -789,11 +789,10 @@
       const me = view.me, t = view.time;
       // oben mittig zwischen Zielliste (links) und Schiffsstatus (rechts)
       // liegt ein Funkspruch oben, rutscht die Tafel darunter
-      const st = view.state, radio = st.mission && st.mission.radio;
-      const flash = this.radioAktuell();
-      const r = radio || flash;
-      const rh = r ? 16 + R.wrap(r.text || '', 216, 1).slice(0, 4).length * 10 + (radio && radio.needsAccept ? 11 : 2) : 0;
-      const w = 300, x = Math.round(VW / 2 - w / 2) + 38, y = r ? 6 + rh + 4 : 24, cx = x + w / 2;
+      // Client-Runde S6: die Tafel übernimmt die Unterkante ALLER Funktafeln (Missionsfunk und darunter die Lagemeldung, wie drawRadio sie zeichnet), nicht nur die des ersten Funkspruchs
+      const st = view.state;
+      const unten = this.radioUnterkante(view);
+      const w = 300, x = Math.round(VW / 2 - w / 2) + 38, y = unten ? unten + 4 : 24, cx = x + w / 2;
       R.backdrop(ctx, x, y, w, 40, 0.82);
       ctx.strokeStyle = Math.floor(t * 2) % 2 ? PAL.red : '#7A2420'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 39);
       // W2 AP6 (Wellen-Abnahme): im Wellenmodus gibt es keine Notrückholung (alle unten = Ende der Runde); ohne stehenden
@@ -968,9 +967,45 @@
       const f = this.radioAktuell();
       if (!f || !f.lage || !view.me || !view.me.console) return;
       if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) return;   // SUND-01 F: im offenen Funk-Reiter steht der Lagefunk dort selbst (das Feld überdeckte ihn)
+      // Client-Runde S5: auf der Sternkarte des Captains (Reiter 2) deckte die Tafel das gemeldete Hex ab. Dort gilt der Neu-Strich der Meldeliste (KarteLage: neue Meldungen
+      // des Hex), die Meldung selbst steht im Funk-Reiter und im Logbuch. Nur in der Lage-Ansicht (Freie Fahrt Sund), sonst bliebe sie ganz aus.
+      if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 1 && window.StarMap && window.StarMap.lageAktiv && window.StarMap.lageAktiv()) return;
+      // Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware. Dort steht sie einzeilig ganz oben über der Kopfzeile (y 0–11,
+      // der Kopf des Terminals beginnt bei y 12); die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
+      if (view.me.console === 'shop') return this.zeichneFunkZeile(ctx, view, f);
       this.zeichneFunkTafel(ctx, view, f, null, LAGEFUNK_Y);
     },
+    // Einzeilige Lagemeldung ohne Inhaltsfläche zu berühren: roter Streifen, Sprecher, Text (gekürzt), „+n“ bei einer Serie
+    zeichneFunkZeile(ctx, view, f) {
+      const dbg = this.radioOberkante(view) > 6;   // Debug-Modus: die FPS-Zeile steht mittig oben (x 242–397), die Zeile rückt rechts daneben und wird kürzer
+      const w = dbg ? 232 : 440, x = dbg ? 404 : Math.round(VW / 2 - w / 2), h = 11;
+      const mehr = f.mehr > 0 ? ' +' + f.mehr : '';
+      const txt = this.fit('LAGEFUNK · ' + (f.from || '') + ': ' + (f.text || ''), w - 12 - R.measure(mehr, 1), 1) + mehr;
+      R.panel(ctx, x, 0, w, h, { style: 'brass' });
+      ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, 0, 3, h);
+      R.text(ctx, txt, x + 7, 2, { color: PAL.star, shadow: false });
+      return h;
+    },
 
+    // Oberkante der Funktafeln im HUD (an der Konsole liegt im Debug-Modus die FPS-Zeile oben, das Panel rückt)
+    radioOberkante(view) { return view.me && view.me.console && /[?&]debug=1(&|$)/.test((typeof location !== 'undefined' && location.search) || '') ? 16 : 6; },
+    // Höhe einer Funktafel (radio = Missionsfunk, sonst Lagemeldung); Zeichnen und Messen (drawDownedBanner) teilen sich diese Rechnung
+    funkTafelHoehe(r, radio) {
+      const pw = r.pid ? 28 : 0;
+      const lines = R.wrap(r.text || '', 228 - 12 - pw, 1).slice(0, 4);
+      const mehrZ = !radio && r.mehr > 0 ? 1 : 0;
+      return Math.max(pw ? 16 + 24 : 0, 16 + (lines.length + mehrZ) * 10 + (radio && radio.needsAccept ? 11 : 2));
+    },
+    // Unterkante dessen, was drawRadio(…, false) zeichnet (0 = nichts)
+    radioUnterkante(view) {
+      const radio = view.state && view.state.mission && view.state.mission.radio;
+      const flash = this.radioAktuell();
+      const r = radio || flash;
+      if (!r) return 0;
+      let ende = this.radioOberkante(view) + this.funkTafelHoehe(r, radio);
+      if (radio && flash && flash.lage) ende += 4 + this.funkTafelHoehe(flash, null);
+      return ende;
+    },
     drawRadio(ctx, view, compact) {
       const st = view.state;
       const radio = st.mission && st.mission.radio;
@@ -985,7 +1020,7 @@
         R.text(ctx, label, VW / 2, 4, { color: PAL.amber, align: 'center' });
         return;
       }
-      const oy = view.me && view.me.console && /[?&]debug=1(&|$)/.test((typeof location !== 'undefined' && location.search) || '') ? 16 : 6;   // SUND-01 F: an der Konsole liegt im Debug-Modus die FPS-Zeile oben (y 1–11), das Panel rückt
+      const oy = this.radioOberkante(view);   // SUND-01 F: an der Konsole liegt im Debug-Modus die FPS-Zeile oben (y 1–11), das Panel rückt
       const ende = this.zeichneFunkTafel(ctx, view, r, radio, oy);
       // SUND-02a C: Eine laufende Lagemeldung geht nicht verloren, wenn ein normaler Funkspruch ansteht: sie steht darunter (r ist dann der Funkspruch)
       if (radio && flash && flash.lage) return this.zeichneFunkTafel(ctx, view, flash, null, ende + 4);
@@ -998,7 +1033,7 @@
       const pw = r.pid ? 28 : 0;   // EK4: Funkporträt / Symbol
       const lines = R.wrap(r.text || '', w - 12 - pw, 1).slice(0, 4);
       const mehrZ = !radio && r.mehr > 0 ? 1 : 0;   // SUND-01 F: „+n im Funk-Reiter“
-      const h = Math.max(pw ? 16 + 24 : 0, 16 + (lines.length + mehrZ) * 10 + (radio && radio.needsAccept ? 11 : 2));
+      const h = this.funkTafelHoehe(r, radio);
       R.panel(ctx, x, oy, w, h, { style: 'brass' });
       if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, oy, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
       R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, oy + 4, { color: PAL.amber });
@@ -1652,7 +1687,7 @@
     // opts.measure: nur die Breite liefern (0 = nichts zu zeigen); opts.x: linke Kante statt mittig (zwei Zeilen nebeneinander)
     drawAlliesStrip(ctx, view, y0, opts) {
       const list = this.alliesOf(view);
-      if (!list.length) return opts && opts.measure ? 0 : y0;
+      if (!list.length || this.szeneVon(view)) return opts && opts.measure ? 0 : y0;   // SUND-02a Client-Runde M2: während einer Sim-Szene ersetzt die Szenenzeile VERBÜNDET und BEFEHL
       const t = view.time; const shown = list.slice(0, 3);
       const head = 'VERBÜNDET';
       const parts = shown.map(e => {
@@ -1696,7 +1731,57 @@
     },
     // „BEFEHL · Durchbrechen 1/2 · 2:30“ (Zeile unter dem Funk bzw. im Titelbalken der Konsolen); y0 = Oberkante, liefert die Unterkante
     flotteBefehl(view) { const f = view.state && view.state.flotte; return f && f.b ? f.b : null; },
+    // SUND-02a Client-Runde M2: Szenenzeile der Sim-Szene (Freie Fahrt Sund) statt VERBÜNDET/BEFEHL, an derselben Stelle auf allen Konsolen, im HUD und auf dem Hauptschirm.
+    // Daten: state.flotte.sz (Server: kriegslage-szene.js snapshot) und flotte.wl (Welle k/n). -> null ohne Sim-Szene (dann alles wie bisher)
+    szeneVon(view) {
+      const f = view && view.state && view.state.flotte;
+      return f && f.sz ? f.sz : null;
+    },
+    // Zeilen der Szenenzeile: { kopf, kopfFarbe, text?, textFarbe, sek?, anteil?, hoch } – nur Inhalt, kein Zeichnen (prüfbar)
+    szeneZeile(view) {
+      const sz = this.szeneVon(view); if (!sz) return null;
+      const KT = window.KarteTokens, T = KT && KT.PULT || {}, f = view.state.flotte, wl = f.wl;
+      const welle = wl ? (wl[2] ? 'Überdruck' : 'Welle ' + wl[0] + '/' + wl[1]) : '';
+      const rot = T.rot || PAL.red, hell = T.hell || PAL.star, mint = T.mint || PAL.mint;
+      if (sz.p === 'v') {
+        const fr = { ger: 'Germanen', pirat: 'Piraten', rom: 'Rom' }[sz.f] || 'Feind';
+        const v = sz.v || [0, 1];
+        return { hoch: true, kopf: 'FEINDKONTAKT', kopfFarbe: rot, text: fr + ' · ' + (KT ? KT.staerkeName(sz.k) : '') + (welle ? ' · ' + welle : ''), textFarbe: hell, sek: v[0], anteil: v[1] > 0 ? Math.max(0, Math.min(1, v[0] / v[1])) : 0 };
+      }
+      if (sz.p === 'k') return { hoch: false, kopf: welle ? welle.toUpperCase() : 'GEFECHT', kopfFarbe: rot, text: sz.g != null ? (sz.g === 1 ? ' · 1 Gegner' : ' · ' + sz.g + ' Gegner') : '', textFarbe: hell };
+      if (sz.p === 'f') return { hoch: false, kopf: 'FLAGGSCHIFF', kopfFarbe: rot, text: sz.kd ? ' · ' + sz.kd : '', textFarbe: hell };
+      if (sz.p === 's') return { hoch: false, kopf: 'SIEG', kopfFarbe: mint, text: ' · ' + (sz.o ? sz.o + ' hält' : 'Flotte bricht ab'), textFarbe: hell };
+      if (sz.p === 'n') return { hoch: false, kopf: 'NIEDERLAGE', kopfFarbe: rot, text: ' · ' + (sz.o ? sz.o + ' verloren' : 'Feind hält den Sektor'), textFarbe: hell };
+      return null;
+    },
+    drawSzenenStrip(ctx, view, y0, opts) {
+      const Z = this.szeneZeile(view); if (!Z) return opts && opts.measure ? 0 : y0;
+      const T = (window.KarteTokens && KarteTokens.PULT) || {};
+      const tisch = T.tisch || '#0B0E1A', messing = T.messing || PAL.brass, warn = T.warn || PAL.warn, aus = T.lampeAus || '#18202F';
+      let w, h;
+      if (Z.hoch) { w = Math.max(198, 14 + Math.max(R.measure(Z.kopf, 1), R.measure(Z.text, 1)) + 6 + R.measure(String(Z.sek) + ' s', 2)); h = 27; }
+      else { w = 10 + R.measure(Z.kopf, 1) + R.measure(Z.text, 1) + 6; h = 14; }
+      if (opts && opts.measure) return w;
+      // an den Konsolen links bei x 264 (Mock des Designers: rechts neben dem Bildmittelpunkt, die Konsolen-Anzeige reicht bis x ~465), im HUD und auf dem Schirm mittig
+      const x = opts && opts.x != null ? Math.round(opts.x) : view.me && view.me.console && !(view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) ? 264 : Math.round(VW / 2 - w / 2);   // Captain-Funk-Reiter: mittig (rechts beginnt dort MISSION bei x 431)
+      ctx.fillStyle = tisch; ctx.fillRect(x, y0, w, h);
+      ctx.strokeStyle = messing; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y0 + 0.5, w - 1, h - 1);
+      ctx.fillStyle = (window.KarteTokens && KarteTokens.FARBE.funk.akzentFeind) || T.rot || PAL.red; ctx.fillRect(x, y0, 3, h);   // roter Akzentstreifen wie beim Lagefunk
+      if (Z.hoch) {
+        R.text(ctx, Z.kopf, x + 7, y0 + 3, { color: Z.kopfFarbe, shadow: false });
+        R.text(ctx, Z.text, x + 7, y0 + 13, { color: Z.textFarbe, shadow: false });
+        R.text(ctx, Z.sek + ' s', x + w - 6, y0 + 3, { color: warn, align: 'right', scale: 2, shadow: false });
+        const bw = w - 13;
+        ctx.fillStyle = aus; ctx.fillRect(x + 7, y0 + h - 4, bw, 2);
+        ctx.fillStyle = warn; ctx.fillRect(x + 7, y0 + h - 4, Math.round(bw * Z.anteil), 2);
+      } else {
+        R.text(ctx, Z.kopf, x + 7, y0 + 3, { color: Z.kopfFarbe, shadow: false });
+        if (Z.text) R.text(ctx, Z.text, x + 7 + R.measure(Z.kopf, 1), y0 + 3, { color: Z.textFarbe, shadow: false });
+      }
+      return y0 + h + 1;
+    },
     drawBefehlStrip(ctx, view, y0, opts) {
+      if (this.szeneVon(view)) return this.drawSzenenStrip(ctx, view, y0, opts);
       const b = this.flotteBefehl(view); const f = view.state.flotte;
       if (!b && !(f && (f.wl || f.nq))) return opts && opts.measure ? 0 : y0;
       const t = view.time;

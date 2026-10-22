@@ -138,6 +138,9 @@
       // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
       const F = R.FRONT, zoom = SH / (F.fwd + F.back);
       R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH } });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+      // SUND-02a Client-Runde M2: Szenenzeile der Sim-Szene oben mittig auf dem Hauptschirm (nur solange state.flotte.sz da ist; sonst nichts)
+      const H = window.Hud;
+      if (H && H.szeneVon && H.szeneVon(view)) { const w = H.drawSzenenStrip(c, view, 6, { measure: true }); H.drawSzenenStrip(c, view, 6, { x: Math.round((SW - w) / 2) }); }
     } catch (e) { Net.reportError('Sitz.schirm', e); }
     R.ui.buttons.length = nb;
     S.schirmVersion++;
