@@ -224,7 +224,7 @@ section('8. Schnittstelle: Wirkungen, Absichten, lesende Hilfen');
   try { Kern.tick(z, { wirkungen: [{ typ: 'gibt_es_nicht' }] }); } catch (e) { meldung = e.message; }
   ok(/unbekannte Wirkung "gibt_es_nicht"/.test(meldung) && z.tick === 0, 'unbekannter Wirkungstyp wirft klar und ändert nichts');
   ok(Kern.tick(z, { wirkungen: [] }).ereignisse instanceof Array && z.tick === 1, 'leere Wirkungsliste ist der Normalfall');
-  ok(Object.keys(Kern.WIRKUNGEN).length === 0, 'in SUND-01 sind keine Wirkungstypen implementiert (Erweiterungspunkt für SUND-02)');
+  ok(Object.keys(Kern.WIRKUNGEN).sort().join() === Object.keys(require('../server/weltsim/wirkungen.js').KATALOG).sort().join(), 'WIRKUNGEN enthält genau den Katalog aus wirkungen.js (SUND-02, Test: test-wirkungen.js)');
   const r = Kern.tick(z);
   ok(r.zustand === z, 'tick() verändert den übergebenen Zustand und gibt ihn zurück');
   // Absichten: Rom hält still, Germanen normal

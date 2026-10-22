@@ -148,6 +148,14 @@
             "modus": { "const": "freie_fahrt" },
             "tick": { "type": "integer", "minimum": 0, "description": "Zahl der Ticks (ein Tick je Sprung)" },
             "hauptweltGefallen": { "type": "object", "required": ["fraktion", "tick"], "additionalProperties": false, "properties": { "fraktion": { "type": "string" }, "tick": { "type": "integer", "minimum": 0 } } },
+            "kommandanten": {
+              "type": "object", "description": "SUND-02: Gedächtnis der Kommandanten, denen die Crew begegnet ist (Wirkung flaggschiff_gefallen). Fehlt im Altstand (leer). Schlüssel = Name; gefallen bleibt gefallen.",
+              "additionalProperties": { "type": "object", "required": ["fraktion", "schicksal", "begegnungen", "tick"], "properties": { "fraktion": { "type": "string" }, "schicksal": { "enum": ["entkommen", "gefallen"] }, "begegnungen": { "type": "integer", "minimum": 1 }, "tick": { "type": "integer", "minimum": 0 } } }
+            },
+            "vorgemerkt": {
+              "type": "array", "description": "SUND-02: Wirkungen der Crew (server/weltsim/wirkungen.js), die der nächste Tick (Sprung) anwendet; Flucht per Sprung.",
+              "items": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }
+            },
             "wissen": {
               "type": "object", "required": ["v", "t", "hexe", "flotten", "erst", "gesehen", "meldungen", "wartend", "notrufe"],
               "description": "SUND-01 C: Wissen von Rom (server/sim/kriegslage-wissen.js). Fehlt der Teil (Altstand), beginnt das Wissen mit dem Kartenstand und der Sicht des Ladezeitpunkts. hexe: letzter bekannter Besitz je Anzeigehex { f: Fraktion r g k p - v, p: Posten 0|1, a: Tick der Daten | null = nie gesehen }; flotten: zuletzt bekannte Plaketten; gesehen: gemerkte Feldzug-Phasen (Funk nie doppelt); wartend: Ereignisse, die Rom einen Tick später erfährt; notrufe: Feldzüge mit Notruf-Marke.",

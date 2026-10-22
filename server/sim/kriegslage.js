@@ -3,9 +3,14 @@
 // Action-Layer. Zustand: game.weltsim = { zustand, tickZahl, fehler, ereignisse[], hauptweltGefallen } | null (Kampagne, Limes, Labor, Arena).
 //   starten(game, seed?)      Modus beginnen: Sim erzeugen (eigener Zufallsstrom aus dem Spiel-Seed), Besitz-Overlay füllen
 //   tick(game, quelle)        genau ein Sim-Tick (Aufrufer: Sprung, Schnellsprung-Hop, Notfallsprung – sonst niemand). Ohne Modus: nichts
+//   szeneAbschliessen(game, { wirkungen, wo })   SUND-02: Szenenende OHNE Sprung (Sieg, Bleiben): Wirkungen der Crew + genau ein eigener Tick
+//   wirkungenVormerken(game, wirkungen)          SUND-02: Szenenende MIT Sprung (Flucht): Wirkungen merken, der Sprung-Tick wendet sie an (kein zweiter Tick)
+//   Beides atomar: gültige Wirkungen gelten, ungültige werden verworfen und gemeldet, ein Wurf rollt auf die Sicherung zurück. Gespeichert wird nie
+//   mitten im Tick (Speichern gibt es nur an Docks, nie während eines Sprungs oder einer Szenenauflösung). Formate: server/weltsim/wirkungen.js.
 //   szeneNachziehen(game)     Andock-Erlaubnis, Banner und Posten-Marker der aktuellen Szene nach einem Tick ohne Szenenwechsel neu setzen
 //   nachLaden(game)           nach dem Laden: keine Angebote der Kampagne, Szene nachziehen
-//   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim (inkl. welt.sim.wissen, SUND-01 C)
+//   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim (inkl. welt.sim.wissen, SUND-01 C; optional kommandanten und vorgemerkt, SUND-02)
+//   welt.sim.kommandanten: Gedächtnis { Name: { fraktion, schicksal: 'entkommen'|'gefallen', begegnungen, tick } }; welt.sim.vorgemerkt: [Wirkung] für den nächsten Tick
 //   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
 //   lage(game) / lageSchluessel(game)  Anzeigeblock world.lage und Änderungsschlüssel (nur im Modus, Wissen statt Wahrheit)
 // Die Sim hat ihren eigenen Zufallsstrom (zustand.zufall) und fasst game.rng nie an. Rohereignisse bleiben auf dem Server (Ring, nicht gespeichert);
@@ -24,6 +29,8 @@ const KARTE = 'sund_frei';
 const RING = 120;   // letzte Ereignisse, die der Server für das Wissen (Paket C) bereithält
 const KARTEN_FRAKTION = { rom: 'rom', ger: 'ger', kon: 'saum', pirat: 'pirat' };   // Sim -> Fraktionsname der Karte, null (frei) -> 'frei'
 const HAUPTWELT_TEXT = { rom: 'Palatina ist gefallen.', ger: 'Hrafnheim ist gefallen.' };   // Platzhalter bis SUND-04
+const KOMMANDANTEN_MAX = 100;   // Gedächtnis der Kommandanten: die ältesten fliegen zuerst raus
+const VORGEMERKT_MAX = 50;
 const STOERUNG_TEXT = 'Kriegslage gestört.';   // Platzhalter bis SUND-04: ein Tick-Fehler friert die Sim ein (jeder Folgetick scheitert gleich), die Crew soll es wenigstens erfahren
 
 let quelle = null;   // Karte und Werte der Sim, einmal je Prozess gelesen
@@ -66,7 +73,7 @@ function overlayFuellen(game) {
 function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
@@ -85,15 +92,28 @@ function starten(game, seed) {
 
 // Ein Tick. wo: 'sprung' | 'hop' | 'notsprung' (nur für Zähler und Tests). nachOrt: Ort/Hex, in dem die Lerche nach dem Sprung steht (Sensorknoten des
 // Wissens; ohne Angabe der aktuelle Ort des Schiffs). -> Ereignisse des Ticks | null (kein Modus oder Fehler)
-function tick(game, wo, nachOrt) {
+// Vorgemerkte Wirkungen (wirkungenVormerken) gehen in diesen Tick ein: Flucht per Sprung = Wirkungen + der eine Sprung-Tick.
+const tick = (game, wo, nachOrt) => tickMit(game, wo, nachOrt, []);
+
+// Der eine Tick, optional mit Wirkungen der Crew (vor dem Schritt). Wirkungen = vorgemerkte + übergebene, alle werden gegen den Zustand geprüft:
+// gültige gelten, ungültige werden verworfen (ws.letzteWirkungen, Zähler). Wirft etwas, geht alles auf die Sicherung zurück (auch die Wirkungen).
+function tickMit(game, wo, nachOrt, wirkungen) {
   const ws = game.weltsim;
   if (!ws) return null;
   const sicher = abbild(ws.zustand);   // Rückfall, falls die Sim mitten im Tick wirft (der halbe Tick darf nie stehen bleiben)
-  let ev;
+  const alle = (ws.vorgemerkt || []).concat(wirkungen || []).map(klon);
+  ws.vorgemerkt = [];
+  let ev, gueltig = [], verworfen = [], kommandanten = [];
   try {
-    ev = Kern.tick(ws.zustand, {}).ereignisse;
+    if (alle.length) {
+      ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
+      kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen').map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }));
+    }
+    ev = Kern.tick(ws.zustand, { wirkungen: gueltig }).ereignisse;
   } catch (e) {
     ws.zustand = Object.assign(sicher, { werte: ws.zustand.werte, karte: ws.zustand.karte });
+    ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
+    ws.wirkungenVerworfen += alle.length;
     ws.fehler++;
     if (game.countError) game.countError('kriegslage-tick', e);
     try { game.oda(STOERUNG_TEXT, 'kriegslage_gestoert'); } catch (e2) { /* der Hinweis ist nur Beiwerk */ }   // einmal je Partie
@@ -101,12 +121,51 @@ function tick(game, wo, nachOrt) {
   }
   ws.tickZahl++;
   ws.letzteQuelle = wo || null;
+  ws.letzteWirkungen = { angewandt: gueltig.length, verworfen };
+  ws.wirkungenAngewandt += gueltig.length; ws.wirkungenVerworfen += verworfen.length;
+  for (const k of kommandanten) kommandantMerken(ws, k);
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
   try { Wissen.nachTick(game, sicher, ev, nachOrt); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // SUND-01 C: nach dem Tick, vor dem Szenenaufbau
   try { for (const e of ev) if (e.typ === 'hauptwelt_gefallen') hauptweltFaellt(game, e); } catch (e) { if (game.countError) game.countError('kriegslage-hauptwelt', e); }
   return ev;
+}
+
+// Gedächtnis der Kommandanten: ein Name, der wiederkehrt, zählt eine Begegnung mehr; wer gefallen ist, bleibt gefallen.
+function kommandantMerken(ws, k) {
+  const alt = ws.kommandanten[k.name];
+  ws.kommandanten[k.name] = { fraktion: k.fraktion, schicksal: alt && alt.schicksal === 'gefallen' ? 'gefallen' : k.schicksal, begegnungen: (alt ? alt.begegnungen : 0) + 1, tick: ws.tickZahl };
+  const namen = Object.keys(ws.kommandanten);
+  if (namen.length > KOMMANDANTEN_MAX) {
+    namen.sort((a, b) => ws.kommandanten[a].tick - ws.kommandanten[b].tick);
+    for (const n of namen.slice(0, namen.length - KOMMANDANTEN_MAX)) delete ws.kommandanten[n];
+  }
+}
+
+// Szenenende ohne Sprung (Sieg, Bleiben): Wirkungen der Crew und genau ein Tick, atomar. wo: Zähler/Tests (Standard 'szene').
+// -> { ok, ereignisse: [Ereignisse des Ticks] | null, angewandt: Zahl, verworfen: [{ wirkung, grund }], tick: Tickzähler danach }
+// ok=false: kein Modus oder die Sim ist gescheitert (dann Zustand wie vorher, Tick nicht gezählt).
+function szeneAbschliessen(game, { wirkungen = [], wo } = {}) {
+  const ws = game.weltsim;
+  if (!ws) return { ok: false, ereignisse: null, angewandt: 0, verworfen: [], tick: null };
+  const ev = tickMit(game, wo || 'szene', undefined, Array.isArray(wirkungen) ? wirkungen : []);
+  const r = ws.letzteWirkungen || { angewandt: 0, verworfen: [] };
+  if (ev) { try { szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('kriegslage-szene', e); } }   // Besitz kann sich geändert haben (Banner, Andocken)
+  return { ok: !!ev, ereignisse: ev, angewandt: r.angewandt, verworfen: r.verworfen, tick: ws.tickZahl };
+}
+
+// Szenenende mit Sprung (Flucht): Wirkungen für den nächsten Tick merken, das ist der Sprung-Tick (tick()), kein eigener. Geprüft wird sofort (Ablehnungen
+// kommen zurück) und beim Tick noch einmal gegen den dann gültigen Zustand. Leere Liste ändert nichts. -> { vorgemerkt: Zahl, verworfen: [{ wirkung, grund }] }
+function wirkungenVormerken(game, wirkungen) {
+  const ws = game.weltsim;
+  if (!ws || !Array.isArray(wirkungen) || !wirkungen.length) return { vorgemerkt: 0, verworfen: [] };
+  const alt = ws.vorgemerkt || [];
+  const neu = wirkungen.map(klon);
+  const { gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alt.concat(neu));
+  const nurNeu = gueltig.filter((w) => neu.includes(w));
+  ws.vorgemerkt = alt.concat(nurNeu).slice(0, VORGEMERKT_MAX);
+  return { vorgemerkt: nurNeu.length, verworfen: verworfen.filter((v) => neu.includes(v.wirkung)) };
 }
 
 // Platzhalter bis SUND-04 (Abspann): Merker, Meldung, Missionsereignis; das Spiel läuft weiter
@@ -162,15 +221,33 @@ function toSave(game) {
   if (!ws) return null;
   const b = { modus: MODUS, tick: ws.tickZahl, zustand: abbild(ws.zustand) };
   const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
+  if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
+  if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);
   if (ws.hauptweltGefallen) b.hauptweltGefallen = { fraktion: String(ws.hauptweltGefallen.fraktion), tick: ws.hauptweltGefallen.tick };
   return b;
 }
+// Müll-feste Leser der optionalen Blöcke (Altstände ohne die Felder: leer)
+function kommandantenLesen(b) {
+  const out = {};
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return out;
+  for (const [name, k] of Object.entries(b)) {
+    if (!name || name.length > 60 || !k || typeof k !== 'object' || !['entkommen', 'gefallen'].includes(k.schicksal)) continue;
+    out[name] = { fraktion: typeof k.fraktion === 'string' ? k.fraktion : '', schicksal: k.schicksal, begegnungen: Number.isFinite(k.begegnungen) && k.begegnungen >= 1 ? Math.floor(k.begegnungen) : 1, tick: Number.isFinite(k.tick) && k.tick >= 0 ? Math.floor(k.tick) : 0 };
+    if (Object.keys(out).length >= KOMMANDANTEN_MAX) break;
+  }
+  return out;
+}
+function vorgemerktLesen(b) {
+  if (!Array.isArray(b)) return [];
+  return b.filter((w) => w && typeof w === 'object' && !Array.isArray(w) && typeof w.typ === 'string').slice(0, VORGEMERKT_MAX).map(klon);
+}
+
 function restore(game, b) {
   reset(game);
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
@@ -178,10 +255,12 @@ function restore(game, b) {
     game.weltsim.tickZahl = tickZahl;
     if (game.weltsim.wissen) game.weltsim.wissen.t = tickZahl;   // das neu begonnene Wissen trägt den Tick der Partie
   }
+  game.weltsim.kommandanten = kommandantenLesen(b.kommandanten);
+  game.weltsim.vorgemerkt = vorgemerktLesen(b.vorgemerkt);
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };
   overlayFuellen(game);
   szeneNachziehen(game);
 }
 
-module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };
+module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, tickMit, szeneAbschliessen, wirkungenVormerken, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };
