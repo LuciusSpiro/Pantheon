@@ -703,7 +703,7 @@
       sprungpunktRadius: 250,          // px: so nah muss die Lerche am Sprungpunkt sein, damit der Antrieb lädt
       randAbstand: 180,                // px: Lage des Sprungpunkts vor dem Szenenrand in Kantenrichtung
       weitscanBoje: 1400,              // px: Weitscan findet unbekannte Bojen in dieser Entfernung
-      notsprung: { huelle: 15, reaktor: 'offline', richtung: 3, streuung: 0.35, sperreAuftrag: false },
+      notsprung: { huelle: 15, reaktor: 'offline', autoNeustartFrei: 10, richtung: 3, streuung: 0.35, sperreAuftrag: false },
       leerraumSzene: { w: 2400, h: 1800, asteroids: 0 },
     },
   };
