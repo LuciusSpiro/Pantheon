@@ -64,7 +64,7 @@ function darfAndocken(game, hex) {
 function verbotText(game, hex) {
   if (darfAndocken(game, hex)) return null;
   if (szeneAn(game, hex)) return SZENE_TEXT;
-  if (istPosten(game, hex) && !crewPosten(game, hex)) return (texte().dock || {}).kein_dock || 'Andocken verweigert';
+  if (istPosten(game, hex) && besitzer(game, hex) === 'rom' && !crewPosten(game, hex)) return (texte().dock || {}).kein_dock || 'Andocken verweigert';   // römischer Posten ohne Stützpunkt: erklärter Grund
   return GESPERRT[besitzer(game, hex)] || 'Andocken verweigert';
 }
 

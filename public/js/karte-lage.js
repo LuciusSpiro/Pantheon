@@ -109,6 +109,21 @@
       const pt = musterPat(ctx, fr.muster, 'dunkel'); if (pt) { ctx.fillStyle = pt; ctx.fill(); }
     }
     ctx.strokeStyle = hell ? 'rgba(244,238,220,0.35)' : 'rgba(244,238,220,0.18)'; ctx.lineWidth = Math.max(1, 1.5 * sk); ctx.stroke();
+    if (anspruchRom(h)) {   // SUND-02b A1: Roms Anspruch (freie Hexe, die die Crew für Rom besetzen darf): gestrichelter Innenrand in der Fahnenfarbe von Rom
+      ctx.save(); ctx.setLineDash([3 * sk + 1, 3 * sk + 1]); ctx.strokeStyle = F.fraktion.r.fahne; ctx.globalAlpha = hell ? 0.95 : 0.6; ctx.lineWidth = Math.max(1, 1.5 * sk);
+      hexPfad(ctx, p.x, p.y, s * 0.78); ctx.stroke(); ctx.restore();
+    }
+  }
+  // Die Karte kennt Roms Anspruch (nur sund_frei): nur dann steht er in der Legende
+  function gibtAnspruch() {
+    const S = root && root.Shared_Sektoren; const K = S && S.KARTE;
+    return !!(K && K.hexe && Object.keys(K.hexe).some((c) => K.hexe[c] && K.hexe[c].anspruch === 'rom'));
+  }
+  // Das Hex liegt in Roms Anspruch (Karte sund_frei, Feld anspruch 'rom', abgeleitet aus content/welt/posten-werte.json); ohne Karte oder Feld (Limes, Tests) nein
+  function anspruchRom(h) {
+    const S = root && root.Shared_Sektoren;
+    const d = S && typeof S.hexDaten === 'function' ? S.hexDaten(h) : null;
+    return !!(d && d.anspruch === 'rom');
   }
 
   // gemeinsame Seite zweier Nachbarhexe: Endpunkte, Mitte, Richtung a -> b
@@ -432,6 +447,11 @@
       ...(kompakt ? [] : [feld('S', P.warn, false, 'sammelt'), feld('', F.fraktion.g.haltung, true, 'Kurs'), feld('B', F.phase.b.bg, false, 'belagert')]),
       { breite: bk * 4 + 3 + tw(L.front), zeichne: (ctx, x, y) => { for (let i = 0; i < bk; i++) { ctx.fillStyle = i % 2 ? P.rot : P.hell; ctx.fillRect(x + i * 4, y + 2, 4, 4); } txt(ctx, L.front, x + bk * 4 + 3, y, { color: g }); } },
       { breite: sl + 3 + tw(L.sicht), zeichne: (ctx, x, y) => { ctx.fillStyle = P.tisch; ctx.fillRect(x, y + 1, sl, 4); ctx.fillStyle = P.eis; ctx.fillRect(x, y + 2, sl, 2); txt(ctx, L.sicht, x + sl + 3, y, { color: g }); } },
+      ...(kompakt || !gibtAnspruch() ? [] : [{ breite: 12 + 3 + tw(L.anspruchKurz), zeichne: (ctx, x, y) => {   // SUND-02b A1: Roms Anspruch (gestrichelter Rand)
+        ctx.save(); ctx.fillStyle = F.fraktion['-'].flaeche; hexPfad(ctx, x + 5, y + 4, 5.5); ctx.fill();
+        ctx.setLineDash([2, 2]); ctx.strokeStyle = F.fraktion.r.fahne; ctx.lineWidth = 1; hexPfad(ctx, x + 5, y + 4, 4.5); ctx.stroke(); ctx.restore();
+        txt(ctx, L.anspruchKurz, x + 14, y, { color: g });
+      } }]),
       { breite: (eng ? 14 : 16) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
         // SUND-01 F: Feld halb hell (Muster), halb dunkel, mit Rand: der Vergleich macht „dunkel“ lesbar
         const bw = eng ? 14 : 16, hb = bw / 2;

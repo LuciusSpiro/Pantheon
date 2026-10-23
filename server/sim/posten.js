@@ -34,8 +34,8 @@ const fmt = (s, o) => String(s || '').replace(/\{(\w+)\}/g, (m, k) => (o && o[k]
 const kl = () => require('./kriegslage.js');   // lazy: kriegslage.js ruft nachTick
 
 const ART = {
-  gruenden: { cfg: W.gruenden.wert, rang: W.mindestrang.wert.gruenden, wirkung: 'posten_gehisst', grund: 'posten_gehisst', kurz: 'g' },
-  ausbau: { cfg: W.ausbau.wert, rang: W.mindestrang.wert.ausbau, wirkung: 'posten_ausgebaut', grund: 'posten_ausgebaut', kurz: 'a' },
+  gruenden: { cfg: W.gruenden.wert, get rang() { return W.mindestrang.wert.gruenden; }, wirkung: 'posten_gehisst', grund: 'posten_gehisst', kurz: 'g' },
+  ausbau: { cfg: W.ausbau.wert, get rang() { return W.mindestrang.wert.ausbau; }, wirkung: 'posten_ausgebaut', grund: 'posten_ausgebaut', kurz: 'a' },
 };
 const T = (art) => texte()[art] || {};
 const fehl = (art, code, o) => ({ code, text: fmt((T(art).weigerung || {})[code] || code, o) });

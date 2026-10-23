@@ -65,7 +65,7 @@ const MUTATIONEN = [
   ['server/sim/fracht.js', "  else if (h.kind === 'posten') { const r = require('./posten.js').haltWeiter(game, h); if (r) return void beamStop(game, r.code, r.text); }   // SUND-02b A1\n", "  else if (h.kind === 'posten') { /* nichts */ }\n", 'fracht.update prüft den Posten-Halt nicht'],
   ['server/sim/fracht.js', "    require('./posten.js').haltFertig(game, h);", "    /* nichts */", 'Abschluss ruft den Posten nicht'],
   ['content/welt/posten-werte.json', '"rom": ["0503", "0505"]', '"rom": ["0503", "0505", "0703"]', 'Daten: Anspruch ohne Symmetrie'],
-  ['content/welt/posten-werte.json', '"gruenden": "optio", "ausbau": "centurio"', '"gruenden": "centurio", "ausbau": "optio"', 'Daten: Ausbau verlangt weniger als Gründen'],
+  ['content/welt/posten-werte.json', '"gruenden": "miles", "ausbau": "centurio"', '"gruenden": "centurio", "ausbau": "miles"', 'Daten: Ausbau verlangt weniger als Gründen'],
   ['content/flotte/posten.json', '"anspruch": "Dieser Sektor liegt nicht in Roms Anspruch."', '"anspruch": "Nein."', 'Text: Anspruch-Weigerung'],
 ];
 

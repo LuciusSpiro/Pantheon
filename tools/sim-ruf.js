@@ -3,7 +3,7 @@
 //   1. node tools/sim-ruf.js --messen [--seeds 20] [--spruenge 80] [--seed0 100]
 //      Zufallsgang mit ECHTEN Sprüngen im Modus Freie Fahrt Sund (wie tools/sim-freie-fahrt.js, passive Crew, springt aus jeder Szene sofort weiter): wie oft löst die
 //      Ankunft eine Sim-Szene aus, getrennt nach Art (Feld/Ort × Germanen/Piraten). Das ist die Szenenrate je Sprung, die der Rechenlauf unten verwendet.
-//   2. node tools/sim-ruf.js [--seeds 2000] [--max 3000] [--sieg 0.7] [--flucht 0.2] [--posten 0,2,4,6,8,12] [--posten-delta 6] [--rate feld_ger=0.012,...] [--json]
+//   2. node tools/sim-ruf.js [--seeds 2000] [--einmalig 6:8:1,26:4:1,12:8:0.64] (SUND-02b A1: einzelne Posten-Ereignisse bei Sprung n mit Ruf delta und Wahrscheinlichkeit p, dass es sie gibt) [--max 3000] [--sieg 0.7] [--flucht 0.2] [--posten 0,2,4,6,8,12] [--posten-delta 6] [--rate feld_ger=0.012,...] [--json]
 //      Rechenlauf (Monte Carlo, eigener Zufallsstrom): je Sprung löst eine Szene aus (Raten aus der Messung), die Crew gewinnt sie (--sieg), flieht (--flucht) oder
 //      verliert (Rest, kein Ruf). Ruf und Rang nach ruf-werte.json (echte Daten, geklemmt wie im Spiel). Die Quellen aus Paket A (Posten gründen/halten, --posten =
 //      Ereignisse je 80 Sprünge, je --posten-delta Ruf) sind eine ANNAHME, solange A fehlt: die Szenen allein tragen die Rangleiter nicht. Ausgabe: Sprünge bis zum
@@ -101,6 +101,7 @@ function lauf(seed, o) {
   const z = { zufall: Zufall.startzustand(seed) };
   const erster = RAENGE.map(() => null); erster[0] = 0;
   let ruf = 0; let szenen = 0; let siege = 0; let fluchten = 0;
+  for (const e of o.einmalig || []) e.vorhanden = Zufall.zahl(z) < e.p;   // Versorgung: gibt es das Ereignis in diesem Lauf (freies Hex da, römischer Posten da)? Nur der Lauf entscheidet, nie die Crew
   const pPosten = o.posten / 80;
   for (let n = 1; n <= o.max; n++) {
     // höchstens eine Szene je Sprung (die Raten sind klein); Reihenfolge der Klassen fest
@@ -114,6 +115,7 @@ function lauf(seed, o) {
       else if (v < o.sieg + o.flucht) { fluchten++; const e = Q['fahrerflucht' + (ort ? '_ort_' : '_') + fr]; if (e) ruf = klemmen(ruf + e.delta); }
     }
     if (pPosten > 0 && Zufall.zahl(z) < pPosten) ruf = klemmen(ruf + o.postenDelta);   // Annahme Paket A: Posten gründen/halten
+    for (const e of o.einmalig || []) if (e.n === n && e.vorhanden) ruf = klemmen(ruf + e.delta);   // SUND-02b A1: einmalige Posten-Ereignisse zu festen Sprüngen (--einmalig n:delta:p)
     const r = rangVon(ruf);
     for (let i = 1; i <= r; i++) if (erster[i] === null) erster[i] = n;
   }
@@ -124,6 +126,7 @@ const quantil = (liste, q) => { if (!liste.length) return null; const s = liste.
 function rechnen() {
   const SEEDS = Math.max(10, Number(val('--seeds', 2000)) | 0);
   const o = { max: Math.max(100, Number(val('--max', 3000)) | 0), sieg: Number(val('--sieg', 0.7)), flucht: Number(val('--flucht', 0.2)), postenDelta: Number(val('--posten-delta', 6)), raten: ratenLesen() };
+  o.einmalig = String(val('--einmalig', '')).split(',').filter(Boolean).map((x) => { const [n, delta, p] = x.split(':').map(Number); return { n, delta, p: Number.isFinite(p) ? p : 1 }; });
   const postenListe = String(val('--posten', '0,2,4,6,8,12')).split(',').map(Number).filter((x) => x >= 0);
   const ergebnis = [];
   for (const posten of postenListe) {

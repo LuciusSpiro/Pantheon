@@ -206,7 +206,9 @@
     kristalllampe: 'Vaelen-Handwerk: leuchtet in Mint. Nur hier zu haben.',
   };
   function handelZeilen(view) {
-    const rows = (K() && K().shopRows ? K().shopRows(view) : []).slice();
+    let rows = (K() && K().shopRows ? K().shopRows(view) : []).slice();
+    const hs = ((view.state || {}).werft || {}).hs;   // SUND-02b A1: Stützpunkt der Crew: Werft ja, Handel gesperrt (Text vom Server, jede Zeile mit demselben Grund)
+    if (hs) rows = rows.map((r) => Object.assign({}, r, { reason: hs }));
     const order = { item: 0, gear: 1, upgrade: 1, deko: 2 };
     return rows.map((r, i) => ({ r, i })).sort((x, y) => (order[x.r.kind] - order[y.r.kind]) || (x.i - y.i)).map((x) => x.r);
   }

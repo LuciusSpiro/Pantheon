@@ -14,6 +14,7 @@
 //  - SUND-01 D: jedes Hex der Karte ist spielbar (ort aus dem Namen, gen true; Sonderorte behalten ihre Einträge), jedes Hex mit Hafenklasse
 //    ist andockbar (andocken true; ob die Crew wirklich darf, entscheidet der Besitzer: server/sim/besitz.js). Kantenstein bekommt einen Dock
 //    unter dem Planeten, weil der Liegeplatz sonst auf der Planetenoberfläche läge,
+//  - SUND-02b A1: Hexe in Roms Anspruch tragen anspruch 'rom' (aus content/welt/posten-werte.json),
 //  - SUND-01 E (Kai): Rom-Gebiet und Konkordat sind beim Start vorab erkundet (start.erkundet = Hexe, start.bojen = Kanten, siehe vorerkundung()).
 // Die Datei ist abgeleitet und wird nie von Hand gepflegt; tools/test-sund-sim-daten.js prüft, dass sie zu sund.json + Overlay passt.
 // sund-sim.json wird wiederum aus sund_frei.json abgeleitet (tools/gen-sund-sim.js).
@@ -74,6 +75,9 @@ function bauen(sund) {
     if (doc.kanten.some((e) => (e.a === a && e.b === b) || (e.a === b && e.b === a))) throw new Error(`Kante ${a}–${b} steht schon in sund.json`);
     doc.kanten.push({ a, b, art: 'open' });
   }
+  // SUND-02b A1: Roms Anspruch (freie Hexe, die die Crew für Rom besetzen darf) aus content/welt/posten-werte.json, die Karte zeigt ihn (Feld anspruch: 'rom'); die Quelle bleibt die Datei
+  const anspruch = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'welt', 'posten-werte.json'), 'utf8')).werte.anspruch.wert.rom;
+  for (const c of anspruch) { if (!doc.hexe[c]) throw new Error(`Anspruch ${c}: kein Hex der Karte`); doc.hexe[c].anspruch = 'rom'; }
   doc.id = 'sund_frei';
   doc.name = 'Karte Sund (Freie Fahrt)';
   doc.quelle = 'ABGELEITET aus content/welt/sund.json plus Overlay (tools/gen-sund_frei.js), nicht von Hand ändern. Karte des Modus Freie Fahrt Sund (SUND-01): alle Hexe und Kanten von sund.json, dazu Brachland 0505, Saatfeld 0705 und die 6 Kanten des Prototyps karte_sund.py, die sund.json fehlen (auch 0605–0705 fest offen). Die Kampagne Die Schuld der Lerche bleibt auf sund.json.';

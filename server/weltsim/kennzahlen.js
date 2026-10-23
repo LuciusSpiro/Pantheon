@@ -11,8 +11,8 @@ const median = (a) => {
   return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
 };
 
-// Ein Lauf: { karte, werte, seed, ticks } (ticks sonst aus werte.ticks). Optional sichtRadien: Liste von Sichtweiten für die Sicht-Messung.
-function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null }) {
+// Ein Lauf: { karte, werte, seed, ticks } (ticks sonst aus werte.ticks). Optional sichtRadien: Liste von Sichtweiten für die Sicht-Messung; eingriff(z, tick) -> [Wirkung] (Crew-Wirkungen vor dem Tick).
+function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null, eingriff = null }) {
   const z = Kern.erzeuge({ karte, werte, seed });
   const T = ticks !== undefined && ticks !== null ? ticks : z.werte.ticks;
   const d = Daten.datenVon(z);
@@ -21,7 +21,7 @@ function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = nu
   const erstSicht = {};
   const ereignisse = [];
   for (let i = 0; i < T; i++) {
-    const r = Kern.tick(z, { messung: m });
+    const r = Kern.tick(z, { messung: m, wirkungen: eingriff ? eingriff(z, i) : [] });   // eingriff (SUND-02b A1, tools/sim-crew-posten.js): Wirkungen der Crew vor dem Tick, der Aufrufer prüft sie (Kern.pruefeWirkung)
     for (const e of r.ereignisse) ereignisse.push(e);
     for (const f of Kern.FRAKTIONEN) staerke[f].push(z.flotten.filter((fl) => fl.fraktion === f).reduce((s, fl) => s + fl.staerke, 0));
     if (sichtRadien) beobacheSicht(z, d, sichtRadien, erstSicht);

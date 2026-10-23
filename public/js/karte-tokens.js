@@ -195,7 +195,7 @@
     legende: {
       jetzt: 'jetzt', gesehen: 'T-1', alt: 'alt',
       phasen: 'S sammelt · ▶ Kurs · B belagert',
-      front: 'Front', sicht: 'Sicht', dunkel: 'außer Sicht', dunkelKurz: 'dunkel',   // dunkelKurz: schmale Spalte (Pult), SUND-01 C
+      front: 'Front', sicht: 'Sicht', dunkel: 'außer Sicht', dunkelKurz: 'dunkel', anspruch: 'Roms Anspruch', anspruchKurz: 'Anspruch',   // SUND-02b A1: gestrichelter Rand = freies Hex, das die Crew für Rom besetzen darf;   // dunkelKurz: schmale Spalte (Pult), SUND-01 C
     },
     // SUND-01 G: Sprunghinweis in der Spalte der Übersichtskarte: bekannte Serverhinweise in einer Zeile (schmale Pult-Spalte, 144 px); alle anderen laufen höchstens zwei Zeilen
     sprungHinweis: { 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.': 'Boje am Rand anfliegen' },

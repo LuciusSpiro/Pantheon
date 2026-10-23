@@ -192,7 +192,10 @@ section('Weigerungsgründe (Gründen)', () => {
   const text = (g) => { const e = Posten.gruendenPruefen(g, false); return e ? e.text : null; };
   let t = bereit(); let g = t.g;
   ok(grund(g) === null, 'Ausgangslage: alles erfüllt, kein Grund');
-  g.weltsim.ruf.rom = rangAb('optio') - 1; ok(grund(g) === 'rang' && /Optio/.test(text(g)), 'Rang knapp darunter: „Dafür fehlt der Rang (Optio)“'); g.weltsim.ruf.rom = rangAb('optio'); ok(grund(g) === null, 'Rang genau Optio: frei');
+  ok(PW.mindestrang.wert.gruenden === 'miles' && (g.weltsim.ruf.rom = 0, grund(g) === null), 'Daten: Gründen verlangt keinen Rang (miles, siehe _hinweis: das Gründen ist die Quelle des ersten Rangs); Miles gründet');
+  { const alt = PW.mindestrang.wert.gruenden; PW.mindestrang.wert.gruenden = 'optio';   // der Mechanismus bei einem Rang als Bedingung (Daten ändern wirkt ohne Code)
+    g.weltsim.ruf.rom = rangAb('optio') - 1; ok(grund(g) === 'rang' && /Optio/.test(text(g)), 'Rang knapp darunter: „Dafür fehlt der Rang (Optio)“'); g.weltsim.ruf.rom = rangAb('optio'); ok(grund(g) === null, 'Rang genau Optio: frei');
+    PW.mindestrang.wert.gruenden = alt; g.weltsim.ruf.rom = rangAb('optio'); }
   g.inventory.ersatzteil = PW.gruenden.wert.kosten.ersatzteil - 1; ok(grund(g) === 'teile' && /Ersatzteile/.test(text(g)), 'zu wenig Ersatzteile'); g.inventory.ersatzteil = PW.gruenden.wert.kosten.ersatzteil; ok(grund(g) === null, 'genau genug Ersatzteile: frei');
   g.ship.speed = PW.gruenden.wert.tempo + 1; ok(grund(g) === 'schnell', 'zu schnell'); g.ship.speed = PW.gruenden.wert.tempo; ok(grund(g) === null, 'genau das Höchsttempo: frei'); g.ship.speed = 0;
   anPosten(g, FREI, PW.gruenden.wert.radius + 5); ok(grund(g) === 'weit' && /von/.test(text(g)), 'zu weit vom Postenplatz'); anPosten(g, FREI, PW.gruenden.wert.radius - 5); ok(grund(g) === null, 'knapp im Ring: frei'); anPosten(g, FREI);

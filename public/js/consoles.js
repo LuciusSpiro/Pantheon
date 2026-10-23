@@ -1816,6 +1816,24 @@
         R.button(ctx, x + 134, by, w - 138, 12, 'Person abgeben', { hotkey: 'B', disabled: !pers.length, reason: 'Keine Person an Bord', onClick: () => this.cmd(view, 'weapons.person_ab') });
       }
     },
+    // SUND-02b A1: Posten gründen bzw. römischen Posten zum Stützpunkt ausbauen (Ops, Snapshot space.po { k: 'g' | 'a', ok, t?, n }). Der Server entscheidet alles; ein Weigerungstext steht
+    // unter dem Knopf. Läuft der Halteprozess (fracht.halt kind 'posten'), zeigt die Fracht-Leiste Fortschritt und Abbrechen, diese Leiste schweigt.
+    drawPosten(ctx, view, rect) {
+      const po = view.state && view.state.space && view.state.space.po;
+      const halt = view.state && view.state.fracht && view.state.fracht.halt;
+      if (!po || (halt && halt.kind === 'posten')) return;
+      const gruenden = po.k === 'g';
+      const w = 266, x = rect.x + 4, y = rect.y + 3 + (this.stapelH || 0);
+      const zeilen = po.ok ? [] : R.wrap(String(po.t || ''), w - 8, 1).slice(0, 2);
+      const h = 28 + zeilen.length * 12;
+      this.stapelH = (this.stapelH || 0) + h + 3;
+      ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      const kosten = n(po.n) ? ' · ' + n(po.n) + (n(po.n) === 1 ? ' Ersatzteil' : ' Ersatzteile') : '';
+      R.text(ctx, (gruenden ? 'POSTEN GRÜNDEN' : 'STÜTZPUNKT AUSBAUEN') + kosten, x + 4, y + 3, { color: po.ok ? PAL.mint : PAL.amber });
+      R.button(ctx, x + 4, y + 13, 160, 12, gruenden ? 'Posten gründen' : 'Stützpunkt ausbauen', { disabled: !po.ok, reason: po.t, active: !!po.ok, onClick: () => this.cmd(view, gruenden ? 'weapons.posten.gruenden' : 'weapons.posten.ausbauen') });
+      zeilen.forEach((z, i) => R.text(ctx, z, x + 4, y + 27 + i * 12, { color: PAL.amber }));
+    },
     // SL7b: Landepunkt-Scan der Ops. Sichtbar, wenn ein ungescannter Landepunkt in Reichweite ist (Snapshot lpscan { n, p? }); L hält 4 s.
     drawLpscan(ctx, view, rect) {
       const ls = view.state.lpscan;
@@ -1862,11 +1880,13 @@
       const ware = f.lager.filter(a => a === 'deuterium' || a === 'sprengstoff' || a === 'fracht').length > 0;   // SL6: Verkaufen/Abwerfen nur mit Ware
       const gas = f.gas && f.gas.ertragSzene ? f.gas : null;   // U2: Gasfeld – Schöpfen ist eine Ops-Aktion (C)
       const schoepft = !!(f.halt && f.halt.kind === 'schoepf');
+      const postenHalt = !!(f.halt && f.halt.kind === 'posten');   // SUND-02b A1: Posten gründen / Ausbau läuft (Halteprozess wie Beamen)
       const x = rect.x + 4, y = rect.y + 3, w = 266, h = schoepft ? 42 : f.halt ? 40 : ((ware || gas) ? 42 : 28);
       this.stapelH = h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
+      if (postenHalt) R.text(ctx, f.halt.id === 'ausbau' ? 'STÜTZPUNKT AUSBAUEN' : 'POSTEN GRÜNDEN', x + 4, y + 3, { color: PAL.mint }); else
       R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
@@ -1877,9 +1897,9 @@
         R.text(ctx, 'Schöpft ' + Math.round(n(f.halt.p) * 100) + ' % · läuft auch ohne Ops weiter', x + 4, by + 17, { color: PAL.mint });
         R.button(ctx, x + 134, by + 14, w - 138, 12, 'Ladung abwerfen', { hotkey: 'X', disabled: !ware, reason: 'Keine Ware an Bord', onClick: () => this.cmd(view, 'weapons.abwerfen') });
       } else if (f.halt) {
-        R.button(ctx, x + 4, by, 126, 12, 'Beamen abbrechen', { hotkey: 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
+        R.button(ctx, x + 4, by, 126, 12, postenHalt ? 'Abbrechen' : 'Beamen abbrechen', { hotkey: postenHalt ? undefined : 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
-        R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
+        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? 'Feindkontakt, Tempo oder Abstand bricht ab' : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
@@ -1905,6 +1925,7 @@
       this.drawZonenscan(ctx, view, rect);   // SL7a: Verzerrungen scannen
       this.drawHoehe(ctx, view, rect);   // U2: Gasriese – Sog und „Höhe halten: Antrieb n erforderlich“
       this.drawPersonenBord(ctx, view, rect);   // SL0: Personen beamen / abgeben
+      this.drawPosten(ctx, view, rect);   // SUND-02b A1: Posten gründen / Stützpunkt ausbauen (nur Freie Fahrt Sund, space.po)
       if (window.SondenView) SondenView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL4: Sonde zur Marke
       if (window.SpurView) SpurView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL5: Spur lesen
       if (window.NotrufView) NotrufView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL8: Notruf entschlüsseln
