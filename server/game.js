@@ -1905,6 +1905,7 @@ class Game {
     try {
       const rk = Ruf.schluessel(this);
       if (rk && rk !== this.sentRufKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.ruf = Ruf.snapshot(this); this.sentRufKey = rk; }
+      else if (!rk && this.sentRufKey) { world.ruf = null; this.sentRufKey = null; }   // Löschsignal (B-Fix 3): der Modus ist weg (Kampagne, Lobby), der Client leert den Ruf; einmal, nie ohne vorherigen Block
     } catch (e) { this.countError('snapshot-ruf', e); }
     // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
     const jpFn = fnOf(sprungMod(), 'jpSnapshot');
