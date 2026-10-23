@@ -358,6 +358,7 @@
     drawHelm(ctx, view) {
       const st = view.state, ship = st.ship || {};
       const rect = { x: 10, y: 26, w: 620, h: 292 };
+      rect.randOben = H.szeneRandOben(view, rect.y);   // Fixrunde M-2: Randpfeile unter der Szenenzeile (0 ohne Sim-Szene)
       const fv = R.drawFrontView(ctx, view, rect);
       try { this.helmTurnGauge(ctx, view, fv); this.helmAlerts(ctx, view, fv); this.helmHoehe(ctx, view, fv); } catch (e) { Net.reportError('Consoles.helmM3', e); }
       const lx = 14, lw = fv.win.x - lx - 8;

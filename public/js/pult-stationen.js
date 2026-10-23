@@ -65,7 +65,7 @@
       const jump = ship.jump || {};
       const w = R.worldOf(st);
       const g = P.rahmen(ctx, view, { titel: 'STEUER', S: 200, station: 'helm', anzeige: (c, r) => {
-        const fv = R.drawFrontView(c, view, r);
+        const fv = R.drawFrontView(c, view, Object.assign({}, r, { randOben: H.szeneRandOben(view, r.y) }));   // Fixrunde M-2: Randpfeile unter der Szenenzeile (0 ohne Sim-Szene)
         try { this.helmTurnGauge(c, view, fv); this.helmAlerts(c, view, fv); if (this.helmHoehe) this.helmHoehe(c, view, fv); } catch (e) { Net.reportError('Pult.helmAnzeige', e); }
         const K = P.skin, lx = r.x + 10, rx = r.x + r.w - 10;
         let y = r.y + 10;
