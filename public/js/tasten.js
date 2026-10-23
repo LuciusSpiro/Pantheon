@@ -38,6 +38,7 @@
     'technik.schaden': { name: 'Reiter Schadensplan' },
     'terminal.werft': { name: 'Bereich Werft' },
     'terminal.handel': { name: 'Bereich Handel' },
+    'terminal.lage': { name: 'Bereich Lage (Absichten)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -185,6 +186,7 @@
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
+    A('terminal.lage', 'terminal', 'Bereich Lage (Absichten, Freie Fahrt)', ['KeyL']),
     A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
@@ -205,6 +207,8 @@
     A('terminal.freischalten', 'terminal', 'Freischalten (kostet Marken)', ['KeyF'], 'terminal.werft'),
     A('terminal.ausbau', 'terminal', 'Ausbaustufe (Ansicht wechseln)', ['KeyA'], 'terminal.werft'),
     A('terminal.kaufen', 'terminal', 'Artikel kaufen', ['Enter', 'NumpadEnter'], 'terminal.handel'),
+    A('terminal.annehmen', 'terminal', 'Absicht annehmen', ['Enter', 'NumpadEnter'], 'terminal.lage'),
+    A('terminal.ablehnen', 'terminal', 'Angebot ablehnen (kostet nichts)', ['KeyX'], 'terminal.lage'),
   ];
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;

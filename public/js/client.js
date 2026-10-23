@@ -1118,7 +1118,7 @@
   function ankerPos(mapId, id) { const m = Maps[mapId || ((Client.state && Client.state.away) || {}).map]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? { x: a[2] * TILE + 16, y: a[3] * TILE + 16 } : null; }
 
   function onEvent(ev) {
-    if (ev.kind && ev.kind.indexOf('werft') === 0 && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau
+    if (ev.kind && (ev.kind.indexOf('werft') === 0 || ev.kind === 'absichtAntwort') && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau; SUND-02b D: absichtAntwort
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;

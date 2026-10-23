@@ -18,9 +18,10 @@
 //     zeichneStufen(ctx, rect, s)           Ausbaustufen 0–3, was Stufe n öffnet, Marken vorher → nachher
 //     zeichneGesperrt(ctx, rect, g)         Werft gesperrt (Nicht-Werft-Hafen): Grund, Erklärung, nächste Werft; darunter Bestückung zur Ansicht
 //     zeichneHandel(ctx, rect, infoRect, h) Handelsliste als Pult-Zellen (3 Spalten), Info zum gewählten Artikel (Rechtecke: layout().handel, .handelInfo)
+//     zeichneLage(ctx, rect, infoRect, l)   SUND-02b D: Bereich Lage (Absichten, nur Freie Fahrt Sund): Angebot (2–3 Karten), laufende Absicht oder Hinweis; Rechtecke wie Handel (layout().handel, .handelInfo)
 //     zeichneKreuz(ctx, rects, z)           Waffenkreuz 3×3 wie an der Ops (Pult.zelle), Kappe = Ziffer
 //     zeichneModulraeume(ctx, rects, z)     vier Modulräume als Pult-Zellen, Kappe F1–F4
-//     zeichneBereich(ctx, rects, b)         Umschalter Handel / Werft (H / W)
+//     zeichneBereich(ctx, rects, b)         Umschalter Handel / Werft (H / W), mit b.lage ({ gesperrt, grund }) auch Lage (L), nur Freie Fahrt Sund
 //     zeichneAktionen(ctx, rects, a)        Hauptknopf (Ent Umbau bestätigen | F Freischalten | H Zum Handel), Hinweis, A Ausbau, ↑↓ Teil
 //     zeichneStatus(ctx, rect, s)           Am Gerät: Spielerfarbe · Zusehen: Farben
 //     symbolModul(ctx, id, x, y, o)         Pixel-Symbol frachtraum | krankenstation | werkstatt (10×10, Format wie SYMBOLE im Katalog)
@@ -202,6 +203,7 @@
       status: { x: 62, y: py + 76, w: 400, h: 9 },
       start: { x: 266, y: py + 64, w: 154, h: 12 },   // Szene starten (Rüstphase der Testumgebung), unter der Energiezeile
       aktionen: {
+        lage: { x: 424, y: py - 4, w: 46, h: KNOPF.h },   // SUND-02b D: nur mit Lage-Modell gezeichnet (Freie Fahrt Sund), links neben Handel
         handel: { x: 474, y: py - 4, w: KNOPF.halbW, h: KNOPF.h }, werft: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py - 4, w: KNOPF.halbW, h: KNOPF.h },
         haupt: { x: 474, y: py + 22, w: KNOPF.w, h: KNOPF.hauptH }, hinweis: { x: 474, y: py + 50, w: KNOPF.w, h: 9 },
         ausbau: { x: 474, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH }, teil: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH },
@@ -292,7 +294,7 @@
   // k: { ort, art: 'werft'|'stuetzpunkt'|'test'|'hafen', marken, gesperrt }
   function zeichneKopf(c, r, k) {
     const e = txtRolle(c, k.ort || '', r.x, r.y + 2, k.gesperrt ? 'warn' : 'preis', 'titel');
-    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : 'HAFEN', e + 8, r.y + 2, 'dim');
+    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : k.art === 'lage' ? 'ABSICHTEN VON ROM' : 'HAFEN', e + 8, r.y + 2, 'dim');
     const mw = txt(c, String(k.marken == null ? '' : k.marken), r.x + r.w, r.y, 'text', { scale: 2, align: 'right' });
     txt(c, 'MARKEN', r.x + r.w - tw(String(k.marken), 2) - 6, r.y + 6, 'dim', { align: 'right' }); return mw;
   }
@@ -427,6 +429,37 @@
     if (h.info) { rect(c, info.x, info.y - 3, info.w, 1, 'trenner'); umbruch(h.info.text, info.w - 200, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, 'text')); if (h.info.grund) txt(c, h.info.grund, info.x + info.w, info.y + 2, 'warn', { align: 'right' }); }
   }
 
+  // SUND-02b D: Bereich Lage (Absichten von Rom, Freie Fahrt Sund). Ruf ist ein Kann: nichts hier drängt, die Anzeige nennt nur, was es gibt; Ablehnen und Ignorieren kosten nichts.
+  // l: { zustand: 'gesperrt'|'leer'|'angebot'|'laeuft', titel, text (gesperrt/leer), hilfe (Tastenzeile rechts), karten: [{ id, name, text, dauer, gewaehlt, onClick }] (angebot),
+  //      laufend: { name, text, rest, dauer } (laeuft), info: { text, grund } }
+  function zeichneLage(c, r, info, l) {
+    txtRolle(c, 'LAGE', r.x, r.y - 13, 'preis', 'titel'); if (l.hilfe) txt(c, l.hilfe, r.x + r.w, r.y - 13, 'dim', { align: 'right' });
+    if (l.zustand === 'gesperrt' || l.zustand === 'leer' || !l.zustand) {
+      const h = 58; cham(c, r.x, r.y, r.w, h, F('kachelZu'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'platzZu');
+      txtRolle(c, l.titel || '', r.x + 14, r.y + 10, 'text', 'titel');
+      umbruch(l.text || '', r.w - 28, 3).forEach((z, i) => txt(c, z, r.x + 14, r.y + 25 + i * SCHRIFT.zeileLuft, 'dim'));
+    } else if (l.zustand === 'laeuft' && l.laufend) {
+      const q = l.laufend, h = 62; cham(c, r.x, r.y, r.w, h, F('kachel'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'modul');
+      txtRolle(c, 'LÄUFT', r.x + 14, r.y + 8, 'modul', 'titel'); txt(c, q.name, r.x + 14 + tw('LÄUFT', 1, 1) + 10, r.y + 8, 'text');
+      umbruch(q.text || '', r.w - 28, 2).forEach((z, i) => txt(c, z, r.x + 14, r.y + 22 + i * SCHRIFT.zeileLuft, 'dim'));
+      const n = Math.max(1, q.dauer || 1), voll = Math.max(0, Math.min(n, q.rest || 0));
+      for (let i = 0; i < n; i++) { const sx = r.x + 14 + i * 7; if (i < voll) rect(c, sx, r.y + 47, 5, 6, 'modul'); else { rect(c, sx, r.y + 47, 5, 6, 'raumLinie'); rect(c, sx + 1, r.y + 48, 3, 4, 'kachel'); } }
+      txt(c, 'noch ' + (q.rest || 0) + (q.rest === 1 ? ' Sprung' : ' Sprünge'), r.x + r.w - 8, r.y + 46, 'text', { align: 'right' });
+    } else {
+      const ch = 44, luft = 4;
+      (l.karten || []).slice(0, 3).forEach((k, i) => {
+        const y = r.y + i * (ch + luft), gew = !!k.gewaehlt, b = { x: r.x, y, w: r.w, h: ch, label: k.name, onClick: k.onClick, disabled: false };
+        if (gew) cham(c, r.x, y, r.w, ch, FARBE.preis, 0, 0, 4, 0);
+        else { cham(c, r.x, y, r.w, ch, FARBE.kachel, 0, 0, 4, 0); rect(c, r.x, y, 2, ch, FARBE.preis); }
+        txt(c, k.name, r.x + 10, y + 6, gew ? 'ink' : 'text');
+        txt(c, k.dauer + ' Sprünge', r.x + r.w - 8, y + 6, gew ? 'ink' : 'dim', { align: 'right' });
+        umbruch(k.text || '', r.w - 20, 2).forEach((z, j) => txt(c, z, r.x + 10, y + 19 + j * SCHRIFT.zeileLuft, gew ? 'ink' : 'dim'));
+        klick(b);
+      });
+    }
+    if (l.info) { rect(c, info.x, info.y - 3, info.w, 1, 'trenner'); umbruch(l.info.text || '', info.w - 200, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, 'text')); if (l.info.grund) txt(c, l.info.grund, info.x + info.w, info.y + 2, 'warn', { align: 'right' }); }
+  }
+
   // ================================================================= Pult unten
   // z: { plaetze { 1..9: { zustand, waffe (Katalog-Id), stufe } }, gewaehlt, gesperrt, onPlatz(k) }
   function zeichneKreuz(c, L, z) {
@@ -471,20 +504,22 @@
   function zeichneBereich(c, A, b) {
     P.knopf(c, A.handel.x, A.handel.y, A.handel.w, A.handel.h, 'Handel', { hotkey: kappe('terminal.handel', 'H'), fn: 'nav', active: b.bereich === 'handel', onClick: b.onBereich ? () => b.onBereich('handel') : null });
     P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', text: b.werftZu ? 'Werft · zu' : 'Werft', active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
+    if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, 'Lage', { hotkey: kappe('terminal.lage', 'L'), fn: b.lage.gesperrt ? 'neutral' : 'nav', active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
   }
   // a: { haupt: { art: 'umbau'|'freischalten'|'stufe'|'kaufen'|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, onClick }, teil: { disabled, onClick } }
   const HAUPT = {
     umbau: { aktion: 'terminal.bestaetigen', taste: 'Ent', fn: 'weapon' }, modul: { aktion: 'terminal.bestaetigen', taste: 'Ent', fn: 'shield' },
     freischalten: { aktion: 'terminal.freischalten', taste: 'F', fn: 'nav' }, kaufen: { aktion: 'terminal.kaufen', taste: 'Ent', fn: 'nav' },
     handel: { aktion: 'terminal.handel', taste: 'H', fn: 'nav' },
+    annehmen: { aktion: 'terminal.annehmen', taste: 'Ent', fn: 'nav' },   // SUND-02b D: Bereich Lage
   };
   function zeichneAktionen(c, A, a) {
     const h = a.haupt || {}, d = HAUPT[h.art] || HAUPT.umbau;
     P.knopf(c, A.haupt.x, A.haupt.y, A.haupt.w, A.haupt.h, h.label || h.text, { hotkey: kappe(d.aktion, d.taste), fn: d.fn, text: h.text, disabled: !!h.disabled, reason: h.grund, onClick: h.onClick });
     if (a.hinweis) txt(c, a.hinweis.text, A.hinweis.x, A.hinweis.y, a.hinweis.fn || 'dim');
     const au = a.ausbau || {}, te = a.teil || {};
-    P.knopf(c, A.ausbau.x, A.ausbau.y, A.ausbau.w, A.ausbau.h, 'Ausbau', { hotkey: kappe('terminal.ausbau', 'A'), fn: 'neutral', active: !!au.active, disabled: !!au.disabled, reason: au.grund, onClick: au.onClick });
-    P.knopf(c, A.teil.x, A.teil.y, A.teil.w, A.teil.h, 'Teil', { hotkey: kappe('terminal.teil', '↑↓'), fn: 'neutral', disabled: !!te.disabled, reason: te.grund, onClick: te.onClick });
+    P.knopf(c, A.ausbau.x, A.ausbau.y, A.ausbau.w, A.ausbau.h, au.label || 'Ausbau', { hotkey: kappe(au.aktion || 'terminal.ausbau', au.taste || 'A'), fn: 'neutral', active: !!au.active, disabled: !!au.disabled, reason: au.grund, onClick: au.onClick });   // label/aktion/taste: Bereich Lage nennt ihn „Ablehnen“ (X)
+    P.knopf(c, A.teil.x, A.teil.y, A.teil.w, A.teil.h, te.label || 'Teil', { hotkey: kappe('terminal.teil', '↑↓'), fn: 'neutral', disabled: !!te.disabled, reason: te.grund, onClick: te.onClick });
   }
   // s: { amGeraet: Farbindex 0–3 | null, zusehen: [Farbindex] }
   // s: { text, disabled, grund, onClick } – nur in der Rüstphase der Testumgebung (Wellenmodi): „Szene starten“, Taste G
@@ -500,13 +535,14 @@
   }
 
   // ================================================================= ganzes Terminal
-  // m: { bereich: 'werft'|'handel', ansicht: 'platz'|'modul'|'stufe'|'gesperrt' (nur Werft), kopf, schnitt, platzKopf, liste, vorschau, stufen, gesperrt, handel,
+  // m: { bereich: 'werft'|'handel'|'lage' (lage: SUND-02b D, Freie Fahrt Sund; Feld lage), ansicht: 'platz'|'modul'|'stufe'|'gesperrt' (nur Werft), kopf, schnitt, platzKopf, liste, vorschau, stufen, gesperrt, handel,
   //      kreuz, module, aktionen, status, bereichUmschalter }   (Felder je Baustein wie oben)
   function zeichneTerminal(c, view, m) {
     const L = layout(VW, VH);
     const neu = m.ansicht === 'stufe';
     const g = P.rahmen(c, view, { titel: m.titel || 'TERMINAL', S, station: 'shop', anzeige: (cc) => {
       if (m.bereich === 'handel') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneHandel(cc, L.handel, L.handelInfo, m.handel || {}); return; }
+      if (m.bereich === 'lage') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneLage(cc, L.handel, L.handelInfo, m.lage || {}); return; }
       zeichneSchnitt(cc, L, m.schnitt || {});
       zeichneLegende(cc, L.legende, neu, m.ansicht === 'gesperrt');
       rect(cc, RASTER.trennerX, 12, 1, 214, 'trenner');
@@ -530,7 +566,7 @@
 
   window.PultTerminal = {
     TOKENS, SYMBOLE_MODUL, layout, zeichneTerminal,
-    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel,
+    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage,
     zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStart, zeichneStatus, symbolModul, symbolTeil,
     txt, tw, umbruch, kappe, kontrast,
   };
