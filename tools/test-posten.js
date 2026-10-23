@@ -45,6 +45,7 @@ const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-posten-'));
 let seq = 0;
 const freshDir = () => { const d = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(d, { recursive: true }); return d; };
 const HZ = CONFIG.tickHz;
+const OSTIA_ORT = 'ostia_nova';
 const FREI = '0505', FREI2 = '0503', GER1 = '0703', STATION = '0603', OSTIA = '0305';
 const rangAb = (id) => RAENGE.find((r) => r.id === id).ab;
 
@@ -63,6 +64,7 @@ function neu(opts) {
   }
   g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: o.start || 'freie_fahrt', ...(o.world ? { world: o.world } : {}) });
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  if (o.vorRun) o.vorRun(g);   // Zustand direkt nach dem Laden, vor dem ersten Tick
   run(g, 1);
   g.space.enemies = [];
   g.C.reise.neutralChance = 0; g.C.reise.neutralPlus = 0; g.C.reise.feindChance = 0;
@@ -293,6 +295,16 @@ section('Halteprozess: Erfolg und Abbrüche', () => {
   { const b = bereit(); const gg = b.g; ohneFlottenAlle(gg); const k0 = gg.inventory.ersatzteil; Posten.gruendenStart(gg, gg.players[0]); run(gg, 3);
     const e = springe(gg, '0504'); run(gg, 1);
     ok(!e && !halt(gg) && !z(gg).hexe[FREI].posten && gg.inventory.ersatzteil === k0, 'Abbruch: Sprung beendet den Prozess (Szenenwechsel)' + (e ? ' ' + e : '')); }
+  // Sprung und Ops verlassen melden sich (A1-Fix), der Abbruch durch den Spieler bleibt still
+  { const b = bereit(); const gg = b.g; ohneFlottenAlle(gg); const odas = []; const emit = gg.emit.bind(gg); gg.emit = (kind, d) => { if (kind === 'oda') odas.push(d && d.text); return emit(kind, d); };
+    Posten.gruendenStart(gg, gg.players[0]); run(gg, 3); springe(gg, '0504'); run(gg, 1);
+    ok(odas.includes(TEXTE.gruenden.abbruch.sprung), 'Sprung: Meldung „' + TEXTE.gruenden.abbruch.sprung + '“');
+    const c2 = bereit(); const g2 = c2.g; const o2 = []; const e2 = g2.emit.bind(g2); g2.emit = (kind, d) => { if (kind === 'oda') o2.push(d && d.text); return e2(kind, d); };
+    Posten.gruendenStart(g2, g2.players[0]); run(g2, 3); g2.players[0].console = null; run(g2, 1);
+    ok(o2.includes(TEXTE.gruenden.abbruch.ops), 'Ops verlassen: Meldung „' + TEXTE.gruenden.abbruch.ops + '“');
+    const c3 = bereit(); const g3 = c3.g; const o3 = []; const e3 = g3.emit.bind(g3); g3.emit = (kind, d) => { if (kind === 'oda') o3.push(d && d.text); return e3(kind, d); };
+    Posten.gruendenStart(g3, g3.players[0]); run(g3, 2); Fracht.beamStop(g3, 'abgebrochen'); run(g3, 1);
+    ok(o3.filter((t) => /abgebrochen/.test(t || '')).length === 0, 'Abbrechen durch den Spieler: keine Meldung'); }
   // Abbrechen per weapons.fracht off
   { const b = bereit(); const gg = b.g; Posten.gruendenStart(gg, gg.players[0]); run(gg, 2); Fracht.beamStop(gg, 'abgebrochen'); run(gg, PW.gruenden.wert.dauer);
     ok(!halt(gg) && !z(gg).hexe[FREI].posten, 'Abbrechen durch den Spieler (weapons.fracht off): kein Posten'); }
@@ -394,6 +406,66 @@ section('Werft und Handel am Stützpunkt', () => {
   ok(nd.crew === undefined, 'ein neuer Sim-Posten an derselben Stelle hat kein crew');
 });
 
+section('A1-Fix: Stützpunkt fällt, während die Lerche angedockt ist', () => {
+  const dockAn = (gg) => { const dl = Besitz.dockLage(gg, szene(FREI), FREI); Object.assign(gg.ship, { x: dl.x, y: dl.y - 20, vx: 0, vy: 0, speed: 0 }); gg.ship.dockArmed = true; run(gg, 0.4); };
+  for (const weg of ['ort_gefallen', 'notrufErledigt']) {
+    const b = bereit(); const gg = b.g; gruenden(gg); dockAn(gg);
+    ok(gg.ship.docked && gg.ship.dockedAt === 'brachland', `${weg}: angedockt am Stützpunkt`);
+    gg.players[0].console = 'shop';
+    const odas = []; const emit = gg.emit.bind(gg); gg.emit = (kind, d) => { if (kind === 'oda') odas.push(d && d.text); return emit(kind, d); };
+    const marks = gg.inventory.marks; const teile = gg.inventory.ersatzteil; gg.errors = 0;
+    if (weg === 'ort_gefallen') { flotte(gg, FREI, 'ger', 20, true); Kriegslage.szeneAbschliessen(gg, { wirkungen: [{ typ: 'ort_gefallen', ort: FREI, an: 'ger' }], wo: 'test' }); }
+    else { Object.assign(z(gg).hexe[FREI], { posten: false, besitzer: null, garnison: 0 }); delete z(gg).hexe[FREI].crew; delete z(gg).hexe[FREI].ohneErtrag; gg.missionEvent('notrufErledigt', { id: 'x', wahrheit: 'echt' }); }
+    ok(z(gg).hexe[FREI].posten === false, `${weg}: der Posten ist weg`);
+    run(gg, 3);
+    ok(gg.errors === 0, `${weg}: keine Fehler in 3 s (Server ${gg.errors})`);
+    ok(gg.ship.docked === false && gg.ship.dockedAt === null, `${weg}: die Lerche hat abgelegt`);
+    ok(odas.some((t) => t === TEXTE.dock.verloren), `${weg}: Meldung „${TEXTE.dock.verloren}“`);
+    ok(gg.players[0].console !== 'shop', `${weg}: niemand sitzt mehr am Hafenterminal`);
+    ok(!gg.space.markers.some((m) => m.kind === 'dock'), `${weg}: kein Dock-Marker mehr`);
+    ok(Shop.buy(gg, gg.players[0], 'ersatzteil') !== null && gg.inventory.marks === marks && gg.inventory.ersatzteil === teile, `${weg}: Kauf am gefallenen Posten nicht möglich, nichts gebucht`);
+    ok(Besitz.handelSperre(gg, FREI) === TEXTE.dock.handel, `${weg}: Hex ohne Hafen hat nie Handel (auch ohne Stützpunkt)`);
+    gg.ship.docked = true; gg.ship.dockedAt = 'brachland';
+    ok(Shop.buy(gg, gg.players[0], 'ersatzteil') === TEXTE.dock.handel && gg.inventory.marks === marks, `${weg}: selbst bei gesetztem dockedAt kein Handel`);
+    gg.ship.docked = false; gg.ship.dockedAt = null;
+  }
+  // Regression: updateFlight wirft auch mit angedocktem Schiff ohne Dock nicht (generierte Szene ohne sc.start)
+  { const b = bereit(); const gg = b.g; gg.ship.docked = true; gg.ship.dockedAt = 'brachland'; gg.errors = 0; run(gg, 1); ok(gg.errors === 0, 'angedockt ohne Dock und ohne sc.start: updateFlight wirft nicht'); }
+});
+
+section('A1-Fix: Wissen, Ruf-Grund, Speichertakt, Halten ohne Eintrag, Minen, Rückfall', () => {
+  const Alarm = require('../server/sim/alarm.js');
+  // Wissen von Rom: der Crew-Posten steht als Meldung „Posten gegründet“ (pg) in der Lage
+  { const b = bereit(); const gg = b.g; gruenden(gg);
+    const W = gg.weltsim.wissen;
+    ok(W.meldungen.some((m) => m.e === 'pg' && m.h === FREI && m.f === 'r'), 'Wissen von Rom: Meldung „Posten gegründet“ (pg) für Brachland, römisch (aus posten_gehisst)');
+    ok(W.hexe[FREI] && W.hexe[FREI].f === 'r' && W.hexe[FREI].p === 1, 'Wissen von Rom: Brachland als römischer Posten bekannt'); }
+  // Ruf-Grund: die Wirkung trägt den Grund posten_gehisst (nicht nur den Wert)
+  { const b = bereit(); const gg = b.g; const gruende = []; const anw = Ruf.anwenden;
+    Ruf.anwenden = function (gm, w) { for (const x of w || []) if (x.typ === 'ruf_aenderung') gruende.push(x.grund); return anw.apply(Ruf, arguments); };
+    try { gruenden(gg); } finally { Ruf.anwenden = anw; }
+    ok(gruende.length === 1 && gruende[0] === 'posten_gehisst', 'Ruf-Wirkung beim Gründen mit Grund posten_gehisst (' + gruende.join() + ')');
+    const c = sim2(); const gc = c.g; const gr2 = []; Ruf.anwenden = function (gm, w) { for (const x of w || []) if (x.typ === 'ruf_aenderung') gr2.push(x.grund); return anw.apply(Ruf, arguments); };
+    try { Posten.ausbauenStart(gc, gc.players[0]); run(gc, PW.ausbau.wert.dauer + 1.5); } finally { Ruf.anwenden = anw; }
+    ok(gr2.length === 1 && gr2[0] === 'posten_ausgebaut', 'Ruf-Wirkung beim Ausbau mit Grund posten_ausgebaut (' + gr2.join() + ')'); }
+  // Speichertakt: nach dem Gründen und Ausbau wird der Weltstand am Tick-Ende gespeichert (kein Absturz bis zum nächsten Takt)
+  { const b = bereit(); const gg = b.g; let n1 = 0; const mk = gg.markSaveDue.bind(gg); gg.markSaveDue = (k) => { if (k === 'docked') n1++; return mk(k); };
+    gruenden(gg); ok(n1 >= 1, 'Gründen löst markSaveDue(docked) aus');
+    const c = sim2(); const gc = c.g; let n2 = 0; const mk2 = gc.markSaveDue.bind(gc); gc.markSaveDue = (k) => { if (k === 'docked') n2++; return mk2(k); };
+    Posten.ausbauenStart(gc, gc.players[0]); run(gc, PW.ausbau.wert.dauer + 1.5); ok(n2 >= 1, 'Ausbau löst markSaveDue(docked) aus'); }
+  // Crew-Posten ohne Eintrag (Debug, Altstand): zählt ab dem ersten Tick, danach gibt es den Halten-Ruf
+  { const { g: gg } = neu(); Object.assign(z(gg).hexe[FREI], { posten: true, besitzer: 'rom', garnison: 4, crew: true }); gg.weltsim.posten = {};
+    const r0 = rom(gg); Kriegslage.szeneAbschliessen(gg, { wirkungen: [], wo: 'test' });
+    ok(gg.weltsim.posten[FREI] && gg.weltsim.posten[FREI].t === z(gg).tick, 'Crew-Posten ohne Eintrag bekommt beim nächsten Tick einen');
+    for (let i = 0; i < PW.halten_ticks.wert; i++) Kriegslage.szeneAbschliessen(gg, { wirkungen: [], wo: 'test' });
+    ok(rom(gg) === r0 + RUF.quellen.wert.posten_gehalten.delta, 'und nach halten_ticks den einmaligen Halten-Ruf'); }
+  // Minen meiden das Dock des Stützpunkts
+  { const b = bereit(); const gg = b.g; gruenden(gg); const dl = Besitz.dockLage(gg, szene(FREI), FREI);
+    const ms = Alarm.minenSetzen(gg, { n: 40, x: dl.x, y: dl.y, radius: 330, besitzer: 'gegner' });
+    ok(ms.length > 0 && ms.every((m) => Math.hypot(m.x - dl.x, m.y - dl.y) >= 260), `Minen halten Abstand zum Stützpunkt-Dock (${ms.length} gesetzt, nächste ${Math.round(Math.min(...ms.map((m) => Math.hypot(m.x - dl.x, m.y - dl.y))))} px ≥ 260)`); }
+});
+function sim2() { const b = bereit({ rang: 'centurio' }); const nd = z(b.g).hexe[FREI]; Object.assign(nd, { posten: true, besitzer: 'rom', garnison: 2 }); Kriegslage.szeneAbschliessen(b.g, { wirkungen: [], wo: 'test' }); anPosten(b.g, FREI); return b; }
+
 section('Laden, Altstand', () => {
   const t = bereit(); const g = t.g; gruenden(g);
   const dl = Besitz.dockLage(g, szene(FREI), FREI);
@@ -414,9 +486,11 @@ section('Laden, Altstand', () => {
   // Posten ist weg (Stand ohne crew): Rückfall
   const weg = kopie(d1); weg.welt.sim.zustand.hexe[FREI] = Object.assign({}, weg.welt.sim.zustand.hexe[FREI], { posten: false, besitzer: null, garnison: 0, anspruch: {} }); delete weg.welt.sim.zustand.hexe[FREI].crew; delete weg.welt.sim.posten; weg.id = 'w-weg';
   fs.writeFileSync(path.join(dir, 'w-weg.json'), JSON.stringify(weg));
-  const t3 = neu({ dir, world: 'w-weg' }); const g3 = t3.g;
+  let lastNachLaden = null; const t3 = neu({ dir, world: 'w-weg', vorRun: (gg) => { lastNachLaden = gg.weltstand.lastDockedAt; } }); const g3 = t3.g;
   ok(g3.phase === 'play' && g3.errors === 0 && g3.ship.docked === true && g3.ship.dockedAt === Sektoren.ortVonHex(Sektoren.vorerkundetBeiStart ? OSTIA : OSTIA), `Posten weg beim Laden: Rückfall auf den Startort (${g3.ship.dockedAt}), angedockt`);
   ok(!Werft.istFlottenbasis(g3, 'brachland') || g3.ship.dockedAt !== 'brachland', 'keine Werft am gefallenen Posten');
+  ok(lastNachLaden === OSTIA_ORT, 'Rückfall schreibt ws.lastDockedAt sofort beim Laden (vor dem ersten Tick): ' + lastNachLaden);
+  ok(g3.weltstand.lastDockedAt === g3.ship.dockedAt && g3.weltstand.lastDockedAt !== 'brachland', 'Rückfall schreibt ws.lastDockedAt (der nächste Speicherstand zeigt nicht auf den toten Stützpunkt): ' + g3.weltstand.lastDockedAt);
   // Altstand von sund02b: weder crew noch posten-Block
   const alt = kopie(d1); delete alt.welt.sim.posten; for (const nd of Object.values(alt.welt.sim.zustand.hexe)) delete nd.crew;
   alt.ort.angedockt = 'ostia_nova'; alt.id = 'w-alt'; fs.writeFileSync(path.join(dir, 'w-alt.json'), JSON.stringify(alt));
@@ -496,7 +570,7 @@ section('Anzeige space.po', () => {
   anPosten(g, FREI, 900); po = g.snapshot().space.po; ok(po.ok === 0 && /Zu weit/.test(po.t), 'zu weit: ok 0 mit Text');
   anPosten(g, FREI);
   ankunft(g, GER1); anPosten(g, GER1); po = g.snapshot().space.po; ok(po && po.ok === 0 && /Anspruch/.test(po.t), 'germanischer Anspruch: Text „… nicht in Roms Anspruch“');
-  ankunft(g, STATION); ok((g.snapshot().space.po || {}).t === TEXTE.gruenden.weigerung.station, 'Station: Weigerungstext');
+  ankunft(g, STATION); ok(g.snapshot().space.po === undefined && Posten.gruendenStart(g, g.players[0]) === TEXTE.gruenden.weigerung.station, 'Station: kein Feld, der Befehl liefert die Weigerung „Station“');
   ankunft(g, OSTIA); ok(g.snapshot().space.po === undefined, 'Hafen: keine Anzeige');
   ankunft(g, '0504'); ok(g.snapshot().space.po === undefined, 'Hafen des Konkordats: keine Anzeige');
   // römischer Sim-Posten: Ausbau

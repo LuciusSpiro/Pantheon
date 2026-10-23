@@ -123,6 +123,8 @@ const ausbauenStart = (game, p) => start(game, 'ausbau');
 // Abbruchcode -> Schlüssel in abbruch{}; Gründe aus der Struktur (belegt, Anspruch, Posten weg) heißen alle „belegt“
 const ABBRUCH = { szene: 'szene', gegner: 'gegner', transfer: 'transfer', weit: 'ring', schnell: 'schnell', anspruch: 'belegt', belegt: 'belegt', hafen: 'belegt', station: 'belegt', kein_posten: 'belegt', schon: 'belegt', modus: 'belegt', teile: 'teile' };
 function abbruchText(art, code) { return (T(art).abbruch || {})[ABBRUCH[code] || 'belegt'] || ''; }
+// Abbrüche, die fracht.js selbst auslöst (Szenenwechsel = Sprung, niemand mehr an der Ops): Text für beamStop; Abbruch durch den Spieler bleibt still
+function stummerAbbruchText(h, grund) { const k = { szene: 'sprung', taktik: 'ops' }[grund]; return k ? ((T(h.id).abbruch || {})[k] || '') : ''; }
 
 // Je Tick (Fracht.update, nur wenn die Ops besetzt ist): null = weiter, sonst { code, text } = Abbruch. Die Halte-Hex muss die des Starts sein (Szenenwechsel bricht fracht.update schon vorher ab).
 function haltWeiter(game, h) {
@@ -146,6 +148,7 @@ function haltFertig(game, h) {
   // Vorabprüfung bestanden: Wirkung und Ruf gehen zusammen in den Tick (Ruf nur, wenn die Wirkung gilt, siehe Prüfung oben; beides atomar in Kriegslage.tickMit)
   const wirkungen = [wk, { typ: 'ruf_aenderung', fraktion: 'rom', delta: require('../../content/welt/ruf-werte.json').werte.quellen.wert[A.grund].delta, grund: A.grund }];
   const name = Sektoren.hexName(o.hex);
+  // Gilt die Wirkung (nicht verworfen), ist sie angewandt; fällt der Posten im selben Tick durch die Sim wieder, bleiben Ruf und Kosten (die Crew hat ihn gehisst, der Ruf ist atomar mit dem Tick gebucht)
   const r = kl().szeneAbschliessen(game, { wirkungen, wo: 'posten', direkt: o.hex });
   const gilt = r.ok && !r.verworfen.some((v) => v.wirkung === wk || (v.wirkung && v.wirkung.typ === A.wirkung));
   if (!gilt) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'tick' }); game.oda(fmt(T(art).fehler, { grund: r.ok ? 'Wirkung abgelehnt' : 'Weltsimulation gestört' }), null); return false; }
@@ -202,7 +205,7 @@ function lesen(b) {
 // ---------- Anzeige (space.po) ----------
 function snapshot(game) {
   const o = ort(game);
-  if (!o || !o.nd || hatHafen(o)) return null;
+  if (!o || !o.nd || hatHafen(o) || o.sc.station) return null;   // A1-Fix: auch Hexe mit Station (Kantenstein, Pulverhorn) zeigen kein Feld (die Weigerung „Station“ liefert nur der Befehl)
   let art = null;
   if (o.nd.besitzer === null && !o.nd.posten) art = 'gruenden';
   else if (o.nd.besitzer === 'rom' && o.nd.posten && o.nd.crew !== true) art = 'ausbau';
@@ -214,4 +217,4 @@ function snapshot(game) {
   return out;
 }
 
-module.exports = { gruendenStart, ausbauenStart, gruendenPruefen, ausbauPruefen, haltWeiter, haltFertig, nachTick, meldeGehalten, toSave, lesen, snapshot, ort };
+module.exports = { gruendenStart, ausbauenStart, gruendenPruefen, ausbauPruefen, haltWeiter, haltFertig, stummerAbbruchText, nachTick, meldeGehalten, toSave, lesen, snapshot, ort };

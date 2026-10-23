@@ -137,6 +137,23 @@ section('Eingabe: Auswahl, Freischalten, Umbauen gegen den Server');
   ok(m.ansicht === 'stufe' && m.stufen.ziel === 3 && m.aktionen.haupt.art === 'freischalten' && /^Stufe 3 öffnen · \d+ M$/.test(m.aktionen.haupt.text) && /1 öffnet mit Stufe 3/.test(m.aktionen.hinweis.text), 'Platz 1 (Stufe 3) noch zu: rechts der Block Stufe 3, Hauptknopf kauft den nächsten Schritt mit Preis: ' + m.aktionen.haupt.text + ' / ' + m.aktionen.hinweis.text);
 }
 
+section('SUND-02b A1-Fix: Handel am Stützpunkt der Crew gesperrt (werft.hs)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T);
+  const HS = 'Dieser Posten verkauft nichts.';
+  const modell = () => { const v = T.view(0); v.state.werft = Object.assign({}, v.state.werft, { hs: HS }); return TU.modell(v); };
+  T.key('KeyH');
+  const m = modell();
+  ok(m.bereich === 'handel' && m.handel.artikel.length >= 10 && m.handel.artikel.every((a) => a.grund === HS), 'Handel: jede Zeile trägt den Grund „' + HS + '“');
+  ok(m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === HS && m.handel.info.grund === HS, 'Kaufknopf deaktiviert mit Grund, Infozeile nennt ihn');
+  const vor = T.g.inventory.marks;
+  const v = T.view(0); v.state.werft = Object.assign({}, v.state.werft, { hs: HS });
+  TU.keyDown({ code: 'Enter', preventDefault() {} }, v); T.nachlauf(0);
+  ok(T.g.inventory.marks === vor, 'Enter kauft nichts');
+  const o = TU.modell(T.view(0));
+  ok(o.handel.artikel.some((a) => a.grund !== HS), 'ohne hs: Zeilen wieder normal (Gegenprobe)');
+}
+
 section('Fehler: Text und Code vom Server, nichts lokal vorweggenommen');
 {
   const T = partie(); TU.zuruecksetzen(); zeichnen(T);
