@@ -247,8 +247,18 @@ function sondeGesichtet(game, hex) {
   if (!game.weltsim) return;
   try { Wissen.sondeGesichtet(game, hex); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
 }
-const lage = (game) => (game.weltsim ? Wissen.lage(game) : null);
-const lageSchluessel = (game) => (game.weltsim ? Wissen.schluessel(game) : null);
+// SUND-02b UI: Stützpunkte der Crew (Overlay-Merkmal crew) als Liste st im Anzeigeblock, nur wenn es welche gibt (Karte: Zeichen und Ortsinfo „Stützpunkt“); die Crew kennt ihre eigenen Stützpunkte
+const stuetzpunkte = (game) => Object.keys((game.weltBesitz && game.weltBesitz.hexe) || {}).filter((h) => game.weltBesitz.hexe[h].crew === true).sort();
+function lage(game) {
+  if (!game.weltsim) return null;
+  const b = Wissen.lage(game), st = stuetzpunkte(game);
+  return b && st.length ? Object.assign({}, b, { st }) : b;   // Kopie: Wissen.lage gibt einen gecachten Block zurück
+}
+function lageSchluessel(game) {
+  const k = game.weltsim ? Wissen.schluessel(game) : null;
+  const st = k ? stuetzpunkte(game) : [];
+  return k && st.length ? k + '|' + st.join(',') : k;   // ohne Stützpunkt wie vorher
+}
 
 // Weltstand welt.sim: { modus, tick, hauptweltGefallen?, zustand } | null (kein Modus: Block fehlt, Altstände bleiben Kampagne)
 function toSave(game) {

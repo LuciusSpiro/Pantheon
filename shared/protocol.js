@@ -115,6 +115,7 @@
     //   k Stärkeklasse 1–3, p Phase h u s m b r, a Alter (0 = eigen), Kurs: v „kam von“ (fremde Flotten, beobachtete Bewegung) oder n nächstes Hex (nur eigene Flotten), z vermutetes Ziel (nur Marsch, eine Schätzung), d Ticks im Sammeln }.
     //   m[] (≤ 6) Meldungen { e sa ma be hf hh pg pv, h Hex, t Tick, f?, k? }. Ereignis radio { from, text, lage: 1, tick } = Lagefunk (einmal je Feldzug); Szenenfunk zusätzlich sz: 1 (Szene), r: 1 (wichtig: Vorwarnung/Ergebnis, nur diese kommen in den Funk-Reiter); Ereignis odaWeg {} räumt die Szenen-ODA (Ortung/Erste Welle) weg.
     //   Dazu welt.sim.wissen im Weltstand (Schema) und Notruf-Marken in world.marken.
+    //   SUND-02b UI: st?: [Hex] Stützpunkte der Crew (Overlay crew: römischer Posten mit Garnison, Dock und Werft), nur wenn es welche gibt; der Schlüssel nimmt die Liste mit.
     // SUND-02b B: Snapshot world.ruf { rom, ger, kon, rang, name, ab, bis } nur bei Änderung (nie in den großen Snapshots); world.ruf = null ist das Löschsignal (einmal, wenn der Modus endet: Kampagne, Lobby), der Client leert dann seinen Ruf wie lage.
     // Snapshot space.jp [{ k: kantenId, x, y, z: JP_STATES, n: zielHex }] (nur bekannte Bojen der Szene, ≤ 6).
     // Snapshot ship.jump: zusätzlich jp (Kante des gewählten Ziels), d (Abstand in m, gerundet).
