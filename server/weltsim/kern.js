@@ -492,6 +492,7 @@ function postenVerlieren(c, code, owner, durch) {
   mz(c, 'posten_lost'); mz(c, 'plost_pirat', durch === 'pirat' ? 1 : 0); mz(c, 'plost_reich', durch !== 'pirat' ? 1 : 0);
   melde(c, 'posten_verloren', owner, { ort: code, besitzer: owner, durch });
   nd.posten = false; nd.besitzer = null; nd.garnison = 0; nd.anspruch = {};
+  delete nd.crew;   // SUND-02b A1: Stützpunkt der Crew fällt mit dem Posten (Merkmal fehlt im Prototyp: ohne crew ändert sich nichts)
 }
 
 function erobern(c, code, neu) {

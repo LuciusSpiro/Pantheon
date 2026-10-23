@@ -12,6 +12,7 @@ const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Bestückung der
 const Werft = require('./sim/werft.js');   // PAN-01 D: Freigeschaltetes (schiff.freigeschaltet)
 const Katalog = require('../shared/schiffskatalog.js');
 const Notrufe = require('./sim/notrufe.js');   // SL8: welt.notrufe (Zustand und Restzeit je Ruf)
+const Besitz = require('./sim/besitz.js');   // SUND-02b A1: Rückfall beim Laden
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: welt.sim (Weltsimulation im Modus Freie Fahrt Sund)
 const Spur = require('./sim/spur.js');   // SL5: welt.spur (Ionenspur: Id, Hex-Index, gelesen)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: welt.sektorplan (gesichtete Hexe, Marken, Schiffe)
@@ -858,7 +859,8 @@ function apply(game, data) {
     if (w.wrack.hollow && wreck.hollow) { wreck.hollow.marked = !!w.wrack.hollow.marked; wreck.hollow.open = !!w.wrack.hollow.open; }
   }
   // Schiff angedockt an den gespeicherten Ort
-  const loc = Locations.get(ws.lastDockedAt) ? ws.lastDockedAt : Welt.startOrt();
+  let loc = Locations.get(ws.lastDockedAt) ? ws.lastDockedAt : Welt.startOrt();
+  if (game.weltsim && !Besitz.dockbar(game, loc)) { loc = Welt.startOrt(); ws.lastDockedAt = loc; }   // SUND-02b A1: der Stützpunkt, an dem gespeichert wurde, ist inzwischen weg (Posten gefallen): Rückfall auf den Startort statt im All
   const space = require('./sim/space.js');
   space.enterScene(game, loc, { docked: true });
   game.explore.location = loc;

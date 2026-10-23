@@ -99,9 +99,10 @@ function enterScene(game, locId, opts) {
   const hexB = loc.hex || Sektoren.hexVonOrt(loc.id);
   const frB = hexB ? Besitz.besitzer(game, hexB) : null;
   const postenB = hexB && !sc.station && Besitz.istPosten(game, hexB) ? Besitz.postenLage(sc) : null;
-  const dockOk = !sc.dock || !hexB || Besitz.darfAndocken(game, hexB);
-  const docked = !!(opts && opts.docked && sc.dock && dockOk);
-  const st = docked ? Object.assign({ angle: 0 }, sc.start || sc.dock) : sc.arrive;
+  const dockB = Besitz.dockLage(game, sc, hexB);   // SUND-02b A1: fester Liegeplatz oder Stützpunkt der Crew (berechnet, die Szene bleibt unverändert)
+  const dockOk = !dockB || !hexB || Besitz.darfAndocken(game, hexB);
+  const docked = !!(opts && opts.docked && dockB && dockOk);
+  const st = docked ? Object.assign({ angle: 0 }, sc.start || dockB) : sc.arrive;
   ship.scene = loc.id;
   ship.x = st.x; ship.y = st.y; ship.angle = st.angle || 0;
   ship.vx = 0; ship.vy = 0; ship.speed = 0;
@@ -123,13 +124,13 @@ function enterScene(game, locId, opts) {
   sp.w = sc.w; sp.h = sc.h;
   sp.enemies = []; sp.projectiles = []; sp.beams = [];
   sp.dockOk = dockOk; sp.dockHinweis = false;   // SUND-01 D: Andocken erlaubt? Hinweis „verweigert“ schon gezeigt?
-  sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc, postenB) : makeAsteroids(game, loc, postenB);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
+  sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc, postenB, dockB) : makeAsteroids(game, loc, postenB, dockB);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
   sp.salvage = [];
   sp.markers = [];
   Alarm.szeneBetreten(game);   // EK2: Alarm und Minen gelten je Szene
   if (sc.station) sp.markers.push(Object.assign({ kind: sc.station.kind, x: sc.station.x, y: sc.station.y, r: sc.station.r }, sc.station.name ? { name: sc.station.name } : {}, frB && Besitz.modus(game) ? { fr: frB } : {}));   // name: Planeten-Stationen (Methalle, Eisenwald) tragen ihren Namen; fr: Besitzer für das Banner (nur im Modus Freie Fahrt)
   if (postenB) sp.markers.push({ kind: 'station', x: postenB.x, y: postenB.y, r: postenB.r, name: 'Posten', posten: true, fr: frB });
-  if (sc.dock && dockOk) sp.markers.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: C.travel.dockDist });
+  if (dockB && dockOk) sp.markers.push({ kind: 'dock', x: dockB.x, y: dockB.y, r: C.travel.dockDist });
   ship.asteroidImmune = {};
   game.asteroidsDirty = true;
   if (game.explore) game.explore.location = loc.id;
@@ -140,13 +141,13 @@ function enterScene(game, locId, opts) {
   if (game.weltsim) { try { require('./kriegslage-szene.js').betreten(game, hexB); } catch (err) { if (game.countError) game.countError('sim-szene', err); } }   // SUND-02a A2: Flotte der Sim im Hex? Szene beginnt (nach dem Aufbau, nur Freie Fahrt Sund)
 }
 
-function makeAsteroids(game, loc, posten) {
+function makeAsteroids(game, loc, posten, dockB) {
   const sc = loc.scene;
   const n = sc.asteroids || 0;
   if (!n) return [];
   const rng = makeRng((game.seed ^ 0xA57E ^ hashStr(loc.id)) >>> 0);
   const f = sc.field || { x0: 200, x1: sc.w - 120, y0: 80, y1: sc.h - 80 };
-  const keep = [sc.arrive, sc.station, sc.dock, posten].filter(Boolean);
+  const keep = [sc.arrive, sc.station, sc.dock, posten, dockB].filter(Boolean);
   const hiddenPts = loc.hidden || [];
   const list = [];
   let guard = 0;
@@ -164,14 +165,14 @@ function makeAsteroids(game, loc, posten) {
 
 // W2 AP3b: Brocken mit Bahn (shared/drift.js). Gleiche Zahl und Größe wie still, aber jede Bahnstrecke hält Abstand zu den
 // Schutzpunkten (Ankunft, Station, Dock: wie still + 280 px), zu Verstecken und zu allen anderen Bahnen (nie Berührung).
-function makeDriftAsteroids(game, loc, posten) {
+function makeDriftAsteroids(game, loc, posten, dockB) {
   const sc = loc.scene;
   const n = sc.asteroids || 0;
   if (!n) return [];
   const D = (game.C.arena && game.C.arena.drift) || { tempo: [12, 40], amplitude: [80, 240], drehung: 0.6 };
   const rng = makeRng((game.seed ^ 0xD71F7 ^ hashStr(loc.id)) >>> 0);
   const f = sc.field || { x0: 200, x1: sc.w - 120, y0: 80, y1: sc.h - 80 };
-  const keep = [sc.arrive, sc.station, sc.dock, posten].filter(Boolean);
+  const keep = [sc.arrive, sc.station, sc.dock, posten, dockB].filter(Boolean);
   const hiddenPts = loc.hidden || [];
   const list = []; const bahnen = [];
   const Mi = Drift.MILLI;
@@ -605,7 +606,7 @@ function updateFlight(game, dt) {
   const caps = turnCaps(game);
   ship.turnCap = caps;
   if (ship.docked) {
-    const dp = sc.dock || sc.start;
+    const dp = Besitz.dockLage(game, sc, loc.hex || Sektoren.hexVonOrt(loc.id)) || sc.start;   // SUND-02b A1
     ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.turnVel = 0;
     // Ablegen: Temporegler über Stopp (W). Rückwärts oder Stopp: bleibt angedockt.
     if (h.stage > stopIndex(game)) {
@@ -629,18 +630,19 @@ function updateFlight(game, dt) {
   if (ship.y > sp.h - m) { ship.y = sp.h - m; ship.vy = Math.min(0, ship.vy); }
   ship.speed = Math.hypot(ship.vx, ship.vy);
   // Andocken (Hafen und Vaelen): Dock-Ring langsam anfliegen. Nach dem Ablegen erst einmal Abstand gewinnen.
-  if (sc.dock && !ship.docked && sp.dockOk === false) {
+  const dockL = Besitz.dockLage(game, sc, loc.hex || Sektoren.hexVonOrt(loc.id));   // SUND-02b A1: fester Liegeplatz oder Stützpunkt der Crew
+  if (dockL && !ship.docked && sp.dockOk === false) {
     // SUND-01 D: Hafen im Besitz von Germanen/Piraten: kein Dock-Marker, kein Andocken; einmal je Anflug ein Hinweis
-    const so = sc.station || sc.dock;
+    const so = sc.station || dockL;
     const dh = dist(ship.x, ship.y, so.x, so.y);
     if (!sp.dockHinweis && dh < 650) { sp.dockHinweis = true; const t = Besitz.verbotText(game, Sektoren.hexVonOrt(loc.id)); if (t) game.oda(t, null); }
     else if (sp.dockHinweis && dh > 1000) sp.dockHinweis = false;
-  } else if (sc.dock && !ship.docked) {
-    const d = dist(ship.x, ship.y, sc.dock.x, sc.dock.y);
+  } else if (dockL && !ship.docked) {
+    const d = dist(ship.x, ship.y, dockL.x, dockL.y);
     // QA M1: auch scharf, wenn man nach dem Ablegen ein paar Sekunden in der Nähe bleibt (versehentlich abgelegt)
     if (!ship.dockArmed && (d > C.travel.dockDist + 60 || game.time - (ship.undockT || 0) > 4)) ship.dockArmed = true;
     if (ship.dockArmed && d <= C.travel.dockDist && ship.speed <= C.travel.dockSpeed) {
-      ship.docked = true; ship.dockedAt = loc.id; ship.x = sc.dock.x; ship.y = sc.dock.y; ship.vx = 0; ship.vy = 0; ship.speed = 0;
+      ship.docked = true; ship.dockedAt = loc.id; ship.x = dockL.x; ship.y = dockL.y; ship.vx = 0; ship.vy = 0; ship.speed = 0;
       ship.angle = loc.id === 'hafen' ? 0 : ship.angle;
       ship.helm.thrust = 0; ship.helm.turn = 0; ship.dockHold = true;
       ship.helm.stage = stopIndex(game); ship.helm.autoStop = false; ship.turnVel = 0;

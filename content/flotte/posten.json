@@ -1,0 +1,77 @@
+{
+  "format": "posten/1",
+  "_hinweis": "SUND-02b A1: Texte zu Posten gruenden und Stuetzpunkt-Ausbau der Crew (server/sim/posten.js, Freie Fahrt Sund). Zahlen stehen in content/welt/posten-werte.json. {rang} = Name des verlangten Rangs, {teile} = Zahl Ersatzteile, {ort} = Name des Sektors. Weigerungsgruende je Code; Texte fuer Anzeige an der Ops und im Funk, die Gestaltung kommt spaeter.",
+  "sprecher": "Oberkommando",
+  "gruenden": {
+    "name": "Posten gründen",
+    "weigerung": {
+      "modus": "Nur in der Freien Fahrt Sund.",
+      "rang": "Dafür fehlt der Rang ({rang}).",
+      "anspruch": "Dieser Sektor liegt nicht in Roms Anspruch.",
+      "station": "Hier steht schon eine Station – kein Posten möglich.",
+      "hafen": "Hier liegt ein Hafen – kein Posten möglich.",
+      "belegt": "Dieser Sektor ist schon besetzt.",
+      "gegner": "Feindliche Flotte im Sektor – erst die Gegner abwehren.",
+      "szene": "Feindkontakt – erst die Gegner abwehren.",
+      "weit": "Zu weit vom Postenplatz – näher heran ({ist} von {max}).",
+      "schnell": "Zu schnell – Antrieb drosseln.",
+      "teile": "Zu wenig Ersatzteile (nötig: {teile}).",
+      "docked": "Erst ablegen.",
+      "transfer": "Transfer ausgefallen – erst reparieren.",
+      "laeuft": "Ein Transfer läuft bereits."
+    },
+    "abbruch": {
+      "gegner": "Feindkontakt – Posten gründen abgebrochen.",
+      "szene": "Feindkontakt – Posten gründen abgebrochen.",
+      "ring": "Postenplatz verlassen – Posten gründen abgebrochen.",
+      "schnell": "Zu schnell – Posten gründen abgebrochen.",
+      "transfer": "Transfer ausgefallen – Posten gründen abgebrochen.",
+      "belegt": "Sektor inzwischen besetzt – Posten gründen abgebrochen.",
+      "teile": "Zu wenig Ersatzteile – Posten gründen abgebrochen.",
+      "sprung": "Sprung – Posten gründen abgebrochen.",
+      "ops": "Niemand mehr an der Ops – Posten gründen abgebrochen."
+    },
+    "fertig": "Posten {ort} gegründet. Rom hisst die Fahne, die Garnison rückt ein.",
+    "fehler": "Rom lehnt den Posten ab: {grund}"
+  },
+  "ausbau": {
+    "name": "Stützpunkt ausbauen",
+    "weigerung": {
+      "modus": "Nur in der Freien Fahrt Sund.",
+      "rang": "Dafür fehlt der Rang ({rang}).",
+      "kein_posten": "Hier steht kein römischer Posten.",
+      "schon": "Dieser Posten ist schon ein Stützpunkt.",
+      "station": "Hier steht eine Station – kein Ausbau möglich.",
+      "hafen": "Hier liegt ein Hafen – kein Ausbau möglich.",
+      "gegner": "Feindliche Flotte im Sektor – erst die Gegner abwehren.",
+      "szene": "Feindkontakt – erst die Gegner abwehren.",
+      "weit": "Zu weit vom Posten – näher heran ({ist} von {max}).",
+      "schnell": "Zu schnell – Antrieb drosseln.",
+      "teile": "Zu wenig Ersatzteile (nötig: {teile}).",
+      "docked": "Erst ablegen.",
+      "transfer": "Transfer ausgefallen – erst reparieren.",
+      "laeuft": "Ein Transfer läuft bereits."
+    },
+    "abbruch": {
+      "gegner": "Feindkontakt – Ausbau abgebrochen.",
+      "szene": "Feindkontakt – Ausbau abgebrochen.",
+      "ring": "Posten verlassen – Ausbau abgebrochen.",
+      "schnell": "Zu schnell – Ausbau abgebrochen.",
+      "transfer": "Transfer ausgefallen – Ausbau abgebrochen.",
+      "belegt": "Posten inzwischen verloren – Ausbau abgebrochen.",
+      "teile": "Zu wenig Ersatzteile – Ausbau abgebrochen.",
+      "sprung": "Sprung – Ausbau abgebrochen.",
+      "ops": "Niemand mehr an der Ops – Ausbau abgebrochen."
+    },
+    "fertig": "Posten {ort} zum Stützpunkt ausgebaut: Dock und Werft stehen der Lerche offen.",
+    "fehler": "Der Ausbau scheitert: {grund}"
+  },
+  "gehalten": "Posten {ort} hält seit {ticks} Sprüngen. Rom vermerkt es.",
+  "dock": {
+    "handel": "Dieser Posten verkauft nichts.",
+    "kein_dock": "Dieser Posten hat kein Dock – erst zum Stützpunkt ausbauen."
+  },
+  "karte": {
+    "anspruch": "Roms Anspruch"
+  }
+}

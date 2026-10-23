@@ -157,6 +157,10 @@
               "description": "SUND-02b B: Ruf der Crew je Fraktion (server/sim/ruf.js, Grenzen und Dienstgrade in content/welt/ruf-werte.json). Fehlt im Altstand und bei 0/0/0 (alle Werte 0). Der Rang folgt aus rom und wird nicht gespeichert. Nur der Server schreibt.",
               "properties": { "rom": { "type": "number" }, "ger": { "type": "number" }, "kon": { "type": "number" } }
             },
+            "posten": {
+              "type": "object", "description": "SUND-02b A1: Posten der Crew (Stuetzpunkte, Merkmal crew im Sim-Hex): Hex -> { t: Tick der Gruendung bzw. des Ausbaus, g: 1 = Halten-Ruf schon gegeben }. Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
+              "additionalProperties": { "type": "object", "required": ["t"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "g": { "type": "integer" } } }
+            },
             "vorgemerkt": {
               "type": "array", "description": "SUND-02: Wirkungen der Crew (server/weltsim/wirkungen.js), die der nächste Tick (Sprung) anwendet; Flucht per Sprung.",
               "items": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }

@@ -12,6 +12,8 @@ const TYPEN = {
   angriff_abgebrochen: ['ziel', 'grund', 'angriff'],                                     // grund: 'zeit' | 'ziel' | 'keine_flotte' (Sammeln abgebrochen)
   hafen_gefallen: ['ort', 'alt', 'neu'],                                      // fraktion = neuer Besitzer
   posten_gegruendet: ['ort'],
+  posten_gehisst: ['ort'],                                                    // SUND-02b A1: Posten der Crew (Wirkung posten_gehisst), fraktion rom; kein posten_gegruendet, damit die Kennzahlen nur Posten der Sim zählen
+  posten_ausgebaut: ['ort'],                                                  // SUND-02b A1: römischer Posten zum Stützpunkt der Crew ausgebaut
   posten_verloren: ['ort', 'besitzer', 'durch'],                              // fraktion = bisheriger Besitzer
   konvoi: ['handel', 'menge'],                                                // abstrakter Handel des Konkordats, höchstens eines je Tick
   notruf: ['art', 'ort', 'opfer', 'angreifer', 'staerke', 'klasse', 'angriff'],          // art: 'piratenueberfall' | 'belagerung'; fraktion = Opfer

@@ -20,6 +20,7 @@ const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Waffenkatalog, neun Plätze, Ladepool, Torpedowerfer
 const Werft = require('./sim/werft.js');   // PAN-01 D: Werft der Flottenbasen (Freischalten, Umbauen, Vorschau)
 const Katalog = require('../shared/schiffskatalog.js');   // PAN-01 C
+const Posten = require('./sim/posten.js');   // SUND-02b A1: Posten der Crew gründen/ausbauen
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
 const PersonenBord = require('./sim/personen-bord.js');   // SL0: Personen als Fracht (Ops beamt sie an Bord/ab, Betten im Frachtraum)
 const Zonen = require('./sim/zonen.js');   // SL6: Zonen mit Wirkung
@@ -1103,6 +1104,8 @@ class Game {
       case 'weapons.landescan': if (msg.off) Lpscan.abbrechen(this); else err = Lpscan.starten(this, p); break;   // SL7b: Landepunkt scannen (Halten) bzw. abbrechen
       case 'weapons.abwerfen': err = Ladung.abwerfen(this, msg.art == null ? null : String(msg.art)); break;   // SL6: eine Einheit Ware ins All (Ops)
       case 'weapons.schoepfen': if (msg.off) Ladung.schoepfAbbrechen(this); else err = Ladung.schoepfStart(this, p); break;   // U2: Gas schöpfen (Halteprozess bis zum Abbruch, Ops)
+      case 'weapons.posten.gruenden': err = Posten.gruendenStart(this, p); break;   // SUND-02b A1: Posten gründen (Halteprozess an der Ops, Abbruch: weapons.fracht { off })
+      case 'weapons.posten.ausbauen': err = Posten.ausbauenStart(this, p); break;   // SUND-02b A1: römischen Posten zum Stützpunkt ausbauen (Halteprozess)
       case 'weapons.verkaufen': err = Ladung.verkaufStart(this, p); break;   // SL6: Ware an einen Händler in Reichweite verkaufen (Halteprozess)
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
       case 'weapons.sonde.start': err = Sonden.starteInSzene(this, p, msg.x != null && Number.isFinite(Number(msg.x)) ? { x: Number(msg.x), y: Number(msg.y) } : null); break;   // SL4: Sonde zur Marke (oder x/y)
@@ -1868,7 +1871,8 @@ class Game {
     // EK2 (kompakt, „fehlt = Standard“): Minen nur gesehene/nahe, Alarmstufe nur > 0
     { const so = Sonden.snapshot(this); if (so) spaceOut.so = so; }   // SL4: Sonden (≤ 3)
     { const no = Notrufe.snapshotOrt(this); if (no) spaceOut.nro = no; }   // SL8: Ruf-Ort in der Szene (neutral)
-    { const sp = Spur.snapshot(this); if (sp) spaceOut.sp = sp; }   // SL5: Spurkern der Szene (nur im Spur-Hex, ungelesen)
+    { const sp = Spur.snapshot(this); if (sp) spaceOut.sp = sp; }
+    if (this.weltsim) { try { const po = Posten.snapshot(this); if (po) spaceOut.po = po; } catch (e) { this.countError('snapshot-posten', e); } }   // SUND-02b A1: Posten gründen/ausbauen (Ops), nur im Modus   // SL5: Spurkern der Szene (nur im Spur-Hex, ungelesen)
     { const mi = Alarm.minenSnap(this); if (mi) spaceOut.mines = mi; const al = Alarm.stufe(this); if (al > 0) spaceOut.al = al; }
     // W2 AP3b: bewegte Brocken (Feld b) nur mit Bahnparametern, ohne id (Netzbudget; der Client braucht sie nicht).
     // Stille Brocken (Kampagne) unverändert.

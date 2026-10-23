@@ -15,6 +15,8 @@
 const Flight = require('../../shared/flight.js');
 const Physics = require('../../shared/physics.js');
 const Locations = require('../../shared/locations.js');
+const Sektoren = require('../../shared/sektoren.js');
+const Besitz = require('./besitz.js');   // SUND-02b A1: dockLage
 const Pilot = require('./pilot.js');
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> escort)
@@ -108,7 +110,7 @@ function point(game, spec) {
     case 'sued': return { x: sp.w / 2, y: sp.h - m };
     case 'mitte': return { x: sp.w / 2, y: sp.h / 2 };
     case 'station': return sc.station ? { x: sc.station.x, y: sc.station.y } : { x: sp.w / 2, y: sp.h / 2 };
-    case 'dock': return sc.dock ? { x: sc.dock.x, y: sc.dock.y } : null;
+    case 'dock': { const dk = Besitz.dockLage(game, sc, loc && (loc.hex || Sektoren.hexVonOrt(loc.id))); return dk ? { x: dk.x, y: dk.y } : null; }   // SUND-02b A1
     case 'lerche': {
       const a = L.angle + Math.PI / 2; const d = cfg(game).spawnDist;
       return { x: clamp(L.x + Math.cos(a) * d, 60, sp.w - 60), y: clamp(L.y + Math.sin(a) * d, 60, sp.h - 60) };

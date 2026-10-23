@@ -163,7 +163,9 @@
     // SL0: cmd { c: 'weapons.person', id? } beamt eine Person vom gewählten Landepunkt an Bord ({ off: true } bricht ab), { c: 'weapons.person_ab', id? } gibt sie an Abnehmer/Station/Landepunkt ab.
     // Snapshot fracht + { pers: [{ id, n, b }] (Personen im Frachtraum, b = Bett), pq: [{ id, n }] (Ops kann sie jetzt hochbeamen) }; ship.npcs enthält die liegenden Figuren (lie: 1).
     // U2: cmd { c: 'weapons.schoepfen' } startet das Schöpfen (Halteprozess kind 'schoepf', nur in der Förderschicht), { off: true } beendet es; halt.p = Füllstand 0..1.
-    CMD_FRACHT: ['weapons.fracht', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
+    // SUND-02b A1: cmd { c: 'weapons.posten.gruenden' } / { c: 'weapons.posten.ausbauen' } (Ops, nur Freie Fahrt Sund) starten den Halteprozess kind 'posten' (halt.id 'gruenden' | 'ausbau'), Abbruch wie Fracht: weapons.fracht { off: true }.
+    // Snapshot space.po { k: 'g' | 'a', ok: 0 | 1, t?: Weigerungstext, n: Ersatzteile } nur im Hex, wo ein Posten Sinn hat; Werft-Block + { hs: Text } am Stützpunkt (Handel gesperrt).
+    CMD_FRACHT: ['weapons.fracht', 'weapons.posten.gruenden', 'weapons.posten.ausbauen', 'weapons.abliefern', 'weapons.abwerfen', 'weapons.verkaufen', 'weapons.schoepfen', 'weapons.person', 'weapons.person_ab'],
     FRACHT_EVENTS: ['frachtBeamen', 'frachtAbgeworfen', 'frachtVerloren', 'frachtGesichert'],   // PAN-01 A: frachtVerloren { art } (ungesichert + Hüllentreffer), frachtGesichert { an }
     FRACHT_ARTEN: ['sprengstoff', 'fracht', 'deuterium'],
     // EK3 Teil B (CONTRACT-EK3B §4): Konvoi. Transporter sind Gegner (space.enemies[].kind 'frachter'); beim Sprung trägt der Eintrag sj (Aufladung 0..1).

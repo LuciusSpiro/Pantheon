@@ -352,6 +352,7 @@ function ereignisVon(ev, T) {
   switch (ev.typ) {
     case 'hafen_gefallen': return { e: 'hf', h: ev.ort, f: fk(ev.neu), t0: T, eigen: ev.alt === 'rom' || ev.neu === 'rom' };
     case 'posten_verloren': return { e: 'pv', h: ev.ort, f: fk(ev.besitzer), t0: T, eigen: ev.besitzer === 'rom' };
+    case 'posten_gehisst':   // SUND-02b A1: Posten der Crew (Wirkung): für Rom wie ein gegründeter Posten (Meldeliste), immer eigen
     case 'posten_gegruendet': return { e: 'pg', h: ev.ort, f: fk(ev.fraktion), t0: T, eigen: ev.fraktion === 'rom' };
     case 'angriff_abgewehrt': return { e: 'hh', h: ev.ziel, f: fk(ev.besitzer || ev.fraktion), t0: T, eigen: ev.besitzer === 'rom' };
     case 'notruf': return { e: 'nr', h: ev.ort, f: fk(ev.opfer), an: ev.angriff, t0: T, eigen: ev.opfer === 'rom' };

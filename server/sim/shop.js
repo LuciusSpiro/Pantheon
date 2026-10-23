@@ -2,6 +2,8 @@
 // Wirtschaft: Hafenterminal (Shop, Kontext Hafen/Vaelen), Deko und Stile im Quartier (§6, M1 §7, §9.2).
 const W = require('../world.js');
 const Locations = require('../../shared/locations.js');
+const Sektoren = require('../../shared/sektoren.js');
+const Besitz = require('./besitz.js');   // SUND-02b A1: kein Handel am Stützpunkt der Crew
 
 // Sortiment-Kontext: die Orts-ID (hafen, vaelen) – oder, wenn der Ort es vorgibt (`shop`, EK7: Häfen aus Daten wie
 // Castra Martis und Statio Limitis), dieser Kontext. Häfen ohne Ruf: es gilt nur der Kontext, keine Haltung.
@@ -18,6 +20,8 @@ function buy(game, p, itemId) {
   const C = game.C;
   const ctx = shopContext(game);
   if (!ctx) return 'Das Hafenterminal funktioniert nur angedockt.';
+  const sperre = game.ship.docked ? Besitz.handelSperre(game, Sektoren.hexVonOrt(game.ship.dockedAt)) : null;   // SUND-02b A1: Stützpunkt der Crew: Werft ja, Handel nein
+  if (sperre) return sperre;
   const entry = C.shop.find((s) => s.id === itemId);
   if (!entry) return 'Unbekannter Artikel.';
   if (!entryAvailable(entry, ctx)) return ctx === 'vaelen' ? 'Das führt die Karawane nicht – gibt es im Hafen.' : 'Das gibt es nur bei der Vaelen-Karawane.';

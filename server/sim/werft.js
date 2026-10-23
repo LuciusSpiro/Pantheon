@@ -12,6 +12,8 @@
 // ohne dass dazwischen ein zweiter Befehl liegen kann; ein zweiter gleichzeitiger Kauf desselben Teils scheitert an `schon_freigeschaltet`.
 const W = require('../world.js');
 const Locations = require('../../shared/locations.js');
+const Sektoren = require('../../shared/sektoren.js');
+const Besitz = require('./besitz.js');   // SUND-02b A1: Stützpunkt der Crew
 const Katalog = require('../../shared/schiffskatalog.js');
 const Geld = require('./geld.js');
 const Modul = require('./module.js');
@@ -32,6 +34,10 @@ function istFlottenbasis(game, ortId) {
   if (!ortId) return false;
   const loc = Locations.get(ortId);
   if (loc && loc.flottenbasis) return true;
+  // SUND-02b A1: dritte, abgeleitete (nie gespeicherte) Prüfung: der Ort liegt in einem Hex mit Stützpunkt der Crew (Overlay posten, Besitzer Rom, crew). Fällt der Posten, ist die Werft sofort weg;
+  // Freigeschaltetes bleibt (ship.freigeschaltet), nur der Umbau braucht die Werft. Kein setzeFlottenbasis: das Flag würde gespeichert und bliebe nach dem Verlust.
+  const hex = loc && (loc.hex || Sektoren.hexVonOrt(ortId));
+  if (hex && Besitz.crewPosten(game, hex)) return true;
   const fl = game.mission && game.mission.flags;
   return !!(fl && fl[FLAGGE + ortId]);
 }
@@ -293,6 +299,7 @@ function snapshot(game) {
   const zu = game.players.filter((o) => o.connected && o.zusehen && o !== u && o.color != null).map((o) => o.color);
   if (zu.length) out.zu = zu;   // Spielerfarben der Zuschauer
   if (game.werftUi && game.werftUi.von === u.id) out.ui = { b: game.werftUi.b, a: game.werftUi.a, n: game.werftUi.n, i: game.werftUi.i };
+  { const hs = game.ship.docked && game.ship.dockedAt ? Besitz.handelSperre(game, Sektoren.hexVonOrt(game.ship.dockedAt)) : null; if (hs) out.hs = hs; }   // SUND-02b A1: Stützpunkt der Crew: Handel gesperrt, Grund als Text
   if (!s.aktiv) { out.grund = s.grund; return out; }
   const wm = Waffen.waffenMap(game); const w = {};
   for (const pl of Maps.WAFFENPLAETZE) if (wm[pl.platz]) w[pl.platz] = wm[pl.platz];

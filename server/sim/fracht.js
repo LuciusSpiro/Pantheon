@@ -172,6 +172,8 @@ function beamFertig(game) {
     require('./personen-bord.js').haltFertig(game, h);
   } else if (h.kind === 'verk') {   // SL6: Verkaufen an einen Händler (server/sim/ladung.js)
     require('./ladung.js').verkaufFertig(game);
+  } else if (h.kind === 'posten') {   // SUND-02b A1: Posten gründen / zum Stützpunkt ausbauen (server/sim/posten.js)
+    require('./posten.js').haltFertig(game, h);
   } else {
     const o = ablieferOrt(game);
     if (!o.ok) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'ab', grund: 'ort' }); return; }
@@ -209,6 +211,7 @@ function update(game, dt) {
     if (dist(game.ship.x, game.ship.y, pod.x, pod.y) > cfg(game).beamRange) return void beamStop(game, 'reichweite', 'Fracht außer Reichweite – Beamen abgebrochen.');
   } else if (h.kind === 'person_an' || h.kind === 'person_ab') { if (!require('./personen-bord.js').haltWeiter(game, h)) return void beamStop(game, 'ort', 'Person beamen abgebrochen.'); }   // SL0
   else if (h.kind === 'verk') { if (!require('./ladung.js').verkaufWeiter(game)) return void beamStop(game, 'ort'); }
+  else if (h.kind === 'posten') { const r = require('./posten.js').haltWeiter(game, h); if (r) return void beamStop(game, r.code, r.text); }   // SUND-02b A1
   else if (!ablieferOrt(game).ok) return void beamStop(game, 'ort');
   h.t += dt;
   if (h.t >= h.dur) beamFertig(game);

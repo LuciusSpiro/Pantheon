@@ -5,7 +5,20 @@
 // Fehlt sie (oder das Hex darin), gilt das statische Feld `fraktion` der Karte, `posten` ist dann falsch.
 // Andocken wird nur eingeschränkt, wenn der Modus aktiv ist: Karte sund_frei oder ein Overlay am Game. In Limes und in der
 // Kampagne (Karte sund) ohne Overlay ist darfAndocken immer wahr, alles bleibt wie heute.
+// SUND-02b A1: Stützpunkt der Crew (Overlay-Merkmal crew true: römischer Posten mit Garnison, den die Crew gegründet oder ausgebaut hat) hat Dock und Werft,
+// ein Sim-Posten ohne crew bleibt Kulisse. Das Dock eines Postens gibt es nicht in den Szenendaten (die Szene ist ein geteiltes, gecachtes Objekt und wird nie verändert),
+// sondern berechnet: dockLage() ersetzt an allen Stellen, die sc.dock lesen, das statische Feld.
+const fs = require('fs');
+const path = require('path');
 const Sektoren = require('../../shared/sektoren.js');
+const Locations = require('../../shared/locations.js');
+const POSTEN = require('../../content/welt/posten-werte.json').werte;
+let texteCache = null;
+const texte = () => {
+  if (texteCache) return texteCache;
+  try { texteCache = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'content', 'flotte', 'posten.json'), 'utf8')); } catch (e) { texteCache = {}; }
+  return texteCache;
+};
 
 const FREI_KARTE = 'sund_frei';
 // Besitzer, deren Häfen die Crew nicht anläuft (Kampfziel)
@@ -29,15 +42,21 @@ function istPosten(game, hex) {
   return !!(e && e.posten === true);
 }
 
+// SUND-02b A1: Stützpunkt der Crew: Posten laut Overlay, Besitzer Rom, Merkmal crew (das Overlay setzt crew nur bei Garnison > 0, kriegslage.js overlayFuellen)
+function crewPosten(game, hex) {
+  const e = eintrag(game, hex);
+  return !!(e && e.posten === true && e.besitzer === 'rom' && e.crew === true);
+}
+
 // SUND-02a A2: Läuft in diesem Hex eine Sim-Szene (Feindkontakt, game.simSzene), ist Andocken gesperrt, bis sie endet oder die Crew abspringt.
 const SZENE_TEXT = 'Andocken gesperrt – Feindkontakt, erst die Gegner abwehren';
 const szeneAn = (game, hex) => !!(game && game.simSzene && game.simSzene.hex === hex && game.simSzene.phase !== 'ende');
 
-// Darf die Crew in diesem Hex andocken? Posten nie (Kulisse), germanische und Piratenhäfen nie, während einer Sim-Szene nie, sonst ja.
+// Darf die Crew in diesem Hex andocken? Posten nur als Stützpunkt der Crew (sonst Kulisse), germanische und Piratenhäfen nie, während einer Sim-Szene nie, sonst ja.
 function darfAndocken(game, hex) {
   if (!modusAktiv(game)) return true;
   if (szeneAn(game, hex)) return false;
-  if (istPosten(game, hex) && !(Sektoren.hexDaten(hex) || {}).hafen) return false;
+  if (istPosten(game, hex) && !(Sektoren.hexDaten(hex) || {}).hafen) return crewPosten(game, hex);
   return !GESPERRT[besitzer(game, hex)];
 }
 
@@ -45,6 +64,7 @@ function darfAndocken(game, hex) {
 function verbotText(game, hex) {
   if (darfAndocken(game, hex)) return null;
   if (szeneAn(game, hex)) return SZENE_TEXT;
+  if (istPosten(game, hex) && !crewPosten(game, hex)) return (texte().dock || {}).kein_dock || 'Andocken verweigert';
   return GESPERRT[besitzer(game, hex)] || 'Andocken verweigert';
 }
 
@@ -63,4 +83,26 @@ function postenLage(sc) {
   return { x: Math.round(w * 0.5), y: Math.round(h * 0.5), r };
 }
 
-module.exports = { modus: modusAktiv, besitzer, istPosten, darfAndocken, verbotText, postenLage };
+// Liegeplatz in der Szene: das feste sc.dock (Häfen, Karawane) oder, an einem Stützpunkt der Crew ohne Station, ein Punkt unter dem Posten. Sonst null.
+// Alle Leser von sc.dock gehen hierüber (Dockerkennung, Aufbau, Asteroiden-Freihalten, Sprung-Mindestabstand, Escort, Alarm).
+function dockLage(game, sc, hex) {
+  if (!sc) return null;
+  if (sc.dock) return sc.dock;
+  if (!sc.station && hex && crewPosten(game, hex)) { const pl = postenLage(sc); return { x: pl.x, y: pl.y + pl.r + POSTEN.dock.wert.abstand }; }
+  return null;
+}
+
+// Kann die Crew an diesem Ort (Orts-ID) jetzt andocken? (Laden: war der gespeicherte Stützpunkt nicht mehr da, greift der Rückfall auf den Startort)
+function dockbar(game, ortId) {
+  const l = Locations.get(ortId);
+  if (!l || !l.scene) return false;
+  const hex = l.hex || Sektoren.hexVonOrt(ortId);
+  return !!dockLage(game, l.scene, hex) && (!hex || darfAndocken(game, hex));
+}
+
+// Handel am Stützpunkt der Crew gesperrt (Text) oder null: der Posten hat Werft, aber keinen Markt
+function handelSperre(game, hex) {
+  return crewPosten(game, hex) ? ((texte().dock || {}).handel || 'Dieser Posten verkauft nichts.') : null;
+}
+
+module.exports = { modus: modusAktiv, besitzer, istPosten, crewPosten, darfAndocken, verbotText, postenLage, dockLage, dockbar, handelSperre };

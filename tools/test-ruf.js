@@ -138,7 +138,7 @@ section('Wirkung ruf_aenderung: Prüfer', () => {
   for (const d of [0, undefined, '5', NaN, Infinity, null]) ok(!pr(wirk('rom', d, 'sieg_feld_ger')).ok, 'ungültig: delta ' + String(d));
   ok(pr(wirk('rom', W.delta_max.wert, 'sieg_feld_ger')).ok && pr(wirk('rom', -W.delta_max.wert, 'fahrerflucht_ger')).ok, 'delta genau an der Grenze (' + W.delta_max.wert + '): gültig');
   ok(!pr(wirk('rom', W.delta_max.wert + 1, 'sieg_feld_ger')).ok && !pr(wirk('rom', -W.delta_max.wert - 0.5, 'fahrerflucht_ger')).ok, 'delta über der Grenze: ungültig');
-  for (const gr of [undefined, '', 'x', 'posten_gehalten', 'constructor', 7]) ok(!pr(wirk('rom', 3, gr)).ok, 'ungültig: Grund ' + JSON.stringify(gr));
+  for (const gr of [undefined, '', 'x', 'beschuss_verbuendeter', 'constructor', 7]) ok(!pr(wirk('rom', 3, gr)).ok, 'ungültig: Grund ' + JSON.stringify(gr));
   ok(!pr(wirk('ger', 3, 'sieg_feld_ger')).ok, 'ungültig: Grund gehört zu einer anderen Fraktion');
   ok(!Wirkungen.pruefe(zz, null).ok && !Wirkungen.pruefe(zz, []).ok, 'ungültig: keine Wirkung');
   // Der Kern bleibt rein: er nimmt die Wirkung an, tut nichts, der Zustand ist bitgleich

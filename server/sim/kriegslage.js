@@ -24,6 +24,7 @@
 const Kern = require('../weltsim/kern.js');
 const Daten = require('../weltsim/daten.js');
 const Besitz = require('./besitz.js');
+const Posten = require('./posten.js');   // SUND-02b A1: Posten der Crew (Halten, Weltstand welt.sim.posten)
 const Ruf = require('./ruf.js');   // SUND-02b B: Ruf je Fraktion, Dienstgrade von Rom (welt.sim.ruf)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
@@ -72,6 +73,7 @@ function overlayFuellen(game) {
   if (!ws) { game.weltBesitz = null; return; }
   const hexe = {};
   for (const [code, nd] of Object.entries(ws.zustand.hexe)) hexe[code] = { besitzer: nd.besitzer ? (KARTEN_FRAKTION[nd.besitzer] || 'frei') : 'frei', posten: !!nd.posten };
+  for (const [code, nd] of Object.entries(ws.zustand.hexe)) if (nd.crew === true && nd.posten && nd.besitzer === 'rom' && nd.garnison > 0) hexe[code].crew = true;   // SUND-02b A1: Stützpunkt der Crew (Dock, Werft); additiv, ohne crew ändert sich nichts
   game.weltBesitz = { hexe };
 }
 
@@ -79,7 +81,7 @@ function overlayFuellen(game) {
 function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
@@ -114,7 +116,8 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   const alle = (ws.vorgemerkt || []).concat(wirkungen || []).map(klon);
   ws.vorgemerkt = [];
   const rufSicher = klon(ws.ruf || Ruf.neu());
-  let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null;
+  const postenSicher = klon(ws.posten || {});
+  let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null, gehalten = [];
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
@@ -122,10 +125,13 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
         .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
     }
     ev = Kern.tick(ws.zustand, { wirkungen: gueltig }).ereignisse;
-    rang = Ruf.anwenden(game, gueltig);   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)
+    const po = Posten.nachTick(game, gueltig);   // SUND-02b A1: Crew-Posten eintragen/austragen, „gehalten“ als Ruf-Wirkung (Aufsatz, im selben Atom)
+    gehalten = po.gehalten;
+    rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)
   } catch (e) {
     ws.zustand = Object.assign(sicher, { werte: ws.zustand.werte, karte: ws.zustand.karte });
     ws.ruf = rufSicher;
+    ws.posten = postenSicher;
     ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
     ws.wirkungenVerworfen += alle.length;
     ws.fehler++;
@@ -139,6 +145,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   ws.wirkungenAngewandt += gueltig.length; ws.wirkungenVerworfen += verworfen.length;
   for (const k of kommandanten) kommandantMerken(ws, k);
   if (rang) { try { Ruf.meldeRang(game, rang.vorher, rang.nachher); } catch (e) { if (game.countError) game.countError('kriegslage-ruf', e); } }   // Rangwechsel-Funk nach dem Commit; wie der Wissens-Funk des Ticks steht er VOR der Szenenmeldung
+  if (gehalten.length) { try { Posten.meldeGehalten(game, gehalten); } catch (e) { if (game.countError) game.countError('kriegslage-posten', e); } }
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
@@ -206,13 +213,14 @@ function szeneNachziehen(game) {
   const hex = loc.hex || Sektoren.hexVonOrt(loc.id);
   if (!hex) return;
   const sc = loc.scene;
-  sp.dockOk = !sc.dock || Besitz.darfAndocken(game, hex);
+  const dock = Besitz.dockLage(game, sc, hex);   // SUND-02b A1: auch der Stützpunkt der Crew hat einen Liegeplatz (berechnet)
+  sp.dockOk = !dock || Besitz.darfAndocken(game, hex);
   const fr = Besitz.besitzer(game, hex);
   const m = sp.markers || [];
   for (const k of m) if ('fr' in k) k.fr = fr;
   const i = m.findIndex((k) => k.kind === 'dock');
-  if (sc.dock && sp.dockOk && i < 0) m.push({ kind: 'dock', x: sc.dock.x, y: sc.dock.y, r: game.C.travel.dockDist });
-  else if (i >= 0 && !sp.dockOk) m.splice(i, 1);
+  if (dock && sp.dockOk && i < 0) m.push({ kind: 'dock', x: dock.x, y: dock.y, r: game.C.travel.dockDist });
+  else if (i >= 0 && (!dock || !sp.dockOk)) m.splice(i, 1);   // SUND-02b A1: auch wenn der Stützpunkt weg ist
   // Posten-Marker (wie in Space.enterScene): im Hex wurde im Tick ein Posten gegründet oder verloren. Die Asteroiden der Szene bleiben (neu bis zum nächsten Besuch).
   const hatPosten = !sc.station && Besitz.istPosten(game, hex);
   const pi = m.findIndex((k) => k.posten);
@@ -242,6 +250,7 @@ function toSave(game) {
   const b = { modus: MODUS, tick: ws.tickZahl, zustand: abbild(ws.zustand) };
   const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
   const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
+  const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);
   if (ws.hauptweltGefallen) b.hauptweltGefallen = { fraktion: String(ws.hauptweltGefallen.fraktion), tick: ws.hauptweltGefallen.tick };
@@ -268,7 +277,7 @@ function restore(game, b) {
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
@@ -278,6 +287,7 @@ function restore(game, b) {
   }
   game.weltsim.kommandanten = kommandantenLesen(b.kommandanten);
   game.weltsim.vorgemerkt = vorgemerktLesen(b.vorgemerkt);
+  game.weltsim.posten = Posten.lesen(b.posten);   // SUND-02b A1: fehlt = leer (Altstand)
   game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };

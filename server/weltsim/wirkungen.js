@@ -13,10 +13,15 @@
 //   ort_gefallen         { ort, an: fraktion }                 nur bei laufender Belagerung des Ortes durch Flotten von `an`. Hafen: wie erobern() (Ereignis hafen_gefallen); Posten: wie der Posten-Verlust im Gefecht (Ereignis posten_verloren).
 //   ruf_aenderung        { fraktion: 'rom'|'ger'|'kon', delta: Zahl ≠ 0, grund: Schlüssel aus content/welt/ruf-werte.json (quellen) }   Ruf der Crew bei einer Fraktion (SUND-02b B). Gehört NICHT zum Sim-Zustand: der Kern ignoriert sie (der Anwender im Katalog ist leer, Markierung `aufsatz`),
 //                        angewandt wird sie vom Spielaufsatz nach dem Tick (kriegslage.js -> server/sim/ruf.js, welt.sim.ruf), atomar mit dem Tick. Damit bleibt der Kern rein und bitgleich zum Prototyp.
+//   posten_gehisst       { ort }                               (SUND-02b A1) die Crew gründet einen Posten in einem freien Hex in Roms Anspruch (content/welt/posten-werte.json): Besitzer rom, Garnison werte.garrison, Merkmal crew true
+//                        (Dock und Werft, nur der Spielaufsatz liest es). Prüfer: Hex ohne Hafen, ohne Besitzer, ohne Posten, ohne feindliche Flotte, im Anspruch. Ereignis posten_gehisst (nicht posten_gegruendet: Kennzahlen zählen nur Posten der Sim).
+//   posten_ausgebaut     { ort }                               (SUND-02b A1) die Crew baut einen vorhandenen römischen Posten zum Stützpunkt aus: Merkmal crew true, Garnison mindestens werte.garrison. Prüfer: Posten, Besitzer rom, ohne Hafen, noch ohne crew, ohne feindliche Flotte. Ereignis posten_ausgebaut.
+// Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
 
 const RUF = require('../../content/welt/ruf-werte.json');   // Daten der Wirkung ruf_aenderung (Fraktionen, Grenzen, Gründe)
+const POSTEN = require('../../content/welt/posten-werte.json').werte;   // Daten der Wirkungen posten_gehisst und posten_ausgebaut (Anspruch von Rom)
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const SCHICKSALE = ['entkommen', 'gefallen'];
 const NAME_MAX = 60;
@@ -91,6 +96,39 @@ const KATALOG = {
         rec.ausgang = 'abgewehrt'; rec.t_ende = c.z.tick;
         H.meldeAbgewehrt(c, rec);
       }
+    },
+  },
+  posten_gehisst: {
+    pruefe(z, d, wk) {
+      const k = hexKnoten(z, d, wk.ort);
+      if (!k) return 'unbekannter Ort';
+      if (k.hafen) return 'Ort hat einen Hafen';
+      if (k.nd.besitzer !== null) return 'Ort hat schon einen Besitzer';
+      if (k.nd.posten) return 'Ort hat schon einen Posten';
+      if (!POSTEN.anspruch.wert.rom.includes(wk.ort)) return 'Sektor liegt nicht in Roms Anspruch';
+      if (z.flotten.some((fl) => fl.ort === wk.ort && fl.staerke > 0 && feind('rom', fl.fraktion))) return 'feindliche Flotte im Sektor';
+      return null;
+    },
+    anwenden(c, wk) {
+      const nd = c.z.hexe[wk.ort];
+      nd.posten = true; nd.besitzer = 'rom'; nd.garnison = c.w.garrison; nd.anspruch = {}; nd.crew = true;
+      H.melde(c, 'posten_gehisst', 'rom', { ort: wk.ort });
+    },
+  },
+  posten_ausgebaut: {
+    pruefe(z, d, wk) {
+      const k = hexKnoten(z, d, wk.ort);
+      if (!k) return 'unbekannter Ort';
+      if (k.hafen) return 'Ort hat einen Hafen';
+      if (!k.nd.posten || k.nd.besitzer !== 'rom') return 'kein römischer Posten';
+      if (k.nd.crew === true) return 'Posten ist schon ein Stützpunkt';
+      if (z.flotten.some((fl) => fl.ort === wk.ort && fl.staerke > 0 && feind('rom', fl.fraktion))) return 'feindliche Flotte im Sektor';
+      return null;
+    },
+    anwenden(c, wk) {
+      const nd = c.z.hexe[wk.ort];
+      nd.crew = true; nd.garnison = Math.max(nd.garnison, c.w.garrison);
+      H.melde(c, 'posten_ausgebaut', 'rom', { ort: wk.ort });
     },
   },
   ruf_aenderung: {

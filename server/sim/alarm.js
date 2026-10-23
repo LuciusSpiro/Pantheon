@@ -15,6 +15,7 @@
 // Mine: { id, x, y, besitzer: 'gegner'|'lerche', ohneStrom, gesehen, tag }
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
+const Besitz = require('./besitz.js');   // SUND-02b A1: dockLage
 const Physics = require('../../shared/physics.js');
 const interior = require('./interior.js');
 const Pilot = require('./pilot.js');
@@ -286,7 +287,7 @@ function minenSetzen(game, o) {
   const rng = makeRng((game.seed ^ 0x3A11 ^ hashStr(game.ship.scene + tag + sp.minen.length)) >>> 0);
   const n = Math.max(1, Math.round(Number(o.n) || (o.positionen ? o.positionen.length : 1)));
   const out = [];
-  const meiden = [sc.arrive, sc.station, sc.dock].filter(Boolean).map((k) => ({ x: k.x, y: k.y, r: (k.r || 0) + 260 }));
+  const meiden = [sc.arrive, sc.station, Besitz.dockLage(game, sc, loc && (loc.hex || Sektoren.hexVonOrt(loc.id)))].filter(Boolean).map((k) => ({ x: k.x, y: k.y, r: (k.r || 0) + 260 }));
   let guard = 0;
   while (out.length < n && guard++ < 4000) {
     let x, y;

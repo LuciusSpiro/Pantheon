@@ -269,7 +269,8 @@ function ortPunkt(game, S) {
   const loc = Locations.get(game.ship.scene); const sc = (loc && loc.scene) || {};
   if (S.ort === 'hafen' && sc.station) return { x: sc.station.x, y: sc.station.y };
   if (S.ort === 'posten') { const p = Besitz.postenLage(sc); return { x: p.x, y: p.y }; }
-  if (S.ort === 'hafen' && sc.dock) return { x: sc.dock.x, y: sc.dock.y };
+  const dock = Besitz.dockLage(game, sc, S.hex);   // SUND-02b A1
+  if (S.ort === 'hafen' && dock) return { x: dock.x, y: dock.y };
   const L = game.ship;
   return { x: L.x - Math.cos(L.angle) * 200, y: L.y - Math.sin(L.angle) * 200 };
 }
