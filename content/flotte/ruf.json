@@ -1,0 +1,17 @@
+{
+  "format": "ruf/1",
+  "_hinweis": "SUND-02b B: Funktexte bei einem Wechsel des Dienstgrads von Rom (server/sim/ruf.js, Freie Fahrt Sund). Rang-Ids und Schwellen stehen in content/welt/ruf-werte.json. Funk über den Lagefunk-Pfad (lage: 1, wichtig). Nur Daten für den Client, die Gestaltung kommt später.",
+  "sprecher": "Oberkommando",
+  "auf": {
+    "optio": "Rom ernennt Euch zum Optio. Euer Name ist bei den Wachposten bekannt.",
+    "centurio": "Rom ernennt Euch zum Centurio. Die Legion traut Euch eine Zenturie zu.",
+    "tribun": "Rom ernennt Euch zum Tribun. Das Oberkommando hört auf Euren Rat.",
+    "legat": "Rom ernennt Euch zum Legaten. Der Senat kennt Euren Namen."
+  },
+  "ab": {
+    "miles": "Rom stuft Euch auf den Rang Miles zurück.",
+    "optio": "Rom stuft Euch auf den Rang Optio zurück.",
+    "centurio": "Rom stuft Euch auf den Rang Centurio zurück.",
+    "tribun": "Rom stuft Euch auf den Rang Tribun zurück."
+  }
+}

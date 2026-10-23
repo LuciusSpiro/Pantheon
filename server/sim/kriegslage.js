@@ -12,6 +12,8 @@
 //   szeneNachziehen(game)     Andock-Erlaubnis, Banner und Posten-Marker der aktuellen Szene nach einem Tick ohne Szenenwechsel neu setzen
 //   nachLaden(game)           nach dem Laden: keine Angebote der Kampagne, Szene nachziehen
 //   toSave(game) / restore(game, block) / reset(game)   Weltstand-Block welt.sim (inkl. welt.sim.wissen, SUND-01 C; optional kommandanten und vorgemerkt, SUND-02)
+//   (SUND-02b B) welt.sim.ruf: { rom, ger, kon } (optional, Altstände = 0, server/sim/ruf.js). Die Wirkung ruf_aenderung prüft der Katalog, der Kern ignoriert sie; tickMit wendet sie NACH dem Tick an (Ruf.anwenden), im selben
+//   Atom: wirft der Tick, geht auch der Ruf auf die Sicherung zurück. Rangwechsel-Funk erst nach dem Commit.
 //   welt.sim.kommandanten: Gedächtnis { Name: { fraktion, schicksal: 'entkommen'|'gefallen', begegnungen, tick } }; welt.sim.vorgemerkt: [Wirkung] für den nächsten Tick
 //   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
 //   lage(game) / lageSchluessel(game)  Anzeigeblock world.lage und Änderungsschlüssel (nur im Modus, Wissen statt Wahrheit)
@@ -22,6 +24,7 @@
 const Kern = require('../weltsim/kern.js');
 const Daten = require('../weltsim/daten.js');
 const Besitz = require('./besitz.js');
+const Ruf = require('./ruf.js');   // SUND-02b B: Ruf je Fraktion, Dienstgrade von Rom (welt.sim.ruf)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
@@ -76,7 +79,7 @@ function overlayFuellen(game) {
 function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
@@ -110,7 +113,8 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   const sicher = abbild(ws.zustand);   // Rückfall, falls die Sim mitten im Tick wirft (der halbe Tick darf nie stehen bleiben)
   const alle = (ws.vorgemerkt || []).concat(wirkungen || []).map(klon);
   ws.vorgemerkt = [];
-  let ev, gueltig = [], verworfen = [], kommandanten = [];
+  const rufSicher = klon(ws.ruf || Ruf.neu());
+  let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null;
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
@@ -118,8 +122,10 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
         .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
     }
     ev = Kern.tick(ws.zustand, { wirkungen: gueltig }).ereignisse;
+    rang = Ruf.anwenden(game, gueltig);   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)
   } catch (e) {
     ws.zustand = Object.assign(sicher, { werte: ws.zustand.werte, karte: ws.zustand.karte });
+    ws.ruf = rufSicher;
     ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
     ws.wirkungenVerworfen += alle.length;
     ws.fehler++;
@@ -132,6 +138,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   ws.letzteWirkungen = { angewandt: gueltig.length, verworfen };
   ws.wirkungenAngewandt += gueltig.length; ws.wirkungenVerworfen += verworfen.length;
   for (const k of kommandanten) kommandantMerken(ws, k);
+  if (rang) { try { Ruf.meldeRang(game, rang.vorher, rang.nachher); } catch (e) { if (game.countError) game.countError('kriegslage-ruf', e); } }   // Rangwechsel-Funk nach dem Commit; wie der Wissens-Funk des Ticks steht er VOR der Szenenmeldung
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
@@ -234,6 +241,7 @@ function toSave(game) {
   if (!ws) return null;
   const b = { modus: MODUS, tick: ws.tickZahl, zustand: abbild(ws.zustand) };
   const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
+  const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);
   if (ws.hauptweltGefallen) b.hauptweltGefallen = { fraktion: String(ws.hauptweltGefallen.fraktion), tick: ws.hauptweltGefallen.tick };
@@ -260,7 +268,7 @@ function restore(game, b) {
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
@@ -270,6 +278,7 @@ function restore(game, b) {
   }
   game.weltsim.kommandanten = kommandantenLesen(b.kommandanten);
   game.weltsim.vorgemerkt = vorgemerktLesen(b.vorgemerkt);
+  game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };
   overlayFuellen(game);

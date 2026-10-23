@@ -29,6 +29,7 @@ const Flotte = require('./flotte.js');
 const Escort = require('./escort.js');
 const Kriegslage = require('./kriegslage.js');
 const Besitz = require('./besitz.js');
+const Ruf = require('./ruf.js');   // SUND-02b B: Ruf-Wirkungen am Szenenende (Regeln stehen in ruf.js, Zahlen in content/welt/ruf-werte.json)
 const KT = require('../../public/js/karte-tokens.js');   // Stärkenamen (wie Wissen von Rom, kriegslage-wissen.js)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
@@ -195,6 +196,7 @@ function sieg(game, S) {
   const w = verlustWirkungen(game, S);
   for (const a of S.angreifer) if (flotteMit(z, a.id)) w.push(Object.assign({ typ: 'flaggschiff_gefallen', flotte: a.id }, kd ? { kommandant: { name: kd.name, schicksal } } : {}));   // alle Flotten des Angreifers brechen ab; ohne echten Kommandanten kein Gedächtniseintrag
   if (S.ort) w.push({ typ: 'ort_gehalten', ort: S.hex });
+  w.push(...Ruf.szeneSieg(S, w.some((x) => x.typ === 'ort_gehalten' && Kern.pruefeWirkung(z, x).ok)));   // SUND-02b B: Ruf für den Sieg (Feld klein, gehaltener Ort groß); ort_gehalten zählt nur, wenn die Sim es annimmt (laufende Belagerung)
   const wirk = gueltige(game, w);
   const T = texte();
   const text = kd ? fmt(((T.sieg || {})[schicksal]), { kommandant: kd.name }) : (T.sieg || {}).ohneKommandant;
@@ -233,7 +235,7 @@ function abbrechen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
   S.phase = 'ende';
-  const w = gueltige(game, verlustWirkungen(game, S));
+  const w = gueltige(game, verlustWirkungen(game, S).concat(Ruf.szeneFlucht(S)));   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle)
   aufraeumen(game, S);
   endeAufraeumen(game);   // H-a: auch die Flucht räumt die Szenen-ODA weg („Erste Welle in 10 s“ liefe sonst im neuen Sektor weiter)
   const r = Kriegslage.wirkungenVormerken(game, w);

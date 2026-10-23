@@ -1,0 +1,23 @@
+{
+  "format": "ruf-werte/1",
+  "_hinweis": "SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (server/sim/ruf.js, Wirkung ruf_aenderung in server/weltsim/wirkungen.js), nur im Modus Freie Fahrt Sund. Ruf ist ein Kann, nie ein Muss: er öffnet Zugang, erzwingt nichts. Alle Zahlen stehen hier, keine im Code. Aenderungen wirken ohne Code. Die Schwellen und Quellen sind mit tools/sim-ruf.js gemessen bzw. berechnet (Ausgabe im Bericht SUND-02b B); die Quellen aus Paket A (Posten gruenden, halten, sprengen) und E (Beschuss roemischer Verbuendeter) tragen nur neue Eintraege in `quellen` ein.",
+  "werte": {
+    "fraktionen": {"wert": {"rom": {"min": 0, "max": 220}, "ger": {"min": -50, "max": 0}, "kon": {"min": -50, "max": 50}}, "einheit": "Rufpunkte", "_hinweis": "Ruf je Fraktion, Start 0. Grenzen: nie darunter, nie darueber (Aenderungen werden geklemmt). rom: 0 bis 220 (Legat ab 180, der Rest ist Luft gegen Springen am Rand); ger: nur abwaerts (Platzhalter, oeffnet nichts, sinkt automatisch ueber `folge`); kon: nur das Feld, sinkt oder steigt erst mit SUND-03/04"},
+    "delta_max": {"wert": 20, "einheit": "Rufpunkte je Wirkung", "_hinweis": "Pruefer von ruf_aenderung: |delta| groesser als das wird abgelehnt (ein Fehler im Aufrufer soll den Ruf nie in einem Zug verschieben)"},
+    "raenge": {"wert": [
+      {"id": "miles", "name": "Miles", "ab": 0},
+      {"id": "optio", "name": "Optio", "ab": 8},
+      {"id": "centurio", "name": "Centurio", "ab": 30},
+      {"id": "tribun", "name": "Tribun", "ab": 80},
+      {"id": "legat", "name": "Legat", "ab": 180}
+    ], "einheit": "Rufpunkte Rom", "_hinweis": "Dienstgrade von Rom (Ruf `rom`), aufsteigend, `ab` = Mindest-Ruf. Der Rang folgt dem Ruf: er kann sinken. Eine vom Rang freigeschaltete Ausbaustufe bleibt trotzdem frei (Paket C, Werft). Germanen und Konkordat haben keine Dienstgrade."},
+    "quellen": {"wert": {
+      "sieg_feld_pirat":        {"fraktion": "rom", "delta": 2,   "_hinweis": "Sim-Szene im Feld (kein roemischer Hafen/Posten) gegen Piraten gewonnen"},
+      "sieg_feld_ger":          {"fraktion": "rom", "delta": 3,   "folge": {"ger": -2}, "_hinweis": "Sim-Szene im Feld gegen Germanen gewonnen"},
+      "ort_gehalten_pirat":     {"fraktion": "rom", "delta": 8,   "_hinweis": "Belagerung eines roemischen Hafens/Postens durch Piraten abgewehrt (Wirkung ort_gehalten gilt)"},
+      "ort_gehalten_ger":       {"fraktion": "rom", "delta": 10,  "folge": {"ger": -4}, "_hinweis": "Belagerung eines roemischen Hafens/Postens durch Germanen abgewehrt"},
+      "fahrerflucht_ger":       {"fraktion": "rom", "delta": -3,  "_hinweis": "Szene gegen Germanen im Feld per Sprung verlassen"},
+      "fahrerflucht_ort_ger":   {"fraktion": "rom", "delta": -6,  "_hinweis": "Szene gegen Germanen um einen roemischen Hafen/Posten per Sprung verlassen"}
+    }, "einheit": "Rufpunkte", "_hinweis": "Tabelle grund -> Fraktion, Standard-delta und optional `folge` ({Fraktion: delta}, wird mit angewandt, geklemmt, ohne Rang-Wirkung). Der Pruefer von ruf_aenderung kennt nur diese Gruende (fraktion muss passen). Was hier fehlt, gibt keinen Ruf: Piraten ignorieren (keine Fahrerflucht gegen Piraten, Entscheidung 02a) und das Ablehnen eines Fuehrungsangebots (Paket E) aendern den Ruf nie. Paket A ergaenzt posten_gegruendet, posten_gehalten, posten_gesprengt, Paket E beschuss_verbuendeter."}
+  }
+}

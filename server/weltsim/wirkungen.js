@@ -11,9 +11,13 @@
 //   flaggschiff_gefallen { flotte, kommandant?: {name, schicksal: 'entkommen'|'gefallen'} }   die Flotte bricht ab (Rückzug, auch mit Reststärke); Merken im Gedächtnis macht kriegslage.js, nur MIT kommandant (ohne: kein Eintrag).
 //   ort_gehalten         { ort, angriff?: id }                 laufende Belagerung des Ortes endet: Flotten des Feldzugs Rückzug, Feldzug „abgewehrt“ (Ereignis angriff_abgewehrt).
 //   ort_gefallen         { ort, an: fraktion }                 nur bei laufender Belagerung des Ortes durch Flotten von `an`. Hafen: wie erobern() (Ereignis hafen_gefallen); Posten: wie der Posten-Verlust im Gefecht (Ereignis posten_verloren).
+//   ruf_aenderung        { fraktion: 'rom'|'ger'|'kon', delta: Zahl ≠ 0, grund: Schlüssel aus content/welt/ruf-werte.json (quellen) }   Ruf der Crew bei einer Fraktion (SUND-02b B). Gehört NICHT zum Sim-Zustand: der Kern ignoriert sie (der Anwender im Katalog ist leer, Markierung `aufsatz`),
+//                        angewandt wird sie vom Spielaufsatz nach dem Tick (kriegslage.js -> server/sim/ruf.js, welt.sim.ruf), atomar mit dem Tick. Damit bleibt der Kern rein und bitgleich zum Prototyp.
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
 
+const RUF = require('../../content/welt/ruf-werte.json');   // Daten der Wirkung ruf_aenderung (Fraktionen, Grenzen, Gründe)
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const SCHICKSALE = ['entkommen', 'gefallen'];
 const NAME_MAX = 60;
 const istZahl = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -89,6 +93,19 @@ const KATALOG = {
       }
     },
   },
+  ruf_aenderung: {
+    aufsatz: true,   // gehört dem Spielaufsatz (ruf.js), nicht dem Sim-Zustand: der Kern nimmt sie an und tut nichts
+    pruefe(z, d, wk) {
+      const W = RUF.werte;
+      if (typeof wk.fraktion !== 'string' || !has(W.fraktionen.wert, wk.fraktion)) return 'unbekannte Fraktion (fraktion)';
+      if (!istZahl(wk.delta) || wk.delta === 0) return 'delta muss eine Zahl ungleich 0 sein';
+      if (Math.abs(wk.delta) > W.delta_max.wert) return `delta ${wk.delta} übersteigt die Grenze ${W.delta_max.wert}`;
+      if (typeof wk.grund !== 'string' || !has(W.quellen.wert, wk.grund)) return 'unbekannter Grund (grund)';
+      if (W.quellen.wert[wk.grund].fraktion !== wk.fraktion) return `Grund ${wk.grund} gehört zu ${W.quellen.wert[wk.grund].fraktion}, nicht zu ${wk.fraktion}`;
+      return null;
+    },
+    anwenden() { /* Spielaufsatz: ruf.js, nach dem Tick */ },
+  },
   ort_gefallen: {
     pruefe(z, d, wk) {
       const k = hexKnoten(z, d, wk.ort);
@@ -124,4 +141,6 @@ function installiere(WIRKUNGEN, helfer) {
   for (const [typ, e] of Object.entries(KATALOG)) WIRKUNGEN[typ] = e.anwenden;
 }
 
-module.exports = { KATALOG, SCHICKSALE, pruefe, installiere };
+const istAufsatz = (typ) => has(KATALOG, typ) && KATALOG[typ].aufsatz === true;   // Wirkung, die der Spielaufsatz anwendet (der Kern ignoriert sie)
+
+module.exports = { KATALOG, SCHICKSALE, pruefe, installiere, istAufsatz };

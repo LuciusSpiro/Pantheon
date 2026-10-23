@@ -552,7 +552,7 @@ section('Abbruch: Flucht per Sprung und Notfallsprung', () => {
   ok(!err && g.ship.scene !== 'ostia_nova', 'Flucht per Sprung gelungen ' + (err || ''));
   ok(!g.simSzene && ticks(g) === tick0 + 1, `Sprung beendet die Szene, der Sprung-Tick ist der EINE Tick (${tick0} -> ${ticks(g)})`);
   const L = Szene.letzte(g);
-  ok(L.ausgang === 'abbruch' && L.wo === 'sprung' && L.wirkungen.every((x) => x.typ === 'flotte_verlust' || x.typ === 'abwehr_verlust') && !L.wirkungen.some((x) => x.typ.startsWith('ort_') || x.typ === 'flaggschiff_gefallen'), 'Abbruch: nur Verluste, kein ort_*, kein flaggschiff_gefallen');
+  ok(L.ausgang === 'abbruch' && L.wo === 'sprung' && L.wirkungen.every((x) => x.typ === 'flotte_verlust' || x.typ === 'abwehr_verlust' || x.typ === 'ruf_aenderung') && !L.wirkungen.some((x) => x.typ.startsWith('ort_') || x.typ === 'flaggschiff_gefallen'), 'Abbruch: nur Verluste, kein ort_*, kein flaggschiff_gefallen');
   ok(letzterTick.wirkungen.some((x) => x.typ === 'flotte_verlust' && x.flotte === fl.id && x.punkte === pkt), `die Verluste gingen in den Sprung-Tick ein (${pkt} Punkte)`);
   ok(g.weltsim.vorgemerkt.length === 0 && vergleich(g), 'nichts bleibt vorgemerkt, Weltstand = Vergleichslauf');
   ok((g.space.escorts || []).every((q) => !q.sim) && !g.flotte && g.errors === 0, 'Verbündete springen nicht mit, kein Flottenzustand im neuen Sektor');
@@ -796,7 +796,7 @@ section('Client-Runde M1: Szenenfunk läuft über den Lagefunk-Pfad (Konsolen, F
   ok(ev().some((m) => m.lage && /greift mit dem Flaggschiff ein/.test(m.text) && m.text.includes(g.simSzene.kommandant.name)), 'Finale: „… greift mit dem Flaggschiff ein!“ als Lagefunk, mit dem Namen des Kommandanten');
   const n0 = ev().length;
   kill(g, g.space.enemies.find((x) => x.flagg)); run(g, 0.2);
-  const neue = ev().slice(n0);
+  const neue = ev().slice(n0).filter((m) => !m.ruf);   // Rangwechsel-Funk (SUND-02b B, m.ruf) gehört zum Tick und wird in test-ruf.js geprüft
   ok(neue.length >= 2 && neue.every((m) => m.lage), 'Sieg: Funk als Lagefunk (' + neue.map((m) => m.text).join(' | ').slice(0, 100) + ')');
   const kd = neue.findIndex((m) => m.text.includes(g.simSzene ? '' : Szene.letzte(g) && Szene.letzte(g).wirkungen.find((x) => x.typ === 'flaggschiff_gefallen').kommandant.name));
   ok(kd > 0 && /hält\./.test(neue[0].text), 'Sieg: erst „… hält.“, dann der Spruch zum Kommandanten (Name erreicht die Crew); danach höchstens Meldungen der Weltsimulation');

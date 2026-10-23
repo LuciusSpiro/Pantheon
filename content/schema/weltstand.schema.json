@@ -152,6 +152,11 @@
               "type": "object", "description": "SUND-02: Gedächtnis der Kommandanten, denen die Crew begegnet ist (Wirkung flaggschiff_gefallen). Fehlt im Altstand (leer). Schlüssel = Name; gefallen bleibt gefallen.",
               "additionalProperties": { "type": "object", "required": ["fraktion", "schicksal", "begegnungen", "tick"], "properties": { "fraktion": { "type": "string" }, "schicksal": { "enum": ["entkommen", "gefallen"] }, "begegnungen": { "type": "integer", "minimum": 1 }, "tick": { "type": "integer", "minimum": 0 } } }
             },
+            "ruf": {
+              "type": "object", "additionalProperties": false,
+              "description": "SUND-02b B: Ruf der Crew je Fraktion (server/sim/ruf.js, Grenzen und Dienstgrade in content/welt/ruf-werte.json). Fehlt im Altstand und bei 0/0/0 (alle Werte 0). Der Rang folgt aus rom und wird nicht gespeichert. Nur der Server schreibt.",
+              "properties": { "rom": { "type": "number" }, "ger": { "type": "number" }, "kon": { "type": "number" } }
+            },
             "vorgemerkt": {
               "type": "array", "description": "SUND-02: Wirkungen der Crew (server/weltsim/wirkungen.js), die der nächste Tick (Sprung) anwendet; Flucht per Sprung.",
               "items": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }
