@@ -67,6 +67,7 @@ function rufErreicht(game, rangId) {
 const rangName = (id) => { const r = RAENGE.find((q) => q.id === id); return r ? r.name : String(id); };
 function werftText(key, vars) {
   const t = ((texte().werft || {})[key]) || '';
+  if (!t) return String((vars && (vars.rang || vars.name)) || key);   // Textdatei fehlt: nie leer (ein leerer Grund würde nichts sperren), Rückfall auf Rangname bzw. Schlüssel
   return t.replace(/\{(\w+)\}/g, (m, k) => (vars && has(vars, k) ? vars[k] : m));
 }
 
