@@ -159,17 +159,25 @@ section('Atomar mit dem Tick', () => {
   // Rollback: der Tick wirft -> Ruf, Rang und Tickzähler wie vorher
   const rufVor = kopie(g.weltsim.ruf); const tk = ticks(g); const rangVor = Ruf.rang(g);
   kernWirft = true;
+  const warnOrig = console.warn; console.warn = () => {};   // der gezählte Fehler ist gewollt
   const r2 = Kriegslage.szeneAbschliessen(g, { wirkungen: [wirk('rom', 20, 'ort_gehalten_ger'), wirk('rom', 20, 'ort_gehalten_ger')], wo: 'test' });
-  kernWirft = false;
+  console.warn = warnOrig; kernWirft = false;
   ok(!r2.ok && gleich(g.weltsim.ruf, rufVor) && Ruf.rang(g) === rangVor && ticks(g) === tk, 'wirft der Tick: Rollback, Ruf, Rang und Tickzähler unverändert');
   ok(t.funk().every((m) => !m.ruf), 'kein Rangfunk aus dem gescheiterten Tick');
+  // Rollback auch, wenn erst die Anwendung des Rufs wirft (nach dem Kern): der Ruf geht auf die Sicherung zurück, der Sim-Zustand ebenfalls
+  const anwOrig = Ruf.anwenden; const simVor = kopie(Kriegslage.abbild(z(g)));
+  Ruf.anwenden = function (gm, w) { anwOrig.call(Ruf, gm, w); throw new Error('Test: Ruf wirft'); };
+  console.warn = () => {};
+  const r3 = Kriegslage.szeneAbschliessen(g, { wirkungen: [wirk('rom', 7, 'sieg_feld_ger')], wo: 'test' });
+  console.warn = warnOrig; Ruf.anwenden = anwOrig;
+  ok(!r3.ok && gleich(g.weltsim.ruf, rufVor) && ticks(g) === tk && gleich(Kriegslage.abbild(z(g)), simVor), 'wirft erst die Anwendung des Rufs: Ruf und Sim-Zustand wie vorher (ein Atom)');
   // Vormerken: ungültige kommen zurück, gültige gelten im nächsten Tick
   const v = Kriegslage.wirkungenVormerken(g, [wirk('rom', -3, 'fahrerflucht_ger'), wirk('rom', 5, 'unbekannt')]);
   ok(v.vorgemerkt === 1 && v.verworfen.length === 1, 'wirkungenVormerken: 1 vorgemerkt, 1 verworfen');
   const w1 = rom(g);
   Kriegslage.tick(g, 'sprung');
   ok(rom(g) === Math.max(0, w1 - 3), `der Sprung-Tick wendet die vorgemerkte Wirkung an (${w1} -> ${rom(g)}, nie unter 0)`);
-  ok(g.errors === 1, 'ein gezählter Fehler: der absichtlich geworfene Tick, sonst keiner');
+  ok(g.errors === 2, 'zwei gezählte Fehler: die beiden absichtlich geworfenen Ticks, sonst keiner');
 });
 
 section('Rangschwellen (Grenzwerte ± 1) und rufErreicht', () => {

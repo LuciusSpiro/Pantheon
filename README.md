@@ -16,6 +16,16 @@ All, Bodenkampf-Feinschliff; `CONTRACT-W2.md`) · **EK1–EK8** (Eisenwald-Kampa
 Die Abschnitte „Neu in …“ stehen unten, das Neueste zuerst. Abnahmen: `concept/buehnen/ABNAHME-B1.md`,
 `ABNAHME-B2.md`, `ABNAHME-B3.md`, `ABNAHME-WELLEN.md`. Offene Punkte der Studioleitung: `concept/buehnen/OFFEN-STUDIO.md`.
 
+## Neu in SUND-02b B – Ruf und Rang (Server, nur Freie Fahrt Sund)
+
+**Ruf ist ein Kann, nie ein Muss.** Er öffnet Zugang (Ausbaustufen der Werft über `game.rufErreicht(rang)`), er erzwingt nichts; Ablehnen kostet nichts, niemand verliert durch Ruf etwas, das er schon hat.
+- **Zustand:** `game.weltsim.ruf = { rom, ger, kon }` (Start 0), im Weltstand additiv als `welt.sim.ruf` (Version bleibt 3; fehlt der Block oder ist alles 0, ist der Stand wie vorher). Ruf gilt für die ganze Crew, nur der Server schreibt (kein Spielerbefehl, nur `ruf` im Debug). Zugriff zentral über `server/sim/ruf.js` (`ruf`, `rang`, `rangInfo`, `rufErreicht`, `aendern`, `snapshot`). Ohne `game.weltsim` (Kampagne, Limes, Labor, Arena) gibt es keinen Ruf: kein Block, kein Rang, `rufErreicht` ist immer wahr (Werft ohne Ruf-System wie vorher).
+- **Daten:** `content/welt/ruf-werte.json` (Grenzen je Fraktion, Dienstgrade Miles/Optio/Centurio/Tribun/Legat mit Schwellen, Tabelle `quellen`: Grund -> Fraktion, delta, optional `folge`). Texte des Rangwechsel-Funks: `content/flotte/ruf.json`. Keine Zahlen im Code. Rom 0..220, Schwellen 8/30/80/180; Germanen -50..0 (sinken automatisch bei Siegen über sie, öffnen nichts), Konkordat nur das Feld.
+- **Wirkung `ruf_aenderung`** `{ fraktion, delta ≠ 0, grund }` steht im Katalog (`server/weltsim/wirkungen.js`: Prüfer mit Fraktion, delta-Grenze und Grund aus der Tabelle). Der Sim-Kern bleibt rein: er nimmt die Wirkung an und tut nichts (`aufsatz: true`), angewandt wird sie von `Kriegslage.tickMit` NACH dem Tick im selben Atom (Wurf = Rollback von Sim und Ruf). Der Zustand des Kerns kennt keinen Ruf (Parität zum Prototyp bleibt bit-gleich).
+- **Quellen:** Sieg in einer Sim-Szene im Feld (Germanen +3, Piraten +2), gehaltener römischer Hafen/Posten (`ort_gehalten`, Germanen +10, Piraten +8), Fahrerflucht (Sprung aus einer Szene gegen Germanen: -3, um einen römischen Ort -6). Piraten ignorieren: keine Wirkung, kein Abzug. Das Ablehnen eines Führungsangebots ändert den Ruf nie. Paket A (Posten) und E (Beschuss Verbündeter) ergänzen nur Einträge in `quellen`.
+- **Anzeige (nur Daten):** `world.ruf = { rom, ger, kon, rang, name, ab, bis }` bei Änderung (wie `world.lage`, im nächsten freien Snapshot, höchstens ~90 B); bei Rangwechsel ein Lagefunk (`lage: 1`, `r: 1`, `ruf: 1`, Sprecher Oberkommando). Kein UI-Code in diesem Paket.
+- **Messen:** `npm run sim:ruf` (Rechenlauf: Sprünge bis zu jedem Rang), `npm run sim:ruf -- --messen` (Szenenrate aus echten Sprüngen). Tests: `npm run test:ruf`, Mutationsprobe `npm run test:ruf-mutation`. Debug: `ruf [rom|ger|kon] [wert]`.
+
 ## Neu in SUND-02a A2 – Sim-Szene: die Crew greift in die Flottenbegegnung ein (Server)
 
 Im Modus „Freie Fahrt Sund“ (`game.weltsim`) baut die Szene aus dem Sim-Zustand eine Schlacht und meldet nur über den Wirkungen-Katalog (Paket B) zurück. Kampagne, Tutorial, Eisenwald, Labor: nichts ändert sich (jeder Pfad hängt an `game.weltsim` bzw. `game.simSzene`).

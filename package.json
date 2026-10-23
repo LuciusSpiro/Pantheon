@@ -41,6 +41,7 @@
     "gen:sund-sim": "node tools/gen-sund-sim.js",
     "test:wirkungen": "node tools/test-wirkungen.js",
     "test:ruf": "node tools/test-ruf.js",
+    "test:ruf-mutation": "node tools/mutation-ruf.js",
     "sim:ruf": "node tools/sim-ruf.js",
     "test:weltsim-kopplung": "node tools/test-weltsim-kopplung.js",
     "test:szene-sund": "node tools/test-szene-sund.js",
