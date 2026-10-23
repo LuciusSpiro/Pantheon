@@ -94,6 +94,8 @@
 
     // ---------------------------------------------------------------- Meldungen
     // Fixrunde (Kosmetik): Szenenende – die Meldungen der Szene (Ortung: Welle n von m, Erste Welle in n s, Nachschub) sind erledigt und bleiben nicht stehen
+    // H-b: erkannt wird am Wortlaut (die ODA trägt keine Herkunft). Ändert sich ein Text der Szene (content/flotte/sim-szene.json vorwarnung.hinweis, funktexte.json meldungen.welle, flotte.js „Nachschub trifft ein“),
+    // muss die Regex mit; tools/test-lagefunk.js prüft die echten Texte dagegen.
     odaWeg() {
       const alt = (m) => /^(Ortung: Welle |Erste Welle in |Nachschub trifft ein)/.test(m.text);
       this.oda.queue = this.oda.queue.filter((m) => !alt(m));
@@ -115,12 +117,13 @@
     // SUND-01 C/F: Lagefunk (lage = true) mit rotem Akzentstreifen. Kommen mehrere Lagemeldungen kurz hintereinander (Schnellsprung), steht nur die
     // neueste mit „+n im Funk-Reiter“ (n = die davor, `mehr`); die Einblendung läuft höchstens LAGE_SERIE s ab der ersten Meldung der Serie
     // (die Meldungen stehen zusätzlich im Funk-Reiter und im Logbuch)
-    onRadio(from, text, pid, lage, kz) {
+    // Fixrunde S-1: nurTafel = Szenenmeldung ohne Funk-Reiter-Eintrag (ev.sz && !ev.r, siehe KarteLage.funkMerken); sie zählt nicht in „+n im Funk-Reiter“
+    onRadio(from, text, pid, lage, kz, nurTafel) {
       const now = performance.now() / 1000;
-      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now };
+      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now, imReiter: !nurTafel };
       if (lage && kz) f.kz = String(kz).slice(0, 80);   // Kernaussage für die einzeilige Lagefunk-Zeile (Ort · Fraktion · Stärke)
       const cur = this.radioAktuell();
-      if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + 1; f.t0 = cur.t0 || cur.t; }
+      if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + (cur.imReiter === false ? 0 : 1); f.t0 = cur.t0 || cur.t; }
       // SUND-02a C: Ein normaler Funkspruch verdrängt eine laufende Lagemeldung nicht: er wird zurückgestellt (der neueste) und danach eingeblendet
       if (!lage && cur && cur.lage) { this.radioNach = f; return; }
       this.radioFlash = f;
@@ -981,6 +984,10 @@
       // Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware. Dort steht sie einzeilig ganz oben über der Kopfzeile (y 0–11,
       // der Kopf des Terminals beginnt bei y 12); die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
       if (view.me.console === 'shop') return this.zeichneFunkZeile(ctx, view, f);
+      // Fixrunde S-2: An der Steuerkonsole (2D-Helm und Voxel-Blick PULT) liegt die Frontsicht mittig bei x 252–443 mit der AUSWEICHEN-Warnung bei y 26–70, links und rechts stehen
+      // Tempo/Kurs und Ort/Sprungziel: für eine 4-zeilige Tafel bleibt kein freier Platz (rechts neben der Frontsicht, x ≥ 450, überdeckte sie Ort und Sprungziel). Dort steht deshalb
+      // die einzeilige Lagefunk-Zeile ganz oben (y 0–11, über allem). Im Voxel-Sitz mit Blick VORN/CREW ist die Konsole nicht zu sehen: dort bleibt die Tafel (mit Versatz).
+      if (view.me.console === 'helm' && !(window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return this.zeichneFunkZeile(ctx, view, f);
       this.zeichneFunkTafel(ctx, view, f, null, LAGEFUNK_Y + this.sitzVersatz(view));
     },
     // Einzeilige Lagemeldung ohne Inhaltsfläche zu berühren: roter Streifen, „LAGE ·“, Sprecher (nur wenn nicht die eigenen Sensoren), Kernaussage (Ort · Fraktion · Stärke, Server-Feld kz),
@@ -995,7 +1002,7 @@
     },
     zeichneFunkZeile(ctx, view, f) {
       const dbg = this.radioOberkante(view) > 6;   // Debug-Modus: die FPS-Zeile steht mittig oben (x 242–397), die Zeile rückt rechts daneben und wird kürzer
-      const w = dbg ? 232 : 440, x = dbg ? 404 : Math.round(VW / 2 - w / 2), h = 11;
+      const w = dbg ? 232 : 440, x = dbg ? 404 : Math.round(VW / 2 - w / 2), h = this.szeneVon(view) ? 9 : 11;   // S-2: mit Szenenzeile (beginnt bei y 9) 9 hoch, sonst deckte die Zeile deren Oberkante
       const T = (window.KarteTokens && KarteTokens.PULT) || {};
       const mehr = f.mehr > 0 ? ' +' + f.mehr : '';
       const txt = this.fit(this.lagefunkZeilenText(f), w - 12 - R.measure(mehr, 1), 1) + mehr;
@@ -1770,10 +1777,12 @@
     // Zeilen der Szenenzeile: { kopf, kopfFarbe, text?, textFarbe, sek?, anteil?, hoch } – nur Inhalt, kein Zeichnen (prüfbar)
     szeneZeile(view) {
       const sz = this.szeneVon(view); if (!sz) return null;
+      // Fixrunde S-3: Die Köpfe (FEINDKONTAKT, WELLE, FLAGGSCHIFF, NIEDERLAGE) stehen im helleren PULT.notruf (#FF6B5E): auf Tisch #0B0E1A 5,3 : 1 unter Protanopie (PULT.rot #E0473C nur 3,4 : 1);
+      // der Streifen bleibt PULT.rot (akzentFeind)
       const KT = window.KarteTokens, T = KT && KT.PULT || {}, f = view.state.flotte, wl = f.wl;
       const welle = wl ? (wl[2] ? 'Überdruck' : 'Welle ' + wl[0] + '/' + wl[1]) : '';
       const wellenZahl = wl ? wl[1] + (wl[1] === 1 ? ' Welle' : ' Wellen') : '';   // N8: in der Vorwarnung „3 Wellen“ statt „Welle 0/3“ (las sich wie ein Fehler)
-      const rot = T.rot || PAL.red, hell = T.hell || PAL.star, mint = T.mint || PAL.mint;
+      const rot = T.notruf || T.rot || PAL.red, hell = T.hell || PAL.star, mint = T.mint || PAL.mint;
       if (sz.p === 'v') {
         const fa = KT && KT.FARBE && KT.FARBE.fraktion && KT.FARBE.fraktion[{ ger: 'g', pirat: 'p', rom: 'r' }[sz.f]];   // Namen aus den Karten-Tokens (eine Quelle)
         const fr = (fa && fa.name) || 'Feind';

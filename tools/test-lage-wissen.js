@@ -408,6 +408,7 @@ section('Funk im Schnellsprung: je Feldzug einmal, nichts verloren (Abnahme 8)')
     const lagefunk = t.radios().filter((x) => x.lage);
     ok(!g.reise && g.weltsim.tickZahl === t0 + 4, 'vier Hops, vier Ticks');
     ok(lagefunk.length === 1 && /sammelt sich bei Ulfsvakt/.test(lagefunk[0].text), 'im Schnellsprung genau eine Funkmeldung zum Sammelbeginn: ' + lagefunk.length + ' ' + JSON.stringify(proTick));
+    ok(typeof lagefunk[0].kz === 'string' && /^Ulfsvakt · \S.* · Stärke (klein|mittel|groß)$/.test(lagefunk[0].kz), 'Fixrunde 3 (R-S4 m): der Wissens-Funk trägt die Kernaussage kz für die einzeilige Lagefunk-Zeile: „' + lagefunk[0].kz + '“');
     ok(proTick.length >= 3 && proTick[1][1] === 0 && proTick[2][1] === 1, 'Meldung kommt im dritten Hop (Beginn nach Tick 2, plus ein Tick Verzögerung), nicht früher');
     ok(g.explore.log.filter((e) => /sammelt sich/.test(e.text)).length === 1, 'ein Logbucheintrag');
     // Speichern, Neustart, Laden: gleicher Feldzug meldet nicht erneut

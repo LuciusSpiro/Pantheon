@@ -104,19 +104,19 @@ console.log('\nClient-Runde S6: Notrückholungs-Tafel unter allen Funktafeln');
 }
 
 console.log('\nClient-Runde M2: Szenenzeile (state.flotte.sz) ersetzt VERBÜNDET und BEFEHL');
-win.KarteTokens = { PULT: { rot: '#R', hell: '#H', mint: '#M', tisch: '#T', messing: '#B', warn: '#W', lampeAus: '#A' }, FARBE: { funk: { akzentFeind: '#R' }, fraktion: { g: { name: 'Germanen' }, p: { name: 'Piraten' }, r: { name: 'Rom' } } }, staerkeName: (k) => ({ 1: 'klein', 2: 'mittel', 3: 'groß' })[k] };
+win.KarteTokens = { PULT: { rot: '#R', notruf: '#N', hell: '#H', mint: '#M', tisch: '#T', messing: '#B', warn: '#W', lampeAus: '#A' }, FARBE: { funk: { akzentFeind: '#R' }, fraktion: { g: { name: 'Germanen' }, p: { name: 'Piraten' }, r: { name: 'Rom' } } }, staerkeName: (k) => ({ 1: 'klein', 2: 'mittel', 3: 'groß' })[k] };
 {
   const sz = (o, wl) => ({ me: { console: 'weapons' }, time: 0, state: { flotte: Object.assign({ sz: o }, wl ? { wl } : {}), space: { escorts: [{ id: 1, al: 1, name: 'Falco', hp: 5, hpMax: 10 }] } } });
   const z = (o, wl) => Hud.szeneZeile(sz(o, wl));
   let a = z({ p: 'v', v: [13, 20], f: 'ger', k: 2 }, [0, 3]);
-  ok(a && a.kopf === 'FEINDKONTAKT' && a.text === 'Germanen · mittel · 3 Wellen' && a.sek === 13 && Math.abs(a.anteil - 0.65) < 1e-9 && a.kopfFarbe === '#R' && a.textFarbe === '#H', 'Vorwarnung: FEINDKONTAKT (rot), „Germanen · mittel · 3 Wellen“ (hell, N8), 13 s, Balken 65 %');
+  ok(a && a.kopf === 'FEINDKONTAKT' && a.text === 'Germanen · mittel · 3 Wellen' && a.sek === 13 && Math.abs(a.anteil - 0.65) < 1e-9 && a.kopfFarbe === '#N' && a.textFarbe === '#H', 'Vorwarnung: FEINDKONTAKT (S-3: aufgehelltes Rot PULT.notruf), „Germanen · mittel · 3 Wellen“ (hell, N8), 13 s, Balken 65 %');
   a = z({ p: 'v', v: [5, 20], f: 'pirat', k: 3 }, [0, 4]); ok(a.text === 'Piraten · groß · 4 Wellen' && a.sek === 5, 'Vorwarnung Piraten, groß, 5 s');
   a = z({ p: 'k', g: 3 }, [2, 3]); ok(a.kopf === 'WELLE 2/3' && a.text === ' · 3 Gegner' && !a.hoch, 'Kampf: „WELLE 2/3 · 3 Gegner“');
   a = z({ p: 'k', g: 1 }, [2, 3]); ok(a.text === ' · 1 Gegner', 'ein Gegner (Einzahl)');
   a = z({ p: 'f', g: 2, kd: 'Arminius' }, [3, 3]); ok(a.kopf === 'FLAGGSCHIFF' && a.text === ' · Arminius', 'Finale: „FLAGGSCHIFF · Arminius“');
   a = z({ p: 's', o: 'Ostia Nova' }); ok(a.kopf === 'SIEG' && a.text === ' · Ostia Nova hält' && a.kopfFarbe === '#M', 'Sieg: „SIEG · Ostia Nova hält“ (mint)');
   a = z({ p: 's' }); ok(a.text === ' · Flotte bricht ab', 'Sieg ohne Ort');
-  a = z({ p: 'n', o: 'Ostia Nova' }); ok(a.kopf === 'NIEDERLAGE' && a.text === ' · Ostia Nova verloren' && a.kopfFarbe === '#R', 'Niederlage mit Ort');
+  a = z({ p: 'n', o: 'Ostia Nova' }); ok(a.kopf === 'NIEDERLAGE' && a.text === ' · Ostia Nova verloren' && a.kopfFarbe === '#N', 'Niederlage mit Ort');
   a = z({ p: 'n' }); ok(a.text === ' · Feind hält den Sektor', 'Niederlage ohne Ort');
   ok(Hud.szeneZeile({ state: { flotte: { wl: [1, 3] } } }) === null && Hud.szeneZeile({ state: {} }) === null, 'ohne sz: keine Szenenzeile (Kampagne, Limes, Eisenwald, Tutorial)');
   reset(); ok(Hud.drawAlliesStrip(ctx2d, sz({ p: 'k', g: 1 }, [1, 2]), 9, { measure: true }) === 0 && Hud.drawAlliesStrip(ctx2d, sz({ p: 'k', g: 1 }, [1, 2]), 9) === 9, 'VERBÜNDET entfällt während der Szene');
@@ -163,6 +163,44 @@ console.log('\nFixrunde: Szenenzeile (N6, N8, H6), Notrückholung absolut (S4), 
   Hud.oda.queue = [{ text: 'Erste Welle in 10 s – Klarmachen.' }, { text: 'Ortung: Welle 3 von 3 im Anflug.' }, { text: 'Brachland (0505). Neuer Ort im Logbuch!' }]; Hud.oda.cur = { text: 'Ortung: Welle 2 von 3 im Anflug.', shown: 0, hold: 0 };
   Hud.odaWeg();
   ok(Hud.oda.cur === null && Hud.oda.queue.length === 1 && /Brachland/.test(Hud.oda.queue[0].text), 'odaWeg: Ortung/Erste Welle weg, andere ODA bleibt');
+}
+
+console.log('\nFixrunde 3: Steuerkonsole einzeilig (S-2), „+n im Funk-Reiter“ nur mit Reiter-Meldungen (S-1)');
+{
+  // S-2: an der Steuerkonsole (2D-Helm, Voxel-Blick PULT) die einzeilige Zeile ganz oben, sonst deckte die Tafel die AUSWEICHEN-Warnung der Frontsicht
+  reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'helm'));
+  ok(panels.length === 0 && rects.some((r) => r.y === 0 && r.h === 11) && texte.some((t) => /^LAGE · /.test(t.s)), 'S-2: Steuer (2D-Helm): einzeilige Lagefunk-Zeile bei y 0, keine Tafel');
+  { const v = sicht(null, 'helm'); v.state.flotte = { sz: { p: 'k', g: 1 } }; reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, v);
+    ok(rects.some((r) => r.y === 0 && r.h === 9), 'S-2: mit Szenenzeile ist die Lagefunk-Zeile 9 hoch (die Szenenzeile beginnt bei y 9)'); }
+  win.Sitz = { station: 'helm', blick: 'pult', szeneUnten: () => 0 };
+  reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'helm'));
+  ok(panels.length === 0 && rects.some((r) => r.y === 0 && r.h === 11), 'S-2: Voxel-Sitz, Blick PULT an der Steuerkonsole: Zeile');
+  win.Sitz = { station: 'helm', blick: 'vorn', szeneUnten: () => 0 };
+  reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'helm'));
+  ok(panels.length === 1 && panels[0].y === 44, 'S-2: Voxel-Sitz, Blick VORN (Konsole nicht zu sehen): Tafel wie bisher');
+  win.Sitz = { station: 'weapons', blick: 'pult', szeneUnten: () => 0 };
+  reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'weapons'));
+  ok(panels.length === 1 && panels[0].y === 44, 'S-2: Ops behält die Tafel');
+  delete win.Sitz;
+  // H-b: odaWeg erkennt die Szenen-ODA am Wortlaut: die echten Texte aus Inhalt und Server müssen darauf passen
+  { const root = path.join(__dirname, '..');
+    const hinweis = JSON.parse(fs.readFileSync(path.join(root, 'content', 'flotte', 'sim-szene.json'), 'utf8')).vorwarnung.hinweis.replace('{sek}', '10');
+    const welle = JSON.parse(fs.readFileSync(path.join(root, 'content', 'flotte', 'funktexte.json'), 'utf8')).meldungen.welle.replace('{n}', '2').replace('{von}', '3');
+    const nach = (fs.readFileSync(path.join(root, 'server', 'sim', 'flotte.js'), 'utf8').match(/game\.oda\('(Nachschub trifft ein[^']*)'/) || [])[1];
+    for (const [name, text] of [['Vorwarnung', hinweis], ['Welle', welle], ['Nachschub', nach]]) {
+      Hud.oda.queue = [{ text }, { text: 'Brachland (0505). Neuer Ort im Logbuch!' }]; Hud.oda.cur = null; Hud.odaWeg();
+      ok(text && Hud.oda.queue.length === 1 && /Brachland/.test(Hud.oda.queue[0].text), 'H-b: odaWeg räumt den echten Text „' + text + '“ (' + name + ')');
+    } }
+  // S-1
+  reset(); jetzt = 7000;
+  Hud.onRadio('Rom-Legat', LAGE, null, true); Hud.onRadio('Aufklärung', 'Szene 1', null, true, null, true); Hud.onRadio('Aufklärung', 'Szene 2', null, true, null, true);
+  ok(Hud.radioAktuell().mehr === 1, 'S-1: zwei Szenenmeldungen ohne Reiter nach einer Reiter-Meldung: „+1“ (' + Hud.radioAktuell().mehr + ')');
+  reset(); jetzt = 7100;
+  Hud.onRadio('Aufklärung', 'Szene 1', null, true, null, true); Hud.onRadio('Rom-Legat', LAGE, null, true); Hud.onRadio('Rom-Legat', LAGE + ' 2', null, true);
+  ok(Hud.radioAktuell().mehr === 1, 'S-1: nur die Reiter-Meldungen davor zählen (' + Hud.radioAktuell().mehr + ')');
+  reset(); jetzt = 7200;
+  Hud.onRadio('Rom-Legat', LAGE, null, true); Hud.onRadio('Rom-Legat', LAGE + ' 2', null, true);
+  ok(Hud.radioAktuell().mehr === 1, 'S-1: ohne Szene unverändert (+1)');
 }
 
 console.log(fails ? `\n${fails} FEHLER` : `\n${n}/${n} Prüfungen ok`);

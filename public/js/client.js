@@ -1127,7 +1127,7 @@
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
       case 'odaWeg': H.odaWeg(); break;   // Fixrunde: Szenenende räumt die Szenen-ODA (Ortung, Erste Welle) weg
-      case 'radio': H.onRadio(ev.from, ev.text, ev.pid, ev.lage, ev.kz); if (ev.lage && window.KarteLage) window.KarteLage.funkMerken(ev); audio.play('radio'); break;   // SUND-01 C: lage = Lagefunk (Freie Fahrt Sund)   // EK4: pid = Porträt (legat) bzw. Symbol (mars)
+      case 'radio': H.onRadio(ev.from, ev.text, ev.pid, ev.lage, ev.kz, !!(ev.sz && !ev.r)); if (ev.lage && window.KarteLage) window.KarteLage.funkMerken(ev); audio.play('radio'); break;   // SUND-01 C: lage = Lagefunk (Freie Fahrt Sund)   // EK4: pid = Porträt (legat) bzw. Symbol (mars)
       case 'notice':
         if (!ev.pid || ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); }
         break;

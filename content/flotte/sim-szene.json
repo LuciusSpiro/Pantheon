@@ -48,7 +48,7 @@
   "finale": "{kommandant} greift mit dem Flaggschiff ein!",
   "sieg": {
     "gefallen": "{kommandant} ist gefallen. Der Rest der Flotte bricht ab.",
-    "entkommen": "{kommandant} schlägt sich durch und flieht. Der Rest der Flotte bricht ab.",
+    "entkommen": "Das Flaggschiff ist verloren, {kommandant} entkommt im Beiboot. Der Rest der Flotte bricht ab.",
     "ohneKommandant": "Das Flaggschiff ist vernichtet. Der Rest der Flotte bricht ab.",
     "ort": "{ort} hält."
   },
