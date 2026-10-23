@@ -1,6 +1,6 @@
 // Sichtprüfung SUND-02b UI (Designer): Rang von Rom (Terminal-Statuszeile, Captain-Leiste, Block „Stufe n öffnet“) und die Fixes zu den Befunden aus dem
 // Review von A1/C (Ops-Leisten, Lagefunk an der Ops, Karte mit Anspruch und Stützpunkt, gesperrter Kaufknopf). Echter Server im selben Prozess, echter
-// Browser-Client (Playwright, Chromium), Modus „Freie Fahrt Sund“; zuletzt Kampagne (Rang muss verschwinden).
+// Browser-Client (Playwright, Chromium), Modus „Freie Fahrt Sund“; zuletzt endet der Modus (Löschsignal: der Rang muss verschwinden).
 // Aufruf: node tools/sicht-rang.js [--shots <Ordner>] [--port 3463] [--vp 1280x720,1920x1080,1024x600]
 'use strict';
 const path = require('path');
@@ -88,8 +88,8 @@ async function lauf(b, vw, vh, port) {
     await hin('0305'); await andocken('0305'); await sitz('shop'); await sleep(900); await shot('term-handel-ostia', 900);
     // Legat: höchster Rang
     await ruf(200); await shot('term-handel-legat', 900);
-    // Modus endet: zurück in die Lobby, Kampagne starten: kein Rang
-    await send({ t: 'debug', cmd: 'lobby' }).catch(() => {});
+    // Modus endet (wie Kampagne/Lobby): der Server sendet einmal world.ruf = null, die Statuszeile muss leer werden (kein Phantom-Rang)
+    const ws = g.weltsim; g.weltsim = null; await shot('term-modus-ende-ohne-rang', 1200); g.weltsim = ws;
   } finally {
     await srv.close();
   }

@@ -31,7 +31,7 @@ win.window = win; win.self = win;
 vm.createContext(win);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'hud.js'), 'utf8'), win, { filename: 'hud.js' });
 const Hud = win.Hud;
-const sicht = (radio, konsole) => ({ me: { console: konsole === undefined ? 'weapons' : konsole }, self: { zone: 'ship' }, time: 0, state: { mission: { radio: radio || null } } });
+const sicht = (radio, konsole) => ({ me: { console: konsole === undefined ? 'technik' : konsole }, self: { zone: 'ship' }, time: 0, state: { mission: { radio: radio || null } } });
 const reset = () => { panels.length = 0; texte.length = 0; backdrops.length = 0; rects.length = 0; Hud.radioFlash = null; Hud.radioNach = null; };
 const LAGE = 'Germanische Flotte sammelt sich bei Eisfeld. Stärke groß, Ziel unbekannt.';
 
@@ -180,7 +180,12 @@ console.log('\nFixrunde 3: Steuerkonsole einzeilig (S-2), „+n im Funk-Reiter�
   ok(panels.length === 1 && panels[0].y === 44, 'S-2: Voxel-Sitz, Blick VORN (Konsole nicht zu sehen): Tafel wie bisher');
   win.Sitz = { station: 'weapons', blick: 'pult', szeneUnten: () => 0 };
   reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'weapons'));
-  ok(panels.length === 1 && panels[0].y === 44, 'S-2: Ops behält die Tafel');
+  ok(panels.length === 0 && rects.some((r) => r.y === 0 && r.h === 11), 'SUND-02b UI: Ops (Voxel-Blick PULT) einzeilig oben, die Tafel deckte Leisten und Schiff');
+  win.Sitz = { station: 'weapons', blick: 'vorn', szeneUnten: () => 0 };
+  reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'weapons'));
+  ok(panels.length === 1 && panels[0].y === 44, 'SUND-02b UI: Ops im Voxel-Sitz, Blick VORN (Konsole nicht zu sehen): Tafel');
+  delete win.Sitz; reset(); Hud.onRadio('Aufklärung', LAGE, null, true); Hud.drawLagefunk(ctx2d, sicht(null, 'weapons'));
+  ok(panels.length === 0 && rects.some((r) => r.y === 0 && r.h === 11), 'SUND-02b UI: Ops (2D-Pult): einzeilige Zeile');
   delete win.Sitz;
   // H-b: odaWeg erkennt die Szenen-ODA am Wortlaut: die echten Texte aus Inhalt und Server müssen darauf passen
   { const root = path.join(__dirname, '..');
