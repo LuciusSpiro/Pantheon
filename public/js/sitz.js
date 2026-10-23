@@ -129,14 +129,42 @@
   // Fixrunde N3/N1: Unterkante der Szenenzeile in Texturpixeln (0 ohne Szene). Die Zeile sitzt bei y 6 (SZ_Y0).
   const SZ_Y0 = 6;
   const szeneOben = (view) => { const H = window.Hud; const h = H && H.szeneVon && H.szeneVon(view) ? H.szenenHoehe(view) : 0; return h ? SZ_Y0 + h + 4 : 0; };
-  // Fixrunde N1: Der Hauptschirm steht im Blick VORN fest im Bild (Kamera fest, 16:9): Textur 512×288 liegt in HUD-Koordinaten (640×360) bei y 80 bis 265, Maßstab 0,642.
-  // Liegt dort die Szenenzeile, schieben Lagefunk-Tafel und Logbuch-Hinweis unter ihre Unterkante (sonst deckten sie sie in den ersten Sekunden nach der Ankunft zu).
-  // Gemessen an 1280×720 und 1920×1080 (gleiches Verhältnis). -> HUD-y der Unterkante der Zeile, 0 wenn nichts zu verschieben ist
+  // Fixrunde M-1: Unterkante der Szenenzeile in HUD-Koordinaten, jeden Frame über die echte Sitzkamera projiziert (Auge, Ziel, FOV der Station und der Mausneigung;
+  // gleiche Mathe wie three.js lookAt + PerspectiveCamera, Aspekt VW/VH). Feste Konstanten (nur Steuer, Neigung 0) deckten die Zeile bei Maus oben und an Ops/Captain zu.
+  // Die Zeile sitzt mittig auf dem Schirm; geprüft werden Mitte und beide Seiten (Schräge bei Gierwinkel), der größte Wert gilt. Rückgabe NaN ohne brauchbare Kamera.
+  function projiziereSchirmY(cam, schirm, texY) {
+    if (!cam || !cam.auge || !cam.ziel || !(cam.fov > 0) || !schirm) return NaN;
+    const f = [cam.ziel[0] - cam.auge[0], cam.ziel[1] - cam.auge[1], cam.ziel[2] - cam.auge[2]];
+    const fl = Math.hypot(f[0], f[1], f[2]);
+    if (!(fl > 1e-6)) return NaN;
+    f[0] /= fl; f[1] /= fl; f[2] /= fl;
+    // rechts = f × (0,1,0) (three.js: Kamera blickt entlang −z, Hoch = +y), oben = rechts × f
+    let rx = -f[2], rz = f[0]; const rl = Math.hypot(rx, rz);
+    if (!(rl > 1e-6)) return NaN;
+    rx /= rl; rz /= rl;
+    const ux = -f[1] * rz, uy = rz * f[0] - rx * f[2], uz = f[1] * rx;   // (rx,0,rz) × f
+    const t = Math.tan(cam.fov * Math.PI / 360);
+    const wy = schirm.y + schirm.h / 2 - (texY / SH) * schirm.h;
+    let best = NaN;
+    for (const dz of [0, -0.3, 0.3]) {
+      const d = [schirm.x - cam.auge[0], wy - cam.auge[1], schirm.z + dz * schirm.w - cam.auge[2]];
+      const z = d[0] * f[0] + d[1] * f[1] + d[2] * f[2];
+      if (!(z > 0.05)) continue;
+      const y = d[0] * ux + d[1] * uy + d[2] * uz;
+      const hy = (1 - y / (z * t)) / 2 * VH;
+      if (!(best >= hy)) best = hy;
+    }
+    return best;
+  }
+  // Notbehelf ohne Kamera: nur der Steuer-Blick mit Neigung 0 (gemessen 1280×720 und 1920×1080: Textur bei HUD-y 80, Maßstab 0,642)
   const SCHIRM_VY0 = 80, SCHIRM_VS = 0.642;
   function szeneUnten(view) {
     if (!S.station || S.blick !== 'vorn') return 0;
     const o = szeneOben(view);
-    return o ? Math.round(SCHIRM_VY0 + (o - 4) * SCHIRM_VS) : 0;
+    if (!o) return 0;
+    const y = projiziereSchirmY({ auge: S.auge, ziel: S.ziel, fov: S.fov }, SCHIRM, o - 4);
+    if (isFinite(y) && voxelBereit()) return Math.round(y);
+    return S.station === 'helm' ? Math.round(SCHIRM_VY0 + (o - 4) * SCHIRM_VS) : 0;
   }
 
   // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)
@@ -224,7 +252,7 @@
   function klickErlaubt() { return !S.station || S.pultSicht >= 0.6; }
 
   window.Sitz = {
-    aktiv, update, draw, rad, klickErlaubt, setBlick, szeneUnten,
+    aktiv, update, draw, rad, klickErlaubt, setBlick, szeneUnten, projiziereSchirmY,
     get blick() { return S.blick; }, get station() { return S.station; }, get versteckt() { return S.versteckt; },
     schirm: { mass: SCHIRM, canvas: schirmCanvas, get version() { return S.schirmVersion; }, get aktiv() { return S.schirmLive; } },
   };
