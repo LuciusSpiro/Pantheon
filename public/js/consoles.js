@@ -263,7 +263,8 @@
       const titel = l.gesichert ? l.titel : (bw >= 300 ? l.titel + ' · UNGESICHERT' : '! ' + l.titel);
       R.text(ctx, titel, bx + 6, y + 2, { color: l.gesichert ? PAL.brass : PAL.red, shadow: false });
       const x0 = bx + 6 + R.measure(titel, 1) + 6;
-      if (!l.belegt) { R.text(ctx, 'leer · ' + l.frei + ' frei', x0, y + 2, { color: PAL.panelLight, shadow: false }); return; }
+      // -> { y, ende }: Zeile und rechtes Ende des Inhalts (SUND-02b UI: der Captain setzt rechts daneben den Rang)
+      if (!l.belegt) { const t = 'leer · ' + l.frei + ' frei'; R.text(ctx, t, x0, y + 2, { color: PAL.panelLight, shadow: false }); return { y, ende: x0 + R.measure(t, 1), rechts: bx + bw }; }
       let x = x0;
       for (const e of l.eintraege) {
         const col = e.art === 'person' ? PAL.mint : e.art === 'sprengstoff' ? PAL.red : e.art === 'deuterium' ? '#4FB6E8' : PAL.amber;
@@ -271,7 +272,8 @@
         R.text(ctx, e.text, x + 8, y + 2, { color: PAL.star, shadow: false });
         x += 8 + R.measure(e.text, 1) + 10;
       }
-      if (l.frei) R.text(ctx, l.frei + ' frei', x, y + 2, { color: PAL.panelLight, shadow: false });
+      if (l.frei) { R.text(ctx, l.frei + ' frei', x, y + 2, { color: PAL.panelLight, shadow: false }); x += R.measure(l.frei + ' frei', 1); }
+      return { y, ende: x, rechts: bx + bw };
     },
 
     // ================================================================= Steuer (Frontsicht)
@@ -1823,16 +1825,17 @@
       const halt = view.state && view.state.fracht && view.state.fracht.halt;
       if (!po || (halt && halt.kind === 'posten')) return;
       const gruenden = po.k === 'g';
+      // SUND-02b UI (Review A1, Bild 07/08): kompakt, damit drei gestapelte Leisten (Fracht, Höhe halten, Posten) Schiff und Posten frei lassen: Knopf mit Kosten in der
+      // ersten Zeile (keine eigene Titelzeile), der Weigerungstext darunter höchstens zwei Zeilen; Fläche nur so hoch wie nötig (18 px ohne Text, sonst 18 + 10 je Zeile)
       const w = 266, x = rect.x + 4, y = rect.y + 3 + (this.stapelH || 0);
       const zeilen = po.ok ? [] : R.wrap(String(po.t || ''), w - 8, 1).slice(0, 2);
-      const h = 28 + zeilen.length * 12;
+      const h = 18 + zeilen.length * 10;
       this.stapelH = (this.stapelH || 0) + h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      ctx.strokeStyle = po.ok ? PAL.mint : PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const kosten = n(po.n) ? ' · ' + n(po.n) + (n(po.n) === 1 ? ' Ersatzteil' : ' Ersatzteile') : '';
-      R.text(ctx, (gruenden ? 'POSTEN GRÜNDEN' : 'STÜTZPUNKT AUSBAUEN') + kosten, x + 4, y + 3, { color: po.ok ? PAL.mint : PAL.amber });
-      R.button(ctx, x + 4, y + 13, 160, 12, gruenden ? 'Posten gründen' : 'Stützpunkt ausbauen', { disabled: !po.ok, reason: po.t, active: !!po.ok, onClick: () => this.cmd(view, gruenden ? 'weapons.posten.gruenden' : 'weapons.posten.ausbauen') });
-      zeilen.forEach((z, i) => R.text(ctx, z, x + 4, y + 27 + i * 12, { color: PAL.amber }));
+      R.button(ctx, x + 3, y + 3, w - 6, 12, (gruenden ? 'Posten gründen' : 'Stützpunkt ausbauen'), { text: (gruenden ? 'Posten gründen' : 'Stützpunkt ausbauen') + kosten, disabled: !po.ok, reason: po.t, active: !!po.ok, onClick: () => this.cmd(view, gruenden ? 'weapons.posten.gruenden' : 'weapons.posten.ausbauen') });
+      zeilen.forEach((z, i) => R.text(ctx, z, x + 4, y + 17 + i * 10, { color: PAL.amber }));
     },
     // SL7b: Landepunkt-Scan der Ops. Sichtbar, wenn ein ungescannter Landepunkt in Reichweite ist (Snapshot lpscan { n, p? }); L hält 4 s.
     drawLpscan(ctx, view, rect) {

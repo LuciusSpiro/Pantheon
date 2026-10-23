@@ -278,7 +278,8 @@
   function bauen(view) {
     const L = lage(view), a = ansicht(L);
     let fehlPreis = null;   // Preis der Aktion unter dem Hauptknopf (für „fehlen n“ bei der Serverantwort zu_wenig_marken)
-    const m = { status: { amGeraet: L.w && L.w.nutzer != null ? L.w.nutzer : null, zusehen: (L.w && L.w.zu) || [] } };
+    const rang = window.Rang && Rang.modell ? Rang.modell() : null;   // SUND-02b UI: Rang von Rom (nur mit world.ruf, sonst null: keine Anzeige)
+    const m = { status: { amGeraet: L.w && L.w.nutzer != null ? L.w.nutzer : null, zusehen: (L.w && L.w.zu) || [], rang } };
     const bedienbar = !s.zusehen;
     const wartet = !!s.wartet && now() - s.wartet.t < 3000;
     // Rückmeldung unter dem Hauptknopf
@@ -291,7 +292,7 @@
       if (ant.code === 'zu_wenig_marken' && fehlPreis != null && L.marks < fehlPreis) t = 'Es fehlen ' + (fehlPreis - L.marks) + ' Marken';
       return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
     };
-    m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };
+    m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv && L.w && L.w.hs ? 'stuetzpunkt' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };   // SUND-02b UI: Stützpunkt der Crew (Werft ja, Handel nein: werft.hs) heißt so
     m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
@@ -311,7 +312,7 @@
       const lager = sel && sel.limit ? ' · Lager ' + n((L.st.inventory || {})[sel.id]) + '/' + sel.limit : '';
       m.aktionen = {
         haupt: { art: 'kaufen', text: sel ? kurz(sel.name, 100) + ' kaufen · ' + sel.price + ' M' : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
-        hinweis: hinweis(sel ? (lager ? lager.slice(3) : '') : '', 'dim'), ausbau: Object.assign({}, ausbauKnopf, { active: false }), teil: { disabled: !bedienbar, onClick: () => teilWeiter(view, 1) },
+        hinweis: (() => { const g = sel && sel.reason ? (sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) || sel.reason : sel.reason) : null; return g ? hinweis(g, 'warn') : hinweis(sel ? (lager ? lager.slice(3) : '') : '', 'dim'); })(),   // SUND-02b UI: gesperrt -> Grund unter dem Knopf (wie in der Werft) ausbau: Object.assign({}, ausbauKnopf, { active: false }), teil: { disabled: !bedienbar, onClick: () => teilWeiter(view, 1) },
       };
       return m;
     }
@@ -334,7 +335,7 @@
     if (a.auswahl === 'stufe') {
       m.ansicht = 'stufe';
       const sb = stufenBlock(L, ziel), preis = sb.preis, voll = sb.voll;
-      m.stufen = sb.stufen; fehlPreis = preis;
+      m.stufen = sb.stufen; fehlPreis = preis; if (rang && sb.stufen.sperre) m.stufen.rangJetzt = rang.jetzt;
       let grund = null;
       if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (L.sperre[ziel]) grund = L.sperre[ziel]; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
       m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' öffnen · ' + preis + ' M', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: L.sperre[ziel] && !voll ? hinweis(L.sperre[ziel], 'warn') : hinweis(preis != null && !voll ? preis + ' Marken, einmalig' : '', 'preis'), ausbau: ausbauKnopf, teil: { disabled: true } };
@@ -358,7 +359,7 @@
       // gesperrter Platz oder Raum: rechts der Block „STUFE n ÖFFNET“, der Hauptknopf kauft den nächsten Schritt (nur der Reihe nach)
       const pl = modulAnsicht ? M.MODUL_RAEUME.find((q) => q.raum === a.raum) : M.waffenplatz(a.platz), kappe = modulAnsicht ? 'F' + a.raum : ziffern(a.platz);
       const sb = stufenBlock(L, ziel), preis = sb.preis, voll = sb.voll;
-      m.ansicht = 'stufe'; m.stufen = sb.stufen; fehlPreis = preis;
+      m.ansicht = 'stufe'; m.stufen = sb.stufen; fehlPreis = preis; if (rang && sb.stufen.sperre) m.stufen.rangJetzt = rang.jetzt;
       m.schnitt.plaetze = plaetzeModell(L, ziel); m.schnitt.module = moduleModell(L, ziel); m.kreuz.plaetze = m.schnitt.plaetze; m.module.module = m.schnitt.module;
       let grund = null;
       if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (L.sperre[ziel]) grund = L.sperre[ziel]; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';

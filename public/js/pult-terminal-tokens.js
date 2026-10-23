@@ -289,10 +289,10 @@
   }
 
   // ================================================================= rechte Spalte
-  // k: { ort, art: 'werft'|'hafen', marken, gesperrt }
+  // k: { ort, art: 'werft'|'stuetzpunkt'|'test'|'hafen', marken, gesperrt }
   function zeichneKopf(c, r, k) {
     const e = txtRolle(c, k.ort || '', r.x, r.y + 2, k.gesperrt ? 'warn' : 'preis', 'titel');
-    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : 'HAFEN', e + 8, r.y + 2, 'dim');
+    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : 'HAFEN', e + 8, r.y + 2, 'dim');
     const mw = txt(c, String(k.marken == null ? '' : k.marken), r.x + r.w, r.y, 'text', { scale: 2, align: 'right' });
     txt(c, 'MARKEN', r.x + r.w - tw(String(k.marken), 2) - 6, r.y + 6, 'dim', { align: 'right' }); return mw;
   }
@@ -386,10 +386,14 @@
     txtRolle(c, 'STUFE ' + s.ziel + ' ÖFFNET', r.x, r.y + 60, 'modul', 'titel');
     (s.oeffnet || []).forEach((o, i) => { const y = r.y + 74 + i * 13; const kw = Math.max(18, tw(o.kappe) + 8); cham(c, r.x, y - 2, kw, 11, FARBE.modul, 0, 0, 2, 0); txt(c, o.kappe, r.x + kw / 2, y, 'ink', { align: 'center' }); txt(c, o.text, r.x + kw + 6, y, 'text'); });
     let y2 = r.y + 74 + (s.oeffnet || []).length * 13 + 4;
-    if (s.sperre) { txt(c, s.sperre, r.x, y2, 'warn'); y2 += SCHRIFT.zeileLuft + 2; }   // Grund der gesperrten Stufe (Rang), vom Server
+    if (s.sperre) {   // Grund der gesperrten Stufe (Rang), vom Server; dahinter der jetzige Rang (SUND-02b UI), damit der Abstand lesbar ist
+      const e = txt(c, s.sperre, r.x, y2, 'warn');
+      if (s.rangJetzt && tw(s.sperre + ' · ' + s.rangJetzt) <= r.w) txt(c, ' · ' + s.rangJetzt, e, y2, 'dim');
+      y2 += SCHRIFT.zeileLuft + 2;
+    }
     umbruch(s.hinweis || '', r.w, 2).forEach((z, i) => txt(c, z, r.x, y2 + i * SCHRIFT.zeileLuft, 'dim'));
     const y3 = r.y + r.h - 22;
-    txt(c, 'MARKEN', r.x, y3 + 5, 'dim'); txt(c, s.marken[0] + ' → ' + s.marken[1], r.x + 44, y3, 'text', { scale: 2 });
+    txt(c, 'MARKEN', r.x, y3 + 5, 'dim'); txt(c, s.marken[0] + ' → ' + s.marken[1], r.x + 44, y3, s.sperre ? 'dim' : 'text', { scale: 2 });   // gesperrt (Rang): nur Vorschau, gedimmt
     if (s.energie) { txt(c, 'ENERGIE', r.x + 180, y3 + 5, 'dim'); txt(c, s.energie, r.x + 180, y3 + 15, 'dim'); }
   }
   // g: { titel ('WERFT GESPERRT'), grund ('Nur an Flottenbasen.'), text, bestueckung: [{ kappe, name, fn }] }
@@ -492,6 +496,7 @@
     const farbe = (i) => { rect(c, x, r.y, 7, 7, FARBE.spieler[i]); x = txt(c, SPIELER_NAMEN[i], x + 10, r.y, 'text') + 8; };
     if (s.amGeraet != null) farbe(s.amGeraet); else x = txt(c, 'frei', x, r.y, 'dim') + 8;
     if ((s.zusehen || []).length) { x = txt(c, '· ZUSEHEN', x, r.y, 'dim') + 5; s.zusehen.forEach(farbe); }
+    if (s.rang && window.Rang) Rang.zeichne(c, r.x + r.w, r.y, r.x + r.w - x - 12, s.rang);   // SUND-02b UI: Rang von Rom rechts in der Statuszeile (nur Freie Fahrt Sund), kürzt sich selbst
   }
 
   // ================================================================= ganzes Terminal
