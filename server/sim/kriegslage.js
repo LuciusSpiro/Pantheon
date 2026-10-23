@@ -309,6 +309,7 @@ function restore(game, b) {
   game.weltsim.kommandanten = kommandantenLesen(b.kommandanten);
   game.weltsim.vorgemerkt = vorgemerktLesen(b.vorgemerkt);
   game.weltsim.sprengungen = Posten.sprengungenLesen(b.sprengungen);   // SUND-02b A2: fehlt = keine (Altstand)
+  for (const [hex, t] of Object.entries(game.weltsim.sprengungen)) if (t > game.weltsim.zustand.tick) delete game.weltsim.sprengungen[hex];   // A2-Fix: eine neue Welt (Sim-Zustand unbrauchbar, Tick 0) kennt keine Sprengung aus der Zukunft (negativer Abstand sperrte den Ruf)
   game.weltsim.posten = Posten.lesen(b.posten);   // SUND-02b A1: fehlt = leer (Altstand)
   game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
   const h = b.hauptweltGefallen;
