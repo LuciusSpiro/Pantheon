@@ -161,16 +161,19 @@ const ohne = (g, hex) => { const z = g.weltsim.zustand; z.flotten = z.flotten.fi
   console.log('\nFlucht per Notfallsprung: Germanen 17 im freien Sektor, ein Abschuss');
   g.C.simSzene.vorwarnung = 3;
   ohne(g, '0505'); const fl4 = flotte(g, '0505', 'ger', 17);
+  // Reste früherer Fälle (Flotten im Feld, auch die im Rückzug nach einem Sieg) wegräumen: der Notfallsprung landet zufällig in einem Nachbarhex und löste dort sonst eine neue Szene aus
+  { const st = g.weltsim.zustand; st.flotten = st.flotten.filter((q) => q.id === fl4.id || !['angriff', 'anspruch', 'rueckzug'].includes(q.befehl)); st.angriffe = st.angriffe.filter((a) => a.t_ende !== null || (a.flotten || []).includes(fl4.id)); }
   await ankunft('0505');
   await warteAufKampf();
   const e1 = g.space.enemies[0]; const pt = CONFIG.wellenplan.punkte[e1.kind];
   kill(g, e1); await sleep(200);
-  t0 = tick();
+  t0 = tick(); const idAlt = g.simSzene && g.simSzene.id;
   a.send({ t: 'debug', cmd: 'sitz', console: 'helm' });
   await sleep(200);
   a.send({ t: 'cmd', c: Protocol.CMD_HELM_NOTSPRUNG });
-  await bis(() => !g.simSzene, 3000);
-  ok(!g.simSzene && tick() === t0 + 1 && Szene.letzte(g).ausgang === 'abbruch', `Notfallsprung: Tickzähler ${t0} -> ${tick()} (+1)`);
+  await bis(() => !g.simSzene || g.simSzene.id !== idAlt, 3000);
+  // Die Szene, die die Lerche verlässt, endet mit Abbruch und genau einem Tick. Landet der Notfallsprung zufällig in einem Hex mit marschierender Feindflotte, beginnt dort eine NEUE Szene (gewollt): geprüft wird deshalb die alte Szene, nicht „keine Szene“.
+  { const L = Szene.letzte(g) || {}; ok(idAlt != null && L.id === idAlt && L.ausgang === 'abbruch' && (!g.simSzene || g.simSzene.id !== idAlt) && tick() === t0 + 1, `Notfallsprung: Tickzähler ${t0} -> ${tick()} (+1), alte Szene ${idAlt}: Ausgang ${L.ausgang} (Id ${L.id}), jetzt ${g.simSzene ? 'neue Szene ' + g.simSzene.id : 'keine Szene'}`); }
   ok(letzterTick.wirkungen.some((w) => w.typ === 'flotte_verlust' && w.flotte === fl4.id && w.punkte === pt) && !letzterTick.wirkungen.some((w) => w.typ.startsWith('ort_')), `Verlust ${pt} Punkt(e) gilt, kein ort_*`);
 
   // ---------- Mehrspieler: einer trennt ----------
