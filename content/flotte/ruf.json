@@ -8,6 +8,10 @@
     "tribun": "Rom ernennt Euch zum Tribun. Das Oberkommando hört auf Euren Rat.",
     "legat": "Rom ernennt Euch zum Legaten. Der Senat kennt Euren Namen."
   },
+  "werft": {
+    "stufe_grund": "Rang {rang} nötig",
+    "stufe_fehler": "{name} braucht den Rang {rang}."
+  },
   "ab": {
     "miles": "Rom stuft Euch auf den Rang Miles zurück.",
     "optio": "Rom stuft Euch auf den Rang Optio zurück.",
