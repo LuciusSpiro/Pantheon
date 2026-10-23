@@ -32,8 +32,8 @@ Ruf öffnet den **Kauf**, Marken bezahlen weiter; was gekauft ist, bleibt.
 - **Daten:** `CONFIG.werft.ruf.stufe = { 2: 'centurio', 3: 'tribun' }` (`shared/config.js`), Stufe 1, Waffentypen und Module frei, alle Preise unverändert. Ohne `weltsim` (Kampagne, Tutorial, Testumgebung) gilt jede Rang-Bedingung als erfüllt.
 - **Regel:** der Rang wird nur in `freischaltenPruefen` und nur für noch nicht freigeschaltete Stufen geprüft; das Anwenden einer schon gekauften Stufe, Umbauen und Weiterspielen brauchen nie einen Rang. Sinkt der Rang oder geht die Basis verloren, bleibt `ship.freigeschaltet.stufe`; ohne Basis sperrt nur der Umbau (`keine_flottenbasis`). Reihenfolge der Gründe: Ort, dann Rang.
 - **Texte:** `content/flotte/ruf.json`, Abschnitt `werft` (`stufe_grund` „Rang {rang} nötig“, `stufe_fehler`), über `Ruf.werftText` und `Ruf.rangName`.
-- **Snapshot:** `werft.sperre = { Stufe: 'Rang Centurio nötig' }`, nur für nicht freigeschaltete Stufen mit fehlendem Rang, Feld fehlt sonst (max. ~51 B). Terminal: Preis der Stufenkachel mit „!“ in Warnfarbe, Zeile „Rang … nötig“ im Block „Stufe n öffnet“, Hauptknopf gesperrt mit demselben Grund.
-- **Tests:** `npm run test:werft-rang`, Mutationsprobe `npm run test:werft-rang-mutation`.
+- **Snapshot:** `werft.sperre = { Stufe: 'Rang Centurio nötig' }`, nur für nicht freigeschaltete Stufen mit fehlendem Rang, Feld fehlt sonst (Worst Case Miles rund 62 B; `test-werft-rang` misst den Snapshot gegen das Budget 18 944 B). Terminal: Preis der Stufenkachel mit „!“ in Warnfarbe, Zeile „Rang … nötig“ im Block „Stufe n öffnet“, Hauptknopf gesperrt mit demselben Grund.
+- **Tests:** `npm run test:werft-rang`, Mutationsprobe `npm run test:werft-rang-mutation` (23 Mutationen über Server, Daten, Texte und Terminal-Zeichnung; läuft `test-werft-rang` und `test-werft-ui`). Ohne Textdatei fällt der Grund auf den Rangnamen zurück, nie auf einen leeren Text.
 
 ## Neu in SUND-02a A2 – Sim-Szene: die Crew greift in die Flottenbegegnung ein (Server)
 

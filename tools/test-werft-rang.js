@@ -24,7 +24,7 @@ const RAENGE = Ruf.RAENGE;
 const ab = (id) => RAENGE.find((r) => r.id === id).ab;
 
 // Partie: Freie Fahrt Sund (weltsim, Ruf) oder 'free' (Kampagne ohne Tutorial, kein weltsim); angedockt in Castra Martis, am Terminal
-function neu(start, crew) {
+function neu(start, crew, opt) {
   const dir = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(dir, { recursive: true });
   const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
   const cs = [];
@@ -32,10 +32,10 @@ function neu(start, crew) {
     const c = { inbox: [], send(m) { this.inbox.push(m); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
     g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'W' + i, name: 'W' + i, color: i }); cs.push(c);
   }
-  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: start });
+  g.handleMessage(cs[0], Object.assign({ t: 'lobbyOpt', startMission: start }, (opt && opt.lobby) || {}));
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   for (let i = 0; i < 10; i++) g.step();
-  g.space.enemies = []; g.arena = null;
+  g.space.enemies = []; if (!(opt && opt.testumgebung)) g.arena = null;   // sonst gälte die Testumgebung (Werft überall)
   const basis = start === 'free' ? 'castra_martis' : 'castra_gradivi', hafen = start === 'free' ? 'statio_limitis' : 'ostia_nova';   // Castra Martis (Limes) bzw. Castra Gradivi (Sund); Hafen ohne Werft
   g.ship.docked = true; g.ship.dockedAt = basis;
   for (const p of g.players) p.console = 'shop';
@@ -176,9 +176,40 @@ section('Kampagne und Testumgebung: keine Rang-Bedingung', () => {
   ok(T2.sicht().sperre === undefined, 'Kampagne: kein Grund im Snapshot');
 });
 
+section('Testumgebung (Arena, Labor): keine Rang-Bedingung', () => {
+  const Labor = require('../server/mission/labor.js');
+  for (const [name, start, lobby] of [['Testgelände/Wellen (Arena)', 'arena_space', { szene: 'frei' }], ['Szenario-Labor', 'labor', { labor: { id: Labor.laborListe()[0].id } }]]) {
+    const T = neu(start, 1, { testumgebung: true, lobby }); const g = T.g;
+    ok(Werft.testumgebung(g) && !g.weltsim && g.rufErreicht('legat') === true, `${name}: Testumgebung ohne Ruf-System, jede Rang-Bedingung erfüllt`);
+    g.inventory.marks = 5000;
+    ok(T.kauf('stufe', 1).ok && T.kauf('stufe', 2).ok && T.kauf('stufe', 3).ok && g.ship.stufe === 3, `${name}: Stufe 1 bis 3 ohne Rang kaufbar`);
+    ok(T.sicht().sperre === undefined, `${name}: kein Grund im Snapshot`);
+  }
+  const T2 = neu('arena_space', 1, { testumgebung: true, lobby: { szene: 'frei' } });
+  T2.g.inventory.marks = 5000;
+  ok(T2.sicht().sperre === undefined, 'Testgelände vor dem Kauf: keine Sperre sichtbar');
+});
+
+section('Snapshot-Budget mit sperre', () => {
+  const T = neu('freie_fahrt'); const g = T.g;
+  const voll = Buffer.byteLength(JSON.stringify(g.snapshot()));
+  const sperre = Buffer.byteLength(JSON.stringify({ sperre: T.sicht().sperre }));
+  ok(!!T.sicht().sperre && sperre <= 80, `Block sperre im Worst Case (Miles, Stufe 2 und 3): ${sperre} B (höchstens 80)`);
+  ok(voll < 18944, `Snapshot mit Werft und sperre: ${voll} B unter dem Ziel 18944 B (Grenze minus Luft aus snap-mess)`);
+});
+
 section('Texte und Fehlkonfiguration', () => {
   ok(Ruf.werftText('stufe_grund', { rang: 'Optio' }) === 'Rang Optio nötig', 'Text aus content/flotte/ruf.json');
-  ok(Ruf.werftText('gibtsnicht', {}) === '', 'unbekannter Textschlüssel: leer');
+  ok(Ruf.werftText('gibtsnicht', {}) === 'gibtsnicht', 'unbekannter Textschlüssel: der Schlüssel (nie leer)');
+  // fehlt die Textdatei, ist der Grund nie leer (ein leerer Grund würde nichts sperren): Rückfall auf den Rangnamen
+  const pfad = require.resolve('../server/sim/ruf.js'), alt = require.cache[pfad], lies = fs.readFileSync;
+  delete require.cache[pfad];
+  fs.readFileSync = function (f) { if (String(f).split(path.sep).join('/').endsWith('content/flotte/ruf.json')) throw new Error('fehlt'); return lies.apply(this, arguments); };
+  try {
+    const RufOhne = require('../server/sim/ruf.js');
+    ok(RufOhne.werftText('stufe_grund', { rang: 'Centurio' }) === 'Centurio' && RufOhne.werftText('stufe_fehler', { name: 'Ausbaustufe 2', rang: 'Centurio' }) === 'Centurio', 'Textdatei fehlt: Rückfall auf den Rangnamen, nie leer');
+    ok(RufOhne.werftText('x', {}) === 'x', 'ohne Variablen: Schlüssel');
+  } finally { fs.readFileSync = lies; delete require.cache[pfad]; if (alt) require.cache[pfad] = alt; }
   const code = fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', 'werft.js'), 'utf8');
   ok(!/Dafür fehlt der Rang/.test(code) && !/nötig['"`]/.test(code.replace(/\/\/.*$/gm, '')), 'kein Rang-Text im Code (nur in der Textdatei)');
 });
