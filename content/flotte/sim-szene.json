@@ -71,7 +71,7 @@
   "abbruch": "Die Crew bricht ab.",
   "ohneKommandant": "Der Flottenführer",
   "angriff": {
-    "_hinweis": "SUND-02b A2: Texte der Crew-Angriffsszene gegen einen Posten (Posten sprengen, server/sim/kriegslage-szene.js, angriffStarten). Platzhalter {ort} {klasse} {flotte} {sek} {fraktion} {kommandant}.",
+    "_hinweis": "SUND-02b A2: Texte der Crew-Angriffsszene gegen einen Posten (Posten sprengen, server/sim/kriegslage-szene.js, angriffStarten). Platzhalter {ort} {klasse} {flotte} {sek} {fraktion} {kommandant}. Die Texte der Szenenzeile (ANGRIFF AUF POSTEN, Posten gesprengt, Angriff gescheitert) stehen fest im Client (public/js/hud.js), nicht hier.",
     "vorwarnung": {
       "text": "Angriff auf den Posten {ort}: {klasse} {flotte} hält den Posten. Klarmachen! Erste Welle in {sek} s.",
       "hinweis": "Erste Welle in {sek} s – Klarmachen.",
@@ -92,11 +92,6 @@
       "vorwarnung": "Angriff auf den Posten: {klasse} {flotte}.",
       "sieg": "Posten gesprengt.",
       "niederlage": "Angriff auf den Posten gescheitert."
-    },
-    "zeile": {
-      "kopf": "ANGRIFF AUF POSTEN",
-      "sieg": "Posten gesprengt",
-      "niederlage": "Angriff gescheitert"
     }
   }
 }

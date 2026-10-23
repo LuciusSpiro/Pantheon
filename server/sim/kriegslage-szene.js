@@ -264,6 +264,7 @@ function angriffSieg(game, S) {
   endeAufraeumen(game);
   if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);
   const gesprengt = !r.verworfen.some((v) => v.wirkung && v.wirkung.typ === 'posten_gesprengt') && gilt;
+  if (!gesprengt) game.simSzeneEnde = null;   // A2-Fix: keine Siegeszeile, wenn der Tick die Sprengung nicht angewandt hat (der Zweig ist mit der Vorabprüfung am selben Zustand nicht erreichbar, siehe README)
   if (gesprengt) {
     funk(game, fmt((A.sieg || {}).text, { ort: S.ortName }), { reiter: 1, log: (A.log || {}).sieg });
     if (sperre) funk(game, fmt((A.sieg || {}).ohneRuf, { ort: S.ortName }));
@@ -499,7 +500,8 @@ function snapshot(game) {
     if (S.phase === 'vorwarnung') return Object.assign({ p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse }, x);
     const w = game.flotte && game.flotte.welle;
     const g = w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0;
-    return Object.assign(S.finale ? Object.assign({ p: 'f', g }, S.kommandant ? { kd: kurz(S.kommandant.name, 24) } : {}) : { p: 'k', g }, x);
+    const kdName = S.kommandant ? S.kommandant.name : (S.modus === 'angriff' ? (texte().angriff || {}).kommandant : null);   // A2-Fix: das Finale des Angriffs nennt den Postenkommandanten
+    return Object.assign(S.finale ? Object.assign({ p: 'f', g }, kdName ? { kd: kurz(kdName, 24) } : {}) : { p: 'k', g }, x);
   }
   const E = game.simSzeneEnde;
   const rest = E ? E.bis - game.time : -1;   // robust gegen Zeitrücksprung (Reset, Laden): nur gültig, wenn die Restzeit in [0, endeAnzeige] liegt

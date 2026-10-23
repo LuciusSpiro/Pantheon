@@ -271,7 +271,11 @@ function lesen(b) {
 // ---------- Anzeige (space.po) ----------
 function snapshot(game) {
   const o = ort(game);
-  if (!o || !o.nd || hatHafen(o) || o.sc.station) return null;   // A1-Fix: auch Hexe mit Station (Kantenstein, Pulverhorn) zeigen kein Feld (die Weigerung „Station“ liefert nur der Befehl)
+  if (!o || !o.nd || hatHafen(o) || o.sc.station) return null;
+  // A2-Fix: während einer Sim-Szene und in den Sekunden der Ergebniszeile danach liefert der Server kein Feld (es verdeckte die Szenenzeile; der Befehl liefert die Weigerung weiter)
+  if (game.simSzene && game.simSzene.phase !== 'ende') return null;
+  const E = game.simSzeneEnde;
+  if (E && E.bis > game.time && E.szene === game.ship.scene) return null;   // A1-Fix: auch Hexe mit Station (Kantenstein, Pulverhorn) zeigen kein Feld (die Weigerung „Station“ liefert nur der Befehl)
   let art = null;
   if (o.nd.besitzer === null && !o.nd.posten) art = 'gruenden';
   else if (o.nd.besitzer === 'rom' && o.nd.posten && o.nd.crew !== true) art = 'ausbau';

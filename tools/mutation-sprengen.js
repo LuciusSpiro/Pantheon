@@ -76,6 +76,19 @@ const MUTATIONEN = [
   ['content/welt/posten-werte.json', '"angreifen": "miles"', '"angreifen": "legat"', 'Daten: Angreifen verlangt Legat (nicht Kann, nie Muss)'],
   ['content/welt/ruf-werte.json', '"folge": {"ger": -4}, "_hinweis": "Die Crew sprengt', '"_hinweis": "Die Crew sprengt', 'Daten: Sprengen senkt die Germanen nicht'],
   ['content/flotte/sim-szene.json', '"text": "Posten {ort} gesprengt. Der Sektor ist frei."', '"text": "Ok."', 'Text: Funk „Posten gesprengt“'],
+  // Bewusst nicht in der Liste (gleichwertige Mutanten, aus der Datenlage nicht rot zu bekommen):
+  //  - angreifenPruefen: Hafen nicht geprüft / angriffStarten: Hafen egal: ein Hex mit Hafen trägt in der Sim nie einen Posten, 'kein_posten' fängt es vorher ab (der Weigerungsgrund 'hafen' ist Absicherung).
+  //  - angriffSieg: Ruf auch wenn die Sprengung ungültig wäre (gilt = true): Vorabprüfung und Tick sehen denselben Zustand (kein Tick dazwischen), der Zweig ist nicht erreichbar.
+  ["server/sim/kriegslage-szene.js","  const wirk = gueltige(game, verlustWirkungen(game, S));\n  aufraeumen(game, S);\n  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n'","  const wirk = gueltige(game, verlustWirkungen(game, S).concat(Ruf.szeneFlucht(S, true)));\n  aufraeumen(game, S);\n  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n'","A2-Fix: Niederlage im Angriff kostet Ruf (Fahrerflucht)"],
+  ["server/sim/kriegslage-szene.js","const r2ab = (v) => Math.floor(v * 100 + 1e-9) / 100;","const r2ab = (v) => Math.ceil(v * 100) / 100;","A2-Fix: Verlust der Garnison rundet auf (Prüfer lehnt ab)"],
+  ["server/sim/kriegslage-szene.js","    else if (S.modus === 'angriff') funk(game, fmt((T.angriff || {}).finale, { kommandant: (T.angriff || {}).kommandant || '' }));\n","","A2-Fix: Finale-Funk im Angriff fehlt"],
+  ["server/sim/kriegslage-szene.js","const kdName = S.kommandant ? S.kommandant.name : (S.modus === 'angriff' ? (texte().angriff || {}).kommandant : null);","const kdName = S.kommandant ? S.kommandant.name : null;","A2-Fix: Finale der Szenenzeile ohne Postenkommandant"],
+  ["server/sim/kriegslage-szene.js","    if (sperre) funk(game, fmt((A.sieg || {}).ohneRuf","    if (!sperre) funk(game, fmt((A.sieg || {}).ohneRuf","A2-Fix: Sperr-Meldung invertiert"],
+  ["server/sim/kriegslage-szene.js","    if (game.markSaveDue) game.markSaveDue('docked');\n  }\n  merken(game, S, gesprengt","  }\n  merken(game, S, gesprengt","A2-Fix: Sieg löst kein markSaveDue aus"],
+  ["server/sim/posten.js","  if (game.simSzene && game.simSzene.phase !== 'ende') return null;\n  const E = game.simSzeneEnde;","  const E = game.simSzeneEnde;","A2-Fix: space.po auch während der Szene"],
+  ["server/sim/posten.js","  if (E && E.bis > game.time && E.szene === game.ship.scene) return null;","","A2-Fix: space.po auch während der Ergebniszeile"],
+  ["server/sim/posten.js","  const e = angreifenPruefen(game, true);\n  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }\n  const o = ort(game);","  const e = null;\n  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }\n  const o = ort(game);","A2-Fix: Anlauf-Abschluss ohne Schlussprüfung"],
+  ["server/sim/kriegslage.js","if (t > game.weltsim.zustand.tick) delete game.weltsim.sprengungen[hex];","if (false) delete game.weltsim.sprengungen[hex];","A2-Fix: Sprengung aus der Zukunft bleibt nach neuer Welt"],
 ];
 
 let ueberlebt = 0;

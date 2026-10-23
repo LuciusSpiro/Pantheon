@@ -75,6 +75,7 @@ async function main() {
     await shot('08-ops-nach-dem-sprengen', 7000);
     // 7) Konkordat-Posten: kein Feld; eigener Stützpunkt: Weigerung im Befehl (kein Feld)
     Object.assign(z().hexe['0503'], { besitzer: 'kon', posten: true, garnison: 3, anspruch: {} });
+    g.weltBesitz.hexe['0503'] = { besitzer: 'saum', posten: true };   // das Overlay folgt dem Zustand: der Posten steht als Kulisse im Bild
     await hin('0503'); await sitz('weapons'); await sleep(400); anPosten('0503'); await shot('09-ops-konkordat-posten-kein-feld', 900);
   } finally {
     await b.close(); await srv.close();

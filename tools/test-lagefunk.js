@@ -132,6 +132,13 @@ console.log('\nFixrunde: Szenenzeile (N6, N8, H6), Notrückholung absolut (S4), 
   ok(Hud.szeneZeile(sz({ p: 's', o: 'Ostia Nova' })).akzent === '#M', 'N6: bei SIEG ist der Akzentstreifen Mint (wie der Kopf)');
   ok(Hud.szeneZeile(sz({ p: 'n', o: 'Ostia Nova' })).akzent === undefined && Hud.szeneZeile(sz({ p: 'k', g: 2 }, [1, 3])).akzent === undefined, 'bei NIEDERLAGE und im Kampf bleibt der Streifen rot (Standard)');
   ok(Hud.szeneZeile(sz({ p: 'v', v: [10, 20], f: 'ger', k: 1 }, [0, 1])).text === 'Germanen · klein · 1 Welle', 'N8: eine Welle in der Einzahl');
+  { // SUND-02b A2: Angriff auf einen Posten (sz.x)
+    const ax = (o, wl) => Hud.szeneZeile(sz(Object.assign({ x: 1 }, o), wl));
+    ok(ax({ p: 'v', v: [8, 10], f: 'ger', k: 2 }, [0, 3]).kopf === 'ANGRIFF AUF POSTEN', 'A2: Vorwarnung des Angriffs: Kopf ANGRIFF AUF POSTEN');
+    const k = ax({ p: 'k', g: 2 }, [2, 3]); ok(k.kopf === 'ANGRIFF AUF POSTEN' && /WELLE 2\/3/.test(k.text) && /2 Gegner/.test(k.text), 'A2: Kampf: ANGRIFF AUF POSTEN · WELLE 2/3 · 2 Gegner');
+    ok(/Posten gesprengt/.test(ax({ p: 's' }).text) && /Angriff gescheitert/.test(ax({ p: 'n' }).text), 'A2: Ergebniszeilen: Posten gesprengt / Angriff gescheitert');
+    ok(Hud.szeneZeile(sz({ p: 'v', v: [10, 20], f: 'ger', k: 1 }, [0, 1])).kopf === 'FEINDKONTAKT' && /Flotte bricht ab/.test(Hud.szeneZeile(sz({ p: 's' })).text), 'A2: ohne x unverändert (FEINDKONTAKT, Flotte bricht ab)');
+  }
   // H6: ungültiges sz ganz ignorieren
   for (const [name, bad] of [['unbekannte Phase', { p: 'x' }], ['Phase fehlt', {}], ['Vorwarnung ohne v', { p: 'v', f: 'ger', k: 2 }], ['v kein Array', { p: 'v', v: 'abc', f: 'ger', k: 2 }], ['v mit Unsinn', { p: 'v', v: ['a', 'b'] }], ['kein Objekt', 'v']]) {
     ok(Hud.szeneVon(sz(bad)) === null && Hud.szeneZeile(sz(bad)) === null, 'H6: ' + name + ' -> sz wird ignoriert (keine Zeile, VERBÜNDET/BEFEHL bleiben)');
