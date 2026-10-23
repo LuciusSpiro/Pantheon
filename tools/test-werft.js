@@ -159,12 +159,12 @@ section('Freischalten: einmalig, Reihenfolge, Marken', () => {
   // kein Rückgabeweg
   ok(!Protocol.CMD_WERFT.some((c) => /zurueck|verkauf|rueck|sell/i.test(c)) && typeof Werft.zurueckgeben === 'undefined', 'kein Rückgabe- oder Verkaufsbefehl');
   // Ruf-Feld: ohne Ruf-System keine Bedingung, mit Eintrag und System greift es
-  g.C.werft.ruf.stufe[2] = 'zenturio';
+  const stufe2Alt = g.C.werft.ruf.stufe[2]; g.C.werft.ruf.stufe[2] = 'zenturio';
   T.sit(0); T.dock('castra_martis');
   ok(Werft.freischaltenPruefen(g, 'stufe', 2) === null, 'Ruf-Feld an Stufe 2 ohne Ruf-System: keine Bedingung');
   g.rufErreicht = () => false;
   ok((Werft.freischaltenPruefen(g, 'stufe', 2) || {}).code === 'ruf', 'Ruf-Feld mit Ruf-System und fehlendem Rang: abgelehnt');
-  delete g.rufErreicht; delete g.C.werft.ruf.stufe[2];
+  delete g.rufErreicht; if (stufe2Alt === undefined) delete g.C.werft.ruf.stufe[2]; else g.C.werft.ruf.stufe[2] = stufe2Alt;   // SUND-02b C: Stufe 2 trägt jetzt eine Rang-Bindung, nicht löschen
 });
 
 section('Umbauen: gratis, sofort, nur angedockt, Validierung', () => {

@@ -9,6 +9,7 @@
 //   rang(game) / rangVon(wert)     Rang-Id von Rom ('miles' … 'legat'); ohne Modus null
 //   rangInfo(game)                 { id, name, index, ab, bis } (bis: Schwelle des nächsten Rangs | null)
 //   rufErreicht(game, rangId)      Rang der Crew >= verlangter Rang. OHNE Modus: immer true (Kampagne, Werft ohne Ruf-System). Unbekannte Rang-Id im Modus: false
+//   rangName(id) / werftText(key, vars)  Rangname bzw. Werft-Text aus content/flotte/ruf.json (Platzhalter {rang}, {name})
 //   aendern(game, fraktion, delta) einen Wert verschieben (geklemmt auf die Grenzen der Fraktion) -> { alt, neu }
 //   anwenden(game, wirkungen)      alle ruf_aenderung der Liste (plus `folge` der Quelle) anwenden; Aufrufer: Kriegslage.tickMit, nach dem Tick -> { vorher, nachher } Rang-Ids
 //   meldeRang(game, vorher, nachher)  Funk bei einem Rangwechsel (nach dem Commit des Ticks)
@@ -60,6 +61,14 @@ function rufErreicht(game, rangId) {
   const verlangt = RAENGE.findIndex((r) => r.id === rangId);
   if (verlangt < 0) return false;
   return rangIndexVon(ruf(game, 'rom')) >= verlangt;
+}
+
+// Werft-Texte (content/flotte/ruf.json, Abschnitt werft): Platzhalter {rang} (Name, groß geschrieben), {name}
+const rangName = (id) => { const r = RAENGE.find((q) => q.id === id); return r ? r.name : String(id); };
+function werftText(key, vars) {
+  const t = ((texte().werft || {})[key]) || '';
+  if (!t) return String((vars && (vars.rang || vars.name)) || key);   // Textdatei fehlt: nie leer (ein leerer Grund würde nichts sperren), Rückfall auf Rangname bzw. Schlüssel
+  return t.replace(/\{(\w+)\}/g, (m, k) => (vars && has(vars, k) ? vars[k] : m));
 }
 
 function aendern(game, fraktion, delta) {
@@ -135,4 +144,4 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, aendern, anwenden, meldeRang, szeneSieg, szeneFlucht, snapshot, schluessel, toSave, lesen };
+module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, rangName, werftText, aendern, anwenden, meldeRang, szeneSieg, szeneFlucht, snapshot, schluessel, toSave, lesen };

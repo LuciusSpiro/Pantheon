@@ -19,6 +19,7 @@ const Geld = require('./geld.js');
 const Modul = require('./module.js');
 const Ausbau = require('./ausbau.js');
 const Waffen = require('./schiffswaffen.js');
+const Ruf = require('./ruf.js');
 
 const Maps = W.Maps;
 const cfg = (game) => game.C.werft;
@@ -99,17 +100,20 @@ function freischaltenPruefen(game, art, id) {
   if (art === 'stufe' && !istFrei(game, art, id) && id !== liste(game).stufe + 1) return fehler('stufe_reihenfolge', `Ausbaustufen nur der Reihe nach: erst Stufe ${liste(game).stufe + 1}.`);
   const p = art === 'stufe' && istFrei(game, art, id) ? 0 : preis(game, art, id);
   if (p == null) return fehler('unbekannt', `${name} steht nicht zum Verkauf.`);
-  const bed = rufBedingung(game, art, id);
-  if (bed) return bed;
+  const bed = rufBedingung(game, art, id);   // nur das KAUFEN braucht den Rang; eine freigeschaltete Stufe (Anwenden kostet 0) bleibt ohne Rang nutzbar
+  if (bed && !istFrei(game, art, id)) return bed;
   if (!Geld.mindestens(game, p)) return fehler('zu_wenig_marken', `Nicht genug Marken (${name} kostet ${p}).`);
   return null;
 }
-// Ruf-Feld an Ausbaustufen (Hinweis Paket 2): CONFIG.werft.ruf.stufe[n] = Rang-Id, Standard keine Bedingung. Das Ruf-System liefert game.rufErreicht(rang); ohne
-// das System (PAN-01) gilt jede Bedingung als erfüllt und nichts wird angezeigt.
-function rufBedingung(game, art, id) {
+// Ruf-Feld an Ausbaustufen: CONFIG.werft.ruf.stufe[n] = Rang-Id, Standard keine Bedingung. Das Ruf-System liefert game.rufErreicht(rang); ohne das System
+// (Kampagne, Tutorial, Testumgebung) gilt jede Bedingung als erfüllt. Ruf öffnet nur den KAUF (Marken bezahlen weiter): was gekauft ist, bleibt, auch wenn der Rang sinkt.
+function rangVerlangt(game, art, id) {
   const r = art === 'stufe' && cfg(game).ruf && cfg(game).ruf.stufe ? cfg(game).ruf.stufe[id] : null;
-  if (!r || typeof game.rufErreicht !== 'function' || game.rufErreicht(r)) return null;
-  return fehler('ruf', `Dafür fehlt der Rang (${r}).`);
+  return !r || typeof game.rufErreicht !== 'function' || game.rufErreicht(r) ? null : r;
+}
+function rufBedingung(game, art, id) {
+  const r = rangVerlangt(game, art, id);
+  return r ? fehler('ruf', Ruf.werftText('stufe_fehler', { name: teilName(art, id), rang: Ruf.rangName(r) })) : null;
 }
 function freischalten(game, p, art, id) {
   const e = ortPruefen(game) || freischaltenPruefen(game, art, id);
@@ -311,6 +315,9 @@ function snapshot(game) {
   const p = { stufe: {}, waffe: {}, modul: {} };
   for (const t of sortiment(game)) if (!istFrei(game, t.art, t.id)) { const pr = preis(game, t.art, t.id); if (pr != null) p[t.art][t.id] = pr; }
   out.preise = p;
+  const sp = {};   // gesperrte Stufen mit Grund (nur ohne Rang, nur noch nicht freigeschaltete): { n: 'Rang Centurio nötig' }
+  for (let i = 1; i <= Maps.STUFE_MAX; i++) { const r = istFrei(game, 'stufe', i) ? null : rangVerlangt(game, 'stufe', i); if (r) sp[i] = Ruf.werftText('stufe_grund', { rang: Ruf.rangName(r) }); }
+  if (Object.keys(sp).length) out.sperre = sp;
   return out;
 }
 

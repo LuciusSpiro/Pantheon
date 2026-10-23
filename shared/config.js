@@ -75,7 +75,7 @@
         waffe: { standardkanone: 40, sturmbatterie: 60, streubatterie: 70, abwehrturm: 70, torpedowerfer: 100, lanzenbatterie: 120 },
         modul: { werkstatt: 40 },
       },
-      ruf: { stufe: {} },
+      ruf: { stufe: { 2: 'centurio', 3: 'tribun' } },   // SUND-02b C: Rang, der das KAUFEN der Stufe öffnet (nur Freie Fahrt Sund; ohne Ruf-System frei). Stufe 1 frei; Preise unverändert.
       // Testumgebung (Kai 2026-10-22): in den Test-, Wellen- und Labor-Modi (Testgelände, Wellen All, Wellen Boden, Szenario-Labor; nicht in Kampagne, Tutorial und freiem Spiel) ist die
       // Werft des Terminals überall und auch abgedockt aktiv (Grund „Testumgebung“), und die Crew startet mit `testmarken` statt 150. Alles zusammen kostet 1740: Stufe 1–3 = 1180,
       // alle Waffen 460 (Kanone 40, Sturm 60, Streu 70, Abwehrturm 70, Torpedowerfer 100, Lanzenbatterie 120), Werkstatt 40, dazu Torpedos bis Lager 12 (60) – 5000 decken das mehrfach

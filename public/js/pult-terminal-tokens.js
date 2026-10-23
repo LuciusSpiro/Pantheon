@@ -370,7 +370,7 @@
       (s.teile || [{ t: s.text }]).forEach((q, j) => { if (j) x = txt(c, ' · ', x, y, 'dim'); x = txt(c, q.t, x, y, q.neu ? (v.fn || 'waffe') : neu ? 'text' : 'dim'); });
     });
   }
-  // s: { stufe (gekauft), ziel, stufen: [{ waffen, module, preis }], oeffnet: [{ kappe, text }], marken: [vorher, nachher], hinweis, energie }
+  // s: { stufe (gekauft), ziel, sperre (Grund | null), stufen: [{ waffen, module, preis, sperre }], oeffnet: [{ kappe, text }], marken: [vorher, nachher], hinweis, energie }
   function zeichneStufen(c, r, s) {
     txtRolle(c, 'AUSBAUSTUFE', r.x, r.y, 'dim', 'titel');
     const n = s.stufen.length, tw4 = Math.floor((r.w - (n - 1) * 4) / n);
@@ -379,13 +379,14 @@
       cham(c, x, y, tw4, 30, ziel ? FARBE.modul : hat ? FARBE.modulRaum : FARBE.kachelZu, 0, 0, 5, 0);
       txt(c, String(i), x + 6, y + 5, ziel ? 'ink' : hat ? 'modul' : 'dim', { scale: 2 });
       txt(c, st.waffen + ' WAFFEN', x + 22, y + 5, ziel ? 'ink' : hat ? 'text' : 'dim'); txt(c, st.module + ' MODULE', x + 22, y + 16, ziel ? 'ink' : hat ? 'text' : 'dim');
-      txt(c, hat ? 'GEKAUFT' : st.preis + ' M', x + tw4 - 2, y + 34, hat ? 'modul' : 'preis', { align: 'right' });
+      txt(c, hat ? 'GEKAUFT' : (st.sperre ? '! ' : '') + st.preis + ' M', x + tw4 - 2, y + 34, hat ? 'modul' : st.sperre ? 'warn' : 'preis', { align: 'right' });   // gesperrte Stufe (Rang fehlt): Preis mit Ausrufezeichen in Warnfarbe
     });
     if (s.voll) { txt(c, s.hinweis || 'Das Schiff ist voll ausgebaut.', r.x, r.y + 60, 'modul'); return; }   // alles gekauft: nur dieser Satz, kein „öffnet“, keine Marken
     if (s.ziel == null) return;
     txtRolle(c, 'STUFE ' + s.ziel + ' ÖFFNET', r.x, r.y + 60, 'modul', 'titel');
     (s.oeffnet || []).forEach((o, i) => { const y = r.y + 74 + i * 13; const kw = Math.max(18, tw(o.kappe) + 8); cham(c, r.x, y - 2, kw, 11, FARBE.modul, 0, 0, 2, 0); txt(c, o.kappe, r.x + kw / 2, y, 'ink', { align: 'center' }); txt(c, o.text, r.x + kw + 6, y, 'text'); });
-    const y2 = r.y + 74 + (s.oeffnet || []).length * 13 + 4;
+    let y2 = r.y + 74 + (s.oeffnet || []).length * 13 + 4;
+    if (s.sperre) { txt(c, s.sperre, r.x, y2, 'warn'); y2 += SCHRIFT.zeileLuft + 2; }   // Grund der gesperrten Stufe (Rang), vom Server
     umbruch(s.hinweis || '', r.w, 2).forEach((z, i) => txt(c, z, r.x, y2 + i * SCHRIFT.zeileLuft, 'dim'));
     const y3 = r.y + r.h - 22;
     txt(c, 'MARKEN', r.x, y3 + 5, 'dim'); txt(c, s.marken[0] + ' → ' + s.marken[1], r.x + 44, y3, 'text', { scale: 2 });
