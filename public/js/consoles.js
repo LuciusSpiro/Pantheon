@@ -1891,7 +1891,7 @@
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
-      if (postenHalt) R.text(ctx, f.halt.id === 'ausbau' ? 'STÜTZPUNKT AUSBAUEN' : 'POSTEN GRÜNDEN', x + 4, y + 3, { color: PAL.mint }); else
+      if (postenHalt) R.text(ctx, f.halt.id === 'ausbau' ? 'STÜTZPUNKT AUSBAUEN' : f.halt.id === 'angreifen' ? 'POSTEN ANGREIFEN' : 'POSTEN GRÜNDEN', x + 4, y + 3, { color: PAL.mint }); else
       R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
