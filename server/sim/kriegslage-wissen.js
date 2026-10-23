@@ -209,7 +209,8 @@ function berechne(W0, o) {
   const vor = o.vor || z;
   const tick = !o.sofort;
   const knoten = tick ? sensorKnoten(z, d, o.lerche) : [];
-  const zusatz = o.sofort || new Set(o.direkt || []);   // direkt: Hexe, die die Lerche selbst im Blick hat (Szenenende): jetziger Stand ohne Verzögerung
+  // direkt: Hexe, die die Lerche selbst im Blick hat (Szenenende): jetziger Stand ohne Verzögerung. H-e: das gilt unabhängig von werte.sicht.verzoegerung (Standard 1; test-szene-sund.js prüft 0, 2 und 3 mit)
+  const zusatz = o.sofort || new Set(o.direkt || []);
   const aus = { funk: [], markenSetzen: [], markenEntfernen: [] };
 
   const eigen = (code) => { const a = z.hexe[code]; const b = o.prev && o.prev.hexe[code]; return !!((a && a.besitzer === 'rom') || (b && b.besitzer === 'rom')); };

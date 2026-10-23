@@ -41,12 +41,15 @@ const freshDir = () => { const d = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(d
 const HZ = CONFIG.tickHz;
 
 // Zähler am Sim-Kern: wie oft wurde wirklich getickt, mit welchen Wirkungen, und der Zustand davor (für den Vergleichslauf)
-let kernTicks = 0; let letzterTick = null;
+let kernTicks = 0; let letzterTick = null; let kernWirft = false; let kernZusatz = [];
 const kernOrig = Kern.tick;
 Kern.tick = function (z, o) {
   kernTicks++;
   letzterTick = { vor: Kriegslage.abbild(z), wirkungen: (o && o.wirkungen) || [] };
-  return kernOrig.apply(this, arguments);
+  if (kernWirft) throw new Error('Test: Tick wirft');   // R-S3: der End-Tick scheitert (Rollback)
+  const r = kernOrig.apply(this, arguments);
+  if (kernZusatz.length) r.ereignisse.push(...kernZusatz.map((e) => Object.assign({}, e)));   // R-S1: der Tick erzeugt zusätzlich ein Sim-Ereignis (-> Wissens-Funk für ein anderes Hex)
+  return r;
 };
 
 function neu(opts) {
@@ -560,8 +563,10 @@ section('Abbruch: Flucht per Sprung und Notfallsprung', () => {
   flotte(g, '0505', 'pirat', 5);
   ankunft(g, '0505');
   const t1 = ticks(g);
+  const odaWegVor = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'odaWeg').length;
   const err2 = springe(g, '0503');
   ok(!err2 && !g.simSzene && ticks(g) === t1 + 1 && Szene.letzte(g).wirkungen.length === 0, 'Piraten ignoriert und weggesprungen: keine Wirkung, ein Tick (der Sprung)');
+  ok(odaWegVor === 0 && t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'odaWeg').length === 1, 'H-a: die Flucht in der Vorwarnung räumt die Szenen-ODA weg (Ereignis odaWeg)');
   ok(vergleich(g) && letzterTick.wirkungen.length === 0, 'Weltstand = Vergleichslauf ohne Wirkungen (Szene ohne Wirkung ändert nichts außer dem einen Tick)');
   // c) Flucht per Notfallsprung (auch im selben Sektor): ein Tick, Verluste gelten
   t = neu(); g = t.g; ab(g);
@@ -959,6 +964,91 @@ section('Fixrunde S2: nur Vorwarnung und Ergebnis kommen in den Funk-Reiter (r: 
   run(g, 21); bisFlaggschiff(g, 300);
   kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3);
   ok(rad().filter((m) => m.r).length === 2, 'nach dem Sieg: höchstens zwei Szenenmeldungen im Reiter (Vorwarnung, Ergebnis), die Übrigen (Verteidiger, Finale, „… hält“) nur an der Konsole');
+});
+
+section('Fixrunde 3 (R-S1): der End-Tick sendet Funk für ein ANDERES Hex – die Ergebnismeldung bleibt trotzdem die letzte', () => {
+  const lageFunk = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage);
+  const ANDERES = Object.keys(z(neu().g).hexe).find((h) => h !== OSTIA && h !== HEIMAT.ger);
+  const fremd = { typ: 'hafen_gefallen', ort: ANDERES, alt: 'rom', neu: 'ger' };   // Rom ist Beteiligter: das Wissen meldet es sofort („… ist gefallen“, nicht stumm: stumm gilt nur für das Hex der Szene)
+  const idx = (liste, re) => liste.findIndex((s) => re.test(s));
+  // Sieg mit Hafen
+  { const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+    ankunft(g, OSTIA); run(g, 21); bisFlaggschiff(g, 300);
+    const n0 = lageFunk(t).length; kernZusatz = [fremd];
+    kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3); kernZusatz = [];
+    const L = Szene.letzte(g); const kdName = L.wirkungen.find((x) => x.typ === 'flaggschiff_gefallen').kommandant.name;
+    const tx = lageFunk(t).slice(n0).map((m) => m.text);
+    const iF = idx(tx, /gefallen/), iOrt = idx(tx, /Ostia Nova hält/), iKd = tx.findIndex((s) => s.includes(kdName));
+    ok(iF >= 0, 'Sieg: der End-Tick hat einen Wissens-Funk für ein anderes Hex erzeugt (' + tx.map((s) => s.slice(0, 26)).join(' | ') + ')');
+    ok(iF >= 0 && iOrt > iF && iKd > iOrt && iKd === tx.length - 1, 'Sieg: Reihenfolge Tick-Funk < „hält“ < Kommandant, und die Ergebnismeldung ist das LETZTE Lagefunk-Ereignis');
+    ok(g.errors === 0, 'keine Fehler'); }
+  // Niederlage mit Hafen
+  { const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+    ankunft(g, OSTIA); run(g, 21);
+    const n0 = lageFunk(t).length; kernZusatz = [fremd];
+    for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+    g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3); kernZusatz = [];
+    const tx = lageFunk(t).slice(n0).map((m) => m.text);
+    const iF = idx(tx, /gefallen/), iGrund = idx(tx, /Die Lerche ist angeschlagen|Die Verteidigung bricht zusammen/), iEr = idx(tx, /Ostia Nova ist verloren/);
+    ok(iF >= 0, 'Niederlage: der End-Tick hat einen Wissens-Funk für ein anderes Hex erzeugt (' + tx.map((s) => s.slice(0, 26)).join(' | ') + ')');
+    ok(iF >= 0 && iGrund > iF && iEr > iGrund && iEr === tx.length - 1, 'Niederlage: Tick-Funk < Grund < Ergebnis, die Ergebnismeldung ist das LETZTE Lagefunk-Ereignis (Grund steht nicht vor dem Tick)');
+    ok(g.errors === 0, 'keine Fehler'); }
+});
+
+section('Fixrunde 3 (R-S3): scheitert der End-Tick, gibt es keine Ausgangsmeldung und keine Ergebniszeile', () => {
+  const lageFunk = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage);
+  // Sieg
+  { const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+    ankunft(g, OSTIA); run(g, 21); bisFlaggschiff(g, 300);
+    const n0 = lageFunk(t).length, besitz0 = Besitz.besitzer(g, OSTIA);
+    kernWirft = true;
+    try { kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.3); } finally { kernWirft = false; }
+    const tx = lageFunk(t).slice(n0).map((m) => m.text);
+    ok(Besitz.besitzer(g, OSTIA) === besitz0 && besitz0 === 'rom', 'Sieg, Tick wirft: Ostia Nova bleibt römisch');
+    ok(!tx.some((s) => /hält|Flaggschiff|entkommt|gefallen/.test(s)), 'Sieg, Tick wirft: keine Ausgangsmeldung (' + tx.map((s) => s.slice(0, 30)).join(' | ') + ')');
+    ok(g.simSzeneEnde === null && (g.snapshot().flotte || {}).sz === undefined && Szene.snapshot(g) === null, 'Sieg, Tick wirft: kein simSzeneEnde, kein flotte.sz');
+    ok(Szene.letzte(g) && Szene.letzte(g).ausgang === 'gestoert' && Szene.letzte(g).gewollt === 'sieg', 'Ergebnis vermerkt „gestoert“ (gewollt: sieg)');
+    ok(t.oda().some((s) => /Kriegslage gestört/.test(s)), 'Störungs-ODA kommt');
+    ok(g.weltsim.fehler >= 1, 'Sim zählt den Fehler'); }
+  // Niederlage
+  { const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+    ankunft(g, OSTIA); run(g, 21);
+    const n0 = lageFunk(t).length;
+    kernWirft = true;
+    try { for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3); } finally { kernWirft = false; }
+    const tx = lageFunk(t).slice(n0).map((m) => m.text);
+    ok(Besitz.besitzer(g, OSTIA) === 'rom', 'Niederlage, Tick wirft: Ostia Nova bleibt römisch');
+    ok(!tx.some((s) => /ist verloren|Die Lerche ist angeschlagen|Verteidigung bricht/.test(s)), 'Niederlage, Tick wirft: keine „ist verloren“-Meldung (' + tx.map((s) => s.slice(0, 30)).join(' | ') + ')');
+    ok(g.simSzeneEnde === null && (g.snapshot().flotte || {}).sz === undefined && Szene.snapshot(g) === null, 'Niederlage, Tick wirft: kein simSzeneEnde, kein sz');
+    ok(Szene.letzte(g) && Szene.letzte(g).ausgang === 'gestoert' && Szene.letzte(g).gewollt === 'niederlage', 'Ergebnis vermerkt „gestoert“ (gewollt: niederlage)'); }
+});
+
+section('Fixrunde 3 (H-e): direkt/stumm hängen nicht an werte.sicht.verzoegerung = 1 (auch mit 2 und 0 keine „wird belagert“-Meldung nach dem Ende)', () => {
+  const lageFunk = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage);
+  for (const vz of [0, 2, 3]) {
+    // Sieg
+    { const t = neu(); const g = t.g; ab(g); z(g).werte.sicht.verzoegerung = vz;
+      ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+      ankunft(g, OSTIA); run(g, 21); bisFlaggschiff(g, 300);
+      const n0 = lageFunk(t).length;
+      kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 3);
+      const tx = lageFunk(t).slice(n0).map((m) => m.text);
+      const kdName = Szene.letzte(g).wirkungen.find((x) => x.typ === 'flaggschiff_gefallen').kommandant.name;
+      ok(tx.length >= 2 && tx[tx.length - 1].includes(kdName) && !tx.some((s) => /belagert/.test(s)), 'Verzögerung ' + vz + ', Sieg: letzte Meldung nennt den Kommandanten, kein „belagert“ (' + tx.map((s) => s.slice(0, 22)).join(' | ') + ')'); }
+    // Niederlage
+    { const t = neu(); const g = t.g; ab(g); z(g).werte.sicht.verzoegerung = vz;
+      ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+      ankunft(g, OSTIA); run(g, 21);
+      const n0 = lageFunk(t).length;
+      for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+      g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3);
+      const tx = lageFunk(t).slice(n0).map((m) => m.text);
+      ok(/Ostia Nova ist verloren/.test(tx[tx.length - 1] || '') && tx.filter((s) => /Ostia Nova/.test(s) && /verloren|gefallen/.test(s)).length === 1 && !tx.some((s) => /belagert/.test(s)), 'Verzögerung ' + vz + ', Niederlage: Ergebnis zuletzt, einmal gemeldet, kein „belagert“ (' + tx.map((s) => s.slice(0, 22)).join(' | ') + ')'); }
+  }
 });
 
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }

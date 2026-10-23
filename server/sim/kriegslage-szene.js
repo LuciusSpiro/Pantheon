@@ -178,6 +178,13 @@ function merken(game, S, ausgang, wirkungen, extra) {
 }
 
 // ---------- Ende der Szene ----------
+// R-S3: Scheitert der End-Tick (Kern.tick wirft, Rollback; oder kein Modus), steht die Welt wie vorher: der Ausgang gilt nicht. Weder Ergebnismeldung noch Ergebniszeile (simSzeneEnde, wird vor dem Tick
+// gesetzt, damit der Tick es schon sieht); die Störungs-ODA kommt aus Kriegslage.tickMit. Die Szene selbst ist beendet (aufgeräumt), das Ergebnis wird nur als „gestoert“ vermerkt.
+function gescheitert(game, S, gewollt, wirkungen, r) {
+  game.simSzeneEnde = null;
+  merken(game, S, 'gestoert', wirkungen, { gewollt, ergebnis: { ok: false, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
+  return r;
+}
 function sieg(game, S) {
   S.phase = 'ende';
   const z = game.weltsim.zustand;
@@ -195,6 +202,7 @@ function sieg(game, S) {
   // Die zuletzt gesendete Lagemeldung steht an der Konsole obenauf; die mit dem Kommandanten soll oben stehen.
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
   endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);   // R-S3: die Welt hat den Ausgang verworfen (Rollback): keine Meldung, keine Ergebniszeile
   if (S.ort) funk(game, fmt((T.sieg || {}).ort, { ort: S.ortName }));
   funk(game, text, { reiter: 1, log: (T.log || {})[S.ort ? 'siegOrt' : 'sieg'] });
   merken(game, S, 'sieg', wirk, { schicksal, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
@@ -212,6 +220,7 @@ function niederlage(game, S, grund) {
   // M2: Tick zuerst; stumm: der Wissens-Funk „… ist gefallen“ entfällt (die Szene meldet „… ist verloren“ selbst, keine Doppelmeldung); Ergebnis zuletzt = oben
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
   endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'niederlage', wirk, r);   // R-S3
   funk(game, (T.niederlage || {})[grund]);
   funk(game, gefallen ? fmt((T.niederlage || {}).ort, { ort: S.ortName }) : (T.niederlage || {}).frei, { reiter: 1, log: (T.log || {})[gefallen ? 'niederlageOrt' : 'niederlage'] });
   merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
@@ -224,6 +233,7 @@ function abbrechen(game, wo) {
   S.phase = 'ende';
   const w = gueltige(game, verlustWirkungen(game, S));
   aufraeumen(game, S);
+  endeAufraeumen(game);   // H-a: auch die Flucht räumt die Szenen-ODA weg („Erste Welle in 10 s“ liefe sonst im neuen Sektor weiter)
   const r = Kriegslage.wirkungenVormerken(game, w);
   merken(game, S, 'abbruch', w, { wo: wo || null, vorgemerkt: r.vorgemerkt });
   return r;
