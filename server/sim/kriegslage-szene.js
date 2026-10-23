@@ -234,8 +234,10 @@ function niederlage(game, S, grund) {
 function abbrechen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
+  const imKampf = S.phase === 'kampf';   // B-Fix 1: Phase merken, bevor sie auf 'ende' geht; ein Sprung in der Vorwarnung (vor dem ersten Schuss) ist keine Fahrerflucht
   S.phase = 'ende';
-  const w = gueltige(game, verlustWirkungen(game, S).concat(Ruf.szeneFlucht(S)));   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle)
+  const ruf = imKampf ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
+  const w = gueltige(game, verlustWirkungen(game, S).concat(ruf));
   aufraeumen(game, S);
   endeAufraeumen(game);   // H-a: auch die Flucht räumt die Szenen-ODA weg („Erste Welle in 10 s“ liefe sonst im neuen Sektor weiter)
   const r = Kriegslage.wirkungenVormerken(game, w);

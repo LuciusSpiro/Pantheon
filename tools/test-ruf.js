@@ -225,18 +225,18 @@ section('Quellen: Sieg im Feld, Verteidigung, Fahrerflucht, Piraten', () => {
   // Fahrerflucht: Feld (Germanen)
   t = neu(); g = t.g; ohneZufall(g); ab(g);
   g.weltsim.ruf.rom = 20;
-  ohneFlotten(g, FELD); flotte(g, FELD, 'ger', 9); ankunft(g, FELD); run(g, 2);
+  ohneFlotten(g, FELD); flotte(g, FELD, 'ger', 9); ankunft(g, FELD); run(g, 21);
   const err = springe(g, '0504');
   ok(!err && !g.simSzene && rom(g) === 20 + q.fahrerflucht_ger.delta, `Fahrerflucht im Feld (Germanen): Rom ${q.fahrerflucht_ger.delta} (20 -> ${rom(g)})${err ? ' ' + err : ''}`);
   // Fahrerflucht um einen römischen Hafen, härter
   t = neu(); g = t.g; ohneZufall(g); ab(g);
-  g.weltsim.ruf.rom = 20; ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true }); ankunft(g, OSTIA); run(g, 2);
+  g.weltsim.ruf.rom = 20; ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true }); ankunft(g, OSTIA); run(g, 21);
   const err2 = springe(g, '0204');
   ok(!err2 && rom(g) === 20 + q.fahrerflucht_ort_ger.delta && q.fahrerflucht_ort_ger.delta < q.fahrerflucht_ger.delta, `Fahrerflucht um den Hafen: Rom ${q.fahrerflucht_ort_ger.delta} (20 -> ${rom(g)}), härter als im Feld${err2 ? ' ' + err2 : ''}`);
   // Piraten ignorieren: Flucht kostet nichts, im Feld und am Hafen
   for (const [hex, st, bel, ziel] of [[FELD, 5, false, '0504'], [OSTIA, 9, true, '0204']]) {
     t = neu(); g = t.g; ohneZufall(g); ab(g); g.weltsim.ruf.rom = 20;
-    ohneFlotten(g, hex); flotte(g, hex, 'pirat', st, { belagerung: bel }); ankunft(g, hex); run(g, 2);
+    ohneFlotten(g, hex); flotte(g, hex, 'pirat', st, { belagerung: bel }); ankunft(g, hex); run(g, 21);
     const e = springe(g, ziel);
     ok(!e && Szene.letzte(g) && Szene.letzte(g).ausgang === 'abbruch' && rom(g) === 20 && Ruf.ruf(g, 'ger') === 0 && g.weltsim.letzteWirkungen.verworfen.length === 0, `Piraten ignorieren (${bel ? 'Hafen' : 'Feld'}): Flucht, keine Wirkung, kein Abzug${e ? ' ' + e : ''}`);
   }
@@ -247,6 +247,26 @@ section('Quellen: Sieg im Feld, Verteidigung, Fahrerflucht, Piraten', () => {
   ok(!g.simSzene && rom(g) === 20, 'Niederlage (Notfallprotokoll): Ruf unverändert');
 });
 
+section('B-Fix: Flucht in der Vorwarnung und am Ort ohne Belagerung', () => {
+  const q = W.quellen.wert;
+  // 1: Sprung in der 20-s-Vorwarnung (vor dem ersten Schuss) ist keine Fahrerflucht, weder im Feld noch am Hafen
+  for (const [hex, bel, ziel] of [[FELD, false, '0504'], [OSTIA, true, '0204']]) {
+    const t = neu(); const g = t.g; ohneZufall(g); ab(g); g.weltsim.ruf.rom = 20;
+    ohneFlotten(g, hex); flotte(g, hex, 'ger', 9, { belagerung: bel }); ankunft(g, hex); run(g, 2);
+    ok(g.simSzene && g.simSzene.phase === 'vorwarnung', 'Szene in der Vorwarnung (' + hex + ')');
+    const e = springe(g, ziel);
+    ok(!e && !g.simSzene && rom(g) === 20, `Sprung in der Vorwarnung (${hex}): kein Abzug (Ruf ${rom(g)})${e ? ' ' + e : ''}`);
+  }
+  // 2: durchziehende Flotte (keine Belagerung) an einem römischen Hafen: Sieg gibt nur sieg_feld, Flucht kostet nur den Feldsatz
+  let t = neu(); let g = t.g; ohneZufall(g); ab(g); g.weltsim.ruf.rom = 20;
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17); ankunft(g, OSTIA); run(g, 21);
+  ok(g.simSzene && g.simSzene.phase === 'kampf' && g.simSzene.ort, 'durchziehende Flotte um Ostia: Szene im Kampf, Ort ist römisch');
+  const e = springe(g, '0204');
+  ok(!e && rom(g) === 20 + q.fahrerflucht_ger.delta, `Flucht vor der durchziehenden Flotte: nur der Feldsatz ${q.fahrerflucht_ger.delta} (Ruf ${rom(g)})${e ? ' ' + e : ''}`);
+  t = neu(); g = t.g;
+  ok(siegSzene(g, OSTIA, 'ger', 17, false) && rom(g) === q.sieg_feld_ger.delta, `Sieg über die durchziehende Flotte: nur sieg_feld (+${q.sieg_feld_ger.delta}), Flucht und Sieg gleich bewertet`);
+});
+
 section('Ablehnen und Ignorieren ändern den Ruf nie', () => {
   // Führungsangebote kommen mit Paket E; hier gilt der Grundsatz an den vorhandenen Stellen: ohne Szene, ohne Wirkung rührt kein Tick den Ruf an
   const t = neu(); const g = t.g; ohneZufall(g); ab(g);
@@ -255,14 +275,14 @@ section('Ablehnen und Ignorieren ändern den Ruf nie', () => {
   for (let i = 0; i < 12; i++) Kriegslage.tick(g, 'sprung');
   Kriegslage.szeneAbschliessen(g, { wirkungen: [], wo: 'test' });
   ok(gleich(g.weltsim.ruf, vor), '13 Ticks ohne Szene und ohne Wirkung: Ruf unverändert (Notrufe ignorieren, Angebote ablehnen kosten nichts)');
-  ok(Ruf.szeneFlucht({ ort: null, fraktion: 'pirat' }).length === 0 && Ruf.szeneFlucht({ ort: 'hafen', fraktion: 'pirat' }).length === 0, 'Regel: Flucht vor Piraten gibt keine Wirkung');
-  ok(Ruf.szeneFlucht({ ort: null, fraktion: 'ger' }).length === 1 && Ruf.szeneSieg({ ort: 'hafen', fraktion: 'ger' }, true)[0].grund === 'ort_gehalten_ger' && Ruf.szeneSieg({ ort: 'hafen', fraktion: 'ger' }, false)[0].grund === 'sieg_feld_ger', 'Regel: Quelle folgt aus Fraktion, Ort und Ausgang');
+  ok(Ruf.szeneFlucht({ ort: null, fraktion: 'pirat' }, false).length === 0 && Ruf.szeneFlucht({ ort: 'hafen', fraktion: 'pirat' }, true).length === 0, 'Regel: Flucht vor Piraten gibt keine Wirkung');
+  ok(Ruf.szeneFlucht({ ort: null, fraktion: 'ger' }, false)[0].grund === 'fahrerflucht_ger' && Ruf.szeneFlucht({ ort: 'hafen', fraktion: 'ger' }, true)[0].grund === 'fahrerflucht_ort_ger' && Ruf.szeneFlucht({ ort: 'hafen', fraktion: 'ger' }, false)[0].grund === 'fahrerflucht_ger' && Ruf.szeneSieg({ ort: 'hafen', fraktion: 'ger' }, true)[0].grund === 'ort_gehalten_ger' && Ruf.szeneSieg({ ort: 'hafen', fraktion: 'ger' }, false)[0].grund === 'sieg_feld_ger', 'Regel: Quelle folgt aus Fraktion, Ort und Ausgang');
 });
 
 section('Rang sinkt wieder, gefunkt; Gedeckelt', () => {
   const t = neu(); const g = t.g; ohneZufall(g); ab(g);
   g.weltsim.ruf.rom = RAENGE[2].ab;   // Centurio
-  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true }); ankunft(g, OSTIA); run(g, 2);
+  ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true }); ankunft(g, OSTIA); run(g, 21);
   const q = W.quellen.wert.fahrerflucht_ort_ger.delta;
   const err = springe(g, '0204');
   const nachher = RAENGE[Math.max(0, RAENGE.reduce((m, r, i) => (RAENGE[2].ab + q >= r.ab ? i : m), 0))].id;
@@ -363,6 +383,63 @@ section('Snapshot und Mehrspieler', () => {
   const dbg = Ruf.debug(g, ['rom', String(RAENGE[3].ab)]); run(g, 0.2);
   ok(dbg === null && Ruf.rang(g) === 'tribun' && c.inbox.some((m) => m.t === 'event' && m.kind === 'radio' && m.ruf && /Tribun/.test(m.text)), 'Debug ruf rom <wert>: setzt, Rang und Funk folgen');
   ok(typeof Ruf.debug(g, ['xyz']) === 'string' && typeof Ruf.debug(g, ['rom', 'abc']) === 'string', 'Debug: falsche Argumente -> Hinweis');
+});
+
+section('B-Fix: Snapshot-Regeln von world.ruf und Debug-Klemmen', () => {
+  const t = neu({ crew: 3 }); const g = t.g;
+  const holen = () => { for (let i = 0; i < 40; i++) { const sn = g.snapshot(); if (sn.world && sn.world.ruf) return sn.world.ruf; } return null; };
+  const keiner = () => { for (let i = 0; i < 40; i++) { const sn = g.snapshot(); if (sn.world && sn.world.ruf !== undefined) return false; } return true; };
+  holen();
+  // (B) Schlüssel enthält alle drei Fraktionen: bei Rom am Deckel ändert ein Sieg nur ger
+  g.weltsim.ruf.rom = W.fraktionen.wert.rom.max; holen();
+  keiner();
+  Ruf.anwenden(g, [wirk('rom', 10, 'ort_gehalten_ger')]);
+  const am = holen();
+  ok(am && am.rom === W.fraktionen.wert.rom.max && am.ger === W.quellen.wert.ort_gehalten_ger.folge.ger, '(B) Rom am Deckel: ein Sieg ändert nur Germanen, world.ruf wird trotzdem gesendet (Schlüssel aus allen drei Fraktionen)');
+  keiner();
+  g.weltsim.ruf.kon = 11;
+  ok((holen() || {}).kon === 11, '(B) auch eine Änderung nur beim Konkordat wird gesendet');
+  keiner();
+  // (E) nie in den großen Snapshots
+  g.weltsim.ruf.rom = 50; g.asteroidsDirty = true;
+  const sn = g.snapshot();
+  ok(sn.space && sn.space.asteroids && !(sn.world && sn.world.ruf), '(E) Snapshot mit Asteroiden (groß): kein world.ruf');
+  ok(holen() !== null, '(E) der nächste freie Snapshot bringt ihn');
+  keiner();
+  g.weltsim.ruf.rom = 60; g.explore.version++;
+  const sn2 = g.snapshot();
+  ok(sn2.world && sn2.world.sektoren && sn2.world.ruf === undefined, '(E) Snapshot mit world.sektoren (includeWorld): kein world.ruf');
+  holen();
+  // (C) ein neuer Spieler tritt bei: der Block kommt für alle neu
+  keiner();
+  const neuC = { inbox: [], send(m) { this.inbox.push(m); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
+  g.addConnection(neuC); g.handleMessage(neuC, { t: 'hello', clientId: 'NEU', name: 'Neu', color: 3 });
+  ok(g.sentRufKey === null && holen() !== null, '(C) Beitritt eines neuen Spielers: sentRufKey zurückgesetzt, world.ruf wird neu gesendet');
+  // (D) neue Partie (reset): der Schlüssel ist weg
+  keiner();
+  ok(g.sentRufKey !== null, 'Schlüssel gesetzt');
+  g.reset();
+  ok(g.sentRufKey === null, '(D) reset() (neue Partie) setzt sentRufKey zurück');
+});
+
+section('B-Fix: Löschsignal und Debug klemmt', () => {
+  const t = neu(); const g = t.g;
+  const holen = () => { for (let i = 0; i < 40; i++) { const sn = g.snapshot(); if (sn.world && sn.world.ruf) return sn.world.ruf; } return null; };
+  holen();
+  const ws = g.weltsim; g.weltsim = null;   // der Modus ist weg (Kampagne, Lobby)
+  let signal = 0, spaeter = 0;
+  for (let i = 0; i < 40; i++) { const sn = g.snapshot(); if (sn.world && sn.world.ruf === null) signal++; else if (sn.world && sn.world.ruf !== undefined) spaeter++; }
+  ok(signal === 1 && spaeter === 0, 'Löschsignal: world.ruf = null genau einmal, wenn der Modus endet (der Client leert wie bei lage)');
+  const k = neu({ start: 'free' });
+  let nie = 0; for (let i = 0; i < 40; i++) { const sn = k.g.snapshot(); if (sn.world && sn.world.ruf !== undefined) nie++; }
+  ok(nie === 0, 'Kampagne ohne vorherigen Block: nie ein Signal');
+  g.weltsim = ws;
+  // Debug klemmt
+  const F = W.fraktionen.wert;
+  Ruf.debug(g, ['rom', '99999']); ok(rom(g) === F.rom.max, 'Debug ruf rom 99999 -> Höchstwert ' + F.rom.max);
+  Ruf.debug(g, ['rom', '-5']); ok(rom(g) === F.rom.min, 'Debug ruf rom -5 -> Mindestwert ' + F.rom.min);
+  Ruf.debug(g, ['ger', '7']); ok(Ruf.ruf(g, 'ger') === F.ger.max, 'Debug ruf ger 7 -> Höchstwert ' + F.ger.max);
+  Ruf.debug(g, ['kon', '-999']); ok(Ruf.ruf(g, 'kon') === F.kon.min, 'Debug ruf kon -999 -> Mindestwert ' + F.kon.min);
 });
 
 section('Weltstand speichert nie mitten im Tick', () => {

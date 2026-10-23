@@ -12,7 +12,7 @@
 //   aendern(game, fraktion, delta) einen Wert verschieben (geklemmt auf die Grenzen der Fraktion) -> { alt, neu }
 //   anwenden(game, wirkungen)      alle ruf_aenderung der Liste (plus `folge` der Quelle) anwenden; Aufrufer: Kriegslage.tickMit, nach dem Tick -> { vorher, nachher } Rang-Ids
 //   meldeRang(game, vorher, nachher)  Funk bei einem Rangwechsel (nach dem Commit des Ticks)
-//   szeneSieg(S, ortGehalten) / szeneFlucht(S)   Regeln der Sim-Szene: die Wirkung, die ein Szenenende gibt ([] wenn die Quelle fehlt, z. B. Flucht vor Piraten)
+//   szeneSieg(S, ortGehalten) / szeneFlucht(S, ortBelagert)   Regeln der Sim-Szene: die Wirkung, die ein Szenenende gibt ([] wenn die Quelle fehlt, z. B. Flucht vor Piraten)
 //   snapshot(game) / schluessel(game)   Anzeigeblock world.ruf (nur Daten) und sein Änderungsschlüssel; nur im Modus
 //   toSave(ws) / lesen(block) / neu()
 //   debug(game, args)              nur --debug: ruf [rom|ger|kon] [wert] – Wert setzen (geklemmt, Rangwechsel wird gemeldet) bzw. Stand ausgeben (Fehlertext oder null)
@@ -95,7 +95,8 @@ function meldeRang(game, vorher, nachher) {
 // grund-Schlüssel: sieg_feld_<fraktion> | ort_gehalten_<fraktion> | fahrerflucht[_ort]_<fraktion>; fehlt der Eintrag in `quellen`, gibt es nichts (Piraten ignorieren).
 const quelle = (grund) => (has(W.quellen.wert, grund) ? [{ typ: 'ruf_aenderung', fraktion: W.quellen.wert[grund].fraktion, delta: W.quellen.wert[grund].delta, grund }] : []);
 const szeneSieg = (S, ortGehalten) => quelle((ortGehalten ? 'ort_gehalten_' : 'sieg_feld_') + S.fraktion);
-const szeneFlucht = (S) => quelle('fahrerflucht' + (S.ort ? '_ort_' : '_') + S.fraktion);
+// Flucht wie Sieg: der Satz „am Ort“ nur bei laufender Belagerung (ortBelagert), sonst der Feldsatz (eine durchziehende Flotte belagert nichts)
+const szeneFlucht = (S, ortBelagert) => quelle('fahrerflucht' + (ortBelagert ? '_ort_' : '_') + S.fraktion);
 
 // ---------- Anzeige (nur Daten) ----------
 // world.ruf = { rom, ger, kon, rang: Id, name, ab: Schwelle des Rangs, bis: nächste Schwelle | null }
