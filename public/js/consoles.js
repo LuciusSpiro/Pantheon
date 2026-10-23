@@ -1822,7 +1822,9 @@
       const po = view.state && view.state.space && view.state.space.po;
       const halt = view.state && view.state.fracht && view.state.fracht.halt;
       if (!po || (halt && halt.kind === 'posten')) return;
-      const gruenden = po.k === 'g';
+      const art = { g: { kopf: 'POSTEN GRÜNDEN', knopf: 'Posten gründen', cmd: 'weapons.posten.gruenden' }, a: { kopf: 'STÜTZPUNKT AUSBAUEN', knopf: 'Stützpunkt ausbauen', cmd: 'weapons.posten.ausbauen' },
+        x: { kopf: 'POSTEN ANGREIFEN', knopf: 'Posten angreifen', cmd: 'weapons.posten.angreifen' } }[po.k];   // SUND-02b A2: x = Posten eines Gegners (sprengen)
+      if (!art) return;
       const w = 266, x = rect.x + 4, y = rect.y + 3 + (this.stapelH || 0);
       const zeilen = po.ok ? [] : R.wrap(String(po.t || ''), w - 8, 1).slice(0, 2);
       const h = 28 + zeilen.length * 12;
@@ -1830,8 +1832,8 @@
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const kosten = n(po.n) ? ' · ' + n(po.n) + (n(po.n) === 1 ? ' Ersatzteil' : ' Ersatzteile') : '';
-      R.text(ctx, (gruenden ? 'POSTEN GRÜNDEN' : 'STÜTZPUNKT AUSBAUEN') + kosten, x + 4, y + 3, { color: po.ok ? PAL.mint : PAL.amber });
-      R.button(ctx, x + 4, y + 13, 160, 12, gruenden ? 'Posten gründen' : 'Stützpunkt ausbauen', { disabled: !po.ok, reason: po.t, active: !!po.ok, onClick: () => this.cmd(view, gruenden ? 'weapons.posten.gruenden' : 'weapons.posten.ausbauen') });
+      R.text(ctx, art.kopf + kosten, x + 4, y + 3, { color: po.ok ? PAL.mint : PAL.amber });
+      R.button(ctx, x + 4, y + 13, 160, 12, art.knopf, { disabled: !po.ok, reason: po.t, active: !!po.ok, onClick: () => this.cmd(view, art.cmd) });
       zeilen.forEach((z, i) => R.text(ctx, z, x + 4, y + 27 + i * 12, { color: PAL.amber }));
     },
     // SL7b: Landepunkt-Scan der Ops. Sichtbar, wenn ein ungescannter Landepunkt in Reichweite ist (Snapshot lpscan { n, p? }); L hält 4 s.
@@ -1899,7 +1901,7 @@
       } else if (f.halt) {
         R.button(ctx, x + 4, by, 126, 12, postenHalt ? 'Abbrechen' : 'Beamen abbrechen', { hotkey: postenHalt ? undefined : 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
-        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? 'Feindkontakt, Tempo oder Abstand bricht ab' : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
+        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : f.halt.id === 'angreifen' ? 'Angriff läuft an … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? 'Feindkontakt, Tempo oder Abstand bricht ab' : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });

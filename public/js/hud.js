@@ -1787,12 +1787,12 @@
         const fa = KT && KT.FARBE && KT.FARBE.fraktion && KT.FARBE.fraktion[{ ger: 'g', pirat: 'p', rom: 'r' }[sz.f]];   // Namen aus den Karten-Tokens (eine Quelle)
         const fr = (fa && fa.name) || 'Feind';
         const v = sz.v;
-        return { hoch: true, kopf: 'FEINDKONTAKT', kopfFarbe: rot, text: fr + ' · ' + (KT ? KT.staerkeName(sz.k) : '') + (wellenZahl ? ' · ' + wellenZahl : ''), textFarbe: hell, sek: v[0], anteil: v[1] > 0 ? Math.max(0, Math.min(1, v[0] / v[1])) : 0 };
+        return { hoch: true, kopf: sz.x ? 'ANGRIFF AUF POSTEN' : 'FEINDKONTAKT', kopfFarbe: rot, text: fr + ' · ' + (KT ? KT.staerkeName(sz.k) : '') + (wellenZahl ? ' · ' + wellenZahl : ''), textFarbe: hell, sek: v[0], anteil: v[1] > 0 ? Math.max(0, Math.min(1, v[0] / v[1])) : 0 };
       }
-      if (sz.p === 'k') return { hoch: false, kopf: welle ? welle.toUpperCase() : 'GEFECHT', kopfFarbe: rot, text: sz.g != null ? (sz.g === 1 ? ' · 1 Gegner' : ' · ' + sz.g + ' Gegner') : '', textFarbe: hell };
+      if (sz.p === 'k') return { hoch: false, kopf: sz.x ? 'ANGRIFF AUF POSTEN' : (welle ? welle.toUpperCase() : 'GEFECHT'), kopfFarbe: rot, text: (sz.x && welle ? ' · ' + welle.toUpperCase() : '') + (sz.g != null ? (sz.g === 1 ? ' · 1 Gegner' : ' · ' + sz.g + ' Gegner') : ''), textFarbe: hell };
       if (sz.p === 'f') return { hoch: false, kopf: 'FLAGGSCHIFF', kopfFarbe: rot, text: sz.kd ? ' · ' + sz.kd : '', textFarbe: hell };
-      if (sz.p === 's') return { hoch: false, akzent: mint, kopf: 'SIEG', kopfFarbe: mint, text: ' · ' + (sz.o ? sz.o + ' hält' : 'Flotte bricht ab'), textFarbe: hell };
-      if (sz.p === 'n') return { hoch: false, kopf: 'NIEDERLAGE', kopfFarbe: rot, text: ' · ' + (sz.o ? sz.o + ' verloren' : 'Feind hält den Sektor'), textFarbe: hell };
+      if (sz.p === 's') return { hoch: false, akzent: mint, kopf: 'SIEG', kopfFarbe: mint, text: ' · ' + (sz.x ? 'Posten gesprengt' : sz.o ? sz.o + ' hält' : 'Flotte bricht ab'), textFarbe: hell };
+      if (sz.p === 'n') return { hoch: false, kopf: 'NIEDERLAGE', kopfFarbe: rot, text: ' · ' + (sz.x ? 'Angriff gescheitert' : sz.o ? sz.o + ' verloren' : 'Feind hält den Sektor'), textFarbe: hell };
       return null;
     },
     // Fixrunde N4: Unterkante der Szenenzeile an den Konsolen (y 9 + Höhe + 1; 0 ohne Szene) und der Einzug, den Kartenbeschriftungen (Rand-Marker, Zoom-Anzeige) darunter brauchen
