@@ -314,6 +314,7 @@ section('Stufe am Rang: gesperrt mit Grund');
 {
   const T = partie(); TU.zuruecksetzen(); zeichnen(T);
   const g = T.g;
+  const stufe2Alt = g.C.werft.ruf.stufe[2];   // wiederherstellen, nicht löschen (SUND-02b C trägt die Bindung in den Daten)
   g.C.werft.ruf.stufe[2] = 'centurio'; g.rufErreicht = () => false;   // Modus Freie Fahrt Sund, Rang Miles (ohne den Modus selbst zu starten)
   T.key('KeyA'); T.key('KeyF');   // Stufe 1 ist frei
   ok(g.ship.stufe === 1, 'Stufe 1 ohne Rang gekauft');
@@ -324,7 +325,26 @@ section('Stufe am Rang: gesperrt mit Grund');
   ok(g.ship.stufe === 1 && g.inventory.marks === marks, 'F bei gesperrter Stufe kauft nichts');
   g.rufErreicht = () => true; m = T.m();
   ok(!m.stufen.sperre && m.aktionen.haupt.grund !== 'Rang Centurio nötig', 'Rang erreicht: Rang-Grund weg');
-  delete g.rufErreicht; delete g.C.werft.ruf.stufe[2];
+  // Darstellung (echte Zeichenfunktion mit aufzeichnender Attrappe): gesperrte Stufe mit „!“ in Warnfarbe, Grundzeile im Block
+  g.rufErreicht = () => false; TU.zustand.antwort = null; m = T.m();
+  ok(m.aktionen.hinweis.text === 'Rang Centurio nötig' && m.aktionen.hinweis.fn === 'warn', 'Hinweiszeile unter dem Knopf zeigt den Rang-Grund statt „… Marken, einmalig“ (Warnfarbe)');
+  const zeichne = (stufenModell) => { const rec = []; const ctx = new Proxy({}, { get: () => () => {}, set: () => true }); const R2 = { measure: (t) => String(t).length * 6, wrap: (t) => [t], ui: { buttons: [], mouse: { x: 0, y: 0 } }, text: (c, t, x, y, o) => rec.push([t, o.color]) };
+    const P2 = new Proxy({ FN: new Proxy({}, { get: (t, k) => 'fn:' + String(k) }), SKINS: { rom: new Proxy({}, { get: (t, k) => 'sk:' + String(k) }) }, mix: (a) => a, rgba: () => '#000' }, { get: (t, k) => (k in t ? t[k] : () => {}) });
+    const w2 = { Render: R2, Pult: P2 }; w2.window = w2; vm.createContext(w2);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'pult-terminal-tokens.js'), 'utf8'), w2, { filename: 'pult-terminal-tokens.js' });
+    w2.PultTerminal.zeichneStufen(ctx, { x: 0, y: 30, w: 260, h: 196 }, stufenModell); return rec; };
+  let rec = zeichne(m.stufen);
+  ok(rec.some(([t, c]) => t === '! 180 M' && c === 'fn:warn') && rec.some(([t, c]) => t === '! 900 M' && c === 'fn:warn') && !rec.some(([t]) => t === '180 M'), 'Zeichnung: gesperrte Stufen 2 und 3 als "! Preis" in Warnfarbe');
+  ok(rec.some(([t, c]) => t === 'Rang Centurio nötig' && c === 'fn:warn'), 'Zeichnung: Grundzeile "Rang Centurio nötig" in Warnfarbe im Block');
+  g.rufErreicht = () => true; rec = zeichne(T.m().stufen);
+  ok(rec.some(([t, c]) => t === '180 M' && c !== 'fn:warn') && !rec.some(([t]) => /^!|Rang/.test(t)), 'Zeichnung ohne Sperre: Preis in Preisfarbe, kein "!", keine Grundzeile');
+  // gesperrter Platz/Raum (Platzansicht): der Hauptknopf nennt den Rang-Grund, auch bei zu wenigen Marken
+  g.rufErreicht = () => false; g.inventory.marks = 20; TU.zuruecksetzen(); T.key('F4'); m = T.m();
+  ok(m.ansicht === 'stufe' && m.stufen.ziel === 2, 'F4 (gesperrter Raum) öffnet die Stufenansicht');
+  ok(m.aktionen.haupt.disabled && m.aktionen.haupt.grund === 'Rang Centurio nötig', 'Platzansicht gesperrt: Hauptknopf nennt den Rang-Grund statt "Nicht genug Marken" (' + m.aktionen.haupt.grund + ')');
+  g.inventory.marks = 1000;
+  if (stufe2Alt === undefined) delete g.C.werft.ruf.stufe[2]; else g.C.werft.ruf.stufe[2] = stufe2Alt;
+  delete g.rufErreicht;
 }
 
 console.log(`\ntest-werft-ui: ${n - fails}/${n} ok`);
