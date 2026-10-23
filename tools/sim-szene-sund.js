@@ -76,7 +76,7 @@ function neuesSpiel(seed, crew, opts) {
 }
 const flotteSetzen = (g, hex, fraktion, staerke, belagerung) => {
   const z = g.weltsim.zustand;
-  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'rueckzug', ziel: null, warte: 0, versorgung: 1, angriff: null }; fl.ziel = fl.heimat;   // durchziehende Flotte im Feld (die Sim kennt 'heim' nur im eigenen Hafen, dort löst sie keine Szene aus)
   z.flotten.push(fl);
   if (belagerung) {
     const id = z.naechsteAngriffId++;

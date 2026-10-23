@@ -35,6 +35,7 @@ const Locations = require('../../shared/locations.js');
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
 const FEIND_VON = 'rom';   // die Crew spielt für Rom: Gegner sind alle, die zu Rom feindlich sind (ger, pirat)
+const AUSLOESER_BEFEHLE = ['angriff', 'anspruch', 'rueckzug'];   // Flotten im Feld (wie BEFEHLE_FELD in weltsim/kern.js); 'heim' und 'sammeln' stehen im eigenen Hafen
 const SZENEN_TAG = 'sim_szene';   // Spawn-Tag der Gegner dieser Szene (Flotte.wellenStartAusPlan)
 const DEBUG_STAERKE_MAX = 200;   // Debug `szene <staerke>`: darüber wäre der Plan nur noch eine Last für den Server
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -79,8 +80,9 @@ function lage(game, hex) {
   if (!ws || !hex || !ws.zustand.hexe[hex]) return null;
   const z = ws.zustand; const d = Kern.datenVon(z); const nd = z.hexe[hex];
   const hier = z.flotten.filter((f) => f.ort === hex);
-  // Angreifer: die stärkste feindliche Fraktion im Hex (Flotten mit Stärke ≥ 1); andere feindliche Fraktionen kämpfen weiter nur in der Sim
-  const feind = hier.filter((f) => Kern.feindlich(f.fraktion, FEIND_VON) && f.staerke >= 1);
+  // Angreifer: die stärkste feindliche Fraktion im Hex (Flotten mit Stärke ≥ 1); andere feindliche Fraktionen kämpfen weiter nur in der Sim.
+  // Nur Flotten im Feld (Marsch oder Belagerung) lösen eine Szene aus; die Heimatflotte im eigenen Hafen (befehl 'heim', auch beim Sammeln) nicht (Kai, 2026-10-23).
+  const feind = hier.filter((f) => Kern.feindlich(f.fraktion, FEIND_VON) && f.staerke >= 1 && AUSLOESER_BEFEHLE.includes(f.befehl));
   if (!feind.length) return null;
   const summen = {};
   for (const f of feind) summen[f.fraktion] = (summen[f.fraktion] || 0) + f.staerke;

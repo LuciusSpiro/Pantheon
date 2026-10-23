@@ -49,7 +49,7 @@ function client(port, hello) {
 const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
 function flotte(g, hex, fraktion, staerke, belagerung) {
   const z = g.weltsim.zustand;
-  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'rueckzug', ziel: null, warte: 0, versorgung: 1, angriff: null }; fl.befehl = 'angriff'; fl.ziel = hex;   // steht im Feld (die Sim kennt 'heim' nur im eigenen Hafen, dort löst sie keine Szene aus; im Rückzug zöge sie im nächsten Tick ab)
   z.flotten.push(fl);
   if (belagerung) {
     const id = z.naechsteAngriffId++;

@@ -77,8 +77,9 @@ function ab(g) { const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.s
 // Flotte der Sim in einem Hex (optional mit Belagerung, Feldzug marsch, Ankunft jetzt)
 function flotte(g, hex, fraktion, staerke, o) {
   const st = z(g); const opt = o || {};
-  const fl = { id: st.naechsteId++, fraktion, heimat: opt.heimat || HEIMAT[fraktion] || hex, ort: hex, staerke, kap: opt.kap || Math.max(staerke, 5), befehl: 'heim', ziel: null, warte: 0, versorgung: 1, angriff: null };
+  const fl = { id: st.naechsteId++, fraktion, heimat: opt.heimat || HEIMAT[fraktion] || hex, ort: hex, staerke, kap: opt.kap || Math.max(staerke, 5), befehl: 'rueckzug', ziel: null, warte: 0, versorgung: 1, angriff: null }; fl.ziel = fl.heimat;   // durchziehende Flotte im Feld (die Sim kennt 'heim' nur im eigenen Hafen, dort löst sie keine Szene aus)
   st.flotten.push(fl);
+  if (opt.steht) { fl.befehl = 'angriff'; fl.ziel = hex; }   // steht im Feld (kein Rückzug im nächsten Tick), ohne Belagerungseintrag
   if (opt.belagerung) {
     const id = st.naechsteAngriffId++;
     st.angriffe.push({ id, t0: st.tick, ziel: hex, von: fraktion, art: fraktion === 'pirat' ? 'pirat' : 'reich', relevant: true, zielArt: st.hexe[hex].posten ? 'posten' : 'hafen', t_an: st.tick, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: st.tick, stuetz: null, flotten: [fl.id] });
@@ -320,10 +321,10 @@ section('Verluste -> Punkte, Flaggschiff fällt (Sieg mit Reststärke)', () => {
   const tot = Object.keys(g.weltsim.kommandanten).filter((nm) => g.weltsim.kommandanten[nm].schicksal === 'gefallen');
   const gefallen = Object.keys(require('../content/welt/kommandanten.json').kommandanten.ger.reduce((o, k) => (o[k.name] = 1, o), {}));
   g.weltsim.kommandanten = {}; for (const nm of gefallen.slice(1)) g.weltsim.kommandanten[nm] = { fraktion: 'ger', schicksal: 'gefallen', begegnungen: 1, tick: 0 };
-  ohneFlotten(g, '0505'); flotte(g, '0505', 'ger', 9); ankunft(g, '0505');
+  ohneFlotten(g, '0505'); flotte(g, '0505', 'ger', 9, { steht: true }); ankunft(g, '0505');
   ok(g.simSzene.kommandant.name === gefallen[0], 'alle anderen gefallen: der einzige Lebende führt (' + gefallen[0] + ')');
   g.weltsim.kommandanten[gefallen[0]] = { fraktion: 'ger', schicksal: 'gefallen', begegnungen: 1, tick: 0 };
-  ohneFlotten(g, '0505'); flotte(g, '0505', 'ger', 9); ankunft(g, '0505');
+  ohneFlotten(g, '0505'); flotte(g, '0505', 'ger', 9, { steht: true }); ankunft(g, '0505');
   ok(g.simSzene.kommandant === null && g.simSzene.plan.flaggschiff.kommandant.name === 'Der Flottenführer', 'alle gefallen: Ersatzname „Der Flottenführer“ statt Absturz');
   ok(tot.length === 0 || tot.every((nm) => g.weltsim.kommandanten[nm]), 'Gedächtnis wird nicht vergessen');
   // Sieg ohne echten Kommandanten: die Flotte bricht ab, aber der Ersatzname kommt nicht ins Gedächtnis
@@ -560,7 +561,7 @@ section('Abbruch: Flucht per Sprung und Notfallsprung', () => {
   // b) Flucht in der Vorwarnung: nichts gekämpft, nichts vorgemerkt, nur der Sprung-Tick; Weltstand wie ohne Crew
   t = neu(); g = t.g; ab(g);
   g.C.reise.neutralChance = 0; g.C.reise.neutralPlus = 0; g.C.reise.feindChance = 0;
-  flotte(g, '0505', 'pirat', 5);
+  flotte(g, '0505', 'pirat', 5, { steht: true });
   ankunft(g, '0505');
   const t1 = ticks(g);
   const odaWegVor = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'odaWeg').length;
@@ -631,7 +632,7 @@ section('Keine Endlos-Neuauslösung', () => {
   run(g, 60);
   ok(!g.simSzene && Szene.letzte(g).id === id1, 'im Hex geblieben: auch nach 60 s keine zweite Szene');
   // Kommt eine Flotte später im selben Hex an und die Crew bleibt, löst das nichts aus (nur eine Ankunft der Crew löst aus)
-  flotte(g, '0505', 'ger', 9); run(g, 5);
+  flotte(g, '0505', 'ger', 9, { steht: true }); run(g, 5);
   ok(!g.simSzene, 'Flotte erscheint, während die Crew bleibt: keine Szene (die Karte zeigt es, die Szene folgt der Ankunft)');
   // Ankunft: löst wieder aus, mit neuer Id
   ankunft(g, '0505');
@@ -641,7 +642,7 @@ section('Keine Endlos-Neuauslösung', () => {
   ok(g.simSzene && g.simSzene.id === id1 + 2 && Szene.letzte(g).ausgang === 'abbruch' && (g.space.escorts || []).filter((q) => q.sim === id1 + 1).length === 0, 'zweite Ankunft: die alte Szene ist abgebrochen, nur eine Szene lebt');
   // Niederlage mit stehender Flotte: bleibt die Crew, bleibt Ruhe (die Flotte ist noch da, die Szene nicht)
   const t2 = neu(); const g2 = t2.g; ab(g2);
-  ohneFlotten(g2, '0505'); flotte(g2, '0505', 'ger', 17);
+  ohneFlotten(g2, '0505'); flotte(g2, '0505', 'ger', 17, { steht: true });
   ankunft(g2, '0505'); run(g2, 21); g2.ship.hull = 0; run(g2, 0.3);
   ok(!g2.simSzene && z(g2).flotten.some((f) => f.ort === '0505' && f.fraktion === 'ger'), 'nach der Niederlage (Lerche allein im freien Sektor) steht die Flotte noch im Hex');
   run(g2, 60);
@@ -649,7 +650,7 @@ section('Keine Endlos-Neuauslösung', () => {
   // Schnellsprung: Feindkontakt beendet ihn
   const t3 = neu(); const g3 = t3.g; ab(g3);
   g3.reise = { hops: ['0505', '0503'], i: 0, t: 0, ziel: '0503', abbruch: false }; g3.reisePlan = { ziel: 'x', hops: ['0503'] };
-  flotte(g3, '0505', 'pirat', 5);
+  flotte(g3, '0505', 'pirat', 5, { steht: true });
   Sprung.springeNach(g3, Sektoren.ortVonHex('0505'));
   ok(g3.simSzene, 'Schnellsprung-Hop in einen Sektor mit Piraten löst die Szene aus');
   g3.reise.i = 0; g3.reise.t = 99;
@@ -1048,6 +1049,40 @@ section('Fixrunde 3 (H-e): direkt/stumm hängen nicht an werte.sicht.verzoegerun
       g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3);
       const tx = lageFunk(t).slice(n0).map((m) => m.text);
       ok(/Ostia Nova ist verloren/.test(tx[tx.length - 1] || '') && tx.filter((s) => /Ostia Nova/.test(s) && /verloren|gefallen/.test(s)).length === 1 && !tx.some((s) => /belagert/.test(s)), 'Verzögerung ' + vz + ', Niederlage: Ergebnis zuletzt, einmal gemeldet, kein „belagert“ (' + tx.map((s) => s.slice(0, 22)).join(' | ') + ')'); }
+  }
+});
+
+section('Auslöser nur bei Belagerung oder Marsch: die Heimatflotte im eigenen Hafen löst keine Szene aus (Kai, 2026-10-23)', () => {
+  const ankunftMit = (hex, fraktion, staerke, o) => {
+    const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, hex); const fl = flotte(g, hex, fraktion, staerke, o);
+    ankunft(g, hex);
+    return { g, fl };
+  };
+  // Heimatflotte: befehl 'heim' im eigenen Hafen (germanischer Hafen, Hafen der Piraten), auch beim Sammeln
+  for (const [hex, fraktion] of [['1004', 'ger'], ['0602', 'pirat']]) {
+    for (const befehl of ['heim', 'sammeln']) {
+      const { g, fl } = (() => { const t = neu(); const g = t.g; ab(g); ohneFlotten(g, hex); const fl = flotte(g, hex, fraktion, 9, { heimat: hex }); fl.befehl = befehl; fl.ziel = null; ankunft(g, hex); return { g, fl }; })();
+      ok(!g.simSzene && Szene.lage(g, hex) === null, `Flotte „${befehl}“ im eigenen Hafen (${fraktion}, ${hex}): keine Szene`);
+      ok(g.errors === 0 && fl.befehl === befehl, 'ohne Fehler, die Sim-Flotte bleibt unangetastet');
+    }
+  }
+  // Marsch: Flotte im Feld löst aus (anspruch, rueckzug, angriff ohne Belagerungseintrag)
+  for (const befehl of ['anspruch', 'rueckzug', 'angriff']) {
+    const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, '0505'); const fl = flotte(g, '0505', 'ger', 9, { steht: true }); fl.befehl = befehl; fl.ziel = befehl === 'rueckzug' ? fl.heimat : '0505';
+    ankunft(g, '0505');
+    ok(!!g.simSzene, `Flotte im Feld (Befehl „${befehl}“): löst die Szene aus`);
+  }
+  // Belagerung: löst aus (Ort Hafen)
+  { const { g } = ankunftMit(OSTIA, 'ger', 17, { belagerung: true });
+    ok(!!g.simSzene && g.simSzene.ort === 'hafen', 'Belagerung des römischen Hafens: Szene mit Ort Hafen'); }
+  // Heimatflotte und Marschflotte im selben Hex: nur die Marschflotte zählt als Angreifer
+  { const t = neu(); const g = t.g; ab(g);
+    ohneFlotten(g, '1004'); const heim = flotte(g, '1004', 'ger', 20, { heimat: '1004' }); heim.befehl = 'heim'; heim.ziel = null;
+    const marsch = flotte(g, '1004', 'pirat', 6, { steht: true });
+    ankunft(g, '1004');
+    ok(!!g.simSzene && g.simSzene.fraktion === 'pirat' && g.simSzene.angreifer.every((a) => a.id === marsch.id), 'Heimatflotte (Stärke 20) und Marschflotte (6) im Hex: nur die Marschflotte ist Angreifer');
   }
 });
 
