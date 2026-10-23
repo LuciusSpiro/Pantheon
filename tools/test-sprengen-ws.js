@@ -72,6 +72,7 @@ const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, 
 
   // Posten der Gegner, Ankunft, Ops besetzt
   Object.assign(z().hexe[GER1], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} });
+  g.weltBesitz.hexe[GER1] = { besitzer: 'ger', posten: true };   // das Overlay folgt dem Zustand (im Spiel macht das der Tick): die Szene hält die Asteroiden vom Posten fern
   z().flotten = z().flotten.filter((f) => f.ort !== GER1);
   a.send({ t: 'debug', cmd: 'hex', hex: GER1 });
   await bis(() => g.ship.scene === Sektoren.ortVonHex(GER1), 2500); await sleep(300);
@@ -100,6 +101,7 @@ const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, 
   await bis(() => g.simSzene && g.simSzene.modus === 'angriff', 6000);
   await sleep(500);
   ok(g.simSzene && g.simSzene.modus === 'angriff' && g.weltsim.tickZahl === tick0, 'Angriffsszene läuft, Beginn ist kein Tick');
+  if (!g.simSzene) console.log('  DIAG', JSON.stringify({ oda: a.oda.slice(-4), speed: g.ship.speed, enemies: g.space.enemies.length, halt: g.fracht && g.fracht.halt, scene: g.ship.scene, docked: g.ship.docked }));
   ok(alle((s) => !(s.fracht && s.fracht.halt)), 'der Anlauf ist bei allen weg');
   ok(alle((s) => s.flotte && s.flotte.sz && s.flotte.sz.x === 1 && ['v', 'k'].includes(s.flotte.sz.p)), 'alle drei sehen flotte.sz mit x 1 (ANGRIFF AUF POSTEN)');
   ok([a, b, c].every((x) => x.funk.some((t) => /Angriff auf den Posten/.test(t))), 'der Funk „Angriff auf den Posten …“ erreicht alle drei');

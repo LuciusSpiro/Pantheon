@@ -87,7 +87,11 @@ function ankunft(g, hex) { Space.enterScene(g, Sektoren.ortVonHex(hex), {}); ab(
 const szene = (hex) => Locations.get(Sektoren.ortVonHex(hex)).scene;
 function anPosten(g, hex, dx) { const p = Besitz.postenLage(szene(hex)); Object.assign(g.ship, { x: p.x + (dx || 0), y: p.y, vx: 0, vy: 0, speed: 0 }); }
 // Posten eines Gegners in der Sim (Fixture am Zustand)
-function postenSetzen(g, hex, besitzer, garnison) { Object.assign(z(g).hexe[hex], { besitzer, posten: true, garnison: garnison == null ? 4 : garnison, anspruch: {} }); }
+const KARTEN_FRAKTION = { rom: 'rom', ger: 'ger', kon: 'saum', pirat: 'pirat' };
+function postenSetzen(g, hex, besitzer, garnison) {
+  Object.assign(z(g).hexe[hex], { besitzer, posten: true, garnison: garnison == null ? 4 : garnison, anspruch: {} });
+  if (g.weltBesitz && g.weltBesitz.hexe[hex]) g.weltBesitz.hexe[hex] = { besitzer: KARTEN_FRAKTION[besitzer] || 'frei', posten: true };   // das Overlay folgt dem Zustand (im Spiel macht das der Tick): die Szene hält die Asteroiden vom Posten fern
+}
 // Partie am germanischen Posten mit Ops, Lerche im Ring und langsam
 function bereit(o) {
   const op = o || {};

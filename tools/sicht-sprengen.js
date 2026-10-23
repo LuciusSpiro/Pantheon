@@ -52,6 +52,7 @@ async function main() {
     const z = () => g.weltsim.zustand;
     g.weltsim.ruf.rom = 0;   // Miles genügt
     Object.assign(z().hexe[GER1], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); z().flotten = z().flotten.filter((f) => f.ort !== GER1);
+    g.weltBesitz.hexe[GER1] = { besitzer: 'ger', posten: true };
 
     // 1) germanischer Posten 0703: Angreifen möglich
     await hin(GER1); await sitz('weapons'); await sleep(500); anPosten(GER1); await shot('01-ops-angreifen-moeglich', 900);
