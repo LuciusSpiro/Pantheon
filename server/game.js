@@ -31,6 +31,7 @@ const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
+const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
 const Sonden = require('./sim/sonden.js');   // SL4: Sonden der Ops (game.sonden, Snapshot space.so)
@@ -57,7 +58,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -449,7 +450,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -663,7 +664,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -674,7 +675,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -689,7 +690,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1157,6 +1158,14 @@ class Game {
         err = r ? r.text : null;
         break;
       }
+      case 'absicht.waehlen': case 'absicht.ablehnen': {   // SUND-02b D: am Terminal (Konsole shop), jeder darf, keine Rolle; die erste Wahl gilt, jede weitere bekommt „schon gewählt“. Antwort an den Absender: absichtAntwort { ok, op, code?, text? }
+        const op = c.slice(8);
+        const r = op === 'waehlen' ? Absicht.waehlen(this, String(msg.id)) : Absicht.ablehnen(this);
+        if (!r && op === 'waehlen') { try { Absicht.meldeGewaehlt(this); } catch (e) { this.countError('absicht-funk', e); } }
+        if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+        err = r ? r.text : null;
+        break;
+      }
       case 'deco.place': err = shop.placeDeco(this, p, String(msg.slot), msg.item == null ? null : String(msg.item)); break;
       case 'quartier.style': err = shop.setStyle(this, p, String(msg.part), String(msg.value)); break;
       case 'plan.pin': err = onboard.pin(this, p, msg); break;
@@ -1330,6 +1339,7 @@ class Game {
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'szene': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : SimSzene.debug(this, argList(msg)); break;   // SUND-02a: szene [staerke] [ger|pirat] [belagerung] – Flotte der Sim im Hex der Lerche, löst die Szene aus
       case 'ruf': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Ruf.debug(this, argList(msg)); break;   // SUND-02b B: ruf [rom|ger|kon] [wert] – Ruf setzen/anzeigen (nur Freie Fahrt Sund)
+      case 'absicht': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Absicht.debug(this, argList(msg)); break;   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund)
       case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
       case 'kapitel': {   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
         if (this.phase === 'lobby') { this.lobbyOpts.startMission = 'eisenwald_ohne'; this.startGame(); }
@@ -1912,6 +1922,12 @@ class Game {
       if (rk && rk !== this.sentRufKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.ruf = Ruf.snapshot(this); this.sentRufKey = rk; }
       else if (!rk && this.sentRufKey) { world.ruf = null; this.sentRufKey = null; }   // Löschsignal (B-Fix 3): der Modus ist weg (Kampagne, Lobby), der Client leert den Ruf; einmal, nie ohne vorherigen Block
     } catch (e) { this.countError('snapshot-ruf', e); }
+    // SUND-02b D: world.absicht (Angebot und laufende Absicht, Rang-Hinweis; nur Freie Fahrt Sund) nur bei Änderung, für alle gleich (nur der Server schreibt), nie mit den großen seltenen Teilen; Löschsignal null wie world.ruf
+    try {
+      const ak = Absicht.schluessel(this);
+      if (ak && ak !== this.sentAbsichtKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.absicht = Absicht.snapshot(this); this.sentAbsichtKey = ak; }
+      else if (!ak && this.sentAbsichtKey) { world.absicht = null; this.sentAbsichtKey = null; }
+    } catch (e) { this.countError('snapshot-absicht', e); }
     // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
     const jpFn = fnOf(sprungMod(), 'jpSnapshot');
     if (jpFn) { try { const jp = jpFn(this); if (Array.isArray(jp) && jp.length) spaceOut.jp = jp.slice(0, 6); } catch (e) { this.countError('snapshot-jp', e); } }

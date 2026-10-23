@@ -247,6 +247,11 @@
     // werftAntwort { pid, op, ok, code?, text? } (bei Fehler zusätzlich notice); bei Erfolg an alle: Ereignis werft { op: 'freigeschaltet'|'umbau', art, id, platz?, raum?, marks?, pid }.
     // Fehlercodes (WERFT_CODES). Snapshot werft { aktiv, grund?, nutzer (Spielerfarbe), stufe, waffen { Platz: Id }, module { Raum: Id|null (offene Räume, null = leer) }, frei { stufe, waffen[], module[] }, preise { stufe, waffe, modul }, zu [Farben der Zuschauer], ui { b: 'h'|'w', a: 'p'|'m'|'s', n, i } (Ansicht des Nutzers für Zuschauer) }
     // nur, solange jemand am Terminal sitzt (aktiv: false = nur aktiv, grund, nutzer, stufe). Weltstand schiff.freigeschaltet { stufe, waffen[], module[] }. Debug werft, marken <n>.
+    // SUND-02b D: Strategische Optionen am Terminal (Konsole 'shop', nur Freie Fahrt Sund, ab Tribun, jeder Spieler, keine Rolle). cmd { c: 'absicht.waehlen', id } wählt eine Absicht des Angebots (die erste Wahl gilt, jede weitere bekommt „schon gewählt“),
+    //   cmd { c: 'absicht.ablehnen' } schließt das Angebot (ohne Folgen). Antwort an den Absender: Ereignis absichtAntwort { pid, op: 'waehlen'|'ablehnen', ok, code?, text? }.
+    //   Snapshot world.absicht { frei: 0|1, ab: Name des Mindestrangs, angebot?: [{ id, name, text, dauer }] (2 bis 3), rest?: Sprünge bis zum Verfall, laufend?: { id, name, text, rest, dauer } } nur bei Änderung (nie in den großen Snapshots),
+    //   world.absicht = null ist das Löschsignal (einmal, wenn der Modus endet), der Client leert dann seinen Block wie world.ruf.
+    CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
     CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen', 'werft.start'],   // werft.start: Szene der Wellenmodi starten (nur Testumgebung, Rüstphase)   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
@@ -287,7 +292,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf',   // SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht',   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

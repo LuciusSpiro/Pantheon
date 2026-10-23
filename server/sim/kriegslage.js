@@ -15,6 +15,8 @@
 //   (SUND-02b B) welt.sim.ruf: { rom, ger, kon } (optional, Altstände = 0, server/sim/ruf.js). Die Wirkung ruf_aenderung prüft der Katalog, der Kern ignoriert sie; tickMit wendet sie NACH dem Tick an (Ruf.anwenden), im selben
 //   Atom: wirft der Tick, geht auch der Ruf auf die Sicherung zurück. Rangwechsel-Funk erst nach dem Commit.
 //   (SUND-02b A2) welt.sim.sprengungen: { Hex: Tick der letzten Sprengung } (optional, Ruf-Sperre gegen Farmen, server/sim/posten.js sprengungRuf); Rollback und Speichern wie welt.sim.posten.
+//   (SUND-02b D) welt.sim.absicht: { laufend?, angebot?, frei_ab? } (optional, Altstände = leer, server/sim/absicht.js). Die gewählte Absicht steht in zustand.absichten.rom (Erweiterungspunkt der Standard-KI, der Kern bleibt unberührt); tickMit lässt sie danach auslaufen bzw. macht ein neues Angebot,
+//   im selben Atom: wirft der Tick, geht auch die Absicht auf die Sicherung zurück. Funk erst nach dem Commit.
 //   welt.sim.kommandanten: Gedächtnis { Name: { fraktion, schicksal: 'entkommen'|'gefallen', begegnungen, tick } }; welt.sim.vorgemerkt: [Wirkung] für den nächsten Tick
 //   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
 //   lage(game) / lageSchluessel(game)  Anzeigeblock world.lage und Änderungsschlüssel (nur im Modus, Wissen statt Wahrheit)
@@ -27,6 +29,7 @@ const Daten = require('../weltsim/daten.js');
 const Besitz = require('./besitz.js');
 const Posten = require('./posten.js');   // SUND-02b A1: Posten der Crew (Halten, Weltstand welt.sim.posten)
 const Ruf = require('./ruf.js');   // SUND-02b B: Ruf je Fraktion, Dienstgrade von Rom (welt.sim.ruf)
+const Absicht = require('./absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (welt.sim.absicht, zustand.absichten.rom)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
@@ -82,7 +85,7 @@ function overlayFuellen(game) {
 function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
@@ -119,7 +122,8 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   const rufSicher = klon(ws.ruf || Ruf.neu());
   const postenSicher = klon(ws.posten || {});
   const sprengSicher = klon(ws.sprengungen || {});   // SUND-02b A2: Ruf-Sperre der Sprengungen (Aufsatz)
-  let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null, gehalten = [];
+  const absichtSicher = klon(ws.absicht || Absicht.neu());   // SUND-02b D: Absicht und Angebot (zustand.absichten.rom liegt im Sim-Zustand und geht mit `sicher` zurück)
+  let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null, gehalten = [], absichtFunk = [];
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
@@ -130,11 +134,13 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
     const po = Posten.nachTick(game, gueltig);   // SUND-02b A1: Crew-Posten eintragen/austragen, „gehalten“ als Ruf-Wirkung (Aufsatz, im selben Atom)
     gehalten = po.gehalten;
     rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)
+    absichtFunk = Absicht.nachTick(game, ws.tickZahl + 1).funk;   // SUND-02b D: Absicht auslaufen lassen, Angebot machen/verfallen lassen (Rang nach dem Ruf-Update des Ticks), im selben Atom
   } catch (e) {
     ws.zustand = Object.assign(sicher, { werte: ws.zustand.werte, karte: ws.zustand.karte });
     ws.ruf = rufSicher;
     ws.posten = postenSicher;
     ws.sprengungen = sprengSicher;
+    ws.absicht = absichtSicher;
     ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
     ws.wirkungenVerworfen += alle.length;
     ws.fehler++;
@@ -148,6 +154,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   ws.wirkungenAngewandt += gueltig.length; ws.wirkungenVerworfen += verworfen.length;
   for (const k of kommandanten) kommandantMerken(ws, k);
   if (rang) { try { Ruf.meldeRang(game, rang.vorher, rang.nachher); } catch (e) { if (game.countError) game.countError('kriegslage-ruf', e); } }   // Rangwechsel-Funk nach dem Commit; wie der Wissens-Funk des Ticks steht er VOR der Szenenmeldung
+  if (absichtFunk.length) { try { Absicht.melde(game, absichtFunk); } catch (e) { if (game.countError) game.countError('kriegslage-absicht', e); } }   // SUND-02b D: Funk nach dem Commit
   if (gehalten.length) { try { Posten.meldeGehalten(game, gehalten); } catch (e) { if (game.countError) game.countError('kriegslage-posten', e); } }
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
@@ -271,6 +278,7 @@ function toSave(game) {
   const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
   const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
   const sb = Posten.sprengungenSave(ws); if (sb) b.sprengungen = sb;   // SUND-02b A2: letzte Sprengung je Hex (Ruf-Sperre); fehlt = keine
+  const ab = Absicht.toSave(ws); if (ab) b.absicht = ab;   // SUND-02b D: laufende Absicht, Angebot, Pause; fehlt = leer
   const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);
@@ -298,7 +306,7 @@ function restore(game, b) {
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
@@ -311,6 +319,8 @@ function restore(game, b) {
   game.weltsim.sprengungen = Posten.sprengungenLesen(b.sprengungen);   // SUND-02b A2: fehlt = keine (Altstand)
   game.weltsim.posten = Posten.lesen(b.posten);   // SUND-02b A1: fehlt = leer (Altstand)
   game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
+  game.weltsim.absicht = Absicht.lesen(b.absicht, game.weltsim.tickZahl);   // SUND-02b D: fehlt = leer (Altstand)
+  Absicht.nachLaden(game);   // die laufende Absicht steht wieder in zustand.absichten.rom (auch wenn der Sim-Zustand ohne sie gespeichert war)
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };
   overlayFuellen(game);

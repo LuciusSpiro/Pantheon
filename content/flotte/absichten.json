@@ -1,0 +1,19 @@
+{
+  "format": "absichten/1",
+  "_hinweis": "SUND-02b D: Funktexte und Weigerungsgruende der Absichten (server/sim/absicht.js, Freie Fahrt Sund). Zahlen, Namen und Beschreibungen der Absichten stehen in content/welt/absichten.json. Platzhalter: {name} = Name der Absicht, {ticks} = Sprünge, {rang} = Name des Mindestrangs. Ruf ist ein Kann: nichts hier droht, mahnt oder bestraft; Ablehnen und Ignorieren sind ohne Folgen.",
+  "sprecher": "Oberkommando",
+  "funk": {
+    "angebot": "Rom bietet Euch eine Absicht an: Ihr könnt dem Kurs der Legion eine Richtung geben. Das Terminal im Meetingraum zeigt die Wahl, ohne Euch bleibt alles, wie es ist.",
+    "gewaehlt": "Verstanden. Die Legion folgt dem Kurs „{name}“ für {ticks} Sprünge.",
+    "ausgelaufen": "Der Kurs „{name}“ ist ausgelaufen. Die Legion folgt wieder ihrem eigenen Plan."
+  },
+  "weigerung": {
+    "modus": "Nur in der Freien Fahrt Sund.",
+    "rang": "Dafür fehlt der Rang ({rang}).",
+    "kein_angebot": "Rom bietet gerade keine Absicht an.",
+    "schon_gewaehlt": "Schon gewählt: „{name}“ läuft noch {ticks} Sprünge.",
+    "nicht_im_angebot": "Diese Absicht steht gerade nicht zur Wahl.",
+    "unbekannt": "Unbekannte Absicht."
+  },
+  "abgelehnt": "Verstanden. Rom bleibt bei seinem eigenen Plan."
+}

@@ -12,8 +12,9 @@ const median = (a) => {
 };
 
 // Ein Lauf: { karte, werte, seed, ticks } (ticks sonst aus werte.ticks). Optional sichtRadien: Liste von Sichtweiten für die Sicht-Messung; eingriff(z, tick) -> [Wirkung] (Crew-Wirkungen vor dem Tick).
-function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null, eingriff = null }) {
+function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null, eingriff = null, absichten = null }) {
   const z = Kern.erzeuge({ karte, werte, seed });
+  if (absichten) z.absichten = JSON.parse(JSON.stringify(absichten));   // SUND-02b D (tools/sim-absichten.js): Absichten der Fraktionen über den ganzen Lauf
   const T = ticks !== undefined && ticks !== null ? ticks : z.werte.ticks;
   const d = Daten.datenVon(z);
   const m = {};
