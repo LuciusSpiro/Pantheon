@@ -69,7 +69,8 @@
   "gehalten": "Posten {ort} hält seit {ticks} Sprüngen. Rom vermerkt es.",
   "dock": {
     "handel": "Dieser Posten verkauft nichts.",
-    "kein_dock": "Dieser Posten hat kein Dock – erst zum Stützpunkt ausbauen."
+    "kein_dock": "Dieser Posten hat kein Dock – erst zum Stützpunkt ausbauen.",
+    "verloren": "Der Stützpunkt ist gefallen – die Lerche legt ab."
   },
   "karte": {
     "anspruch": "Roms Anspruch"

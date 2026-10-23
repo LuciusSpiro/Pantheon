@@ -84,7 +84,7 @@ function postenLage(sc) {
 }
 
 // Liegeplatz in der Szene: das feste sc.dock (Häfen, Karawane) oder, an einem Stützpunkt der Crew ohne Station, ein Punkt unter dem Posten. Sonst null.
-// Alle Leser von sc.dock gehen hierüber (Dockerkennung, Aufbau, Asteroiden-Freihalten, Sprung-Mindestabstand, Escort, Alarm).
+// Alle Leser von sc.dock gehen hierüber (Dockerkennung, Aufbau, Asteroiden-Freihalten, Escort, Alarm, Szenen-Ortspunkt); Ausnahme: der Sprung-Mindestabstand zur Station (sprung.js liest sc.dock) – ein Posten ist keine Station, dort gilt keiner.
 function dockLage(game, sc, hex) {
   if (!sc) return null;
   if (sc.dock) return sc.dock;
@@ -101,8 +101,12 @@ function dockbar(game, ortId) {
 }
 
 // Handel am Stützpunkt der Crew gesperrt (Text) oder null: der Posten hat Werft, aber keinen Markt
+// SUND-02b A1-Fix: auch wenn der Stützpunkt weg ist, gibt es an einem Hex ohne Hafen keinen Handel (die Karte kennt dort keinen Hafen: 0503, 0505, 0703, 0705)
 function handelSperre(game, hex) {
-  return crewPosten(game, hex) ? ((texte().dock || {}).handel || 'Dieser Posten verkauft nichts.') : null;
+  if (!hex || !modusAktiv(game)) return null;
+  if (crewPosten(game, hex) || !(Sektoren.hexDaten(hex) || {}).hafen) return (texte().dock || {}).handel || 'Dieser Posten verkauft nichts.';
+  return null;
 }
+const verlorenText = () => (texte().dock || {}).verloren || 'Stützpunkt verloren – die Lerche legt ab.';
 
-module.exports = { modus: modusAktiv, besitzer, istPosten, crewPosten, darfAndocken, verbotText, postenLage, dockLage, dockbar, handelSperre };
+module.exports = { modus: modusAktiv, besitzer, istPosten, crewPosten, darfAndocken, verbotText, postenLage, dockLage, dockbar, handelSperre, verlorenText };

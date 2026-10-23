@@ -221,6 +221,13 @@ function szeneNachziehen(game) {
   const i = m.findIndex((k) => k.kind === 'dock');
   if (dock && sp.dockOk && i < 0) m.push({ kind: 'dock', x: dock.x, y: dock.y, r: game.C.travel.dockDist });
   else if (i >= 0 && (!dock || !sp.dockOk)) m.splice(i, 1);   // SUND-02b A1: auch wenn der Stützpunkt weg ist
+  // SUND-02b A1-Fix: der Stützpunkt fiel, während die Lerche daran angedockt lag (Tick durch Notruf-Ende): sie legt ab, mit Meldung (ohne Dock gäbe es keinen Liegeplatz mehr, ohne Posten auch keinen Handel)
+  if (!dock && ship.docked && ship.dockedAt === loc.id) {
+    ship.docked = false; ship.dockedAt = null; ship.dockArmed = false; ship.undockT = game.time; ship.dockHold = false;
+    ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.helm.thrust = 0; ship.helm.stage = 1;
+    try { game.oda(Besitz.verlorenText(), null); game.emit('sfx', { name: 'dodge' }); game.missionEvent('undocked', {}); } catch (e) { if (game.countError) game.countError('kriegslage-ablegen', e); }
+    for (const p of game.players || []) if (p.console === 'shop') { try { require('./interior.js').leaveConsole(game, p); } catch (e) { if (game.countError) game.countError('kriegslage-terminal', e); } }
+  }
   // Posten-Marker (wie in Space.enterScene): im Hex wurde im Tick ein Posten gegründet oder verloren. Die Asteroiden der Szene bleiben (neu bis zum nächsten Besuch).
   const hatPosten = !sc.station && Besitz.istPosten(game, hex);
   const pi = m.findIndex((k) => k.posten);

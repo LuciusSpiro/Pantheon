@@ -606,7 +606,7 @@ function updateFlight(game, dt) {
   const caps = turnCaps(game);
   ship.turnCap = caps;
   if (ship.docked) {
-    const dp = Besitz.dockLage(game, sc, loc.hex || Sektoren.hexVonOrt(loc.id)) || sc.start;   // SUND-02b A1
+    const dp = Besitz.dockLage(game, sc, loc.hex || Sektoren.hexVonOrt(loc.id)) || sc.start || { x: ship.x, y: ship.y };   // SUND-02b A1-Fix: nie werfen (der Stützpunkt kann weg sein, generierte Szenen haben kein sc.start)
     ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.turnVel = 0;
     // Ablegen: Temporegler über Stopp (W). Rückwärts oder Stopp: bleibt angedockt.
     if (h.stage > stopIndex(game)) {
