@@ -294,7 +294,7 @@
   // k: { ort, art: 'werft'|'stuetzpunkt'|'test'|'hafen', marken, gesperrt }
   function zeichneKopf(c, r, k) {
     const e = txtRolle(c, k.ort || '', r.x, r.y + 2, k.gesperrt ? 'warn' : 'preis', 'titel');
-    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : k.art === 'lage' ? 'ABSICHTEN VON ROM' : 'HAFEN', e + 8, r.y + 2, 'dim');
+    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : k.art === 'lage' ? 'KURS DER LEGION' : 'HAFEN', e + 8, r.y + 2, 'dim');
     const mw = txt(c, String(k.marken == null ? '' : k.marken), r.x + r.w, r.y, 'text', { scale: 2, align: 'right' });
     txt(c, 'MARKEN', r.x + r.w - tw(String(k.marken), 2) - 6, r.y + 6, 'dim', { align: 'right' }); return mw;
   }
@@ -457,7 +457,11 @@
         klick(b);
       });
     }
-    if (l.info) { rect(c, info.x, info.y - 3, info.w, 1, 'trenner'); umbruch(l.info.text || '', info.w - 200, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, 'text')); if (l.info.grund) txt(c, l.info.grund, info.x + info.w, info.y + 2, 'warn', { align: 'right' }); }
+    if (l.info) {   // Infozeile: Text; eine Absage des Servers („Schon gewählt …“) ersetzt ihn, in Warnfarbe
+      rect(c, info.x, info.y - 3, info.w, 1, 'trenner');
+      const warn = !!l.info.grund;
+      umbruch(warn ? l.info.grund : (l.info.text || ''), info.w, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, warn ? 'warn' : 'text'));
+    }
   }
 
   // ================================================================= Pult unten

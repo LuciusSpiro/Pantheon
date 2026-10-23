@@ -50,7 +50,7 @@ function fakten(z) {
   const staerke = (f) => z.flotten.filter((fl) => fl.fraktion === f).reduce((s, fl) => s + fl.staerke, 0);
   const v = (z.vorrat && z.vorrat.rom) || { U: 0, T: 0 };
   return {
-    belagert: z.angriffe.filter((r) => r.t_ende === null && r.t_an !== null && z.hexe[r.ziel] && z.hexe[r.ziel].besitzer === 'rom' && r.von !== 'rom').length,
+    belagert: z.angriffe.filter((r) => r.t_ende === null && r.t_an !== null && z.hexe[r.ziel] && z.hexe[r.ziel].besitzer === 'rom').length,
     rom: staerke('rom'), ger: staerke('ger'), knapp: Math.min(v.U, v.T),
   };
 }
@@ -139,9 +139,13 @@ function meldeGewaehlt(game) {
   if (a) funkSenden(game, fmt(texte().funk.gewaehlt, { name: a.name, ticks: a.dauer }));
 }
 
+// Nach dem Laden: die laufende Absicht steht wieder in zustand.absichten.rom. Hat der gespeicherte Sim-Zustand dort noch eine Wirkung unserer Absichten, aber der Absicht-Block kennt keine
+// laufende (Block fehlt oder ist kaputt), wäre sie für immer festgeklemmt: dann wird sie geräumt. Fremde Einträge (SUND-03) bleiben unberührt.
+const istUnsere = (w) => !!w && KATALOG.some((a) => FELDER.every((k) => w[k] === a.wirkung[k]) && Object.keys(w).length === FELDER.length);
 function nachLaden(game) {
-  const s = zustandVon(game); const a = s && s.laufend && eintrag(s.laufend.id);
-  if (a) wirkungSetzen(game.weltsim.zustand, a);
+  const s = zustandVon(game), z = game.weltsim.zustand; const a = s && s.laufend && eintrag(s.laufend.id);
+  if (a) wirkungSetzen(z, a);
+  else if (z.absichten && istUnsere(z.absichten[FRAKTION])) wirkungRaeumen(z);
 }
 
 // ---------- Anzeige (nur Daten)

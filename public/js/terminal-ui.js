@@ -236,9 +236,9 @@
   const sprung = (n) => n + (n === 1 ? ' Sprung' : ' Sprünge');
   // Modell des Bereichs Lage für T.zeichneLage (a.lage = gewählte Id, bei Zuschauern die des Nutzers)
   function lageModell(view, AB, a, bedienbar, ant) {
-    const warnung = ant && !ant.ok ? ant.text : null;   // Antwort des Servers („Schon gewählt …“) rechts in der Infozeile
+    const warnung = ant && !ant.ok ? ant.text : null;   // Antwort des Servers („Schon gewählt …“) ersetzt die Infozeile (Warnfarbe)
     if (!AB.frei) return { zustand: 'gesperrt', titel: 'NOCH KEINE ANFRAGE', text: 'Das Oberkommando fragt Euch ab dem Rang ' + AB.ab + ' um Rat und bietet dann einen Kurs für die Legion an. Bis dahin läuft alles, wie es ist.', info: warnung ? { text: '', grund: warnung } : null };
-    if (AB.laufend) return { zustand: 'laeuft', laufend: AB.laufend, info: { text: 'Danach folgt die Legion wieder ihrem eigenen Plan. Eine zweite Wahl gibt es erst mit dem nächsten Angebot.', grund: warnung } };
+    if (AB.laufend) return { zustand: 'laeuft', laufend: AB.laufend, info: { text: 'Danach folgt die Legion wieder ihrem eigenen Plan. Eine zweite Wahl gibt es erst mit dem nächsten Angebot.', grund: warnung } };   // SUND-02b D
     if (!AB.angebot.length) return { zustand: 'leer', titel: 'ROM HAT GERADE KEINE FRAGE', text: 'Alle paar Sprünge fragt das Oberkommando Euch um Rat. Ihr könnt annehmen, ablehnen oder es lassen: ohne Euch folgt die Legion ihrem eigenen Plan.', info: warnung ? { text: '', grund: warnung } : null };
     const gew = lageKarte(AB, a.lage);
     return {
@@ -250,15 +250,15 @@
   function lageBauen(view, m, L, a, bedienbar, hinweis, wartet, ant) {
     const AB = absicht();
     m.bereich = 'lage';
-    m.kopf = { ort: 'Lage', art: 'lage', marken: L.marks };
+    m.kopf = { ort: 'Oberkommando', art: 'lage', marken: L.marks };
     m.lage = lageModell(view, AB, a, bedienbar, ant);
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };   // wie im Handel: Kreuz und Module gedimmt
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
     const gew = lageKarte(AB, a.lage), hat = AB.frei && !AB.laufend && AB.angebot.length > 0;
     const grund = !bedienbar ? 'Zuschauer bedienen nicht' : wartet ? 'Warte auf den Server …' : AB.laufend ? null : !AB.frei ? 'Ab Rang ' + AB.ab : !hat ? 'Kein Angebot' : null;
     m.aktionen = {
-      haupt: { art: 'annehmen', text: AB.laufend ? 'Läuft noch ' + sprung(AB.laufend.rest) : hat && gew ? 'Annehmen: ' + kurz(gew.name, 100) : 'Annehmen', disabled: !hat || !bedienbar || wartet, grund, onClick: () => annehmen(view, AB, gew && gew.id) },
-      hinweis: hinweis(hat ? gew.dauer + ' Sprünge, danach wieder Standard' : AB.laufend ? AB.laufend.name : '', 'dim'),
+      haupt: { art: 'annehmen', text: AB.laufend ? 'Läuft noch ' + sprung(AB.laufend.rest) : 'Annehmen', disabled: !hat || !bedienbar || wartet, grund, onClick: () => annehmen(view, AB, gew && gew.id) },
+      hinweis: hinweis(hat && gew ? kurz(gew.name, 96) + ' · ' + gew.dauer + ' Spr.' : AB.laufend ? AB.laufend.name : '', 'dim'),
       ausbau: { label: 'Ablehnen', aktion: 'terminal.ablehnen', taste: 'X', disabled: !hat || !bedienbar, grund: hat ? null : 'Kein Angebot', onClick: () => ablehnen(view, AB) },
       teil: { label: 'Option', disabled: !hat || AB.angebot.length < 2 || !bedienbar, onClick: () => lageWeiter(view, 1) },
     };

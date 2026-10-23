@@ -296,6 +296,11 @@ function freieFahrt(S, seed) {
   for (let i = 0; i < 40; i++) Kriegslage.tick(g, 'sprung');
   const posten = Object.entries(g.weltsim.zustand.hexe).filter(([, h]) => h.posten).map(([c]) => c);
   const Sektoren = require('../shared/sektoren.js');
+  // SUND-02b D: Worst Case des Blocks world.absicht: Tribun, Angebot mit 3 Karten (die längsten Namen und Texte), in jedem Snapshot gesendet (der Schlüssel wird vor jedem Snapshot zurückgesetzt)
+  const Absicht = require('../server/sim/absicht.js');
+  g.weltsim.ruf.rom = 100;
+  g.weltsim.absicht.angebot = { ids: Absicht.KATALOG.slice().sort((x, y) => (y.name.length + y.text.length) - (x.name.length + x.text.length)).slice(0, 3).map((k) => k.id), t: g.weltsim.tickZahl, bis: g.weltsim.tickZahl + 100000 };
+  let absichtMax = 0, absichtMitMax = 0;
   // SUND-01 C: Worst Case des Anzeigeblocks world.lage (12 Flotten mit allen Feldern, 6 Meldungen, Altstand und eigene Flotten gemischt), in jedem Snapshot gesendet,
   // der nach den Slots (Asteroiden, Ortsliste, Logbuch, Buch) Platz hat: der Schlüssel wird vor jedem Snapshot zurückgesetzt
   const wi = g.weltsim.wissen, KT = require('../public/js/karte-tokens.js'), codes = KT.hexReihenfolge(require('../content/welt/sund_frei.json')), T = wi.t = wi.t || 40;
@@ -318,8 +323,9 @@ function freieFahrt(S, seed) {
       g.ship.hull = 100;
       g.step();
       maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
-      g.sentLageKey = null;
+      g.sentLageKey = null; g.sentAbsichtKey = null;
       const sn = g.snapshot();
+      if (sn.world && sn.world.absicht) { absichtMax = Math.max(absichtMax, bytes(sn.world.absicht)); absichtMitMax = Math.max(absichtMitMax, bytes(sn)); }
       if (sn.world && sn.world.lage) { lageMax = Math.max(lageMax, bytes(sn.world.lage)); lageMitMax = Math.max(lageMitMax, bytes(sn)); }
       messen(S, sn);
     }
@@ -335,7 +341,7 @@ function freieFahrt(S, seed) {
     g.ship.hull = 100;
     g.step();
     if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
-    g.sentLageKey = null;   // Worst Case: der Block world.lage steht im selben Snapshot
+    g.sentLageKey = null; g.sentAbsichtKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
     const sn = g.snapshot();
     const sz = sn.flotte && sn.flotte.sz;
     if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
@@ -344,7 +350,7 @@ function freieFahrt(S, seed) {
   // Fixrunde H7: auch die Ergebniszeile nach dem Ende (Phase s Sieg, n Niederlage) wird gemessen: die ersten Sekunden nach dem Ende, dann eine zweite Szene bis zur Niederlage
   const messSz = (sek) => {
     for (let k = 0; k < Math.round(sek * CONFIG.tickHz); k++) {
-      g.step(); g.sentLageKey = null;
+      g.step(); g.sentLageKey = null; g.sentAbsichtKey = null;
       const sn = g.snapshot(); const sz = sn.flotte && sn.flotte.sz;
       if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
       messen(S, sn);
@@ -358,7 +364,7 @@ function freieFahrt(S, seed) {
   g.ship.hull = 0; messSz(0.4); g.ship.hull = 0; messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
+  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
 }
 
 // ---------- Lauf ----------
@@ -403,7 +409,7 @@ console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
-console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
 const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
