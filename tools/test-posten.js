@@ -167,6 +167,37 @@ section('Wirkung posten_gehisst: Prüfer und Anwender', () => {
   ok(JSON.stringify(Object.keys(vor.hexe[FREI])) === JSON.stringify(['besitzer', 'posten', 'garnison', 'abwehr', 'anspruch']), 'Hex-Felder vor der Wirkung unverändert');
 });
 
+section('Kern: Ertrag und crew', () => {
+  const Daten = require('../server/weltsim/daten.js');
+  const d = Daten.laden();
+  const frisch = () => Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: 5 });
+  // Rom bekommt von einem Posten in 0505 (Quelle N) +prod Nahrung je Tick, vom Vorposten der Crew nichts, vom ausgebauten Sim-Posten weiter
+  const nahrung = (mod) => { const z = frisch(); z.vorrat.rom.N = 10; mod(z.hexe[FREI]); z.flotten = []; Kern.tick(z, {}); return z.vorrat.rom.N; };
+  const prod = frisch().werte.prod;
+  const ohne = nahrung(() => {});
+  const sim = nahrung((nd) => Object.assign(nd, { posten: true, besitzer: 'rom', garnison: 4 }));
+  const crewGegruendet = nahrung((nd) => Object.assign(nd, { posten: true, besitzer: 'rom', garnison: 4, crew: true, ohneErtrag: true }));
+  const crewAusgebaut = nahrung((nd) => Object.assign(nd, { posten: true, besitzer: 'rom', garnison: 4, crew: true }));
+  ok(Math.abs(sim - ohne - prod) < 0.5, `Sim-Posten liefert die Quelle: +${(sim - ohne).toFixed(2)} Nahrung (prod ${prod}, abzüglich Verbrauch der Besatzung)`);
+  ok(Math.abs(sim - crewGegruendet - prod) < 0.01, `von der Crew gegründeter Posten (ohneErtrag) liefert der Sim nichts: ${prod} weniger als der Sim-Posten (Messung: sonst über dem SUND-01-Band)`);
+  ok(crewAusgebaut === sim, 'ausgebauter Sim-Posten (crew ohne ohneErtrag) behält seinen Ertrag');
+  // Wirkung gründet mit beiden Merkmalen, Ausbau nur mit crew
+  const z1 = frisch(); const k = { z: z1, d: Daten.datenVon(z1), w: z1.werte, ev: [] };
+  Kern.WIRKUNGEN.posten_gehisst(k, { typ: 'posten_gehisst', ort: FREI });
+  ok(z1.hexe[FREI].crew === true && z1.hexe[FREI].ohneErtrag === true, 'posten_gehisst: crew und ohneErtrag');
+  const z2 = frisch(); Object.assign(z2.hexe[FREI], { posten: true, besitzer: 'rom', garnison: 1 }); const k2 = { z: z2, d: Daten.datenVon(z2), w: z2.werte, ev: [] };
+  Kern.WIRKUNGEN.posten_ausgebaut(k2, { typ: 'posten_ausgebaut', ort: FREI });
+  ok(z2.hexe[FREI].crew === true && z2.hexe[FREI].ohneErtrag === undefined && z2.hexe[FREI].garnison === z2.werte.garrison, 'posten_ausgebaut: crew, kein ohneErtrag, Garnison aufgefüllt');
+  // Verlust räumt beide Merkmale
+  const z3 = frisch(); Object.assign(z3.hexe[FREI], { posten: true, besitzer: 'rom', garnison: 4, crew: true, ohneErtrag: true });
+  ok(z3.hexe[FREI].crew && (Kern.WIRKUNGEN.ort_gefallen || true), 'Ausgangslage Verlust');
+  const fl = { id: z3.naechsteId++, fraktion: 'ger', heimat: '1004', ort: FREI, staerke: 20, kap: 20, befehl: 'angriff', ziel: FREI, warte: 0, versorgung: 1, angriff: z3.naechsteAngriffId };
+  z3.flotten.push(fl); z3.angriffe.push({ id: z3.naechsteAngriffId++, t0: 0, ziel: FREI, von: 'ger', art: 'reich', relevant: true, zielArt: 'posten', t_an: 0, t_ende: null, ausgang: null, phase: 'marsch', t_marsch: 0, stuetz: null, flotten: [fl.id] });
+  const k3 = { z: z3, d: Daten.datenVon(z3), w: z3.werte, ev: [] };
+  Kern.WIRKUNGEN.ort_gefallen(k3, { typ: 'ort_gefallen', ort: FREI, an: 'ger' });
+  ok(z3.hexe[FREI].posten === false && z3.hexe[FREI].crew === undefined && z3.hexe[FREI].ohneErtrag === undefined, 'Verlust: posten, crew und ohneErtrag weg');
+});
+
 section('Atomar: Rollback', () => {
   const { g } = bereit();
   const simVor = kopie(Kriegslage.abbild(z(g))); const rufVor = kopie(g.weltsim.ruf); const tk = g.weltsim.tickZahl; const teile = g.inventory.ersatzteil; const postenVor = kopie(g.weltsim.posten);

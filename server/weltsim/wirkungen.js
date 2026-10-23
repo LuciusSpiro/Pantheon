@@ -14,7 +14,7 @@
 //   ruf_aenderung        { fraktion: 'rom'|'ger'|'kon', delta: Zahl ≠ 0, grund: Schlüssel aus content/welt/ruf-werte.json (quellen) }   Ruf der Crew bei einer Fraktion (SUND-02b B). Gehört NICHT zum Sim-Zustand: der Kern ignoriert sie (der Anwender im Katalog ist leer, Markierung `aufsatz`),
 //                        angewandt wird sie vom Spielaufsatz nach dem Tick (kriegslage.js -> server/sim/ruf.js, welt.sim.ruf), atomar mit dem Tick. Damit bleibt der Kern rein und bitgleich zum Prototyp.
 //   posten_gehisst       { ort }                               (SUND-02b A1) die Crew gründet einen Posten in einem freien Hex in Roms Anspruch (content/welt/posten-werte.json): Besitzer rom, Garnison werte.garrison, Merkmal crew true
-//                        (Dock und Werft, nur der Spielaufsatz liest es). Prüfer: Hex ohne Hafen, ohne Besitzer, ohne Posten, ohne feindliche Flotte, im Anspruch. Ereignis posten_gehisst (nicht posten_gegruendet: Kennzahlen zählen nur Posten der Sim).
+//                        (Dock und Werft, nur der Spielaufsatz liest es) und ohneErtrag true (der Kern: ein Vorposten der Crew liefert keine Güter). Prüfer: Hex ohne Hafen, ohne Besitzer, ohne Posten, ohne feindliche Flotte, im Anspruch. Ereignis posten_gehisst (nicht posten_gegruendet: Kennzahlen zählen nur Posten der Sim).
 //   posten_ausgebaut     { ort }                               (SUND-02b A1) die Crew baut einen vorhandenen römischen Posten zum Stützpunkt aus: Merkmal crew true, Garnison mindestens werte.garrison. Prüfer: Posten, Besitzer rom, ohne Hafen, noch ohne crew, ohne feindliche Flotte. Ereignis posten_ausgebaut.
 // Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
@@ -111,7 +111,7 @@ const KATALOG = {
     },
     anwenden(c, wk) {
       const nd = c.z.hexe[wk.ort];
-      nd.posten = true; nd.besitzer = 'rom'; nd.garnison = c.w.garrison; nd.anspruch = {}; nd.crew = true;
+      nd.posten = true; nd.besitzer = 'rom'; nd.garnison = c.w.garrison; nd.anspruch = {}; nd.crew = true; nd.ohneErtrag = true;
       H.melde(c, 'posten_gehisst', 'rom', { ort: wk.ort });
     },
   },

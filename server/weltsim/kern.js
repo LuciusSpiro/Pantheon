@@ -127,7 +127,9 @@ function wirtschaft(c) {
   for (const f of FRAKTIONEN) {
     for (const code of d.codes) {
       const nd = z.hexe[code];
-      if (nd.besitzer === f && istStuetzknoten(c, code)) for (const g of d.hex[code].quellen) z.vorrat[f][g] = Math.min(50, z.vorrat[f][g] + w.prod);
+      // SUND-02b A1: ein Posten, den die Crew gegründet hat (ohneErtrag true), ist Vorposten statt Siedlung und liefert der Sim keine Güter (Messung tools/sim-crew-posten.js: sonst steigen Eroberungen
+      // und Angriffe über das SUND-01-Band). Ausgebaute Sim-Posten behalten ihren Ertrag. Ohne das Merkmal (Prototyp, Altstand) ändert sich nichts.
+      if (nd.besitzer === f && istStuetzknoten(c, code) && nd.ohneErtrag !== true) for (const g of d.hex[code].quellen) z.vorrat[f][g] = Math.min(50, z.vorrat[f][g] + w.prod);
     }
   }
   if (w.trade) handel(c);
@@ -492,7 +494,7 @@ function postenVerlieren(c, code, owner, durch) {
   mz(c, 'posten_lost'); mz(c, 'plost_pirat', durch === 'pirat' ? 1 : 0); mz(c, 'plost_reich', durch !== 'pirat' ? 1 : 0);
   melde(c, 'posten_verloren', owner, { ort: code, besitzer: owner, durch });
   nd.posten = false; nd.besitzer = null; nd.garnison = 0; nd.anspruch = {};
-  delete nd.crew;   // SUND-02b A1: Stützpunkt der Crew fällt mit dem Posten (Merkmal fehlt im Prototyp: ohne crew ändert sich nichts)
+  delete nd.crew; delete nd.ohneErtrag;   // SUND-02b A1: Stützpunkt der Crew fällt mit dem Posten (Merkmale fehlen im Prototyp: ohne crew ändert sich nichts)
 }
 
 function erobern(c, code, neu) {
