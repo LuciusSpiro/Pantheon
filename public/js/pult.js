@@ -68,8 +68,12 @@
       const { x, y, w, h } = b, hov = hit(b), ty = y + Math.floor((h - 7) / 2);
       const kw = kz ? Math.max(13, tw(kz) + 7) : 0;
       if (b.disabled) {
-        cham(c, x, y, w, h, this.offLine, kw ? 3 : 0, 0, 3, 0); cham(c, x + 1, y + 1, w - 2, h - 2, this.off, kw ? 2 : 0, 0, 2, 0);
-        if (kw) { txt(c, kz, x + kw / 2, ty, this.dim, 'center'); c.fillStyle = this.offLine; c.fillRect(x + kw, y + 2, 1, h - 4); }
+        // SUND-02b UI (Review A1, Bild 11): gesperrt = keine Fläche, gepunkteter Rand wie die gesperrten Zellen des Waffenkreuzes (Form statt nur Farbe);
+        // vorher dunkle Fläche mit vollem Rand, das las wie ein zweitrangiger, aber bedienbarer Knopf
+        const pkt = mix(this.offLine, this.dim, 0.4);
+        c.fillStyle = this.bg; c.fillRect(x, y, w, h);
+        c.fillStyle = pkt; for (let i = 0; i < w; i += 2) { c.fillRect(x + i, y, 1, 1); c.fillRect(x + i, y + h - 1, 1, 1); } for (let i = 0; i < h; i += 2) { c.fillRect(x, y + i, 1, 1); c.fillRect(x + w - 1, y + i, 1, 1); }
+        if (kw) { txt(c, kz, x + kw / 2, ty, this.dim, 'center'); for (let i = 2; i < h - 2; i += 2) c.fillRect(x + kw, y + i, 1, 1); }
         txt(c, text, kw ? x + kw + 4 : x + w / 2, ty, mix(this.dim, this.bg, 0.2), kw ? undefined : 'center');
         return;
       }

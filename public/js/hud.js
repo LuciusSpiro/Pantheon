@@ -984,6 +984,9 @@
       // Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware. Dort steht sie einzeilig ganz oben über der Kopfzeile (y 0–11,
       // der Kopf des Terminals beginnt bei y 12); die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
       if (view.me.console === 'shop') return this.zeichneFunkZeile(ctx, view, f);
+      // SUND-02b UI (Review A1, Bild 06): an der Ops liegen oben links die Leisten (Fracht, Höhe, Posten gründen samt Weigerungstext) und mittig das Schiff; die 4-zeilige
+      // Tafel (x 204–432) deckte beides. Dort steht die einzeilige Zeile ganz oben wie am Terminal; die Meldung bleibt im Funk-Reiter und im Logbuch.
+      if (view.me.console === 'weapons' && !(window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return this.zeichneFunkZeile(ctx, view, f);
       // Fixrunde S-2: An der Steuerkonsole (2D-Helm und Voxel-Blick PULT) liegt die Frontsicht mittig bei x 252–443 mit der AUSWEICHEN-Warnung bei y 26–70, links und rechts stehen
       // Tempo/Kurs und Ort/Sprungziel: für eine 4-zeilige Tafel bleibt kein freier Platz (rechts neben der Frontsicht, x ≥ 450, überdeckte sie Ort und Sprungziel). Dort steht deshalb
       // die einzeilige Lagefunk-Zeile ganz oben (y 0–11, über allem). Im Voxel-Sitz mit Blick VORN/CREW ist die Konsole nicht zu sehen: dort bleibt die Tafel (mit Versatz).

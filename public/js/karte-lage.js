@@ -79,8 +79,11 @@
       .map((q) => Object.assign({}, q, { stufe: T.wissensstufe(q.a, vz) }));
     const m = (Array.isArray(B.m) ? B.m : []).filter((x) => x && /^\d{4}$/.test(x.h));
     const neu = new Set(m.filter((x) => x.t >= t - T.WERTE.neuTicks + 1).map((x) => x.h));
-    return { B, t, vz, sw: Number.isFinite(B.sw) ? B.sw : null, hex, stufe, hell, fl, m, neu, codes: codes || [] };
+    const st = new Set((Array.isArray(B.st) ? B.st : []).filter((h) => /^\d{4}$/.test(h) && hex[h] && hex[h].f === 'r' && hex[h].posten));   // SUND-02b UI: Stützpunkte der Crew (nur römische Posten)
+    stuetzpunktGezeigt = st.size > 0;
+    return { B, t, vz, sw: Number.isFinite(B.sw) ? B.sw : null, hex, stufe, hell, fl, m, neu, st, codes: codes || [] };
   }
+  let stuetzpunktGezeigt = false;   // die Legende nennt den Stützpunkt nur, wenn der zuletzt gelesene Block einen hat (wie „Anspruch“ nur auf Karten mit Anspruch)
   const belagert = (A, h) => !!A && A.fl.some((q) => q.h === h && q.p === 'b');
   const hatPlakette = (A, h) => !!A && A.fl.some((q) => q.h === h);
 
@@ -109,9 +112,12 @@
       const pt = musterPat(ctx, fr.muster, 'dunkel'); if (pt) { ctx.fillStyle = pt; ctx.fill(); }
     }
     ctx.strokeStyle = hell ? 'rgba(244,238,220,0.35)' : 'rgba(244,238,220,0.18)'; ctx.lineWidth = Math.max(1, 1.5 * sk); ctx.stroke();
-    if (anspruchRom(h)) {   // SUND-02b A1: Roms Anspruch (freie Hexe, die die Crew für Rom besetzen darf): gestrichelter Innenrand in der Fahnenfarbe von Rom
-      ctx.save(); ctx.setLineDash([3 * sk + 1, 3 * sk + 1]); ctx.strokeStyle = F.fraktion.r.fahne; ctx.globalAlpha = hell ? 0.95 : 0.6; ctx.lineWidth = Math.max(1, 1.5 * sk);
-      hexPfad(ctx, p.x, p.y, s * 0.78); ctx.stroke(); ctx.restore();
+    if (anspruchRom(h) && (kh.f || fallback) !== 'r') {   // SUND-02b A1: Roms Anspruch (freie Hexe, die die Crew für Rom besetzen darf): gestrichelter Innenrand in der Fahnenfarbe von Rom
+      // SUND-02b UI (Review A1, Bild 09): auf schon römischen Hexen ist der Anspruch eingelöst und entfällt (dort las er sich nicht von der Rom-Schraffur ab);
+      // sonst liegt unter den Strichen eine durchgehende dunkle Linie, damit die Striche auf jeder Fläche und jedem Muster stehen (Form statt nur Farbe)
+      ctx.save(); ctx.globalAlpha = hell ? 0.95 : 0.6; ctx.lineWidth = Math.max(1, 1.5 * sk);
+      hexPfad(ctx, p.x, p.y, s * 0.78); ctx.strokeStyle = P.tisch; ctx.lineWidth = Math.max(2, 3 * sk); ctx.stroke();
+      ctx.setLineDash([3 * sk + 1, 3 * sk + 1]); ctx.strokeStyle = F.fraktion.r.fahne; ctx.lineWidth = Math.max(1, 1.5 * sk); ctx.stroke(); ctx.restore();
     }
   }
   // Die Karte kennt Roms Anspruch (nur sund_frei): nur dann steht er in der Legende
@@ -217,8 +223,10 @@
     return b;
   }
   // Posten: kleine Station mit Fahne
-  function posten(ctx, x, y, f) {
+  // SUND-02b UI: stuetz = Stützpunkt der Crew (Dock, Werft): dasselbe Zeichen mit einem 1-px-Rahmen in Mint (eigen); der Rahmen trägt es, nicht nur die Farbe
+  function posten(ctx, x, y, f, stuetz) {
     x = Math.round(x); y = Math.round(y);
+    if (stuetz) { ctx.fillStyle = P.tisch; ctx.fillRect(x - 6, y - 8, 14, 16); ctx.strokeStyle = P.mint; ctx.lineWidth = 1; ctx.strokeRect(x - 5.5, y - 7.5, 13, 15); }
     ctx.fillStyle = '#1B2230'; ctx.fillRect(x - 4, y - 6, 10, 12);
     ctx.fillStyle = P.hell; ctx.fillRect(x - 3, y - 5, 1, 10);
     ctx.fillStyle = fraktion(f).fahne; ctx.fillRect(x - 2, y - 5, 6, 4);
@@ -342,7 +350,7 @@
     }
     txt(ctx, kurzText(o.name(h), o.rw), o.rx, y, { color: P.gold }); y += MS.zeile;
     const hafen = o.hafen(h);
-    txt(ctx, kurzText([fr.name, hafen ? 'Hafen ' + hafen : null, kh.posten ? 'Posten' : null].filter(Boolean).join(' · '), o.rw), o.rx, y, { color: P.hell }); y += MS.zeile;
+    txt(ctx, kurzText([fr.name, hafen ? 'Hafen ' + hafen : null, kh.posten ? (A.st && A.st.has(h) ? T.TEXT.ortsinfo.stuetzpunkt : 'Posten') : null].filter(Boolean).join(' · '), o.rw), o.rx, y, { color: P.hell }); y += MS.zeile;   // SUND-02b UI: Stützpunkt der Crew benannt
     const st = A.stufe(h);
     let wt;
     if (st === 'jetzt') wt = kh.f === 'r' ? 'Eigen · aktuell' : 'Sonde · aktuell';
@@ -452,6 +460,10 @@
         ctx.setLineDash([2, 2]); ctx.strokeStyle = F.fraktion.r.fahne; ctx.lineWidth = 1; hexPfad(ctx, x + 5, y + 4, 4.5); ctx.stroke(); ctx.restore();
         txt(ctx, L.anspruchKurz, x + 14, y, { color: g });
       } }]),
+      ...(kompakt || !stuetzpunktGezeigt ? [] : [{ breite: 14 + 3 + tw(L.stuetzpunkt), zeichne: (ctx, x, y) => {   // kleines Zeichen (Zeilenhöhe 12): Rahmen Mint, Mast und Fahne wie am Posten
+        ctx.fillStyle = P.tisch; ctx.fillRect(x, y - 1, 12, 10); ctx.strokeStyle = P.mint; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y - 0.5, 11, 9);
+        ctx.fillStyle = P.hell; ctx.fillRect(x + 3, y + 1, 1, 6); ctx.fillStyle = F.fraktion.r.fahne; ctx.fillRect(x + 4, y + 1, 5, 3);
+        txt(ctx, L.stuetzpunkt, x + 17, y, { color: g }); } }]),   // SUND-02b UI
       { breite: (eng ? 14 : 16) + 3 + tw(eng ? L.dunkelKurz : L.dunkel), zeichne: (ctx, x, y) => {
         // SUND-01 F: Feld halb hell (Muster), halb dunkel, mit Rand: der Vergleich macht „dunkel“ lesbar
         const bw = eng ? 14 : 16, hb = bw / 2;

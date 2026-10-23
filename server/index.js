@@ -15,6 +15,9 @@ const STATIC_DIRS = [
   { prefix: '/shared/', dir: path.join(ROOT, 'shared') },
   // B1 §9 (Wunsch VOXEL): Vokabular und Art-Daten für den Kit-Renderer – nur .json, nur lesen, kein Listing
   { prefix: '/content/buehnen/', dir: path.join(ROOT, 'content', 'buehnen'), only: ['.json'] },
+  // SUND-02b UI: Texte und Dienstgrade für die Rang-Anzeige (public/js/rang.js), nur diese zwei Dateien, nur lesen
+  { prefix: '/content/flotte/', dir: path.join(ROOT, 'content', 'flotte'), nur: ['ruf.json'] },
+  { prefix: '/content/welt/', dir: path.join(ROOT, 'content', 'welt'), nur: ['ruf-werte.json'] },
   { prefix: '/', dir: path.join(ROOT, 'public') },
 ];
 const MIME = {
@@ -35,6 +38,7 @@ function resolveStatic(urlPath) {
     // Kein Directory-Traversal: Ergebnis muss innerhalb des Ordners liegen
     if (full !== s.dir && !full.startsWith(s.dir + path.sep)) return null;
     if (s.only && (full === s.dir || !s.only.includes(path.extname(full).toLowerCase()))) return null;
+    if (s.nur && !s.nur.includes(rel)) return null;
     return full;
   }
   return null;

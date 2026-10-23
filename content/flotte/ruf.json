@@ -12,6 +12,15 @@
     "stufe_grund": "Rang {rang} nötig",
     "stufe_fehler": "{name} braucht den Rang {rang}."
   },
+  "anzeige": {
+    "_hinweis": "SUND-02b UI: Rang-Anzeige im Client (public/js/rang.js): Statuszeile des Hafenterminals, Statusleiste des Captains, Block „Stufe n öffnet“. {rang} = Name, {ruf} = Rufpunkte Rom, {bis} = Schwelle des nächsten Rangs, {naechster} = Name des nächsten Rangs. Ruf ist ein Kann: die Anzeige nennt nur, was ist.",
+    "titel": "RANG",
+    "fortschritt": "{ruf}/{bis}",
+    "naechster": "→ {naechster}",
+    "hoechster": "höchster Rang",
+    "jetzt": "jetzt {rang} · {ruf}/{bis}",
+    "jetzt_hoechster": "jetzt {rang}"
+  },
   "ab": {
     "miles": "Rom stuft Euch auf den Rang Miles zurück.",
     "optio": "Rom stuft Euch auf den Rang Optio zurück.",

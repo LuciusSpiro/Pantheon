@@ -177,7 +177,13 @@
       const g = P.rahmen(ctx, view, { titel: 'OPS', S: 196, station: 'weapons', anzeige: (c, r) => {
         const mr = { x: r.x, y: r.y, w: 404, h: r.h };
         this.mapRects.weapons = mr;
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }] : [] });
+        // SUND-02b UI (Review A1, Bild 07/08): die Karte ist hier nur 184 px hoch; reichen die gestapelten Leisten oben links (Fracht, Höhe halten, Posten …, 266 px breit)
+        // bis an den Ring des Schiffs (≈ 26 px um die Mitte), rückt die Mitte der Karte nach rechts neben die Leisten (weich), so weit, dass auch die Bogenbeschriftung über und unter dem Schiff neben den Leisten Platz hat. Nach rechts statt nach unten: unter dem Schiff
+        // stehen Posten-/Dock-Beschriftung und der Bogen STB, die sonst aufeinander lägen. Klicks laufen über dieselbe Umrechnung (toW aus cx/cy).
+        const mitteX = mr.x + Math.round(mr.w / 2), stapelUnten = mr.y + 3 + (this.stapelH || 0);
+        const zielX = this.stapelH && stapelUnten > mr.y + Math.round(mr.h / 2) - 26 ? Math.min(mr.x + mr.w - 70, mr.x + 4 + 266 + 58) : mitteX;   // 58: halbe Breite der Bogenbeschriftung oben/unten („BB STANDARD BEREIT“), sie steht dann neben den Leisten
+        this.opsMitteX = this.opsMitteX == null ? zielX : Math.abs(zielX - this.opsMitteX) < 0.5 ? zielX : this.opsMitteX + (zielX - this.opsMitteX) * 0.25;
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }].concat(zielX !== mitteX ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }, { x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }] : []) : [], cx: Math.round(this.opsMitteX) });   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
         R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, Math.max(mr.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
         this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr); if (this.drawPosten) this.drawPosten(c, view, mr);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
@@ -456,7 +462,10 @@
           case 5: ctl = window.NotrufView ? NotrufView.drawCaptain(c, view, a, (cc, extra) => this.cmd(view, cc, extra)) : ''; break;
           case 4: ctl = window.SektorplanView ? SektorplanView.draw(c, view, a, (cc, extra) => this.cmd(view, cc, extra)) : ''; break;
         }
-        if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 2, y: r.y + r.h - 14, w: r.w - 4 }));
+        let leiste = null;
+        if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => { leiste = this.frachtLeiste(c, view, { x: r.x + 2, y: r.y + r.h - 14, w: r.w - 4 }); });
+        // SUND-02b UI: Rang von Rom rechts in der Leiste unter der Anzeige (nur Freie Fahrt Sund, kompakt; deckt die Karte nie), kürzt sich auf den freien Platz
+        if (leiste && window.Rang) Net.guard('Rang.captain', () => { const m = Rang.modell(); if (m) Rang.zeichne(c, leiste.rechts - 6, leiste.y + 2, leiste.rechts - 6 - leiste.ende - 12, m); });
       } });
       const K = g.skin, y0 = g.pult.y;
       let x = 62, cw = 330;

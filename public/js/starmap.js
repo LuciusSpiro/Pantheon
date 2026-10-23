@@ -469,7 +469,7 @@
         if (sys.hafen && !lgBel) txt(ctx, String(sys.hafen), p.x + 8, p.y + (lgHex ? LG.M.plakette.anker.hafenDy : -11), { color: COL.text });
         else if (sys.hafen && lgBel) LG.belagerungKlasse(ctx, A, p, h, String(sys.hafen), s, COL.text);   // SUND-01 G: Klasse unter Belagerung neben dem Rahmen, wenn Platz ist
         if (sys.einfluss && (hs.art !== 'unerkundet' || lgHex) && s >= 16 && nebenOk) zeichneEinfluss(ctx, sys.einfluss, p.x + s * 0.62, p.y - 1);
-        if (lgHex && A.hex[h] && A.hex[h].posten) LG.posten(ctx, p.x - s * 0.62, p.y - 1, A.hex[h].f);
+        if (lgHex && A.hex[h] && A.hex[h].posten) LG.posten(ctx, p.x - s * 0.62, p.y - 1, A.hex[h].f, !!(A.st && A.st.has(h)));   // SUND-02b UI: Stützpunkt mit Rahmen
       }
       ctx.restore();
       if (!kompakt && !(dicht && hs.art === 'gesperrt')) {
