@@ -309,5 +309,23 @@ section('Tastenbelegung (tasten.js, Gruppe terminal)');
   ok(Tasten.AKTIONEN.filter((a) => /^terminal\.platz/.test(a.id)).length === 9 && Tasten.AKTIONEN.filter((a) => /^terminal\.modul/.test(a.id)).length === 4, '9 Platz- und 4 Modultasten');
 }
 
+// SUND-02b C: Stufe am Rang. Der Server liefert den Grund je Stufe (werft.sperre), die UI zeigt ihn an der Stufe und am Hauptknopf; ohne Grund (Kampagne) bleibt alles wie in PAN-01.
+section('Stufe am Rang: gesperrt mit Grund');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T);
+  const g = T.g;
+  g.C.werft.ruf.stufe[2] = 'centurio'; g.rufErreicht = () => false;   // Modus Freie Fahrt Sund, Rang Miles (ohne den Modus selbst zu starten)
+  T.key('KeyA'); T.key('KeyF');   // Stufe 1 ist frei
+  ok(g.ship.stufe === 1, 'Stufe 1 ohne Rang gekauft');
+  T.key('KeyA'); let m = T.m();
+  ok(m.ansicht === 'stufe' && m.stufen.ziel === 2 && m.stufen.sperre === 'Rang Centurio nötig' && m.stufen.stufen[2].sperre === 'Rang Centurio nötig' && !m.stufen.stufen[1].sperre, 'Ausbau-Ansicht: Grund "Rang Centurio nötig" an Stufe 2, nicht an Stufe 1');
+  ok(m.aktionen.haupt.disabled && m.aktionen.haupt.grund === 'Rang Centurio nötig', 'Hauptknopf gesperrt mit dem Rang-Grund (vor „Marken fehlen“)');
+  const marks = g.inventory.marks; T.key('KeyF');
+  ok(g.ship.stufe === 1 && g.inventory.marks === marks, 'F bei gesperrter Stufe kauft nichts');
+  g.rufErreicht = () => true; m = T.m();
+  ok(!m.stufen.sperre && m.aktionen.haupt.grund !== 'Rang Centurio nötig', 'Rang erreicht: Rang-Grund weg');
+  delete g.rufErreicht; delete g.C.werft.ruf.stufe[2];
+}
+
 console.log(`\ntest-werft-ui: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

@@ -45,7 +45,7 @@
       st, ship, w, marks: n((st.inventory || {}).marks), stufe: n(ship.st), best, mod,
       aktiv: !!(w && w.aktiv), geladen: !!w, test: !!(w && w.test), ruest: !!(st.wellen && st.wellen.ph === 'vorbereitung'),   // test = Testumgebung (Werft überall), ruest = Rüstphase der Wellenmodi
       ort: (loc && loc.name) || (ship.dockedAt === 'vaelen' ? 'Vaelen-Karawane' : ship.dockedAt) || 'Nicht angedockt',
-      frei: (w && w.frei) || { stufe: 0, waffen: [], module: [] }, preise: (w && w.preise) || { stufe: {}, waffe: {}, modul: {} },
+      frei: (w && w.frei) || { stufe: 0, waffen: [], module: [] }, sperre: (w && w.sperre) || {}, preise: (w && w.preise) || { stufe: {}, waffe: {}, modul: {} },
     };
   }
   const istFrei = (L, art, id) => (art === 'stufe' ? id <= L.frei.stufe : (art === 'waffe' ? L.frei.waffen : L.frei.module).indexOf(id) >= 0);
@@ -254,8 +254,8 @@
     const preis = preisVon(L, 'stufe', ziel), voll = L.frei.stufe >= STUFE_MAX;
     const opens = M.WAFFENPLAETZE.filter((p) => p.stufe === ziel).sort((x, y) => y.platz - x.platz).map((p) => ({ kappe: ziffern(p.platz), text: (p.art === 'bug' ? 'Zweite Bugwaffe' : p.art === 'heck' ? 'Heckwaffe' : 'Seitenwaffe') + ' · ' + raumAn(p.x, p.y) + ', ' + deckName(p.y) }))
       .concat(M.MODUL_RAEUME.filter((r) => r.stufe === ziel).map((r) => { const rr = M.SHIP_ROOMS.find((q) => q.id === r.room); return { kappe: 'F' + r.raum, text: rr.name + ' · ' + deckName(rr.y0) }; }));
-    const stufen = []; for (let i = 0; i <= STUFE_MAX; i++) stufen.push({ waffen: M.WAFFENPLAETZE.filter((p) => p.stufe <= i).length, module: M.MODUL_RAEUME.filter((r) => r.stufe <= i).length, preis: i ? n(L.preise.stufe[i], 0) : 0 });
-    return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
+    const stufen = []; for (let i = 0; i <= STUFE_MAX; i++) stufen.push({ waffen: M.WAFFENPLAETZE.filter((p) => p.stufe <= i).length, module: M.MODUL_RAEUME.filter((r) => r.stufe <= i).length, preis: i ? n(L.preise.stufe[i], 0) : 0, sperre: i > L.frei.stufe ? L.sperre[i] || null : null });
+    return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, sperre: voll ? null : L.sperre[ziel] || null, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
       hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' } };
   }
   const fehlt = (preis, marks) => (preis != null && marks < preis ? 'Nicht genug Marken (fehlen ' + (preis - marks) + ')' : null);
@@ -334,7 +334,7 @@
       const sb = stufenBlock(L, ziel), preis = sb.preis, voll = sb.voll;
       m.stufen = sb.stufen; fehlPreis = preis;
       let grund = null;
-      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
+      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (L.sperre[ziel]) grund = L.sperre[ziel]; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
       m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' öffnen · ' + preis + ' M', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis(preis != null && !voll ? preis + ' Marken, einmalig' : '', 'preis'), ausbau: ausbauKnopf, teil: { disabled: true } };
       return m;
     }
@@ -359,7 +359,7 @@
       m.ansicht = 'stufe'; m.stufen = sb.stufen; fehlPreis = preis;
       m.schnitt.plaetze = plaetzeModell(L, ziel); m.schnitt.module = moduleModell(L, ziel); m.kreuz.plaetze = m.schnitt.plaetze; m.module.module = m.schnitt.module;
       let grund = null;
-      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
+      if (voll) grund = 'Voll ausgebaut'; else if (preis == null) grund = 'Nicht im Angebot'; else if (L.sperre[ziel]) grund = L.sperre[ziel]; else if (fehlt(preis, L.marks)) grund = fehlt(preis, L.marks); else if (!bedienbar) grund = 'Zuschauer bedienen nicht'; else if (wartet) grund = 'Warte auf den Server …';
       const danach = preisVon(L, 'stufe', pl.stufe);
       const spaeter = pl.stufe > ziel ? kappe + ' ab Stufe ' + pl.stufe + (danach != null ? ' · dann ' + danach + ' M' : '') : kappe + ' öffnet mit Stufe ' + pl.stufe;   // schmale Zeile (156 px): „F4 ab Stufe 2 · dann 180 M“
       m.aktionen = { haupt: { art: 'freischalten', text: voll ? 'Voll ausgebaut' : 'Stufe ' + ziel + ' öffnen · ' + preis + ' M', disabled: !!grund, grund, onClick: () => stufenKauf(view, L) }, hinweis: hinweis(spaeter, 'dim'), ausbau: ausbauKnopf, teil: { disabled: true } };
