@@ -1,6 +1,6 @@
 {
   "format": "posten/1",
-  "_hinweis": "SUND-02b A1: Texte zu Posten gruenden und Stuetzpunkt-Ausbau der Crew (server/sim/posten.js, Freie Fahrt Sund). Zahlen stehen in content/welt/posten-werte.json. {rang} = Name des verlangten Rangs, {teile} = Zahl Ersatzteile, {ort} = Name des Sektors. Weigerungsgruende je Code; Texte fuer Anzeige an der Ops und im Funk, die Gestaltung kommt spaeter.",
+  "_hinweis": "SUND-02b A1: Texte zu Posten gruenden, Stuetzpunkt-Ausbau und Posten sprengen (angreifen) der Crew (server/sim/posten.js, Freie Fahrt Sund). Zahlen stehen in content/welt/posten-werte.json. {rang} = Name des verlangten Rangs, {teile} = Zahl Ersatzteile, {ort} = Name des Sektors. Weigerungsgruende je Code; Texte fuer Anzeige an der Ops und im Funk, die Gestaltung kommt spaeter.",
   "sprecher": "Oberkommando",
   "gruenden": {
     "name": "Posten gründen",
@@ -65,6 +65,39 @@
     },
     "fertig": "Posten {ort} zum Stützpunkt ausgebaut: Dock und Werft stehen der Lerche offen.",
     "fehler": "Der Ausbau scheitert: {grund}"
+  },
+  "angreifen": {
+    "name": "Posten angreifen",
+    "weigerung": {
+      "modus": "Nur in der Freien Fahrt Sund.",
+      "rang": "Dafür fehlt der Rang ({rang}).",
+      "kein_posten": "Hier steht kein Posten.",
+      "eigener": "Das ist ein römischer Posten – kein Ziel.",
+      "neutral": "Das Konkordat ist neutral – kein Ziel.",
+      "station": "Hier steht eine Station – kein Angriff möglich.",
+      "hafen": "Hier liegt ein Hafen – kein Angriff möglich.",
+      "gegner": "Feindliche Flotte im Sektor – erst die Gegner abwehren.",
+      "szene": "Feindkontakt – erst die Gegner abwehren.",
+      "weit": "Zu weit vom Posten – näher heran ({ist} von {max}).",
+      "schnell": "Zu schnell – Antrieb drosseln.",
+      "teile": "Zu wenig Ersatzteile (nötig: {teile}).",
+      "docked": "Erst ablegen.",
+      "transfer": "Transfer ausgefallen – erst reparieren.",
+      "laeuft": "Ein Transfer läuft bereits."
+    },
+    "abbruch": {
+      "gegner": "Feindkontakt – Angriff abgebrochen.",
+      "szene": "Feindkontakt – Angriff abgebrochen.",
+      "ring": "Posten verlassen – Angriff abgebrochen.",
+      "schnell": "Zu schnell – Angriff abgebrochen.",
+      "transfer": "Transfer ausgefallen – Angriff abgebrochen.",
+      "belegt": "Posten inzwischen weg oder gewechselt – Angriff abgebrochen.",
+      "teile": "Zu wenig Ersatzteile – Angriff abgebrochen.",
+      "sprung": "Sprung – Angriff abgebrochen.",
+      "ops": "Niemand mehr an der Ops – Angriff abgebrochen."
+    },
+    "fertig": "Posten {ort}: Der Angriff beginnt. Klarmachen!",
+    "fehler": "Der Angriff scheitert: {grund}"
   },
   "gehalten": "Posten {ort} hält seit {ticks} Sprüngen. Rom vermerkt es.",
   "dock": {

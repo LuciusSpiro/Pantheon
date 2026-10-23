@@ -161,6 +161,10 @@
               "type": "object", "description": "SUND-02b A1: Posten der Crew (Stuetzpunkte, Merkmal crew im Sim-Hex): Hex -> { t: Tick der Gruendung bzw. des Ausbaus, g: 1 = Halten-Ruf schon gegeben }. Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
               "additionalProperties": { "type": "object", "required": ["t"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "g": { "type": "integer" } } }
             },
+            "sprengungen": {
+              "type": "object", "description": "SUND-02b A2: letzte Sprengung eines gegnerischen Postens je Hex: Hex -> Tick (Ruf-Sperre gegen Farmen, content/welt/posten-werte.json sprengen.ruf_sperre_ticks). Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
             "vorgemerkt": {
               "type": "array", "description": "SUND-02: Wirkungen der Crew (server/weltsim/wirkungen.js), die der nächste Tick (Sprung) anwendet; Flucht per Sprung.",
               "items": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }

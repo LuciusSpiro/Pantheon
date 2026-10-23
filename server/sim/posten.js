@@ -8,6 +8,12 @@
 //   haltWeiter(game, h)         Prüfung je Tick (aus fracht.update): null oder { code, text } = Abbruch (Gegner, Szene, Ring verlassen, zu schnell, Transfer, belegt)
 //   haltFertig(game, h)         Abschluss (aus fracht.beamFertig): Wirkung posten_gehisst bzw. posten_ausgebaut + ruf_aenderung über Kriegslage.szeneAbschliessen (genau ein Tick, atomar)
 //   gruendenPruefen / ausbauPruefen (game)   -> null | { code, text } (Weigerungsgrund mit Text aus content/flotte/posten.json)
+// SUND-02b A2: Posten sprengen. Die Crew greift den Posten eines Gegners (Besitzer ger oder pirat) an, sie löst die Szene SELBST aus (Kann, nie Muss: die Ankunft startet nie eine):
+//   angreifenStart(game, p)     Befehl weapons.posten.angreifen: Halteprozess (id 'angreifen', Anlauf, Daten angreifen.dauer) mit denselben Bedingungen wie oben (Ring, Tempo, keine Szene, kein Gegner) plus: Posten
+//                               eines Feindes von Rom, kein Hafen, keine Station; römische (auch eigene Crew-Posten) und Konkordat-Posten sind kein Ziel
+//   angreifenPruefen(game)      -> null | { code, text }
+//   Abschluss (haltFertig): SimSzene.angriffStarten (kriegslage-szene.js: Szene modus 'angriff', Wellen aus der Garnison). Ende dort: Sieg = abwehr_verlust (Rest) + posten_gesprengt + Ruf, Flucht/Niederlage = anteilig.
+//   sprengungRuf(game, hex, besitzer) -> [ruf_aenderung] | []   Ruf der Sprengung; leer innerhalb von sprengen.ruf_sperre_ticks nach der letzten Sprengung am selben Hex (ws.sprengungen = { hex: Tick }, optional im Weltstand)
 // Posten halten (Aufsatz, nicht im Kern): ws.posten = { hex: { t: Tick der Gründung, g?: 1 } } (welt.sim.posten, optional); nachTick() gibt nach halten_ticks Ticks einmal Ruf (Quelle posten_gehalten).
 //   snapshot(game)              space.po: { k: 'g' | 'a', ok: 0 | 1, t?: Weigerungstext, n: Ersatzteile } nur dort, wo ein Posten Sinn hat (freies Hex ohne Hafen, römischer Posten ohne Stützpunkt)
 // Alle Zahlen stehen in content/welt/posten-werte.json, alle Texte in content/flotte/posten.json.
@@ -34,6 +40,7 @@ const fmt = (s, o) => String(s || '').replace(/\{(\w+)\}/g, (m, k) => (o && o[k]
 const kl = () => require('./kriegslage.js');   // lazy: kriegslage.js ruft nachTick
 
 const ART = {
+  angreifen: { cfg: W.angreifen.wert, get rang() { return W.mindestrang.wert.angreifen; }, wirkung: null, grund: null, kurz: 'x' },
   gruenden: { cfg: W.gruenden.wert, get rang() { return W.mindestrang.wert.gruenden; }, wirkung: 'posten_gehisst', grund: 'posten_gehisst', kurz: 'g' },
   ausbau: { cfg: W.ausbau.wert, get rang() { return W.mindestrang.wert.ausbau; }, wirkung: 'posten_ausgebaut', grund: 'posten_ausgebaut', kurz: 'a' },
 };
@@ -105,7 +112,23 @@ function ausbauPruefen(game, laufend) {
   if (!laufend) { const s = Fracht.state(game); if (s.halt) return fehl(art, 'laeuft'); }
   return teileFehler(game, art);
 }
-const PRUEFER = { gruenden: gruendenPruefen, ausbau: ausbauPruefen };
+// SUND-02b A2: Posten angreifen (sprengen). Ziel: Posten eines Feindes von Rom (Kern-Regel feindlich: ger, pirat; Konkordat neutral; Rom nie ein Ziel, Beschuss auf Rom ist Paket E).
+function angreifenPruefen(game, laufend) {
+  const art = 'angreifen';
+  const o = ort(game);
+  if (!o) return fehl(art, 'modus');
+  if (!laufend && game.ship.docked) return fehl(art, 'docked');
+  if (o.sc.station) return fehl(art, 'station');
+  if (!o.nd || !o.nd.posten) return fehl(art, 'kein_posten');
+  if (hatHafen(o)) return fehl(art, 'hafen');
+  if (o.nd.besitzer === 'rom') return fehl(art, 'eigener');
+  if (!Kern.feindlich('rom', o.nd.besitzer)) return fehl(art, 'neutral');
+  if (!laufend && !Ruf.rufErreicht(game, ART[art].rang)) return fehl(art, 'rang', { rang: (Ruf.RAENGE.find((r) => r.id === ART[art].rang) || {}).name || ART[art].rang });
+  const l = lagePruefen(game, art, o); if (l) return l;
+  if (!laufend) { const s = Fracht.state(game); if (s.halt) return fehl(art, 'laeuft'); }
+  return null;
+}
+const PRUEFER = { gruenden: gruendenPruefen, ausbau: ausbauPruefen, angreifen: angreifenPruefen };
 
 // ---------- Halteprozess ----------
 function start(game, art) {
@@ -119,6 +142,7 @@ function start(game, art) {
 }
 const gruendenStart = (game, p) => start(game, 'gruenden');
 const ausbauenStart = (game, p) => start(game, 'ausbau');
+const angreifenStart = (game, p) => start(game, 'angreifen');
 
 // Abbruchcode -> Schlüssel in abbruch{}; Gründe aus der Struktur (belegt, Anspruch, Posten weg) heißen alle „belegt“
 const ABBRUCH = { szene: 'szene', gegner: 'gegner', transfer: 'transfer', weit: 'ring', schnell: 'schnell', anspruch: 'belegt', belegt: 'belegt', hafen: 'belegt', station: 'belegt', kein_posten: 'belegt', schon: 'belegt', modus: 'belegt', teile: 'teile' };
@@ -137,6 +161,7 @@ function haltWeiter(game, h) {
 
 // Abschluss: prüfen, Wirkung + Ruf in genau einem Tick, dann die Kosten buchen. Ein Wurf oder eine verworfene Wirkung kostet nichts.
 function haltFertig(game, h) {
+  if (h.id === 'angreifen') return angriffFertig(game, h);
   const art = h.id; const A = ART[art];
   const e = PRUEFER[art](game, true);
   if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }
@@ -162,6 +187,34 @@ function haltFertig(game, h) {
   return true;
 }
 
+// Abschluss des Anlaufs: die Angriffsszene beginnt (keine Kosten, keine Wirkung: die Welt ändert sich erst am Ende der Szene). Ein Wurf der Szene kostet nichts.
+function angriffFertig(game, h) {
+  const art = 'angreifen';
+  const e = angreifenPruefen(game, true);
+  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }
+  const o = ort(game);
+  if (!o || o.hex !== h.hex) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'ort' }); return false; }
+  let S = null;
+  try { S = require('./kriegslage-szene.js').angriffStarten(game, o.hex); } catch (err) { if (game.countError) game.countError('posten-angriff', err); }
+  if (!S) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'szene' }); game.oda(fmt(T(art).fehler, { grund: 'kein Angriffsplan' }), null); return false; }
+  game.emit('frachtBeamen', { phase: 'fertig', was: 'posten', art });
+  game.oda(fmt(T(art).fertig, { ort: Sektoren.hexName(o.hex) }), null);
+  return true;
+}
+
+// ---------- Sprengungen (Ruf-Sperre gegen Farmen) ----------
+// ws.sprengungen = { hex: Tick der letzten Sprengung } (Aufsatz, nicht im Kern; optional im Weltstand welt.sim.sprengungen). nachTick() trägt jede gültige posten_gesprengt ein.
+function sprengungGesperrt(game, hex) {
+  const ws = game.weltsim; const letzte = ws && (ws.sprengungen || {})[hex];
+  return Number.isFinite(letzte) && ws.zustand.tick - letzte < W.sprengen.wert.ruf_sperre_ticks;
+}
+function sprengungRuf(game, hex, besitzer) {
+  if (!game.weltsim || sprengungGesperrt(game, hex)) return [];
+  const q = require('../../content/welt/ruf-werte.json').werte.quellen.wert['posten_gesprengt_' + besitzer];
+  if (!q) return [];
+  return [{ typ: 'ruf_aenderung', fraktion: q.fraktion, delta: q.delta, grund: 'posten_gesprengt_' + besitzer }];
+}
+
 // ---------- Posten halten (Aufsatz) ----------
 const istCrew = (z, hex) => { const nd = z.hexe[hex]; return !!(nd && nd.crew === true && nd.posten && nd.besitzer === 'rom'); };
 // Nach dem Kern-Tick, im selben Atom (Kriegslage.tickMit, Zustand wird mit zurückgerollt): neue Crew-Posten eintragen, gefallene austragen, nach halten_ticks einmal Ruf.
@@ -169,6 +222,8 @@ const istCrew = (z, hex) => { const nd = z.hexe[hex]; return !!(nd && nd.crew ==
 function nachTick(game, gueltig) {
   const ws = game.weltsim; const z = ws.zustand;
   const reg = ws.posten || (ws.posten = {});
+  const sp = ws.sprengungen || (ws.sprengungen = {});
+  for (const wk of gueltig || []) if (wk.typ === 'posten_gesprengt') sp[wk.ort] = z.tick;   // SUND-02b A2: Ruf-Sperre am Hex
   for (const wk of gueltig || []) if ((wk.typ === 'posten_gehisst' || wk.typ === 'posten_ausgebaut') && istCrew(z, wk.ort)) reg[wk.ort] = { t: z.tick };
   const wirkungen = []; const gehalten = [];
   for (const hex of Object.keys(reg)) {
@@ -195,6 +250,17 @@ function toSave(ws) {
   for (const [hex, e] of Object.entries(reg || {})) if (e && Number.isFinite(e.t)) out[hex] = e.g ? { t: e.t, g: 1 } : { t: e.t };
   return Object.keys(out).length ? out : null;
 }
+function sprengungenSave(ws) {
+  const out = {};
+  for (const [hex, t] of Object.entries((ws && ws.sprengungen) || {})) if (Number.isFinite(t)) out[hex] = t;
+  return Object.keys(out).length ? out : null;
+}
+function sprengungenLesen(b) {
+  const out = {};
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return out;
+  for (const [hex, t] of Object.entries(b)) if (/^\d{4}$/.test(hex) && Number.isFinite(t) && t >= 0) out[hex] = Math.floor(t);
+  return out;
+}
 function lesen(b) {
   const out = {};
   if (!b || typeof b !== 'object' || Array.isArray(b)) return out;
@@ -209,6 +275,7 @@ function snapshot(game) {
   let art = null;
   if (o.nd.besitzer === null && !o.nd.posten) art = 'gruenden';
   else if (o.nd.besitzer === 'rom' && o.nd.posten && o.nd.crew !== true) art = 'ausbau';
+  else if (o.nd.posten && o.nd.besitzer !== 'rom' && Kern.feindlich('rom', o.nd.besitzer)) art = 'angreifen';   // SUND-02b A2: Posten eines Gegners (ger, pirat), nicht Konkordat
   if (!art) return null;
   const e = PRUEFER[art](game, false);
   // ein laufender Halteprozess blockiert nur die Starttaste: die Anzeige zeigt dann den Fortschritt (fracht.halt)
@@ -217,4 +284,4 @@ function snapshot(game) {
   return out;
 }
 
-module.exports = { gruendenStart, ausbauenStart, gruendenPruefen, ausbauPruefen, haltWeiter, haltFertig, stummerAbbruchText, nachTick, meldeGehalten, toSave, lesen, snapshot, ort };
+module.exports = { gruendenStart, ausbauenStart, angreifenStart, gruendenPruefen, ausbauPruefen, angreifenPruefen, sprengungRuf, sprengungGesperrt, sprengungenSave, sprengungenLesen, haltWeiter, haltFertig, stummerAbbruchText, nachTick, meldeGehalten, toSave, lesen, snapshot, ort };

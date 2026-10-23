@@ -4,6 +4,7 @@
 // ihn dar; zurück gehen nur Wirkungen aus dem Katalog (server/weltsim/wirkungen.js) über Kriegslage.szeneAbschliessen / wirkungenVormerken.
 //
 //   betreten(game, hex)        Auslöser: Hook am Ende von Space.enterScene (jede Ankunft, nie ein Tick). -> Szene | null
+//   angriffStarten(game, hex)  SUND-02b A2: Auslöser durch die CREW (Halteprozess weapons.posten.angreifen, server/sim/posten.js), nie durch Ankunft: Szene modus 'angriff' gegen den Posten eines Gegners. -> Szene | null
 //   update(game, dt)           Takt der Szene (aus game.step): Vorwarnung, Finale, Sieg, Niederlage
 //   ereignis(game, name, data) Hook aus game.missionEvent: enemyKilled (Verluste der Angreifer), allyLost (Verluste der Verteidiger)
 //   abbrechen(game, wo)        Flucht per Sprung: Verluste bis dahin als Wirkungen VORMERKEN (der Sprung-Tick ist der eine Tick); Hook in Kriegslage.tick
@@ -12,6 +13,9 @@
 //   letzte(game)               Ergebnis der letzten Szene (Tests, Debug), nicht gespeichert
 //   debug(game, args)          nur --debug: szene [staerke] [ger|pirat] [belagerung]
 //
+// SUND-02b A2 (Posten sprengen, README „Posten sprengen“): S.modus === 'angriff' ist dieselbe Szene mit anderer Herkunft und anderem Ende. Die Crew greift den Posten eines Gegners (ger, pirat) an;
+// die Wellen kommen aus der Garnison (Plan.plane, Stärke = Garnison × angreifen.staerke_faktor), römische Flotten im Hex sind Verbündete. SIEG: Rest der Garnison (abwehr_verlust) + posten_gesprengt + Ruf (Sperre am Hex)
+// + genau ein Tick. FLUCHT (Sprung): nur anteilige abwehr_verlust, kein Ruf-Abzug (der Angriff ist freiwillig). NIEDERLAGE: Notfallprotokoll wie oben, anteilige abwehr_verlust, kein Ruf-Abzug, die Garnison regeneriert.
 // Regeln (Entscheidungen A2, Details im README „Sim-Szene“):
 //  - Auslöser: nur bei der ANKUNFT (enterScene), nie durch einen Tick. Eine feindliche Flotte (ger, pirat; Stärke ≥ 1) im Hex löst die Szene aus; ohne Flotte
 //    keine Szene (auch bei Belagerung nicht: ohne Flotte im Hex gibt es nichts darzustellen). Römische Flotten im Hex sind Verbündete. Wer nach einer Szene im
@@ -33,6 +37,8 @@ const Ruf = require('./ruf.js');   // SUND-02b B: Ruf-Wirkungen am Szenenende (R
 const KT = require('../../public/js/karte-tokens.js');   // Stärkenamen (wie Wissen von Rom, kriegslage-wissen.js)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
+const Posten = require('./posten.js');   // SUND-02b A2: Ruf-Regel der Sprengung (Sperre am Hex)
+const ANGRIFF = require('../../content/welt/posten-werte.json').werte.angreifen.wert;   // SUND-02b A2: Vorlauf und Stärkefaktor des Angriffs (Daten)
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
 const FEIND_VON = 'rom';   // die Crew spielt für Rom: Gegner sind alle, die zu Rom feindlich sind (ger, pirat)
@@ -40,6 +46,7 @@ const AUSLOESER_BEFEHLE = ['angriff', 'anspruch', 'rueckzug'];   // Flotten im F
 const SZENEN_TAG = 'sim_szene';   // Spawn-Tag der Gegner dieser Szene (Flotte.wellenStartAusPlan)
 const DEBUG_STAERKE_MAX = 200;   // Debug `szene <staerke>`: darüber wäre der Plan nur noch eine Last für den Server
 const r2 = (v) => Math.round(v * 100) / 100;
+const r2ab = (v) => Math.floor(v * 100 + 1e-9) / 100;   // abgerundet: nie mehr als der Pool hat (der Prüfer von abwehr_verlust lehnt Rundung nach oben ab)
 const cfg = (game) => game.C.simSzene || {};
 const hypot = Math.hypot;
 
@@ -157,6 +164,13 @@ function verlustWirkungen(game, S) {
       }
     }
   }
+  if (S.modus === 'angriff') {   // SUND-02b A2: die Garnison verliert anteilig, was die Crew an Gegnerpunkten vernichtet hat (Flucht, Niederlage); der Sieg nimmt den Rest (angriffSieg)
+    const nd = z.hexe[S.hex];
+    if (nd && nd.posten && S.planPunkte > 0 && S.killPunkte > 0) {
+      const p = r2ab(Math.min(nd.garnison, S.garn0 * Math.min(1, S.killPunkte / S.planPunkte)));
+      if (p >= 0.01) w.push({ typ: 'abwehr_verlust', ort: S.hex, punkte: p });
+    }
+  }
   return w;
 }
 // nur Wirkungen, die der Prüfer gegen den jetzigen Zustand annimmt (Szene baut nichts, was die Sim sicher ablehnt)
@@ -189,6 +203,7 @@ function gescheitert(game, S, gewollt, wirkungen, r) {
   return r;
 }
 function sieg(game, S) {
+  if (S.modus === 'angriff') return angriffSieg(game, S);
   S.phase = 'ende';
   const z = game.weltsim.zustand;
   const kd = S.kommandant;
@@ -213,6 +228,7 @@ function sieg(game, S) {
   return r;
 }
 function niederlage(game, S, grund) {
+  if (S.modus === 'angriff') return angriffNiederlage(game, S, grund);
   S.phase = 'ende';
   const w = verlustWirkungen(game, S);
   if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // der Prüfer lehnt ab, was nicht gilt: Piraten erobern keinen Hafen, und ohne laufende Belagerung (durchziehende Flotte) fällt nichts
@@ -230,13 +246,55 @@ function niederlage(game, S, grund) {
   merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
 }
+// SUND-02b A2: Sieg gegen den Posten: Verbündete verlieren anteilig, die Garnison ganz (abwehr_verlust), dann posten_gesprengt (der Prüfer läuft der Reihe nach, Kern.filtereWirkungen), Ruf nur wenn die Sprengung gilt
+// und der Hex nicht in der Sperre liegt; genau ein Tick (szeneAbschliessen), atomar mit Rollback.
+function angriffSieg(game, S) {
+  S.phase = 'ende';
+  const z = game.weltsim.zustand; const nd = z.hexe[S.hex]; const T = texte(); const A = T.angriff || {};
+  const sprengung = { typ: 'posten_gesprengt', ort: S.hex };
+  const folge = (nd && nd.garnison > 0 ? [{ typ: 'abwehr_verlust', ort: S.hex, punkte: nd.garnison }] : []).concat([sprengung]);
+  const pr = Kern.filtereWirkungen(z, folge);
+  const gilt = pr.gueltig.includes(sprengung);
+  const sperre = gilt && Posten.sprengungGesperrt(game, S.hex);
+  const ruf = gilt ? Posten.sprengungRuf(game, S.hex, S.fraktion) : [];
+  const wirk = gueltige(game, verlustWirkungen(game, S).filter((x) => x.typ !== 'abwehr_verlust')).concat(pr.gueltig, ruf);
+  aufraeumen(game, S);
+  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 's', o: null, x: 1 };
+  const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
+  endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);
+  const gesprengt = !r.verworfen.some((v) => v.wirkung && v.wirkung.typ === 'posten_gesprengt') && gilt;
+  if (gesprengt) {
+    funk(game, fmt((A.sieg || {}).text, { ort: S.ortName }), { reiter: 1, log: (A.log || {}).sieg });
+    if (sperre) funk(game, fmt((A.sieg || {}).ohneRuf, { ort: S.ortName }));
+    game.missionEvent('postenGesprengt', { hex: S.hex, ort: S.ortName });
+    if (game.markSaveDue) game.markSaveDue('docked');
+  }
+  merken(game, S, gesprengt ? 'sieg' : 'abbruch', wirk, { gesprengt, ruf: ruf.length ? ruf[0].delta : 0, sperre, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
+  return r;
+}
+// SUND-02b A2: Niederlage im Angriff: anteilige Verluste der Garnison, kein Ruf-Abzug (freiwilliger Kampf), ein Tick (die Garnison regeneriert dort), kein Game Over.
+function angriffNiederlage(game, S, grund) {
+  S.phase = 'ende';
+  const T = texte(); const A = T.angriff || {};
+  const wirk = gueltige(game, verlustWirkungen(game, S));
+  aufraeumen(game, S);
+  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n', o: null, x: 1 };
+  const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
+  endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'niederlage', wirk, r);
+  funk(game, (T.niederlage || {})[grund]);
+  funk(game, (A.niederlage || {}).frei, { reiter: 1, log: (A.log || {}).niederlage });
+  merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
+  return r;
+}
 // Flucht/Verlassen: Verluste vormerken, der folgende Sprung-Tick (Kriegslage.tick) wendet sie an. Kein ort_*, kein eigener Tick.
 function abbrechen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
   const imKampf = S.phase === 'kampf';   // B-Fix 1: Phase merken, bevor sie auf 'ende' geht; ein Sprung in der Vorwarnung (vor dem ersten Schuss) ist keine Fahrerflucht
   S.phase = 'ende';
-  const ruf = imKampf ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
+  const ruf = imKampf && S.modus !== 'angriff' ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
   const w = gueltige(game, verlustWirkungen(game, S).concat(ruf));
   aufraeumen(game, S);
   endeAufraeumen(game);   // H-a: auch die Flucht räumt die Szenen-ODA weg („Erste Welle in 10 s“ liefe sonst im neuen Sektor weiter)
@@ -336,6 +394,47 @@ function betreten(game, hex) {
   return S;
 }
 
+// SUND-02b A2: Angriffsszene gegen den Posten eines Gegners. Aufrufer: Posten.haltFertig (Ops-Halteprozess der Crew); der Aufrufer hat Rang, Ring, Tempo, Szene und Gegner schon geprüft.
+// Wellen aus der Garnison (nie weniger als 1 Punkt), Verbündete = römische Flotten im Hex, Vorlauf aus den Daten (angreifen.vorlauf). -> Szene | null (kein Posten eines Feindes, kein Plan, kein Modus)
+function angriffStarten(game, hex) {
+  if (game.simSzene) verlassen(game, 'neu');
+  const ws = game.weltsim;
+  if (!ws || !hex || !game.ship || game.ship.docked) return null;
+  const z = ws.zustand; const d = Kern.datenVon(z); const nd = z.hexe[hex];
+  if (!nd || !nd.posten || d.hex[hex].hafen !== '' || !nd.besitzer || !Kern.feindlich(FEIND_VON, nd.besitzer)) return null;
+  const fraktion = nd.besitzer;
+  const staerke = Math.max(1, nd.garnison * (Number(ANGRIFF.staerke_faktor) || 1));
+  const C = cfg(game); const T = texte(); const A = T.angriff || {};
+  const seed = Plan.seedAus('angriff', hex, z.tick, (game.simSzeneN || 0) + 1);
+  const kd = { name: A.kommandant || T.ohneKommandant || 'Der Flottenführer', volk: fraktion, zug: '' };
+  const plan = Plan.plane({ staerke, seed, volk: fraktion, kommandant: kd });
+  if (!plan.wellen.length) return null;
+  const hier = z.flotten.filter((f) => f.ort === hex && f.fraktion === FEIND_VON && f.staerke > 0).sort(nachStaerke);
+  const verteidiger = hier.map((f) => ({ typ: 'flotte', id: f.id, staerke: f.staerke, eff: f.staerke * wirksamFaktor(z, d, hex, f) }));
+  const L = { verteidiger, punkte: verteidiger.reduce((s, g) => s + g.eff, 0) };
+  game.simSzeneN = (game.simSzeneN || 0) + 1;
+  game.simSzeneEnde = null;
+  const vorlauf = Math.max(0, Number(ANGRIFF.vorlauf) || 0);
+  const S = { id: game.simSzeneN, modus: 'angriff', hex, ort: null, ortName: Sektoren.hexName(hex) || hex, szene: game.ship.scene, phase: 'vorwarnung',
+    klasse: Kern.staerkeKlasse(plan.punkte, z.werte), fraktion, angreifer: [], summe: plan.punkte, seed, plan, kommandant: null, kills: {}, killPunkte: 0, flaggGefallen: false,
+    garn0: nd.garnison, planPunkte: plan.punkte,
+    t0: game.time, vorlauf, erinnern: (C.vorwarnungErinnerung || []).filter((s) => s < vorlauf).sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false };
+  S.start = S.t0 + S.vorlauf;
+  game.simSzene = S;
+  verteidigerAufstellen(game, S, L);
+  Flotte.wellenStartAusPlan(game, { plan, volk: fraktion, ziel: 'auto', richtung: 'alle', tag: SZENEN_TAG, vorlauf: S.vorlauf, restAnteil: C.restAnteil });
+  try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }
+  const fr = (T.fraktionen || {})[fraktion] || {};
+  const klasse = (T.klassen || {})[S.klasse] || '';
+  const vars = { ort: S.ortName, klasse, flotte: fr.flotte || 'Flotte', sek: Math.round(S.vorlauf) };
+  const vw = A.vorwarnung || {};
+  if (S.vert.n0 > 0) funk(game, fmt((T.verteidiger || {}).frei, { ort: S.ortName, n: S.vert.n0 }));
+  funk(game, fmt(vw.text, vars), { reiter: 1, log: fmt((A.log || {}).vorwarnung, vars), kz: fmt(vw.kz, { ort: S.ortName, fraktion: fr.name || '', klasse: KT.staerkeName(S.klasse) }) });
+  if (fraktion === 'pirat') game.oda(vw.pirat, null);
+  game.oda(fmt(vw.hinweis, vars), null);
+  return S;
+}
+
 // ---------- Takt ----------
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   const S = game.simSzene;
@@ -351,6 +450,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   if (w && !S.finale && w.i + 1 >= w.liste.length && w.i >= 0) {
     S.finale = true;
     if (S.kommandant) funk(game, fmt(T.finale, { kommandant: S.kommandant.name }));
+    else if (S.modus === 'angriff') funk(game, fmt((T.angriff || {}).finale, { kommandant: (T.angriff || {}).kommandant || '' }));
   }
   if (S.flaggGefallen || (w && w.fertig)) { sieg(game, S); return; }   // Flaggschiff gefallen, oder alle Gegner tot
   // Die Lerche unterliegt (Notfallprotokoll): Niederlage nur, wenn kein Verteidiger mehr lebt – mit Verteidigern geht die Schlacht weiter (die Gegner ziehen 10 s ab,
@@ -395,14 +495,15 @@ const kurz = (t, n) => { const x = String(t || ''); return x.length > n ? x.slic
 function snapshot(game) {
   const S = game.simSzene;
   if (S && S.phase !== 'ende') {
-    if (S.phase === 'vorwarnung') return { p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse };
+    const x = S.modus === 'angriff' ? { x: 1 } : {};   // SUND-02b A2: Angriff auf einen Posten (Zeile „ANGRIFF AUF POSTEN“ statt FEINDKONTAKT)
+    if (S.phase === 'vorwarnung') return Object.assign({ p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse }, x);
     const w = game.flotte && game.flotte.welle;
     const g = w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0;
-    return S.finale ? Object.assign({ p: 'f', g }, S.kommandant ? { kd: kurz(S.kommandant.name, 24) } : {}) : { p: 'k', g };
+    return Object.assign(S.finale ? Object.assign({ p: 'f', g }, S.kommandant ? { kd: kurz(S.kommandant.name, 24) } : {}) : { p: 'k', g }, x);
   }
   const E = game.simSzeneEnde;
   const rest = E ? E.bis - game.time : -1;   // robust gegen Zeitrücksprung (Reset, Laden): nur gültig, wenn die Restzeit in [0, endeAnzeige] liegt
-  if (E && rest > 0 && rest <= endeAnzeige(game) && E.szene === game.ship.scene) return Object.assign({ p: E.p }, E.o ? { o: kurz(E.o, 24) } : {});
+  if (E && rest > 0 && rest <= endeAnzeige(game) && E.szene === game.ship.scene) return Object.assign({ p: E.p }, E.o ? { o: kurz(E.o, 24) } : {}, E.x ? { x: 1 } : {});
   return null;
 }
 
@@ -431,4 +532,4 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-module.exports = { betreten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
+module.exports = { betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };

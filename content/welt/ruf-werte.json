@@ -20,7 +20,9 @@
       "fahrerflucht_ort_ger":   {"fraktion": "rom", "delta": -6,  "_hinweis": "Szene gegen Germanen um einen roemischen Hafen/Posten mit laufender Belagerung per Sprung im Kampf verlassen"},
       "posten_gehisst":         {"fraktion": "rom", "delta": 8,   "_hinweis": "Die Crew gruendet einen Posten in einem freien Sektor in Roms Anspruch (Wirkung posten_gehisst, SUND-02b A1)"},
       "posten_ausgebaut":       {"fraktion": "rom", "delta": 8,   "_hinweis": "Die Crew baut einen roemischen Posten zum Stuetzpunkt aus (Wirkung posten_ausgebaut, SUND-02b A1)"},
-      "posten_gehalten":        {"fraktion": "rom", "delta": 4,   "_hinweis": "Ein Posten der Crew hat halten_ticks Ticks gestanden (einmalig je Posten, content/welt/posten-werte.json, SUND-02b A1)"}
+      "posten_gehalten":        {"fraktion": "rom", "delta": 4,   "_hinweis": "Ein Posten der Crew hat halten_ticks Ticks gestanden (einmalig je Posten, content/welt/posten-werte.json, SUND-02b A1)"},
+      "posten_gesprengt_ger":   {"fraktion": "rom", "delta": 12,  "folge": {"ger": -4}, "_hinweis": "Die Crew sprengt einen germanischen Posten (Wirkung posten_gesprengt, SUND-02b A2); innerhalb der Sperre am selben Hex gibt es nichts (posten-werte.json sprengen.ruf_sperre_ticks)"},
+      "posten_gesprengt_pirat": {"fraktion": "rom", "delta": 6,   "_hinweis": "Die Crew sprengt einen Piratenposten (die Sim haelt keine, Eintrag fuer Debug und Altkarten; SUND-02b A2)"}
     }, "einheit": "Rufpunkte", "_hinweis": "Tabelle grund -> Fraktion, Standard-delta und optional `folge` ({Fraktion: delta}, wird mit angewandt, geklemmt, ohne Rang-Wirkung). Der Pruefer von ruf_aenderung kennt nur diese Gruende (fraktion muss passen). Was hier fehlt, gibt keinen Ruf: Piraten ignorieren (keine Fahrerflucht gegen Piraten, Entscheidung 02a) und das Ablehnen eines Fuehrungsangebots (Paket E) aendern den Ruf nie. Paket A1 hat posten_gehisst, posten_ausgebaut und posten_gehalten ergaenzt (Grund = Name der Wirkung), posten_gesprengt kommt mit A2, beschuss_verbuendeter mit Paket E."}
   }
 }

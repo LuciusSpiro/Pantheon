@@ -16,6 +16,10 @@
 //   posten_gehisst       { ort }                               (SUND-02b A1) die Crew gründet einen Posten in einem freien Hex in Roms Anspruch (content/welt/posten-werte.json): Besitzer rom, Garnison werte.garrison, Merkmal crew true
 //                        (Dock und Werft, nur der Spielaufsatz liest es) und ohneErtrag true (der Kern: ein Vorposten der Crew liefert keine Güter). Prüfer: Hex ohne Hafen, ohne Besitzer, ohne Posten, ohne feindliche Flotte, im Anspruch. Ereignis posten_gehisst (nicht posten_gegruendet: Kennzahlen zählen nur Posten der Sim).
 //   posten_ausgebaut     { ort }                               (SUND-02b A1) die Crew baut einen vorhandenen römischen Posten zum Stützpunkt aus: Merkmal crew true, Garnison mindestens werte.garrison. Prüfer: Posten, Besitzer rom, ohne Hafen, noch ohne crew, ohne feindliche Flotte. Ereignis posten_ausgebaut.
+//   posten_gesprengt     { ort }                               (SUND-02b A2) die Crew sprengt den Posten eines Gegners (Besitzer ger oder pirat, laut Kern-Regel feindlich zu Rom; Konkordat ist neutral, Rom nie ein Ziel: Beschuss auf Rom ist Paket E):
+//                        der Posten wird frei wie beim Verlust im Gefecht (postenVerlieren, Ereignis posten_verloren mit durch rom). Prüfer: Posten, kein Hafen, Besitzer feindlich zu rom, Garnison höchstens
+//                        werte.sprengen.garnison_max (posten-werte.json). Die Szene liefert den Rest der Garnison als abwehr_verlust im SELBEN Paket davor: die Prüfung läuft der Reihe nach gegen den Zustand
+//                        nach den früheren Wirkungen (Kern.filtereWirkungen), ein Posten mit voller Garnison lässt sich also nie „einfach“ sprengen.
 // Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
@@ -129,6 +133,20 @@ const KATALOG = {
       const nd = c.z.hexe[wk.ort];
       nd.crew = true; nd.garnison = Math.max(nd.garnison, c.w.garrison);
       H.melde(c, 'posten_ausgebaut', 'rom', { ort: wk.ort });
+    },
+  },
+  posten_gesprengt: {
+    pruefe(z, d, wk) {
+      const k = hexKnoten(z, d, wk.ort);
+      if (!k) return 'unbekannter Ort';
+      if (k.hafen) return 'Ort hat einen Hafen';
+      if (!k.nd.posten) return 'Ort hat keinen Posten';
+      if (k.nd.besitzer === null || !feind('rom', k.nd.besitzer)) return 'Posten gehört keinem Feind von Rom';
+      if (k.nd.garnison > POSTEN.sprengen.wert.garnison_max + 1e-9) return 'Garnison ist noch zu stark';
+      return null;
+    },
+    anwenden(c, wk) {
+      H.postenVerlieren(c, wk.ort, c.z.hexe[wk.ort].besitzer, 'rom');
     },
   },
   ruf_aenderung: {

@@ -1106,6 +1106,7 @@ class Game {
       case 'weapons.schoepfen': if (msg.off) Ladung.schoepfAbbrechen(this); else err = Ladung.schoepfStart(this, p); break;   // U2: Gas schöpfen (Halteprozess bis zum Abbruch, Ops)
       case 'weapons.posten.gruenden': err = Posten.gruendenStart(this, p); break;   // SUND-02b A1: Posten gründen (Halteprozess an der Ops, Abbruch: weapons.fracht { off })
       case 'weapons.posten.ausbauen': err = Posten.ausbauenStart(this, p); break;   // SUND-02b A1: römischen Posten zum Stützpunkt ausbauen (Halteprozess)
+      case 'weapons.posten.angreifen': err = Posten.angreifenStart(this, p); break;   // SUND-02b A2: Posten eines Gegners angreifen/sprengen (Halteprozess = Anlauf, danach die Angriffsszene)
       case 'weapons.verkaufen': err = Ladung.verkaufStart(this, p); break;   // SL6: Ware an einen Händler in Reichweite verkaufen (Halteprozess)
       case 'weapons.scan': err = space.weaponsScan(this, !!msg.on); break;
       case 'weapons.sonde.start': err = Sonden.starteInSzene(this, p, msg.x != null && Number.isFinite(Number(msg.x)) ? { x: Number(msg.x), y: Number(msg.y) } : null); break;   // SL4: Sonde zur Marke (oder x/y)
