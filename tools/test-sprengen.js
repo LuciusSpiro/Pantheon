@@ -143,7 +143,7 @@ section('Daten und Texte', () => {
   ok(codes.every((c) => typeof TEXTE.angreifen.weigerung[c] === 'string' && TEXTE.angreifen.weigerung[c].length > 5), 'jeder Weigerungsgrund hat einen Text');
   ok(['gegner', 'szene', 'ring', 'schnell', 'transfer', 'belegt', 'teile', 'sprung', 'ops'].every((c) => typeof TEXTE.angreifen.abbruch[c] === 'string'), 'jeder Abbruchgrund hat einen Text');
   const A = SZT.angriff;
-  ok(A && /\{ort\}/.test(A.vorwarnung.text) && /\{sek\}/.test(A.vorwarnung.text) && /\{ort\}/.test(A.sieg.text) && A.niederlage.frei && A.kommandant && A.zeile.kopf === 'ANGRIFF AUF POSTEN', 'Szenentexte: Vorwarnung, Sieg „Posten gesprengt“, Niederlage, Szenenzeile');
+  ok(A && /\{ort\}/.test(A.vorwarnung.text) && /\{sek\}/.test(A.vorwarnung.text) && /\{ort\}/.test(A.sieg.text) && A.niederlage.frei && A.kommandant && !A.zeile, 'Szenentexte: Vorwarnung, Sieg „Posten gesprengt“, Niederlage (die Szenenzeile steht fest im Client)');
   ok(PW.anspruch.wert.ger.every((h) => !PW.anspruch.wert.rom.includes(h)), 'Ziele der Germanen (0703, 0705) liegen nie in Roms Anspruch');
 });
 
@@ -306,7 +306,8 @@ section('Szene baut die Wellen aus der Garnison', () => {
 });
 
 section('Sieg: Posten gesprengt', () => {
-  const t = bereit(); const g = t.g; angriff(g);
+  const t = bereit(); const g = t.g; g.markSaveDueAnzahl = 0; const mk = g.markSaveDue.bind(g); g.markSaveDue = (k) => { if (k === 'docked') g.markSaveDueAnzahl++; return mk(k); };
+  angriff(g);
   const ruf0 = rom(g); const ger0 = Ruf.ruf(g, 'ger'); const k0 = kernTicks; const tk0 = g.weltsim.tickZahl;
   ok(durchspielen(g, 600), 'Wellen abgeräumt, Szene beendet');
   const nd = z(g).hexe[GER1];
@@ -331,7 +332,9 @@ section('Sieg: Posten gesprengt', () => {
   // Overlay: der Posten-Marker ist weg
   ok(g.weltBesitz.hexe[GER1].posten === false && !g.space.markers.some((m) => m.posten), 'Overlay und Posten-Marker weg');
   // Wissen von Rom: Posten verloren (ger)
-  ok(g.weltsim.wissen.meldungen.some((m) => m.e === 'pv' && m.h === GER1) || true, 'Wissen verarbeitet das Ereignis ohne Fehler');
+  ok(g.errors === 0 && g.weltsim.fehler === 0, 'Wissen und Tick verarbeiten das Ereignis ohne Fehler');
+  ok(!t.funk().some((x) => /erst kürzlich gesprengt/.test(x)), 'erster Sieg: keine Sperr-Meldung („kein Ruf“ nur innerhalb der Sperre)');
+  ok(g.markSaveDueAnzahl >= 1, 'Sieg löst markSaveDue(docked) aus (kein Absturz bis zum nächsten Takt)');
   // Flaggschiff-Sieg
   const b = bereit(); const gb = b.g; angriff(gb);
   let flaggGesehen = false;
@@ -343,7 +346,8 @@ section('Sieg: Posten gesprengt', () => {
 });
 
 section('Flucht: nur anteilige Verluste, kein Ruf-Abzug', () => {
-  const t = bereit(); const g = t.g; angriff(g);
+  const t = bereit(); const g = t.g; g.weltsim.ruf.rom = 50; g.weltsim.ruf.ger = -10;   // über der Untergrenze: ein Abzug würde sichtbar (bei 0 klemmt er weg)
+  angriff(g);
   const ruf0 = rom(g); const ger0 = Ruf.ruf(g, 'ger');
   // ein Teil der Gegner fällt
   run(g, ANG.vorlauf + 3);
@@ -372,7 +376,8 @@ section('Flucht: nur anteilige Verluste, kein Ruf-Abzug', () => {
 });
 
 section('Niederlage: Notfallprotokoll, kein Game Over', () => {
-  const t = bereit(); const g = t.g; angriff(g); run(g, ANG.vorlauf + 3);
+  const t = bereit(); const g = t.g; g.weltsim.ruf.rom = 50; g.weltsim.ruf.ger = -10;   // über der Untergrenze: ein Abzug würde sichtbar (bei 0 klemmt er weg)
+  angriff(g); run(g, ANG.vorlauf + 3);
   const e = g.space.enemies.find((x) => x.wv != null && !x.flagg); if (e) kill(g, e); run(g, 0.5);
   const ruf0 = rom(g); const ger0 = Ruf.ruf(g, 'ger'); const k0 = kernTicks; const tk0 = g.weltsim.tickZahl; const kp = g.simSzene.killPunkte;
   g.stats.emergencies = (g.stats.emergencies || 0) + 1;   // Notfallprotokoll der Lerche (wie in 02a)
@@ -381,13 +386,13 @@ section('Niederlage: Notfallprotokoll, kein Game Over', () => {
   ok(kernTicks === k0 + 1 && g.weltsim.tickZahl === tk0 + 1, 'genau ein Tick');
   const nd = z(g).hexe[GER1];
   ok(nd.posten === true && nd.besitzer === 'ger' && nd.garnison > 0 && !letzterTick.wirkungen.some((x) => x.typ === 'posten_gesprengt'), 'Posten steht, Garnison regeneriert (' + nd.garnison + ')');
-  ok(rom(g) === ruf0 && Ruf.ruf(g, 'ger') === ger0, 'kein Ruf-Abzug');
+  ok(rom(g) === ruf0 && Ruf.ruf(g, 'ger') === ger0 && ruf0 === 50 && !letzterTick.wirkungen.some((x) => x.typ === 'ruf_aenderung'), 'kein Ruf-Abzug (Ruf 50 vorher und nachher, keine ruf_aenderung im Tick)');
   ok(g.phase === 'play' && g.errors === 0, 'kein Game Over, keine Fehler');
   ok(t.funk().some((x) => x === SZT.angriff.niederlage.frei), 'Funk: „' + SZT.angriff.niederlage.frei + '“');
   const sz = g.snapshot().flotte && g.snapshot().flotte.sz; ok(sz && sz.p === 'n' && sz.x === 1, 'Szenenzeile: Niederlage mit x 1');
   // danach kann die Crew erneut angreifen
   g.space.enemies = []; ab(g); anPosten(g, GER1); g.ship.hp = g.ship.hpMax || g.ship.hp;
-  const e2 = Posten.angreifenPruefen(g, false); ok(e2 === null || e2.code !== 'szene', 'danach ist ein neuer Angriff nicht gesperrt (' + (e2 ? e2.code : 'frei') + ')');
+  const e2 = Posten.angreifenPruefen(g, false); ok(e2 === null, 'danach ist ein neuer Angriff nicht gesperrt (' + (e2 ? e2.code : 'frei') + ')');
 });
 
 section('Atomar: Rollback', () => {
@@ -448,14 +453,14 @@ section('Ruf: nur bei Sieg, Sperre gegen Farmen', () => {
 });
 
 section('Verbündete und Mehrere im Hex', () => {
-  const t = bereit(); const g = t.g; flotte(g, GER1, 'rom', 6);
+  const t = bereit(); const g = t.g; const rfl = flotte(g, GER1, 'rom', 6); const rf0 = rfl.staerke;
   angriff(g);
   ok(g.simSzene.vert.n0 > 0 && (g.space.escorts || []).some((q) => q.ally && q.sim === g.simSzene.id), 'römische Flotte im Hex: Verbündete in der Szene');
   ok(t.funk().some((x) => /an Eurer Seite/.test(x)), 'Funk: Verbündete an Eurer Seite');
   durchspielen(g, 600);
   ok(z(g).hexe[GER1].posten === false, 'Sieg mit Verbündeten: Posten gesprengt');
-  const rf = z(g).flotten.filter((f) => f.fraktion === 'rom' && f.ort === GER1 || f.fraktion === 'rom');
-  ok(rf.every((f) => f.staerke > 0), 'römische Flotten behalten Stärke');
+  const rf = z(g).flotten.find((f) => f.id === rfl.id);
+  ok(rf && rf.staerke > 0 && rf.staerke <= rf0, `die römische Flotte im Hex lebt noch und hat nie mehr als vorher (${rf0} -> ${rf && rf.staerke})`);
 });
 
 section('Eigener Crew-Posten ist nicht sprengbar, Posten fällt während andere angedockt', () => {
@@ -477,6 +482,55 @@ section('Eigener Crew-Posten ist nicht sprengbar, Posten fällt während andere 
   postenSetzen(g, GER1, 'ger', 0.3);
   Kriegslage.szeneAbschliessen(g, { wirkungen: [{ typ: 'abwehr_verlust', ort: GER1, punkte: 0.3 }, { typ: 'posten_gesprengt', ort: GER1 }], wo: 'test' });
   ok(z(g).hexe[GER1].posten === false && g.ship.docked && z(g).hexe[dockHex].crew === true && g.errors === 0, 'Gegnerischer Posten fällt, Lerche bleibt am Stützpunkt angedockt, keine Fehler');
+});
+
+section('Anzeige während der Szene: kein Posten-Feld', () => {
+  const t = bereit(); const g = t.g;
+  ok(g.snapshot().space.po && g.snapshot().space.po.k === 'x', 'vor dem Angriff: Feld da');
+  angriff(g);
+  ok(g.snapshot().space.po === undefined, 'Vorwarnung: kein Feld (es verdeckte die Szenenzeile)');
+  run(g, ANG.vorlauf + 3); ok(g.snapshot().space.po === undefined, 'Kampf: kein Feld');
+  durchspielen(g, 600);
+  ok(g.snapshot().flotte && g.snapshot().flotte.sz && g.snapshot().flotte.sz.p === 's' && g.snapshot().space.po === undefined, 'Ergebniszeile (Sieg) sichtbar: noch kein Feld (es überlappte die Zeile)');
+  run(g, CONFIG.simSzene.endeAnzeige + 1);
+  ok(g.snapshot().flotte === undefined || !g.snapshot().flotte.sz, 'nach der Ergebniszeile: Zeile weg');
+  ok(g.snapshot().space.po && g.snapshot().space.po.k === 'g', 'danach das Feld des freien Hexes (Gründen, hier außerhalb von Roms Anspruch: ok 0)');
+  const u = bereit(); const gu = u.g; angriff(gu); run(gu, ANG.vorlauf + 3); gu.stats.emergencies = (gu.stats.emergencies || 0) + 1; run(gu, 1);
+  ok(!gu.simSzene && gu.snapshot().space.po === undefined, 'Niederlage: während der Ergebniszeile kein Feld');
+  run(gu, CONFIG.simSzene.endeAnzeige + 1); gu.space.enemies = []; ok(gu.snapshot().space.po && gu.snapshot().space.po.k === 'x', 'danach wieder „Posten angreifen“ (der Posten steht)');
+});
+
+section('Finale, Rundung, Schlussprüfung', () => {
+  // Finale: Funk und Szenenzeile nennen den Postenkommandanten
+  const t = bereit(); const g = t.g; angriff(g);
+  let kd = null;
+  for (let i = 0; i < 400 * HZ && g.simSzene && !(g.simSzene.finale); i++) { for (const e of g.space.enemies.slice()) if (!e.flagg) kill(g, e); g.step(); }
+  ok(g.simSzene && g.simSzene.finale === true, 'Finale erreicht');
+  const sz = g.snapshot().flotte.sz; kd = sz && sz.kd;
+  ok(sz && sz.p === 'f' && sz.x === 1 && kd === SZT.angriff.kommandant, 'Szenenzeile Finale nennt „' + SZT.angriff.kommandant + '“ (' + kd + ')');
+  ok(t.funk().some((x) => x === SZT.angriff.finale.replace('{kommandant}', SZT.angriff.kommandant)), 'Funk Finale: „' + SZT.angriff.finale.replace('{kommandant}', SZT.angriff.kommandant) + '“');
+  // Rundung: nie mehr abwehr_verlust als die Garnison hat (0,333: anteilig 0,33, nicht 0,34)
+  const b = bereit(); const gb = b.g; angriff(gb); run(gb, ANG.vorlauf + 3);
+  let k = 0; for (let i = 0; i < 60 * HZ && k < 1; i++) { const e = gb.space.enemies.find((x) => x.wv != null && !x.flagg); if (e) { kill(gb, e); k++; } gb.step(); }
+  z(gb).hexe[GER1].garnison = 0.333; gb.simSzene.garn0 = 4; gb.simSzene.killPunkte = 5; gb.simSzene.planPunkte = 6;
+  springe(gb, '0704');
+  const av = letzterTick.wirkungen.find((x) => x.typ === 'abwehr_verlust');
+  ok(av && av.punkte === 0.33, 'Rundung nach unten: Verlust 0,33 bei Garnison 0,333 (' + (av && av.punkte) + ')');
+  // Schlussprüfung beim Abschluss des Anlaufs: ändert sich im letzten Moment etwas, startet keine Szene
+  const c = bereit(); const gc = c.g; Posten.angreifenStart(gc, gc.players[0]); run(gc, 1);
+  const h = halt(gc); Space.spawnEnemy(gc, 'raider', { x: 100, y: 100 });
+  ok(Posten.haltFertig(gc, h) === false && !gc.simSzene, 'Abschluss mit Gegner im Raum: keine Szene (Schlussprüfung)');
+});
+
+section('Laden: neue Welt kennt keine Sprengung aus der Zukunft', () => {
+  const t = bereit(); const g = t.g; angriff(g); durchspielen(g, 600);
+  const d1 = kopie(Weltstand.capture(g)); d1.welt.sim.sprengungen = { [GER1]: 500 }; d1.welt.sim.tick = 500;
+  delete d1.welt.sim.zustand.hexe['0505'];   // Sim-Zustand unbrauchbar (ein Sim-Hex fehlt, schemagültig): neue Welt, Tick 0
+  ok(Weltstand.validate(d1).length === 0, 'Fixture ist schemagültig' + (Weltstand.validate(d1).join('; ') ? ': ' + Weltstand.validate(d1).join('; ') : ''));
+  const dir = freshDir(); d1.id = 'w-neu'; fs.writeFileSync(path.join(dir, 'w-neu.json'), JSON.stringify(d1));
+  console.warn = () => {};
+  const t2 = neu({ dir, world: 'w-neu' }); console.warn = warnOrig; const g2 = t2.g;
+  ok(g2.phase === 'play' && g2.weltsim && g2.weltsim.zustand.tick < 500 && !(g2.weltsim.sprengungen || {})[GER1], 'Sprengung aus der Zukunft verworfen (Tick ' + g2.weltsim.zustand.tick + ')');
 });
 
 section('Laden, Altstand', () => {
