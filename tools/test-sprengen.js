@@ -158,6 +158,7 @@ section('Wirkung posten_gesprengt: Prüfer und Anwender', () => {
   postenSetzen(g, '0503', 'kon', 0); nein({ typ: 'posten_gesprengt', ort: '0503' }, 'Posten des Konkordats (neutral)');
   nein({ typ: 'posten_gesprengt', ort: '0504' }, 'Hex ohne Posten (Hafen des Konkordats)');
   nein({ typ: 'posten_gesprengt', ort: OSTIA }, 'römischer Hafen');
+  { const o = z(g).hexe['0504']; const alt = kopie(o); Object.assign(o, { besitzer: 'ger', posten: true, garnison: 0 }); nein({ typ: 'posten_gesprengt', ort: '0504' }, 'Hafen, auch mit Posten-Merkmal und Besitzer ger'); Object.assign(o, alt); }
   z(g).hexe[GER2].posten = false; nein({ typ: 'posten_gesprengt', ort: GER2 }, 'Hex ohne Posten');
   z(g).hexe[GER2].posten = true; z(g).hexe[GER2].besitzer = null; nein({ typ: 'posten_gesprengt', ort: GER2 }, 'Posten ohne Besitzer');
   nein({ typ: 'posten_gesprengt', ort: '9999' }, 'unbekannter Ort'); nein({ typ: 'posten_gesprengt' }, 'Ort fehlt'); nein({ typ: 'posten_gesprengt', ort: 5 }, 'Ort keine Zeichenkette'); nein({ typ: 'posten_gesprengt', ort: 'constructor' }, 'Ort „constructor“');
@@ -222,6 +223,36 @@ section('Weigerungsgründe', () => {
   ok(halt(g3) && halt(g3).kind === 'posten' && halt(g3).id === 'angreifen' && kernTicks === k0, 'Befehl weapons.posten.angreifen startet den Halteprozess (kein Tick)');
 });
 
+section('Anlauf: Abbrüche', () => {
+  const AB = TEXTE.angreifen.abbruch;
+  const fall = (name, stoere, erwartet, postenGeaendert) => {
+    const b = bereit(); const gg = b.g; const r0 = rom(gg); const t0 = gg.weltsim.tickZahl; const k0 = kernTicks;
+    Posten.angreifenStart(gg, gg.players[0]); run(gg, 3);
+    const odas = []; const emit = gg.emit.bind(gg); gg.emit = (kind, d) => { if (kind === 'oda') odas.push(d && d.text); return emit(kind, d); };
+    stoere(gg); run(gg, 1);
+    const weg = !halt(gg) && !(gg.simSzene && gg.simSzene.modus === 'angriff');
+    run(gg, ANG.dauer + 2);
+    ok(weg && !(gg.simSzene && gg.simSzene.modus === 'angriff') && (postenGeaendert || z(gg).hexe[GER1].posten === true) && z(gg).hexe[GER1].garnison === 4 && gg.weltsim.tickZahl === t0 && kernTicks === k0 && rom(gg) === r0, `Abbruch: ${name} – Prozess weg, keine Szene, Posten unberührt, kein Tick, kein Ruf`);
+    if (erwartet) ok(odas.includes(erwartet), `Abbruch: ${name} – Meldung „${erwartet}“`);
+  };
+  fall('feindliche Flotte erscheint', (gg) => { flotte(gg, GER1, 'pirat', 6); }, AB.gegner);
+  fall('Gegner im Raum', (gg) => { Space.spawnEnemy(gg, 'raider', { x: 100, y: 100 }); }, AB.gegner);
+  fall('Ring verlassen', (gg) => { anPosten(gg, GER1, ANG.radius + 50); }, AB.ring);
+  fall('zu schnell', (gg) => { gg.ship.vx = ANG.tempo + 20; gg.ship.speed = gg.ship.vx; }, AB.schnell);
+  fall('Posten wird frei (anderswo gesprengt)', (gg) => { z(gg).hexe[GER1].posten = false; z(gg).hexe[GER1].besitzer = null; }, AB.belegt, true);
+  fall('Posten wechselt zu Rom', (gg) => { z(gg).hexe[GER1].besitzer = 'rom'; }, AB.belegt, true);
+  { const b = bereit(); const gg = b.g; Posten.angreifenStart(gg, gg.players[0]); run(gg, 3); gg.players[0].console = null; run(gg, 1);
+    ok(!halt(gg) && !gg.simSzene, 'Abbruch: niemand mehr an der Ops'); }
+  { const b = bereit(); const gg = b.g; const odas = []; const emit = gg.emit.bind(gg); gg.emit = (kind, d) => { if (kind === 'oda') odas.push(d && d.text); return emit(kind, d); };
+    Posten.angreifenStart(gg, gg.players[0]); run(gg, 3); const e = springe(gg, '0704'); run(gg, 1);
+    ok(!e && !halt(gg) && !gg.simSzene && z(gg).hexe[GER1].posten === true, 'Abbruch: Sprung beendet den Anlauf' + (e ? ' ' + e : ''));
+    ok(odas.includes(AB.sprung), 'Sprung: Meldung „' + AB.sprung + '“'); }
+  { const b = bereit(); const gg = b.g; Posten.angreifenStart(gg, gg.players[0]); run(gg, 2); Fracht.beamStop(gg, 'abgebrochen'); run(gg, ANG.dauer);
+    ok(!halt(gg) && !gg.simSzene && z(gg).hexe[GER1].garnison === 4, 'Abbrechen durch den Spieler (weapons.fracht off): keine Szene, nichts verloren (kostet nichts)'); }
+  // Anlauf läuft, Gründen und Ausbau starten währenddessen nicht (ein Transfer läuft)
+  { const b = bereit(); const gg = b.g; Posten.angreifenStart(gg, gg.players[0]); ok(Posten.gruendenPruefen(gg, false) !== null && Posten.angreifenPruefen(gg, false).code === 'laeuft', 'während des Anlaufs: ein zweiter Start wird abgewiesen (läuft schon)'); }
+});
+
 section('Auslösung: nur durch die Crew, nie durch Ankunft', () => {
   const t = neu(); const g = t.g; g.weltsim.ruf.rom = 0;
   postenSetzen(g, GER1, 'ger', 4); ohneFlotten(g, GER1);
@@ -256,7 +287,7 @@ section('Szene baut die Wellen aus der Garnison', () => {
   ok(gleich(S.plan.wellen, plan.wellen), 'Wellen: Plan.plane mit Garnison × Faktor, reproduzierbar aus dem Seed');
   const w = g.flotte && g.flotte.welle;
   ok(w && w.liste.length === plan.wellen.length && w.ohneSkala === true, `Flotte: ${plan.wellen.length} Wellen, unskaliert`);
-  ok(Math.abs(g.simSzene.start - g.simSzene.t0 - ANG.vorlauf) < 1e-6, `Vorlauf ${ANG.vorlauf} s aus den Daten`);
+  ok(Math.abs(g.simSzene.start - g.simSzene.t0 - ANG.vorlauf) < 1e-6 && Math.abs(w.beginn - g.simSzene.t0 - ANG.vorlauf) < 1e-6, `Vorlauf ${ANG.vorlauf} s aus den Daten (Szene und erste Welle)`);
   const funk = t.funk(); ok(funk.some((x) => /Angriff auf den Posten/.test(x)), 'Funk: „Angriff auf den Posten …“ (Vorwarnung)');
   const sz = g.snapshot().flotte && g.snapshot().flotte.sz;
   ok(sz && sz.p === 'v' && sz.x === 1 && sz.f === 'ger' && Array.isArray(sz.v), 'Snapshot flotte.sz: Vorwarnung mit x 1 (Angriff auf Posten)');
