@@ -600,6 +600,7 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
   const p1 = sl.letzte_plaene.at(-1);
   ok(Array.isArray(p1.befehle) && p1.befehle.some((s) => /^regler rom: ok$/.test(s)) && p1.befehle.some((s) => /^zaubern: abgelehnt \(unbekannter Typ/.test(s)) && p1.befehle.some((s) => /^angreifen ger 9999: abgelehnt \(/.test(s)), 'letzte_plaene: je Befehl Typ, Ziel und Ergebnis mit Kurzgrund: ' + JSON.stringify(p1.befehle));
+  ok(p1.befehle.some((s) => /unbekanntes Ziel/.test(s)), 'der Kurzgrund bleibt lesbar (Buchstaben unverändert)');
   ok(p1.befehle.filter((s) => /^fokus/.test(s)).length === 1, 'der Plan-Fokus (ein Befehl je Fraktion) erscheint einmal');
   ok(p1.befehle.every((s) => s.length <= 120), 'Kurzgründe sind gekürzt');
   const pr = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: sl.letzte_plaene, werte: W }).prompt;

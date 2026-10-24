@@ -48,7 +48,7 @@ const kurzBefehl = (b) => {
 // SUND-03 F: ein Befehl der letzten Pläne mit Ergebnis: "angreifen ger 0105: ok" | "embargo rom: abgelehnt (Rate: höchstens 8 …)". Der Plan-Fokus (ein Befehl je Fraktion) erscheint einmal.
 function befehlErgebnis(b, grund, maxGrund) {
   const t = kurzBefehl(b);
-  return grund == null ? t + ': ok' : t + ': abgelehnt (' + String(grund).replace(/s+/g, ' ').slice(0, maxGrund) + ')';
+  return grund == null ? t + ': ok' : t + ': abgelehnt (' + String(grund).replace(/\s+/g, ' ').slice(0, maxGrund) + ')';
 }
 function ergebnisse(res, wh, maxGrund) {
   const out = []; let fokusOk = false, fokusNein = false;
