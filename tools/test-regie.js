@@ -472,11 +472,11 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   // Altstand ohne Block
   const alt = klon(d1); delete alt.welt.sim.regie; alt.id = 'w-alt'; fs.writeFileSync(path.join(dir, 'w-alt.json'), JSON.stringify(alt));
   const g5 = F.neuesSpiel({ dir, world: 'w-alt' }).g;
-  ok(g5.phase === 'play' && g5.errors === 0 && gleich(ws(g5).regie, { vorgemerkt: [], letzte: {}, rate: [] }), 'Altstand ohne Block lädt: leer');
+  ok(g5.phase === 'play' && g5.errors === 0 && gleich(ws(g5).regie, { vorgemerkt: [], letzte: {}, rate: [], verlauf: [] }), 'Altstand ohne Block lädt: leer');
   tick(g5, 2);
   ok(ws(g5).fehler === 0, 'und tickt fehlerfrei');
   // Müll-fester Leser
-  const T = 50, leer = { vorgemerkt: [], letzte: {}, rate: [] };
+  const T = 50, leer = { vorgemerkt: [], letzte: {}, rate: [], verlauf: [] };
   for (const [bl, soll, was] of [[undefined, leer, 'fehlt'], [null, leer, 'null'], ['x', leer, 'String'], [[1], leer, 'Array'], [{}, leer, 'leeres Objekt'], [{ vorgemerkt: 5, letzte: 'x' }, leer, 'alles kaputt'],
     [{ vorgemerkt: [null, 7, 'x', [], {}, { b: 5, ab: 1 }, { b: { typ: 'zaubern' }, ab: 1 }, { b: { typ: 'angreifen' }, ab: 'x' }, { b: { typ: 'angreifen' }, ab: -3 }] }, leer, 'Müll in der Liste'],
     [{ letzte: { 'x y!': 3, ok: -1, a: 'x', 'angreifen:ger': 'x' } }, leer, 'Müll in den Abkühlzeiten']]) ok(gleich(Regie.lesen(bl, T), soll), 'Leser: ' + was);
