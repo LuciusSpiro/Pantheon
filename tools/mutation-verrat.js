@@ -21,6 +21,8 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.
 const V = 'server/sim/verrat.js', S = 'server/sim/kriegslage-szene.js', P = 'server/sim/posten.js', R = 'server/sim/ruf.js', K = 'server/sim/kriegslage.js', G = 'server/game.js';
 // Bewusst nicht in der Liste (gleichwertiger Mutant): verratStarten `if (!e) throw new Error('Gegner nicht erzeugt')` – space.spawnEnemy liefert nie null (ohne Klassendaten wirft es vorher), der Zweig ist Absicherung;
 // ohne ihn würfe Object.assign(null, …) und der Rollback griffe genauso (gleiches Ergebnis, derselbe Fehlerzähler).
+// Bewusst nicht in der Liste (gleichwertiger Mutant): verratStarten `|| S.modus === 'verrat'` – nach der Umschaltung sind die Verbündeten der Szene aus der Liste, `!ex.length` fängt jede zweite Umschaltung ohnehin (Test: zweiter Aufruf liefert null);
+// der Prüfer vorher (`schon`) ist der eigentliche Wächter und wird von der Mutation „Weigerung: Verrat läuft schon“ erfasst.
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, 'ws'?]
 const MUTATIONEN = [
   // Bedingungen und Weigerungsgründe (verrat.js)
@@ -100,7 +102,6 @@ const MUTATIONEN = [
   [S, "    if (S.modus === 'verrat') return Object.assign({ p: 'k', g }, x);", "", 'Verrat zeigt das Finale statt Kampf'],
   [S, "    st.welle = sicher.welle; st.nachschub = sicher.nachschub;\n", "", 'Rollback der Umschaltung stellt die Welle nicht wieder her'],
   [S, "    sp.enemies = sicher.enemies;", "    sp.enemies = sp.enemies;", 'Rollback der Umschaltung lässt neue Gegner im Raum'],
-  [S, "  if (!S || S.phase === 'ende' || S.modus === 'verrat') return null;\n  const sp = game.space;", "  if (!S || S.phase === 'ende') return null;\n  const sp = game.space;", 'verratStarten: zweite Umschaltung nicht verhindert'],
   [S, "  if (!ex.length || ex.some((q) => !C.enemies[q.kind])) return null;", "  if (!ex.length) return null;", 'verratStarten: unbekannte Klasse wird nicht abgefangen (Wurf statt null)'],
 ];
 
