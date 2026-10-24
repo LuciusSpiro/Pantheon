@@ -56,7 +56,9 @@ section('Regel im Einzelnen', () => {
   r = WH.pruefen({ befehle: ['x', null, { typ: 5 }, nach('rom', 'T', 2)] }, v1, werte);
   ok(r.plan.befehle.length === 3 && r.abgelehnt.length === 1, 'Müll in der Liste bleibt für die Plan-Prüfung stehen, nur die Wiederholung fällt heraus');
   ok(WH.pruefen('kein Plan', v1, werte).plan === 'kein Plan' && WH.pruefen({ befehle: [nach('rom', 'T', 2)] }, null, werte).abgelehnt.length === 0, 'kein Objekt oder kein Verlauf: nichts');
-  ok(WH.verlaufEintrag({ befehle: [nach('rom', 'T', 2), nach('ger', 'T', 2)] }, { abgelehnt: [{ befehl: null }], angenommen: [] }).length === 2, 'Verlauf: alle Befehle des Plans, die die Regie nicht ablehnte');
+  const p2 = { befehle: [nach('rom', 'T', 2), nach('ger', 'T', 2)] };
+  const ve = WH.verlaufEintrag(p2, { abgelehnt: [{ befehl: p2.befehle[0] }], angenommen: [] });
+  ok(ve.length === 1 && ve[0] === WH.satzVon(p2.befehle[1]), 'Verlauf: nur die Befehle des Plans, die die Regie nicht ablehnte');
 });
 
 // Spielleiter-Anschluss: ein Plan als Antwort, ohne Netz (der Pfad nach der Antwort ist derselbe wie im Betrieb)
@@ -150,6 +152,7 @@ section('Viele Planungsrunden: Zufalls-Plan-Quelle', () => {
   ok(v.v === 0, `über ${RUNDEN} Runden nie derselbe Typ mit demselben Parametersatz wie in den letzten ${F_} Plänen (${v.v} Verstöße)`);
   ok(regler > 100, 'die Ausnahme (regler nachstellen) wird nicht abgelehnt');
   ok(sl.zaehler.fehler === 0 && sl.zaehler.angewandt === RUNDEN, 'jeder Plan gilt als angewandt, kein Fehler');
+  ok(sl.verlauf.length === F_, `der Verlauf bleibt bei den letzten ${F_} Plänen (kein Speicherwachstum)`);
   // Gegenprobe: ohne die Regel gäbe es Verstöße (die Messung kann also welche finden)
   const g2 = F.neuesSpiel({ seed: 9 }).g; const sl2 = spielleiter(g2);
   const echt = WH.pruefen; WH.pruefen = (plan) => ({ plan, abgelehnt: [] });

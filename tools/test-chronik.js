@@ -73,6 +73,7 @@ section('Quellen', () => {
   [{ typ: 'posten_gesprengt', ort: '0603' }], ['0505']);
   const c1 = ws(g).chronik.slice(1);
   ok(c1.map((c) => c.art + ':' + c.kurz.split(':')[0]).join() === 'posten:Posten gegründet,posten:Posten ausgebaut,posten:Posten gefallen,welt:Hafen gefallen,welt:Hauptwelt gefallen,posten:Posten gesprengt', 'Posten gegründet, ausgebaut, gefallen (nur Posten der Crew), gesprengt; Hafen und Hauptwelt gefallen; konvoi nicht');
+  ok(c1.find((c) => /gefallen/.test(c.kurz) && c.art === 'posten').ref === '0505' && !c1.some((c) => c.ref === '0503'), 'gefallen steht nur für den Posten der Crew (0505), nicht für den fremden (0503)');
   // Absicht gewählt und abgelehnt
   const a = spiel(); const ga = a.g; ws(ga).ruf.rom = 60;
   const ids = Absicht.KATALOG.slice(0, 2).map((x) => x.id);
@@ -94,6 +95,17 @@ section('Quellen', () => {
 });
 
 // Sim-Szene: Sieg und Flucht schreiben ihren Ausgang (Szenenhelfer wie in test-ruf.js)
+section('Hooks: Tick und Szene', () => {
+  const g = spiel().g; const orig = Chronik.ausTick; const aufrufe = [];
+  ws(g).posten = { '0505': { t: 0 } };
+  Chronik.ausTick = function (...a) { aufrufe.push(a); return orig.apply(this, a); };
+  try { Kriegslage.tick(g, 'test'); } finally { Chronik.ausTick = orig; }
+  ok(aufrufe.length === 1 && Array.isArray(aufrufe[0][1]) && Array.isArray(aufrufe[0][2]) && aufrufe[0][3].includes('0505'), 'jeder Sim-Tick ruft ausTick mit den Ereignissen, den Wirkungen und den Crew-Posten VOR dem Tick');
+  const g2 = spiel().g; const s0 = ws(g2).chronik.length;
+  Kriegslage.tickMit(g2, 'test', undefined, []); Kriegslage.tickMit(g2, 'test', undefined, []);
+  ok(ws(g2).chronik.length >= s0, 'ein Tick löscht keine Chronik');
+});
+
 section('Sim-Szene: Sieg und Flucht', () => {
   const OSTIA = '0305';
   const flotte = (g, hex, fraktion, staerke, belagerung) => {
@@ -166,10 +178,10 @@ section('Weltstand: Runde, Altstand, Müll', () => {
   const g3 = spiel({ dir, world: 'w-alt' }).g;
   ok(Weltstand.validate(alt).length === 0 && g3.phase === 'play' && ws(g3).chronik.length === 0, 'Altstand ohne Block: lädt, Chronik leer');
   ok(Chronik.lesen(null).length === 0 && Chronik.lesen('x').length === 0 && Chronik.lesen({}).length === 0, 'Leser: Müll = leer');
-  const m = Chronik.lesen([{ t: -5, art: 'plan', ref: 1, kurz: 'x' }, { t: 3, art: 'quatsch', kurz: 'y' }, null, { t: 4, art: 'plan', kurz: '' }, { t: 'x', art: 'welt', ref: 'r', kurz: 'z'.repeat(200), param: { a: 1, b: { c: 1 } } }, ...Array.from({ length: 100 }, (_, i) => ({ t: i, art: 'plan', ref: 'p' + i, kurz: 'k' + i }))]);
+  const m = Chronik.lesen([...Array.from({ length: 100 }, (_, i) => ({ t: i, art: 'plan', ref: 'p' + i, kurz: 'k' + i })), { t: 3, art: 'quatsch', kurz: 'y' }, null, { t: 4, art: 'plan', kurz: '' }, 'text']);
   ok(m.length === W.max.wert && m[m.length - 1].ref === 'p99' && m.every((c) => c.kurz.length <= W.kurz_max.wert && Chronik.ARTEN.includes(c.art) && Number.isInteger(c.t) && c.t >= 0), 'Leser: Unsinniges fällt weg, Obergrenze, die neuesten bleiben');
-  const m2 = Chronik.lesen([{ t: 'x', art: 'welt', ref: 'r', kurz: 'z'.repeat(200), param: { a: 1, b: { c: 1 } } }]);
-  ok(m2[0].t === 0 && m2[0].kurz.length === 80 && JSON.stringify(m2[0].param) === '{"a":1}', 'Leser: Zeit auf 0, Text gekürzt, param bereinigt');
+  const m2 = Chronik.lesen([{ t: 'x', art: 'welt', ref: 'r', kurz: 'z'.repeat(200), param: { a: 1, b: { c: 1 } } }, { t: -5, art: 'plan', ref: 1, kurz: 'x' }]);
+  ok(m2.length === 2 && m2[0].t === 0 && m2[0].kurz.length === 80 && JSON.stringify(m2[0].param) === '{"a":1}' && m2[1].t === 0 && m2[1].ref === '', 'Leser: Zeit auf 0, Text gekürzt, param bereinigt, Referenz nur als Text');
 });
 
 section('Snapshot unberührt', () => {

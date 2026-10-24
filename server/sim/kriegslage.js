@@ -16,6 +16,8 @@
 //   (SUND-02b B) welt.sim.ruf: { rom, ger, kon } (optional, Altstände = 0, server/sim/ruf.js). Die Wirkung ruf_aenderung prüft der Katalog, der Kern ignoriert sie; tickMit wendet sie NACH dem Tick an (Ruf.anwenden), im selben
 //   Atom: wirft der Tick, geht auch der Ruf auf die Sicherung zurück. Rangwechsel-Funk erst nach dem Commit.
 //   (SUND-02b A2) welt.sim.sprengungen: { Hex: Tick der letzten Sprengung } (optional, Ruf-Sperre gegen Farmen, server/sim/posten.js sprengungRuf); Rollback und Speichern wie welt.sim.posten.
+//   (SUND-03 D) welt.sim.chronik: Ringliste kleiner Einträge { t, art, ref, kurz, param? } (optional, Altstände = leer, server/sim/chronik.js); welt.sim.reise: { n, letzter?, letzte? } = Sprungzähler und Wiederholungsdaten
+//   der Reise-Ereignisse (optional, Altstände = Anfang, server/sim/reise-ereignis.js). Beide gehören nicht zum Sim-Zustand; tickMit trägt die Ereignisse des Ticks (Posten der Crew, Hafen und Hauptwelt gefallen) nach dem Commit in die Chronik ein.
 //   (SUND-03 A) welt.sim.regie: { vorgemerkt?, letzte? } (optional, Altstände = leer, server/sim/regie-befehle.js): angenommene Befehle des Lage-Spielleiters, die ab einem Tick an Kern.tick gehen; zustand.embargo und zustand.regie stehen im Sim-Zustand.
 //   (SUND-02b D) welt.sim.absicht: { laufend?, angebot?, frei_ab? } (optional, Altstände = leer, server/sim/absicht.js). Die gewählte Absicht steht in zustand.absichten.rom (Erweiterungspunkt der Standard-KI, der Kern bleibt unberührt); tickMit lässt sie danach auslaufen bzw. macht ein neues Angebot,
 //   im selben Atom: wirft der Tick, geht auch die Absicht auf die Sicherung zurück. Funk erst nach dem Commit.

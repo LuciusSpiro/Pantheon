@@ -176,7 +176,14 @@ section('Wiederholungsregeln im Einzelnen', () => {
   R.letzte = [{ id: 'andere', k: p[0].p.schluessel, n: 1 }, { id: 'x', k: 'a', n: 2 }, { id: 'y', k: 'b', n: 3 }, { id: 'z', k: 'c', n: 4 }];
   ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 1, 'außerhalb des Fensters (die letzten drei) ist derselbe Satz wieder erlaubt');
   R.letzte = [{ id: 'notruf_havarie_reaktor', k: 'x', n: 19 }];
-  ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 0, 'dieselbe Katalog-Id zweimal in Folge: abgelehnt');
+  const eh = RE.KATALOG.find((x) => x.id === 'notruf_havarie_reaktor'), minAbstand = eh.bedingungen.min_abstand;
+  delete eh.bedingungen.min_abstand;   // ohne den Mindestabstand der Id muss die Regel „nie zweimal in Folge“ allein halten
+  ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 0, 'dieselbe Katalog-Id zweimal in Folge: abgelehnt (auch ohne Mindestabstand)');
+  R.letzte = [{ id: 'notruf_havarie_reaktor', k: 'x', n: 10 }, { id: 'andere', k: 'y', n: 11 }];
+  ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 1, 'dieselbe Id, aber nicht unmittelbar davor: erlaubt');
+  eh.bedingungen.min_abstand = minAbstand;
+  R.letzte = [{ id: 'andere', k: p[0].p.schluessel, n: 17 }, { id: 'x', k: 'a', n: 18 }, { id: 'y', k: 'b', n: 19 }];
+  ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 0, 'derselbe Parametersatz als drittletztes Ereignis: noch verboten (Fenster drei)');
   R.letzte = [{ id: 'notruf_havarie_reaktor', k: 'x', n: 17 }, { id: 'andere', k: 'y', n: 18 }];
   ok(nur(['notruf_havarie_reaktor'], () => RE.kandidaten(g, R, '0305')).length === 0, 'Mindestabstand der Id (6 Sprünge): zu früh abgelehnt');
   R.n = 40;
@@ -192,10 +199,26 @@ section('Wiederholungsregeln im Einzelnen', () => {
   const lage = require('../server/sim/regie-befehle.js').lage(g).sieger;
   const gl = nur(['funk_lage_rom', 'funk_lage_ger', 'funk_lage_offen'], () => RE.kandidaten(g, R, HEX.rom));
   ok(gl.length === 1 && gl[0].e.id === 'funk_lage_' + lage, `Lagefenster: bei ${lage} genau die passende Meldung`);
+  // Rangfenster nach oben (kein Katalogeintrag nutzt rang_max, eine Probe schon)
+  const probe = klon(RE.KATALOG.find((e) => e.id === 'patrouille_rom_gruss')); probe.id = 'probe_rang'; probe.bedingungen.rang_max = 'miles'; KAT.push(probe);
+  ws(g).ruf.rom = 60;
+  const hoch = nur(['probe_rang'], () => RE.kandidaten(g, R, HEX.rom)).length;
+  ws(g).ruf.rom = 0;
+  const tief = nur(['probe_rang'], () => RE.kandidaten(g, R, HEX.rom)).length;
+  KAT.pop();
+  ok(hoch === 0 && tief === 1, 'Rangfenster nach oben: rang_max miles gilt nur für Miles');
+  // keine Ereignisse während einer Sim-Szene
+  const vorher = ws(g).reise.n; g.simSzene = { phase: 'kampf', hex: HEX.rom };
+  const imKampf = sicher(() => { RE.zaehleSprung(g); return nur(['funk_handel_stimmen'], () => RE.entscheiden(g, HEX.rom2)); });
+  g.simSzene = null; ws(g).reise.letzter = null; ws(g).reise.letzte = [];
+  const danach = sicher(() => { RE.zaehleSprung(g); return nur(['funk_handel_stimmen'], () => RE.entscheiden(g, HEX.rom2)); });
+  ok(imKampf === null && danach && ws(g).reise.n === vorher + 2, 'während einer Sim-Szene (Feindkontakt) kein Reise-Ereignis, danach wieder');
+  ws(g).reise.letzter = null; ws(g).reise.letzte = [];
   // Notruf-Ort: nie der Ankunftssektor, im Abstandsfenster, spielbar mit Ort, nicht doppelt belegt
   const nahP = RE.parameterFuer(g, R, RE.KATALOG.find((e) => e.id === 'notruf_pirat_frachter'), HEX.rom);
   const umk = RE.umkreis(HEX.rom, 2, 3);
-  ok(nahP.hex !== HEX.rom && umk.includes(nahP.hex) && Sektoren.ortVonHex(nahP.hex), `Notruf „nah“: Ort ${nahP.hex} liegt 2 bis 3 Sektoren entfernt`);
+  const nahe = new Set(); for (let i = 0; i < 40; i++) { R.n = 100 + i; nahe.add(RE.parameterFuer(g, R, RE.KATALOG.find((e) => e.id === 'notruf_pirat_frachter'), HEX.rom).hex); }
+  ok(nahP.hex !== HEX.rom && umk.includes(nahP.hex) && Sektoren.ortVonHex(nahP.hex) && nahe.size >= 2 && [...nahe].every((h) => h !== HEX.rom && !Sektoren.sindNachbarn(h, HEX.rom) && umk.includes(h)), `Notruf „nah“: Orte (${[...nahe].join(' ')}) liegen 2 bis 3 Sektoren entfernt, nie der Ankunftssektor oder ein Nachbar`);
   const nbP = RE.parameterFuer(g, R, RE.KATALOG.find((e) => e.id === 'notruf_havarie_reaktor'), HEX.rom);
   ok(Sektoren.sindNachbarn(nbP.hex, HEX.rom), `Notruf „nachbar“: Ort ${nbP.hex} grenzt an`);
 });
@@ -287,9 +310,11 @@ section('Notruf: Hinfliegen, Ablehnen kostet nichts, Verfall', () => {
   lauf(g2, RE.KATALOG.find((x) => x.id === 'notruf_pirat_frachter').parameter.vorlauf_s + 1);
   const tag = R2.laufend[0].tag;
   ok(g2.space.enemies.filter((x) => x.tag === tag).length >= 2 && funkTexte(t2).length > vor, 'danach kommen die Räuber, mit Funk');
+  ok(rom(g2) === ruf2 && R2.laufend.length === 1, 'solange die Räuber leben: noch kein Ruf');
   g2.space.enemies = g2.space.enemies.filter((x) => x.tag !== tag);
   g2.step();
-  ok(rom(g2) === ruf2 + 3 && R2.laufend.length === 0, 'Gegner besiegt: Ruf +3 (Hilfe geleistet), Dank-Funk');
+  ok(rom(g2) === ruf2 + 3 && R2.laufend.length === 0, 'Gegner besiegt: Ruf +3 (Hilfe geleistet)');
+  ok(funkTexte(t2).some((x) => RE.KATALOG.find((e) => e.id === 'notruf_pirat_frachter').texte.dank.includes(x)), 'Dank-Funk nach dem Kampf');
   // Ablehnen kostet nichts: Sim und Ruf wie in einem Spiel ohne Ereignisse
   const a = spiel(), b = spiel({ env: { REISE_EREIGNISSE: 'off' } });
   for (const x of [a.g, b.g]) ohneFlotten(x);
@@ -383,12 +408,12 @@ section('Schnellsprung: Abbruch bei einem Ereignis', () => {
   // Abfangen zählt für den Abstand
   const t3 = spiel(); const g3 = t3.g; ohneFlotten(g3);
   g3.C.reise.feindChance = 1; g3.weltBesitz.hexe[HEX.ger] = { besitzer: 'ger', posten: false };
-  RE.zaehleSprung(g3);   // Hop 1 (ohne Ereignis)
   const n1 = ws(g3).reise.n;
-  Sprung.springeNach(g3, Sektoren.ortVonHex(HEX.ger));
+  sicher(() => Sprung.springeNach(g3, Sektoren.ortVonHex(HEX.ger)), 0);   // der Hop selbst bringt kein Reise-Ereignis
   g3.space.enemies = [];
+  ok(ws(g3).reise.letzter === null && ws(g3).reise.n === n1 + 1, 'Ausgangslage: der Hop ohne Ereignis, nichts gemerkt');
   Reise.abfangen(g3, HEX.ger);
-  ok(ws(g3).reise.letzter === ws(g3).reise.n && ws(g3).reise.n > n1 - 1, 'Abfangen: gilt für den Abstand (letzter = aktueller Sprung)');
+  ok(ws(g3).reise.letzter === ws(g3).reise.n && g3.space.enemies.some((x) => x.tag === 'abfang'), 'Abfangen: gilt für den Abstand (letzter = aktueller Sprung)');
   const folge = [sicher(() => springe(g3, HEX.rom)), sicher(() => springe(g3, HEX.rom2))];
   const dritter = sicher(() => springe(g3, HEX.rom));
   ok(!folge[0] && !folge[1] && dritter, 'nach dem Abfangen zwei Sprünge ohne Reise-Ereignis, danach wieder möglich');
