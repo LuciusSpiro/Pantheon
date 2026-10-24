@@ -96,6 +96,8 @@ mut('Verzweigung leer bei mehreren Zielen', (a) => { a.verzweigung = []; });
 mut('Verzweigung nach unbekanntem Ziel', (a) => { a.verzweigung[0].nach = 'nirgendwo'; });
 mut('Bedingung ohne flag', (a) => { a.verzweigung[0].if = { wenn: 'x' }; });
 mut('"null" als Text statt null (wendung)', (a) => { a.wendung = 'null'; });
+mut('Flag-Name mit Großbuchstaben und Leerzeichen', (a) => { a.verzweigung[0].if = { flag: 'Großes Flag' }; });
+mut('Flag-Name mit Bindestrich', (a) => { a.verzweigung[0].if = { not: { flag: 'a-b' } }; });
 mut('Top-Level-Zusatzfeld', (a) => { a.kommentar = 'hallo'; });
 // Typfehler an einem Zahl-/Aufzählungsparameter, falls die Szene einen hat
 const zahlSzene = szenen.find((x) => x.antwort.molekuele.some((m) => { const u = katalog.molekuele[m.id].umsetzungen.find((y) => y.id === m.umsetzung); return Object.entries(m.params).some(([p, v]) => u.params[p] && u.params[p].typ === 'zahl' && typeof v === 'number'); }));

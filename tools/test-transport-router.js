@@ -14,6 +14,7 @@ const Katalog = require('../server/mission/katalog.js');
 const Archiv = require('../server/mission/archiv.js');
 const Regielog = require('../server/mission/regielog.js');
 const Spielleiter = require('../server/mission/spielleiter.js');
+const Prompts = require('../server/mission/prompts-ollama.js');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -46,16 +47,20 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     T.check('szene → Ollama, Schema und kind kommen an, Modell sonnet wird nicht weitergereicht', rs.text === 'O:p2' && rs.anbieter === 'ollama' && JSON.stringify(ollama.calls[0].o.schema) === '{"x":1}' && ollama.calls[0].o.model === undefined && ollama.calls[0].o.kind === 'szene', JSON.stringify(ollama.calls[0].o));
     T.check('text → Ollama', rt.anbieter === 'ollama' && ollama.calls[1].o.kind === 'text', JSON.stringify(rt));
     T.check('Antwort trägt modell (modelId des Anbieters)', rs.modell === 'fake', rs.modell);
-    const re = await R.call('p5', { kind: 'szene', anbieter: 'claude' });
-    T.check('erzwungener Anbieter (Eskalation) → Claude mit Eskalationsmodell, eskaliert:true', re.anbieter === 'claude' && re.eskaliert === true && claude.calls[1].o.model === 'sonnet' && !('anbieter' in claude.calls[1].o), JSON.stringify(re));
+    const re = await R.callEskalation('p5', { kind: 'szene', schema: { x: 1 }, system: 's' });
+    T.check('callEskalation → Claude mit Eskalationsmodell, eskaliert:true, ohne Schema', re.anbieter === 'claude' && re.eskaliert === true && claude.calls[1].o.model === 'sonnet' && !('schema' in claude.calls[1].o), JSON.stringify(re));
     T.check('ohne kind (direkter Aufruf) → Claude wie bisher', (await R.call('p4', { model: 'haiku' })).anbieter === 'claude' && claude.calls[2].o.model === 'haiku', '');
     T.check('eskalationFuer: nur für Ollama-Arten', R.eskalationFuer('szene') === 'claude' && R.eskalationFuer('text') === 'claude' && R.eskalationFuer('grobplan') === null, `${R.eskalationFuer('szene')} ${R.eskalationFuer('grobplan')}`);
   });
   await T.safe('Router: Konfiguration über opts und Umgebung', async () => {
     const claude = fake('cli', (t) => ok('C')); const ollama = fake('ollama', (t) => ok('O'));
-    const R = Router.routeTransport({ grobplan: { anbieter: 'ollama', modell: 'gm:1' }, szene: { anbieter: 'claude', modell: 'haiku' }, text: { anbieter: 'claude' } }, { transports: { claude, ollama }, eskalation: null });
+    const R = Router.routeTransport({ grobplan: { anbieter: 'claude', modell: 'opus' }, szene: { anbieter: 'claude', modell: 'haiku' }, text: { anbieter: 'ollama', modell: 'gm:1' } }, { transports: { claude, ollama }, eskalation: null });
     await R.call('x', { kind: 'grobplan' }); await R.call('x', { kind: 'szene' }); await R.call('x', { kind: 'text' });
-    T.check('opts: andere Zuordnung und Modelle', ollama.calls[0].o.model === 'gm:1' && claude.calls[0].o.model === 'haiku' && claude.calls[1].o.model === 'sonnet', JSON.stringify([ollama.calls[0].o.model, claude.calls[0].o.model, claude.calls[1].o.model]));
+    T.check('opts: andere Zuordnung und Modelle', ollama.calls[0].o.model === 'gm:1' && claude.calls[1].o.model === 'haiku' && claude.calls[0].o.model === 'opus', JSON.stringify([ollama.calls[0].o.model, claude.calls[1].o.model, claude.calls[0].o.model]));
+    const kg = (() => { try { Router.routeTransport({ grobplan: { anbieter: 'ollama' } }, { transports: { claude, ollama } }); return null; } catch (e) { return e; } })();
+    T.check('K1: Grobplan bei Ollama wird abgewiesen (opts)', kg && /Grobplan bleibt bei Claude/.test(kg.message), kg && kg.message);
+    const rk = Router.routerAusEnv({ LLM_ANBIETER_GROBPLAN: 'ollama', LLM_MODELL_GROBPLAN: 'gemma:1' }, { transports: { claude, ollama } });
+    T.check('K1: LLM_ANBIETER_GROBPLAN=ollama wird ignoriert (Claude/sonnet) und als Warnung gemeldet', rk.arten.grobplan.anbieter === 'claude' && rk.arten.grobplan.modell === 'sonnet' && rk.warnungen.length === 1 && /Grobplan bleibt bei Claude/.test(rk.warnungen[0]), JSON.stringify([rk.arten.grobplan, rk.warnungen]));
     T.check('eskalation: null → keine Eskalation', R.eskalationFuer('grobplan') === null && R.eskalationFuer('szene') === null, '');
     T.check('Umgebung ohne Router-Variablen → kein Router (Standardverhalten bleibt)', Router.routerAusEnv({}) === null && Router.routerAusEnv({ LLM_ANBIETER_SZENE: '' }) === null, '');
     const r1 = Router.routerAusEnv({ LLM_ROUTER: '1' }, { transports: { claude, ollama } });
@@ -67,22 +72,44 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     const e1 = (() => { try { Router.routeTransport({ szene: { anbieter: 'gpt' } }, { transports: { claude, ollama } }); return null; } catch (e) { return e; } })();
     T.check('unbekannter Anbieter wirft', e1 && /Unbekannter Anbieter/.test(e1.message), e1 && e1.message);
   });
-  await T.safe('Router: Ollama OFFLINE → Rückfall auf die Eskalation (eskaliert:true); andere Fehler und fehlende Eskalation werfen', async () => {
-    const claude = fake('cli', () => ok('C')); let ollamaFehler = 'OFFLINE';
-    const ollama = fake('ollama', tot('OFFLINE'));
+  await T.safe('Router: Ausfälle gehen als Fehler zurück (mit anbieter/modell), der Router fällt nie selbst auf Claude zurück (M1)', async () => {
+    const claude = fake('cli', () => ok('C')); const ollama = fake('ollama', tot('OFFLINE'));
     const R = Router.routeTransport({}, { transports: { claude, ollama } });
-    const r = await R.call('x', { kind: 'szene', schema: {} });
-    T.check('OFFLINE → Claude antwortet, eskaliert:true, Modell der Eskalation', r.anbieter === 'claude' && r.eskaliert === true && claude.calls[0].o.model === 'sonnet' && !('schema' in claude.calls[0].o), JSON.stringify(r));
-    const ollama2 = fake('ollama', tot('EXIT')); const claude2 = fake('cli', () => ok('C'));
-    const e2 = await fehler(Router.routeTransport({}, { transports: { claude: claude2, ollama: ollama2 } }).call('x', { kind: 'szene' }));
-    T.check('EXIT bei Ollama → Fehler bleibt (Eskalation entscheidet der Spielleiter), Claude nicht gerufen', e2 && e2.code === 'EXIT' && claude2.calls.length === 0, e2 && e2.code);
-    const e3 = await fehler(Router.routeTransport({}, { transports: { claude: claude2, ollama }, eskalation: null }).call('x', { kind: 'szene' }));
-    T.check('OFFLINE ohne Eskalation → OFFLINE', e3 && e3.code === 'OFFLINE', e3 && e3.code);
-    const claude4 = fake('cli', tot('EXIT'));
-    const e4 = await fehler(Router.routeTransport({}, { transports: { claude: claude4, ollama } }).call('x', { kind: 'szene' }));
-    T.check('Ollama und Claude tot → Fehler (kein Hängen)', e4 && e4.code === 'EXIT', e4 && e4.code);
+    const e = await fehler(R.call('x', { kind: 'szene', schema: {} }));
+    T.check('OFFLINE → Fehler OFFLINE mit anbieter ollama, Claude nicht gerufen', e && e.code === 'OFFLINE' && e.anbieter === 'ollama' && claude.calls.length === 0, e && `${e.code} ${e.anbieter}`);
+    const e2 = await fehler(Router.routeTransport({}, { transports: { claude, ollama: fake('ollama', tot('EXIT')) } }).call('x', { kind: 'szene' }));
+    T.check('EXIT bei Ollama → Fehler, Claude nicht gerufen', e2 && e2.code === 'EXIT' && e2.anbieter === 'ollama' && claude.calls.length === 0, e2 && e2.code);
+    const e3 = await fehler(Router.routeTransport({}, { transports: { claude: fake('cli', tot('EXIT')), ollama } }).callEskalation('x', { kind: 'szene' }));
+    T.check('callEskalation: Claude tot → Fehler mit anbieter claude', e3 && e3.code === 'EXIT' && e3.anbieter === 'claude', e3 && e3.anbieter);
+    const e4 = await fehler(Router.routeTransport({}, { transports: { claude, ollama }, eskalation: null }).callEskalation('x', { kind: 'szene' }));
+    T.check('callEskalation ohne Eskalation → Fehler', e4 && e4.code === 'EXIT', e4 && e4.code);
     const e5 = (() => { try { Router.routeTransport({}, { transports: { claude, ollama }, eskalation: { anbieter: 'ollama' } }); return null; } catch (e) { return e; } })();
     T.check('Eskalation nur an Claude', e5 && /Eskalation nur an claude/.test(e5.message), e5 && e5.message);
+  });
+  await T.safe('K1: Spielleiter mit LLM_ANBIETER_GROBPLAN=ollama schreibt eine Warnung ins Logbuch und plant weiter bei Claude', async () => {
+    const F = H.fakeGame();
+    const sl = Spielleiter.create(F.g, { mode: 'live', env: { LLM_ANBIETER_GROBPLAN: 'ollama', LLM_ROUTER: '1' }, kontext: () => ctx, archiv: Archiv.load().entries, regieDir: path.join(tmp, 'k1'), katalog, memoryLog: true, ablage: null });
+    const llm = sl.getLlm();
+    const w = sl.regie && sl.regie.entries.filter((e) => e.art === 'notiz' && /Grobplan bleibt bei Claude/.test(e.begruendung));
+    T.check('Router aktiv, Grobplan → claude, Warnung im Logbuch', llm.anbieterFuer('grobplan') === 'claude' && llm.anbieterFuer('szene') === 'ollama' && w && w.length === 1, JSON.stringify(w));
+  });
+  await T.safe('Router: Ollama bekommt den Systemprompt ohne Lexikon-Absatz, Claude den unveränderten (Variante B der Erkundung)', async () => {
+    const claude = fake('cli', () => ok('C')); const ollama = fake('ollama', () => ok('O'));
+    const R = Router.routeTransport({}, { transports: { claude, ollama } });
+    const sys = LLM.systemPromptFile('szene'); const orig = fs.readFileSync(sys, 'utf8');
+    await R.call('x', { kind: 'szene', system: sys }); await R.callEskalation('x', { kind: 'szene', system: sys });
+    const o = ollama.calls[0].o.system;
+    T.check('Ollama: Lexikon-Absatz ersetzt durch „Keine Platzhalter“, Rest unverändert', o.includes('**Keine Platzhalter:**') && !o.includes('Lexikon-Platzhalter') && o.includes('- Namens-Parameter') && o.startsWith(orig.slice(0, 200)) && o.length < orig.length, `${o.length} vs ${orig.length}`);
+    T.check('Claude (Eskalation) bekommt den Pfad der Originaldatei', claude.calls[0].o.system === sys && fs.readFileSync(claude.calls[0].o.system, 'utf8') === orig, claude.calls[0].o.system);
+    await R.call('x', { kind: 'grobplan', system: sys });
+    T.check('Grobplan-Prompt (Claude) bleibt unverändert', claude.calls[1].o.system === sys, '');
+    T.check('Prompt ohne die Absatzgrenzen bleibt unverändert (kein Raten)', Prompts.systemFuerOllama('szene', 'Anderer Prompt\nohne Absatz\n') === 'Anderer Prompt\nohne Absatz\n' && Prompts.systemFuerOllama('grobplan', sys) === sys && Prompts.systemFuerOllama('szene', '') === '', '');
+    T.check('Verbot nennt {{…}} nicht als erlaubt, ein Satz', Prompts.VERBOT.split('\n').filter(Boolean).length === 1 && /nie `\{\{…\}\}`/.test(Prompts.VERBOT), Prompts.VERBOT);
+  });
+  await T.safe('K2: Claude-CLI ohne Systemprompt → sicherer Fehler statt „--system-prompt-file undefined“', async () => {
+    const altCli = process.env.CLAUDE_CLI; process.env.CLAUDE_CLI = path.join(tmp, 'gibt-es-nicht.js');   // nie ein echter Prozess
+    let e; try { e = await fehler(LLM.TRANSPORTS.cli.call('x', { kind: 'text', model: 'sonnet', timeoutMs: 1000 })); } finally { if (altCli === undefined) delete process.env.CLAUDE_CLI; else process.env.CLAUDE_CLI = altCli; }
+    T.check("Fehler EXIT mit Hinweis auf den fehlenden Systemprompt (kein Prozessstart)", e && e.code === 'EXIT' && /Systemprompt/.test(e.message), e && e.message);
   });
 
   // ---------------- 2. llm.js ----------------
@@ -99,6 +126,9 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
       T.check('ask(grobplan) → Claude, Zähler zählt', c.anbieter === 'claude' && !c.eskaliert && LLM.budget().used === 2200, String(LLM.budget().used));
       T.check('anbieterFuer/eskalationMoeglich', llm.anbieterFuer('szene') === 'ollama' && llm.anbieterFuer('grobplan') === 'claude' && llm.eskalationMoeglich('szene') === true && llm.eskalationMoeglich('grobplan') === false, '');
       LLM.setBudgetLimit(100);
+      const nClaude = claude.calls.length;
+      const eEsk = await fehler(llm.eskaliere('szene', { prompt: 'p', system: 's' }));
+      T.check('M1: eskaliere() bei erreichtem Claude-Deckel → BUDGET, keine Claude-Anfrage', eEsk && eEsk.code === 'BUDGET' && claude.calls.length === nClaude, eEsk && eEsk.code);
       const e = await fehler(llm.ask('grobplan', { prompt: 'p', system: 's' }));
       const ollamaWeiter = await llm.ask('szene', { prompt: 'p', system: 's' });
       T.check('Claude-Deckel erreicht → Claude BUDGET, Ollama läuft weiter', e && e.code === 'BUDGET' && ollamaWeiter.anbieter === 'ollama', e && e.code);
@@ -126,6 +156,8 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
   const G = LLM.mockGrobplan({ kontext: ctx }, katalog);
   const szeneAntwort = (sid) => JSON.stringify(LLM.mockSzene({ grobplan: G, szene: sid }, katalog));
   const sidAus = (text) => { const m = /Szene '([^']+)' aus/.exec(text) || /<szene>\s*\{\s*"id": "([^"]+)"/.exec(text); return m && m[1]; };   // Neuversuch-Prompt hat keinen Schlusssatz
+  // entfernt alle setFlag-Aktionen (die Bedingung der Verzweigung hat dann keine setzende Folge)
+  const ohneSetFlag = (x) => { if (Array.isArray(x)) return x.filter((y) => !(y && typeof y === 'object' && y.setFlag)).map(ohneSetFlag); if (x && typeof x === 'object') return Object.fromEntries(Object.entries(x).map(([k, v]) => [k, ohneSetFlag(v)])); return x; };
   const UNGUELTIG = '{"molekuele": [], "verzweigung": [], "wendung": null}';
   // Szenario bauen: verhalten.ollama/claude = (text, o, n) => Ergebnis | wirft; pro Art getrennt für claude (grobplan/szene)
   async function szenario(name, v, laufen) {
@@ -200,6 +232,8 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     await H.ticks(sl, F.g, 10, 0.25, () => plan.szenen[s2].state === 'failed');
     await H.ticks(sl, F.g, 3, 0.25);
     T.check('Szene Rohfassung (failed), kein zweiter Gemma-Versuch, Claude nicht gefragt', plan.szenen[s2].state === 'failed' && plan.szenen[s2].quelle === 'rohfassung' && ollama.calls.filter((c) => c.o.kind === 'szene').length === 2 && claude.calls.filter((c) => c.o.kind === 'szene').length === 0, `${ollama.calls.length}/${claude.calls.length}`);
+    const eo = szenenLog(sl).find((x) => x.szene === s2);
+    T.check('Logbuch: der Ollama-Eintrag ist nicht als eskaliert gekennzeichnet, wenn es keine Eskalation gibt', eo && eo.anbieter === 'ollama' && eo.eskaliert === undefined && eo.fehler.length > 0, JSON.stringify(eo));
     const rueck = logs(sl, (e) => e.art === 'rueckfall' && e.szene === s2);
     T.check('Logbuch: Rückfall „keine Eskalation“', rueck.length === 1 && /keine Eskalation/.test(rueck[0].begruendung), rueck[0] && rueck[0].begruendung);
   });
@@ -214,11 +248,63 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     await H.ticks(sl, F.g, 10, 0.25, () => plan.szenen[s2].state === 'ready');
     T.check('Claude liefert die Szene', plan.szenen[s2].state === 'ready' && claude.calls.filter((c) => c.o.kind === 'szene').length >= 1, plan.szenen[s2].state);
   });
-  await szenario('Szene: Ollama tot (OFFLINE) → Router fällt auf Claude zurück', { ollama: tot('OFFLINE') }, async ({ F, sl, claude, plan }) => {
+  await szenario('Szene: Ollama tot (OFFLINE) → eine Eskalation an Claude, Ollama-Fehler im Logbuch (S3)', { ollama: tot('OFFLINE') }, async ({ F, sl, ollama, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
+    await H.ticks(sl, F.g, 15, 0.25, () => plan.szenen[s2].state === 'ready' && plan.szenen[s3].state === 'ready');
+    const eintr = logs(sl, (x) => x.art === 'szene' && x.szene === s2);
+    const fehlerE = eintr.find((x) => x.anbieter === 'ollama'); const ok2 = eintr.find((x) => x.anbieter === 'claude');
+    T.check('Szene von Claude (ready), je Szene genau ein Ollama- und ein Claude-Aufruf', plan.szenen[s2].state === 'ready' && ollama.calls.filter((c) => c.o.kind === 'szene').length === 2 && claude.calls.filter((c) => c.o.kind === 'szene').length === 2, `${ollama.calls.length}/${claude.calls.length}`);
+    T.check('S3: Ollama-Fehler steht im Logbuch mit anbieter, eskaliert:true und Grund OFFLINE; der Claude-Eintrag trägt anbieter claude, eskaliert:true', fehlerE && fehlerE.eskaliert === true && fehlerE.fehler.some((f) => /^OFFLINE/.test(f)) && /eskaliert an Claude/.test(fehlerE.begruendung) && ok2 && ok2.eskaliert === true && !ok2.fehler.length, JSON.stringify(eintr.map((x) => [x.anbieter, x.eskaliert, x.fehler[0]])));
+  });
+  await szenario('S1: Ollama OFFLINE und Claude EXIT → höchstens ein Claude-Aufruf je Szene, Rohfassung', { ollama: tot('OFFLINE'), claudeTotNachPlan: true }, async ({ F, sl, ollama, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
+    await H.ticks(sl, F.g, 15, 0.25, () => plan.szenen[s2].state === 'failed' && plan.szenen[s3].state === 'failed');
+    await H.ticks(sl, F.g, 3, 0.25);
+    T.check('je Szene 1× Ollama, 1× Claude (nicht 2×)', ollama.calls.filter((c) => c.o.kind === 'szene').length === 2 && claude.calls.filter((c) => c.o.kind === 'szene').length === 2 && sl.queue.length === 0, `${ollama.calls.length}/${claude.calls.length}, Warteschlange ${sl.queue.length}`);
+    const rueck = logs(sl, (e) => e.art === 'rueckfall' && e.szene === s2);
+    T.check('Rückfall im Logbuch, Claude-Fehler mit anbieter claude und eskaliert', rueck.length === 1 && logs(sl, (e) => e.szene === s2 && e.anbieter === 'claude' && e.eskaliert === true && e.fehler.some((f) => /EXIT/.test(f))).length === 1, JSON.stringify(rueck.map((x) => x.begruendung)));
+  });
+  await szenario('S2: Ollama EXIT, eskalierte Claude-Antwort ungültig → Rohfassung, kein weiterer Versuch (auch nicht bei Gemma)', { ollama: tot('EXIT'), claude: () => ok(UNGUELTIG, 10, 10) }, async ({ F, sl, ollama, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
+    await H.ticks(sl, F.g, 15, 0.25, () => plan.szenen[s2].state === 'failed' && plan.szenen[s3].state === 'failed');
+    await H.ticks(sl, F.g, 3, 0.25);
+    T.check('je Szene 1× Ollama, 1× Claude, danach nichts mehr; Rohfassung', ollama.calls.filter((c) => c.o.kind === 'szene').length === 2 && claude.calls.filter((c) => c.o.kind === 'szene').length === 2 && sl.queue.length === 0 && plan.szenen[s2].quelle === 'rohfassung', `${ollama.calls.length}/${claude.calls.length}`);
+  });
+  await szenario('M1: Ollama OFFLINE bei fast leerem Claude-Budget → keine Claude-Anfrage, Rohfassung bleibt', { ollama: tot('OFFLINE'), budgetNachPlan: 100 }, async ({ F, sl, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id;
+    await H.ticks(sl, F.g, 10, 0.25, () => plan.szenen[s2].state === 'failed');
+    const rueck = logs(sl, (e) => e.art === 'rueckfall' && e.szene === s2);
+    T.check('keine Claude-Szenenanfrage, Szene Rohfassung, Rückfall nennt das Budget', claude.calls.filter((c) => c.o.kind === 'szene').length === 0 && plan.szenen[s2].state === 'failed' && plan.szenen[s2].quelle === 'rohfassung' && rueck.length === 1 && /BUDGET/.test(rueck[0].begruendung), JSON.stringify(rueck.map((x) => x.begruendung)));
+    LLM.setBudgetLimit(null);
+  });
+  await szenario('Ollama OFFLINE ohne Eskalation → Rohfassung, im Logbuch nicht als eskaliert gekennzeichnet', { ollama: tot('OFFLINE'), router: { eskalation: null } }, async ({ F, sl, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id;
+    await H.ticks(sl, F.g, 10, 0.25, () => plan.szenen[s2].state === 'failed');
+    const e = szenenLog(sl).find((x) => x.szene === s2);
+    T.check('Fehlereintrag mit anbieter ollama und OFFLINE, ohne eskaliert; Claude nicht gerufen', e && e.anbieter === 'ollama' && e.eskaliert === undefined && e.fehler.some((f) => /^OFFLINE/.test(f)) && !/eskaliert an Claude/.test(e.begruendung) && claude.calls.filter((c) => c.o.kind === 'szene').length === 0, JSON.stringify(e));
+  });
+  await szenario('K4: Claude-CLI fehlt (ENOENT) bei der Eskalation → nur die Eskalation aus, Ollama läuft weiter', { ollama: (t) => (/s2_mock/.test(sidAus(t)) ? ok(UNGUELTIG) : ok(szeneAntwort('s3_mock'), 500, 50, 'gemma-x')), claude: tot('ENOENT') }, async ({ F, sl, claude, plan }) => {
+    const s2 = plan.grobplan.szenen[1].id; const s3 = plan.grobplan.szenen[2].id;
+    await H.ticks(sl, F.g, 15, 0.25, () => plan.szenen[s2].state === 'failed' && plan.szenen[s3].state === 'ready');
+    T.check('s2 Rohfassung (Eskalation ENOENT), s3 von Ollama gültig, transportOff nicht gesetzt, eskalationOff gesetzt', plan.szenen[s2].state === 'failed' && plan.szenen[s3].state === 'ready' && plan.szenen[s3].quelle === 'llm' && !sl.transportOff && !!sl.eskalationOff && sl.transportUsable() && !sl.eskalationMoeglich('szene'), `${plan.szenen[s2].state}/${plan.szenen[s3].state} off=${sl.transportOff} esk=${sl.eskalationOff}`);
+  });
+  await szenario('Scheinwahl (c): Ollama-Antwort, deren Verzweigung keine Folge setzt → ungültig und Eskalation; Claude-Antwort wird still repariert', {
+    ollama: (t) => ok(JSON.stringify(ohneSetFlag(JSON.parse(szeneAntwort(sidAus(t))))), 500, 50, 'gemma-x'),
+    claude: (t) => ok(JSON.stringify(ohneSetFlag(JSON.parse(szeneAntwort(sidAus(t))))), 900, 90, 'sonnet-x'),
+  }, async ({ F, sl, ollama, claude, plan }) => {
+    const s3 = plan.grobplan.szenen[2].id;
+    await H.ticks(sl, F.g, 15, 0.25, () => plan.szenen[s3].state === 'ready');
+    const eintr = logs(sl, (x) => x.art === 'szene' && x.szene === s3);
+    const vomOllama = eintr.find((x) => x.anbieter === 'ollama'); const vonClaude = eintr.find((x) => x.anbieter === 'claude');
+    T.check('Ollama-Eintrag: Fehler „Scheinwahl“, eskaliert:true; Claude-Eintrag: gültig mit stiller Reparatur', vomOllama && vomOllama.eskaliert === true && vomOllama.fehler.some((f) => /^Scheinwahl/.test(f)) && vonClaude && !vonClaude.fehler.length && (vonClaude.reparaturen || []).some((x) => /setzt keine Folge/.test(x)) && plan.szenen[s3].state === 'ready', JSON.stringify(eintr.map((x) => [x.anbieter, x.eskaliert, x.fehler[0], x.reparaturen])));
+  });
+  await szenario('Ollama-Antwort mit fehlendem loc und erfundenem {{lex.…}}-Platzhalter wird repariert und gilt (Reparaturen im Logbuch)', {
+    ollama: (t) => { const a = JSON.parse(szeneAntwort(sidAus(t))); for (const m of a.molekuele) { const u = katalog.molekuele[m.id].umsetzungen.find((x) => x.id === m.umsetzung); for (const [p, d] of Object.entries(u.params)) if (d.typ === 'loc') delete m.params[p]; } return ok(JSON.stringify(a), 500, 50, 'gemma-x'); },
+  }, async ({ F, sl, ollama, claude, plan }) => {
     const s2 = plan.grobplan.szenen[1].id;
     await H.ticks(sl, F.g, 10, 0.25, () => plan.szenen[s2].state === 'ready');
     const e = szenenLog(sl).find((x) => x.szene === s2);
-    T.check('Szene von Claude, im Logbuch eskaliert:true', plan.szenen[s2].state === 'ready' && e && e.anbieter === 'claude' && e.eskaliert === true, JSON.stringify(e));
+    T.check('ohne Eskalation gültig, Reparatur „aus der Szene ergänzt“ im Logbuch', plan.szenen[s2].state === 'ready' && e.anbieter === 'ollama' && e.eskaliert === undefined && (e.reparaturen || []).some((x) => /aus der Szene ergänzt/.test(x)) && claude.calls.filter((c) => c.o.kind === 'szene').length === 0, JSON.stringify(e.reparaturen));
   });
   await szenario('Ollama UND Claude tot: Rohfassung wird gespielt, nichts blockiert (Anflug, Wartezeit ≤ sceneWaitMax)', { ollama: tot('OFFLINE'), claudeTotNachPlan: true }, async ({ F, sl, plan, o }) => {
     const s2 = plan.grobplan.szenen[1];

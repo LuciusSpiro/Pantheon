@@ -10,7 +10,8 @@ const LLM = require('../server/mission/llm.js');
 
 const T = H.runner('Ollama-Transport');
 const SCHEMA = { type: 'object', required: ['a'], properties: { a: { type: 'number' } } };
-const fehler = async (p) => { try { await p; return null; } catch (e) { return e; } };
+// harte Test-Frist: ein hängender Aufruf (z. B. Zeitlimit nicht mehr gültig) wird in 4 s als Fehler HANG gemeldet statt den Lauf zu blockieren
+const fehler = async (p) => { try { await Promise.race([p, new Promise((resolve, reject) => setTimeout(() => reject(Object.assign(new Error('Aufruf hängt (Test-Frist 4 s)'), { code: 'HANG' })), 4000))]); return null; } catch (e) { return e; } };
 
 (async () => {
   // ---- Anfrage und Antwort ----

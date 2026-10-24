@@ -271,6 +271,7 @@ function cliCwd() {
 function callClaude(text, sysFile, model, timeoutMs) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
+    if (!sysFile) { reject(llmError('EXIT', 'Kein Systemprompt für diese Anfrageart (claude braucht --system-prompt-file)')); return; }
     const cli = claudeCli();
     if (!fs.existsSync(cli)) { reject(llmError('ENOENT', `claude nicht gefunden (${cli})`)); return; }
     const t0 = Date.now();
@@ -380,14 +381,13 @@ function create(opts) {
   async function live(kind, input, ao, forced) {
     const k = key(kind, input);
     if (process.env.LLM_LIVE !== '1') throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
-    const vorab = typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind, forced) : 'claude';
+    const vorab = forced || (typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude');
     const b = budget();
     if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
     const sys = (input && typeof input.system === 'string' && input.system) || (opts.systemPrompts && opts.systemPrompts[kind]) || systemPromptFile(kind);
     const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };
     if (ao.schema) co.schema = ao.schema;
-    if (forced) co.anbieter = forced;
-    const r = await transport.call(renderPrompt(kind, input), co);
+    const r = forced ? await transport.callEskalation(renderPrompt(kind, input), co) : await transport.call(renderPrompt(kind, input), co);
     const n = r.usage.input + r.usage.output;
     if (r.anbieter !== 'ollama') { used += n; addUsage(n); }
     const ans = { text: r.text, tokens: n, usage: r.usage, source: 'live', key: k, sec: r.sec, modelId: r.modelId, cost: r.cost };
@@ -403,7 +403,7 @@ function create(opts) {
   async function eskaliere(kind, input, askOpts) {
     if (!KINDS.includes(kind)) throw new Error(`Unbekannte Anfrage '${kind}' (erlaubt: ${KINDS.join(', ')})`);
     const ao = askOpts || {};
-    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' ? transport.eskalationFuer(kind) : null;
+    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' && typeof transport.callEskalation === 'function' ? transport.eskalationFuer(kind) : null;
     if (!ziel) return ask(kind, input, ao);
     return live(kind, input, ao, ziel);
   }

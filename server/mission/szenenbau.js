@@ -85,6 +85,8 @@ const STAERKEN = ['klein', 'mittel', 'gross'];
 const HALTUNGEN = ['ruhig', 'wach'];
 let ContextMod = null;
 const Ctx = () => ContextMod || (ContextMod = require('./context.js'));
+let LexMod = null;
+const Lexikon = () => LexMod || (LexMod = require('./lexikon.js'));
 let ObjMod;
 const Obj = () => { if (ObjMod === undefined) { try { ObjMod = require('./objects.js'); } catch (e) { ObjMod = null; } } return ObjMod; };
 // Landepunkt-ID (content/welt/landepunkte.json bzw. <ort>.<art>-<n>, <ort>.prise)?
@@ -573,6 +575,54 @@ function repairGrobplanReferenzen(g, env) {
     }
   }
   return R;
+}
+// SUND-03 B2 (Erkundung SUND-03, Frage 2): zwei Sicherungen für Szenen-Antworten kleiner Modelle, nur bei eindeutigem Fall, im Logbuch
+// unter `reparaturen`. Läuft vor repairSceneAnswer, verändert die Antwort nicht (Kopie). -> { answer, repairs }
+//   - Pflichtparameter vom Typ loc (ohne Werteliste) fehlt: er ist immer der Ort der Szene -> ergänzen
+//   - erfundener Lexikon-Platzhalter {{lex.<unbekannt>:<Artikelform>}} (Gemma schreibt ihn als Artikelplatz vor das Nomen): nur die
+//     Artikelform bleibt („die Lerche“), doppelte Artikel werden zusammengezogen; {{neu:Name}} -> Name. Bekannte Schlüssel bleiben.
+const LEX_ARTIKEL = new Set(['der', 'die', 'das', 'den', 'dem', 'des', 'ein', 'eine', 'einen', 'einem', 'einer', 'zum', 'zur', 'vom', 'im', 'beim', 'am', 'ins']);
+const RE_PLATZHALTER = /\{\{\s*([^{}]*?)\s*\}?\}/g;
+const RE_ARTIKEL_DOPPELT = /\b(der|die|das|den|dem|des|ein|eine|einen|einem|zum|zur|vom|im|beim|am|ins)\s+(?:der|die|das|den|dem|des|ein|eine|einen|einem)\b/gi;
+function lexikonKuerzen(text, bekannt) {
+  let n = 0;
+  let out = text.replace(RE_PLATZHALTER, (all, inner) => {
+    const m = /^lex\.([^:|]+)(?::([^}]*))?$/.exec(inner);
+    if (!m) { const nm = /^neu:(.+)$/.exec(inner); if (nm) { n++; return nm[1]; } return all; }
+    if (bekannt.has(m[1])) return all;
+    const form = (m[2] || '').split('|')[0].trim();
+    if (!LEX_ARTIKEL.has(form.toLowerCase())) return all;   // keine Artikelform: nicht eindeutig, bleibt (der Prüfer lehnt ab)
+    n++;
+    return form;
+  });
+  if (n) out = out.replace(RE_ARTIKEL_DOPPELT, '$1').replace(/ {2,}/g, ' ').replace(/ ([.,!?;:])/g, '$1');
+  return { text: out, n };
+}
+function repairSceneAnswerLexLoc(g, s, answer, env) {
+  const a = clone(isObj(answer) ? answer : {});
+  const repairs = [];
+  const soll = (s && s.molekuele) || [];
+  if (Array.isArray(a.molekuele) && a.molekuele.length === soll.length) a.molekuele.forEach((m, i) => {
+    const u = isObj(m) ? umsetzungOf(env, soll[i]) : null;
+    if (!u) return;
+    for (const [pn, d] of Object.entries(u.params || {})) {
+      if (d.typ !== 'loc' || d.werte || !s.ort) continue;
+      if (isObj(m.params) && m.params[pn] !== undefined) continue;
+      if (!isObj(m.params)) m.params = {};
+      m.params[pn] = s.ort; repairs.push(`Molekül ${i + 1}: ${pn} aus der Szene ergänzt (${s.ort})`);
+    }
+  });
+  const bekannt = Lexikon().bekannt(); const cnt = { n: 0 };
+  const tief = (x) => {
+    if (typeof x === 'string') { const r = lexikonKuerzen(x, bekannt); cnt.n += r.n; return r.text; }
+    if (Array.isArray(x)) return x.map(tief);
+    if (isObj(x)) { const o = {}; for (const [k, v] of Object.entries(x)) o[k] = tief(v); return o; }
+    return x;
+  };
+  if (a.molekuele) a.molekuele = tief(a.molekuele);
+  if (a.wendung) a.wendung = tief(a.wendung);
+  if (cnt.n) repairs.push(`${cnt.n} erfundene(r) Lexikon-Platzhalter auf die Artikelform gekürzt`);
+  return { answer: a, repairs };
 }
 function hops(LOC, a, b) {
   if (a === b) return 0;
@@ -1549,4 +1599,6 @@ module.exports = {
   grobplanVorgaben, repairGrobplan, passendeLandepunkte,
   // SUND-03 B
   repairGrobplanReferenzen, hasWendung,
+  // SUND-03 B2
+  repairSceneAnswerLexLoc, lexikonKuerzen,
 };

@@ -96,5 +96,35 @@ const rep = (g, e) => SB.repairGrobplanReferenzen(g, e || env);
     T.check('Logbuch: Kennung, "null" und Präfix unter reparaturen', reps.some((x) => /Kennung/.test(x)) && reps.some((x) => /"null"/.test(x)) && reps.some((x) => /Präfix/.test(x)), JSON.stringify(reps));
     T.check('kein gezählter Fehler', !F.errors.length, F.errors.join(' | '));
   });
+
+  // ---- B2: fehlendes loc und erfundene Lexikon-Platzhalter in Szenen-Antworten ----
+  {
+    const szene = { id: 's2_x', ort: 'kesh', molekuele: [{ id: 'verhandeln', umsetzung: 'funkduell' }], weiter: [{ nach: 'ausgang:erfolg' }] };
+    const g = { id: 'g', szenen: [szene] };
+    const u = katalog.molekuele.verhandeln.umsetzungen.find((x) => x.id === 'funkduell');
+    const locName = Object.keys(u.params).find((p) => u.params[p].typ === 'loc');
+    const textName = Object.keys(u.params).find((p) => u.params[p].typ === 'text');
+    const lex = (t) => SB.repairSceneAnswerLexLoc(g, szene, { molekuele: [{ id: 'verhandeln', umsetzung: 'funkduell', params: { npc: 'tesk', [locName]: 'kesh', [textName]: t } }], verzweigung: [], wendung: null }, env);
+    const txt = (r) => r.answer.molekuele[0].params[textName];
+    const r1 = lex('Die {{lex.lerche:die}} Lerche fliegt zu {{lex.kesh.grabung:den}} Ruinen.');
+    T.check('erfundene Platzhalter → Artikelform, doppelte Artikel zusammengezogen, gemeldet', txt(r1) === 'Die Lerche fliegt zu den Ruinen.' && r1.repairs.some((x) => /2 erfundene/.test(x)), txt(r1) + ' | ' + JSON.stringify(r1.repairs));
+    const bek = [...require('../server/mission/lexikon.js').bekannt()][0];
+    const r2 = lex(`Der {{lex.${bek}:der}} bleibt, {{neu:Herold}} spricht.`);
+    T.check('bekannter Schlüssel bleibt, {{neu:Name}} → Name', txt(r2).includes(`{{lex.${bek}:der}}`) && txt(r2).includes('Herold spricht') && !txt(r2).includes('{{neu'), txt(r2));
+    for (const t of ['Fliegt zu {{lex.kesh}}.', 'Dort {{lex.lerche:blau}} hin', 'Offen {{lex.kaputt', '{{fund_name}} liegt dort']) {
+      const r = lex(t);
+      T.check(`nicht eindeutig → unverändert: ${t}`, txt(r) === t && !r.repairs.length, txt(r));
+    }
+    const l1 = SB.repairSceneAnswerLexLoc(g, szene, { molekuele: [{ id: 'verhandeln', umsetzung: 'funkduell', params: { npc: 'tesk' } }] }, env);
+    T.check('fehlendes loc (Typ loc ohne Werteliste) → Ort der Szene, gemeldet', !locName || (l1.answer.molekuele[0].params[locName] === 'kesh' && l1.repairs.some((x) => /aus der Szene ergänzt/.test(x))), JSON.stringify(l1));
+    const l2 = SB.repairSceneAnswerLexLoc(g, szene, { molekuele: [{ id: 'verhandeln', umsetzung: 'funkduell', params: { [locName || 'loc']: 'anders' } }] }, env);
+    T.check('vorhandenes loc bleibt (auch ein falsches: das meldet der Prüfer)', !locName || (l2.answer.molekuele[0].params[locName] === 'anders' && !l2.repairs.length), JSON.stringify(l2));
+    const l3 = SB.repairSceneAnswerLexLoc(g, szene, { molekuele: [] }, env);
+    const l4 = SB.repairSceneAnswerLexLoc(g, szene, null, env);
+    T.check('falsche Molekülzahl / keine Antwort → nichts erfunden, kein Wurf', !l3.repairs.length && !l4.repairs.length && l3.answer.molekuele.length === 0, JSON.stringify([l3, l4]));
+    const orig = { molekuele: [{ id: 'verhandeln', umsetzung: 'funkduell', params: { [textName]: '{{lex.x:die}} Y' } }] };
+    const kopie = JSON.stringify(orig); SB.repairSceneAnswerLexLoc(g, szene, orig, env);
+    T.check('die Antwort selbst wird nicht verändert', JSON.stringify(orig) === kopie, '');
+  }
   T.finish();
 })();
