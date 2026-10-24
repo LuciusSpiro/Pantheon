@@ -51,12 +51,18 @@ function befehlErgebnis(b, grund, maxGrund) {
   return grund == null ? t + ': ok' : t + ': abgelehnt (' + String(grund).replace(/\s+/g, ' ').slice(0, maxGrund) + ')';
 }
 function ergebnisse(res, wh, maxGrund) {
-  const out = []; let fokusOk = false, fokusNein = false;
-  for (const a of res.angenommen) { if (a.befehl.typ === 'fokus') { if (fokusOk) continue; fokusOk = true; } out.push(befehlErgebnis(a.befehl, null, maxGrund)); }
-  for (const a of res.abgelehnt.concat(wh.abgelehnt)) {
-    if (a.befehl && a.befehl.typ === 'fokus') { if (fokusOk || fokusNein) continue; fokusNein = true; }
-    out.push(befehlErgebnis(a.befehl, a.grund, maxGrund));
-  }
+  // SUND-03 F2: der Plan-Fokus gilt für beide Reiche und erscheint als EIN Eintrag „fokus (beide) HEX“; geht er nur für eines durch (oder scheitert nur eines), stehen die Ergebnisse getrennt
+  const out = [], fokus = { ok: [], nein: [] };
+  for (const a of res.angenommen) { if (a.befehl.typ === 'fokus') fokus.ok.push(a.befehl); else out.push(befehlErgebnis(a.befehl, null, maxGrund)); }
+  for (const a of res.abgelehnt.concat(wh.abgelehnt)) { if (a.befehl && a.befehl.typ === 'fokus') fokus.nein.push({ befehl: a.befehl, grund: a.grund }); else out.push(befehlErgebnis(a.befehl, a.grund, maxGrund)); }
+  const label = (liste) => (liste.length >= 2 ? '(beide)' : liste[0].fraktion);
+  const fokusText = (liste, grund) => {
+    const b0 = liste[0].befehl || liste[0];
+    const b = { typ: 'fokus', fraktion: label(liste.map((x) => x.befehl || x)), hex: b0.hex };
+    return befehlErgebnis(b, grund, maxGrund);
+  };
+  if (fokus.ok.length) out.push(fokusText(fokus.ok, null));
+  if (fokus.nein.length) out.push(fokusText(fokus.nein, fokus.nein[0].grund));
   return out;
 }
 
@@ -253,7 +259,8 @@ class LageSpielleiter {
     this.wiederholungenMelden(wh.abgelehnt);
     this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));
     while (this.verlauf.length > Math.max(1, this.W.wiederholung.fenster_plaene)) this.verlauf.shift();
-    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: ergebnisse(res, wh, this.W.letzte_plaene_zeichen.grund), angenommen: res.angenommen.length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,
+    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: ergebnisse(res, wh, this.W.letzte_plaene_zeichen.grund), angenommen: res.angenommen.filter((a) => a.platz).length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,   // angenommen = gebuchte Rate-Plätze (der Plan-Fokus für beide Reiche zählt einen)
+     
       begruendung: typeof gelesen.plan.begruendung === 'string' ? gelesen.plan.begruendung.slice(0, 120) : null };
     if (gelesen.plan.fokus) kurz.fokus = String(gelesen.plan.fokus.hex || '');
     this.letzte_plaene.push(kurz);

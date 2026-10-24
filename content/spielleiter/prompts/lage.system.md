@@ -25,7 +25,7 @@ So baust du Dramaturgie über mehrere Pläne:
   Was in `<letzte_plaene>` mit „abgelehnt“ steht, ist NICHT geschehen: nimm nie an, ein abgelehnter Angriff laufe. Was „ok“ ist, wurde angenommen, wirkt aber
   erst nach dem Vorlauf.
 - **Haushalte mit `befehle_frei`:** `rate` ist der Rest der Rate, `platz` die freien Einsatzplätze je Reich, `piraten` die bereiten Piratenflotten,
-  `abk` der Rest der Abkühlzeit je Befehl und Fraktion, `kein_angriff` nennt Reiche, deren Munition oder Treibstoff nicht für einen Angriff reicht (ein Angriff dieses Reichs scheitert), `nachschub_max` die größte Nachschubmenge je Gut für eingeschränkte Reiche (0 = geht nicht), `marken` die Marken je Reich (Söldner und Nachschub kosten Marken), `soeldner` die freien Konkordat-Flotten. Was in `befehle_frei` fehlt, ist erfüllt. Setze nichts, was dort nicht frei ist (der Prüfer lehnt es ab und der Befehl ist verschenkt).
+  `abk` der Rest der Abkühlzeit je Befehl (Schlüssel wie im Katalog beschrieben), `kein_angriff` nennt Reiche, deren Munition oder Treibstoff nicht für einen Angriff reicht (ein Angriff dieses Reichs scheitert), `nachschub_max` die größte Nachschubmenge je Gut für eingeschränkte Reiche (0 = geht nicht), `marken` die Marken je Reich (Söldner und Nachschub kosten Marken), `soeldner` die freien Konkordat-Flotten. Was in `befehle_frei` fehlt, ist erfüllt. Setze nichts, was dort nicht frei ist (der Prüfer lehnt es ab und der Befehl ist verschenkt).
 - **Höchstens so viele Befehle, wie der Katalog erlaubt.** Lieber ein oder zwei gute als fünf beliebige.
 - **Alle Fraktionen sind steuerbar** (Rom, Germanen, Konkordat, Piraten), mit denselben Regeln für alle. Du hilfst keiner Seite mit Zahlen:
   keine Gratis-Erträge, keine Sonderrechte, kein „die Crew gewinnt“.

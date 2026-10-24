@@ -206,7 +206,7 @@ function vorwarnText(w, ab, n0, b) {
 function planPruefen(game, plan) {
   if (!game.weltsim) return { ok: false, grund: 'modus', angenommen: [], abgelehnt: [], funk: [] };
   const { out } = pruefen(game, plan);
-  return { ok: out.ok, grund: out.grund, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung })), abgelehnt: out.abgelehnt, funk: [] };
+  return { ok: out.ok, grund: out.grund, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false })), abgelehnt: out.abgelehnt, funk: [] };
 }
 
 function planAnwenden(game, plan) {
@@ -229,7 +229,7 @@ function planAnwenden(game, plan) {
   for (const f of funk) funkSenden(game, f);
   for (const a of out.angenommen) schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: a.befehl.typ, plan: a.befehl, begruendung: out.begruendung || (a.vorwarnung ? 'angekündigt, wirksam ab Tick ' + a.ab : 'wirksam ab Tick ' + a.ab) });
   for (const a of out.abgelehnt) schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: istObjekt(a.befehl) && typeof a.befehl.typ === 'string' ? a.befehl.typ : null, plan: kurz(a.befehl), fehler: [a.grund] });
-  return { ok: true, grund: null, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung })), abgelehnt: out.abgelehnt, funk };
+  return { ok: true, grund: null, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false })), abgelehnt: out.abgelehnt, funk };
 }
 const kurz = (x) => { try { const t = JSON.stringify(x); return t && t.length > 400 ? t.slice(0, 400) : (typeof x === 'string' ? x.slice(0, 400) : x); } catch (e) { return null; } };
 

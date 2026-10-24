@@ -612,6 +612,28 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   const eng = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: lang, werte: Object.assign({}, W, { letzte_plaene_zeichen: { gesamt: 700, grund: 50 } }) }).prompt;
   const blk = eng.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1];
   ok(blk.length <= 700 && JSON.parse(blk).length >= 1 && JSON.parse(blk).at(-1).nr === 2, 'der Block bleibt unter der Zeichenobergrenze (neuester Plan zuletzt, ältere fallen zuerst weg): ' + blk.length);
+  // SUND-03 F2 K1: Kurzgründe mit eigenen Klammern werden gekürzt (kein Klammer-Regex), kein Plan fällt dafür weg
+  const klammer = Array.from({ length: 3 }, (_, i) => ({ nr: i + 1, tick: i, grenze: 'andocken', befehle: ['angreifen ger 0101: abgelehnt (Rate: höchstens 8 Befehle je 100 Ticks (schon 8))', 'angreifen rom 0102: abgelehnt (Flotte 4 ist zu schwach (12.3 von 20.0) für das Ziel)', 'regler rom: ok'], angenommen: 1, abgelehnt: 2, begruendung: 'x' }));
+  const s30 = JSON.stringify(klammer.map((x) => Object.assign({}, x, { befehle: x.befehle.map((b) => Prompt.grundKuerzen(b, 30)) }))).length;
+  const gek = Prompt.plaeneKuerzen(klammer, s30 + 5);
+  const gruende = gek.flatMap((x) => x.befehle).filter((b) => /abgelehnt \(/.test(b)).map((b) => b.slice(b.indexOf('abgelehnt (') + 11, -1));
+  ok(JSON.stringify(gek).length <= s30 + 5 && gek.length === 3 && gruende.length === 6 && gruende.every((g) => g.length <= 30) && gek[0].befehle.every((b) => b.endsWith(')') || b.endsWith(': ok')), 'Kurzgründe mit Klammern werden gekürzt, alle drei Pläne bleiben (' + gruende[0] + ')');
+  ok(Prompt.grundKuerzen('regler rom: ok', 5) === 'regler rom: ok' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 0) === 'x: abgelehnt' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 4) === 'x: abgelehnt (Rate)', 'grundKuerzen: ok bleibt, ohne Grund, mit Grund auf len');
+  // K3: der Plan-Fokus erscheint als ein Eintrag „fokus (beide) HEX“, angenommen zählt gebuchte Plätze
+  const fk = spiel(); const { sl: sfk } = mitLage(fk, { mode: 'script', script: { lage: [
+    { json: { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: '0105', radius: 2 }, begruendung: 'a' } },
+    { json: { befehle: [], fokus: { hex: '0204', radius: 2, fraktionen: ['rom'] }, begruendung: 'b' } },
+  ] } }, { min_abstand_ticks: 1 });
+  tick(fk.g); sfk.beiGrenze('andocken'); await pumpen(fk.g, 4);
+  const q1 = sfk.letzte_plaene.at(-1);
+  ok(q1.befehle.filter((s) => /^fokus/.test(s)).length === 1 && q1.befehle.includes('fokus (beide) 0105: ok') && q1.angenommen === 2, 'Plan-Fokus für beide Reiche: ein Eintrag „fokus (beide) 0105: ok“, gebuchte Plätze 2 (Regler + Fokus): ' + JSON.stringify(q1.befehle) + ' ' + q1.angenommen);
+  tick(fk.g, RW.abkuehlung.wert.fokus + 1); sfk.beiGrenze('andocken'); await pumpen(fk.g, 4);
+  const q2 = sfk.letzte_plaene.at(-1);
+  ok(q2.befehle.length === 1 && q2.befehle[0] === 'fokus rom 0204: ok' && q2.angenommen === 1, 'Fokus nur für ein Reich: „fokus rom 0204: ok“, ein Platz');
+  const fr = spiel(); const { sl: sfr } = mitLage(fr, { mode: 'script', script: { lage: [{ json: { befehle: [], fokus: { hex: '0105', radius: 2 }, begruendung: 'c' } }] } }, { min_abstand_ticks: 1 });
+  tick(fr.g); sfr.beiGrenze('andocken'); ws(fr.g).regie.rate = Array.from({ length: RT.max }, () => ws(fr.g).tickZahl); await pumpen(fr.g, 4);
+  const q3 = sfr.letzte_plaene.at(-1);
+  ok(q3.befehle.length === 1 && /^fokus \(beide\) 0105: abgelehnt \(Rate/.test(q3.befehle[0]) && q3.angenommen === 0 && q3.abgelehnt === 2, 'abgelehnter Plan-Fokus: ein Eintrag „fokus (beide) …: abgelehnt (Rate …)“ statt einem je Reich: ' + JSON.stringify(q3.befehle));
   // wirkungslos: die Rate ist voll, während die Anfrage unterwegs ist (bei voller Rate stellt der Spielleiter gar nicht erst an, F2)
   tick(t.g, 2); sl.beiGrenze('andocken');
   ws(t.g).regie.rate = Array.from({ length: RT.max }, () => ws(t.g).tickZahl);

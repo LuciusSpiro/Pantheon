@@ -144,7 +144,7 @@
       "folge": { "angenommen": ["reise_patrouille_rom"], "ablehnen": [] }
     },
     {
-      "id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1.5,
+      "id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1,
       "bedingungen": { "besitzer": ["ger", "saum"], "min_abstand": 6 },
       "parameter": { "variante": "spaeher", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 12 },
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",

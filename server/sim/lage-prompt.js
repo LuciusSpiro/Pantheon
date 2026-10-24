@@ -42,7 +42,7 @@ function katalogText() {
   const P = RW.plan.wert;
   L.push('Plan (dein Antwortobjekt): { "befehle": [Befehl, ...], "fokus"?: { "hex": Hex-Code, "radius": Zahl, "dauer"?: Ticks, "fraktionen"?: ["rom"|"ger"] }, "begruendung": Satz }');
   L.push(`Höchstens ${P.befehle_max} Befehle je Plan. Höchstens ${P.vorgemerkt_max} wartende Befehle insgesamt. "fokus" im Plan wirkt auf alle erlaubten Fraktionen (${BW.fokus.wert.fraktionen.join('|')}), Standarddauer ${P.fokus_dauer} Ticks. "begruendung": höchstens ${P.begruendung_max} Zeichen, ein Satz, warum dieser Plan.`);
-  L.push(`Rate: höchstens ${RW.rate.wert.max} angenommene Befehle je ${RW.rate.wert.fenster} Ticks (alle Typen und Fraktionen zusammen); der Fokus eines Plans kostet nur einen Platz, egal für wie viele Fraktionen. Im Ausschnitt steht befehle_frei: rate (Rest der Rate), piraten (bereite Piratenflotten), platz (freie max_active-Plätze je Reich, auch außerhalb des Umkreises), abk (Rest der Abkühlzeit je Befehl und Fraktion, nur wenn größer 0), marken (Marken je Reich), soeldner (Ids der freien Konkordat-Flotten); nur wenn es nötig ist: kein_angriff (Reiche, deren Munition oder Treibstoff für einen Angriff nicht reicht: ein Angriff dieses Reichs scheitert) und nachschub_max (je eingeschränktem Reich die größte Nachschubmenge je Gut T und U, 0 = geht nicht: Konkordat-Vorrat, Marken oder Embargo). Fehlt ein Eintrag, ist die Voraussetzung erfüllt. Plane nur, was dort noch frei ist.`);
+  L.push(`Rate: höchstens ${RW.rate.wert.max} angenommene Befehle je ${RW.rate.wert.fenster} Ticks (alle Typen und Fraktionen zusammen); der Fokus eines Plans kostet nur einen Platz, egal für wie viele Fraktionen. Im Ausschnitt steht befehle_frei: rate (Rest der Rate), piraten (bereite Piratenflotten), platz (freie max_active-Plätze je Reich, auch außerhalb des Umkreises), abk (Rest der Abkühlzeit in Ticks, nur wenn größer 0; Schlüssel: Befehlstyp, dazu bei angreifen, beanspruchen, verstaerken, rueckzug und regler :rom oder :ger (regler auch :kon), bei embargo :Ziel-Fraktion, bei soeldner :Reich, bei nachschub :Reich:Gut, fokus und piratenueberfall ohne Zusatz), marken (Marken je Reich), soeldner (Ids der freien Konkordat-Flotten); nur wenn es nötig ist: kein_angriff (Reiche, deren Munition oder Treibstoff für einen Angriff nicht reicht: ein Angriff dieses Reichs scheitert) und nachschub_max (je eingeschränktem Reich die größte Nachschubmenge je Gut T und U, 0 = geht nicht: Konkordat-Vorrat, Marken oder Embargo). Fehlt ein Eintrag, ist die Voraussetzung erfüllt. Plane nur, was dort noch frei ist. Im Block letzte_plaene steht jeder Befehl als „Befehl Ziel: ok“ oder „Befehl Ziel: abgelehnt (Grund)“; „fokus (beide) HEX“ ist ein Fokus für Rom und Germanen und kostet einen Rate-Platz; „angenommen“ zählt die gebuchten Rate-Plätze.`);
   L.push('Ein Befehl ist ein Objekt mit "typ" und genau den Feldern seines Typs (kein anderes Feld):');
   for (const typ of Object.keys(FELDER).sort()) {
     const k = KAT[typ];
@@ -73,12 +73,22 @@ function plaeneFiltern(plaene, game) {
   return (plaene || []).map((p) => (p && typeof p.begruendung === 'string' ? Object.assign({}, p, { begruendung: namenFiltern(p.begruendung, game) }) : p));
 }
 // SUND-03 F: der Block <letzte_plaene> bleibt unter einer Zeichenobergrenze (Daten letzte_plaene_zeichen.gesamt): erst kürzere Kurzgründe in den Befehls-Ergebnissen, dann fällt der älteste Plan weg
+// Kurzgrund eines Ergebnistextes „Befehl: abgelehnt (Grund)“ auf len Zeichen kürzen (len 0: ohne Grund). Der Grund darf selbst Klammern enthalten: gesucht wird die ERSTE Marke, der Text endet mit der letzten Klammer.
+const ABGELEHNT = ': abgelehnt (';
+function grundKuerzen(b, len) {
+  const s = String(b), i = s.indexOf(ABGELEHNT);
+  if (i < 0) return s;
+  const kopf = s.slice(0, i);
+  if (!len) return kopf + ': abgelehnt';
+  const grund = s.slice(i + ABGELEHNT.length, s.endsWith(')') ? -1 : undefined);
+  return kopf + ABGELEHNT + grund.slice(0, len) + ')';
+}
 function plaeneKuerzen(plaene, maxGesamt) {
   let p = (plaene || []).map((x) => Object.assign({}, x));
   const groesse = () => JSON.stringify(p).length;
   for (const len of [30, 16, 0]) {
     if (groesse() <= maxGesamt) break;
-    p = p.map((x) => Object.assign({}, x, { befehle: (x.befehle || []).map((b) => (len ? String(b).replace(/\(([^)]*)\)$/, (m, g) => '(' + g.slice(0, len) + ')') : String(b).replace(/ \(.*\)$/, ''))) }));
+    p = p.map((x) => Object.assign({}, x, { befehle: (x.befehle || []).map((b) => grundKuerzen(b, len)) }));
   }
   while (p.length > 1 && groesse() > maxGesamt) p.shift();
   return p;
@@ -143,4 +153,4 @@ function planAusText(text) {
   return { fehler: geschlossen ? 'JSON nicht lesbar' : 'JSON-Objekt nicht abgeschlossen' };
 }
 
-module.exports = { katalogText, statischerTeil, baue, planAusText, namenFiltern, spielerNamen, SYSTEM_DATEI, KAT };
+module.exports = { plaeneKuerzen, grundKuerzen, katalogText, statischerTeil, baue, planAusText, namenFiltern, spielerNamen, SYSTEM_DATEI, KAT };

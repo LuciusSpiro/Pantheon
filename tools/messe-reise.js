@@ -11,12 +11,13 @@ const RE = require('../server/sim/reise-ereignis.js');
 const Sektoren = require('../shared/sektoren.js');
 const Marken = require('../server/sim/marken.js');
 const Ruf = require('../server/sim/ruf.js');
+const Besitz = require('../server/sim/besitz.js');
 
 const GEFAHR = ['notruf', 'patrouille', 'piraten'];
 
 // ruf: Rom-Ruf der Crew je Seed (Liste, reihum): Miles 0, Optio 8, Centurio 30. Die Crew steigt im Spiel auf; Einträge mit rang_min kommen erst dann vor.
 function messe({ seeds = 6, spruenge = 1200, ruf = [0, 8, 30], seed0 = 7 } = {}) {
-  const proId = {}; let ereignisse = 0, gesamt = 0;
+  const proId = {}, proBesitzer = {}; let ereignisse = 0, gesamt = 0;   // proBesitzer[id][Besitzer des Ankunftssektors]
   for (let s = 0; s < seeds; s++) {
     const seed = seed0 + s * 11;
     const t = F.neuesSpiel({ crew: 1, seed, env: { REISE_EREIGNISSE: '1' } });
@@ -36,6 +37,8 @@ function messe({ seeds = 6, spruenge = 1200, ruf = [0, 8, 30], seed0 = 7 } = {})
       if (ev) {
         ereignisse++;
         proId[ev.id] = (proId[ev.id] || 0) + 1;
+        const bes = Besitz.besitzer(g, ev.ankunft) || 'frei';
+        proBesitzer[ev.id] = proBesitzer[ev.id] || {}; proBesitzer[ev.id][bes] = (proBesitzer[ev.id][bes] || 0) + 1;
         RE.abfangenVermerken(g);
         for (const o of (g.weltsim.reise.offen || []).splice(0)) void o;   // offene Notrufe verfallen im Spiel; hier nicht aufbewahren
       }
@@ -44,7 +47,7 @@ function messe({ seeds = 6, spruenge = 1200, ruf = [0, 8, 30], seed0 = 7 } = {})
   const gefahren = Object.entries(proId).filter(([id]) => GEFAHR.includes((RE.KATALOG.find((e) => e.id === id) || {}).art));
   const summe = gefahren.reduce((a, [, n]) => a + n, 0);
   const ids = RE.KATALOG.filter((e) => GEFAHR.includes(e.art)).map((e) => e.id);
-  return { gesamt, ereignisse, rate: ereignisse ? gesamt / ereignisse : null, summe, proId, ids, anteil: Object.fromEntries(ids.map((id) => [id, summe ? (proId[id] || 0) / summe : 0])) };
+  return { proBesitzer, gesamt, ereignisse, rate: ereignisse ? gesamt / ereignisse : null, summe, proId, ids, anteil: Object.fromEntries(ids.map((id) => [id, summe ? (proId[id] || 0) / summe : 0])) };
 }
 
 if (require.main === module) {
