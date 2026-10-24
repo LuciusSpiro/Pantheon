@@ -585,6 +585,20 @@ section('Bericht: übersprungene Grenzen nach Grund, Rückfall-Hinweis', () => {
   ok(/Rückfall räumt Fokus und Regler/.test(md), 'Hinweis im Bericht: ein Rückfall räumt Fokus/Regler früherer Pläne mit ab');
 });
 
+section('Rückfall: Entwarnung für angekündigte, nie gekommene Befehle', async () => {
+  sitzungSauber();
+  const t = spiel();
+  const { sl } = mitLage(t, { mode: 'script', script: { lage: [{ json: { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'rom', waren: ['M'], dauer: 6 }], begruendung: 'Sperre' } }, { error: 'exit' }] } }, { min_abstand_ticks: 1 });
+  for (let i = 0; i < 2; i++) ws(t.g).ereignisse.push({ n: ws(t.g).tickZahl, typ: 'hafen_gefallen', fraktion: 'rom', ort: '0105', ortName: 'Carrara', alt: 'ger', neu: 'rom' });
+  tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+  const vor = t.funk().length;
+  ok(ws(t.g).regie.vorgemerkt.some((e) => e.w === 1) && vor >= 1, 'Plan angenommen, die Vorwarnung ging per Funk');
+  tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+  ok(ws(t.g).regie.vorgemerkt.length === 0 && eintraege(t.g, 'lage_befehl', 'rueckfall').length === 1, 'zweiter Aufruf scheitert: Rückfall, nichts wartet');
+  const neu = t.funk().slice(vor);
+  ok(neu.length === 1 && /nicht|abgeblasen|entf|Entwarnung|Sperre/i.test(neu[0]), 'beim Rückfall kommt genau eine Entwarnung per Funk: ' + (neu[0] || '').slice(0, 70));
+});
+
 section('Debug-Kommandos lage status | plan | fail', async () => {
   sitzungSauber();
   const aus = spiel(), an = spiel({ env: AN });
