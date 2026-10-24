@@ -144,8 +144,8 @@
       "folge": { "angenommen": ["reise_patrouille_rom"], "ablehnen": [] }
     },
     {
-      "id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 3,
-      "bedingungen": { "besitzer": ["ger", "saum", "frei"], "min_abstand": 6 },
+      "id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1.5,
+      "bedingungen": { "besitzer": ["ger", "saum"], "min_abstand": 6 },
       "parameter": { "variante": "spaeher", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 12 },
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
       "texte": {
@@ -212,8 +212,8 @@
       "folge": { "angenommen": [], "ablehnen": [] }
     },
     {
-      "id": "piraten_rudel", "art": "piraten", "gewicht": 1,
-      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "centurio", "min_abstand": 12 },
+      "id": "piraten_rudel", "art": "piraten", "gewicht": 2,
+      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },
       "parameter": { "variante": "rudel", "schiffe": { "art": "raider", "min": 3, "max": 4 }, "vorlauf_s": 14 },
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
       "texte": {
