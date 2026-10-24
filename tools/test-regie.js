@@ -31,9 +31,9 @@ const RW = require('../content/welt/ruf-werte.json').werte;
 const TRIBUN = RW.raenge.wert.find((r) => r.id === 'tribun').ab;
 
 // Kern-Wurf für den Rollback-Test
-let kernWirft = false;
+let kernWirft = false, kernWirftMitBefehlen = false;
 const kernOrig = Kern.tick;
-Kern.tick = function (z, o) { if (kernWirft) throw new Error('Test: Tick wirft'); return kernOrig.apply(this, arguments); };
+Kern.tick = function (z, o) { if (kernWirft || (kernWirftMitBefehlen && o && o.befehle && o.befehle.length)) throw new Error('Test: Tick wirft'); return kernOrig.apply(this, arguments); };
 
 const ws = (g) => g.weltsim;
 const z = (g) => g.weltsim.zustand;
@@ -51,7 +51,7 @@ function szene(opts) {
   for (const h of Object.values(zz.hexe)) h.anspruch = {};
   for (const f of ['rom', 'ger']) { zz.vorrat[f].T = 40; zz.vorrat[f].U = 40; zz.marken[f] = 500; }
   zz.vorrat.kon.T = 31; zz.vorrat.kon.U = 10;
-  if (!opts || opts.ruhig !== false) zz.absichten = { rom: { p_act: 0 }, ger: { p_act: 0 } };
+  if (!opts || opts.ruhig !== false) zz.regie = { rom: { p_act: 0, regler_bis: 1e9 }, ger: { p_act: 0, regler_bis: 1e9 } };   // die Standard-KI plant nichts (Überlagerung der Regie, nicht der Crew: die Crew-Absicht bremst Befehle)
   return t;
 }
 // macht ger/rom zum Sieger (Schwung aus dem Ereignisring: zwei Eroberungen)
@@ -98,7 +98,6 @@ section('Plan lesen: Unbrauchbares ändert nichts', () => {
   ok(leer.ok && leer.angenommen.length === 0 && leer.abgelehnt.length === 0, 'ein leerer Plan ist gültig und tut nichts');
   const ohne = Regie.planAnwenden(g, {});
   ok(ohne.ok && ohne.angenommen.length === 0, 'ein Plan ohne Felder auch');
-  const g2 = F.neuesSpiel({ start: 'x' }).g; void g2;
 });
 
 section('Annahme und Ablehnung mit Grund', () => {
@@ -213,7 +212,6 @@ section('Embargo nur gegen die siegreiche Seite', () => {
   ok(funkAll(t2).length === 2 && /Sperre des Konkordats gilt jetzt/.test(funkAll(t2)[1].text), 'beim Wirksamwerden meldet das Oberkommando die Sperre');
   // Schwung ohne Ring: Macht-Anteil entscheidet (Test über die Kennzahl)
   const t3 = szene(); const zz = z(t3.g);
-  for (const h of Object.values(zz.hexe)) if (h.besitzer === 'ger' && !h.posten) { /* Häfen der Germanen */ }
   for (const fl of zz.flotten) if (fl.fraktion === 'ger') fl.staerke = 0.5;
   const kz = Regie.lage(t3.g);
   ok(kz.sieger === 'rom' && kz.anteil > R.werte.sieger.wert.macht_schwelle, 'ohne Schwung entscheidet der Macht-Anteil: schwache Germanen, Sieger Rom (Anteil ' + kz.anteil + ')');
@@ -268,7 +266,7 @@ section('Rückfall: Standard-KI allein', () => {
   z(g).absichten.rom = { p_act: 0, aggr: 0.3 };
   Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM, ANGRIFF_GER], fokus: { hex: '0403', radius: 2 } });
   tick(g);
-  ok(ws(g).regie.vorgemerkt.length >= 1 && z(g).regie && z(g).regie.rom === undefined || true, 'Ausgangslage: wartende Befehle');
+  ok(ws(g).regie.vorgemerkt.length >= 1, 'Ausgangslage: wartende Befehle');
   Kern.tick(z(g), { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T'], dauer: 6 }, { typ: 'fokus', fraktion: 'ger', hex: '0403', radius: 2, dauer: 9 }] });
   const nWartend = ws(g).regie.vorgemerkt.length;
   const verworfen = Regie.rueckfall(g, 'Ausfall des Modells');
@@ -292,11 +290,56 @@ section('Zustand der Wirkung im Tick', () => {
   const e = logbuch(g).find((x) => x.ausgang === 'im_tick_abgelehnt');
   ok(e && /Treibstoff/.test(e.fehler[0]) && e.key === 'angreifen', 'Logbuch: im_tick_abgelehnt mit Grund');
   // je_tick_max: mehr fällige Befehle als der Kern annimmt bleiben für den nächsten Tick
-  const t2 = szene(); const zz = z(t2.g);
+  const t2 = szene();
   ws(t2.g).regie.vorgemerkt = Array.from({ length: Kern.BEFEHLE.WERTE.je_tick_max.wert + 2 }, () => ({ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 0 }));
   tick(t2.g);
   ok(ws(t2.g).regie.vorgemerkt.length === 2, 'höchstens je_tick_max Befehle je Tick, der Rest wartet');
-  void zz;
+});
+
+section('Entwarnung und Besitzwechsel', () => {
+  const entw = (t, von) => funkAll(t).slice(von).map((m) => m.text).filter((x) => /Entwarnung/.test(x));
+  // im Tick abgelehnt (der Treibstoff ist weg): Entwarnung
+  const t = szene(); const g = t.g;
+  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM] });
+  const f0 = funkAll(t).length;
+  z(g).vorrat.ger.T = 1; z(g).vorrat.ger.U = 1;
+  while (ws(g).tickZahl < r.angenommen[0].ab) tick(g);
+  ok(entw(t, f0).length === 1 && /Speculum/.test(entw(t, f0)[0]), 'ein angekündigter Angriff, der im Tick abgelehnt wird: genau eine Entwarnung');
+  tick(g, 3);
+  ok(entw(t, f0).length === 1, 'und nur einmal');
+  // nicht angekündigt: keine Entwarnung
+  const t2 = szene(); const g2 = t2.g;
+  const r2 = Regie.planAnwenden(g2, { befehle: [ANGRIFF_GER] });
+  z(g2).vorrat.rom.T = 1; z(g2).vorrat.rom.U = 1;
+  while (ws(g2).tickZahl < r2.angenommen[0].ab) tick(g2);
+  ok(logbuch(g2).some((e) => e.ausgang === 'im_tick_abgelehnt') && entw(t2, 0).length === 0, 'ein nicht angekündigter Befehl wird ohne Entwarnung abgelehnt (es gab nichts zu entwarnen)');
+  // rueckfall und verwerfe
+  for (const [name, fn] of [['rueckfall', (gg) => Regie.rueckfall(gg, 'Test')], ['verwerfe', (gg) => Regie.verwerfe(gg)]]) {
+    const t3 = szene(); Regie.planAnwenden(t3.g, { befehle: [ANGRIFF_ROM, ANGRIFF_GER] });
+    const v = funkAll(t3).length; fn(t3.g);
+    ok(entw(t3, v).length === 1, name + ': nur der angekündigte Befehl bekommt eine Entwarnung (genau eine)');
+  }
+  // Embargo
+  const t4 = szene(); siegerSetzen(t4.g, 'rom');
+  Regie.planAnwenden(t4.g, { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'rom', waren: ['T'], dauer: 8 }] });
+  const v4 = funkAll(t4).length; Regie.rueckfall(t4.g);
+  ok(entw(t4, v4).length === 1 && /Treibstoff/.test(entw(t4, v4)[0]), 'Embargo gegen Rom verworfen: Entwarnung nennt die Ware');
+  // Besitzwechsel: nicht angekündigt (Konkordat-Ort), dann römisch: nicht unangekündigt wirksam
+  const t5 = szene(); const d = Kern.datenVon(z(t5.g));
+  const ziel = d.codes.find((c) => z(t5.g).hexe[c].besitzer === 'kon' && Kern.pruefeBefehl(z(t5.g), { typ: 'piratenueberfall', ort: c }).ok);
+  ok(!!ziel, 'Ausgangslage: ein Überfallziel des Konkordats (' + ziel + ')');
+  const r5 = Regie.planAnwenden(t5.g, { befehle: [{ typ: 'piratenueberfall', ort: ziel }] });
+  ok(r5.angenommen.length === 1 && !r5.angenommen[0].vorwarnung, 'ohne Vorwarnung angenommen (trifft Rom nicht)');
+  z(t5.g).hexe[ziel].besitzer = 'rom';   // das Ziel wechselt den Besitzer, bevor der Befehl fällig wird
+  tick(t5.g);
+  ok(!z(t5.g).angriffe.some((a) => a.befohlen) && !z(t5.g).flotten.some((f) => f.fraktion === 'pirat' && f.befehl === 'angriff' && f.ziel === ziel), 'der Befehl wirkt nicht unangekündigt auf einen römischen Ort');
+  const e5 = logbuch(t5.g).find((e) => e.ausgang === 'im_tick_abgelehnt');
+  ok(e5 && /Vorwarnung/.test(e5.fehler[0]) && ws(t5.g).regie.vorgemerkt.length === 0, 'Logbuch: abgelehnt mit Grund (keine Vorwarnung), Warteschlange leer');
+  // Gegenprobe: war er angekündigt, wirkt er auch nach einem Besitzwechsel nicht anders
+  const t6 = szene(); const z6 = z(t6.g);
+  const r6 = Regie.planAnwenden(t6.g, { befehle: [ANGRIFF_ROM] });
+  while (ws(t6.g).tickZahl < r6.angenommen[0].ab) tick(t6.g);
+  ok(z6.angriffe.some((a) => a.befohlen), 'angekündigt: wirkt zur Zeit');
 });
 
 section('Schichtung mit den Strategischen Optionen', () => {
@@ -333,14 +376,29 @@ section('Schichtung mit den Strategischen Optionen', () => {
   ok(zz.regie && zz.regie.ger && zz.absichten.rom.p_act === 0.2, 'tick({ absichten }) ersetzt die Absichten, die Regie bleibt');
 });
 
-section('Atomar: wirft die Sim, bleibt alles wie vorher', () => {
+section('Atomar: wirft die Sim, bleibt alles wie vorher; ein giftiger Befehl friert sie nicht ein', () => {
   const t = szene(); const g = t.g;
-  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_GER] });
+  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM] });   // angekündigt, noch nicht fällig
   const wartend = JSON.stringify(ws(g).regie), vor = JSON.stringify(abbild(g));
   kernWirft = true; tick(g); kernWirft = false;
-  ok(ws(g).fehler === 1 && JSON.stringify(ws(g).regie) === wartend && JSON.stringify(abbild(g)) === vor, 'der Tick wirft: Sim und Warteschlange sind wie vorher (der Befehl ist nicht verloren)');
-  tick(g);
-  ok(z(g).angriffe.some((a) => a.befohlen) && r.ok, 'der nächste Tick spielt den Befehl');
+  ok(ws(g).fehler === 1 && JSON.stringify(ws(g).regie) === wartend && JSON.stringify(abbild(g)) === vor, 'der Tick wirft: Sim und Warteschlange sind wie vorher (der noch nicht fällige Befehl ist nicht verloren)');
+  while (ws(g).tickZahl < r.angenommen[0].ab) tick(g);
+  ok(z(g).angriffe.some((a) => a.befohlen) && r.ok, 'der Befehl wird zur Zeit gespielt');
+  // Giftiger Befehl: der Tick wirft nur, wenn ein Befehl dabei ist
+  const t2 = szene(); const g2 = t2.g;
+  const r2 = Regie.planAnwenden(g2, { befehle: [ANGRIFF_ROM, ANGRIFF_GER] });
+  while (ws(g2).tickZahl < r2.angenommen[0].ab - 1) tick(g2);
+  const stand = ws(g2).tickZahl, fk0 = funkAll(t2).length;
+  kernWirftMitBefehlen = true; tick(g2); kernWirftMitBefehlen = false;
+  ok(ws(g2).fehler === 1 && ws(g2).tickZahl === stand && !ws(g2).regie.vorgemerkt.some((e) => e.ab <= stand + 1), 'der Tick scheitert am fälligen Befehl: der Befehl ist verworfen, nicht für den nächsten Tick vorgemerkt');
+  const l = logbuch(g2).filter((e) => e.ausgang === 'tick_gescheitert');
+  ok(l.length >= 1 && /gescheitert/.test(l[0].fehler[0]), 'Logbuch: tick_gescheitert mit Grund');
+  const fk = funkAll(t2).slice(fk0).map((m) => m.text);
+  ok(fk.length === 1 && /Entwarnung/.test(fk[0]) && /Speculum/.test(fk[0]), 'der angekündigte Angriff kommt nicht mehr: Entwarnung (genau eine)');
+  tick(g2);
+  ok(ws(g2).tickZahl === stand + 1 && ws(g2).fehler === 1 && !z(g2).angriffe.some((a) => a.befohlen && a.ziel === '0403'), 'der nächste Tick läuft ohne den Befehl weiter (kein Wiederholen, kein Einfrieren)');
+  tick(g2, 5);
+  ok(ws(g2).tickZahl === stand + 6 && ws(g2).fehler === 1, 'und läuft weiter');
 });
 
 section('Weltstand: Altstand, Runde, Müll', () => {
@@ -355,15 +413,20 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(Weltstand.validate(d1).length === 0, 'Weltstand bleibt Version 3 und schemagültig' + Weltstand.validate(d1).slice(0, 1).map((x) => ' – ' + x).join(''));
   // Runde über die Platte
   const dir = F.freshDir(); d1.id = 'w-regie'; fs.writeFileSync(path.join(dir, 'w-regie.json'), JSON.stringify(d1));
-  const g2 = F.neuesSpiel({ dir, world: 'w-regie' }).g;
+  const t2 = F.neuesSpiel({ dir, world: 'w-regie' }); const g2 = t2.g;
+  const nachLaden = funkAll(t2).filter((m) => /Speculum|Sperre/.test(m.text));
+  ok(nachLaden.length === 2 && nachLaden.some((m) => /Speculum/.test(m.text)) && nachLaden.some((m) => /Sperre/.test(m.text)), 'Laden: die wartenden angekündigten Befehle werden einmal erneut angekündigt (Angriff und Embargo, ' + nachLaden.length + ' Meldungen)');
   ok(g2.phase === 'play' && g2.weltsim && g2.errors === 0 && gleich(ws(g2).regie, ws(g).regie), 'Laden: wartende Befehle und Abkühlzeiten sind wieder da');
   const d2 = klon(Weltstand.capture(g2));
   ok(gleich(d2.welt.sim.regie, d1.welt.sim.regie), 'Runde Speichern, Laden, Speichern: gleich');
+  tick(g2);
+  ok(funkAll(t2).filter((m) => /Speculum|Sperre/.test(m.text)).length === 2, 'im laufenden Betrieb keine Doppelungen der erneuten Ankündigung');
   const ab = ws(g2).regie.vorgemerkt[0].ab;
   while (ws(g2).tickZahl < ab) tick(g2);
   ok(z(g2).angriffe.some((a) => a.befohlen) && ws(g2).fehler === 0, 'nach dem Laden gehen die wartenden Befehle zur Zeit in die Sim');
   // Embargo und Miete im Sim-Zustand überleben das Laden
   const t3 = szene(); const g3 = t3.g;
+  delete z(g3).regie;   // die ruhige Überlagerung der Szene würde beim Laden geklemmt (bis höchstens Tick + Dauer): hier läuft die Standard-KI
   siegerSetzen(g3, 'ger');
   const rp = Regie.planAnwenden(g3, { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T'], dauer: 15 }, { typ: 'soeldner', von: 'kon', an: 'rom', flotten: [z(g3).flotten.find((f) => f.fraktion === 'kon').id], dauer: 12 }] });
   tick(g3);
@@ -388,6 +451,9 @@ section('Weltstand: Altstand, Runde, Müll', () => {
     [{ letzte: { 'x y!': 3, ok: -1, a: 'x', 'angreifen:ger': 'x' } }, leer, 'Müll in den Abkühlzeiten']]) ok(gleich(Regie.lesen(bl, T), soll), 'Leser: ' + was);
   const g6 = Regie.lesen({ vorgemerkt: [{ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 99999, w: 1 }], letzte: { 'angreifen:ger': 99999 } }, T);
   ok(g6.vorgemerkt[0].ab <= T + 1 + 10 && g6.letzte['angreifen:ger'] <= T, 'Zeiten werden geklemmt (kein „wirksam in alle Ewigkeit“, keine Abkühlzeit aus der Zukunft)');
+  const flut = { zaubern: 4 }; for (let i = 0; i < 500; i++) flut['angreifen:' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26))] = 3; flut['angreifen:rom'] = 5;
+  const lf = Regie.lesen({ letzte: flut }, T);
+  ok(Object.keys(lf.letzte).length <= R.werte.plan.wert.letzte_max && !('zaubern' in lf.letzte), 'Leser: höchstens letzte_max Abkühlzeit-Schlüssel, unbekannte Typen fallen weg');
   const viele = Regie.lesen({ vorgemerkt: Array.from({ length: 30 }, () => ({ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 5 })) }, T);
   ok(viele.vorgemerkt.length === R.werte.plan.wert.vorgemerkt_max, 'mehr als vorgemerkt_max wartende Befehle werden gekürzt');
   // Kaputter Sim-Zustand (schemagültig, aber Unsinn): das Spiel läuft, ein Tick wirft nicht

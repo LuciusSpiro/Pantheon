@@ -52,6 +52,16 @@ function wirksam(z, f) {
   };
 }
 const maxActive = (c, f) => wirksam(c.z, f).max_active;
+// Crew vor Regie auch bei Befehlen: hat die Crew für Rom eine Absicht gewählt (zustand.absichten.rom), die zurückhaltender ist als die Regie-/Standardwerte, bekommt Rom keine Offensiv-Befehle.
+// feld: aggr (Angriffe) oder p_act (Ansprüche, sie hängen an p_act). Gilt nur für Rom: die Crew spielt für Rom.
+function crewBremst(z, f, feld) {
+  if (f !== 'rom') return false;
+  const ab = z.absichten && z.absichten.rom;
+  if (!ab || !Number.isFinite(ab[feld])) return false;
+  const rg = (z.regie && z.regie.rom) || {};
+  const ohne = rg[feld] !== undefined ? rg[feld] : z.werte[feld];
+  return ab[feld] < ohne;
+}
 const aktive = (c, f) => c.z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim');
 // bereit für einen Auftrag: im Heimathafen, ruhig, mindestens 70 % der Kapazität (wie ki())
 const istBereit = (fl) => fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke >= 0.7 * fl.kap;
@@ -105,6 +115,7 @@ const KATALOG = {
       const { z, w, d } = c, A = W.angreifen.wert;
       if (!REICH.includes(b.fraktion)) return 'fraktion muss rom oder ger sein';
       if (!w.war) return 'Krieg ist aus';
+      if (crewBremst(z, b.fraktion, 'aggr')) return 'Crew-Absicht aktiv: Rom hält sich auf Wunsch der Crew zurück';
       if (!istHex(z, b.ziel)) return 'unbekanntes Ziel';
       const nd = z.hexe[b.ziel];
       if (!(H.FRAKTIONEN.includes(nd.besitzer) && H.feindlich(b.fraktion, nd.besitzer) && H.istStuetzknoten(c, b.ziel))) return 'Ziel ist kein feindlicher Hafen oder Posten';
@@ -149,6 +160,7 @@ const KATALOG = {
     pruefe(c, b) {
       const { z, w } = c;
       if (!H.FRAKTIONEN.includes(b.fraktion)) return 'fraktion muss rom, ger oder kon sein';
+      if (crewBremst(z, b.fraktion, 'p_act')) return 'Crew-Absicht aktiv: Rom hält sich auf Wunsch der Crew zurück';
       if (!istHex(z, b.sektor)) return 'unbekannter Sektor';
       if (z.hexe[b.sektor].besitzer !== null || H.istHafen(c, b.sektor)) return 'Sektor ist nicht frei';
       if (z.flotten.some((o) => H.feindlich(b.fraktion, o.fraktion) && o.ort === b.sektor)) return 'feindliche Flotte im Sektor';
@@ -233,7 +245,7 @@ const KATALOG = {
     anwenden(c, b) {
       const { z } = c;
       if (!z.embargo) z.embargo = {};
-      z.embargo[b.gegen] = { waren: b.waren.slice(), von: b.von, from: z.tick, bis: z.tick + b.dauer };
+      z.embargo[b.gegen] = { waren: b.waren.slice(), von: b.von, from: z.tick, bis: z.tick + b.dauer + 1 };   // die Befehle wirken nach dem Handel des Tick: wirksam sind die Handels-Ticks tick+1 bis tick+dauer, bis = erster Tick ohne Embargo
       H.melde(c, 'embargo_verhaengt', 'kon', { gegen: b.gegen, waren: b.waren.slice(), dauer: b.dauer });
     },
   },
@@ -329,7 +341,7 @@ const KATALOG = {
 // Die Standard-KI der betroffenen Fraktion hält sich nach einem Befehl für ruhe[typ] Ticks mit eigenen Reichsangriffen zurück (Daten ruhe): ein befohlener Angriff ersetzt einen der KI, statt zu ihr
 // hinzuzukommen. Ohne Eintrag für den Typ geschieht nichts. Die Fraktion: fraktion (angreifen, beanspruchen, verstaerken, rueckzug), an (nachschub, soeldner) oder gegen (embargo).
 function ruheSetzen(c, b) {
-  const t = W.ruhe && W.ruhe.wert[b.typ], f = b.fraktion || b.an || b.gegen;
+  const t = Math.min(W.ruhe && W.ruhe.wert[b.typ], W.ruhe_max.wert), f = b.fraktion || b.an || b.gegen;   // nie länger als ruhe_max (und die Daten-Prüfung verlangt: nie länger als die Abkühlzeit des Befehls)
   if (!(t > 0) || !REICH.includes(f)) return;
   const rg = regieEintrag(c.z, f);
   rg.ruhe_bis = Math.max(rg.ruhe_bis || 0, c.z.tick + t);
@@ -425,32 +437,41 @@ function ablauf(c) {
   }
 }
 
-// Bereinigt die Zustandsfelder der Befehle nach dem Laden aus einer Datei (embargo, regie, flotte.miete): Unsinniges fällt weg, bevor ein Tick darüber stolpert (ein wirfender Tick friert die Sim ein).
-// Gültiges bleibt unverändert; ohne die Felder geschieht nichts.
+// Bereinigt die Zustandsfelder der Befehle nach dem Laden aus einer Datei (embargo, regie, flotte.miete): Unsinniges fällt weg, bevor ein Tick darüber stolpert (ein wirfender Tick friert die Sim ein),
+// Werte werden auf die Bereiche aus befehle-werte.json geklemmt, Zeitpunkte auf höchstens Tick + größte Dauer (kein „bis in alle Ewigkeit“ aus einer manipulierten Datei), Fraktionen nur aus der erlaubten
+// Menge. Gültiges bleibt unverändert; ohne die Felder geschieht nichts.
+const klemme = (v, min, max) => Math.min(max, Math.max(min, v));
 function bereinige(z) {
+  const t = Number.isInteger(z.tick) && z.tick >= 0 ? z.tick : 0;
   const ganzZahl = (v) => Number.isInteger(v) && v >= 0;
+  const objekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
+  const D = W.dauer.wert, RUHE_MAX = W.ruhe_max.wert;
+  const FRAKTIONEN = ['rom', 'ger', 'kon'];
   if (z.embargo !== undefined) {
     const out = {};
-    if (z.embargo && typeof z.embargo === 'object' && !Array.isArray(z.embargo)) {
+    if (objekt(z.embargo)) {
       for (const [f, e] of Object.entries(z.embargo)) {
-        if (!W.embargo.wert.gegen.includes(f) || !e || typeof e !== 'object' || !Array.isArray(e.waren) || !ganzZahl(e.from) || !ganzZahl(e.bis)) continue;
-        const waren = e.waren.filter((g) => W.embargo.wert.waren.includes(g));
-        if (waren.length) out[f] = { waren, von: 'kon', from: e.from, bis: e.bis };
+        if (!W.embargo.wert.gegen.includes(f) || !objekt(e) || !Array.isArray(e.waren) || !ganzZahl(e.from) || !ganzZahl(e.bis)) continue;
+        const waren = e.waren.filter((g, i, l) => W.embargo.wert.waren.includes(g) && l.indexOf(g) === i);
+        if (waren.length) out[f] = { waren, von: 'kon', from: Math.min(e.from, t), bis: Math.min(e.bis, t + D.embargo.max + 1) };
       }
     }
     if (Object.keys(out).length) z.embargo = out; else delete z.embargo;
   }
   if (z.regie !== undefined) {
     const out = {};
-    if (z.regie && typeof z.regie === 'object' && !Array.isArray(z.regie)) {
+    if (objekt(z.regie)) {
       for (const [f, e] of Object.entries(z.regie)) {
-        if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+        if (!FRAKTIONEN.includes(f) || !objekt(e)) continue;
         const x = {};
-        for (const k of REGLER_FELDER) if (istZahl(e[k])) x[k] = e[k];
-        if (ganzZahl(e.regler_bis) && Object.keys(x).length) x.regler_bis = e.regler_bis; else for (const k of REGLER_FELDER) delete x[k];
-        if (ganzZahl(e.ruhe_bis)) x.ruhe_bis = e.ruhe_bis;
+        for (const k of REGLER_FELDER) if (istZahl(e[k])) x[k] = klemme(e[k], W.regler.wert[k].min, W.regler.wert[k].max);
+        if (x.max_active !== undefined) x.max_active = Math.round(x.max_active);
+        if (ganzZahl(e.regler_bis) && Object.keys(x).length) x.regler_bis = Math.min(e.regler_bis, t + D.regler.max); else for (const k of REGLER_FELDER) delete x[k];
+        if (ganzZahl(e.ruhe_bis) && RUHE_MAX > 0) x.ruhe_bis = Math.min(e.ruhe_bis, t + RUHE_MAX);
         const fk = e.fokus;
-        if (fk && typeof fk === 'object' && typeof fk.hex === 'string' && has(z.hexe, fk.hex) && Number.isInteger(fk.radius) && fk.radius >= 0 && ganzZahl(fk.bis)) x.fokus = { hex: fk.hex, radius: fk.radius, bis: fk.bis };
+        if (W.fokus.wert.fraktionen.includes(f) && objekt(fk) && typeof fk.hex === 'string' && has(z.hexe, fk.hex) && istZahl(fk.radius) && ganzZahl(fk.bis)) {
+          x.fokus = { hex: fk.hex, radius: klemme(Math.round(fk.radius), W.fokus.wert.radius.min, W.fokus.wert.radius.max), bis: Math.min(fk.bis, t + D.fokus.max) };
+        }
         if (Object.keys(x).length) out[f] = x;
       }
     }
@@ -459,7 +480,8 @@ function bereinige(z) {
   for (const fl of z.flotten || []) {
     if (fl.miete === undefined) continue;
     const m = fl.miete;
-    if (!m || typeof m !== 'object' || m.von !== 'kon' || !REICH.includes(m.an) || !ganzZahl(m.bis) || !istZahl(m.preis)) delete fl.miete;
+    if (!objekt(m) || m.von !== 'kon' || !REICH.includes(m.an) || fl.fraktion !== m.an || !ganzZahl(m.bis) || !istZahl(m.preis) || m.preis < 0) delete fl.miete;
+    else fl.miete = { von: 'kon', an: m.an, bis: Math.min(m.bis, t + D.soeldner.max), preis: m.preis };
   }
 }
 

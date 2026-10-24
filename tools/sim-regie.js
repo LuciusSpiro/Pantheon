@@ -6,6 +6,7 @@
 //   node tools/sim-regie.js [--laeufe 100] [--ticks 300] [--saetze 5] [--seed0 0] [--nur <typ|alle>] [--strategie wenig|viel] [--json] [--pruefen]
 //   Strategien: ohne (nichts) · wenig (alle 40 Ticks ab Tick 20 ein Plan) · viel (alle 8 Ticks ab Tick 10 ein Plan). Je Befehlstyp einer, dazu „alle“ (ein zufälliger Typ je Plan).
 //   Seed-Sätze: 5 × 100 (Seeds 0–99, 100–199, …): 0–99 allein war in SUND-02b zu optimistisch.
+//   --crew <id>  die Absicht der Crew (absichten.json) gilt für Rom über den ganzen Lauf, auch in der Zeile „ohne“
 //   --pruefen   drei Sätze (Seeds 0–299, --saetze ändert es), nur „alle“ wenig und viel: beide müssen in den Bändern bleiben (Teil von npm test, etwa 25 s), sonst Exit 1
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
@@ -22,6 +23,7 @@ const PRUEFEN = args.includes('--pruefen');
 const laeufe = Number(argVal('--laeufe', 100)), seed0 = Number(argVal('--seed0', 0));
 const saetze = Number(argVal('--saetze', PRUEFEN ? 3 : 5));
 const nur = argVal('--nur', null), nurStrategie = argVal('--strategie', null);
+const CREW = argVal('--crew', null);   // --crew verteidigung: die Crew hält die Absicht den ganzen Lauf (zustand.absichten.rom, schärfster Fall), der Bot muss damit auskommen
 const { karte, werte } = Daten.laden();
 const ticks = Number(argVal('--ticks', werte.werte.ticks.wert));
 // --set regie:abkuehlung.wert.angreifen=60 | befehle:werte.nachschub.wert.menge.max=6: überschreibt einen Wert dieses Laufs (zum Abstimmen), die Dateien bleiben unverändert
@@ -113,7 +115,7 @@ function planFuer(typ, game, r) {
 function einLauf(seed, typ, strategie) {
   const r = rng(seed * 7919 + 13);
   let game = null, faellig = [];
-  const zaehl = { plaene: 0, ohnePlan: 0, vorgemerkt: 0, abgelehnt: 0, gespielt: 0, imTickAbgelehnt: 0, vorwarnung: 0 };
+  const zaehl = { befAngriffe: 0, ruheTicks: 0, plaene: 0, ohnePlan: 0, vorgemerkt: 0, abgelehnt: 0, gespielt: 0, imTickAbgelehnt: 0, vorwarnung: 0 };
   const ring = [];
   const S = STRATEGIEN[strategie];
   const befehle = (z, i) => {
@@ -132,12 +134,15 @@ function einLauf(seed, typ, strategie) {
     return faellig.map((e) => e.b);
   };
   const nach = (z, i, res) => {
+    zaehl.befAngriffe += res.befehle ? res.befehle.angewandt.filter((b) => b.typ === 'angreifen').length : 0;
+    for (const f of ['rom', 'ger']) if (z.regie && z.regie[f] && z.regie[f].ruhe_bis > z.tick) zaehl.ruheTicks++;
     for (const e of res.ereignisse) ring.push(Object.assign({ n: i + 1 }, e));
     if (ring.length > 120) ring.splice(0, ring.length - 120);
     if (faellig.length) { const o = Regie.nachTick(game, res, faellig, i + 1); zaehl.gespielt += o.log.filter((l) => l.ausgang === 'gespielt').length; zaehl.imTickAbgelehnt += o.log.filter((l) => l.ausgang === 'im_tick_abgelehnt').length; }
     game.weltsim.tickZahl = i + 1;
   };
-  const res = Kz.lauf({ karte, werte, seed, ticks, befehle: strategie === 'ohne' ? null : befehle, nach: strategie === 'ohne' ? null : nach });
+  const crewAb = CREW ? { rom: require('../content/welt/absichten.json').werte.absichten.wert.find((a) => a.id === CREW).wirkung } : null;
+  const res = Kz.lauf({ karte, werte, seed, ticks, absichten: crewAb, befehle: strategie === 'ohne' ? null : befehle, nach: strategie === 'ohne' ? null : nach });
   res.zaehl = zaehl;
   return res;
 }
@@ -150,6 +155,7 @@ function messen(typ, strategie, satz) {
   return {
     typ, strategie, satz, eroberungen: s.eroberungen, angriffe_je100: a.je100, stillstand: s.still, kollaps: s.kollaps, hw_laeufe: rs.filter((r) => r.hw_lost).length,
     rom_haefen: s.rom_h, ger_haefen: s.ger_h, posten: s.posten, plaene: mit((r) => r.zaehl.plaene), ohne_plan: mit((r) => r.zaehl.ohnePlan), vorgemerkt: mit((r) => r.zaehl.vorgemerkt), gespielt: mit((r) => r.zaehl.gespielt),
+    ki_angriffe: mit((r) => r.attacks - r.zaehl.befAngriffe), bef_angriffe: mit((r) => r.zaehl.befAngriffe), ruhe_anteil: mit((r) => r.zaehl.ruheTicks) / (2 * ticks),
     abgelehnt: mit((r) => r.zaehl.abgelehnt), im_tick_abgelehnt: mit((r) => r.zaehl.imTickAbgelehnt), vorwarnung: mit((r) => r.zaehl.vorwarnung),
   };
 }
@@ -202,11 +208,11 @@ for (const typ of typen) for (const st of strategien) for (let satz = 0; satz < 
 if (args.includes('--json')) console.log(JSON.stringify({ laeufe, ticks, saetze, seed0, zeilen }));
 else {
   console.log(`${laeufe} Läufe à ${ticks} Ticks, ${saetze} Seed-Sätze (Satz k = Seeds ${seed0}+k·${laeufe} …), ${((Date.now() - t0) / 1000).toFixed(0)} s. Bänder: Erob ${BAENDER.eroberungen.min}–${BAENDER.eroberungen.max}, Angr/100 ${BAENDER.angriffe_je100.min}–${BAENDER.angriffe_je100.max}, Stillstand ≤ ${BAENDER.stillstand_max * 100} %, Kollaps 0, Hauptwelt 0`);
-  console.log('typ'.padEnd(18) + 'strat'.padEnd(7) + 'satz'.padStart(5) + 'Erob'.padStart(7) + 'Angr/100'.padStart(9) + 'Still%'.padStart(7) + 'Koll'.padStart(5) + 'HW'.padStart(4) + 'Rom-H'.padStart(7) + 'Ger-H'.padStart(7) + 'Pläne'.padStart(7) + 'gespielt'.padStart(9) + 'abgel.'.padStart(7) + 'imTick✗'.padStart(8) + 'Warn.'.padStart(7) + '  Verstoß');
+  console.log('typ'.padEnd(18) + 'strat'.padEnd(7) + 'satz'.padStart(5) + 'Erob'.padStart(7) + 'Angr/100'.padStart(9) + 'Still%'.padStart(7) + 'Koll'.padStart(5) + 'HW'.padStart(4) + 'Rom-H'.padStart(7) + 'Ger-H'.padStart(7) + 'Pläne'.padStart(7) + 'gespielt'.padStart(9) + 'abgel.'.padStart(7) + 'imTick✗'.padStart(8) + 'Warn.'.padStart(7) + 'KI-Ang'.padStart(7) + 'bef.Ang'.padStart(8) + 'Ruhe%'.padStart(6) + '  Verstoß');
   for (const z of zeilen) {
     const f = baendeFehler(z);
     console.log(z.typ.padEnd(18) + z.strategie.padEnd(7) + String(z.satz).padStart(5) + z.eroberungen.toFixed(2).padStart(7) + z.angriffe_je100.toFixed(2).padStart(9) + (z.stillstand * 100).toFixed(0).padStart(7) + z.kollaps.toFixed(2).padStart(5) + String(z.hw_laeufe).padStart(4)
-      + z.rom_haefen.toFixed(2).padStart(7) + z.ger_haefen.toFixed(2).padStart(7) + z.plaene.toFixed(1).padStart(7) + z.gespielt.toFixed(1).padStart(9) + z.abgelehnt.toFixed(1).padStart(7) + z.im_tick_abgelehnt.toFixed(1).padStart(8) + z.vorwarnung.toFixed(1).padStart(7) + (f.length ? '  ' + f.join(', ') : ''));
+      + z.rom_haefen.toFixed(2).padStart(7) + z.ger_haefen.toFixed(2).padStart(7) + z.plaene.toFixed(1).padStart(7) + z.gespielt.toFixed(1).padStart(9) + z.abgelehnt.toFixed(1).padStart(7) + z.im_tick_abgelehnt.toFixed(1).padStart(8) + z.vorwarnung.toFixed(1).padStart(7) + z.ki_angriffe.toFixed(1).padStart(7) + z.bef_angriffe.toFixed(1).padStart(8) + (z.ruhe_anteil * 100).toFixed(0).padStart(6) + (f.length ? '  ' + f.join(', ') : ''));
   }
 }
 if (PRUEFEN) {
