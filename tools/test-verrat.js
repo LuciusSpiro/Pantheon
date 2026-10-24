@@ -501,8 +501,10 @@ section('Verrat an einem römischen Hafen: die Verteidiger-Regel gilt nicht mehr
   ok(!wk.some((x) => x.typ === 'ort_gehalten' || x.typ === 'ort_gefallen') && wk.some((x) => x.typ === 'abwehr_verlust' && x.ort === OSTIA), 'kein ort_gehalten/ort_gefallen, aber die Abwehr des Hafens verliert (abwehr_verlust)');
   const av = wk.find((x) => x.typ === 'abwehr_verlust' && x.ort === OSTIA);
   ok(av && Math.abs(av.punkte - abw0 * VW.verlust.wert.faktor) < 0.02, 'die Abwehr des Hafens verliert den Anteil verlust.faktor (' + (av && av.punkte) + ' von ' + abw0 + ')');
-  // Folge, die die Sim selbst zieht (nicht die Szene): belagert ein Gegner den Hafen, fällt er ohne Abwehr im selben Tick (hafen_gefallen aus dem Kern, kein ort_gefallen aus der Szene). Das ist die Folge des Verrats, keine Zwangsfolge: der Verrat war eine bewusste Aktion.
-  ok(g.weltsim.ereignisse.some((e) => e.typ === 'hafen_gefallen' && e.ort === OSTIA) === (z(g).hexe[OSTIA].besitzer !== 'rom'), 'Besitz des Hafens folgt der Sim (Ereignis hafen_gefallen aus dem Kern, wenn belagert: ' + z(g).hexe[OSTIA].besitzer + ')');
+  // Folge, die die Sim selbst zieht (nicht die Szene): bei verlust.faktor 0,5 hält der belagerte Hafen (Abwehr bleibt > 0), bei Faktor 1 verliert er die ganze Abwehr und fällt im selben Tick (hafen_gefallen aus dem Kern, kein ort_gefallen aus der Szene)
+  ok(z(g).hexe[OSTIA].besitzer === 'rom' && z(g).hexe[OSTIA].abwehr > 0 && !g.weltsim.ereignisse.some((e) => e.typ === 'hafen_gefallen'), 'Faktor 0,5: der belagerte Hafen hält (Abwehr ' + z(g).hexe[OSTIA].abwehr.toFixed(2) + ')');
+  { const f0 = VW.verlust.wert.faktor; VW.verlust.wert.faktor = 1; const u = bereit({ hex: OSTIA, kampf: true, rom: 6 }); verrat(u.g); durchspielen(u.g, 600); VW.verlust.wert.faktor = f0;
+    ok(z(u.g).hexe[OSTIA].besitzer === 'ger' && u.g.weltsim.ereignisse.some((e) => e.typ === 'hafen_gefallen' && e.ort === OSTIA), 'Faktor 1: der Hafen verliert die ganze Abwehr und fällt im selben Tick (Kern, nicht die Szene)'); }
 });
 
 section('Fehler im Ruf beim Beginn: kein Abzug, kein Absturz', () => {
