@@ -214,8 +214,7 @@ const MUTATIONEN = [
   // ---- A3: globale Befehlsrate
   [R, "    if (belegt >= RATE.max) {", "    if (false) {", 'Rate: kein Deckel'],
   [R, "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;", "const rateBelegt = (s, jetzt) => s.rate.length;", 'Rate: Fenster ignoriert (alte Befehle zählen ewig)'],
-  [R, "    s.rate.push(n0);
-", "", 'Rate: angenommene Befehle werden nicht gezählt'],
+  [R, "    s.rate.push(n0);\n", "", 'Rate: angenommene Befehle werden nicht gezählt'],
   [R, "const belegt = rateBelegt(s, n0) + out.angenommen.length;", "const belegt = rateBelegt(s, n0);", 'Rate: Deckel gilt nicht mitten im Plan'],
   [R, "  if (s.rate.length) b.rate = s.rate.slice();", "", 'Rate: wird nicht gespeichert'],
   [R, ".slice(-RATE.max);   // nur das Fenster", ";   // nur das Fenster", 'Rate: Leser kürzt nicht auf max'],
