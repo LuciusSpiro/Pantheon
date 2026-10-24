@@ -188,6 +188,7 @@ section('Weltstand: Runde, Altstand, Müll', () => {
   ok(Chronik.lesen(null).length === 0 && Chronik.lesen('x').length === 0 && Chronik.lesen({}).length === 0, 'Leser: Müll = leer');
   const m = Chronik.lesen([...Array.from({ length: 100 }, (_, i) => ({ t: i, art: 'plan', ref: 'p' + i, kurz: 'k' + i })), { t: 3, art: 'quatsch', kurz: 'y' }, null, { t: 4, art: 'plan', kurz: '' }, 'text']);
   ok(m.length === W.max.wert && m[m.length - 1].ref === 'p99' && m.every((c) => c.kurz.length <= W.kurz_max.wert && Chronik.ARTEN.includes(c.art) && Number.isInteger(c.t) && c.t >= 0), 'Leser: Unsinniges fällt weg, Obergrenze, die neuesten bleiben');
+  ok(Chronik.lesen([{ t: 1, art: 'plan', ref: 'r'.repeat(100), kurz: 'x' }])[0].ref.length === W.ref_max.wert, 'Leser: die Referenz wird gekürzt');
   const m2 = Chronik.lesen([{ t: 'x', art: 'welt', ref: 'r', kurz: 'z'.repeat(200), param: { a: 1, b: { c: 1 } } }, { t: -5, art: 'plan', ref: 1, kurz: 'x' }]);
   ok(m2.length === 2 && m2[0].t === 0 && m2[0].kurz.length === 80 && JSON.stringify(m2[0].param) === '{"a":1}' && m2[1].t === 0 && m2[1].ref === '', 'Leser: Zeit auf 0, Text gekürzt, param bereinigt, Referenz nur als Text');
 });

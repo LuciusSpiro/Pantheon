@@ -440,10 +440,10 @@ section('Sim-Parität und Schalter', () => {
   ok(RE.aktiv(c.g) === (RE.WERTE.standard_an === true) && RE.WERTE.standard_an === false && !RE.aktiv(c2.g) && RE.aktiv(c3.g), 'Standard aus (Datum standard_an), REISE_EREIGNISSE=1/on an, 0/off aus');
   // Matrix Lage-Spielleiter × REISE_EREIGNISSE
   const mx = [];
-  for (const lage of [{}, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' }, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'off' }, { SPIELLEITER_LLM: 'mock' }]) for (const r of [undefined, '1', '0']) {
+  for (const lage of [{}, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' }, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'off' }, { SPIELLEITER_LLM: 'mock' }]) for (const r of [undefined, '1', '0', 'on', 'off', 'OFF']) {
     const env = Object.assign({}, lage); if (r) env.REISE_EREIGNISSE = r;
     const an = lage.LAGE_SPIELLEITER === '1' && lage.SPIELLEITER_LLM === 'mock';
-    const soll = r === '1' ? true : r === '0' ? false : an;
+    const soll = r === '1' || r === 'on' ? true : r === '0' || r === 'off' || r === 'OFF' ? false : an;
     mx.push(RE.aktiv({ weltsim: { zustand: {} }, env }) === soll);
   }
   ok(mx.every(Boolean), 'Matrix: ohne REISE_EREIGNISSE folgt der Schalter dem Lage-Spielleiter (an nur mit LAGE_SPIELLEITER=1 und SPIELLEITER_LLM ≠ off), REISE_EREIGNISSE=1/0 überschreibt');
@@ -486,6 +486,121 @@ section('Weltstand: Speichern, Laden, Altstand, Müll', () => {
   ok(RE.lesen(null).n === 0 && RE.lesen('x').n === 0 && RE.lesen([]).n === 0 && RE.lesen({ n: 'x', letzte: 5 }).letzte.length === 0, 'Leser: Müll = Anfang');
   const m = RE.lesen({ n: 10, letzter: 99, letzte: [{ id: 'gibt_es_nicht', k: 'x', n: 1 }, { id: 'funk_lage_rom', k: 'k', n: 50 }, null, { id: 'funk_lage_rom' }] });
   ok(m.n === 10 && m.letzter === 10 && m.letzte.length === 1 && m.letzte[0].n === 10, 'Leser: unbekannte Ids und kaputte Einträge fallen weg, Zeiten werden auf die Gegenwart geklemmt');
+});
+
+// ------------------------------------------------------------------------------------------------------------------------------------------------------------------
+section('Review Runde 2: Ankündigung, Abstand zum Abfangen, Sim-Szene, Flucht, Ruf-Deckel, Lücken', () => {
+  // M2: die Texte der Gefahr versprechen kein Ausweichen
+  const verboten = /ausweich|spring|keine Pflicht|entkomm|vermeid|abhauen|umgehen/i;
+  const schlecht = RE.KATALOG.flatMap((e) => Object.values(e.texte).flat().filter((t) => verboten.test(t)).map((t) => e.id + ': ' + t.slice(0, 50)));
+  ok(schlecht.length === 0, 'kein Funktext verspricht Ausweichen oder nennt den Sprung als Ausweg (' + schlecht.join(' | ') + ')');
+  ok(RE.KATALOG.filter((e) => e.gefahr && e.art !== 'notruf').every((e) => e.texte.ankuendigung.every((t) => t.includes('{n}'))), 'Patrouille und Piraten: die Ankündigung nennt die Vorwarnzeit ({n} Sekunden)');
+  // S1: das Abfangen hält den Abstand ein, game.rng wird trotzdem gezogen
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);
+    g.C.reise.feindChance = 1; g.weltBesitz.hexe[HEX.ger] = { besitzer: 'ger', posten: false };
+    sicher(() => nur(['funk_handel_stimmen'], () => springe(g, HEX.rom)));   // Ereignis in Sprung 1
+    const R = ws(g).reise;
+    RE.zaehleSprung(g);   // Sprung 2
+    const a2 = Reise.abfangen(g, HEX.ger);
+    ok(R.letzter === 1 && a2 === false && !g.space.enemies.some((x) => x.tag === 'abfang') && g._reiseOhne >= 1, 'Reise-Ereignis in Sprung 1, Abfangen in Sprung 2: abgelehnt (zwei Ereignisse in zwei Sprüngen gibt es nicht)');
+    RE.zaehleSprung(g); RE.zaehleSprung(g);   // Sprung 4: Abstand 3
+    ok(Reise.abfangen(g, HEX.ger) === true && R.letzter === R.n, 'drei Sprünge später darf das Abfangen wieder, und es zählt');
+  }
+  {
+    const a = spiel({ seed: 5 }).g, b = spiel({ seed: 5 }).g;
+    for (const x of [a, b]) { ohneFlotten(x); x.C.reise.feindChance = 0.5; x.weltBesitz.hexe[HEX.ger] = { besitzer: 'ger', posten: false }; }
+    ws(a).reise.n = 1; ws(a).reise.letzter = 1; ws(b).reise.n = 40;   // a: Abstand nicht frei, b: frei
+    RE.zaehleSprung(a); RE.zaehleSprung(b);
+    Reise.abfangen(a, HEX.ger); Reise.abfangen(b, HEX.ger);
+    ok(a.rng() === b.rng(), 'der Wurf des Abfangens wird auch bei abgelehntem Abfangen gezogen (game.rng gleich)');
+  }
+  // S2: Notruf bei laufender Sim-Szene: kein zweiter Kampf, Notruf bleibt offen
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);
+    sicher(() => nur(['notruf_pirat_frachter'], () => springe(g, HEX.rom)));
+    const R = ws(g).reise; const o = R.offen[0]; const vor = funkTexte(t).length;
+    g.simSzene = { phase: 'kampf', hex: o.hex };
+    sicher(() => RE.nachSprung(g, Sektoren.ortVonHex(o.hex)), 0);
+    ok(R.offen.length === 1 && R.laufend.length === 0 && funkTexte(t).length === vor + 1 && /Gefecht/.test(funkTexte(t).pop()), 'Sim-Szene läuft: der Notruf bleibt offen, kein Vorlauf, keine Gegner, ein Hinweis per Funk');
+    g.simSzene = null;
+    sicher(() => RE.nachSprung(g, Sektoren.ortVonHex(o.hex)), 0);
+    ok(R.offen.length === 0 && R.laufend.length === 1, 'nach der Szene wird der Notruf beantwortet');
+  }
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);   // der Vorlauf wartet auf das Ende einer Sim-Szene
+    sicher(() => nur(['piraten_hinterhalt'], () => springe(g, HEX.saum)));
+    const L = ws(g).reise.laufend[0]; g.simSzene = { phase: 'kampf', hex: HEX.saum };
+    lauf(g, 14);
+    ok(!g.space.enemies.some((x) => x.tag === L.tag) && L.phase === 'erwartet', 'während einer Sim-Szene kommen keine Gegner (zwei Kämpfe übereinander gibt es nicht)');
+    g.simSzene = null;
+  }
+  // S3: Notruf-Kampf, Flucht in jeder Phase, Vorlauf vor den Gegnern
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);
+    const e = RE.KATALOG.find((x) => x.id === 'notruf_pirat_frachter');
+    sicher(() => nur([e.id], () => springe(g, HEX.rom)));
+    const R = ws(g).reise; const o = R.offen[0]; sicher(() => springe(g, o.hex), 0);
+    lauf(g, e.parameter.vorlauf_s - 1.5);
+    ok(R.laufend.length === 1 && !g.space.enemies.some((x) => x.tag === R.laufend[0].tag), 'Notruf mit Gefahr: bis zum Ablauf des Vorlaufs keine Gegner');
+    lauf(g, 2.5); const tag = R.laufend[0].tag;
+    ok(g.space.enemies.some((x) => x.tag === tag), 'danach die Gegner (Phase Kampf)');
+    const ruf = rom(g);
+    sicher(() => springe(g, HEX.rom2), 0); sicher(() => springe(g, o.hex), 0);   // mitten im Kampf weg und zurück in dieselbe Szene
+    g.space.enemies = []; lauf(g, 1);
+    ok(R.laufend.length === 0 && rom(g) === ruf && !funkTexte(t).some((x) => e.texte.dank.includes(x)), 'Flucht mitten im Kampf (auch zurück in dieselbe Szene): kein Ruf, kein Dank, die Gefahr ist beendet');
+  }
+  // K1: Durchflug im Schnellsprung beantwortet nichts
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);
+    sicher(() => nur(['notruf_havarie_reaktor'], () => springe(g, HEX.rom)));
+    const R = ws(g).reise; const o = R.offen[0];
+    g.reise = { hops: [o.hex, HEX.rom, HEX.rom2], i: 0, t: 0, abbruch: false };
+    sicher(() => RE.nachSprung(g, Sektoren.ortVonHex(o.hex)), 0);
+    ok(R.offen.length === 1 && rom(g) === 0, 'Durchflug im Schnellsprung (nicht der letzte Hop): der Notruf bleibt offen, kein Ruf');
+    g.reise = { hops: [HEX.rom, o.hex], i: 1, t: 0, abbruch: false }; sicher(() => RE.nachSprung(g, Sektoren.ortVonHex(o.hex)), 0); g.reise = null;
+    ok(R.offen.length === 0 && rom(g) > 0, 'als letzter Hop beantwortet er ihn');
+  }
+  // S4: Ruf-Deckel
+  {
+    const g = spiel().g; const R = ws(g).reise; R.n = 50; const e = RE.KATALOG.find((x) => x.id === 'notruf_pirat_frachter');
+    const q = require('../content/welt/ruf-werte.json').werte.quellen.wert;
+    const cap = RE.WERTE.ruf_max_je_100, d = q.reise_hilfe_rom.delta;
+    let k = 0; while (k < 50 && RE.folgeBuchen(g, e)) k++;
+    ok(k === Math.floor(cap / d) && rom(g) === k * d && rom(g) <= cap, `Deckel: höchstens ${cap} Ruf aus Reise-Ereignissen je 100 Sprünge (${k} Folgen à ${d})`);
+    const blob = JSON.parse(JSON.stringify(RE.toSave(ws(g))));
+    ok(Array.isArray(blob.r) && RE.lesen(blob).rufLog.length === blob.r.length, 'der Deckel steht im Weltstand (welt.sim.reise.r), Laden gibt ihn zurück');
+    R.n = 160; ok(RE.folgeBuchen(g, e) > 0, 'nach 100 Sprüngen ist der Deckel wieder frei');
+    const alle = RE.KATALOG.flatMap((x) => x.folge.angenommen);
+    ok(Math.max(...alle.map((x) => Math.abs(q[x].delta))) <= 2 && q.reise_havarie_rom.delta === 1, 'Werte herabgesetzt: Havarie +1, Notruf mit Gefahr +2, Patrouille +1');
+  }
+  // S8: Lücken
+  {
+    const t = spiel(); const g = t.g; ohneFlotten(g);   // R1: ein Notruf gilt genau notruf_gilt_spruenge Sprünge
+    sicher(() => nur(['notruf_havarie_reaktor'], () => springe(g, HEX.rom)));
+    const R = ws(g).reise; const K = RE.WERTE.notruf_gilt_spruenge;
+    const woanders = [HEX.rom, HEX.rom2, '0105', '0203'].filter((h) => h !== R.offen[0].hex);
+    for (let i = 0; i < K; i++) sicher(() => springe(g, woanders[i % 2]), 0);
+    ok(R.offen.length === 1, `nach ${K} Sprüngen ist der Notruf noch offen`);
+    sicher(() => springe(g, woanders[0]), 0);
+    ok(R.offen.length === 0, `im ${K + 1}. Sprung verfällt er`);
+    // R3: die Marke läuft von selbst ab
+    const t2 = spiel(); const g2 = t2.g; ohneFlotten(g2); sicher(() => nur(['notruf_havarie_reaktor'], () => springe(g2, HEX.rom)));
+    const m = g2.marken.find((x) => /^reise:/.test(x.id));
+    ok(m && m.bis > g2.time && Math.abs((m.bis - g2.time) - RE.WERTE.notruf_marke_ticks * 30) < 1, 'die Notruf-Marke trägt eine Lebensdauer (notruf_marke_ticks × 30 s)');
+    g2.time = m.bis + 1; ok(!Marken.liste(g2).some((x) => /^reise:/.test(x.id)), 'nach Ablauf ist die Marke weg');
+    // R4: Gegnerzahl je Spieler
+    const zahl = (crew) => { const tt = spiel({ crew }); const gg = tt.g; ohneFlotten(gg); sicher(() => nur(['piraten_hinterhalt'], () => springe(gg, HEX.saum))); lauf(gg, 12); return gg.space.enemies.filter((x) => /^reise/.test(x.tag || '')).length; };
+    const sc = RE.KATALOG.find((x) => x.id === 'piraten_hinterhalt').parameter.schiffe;
+    ok(zahl(1) === Math.max(sc.min, Math.min(sc.max, 1 + RE.WERTE.jaeger_je_spieler)) && zahl(2) === Math.max(sc.min, Math.min(sc.max, 2 + RE.WERTE.jaeger_je_spieler)) && zahl(3) === sc.max && zahl(1) < zahl(3), 'Gegnerzahl: Spieler + Zuschlag, geklemmt auf den Katalog (1 Spieler weniger als 3)');
+    // R7: der Leser kürzt den Ring
+    const gross = RE.lesen({ n: 99, letzte: Array.from({ length: 40 }, (_, i) => ({ id: 'funk_lage_rom', k: 'k' + i, n: i })) });
+    ok(gross.letzte.length === RE.WERTE.wiederholung.ring && gross.letzte[gross.letzte.length - 1].k === 'k39', 'Leser: der Ring wird auf die Obergrenze gekürzt (die neuesten bleiben)');
+    ok(RE.lesen({ n: 1e15 }).n === 1e9, 'Leser: n wird geklemmt');
+    // K3: Schema-Obergrenzen reichen für die Daten
+    const S = require('../content/schema/weltstand.schema.json').properties.welt.properties.sim.properties;
+    ok(S.reise.properties.letzte.maxItems >= RE.WERTE.wiederholung.ring && S.chronik.maxItems >= require('../content/welt/chronik-werte.json').werte.max.wert, 'Schema: die Obergrenzen (letzte, chronik) sind nicht kleiner als die Datenwerte');
+  }
 });
 
 console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);
