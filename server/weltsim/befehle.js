@@ -16,10 +16,15 @@
 //   embargo           { von: 'kon', gegen: rom|ger, waren: [M|T|E], dauer }  das Konkordat sperrt den Kauf; zustand.embargo[gegen] = { waren, von, bis, ... }, endet von selbst.
 //   soeldner          { von: 'kon', an: rom|ger, flotten: [ids], dauer }  Flotten des Konkordats dienen für die Dauer unter einem Reich (flotte.miete), Marken an das Konkordat.
 //   piratenueberfall  { ort: Hex }                     bereite Piratenflotte im Piratennetz greift einen Ort mit Besitzer an (pirat_raid ohne Würfel).
-//   fokus             { fraktion: rom|ger|pirat, hex, radius, dauer }  Überlagerung zustand.regie[fraktion].fokus: Angriffsziele der Standard-KI nur im Umkreis.
+//   fokus             { fraktion: rom|ger, hex, radius, dauer }  Überlagerung zustand.regie[fraktion].fokus: Angriffsziele der Standard-KI nur im Umkreis.
 //   regler            { fraktion: rom|ger|kon, p_act?, aggr?, max_active?, dauer }  die drei Regler der Standard-KI als Überlagerung zustand.regie[fraktion].
-// Zustandsfelder (alle optional, reines JSON, werden mit dem Sim-Zustand gespeichert): zustand.embargo { fraktion: { waren, von, from, bis } }, zustand.regie { fraktion: { p_act?, aggr?, max_active?, fokus?: {hex, radius}, bis_*… } },
-// flotte.miete { von, an, bis, preis }, angriff.befohlen: true.
+// Zustandsfelder (alle optional, reines JSON, werden mit dem Sim-Zustand gespeichert; ohne Befehle erscheint keines davon, der Kern bleibt bitgleich zum Prototyp):
+//   zustand.embargo { fraktion: { waren, von, from, bis } }                              Embargo je Ziel-Fraktion (handel() liest es), endet bei bis von selbst
+//   zustand.regie { fraktion: { p_act?, aggr?, max_active?, regler_bis?, fokus?: { hex, radius, bis }, ruhe_bis? } }   Überlagerung der Regie, eigener Namensraum neben zustand.absichten (Strategische Optionen, absicht.js)
+//   flotte.miete { von, an, bis, preis }                                                 Söldner: die Flotte dient bis bis einer anderen Fraktion
+//   angriff.befohlen: true                                                               Feldzug auf Befehl (Kennzahlen)
+// Schichtung: zustand.absichten (Wahl der Crew) gilt für ihre Felder vor zustand.regie vor den Werten (wirksam()); ruhe_bis setzt aggr der Standard-KI auf 0 (der Befehl ersetzt einen Angriff der KI,
+// content/welt/befehle-werte.json ruhe, gemessen). Keine Quelle schreibt in den Namensraum der anderen: der Rückbau der einen lässt die andere stehen.
 const Daten = require('./daten.js');
 
 const W = require('../../content/welt/befehle-werte.json').werte;
@@ -322,9 +327,9 @@ const KATALOG = {
 };
 
 // Die Standard-KI der betroffenen Fraktion hält sich nach einem Befehl für ruhe[typ] Ticks mit eigenen Reichsangriffen zurück (Daten ruhe): ein befohlener Angriff ersetzt einen der KI, statt zu ihr
-// hinzuzukommen. Ohne Eintrag für den Typ geschieht nichts. Die Fraktion: fraktion (angreifen, beanspruchen, verstaerken, rueckzug) oder an (nachschub, soeldner).
+// hinzuzukommen. Ohne Eintrag für den Typ geschieht nichts. Die Fraktion: fraktion (angreifen, beanspruchen, verstaerken, rueckzug), an (nachschub, soeldner) oder gegen (embargo).
 function ruheSetzen(c, b) {
-  const t = W.ruhe && W.ruhe.wert[b.typ], f = b.fraktion || b.an;
+  const t = W.ruhe && W.ruhe.wert[b.typ], f = b.fraktion || b.an || b.gegen;
   if (!(t > 0) || !REICH.includes(f)) return;
   const rg = regieEintrag(c.z, f);
   rg.ruhe_bis = Math.max(rg.ruhe_bis || 0, c.z.tick + t);

@@ -9,6 +9,7 @@
 //     angriffe: [{id, t0, ziel, von, art, relevant, zielArt, t_an, t_ende, ausgang, phase, t_marsch, stuetz, flotten: [flotten-ids]}], naechsteAngriffId,
 //     vorrat: {rom|ger|kon: {T,M,U,E,N}}, marken: {rom,ger,kon}, absichten: {fraktion: {p_act?, aggr?, max_active?}} }
 //   befehl: 'heim' | 'sammeln' | 'angriff' | 'anspruch' | 'rueckzug'.   fraktion der Flotten: rom | ger | kon | pirat.
+//   Optional (SUND-03 A, nur mit Befehlen des Lage-Spielleiters, sonst nie im Zustand): embargo {fraktion: {waren, von, from, bis}}, regie {fraktion: {p_act?, aggr?, max_active?, fokus?, ruhe_bis?, ...}}, flotte.miete, angriff.befohlen (befehle.js).
 //   angriffe enthält die laufenden und die zuletzt beendeten Feldzüge: ein beendeter Feldzug wird `werte.angriff_behalt` Ticks nach seinem Ende entfernt
 //   (sonst wüchse der Zustand mit jedem Feldzug ohne Grenze). Ids kommen aus `naechsteAngriffId` und werden nie wiederverwendet; Verweise auf entfernte
 //   Feldzüge (flotte.angriff, Wissen) müssen mit einer fehlenden Id umgehen können. Die entfernten Datensätze gehen an `messung.angriffe_entfernt`
@@ -329,9 +330,7 @@ function ki(c) {
   }
   for (const fl of z.flotten) {
     if (fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= 0.8 * fl.kap && Zufall.zahl(z) < w.pirat_raid) {
-      let tg = d.nbrP[fl.heimat].filter((code) => z.hexe[code].besitzer !== 'pirat');
-      const pf = z.regie && z.regie.pirat && z.regie.pirat.fokus;   // SUND-03 A: Raubzüge bevorzugt in die Nähe des Fokus (nur, wenn dort ein Ziel liegt)
-      if (pf) { const nah = tg.filter((code) => dd(c, code, pf.hex) <= pf.radius); if (nah.length) tg = nah; }
+      const tg = d.nbrP[fl.heimat].filter((code) => z.hexe[code].besitzer !== 'pirat');
       if (tg.length) {
         const ziel = Zufall.waehle(z, tg);
         const rec = neuerAngriff(z, { ziel, von: 'pirat', art: 'pirat', relevant: z.hexe[ziel].besitzer !== null, zielArt: 'posten', flotten: [fl.id] });

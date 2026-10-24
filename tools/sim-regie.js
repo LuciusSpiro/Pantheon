@@ -6,7 +6,7 @@
 //   node tools/sim-regie.js [--laeufe 100] [--ticks 300] [--saetze 5] [--seed0 0] [--nur <typ|alle>] [--strategie wenig|viel] [--json] [--pruefen]
 //   Strategien: ohne (nichts) · wenig (alle 40 Ticks ab Tick 20 ein Plan) · viel (alle 8 Ticks ab Tick 10 ein Plan). Je Befehlstyp einer, dazu „alle“ (ein zufälliger Typ je Plan).
 //   Seed-Sätze: 5 × 100 (Seeds 0–99, 100–199, …): 0–99 allein war in SUND-02b zu optimistisch.
-//   --pruefen   ein Satz (Seeds 0–99), nur „alle“ wenig und viel: beide müssen in den Bändern bleiben (Teil von npm test), sonst Exit 1
+//   --pruefen   drei Sätze (Seeds 0–299, --saetze ändert es), nur „alle“ wenig und viel: beide müssen in den Bändern bleiben (Teil von npm test, etwa 25 s), sonst Exit 1
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
 const Daten = require('../server/weltsim/daten.js');
@@ -20,7 +20,7 @@ const args = process.argv.slice(2);
 const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
 const PRUEFEN = args.includes('--pruefen');
 const laeufe = Number(argVal('--laeufe', 100)), seed0 = Number(argVal('--seed0', 0));
-const saetze = PRUEFEN ? 1 : Number(argVal('--saetze', 5));
+const saetze = Number(argVal('--saetze', PRUEFEN ? 3 : 5));
 const nur = argVal('--nur', null), nurStrategie = argVal('--strategie', null);
 const { karte, werte } = Daten.laden();
 const ticks = Number(argVal('--ticks', werte.werte.ticks.wert));
@@ -163,12 +163,41 @@ function baendeFehler(z) {
   return f;
 }
 
+// ---------- Kennzahl lage.sieger (Häufigkeit rom / ger / offen über viele Seeds), node tools/sim-regie.js --sieger [--laeufe 100] [--saetze 1]
+function siegerVerteilung() {
+  const ZEITEN = [30, 60, 120, 200, 250, 300];
+  const Z = werte.werte.ticks.wert;
+  const out = {};
+  for (const t of ZEITEN) out[t] = { rom: 0, ger: 0, offen: 0, schwung: 0, n: 0 };
+  const alle = { rom: 0, ger: 0, offen: 0, schwung: 0, n: 0 };
+  for (let i = 0; i < laeufe * saetze; i++) {
+    const z = Kern.erzeuge({ karte, werte, seed: seed0 + i });
+    const ring = [];
+    const game = { weltsim: { zustand: z, tickZahl: 0, ereignisse: ring, regie: Regie.neu() } };
+    for (let t = 1; t <= Math.min(Z, 300); t++) {
+      for (const e of Kern.tick(z).ereignisse) ring.push(Object.assign({ n: t }, e));
+      if (ring.length > 120) ring.splice(0, ring.length - 120);
+      game.weltsim.tickZahl = t;
+      if (ZEITEN.includes(t)) {
+        const l = Regie.lage(game);
+        for (const o of [out[t], alle]) { o[l.sieger]++; o.n++; if (Math.abs(l.schwung.saldo) >= Regie.R.sieger.wert.schwung_min) o.schwung++; }
+      }
+    }
+  }
+  const p = (x, n) => (100 * x / n).toFixed(0).padStart(3) + ' %';
+  console.log(`lage.sieger über ${laeufe * saetze} Läufe (Seeds ${seed0}…${seed0 + laeufe * saetze - 1}), Schwelle Macht ${Regie.R.sieger.wert.macht_schwelle}, Schwung ab ${Regie.R.sieger.wert.schwung_min} Unterschied in ${Regie.R.sieger.wert.schwung_fenster} Ticks:`);
+  console.log('Tick'.padEnd(7) + 'rom'.padStart(7) + 'ger'.padStart(7) + 'offen'.padStart(7) + '  davon durch Schwung');
+  for (const t of ZEITEN) console.log(String(t).padEnd(7) + p(out[t].rom, out[t].n).padStart(7) + p(out[t].ger, out[t].n).padStart(7) + p(out[t].offen, out[t].n).padStart(7) + '  ' + p(out[t].schwung, out[t].n));
+  console.log('alle'.padEnd(7) + p(alle.rom, alle.n).padStart(7) + p(alle.ger, alle.n).padStart(7) + p(alle.offen, alle.n).padStart(7) + '  ' + p(alle.schwung, alle.n));
+}
+if (args.includes('--sieger')) { siegerVerteilung(); process.exit(0); }
+
 // ---------- Ablauf
 const t0 = Date.now();
 const typen = PRUEFEN ? ['alle'] : (nur ? [nur] : TYPEN.concat('alle'));
 const strategien = PRUEFEN ? ['wenig', 'viel'] : (nurStrategie ? [nurStrategie] : ['wenig', 'viel']);
 const zeilen = [];
-for (let satz = 0; satz < saetze; satz++) if (!nur || !PRUEFEN) zeilen.push(messen('-', 'ohne', satz));
+for (let satz = 0; satz < saetze; satz++) zeilen.push(messen('-', 'ohne', satz));
 for (const typ of typen) for (const st of strategien) for (let satz = 0; satz < saetze; satz++) zeilen.push(messen(typ, st, satz));
 if (args.includes('--json')) console.log(JSON.stringify({ laeufe, ticks, saetze, seed0, zeilen }));
 else {

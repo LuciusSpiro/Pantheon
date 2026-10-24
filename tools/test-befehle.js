@@ -50,8 +50,9 @@ section('Daten', () => {
   ok(Number.isInteger(W.je_tick_max.wert) && W.je_tick_max.wert >= 4, 'je_tick_max: ganze Zahl, ausreichend für einen Plan samt Fokus');
   const D = W.dauer.wert;
   ok(['embargo', 'soeldner', 'fokus', 'regler'].every((k) => D[k] && Number.isInteger(D[k].min) && D[k].min >= 1 && D[k].max >= D[k].min), 'Dauer je Typ mit zeitlicher Wirkung: min >= 1, max >= min (alles endet von selbst)');
+  ok(D.embargo.max <= 40 && D.soeldner.max <= 30 && D.fokus.max <= 30 && D.regler.max <= 30, 'Dauer: Obergrenzen kurz genug, dass nichts zum Dauerzustand wird (Embargo höchstens 40 Ticks)');
   ok(W.embargo.wert.waren.every((g) => ['M', 'T', 'E'].includes(g)) && W.embargo.wert.gegen.every((f) => ['rom', 'ger'].includes(f)) && W.embargo.wert.von.join() === 'kon', 'Embargo: nur M, T, E, nur gegen rom und ger, nur von kon');
-  ok(W.fokus.wert.fraktionen.every((f) => ['rom', 'ger', 'pirat'].includes(f)) && W.fokus.wert.radius.min >= 1, 'Fokus: Fraktionen und Radius');
+  ok(W.fokus.wert.fraktionen.join() === 'rom,ger' && W.fokus.wert.radius.min >= 1, 'Fokus: Rom und Germanen (Piraten haben auf dieser Karte je Basis nur ein Raubzugsziel), Radius');
   ok(['p_act', 'aggr', 'max_active'].every((k) => W.regler.wert[k].min < W.regler.wert[k].max) && W.regler.wert.p_act.max <= 1 && W.regler.wert.aggr.max <= 1, 'Regler: Grenzen der drei Regler');
   ok(W.nachschub.wert.guete.every((g) => ['T', 'U'].includes(g)) && W.nachschub.wert.kon_reserve >= 0 && W.nachschub.wert.preis_faktor > 0, 'Nachschub: nur Treibstoff und Munition, Reserve und Preis in den Daten');
   ok(W.soeldner.wert.preis_je_staerke_tick > 0 && W.soeldner.wert.flotten_max >= 1 && W.soeldner.wert.aktiv_max_je_an >= 1, 'Söldner: Mietpreis, Flottenzahl und Obergrenze in den Daten');
@@ -180,6 +181,22 @@ section('angreifen mit festen Flotten', () => {
   ok((GRUND(z, viele) || '').includes('flotten:'), 'mehr als flotten_max Flotten: abgelehnt');
 });
 
+section('angreifen: freie Plätze, Bereitschaft, Reichweite', () => {
+  const z = lage(); z.absichten = { ger: { max_active: 1 } };
+  flotte(z, 18).befehl = 'anspruch'; flotte(z, 18).ziel = '0703';   // eine Flotte der Germanen ist schon unterwegs
+  ok((GRUND(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403' }) || '').includes('keine freie Flotte'), 'max_active erreicht: kein weiterer Angriff');
+  ok((GRUND(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [16] }) || '').includes('keine freie Flotte'), 'auch nicht mit fester Flotte');
+  z.absichten = { ger: { max_active: 2 } };
+  ok((GRUND(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [16, 17] }) || '').includes('mehr Flotten als freie Plätze'), 'zwei feste Flotten bei einem freien Platz: abgelehnt');
+  ok(alleOk(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [16] }), 'eine feste Flotte bei einem freien Platz: gültig');
+  ok((GRUND(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [18] }) || '').includes('nicht bereit'), 'eine Flotte, die unterwegs ist, ist keine feste Flotte');
+  const q = lage(); const d = Kern.datenVon(q);
+  let weit = null;
+  for (const fl of q.flotten) if (fl.fraktion === 'ger' && fl.staerke >= 5) for (const c of d.codes) if (q.hexe[c].besitzer === 'rom' && d.hex[c].hafen && c !== '0204' && Daten.abstand(d, fl.ort, c) > W.angreifen.wert.reichweite) weit = weit || { id: fl.id, ziel: c };
+  ok(!!weit, 'es gibt einen römischen Hafen, der von einer germanischen Flotte weiter als die Reichweite entfernt liegt');
+  if (weit) ok((GRUND(q, { typ: 'angreifen', fraktion: 'ger', ziel: weit.ziel, flotten: [weit.id] }) || '').includes('zu weit'), 'feste Flotte außerhalb der Reichweite: abgelehnt');
+});
+
 section('beanspruchen', () => {
   const z = lage();
   const b = { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' };
@@ -192,6 +209,8 @@ section('beanspruchen', () => {
   for (const [bb, teil] of [[{ typ: 'beanspruchen', fraktion: 'rom', sektor: '0204' }, 'nicht frei'], [{ typ: 'beanspruchen', fraktion: 'rom', sektor: '0602' }, 'nicht frei'], [{ typ: 'beanspruchen', fraktion: 'rom', sektor: 'xx' }, 'unbekannter Sektor'], [{ typ: 'beanspruchen', fraktion: 'pirat', sektor: '0503' }, 'fraktion'], [{ typ: 'beanspruchen', fraktion: 'ger', sektor: '0105' }, 'nicht frei']]) {
     const g = GRUND(z, bb); ok(typeof g === 'string' && g.includes(teil), `${JSON.stringify(bb)} → „${g}“`);
   }
+  const klein = klon(z); Object.assign(klein, { werte: z.werte, karte: z.karte }); for (const fl of klein.flotten) if (fl.fraktion === 'rom') { fl.kap = 4; fl.staerke = 4; }
+  ok((GRUND(klein, { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' }) || '').includes('keine bereite Flotte'), 'beanspruchen: keine Flotte mit Garnisonsstärke (garrison + 1)');
   const e0 = klon(z); Object.assign(e0, { werte: z.werte, karte: z.karte }); e0.vorrat.rom.E = 1;
   ok((GRUND(e0, b) || '').includes('Ersatzteile'), 'ohne Ersatzteile abgelehnt');
   const fern = { typ: 'beanspruchen', fraktion: 'ger', sektor: '0105' };
@@ -278,6 +297,23 @@ section('nachschub', () => {
   ok(plan.gueltig.length === 0, 'ohne Treibstoff ist der Angriff gesperrt');
   const mitNach = B.filtere(dürr, [{ typ: 'nachschub', an: 'ger', gut: 'T', menge: 12 }, ang]);
   ok(mitNach.gueltig.length === 2, 'nach einem Nachschub von 12 geht derselbe Angriff durch (Treibstoff ≥ 10)');
+});
+
+section('Reihenfolge im Tick: erst die Wirtschaft, dann die Befehle', () => {
+  // Der Befehl sieht den Stand NACH dem Handel des Ticks: das Konkordat verkauft erst an Rom und Germanen (sie sind knapp), dann prüft der Nachschub seinen Vorrat.
+  const z = lage(); z.vorrat.kon.T = 12; z.vorrat.rom.T = 2; z.vorrat.ger.T = 2;
+  const b = { typ: 'nachschub', an: 'ger', gut: 'T', menge: 9 };
+  ok(alleOk(z, b), 'vor dem Tick ist der Nachschub gültig (12 − 3 Reserve = 9)');
+  const r = tick1(z, [b]);
+  ok(r.befehle.abgelehnt.length === 1 && /Konkordat hat nicht genug/.test(r.befehle.abgelehnt[0].grund) && r.befehle.angewandt.length === 0, 'im Tick lehnt der Kern ihn ab: der Handel hat dem Konkordat den Treibstoff schon abgenommen (Prüfung gegen den Stand nach der Wirtschaft)');
+  ok(!r.ereignisse.some((e) => e.typ === 'konvoi' && e.handel && e.handel.ger && e.handel.ger.verkauf && e.handel.ger.verkauf.T === 9), 'und es entsteht kein Nachschub-Ereignis');
+  // Die Standard-KI sieht die befohlenen Flotten als aktiv (Befehle vor ki): max_active gilt für beide gemeinsam
+  const q = lage(); q.absichten = { ger: { max_active: 1, p_act: 1, aggr: 1 } };
+  tick1(q, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
+  ok(q.angriffe.filter((a) => a.von === 'ger' && a.art === 'reich').length === 1, 'bei max_active 1 startet die Standard-KI im selben Tick keinen zweiten Feldzug neben dem befohlenen (sie plant um ihn herum)');
+  // Das Konkordat bekommt keine Ruhe
+  const k = lage(); const rk = tick1(k, [{ typ: 'beanspruchen', fraktion: 'kon', sektor: '0503' }]);
+  ok(rk.befehle.angewandt.length === 1 && (!('regie' in k) || !k.regie.kon), 'Ruhe gibt es nur für Rom und Germanen (das Konkordat führt keine Reichsangriffe)');
 });
 
 section('embargo', () => {
@@ -434,8 +470,13 @@ section('piratenueberfall', () => {
   for (const [bb, teil] of [[{ typ: 'piratenueberfall', ort: '0602' }, 'gehört den Piraten'], [{ typ: 'piratenueberfall', ort: 'zz' }, 'unbekannter Ort'], [{ typ: 'piratenueberfall', ort: '0503' }, 'keinen Besitzer'], [{ typ: 'piratenueberfall', ort: '1004' }, 'keine bereite Piratenflotte'], [{ typ: 'piratenueberfall' }, 'unbekannter Ort']]) {
     const g = GRUND(z, bb); ok(typeof g === 'string' && g.includes(teil), `${JSON.stringify(bb)} → „${g}“`);
   }
-  const doppelt = B.filtere(z, [{ typ: 'piratenueberfall', ort }, { typ: 'piratenueberfall', ort }]);
-  ok(doppelt.gueltig.length === 1, 'derselbe Ort nicht zweimal');
+  // zwei bereite Piratenflotten in Reichweite: derselbe Ort trotzdem nicht zweimal
+  const beide = d.codes.find((c) => z.hexe[c].besitzer !== null && z.hexe[c].besitzer !== 'pirat' && z.flotten.filter((f) => f.fraktion === 'pirat' && d.distP[f.heimat][c] !== undefined && d.distP[f.heimat][c] <= W.piratenueberfall.wert.netz_sprunge).length >= 2);
+  ok(!!beide, 'es gibt einen Ort, den zwei Piratenflotten erreichen (' + beide + ')');
+  const doppelt = B.filtere(z, [{ typ: 'piratenueberfall', ort: beide }, { typ: 'piratenueberfall', ort: beide }]);
+  ok(doppelt.gueltig.length === 1 && /läuft schon/.test(doppelt.verworfen[0].grund), 'derselbe Ort nicht zweimal (auch wenn eine zweite Flotte bereit wäre)');
+  const schwach = klon(z); Object.assign(schwach, { werte: z.werte, karte: z.karte }); for (const f of schwach.flotten) if (f.fraktion === 'pirat') f.staerke = 0.5 * f.kap;
+  ok((GRUND(schwach, { typ: 'piratenueberfall', ort }) || '').includes('keine bereite Piratenflotte'), 'angeschlagene Piratenflotten (unter 80 % ihrer Kapazität) sind nicht bereit');
 });
 
 section('keine Zufallszahl', () => {
@@ -492,7 +533,7 @@ section('fokus und regler', () => {
 
 section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   const RUHE = W.ruhe.wert;
-  ok(RUHE.angreifen > 0 && RUHE.nachschub === 0 && RUHE.rueckzug === 0, 'Daten: nur der Angriff ersetzt Angriffe der KI (Nachschub und Rückzug lösen keine Ruhe aus, das lähmte die Fraktion)');
+  ok(RUHE.angreifen > 0 && RUHE.nachschub === 0 && RUHE.verstaerken === 0 && Object.keys(RUHE).every((k) => Object.prototype.hasOwnProperty.call(B.KATALOG, k) && Number.isInteger(RUHE[k]) && RUHE[k] >= 0 && RUHE[k] <= 300), 'Daten: Ruhe je Befehlstyp (der Angriff ersetzt Angriffe der KI; Nachschub und Verstärken lösen keine aus, das lähmte die Fraktion)');
   const z = lage();
   tick1(z, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
   ok(z.regie && z.regie.ger && z.regie.ger.ruhe_bis === z.tick + RUHE.angreifen && !z.regie.rom, 'der Angriff der Germanen setzt ruhe_bis für die Germanen, nicht für Rom');
@@ -514,6 +555,10 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   ok(!('regie' in ab), 'ein abgelehnter Angriff setzt keine Ruhe');
   const nach = lage(); tick1(nach, [{ typ: 'nachschub', an: 'ger', gut: 'T', menge: 5 }]);
   ok(!('regie' in nach), 'Nachschub setzt keine Ruhe');
+  const emb = lage(); tick1(emb, [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T'], dauer: 6 }]);
+  ok(emb.regie && emb.regie.ger && emb.regie.ger.ruhe_bis === emb.tick + RUHE.embargo && !emb.regie.rom, 'Embargo: die Ruhe trifft die Fraktion, gegen die es geht');
+  const anspruch = lage(); tick1(anspruch, [{ typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' }]);
+  ok(anspruch.regie && anspruch.regie.rom && anspruch.regie.rom.ruhe_bis === anspruch.tick + RUHE.beanspruchen, 'Anspruch: die Ruhe trifft die beanspruchende Fraktion');
   // bereinigung
   const b = lage(); b.regie = { ger: { ruhe_bis: 'x' }, rom: { ruhe_bis: 40 } }; B.bereinige(b);
   ok(!b.regie.ger && b.regie.rom && b.regie.rom.ruhe_bis === 40, 'Bereinigung: kaputtes ruhe_bis fällt weg, gültiges bleibt');

@@ -194,7 +194,7 @@ section('Embargo nur gegen die siegreiche Seite', () => {
   const t = szene(); const g = t.g;
   ok(Regie.lage(g).sieger === 'offen', 'Ausgangslage: Sieger offen');
   let r = Regie.planAnwenden(g, { befehle: [emb('rom')] });
-  ok(r.angenommen.length === 0 && /offen/.test(r.abgelehnt[0].grund), 'Sieger offen: kein Embargo (Grund nennt offen)');
+  ok(r.angenommen.length === 0 && /keine entschieden/.test(r.abgelehnt[0].grund), 'Sieger offen: kein Embargo (Grund: derzeit ist keine Seite entschieden)');
   siegerSetzen(g, 'ger');
   ok(Regie.lage(g).sieger === 'ger', 'zwei Eroberungen der Germanen: Sieger ger (Schwung)');
   r = Regie.planAnwenden(g, { befehle: [emb('rom')] });

@@ -79,6 +79,17 @@ section('Inhalt', () => {
   let bel = null, mar = null;
   for (let t = 31; t <= 60 && !(bel && mar); t++) { const q = simSpiel(1, t, angriff); const x = teile(Ausschnitt.ausschnitt(q, { stufe: 0 }).text); if (!mar && x.flotten.unterwegs.length) mar = x; if (!bel && x.flotten.belagert.length) bel = x; }
   ok(!!bel && !!mar, 'es gibt Stände mit Belagerung und mit Marsch');
+  // Gegenprobe gegen die Sim selbst: belagert = Ankunft erfolgt (t_an gesetzt), unterwegs = noch nicht
+  let gleichAlle = true, sahBel = false, sahUnt = false;
+  for (let t = 31; t <= 60; t++) {
+    const qq = simSpiel(1, t, angriff), zq = qq.weltsim.zustand, dq = Daten.datenVon(zq), xq = teile(Ausschnitt.ausschnitt(qq, { stufe: 0 }).text);
+    const wirklichBel = zq.angriffe.filter((r) => r.t_ende === null && r.t_an !== null).map((r) => dq.hex[r.ziel].name).sort().join();
+    const wirklichUnt = zq.angriffe.filter((r) => r.t_ende === null && r.t_an === null).map((r) => dq.hex[r.ziel].name).sort().join();
+    if (xq.flotten.belagert.map((e) => e.ziel).sort().join() !== wirklichBel || xq.flotten.unterwegs.map((e) => e.ziel).sort().join() !== wirklichUnt) gleichAlle = false;
+    if (wirklichBel) sahBel = true;
+    if (wirklichUnt) sahUnt = true;
+  }
+  ok(gleichAlle && sahBel && sahUnt, 'belagert und unterwegs stimmen in jedem Tick mit den Feldzügen der Sim überein (Ankunft t_an gesetzt oder nicht)');
   if (bel) ok(bel.flotten.belagert[0].ziel && bel.flotten.belagert[0].von && typeof bel.flotten.belagert[0].seit === 'number' && typeof bel.flotten.belagert[0].st === 'number' && bel.flotten.belagert[0].b, 'belagert: Ziel, von, seit, Stärke, Besitzer');
   if (mar) ok(mar.flotten.unterwegs[0].ph && mar.flotten.unterwegs[0].ziel && mar.flotten.unterwegs[0].von, 'unterwegs: Ziel, von, Phase');
   const gf = simSpiel(2, 60);
