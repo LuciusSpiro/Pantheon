@@ -225,6 +225,37 @@ section('Embargo nur gegen die siegreiche Seite', () => {
   ok(Regie.lage(t6.g).sieger === 'ger', 'Verluste an Piraten schwächen den Verlierer, ohne dass jemand gewinnt');
 });
 
+section('Globale Befehlsrate', () => {
+  const RT = R.werte.rate.wert;
+  ok(RT.max >= 1 && RT.fenster >= 10 && RT.max <= 50, 'Daten: Rate-Deckel und Fenster');
+  const t = szene(); const g = t.g;
+  // viele gültige, voneinander unabhängige Befehle (Regler je Fraktion, Fokus, Rückzug-freie Typen), Abkühlzeiten beiseite
+  const wiederholen = (k) => { ws(g).regie.letzte = {}; return Regie.planAnwenden(g, { befehle: Array.from({ length: k }, (_, i) => ({ typ: 'regler', fraktion: ['rom', 'ger', 'kon'][i % 3], p_act: 0.2 + 0.01 * i, dauer: 5 })) }); };
+  let angenommen = 0, rateAbgelehnt = 0;
+  for (let i = 0; i < RT.max + 4 && angenommen < RT.max; i++) { const r = wiederholen(R.werte.plan.wert.befehle_max); angenommen += r.angenommen.length; ws(g).regie.vorgemerkt = []; }
+  ok(angenommen === RT.max, `bis zum Deckel werden Befehle angenommen (${angenommen} von ${RT.max})`);
+  const r = wiederholen(2);
+  rateAbgelehnt = r.abgelehnt.filter((a) => /^Rate: /.test(a.grund)).length;
+  ok(r.angenommen.length === 0 && rateAbgelehnt === 2, 'darüber: abgelehnt mit Grund Rate (' + (r.abgelehnt[0] && r.abgelehnt[0].grund) + ')');
+  ok(logbuch(g).some((e) => e.ausgang === 'abgelehnt' && /^Rate: /.test(e.fehler[0])), 'die Ablehnung steht im Regie-Logbuch');
+  // Fenster: nach fenster Ticks sind die Plätze wieder frei
+  ws(g).tickZahl += RT.fenster;
+  const r2 = wiederholen(1);
+  ok(r2.angenommen.length === 1, 'nach dem Fenster nimmt die Rate wieder Befehle an');
+  // innerhalb eines Plans: der Deckel gilt auch mitten im Plan
+  const t2 = szene(); const g2 = t2.g;
+  ws(g2).regie.rate = Array.from({ length: RT.max - 1 }, () => ws(g2).tickZahl);
+  ws(g2).regie.letzte = {};
+  const r3 = Regie.planAnwenden(g2, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }, { typ: 'regler', fraktion: 'ger', p_act: 0.2, dauer: 5 }] });
+  ok(r3.angenommen.length === 1 && r3.abgelehnt.length === 1 && /^Rate: /.test(r3.abgelehnt[0].grund), 'ein Platz frei: der erste Befehl des Plans geht, der zweite scheitert an der Rate');
+  // Weltstand
+  const blk = Regie.toSave(ws(g2));
+  ok(blk && blk.rate && blk.rate.length === RT.max, 'die Rate steht im Weltstand-Block');
+  ok(gleich(Regie.lesen(blk, ws(g2).tickZahl).rate, blk.rate) && Regie.lesen({ rate: [1, 'x', -4, 99999, 3.5, 5] }, 10).rate.join() === '1,5', 'Leser: nur ganze Zahlen im Fenster und nicht aus der Zukunft');
+  ok(Regie.lesen({ rate: Array.from({ length: 500 }, () => 5) }, 10).rate.length <= RT.max, 'Leser: höchstens max Einträge');
+  ok(Regie.lesen({ rate: [1] }, 1 + RT.fenster).rate.length === 0, 'Leser: abgelaufene Einträge fallen weg');
+});
+
 section('Abkühlzeit', () => {
   const t = szene(); const g = t.g;
   const b = { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' };
@@ -441,11 +472,11 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   // Altstand ohne Block
   const alt = klon(d1); delete alt.welt.sim.regie; alt.id = 'w-alt'; fs.writeFileSync(path.join(dir, 'w-alt.json'), JSON.stringify(alt));
   const g5 = F.neuesSpiel({ dir, world: 'w-alt' }).g;
-  ok(g5.phase === 'play' && g5.errors === 0 && gleich(ws(g5).regie, { vorgemerkt: [], letzte: {} }), 'Altstand ohne Block lädt: leer');
+  ok(g5.phase === 'play' && g5.errors === 0 && gleich(ws(g5).regie, { vorgemerkt: [], letzte: {}, rate: [] }), 'Altstand ohne Block lädt: leer');
   tick(g5, 2);
   ok(ws(g5).fehler === 0, 'und tickt fehlerfrei');
   // Müll-fester Leser
-  const T = 50, leer = { vorgemerkt: [], letzte: {} };
+  const T = 50, leer = { vorgemerkt: [], letzte: {}, rate: [] };
   for (const [bl, soll, was] of [[undefined, leer, 'fehlt'], [null, leer, 'null'], ['x', leer, 'String'], [[1], leer, 'Array'], [{}, leer, 'leeres Objekt'], [{ vorgemerkt: 5, letzte: 'x' }, leer, 'alles kaputt'],
     [{ vorgemerkt: [null, 7, 'x', [], {}, { b: 5, ab: 1 }, { b: { typ: 'zaubern' }, ab: 1 }, { b: { typ: 'angreifen' }, ab: 'x' }, { b: { typ: 'angreifen' }, ab: -3 }] }, leer, 'Müll in der Liste'],
     [{ letzte: { 'x y!': 3, ok: -1, a: 'x', 'angreifen:ger': 'x' } }, leer, 'Müll in den Abkühlzeiten']]) ok(gleich(Regie.lesen(bl, T), soll), 'Leser: ' + was);

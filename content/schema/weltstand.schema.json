@@ -171,7 +171,8 @@
               "description": "SUND-03 A: Befehle des Lage-Spielleiters (server/sim/regie-befehle.js, Katalog in server/weltsim/befehle.js, Zahlen in content/welt/befehle-werte.json und regie-werte.json). vorgemerkt: angenommene Befehle, die ab dem Tick ab an die Sim gehen (w = angekündigt, Vorwarnung gesendet); letzte: Tick der letzten Annahme je Typ und Fraktion (Abkühlzeit). Fehlt im Altstand und im Ruhezustand (leer). Embargo, Miete und die Überlagerung der Regie stehen im Sim-Zustand (zustand.embargo, zustand.regie, flotte.miete). Nur der Server schreibt; der Leser verwirft Unbekanntes.",
               "properties": {
                 "vorgemerkt": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["b", "ab"], "additionalProperties": false, "properties": { "b": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }, "ab": { "type": "integer", "minimum": 0 }, "w": { "type": "integer" } } } },
-                "letzte": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+                "letzte": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+                "rate": { "type": "array", "maxItems": 100, "items": { "type": "integer", "minimum": 0 }, "description": "A3: Ticks der angenommenen Befehle im Fenster der globalen Befehlsrate" }
               }
             },
             "posten": {

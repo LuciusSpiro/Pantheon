@@ -47,7 +47,10 @@ const klon = (v) => JSON.parse(JSON.stringify(v));
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const ganz = (v, d) => (Number.isFinite(v) ? Math.floor(v) : d);
 
-const neu = () => ({ vorgemerkt: [], letzte: {} });
+const neu = () => ({ vorgemerkt: [], letzte: {}, rate: [] });
+// Globale Befehlsrate: Ticks der angenommenen Befehle der letzten rate.fenster Ticks (alle Typen und Fraktionen zusammen)
+const RATE = R.rate.wert;
+const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;
 const zustandVon = (game) => { const ws = game.weltsim; if (!ws) return null; if (!ws.regie) ws.regie = neu(); return ws.regie; };
 
 // ---------- Kennzahl „siegreiche Seite“ (lage.sieger)
@@ -177,6 +180,9 @@ function pruefen(game, plan) {
     if (!gueltig.includes(k.b)) { out.abgelehnt.push({ befehl: k.orig, grund: 'abgelehnt' }); continue; }
     const w = trifftRom(z, k.b);
     const ab = n0 + 1 + (w ? vorlaufVon(w.art) : 0);
+    // globale Rate (Regie-Schicht): über dem Deckel wird abgelehnt, mit Grund Rate, nie halb
+    const belegt = rateBelegt(s, n0) + out.angenommen.length;
+    if (belegt >= RATE.max) { out.abgelehnt.push({ befehl: k.orig, grund: `Rate: höchstens ${RATE.max} Befehle je ${RATE.fenster} Ticks (schon ${belegt})` }); continue; }
     out.angenommen.push({ befehl: k.b, ab, vorwarnung: !!w, _w: w, _key: k.key });
   }
   return { out, neu: out.angenommen };
@@ -208,9 +214,11 @@ function planAnwenden(game, plan) {
     schreibe(game, { art: 'lage_befehl', ausgang: 'plan_abgelehnt', fehler: [out.grund], begruendung: 'Plan unbrauchbar, die Standard-KI läuft allein weiter', plan: kurz(plan) });
     return { ok: false, grund: out.grund, angenommen: [], abgelehnt: [], funk };
   }
+  s.rate = s.rate.filter((t) => n0 - t < RATE.fenster);   // alte Einträge der globalen Rate fallen weg
   for (const a of out.angenommen) {
     s.vorgemerkt.push(a._w ? { b: a.befehl, ab: a.ab, w: 1 } : { b: a.befehl, ab: a.ab });
     s.letzte[a._key] = n0;
+    s.rate.push(n0);
     if (a._w) { const f = vorwarnText(a._w, a.ab, n0, a.befehl); if (f) funk.push(f); }
   }
   for (const f of funk) funkSenden(game, f);
@@ -336,10 +344,11 @@ function schreibe(game, eintrag) {
 // ---------- Weltstand welt.sim.regie
 function toSave(ws) {
   const s = ws && ws.regie;
-  if (!s || (!s.vorgemerkt.length && !Object.keys(s.letzte).length)) return null;
+  if (!s || (!s.vorgemerkt.length && !Object.keys(s.letzte).length && !s.rate.length)) return null;
   const b = {};
   if (s.vorgemerkt.length) b.vorgemerkt = s.vorgemerkt.map((e) => (e.w ? { b: klon(e.b), ab: e.ab, w: 1 } : { b: klon(e.b), ab: e.ab }));
   if (Object.keys(s.letzte).length) b.letzte = Object.assign({}, s.letzte);
+  if (s.rate.length) b.rate = s.rate.slice();
   return b;
 }
 // müll-fester Leser: Unbekanntes und Unsinniges fällt weg (Altstand und kaputter Block = leer); Zeiten werden auf die Gegenwart geklemmt
@@ -358,6 +367,7 @@ function lesen(b, tickZahl) {
       out.vorgemerkt.push(eintrag);
     }
   }
+  if (Array.isArray(b.rate)) out.rate = b.rate.filter((x) => Number.isInteger(x) && x >= 0 && x <= t && t - x < RATE.fenster).slice(-RATE.max);   // nur das Fenster, höchstens max Einträge
   if (istObjekt(b.letzte)) {
     for (const [k, v] of Object.entries(b.letzte)) {
       if (Object.keys(out.letzte).length >= R.plan.wert.letzte_max) break;   // die Menge der Schlüssel ist begrenzt (Typ × Fraktion): eine Datei kann den Block nicht aufblähen

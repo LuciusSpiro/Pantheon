@@ -211,6 +211,15 @@ const MUTATIONEN = [
   [R, "ab: Math.min(ab, t + 1 + Math.max(...Object.values(R.vorwarnung.wert.vorlauf), 1)) };", "ab: Math.min(ab, t + 1) };", 'N9 Laden verkürzt den Vorlauf auf einen Tick'],
   [R, "    const w = trifftRom(z, k.b);", "    const w = kand.indexOf(k) === 0 ? trifftRom(z, k.b) : null;", 'N10 nur der erste Befehl im Plan wird angekündigt'],
   [R, "  for (const f of funk) funkSenden(game, f);", "  for (const f of funk.concat(funk)) funkSenden(game, f);", 'N11 Vorwarnung doppelt gefunkt'],
+  // ---- A3: globale Befehlsrate
+  [R, "    if (belegt >= RATE.max) {", "    if (false) {", 'Rate: kein Deckel'],
+  [R, "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;", "const rateBelegt = (s, jetzt) => s.rate.length;", 'Rate: Fenster ignoriert (alte Befehle zählen ewig)'],
+  [R, "    s.rate.push(n0);\n", "", 'Rate: angenommene Befehle werden nicht gezählt'],
+  [R, "const belegt = rateBelegt(s, n0) + out.angenommen.length;", "const belegt = rateBelegt(s, n0);", 'Rate: Deckel gilt nicht mitten im Plan'],
+  [R, "  if (s.rate.length) b.rate = s.rate.slice();", "", 'Rate: wird nicht gespeichert'],
+  [R, ".slice(-RATE.max);   // nur das Fenster", ";   // nur das Fenster", 'Rate: Leser kürzt nicht auf max'],
+  [R, " && t - x < RATE.fenster).slice", ").slice", 'Rate: Leser nimmt abgelaufene Einträge'],
+  [DR, '"rate": {"wert": {"max": 8,', '"rate": {"wert": {"max": 800,', 'Daten: Rate-Deckel riesig'],
   // ---- Ausschnitt
   [L, ".filter((e) => e.typ !== 'konvoi' && !WICHTIG.includes(e.typ))", ".filter((e) => !WICHTIG.includes(e.typ))", 'Ausschnitt: konvoi-Ereignisse'],
   [L, ".slice(-st.ereignisse).map((e) => ereignisKurz(e, d));", ".slice(-99).map((e) => ereignisKurz(e, d));", 'Ausschnitt: Ereignisse werden nicht gekürzt'],
