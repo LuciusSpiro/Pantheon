@@ -259,7 +259,45 @@ const SCRIPT_ERRORS = {
 };
 
 // ---------- Transport 'cli' (live) ----------
-function claudeCli() { return process.env.CLAUDE_CLI || path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'); }
+// SUND-03 F: die Claude-CLI robust finden. Reihenfolge: (1) Env CLAUDE_CLI (Datei .js/.cjs/.mjs: mit Node gestartet, sonst direkt als Programm), (2) cli.js im npm-Paket, (3) der native Build im npm-Paket
+// (bin/claude.exe bzw. bin/claude: neuere Installationen haben kein cli.js mehr), (4) ~/.local/bin/claude(.exe) (USERPROFILE bzw. HOME), (5) claude(.exe) im PATH (ohne Shell: kein .cmd).
+// -> { cmd, args, pfad, quelle, versucht } oder { cmd: null, versucht: [Pfade] }. o: { env, exists, platform, node } für Tests.
+function claudeFinden(o) {
+  o = o || {};
+  const env = o.env || process.env, exists = o.exists || fs.existsSync, plat = o.platform || process.platform, node = o.node || process.execPath;
+  const win = plat === 'win32', exe = win ? 'claude.exe' : 'claude';
+  const versucht = [];
+  const nodeDatei = (p) => /\.(c|m)?js$/i.test(p);
+  const pruefe = (p, quelle) => {
+    if (!p) return null;
+    versucht.push(p);
+    if (!exists(p)) return null;
+    return nodeDatei(p) ? { cmd: node, args: [p], pfad: p, quelle, versucht } : { cmd: p, args: [], pfad: p, quelle, versucht };
+  };
+  let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');
+  if (r) return r;
+  if (env.APPDATA) {
+    const pkg = path.join(env.APPDATA, 'npm', 'node_modules', '@anthropic-ai', 'claude-code');
+    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');
+    if (r) return r;
+  }
+  const heim = win ? env.USERPROFILE : env.HOME;
+  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return r; }
+  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return r; }
+  return { cmd: null, args: [], pfad: null, quelle: null, versucht };
+}
+// Beendet den GANZEN Prozessbaum genau dieses Prozesses (Windows: taskkill /T /F /PID <eigene pid>, nie /IM; sonst die Prozessgruppe, der Prozess startet dafür detached). Nicht blockierend.
+function baumBeenden(p) {
+  if (!p || !p.pid) return;
+  try {
+    if (process.platform === 'win32') {
+      const k = require('child_process').spawn('taskkill', ['/T', '/F', '/PID', String(p.pid)], { stdio: 'ignore', windowsHide: true });
+      k.on('error', () => { try { p.kill(); } catch (e) { /* schon weg */ } });
+      k.unref();
+    } else process.kill(-p.pid, 'SIGKILL');
+  } catch (e) { /* schon weg */ }
+  try { p.kill(); } catch (e) { /* schon weg */ }
+}
 // S2b §4.2: Die CLI hängt sonst CLAUDE.md-Dateien (Projekt + Nutzer) und Auto-Memory an jeden Aufruf (~13k Tokens je Aufruf,
 // gemessen S2: Szene 24k bei ~8k eigenem Prompt). Der Spielleiter braucht nur seinen Systemprompt: neutrales
 // Arbeitsverzeichnis und CLAUDE.md/Memory aus. LLM_CLI_CONTEXT=voll schaltet das für Vergleichsmessungen ab.
@@ -277,20 +315,21 @@ function callClaude(text, sysFile, model, timeoutMs, signal) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
     if (!sysFile) { reject(llmError('EXIT', 'Kein Systemprompt für diese Anfrageart (claude braucht --system-prompt-file)')); return; }
-    const cli = claudeCli();
-    if (!fs.existsSync(cli)) { reject(llmError('ENOENT', `claude nicht gefunden (${cli})`)); return; }
+    const start = claudeFinden();
+    const cli = start.pfad;
+    if (!start.cmd) { reject(llmError('ENOENT', `claude nicht gefunden (versucht: ${start.versucht.join(', ') || 'nichts'}; CLAUDE_CLI setzen)`)); return; }
     const t0 = Date.now();
     let p;
     try {
-      p = spawn(process.execPath, [cli, '-p', '--model', model, '--tools', '', '--output-format', 'stream-json', '--verbose',
+      p = spawn(start.cmd, [...start.args, '-p', '--model', model, '--tools', '', '--output-format', 'stream-json', '--verbose',
         '--include-partial-messages', '--no-session-persistence', '--strict-mcp-config', '--system-prompt-file', sysFile],
-      { env: cliEnv(), cwd: cliCwd(), windowsHide: true });
+      { env: cliEnv(), cwd: cliCwd(), windowsHide: true, detached: process.platform !== 'win32' });   // ohne Shell; unter POSIX eigene Prozessgruppe, damit baumBeenden alles trifft
     } catch (e) { reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar: ${e.message}`)); return; }
     let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false; let aborted = false;
     // SUND-03 A2: der Aufrufer bricht ab (dispose, Timeout in Spielzeit): der Prozess wird beendet statt bis zum eigenen Timer weiterzulaufen
-    const abbrechen = () => { aborted = true; try { p.kill(); } catch (e) { /* schon weg */ } };
+    const abbrechen = () => { aborted = true; baumBeenden(p); };
     if (signal) { if (signal.aborted) abbrechen(); else signal.addEventListener('abort', abbrechen, { once: true }); }
-    const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* schon weg */ } }, timeoutMs || 5 * 60 * 1000);
+    const kill = setTimeout(() => { timedOut = true; baumBeenden(p); }, timeoutMs || 5 * 60 * 1000);
     p.stdout.on('data', (d) => {
       buf += d; let i;
       while ((i = buf.indexOf('\n')) >= 0) {
@@ -435,6 +474,6 @@ function create(opts) {
 
 module.exports = {
   create, key, canonical, canonicalize, record, recordingPath, renderPrompt, buildPrompt, mockGrobplan, mockSzene,
-  budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
+  claudeFinden, baumBeenden, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
   KINDS, MODES, TRANSPORTS, SYSTEM_PROMPTS, DEFAULT_FIXTURES, PROMPT_DIR,
 };
