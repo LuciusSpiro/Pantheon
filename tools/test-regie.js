@@ -451,7 +451,7 @@ section('Weltstand: Altstand, Runde, Müll', () => {
     [{ letzte: { 'x y!': 3, ok: -1, a: 'x', 'angreifen:ger': 'x' } }, leer, 'Müll in den Abkühlzeiten']]) ok(gleich(Regie.lesen(bl, T), soll), 'Leser: ' + was);
   const g6 = Regie.lesen({ vorgemerkt: [{ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 99999, w: 1 }], letzte: { 'angreifen:ger': 99999 } }, T);
   ok(g6.vorgemerkt[0].ab <= T + 1 + 10 && g6.letzte['angreifen:ger'] <= T, 'Zeiten werden geklemmt (kein „wirksam in alle Ewigkeit“, keine Abkühlzeit aus der Zukunft)');
-  const flut = {}; for (let i = 0; i < 500; i++) flut['angreifen:' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26))] = 3; flut.zaubern = 4; flut['angreifen:rom'] = 5;
+  const flut = { zaubern: 4 }; for (let i = 0; i < 500; i++) flut['angreifen:' + String.fromCharCode(97 + (i % 26)) + String.fromCharCode(97 + Math.floor(i / 26))] = 3; flut['angreifen:rom'] = 5;
   const lf = Regie.lesen({ letzte: flut }, T);
   ok(Object.keys(lf.letzte).length <= R.werte.plan.wert.letzte_max && !('zaubern' in lf.letzte), 'Leser: höchstens letzte_max Abkühlzeit-Schlüssel, unbekannte Typen fallen weg');
   const viele = Regie.lesen({ vorgemerkt: Array.from({ length: 30 }, () => ({ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 5 })) }, T);
