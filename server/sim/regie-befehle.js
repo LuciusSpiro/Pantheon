@@ -42,6 +42,8 @@ function texte() {
   try { texteCache = JSON.parse(fs.readFileSync(TEXTE_FILE, 'utf8')); } catch (e) { texteCache = {}; }
   return texteCache;
 }
+// SUND-03 F2: Waren als Aufzählung „Medizin, Treibstoff und Ersatzteile“ (Namen aus content/flotte/lage-befehle.json); die Texte stehen so, dass sie für jede Ware und jede Zahl stimmen
+const warenText = (liste) => { const n = (liste || []).map((g) => (texte().waren || {})[g] || g); return n.length > 1 ? n.slice(0, -1).join(', ') + ' und ' + n[n.length - 1] : n.join(''); };
 const fmt = (s, o) => String(s || '').replace(/\{(\w+)\}/g, (m, k) => (o && o[k] != null ? String(o[k]) : m));
 const klon = (v) => JSON.parse(JSON.stringify(v));
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
@@ -199,7 +201,7 @@ function vorwarnText(w, ab, n0, b) {
   const key = w.art === 'embargo' ? 'embargo' : (w.art + (w.stuetzpunkt ? '_stuetzpunkt' : ''));
   const t = T[key] || T[w.art];
   if (!t) return null;
-  const waren = b.typ === 'embargo' ? b.waren.map((g) => (texte().waren || {})[g] || g).join(', ') : '';
+  const waren = b.typ === 'embargo' ? warenText(b.waren) : '';
   return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: w.ort ? (Sektoren.hexName(w.ort) || w.ort) : '', n: sprung, waren }) };
 }
 
@@ -288,7 +290,7 @@ function entwarnText(b) {
   const t = (texte().entwarnung || {})[key];
   if (!t) return null;
   const ort = b.typ === 'angreifen' ? b.ziel : b.typ === 'piratenueberfall' ? b.ort : null;
-  return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: ort ? (Sektoren.hexName(ort) || ort) : '', waren: b.typ === 'embargo' ? b.waren.map((g) => (texte().waren || {})[g] || g).join(', ') : '' }) };
+  return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: ort ? (Sektoren.hexName(ort) || ort) : '', waren: b.typ === 'embargo' ? warenText(b.waren) : '' }) };
 }
 // Der Tick ist an den fälligen Befehlen gescheitert (Kriegslage.tickMit, im catch, NACH dem Zurückstellen der Sicherung): sie werden verworfen und nicht im nächsten Tick wiederholt, die Sim läuft ohne
 // sie weiter (ein Befehl darf sie nie dauerhaft einfrieren). Logbuch und Entwarnung sofort (der Tick hat nichts committet).
@@ -347,7 +349,7 @@ function nachTick(game, res, faellig, n) {
     out.log.push({ art: 'lage_befehl', ausgang: 'gespielt', key: e.b.typ, plan: e.b, begruendung: 'Tick ' + n });
     if (e.w && e.b.typ === 'embargo') {
       const t = (texte().wirksam || {}).embargo;
-      if (t) out.funk.push({ von: t.sprecher || 'Oberkommando', text: fmt(t.text, { waren: e.b.waren.map((g) => (texte().waren || {})[g] || g).join(', ') }) });
+      if (t) out.funk.push({ von: t.sprecher || 'Oberkommando', text: fmt(t.text, { waren: warenText(e.b.waren) }) });
     }
   }
   return out;
