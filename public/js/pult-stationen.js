@@ -180,12 +180,18 @@
         // SUND-02b UI (Review A1, Bild 07/08): die Karte ist hier nur 184 px hoch; reichen die gestapelten Leisten oben links (Fracht, Höhe halten, Posten …, 266 px breit)
         // bis an den Ring des Schiffs (≈ 26 px um die Mitte), rückt die Mitte der Karte nach rechts neben die Leisten (weich), so weit, dass auch die Bogenbeschriftung über und unter dem Schiff neben den Leisten Platz hat. Nach rechts statt nach unten: unter dem Schiff
         // stehen Posten-/Dock-Beschriftung und der Bogen STB, die sonst aufeinander lägen. Klicks laufen über dieselbe Umrechnung (toW aus cx/cy).
-        const mitteX = mr.x + Math.round(mr.w / 2), stapelUnten = mr.y + 3 + (this.stapelH || 0);
+        // SUND-02b UI2 (Review A2/E): mit Szenenzeile (ab x 264, bis y ≈ 37) beginnen die Leisten unter ihr; vorher deckte das Feld „Römische Schiffe angreifen“ die Zeile „WELLE 1/3“
+        // und die Warnzeile die Bogenbeschriftung. Ohne Sim-Szene ist der Versatz 0 (Kampagne, Limes, Eisenwald unverändert).
+        const ms = Object.assign({}, mr, { y: mr.y + H.szeneRandOben(view, mr.y) });
+        const mitteX = mr.x + Math.round(mr.w / 2), stapelUnten = ms.y + 3 + (this.stapelH || 0);
         const zielX = this.stapelH && stapelUnten > mr.y + Math.round(mr.h / 2) - 26 ? Math.min(mr.x + mr.w - 70, mr.x + 4 + 266 + 58) : mitteX;   // 58: halbe Breite der Bogenbeschriftung oben/unten („BB STANDARD BEREIT“), sie steht dann neben den Leisten
         this.opsMitteX = this.opsMitteX == null ? zielX : Math.abs(zielX - this.opsMitteX) < 0.5 ? zielX : this.opsMitteX + (zielX - this.opsMitteX) * 0.25;
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: mr.y + 3, w: 266, h: this.stapelH }].concat(zielX !== mitteX ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }, { x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }] : []) : [], cx: Math.round(this.opsMitteX) });   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
-        R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, Math.max(mr.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
-        this.drawFracht(c, view, mr); this.drawLpscan(c, view, mr); this.drawZonenscan(c, view, mr); if (this.drawHoehe) this.drawHoehe(c, view, mr); this.drawPersonenBord(c, view, mr); if (this.drawPosten) this.drawPosten(c, view, mr);
+        // SUND-02b UI2: liegt oben eine Szenenzeile oder die Lagefunk-Zeile, entfällt die Zoom-Beschriftung der Karte: unter der Zeile wird die obere Bogenbeschriftung
+        // („BB STANDARD BEREIT“) an den Rand geklemmt und lag in allen Ausweichplätzen darüber; der Wert steht ohnehin auf der Taste „Z Zoom 35 %“ unter SENSOREN
+        const zoomOben = !(H.szeneUnten(view) || (H.funkZeileUnten && H.funkZeileUnten(view)));
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: ms.y + 3, w: 266, h: this.stapelH }].concat(zielX !== mitteX ? (zoomOben ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }] : []).concat([{ x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }]) : []) : [], cx: Math.round(this.opsMitteX) });   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
+        if (zoomOben) R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
+        this.drawFracht(c, view, ms); this.drawLpscan(c, view, ms); this.drawZonenscan(c, view, ms); if (this.drawHoehe) this.drawHoehe(c, view, ms); this.drawPersonenBord(c, view, ms); if (this.drawPosten) this.drawPosten(c, view, ms);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.SpurView) SpurView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.NotrufView) NotrufView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));

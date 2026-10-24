@@ -598,7 +598,7 @@
     helmAlerts(ctx, view, fv) {
       const st = view.state, ship = st.ship || {};
       const t = view.time;
-      let y = fv.win.y + 22;
+      let y = Math.max(fv.win.y + 22, H.szeneUnten(view) + 2);   // SUND-02b UI2: unter der Szenenzeile (sie lag über „AUSWEICHEN!“); ohne Sim-Szene wie vorher
       const evadeAge = view.dodgeFx ? view.dodgeFx.age : 99;
       // laufende Ladungen (kürzeste zuerst)
       const teles = (((st.space && st.space.enemies) || [])).filter(e => e && e.tele).sort((a, b) => n(a.tele.left) - n(b.tele.left));
@@ -1823,23 +1823,39 @@
     drawPosten(ctx, view, rect) {
       const po = view.state && view.state.space && view.state.space.po;
       const halt = view.state && view.state.fracht && view.state.fracht.halt;
-      if (!po || (halt && halt.kind === 'posten')) return;
-      const art = { g: { kopf: 'POSTEN GRÜNDEN', knopf: 'Posten gründen', cmd: 'weapons.posten.gruenden' }, a: { kopf: 'STÜTZPUNKT AUSBAUEN', knopf: 'Stützpunkt ausbauen', cmd: 'weapons.posten.ausbauen' },
-        x: { kopf: 'POSTEN ANGREIFEN', knopf: 'Posten angreifen', cmd: 'weapons.posten.angreifen' },   // SUND-02b A2: x = Posten eines Gegners (sprengen)
-        v: { kopf: 'VERRAT', knopf: po.b ? 'Bestätigen (' + po.b + ' s)' : 'Römische Schiffe angreifen', cmd: 'weapons.verrat.beginnen' } }[po.k];   // SUND-02b E: v = Beschuss auf römische Verbündete (Halteprozess mit Warnung, bewusst, nie versehentlich)
-      if (!art) return;
+      if (!po || (halt && halt.kind === 'posten')) { this.verratB0 = 0; return; }
+      const PA = window.PostenAnzeige;
+      if (!PA) return;
+      // SUND-02b UI2: Bestätigungsfrist des Verrats (b = Restsekunden, größter Wert der laufenden Anfrage = voller Balken)
+      this.verratB0 = po.k === 'v' && po.ok && n(po.b) > 0 ? Math.max(this.verratB0 || 0, n(po.b)) : 0;
+      const F = PA.feld(po, this.verratB0);
+      if (!F) return;
       // SUND-02b UI (Review A1, Bild 07/08): kompakt, damit drei gestapelte Leisten (Fracht, Höhe halten, Posten) Schiff und Posten frei lassen: Knopf mit Kosten in der
       // ersten Zeile (keine eigene Titelzeile), der Weigerungstext darunter höchstens zwei Zeilen; Fläche nur so hoch wie nötig (18 px ohne Text, sonst 18 + 10 je Zeile)
+      // SUND-02b UI2 (Review E): Weigerungen sehen bei allen vier Feldern gleich aus (Messingrahmen, Bernstein, gepunkteter Knopf), auch beim Verrat. Der Verrat hat zwei deutlich
+      // verschiedene Zustände: „Anfrage“ (grauer Knopf, Warnzeile) und „Bestätigen“ (roter Knopf mit blinkendem Rahmen, Großschrift, Restsekunden und ablaufender Fristbalken,
+      // dazu eine eigene Zeile „Zweiter Druck …“). Rot als Text ist Hellrot (PULT.notruf), Alarmrot fiel unter Protanopie auf 3,4 : 1.
+      const T = (window.KarteTokens && KarteTokens.PULT) || {};
+      const FARBE = { gefahr: T.notruf || PAL.red, weigerung: PAL.amber, hinweis: PAL.star, mint: PAL.mint };
       const w = 266, x = rect.x + 4, y = rect.y + 3 + (this.stapelH || 0);
-      const verrat = po.k === 'v';   // SUND-02b E: Hochverrat: rot statt mint, die Warnung steht schon vor dem Druck unter dem Knopf
-      const zeilen = po.ok ? (verrat ? ['Hochverrat an Rom – der Ruf sinkt'] : []) : R.wrap(String(po.t || ''), w - 8, 1).slice(0, 2);
-      const h = 18 + zeilen.length * 10;
+      const zeilen = F.zustand === 'gesperrt' ? R.wrap(F.grund, w - 8, 1).slice(0, 2).map((t) => ({ text: t, farbe: 'weigerung' })) : F.zeilen;
+      const frist = F.frist != null ? 4 : 0;   // Fristbalken unter dem Knopf (nur „Bestätigen“)
+      const h = 18 + frist + zeilen.length * 10;
       this.stapelH = (this.stapelH || 0) + h + 3;
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
-      ctx.strokeStyle = verrat ? PAL.red : po.ok ? PAL.mint : PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
-      const kosten = n(po.n) ? ' · ' + n(po.n) + (n(po.n) === 1 ? ' Ersatzteil' : ' Ersatzteile') : '';
-      R.button(ctx, x + 3, y + 3, w - 6, 12, art.knopf, { text: art.knopf + kosten, disabled: !po.ok, reason: po.t, active: !!po.ok && !verrat, onClick: () => this.cmd(view, art.cmd) });
-      zeilen.forEach((z, i) => R.text(ctx, z, x + 4, y + 17 + i * 10, { color: verrat && po.ok ? PAL.red : PAL.amber }));
+      ctx.strokeStyle = F.rahmen === 'gefahr' ? PAL.red : F.rahmen === 'mint' ? PAL.mint : PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
+      const kosten = F.kosten ? ' · ' + F.kosten + (F.kosten === 1 ? ' Ersatzteil' : ' Ersatzteile') : '';
+      const blink = F.zustand !== 'bestaetigen' || Math.floor((view.time || 0) * 3) % 2 === 0;
+      const klick = () => {
+        if (po.k === 'v') { const jetzt = (view.time || 0); if (!PA.klickZaehlt(this.verratKlick, jetzt)) return; this.verratKlick = jetzt; }   // Doppelklick ist keine Bestätigung
+        this.cmd(view, F.cmd);
+      };
+      R.button(ctx, x + 3, y + 3, w - 6, 12, PA.ART[po.k].knopf, { text: F.knopf + kosten, disabled: F.zustand === 'gesperrt', reason: po.t, active: F.aktiv && blink, fn: F.fn === 'weapon' ? undefined : F.fn || undefined, color: F.fn === 'weapon' ? FARBE.gefahr : undefined, onClick: klick });   // Bestätigen: Fläche Hellrot (Tinte darauf 6,9 : 1, Protanopie 5,3; auf Alarmrot nur 3,4)
+      if (frist) {
+        ctx.fillStyle = T.lampeAus || PAL.dark; ctx.fillRect(x + 4, y + 17, w - 8, 2);
+        ctx.fillStyle = T.warn || PAL.warn; ctx.fillRect(x + 4, y + 17, Math.round((w - 8) * Math.max(0, Math.min(1, F.frist))), 2);
+      }
+      zeilen.forEach((z, i) => R.text(ctx, z.text, x + 4, y + 17 + frist + i * 10, { color: FARBE[z.farbe] || PAL.amber }));
     },
     // SL7b: Landepunkt-Scan der Ops. Sichtbar, wenn ein ungescannter Landepunkt in Reichweite ist (Snapshot lpscan { n, p? }); L hält 4 s.
     drawLpscan(ctx, view, rect) {
@@ -1893,7 +1909,11 @@
       ctx.fillStyle = 'rgba(11,14,26,0.82)'; ctx.fillRect(x, y, w, h);
       ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1);
       const names = f.lager.map(a => (a === 'sprengstoff' ? 'Sprengstoff' : a === 'deuterium' ? 'Deuterium' : 'Fracht'));
-      if (postenHalt) R.text(ctx, f.halt.id === 'ausbau' ? 'STÜTZPUNKT AUSBAUEN' : f.halt.id === 'angreifen' ? 'POSTEN ANGREIFEN' : f.halt.id === 'verrat' ? 'HOCHVERRAT AN ROM' : 'POSTEN GRÜNDEN', x + 4, y + 3, { color: f.halt.id === 'verrat' ? PAL.red : PAL.mint }); else
+      // SUND-02b UI2: Kopf mit Fortschritt und kurze Abbruchzeile aus PostenAnzeige.halt (der lange Hinweis lief über den Rand der Leiste); Rot als Text = Hellrot (Protanopie)
+      const PH = postenHalt && window.PostenAnzeige ? PostenAnzeige.halt(f.halt) : null;
+      const PT = (window.KarteTokens && KarteTokens.PULT) || {};
+      const phFarbe = (k) => (k === 'gefahr' ? PT.notruf || PAL.red : k === 'hinweis' ? PAL.star : PAL.mint);
+      if (PH) R.text(ctx, PH.kopf, x + 4, y + 3, { color: phFarbe(PH.kopfFarbe) }); else
       R.text(ctx, 'FRACHT ' + f.lager.length + '/' + f.cap + (names.length ? ' · ' + names.join(', ') : '') + (f.fr.fuell ? (schoepft ? ' · schöpft ' : ' · Füllstand ') + Math.round(n(f.fr.fuell) * 100) + ' %' : ''), x + 4, y + 3, { color: f.lager.length ? PAL.amber : PAL.panelLight });
       if (f.fr.g === false) R.text(ctx, 'UNGESICHERT', x + w - 4, y + 3, { color: PAL.red, align: 'right' });
       else if (f.fr.abn) R.text(ctx, 'an ' + f.fr.abn, x + w - 4, y + 3, { color: PAL.panelLight, align: 'right' });
@@ -1906,7 +1926,8 @@
       } else if (f.halt) {
         R.button(ctx, x + 4, by, 126, 12, postenHalt ? 'Abbrechen' : 'Beamen abbrechen', { hotkey: postenHalt ? undefined : 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
-        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : f.halt.id === 'angreifen' ? 'Angriff läuft an … ' : f.halt.id === 'verrat' ? 'Angriff auf Rom läuft an … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? (f.halt.id === 'verrat' ? 'Abbruch kostenlos' : 'Feindkontakt, Tempo oder Abstand bricht ab') : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
+        if (PH) R.text(ctx, PH.hinweis, x + 4, y + 27, { color: phFarbe(PH.hinweisFarbe) });
+        else R.text(ctx, (f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (Systemtreffer bricht ab)', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
@@ -1924,15 +1945,16 @@
     drawWeapons(ctx, view) {
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: this.stapelH ? [{ x: rect.x + 4, y: rect.y + 3, w: 266, h: this.stapelH }] : [] });
+      const rs = Object.assign({}, rect, { y: rect.y + H.szeneRandOben(view, rect.y) });   // SUND-02b UI2: Leisten unter der Szenenzeile (ohne Sim-Szene 0)
+      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : [] });
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, Math.max(rect.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
-      this.drawFracht(ctx, view, rect);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
-      this.drawLpscan(ctx, view, rect);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
-      this.drawZonenscan(ctx, view, rect);   // SL7a: Verzerrungen scannen
-      this.drawHoehe(ctx, view, rect);   // U2: Gasriese – Sog und „Höhe halten: Antrieb n erforderlich“
-      this.drawPersonenBord(ctx, view, rect);   // SL0: Personen beamen / abgeben
-      this.drawPosten(ctx, view, rect);   // SUND-02b A1: Posten gründen / Stützpunkt ausbauen (nur Freie Fahrt Sund, space.po)
+      this.drawFracht(ctx, view, rs);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
+      this.drawLpscan(ctx, view, rs);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
+      this.drawZonenscan(ctx, view, rs);   // SL7a: Verzerrungen scannen
+      this.drawHoehe(ctx, view, rs);   // U2: Gasriese – Sog und „Höhe halten: Antrieb n erforderlich“
+      this.drawPersonenBord(ctx, view, rs);   // SL0: Personen beamen / abgeben
+      this.drawPosten(ctx, view, rs);   // SUND-02b A1: Posten gründen / Stützpunkt ausbauen (nur Freie Fahrt Sund, space.po)
       if (window.SondenView) SondenView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL4: Sonde zur Marke
       if (window.SpurView) SpurView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL5: Spur lesen
       if (window.NotrufView) NotrufView.drawButton(ctx, view, rect, (c, extra) => this.cmd(view, c, extra));   // SL8: Notruf entschlüsseln
