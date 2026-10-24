@@ -23,7 +23,7 @@
     "sprung": "Sprung – Angriff abgebrochen. Nichts ist geschehen.",
     "ops": "Niemand mehr an der Ops – Angriff abgebrochen. Nichts ist geschehen."
   },
-  "anfrage": "Hochverrat an Rom: Zum Bestätigen die Taste erneut drücken (innerhalb von {sek} s), sonst verfällt die Anfrage. Der Ruf sinkt erst, wenn der Angriff beginnt.",
+  "anfrage": "Hochverrat an Rom: Zum Bestätigen an der Ops den Knopf erneut drücken (innerhalb von {sek} s), sonst verfällt die Anfrage. Der Ruf sinkt erst, wenn der Angriff beginnt.",
   "faktor": "Rom birgt einen Teil der Besatzungen: nur {pct} % der Verluste gelten.",
   "beginn": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}. Rom wird das nicht vergessen. Der Ruf bei Rom sinkt um {ruf}.",
   "beginnLeise": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}.",
