@@ -142,5 +142,8 @@
   },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "playwright-core": "1.62.0"
   }
 }
