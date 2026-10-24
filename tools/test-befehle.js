@@ -564,6 +564,24 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   ok(!b.regie.ger && b.regie.rom && b.regie.rom.ruhe_bis === 40, 'Bereinigung: kaputtes ruhe_bis fällt weg, gültiges bleibt');
 });
 
+section('Crew vor Regie auch bei Befehlen', () => {
+  const z = lage();
+  const angriffRom = { typ: 'angreifen', fraktion: 'rom', ziel: '0803' }, claimRom = { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' };
+  ok(alleOk(z, angriffRom) && alleOk(z, claimRom), 'ohne Absicht der Crew gehen beide Befehle für Rom durch');
+  z.absichten = { rom: { p_act: 0.12, aggr: 0.4, max_active: 3 } };   // verteidigung
+  ok(/Crew-Absicht aktiv/.test(GRUND(z, angriffRom) || '') && /Crew-Absicht aktiv/.test(GRUND(z, claimRom) || ''), 'Absicht „Die Grenze halten“ (aggr 0,4, p_act 0,12): Angriff und Anspruch für Rom werden abgelehnt (Grund: Crew-Absicht aktiv)');
+  ok(alleOk(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403' }) && alleOk(z, { typ: 'beanspruchen', fraktion: 'ger', sektor: '0705' }), 'die Germanen sind nicht betroffen (die Crew spielt für Rom)');
+  z.absichten = { rom: { p_act: 0.35, aggr: 0.1, max_active: 3 } };   // ausgreifen: viele Ansprüche, kaum Angriffe
+  ok(/Crew-Absicht/.test(GRUND(z, angriffRom) || '') && alleOk(z, claimRom), 'Absicht „Neue Posten setzen“ (aggr 0,1, p_act 0,35): Angriffe gebremst, Ansprüche nicht');
+  z.absichten = { rom: { p_act: 0.4, aggr: 0.7, max_active: 5 } };   // offensive
+  ok(alleOk(z, angriffRom) && alleOk(z, claimRom), 'Absicht „Vorstoß“ (offensiver als die Werte): nichts wird gebremst');
+  z.absichten = { rom: { aggr: 0.3 } }; z.regie = { rom: { aggr: 0.25 } };
+  ok(alleOk(z, angriffRom), 'die Crew bremst nur, wenn ihr Wert unter dem liegt, der ohne sie gälte (Regie-Regler 0,25 gegen Crew 0,3)');
+  const k = klon(z); Object.assign(k, { werte: z.werte, karte: z.karte }); k.absichten = { rom: { p_act: 0.12, aggr: 0.4 } }; k.regie = {};
+  const r = tick1(k, [angriffRom]);
+  ok(r.befehle.abgelehnt.length === 1 && /Crew-Absicht/.test(r.befehle.abgelehnt[0].grund), 'auch im Tick: der Befehl wird abgelehnt (wählt die Crew erst nach der Annahme)');
+});
+
 section('Schichtung: zustand.regie und zustand.absichten', () => {
   const z = lage();
   // Die Crew wählt eine Absicht (zustand.absichten.rom, wie absicht.js), die Regie überlagert Fokus und Regler (zustand.regie)

@@ -52,6 +52,16 @@ function wirksam(z, f) {
   };
 }
 const maxActive = (c, f) => wirksam(c.z, f).max_active;
+// Crew vor Regie auch bei Befehlen: hat die Crew für Rom eine Absicht gewählt (zustand.absichten.rom), die zurückhaltender ist als die Regie-/Standardwerte, bekommt Rom keine Offensiv-Befehle.
+// feld: aggr (Angriffe) oder p_act (Ansprüche, sie hängen an p_act). Gilt nur für Rom: die Crew spielt für Rom.
+function crewBremst(z, f, feld) {
+  if (f !== 'rom') return false;
+  const ab = z.absichten && z.absichten.rom;
+  if (!ab || !Number.isFinite(ab[feld])) return false;
+  const rg = (z.regie && z.regie.rom) || {};
+  const ohne = rg[feld] !== undefined ? rg[feld] : z.werte[feld];
+  return ab[feld] < ohne;
+}
 const aktive = (c, f) => c.z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim');
 // bereit für einen Auftrag: im Heimathafen, ruhig, mindestens 70 % der Kapazität (wie ki())
 const istBereit = (fl) => fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke >= 0.7 * fl.kap;
@@ -105,6 +115,7 @@ const KATALOG = {
       const { z, w, d } = c, A = W.angreifen.wert;
       if (!REICH.includes(b.fraktion)) return 'fraktion muss rom oder ger sein';
       if (!w.war) return 'Krieg ist aus';
+      if (crewBremst(z, b.fraktion, 'aggr')) return 'Crew-Absicht aktiv: Rom hält sich auf Wunsch der Crew zurück';
       if (!istHex(z, b.ziel)) return 'unbekanntes Ziel';
       const nd = z.hexe[b.ziel];
       if (!(H.FRAKTIONEN.includes(nd.besitzer) && H.feindlich(b.fraktion, nd.besitzer) && H.istStuetzknoten(c, b.ziel))) return 'Ziel ist kein feindlicher Hafen oder Posten';
@@ -149,6 +160,7 @@ const KATALOG = {
     pruefe(c, b) {
       const { z, w } = c;
       if (!H.FRAKTIONEN.includes(b.fraktion)) return 'fraktion muss rom, ger oder kon sein';
+      if (crewBremst(z, b.fraktion, 'p_act')) return 'Crew-Absicht aktiv: Rom hält sich auf Wunsch der Crew zurück';
       if (!istHex(z, b.sektor)) return 'unbekannter Sektor';
       if (z.hexe[b.sektor].besitzer !== null || H.istHafen(c, b.sektor)) return 'Sektor ist nicht frei';
       if (z.flotten.some((o) => H.feindlich(b.fraktion, o.fraktion) && o.ort === b.sektor)) return 'feindliche Flotte im Sektor';
