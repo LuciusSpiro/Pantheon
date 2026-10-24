@@ -74,7 +74,7 @@ const MUTATIONEN = [
   ['content/welt/verrat-werte.json', '"anlauf": {"wert": {"dauer": 7}', '"anlauf": {"wert": {"dauer": 0}', 'Daten: Anlauf ohne Dauer'],
   ['content/flotte/verrat.json', '"abgebrochen": "Der Angriff auf die römischen Schiffe ist abgebrochen. Nichts ist geschehen."', '"abgebrochen": "Ok."', 'Text: Abbruch sagt nicht, dass nichts geschehen ist'],
   // Szene (kriegslage-szene.js)
-  [S, "verlustAnteil(S) * (S.modus === 'verrat' ? Verrat.faktor() : 1);", "verlustAnteil(S) * 1;", 'Stellschraube verlust.faktor wirkt im Verrat nicht'],
+  [S, "    f = v0 + (f - v0) * Verrat.faktor();", "    f = v0 + (f - v0);", 'Stellschraube verlust.faktor wirkt im Verrat nicht'],
   [V, "return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 1; }", "return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 0; }", 'verlust.faktor: Müllwert gilt als 0 statt 1'],
   [S, "  if (S.modus === 'verrat') return verratSieg(game, S);\n", "", 'Sieg im Verrat: normaler Szenen-Sieg'],
   [S, "  if (S.modus === 'verrat') return verratNiederlage(game, S, grund);\n", "", 'Niederlage im Verrat: normale Szenen-Niederlage'],
@@ -86,14 +86,14 @@ const MUTATIONEN = [
   [S, "    Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;\n", "    delete sp.retreatRule;\n", 'die alten Gegner der Szene bleiben im Kampf'],
   [S, "    for (const e of neue) e.tag = SZENEN_TAG;\n", "", 'neue Gegner tragen nicht den Szenen-Tag (Szenenende lässt sie nicht abziehen)'],
   [S, "    // 4. die Verbündeten verlassen die Liste (wie aufraeumen, nur für diese Szene)\n    sp.escorts = sp.escorts.filter((q) => q.sim !== S.id);", "    // 4. die Verbündeten verlassen die Liste (wie aufraeumen, nur für diese Szene)", 'die Verbündeten bleiben in der Liste'],
-  [S, "    S.vert.lebend = 0; S.emBasis = game.stats.emergencies || 0;\n    S.verrat = ", "    S.verrat = ", 'Notfallprotokoll zählt im Verrat nicht (lebend bleibt)'],
+  [S, "    S.vert.lebend = 0; S.emBasis = game.stats.emergencies || 0;\n", "", 'Notfallprotokoll zählt im Verrat nicht (lebend bleibt)'],
   [S, "    st.nachschub.length = 0;\n    const w = Flotte.wellenStart(", "    const w = Flotte.wellenStart(", 'Nachschub der alten Welle bleibt'],
   [S, "      S.vert.verloren += e.simPts || 0; S.verrat.tot++;\n      return;", "      S.verrat.tot++;\n      return;", 'Abschüsse im Verrat zählen nicht als Verlust der Römer'],
   [S, "      S.vert.verloren += e.simPts || 0; S.verrat.tot++;\n      return;", "      S.vert.verloren += e.simPts || 0; S.verrat.tot++;", 'Abschüsse im Verrat zählen zusätzlich als Gegnerpunkte'],
   [S, "  if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0 && S.modus !== 'verrat') {", "  if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0) {", 'Verteidiger-erschöpft-Regel gilt im Verrat (Hafen „bricht“)'],
   [S, "  const w = verlustWirkungen(game, S).concat(S.verrat.tot > 0 ? Ruf.verratVernichtet() : []);", "  const w = verlustWirkungen(game, S);", 'Sieg im Verrat ohne Ruf-Abzug'],
   [S, "  const w = verlustWirkungen(game, S).concat(S.verrat.tot > 0 ? Ruf.verratVernichtet() : []);", "  const w = verlustWirkungen(game, S).concat(Ruf.szeneSieg(S, false));", 'Sieg im Verrat gibt Ruf wie ein normaler Sieg (Ruf-Farmen)'],
-  [S, "  const wirk = gueltige(game, verlustWirkungen(game, S));\n  aufraeumen(game, S);\n  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n', o: null, vt: 1 };", "  const wirk = gueltige(game, verlustWirkungen(game, S).concat(Ruf.verratVernichtet()));\n  aufraeumen(game, S);\n  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n', o: null, vt: 1 };", 'Niederlage im Verrat kostet zusätzlich Ruf'],
+  [S, "  const w = verlustWirkungen(game, S);\n  if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // Review E", "  const w = verlustWirkungen(game, S).concat(Ruf.verratVernichtet());\n  if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // Review E", 'Niederlage im Verrat kostet zusätzlich Ruf'],
   [S, "const ruf = imKampf && S.modus !== 'angriff' && S.modus !== 'verrat' ?", "const ruf = imKampf && S.modus !== 'angriff' ?", 'Flucht im Verrat kostet zusätzlich Fahrerflucht-Ruf'],
   [S, "    if (S.modus === 'verrat') x.vt = 1;", "", 'Szenenzeile kennt den Verrat nicht (vt)'],
   [S, "    if (wa) x.w = wa;", "", 'Szenenzeile ohne Warnung (w)'],
@@ -143,7 +143,9 @@ if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l
 const basisWs = lauf(true);
 console.log(`  Ausgangslage Mehrspieler: ${basisWs.status === 0 ? 'grün' : 'ROT (Abbruch)'}`);
 if (basisWs.status !== 0) { console.log((basisWs.stdout || '').split('\n').filter((l) => /FEHLER/.test(l)).slice(0, 5).join('\n')); process.exit(1); }
+const NUR = process.argv.indexOf('--nur') > 0 ? process.argv[process.argv.indexOf('--nur') + 1] : null;   // nur Mutationen, deren Beschreibung den Text enthaelt
 for (const [datei, alt, neu, was, ws] of MUTATIONEN) {
+  if (NUR && !was.includes(NUR)) continue;
   const f = path.join(TMP, datei);
   const orig = fs.readFileSync(f, 'utf8');
   const nl = orig.includes('\r\n');
