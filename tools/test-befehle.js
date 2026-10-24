@@ -548,6 +548,7 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   // Die Wahl der Crew gilt vor der Ruhe
   const c = klon(z); Object.assign(c, { werte: z.werte, karte: z.karte }); c.absichten = { ger: { aggr: 0.7 } };
   ok(B.wirksam(c, 'ger').aggr === 0.7, 'die Wahl der Crew (zustand.absichten) wird von der Ruhe nie überstimmt');
+  ok(W.ruhe_max.wert > 0 && W.ruhe_max.wert <= Math.max(...Object.values(REGIE_DATEN.abkuehlung.wert)) && W.ruhe_max.wert <= 150, 'Daten: ruhe_max ist klein (höchstens so lang wie die längste Abkühlzeit, höchstens 150)');
   ok(W.ruhe_max.wert > 0 && Object.entries(RUHE).every(([k, v]) => v <= W.ruhe_max.wert && v <= REGIE_DATEN.abkuehlung.wert[k]), 'Daten: keine Ruhe ist länger als ruhe_max oder als die Abkühlzeit ihres Befehls (der Spielleiter kann eine Fraktion nicht durch Schweigen stilllegen)');
   // Der Spielleiter gibt EINMAL einen Befehl und danach nichts mehr: die KI der Fraktion greift spätestens nach dem Ablauf der Ruhe wieder an
   let waehrend = 0, danach = 0, probiert = 0;
