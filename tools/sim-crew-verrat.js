@@ -32,8 +32,10 @@ function moeglich(z) {
   const hexe = new Set(z.flotten.filter((f) => Kern.feindlich(f.fraktion, 'rom') && f.staerke >= 1 && FELD.includes(f.befehl)).map((f) => f.ort));
   for (const hex of hexe) {
     const nd = z.hexe[hex]; if (!nd) continue;
+    if (VW.sperre.wert.hexe.includes(hex)) continue;   // Review E: kein Verrat an Roms Hauptwelt
     const flotten = z.flotten.filter((f) => f.ort === hex && f.fraktion === 'rom' && f.staerke > 0);
     const pool = nd.besitzer === 'rom' && (hatHafen(d, hex) || nd.posten) ? (hatHafen(d, hex) ? nd.abwehr : nd.garnison) : 0;
+    if (pool > 0 && pool < VW.sperre.wert.abwehr_min && (nd.besitzer === 'rom' && (hatHafen(d, hex) || nd.posten))) continue;   // Review E: kein Verrat an einem Ort mit letzter Kraft
     if (flotten.length || pool > 0) out.push({ hex, flotten, pool });
   }
   return out;

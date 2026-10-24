@@ -151,6 +151,7 @@ function beamStop(game, grund, text) {
   game.emit('frachtBeamen', { phase: 'abbruch', was: h.kind, grund });
   if (!text && h.kind === 'posten') text = require('./posten.js').stummerAbbruchText(h, grund);   // SUND-02b A1-Fix: Sprung (Szenenwechsel) und Ops verlassen melden sich auch
   if (text) game.oda(text, null);
+  if (h.kind === 'posten' && h.id === 'verrat') require('./verrat.js').abbruchFunk(game, text, grund);   // SUND-02b E-Fix: Abbruch auch in den Lagefunk
   return true;
 }
 // Systemtreffer: Aufruf aus interior.damageSystem (Schildtreffer erreichen diese Funktion nie)

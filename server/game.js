@@ -1861,6 +1861,7 @@ class Game {
         // M3b §3: vx, vy, state (SERVER-FLIGHT)
         if (hasFn('enemySnapExtra')) { const x = space.enemySnapExtra(e); if (x) Object.assign(o, x); }
         if (e.volk && e.volk !== ((C.kennung || {}).gegner || 'ger')) o.vk = e.volk;   // Kennung (Volk, space.volkFuer): fehlt = CONFIG.kennung.gegner bzw. Klasse ohne Kennung
+        if (e.verratS && e.name) o.nm = String(e.name).slice(0, 20);   // SUND-02b E-Fix: ehemalige Verbündete behalten ihren Namen (nur dort gesetzt)
         if (e.flagg) o.fg = 1;   // SUND-02a Client-Runde S1: Flaggschiff der Sim-Szene (Randpfeil in der Frontsicht); nur dort gesetzt
         if (e.st) o.st = e.st;   // B1 §7/§9: 'treibt' = kampfunfähiges Feindschiff (entern.js, liegt in space.treibend)
         if (e.targetId != null) o.tgt = e.targetId;   // S2 §4: Gegner visiert einen Schützling an (sonst fehlt das Feld)

@@ -94,6 +94,8 @@ const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, 
   ok(!(g.fracht && g.fracht.halt) && g.simSzene.modus === undefined && g.weltsim.ruf.rom === ruf0, 'ohne Ops-Sitz und mit gefälschten Nachrichten: kein Anlauf, kein Verrat, Ruf unverändert (nur der Server schreibt)');
 
   // Anlauf über das Netz: alle sehen die Warnung
+  a.send({ t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(300);
+  ok(!(g.fracht && g.fracht.halt) && alle((s) => s.space && s.space.po && s.space.po.b > 0), 'erster Druck: nur Anfrage, kein Anlauf, alle sehen space.po.b (Bestätigung offen)');
   a.send({ t: 'cmd', c: 'weapons.verrat.beginnen' });
   await bis(() => g.fracht && g.fracht.halt && g.fracht.halt.id === 'verrat', 1500);
   await sleep(1000);
@@ -110,7 +112,7 @@ const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, 
   ok(alle((s) => s.flotte && s.flotte.sz && s.flotte.sz.w === undefined), 'die Warnzeile ist bei allen weg');
 
   // zweiter Anlauf bis zum Ende
-  a.send({ t: 'cmd', c: 'weapons.verrat.beginnen' });
+  a.send({ t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(200); a.send({ t: 'cmd', c: 'weapons.verrat.beginnen' });
   await bis(() => g.simSzene && g.simSzene.modus === 'verrat', 6000); await sleep(600);
   ok(g.simSzene && g.simSzene.modus === 'verrat' && g.weltsim.tickZahl === tick0, 'Verrat läuft, der Beginn ist kein Tick');
   const abzug = RUF.quellen.wert.verrat_beginn.delta;

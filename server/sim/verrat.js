@@ -57,14 +57,27 @@ function pruefen(game, laufend) {
   if (!laufend && game.ship.docked) return fehl('docked');
   if (!verbuendete(game, S).length) return fehl('keine_verbuendeten');
   if (transferAus(game)) return fehl('transfer');
+  const sp = W.sperre.wert;
+  if (sp.hexe.includes(S.hex)) return fehl('hauptwelt');
+  const nd = game.weltsim.zustand.hexe[S.hex];
+  if (S.ort && nd && (S.ort === 'hafen' ? nd.abwehr : nd.garnison) < sp.abwehr_min) return fehl('abwehr');
   if (!laufend) { const s = Fracht.state(game); if (s.halt) return fehl('laeuft'); }
   return null;
 }
 
 // ---------- Halteprozess ----------
+// Zweistufig (Review E, nie versehentlich): der erste Druck stellt eine Anfrage (game.verratAnfrage), erst der zweite innerhalb von bestaetigung.fenster beginnt den Anlauf
+const anfrageRest = (game) => { const a = game.verratAnfrage; const f = W.bestaetigung.wert.fenster; return a && game.simSzene && a.szene === game.simSzene.id && a.bis > game.time && a.bis - game.time <= f ? a.bis - game.time : 0; };
 function verratStart(game, p) {   // eslint-disable-line no-unused-vars
   const e = pruefen(game, false);
   if (e) return e.text;
+  if (!anfrageRest(game)) {
+    const f = W.bestaetigung.wert.fenster;
+    game.verratAnfrage = { szene: game.simSzene.id, bis: game.time + f };
+    sz().funk(game, text('anfrage', { sek: Math.round(f) }), { reiter: 1 });
+    return null;
+  }
+  game.verratAnfrage = null;
   const s = Fracht.state(game);
   s.halt = { kind: 'posten', id: 'verrat', t: 0, dur: W.anlauf.wert.dauer, hex: game.simSzene.hex };
   game.emit('frachtBeamen', { phase: 'start', was: 'posten', dur: s.halt.dur });
@@ -89,7 +102,7 @@ function haltWeiter(game, h) {
 // Abschluss: erst die Szene umschalten (mit eigenem Rollback), dann der Ruf. Scheitert die Umschaltung, kostet es nichts (kein Ruf, die Szene bleibt wie sie war).
 function haltFertig(game, h) {
   const e = pruefen(game, true);
-  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(e.code), null); return false; }
+  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(e.code), null); abbruchFunk(game, abbruchText(e.code)); return false; }
   const S0 = game.simSzene;
   if (!S0 || S0.hex !== h.hex) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'ort' }); return false; }
   const beginn = Ruf.verratBeginn();
@@ -99,8 +112,9 @@ function haltFertig(game, h) {
   try { S = sz().verratStarten(game); } catch (err) { if (game.countError) game.countError('verrat-start', err); }
   if (!S) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'szene' }); game.oda(abbruchText('szene'), null); return false; }
   // Ab hier gilt der Verrat: der Ruf-Abzug nur jetzt, nicht im Halteprozess
+  const ruf0 = Ruf.ruf(game, 'rom');
   const r = kl().rufBuchen(game, beginn);
-  const abzug = beginn.length ? Math.abs(beginn[0].delta) : 0;
+  const abzug = r.ok ? Math.round((ruf0 - Ruf.ruf(game, 'rom')) * 100) / 100 : 0;   // der tatsächliche Abzug (bei Rom 0 gibt es keinen)
   game.emit('frachtBeamen', { phase: 'fertig', was: 'posten', art: 'verrat' });
   const ort = S.ortName;
   sz().funk(game, text(r.ok && abzug ? 'beginn' : 'beginnLeise', { ort, ruf: abzug }), { reiter: 1, log: (texte().log || {}).beginn });
@@ -110,6 +124,14 @@ function haltFertig(game, h) {
   return true;
 }
 
+// Abbruch auch in den Lagefunk (der LAGE-Ticker zeigt sonst nur die Warnung ohne Auflösung); Aufruf aus fracht.beamStop und haltFertig
+function abbruchFunk(game, t, grund) {
+  const k = { transfer: 'transfer', szene: 'sprung', taktik: 'ops', abgebrochen: 'abgebrochen' }[grund];
+  const x = (k && (texte().abbruch || {})[k]) || t;
+  if (x && game.simSzene) sz().funk(game, x);
+}
+// Hinweis, wenn verlust.faktor < 1 (das Spiel sagt es, nicht still); bei 1 leer
+function faktorText() { const f = faktor(); return f < 1 ? text('faktor', { pct: Math.round(f * 100) }) : ''; }
 // Anteil der Verluste der römischen Seite, der im Verrat gebucht wird (Daten verlust.faktor, 0..1; Stellschraube gegen die SUND-01-Bänder, README SUND-02b E)
 function faktor() { const f = Number(W.verlust.wert.faktor); return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 1; }
 
@@ -135,6 +157,7 @@ function snapshot(game) {
   const e = pruefen(game, false);
   // ein laufender Halteprozess blockiert nur die Starttaste: die Fracht-Leiste zeigt dann den Fortschritt
   const out = { k: 'v', ok: e ? 0 : 1 };
+  const b = anfrageRest(game); if (b > 0) out.b = Math.ceil(b);   // Bestätigung offen: Restsekunden (Knopf „Bestätigen“)
   if (e) out.t = e.text;
   return out;
 }
@@ -145,4 +168,4 @@ function warnung(game) {
   return [Math.max(0, Math.ceil(h.dur - h.t)), Math.round(h.dur)];
 }
 
-module.exports = { verratStart, pruefen, haltWeiter, haltFertig, stummerAbbruchText, snapshot, warnung, gedaechtnis, lesen, text, texte, verbuendete, faktor, W };
+module.exports = { verratStart, pruefen, haltWeiter, haltFertig, stummerAbbruchText, snapshot, warnung, gedaechtnis, lesen, text, texte, verbuendete, faktor, faktorText, abbruchFunk, W };

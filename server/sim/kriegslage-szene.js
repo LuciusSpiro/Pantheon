@@ -156,7 +156,11 @@ function verlustWirkungen(game, S) {
   const live = S.angreifer.map((a) => ({ id: a.id, staerke: (flotteMit(z, a.id) || { staerke: 0 }).staerke })).filter((a) => a.staerke > 0);
   const teil = verteile(S.killPunkte, live);
   for (const a of live) if (teil[a.id] > 0) w.push({ typ: 'flotte_verlust', flotte: a.id, punkte: teil[a.id] });
-  const f = verlustAnteil(S) * (S.modus === 'verrat' ? Verrat.faktor() : 1);   // SUND-02b E: im Verrat bucht die Szene nur den Anteil verlust.faktor der Verluste (Daten, Stellschraube gegen die Bänder)
+  let f = verlustAnteil(S);
+  if (S.modus === 'verrat' && S.vert.ges > 0) {   // SUND-02b E: Verluste VOR der Umschaltung (Germanen) gelten voll wie ohne Verrat; nur die danach durch die Crew vernichteten Punkte gehen mit verlust.faktor ein (Daten, Stellschraube gegen die Bänder; Review E: sonst schützte der Verrat Rom)
+    const v0 = Math.min(1, (S.vert.verloren0 || 0) / S.vert.ges);
+    f = v0 + (f - v0) * Verrat.faktor();
+  }
   if (f > 0) {
     for (const g of S.vert.gruppen) {
       if (g.typ === 'flotte') {
@@ -309,6 +313,7 @@ function verratSieg(game, S) {
   endeAufraeumen(game);
   if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);
   funk(game, Verrat.text('sieg'), { reiter: 1, log: (Verrat.texte().log || {}).sieg });
+  funk(game, Verrat.faktorText());
   merken(game, S, 'sieg', wirk, { verrat: true, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
 }
@@ -316,7 +321,9 @@ function verratSieg(game, S) {
 function verratNiederlage(game, S, grund) {
   S.phase = 'ende';
   const T = texte();
-  const wirk = gueltige(game, verlustWirkungen(game, S));
+  const w = verlustWirkungen(game, S);
+  if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // Review E: der Fall des Orts gilt wie ohne Verrat (der Prüfer lehnt ab, was nicht gilt: ohne laufende Belagerung fällt nichts)
+  const wirk = gueltige(game, w);
   aufraeumen(game, S);
   game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n', o: null, vt: 1 };
   const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
@@ -324,6 +331,7 @@ function verratNiederlage(game, S, grund) {
   if (!r.ok) return gescheitert(game, S, 'niederlage', wirk, r);
   funk(game, (T.niederlage || {})[grund]);
   funk(game, Verrat.text('niederlage'), { reiter: 1, log: (Verrat.texte().log || {}).niederlage });
+  funk(game, Verrat.faktorText());
   merken(game, S, 'niederlage', wirk, { verrat: true, grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
 }
@@ -483,7 +491,7 @@ function verratStarten(game) {
   const sp = game.space; const st = Flotte.state(game); const C = game.C;
   const ex = Verrat.verbuendete(game, S);
   if (!ex.length || ex.some((q) => !C.enemies[q.kind])) return null;
-  const P = C.wellenplan.punkte; const hmin = Number(Verrat.W.huelle_min.wert) || 0.1;
+  const P = C.wellenplan.punkte; const hmin = Number(Verrat.W.huelle_min.wert);   // Daten, kein Rückfall im Code
   const sicher = { escorts: sp.escorts.slice(), gone: sp.escortsGone ? sp.escortsGone.slice() : null, enemies: sp.enemies.slice(), retreat: sp.retreatRule, welle: st.welle, nachschub: st.nachschub.slice(),
     S: { modus: S.modus, phase: S.phase, finale: S.finale, flaggGefallen: S.flaggGefallen, start: S.start, vert: Object.assign({}, S.vert), emBasis: S.emBasis, verrat: S.verrat, erinnern: S.erinnern } };
   try {
@@ -505,6 +513,7 @@ function verratStarten(game) {
     // 3. ab hier wirft nichts mehr: die Gegner der Szene drehen ab (sofort; die Regel wird gleich wieder gelöscht), die neuen tragen den Szenen-Tag (das Szenenende lässt sie abziehen)
     Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;
     for (const e of neue) e.tag = SZENEN_TAG;
+    for (const e of sp.enemies) if (e.tag === SZENEN_TAG && !e.verratS) e.ohneBeute = true;   // Review E: auch die abziehenden Gegner der Szene geben im Verrat keine Marken (kein lohnendes Ziel)
     // 4. die Verbündeten verlassen die Liste (wie aufraeumen, nur für diese Szene)
     sp.escorts = sp.escorts.filter((q) => q.sim !== S.id);
     if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((g) => !String(g.tag || '').startsWith('sz' + S.id + '_'));
@@ -512,6 +521,7 @@ function verratStarten(game) {
     S.vor = S.modus || 'normal'; S.modus = 'verrat';
     S.phase = 'kampf'; S.start = Math.min(S.start, game.time); S.finale = true; S.flaggGefallen = false; S.erinnern = [];
     S.vert.lebend = 0; S.emBasis = game.stats.emergencies || 0;
+    S.vert.verloren0 = S.vert.verloren;   // Stand bei der Umschaltung: davor gilt der Faktor nicht
     S.verrat = { t0: game.time, n0: ex.length, tot: 0 };
   } catch (err) {
     sp.escorts = sicher.escorts; if (sicher.gone) sp.escortsGone = sicher.gone;

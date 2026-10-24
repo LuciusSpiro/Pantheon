@@ -11,7 +11,9 @@
     "keine_verbuendeten": "Keine römischen Schiffe in der Szene.",
     "transfer": "Transfer ausgefallen – erst reparieren.",
     "docked": "Erst ablegen.",
-    "laeuft": "Ein Transfer läuft bereits."
+    "laeuft": "Ein Transfer läuft bereits.",
+    "hauptwelt": "An Roms Hauptwelt gibt es keinen Verrat.",
+    "abwehr": "Rom hält diesen Ort nur noch mit letzter Kraft – kein Verrat."
   },
   "abbruch": {
     "abgebrochen": "Der Angriff auf die römischen Schiffe ist abgebrochen. Nichts ist geschehen.",
@@ -21,6 +23,8 @@
     "sprung": "Sprung – Angriff abgebrochen. Nichts ist geschehen.",
     "ops": "Niemand mehr an der Ops – Angriff abgebrochen. Nichts ist geschehen."
   },
+  "anfrage": "Hochverrat an Rom: Zum Bestätigen die Taste erneut drücken (innerhalb von {sek} s), sonst verfällt die Anfrage. Der Ruf sinkt erst, wenn der Angriff beginnt.",
+  "faktor": "Rom birgt einen Teil der Besatzungen: nur {pct} % der Verluste gelten.",
   "beginn": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}. Rom wird das nicht vergessen. Der Ruf bei Rom sinkt um {ruf}.",
   "beginnLeise": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}.",
   "feinde": "{n} ehemalige Verbündete gehen gegen die Lerche vor, die übrigen Gegner der Szene drehen ab.",
