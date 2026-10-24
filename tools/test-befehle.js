@@ -82,6 +82,17 @@ section('Bit-Parität: Referenz', () => {
   ok(wirft, 'befehle, die keine Liste sind, werfen (Programmierfehler, nicht still ignorieren)');
 });
 
+section('Obergrenze je Tick', () => {
+  const z = lage();
+  const r = { typ: 'regler', fraktion: 'rom', p_act: 0.3, dauer: 5 };
+  const liste = Array.from({ length: W.je_tick_max.wert + 1 }, () => r);
+  const f = B.filtere(z, liste);
+  ok(f.gueltig.length === W.je_tick_max.wert && f.verworfen.length === 1 && /mehr als \d+ Befehle in einem Tick/.test(f.verworfen[0].grund), `filtere: höchstens ${W.je_tick_max.wert} Befehle, der Rest wird mit Grund verworfen`);
+  const q = klon(z); Object.assign(q, { werte: z.werte, karte: z.karte });
+  const t = tick1(q, liste);
+  ok(t.befehle.angewandt.length === W.je_tick_max.wert && t.befehle.abgelehnt.length === 1 && /mehr als \d+ Befehle in einem Tick/.test(t.befehle.abgelehnt[0].grund), 'Tick: höchstens je_tick_max Befehle angewandt, der Rest abgelehnt (Grund geht zurück)');
+});
+
 section('Prüfer: unbekannt und Müll', () => {
   const z = lage();
   for (const [b, teil] of [[null, 'kein Befehl'], [[], 'kein Befehl'], ['angreifen', 'kein Befehl'], [{}, 'unbekannter Typ'], [{ typ: 'zaubern' }, 'unbekannter Typ'], [{ typ: '__proto__' }, 'unbekannter Typ'], [{ typ: 'toString' }, 'unbekannter Typ'], [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403', extra: 1 }, 'unbekanntes Feld']]) {
@@ -477,6 +488,35 @@ section('fokus und regler', () => {
   ok(B.wirksam(z3, 'ger').p_act === z.werte.p_act && B.wirksam(z3, 'kon').max_active === z.werte.max_active.kon, 'andere Fraktionen unverändert (Werte)');
   for (let i = 0; i < 9; i++) Kern.tick(z3);
   ok(!('regie' in z3) && B.wirksam(z3, 'rom').p_act === z.werte.p_act, 'Regler enden von selbst');
+});
+
+section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
+  const RUHE = W.ruhe.wert;
+  ok(RUHE.angreifen > 0 && RUHE.nachschub === 0 && RUHE.rueckzug === 0, 'Daten: nur der Angriff ersetzt Angriffe der KI (Nachschub und Rückzug lösen keine Ruhe aus, das lähmte die Fraktion)');
+  const z = lage();
+  tick1(z, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
+  ok(z.regie && z.regie.ger && z.regie.ger.ruhe_bis === z.tick + RUHE.angreifen && !z.regie.rom, 'der Angriff der Germanen setzt ruhe_bis für die Germanen, nicht für Rom');
+  ok(B.wirksam(z, 'ger').aggr === 0 && B.wirksam(z, 'rom').aggr === z.werte.aggr, 'wirksam: aggr 0 für die Germanen, Rom unberührt');
+  // Die Wahl der Crew gilt vor der Ruhe
+  const c = klon(z); Object.assign(c, { werte: z.werte, karte: z.karte }); c.absichten = { ger: { aggr: 0.7 } };
+  ok(B.wirksam(c, 'ger').aggr === 0.7, 'die Wahl der Crew (zustand.absichten) wird von der Ruhe nie überstimmt');
+  // Ruhe endet von selbst und räumt auf
+  for (let i = 0; i < RUHE.angreifen + 2; i++) Kern.tick(z);
+  ok(!('regie' in z) && B.wirksam(z, 'ger').aggr === z.werte.aggr, 'die Ruhe endet nach ruhe Ticks und räumt zustand.regie auf');
+  // Messung: während der Ruhe beginnt die KI keine eigenen Reichsangriffe
+  const std = (ruhe) => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.absichten = { ger: { p_act: 0.5, aggr: 0.9 } }; if (ruhe) q.regie = { ger: { ruhe_bis: 9999 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; };
+  ok(std(false) > 0, 'Gegenprobe: ohne Ruhe greift die Standard-KI der Germanen an');
+  // mit Wahl der Crew gilt aggr 0,9 weiter: dort ändert die Ruhe nichts (absichten vor regie)
+  const sr = (() => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: { ruhe_bis: 9999 } }; q.absichten = { ger: { p_act: 0.5 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; })();
+  ok(sr === 0, 'unter Ruhe beginnt die Standard-KI der Germanen keine Reichsangriffe (60 Ticks, 16 Seeds, Munition und Treibstoff im Überfluss)');
+  // Ruhe nur nach angenommenen Befehlen
+  const ab = lage(); tick1(ab, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0204' }]);
+  ok(!('regie' in ab), 'ein abgelehnter Angriff setzt keine Ruhe');
+  const nach = lage(); tick1(nach, [{ typ: 'nachschub', an: 'ger', gut: 'T', menge: 5 }]);
+  ok(!('regie' in nach), 'Nachschub setzt keine Ruhe');
+  // bereinigung
+  const b = lage(); b.regie = { ger: { ruhe_bis: 'x' }, rom: { ruhe_bis: 40 } }; B.bereinige(b);
+  ok(!b.regie.ger && b.regie.rom && b.regie.rom.ruhe_bis === 40, 'Bereinigung: kaputtes ruhe_bis fällt weg, gültiges bleibt');
 });
 
 section('Schichtung: zustand.regie und zustand.absichten', () => {

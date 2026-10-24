@@ -135,6 +135,14 @@ section('Annahme und Ablehnung mit Grund', () => {
   const keinR = Regie.rueckfall({ weltsim: null }, 'x'); ok(keinR === 0, 'rueckfall ohne Modus tut nichts');
 });
 
+section('Warteschlange: Obergrenze', () => {
+  const t = szene(); const g = t.g;
+  const max = R.werte.plan.wert.vorgemerkt_max;
+  ws(g).regie.vorgemerkt = Array.from({ length: max - 1 }, () => ({ b: { typ: 'regler', fraktion: 'kon', p_act: 0.2, dauer: 5 }, ab: 999 }));
+  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_GER, { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' }] });
+  ok(r.angenommen.length === 1 && r.abgelehnt.length === 1 && /zu viele wartende Befehle/.test(r.abgelehnt[0].grund) && ws(g).regie.vorgemerkt.length === max, `höchstens ${max} wartende Befehle (der Rest wird mit Grund abgelehnt)`);
+});
+
 section('Vorwarnung: Gefahr wird angekündigt', () => {
   const t = szene(); const g = t.g;
   const n0 = ws(g).tickZahl;
@@ -237,7 +245,7 @@ section('Abkühlzeit', () => {
   const r2 = Regie.planAnwenden(t2.g, { befehle: [b, { typ: 'beanspruchen', fraktion: 'rom', sektor: '0505' }] });
   ok(r2.angenommen.length === 1 && /schon im selben Plan/.test(r2.abgelehnt[0].grund), 'zwei Befehle desselben Typs für dieselbe Fraktion in einem Plan: der zweite wartet');
   // Rückzug hat keine Abkühlzeit (0)
-  ok(R.werte.abkuehlung.wert.rueckzug === 0, 'Rückzug ist nie gesperrt (Abkühlzeit 0: wer zurück will, darf zurück)');
+  ok(Object.values(R.werte.abkuehlung.wert).every((v) => Number.isInteger(v) && v >= 0 && v <= 200), 'alle Abkühlzeiten sind ganze Zahlen in vernünftigem Bereich (sie sind gemessen, tools/sim-regie.js)');
   // Abkühlzeit überlebt Speichern und Laden
   const blk = Regie.toSave(ws(g));
   ok(blk && blk.letzte && Object.keys(blk.letzte).length >= 1, 'die Abkühlzeiten stehen im Weltstand-Block');

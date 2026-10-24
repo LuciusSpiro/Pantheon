@@ -39,7 +39,9 @@ function wirksam(z, f) {
   const w = z.werte, ab = (z.absichten && z.absichten[f]) || {}, rg = (z.regie && z.regie[f]) || {};
   return {
     p_act: ab.p_act !== undefined ? ab.p_act : (rg.p_act !== undefined ? rg.p_act : w.p_act),
-    aggr: ab.aggr !== undefined ? ab.aggr : (rg.aggr !== undefined ? rg.aggr : w.aggr),
+    // ruhe_bis (SUND-03 A): nach einem Befehl der Regie für diese Fraktion beginnt die Standard-KI keine eigenen Reichsangriffe, solange die Ruhe gilt (der Befehl ersetzt sie, kein Gratis-Ertrag);
+    // die Wahl der Crew gilt auch hier vor allem anderen
+    aggr: ab.aggr !== undefined ? ab.aggr : (rg.ruhe_bis !== undefined && z.tick < rg.ruhe_bis ? 0 : (rg.aggr !== undefined ? rg.aggr : w.aggr)),
     max_active: ab.max_active !== undefined ? ab.max_active : (rg.max_active !== undefined ? rg.max_active : w.max_active[f]),
     fokus: rg.fokus || null,
   };
@@ -319,6 +321,14 @@ const KATALOG = {
   },
 };
 
+// Die Standard-KI der betroffenen Fraktion hält sich nach einem Befehl für ruhe[typ] Ticks mit eigenen Reichsangriffen zurück (Daten ruhe): ein befohlener Angriff ersetzt einen der KI, statt zu ihr
+// hinzuzukommen. Ohne Eintrag für den Typ geschieht nichts. Die Fraktion: fraktion (angreifen, beanspruchen, verstaerken, rueckzug) oder an (nachschub, soeldner).
+function ruheSetzen(c, b) {
+  const t = W.ruhe && W.ruhe.wert[b.typ], f = b.fraktion || b.an;
+  if (!(t > 0) || !REICH.includes(f)) return;
+  const rg = regieEintrag(c.z, f);
+  rg.ruhe_bis = Math.max(rg.ruhe_bis || 0, c.z.tick + t);
+}
 const mietPreis = (fl, dauer) => Math.round(fl.staerke * dauer * W.soeldner.wert.preis_je_staerke_tick);
 function regieEintrag(z, f) {
   if (!z.regie) z.regie = {};
@@ -371,6 +381,7 @@ function anwenden(c) {
     const p = pruefeIn(c, b);
     if (!p.ok) { c.abgelehnt.push({ befehl: b, grund: p.grund }); continue; }
     KATALOG[b.typ].anwenden(c, b);
+    ruheSetzen(c, b);
     c.angewandt.push(b); n++;
   }
 }
@@ -390,6 +401,7 @@ function ablauf(c) {
     for (const f of Object.keys(z.regie)) {
       const rg = z.regie[f];
       if (rg.fokus && z.tick >= rg.fokus.bis) delete rg.fokus;
+      if (rg.ruhe_bis !== undefined && z.tick >= rg.ruhe_bis) delete rg.ruhe_bis;
       if (rg.regler_bis !== undefined && z.tick >= rg.regler_bis) { for (const k of REGLER_FELDER) delete rg[k]; delete rg.regler_bis; }
       if (!Object.keys(rg).length) delete z.regie[f];
     }
@@ -431,6 +443,7 @@ function bereinige(z) {
         const x = {};
         for (const k of REGLER_FELDER) if (istZahl(e[k])) x[k] = e[k];
         if (ganzZahl(e.regler_bis) && Object.keys(x).length) x.regler_bis = e.regler_bis; else for (const k of REGLER_FELDER) delete x[k];
+        if (ganzZahl(e.ruhe_bis)) x.ruhe_bis = e.ruhe_bis;
         const fk = e.fokus;
         if (fk && typeof fk === 'object' && typeof fk.hex === 'string' && has(z.hexe, fk.hex) && Number.isInteger(fk.radius) && fk.radius >= 0 && ganzZahl(fk.bis)) x.fokus = { hex: fk.hex, radius: fk.radius, bis: fk.bis };
         if (Object.keys(x).length) out[f] = x;

@@ -71,6 +71,8 @@ section('Inhalt', () => {
   const ring = g.weltsim.ereignisse;
   ok(ring.filter((e) => e.typ === 'konvoi').length > 20, 'Gegenprobe: der Ring ist voller konvoi-Ereignisse (' + ring.filter((e) => e.typ === 'konvoi').length + ' von ' + ring.length + ')');
   ok(d.chronik.length === 8 && d.chronik[7] === 'Tätigkeit Nr. 7 beendet', 'Chronik: die letzten 8 Texte (nur Text, ersetzt die Chronik aus dem Kampagnen-Kontext)');
+  const lang = simSpiel(2, 60, { lang: 600 });
+  ok(teile(Ausschnitt.ausschnitt(lang, { stufe: 0 }).text).chronik.every((c) => c.length <= A.chronik_zeichen), 'ein langer Chronikeintrag wird auf chronik_zeichen gekürzt');
   ok(['rom', 'ger', 'offen'].includes(d.lage.sieger) && typeof d.lage.anteil === 'number', 'Kennzahl lage.sieger (rom, ger, offen)');
   // Belagerung, Marsch und Gefallene sichtbar (die Sim ist friedlich: gesucht wird über Seeds, Gefallene kommen zusätzlich aus dem Ring)
   const angriff = { vor: (zz, t) => { if (t === 30) { zz.vorrat.ger.T = 40; zz.vorrat.ger.U = 40; } }, befehle: { 30: [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }] } };
