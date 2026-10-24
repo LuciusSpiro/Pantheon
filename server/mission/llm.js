@@ -26,6 +26,8 @@
 // (String), wird genau dieser Text gesendet, sonst eine Standardform aus dem Objekt (renderPrompt). Hat es 'system'
 // (Dateipfad), ist das der Systemprompt.
 //
+// 'lage' (SUND-03 A2): Grobplan des Lage-Spielleiters, Systemprompt lage.system.md, Router: immer Claude (Ollama wird abgewiesen).
+//
 // Prompt-Reihenfolge für Caching (buildPrompt): statischer Teil (Katalog) → Grobplan der Mission → variabler Teil.
 
 const fs = require('fs');
@@ -33,7 +35,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');
-const KINDS = ['grobplan', 'szene', 'text'];
+const KINDS = ['grobplan', 'szene', 'text', 'lage'];   // lage: SUND-03 A2, Grobplan des Lage-Spielleiters (Freie Fahrt Sund), geht an Claude
 const MODES = ['off', 'mock', 'replay', 'script', 'live'];
 const TRANSPORT_NAMES = ['cli', 'api'];
 const DEFAULT_FIXTURES = path.join(ROOT, 'tools', 'fixtures', 'llm');
@@ -48,7 +50,7 @@ function systemPromptFile(kind) {
   const f = path.join(PROMPT_DIR, `${kind}.system.md`);
   return fs.existsSync(f) ? f : LEGACY_PROMPTS[kind];
 }
-const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); } };
+const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); }, get lage() { return systemPromptFile('lage'); } };
 
 // ---------- EIN Token-Zähler je Prozess (CONTRACT-S2 Entscheidung 13; Cache-Treffer zählen voll) ----------
 const BUDGET = { used: 0, calls: 0, limit: null };
@@ -93,7 +95,7 @@ function renderPrompt(kind, input) {
   if (input && typeof input.prompt === 'string') return input.prompt;
   const rest = Object.assign({}, input); delete rest.auftrag;
   const auftrag = input && input.auftrag ? (typeof input.auftrag === 'string' ? input.auftrag : JSON.stringify(input.auftrag)) : '';
-  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
+  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'lage' ? 'Gib jetzt den Plan aus. Nur das JSON-Objekt.' : kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
   return `<eingabe>\n${JSON.stringify(canonicalize(rest), null, 1)}\n</eingabe>\n\n<auftrag>\n${auftrag}\n</auftrag>\n\n${tail}`;
 }
 
@@ -241,6 +243,9 @@ function mockSzene(input, kat) {
   return { molekuele, verzweigung, wendung: null };
 }
 
+// 'lage' (SUND-03 A2): der Mock-Regisseur liest Ausschnitt und Grenze aus dem Prompt (server/sim/lage-mock.js)
+function mockLage(input) { return require('../sim/lage-mock.js').planText(input); }
+
 // 'text' (Paket C/03b) hat noch keine eigene Erzeugung: mock/script liefern ein Platzhalter-Ergebnis
 const MOCK_TEXT = 'Platzhalter (mock)';
 
@@ -347,7 +352,7 @@ function create(opts) {
       let text;
       if (e && typeof e.text === 'string') text = e.text;
       else if (e && e.json !== undefined) text = JSON.stringify(e.json);
-      else text = kind === 'text' ? MOCK_TEXT : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
+      else text = kind === 'text' ? MOCK_TEXT : kind === 'lage' ? mockLage(input) : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
       return answerObj(kind, input, text, 'script', e && e.tokens);
     };
     if (e && e.hold) return new Promise((resolve, reject) => { held.push({ run: () => { try { resolve(settle()); } catch (err) { reject(err); } } }); });
@@ -361,6 +366,7 @@ function create(opts) {
     if (mode === 'off') throw llmError('OFF', `Spielleiter-LLM ist aus (SPIELLEITER_LLM=off). Für Tests 'mock' oder 'replay' setzen; '${kind}' wurde nicht angefragt.`);
     if (mode === 'mock') {
       if (kind === 'text') return { text: MOCK_TEXT, tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
+      if (kind === 'lage') return { text: mockLage(input), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
       const obj = kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog());
       return { text: JSON.stringify(obj, null, 2), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
     }

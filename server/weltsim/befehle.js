@@ -468,4 +468,4 @@ function regieRaeumen(z) { delete z.regie; }
 
 function installiere(helfer) { H = helfer; }
 
-module.exports = { KATALOG, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };
+module.exports = { KATALOG, FELDER, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };

@@ -14,7 +14,7 @@ function report(dir, weltId) {
   const L = [`# Regie-Bericht ${weltId}`, ''];
   if (!entries.length) { L.push(`Keine Einträge in ${path.join(dir, Regielog.safeId(weltId) + '.jsonl')}.`); return L.join('\n') + '\n'; }
   // QA-Abnahme S2: nur echte LLM-Aufrufe zählen – 'angebot' und 'abschluss' wiederholen die Summe der Mission
-  const CALLS = new Set(['grobplan', 'szene', 'verspaetet']);
+  const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan']);   // SUND-03 A2: auch die Anfragen des Lage-Spielleiters
   const callTokens = (list) => list.filter((e) => CALLS.has(e.art)).reduce((a, e) => a + (Number(e.tokens) || 0), 0);
   const tokens = callTokens(entries);
   const by = (art) => entries.filter((e) => e.art === art);
@@ -27,6 +27,25 @@ function report(dir, weltId) {
     `- Angenommen: ${by('annahme').filter((e) => !(e.fehler || []).length).length}, abgelehnt: ${by('ablehnung').length}, abgeschlossen: ${by('abschluss').length}`,
     `- Rückfälle: ${rueck.length}`,
     `- Wartezeit am Anflug (sceneWait): ${waits.length ? `${waits.length}×, längste ${fmt(Math.max(...waits.map((e) => e.dauer_s || 0)), 10)} s` : 'keine'}`, '');
+  // SUND-03 A2: Lage-Spielleiter (Freie Fahrt Sund): Aufrufe je Sitzung (Abend), Dauer Median/p90, Fehler, Rückfälle
+  const lage = by('lage_grobplan');
+  if (lage.length) {
+    const zahl = (a, p) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.ceil(p * s.length) - 1)] : null; };
+    const aufrufe = lage.filter((e) => ['angewandt', 'fehler', 'veraltet'].includes(e.ausgang) && !(e.fehler || []).includes('BUDGET'));
+    const sitzungen = {};
+    for (const e of aufrufe) { const s = (e.plan && e.plan.sitzung) || '–'; sitzungen[s] = (sitzungen[s] || 0) + 1; }
+    const dauern = aufrufe.map((e) => e.dauer_s);
+    const uebersprungen = {};
+    for (const e of lage.filter((x) => x.ausgang === 'uebersprungen')) { const g = (e.begruendung || '').replace(/^.*((.*))$/, '$1'); uebersprungen[g] = (uebersprungen[g] || 0) + 1; }
+    const lageRueck = by('lage_befehl').filter((e) => e.ausgang === 'rueckfall');
+    L.push('## Lage-Spielleiter', '',
+      `- Aufrufe: **${aufrufe.length}** in ${Object.keys(sitzungen).length} Sitzung(en); Aufrufe je Sitzung: ${Object.entries(sitzungen).map(([s, c]) => `${s}: ${c}`).join(', ') || '–'} (Ziel 4–6 je Abend)`,
+      `- Angewandt: ${lage.filter((e) => e.ausgang === 'angewandt').length}, veraltet verworfen: ${lage.filter((e) => e.ausgang === 'veraltet').length}, späte Antworten: ${lage.filter((e) => e.ausgang === 'verspaetet').length}`,
+      `- Dauer je Aufruf: Median ${fmt(zahl(dauern, 0.5), 10)} s, p90 ${fmt(zahl(dauern, 0.9), 10)} s`,
+      `- Tokens: ${fmt(callTokens(lage))}, je Aufruf im Mittel ${aufrufe.length ? fmt(callTokens(lage) / aufrufe.length) : '–'}`,
+      `- Fehler: ${lage.filter((e) => e.ausgang === 'fehler').length}, Rückfälle: ${lageRueck.length}`,
+      `- Übersprungene Grenzen: ${Object.keys(uebersprungen).length ? Object.entries(uebersprungen).map(([g, c]) => `${g} ${c}`).join(', ') : 'keine'}`, '');
+  }
   // je Mission
   const missions = [...new Set(entries.map((e) => e.mission).filter(Boolean))];
   if (missions.length) {

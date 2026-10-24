@@ -1,6 +1,6 @@
 'use strict';
 // SUND-03 A: gemeinsame Hilfen der Tests und Messwerkzeuge zu den Befehlen des Lage-Spielleiters (test-befehle.js, test-regie.js, test-lage-ausschnitt.js, sim-regie.js, mutation-regie.js).
-//   neuesSpiel({ crew, seed, names, dir }) -> { g, cs, funk, aufraeumen }   ein Spiel im Modus Freie Fahrt Sund mit einem Weltstand im Temp-Verzeichnis (Spielernamen frei wählbar)
+//   neuesSpiel({ crew, seed, names, dir, env }) -> { g, cs, funk, aufraeumen }   ein Spiel im Modus Freie Fahrt Sund mit einem Weltstand im Temp-Verzeichnis (Spielernamen frei wählbar)
 //   neueSim(seed) -> Sim-Zustand des Kerns (Standard-KI, ohne Spiel);  klon(x), gleich(a, b)
 const fs = require('fs');
 const os = require('os');
@@ -19,7 +19,7 @@ const freshDir = () => { const d = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(d
 function neuesSpiel(o) {
   o = o || {};
   const { Game } = require('../server/game.js');
-  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: o.dir || freshDir(), seed: o.seed || 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, log: () => {} });
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: o.dir || freshDir(), seed: o.seed || 7, debug: true, env: Object.assign({ MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') }, o.env || {}), log: () => {} });
   const cs = [];
   for (let i = 0; i < (o.crew || 1); i++) {
     const c = { inbox: [], send(m) { if (this.inbox.length < 800) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } };

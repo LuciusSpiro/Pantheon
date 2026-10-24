@@ -25,9 +25,9 @@ const LLM = require('./llm.js');
 const Ollama = require('./transport-ollama.js');
 const Prompts = require('./prompts-ollama.js');
 
-const ARTEN = ['grobplan', 'szene', 'text'];
+const ARTEN = ['grobplan', 'szene', 'text', 'lage'];   // lage (SUND-03 A2): Grobplan des Lage-Spielleiters, wie der Grobplan immer Claude
 const ANBIETER = ['claude', 'ollama'];
-const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }, szene: { anbieter: 'ollama' }, text: { anbieter: 'ollama' } };
+const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }, szene: { anbieter: 'ollama' }, text: { anbieter: 'ollama' }, lage: { anbieter: 'claude', modell: 'sonnet' } };
 const STANDARD_ESKALATION = { anbieter: 'claude', modell: 'sonnet' };
 
 function norm(eintrag, art) {
@@ -36,6 +36,7 @@ function norm(eintrag, art) {
   const e = eintrag && typeof eintrag === 'object' ? eintrag : {};
   const anbieter = String(e.anbieter || std.anbieter).toLowerCase();
   if (art === 'grobplan' && anbieter === 'ollama') throw new Error("Der Grobplan bleibt bei Claude (LLM_ANBIETER_GROBPLAN=ollama ist nicht erlaubt)");
+  if (art === 'lage' && anbieter === 'ollama') throw new Error("Der Grobplan der Lage bleibt bei Claude (LLM_ANBIETER_LAGE=ollama ist nicht erlaubt)");
   if (!ANBIETER.includes(anbieter)) throw new Error(`Unbekannter Anbieter '${anbieter}' für '${art}' (erlaubt: ${ANBIETER.join(', ')})`);
   // Modell: eigene Angabe, sonst Standard nur bei unverändertem Anbieter (Claude: sonnet; Ollama: Standard des Transports)
   const modell = e.modell || (anbieter === std.anbieter ? std.modell : (anbieter === 'claude' ? 'sonnet' : undefined));
@@ -100,6 +101,7 @@ function routerAusEnv(env, opts) {
   const arten = {}; const warnungen = [];
   for (const a of ARTEN) arten[a] = { anbieter: ist(e['LLM_ANBIETER_' + a.toUpperCase()]) ? e['LLM_ANBIETER_' + a.toUpperCase()] : undefined, modell: ist(e['LLM_MODELL_' + a.toUpperCase()]) ? e['LLM_MODELL_' + a.toUpperCase()] : undefined };
   if (String(arten.grobplan.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_GROBPLAN=ollama ignoriert: der Grobplan bleibt bei Claude'); arten.grobplan = {}; }
+  if (String(arten.lage.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_LAGE=ollama ignoriert: der Grobplan der Lage bleibt bei Claude'); arten.lage = {}; }
   const esk = String(e.LLM_ESKALATION || 'claude').toLowerCase();
   const eskalation = esk === 'aus' || esk === 'nein' || esk === '0' ? null : { anbieter: esk, modell: ist(e.LLM_ESKALATION_MODELL) ? e.LLM_ESKALATION_MODELL : 'sonnet' };
   return routeTransport(arten, Object.assign({ eskalation, env: e, warnungen }, opts || {}));

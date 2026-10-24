@@ -246,6 +246,28 @@ class Game {
     try { this.spielleiter = create(this) || null; } catch (e) { this.countError('spielleiter-create', e); this.spielleiter = null; }
     return this.spielleiter;
   }
+  // SUND-03 A2: Lage-Spielleiter der Freien Fahrt Sund (server/sim/lage-spielleiter.js): nur im Modus mit this.weltsim und nur mit LAGE_SPIELLEITER=1 UND SPIELLEITER_LLM ≠ off (Standard aus:
+  // ohne Env läuft alles wie bisher, es entsteht kein Objekt). Eigene Klasse neben dem Spielleiter der Kampagne, der in der Freien Fahrt gesperrt bleibt.
+  createLageSpielleiter() {
+    if (this.lageSpielleiter || !this.weltsim) return this.lageSpielleiter || null;
+    const mod = require('./sim/lage-spielleiter.js');
+    if (this.lageSchalter === undefined) this.lageSchalter = mod.schalterAn(this.env);
+    if (!this.lageSchalter) return null;
+    try { this.lageSpielleiter = mod.create(this); } catch (e) { this.countError('lage-create', e); this.lageSchalter = false; this.lageSpielleiter = null; }
+    return this.lageSpielleiter;
+  }
+  // zwischen den Ticks (Game-Step): Antwort abholen, Frist prüfen, vorgemerkte Anfrage starten; legt den Lage-Spielleiter beim ersten Schritt im Modus an
+  lageUpdate(dt) {
+    if (!this.weltsim || this.lageSchalter === false) return;
+    if (!this.lageSpielleiter && !this.createLageSpielleiter()) return;
+    this.lageSpielleiter.update(dt);
+  }
+  // Tätigkeitsgrenze (szene_ende | andocken | absicht): benannter Hook, wirft nie in den Aufrufer
+  lageGrenze(art) {
+    const l = this.lageSpielleiter;
+    if (!l) return null;
+    try { return l.beiGrenze(art); } catch (e) { this.countError('lage-grenze', e); return null; }
+  }
   // Aufruf in den Spielleiter: fehlt er oder die Methode -> undefined; Fehler werden gezählt (nichts wirft in den Tick)
   callSpielleiter(method, ...args) {
     const sl = this.spielleiter;
@@ -376,6 +398,8 @@ class Game {
     if (lpReset) { try { lpReset(this); } catch (e) { this.countError('landepunkte-reset', e); } } else this.landepunkte = null;
     if (this.spielleiter) this.callSpielleiter('dispose');   // S2: laufende Anfragen verwerfen (optional)
     this.spielleiter = null;
+    if (this.lageSpielleiter) { try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); } }   // SUND-03 A2: Anfrage in der Luft verwerfen, späte Antworten kommen nie an
+    this.lageSpielleiter = null; this.lageSchalter = undefined;
     this.phase = 'lobby';
     this.paused = false;
     this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
@@ -495,7 +519,7 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
-    if (name === 'docked') this.markSaveDue('docked');
+    if (name === 'docked') { this.markSaveDue('docked'); if (this.lageSpielleiter) this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene
@@ -1164,6 +1188,7 @@ class Game {
         const op = c.slice(8);
         const r = op === 'waehlen' ? Absicht.waehlen(this, String(msg.id)) : Absicht.ablehnen(this);
         if (!r && op === 'waehlen') { try { Absicht.meldeGewaehlt(this); } catch (e) { this.countError('absicht-funk', e); } }
+        if (!r && this.lageSpielleiter) this.lageGrenze('absicht');   // SUND-03 A2: Wahl oder Ablehnung einer Strategischen Option ist eine Tätigkeitsgrenze
         if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
         err = r ? r.text : null;
         break;
@@ -1341,6 +1366,7 @@ class Game {
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'szene': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : SimSzene.debug(this, argList(msg)); break;   // SUND-02a: szene [staerke] [ger|pirat] [belagerung] – Flotte der Sim im Hex der Lerche, löst die Szene aus
       case 'ruf': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Ruf.debug(this, argList(msg)); break;   // SUND-02b B: ruf [rom|ger|kon] [wert] – Ruf setzen/anzeigen (nur Freie Fahrt Sund)
+      case 'lage': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : this.onDebugLage(p, argList(msg)); break;   // SUND-03 A2: lage [status | plan | fail] (nur Freie Fahrt Sund mit LAGE_SPIELLEITER=1)
       case 'absicht': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Absicht.debug(this, argList(msg)); break;   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund)
       case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
       case 'kapitel': {   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
@@ -1363,6 +1389,12 @@ class Game {
     if (err) this.notice(p, err);
   }
 
+  // SUND-03 A2: lage status | plan | fail (Antwort als Hinweis an den Absender)
+  onDebugLage(p, args) {
+    const l = this.lageSpielleiter;
+    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
+    try { const r = l.debug(args, p); if (r) this.notice(p, String(r).slice(0, 400)); return null; } catch (e) { this.countError('lage-debug', e); return 'lage: Fehler (' + e.message + ')'; }
+  }
   // S2: sl status | sl plan | sl fail grobplan|szene | sl archiv  (Text in msg.args oder msg.sub/msg.what)
   onDebugSl(p, msg) {
     const args = argList(msg);
@@ -1629,6 +1661,7 @@ class Game {
       this.safe('explore', () => this.explore.update(dt));
       this.safe('onboard', () => onboard.updateIvo(this, dt));
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
+      if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));   // SUND-03 A2: Lage-Spielleiter (nur mit Schalter), zwischen den Ticks
       this.safe('mission', () => this.mission.update(dt));
       if (this.arena) this.safe('arena', () => arena.update(this, dt));
       if (this.labor) this.safe('labor', () => Labor.update(this));   // AP3a: Ende der Labor-Mission melden
