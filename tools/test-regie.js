@@ -31,9 +31,9 @@ const RW = require('../content/welt/ruf-werte.json').werte;
 const TRIBUN = RW.raenge.wert.find((r) => r.id === 'tribun').ab;
 
 // Kern-Wurf für den Rollback-Test
-let kernWirft = false;
+let kernWirft = false, kernWirftMitBefehlen = false;
 const kernOrig = Kern.tick;
-Kern.tick = function (z, o) { if (kernWirft) throw new Error('Test: Tick wirft'); return kernOrig.apply(this, arguments); };
+Kern.tick = function (z, o) { if (kernWirft || (kernWirftMitBefehlen && o && o.befehle && o.befehle.length)) throw new Error('Test: Tick wirft'); return kernOrig.apply(this, arguments); };
 
 const ws = (g) => g.weltsim;
 const z = (g) => g.weltsim.zustand;
@@ -299,6 +299,52 @@ section('Zustand der Wirkung im Tick', () => {
   void zz;
 });
 
+section('Entwarnung und Besitzwechsel', () => {
+  const entw = (t, von) => funkAll(t).slice(von).map((m) => m.text).filter((x) => /Entwarnung/.test(x));
+  // im Tick abgelehnt (der Treibstoff ist weg): Entwarnung
+  const t = szene(); const g = t.g;
+  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM] });
+  const f0 = funkAll(t).length;
+  z(g).vorrat.ger.T = 1; z(g).vorrat.ger.U = 1;
+  while (ws(g).tickZahl < r.angenommen[0].ab) tick(g);
+  ok(entw(t, f0).length === 1 && /Speculum/.test(entw(t, f0)[0]), 'ein angekündigter Angriff, der im Tick abgelehnt wird: genau eine Entwarnung');
+  tick(g, 3);
+  ok(entw(t, f0).length === 1, 'und nur einmal');
+  // nicht angekündigt: keine Entwarnung
+  const t2 = szene(); const g2 = t2.g;
+  const r2 = Regie.planAnwenden(g2, { befehle: [ANGRIFF_GER] });
+  z(g2).vorrat.rom.T = 1; z(g2).vorrat.rom.U = 1;
+  while (ws(g2).tickZahl < r2.angenommen[0].ab) tick(g2);
+  ok(logbuch(g2).some((e) => e.ausgang === 'im_tick_abgelehnt') && entw(t2, 0).length === 0, 'ein nicht angekündigter Befehl wird ohne Entwarnung abgelehnt (es gab nichts zu entwarnen)');
+  // rueckfall und verwerfe
+  for (const [name, fn] of [['rueckfall', (gg) => Regie.rueckfall(gg, 'Test')], ['verwerfe', (gg) => Regie.verwerfe(gg)]]) {
+    const t3 = szene(); Regie.planAnwenden(t3.g, { befehle: [ANGRIFF_ROM, ANGRIFF_GER] });
+    const v = funkAll(t3).length; fn(t3.g);
+    ok(entw(t3, v).length === 1, name + ': nur der angekündigte Befehl bekommt eine Entwarnung (genau eine)');
+  }
+  // Embargo
+  const t4 = szene(); siegerSetzen(t4.g, 'rom');
+  Regie.planAnwenden(t4.g, { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'rom', waren: ['T'], dauer: 8 }] });
+  const v4 = funkAll(t4).length; Regie.rueckfall(t4.g);
+  ok(entw(t4, v4).length === 1 && /Treibstoff/.test(entw(t4, v4)[0]), 'Embargo gegen Rom verworfen: Entwarnung nennt die Ware');
+  // Besitzwechsel: nicht angekündigt (Konkordat-Ort), dann römisch: nicht unangekündigt wirksam
+  const t5 = szene(); const d = Kern.datenVon(z(t5.g));
+  const ziel = d.codes.find((c) => z(t5.g).hexe[c].besitzer === 'kon' && Kern.pruefeBefehl(z(t5.g), { typ: 'piratenueberfall', ort: c }).ok);
+  ok(!!ziel, 'Ausgangslage: ein Überfallziel des Konkordats (' + ziel + ')');
+  const r5 = Regie.planAnwenden(t5.g, { befehle: [{ typ: 'piratenueberfall', ort: ziel }] });
+  ok(r5.angenommen.length === 1 && !r5.angenommen[0].vorwarnung, 'ohne Vorwarnung angenommen (trifft Rom nicht)');
+  z(t5.g).hexe[ziel].besitzer = 'rom';   // das Ziel wechselt den Besitzer, bevor der Befehl fällig wird
+  tick(t5.g);
+  ok(!z(t5.g).angriffe.some((a) => a.befohlen) && !z(t5.g).flotten.some((f) => f.fraktion === 'pirat' && f.befehl === 'angriff' && f.ziel === ziel), 'der Befehl wirkt nicht unangekündigt auf einen römischen Ort');
+  const e5 = logbuch(t5.g).find((e) => e.ausgang === 'im_tick_abgelehnt');
+  ok(e5 && /Vorwarnung/.test(e5.fehler[0]) && ws(t5.g).regie.vorgemerkt.length === 0, 'Logbuch: abgelehnt mit Grund (keine Vorwarnung), Warteschlange leer');
+  // Gegenprobe: war er angekündigt, wirkt er auch nach einem Besitzwechsel nicht anders
+  const t6 = szene(); const z6 = z(t6.g);
+  const r6 = Regie.planAnwenden(t6.g, { befehle: [ANGRIFF_ROM] });
+  while (ws(t6.g).tickZahl < r6.angenommen[0].ab) tick(t6.g);
+  ok(z6.angriffe.some((a) => a.befohlen), 'angekündigt: wirkt zur Zeit');
+});
+
 section('Schichtung mit den Strategischen Optionen', () => {
   const t = szene({ ruhig: false }); const g = t.g;
   ws(g).ruf.rom = TRIBUN; z(g).absichten = {};
@@ -333,14 +379,29 @@ section('Schichtung mit den Strategischen Optionen', () => {
   ok(zz.regie && zz.regie.ger && zz.absichten.rom.p_act === 0.2, 'tick({ absichten }) ersetzt die Absichten, die Regie bleibt');
 });
 
-section('Atomar: wirft die Sim, bleibt alles wie vorher', () => {
+section('Atomar: wirft die Sim, bleibt alles wie vorher; ein giftiger Befehl friert sie nicht ein', () => {
   const t = szene(); const g = t.g;
-  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_GER] });
+  const r = Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM] });   // angekündigt, noch nicht fällig
   const wartend = JSON.stringify(ws(g).regie), vor = JSON.stringify(abbild(g));
   kernWirft = true; tick(g); kernWirft = false;
-  ok(ws(g).fehler === 1 && JSON.stringify(ws(g).regie) === wartend && JSON.stringify(abbild(g)) === vor, 'der Tick wirft: Sim und Warteschlange sind wie vorher (der Befehl ist nicht verloren)');
-  tick(g);
-  ok(z(g).angriffe.some((a) => a.befohlen) && r.ok, 'der nächste Tick spielt den Befehl');
+  ok(ws(g).fehler === 1 && JSON.stringify(ws(g).regie) === wartend && JSON.stringify(abbild(g)) === vor, 'der Tick wirft: Sim und Warteschlange sind wie vorher (der noch nicht fällige Befehl ist nicht verloren)');
+  while (ws(g).tickZahl < r.angenommen[0].ab) tick(g);
+  ok(z(g).angriffe.some((a) => a.befohlen) && r.ok, 'der Befehl wird zur Zeit gespielt');
+  // Giftiger Befehl: der Tick wirft nur, wenn ein Befehl dabei ist
+  const t2 = szene(); const g2 = t2.g;
+  const r2 = Regie.planAnwenden(g2, { befehle: [ANGRIFF_ROM, ANGRIFF_GER] });
+  while (ws(g2).tickZahl < r2.angenommen[0].ab - 1) tick(g2);
+  const stand = ws(g2).tickZahl, fk0 = funkAll(t2).length;
+  kernWirftMitBefehlen = true; tick(g2); kernWirftMitBefehlen = false;
+  ok(ws(g2).fehler === 1 && ws(g2).tickZahl === stand && !ws(g2).regie.vorgemerkt.some((e) => e.ab <= stand + 1), 'der Tick scheitert am fälligen Befehl: der Befehl ist verworfen, nicht für den nächsten Tick vorgemerkt');
+  const l = logbuch(g2).filter((e) => e.ausgang === 'tick_gescheitert');
+  ok(l.length >= 1 && /gescheitert/.test(l[0].fehler[0]), 'Logbuch: tick_gescheitert mit Grund');
+  const fk = funkAll(t2).slice(fk0).map((m) => m.text);
+  ok(fk.length === 1 && /Entwarnung/.test(fk[0]) && /Speculum/.test(fk[0]), 'der angekündigte Angriff kommt nicht mehr: Entwarnung (genau eine)');
+  tick(g2);
+  ok(ws(g2).tickZahl === stand + 1 && ws(g2).fehler === 1 && !z(g2).angriffe.some((a) => a.befohlen && a.ziel === '0403'), 'der nächste Tick läuft ohne den Befehl weiter (kein Wiederholen, kein Einfrieren)');
+  tick(g2, 5);
+  ok(ws(g2).tickZahl === stand + 6 && ws(g2).fehler === 1, 'und läuft weiter');
 });
 
 section('Weltstand: Altstand, Runde, Müll', () => {

@@ -152,6 +152,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
     ws.sprengungen = sprengSicher;
     ws.absicht = absichtSicher;
     ws.regie = regieSicher;
+    try { Regie.tickGescheitert(game, faellig, ws.tickZahl + 1); } catch (e2) { if (game.countError) game.countError('kriegslage-regie', e2); }   // SUND-03 A2-Fix: ein Befehl, an dem der Tick scheitert, wird verworfen (nicht wiederholt): die Sim friert nicht ein
     ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
     ws.wirkungenVerworfen += alle.length;
     ws.fehler++;

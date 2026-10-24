@@ -225,8 +225,10 @@ function verwerfe(game) {
   const ws = game.weltsim;
   if (!ws) return 0;
   const s = zustandVon(game), n = s.vorgemerkt.length;
+  const warn = s.vorgemerkt.filter((e) => e.w);
   s.vorgemerkt = [];
   Kern.BEFEHLE.regieRaeumen(ws.zustand);   // nur die Überlagerung der Regie, nie zustand.absichten (SUND-02b D)
+  for (const e of warn) funkSenden(game, entwarnText(e.b));   // angekündigt und nie gekommen: Entwarnung
   return n;
 }
 function rueckfall(game, grund) {
@@ -234,25 +236,53 @@ function rueckfall(game, grund) {
   schreibe(game, { art: 'lage_befehl', ausgang: 'rueckfall', begruendung: 'Standard-KI übernimmt allein' + (grund ? ': ' + String(grund).slice(0, 200) : ''), fehler: n ? [n + ' wartende Befehle verworfen'] : [] });
   return n;
 }
+// Entwarnung: ein angekündigter Befehl kommt nicht mehr (im Tick abgelehnt, verworfen, Tick gescheitert). Nur wenn vorher wirklich eine Vorwarnung ausging (Eintrag mit w).
+function entwarnText(b) {
+  const key = b.typ === 'embargo' ? 'embargo' : b.typ;
+  const t = (texte().entwarnung || {})[key];
+  if (!t) return null;
+  const ort = b.typ === 'angreifen' ? b.ziel : b.typ === 'piratenueberfall' ? b.ort : null;
+  return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: ort ? (Sektoren.hexName(ort) || ort) : '', waren: b.typ === 'embargo' ? b.waren.map((g) => (texte().waren || {})[g] || g).join(', ') : '' }) };
+}
+// Der Tick ist an den fälligen Befehlen gescheitert (Kriegslage.tickMit, im catch, NACH dem Zurückstellen der Sicherung): sie werden verworfen und nicht im nächsten Tick wiederholt, die Sim läuft ohne
+// sie weiter (ein Befehl darf sie nie dauerhaft einfrieren). Logbuch und Entwarnung sofort (der Tick hat nichts committet).
+function tickGescheitert(game, faellig, n) {
+  const s = zustandVon(game);
+  if (!s || !faellig || !faellig.length) return 0;
+  const gleich = (x, y) => x.ab === y.ab && JSON.stringify(x.b) === JSON.stringify(y.b);
+  s.vorgemerkt = s.vorgemerkt.filter((e) => !faellig.some((f) => gleich(e, f)));
+  for (const e of faellig) {
+    schreibe(game, { art: 'lage_befehl', ausgang: 'tick_gescheitert', key: e.b.typ, plan: e.b, fehler: ['Tick ' + n + ' ist gescheitert, der Befehl wird verworfen'], begruendung: 'die Sim läuft ohne ihn weiter' });
+    if (e.w) funkSenden(game, entwarnText(e.b));
+  }
+  return faellig.length;
+}
 
 // ---------- Tick (Aufrufer: Kriegslage.tickMit, im Atom)
 // Fällige Befehle für Tick n; sie verlassen die Warteschlange sofort (wirft der Tick, stellt Kriegslage.tickMit die Sicherung zurück: dann sind sie wieder da).
 function vorTick(game, n) {
   const s = zustandVon(game);
-  if (!s || !s.vorgemerkt.length) return [];
+  const leer = [];
+  leer.abgelehnt = [];
+  if (!s || !s.vorgemerkt.length) return leer;
+  const z = game.weltsim.zustand;
   const faellig = s.vorgemerkt.filter((e) => e.ab <= n).slice(0, BW.je_tick_max.wert);
-  if (!faellig.length) return [];
+  if (!faellig.length) return leer;
   s.vorgemerkt = s.vorgemerkt.filter((e) => !faellig.includes(e));
-  return faellig;
+  // Besitz geändert: wurde das Ziel seit der Annahme römisch (Wirkung auf Rom) und es ging keine Vorwarnung hinaus, wirkt der Befehl nicht unangekündigt: abgelehnt
+  const gut = faellig.filter((e) => e.w || !trifftRom(z, e.b));
+  gut.abgelehnt = faellig.filter((e) => !gut.includes(e));
+  return gut;
 }
 // res: Rückgabe von Kern.tick (befehle: { angewandt, abgelehnt }); faellig: die Einträge von vorTick. -> { funk: [{von, text}], log: [Eintrag] }
 function nachTick(game, res, faellig, n) {
   const out = { funk: [], log: [] };
+  for (const e of (faellig && faellig.abgelehnt) || []) out.log.push({ art: 'lage_befehl', ausgang: 'im_tick_abgelehnt', key: e.b.typ, plan: e.b, fehler: ['Ziel gehört inzwischen Rom, es ging keine Vorwarnung hinaus (Crew-Betroffenheit nie unangekündigt)'], begruendung: 'Tick ' + n });
   if (!faellig || !faellig.length) return out;
   const r = (res && res.befehle) || { angewandt: [], abgelehnt: [] };
   for (const e of faellig) {
     const abg = r.abgelehnt.find((x) => x.befehl === e.b || (x.befehl && JSON.stringify(x.befehl) === JSON.stringify(e.b)));
-    if (abg) { out.log.push({ art: 'lage_befehl', ausgang: 'im_tick_abgelehnt', key: e.b.typ, plan: e.b, fehler: [abg.grund], begruendung: 'Tick ' + n + ': der Stand hat sich seit der Annahme geändert' }); continue; }
+    if (abg) { out.log.push({ art: 'lage_befehl', ausgang: 'im_tick_abgelehnt', key: e.b.typ, plan: e.b, fehler: [abg.grund], begruendung: 'Tick ' + n + ': der Stand hat sich seit der Annahme geändert' }); if (e.w) out.funk.push(entwarnText(e.b)); continue; }
     out.log.push({ art: 'lage_befehl', ausgang: 'gespielt', key: e.b.typ, plan: e.b, begruendung: 'Tick ' + n });
     if (e.w && e.b.typ === 'embargo') {
       const t = (texte().wirksam || {}).embargo;
@@ -317,4 +347,4 @@ function lesen(b, tickZahl) {
   return out;
 }
 
-module.exports = { R, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };
+module.exports = { R, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };
