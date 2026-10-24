@@ -499,6 +499,9 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(g8.phase === 'play' && g8.weltsim && g8.errors === 0 && ws(g8).absicht.laufend === null && ws(g8).absicht.angebot === null && ws(g8).absicht.frei_ab <= ws(g8).tickZahl + W.abstand_nach_verfall.wert, 'Block mit unbekannten Ids und Zeiten in der Zukunft: Spiel lädt, Absicht leer, Pause geklemmt');
   ok(!z(g8).absichten.rom, 'und die im Sim-Zustand gespeicherte Wirkung unserer Absicht bleibt nicht für immer festgeklemmt');
   const fremd = kopie(d2); delete fremd.welt.sim.absicht; fremd.welt.sim.zustand.absichten = { rom: { p_act: 0.9 }, ger: { aggr: 0.1 } }; fremd.id = 'w-fremd'; fs.writeFileSync(path.join(dir, 'w-fremd.json'), JSON.stringify(fremd));
+  const rest = kopie(d2); delete rest.welt.sim.absicht; rest.welt.sim.zustand.absichten = { rom: wirkungVon('ausgreifen'), ger: { aggr: 0.1 } }; rest.id = 'w-rest'; fs.writeFileSync(path.join(dir, 'w-rest.json'), JSON.stringify(rest));
+  const g10 = neu({ dir, world: 'w-rest' }).g;
+  ok(gleich(z(g10).absichten, { ger: { aggr: 0.1 } }), 'festgeklemmte eigene Wirkung wird geräumt, der Eintrag einer anderen Fraktion bleibt');
   const g9 = neu({ dir, world: 'w-fremd' }).g;
   ok(gleich(z(g9).absichten, { rom: { p_act: 0.9 }, ger: { aggr: 0.1 } }), 'fremde Einträge in zustand.absichten (andere Fraktionen, spätere Quellen) bleiben beim Laden unberührt');
 });
