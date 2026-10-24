@@ -101,7 +101,7 @@ section('Inhalt', () => {
   Kern.tick(z, { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T', 'M'], dauer: 10 }, { typ: 'soeldner', von: 'kon', an: 'rom', flotten: [z.flotten.find((f) => f.fraktion === 'kon' && f.befehl === 'heim').id], dauer: 8 }] });
   g.weltsim.tickZahl++;
   const e = teile(Ausschnitt.ausschnitt(g, { stufe: 0 }).text);
-  ok(e.embargos.length === 1 && e.embargos[0].gegen === 'ger' && e.embargos[0].waren === 'TM' && e.embargos[0].rest === 10 && e.mieten.length === 1 && e.mieten[0].an === 'rom' && e.mieten[0].rest === 8, 'aktive Embargos (gegen, Waren, Rest) und Mieten (an, Rest)');
+  ok(e.embargos.length === 1 && e.embargos[0].gegen === 'ger' && e.embargos[0].waren === 'TM' && e.embargos[0].rest === 11 && e.mieten.length === 1 && e.mieten[0].an === 'rom' && e.mieten[0].rest === 8, 'aktive Embargos (gegen, Waren, Rest) und Mieten (an, Rest)');
   ok(e.ereignisse.some((x) => x.t === 'embargo_verhaengt') || g.weltsim.ereignisse.length > 0, 'Ereignisse der Befehle sind lesbar');
 });
 

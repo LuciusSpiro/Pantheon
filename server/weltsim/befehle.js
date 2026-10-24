@@ -245,7 +245,7 @@ const KATALOG = {
     anwenden(c, b) {
       const { z } = c;
       if (!z.embargo) z.embargo = {};
-      z.embargo[b.gegen] = { waren: b.waren.slice(), von: b.von, from: z.tick, bis: z.tick + b.dauer };
+      z.embargo[b.gegen] = { waren: b.waren.slice(), von: b.von, from: z.tick, bis: z.tick + b.dauer + 1 };   // die Befehle wirken nach dem Handel des Tick: wirksam sind die Handels-Ticks tick+1 bis tick+dauer, bis = erster Tick ohne Embargo
       H.melde(c, 'embargo_verhaengt', 'kon', { gegen: b.gegen, waren: b.waren.slice(), dauer: b.dauer });
     },
   },
@@ -341,7 +341,7 @@ const KATALOG = {
 // Die Standard-KI der betroffenen Fraktion hält sich nach einem Befehl für ruhe[typ] Ticks mit eigenen Reichsangriffen zurück (Daten ruhe): ein befohlener Angriff ersetzt einen der KI, statt zu ihr
 // hinzuzukommen. Ohne Eintrag für den Typ geschieht nichts. Die Fraktion: fraktion (angreifen, beanspruchen, verstaerken, rueckzug), an (nachschub, soeldner) oder gegen (embargo).
 function ruheSetzen(c, b) {
-  const t = W.ruhe && W.ruhe.wert[b.typ], f = b.fraktion || b.an || b.gegen;
+  const t = Math.min(W.ruhe && W.ruhe.wert[b.typ], W.ruhe_max.wert), f = b.fraktion || b.an || b.gegen;   // nie länger als ruhe_max (und die Daten-Prüfung verlangt: nie länger als die Abkühlzeit des Befehls)
   if (!(t > 0) || !REICH.includes(f)) return;
   const rg = regieEintrag(c.z, f);
   rg.ruhe_bis = Math.max(rg.ruhe_bis || 0, c.z.tick + t);
@@ -445,7 +445,7 @@ function bereinige(z) {
   const t = Number.isInteger(z.tick) && z.tick >= 0 ? z.tick : 0;
   const ganzZahl = (v) => Number.isInteger(v) && v >= 0;
   const objekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
-  const D = W.dauer.wert, RUHE_MAX = Math.max(0, ...Object.values((W.ruhe && W.ruhe.wert) || {}));
+  const D = W.dauer.wert, RUHE_MAX = W.ruhe_max.wert;
   const FRAKTIONEN = ['rom', 'ger', 'kon'];
   if (z.embargo !== undefined) {
     const out = {};
