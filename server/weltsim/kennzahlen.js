@@ -12,7 +12,7 @@ const median = (a) => {
 };
 
 // Ein Lauf: { karte, werte, seed, ticks } (ticks sonst aus werte.ticks). Optional sichtRadien: Liste von Sichtweiten für die Sicht-Messung; eingriff(z, tick) -> [Wirkung] (Crew-Wirkungen vor dem Tick).
-function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null, eingriff = null, absichten = null }) {
+function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = null, eingriff = null, absichten = null, befehle = null, nach = null }) {
   const z = Kern.erzeuge({ karte, werte, seed });
   if (absichten) z.absichten = JSON.parse(JSON.stringify(absichten));   // SUND-02b D (tools/sim-absichten.js): Absichten der Fraktionen über den ganzen Lauf
   const T = ticks !== undefined && ticks !== null ? ticks : z.werte.ticks;
@@ -22,7 +22,9 @@ function lauf({ karte, werte, seed, ticks, sichtRadien = null, verzoegerung = nu
   const erstSicht = {};
   const ereignisse = [];
   for (let i = 0; i < T; i++) {
-    const r = Kern.tick(z, { messung: m, wirkungen: eingriff ? eingriff(z, i) : [] });   // eingriff (SUND-02b A1, tools/sim-crew-posten.js): Wirkungen der Crew vor dem Tick, der Aufrufer prüft sie (Kern.pruefeWirkung)
+    const bf = befehle ? befehle(z, i) : null;   // SUND-03 A (tools/sim-regie.js): Befehle des Lage-Spielleiters für diesen Tick (Liste, kann leer sein)
+    const r = Kern.tick(z, bf && bf.length ? { messung: m, wirkungen: eingriff ? eingriff(z, i) : [], befehle: bf } : { messung: m, wirkungen: eingriff ? eingriff(z, i) : [] });
+    if (nach) nach(z, i, r);   // eingriff (SUND-02b A1, tools/sim-crew-posten.js): Wirkungen der Crew vor dem Tick, der Aufrufer prüft sie (Kern.pruefeWirkung)
     for (const e of r.ereignisse) ereignisse.push(e);
     for (const f of Kern.FRAKTIONEN) staerke[f].push(z.flotten.filter((fl) => fl.fraktion === f).reduce((s, fl) => s + fl.staerke, 0));
     if (sichtRadien) beobacheSicht(z, d, sichtRadien, erstSicht);

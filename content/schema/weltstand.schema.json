@@ -166,6 +166,14 @@
                 "frei_ab": { "type": "integer", "minimum": 0 }
               }
             },
+            "regie": {
+              "type": "object", "additionalProperties": false,
+              "description": "SUND-03 A: Befehle des Lage-Spielleiters (server/sim/regie-befehle.js, Katalog in server/weltsim/befehle.js, Zahlen in content/welt/befehle-werte.json und regie-werte.json). vorgemerkt: angenommene Befehle, die ab dem Tick ab an die Sim gehen (w = angekündigt, Vorwarnung gesendet); letzte: Tick der letzten Annahme je Typ und Fraktion (Abkühlzeit). Fehlt im Altstand und im Ruhezustand (leer). Embargo, Miete und die Überlagerung der Regie stehen im Sim-Zustand (zustand.embargo, zustand.regie, flotte.miete). Nur der Server schreibt; der Leser verwirft Unbekanntes.",
+              "properties": {
+                "vorgemerkt": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["b", "ab"], "additionalProperties": false, "properties": { "b": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }, "ab": { "type": "integer", "minimum": 0 }, "w": { "type": "integer" } } } },
+                "letzte": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } }
+              }
+            },
             "posten": {
               "type": "object", "description": "SUND-02b A1: Posten der Crew (Stuetzpunkte, Merkmal crew im Sim-Hex): Hex -> { t: Tick der Gruendung bzw. des Ausbaus, g: 1 = Halten-Ruf schon gegeben }. Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
               "additionalProperties": { "type": "object", "required": ["t"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "g": { "type": "integer" } } }
@@ -208,7 +216,9 @@
                 "naechsteId": { "type": "integer", "minimum": 1 },
                 "angriffe": { "type": "array", "items": { "type": "object" }, "description": "laufende und zuletzt beendete Feldzüge (beendete fallen nach werte.angriff_behalt Ticks weg)" },
                 "naechsteAngriffId": { "type": "integer", "minimum": 1, "description": "SUND-01 E: nächste Feldzug-Id (Ids werden nie wiederverwendet); fehlt im Altstand, dann höchste Id + 1" },
-                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" }
+                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" },
+                "embargo": { "type": "object", "description": "SUND-03 A: Embargo des Konkordats je Ziel-Fraktion { waren, von, from, bis } (endet von selbst bei bis; werte.embargo des Prototyps wird nicht gespeichert)" },
+                "regie": { "type": "object", "description": "SUND-03 A: Überlagerung der Regie je Fraktion { p_act?, aggr?, max_active?, regler_bis?, fokus?: { hex, radius, bis } } (eigener Namensraum neben zustand.absichten)" }
               }
             }
           }

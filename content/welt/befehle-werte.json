@@ -1,0 +1,28 @@
+{
+  "format": "weltsim-befehle/1",
+  "_hinweis": "SUND-03 A: Werte der gezielten Befehle des Sim-Kerns (server/weltsim/befehle.js, tick(zustand, { befehle })). Der Spielleiter (Lage-Spielleiter, spaeteres Paket) gibt der Sim gezielte Absichten; der Kern prueft jeden Befehl (pruefe -> { ok, grund }) und lehnt Ungueltiges ab, statt es zu spielen. Alle Zahlen stehen hier, keine im Code. Dauern sind Ticks (ein Tick = ein Sprung). Die Werte sind Annahmen und mit tools/sim-regie.js gegen die SUND-01-Baender gemessen (Aenderungen wirken ohne Code, danach sim:regie laufen lassen). Regeln des Spielaufsatzes (Vorwarnung, Abkuehlung, Sieger-Kennzahl) stehen in regie-werte.json.",
+  "werte": {
+    "je_tick_max": {"wert": 8, "einheit": "Befehle je Tick", "_hinweis": "Obergrenze der Befehle, die ein Tick anwendet. Weitere werden abgelehnt (Grund im Logbuch), nie halb gespielt."},
+    "dauer": {"wert": {
+      "embargo": {"min": 4, "max": 30},
+      "soeldner": {"min": 4, "max": 20},
+      "fokus": {"min": 4, "max": 20},
+      "regler": {"min": 4, "max": 20}
+    }, "einheit": "Ticks", "_hinweis": "Zulaessige Dauer je Befehlstyp mit zeitlicher Wirkung. Alles endet von selbst (kein Dauerzustand): Embargo, Miete, Fokus und Regler tragen ein Ende bis."},
+    "embargo": {"wert": {"waren": ["M", "T", "E"], "von": ["kon"], "gegen": ["rom", "ger"]}, "einheit": "Waren / Fraktionen", "_hinweis": "Nur das Konkordat sperrt, nur die Waren, die der Handel verkauft (Medizin, Treibstoff, Ersatzteile), nur Rom und Germanen. Hoechstens ein Embargo je Ziel-Fraktion zugleich."},
+    "fokus": {"wert": {"radius": {"min": 1, "max": 3}, "fraktionen": ["rom", "ger"]}, "einheit": "Spruenge", "_hinweis": "Ueberlagerung zustand.regie[fraktion].fokus { hex, radius, bis }: die Standard-KI waehlt Angriffsziele nur im Umkreis (Piraten haben keinen Fokus: auf dieser Karte hat jede Piratenbasis nur ein Raubzugsziel). Messung der Erkundung: +29 % Angriffe im Umkreis 2, Gesamtzahl gleich."},
+    "regler": {"wert": {
+      "fraktionen": ["rom", "ger", "kon"],
+      "p_act": {"min": 0.1, "max": 0.45},
+      "aggr": {"min": 0.2, "max": 0.8},
+      "max_active": {"min": 1, "max": 4}
+    }, "einheit": "wie werte.p_act, aggr, max_active", "_hinweis": "Die drei Regler der Standard-KI als Ueberlagerung zustand.regie[fraktion] (eigener Namensraum). Haelt die Crew eine eigene Absicht (zustand.absichten.rom, SUND-02b D), gilt deren Wert fuer das gleiche Feld: die Wahl der Crew wird nie ueberstimmt."},
+    "ruhe": {"wert": {"angreifen": 150, "nachschub": 0, "rueckzug": 25, "beanspruchen": 50, "verstaerken": 0, "embargo": 20}, "einheit": "Ticks", "_hinweis": "Nach einem Befehl dieses Typs beginnt die Standard-KI der betroffenen Fraktion (fraktion, an bzw. gegen beim Embargo) so viele Ticks keine eigenen Reichsangriffe (zustand.regie[fraktion].ruhe_bis, aggr 0; die Wahl der Crew in zustand.absichten gilt weiter vor allem). Der Befehl ersetzt dann einen Angriff der KI, statt zu ihm hinzuzukommen (Messung: tools/sim-regie.js, Gratis-Ertraege reissen die SUND-01-Baender). 0 oder fehlend = keine Ruhe. Bewusst ohne Ruhe: Nachschub (die Fraktion bliebe passiv, Messung: Angriffe fast null) und Verstaerken. Gemessen mit tools/sim-regie.js, 5 Seed-Saetze."},
+    "angreifen": {"wert": {"reichweite": 8, "min_munition": 10, "min_treibstoff": 10, "flotten_max": 4, "hauptwelt_erlaubt": false}, "einheit": "Sprunge / Vorrat / Flotten", "_hinweis": "Wie die Angriffswahl der Standard-KI (kern.js ki): Flotten bereit im Heimathafen mit mindestens 70 % der Kapazitaet, Ziel feindlicher Hafen oder Posten, Staerke mal 0,9 mindestens attack_ratio mal Verteidigung. Hauptwelten sind kein Ziel eines Befehls (das Spielende liegt nie in der Hand des Spielleiters); die Standard-KI darf sie weiter angreifen."},
+    "beanspruchen": {"wert": {"reichweite": 6}, "einheit": "Sprunge", "_hinweis": "Wie der Anspruch der Standard-KI: freies Hex ohne Hafen, Ersatzteile mindestens posten_e, Flotte mindestens garrison + 1."},
+    "verstaerken": {"wert": {"reichweite": 8}, "einheit": "Sprunge", "_hinweis": "Eine Flotte im Heimathafen wechselt in einen anderen eigenen Hafen (neue Heimat). Posten sind kein Ziel (kein Neubau dort)."},
+    "nachschub": {"wert": {"guete": ["T", "U"], "menge": {"min": 1, "max": 12}, "kon_reserve": 3, "preis_faktor": 1}, "einheit": "Gut / Menge", "_hinweis": "Abstrakter Nachschub-Konvoi des Konkordats (kein Konvoi-Objekt auf der Karte): Treibstoff oder Munition wandern aus dem Vorrat des Konkordats (mindestens kon_reserve bleiben dort, wie im Handel) zum Reich, das Reich zahlt menge mal price_sell mal preis_faktor Marken an das Konkordat (dieselbe Ueberweisung wie im Handel). Erzeugt das Sim-Ereignis konvoi. Eine Fraktion unter Embargo bekommt nichts."},
+    "soeldner": {"wert": {"preis_je_staerke_tick": 0.5, "flotten_max": 2, "aktiv_max_je_an": 2}, "einheit": "Marken je Staerkepunkt und Tick", "_hinweis": "Eine Flotte des Konkordats wechselt fuer die Dauer die Fraktion (flotte.miete { von, an, bis, preis }), die Marken gehen an das Konkordat, danach kehrt sie zurueck. Die Standard-KI setzt Mietflotten nie ein, ein befohlener Angriff nimmt sie nur mit flotten: [ids]. Mietflotten bekommen keinen Neubau auf Kosten des Mieters."},
+    "piratenueberfall": {"wert": {"netz_sprunge": 3, "bereit_anteil": 0.8}, "einheit": "Sprunge im Piratennetz", "_hinweis": "pirat_raid ohne Wuerfel: eine bereite Piratenflotte (mindestens 80 % der Kapazitaet) greift einen Ort mit Besitzer im Piratennetz an (hoechstens netz_sprunge Sprunge von ihrem Heimatort). Beliebige Orte sind bewusst nicht erreichbar (Grenze: dafuer muesste der Kern eine Piratenflotte am Netzrand neu erzeugen)."}
+  }
+}
