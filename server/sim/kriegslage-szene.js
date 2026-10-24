@@ -44,6 +44,7 @@ const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
 const Verrat = require('./verrat.js');   // SUND-02b E: Texte und Daten des Verrats
 const Posten = require('./posten.js');   // SUND-02b A2: Ruf-Regel der Sprengung (Sperre am Hex)
+const Chronik = require('./chronik.js');   // SUND-03 D: der Ausgang jeder Szene steht in der Chronik
 const ANGRIFF = require('../../content/welt/posten-werte.json').werte.angreifen.wert;   // SUND-02b A2: Vorlauf und Stärkefaktor des Angriffs (Daten)
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
@@ -202,6 +203,15 @@ function aufraeumen(game, S) {
 function merken(game, S, ausgang, wirkungen, extra) {
   const ws = game.weltsim;
   game.simSzeneLetzte = Object.assign({ id: S.id, hex: S.hex, ausgang, tick: ws ? ws.tickZahl : null, wirkungen: wirkungen.map((x) => Object.assign({}, x)), kills: Object.assign({}, S.kills), killPunkte: S.killPunkte }, extra || {});
+  chronikEintrag(game, S, ausgang);
+}
+// SUND-03 D: Ausgang der Szene (Sieg, Niederlage, Flucht) als kurzer Chronik-Eintrag; ein gescheiterter End-Tick (gestoert) gilt nicht
+const AUSGANG_WORT = { sieg: 'Sieg', niederlage: 'Niederlage', abbruch: 'Flucht' };
+const MODUS_WORT = { angriff: 'Angriff auf Posten', verrat: 'Verrat' };
+function chronikEintrag(game, S, ausgang) {
+  if (!AUSGANG_WORT[ausgang]) return;
+  const modus = MODUS_WORT[S.modus] ? ` (${MODUS_WORT[S.modus]})` : '';
+  Chronik.eintragen(game, { art: 'szene', ref: 's' + S.id, kurz: `${AUSGANG_WORT[ausgang]} bei ${S.ortName || S.hex}${modus}`, param: { ausgang, fraktion: S.fraktion || '', hex: S.hex } });
 }
 
 // ---------- Ende der Szene ----------

@@ -10,6 +10,7 @@ const Kern = require('../server/weltsim/kern.js');
 const Daten = require('../server/weltsim/daten.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Regie = require('../server/sim/regie-befehle.js');
+const Chronik = require('../server/sim/chronik.js');
 const Ausschnitt = require('../server/sim/lage-ausschnitt.js');
 const F = require('./regie-fixture.js');
 
@@ -38,9 +39,10 @@ function simSpiel(seed, ticks, o) {
     for (const e of Kern.tick(z, o.befehle && o.befehle[t] ? { befehle: o.befehle[t] } : {}).ereignisse) ring.push(Object.assign({ n: t }, e));
     if (ring.length > Kriegslage.RING) ring.splice(0, ring.length - Kriegslage.RING);
   }
-  const chronik = Array.from({ length: o.chronik == null ? 8 : o.chronik }, (_, i) => ({ text: (o.chronikText || 'Tätigkeit Nr. ' + i + ' beendet') + (o.lang ? ' ' + 'x'.repeat(o.lang) : ''), spielzeit_s: i }));
-  return { weltsim: { zustand: z, tickZahl: ticks, ereignisse: ring, ruf: { rom: o.ruf == null ? 60 : o.ruf, ger: 0, kon: 4 } }, ship: { scene: o.hex || '0305', stufe: o.stufe == null ? 2 : o.stufe },
-    players: (o.names || NAMEN).map((name, i) => ({ id: i + 1, name, connected: true })), weltstand: { data: { chronik } } };
+  // SUND-03 D: die Chronik steht in welt.sim.chronik (game.weltsim.chronik, Einträge { t, art, ref, kurz }), nicht mehr im Kampagnen-Weltstand; sie wird hier roh gesetzt (auch zu lange Einträge und Namen, der Ausschnitt muss selbst kürzen und säubern)
+  const chronik = Array.from({ length: o.chronik == null ? 8 : o.chronik }, (_, i) => ({ t: i, art: 'plan', ref: 'p' + i, kurz: (o.chronikText || 'Tätigkeit Nr. ' + i + ' beendet') + (o.lang ? ' ' + 'x'.repeat(o.lang) : '') }));
+  return { weltsim: { zustand: z, tickZahl: ticks, ereignisse: ring, chronik, ruf: { rom: o.ruf == null ? 60 : o.ruf, ger: 0, kon: 4 } }, ship: { scene: o.hex || '0305', stufe: o.stufe == null ? 2 : o.stufe },
+    players: (o.names || NAMEN).map((name, i) => ({ id: i + 1, name, connected: true })) };
 }
 const teile = (t) => JSON.parse(t);
 const sortiert = (x) => { if (Array.isArray(x)) return x.every(sortiert); if (x && typeof x === 'object') { const k = Object.keys(x); return k.join('|') === k.slice().sort().join('|') && k.every((q) => sortiert(x[q])); } return true; };
@@ -70,7 +72,7 @@ section('Inhalt', () => {
   ok(d.ereignisse.length <= 12 && d.ereignisse.every((e) => e.t !== 'konvoi' && e.t !== 'hafen_gefallen' && e.t !== 'posten_verloren' && typeof e.n === 'number'), 'Ereignisse: höchstens 12, nie konvoi (Rauschen), Gefallene stehen unter flotten.gefallen');
   const ring = g.weltsim.ereignisse;
   ok(ring.filter((e) => e.typ === 'konvoi').length > 20, 'Gegenprobe: der Ring ist voller konvoi-Ereignisse (' + ring.filter((e) => e.typ === 'konvoi').length + ' von ' + ring.length + ')');
-  ok(d.chronik.length === 8 && d.chronik[7] === 'Tätigkeit Nr. 7 beendet', 'Chronik: die letzten 8 Texte (nur Text, ersetzt die Chronik aus dem Kampagnen-Kontext)');
+  ok(d.chronik.length === 8 && d.chronik[7] === '7: Tätigkeit Nr. 7 beendet', 'Chronik: die letzten 8 Einträge als „Tick: Kurztext“ (aus welt.sim.chronik, ersetzt die Chronik aus dem Kampagnen-Kontext)');
   const lang = simSpiel(2, 60, { lang: 600 });
   ok(teile(Ausschnitt.ausschnitt(lang, { stufe: 0 }).text).chronik.every((c) => c.length <= A.chronik_zeichen), 'ein langer Chronikeintrag wird auf chronik_zeichen gekürzt');
   ok(['rom', 'ger', 'offen'].includes(d.lage.sieger) && typeof d.lage.anteil === 'number', 'Kennzahl lage.sieger (rom, ger, offen)');
@@ -187,11 +189,11 @@ section('Obergrenze über viele Sim-Zustände', () => {
 section('Mit einem echten Spiel zu dritt', () => {
   const t = F.neuesSpiel({ crew: 3, names: NAMEN, seed: 5 }); const g = t.g;
   for (let i = 0; i < 30; i++) Kriegslage.tick(g, 'test');
-  g.weltstand.chronicle('Tätigkeit beendet: ' + NAMEN[0] + 'per brachte das Paket nach Ostia Nova.');
+  Chronik.eintragen(g, { art: 'plan', ref: 'p1', kurz: 'Tätigkeit beendet: ' + NAMEN[0] + 'per brachte das Paket nach Ostia Nova.' });   // eintragen säubert schon beim Schreiben, der Ausschnitt noch einmal
   const a = Ausschnitt.ausschnittPassend(g, {});
   const d = teile(a.text);
   ok(a.passt && d.crew.anzahl === 3 && d.crew.hex && d.tick === 30 && !NAMEN.some((nm) => a.text.includes(nm)), 'Spiel zu dritt: Ausschnitt mit Crew-Zeile ohne Namen (' + a.zeichen + ' Zeichen)');
-  ok(d.chronik.length === 1 && /Crew brachte das Paket/.test(d.chronik[0]), 'die Chronik kommt aus dem Weltstand des Spiels');
+  ok(d.chronik.length >= 1 && /Crew brachte das Paket/.test(d.chronik[d.chronik.length - 1]), 'die Chronik kommt aus welt.sim.chronik des Spiels (ohne Spielernamen)');
   const r = Regie.planAnwenden(g, { befehle: [{ typ: 'angreifen', fraktion: 'rom', ziel: '0803' }] });
   void r;
   for (let i = 0; i < 6; i++) Kriegslage.tick(g, 'test');

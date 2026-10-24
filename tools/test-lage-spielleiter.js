@@ -145,7 +145,7 @@ section('Prompt: statischer Teil vorn und stabil, keine Spielernamen, Obergrenze
   const t = spiel({ crew: 3, names: NAMEN });
   const g = t.g;
   tick(g, 20);
-  g.weltstand.data.chronik = [{ text: 'Mireille_Kas hat den Posten gegründet' }, { text: 'Ouzo_Brandt greift Carrara an, Tzvi_Lund hilft' }, { text: 'Tzvi_Lundx kehrt heim' }];
+  g.weltsim.chronik = [{ t: 18, art: 'plan', ref: 'p1', kurz: 'Mireille_Kas hat den Posten gegründet' }, { t: 19, art: 'plan', ref: 'p2', kurz: 'Ouzo_Brandt greift Carrara an, Tzvi_Lund hilft' }, { t: 20, art: 'plan', ref: 'p3', kurz: 'Tzvi_Lundx kehrt heim' }];   // SUND-03 D: roh in welt.sim.chronik, der Ausschnitt säubert
   const letzte = [{ nr: 1, tick: 3, grenze: 'andocken', befehle: ['fokus'], begruendung: 'Tzvi_Lund sucht Streit' }];
   const a = Prompt.baue(g, { art: 'szene_ende', nr: 2, letzte, werte: W });
   ok(!a.fehler && a.prompt.length === a.zeichen, 'Prompt gebaut');

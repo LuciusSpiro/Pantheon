@@ -11,6 +11,7 @@
 //   Zustand: game.reisePlan | null, game.reise | null, game._reiseOhne (ereignislose Hops am Stück)
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
+const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D
 const Besitz = require('./besitz.js');   // SUND-01 D: aktueller Besitzer statt statischer Hex-Fraktion (ohne Overlay identisch)
 
 let sprungMod = null;
@@ -105,6 +106,7 @@ function stop(game, text) {
 }
 
 function update(game, dt) {
+  ReiseEreignis.update(game, dt);   // SUND-03 D: Vorlauf und Eintreffen der angekündigten Gefahren (auch ohne Schnellsprung)
   const r = game.reise;
   if (!r) { planGueltig(game); return; }
   r.t += dt;
@@ -117,10 +119,11 @@ function hop(game, r) {
   const ort = Sektoren.ortVonHex(next);
   const grund = !here || !next ? 'Kein Sprungpunkt dorthin.' : sprung().hexGrund(game, here, next) || (ort && game.mission.jumpBlocked(ort));
   if (grund || !ort) { game.reisePlan = null; return stop(game, `Schnellsprung beendet: ${grund || 'Ziel nicht erreichbar.'}`); }
-  sprung().springeNach(game, ort);
+  const ereignis = sprung().springeNach(game, ort);   // SUND-03 D: Reise-Ereignis dieses Hops (reise-ereignis.js) oder null
   r.i++; r.t = 0;
   if (game.reisePlan) nachSprung(game, next);
   if (game.simSzene) { game.reisePlan = null; return stop(game, null); }   // SUND-02a A2: Feindkontakt (Sim-Szene) beendet den Schnellsprung wie ein Abfangen
+  if (ereignis) return stop(game, `Schnellsprung unterbrochen: ${ereignis.kurz}`);   // SUND-03 D: ein Reise-Ereignis bricht ab; die Rest-Route bleibt gewählt (Faltsprung setzt sie fort), das Abfangen wird in diesem Hop nicht gewürfelt (kein zweites Ereignis)
   if (abfangen(game, next)) { game.reisePlan = null; return stop(game, null); }
   if (r.abbruch || r.i >= r.hops.length) {   // (die Rest-Route bleibt bei einem Abbruch gewählt: Faltsprung setzt sie fort)
     return stop(game, r.i >= r.hops.length ? `Schnellsprung abgeschlossen: ${Sektoren.hexName(next)}.` : `Schnellsprung abgebrochen: ${Sektoren.hexName(next)}.`);
@@ -135,6 +138,7 @@ function abfangen(game, hex) {
   else if (art === 'neutral') p = Math.min(R.neutralMax != null ? R.neutralMax : 0.6, (R.neutralChance != null ? R.neutralChance : 0.08) + (R.neutralPlus != null ? R.neutralPlus : 0.08) * (game._reiseOhne || 0));
   if (!(game.rng.chance(p))) { game._reiseOhne = (game._reiseOhne || 0) + 1; return false; }
   game._reiseOhne = 0;
+  ReiseEreignis.abfangenVermerken(game);   // SUND-03 D: das Abfangen zählt für den Abstand der Reise-Ereignisse (höchstens 1 je 3 Sprünge)
   const loc = Locations.get(game.ship.scene); const sc = loc.scene; const ship = game.ship;
   ship.x = Math.round(sc.w / 2); ship.y = Math.round(sc.h / 2); ship.vx = 0; ship.vy = 0; ship.speed = 0;
   const n = Math.max(R.jaegerMin || 2, Math.min(R.jaegerMax || 4, game.players.filter((q) => q.connected).length + 1));

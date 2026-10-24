@@ -19,6 +19,8 @@ const path = require('path');
 const LLM = require('../mission/llm.js');
 const Regie = require('./regie-befehle.js');
 const Prompt = require('./lage-prompt.js');
+const Wiederholung = require('./lage-wiederholung.js');   // SUND-03 D: Wiederholungsregeln der Pläne
+const Chronik = require('./chronik.js');   // SUND-03 D: angewandte Pläne stehen in der Chronik
 
 const DATEN = require('../../content/welt/lage-spielleiter-werte.json').werte;
 const WERTE = Object.fromEntries(Object.entries(DATEN).map(([k, v]) => [k, v.wert]));
@@ -59,6 +61,7 @@ class LageSpielleiter {
     this.aufrufe = 0;            // gestartete Anfragen dieser Sitzung (Deckel)
     this.letzterStartTick = null;
     this.letzte_plaene = [];     // Ringliste kurzer Pläne { nr, tick, grenze, befehle: [Text], angenommen, abgelehnt, begruendung }
+    this.verlauf = [];           // SUND-03 D: Parametersätze (Schlüssel) der angenommenen Befehle je angewandtem Plan, für die Wiederholungsregeln (nicht im Prompt)
     this.zaehler = { angewandt: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
@@ -201,15 +204,25 @@ class LageSpielleiter {
       this.schreibe(Object.assign({ ausgang: 'veraltet', fehler: [`Plan ${alter} Ticks alt (höchstens ${this.W.plan_alter_max_ticks})`], begruendung: 'Plan zu spät, verworfen', plan: this.planInfo(job, { alter }) }, this.messung(job, r)));
       return;
     }
-    const res = Regie.planAnwenden(this.game, gelesen.plan);
+    const wh = Wiederholung.pruefen(gelesen.plan, this.verlauf, this.W);   // SUND-03 D: Wiederholungen fallen vor der Prüfung der Regie heraus (mit Grund im Logbuch)
+    const res = Regie.planAnwenden(this.game, wh.plan);
     if (!res.ok) return this.stoerung(job, LLM.llmError('EXIT', 'Plan ungültig: ' + res.grund), r);
     this.zaehler.angewandt++;
-    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: (gelesen.plan.befehle || []).map(kurzBefehl), angenommen: res.angenommen.length, abgelehnt: res.abgelehnt.length,
+    this.wiederholungenMelden(wh.abgelehnt);
+    this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));
+    while (this.verlauf.length > Math.max(1, this.W.wiederholung.fenster_plaene)) this.verlauf.shift();
+    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: (gelesen.plan.befehle || []).map(kurzBefehl), angenommen: res.angenommen.length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,
       begruendung: typeof gelesen.plan.begruendung === 'string' ? gelesen.plan.begruendung.slice(0, 120) : null };
     if (gelesen.plan.fokus) kurz.fokus = String(gelesen.plan.fokus.hex || '');
     this.letzte_plaene.push(kurz);
     while (this.letzte_plaene.length > this.W.letzte_plaene) this.letzte_plaene.shift();
     this.schreibe(Object.assign({ ausgang: 'angewandt', begruendung: kurz.begruendung || 'Plan angewandt', plan: this.planInfo(job, { angenommen: kurz.angenommen, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
+    const typen = res.angenommen.map((a) => a.befehl.typ);
+    Chronik.eintragen(this.game, { art: 'plan', ref: 'p' + job.nr, kurz: `Plan ${job.nr} (${job.art}): ${typen.length ? typen.join(', ') : 'nichts angenommen'}`, param: { angenommen: res.angenommen.length, abgelehnt: kurz.abgelehnt } });
+  }
+  // SUND-03 D: abgelehnte Wiederholungen ins Regie-Logbuch (wie die übrigen Ablehnungen des Aufsatzes: art lage_befehl, ausgang abgelehnt, Grund in fehler)
+  wiederholungenMelden(abgelehnt) {
+    for (const a of abgelehnt) Regie.schreibe(this.game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: a.befehl.typ, plan: a.befehl, fehler: [a.grund] });
   }
 
   // ---------- Ende (Raumende, Neustart, Schalter aus): Anfrage in der Luft wird verworfen, späte Antworten kommen nie an

@@ -1,0 +1,18 @@
+{
+  "format": "reise-werte/1",
+  "_hinweis": "SUND-03 D: Zahlen der Reise-Ereignisse (server/sim/reise-ereignis.js, nur Freie Fahrt Sund). Ein Ereignis entsteht je Sprung hoechstens einmal und nie dichter als min_abstand_spruenge (der Code erzwingt zusaetzlich hart mindestens 3: Daten duerfen den Abstand nur vergroessern). Ziel: im Mittel eines je 6 bis 10 Spruenge. Alle Zahlen stehen hier, keine im Code.",
+  "werte": {
+    "standard_an": {"wert": false, "einheit": "Schalter", "_hinweis": "Voreinstellung, wenn die Umgebungsvariable REISE_EREIGNISSE fehlt (1 oder on = an, 0 oder off = aus). Standard aus: ohne Env laeuft die Freie Fahrt wie nach SUND-02 (Abnahme 1), wie LAGE_SPIELLEITER. Zum Einschalten fuer alle: hier auf true."},
+    "min_abstand_spruenge": {"wert": 3, "einheit": "Spruenge", "_hinweis": "Hoechstens 1 Ereignis je 3 aufeinanderfolgende Spruenge: nach einem Ereignis bleiben die naechsten zwei Spruenge frei. Der Code nimmt nie weniger als 3 (ABSTAND_HART), auch wenn hier weniger steht. Das Abfangen des Schnellsprungs (reise.js) zaehlt wie ein Ereignis fuer diesen Abstand."},
+    "wahrscheinlichkeit": {"wert": 0.2, "einheit": "je freiem Sprung", "_hinweis": "Chance je Sprung, der nach dem Mindestabstand wieder frei ist. Mittlerer Abstand = min_abstand_spruenge - 1 + 1 / wahrscheinlichkeit (3 und 0,2: 7 Spruenge). Gemessen mit tools/test-reise-ereignis.js (Ausgabe dort)."},
+    "wiederholung": {"wert": {"fenster": 3, "ring": 8}, "einheit": "Ereignisse", "_hinweis": "Wiederholungsregeln: nie dieselbe Katalog-Id zweimal in Folge, nie derselbe Parametersatz (Art, Variante, Ortstyp, Ziel-Hex) wie eines der letzten `fenster` Ereignisse. `ring` = wie viele Ereignisse gemerkt werden (Weltstand welt.sim.reise.letzte); die Mindestabstaende je Id (bedingungen.min_abstand) zaehlen darueber."},
+    "ort_typen": {"wert": {"nachbar": {"min": 1, "max": 1}, "nah": {"min": 2, "max": 3}}, "einheit": "Hex-Abstand", "_hinweis": "Wo ein Notruf liegt, vom Ankunftssektor aus gerechnet (nur spielbare Sektoren mit Ort)."},
+    "sim_reichweite": {"wert": 4, "einheit": "Hex-Abstand", "_hinweis": "Liegt ein Notruf der Sim (Ereignis notruf, Marke lage:n) so nah am Ankunftssektor, nimmt ein passender Katalog-Notruf ihn auf (Ort und Art), statt einen eigenen zu erfinden. Aufgenommene Notrufe haben keine eigene Folge: die Sim-Szene beim Eintreffen gilt."},
+    "notruf_gilt_spruenge": {"wert": 8, "einheit": "Spruenge", "_hinweis": "So lange bleibt ein Notruf des Katalogs offen (Marke auf der Karte). Danach verfaellt er ohne Folgen: Ablehnen kostet nichts."},
+    "notruf_marke_ticks": {"wert": 24, "einheit": "Marken-Ticks (je 30 s)", "_hinweis": "Lebensdauer der Notruf-Marke auf der Karte (Marken.setze ticks); die Marke verschwindet auch mit dem Notruf."},
+    "vorlauf_min_s": {"wert": 8, "einheit": "Sekunden Spielzeit", "_hinweis": "Kleinster erlaubter Vorlauf der Ankuendigung vor dem Eintreffen einer Gefahr (Test: kein Katalogeintrag darunter). Fairness: die Gefahr wird per Funk angekuendigt, die Crew kann ausweichen."},
+    "abstand_gegner": {"wert": 650, "einheit": "Einheiten", "_hinweis": "Abstand, in dem eintreffende Gegner erscheinen (wie das Abfangen in reise.js)."},
+    "jaeger_je_spieler": {"wert": 1, "einheit": "Schiffe", "_hinweis": "Gegnerzahl = Spieler (verbunden) + dieser Wert, geklemmt auf schiffe.min und schiffe.max des Katalogeintrags."},
+    "chronik_kurz_max": {"wert": 80, "einheit": "Zeichen", "_hinweis": "Laenge der Chronik-Zeile eines Ereignisses (kuerzer ist gut: der Ausschnitt fuer den Grobplan bleibt klein)."}
+  }
+}
