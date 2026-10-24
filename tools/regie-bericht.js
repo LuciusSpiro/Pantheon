@@ -36,14 +36,14 @@ function report(dir, weltId) {
     for (const e of aufrufe) { const s = (e.plan && e.plan.sitzung) || '–'; sitzungen[s] = (sitzungen[s] || 0) + 1; }
     const dauern = aufrufe.map((e) => e.dauer_s);
     const uebersprungen = {};
-    for (const e of lage.filter((x) => x.ausgang === 'uebersprungen')) { const g = (e.begruendung || '').replace(/^.*((.*))$/, '$1'); uebersprungen[g] = (uebersprungen[g] || 0) + 1; }
+    for (const e of lage.filter((x) => x.ausgang === 'uebersprungen')) { const g = e.grund || (e.plan && e.plan.grund) || '?'; uebersprungen[g] = (uebersprungen[g] || 0) + 1; }
     const lageRueck = by('lage_befehl').filter((e) => e.ausgang === 'rueckfall');
     L.push('## Lage-Spielleiter', '',
       `- Aufrufe: **${aufrufe.length}** in ${Object.keys(sitzungen).length} Sitzung(en); Aufrufe je Sitzung: ${Object.entries(sitzungen).map(([s, c]) => `${s}: ${c}`).join(', ') || '–'} (Ziel 4–6 je Abend)`,
       `- Angewandt: ${lage.filter((e) => e.ausgang === 'angewandt').length}, veraltet verworfen: ${lage.filter((e) => e.ausgang === 'veraltet').length}, späte Antworten: ${lage.filter((e) => e.ausgang === 'verspaetet').length}`,
       `- Dauer je Aufruf: Median ${fmt(zahl(dauern, 0.5), 10)} s, p90 ${fmt(zahl(dauern, 0.9), 10)} s`,
       `- Tokens: ${fmt(callTokens(lage))}, je Aufruf im Mittel ${aufrufe.length ? fmt(callTokens(lage) / aufrufe.length) : '–'}`,
-      `- Fehler: ${lage.filter((e) => e.ausgang === 'fehler').length}, Rückfälle: ${lageRueck.length}`,
+      `- Fehler: ${lage.filter((e) => e.ausgang === 'fehler').length}, Rückfälle: ${lageRueck.length} (ein Rückfall räumt Fokus und Regler früherer Pläne mit ab: die Sim läuft danach wie ohne Spielleiter)`,
       `- Übersprungene Grenzen: ${Object.keys(uebersprungen).length ? Object.entries(uebersprungen).map(([g, c]) => `${g} ${c}`).join(', ') : 'keine'}`, '');
   }
   // je Mission

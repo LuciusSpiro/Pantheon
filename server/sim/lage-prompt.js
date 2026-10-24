@@ -63,21 +63,20 @@ function statischerTeil() {
 }
 
 // ---------- Namen
-function spielerNamen(game) {
-  return (game.players || []).map((p) => (p && typeof p.name === 'string' ? p.name.trim() : '')).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
-}
-// wie lage-ausschnitt.js: auch ein längerer Name im Text (im Spiel auf 12 Zeichen gekürzt gespeichert) verschwindet ganz
-function namenFiltern(text, game) {
-  let t = String(text == null ? '' : text);
-  for (const n of spielerNamen(game)) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\wäöüÄÖÜß]*', 'gi'), 'Crew');
-  return t;
+// Der Filter gehört lage-ausschnitt.js (Chronik-Freitext ist dort schon gefiltert). Hier nur für Freitext, den der Spielleiter selbst einsetzt (letzte Pläne): NIE über serialisiertes JSON
+// (kurze Namen wie „Rom“ oder „01“ träfen Schlüssel, Fraktionen und Hex-Codes).
+const spielerNamen = Ausschnitt.spielerNamen;
+function namenFiltern(text, game) { return Ausschnitt.ohneNamen(text, spielerNamen(game)); }
+// letzte Pläne: nur der Freitext (begruendung, vom Modell geschrieben) wird gefiltert; Grenze, Befehle und Zahlen sind Struktur
+function plaeneFiltern(plaene, game) {
+  return (plaene || []).map((p) => (p && typeof p.begruendung === 'string' ? Object.assign({}, p, { begruendung: namenFiltern(p.begruendung, game) }) : p));
 }
 
 // ---------- Prompt
 // art: die Grenze (szene_ende | andocken | absicht | debug), nr: laufende Nummer des Plans in dieser Sitzung, letzte: kurze Pläne (Ringliste des Spielleiters), werte: lage-spielleiter-werte
 function baue(game, { art, nr, letzte, werte }) {
   const st = statischerTeil();
-  const letzteTxt = namenFiltern(JSON.stringify(letzte || []), game);
+  const letzteTxt = JSON.stringify(plaeneFiltern(letzte, game));
   const grenze = { art: String(art || 'unbekannt'), nr: Number.isInteger(nr) ? nr : 1, tick: game.weltsim ? game.weltsim.tickZahl : 0 };
   const schluss = 'Gib jetzt den Plan aus. Nur das JSON-Objekt.';
   // fester Rest: alles außer dem Ausschnitt (mit Tag-Rahmen), damit der Ausschnitt genau den freien Platz bekommt
@@ -86,7 +85,7 @@ function baue(game, { art, nr, letzte, werte }) {
   if (frei < werte.ausschnitt_min_zeichen) return { fehler: `Prompt zu groß: für den Ausschnitt bleiben ${frei} Zeichen (Katalog ${st.text.length}, Chronik ${letzteTxt.length})` };
   const a = Ausschnitt.ausschnittPassend(game, { maxZeichen: frei });
   if (!a.passt) return { fehler: `Ausschnitt passt nicht (${a.zeichen} von ${frei} Zeichen)` };
-  const text = namenFiltern(a.text, game);
+  const text = a.text;   // Freitext (Chronik) hat lage-ausschnitt.js schon gefiltert; ein zweiter Durchlauf über das JSON würde Schlüssel und Codes beschädigen
   const prompt = LLM.buildPrompt({ katalog: st.text, variabel: [['ausschnitt', text], ['letzte_plaene', letzteTxt], ['grenze', JSON.stringify(grenze)]], schluss });
   return { prompt, zeichen: prompt.length, ausschnitt: { stufe: a.stufe, zeichen: a.zeichen }, katalogHash: st.hash };
 }
@@ -94,25 +93,42 @@ function baue(game, { art, nr, letzte, werte }) {
 // ---------- Antwort lesen
 // Erstes vollständiges JSON-Objekt im Text (Anführungszeichen beachtet). Zäune ```json … ``` und Text davor/danach fallen weg;
 // ein Komma vor } oder ] wird entfernt, wenn der Text sonst nicht lesbar ist. -> { plan } | { fehler }
+const PLAN_KEYS = ['befehle', 'fokus', 'begruendung'];
+// Ende des Objekts, das bei start beginnt (Zeichenketten beachtet), sonst -1
+function objektEnde(t, start) {
+  let tiefe = 0, inStr = false, esc = false;
+  for (let i = start; i < t.length; i++) {
+    const c = t[i];
+    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
+    if (c === '"') inStr = true; else if (c === '{') tiefe++; else if (c === '}') { tiefe--; if (tiefe === 0) return i; }
+  }
+  return -1;
+}
+function objektLesen(roh) {
+  for (const versuch of [roh, roh.replace(/,\s*([}\]])/g, '$1')]) {
+    try { const o = JSON.parse(versuch); if (o && typeof o === 'object' && !Array.isArray(o)) return o; } catch (e) { /* nächster Versuch */ }
+  }
+  return null;
+}
 function planAusText(text) {
   if (typeof text !== 'string' || !text.trim()) return { fehler: 'leere Antwort' };
   let t = text.replace(/^﻿/, '');
   const zaun = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
   if (zaun && zaun[1].includes('{')) t = zaun[1];
-  const start = t.indexOf('{');
-  if (start < 0) return { fehler: 'kein JSON-Objekt in der Antwort' };
-  let tiefe = 0, inStr = false, esc = false, ende = -1;
-  for (let i = start; i < t.length; i++) {
-    const c = t[i];
-    if (inStr) { if (esc) esc = false; else if (c === '\\') esc = true; else if (c === '"') inStr = false; continue; }
-    if (c === '"') inStr = true; else if (c === '{') tiefe++; else if (c === '}') { tiefe--; if (tiefe === 0) { ende = i; break; } }
+  if (t.indexOf('{') < 0) return { fehler: 'kein JSON-Objekt in der Antwort' };
+  // jedes „{“ der Reihe nach: das erste lesbare Objekt in Plan-Form gilt (Text mit Klammern davor stört nicht); sonst das erste lesbare Objekt (die Prüfung lehnt es mit Grund ab)
+  let erstes = null, geschlossen = false;
+  for (let i = t.indexOf('{'); i >= 0; i = t.indexOf('{', i + 1)) {
+    const ende = objektEnde(t, i);
+    if (ende < 0) continue;
+    geschlossen = true;
+    const o = objektLesen(t.slice(i, ende + 1));
+    if (!o) continue;
+    if (PLAN_KEYS.some((k) => k in o)) return { plan: o };
+    if (!erstes) erstes = o;
   }
-  if (ende < 0) return { fehler: 'JSON-Objekt nicht abgeschlossen' };
-  const roh = t.slice(start, ende + 1);
-  for (const versuch of [roh, roh.replace(/,\s*([}\]])/g, '$1')]) {
-    try { const o = JSON.parse(versuch); if (o && typeof o === 'object' && !Array.isArray(o)) return { plan: o }; } catch (e) { /* nächster Versuch */ }
-  }
-  return { fehler: 'JSON nicht lesbar' };
+  if (erstes) return { plan: erstes };
+  return { fehler: geschlossen ? 'JSON nicht lesbar' : 'JSON-Objekt nicht abgeschlossen' };
 }
 
 module.exports = { katalogText, statischerTeil, baue, planAusText, namenFiltern, spielerNamen, SYSTEM_DATEI, KAT };

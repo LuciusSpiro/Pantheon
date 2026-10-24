@@ -20,7 +20,7 @@
 //            --model sonnet, MAX_THINKING_TOKENS=0), 'api' ist nur als Schnittstelle vorgesehen (wirft). Jeder Live-Aufruf
 //            wird nach <recordDir>/<kind>/<key>.json geschrieben (Format llm-aufzeichnung/1, wie tools/fixtures/llm).
 //
-// Fehler tragen err.code: ETIMEDOUT, ENOENT (CLI fehlt), EXIT (Exit≠0), RATE_LIMIT (429), BUDGET, OFF, REFUSED.
+// Fehler tragen err.code: ABORTED (Aufrufer hat per AbortSignal abgebrochen), ETIMEDOUT, ENOENT (CLI fehlt), EXIT (Exit≠0), RATE_LIMIT (429), BUDGET, OFF, REFUSED.
 //
 // Eingabe 'input' ist ein JSON-Objekt. Für live/replay zählt das ganze Objekt (Schlüssel). Hat es ein Feld 'prompt'
 // (String), wird genau dieser Text gesendet, sonst eine Standardform aus dem Objekt (renderPrompt). Hat es 'system'
@@ -273,7 +273,7 @@ function cliCwd() {
   const d = path.join(require('os').tmpdir(), 'pantheon-spielleiter-cli');
   try { fs.mkdirSync(d, { recursive: true }); return d; } catch (e) { return process.cwd(); }
 }
-function callClaude(text, sysFile, model, timeoutMs) {
+function callClaude(text, sysFile, model, timeoutMs, signal) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
     if (!sysFile) { reject(llmError('EXIT', 'Kein Systemprompt für diese Anfrageart (claude braucht --system-prompt-file)')); return; }
@@ -286,7 +286,10 @@ function callClaude(text, sysFile, model, timeoutMs) {
         '--include-partial-messages', '--no-session-persistence', '--strict-mcp-config', '--system-prompt-file', sysFile],
       { env: cliEnv(), cwd: cliCwd(), windowsHide: true });
     } catch (e) { reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar: ${e.message}`)); return; }
-    let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false;
+    let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false; let aborted = false;
+    // SUND-03 A2: der Aufrufer bricht ab (dispose, Timeout in Spielzeit): der Prozess wird beendet statt bis zum eigenen Timer weiterzulaufen
+    const abbrechen = () => { aborted = true; try { p.kill(); } catch (e) { /* schon weg */ } };
+    if (signal) { if (signal.aborted) abbrechen(); else signal.addEventListener('abort', abbrechen, { once: true }); }
     const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* schon weg */ } }, timeoutMs || 5 * 60 * 1000);
     p.stdout.on('data', (d) => {
       buf += d; let i;
@@ -302,6 +305,7 @@ function callClaude(text, sysFile, model, timeoutMs) {
     p.on('error', (e) => { clearTimeout(kill); reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar (${cli}): ${e.message}`)); });
     p.on('close', (code) => {
       clearTimeout(kill);
+      if (aborted) return reject(llmError('ABORTED', 'claude: abgebrochen'));
       if (timedOut) return reject(llmError('ETIMEDOUT', `Zeitüberschreitung nach ${Math.round((Date.now() - t0) / 1000)} s`));
       const all = err + ' ' + (result && typeof result.result === 'string' ? result.result.slice(0, 300) : '');
       if (/\b429\b|rate.?limit/i.test(all) && (code !== 0 || (result && result.is_error))) return reject(llmError('RATE_LIMIT', `claude: Ratenlimit (${all.trim().slice(0, 200)})`));
@@ -314,7 +318,7 @@ function callClaude(text, sysFile, model, timeoutMs) {
   });
 }
 const TRANSPORTS = {
-  cli: { name: 'cli', call: (text, o) => callClaude(text, o.system, o.model, o.timeoutMs) },
+  cli: { name: 'cli', call: (text, o) => callClaude(text, o.system, o.model, o.timeoutMs, o.signal) },
   // Platzhalter für die spätere API (Entscheidung 11): gleiche Signatur, noch nicht umgesetzt
   api: { name: 'api', call: () => Promise.reject(llmError('EXIT', 'Transport api ist noch nicht umgesetzt (nur cli)')) },
 };
@@ -392,6 +396,7 @@ function create(opts) {
     if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
     const sys = (input && typeof input.system === 'string' && input.system) || (opts.systemPrompts && opts.systemPrompts[kind]) || systemPromptFile(kind);
     const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };
+    if (ao.signal) co.signal = ao.signal;   // SUND-03 A2: AbortSignal des Aufrufers bis in den Transport
     if (ao.schema) co.schema = ao.schema;
     const r = forced ? await transport.callEskalation(renderPrompt(kind, input), co) : await transport.call(renderPrompt(kind, input), co);
     const n = r.usage.input + r.usage.output;

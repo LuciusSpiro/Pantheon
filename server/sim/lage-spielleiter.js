@@ -83,9 +83,15 @@ class LageSpielleiter {
   fehlerZaehlen(wo, e) { if (this.game.countError) this.game.countError(wo, e); }
   schreibe(eintrag) { Regie.schreibe(this.game, Object.assign({ art: 'lage_grobplan', quelle: this.mode === 'mock' || this.mode === 'script' ? 'mock' : 'llm' }, eintrag)); }
   bereit() { return !this.disposed && !!this.game.weltsim; }
+  // Übersprungene Grenze: gezählt immer, im Logbuch höchstens einmal je Tick und Grund (K1: keine Flut), der Grund steht im eigenen Feld `grund`
   ueberspringen(grund, art) {
+    const tick = this.game.weltsim.tickZahl;
     this.zaehler.uebersprungen[grund] = (this.zaehler.uebersprungen[grund] || 0) + 1;
-    this.schreibe({ ausgang: 'uebersprungen', begruendung: `Grenze ${art}: kein Plan (${grund})`, plan: { grenze: art, tick: this.game.weltsim.tickZahl, sitzung: this.sitzung, aufrufe: this.aufrufe } });
+    const schluessel = tick + ':' + grund;
+    if (this.letzterSprung !== schluessel) {
+      this.letzterSprung = schluessel;
+      this.schreibe({ ausgang: 'uebersprungen', grund, begruendung: `Grenze ${art}: kein Plan (${grund})`, plan: { grenze: art, tick, sitzung: this.sitzung, aufrufe: this.aufrufe } });
+    }
     return { gestartet: false, grund };
   }
 
@@ -93,14 +99,22 @@ class LageSpielleiter {
   beiGrenze(art) {
     if (!this.bereit()) return { gestartet: false, grund: 'dispose' };
     if (!this.W.grenzen.includes(art)) return { gestartet: false, grund: 'keine_grenze' };
-    return this.pruefenUndVormerken(art, false);
+    const takt = this.taktErlaubt(art);
+    return takt || this.anfrageVormerken(art);
   }
-  // Debug (lage plan): wie eine Grenze, aber ohne Abstand und Deckel (Budget und „nur ein Job“ gelten weiter). Eigene benannte Funktion statt eines Flags an beiGrenze.
+  // Takt der Sitzung: Deckel und Mindestabstand. -> null (erlaubt) | Ergebnis des Überspringens. Nur beiGrenze ruft sie.
+  taktErlaubt(art) {
+    if (this.aufrufe >= this.W.deckel_je_sitzung) return this.ueberspringen('deckel', art);
+    if (this.letzterStartTick != null && this.game.weltsim.tickZahl - this.letzterStartTick < this.W.min_abstand_ticks) return this.ueberspringen('abstand', art);
+    return null;
+  }
+  // Debug (lage plan): wie eine Grenze, aber ohne Abstand und Deckel (Budget und „nur ein Job“ gelten weiter).
   planErzwingen() {
     if (!this.bereit()) return { gestartet: false, grund: 'dispose' };
-    return this.pruefenUndVormerken('debug', true);
+    return this.anfrageVormerken('debug');
   }
-  pruefenUndVormerken(art, ohneTakt) {
+  // Kern: Modus, Transport, ein Job zugleich, Budget, dann vormerken (ohne Takt-Prüfung)
+  anfrageVormerken(art) {
     const ws = this.game.weltsim;
     if (this.mode === 'off' || (this.llm && this.llm.mode === 'off')) {
       if (!this.ausGemeldet) { this.ausGemeldet = true; Regie.rueckfall(this.game, 'Lage-Spielleiter aus (Modus off)'); }
@@ -108,17 +122,17 @@ class LageSpielleiter {
     }
     if (this.aus) return this.ueberspringen('transport_aus', art);
     if (this.zustand !== 'idle') return this.ueberspringen('beschaeftigt', art);
-    if (!ohneTakt) {
-      if (this.aufrufe >= this.W.deckel_je_sitzung) return this.ueberspringen('deckel', art);
-      if (this.letzterStartTick != null && ws.tickZahl - this.letzterStartTick < this.W.min_abstand_ticks) return this.ueberspringen('abstand', art);
-    }
     const b = LLM.budget();
     if (b.remaining < this.W.min_budget) {
+      // Rückfall und Logbuch nur EINMAL je Zustand „Budget leer“; jede weitere Grenze wird nur übersprungen und rührt die Regie nicht neu an
+      if (this.budgetGemeldet) return this.ueberspringen('budget', art);
+      this.budgetGemeldet = true;
       Regie.rueckfall(this.game, `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.W.min_budget})`);
-      this.schreibe({ ausgang: 'fehler', fehler: ['BUDGET'], budget: { used: b.used, limit: b.limit }, begruendung: 'Grenze ' + art + ': Budget leer', plan: { grenze: art, tick: ws.tickZahl, sitzung: this.sitzung } });
+      this.schreibe({ ausgang: 'fehler', grund: 'budget', fehler: ['BUDGET'], budget: { used: b.used, limit: b.limit }, begruendung: 'Grenze ' + art + ': Budget leer', plan: { grenze: art, tick: ws.tickZahl, sitzung: this.sitzung } });
       this.zaehler.fehler++;
       return { gestartet: false, grund: 'budget' };
     }
+    this.budgetGemeldet = false;
     this.aufrufe++;
     this.letzterStartTick = ws.tickZahl;
     this.zustand = 'angefragt';
@@ -145,7 +159,8 @@ class LageSpielleiter {
     this.zustand = 'laeuft';
     const input = { system: Prompt.SYSTEM_DATEI, prompt: bau.prompt, art: job.art, nr: job.nr };
     let p;
-    try { p = this.getLlm().ask('lage', input, { timeoutMs: 1000 * this.W.timeout_s }); } catch (e) { p = Promise.reject(e); }
+    job.abbruch = new AbortController();   // dispose und Timeout beenden den Transport (CLI-Prozess), statt ihn bis zum eigenen Timer laufen zu lassen
+    try { p = this.getLlm().ask('lage', input, { timeoutMs: 1000 * this.W.timeout_s, signal: job.abbruch.signal }); } catch (e) { p = Promise.reject(e); }
     const token = job.token;
     Promise.resolve(p).then((r) => { if (!this.disposed) this.inbox.push({ token, r }); }, (e) => { if (!this.disposed) this.inbox.push({ token, e }); });
   }
@@ -154,7 +169,8 @@ class LageSpielleiter {
       const it = this.inbox.shift();
       const job = this.job;
       if (!job || job.token !== it.token) {
-        // späte Antwort (Frist schon behandelt, anderer Job): verwerfen, nur die Tokens stehen im Logbuch (der Zähler in llm.js zählt sie ohnehin)
+        // späte Antwort (Frist schon behandelt, anderer Job): verwerfen, nur die Tokens stehen im Logbuch (der Zähler in llm.js zählt sie ohnehin). Ein eigener Abbruch (ABORTED) ist keine späte Antwort.
+        if (it.e && it.e.code === 'ABORTED') continue;
         this.schreibe({ ausgang: 'verspaetet', tokens: it.r ? it.r.tokens : 0, begruendung: 'Antwort nach Zeitüberschreitung verworfen', plan: { sitzung: this.sitzung } });
         continue;
       }
@@ -163,11 +179,14 @@ class LageSpielleiter {
       else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('lage-antwort', e); this.stoerung(job, LLM.llmError('EXIT', 'Plan nicht anwendbar: ' + e.message), it.r); } }
     }
   }
+  // Beendet den Transport der Anfrage (AbortSignal an llm.ask → CLI-Prozess bzw. Ollama-Aufruf)
+  anfrageAbbrechen(job) { if (job && job.abbruch) { try { job.abbruch.abort(); } catch (e) { this.fehlerZaehlen('lage-abort', e); } } }
   fristPruefen() {
     const job = this.job;
     if (!job || this.zustand !== 'laeuft') return;
     if (this.game.time - job.start > this.W.timeout_s + 1) {
       this.job = null; this.zustand = 'idle';
+      this.anfrageAbbrechen(job);
       this.stoerung(job, LLM.llmError('ETIMEDOUT', `Zeitüberschreitung nach ${this.W.timeout_s} s (Spielzeit)`), null);
     }
   }
@@ -216,6 +235,7 @@ class LageSpielleiter {
   dispose() {
     if (this.disposed) return;
     const inDerLuft = !!this.job;
+    this.anfrageAbbrechen(this.job);
     this.disposed = true;
     this.job = null; this.zustand = 'idle'; this.inbox = [];
     if (inDerLuft && this.game.weltsim) { try { Regie.rueckfall(this.game, 'dispose mit Anfrage in der Luft'); } catch (e) { this.fehlerZaehlen('lage-dispose', e); } }

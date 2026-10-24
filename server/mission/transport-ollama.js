@@ -42,15 +42,17 @@ function netError(e, url, timedOut, ms) {
 }
 
 // Ein Aufruf mit hartem Zeitlimit; liefert { res, body } oder wirft einen Fehler mit Code.
-async function request(method, url, bodyObj, timeoutMs) {
+async function request(method, url, bodyObj, timeoutMs, signal) {
   const ctl = new AbortController();
   let timedOut = false;
+  if (signal) { if (signal.aborted) throw err('ABORTED', 'Ollama: Anfrage abgebrochen'); signal.addEventListener('abort', () => ctl.abort(), { once: true }); }   // SUND-03 A2: der Aufrufer (Lage-Spielleiter) bricht ab
   const timer = setTimeout(() => { timedOut = true; ctl.abort(); }, timeoutMs);
   try {
     const res = await fetch(url, { method, signal: ctl.signal, headers: bodyObj ? { 'content-type': 'application/json' } : undefined, body: bodyObj ? JSON.stringify(bodyObj) : undefined });
     const raw = await res.text();   // Abbruch mitten im Text wirft hier und landet im catch
     return { res, raw };
   } catch (e) {
+    if (signal && signal.aborted && !timedOut) throw err('ABORTED', 'Ollama: Anfrage abgebrochen');
     throw netError(e, url, timedOut, timeoutMs);
   } finally { clearTimeout(timer); }
 }
@@ -78,7 +80,7 @@ function create(opts) {
       if (o.numPredict) options.num_predict = o.numPredict;
       if (Object.keys(options).length) body.options = options;
       const t0 = Date.now();
-      const { res, raw } = await request('POST', url + '/api/chat', body, timeoutMs);
+      const { res, raw } = await request('POST', url + '/api/chat', body, timeoutMs, co.signal);
       const sec = (Date.now() - t0) / 1000;
       if (!res.ok) throw err('EXIT', `Ollama: HTTP ${res.status} ${String(raw).slice(0, 200).replace(/\s+/g, ' ')}`);
       let j;

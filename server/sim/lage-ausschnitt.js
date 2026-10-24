@@ -106,4 +106,4 @@ function ausschnittPassend(game, { maxZeichen = A.max_zeichen } = {}) {
   return Object.assign(letzter || { stufe: 0, zeichen: 0, text: '' }, { passt: false });
 }
 
-module.exports = { ausschnitt, ausschnittPassend, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };
+module.exports = { ausschnitt, ausschnittPassend, ohneNamen, spielerNamen, STUFEN: A.stufen, MAX_ZEICHEN: A.max_zeichen };

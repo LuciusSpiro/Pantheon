@@ -469,6 +469,122 @@ section('späte und veraltete Antworten', async () => {
   void vorher; void lv;
 });
 
+section('Namensfilter: Freitext ja, Struktur nie (Spieler „Rom“, „01“, „an“, „flotten“, „Crew“)', () => {
+  const strukturOhneChronik = (prompt) => { const o = JSON.parse(prompt.match(/<ausschnitt>\n([\s\S]*?)\n<\/ausschnitt>/)[1]); delete o.chronik; return o; };
+  const basis = spiel({ crew: 1, names: ['Zyxwvut'] });
+  tick(basis.g, 12);
+  const soll = strukturOhneChronik(Prompt.baue(basis.g, { art: 'andocken', nr: 1, letzte: [], werte: W }).prompt);
+  for (const name of ['Rom', '01', 'an', 'flotten', 'Crew', 'ger', 'h', 'st']) {
+    const t = spiel({ crew: 1, names: [name] });
+    tick(t.g, 12);
+    t.g.weltstand.data.chronik = [{ text: `${name} hat den Posten gegründet` }];
+    const b = Prompt.baue(t.g, { art: 'andocken', nr: 1, letzte: [{ nr: 1, begruendung: `${name} hat gewonnen`, grenze: 'andocken', befehle: ['fokus ger'] }], werte: W });
+    const ist = strukturOhneChronik(b.prompt);
+    ok(gleich(ist, soll), `Spieler „${name}“: der Ausschnitt ist strukturell identisch (Schlüssel, Fraktionen, Hex-Codes, Anzahl unberührt)`);
+    if (name.length >= 2) {
+      const chron = JSON.parse(b.prompt.match(/<ausschnitt>\n([\s\S]*?)\n<\/ausschnitt>/)[1]).chronik;
+      const plaene = JSON.parse(b.prompt.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1]);
+      ok(chron.length === 1 && chron[0].startsWith('Crew hat') && plaene[0].begruendung === 'Crew hat gewonnen' && plaene[0].grenze === 'andocken' && plaene[0].befehle[0] === 'fokus ger', `Spieler „${name}“: im Freitext (Chronik, letzte Pläne) steht „Crew“, Felder und Befehle bleiben`);
+    }
+  }
+});
+
+section('Antwort lesen: erstes Objekt in Plan-Form', () => {
+  const r = Prompt.planAusText('Ich wäge {Rom gegen Germanen} ab. Mein Plan: {"befehle": [], "begruendung": "ruhig"} {"anderes": 1}');
+  ok(r.plan && r.plan.begruendung === 'ruhig', 'Klammern im Text vor dem Plan stören nicht (jedes „{“ wird probiert)');
+  ok(gleich(Prompt.planAusText('Beispiel {"a": 1}').plan, { a: 1 }), 'ohne Plan-Form: das erste lesbare Objekt (die Prüfung lehnt es mit Grund ab)');
+  ok(Prompt.planAusText('{"befehle": [], "fokus": {"hex": "0105", "radius": 2}}').plan.fokus.radius === 2, 'verschachtelte Objekte bleiben im Plan');
+});
+
+section('Timeout und Abbruch: Einheit, AbortSignal bis in den Transport', async () => {
+  sitzungSauber();
+  const alt = process.env.LLM_LIVE; process.env.LLM_LIVE = '1';
+  try {
+    const protokoll = [];
+    const fake = { name: 'fake', call(text, o) { return new Promise((resolve, reject) => { protokoll.push(o); if (o.signal) o.signal.addEventListener('abort', () => { const e = new Error('abgebrochen'); e.code = 'ABORTED'; reject(e); }, { once: true }); }); } };
+    const t = spiel(); const sl = LS.create(t.g, { llm: LLM.create({ mode: 'live', transport: fake }), werte: {} });
+    t.g.lageSpielleiter = sl; t.g.lageSchalter = true;
+    tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 3);
+    ok(protokoll.length === 1 && protokoll[0].timeoutMs === W.timeout_s * 1000 && protokoll[0].timeoutMs >= 1000, `timeoutMs im Transport in Millisekunden (${protokoll[0] && protokoll[0].timeoutMs}, Daten ${W.timeout_s} s)`);
+    ok(protokoll[0].signal && protokoll[0].signal.aborted === false, 'ein AbortSignal geht bis in den Transport');
+    sl.dispose();
+    await pumpen(t.g, 2);
+    ok(protokoll[0].signal.aborted === true, 'dispose bricht den Transport ab');
+    ok(lageEintraege(t.g, 'verspaetet').length === 0 && t.g.errors === 0, 'der eigene Abbruch ist keine späte Antwort und kein Fehler');
+    // Timeout in Spielzeit bricht ebenfalls ab
+    const t2 = spiel(); const p2 = []; const fake2 = { name: 'fake2', call(text, o) { return new Promise((res, rej) => { p2.push(o); o.signal.addEventListener('abort', () => rej(Object.assign(new Error('abgebrochen'), { code: 'ABORTED' })), { once: true }); }); } };
+    const s2 = LS.create(t2.g, { llm: LLM.create({ mode: 'live', transport: fake2 }), werte: { timeout_s: 1 } });
+    t2.g.lageSpielleiter = s2; t2.g.lageSchalter = true;
+    tick(t2.g); s2.beiGrenze('andocken'); await pumpen(t2.g, 90);
+    ok(p2[0].signal.aborted && lageEintraege(t2.g, 'fehler').length === 1 && /ETIMEDOUT/.test(lageEintraege(t2.g, 'fehler')[0].fehler[0]) && lageEintraege(t2.g, 'verspaetet').length === 0, 'Timeout in Spielzeit: Transport abgebrochen, ein Fehlereintrag, keine späte Antwort');
+    ok(t2.g.errors === 0, 'keine Serverfehler');
+  } finally { if (alt === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = alt; }
+  // llm.js reicht das Signal an den CLI-Transport (callClaude) und damit an den Prozess: Quelltext-Naht
+  const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'mission', 'llm.js'), 'utf8');
+  ok(/signal\.addEventListener\('abort', abbrechen/.test(src) && /o\.signal\)/.test(src) && /co\.signal = ao\.signal/.test(src), 'llm.js: Signal bis callClaude (Prozess wird beendet)');
+});
+
+section('Budget leer: Rückfall und Logbuch nur einmal; ENOENT: nur ein Versuch', async () => {
+  sitzungSauber(); LLM.setBudgetLimit(W.min_budget - 1);
+  const t = spiel(); const { sl, llm } = mitLage(t, {}, { min_abstand_ticks: 1 });
+  const rueck = () => eintraege(t.g, 'lage_befehl', 'rueckfall').length;
+  tick(t.g); const a = sl.beiGrenze('andocken'); tick(t.g); const b = sl.beiGrenze('andocken'); tick(t.g); const c = sl.beiGrenze('absicht');
+  ok(a.grund === 'budget' && b.grund === 'budget' && c.grund === 'budget' && llm.asks.length === 0, 'Budget leer: keine Anfrage');
+  ok(rueck() === 1 && lageEintraege(t.g, 'fehler').filter((e) => e.fehler[0] === 'BUDGET').length === 1, 'genau ein Rückfall und ein BUDGET-Eintrag, nicht je Grenze');
+  ws(t.g).regie.vorgemerkt.push({ b: { typ: 'regler', fraktion: 'ger', aggr: 0.5, dauer: 8 }, ab: 99 });
+  tick(t.g); sl.beiGrenze('andocken');
+  ok(ws(t.g).regie.vorgemerkt.length === 1, 'weitere Grenzen rühren die Regie nicht mehr an');
+  LLM.resetBudget(); tick(t.g); ok(sl.beiGrenze('andocken').gestartet, 'Budget wieder da: es geht weiter');
+  await pumpen(t.g, 4); LLM.setBudgetLimit(W.min_budget - 1); tick(t.g, 2);
+  ok(sl.beiGrenze('andocken').grund === 'budget' && rueck() === 2, 'wird das Budget später wieder leer, meldet der Rückfall es erneut (einmal je Zustand)');
+  sitzungSauber();
+  // ENOENT: Transport aus, die nächsten Grenzen versuchen es nicht erneut
+  const u = spiel(); const { sl: su, llm: lu } = mitLage(u, { mode: 'script', script: { lage: [{ error: 'enoent' }, { json: { befehle: [], begruendung: 'x' } }, { json: { befehle: [], begruendung: 'y' } }] } }, { min_abstand_ticks: 1, deckel_je_sitzung: 10 });
+  const gr = [];
+  for (let i = 0; i < 4; i++) { tick(u.g, 2); gr.push(su.beiGrenze('andocken').grund); await pumpen(u.g, 3); }
+  ok(lu.asks.length === 1 && su.aus && gr.slice(1).every((g) => g === 'transport_aus') && su.zaehler.uebersprungen.transport_aus === 3, 'ENOENT (CLI fehlt): genau ein Versuch, danach transport_aus');
+});
+
+section('Hooks: Szenenende nur nach gelungenem Tick, Hook wirft nie, Logbuch ohne Flut', async () => {
+  const t = spiel({ env: AN }); for (let i = 0; i < 5; i++) t.g.step();
+  const sl = t.g.lageSpielleiter; const ruft = []; const o = sl.beiGrenze.bind(sl); sl.beiGrenze = (a) => { ruft.push(a); return o(a); };
+  const kernAlt = Kern.tick; Kern.tick = function () { throw new Error('Test: Tick wirft'); };
+  let r; try { r = Kriegslage.szeneAbschliessen(t.g, { wirkungen: [], wo: 'szene' }); } finally { Kern.tick = kernAlt; }
+  ok(r.ok === false && ruft.length === 0, 'Szenenende, dessen Tick scheitert: keine Grenze');
+  sl.beiGrenze = () => { throw new Error('Test: beiGrenze wirft'); };
+  let wirft = false, res; try { res = t.g.lageGrenze('andocken'); } catch (e) { wirft = true; }
+  ok(!wirft && res === null && t.g.errors >= 1, 'game.lageGrenze fängt eine Ausnahme des Spielleiters ab und zählt sie');
+  // Flut: viele Grenzen im selben Tick und mit demselben Grund: ein Eintrag
+  sitzungSauber();
+  const u = spiel(); const { sl: su } = mitLage(u, {}); tick(u.g); su.beiGrenze('andocken');
+  for (let i = 0; i < 20; i++) su.beiGrenze('andocken');
+  ok(su.zaehler.uebersprungen.abstand === 20 && lageEintraege(u.g, 'uebersprungen').length === 1 && lageEintraege(u.g, 'uebersprungen')[0].grund === 'abstand', '20 Grenzen im selben Tick: gezählt 20, ein Logbucheintrag mit Feld grund');
+  tick(u.g); su.beiGrenze('andocken');
+  ok(lageEintraege(u.g, 'uebersprungen').length === 2, 'im nächsten Tick wieder ein Eintrag');
+});
+
+section('Plan-Alter: genau die Grenze gilt noch', async () => {
+  sitzungSauber();
+  const mk = async (ticks) => {
+    const u = spiel(); const { sl, llm } = mitLage(u, { mode: 'script', script: { lage: [{ hold: true, json: { befehle: [], fokus: { hex: '0105', radius: 2 }, begruendung: 'alt' } }] } });
+    tick(u.g); sl.beiGrenze('andocken'); await pumpen(u.g, 3); tick(u.g, ticks); llm.release(); await pumpen(u.g, 3);
+    return u;
+  };
+  const genau = await mk(W.plan_alter_max_ticks), zuviel = await mk(W.plan_alter_max_ticks + 1);
+  ok(lageEintraege(genau.g, 'angewandt').length === 1 && lageEintraege(genau.g, 'veraltet').length === 0, `Alter genau ${W.plan_alter_max_ticks}: der Plan gilt noch`);
+  ok(lageEintraege(zuviel.g, 'veraltet').length === 1 && lageEintraege(zuviel.g, 'angewandt').length === 0, `Alter ${W.plan_alter_max_ticks + 1}: verworfen`);
+});
+
+section('Bericht: übersprungene Grenzen nach Grund, Rückfall-Hinweis', () => {
+  const dir = path.join(F.TMP, 'bericht-lage'); fs.mkdirSync(dir, { recursive: true });
+  const log = Regielog.create({ dir, weltId: 'w-lage' });
+  const e = (grund) => log.write({ art: 'lage_grobplan', ausgang: 'uebersprungen', grund, begruendung: 'Grenze andocken: kein Plan (' + grund + ')', plan: { sitzung: 's1' } });
+  for (const g of ['deckel', 'deckel', 'abstand', 'beschaeftigt', 'beschaeftigt', 'beschaeftigt']) e(g);
+  const md = Bericht.report(dir, 'w-lage');
+  ok(/deckel 2/.test(md) && /abstand 1/.test(md) && /beschaeftigt 3/.test(md), 'Bericht unterscheidet deckel, abstand, beschaeftigt');
+  ok(/Rückfall räumt Fokus und Regler/.test(md), 'Hinweis im Bericht: ein Rückfall räumt Fokus/Regler früherer Pläne mit ab');
+});
+
 section('Debug-Kommandos lage status | plan | fail', async () => {
   sitzungSauber();
   const aus = spiel(), an = spiel({ env: AN });
