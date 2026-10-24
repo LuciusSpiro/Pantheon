@@ -152,6 +152,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
     ws.sprengungen = sprengSicher;
     ws.absicht = absichtSicher;
     ws.regie = regieSicher;
+    try { Regie.tickGescheitert(game, faellig, ws.tickZahl + 1); } catch (e2) { if (game.countError) game.countError('kriegslage-regie', e2); }   // SUND-03 A2-Fix: ein Befehl, an dem der Tick scheitert, wird verworfen (nicht wiederholt): die Sim friert nicht ein
     ws.letzteWirkungen = { angewandt: 0, verworfen: alle.map((w) => ({ wirkung: w, grund: 'Tick gescheitert' })) };
     ws.wirkungenVerworfen += alle.length;
     ws.fehler++;
@@ -279,6 +280,7 @@ function nachLaden(game) {
   if (!game.weltsim) return;
   if (game.mission) game.mission.mode = null;   // mission.restore setzt 'campaign': hier gibt es keine Angebote der Limes-Kampagne
   szeneNachziehen(game);
+  try { Regie.vorwarnungenErneut(game); } catch (e) { if (game.countError) game.countError('kriegslage-regie', e); }   // SUND-03 A2: wartende angekündigte Befehle einmal je Laden erneut ankündigen
   try { Wissen.markenNeu(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // Notruf-Marken stehen nicht im Weltstand
 }
 
@@ -308,8 +310,8 @@ function toSave(game) {
   const wi = Wissen.toSave(ws); if (wi) b.wissen = wi;
   const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
   const sb = Posten.sprengungenSave(ws); if (sb) b.sprengungen = sb;   // SUND-02b A2: letzte Sprengung je Hex (Ruf-Sperre); fehlt = keine
-  const ab = Absicht.toSave(ws); if (ab) b.absicht = ab;
-  const rg = Regie.toSave(ws); if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer   // SUND-02b D: laufende Absicht, Angebot, Pause; fehlt = leer
+  const ab = Absicht.toSave(ws); if (ab) b.absicht = ab;   // SUND-02b D: laufende Absicht, Angebot, Pause; fehlt = leer
+  const rg = Regie.toSave(ws); if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer
   const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);

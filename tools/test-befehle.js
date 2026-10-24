@@ -23,6 +23,7 @@ function section(name, fn) {
 }
 const { klon, gleich } = F;
 const DATEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'welt', 'befehle-werte.json'), 'utf8'));
+const REGIE_DATEN = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'welt', 'regie-werte.json'), 'utf8')).werte;
 const W = DATEN.werte;
 const B = Kern.BEFEHLE;
 const { karte, werte } = Daten.laden();
@@ -153,10 +154,8 @@ section('angreifen', () => {
   ok(z.angriffe.length === 0 || !z.angriffe.some((a) => a.befohlen), 'filtere ändert den Zustand nicht');
   // Abgelehnt im Tick: nie halb ausgeführt
   const z3 = klon(z); Object.assign(z3, { werte: z.werte, karte: z.karte }); z3.vorrat.ger.T = 1;   // zu wenig Treibstoff (Wirtschaft verbraucht zusätzlich)
-  const vor = JSON.stringify(Object.assign({}, z3, { werte: undefined, karte: undefined }));
   const r3 = tick1(z3, [b]);
   ok(r3.befehle.abgelehnt.length === 1 && r3.befehle.angewandt.length === 0 && r3.befehle.abgelehnt[0].grund.includes('Treibstoff') && !z3.angriffe.some((a) => a.befohlen), 'Tick: ungültiger Befehl wird abgelehnt (Grund geht zurück), kein Feldzug entsteht');
-  void vor;
   // Zusammenspiel mit max_active
   const z4 = lage();
   const lauf = B.filtere(z4, [b, { typ: 'angreifen', fraktion: 'ger', ziel: '0405' }, { typ: 'angreifen', fraktion: 'ger', ziel: '0105' }, { typ: 'angreifen', fraktion: 'ger', ziel: '0205' }]);
@@ -261,7 +260,6 @@ section('nachschub', () => {
   const b = { typ: 'nachschub', an: 'ger', gut: 'T', menge: 10 };
   ok(alleOk(z, b), 'Nachschub Treibstoff 10 an die Germanen: gültig (Konkordat hat 31)');
   const z2 = klon(z); Object.assign(z2, { werte: z.werte, karte: z.karte });
-  const vor = { t: z2.vorrat.ger.T, k: z2.vorrat.kon.T, mg: z2.marken.ger, mk: z2.marken.kon };
   // Vorrat vor dem Befehl: nach der Wirtschaft des Tick; wir messen die Differenz gegen denselben Tick ohne Befehl
   const ref = klon(z); Object.assign(ref, { werte: z.werte, karte: z.karte });
   Kern.tick(ref);
@@ -273,7 +271,6 @@ section('nachschub', () => {
   const mein = kv.find((e) => e.handel && e.handel.ger && e.handel.ger.verkauf && e.handel.ger.verkauf.T === 10 && e.menge === 10);
   ok(!!mein && mein.fraktion === 'kon' && Object.keys(mein).sort().join() === 'fraktion,handel,menge,tick,typ', 'Ereignis konvoi im Format der Sim (handel, menge), fraktion kon');
   ok(JSON.stringify(mein.handel) === '{"ger":{"verkauf":{"T":10},"kauf":{}}}', 'handel: { ger: { verkauf: { T: 10 }, kauf: {} } }');
-  void vor;
   const neg = [
     [{ typ: 'nachschub', an: 'kon', gut: 'T', menge: 5 }, 'an muss'],
     [{ typ: 'nachschub', an: 'ger', gut: 'M', menge: 5 }, 'gut muss'],
@@ -322,7 +319,7 @@ section('embargo', () => {
   ok(alleOk(z, b), 'Konkordat sperrt M, T, E gegen Rom für 12 Ticks: gültig');
   const z2 = klon(z); Object.assign(z2, { werte: z.werte, karte: z.karte });
   const r = tick1(z2, [b]);
-  ok(z2.embargo && z2.embargo.rom && z2.embargo.rom.bis === z2.tick + 12 && z2.embargo.rom.from === z2.tick && z2.embargo.rom.waren.join('') === 'MTE', 'zustand.embargo.rom { waren, von, from, bis }');
+  ok(z2.embargo && z2.embargo.rom && z2.embargo.rom.bis === z2.tick + 12 + 1 && z2.embargo.rom.from === z2.tick && z2.embargo.rom.waren.join('') === 'MTE', 'zustand.embargo.rom { waren, von, from, bis }');
   ok(r.ereignisse.some((e) => e.typ === 'embargo_verhaengt' && e.gegen === 'rom' && e.dauer === 12 && e.waren.join('') === 'MTE'), 'Ereignis embargo_verhaengt');
   // Wirkung: Rom kauft nichts mehr beim Konkordat (Vorrat M, T, E sinkt nur noch durch Verbrauch), die Germanen kaufen weiter
   const arm = klon(z); Object.assign(arm, { werte: z.werte, karte: z.karte }); arm.vorrat.rom.T = 2;   // Rom kauft Treibstoff, wenn es welchen braucht
@@ -334,10 +331,15 @@ section('embargo', () => {
   // Ende von selbst
   let beendet = false, tickBeendet = null;
   for (let i = 0; i < 20 && !beendet; i++) { const e = Kern.tick(z2).ereignisse; if (e.some((x) => x.typ === 'embargo_beendet' && x.gegen === 'rom')) { beendet = true; tickBeendet = z2.tick; } }
-  ok(beendet && !('embargo' in z2) && tickBeendet === 6 + 12, 'das Embargo endet von selbst nach genau 12 Ticks (Ereignis embargo_beendet in Tick 18, Feld verschwindet, kein Dauerzustand)');
+  ok(beendet && !('embargo' in z2) && tickBeendet === 6 + 12 + 1, 'das Embargo endet von selbst (Ereignis embargo_beendet in Tick 19, zwölf Handels-Ticks 7 bis 18 sind gesperrt, Feld verschwindet, kein Dauerzustand)');
   // Nie wirksam nach dem Ende: Rom kauft wieder
   for (let i = 0; i < 6; i++) Kern.tick(z2);
   ok(!('embargo' in z2), 'danach bleibt kein Rest im Zustand');
+  // K1: dauer zählt Handels-Ticks: genau dauer Ticks nach dem Befehl wirkt die Sperre
+  const gz = klon(z); Object.assign(gz, { werte: z.werte, karte: z.karte });
+  tick1(gz, [Object.assign({}, b, { dauer: 7 })]);
+  let wirk = 0; for (let i = 0; i < 12; i++) { Kern.tick(gz); if (gz.embargo) wirk++; }
+  ok(wirk === 7, 'Embargo mit dauer 7 sperrt genau sieben Handels-Ticks (gezählt: ' + wirk + ')');
   // Negativ
   const neg = [
     [{ typ: 'embargo', von: 'rom', gegen: 'ger', waren: ['T'], dauer: 5 }, 'nur das Konkordat'],
@@ -401,6 +403,14 @@ section('söldner', () => {
   // Rückkehr
   let zurueck = false; for (let i = 0; i < 15 && !zurueck; i++) zurueck = Kern.tick(z2).ereignisse.some((e) => e.typ === 'soeldner_zurueck' && e.an === 'ger');
   ok(zurueck && fl.fraktion === 'kon' && !('miete' in fl), 'nach der Dauer dient die Flotte wieder dem Konkordat (Feld miete weg, Ereignis soeldner_zurueck)');
+  // Miete endet, während die Flotte im Feld steht: sie kämpft nicht für das Konkordat weiter, sondern zieht sich zurück
+  const feld = lage(); feld.absichten = { ger: { p_act: 0 } };
+  tick1(feld, [{ typ: 'soeldner', von: 'kon', an: 'ger', flotten: [11], dauer: W.dauer.wert.soeldner.min }]);
+  tick1(feld, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [11, 16] }]);
+  for (let i = 0; i < W.dauer.wert.soeldner.min; i++) Kern.tick(feld);
+  ok(flotte(feld, 11).fraktion === 'kon' && !flotte(feld, 11).miete && ['rueckzug', 'heim'].includes(flotte(feld, 11).befehl) && flotte(feld, 11).ziel !== '0403', 'Miete endet mit der Flotte im Einsatz: sie kehrt zum Konkordat zurück und zieht sich zurück (kämpft nicht weiter)');
+  const verl = lage(); tick1(verl, [{ typ: 'soeldner', von: 'kon', an: 'rom', flotten: [11], dauer: 10 }]);
+  ok(/Mietflotten werden nicht verlegt/.test(GRUND(verl, { typ: 'verstaerken', fraktion: 'rom', flotte: 11, hafen: '0305' }) || ''), 'eine Mietflotte wird nicht verlegt (keine neue Heimat beim Mieter)');
   // Befohlener Angriff nimmt die Mietflotte nur mit flotten
   const q = lage(); tick1(q, [Object.assign({}, b, { dauer: 20 })]);
   const auto = B.filtere(q, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
@@ -452,16 +462,13 @@ section('söldner: speichern und laden', () => {
 
 section('piratenueberfall', () => {
   const z = lage();
-  const ziele = z.hexe; void ziele;
   // ein Ort im Piratennetz mit Besitzer: Pulverhorn ist frei in dieser Lage, Hammerwerke gehören dem Konkordat; wir suchen einen gültigen
   const d = Kern.datenVon(z);
   const gueltig = d.codes.filter((c) => alleOk(z, { typ: 'piratenueberfall', ort: c }));
   ok(gueltig.length >= 1, 'es gibt gültige Ziele im Piratennetz: ' + gueltig.join(', '));
   const ort = gueltig[0];
   const z2 = klon(z); Object.assign(z2, { werte: z.werte, karte: z.karte });
-  const zufall0 = z2.zufall;
   const r = tick1(z2, [{ typ: 'piratenueberfall', ort }]);
-  void zufall0;
   ok(r.ereignisse.some((e) => e.typ === 'flotte_aufbruch' && e.art === 'raubzug' && e.fraktion === 'pirat' && e.ziel === ort), 'Ereignis flotte_aufbruch (raubzug) der Piraten');
   const rec = z2.angriffe.find((a) => a.art === 'pirat' && a.ziel === ort);
   ok(rec && rec.befohlen === true && rec.von === 'pirat', 'Feldzug art pirat, befohlen: true');
@@ -541,15 +548,35 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   // Die Wahl der Crew gilt vor der Ruhe
   const c = klon(z); Object.assign(c, { werte: z.werte, karte: z.karte }); c.absichten = { ger: { aggr: 0.7 } };
   ok(B.wirksam(c, 'ger').aggr === 0.7, 'die Wahl der Crew (zustand.absichten) wird von der Ruhe nie überstimmt');
+  ok(W.ruhe_max.wert > 0 && W.ruhe_max.wert <= Math.max(...Object.values(REGIE_DATEN.abkuehlung.wert)) && W.ruhe_max.wert <= 150, 'Daten: ruhe_max ist klein (höchstens so lang wie die längste Abkühlzeit, höchstens 150)');
+  ok(W.ruhe_max.wert > 0 && Object.entries(RUHE).every(([k, v]) => v <= W.ruhe_max.wert && v <= REGIE_DATEN.abkuehlung.wert[k]), 'Daten: keine Ruhe ist länger als ruhe_max oder als die Abkühlzeit ihres Befehls (der Spielleiter kann eine Fraktion nicht durch Schweigen stilllegen)');
+  // Der Spielleiter gibt EINMAL einen Befehl und danach nichts mehr: die KI der Fraktion greift spätestens nach dem Ablauf der Ruhe wieder an
+  let waehrend = 0, danach = 0, probiert = 0;
+  for (let seed = 0; seed < 24; seed++) {
+    const q = lage(seed, 3); q.regie = { ger: { p_act: 0.5, aggr: 0.9, regler_bis: 99999 } }; q.vorrat.ger.T = 300; q.vorrat.ger.U = 300;   // eifrige KI über die Regie (die Ruhe geht vor den Reglern der Regie)
+    const r0 = tick1(q, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
+    if (!r0.befehle.angewandt.length) continue;
+    probiert++;
+    const ende = q.regie.ger.ruhe_bis;
+    const start = q.tick;
+    for (let i = 0; i < RUHE.angreifen + 40; i++) {
+      const bis = q.tick;
+      for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) { if (bis + 1 < ende) waehrend++; else danach++; }
+    }
+    if (q.regie && q.regie.ger && q.regie.ger.ruhe_bis !== undefined) waehrend += 1000;   // die Ruhe ist abgelaufen und weg
+    if (ende > start + RUHE.angreifen) waehrend += 1000;
+  }
+  ok(probiert >= 10 && waehrend === 0 && danach > 0, `ein einziger Befehl, danach Schweigen: in der Ruhe beginnt die KI nichts (${waehrend}), danach greift sie wieder an (${danach} Angriffe in ${probiert} Läufen), die Ruhe räumt sich auf`);
   // Ruhe endet von selbst und räumt auf
   for (let i = 0; i < RUHE.angreifen + 2; i++) Kern.tick(z);
   ok(!('regie' in z) && B.wirksam(z, 'ger').aggr === z.werte.aggr, 'die Ruhe endet nach ruhe Ticks und räumt zustand.regie auf');
   // Messung: während der Ruhe beginnt die KI keine eigenen Reichsangriffe
-  const std = (ruhe) => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.absichten = { ger: { p_act: 0.5, aggr: 0.9 } }; if (ruhe) q.regie = { ger: { ruhe_bis: 9999 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; };
-  ok(std(false) > 0, 'Gegenprobe: ohne Ruhe greift die Standard-KI der Germanen an');
-  // mit Wahl der Crew gilt aggr 0,9 weiter: dort ändert die Ruhe nichts (absichten vor regie)
-  const sr = (() => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: { ruhe_bis: 9999 } }; q.absichten = { ger: { p_act: 0.5 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; })();
-  ok(sr === 0, 'unter Ruhe beginnt die Standard-KI der Germanen keine Reichsangriffe (60 Ticks, 16 Seeds, Munition und Treibstoff im Überfluss)');
+  const std = (ruhe) => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: Object.assign({ p_act: 0.5, aggr: 0.9, regler_bis: 99999 }, ruhe ? { ruhe_bis: 9999 } : {}) }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; };
+  const ohneRuhe = std(false), mitRuhe = std(true);
+  ok(ohneRuhe > 0 && mitRuhe === 0, `unter Ruhe beginnt die Standard-KI der Germanen keine Reichsangriffe (60 Ticks, 16 Seeds, Munition und Treibstoff im Überfluss, Regler eifrig): ohne Ruhe ${ohneRuhe}, mit Ruhe ${mitRuhe}`);
+  // die Wahl der Crew (zustand.absichten) geht auch der Ruhe vor
+  const cr = (() => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: { ruhe_bis: 9999 } }; q.absichten = { ger: { p_act: 0.5, aggr: 0.9 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; })();
+  ok(cr > 0, 'mit Wahl der Crew (aggr 0,9) bleibt die KI auch unter Ruhe aktiv: die Crew wird nie überstimmt');
   // Ruhe nur nach angenommenen Befehlen
   const ab = lage(); tick1(ab, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0204' }]);
   ok(!('regie' in ab), 'ein abgelehnter Angriff setzt keine Ruhe');
@@ -562,6 +589,24 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   // bereinigung
   const b = lage(); b.regie = { ger: { ruhe_bis: 'x' }, rom: { ruhe_bis: 40 } }; B.bereinige(b);
   ok(!b.regie.ger && b.regie.rom && b.regie.rom.ruhe_bis === 40, 'Bereinigung: kaputtes ruhe_bis fällt weg, gültiges bleibt');
+});
+
+section('Crew vor Regie auch bei Befehlen', () => {
+  const z = lage();
+  const angriffRom = { typ: 'angreifen', fraktion: 'rom', ziel: '0803' }, claimRom = { typ: 'beanspruchen', fraktion: 'rom', sektor: '0503' };
+  ok(alleOk(z, angriffRom) && alleOk(z, claimRom), 'ohne Absicht der Crew gehen beide Befehle für Rom durch');
+  z.absichten = { rom: { p_act: 0.12, aggr: 0.4, max_active: 3 } };   // verteidigung
+  ok(/Crew-Absicht aktiv/.test(GRUND(z, angriffRom) || '') && /Crew-Absicht aktiv/.test(GRUND(z, claimRom) || ''), 'Absicht „Die Grenze halten“ (aggr 0,4, p_act 0,12): Angriff und Anspruch für Rom werden abgelehnt (Grund: Crew-Absicht aktiv)');
+  ok(alleOk(z, { typ: 'angreifen', fraktion: 'ger', ziel: '0403' }) && alleOk(z, { typ: 'beanspruchen', fraktion: 'ger', sektor: '0705' }), 'die Germanen sind nicht betroffen (die Crew spielt für Rom)');
+  z.absichten = { rom: { p_act: 0.35, aggr: 0.1, max_active: 3 } };   // ausgreifen: viele Ansprüche, kaum Angriffe
+  ok(/Crew-Absicht/.test(GRUND(z, angriffRom) || '') && alleOk(z, claimRom), 'Absicht „Neue Posten setzen“ (aggr 0,1, p_act 0,35): Angriffe gebremst, Ansprüche nicht');
+  z.absichten = { rom: { p_act: 0.4, aggr: 0.7, max_active: 5 } };   // offensive
+  ok(alleOk(z, angriffRom) && alleOk(z, claimRom), 'Absicht „Vorstoß“ (offensiver als die Werte): nichts wird gebremst');
+  z.absichten = { rom: { aggr: 0.3 } }; z.regie = { rom: { aggr: 0.25 } };
+  ok(alleOk(z, angriffRom), 'die Crew bremst nur, wenn ihr Wert unter dem liegt, der ohne sie gälte (Regie-Regler 0,25 gegen Crew 0,3)');
+  const k = klon(z); Object.assign(k, { werte: z.werte, karte: z.karte }); k.absichten = { rom: { p_act: 0.12, aggr: 0.4 } }; k.regie = {};
+  const r = tick1(k, [angriffRom]);
+  ok(r.befehle.abgelehnt.length === 1 && /Crew-Absicht/.test(r.befehle.abgelehnt[0].grund), 'auch im Tick: der Befehl wird abgelehnt (wählt die Crew erst nach der Annahme)');
 });
 
 section('Schichtung: zustand.regie und zustand.absichten', () => {
@@ -616,13 +661,28 @@ section('Bereinigung geladener Daten', () => {
   z.embargo = { rom: { waren: 'T', from: 1, bis: 9 }, ger: { waren: ['T', 'X'], from: 1, bis: 20 }, kon: { waren: ['T'], from: 1, bis: 5 } };
   z.regie = { rom: { p_act: 'viel', regler_bis: 5, fokus: { hex: 'zz', radius: 2, bis: 9 } }, ger: { fokus: { hex: '0403', radius: 2, bis: 30 }, p_act: 0.3, regler_bis: 12 }, pirat: 7 };
   flotte(z, 9).miete = { von: 'kon', an: 'pirat', bis: 'x', preis: 3 };
-  flotte(z, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 12 };
+  flotte(z, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 12 }; flotte(z, 11).fraktion = 'rom';
   B.bereinige(z);
   ok(Object.keys(z.embargo).join() === 'ger' && z.embargo.ger.waren.join() === 'T', 'Embargo: nur Gültiges bleibt (waren gefiltert, falsche Fraktion und Müll fallen weg)');
   ok(Object.keys(z.regie).join() === 'ger' && z.regie.ger.fokus.hex === '0403' && z.regie.ger.p_act === 0.3, 'Regie: nur Gültiges bleibt');
   ok(!('miete' in flotte(z, 9)) && flotte(z, 11).miete.an === 'rom', 'Miete: Müll fällt weg, Gültiges bleibt');
   let wirft = false; try { for (let i = 0; i < 5; i++) Kern.tick(z); } catch (e) { wirft = true; }
   ok(!wirft, 'ein Tick über bereinigte Daten wirft nicht');
+  // Klemmen, Fraktionen, Null-Einträge, Miete ohne passende Fraktion
+  const k = lage(); const t = k.tick;
+  k.embargo = { rom: { waren: ['T', 'T', 'M'], von: 'x', from: 99999, bis: 99999999 } };
+  k.regie = { rom: { p_act: 7, aggr: -3, max_active: 99.4, regler_bis: 9999999, ruhe_bis: 9999999, fokus: { hex: '0403', radius: 99, bis: 9999999 } }, ger: null, kon: { fokus: { hex: '0403', radius: 1, bis: 9 } }, zzz: { p_act: 0.2, regler_bis: 9 } };
+  flotte(k, 11).fraktion = 'ger'; flotte(k, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 5 };   // Fraktion passt nicht zum Mieter
+  flotte(k, 9).fraktion = 'rom'; flotte(k, 9).miete = { von: 'kon', an: 'rom', bis: 99999, preis: 5 };
+  B.bereinige(k);
+  const e = k.embargo.rom, r = k.regie.rom;
+  ok(e.waren.join('') === 'TM' && e.von === 'kon' && e.from <= t && e.bis <= t + W.dauer.wert.embargo.max + 1, 'Embargo: doppelte Waren weg, von auf kon, Zeiten auf höchstens Tick + größte Dauer geklemmt');
+  ok(r.p_act === W.regler.wert.p_act.max && r.aggr === W.regler.wert.aggr.min && r.max_active === W.regler.wert.max_active.max, 'Regler auf die Bereiche aus den Daten geklemmt (und max_active ganzzahlig)');
+  ok(r.regler_bis <= t + W.dauer.wert.regler.max && r.ruhe_bis <= t + W.ruhe_max.wert && r.fokus.radius === W.fokus.wert.radius.max && r.fokus.bis <= t + W.dauer.wert.fokus.max, 'regler_bis, ruhe_bis, Fokus-Radius und Fokus-Ende geklemmt');
+  ok(!('ger' in k.regie) && !('zzz' in k.regie) && !(k.regie.kon && k.regie.kon.fokus), 'null als Eintrag, unbekannte Fraktion und ein Fokus für das Konkordat fallen weg');
+  ok(!('miete' in flotte(k, 11)) && flotte(k, 9).miete.bis <= t + W.dauer.wert.soeldner.max, 'Miete nur, wenn die Fraktion der Flotte zum Mieter passt; das Ende ist geklemmt');
+  const nul = lage(); nul.regie = { rom: null }; B.bereinige(nul);
+  ok(!('regie' in nul), 'regie: { rom: null } wird verworfen (wirft nicht)');
   const leer = lage(); leer.embargo = 'x'; leer.regie = []; B.bereinige(leer);
   ok(!('embargo' in leer) && !('regie' in leer), 'Unsinn als ganzes Feld: das Feld verschwindet');
 });
