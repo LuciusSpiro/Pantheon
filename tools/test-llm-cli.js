@@ -126,6 +126,13 @@ const warte = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 <
         ctl7.abort(); const e7 = await p7;
         ok(e7 && e7.code === 'ABORTED' && await warte(() => !lebt(id7.eltern), 6000), 'taskkill scheitert: p.kill() beendet den Elternprozess trotzdem');
         try { process.kill(id7.kind); } catch (e) { /* weg */ }
+        // baumBeenden direkt auf einen schon beendeten Prozess: kein taskkill (die PID kann neu vergeben sein)
+        try { fs.unlinkSync(tkLog); } catch (e) { /* weg */ }
+        const kurz = require('child_process').spawn(process.execPath, ['-e', '0'], { stdio: 'ignore' });
+        await new Promise((res) => kurz.on('exit', res)); await sleep(100);
+        LLM.baumBeenden(kurz); await sleep(500);
+        ok(!fs.existsSync(tkLog), 'baumBeenden auf einen beendeten Prozess ruft kein taskkill auf');
+        ok(path.isAbsolute(tkAlt.cmd) && path.basename(tkAlt.cmd).toLowerCase() === 'taskkill.exe', 'taskkill läuft mit vollem Pfad (kein Suchpfad): ' + tkAlt.cmd);
       } finally { LLM.TASKKILL.cmd = tkAlt.cmd; LLM.TASKKILL.vorArgs = tkAlt.vorArgs; }
     }
   } finally { if (alt === undefined) delete process.env.CLAUDE_CLI; else process.env.CLAUDE_CLI = alt; }

@@ -16,16 +16,17 @@ const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { 
 fs.mkdirSync(path.join(TMP, 'public', 'js'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
-for (const f of ['test-lage-spielleiter.js', 'regie-fixture.js', 'regie-bericht.js', 'test-llm-cli.js', 'messe-reise.js', 'test-reise-verteilung.js', 'test-weltstand-kompat.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+for (const f of ['test-lage-spielleiter.js', 'regie-fixture.js', 'regie-bericht.js', 'test-pult-hover.js', 'test-lage-texte.js', 'test-lage-wiederholung.js', 'test-llm-cli.js', 'messe-reise.js', 'test-reise-verteilung.js', 'test-weltstand-kompat.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
 fs.mkdirSync(path.join(TMP, 'tools', 'fixtures'), { recursive: true });
 fs.copyFileSync(path.join(ROOT, 'tools', 'fixtures', 'weltstand-main.schema.json'), path.join(TMP, 'tools', 'fixtures', 'weltstand-main.schema.json'));
-const TESTS = [['tools/test-lage-spielleiter.js'], ['tools/test-llm-cli.js'], ['tools/test-weltstand-kompat.js'], ['tools/test-reise-verteilung.js']];
+const TESTS = [['tools/test-lage-spielleiter.js'], ['tools/test-llm-cli.js'], ['tools/test-weltstand-kompat.js'], ['tools/test-reise-verteilung.js'], ['tools/test-pult-hover.js'], ['tools/test-lage-texte.js'], ['tools/test-lage-wiederholung.js']];
 
 const S = 'server/sim/lage-spielleiter.js', P = 'server/sim/lage-prompt.js', M = 'server/sim/lage-mock.js', G = 'server/game.js', K = 'server/sim/kriegslage.js', D = 'content/welt/lage-spielleiter-werte.json',
   BR = 'tools/regie-bericht.js', LL = 'server/mission/llm.js', RT = 'server/mission/transport-router.js', KT = 'content/welt/lage-katalog.json',
-  RB = 'server/sim/regie-befehle.js', A = 'server/sim/lage-ausschnitt.js', SY = 'content/spielleiter/prompts/lage.system.md', RZ = 'content/reise/ereignisse.json';
+  RB = 'server/sim/regie-befehle.js', A = 'server/sim/lage-ausschnitt.js', SY = 'content/spielleiter/prompts/lage.system.md', RZ = 'content/reise/ereignisse.json',
+  BF = 'server/weltsim/befehle.js', PU = 'public/js/pult.js', TX = 'content/flotte/lage-befehle.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 // Bewusst nicht in der Liste (äquivalente Mutanten): „die Antwort nach dispose wird nicht in den Eingang gelegt“ (update tut nach dispose nichts, der Eingang bleibt ungelesen).
 const MUTATIONEN = [
@@ -142,8 +143,40 @@ const MUTATIONEN = [
   [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return ReiseEreignis.aktiv(game);", 'Weltstand: mit Lage-Spielleiter fehlt die Chronik'],
   [K, "const ch = neueBloecke ? Chronik.toSave(ws) : null;", "const ch = Chronik.toSave(ws);", 'Weltstand: chronik ohne Schalter geschrieben'],
   [K, "const re = neueBloecke ? ReiseEreignis.toSave(ws) : null;", "const re = ReiseEreignis.toSave(ws);", 'Weltstand: reise ohne Schalter geschrieben'],
-  [RZ, '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1.5,', '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 6,', 'Reise: der Späher stellt die Hälfte der Gefahren'],
+  [RZ, '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1,', '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 6,', 'Reise: der Späher stellt die Hälfte der Gefahren'],
   [RZ, '"gewicht": 2,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', '"gewicht": 0.05,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', 'Reise: das Rudel kommt praktisch nie vor'],
+  // ---- SUND-03 F2
+  [LL, "  if (p.exitCode !== null || p.signalCode !== null) return;", "", 'PID: taskkill auch nach dem Ende des Prozesses (L1)'],
+  [LL, "      k.on('exit', (code) => { if (code !== 0) notfalls(); });", "", 'Abbruch: scheitert taskkill, beendet nichts den Elternprozess (L3)'],
+  [LL, "const TASKKILL = { cmd: path.join(process.env.SystemRoot || process.env.windir || 'C:\\\\Windows', 'System32', 'taskkill.exe'), vorArgs: [] };", "const TASKKILL = { cmd: 'taskkill', vorArgs: [] };", 'taskkill über den Suchpfad statt vollem Pfad (Test prüft nur die Aufrufform, darf überleben)'],
+  [K, "const rg = neueBloecke ? Regie.toSave(ws) : null;", "const rg = Regie.toSave(ws);", 'Weltstand: regie ohne Schalter geschrieben'],
+  [RB, "rate: s0.rate.filter((t) => jetzt - t < RATE.fenster) });", "rate: s0.rate });", 'Weltstand: abgelaufene Rate-Einträge werden mitgeschrieben'],
+  [RB, "if (ganz(R.abkuehlung.wert[k.split(':')[0]], 0) - (jetzt - t) > 0) letzte[k] = t;", "letzte[k] = t;", 'Weltstand: abgelaufene Abkühlzeiten werden mitgeschrieben'],
+  [RB, "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;", "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t <= RATE.fenster).length;", 'Rate: der Eintrag am Fensterrand zählt noch (R3)'],
+  [S, "    if (Regie.befehleFrei(this.game).rate === 0) return this.ueberspringen('rate', art);", "", 'Rate 0: der Spielleiter fragt trotzdem an (S3)'],
+  [BF, "return st.U < A.min_munition || st.T < A.min_treibstoff ?", "return st.U < A.min_munition ?", 'befehle_frei: Treibstoff wird für den Angriff nicht geprüft'],
+  [BF, "  if (embargoAktiv(z, an)) return 0;\n  let m = 0;", "  let m = 0;", 'befehle_frei: Embargo senkt die Nachschubmenge nicht'],
+  [BF, "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;", "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.ort === fl.heimat;", 'befehle_frei: Söldner auch mit unterwegs befindlicher Flotte'],
+  [BF, "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;", "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim';", 'befehle_frei: Söldner auch mit Flotte außerhalb des Heimathafens'],
+  [RB, "    if (BE.angriffVorratFehler(z, f)) keinAngriff.push(f);", "", 'befehle_frei: kein_angriff fehlt'],
+  [RB, "if (m < BW.nachschub.wert.menge.max) lim[g] = m;", "lim[g] = m;", 'befehle_frei: nachschub_max auch ohne Einschränkung'],
+  [P, "  if (!len) return kopf + ': abgelehnt';", "  if (!len) return s;", 'Kürzen: ohne Grund bleibt der Grund (P1)'],
+  [P, "const grund = s.slice(i + ABGELEHNT.length, s.endsWith(')') ? -1 : undefined);", "const grund = s.slice(i + ABGELEHNT.length);", 'Kürzen: die schließende Klammer bleibt im Grund (P1)'],
+  [P, "const letzteTxt = JSON.stringify(plaeneKuerzen(plaeneFiltern(letzte, game),", "const letzteTxt = JSON.stringify(plaeneFiltern(plaeneKuerzen(letzte || [],", 'Prompt: erst kürzen, dann Namen ersetzen (P3, Block kann die Grenze reißen)'],
+  [S, "const label = (liste) => (liste.length >= 2 ? '(beide)' : liste[0].fraktion);", "const label = (liste) => liste[0].fraktion;", 'letzte_plaene: der Plan-Fokus nennt nur ein Reich'],
+  [S, "angenommen: res.angenommen.filter((a) => a.platz).length,", "angenommen: res.angenommen.length,", 'letzte_plaene: angenommen zählt Befehle statt Rate-Plätze'],
+  [S, "const b = { typ: 'fokus', fraktion: label(liste.map((x) => x.befehl || x)), hex: b0.hex };", "const b = { typ: 'fokus', fraktion: label(liste.map((x) => x.befehl || x)) };", 'letzte_plaene: der Fokus nennt sein Hex nicht (S4)'],
+  [S, "  if (fokus.nein.length) out.push(fokusText(fokus.nein, fokus.nein[0].grund));", "  for (const x of fokus.nein) out.push(fokusText([x], x.grund));", 'letzte_plaene: abgelehnter Plan-Fokus je Fraktion (S3)'],
+  [S, "const leerArt = leer ? (typeof gelesen.plan.begruendung === 'string' && gelesen.plan.begruendung.trim().length >= 5 ? 'leer_begruendet' : 'leer_ohne_begruendung') : null;", "const leerArt = null;", 'Leere Pläne werden nicht getrennt ausgewiesen'],
+  [S, "    if (r && r.cli) this.cli = r.cli;", "", 'CLI-Quelle wird nicht gemerkt'],
+  [LL, "  const falsch = env.CLAUDE_CLI ? `CLAUDE_CLI gesetzt, nicht gefunden (${env.CLAUDE_CLI}) → Fallback` : null;", "  const falsch = null;", 'CLI: falsch gesetztes CLAUDE_CLI ohne Vermerk (K4)'],
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return require('./lage-spielleiter.js').schalterAn(game.env || process.env);", 'Weltstand: Reise-Ereignisse an, Lage-Spielleiter aus: keine Blöcke (C1)'],
+  [RZ, '"bedingungen": { "besitzer": ["ger", "saum"], "min_abstand": 6 }', '"bedingungen": { "besitzer": ["ger", "saum", "frei"], "min_abstand": 6 }', 'Reise: der Späher kommt wieder auch auf freiem Gebiet (Z1)'],
+  [RZ, '"rang_min": "optio", "min_abstand": 12', '"rang_min": "centurio", "min_abstand": 12', 'Reise: das Rudel erst wieder ab Centurio (Z2)'],
+  [TX, "Die Sperre des Konkordats gilt jetzt. Gesperrt: {waren}.", "Die Sperre des Konkordats gilt jetzt, {waren} kommen nicht mehr zu uns.", 'Text: Wirkungsmeldung mit Singular/Plural-Fehler (Z2)'],
+  [RB, "const warenText = (liste) => { const n = (liste || []).map((g) => (texte().waren || {})[g] || g); return n.length > 1 ? n.slice(0, -1).join(', ') + ' und ' + n[n.length - 1] : n.join(''); };", "const warenText = (liste) => (liste || []).map((g) => (texte().waren || {})[g] || g).join(', ');", 'Text: Waren ohne „und“ aufgezählt'],
+  [PU, "if (hit(b) && b.reason && (b.disabled || opts.gedimmt)) R.ui.tooltip", "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", 'pult.js: zustand in knopf ungültig (ReferenceError)'],
+  [PU, "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", "if (hit(b) && b.disabled && b.reason) R.ui.tooltip", 'pult.js: gedimmte Zelle zeigt keinen Hinweis'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
