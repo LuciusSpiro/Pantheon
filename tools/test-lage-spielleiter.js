@@ -46,7 +46,7 @@ const tick = (g, k) => { for (let i = 0; i < (k || 1); i++) Kriegslage.tick(g, '
 const logbuch = (g) => (g.lageRegie ? g.lageRegie.log.entries : []);
 const eintraege = (g, art, ausgang) => logbuch(g).filter((e) => e.art === art && (ausgang === undefined || e.ausgang === ausgang));
 const lageEintraege = (g, ausgang) => eintraege(g, 'lage_grobplan', ausgang);
-const dichtes = (g) => ({ zustand: z(g), regie: ws(g).regie, tickZahl: ws(g).tickZahl, absicht: ws(g).absicht, ruf: ws(g).ruf });
+const dichtes = (g) => ({ zustand: z(g), regie: Object.assign({}, ws(g).regie, { verlauf: [] }), tickZahl: ws(g).tickZahl, absicht: ws(g).absicht, ruf: ws(g).ruf });
 const gleicheWelt = (a, b) => gleich(dichtes(a), dichtes(b));
 
 // Spiel ohne Schalter (wie der Bestand) und Spiel mit einem eingesetzten Lage-Spielleiter (eigene LLM-Instanz, Script/Mock)
