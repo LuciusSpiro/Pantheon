@@ -2,7 +2,7 @@
   "format": "weltsim-befehle/1",
   "_hinweis": "SUND-03 A: Werte der gezielten Befehle des Sim-Kerns (server/weltsim/befehle.js, tick(zustand, { befehle })). Der Spielleiter (Lage-Spielleiter, spaeteres Paket) gibt der Sim gezielte Absichten; der Kern prueft jeden Befehl (pruefe -> { ok, grund }) und lehnt Ungueltiges ab, statt es zu spielen. Alle Zahlen stehen hier, keine im Code. Dauern sind Ticks (ein Tick = ein Sprung). Die Werte sind Annahmen und mit tools/sim-regie.js gegen die SUND-01-Baender gemessen (Aenderungen wirken ohne Code, danach sim:regie laufen lassen). Regeln des Spielaufsatzes (Vorwarnung, Abkuehlung, Sieger-Kennzahl) stehen in regie-werte.json.",
   "werte": {
-    "je_tick_max": {"wert": 4, "einheit": "Befehle je Tick", "_hinweis": "Obergrenze der Befehle, die ein Tick anwendet. Weitere werden abgelehnt (Grund im Logbuch), nie halb gespielt."},
+    "je_tick_max": {"wert": 8, "einheit": "Befehle je Tick", "_hinweis": "Obergrenze der Befehle, die ein Tick anwendet. Weitere werden abgelehnt (Grund im Logbuch), nie halb gespielt."},
     "dauer": {"wert": {
       "embargo": {"min": 4, "max": 30},
       "soeldner": {"min": 4, "max": 20},

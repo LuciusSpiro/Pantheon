@@ -20,7 +20,8 @@ const r1 = (x) => Math.round(x * 10) / 10;
 // Spielernamen dürfen nirgends im Text stehen (nur die Anzahl): was in einem Freitext (Chronik) vorkommt, wird ersetzt
 function ohneNamen(text, namen) {
   let t = String(text == null ? '' : text);
-  for (const n of namen) if (n.length >= 2) t = t.split(n).join('Crew');
+  // auch ein längerer Name im Text (im Spiel auf 12 Zeichen gekürzt gespeichert) verschwindet ganz
+  for (const n of namen) if (n.length >= 2) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\wäöüÄÖÜß]*', 'gi'), 'Crew');
   return t;
 }
 function spielerNamen(game) {

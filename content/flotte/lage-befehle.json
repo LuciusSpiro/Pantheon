@@ -6,7 +6,7 @@
     "angreifen_stuetzpunkt": {"sprecher": "Aufklärung", "text": "Ein Schlag gegen Euren Stützpunkt {ziel} ist beschlossen. In etwa {n} Sprüngen rücken sie an."},
     "piratenueberfall": {"sprecher": "Aufklärung", "text": "Piraten sammeln sich für einen Überfall auf {ziel}. Die Beute ist verlockend, in etwa {n} Sprüngen schlagen sie zu."},
     "piratenueberfall_stuetzpunkt": {"sprecher": "Aufklärung", "text": "Piraten haben es auf Euren Stützpunkt {ziel} abgesehen. In etwa {n} Sprüngen schlagen sie zu."},
-    "embargo": {"sprecher": "Oberkommando", "text": "Das Konkordat droht Rom mit einer Sperre für {waren}. In etwa {n} Sprüngen bleiben die Lieferungen aus, Rom muss mit dem auskommen, was es hat."}
+    "embargo": {"sprecher": "Oberkommando", "text": "Das Konkordat droht Rom mit einer Sperre für {waren}. In etwa {n} Sprüngen bleiben die Lieferungen aus, Rom ist dann auf die eigenen Vorräte angewiesen."}
   },
   "wirksam": {
     "embargo": {"sprecher": "Oberkommando", "text": "Die Sperre des Konkordats gilt jetzt, {waren} kommen nicht mehr zu uns."}
