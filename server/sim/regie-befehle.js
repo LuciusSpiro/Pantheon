@@ -343,7 +343,12 @@ function lesen(b, tickZahl) {
       out.vorgemerkt.push(eintrag);
     }
   }
-  if (istObjekt(b.letzte)) for (const [k, v] of Object.entries(b.letzte)) if (schluesselOk(k) && /^[a-z_]+(:[A-Za-z_]+)*$/.test(k) && Number.isFinite(v) && v >= 0) out.letzte[k] = Math.min(Math.floor(v), t);
+  if (istObjekt(b.letzte)) {
+    for (const [k, v] of Object.entries(b.letzte)) {
+      if (Object.keys(out.letzte).length >= R.plan.wert.letzte_max) break;   // die Menge der Schlüssel ist begrenzt (Typ × Fraktion): eine Datei kann den Block nicht aufblähen
+      if (schluesselOk(k) && /^[a-z_]+(:[A-Za-z_]+)*$/.test(k) && Object.prototype.hasOwnProperty.call(KATALOG, k.split(':')[0]) && Number.isFinite(v) && v >= 0) out.letzte[k] = Math.min(Math.floor(v), t);
+    }
+  }
   return out;
 }
 

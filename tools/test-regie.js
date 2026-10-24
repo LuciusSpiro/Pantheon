@@ -51,7 +51,7 @@ function szene(opts) {
   for (const h of Object.values(zz.hexe)) h.anspruch = {};
   for (const f of ['rom', 'ger']) { zz.vorrat[f].T = 40; zz.vorrat[f].U = 40; zz.marken[f] = 500; }
   zz.vorrat.kon.T = 31; zz.vorrat.kon.U = 10;
-  if (!opts || opts.ruhig !== false) zz.absichten = { rom: { p_act: 0 }, ger: { p_act: 0 } };
+  if (!opts || opts.ruhig !== false) zz.regie = { rom: { p_act: 0, regler_bis: 1e9 }, ger: { p_act: 0, regler_bis: 1e9 } };   // die Standard-KI plant nichts (Überlagerung der Regie, nicht der Crew: die Crew-Absicht bremst Befehle)
   return t;
 }
 // macht ger/rom zum Sieger (Schwung aus dem Ereignisring: zwei Eroberungen)
@@ -425,6 +425,7 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(z(g2).angriffe.some((a) => a.befohlen) && ws(g2).fehler === 0, 'nach dem Laden gehen die wartenden Befehle zur Zeit in die Sim');
   // Embargo und Miete im Sim-Zustand überleben das Laden
   const t3 = szene(); const g3 = t3.g;
+  delete z(g3).regie;   // die ruhige Überlagerung der Szene würde beim Laden geklemmt (bis höchstens Tick + Dauer): hier läuft die Standard-KI
   siegerSetzen(g3, 'ger');
   const rp = Regie.planAnwenden(g3, { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T'], dauer: 15 }, { typ: 'soeldner', von: 'kon', an: 'rom', flotten: [z(g3).flotten.find((f) => f.fraktion === 'kon').id], dauer: 12 }] });
   tick(g3);
@@ -449,6 +450,9 @@ section('Weltstand: Altstand, Runde, Müll', () => {
     [{ letzte: { 'x y!': 3, ok: -1, a: 'x', 'angreifen:ger': 'x' } }, leer, 'Müll in den Abkühlzeiten']]) ok(gleich(Regie.lesen(bl, T), soll), 'Leser: ' + was);
   const g6 = Regie.lesen({ vorgemerkt: [{ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 99999, w: 1 }], letzte: { 'angreifen:ger': 99999 } }, T);
   ok(g6.vorgemerkt[0].ab <= T + 1 + 10 && g6.letzte['angreifen:ger'] <= T, 'Zeiten werden geklemmt (kein „wirksam in alle Ewigkeit“, keine Abkühlzeit aus der Zukunft)');
+  const flut = {}; for (let i = 0; i < 500; i++) flut['angreifen:x' + i] = 3; flut.zaubern = 4; flut['angreifen:rom'] = 5;
+  const lf = Regie.lesen({ letzte: flut }, T);
+  ok(Object.keys(lf.letzte).length <= R.werte.plan.wert.letzte_max && !('zaubern' in lf.letzte), 'Leser: höchstens letzte_max Abkühlzeit-Schlüssel, unbekannte Typen fallen weg');
   const viele = Regie.lesen({ vorgemerkt: Array.from({ length: 30 }, () => ({ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 5 })) }, T);
   ok(viele.vorgemerkt.length === R.werte.plan.wert.vorgemerkt_max, 'mehr als vorgemerkt_max wartende Befehle werden gekürzt');
   // Kaputter Sim-Zustand (schemagültig, aber Unsinn): das Spiel läuft, ein Tick wirft nicht

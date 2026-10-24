@@ -401,6 +401,14 @@ section('söldner', () => {
   // Rückkehr
   let zurueck = false; for (let i = 0; i < 15 && !zurueck; i++) zurueck = Kern.tick(z2).ereignisse.some((e) => e.typ === 'soeldner_zurueck' && e.an === 'ger');
   ok(zurueck && fl.fraktion === 'kon' && !('miete' in fl), 'nach der Dauer dient die Flotte wieder dem Konkordat (Feld miete weg, Ereignis soeldner_zurueck)');
+  // Miete endet, während die Flotte im Feld steht: sie kämpft nicht für das Konkordat weiter, sondern zieht sich zurück
+  const feld = lage(); feld.absichten = { ger: { p_act: 0 } };
+  tick1(feld, [{ typ: 'soeldner', von: 'kon', an: 'ger', flotten: [11], dauer: W.dauer.wert.soeldner.min }]);
+  tick1(feld, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403', flotten: [11, 16] }]);
+  for (let i = 0; i < W.dauer.wert.soeldner.min; i++) Kern.tick(feld);
+  ok(flotte(feld, 11).fraktion === 'kon' && !flotte(feld, 11).miete && ['rueckzug', 'heim'].includes(flotte(feld, 11).befehl) && flotte(feld, 11).ziel !== '0403', 'Miete endet mit der Flotte im Einsatz: sie kehrt zum Konkordat zurück und zieht sich zurück (kämpft nicht weiter)');
+  const verl = lage(); tick1(verl, [{ typ: 'soeldner', von: 'kon', an: 'rom', flotten: [11], dauer: 10 }]);
+  ok(/Mietflotten werden nicht verlegt/.test(GRUND(verl, { typ: 'verstaerken', fraktion: 'rom', flotte: 11, hafen: '0305' }) || ''), 'eine Mietflotte wird nicht verlegt (keine neue Heimat beim Mieter)');
   // Befohlener Angriff nimmt die Mietflotte nur mit flotten
   const q = lage(); tick1(q, [Object.assign({}, b, { dauer: 20 })]);
   const auto = B.filtere(q, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0403' }]);
@@ -634,13 +642,28 @@ section('Bereinigung geladener Daten', () => {
   z.embargo = { rom: { waren: 'T', from: 1, bis: 9 }, ger: { waren: ['T', 'X'], from: 1, bis: 20 }, kon: { waren: ['T'], from: 1, bis: 5 } };
   z.regie = { rom: { p_act: 'viel', regler_bis: 5, fokus: { hex: 'zz', radius: 2, bis: 9 } }, ger: { fokus: { hex: '0403', radius: 2, bis: 30 }, p_act: 0.3, regler_bis: 12 }, pirat: 7 };
   flotte(z, 9).miete = { von: 'kon', an: 'pirat', bis: 'x', preis: 3 };
-  flotte(z, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 12 };
+  flotte(z, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 12 }; flotte(z, 11).fraktion = 'rom';
   B.bereinige(z);
   ok(Object.keys(z.embargo).join() === 'ger' && z.embargo.ger.waren.join() === 'T', 'Embargo: nur Gültiges bleibt (waren gefiltert, falsche Fraktion und Müll fallen weg)');
   ok(Object.keys(z.regie).join() === 'ger' && z.regie.ger.fokus.hex === '0403' && z.regie.ger.p_act === 0.3, 'Regie: nur Gültiges bleibt');
   ok(!('miete' in flotte(z, 9)) && flotte(z, 11).miete.an === 'rom', 'Miete: Müll fällt weg, Gültiges bleibt');
   let wirft = false; try { for (let i = 0; i < 5; i++) Kern.tick(z); } catch (e) { wirft = true; }
   ok(!wirft, 'ein Tick über bereinigte Daten wirft nicht');
+  // Klemmen, Fraktionen, Null-Einträge, Miete ohne passende Fraktion
+  const k = lage(); const t = k.tick;
+  k.embargo = { rom: { waren: ['T', 'T', 'M'], von: 'x', from: 99999, bis: 99999999 } };
+  k.regie = { rom: { p_act: 7, aggr: -3, max_active: 99.4, regler_bis: 9999999, ruhe_bis: 9999999, fokus: { hex: '0403', radius: 99, bis: 9999999 } }, ger: null, kon: { fokus: { hex: '0403', radius: 1, bis: 9 } }, zzz: { p_act: 0.2, regler_bis: 9 } };
+  flotte(k, 11).fraktion = 'ger'; flotte(k, 11).miete = { von: 'kon', an: 'rom', bis: 30, preis: 5 };   // Fraktion passt nicht zum Mieter
+  flotte(k, 9).fraktion = 'rom'; flotte(k, 9).miete = { von: 'kon', an: 'rom', bis: 99999, preis: 5 };
+  B.bereinige(k);
+  const e = k.embargo.rom, r = k.regie.rom;
+  ok(e.waren.join('') === 'TM' && e.von === 'kon' && e.from <= t && e.bis <= t + W.dauer.wert.embargo.max + 1, 'Embargo: doppelte Waren weg, von auf kon, Zeiten auf höchstens Tick + größte Dauer geklemmt');
+  ok(r.p_act === W.regler.wert.p_act.max && r.aggr === W.regler.wert.aggr.min && r.max_active === W.regler.wert.max_active.max, 'Regler auf die Bereiche aus den Daten geklemmt (und max_active ganzzahlig)');
+  ok(r.regler_bis <= t + W.dauer.wert.regler.max && r.ruhe_bis <= t + Math.max(...Object.values(W.ruhe.wert)) && r.fokus.radius === W.fokus.wert.radius.max && r.fokus.bis <= t + W.dauer.wert.fokus.max, 'regler_bis, ruhe_bis, Fokus-Radius und Fokus-Ende geklemmt');
+  ok(!('ger' in k.regie) && !('zzz' in k.regie) && !(k.regie.kon && k.regie.kon.fokus), 'null als Eintrag, unbekannte Fraktion und ein Fokus für das Konkordat fallen weg');
+  ok(!('miete' in flotte(k, 11)) && flotte(k, 9).miete.bis <= t + W.dauer.wert.soeldner.max, 'Miete nur, wenn die Fraktion der Flotte zum Mieter passt; das Ende ist geklemmt');
+  const nul = lage(); nul.regie = { rom: null }; B.bereinige(nul);
+  ok(!('regie' in nul), 'regie: { rom: null } wird verworfen (wirft nicht)');
   const leer = lage(); leer.embargo = 'x'; leer.regie = []; B.bereinige(leer);
   ok(!('embargo' in leer) && !('regie' in leer), 'Unsinn als ganzes Feld: das Feld verschwindet');
 });
