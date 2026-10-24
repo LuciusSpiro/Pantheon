@@ -31,8 +31,17 @@ section('Regel im Einzelnen', () => {
   let r = WH.pruefen({ befehle: [nach('rom', 'T', 2)], begruendung: 'x' }, v1, werte);
   ok(r.plan.befehle.length === 0 && r.abgelehnt.length === 1 && /^Wiederholung/.test(r.abgelehnt[0].grund), 'gleicher Typ und gleicher Parametersatz wie im letzten Plan: abgelehnt, Grund „Wiederholung“');
   ok(r.plan.begruendung === 'x', 'der Rest des Plans bleibt');
-  r = WH.pruefen({ befehle: [nach('rom', 'T', 3), nach('ger', 'T', 2), nach('rom', 'U', 2)] }, v1, werte);
-  ok(r.abgelehnt.length === 0 && r.plan.befehle.length === 3, 'derselbe Typ mit anderem Parametersatz (Menge, Fraktion, Gut): erlaubt');
+  r = WH.pruefen({ befehle: [nach('ger', 'T', 2), nach('rom', 'U', 2)] }, v1, werte);
+  ok(r.abgelehnt.length === 0 && r.plan.befehle.length === 2, 'derselbe Typ mit anderem Ziel (Fraktion, Gut): erlaubt');
+  r = WH.pruefen({ befehle: [nach('rom', 'T', 3)] }, v1, werte);
+  ok(r.abgelehnt.length === 1, 'nur die Menge geändert: dieselbe Umsetzung, abgelehnt');
+  const emb = (waren, dauer) => ({ typ: 'embargo', von: 'kon', gegen: 'rom', waren, dauer });
+  ok(WH.pruefen({ befehle: [emb(['M'], 11)] }, [[WH.satzVon(emb(['M'], 10))]], werte).abgelehnt.length === 1, 'Dauer 10 gegen 11: dieselbe Umsetzung (die Dauer gehört nicht zum Schlüssel)');
+  ok(WH.satzVon(emb(['M', 'T'], 6)) === WH.satzVon(emb(['T', 'M'], 6)) && WH.satzVon(emb(['M'], 6)) !== WH.satzVon(emb(['T'], 6)), 'Waren sind eine Menge: [M,T] gleich [T,M], aber M ungleich T');
+  const sold = (flotten) => ({ typ: 'soeldner', von: 'kon', an: 'rom', flotten, dauer: 6 });
+  ok(WH.satzVon(sold([3, 5])) === WH.satzVon(sold([5, 3])) && WH.satzVon(sold([3])) !== WH.satzVon(sold([3, 5])), 'Flotten sind eine Menge: [3,5] gleich [5,3]');
+  // nie zweimal in Folge, auch ohne Fenster
+  ok(WH.pruefen({ befehle: [nach('rom', 'T', 2)] }, v1, { wiederholung: { fenster_plaene: 0, ausnahmen: [] } }).abgelehnt.length === 1 && WH.pruefen({ befehle: [nach('rom', 'T', 2)] }, [v1[0], []], { wiederholung: { fenster_plaene: 0, ausnahmen: [] } }).abgelehnt.length === 0, 'Stufe 1: der unmittelbar letzte Plan gilt immer (auch mit Fenster 0), davor nicht');
   ok(WH.satzVon({ typ: 'nachschub', menge: 2, gut: 'T', an: 'rom' }) === WH.satzVon(nach('rom', 'T', 2)), 'der Satz hängt nicht von der Reihenfolge der Felder ab');
   const gleich = { befehle: [nach('rom', 'U', 1)] };
   ok(WH.pruefen(gleich, [[]], werte).plan === gleich, 'ohne Treffer kommt derselbe Plan zurück (dasselbe Objekt)');
@@ -49,8 +58,10 @@ section('Regel im Einzelnen', () => {
   const fok = { hex: '0305', radius: 2, fraktionen: ['rom', 'ger'] };
   r = WH.pruefen({ befehle: [], fokus: fok }, [[WH.fokusSatz({ hex: '0305', radius: 2, fraktionen: ['ger', 'rom'] })]], { wiederholung: { fenster_plaene: 3, ausnahmen: [] } });
   ok(r.abgelehnt.length === 1 && r.abgelehnt[0].befehl.typ === 'fokus' && !('fokus' in r.plan), 'derselbe Plan-Fokus (Fraktionen in anderer Reihenfolge) ohne Ausnahme: abgelehnt, aus dem Plan genommen');
-  r = WH.pruefen({ befehle: [], fokus: { hex: '0305', radius: 3, fraktionen: ['rom', 'ger'] } }, [[WH.fokusSatz(fok)]], { wiederholung: { fenster_plaene: 3, ausnahmen: [] } });
-  ok(r.abgelehnt.length === 0, 'anderer Radius: kein Treffer');
+  r = WH.pruefen({ befehle: [], fokus: { hex: '0306', radius: 2, fraktionen: ['rom', 'ger'] } }, [[WH.fokusSatz(fok)]], { wiederholung: { fenster_plaene: 3, ausnahmen: [] } });
+  ok(r.abgelehnt.length === 0, 'anderer Hex: kein Treffer');
+  r = WH.pruefen({ befehle: [], fokus: { hex: '0305', radius: 3, dauer: 9, fraktionen: ['rom', 'ger'] } }, [[WH.fokusSatz(fok)]], { wiederholung: { fenster_plaene: 3, ausnahmen: [] } });
+  ok(r.abgelehnt.length === 1, 'anderer Radius oder andere Dauer: dieselbe Umsetzung');
   ok(WH.pruefen({ befehle: [], fokus: fok }, [[WH.fokusSatz(fok)]], werte).abgelehnt.length === 0, 'Ausnahme fokus (Daten): darf nachgestellt werden');
   // Müll geht durch (die Plan-Prüfung der Regie lehnt ihn ab)
   r = WH.pruefen({ befehle: ['x', null, { typ: 5 }, nach('rom', 'T', 2)] }, v1, werte);
@@ -94,8 +105,22 @@ section('Anschluss im Lage-Spielleiter', () => {
   ok(/<letzte_plaene>\n\[/.test(p) && !/Wiederholung|sig|schluessel|nachschub:/.test(p.slice(p.indexOf('<letzte_plaene>'))), 'der Prompt-Teil <letzte_plaene> trägt keine Sätze der Wiederholungsregeln');
   // anderer Parametersatz geht
   ws(g).regie.letzte = {};
-  sl.runde({ befehle: [{ typ: 'nachschub', an: 'ger', gut: 'T', menge: 1 }] });
-  ok(ws(g).regie.vorgemerkt.length === 2, 'anderer Parametersatz im dritten Plan: angenommen');
+  sl.runde({ befehle: [{ typ: 'nachschub', an: 'ger', gut: 'U', menge: 2 }] });
+  ok(ws(g).regie.vorgemerkt.length === 2, 'anderes Gut im dritten Plan: angenommen');
+  // der Verlauf steht im Weltstand: Laden hebelt die Regel nicht aus
+  const Weltstand = require('../server/weltstand.js');
+  const d = JSON.parse(JSON.stringify(Weltstand.capture(g)));
+  ok(Array.isArray(d.welt.sim.regie.verlauf) && d.welt.sim.regie.verlauf.length === 3 && Weltstand.validate(d).length === 0, 'welt.sim.regie.verlauf: gespeichert, schemagültig (' + Weltstand.validate(d).slice(0, 1) + ')');
+  const fs = require('fs'); const path = require('path'); const dir = F.freshDir(); d.id = 'w-wh'; fs.writeFileSync(path.join(dir, 'w-wh.json'), JSON.stringify(d));
+  const g2 = F.neuesSpiel({ dir, world: 'w-wh' }).g; ws(g2).zustand.marken.ger = 500; ws(g2).zustand.marken.rom = 500;
+  const sl2 = spielleiter(g2);
+  ok(JSON.stringify(ws(g2).regie.verlauf) === JSON.stringify(ws(g).regie.verlauf), 'Laden: derselbe Verlauf');
+  ws(g2).regie.letzte = {}; ws(g2).regie.rate = [];
+  sl2.runde({ befehle: [{ typ: 'nachschub', an: 'ger', gut: 'U', menge: 7 }] });
+  ok(logbuch(g2).some((e) => (e.fehler || []).some((x) => /^Wiederholung: nachschub/.test(x))), 'nach dem Laden wird dieselbe Umsetzung (nur andere Menge) weiter als Wiederholung abgelehnt');
+  sl2.dispose();
+  const fe = Regie.lesen({ verlauf: [['ok'], 'x', [5, 'a'.repeat(500), 'gut']].concat(Array.from({ length: 30 }, () => ['a'])) }, 5);
+  ok(fe.verlauf.length === 10 && fe.verlauf.every((p) => p.every((x) => typeof x === 'string' && x.length <= 160)) && Regie.lesen(null, 0).verlauf.length === 0, 'Leser: Müll fällt weg, höchstens 10 Pläne, Schlüssel ≤ 160 Zeichen');
   sl.dispose();
 });
 

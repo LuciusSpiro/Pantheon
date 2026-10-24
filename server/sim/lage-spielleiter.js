@@ -61,13 +61,19 @@ class LageSpielleiter {
     this.aufrufe = 0;            // gestartete Anfragen dieser Sitzung (Deckel)
     this.letzterStartTick = null;
     this.letzte_plaene = [];     // Ringliste kurzer Pläne { nr, tick, grenze, befehle: [Text], angenommen, abgelehnt, begruendung }
-    this.verlauf = [];           // SUND-03 D: Parametersätze (Schlüssel) der angenommenen Befehle je angewandtem Plan, für die Wiederholungsregeln (nicht im Prompt)
     this.zaehler = { angewandt: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
     this.ausGemeldet = false;
     this.disposed = false;
     this.sitzung = (game.runId || ('lage-' + Date.now())) + '';
+  }
+
+  // SUND-03 D-Fix2: Identitätsschlüssel der angenommenen Befehle je angewandtem Plan (Wiederholungsregeln, nicht im Prompt); steht im Weltstand (welt.sim.regie.verlauf), damit Laden und Neustart die Regel nicht aushebeln
+  get verlauf() {
+    const r = this.game.weltsim && this.game.weltsim.regie;
+    if (!r) return this._verlauf || (this._verlauf = []);
+    return r.verlauf || (r.verlauf = []);
   }
 
   // ---------- Hilfen

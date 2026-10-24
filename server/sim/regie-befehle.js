@@ -47,9 +47,10 @@ const klon = (v) => JSON.parse(JSON.stringify(v));
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const ganz = (v, d) => (Number.isFinite(v) ? Math.floor(v) : d);
 
-const neu = () => ({ vorgemerkt: [], letzte: {}, rate: [] });
+const neu = () => ({ vorgemerkt: [], letzte: {}, rate: [], verlauf: [] });   // verlauf (SUND-03 D-Fix2): Identitätsschlüssel der angenommenen Befehle der letzten Pläne für die Wiederholungsregeln (lage-wiederholung.js); überlebt Rückfall und Laden
 // Globale Befehlsrate: Ticks der angenommenen Befehle der letzten rate.fenster Ticks (alle Typen und Fraktionen zusammen)
 const RATE = R.rate.wert;
+const VERLAUF_MAX = 10, VERLAUF_PLAN_MAX = 16, VERLAUF_KEY_MAX = 160;   // Pläne, Schlüssel je Plan, Zeichen je Schlüssel (Wiederholungsregeln)
 const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;
 const zustandVon = (game) => { const ws = game.weltsim; if (!ws) return null; if (!ws.regie) ws.regie = neu(); return ws.regie; };
 
@@ -344,11 +345,12 @@ function schreibe(game, eintrag) {
 // ---------- Weltstand welt.sim.regie
 function toSave(ws) {
   const s = ws && ws.regie;
-  if (!s || (!s.vorgemerkt.length && !Object.keys(s.letzte).length && !s.rate.length)) return null;
+  if (!s || (!s.vorgemerkt.length && !Object.keys(s.letzte).length && !s.rate.length && !(s.verlauf || []).length)) return null;
   const b = {};
   if (s.vorgemerkt.length) b.vorgemerkt = s.vorgemerkt.map((e) => (e.w ? { b: klon(e.b), ab: e.ab, w: 1 } : { b: klon(e.b), ab: e.ab }));
   if (Object.keys(s.letzte).length) b.letzte = Object.assign({}, s.letzte);
   if (s.rate.length) b.rate = s.rate.slice();
+  if ((s.verlauf || []).length) b.verlauf = s.verlauf.map((p) => p.slice());
   return b;
 }
 // müll-fester Leser: Unbekanntes und Unsinniges fällt weg (Altstand und kaputter Block = leer); Zeiten werden auf die Gegenwart geklemmt
@@ -368,6 +370,7 @@ function lesen(b, tickZahl) {
     }
   }
   if (Array.isArray(b.rate)) out.rate = b.rate.filter((x) => Number.isInteger(x) && x >= 0 && x <= t && t - x < RATE.fenster).slice(-RATE.max);   // nur das Fenster, höchstens max Einträge
+  if (Array.isArray(b.verlauf)) out.verlauf = b.verlauf.filter(Array.isArray).slice(-VERLAUF_MAX).map((p) => p.filter((x) => typeof x === 'string' && x.length > 0 && x.length <= VERLAUF_KEY_MAX).slice(0, VERLAUF_PLAN_MAX));   // klein halten: eine Datei kann den Block nicht aufblähen
   if (istObjekt(b.letzte)) {
     for (const [k, v] of Object.entries(b.letzte)) {
       if (Object.keys(out.letzte).length >= R.plan.wert.letzte_max) break;   // die Menge der Schlüssel ist begrenzt (Typ × Fraktion): eine Datei kann den Block nicht aufblähen

@@ -172,6 +172,7 @@
               "properties": {
                 "vorgemerkt": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["b", "ab"], "additionalProperties": false, "properties": { "b": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }, "ab": { "type": "integer", "minimum": 0 }, "w": { "type": "integer" } } } },
                 "letzte": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+                "verlauf": { "type": "array", "maxItems": 10, "description": "SUND-03 D-Fix2: Identitaetsschluessel der angenommenen Befehle der letzten Plaene (Wiederholungsregeln, server/sim/lage-wiederholung.js), je Plan eine Liste.", "items": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 160 } } },
                 "rate": { "type": "array", "maxItems": 100, "items": { "type": "integer", "minimum": 0 }, "description": "A3: Ticks der angenommenen Befehle im Fenster der globalen Befehlsrate" }
               }
             },
