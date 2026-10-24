@@ -1,0 +1,288 @@
+{
+  "format": "reise-ereignisse/1",
+  "_hinweis": "SUND-03 D: Katalog der Reise-Ereignisse der Freien Fahrt Sund (server/sim/reise-ereignis.js). Vorbild im Format: content/notrufe/*.json (Kampagnen-Notrufe SL8, ein anderes System, hier nicht beruehrt). Alle Texte sind FESTE Texte; Live-Texte von Sleipnir kommen erst in Paket 03b ueber die benannte Stelle textFuer(ereignis). Zahlen (Rate, Abstand, Fenster) stehen in content/reise/werte.json.\n\nFelder je Eintrag: id (Kleinbuchstaben, Ziffern, _), art (notruf | patrouille | piraten | funkmeldung), gewicht (> 0), bedingungen (alles optional): besitzer = erlaubte Besitzer des Ankunftssektors (rom, ger, saum, pirat, frei), rang_min und rang_max = Fenster im Rang von Rom (miles .. legat), lage = erlaubte Werte der Kennzahl siegreiche Seite (rom, ger, offen), min_abstand = so viele Spruenge muss das letzte Ereignis derselben Id her sein. parameter: variante (Freitext-Id), ort_typ (nachbar | nah, nur Notrufe: wo der Notruf liegt), sim_art (piratenueberfall | belagerung: ein passender Notruf der Sim wird aufgenommen), schiffe { art, min, max } und vorlauf_s (nur bei Gefahr). gefahr: true heisst, dass Gegner kommen. ankuendigung: wie die Gefahr angekuendigt wird (funk = eigener Funk vor dem Eintreffen, im_notruf = der Notruf nennt sie und der Vorlauf folgt beim Eintreffen, keine = nur ohne Gefahr). sprecher (Name auf der Funkplakette, KEINE neuen Porträts). texte: ankuendigung (beim Entstehen), eintreffen (wenn die Gefahr kommt bzw. die Lerche beim Notruf ankommt), dank (nach bewaeltigter Lage); Platzhalter {ort}. chronik: Zeile fuer die Chronik (<= 80 Zeichen, {ort}). folge: angenommen = Gruende aus content/welt/ruf-werte.json (quellen), aus denen die Wirkung ruf_aenderung gebaut wird; ablehnen MUSS leer sein (Ablehnen kostet nichts).",
+  "eintraege": [
+    {
+      "id": "notruf_pirat_frachter", "art": "notruf", "gewicht": 3,
+      "bedingungen": { "besitzer": ["rom", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "piratenueberfall", "ort_typ": "nah", "sim_art": "piratenueberfall", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 8 },
+      "gefahr": true, "ankuendigung": "im_notruf", "sprecher": "Frachter Aurelia",
+      "texte": {
+        "ankuendigung": [
+          "Hier Frachter Aurelia, an jeden, der hört! Piraten hängen an unserem Heck, bei {ort}. Der Antrieb stottert. Wer kommt?",
+          "Aurelia ruft! Räuber bei {ort}, sie haben uns die Leine geworfen. Ich zahle, was ich habe, nur kommt!"
+        ],
+        "eintreffen": [
+          "Ich sehe euch! Die Räuber drehen schon bei, haltet sie mir vom Heck!",
+          "Da seid ihr! Sie kommen von achtern, ich kann nichts mehr tun!"
+        ],
+        "dank": [
+          "Die Räuber brennen. Ihr habt uns den Hals gerettet, Rom vergisst das nicht.",
+          "Geschafft! Aurelia schuldet euch ein Fass vom Besten."
+        ]
+      },
+      "chronik": "Notruf Frachter Aurelia bei {ort}: Piraten",
+      "folge": { "angenommen": ["reise_hilfe_rom"], "ablehnen": [] }
+    },
+    {
+      "id": "notruf_pirat_haendler", "art": "notruf", "gewicht": 3,
+      "bedingungen": { "besitzer": ["saum", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "piratenueberfall", "ort_typ": "nachbar", "sim_art": "piratenueberfall", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 9 },
+      "gefahr": true, "ankuendigung": "im_notruf", "sprecher": "Händler Kupferkranich",
+      "texte": {
+        "ankuendigung": [
+          "Kupferkranich an alle Kontore! Rostmeute-Gesindel bei {ort}, drei, vielleicht vier Rümpfe. Das Konkordat zahlt Finderlohn!",
+          "Hier Kupferkranich, wir werden bei {ort} geentert. Kein Handel ist das Leben wert, aber meins schon!"
+        ],
+        "eintreffen": [
+          "Ihr seid es! Sie lassen von uns ab und wenden sich euch zu. Gebt es ihnen!"
+        ],
+        "dank": [
+          "Sauber geflogen. Das Konkordat merkt sich, wer seine Händler heimbringt.",
+          "Fracht heil, Rümpfe leer. Kupferkranich dankt, und das Konkordat auch."
+        ]
+      },
+      "chronik": "Notruf Händler Kupferkranich bei {ort}: Piraten",
+      "folge": { "angenommen": ["reise_hilfe_kon"], "ablehnen": [] }
+    },
+    {
+      "id": "notruf_belagerung_posten", "art": "notruf", "gewicht": 2,
+      "bedingungen": { "besitzer": ["rom", "saum"], "lage": ["ger", "offen"], "rang_min": "optio", "min_abstand": 8 },
+      "parameter": { "variante": "belagerung", "ort_typ": "nah", "sim_art": "belagerung", "schiffe": { "art": "raider", "min": 2, "max": 4 }, "vorlauf_s": 10 },
+      "gefahr": true, "ankuendigung": "im_notruf", "sprecher": "Posten Vigilia",
+      "texte": {
+        "ankuendigung": [
+          "Posten Vigilia, wir werden bei {ort} umschlossen! Germanische Läufer rund um die Mauer. Wir halten, solange das Pulver reicht. Schickt Hilfe!",
+          "Hier Vigilia. {ort} steht unter Druck, die Wache ist halbiert. Wer Rom die Treue hält, komme jetzt!"
+        ],
+        "eintreffen": [
+          "Die Lerche! Lasst sie nicht durch, wir halten die Mauer!"
+        ],
+        "dank": [
+          "Der Ring ist gesprengt. Vigilia hält, und Rom wird davon hören.",
+          "Sie ziehen ab! Danke, Lerche. Wir hätten nicht bis zum Morgen gehalten."
+        ]
+      },
+      "chronik": "Notruf Posten Vigilia bei {ort}: Belagerung",
+      "folge": { "angenommen": ["reise_hilfe_rom"], "ablehnen": [] }
+    },
+    {
+      "id": "notruf_belagerung_hafen", "art": "notruf", "gewicht": 2,
+      "bedingungen": { "besitzer": ["rom", "saum", "frei"], "min_abstand": 8 },
+      "parameter": { "variante": "belagerung", "ort_typ": "nachbar", "sim_art": "belagerung", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 10 },
+      "gefahr": true, "ankuendigung": "im_notruf", "sprecher": "Hafenwacht",
+      "texte": {
+        "ankuendigung": [
+          "Hafenwacht ruft jedes Schiff in Reichweite! Bei {ort} lagern Fremde vor dem Tor, Kriegsschiffe, und sie fragen nicht nach Zoll.",
+          "Hier die Hafenwacht von {ort}. Wir halten die Kette, aber nicht lange. Wer fliegen kann, fliege!"
+        ],
+        "eintreffen": [
+          "Wir sehen euch auf der Ortung. Jetzt kommen sie, hinaus mit euch zur Kette!"
+        ],
+        "dank": [
+          "Die Kette hält. Der Hafen schuldet euch einen Platz am Kai.",
+          "Aufgeatmet! Die Fremden drehen ab. Danke, Lerche."
+        ]
+      },
+      "chronik": "Notruf Hafenwacht bei {ort}: Belagerung",
+      "folge": { "angenommen": ["reise_hilfe_rom"], "ablehnen": [] }
+    },
+    {
+      "id": "notruf_havarie_reaktor", "art": "notruf", "gewicht": 3,
+      "bedingungen": { "besitzer": ["rom", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "havarie", "ort_typ": "nachbar" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Kutter Fortuna",
+      "texte": {
+        "ankuendigung": [
+          "Kutter Fortuna, Reaktor durchgegangen, wir treiben bei {ort}. Keine Gefahr außer der Kälte. Wer hat ein Stück Kabel übrig?",
+          "Fortuna an alle: Maschine tot, wir treiben bei {ort}. Es eilt nicht, aber es friert."
+        ],
+        "eintreffen": [
+          "Da ist ja die Lerche! Wir haben die Luke offen."
+        ],
+        "dank": [
+          "Läuft wieder! Danke euch, Fortuna fliegt weiter, und Rom hört von eurer Hilfe.",
+          "Ein Kabel, ein Fluch, ein Danke. Gute Fahrt, Lerche."
+        ]
+      },
+      "chronik": "Notruf Kutter Fortuna bei {ort}: Havarie",
+      "folge": { "angenommen": ["reise_hilfe_rom"], "ablehnen": [] }
+    },
+    {
+      "id": "notruf_havarie_konvoi", "art": "notruf", "gewicht": 2,
+      "bedingungen": { "besitzer": ["saum", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "havarie", "ort_typ": "nah" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Lastkahn Brummbär",
+      "texte": {
+        "ankuendigung": [
+          "Brummbär an die Küste: Steuerung hin, Ladung rutscht, wir liegen bei {ort} quer. Ein Schlepper wäre ein Segen.",
+          "Hier Lastkahn Brummbär. Wir sitzen bei {ort} auf einem Brocken fest. Keine Gefahr, nur Ärger. Kommt, wer kann."
+        ],
+        "eintreffen": [
+          "Ihr seid die Ersten, die kommen! Wir hängen backbord am Fels."
+        ],
+        "dank": [
+          "Frei! Das Konkordat zählt auf Leute wie euch.",
+          "Brummbär schwimmt wieder. Das war Handarbeit, danke."
+        ]
+      },
+      "chronik": "Notruf Lastkahn Brummbär bei {ort}: Havarie",
+      "folge": { "angenommen": ["reise_hilfe_kon"], "ablehnen": [] }
+    },
+    {
+      "id": "patrouille_rom_gruss", "art": "patrouille", "gewicht": 3,
+      "bedingungen": { "besitzer": ["rom"], "min_abstand": 6 },
+      "parameter": { "variante": "kontrolle" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Römische Streife",
+      "texte": {
+        "ankuendigung": [
+          "Römische Streife an Lerche: Kennung erfasst, Kurs frei. Meldet euch beim Hafen, wenn ihr Wasser oder Wahrheit braucht.",
+          "Streife Falke an Lerche: Papiere sind in Ordnung, weiterfliegen. Die Straße ist heute ruhig, bleibt es."
+        ]
+      },
+      "chronik": "Römische Streife bei {ort}: Kontrolle, Passage frei",
+      "folge": { "angenommen": ["reise_patrouille_rom"], "ablehnen": [] }
+    },
+    {
+      "id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 3,
+      "bedingungen": { "besitzer": ["ger", "saum", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "spaeher", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 12 },
+      "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an Lerche: Germanische Späher auf der Ortung, Kurs auf euch, in etwa {n} Sekunden sind sie da. Wer ausweichen will, sollte jetzt springen.",
+          "Aufklärung: Läufer der Germanen halten auf euch zu. Noch {n} Sekunden. Entscheidet euch."
+        ],
+        "eintreffen": [
+          "Kontakt! Germanische Späher, Feuer frei, wenn ihr wollt."
+        ]
+      },
+      "chronik": "Germanische Späher bei {ort} angekündigt",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "patrouille_ger_streife", "art": "patrouille", "gewicht": 2,
+      "bedingungen": { "besitzer": ["ger"], "lage": ["ger", "offen"], "rang_min": "optio", "min_abstand": 8 },
+      "parameter": { "variante": "streife", "schiffe": { "art": "raider", "min": 3, "max": 4 }, "vorlauf_s": 14 },
+      "gefahr": true, "ankuendigung": "funk", "sprecher": "Oberkommando",
+      "texte": {
+        "ankuendigung": [
+          "Oberkommando an Lerche: Eine germanische Streife hat euch im Ring. Sie braucht gut {n} Sekunden bis zu euch. Wer nicht kämpfen will, sollte jetzt springen.",
+          "Oberkommando warnt: Hrafnheims Läufer ziehen auf euch zu, schwerer als sonst. {n} Sekunden, dann stehen sie neben euch."
+        ],
+        "eintreffen": [
+          "Da sind sie! Die Streife hat euch eingeholt."
+        ]
+      },
+      "chronik": "Germanische Streife bei {ort} angekündigt",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "piraten_hinterhalt", "art": "piraten", "gewicht": 3,
+      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "min_abstand": 6 },
+      "parameter": { "variante": "hinterhalt", "schiffe": { "art": "raider", "min": 2, "max": 3 }, "vorlauf_s": 10 },
+      "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an Lerche: Rostmeute auf der Ortung, sie haben euch bemerkt und drehen bei. Etwa {n} Sekunden. Ihr könnt springen.",
+          "Aufklärung: Piratenrümpfe hinter dem Brocken, sie legen sich auf euren Kurs. {n} Sekunden bis zum Kontakt."
+        ],
+        "eintreffen": [
+          "Kontakt! Die Räuber sind heran."
+        ]
+      },
+      "chronik": "Piraten bei {ort} angekündigt: Hinterhalt",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "piraten_zoll", "art": "piraten", "gewicht": 2,
+      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "min_abstand": 8 },
+      "parameter": { "variante": "zoll", "schiffe": { "art": "raider", "min": 2, "max": 2 }, "vorlauf_s": 12 },
+      "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an Lerche: Zwei Piraten rufen euch an, sie verlangen Wegzoll. Wir hören ihnen zu, ihr nicht. In {n} Sekunden stehen sie bei euch.",
+          "Aufklärung: Ein Zöllner der Rostmeute funkt eure Kennung an. Antwort bleibt aus? Dann kommt er persönlich, in etwa {n} Sekunden."
+        ],
+        "eintreffen": [
+          "Der Zoll ist da, mit Kanonen."
+        ]
+      },
+      "chronik": "Piraten bei {ort} angekündigt: Wegzoll",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "piraten_rudel", "art": "piraten", "gewicht": 1,
+      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "centurio", "min_abstand": 12 },
+      "parameter": { "variante": "rudel", "schiffe": { "art": "raider", "min": 3, "max": 4 }, "vorlauf_s": 14 },
+      "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung warnt die Lerche: Ein ganzes Rudel Piraten hat Witterung aufgenommen, vier Rümpfe, vielleicht mehr. {n} Sekunden. Das ist keine Pflicht.",
+          "Aufklärung: Die Rostmeute jagt im Rudel und hat euch auf der Ortung. {n} Sekunden bis zum Kontakt, springt, wenn ihr es euch nicht zutraut."
+        ],
+        "eintreffen": [
+          "Das Rudel ist heran. Jetzt zeigt, was die Lerche kann."
+        ]
+      },
+      "chronik": "Piratenrudel bei {ort} angekündigt",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "funk_lage_rom", "art": "funkmeldung", "gewicht": 2,
+      "bedingungen": { "lage": ["rom"], "min_abstand": 6 },
+      "parameter": { "variante": "lage" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an alle Schiffe: Roms Verbände halten die Linie und drücken die Germanen zurück. Gute Zeit, den Hafen zu wechseln.",
+          "Aufklärung: Die Stimmung auf den Hafenkais hebt sich, Rom hat zuletzt mehr gewonnen als verloren."
+        ]
+      },
+      "chronik": "Funkmeldung: Lage günstig für Rom",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "funk_lage_ger", "art": "funkmeldung", "gewicht": 2,
+      "bedingungen": { "lage": ["ger"], "min_abstand": 6 },
+      "parameter": { "variante": "lage" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an alle Schiffe: Die Germanen haben in letzter Zeit mehr Boden gutgemacht, als uns lieb ist. Haltet die Augen auf.",
+          "Aufklärung: Das Blatt neigt sich gegen Rom. Wer Posten hält, sollte nachsehen, ob die Wache voll ist."
+        ]
+      },
+      "chronik": "Funkmeldung: Lage ungünstig für Rom",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "funk_lage_offen", "art": "funkmeldung", "gewicht": 2,
+      "bedingungen": { "lage": ["offen"], "min_abstand": 6 },
+      "parameter": { "variante": "lage" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Aufklärung",
+      "texte": {
+        "ankuendigung": [
+          "Aufklärung an alle Schiffe: Die Lage am Sund ist offen, keine Seite hat die Oberhand. Es bleibt bei Scharmützeln.",
+          "Aufklärung: Rom und Germanen belauern sich, nichts Entscheidendes. Man hört Handelsschiffe fluchen und Kapitäne rechnen."
+        ]
+      },
+      "chronik": "Funkmeldung: Lage offen",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    },
+    {
+      "id": "funk_handel_stimmen", "art": "funkmeldung", "gewicht": 2,
+      "bedingungen": { "besitzer": ["rom", "saum", "frei"], "min_abstand": 6 },
+      "parameter": { "variante": "stimmen" },
+      "gefahr": false, "ankuendigung": "keine", "sprecher": "Händlerfunk",
+      "texte": {
+        "ankuendigung": [
+          "Händlerfunk, offene Welle: Wer in {ort} anlegt, bekommt Wasser zum guten Preis und Klatsch umsonst.",
+          "Händlerfunk: Ein Schiff erzählt, im Sund würden die Preise wieder anziehen. Man hört viel, glaubt wenig."
+        ]
+      },
+      "chronik": "Funkmeldung: Händlerfunk bei {ort}",
+      "folge": { "angenommen": [], "ablehnen": [] }
+    }
+  ]
+}

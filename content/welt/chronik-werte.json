@@ -1,0 +1,10 @@
+{
+  "format": "chronik-werte/1",
+  "_hinweis": "SUND-03 D: Chronik der Freien Fahrt Sund (server/sim/chronik.js, Weltstand welt.sim.chronik). Sie haelt kurze Eintraege zu Taetigkeiten und Entscheidungen (Reise-Ereignisse, Szenen-Ausgaenge, Wahl und Ablehnung von Absichten, angewandte Plaene des Lage-Spielleiters, Posten). Klein und strukturiert: der Ausschnitt fuer den Grobplan liest nur die letzten Eintraege (regie-werte.json ausschnitt.stufen[].chronik). Spielernamen stehen nie darin.",
+  "werte": {
+    "max": {"wert": 40, "einheit": "Eintraege", "_hinweis": "Ringliste: der aelteste Eintrag faellt zuerst heraus. Im Weltstand etwa 4 KB."},
+    "kurz_max": {"wert": 80, "einheit": "Zeichen", "_hinweis": "Laenge des Textes je Eintrag."},
+    "ref_max": {"wert": 40, "einheit": "Zeichen", "_hinweis": "Laenge der Referenz (Katalog-Id, Szenen-Id, Absicht-Id, Plan-Nummer)."},
+    "arten": {"wert": ["reise", "szene", "absicht", "plan", "posten", "welt"], "einheit": "Arten", "_hinweis": "reise = Reise-Ereignis, szene = Ausgang einer Sim-Szene, absicht = Wahl/Ablehnung einer Strategischen Option, plan = angewandter Plan des Lage-Spielleiters, posten = Posten der Crew gegruendet/ausgebaut/gesprengt/gefallen, welt = Wendepunkt der Sim (Hafen oder Hauptwelt gefallen)."}
+  }
+}

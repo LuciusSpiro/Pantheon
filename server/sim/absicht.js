@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const Ruf = require('./ruf.js');
+const Chronik = require('./chronik.js');   // SUND-03 D: Wahl und Ablehnung stehen in der Chronik
 
 const W = require('../../content/welt/absichten.json').werte;
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'absichten.json');
@@ -134,6 +135,7 @@ function waehlen(game, id) {
   s.laufend = { id: a.id, start: ws.tickZahl, bis: ws.tickZahl + a.dauer, vorher: vorherMerken(ws.zustand) };
   s.angebot = null;
   wirkungUeberlagern(ws.zustand, a);
+  Chronik.eintragen(game, { art: 'absicht', ref: a.id, kurz: `Absicht gewählt: ${a.name}`, param: { wahl: 'ja' } });   // SUND-03 D
   return null;
 }
 function ablehnen(game) {
@@ -141,7 +143,9 @@ function ablehnen(game) {
   if (!ws) return fehl('modus');
   const s = zustandVon(game);
   if (!s.angebot) return fehl('kein_angebot');
+  const ids = s.angebot.ids.join(',');
   s.angebot = null; s.frei_ab = ws.tickZahl + W.abstand_nach_verfall.wert;   // Ablehnen ändert den Ruf nie
+  Chronik.eintragen(game, { art: 'absicht', ref: ids, kurz: 'Angebot der Strategischen Optionen abgelehnt', param: { wahl: 'nein' } });   // SUND-03 D
   return null;
 }
 

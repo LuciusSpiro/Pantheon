@@ -12,6 +12,7 @@ const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const { dist } = require('../util.js');
 const Kriegslage = require('./kriegslage.js');   // SUND-01 B: Tick der Weltsimulation je Sprung
+const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse nach dem Sprung (nur Freie Fahrt Sund)
 
 const JAMMERS = ['raider', 'korvette', 'fregatte', 'kreuzer'];   // Rostmeute: Störsender blockieren den Faltsprung
 const TUTORIAL_MISSIONS = ['m1', 'm2', 'm3'];
@@ -176,7 +177,8 @@ function doJump(game) {
   Reise().nachSprung(game, Sektoren.hexVonOrt(dest));   // eine gewählte Route rückt um einen Hop vor
   return null;
 }
-// Der Sprung selbst (ein Hop): auch der Schnellsprung (reise.js) springt Hop für Hop darüber – dieselben Ereignisse wie ein natürlicher Sprung
+// Der Sprung selbst (ein Hop): auch der Schnellsprung (reise.js) springt Hop für Hop darüber – dieselben Ereignisse wie ein natürlicher Sprung.
+// Rückgabe (SUND-03 D): das Reise-Ereignis dieses Sprungs ({ id, art, kurz }) oder null; ein Faltsprung ignoriert es, der Schnellsprung hört dann auf.
 function springeNach(game, dest) {
   const from = game.ship.scene;
   const vonHex = Sektoren.hexVonOrt(from), nachHex = Sektoren.hexVonOrt(dest);
@@ -192,6 +194,7 @@ function springeNach(game, dest) {
   game.explore.arrive(dest);
   if (vonHex && nachHex) game.explore.markBoje(Sektoren.kanteId(vonHex, nachHex));   // durchflogen
   game.missionEvent('jumped', { scene: dest, loc: dest, from });
+  return ReiseEreignis.nachSprung(game, dest);   // SUND-03 D: Reise-Ereignis nach der Ankunft (nur Freie Fahrt Sund): { id, art, kurz } | null; der Schnellsprung (reise.js) bricht dann ab
 }
 function ankunftAmSprungpunkt(game, vonHex, nachHex) {
   const p = sprungpunkt(game, vonHex, game.ship.scene);

@@ -16,6 +16,8 @@
 //   (SUND-02b B) welt.sim.ruf: { rom, ger, kon } (optional, Altstände = 0, server/sim/ruf.js). Die Wirkung ruf_aenderung prüft der Katalog, der Kern ignoriert sie; tickMit wendet sie NACH dem Tick an (Ruf.anwenden), im selben
 //   Atom: wirft der Tick, geht auch der Ruf auf die Sicherung zurück. Rangwechsel-Funk erst nach dem Commit.
 //   (SUND-02b A2) welt.sim.sprengungen: { Hex: Tick der letzten Sprengung } (optional, Ruf-Sperre gegen Farmen, server/sim/posten.js sprengungRuf); Rollback und Speichern wie welt.sim.posten.
+//   (SUND-03 D) welt.sim.chronik: Ringliste kleiner Einträge { t, art, ref, kurz, param? } (optional, Altstände = leer, server/sim/chronik.js); welt.sim.reise: { n, letzter?, letzte? } = Sprungzähler und Wiederholungsdaten
+//   der Reise-Ereignisse (optional, Altstände = Anfang, server/sim/reise-ereignis.js). Beide gehören nicht zum Sim-Zustand; tickMit trägt die Ereignisse des Ticks (Posten der Crew, Hafen und Hauptwelt gefallen) nach dem Commit in die Chronik ein.
 //   (SUND-03 A) welt.sim.regie: { vorgemerkt?, letzte? } (optional, Altstände = leer, server/sim/regie-befehle.js): angenommene Befehle des Lage-Spielleiters, die ab einem Tick an Kern.tick gehen; zustand.embargo und zustand.regie stehen im Sim-Zustand.
 //   (SUND-02b D) welt.sim.absicht: { laufend?, angebot?, frei_ab? } (optional, Altstände = leer, server/sim/absicht.js). Die gewählte Absicht steht in zustand.absichten.rom (Erweiterungspunkt der Standard-KI, der Kern bleibt unberührt); tickMit lässt sie danach auslaufen bzw. macht ein neues Angebot,
 //   im selben Atom: wirft der Tick, geht auch die Absicht auf die Sicherung zurück. Funk erst nach dem Commit.
@@ -34,6 +36,8 @@ const Posten = require('./posten.js');   // SUND-02b A1: Posten der Crew (Halten
 const Ruf = require('./ruf.js');   // SUND-02b B: Ruf je Fraktion, Dienstgrade von Rom (welt.sim.ruf)
 const Verrat = require('./verrat.js');   // SUND-02b E: Beschuss auf römische Verbündete (welt.sim.verrat: Gedächtnis)
 const Regie = require('./regie-befehle.js');   // SUND-03 A: Befehle des Lage-Spielleiters (welt.sim.regie, zustand.embargo, zustand.regie)
+const Chronik = require('./chronik.js');   // SUND-03 D: Chronik der Tätigkeiten und Entscheidungen (welt.sim.chronik)
+const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse (welt.sim.reise: Sprungzähler, Wiederholungsdaten)
 const Absicht = require('./absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (welt.sim.absicht, zustand.absichten.rom)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
@@ -91,7 +95,7 @@ function overlayFuellen(game) {
 function neueSim(game, seed) {
   const d = daten();
   const z = Kern.erzeuge({ karte: d.karte, werte: d.werte, seed: seed == null ? seedAus(game.seed) : seed });
-  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), regie: Regie.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+  game.weltsim = { zustand: z, tickZahl: 0, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), regie: Regie.neu(), chronik: Chronik.neu(), reise: ReiseEreignis.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
   overlayFuellen(game);
   try { Wissen.starten(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   return game.weltsim;
@@ -128,6 +132,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   const rufSicher = klon(ws.ruf || Ruf.neu());
   const postenSicher = klon(ws.posten || {});
   const sprengSicher = klon(ws.sprengungen || {});   // SUND-02b A2: Ruf-Sperre der Sprengungen (Aufsatz)
+  const crewPostenVorher = Object.keys(ws.posten || {});   // SUND-03 D: für die Chronik (ein gefallener Posten der Crew ist danach nicht mehr eingetragen)
   const regieSicher = klon(ws.regie || Regie.neu());   // SUND-03 A: wartende Befehle (die fälligen verlassen die Warteschlange erst im Tick; wirft er, sind sie wieder da)
   const absichtSicher = klon(ws.absicht || Absicht.neu());   // SUND-02b D: Absicht und Angebot (zustand.absichten.rom liegt im Sim-Zustand und geht mit `sicher` zurück)
   let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null, gehalten = [], absichtFunk = [], faellig = [], regieAus = null;
@@ -169,6 +174,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   if (regieAus) { try { Regie.melde(game, regieAus); } catch (e) { if (game.countError) game.countError('kriegslage-regie', e); } }   // SUND-03 A: Funk und Logbuch nach dem Commit
   if (absichtFunk.length) { try { Absicht.melde(game, absichtFunk); } catch (e) { if (game.countError) game.countError('kriegslage-absicht', e); } }   // SUND-02b D: Funk nach dem Commit
   if (gehalten.length) { try { Posten.meldeGehalten(game, gehalten); } catch (e) { if (game.countError) game.countError('kriegslage-posten', e); } }
+  try { Chronik.ausTick(game, ev, gueltig, crewPostenVorher); } catch (e) { if (game.countError) game.countError('kriegslage-chronik', e); }   // SUND-03 D: Posten der Crew und Wendepunkte, nach dem Commit
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }
   if (ws.ereignisse.length > RING) ws.ereignisse.splice(0, ws.ereignisse.length - RING);
   overlayFuellen(game);
@@ -312,6 +318,8 @@ function toSave(game) {
   const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
   const sb = Posten.sprengungenSave(ws); if (sb) b.sprengungen = sb;   // SUND-02b A2: letzte Sprengung je Hex (Ruf-Sperre); fehlt = keine
   const ab = Absicht.toSave(ws); if (ab) b.absicht = ab;   // SUND-02b D: laufende Absicht, Angebot, Pause; fehlt = leer
+  const ch = Chronik.toSave(ws); if (ch) b.chronik = ch;   // SUND-03 D: Chronik (Ringliste); fehlt = leer
+  const re = ReiseEreignis.toSave(ws); if (re) b.reise = re;   // SUND-03 D: Sprungzähler und Wiederholungsdaten der Reise-Ereignisse; fehlt = Anfang
   const rg = Regie.toSave(ws); if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer
   const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
@@ -341,7 +349,7 @@ function restore(game, b) {
   if (!b || typeof b !== 'object' || b.modus !== MODUS) return;
   const tickZahl = Number.isFinite(b.tick) && b.tick >= 0 ? Math.floor(b.tick) : 0;
   if (abbildOk(b.zustand)) {
-    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), regie: Regie.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
+    game.weltsim = { zustand: voll(b.zustand), tickZahl, fehler: 0, ereignisse: [], hauptweltGefallen: null, wissen: null, kommandanten: {}, vorgemerkt: [], ruf: Ruf.neu(), posten: {}, sprengungen: {}, absicht: Absicht.neu(), regie: Regie.neu(), chronik: Chronik.neu(), reise: ReiseEreignis.neu(), wirkungenAngewandt: 0, wirkungenVerworfen: 0 };
     try { Wissen.restore(game, b.wissen); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }
   } else {
     if (game.countError) game.countError('kriegslage-restore', new Error('welt.sim: Sim-Zustand unbrauchbar – neue Welt'));
@@ -356,6 +364,8 @@ function restore(game, b) {
   game.weltsim.posten = Posten.lesen(b.posten);   // SUND-02b A1: fehlt = leer (Altstand)
   game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
   game.weltsim.absicht = Absicht.lesen(b.absicht, game.weltsim.tickZahl);   // SUND-02b D: fehlt = leer (Altstand)
+  game.weltsim.chronik = Chronik.lesen(b.chronik);   // SUND-03 D: fehlt = leer (Altstand)
+  game.weltsim.reise = ReiseEreignis.lesen(b.reise);   // SUND-03 D: fehlt = Anfang (Altstand)
   game.weltsim.regie = Regie.lesen(b.regie, game.weltsim.tickZahl);   // SUND-03 A: fehlt = leer (Altstand)
   Absicht.nachLaden(game);   // die laufende Absicht steht wieder in zustand.absichten.rom (auch wenn der Sim-Zustand ohne sie gespeichert war)
   game.weltsim.verrat = Verrat.lesen(b.verrat);   // SUND-02b E: fehlt = nie (Altstand)
