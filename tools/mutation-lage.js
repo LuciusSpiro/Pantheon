@@ -16,13 +16,16 @@ const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { 
 fs.mkdirSync(path.join(TMP, 'public', 'js'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
-for (const f of ['test-lage-spielleiter.js', 'regie-fixture.js', 'regie-bericht.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+for (const f of ['test-lage-spielleiter.js', 'regie-fixture.js', 'regie-bericht.js', 'test-llm-cli.js', 'messe-reise.js', 'test-reise-verteilung.js', 'test-weltstand-kompat.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
-const TESTS = [['tools/test-lage-spielleiter.js']];
+fs.mkdirSync(path.join(TMP, 'tools', 'fixtures'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'tools', 'fixtures', 'weltstand-main.schema.json'), path.join(TMP, 'tools', 'fixtures', 'weltstand-main.schema.json'));
+const TESTS = [['tools/test-lage-spielleiter.js'], ['tools/test-llm-cli.js'], ['tools/test-weltstand-kompat.js'], ['tools/test-reise-verteilung.js']];
 
 const S = 'server/sim/lage-spielleiter.js', P = 'server/sim/lage-prompt.js', M = 'server/sim/lage-mock.js', G = 'server/game.js', K = 'server/sim/kriegslage.js', D = 'content/welt/lage-spielleiter-werte.json',
-  BR = 'tools/regie-bericht.js', LL = 'server/mission/llm.js', RT = 'server/mission/transport-router.js', KT = 'content/welt/lage-katalog.json';
+  BR = 'tools/regie-bericht.js', LL = 'server/mission/llm.js', RT = 'server/mission/transport-router.js', KT = 'content/welt/lage-katalog.json',
+  RB = 'server/sim/regie-befehle.js', A = 'server/sim/lage-ausschnitt.js', SY = 'content/spielleiter/prompts/lage.system.md', RZ = 'content/reise/ereignisse.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 // Bewusst nicht in der Liste (äquivalente Mutanten): „die Antwort nach dispose wird nicht in den Eingang gelegt“ (update tut nach dispose nichts, der Eingang bleibt ungelesen).
 const MUTATIONEN = [
@@ -106,8 +109,41 @@ const MUTATIONEN = [
   [D, '"grenzen": {"wert": ["szene_ende", "andocken", "absicht"]', '"grenzen": {"wert": ["szene_ende", "andocken"]', 'Daten: Grenze absicht fehlt'],
   // ---- Bericht
   [BR, "Rückfälle: ${lageRueck.length}", "Rückfälle: 0", 'Bericht: Rückfälle der Lage'],
-  [BR, "const aufrufe = lage.filter((e) => ['angewandt', 'fehler', 'veraltet'].includes(e.ausgang)", "const aufrufe = lage.filter((e) => ['angewandt'].includes(e.ausgang)", 'Bericht: Fehler zählen nicht als Aufruf'],
+  [BR, "const aufrufe = lage.filter((e) => ['angewandt', 'plan_wirkungslos', 'fehler', 'veraltet'].includes(e.ausgang)", "const aufrufe = lage.filter((e) => ['angewandt'].includes(e.ausgang)", 'Bericht: Fehler zählen nicht als Aufruf'],
   [BR, "const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan']);", "const CALLS = new Set(['grobplan', 'szene', 'verspaetet']);", 'Bericht: Tokens der Lage fehlen in der Summe'],
+  // ---- SUND-03 F: Rate, plan_wirkungslos, letzte_plaene, befehle_frei
+  [RB, "    const gratis = k.fokusPlan && fokusPlatz;", "    const gratis = false;", 'Rate: der Plan-Fokus kostet je Fraktion einen Platz'],
+  [RB, "    if (a._rate !== false) s.rate.push(n0);", "    s.rate.push(n0);", 'Rate: der zweite Fokus-Befehl bucht doch einen Platz'],
+  [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (false) {", 'plan_wirkungslos: ein Plan ohne angenommenen Befehl gilt als angewandt'],
+  [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (kurz.angenommen === 0) {", 'plan_wirkungslos: auch ein leerer Plan ist wirkungslos'],
+  [S, "if (a.befehl.typ === 'fokus') { if (fokusOk) continue; fokusOk = true; }", "if (a.befehl.typ === 'fokus') { fokusOk = true; }", 'letzte_plaene: der Plan-Fokus erscheint je Fraktion'],
+  [S, "return grund == null ? t + ': ok' :", "return true ? t + ': ok' :", 'letzte_plaene: abgelehnte Befehle erscheinen als ok'],
+  [S, "String(grund).replace(/\\s+/g, ' ').slice(0, maxGrund)", "String(grund).replace(/\\s+/g, ' ')", 'letzte_plaene: Kurzgrund nicht gekürzt'],
+  [P, "  while (p.length > 1 && groesse() > maxGesamt) p.shift();", "", 'letzte_plaene: keine Zeichenobergrenze'],
+  [RB, "  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz };", "  const out = { rate: RATE.max, piraten, platz };", 'befehle_frei: Rate-Rest fehlt'],
+  [RB, "    if (rest > 0) abk[key] = rest;", "    abk[key] = rest;", 'befehle_frei: abgelaufene Abkühlung bleibt stehen'],
+  [RB, "- z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim').length);", "- 0);", 'befehle_frei: freie Plätze ohne aktive Flotten'],
+  [RB, "fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap).length;", "fl.fraktion === 'pirat').length;", 'befehle_frei: auch unbereite Piraten zählen'],
+  [A, "    befehle_frei: Regie.befehleFrei(game),", "", 'Ausschnitt: befehle_frei fehlt'],
+  [P, "angenommene Befehle je ${RW.rate.wert.fenster} Ticks", "Befehle je ${RW.rate.wert.fenster} Ticks", 'Katalog: die Rate fehlt'],
+  [SY, "**Standard ist mindestens ein wirksamer Befehl je Plan.**", "", 'Systemprompt: Haltung handeln fehlt'],
+  [SY, "**Stütze jede Aussage auf ein Feld des Ausschnitts**", "**Erzähle frei**", 'Systemprompt: Regel Aussagen stützen fehlt'],
+  // ---- SUND-03 F: CLI finden und Prozessbaum
+  [LL, "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');", "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js');", 'CLI: der native Build im npm-Paket wird nicht gefunden'],
+  [LL, "  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return r; }", "", 'CLI: .local/bin wird nicht gesucht'],
+  [LL, "  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return r; }", "", 'CLI: PATH wird nicht durchsucht'],
+  [LL, "  let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');\n  if (r) return r;", "  let r = null;", 'CLI: CLAUDE_CLI wird ignoriert'],
+  [LL, "args: [p], pfad: p, quelle, versucht } : {", "args: [], pfad: p, quelle, versucht } : {", 'CLI: eine .js-Datei wird nicht mit Node gestartet'],
+  [LL, "    const abbrechen = () => { aborted = true; baumBeenden(p); };", "    const abbrechen = () => { aborted = true; try { p.kill(); } catch (e) { /* weg */ } };", 'Abbruch beendet nur den Elternprozess'],
+  [LL, "    const kill = setTimeout(() => { timedOut = true; baumBeenden(p); }, timeoutMs || 5 * 60 * 1000);", "    const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* weg */ } }, timeoutMs || 5 * 60 * 1000);", 'Timeout beendet nur den Elternprozess'],
+  [LL, "['/T', '/F', '/PID', String(p.pid)]", "['/F', '/PID', String(p.pid)]", 'taskkill ohne /T (Kindprozesse bleiben)'],
+  // ---- SUND-03 F: Weltstand ohne Schalter, Reise-Verteilung
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return true;", 'Weltstand: chronik und reise immer im Stand'],
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return ReiseEreignis.aktiv(game);", 'Weltstand: mit Lage-Spielleiter fehlt die Chronik'],
+  [K, "const ch = neueBloecke ? Chronik.toSave(ws) : null;", "const ch = Chronik.toSave(ws);", 'Weltstand: chronik ohne Schalter geschrieben'],
+  [K, "const re = neueBloecke ? ReiseEreignis.toSave(ws) : null;", "const re = ReiseEreignis.toSave(ws);", 'Weltstand: reise ohne Schalter geschrieben'],
+  [RZ, '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1.5,', '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 6,', 'Reise: der Späher stellt die Hälfte der Gefahren'],
+  [RZ, '"gewicht": 2,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', '"gewicht": 0.05,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', 'Reise: das Rudel kommt praktisch nie vor'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

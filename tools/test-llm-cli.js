@@ -48,7 +48,8 @@ const warte = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 <
   fs.writeFileSync(fake, [
     "const { spawn } = require('child_process'); const fs = require('fs'); const path = require('path');",
     "const dir = path.dirname(__filename); const modus = fs.existsSync(path.join(dir, 'modus')) ? fs.readFileSync(path.join(dir, 'modus'), 'utf8') : 'haengt';",
-    "const kind = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'inherit' });",
+    "// unter Windows eigene Prozessgruppe (detached): der Kindprozess überlebt das Beenden des Elternprozesses, nur der Baum-Abbruch (taskkill /T) trifft ihn",
+    "const kind = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore', detached: process.platform === 'win32' });",
     "fs.writeFileSync(path.join(dir, 'pids.json'), JSON.stringify({ eltern: process.pid, kind: kind.pid }));",
     "process.stdin.resume();",
     "if (modus === 'antwort') { process.stdin.on('end', () => { console.log(JSON.stringify({ type: 'result', result: 'fertig', usage: { input_tokens: 5, output_tokens: 2 } })); kind.kill(); process.exit(0); }); }",

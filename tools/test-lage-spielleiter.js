@@ -603,6 +603,9 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   ok(p1.befehle.some((s) => /unbekanntes Ziel/.test(s)), 'der Kurzgrund bleibt lesbar (Buchstaben unverändert)');
   ok(p1.befehle.filter((s) => /^fokus/.test(s)).length === 1, 'der Plan-Fokus (ein Befehl je Fraktion) erscheint einmal');
   ok(p1.befehle.every((s) => s.length <= 120), 'Kurzgründe sind gekürzt');
+  const kg = spiel(); const { sl: skg } = mitLage(kg, { mode: 'script', script: { lage: [{ json: { befehle: [{ typ: 'angreifen', fraktion: 'ger', ziel: '9999' }], begruendung: 'x' } }] } }, { letzte_plaene_zeichen: { gesamt: 900, grund: 10 } });
+  tick(kg.g); skg.beiGrenze('andocken'); await pumpen(kg.g, 4);
+  ok(skg.letzte_plaene.at(-1).befehle[0] === 'angreifen ger 9999: abgelehnt (unbekannte)', 'der Kurzgrund wird auf die Zeichenzahl der Daten gekürzt: ' + skg.letzte_plaene.at(-1).befehle[0]);
   const pr = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: sl.letzte_plaene, werte: W }).prompt;
   ok(/regler rom: ok/.test(pr) && /zaubern: abgelehnt/.test(pr), 'die Rückmeldung steht im nächsten Prompt');
   const lang = Array.from({ length: 3 }, (_, i) => ({ nr: i, tick: i, grenze: 'andocken', befehle: Array.from({ length: 6 }, (_, k) => 'angreifen ger 010' + k + ': abgelehnt (' + 'Abkühlzeit '.repeat(5) + ')'), angenommen: 0, abgelehnt: 6, begruendung: 'x' }));
@@ -627,6 +630,9 @@ section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
   ok(f0.rate === RT.max && f0.abk === undefined && f0.platz && typeof f0.platz.rom === 'number' && typeof f0.platz.ger === 'number' && f0.piraten >= 0, 'am Anfang: volle Rate, keine Abkühlung, Plätze je Reich, Piraten gezählt: ' + JSON.stringify(f0));
   const maxA = Kern.BEFEHLE.wirksam(z(g), 'rom').max_active;
   ok(f0.platz.rom === maxA - z(g).flotten.filter((fl) => fl.fraktion === 'rom' && fl.befehl !== 'heim').length, 'freie Plätze = max_active minus aktive Flotten (global gezählt)');
+  const aktiv0 = z(g).flotten.find((fl) => fl.fraktion === 'rom' && fl.befehl === 'heim'); aktiv0.befehl = 'angriff';
+  ok(frei().platz.rom === f0.platz.rom - 1, 'eine Flotte im Einsatz nimmt einen freien Platz weg (global gezählt)');
+  aktiv0.befehl = 'heim';
   Regie.planAnwenden(g, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: '0105', radius: 2 } });
   const f1 = frei();
   ok(f1.rate === RT.max - 2 && f1.abk && f1.abk['regler:rom'] === RW.abkuehlung.wert.regler && f1.abk.fokus === RW.abkuehlung.wert.fokus, 'nach Regler und Plan-Fokus: Rate −2 (der Fokus kostet einen Platz), Abkühlung je Schlüssel: ' + JSON.stringify(f1));

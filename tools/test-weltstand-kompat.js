@@ -10,7 +10,7 @@ process.chdir(path.join(__dirname, '..'));
 const Weltstand = require('../server/weltstand.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Absicht = require('../server/sim/absicht.js');
-const Chronik = require('../server/sim/chronik.js');
+const RE = require('../server/sim/reise-ereignis.js');
 const F = require('./regie-fixture.js');
 
 let n = 0, fails = 0;
@@ -25,6 +25,7 @@ function lauf(seed, env) {
   const g = t.g;
   for (let k = 1; k <= 150; k++) {
     Kriegslage.tick(g, 'test');
+    RE.zaehleSprung(g);   // der Sprungzähler der Reise-Ereignisse zählt (ohne Schalter darf er trotzdem nicht im Stand landen)
     if (k % 12 === 0) { Absicht.debug(g, ['angebot']); Absicht.ablehnen(g); }
     if (k % 30 === 0) for (let i = 0; i < 40; i++) g.step();
   }
@@ -50,7 +51,7 @@ for (const seed of [7, 21, 33]) {
 }
 
 console.log('\nGegenprobe: mit Schalter erscheinen die Blöcke');
-for (const [name, env] of [['REISE_EREIGNISSE=1', { REISE_EREIGNISSE: '1' }], ['Lage-Spielleiter an', { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' }]]) {
+for (const [name, env] of [['REISE_EREIGNISSE=1', { REISE_EREIGNISSE: '1' }], ['Lage-Spielleiter an', { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' }], ['Lage-Spielleiter an, Reise-Ereignisse ausdrücklich aus', { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', REISE_EREIGNISSE: 'off' }]]) {
   const g = lauf(7, env);
   const data = welt(g), sim = simBlock(data);
   ok(sim && Array.isArray(sim.chronik) && sim.chronik.length > 0, name + ': welt.sim.chronik wird geschrieben');

@@ -237,6 +237,10 @@ const MUTATIONEN = [
   [L, "ruf: { rom: Ruf.ruf(game, 'rom'), ger: Ruf.ruf(game, 'ger'), kon: Ruf.ruf(game, 'kon') },", "ruf: { rom: Ruf.ruf(game, 'rom') },", 'Ausschnitt: Ruf nur von Rom'],
   [L, "    lage: { sieger: lage.sieger, anteil: lage.anteil },", "", 'Ausschnitt: ohne Sieger-Kennzahl'],
   [L, "mieten = z.flotten.filter((fl) => fl.miete)", "mieten = z.flotten.filter((fl) => false)", 'Ausschnitt: Mieten fehlen'],
+  [R, "    const gratis = k.fokusPlan && fokusPlatz;", "    const gratis = false;", 'SUND-03 F: der Plan-Fokus kostet je Fraktion einen Rate-Platz'],
+  [R, "    if (a._rate !== false) s.rate.push(n0);", "    s.rate.push(n0);", 'SUND-03 F: der zweite Fokus-Befehl des Plans bucht einen Rate-Platz'],
+  [R, "    if (!gratis) ratePlaetze++;\n", "", 'SUND-03 F: Rate-Plätze innerhalb eines Plans werden nicht gezählt'],
+  [R, "    if (k.fokusPlan) fokusPlatz = true;\n", "", 'SUND-03 F: der Fokus-Platz wird nie als belegt gemerkt'],
   // ---- Daten und Texte
   [DB, '"hauptwelt_erlaubt": false', '"hauptwelt_erlaubt": true', 'Daten: Hauptwelt als Befehlsziel'],
   [DB, '"je_tick_max": {"wert": 8', '"je_tick_max": {"wert": 2', 'Daten: je Tick nur zwei Befehle'],

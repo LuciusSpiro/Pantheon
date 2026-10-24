@@ -292,9 +292,14 @@ function baumBeenden(p) {
   try {
     if (process.platform === 'win32') {
       const k = require('child_process').spawn('taskkill', ['/T', '/F', '/PID', String(p.pid)], { stdio: 'ignore', windowsHide: true });
-      k.on('error', () => { try { p.kill(); } catch (e) { /* schon weg */ } });
+      // taskkill braucht den lebenden Elternprozess, um den Baum zu finden: p.kill() erst, wenn taskkill selbst scheitert
+      const notfalls = () => { try { p.kill(); } catch (e) { /* schon weg */ } };
+      k.on('error', notfalls);
+      k.on('exit', (code) => { if (code !== 0) notfalls(); });
       k.unref();
-    } else process.kill(-p.pid, 'SIGKILL');
+      return;
+    }
+    process.kill(-p.pid, 'SIGKILL');
   } catch (e) { /* schon weg */ }
   try { p.kill(); } catch (e) { /* schon weg */ }
 }
