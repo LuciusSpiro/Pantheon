@@ -1003,6 +1003,21 @@
       const kern = f.kz ? String(f.kz) + ' · ' : '';
       return 'LAGE · ' + (eigen || !von ? '' : von + ' · ') + kern + text;
     },
+    // SUND-02b UI2: Unterkante der einzeiligen Lagefunk-Zeile an der Ops (0, wenn keine steht); Beschriftungen oben rechts in der Karte („Zoom 35 %“) rücken darunter
+    funkZeileUnten(view) {
+      const f = this.radioAktuell();
+      if (!f || !f.lage || !view || !view.me || view.me.console !== 'weapons' || (window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return 0;
+      return this.szeneVon(view) ? 9 : 11;
+    },
+    // SUND-02b UI2 (Review D): endet der Modus (Löschsignal world.ruf = null bzw. world.absicht = null), ist eine laufende Lagemeldung überholt („Rom bietet Euch …“ stand sonst
+    // noch Sekunden über Kampagne oder Lobby); ein zurückgestellter normaler Funkspruch läuft danach wie sonst an
+    modusEnde(msg) {
+      if (!msg || msg.t !== 'snap' || !msg.world || typeof msg.world !== 'object') return false;
+      const w = msg.world, has = (k) => Object.prototype.hasOwnProperty.call(w, k);
+      if (!((has('ruf') && w.ruf === null) || (has('absicht') && w.absicht === null))) return false;
+      if (this.radioFlash && this.radioFlash.lage) { this.radioFlash = null; return true; }
+      return false;
+    },
     zeichneFunkZeile(ctx, view, f) {
       const dbg = this.radioOberkante(view) > 6;   // Debug-Modus: die FPS-Zeile steht mittig oben (x 242–397), die Zeile rückt rechts daneben und wird kürzer
       const w = dbg ? 232 : 440, x = dbg ? 404 : Math.round(VW / 2 - w / 2), h = this.szeneVon(view) ? 9 : 11;   // S-2: mit Szenenzeile (beginnt bei y 9) 9 hoch, sonst deckte die Zeile deren Oberkante
@@ -1777,6 +1792,17 @@
     },
     // Konstanten der Szenenzeile: x an den Konsolen, Mindestbreite der Vorwarnung, Höhen
     SZ_X_KONSOLE: 264, SZ_MIN_W: 198, SZ_H_HOCH: 27, SZ_H_FLACH: 14,
+    // SUND-02b UI2 (Review A2): rechte Grenzen der Zeile: an den Konsolen das Ende der Ops-Karte (x 466, danach Zielkasten „ZIEL“; an der Steuer endet die Frontsicht bei 443),
+    // im Captain-Funk-Reiter der Beginn von MISSION (x 431, 2 px Luft). „ANGRIFF AUF POSTEN · WELLE 1/3 · 1 Gegner“ ist 232 px breit und lief über beide hinaus.
+    SZ_X_RECHTS: 466, SZ_X_RECHTS_FUNK: 429,
+    // x der Szenenzeile: Konsolen bei SZ_X_KONSOLE, nach links gerückt, wenn sie sonst über SZ_X_RECHTS liefe; Captain-Funk-Reiter, HUD und Schirm mittig (Funk-Reiter: höchstens bis MISSION)
+    szeneStripX(view, w) {
+      const konsole = view && view.me && view.me.console;
+      const funk = konsole === 'captain' && window.Consoles && window.Consoles.tab === 0;
+      if (konsole && !funk) return Math.max(0, Math.min(this.SZ_X_KONSOLE, this.SZ_X_RECHTS - w));
+      const mitte = Math.round(VW / 2 - w / 2);
+      return funk ? Math.max(0, Math.min(mitte, this.SZ_X_RECHTS_FUNK - w)) : mitte;
+    },
     // Zeilen der Szenenzeile: { kopf, kopfFarbe, text?, textFarbe, sek?, anteil?, hoch } – nur Inhalt, kein Zeichnen (prüfbar)
     szeneZeile(view) {
       const sz = this.szeneVon(view); if (!sz) return null;
@@ -1821,7 +1847,7 @@
       else { w = 10 + R.measure(Z.kopf, 1) + R.measure(Z.text, 1) + 6; h = this.SZ_H_FLACH; }
       if (opts && opts.measure) return w;
       // an den Konsolen links bei x 264 (Mock des Designers: rechts neben dem Bildmittelpunkt, die Konsolen-Anzeige reicht bis x ~465), im HUD und auf dem Schirm mittig
-      const x = opts && opts.x != null ? Math.round(opts.x) : view.me && view.me.console && !(view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 0) ? this.SZ_X_KONSOLE : Math.round(VW / 2 - w / 2);   // Captain-Funk-Reiter: mittig (rechts beginnt dort MISSION bei x 431)
+      const x = opts && opts.x != null ? Math.round(opts.x) : this.szeneStripX(view, w);
       ctx.fillStyle = tisch; ctx.fillRect(x, y0, w, h);
       ctx.strokeStyle = messing; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y0 + 0.5, w - 1, h - 1);
       ctx.fillStyle = Z.akzent || (window.KarteTokens && KarteTokens.FARBE.funk.akzentFeind) || T.rot || PAL.red; ctx.fillRect(x, y0, 3, h);   // roter Akzentstreifen wie beim Lagefunk, bei SIEG Mint wie der Kopf (N6)
@@ -2178,4 +2204,5 @@
   };
 
   window.Hud = Hud;
+  if (window.Net && typeof window.Net.on === 'function') window.Net.on((m) => Hud.modusEnde(m));   // SUND-02b UI2: Lagemeldung endet mit dem Modus
 })();
