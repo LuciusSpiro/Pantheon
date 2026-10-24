@@ -193,7 +193,7 @@ const MUTATIONEN = [
   [DB, '"je_tick_max": {"wert": 8', '"je_tick_max": {"wert": 2', 'Daten: je Tick nur zwei Befehle'],
   [DB, '"embargo": {"min": 4, "max": 30}', '"embargo": {"min": 4, "max": 3000}', 'Daten: Embargo ohne Obergrenze'],
   [DB, '"angreifen": 150,', '"angreifen": 0,', 'Daten: keine Ruhe nach einem Angriff'],
-  [DB, '"nachschub": 0, "rueckzug": 0', '"nachschub": 60, "rueckzug": 0', 'Daten: Nachschub lähmt die Fraktion'],
+  [DB, '"nachschub": 0, "rueckzug": 25', '"nachschub": 60, "rueckzug": 25', 'Daten: Nachschub lähmt die Fraktion'],
   [DB, '"preis_je_staerke_tick": 0.5', '"preis_je_staerke_tick": 0', 'Daten: Söldner gratis'],
   [DR, '"mindest_vorlauf": 1', '"mindest_vorlauf": 0', 'Daten: Mindestvorlauf 0'],
   [DR, '"vorlauf": {"embargo": 2, "angreifen": 2, "piratenueberfall": 2}', '"vorlauf": {"embargo": 2, "angreifen": 0, "piratenueberfall": 2}', 'Daten: Angriffe ohne Vorlauf'],
