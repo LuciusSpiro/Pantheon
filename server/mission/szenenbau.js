@@ -538,6 +538,42 @@ function repairGrobplan(g, env, opts) {
   }
   return R;
 }
+// SUND-03 B: Referenzfehler kleiner Modelle (Erkundung Gemma 26B), nur bei eindeutigem Fall, jede Reparatur wird gemeldet:
+//   - Szenentyp als Kennung (D1, A12) statt Id -> Id des Katalogs (nur wenn genau ein Szenentyp die Kennung trägt)
+//   - karte/landepunkt als Text "null" -> null
+//   - Umsetzung doppelt präfixiert (verhandeln/verhandeln/funkduell) -> Präfix der eigenen Molekül-Id fällt weg (nur wenn
+//     danach eine registrierte Umsetzung des Moleküls übrig bleibt)
+// Verändert g, liefert die Reparaturen. Ergänzt repairGrobplan, ersetzt nichts davon.
+function repairGrobplanReferenzen(g, env) {
+  const R = [];
+  if (!isObj(g) || !Array.isArray(g.szenen)) return R;
+  const KAT = (env && env.katalog) || {};
+  const typen = KAT.szenentypen || {};
+  const nachKennung = {};
+  for (const st of Object.values(typen)) if (st && typeof st.kennung === 'string') (nachKennung[st.kennung.toUpperCase()] = nachKennung[st.kennung.toUpperCase()] || []).push(st.id);
+  for (const s of g.szenen) {
+    if (!isObj(s)) continue;
+    if (typeof s.szenentyp === 'string' && !typen[s.szenentyp]) {
+      const ids = nachKennung[s.szenentyp.trim().toUpperCase()];
+      if (ids && ids.length === 1) { R.push(`Szene '${s.id}': Szenentyp '${s.szenentyp}' (Kennung) → '${ids[0]}'`); s.szenentyp = ids[0]; }
+    }
+    for (const f of ['karte', 'landepunkt']) {
+      if (typeof s[f] === 'string' && /^\s*null\s*$/i.test(s[f])) { s[f] = null; R.push(`Szene '${s.id}': ${f} "null" (Text) → null`); }
+    }
+    for (const m of Array.isArray(s.molekuele) ? s.molekuele : []) {
+      if (!isObj(m) || typeof m.id !== 'string' || typeof m.umsetzung !== 'string') continue;
+      const mol = KAT.molekuele && KAT.molekuele[m.id];
+      if (!mol || mol.umsetzungen.some((u) => u.id === m.umsetzung)) continue;
+      const teile = m.umsetzung.split('/').map((x) => x.trim());
+      while (teile.length > 1 && teile[0] === m.id) teile.shift();
+      if (teile.length === 1 && teile[0] !== m.umsetzung && mol.umsetzungen.some((u) => u.id === teile[0])) {
+        R.push(`Szene '${s.id}': Umsetzung '${m.umsetzung}' → '${m.id}/${teile[0]}' (doppelter Präfix)`);
+        m.umsetzung = teile[0];
+      }
+    }
+  }
+  return R;
+}
 function hops(LOC, a, b) {
   if (a === b) return 0;
   const seen = new Set([a]); let front = [a]; let d = 0;
@@ -1511,4 +1547,6 @@ module.exports = {
   sceneMap, aufloesen, checkGrobplanB1, bodenInfo, planDauer, istBodenszene, sceneBesetzung, besitzRegion, isLandepunktId, KARTEN_ARTEN,
   // B1-FIX (F3)
   grobplanVorgaben, repairGrobplan, passendeLandepunkte,
+  // SUND-03 B
+  repairGrobplanReferenzen, hasWendung,
 };

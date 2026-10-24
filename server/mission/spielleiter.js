@@ -255,12 +255,25 @@ class Spielleiter {
   getLlm() {
     if (!this.llm) {
       try {
-        this.llm = LLM.create({ mode: this.mode, katalog: this.mode === 'mock' ? this.katalog() : undefined,
-          recordDir: path.join(this.regieDir, 'aufnahmen') });
+        const create = { mode: this.mode, katalog: this.mode === 'mock' ? this.katalog() : undefined,
+          recordDir: path.join(this.regieDir, 'aufnahmen') };
+        const router = this.transportAusUmgebung();
+        if (router) create.transport = router;
+        this.llm = LLM.create(create);
       } catch (e) { this.countError('llm', e); this.llm = LLM.create({ mode: 'off' }); }
     }
     return this.llm;
   }
+  // SUND-03 B: opts.transport (Test/Einbettung) oder der Router, wenn die Umgebung ihn verlangt (LLM_ROUTER / LLM_ANBIETER_*);
+  // sonst null = der bisherige Claude-CLI-Transport
+  transportAusUmgebung() {
+    if (this.opts.transport) return this.opts.transport;
+    if (this.mode !== 'live') return null;
+    try { return require('./transport-router.js').routerAusEnv(this.env); } catch (e) { this.countError('router', e); return null; }
+  }
+  // Anbieter, an den diese Art geht (ohne Router und für fremde LLM-Objekte: Claude)
+  anbieterFuer(kind) { const l = this.getLlm(); return typeof l.anbieterFuer === 'function' ? l.anbieterFuer(kind) : 'claude'; }
+  eskalationMoeglich(kind) { const l = this.getLlm(); return typeof l.eskalationMoeglich === 'function' && !!l.eskalationMoeglich(kind); }
   transportUsable() { return !this.transportOff && this.mode !== 'off' && this.getLlm().mode !== 'off'; }
   archiv() {
     if (!this.archivEntries) {
@@ -434,13 +447,19 @@ class Spielleiter {
     if (this.failNext[kind]) { this.failNext[kind] = false; return fail('EXIT', `Debug: sl fail ${kind}`); }
     if (!this.transportUsable()) return fail('OFF', this.transportOff || 'LLM aus');
     const b = LLM.budget();
-    if (b.remaining < this.C.minBudget) return fail('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.C.minBudget})`);
+    // der Claude-Deckel gilt nur für Claude-Läufe (Ollama-Läufe zählt der Zähler nicht)
+    if ((job.eskalation || this.anbieterFuer(kind) !== 'ollama') && b.remaining < this.C.minBudget) return fail('BUDGET', `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.C.minBudget})`);
     let input;
     try { input = kind === 'grobplan' ? this.grobplanInput(job) : this.sceneInput(job); } catch (e) { this.countError('prompt', e); return fail('EXIT', 'Prompt nicht baubar: ' + e.message); }
     this.job = job;
     const timeoutMs = 1000 * (kind === 'grobplan' ? this.C.grobplanTimeout : this.C.sceneTimeout);
     let p;
-    try { p = this.getLlm().ask(kind, input, { timeoutMs }); } catch (e) { p = Promise.reject(e); }
+    try {
+      const askOpts = { timeoutMs };
+      const schema = kind === 'szene' && !job.eskalation ? this.sceneSchema(job) : null;
+      if (schema) askOpts.schema = schema;
+      p = job.eskalation ? this.getLlm().eskaliere(kind, input, askOpts) : this.getLlm().ask(kind, input, askOpts);
+    } catch (e) { p = Promise.reject(e); }
     const token = job.token;
     this.inflight++; job.inflight = true;
     const settle = () => { if (job.inflight) { job.inflight = false; this.inflight = Math.max(0, this.inflight - 1); } };
@@ -477,6 +496,7 @@ class Spielleiter {
       if (e.code === 'RATE_LIMIT') this.pauseUntil = this.time + this.C.rateLimitPause;
       this.log({ art: job.type, mission: plan.id, szene: job.sid || null, quelle: 'llm', dauer_s: dauer, tokens: 0, fehler: [`${e.code || 'FEHLER'}: ${e.message}`], begruendung: 'LLM-Aufruf fehlgeschlagen', plan: plan.key });
       if (job.type === 'grobplan') this.fallbackPlan(plan, `${e.code || 'FEHLER'}: ${e.message}`);
+      else if (!job.eskalation && ['EMPTY', 'EXIT'].includes(e.code) && this.anbieterFuer('szene') === 'ollama') this.eskaliereSzene(plan, job.sid, `${e.code}: ${e.message}`);
       else this.sceneFailed(plan, job.sid, `${e.code || 'FEHLER'}: ${e.message}`);
       return;
     }
@@ -537,6 +557,8 @@ class Spielleiter {
       // B1-FIX (F3): eindeutige Fehler im Code reparieren statt Neuversuch (Umlaut-Kennungen, leere Dublette/Anflug-Szene,
       // Folgen für neue NSC, Zieldauer = Summe der Szenen)
       try { repairs.push(...Szenenbau.repairGrobplan(g, this.env2(), { minMinutes: this.C.minPlanMinutes, maxMinutes: this.bodenC().langMaxMin })); } catch (e) { this.countError('reparatur', e); }
+      // SUND-03 B: Referenzfehler der kleinen Modelle (Kennung statt Id, "null", doppelter Umsetzungs-Präfix) – nur eindeutige Fälle
+      try { repairs.push(...Szenenbau.repairGrobplanReferenzen(g, this.env2())); } catch (e) { this.countError('reparatur', e); }
       // B1 §11.2: Szenenauflösung vor der Prüfung (setzt s.landepunkt; die Altprüfung kennt dann die Karte)
       const auf = Array.isArray(g.szenen) ? this.aufloesen(plan, g) : { errors: [], warnings: [], neu: [] };
       errs.push(...Szenenbau.checkGrobplan(g, this.env2()));
@@ -801,6 +823,22 @@ class Spielleiter {
     const prompt = scenePrompt(g, job.sid, this.env2(), plan.kontext || {}, { crew: this.crew(), retry: job.retry || null });
     return { prompt, system: LLM.systemPromptFile('szene'), art: 'szene', welt: this.weltId(), mission: plan.id, szene: job.sid, versuch: (plan.szenen[job.sid].versuche || 0) + 1, grobplan: g };
   }
+  // SUND-03 B: striktes Schema (aus dem Katalog) für Ollama `format`; nur wenn die Szene an Ollama geht (Claude bekommt keins)
+  sceneSchema(job) {
+    try {
+      const l = this.getLlm();
+      if (l.mode !== 'live' || this.anbieterFuer('szene') !== 'ollama') return null;
+      const s = job.plan.grobplan.szenen.find((x) => x.id === job.sid);
+      return require('./schema-ableiten.js').szenenSchemaFuer(this.env2(), s);
+    } catch (e) { this.countError('schema', e); return null; }
+  }
+  // SUND-03 B: Eskalation statt zweitem Versuch bei Gemma. Dieselbe Anfrage geht an Claude; bis dahin bleibt die Szene
+  // 'requested' (Rohfassung zuerst, S2: sceneWaitMax und markEntered gelten unverändert). Ohne Eskalation: Rohfassung.
+  eskaliereSzene(plan, sid, grund) {
+    if (!this.eskalationMoeglich('szene')) { this.sceneFailed(plan, sid, `${grund} (keine Eskalation)`); return false; }
+    this.enqueue({ type: 'szene', plan, sid, eskalation: true });
+    return true;
+  }
   handleScene(plan, job, r, dauer, quelle) {
     const sid = job.sid; const sc = plan.szenen[sid];
     this.stats.szenen++;
@@ -828,9 +866,13 @@ class Spielleiter {
       if (built.errors.length) errs.push(...built.errors.map((x) => (typeof x === 'string' ? x : `${x.code} ${x.p}: ${x.msg}`)));
       if (info.quelle === 'rohfassung' && !errs.length) errs.push('Szene ließ sich nicht zusammensetzen');
     }
+    const vonOllama = r.anbieter === 'ollama';
+    const eskaliert = !!(job.eskalation || r.eskaliert || (vonOllama && errs.length && this.eskalationMoeglich('szene')));
     this.log({ art: 'szene', mission: plan.id, szene: sid, quelle, dauer_s: dauer, tokens: r.tokens || 0, fehler: errs.slice(0, 20), versuch: sc.versuche, reparaturen: repairs.slice(0, 10),
+      anbieter: r.anbieter, modell: r.modell, eskaliert: eskaliert || undefined,
       begruendung: (errs.length ? `Szene ungültig (Versuch ${sc.versuche})` : 'Szene ausgearbeitet, Rohfassung ersetzt') + (repairs.length ? ` – ${repairs.length} Reparatur(en): ${repairs.slice(0, 3).join(' | ')}` : '') });
     if (errs.length) {
+      if (vonOllama) { this.eskaliereSzene(plan, sid, 'Ollama-Antwort ungültig'); return; }   // nie ein zweiter Versuch bei Gemma
       if (sc.versuche <= this.C.retries) { this.enqueue({ type: 'szene', plan, sid, retry: { antwort: String(r.text).slice(0, 8000), fehler: errs.slice(0, 20) } }); return; }
       this.sceneFailed(plan, sid, 'zweimal ungültig');
       return;

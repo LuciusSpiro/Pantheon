@@ -2,7 +2,8 @@
 // LLM-Schnittstelle des Spielleiters (CONTRACT-S1 §8.1, CONTRACT-S2 §2.2).
 //
 //   const llm = LLM.create({ mode, fixturesDir, budget, katalog, script, transport, recordDir, model })
-//   await llm.ask(kind, input, { timeoutMs })   // kind: 'grobplan' | 'szene' -> { text, tokens, usage, source, key }
+//   await llm.ask(kind, input, { timeoutMs, schema })   // kind: 'grobplan' | 'szene' | 'text' -> { text, tokens, usage, source, key }
+//   await llm.eskaliere(kind, input, opts)     // SUND-03 B: dieselbe Anfrage an den Eskalations-Anbieter des Routers (Claude)
 //   LLM.budget()                               // EIN Token-Zähler je Prozess: { used, limit, remaining, calls }
 //
 // Modi (Standard aus SPIELLEITER_LLM, sonst 'off'):
@@ -32,7 +33,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');
-const KINDS = ['grobplan', 'szene'];
+const KINDS = ['grobplan', 'szene', 'text'];
 const MODES = ['off', 'mock', 'replay', 'script', 'live'];
 const TRANSPORT_NAMES = ['cli', 'api'];
 const DEFAULT_FIXTURES = path.join(ROOT, 'tools', 'fixtures', 'llm');
@@ -92,7 +93,7 @@ function renderPrompt(kind, input) {
   if (input && typeof input.prompt === 'string') return input.prompt;
   const rest = Object.assign({}, input); delete rest.auftrag;
   const auftrag = input && input.auftrag ? (typeof input.auftrag === 'string' ? input.auftrag : JSON.stringify(input.auftrag)) : '';
-  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.';
+  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
   return `<eingabe>\n${JSON.stringify(canonicalize(rest), null, 1)}\n</eingabe>\n\n<auftrag>\n${auftrag}\n</auftrag>\n\n${tail}`;
 }
 
@@ -240,6 +241,9 @@ function mockSzene(input, kat) {
   return { molekuele, verzweigung, wendung: null };
 }
 
+// 'text' (Paket C/03b) hat noch keine eigene Erzeugung: mock/script liefern ein Platzhalter-Ergebnis
+const MOCK_TEXT = 'Platzhalter (mock)';
+
 // ---------- Fehler ----------
 function llmError(code, msg) { const e = new Error(msg); e.code = code; return e; }
 const SCRIPT_ERRORS = {
@@ -342,7 +346,7 @@ function create(opts) {
       let text;
       if (e && typeof e.text === 'string') text = e.text;
       else if (e && e.json !== undefined) text = JSON.stringify(e.json);
-      else text = JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
+      else text = kind === 'text' ? MOCK_TEXT : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
       return answerObj(kind, input, text, 'script', e && e.tokens);
     };
     if (e && e.hold) return new Promise((resolve, reject) => { held.push({ run: () => { try { resolve(settle()); } catch (err) { reject(err); } } }); });
@@ -355,6 +359,7 @@ function create(opts) {
     const k = key(kind, input);
     if (mode === 'off') throw llmError('OFF', `Spielleiter-LLM ist aus (SPIELLEITER_LLM=off). Für Tests 'mock' oder 'replay' setzen; '${kind}' wurde nicht angefragt.`);
     if (mode === 'mock') {
+      if (kind === 'text') return { text: MOCK_TEXT, tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
       const obj = kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog());
       return { text: JSON.stringify(obj, null, 2), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
     }
@@ -366,25 +371,50 @@ function create(opts) {
       const usage = (rec.response && rec.response.usage) || { input: 0, output: 0 };
       return { text: rec.response.text, tokens: (usage.input || 0) + (usage.output || 0), usage, source: 'replay', key: k };
     }
-    // live
+    return live(kind, input, ao, null);
+  }
+
+  // live: opts.transport darf ein Router sein (transport-router.js): anbieterFuer(kind), eskalationFuer(kind). Der Prozess-Zähler
+  // (BUDGET) zählt nur Claude-Läufe; Ollama-Läufe stehen mit ihrer usage im Antwortobjekt (und damit im Regie-Logbuch).
+  // forced = Anbieter, an den diese Anfrage ausdrücklich geht (Eskalation), sonst wählt der Transport nach kind.
+  async function live(kind, input, ao, forced) {
+    const k = key(kind, input);
     if (process.env.LLM_LIVE !== '1') throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
+    const vorab = typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind, forced) : 'claude';
     const b = budget();
-    if (b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
+    if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
     const sys = (input && typeof input.system === 'string' && input.system) || (opts.systemPrompts && opts.systemPrompts[kind]) || systemPromptFile(kind);
-    const r = await transport.call(renderPrompt(kind, input), { system: sys, model, timeoutMs: ao.timeoutMs });
+    const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };
+    if (ao.schema) co.schema = ao.schema;
+    if (forced) co.anbieter = forced;
+    const r = await transport.call(renderPrompt(kind, input), co);
     const n = r.usage.input + r.usage.output;
-    used += n; addUsage(n);
+    if (r.anbieter !== 'ollama') { used += n; addUsage(n); }
     const ans = { text: r.text, tokens: n, usage: r.usage, source: 'live', key: k, sec: r.sec, modelId: r.modelId, cost: r.cost };
+    if (r.anbieter) { ans.anbieter = r.anbieter; ans.modell = r.modell || r.modelId || null; }
+    if (r.eskaliert || forced) ans.eskaliert = true;
     if (opts.recordDir) {
-      try { ans.file = record(opts.recordDir, kind, input, ans, { modell: model, quelle: 'spiel', zeit: new Date().toISOString() }); } catch (e) { ans.recordError = e.message; }
+      try { ans.file = record(opts.recordDir, kind, input, ans, { modell: ans.modell || model, quelle: 'spiel', zeit: new Date().toISOString() }); } catch (e) { ans.recordError = e.message; }
     }
     return ans;
+  }
+
+  // Eskalation (SUND-03 B): dieselbe Anfrage an den Eskalations-Anbieter. Ohne Router/live wie ask().
+  async function eskaliere(kind, input, askOpts) {
+    if (!KINDS.includes(kind)) throw new Error(`Unbekannte Anfrage '${kind}' (erlaubt: ${KINDS.join(', ')})`);
+    const ao = askOpts || {};
+    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' ? transport.eskalationFuer(kind) : null;
+    if (!ziel) return ask(kind, input, ao);
+    return live(kind, input, ao, ziel);
   }
 
   return {
     mode, fixturesDir, model, transport: transport.name || transportName,
     get budget() { return budget().limit; },
-    ask, used: () => used, remaining: () => budget().remaining,
+    ask, eskaliere, used: () => used, remaining: () => budget().remaining,
+    // Router: welcher Anbieter bekommt diese Art, und gibt es dafür eine Eskalation? (ohne Router: Claude, keine)
+    anbieterFuer: (kind) => (mode === 'live' && typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude'),
+    eskalationMoeglich: (kind) => mode === 'live' && typeof transport.eskalationFuer === 'function' && !!transport.eskalationFuer(kind),
     // script: offene (hold) Antworten freigeben; n = Anzahl (Standard alle)
     release(n) { const list = held.splice(0, n == null ? held.length : n); list.forEach((h) => h.run()); return list.length; },
     pending: () => held.length,
@@ -394,6 +424,6 @@ function create(opts) {
 
 module.exports = {
   create, key, canonical, canonicalize, record, recordingPath, renderPrompt, buildPrompt, mockGrobplan, mockSzene,
-  budget, addUsage, resetBudget, setBudgetLimit, systemPromptFile, llmError,
+  budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
   KINDS, MODES, TRANSPORTS, SYSTEM_PROMPTS, DEFAULT_FIXTURES, PROMPT_DIR,
 };

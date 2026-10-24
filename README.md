@@ -846,6 +846,30 @@ eine Szene ≈ 3 700–4 700 Tokens – eine voll ausgearbeitete Mission mit 4�
 Missionsgrenze plant der Spielleiter 2 Angebote (2 Grobpläne). Mit dem Deckel von 500 000 reicht ein Serverlauf für etwa
 6–8 Missionsgrenzen. (S2 vorher: Szene ≈ 24 000, Mission ≈ 150 000.)
 
+### Modelle je Anfrageart: Ollama auf Sleipnir, Eskalation auf Claude (SUND-03 B)
+Ohne weitere Einträge bleibt alles wie oben (Claude-CLI für alles). Ein **Router** (`server/mission/transport-router.js`) schickt
+jede Anfrageart (`grobplan`, `szene`, `text`) an einen Anbieter. Er ist nur aktiv, wenn `LLM_ROUTER=1` oder eine `LLM_ANBIETER_*`
+gesetzt ist (und der Live-Modus an ist):
+```
+LLM_ROUTER=1                      # Standard: grobplan -> claude (sonnet), szene -> ollama, text -> ollama
+LLM_ANBIETER_SZENE=ollama         # je Art claude|ollama (auch LLM_ANBIETER_GROBPLAN, LLM_ANBIETER_TEXT)
+LLM_MODELL_SZENE=                 # Modellname des Anbieters je Art (leer: sonnet bzw. OLLAMA_MODEL)
+LLM_ESKALATION=claude             # claude|aus: ungültige Ollama-Antwort -> dieselbe Anfrage an Claude
+LLM_ESKALATION_MODELL=sonnet
+OLLAMA_URL=http://127.0.0.1:11435 # ssh -N -L 11435:127.0.0.1:11434 sleipnir
+OLLAMA_MODEL=gemma4:26b-a4b-it-q4_K_M
+```
+- **Szenen** gehen mit einem aus dem Katalog abgeleiteten JSON-Schema (`schema-ableiten.js`) als `format` an Ollama (`think:false`,
+  kein `keep_alive`). Ist die Antwort nach Reparatur und Prüfung ungültig, geht **dieselbe** Anfrage an Claude (keine Wiederholung
+  bei Gemma, die bringt kaum etwas). Ist Ollama nicht erreichbar, fällt der Router selbst auf Claude zurück. Ist auch Claude tot,
+  bleibt es bei der Rohfassung: das Spiel wartet nie auf ein Modell (höchstens `sceneWaitMax`).
+- Der Claude-Token-Zähler (`CLAUDE_TOKEN_BUDGET`) zählt nur Claude-Läufe. Ollama-Läufe stehen mit Tokens im Regie-Logbuch, neu
+  mit den Feldern `anbieter`, `modell` und `eskaliert`.
+- Neue Reparaturen im Code (Grobplan): Szenentyp als Kennung (`D1`) → Id, `"null"` (Text) → `null`, doppelter Umsetzungs-Präfix;
+  nur bei eindeutigem Fall, jede steht unter `reparaturen`.
+- Messen/Prüfen: `node tools/messe-szenen-ollama.js --n 5` (Healthcheck, gültig im 1. Versuch, Dauer Median/p90, Fehlerarten,
+  Eskalationen; braucht den Tunnel, nicht in `npm test`). Tests: `npm run test:transport`, Mutationsprobe `npm run test:transport-mutation`.
+
 ### Regie-Logbuch
 Was der Spielleiter getan hat (Grobpläne, Szenen, Rückfälle, Wartezeiten, Tokens, Wunschliste fehlender Bausteine), steht je
 Weltstand in `data/regie/<weltId>.jsonl` (anderer Ordner: `REGIE_DIR`). Lesbar: `npm run regie -- <weltId>` (die Welt-ID
