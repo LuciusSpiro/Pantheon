@@ -78,6 +78,8 @@ section('Daten: Takt, Katalog aus den Daten abgeleitet, Felder passen zum Kern',
   const text = Prompt.katalogText();
   ok(!/\{[wr]\./.test(text), 'kein Platzhalter bleibt im Katalogtext stehen');
   ok(typen.every((t) => text.includes('- ' + t + ' {')), 'jeder Befehl steht im Katalogtext');
+  ok(typen.every((t) => Kern.BEFEHLE.FELDER[t].filter((f) => f !== 'typ').every((f) => text.split('\n').find((l) => l.startsWith('- ' + t + ' {')).includes(' ' + f + ': '))), 'jedes Feld jedes Befehls steht im Katalogtext (Name und Form)');
+  ok(Prompt.statischerTeil().hash === Prompt.statischerTeil().hash, 'Hash des statischen Teils: zwei Aufrufe gleich');
   ok(typen.every((t) => text.includes(`Abkühlung: ${RW.abkuehlung.wert[t] || 0} Ticks`)), 'Abkühlzeiten aus regie-werte.json');
   ok(text.includes(`Reichweite ${BW.angreifen.wert.reichweite} Sprünge, höchstens ${BW.angreifen.wert.flotten_max} Flotten`) && text.includes(`Dauer ${BW.dauer.wert.embargo.min} bis ${BW.dauer.wert.embargo.max} Ticks`) && text.includes(`Höchstens ${RW.plan.wert.befehle_max} Befehle je Plan`), 'Grenzen aus befehle-werte.json und regie-werte.json');
   ok(text.includes('Embargo nur gegen den Sieger') && text.includes('Vorwarnung'), 'Regeln Sieger und Vorwarnung stehen im Katalog');
@@ -93,6 +95,7 @@ section('Antwort lesen: Zäune, Anhang, Komma, Müll', () => {
   ok(gleich(Prompt.planAusText('```json\n' + js + '\n```').plan, P), 'Codeblock-Zaun mit json');
   ok(gleich(Prompt.planAusText('Hier ist der Plan:\n```\n' + js + '\n```\nViel Erfolg!').plan, P), 'Text um den Zaun');
   ok(gleich(Prompt.planAusText('Plan: ' + js + ' Ende').plan, P), 'Text davor und danach ohne Zaun');
+  ok(gleich(Prompt.planAusText('Zuerst {ein Hinweis} dazu:\n```json\n' + js + '\n```').plan, P), 'Klammern im Text vor dem Zaun: der Inhalt des Zauns gilt');
   ok(gleich(Prompt.planAusText('{"befehle": [], "begruendung": "ein } in Text",}').plan, { befehle: [], begruendung: 'ein } in Text' }), 'Komma vor der schließenden Klammer, Klammer im Text-String');
   ok(Prompt.planAusText('{"befehle": [{"typ": "x"').fehler && Prompt.planAusText('kein json').fehler && Prompt.planAusText('').fehler && Prompt.planAusText(null).fehler && Prompt.planAusText('[1,2]').fehler, 'abgeschnitten, Prosa, leer, null, Liste: Fehler statt Plan');
   ok(Prompt.planAusText('{"a": nope}').fehler === 'JSON nicht lesbar', 'kaputtes JSON: Fehler');
@@ -300,10 +303,19 @@ section('Mock-Regisseur: Pläne variieren und sind gültig', async () => {
       const plan = Mock.planVon({ prompt: bau.prompt });
       const res = Regie.planPruefen(g, plan);
       typen.push([...(plan.befehle || []).map((b) => b.typ), plan.fokus ? 'fokus' : null].filter(Boolean)[0]);
-      ok(res.ok, `Sieger ${sieg}, Plan ${nr} (${typen[nr - 1]}) ist ein gültiger Plan`);
+      ok(res.ok && res.abgelehnt.length === 0 && (res.angenommen.length >= 1), `Sieger ${sieg}, Plan ${nr} (${typen[nr - 1]}) ist gültig, kein Befehl abgelehnt${res.abgelehnt.length ? ': ' + res.abgelehnt.map((a) => a.grund).join('; ') : ''}`);
     }
     ok(new Set(typen).size >= 3, `Sieger ${sieg}: wechselnde Befehle (${typen.join(', ')})`);
   }
+});
+
+section('Mock-Regisseur: ohne Sieger kein Embargo', () => {
+  const prompt = (nr, sieger) => '<ausschnitt>\n' + JSON.stringify({ crew: { anzahl: 1, hex: '0105' }, lage: { sieger }, orte: [], flotten: {} }) + '\n</ausschnitt>\n\n<grenze>\n' + JSON.stringify({ art: 'andocken', nr }) + '\n</grenze>';
+  const p4 = Mock.planVon({ prompt: prompt(4, 'offen') });
+  ok(Mock.VARIANTEN[3] === 'embargo' && !(p4.befehle || []).some((b) => b.typ === 'embargo') && p4.fokus && p4.fokus.hex === '0105', 'Lage offen: Plan 4 ist kein Embargo (Ersatz: Fokus an der Crew)');
+  const p4r = Mock.planVon({ prompt: prompt(4, 'rom') });
+  ok(p4r.befehle.length === 1 && p4r.befehle[0].typ === 'embargo' && p4r.befehle[0].gegen === 'rom', 'Sieger rom: Plan 4 ist ein Embargo gegen Rom (Vorwarnung macht die Regie-Schicht)');
+  ok(Mock.planVon({ prompt: 'kaputt' }).begruendung.startsWith('Mock-Regisseur') && gleich(Mock.planVon({ prompt: prompt(1, 'offen') }), Mock.planVon({ prompt: prompt(1, 'offen') })), 'ohne lesbaren Ausschnitt trotzdem ein Plan; deterministisch');
 });
 
 section('Ausfall-Matrix: Sim byte-gleich zu „ohne Spielleiter“, nie blockiert', async () => {
@@ -427,6 +439,18 @@ section('späte und veraltete Antworten', async () => {
   ok(sl.beiGrenze('andocken').gestartet, 'danach ist der Spielleiter wieder frei');
   await pumpen(t.g, 4);
   ok(lageEintraege(t.g, 'angewandt').length === 1, 'die neue Antwort wird angewandt');
+  // 2b. Token-Abgleich: die späte Antwort der ersten Anfrage trifft ein, während schon eine zweite läuft – sie darf die zweite nicht beenden und nichts anwenden
+  sitzungSauber();
+  {
+    const u = spiel(); const { sl: su, llm: lu } = mitLage(u, { mode: 'script', script: { lage: [{ hold: true, json: { befehle: [], fokus: { hex: '0105', radius: 2 }, begruendung: 'erste' } }, { hold: true, json: { befehle: [], begruendung: 'zweite' } }] } }, { timeout_s: 1 });
+    tick(u.g); su.beiGrenze('andocken'); await pumpen(u.g, 90);
+    tick(u.g, W.min_abstand_ticks + 1); su.beiGrenze('andocken'); await pumpen(u.g, 3);
+    ok(su.zustand === 'laeuft' && lu.pending() === 2, 'zweite Anfrage läuft, die erste hängt noch');
+    lu.release(1); await pumpen(u.g, 3);
+    ok(su.zustand === 'laeuft' && lageEintraege(u.g, 'angewandt').length === 0 && lageEintraege(u.g, 'verspaetet').length === 1 && ws(u.g).regie.vorgemerkt.length === 0, 'die Antwort der ersten (anderer Token) wird verworfen, die zweite läuft weiter');
+    lu.release(1); await pumpen(u.g, 3);
+    ok(lageEintraege(u.g, 'angewandt').length === 1 && lageEintraege(u.g, 'angewandt')[0].begruendung === 'zweite', 'die Antwort der zweiten wird angewandt');
+  }
   // 3. veraltet: die Sim läuft weiter, bis die Antwort kommt
   sitzungSauber();
   const v = spiel(); const { sl: sv, llm: lv } = mitLage(v, { mode: 'script', script: { lage: [{ json: { befehle: [], fokus: { hex: '0105', radius: 2 }, begruendung: 'schon alt' } }, { json: { befehle: [{ typ: 'regler', fraktion: 'ger', aggr: 0.5, dauer: 8 }], begruendung: 'nr 2' } }] } }, { min_abstand_ticks: 1 });
@@ -480,6 +504,7 @@ section('Logbuch und Bericht', async () => {
   const md = Bericht.report(dir, id);
   ok(/## Lage-Spielleiter/.test(md) && /Aufrufe je Sitzung/.test(md) && /Median/.test(md) && /p90/.test(md) && /Fehler: 2/.test(md) && /Rückfälle: 2/.test(md), 'npm run regie: Abschnitt Lage-Spielleiter mit Aufrufen je Sitzung, Median/p90, Fehlern, Rückfällen');
   ok(/Tokens gesamt: \*\*400\*\*/.test(md), 'Tokens gesamt zählt die Lage-Aufrufe');
+  ok(/Aufrufe: \*\*4\*\* in 1 Sitzung/.test(md), 'Aufrufe zählt Angewandte und Fehler (4 in 1 Sitzung)');
 });
 
 section('Mehrspieler zu dritt: Protokoll und Snapshot unberührt, Funk für alle', async () => {
