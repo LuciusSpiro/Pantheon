@@ -109,7 +109,7 @@ function messe(g, sl, plaene, o) {
   try {
     plaene.forEach((p, i) => {
       if (o && o.vorher) o.vorher(i);
-      Regie.verwerfe(g); ws(g).regie.letzte = {};   // Abkühlzeit und Warteschlange der Regie sind hier nicht das Thema, nur die Wiederholung
+      Regie.verwerfe(g); ws(g).regie.letzte = {}; ws(g).regie.rate = [];   // Abkühlzeit, globale Befehlsrate (A3) und Warteschlange der Regie sind hier nicht das Thema, nur die Wiederholung
       sl.runde(p);
     });
   } finally { Regie.planAnwenden = orig; WH.pruefen = pruefenEcht; }
