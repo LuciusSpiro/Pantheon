@@ -258,6 +258,21 @@ function tickGescheitert(game, faellig, n) {
   return faellig.length;
 }
 
+// Nach dem Laden: wartende angekündigte Befehle werden einmal erneut angekündigt (das Funkprotokoll der Sitzung ist weg, die Gefahr kommt aber): Aufrufer Kriegslage.nachLaden, einmal je Laden,
+// nie im laufenden Betrieb (keine Doppelungen). Die Sprünge bis zur Wirkung zählen vom geladenen Stand. -> Zahl der Meldungen
+function vorwarnungenErneut(game) {
+  const ws = game.weltsim, s = ws && ws.regie;
+  if (!s || !s.vorgemerkt.length) return 0;
+  let n = 0;
+  for (const e of s.vorgemerkt) {
+    if (!e.w) continue;
+    const w = trifftRom(ws.zustand, e.b);
+    const f = w && vorwarnText(w, Math.max(e.ab, ws.tickZahl + 1), ws.tickZahl, e.b);
+    if (f) { funkSenden(game, f); n++; }
+  }
+  return n;
+}
+
 // ---------- Tick (Aufrufer: Kriegslage.tickMit, im Atom)
 // Fällige Befehle für Tick n; sie verlassen die Warteschlange sofort (wirft der Tick, stellt Kriegslage.tickMit die Sicherung zurück: dann sind sie wieder da).
 function vorTick(game, n) {
@@ -352,4 +367,4 @@ function lesen(b, tickZahl) {
   return out;
 }
 
-module.exports = { R, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };
+module.exports = { R, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };

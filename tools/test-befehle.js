@@ -154,10 +154,8 @@ section('angreifen', () => {
   ok(z.angriffe.length === 0 || !z.angriffe.some((a) => a.befohlen), 'filtere ändert den Zustand nicht');
   // Abgelehnt im Tick: nie halb ausgeführt
   const z3 = klon(z); Object.assign(z3, { werte: z.werte, karte: z.karte }); z3.vorrat.ger.T = 1;   // zu wenig Treibstoff (Wirtschaft verbraucht zusätzlich)
-  const vor = JSON.stringify(Object.assign({}, z3, { werte: undefined, karte: undefined }));
   const r3 = tick1(z3, [b]);
   ok(r3.befehle.abgelehnt.length === 1 && r3.befehle.angewandt.length === 0 && r3.befehle.abgelehnt[0].grund.includes('Treibstoff') && !z3.angriffe.some((a) => a.befohlen), 'Tick: ungültiger Befehl wird abgelehnt (Grund geht zurück), kein Feldzug entsteht');
-  void vor;
   // Zusammenspiel mit max_active
   const z4 = lage();
   const lauf = B.filtere(z4, [b, { typ: 'angreifen', fraktion: 'ger', ziel: '0405' }, { typ: 'angreifen', fraktion: 'ger', ziel: '0105' }, { typ: 'angreifen', fraktion: 'ger', ziel: '0205' }]);
@@ -262,7 +260,6 @@ section('nachschub', () => {
   const b = { typ: 'nachschub', an: 'ger', gut: 'T', menge: 10 };
   ok(alleOk(z, b), 'Nachschub Treibstoff 10 an die Germanen: gültig (Konkordat hat 31)');
   const z2 = klon(z); Object.assign(z2, { werte: z.werte, karte: z.karte });
-  const vor = { t: z2.vorrat.ger.T, k: z2.vorrat.kon.T, mg: z2.marken.ger, mk: z2.marken.kon };
   // Vorrat vor dem Befehl: nach der Wirtschaft des Tick; wir messen die Differenz gegen denselben Tick ohne Befehl
   const ref = klon(z); Object.assign(ref, { werte: z.werte, karte: z.karte });
   Kern.tick(ref);
@@ -274,7 +271,6 @@ section('nachschub', () => {
   const mein = kv.find((e) => e.handel && e.handel.ger && e.handel.ger.verkauf && e.handel.ger.verkauf.T === 10 && e.menge === 10);
   ok(!!mein && mein.fraktion === 'kon' && Object.keys(mein).sort().join() === 'fraktion,handel,menge,tick,typ', 'Ereignis konvoi im Format der Sim (handel, menge), fraktion kon');
   ok(JSON.stringify(mein.handel) === '{"ger":{"verkauf":{"T":10},"kauf":{}}}', 'handel: { ger: { verkauf: { T: 10 }, kauf: {} } }');
-  void vor;
   const neg = [
     [{ typ: 'nachschub', an: 'kon', gut: 'T', menge: 5 }, 'an muss'],
     [{ typ: 'nachschub', an: 'ger', gut: 'M', menge: 5 }, 'gut muss'],
@@ -466,16 +462,13 @@ section('söldner: speichern und laden', () => {
 
 section('piratenueberfall', () => {
   const z = lage();
-  const ziele = z.hexe; void ziele;
   // ein Ort im Piratennetz mit Besitzer: Pulverhorn ist frei in dieser Lage, Hammerwerke gehören dem Konkordat; wir suchen einen gültigen
   const d = Kern.datenVon(z);
   const gueltig = d.codes.filter((c) => alleOk(z, { typ: 'piratenueberfall', ort: c }));
   ok(gueltig.length >= 1, 'es gibt gültige Ziele im Piratennetz: ' + gueltig.join(', '));
   const ort = gueltig[0];
   const z2 = klon(z); Object.assign(z2, { werte: z.werte, karte: z.karte });
-  const zufall0 = z2.zufall;
   const r = tick1(z2, [{ typ: 'piratenueberfall', ort }]);
-  void zufall0;
   ok(r.ereignisse.some((e) => e.typ === 'flotte_aufbruch' && e.art === 'raubzug' && e.fraktion === 'pirat' && e.ziel === ort), 'Ereignis flotte_aufbruch (raubzug) der Piraten');
   const rec = z2.angriffe.find((a) => a.art === 'pirat' && a.ziel === ort);
   ok(rec && rec.befohlen === true && rec.von === 'pirat', 'Feldzug art pirat, befohlen: true');
@@ -577,11 +570,12 @@ section('Ruhe der Standard-KI nach einem befohlenen Angriff', () => {
   for (let i = 0; i < RUHE.angreifen + 2; i++) Kern.tick(z);
   ok(!('regie' in z) && B.wirksam(z, 'ger').aggr === z.werte.aggr, 'die Ruhe endet nach ruhe Ticks und räumt zustand.regie auf');
   // Messung: während der Ruhe beginnt die KI keine eigenen Reichsangriffe
-  const std = (ruhe) => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.absichten = { ger: { p_act: 0.5, aggr: 0.9 } }; if (ruhe) q.regie = { ger: { ruhe_bis: 9999 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; };
-  ok(std(false) > 0, 'Gegenprobe: ohne Ruhe greift die Standard-KI der Germanen an');
-  // mit Wahl der Crew gilt aggr 0,9 weiter: dort ändert die Ruhe nichts (absichten vor regie)
-  const sr = (() => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: { ruhe_bis: 9999 } }; q.absichten = { ger: { p_act: 0.5 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; })();
-  ok(sr === 0, 'unter Ruhe beginnt die Standard-KI der Germanen keine Reichsangriffe (60 Ticks, 16 Seeds, Munition und Treibstoff im Überfluss)');
+  const std = (ruhe) => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: Object.assign({ p_act: 0.5, aggr: 0.9, regler_bis: 99999 }, ruhe ? { ruhe_bis: 9999 } : {}) }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; };
+  const ohneRuhe = std(false), mitRuhe = std(true);
+  ok(ohneRuhe > 0 && mitRuhe === 0, `unter Ruhe beginnt die Standard-KI der Germanen keine Reichsangriffe (60 Ticks, 16 Seeds, Munition und Treibstoff im Überfluss, Regler eifrig): ohne Ruhe ${ohneRuhe}, mit Ruhe ${mitRuhe}`);
+  // die Wahl der Crew (zustand.absichten) geht auch der Ruhe vor
+  const cr = (() => { let a = 0; for (let seed = 0; seed < 16; seed++) { const q = lage(seed, 3); q.regie = { ger: { ruhe_bis: 9999 } }; q.absichten = { ger: { p_act: 0.5, aggr: 0.9 } }; q.vorrat.ger.T = 200; q.vorrat.ger.U = 200; for (let i = 0; i < 60; i++) for (const e of Kern.tick(q).ereignisse) if (e.fraktion === 'ger' && (e.typ === 'flotte_sammelt' || (e.typ === 'flotte_aufbruch' && e.art === 'angriff'))) a++; } return a; })();
+  ok(cr > 0, 'mit Wahl der Crew (aggr 0,9) bleibt die KI auch unter Ruhe aktiv: die Crew wird nie überstimmt');
   // Ruhe nur nach angenommenen Befehlen
   const ab = lage(); tick1(ab, [{ typ: 'angreifen', fraktion: 'ger', ziel: '0204' }]);
   ok(!('regie' in ab), 'ein abgelehnter Angriff setzt keine Ruhe');

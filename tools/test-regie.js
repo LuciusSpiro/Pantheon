@@ -98,7 +98,6 @@ section('Plan lesen: Unbrauchbares ändert nichts', () => {
   ok(leer.ok && leer.angenommen.length === 0 && leer.abgelehnt.length === 0, 'ein leerer Plan ist gültig und tut nichts');
   const ohne = Regie.planAnwenden(g, {});
   ok(ohne.ok && ohne.angenommen.length === 0, 'ein Plan ohne Felder auch');
-  const g2 = F.neuesSpiel({ start: 'x' }).g; void g2;
 });
 
 section('Annahme und Ablehnung mit Grund', () => {
@@ -213,7 +212,6 @@ section('Embargo nur gegen die siegreiche Seite', () => {
   ok(funkAll(t2).length === 2 && /Sperre des Konkordats gilt jetzt/.test(funkAll(t2)[1].text), 'beim Wirksamwerden meldet das Oberkommando die Sperre');
   // Schwung ohne Ring: Macht-Anteil entscheidet (Test über die Kennzahl)
   const t3 = szene(); const zz = z(t3.g);
-  for (const h of Object.values(zz.hexe)) if (h.besitzer === 'ger' && !h.posten) { /* Häfen der Germanen */ }
   for (const fl of zz.flotten) if (fl.fraktion === 'ger') fl.staerke = 0.5;
   const kz = Regie.lage(t3.g);
   ok(kz.sieger === 'rom' && kz.anteil > R.werte.sieger.wert.macht_schwelle, 'ohne Schwung entscheidet der Macht-Anteil: schwache Germanen, Sieger Rom (Anteil ' + kz.anteil + ')');
@@ -268,7 +266,7 @@ section('Rückfall: Standard-KI allein', () => {
   z(g).absichten.rom = { p_act: 0, aggr: 0.3 };
   Regie.planAnwenden(g, { befehle: [ANGRIFF_ROM, ANGRIFF_GER], fokus: { hex: '0403', radius: 2 } });
   tick(g);
-  ok(ws(g).regie.vorgemerkt.length >= 1 && z(g).regie && z(g).regie.rom === undefined || true, 'Ausgangslage: wartende Befehle');
+  ok(ws(g).regie.vorgemerkt.length >= 1, 'Ausgangslage: wartende Befehle');
   Kern.tick(z(g), { befehle: [{ typ: 'embargo', von: 'kon', gegen: 'ger', waren: ['T'], dauer: 6 }, { typ: 'fokus', fraktion: 'ger', hex: '0403', radius: 2, dauer: 9 }] });
   const nWartend = ws(g).regie.vorgemerkt.length;
   const verworfen = Regie.rueckfall(g, 'Ausfall des Modells');
@@ -292,11 +290,10 @@ section('Zustand der Wirkung im Tick', () => {
   const e = logbuch(g).find((x) => x.ausgang === 'im_tick_abgelehnt');
   ok(e && /Treibstoff/.test(e.fehler[0]) && e.key === 'angreifen', 'Logbuch: im_tick_abgelehnt mit Grund');
   // je_tick_max: mehr fällige Befehle als der Kern annimmt bleiben für den nächsten Tick
-  const t2 = szene(); const zz = z(t2.g);
+  const t2 = szene();
   ws(t2.g).regie.vorgemerkt = Array.from({ length: Kern.BEFEHLE.WERTE.je_tick_max.wert + 2 }, () => ({ b: { typ: 'rueckzug', fraktion: 'rom', flotte: 1 }, ab: 0 }));
   tick(t2.g);
   ok(ws(t2.g).regie.vorgemerkt.length === 2, 'höchstens je_tick_max Befehle je Tick, der Rest wartet');
-  void zz;
 });
 
 section('Entwarnung und Besitzwechsel', () => {
@@ -416,10 +413,14 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(Weltstand.validate(d1).length === 0, 'Weltstand bleibt Version 3 und schemagültig' + Weltstand.validate(d1).slice(0, 1).map((x) => ' – ' + x).join(''));
   // Runde über die Platte
   const dir = F.freshDir(); d1.id = 'w-regie'; fs.writeFileSync(path.join(dir, 'w-regie.json'), JSON.stringify(d1));
-  const g2 = F.neuesSpiel({ dir, world: 'w-regie' }).g;
+  const t2 = F.neuesSpiel({ dir, world: 'w-regie' }); const g2 = t2.g;
+  const nachLaden = funkAll(t2).filter((m) => /Speculum|Sperre/.test(m.text));
+  ok(nachLaden.length === 2 && nachLaden.some((m) => /Speculum/.test(m.text)) && nachLaden.some((m) => /Sperre/.test(m.text)), 'Laden: die wartenden angekündigten Befehle werden einmal erneut angekündigt (Angriff und Embargo, ' + nachLaden.length + ' Meldungen)');
   ok(g2.phase === 'play' && g2.weltsim && g2.errors === 0 && gleich(ws(g2).regie, ws(g).regie), 'Laden: wartende Befehle und Abkühlzeiten sind wieder da');
   const d2 = klon(Weltstand.capture(g2));
   ok(gleich(d2.welt.sim.regie, d1.welt.sim.regie), 'Runde Speichern, Laden, Speichern: gleich');
+  tick(g2);
+  ok(funkAll(t2).filter((m) => /Speculum|Sperre/.test(m.text)).length === 2, 'im laufenden Betrieb keine Doppelungen der erneuten Ankündigung');
   const ab = ws(g2).regie.vorgemerkt[0].ab;
   while (ws(g2).tickZahl < ab) tick(g2);
   ok(z(g2).angriffe.some((a) => a.befohlen) && ws(g2).fehler === 0, 'nach dem Laden gehen die wartenden Befehle zur Zeit in die Sim');
