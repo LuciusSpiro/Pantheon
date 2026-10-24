@@ -65,14 +65,14 @@ async function main() {
     await sleep(2500);
     await shot(a, '03-ops-kampf-knopf', 300);
     // 2) Anlauf: Fracht-Leiste mit Fortschritt (Ops), Warnzeile (Captain)
-    await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(3200);
+    await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(600); await shot(a, '03b-ops-bestaetigen', 100); await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(3200);
     await shot(a, '04-ops-anlauf-warnung', 100); await shot(c, '05-captain-anlauf-warnzeile', 100);
     // 3) Abbruch kostet nichts
     await send(a, { t: 'cmd', c: 'weapons.fracht', off: true }); await sleep(800);
     await shot(a, '06-ops-abgebrochen-nichts-geschehen', 300);
     console.log('  nach Abbruch: Ruf', g.weltsim.ruf.rom, 'Modus', g.simSzene && g.simSzene.modus);
     // 4) Auslösung
-    await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' });
+    await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' }); await sleep(300); await send(a, { t: 'cmd', c: 'weapons.verrat.beginnen' });
     await a.waitForFunction(() => __game.state.flotte && __game.state.flotte.sz && __game.state.flotte.sz.vt === 1, null, { timeout: 15000 });
     await sleep(2500);
     await shot(a, '07-ops-verrat-laeuft', 300); await shot(c, '08-captain-verrat-zeile', 300);
