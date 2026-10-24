@@ -8,7 +8,7 @@
       {"id": "miles", "name": "Miles", "ab": 0},
       {"id": "optio", "name": "Optio", "ab": 8},
       {"id": "centurio", "name": "Centurio", "ab": 30},
-      {"id": "tribun", "name": "Tribun", "ab": 80},
+      {"id": "tribun", "name": "Tribun", "ab": 50},
       {"id": "legat", "name": "Legat", "ab": 180}
     ], "einheit": "Rufpunkte Rom", "_hinweis": "Dienstgrade von Rom (Ruf `rom`), aufsteigend, `ab` = Mindest-Ruf. Der Rang folgt dem Ruf: er kann sinken. Eine vom Rang freigeschaltete Ausbaustufe bleibt trotzdem frei (Paket C, Werft). Germanen und Konkordat haben keine Dienstgrade."},
     "quellen": {"wert": {
