@@ -310,6 +310,11 @@ function lageSchluessel(game) {
 }
 
 // Weltstand welt.sim: { modus, tick, hauptweltGefallen?, zustand } | null (kein Modus: Block fehlt, Altstände bleiben Kampagne)
+// SUND-03 F: Die Blöcke welt.sim.chronik und welt.sim.reise gehören nur in den Weltstand, wenn der Lage-Spielleiter oder die Reise-Ereignisse an sind. Ohne Schalter bleibt der Weltstand byte-gleich zu
+// dem nach SUND-02 (ältere Spielstände und main lehnen unbekannte Felder ab); Laden bleibt in beide Richtungen offen (fehlt der Block = leer).
+function neueBloeckeAn(game) {
+  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);
+}
 function toSave(game) {
   const ws = game.weltsim;
   if (!ws) return null;
@@ -318,8 +323,9 @@ function toSave(game) {
   const rb = Ruf.toSave(ws); if (rb) b.ruf = rb;
   const sb = Posten.sprengungenSave(ws); if (sb) b.sprengungen = sb;   // SUND-02b A2: letzte Sprengung je Hex (Ruf-Sperre); fehlt = keine
   const ab = Absicht.toSave(ws); if (ab) b.absicht = ab;   // SUND-02b D: laufende Absicht, Angebot, Pause; fehlt = leer
-  const ch = Chronik.toSave(ws); if (ch) b.chronik = ch;   // SUND-03 D: Chronik (Ringliste); fehlt = leer
-  const re = ReiseEreignis.toSave(ws); if (re) b.reise = re;   // SUND-03 D: Sprungzähler und Wiederholungsdaten der Reise-Ereignisse; fehlt = Anfang
+  const neueBloecke = neueBloeckeAn(game);
+  const ch = neueBloecke ? Chronik.toSave(ws) : null; if (ch) b.chronik = ch;   // SUND-03 D: Chronik (Ringliste); fehlt = leer
+  const re = neueBloecke ? ReiseEreignis.toSave(ws) : null; if (re) b.reise = re;   // SUND-03 D: Sprungzähler und Wiederholungsdaten der Reise-Ereignisse; fehlt = Anfang
   const rg = Regie.toSave(ws); if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer
   const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
@@ -375,4 +381,4 @@ function restore(game, b) {
   szeneNachziehen(game);
 }
 
-module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, tickMit, szeneAbschliessen, wirkungenVormerken, rufBuchen, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };
+module.exports = { neueBloeckeAn, MODUS, KARTE, RING, seedAus, abbild, starten, tick, tickMit, szeneAbschliessen, wirkungenVormerken, rufBuchen, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };
