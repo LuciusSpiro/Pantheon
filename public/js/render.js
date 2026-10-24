@@ -4135,7 +4135,7 @@
             ctx.beginPath(); ctx.moveTo(s.x + qx * r + 0.5, s.y + qy * (r - 5) + 0.5); ctx.lineTo(s.x + qx * r + 0.5, s.y + qy * r + 0.5); ctx.lineTo(s.x + qx * (r - 5) + 0.5, s.y + qy * r + 0.5); ctx.stroke();
           }
         }
-        lab(ENEMY_SHORT[e.kind] || (ENEMY_NAMES[e.kind] || e.kind).toUpperCase(), s.x, s.y + r + 2, { color: e.kind === 'relay' ? PAL.amber : e.kind === 'sentinel' || e.kind === 'pylon' ? PAL.ice : PAL.red, align: 'center' }, 3);
+        lab(e.nm ? String(e.nm).toUpperCase() : (ENEMY_SHORT[e.kind] || (ENEMY_NAMES[e.kind] || e.kind).toUpperCase()), s.x, s.y + r + 2, { color: e.kind === 'relay' ? PAL.amber : e.kind === 'sentinel' || e.kind === 'pylon' ? PAL.ice : PAL.red, align: 'center' }, 3);
       }
       if (isTarget && !front) {
         const r = size + 5 + Math.round(Math.sin(t * 6));

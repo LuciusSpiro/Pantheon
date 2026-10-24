@@ -1826,7 +1826,7 @@
       if (!po || (halt && halt.kind === 'posten')) return;
       const art = { g: { kopf: 'POSTEN GRÜNDEN', knopf: 'Posten gründen', cmd: 'weapons.posten.gruenden' }, a: { kopf: 'STÜTZPUNKT AUSBAUEN', knopf: 'Stützpunkt ausbauen', cmd: 'weapons.posten.ausbauen' },
         x: { kopf: 'POSTEN ANGREIFEN', knopf: 'Posten angreifen', cmd: 'weapons.posten.angreifen' },   // SUND-02b A2: x = Posten eines Gegners (sprengen)
-        v: { kopf: 'VERRAT', knopf: 'Römische Schiffe angreifen', cmd: 'weapons.verrat.beginnen' } }[po.k];   // SUND-02b E: v = Beschuss auf römische Verbündete (Halteprozess mit Warnung, bewusst, nie versehentlich)
+        v: { kopf: 'VERRAT', knopf: po.b ? 'Bestätigen (' + po.b + ' s)' : 'Römische Schiffe angreifen', cmd: 'weapons.verrat.beginnen' } }[po.k];   // SUND-02b E: v = Beschuss auf römische Verbündete (Halteprozess mit Warnung, bewusst, nie versehentlich)
       if (!art) return;
       // SUND-02b UI (Review A1, Bild 07/08): kompakt, damit drei gestapelte Leisten (Fracht, Höhe halten, Posten) Schiff und Posten frei lassen: Knopf mit Kosten in der
       // ersten Zeile (keine eigene Titelzeile), der Weigerungstext darunter höchstens zwei Zeilen; Fläche nur so hoch wie nötig (18 px ohne Text, sonst 18 + 10 je Zeile)
@@ -1906,7 +1906,7 @@
       } else if (f.halt) {
         R.button(ctx, x + 4, by, 126, 12, postenHalt ? 'Abbrechen' : 'Beamen abbrechen', { hotkey: postenHalt ? undefined : 'F', onClick: () => this.cmd(view, 'weapons.fracht', { off: true }) });
         R.bar(ctx, x + 134, by + 3, w - 138, 6, n(f.halt.p), PAL.mint);
-        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : f.halt.id === 'angreifen' ? 'Angriff läuft an … ' : f.halt.id === 'verrat' ? 'Angriff auf Rom läuft an … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? (f.halt.id === 'verrat' ? 'Abbruch kostenlos, Ruf erst bei Beginn' : 'Feindkontakt, Tempo oder Abstand bricht ab') : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
+        R.text(ctx, (postenHalt ? (f.halt.id === 'ausbau' ? 'Ausbau läuft … ' : f.halt.id === 'angreifen' ? 'Angriff läuft an … ' : f.halt.id === 'verrat' ? 'Angriff auf Rom läuft an … ' : 'Gründung läuft … ') : f.halt.kind === 'ab' ? 'Übergabe läuft … ' : f.halt.kind === 'verk' ? 'Verkauf läuft … ' : 'Beame an Bord … ') + Math.round(n(f.halt.p) * 100) + ' %  (' + (postenHalt ? (f.halt.id === 'verrat' ? 'Abbruch kostenlos' : 'Feindkontakt, Tempo oder Abstand bricht ab') : 'Systemtreffer bricht ab') + ')', x + 4, y + 27, { color: PAL.mint });
       } else {
         R.button(ctx, x + 4, by, 126, 12, 'Fracht beamen', { hotkey: 'F', disabled: !!f.beam, reason: f.beam, onClick: () => this.cmd(view, 'weapons.fracht', {}) });
         R.button(ctx, x + 134, by, w - 138, 12, 'Abliefern', { hotkey: 'G', disabled: !!f.ab, reason: f.ab, onClick: () => this.cmd(view, 'weapons.abliefern') });
