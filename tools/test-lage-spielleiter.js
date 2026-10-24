@@ -630,6 +630,13 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   tick(fk.g, RW.abkuehlung.wert.fokus + 1); sfk.beiGrenze('andocken'); await pumpen(fk.g, 4);
   const q2 = sfk.letzte_plaene.at(-1);
   ok(q2.befehle.length === 1 && q2.befehle[0] === 'fokus rom 0204: ok' && q2.angenommen === 1, 'Fokus nur für ein Reich: „fokus rom 0204: ok“, ein Platz');
+  // P3: erst die Namen ersetzen, dann kürzen (ein kurzer Name wird zu „Crew“ und macht den Text länger: die Grenze gilt für den fertigen Block)
+  const kn = spiel({ crew: 1, names: ['An'] });
+  const pa = { nr: 1, tick: 1, grenze: 'andocken', befehle: [], angenommen: 0, abgelehnt: 0, begruendung: 'An '.repeat(30) }, pb = { nr: 2, tick: 2, grenze: 'andocken', befehle: [], angenommen: 0, abgelehnt: 0, begruendung: 'kurz' };
+  const gesamtKn = JSON.stringify([Object.assign({}, pa, { begruendung: Prompt.namenFiltern(pa.begruendung, kn.g) }), pb]).length - 1;
+  const bk = Prompt.baue(kn.g, { art: 'x', nr: 3, letzte: [pa, pb], werte: Object.assign({}, W, { letzte_plaene_zeichen: { gesamt: gesamtKn, grund: 50 } }) }).prompt;
+  const blkKn = bk.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1];
+  ok(blkKn.length <= gesamtKn && !/An An/.test(blkKn), 'Namen werden vor dem Kürzen ersetzt: der fertige Block bleibt unter der Grenze (' + blkKn.length + ' ≤ ' + gesamtKn + ')');
   const fr = spiel(); const { sl: sfr } = mitLage(fr, { mode: 'script', script: { lage: [{ json: { befehle: [], fokus: { hex: '0105', radius: 2 }, begruendung: 'c' } }] } }, { min_abstand_ticks: 1 });
   tick(fr.g); sfr.beiGrenze('andocken'); ws(fr.g).regie.rate = Array.from({ length: RT.max }, () => ws(fr.g).tickZahl); await pumpen(fr.g, 4);
   const q3 = sfr.letzte_plaene.at(-1);
@@ -658,6 +665,9 @@ section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
   aktiv0.befehl = 'heim';
   Regie.planAnwenden(g, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: '0105', radius: 2 } });
   const f1 = frei();
+  ws(g).regie.rate = [ws(g).tickZahl - RT.fenster, ws(g).tickZahl - RT.fenster + 1];
+  ok(frei().rate === RT.max - 1, 'Rate: ein Eintrag genau am Fensterrand zählt nicht mehr (Fenster ' + RT.fenster + ' Ticks)');
+  ws(g).regie.rate = [ws(g).tickZahl - RT.fenster + 1, ws(g).tickZahl - RT.fenster + 1].slice(0, 0);
   ok(f1.rate === RT.max - 2 && f1.abk && f1.abk['regler:rom'] === RW.abkuehlung.wert.regler && f1.abk.fokus === RW.abkuehlung.wert.fokus, 'nach Regler und Plan-Fokus: Rate −2 (der Fokus kostet einen Platz), Abkühlung je Schlüssel: ' + JSON.stringify(f1));
   tick(g, 3);
   ok(frei().abk.fokus === RW.abkuehlung.wert.fokus - 3, 'die Abkühlung zählt mit den Ticks herunter');
@@ -694,9 +704,36 @@ section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
   ok(geprueft === 28 && abweichung === 0, `nachschub_max stimmt in ${geprueft} Fällen (Vorrat des Konkordats, Marken, Embargo) mit dem Kern-Prüfer überein (${abweichung} Abweichungen)`);
   zz.embargo = {}; zz.vorrat.kon.T = 40; zz.vorrat.kon.U = 40; zz.marken.rom = 500; zz.marken.ger = 500;
   const kon = zz.flotten.filter((fl) => fl.fraktion === 'kon');
-  kon[0].befehl = 'angriff'; if (kon[1]) kon[1].miete = { von: 'kon', an: 'rom', bis: zz.tick + 9, preis: 1 };
+  kon[0].befehl = 'angriff'; if (kon[2]) kon[2].ort = zz.flotten.find((fl) => fl.id !== kon[2].id && fl.ort !== kon[2].heimat).ort; if (kon[1]) kon[1].miete = { von: 'kon', an: 'rom', bis: zz.tick + 9, preis: 1 };
   const mietbarSoll = kon.filter((fl) => { const r = B.pruefe(zz, { typ: 'soeldner', von: 'kon', an: 'ger', flotten: [fl.id], dauer: 4 }); return r.ok; }).map((fl) => fl.id).slice(0, 6);
   ok(JSON.stringify(frei().soeldner) === JSON.stringify(mietbarSoll) && mietbarSoll.length < kon.length, 'soeldner = die freien Konkordat-Flotten, die der Kern-Prüfer vermieten ließe: ' + mietbarSoll.join(','));
+});
+
+section('CLI-Quelle im Logbuch und in status', async () => {
+  sitzungSauber();
+  const alt = process.env.LLM_LIVE; process.env.LLM_LIVE = '1';
+  try {
+    const fake = { name: 'fake', async call() { return { text: '{"befehle": [], "begruendung": "leer: Lage ruhig"}', usage: { input: 1, output: 1 }, sec: 0.1, cli: { quelle: 'npm native', hinweis: 'CLAUDE_CLI gesetzt, nicht gefunden (X) → Fallback auf npm native (Y)' } }; } };
+    const t = spiel(); const sl = LS.create(t.g, { llm: LLM.create({ mode: 'live', transport: fake }), werte: {} }); t.g.lageSpielleiter = sl; t.g.lageSchalter = true;
+    tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+    const e = lageEintraege(t.g, 'angewandt')[0];
+    ok(e && e.plan.cli && e.plan.cli.quelle === 'npm native' && /nicht gefunden/.test(e.plan.cli.hinweis) && /CLI npm native \[CLAUDE_CLI gesetzt/.test(sl.status()), 'Logbuch (plan.cli) und status nennen die CLI-Quelle und den Vermerk zu falschem CLAUDE_CLI');
+  } finally { if (alt === undefined) delete process.env.LLM_LIVE; else process.env.LLM_LIVE = alt; }
+});
+
+section('Leere Pläne: begründet, ohne Begründung und wirkungslos getrennt', async () => {
+  sitzungSauber();
+  const t = spiel(); const { sl } = mitLage(t, { mode: 'script', script: { lage: [
+    { json: { befehle: [], begruendung: 'Lage ruhig, nichts Sinnvolles erlaubt' } }, { json: { befehle: [] } }, { json: { befehle: [], begruendung: 'x' } },
+    { json: { befehle: [{ typ: 'zaubern' }], begruendung: 'Unsinn' } },
+  ] } }, { min_abstand_ticks: 1 });
+  for (let i = 0; i < 4; i++) { tick(t.g, 2); sl.beiGrenze('andocken'); await pumpen(t.g, 4); }
+  const ang = lageEintraege(t.g, 'angewandt');
+  ok(ang.length === 3 && ang.filter((e) => e.grund === 'leer_begruendet').length === 1 && ang.filter((e) => e.grund === 'leer_ohne_begruendung').length === 2, 'Logbuch: drei leere Pläne, einer begründet, zwei ohne Begründung (grund)');
+  ok(lageEintraege(t.g, 'plan_wirkungslos').length === 1 && sl.zaehler.leer_begruendet === 1 && sl.zaehler.leer_ohne_begruendung === 2 && sl.zaehler.wirkungslos === 1, 'wirkungslos (alle Befehle abgelehnt) ist davon getrennt');
+  ok(/davon leer begründet 1, leer ohne Begründung 2\), wirkungslos 1/.test(sl.status()), 'status weist sie getrennt aus: ' + sl.status().slice(0, 200));
+  const md = Bericht.report(Regielog.dir(t.g.env), t.g.weltstand.id);
+  ok(/leer begründet: 1, leer ohne Begründung: 2\), wirkungslos \(alle Befehle abgelehnt\): 1/.test(md), 'Bericht weist sie getrennt aus');
 });
 
 section('Rate erschöpft: kein Aufruf', async () => {

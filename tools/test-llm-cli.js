@@ -38,6 +38,11 @@ const warte = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 <
   ok(r.quelle === 'npm cli.js', 'ein falsch gesetztes CLAUDE_CLI blockiert die übrigen Orte nicht');
   r = mit([P('H', '.local', 'bin', 'claude'), P('Z', 'claude')], { HOME: 'H', PATH: 'Z' }, 'linux');
   ok(r.quelle === '.local/bin' && r.cmd === P('H', '.local', 'bin', 'claude'), 'POSIX: ~/.local/bin/claude (ohne .exe)');
+  ok(r.hinweis === undefined, 'ohne Vermerk, wenn nichts falsch gesetzt ist');
+  r = mit([P(pkg, 'cli.js')], Object.assign({ CLAUDE_CLI: P('E', 'fehlt.js') }, envW));
+  ok(r.quelle === 'npm cli.js' && /CLAUDE_CLI gesetzt, nicht gefunden/.test(r.hinweis) && r.hinweis.includes(P('E', 'fehlt.js')) && r.hinweis.includes('npm cli.js'), 'falsch gesetztes CLAUDE_CLI: Vermerk „gesetzt, nicht gefunden → Fallback auf <Quelle>“: ' + r.hinweis);
+  r = mit([P(pkg, 'cli.js')], envW);
+  ok(r.hinweis === undefined && r.quelle === 'npm cli.js', 'ohne CLAUDE_CLI kein Vermerk');
   const echt = LLM.claudeFinden();
   console.log('  Info  auf diesem Rechner: ' + (echt.cmd ? echt.quelle + ' → ' + echt.pfad : 'nichts gefunden (' + echt.versucht.join(', ') + ')'));
 

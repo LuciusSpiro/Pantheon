@@ -82,7 +82,7 @@ class LageSpielleiter {
     this.aufrufe = 0;            // gestartete Anfragen dieser Sitzung (Deckel)
     this.letzterStartTick = null;
     this.letzte_plaene = [];     // Ringliste kurzer Pläne { nr, tick, grenze, befehle: [Text], angenommen, abgelehnt, begruendung }
-    this.zaehler = { angewandt: 0, wirkungslos: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
+    this.zaehler = { angewandt: 0, leer_begruendet: 0, leer_ohne_begruendung: 0, wirkungslos: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
     this.ausGemeldet = false;
@@ -230,7 +230,7 @@ class LageSpielleiter {
     if (r && r.anbieter) { m.anbieter = r.anbieter; m.modell = r.modell || null; }
     return m;
   }
-  planInfo(job, extra) { return Object.assign({ grenze: job.art, nr: job.nr, tick: this.game.weltsim ? this.game.weltsim.tickZahl : null, start_tick: job.startTick, sitzung: this.sitzung }, job.bau || {}, extra || {}); }
+  planInfo(job, extra) { return Object.assign(this.cli ? { cli: this.cli } : {}, { grenze: job.art, nr: job.nr, tick: this.game.weltsim ? this.game.weltsim.tickZahl : null, start_tick: job.startTick, sitzung: this.sitzung }, job.bau || {}, extra || {}); }
   // Störung: Eintrag ins Logbuch und Rückfall auf die Standard-KI (wartende Befehle und Überlagerung der Regie entfallen). Das Spiel merkt nichts.
   stoerung(job, e, r) {
     this.job = null; this.zustand = 'idle';
@@ -243,6 +243,7 @@ class LageSpielleiter {
   }
   antwort(job, r) {
     const ws = this.game.weltsim;
+    if (r && r.cli) this.cli = r.cli;   // welche CLI lief, mit Hinweis bei falsch gesetztem CLAUDE_CLI (im Logbuch unter plan.cli und in status)
     const gelesen = Prompt.planAusText(r && r.text);
     if (gelesen.fehler) return this.stoerung(job, LLM.llmError('EXIT', 'Antwort unbrauchbar: ' + gelesen.fehler), r);
     const alter = ws.tickZahl - job.startTick;
@@ -270,7 +271,13 @@ class LageSpielleiter {
       this.zaehler.wirkungslos++; this.zaehler.angewandt--;
       const gruende = res.abgelehnt.concat(wh.abgelehnt).map((a) => String(a.grund).slice(0, 120));
       this.schreibe(Object.assign({ ausgang: 'plan_wirkungslos', grund: gruende[0].split(':')[0], fehler: gruende.slice(0, 8), begruendung: 'Kein Befehl des Plans wurde angenommen (' + gruende[0].slice(0, 100) + ')', plan: this.planInfo(job, { angenommen: 0, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
-    } else this.schreibe(Object.assign({ ausgang: 'angewandt', begruendung: kurz.begruendung || 'Plan angewandt', plan: this.planInfo(job, { angenommen: kurz.angenommen, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
+    } else {
+      // SUND-03 F2: ein Plan ohne jeden Befehl und Fokus ist „leer“: begründet (Lage ruhig, Rate erschöpft …) oder ohne Begründung, getrennt gezählt und im Feld grund ausgewiesen
+      const leer = !(gelesen.plan.befehle || []).length && !gelesen.plan.fokus;
+      const leerArt = leer ? (typeof gelesen.plan.begruendung === 'string' && gelesen.plan.begruendung.trim().length >= 5 ? 'leer_begruendet' : 'leer_ohne_begruendung') : null;
+      if (leerArt) this.zaehler[leerArt]++;
+      this.schreibe(Object.assign({ ausgang: 'angewandt', begruendung: kurz.begruendung || 'Plan angewandt', plan: this.planInfo(job, { angenommen: kurz.angenommen, abgelehnt: kurz.abgelehnt, alter }) }, leerArt ? { grund: leerArt } : {}, this.messung(job, r)));
+    }
     const typen = res.angenommen.map((a) => a.befehl.typ);
     Chronik.eintragen(this.game, { art: 'plan', ref: 'p' + job.nr, kurz: `Plan ${job.nr} (${job.art}): ${typen.length ? typen.join(', ') : 'nichts angenommen'}`, param: { angenommen: res.angenommen.length, abgelehnt: kurz.abgelehnt } });
   }
@@ -291,8 +298,8 @@ class LageSpielleiter {
 
   status() {
     const b = LLM.budget();
-    return `Lage-Spielleiter: Modus ${this.mode}${this.aus ? ' (aus: ' + this.aus + ')' : ''}, Zustand ${this.zustand}, Anfragen ${this.aufrufe}/${this.W.deckel_je_sitzung}, `
-      + `letzter Start Tick ${this.letzterStartTick == null ? '–' : this.letzterStartTick} (Abstand ${this.W.min_abstand_ticks}), angewandt ${this.zaehler.angewandt}, Fehler ${this.zaehler.fehler}, veraltet ${this.zaehler.veraltet}, `
+    return `Lage-Spielleiter: Modus ${this.mode}${this.aus ? ' (aus: ' + this.aus + ')' : ''}${this.cli ? ', CLI ' + this.cli.quelle + (this.cli.hinweis ? ' [' + this.cli.hinweis + ']' : '') : ''}, Zustand ${this.zustand}, Anfragen ${this.aufrufe}/${this.W.deckel_je_sitzung}, `
+      + `letzter Start Tick ${this.letzterStartTick == null ? '–' : this.letzterStartTick} (Abstand ${this.W.min_abstand_ticks}), angewandt ${this.zaehler.angewandt} (davon leer begründet ${this.zaehler.leer_begruendet}, leer ohne Begründung ${this.zaehler.leer_ohne_begruendung}), wirkungslos ${this.zaehler.wirkungslos}, Fehler ${this.zaehler.fehler}, veraltet ${this.zaehler.veraltet}, `
       + `Tokens ${b.used}/${b.limit}, übersprungen ${JSON.stringify(this.zaehler.uebersprungen)}, letzte Pläne ${this.letzte_plaene.length}`;
   }
   // lage status | plan | fail

@@ -107,7 +107,7 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     T.check('Verbot nennt {{…}} nicht als erlaubt, ein Satz', Prompts.VERBOT.split('\n').filter(Boolean).length === 1 && /nie `\{\{…\}\}`/.test(Prompts.VERBOT), Prompts.VERBOT);
   });
   await T.safe('K2: Claude-CLI ohne Systemprompt → sicherer Fehler statt „--system-prompt-file undefined“', async () => {
-    const altCli = process.env.CLAUDE_CLI; process.env.CLAUDE_CLI = path.join(tmp, 'gibt-es-nicht.js');   // nie ein echter Prozess
+    const altCli = process.env.CLAUDE_CLI; process.env.CLAUDE_CLI = path.join(tmp, 'gibt-es-nicht.js');   // Achtung (SUND-03 F2): ein falsch gesetztes CLAUDE_CLI fällt auf die gefundene CLI zurück (claudeFinden), der Pfad schützt also NICHT vor einem echten Prozess; geschützt ist der Test nur dadurch, dass der Fehler (kein Systemprompt) VOR dem Start kommt
     let e; try { e = await fehler(LLM.TRANSPORTS.cli.call('x', { kind: 'text', model: 'sonnet', timeoutMs: 1000 })); } finally { if (altCli === undefined) delete process.env.CLAUDE_CLI; else process.env.CLAUDE_CLI = altCli; }
     T.check("Fehler EXIT mit Hinweis auf den fehlenden Systemprompt (kein Prozessstart)", e && e.code === 'EXIT' && /Systemprompt/.test(e.message), e && e.message);
   });

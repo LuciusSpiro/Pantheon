@@ -276,15 +276,17 @@ function claudeFinden(o) {
   };
   let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');
   if (r) return r;
+  const falsch = env.CLAUDE_CLI ? `CLAUDE_CLI gesetzt, nicht gefunden (${env.CLAUDE_CLI}) → Fallback` : null;
+  const mitHinweis = (x) => (x && falsch ? Object.assign(x, { hinweis: `${falsch} auf ${x.quelle} (${x.pfad})` }) : x);
   if (env.APPDATA) {
     const pkg = path.join(env.APPDATA, 'npm', 'node_modules', '@anthropic-ai', 'claude-code');
     r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');
-    if (r) return r;
+    if (r) return mitHinweis(r);
   }
   const heim = win ? env.USERPROFILE : env.HOME;
-  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return r; }
-  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return r; }
-  return { cmd: null, args: [], pfad: null, quelle: null, versucht };
+  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return mitHinweis(r); }
+  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return mitHinweis(r); }
+  return { cmd: null, args: [], pfad: null, quelle: null, versucht };   // (ein gesetztes, aber falsches CLAUDE_CLI trägt bei einem Fund den Vermerk hinweis)
 }
 // Beendet den GANZEN Prozessbaum genau dieses Prozesses (Windows: taskkill /T /F /PID <eigene pid>, nie /IM; sonst die Prozessgruppe, der Prozess startet dafür detached). Nicht blockierend.
 // taskkill mit vollem Pfad (kein Suchpfad: kein untergeschobenes taskkill.exe); die Tests ersetzen cmd und vorArgs durch ein Fake-Programm
@@ -361,7 +363,7 @@ function callClaude(text, sysFile, model, timeoutMs, signal) {
       if (code !== 0 && !result) return reject(llmError('EXIT', `claude fehlgeschlagen (${code}): ${err.slice(0, 300)}`));
       const u = (result && result.usage) || {};
       const usage = { input: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0 };
-      resolve({ text: (result && result.result) || txt, usage, sec: (Date.now() - t0) / 1000, modelId, cost: result && result.total_cost_usd });
+      resolve({ cli: { quelle: start.quelle, hinweis: start.hinweis || null }, text: (result && result.result) || txt, usage, sec: (Date.now() - t0) / 1000, modelId, cost: result && result.total_cost_usd });
     });
     p.stdin.end(text);
   });
@@ -451,6 +453,7 @@ function create(opts) {
     const n = r.usage.input + r.usage.output;
     if (r.anbieter !== 'ollama') { used += n; addUsage(n); }
     const ans = { text: r.text, tokens: n, usage: r.usage, source: 'live', key: k, sec: r.sec, modelId: r.modelId, cost: r.cost };
+    if (r.cli) ans.cli = r.cli;   // SUND-03 F2: welche CLI lief (Quelle) und ein Vermerk bei falsch gesetztem CLAUDE_CLI
     if (r.anbieter) { ans.anbieter = r.anbieter; ans.modell = r.modell || r.modelId || null; }
     if (r.eskaliert || forced) ans.eskaliert = true;
     if (opts.recordDir) {
