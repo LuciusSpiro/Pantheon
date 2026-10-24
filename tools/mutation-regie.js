@@ -212,10 +212,10 @@ const MUTATIONEN = [
   [R, "    const w = trifftRom(z, k.b);", "    const w = kand.indexOf(k) === 0 ? trifftRom(z, k.b) : null;", 'N10 nur der erste Befehl im Plan wird angekündigt'],
   [R, "  for (const f of funk) funkSenden(game, f);", "  for (const f of funk.concat(funk)) funkSenden(game, f);", 'N11 Vorwarnung doppelt gefunkt'],
   // ---- A3: globale Befehlsrate
-  [R, "    if (belegt >= RATE.max) {", "    if (false) {", 'Rate: kein Deckel'],
+  [R, "    if (!gratis && belegt >= RATE.max) {", "    if (false) {", 'Rate: kein Deckel'],
   [R, "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;", "const rateBelegt = (s, jetzt) => s.rate.length;", 'Rate: Fenster ignoriert (alte Befehle zählen ewig)'],
-  [R, "    s.rate.push(n0);\n", "", 'Rate: angenommene Befehle werden nicht gezählt'],
-  [R, "const belegt = rateBelegt(s, n0) + out.angenommen.length;", "const belegt = rateBelegt(s, n0);", 'Rate: Deckel gilt nicht mitten im Plan'],
+  [R, "    if (a._rate !== false) s.rate.push(n0);", "", 'Rate: angenommene Befehle werden nicht gezählt'],
+  [R, "const belegt = rateBelegt(s, n0) + ratePlaetze;", "const belegt = rateBelegt(s, n0);", 'Rate: Deckel gilt nicht mitten im Plan'],
   [R, "  if (s.rate.length) b.rate = s.rate.slice();", "", 'Rate: wird nicht gespeichert'],
   [R, ".slice(-RATE.max);   // nur das Fenster", ";   // nur das Fenster", 'Rate: Leser kürzt nicht auf max'],
   [R, " && t - x < RATE.fenster).slice", ").slice", 'Rate: Leser nimmt abgelaufene Einträge'],
