@@ -233,6 +233,26 @@ function planAnwenden(game, plan) {
 }
 const kurz = (x) => { try { const t = JSON.stringify(x); return t && t.length > 400 ? t.slice(0, 400) : (typeof x === 'string' ? x.slice(0, 400) : x); } catch (e) { return null; } };
 
+// ---------- Was Befehle jetzt voraussetzen (SUND-03 F): der Rest der Rate, bereite Piratenflotten, freie max_active-Plätze je Reich (global, nicht nur im Umkreis), Rest der Abkühlzeit je Befehlsschlüssel
+// (nur wenn > 0). Eine kleine Lesesicht für den Ausschnitt des Lage-Spielleiters (befehle_frei); ändert nichts. -> { rate, piraten, platz: { rom, ger }, abk?: { Schlüssel: Rest } }
+function befehleFrei(game) {
+  const ws = game.weltsim;
+  if (!ws) return null;
+  const s = zustandVon(game), z = ws.zustand, n0 = ws.tickZahl;
+  const P = BW.piratenueberfall.wert;
+  const platz = {};
+  for (const f of ['rom', 'ger']) platz[f] = Math.max(0, Kern.BEFEHLE.wirksam(z, f).max_active - z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim').length);
+  const piraten = z.flotten.filter((fl) => fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap).length;
+  const abk = {};
+  for (const [key, t] of Object.entries(s.letzte)) {
+    const typ = key.split(':')[0], rest = ganz(R.abkuehlung.wert[typ], 0) - (n0 - t);
+    if (rest > 0) abk[key] = rest;
+  }
+  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz };
+  if (Object.keys(abk).length) out.abk = abk;
+  return out;
+}
+
 // ---------- Rückfall: der Spielleiter fällt aus (benannte Funktion, kein Schalter)
 function verwerfe(game) {
   const ws = game.weltsim;
@@ -384,4 +404,4 @@ function lesen(b, tickZahl) {
   return out;
 }
 
-module.exports = { R, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };
+module.exports = { R, befehleFrei, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };

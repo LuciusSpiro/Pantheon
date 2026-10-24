@@ -82,6 +82,7 @@ section('Daten: Takt, Katalog aus den Daten abgeleitet, Felder passen zum Kern',
   ok(Prompt.statischerTeil().hash === Prompt.statischerTeil().hash, 'Hash des statischen Teils: zwei Aufrufe gleich');
   ok(typen.every((t) => text.includes(`Abkühlung: ${RW.abkuehlung.wert[t] || 0} Ticks`)), 'Abkühlzeiten aus regie-werte.json');
   ok(text.includes(`Reichweite ${BW.angreifen.wert.reichweite} Sprünge, höchstens ${BW.angreifen.wert.flotten_max} Flotten`) && text.includes(`Dauer ${BW.dauer.wert.embargo.min} bis ${BW.dauer.wert.embargo.max} Ticks`) && text.includes(`Höchstens ${RW.plan.wert.befehle_max} Befehle je Plan`), 'Grenzen aus befehle-werte.json und regie-werte.json');
+  ok(text.includes(`höchstens ${RW.rate.wert.max} angenommene Befehle je ${RW.rate.wert.fenster} Ticks`) && text.includes('befehle_frei') && text.includes('Fokus eines Plans kostet nur einen Platz'), 'Katalog nennt die Rate (aus den Daten), den Fokus-Platz und befehle_frei');
   ok(text.includes('Embargo nur gegen den Sieger') && text.includes('Vorwarnung'), 'Regeln Sieger und Vorwarnung stehen im Katalog');
   const sys = fs.readFileSync(Prompt.SYSTEM_DATEI, 'utf8');
   ok(/nur Befehle des Katalogs/i.test(sys) && /Vorwarnung/.test(sys) && /Hauptwelten/.test(sys) && /Scheinwahl/.test(sys) && /lage\.sieger/.test(sys) && /ausschließlich mit einem JSON/.test(sys), 'Systemprompt: nur Katalog, keine Scheinwahl, Vorwarnung, Hauptwelt, Sieger, nur JSON');
@@ -610,6 +611,31 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   ok(wl.length === 1 && wl[0].grund === 'Rate' && wl[0].fehler[0].startsWith('Rate:') && lageEintraege(t.g, 'angewandt').length === 1, 'alle Befehle an der Rate gescheitert: plan_wirkungslos mit Grund Rate, nicht angewandt');
   ok(sl.zaehler.wirkungslos === 1 && sl.letzte_plaene.at(-1).befehle[0].includes('abgelehnt (Rate'), 'der Prompt-Chronik zeigt die Ablehnung');
   ok(/wirkungslos \(alle Befehle abgelehnt\): 1/.test(Bericht.report(Regielog.dir(t.g.env), t.g.weltstand.id)), 'Bericht zählt wirkungslose Pläne');
+});
+
+section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
+  sitzungSauber();
+  const RT = RW.rate.wert;
+  const t = spiel(); const g = t.g;
+  const frei = () => JSON.parse(Prompt.baue(g, { art: 'x', nr: 1, letzte: [], werte: W }).prompt.match(/<ausschnitt>\n([\s\S]*?)\n<\/ausschnitt>/)[1]).befehle_frei;
+  const f0 = frei();
+  ok(f0.rate === RT.max && f0.abk === undefined && f0.platz && typeof f0.platz.rom === 'number' && typeof f0.platz.ger === 'number' && f0.piraten >= 0, 'am Anfang: volle Rate, keine Abkühlung, Plätze je Reich, Piraten gezählt: ' + JSON.stringify(f0));
+  const maxA = Kern.BEFEHLE.wirksam(z(g), 'rom').max_active;
+  ok(f0.platz.rom === maxA - z(g).flotten.filter((fl) => fl.fraktion === 'rom' && fl.befehl !== 'heim').length, 'freie Plätze = max_active minus aktive Flotten (global gezählt)');
+  Regie.planAnwenden(g, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: '0105', radius: 2 } });
+  const f1 = frei();
+  ok(f1.rate === RT.max - 2 && f1.abk && f1.abk['regler:rom'] === RW.abkuehlung.wert.regler && f1.abk.fokus === RW.abkuehlung.wert.fokus, 'nach Regler und Plan-Fokus: Rate −2 (der Fokus kostet einen Platz), Abkühlung je Schlüssel: ' + JSON.stringify(f1));
+  tick(g, 3);
+  ok(frei().abk.fokus === RW.abkuehlung.wert.fokus - 3, 'die Abkühlung zählt mit den Ticks herunter');
+  tick(g, RW.abkuehlung.wert.regler);
+  ok(frei().abk === undefined, 'abgelaufene Abkühlung fällt weg (kein leeres Feld)');
+  tick(g, RT.fenster); ok(frei().rate === RT.max, 'nach dem Rate-Fenster ist die Rate wieder voll');
+  const pir = z(g).flotten.filter((fl) => fl.fraktion === 'pirat');
+  for (const fl of pir) { fl.befehl = 'heim'; fl.staerke = fl.kap; }
+  ok(frei().piraten === pir.length, 'bereite Piratenflotten: ' + pir.length);
+  for (const fl of pir) fl.staerke = 0;
+  ok(frei().piraten === 0, 'geschwächte Piraten zählen nicht');
+  ok(Regie.befehleFrei({}) === null, 'ohne Modus: null');
 });
 
 section('Rückfall: Entwarnung für angekündigte, nie gekommene Befehle', async () => {

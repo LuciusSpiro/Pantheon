@@ -42,6 +42,7 @@ function katalogText() {
   const P = RW.plan.wert;
   L.push('Plan (dein Antwortobjekt): { "befehle": [Befehl, ...], "fokus"?: { "hex": Hex-Code, "radius": Zahl, "dauer"?: Ticks, "fraktionen"?: ["rom"|"ger"] }, "begruendung": Satz }');
   L.push(`Höchstens ${P.befehle_max} Befehle je Plan. Höchstens ${P.vorgemerkt_max} wartende Befehle insgesamt. "fokus" im Plan wirkt auf alle erlaubten Fraktionen (${BW.fokus.wert.fraktionen.join('|')}), Standarddauer ${P.fokus_dauer} Ticks. "begruendung": höchstens ${P.begruendung_max} Zeichen, ein Satz, warum dieser Plan.`);
+  L.push(`Rate: höchstens ${RW.rate.wert.max} angenommene Befehle je ${RW.rate.wert.fenster} Ticks (alle Typen und Fraktionen zusammen); der Fokus eines Plans kostet nur einen Platz, egal für wie viele Fraktionen. Im Ausschnitt steht befehle_frei: rate (Rest der Rate), piraten (bereite Piratenflotten), platz (freie max_active-Plätze je Reich, auch außerhalb des Umkreises), abk (Rest der Abkühlzeit je Befehl und Fraktion, nur wenn größer 0). Plane nur, was dort noch frei ist.`);
   L.push('Ein Befehl ist ein Objekt mit "typ" und genau den Feldern seines Typs (kein anderes Feld):');
   for (const typ of Object.keys(FELDER).sort()) {
     const k = KAT[typ];

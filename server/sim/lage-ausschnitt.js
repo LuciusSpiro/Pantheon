@@ -86,6 +86,7 @@ function bauen(game, st, namen) {
     crew: { anzahl: (game.players || []).filter((p) => p && p.connected !== false).length || (game.players || []).length, hex: hex && d.hex[hex] ? hex : null, ort: hex && d.hex[hex] ? name(hex) : null, rang: Ruf.rang(game), stufe: (game.ship && game.ship.stufe) | 0 },
     ruf: { rom: Ruf.ruf(game, 'rom'), ger: Ruf.ruf(game, 'ger'), kon: Ruf.ruf(game, 'kon') },
     lage: { sieger: lage.sieger, anteil: lage.anteil },
+    befehle_frei: Regie.befehleFrei(game),   // SUND-03 F: was Befehle jetzt voraussetzen (Rate-Rest, bereite Piraten, freie Plätze, Abkühlung); gehört zum Nichtkürzbaren
     orte, flotten, ereignisse: ev, chronik, embargos, mieten,
   };
 }

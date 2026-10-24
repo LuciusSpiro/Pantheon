@@ -55,7 +55,7 @@ section('Format: kompakt, sortiert, deterministisch', () => {
   ok(sortiert(JSON.parse(a.text)), 'alle Schlüssel sortiert (in jeder Tiefe)');
   ok(Ausschnitt.ausschnitt(g, { stufe: 0 }).text === a.text && Ausschnitt.ausschnitt(simSpiel(2, 120), { stufe: 0 }).text === a.text, 'deterministisch: zweimal derselbe Aufruf und zweimal derselbe Spielstand liefern denselben Text');
   const d = teile(a.text);
-  ok(['chronik', 'crew', 'embargos', 'ereignisse', 'flotten', 'lage', 'mieten', 'orte', 'ruf', 'tick'].join() === Object.keys(d).join(), 'Abschnitte: chronik, crew, embargos, ereignisse, flotten, lage, mieten, orte, ruf, tick');
+  ok(['befehle_frei', 'chronik', 'crew', 'embargos', 'ereignisse', 'flotten', 'lage', 'mieten', 'orte', 'ruf', 'tick'].join() === Object.keys(d).join(), 'Abschnitte: befehle_frei, chronik, crew, embargos, ereignisse, flotten, lage, mieten, orte, ruf, tick');
   ok(['aktiv', 'belagert', 'gefallen', 'ruhig', 'unterwegs'].join() === Object.keys(d.flotten).join(), 'Flotten: aktiv, belagert, gefallen, ruhig, unterwegs');
   ok(Ausschnitt.ausschnitt({ weltsim: null }, { stufe: 0 }).text === '', 'ohne Modus: leer');
   ok(Ausschnitt.ausschnitt(g, {}).stufe === 0 && Ausschnitt.ausschnitt(g, { stufe: 9 }).stufe === 3 && Ausschnitt.ausschnitt(g, { stufe: -2 }).stufe === 0 && Ausschnitt.ausschnitt(g).stufe === 0, 'Stufe wird geklemmt (0 bis 3)');
