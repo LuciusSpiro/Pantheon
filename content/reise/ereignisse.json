@@ -106,7 +106,7 @@
         ]
       },
       "chronik": "Notruf Kutter Fortuna bei {ort}: Havarie",
-      "folge": { "angenommen": ["reise_hilfe_rom"], "ablehnen": [] }
+      "folge": { "angenommen": ["reise_havarie_rom"], "ablehnen": [] }
     },
     {
       "id": "notruf_havarie_konvoi", "art": "notruf", "gewicht": 2,
@@ -127,7 +127,7 @@
         ]
       },
       "chronik": "Notruf Lastkahn Brummbär bei {ort}: Havarie",
-      "folge": { "angenommen": ["reise_hilfe_kon"], "ablehnen": [] }
+      "folge": { "angenommen": ["reise_havarie_kon"], "ablehnen": [] }
     },
     {
       "id": "patrouille_rom_gruss", "art": "patrouille", "gewicht": 3,

@@ -161,7 +161,7 @@ section('Eigener Zufallsstrom: Sim und game.rng bleiben unberührt, Ergebnis ist
   ok(a.rng() === c.rng() && a.rng() === c.rng(), 'game.rng wurde nicht verbraucht (gleiche nächste Zahlen wie in einem Spiel ohne Ereignisse)');
   const d = spiel({ seed: 12 }).g; ws(d).zustand.seed = 4242;
   ok(reihe(d) !== ra, 'anderer Sim-Seed, andere Reihe');
-  ok(JSON.stringify(Object.keys(ws(a).reise).sort()) === JSON.stringify(['laufend', 'letzte', 'letzter', 'n', 'offen']), 'der Strom hat keinen eigenen Zustand (nur Zähler n, letzter, letzte, offen, laufend)');
+  ok(JSON.stringify(Object.keys(ws(a).reise).sort()) === JSON.stringify(['laufend', 'letzte', 'letzter', 'n', 'offen', 'rufLog']), 'der Strom hat keinen eigenen Zustand (nur Zähler n, letzter, letzte, rufLog, offen, laufend)');
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -293,7 +293,7 @@ section('Notruf: Hinfliegen, Ablehnen kostet nichts, Verfall', () => {
   const ruf0 = rom(g);
   const e2 = sicher(() => springe(g, ort), 0);
   ok(e2 === null && R.offen.length === 0 && !Marken.liste(g).some((m) => /^reise:/.test(m.id)), 'Hinfliegen: der Notruf ist beantwortet (kein neues Ereignis im selben Sprung), Marke weg');
-  ok(rom(g) === ruf0 + require('../content/welt/ruf-werte.json').werte.quellen.wert.reise_hilfe_rom.delta, 'Folge: Ruf +3 bei Rom (ruf_aenderung, Grund reise_hilfe_rom)');
+  ok(rom(g) === ruf0 + require('../content/welt/ruf-werte.json').werte.quellen.wert.reise_havarie_rom.delta, 'Folge: Ruf bei Rom (ruf_aenderung, Grund reise_havarie_rom, +1)');
   const dank = RE.KATALOG.find((x) => x.id === 'notruf_havarie_reaktor').texte.dank;
   const f = [0, 1, 2].map((i) => funkTexte(t, i).filter((x) => dank.includes(x)).length);
   ok(f.every((x) => x === 1), 'Dank-Funk an alle drei, einmal');
@@ -313,7 +313,7 @@ section('Notruf: Hinfliegen, Ablehnen kostet nichts, Verfall', () => {
   ok(rom(g2) === ruf2 && R2.laufend.length === 1, 'solange die Räuber leben: noch kein Ruf');
   g2.space.enemies = g2.space.enemies.filter((x) => x.tag !== tag);
   g2.step();
-  ok(rom(g2) === ruf2 + 3 && R2.laufend.length === 0, 'Gegner besiegt: Ruf +3 (Hilfe geleistet)');
+  ok(rom(g2) === ruf2 + require('../content/welt/ruf-werte.json').werte.quellen.wert.reise_hilfe_rom.delta && R2.laufend.length === 0, 'Gegner besiegt: Ruf reise_hilfe_rom (+2, Hilfe geleistet)');
   ok(funkTexte(t2).some((x) => RE.KATALOG.find((e) => e.id === 'notruf_pirat_frachter').texte.dank.includes(x)), 'Dank-Funk nach dem Kampf');
   // Ablehnen kostet nichts: Sim und Ruf wie in einem Spiel ohne Ereignisse
   const a = spiel(), b = spiel({ env: { REISE_EREIGNISSE: 'off' } });

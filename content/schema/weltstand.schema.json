@@ -184,7 +184,7 @@
               "additionalProperties": { "type": "integer", "minimum": 0 }
             },
             "chronik": {
-              "type": "array", "maxItems": 40,
+              "type": "array", "maxItems": 200,
               "description": "SUND-03 D: Chronik der Freien Fahrt (server/sim/chronik.js, Daten content/welt/chronik-werte.json): Ringliste der letzten Taetigkeiten und Entscheidungen (Reise-Ereignisse, Ausgaenge der Sim-Szenen, Wahl und Ablehnung von Absichten, angewandte Plaene des Lage-Spielleiters, Posten, Wendepunkte). t = Tick der Sim, art = Quelle, ref = Katalog-/Szenen-/Plan-Id, kurz = Text (hoechstens 80 Zeichen, keine Spielernamen), param = wenige Felder. Fehlt im Altstand (leer). Nur der Server schreibt; der Leser verwirft Unbekanntes.",
               "items": { "type": "object", "required": ["t", "art", "ref", "kurz"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "art": { "enum": ["reise", "szene", "absicht", "plan", "posten", "welt"] }, "ref": { "type": "string", "maxLength": 40 }, "kurz": { "type": "string", "maxLength": 80 }, "param": { "type": "object", "maxProperties": 4 } } }
             },
@@ -192,9 +192,10 @@
               "type": "object", "required": ["n"], "additionalProperties": false,
               "description": "SUND-03 D: Reise-Ereignisse (server/sim/reise-ereignis.js, Daten content/reise/): n = Zahl der Spruenge seit Beginn (Zaehler des eigenen Zufallsstroms, er hat sonst keinen Zustand), letzter = Sprung des letzten Ereignisses (oder Abfangens), letzte = die letzten Ereignisse { id, k = Parametersatz, n = Sprung } fuer die Wiederholungsregeln. Offene Notrufe und laufende Gefahren stehen nicht im Weltstand. Fehlt im Altstand (Anfang). Nur der Server schreibt.",
               "properties": {
-                "n": { "type": "integer", "minimum": 0 },
+                "n": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+                "r": { "type": "array", "maxItems": 20, "description": "SUND-03 D-Fix2: Ruf aus Reise-Ereignissen der letzten 100 Spruenge [Sprung, Betrag] (Deckel ruf_max_je_100).", "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } } },
                 "letzter": { "type": "integer", "minimum": 0 },
-                "letzte": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["id", "k", "n"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "k": { "type": "string", "maxLength": 80 }, "n": { "type": "integer", "minimum": 0 } } } }
+                "letzte": { "type": "array", "maxItems": 32, "items": { "type": "object", "required": ["id", "k", "n"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "k": { "type": "string", "maxLength": 80 }, "n": { "type": "integer", "minimum": 0 } } } }
               }
             },
             "verrat": {

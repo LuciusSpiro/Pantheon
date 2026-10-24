@@ -35,6 +35,7 @@ const Zufall = require('../weltsim/zufall.js');
 const KATALOG = require('../../content/reise/ereignisse.json').eintraege;
 const WERTE = Object.fromEntries(Object.entries(require('../../content/reise/werte.json').werte).map(([k, v]) => [k, v.wert]));
 const RUF_QUELLEN = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
+const RUF_FENSTER = 100;   // Sprünge, über die der Ruf-Deckel zählt
 const ABSTAND_HART = 3;   // höchstens 1 Ereignis je 3 Sprünge, unabhängig von den Daten
 const ARTEN = ['notruf', 'patrouille', 'piraten', 'funkmeldung'];
 const kl = () => require('./kriegslage.js');   // lazy: kriegslage.js lädt dieses Modul
@@ -45,7 +46,7 @@ const hexName = (hex) => Sektoren.hexName(hex) || String(hex);
 const abstandSpruenge = () => Math.max(ABSTAND_HART, Math.floor(Number(WERTE.min_abstand_spruenge)) || 0);
 
 // ---------- Zustand (Weltstand welt.sim.reise). Laufzeit (nicht gespeichert): offen = offene Notrufe des Katalogs, laufend = angekündigte/laufende Gefahren
-const neu = () => ({ n: 0, letzter: null, letzte: [], offen: [], laufend: [] });
+const neu = () => ({ n: 0, letzter: null, letzte: [], rufLog: [], offen: [], laufend: [] });
 function zustandVon(game) {
   const ws = game.weltsim;
   if (!ws) return null;
@@ -214,6 +215,11 @@ function folgeBuchen(game, e) {
   const gruende = (e && e.folge && e.folge.angenommen) || [];
   const wirkungen = gruende.filter((g) => RUF_QUELLEN[g]).map((g) => ({ typ: 'ruf_aenderung', fraktion: RUF_QUELLEN[g].fraktion, delta: RUF_QUELLEN[g].delta, grund: g }));
   if (!wirkungen.length) return 0;
+  const R = zustandVon(game);
+  const betrag = wirkungen.reduce((s, w) => s + Math.abs(w.delta), 0);
+  R.rufLog = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);
+  if (R.rufLog.reduce((s, x) => s + x[1], 0) + betrag > WERTE.ruf_max_je_100) return 0;   // Deckel: Reise-Ereignisse sollen die Rangleiter nicht verkürzen
+  R.rufLog.push([R.n, betrag]);
   try { return kl().rufBuchen(game, wirkungen).angewandt; } catch (err) { if (game.countError) game.countError('reise-folge', err); return 0; }
 }
 
@@ -335,13 +341,16 @@ function toSave(ws) {
   const b = { n: R.n };
   if (R.letzter != null) b.letzter = R.letzter;
   if (R.letzte.length) b.letzte = R.letzte.map((x) => ({ id: x.id, k: x.k, n: x.n }));
+  const rl = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);
+  if (rl.length) b.r = rl.map((x) => [x[0], x[1]]);
   return b;
 }
 function lesen(b) {
   const R = neu();
   if (!b || typeof b !== 'object' || Array.isArray(b)) return R;
-  if (Number.isFinite(b.n) && b.n >= 0) R.n = Math.floor(b.n);
+  if (Number.isFinite(b.n) && b.n >= 0) R.n = Math.min(1e9, Math.floor(b.n));   // klemmen: kein Müllwert, der den Zähler sprengt
   if (Number.isFinite(b.letzter) && b.letzter >= 0) R.letzter = Math.min(Math.floor(b.letzter), R.n);
+  if (Array.isArray(b.r)) R.rufLog = b.r.filter((x) => Array.isArray(x) && Number.isInteger(x[0]) && x[0] >= 0 && x[0] <= R.n && R.n - x[0] < RUF_FENSTER && Number.isFinite(x[1]) && x[1] > 0 && x[1] <= 20).map((x) => [x[0], x[1]]).slice(-20);
   if (Array.isArray(b.letzte)) {
     for (const x of b.letzte) {
       if (!x || typeof x !== 'object' || typeof x.id !== 'string' || !eintrag(x.id) || typeof x.k !== 'string' || x.k.length > 80 || !Number.isFinite(x.n) || x.n < 0) continue;

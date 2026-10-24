@@ -107,6 +107,7 @@ function lauf(seed, o) {
   const z = { zufall: Zufall.startzustand(seed) };
   const erster = RAENGE.map(() => null); erster[0] = 0;
   let ruf = 0; let szenen = 0; let siege = 0; let fluchten = 0;
+  if (o.reise) { o.reise.stand = { letzter: -99, log: [], summe: 0 }; }
   for (const e of o.einmalig || []) e.vorhanden = Zufall.zahl(z) < e.p;
   for (const s of o.sprengen || []) { s.vorhanden = Zufall.zahl(z) < s.p; s.n = s.ab + Math.floor(Zufall.zahl(z) * (s.bis - s.ab + 1)); }   // SUND-02b A2: gibt es in diesem Lauf einen feindlichen Posten, und wann sprengt die Crew ihn   // Versorgung: gibt es das Ereignis in diesem Lauf (freies Hex da, römischer Posten da)? Nur der Lauf entscheidet, nie die Crew
   const pPosten = o.posten / 80;
@@ -122,12 +123,37 @@ function lauf(seed, o) {
       else if (v < o.sieg + o.flucht) { fluchten++; const e = Q['fahrerflucht' + (ort ? '_ort_' : '_') + fr]; if (e) ruf = klemmen(ruf + e.delta); }
     }
     if (pPosten > 0 && Zufall.zahl(z) < pPosten) ruf = klemmen(ruf + o.postenDelta);   // Annahme Paket A: Posten gründen/halten
+    if (o.reise) ruf = klemmen(ruf + reiseSprung(z, o.reise, n));   // SUND-03 D-Fix2: Reise-Ereignisse (Katalog content/reise/ereignisse.json)
     for (const e of o.einmalig || []) if (e.n === n && e.vorhanden) ruf = klemmen(ruf + e.delta);
     for (const s of o.sprengen || []) if (s.n === n && s.vorhanden) ruf = klemmen(ruf + s.delta);   // SUND-02b A2   // SUND-02b A1: einmalige Posten-Ereignisse zu festen Sprüngen (--einmalig n:delta:p)
     const r = rangVon(ruf);
     for (let i = 1; i <= r; i++) if (erster[i] === null) erster[i] = n;
   }
   return { erster, ruf, szenen, siege, fluchten };
+}
+// SUND-03 D-Fix2: Ruf aus Reise-Ereignissen je Sprung. Echter Katalog und echte Werte (content/reise), Annahmen als Argumente: --reise (an), --reise-raum rom=0.4,saum=0.2,frei=0.2,ger=0.15,pirat=0.05 (Besitzer der Ankunftssektoren),
+// --reise-annahme 0.6 (Anteil der Notrufe, die die Crew beantwortet), --reise-sieg 0.9 (Anteil der Kämpfe, die sie gewinnt), --reise-cap 5 (Deckel je 100 Sprünge, 0 = ohne Deckel). Rang- und Lagefenster zählen nicht.
+const REISE_KAT = require('../content/reise/ereignisse.json').eintraege;
+const REISE_W = Object.fromEntries(Object.entries(require('../content/reise/werte.json').werte).map(([k, v]) => [k, v.wert]));
+function reiseSprung(z, r, n) {
+  const s = r.stand;
+  if (n - s.letzter < Math.max(3, REISE_W.min_abstand_spruenge) || !(Zufall.zahl(z) < REISE_W.wahrscheinlichkeit)) return 0;
+  let u = Zufall.zahl(z), besitzer = null;
+  for (const [b, p] of Object.entries(r.raum)) { if (u < p) { besitzer = b; break; } u -= p; }
+  const kand = REISE_KAT.filter((e) => !e.bedingungen.besitzer || e.bedingungen.besitzer.includes(besitzer || 'rom'));
+  let w = Zufall.zahl(z) * kand.reduce((a, e) => a + e.gewicht, 0); let e = kand[kand.length - 1];
+  for (const k of kand) { w -= k.gewicht; if (w < 0) { e = k; break; } }
+  s.letzter = n;
+  const gelaufen = e.art !== 'notruf' || Zufall.zahl(z) < r.annahme;
+  const gewonnen = !e.gefahr || e.art === 'patrouille' || Zufall.zahl(z) < r.sieg;
+  if (!gelaufen || !gewonnen) return 0;
+  const d = e.folge.angenommen.map((g) => Q[g]).filter((q) => q && q.fraktion === 'rom').reduce((a, q) => a + q.delta, 0);
+  const betrag = e.folge.angenommen.map((g) => Q[g]).filter(Boolean).reduce((a, q) => a + Math.abs(q.delta), 0);
+  if (!betrag) return 0;
+  s.log = s.log.filter((x) => n - x[0] < 100);
+  if (r.cap > 0 && s.log.reduce((a, x) => a + x[1], 0) + betrag > r.cap) return 0;
+  s.log.push([n, betrag]); s.summe += d;
+  return d;
 }
 const quantil = (liste, q) => { if (!liste.length) return null; const s = liste.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * s.length))]; };
 
@@ -140,6 +166,7 @@ function rechnen() {
   const vd = ((Q.verrat_beginn || {}).delta || 0) + ((Q.verrat_flotte_vernichtet || {}).delta || 0);
   for (const n of o.verrat) o.einmalig.push({ n, delta: vd, p: 1 });
   o.sprengen = String(val('--sprengen', '')).split(',').filter(Boolean).map((x) => { const [p, delta, ab, bis] = x.split(':').map(Number); return { p, delta, ab, bis: Number.isFinite(bis) ? bis : ab }; });
+  if (has('--reise')) o.reise = { raum: Object.fromEntries(String(val('--reise-raum', 'rom=0.4,saum=0.2,frei=0.2,ger=0.15,pirat=0.05')).split(',').map((kv) => { const [k, v] = kv.split('='); return [k, Number(v)]; })), annahme: Number(val('--reise-annahme', 0.6)), sieg: Number(val('--reise-sieg', 0.9)), cap: Number(val('--reise-cap', REISE_W.ruf_max_je_100)) };
   const postenListe = String(val('--posten', '0,2,4,6,8,12')).split(',').map(Number).filter((x) => x >= 0);
   const ergebnis = [];
   for (const posten of postenListe) {
@@ -159,6 +186,7 @@ function rechnen() {
   if (o.verrat.length) console.log(`  Verrat (E): bei Sprung ${o.verrat.join(', ')} je ${((Q.verrat_beginn || {}).delta || 0) + ((Q.verrat_flotte_vernichtet || {}).delta || 0)} Ruf (Beginn ${(Q.verrat_beginn || {}).delta} + vernichtet ${(Q.verrat_flotte_vernichtet || {}).delta})`);
   if (o.sprengen.length) console.log(`  Sprengungen (A2): ${o.sprengen.map((s) => `p ${s.p}, +${s.delta} Ruf, Sprung ${s.ab}–${s.bis}`).join('; ')}`);
   console.log(`  Schwellen: ${RAENGE.slice(1).map((r) => `${r.name} ${r.ab}`).join(', ')} (Rom ${KLEMM.min}..${KLEMM.max}); Quellen: ${Object.entries(Q).map(([k, e]) => `${k} ${e.delta > 0 ? '+' : ''}${e.delta}`).join(', ')}`);
+  if (o.reise) console.log(`  Reise-Ereignisse (D-Fix2): Raum ${JSON.stringify(o.reise.raum)}, Notrufe beantwortet ${o.reise.annahme}, Kämpfe gewonnen ${o.reise.sieg}, Deckel ${o.reise.cap || 'keiner'} je 100 Sprünge`);
   console.log('  Sprünge bis zum ERSTEN Erreichen: Median (10 % – 90 %), in Klammern der Anteil der Läufe, die es schaffen');
   console.log('  Posten/80   Szenen/80   ' + RAENGE.slice(1).map((r) => r.name.padEnd(26)).join(''));
   for (const z of ergebnis) {
