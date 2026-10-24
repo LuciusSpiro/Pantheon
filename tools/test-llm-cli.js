@@ -90,6 +90,39 @@ const warte = async (f, ms) => { const t0 = Date.now(); while (Date.now() - t0 <
     const er4 = await e4;
     ok(er4 && er4.code === 'ETIMEDOUT', 'Timeout: Fehler ETIMEDOUT');
     ok(id4 && await warte(() => !lebt(id4.eltern) && !lebt(id4.kind), 6000), 'Timeout beendet den ganzen Prozessbaum');
+    // 5. SUND-03 F2: kein taskkill nach dem Ende des Prozesses (die PID kann neu vergeben sein), Fake-taskkill protokolliert; scheitert taskkill, beendet p.kill() wenigstens den Elternprozess
+    if (process.platform === 'win32') {
+      const tkLog = path.join(dir, 'tk.log'); const tkAlt = Object.assign({}, LLM.TASKKILL);
+      const fakeTk = path.join(dir, 'fake-taskkill.js');
+      const tkCode = (c) => "require('fs').appendFileSync(" + JSON.stringify(tkLog) + ", process.argv.slice(2).join(' ') + String.fromCharCode(10)); " + (c === 0 ? "require('child_process').spawnSync(require('path').join(process.env.SystemRoot, 'System32', 'taskkill.exe'), process.argv.slice(2), { windowsHide: true }); " : "") + "process.exit(" + c + ");";
+      try {
+        LLM.TASKKILL.cmd = process.execPath; LLM.TASKKILL.vorArgs = [fakeTk];
+        fs.writeFileSync(fakeTk, tkCode(0));
+        fs.writeFileSync(path.join(dir, 'modus'), 'antwort'); frisch();
+        const ctl5 = new AbortController();
+        const r5 = await LLM.TRANSPORTS.cli.call('Frage', { system: sys, model: 'sonnet', timeoutMs: 20000, signal: ctl5.signal });
+        ctl5.abort();
+        await sleep(600);
+        ok(r5.text === 'fertig' && !fs.existsSync(tkLog), 'Abbruch NACH dem Ende des Prozesses (dispose nach fertiger Antwort): kein taskkill auf die freie PID');
+        // taskkill läuft mit /T /F /PID <eigene PID>
+        fs.writeFileSync(path.join(dir, 'modus'), 'haengt'); frisch();
+        const ctl6 = new AbortController();
+        const p6 = fehler(LLM.TRANSPORTS.cli.call('Frage', { system: sys, model: 'sonnet', timeoutMs: 60000, signal: ctl6.signal }));
+        await warte(() => pids(), 8000); const id6 = pids();
+        ctl6.abort(); await p6; await sleep(500);
+        const zeilen = fs.existsSync(tkLog) ? fs.readFileSync(tkLog, 'utf8') : '';
+        ok(zeilen.trim() === '/T /F /PID ' + id6.eltern, 'taskkill bekommt genau /T /F /PID und die eigene PID: ' + zeilen.trim());
+        try { process.kill(id6.kind); } catch (e) { /* weg */ } try { process.kill(id6.eltern); } catch (e) { /* weg */ }
+        // taskkill scheitert (Exit 1): p.kill() beendet wenigstens den Elternprozess
+        fs.writeFileSync(fakeTk, tkCode(1)); fs.unlinkSync(tkLog); frisch();
+        const ctl7 = new AbortController();
+        const p7 = fehler(LLM.TRANSPORTS.cli.call('Frage', { system: sys, model: 'sonnet', timeoutMs: 60000, signal: ctl7.signal }));
+        await warte(() => pids(), 8000); const id7 = pids();
+        ctl7.abort(); const e7 = await p7;
+        ok(e7 && e7.code === 'ABORTED' && await warte(() => !lebt(id7.eltern), 6000), 'taskkill scheitert: p.kill() beendet den Elternprozess trotzdem');
+        try { process.kill(id7.kind); } catch (e) { /* weg */ }
+      } finally { LLM.TASKKILL.cmd = tkAlt.cmd; LLM.TASKKILL.vorArgs = tkAlt.vorArgs; }
+    }
   } finally { if (alt === undefined) delete process.env.CLAUDE_CLI; else process.env.CLAUDE_CLI = alt; }
   // Quelltext-Naht: ohne Shell, Prozessbaum
   const src = fs.readFileSync(path.join(__dirname, '..', 'server', 'mission', 'llm.js'), 'utf8');

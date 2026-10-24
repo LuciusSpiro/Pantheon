@@ -287,11 +287,14 @@ function claudeFinden(o) {
   return { cmd: null, args: [], pfad: null, quelle: null, versucht };
 }
 // Beendet den GANZEN Prozessbaum genau dieses Prozesses (Windows: taskkill /T /F /PID <eigene pid>, nie /IM; sonst die Prozessgruppe, der Prozess startet dafür detached). Nicht blockierend.
+// taskkill mit vollem Pfad (kein Suchpfad: kein untergeschobenes taskkill.exe); die Tests ersetzen cmd und vorArgs durch ein Fake-Programm
+const TASKKILL = { cmd: path.join(process.env.SystemRoot || process.env.windir || 'C:\\Windows', 'System32', 'taskkill.exe'), vorArgs: [] };
 function baumBeenden(p) {
   if (!p || !p.pid) return;
+  if (p.exitCode !== null || p.signalCode !== null) return;   // schon beendet: die PID kann neu vergeben sein, nie auf eine fremde PID zielen
   try {
     if (process.platform === 'win32') {
-      const k = require('child_process').spawn('taskkill', ['/T', '/F', '/PID', String(p.pid)], { stdio: 'ignore', windowsHide: true });
+      const k = require('child_process').spawn(TASKKILL.cmd, [...TASKKILL.vorArgs, '/T', '/F', '/PID', String(p.pid)], { stdio: 'ignore', windowsHide: true });
       // taskkill braucht den lebenden Elternprozess, um den Baum zu finden: p.kill() erst, wenn taskkill selbst scheitert
       const notfalls = () => { try { p.kill(); } catch (e) { /* schon weg */ } };
       k.on('error', notfalls);
@@ -346,9 +349,11 @@ function callClaude(text, sysFile, model, timeoutMs, signal) {
       }
     });
     p.stderr.on('data', (d) => { err += d; });
-    p.on('error', (e) => { clearTimeout(kill); reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar (${cli}): ${e.message}`)); });
+    const listenerWeg = () => { if (signal) signal.removeEventListener('abort', abbrechen); };   // nach dem Ende des Prozesses nie mehr abbrechen (PID-Wiederverwendung)
+    p.on('exit', listenerWeg);
+    p.on('error', (e) => { listenerWeg(); clearTimeout(kill); reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar (${cli}): ${e.message}`)); });
     p.on('close', (code) => {
-      clearTimeout(kill);
+      listenerWeg(); clearTimeout(kill);
       if (aborted) return reject(llmError('ABORTED', 'claude: abgebrochen'));
       if (timedOut) return reject(llmError('ETIMEDOUT', `Zeitüberschreitung nach ${Math.round((Date.now() - t0) / 1000)} s`));
       const all = err + ' ' + (result && typeof result.result === 'string' ? result.result.slice(0, 300) : '');
@@ -479,6 +484,6 @@ function create(opts) {
 
 module.exports = {
   create, key, canonical, canonicalize, record, recordingPath, renderPrompt, buildPrompt, mockGrobplan, mockSzene,
-  claudeFinden, baumBeenden, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
+  claudeFinden, baumBeenden, TASKKILL, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
   KINDS, MODES, TRANSPORTS, SYSTEM_PROMPTS, DEFAULT_FIXTURES, PROMPT_DIR,
 };
