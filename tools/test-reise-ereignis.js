@@ -438,6 +438,15 @@ section('Sim-Parität und Schalter', () => {
   ok(ws(b.g).chronik.every((c) => c.art !== 'reise'), 'Schalter aus: keine Reise-Ereignisse, keine Chronik der Ereignisse');
   const c = spiel({ env: {} }); const c2 = spiel({ env: { REISE_EREIGNISSE: '0' } }); const c3 = spiel({ env: { REISE_EREIGNISSE: 'on' } });
   ok(RE.aktiv(c.g) === (RE.WERTE.standard_an === true) && RE.WERTE.standard_an === false && !RE.aktiv(c2.g) && RE.aktiv(c3.g), 'Standard aus (Datum standard_an), REISE_EREIGNISSE=1/on an, 0/off aus');
+  // Matrix Lage-Spielleiter × REISE_EREIGNISSE
+  const mx = [];
+  for (const lage of [{}, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' }, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'off' }, { SPIELLEITER_LLM: 'mock' }]) for (const r of [undefined, '1', '0']) {
+    const env = Object.assign({}, lage); if (r) env.REISE_EREIGNISSE = r;
+    const an = lage.LAGE_SPIELLEITER === '1' && lage.SPIELLEITER_LLM === 'mock';
+    const soll = r === '1' ? true : r === '0' ? false : an;
+    mx.push(RE.aktiv({ weltsim: { zustand: {} }, env }) === soll);
+  }
+  ok(mx.every(Boolean), 'Matrix: ohne REISE_EREIGNISSE folgt der Schalter dem Lage-Spielleiter (an nur mit LAGE_SPIELLEITER=1 und SPIELLEITER_LLM ≠ off), REISE_EREIGNISSE=1/0 überschreibt');
   // ohne Modus (Kampagne): nichts
   ok(RE.nachSprung({ weltsim: null, env: ENV }, 'ostia_nova') === null && RE.entscheiden({ weltsim: null }, '0305') === null, 'ohne Modus Freie Fahrt Sund: nichts');
 });

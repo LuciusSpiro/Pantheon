@@ -73,7 +73,11 @@ function aktiv(game) {
   const v = String((env && env.REISE_EREIGNISSE) || '').toLowerCase();
   if (v === '1' || v === 'on') return true;
   if (v === '0' || v === 'off') return false;
-  return WERTE.standard_an === true;
+  return voreinstellungAn(env);
+}
+// Ohne REISE_EREIGNISSE: an, wenn der Lage-Spielleiter an ist (LAGE_SPIELLEITER=1 und SPIELLEITER_LLM ≠ off), sonst der Datenwert standard_an (false)
+function voreinstellungAn(env) {
+  return require('./lage-spielleiter.js').schalterAn(env) || WERTE.standard_an === true;
 }
 
 // ---------- Bedingungen
@@ -330,4 +334,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
