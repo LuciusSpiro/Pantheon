@@ -648,6 +648,33 @@ section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
   for (const fl of pir) fl.staerke = 0;
   ok(frei().piraten === 0, 'geschwächte Piraten zählen nicht');
   ok(Regie.befehleFrei({}) === null, 'ohne Modus: null');
+  // SUND-03 F2: Voraussetzungen (Vorrat, Marken, Söldner) aus denselben Regeln wie der Kern-Prüfer
+  const B = Kern.BEFEHLE, zz = z(g), BWn = require('../content/welt/befehle-werte.json').werte.nachschub.wert;
+  const nachPruefen = (an, gut) => { let m = 0; for (let k = BWn.menge.min; k <= BWn.menge.max; k++) { if (B.pruefe(zz, { typ: 'nachschub', an, gut, menge: k }).ok) m = k; } return m; };
+  for (const f of ['rom', 'ger']) { zz.vorrat[f].U = 40; zz.vorrat[f].T = 40; zz.marken[f] = 500; } zz.vorrat.kon.T = 40; zz.vorrat.kon.U = 40; zz.embargo = {};
+  const fn = frei();
+  ok(fn.marken.rom === 500 && Array.isArray(fn.soeldner) && fn.kein_angriff === undefined && fn.nachschub_max === undefined, 'normal: Marken und Söldner stehen da, keine Einschränkung (kein_angriff, nachschub_max fehlen)');
+  zz.vorrat.rom.U = 5;
+  ok(JSON.stringify(frei().kein_angriff) === '["rom"]', 'zu wenig Munition: kein_angriff nennt rom');
+  zz.vorrat.rom.U = 40; zz.vorrat.ger.T = 0;
+  ok(JSON.stringify(frei().kein_angriff) === '["ger"]', 'zu wenig Treibstoff: kein_angriff nennt ger');
+  zz.vorrat.ger.T = 40;
+  let abweichung = 0, geprueft = 0;
+  for (const [kon, marken, embargoRom] of [[40, 500, false], [5, 500, false], [3, 500, false], [40, 2, false], [40, 0, false], [14, 7, false], [40, 500, true]]) {
+    zz.vorrat.kon.T = kon; zz.vorrat.kon.U = kon; zz.marken.rom = marken; zz.marken.ger = marken;
+    zz.embargo = embargoRom ? { rom: { waren: ['T'], von: 'kon', from: zz.tick, bis: zz.tick + 20 } } : {};
+    const fz = frei();
+    for (const an of ['rom', 'ger']) for (const gut of ['T', 'U']) {
+      const soll = nachPruefen(an, gut), ist = fz.nachschub_max && fz.nachschub_max[an] && fz.nachschub_max[an][gut] !== undefined ? fz.nachschub_max[an][gut] : BWn.menge.max;
+      geprueft++; if (soll !== ist) abweichung++;
+    }
+  }
+  ok(geprueft === 28 && abweichung === 0, `nachschub_max stimmt in ${geprueft} Fällen (Vorrat des Konkordats, Marken, Embargo) mit dem Kern-Prüfer überein (${abweichung} Abweichungen)`);
+  zz.embargo = {}; zz.vorrat.kon.T = 40; zz.vorrat.kon.U = 40; zz.marken.rom = 500; zz.marken.ger = 500;
+  const kon = zz.flotten.filter((fl) => fl.fraktion === 'kon');
+  kon[0].befehl = 'angriff'; if (kon[1]) kon[1].miete = { von: 'kon', an: 'rom', bis: zz.tick + 9, preis: 1 };
+  const mietbarSoll = kon.filter((fl) => { const r = B.pruefe(zz, { typ: 'soeldner', von: 'kon', an: 'ger', flotten: [fl.id], dauer: 4 }); return r.ok; }).map((fl) => fl.id).slice(0, 6);
+  ok(JSON.stringify(frei().soeldner) === JSON.stringify(mietbarSoll) && mietbarSoll.length < kon.length, 'soeldner = die freien Konkordat-Flotten, die der Kern-Prüfer vermieten ließe: ' + mietbarSoll.join(','));
 });
 
 section('Rate erschöpft: kein Aufruf', async () => {

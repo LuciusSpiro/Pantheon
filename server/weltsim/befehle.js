@@ -108,6 +108,30 @@ function idsVon(b) {
   return null;
 }
 
+// ---------- Voraussetzungen als benannte Regeln (SUND-03 F2): dieselben Funktionen prüft der Katalog UND liest der Ausschnitt des Lage-Spielleiters (befehle_frei), nie zwei Regeln pflegen
+// Vorrat der Fraktion f für einen Angriff (Munition U, Treibstoff T) -> null | Grund
+function angriffVorratFehler(z, f) {
+  const A = W.angreifen.wert, st = z.vorrat[f];
+  return st.U < A.min_munition || st.T < A.min_treibstoff ? `Munition oder Treibstoff unter ${A.min_munition}` : null;
+}
+// Vorrat des Konkordats und Marken der Fraktion an für einen Nachschub von menge Einheiten gut -> null | Grund
+function nachschubVorratFehler(z, w, an, gut, menge) {
+  const N = W.nachschub.wert;
+  if (z.vorrat.kon[gut] - N.kon_reserve < menge) return `Konkordat hat nicht genug ${gut} (es behält ${N.kon_reserve})`;
+  if (z.marken[an] < menge * w.price_sell * N.preis_faktor) return 'Marken reichen nicht';
+  return null;
+}
+// größte Menge, die nachschubVorratFehler noch durchlässt (0 = keine); Embargo gegen an: 0
+function nachschubMengeMax(z, w, an, gut) {
+  const N = W.nachschub.wert;
+  if (embargoAktiv(z, an)) return 0;
+  let m = 0;
+  for (let k = N.menge.min; k <= N.menge.max; k++) { if (nachschubVorratFehler(z, w, an, gut, k)) break; m = k; }
+  return m;
+}
+// eine freie, vermietbare Flotte des Konkordats (zu Hause, nicht vermietet)
+const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;
+
 // ---------- Katalog
 const KATALOG = {
   angreifen: {
@@ -122,7 +146,7 @@ const KATALOG = {
       if (!A.hauptwelt_erlaubt && Object.values(d.hauptwelten).includes(b.ziel)) return 'Hauptwelten sind kein Ziel eines Befehls';
       if (z.angriffe.some((r) => r.t_ende === null && r.ziel === b.ziel && r.von === b.fraktion)) return 'Feldzug auf dieses Ziel läuft schon';
       const st = z.vorrat[b.fraktion];
-      if (st.U < A.min_munition || st.T < A.min_treibstoff) return `Munition oder Treibstoff unter ${A.min_munition}`;
+      const vf = angriffVorratFehler(z, b.fraktion); if (vf) return vf;
       const ids = idsVon(b);
       if (b.von !== undefined && !istHex(z, b.von)) return 'von ist kein Hex';
       if (b.flotten !== undefined && b.flotte !== undefined) return 'flotte und flotten schließen sich aus';
@@ -219,9 +243,7 @@ const KATALOG = {
       if (!Number.isInteger(b.menge) || b.menge < N.menge.min || b.menge > N.menge.max) return `menge muss eine ganze Zahl von ${N.menge.min} bis ${N.menge.max} sein`;
       if (b.hafen !== undefined && (!istHex(z, b.hafen) || z.hexe[b.hafen].besitzer !== b.an || !H.istHafen(c, b.hafen))) return 'hafen ist kein Hafen von an';
       if (embargoAktiv(z, b.an)) return `Embargo gegen ${b.an}: das Konkordat liefert nicht`;
-      if (z.vorrat.kon[b.gut] - N.kon_reserve < b.menge) return `Konkordat hat nicht genug ${b.gut} (es behält ${N.kon_reserve})`;
-      if (z.marken[b.an] < b.menge * w.price_sell * N.preis_faktor) return 'Marken reichen nicht';
-      return null;
+      return nachschubVorratFehler(z, w, b.an, b.gut, b.menge);
     },
     anwenden(c, b) {
       const { z, w } = c, preis = b.menge * w.price_sell * W.nachschub.wert.preis_faktor;
@@ -490,4 +512,4 @@ function regieRaeumen(z) { delete z.regie; }
 
 function installiere(helfer) { H = helfer; }
 
-module.exports = { KATALOG, FELDER, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };
+module.exports = { angriffVorratFehler, nachschubVorratFehler, nachschubMengeMax, mietbar, KATALOG, FELDER, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };

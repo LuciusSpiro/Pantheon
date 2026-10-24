@@ -25,7 +25,7 @@ So baust du Dramaturgie über mehrere Pläne:
   Was in `<letzte_plaene>` mit „abgelehnt“ steht, ist NICHT geschehen: nimm nie an, ein abgelehnter Angriff laufe. Was „ok“ ist, wurde angenommen, wirkt aber
   erst nach dem Vorlauf.
 - **Haushalte mit `befehle_frei`:** `rate` ist der Rest der Rate, `platz` die freien Einsatzplätze je Reich, `piraten` die bereiten Piratenflotten,
-  `abk` der Rest der Abkühlzeit je Befehl und Fraktion. Setze nichts, was dort nicht frei ist (der Prüfer lehnt es ab und der Befehl ist verschenkt).
+  `abk` der Rest der Abkühlzeit je Befehl und Fraktion, `kein_angriff` nennt Reiche, deren Munition oder Treibstoff nicht für einen Angriff reicht (ein Angriff dieses Reichs scheitert), `nachschub_max` die größte Nachschubmenge je Gut für eingeschränkte Reiche (0 = geht nicht), `marken` die Marken je Reich (Söldner und Nachschub kosten Marken), `soeldner` die freien Konkordat-Flotten. Was in `befehle_frei` fehlt, ist erfüllt. Setze nichts, was dort nicht frei ist (der Prüfer lehnt es ab und der Befehl ist verschenkt).
 - **Höchstens so viele Befehle, wie der Katalog erlaubt.** Lieber ein oder zwei gute als fünf beliebige.
 - **Alle Fraktionen sind steuerbar** (Rom, Germanen, Konkordat, Piraten), mit denselben Regeln für alle. Du hilfst keiner Seite mit Zahlen:
   keine Gratis-Erträge, keine Sonderrechte, kein „die Crew gewinnt“.
@@ -41,7 +41,7 @@ So baust du Dramaturgie über mehrere Pläne:
 
 ## Der Ausschnitt (`<ausschnitt>`, kompaktes JSON)
 `tick` Sprung der Sim · `crew` { anzahl, hex, ort, rang, stufe } · `ruf` { rom, ger, kon } · `lage` { sieger: rom|ger|offen, anteil Roms an der Macht } ·
-`befehle_frei` { rate, piraten, platz { rom, ger }, abk { Befehl:Fraktion: Rest } } ·
+`befehle_frei` { rate, piraten, platz { rom, ger }, abk { Schlüssel: Rest }, marken { rom, ger }, soeldner [Ids], kein_angriff? [Reiche], nachschub_max? { Reich: { T, U } } } ·
 `orte` [ { h Hex-Code, n Name, a hafen*|posten|frei, b Besitzer, abw Abwehr bzw. Garnison, crew 1 = Stützpunkt der Crew } ] ·
 `flotten` { belagert [ { ziel, von, art, seit, st Stärke, b } ], unterwegs [ { ziel, von, art, ph, st } ], gefallen [ Wendepunkte ],
 aktiv [ { id, f Fraktion, ort, st, bef Befehl, ziel, mangel, miete } ], ruhig Zahl oder Liste } ·

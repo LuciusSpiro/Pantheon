@@ -182,7 +182,7 @@ section('Obergrenze über viele Sim-Zustände', () => {
   console.log(`       ${zustaende} Zustände (Seeds 0–13 × 7 Zeitpunkte × normal/Stress, Chronik am Anschlag): Zeichen je Stufe Mittel/Max: ` + zeichen.map((a, s) => `S${s} ${mw(a)}/${mx(a)}`).join(' · ') + `; gewählte Stufen ${stufen.join('/')}`);
   ok(zuGross === 0 && nichtPassend === 0 && maxGefunden <= MAX, `ausschnittPassend bleibt in allen ${zustaende} Zuständen unter ${MAX} Zeichen (größter: ${maxGefunden}, ≈ ${Math.round(maxGefunden / 2.7)} Gemma-Token)`);
   ok(engFalsch === 0 && eng.slice(1).some((x) => x > 0), `enge Grenze 2800: immer die kleinste nötige Kürzung (gewählte Stufen ${eng.join('/')}), nie stärker gekürzt als nötig`);
-  ok(mw(zeichen[0]) < MAX * 0.8, 'Stufe 0 liegt im Mittel deutlich unter der Obergrenze (' + mw(zeichen[0]) + ')');
+  ok(mw(zeichen[0]) < MAX * 0.85, 'Stufe 0 liegt im Mittel unter der Obergrenze (' + mw(zeichen[0]) + ' von ' + MAX + '; SUND-03 F2: befehle_frei trägt Vorrat, Marken und Söldner, vorher 3783, gemessen in Zuständen mit voller Chronik und Stress; alle 196 Zustände brauchen weiter nur Stufe 0)');
   ok(mx(zeichen[3]) < mx(zeichen[0]), 'Stufe 3 ist immer kleiner als Stufe 0 im Maximum');
 });
 

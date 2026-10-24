@@ -234,7 +234,7 @@ function planAnwenden(game, plan) {
 const kurz = (x) => { try { const t = JSON.stringify(x); return t && t.length > 400 ? t.slice(0, 400) : (typeof x === 'string' ? x.slice(0, 400) : x); } catch (e) { return null; } };
 
 // ---------- Was Befehle jetzt voraussetzen (SUND-03 F): der Rest der Rate, bereite Piratenflotten, freie max_active-Plätze je Reich (global, nicht nur im Umkreis), Rest der Abkühlzeit je Befehlsschlüssel
-// (nur wenn > 0). Eine kleine Lesesicht für den Ausschnitt des Lage-Spielleiters (befehle_frei); ändert nichts. -> { rate, piraten, platz: { rom, ger }, abk?: { Schlüssel: Rest } }
+// (nur wenn > 0), marken { rom, ger }, kein_angriff [Reiche, deren Munition/Treibstoff nicht für einen Angriff reicht] (nur wenn nötig), nachschub_max { Reich: { T|U: größte Menge } } (nur eingeschränkte Reiche, 0 = geht nicht), soeldner [freie Flotten des Konkordats]. Eine kleine Lesesicht für den Ausschnitt des Lage-Spielleiters (befehle_frei); ändert nichts. -> { rate, piraten, platz: { rom, ger }, abk?: { Schlüssel: Rest } }
 function befehleFrei(game) {
   const ws = game.weltsim;
   if (!ws) return null;
@@ -248,7 +248,20 @@ function befehleFrei(game) {
     const typ = key.split(':')[0], rest = ganz(R.abkuehlung.wert[typ], 0) - (n0 - t);
     if (rest > 0) abk[key] = rest;
   }
-  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz };
+  // Vorrat und Marken: aus denselben Regeln wie der Kern-Prüfer (Kern.BEFEHLE.angriffVorratFehler, nachschubMengeMax, mietbar), nie eine zweite Regel
+  // Nur Einschränkungen stehen im Text (kompakt): fehlt ein Eintrag, gilt die Voraussetzung als erfüllt.
+  const BE = Kern.BEFEHLE, marken = {}, keinAngriff = [], nachschubMax = {};
+  for (const f of ['rom', 'ger']) {
+    marken[f] = Math.floor(z.marken[f]);
+    if (BE.angriffVorratFehler(z, f)) keinAngriff.push(f);
+    const lim = {};
+    for (const g of BW.nachschub.wert.guete) { const m = BE.nachschubMengeMax(z, z.werte, f, g); if (m < BW.nachschub.wert.menge.max) lim[g] = m; }
+    if (Object.keys(lim).length) nachschubMax[f] = lim;
+  }
+  const soeldner = z.flotten.filter(BE.mietbar).map((fl) => fl.id).slice(0, 6);
+  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz, marken, soeldner };
+  if (keinAngriff.length) out.kein_angriff = keinAngriff;
+  if (Object.keys(nachschubMax).length) out.nachschub_max = nachschubMax;
   if (Object.keys(abk).length) out.abk = abk;
   return out;
 }
