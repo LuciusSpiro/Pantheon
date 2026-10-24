@@ -98,11 +98,11 @@ section('Anschluss im Lage-Spielleiter', () => {
   const wh = logbuch(g).filter((e) => (e.fehler || []).some((x) => /^Wiederholung/.test(x)));
   ok(r1 === 1 && ws(g).regie.vorgemerkt.length === 1, 'der erste Plan wird angenommen, derselbe Plan danach nicht noch einmal');
   ok(wh.length === 1 && wh[0].ausgang === 'abgelehnt' && wh[0].key === 'nachschub' && wh[0].plan.typ === 'nachschub', 'die Wiederholung steht mit Grund im Regie-Logbuch (art lage_befehl, ausgang abgelehnt, fehler „Wiederholung: …“)');
-  ok(sl.zaehler.angewandt === 2 && sl.zaehler.fehler === 0, 'der Plan gilt als angewandt (nur die Wiederholung fällt heraus), kein Fehler, kein Rückfall');
+  ok(sl.zaehler.angewandt === 1 && sl.zaehler.wirkungslos === 1 && sl.zaehler.fehler === 0, 'der Plan, dessen einziger Befehl als Wiederholung herausfällt, ist plan_wirkungslos (SUND-03 F), kein Fehler, kein Rückfall');
   const letzte = sl.letzte_plaene;
   ok(letzte.length === 2 && JSON.stringify(Object.keys(letzte[1]).sort()) === JSON.stringify(['abgelehnt', 'angenommen', 'befehle', 'begruendung', 'grenze', 'nr', 'tick']) && letzte[1].angenommen === 0 && letzte[1].abgelehnt === 1, 'letzte_plaene: dieselben Felder wie vorher (der Prompt-Teil bleibt), abgelehnt zählt die Wiederholung mit');
   const p = Prompt.baue(g, { art: 'andocken', nr: 3, letzte, werte: W }).prompt;
-  ok(/<letzte_plaene>\n\[/.test(p) && !/Wiederholung|sig|schluessel|nachschub:/.test(p.slice(p.indexOf('<letzte_plaene>'))), 'der Prompt-Teil <letzte_plaene> trägt keine Sätze der Wiederholungsregeln');
+  ok(/<letzte_plaene>\n\[/.test(p) && !/sig|schluessel|nachschub:\{/.test(p.slice(p.indexOf('<letzte_plaene>'))) && /abgelehnt \(Wiederholung/.test(p.slice(p.indexOf('<letzte_plaene>'))), 'der Prompt-Teil <letzte_plaene> trägt keine Schlüssel der Wiederholungsregeln, aber das Ergebnis je Befehl mit Kurzgrund (SUND-03 F)');
   // anderer Parametersatz geht
   ws(g).regie.letzte = {};
   sl.runde({ befehle: [{ typ: 'nachschub', an: 'ger', gut: 'U', menge: 2 }] });
@@ -176,7 +176,7 @@ section('Viele Planungsrunden: Zufalls-Plan-Quelle', () => {
   ok(v.angenommen > 500 && m.wh > 200, 'die Regel greift: viele angenommene Befehle, viele abgelehnte Wiederholungen');
   ok(v.v === 0, `über ${RUNDEN} Runden nie derselbe Typ mit demselben Parametersatz wie in den letzten ${F_} Plänen (${v.v} Verstöße)`);
   ok(regler > 100, 'die Ausnahme (regler nachstellen) wird nicht abgelehnt');
-  ok(sl.zaehler.fehler === 0 && sl.zaehler.angewandt === RUNDEN, 'jeder Plan gilt als angewandt, kein Fehler');
+  ok(sl.zaehler.fehler === 0 && sl.zaehler.angewandt + sl.zaehler.wirkungslos === RUNDEN, 'jeder Plan gilt als angewandt oder (alle Befehle abgelehnt) als wirkungslos, kein Fehler');
   ok(sl.verlauf.length === F_, `der Verlauf bleibt bei den letzten ${F_} Plänen (kein Speicherwachstum)`);
   // Gegenprobe: ohne die Regel gäbe es Verstöße (die Messung kann also welche finden)
   const g2 = F.neuesSpiel({ seed: 9 }).g; const sl2 = spielleiter(g2);
