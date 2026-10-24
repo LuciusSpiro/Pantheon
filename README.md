@@ -1035,6 +1035,12 @@ Zum gezielten Ausprobieren der Kampfbereiche, ohne eine Mission durchzuspielen �
    (Raumkampf: Welle räumen / nächste sofort), `squad 1|2|rear`, `wake`, `shield <n>`, `wound`.
    Wellen und Szene stehen in `shared/config.js` unter `arena`.
 
+## Browser-Treiber für Sichtprüfung und Durchklicken (Playwright)
+
+`playwright-core` ist als devDependency fest auf **1.62.0** gepinnt (`npm install` genügt). Es nutzt die bereits installierten Browser unter `%LOCALAPPDATA%\ms-playwright` (Chromium-Build 1234, passt zu 1.62.0); es wird nichts heruntergeladen. Eine andere Version braucht einen anderen Chromium-Build (1.60 → 1223, 1.61 → 1228, 1.63 → 1243) und damit `npx playwright-core install chromium`.
+
+Start im Skript: `const { chromium } = require('playwright-core'); const b = await chromium.launch();` (headless). Beispiele im Repo: `tools/sicht-t4.js`, `tools/sicht-u2.js`, `tools/kaltbau-mess.js`. Server für Sichtprüfungen mit eigenem Port und `ROOM_CODE=off` starten, Weltordner eigens setzen, danach beenden.
+
 ## Start
 
 ```
