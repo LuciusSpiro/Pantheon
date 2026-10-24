@@ -150,8 +150,8 @@
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
       "texte": {
         "ankuendigung": [
-          "Aufklärung an Lerche: Germanische Späher auf der Ortung, Kurs auf euch, in etwa {n} Sekunden sind sie da. Wer ausweichen will, sollte jetzt springen.",
-          "Aufklärung: Läufer der Germanen halten auf euch zu. Noch {n} Sekunden. Entscheidet euch."
+          "Aufklärung an Lerche: Germanische Späher auf der Ortung, Kurs auf euch, in etwa {n} Sekunden sind sie da. Macht euch bereit.",
+          "Aufklärung: Läufer der Germanen halten auf euch zu. Noch {n} Sekunden bis zum Kontakt. Gefechtsbereitschaft."
         ],
         "eintreffen": [
           "Kontakt! Germanische Späher, Feuer frei, wenn ihr wollt."
@@ -167,7 +167,7 @@
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Oberkommando",
       "texte": {
         "ankuendigung": [
-          "Oberkommando an Lerche: Eine germanische Streife hat euch im Ring. Sie braucht gut {n} Sekunden bis zu euch. Wer nicht kämpfen will, sollte jetzt springen.",
+          "Oberkommando an Lerche: Eine germanische Streife hat euch im Ring. Sie braucht gut {n} Sekunden bis zu euch. Gefechtsstationen besetzen.",
           "Oberkommando warnt: Hrafnheims Läufer ziehen auf euch zu, schwerer als sonst. {n} Sekunden, dann stehen sie neben euch."
         ],
         "eintreffen": [
@@ -184,7 +184,7 @@
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
       "texte": {
         "ankuendigung": [
-          "Aufklärung an Lerche: Rostmeute auf der Ortung, sie haben euch bemerkt und drehen bei. Etwa {n} Sekunden. Ihr könnt springen.",
+          "Aufklärung an Lerche: Rostmeute auf der Ortung, sie haben euch bemerkt und drehen bei. Etwa {n} Sekunden. Macht euch bereit.",
           "Aufklärung: Piratenrümpfe hinter dem Brocken, sie legen sich auf euren Kurs. {n} Sekunden bis zum Kontakt."
         ],
         "eintreffen": [
@@ -218,8 +218,8 @@
       "gefahr": true, "ankuendigung": "funk", "sprecher": "Aufklärung",
       "texte": {
         "ankuendigung": [
-          "Aufklärung warnt die Lerche: Ein ganzes Rudel Piraten hat Witterung aufgenommen, vier Rümpfe, vielleicht mehr. {n} Sekunden. Das ist keine Pflicht.",
-          "Aufklärung: Die Rostmeute jagt im Rudel und hat euch auf der Ortung. {n} Sekunden bis zum Kontakt, springt, wenn ihr es euch nicht zutraut."
+          "Aufklärung warnt die Lerche: Ein ganzes Rudel Piraten hat Witterung aufgenommen, vier Rümpfe, vielleicht mehr. {n} Sekunden. Gefechtsstationen, alle Mann.",
+          "Aufklärung: Die Rostmeute jagt im Rudel und hat euch auf der Ortung. {n} Sekunden bis zum Kontakt. Gefechtsstationen."
         ],
         "eintreffen": [
           "Das Rudel ist heran. Jetzt zeigt, was die Lerche kann."

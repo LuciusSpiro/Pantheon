@@ -11,7 +11,7 @@
 //               nur den Zähler n; Speichern, Laden und Weiterspielen ist gleich Durchspielen.
 //   Wiederholung nie dieselbe Katalog-Id zweimal in Folge, nie derselbe Parametersatz (Art, Variante, Ortstyp, Ziel-Hex) wie eines der letzten `fenster` Ereignisse, dazu der Mindestabstand je Id.
 //   Fairness    Gefahr wird angekündigt: Patrouille und Piraten funken VOR dem Eintreffen (vorlauf_s, mindestens vorlauf_min_s), ein Notruf nennt seine Gefahr im Text und der Vorlauf folgt beim Eintreffen.
-//               Die Crew kann ausweichen (Sprung). Notrufe lassen die Wahl: Ablehnen (nicht hinfliegen, verfallen lassen oder ablehnen()) kostet nichts, es gibt dafür keine Wirkung. Funkmeldungen haben keine Gefahr.
+//               Gefahr angekündigt heißt: Vorwarnzeit zum Vorbereiten (wie beim bestehenden Abfangen), NICHT vermeidbar (der Sprung braucht Ladezeit und Abstand zum Gegen-Sprungpunkt). Wer in dieser Zeit trotzdem den Sektor wechselt, dem folgt die Gefahr nicht. Echte Wahl haben nur die Notrufe. Notrufe lassen die Wahl: Ablehnen (nicht hinfliegen, verfallen lassen oder ablehnen()) kostet nichts, es gibt dafür keine Wirkung. Funkmeldungen haben keine Gefahr.
 //   Folgen      nur über den Wirkungen-Katalog: ruf_aenderung mit Gründen aus content/welt/ruf-werte.json (Kriegslage.rufBuchen, ohne Sim-Tick). Die Sim wird durch Ereignisse nie verändert.
 //   Sim-Notruf  Liegt ein Notruf der Sim (Marke lage:n) in Reichweite, nimmt ein passender Katalog-Notruf ihn auf (Ort und Art), statt einen eigenen zu erfinden; ohne eigene Folge.
 //
@@ -183,6 +183,11 @@ function entscheiden(game, hex) {
   return ev;
 }
 // Das Abfangen des Schnellsprungs zählt für den Abstand (kein Reise-Ereignis im selben Hop und in den nächsten zwei)
+// Ist der Abstand zum letzten Ereignis (oder Abfangen) groß genug für das Abfangen des Schnellsprungs? Ohne die Reise-Ereignisse immer ja.
+function abstandFrei(game) {
+  const R = aktiv(game) && zustandVon(game);
+  return !R || R.letzter == null || R.n - R.letzter >= abstandSpruenge();
+}
 function abfangenVermerken(game) {
   const R = zustandVon(game);
   if (R) R.letzter = R.n;
@@ -217,15 +222,18 @@ function ausloesenFunkmeldung(game, ev) {
   funk(game, textFuer(ev, 'ankuendigung'));
   chronik(game, ev);
 }
-function gefahrPlanen(game, R, ev, notruf) {
+// Eine angekündigte Gefahr: Vorlauf, dann Gegner. `sprung` = Sprungzähler der Ankunft: jeder weitere Sprung (auch zurück in dieselbe Szene) beendet sie ohne Folge.
+function laufendEintragen(game, R, ev, extra) {
   const e = eintrag(ev.id);
-  R.laufend.push({ nr: ev.nr, id: ev.id, phase: 'erwartet', szene: game.ship.scene, ab: game.time + e.parameter.vorlauf_s, tag: 'reise' + ev.nr, notruf: !!notruf, ev });
+  R.laufend.push(Object.assign({ nr: ev.nr, id: ev.id, phase: 'erwartet', szene: game.ship.scene, sprung: R.n, ab: game.time + e.parameter.vorlauf_s, tag: 'reise' + ev.nr, ev }, extra));
 }
+const gefahrPlanen = (game, R, ev) => laufendEintragen(game, R, ev, { notruf: false });   // Patrouille, Piraten: nur die Vorwarnzeit zum Vorbereiten, kein Ruf
+const notrufGefahrPlanen = (game, R, ev) => laufendEintragen(game, R, ev, { notruf: true });   // Notruf mit Gefahr: Ruf und Dank erst nach dem Kampf
 function ausloesenKontakt(game, ev) {   // patrouille, piraten
   const R = zustandVon(game), e = eintrag(ev.id);
   funk(game, textFuer(ev, 'ankuendigung'));
   chronik(game, ev);
-  if (e.gefahr) gefahrPlanen(game, R, ev, false);
+  if (e.gefahr) gefahrPlanen(game, R, ev);
   else folgeBuchen(game, e);
 }
 function ausloesenNotruf(game, ev) {
@@ -246,11 +254,15 @@ function ausloesen(game, ev) {
 // Die Lerche trifft beim offenen Notruf ein: Funk, bei Gefahr der Vorlauf (Ankündigung zuerst), sonst sofort Folge und Dank
 function notrufBeantworten(game, R, o) {
   const e = eintrag(o.id);
+  if (game.simSzene) {   // zwei Kämpfe übereinander gibt es nicht: der Notruf bleibt offen, bis die Szene vorbei ist
+    funk(game, { von: 'Aufklärung', text: WERTE.hinweis_szene });
+    return;
+  }
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
   funk(game, textFuer(o.ev, 'eintreffen'));
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} beantwortet`, param: { art: 'notruf', hex: o.hex } });
-  if (e.gefahr) gefahrPlanen(game, R, o.ev, true);
+  if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);
   else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank')); }
 }
 function notrufVerfaellt(game, R, o, text) {
@@ -266,6 +278,12 @@ function ablehnen(game, nr) {
   return true;
 }
 
+// Mitten in einem Schnellsprung (nicht der letzte Hop) fliegt die Lerche durch: ein offener Notruf gilt dann nicht als beantwortet
+function durchflug(game) {
+  const r = game.reise;
+  return !!r && !r.abbruch && r.i < r.hops.length - 1;
+}
+
 // Ein Sprung ist geschehen (dest = Ort der Ankunft; die Szene steht schon). -> das Ereignis dieses Sprungs { id, art, kurz } | null
 function nachSprung(game, dest) {
   if (!aktiv(game)) return null;
@@ -273,7 +291,7 @@ function nachSprung(game, dest) {
   zaehleSprung(game);
   const hex = Sektoren.hexVonOrt(dest);
   for (const o of R.offen.slice()) if (o.bis < R.n) notrufVerfaellt(game, R, o, 'unbeantwortet');   // verfallen ohne Folgen
-  const offen = hex && R.offen.find((o) => o.hex === hex);
+  const offen = hex && !durchflug(game) && R.offen.find((o) => o.hex === hex);
   if (offen) { notrufBeantworten(game, R, offen); return null; }   // die Antwort auf einen Notruf ist kein neues Ereignis (und bricht den Schnellsprung nicht ab)
   const ev = entscheiden(game, hex);
   if (!ev) return null;
@@ -301,8 +319,8 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   if (!R || !R.laufend.length) return;
   for (const L of R.laufend.slice()) {
     const weg = () => R.laufend.splice(R.laufend.indexOf(L), 1);
-    if (game.ship.scene !== L.szene) { weg(); continue; }   // die Crew ist ausgewichen: nichts kommt, nichts kostet
-    if (L.phase === 'erwartet') { if (game.time >= L.ab) eintreffen(game, L); continue; }
+    if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); continue; }   // jeder weitere Sprung (in jeder Phase, auch zurück in dieselbe Szene) beendet die Gefahr: weder Gegner noch Ruf noch Dank
+    if (L.phase === 'erwartet') { if (game.simSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene
     if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt
       weg();
       if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank')); }
@@ -334,4 +352,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };

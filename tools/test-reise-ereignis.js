@@ -259,14 +259,14 @@ section('Patrouille und Piraten: Ankündigung vor dem Eintreffen, Ausweichen', (
   const alle = funkTexte(t);
   ok(alle.length > funkVor && alle.indexOf(ank[0]) < alle.length - 1, 'danach der Funk beim Eintreffen, nach der Ankündigung');
   ok(ws(g).reise.laufend[0].phase === 'kampf', 'Phase Kampf');
-  // Ausweichen: vor dem Eintreffen wegspringen
+  // Sektorwechsel beendet die Gefahr (keine Aussage über Vermeidbarkeit: das Ausweichen per Sprung ist nicht zugesichert)
   const t2 = spiel(); const g2 = t2.g; ohneFlotten(g2);
   sicher(() => nur(['piraten_hinterhalt'], () => springe(g2, HEX.saum)));
   lauf(g2, 3);
   springe(g2, HEX.rom);   // weg (kein neues Ereignis: Abstand)
   lauf(g2, e.parameter.vorlauf_s + 3);
-  ok(g2.space.enemies.filter((x) => /^reise/.test(x.tag || '')).length === 0 && ws(g2).reise.laufend.length === 0, 'wer vor dem Eintreffen springt, bekommt nichts und zahlt nichts');
-  ok(rom(g2) === 0 && ws(g2).wirkungenAngewandt === 0, 'Ausweichen kostet nichts (kein Ruf, keine Wirkung)');
+  ok(g2.space.enemies.filter((x) => /^reise/.test(x.tag || '')).length === 0 && ws(g2).reise.laufend.length === 0, 'ein Sektorwechsel vor dem Eintreffen beendet die Gefahr: keine Gegner, keine laufende Gefahr');
+  ok(rom(g2) === 0 && ws(g2).wirkungenAngewandt === 0, 'der Sektorwechsel kostet nichts (kein Ruf, keine Wirkung)');
   // Patrouille der Germanen: gleiche Regel
   const t3 = spiel(); const g3 = t3.g; ohneFlotten(g3);
   const ev3 = sicher(() => nur(['patrouille_ger_spaeher'], () => springe(g3, HEX.ger)));

@@ -136,7 +136,8 @@ function abfangen(game, hex) {
   let p = 0;
   if (art === 'feind') p = R.feindChance != null ? R.feindChance : 0.5;
   else if (art === 'neutral') p = Math.min(R.neutralMax != null ? R.neutralMax : 0.6, (R.neutralChance != null ? R.neutralChance : 0.08) + (R.neutralPlus != null ? R.neutralPlus : 0.08) * (game._reiseOhne || 0));
-  if (!(game.rng.chance(p))) { game._reiseOhne = (game._reiseOhne || 0) + 1; return false; }
+  const treffer = game.rng.chance(p);   // der Wurf wird immer gezogen (game.rng bleibt wie ohne Reise-Ereignisse)
+  if (!treffer || !ReiseEreignis.abstandFrei(game)) { game._reiseOhne = (game._reiseOhne || 0) + 1; return false; }   // SUND-03 D-Fix2: nie näher als 3 Sprünge nach einem Reise-Ereignis
   game._reiseOhne = 0;
   ReiseEreignis.abfangenVermerken(game);   // SUND-03 D: das Abfangen zählt für den Abstand der Reise-Ereignisse (höchstens 1 je 3 Sprünge)
   const loc = Locations.get(game.ship.scene); const sc = loc.scene; const ship = game.ship;
