@@ -61,6 +61,8 @@ async function lauf(b, vw, vh, port) {
     // 3. Annehmen
     await taste('Enter'); await shot('lage-05-laeuft', 900);
     tick(5); await shot('lage-06-laeuft-rest', 900);
+    await ruf(0); await sleep(300); tick(1); await shot('lage-06b-laeuft-nach-rangverlust', 900);
+    await ruf(TRIBUN); await sleep(300);
     // Absage: ein zweiter Versuch (die UI zeigt „läuft“, Enter tut nichts); „Schon gewählt“ kommt vom Server, wenn jemand schneller war: Stand nachstellen
     // 4. Ablauf: keine Frage
     const rest = g.weltsim.absicht.laufend ? g.weltsim.absicht.laufend.bis - g.weltsim.tickZahl : 0; tick(rest);
@@ -68,6 +70,8 @@ async function lauf(b, vw, vh, port) {
     // 5. Pause vorbei: neues Angebot, ablehnen
     tick(W.abstand_nach_ablauf.wert);
     await shot('lage-08-neues-angebot', 900);
+    // alle vier Absichten mit ihren Texten: ein Angebot mit drei Karten (Belagerung, Stärke) und eines mit der vierten
+    if (g.weltsim.absicht.angebot) { g.weltsim.absicht.angebot.ids = ['verteidigung', 'offensive', 'ausgreifen']; await sleep(300); tick(0); g.sentAbsichtKey = null; await shot('lage-08b-drei-karten', 900); g.weltsim.absicht.angebot.ids = ['bereitschaft', 'verteidigung']; g.sentAbsichtKey = null; await shot('lage-08c-bereitschaft-verteidigung', 900); }
     await taste('KeyX'); await shot('lage-09-abgelehnt', 900);
     // 6. „Schon gewählt“: ein Mitspieler war schneller, die Anzeige zeigt noch das Angebot (Server wählt, die UI schickt dann ihre Wahl)
     tick(W.abstand_nach_verfall.wert);
