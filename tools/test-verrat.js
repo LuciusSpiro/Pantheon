@@ -450,11 +450,11 @@ section('Ruf: nur bei Auslösung, Rang sinkt, nichts blockiert', () => {
   const m = bereit({ kampf: true, ruf: 5 }); verrat(m.g); durchspielen(m.g, 600); ok(rom(m.g) === 0, 'Ruf geklemmt auf 0 (nie negativ)');
 });
 
-section('Ruf-Reihenfolge: Beginn vor dem Tick, Wissensmodell Roms meldet normalen Flottenverlust', () => {
+section('Wissensmodell Roms nach dem Verlust: kein Sonderweg', () => {
   const t = bereit({ kampf: true }); const g = t.g; verrat(g); durchspielen(g, 600);
-  const ev = g.weltsim.ereignisse.filter((e) => /verlust|gefecht|flotte/.test(e.typ));
-  ok(g.errors === 0, 'keine Fehler im Wissensmodell nach dem Verlust');
-  ok(ev.length >= 0, 'Ereignisse: ' + ev.map((e) => e.typ).join(','));
+  const sz = JSON.stringify(Kriegslage.lage(g));
+  ok(g.errors === 0 && sz && sz.length > 10, 'Anzeigeblock world.lage entsteht nach dem Verlust ohne Fehler (die Flottenstärke Roms kommt aus dem Zustand, kein eigener Weg für den Verrat)');
+  ok(!/verrat/i.test(sz), 'das Wissensmodell kennt „Verrat“ nicht: Rom sieht nur den Flottenverlust, nicht dessen Ursache');
 });
 
 section('Gedächtnis, Speichern, Laden, Altstand', () => {
