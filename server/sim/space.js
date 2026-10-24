@@ -1148,7 +1148,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   if (Entern.onEnemyZero(game, e)) return;   // Welle 0 (CONTRACT-B1 §7): Stub liefert false -> wie bisher
   const C = game.C;
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
-  game.inventory.marks += C.enemies[e.kind].salvage;
+  if (!e.ohneBeute) game.inventory.marks += C.enemies[e.kind].salvage;   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
   game.stats.kills++;
   game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
   game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.waffen || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });

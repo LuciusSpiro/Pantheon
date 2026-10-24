@@ -1,0 +1,34 @@
+{
+  "format": "verrat/1",
+  "_hinweis": "SUND-02b E: Texte zum Beschuss auf roemische Verbuendete (Verrat, server/sim/verrat.js, kriegslage-szene.js). Zahlen stehen in content/welt/verrat-werte.json und ruf-werte.json. Neutral formuliert, keine Wertung ausser der Warnung vor der Folge. {sek} = Dauer des Anlaufs, {n} = Zahl der Schiffe, {ort} = Name des Sektors, {ruf} = Abzug. Die Zeilen der Szenenzeile und der Ops-Leiste stehen fest im Client (public/js).",
+  "sprecher": "Oberkommando",
+  "warnung": "Hochverrat an Rom: Die römischen Schiffe hier werden zu Gegnern, der Ruf bei Rom sinkt sofort, es gibt keinen Lohn. Abbrechen an der Ops kostet nichts, ein Sprung ebenso.",
+  "anlauf": "Die Ops bereitet den Angriff auf die römischen Schiffe vor – das ist Hochverrat an Rom. Der Ruf sinkt, sobald er beginnt (in {sek} s). Abbrechen an der Ops oder Sprung kostet nichts.",
+  "weigerung": {
+    "modus": "Nur in der Freien Fahrt Sund.",
+    "keine_szene": "Keine Flottenbegegnung hier.",
+    "phase": "Die Szene ist schon vorbei.",
+    "schon": "Der Angriff auf die römischen Schiffe läuft bereits.",
+    "keine_verbuendeten": "Keine römischen Schiffe in der Szene.",
+    "transfer": "Transfer ausgefallen – erst reparieren.",
+    "docked": "Erst ablegen.",
+    "laeuft": "Ein Transfer läuft bereits."
+  },
+  "abbruch": {
+    "abgebrochen": "Der Angriff auf die römischen Schiffe ist abgebrochen. Nichts ist geschehen.",
+    "szene": "Die Szene ist vorbei – Angriff abgebrochen. Nichts ist geschehen.",
+    "keine_verbuendeten": "Keine römischen Schiffe mehr – Angriff abgebrochen. Nichts ist geschehen.",
+    "transfer": "Transfer ausgefallen – Angriff abgebrochen. Nichts ist geschehen.",
+    "sprung": "Sprung – Angriff abgebrochen. Nichts ist geschehen.",
+    "ops": "Niemand mehr an der Ops – Angriff abgebrochen. Nichts ist geschehen."
+  },
+  "beginn": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}. Rom wird das nicht vergessen. Der Ruf bei Rom sinkt um {ruf}.",
+  "beginnLeise": "Die Lerche eröffnet das Feuer auf die römischen Schiffe in {ort}.",
+  "feinde": "{n} ehemalige Verbündete gehen gegen die Lerche vor, die übrigen Gegner der Szene drehen ab.",
+  "sieg": "Die römischen Schiffe sind vernichtet. Rom erfährt davon.",
+  "niederlage": "Die Lerche ist angeschlagen, der Angriff bricht ab. Die römischen Schiffe bleiben.",
+  "flucht": "Die Lerche verlässt den Sektor, die römischen Schiffe bleiben geschwächt zurück.",
+  "log": {"beginn": "Römische Schiffe angegriffen (Hochverrat).", "sieg": "Römische Schiffe vernichtet.", "niederlage": "Angriff auf römische Schiffe gescheitert."},
+  "chronik": "Die Lerche hat in {ort} das Feuer auf römische Schiffe eröffnet.",
+  "kz": "{ort} · Verrat"
+}

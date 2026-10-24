@@ -13,6 +13,7 @@
 //   aendern(game, fraktion, delta) einen Wert verschieben (geklemmt auf die Grenzen der Fraktion) -> { alt, neu }
 //   anwenden(game, wirkungen)      alle ruf_aenderung der Liste (plus `folge` der Quelle) anwenden; Aufrufer: Kriegslage.tickMit, nach dem Tick -> { vorher, nachher } Rang-Ids
 //   meldeRang(game, vorher, nachher)  Funk bei einem Rangwechsel (nach dem Commit des Ticks)
+//   verratBeginn() / verratVernichtet()   SUND-02b E: Ruf-Abzug des Verrats (nur negativ, Grund verrat_*), sonst []
 //   szeneSieg(S, ortGehalten) / szeneFlucht(S, ortBelagert)   Regeln der Sim-Szene: die Wirkung, die ein Szenenende gibt ([] wenn die Quelle fehlt, z. B. Flucht vor Piraten)
 //   snapshot(game) / schluessel(game)   Anzeigeblock world.ruf (nur Daten) und sein Änderungsschlüssel; nur im Modus
 //   toSave(ws) / lesen(block) / neu()
@@ -106,6 +107,9 @@ const quelle = (grund) => (has(W.quellen.wert, grund) ? [{ typ: 'ruf_aenderung',
 const szeneSieg = (S, ortGehalten) => quelle((ortGehalten ? 'ort_gehalten_' : 'sieg_feld_') + S.fraktion);
 // Flucht wie Sieg: der Satz „am Ort“ nur bei laufender Belagerung (ortBelagert), sonst der Feldsatz (eine durchziehende Flotte belagert nichts)
 const szeneFlucht = (S, ortBelagert) => quelle('fahrerflucht' + (ortBelagert ? '_ort_' : '_') + S.fraktion);
+// SUND-02b E: Verrat (Beschuss auf römische Verbündete). Eigene Grund-Schlüssel, getrennt von sieg_feld_*/ort_gehalten_*: der Kampf gegen die ehemaligen Verbündeten gibt nie Ruf, nur Abzug.
+const verratBeginn = () => quelle('verrat_beginn');
+const verratVernichtet = () => quelle('verrat_flotte_vernichtet');
 
 // ---------- Anzeige (nur Daten) ----------
 // world.ruf = { rom, ger, kon, rang: Id, name, ab: Schwelle des Rangs, bis: nächste Schwelle | null }
@@ -144,4 +148,4 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, rangName, werftText, aendern, anwenden, meldeRang, szeneSieg, szeneFlucht, snapshot, schluessel, toSave, lesen };
+module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, rangName, werftText, aendern, anwenden, meldeRang, szeneSieg, szeneFlucht, verratBeginn, verratVernichtet, snapshot, schluessel, toSave, lesen };

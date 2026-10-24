@@ -6,6 +6,7 @@
 //   (SUND-02a A2) Die Sim-Szene (kriegslage-szene.js, game.simSzene) hängt hier mit zwei Stellen: tick() merkt beim Sprung die Verluste einer laufenden Szene VOR dem
 //   Tick vor (Flucht, der Sprung-Tick ist der eine Tick); szeneAbschliessen() ist das Ende bei Sieg und Niederlage. reset() räumt game.simSzene mit weg.
 //   szeneAbschliessen(game, { wirkungen, wo })   SUND-02: Szenenende OHNE Sprung (Sieg, Bleiben): Wirkungen der Crew + genau ein eigener Tick
+//   rufBuchen(game, wirkungen)                   SUND-02b E: nur ruf_aenderung, OHNE Tick (Verrat: Abzug sofort bei der Auslösung), geprüft, mit Rollback
 //   wirkungenVormerken(game, wirkungen)          SUND-02: Szenenende MIT Sprung (Flucht): Wirkungen merken, der Sprung-Tick wendet sie an (kein zweiter Tick)
 //   Beides atomar: gültige Wirkungen gelten, ungültige werden verworfen und gemeldet, ein Wurf rollt auf die Sicherung zurück. Gespeichert wird nie
 //   mitten im Tick (Speichern gibt es nur an Docks, nie während eines Sprungs oder einer Szenenauflösung). Formate: server/weltsim/wirkungen.js.
@@ -17,6 +18,7 @@
 //   (SUND-02b A2) welt.sim.sprengungen: { Hex: Tick der letzten Sprengung } (optional, Ruf-Sperre gegen Farmen, server/sim/posten.js sprengungRuf); Rollback und Speichern wie welt.sim.posten.
 //   (SUND-02b D) welt.sim.absicht: { laufend?, angebot?, frei_ab? } (optional, Altstände = leer, server/sim/absicht.js). Die gewählte Absicht steht in zustand.absichten.rom (Erweiterungspunkt der Standard-KI, der Kern bleibt unberührt); tickMit lässt sie danach auslaufen bzw. macht ein neues Angebot,
 //   im selben Atom: wirft der Tick, geht auch die Absicht auf die Sicherung zurück. Funk erst nach dem Commit.
+//   (SUND-02b E) welt.sim.verrat: { n, tick, hex } (optional, Altstände = nie, server/sim/verrat.js): Gedächtnis „die Crew hat auf römische Verbündete geschossen“; der Ruf-Abzug des Verrats wird über rufBuchen OHNE Tick gebucht.
 //   welt.sim.kommandanten: Gedächtnis { Name: { fraktion, schicksal: 'entkommen'|'gefallen', begegnungen, tick } }; welt.sim.vorgemerkt: [Wirkung] für den nächsten Tick
 //   sondeGesichtet(game, hex)  Hook von Sektorplan.sichten: Sonden-Sichtung ins Wissen von Rom (sofort, ohne Verzögerung)
 //   lage(game) / lageSchluessel(game)  Anzeigeblock world.lage und Änderungsschlüssel (nur im Modus, Wissen statt Wahrheit)
@@ -29,6 +31,7 @@ const Daten = require('../weltsim/daten.js');
 const Besitz = require('./besitz.js');
 const Posten = require('./posten.js');   // SUND-02b A1: Posten der Crew (Halten, Weltstand welt.sim.posten)
 const Ruf = require('./ruf.js');   // SUND-02b B: Ruf je Fraktion, Dienstgrade von Rom (welt.sim.ruf)
+const Verrat = require('./verrat.js');   // SUND-02b E: Beschuss auf römische Verbündete (welt.sim.verrat: Gedächtnis)
 const Absicht = require('./absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (welt.sim.absicht, zustand.absichten.rom)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
@@ -205,6 +208,24 @@ function wirkungenVormerken(game, wirkungen) {
   return { vorgemerkt: behalten.length, verworfen: verworfen.filter((v) => neu.includes(v.wirkung)).concat(voll) };
 }
 
+// SUND-02b E: Ruf-Wirkungen OHNE Sim-Tick (Verrat: der Abzug gilt sofort bei der Auslösung, die Welt tickt dafür nicht). Gleiche Prüfung wie im Tick (Kern.pruefeWirkung),
+// Anwendung über Ruf.anwenden mit Rollback bei einem Wurf; Rangwechsel-Funk danach. -> { ok, angewandt, vorher, nachher } (Rang-Ids)
+function rufBuchen(game, wirkungen) {
+  const ws = game.weltsim;
+  if (!ws) return { ok: false, angewandt: 0, vorher: null, nachher: null };
+  const gueltig = (Array.isArray(wirkungen) ? wirkungen : []).filter((w) => w && w.typ === 'ruf_aenderung' && Kern.pruefeWirkung(ws.zustand, w).ok).map(klon);
+  const sicher = klon(ws.ruf || Ruf.neu());
+  let rang;
+  try { rang = Ruf.anwenden(game, gueltig); } catch (e) {
+    ws.ruf = sicher;
+    if (game.countError) game.countError('kriegslage-ruf', e);
+    return { ok: false, angewandt: 0, vorher: null, nachher: null };
+  }
+  ws.wirkungenAngewandt += gueltig.length;
+  try { Ruf.meldeRang(game, rang.vorher, rang.nachher); } catch (e) { if (game.countError) game.countError('kriegslage-ruf', e); }
+  return { ok: true, angewandt: gueltig.length, vorher: rang.vorher, nachher: rang.nachher };
+}
+
 // Platzhalter bis SUND-04 (Abspann): Merker, Meldung, Missionsereignis; das Spiel läuft weiter
 function hauptweltFaellt(game, e) {
   const ws = game.weltsim;
@@ -283,6 +304,7 @@ function toSave(game) {
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);
   if (ws.hauptweltGefallen) b.hauptweltGefallen = { fraktion: String(ws.hauptweltGefallen.fraktion), tick: ws.hauptweltGefallen.tick };
+  if (ws.verrat && ws.verrat.n >= 1) b.verrat = { n: ws.verrat.n, tick: ws.verrat.tick, hex: ws.verrat.hex };   // SUND-02b E: Gedächtnis „die Crew hat Rom verraten“ (additiv, fehlt = nie)
   return b;
 }
 // Müll-feste Leser der optionalen Blöcke (Altstände ohne die Felder: leer)
@@ -322,10 +344,11 @@ function restore(game, b) {
   game.weltsim.ruf = Ruf.lesen(b.ruf);   // SUND-02b B: fehlt = 0 (Altstand)
   game.weltsim.absicht = Absicht.lesen(b.absicht, game.weltsim.tickZahl);   // SUND-02b D: fehlt = leer (Altstand)
   Absicht.nachLaden(game);   // die laufende Absicht steht wieder in zustand.absichten.rom (auch wenn der Sim-Zustand ohne sie gespeichert war)
+  game.weltsim.verrat = Verrat.lesen(b.verrat);   // SUND-02b E: fehlt = nie (Altstand)
   const h = b.hauptweltGefallen;
   if (h && typeof h === 'object' && Number.isFinite(h.tick)) game.weltsim.hauptweltGefallen = { fraktion: String(h.fraktion || 'rom'), tick: h.tick };
   overlayFuellen(game);
   szeneNachziehen(game);
 }
 
-module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, tickMit, szeneAbschliessen, wirkungenVormerken, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };
+module.exports = { MODUS, KARTE, RING, seedAus, abbild, starten, tick, tickMit, szeneAbschliessen, wirkungenVormerken, rufBuchen, szeneNachziehen, nachLaden, toSave, restore, reset, sondeGesichtet, lage, lageSchluessel };

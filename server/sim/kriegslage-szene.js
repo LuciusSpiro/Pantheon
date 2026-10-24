@@ -5,6 +5,7 @@
 //
 //   betreten(game, hex)        Auslöser: Hook am Ende von Space.enterScene (jede Ankunft, nie ein Tick). -> Szene | null
 //   angriffStarten(game, hex)  SUND-02b A2: Auslöser durch die CREW (Halteprozess weapons.posten.angreifen, server/sim/posten.js), nie durch Ankunft: Szene modus 'angriff' gegen den Posten eines Gegners. -> Szene | null
+//   verratStarten(game)        SUND-02b E: Auslöser durch die CREW (Halteprozess weapons.verrat.beginnen, server/sim/verrat.js): Szene wird zum Modus 'verrat' umgeschaltet (Verbündete -> Gegner). -> Szene | null
 //   update(game, dt)           Takt der Szene (aus game.step): Vorwarnung, Finale, Sieg, Niederlage
 //   ereignis(game, name, data) Hook aus game.missionEvent: enemyKilled (Verluste der Angreifer), allyLost (Verluste der Verteidiger)
 //   abbrechen(game, wo)        Flucht per Sprung: Verluste bis dahin als Wirkungen VORMERKEN (der Sprung-Tick ist der eine Tick); Hook in Kriegslage.tick
@@ -16,6 +17,10 @@
 // SUND-02b A2 (Posten sprengen, README „Posten sprengen“): S.modus === 'angriff' ist dieselbe Szene mit anderer Herkunft und anderem Ende. Die Crew greift den Posten eines Gegners (ger, pirat) an;
 // die Wellen kommen aus der Garnison (Plan.plane, Stärke = Garnison × angreifen.staerke_faktor), römische Flotten im Hex sind Verbündete. SIEG: Rest der Garnison (abwehr_verlust) + posten_gesprengt + Ruf (Sperre am Hex)
 // + genau ein Tick. FLUCHT (Sprung): nur anteilige abwehr_verlust, kein Ruf-Abzug (der Angriff ist freiwillig). NIEDERLAGE: Notfallprotokoll wie oben, anteilige abwehr_verlust, kein Ruf-Abzug, die Garnison regeneriert.
+// SUND-02b E (Verrat, README „Beschuss auf Rom“): S.modus === 'verrat' ist dieselbe Szene, in der die Crew auf die römischen Verbündeten (es.sim) feuert. Umschaltung statt Treffer-Ziel: die Verbündeten
+// verlassen die Liste und kommen als echte Gegner derselben Klasse und Hüllen-Quote zurück (Tag SZENEN_TAG, Flagge ohneBeute, Marke verratS), die Gegner der Szene drehen ab, eine neue Ein-Wellen-Liste trägt sie.
+// SIEG (alle ehemaligen Verbündeten vernichtet): anteilige Verluste der römischen Flotte/Abwehr (flotte_verlust, abwehr_verlust) + Ruf verrat_flotte_vernichtet (nur Abzug), genau ein Tick. FLUCHT (Sprung): anteilige Verluste,
+// kein weiterer Ruf. NIEDERLAGE (Notfallprotokoll): anteilige Verluste, kein Game Over. Nie Ruf-Ertrag: weder sieg_feld_* noch ort_gehalten_*, keine Marken.
 // Regeln (Entscheidungen A2, Details im README „Sim-Szene“):
 //  - Auslöser: nur bei der ANKUNFT (enterScene), nie durch einen Tick. Eine feindliche Flotte (ger, pirat; Stärke ≥ 1) im Hex löst die Szene aus; ohne Flotte
 //    keine Szene (auch bei Belagerung nicht: ohne Flotte im Hex gibt es nichts darzustellen). Römische Flotten im Hex sind Verbündete. Wer nach einer Szene im
@@ -37,6 +42,7 @@ const Ruf = require('./ruf.js');   // SUND-02b B: Ruf-Wirkungen am Szenenende (R
 const KT = require('../../public/js/karte-tokens.js');   // Stärkenamen (wie Wissen von Rom, kriegslage-wissen.js)
 const Sektoren = require('../../shared/sektoren.js');
 const Locations = require('../../shared/locations.js');
+const Verrat = require('./verrat.js');   // SUND-02b E: Texte und Daten des Verrats
 const Posten = require('./posten.js');   // SUND-02b A2: Ruf-Regel der Sprengung (Sperre am Hex)
 const ANGRIFF = require('../../content/welt/posten-werte.json').werte.angreifen.wert;   // SUND-02b A2: Vorlauf und Stärkefaktor des Angriffs (Daten)
 
@@ -204,6 +210,7 @@ function gescheitert(game, S, gewollt, wirkungen, r) {
 }
 function sieg(game, S) {
   if (S.modus === 'angriff') return angriffSieg(game, S);
+  if (S.modus === 'verrat') return verratSieg(game, S);
   S.phase = 'ende';
   const z = game.weltsim.zustand;
   const kd = S.kommandant;
@@ -229,6 +236,7 @@ function sieg(game, S) {
 }
 function niederlage(game, S, grund) {
   if (S.modus === 'angriff') return angriffNiederlage(game, S, grund);
+  if (S.modus === 'verrat') return verratNiederlage(game, S, grund);
   S.phase = 'ende';
   const w = verlustWirkungen(game, S);
   if (S.ort) w.push({ typ: 'ort_gefallen', ort: S.hex, an: S.fraktion });   // der Prüfer lehnt ab, was nicht gilt: Piraten erobern keinen Hafen, und ohne laufende Belagerung (durchziehende Flotte) fällt nichts
@@ -289,13 +297,43 @@ function angriffNiederlage(game, S, grund) {
   merken(game, S, 'niederlage', wirk, { grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
   return r;
 }
+// SUND-02b E: Sieg im Verrat: die ehemaligen Verbündeten sind vernichtet. Verluste der römischen Seite anteilig (verlustWirkungen: alle Punkte der Verteidiger sind verloren, also die ganze Flotte/Abwehr, die
+// Sim begrenzt auf Stärke 0,5 und Rückzug), Ruf nur als Abzug (verrat_flotte_vernichtet), KEIN sieg_feld_*/ort_gehalten_* (kein Ruf-Ertrag), genau ein Tick (szeneAbschliessen), atomar mit Rollback.
+function verratSieg(game, S) {
+  S.phase = 'ende';
+  const w = verlustWirkungen(game, S).concat(S.verrat.tot > 0 ? Ruf.verratVernichtet() : []);
+  const wirk = gueltige(game, w);
+  aufraeumen(game, S);
+  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 's', o: null, vt: 1 };
+  const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
+  endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);
+  funk(game, Verrat.text('sieg'), { reiter: 1, log: (Verrat.texte().log || {}).sieg });
+  merken(game, S, 'sieg', wirk, { verrat: true, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
+  return r;
+}
+// Niederlage im Verrat: anteilige Verluste (was die Crew schon vernichtet hat), kein Ruf, kein ort_gefallen, kein Game Over; die übrigen ehemaligen Verbündeten ziehen ab (aufraeumen: Tag SZENEN_TAG).
+function verratNiederlage(game, S, grund) {
+  S.phase = 'ende';
+  const T = texte();
+  const wirk = gueltige(game, verlustWirkungen(game, S));
+  aufraeumen(game, S);
+  game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: 'n', o: null, vt: 1 };
+  const r = Kriegslage.szeneAbschliessen(game, { wirkungen: wirk, wo: 'szene', direkt: S.hex, stumm: S.hex });
+  endeAufraeumen(game);
+  if (!r.ok) return gescheitert(game, S, 'niederlage', wirk, r);
+  funk(game, (T.niederlage || {})[grund]);
+  funk(game, Verrat.text('niederlage'), { reiter: 1, log: (Verrat.texte().log || {}).niederlage });
+  merken(game, S, 'niederlage', wirk, { verrat: true, grund, ergebnis: { ok: r.ok, angewandt: r.angewandt, verworfen: r.verworfen.length, tick: r.tick } });
+  return r;
+}
 // Flucht/Verlassen: Verluste vormerken, der folgende Sprung-Tick (Kriegslage.tick) wendet sie an. Kein ort_*, kein eigener Tick.
 function abbrechen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
   const imKampf = S.phase === 'kampf';   // B-Fix 1: Phase merken, bevor sie auf 'ende' geht; ein Sprung in der Vorwarnung (vor dem ersten Schuss) ist keine Fahrerflucht
   S.phase = 'ende';
-  const ruf = imKampf && S.modus !== 'angriff' ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
+  const ruf = imKampf && S.modus !== 'angriff' && S.modus !== 'verrat' ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
   const w = gueltige(game, verlustWirkungen(game, S).concat(ruf));
   aufraeumen(game, S);
   endeAufraeumen(game);   // H-a: auch die Flucht räumt die Szenen-ODA weg („Erste Welle in 10 s“ liefe sonst im neuen Sektor weiter)
@@ -436,6 +474,57 @@ function angriffStarten(game, hex) {
   return S;
 }
 
+// SUND-02b E: Umschaltung der Szene (Aufrufer: Verrat.haltFertig nach bewusster Bestätigung; Phase und Ruf hat der Aufrufer geprüft/bucht er). Die Verbündeten der Szene verlassen die Liste und kommen als Gegner
+// derselben Klasse mit derselben Hüllen-Quote zurück (Name bleibt, Kennung rom, keine Beute); die Gegner der Szene drehen ab; eine neue Ein-Wellen-Liste trägt die neuen Gegner (Sieg = Welle fertig).
+// Mit eigenem Rollback: wirft etwas, steht die Szene wie vorher. -> Szene | null (keine Verbündeten der Szene, Klasse unbekannt, Fehler)
+function verratStarten(game) {
+  const S = game.simSzene;
+  if (!S || S.phase === 'ende' || S.modus === 'verrat') return null;
+  const sp = game.space; const st = Flotte.state(game); const C = game.C;
+  const ex = Verrat.verbuendete(game, S);
+  if (!ex.length || ex.some((q) => !C.enemies[q.kind])) return null;
+  const P = C.wellenplan.punkte; const hmin = Number(Verrat.W.huelle_min.wert) || 0.1;
+  const sicher = { escorts: sp.escorts.slice(), gone: sp.escortsGone ? sp.escortsGone.slice() : null, enemies: sp.enemies.slice(), retreat: sp.retreatRule, welle: st.welle, nachschub: st.nachschub.slice(),
+    S: { modus: S.modus, phase: S.phase, finale: S.finale, flaggGefallen: S.flaggGefallen, start: S.start, vert: Object.assign({}, S.vert), emBasis: S.emBasis, verrat: S.verrat, erinnern: S.erinnern } };
+  try {
+    // 1. neue Ein-Wellen-Liste (Klassen der ehemaligen Verbündeten), Welle 1 ist schon da
+    const zaehl = {}; for (const q of ex) zaehl[q.kind] = (zaehl[q.kind] || 0) + 1;
+    st.nachschub.length = 0;
+    const w = Flotte.wellenStart(game, { wellen: [Object.keys(zaehl).map((kind) => ({ kind, n: zaehl[kind], volk: 'rom' }))], takt: 0, rest: 0, ziel: 'lerche', richtung: 'alle', ueberdruck: false, tag: SZENEN_TAG, volk: 'rom' });
+    if (!w) throw new Error('keine Welle');
+    w.ohneSkala = true; w.restJe = [0]; w.i = 0; w.n = 1; w.t = game.time;
+    // 2. die Gegner: gleiche Klasse, gleiche Hüllen-Quote (Hülle / Hüllenmaximum des Verbündeten), Name und Ort bleiben. Vorläufiger Tag, damit der Rückzug der alten Gegner (Schritt 3) sie nicht erfasst.
+    const neue = [];
+    for (const q of ex) {
+      const e = require('./space.js').spawnEnemy(game, q.kind, { x: q.x, y: q.y, facing: q.angle, tag: SZENEN_TAG + '_verrat', ziel: 'lerche', volk: 'rom' });
+      if (!e) throw new Error('Gegner nicht erzeugt');
+      neue.push(e);
+      Object.assign(e, { wv: w.id, wvN: 1, ohneBeute: true, verratS: S.id, simPts: q.simPts || P[q.kind] || 0, name: q.name });
+      e.hp = Math.max(1, Math.round(e.hpMax * Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1)))));
+    }
+    // 3. ab hier wirft nichts mehr: die Gegner der Szene drehen ab (sofort; die Regel wird gleich wieder gelöscht), die neuen tragen den Szenen-Tag (das Szenenende lässt sie abziehen)
+    Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;
+    for (const e of neue) e.tag = SZENEN_TAG;
+    // 4. die Verbündeten verlassen die Liste (wie aufraeumen, nur für diese Szene)
+    sp.escorts = sp.escorts.filter((q) => q.sim !== S.id);
+    if (sp.escortsGone) sp.escortsGone = sp.escortsGone.filter((g) => !String(g.tag || '').startsWith('sz' + S.id + '_'));
+    // 5. Szenenzustand: Modus verrat, Kampf (Vorwarnung entfällt), kein Finale-Funk, kein Verteidiger mehr neben der Lerche
+    S.vor = S.modus || 'normal'; S.modus = 'verrat';
+    S.phase = 'kampf'; S.start = Math.min(S.start, game.time); S.finale = true; S.flaggGefallen = false; S.erinnern = [];
+    S.vert.lebend = 0; S.emBasis = game.stats.emergencies || 0;
+    S.verrat = { t0: game.time, n0: ex.length, tot: 0 };
+  } catch (err) {
+    sp.escorts = sicher.escorts; if (sicher.gone) sp.escortsGone = sicher.gone;
+    sp.enemies = sicher.enemies; if (sicher.retreat) sp.retreatRule = sicher.retreat; else delete sp.retreatRule;
+    st.welle = sicher.welle; st.nachschub = sicher.nachschub;
+    for (const k of Object.keys(sicher.S)) { if (sicher.S[k] === undefined) delete S[k]; else S[k] = sicher.S[k]; }
+    delete S.vor;
+    if (game.countError) game.countError('sim-szene-verrat', err);
+    return null;
+  }
+  return S;
+}
+
 // ---------- Takt ----------
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   const S = game.simSzene;
@@ -458,7 +547,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   // wie überall; ein Hafen fällt nicht, solange seine Flotte steht). Das Protokoll zählt erst, wenn niemand mehr neben der Lerche kämpft.
   if (S.vert.lebend > 0) S.emBasis = game.stats.emergencies || 0;
   if ((game.stats.emergencies || 0) >= S.emBasis + Math.max(1, Number(C.notfallBisNiederlage) || 1)) { niederlage(game, S, 'lerche'); return; }
-  if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0) {   // Verteidiger erschöpft: Gnadenfrist, danach ist der Ort verloren
+  if (S.ort && S.vert.n0 > 0 && S.vert.lebend <= 0 && S.modus !== 'verrat') {   // Verteidiger erschöpft (im Verrat sind sie keine Verteidiger mehr: das Notfallprotokoll entscheidet): Gnadenfrist, danach ist der Ort verloren
     // ohne laufende Belagerung (durchziehende Flotte) kann der Ort nicht fallen (ort_gefallen verlangt sie): dann ohne „verloren“ (Client-Runde GRNDS.)
     if (S.vert.erschT == null) {
       S.vert.erschT = game.time;
@@ -475,6 +564,10 @@ function ereignis(game, name, data) {
   if (!S || S.phase === 'ende' || !data) return;
   if (name === 'enemyKilled') {
     const e = data.enemy; const w = game.flotte && game.flotte.welle;
+    if (e && e.verratS === S.id) {   // SUND-02b E: ein ehemaliger Verbündeter ist gefallen: Verlust der römischen Seite, nie Gegnerpunkte (killPunkte gehören den Angreifern)
+      S.vert.verloren += e.simPts || 0; S.verrat.tot++;
+      return;
+    }
     if (!e || !w || e.wv !== w.id) return;
     S.kills[e.kind] = (S.kills[e.kind] || 0) + 1;
     S.killPunkte += Number(game.C.wellenplan.punkte[e.kind]) || 0;
@@ -497,15 +590,19 @@ function snapshot(game) {
   const S = game.simSzene;
   if (S && S.phase !== 'ende') {
     const x = S.modus === 'angriff' ? { x: 1 } : {};   // SUND-02b A2: Angriff auf einen Posten (Zeile „ANGRIFF AUF POSTEN“ statt FEINDKONTAKT)
+    const wa = Verrat.warnung(game);   // SUND-02b E: der Halteprozess des Verrats läuft: w = [Restsekunden, Dauer], die Zeile warnt alle Spieler
+    if (wa) x.w = wa;
+    if (S.modus === 'verrat') x.vt = 1;   // SUND-02b E: Verrat läuft (Zeile „VERRAT“)
     if (S.phase === 'vorwarnung') return Object.assign({ p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse }, x);
     const w = game.flotte && game.flotte.welle;
     const g = w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0;
+    if (S.modus === 'verrat') return Object.assign({ p: 'k', g }, x);   // kein Finale, kein Flaggschiff: die ehemaligen Verbündeten sind die eine Welle
     const kdName = S.kommandant ? S.kommandant.name : (S.modus === 'angriff' ? (texte().angriff || {}).kommandant : null);   // A2-Fix: das Finale des Angriffs nennt den Postenkommandanten
     return Object.assign(S.finale ? Object.assign({ p: 'f', g }, kdName ? { kd: kurz(kdName, 24) } : {}) : { p: 'k', g }, x);
   }
   const E = game.simSzeneEnde;
   const rest = E ? E.bis - game.time : -1;   // robust gegen Zeitrücksprung (Reset, Laden): nur gültig, wenn die Restzeit in [0, endeAnzeige] liegt
-  if (E && rest > 0 && rest <= endeAnzeige(game) && E.szene === game.ship.scene) return Object.assign({ p: E.p }, E.o ? { o: kurz(E.o, 24) } : {}, E.x ? { x: 1 } : {});
+  if (E && rest > 0 && rest <= endeAnzeige(game) && E.szene === game.ship.scene) return Object.assign({ p: E.p }, E.o ? { o: kurz(E.o, 24) } : {}, E.x ? { x: 1 } : {}, E.vt ? { vt: 1 } : {});
   return null;
 }
 
@@ -534,4 +631,4 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-module.exports = { betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
+module.exports = { SZENEN_TAG, funk, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };

@@ -1,0 +1,9 @@
+{
+  "format": "verrat-werte/1",
+  "_hinweis": "SUND-02b E: Beschuss auf roemische Verbuendete (Verrat) in einer Sim-Szene der Freien Fahrt Sund (server/sim/verrat.js, kriegslage-szene.js verratStarten). Ruf ist ein Kann, nie ein Muss: der Verrat ist eine bewusste Aktion der Crew (Ops-Halteprozess, Abbruch kostet nichts), nie erzwungen. Der Ruf sinkt erst bei der tatsaechlichen Ausloesung (Quellen verrat_beginn und verrat_flotte_vernichtet in content/welt/ruf-werte.json), nie im Halteprozess; es gibt keinen Lohn (keine Marken, kein Ruf aus dem Kampf). Alle Zahlen stehen hier, keine im Code. Aenderungen wirken ohne Code.",
+  "werte": {
+    "anlauf": {"wert": {"dauer": 7}, "einheit": "dauer s Halten an der Ops", "_hinweis": "Bestaetigung als Halteprozess (wie Posten gruenden/angreifen, Fracht-Leiste): waehrend dieser Zeit steht die Warnung an der Ops und in der Szenenzeile aller Spieler. Abbruch jederzeit kostenlos (Knopf, Ops verlassen, Sprung, Szenenende). Annahme, per Messung/Spielgefuehl anpassbar."},
+    "phasen": {"wert": ["vorwarnung", "kampf"], "einheit": "Szenenphasen", "_hinweis": "In diesen Phasen der Sim-Szene ist der Verrat moeglich. vorwarnung: noch vor der ersten Welle; kampf: laufende Welle (die Gegner der Szene drehen dann ab, die ehemaligen Verbuendeten werden zu den Gegnern). Nach dem Ende der Szene gibt es keinen Verrat mehr."},
+    "huelle_min": {"wert": 0.1, "einheit": "Anteil der Klassenhuelle", "_hinweis": "Mindest-Huellenquote eines ehemaligen Verbuendeten als Gegner (gleiche Quote wie als Verbuendeter: Huelle / Huellenmaximum, nach unten auf diesen Wert begrenzt, damit kein Schiff ohne Schuss stirbt)."}
+  }
+}

@@ -148,10 +148,13 @@ const angreifenStart = (game, p) => start(game, 'angreifen');
 const ABBRUCH = { szene: 'szene', gegner: 'gegner', transfer: 'transfer', weit: 'ring', schnell: 'schnell', anspruch: 'belegt', belegt: 'belegt', hafen: 'belegt', station: 'belegt', kein_posten: 'belegt', schon: 'belegt', modus: 'belegt', teile: 'teile' };
 function abbruchText(art, code) { return (T(art).abbruch || {})[ABBRUCH[code] || 'belegt'] || ''; }
 // Abbrüche, die fracht.js selbst auslöst (Szenenwechsel = Sprung, niemand mehr an der Ops): Text für beamStop; Abbruch durch den Spieler bleibt still
-function stummerAbbruchText(h, grund) { const k = { szene: 'sprung', taktik: 'ops' }[grund]; return k ? ((T(h.id).abbruch || {})[k] || '') : ''; }
+function stummerAbbruchText(h, grund) {
+  if (h.id === 'verrat') return require('./verrat.js').stummerAbbruchText(h, grund);   // SUND-02b E
+  const k = { szene: 'sprung', taktik: 'ops' }[grund]; return k ? ((T(h.id).abbruch || {})[k] || '') : ''; }
 
 // Je Tick (Fracht.update, nur wenn die Ops besetzt ist): null = weiter, sonst { code, text } = Abbruch. Die Halte-Hex muss die des Starts sein (Szenenwechsel bricht fracht.update schon vorher ab).
 function haltWeiter(game, h) {
+  if (h.id === 'verrat') return require('./verrat.js').haltWeiter(game, h);   // SUND-02b E: Beschuss auf römische Verbündete (eigene Bedingungen: Szene statt Ring und Tempo)
   const o = ort(game);
   if (!o || o.hex !== h.hex) return { code: 'ring', text: abbruchText(h.id, 'weit') };
   const e = PRUEFER[h.id](game, true);
@@ -161,6 +164,7 @@ function haltWeiter(game, h) {
 
 // Abschluss: prüfen, Wirkung + Ruf in genau einem Tick, dann die Kosten buchen. Ein Wurf oder eine verworfene Wirkung kostet nichts.
 function haltFertig(game, h) {
+  if (h.id === 'verrat') return require('./verrat.js').haltFertig(game, h);   // SUND-02b E
   if (h.id === 'angreifen') return angriffFertig(game, h);
   const art = h.id; const A = ART[art];
   const e = PRUEFER[art](game, true);
