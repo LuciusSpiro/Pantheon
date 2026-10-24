@@ -310,7 +310,7 @@ function lageSchluessel(game) {
 }
 
 // Weltstand welt.sim: { modus, tick, hauptweltGefallen?, zustand } | null (kein Modus: Block fehlt, Altstände bleiben Kampagne)
-// SUND-03 F: Die Blöcke welt.sim.chronik und welt.sim.reise gehören nur in den Weltstand, wenn der Lage-Spielleiter oder die Reise-Ereignisse an sind. Ohne Schalter bleibt der Weltstand byte-gleich zu
+// SUND-03 F: Die Blöcke welt.sim.chronik, welt.sim.reise und (F2) welt.sim.regie gehören nur in den Weltstand, wenn der Lage-Spielleiter oder die Reise-Ereignisse an sind. Ohne Schalter bleibt der Weltstand byte-gleich zu
 // dem nach SUND-02 (ältere Spielstände und main lehnen unbekannte Felder ab); Laden bleibt in beide Richtungen offen (fehlt der Block = leer).
 function neueBloeckeAn(game) {
   return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);
@@ -326,7 +326,7 @@ function toSave(game) {
   const neueBloecke = neueBloeckeAn(game);
   const ch = neueBloecke ? Chronik.toSave(ws) : null; if (ch) b.chronik = ch;   // SUND-03 D: Chronik (Ringliste); fehlt = leer
   const re = neueBloecke ? ReiseEreignis.toSave(ws) : null; if (re) b.reise = re;   // SUND-03 D: Sprungzähler und Wiederholungsdaten der Reise-Ereignisse; fehlt = Anfang
-  const rg = Regie.toSave(ws); if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer
+  const rg = neueBloecke ? Regie.toSave(ws) : null; if (rg) b.regie = rg;   // SUND-03 A: wartende Befehle des Lage-Spielleiters, Abkühlzeiten; fehlt = leer
   const pb = Posten.toSave(ws); if (pb) b.posten = pb;   // SUND-02b A1: Zeitpunkt der Crew-Posten (Halten); fehlt = keine
   if (Object.keys(ws.kommandanten || {}).length) b.kommandanten = klon(ws.kommandanten);
   if ((ws.vorgemerkt || []).length) b.vorgemerkt = klon(ws.vorgemerkt);

@@ -612,9 +612,10 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   const eng = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: lang, werte: Object.assign({}, W, { letzte_plaene_zeichen: { gesamt: 700, grund: 50 } }) }).prompt;
   const blk = eng.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1];
   ok(blk.length <= 700 && JSON.parse(blk).length >= 1 && JSON.parse(blk).at(-1).nr === 2, 'der Block bleibt unter der Zeichenobergrenze (neuester Plan zuletzt, ältere fallen zuerst weg): ' + blk.length);
-  // wirkungslos: die Rate ist voll
+  // wirkungslos: die Rate ist voll, während die Anfrage unterwegs ist (bei voller Rate stellt der Spielleiter gar nicht erst an, F2)
+  tick(t.g, 2); sl.beiGrenze('andocken');
   ws(t.g).regie.rate = Array.from({ length: RT.max }, () => ws(t.g).tickZahl);
-  tick(t.g, 2); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+  await pumpen(t.g, 4);
   const wl = lageEintraege(t.g, 'plan_wirkungslos');
   ok(wl.length === 1 && wl[0].grund === 'Rate' && wl[0].fehler[0].startsWith('Rate:') && lageEintraege(t.g, 'angewandt').length === 1, 'alle Befehle an der Rate gescheitert: plan_wirkungslos mit Grund Rate, nicht angewandt');
   ok(sl.zaehler.wirkungslos === 1 && sl.letzte_plaene.at(-1).befehle[0].includes('abgelehnt (Rate'), 'der Prompt-Chronik zeigt die Ablehnung');
@@ -647,6 +648,22 @@ section('befehle_frei: was Befehle jetzt voraussetzen', async () => {
   for (const fl of pir) fl.staerke = 0;
   ok(frei().piraten === 0, 'geschwächte Piraten zählen nicht');
   ok(Regie.befehleFrei({}) === null, 'ohne Modus: null');
+});
+
+section('Rate erschöpft: kein Aufruf', async () => {
+  sitzungSauber();
+  const RT = RW.rate.wert;
+  const t = spiel(); const { sl, llm } = mitLage(t, {}, { min_abstand_ticks: 1 });
+  ws(t.g).regie.rate = Array.from({ length: RT.max }, () => ws(t.g).tickZahl);
+  tick(t.g); ws(t.g).regie.rate = Array.from({ length: RT.max }, () => ws(t.g).tickZahl);
+  const r1 = sl.beiGrenze('andocken'), r2 = sl.beiGrenze('absicht');
+  ok(r1.grund === 'rate' && r2.grund === 'rate' && llm.asks.length === 0 && sl.aufrufe === 0, 'Rate 0: kein Claude-Aufruf, zählt nicht gegen den Deckel');
+  ok(lageEintraege(t.g, 'uebersprungen').filter((e) => e.grund === 'rate').length === 1, 'einmal je Tick und Grund im Logbuch');
+  ws(t.g).tickZahl += RT.fenster; tick(t.g, 1);
+  ok(sl.beiGrenze('andocken').gestartet && sl.aufrufe === 1, 'nach dem Rate-Fenster geht es wieder');
+  const f = spiel(); const { sl: sf } = mitLage(f, {}, { min_abstand_ticks: 1 });
+  ws(f.g).regie.rate = Array.from({ length: RT.max }, () => ws(f.g).tickZahl);
+  ok(sf.planErzwingen().grund === 'rate', 'auch lage plan (Debug) startet bei Rate 0 nichts');
 });
 
 section('Rückfall: Entwarnung für angekündigte, nie gekommene Befehle', async () => {

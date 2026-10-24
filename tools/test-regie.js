@@ -44,8 +44,10 @@ const logbuch = (g) => (g.lageRegie ? g.lageRegie.log.entries : []);
 const abbild = (g) => Kriegslage.abbild(z(g));
 
 // Spiel im Modus mit ruhiger Ausgangslage: alle Flotten voll im Heimathafen, keine Feldzüge, Vorräte da. Die Standard-KI plant nur, wenn der Test es will (p_act 0 für alle).
+const SCHALTER = { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' };
 function szene(opts) {
   const t = F.neuesSpiel(opts); const g = t.g, zz = z(g);
+  g.env = Object.assign({}, g.env, SCHALTER);   // SUND-03 F2: der Block welt.sim.regie wird nur mit Schalter geschrieben (Kriegslage.neueBloeckeAn); die Lage-Spielleiter-Klasse wird nicht angelegt (Schalter-Zustand ist gemerkt)
   zz.angriffe = [];
   for (const fl of zz.flotten) { fl.ort = fl.heimat; fl.befehl = 'heim'; fl.ziel = null; fl.angriff = null; fl.warte = 0; fl.staerke = fl.kap; fl.versorgung = 1; }
   for (const h of Object.values(zz.hexe)) h.anspruch = {};
@@ -293,6 +295,7 @@ section('Abkühlzeit', () => {
   // Rückzug hat keine Abkühlzeit (0)
   ok(Object.values(R.werte.abkuehlung.wert).every((v) => Number.isInteger(v) && v >= 0 && v <= 200), 'alle Abkühlzeiten sind ganze Zahlen in vernünftigem Bereich (sie sind gemessen, tools/sim-regie.js)');
   // Abkühlzeit überlebt Speichern und Laden
+  Regie.planAnwenden(g, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }] });   // frisch: abgelaufene Abkühlzeiten schreibt toSave nicht mehr mit (SUND-03 F2)
   const blk = Regie.toSave(ws(g));
   ok(blk && blk.letzte && Object.keys(blk.letzte).length >= 1, 'die Abkühlzeiten stehen im Weltstand-Block');
 });
@@ -461,7 +464,7 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(Weltstand.validate(d1).length === 0, 'Weltstand bleibt Version 3 und schemagültig' + Weltstand.validate(d1).slice(0, 1).map((x) => ' – ' + x).join(''));
   // Runde über die Platte
   const dir = F.freshDir(); d1.id = 'w-regie'; fs.writeFileSync(path.join(dir, 'w-regie.json'), JSON.stringify(d1));
-  const t2 = F.neuesSpiel({ dir, world: 'w-regie' }); const g2 = t2.g;
+  const t2 = F.neuesSpiel({ dir, world: 'w-regie' }); const g2 = t2.g; g2.env = Object.assign({}, g2.env, SCHALTER);
   const nachLaden = funkAll(t2).filter((m) => /Speculum|Sperre/.test(m.text));
   ok(nachLaden.length === 2 && nachLaden.some((m) => /Speculum/.test(m.text)) && nachLaden.some((m) => /Sperre/.test(m.text)), 'Laden: die wartenden angekündigten Befehle werden einmal erneut angekündigt (Angriff und Embargo, ' + nachLaden.length + ' Meldungen)');
   ok(g2.phase === 'play' && g2.weltsim && g2.errors === 0 && gleich(ws(g2).regie, ws(g).regie), 'Laden: wartende Befehle und Abkühlzeiten sind wieder da');

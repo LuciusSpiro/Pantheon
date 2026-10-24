@@ -109,6 +109,7 @@ section('Anschluss im Lage-Spielleiter', () => {
   ok(ws(g).regie.vorgemerkt.length === 2, 'anderes Gut im dritten Plan: angenommen');
   // der Verlauf steht im Weltstand: Laden hebelt die Regel nicht aus
   const Weltstand = require('../server/weltstand.js');
+  g.env = Object.assign({}, g.env, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' });   // SUND-03 F2: der Block regie steht nur mit Schalter im Stand
   const d = JSON.parse(JSON.stringify(Weltstand.capture(g)));
   ok(Array.isArray(d.welt.sim.regie.verlauf) && d.welt.sim.regie.verlauf.length === 3 && Weltstand.validate(d).length === 0, 'welt.sim.regie.verlauf: gespeichert, schemagültig (' + Weltstand.validate(d).slice(0, 1) + ')');
   const fs = require('fs'); const path = require('path'); const dir = F.freshDir(); d.id = 'w-wh'; fs.writeFileSync(path.join(dir, 'w-wh.json'), JSON.stringify(d));

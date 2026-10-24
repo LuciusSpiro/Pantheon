@@ -367,9 +367,15 @@ function schreibe(game, eintrag) {
 }
 
 // ---------- Weltstand welt.sim.regie
+// SUND-03 F2: abgelaufene Einträge werden nicht mitgeschrieben (Rate außerhalb des Fensters, Abkühlzeiten, die vorbei sind): sonst bliebe der Block für immer im Stand
 function toSave(ws) {
-  const s = ws && ws.regie;
-  if (!s || (!s.vorgemerkt.length && !Object.keys(s.letzte).length && !s.rate.length && !(s.verlauf || []).length)) return null;
+  const s0 = ws && ws.regie;
+  if (!s0) return null;
+  const jetzt = Number.isFinite(ws.tickZahl) ? ws.tickZahl : 0;
+  const letzte = {};
+  for (const [k, t] of Object.entries(s0.letzte)) if (ganz(R.abkuehlung.wert[k.split(':')[0]], 0) - (jetzt - t) > 0) letzte[k] = t;
+  const s = Object.assign({}, s0, { letzte, rate: s0.rate.filter((t) => jetzt - t < RATE.fenster) });
+  if (!s.vorgemerkt.length && !Object.keys(s.letzte).length && !s.rate.length && !(s.verlauf || []).length) return null;
   const b = {};
   if (s.vorgemerkt.length) b.vorgemerkt = s.vorgemerkt.map((e) => (e.w ? { b: klon(e.b), ab: e.ab, w: 1 } : { b: klon(e.b), ab: e.ab }));
   if (Object.keys(s.letzte).length) b.letzte = Object.assign({}, s.letzte);

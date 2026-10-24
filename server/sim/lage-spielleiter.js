@@ -146,6 +146,8 @@ class LageSpielleiter {
     }
     if (this.aus) return this.ueberspringen('transport_aus', art);
     if (this.zustand !== 'idle') return this.ueberspringen('beschaeftigt', art);
+    // SUND-03 F2: Rate erschöpft: jeder Befehl scheiterte an der Rate, der Aufruf wäre zwecklos (kein Claude-Aufruf, zählt nicht gegen den Deckel)
+    if (Regie.befehleFrei(this.game).rate === 0) return this.ueberspringen('rate', art);
     const b = LLM.budget();
     if (b.remaining < this.W.min_budget) {
       // Rückfall und Logbuch nur EINMAL je Zustand „Budget leer“; jede weitere Grenze wird nur übersprungen und rührt die Regie nicht neu an

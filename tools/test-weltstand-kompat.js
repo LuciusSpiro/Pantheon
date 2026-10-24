@@ -60,6 +60,34 @@ for (const [name, env] of [['REISE_EREIGNISSE=1', { REISE_EREIGNISSE: '1' }], ['
   ok(errs.some((e) => /chronik/.test(e) && /unbekanntes Feld/.test(e)), name + ': das Schema von main lehnt chronik ab („unbekanntes Feld“), die Prüfung hat Zähne');
 }
 
+console.log('\nSchalter an gespielt, ohne Schalter weitergespielt und gespeichert (SUND-03 F2)');
+{
+  const Regie = require('../server/sim/regie-befehle.js');
+  const Marken = require('../server/sim/marken.js');
+  const a = lauf(7, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' });
+  const r = Regie.planAnwenden(a, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: Marken.hexVon(a.ship.scene), radius: 2 }, begruendung: 'Test' });
+  const d1 = welt(a), s1 = simBlock(d1);
+  ok(r.angenommen.length >= 2 && s1.regie && s1.regie.rate && s1.regie.rate.length === 2 && s1.chronik, 'mit Schalter: Plan gebucht, regie (Rate 2 Plätze) und chronik im Stand');
+  ok(Weltstand.validate(d1, a).length === 0, 'der Stand mit Schalter ist für das eigene Schema gültig');
+  const b = F.neuesSpiel({ crew: 3, seed: 7, names: NAMEN }).g;   // ohne Schalter
+  Kriegslage.restore(b, JSON.parse(JSON.stringify(s1)));
+  ok(b.weltsim.regie.rate.length === 2 && b.weltsim.chronik.length > 0, 'ohne Schalter geladen: die Zusatzdaten sind im Speicher');
+  for (let k = 0; k < 130; k++) Kriegslage.tick(b, 'test');
+  const d2 = welt(b), s2 = simBlock(d2);
+  ok(!('chronik' in s2) && !('reise' in s2) && !('regie' in s2), 'danach ohne Schalter gespeichert: kein Block chronik, reise, regie (die Zusatzdaten gehen verloren)');
+  ok(Weltstand.fallbackValidate(d2, MAIN).length === 0, 'und das Schema von main nimmt den Stand an');
+  // abgelaufene Einträge werden auch mit Schalter nicht mehr mitgeschrieben
+  const c = lauf(7, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' });
+  const RT = Regie.R.rate.wert;
+  c.weltsim.regie.rate = [c.weltsim.tickZahl - RT.fenster, c.weltsim.tickZahl - RT.fenster + 1, c.weltsim.tickZahl];
+  c.weltsim.regie.letzte = { 'regler:rom': c.weltsim.tickZahl - 1000, 'fokus': c.weltsim.tickZahl };
+  const blk = Regie.toSave(c.weltsim);
+  ok(blk && blk.rate.join() === (c.weltsim.tickZahl - RT.fenster + 1) + ',' + c.weltsim.tickZahl, 'abgelaufene Rate-Einträge (genau am Fensterrand) werden nicht geschrieben: ' + (blk && blk.rate.join()));
+  ok(blk && Object.keys(blk.letzte).join() === 'fokus', 'abgelaufene Abkühlzeiten werden nicht geschrieben');
+  c.weltsim.regie = Regie.neu(); c.weltsim.regie.rate = [c.weltsim.tickZahl - RT.fenster]; c.weltsim.regie.letzte = { 'regler:rom': 0 };
+  ok(Regie.toSave(c.weltsim) === null, 'nur Abgelaufenes: gar kein Block');
+}
+
 console.log('\nFunktion und Laden');
 ok(typeof Kriegslage.neueBloeckeAn === 'function', 'benannte Funktion Kriegslage.neueBloeckeAn');
 {
