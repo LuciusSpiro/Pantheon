@@ -43,7 +43,15 @@ section('Einträge: Form, Grenzen, Namen', () => {
   const lang = Chronik.eintragen(g, { art: 'plan', ref: 'r'.repeat(90), kurz: 'x'.repeat(300) });
   ok(lang.kurz.length === W.kurz_max.wert && lang.ref.length === W.ref_max.wert, 'Text und Referenz werden gekürzt');
   const n1 = Chronik.eintragen(g, { art: 'szene', ref: 's1', kurz: 'Sieg: Mireille_Kasper und Ouzo_Brandt halten Carrara, Tzvi_Lund flog', param: { wer: 'Mireille_Kas' } });
-  ok(!/Mireille|Ouzo|Tzvi/.test(JSON.stringify(n1)) && /Crew/.test(n1.kurz), 'Spielernamen kommen nie hinein (auch nicht in param, auch nicht als Wortanfang)');
+  ok(!/Mireille|Ouzo|Tzvi/.test(n1.kurz) && /Crew/.test(n1.kurz), 'Spielernamen kommen nie in den Freitext (auch nicht als Wortanfang)');
+  // Struktur bleibt: Spieler mit Namen wie Felder und Zahlen
+  const gs = spiel({ crew: 4, names: ['Rom', 'an', 'notruf', '12'] }).g;
+  ws(gs).tickZahl = 12;
+  const s1 = Chronik.eintragen(gs, { art: 'reise', ref: 'notruf_havarie_reaktor', kurz: 'Notruf an Rom: 12 Schiffe, notruf', param: { art: 'notruf', variante: 'havarie', hex: '0305', n: 12 } });
+  ok(s1.ref === 'notruf_havarie_reaktor' && s1.t === 12 && s1.art === 'reise' && s1.param.art === 'notruf' && s1.param.variante === 'havarie' && s1.param.hex === '0305' && s1.param.n === 12, 'Struktur (Ref, Tick, Art, param) bleibt bei Spielern „Rom“, „an“, „notruf“, „12“ unberührt');
+  ok(!/Rom|an|notruf|12/.test(s1.kurz.replace(/Crew/g, '')) && /Crew/.test(s1.kurz), 'im Freitext sind die Namen ersetzt: ' + s1.kurz);
+  const ex = JSON.parse(Ausschnitt.ausschnitt(gs, { stufe: 0 }).text).chronik;
+  ok(ex.length === 1 && /^12: /.test(ex[0]) && !/Rom|notruf/.test(ex[0].replace(/^12: /, '')), 'Ausschnitt: der Tick „12“ bleibt vorn stehen, im Text sind die Namen weg (' + ex[0] + ')');
   ok(Chronik.letzte(g, 2).length === 2 && Chronik.letzte(g, 2)[1].ref === 's1' && Chronik.letzte(g, 0).length === 0, 'letzte(n): die letzten n Einträge');
   const kopie = Chronik.letzte(g, 1); kopie[0].kurz = 'X';
   ok(ws(g).chronik[ws(g).chronik.length - 1].kurz !== 'X', 'letzte() gibt Kopien');

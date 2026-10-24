@@ -93,9 +93,10 @@ const MUTATIONEN = [
   [RS, "  if (ereignis) return stop(", "  if (ereignis) { game.reisePlan = null; } if (ereignis) return stop(", 'Schnellsprung: der Rest der Strecke geht verloren'],
   // ---- Chronik
   [CH, "  while (ws.chronik.length > MAX) ws.chronik.shift();", "", 'Chronik: der Ring wächst ohne Grenze'],
-  [CH, "  const kurz = ohneNamen(e.kurz, game).replace(/\\s+/g, ' ').trim().slice(0, KURZ_MAX);", "  const kurz = ohneNamen(e.kurz, game).replace(/\\s+/g, ' ').trim();", 'Chronik: Texte werden nicht gekürzt'],
-  [CH, "  for (const n of spielerNamen(game)) t = t.replace(", "  for (const n of []) t = t.replace(", 'Chronik: Spielernamen im Text'],
-  [CH, "if (typeof v === 'string') out[k] = ohneNamen(v, game).slice(0, 24);", "if (typeof v === 'string') out[k] = v.slice(0, 24);", 'Chronik: Spielernamen im param'],
+  [CH, "  const kurz = bereinigt(e.kurz, game).replace(/\\s+/g, ' ').trim().slice(0, KURZ_MAX);", "  const kurz = bereinigt(e.kurz, game).replace(/\\s+/g, ' ').trim();", 'Chronik: Texte werden nicht gekürzt'],
+  [CH, "const bereinigt = (text, game) => Ausschnitt.ohneNamen(text, Ausschnitt.spielerNamen(game || {}));", "const bereinigt = (text, game) => String(text);", 'Chronik: Spielernamen im Text'],
+  [CH, "ref: String(e.ref == null ? '' : e.ref).slice(0, REF_MAX)", "ref: bereinigt(e.ref == null ? '' : e.ref, game).slice(0, REF_MAX)", 'Chronik: der Namensfilter zerstört die Referenz (Spieler „Rom“)'],
+  [CH, "if (typeof v === 'string') out[k] = v.slice(0, 24);", "if (typeof v === 'string') out[k] = bereinigt(v, game).slice(0, 24);", 'Chronik: der Namensfilter zerstört param'],
   [CH, "  if (!ws || !istObjekt(e) || !ARTEN.includes(e.art)) return null;", "  if (!ws || !istObjekt(e)) return null;", 'Chronik: unbekannte Arten werden angenommen'],
   [CH, "    if (Object.keys(out).length >= PARAM_MAX) break;", "", 'Chronik: param ohne Obergrenze'],
   [CH, "  return out.slice(-MAX);", "  return out;", 'Chronik: der Leser kürzt nicht'],
@@ -123,8 +124,9 @@ const MUTATIONEN = [
   [AB, "  Chronik.eintragen(game, { art: 'absicht', ref: ids,", "  void ({ art: 'absicht', ref: ids,", 'Chronik: abgelehntes Angebot fehlt'],
   [LS, "    Chronik.eintragen(this.game, { art: 'plan',", "    void ({ art: 'plan',", 'Chronik: angewandte Pläne fehlen'],
   // ---- Ausschnitt
-  [L, ".slice(-st.chronik).map((c) => ohneNamen(`${c.t}: ${c.kurz}`, namen)", ".slice(-99).map((c) => ohneNamen(`${c.t}: ${c.kurz}`, namen)", 'Ausschnitt: die ganze Chronik statt der letzten Einträge'],
-  [L, "ohneNamen(`${c.t}: ${c.kurz}`, namen)", "`${c.t}: ${c.kurz}`", 'Ausschnitt: Namen aus der Chronik bleiben stehen'],
+  [L, ".slice(-st.chronik).map((c) => `${c.t}: ${ohneNamen(c.kurz, namen)}`", ".slice(-99).map((c) => `${c.t}: ${ohneNamen(c.kurz, namen)}`", 'Ausschnitt: die ganze Chronik statt der letzten Einträge'],
+  [L, "`${c.t}: ${ohneNamen(c.kurz, namen)}`", "`${c.t}: ${c.kurz}`", 'Ausschnitt: Namen aus der Chronik bleiben stehen'],
+  [L, "`${c.t}: ${ohneNamen(c.kurz, namen)}`", "ohneNamen(`${c.t}: ${c.kurz}`, namen)", 'Ausschnitt: der Namensfilter trifft auch den Tick (Spieler „12“)'],
   [L, "  const chronik = (ws.chronik || []).slice(", "  const chronik = [].slice(", 'Ausschnitt: liest die Chronik nicht'],
   // ---- Wiederholungsregeln der Pläne
   [WH, "    if (s && !ausnahmen.includes(b.typ) && bekannt.has(s)) abgelehnt.push", "    if (false) abgelehnt.push", 'Pläne: Wiederholungen gehen durch'],

@@ -77,7 +77,7 @@ function bauen(game, st, namen) {
   if (st.ruhige_zaehlen) flotten.ruhig = ruhig.length; else flotten.ruhig = ruhig.map(flKurz);
 
   const ev = (ws.ereignisse || []).filter((e) => e.typ !== 'konvoi' && !WICHTIG.includes(e.typ)).slice(-st.ereignisse).map((e) => ereignisKurz(e, d));
-  const chronik = (ws.chronik || []).slice(-st.chronik).map((c) => ohneNamen(`${c.t}: ${c.kurz}`, namen).slice(0, A.chronik_zeichen));   // SUND-03 D: die Chronik der Freien Fahrt (welt.sim.chronik, Tick: Kurztext)
+  const chronik = (ws.chronik || []).slice(-st.chronik).map((c) => `${c.t}: ${ohneNamen(c.kurz, namen)}`.slice(0, A.chronik_zeichen));   // SUND-03 D: die Chronik der Freien Fahrt (welt.sim.chronik, Tick: Kurztext)
   const lage = Regie.lage(game);
   const embargos = Object.entries(z.embargo || {}).filter(([, e]) => z.tick < e.bis).map(([gegen, e]) => ({ gegen, waren: e.waren.join(''), rest: e.bis - z.tick })).sort((a, b) => (a.gegen < b.gegen ? -1 : 1));
   const mieten = z.flotten.filter((fl) => fl.miete).map((fl) => ({ id: fl.id, an: fl.miete.an, rest: fl.miete.bis - z.tick, st: r1(fl.staerke) }));

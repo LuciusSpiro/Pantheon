@@ -10,6 +10,7 @@
 //   ausTick(game, ev, gueltig, crewPostenVorher)                       nach einem Sim-Tick: Posten der Crew und Wendepunkte (Hafen, Hauptwelt) aus den Ereignissen eintragen
 //   neu() / toSave(ws) / lesen(block)                                  Weltstand-Block welt.sim.chronik (Altstand und Müll = leer)
 const Sektoren = require('../../shared/sektoren.js');
+const Ausschnitt = require('./lage-ausschnitt.js');
 
 const W = require('../../content/welt/chronik-werte.json').werte;
 const MAX = W.max.wert, KURZ_MAX = W.kurz_max.wert, REF_MAX = W.ref_max.wert, ARTEN = W.arten.wert;
@@ -18,15 +19,8 @@ const PARAM_MAX = 4;
 const neu = () => [];
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 
-function spielerNamen(game) {
-  return ((game && game.players) || []).map((p) => (p && typeof p.name === 'string' ? p.name.trim() : '')).filter((n) => n.length >= 2).sort((a, b) => b.length - a.length);
-}
-// Ein Spielername im Text (auch ein längeres Wort, das mit ihm beginnt) wird durch „Crew“ ersetzt
-function ohneNamen(text, game) {
-  let t = String(text == null ? '' : text);
-  for (const n of spielerNamen(game)) t = t.replace(new RegExp('(?<![\\wäöüÄÖÜß])' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '[\\wäöüÄÖÜß]*', 'gi'), 'Crew');
-  return t;
-}
+// Der Namensfilter (eine Implementierung, lage-ausschnitt.js) gilt NUR für den Freitext `kurz`: Referenz, param, Arten und Ticks sind Struktur und bleiben, wie sie sind (ein Spieler „Rom“ oder „12“ darf sie nicht zerstören)
+const bereinigt = (text, game) => Ausschnitt.ohneNamen(text, Ausschnitt.spielerNamen(game || {}));
 // param: höchstens PARAM_MAX Felder mit kurzen Texten, Zahlen oder Wahrheitswerten (keine Objekte, keine Namen)
 function paramLesen(p, game) {
   if (!istObjekt(p)) return undefined;
@@ -35,7 +29,7 @@ function paramLesen(p, game) {
     if (Object.keys(out).length >= PARAM_MAX) break;
     if (!/^[a-z_]{1,12}$/.test(k)) continue;
     const v = p[k];
-    if (typeof v === 'string') out[k] = ohneNamen(v, game).slice(0, 24);
+    if (typeof v === 'string') out[k] = v.slice(0, 24);
     else if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
     else if (typeof v === 'boolean') out[k] = v;
   }
@@ -45,10 +39,10 @@ function paramLesen(p, game) {
 function eintragen(game, e) {
   const ws = game && game.weltsim;
   if (!ws || !istObjekt(e) || !ARTEN.includes(e.art)) return null;
-  const kurz = ohneNamen(e.kurz, game).replace(/\s+/g, ' ').trim().slice(0, KURZ_MAX);
+  const kurz = bereinigt(e.kurz, game).replace(/\s+/g, ' ').trim().slice(0, KURZ_MAX);
   if (!kurz) return null;
   if (!Array.isArray(ws.chronik)) ws.chronik = neu();
-  const x = { t: ws.tickZahl, art: e.art, ref: ohneNamen(e.ref == null ? '' : e.ref, game).slice(0, REF_MAX), kurz };
+  const x = { t: ws.tickZahl, art: e.art, ref: String(e.ref == null ? '' : e.ref).slice(0, REF_MAX), kurz };
   const p = paramLesen(e.param, game);
   if (p) x.param = p;
   ws.chronik.push(x);
@@ -100,4 +94,4 @@ function lesen(b) {
   return out.slice(-MAX);
 }
 
-module.exports = { eintragen, letzte, ausTick, neu, toSave, lesen, ARTEN, MAX, KURZ_MAX, ohneNamen };
+module.exports = { eintragen, letzte, ausTick, neu, toSave, lesen, ARTEN, MAX, KURZ_MAX };
