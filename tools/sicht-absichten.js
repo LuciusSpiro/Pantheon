@@ -49,14 +49,14 @@ async function lauf(b, vw, vh, port) {
     // 1. Terminal vor Tribun: der Lage-Knopf ist gedimmt, der Bereich nennt den Rang
     await ruf(0);
     await sitz('shop'); await sleep(900); await shot('lage-00-werft-lage-knopf-gedimmt', 500);
-    await taste('KeyL'); await shot('lage-01-vor-tribun', 500);
+    await taste('KeyK'); await shot('lage-01-vor-tribun', 500);
     // 2. Tribun, ein Sprung: das Angebot kommt (Funk)
     await ruf(TRIBUN); await sleep(300); tick();
     await shot('lage-02-angebot', 900);
     await taste('ArrowDown'); await shot('lage-03-zweite-karte-gewaehlt', 600);
     // Funk-Reiter des Captains: der Angebots-Funk
     await sitz('captain'); await sleep(500); await taste('Digit1'); await shot('cap-funk-angebot', 800);
-    await sitz('shop'); await sleep(700); await taste('KeyL');
+    await sitz('shop'); await sleep(700); await taste('KeyK');
     await shot('lage-04-angebot-wieder', 600);
     // 3. Annehmen
     await taste('Enter'); await shot('lage-05-laeuft', 900);

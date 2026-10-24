@@ -15,8 +15,8 @@ const STATIC_DIRS = [
   { prefix: '/shared/', dir: path.join(ROOT, 'shared') },
   // B1 §9 (Wunsch VOXEL): Vokabular und Art-Daten für den Kit-Renderer – nur .json, nur lesen, kein Listing
   { prefix: '/content/buehnen/', dir: path.join(ROOT, 'content', 'buehnen'), only: ['.json'] },
-  // SUND-02b UI: Texte und Dienstgrade für die Rang-Anzeige (public/js/rang.js), nur diese zwei Dateien, nur lesen
-  { prefix: '/content/flotte/', dir: path.join(ROOT, 'content', 'flotte'), nur: ['ruf.json'] },
+  // SUND-02b UI: Texte und Dienstgrade für die Rang-Anzeige (public/js/rang.js) und die Texte des Terminal-Bereichs Kurs (public/js/absicht.js: flotte/absichten.json), nur diese drei Dateien, nur lesen
+  { prefix: '/content/flotte/', dir: path.join(ROOT, 'content', 'flotte'), nur: ['ruf.json', 'absichten.json'] },
   { prefix: '/content/welt/', dir: path.join(ROOT, 'content', 'welt'), nur: ['ruf-werte.json'] },
   { prefix: '/', dir: path.join(ROOT, 'public') },
 ];

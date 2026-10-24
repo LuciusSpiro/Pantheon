@@ -2858,7 +2858,7 @@
     tastenBereiche(c, view) {
       const st = view.state || {}, b = new Set();
       if (c === 'technik') b.add(this.ttab === 1 ? 'technik.schaden' : 'technik.energie');
-      if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && !tu.zusehend && tu.zustand.bereich === 'lage' ? 'terminal.lage' : tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // SUND-02b D: Bereich Lage (Absichten, Enter nimmt an); PAN-01 D2: Enter kauft im Handel, baut um in der Werft
+      if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'lage' ? 'terminal.lage' : tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // SUND-02b D: Bereich Lage (Absichten, Enter nimmt an); PAN-01 D2: Enter kauft im Handel, baut um in der Werft
       if (c === 'captain') { b.add(['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }
       if (c === 'weapons') {
         if (this.fracht && this.fracht(st).show) b.add('ops.fracht');

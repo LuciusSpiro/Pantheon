@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b UI: Rang-Anzeige (public/js/rang.js) ohne Browser: Storage (world.ruf, Löschsignal, Lobby, welcome), Anzeigemodell, Kürzen der Zeile,
 // Anbindung an das Terminal-Modell (Statuszeile, Block „Stufe n öffnet“), Stützpunkte im Anzeigeblock world.lage (st) und in KarteLage.lesen,
-// und die zwei ausgelieferten Textdateien (nur diese). Gegen eine ECHTE Game-Klasse (Freie Fahrt Sund und Kampagne).   node tools/test-rang-anzeige.js
+// und die ausgelieferten Textdateien (nur diese: ruf.json, ruf-werte.json, absichten.json). Gegen eine ECHTE Game-Klasse (Freie Fahrt Sund und Kampagne).   node tools/test-rang-anzeige.js
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
@@ -150,7 +150,9 @@ async function statisch() {
   try {
     const a = await holen('/content/flotte/ruf.json'), b = await holen('/content/welt/ruf-werte.json');
     ok(a.s === 200 && JSON.parse(a.d).anzeige && b.s === 200 && JSON.parse(b.d).werte.raenge, 'ruf.json und ruf-werte.json kommen an (200)');
-    const z = await Promise.all(['/content/flotte/posten.json', '/content/welt/sund-sim.json', '/content/welt/', '/content/welt/kommandanten.json'].map(holen));
+    const c = await holen('/content/flotte/absichten.json');
+    ok(c.s === 200 && JSON.parse(c.d).anzeige && JSON.parse(c.d).anzeige.annehmen, 'SUND-02b D: absichten.json (Texte des Terminal-Bereichs Kurs) kommt an (200)');
+    const z = await Promise.all(['/content/flotte/posten.json', '/content/welt/absichten.json', '/content/flotte/sim-szene.json', '/content/welt/sund-sim.json', '/content/welt/', '/content/welt/kommandanten.json'].map(holen));
     ok(z.every((q) => q.s === 403 || q.s === 404) && !z.some((q) => q.s === 200), 'andere Dateien der Ordner bleiben zu (403/404): ' + z.map((q) => q.s).join(' '));
   } finally { await srv.close(); }
 }

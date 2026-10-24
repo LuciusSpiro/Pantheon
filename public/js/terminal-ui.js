@@ -60,6 +60,7 @@
 
   // Ansicht, die gerade gilt: der Nutzer = lokal gewählt, Zuschauer = die Ansicht des Nutzers aus dem Snapshot
   function ansicht(L) {
+    if (s.bereich === 'lage' && !absicht()) s.bereich = 'werft';   // der Modus ist zu Ende (Kampagne, Lobby): der Bereich Kurs gibt es nicht mehr, sonst schluckte er die Tasten
     if (!L.geladen) return { bereich: 'handel', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: s.handel };   // Block kommt erst nach dem Hinsetzen: bis dahin der Handel
     if (!s.zusehen) return { bereich: s.bereich, auswahl: s.auswahl, platz: s.platz, raum: s.raum, teil: s.teil, handel: s.handel, lage: s.lageId };
     const u = (L.w && L.w.ui) || { b: 'w', a: 'p', n: 8, i: null };
@@ -217,15 +218,18 @@
     return rows.map((r, i) => ({ r, i })).sort((x, y) => (order[x.r.kind] - order[y.r.kind]) || (x.i - y.i)).map((x) => x.r);
   }
 
-  // ---------------------------------------------------------------- Lage (SUND-02b D): Absichten von Rom, Anzeige aus world.absicht (Absicht.modell), Befehle an den Server
+  // ---------------------------------------------------------------- Kurs (SUND-02b D): Absichten von Rom, Anzeige aus world.absicht (Absicht.modell), Befehle an den Server, Texte aus content/flotte/absichten.json
+  // (intern heißt der Bereich weiter 'lage'). Reihenfolge der Zustände: Rang nie vor laufender Absicht prüfen (Rangverlust lässt sie zu Ende laufen).
   const absicht = () => (window.Absicht && Absicht.modell ? Absicht.modell() : null);   // null: kein Modus (Kampagne, Limes), dann gibt es den Bereich nicht
+  const AT = (key, w) => (window.Absicht && Absicht.text ? Absicht.text(key, w) : '');
+  const sprung = (n) => (window.Absicht && Absicht.sprung ? Absicht.sprung(n) : String(n));
   const lageKarte = (AB, id) => (AB && (AB.angebot.find((k) => k.id === id) || AB.angebot[0])) || null;   // gewählte Karte, sonst die erste
   function annehmen(view, AB, id) {
-    if (s.zusehen || !AB || !AB.angebot.length || !id) return;
+    if (s.zusehen || !AB || !AB.angebot.length || !id || abgesagt()) return;
     cmd(view, 'absicht.waehlen', { id }); warten();
   }
   function ablehnen(view, AB) {
-    if (s.zusehen || !AB || !AB.angebot.length) return;
+    if (s.zusehen || !AB || !AB.angebot.length || abgesagt()) return;
     cmd(view, 'absicht.ablehnen'); warten();
   }
   function lageWeiter(view, d) {
@@ -233,34 +237,35 @@
     const i = Math.max(0, AB.angebot.findIndex((k) => k.id === s.lageId));
     s.lageId = AB.angebot[(i + AB.angebot.length + d) % AB.angebot.length].id; s.antwort = null;
   }
-  const sprung = (n) => n + (n === 1 ? ' Sprung' : ' Sprünge');
-  // Modell des Bereichs Lage für T.zeichneLage (a.lage = gewählte Id, bei Zuschauern die des Nutzers)
+  // „Schon gewählt“ vom Server: die Karten sind sofort gesperrt, bis der neue Snapshot das Angebot wegnimmt (kein bedienbares Angebot neben der Absage)
+  const abgesagt = () => !!s.antwort && s.antwort.ok === false && s.antwort.code === 'schon_gewaehlt' && now() - s.antwort.t < KOMMENTAR_MS;
+  // Modell des Bereichs für T.zeichneLage (a.lage = gewählte Id, bei Zuschauern die des Nutzers)
   function lageModell(view, AB, a, bedienbar, ant) {
     const warnung = ant && !ant.ok ? ant.text : null;   // Antwort des Servers („Schon gewählt …“) ersetzt die Infozeile (Warnfarbe)
-    if (!AB.frei) return { zustand: 'gesperrt', titel: 'NOCH KEINE ANFRAGE', text: 'Das Oberkommando fragt Euch ab dem Rang ' + AB.ab + ' um Rat und bietet dann einen Kurs für die Legion an. Bis dahin läuft alles, wie es ist.', info: warnung ? { text: '', grund: warnung } : null };
-    if (AB.laufend) return { zustand: 'laeuft', laufend: AB.laufend, info: { text: 'Danach folgt die Legion wieder ihrem eigenen Plan. Eine zweite Wahl gibt es erst mit dem nächsten Angebot.', grund: warnung } };   // SUND-02b D
-    if (!AB.angebot.length) return { zustand: 'leer', titel: 'ROM HAT GERADE KEINE FRAGE', text: 'Alle paar Sprünge fragt das Oberkommando Euch um Rat. Ihr könnt annehmen, ablehnen oder es lassen: ohne Euch folgt die Legion ihrem eigenen Plan.', info: warnung ? { text: '', grund: warnung } : null };
-    const gew = lageKarte(AB, a.lage);
+    if (AB.laufend) return { zustand: 'laeuft', laufend: AB.laufend, info: { text: AT('laeuft_info'), grund: warnung } };   // zuerst: eine laufende Absicht läuft auch nach einem Rangverlust zu Ende
+    if (!AB.frei) return { zustand: 'gesperrt', titel: AT('gesperrt_titel'), text: AT('gesperrt_text', { ab: AB.ab }), info: warnung ? { text: '', grund: warnung } : null };
+    if (!AB.angebot.length) return { zustand: 'leer', titel: AT('leer_titel'), text: AT('leer_text'), info: warnung ? { text: '', grund: warnung } : null };
+    const gew = lageKarte(AB, a.lage), sperre = abgesagt();
     return {
-      zustand: 'angebot', hilfe: bedienbar ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.annehmen', 'Ent') + ' annehmen · ' + T.kappe('terminal.ablehnen', 'X') + ' ablehnen' : '',
-      karten: AB.angebot.map((k) => Object.assign({}, k, { gewaehlt: !!gew && k.id === gew.id, onClick: bedienbar ? () => { s.lageId = k.id; s.antwort = null; } : null })),
-      info: { text: 'Das Angebot gilt noch ' + sprung(AB.rest) + '. Ablehnen oder Liegenlassen kostet nichts, ohne Wahl folgt die Legion ihrem eigenen Plan.', grund: warnung },
+      zustand: 'angebot', hilfe: bedienbar && !sperre ? T.kappe('terminal.teil', '↑↓') + ' ' + AT('hilfe_waehlen') + ' · ' + T.kappe('terminal.annehmen', 'Ent') + ' ' + AT('hilfe_annehmen') + ' · ' + T.kappe('terminal.ablehnen', 'X') + ' ' + AT('hilfe_ablehnen') : '',
+      karten: AB.angebot.map((k) => Object.assign({}, k, { gewaehlt: !!gew && k.id === gew.id, onClick: bedienbar && !sperre ? () => { s.lageId = k.id; s.antwort = null; } : null })),
+      info: { text: AT('angebot_info', { n: sprung(AB.rest) }), grund: warnung },
     };
   }
   function lageBauen(view, m, L, a, bedienbar, hinweis, wartet, ant) {
     const AB = absicht();
     m.bereich = 'lage';
-    m.kopf = { ort: 'Oberkommando', art: 'lage', marken: L.marks };
-    m.lage = lageModell(view, AB, a, bedienbar, ant);
+    m.kopf = { ort: AT('kopf'), art: 'lage', marken: L.marks };
+    m.lage = Object.assign(lageModell(view, AB, a, bedienbar, ant), { bereich: AT('bereich') });
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };   // wie im Handel: Kreuz und Module gedimmt
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
-    const gew = lageKarte(AB, a.lage), hat = AB.frei && !AB.laufend && AB.angebot.length > 0;
-    const grund = !bedienbar ? 'Zuschauer bedienen nicht' : wartet ? 'Warte auf den Server …' : AB.laufend ? null : !AB.frei ? 'Ab Rang ' + AB.ab : !hat ? 'Kein Angebot' : null;
+    const gew = lageKarte(AB, a.lage), sperre = abgesagt(), hat = AB.frei && !AB.laufend && AB.angebot.length > 0 && !sperre;
+    const grund = !bedienbar ? AT('zuschauer') : wartet ? AT('wartet') : AB.laufend ? null : !AB.frei ? AT('ab_rang', { ab: AB.ab }) : sperre ? AT('abgesagt') : !hat ? AT('kein_angebot') : null;
     m.aktionen = {
-      haupt: { art: 'annehmen', text: AB.laufend ? 'Läuft noch ' + sprung(AB.laufend.rest) : 'Annehmen', disabled: !hat || !bedienbar || wartet, grund, onClick: () => annehmen(view, AB, gew && gew.id) },
-      hinweis: hinweis(hat && gew ? kurz(gew.name, 96) + ' · ' + gew.dauer + ' Spr.' : AB.laufend ? AB.laufend.name : '', 'dim'),
-      ausbau: { label: 'Ablehnen', aktion: 'terminal.ablehnen', taste: 'X', disabled: !hat || !bedienbar, grund: hat ? null : 'Kein Angebot', onClick: () => ablehnen(view, AB) },
-      teil: { label: 'Option', disabled: !hat || AB.angebot.length < 2 || !bedienbar, onClick: () => lageWeiter(view, 1) },
+      haupt: { art: 'annehmen', text: AB.laufend ? AT('laeuft_noch', { n: sprung(AB.laufend.rest) }) : AT('annehmen'), disabled: !hat || !bedienbar || wartet, grund, onClick: () => annehmen(view, AB, gew && gew.id) },
+      hinweis: hinweis(hat && gew ? gew.name : AB.laufend ? AB.laufend.name : '', 'dim'),
+      ausbau: { label: AT('ablehnen'), aktion: 'terminal.ablehnen', taste: 'X', disabled: !hat || !bedienbar, grund: hat ? null : AT('kein_angebot'), onClick: () => ablehnen(view, AB) },
+      teil: { label: AT('option'), disabled: !hat || AB.angebot.length < 2 || !bedienbar, onClick: () => lageWeiter(view, 1) },
     };
     return m;
   }
@@ -345,8 +350,8 @@
       return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
     };
     m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv && L.w && L.w.hs ? 'stuetzpunkt' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };   // SUND-02b UI: Stützpunkt der Crew (Werft ja, Handel nein: werft.hs) heißt so
-    const AB0 = absicht();   // SUND-02b D: Knopf „Lage“ nur im Modus (vor Tribun gedimmt, Grund im Tooltip)
-    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null, lage: AB0 ? { gesperrt: !AB0.frei, grund: AB0.frei ? null : 'Ab Rang ' + AB0.ab } : null };
+    const AB0 = absicht();   // SUND-02b D: Knopf „Kurs“ nur im Modus (vor Tribun gedimmt, Grund im Tooltip; eine laufende Absicht hält ihn offen)
+    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
 
@@ -472,12 +477,12 @@
     const digit = /^Digit([1-9])$/.exec(code) || /^Numpad([1-9])$/.exec(code);
     if (code === 'KeyH') { bereichWechseln('handel'); return true; }
     if (code === 'KeyW') { bereichWechseln('werft'); return true; }
-    if (code === 'KeyL') { bereichWechseln('lage'); return true; }
-    if (a.bereich === 'lage') {   // SUND-02b D: Bereich Lage: Pfeile wählen, Enter nimmt an, X lehnt ab (nichts anderes tut hier etwas)
+    if (code === 'KeyK') { bereichWechseln('lage'); return true; }
+    if (a.bereich === 'lage') {   // SUND-02b D: Bereich Kurs: Pfeile wählen, Enter nimmt an, X lehnt ab (nichts anderes tut hier etwas)
       const AB = absicht();
       if (code === 'ArrowUp' || code === 'ArrowLeft') lageWeiter(view, -1);
       else if (code === 'ArrowDown' || code === 'ArrowRight') lageWeiter(view, 1);
-      else if ((code === 'Enter' || code === 'NumpadEnter' || code === 'Space') && AB && AB.frei && !AB.laufend) { const k = lageKarte(AB, a.lage); annehmen(view, AB, k && k.id); }
+      else if ((code === 'Enter' || code === 'NumpadEnter') && AB && AB.frei && !AB.laufend) { const k = lageKarte(AB, a.lage); annehmen(view, AB, k && k.id); }
       else if (code === 'KeyX' && AB && AB.frei && !AB.laufend) ablehnen(view, AB);
       return true;
     }
@@ -505,7 +510,7 @@
     } else if (ev.kind === 'absichtAntwort') {   // SUND-02b D: Antwort des Servers an den Absender (ok oder Grund, z. B. „Schon gewählt“)
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
-      meldung(!!ev.ok, ev.ok ? (ev.op === 'waehlen' ? 'Gewählt.' : 'Abgelehnt, ohne Folgen.') : (ev.text || 'Nicht möglich.'), ev.ok ? null : ev.code);
+      meldung(!!ev.ok, ev.ok ? AT(ev.op === 'waehlen' ? 'gewaehlt' : 'abgelehnt') : (ev.text || AT('nicht_moeglich')), ev.ok ? null : ev.code);
     } else if (ev.kind === 'werftVorschau') {
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       if (typeof ev.rid === 'string' && ev.rid) s.vorschau.cache[ev.rid] = ev.vorschau;
@@ -533,6 +538,7 @@
   window.TerminalUI = {
     draw, keyDown, onEvent, zusehen, drawZusehen, zuruecksetzen, modell, lage, bereit,
     get zusehend() { return s.zusehen; },
+    get bereichJetzt() { return s.bereich === 'lage' && !absicht() ? 'werft' : s.bereich; },   // wirksamer Bereich (nach Modus-Ende nie 'lage'), für die Tastenbelegung
     get zustand() { return s; },
   };
 })();
