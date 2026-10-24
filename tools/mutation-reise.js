@@ -21,7 +21,7 @@ fs.copyFileSync(path.join(ROOT, 'tools', 'regie-fixture.js'), path.join(TMP, 'to
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
 
-const RE = 'server/sim/reise-ereignis.js', CH = 'server/sim/chronik.js', WH = 'server/sim/lage-wiederholung.js', RS = 'server/sim/reise.js', SP = 'server/sim/sprung.js', KL = 'server/sim/kriegslage.js',
+const RB = 'server/sim/regie-befehle.js', RE = 'server/sim/reise-ereignis.js', CH = 'server/sim/chronik.js', WH = 'server/sim/lage-wiederholung.js', RS = 'server/sim/reise.js', SP = 'server/sim/sprung.js', KL = 'server/sim/kriegslage.js',
   L = 'server/sim/lage-ausschnitt.js', LS = 'server/sim/lage-spielleiter.js', SZ = 'server/sim/kriegslage-szene.js', AB = 'server/sim/absicht.js',
   DW = 'content/reise/werte.json', DK = 'content/reise/ereignisse.json', DR = 'content/welt/ruf-werte.json', DC = 'content/welt/chronik-werte.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
@@ -135,6 +135,12 @@ const MUTATIONEN = [
   [RE, "R.rufLog = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);", "", 'Ruf: der Deckel läuft nie ab'],
   [RE, "  if (rl.length) b.r = rl.map((x) => [x[0], x[1]]);", "", 'Weltstand: der Ruf-Deckel wird nicht gespeichert'],
   [DK, '"Aufklärung an Lerche: Rostmeute auf der Ortung, sie haben euch bemerkt und drehen bei. Etwa {n} Sekunden. Macht euch bereit."', '"Aufklärung an Lerche: Rostmeute auf der Ortung, sie haben euch bemerkt und drehen bei. Etwa {n} Sekunden. Ihr könnt springen."', 'Daten: die Ankündigung verspricht Ausweichen'],
+  [WH, ".sort((a, b) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0))", "", 'Pläne: Mengen sind nicht sortiert ([3,5] ungleich [5,3])'],
+  [WH, "  embargo: ['von', 'gegen', 'waren'],", "  embargo: ['von', 'gegen', 'waren', 'dauer'],", 'Pläne: die Dauer gehört zum Schlüssel (10 ungleich 11)'],
+  [WH, "  nachschub: ['an', 'gut', 'hafen'],", "  nachschub: ['an', 'gut', 'hafen', 'menge'],", 'Pläne: die Menge gehört zum Schlüssel'],
+  [WH, "  const letzter = new Set(v.length ? v[v.length - 1] : []);", "  const letzter = new Set();", 'Pläne: nie zweimal in Folge gilt nur über das Fenster'],
+  [RB, "  if ((s.verlauf || []).length) b.verlauf = s.verlauf.map((p) => p.slice());", "", 'Weltstand: der Verlauf der Pläne wird nicht gespeichert'],
+  [RB, "Array.isArray(b.verlauf)) out.verlauf = b.verlauf.filter(Array.isArray).slice(-VERLAUF_MAX)", "Array.isArray(b.verlauf)) out.verlauf = b.verlauf.filter(Array.isArray)", 'Weltstand: der Leser kürzt den Verlauf nicht'],
   // ---- Quellen der Chronik
   [SZ, "  chronikEintrag(game, S, ausgang);\n}", "}", 'Chronik: Szenen-Ausgänge fehlen'],
   [AB, "  Chronik.eintragen(game, { art: 'absicht', ref: a.id,", "  void ({ art: 'absicht', ref: a.id,", 'Chronik: gewählte Absicht fehlt'],
@@ -146,13 +152,13 @@ const MUTATIONEN = [
   [L, "`${c.t}: ${ohneNamen(c.kurz, namen)}`", "ohneNamen(`${c.t}: ${c.kurz}`, namen)", 'Ausschnitt: der Namensfilter trifft auch den Tick (Spieler „12“)'],
   [L, "  const chronik = (ws.chronik || []).slice(", "  const chronik = [].slice(", 'Ausschnitt: liest die Chronik nicht'],
   // ---- Wiederholungsregeln der Pläne
-  [WH, "    if (s && !ausnahmen.includes(b.typ) && bekannt.has(s)) abgelehnt.push", "    if (false) abgelehnt.push", 'Pläne: Wiederholungen gehen durch'],
-  [WH, "    if (s && !ausnahmen.includes(b.typ) && bekannt.has(s))", "    if (s && bekannt.has(s))", 'Pläne: Ausnahmen gelten nicht'],
-  [WH, "    if (s && !ausnahmen.includes(b.typ) && bekannt.has(s))", "    if (s && !ausnahmen.includes(b.typ) && [...bekannt].some((x) => x.startsWith(b.typ + ':')))", 'Pläne: der Typ allein genügt (Parametersatz ignoriert)'],
+  [WH, "    if (t) abgelehnt.push(", "    if (false) abgelehnt.push(", 'Pläne: Wiederholungen gehen durch'],
+  [WH, "const t = s && !ausnahmen.includes(b.typ) ? trifft(s) : 0;", "const t = s ? trifft(s) : 0;", 'Pläne: Ausnahmen gelten nicht'],
+  [WH, "const t = s && !ausnahmen.includes(b.typ) ? trifft(s) : 0;", "const t = s && !ausnahmen.includes(b.typ) && [...bekannt, ...letzter].some((x) => x.startsWith(b.typ + ':')) ? 1 : 0;", 'Pläne: der Typ allein genügt (Parametersatz ignoriert)'],
   [WH, "  const fenster = Math.max(0, Math.floor(w.fenster_plaene) || 0);", "  const fenster = Math.min(1, Math.max(0, Math.floor(w.fenster_plaene) || 0));", 'Pläne: Fenster nur der letzte Plan'],
-  [WH, "  if (istObjekt(fokus) && !ausnahmen.includes('fokus') && bekannt.has(fokusSatz(fokus)))", "  if (false)", 'Pläne: Plan-Fokus wird nie als Wiederholung erkannt'],
+  [WH, "if (istObjekt(fokus) && !ausnahmen.includes('fokus') && trifft(fokusSatz(fokus))) {", "if (false) {", 'Pläne: Plan-Fokus wird nie als Wiederholung erkannt'],
   [WH, "  const out = (Array.isArray(plan && plan.befehle) ? plan.befehle : []).filter((b) => !weg.has(b))", "  const out = (Array.isArray(plan && plan.befehle) ? plan.befehle : []).filter(() => true)", 'Pläne: der Verlauf nimmt auch abgelehnte Befehle'],
-  [WH, "  return b.typ + ':' + JSON.stringify(kanon(Object.fromEntries(Object.entries(b).filter(([k]) => k !== 'typ'))));", "  return b.typ;", 'Pläne: der Satz kennt keine Parameter'],
+  [WH, "  return (b.typ + ':' + JSON.stringify(kanon(id))).slice(0, KEY_MAX);", "  return b.typ;", 'Pläne: der Satz kennt keine Parameter'],
   [LS, "    const wh = Wiederholung.pruefen(gelesen.plan, this.verlauf, this.W);", "    const wh = { plan: gelesen.plan, abgelehnt: [] };", 'Pläne: der Spielleiter prüft keine Wiederholungen'],
   [LS, "    this.wiederholungenMelden(wh.abgelehnt);", "", 'Pläne: Wiederholungen stehen nicht im Regie-Logbuch'],
   [LS, "    this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));", "", 'Pläne: der Verlauf wird nicht geführt'],
