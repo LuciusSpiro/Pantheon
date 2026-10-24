@@ -156,7 +156,7 @@ function verlustWirkungen(game, S) {
   const live = S.angreifer.map((a) => ({ id: a.id, staerke: (flotteMit(z, a.id) || { staerke: 0 }).staerke })).filter((a) => a.staerke > 0);
   const teil = verteile(S.killPunkte, live);
   for (const a of live) if (teil[a.id] > 0) w.push({ typ: 'flotte_verlust', flotte: a.id, punkte: teil[a.id] });
-  const f = verlustAnteil(S);
+  const f = verlustAnteil(S) * (S.modus === 'verrat' ? Verrat.faktor() : 1);   // SUND-02b E: im Verrat bucht die Szene nur den Anteil verlust.faktor der Verluste (Daten, Stellschraube gegen die Bänder)
   if (f > 0) {
     for (const g of S.vert.gruppen) {
       if (g.typ === 'flotte') {

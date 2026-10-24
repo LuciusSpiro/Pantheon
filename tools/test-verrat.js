@@ -98,7 +98,7 @@ function bereit(o) {
   ohneFlotten(g, hex);
   ankunft(g, hex); ops(g); run(g, 0.2);
   const rfl = op.rom === 0 ? null : flotte(g, hex, 'rom', op.rom || 6);
-  const fehler = Szene.debug(g, [String(op.staerke || 6), 'ger']);
+  const fehler = Szene.debug(g, [String(op.staerke || 6), 'ger'].concat(op.hex === OSTIA ? ['belagerung'] : []));
   if (fehler) throw new Error('Szene nicht ausgelöst: ' + fehler);
   if (op.kampf) run(g, CONFIG.simSzene.vorwarnung + 2);
   return Object.assign(t, { hex, rfl });
@@ -131,7 +131,7 @@ section('Daten und Texte', () => {
   ok(Object.keys(RUF.quellen.wert).filter((k) => /verrat/.test(k)).every((k) => RUF.quellen.wert[k].delta < 0), 'keine Verrat-Quelle gibt Ruf');
   for (const c of ['modus', 'keine_szene', 'phase', 'schon', 'keine_verbuendeten', 'transfer', 'docked', 'laeuft']) ok(typeof TEXTE.weigerung[c] === 'string' && TEXTE.weigerung[c].length > 5, 'Weigerungstext ' + c);
   for (const c of ['abgebrochen', 'szene', 'keine_verbuendeten', 'transfer', 'sprung', 'ops']) ok(typeof TEXTE.abbruch[c] === 'string' && /Nichts ist geschehen/.test(TEXTE.abbruch[c]), 'Abbruchtext ' + c + ' sagt, dass nichts geschehen ist');
-  ok(/Hochverrat/.test(TEXTE.warnung) && /Ruf/.test(TEXTE.anlauf) && /Abbrechen/.test(TEXTE.anlauf) && /\{sek\}/.test(TEXTE.anlauf), 'Warnung nennt Hochverrat, Ruf und kostenloses Abbrechen');
+  ok(/Hochverrat/.test(TEXTE.anlauf) && /Ruf/.test(TEXTE.anlauf) && /Abbrechen/.test(TEXTE.anlauf) && /\{sek\}/.test(TEXTE.anlauf), 'Warnung nennt Hochverrat, Ruf und kostenloses Abbrechen');
   for (const k of ['beginn', 'beginnLeise', 'feinde', 'sieg', 'niederlage', 'flucht', 'chronik']) ok(typeof TEXTE[k] === 'string' && TEXTE[k].length > 5, 'Text ' + k);
   const Wirk = require('../server/weltsim/wirkungen.js');
   const { g } = neu();
@@ -211,6 +211,8 @@ section('Anlauf: Warnung, kostenloser Abbruch', () => {
   for (const q of allies(g)) q.state = 'zerstoert';
   run(g, 0.3);
   ok(!halt(g) && rom(g) === ruf0 && t.oda().some((x) => x === TEXTE.abbruch.keine_verbuendeten), 'keine Verbündeten mehr: Abbruch mit Text');
+  // Abbruch 4b: der Halteprozess gehört zu einem Hex (defensiv: eine andere Szene kann ihn nie weiterführen)
+  { const h = { kind: 'posten', id: 'verrat', t: 0, dur: 3, hex: z(g).hexe[FREI] ? '0504' : '0000' }; const r = Verrat.haltWeiter(g, h); ok(r && r.code === 'szene' && r.text === TEXTE.abbruch.szene, 'Halteprozess eines anderen Hex wird abgebrochen (Text „Szene vorbei“)'); }
   // Abbruch 5: Sprung
   const u = bereit(); const g2 = u.g; const r2 = rom(g2);   // Vorwarnung: der Sprung ist keine Fahrerflucht (B-Fix 1), also ändert nur ein Verrat den Ruf
   Verrat.verratStart(g2, g2.players[0]); run(g2, 1);
@@ -271,6 +273,23 @@ section('Auslösung: Umschaltung der Szene', () => {
   ok(g.errors === 0, 'keine Fehler');
 });
 
+section('Umschaltung: Nachschub, doppelte Umschaltung, unbekannte Klasse', () => {
+  // Nachschub der alten Welle (Gegner, die wegen der Höchstzahl warten) kommt nach der Umschaltung nie mehr
+  const t = bereit({ kampf: true }); const g = t.g; const w0 = g.flotte.welle;
+  g.flotte.nachschub.push({ kind: 'raider', opts: {}, meta: { wv: w0.id, wvN: 1 }, scene: g.ship.scene });
+  const n0 = g.space.enemies.length;
+  ok(Szene.verratStarten(g) !== null && g.flotte.nachschub.length === 0, 'wartender Nachschub der alten Welle ist weg (direkter Aufruf der Umschaltung)');
+  run(g, 4); ok(!g.space.enemies.some((e) => e.wv === w0.id && !e.leaving) && n0 > 0, 'kein Gegner der alten Welle erscheint nach der Umschaltung');
+  // eine zweite Umschaltung ändert nichts (der Prüfer vorher fängt es ab, die Szene selbst auch)
+  const S = g.simSzene; const vor = JSON.stringify({ v: S.vert, vr: S.verrat, n: g.space.enemies.length, w: g.flotte.welle.id });
+  ok(Szene.verratStarten(g) === null && JSON.stringify({ v: S.vert, vr: S.verrat, n: g.space.enemies.length, w: g.flotte.welle.id }) === vor, 'verratStarten ein zweites Mal: null, Szene und Welle unverändert');
+  // unbekannte Klasse: sauber abgelehnt, kein Fehler, nichts verändert
+  const u = bereit({ kampf: true }); const gu = u.g; const q = allies(gu)[0]; q.kind = 'gibtsnicht'; const e0 = gu.errors; const sp0 = gu.space.enemies.length; const w1 = gu.flotte.welle.id;
+  ok(Szene.verratStarten(gu) === null && gu.errors === e0 && gu.space.enemies.length === sp0 && gu.flotte.welle.id === w1 && gu.simSzene.modus === undefined, 'unbekannte Klasse: null ohne Fehler (kein Wurf), Szene unverändert');
+  const r0 = rom(gu); Verrat.verratStart(gu, gu.players[0]); run(gu, VW.anlauf.wert.dauer + 1.5);
+  ok(rom(gu) === r0 && gu.simSzene.modus === undefined && !halt(gu), 'unbekannte Klasse beim Halteprozess: Abbruch, kein Ruf-Abzug');
+});
+
 section('Vorwarnung: Verrat vor der ersten Welle', () => {
   const t = bereit(); const g = t.g;
   ok(g.simSzene.phase === 'vorwarnung', 'Szene in der Vorwarnung');
@@ -291,8 +310,9 @@ section('Sieg: Verluste, Ruf nur Abzug, genau ein Tick', () => {
   ok(kernTicks === k0 + 1 && g.weltsim.tickZahl === tk0 + 1, 'genau ein Tick');
   const wk = letzterTick.wirkungen;
   const fv = wk.filter((x) => x.typ === 'flotte_verlust' && x.flotte === t.rfl.id);
-  ok(fv.length === 1 && fv[0].punkte > 0 && fv[0].punkte <= rf0, `flotte_verlust auf die römische Flotte (${fv[0] && fv[0].punkte} von ${rf0})`);
+  ok(fv.length === 1 && Math.abs(fv[0].punkte - Math.min(rf0, rf0 * VW.verlust.wert.faktor)) < 0.02, `flotte_verlust auf die römische Flotte: Anteil verlust.faktor ${VW.verlust.wert.faktor} (${fv[0] && fv[0].punkte} von ${rf0})`);
   ok(!wk.some((x) => x.typ === 'ort_gehalten' || x.typ === 'flaggschiff_gefallen'), 'kein ort_gehalten, kein flaggschiff_gefallen');
+  ok(wk.filter((x) => x.typ === 'flotte_verlust').every((x) => x.flotte === t.rfl.id), 'kein flotte_verlust auf Flotten der Germanen: die Abschüsse im Verrat zählen nie als Gegnerpunkte');
   const rw = wk.filter((x) => x.typ === 'ruf_aenderung');
   ok(rw.length === 1 && rw[0].grund === 'verrat_flotte_vernichtet' && rw[0].delta === Q_V.delta, 'Ruf-Wirkung: nur verrat_flotte_vernichtet');
   ok(!rw.some((x) => /^(sieg_feld|ort_gehalten)/.test(x.grund)) && rw.every((x) => x.delta < 0), 'kein sieg_feld_*, kein ort_gehalten_*, nie positiv');
@@ -465,6 +485,33 @@ section('Gedächtnis, Speichern, Laden, Altstand', () => {
   ok(chron.length === 1 && /Ort|Sektor|Lerche/.test(chron[0]) && /römische Schiffe/.test(chron[0]), 'Chronik: ein Eintrag zur Auslösung (' + chron[0] + ')');
 });
 
+section('Verrat an einem römischen Hafen: die Verteidiger-Regel gilt nicht mehr', () => {
+  const t = bereit({ hex: OSTIA, kampf: true, rom: 6 }); const g = t.g;
+  ok(g.simSzene && g.simSzene.ort === 'hafen' && allies(g).length > 0, 'Szene am römischen Hafen mit Verbündeten (Abwehr und Flotte)');
+  const abw0 = z(g).hexe[OSTIA].abwehr;
+  verrat(g);
+  ok(g.simSzene.modus === 'verrat' && ex(g).length > 0, 'Verrat am Hafen');
+  run(g, CONFIG.simSzene.erschoepfungGnade + 8, () => { g.ship.hull = g.ship.hullMax; g.ship.shields && g.ship.shields.fill && g.ship.shields.fill(1e4); });   // die Lerche schießt nicht und fliegt nicht: Hülle halten, sonst endet es mit dem Notfallprotokoll
+  ok(g.simSzene && g.simSzene.modus === 'verrat' && g.simSzene.vert.erschT == null, 'die Verteidigung „bricht“ nicht zusammen (ehemalige Verbündete sind keine Verteidiger mehr, keine Gnadenfrist, kein Niederlage-Zähler)');
+  durchspielen(g, 600);
+  ok(Szene.letzte(g).ausgang === 'sieg' && Szene.letzte(g).verrat === true, 'Sieg im Verrat am Hafen');
+  const wk = letzterTick.wirkungen;
+  ok(!wk.some((x) => x.typ === 'ort_gehalten' || x.typ === 'ort_gefallen') && wk.some((x) => x.typ === 'abwehr_verlust' && x.ort === OSTIA), 'kein ort_gehalten/ort_gefallen, aber die Abwehr des Hafens verliert (abwehr_verlust)');
+  const av = wk.find((x) => x.typ === 'abwehr_verlust' && x.ort === OSTIA);
+  ok(av && Math.abs(av.punkte - abw0 * VW.verlust.wert.faktor) < 0.02, 'die Abwehr des Hafens verliert den Anteil verlust.faktor (' + (av && av.punkte) + ' von ' + abw0 + ')');
+  // Folge, die die Sim selbst zieht (nicht die Szene): belagert ein Gegner den Hafen, fällt er ohne Abwehr im selben Tick (hafen_gefallen aus dem Kern, kein ort_gefallen aus der Szene). Das ist die Folge des Verrats, keine Zwangsfolge: der Verrat war eine bewusste Aktion.
+  ok(g.weltsim.ereignisse.some((e) => e.typ === 'hafen_gefallen' && e.ort === OSTIA) === (z(g).hexe[OSTIA].besitzer !== 'rom'), 'Besitz des Hafens folgt der Sim (Ereignis hafen_gefallen aus dem Kern, wenn belagert: ' + z(g).hexe[OSTIA].besitzer + ')');
+});
+
+section('Fehler im Ruf beim Beginn: kein Abzug, kein Absturz', () => {
+  const t = bereit({ kampf: true }); const g = t.g; const ruf0 = rom(g);
+  const anw = Ruf.anwenden; Ruf.anwenden = function (gm, w) { anw.call(Ruf, gm, w); throw new Error('Test: Ruf wirft'); };
+  console.warn = () => {}; verrat(g); console.warn = warnOrig; Ruf.anwenden = anw;
+  ok(rom(g) === ruf0 && g.errors >= 1 && g.phase === 'play', 'wirft die Ruf-Buchung: Ruf unverändert (zurückgerollt), Fehler gezählt, kein Game Over');
+  ok(t.funk().some((x) => x === TEXTE.beginnLeise.replace('{ort}', 'Brachland')), 'Funk ohne Ruf-Satz (der Abzug gilt nicht)');
+  g.errors = 0;
+});
+
 section('Mehrere Klassen, Punktwerte, Abwehr', () => {
   const t = bereit({ kampf: true, rom: 16 }); const g = t.g; const A = allies(g);
   const pts = A.reduce((s, q) => s + q.simPts, 0);
@@ -475,7 +522,7 @@ section('Mehrere Klassen, Punktwerte, Abwehr', () => {
   // Verluste: nach dem Tod aller Neuen ist verloren = ges
   const S = g.simSzene; const st0 = t.rfl.staerke; for (const e of ex(g).slice()) kill(g, e); run(g, 0.5);
   const fvp = Szene.letzte(g).wirkungen.filter((x) => x.typ === 'flotte_verlust' && x.flotte === t.rfl.id).reduce((s, x) => s + x.punkte, 0);
-  ok(!g.simSzene && Math.abs(fvp - Math.min(st0, S.vert.gruppen.find((q) => q.id === t.rfl.id).staerke)) < 0.02, 'Sieg nimmt die ganze Flotte (begrenzt durch ihre Stärke: ' + fvp + ' von ' + st0 + ')');
+  ok(!g.simSzene && Math.abs(fvp - Math.min(st0, S.vert.gruppen.find((q) => q.id === t.rfl.id).staerke * VW.verlust.wert.faktor)) < 0.02, 'Sieg bucht den Anteil verlust.faktor der Flotte (begrenzt durch ihre Stärke: ' + fvp + ' von ' + st0 + ')');
   // Verbündeter bereits vor dem Verrat gefallen: zählt als Verlust, wird nicht neu geboren
   const u = bereit({ kampf: true, rom: 8 }); const gu = u.g; const Au = allies(gu); const erster = Au[0];
   erster.hp = 0; require('../server/sim/escort.js').hit && Flotte.allyLost(gu, erster); run(gu, 0.3);
@@ -527,6 +574,12 @@ section('Eigene Regeln gelten für Spieler und Gegner gleich, keine Zahlen im Co
   // Datenänderung wirkt ohne Code
   const alt = Q_B.delta; Q_B.delta = -3; const t = bereit({ kampf: true, ruf: 40 }); verrat(t.g); const r = rom(t.g); Q_B.delta = alt;
   ok(r === 37, 'Ruf-Wert ist Datenwert: -3 aus den Daten wirkt ohne Code (40 -> ' + r + ')');
+  { // Stellschraube verlust.faktor (Daten): 1 = alles, 0 = nichts; ungültige Werte gelten als 1
+    const alt = VW.verlust.wert.faktor; const lauf = (f) => { VW.verlust.wert.faktor = f; const v = bereit({ kampf: true }); verrat(v.g); const s0 = v.rfl.staerke; durchspielen(v.g, 600); const x = letzterTick.wirkungen.filter((y) => y.typ === 'flotte_verlust' && y.flotte === v.rfl.id); return { s0, p: x.length ? x[0].punkte : 0 }; };
+    const a1 = lauf(1), a0 = lauf(0), a5 = lauf(0.5), ax = lauf('x');
+    VW.verlust.wert.faktor = alt;
+    ok(Math.abs(a1.p - a1.s0) < 0.02 && a0.p === 0 && Math.abs(a5.p - a5.s0 / 2) < 0.02 && Math.abs(ax.p - ax.s0) < 0.02, 'verlust.faktor ist Datenwert: 1 = ganze Flotte (' + a1.p + '), 0 = nichts (' + a0.p + '), 0,5 = Hälfte (' + a5.p + '), Müll = 1 (' + ax.p + ')');
+  }
   const alt2 = VW.anlauf.wert.dauer; VW.anlauf.wert.dauer = 2; const u = bereit({ kampf: true }); Verrat.verratStart(u.g, u.g.players[0]); ok(halt(u.g).dur === 2, 'Anlaufdauer ist Datenwert'); VW.anlauf.wert.dauer = alt2;
 });
 

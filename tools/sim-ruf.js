@@ -10,6 +10,7 @@
 //      ersten Erreichen von Optio/Centurio/Tribun/Legat (Median, 10 %, 90 %, Anteil der Läufe, die es in --max Sprüngen schaffen).
 //      SUND-02b A2: --sprengen p:delta:ab:bis[,…] (je Eintrag eine Sprengung eines gegnerischen Postens: mit Wahrscheinlichkeit p, zu einem gleichverteilten Sprung in [ab, bis], Ruf delta;
 //      die Sim hält höchstens ~1 feindlichen Posten je Lauf, Messung tools/sim-crew-sprengen.js, deshalb Wahrscheinlichkeiten statt Rate). Was-wäre-wenn ohne Datenänderung:
+//      SUND-02b E: --verrat n[,n…] (die Crew verrät Rom bei Sprung n: Abzug verrat_beginn + verrat_flotte_vernichtet, geklemmt auf 0).
 //      --quelle grund=delta[,…] (überschreibt Quellen) und --schwelle rang=ab[,…] (überschreibt Schwellen).
 // Kais Zielvorgabe: Centurio nach etwa einem Spielabend = ca. 40–80 Sprünge, Tribun nach etwa zwei Abenden, Legat Langzeitziel.
 const fs = require('fs');
@@ -134,6 +135,10 @@ function rechnen() {
   const SEEDS = Math.max(10, Number(val('--seeds', 2000)) | 0);
   const o = { max: Math.max(100, Number(val('--max', 3000)) | 0), sieg: Number(val('--sieg', 0.7)), flucht: Number(val('--flucht', 0.2)), postenDelta: Number(val('--posten-delta', 6)), raten: ratenLesen() };
   o.einmalig = String(val('--einmalig', '')).split(',').filter(Boolean).map((x) => { const [n, delta, p] = x.split(':').map(Number); return { n, delta, p: Number.isFinite(p) ? p : 1 }; });
+  // SUND-02b E: --verrat n[,n…]: die Crew verrät Rom bei den Sprüngen n (je Verrat Beginn + vernichtet aus den Quellen, sicher gebucht: p 1; Ruf nur Abzug, geklemmt auf 0). Zeigt, wie weit ein Verrat die Rangleiter zurückwirft.
+  o.verrat = String(val('--verrat', '')).split(',').filter(Boolean).map(Number).filter((x) => Number.isFinite(x) && x >= 1);
+  const vd = ((Q.verrat_beginn || {}).delta || 0) + ((Q.verrat_flotte_vernichtet || {}).delta || 0);
+  for (const n of o.verrat) o.einmalig.push({ n, delta: vd, p: 1 });
   o.sprengen = String(val('--sprengen', '')).split(',').filter(Boolean).map((x) => { const [p, delta, ab, bis] = x.split(':').map(Number); return { p, delta, ab, bis: Number.isFinite(bis) ? bis : ab }; });
   const postenListe = String(val('--posten', '0,2,4,6,8,12')).split(',').map(Number).filter((x) => x >= 0);
   const ergebnis = [];
@@ -151,6 +156,7 @@ function rechnen() {
   if (has('--json')) { console.log(JSON.stringify({ parameter: o, schwellen: RAENGE.map((r) => [r.id, r.ab]), ergebnis }, null, 1)); return; }
   console.log(`Rechenlauf Ruf: ${SEEDS} Läufe je Zeile, bis ${o.max} Sprünge; Raten je Sprung ${KLASSEN.map((k) => `${k} ${o.raten[k]}`).join(', ')}`);
   console.log(`  Crew gewinnt ${Math.round(o.sieg * 100)} % der Szenen, flieht ${Math.round(o.flucht * 100)} %, Rest verloren (kein Ruf); Posten-Ereignisse (Annahme Paket A): je ${o.postenDelta} Ruf`);
+  if (o.verrat.length) console.log(`  Verrat (E): bei Sprung ${o.verrat.join(', ')} je ${((Q.verrat_beginn || {}).delta || 0) + ((Q.verrat_flotte_vernichtet || {}).delta || 0)} Ruf (Beginn ${(Q.verrat_beginn || {}).delta} + vernichtet ${(Q.verrat_flotte_vernichtet || {}).delta})`);
   if (o.sprengen.length) console.log(`  Sprengungen (A2): ${o.sprengen.map((s) => `p ${s.p}, +${s.delta} Ruf, Sprung ${s.ab}–${s.bis}`).join('; ')}`);
   console.log(`  Schwellen: ${RAENGE.slice(1).map((r) => `${r.name} ${r.ab}`).join(', ')} (Rom ${KLEMM.min}..${KLEMM.max}); Quellen: ${Object.entries(Q).map(([k, e]) => `${k} ${e.delta > 0 ? '+' : ''}${e.delta}`).join(', ')}`);
   console.log('  Sprünge bis zum ERSTEN Erreichen: Median (10 % – 90 %), in Klammern der Anteil der Läufe, die es schaffen');

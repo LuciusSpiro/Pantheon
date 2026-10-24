@@ -2,7 +2,6 @@
   "format": "verrat/1",
   "_hinweis": "SUND-02b E: Texte zum Beschuss auf roemische Verbuendete (Verrat, server/sim/verrat.js, kriegslage-szene.js). Zahlen stehen in content/welt/verrat-werte.json und ruf-werte.json. Neutral formuliert, keine Wertung ausser der Warnung vor der Folge. {sek} = Dauer des Anlaufs, {n} = Zahl der Schiffe, {ort} = Name des Sektors, {ruf} = Abzug. Die Zeilen der Szenenzeile und der Ops-Leiste stehen fest im Client (public/js).",
   "sprecher": "Oberkommando",
-  "warnung": "Hochverrat an Rom: Die römischen Schiffe hier werden zu Gegnern, der Ruf bei Rom sinkt sofort, es gibt keinen Lohn. Abbrechen an der Ops kostet nichts, ein Sprung ebenso.",
   "anlauf": "Die Ops bereitet den Angriff auf die römischen Schiffe vor – das ist Hochverrat an Rom. Der Ruf sinkt, sobald er beginnt (in {sek} s). Abbrechen an der Ops oder Sprung kostet nichts.",
   "weigerung": {
     "modus": "Nur in der Freien Fahrt Sund.",

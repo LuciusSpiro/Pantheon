@@ -110,6 +110,9 @@ function haltFertig(game, h) {
   return true;
 }
 
+// Anteil der Verluste der römischen Seite, der im Verrat gebucht wird (Daten verlust.faktor, 0..1; Stellschraube gegen die SUND-01-Bänder, README SUND-02b E)
+function faktor() { const f = Number(W.verlust.wert.faktor); return Number.isFinite(f) ? Math.min(1, Math.max(0, f)) : 1; }
+
 // ---------- Gedächtnis (additiv): ws.verrat = { n, tick, hex } ----------
 function gedaechtnis(game, hex) {
   const ws = game.weltsim; if (!ws) return;
@@ -142,4 +145,4 @@ function warnung(game) {
   return [Math.max(0, Math.ceil(h.dur - h.t)), Math.round(h.dur)];
 }
 
-module.exports = { verratStart, pruefen, haltWeiter, haltFertig, stummerAbbruchText, snapshot, warnung, gedaechtnis, lesen, text, texte, verbuendete, W };
+module.exports = { verratStart, pruefen, haltWeiter, haltFertig, stummerAbbruchText, snapshot, warnung, gedaechtnis, lesen, text, texte, verbuendete, faktor, W };
