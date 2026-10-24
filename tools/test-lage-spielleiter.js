@@ -477,14 +477,14 @@ section('Namensfilter: Freitext ja, Struktur nie (Spieler „Rom“, „01“, �
   for (const name of ['Rom', '01', 'an', 'flotten', 'Crew', 'ger', 'h', 'st']) {
     const t = spiel({ crew: 1, names: [name] });
     tick(t.g, 12);
-    t.g.weltstand.data.chronik = [{ text: `${name} hat den Posten gegründet` }];
+    t.g.weltsim.chronik = [{ t: 12, art: 'plan', ref: 'p1', kurz: `${name} hat den Posten gegründet` }];   // SUND-03 D: welt.sim.chronik
     const b = Prompt.baue(t.g, { art: 'andocken', nr: 1, letzte: [{ nr: 1, begruendung: `${name} hat gewonnen`, grenze: 'andocken', befehle: ['fokus ger'] }], werte: W });
     const ist = strukturOhneChronik(b.prompt);
     ok(gleich(ist, soll), `Spieler „${name}“: der Ausschnitt ist strukturell identisch (Schlüssel, Fraktionen, Hex-Codes, Anzahl unberührt)`);
     if (name.length >= 2) {
       const chron = JSON.parse(b.prompt.match(/<ausschnitt>\n([\s\S]*?)\n<\/ausschnitt>/)[1]).chronik;
       const plaene = JSON.parse(b.prompt.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1]);
-      ok(chron.length === 1 && chron[0].startsWith('Crew hat') && plaene[0].begruendung === 'Crew hat gewonnen' && plaene[0].grenze === 'andocken' && plaene[0].befehle[0] === 'fokus ger', `Spieler „${name}“: im Freitext (Chronik, letzte Pläne) steht „Crew“, Felder und Befehle bleiben`);
+      ok(chron.length === 1 && /^[0-9]+: Crew hat/.test(chron[0]) && plaene[0].begruendung === 'Crew hat gewonnen' && plaene[0].grenze === 'andocken' && plaene[0].befehle[0] === 'fokus ger', `Spieler „${name}“: im Freitext (Chronik, letzte Pläne) steht „Crew“, Felder und Befehle bleiben`);
     }
   }
 });

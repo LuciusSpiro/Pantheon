@@ -57,7 +57,8 @@ const MUTATIONEN = [
   [RE, "  if (b.rang_max && ctx.rang > rangIndex(b.rang_max)) return false;\n", "", 'Bedingung: Rang-Höchstwert'],
   [RE, "  if (b.lage && !b.lage.includes(ctx.lage())) return false;\n", "", 'Bedingung: Lagefenster'],
   [RE, "  if (!R || !aktiv(game) || game.simSzene || !hex) return null;", "  if (!R || !aktiv(game) || !hex) return null;", 'Entscheidung: auch während einer Sim-Szene'],
-  [RE, "  return WERTE.standard_an === true;", "  return true;", 'Schalter: Standard immer an'],
+  [RE, "  return require('./lage-spielleiter.js').schalterAn(env) || WERTE.standard_an === true;", "  return true;", 'Schalter: Standard immer an'],
+  [RE, "  return require('./lage-spielleiter.js').schalterAn(env) || WERTE.standard_an === true;", "  return WERTE.standard_an === true;", 'Schalter: folgt nicht dem Lage-Spielleiter'],
   // ---- Sim-Notruf, Orte
   [RE, "    const sim = simNotruf(game, hex, p.sim_art);\n    if (sim) {", "    const sim = null;\n    if (sim) {", 'Sim-Notruf: wird nicht aufgenommen'],
   [RE, "    if (ev && ev.art === simArt) return { hex: nr.h, marke: nr.m };", "    if (ev) return { hex: nr.h, marke: nr.m };", 'Sim-Notruf: Art muss nicht passen'],
