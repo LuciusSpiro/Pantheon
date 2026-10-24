@@ -87,6 +87,10 @@ section('Daten: Takt, Katalog aus den Daten abgeleitet, Felder passen zum Kern',
   const sys = fs.readFileSync(Prompt.SYSTEM_DATEI, 'utf8');
   ok(/nur Befehle des Katalogs/i.test(sys) && /Vorwarnung/.test(sys) && /Hauptwelten/.test(sys) && /Scheinwahl/.test(sys) && /lage\.sieger/.test(sys) && /ausschließlich mit einem JSON/.test(sys), 'Systemprompt: nur Katalog, keine Scheinwahl, Vorwarnung, Hauptwelt, Sieger, nur JSON');
   ok(!/Ouzo|Mireille|Tzvi/.test(sys), 'Systemprompt ohne Namen');
+  ok(/Standard ist mindestens ein wirksamer Befehl/.test(sys) && /begründete Ausnahme/.test(sys) && /Aufmarsch in der Nähe der Crew/.test(sys) && /Embargo gegen die siegreiche Seite/.test(sys) && /Nachschub/.test(sys) && /Söldner|soeldner/.test(sys), 'Haltung: handeln (mindestens ein Befehl, leer nur begründet), Aufmarsch, Embargo gegen den Sieger, Nachschub/Söldner');
+  ok(/Stütze jede Aussage auf ein Feld des Ausschnitts/.test(sys) && /NICHT geschehen/.test(sys) && /befehle_frei/.test(sys), 'Regel: Aussagen auf Ausschnitt stützen, abgelehnte Befehle sind nicht geschehen, befehle_frei');
+  ok(/kein „die Crew gewinnt“/.test(sys) && /nie ohne Vorwarnung/.test(sys) && /Keine Scheinwahl/.test(sys), 'Fairness-Regeln unverändert');
+  ok(/Du hilfst keiner Seite mit Zahlen/.test(sys), 'Fairness: keine Gratis-Erträge');
 });
 
 section('Antwort lesen: Zäune, Anhang, Komma, Müll', () => {
