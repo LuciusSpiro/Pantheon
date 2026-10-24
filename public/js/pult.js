@@ -178,7 +178,7 @@
   // ---------------------------------------------------------------- Zeichnen
   let K = SKINS.rom;   // Skin des laufenden Pults
   let hilfe = false;
-  // Knopf im Skin; registriert die Klickfläche wie R.button. opts: hotkey, disabled, reason, active, onClick, fn (Funktionsfarbe), text (Anzeige statt label), hold (0..1)
+  // Knopf im Skin; registriert die Klickfläche wie R.button. opts: hotkey, disabled, gedimmt (gedimmt gezeichnet, aber anklickbar: der Grund steht trotzdem als Hinweis), reason, active, onClick, fn (Funktionsfarbe), text (Anzeige statt label), hold (0..1)
   function knopf(c, x, y, w, h, label, opts) {
     opts = opts || {};
     const b = { x, y, w, h, label, disabled: !!opts.disabled, reason: opts.reason, onClick: opts.onClick, hotkey: opts.hotkey || null, active: !!opts.active, hold: opts.hold };
@@ -186,7 +186,7 @@
     b.hotkey = kappe(opts.hotkey, opts.aktion) || null;
     K.knopf(c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);
     R.ui.buttons.push(b);
-    if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y };
+    if (hit(b) && b.reason && (b.disabled || opts.gedimmt)) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y };
     return b;
   }
   // R.button während fn durch den Skin-Knopf ersetzen (eingebettete Ansichten)
@@ -207,7 +207,7 @@
       label = fit(label); sub = fit(sub);
     }
     K.zelle(c, b, kz, label, sub, FN[fn] || fn, zustand, p);
-    if (zustand !== 'leer') { R.ui.buttons.push(b); if (hit(b) && b.disabled && b.reason) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y }; }
+    if (zustand !== 'leer') { R.ui.buttons.push(b); if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y }; }
     return b;
   }
   function titel(c, x, y, w, text, fn) { K.titel(c, x, y, w, text, FN[fn] || fn); return y + 13; }
