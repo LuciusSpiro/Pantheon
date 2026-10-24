@@ -66,6 +66,9 @@ T.check('ein Ziel → verzweigung leer; keine Wendung im Grobplan → wendung nu
   const sw = Schema.szenenSchemaFuer(env, Object.assign(clone(mitWendung.szene), { wendung: 'Ein Wächter erwacht' }));
   const sn = Schema.szenenSchemaFuer(env, Object.assign(clone(mitWendung.szene), { wendung: 'keine' }));
   const w = sw.properties.wendung.anyOf && sw.properties.wendung.anyOf.find((x) => x.type === 'object');
+  const wObj = w && w;
+  const wOk = { kennung: 'ok_kennung', nach_s: 30, ankuendigung: 'x', wirkung: [{ log: 'x' }] };
+  T.check('Wendung: gültige Kennung besteht, Kennung mit Großbuchstaben/Leerzeichen fällt durch', !!wObj && !H.pruefeSchema(wObj, wOk).length && H.pruefeSchema(wObj, Object.assign({}, wOk, { kennung: 'Große Kennung' })).length > 0 && H.pruefeSchema(wObj, Object.assign({}, wOk, { nach_s: 5 })).length > 0 && H.pruefeSchema(wObj, Object.assign({}, wOk, { wirkung: [] })).length > 0, '');
   T.check('Wendung im Grobplan → Objekt (nach_s 20–120, wirkung nicht leer) oder null; „keine“ → nur null', !!w && w.properties.nach_s.minimum === 20 && w.properties.nach_s.maximum === 120 && w.properties.wirkung.minItems === 1 && sn.properties.wendung.type === 'null', JSON.stringify(sw.properties.wendung).slice(0, 150));
 }
 T.check('Ableitung ist deterministisch und verändert die Eingabe nicht', (() => { const s = clone(mitWendung.szene); const a = JSON.stringify(Schema.szenenSchemaFuer(env, s)); return a === JSON.stringify(Schema.szenenSchemaFuer(env, s)) && JSON.stringify(s) === JSON.stringify(mitWendung.szene); })(), '');

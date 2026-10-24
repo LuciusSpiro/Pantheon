@@ -27,7 +27,7 @@ const MUTATIONEN = [
   [R, "szene: { anbieter: 'ollama' }, text: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", "szene: { anbieter: 'claude', modell: 'sonnet' }, text: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", 'Router: Standard schickt Szenen an Claude'],
   [R, "const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }", "const STANDARD = { grobplan: { anbieter: 'ollama' }", 'Router: Standard schickt den Grobplan an Ollama'],
   [R, "else { delete co.schema; if (modell) co.model = modell; }", "else { if (modell) co.model = modell; }", 'Router: Schema geht auch an Claude'],
-  [R, "if (anbieter === 'ollama') { co.model = modell; }", "if (anbieter === 'ollama') { co.model = co.model || modell; }", 'Router: Ollama bekommt das Claude-Modell des Aufrufs'],
+  [R, "{ co.model = modell; if (co.system)", "{ co.model = co.model || modell; if (co.system)", 'Router: Ollama bekommt das Claude-Modell des Aufrufs'],
   [R, "(eskCfg && cfg[kind] && cfg[kind].anbieter === 'ollama' ? eskCfg.anbieter : null)", "null", 'Router: keine Eskalation'],
   [R, "(eskCfg && cfg[kind] && cfg[kind].anbieter === 'ollama' ? eskCfg.anbieter : null)", "(eskCfg && cfg[kind] ? eskCfg.anbieter : null)", 'Router: auch Claude-Arten eskalieren'],
   [R, "return Object.assign({}, r, { anbieter, modell: r.modelId || modell || null });", "return Object.assign({}, r, { modell: r.modelId || modell || null });", 'Router: Antwort ohne Anbieter'],
@@ -43,7 +43,7 @@ const MUTATIONEN = [
   [L, "if (r.anbieter) { ans.anbieter = r.anbieter;", "if (false) { ans.anbieter = r.anbieter;", 'llm: Antwort ohne Anbieter/Modell'],
   // ----- Spielleiter -----
   [SL, "if (schema) askOpts.schema = schema;", "", 'Spielleiter: Schema geht nicht an den Transport'],
-  [SL, "(job.eskalation || this.anbieterFuer(kind) !== 'ollama') && b.remaining < this.C.minBudget", "b.remaining < this.C.minBudget", 'Spielleiter: Claude-Budget sperrt Ollama-Läufe'],
+  [SL, "(job.type === 'szene-eskalation' || this.anbieterFuer(kind) !== 'ollama') && b.remaining < this.C.minBudget", "b.remaining < this.C.minBudget", 'Spielleiter: Claude-Budget sperrt Ollama-Läufe'],
   [SL, "try { repairs.push(...Szenenbau.repairGrobplanReferenzen(g, this.env2())); } catch (e) { this.countError('reparatur', e); }", "", 'Spielleiter: Referenz-Reparaturen werden nicht angewandt'],
   [SL, "if (l.mode !== 'live' || this.anbieterFuer('szene') !== 'ollama') return null;", "if (l.mode !== 'live') return null;", 'Spielleiter: Schema auch für Claude-Szenen'],
   [RL, "'plan', 'anbieter', 'modell', 'eskaliert']", "'plan']", 'Regielog: verwirft anbieter/modell/eskaliert'],

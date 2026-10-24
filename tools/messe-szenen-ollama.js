@@ -74,8 +74,10 @@ function pruefe(env, x, text, ctx, herkunft) {
   const vor = SB.repairSceneAnswerLexLoc(g, s, a, env);
   const rep = SB.repairSceneAnswer(g, s, vor.answer, env, { knownFlags: SB.planFlags(g, {}, env) });
   const eRep = baue(env, x, rep.answer, ctx);
-  if (herkunft === 'ollama') eRep.push(...rep.repairs.filter((r) => /setzt keine Folge → Standardweg/.test(r)).map((r) => `Scheinwahl: ${r}`));
-  return { roh: { gueltig: !eRoh.length, codes: codesVon(eRoh), details: eRoh }, rep: { gueltig: !eRep.length, codes: codesVon(eRep), details: eRep, repairs: vor.repairs.concat(rep.repairs) } };
+  const sw = herkunft === 'ollama' ? rep.repairs.filter((r) => /setzt keine Folge → Standardweg/.test(r)).map((r) => `Scheinwahl: ${r}`) : [];
+  const nurSchein = !eRep.length && sw.length > 0;   // ohne die Scheinwahl-Regel wäre die Antwort gültig
+  eRep.push(...sw);
+  return { roh: { gueltig: !eRoh.length, codes: codesVon(eRoh), details: eRoh }, rep: { gueltig: !eRep.length, codes: codesVon(eRep), details: eRep, repairs: vor.repairs.concat(rep.repairs), nurScheinwahl: nurSchein } };
 }
 
 async function messe(o) {
@@ -100,7 +102,7 @@ async function messe(o) {
         const a = await transport.call(prompt, { system, schema, timeoutMs: o.timeoutMs, model: o.model });
         r.sec = a.sec; r.tokens = a.usage;
         const p = pruefe(env, x, a.text, ctx, 'ollama');
-        r.roh = p.roh.gueltig; r.rep = p.rep.gueltig; r.codes = p.rep.codes; r.repairs = p.rep.repairs.length;
+        r.roh = p.roh.gueltig; r.rep = p.rep.gueltig; r.nurSchein = p.rep.nurScheinwahl; r.codes = p.rep.codes; r.repairs = p.rep.repairs.length;
         r.fehlertext = p.rep.gueltig ? null : (p.rep.details[0] || '').slice(0, 140);
       } catch (e) { r.codes = [e.code || 'FEHLER']; r.fehlertext = e.message.slice(0, 140); }
       if (!r.rep && o.claude) {
@@ -128,10 +130,12 @@ async function messe(o) {
   console.log(`  gültig mit Reparatur (im Spiel):  ${anteil(rep, n)}`);
   console.log(`  erster Lauf je Szene, mit Rep.:   ${anteil(ersteRep, erste.length)}`);
   console.log(`  Szenen immer / nie / wechselnd:   ${immer} / ${nie} / ${nSzenen - immer - nie}`);
+  const nurSchein = R.filter((r) => r.nurSchein).length;
+  console.log(`  davon nur wegen Scheinwahl:       ${nurSchein} (ohne diese Regel gültig: ${anteil(rep + nurSchein, n)})`);
   console.log(`  Eskalationen nötig:               ${esk}${o.claude ? ` → davon nach Eskalation gültig: ${g2}` : ' (nicht ausgeführt; --claude mit LLM_LIVE=1 führt sie aus)'}`);
   console.log(`  Dauer Ollama:                     Median ${sek(median(secs))}, p90 ${sek(perzentil(secs, 0.9))}, max ${sek(secs.length ? Math.max(...secs) : null)}`);
   console.log(`  Fehlerarten (nach Reparatur):     ${Object.keys(arten).length ? Object.entries(arten).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${k} ×${v}`).join(', ') : '–'}`);
-  return { ok: true, n, szenen: nSzenen, roh, gueltigMitReparatur: rep, eskalationen: esk, nachEskalation: g2, median: median(secs), p90: perzentil(secs, 0.9), arten, wilsonRep: wilson(rep, n), ergebnisse: R };
+  return { ok: true, n, szenen: nSzenen, roh, gueltigMitReparatur: rep, nurScheinwahl: nurSchein, eskalationen: esk, nachEskalation: g2, median: median(secs), p90: perzentil(secs, 0.9), arten, wilsonRep: wilson(rep, n), ergebnisse: R };
 }
 
 // ---------- Selbsttest mit Fake-Server ----------

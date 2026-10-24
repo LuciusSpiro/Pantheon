@@ -865,9 +865,20 @@ OLLAMA_MODEL=gemma4:26b-a4b-it-q4_K_M
   bleibt es bei der Rohfassung: das Spiel wartet nie auf ein Modell (höchstens `sceneWaitMax`).
 - Der Claude-Token-Zähler (`CLAUDE_TOKEN_BUDGET`) zählt nur Claude-Läufe. Ollama-Läufe stehen mit Tokens im Regie-Logbuch, neu
   mit den Feldern `anbieter`, `modell` und `eskaliert`.
+- **Eine Eskalationsstelle (B2):** Der Router fällt nie selbst auf Claude zurück. Ein Ausfall von Ollama (`OFFLINE`, `EMPTY`, `EXIT`)
+  oder eine ungültige Antwort reiht im Spielleiter einen Job `szene-eskalation` ein (eigener Handler, `llm.eskaliere`); dort gilt
+  der Claude-Deckel (`CLAUDE_TOKEN_BUDGET`, `minBudget`). Ist die eskalierte Antwort ungültig oder Claude tot, bleibt die Szene
+  Rohfassung, ein weiterer Versuch (auch bei Gemma) folgt nie. Fehlt nur die Claude-CLI, läuft Ollama weiter. Fehlereinträge im
+  Regie-Logbuch tragen `anbieter`, `modell`, `eskaliert`. Der Grobplan bleibt bei Claude (`LLM_ANBIETER_GROBPLAN=ollama` wird
+  ignoriert und im Logbuch als `notiz` gemeldet).
+- **Ollama-Prompt:** Auf der Ollama-Route ersetzt `prompts-ollama.js` den Lexikon-Absatz des Szenen-Systemprompts durch „Keine
+  Platzhalter“ (Gemma erfand sonst `{{lex.lerche:die}}`; Erkundung: 186 von 186 Läufen gültig). Der Claude-Prompt bleibt unverändert.
+- **Sicherungen in den Reparaturen (alle Antworten, nur eindeutige Fälle, unter `reparaturen`):** fehlendes `loc` → Ort der Szene,
+  erfundene `{{lex.<unbekannt>:<Artikel>}}` → Artikelform. **Scheinwahl:** setzt keine Folge die Flag einer Verzweigung, macht die Reparatur
+  einen toten Zweig; bei Antworten von Ollama gilt das als ungültig (→ Eskalation), bei Claude bleibt die stille Reparatur.
 - Neue Reparaturen im Code (Grobplan): Szenentyp als Kennung (`D1`) → Id, `"null"` (Text) → `null`, doppelter Umsetzungs-Präfix;
   nur bei eindeutigem Fall, jede steht unter `reparaturen`.
-- Messen/Prüfen: `node tools/messe-szenen-ollama.js --n 5` (Healthcheck, gültig im 1. Versuch, Dauer Median/p90, Fehlerarten,
+- Messen/Prüfen: `node tools/messe-szenen-ollama.js --n 24 --runden 2 --quelle archiv` (Healthcheck, gültig im 1. Versuch, Dauer Median/p90, Fehlerarten,
   Eskalationen; braucht den Tunnel, nicht in `npm test`). Tests: `npm run test:transport`, Mutationsprobe `npm run test:transport-mutation`.
 
 ### Regie-Logbuch
