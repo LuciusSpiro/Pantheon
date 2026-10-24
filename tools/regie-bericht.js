@@ -31,7 +31,7 @@ function report(dir, weltId) {
   const lage = by('lage_grobplan');
   if (lage.length) {
     const zahl = (a, p) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.ceil(p * s.length) - 1)] : null; };
-    const aufrufe = lage.filter((e) => ['angewandt', 'fehler', 'veraltet'].includes(e.ausgang) && !(e.fehler || []).includes('BUDGET'));
+    const aufrufe = lage.filter((e) => ['angewandt', 'plan_wirkungslos', 'fehler', 'veraltet'].includes(e.ausgang) && !(e.fehler || []).includes('BUDGET'));
     const sitzungen = {};
     for (const e of aufrufe) { const s = (e.plan && e.plan.sitzung) || '–'; sitzungen[s] = (sitzungen[s] || 0) + 1; }
     const dauern = aufrufe.map((e) => e.dauer_s);
@@ -40,7 +40,7 @@ function report(dir, weltId) {
     const lageRueck = by('lage_befehl').filter((e) => e.ausgang === 'rueckfall');
     L.push('## Lage-Spielleiter', '',
       `- Aufrufe: **${aufrufe.length}** in ${Object.keys(sitzungen).length} Sitzung(en); Aufrufe je Sitzung: ${Object.entries(sitzungen).map(([s, c]) => `${s}: ${c}`).join(', ') || '–'} (Ziel 4–6 je Abend)`,
-      `- Angewandt: ${lage.filter((e) => e.ausgang === 'angewandt').length}, veraltet verworfen: ${lage.filter((e) => e.ausgang === 'veraltet').length}, späte Antworten: ${lage.filter((e) => e.ausgang === 'verspaetet').length}`,
+      `- Angewandt: ${lage.filter((e) => e.ausgang === 'angewandt').length}, wirkungslos (alle Befehle abgelehnt): ${lage.filter((e) => e.ausgang === 'plan_wirkungslos').length}, veraltet verworfen: ${lage.filter((e) => e.ausgang === 'veraltet').length}, späte Antworten: ${lage.filter((e) => e.ausgang === 'verspaetet').length}`,
       `- Dauer je Aufruf: Median ${fmt(zahl(dauern, 0.5), 10)} s, p90 ${fmt(zahl(dauern, 0.9), 10)} s`,
       `- Tokens: ${fmt(callTokens(lage))}, je Aufruf im Mittel ${aufrufe.length ? fmt(callTokens(lage) / aufrufe.length) : '–'}`,
       `- Fehler: ${lage.filter((e) => e.ausgang === 'fehler').length}, Rückfälle: ${lageRueck.length} (ein Rückfall räumt Fokus und Regler früherer Pläne mit ab: die Sim läuft danach wie ohne Spielleiter)`,

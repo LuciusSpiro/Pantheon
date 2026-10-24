@@ -169,12 +169,13 @@ function pruefen(game, plan) {
     // Abkühlzeit auch innerhalb eines Plans: zwei Befehle desselben Schlüssels in einem Plan zählen als einer (der zweite wartet die Abkühlzeit ab)
     const key = abkuehlSchluessel(kopie);
     if (i >= 0 && ganz(R.abkuehlung.wert[kopie.typ], 0) > 0 && kand.some((k) => k.key === key)) { out.abgelehnt.push({ befehl: b, grund: `Abkühlzeit: ${kopie.typ} schon im selben Plan` }); continue; }
-    kand.push({ b: kopie, orig: b, key });
+    kand.push({ b: kopie, orig: b, key, fokusPlan: i < 0 });
   }
   // Kern-Prüfer: gegen eine Kopie der Sim, erst die wartenden (ihr Stand zählt), dann die neuen der Reihe nach
   const wartend = s.vorgemerkt.map((e) => e.b);
   const liste = wartend.concat(kand.map((k) => k.b));
   const { gueltig, verworfen } = Kern.filtereBefehle(z, liste);
+  let ratePlaetze = 0, fokusPlatz = false;   // SUND-03 F: der Fokus des Plans kostet höchstens EINEN Rate-Platz, egal für wie viele Fraktionen
   for (const k of kand) {
     const v = verworfen.find((x) => x.befehl === k.b);
     if (v) { out.abgelehnt.push({ befehl: k.orig, grund: v.grund }); continue; }
@@ -182,9 +183,12 @@ function pruefen(game, plan) {
     const w = trifftRom(z, k.b);
     const ab = n0 + 1 + (w ? vorlaufVon(w.art) : 0);
     // globale Rate (Regie-Schicht): über dem Deckel wird abgelehnt, mit Grund Rate, nie halb
-    const belegt = rateBelegt(s, n0) + out.angenommen.length;
-    if (belegt >= RATE.max) { out.abgelehnt.push({ befehl: k.orig, grund: `Rate: höchstens ${RATE.max} Befehle je ${RATE.fenster} Ticks (schon ${belegt})` }); continue; }
-    out.angenommen.push({ befehl: k.b, ab, vorwarnung: !!w, _w: w, _key: k.key });
+    const gratis = k.fokusPlan && fokusPlatz;
+    const belegt = rateBelegt(s, n0) + ratePlaetze;
+    if (!gratis && belegt >= RATE.max) { out.abgelehnt.push({ befehl: k.orig, grund: `Rate: höchstens ${RATE.max} Befehle je ${RATE.fenster} Ticks (schon ${belegt})` }); continue; }
+    if (!gratis) ratePlaetze++;
+    if (k.fokusPlan) fokusPlatz = true;
+    out.angenommen.push({ befehl: k.b, ab, vorwarnung: !!w, _w: w, _key: k.key, _rate: !gratis });
   }
   return { out, neu: out.angenommen };
 }
@@ -219,7 +223,7 @@ function planAnwenden(game, plan) {
   for (const a of out.angenommen) {
     s.vorgemerkt.push(a._w ? { b: a.befehl, ab: a.ab, w: 1 } : { b: a.befehl, ab: a.ab });
     s.letzte[a._key] = n0;
-    s.rate.push(n0);
+    if (a._rate !== false) s.rate.push(n0);   // der zweite Fokus-Befehl desselben Plans (andere Fraktion) kostet keinen Platz
     if (a._w) { const f = vorwarnText(a._w, a.ab, n0, a.befehl); if (f) funk.push(f); }
   }
   for (const f of funk) funkSenden(game, f);

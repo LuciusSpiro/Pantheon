@@ -248,6 +248,23 @@ section('Globale Befehlsrate', () => {
   ws(g2).regie.letzte = {};
   const r3 = Regie.planAnwenden(g2, { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }, { typ: 'regler', fraktion: 'ger', p_act: 0.2, dauer: 5 }] });
   ok(r3.angenommen.length === 1 && r3.abgelehnt.length === 1 && /^Rate: /.test(r3.abgelehnt[0].grund), 'ein Platz frei: der erste Befehl des Plans geht, der zweite scheitert an der Rate');
+  // SUND-03 F: der Fokus eines Plans kostet höchstens EINEN Platz, egal für wie viele Fraktionen
+  const t4 = szene(); const g4 = t4.g;
+  const rf = Regie.planAnwenden(g4, { fokus: { hex: '0105', radius: 2 } });
+  ok(rf.angenommen.length === 2 && ws(g4).regie.rate.length === 1, 'Plan-Fokus ohne fraktionen: zwei Befehle (rom, ger), aber ein Rate-Platz');
+  ws(g4).regie.letzte = {}; ws(g4).regie.vorgemerkt = [];
+  const rf2 = Regie.planAnwenden(g4, { fokus: { hex: '0105', radius: 2, fraktionen: ['rom'] }, befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }] });
+  ok(rf2.angenommen.length === 2 && ws(g4).regie.rate.length === 1 + 2, 'ein Fokus für eine Fraktion plus ein Regler: zwei Plätze (insgesamt drei)');
+  ws(g4).regie.letzte = {};
+  ws(g4).regie.rate = Array.from({ length: RT.max - 1 }, () => ws(g4).tickZahl);
+  const rf3 = Regie.planAnwenden(g4, { fokus: { hex: '0105', radius: 2 } });
+  ok(rf3.angenommen.length === 2 && rf3.abgelehnt.length === 0 && ws(g4).regie.rate.length === RT.max, 'ein Platz frei: der Fokus für beide Fraktionen geht ganz durch');
+  ws(g4).regie.letzte = {};
+  const rf4 = Regie.planAnwenden(g4, { fokus: { hex: '0105', radius: 2 } });
+  ok(rf4.angenommen.length === 0 && rf4.abgelehnt.length === 2 && rf4.abgelehnt.every((a) => /^Rate: /.test(a.grund)), 'Rate voll: beide Fokus-Befehle scheitern mit Grund Rate');
+  ws(g4).regie.letzte = {}; ws(g4).regie.rate = []; ws(g4).regie.vorgemerkt = [];
+  const rf5 = Regie.planAnwenden(g4, { befehle: [{ typ: 'fokus', fraktion: 'rom', hex: '0105', radius: 2, dauer: 5 }, { typ: 'fokus', fraktion: 'ger', hex: '0105', radius: 2, dauer: 5 }] });
+  ok(rf5.angenommen.length === 1 && rf5.abgelehnt.length === 1, 'zwei Fokus-Befehle in befehle zählen als Befehle (Abkühlzeit je Typ, kein Plan-Fokus)');
   // Weltstand
   const blk = Regie.toSave(ws(g2));
   ok(blk && blk.rate && blk.rate.length === RT.max, 'die Rate steht im Weltstand-Block');

@@ -45,6 +45,21 @@ const kurzBefehl = (b) => {
   return t.join(' ').slice(0, 60);
 };
 
+// SUND-03 F: ein Befehl der letzten Pläne mit Ergebnis: "angreifen ger 0105: ok" | "embargo rom: abgelehnt (Rate: höchstens 8 …)". Der Plan-Fokus (ein Befehl je Fraktion) erscheint einmal.
+function befehlErgebnis(b, grund, maxGrund) {
+  const t = kurzBefehl(b);
+  return grund == null ? t + ': ok' : t + ': abgelehnt (' + String(grund).replace(/s+/g, ' ').slice(0, maxGrund) + ')';
+}
+function ergebnisse(res, wh, maxGrund) {
+  const out = []; let fokusOk = false, fokusNein = false;
+  for (const a of res.angenommen) { if (a.befehl.typ === 'fokus') { if (fokusOk) continue; fokusOk = true; } out.push(befehlErgebnis(a.befehl, null, maxGrund)); }
+  for (const a of res.abgelehnt.concat(wh.abgelehnt)) {
+    if (a.befehl && a.befehl.typ === 'fokus') { if (fokusOk || fokusNein) continue; fokusNein = true; }
+    out.push(befehlErgebnis(a.befehl, a.grund, maxGrund));
+  }
+  return out;
+}
+
 class LageSpielleiter {
   constructor(game, opts) {
     const o = opts || {};
@@ -61,7 +76,7 @@ class LageSpielleiter {
     this.aufrufe = 0;            // gestartete Anfragen dieser Sitzung (Deckel)
     this.letzterStartTick = null;
     this.letzte_plaene = [];     // Ringliste kurzer Pläne { nr, tick, grenze, befehle: [Text], angenommen, abgelehnt, begruendung }
-    this.zaehler = { angewandt: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
+    this.zaehler = { angewandt: 0, wirkungslos: 0, fehler: 0, veraltet: 0, uebersprungen: {} };
     this.failNext = false;
     this.aus = null;             // Grund, wenn der Transport für diese Sitzung aus ist (CLI fehlt)
     this.ausGemeldet = false;
@@ -236,12 +251,17 @@ class LageSpielleiter {
     this.wiederholungenMelden(wh.abgelehnt);
     this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));
     while (this.verlauf.length > Math.max(1, this.W.wiederholung.fenster_plaene)) this.verlauf.shift();
-    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: (gelesen.plan.befehle || []).map(kurzBefehl), angenommen: res.angenommen.length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,
+    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: ergebnisse(res, wh, this.W.letzte_plaene_zeichen.grund), angenommen: res.angenommen.length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,
       begruendung: typeof gelesen.plan.begruendung === 'string' ? gelesen.plan.begruendung.slice(0, 120) : null };
     if (gelesen.plan.fokus) kurz.fokus = String(gelesen.plan.fokus.hex || '');
     this.letzte_plaene.push(kurz);
     while (this.letzte_plaene.length > this.W.letzte_plaene) this.letzte_plaene.shift();
-    this.schreibe(Object.assign({ ausgang: 'angewandt', begruendung: kurz.begruendung || 'Plan angewandt', plan: this.planInfo(job, { angenommen: kurz.angenommen, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
+    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {
+      // SUND-03 F: jeder Befehl des Plans scheiterte an Rate, Regeln oder Wiederholung: kein „angewandt“, sondern plan_wirkungslos mit Grund
+      this.zaehler.wirkungslos++; this.zaehler.angewandt--;
+      const gruende = res.abgelehnt.concat(wh.abgelehnt).map((a) => String(a.grund).slice(0, 120));
+      this.schreibe(Object.assign({ ausgang: 'plan_wirkungslos', grund: gruende[0].split(':')[0], fehler: gruende.slice(0, 8), begruendung: 'Kein Befehl des Plans wurde angenommen (' + gruende[0].slice(0, 100) + ')', plan: this.planInfo(job, { angenommen: 0, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
+    } else this.schreibe(Object.assign({ ausgang: 'angewandt', begruendung: kurz.begruendung || 'Plan angewandt', plan: this.planInfo(job, { angenommen: kurz.angenommen, abgelehnt: kurz.abgelehnt, alter }) }, this.messung(job, r)));
     const typen = res.angenommen.map((a) => a.befehl.typ);
     Chronik.eintragen(this.game, { art: 'plan', ref: 'p' + job.nr, kurz: `Plan ${job.nr} (${job.art}): ${typen.length ? typen.join(', ') : 'nichts angenommen'}`, param: { angenommen: res.angenommen.length, abgelehnt: kurz.abgelehnt } });
   }

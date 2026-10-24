@@ -71,12 +71,23 @@ function namenFiltern(text, game) { return Ausschnitt.ohneNamen(text, spielerNam
 function plaeneFiltern(plaene, game) {
   return (plaene || []).map((p) => (p && typeof p.begruendung === 'string' ? Object.assign({}, p, { begruendung: namenFiltern(p.begruendung, game) }) : p));
 }
+// SUND-03 F: der Block <letzte_plaene> bleibt unter einer Zeichenobergrenze (Daten letzte_plaene_zeichen.gesamt): erst kürzere Kurzgründe in den Befehls-Ergebnissen, dann fällt der älteste Plan weg
+function plaeneKuerzen(plaene, maxGesamt) {
+  let p = (plaene || []).map((x) => Object.assign({}, x));
+  const groesse = () => JSON.stringify(p).length;
+  for (const len of [30, 16, 0]) {
+    if (groesse() <= maxGesamt) break;
+    p = p.map((x) => Object.assign({}, x, { befehle: (x.befehle || []).map((b) => (len ? String(b).replace(/\(([^)]*)\)$/, (m, g) => '(' + g.slice(0, len) + ')') : String(b).replace(/ \(.*\)$/, ''))) }));
+  }
+  while (p.length > 1 && groesse() > maxGesamt) p.shift();
+  return p;
+}
 
 // ---------- Prompt
 // art: die Grenze (szene_ende | andocken | absicht | debug), nr: laufende Nummer des Plans in dieser Sitzung, letzte: kurze Pläne (Ringliste des Spielleiters), werte: lage-spielleiter-werte
 function baue(game, { art, nr, letzte, werte }) {
   const st = statischerTeil();
-  const letzteTxt = JSON.stringify(plaeneFiltern(letzte, game));
+  const letzteTxt = JSON.stringify(plaeneKuerzen(plaeneFiltern(letzte, game), werte.letzte_plaene_zeichen ? werte.letzte_plaene_zeichen.gesamt : 900));
   const grenze = { art: String(art || 'unbekannt'), nr: Number.isInteger(nr) ? nr : 1, tick: game.weltsim ? game.weltsim.tickZahl : 0 };
   const schluss = 'Gib jetzt den Plan aus. Nur das JSON-Objekt.';
   // fester Rest: alles außer dem Ausschnitt (mit Tag-Rahmen), damit der Ausschnitt genau den freien Platz bekommt

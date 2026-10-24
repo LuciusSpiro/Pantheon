@@ -348,7 +348,7 @@ section('Ausfall-Matrix: Sim byte-gleich zu „ohne Spielleiter“, nie blockier
       ok(gleicheWelt(ohne.g, mit.g), `${name}: Sim byte-gleich zu „ohne Spielleiter“`);
       ok(eintraege(mit.g, 'lage_befehl', 'rueckfall').length >= 1 && ws(mit.g).regie.vorgemerkt.length === 0, `${name}: Rückfall im Logbuch, nichts wartet`);
     } else {
-      ok(a.length === 1 && f.length === 0 && eintraege(mit.g, 'lage_befehl', 'abgelehnt').length === 3 && ws(mit.g).regie.vorgemerkt.length === 0 && gleicheWelt(ohne.g, mit.g), `${name}: lesbarer Plan, jeder Befehl mit Grund abgelehnt, nichts vorgemerkt, Sim byte-gleich zu „ohne“`);
+      ok(a.length === 0 && lageEintraege(mit.g, 'plan_wirkungslos').length === 1 && f.length === 0 && eintraege(mit.g, 'lage_befehl', 'abgelehnt').length === 3 && ws(mit.g).regie.vorgemerkt.length === 0 && gleicheWelt(ohne.g, mit.g), `${name}: lesbarer Plan, jeder Befehl mit Grund abgelehnt, nichts vorgemerkt, Sim byte-gleich zu „ohne“`);
     }
     ok(sl.zustand === 'idle' && mit.g.errors === 0, `${name}: Zustand idle, keine Serverfehler`);
     if (llm.pending()) llm.release();
@@ -583,6 +583,33 @@ section('Bericht: übersprungene Grenzen nach Grund, Rückfall-Hinweis', () => {
   const md = Bericht.report(dir, 'w-lage');
   ok(/deckel 2/.test(md) && /abstand 1/.test(md) && /beschaeftigt 3/.test(md), 'Bericht unterscheidet deckel, abstand, beschaeftigt');
   ok(/Rückfall räumt Fokus und Regler/.test(md), 'Hinweis im Bericht: ein Rückfall räumt Fokus/Regler früherer Pläne mit ab');
+});
+
+section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async () => {
+  sitzungSauber();
+  const RT = RW.rate.wert;
+  const t = spiel(); const { sl } = mitLage(t, { mode: 'script', script: { lage: [
+    { json: { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }, { typ: 'zaubern' }, { typ: 'angreifen', fraktion: 'ger', ziel: '9999' }], fokus: { hex: '0105', radius: 2 }, begruendung: 'Mischung' } },
+    { json: { befehle: [{ typ: 'regler', fraktion: 'kon', p_act: 0.2, dauer: 5 }], begruendung: 'Rate voll' } },
+  ] } }, { min_abstand_ticks: 1 });
+  tick(t.g); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+  const p1 = sl.letzte_plaene.at(-1);
+  ok(Array.isArray(p1.befehle) && p1.befehle.some((s) => /^regler rom: ok$/.test(s)) && p1.befehle.some((s) => /^zaubern: abgelehnt \(unbekannter Typ/.test(s)) && p1.befehle.some((s) => /^angreifen ger 9999: abgelehnt \(/.test(s)), 'letzte_plaene: je Befehl Typ, Ziel und Ergebnis mit Kurzgrund: ' + JSON.stringify(p1.befehle));
+  ok(p1.befehle.filter((s) => /^fokus/.test(s)).length === 1, 'der Plan-Fokus (ein Befehl je Fraktion) erscheint einmal');
+  ok(p1.befehle.every((s) => s.length <= 120), 'Kurzgründe sind gekürzt');
+  const pr = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: sl.letzte_plaene, werte: W }).prompt;
+  ok(/regler rom: ok/.test(pr) && /zaubern: abgelehnt/.test(pr), 'die Rückmeldung steht im nächsten Prompt');
+  const lang = Array.from({ length: 3 }, (_, i) => ({ nr: i, tick: i, grenze: 'andocken', befehle: Array.from({ length: 6 }, (_, k) => 'angreifen ger 010' + k + ': abgelehnt (' + 'Abkühlzeit '.repeat(5) + ')'), angenommen: 0, abgelehnt: 6, begruendung: 'x' }));
+  const eng = Prompt.baue(t.g, { art: 'x', nr: 2, letzte: lang, werte: Object.assign({}, W, { letzte_plaene_zeichen: { gesamt: 700, grund: 50 } }) }).prompt;
+  const blk = eng.match(/<letzte_plaene>\n([\s\S]*?)\n<\/letzte_plaene>/)[1];
+  ok(blk.length <= 700 && JSON.parse(blk).length >= 1 && JSON.parse(blk).at(-1).nr === 2, 'der Block bleibt unter der Zeichenobergrenze (neuester Plan zuletzt, ältere fallen zuerst weg): ' + blk.length);
+  // wirkungslos: die Rate ist voll
+  ws(t.g).regie.rate = Array.from({ length: RT.max }, () => ws(t.g).tickZahl);
+  tick(t.g, 2); sl.beiGrenze('andocken'); await pumpen(t.g, 4);
+  const wl = lageEintraege(t.g, 'plan_wirkungslos');
+  ok(wl.length === 1 && wl[0].grund === 'Rate' && wl[0].fehler[0].startsWith('Rate:') && lageEintraege(t.g, 'angewandt').length === 1, 'alle Befehle an der Rate gescheitert: plan_wirkungslos mit Grund Rate, nicht angewandt');
+  ok(sl.zaehler.wirkungslos === 1 && sl.letzte_plaene.at(-1).befehle[0].includes('abgelehnt (Rate'), 'der Prompt-Chronik zeigt die Ablehnung');
+  ok(/wirkungslos \(alle Befehle abgelehnt\): 1/.test(Bericht.report(Regielog.dir(t.g.env), t.g.weltstand.id)), 'Bericht zählt wirkungslose Pläne');
 });
 
 section('Rückfall: Entwarnung für angekündigte, nie gekommene Befehle', async () => {
