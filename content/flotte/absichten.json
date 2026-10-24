@@ -1,19 +1,12 @@
 {
   "format": "absichten/1",
-  "_hinweis": "SUND-02b D: Funktexte und Weigerungsgruende der Absichten (server/sim/absicht.js, Freie Fahrt Sund). Zahlen, Namen und Beschreibungen der Absichten stehen in content/welt/absichten.json. Platzhalter: {name} = Name der Absicht, {ticks} = Sprünge, {rang} = Name des Mindestrangs. Ruf ist ein Kann: nichts hier droht, mahnt oder bestraft; Ablehnen und Ignorieren sind ohne Folgen.",
+  "_hinweis": "SUND-02b D: Funktexte und Weigerungsgruende der Absichten (server/sim/absicht.js, Freie Fahrt Sund). Zahlen, Namen und Beschreibungen der Absichten stehen in content/welt/absichten.json. Platzhalter: {name} = Name der Absicht, {ticks} = Sprünge, {rang} = Name des Mindestrangs. Ruf ist ein Kann: nichts hier droht, mahnt oder bestraft; Ablehnen und Ignorieren sind ohne Folgen. anzeige: Texte des Terminal-Bereichs „Kurs“ (public/js/absicht.js liest sie ueber /content/flotte/absichten.json, wie rang.js ruf.json). {ab} = Mindestrang, {n} = Zahl, {name} = Name der Absicht.",
   "sprecher": "Oberkommando",
-  "funk": {
-    "angebot": "Rom bietet Euch eine Absicht an: Ihr könnt dem Kurs der Legion eine Richtung geben. Das Terminal im Meetingraum zeigt die Wahl, ohne Euch bleibt alles, wie es ist.",
-    "gewaehlt": "Verstanden. Die Legion folgt dem Kurs „{name}“ für {ticks} Sprünge.",
-    "ausgelaufen": "Der Kurs „{name}“ ist ausgelaufen. Die Legion folgt wieder ihrem eigenen Plan."
+  "funk": { "angebot": "Rom bietet Euch eine Absicht an: Ihr könnt dem Kurs der Legion eine Richtung geben. Das Terminal im Meetingraum zeigt die Wahl, ohne Euch bleibt alles, wie es ist.", "gewaehlt": "Verstanden. Die Legion folgt dem Kurs „{name}“ für {ticks} Sprünge.", "ausgelaufen": "Der Kurs „{name}“ ist ausgelaufen. Die Legion folgt wieder ihrem eigenen Plan."
   },
-  "weigerung": {
-    "modus": "Nur in der Freien Fahrt Sund.",
-    "rang": "Dafür fehlt der Rang ({rang}).",
-    "kein_angebot": "Rom bietet gerade keine Absicht an.",
-    "schon_gewaehlt": "Schon gewählt: „{name}“ läuft noch {ticks} Sprünge.",
-    "nicht_im_angebot": "Diese Absicht steht gerade nicht zur Wahl.",
-    "unbekannt": "Unbekannte Absicht."
+  "weigerung": { "modus": "Nur in der Freien Fahrt Sund.", "rang": "Dafür fehlt der Rang ({rang}).", "kein_angebot": "Rom bietet gerade keine Absicht an.", "schon_gewaehlt": "Schon gewählt: „{name}“ läuft noch {ticks} Sprünge.", "nicht_im_angebot": "Diese Absicht steht gerade nicht zur Wahl.", "unbekannt": "Unbekannte Absicht."
   },
-  "abgelehnt": "Verstanden. Rom bleibt bei seinem eigenen Plan."
+  "abgelehnt": "Verstanden. Rom bleibt bei seinem eigenen Plan.",
+  "anzeige": { "bereich": "Kurs", "kopf": "Oberkommando", "gesperrt_titel": "NOCH KEINE ANFRAGE", "gesperrt_text": "Das Oberkommando fragt Euch ab dem Rang {ab} um Rat und bietet dann einen Kurs für die Legion an. Bis dahin läuft alles, wie es ist.", "leer_titel": "ROM HAT GERADE KEINE FRAGE", "leer_text": "Alle paar Sprünge fragt das Oberkommando Euch um Rat. Ihr könnt annehmen, ablehnen oder es lassen: ohne Euch folgt die Legion ihrem eigenen Plan.", "laeuft_info": "Danach folgt die Legion wieder ihrem eigenen Plan. Eine zweite Wahl gibt es erst mit dem nächsten Angebot.", "angebot_info": "Das Angebot gilt noch {n}. Ablehnen oder Liegenlassen kostet nichts, ohne Wahl folgt die Legion ihrem eigenen Plan.", "hilfe_waehlen": "wählen", "hilfe_annehmen": "annehmen", "hilfe_ablehnen": "ablehnen", "annehmen": "Annehmen", "ablehnen": "Ablehnen", "option": "Option", "laeuft_noch": "Läuft noch {n}", "ab_rang": "Ab Rang {ab}", "kein_angebot": "Kein Angebot", "zuschauer": "Zuschauer bedienen nicht", "wartet": "Warte auf den Server …", "abgesagt": "Schon gewählt, nichts mehr zu tun", "sprung_eins": "{n} Sprung", "sprung_mehr": "{n} Sprünge", "gewaehlt": "Gewählt.", "abgelehnt": "Abgelehnt, ohne Folgen.", "nicht_moeglich": "Nicht möglich."
+  }
 }

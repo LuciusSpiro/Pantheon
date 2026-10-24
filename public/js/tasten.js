@@ -38,7 +38,7 @@
     'technik.schaden': { name: 'Reiter Schadensplan' },
     'terminal.werft': { name: 'Bereich Werft' },
     'terminal.handel': { name: 'Bereich Handel' },
-    'terminal.lage': { name: 'Bereich Lage (Absichten)' },
+    'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -186,7 +186,7 @@
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
-    A('terminal.lage', 'terminal', 'Bereich Lage (Absichten, Freie Fahrt)', ['KeyL']),
+    A('terminal.lage', 'terminal', 'Bereich Kurs (Absichten, Freie Fahrt)', ['KeyK']),
     A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),

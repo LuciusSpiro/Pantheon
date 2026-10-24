@@ -9,7 +9,7 @@
   else root.Absicht = api;
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
-  const store = { absicht: null };
+  const store = { absicht: null, texte: null };   // texte = content/flotte/absichten.json, Abschnitt anzeige (vom Server gelesen)
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
     if (msg.t === 'welcome') { store.absicht = null; return; }   // neue Verbindung: der Server sendet den Block neu (sentAbsichtKey wird zurückgesetzt)
@@ -34,12 +34,20 @@
     };
   }
   const modell = () => modellAus(store.absicht);
+  // Text aus der Datei; {name} -> Werte. Fehlt die Datei (noch nicht geladen), bleibt der Text leer (kein Platzhalter im Code).
+  const text = (key, w) => String(((store.texte || {})[key]) == null ? '' : store.texte[key]).replace(/\{(\w+)\}/g, (m, k) => (w && w[k] != null ? String(w[k]) : m));
+  const sprung = (n) => text(n === 1 ? 'sprung_eins' : 'sprung_mehr', { n });
+  function laden() {
+    if (typeof fetch !== 'function') return;
+    fetch('/content/flotte/absichten.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.anzeige && typeof j.anzeige === 'object') store.texte = j.anzeige; }).catch(() => { /* ohne Texte: leere Beschriftungen */ });
+  }
 
   (function haken() {
     const N = root && root.Net;
     if (!N || typeof N.on !== 'function') return;
     N.on(lesen);
+    laden();
   })();
 
-  return { store, lesen, modellAus, modell };
+  return { store, lesen, modellAus, modell, text, sprung };
 });

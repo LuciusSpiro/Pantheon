@@ -5,6 +5,7 @@
 //   node tools/sim-absichten.js [--laeufe 100] [--ticks 300] [--seed0 0] [--pruefen] [--json] [--nur <id>] [--wert id.feld=zahl ...]
 //   --pruefen   jede Absicht muss in den Bändern (absichten.json, baender) bleiben UND sich messbar von der Standard-KI unterscheiden (Richtung je Absicht, Daten: wirkt),
 //               sonst Exit 1
+//   --fenster   nur die Fenster-Messung (auch Teil von --pruefen): 12-Tick-Fenster, nur Zustände, in denen die Absicht angeboten wird, Richtung je Aussage des Textes (Datenfeld wirkt_fenster)
 //   --wert      überschreibt eine Wirkungszahl für diesen Lauf (verteidigung.p_act=0.15), die Datei bleibt unverändert (zum Abstimmen)
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
@@ -58,7 +59,69 @@ function messen(id, ab) {
   return out;
 }
 
+// ---------------------------------------------------------------------------------------------------------------- Fenster-Messung
+// So wirkt eine Absicht im Spiel: sie gilt ticks Ticks, danach läuft die Standard-KI nachlauf Ticks weiter. Gemessen an Zuständen echter Läufe (jeder schritt-te Tick von seeds Seeds), in denen die Absicht
+// angeboten würde (Absicht.angebotIds), mit der Absicht gegen dieselben Zustände ohne (Kern.tick, zustand.absichten.rom wie im Spiel). Kennzahlen: Aktionen von Rom nur im Fenster, Posten und Belagerungen
+// über Fenster und Nachlauf. Es gilt die Richtung (wirkt_fenster), nicht die Bänder des Ganzlaufs.
+function fensterMessen() {
+  const Kern = require('../server/weltsim/kern.js');
+  const Absicht = require('../server/sim/absicht.js');
+  const F = W.fenster.wert, klon = (v) => JSON.parse(JSON.stringify(v));
+  const lauf = (z0, wirkung) => {
+    const z = klon(z0); z.absichten = wirkung ? { rom: klon(wirkung) } : {};
+    const m = { rom_angriffe: 0, rom_ansprueche: 0, rom_posten_neu: 0, rom_belagert: 0 };
+    for (let i = 0; i < F.ticks + F.nachlauf; i++) {
+      if (i === F.ticks) delete z.absichten.rom;
+      for (const e of Kern.tick(z).ereignisse) {
+        if (i < F.ticks && e.fraktion === 'rom' && ((e.typ === 'flotte_aufbruch' && e.art === 'angriff') || e.typ === 'flotte_sammelt')) m.rom_angriffe++;
+        if (i < F.ticks && e.fraktion === 'rom' && e.typ === 'flotte_aufbruch' && e.art === 'beanspruchen') m.rom_ansprueche++;
+        if (e.typ === 'posten_gegruendet' && e.fraktion === 'rom') m.rom_posten_neu++;
+        if (e.typ === 'flotte_belagert' && e.besitzer === 'rom') m.rom_belagert++;
+      }
+    }
+    m.rom_aktionen = m.rom_angriffe + m.rom_ansprueche;
+    return m;
+  };
+  const out = {};
+  for (let seed = 0; seed < F.seeds; seed++) {
+    const z0 = Kern.erzeuge({ karte, werte, seed });
+    for (let t = 0; t < ticks - F.ticks - F.nachlauf; t++) {
+      Kern.tick(z0);
+      if (t % F.schritt) continue;
+      for (const id of Absicht.angebotIds(z0)) {
+        const ab = absichten.find((x) => x.id === id);
+        if (!ab || (nur && nur !== id)) continue;
+        const o = out[id] || (out[id] = { n: 0, std: {}, abs: {} });
+        o.n++;
+        const s = lauf(z0, null), a = lauf(z0, ab.wirkung);
+        for (const k of Object.keys(s)) { o.std[k] = (o.std[k] || 0) + s[k]; o.abs[k] = (o.abs[k] || 0) + a[k]; }
+      }
+    }
+  }
+  for (const o of Object.values(out)) for (const k of Object.keys(o.std)) { o.std[k] /= o.n; o.abs[k] /= o.n; }
+  return out;
+}
+function fensterFehler(out) {
+  const f = [];
+  for (const ab of absichten) {
+    if (nur && nur !== ab.id) continue;
+    const o = out[ab.id];
+    if (!o || o.n < 30) { f.push(ab.id + ': im Fenster zu selten angeboten (n=' + (o ? o.n : 0) + ')'); continue; }
+    for (const w of ab.wirkt_fenster || []) {
+      const d = o.abs[w.kennzahl] - o.std[w.kennzahl];
+      if ((w.richtung === 'mehr' ? d : -d) < w.min) f.push(`${ab.id} (Fenster): ${w.kennzahl} ${d.toFixed(3)} statt ${w.richtung} um ${w.min}`);
+    }
+  }
+  return f;
+}
+const fensterAus = (out) => {
+  const K = [['rom_angriffe', 'Angriffe'], ['rom_ansprueche', 'Ansprüche'], ['rom_aktionen', 'Aktionen'], ['rom_posten_neu', 'neue Posten'], ['rom_belagert', 'belagert']];
+  console.log(`Fenster-Messung: ${W.fenster.wert.ticks} Ticks Absicht + ${W.fenster.wert.nachlauf} Nachlauf, Seeds 0..${W.fenster.wert.seeds - 1}, jeder ${W.fenster.wert.schritt}. Tick, nur angebotene Zustände (Standard-KI -> Absicht):`);
+  for (const [id, o] of Object.entries(out)) console.log('  ' + id.padEnd(14) + ('n=' + o.n).padEnd(9) + K.map(([k, t]) => t + ' ' + o.std[k].toFixed(3) + '->' + o.abs[k].toFixed(3)).join(' | '));
+};
+
 const t0 = Date.now();
+if (args.includes('--fenster')) { const fo = fensterMessen(); fensterAus(fo); const ff = fensterFehler(fo); if (ff.length) console.log('FEHLER ' + ff.join('\nFEHLER ')); process.exit(ff.length ? 1 : 0); }
 const zeilen = [messen('standard', null)];
 for (const ab of absichten) if (!nur || nur === ab.id) zeilen.push(messen(ab.id, ab));
 const std = zeilen[0];
@@ -95,6 +158,9 @@ if (args.includes('--pruefen')) {
     }
     if (f.length) { schlecht++; console.log('FEHLER ' + z.id + ': ' + f.join('; ')); }
   }
-  console.log(schlecht ? schlecht + ' Absichten verletzen Bänder oder Wirkung' : 'ABSICHTEN OK: alle in den Bändern, alle messbar anders als die Standard-KI');
+  const fo = fensterMessen(); fensterAus(fo);
+  const ff = fensterFehler(fo);
+  for (const x of ff) { schlecht++; console.log('FEHLER ' + x); }
+  console.log(schlecht ? schlecht + ' Verstöße gegen Bänder oder Wirkung' : 'ABSICHTEN OK: Ganzlauf in den Bändern und messbar anders; im 12-Tick-Fenster zeigt jede Absicht die Richtung, die ihr Text verspricht');
   process.exit(schlecht ? 1 : 0);
 }

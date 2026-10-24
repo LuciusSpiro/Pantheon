@@ -5,7 +5,7 @@
 // Ruf ist ein Kann, nie ein Muss: Ignorieren und Ablehnen kosten nichts (kein Ruf, keine Sperre jenseits der Pause), ohne Wahl läuft die Standard-KI, nichts blockiert. Die Crew ist
 // Offizier, nicht Feldherr: es gibt NUR die vorgeschlagenen Optionen, nie eine freie Strategiekarte. Alle Zahlen, Namen und Beschreibungen stehen in content/welt/absichten.json,
 // Funktexte und Weigerungen in content/flotte/absichten.json.
-// Zustand: game.weltsim.absicht = { laufend: { id, start, bis } | null, angebot: { ids: [id], t, bis } | null, frei_ab: Tick, ab dem wieder ein Angebot kommen darf }; Zeit = ws.tickZahl (Sprünge).
+// Zustand: game.weltsim.absicht = { laufend: { id, start, bis, vorher } | null (vorher = Werte unserer Felder in zustand.absichten.rom vor der Absicht, Schichtung), angebot: { ids: [id], t, bis } | null, frei_ab: Tick, ab dem wieder ein Angebot kommen darf }; Zeit = ws.tickZahl (Sprünge).
 // Er gilt für die ganze Crew, nur der Server schreibt, er gehört NICHT zum Sim-Zustand (der trägt nur zustand.absichten.rom, das die Sim liest).
 //
 //   neu()                         leerer Zustand
@@ -45,13 +45,12 @@ const zustandVon = (game) => { const ws = game.weltsim; if (!ws) return null; if
 const rangOk = (game) => Ruf.rufErreicht(game, W.mindestrang.wert);
 
 // ---------- Angebot (regelbasiert, deterministisch)
-// Tatsachen aus dem Sim-Zustand: laufende Belagerungen römischer Orte, Gesamtstärken, der knappere Vorrat von Munition und Treibstoff
+// Tatsachen aus dem Sim-Zustand: laufende Belagerungen römischer Orte, Gesamtstärken. (Designschuld, README: das ist die Wahrheit der Sim, nicht das Wissen von Rom, kriegslage-wissen.js.)
 function fakten(z) {
   const staerke = (f) => z.flotten.filter((fl) => fl.fraktion === f).reduce((s, fl) => s + fl.staerke, 0);
-  const v = (z.vorrat && z.vorrat.rom) || { U: 0, T: 0 };
   return {
     belagert: z.angriffe.filter((r) => r.t_ende === null && r.t_an !== null && z.hexe[r.ziel] && z.hexe[r.ziel].besitzer === 'rom').length,
-    rom: staerke('rom'), ger: staerke('ger'), knapp: Math.min(v.U, v.T),
+    rom: staerke('rom'), ger: staerke('ger'),
   };
 }
 function bedingung(b, f) {
@@ -59,7 +58,6 @@ function bedingung(b, f) {
     case 'immer': return true;
     case 'belagert': return f.belagert >= (b.min || 1);
     case 'staerker': return f.rom >= b.faktor * f.ger;
-    case 'knapp': return f.knapp < b.schwelle;
     default: return false;
   }
 }
@@ -75,20 +73,39 @@ function angebotIds(z) {
 }
 
 // ---------- Wirkung in der Sim: zustand.absichten.rom (der Kern liest es in ki())
-function wirkungSetzen(z, a) {
-  if (!z.absichten || typeof z.absichten !== 'object') z.absichten = {};
-  const w = {};
-  for (const k of FELDER) if (Number.isFinite(a.wirkung[k])) w[k] = a.wirkung[k];
-  z.absichten[FRAKTION] = w;
+// Schichtung: zustand.absichten.rom kann schon einen Eintrag von anderer Hand haben (SUND-03). Wir überlagern NUR unsere Felder und merken uns die vorherigen Werte dieser Felder (laufend.vorher);
+// beim Ablauf stellt wirkungRaeumen sie wieder her. Fremde Felder und Änderungen anderer an Feldern, die wir nicht gesetzt haben, bleiben unberührt.
+const romEintrag = (z) => (z.absichten && typeof z.absichten === 'object' && z.absichten[FRAKTION] && typeof z.absichten[FRAKTION] === 'object' ? z.absichten[FRAKTION] : null);
+function vorherMerken(z) {
+  const rom = romEintrag(z), v = {};
+  if (rom) for (const k of FELDER) if (Number.isFinite(rom[k])) v[k] = rom[k];
+  return v;
 }
-function wirkungRaeumen(z) { if (z.absichten && typeof z.absichten === 'object') delete z.absichten[FRAKTION]; }
+function wirkungUeberlagern(z, a) {
+  if (!z.absichten || typeof z.absichten !== 'object') z.absichten = {};
+  const rom = Object.assign({}, romEintrag(z) || {});
+  for (const k of FELDER) if (Number.isFinite(a.wirkung[k])) rom[k] = a.wirkung[k];
+  z.absichten[FRAKTION] = rom;
+}
+// laufend: die Absicht, die endet (id, vorher). Ohne laufend (Rest einer verlorenen Absicht nach dem Laden): der ganze Eintrag geht.
+function wirkungRaeumen(z, laufend) {
+  const rom = romEintrag(z);
+  if (!rom) return;
+  const a = laufend && eintrag(laufend.id);
+  if (!a) { delete z.absichten[FRAKTION]; return; }
+  for (const k of FELDER) {
+    if (rom[k] !== a.wirkung[k]) continue;   // von anderer Hand geändert: bleibt
+    if (laufend.vorher && Number.isFinite(laufend.vorher[k])) rom[k] = laufend.vorher[k]; else delete rom[k];
+  }
+  if (!Object.keys(rom).length) delete z.absichten[FRAKTION];
+}
 
 // ---------- Takt: nach jedem Kern-Tick (im Atom von tickMit; wirft etwas, geht alles auf die Sicherung zurück)
 function nachTick(game, n) {
   const s = zustandVon(game), z = game.weltsim.zustand, funk = [];
   if (s.laufend && n >= s.laufend.bis) {
     const a = eintrag(s.laufend.id);
-    wirkungRaeumen(z);
+    wirkungRaeumen(z, s.laufend);
     if (a) funk.push(fmt(texte().funk.ausgelaufen, { name: a.name }));
     s.laufend = null; s.frei_ab = n + W.abstand_nach_ablauf.wert;
   }
@@ -114,9 +131,9 @@ function waehlen(game, id) {
   if (!a) return fehl('unbekannt');
   if (!s.angebot) return fehl('kein_angebot');
   if (!s.angebot.ids.includes(a.id)) return fehl('nicht_im_angebot');
-  s.laufend = { id: a.id, start: ws.tickZahl, bis: ws.tickZahl + a.dauer };
+  s.laufend = { id: a.id, start: ws.tickZahl, bis: ws.tickZahl + a.dauer, vorher: vorherMerken(ws.zustand) };
   s.angebot = null;
-  wirkungSetzen(ws.zustand, a);
+  wirkungUeberlagern(ws.zustand, a);
   return null;
 }
 function ablehnen(game) {
@@ -144,8 +161,8 @@ function meldeGewaehlt(game) {
 const istUnsere = (w) => !!w && KATALOG.some((a) => FELDER.every((k) => w[k] === a.wirkung[k]) && Object.keys(w).length === FELDER.length);
 function nachLaden(game) {
   const s = zustandVon(game), z = game.weltsim.zustand; const a = s && s.laufend && eintrag(s.laufend.id);
-  if (a) wirkungSetzen(z, a);
-  else if (z.absichten && istUnsere(z.absichten[FRAKTION])) wirkungRaeumen(z);
+  if (a) wirkungUeberlagern(z, a);
+  else if (z.absichten && istUnsere(z.absichten[FRAKTION])) wirkungRaeumen(z, null);
 }
 
 // ---------- Anzeige (nur Daten)
@@ -174,7 +191,7 @@ function toSave(ws) {
   const s = ws && ws.absicht;
   if (!s || (!s.laufend && !s.angebot && !(s.frei_ab > 0))) return null;
   const b = {};
-  if (s.laufend) b.laufend = { id: s.laufend.id, start: s.laufend.start, bis: s.laufend.bis };
+  if (s.laufend) { b.laufend = { id: s.laufend.id, start: s.laufend.start, bis: s.laufend.bis }; if (s.laufend.vorher && Object.keys(s.laufend.vorher).length) b.laufend.vorher = Object.assign({}, s.laufend.vorher); }
   if (s.angebot) b.angebot = { ids: s.angebot.ids.slice(), t: s.angebot.t, bis: s.angebot.bis };
   if (s.frei_ab > 0) b.frei_ab = s.frei_ab;
   return b;
@@ -187,7 +204,11 @@ function lesen(b, tickZahl) {
   const zahl = (v, d) => (Number.isFinite(v) ? Math.floor(v) : d);
   if (b.laufend && typeof b.laufend === 'object') {
     const a = eintrag(b.laufend.id), bis = zahl(b.laufend.bis, null);
-    if (a && bis != null && bis > t) out.laufend = { id: a.id, start: Math.min(zahl(b.laufend.start, t), t), bis: Math.min(bis, t + a.dauer) };
+    if (a && bis != null && bis > t) {
+      out.laufend = { id: a.id, start: Math.min(zahl(b.laufend.start, t), t), bis: Math.min(bis, t + a.dauer), vorher: {} };
+      const vv = b.laufend.vorher;
+      if (vv && typeof vv === 'object' && !Array.isArray(vv)) for (const k of FELDER) if (Number.isFinite(vv[k])) out.laufend.vorher[k] = vv[k];
+    }
   }
   if (!out.laufend && b.angebot && typeof b.angebot === 'object' && Array.isArray(b.angebot.ids)) {
     const ids = b.angebot.ids.filter((id, i, l) => typeof id === 'string' && eintrag(id) && l.indexOf(id) === i).slice(0, W.anzahl.wert.max);
@@ -217,8 +238,8 @@ function debug(game, args) {
     return null;
   }
   if (cmd === 'wahl') { const e = waehlen(game, a[1]); if (e) return e.text; meldeGewaehlt(game); return null; }
-  if (cmd === 'ende') { if (s.laufend) { wirkungRaeumen(ws.zustand); s.laufend = null; s.frei_ab = ws.tickZahl + W.abstand_nach_ablauf.wert; } return null; }
-  if (cmd === 'reset') { wirkungRaeumen(ws.zustand); ws.absicht = neu(); return null; }
+  if (cmd === 'ende') { if (s.laufend) { wirkungRaeumen(ws.zustand, s.laufend); s.laufend = null; s.frei_ab = ws.tickZahl + W.abstand_nach_ablauf.wert; } return null; }
+  if (cmd === 'reset') { wirkungRaeumen(ws.zustand, ws.absicht && ws.absicht.laufend); ws.absicht = neu(); return null; }
   return 'absicht [status | angebot | wahl <id> | ende | reset]';
 }
 

@@ -76,7 +76,7 @@ const abbild = (g) => Kriegslage.abbild(z(g));
 function mitAngebot(opts) { const t = neu(opts); tribun(t.g); tick(t.g); return t; }
 
 section('Daten', () => {
-  const ARTEN = ['immer', 'belagert', 'staerker', 'knapp'];
+  const ARTEN = ['immer', 'belagert', 'staerker'];
   ok(KAT.length >= 3 && new Set(KAT.map((a) => a.id)).size === KAT.length && KAT.every((a) => /^[a-z_0-9]{1,24}$/.test(a.id)), 'Absichten mit eindeutigen Ids (Werft-Ansicht erlaubt [a-z_0-9]{1,24})');
   ok(KAT.every((a) => a.name && a.text && Number.isInteger(a.dauer) && a.dauer > 0 && Number.isFinite(a.prio) && ARTEN.includes(a.bedingung.art)), 'jede Absicht hat Name, Text, Dauer in Ticks, prio und eine bekannte Bedingung');
   ok(KAT.every((a) => Object.keys(a.wirkung).every((k) => ['p_act', 'aggr', 'max_active'].includes(k)) && Object.keys(a.wirkung).length === 3), 'wirkung nennt genau p_act, aggr, max_active (die Felder, die kern.js ki() liest)');
@@ -86,9 +86,12 @@ section('Daten', () => {
   ok(RW.raenge.wert.some((r) => r.id === W.mindestrang.wert) && W.mindestrang.wert === 'tribun', 'Mindestrang ist ein Rang der Daten (Tribun)');
   ok(W.anzahl.wert.min === 2 && W.anzahl.wert.max === 3, 'Angebot: 2 bis 3 Optionen');
   ok(KAT.filter((a) => a.bedingung.art === 'immer').length >= W.anzahl.wert.min, 'mindestens min Absichten ohne Bedingung: ein Angebot ist nie kürzer als min');
-  ok(KAT.every((a) => Array.isArray(a.wirkt) && a.wirkt.length), 'jede Absicht nennt, woran ihre Wirkung gemessen wird (tools/sim-absichten.js --pruefen)');
+  ok(KAT.every((a) => Array.isArray(a.wirkt) && a.wirkt.length && Array.isArray(a.wirkt_fenster) && a.wirkt_fenster.length && a.wirkt_fenster.every((w) => w.kennzahl && ['mehr', 'weniger'].includes(w.richtung) && w.min > 0)), 'jede Absicht nennt, woran ihre Wirkung gemessen wird: Ganzlauf (wirkt) und 12-Tick-Fenster (wirkt_fenster), mit Richtung und Mindestunterschied: kein Platzhalter im Katalog');
+  ok(!KAT.some((a) => /Nachschub|Versorgung|versorg|Verluste/i.test(a.text + ' ' + a.name)), 'kein Text verspricht Versorgung oder weniger Verluste (im Fenster nicht messbar)');
+  ok(W.fenster && W.fenster.wert.ticks === 12 && W.fenster.wert.nachlauf > 0 && W.fenster.wert.seeds > 0 && W.fenster.wert.schritt > 0, 'Fenster-Messung hat ihre Zahlen in den Daten');
   ok(W.angebot_dauer.wert > 0 && W.abstand_nach_ablauf.wert > 0 && W.abstand_nach_verfall.wert >= W.abstand_nach_ablauf.wert, 'Angebotsdauer und Pausen (nach Verfall nicht kürzer als nach Ablauf)');
   ok(!Object.keys(RW.quellen.wert).some((k) => /absicht/i.test(k)), 'ruf-werte.json hat keine Ruf-Quelle für Absichten (Annehmen, Ablehnen und Ignorieren ändern den Ruf nicht)');
+  ok(TEXTE.anzeige && ['bereich', 'gesperrt_titel', 'gesperrt_text', 'leer_titel', 'leer_text', 'laeuft_info', 'angebot_info', 'annehmen', 'ablehnen', 'option', 'laeuft_noch', 'ab_rang', 'kein_angebot', 'sprung_eins', 'sprung_mehr'].every((k) => typeof TEXTE.anzeige[k] === 'string' && TEXTE.anzeige[k]), 'content/flotte/absichten.json: Abschnitt anzeige mit allen Texten des Terminals');
   ok(TEXTE.funk && TEXTE.funk.angebot && /\{name\}/.test(TEXTE.funk.gewaehlt) && /\{name\}/.test(TEXTE.funk.ausgelaufen) && TEXTE.weigerung.schon_gewaehlt && TEXTE.sprecher, 'Funktexte und Weigerungen da');
   ok(!/Strafe|Abzug|Pflicht|muss /i.test(JSON.stringify(TEXTE)), 'kein Text droht, mahnt oder verpflichtet');
 });
@@ -96,7 +99,7 @@ section('Daten', () => {
 section('Angebot nur ab Tribun, 2–3 Optionen', () => {
   const t = neu(); const g = t.g;
   ok(g.weltsim && ws(g).absicht && ws(g).absicht.angebot === null && ws(g).absicht.laufend === null, 'Modus Freie Fahrt Sund: Absicht-Zustand leer');
-  for (const [wert, name] of [[0, 'Miles'], [RW.raenge.wert[1].ab, 'Optio'], [RW.raenge.wert[2].ab, 'Centurio'], [TRIBUN - 1, 'knapp unter Tribun']]) {
+  for (const [wert, name] of [[0, 'Miles'], [RW.raenge.wert[1].ab, 'Optio'], [RW.raenge.wert[2].ab, 'Centurio'], [TRIBUN - 1, 'unter Tribun']]) {
     g.weltsim.ruf.rom = wert; tick(g, 3);
     ok(ws(g).absicht.angebot === null && Absicht.snapshot(g).frei === 0 && Absicht.snapshot(g).angebot === undefined, `Rang ${name}: kein Angebot, Hinweis „ab ${Absicht.snapshot(g).ab}“ (frei 0)`);
   }
@@ -122,7 +125,7 @@ section('Angebot: regelbasiert und deterministisch', () => {
   const { karte, werte } = Daten.laden();
   const fake = (g, f) => { const zz = z(g); f(zz); return Absicht.angebotIds(zz); };
   const t = neu(); const g = t.g;
-  // Ausgangslage: keine Belagerung, Rom nicht klar stärker, Vorrat nicht knapp -> nur die Absichten ohne Bedingung
+  // Ausgangslage: keine Belagerung, Rom nicht klar stärker, -> nur die Absichten ohne Bedingung
   const grund = fake(g, (zz) => { zz.angriffe = []; zz.vorrat.rom.U = 50; zz.vorrat.rom.T = 50; for (const f of zz.flotten) if (f.fraktion === 'ger') f.staerke = 5; for (const f of zz.flotten) if (f.fraktion === 'rom') f.staerke = 1; });
   const immer = KAT.filter((a) => a.bedingung.art === 'immer').sort((x, y) => x.prio - y.prio).map((a) => a.id);
   ok(gleich(grund, immer.slice(0, 3)), 'keine Bedingung trifft zu: die Absichten ohne Bedingung nach prio (' + grund.join(', ') + ')');
@@ -138,14 +141,13 @@ section('Angebot: regelbasiert und deterministisch', () => {
   ok(stark[0] === 'offensive' || stark.includes('offensive'), 'Rom klar stärker als die Germanen: „offensive“ im Angebot (' + stark.join(', ') + ')');
   const schwach = fake(g, (zz) => { for (const f of zz.flotten) { if (f.fraktion === 'rom') f.staerke = 5; if (f.fraktion === 'ger') f.staerke = 20; } });
   ok(!schwach.includes('offensive'), 'Rom schwächer: keine Offensive');
-  // Versorgung knapp
-  const knapp = fake(g, (zz) => { zz.vorrat.rom.U = 0; zz.vorrat.rom.T = 40; });
-  ok(knapp.includes('konsolidieren'), 'Munition knapp: „konsolidieren“ im Angebot (' + knapp.join(', ') + ')');
-  const knapp2 = fake(g, (zz) => { zz.vorrat.rom.U = 40; zz.vorrat.rom.T = 0; });
-  ok(knapp2.includes('konsolidieren'), 'Treibstoff knapp: ebenso');
+  // Munition und Treibstoff spielen keine Rolle: kern.js startet bei Vorrat < 10 ohnehin nichts, eine Absicht „Nachschub“ wäre ein Platzhalter (M1 des Reviews)
+  const knapp = fake(g, (zz) => { zz.angriffe = []; zz.vorrat.rom.U = 0; zz.vorrat.rom.T = 0; for (const fl of zz.flotten) fl.staerke = 5; });
+  ok(gleich(knapp, grund) || knapp.length >= 2, 'Vorrat leer ändert das Angebot nicht (kein Platzhalter „konsolidieren“ im Katalog): ' + knapp.join(', '));
+  ok(!KAT.some((a) => a.id === 'konsolidieren' || a.bedingung.art === 'knapp'), 'der Katalog enthält keine Absicht „konsolidieren“ und keine Bedingung „knapp“');
   // Alles trifft zu: höchstens 3, die mit Bedingung zuerst
   const alle = fake(g, (zz) => { zz.angriffe = [{ id: 99, t0: 0, ziel: '0204', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: 1, t_ende: null, ausgang: null, phase: 'marsch', flotten: [] }]; zz.vorrat.rom.U = 0; for (const f of zz.flotten) { if (f.fraktion === 'rom') f.staerke = 20; if (f.fraktion === 'ger') f.staerke = 5; } });
-  ok(alle.length === 3 && gleich(alle, ['verteidigung', 'offensive', 'konsolidieren']), 'alle drei Bedingungen treffen zu: genau 3, die mit Bedingung zuerst nach prio (' + alle.join(', ') + ')');
+  ok(alle.length === 3 && gleich(alle, ['verteidigung', 'offensive', 'ausgreifen']), 'alle drei Bedingungen treffen zu: genau 3, die mit Bedingung zuerst nach prio (' + alle.join(', ') + ')');
   // Immer 2–3, gleicher Zustand = gleiche Liste (300 Zustände aus echten Läufen, Ergebnis unabhängig von Wiederholung und Kopie)
   let zahl = 0, falsch = 0, instabil = 0, verteilung = {};
   for (let seed = 0; seed < 12; seed++) {
@@ -363,6 +365,75 @@ section('Atomar: Rollback bei einem Tick-Fehler', () => {
   ok(v.g.weltsim.absicht.angebot !== null, 'danach kommt das Angebot im nächsten Tick');
 });
 
+section('Rangverlust bei laufender Absicht', () => {
+  const t = mitAngebot(); const g = t.g; const id = ids(g)[0], dauer = eintrag(id).dauer;
+  Absicht.waehlen(g, id);
+  g.weltsim.ruf.rom = TRIBUN - 30;   // der Rang fällt unter Tribun
+  tick(g, 3);
+  ok(ws(g).absicht.laufend && ws(g).absicht.laufend.id === id && z(g).absichten.rom, 'die Absicht läuft nach dem Rangverlust weiter (niemand verliert, was er hat)');
+  const sn = Absicht.snapshot(g);
+  ok(sn.frei === 0 && sn.laufend && sn.laufend.id === id && sn.angebot === undefined, 'Anzeigeblock: frei 0, aber laufend steht drin');
+  tick(g, dauer - 3);
+  ok(ws(g).absicht.laufend === null && !z(g).absichten.rom, 'sie läuft zu Ende und räumt auf');
+  tick(g, W.abstand_nach_ablauf.wert + 3);
+  ok(ws(g).absicht.angebot === null, 'danach kommt kein neues Angebot, solange der Rang fehlt');
+});
+
+section('Schichtung: ein fremder Eintrag in zustand.absichten.rom bleibt', () => {
+  const t = mitAngebot(); const g = t.g; const id = ids(g)[0], w = wirkungVon(id);
+  z(g).absichten.rom = { p_act: 0.9, extra: 1 };   // von anderer Hand (SUND-03)
+  Absicht.waehlen(g, id);
+  ok(gleich(z(g).absichten.rom, Object.assign({ extra: 1 }, w)), 'Wahl überlagert nur die eigenen Felder, das fremde Feld extra bleibt: ' + JSON.stringify(z(g).absichten.rom));
+  ok(gleich(ws(g).absicht.laufend.vorher, { p_act: 0.9 }), 'der vorherige Wert von p_act ist gemerkt (laufend.vorher)');
+  // Speichern und Laden mitten in der Absicht
+  const d = kopie(Weltstand.capture(g));
+  ok(gleich(d.welt.sim.absicht.laufend.vorher, { p_act: 0.9 }) && Weltstand.validate(d).length === 0, 'vorher steht im Weltstand (schemagültig)');
+  const dir = freshDir(); d.id = 'w-schicht'; fs.writeFileSync(path.join(dir, 'w-schicht.json'), JSON.stringify(d));
+  const g2 = neu({ dir, world: 'w-schicht' }).g;
+  ok(gleich(ws(g2).absicht.laufend.vorher, { p_act: 0.9 }) && gleich(z(g2).absichten.rom, z(g).absichten.rom), 'Laden: vorher und die überlagerte Wirkung sind wieder da');
+  tick(g2, eintrag(id).dauer);
+  ok(gleich(z(g2).absichten.rom, { p_act: 0.9, extra: 1 }), 'nach dem Ablauf (geladener Stand): der vorherige Eintrag ist wiederhergestellt');
+  // Rollback: der Tick scheitert NACH dem Auslaufen
+  const u = mitAngebot(); const gu = u.g; const idu = ids(gu)[0];
+  z(gu).absichten.rom = { aggr: 0.33, extra: 2 }; Absicht.waehlen(gu, idu);
+  ws(gu).absicht.laufend.bis = ws(gu).tickZahl + 1;
+  const ueberlagert = kopie(z(gu).absichten.rom), nachOrig = Absicht.nachTick;
+  Absicht.nachTick = function () { const e = nachOrig.apply(this, arguments); throw new Error('Test'); };
+  const ru = Kriegslage.tick(gu, 'test');
+  Absicht.nachTick = nachOrig;
+  ok(ru === null && gleich(z(gu).absichten.rom, ueberlagert) && gleich(ws(gu).absicht.laufend.vorher, { aggr: 0.33 }), 'Rollback: überlagerter Eintrag und vorher bleiben');
+  tick(gu);
+  ok(gleich(z(gu).absichten.rom, { aggr: 0.33, extra: 2 }), 'der nächste Tick stellt den fremden Eintrag wieder her');
+  // Eine Änderung anderer Hand während der Absicht bleibt
+  const v = mitAngebot(); const gv = v.g; const idv = ids(gv)[0];
+  z(gv).absichten.rom = { p_act: 0.9 }; Absicht.waehlen(gv, idv);
+  z(gv).absichten.rom.aggr = 0.33; z(gv).absichten.rom.p_act = 0.5;   // beide Felder von anderer Hand verändert
+  tick(gv, eintrag(idv).dauer);
+  ok(gleich(z(gv).absichten.rom, { p_act: 0.5, aggr: 0.33 }) || (z(gv).absichten.rom && z(gv).absichten.rom.p_act === 0.5 && z(gv).absichten.rom.aggr === 0.33), 'Änderungen anderer Hand an den Feldern bleiben: ' + JSON.stringify(z(gv).absichten.rom));
+  // ohne fremden Eintrag: der Eintrag verschwindet ganz
+  const x = mitAngebot(); Absicht.waehlen(x.g, ids(x.g)[0]); tick(x.g, 12);
+  ok(z(x.g).absichten.rom === undefined, 'ohne fremden Eintrag räumt der Ablauf den ganzen Eintrag');
+});
+
+section('Takt: Rang aus dem Tick und Änderungsschlüssel', () => {
+  // R13: Rang erst durch die Ruf-Wirkung DESSELBEN Ticks erreicht: das Angebot kommt schon in diesem Tick (nachTick nach dem Ruf-Update)
+  const t = neu(); const g = t.g; g.weltsim.ruf.rom = TRIBUN - 5;
+  tick(g);
+  ok(ws(g).absicht.angebot === null, 'knapp unter Tribun: kein Angebot');
+  Kriegslage.tickMit(g, 'test', undefined, [{ typ: 'ruf_aenderung', fraktion: 'rom', delta: 10, grund: 'ort_gehalten_ger' }]);
+  ok(Ruf.rang(g) === 'tribun' && ws(g).absicht.angebot !== null, 'die Ruf-Wirkung dieses Ticks hebt auf Tribun und das Angebot kommt im selben Tick');
+  // R10: ein Rangwechsel in der Pause (ohne Angebot) muss gesendet werden
+  const u = neu({ crew: 1 }); const gu = u.g;
+  const naechster = () => { for (let i = 0; i < 40; i++) { const sn = gu.snapshot(); if (sn.world && 'absicht' in sn.world) return sn.world.absicht; } return undefined; };
+  tribun(gu); tick(gu); Absicht.ablehnen(gu); naechster(); naechster();
+  gu.weltsim.ruf.rom = 0;
+  const b0 = naechster();
+  ok(b0 && b0.frei === 0, 'Rangverlust in der Pause: world.absicht kommt mit frei 0');
+  tribun(gu);
+  const b1 = naechster();
+  ok(b1 && b1.frei === 1, 'Rangaufstieg in der Pause: world.absicht kommt mit frei 1');
+});
+
 section('Weltstand: Altstand, Runde, Müll', () => {
   const t = neu(); const g = t.g;
   const d0 = kopie(Weltstand.capture(g));
@@ -428,6 +499,9 @@ section('Weltstand: Altstand, Runde, Müll', () => {
   ok(g8.phase === 'play' && g8.weltsim && g8.errors === 0 && ws(g8).absicht.laufend === null && ws(g8).absicht.angebot === null && ws(g8).absicht.frei_ab <= ws(g8).tickZahl + W.abstand_nach_verfall.wert, 'Block mit unbekannten Ids und Zeiten in der Zukunft: Spiel lädt, Absicht leer, Pause geklemmt');
   ok(!z(g8).absichten.rom, 'und die im Sim-Zustand gespeicherte Wirkung unserer Absicht bleibt nicht für immer festgeklemmt');
   const fremd = kopie(d2); delete fremd.welt.sim.absicht; fremd.welt.sim.zustand.absichten = { rom: { p_act: 0.9 }, ger: { aggr: 0.1 } }; fremd.id = 'w-fremd'; fs.writeFileSync(path.join(dir, 'w-fremd.json'), JSON.stringify(fremd));
+  const stale = kopie(d2); delete stale.welt.sim.absicht; stale.welt.sim.zustand.absichten = { rom: wirkungVon('ausgreifen'), ger: { aggr: 0.1 } }; stale.id = 'w-rest'; fs.writeFileSync(path.join(dir, 'w-rest.json'), JSON.stringify(stale));
+  const g10 = neu({ dir, world: 'w-rest' }).g;
+  ok(gleich(z(g10).absichten, { ger: { aggr: 0.1 } }), 'festgeklemmte eigene Wirkung wird geräumt, der Eintrag einer anderen Fraktion bleibt');
   const g9 = neu({ dir, world: 'w-fremd' }).g;
   ok(gleich(z(g9).absichten, { rom: { p_act: 0.9 }, ger: { aggr: 0.1 } }), 'fremde Einträge in zustand.absichten (andere Fraktionen, spätere Quellen) bleiben beim Laden unberührt');
 });

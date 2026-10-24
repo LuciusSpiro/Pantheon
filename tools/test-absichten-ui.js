@@ -37,6 +37,8 @@ vm.createContext(win);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'absicht.js'), 'utf8'), win, { filename: 'absicht.js' });
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'terminal-ui.js'), 'utf8'), win, { filename: 'terminal-ui.js' });
 const TU = win.TerminalUI, AB = win.Absicht;
+AB.store.texte = require('../content/flotte/absichten.json').anzeige;   // wie der Browser sie vom Server holt
+const TX = AB.store.texte;
 ok(TU && AB && typeof AB.modell === 'function' && typeof TU.keyDown === 'function', 'TerminalUI und Absicht geladen');
 
 // ---------------------------------------------------------------- Partie (Freie Fahrt Sund, zwei Spieler), UI von Spieler 0 am Terminal
@@ -48,7 +50,7 @@ function partie(start) {
   for (let i = 0; i < CONFIG.tickHz; i++) g.step();
   g.space.enemies = [];
   g.players[0].console = 'shop';
-  AB.lesen({ t: 'welcome' });   // neue Verbindung: leerer Speicher (wie im Browser)
+  AB.lesen({ t: 'welcome' });   // neue Verbindung: leerer Speicher (wie im Browser); die Texte bleiben
   const T = { g, conns };
   T.view = (i) => ({ state: JSON.parse(JSON.stringify(g.snapshot())), me: g.players[i], send(m) { g.handleMessage(conns[i], m); T.nachlauf(i); }, actions: { sfx() {}, leave() {} } });
   // Ereignisse an die UI (wie client.js onEvent), world-Blöcke an absicht.js (wie Net.on)
@@ -95,7 +97,8 @@ section('Tasten und Texte');
   const ids = ['terminal.lage', 'terminal.annehmen', 'terminal.ablehnen'];
   ok(ids.every((id) => Tasten.AKTIONEN.some((a) => a.id === id)), 'tasten.js kennt terminal.lage, terminal.annehmen, terminal.ablehnen');
   ok(Tasten.BEREICHE['terminal.lage'] && Tasten.AKTIONEN.find((a) => a.id === 'terminal.annehmen').bereich === 'terminal.lage' && Tasten.AKTIONEN.find((a) => a.id === 'terminal.ablehnen').bereich === 'terminal.lage', 'Annehmen und Ablehnen gelten nur im Bereich Lage');
-  ok(Tasten.AKTIONEN.find((a) => a.id === 'terminal.lage').std[0] === 'KeyL' && Tasten.AKTIONEN.find((a) => a.id === 'terminal.ablehnen').std[0] === 'KeyX', 'Standardtasten L und X');
+  ok(Tasten.AKTIONEN.find((a) => a.id === 'terminal.lage').std[0] === 'KeyK' && Tasten.AKTIONEN.find((a) => a.id === 'terminal.ablehnen').std[0] === 'KeyX', 'Standardtasten K (Kurs) und X');
+  ok(!Tasten.AKTIONEN.some((a) => a.bereich === 'terminal.lage' && /Space/.test(a.std.join())), 'Leertaste ist im Bereich Kurs nicht belegt (und nimmt dort auch nicht an)');
 }
 
 section('Vor Tribun: der Bereich ist da, gedimmt, ohne Angebot');
@@ -103,7 +106,7 @@ section('Vor Tribun: der Bereich ist da, gedimmt, ohne Angebot');
   const T = partie(); TU.zuruecksetzen(); zeichnen(T);
   let m = T.m();
   ok(m.bereichUmschalter.lage && m.bereichUmschalter.lage.gesperrt === true && /Tribun/.test(m.bereichUmschalter.lage.grund), 'Umschalter „Lage“ da, vor Tribun gesperrt (gedimmt), Grund nennt Tribun');
-  T.key('KeyL'); m = T.m();
+  T.key('KeyK'); m = T.m();
   ok(m.bereich === 'lage' && m.lage.zustand === 'gesperrt' && /Tribun/.test(m.lage.text) && m.lage.titel, 'L öffnet den Bereich: Hinweis „ab dem Rang Tribun“');
   ok(m.aktionen.haupt.disabled === true && /Tribun/.test(m.aktionen.haupt.grund) && m.aktionen.ausbau.label === 'Ablehnen' && m.aktionen.ausbau.disabled === true, 'Hauptknopf und Ablehnen gesperrt, Grund Rang');
   const gesendet = []; const v = T.view(0); const send0 = v.send; v.send = (q) => { gesendet.push(q); send0(q); };
@@ -116,7 +119,7 @@ section('Vor Tribun: der Bereich ist da, gedimmt, ohne Angebot');
 section('Kampagne: kein Bereich');
 {
   const T = partie('free'); TU.zuruecksetzen(); zeichnen(T);
-  T.key('KeyL'); const m = T.m();
+  T.key('KeyK'); const m = T.m();
   ok(!T.g.weltsim && m.bereichUmschalter.lage === null && m.bereich !== 'lage', 'ohne Modus: kein Lage-Knopf, L tut nichts');
 }
 
@@ -124,11 +127,11 @@ section('Angebot: Karten, Auswahl, Annehmen gegen den Server');
 {
   const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
   g.weltsim.ruf.rom = TRIBUN; T.tick();
-  T.key('KeyL'); let m = T.m();
+  T.key('KeyK'); let m = T.m();
   const karten = m.lage.karten;
   ok(m.bereich === 'lage' && m.lage.zustand === 'angebot' && karten.length === g.weltsim.absicht.angebot.ids.length && karten.length >= 2 && karten.length <= 3, 'Bereich Lage: ' + karten.length + ' Karten');
   ok(karten.every((k) => k.name && k.text && k.dauer > 0) && karten[0].gewaehlt === true && karten.filter((k) => k.gewaehlt).length === 1, 'Karten mit Name, Text, Dauer; die erste ist gewählt');
-  ok(/Ablehnen oder Liegenlassen kostet nichts/.test(m.lage.info.text) && /noch \d+ Sprünge/.test(m.lage.info.text), 'Infozeile: gilt noch n Sprünge, Ablehnen kostet nichts');
+  ok(/Ablehnen oder Liegenlassen kostet nichts/.test(m.lage.info.text) && /noch \d+ Sprünge/.test(m.lage.info.text) && m.lage.info.text === TX.angebot_info.replace('{n}', AB.sprung(m.lage.info.text.match(/(\d+) Sprünge/)[1] * 1)), 'Infozeile: Text aus content/flotte/absichten.json (anzeige.angebot_info), gilt noch n Sprünge');
   ok(m.aktionen.haupt.art === 'annehmen' && m.aktionen.haupt.text === 'Annehmen' && !m.aktionen.haupt.disabled && m.aktionen.hinweis.text.includes(karten[0].name.slice(0, 8)), 'Hauptknopf „Annehmen“, die Zeile darunter nennt die gewählte Karte');
   ok(m.aktionen.ausbau.label === 'Ablehnen' && !m.aktionen.ausbau.disabled && m.aktionen.teil.label === 'Option' && !m.aktionen.teil.disabled, 'Ablehnen und Option aktiv');
   ok(m.kreuz.gesperrt === true && m.module.gesperrt === true && m.schnitt === null, 'Kreuz und Module gedimmt wie im Handel');
@@ -148,27 +151,27 @@ section('Angebot: Karten, Auswahl, Annehmen gegen den Server');
   ok(g.weltsim.absicht.laufend && g.weltsim.absicht.laufend.id === wahl && g.weltsim.zustand.absichten.rom, 'Enter nimmt die gewählte Karte an: laufend ' + wahl + ', zustand.absichten.rom gesetzt');
   ok(TU.zustand.antwort && TU.zustand.antwort.ok === true && JSON.stringify(g.weltsim.ruf) === ruf0, 'absichtAntwort ok in der UI, Ruf unverändert');
   m = T.m();
-  ok(m.lage.zustand === 'laeuft' && m.lage.laufend.id === wahl && m.lage.laufend.rest === m.lage.laufend.dauer && /Läuft noch/.test(m.aktionen.haupt.text) && m.aktionen.haupt.disabled === true, 'danach: Anzeige „läuft“, Restzeit, Hauptknopf gesperrt');
+  ok(m.lage.zustand === 'laeuft' && m.lage.laufend.id === wahl && m.lage.laufend.rest === m.lage.laufend.dauer && m.aktionen.haupt.text === TX.laeuft_noch.replace('{n}', AB.sprung(m.lage.laufend.rest)) && m.aktionen.haupt.disabled === true, 'danach: Anzeige „läuft“, Restzeit, Hauptknopf gesperrt');
   const vor = JSON.stringify(g.weltsim.absicht);
   const cmds = []; { T.lesen(); const v = T.view(0); const s0 = v.send; v.send = (q) => { if (/^absicht/.test(q.c || '')) cmds.push(q); s0(q); }; for (const code of ['Enter', 'KeyX']) TU.keyDown({ code, preventDefault() {} }, v); }
   ok(JSON.stringify(g.weltsim.absicht) === vor && cmds.length === 0, 'Enter und X während der Absicht ändern nichts und senden keinen Befehl'); T.nachlauf(0);
   T.tick(3); m = T.m();
   ok(m.lage.laufend.rest === m.lage.laufend.dauer - 3, 'die Restzeit zählt mit den Sprüngen');
   T.tick(m.lage.laufend.rest); m = T.m();
-  ok(m.lage.zustand === 'leer' && /KEINE FRAGE/.test(m.lage.titel) && m.aktionen.haupt.disabled === true, 'nach dem Ablauf: „Rom hat gerade keine Frage“, Hauptknopf gesperrt');
+  ok(m.lage.zustand === 'leer' && m.lage.titel === TX.leer_titel && m.aktionen.haupt.disabled === true, 'nach dem Ablauf: „Rom hat gerade keine Frage“, Hauptknopf gesperrt');
 }
 
 section('Ablehnen und „schon gewählt“');
 {
   const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
   g.weltsim.ruf.rom = TRIBUN; T.tick();
-  T.key('KeyL'); const ruf0 = JSON.stringify(g.weltsim.ruf);
+  T.key('KeyK'); const ruf0 = JSON.stringify(g.weltsim.ruf);
   T.key('KeyX');
   ok(g.weltsim.absicht.angebot === null && !g.weltsim.zustand.absichten.rom && JSON.stringify(g.weltsim.ruf) === ruf0, 'X lehnt ab: Angebot weg, nichts gesetzt, Ruf gleich');
   ok(TU.zustand.antwort && TU.zustand.antwort.ok === true && /ohne Folgen/.test(TU.zustand.antwort.text), 'Rückmeldung „Abgelehnt, ohne Folgen.“');
   // Ein anderer hat schneller gewählt: die UI zeigt noch das Angebot, der Server sagt „schon gewählt“
   T.tick(W.abstand_nach_verfall.wert);
-  T.key('KeyL'); let m = T.m();
+  T.key('KeyK'); let m = T.m();
   ok(m.lage.zustand === 'angebot', 'neues Angebot nach der Pause');
   const fremd = g.weltsim.absicht.angebot.ids[1];
   T.lesen(); const staleModell = AB.modell();   // die UI hat das Angebot gesehen ...
@@ -187,7 +190,7 @@ section('Zuschauer sehen den Bereich, bedienen ihn nicht');
 {
   const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
   g.weltsim.ruf.rom = TRIBUN; T.tick();
-  T.key('KeyL'); T.key('ArrowDown'); warte(130); zeichnen(T);
+  T.key('KeyK'); T.key('ArrowDown'); warte(130); zeichnen(T);
   const gewaehlt = g.werftUi.i;
   g.handleMessage(T.conns[1], { t: 'cmd', c: 'werft.zusehen', on: true });
   TU.zusehen({ send() {} }, true);
@@ -202,6 +205,78 @@ section('Zuschauer sehen den Bereich, bedienen ihn nicht');
   T.nachlauf(1);
   ok(JSON.stringify(g.weltsim.absicht) === vor && cmds.length === 0, 'Tasten des Zuschauers ändern nichts und senden keinen Befehl'); 
   TU.zusehen({ send() {} }, false);
+}
+
+section('Rangverlust bei laufender Absicht: der Bereich zeigt sie (S1)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
+  g.weltsim.ruf.rom = TRIBUN; T.tick();
+  T.key('KeyK'); T.key('Enter');
+  ok(g.weltsim.absicht.laufend, 'Absicht läuft');
+  g.weltsim.ruf.rom = 0; T.tick();
+  const m = T.m();
+  ok(g.weltsim.absicht.laufend && m.lage.zustand === 'laeuft' && m.lage.laufend && !m.bereichUmschalter.lage.gesperrt, 'Rang weg, Absicht läuft: der Bereich zeigt „läuft“ (nicht „noch keine Anfrage“), der Knopf bleibt offen');
+  ok(m.aktionen.haupt.text === TX.laeuft_noch.replace('{n}', AB.sprung(m.lage.laufend.rest)), 'Hauptknopf nennt die Restzeit');
+  g.weltsim.absicht.laufend.bis = g.weltsim.tickZahl + 1; T.tick();
+  const m2 = T.m();
+  ok(m2.lage.zustand === 'gesperrt' && m2.bereichUmschalter.lage.gesperrt === true && m2.lage.text.includes('Tribun'), 'nach dem Ablauf ohne Rang: „noch keine Anfrage“ ab Tribun');
+}
+
+section('Modus endet: der Bereich Kurs fällt weg (K1)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
+  g.weltsim.ruf.rom = TRIBUN; T.tick();
+  T.key('KeyK');
+  ok(TU.zustand.bereich === 'lage' && TU.bereichJetzt === 'lage', 'Bereich Kurs offen');
+  const merk = g.weltsim; g.weltsim = null;
+  T.lesen(); for (let i = 0; i < 40; i++) AB.lesen(Object.assign({ t: 'snap' }, g.snapshot()));
+  ok(AB.modell() === null && TU.bereichJetzt === 'werft', 'Löschsignal angekommen: wirksamer Bereich ist wieder die Werft (Tastenbelegung greift nicht mehr auf Kurs)');
+  const gesendet = []; const v = T.view(0); const s0 = v.send; v.send = (q) => { gesendet.push(q); s0(q); };
+  TU.keyDown({ code: 'KeyX', preventDefault() {} }, v); TU.keyDown({ code: 'Enter', preventDefault() {} }, v);
+  ok(!gesendet.some((q) => /^absicht/.test(q.c || '')), 'Enter und X senden nach dem Modus-Ende keine Absicht-Befehle');
+  TU.keyDown({ code: 'Digit7', preventDefault() {} }, v);
+  const m = TU.modell(T.view(0));
+  ok(m.bereich !== 'lage' && TU.zustand.platz === 7, 'das Terminal reagiert wieder normal: die Taste 7 wählt Platz 7 (der Bereich Kurs schluckt sie nicht)');
+  g.weltsim = merk;
+}
+
+section('„Schon gewählt“ sperrt die Karten sofort (K3)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
+  g.weltsim.ruf.rom = TRIBUN; T.tick();
+  T.key('KeyK'); T.lesen(); const alt = AB.modell();
+  AbsichtServer.waehlen(g, g.weltsim.absicht.angebot.ids[0]);   // ein Mitspieler war schneller
+  AB.lesen({ t: 'snap', world: { absicht: { frei: 1, ab: 'Tribun', angebot: alt.angebot, rest: alt.rest } } });
+  const gesendet = []; const v = T.view(0); const s0 = v.send; v.send = (q) => { gesendet.push(q); s0(q); };
+  TU.keyDown({ code: 'Enter', preventDefault() {} }, v); T.nachlauf(0);
+  AB.lesen({ t: 'snap', world: { absicht: { frei: 1, ab: 'Tribun', angebot: alt.angebot, rest: alt.rest } } });
+  const m = TU.modell(T.view(0));
+  ok(m.lage.zustand === 'angebot' && m.lage.karten.every((k) => k.onClick === null) && m.aktionen.haupt.disabled === true && m.aktionen.ausbau.disabled === true && m.aktionen.teil.disabled === true, 'nach der Absage: Karten ohne Klick, Annehmen, Ablehnen und Option gesperrt');
+  const n0 = gesendet.length;
+  TU.keyDown({ code: 'Enter', preventDefault() {} }, v); TU.keyDown({ code: 'KeyX', preventDefault() {} }, v);
+  ok(gesendet.filter((q) => /^absicht/.test(q.c || '')).length === 1 && gesendet.length >= n0, 'weitere Enter und X senden nichts mehr (nur die eine Wahl ging hinaus)');
+  ok(m.lage.hilfe === '' && /Schon gewählt/.test(m.lage.info.grund), 'die Tastenhilfe verschwindet, die Absage steht in der Infozeile');
+}
+
+section('Leertaste nimmt nicht an (K4)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
+  g.weltsim.ruf.rom = TRIBUN; T.tick(); T.key('KeyK'); T.lesen();
+  const gesendet = []; const v = T.view(0); const s0 = v.send; v.send = (q) => { gesendet.push(q); s0(q); };
+  TU.keyDown({ code: 'Space', preventDefault() {} }, v); T.nachlauf(0);
+  ok(!gesendet.some((q) => /^absicht/.test(q.c || '')) && g.weltsim.absicht.laufend === null && g.weltsim.absicht.angebot, 'Leertaste im Bereich Kurs: kein Befehl, das Angebot steht noch');
+}
+
+section('Texte kommen aus der Datei, nicht aus dem Code (S3)');
+{
+  const T = partie(); TU.zuruecksetzen(); zeichnen(T); const g = T.g;
+  const hold = AB.store.texte; AB.store.texte = null;
+  const m0 = T.m();
+  ok(m0.bereichUmschalter.lage.label === '' || m0.bereichUmschalter.lage.label === undefined || m0.bereichUmschalter.lage.label === '', 'ohne geladene Texte bleibt die Beschriftung leer (kein Text im Client-Code)');
+  AB.store.texte = Object.assign({}, hold, { gesperrt_titel: 'XYZ-TITEL', annehmen: 'XYZ-KNOPF', bereich: 'XYZ' });
+  g.weltsim.ruf.rom = 0; T.key('KeyK'); let m = T.m();
+  ok(m.lage.titel === 'XYZ-TITEL' && m.aktionen.haupt.text === 'XYZ-KNOPF' && m.bereichUmschalter.lage.label === 'XYZ', 'geänderte Datei-Texte erscheinen im Modell (Titel, Hauptknopf, Bereichsname)');
+  AB.store.texte = hold;
 }
 
 console.log(`\n${n} Prüfungen, ${fails ? fails + ' FEHLER' : 'ABSICHTEN-UI OK'}`);

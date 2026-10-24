@@ -433,7 +433,7 @@
   // l: { zustand: 'gesperrt'|'leer'|'angebot'|'laeuft', titel, text (gesperrt/leer), hilfe (Tastenzeile rechts), karten: [{ id, name, text, dauer, gewaehlt, onClick }] (angebot),
   //      laufend: { name, text, rest, dauer } (laeuft), info: { text, grund } }
   function zeichneLage(c, r, info, l) {
-    txtRolle(c, 'LAGE', r.x, r.y - 13, 'preis', 'titel'); if (l.hilfe) txt(c, l.hilfe, r.x + r.w, r.y - 13, 'dim', { align: 'right' });
+    txtRolle(c, (l.bereich || 'Kurs'), r.x, r.y - 13, 'preis', 'titel'); if (l.hilfe) txt(c, l.hilfe, r.x + r.w, r.y - 13, 'dim', { align: 'right' });
     if (l.zustand === 'gesperrt' || l.zustand === 'leer' || !l.zustand) {
       const h = 58; cham(c, r.x, r.y, r.w, h, F('kachelZu'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'platzZu');
       txtRolle(c, l.titel || '', r.x + 14, r.y + 10, 'text', 'titel');
@@ -508,7 +508,7 @@
   function zeichneBereich(c, A, b) {
     P.knopf(c, A.handel.x, A.handel.y, A.handel.w, A.handel.h, 'Handel', { hotkey: kappe('terminal.handel', 'H'), fn: 'nav', active: b.bereich === 'handel', onClick: b.onBereich ? () => b.onBereich('handel') : null });
     P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', text: b.werftZu ? 'Werft · zu' : 'Werft', active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
-    if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, 'Lage', { hotkey: kappe('terminal.lage', 'L'), fn: b.lage.gesperrt ? 'neutral' : 'nav', active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
+    if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, b.lage.label || 'Kurs', { hotkey: kappe('terminal.lage', 'K'), fn: b.lage.gesperrt ? 'neutral' : 'nav', active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
   }
   // a: { haupt: { art: 'umbau'|'freischalten'|'stufe'|'kaufen'|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, onClick }, teil: { disabled, onClick } }
   const HAUPT = {
