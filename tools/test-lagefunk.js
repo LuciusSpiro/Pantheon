@@ -139,6 +139,14 @@ console.log('\nFixrunde: Szenenzeile (N6, N8, H6), Notrückholung absolut (S4), 
     ok(/Posten gesprengt/.test(ax({ p: 's' }).text) && /Angriff gescheitert/.test(ax({ p: 'n' }).text), 'A2: Ergebniszeilen: Posten gesprengt / Angriff gescheitert');
     ok(Hud.szeneZeile(sz({ p: 'v', v: [10, 20], f: 'ger', k: 1 }, [0, 1])).kopf === 'FEINDKONTAKT' && /Flotte bricht ab/.test(Hud.szeneZeile(sz({ p: 's' })).text), 'A2: ohne x unverändert (FEINDKONTAKT, Flotte bricht ab)');
   }
+  { // SUND-02b E: Beschuss auf römische Verbündete (sz.w Warnung im Halteprozess, sz.vt Verrat läuft)
+    const w = Hud.szeneZeile(sz({ p: 'k', g: 2, w: [5, 7] }, [1, 3]));
+    ok(w && w.kopf === 'HOCHVERRAT AN ROM' && w.hoch === true && w.sek === 5 && Math.abs(w.anteil - 5 / 7) < 1e-9 && /Abbruch kostenlos/.test(w.text), 'E: Halteprozess des Verrats: Warnzeile HOCHVERRAT AN ROM mit Restsekunden und Balken (an alle Spieler)');
+    ok(Hud.szeneZeile(sz({ p: 'v', v: [8, 10], f: 'ger', k: 2, w: [3, 7] }, [0, 3])).kopf === 'HOCHVERRAT AN ROM', 'E: auch in der Vorwarnung hat die Warnung Vorrang');
+    const k = Hud.szeneZeile(sz({ p: 'k', g: 2, vt: 1 }, [1, 1])); ok(k.kopf === 'VERRAT' && /2 Gegner/.test(k.text) && !k.hoch, 'E: Verrat läuft: VERRAT · 2 Gegner');
+    ok(/Römische Schiffe vernichtet/.test(Hud.szeneZeile(sz({ p: 's', vt: 1 })).text) && /Angriff gescheitert/.test(Hud.szeneZeile(sz({ p: 'n', vt: 1 })).text), 'E: Ergebniszeilen: Römische Schiffe vernichtet / Angriff gescheitert');
+    ok(Hud.szeneZeile(sz({ p: 'k', g: 2, w: ['a', 7] }, [1, 3])).kopf !== 'HOCHVERRAT AN ROM', 'E: unbrauchbares w wird ignoriert');
+  }
   // H6: ungültiges sz ganz ignorieren
   for (const [name, bad] of [['unbekannte Phase', { p: 'x' }], ['Phase fehlt', {}], ['Vorwarnung ohne v', { p: 'v', f: 'ger', k: 2 }], ['v kein Array', { p: 'v', v: 'abc', f: 'ger', k: 2 }], ['v mit Unsinn', { p: 'v', v: ['a', 'b'] }], ['kein Objekt', 'v']]) {
     ok(Hud.szeneVon(sz(bad)) === null && Hud.szeneZeile(sz(bad)) === null, 'H6: ' + name + ' -> sz wird ignoriert (keine Zeile, VERBÜNDET/BEFEHL bleiben)');

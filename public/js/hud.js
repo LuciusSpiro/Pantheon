@@ -1786,16 +1786,20 @@
       const welle = wl ? (wl[2] ? 'Überdruck' : 'Welle ' + wl[0] + '/' + wl[1]) : '';
       const wellenZahl = wl ? wl[1] + (wl[1] === 1 ? ' Welle' : ' Wellen') : '';   // N8: in der Vorwarnung „3 Wellen“ statt „Welle 0/3“ (las sich wie ein Fehler)
       const rot = T.notruf || T.rot || PAL.red, hell = T.hell || PAL.star, mint = T.mint || PAL.mint;
+      if (Array.isArray(sz.w) && sz.w.length >= 2 && Number.isFinite(+sz.w[0]) && Number.isFinite(+sz.w[1])) {   // SUND-02b E: der Halteprozess des Verrats läuft (Warnung an alle Spieler; Abbruch an der Ops kostet nichts)
+        return { hoch: true, kopf: 'HOCHVERRAT AN ROM', kopfFarbe: rot, text: 'Ruf sinkt bei Beginn · Abbruch kostenlos', textFarbe: hell, sek: +sz.w[0], anteil: +sz.w[1] > 0 ? Math.max(0, Math.min(1, +sz.w[0] / +sz.w[1])) : 0 };
+      }
       if (sz.p === 'v') {
         const fa = KT && KT.FARBE && KT.FARBE.fraktion && KT.FARBE.fraktion[{ ger: 'g', pirat: 'p', rom: 'r' }[sz.f]];   // Namen aus den Karten-Tokens (eine Quelle)
         const fr = (fa && fa.name) || 'Feind';
         const v = sz.v;
         return { hoch: true, kopf: sz.x ? 'ANGRIFF AUF POSTEN' : 'FEINDKONTAKT', kopfFarbe: rot, text: fr + ' · ' + (KT ? KT.staerkeName(sz.k) : '') + (wellenZahl ? ' · ' + wellenZahl : ''), textFarbe: hell, sek: v[0], anteil: v[1] > 0 ? Math.max(0, Math.min(1, v[0] / v[1])) : 0 };
       }
+      if (sz.p === 'k' && sz.vt) return { hoch: false, kopf: 'VERRAT', kopfFarbe: rot, text: sz.g != null ? (sz.g === 1 ? ' · 1 Gegner' : ' · ' + sz.g + ' Gegner') : '', textFarbe: hell };   // SUND-02b E: Beschuss auf römische Verbündete
       if (sz.p === 'k') return { hoch: false, kopf: sz.x ? 'ANGRIFF AUF POSTEN' : (welle ? welle.toUpperCase() : 'GEFECHT'), kopfFarbe: rot, text: (sz.x && welle ? ' · ' + welle.toUpperCase() : '') + (sz.g != null ? (sz.g === 1 ? ' · 1 Gegner' : ' · ' + sz.g + ' Gegner') : ''), textFarbe: hell };
       if (sz.p === 'f') return { hoch: false, kopf: 'FLAGGSCHIFF', kopfFarbe: rot, text: sz.kd ? ' · ' + sz.kd : '', textFarbe: hell };
-      if (sz.p === 's') return { hoch: false, akzent: mint, kopf: 'SIEG', kopfFarbe: mint, text: ' · ' + (sz.x ? 'Posten gesprengt' : sz.o ? sz.o + ' hält' : 'Flotte bricht ab'), textFarbe: hell };
-      if (sz.p === 'n') return { hoch: false, kopf: 'NIEDERLAGE', kopfFarbe: rot, text: ' · ' + (sz.x ? 'Angriff gescheitert' : sz.o ? sz.o + ' verloren' : 'Feind hält den Sektor'), textFarbe: hell };
+      if (sz.p === 's') return { hoch: false, akzent: mint, kopf: 'SIEG', kopfFarbe: mint, text: ' · ' + (sz.vt ? 'Römische Schiffe vernichtet' : sz.x ? 'Posten gesprengt' : sz.o ? sz.o + ' hält' : 'Flotte bricht ab'), textFarbe: hell };
+      if (sz.p === 'n') return { hoch: false, kopf: 'NIEDERLAGE', kopfFarbe: rot, text: ' · ' + (sz.vt || sz.x ? 'Angriff gescheitert' : sz.o ? sz.o + ' verloren' : 'Feind hält den Sektor'), textFarbe: hell };
       return null;
     },
     // Fixrunde N4: Unterkante der Szenenzeile an den Konsolen (y 9 + Höhe + 1; 0 ohne Szene) und der Einzug, den Kartenbeschriftungen (Rand-Marker, Zoom-Anzeige) darunter brauchen
