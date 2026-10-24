@@ -267,12 +267,8 @@ function ki(c) {
   }
   for (const f of FRAKTIONEN) {
     // Absichten (SUND-03): zustand.absichten[fraktion] überschreibt p_act, aggr, max_active der Standard-KI, sonst gelten die Werte.
-    // SUND-03 A: zwei Überlagerungen in eigenen Namensräumen, die Wahl der Crew (z.absichten, SUND-02b D) gilt vor der Regie (z.regie, Befehle regler und fokus), beide vor den Werten.
-    const ab = z.absichten[f] || {}, rg = (z.regie && z.regie[f]) || {};
-    const pAct = ab.p_act !== undefined ? ab.p_act : (rg.p_act !== undefined ? rg.p_act : w.p_act);
-    const aggr = ab.aggr !== undefined ? ab.aggr : (rg.aggr !== undefined ? rg.aggr : w.aggr);
-    const maxActive = ab.max_active !== undefined ? ab.max_active : (rg.max_active !== undefined ? rg.max_active : w.max_active[f]);
-    const fokus = rg.fokus || null;
+    // SUND-03 A: zwei Überlagerungen in eigenen Namensräumen (Wahl der Crew z.absichten vor der Regie z.regie vor den Werten, befehle.js wirksam): ohne beide gelten die Werte.
+    const { p_act: pAct, aggr, max_active: maxActive, fokus } = Befehle.wirksam(z, f);
     const mine = z.flotten.filter((fl) => fl.fraktion === f);
     const active = mine.filter((fl) => fl.befehl !== 'heim');
     const st = z.vorrat[f];

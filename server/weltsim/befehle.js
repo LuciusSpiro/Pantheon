@@ -33,13 +33,18 @@ const istHex = (z, x) => typeof x === 'string' && has(z.hexe, x);
 const istId = (x) => Number.isInteger(x) && x >= 1;
 const istZahl = (x) => typeof x === 'number' && Number.isFinite(x);
 const flotteMit = (c, id) => c.z.flotten.find((fl) => fl.id === id);
-const absichtVon = (z, f) => (z.absichten && z.absichten[f]) || {};
-const reglerVon = (z, f) => (z.regie && z.regie[f]) || {};
-// die wirksamen Regler einer Fraktion: Wahl der Crew (zustand.absichten) vor der Überlagerung der Regie (zustand.regie) vor den Werten
-function maxActive(c, f) {
-  const ab = absichtVon(c.z, f), rg = reglerVon(c.z, f);
-  return ab.max_active !== undefined ? ab.max_active : (rg.max_active !== undefined ? rg.max_active : c.w.max_active[f]);
+// die wirksamen Regler einer Fraktion: Wahl der Crew (zustand.absichten, SUND-02b D) vor der Überlagerung der Regie (zustand.regie) vor den Werten. Eigene Namensräume je Quelle:
+// keine Quelle schreibt in die der anderen, der Rückbau der einen lässt die andere stehen. Ohne beide Felder genau die Werte (Bit-Parität). -> { p_act, aggr, max_active, fokus | null }
+function wirksam(z, f) {
+  const w = z.werte, ab = (z.absichten && z.absichten[f]) || {}, rg = (z.regie && z.regie[f]) || {};
+  return {
+    p_act: ab.p_act !== undefined ? ab.p_act : (rg.p_act !== undefined ? rg.p_act : w.p_act),
+    aggr: ab.aggr !== undefined ? ab.aggr : (rg.aggr !== undefined ? rg.aggr : w.aggr),
+    max_active: ab.max_active !== undefined ? ab.max_active : (rg.max_active !== undefined ? rg.max_active : w.max_active[f]),
+    fokus: rg.fokus || null,
+  };
 }
+const maxActive = (c, f) => wirksam(c.z, f).max_active;
 const aktive = (c, f) => c.z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim');
 // bereit für einen Auftrag: im Heimathafen, ruhig, mindestens 70 % der Kapazität (wie ki())
 const istBereit = (fl) => fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke >= 0.7 * fl.kap;
@@ -403,9 +408,46 @@ function ablauf(c) {
   }
 }
 
+// Bereinigt die Zustandsfelder der Befehle nach dem Laden aus einer Datei (embargo, regie, flotte.miete): Unsinniges fällt weg, bevor ein Tick darüber stolpert (ein wirfender Tick friert die Sim ein).
+// Gültiges bleibt unverändert; ohne die Felder geschieht nichts.
+function bereinige(z) {
+  const ganzZahl = (v) => Number.isInteger(v) && v >= 0;
+  if (z.embargo !== undefined) {
+    const out = {};
+    if (z.embargo && typeof z.embargo === 'object' && !Array.isArray(z.embargo)) {
+      for (const [f, e] of Object.entries(z.embargo)) {
+        if (!W.embargo.wert.gegen.includes(f) || !e || typeof e !== 'object' || !Array.isArray(e.waren) || !ganzZahl(e.from) || !ganzZahl(e.bis)) continue;
+        const waren = e.waren.filter((g) => W.embargo.wert.waren.includes(g));
+        if (waren.length) out[f] = { waren, von: 'kon', from: e.from, bis: e.bis };
+      }
+    }
+    if (Object.keys(out).length) z.embargo = out; else delete z.embargo;
+  }
+  if (z.regie !== undefined) {
+    const out = {};
+    if (z.regie && typeof z.regie === 'object' && !Array.isArray(z.regie)) {
+      for (const [f, e] of Object.entries(z.regie)) {
+        if (!e || typeof e !== 'object' || Array.isArray(e)) continue;
+        const x = {};
+        for (const k of REGLER_FELDER) if (istZahl(e[k])) x[k] = e[k];
+        if (ganzZahl(e.regler_bis) && Object.keys(x).length) x.regler_bis = e.regler_bis; else for (const k of REGLER_FELDER) delete x[k];
+        const fk = e.fokus;
+        if (fk && typeof fk === 'object' && typeof fk.hex === 'string' && has(z.hexe, fk.hex) && Number.isInteger(fk.radius) && fk.radius >= 0 && ganzZahl(fk.bis)) x.fokus = { hex: fk.hex, radius: fk.radius, bis: fk.bis };
+        if (Object.keys(x).length) out[f] = x;
+      }
+    }
+    if (Object.keys(out).length) z.regie = out; else delete z.regie;
+  }
+  for (const fl of z.flotten || []) {
+    if (fl.miete === undefined) continue;
+    const m = fl.miete;
+    if (!m || typeof m !== 'object' || m.von !== 'kon' || !REICH.includes(m.an) || !ganzZahl(m.bis) || !istZahl(m.preis)) delete fl.miete;
+  }
+}
+
 // Rückbau einer Überlagerung der Regie (Rückfall des Spielleiters): nur zustand.regie, nie zustand.absichten.
 function regieRaeumen(z) { delete z.regie; }
 
 function installiere(helfer) { H = helfer; }
 
-module.exports = { KATALOG, WERTE: W, REGLER_FELDER, pruefe, pruefeIn, filtere, anwenden, ablauf, regieRaeumen, installiere, embargoAktiv };
+module.exports = { KATALOG, WERTE: W, REGLER_FELDER, wirksam, pruefe, pruefeIn, filtere, anwenden, ablauf, bereinige, regieRaeumen, installiere, embargoAktiv };
