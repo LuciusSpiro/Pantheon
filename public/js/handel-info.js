@@ -29,7 +29,7 @@
   function modellAus(b) {
     if (!b || typeof b !== 'object') return null;
     const themen = Array.isArray(b.th) ? b.th.map(thema).filter(Boolean).slice(0, 3) : [];
-    const letzte = Array.isArray(b.l) ? b.l.filter((q) => q && str(q.x)).map((q) => ({ stufe: q.s === 'b' ? 'beleg' : 'gerucht', text: q.x })).slice(0, 2) : [];
+    const letzte = Array.isArray(b.l) ? b.l.filter((q) => q && str(q.x)).map((q) => ({ stufe: q.s === 'b' ? 'beleg' : 'gerucht', text: q.x, thema: str(q.a) ? (str((wert('themen_namen', {}) || {})[q.a]) || '') : '' })).slice(0, 2) : [];
     const p = wert('preise', {}) || {};
     return { themen, letzte, preise: { gerucht: Number(p.gerucht) || 0, beleg: Number(p.beleg) || 0 } };
   }

@@ -217,7 +217,7 @@ function kaufen(game, p, themaId, stufe, gezeigt) {
   }
   game.inventory.marks -= preis;
   gekauft[gkey] = 1; ws.infoZahl = (ws.infoZahl || 0) + 1;
-  const letzte = letzteVon(ws); letzte.unshift({ s: stufe === 'beleg' ? 'b' : 'g', x: erg.text }); if (letzte.length > 2) letzte.length = 2;
+  const letzte = letzteVon(ws); letzte.unshift({ s: stufe === 'beleg' ? 'b' : 'g', x: erg.text, a: thema.art }); if (letzte.length > 2) letzte.length = 2;
   try {
     game.emit('radio', { from: W.von, text: erg.text, lage: 1, r: 1, tick: ws.tickZahl });
     game.emit('sfx', { name: 'buy' });
@@ -234,7 +234,7 @@ function snapshot(game) {
   const ws = game.weltsim, a = angebotFuer(game), gek = gekauftVon(ws);
   const th = a.themen.map((t) => { const o = { i: t.id, a: t.art, k: kennung(t.key) }; if (gek[a.hex + ':' + t.key + ':gerucht']) o.g = 1; if (gek[a.hex + ':' + t.key + ':beleg']) o.b = 1; return o; });
   const b = { th };
-  if (ws.infoLetzte && ws.infoLetzte.length) b.l = ws.infoLetzte.map((q) => ({ s: q.s, x: q.x }));
+  if (ws.infoLetzte && ws.infoLetzte.length) b.l = ws.infoLetzte.map((q) => ({ s: q.s, x: q.x, a: q.a }));
   return b;
 }
 function schluessel(game) {
