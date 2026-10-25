@@ -313,17 +313,18 @@ section('Terminal (echte consoles.js und terminal-ui.js)', () => {
   ok(m.bereich === 'handel', 'Terminal öffnet im Handel');
   const vorPreise = m.handel.artikel.map((a) => [a.id, a.preis]);
   ok(vorPreise.every(([id, p]) => p === grundPreis(g, id)), 'ohne Lage: alle Preise = Grundpreise');
-  ok(!m.handel.info.text || !/teurer|günstiger/.test(m.handel.info.text), 'ohne Lage: kein Hinweis');
+  ok(!m.handel.info.hinweis && !/teurer|günstiger/i.test(m.handel.info.text || ''), 'ohne Lage: kein Hinweis');
   embargo(zz, 'rom', ['M'], zz.tick + 10);
   m = modell();
   const art = (id) => m.handel.artikel.find((a) => a.id === id);
   ok(art('medipack').preis === 39 && art('ersatzteil').preis === grundPreis(g, 'ersatzteil'), 'Terminal zeigt Medipack 39, Ersatzteil unverändert');
   ok(art('medipack').preis === Preises(g, 'medipack'), 'Anzeige = Server-Preis');
   art('medipack').onClick(); m = modell();
-  ok(m.handel.gewaehlt === 'medipack' && /^teurer: Embargo gegen Rom\./.test(m.handel.info.text), 'Hinweis in der Infozeile: "' + m.handel.info.text + '"');
-  ok(/ 39 M/.test(m.aktionen.haupt.text), 'Kaufknopf nennt 39 M: ' + m.aktionen.haupt.text);
+  ok(m.handel.gewaehlt === 'medipack' && m.handel.info.hinweis && /^Teurer: Embargo gegen Rom$/.test(m.handel.info.hinweis.text) && m.handel.info.hinweis.pfeil === '↑' && !/Teurer/.test(m.handel.info.text), 'Preishinweis getrennt vom Artikeltext, mit Pfeil: "' + (m.handel.info.hinweis && m.handel.info.hinweis.text) + '"');
+  ok(art('medipack').teurer === true && !art('medipack').guenstiger && !art('ersatzteil').teurer, 'Artikelliste: teurer-Flag nur beim Medipack');
+  ok(/39 M/.test(m.aktionen.haupt.text) && /↑/.test(m.aktionen.haupt.text) && /\(.*30.*\)/.test(m.aktionen.haupt.text), 'Kaufknopf nennt 39 M mit Pfeil und altem Preis: ' + m.aktionen.haupt.text);
   art('ersatzteil').onClick(); m = modell();
-  ok(!/teurer/.test(m.handel.info.text), 'Artikel ohne Faktor: kein Hinweis');
+  ok(!m.handel.info.hinweis, 'Artikel ohne Faktor: kein Hinweis');
   // Kauf über die UI: gebucht = angezeigt
   art('medipack').onClick(); m = modell();
   const vor = g.inventory.marks; m.aktionen.haupt.onClick();

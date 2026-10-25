@@ -298,7 +298,7 @@
     const grundVon = (stufe) => !gew ? IT('kein_angebot') : bw(stufe) ? IT('gekauft') : L.marks < IN.preise[stufe] ? IT('zu_wenig_marken') : null;
     const nummer = (t, i) => (IN.themen.filter((q) => q.name === t.name).length > 1 ? ' ' + IN.themen.filter((q, j) => q.name === t.name && j <= i).length : '');   // zwei Themen derselben Art: 1, 2
     m.info = {
-      titel: IT('bereich'), hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' ' + IT('hilfe') : '',
+      titel: IT('bereich'), hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.gerucht', 'Ent') + ' ' + IT('gerucht_name') + ' · ' + T.kappe('terminal.beleg', 'B') + ' ' + IT('beleg_name') : '',
       leer: IN.themen.length ? null : { titel: IT('angebot_kopf'), text: IT('kein_angebot') },   // keine Themen: das Terminal sagt es, es gibt nichts zu kaufen
       karten: IN.themen.map((t, i) => ({ id: t.id, name: t.name + nummer(t, i), sub: [t.gerucht ? IT('gerucht_name') + ' ' + IT('gekauft_kurz') : '', t.beleg ? IT('beleg_name') + ' ' + IT('gekauft_kurz') : ''].filter(Boolean).join(' · '), gewaehlt: !!gew && t.id === gew.id, onClick: bedienbar ? () => { s.infoId = t.id; s.antwort = null; } : null })),
       stufen: [{ name: IT('gerucht_name'), preis: IN.preise.gerucht, text: IT('gerucht_hinweis'), aktiv: false }, { name: IT('beleg_name'), preis: IN.preise.beleg, text: IT('beleg_hinweis'), aktiv: false }],
@@ -308,10 +308,11 @@
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
     const gg = grundVon('gerucht'), gb = grundVon('beleg');
+    const marksFehlt = gew ? (!gew.gerucht && fehlt(IN.preise.gerucht, L.marks)) || (!gew.beleg && fehlt(IN.preise.beleg, L.marks)) || null : null;   // dieselbe Warnzeile wie im Handel
     m.aktionen = {
-      haupt: { art: 'gerucht', text: IT('gerucht_name') + ' kaufen · ' + IN.preise.gerucht + ' M', disabled: !gew || !bedienbar || wartet || !!gg, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gg, onClick: () => infoKaufen(view, IN, gew && gew.id, 'gerucht') },
-      hinweis: hinweis(gew ? gew.name : '', 'dim'),
-      ausbau: { label: IT('beleg_name') + ' ' + IN.preise.beleg, aktion: 'terminal.beleg', taste: 'B', disabled: !gew || !bedienbar || wartet || !!gb, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gb, onClick: () => infoKaufen(view, IN, gew && gew.id, 'beleg') },
+      haupt: { art: 'gerucht', text: gew ? IT('gerucht_name') + ' kaufen · ' + IN.preise.gerucht + ' M' : 'Nichts im Angebot', disabled: !gew || !bedienbar || wartet || !!gg, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gg, onClick: () => infoKaufen(view, IN, gew && gew.id, 'gerucht') },
+      hinweis: marksFehlt ? hinweis(marksFehlt, 'warn') : hinweis(gew ? gew.name : '', 'dim'),
+      ausbau: { label: gew ? IT('beleg_name') + ' ' + IN.preise.beleg : IT('beleg_name'), aktion: 'terminal.beleg', taste: 'B', disabled: !gew || !bedienbar || wartet || !!gb, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gb, onClick: () => infoKaufen(view, IN, gew && gew.id, 'beleg') },
       teil: { label: 'Thema', disabled: IN.themen.length < 2 || !bedienbar, onClick: () => infoWeiter(view, 1) },
     };
     return m;
@@ -364,6 +365,15 @@
     return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, sperre: voll ? null : L.sperre[ziel] || null, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
       hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' } };
   }
+  const KAUF_TEXT_W = 128;   // Platz für den Text im Hauptknopf (160 px minus Kappe „Ent“)
+  const gross = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());   // der Server schickt „teurer: …“, angezeigt wird „Teurer: …“
+  // Text des Kaufknopfs (160 px, davon ~130 für den Text): mit Lagepreis „Torpedo kaufen · ↑15 M (sonst 10)“; passt das nicht, fällt erst „kaufen“, dann der Name weg (der Preis bleibt immer); gilt auch ohne Lagepreis (lange Namen liefen vorher über den Knopf)
+  function kaufText(sel) {
+    const anders = sel.basis != null && sel.basis !== sel.price, pf = sel.teurer ? '↑' : sel.cheaper ? '↓' : '';
+    const preis = anders ? pf + sel.price + ' M (sonst ' + sel.basis + ')' : sel.price + ' M', name = kurz(sel.name, 100);
+    const vari = [name + ' kaufen · ' + preis, name + ' · ' + preis, name + ' ' + preis, name + ' ' + pf + sel.price + ' M (' + sel.basis + ')', preis];
+    return vari.slice(0, anders ? 5 : 2).find((v) => T.tw(v) <= KAUF_TEXT_W) || (anders ? preis : sel.price + ' M');
+  }
   const fehlt = (preis, marks) => (preis != null && marks < preis ? 'Nicht genug Marken (fehlen ' + (preis - marks) + ')' : null);
 
   // Modell für den Zuschauer: dieselbe Ansicht, aber alles gesperrt, Titel ZUSEHEN, Rahmen in der Farbe des Nutzers
@@ -399,7 +409,7 @@
     m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv && L.w && L.w.hs ? 'stuetzpunkt' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };   // SUND-02b UI: Stützpunkt der Crew (Werft ja, Handel nein: werft.hs) heißt so
     const IN0 = info();   // SUND-03b I: Knopf „Info“ nur an einem Konkordat-Hafen
     const AB0 = absicht();   // SUND-02b D: Knopf „Kurs“ nur im Modus (vor Tribun gedimmt, Grund im Tooltip; eine laufende Absicht hält ihn offen)
-    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null, info: IN0 ? { label: IT('bereich_kurz') || 'Info' } : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
+    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, werftGrund: (L.w && L.w.grund) || 'Werft nicht verfügbar', onBereich: bedienbar ? (b) => bereichWechseln(b) : null, info: IN0 ? { label: IT('bereich_kurz') || 'Info' } : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
 
@@ -408,16 +418,16 @@
       const rows = handelZeilen(view), sel = rows.find((r) => r.id === a.handel) || rows[0] || null;
       m.handel = {
         artikel: rows.map((r) => ({ id: r.id, name: r.name, art: HANDEL_ART[r.kind] || r.kind, preis: r.price, besitz: String(r.owned || '').replace(/^(Lager|Besitz):\s*/, (x) => x.replace(':', '').trim() + ' '),
-          grund: r.reason, guenstiger: r.cheaper, onClick: bedienbar ? () => { s.handel = r.id; } : null })),
+          grund: r.reason, guenstiger: r.cheaper, teurer: r.teurer, onClick: bedienbar ? () => { s.handel = r.id; } : null })),
         gewaehlt: sel ? sel.id : null,
-        info: sel ? { text: (sel.preisHinweis ? sel.preisHinweis + '. ' : '') + (HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : '')), grund: sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) : sel.reason } : { text: 'Kein Sortiment.' },
+        info: sel ? { hinweis: sel.preisHinweis ? { pfeil: sel.teurer ? '↑' : sel.cheaper ? '↓' : '', text: gross(sel.preisHinweis) } : null, text: (HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : '')), grund: sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) : sel.reason } : { text: 'Kein Sortiment.' },
       };
       // im Handel stehen Kreuz und Module gedimmt (die Werft ist ein anderer Bereich); ein Klick wechselt in die Werft
       m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null }; m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
       fehlPreis = sel ? sel.price : null;
       const lager = sel && sel.limit ? ' · Lager ' + n((L.st.inventory || {})[sel.id]) + '/' + sel.limit : '';
       m.aktionen = {
-        haupt: { art: 'kaufen', text: sel ? kurz(sel.name, 100) + ' kaufen · ' + sel.price + ' M' : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
+        haupt: { art: 'kaufen', text: sel ? kaufText(sel) : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
         hinweis: (() => { const g = sel && sel.reason ? (sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) || sel.reason : sel.reason) : null; return g ? hinweis(g, 'warn') : hinweis(sel ? (lager ? lager.slice(3) : '') : '', 'dim'); })(),   // SUND-02b UI: gesperrt -> Grund unter dem Knopf (wie in der Werft) ausbau: Object.assign({}, ausbauKnopf, { active: false }), teil: { disabled: !bedienbar, onClick: () => teilWeiter(view, 1) },
       };
       return m;

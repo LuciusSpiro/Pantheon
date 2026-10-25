@@ -12,8 +12,8 @@
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
   const VW = 640, VH = 360;
-  const BREITE = 228, X = 204, ZEILE = 14, UNTEN = 8;   // Breite und x der Funkplakette (hud.js FUNK_W), Knopfhöhe, Abstand zum unteren Rand
-  const store = { funkwahl: null, markiert: -1, nr: null, eingeklappt: false };   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
+  const BREITE = 240, ZEILE = 14, UNTEN = 8, RAND = 12, SCHIRM_ABSTAND = 8;   // Breite (längste Option 60 Zeichen passt gekürzt, Kopf und Hinweiszeile messen sich selbst), Knopfhöhe, Abstand zum unteren Rand (Bord) bzw. zum Schirmrand (Konsole)
+  const store = { funkwahl: null, markiert: -1, nr: null, eingeklappt: false, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
 
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
@@ -62,7 +62,8 @@
     return !!z && antworten(send, z.id);
   }
 
-  // ---------- Zeichnen (Pult-/HUD-Stil: Messingrahmen wie die Funkplakette)
+  // ---------- Zeichnen (Pult-/HUD-Stil: Messingrahmen wie die Funkplakette; Farben aus dem Skin der Lerche, Funk ist neutral: Text in SK.text, keine Signalfarbe)
+  const SK = { text: '#F4EEDC', dim: '#8EA3B5', frame: '#C9974A', bg: '#0B0E1A', offLine: '#3A4A66', markiert: '#2A3A52', zeile: '#141C2E', kappe: '#46556A' };
   function kuerzen(R, s, w) {
     let t = String(s || '');
     if (R.measure(t, 1) <= w) return t;
@@ -70,32 +71,74 @@
     return t + '…';
   }
   const STREIFEN = 13;   // Höhe des zugeklappten Streifens
-  function hoehe(m) { return store.eingeklappt ? STREIFEN : 15 + (zeilen(m).length) * (ZEILE + 1) + 14; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
-  function rechteck(m) { m = m || modell(); const h = hoehe(m); return { x: X, y: VH - h - UNTEN, w: BREITE, h }; }
+  const KOPF = 15;       // Höhe der Kopfzeile
+  function hoehe(m) { return store.eingeklappt ? STREIFEN : KOPF + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
+  // S = Oberkante der Statusleiste der Konsole (Pult.statusOben), sonst null (Bordansicht): mit Konsole auf dem Schirm unten rechts über der Statusleiste (verdeckt keinen Knopf des Pults),
+  // ohne Konsole unten mittig
+  function rechteck(m, S) {
+    m = m || modell(); const h = hoehe(m);
+    if (S == null) return { x: Math.round((VW - BREITE) / 2), y: VH - h - UNTEN, w: BREITE, h };
+    return { x: VW - BREITE - RAND, y: S - h - SCHIRM_ABSTAND, w: BREITE, h };
+  }
+  function statusOben(view) { const P = root && root.Pult; return P && typeof P.statusOben === 'function' ? P.statusOben(view) : null; }
+  // Tastenkappe wie im Pult: echte Taste aus Tasten.js, ersatzweise die Standardbelegung
+  function kappe(aktion, ersatz) {
+    const P = root && root.Pult;
+    let k = '';
+    try { k = P && typeof P.kappe === 'function' ? P.kappe(null, aktion) : ''; } catch (e) { k = ''; }
+    return k && k !== '–' ? k : ersatz;
+  }
+  function kappeZeichnen(ctx, R, x, y, k) {   // dunkle Fläche wie SK.knopf, Taste in SK.text; liefert die rechte Kante
+    const w = Math.max(13, R.measure(k, 1) + 7);
+    ctx.fillStyle = SK.kappe; ctx.fillRect(x, y - 1, w, 9);
+    R.text(ctx, k, x + Math.round(w / 2), y, { color: SK.text, align: 'center', shadow: false });
+    return x + w;
+  }
   function zeichne(ctx, view) {
     const R = root && root.Render, m = modell();
     if (!R || !m || !ctx) return;
-    const P = R.PAL, r = rechteck(m);
+    const r = rechteck(m, statusOben(view));
+    store.rechteck = r;
     const gehen = () => (view && typeof view.send === 'function' ? view.send : null);
-    if (store.eingeklappt) {   // „Später“: ein schmaler Streifen, ein Klick klappt auf
-      R.button(ctx, r.x, r.y, r.w, r.h, kuerzen(R, 'FUNK · ' + m.von + ' · antworten', r.w - 12), { color: P.amber, onClick: () => spaeter(false) });
+    const maus = (R.ui && R.ui.mouse) || {};
+    const ueber = (x, y, w, h) => maus.x >= x && maus.y >= y && maus.x < x + w && maus.y < y + h;
+    const kw = kappe('allgemein.funkWaehlen', '.');
+    if (store.eingeklappt) {   // „Später“: ein schmaler Streifen mit Taste, ein Klick (oder die Taste) klappt auf
+      ctx.fillStyle = ueber(r.x, r.y, r.w, r.h) ? '#1A2238' : '#10151F'; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = SK.frame; ctx.fillRect(r.x, r.y, r.w, 1); ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 1, r.h); ctx.fillRect(r.x + r.w - 1, r.y, 1, r.h);
+      const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 3, kw);
+      const sp = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
+      R.text(ctx, kuerzen(R, 'FUNK · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 3, { color: SK.text, shadow: false });
+      R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Funk antworten', disabled: false, onClick: () => spaeter(false), hotkey: null });
       return;
     }
     R.panel(ctx, r.x, r.y, r.w, r.h, { style: 'brass' });
-    R.text(ctx, kuerzen(R, 'FUNK · ' + m.von, r.w - 12 - 54), r.x + 6, r.y + 4, { color: P.amber });
     const rest = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
-    R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: P.panelLight, align: 'right' });
-    let y = r.y + 15;
+    R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: SK.dim, align: 'right' });
+    R.text(ctx, kuerzen(R, 'FUNK · ' + m.von, r.w - 12 - (R.measure(rest, 1) + 8)), r.x + 6, r.y + 4, { color: SK.text });
+    // eigene Zeilen statt R.button (dessen Mint = aktiv und Amber = Hover tragen hier andere Bedeutung): markiert = Fläche + Rahmen in SK.text, Hover nur Rahmen in SK.dim
+    const zeile = (x, y, w, text, markiert, farbe, onClick, label) => {
+      const hov = ueber(x, y, w, ZEILE);
+      ctx.fillStyle = markiert ? SK.markiert : SK.zeile; ctx.fillRect(x, y, w, ZEILE);
+      const rc = markiert ? SK.text : hov ? SK.dim : null;
+      if (rc) { ctx.fillStyle = rc; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + ZEILE - 1, w, 1); ctx.fillRect(x, y, 1, ZEILE); ctx.fillRect(x + w - 1, y, 1, ZEILE); }
+      R.text(ctx, kuerzen(R, text, w - 10), x + 5, y + Math.floor((ZEILE - 7) / 2), { color: farbe, shadow: false });
+      R.ui.buttons.push({ x, y, w, h: ZEILE, label: label || text, disabled: false, onClick, hotkey: null });
+    };
+    let y = r.y + KOPF;
     const z = zeilen(m), n = m.optionen.length;
     for (let i = 0; i < n; i++) {
-      R.button(ctx, r.x + 6, y, r.w - 12, ZEILE, kuerzen(R, z[i].text, r.w - 12 - 10), { active: store.markiert === i, onClick: () => { const s = gehen(); if (s) antworten(s, z[i].id); } });
+      zeile(r.x + 6, y, r.w - 12, z[i].text, store.markiert === i, SK.text, () => { const s = gehen(); if (s) antworten(s, z[i].id); });
       y += ZEILE + 1;
     }
-    const bw = Math.round((r.w - 12) * 0.62);   // Nicht antworten (kostet nichts, schließt für alle) und Später (nur für mich, klappt zu)
-    R.button(ctx, r.x + 6, y, bw, ZEILE, kuerzen(R, m.ignorieren, bw - 10), { active: store.markiert === n, color: P.panelLight, onClick: () => { const s = gehen(); if (s) antworten(s, 'ignorieren'); } });
-    R.button(ctx, r.x + 6 + bw + 2, y, r.w - 12 - bw - 2, ZEILE, 'Später', { color: P.panelLight, onClick: () => spaeter(true) });
+    const bw = Math.round((r.w - 12) * 0.62);   // Nicht antworten (kostet nichts, schließt für alle; eine gültige Wahl: SK.text) und Später (nur für mich, klappt zu)
+    zeile(r.x + 6, y, bw, m.ignorieren, store.markiert === n, SK.text, () => { const s = gehen(); if (s) antworten(s, 'ignorieren'); });
+    zeile(r.x + 6 + bw + 2, y, r.w - 12 - bw - 2, 'Später', false, SK.dim, () => spaeter(true));
     y += ZEILE + 1;
-    R.text(ctx, '. markieren   Umsch + . senden', r.x + 6, y + 1, { color: P.panelLight });
+    let hx = kappeZeichnen(ctx, R, r.x + 6, y + 2, kw);   // Hinweiszeile mit Kappen: [.] markieren · [Sh+.] senden
+    R.text(ctx, 'markieren', hx + 4, y + 2, { color: SK.dim, shadow: false }); hx += 4 + R.measure('markieren', 1) + 8;
+    hx = kappeZeichnen(ctx, R, hx, y + 2, kappe('allgemein.funkSenden', 'Sh+.'));
+    R.text(ctx, 'senden', hx + 4, y + 2, { color: SK.dim, shadow: false });
   }
 
   (function haken() {
@@ -104,5 +147,5 @@
     N.on(lesen);
   })();
 
-  return { store, lesen, modellAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zeichne, rechteck };
+  return { store, lesen, modellAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zeichne, rechteck, statusOben, BREITE };
 });

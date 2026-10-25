@@ -70,20 +70,20 @@ async function lauf(b, vw, vh, port) {
     springe(['funk_lage_ger', 'funk_lage_offen', 'funk_lage_rom'], '1003');
     await shot('06-lage-drei-optionen', 800);
     {   // Später: die Leiste klappt zum Streifen zusammen, ein Klick klappt auf
-      const q = await page.evaluate(() => Funkwahl.rechteck(Funkwahl.modell()));
+      const q = await page.evaluate(() => Funkwahl.store.rechteck);
       const m0 = angebot().optionen.length;
       await klick(q.x + q.w - 20, q.y + 15 + m0 * 15 + 5); await shot('06b-spaeter-streifen', 500);
-      const q2 = await page.evaluate(() => Funkwahl.rechteck(Funkwahl.modell()));
+      const q2 = await page.evaluate(() => Funkwahl.store.rechteck);
       await klick(q2.x + 40, q2.y + 6); await shot('06c-wieder-offen', 500);
     }
-    const r = await page.evaluate(() => Funkwahl.rechteck(Funkwahl.modell()));
+    const r = await page.evaluate(() => Funkwahl.store.rechteck);
     const n = (angebot() || { optionen: [] }).optionen.length;
     await klick(r.x + 40, r.y + 15 + (n) * 15 + 5);   // „Nicht antworten“ (letzte Zeile)
     console.log('nach Ignorieren: Angebot', !!angebot(), 'Ruf', JSON.stringify(g.weltsim.ruf));
     await shot('07-nach-ignorieren', 600);
     // 5. Mausklick auf die zweite Option
     springe('funk_handel_stimmen', '0305'); await shot('08-handelsfunk', 600);
-    const r2 = await page.evaluate(() => Funkwahl.rechteck(Funkwahl.modell()));
+    const r2 = await page.evaluate(() => Funkwahl.store.rechteck);
     await klick(r2.x + 40, r2.y + 15 + 15 + 5);
     console.log('nach Klick Option 2: Angebot', !!angebot(), 'zuletzt', JSON.stringify(g.weltsim.funkwahl.zuletzt));
     await shot('09-nach-klick', 800);
