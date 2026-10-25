@@ -568,7 +568,7 @@ function debug(game, cmd, args, p) {
     if (sub === 'hin') {   // lp hin <id>: einen bestehenden Landepunkt (z. B. helix.station) laden und hinbeamen (Screenshots, QA)
       const id = args[1];
       try { get(game, id); } catch (x) { countError(game, 'debug-lp-hin', x); return 'lp hin: ' + x.message; }
-      game.transferZiel = { lp: id, scene: (game.ship && game.ship.scene) || 'kesh' };
+      game.transferZiel = { lp: id, scene: Object.keys(defs().orte).find((o) => defs().orte[o].some((d) => d.id === id)) || (eintrag(game, id) || {}).ort || (game.ship && game.ship.scene) || 'kesh' };   // Szene des Landepunkts, nicht die des Schiffs
       if (game.setAwayMap) game.setAwayMap(id);
       try {
         const away = require('./away.js');

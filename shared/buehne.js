@@ -1675,6 +1675,13 @@
   };
   // Türrollen sitzen auf Tür-/Wandkacheln (Kit), lift/leiter sind Kabinen, in die man bewusst hineingeht.
   const SILHOUETTE_ROLLEN_FREI = { tor: 1, eingang: 1, versteck: 1, lift: 1, leiter: 1 };
+  // Leitstücke (bauweise.leit: Platztyp → Kartenart → Modell) über Figurhöhe: nur auf Plätzen, deren Leitstück auf Block-/Deckungskacheln, in der
+  // Platzmitte eines Wahrzeichen-Platzes oder auf einer Plattform steht (Entscheidung Studioleitung B1: Leitstücke bis 3,5 m, FIX-TURM). Jeder andere
+  // Platztyp mit hohem Leitstück ist ein Fehler (man liefe hindurch).
+  const LEIT_PLATZ_HOCH = {
+    dorfplatz: 'Wahrzeichen in der Platzmitte (Deckungsring)', herzstueck: 'Modul-Herzstück auf Blockfuß', innerstes: 'Modul-Herzstück der Ruine',
+    kontrollraum: 'Modul-Leitstück auf Blockfuß', bruecke: 'Schiff-Modul', batteriedeck: 'Schiff-Modul', wachturm: 'Plattform (Plateau-Mitte), Turm steht auf dem aussicht-Platz',
+  };
   function silhouetteFehler(o, D) {
     D = D || daten();
     const M = (o && o.modelle) || {};
@@ -1692,6 +1699,12 @@
       for (const [rolle, je] of Object.entries(b.anker || {})) {
         if (!je || typeof je !== 'object' || SILHOUETTE_ROLLEN_FREI[rolle] || blockendesObjekt(D, rolle)) continue;
         for (const [art, v] of Object.entries(je)) pruef(typeof v === 'string' ? v : v && v.id, `${b.id} anker.${rolle}.${art}`, false);
+      }
+    }
+    for (const b of (o && o.bauweisen) || []) {
+      for (const [typ, je] of Object.entries(b.leit || {})) {
+        if (!je || typeof je !== 'object' || LEIT_PLATZ_HOCH[typ]) continue;
+        for (const [art, v] of Object.entries(je)) { const id = typeof v === 'string' ? v : v && v.id; if (id) pruef(id, `${b.id} leit.${typ}.${art}`, false); }
       }
     }
     for (const d of (o && o.deko) || []) {

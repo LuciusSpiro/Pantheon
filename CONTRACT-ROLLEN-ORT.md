@@ -60,6 +60,8 @@ Kulissenhäuser) und Räume ohne Eintrag laufen unverändert im Zellenmodus.
 | `kind` | `streu` (Standard): Deko, 1×1, nicht blockierend, ≤ 1,94 m, vom Rollenmodus gestreut. `leit`: **Hauptstück** (mehrere Kacheln, rein optisch), vom Rollenmodus nach Fußabdruck platziert (Fuß je Modell in `leit_fuss` der Bauweise, siehe unten). `anker`: Belegung eines Gameplay-Ankers (`ankerRolle`, Rolle aus `anker.json`): im Format und in der Prüfung vorgesehen, **nicht verdrahtet** (die neuen Modelle tragen die Zustände der Anker nicht, siehe unten). |
 | `zug` | Nur `streu`: `[min, max]` Stück je Platz (0–6), gezogen aus dem Rollenstrom. Standard `[1, 1]`. |
 | `wandnah` | Nur an Wand/Zaun, Rücken zur Wand (bei `leit`: die ganze Breite des Fußes liegt an der Wand). Hauptstücke über 1,94 m müssen `wandnah` sein (Prüffehler sonst). |
+| `zug_gross` | Nur `streu`: `[min, max]` statt `zug` in Räumen ab 49 Kacheln Platzfläche (GROSS_AB in `deko.js`). |
+| `nur_wand` | Nur `leit` mit `wandnah`: kein Rückfall auf freie Platzierung; Pflicht für Hauptstücke über 1,94 m (Prüffehler sonst, je Eintrag). |
 | `pflicht` | Wird zuerst platziert und mindestens 1× versucht (`zug` min wird auf 1 angehoben). |
 | `ankerRolle` | Nur `anker`. |
 
@@ -108,3 +110,13 @@ eine germanen-ID mit `rom/`-Segment ist ein Fehler. Ausnahme für wirklich neutr
   unbenutzte Rolle, unbekannte Felder.
 - `tools/test-rollen-paritaet.js` (Format, Mutationsprobe), `tools/test-rollen-modus.js` (Rollenmodus), beide in `npm test`.
 - `node tools/hash-baseline.js --compare`: 72 Karten-Hashes und 60 Deko-Hashes gegen `tools/fixtures/ort01-hash-baseline.json` (main `6d912b4`).
+
+## Ergänzungen Integration (ORT-01 Teil A)
+
+- **Rückfall Hauptstück:** wandnah (fh…1), dann frei (fh…1), dann Abstand 0; Ausfall im 10-Seed-Test 0 von 130.
+- **Raumtyp über Anker (nur Client):** Platz mit Anker `sprengpunkt` zählt als `reaktor` (nur Station), Kontrollraum mit `terminal` als `kommando`; Platz-IDs und Karten bleiben unverändert.
+- **Zellengrenze:** Rollen-Stücke zählen je 8×8-Zelle nur gegen `MAX_ROLLE_JE_ZELLE` (6), der Zellenmodus höchstens 6 (Gesamtgrenze 12 bleibt). So ist das Layout in Rom und Germanen gleich.
+- **Die Zelle ist allein der Anker `zelle`:** keine Rolle `zellen.feldzelle`.
+- **Leitstücke ohne Anker** (`kit.js`, Platzmitte): das Rechteck darf keine Anker-, Weg-, Pad-, Rampen- oder Türkachel treffen (große Stücke halten 1 Kachel Abstand zu Ankern); sonst nächstes freies Rechteck im Platz, sonst entfällt es (`stats.leitEntfallen`). Der germanische Thron (`hochsitz_halle`) ist kein festes Kontrollraum-Leitstück mehr.
+- **K-SILHOUETTE für `bauweise.leit`:** Leitstück über Figurhöhe nur auf den Platztypen in `LEIT_PLATZ_HOCH` (`shared/buehne.js`).
+- **Boden:** `par` (x mod 2 + 2·(y mod 2)) reicht `kit.js` an die Kit-Slots `boden_belag`/`boden_fuge` von Rom/Germanen (Station, Außenposten); Fugen nur an 2×2-Blockgrenzen. Die Station dieser Bauweisen nutzt dafür die Kit-Slots statt der Fliesen-Rückfall-Optik.

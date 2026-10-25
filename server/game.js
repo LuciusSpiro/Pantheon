@@ -1412,7 +1412,7 @@ class Game {
       default: return 'Unbekannter Debug-Befehl.';
     }
   }
-  // B1 §9: buehne <art> <seed> [bauweise besitz zustand [methalle|eisenwald]] | anker <id> <zustand> | lp list | lp neu <ort> <art>
+  // B1 §9: buehne <art> <seed> [bauweise besitz zustand [methalle|eisenwald]] | anker <id> <zustand> | lp list | lp neu <ort> <art> | lp hin <id>
   // Ausführung in landepunkte.js (debug(game, cmd, args, p) -> Text | null), anker über anker.js setzen(game, map, id, zustand).
   onDebugB1(p, cmd, msg) {
     if (this.phase === 'lobby' && cmd !== 'buehne') return 'Erst das Spiel starten.';

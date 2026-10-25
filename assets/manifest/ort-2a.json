@@ -103,7 +103,7 @@
         4,
         4
       ],
-      "height": 0.7,
+      "height": 0.08,
       "facing": "+z",
       "params": {
         "aktiv": [
@@ -121,7 +121,7 @@
       },
       "sockets": {},
       "tint": [],
-      "budgetTris": 8000,
+      "budgetTris": 400,
       "tags": [
         "rom",
         "aussenposten",

@@ -13,7 +13,7 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
 (async () => {
   const k = await import(pathToFileURL(path.join(ROOT, 'tools/asset-klassen.mjs')).href);
   console.log('[Klasse bau, rein]');
-  ok(k.isBau({ tags: ['x', 'bau'] }) && !k.isBau({ tags: ['wall'] }) && !k.isBau({}), 'isBau nur über den Tag bau');
+  ok(k.isBau({ id: 'ort/x', tags: ['x', 'bau'] }) && !k.isBau({ id: 'ort/x', tags: ['wall'] }) && !k.isBau({}), 'isBau nur über den Tag bau');
   ok(k.bauKacheln([8, 5]) === 40, 'Halle 8×5 = 40 Kacheln');
   ok(k.bauKacheln([8.5, 6]) === 51, 'Halle 8,5×6 = 51 Kacheln (aufgerundete Fläche)');
   ok(k.bauKacheln([1, 1.8]) === 2 && k.bauKacheln([1, 1]) === 1 && k.bauKacheln(undefined) === 1, 'Kleinstücke und fehlender Fuß');
@@ -21,6 +21,17 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
   ok(k.bauBudget([1, 1]).n === 2500, 'Turm 1×1 höchstens 2.500');
   ok(k.bauHoehe(8.75) === 'ok' && k.bauHoehe(10) === 'ok' && k.bauHoehe(10.5) === 'fehler', 'Höhengrenze 10 m');
 
+  ok(k.isBau({ id: 'ort/rom/aussenposten/halle', tags: ['bau'] }) && k.isBau({ id: 'kit/rom/dach', tags: ['bau'] }) && k.isBau({ id: 'rom/standarte', tags: ['bau'] }), 'bau gilt für ort/-, kit/- und die zwei Bestandsmodelle');
+  ok(!k.isBau({ id: 'lerche/furn/bed', tags: ['bau'] }) && !k.isBau({ id: 'prop/germanen/gemein/fass', tags: ['bau'] }), 'bau-Tag an anderen IDs zählt nicht (kein Budget-Schlupfloch)');
+  ok(k.bauFlaecheUrteil(8.5, 6, [8.5, 6]) === 'ok' && k.bauFlaecheUrteil(8, 4, [8, 5]) === 'ok' && k.bauFlaecheUrteil(5, 3, [8, 5]) === 'warnung' && k.bauFlaecheUrteil(1, 1, [8, 5]) === 'fehler', 'gemessene Fläche gegen Footprint: ok, Warnung unter 50 %, Fehler unter 25 %');
+  console.log('[Einbau in check:assets]');
+  {
+    const { spawnSync } = require('child_process');
+    const src = fs.readFileSync(path.join(ROOT, 'tools/check-assets.mjs'), 'utf8');
+    ok(['isBau(e)', 'bauFlaecheUrteil(', 'bauBudget(e.footprint)', 'bauHoehe(maxH'].every((t) => src.includes(t)), 'check-assets.mjs ruft Höhe, Budget und Flächenprüfung der Klasse bau auf');
+    const lauf = spawnSync(process.execPath, [path.join(ROOT, 'tools/check-assets.mjs'), 'ort/germanen/aussenposten/halle', '--no-missing'], { encoding: 'utf8' });
+    ok(lauf.status === 0 && /halle/.test(lauf.stdout) && !/Höhe .* > 2,2 m/.test(lauf.stdout), 'check:assets (Filter halle) läuft grün: 8,75 m hohe Halle ist kein Höhenfehler mehr');
+  }
   console.log('[Manifeste ort-*.json]');
   const dir = path.join(ROOT, 'assets/manifest');
   const alle = [];

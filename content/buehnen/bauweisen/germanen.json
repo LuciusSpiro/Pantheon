@@ -298,9 +298,6 @@
       "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
       "station": "leit/germanen/station/schmiedeherd"
     },
-    "kontrollraum": {
-      "station": "leit/germanen/station/hochsitz_halle"
-    },
     "landeplatz": {
       "aussenposten": "ort/germanen/aussenposten/landeplatz"
     },

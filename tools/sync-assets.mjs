@@ -114,8 +114,15 @@ function gitStatusAsync(timeoutMs) {
       (err, stdout) => resolve(err ? null : stdout.trim().length > 0));
   });
 }
+function gitVerzeichnis() {   // Worktree: .git ist eine Datei "gitdir: <pfad>", der Index liegt dort
+  try {
+    let g = path.join(VW, '.git');
+    if (fs.statSync(g).isFile()) g = path.resolve(VW, fs.readFileSync(g, 'utf8').replace(/^gitdir:/, '').trim());
+    return g;
+  } catch (e) { return path.join(VW, '.git'); }
+}
 async function mtimeDirty() {
-  const idx = await fsp.stat(path.join(VW, '.git', 'index')).catch(() => null);
+  const idx = await fsp.stat(path.join(gitVerzeichnis(), 'index')).catch(() => null);
   if (!idx) return true;
   for (const d of ['core', 'render', 'vendor', 'assets']) {
     for (const f of await listFiles(path.join(VW, d))) {

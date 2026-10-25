@@ -3,7 +3,7 @@
 //
 //   node tools/ort01-shots.js [--arten station,aussenposten] [--bauweisen rom,germanen] [--seeds 1,2,3,4,5,6,7,8,9,10]
 //                             [--lp helix.station,kesh.grabung]   statt Seeds: bestehende Landepunkte laden (Debug `lp hin <id>`), Ausgabe <out>/lp/<id>/
-//                             [--out shots/ort01] [--port 3386] [--raeume kommando,lager] [--warte 900] [--hud] [--v]
+//                             [--out shots/ort01] [--port 3386] [--raeume kommando,lager] [--warte 900] [--hud] [--uebersicht] [--root <ordner>] [--v]
 //
 // Je Kartenart und Bauweise startet das Werkzeug einen frischen Server (eigene Datenordner, ohne .env, ohne Live-LLM) und einen
 // headless Chromium im Direktstart (?render=voxel&arena=away&art=…). Weitere Seeds laden über den Debug-Befehl `buehne`. Für jeden
@@ -19,6 +19,8 @@ const http = require('http');
 const { spawn } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
+const SERVER_ROOT = arg0('root') ? path.resolve(arg0('root')) : ROOT;   // --root <ordner>: anderen Spielstand bauen und fotografieren (z. B. ein Archiv von main als Vergleich; braucht node_modules und das Debug-Kommando lp hin)
+function arg0(name) { const i = process.argv.indexOf('--' + name); return i > 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : null; }
 const arg = (name, def) => { const i = process.argv.indexOf('--' + name); return i > 0 && process.argv[i + 1] && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : def; };
 const ARTEN = arg('arten', 'station,aussenposten').split(',');
 const BAUWEISEN = arg('bauweisen', 'rom,germanen').split(',');
@@ -28,6 +30,7 @@ const PORT = +arg('port', '3386');
 const NUR = arg('raeume', null) ? arg('raeume', '').split(',') : null;
 const WARTE = +arg('warte', '900');
 const VERBOSE = process.argv.includes('--v');
+const ART_UEBERSICHT = process.argv.includes('--uebersicht');   // zusätzlich eine Übersicht je Seed
 const MIT_HUD = process.argv.includes('--hud');   // Standard: die 2D-Oberfläche (#game: HUD, Funk, Ziele) wird ausgeblendet, es bleibt die 3D-Ansicht
 const BESITZ = 'rostmeute';
 const LPS = arg('lp', null) ? arg('lp', '').split(',') : null;   // bestehende Landepunkte (Bestandskarten), z. B. helix.station
@@ -48,10 +51,10 @@ function ping() {
 }
 async function serverStart() {
   if (await ping()) throw new Error('Port ' + PORT + ' ist schon belegt');
-  for (const d of Object.values(DIRS)) fs.rmSync(path.join(ROOT, d), { recursive: true, force: true });
+  for (const d of Object.values(DIRS)) fs.rmSync(path.join(SERVER_ROOT, d), { recursive: true, force: true });
   const env = Object.assign({}, process.env, { PORT: String(PORT), ROOM_CODE: 'off' }, DIRS);
   delete env.LLM_LIVE; delete env.SPIELLEITER_LLM;
-  const p = spawn(process.execPath, ['server/index.js', '--debug'], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
+  const p = spawn(process.execPath, ['server/index.js', '--debug'], { cwd: SERVER_ROOT, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let log = ''; p.stdout.on('data', (d) => { log += d; }); p.stderr.on('data', (d) => { log += d; });
   for (let i = 0; i < 100; i++) { if (await ping()) return p; if (p.exitCode != null) break; await sleep(100); }
   p.kill(); throw new Error('Server startet nicht:\n' + log.slice(-800));
@@ -78,6 +81,18 @@ async function mitBrowser(art, bw, fn) {
   }
 }
 
+// Kamera: freie Sitzkamera (renderer.setSeat) statt der Figur-Kamera. Die Figur wird auf den Startpunkt geparkt und ist im Raumbild nicht zu sehen;
+// Übersicht: schräg über der Kartenmitte, Nebel aus (Hüllen und Dächer bleiben hoch, die Außenseiten der Gebäude sind sichtbar).
+// Außenposten-Räume: Gebäudehüllen senken sich nur, wenn eine Figur im Raum steht; dort bleibt die Figur im Raum (Standardkamera), nur die Station nutzt die Sitzkamera.
+async function raumAnsicht(page, art, p, start) {
+  const [x, y, w, h] = p.rect;
+  if (art === 'station') { await parken(page, start); await kamera(page, x + w / 2, y + h / 2, 10 + Math.max(w, h) * 0.45, 38); }
+  else { await page.evaluate(() => VoxelRender.renderer.setSeat(null)); await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]); }
+}
+async function kamera(page, cx, cz, hoch, fov, uebersicht) {
+  await page.evaluate(([x, z, h, v, ue]) => { const R = VoxelRender.renderer; if (ue) R.state().scene.fog = null; R.setSeat({ pos: [x, h, z + h * (ue ? 0.95 : 0.62)], look: [x, 0, z], fov: v }); }, [cx, cz, hoch, fov, !!uebersicht]);
+}
+async function parken(page, start) { await page.evaluate(([x, y]) => __game.dbg(`tp ${x} ${y}`), start); }
 const kartenSig = () => { const st = __game.state; const m = st && st.away && Shared_Maps[st.away.map]; return m && m.rows ? m.rows.length + ':' + m.rows.join('').split('').reduce((h, c) => (Math.imul(h, 31) + c.charCodeAt(0)) | 0, 7) : null; };
 
 // Der Direktstart (?arena=away) ist unzuverlässig (Zeitüberschreitung bei rund 40 % der Läufe); der Debug-Befehl `buehne` baut die Karte sofort.
@@ -140,15 +155,16 @@ async function lpLauf(id, page, err, dirOut, erste) {
   const raeume = info.plaetze.filter((p) => rollen[raumtypVon(p.id)] && (!NUR || NUR.includes(raumtypVon(p.id))));
   for (const p of raeume) {
     const [x, y, w, h] = p.rect;
-    await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]);
+    await raumAnsicht(page, info.art, p, info.start);
     await page.waitForTimeout(WARTE);
     await shot(p.id);
   }
   // Übersicht: breites Fenster, Spieler in der Kartenmitte
-  await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(info.w / 2), Math.floor(info.h / 2)]);
-  await page.setViewportSize({ width: 2560, height: 1000 });
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await kamera(page, info.w / 2, info.h / 2, Math.max(info.w, info.h) * 0.5, 45, true);
   await page.waitForTimeout(WARTE + 1500);
   await shot('uebersicht');
+  await page.evaluate(() => VoxelRender.renderer.setSeat(null));
   await page.setViewportSize({ width: 1280, height: 720 });
   return { id, art: info.art, tris: info.tris, deko: info.deko, dekoFehlt: info.dekoFehlt, platzhalter: info.platzhalter, leit: info.leit, kitFehler: info.fehler, stimmung: info.stimmung, palette: info.palette, raeume: raeume.map((p) => p.id), konsolenfehler: err.length, bilder: dateien };
 }
@@ -187,18 +203,28 @@ for (const a of ['station', 'aussenposten']) ROLLEN[a] = JSON.parse(fs.readFileS
           const info = await page.evaluate(() => {
             const st = __game.state, m = Shared_Maps[st.away.map], k = m.karte, S = VoxelKit.stats();
             const pl = (m.plaetze || []).map(([id, typ, x, y, w, h]) => ({ id, typ, rect: [x, y, w, h] }));
-            return { map: st.away.map, w: m.w, h: m.h, plaetze: pl, tris: S.tris, deko: S.deko, dekoFehlt: S.dekoFehlt, leit: (S.leit || []).length, fehler: S.fehler, T: Shared_Maps.TILE };
+            const me = st.players.find((q) => q.id === __game.pid);
+            return { start: [Math.floor(me.x / 32), Math.floor(me.y / 32)], map: st.away.map, w: m.w, h: m.h, plaetze: pl, tris: S.tris, deko: S.deko, dekoFehlt: S.dekoFehlt, leit: (S.leit || []).length, fehler: S.fehler, T: Shared_Maps.TILE };
           });
           const raeume = info.plaetze.filter((p) => rollenVon[art][raumtypVon(p.id)] && (!NUR || NUR.includes(raumtypVon(p.id))));
           const dateien = [];
           for (const p of raeume) {
             const [x, y, w, h] = p.rect;
-            await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]);
+            await raumAnsicht(page, art, p, info.start);
             await page.waitForTimeout(WARTE);
             const f = path.join(dir, `${seed}-${p.id}.png`);
             await page.screenshot({ path: f });
-            dateien.push(path.relative(ROOT, f).replace(/\\/g, '/')); nBilder++;
+            dateien.push(path.relative(ROOT, f).split(path.sep).join('/')); nBilder++;
           }
+          if (ART_UEBERSICHT) {   // Übersicht je Seed (Außenseiten, Dächer): nur mit --uebersicht
+            await page.setViewportSize({ width: 1920, height: 1080 });
+            await kamera(page, info.w / 2, info.h / 2, Math.max(info.w, info.h) * 0.5, 45, true);
+            await page.waitForTimeout(WARTE + 1000);
+            const fu = path.join(dir, `${seed}-uebersicht.png`);
+            await page.screenshot({ path: fu }); dateien.push(path.relative(ROOT, fu).split(path.sep).join('/')); nBilder++;
+            await page.setViewportSize({ width: 1280, height: 720 });
+          }
+          await page.evaluate(() => VoxelRender.renderer.setSeat(null));
           uebersicht.push({ art, bauweise: bw, seed, map: info.map, raeume: raeume.map((p) => p.id), tris: info.tris, deko: info.deko, dekoFehlt: info.dekoFehlt, leit: info.leit, kitFehler: info.fehler, konsolenfehler: err.length - letzteErr, bilder: dateien });
           console.error(`${art}/${bw} seed ${seed}: ${raeume.length} Räume, ${info.deko} Deko, ${info.tris} Dreiecke${err.length - letzteErr ? ', Konsolenfehler ' + (err.length - letzteErr) : ''}`);
           if (VERBOSE && err.length) console.error('  ' + err.slice(-3).join(' || '));

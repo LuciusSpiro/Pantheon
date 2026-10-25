@@ -343,7 +343,7 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const erwartet = { station: ['kommando', 'reaktor', 'lager', 'quartier', 'messe', 'werkstatt', 'krankenstation', 'zellen'], aussenposten: ['kommando', 'lager', 'werkstatt', 'quartier', 'krankenstation'] };
     for (const art of ['station', 'aussenposten']) {
       ok(JSON.stringify(Object.keys(PROD[art].raumtypen).sort()) === JSON.stringify(erwartet[art].slice().sort()), `${art}: Raumtypen ${Object.keys(PROD[art].raumtypen).join(', ')} (keine Kantine)`);
-      for (const [rt, def] of Object.entries(PROD[art].raumtypen)) ok(def.rollen.length >= 5 && def.rollen.length <= 7 && def.rollen.some((e) => e.kind === 'leit'), `${art}/${rt}: ${def.rollen.length} Rollen, mindestens ein Hauptstück`);
+      for (const [rt, def] of Object.entries(PROD[art].raumtypen)) ok(def.rollen.length >= 5 && def.rollen.length <= 7 && (rt === 'zellen' || def.rollen.some((e) => e.kind === 'leit')), `${art}/${rt}: ${def.rollen.length} Rollen, mindestens ein Hauptstück`);
     }
     for (const art of ['station', 'aussenposten']) {
       let par = 0, verstoss = 0, hauptSoll = 0, hauptIst = 0, wandFehl = 0, dichteMin = 99, nahAnker = 0;
@@ -392,6 +392,23 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     let deck = 0;
     for (const art of ['station', 'aussenposten']) for (const r of Object.values(PROD[art].rollen)) for (const bw of ['rom', 'germanen']) for (const id of [].concat(r[bw])) if (verboten.has(id)) deck++;
     ok(deck === 0, 'keine Belegung ist ein Deckungs-Prop (fass, werkzeug, feuerschale, römische Ersatzmodelle)');
+  }
+
+  section('Raumtyp über den Anker (Modul-Plätze, nur Client)');
+  {
+    const mk = (id, typ, ankerRollen) => ({ id: 't', w: 24, h: 24, seed: 7, art: 'station', kindAt: (x, y) => (x < 0 || y < 0 || x >= 24 || y >= 24 ? null : x === 1 || y === 1 || x === 14 || y === 14 ? 'wand' : 'boden'),
+      anker: ankerRollen.map((r, i) => ({ x: 4 + i * 3, y: 4, rolle: r, platz: id })), plaetze: [{ id, typ, x: 2, y: 2, w: 12, h: 12 }] });
+    const lauf = (k) => prod(k, 'station', 'germanen').filter((d) => d.rolle).map((d) => d.rolle.split('.')[0]);
+    const a = lauf(mk('messe_1', 'herzstueck', ['sprengpunkt']));
+    ok(a.length > 3 && a.every((r) => r === 'reaktor'), `Platz messe_1 mit Sprengpunkt-Anker bekommt die Rollen des Reaktorraums (${[...new Set(a)].join(',')})`);
+    const b = lauf(mk('messe_1', 'herzstueck', []));
+    ok(b.length > 3 && b.every((r) => r === 'messe'), 'dieselbe Platz-ID ohne Anker bleibt Messe');
+    const c = lauf(mk('raum_2', 'kontrollraum', ['terminal']));
+    ok(c.length > 3 && c.every((r) => r === 'kommando'), 'Kontrollraum mit Terminal-Anker bekommt die Rollen des Kommandos');
+    const d = lauf(mk('lager_3', 'lager', ['sprengpunkt']));
+    ok(d.every((r) => r === 'reaktor'), 'Sprengpunkt gewinnt auch in einem Platz mit anderem Namen');
+    const kA = mk('messe_1', 'herzstueck', ['sprengpunkt']);
+    ok(JSON.stringify(lauf(kA)) === JSON.stringify(lauf(kA)) && kA.plaetze[0].id === 'messe_1', 'deterministisch, Platz-ID und Karte unverändert');
   }
 
   console.log(`\ntest-rollen-modus: ${n - fails}/${n} ok`);

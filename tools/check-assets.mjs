@@ -23,7 +23,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
 import { pruefeRollenDatei } from './rollen-pruefung.mjs';
-import { isBau, bauBudget, bauHoehe, BAU_H } from './asset-klassen.mjs';
+import { isBau, bauBudget, bauHoehe, bauFlaecheUrteil, BAU_H } from './asset-klassen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -541,6 +541,9 @@ async function main() {
         else if (maxH < e.height - 0.25) meh(`height ${e.height} m, Modell nur ${maxH.toFixed(2)} m hoch`);
       }
       if (isBau(e)) {
+        const fu = res.dims ? bauFlaecheUrteil(res.dims[0], res.dims[1], e.footprint) : 'ok';
+        if (fu === 'fehler') bad(`gemessene Grundfläche ${res.dims[0].toFixed(2)} × ${res.dims[1].toFixed(2)} m viel kleiner als footprint ${JSON.stringify(e.footprint)} (Klasse bau: Budget je Kachel)`);
+        else if (fu === 'warnung') meh(`gemessene Grundfläche ${res.dims[0].toFixed(2)} × ${res.dims[1].toFixed(2)} m unter 50 % des footprints ${JSON.stringify(e.footprint)}`);
         if (bauHoehe(maxH, tol) === 'fehler') bad(`Höhe ${maxH.toFixed(2)} m > ${BAU_H} m (Klasse bau)`);
       } else if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
         if (isLeit(e.id)) {
