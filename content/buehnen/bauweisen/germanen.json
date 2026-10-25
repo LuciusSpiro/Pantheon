@@ -396,12 +396,12 @@
       "umkaempft": "nord_umkaempft"
     },
     "art": {
-      "station": "station_metall"
+      "station": "station_esse"
     }
   },
   "stimmung": {
     "aussenposten": "outpost_frost",
-    "station": "hall_metall",
+    "station": "hall_forge",
     "schiff": "ship_nord",
     "ruine": "outpost_frost"
   },

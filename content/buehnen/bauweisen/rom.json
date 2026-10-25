@@ -27,7 +27,12 @@
     },
     "rampe": {
       "id": "kit/rom/boden",
-      "belag": 2
+      "belag": 2,
+      "je_art": {
+        "station": {
+          "belag": 0
+        }
+      }
     },
     "pad": {
       "id": "kit/rom/boden",
@@ -89,6 +94,7 @@
         }
       }
     },
+    "schott": "kit/rom/schott",
     "luke": {
       "id": "kit/rom/luke",
       "je_art": {
@@ -219,9 +225,13 @@
     ]
   },
   "paletten": {
-    "basis": "rom_kastell"
+    "basis": "rom_kastell",
+    "art": {
+      "station": "rom"
+    }
   },
   "stimmung": {
+    "station": "hall_metall",
     "ruine": "ruin_rom"
   },
   "deckung_props": {

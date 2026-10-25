@@ -565,7 +565,19 @@ function debug(game, cmd, args, p) {
       if (game.notice && p) game.notice(p, `Neuer Landepunkt ${id} (Seed ${eintrag(game, id).seed}).`);
       return null;
     }
-    return 'lp list | lp neu <ort> <art> [besitz]';
+    if (sub === 'hin') {   // lp hin <id>: einen bestehenden Landepunkt (z. B. helix.station) laden und hinbeamen (Screenshots, QA)
+      const id = args[1];
+      try { get(game, id); } catch (x) { countError(game, 'debug-lp-hin', x); return 'lp hin: ' + x.message; }
+      game.transferZiel = { lp: id, scene: (game.ship && game.ship.scene) || 'kesh' };
+      if (game.setAwayMap) game.setAwayMap(id);
+      try {
+        const away = require('./away.js');
+        const pids = (game.players || []).filter((q) => q.connected && q.zone === 'ship').map((q) => q.id);
+        if (pids.length && typeof away.executeBeam === 'function') away.executeBeam(game, pids, 'down');
+      } catch (x) { countError(game, 'debug-lp-hin-beam', x); }
+      return null;
+    }
+    return 'lp list | lp neu <ort> <art> [besitz] | lp hin <id>';
   }
   if (cmd === 'buehne') {
     const art = args[0] || 'ruine';

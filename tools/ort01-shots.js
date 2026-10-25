@@ -2,6 +2,7 @@
 // ORT-01: Screenshots der Räume und Gebäude, je Kartenart, Bauweise und Seed (Sichtprüfung der Einrichtung).
 //
 //   node tools/ort01-shots.js [--arten station,aussenposten] [--bauweisen rom,germanen] [--seeds 1,2,3,4,5,6,7,8,9,10]
+//                             [--lp helix.station,kesh.grabung]   statt Seeds: bestehende Landepunkte laden (Debug `lp hin <id>`), Ausgabe <out>/lp/<id>/
 //                             [--out shots/ort01] [--port 3386] [--raeume kommando,lager] [--warte 900] [--hud] [--v]
 //
 // Je Kartenart und Bauweise startet das Werkzeug einen frischen Server (eigene Datenordner, ohne .env, ohne Live-LLM) und einen
@@ -29,6 +30,7 @@ const WARTE = +arg('warte', '900');
 const VERBOSE = process.argv.includes('--v');
 const MIT_HUD = process.argv.includes('--hud');   // Standard: die 2D-Oberfläche (#game: HUD, Funk, Ziele) wird ausgeblendet, es bleibt die 3D-Ansicht
 const BESITZ = 'rostmeute';
+const LPS = arg('lp', null) ? arg('lp', '').split(',') : null;   // bestehende Landepunkte (Bestandskarten), z. B. helix.station
 
 function playwright() {
   const kand = [process.env.PLAYWRIGHT_CORE, 'playwright-core', 'C:/tmp/pw-test/node_modules/playwright-core'].filter(Boolean);
@@ -102,7 +104,72 @@ async function bauKarteWarten(page, art, bw, seed, erste) {
   if (!MIT_HUD) await page.addStyleTag({ content: '#game { visibility: hidden !important; }' }).catch(() => null);
 }
 
+// Bestehende Landepunkte (Bestandskarten): alle Räume mit Rollen (Station/Außenposten) plus eine Übersicht (breites Fenster)
+async function lpLauf(id, page, err, dirOut, erste) {
+  if (erste) {
+    await page.goto(`http://127.0.0.1:${PORT}/?render=voxel&debug=1`);
+    await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000, polling: 20 });
+    await page.waitForTimeout(1500);
+    await page.evaluate(() => __game.send({ t: 'lobbyOpt', skipDrill: true }));
+    await page.evaluate(() => __game.send({ t: 'ready', ready: true }));
+    await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
+    await page.waitForTimeout(2500);
+  }
+  const vorher = await page.evaluate(kartenSig);
+  await page.evaluate((l) => __game.dbg(l), 'lp hin ' + id);
+  await page.waitForFunction(([v, sigSrc, mapId]) => {
+    const st = __game.state, me = st && st.players.find((p) => p.id === __game.pid);
+    if (!(me && me.zone === 'away' && st.away && st.away.map === mapId && Shared_Maps[st.away.map] && Shared_Maps[st.away.map].buehne)) return false;
+    return (0, eval)('(' + sigSrc + ')')() !== v || v === null;
+  }, [vorher, kartenSig.toString(), id], { timeout: 60000, polling: 40 });
+  await page.waitForFunction(() => { const s = window.VoxelKit && VoxelKit.stats(); return !!(s && s.id === __game.state.away.map); }, null, { timeout: 60000, polling: 40 });
+  await page.waitForTimeout(900);
+  if (!MIT_HUD) await page.addStyleTag({ content: '#game { visibility: hidden !important; }' }).catch(() => null);
+  await page.evaluate(() => __game.dbg('god on'));
+  const info = await page.evaluate(() => {
+    const st = __game.state, m = Shared_Maps[st.away.map], S = VoxelKit.stats(), me = st.players.find((p) => p.id === __game.pid);
+    return { art: m.art, w: m.w, h: m.h, plaetze: (m.plaetze || []).map(([pid, typ, x, y, w, h]) => ({ id: pid, typ, rect: [x, y, w, h] })), tris: S.tris, deko: S.deko, dekoFehlt: S.dekoFehlt, platzhalter: S.platzhalter, leit: (S.leit || []).length, fehler: S.fehler, stimmung: S.stimmung, palette: S.palette, start: [Math.floor(me.x / 32), Math.floor(me.y / 32)] };
+  });
+  fs.mkdirSync(dirOut, { recursive: true });
+  const dateien = [];
+  const shot = async (name) => { const f2 = path.join(dirOut, name + '.png'); await page.screenshot({ path: f2 }); dateien.push(path.relative(ROOT, f2).split(path.sep).join('/')); };
+  // spielnah am Ankunftspunkt
+  await page.waitForTimeout(WARTE);
+  await shot('start-spielnah');
+  const rollen = ROLLEN[info.art] || {};
+  const raeume = info.plaetze.filter((p) => rollen[raumtypVon(p.id)] && (!NUR || NUR.includes(raumtypVon(p.id))));
+  for (const p of raeume) {
+    const [x, y, w, h] = p.rect;
+    await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]);
+    await page.waitForTimeout(WARTE);
+    await shot(p.id);
+  }
+  // Übersicht: breites Fenster, Spieler in der Kartenmitte
+  await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(info.w / 2), Math.floor(info.h / 2)]);
+  await page.setViewportSize({ width: 2560, height: 1000 });
+  await page.waitForTimeout(WARTE + 1500);
+  await shot('uebersicht');
+  await page.setViewportSize({ width: 1280, height: 720 });
+  return { id, art: info.art, tris: info.tris, deko: info.deko, dekoFehlt: info.dekoFehlt, platzhalter: info.platzhalter, leit: info.leit, kitFehler: info.fehler, stimmung: info.stimmung, palette: info.palette, raeume: raeume.map((p) => p.id), konsolenfehler: err.length, bilder: dateien };
+}
+const ROLLEN = {};
+for (const a of ['station', 'aussenposten']) ROLLEN[a] = JSON.parse(fs.readFileSync(path.join(ROOT, 'content/buehnen/rollen/' + a + '.json'), 'utf8')).raumtypen;
+
 (async () => {
+  if (LPS) {
+    const ue = [];
+    for (const id of LPS) {
+      try {
+        const res = await mitBrowser('lp', 'lp', async (page, err) => lpLauf(id, page, err, path.join(OUT, 'lp', id), true));
+        ue.push(res);
+        console.error(`${id}: ${res.art}, ${res.raeume.length} Räume, ${res.deko} Deko, ${res.tris} Dreiecke, Platzhalter ${Object.keys(res.platzhalter || {}).length}, Konsolenfehler ${res.konsolenfehler}`);
+      } catch (e) { ue.push({ id, fehler: String(e.message || e).slice(0, 200) }); console.error(id + ': FEHLER ' + e.message); }
+    }
+    fs.mkdirSync(OUT, { recursive: true });
+    fs.writeFileSync(path.join(OUT, 'uebersicht-lp.json'), JSON.stringify(ue, null, 1));
+    if (ue.some((u) => u.fehler)) process.exitCode = 1;
+    return;
+  }
   const rollenVon = {};
   for (const art of ARTEN) rollenVon[art] = JSON.parse(fs.readFileSync(path.join(ROOT, 'content/buehnen/rollen/' + art + '.json'), 'utf8')).raumtypen;
   const uebersicht = [];
