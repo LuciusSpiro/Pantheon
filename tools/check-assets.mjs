@@ -8,6 +8,7 @@
 //   npm run check:assets -- --bauweisen-streng   Lücken der Bauweisen-Tabellen als Fehler (sonst Warnung; auch
 //                                            CHECK_BAUWEISEN_STRENG=1)
 //   npm run check:assets -- --nur-rollen     nur die Rollen-Parität (ORT-01, content/buehnen/rollen/*.json), ohne Asset-Bau
+//   npm run check:assets -- --nur-orte      Orte-Sperre (ORT-01) mit Liste der Ausnahmen; --ohne-orte-sperre schaltet sie im Gesamtlauf ab
 //   npm run check:assets -- --rollen-dir <d> Rollen-Dateien aus einem anderen Ordner (Tests, Entwürfe)
 //
 // Klasse `bau` (Tag im Manifest, tools/asset-klassen.mjs): Gebäude, Türme, Leitstücke der Orte; Höhe bis 10 m, Budget je belegter Kachel.
@@ -23,6 +24,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
 import { pruefeRollenDatei } from './rollen-pruefung.mjs';
+import { pruefeOrte } from './orte-sperre.mjs';
 import { isBau, bauBudget, bauHoehe, bauFlaecheUrteil, BAU_H } from './asset-klassen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -367,6 +369,31 @@ export async function checkSprites(dir) {
   return out;
 }
 
+/** ORT-01 Prüf-Sperre (tools/orte-sperre.mjs): keine Altstücke in Orten; abschaltbar mit --ohne-orte-sperre. */
+async function checkOrteSperre() {
+  const BW = path.join(ROOT, 'content', 'buehnen');
+  const j = async (p) => JSON.parse(await fsp.readFile(path.join(BW, p), 'utf8'));
+  const ctx = { bauweisen: { rom: await j('bauweisen/rom.json'), germanen: await j('bauweisen/germanen.json') }, deko: { rom: await j('deko/rom.json'), germanen: await j('deko/germanen.json') },
+    platztypen: { station: [], aussenposten: [] }, raumRollen: { station: await j('rollen/station.json'), aussenposten: await j('rollen/aussenposten.json') } };
+  const GT = createRequire(import.meta.url)('../shared/gen-station.js'), GS = createRequire(import.meta.url)('../shared/gen-siedlung.js');
+  const ts = { station: new Set(), aussenposten: new Set() };
+  for (let s = 1; s <= 6; s++) {
+    for (const p of Object.values(GT.erzeuger(96, 56).karteRoh(s, 8, { bauweise: 'germanen', id: 't' }).plaetze)) ts.station.add(p.typ);
+    for (const p of Object.values(GS.erzeuger(130, 90).karteRoh(s, 10, { bauweise: 'germanen', typ: 'handel', id: 't' }).plaetze)) ts.aussenposten.add(p.typ);
+  }
+  ctx.platztypen = { station: [...ts.station], aussenposten: [...ts.aussenposten] };
+  return pruefeOrte(ctx);
+}
+function zeigeOrte(ol) {
+  const e = ol.filter((l) => l.lvl === 'err').length;
+  console.log('\n== Orte-Sperre (ORT-01: keine Ruine-/Alt-Stücke in Station und Außenposten, tools/orte-sperre.mjs)');
+  console.log(' ' + (e ? '✗' : '✓') + ' orte');
+  const ausn = ol.filter((l) => l.lvl === 'info' && /^Ausnahme/.test(l.msg)).length, alt = ol.filter((l) => l.lvl === 'info' && /^Altstück/.test(l.msg)).length;
+  for (const l of ol) if (l.lvl === 'err') console.log('       ✗ ' + l.msg);
+  console.log(`       · ${ausn} dokumentierte Ausnahmen, ${alt} erlaubte Altstücke (Liste: node tools/check-assets.mjs --nur-orte)`);
+  if (argv.includes('--nur-orte')) for (const l of ol) if (l.lvl === 'info') console.log('       · ' + l.msg);
+  return e;
+}
 function zeigeRollen(rl) {
   const e = rl.filter((l) => l.lvl === 'err').length, w = rl.filter((l) => l.lvl === 'warn').length;
   console.log(`\n== Rollen-Parität (ORT-01, content/buehnen/rollen/*.json)`);
@@ -614,6 +641,7 @@ async function main() {
       for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
       const rr = zeigeRollen(await checkRollen(man.entries, new Set(idxJ.models || [])));
       errors += rr.e; warnings += rr.w;
+      if (!argv.includes('--ohne-orte-sperre')) errors += zeigeOrte(await checkOrteSperre());
     }
   }
 
