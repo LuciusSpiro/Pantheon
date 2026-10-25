@@ -31,9 +31,9 @@ Hinweis Dreiecke Bestandskarten (`VoxelKit.stats()`): Methalle 416 k (main 394 k
 `shots/ort01/<bauweise>/<kartenart>/<seed>-<raum>.png` und `…-uebersicht.png` (Seeds 1–3), `shots/ort01/lp/<id>/…` (Bestandskarten), Vorher (main): `shots/vorher-main/lp/<id>/…`.
 Kritik: Boden jetzt ruhig und klar lesbar (2×2-Felder, dunkle Fuge); Rom-Station: Marmor/Rot/Gold, Stücke stehen, nichts auf Wegen. Offen: Außenposten-Gelände bei Rom braun, Rom-Dächer fast schwarz, Germanen-Dächer sehr dunkelbraun (Dach-Rolle/Gelände-Palette, nicht Teil A); in Sitzkamera-Bildern wirken Farben blasser als im Spiel (Glut dort rosa-braun); Station Germanen: Fuge gut sichtbar, noch etwas kontrastreich.
 
-## Nächste Schritte
-1. Teil B1: Anker-Modelle aus `voxelwerk-ort01-anker` (`ANKER-VERDRAHTUNG-ORT01.md`) mergen, in `bauweisen/*.json` (`anker.*`) verdrahten, `npm run assets` (eigener Commit).
-2. Punkt 7 Prüf-Sperre (keine `*/ruine/*`, `truhe`, `kaefig_zelle`, `werkzeug`, `prop/germanen/*` in Rom) als Fehler mit Schalter anlegen, erst nach Schritt 1 aktivieren, Mutationsprobe.
-3. Dach-/Geländefarben Außenposten (Rom braun/schwarz, Germanen dunkel) mit Kai klären.
-4. Verfall/Umkämpft-Paletten im Bild prüfen (`b7.aussenstelle` verfallen, `kesh.grabung` umkämpft).
-5. Alle Gates erneut nach B1.
+## Nachtrag (B1-Verdrahtung, Prüf-Sperre, Dach/Gelände)
+- Merges: ort01-anker (Voxelwerk und Spiel, ohne Konflikt, keine ID-Dubletten, 335 Einträge) und ort01-4b (ein Konflikt: tools/ort01-shots.js, Gegnerbilder vor Übersicht, Sitzkamera vorher aus).
+- Anker verdrahtet in rom.json/germanen.json (station und aussenposten: ziel, sprengpunkt, zelle, beute, fund (Rom), terminal, abholpunkt (Rom); "*" für Ruine/Schiff bleibt).
+- Prüf-Sperre aktiv: tools/orte-sperre.mjs, check:assets Abschnitt orte, tools/test-orte-sperre.js (Mutationsprobe, in npm test). Ausnahmen explizit (AUSNAHMEN): rom anker tor/raetsel (Rückfall, nie als Prop auf Orten), prop/germanen/gemein/werkzeug als Deckung und Zellen-Deko der Germanen (kein ORT-Deckungsmodell). Erlaubte Altstücke (ALT_ERLAUBT): statue_platz, hochsitz_halle, schmiedeherd, kraehenwacht_turm, met_kessel (fund und messe.ausgabe), Schiff-Lift/Leiter.
+- Rom-Dach Terrakotta (dach), Rom-Gelände Travertin (kits.gelaende je_art aussenposten), Germanen-Dach heller; Germanen-Dächer bleiben durch die Besitz-Palette (rostmeute) bräunlich.
+- Nächste Schritte: Ersatz für Holzwerkbank-Deckung der Germanen (ORT-Deckungsmodell), Zustandswechsel der Anker live prüfen, Verfall/Umkämpft im Bild, Dach-Kontrast der Germanen mit Kai klären.
