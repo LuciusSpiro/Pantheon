@@ -1,16 +1,19 @@
 {
   "id": "kit/germanen/dach",
-  "name": "Germanen – Satteldach (dunkle Schindelreihen, helles Giebelbrett am Ortgang, dunkler First, Traufe mit Überstand); deckt ein Gebäuderechteck, nicht eine Kachel",
+  "name": "Germanen – Stabdach (ORT-01 K1): gestaffelte Steildächer aus Eisenlagen (Umgangdach, Obergaden aus Stabplanken, Hauptdach), Kupfertraufen und -first, Glutfuge am First, gekreuzte Giebelbretter mit Runenspitzen; deckt ein Gebäuderechteck (w×d Kacheln), nicht eine Kachel",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
     "germanen",
     "kit",
-    "dach"
+    "dach",
+    "stabbau",
+    "ort01"
   ],
+  "notes": "ORT-01 K1 (Gruppe 2b), erzeugt von tools/gen-dach-stab.mjs. Ersetzt das Satteldach in dach-Braun. Nur Außenposten-Hüllenkarten setzen ein Dach (kit.js HUELL_TYPEN kulisse/lagerhalle). Ab Spannweite 18 Voxel (d oder w >= 4 Kacheln) zwei Stufen, darunter ein einzelnes Dach. Ausrichtung des Firsts: entlang der längeren Seite.",
   "footprint": [
-    12,
-    12
+    14,
+    14
   ],
   "jitter": 0,
   "variants": {
@@ -25,20 +28,28 @@
     "tief": {
       "w": 4,
       "d": 7
+    },
+    "groß": {
+      "w": 13,
+      "d": 9
+    },
+    "schmal": {
+      "w": 2,
+      "d": 2
     }
   },
   "params": {
     "w": {
       "default": 5,
       "min": 2,
-      "max": 12,
+      "max": 14,
       "step": 1,
       "label": "Breite (Kacheln, Ost-West)"
     },
     "d": {
       "default": 4,
       "min": 2,
-      "max": 12,
+      "max": 14,
       "step": 1,
       "label": "Tiefe (Kacheln, Nord-Süd)"
     },
@@ -51,172 +62,783 @@
     }
   },
   "let": {
+    "lang": "w >= d",
     "W": "w * 4 + 2",
     "D": "d * 4 + 2",
-    "lang": "w >= d",
-    "S": "lang ? D : W",
-    "h": "min(9, max(3, round(S * 0.36)))"
+    "L": "(w >= d ? w * 4 + 2 : d * 4 + 2)",
+    "S": "(w >= d ? d * 4 + 2 : w * 4 + 2)",
+    "zwei": "S >= 18",
+    "hA": "zwei ? 2 : min(8, max(3, round(S * 0.45)))",
+    "yB": 12,
+    "yC": 18,
+    "hC": "min(6, max(4, round((S - 4) * 0.45)))",
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.6 : 0",
+    "top": "zwei ? yC + hC : 12 + hA",
+    "mid": "floor(S / 2)"
   },
   "ops": [
     {
-      "name": "Dach, First entlang Ost-West",
+      "name": "Umgangdach / Dach",
       "op": "wedge",
-      "if": "lang",
       "at": [
         0,
         12,
         0
       ],
       "size": [
-        "W",
-        "h",
-        "D"
+        "L",
+        "hA",
+        "S"
       ],
       "gable": "z",
       "color": {
         "stripes": [
-          "dach",
           {
-            "shade": "dach",
-            "f": 0.8
+            "shade": "metal_dark",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "0.82 * dk"
           }
         ],
-        "axis": "z",
+        "axis": "y",
         "period": 1
-      }
+      },
+      "if": "lang"
     },
     {
-      "name": "Dach, First entlang Nord-Süd",
-      "op": "wedge",
-      "if": "!lang",
+      "name": "Traufe Kupfer A1",
+      "op": "box",
       "at": [
         0,
         12,
         0
       ],
       "size": [
-        "W",
-        "h",
-        "D"
+        "L",
+        1,
+        1
       ],
-      "gable": "x",
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "lang"
+    },
+    {
+      "name": "Traufe Kupfer A2",
+      "op": "box",
+      "at": [
+        0,
+        12,
+        "S - 1"
+      ],
+      "size": [
+        "L",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "lang"
+    },
+    {
+      "name": "Obergaden",
+      "op": "box",
+      "at": [
+        3,
+        12,
+        3
+      ],
+      "size": [
+        "L - 6",
+        6,
+        "S - 6"
+      ],
+      "if": "(zwei) && lang",
       "color": {
         "stripes": [
-          "dach",
           {
-            "shade": "dach",
-            "f": 0.8
+            "shade": "metal_light",
+            "f": "dk"
+          },
+          {
+            "shade": "metal",
+            "f": "dk"
           }
         ],
         "axis": "x",
+        "period": 4
+      }
+    },
+    {
+      "name": "Obergaden Fuß",
+      "op": "box",
+      "at": [
+        3,
+        12,
+        3
+      ],
+      "size": [
+        "L - 6",
+        1,
+        "S - 6"
+      ],
+      "if": "(zwei) && lang",
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Hauptdach",
+      "op": "wedge",
+      "at": [
+        2,
+        "yC",
+        2
+      ],
+      "size": [
+        "L - 4",
+        "hC",
+        "S - 4"
+      ],
+      "gable": "z",
+      "if": "(zwei) && lang",
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "dk"
+          }
+        ],
+        "axis": "y",
         "period": 1
       }
     },
     {
-      "name": "Firstbalken Ost-West",
+      "name": "Traufe Kupfer C1",
       "op": "box",
-      "if": "lang",
       "at": [
-        0,
-        "12 + h - 1",
-        "floor(D / 2) - 1"
+        2,
+        "yC",
+        2
       ],
       "size": [
-        "W",
+        "L - 4",
+        1,
+        1
+      ],
+      "if": "(zwei) && lang",
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Traufe Kupfer C2",
+      "op": "box",
+      "at": [
+        2,
+        "yC",
+        "S - 3"
+      ],
+      "size": [
+        "L - 4",
+        1,
+        1
+      ],
+      "if": "(zwei) && lang",
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "First Kupfer",
+      "op": "box",
+      "at": [
+        "zwei ? 2 : 0",
+        "top - 1",
+        "mid - 1"
+      ],
+      "size": [
+        "zwei ? L - 4 : L",
         1,
         2
       ],
       "color": {
-        "shade": "dach",
-        "f": 0.55
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "lang"
+    },
+    {
+      "name": "Glutfuge First",
+      "op": "box",
+      "at": [
+        "zwei ? 4 : 2",
+        "top",
+        "mid - 1"
+      ],
+      "size": [
+        "zwei ? L - 8 : L - 4",
+        1,
+        1
+      ],
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "(zustand < 2) && lang"
+    },
+    {
+      "name": "Giebelbrett 0a",
+      "op": "line",
+      "from": [
+        "(2) + 0.5",
+        "(yC) + 0.5",
+        "(2) + 0.5"
+      ],
+      "to": [
+        "(2) + 0.5",
+        "(top + 2) + 0.5",
+        "(mid + 2) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && lang"
+    },
+    {
+      "name": "Giebelbrett 0b",
+      "op": "line",
+      "from": [
+        "(2) + 0.5",
+        "(yC) + 0.5",
+        "(S - 3) + 0.5"
+      ],
+      "to": [
+        "(2) + 0.5",
+        "(top + 2) + 0.5",
+        "(mid - 3) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && lang"
+    },
+    {
+      "name": "Runenspitze 0a",
+      "op": "box",
+      "at": [
+        2,
+        "top + 2",
+        "mid + 2"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && lang"
+    },
+    {
+      "name": "Runenspitze 0b",
+      "op": "box",
+      "at": [
+        2,
+        "top + 2",
+        "mid - 3"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && lang"
+    },
+    {
+      "name": "Giebelbrett 1a",
+      "op": "line",
+      "from": [
+        "(L - 3) + 0.5",
+        "(yC) + 0.5",
+        "(2) + 0.5"
+      ],
+      "to": [
+        "(L - 3) + 0.5",
+        "(top + 2) + 0.5",
+        "(mid + 2) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && lang"
+    },
+    {
+      "name": "Giebelbrett 1b",
+      "op": "line",
+      "from": [
+        "(L - 3) + 0.5",
+        "(yC) + 0.5",
+        "(S - 3) + 0.5"
+      ],
+      "to": [
+        "(L - 3) + 0.5",
+        "(top + 2) + 0.5",
+        "(mid - 3) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && lang"
+    },
+    {
+      "name": "Runenspitze 1a",
+      "op": "box",
+      "at": [
+        "L - 3",
+        "top + 2",
+        "mid + 2"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && lang"
+    },
+    {
+      "name": "Runenspitze 1b",
+      "op": "box",
+      "at": [
+        "L - 3",
+        "top + 2",
+        "mid - 3"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && lang"
+    },
+    {
+      "name": "Umgangdach / Dach",
+      "op": "wedge",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "S",
+        "hA",
+        "L"
+      ],
+      "gable": "x",
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_dark",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "0.82 * dk"
+          }
+        ],
+        "axis": "y",
+        "period": 1
+      },
+      "if": "!lang"
+    },
+    {
+      "name": "Traufe Kupfer A1",
+      "op": "box",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "L"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "!lang"
+    },
+    {
+      "name": "Traufe Kupfer A2",
+      "op": "box",
+      "at": [
+        "S - 1",
+        12,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "L"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "!lang"
+    },
+    {
+      "name": "Obergaden",
+      "op": "box",
+      "at": [
+        3,
+        12,
+        3
+      ],
+      "size": [
+        "S - 6",
+        6,
+        "L - 6"
+      ],
+      "if": "(zwei) && !lang",
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_light",
+            "f": "dk"
+          },
+          {
+            "shade": "metal",
+            "f": "dk"
+          }
+        ],
+        "axis": "z",
+        "period": 4
       }
     },
     {
-      "name": "Firstbalken Nord-Süd",
+      "name": "Obergaden Fuß",
       "op": "box",
-      "if": "!lang",
       "at": [
-        "floor(W / 2) - 1",
-        "12 + h - 1",
-        0
+        3,
+        12,
+        3
+      ],
+      "size": [
+        "S - 6",
+        1,
+        "L - 6"
+      ],
+      "if": "(zwei) && !lang",
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Hauptdach",
+      "op": "wedge",
+      "at": [
+        2,
+        "yC",
+        2
+      ],
+      "size": [
+        "S - 4",
+        "hC",
+        "L - 4"
+      ],
+      "gable": "x",
+      "if": "(zwei) && !lang",
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "dk"
+          }
+        ],
+        "axis": "y",
+        "period": 1
+      }
+    },
+    {
+      "name": "Traufe Kupfer C1",
+      "op": "box",
+      "at": [
+        2,
+        "yC",
+        2
+      ],
+      "size": [
+        1,
+        1,
+        "L - 4"
+      ],
+      "if": "(zwei) && !lang",
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Traufe Kupfer C2",
+      "op": "box",
+      "at": [
+        "S - 3",
+        "yC",
+        2
+      ],
+      "size": [
+        1,
+        1,
+        "L - 4"
+      ],
+      "if": "(zwei) && !lang",
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "First Kupfer",
+      "op": "box",
+      "at": [
+        "mid - 1",
+        "top - 1",
+        "zwei ? 2 : 0"
       ],
       "size": [
         2,
         1,
-        "D"
+        "zwei ? L - 4 : L"
       ],
       "color": {
-        "shade": "dach",
-        "f": 0.55
-      }
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "!lang"
     },
     {
-      "name": "Giebelbrett West/Ost",
+      "name": "Glutfuge First",
       "op": "box",
-      "if": "lang",
       "at": [
-        0,
-        12,
-        0
+        "mid - 1",
+        "top",
+        "zwei ? 4 : 2"
       ],
       "size": [
         1,
-        "h",
-        "D"
+        1,
+        "zwei ? L - 8 : L - 4"
       ],
-      "mode": "paint",
-      "color": "dach_rand"
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "(zustand < 2) && !lang"
     },
     {
-      "name": "Giebelbrett Ost",
+      "name": "Giebelbrett 0a",
+      "op": "line",
+      "from": [
+        "(2) + 0.5",
+        "(yC) + 0.5",
+        "(2) + 0.5"
+      ],
+      "to": [
+        "(mid + 2) + 0.5",
+        "(top + 2) + 0.5",
+        "(2) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && !lang"
+    },
+    {
+      "name": "Giebelbrett 0b",
+      "op": "line",
+      "from": [
+        "(S - 3) + 0.5",
+        "(yC) + 0.5",
+        "(2) + 0.5"
+      ],
+      "to": [
+        "(mid - 3) + 0.5",
+        "(top + 2) + 0.5",
+        "(2) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && !lang"
+    },
+    {
+      "name": "Runenspitze 0a",
       "op": "box",
-      "if": "lang",
       "at": [
-        "W - 1",
-        12,
-        0
+        "mid + 2",
+        "top + 2",
+        2
       ],
       "size": [
         1,
-        "h",
-        "D"
-      ],
-      "mode": "paint",
-      "color": "dach_rand"
-    },
-    {
-      "name": "Giebelbrett Nord",
-      "op": "box",
-      "if": "!lang",
-      "at": [
-        0,
-        12,
-        0
-      ],
-      "size": [
-        "W",
-        "h",
+        1,
         1
       ],
-      "mode": "paint",
-      "color": "dach_rand"
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && !lang"
     },
     {
-      "name": "Giebelbrett Süd",
+      "name": "Runenspitze 0b",
       "op": "box",
-      "if": "!lang",
       "at": [
-        0,
-        12,
-        "D - 1"
+        "mid - 3",
+        "top + 2",
+        2
       ],
       "size": [
-        "W",
-        "h",
+        1,
+        1,
         1
       ],
-      "mode": "paint",
-      "color": "dach_rand"
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && !lang"
+    },
+    {
+      "name": "Giebelbrett 1a",
+      "op": "line",
+      "from": [
+        "(2) + 0.5",
+        "(yC) + 0.5",
+        "(L - 3) + 0.5"
+      ],
+      "to": [
+        "(mid + 2) + 0.5",
+        "(top + 2) + 0.5",
+        "(L - 3) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && !lang"
+    },
+    {
+      "name": "Giebelbrett 1b",
+      "op": "line",
+      "from": [
+        "(S - 3) + 0.5",
+        "(yC) + 0.5",
+        "(L - 3) + 0.5"
+      ],
+      "to": [
+        "(mid - 3) + 0.5",
+        "(top + 2) + 0.5",
+        "(L - 3) + 0.5"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "r": 0.5,
+      "if": "(zwei) && !lang"
+    },
+    {
+      "name": "Runenspitze 1a",
+      "op": "box",
+      "at": [
+        "mid + 2",
+        "top + 2",
+        "L - 3"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && !lang"
+    },
+    {
+      "name": "Runenspitze 1b",
+      "op": "box",
+      "at": [
+        "mid - 3",
+        "top + 2",
+        "L - 3"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em"
+      },
+      "if": "(zwei && zustand < 2) && !lang"
     },
     {
       "name": "Verfall",
@@ -231,7 +853,7 @@
       ],
       "size": [
         "W",
-        "h",
+        "top - 12 + 1",
         "D"
       ]
     }

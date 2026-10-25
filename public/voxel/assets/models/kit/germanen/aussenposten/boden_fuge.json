@@ -1,14 +1,16 @@
 {
   "id": "kit/germanen/aussenposten/boden_fuge",
-  "name": "Germanen Außenposten – boden_fuge: keine Fugen (einfarbiger Boden); malt nur dieselbe Farbe",
+  "name": "Außenposten Stabbau – boden_fuge: Glutfuge im Plattenraster (belag 2), dunkle Plattenfuge sonst",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
     "germanen",
     "aussenposten",
     "slot",
-    "boden"
+    "stabbau",
+    "ort01"
   ],
+  "notes": "ORT-01 K2 (Gruppe 2b). paint am N- und W-Rand → 1-m-Raster; Glut erloschen bei umkämpft.",
   "jitter": 0,
   "params": {
     "w": {
@@ -44,7 +46,7 @@
       "min": 0,
       "max": 3,
       "step": 1,
-      "label": "0 Hof/Platz · 2 Weg/Innenraum (beide einfarbig)"
+      "label": "Belag"
     },
     "art": {
       "default": "aussenposten",
@@ -57,51 +59,129 @@
       "label": "Kartenart"
     }
   },
-  "ops": [
-    {
-      "name": "keine Fuge (Weg)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "paving",
-        "f": 1.0
-      },
-      "jitter": false,
-      "if": "belag == 2"
-    },
-    {
-      "name": "keine Fuge (Hof)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "stone_light",
-        "f": 0.88
-      },
-      "jitter": false,
-      "if": "belag != 2"
-    }
-  ],
   "anchor": [
     0,
     0,
     0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.45 : 0"
+  },
+  "ops": [
+    {
+      "name": "Platte (für sich allein, im Gerüst nur Anstrich)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.78 * dk"
+      },
+      "if": "belag == 2"
+    },
+    {
+      "name": "Platte Hof",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_light",
+        "f": "0.8 * dk"
+      },
+      "if": "belag != 2"
+    },
+    {
+      "name": "Glutfuge N",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "belag == 2 && zustand < 2"
+    },
+    {
+      "name": "Glutfuge W",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        "d - 1"
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "belag == 2 && zustand < 2"
+    },
+    {
+      "name": "Fuge kalt N",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "belag != 2 || zustand == 2"
+    },
+    {
+      "name": "Fuge kalt W",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        "d - 1"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "belag != 2 || zustand == 2"
+    }
   ]
 }

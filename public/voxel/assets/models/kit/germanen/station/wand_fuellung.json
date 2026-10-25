@@ -1,188 +1,210 @@
 {
-  "id": "kit/germanen/station/wand_fuellung",
-  "name": "Station – wand_fuellung (fuellung_metallhalle): Schmiedeklinker warm (Kupferbraun, Glutfugen), keine Blaustreifen",
-  "tier": "architecture",
-  "palette": "nord",
-  "tags": [
-    "germanen",
-    "station",
-    "slot"
-  ],
-  "notes": "ART-STATION, Steckplatz fuellung_metallhalle (Gerüst-Slot wand_fuellung). Leitmaterial Schmiedemetall und Feuerschein (SICHTUNG-ART #3): Planken copper_dark, Klinker-Lichtkante copper (gedämpft) statt hellgrauer Streifen, Fuge unten metal_dark. Glutschlitze (ember, gedämpft) in ca. 35 % der hohen Felder, nie am Feldrand. Endspalten voll (Naht). Zustand dunkelt ab, umkämpft Ruß.",
-  "jitter": 0,
-  "params": {
-    "w": {
-      "default": 4,
-      "min": 1,
-      "max": 16,
-      "step": 1,
-      "label": "Breite (Voxel)"
-    },
-    "h": {
-      "default": 9,
-      "min": 1,
-      "max": 16,
-      "step": 1,
-      "label": "Höhe (Voxel)"
-    },
-    "d": {
-      "default": 1,
-      "min": 1,
-      "max": 4,
-      "step": 1,
-      "label": "Tiefe (Voxel)"
-    },
-    "zustand": {
-      "default": 0,
-      "min": 0,
-      "max": 2,
-      "step": 1,
-      "label": "0 intakt · 1 verfallen · 2 umkämpft"
-    }
+ "id": "kit/germanen/station/wand_fuellung",
+ "name": "Station - wand_fuellung (ORT-01 K1): Stabplanken (senkrechte Eisenstreifen hell), Pfostenstreifen mit Kupfernieten, Glutfuge in der Plankenfuge, Rostband am Fuß",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "station",
+  "slot",
+  "kit",
+  "ort01"
+ ],
+ "notes": "ART-STATION, Steckplatz fuellung_metallhalle (Gerüst-Slot wand_fuellung). Leitmaterial Schmiedemetall und Feuerschein (SICHTUNG-ART #3): Planken copper_dark, Klinker-Lichtkante copper (gedämpft) statt hellgrauer Streifen, Fuge unten metal_dark. Glutschlitze (ember, gedämpft) in ca. 35 % der hohen Felder, nie am Feldrand. Endspalten voll (Naht). Zustand dunkelt ab, umkämpft Ruß.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
   },
-  "let": {
-    "dk": "1 - zustand * 0.1"
+  "h": {
+   "default": 9,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
   },
-  "variants": {
-    "geschnitten": {
-      "h": 3
-    },
-    "verfallen": {
-      "zustand": 1,
-      "seed": 3
-    },
-    "umkaempft": {
-      "zustand": 2,
-      "seed": 5
-    },
-    "glutschlitz": {
-      "seed": 2
-    }
+  "d": {
+   "default": 1,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
   },
-  "ops": [
-    {
-      "name": "Planken",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "copper_dark",
-        "f": "0.95 * dk"
-      }
-    },
-    {
-      "name": "Klinker-Kante (Kupfer)",
-      "op": "box",
-      "at": [
-        0,
-        2,
-        0
-      ],
-      "size": [
-        "w",
-        1,
-        "d"
-      ],
-      "repeat": {
-        "count": 5,
-        "step": [
-          0,
-          3,
-          0
-        ],
-        "var": "i"
-      },
-      "if": "2 + i * 3 < h",
-      "mode": "paint",
-      "color": {
-        "shade": "copper",
-        "f": "0.8 * dk"
-      }
-    },
-    {
-      "name": "Fuge unten",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        1,
-        "d"
-      ],
-      "mode": "paint",
-      "color": {
-        "shade": "metal_dark",
-        "f": "0.8 * dk"
-      }
-    },
-    {
-      "name": "Glutschlitz",
-      "op": "box",
-      "if": "h >= 8 && w >= 4 && zustand < 2 && hash(seed, 9) < 0.35",
-      "at": [
-        1,
-        4,
-        0
-      ],
-      "size": [
-        "w - 2",
-        1,
-        "d"
-      ],
-      "mode": "paint",
-      "color": {
-        "shade": "ember",
-        "f": 0.8,
-        "emit": 0.7
-      }
-    },
-    {
-      "name": "Ruß (umkämpft)",
-      "op": "box",
-      "if": "zustand == 2",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "mode": "paint",
-      "color": {
-        "noise": [
-          {
-            "shade": "copper_dark",
-            "f": 0.7
-          },
-          "dark",
-          "ember_dark"
-        ],
-        "weights": [
-          3,
-          1,
-          2
-        ],
-        "seed": "seed"
-      }
-    }
-  ],
-  "anchor": [
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "geschnitten": {
+   "h": 3
+  },
+  "verfallen": {
+   "zustand": 1,
+   "seed": 3
+  },
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 5
+  },
+  "glutschlitz": {
+   "seed": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Stabplanken",
+   "op": "box",
+   "at": [
     0,
     0,
     0
-  ]
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "metal_light",
+      "f": "dk"
+     },
+     {
+      "shade": "primary",
+      "f": "dk"
+     }
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "name": "Rostband unten",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "copper_dark",
+    "f": "dk"
+   },
+   "mode": "paint"
+  },
+  {
+   "name": "Pfostenstreifen",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "w >= 4"
+  },
+  {
+   "name": "Niete Mitte",
+   "op": "box",
+   "at": [
+    0,
+    3,
+    0
+   ],
+   "size": [
+    1,
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "copper",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "w >= 4 && h >= 6"
+  },
+  {
+   "name": "Glutschlitz",
+   "op": "box",
+   "at": [
+    2,
+    "floor(h / 2) - 1",
+    0
+   ],
+   "size": [
+    1,
+    "min(3, h - 2)",
+    "d"
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   },
+   "mode": "paint",
+   "if": "h >= 3 && w >= 4 && zustand < 2 && hash(seed, 9) < 0.3"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal_dark",
+      "f": 0.7
+     },
+     "dark",
+     "ember_dark"
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
 }

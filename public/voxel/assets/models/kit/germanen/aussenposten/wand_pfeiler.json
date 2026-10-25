@@ -1,0 +1,198 @@
+{
+  "id": "kit/germanen/aussenposten/wand_pfeiler",
+  "name": "Außenposten Stabbau – wand_pfeiler: Knotenpfosten aus Stabplanken mit dunklen Spanten an den Ecken, Granitfuß, Kupferband",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K1 (Gruppe 2b). Knoten (alles außer gerader Strecke): ganze Kachel w×h×d.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 11,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "cut": {
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Geschnitten (1,25 m)"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.06"
+  },
+  "variants": {
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 2
+    },
+    "geschnitten": {
+      "cut": 1,
+      "h": 4
+    }
+  },
+  "ops": [
+    {
+      "name": "Stabplanken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_light",
+            "f": "dk"
+          },
+          {
+            "shade": "metal",
+            "f": "dk"
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Spanten",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "mirror": "xz",
+      "mirrorAt": {
+        "x": "w / 2",
+        "z": "d / 2"
+      }
+    },
+    {
+      "name": "Granitfuß",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "min(h, cut ? 1 : 2)",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "stone_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Kupferband",
+      "op": "box",
+      "at": [
+        0,
+        "h - 2",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "h >= 6"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "max(1, floor(h / 2))",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal",
+            "f": 0.85
+          },
+          {
+            "shade": "metal",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

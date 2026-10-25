@@ -1,0 +1,216 @@
+{
+  "id": "kit/germanen/aussenposten/tor_blatt",
+  "name": "Außenposten Stabbau – tor_blatt: Torflügel aus Eisenplanken, Kupfer-Streben und -bänder, Glutfuge zwischen den Flügeln",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K2 (Gruppe 2b). Nur im geschlossenen Zustand (state 0).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 8,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "state": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "Torzustand"
+    }
+  },
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand == 2 ? 0 : 0.6"
+  },
+  "variants": {},
+  "ops": [
+    {
+      "name": "Planken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "1.1 * dk"
+          }
+        ],
+        "axis": "x",
+        "period": 2
+      }
+    },
+    {
+      "name": "Strebe links",
+      "op": "line",
+      "from": [
+        1.5,
+        1.5,
+        "d - 0.5"
+      ],
+      "to": [
+        "floor(w / 2) - 2.5",
+        "h - 2.5",
+        "d - 0.5"
+      ],
+      "r": 0.5,
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "w >= 8 && h >= 6"
+    },
+    {
+      "name": "Strebe rechts",
+      "op": "line",
+      "from": [
+        "w - 1.5",
+        1.5,
+        "d - 0.5"
+      ],
+      "to": [
+        "floor(w / 2) + 1.5",
+        "h - 2.5",
+        "d - 0.5"
+      ],
+      "r": 0.5,
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "w >= 8 && h >= 6"
+    },
+    {
+      "name": "Kupferband",
+      "op": "box",
+      "at": [
+        0,
+        "1 + i * floor((h - 2) / 2)",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "h >= 4",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      }
+    },
+    {
+      "name": "Glutfuge Mitte",
+      "op": "box",
+      "at": [
+        "floor(w / 2) - 1",
+        0,
+        "d - 1"
+      ],
+      "size": [
+        1,
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "w >= 6 && zustand < 2"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal",
+            "f": 0.85
+          },
+          {
+            "shade": "metal",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
+  ]
+}

@@ -1,0 +1,158 @@
+{
+ "id": "kit/rom/station/wand_krone",
+ "name": "Rom-Station wand_krone: Marmorkrone, Amberrinne (1 Voxel Linie) 1 Voxel hinter jeder freien Kante",
+ "tier": "architecture",
+ "palette": "rom",
+ "tags": [
+  "rom",
+  "slot",
+  "station",
+  "ort01"
+ ],
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1
+  }
+ },
+ "ops": [
+  {
+   "name": "Krone",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.05 * (1 - zustand * 0.08)"
+   }
+  },
+  {
+   "name": "Rinne Nord",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    1
+   ],
+   "size": [
+    4,
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "#FFA21A",
+    "f": 1,
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "jitter": false,
+   "if": "floor(conn) % 2 == 0"
+  },
+  {
+   "name": "Rinne Süd",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    2
+   ],
+   "size": [
+    4,
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "#FFA21A",
+    "f": 1,
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "jitter": false,
+   "if": "floor(conn / 4) % 2 == 0"
+  },
+  {
+   "name": "Rinne Ost",
+   "op": "box",
+   "at": [
+    2,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    4
+   ],
+   "color": {
+    "shade": "#FFA21A",
+    "f": 1,
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "jitter": false,
+   "if": "floor(conn / 2) % 2 == 0"
+  },
+  {
+   "name": "Rinne West",
+   "op": "box",
+   "at": [
+    1,
+    0,
+    0
+   ],
+   "size": [
+    1,
+    "h",
+    4
+   ],
+   "color": {
+    "shade": "#FFA21A",
+    "f": 1,
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "jitter": false,
+   "if": "floor(conn / 8) % 2 == 0"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

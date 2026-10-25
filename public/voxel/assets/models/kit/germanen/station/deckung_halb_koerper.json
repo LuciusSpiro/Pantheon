@@ -1,0 +1,141 @@
+{
+ "id": "kit/germanen/station/deckung_halb_koerper",
+ "name": "Station - deckung_halb_koerper (ORT-01 K2): halbhohe Stabplanken-Barrikade aus mittlerem Eisen mit Kupfer-Fußband",
+ "tier": "architecture",
+ "palette": "nord",
+ "tags": [
+  "germanen",
+  "station",
+  "slot",
+  "kit",
+  "ort01"
+ ],
+ "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß. cloth = Besitzfarbe (Palette); Schilde ohne Zeichen (keine Abzeichen). Sichtung B1: Körper mittelhell.",
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 2,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  }
+ },
+ "let": {
+  "dk": "1 - zustand * 0.1"
+ },
+ "variants": {
+  "umkaempft": {
+   "zustand": 2,
+   "seed": 2
+  }
+ },
+ "ops": [
+  {
+   "name": "Stabplanken",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "stripes": [
+     {
+      "shade": "primary",
+      "f": "dk"
+     },
+     {
+      "shade": "metal",
+      "f": "dk"
+     }
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "name": "Fußband",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "copper_dark",
+    "f": "dk"
+   },
+   "mode": "paint",
+   "if": "h >= 2"
+  },
+  {
+   "name": "Ruß (umkämpft)",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "noise": [
+     {
+      "shade": "metal",
+      "f": 0.7
+     },
+     "dark",
+     "ember_dark"
+    ],
+    "weights": [
+     3,
+     1,
+     2
+    ],
+    "seed": "seed"
+   },
+   "mode": "paint",
+   "if": "zustand == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

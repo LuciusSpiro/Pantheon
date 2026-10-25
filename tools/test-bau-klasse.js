@@ -30,7 +30,7 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
   ok(alle.length > 0, alle.length + ' Einträge in ort-*.json');
   ok(!alle.some((e) => (e.tags || []).includes('wall')), 'kein wall-Behelf in ort-*.json');
   ok(!alle.some((e) => /\/station\/wand(_hell)?$/.test(e.id)), 'Mockup-Wände (ort/*/station/wand, wand_hell) nicht im Spiel-Manifest');
-  const hoch = alle.filter((e) => e.height > 2.2 && !(e.tags || []).includes('bau') && !(e.tags || []).includes('leit') && !/^rom\/(laterne|standarte)$/.test(e.id));
+  const hoch = alle.filter((e) => e.height > 2.2 && !(e.tags || []).includes('bau') && !(e.tags || []).includes('leit') && !/^rom\/(laterne|standarte)$/.test(e.id) && !/^kit\//.test(e.id));   // Kit-Teile folgen der Wandklasse des Checkers
   ok(hoch.length === 0, 'Stücke über 2,2 m tragen bau' + (hoch.length ? ': ' + hoch.map((e) => e.id).join(', ') : ''));
   const bauten = alle.filter((e) => (e.tags || []).includes('bau')).map((e) => e.id);
   for (const id of ['ort/rom/aussenposten/halle', 'ort/germanen/aussenposten/halle', 'ort/rom/aussenposten/sensorturm', 'ort/germanen/aussenposten/sensorturm', 'rom/standarte', 'rom/laterne']) {

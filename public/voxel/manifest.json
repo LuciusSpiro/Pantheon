@@ -109,7 +109,7 @@
     {
       "team": "ort-3a",
       "file": "ort-3a.json",
-      "count": 31
+      "count": 32
     },
     {
       "team": "ort-3b",
@@ -2679,19 +2679,19 @@
       "tier": "architecture",
       "palette": "nord",
       "footprint": [
-        12,
-        12
+        14,
+        14
       ],
-      "height": 5,
+      "height": 7,
       "facing": "+z",
       "params": {
         "w": [
           2,
-          12
+          14
         ],
         "d": [
           2,
-          12
+          14
         ],
         "zustand": [
           0,
@@ -3786,19 +3786,19 @@
       "tier": "architecture",
       "palette": "rom",
       "footprint": [
-        12,
-        12
+        13,
+        13
       ],
-      "height": 5,
+      "height": 4.5,
       "facing": "+z",
       "params": {
         "w": [
           2,
-          12
+          13
         ],
         "d": [
           2,
-          12
+          13
         ],
         "zustand": [
           0,
@@ -4278,6 +4278,89 @@
       ],
       "source": "kit/rom/pfeiler",
       "team": "art-ru"
+    },
+    "kit/rom/schott": {
+      "id": "kit/rom/schott",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gehackt": {
+          "state": 2
+        },
+        "gehackt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 3
+        },
+        "verschlossen_geschnitten": {
+          "state": 3,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "kit",
+        "schott",
+        "ort01"
+      ],
+      "notes": "ORT-01 3a K2: Rom-Station-Schott; Instanz des Geruests mit bauweise rom, Steckplaetze kit/rom/station/schott_*.",
+      "source": "kit/rom/schott",
+      "team": "ort-3a"
     },
     "kit/rom/tor": {
       "id": "kit/rom/tor",

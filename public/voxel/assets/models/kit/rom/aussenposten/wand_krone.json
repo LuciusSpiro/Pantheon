@@ -1,0 +1,179 @@
+{
+  "id": "kit/rom/aussenposten/wand_krone",
+  "name": "Rom Außenposten wand_krone: Gunmetal-Mauerkrone mit Amber-Rinne als Ein-Voxel-Linie entlang der Wandrichtung",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn (N1 O2 S4 W8)"
+    }
+  },
+  "ops": [
+    {
+      "name": "Krone",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Rinne Mitte",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        1,
+        0,
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Rinne N",
+      "op": "box",
+      "mode": "paint",
+      "if": "floor(conn) % 2",
+      "at": [
+        1,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Rinne O",
+      "op": "box",
+      "mode": "paint",
+      "if": "floor(conn / 2) % 2",
+      "at": [
+        2,
+        0,
+        1
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Rinne S",
+      "op": "box",
+      "mode": "paint",
+      "if": "floor(conn / 4) % 2",
+      "at": [
+        1,
+        0,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        2
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Rinne W",
+      "op": "box",
+      "mode": "paint",
+      "if": "floor(conn / 8) % 2",
+      "at": [
+        0,
+        0,
+        1
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

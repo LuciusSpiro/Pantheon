@@ -1,0 +1,93 @@
+{
+ "id": "kit/rom/station/deckung_halb_oberkante",
+ "name": "Rom-Station deckung_halb_oberkante: helle Marmorkante mit Goldrand",
+ "tier": "architecture",
+ "palette": "rom",
+ "tags": [
+  "rom",
+  "slot",
+  "station",
+  "ort01"
+ ],
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1
+  }
+ },
+ "ops": [
+  {
+   "name": "Oberkante hell",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1.1 * (1 - zustand * 0.08)"
+   }
+  },
+  {
+   "name": "Oberkante Gold",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    1
+   ],
+   "color": {
+    "shade": "trim",
+    "f": "1.0 * (1 - zustand * 0.08)"
+   },
+   "if": "floor(conn) % 2 == 0"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

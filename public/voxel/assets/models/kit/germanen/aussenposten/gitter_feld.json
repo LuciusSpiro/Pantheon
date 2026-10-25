@@ -1,0 +1,137 @@
+{
+  "id": "kit/germanen/aussenposten/gitter_feld",
+  "name": "Außenposten Stabbau – gitter_feld: Stabgitter aus Eisenstäben mit Kupferriegel und Glut-Feldlinie",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K2 (Gruppe 2b). Sicht frei laut Kachelart: dunkle Zwischenräume lesen sich als durchlässig, Voxel bleiben voll wegen der Naht.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 2,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.6 : 0"
+  },
+  "ops": [
+    {
+      "name": "Stäbe",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_light",
+            "f": "0.8 * dk"
+          },
+          "dark"
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Kupferriegel oben",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Fußriegel",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Feldlinie",
+      "op": "box",
+      "at": [
+        0,
+        "floor(h / 2)",
+        "d - 1"
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "h >= 5 && zustand < 2"
+    }
+  ]
+}

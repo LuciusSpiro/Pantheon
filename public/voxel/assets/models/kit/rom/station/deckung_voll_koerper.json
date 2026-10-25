@@ -1,0 +1,193 @@
+{
+ "id": "kit/rom/station/deckung_voll_koerper",
+ "name": "Rom-Station deckung_voll_koerper: Technikblock, Marmor-Eckpilaster mit Gunmetal-Feldern, Rotband und Goldfries",
+ "tier": "architecture",
+ "palette": "rom",
+ "tags": [
+  "rom",
+  "slot",
+  "station",
+  "ort01"
+ ],
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 9,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1
+  }
+ },
+ "ops": [
+  {
+   "name": "Körper",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "shade": "secondary",
+    "f": "1 * (1 - zustand * 0.08)"
+   }
+  },
+  {
+   "name": "Kanten",
+   "op": "box",
+   "at": [
+    0,
+    3,
+    0
+   ],
+   "size": [
+    1,
+    "max(1, h - 3)",
+    1
+   ],
+   "color": {
+    "shade": "stone_light",
+    "f": "1 * (1 - zustand * 0.08)"
+   },
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": "w / 2",
+    "z": "d / 2"
+   }
+  },
+  {
+   "name": "Fuß",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "1.1 * (1 - zustand * 0.08)"
+   }
+  },
+  {
+   "name": "Rotband",
+   "op": "box",
+   "at": [
+    0,
+    1,
+    0
+   ],
+   "size": [
+    "w",
+    2,
+    "d"
+   ],
+   "color": {
+    "shade": "primary",
+    "f": "1 * (1 - zustand * 0.08)"
+   },
+   "if": "h >= 5"
+  },
+  {
+   "name": "Goldfries",
+   "op": "box",
+   "at": [
+    0,
+    3,
+    0
+   ],
+   "size": [
+    "w",
+    1,
+    "d"
+   ],
+   "color": {
+    "shade": "trim",
+    "f": "1 * (1 - zustand * 0.08)"
+   },
+   "if": "h >= 5"
+  },
+  {
+   "name": "Technikfeld Z",
+   "op": "box",
+   "at": [
+    1,
+    4,
+    0
+   ],
+   "size": [
+    "w - 2",
+    "max(1, h - 5)",
+    "d"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "1.15 * (1 - zustand * 0.08)"
+   },
+   "mode": "paint",
+   "if": "h >= 7"
+  },
+  {
+   "name": "Technikfeld X",
+   "op": "box",
+   "at": [
+    0,
+    4,
+    1
+   ],
+   "size": [
+    "w",
+    "max(1, h - 5)",
+    "d - 2"
+   ],
+   "color": {
+    "shade": "metal_dark",
+    "f": "1.15 * (1 - zustand * 0.08)"
+   },
+   "mode": "paint",
+   "if": "h >= 7"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

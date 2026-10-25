@@ -1,0 +1,156 @@
+{
+  "id": "kit/germanen/aussenposten/wand_sockel",
+  "name": "Außenposten Stabbau – wand_sockel: Granitfuß mit Eisenschwelle, Glutfuge zwischen Sockel und Planken",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K1 (Gruppe 2b). Glutfuge nur in intakten und verfallenen Wänden, umkämpft ist sie erloschen.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.6 : 0"
+  },
+  "variants": {
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 2
+    },
+    "geschnitten": {
+      "h": 1
+    }
+  },
+  "ops": [
+    {
+      "name": "Granitfuß",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "stone_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Eisenschwelle",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "h >= 2"
+    },
+    {
+      "name": "Glutfuge",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        "d - 1"
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "if": "h >= 2 && zustand < 2",
+      "emit": "em"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "stone_dark",
+            "f": 0.85
+          },
+          {
+            "shade": "stone_dark",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}
