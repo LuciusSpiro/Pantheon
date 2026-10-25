@@ -9,7 +9,11 @@
 //   In diesen Rechtecken streut der Zellenmodus nicht mehr (fremde Platztypen wandern nicht hinein). Plätze ohne Raumtyp-Eintrag
 //   und Karten ohne Rollen-Datei laufen unverändert im Zellenmodus (byte-gleich, tools/hash-baseline.js --compare).
 //   opts.rollen.bericht (optional, Objekt): je Rollen-Platz { frei_halten (erreicht), gewuenscht, kandidaten, soll } (Tests); opts.onFehler(e) bei kaputter Datei.
-//   Rollen mit kind leit/anker streut dieser Modus nicht: Hauptstücke laufen über bauweise.leit/anker (kit.js).
+//   kind leit = Hauptstück (mehrere Kacheln, rein optisch): wird nach Fußabdruck (opts.rollen.leitFuss = bauweisen/<bw>.json leit_fuss) im
+//   Platzrechteck platziert, bevorzugt/erzwungen wandnah (Rücken zur Wand), nie auf Anker-, Tür-, Weg-, Kantenmitte-Kacheln und nie über die
+//   Raumgrenze; findet sich kein Platz, entfällt es. Eigener Strom je Platz und Rolle, Positionen in Rom und Germanen gleich (gleicher Fuß).
+//   kind anker (Belegung der Gameplay-Anker-Optik) ist im Format vorgesehen, aber nicht verdrahtet: die neuen Modelle tragen die Zustandsparameter
+//   der Anker (zelle zu/offen, beute voll/leer, sprengpunkt intakt/scharf/zerstört) nicht, der Anker bliebe ohne Rückmeldung.
 // Harte Grenzen (Vertrag, nicht per Daten abschaltbar):
 //   - nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln, nie auf festen Kacheln
 //   - höchstens 12 Props je Zelle (8×8), Deko ist nur Optik (keine Kollision), Deckung wird nie gestreut
@@ -138,6 +142,10 @@ export function streuen(k, regeln, opts = {}) {
   // sonst bleibt er im Zellenmodus (kein Raum ohne Deko durch fehlende Belegung).
   const streuRollenVon = (def) => (def && Array.isArray(def.rollen) ? def.rollen : []).filter((e) => e && typeof e.rolle === 'string' && (e.kind || 'streu') === 'streu')
     .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, RO.bauweise, RO.ausschluss) })).filter((r) => r.bel.length);
+  // Hauptstücke (kind leit): Fußabdruck aus RO.leitFuss (bauweisen/<bw>.json leit_fuss), ohne Eintrag entfällt die Rolle
+  const leitRollenVon = (def) => (def && Array.isArray(def.rollen) ? def.rollen : []).filter((e) => e && typeof e.rolle === 'string' && e.kind === 'leit')
+    .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, RO.bauweise, RO.ausschluss) })).filter((r) => r.bel.length);
+  const fussVon = (id) => { const f = RO.leitFuss && hat(RO.leitFuss, id) ? RO.leitFuss[id] : null; return Array.isArray(f) && f.length === 2 && f[0] >= 1 && f[1] >= 1 ? [f[0] | 0, f[1] | 0] : null; };
   const sicher = (def) => { try { return streuRollenVon(def); } catch (e) { return []; } };   // kaputte Rollen-Datei: Platz bleibt im Zellenmodus
   const rollenPlaetze = RO ? plaetze.filter((p) => hat(RO.daten.raumtypen, raumtypVon(p.id)) && sicher(RO.daten.raumtypen[raumtypVon(p.id)]).length) : [];
   const rollenFlaeche = rollenPlaetze.length ? new Uint8Array(W * H) : null;
@@ -224,6 +232,44 @@ export function streuen(k, regeln, opts = {}) {
         belegt.add(key); jeZelle.set(z, (jeZelle.get(z) || 0) + 1); got++;
       }
     };
+    // Hauptstück (kind leit, rein optisch): Fußabdruck-bewusst im Platzrechteck, nie auf gesperrten Kacheln (Anker/Tür + frei_halten, Kantenmitte,
+    // Wege) und nie über die Raumgrenze. wandnah: Rücken (−z) liegt an einer Wand über die ganze Breite, sonst frei mit zufälliger Blickrichtung.
+    // Es wird versucht mit frei_halten fh, dann schrittweise weniger bis 1. Rotation: 0 Wand im Norden (Schauseite +z = Süden), π Süden,
+    // π/2 Westen (Schauseite Osten), −π/2 Osten. Gerade Drehungen tauschen Breite und Tiefe des Fußes.
+    const ROT = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
+    function hauptstueck(p, h, fh0) {
+      const [fw, fd] = h.fuss, wand = !!h.e.wandnah, rnd = h.rnd;
+      for (let fh = fh0; fh >= 1; fh--) {
+        const ok = new Set(kacheln(p, fh).map(([x, y]) => x + ',' + y).filter((key) => !belegt.has(key)));
+        const opts = [];
+        for (let ri = 0; ri < 4; ri++) {
+          const ew = ri >= 2 ? fd : fw, eh = ri >= 2 ? fw : fd;
+          for (let y0 = p.y; y0 + eh <= p.y + p.h; y0++) for (let x0 = p.x; x0 + ew <= p.x + p.w; x0++) {
+            let frei = true;
+            for (let y = y0; y < y0 + eh && frei; y++) for (let x = x0; x < x0 + ew; x++) if (!ok.has(x + ',' + y)) { frei = false; break; }
+            if (!frei) continue;
+            if (wand) {
+              let rueck = true;
+              if (ri === 0) { for (let x = x0; x < x0 + ew; x++) if (!WANDNAH[kind(x, y0 - 1)]) rueck = false; }
+              else if (ri === 1) { for (let x = x0; x < x0 + ew; x++) if (!WANDNAH[kind(x, y0 + eh)]) rueck = false; }
+              else if (ri === 2) { for (let y = y0; y < y0 + eh; y++) if (!WANDNAH[kind(x0 - 1, y)]) rueck = false; }
+              else { for (let y = y0; y < y0 + eh; y++) if (!WANDNAH[kind(x0 + ew, y)]) rueck = false; }
+              if (!rueck) continue;
+            }
+            opts.push([x0, y0, ri, ew, eh]);
+          }
+        }
+        if (!opts.length) continue;
+        for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = opts[i]; opts[i] = opts[j]; opts[j] = t; }
+        const [x0, y0, ri, ew, eh] = opts[0];
+        const cx = x0 + ew / 2, cy = y0 + eh / 2, x = Math.floor(cx), y = Math.floor(cy);
+        out.push({ id: h.id, x, y, rot: ROT[ri], seed: Math.floor(rnd() * 8), platz: p.id, dx: cx - (x + 0.5), dz: cy - (y + 0.5), rolle: h.e.rolle, fuss: [x0, y0, ew, eh] });
+        for (let yy = y0; yy < y0 + eh; yy++) for (let xx = x0; xx < x0 + ew; xx++) belegt.add(xx + ',' + yy);
+        const z = zKey(x, y); jeZelle.set(z, (jeZelle.get(z) || 0) + 1);
+        return true;
+      }
+      return false;
+    }
     for (const p of rollenPlaetze) {
       const def = RO.daten.raumtypen[raumtypVon(p.id)];
       const rollen = streuRollenVon(def);
@@ -236,12 +282,21 @@ export function streuen(k, regeln, opts = {}) {
         if (r.e.pflicht) r.n = Math.max(1, r.n);
       }
       const extraRnd = extra.length ? mulberry32(fnv(p.id + ':besitz', seed)) : null;
-      const soll = rollen.reduce((s, r) => s + r.n, 0) + (extraRnd ? 1 : 0);
+      // Hauptstücke: Belegung und Fußabdruck vorab (Wahl = erster Zug des Rollenstroms, unabhängig von der Bauweise)
+      const haupt = [];
+      for (const r of leitRollenVon(def)) {
+        const rnd = mulberry32(fnv(p.id + ':' + r.e.rolle, seed));
+        const id = r.bel[Math.floor(rnd() * r.bel.length)], fuss = fussVon(id);
+        if (fuss) haupt.push({ e: r.e, id, fuss, rnd });
+      }
+      const soll = rollen.reduce((s, r) => s + r.n, 0) + (extraRnd ? 1 : 0) + haupt.reduce((s, h) => s + h.fuss[0] * h.fuss[1], 0);
       if (!soll) continue;
       // Kapazität: reicht frei_halten nicht, schrittweise kleiner (nie unter 1: Anker und Türen bleiben frei)
       let fh = Math.max(1, Math.min(4, (def.frei_halten != null ? def.frei_halten : 1) | 0)), kand;
       for (;;) { kand = kacheln(p, fh); if (kand.length >= soll || fh <= 1) break; fh--; }
       if (RO.bericht) RO.bericht[p.id] = { frei_halten: fh, gewuenscht: Math.max(1, Math.min(4, (def.frei_halten != null ? def.frei_halten : 1) | 0)), kandidaten: kand.length, soll };
+      // Hauptstücke zuerst (Streu weicht ihnen aus); kein Platz → entfällt ohne Fehler
+      for (const h of haupt) hauptstueck(p, h, fh);
       for (const r of rollen) {
         const wand = !!r.e.wandnah;
         nimm(kand.filter(([x, y]) => !wand || wandnah(x, y)), r.n, r.rnd, p, r.e.rolle, () => ({ id: r.bel[Math.floor(r.rnd() * r.bel.length)], wand }));
@@ -263,14 +318,20 @@ export function pruefeStreuung(k, liste) {
   const anker = new Set((k.anker || []).map((a) => (a.x | 0) + ',' + (a.y | 0)));
   const jeZelle = new Map();
   for (const d of liste) {
-    const kd = k.kindAt(d.x, d.y);
-    if (anker.has(d.x + ',' + d.y)) fehler.push('Anker ' + d.x + ',' + d.y);
-    if (TUER[kd]) fehler.push('Tür ' + d.x + ',' + d.y);
-    const innen = d.rolle && kd === 'boden2' && boden2Erlaubt(k.art, d.platz);   // Rollenmodus: Innenboden der Außenposten-Gebäude (siehe streuen)
-    if (WEG[kd] && !innen) fehler.push('Weg ' + d.x + ',' + d.y);
-    if (!DEKO_BODEN[kd] && !innen) fehler.push('fest/kein Boden ' + d.x + ',' + d.y + ' (' + kd + ')');
-    if (d.rolle && k.plaetze) { const p = k.plaetze.find((q) => q.id === d.platz); if (!p || d.x < p.x || d.y < p.y || d.x >= p.x + p.w || d.y >= p.y + p.h) fehler.push('Rolle außerhalb des Platzes ' + d.x + ',' + d.y + ' (' + d.platz + ')'); }
-    if (istKantenmitte(d.x, d.y, k)) fehler.push('Kantenmitte ' + d.x + ',' + d.y);
+    // Hauptstücke (fuss = [x0, y0, w, h]) belegen mehrere Kacheln: jede wird wie ein Streustück geprüft
+    const tiles = [];
+    if (Array.isArray(d.fuss)) { for (let y = d.fuss[1]; y < d.fuss[1] + d.fuss[3]; y++) for (let x = d.fuss[0]; x < d.fuss[0] + d.fuss[2]; x++) tiles.push([x, y]); }
+    else tiles.push([d.x, d.y]);
+    for (const [tx, ty] of tiles) {
+      const kd = k.kindAt(tx, ty);
+      if (anker.has(tx + ',' + ty)) fehler.push('Anker ' + tx + ',' + ty);
+      if (TUER[kd]) fehler.push('Tür ' + tx + ',' + ty);
+      const innen = d.rolle && kd === 'boden2' && boden2Erlaubt(k.art, d.platz);   // Rollenmodus: Innenboden der Außenposten-Gebäude (siehe streuen)
+      if (WEG[kd] && !innen) fehler.push('Weg ' + tx + ',' + ty);
+      if (!DEKO_BODEN[kd] && !innen) fehler.push('fest/kein Boden ' + tx + ',' + ty + ' (' + kd + ')');
+      if (d.rolle && k.plaetze) { const p = k.plaetze.find((q) => q.id === d.platz); if (!p || tx < p.x || ty < p.y || tx >= p.x + p.w || ty >= p.y + p.h) fehler.push('Rolle außerhalb des Platzes ' + tx + ',' + ty + ' (' + d.platz + ')'); }
+      if (istKantenmitte(tx, ty, k)) fehler.push('Kantenmitte ' + tx + ',' + ty);
+    }
     const z = Math.floor(d.x / ZELLE) + ',' + Math.floor(d.y / ZELLE);
     jeZelle.set(z, (jeZelle.get(z) || 0) + 1);
   }

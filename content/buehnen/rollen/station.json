@@ -1,7 +1,131 @@
 {
   "format": "rollen/1",
   "kartenart": "station",
-  "hinweis": "ORT-01: Rollen der Station je Raumtyp (Präfix der Platz-ID, z. B. kommando, werkstatt_2 → werkstatt). Noch leer (Paket 1: Format, Rollenmodus, Parität). Paket 3 füllt raumtypen und rollen; jede Rolle braucht rom UND germanen (npm run check:assets). Format: CONTRACT-ROLLEN-ORT.md.",
-  "raumtypen": {},
-  "rollen": {}
+  "hinweis": "ORT-01: Rollen der Station je Raumtyp (Präfix der Platz-ID, z. B. kommando, werkstatt_2 → werkstatt). Hauptstücke (kind leit) stehen nach leit_fuss der Bauweise im Raum, rein optisch; Streu 1×1 ≤ 1,94 m. Kantine gestrichen (Kai), der Generator erzeugt sie nie. Nicht belegt (die neuen Modelle tragen die Zustände der Gameplay-Anker nicht): Reaktorkern (sprengpunkt), Pulte (terminal), Warnbake. Format: CONTRACT-ROLLEN-ORT.md.",
+  "raumtypen": {
+    "kommando": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "kommando.kartentisch", "kind": "leit" },
+        { "rolle": "kommando.funk", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "kommando.wandschirm", "kind": "streu", "zug": [1,2], "wandnah": true },
+        { "rolle": "kommando.verteiler", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "kommando.datentafel", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "reaktor": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "reaktor.leitung", "kind": "leit", "wandnah": true },
+        { "rolle": "reaktor.pumpe", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "reaktor.verteiler", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "reaktor.wandschirm", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "reaktor.zelle", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "lager": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "lager.zellenregal", "kind": "leit", "wandnah": true },
+        { "rolle": "lager.ladebank", "kind": "leit" },
+        { "rolle": "lager.kran", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "lager.fracht", "kind": "streu", "zug": [1,2] },
+        { "rolle": "lager.zelle", "kind": "streu", "zug": [2,3], "pflicht": true }
+      ]
+    },
+    "quartier": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "quartier.koje", "kind": "leit", "wandnah": true },
+        { "rolle": "quartier.spind", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "quartier.klima", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "quartier.wandschirm", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "quartier.privat", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "messe": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "messe.tafel", "kind": "leit" },
+        { "rolle": "messe.bank", "kind": "leit", "wandnah": true },
+        { "rolle": "messe.ausgabe", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "messe.kuehlung", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "messe.ration", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "werkstatt": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "werkstatt.bank", "kind": "leit", "wandnah": true },
+        { "rolle": "werkstatt.kran", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "werkstatt.ladegeraet", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "werkstatt.teile", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "werkstatt.schweiss", "kind": "streu", "zug": [1,1] },
+        { "rolle": "werkstatt.werkzeug", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "krankenstation": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "krankenstation.liege", "kind": "leit", "wandnah": true },
+        { "rolle": "krankenstation.scanner", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "krankenstation.medzelle", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "krankenstation.schrank", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "krankenstation.medkiste", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "zellen": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "zellen.feldzelle", "kind": "leit", "wandnah": true },
+        { "rolle": "zellen.feldschloss", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "zellen.pritsche", "kind": "streu", "zug": [1,2], "wandnah": true },
+        { "rolle": "zellen.wandschirm", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "zellen.datentafel", "kind": "streu", "zug": [1,1] }
+      ]
+    }
+  },
+  "rollen": {
+    "kommando.kartentisch": { "rom": "ort/rom/station/kartentisch", "germanen": "ort/germanen/station/kartentisch" },
+    "kommando.funk": { "rom": "ort/rom/station/clipeus_wand", "germanen": "ort/germanen/gemein/schildantenne" },
+    "kommando.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "kommando.verteiler": { "rom": "ort/rom/gemein/verteiler", "germanen": "ort/germanen/gemein/verteiler" },
+    "kommando.datentafel": { "rom": "ort/rom/gemein/tafel", "germanen": "ort/germanen/gemein/runenholz" },
+    "reaktor.leitung": { "rom": "ort/rom/gemein/leitung", "germanen": "ort/germanen/gemein/glutleitung" },
+    "reaktor.pumpe": { "rom": "ort/rom/station/pumpe", "germanen": "ort/germanen/station/blasebalg" },
+    "reaktor.verteiler": { "rom": "ort/rom/gemein/verteiler", "germanen": "ort/germanen/gemein/verteiler" },
+    "reaktor.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "reaktor.zelle": { "rom": "ort/rom/gemein/energiezelle", "germanen": "ort/germanen/gemein/fasszelle" },
+    "lager.zellenregal": { "rom": "ort/rom/gemein/zellenarkade", "germanen": "ort/germanen/gemein/fassregal" },
+    "lager.ladebank": { "rom": "ort/rom/station/ladebank", "germanen": "ort/germanen/station/ladebock" },
+    "lager.kran": { "rom": "ort/rom/station/kran", "germanen": "ort/germanen/station/kran" },
+    "lager.fracht": { "rom": "rom/kiste", "germanen": "prop/germanen/gemein/kiste_stapel" },
+    "lager.zelle": { "rom": "ort/rom/gemein/energiezelle", "germanen": "ort/germanen/gemein/fasszelle" },
+    "quartier.koje": { "rom": "ort/rom/station/koje", "germanen": "ort/germanen/station/koje" },
+    "quartier.spind": { "rom": "ort/rom/station/spind", "germanen": "ort/germanen/station/spind" },
+    "quartier.klima": { "rom": "ort/rom/station/hypokaustum", "germanen": "ort/germanen/station/glutofen" },
+    "quartier.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "quartier.privat": { "rom": "ort/rom/gemein/tafel", "germanen": "ort/germanen/gemein/runenholz" },
+    "messe.tafel": { "rom": "ort/rom/station/messetafel", "germanen": "ort/germanen/station/langtisch" },
+    "messe.bank": { "rom": "ort/rom/station/bank", "germanen": "ort/germanen/station/bank" },
+    "messe.ausgabe": { "rom": "ort/rom/station/amphorenspender", "germanen": "prop/germanen/station/met_kessel" },
+    "messe.kuehlung": { "rom": "ort/rom/station/kuehlamphore", "germanen": "ort/germanen/station/kuehlfass" },
+    "messe.ration": { "rom": "ort/rom/gemein/rationsbehaelter", "germanen": "ort/germanen/gemein/rationsbehaelter" },
+    "werkstatt.bank": { "rom": "ort/rom/station/werkbank", "germanen": "ort/germanen/station/amboss" },
+    "werkstatt.kran": { "rom": "ort/rom/station/kran", "germanen": "ort/germanen/station/kran" },
+    "werkstatt.ladegeraet": { "rom": "ort/rom/station/ladegeraet", "germanen": "ort/germanen/station/ladegeraet" },
+    "werkstatt.teile": { "rom": "ort/rom/station/teileregal", "germanen": "prop/germanen/station/regal" },
+    "werkstatt.schweiss": { "rom": "ort/rom/station/schweisser", "germanen": "ort/germanen/station/schweisser" },
+    "werkstatt.werkzeug": { "rom": "ort/rom/gemein/werkzeugkiste", "germanen": "ort/germanen/gemein/werkzeugkasten" },
+    "krankenstation.liege": { "rom": "ort/rom/station/medliege", "germanen": "ort/germanen/station/medliege" },
+    "krankenstation.scanner": { "rom": "ort/rom/station/scansaeule", "germanen": "ort/germanen/station/scanstele" },
+    "krankenstation.medzelle": { "rom": "ort/rom/station/medamphore", "germanen": "ort/germanen/station/medfass" },
+    "krankenstation.schrank": { "rom": "ort/rom/station/spind", "germanen": "ort/germanen/station/spind" },
+    "krankenstation.medkiste": { "rom": "ort/rom/gemein/medkiste", "germanen": "ort/germanen/gemein/medkiste" },
+    "zellen.feldzelle": { "rom": "ort/rom/station/feldzelle", "germanen": "ort/germanen/station/feldzelle" },
+    "zellen.feldschloss": { "rom": "ort/rom/station/feldschloss", "germanen": "ort/germanen/station/runenschloss" },
+    "zellen.pritsche": { "rom": "ort/rom/station/pritsche", "germanen": "ort/germanen/station/pritsche" },
+    "zellen.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "zellen.datentafel": { "rom": "ort/rom/gemein/tafel", "germanen": "ort/germanen/gemein/runenholz" }
+  }
 }

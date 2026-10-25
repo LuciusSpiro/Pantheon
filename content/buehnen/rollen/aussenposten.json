@@ -1,7 +1,86 @@
 {
   "format": "rollen/1",
   "kartenart": "aussenposten",
-  "hinweis": "ORT-01: Rollen der Gebäude des Außenpostens je Gebäudeart (Präfix der Platz-ID: kommando, lager, werkstatt, quartier, kantine, krankenstation). Noch leer (Paket 1: Format, Rollenmodus, Parität). Paket 2 füllt raumtypen und rollen; jede Rolle braucht rom UND germanen (npm run check:assets). Format: CONTRACT-ROLLEN-ORT.md.",
-  "raumtypen": {},
-  "rollen": {}
+  "hinweis": "ORT-01: Rollen der Außenposten-Gebäude je Raumtyp (Präfix der Platz-ID). Zuordnung Gebäudeart → Raumtyp: Kommando-/Funkgebäude → kommando, Lager mit Energiezellen → lager, Mannschaftsunterkunft → quartier; werkstatt und krankenstation wie in der Station. kaefig (4×4, nach dem Ankerabstand keine freie Kachel) und kantine (gestrichen) bleiben im Zellenmodus. Format: CONTRACT-ROLLEN-ORT.md.",
+  "raumtypen": {
+    "kommando": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "kommando.kartentisch", "kind": "leit" },
+        { "rolle": "kommando.funk", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "kommando.wandschirm", "kind": "streu", "zug": [1,2], "wandnah": true },
+        { "rolle": "kommando.verteiler", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "kommando.datentafel", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "lager": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "lager.zellenregal", "kind": "leit", "wandnah": true },
+        { "rolle": "lager.kran", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "lager.fracht", "kind": "streu", "zug": [1,2] },
+        { "rolle": "lager.zelle", "kind": "streu", "zug": [2,3], "pflicht": true },
+        { "rolle": "lager.verteiler", "kind": "streu", "zug": [1,1], "wandnah": true }
+      ]
+    },
+    "werkstatt": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "werkstatt.bank", "kind": "leit", "wandnah": true },
+        { "rolle": "werkstatt.kran", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "werkstatt.ladegeraet", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "werkstatt.teile", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "werkstatt.schweiss", "kind": "streu", "zug": [1,1] },
+        { "rolle": "werkstatt.werkzeug", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "quartier": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "quartier.koje", "kind": "leit", "wandnah": true },
+        { "rolle": "quartier.spind", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "quartier.klima", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "quartier.wandschirm", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "quartier.privat", "kind": "streu", "zug": [1,2] }
+      ]
+    },
+    "krankenstation": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "krankenstation.liege", "kind": "leit", "wandnah": true },
+        { "rolle": "krankenstation.scanner", "kind": "streu", "zug": [1,1], "wandnah": true, "pflicht": true },
+        { "rolle": "krankenstation.medzelle", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "krankenstation.schrank", "kind": "streu", "zug": [1,1], "wandnah": true },
+        { "rolle": "krankenstation.medkiste", "kind": "streu", "zug": [1,2] }
+      ]
+    }
+  },
+  "rollen": {
+    "kommando.kartentisch": { "rom": "ort/rom/station/kartentisch", "germanen": "ort/germanen/station/kartentisch" },
+    "kommando.funk": { "rom": "ort/rom/station/clipeus_wand", "germanen": "ort/germanen/gemein/schildantenne" },
+    "kommando.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "kommando.verteiler": { "rom": "ort/rom/gemein/verteiler", "germanen": "ort/germanen/gemein/verteiler" },
+    "kommando.datentafel": { "rom": "ort/rom/gemein/tafel", "germanen": "ort/germanen/gemein/runenholz" },
+    "lager.zellenregal": { "rom": "ort/rom/gemein/zellenarkade", "germanen": "ort/germanen/gemein/fassregal" },
+    "lager.kran": { "rom": "ort/rom/station/kran", "germanen": "ort/germanen/station/kran" },
+    "lager.fracht": { "rom": "rom/kiste", "germanen": "prop/germanen/gemein/kiste_stapel" },
+    "lager.zelle": { "rom": "ort/rom/gemein/energiezelle", "germanen": "ort/germanen/gemein/fasszelle" },
+    "lager.verteiler": { "rom": "ort/rom/gemein/verteiler", "germanen": "ort/germanen/gemein/verteiler" },
+    "werkstatt.bank": { "rom": "ort/rom/station/werkbank", "germanen": "ort/germanen/station/amboss" },
+    "werkstatt.kran": { "rom": "ort/rom/station/kran", "germanen": "ort/germanen/station/kran" },
+    "werkstatt.ladegeraet": { "rom": "ort/rom/station/ladegeraet", "germanen": "ort/germanen/station/ladegeraet" },
+    "werkstatt.teile": { "rom": "ort/rom/station/teileregal", "germanen": "prop/germanen/station/regal" },
+    "werkstatt.schweiss": { "rom": "ort/rom/station/schweisser", "germanen": "ort/germanen/station/schweisser" },
+    "werkstatt.werkzeug": { "rom": "ort/rom/gemein/werkzeugkiste", "germanen": "ort/germanen/gemein/werkzeugkasten" },
+    "quartier.koje": { "rom": "ort/rom/station/koje", "germanen": "ort/germanen/station/koje" },
+    "quartier.spind": { "rom": "ort/rom/station/spind", "germanen": "ort/germanen/station/spind" },
+    "quartier.klima": { "rom": "ort/rom/station/hypokaustum", "germanen": "ort/germanen/station/glutofen" },
+    "quartier.wandschirm": { "rom": "ort/rom/station/wandschirm", "germanen": "prop/germanen/station/wandmonitor" },
+    "quartier.privat": { "rom": "ort/rom/gemein/tafel", "germanen": "ort/germanen/gemein/runenholz" },
+    "krankenstation.liege": { "rom": "ort/rom/station/medliege", "germanen": "ort/germanen/station/medliege" },
+    "krankenstation.scanner": { "rom": "ort/rom/station/scansaeule", "germanen": "ort/germanen/station/scanstele" },
+    "krankenstation.medzelle": { "rom": "ort/rom/station/medamphore", "germanen": "ort/germanen/station/medfass" },
+    "krankenstation.schrank": { "rom": "ort/rom/station/spind", "germanen": "ort/germanen/station/spind" },
+    "krankenstation.medkiste": { "rom": "ort/rom/gemein/medkiste", "germanen": "ort/germanen/gemein/medkiste" }
+  }
 }

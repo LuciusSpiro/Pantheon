@@ -153,6 +153,46 @@
     }
   },
   "leit_fuss": {
+    "ort/rom/station/kartentisch": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/leitung": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/zellenarkade": [
+      2,
+      1
+    ],
+    "ort/rom/station/ladebank": [
+      2,
+      1
+    ],
+    "ort/rom/station/koje": [
+      2,
+      1
+    ],
+    "ort/rom/station/messetafel": [
+      3,
+      1
+    ],
+    "ort/rom/station/bank": [
+      2,
+      1
+    ],
+    "ort/rom/station/werkbank": [
+      2,
+      1
+    ],
+    "ort/rom/station/medliege": [
+      2,
+      1
+    ],
+    "ort/rom/station/feldzelle": [
+      1,
+      1
+    ],
     "leit/rom/ruine/fahnenheiligtum": [
       2,
       2

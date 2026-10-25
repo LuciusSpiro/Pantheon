@@ -19,6 +19,7 @@ export const RAUMTYPEN = {
 const hat = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
 const GERM_ID = new RegExp('(^|/)germanen/'), ROM_ID = new RegExp('(^|/)rom/');
 export const ROLLEN_JE_RAUMTYP = [5, 7];   // Erkundung F5: 1 Hauptstück, 2 Hauptrollen, 2–3 Nebenrollen, 1 Streurolle
+export const FIGUR_HOEHE = 31 / 16;       // wie shared/buehne.js FIGUR_HOEHE_M
 export const MAX_ZUG = 6;                  // Stück je Rolle und Platz (MAX_JE_ZELLE = 12 gilt zusätzlich)
 
 const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'wandnah', 'pflicht', 'ankerRolle'];
@@ -110,6 +111,9 @@ export function pruefeRollenDatei(j, name, ctx) {
     for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_) kinds.add(e.kind || 'streu');
     if (kinds.size > 1) err(`${wo}: wird mit unterschiedlicher kind benutzt (${[...kinds].join(', ')})`);
     const kind = [...kinds][0] || 'streu';
+    let wandnahRolle = false;   // irgendein Raumtyp-Eintrag der Rolle ist wandnah
+    for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_ && e.wandnah === true) wandnahRolle = true;
+    const fussJe = new Set();   // Hauptstück: leit_fuss aller Belegungen beider Bauweisen (Layout-Parität: gleiche Platzierung)
     // Parität inhaltlich: Rom und Germanen dürfen nicht dieselbe Belegung teilen (Ausnahme: neutrale Technik, "neutral": true)
     const lr = belegungListe(def.rom), lg = belegungListe(def.germanen);
     if (def.neutral !== undefined && typeof def.neutral !== 'boolean') err(`${wo}: neutral muss true/false sein`);
@@ -134,9 +138,17 @@ export function pruefeRollenDatei(j, name, ctx) {
         if (kind === 'leit') {
           const f = ctx.leitFuss && hat(ctx.leitFuss[bw], id) ? ctx.leitFuss[bw][id] : null;
           if (ctx.leitFuss && !(Array.isArray(f) && f.length === 2)) err(`${wo}.${bw}: Leitstück ${id} hat keinen Eintrag in leit_fuss von bauweisen/${bw}.json`);
+          else if (f) {
+            fussJe.add(f.join('×'));
+            // das Modell darf den reservierten Fuß nicht überragen (Manifest-Fußabdruck, aufgerundet)
+            if (m && Array.isArray(m.footprint) && (Math.ceil(m.footprint[0] - 1e-9) > f[0] || Math.ceil(m.footprint[1] - 1e-9) > f[1])) err(`${wo}.${bw}: ${id} ist ${m.footprint[0]}×${m.footprint[1]} m groß, leit_fuss reserviert nur ${f[0]}×${f[1]} Kacheln`);
+          }
+          // Hauptstücke auf Bodenkacheln ≤ Figurhöhe; höhere nur wandnah (Spieler laufen durch Hauptstücke, K-SILHOUETTE)
+          if (m && typeof m.height === 'number' && m.height > FIGUR_HOEHE + 0.005 && !wandnahRolle) err(`${wo}.${bw}: ${id} ist ${m.height} m hoch (Figur ${FIGUR_HOEHE.toFixed(2)} m): Hauptstücke dieser Höhe nur wandnah (wandnah: true am Raumtyp-Eintrag)`);
         }
       }
     }
+    if (kind === 'leit' && fussJe.size > 1) err(`${wo}: Belegungen haben verschiedene leit_fuss (${[...fussJe].join(', ')}): Rom und Germanen würden verschieden platziert, der Fuß muss gleich sein`);
   }
   lines.push({ lvl: 'info', msg: `${name}: ${Object.keys(raumtypen).length} Raumtypen, ${nRollenEintraege} Rollen-Einträge, ${Object.keys(rollen).length} Rollen, ${nBelegungen} Belegungen` });
   return lines;

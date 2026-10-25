@@ -9,6 +9,7 @@
         {
           "rolle": "kommando.hauptstueck",
           "kind": "leit",
+          "wandnah": true,
           "pflicht": true
         },
         {

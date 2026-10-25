@@ -1020,7 +1020,7 @@ async function bauKarte(parent, karteIn, opts) {
         for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
       }
       const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln,
-        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds } : null, onFehler: (e) => countErr('kit.rollen', e) });
+        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds, leitFuss: BW.leit_fuss || null } : null, onFehler: (e) => countErr('kit.rollen', e) });
       for (const dd of liste) {
         const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)

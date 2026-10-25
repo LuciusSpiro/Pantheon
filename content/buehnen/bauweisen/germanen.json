@@ -309,6 +309,46 @@
     }
   },
   "leit_fuss": {
+    "ort/germanen/station/kartentisch": [
+      2,
+      1
+    ],
+    "ort/germanen/gemein/glutleitung": [
+      2,
+      1
+    ],
+    "ort/germanen/gemein/fassregal": [
+      2,
+      1
+    ],
+    "ort/germanen/station/ladebock": [
+      2,
+      1
+    ],
+    "ort/germanen/station/koje": [
+      2,
+      1
+    ],
+    "ort/germanen/station/langtisch": [
+      3,
+      1
+    ],
+    "ort/germanen/station/bank": [
+      2,
+      1
+    ],
+    "ort/germanen/station/amboss": [
+      2,
+      1
+    ],
+    "ort/germanen/station/medliege": [
+      2,
+      1
+    ],
+    "ort/germanen/station/feldzelle": [
+      1,
+      1
+    ],
     "leit/germanen/aussenposten/kraehenwacht_turm": [
       2,
       2

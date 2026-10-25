@@ -35,7 +35,7 @@ Der Client lädt sie in `kit.js` (`ladeDaten`, `prefetch`), nur für diese beide
 ```
 
 Lauffähige Beispiele (nicht produktiv geladen): `tools/fixtures/rollen/station.json`, `…/aussenposten.json`.
-Die produktiven Dateien sind in Paket 1 leer (`raumtypen: {}`): Paket 2 (Außenposten) und 3 (Station) füllen sie.
+Die produktiven Dateien sind seit der Integration (ORT-01 Paket 4a) gefüllt: Station 8 Raumtypen (ohne Kantine), Außenposten 5 (kommando, lager, werkstatt, quartier, krankenstation).
 
 ### `raumtypen.<id>`
 
@@ -57,15 +57,14 @@ Kulissenhäuser) und Räume ohne Eintrag laufen unverändert im Zellenmodus.
 | Feld | Bedeutung |
 |---|---|
 | `rolle` | Name, Schlüssel in `rollen`. Konvention `<raumtyp>.<name>` oder `gemein.<name>` für geteilte Rollen. |
-| `kind` | `streu` (Standard): Deko, 1×1, nicht blockierend, ≤ 1,94 m, vom Rollenmodus gestreut. `leit`: Hauptstück über `bauweise.leit` (Leitstück-Fuß in `leit_fuss`). `anker`: Hauptstück an einem Anker (`ankerRolle`, Rolle aus `anker.json`, z. B. `terminal`, `beute`). |
+| `kind` | `streu` (Standard): Deko, 1×1, nicht blockierend, ≤ 1,94 m, vom Rollenmodus gestreut. `leit`: **Hauptstück** (mehrere Kacheln, rein optisch), vom Rollenmodus nach Fußabdruck platziert (Fuß je Modell in `leit_fuss` der Bauweise, siehe unten). `anker`: Belegung eines Gameplay-Ankers (`ankerRolle`, Rolle aus `anker.json`): im Format und in der Prüfung vorgesehen, **nicht verdrahtet** (die neuen Modelle tragen die Zustände der Anker nicht, siehe unten). |
 | `zug` | Nur `streu`: `[min, max]` Stück je Platz (0–6), gezogen aus dem Rollenstrom. Standard `[1, 1]`. |
-| `wandnah` | Nur an Wand/Zaun, Rücken zur Wand. |
+| `wandnah` | Nur an Wand/Zaun, Rücken zur Wand (bei `leit`: die ganze Breite des Fußes liegt an der Wand). Hauptstücke über 1,94 m müssen `wandnah` sein (Prüffehler sonst). |
 | `pflicht` | Wird zuerst platziert und mindestens 1× versucht (`zug` min wird auf 1 angehoben). |
 | `ankerRolle` | Nur `anker`. |
 
-Paket 1 verdrahtet `leit`/`anker` nur im Format und in der Prüfung (Belegung, Modell-IDs, `leit_fuss`); gestreut werden sie nicht.
-Die Hauptstücke gehen über den bestehenden Mechanismus, die Anbindung der Belegung an `kit.js` `propId` folgt mit dem ersten
-Hauptstück (Paket 2/3).
+**Hauptstücke (`leit`, ab Integration):** Der Fußabdruck [Breite, Tiefe] in Kacheln steht je Modell in `leit_fuss` der Bauweise (`bauweisen/<bw>.json`, gleiche Tabelle wie die alten Leitstücke). Er muss in Rom und Germanen **gleich** sein (Layout-Parität) und das Modell umfassen (Manifest-Fußabdruck aufgerundet). Der Rollenmodus platziert das Hauptstück **vor** den Streu-Rollen im Platzrechteck: nie auf Anker-, Tür-, Weg-, Kantenmitte-Kacheln (mit `frei_halten`, schrittweise bis 1), nie über die Raumgrenze, wandnah mit dem Rücken (−z) an der Wand, sonst frei mit zufälliger Blickrichtung (Drehung 0, π, ±π/2; gerade Drehung = Breite × Tiefe, quer vertauscht). Eigener Strom `fnv(platzId:rolle, seed)`; ohne Platz oder ohne `leit_fuss`-Eintrag entfällt das Stück ohne Fehler. Ausgabe: `{ id, x, y, rot, dx, dz, rolle, fuss: [x0, y0, w, h] }` (x/y = Kachel der Mitte, dx/dz bis ±0,5). Rein optisch, Spieler laufen durch Hauptstücke.
+**`anker` bleibt unverdrahtet:** Gameplay-Anker brauchen Zustände (`zelle` zu/offen, `beute` voll/leer, `sprengpunkt` intakt/scharf/zerstört, `terminal` bereit/lädt/geladen/gesperrt als `state`-Parameter). Die neuen ORT-Modelle haben sie nicht (Terminal nur 0–2, Feldzelle, Kiste, Reaktor ohne `state`); Voraussetzung wäre ein `state`-Parameter in den Voxelwerk-Rezepten.
 
 ### `rollen.<name>`
 

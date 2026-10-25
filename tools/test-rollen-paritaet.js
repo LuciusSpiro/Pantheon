@@ -86,8 +86,8 @@ function pruefe(mut, aussenMut) {
   section('Mutationsprobe: Modell-IDs');
   r = pruefe((s) => { s.rollen['lager.behaelter'].rom = 'prop/rom/gibt_es_nicht'; });
   ok(r.code === 1 && /weder im Manifest noch in index\.json/.test(r.out), 'unbekannte Modell-ID → rot');
-  ok(ctx.indexModels.has('rom/energiezelle') && !ctx.manifestIds.has('rom/energiezelle'), 'Ausgangslage: rom/energiezelle steht in index.json, aber nicht im Manifest');
-  r = pruefe((s) => { s.rollen['lager.behaelter'].rom = 'rom/energiezelle'; });
+  ok(ctx.indexModels.has('item/waffe/rom/blaster') && !ctx.manifestIds.has('item/waffe/rom/blaster'), 'Ausgangslage: item/waffe/rom/blaster steht in index.json, aber nicht im Manifest (rom/energiezelle hat seit der Integration einen Manifest-Eintrag)');
+  r = pruefe((s) => { s.rollen['lager.behaelter'].rom = 'item/waffe/rom/blaster'; });
   ok(r.code === 1 && /keinen Manifest-Eintrag/.test(r.out), 'Modell nur in index.json (ohne Manifest-Eintrag: der Client lädt es nicht) → rot');
   r = pruefe((s) => { s.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/nix']; });
   ok(r.code === 1 && /prop\/germanen\/gemein\/nix/.test(r.out), 'eine unbekannte ID in einer Liste → rot');
@@ -179,6 +179,37 @@ function pruefe(mut, aussenMut) {
   ok(sil.length === 1 && sil[0].id === 'prop/germanen/gemein/laterne', `streu-Rolle mit 2,13-m-Laterne → K-SILHOUETTE (${sil.map((x) => x.id).join(',')}); Leitstück (kind leit) bleibt frei`);
   const echt = Buehne.silhouetteFehler(Buehne.silhouetteDaten());
   ok(echt.length === 0, 'produktive Daten (inkl. content/buehnen/rollen): keine K-SILHOUETTE');
+
+  section('Mutationsprobe: produktive Dateien und Hauptstücke (ORT-01 Integration)');
+  {
+    const lesen = (art) => JSON.parse(fs.readFileSync(path.join(ROOT, 'content/buehnen/rollen/' + art + '.json'), 'utf8'));
+    const meld = (j, art, c) => pruefeRollenDatei(j, art + '.json', c || ctx);
+    const ctxMit = (f) => { const c = Object.assign({}, ctx, { leitFuss: clone(ctx.leitFuss) }); f(c); return c; };
+    for (const art of ['station', 'aussenposten']) {
+      const j = lesen(art);
+      ok(fehler(meld(j, art)).length === 0 && meld(j, art).filter((x) => x.lvl === 'warn').length === 0, `produktiv ${art}: 0 Fehler, 0 Warnungen`);
+      // jede Rolle hat rom UND germanen, keine neutral-Ausnahme außerhalb der erlaubten Technik
+      ok(Object.values(j.rollen).every((r) => belegungListe(r.rom) && belegungListe(r.germanen)), `produktiv ${art}: jede Rolle römisch und germanisch belegt`);
+      ok(Object.entries(j.rollen).every(([, r]) => r.neutral !== true), `produktiv ${art}: keine neutrale Ausnahme (Kai erlaubt Teilen nur bei Rohren, Kabeln, Kisten, hier ist alles Gegenstück)`);
+      const kaputt = clone(j); delete kaputt.rollen[Object.keys(kaputt.rollen)[0]].germanen;
+      ok(fehler(meld(kaputt, art)).some((x) => /Belegung für germanen fehlt/.test(x.msg)), `produktiv ${art}: germanische Belegung einer Rolle entfernt → rot`);
+    }
+    const st = lesen('station');
+    // Layout-Parität: Hauptstück-Fuß muss in beiden Bauweisen gleich sein
+    const fz = fehler(meld(st, 'station', ctxMit((c) => { c.leitFuss.germanen['ort/germanen/station/kartentisch'] = [3, 1]; })));
+    ok(fz.some((x) => /verschiedene leit_fuss/.test(x.msg)), 'Hauptstück: verschiedener Fuß in Rom und Germanen → rot (sonst verschiedene Platzierung)');
+    ok(fehler(meld(st, 'station', ctxMit((c) => { delete c.leitFuss.rom['ort/rom/station/koje']; }))).some((x) => /keinen Eintrag in leit_fuss/.test(x.msg)), 'Hauptstück ohne leit_fuss-Eintrag → rot');
+    ok(fehler(meld(st, 'station', ctxMit((c) => { c.leitFuss.rom['ort/rom/station/messetafel'] = [2, 1]; c.leitFuss.germanen['ort/germanen/station/langtisch'] = [2, 1]; }))).some((x) => /reserviert nur 2×1/.test(x.msg)), 'Modell größer als der reservierte Fuß (3×1 in 2×1) → rot');
+    // Höhe: Hauptstück über Figurhöhe nur wandnah
+    const hoch = clone(st);
+    hoch.rollen['kommando.kartentisch'].germanen = 'leit/germanen/station/hochsitz_halle';
+    const c2 = ctxMit((c) => { c.leitFuss.germanen['leit/germanen/station/hochsitz_halle'] = [2, 1]; c.leitFuss.rom['ort/rom/station/kartentisch'] = [2, 1]; });
+    c2.manifestIds = new Set([...ctx.manifestIds, 'leit/germanen/station/hochsitz_halle']);
+    c2.modelle = Object.assign({}, ctx.modelle, { 'leit/germanen/station/hochsitz_halle': { footprint: [3, 2], height: 3.5 } });
+    ok(fehler(meld(hoch, 'station', c2)).some((x) => /nur wandnah/.test(x.msg)), 'Hauptstück 3,5 m hoch ohne wandnah → rot');
+    const hochWand = clone(hoch); hochWand.raumtypen.kommando.rollen.find((e) => e.rolle === 'kommando.kartentisch').wandnah = true;
+    ok(!fehler(meld(hochWand, 'station', c2)).some((x) => /nur wandnah/.test(x.msg)), 'dasselbe Hauptstück mit wandnah: true → die Höhenregel greift nicht mehr');
+  }
 
   fs.rmSync(TMP, { recursive: true, force: true });
   console.log(`\ntest-rollen-paritaet: ${n - fails}/${n} ok`);

@@ -254,6 +254,144 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     ok(Array.isArray(v), 'pruefeStreuung läuft für Rollen-Stücke ohne Absturz');
   }
 
+  // ---------------- ORT-01 Integration: Hauptstücke (kind leit) und die produktiven Rollen-Dateien ----------------
+  const WANDKINDS = ['wand', 'zaun', 'fels', 'gitter', 'fenster', 'pfeiler', 'kante'];
+  const PROD = { station: json('content/buehnen/rollen/station.json'), aussenposten: json('content/buehnen/rollen/aussenposten.json') };
+  const BAUW = { rom: json('content/buehnen/bauweisen/rom.json'), germanen: json('content/buehnen/bauweisen/germanen.json') };
+  const dekoR = { rom: json('content/buehnen/deko/rom.json'), germanen: json('content/buehnen/deko/germanen.json') };
+  const prod = (k, art, bw, extra) => {
+    const dp = BAUW[bw].deckung_props && BAUW[bw].deckung_props[art];
+    const ids = new Set(dp ? Object.values(dp).flat() : []);
+    const r = Object.assign({}, dekoR[bw], { regeln: {} });
+    for (const [t, v] of Object.entries(dekoR[bw].regeln)) r.regeln[t] = Object.assign({}, v, { props: v.props.filter((i) => !ids.has(i)) });
+    return streuen(k, r, { extra: extra || [], rollen: { daten: PROD[art], bauweise: bw, ausschluss: ids, leitFuss: BAUW[bw].leit_fuss } });
+  };
+  // Rückwand des Hauptstücks nach Drehung: 0 Norden, π Süden, π/2 Westen, −π/2 Osten
+  const rueckwandOk = (k, d) => {
+    const [x0, y0, w, h] = d.fuss;
+    const rot = d.rot, W = (x, y) => WANDKINDS.includes(k.kindAt(x, y));
+    let ok = true;
+    if (Math.abs(rot) < 1e-9) { for (let x = x0; x < x0 + w; x++) ok = ok && W(x, y0 - 1); }
+    else if (Math.abs(rot - Math.PI) < 1e-9) { for (let x = x0; x < x0 + w; x++) ok = ok && W(x, y0 + h); }
+    else if (Math.abs(rot - Math.PI / 2) < 1e-9) { for (let y = y0; y < y0 + h; y++) ok = ok && W(x0 - 1, y); }
+    else { for (let y = y0; y < y0 + h; y++) ok = ok && W(x0 + w, y); }
+    return ok;
+  };
+
+  section('Hauptstücke (kind leit): Platzierung nach Fußabdruck');
+  {
+    const daten = (wand) => ({ format: 'rollen/1', kartenart: 'station', raumtypen: { lager: { frei_halten: 1, rollen: [{ rolle: 'lager.haupt', kind: 'leit', wandnah: wand }, { rolle: 'lager.streu', kind: 'streu', zug: [1, 2] }] } },
+      rollen: { 'lager.haupt': { rom: 'leit/rom/ruine/x', germanen: 'leit/germanen/x' }, 'lager.streu': { rom: ['prop/rom/ruine/deko_stein'], germanen: ['prop/germanen/gemein/kette'] } } });
+    const fuss = { 'leit/rom/ruine/x': [2, 1], 'leit/germanen/x': [2, 1] };
+    const lauf = (k, wand, bw) => streuen(k, {}, { rollen: { daten: daten(wand), bauweise: bw, leitFuss: fuss } });
+    let gesamt = 0, platziert = 0, verstoss = 0, ohneWand = 0, ausserhalb = 0, inhalt = 0;
+    const rotAnz = new Set();
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'germanen');
+      const liste = lauf(k, true, 'germanen');
+      verstoss += pruefeStreuung(k, liste).length;
+      for (const p of k.plaetze.filter((q) => raumtypVon(q.id) === 'lager')) {
+        gesamt++;
+        const d = liste.find((q) => q.platz === p.id && q.fuss);
+        if (!d) continue;
+        platziert++;
+        rotAnz.add(d.rot);
+        if (!rueckwandOk(k, d)) ohneWand++;
+        const [x0, y0, w, h] = d.fuss;
+        if (x0 < p.x || y0 < p.y || x0 + w > p.x + p.w || y0 + h > p.y + p.h) ausserhalb++;
+        if (!((d.rot === 0 || Math.abs(d.rot - Math.PI) < 1e-9) ? w === 2 && h === 1 : w === 1 && h === 2)) inhalt++;
+        // kein Streustück auf dem Fuß des Hauptstücks
+        if (liste.some((q) => q !== d && q.platz === p.id && q.x >= x0 && q.x < x0 + w && q.y >= y0 && q.y < y0 + h)) inhalt++;
+      }
+    }
+    ok(platziert === gesamt && gesamt > 0, `wandnah: jedes Lager bekommt sein 2×1-Hauptstück (${platziert}/${gesamt})`);
+    ok(verstoss === 0 && ausserhalb === 0, 'alle Kacheln des Fußes: nie Anker, Tür, Weg, Kantenmitte, nie über die Raumgrenze (pruefeStreuung inkl. fuss)');
+    ok(ohneWand === 0, 'wandnah: der Rücken (−z) liegt über die ganze Breite an einer Wand');
+    ok(inhalt === 0, 'Fuß passt zur Drehung (gerade: 2×1, quer: 1×2) und Streu steht nicht auf dem Hauptstück');
+    ok(rotAnz.size >= 2, `Drehungen variieren je Seed (${rotAnz.size} verschiedene)`);
+    // frei (nicht wandnah): alle Kacheln erlaubt, deterministisch
+    let freiOk = 0, freiN = 0;
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'germanen');
+      const a = lauf(k, false, 'germanen');
+      freiN++; if (pruefeStreuung(k, a).length === 0 && JSON.stringify(a) === JSON.stringify(lauf(k, false, 'germanen'))) freiOk++;
+    }
+    ok(freiOk === freiN, `frei stehend: 0 Verstöße und deterministisch (${freiOk}/${freiN})`);
+    // Layout-Parität: gleicher Fuß → gleiche Platzierung
+    let par = 0;
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'germanen');
+      const sig = (bw) => JSON.stringify(lauf(k, true, bw).map((d) => [d.x, d.y, d.rot, d.dx, d.dz, d.seed, d.rolle, d.fuss]));
+      if (sig('rom') === sig('germanen')) par++;
+    }
+    ok(par === SEEDS.length, `Hauptstück-Position in Rom und Germanen identisch (${par}/${SEEDS.length} Seeds)`);
+    // ohne Fuß-Eintrag oder ohne Platz: entfällt ohne Fehler
+    const kk = karte('station', 3, 'germanen');
+    const ohneFuss = streuen(kk, {}, { rollen: { daten: daten(true), bauweise: 'germanen', leitFuss: {} } });
+    ok(!ohneFuss.some((d) => d.fuss) && ohneFuss.length > 0, 'Hauptstück ohne leit_fuss-Eintrag entfällt, Streu bleibt');
+    const breit = streuen(kk, {}, { rollen: { daten: daten(true), bauweise: 'germanen', leitFuss: { 'leit/germanen/x': [30, 1] } } });
+    ok(!breit.some((d) => d.fuss), 'Hauptstück, das in keinen Raum passt, entfällt ohne Fehler');
+    const bericht = {};
+    streuen(kk, {}, { rollen: { daten: daten(true), bauweise: 'germanen', leitFuss: fuss, bericht } });
+    ok(Object.keys(bericht).length > 0, 'Kapazitätsbericht berücksichtigt den Fuß');
+  }
+
+  section('Produktive Rollen-Dateien: Raumtypen, Hauptstücke, Streu, Parität');
+  {
+    const erwartet = { station: ['kommando', 'reaktor', 'lager', 'quartier', 'messe', 'werkstatt', 'krankenstation', 'zellen'], aussenposten: ['kommando', 'lager', 'werkstatt', 'quartier', 'krankenstation'] };
+    for (const art of ['station', 'aussenposten']) {
+      ok(JSON.stringify(Object.keys(PROD[art].raumtypen).sort()) === JSON.stringify(erwartet[art].slice().sort()), `${art}: Raumtypen ${Object.keys(PROD[art].raumtypen).join(', ')} (keine Kantine)`);
+      for (const [rt, def] of Object.entries(PROD[art].raumtypen)) ok(def.rollen.length >= 5 && def.rollen.length <= 7 && def.rollen.some((e) => e.kind === 'leit'), `${art}/${rt}: ${def.rollen.length} Rollen, mindestens ein Hauptstück`);
+    }
+    for (const art of ['station', 'aussenposten']) {
+      let par = 0, verstoss = 0, hauptSoll = 0, hauptIst = 0, wandFehl = 0, dichteMin = 99, nahAnker = 0;
+      const modelle = { rom: new Set(), germanen: new Set() };
+      for (const s of SEEDS) {
+        const k = karte(art, s, 'germanen');
+        const kr = karte(art, s, 'rom');
+        const sig = (kk, bw) => JSON.stringify(prod(kk, art, bw).filter((d) => d.rolle).map((d) => [d.x, d.y, d.rot, d.dx, d.dz, d.seed, d.rolle, d.platz, d.fuss]));
+        for (const bw of ['rom', 'germanen']) {
+          const kk = bw === 'rom' ? kr : k, liste = prod(kk, art, bw);
+          verstoss += pruefeStreuung(kk, liste).length;
+          for (const d of liste) if (d.rolle) modelle[bw].add(d.id);
+          if (bw === 'germanen') {
+            for (const p of kk.plaetze) {
+              const def = PROD[art].raumtypen[raumtypVon(p.id)]; if (!def) continue;
+              hauptSoll += def.rollen.filter((e) => e.kind === 'leit').length;
+              const mine = liste.filter((d) => d.platz === p.id && d.rolle);
+              hauptIst += mine.filter((d) => d.fuss).length;
+              for (const d of mine.filter((q) => q.fuss)) { const e = def.rollen.find((r) => r.rolle === d.rolle); if (e.wandnah && !rueckwandOk(kk, d)) wandFehl++; }
+              if (art === 'station') dichteMin = Math.min(dichteMin, mine.length);
+              for (const a of kk.anker.filter((q) => q.platz === p.id)) for (const d of mine) { const t = d.fuss ? [] : [[d.x, d.y]]; if (d.fuss) for (let y = d.fuss[1]; y < d.fuss[1] + d.fuss[3]; y++) for (let x = d.fuss[0]; x < d.fuss[0] + d.fuss[2]; x++) t.push([x, y]); if (t.some(([x, y]) => x === a.x && y === a.y)) nahAnker++; }
+            }
+          }
+        }
+        // Layout-Parität: bei gleicher Karte (Station: identisches Raster) gleiche Positionen; Außenposten hat für rom ein eigenes Layout, dort wird die Bauweise auf derselben Karte getauscht
+        const sigTausch = (bw) => JSON.stringify(prod(k, art, bw).filter((d) => d.rolle).map((d) => [d.x, d.y, d.rot, d.dx, d.dz, d.seed, d.rolle, d.platz, d.fuss]));
+        if (sigTausch('rom') === sigTausch('germanen')) par++;
+      }
+      ok(verstoss === 0, `${art}: 0 Verstöße in 10 Seeds × 2 Bauweisen (Anker, Tür, Weg, Kantenmitte, Raumgrenze, ≤ 12 je Zelle)`);
+      ok(par === SEEDS.length, `${art}: Layout-Parität Rom ↔ Germanen ${par}/${SEEDS.length} Seeds (Position, Drehung, Versatz, Fuß je Rolle)`);
+      ok(wandFehl === 0, `${art}: wandnahe Hauptstücke stehen mit dem Rücken an der Wand`);
+      ok(nahAnker === 0, `${art}: kein Rollen-Stück auf einem Anker`);
+      ok(hauptIst > 0 && hauptIst <= hauptSoll, `${art}: ${hauptIst} von ${hauptSoll} Hauptstücken fanden Platz (der Rest entfällt ohne Fehler)`);
+      if (art === 'station') ok(dichteMin >= 4, `station: jeder Raum zeigt mindestens 4 Rollen-Stücke (Minimum ${dichteMin})`);
+      ok(modelle.rom.size > 5 && modelle.germanen.size > 5 && ![...modelle.rom].some((m) => /germanen/.test(m)) && ![...modelle.germanen].some((m) => /(^|\/)rom\//.test(m)), `${art}: römische Räume nur mit römischen, germanische nur mit germanischen Stücken (${modelle.rom.size}/${modelle.germanen.size} Modelle)`);
+    }
+    // Determinismus mit den produktiven Daten, ohne Math.random
+    const zufall = Math.random; Math.random = () => { throw new Error('Math.random'); };
+    let det = true;
+    try { for (const art of ['station', 'aussenposten']) for (const s of SEEDS.slice(0, 5)) { const k = karte(art, s, 'rom'); if (JSON.stringify(prod(k, art, 'rom')) !== JSON.stringify(prod(k, art, 'rom'))) det = false; } } catch (e) { det = false; }
+    Math.random = zufall;
+    ok(det, 'Determinismus mit den produktiven Rollen (zweimal gleich, kein Math.random)');
+    // keine Deckungs-Props als Belegung (Außenposten)
+    const verboten = new Set(['prop/germanen/gemein/fass', 'prop/germanen/gemein/werkzeug', 'prop/germanen/gemein/feuerschale']);
+    for (const bw of ['rom', 'germanen']) for (const l of Object.values(BAUW[bw].deckung_props.aussenposten)) if (Array.isArray(l)) for (const id of l) verboten.add(id);
+    let deck = 0;
+    for (const art of ['station', 'aussenposten']) for (const r of Object.values(PROD[art].rollen)) for (const bw of ['rom', 'germanen']) for (const id of [].concat(r[bw])) if (verboten.has(id)) deck++;
+    ok(deck === 0, 'keine Belegung ist ein Deckungs-Prop (fass, werkzeug, feuerschale, römische Ersatzmodelle)');
+  }
+
   console.log(`\ntest-rollen-modus: ${n - fails}/${n} ok`);
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
