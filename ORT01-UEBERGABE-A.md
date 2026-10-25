@@ -1,46 +1,39 @@
-# ORT-01 Übergabe Teil A (Stand: Kai hat abgebrochen)
+# ORT-01 Übergabe Teil A (Stand nach Fortsetzung)
 
-Worktrees: Spiel `Pantheon-ort01-int` (Branch `ort01-int`), Voxelwerk `voxelwerk-ort01-int` (Branch `ort01-int`, HEAD `6e531c3`).
-`public/voxel` ist gegen Voxelwerk `6e531c3` erzeugt (Spiel-Commit `fa1b662`). Kein Push, kein Merge.
+Worktrees: Spiel `Pantheon-ort01-int` (Branch `ort01-int`), Voxelwerk `voxelwerk-ort01-int` (Branch `ort01-int`).
+`public/voxel` ist gegen den Voxelwerk-HEAD erzeugt (Spiel-Commit `ba9ea3d`). Kein Push, kein Merge.
 
-## Teil A, Punkt für Punkt
+## Stand Teil A
 
-| Nr. | Stand | Commits |
+| Nr. | Stand | Commits (Spiel / Voxelwerk) |
 |---|---|---|
-| 1 Palette Rom-Außenposten und Zustandspaletten | **fertig, nicht im Bild geprüft.** `kit.js`: `paletten.art.<kartenart>` darf ein Objekt je Zustand sein. `rom.json`: station und aussenposten je intakt/verfallen/umkaempft. `germanen.json`: station_esse je Zustand. Neue Paletten in Voxelwerk: `rom_verfallen`, `rom_umkaempft`, `station_esse_verfallen`, `station_esse_umkaempft`. Stimmung `planet_day` für den Außenposten nicht angefasst. | Spiel `734ec5a`; Voxelwerk `6781eb4` |
-| 2 Kronen auf Leitfaden-Maß | **fertig, nicht im Bild geprüft.** Rom-Station: je Wandachse genau eine Amber-Linie (vorher Nord und Süd = 2 Voxel breites Band). Rom-Außenposten: Travertinkrone statt Gunmetal. Germanen Station und Außenposten: Glut `#FF7A1A`, emit 0,6. `station_esse`: `ember` `#FF7A1A`, emit 1,0. Quad-Budget nicht erhöht. | Voxelwerk `549d98b` |
-| 3 Böden | **fertig, nicht im Bild geprüft.** Germanen-Innenboden helles Eisen, Glut nur als Nordrand-Linie an Kacheln mit `seed == 0` (jede vierte), sonst kalte Fuge (die Modelle kennen die Kachelposition nicht, "Torschwelle/Mittellinie" ist damit nicht umsetzbar). Rom-Innenfugen Travertin, Amber-Rinnenfuge entfernt. | Voxelwerk `549d98b` |
-| 4 Rollen-Daten | **angefangen.** Format und Deko-Code sind da (`zug_gross`, Schwelle `GROSS_AB = 49` Kacheln in `deko.js`; `nur_wand`; Prüfregeln). **Die Daten in `rollen/*.json` sind NICHT geändert** (kein `zug_gross`, kein `pflicht` an den Leitstücken, Throne/Kommando nicht umgebaut). Fertig ist nur die Germanen-Medkiste mit Runensiegel. | Spiel `734ec5a`; Voxelwerk `6e531c3` |
-| 5 Raumtyp über Anker | **Code fertig, ohne eigenen Test.** `deko.js` `raumtypDe`: Platz mit Anker `sprengpunkt` → `reaktor` (nur Station), Platz vom Typ `kontrollraum` mit `terminal` → `kommando`. Generatorkarten unverändert (Hash 72/72, Baseline unverändert gleich in den Zellen). Fehlt: Test mit einer Modul-Karte (Platz `messe_1` mit Sprengpunkt) und Paritäts-/Hash-Belege auf Bestandskarten. | Spiel `734ec5a` |
-| 6a Leitstück auf Ankern (Sensorturm, Landeplatz) | **offen.** Nichts in `kit.js` (~884) geändert, Landeplatz-Modell nicht umgeschrieben. | – |
-| 6b Klasse `bau` verschärfen | **offen** (nur `kit/`-Ausnahme im Test bleibt). | – |
-| 6c Höhenregel je Eintrag | **fertig** (`rollen-pruefung.mjs`, Test angepasst). | `734ec5a` |
-| 6d Ausfall Hauptstücke | **fertig im 10-Seed-Test:** Rückfall in dieser Reihenfolge: wandnah fh…1, frei fh…1, Abstand 0 wandnah, Abstand 0 frei (nicht bei `nur_wand`). Außenposten 38/38 (vorher 33/38), Station 102/102. Die Quote auf den 1.668 Räumen der Review nicht neu gemessen. | `734ec5a` |
-| 6e Kleinkram | **offen** (`kitIds`-Präfix `rom`, `kaltbau-mess --bauweise` schiff, `lp hin` in `protocol.js`, `transferZiel.scene`, `mtimeDirty`, CONTRACT/Kommentare `deko.js` ~13/~20; CONTRACT-ROLLEN-ORT.md kennt `zug_gross`, `nur_wand`, Rückfall noch nicht). | – |
-| 7 Prüf-Sperre Orte | **offen.** Nichts gebaut. Wichtig: erst nach Teil B1 aktivieren, sonst rot (Anker lösen heute Ruine-/Alt-Props auf). | – |
-| 8 Screenshot-Werkzeug | **offen** (Figur ausblenden, echte Übersicht, Vorher-Bilder von `Pantheon-main`). Heute: `tools/ort01-shots.js`, `--lp` für Bestandskarten; `uebersicht.png` zeigt nur dieselbe Kamerahöhe in breitem Fenster. | – |
-| 9 Dach-Budget Prüfbogen | **fertig.** `tools/pruefbogen.mjs`: Dach 3.200, Fehler ab 4.800; `kit/germanen/dach` jetzt Warnung (4.156), kein Fehler. | Voxelwerk `250e87d` |
+| 1 Paletten (Rom-Außenposten, Zustände) | fertig; `art.<kartenart>` je Zustand, `rom_verfallen/_umkaempft`, `station_esse_verfallen/_umkaempft`. Verfall/Umkämpft im Bild nicht geprüft. | `734ec5a` / `6781eb4` |
+| 2 Kronen 1-Voxel-Linie | fertig (Rom Amber, Germanen Glut `#FF7A1A`) | / `549d98b` |
+| 3 Böden | fertig, danach durch Punkt 11 (ruhiger Boden) ersetzt | / `549d98b`, `Boden ruhig…` |
+| 4 Rollen-Daten | fertig: `zug_gross` (ab 49 Kacheln), `pflicht` an allen `leit`, `zellen.feldzelle` gestrichen (Zelle nur als Anker), Thron nicht mehr festes Kontrollraum-Leitstück (`leit.kontrollraum` aus `germanen.json`), Medkiste Runensiegel | `4921b2e` / `6e531c3` |
+| 5 Raumtyp über Anker | fertig mit Test (messe_1 + Sprengpunkt → reaktor, Kontrollraum + Terminal → kommando) | `4921b2e` |
+| 6a Leitstück ohne Anker | fertig in `kit.js` (meidet Anker/Weg/Pad/Rampe/Tür, nächstes freies Rechteck, sonst entfällt); Landeplatz Rom/Germanen flach (1 Voxel, 6 cm); `silhouetteFehler` prüft `bauweise.leit` (Ausnahmeliste `LEIT_PLATZ_HOCH`) | `4921b2e` / `Landeplatz…` |
+| 6b Klasse `bau` | fertig: nur `ort/`, `kit/`, `rom/standarte`, `rom/laterne`; Flächenprüfung gegen Footprint; Test inkl. Einbau in `check-assets` | `4921b2e` |
+| 6c/6d/6e | fertig (Höhenregel je Eintrag, Rückfall Hauptstück, Kleinkram/Doku in `CONTRACT-ROLLEN-ORT.md`) | `734ec5a`, `4921b2e` |
+| 7 Prüf-Sperre Orte | **offen** (bewusst, erst nach Teil B1) | – |
+| 8 Screenshot-Werkzeug | fertig: Sitzkamera + Figur geparkt (Station), Übersichten (`--uebersicht`, Nebel aus, schräg von oben), `--lp`, `--root` (main-Archiv für Vorher-Bilder, `lp hin` ins Archiv kopiert) | `4921b2e` |
+| 9 Dach-Budget | fertig (Prüfbogen 3.200, Fehler ab 4.800) | / `250e87d` |
+| 11 Boden ruhig (Kai) | fertig: `par` (x mod 2 + 2·(y mod 2)) von `kit.js` an `kit/geruest/boden` und die Slots `boden_belag`/`boden_fuge` (rom, germanen × station, aussenposten); Fugen nur an 2×2-Blockgrenzen, keine Pro-Kachel-Streuung/Flecken/Schachbrett; Schiff/Ruine ohne `par`. Die Station dieser Bauweisen nutzt jetzt die Kit-Slots statt der Fliesen-Optik (`stationBoden` nur noch für andere Bauweisen). Nicht umgesetzt: Amber-/Glutlinie im Boden (Modelle kennen die Wegrichtung nicht). | `4921b2e` / `Boden ruhig…`, `Stationsfuge heller` |
 
-Zusätzlich (A-Gates): `deko`/`layout`-Baseline neu gezogen (`1e9e287`, Grund: Hauptstück-Rückfall verändert die Außenposten-Platzierung bewusst). Karten 72/72 und `deko_zellen` 60/60 unverändert.
+Baseline: `deko`/`layout` neu in `3245cd2` (Grund: Rollen-Daten, Rückfall, Zellengrenze `MAX_ROLLE_JE_ZELLE`=6). Karten 72/72, `deko_zellen` 60/60 unverändert.
 
-## Gates
+## Gates (Stand `ba9ea3d`)
+Grün: `npm test` (Exit 0), `npm run check`, `check:assets` (0 Fehler, 46 Warnungen), `snap:mess`, Hash-Vergleich (72/72, 60/60, 120/120, 120/120, Parität 60/60), Golden 120/120 byte-gleich zu frischem main-Lauf und zur eingecheckten Basis.
+Kaltbau (10 Seeds, ruhiger Lauf, alle gültig): Außenposten germanen Median etwa 520 ms (Baseline 442, Toleranz 530), Station etwa 440 ms (Baseline 388, Toleranz 466); Dreiecke Außenposten germanen Median etwa 441 k (Grenze 416 k × 1,1 = 458 k), Station etwa 316 k; Rom Außenposten etwa 278 k, Station etwa 225 k.
+Hinweis Dreiecke Bestandskarten (`VoxelKit.stats()`): Methalle 416 k (main 394 k), Eisenwald 388 k (364 k), Kesh-Grabung 450 k (428 k), Kantenstein 406 k; über 400 k war schon main.
 
-Zuletzt grün (nach den letzten Code-Änderungen): `test-rollen-modus` 92/92, `test-rollen-paritaet` 69/69, `test-bau-klasse`, `test-buehne` 470/470, `hash-baseline --compare` (karten 72/72, deko_zellen 60/60, deko 120/120, layout 120/120, layout-parität 60/60), `npm run check:assets` 0 Fehler (46 Warnungen).
-Der letzte vollständige Lauf von `npm test`, `npm run check`, `snap:mess`, Golden Trace (frisch gegen main, `--dir`) und Kaltbau stammt aus Phase 6 (vor Teil A) und war grün (Golden 120/120 byte-gleich). **Nach Teil A nicht neu gelaufen:** `npm test` (gesamt), `check`, `snap:mess`, Golden, Kaltbau, Dreiecke je Bühne, Screenshots.
+## Screenshots
+`shots/ort01/<bauweise>/<kartenart>/<seed>-<raum>.png` und `…-uebersicht.png` (Seeds 1–3), `shots/ort01/lp/<id>/…` (Bestandskarten), Vorher (main): `shots/vorher-main/lp/<id>/…`.
+Kritik: Boden jetzt ruhig und klar lesbar (2×2-Felder, dunkle Fuge); Rom-Station: Marmor/Rot/Gold, Stücke stehen, nichts auf Wegen. Offen: Außenposten-Gelände bei Rom braun, Rom-Dächer fast schwarz, Germanen-Dächer sehr dunkelbraun (Dach-Rolle/Gelände-Palette, nicht Teil A); in Sitzkamera-Bildern wirken Farben blasser als im Spiel (Glut dort rosa-braun); Station Germanen: Fuge gut sichtbar, noch etwas kontrastreich.
 
-## Bekannte Probleme
-- Die Teil-A-Modelländerungen (Kronen, Böden, Paletten) wurden nicht im Bild beurteilt, nur durch `tools/check.js` und `pruefbogen` (0 Fehler) geprüft.
-- Kaltbau-Zeiten schwanken auf dieser Maschine um Faktor 2 (derselbe Stand 535–1.280 ms); Zeit-Abnahme braucht einen ruhigen Rechner. Dreiecke sind stabil (Außenposten germanen etwa 422 k mit Rollen, Grenze 458 k).
-- Rom-/Germanen-Anker zeigen noch Ruine-/Alt-Props (Beute, Zelle, Terminal, Sprengpunkt, Ziel); das behebt Teil B1.
-- Platzhalter `anker:flagge` in `eisenwald.siedlung` (nicht gegen main geprüft).
-- `kit/germanen/dach`: 4.156 Dreiecke (Vertrag 3.200), nur noch Warnung.
-
-## Nächste Schritte, in Reihenfolge
-1. Teil A sichtbar prüfen: `node tools/ort01-shots.js --lp helix.station,b7.aussenstelle,methalle.siedlung --out shots/ort01-a` und `--arten station,aussenposten --seeds 1,2,3`; Kronen, Böden, Verfall-/Umkämpft-Paletten (b7 verfallen) ansehen.
-2. Punkt 4: Daten in `rollen/station.json`/`aussenposten.json` ergänzen (`zug_gross` ab Fläche 49, `pflicht: true` an allen `leit`-Einträgen, Kommando-Germanen ohne festen Thron: `leit.kontrollraum.station` in `germanen.json` entfernen oder per Variante lösen, Rom `reaktor.leitung`/`lager.ladebank` pflicht); danach Layout-Parität und Baseline neu.
-3. Punkt 5 testen (Modul-Karte mit Sprengpunkt, Hash-Vergleich).
-4. Punkt 6a: `kit.js` `leitPlan` (~884): Leitstück-Rechteck darf keine Anker-/Weg-/Türkachel treffen (Wachturm: freie Ecke oder entfällt); Landeplatz flach (≤ 0,08 m), Modelle in Voxelwerk-Int umschreiben (`ort/rom|germanen/aussenposten/landeplatz`); `silhouetteFehler` auf `bauweise.leit` erweitern.
-5. 6b, 6e, Punkt 8 (Screenshot-Werkzeug), CONTRACT-ROLLEN-ORT.md angleichen.
-6. **Teil B1:** Anker-Modelle aus `voxelwerk-ort01-anker` (Anleitung `C:\Users\Luciu\projects\voxelwerk-ort01-anker\ANKER-VERDRAHTUNG-ORT01.md`) in `ort01-int` mergen und in `bauweisen/*.json` (`anker.*`) verdrahten, dann `npm run assets` (eigener Commit).
-7. **Punkt 7:** Prüf-Sperre (keine `*/ruine/*`, `truhe`, `kaefig_zelle`, `werkzeug`, keine `prop/germanen/*` in Rom) in `check:assets`/Rollen-Prüfung als Fehler anlegen, mit Schalter, erst nach Schritt 6 aktivieren; Test mit Mutationsprobe.
-8. Alle Gates: Karten-Hash 72/72, Baseline mit Grund neu, `npm test`, `npm run check`, `check:assets`, `snap:mess`, Golden frisch gegen `Pantheon-main` mit `--dir`, Kaltbau je Kartenart (ruhiger Rechner), Dreiecke je Bühne (Außenposten ≤ 416 k × 1,10), Screenshots aller vier Kombinationen und Bestandskarten, danach `npm run assets` als eigener Commit.
+## Nächste Schritte
+1. Teil B1: Anker-Modelle aus `voxelwerk-ort01-anker` (`ANKER-VERDRAHTUNG-ORT01.md`) mergen, in `bauweisen/*.json` (`anker.*`) verdrahten, `npm run assets` (eigener Commit).
+2. Punkt 7 Prüf-Sperre (keine `*/ruine/*`, `truhe`, `kaefig_zelle`, `werkzeug`, `prop/germanen/*` in Rom) als Fehler mit Schalter anlegen, erst nach Schritt 1 aktivieren, Mutationsprobe.
+3. Dach-/Geländefarben Außenposten (Rom braun/schwarz, Germanen dunkel) mit Kai klären.
+4. Verfall/Umkämpft-Paletten im Bild prüfen (`b7.aussenstelle` verfallen, `kesh.grabung` umkämpft).
+5. Alle Gates erneut nach B1.
