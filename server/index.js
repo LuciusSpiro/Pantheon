@@ -17,7 +17,7 @@ const STATIC_DIRS = [
   { prefix: '/content/buehnen/', dir: path.join(ROOT, 'content', 'buehnen'), only: ['.json'] },
   // SUND-02b UI: Texte und Dienstgrade für die Rang-Anzeige (public/js/rang.js) und die Texte des Terminal-Bereichs Kurs (public/js/absicht.js: flotte/absichten.json), nur diese drei Dateien, nur lesen
   { prefix: '/content/flotte/', dir: path.join(ROOT, 'content', 'flotte'), nur: ['ruf.json', 'absichten.json'] },
-  { prefix: '/content/welt/', dir: path.join(ROOT, 'content', 'welt'), nur: ['ruf-werte.json'] },
+  { prefix: '/content/welt/', dir: path.join(ROOT, 'content', 'welt'), nur: ['ruf-werte.json', 'handel-info-werte.json'] },   // SUND-03b I: handel-info-werte.json (Texte und Preise des Bereichs Information; public/js/handel-info.js)
   { prefix: '/', dir: path.join(ROOT, 'public') },
 ];
 const MIME = {
