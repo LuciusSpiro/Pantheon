@@ -2394,7 +2394,8 @@
         return !w || w.indexOf(ctxName || 'hafen') >= 0;
       });
       return list.map(it => {
-        const price = (it.prices && it.prices[ctxName]) || (ctxName === 'vaelen' && it.priceVaelen) || it.price;
+        const lage = (st.shopPreise && st.shopPreise[it.id]) || null;   // SUND-03b P: Preis nach Lage vom Server (nur Freie Fahrt Sund, nur Verbrauchsgüter), sonst fehlt das Feld
+        const price = lage ? lage[0] : (it.prices && it.prices[ctxName]) || (ctxName === 'vaelen' && it.priceVaelen) || it.price;
         let reason = null, owned = '';
         if (it.kind === 'upgrade' && up[it.id]) reason = 'Bereits eingebaut';
         else if (it.kind === 'gear' && me.gear && me.gear[it.id]) reason = 'Hast du schon';
@@ -2404,7 +2405,7 @@
         if (it.kind === 'item') owned = 'Lager: ' + n(inv[it.id]) + (it.limit ? '/' + it.limit : '');
         if (it.kind === 'deko') owned = 'Besitz: ' + decoOwned.filter(d => d === it.id).length;
         if (it.kind === 'upgrade' && up[it.id]) owned = 'eingebaut';
-        return Object.assign({}, it, { price, reason, owned, cheaper: price < it.price });
+        return Object.assign({}, it, { price, reason, owned, cheaper: price < it.price }, lage ? { preisHinweis: lage[1] } : {});
       });
     },
     drawShop(ctx, view) {

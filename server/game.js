@@ -42,6 +42,7 @@ const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Le
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
+const Preise = require('./sim/preise.js');   // SUND-03b P: Preisfaktor der Verbrauchsgüter im Terminal
 const onboard = require('./sim/onboard.js');
 const { Explore } = require('./sim/explore.js');
 const { Mission } = require('./sim/mission.js');
@@ -2099,6 +2100,7 @@ class Game {
       world,
       ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
+      ...((sp) => (sp ? { shopPreise: sp } : {}))(this.weltsim && !shop.sperreFuer(this) ? Preise.snapshot(this, shop.shopContext(this)) : null),   // SUND-03b P: nur Verbrauchsgüter mit Lagefaktor != 1 { id: [Preis, Hinweis] }; fehlt sonst
       ...(Werft.testumgebung(this) ? { werftTest: 1 } : {}),   // Testumgebung: Terminal und Werft auch abgedockt (Client)
       ...((wf) => (wf ? { werft: wf } : {}))(Werft.snapshot(this)),   // PAN-01 D: nur wenn jemand am Terminal sitzt
       mission: missionOut,

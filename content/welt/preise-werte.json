@@ -1,0 +1,31 @@
+{
+  "format": "preise-werte/1",
+  "_hinweis": "SUND-03b P: Preisfaktor der Verbrauchsgueter im Hafenterminal der Freien Fahrt Sund (server/sim/preise.js). Der Faktor folgt EREIGNISSEN der Sim, nicht dem Rohvorrat: Messung (40 Seeds x 300 Ticks) zeigt, dass der Vorrat der Reiche fuer M, E, N fast konstant ist (Rom M=5, E um 50), ein Preis nach Vorrat waere dauerhaft Medipack +50 %, Ersatzteil -50 %. Treiber: Embargo gegen den Besitzer des Hafens (Ware passt zum Artikel), laufende Belagerung des Hafens bzw. im Umkreis, Munitionsvorrat U des Besitzers (nur Torpedo). Ohne Treiber ist der Faktor 1,0. Die Summe der Zuschlaege wird auf faktor_grenzen geklemmt, der Preis auf ganze Marken gerundet (mindestens 1). Werft-Preise stehen nicht hier und aendern sich nie. Alle Zahlen sind Annahmen (Messung: tools/messe-preise.js), Aenderungen wirken ohne Code.",
+  "werte": {
+    "faktor_grenzen": {"wert": {"min": 0.5, "max": 1.5}, "einheit": "Faktor", "_hinweis": "Summe aller Treiber (1 + Zuschlaege) wird hierauf geklemmt: hoechstens +-50 %."},
+    "artikel": {"wert": {
+      "medipack": {"verbrauchsgut": true, "gut": "M"},
+      "ersatzteil": {"verbrauchsgut": true, "gut": "E"},
+      "flickblech": {"verbrauchsgut": true, "gut": "E"},
+      "loeschgel": {"verbrauchsgut": true, "gut": "E"},
+      "bolzen": {"verbrauchsgut": true, "gut": "U"},
+      "sonde": {"verbrauchsgut": false},
+      "ladung": {"verbrauchsgut": false}
+    }, "einheit": "Artikel-Id (CONFIG.shop) -> { verbrauchsgut, gut }", "_hinweis": "Nur Artikel mit verbrauchsgut true folgen der Lage; alles, was hier fehlt (Gear, Deko, Umbauten) oder false ist (Sonde, Sprengstoff), hat einen festen Preis. gut = Sim-Gut des Artikels (M Medizin, E Ersatzteile, U Munition): bestimmt, welches Embargo und welcher Vorrat auf ihn wirkt."},
+    "embargo": {"wert": {"zuschlag": 0.3}, "einheit": "Zuschlag auf den Faktor", "_hinweis": "Embargo des Konkordats (zustand.embargo, SUND-03 A) gegen den Besitzer des Hafens, das das gut des Artikels in waren enthaelt: teurer. Wirkt solange das Embargo laeuft (endet von selbst)."},
+    "belagerung": {"wert": {"hafen": 0.25, "umkreis": 0.1, "radius": 1}, "einheit": "Zuschlag auf den Faktor, Spruenge", "_hinweis": "Laufende Belagerung (Feldzug mit Ziel, Flotte angekommen, wie wirkungen.js belagerungen): Ziel ist der Hafen selbst = Zuschlag hafen, Ziel in einem anderen Hex bis radius Spruenge entfernt (Flottennetz) = Zuschlag umkreis. Gilt fuer alle Verbrauchsgueter; nur der staerkere Fall zaehlt."},
+    "vorrat": {"wert": {"gut": "U", "knapp": {"bis": 8, "zuschlag": 0.3}, "reichlich": {"ab": 46, "zuschlag": -0.2}}, "einheit": "Vorrat, Zuschlag", "_hinweis": "Vorrat des Besitzers an diesem Gut (zustand.vorrat[besitzer]): knapp = bis (einschliesslich) dieser Menge teurer, reichlich = ab dieser Menge guenstiger (Rom, 40 x 300 Ticks gemessen: knapp in 7 %, reichlich in 22 % der Ticks; der Vorrat ist bei 50 gedeckelt, springt aber um 46 hin und her), dazwischen kein Zuschlag. Nur Artikel mit gut = vorrat.gut (Torpedo)."},
+    "neutrale_besitzer": {"wert": ["kon", "saum"], "einheit": "Besitzer-Id", "_hinweis": "Haefen dieser Besitzer (Konkordat) sind vom Krieg nicht betroffen: Faktor 1,0, Embargo und Belagerung wirken dort nicht."},
+    "kontexte_ohne": {"wert": ["vaelen"], "einheit": "shopContext", "_hinweis": "Die Karawane handelt mit festen Preisen."},
+    "fraktionen": {"wert": {"rom": "Rom", "ger": "die Germanen", "kon": "das Konkordat"}, "einheit": "Anzeigename", "_hinweis": "Fuer den Platzhalter {fraktion} in den Texten."},
+    "texte": {"wert": {
+      "teurer": "teurer",
+      "billiger": "günstiger",
+      "embargo": "Embargo gegen {fraktion}",
+      "belagerung": "Hafen belagert",
+      "umkreis": "Belagerung in der Nähe",
+      "vorrat_knapp": "Munition knapp",
+      "vorrat_reichlich": "Munition reichlich"
+    }, "einheit": "Text", "_hinweis": "Hinweis im Terminal, nur wenn der Faktor von 1 abweicht: '<teurer|günstiger>: <Gründe, mit Komma>'. Schlüssel der Gründe: embargo, belagerung, umkreis, vorrat_knapp, vorrat_reichlich."}
+  }
+}

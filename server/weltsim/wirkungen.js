@@ -199,4 +199,4 @@ function installiere(WIRKUNGEN, helfer) {
 
 const istAufsatz = (typ) => has(KATALOG, typ) && KATALOG[typ].aufsatz === true;   // Wirkung, die der Spielaufsatz anwendet (der Kern ignoriert sie)
 
-module.exports = { KATALOG, SCHICKSALE, pruefe, installiere, istAufsatz };
+module.exports = { KATALOG, SCHICKSALE, pruefe, installiere, istAufsatz, belagerungen };   // belagerungen: auch server/sim/preise.js (nur lesen)
