@@ -12,14 +12,17 @@
 //   kind leit = Hauptstück (mehrere Kacheln, rein optisch): wird nach Fußabdruck (opts.rollen.leitFuss = bauweisen/<bw>.json leit_fuss) im
 //   Platzrechteck platziert, bevorzugt/erzwungen wandnah (Rücken zur Wand), nie auf Anker-, Tür-, Weg-, Kantenmitte-Kacheln und nie über die
 //   Raumgrenze; findet sich kein Platz, entfällt es. Eigener Strom je Platz und Rolle, Positionen in Rom und Germanen gleich (gleicher Fuß).
-//   kind anker (Belegung der Gameplay-Anker-Optik) ist im Format vorgesehen, aber nicht verdrahtet: die neuen Modelle tragen die Zustandsparameter
-//   der Anker (zelle zu/offen, beute voll/leer, sprengpunkt intakt/scharf/zerstört) nicht, der Anker bliebe ohne Rückmeldung.
+//   Rückfall des Hauptstücks (Ausfall niedrig): wandnah mit frei_halten fh…1, dann frei, dann mit Abstand 0 (nicht bei nur_wand). Rollen mit zug_gross
+//   nehmen es ab Platzfläche GROSS_AB. Der Raumtyp eines Platzes kann über seine Anker überschrieben werden (sprengpunkt → reaktor, terminal im
+//   Kontrollraum → kommando), nur im Client. Rollen-Stücke zählen je Zelle gegen MAX_ROLLE_JE_ZELLE (unabhängig vom Zellenmodus, Layout-Parität).
+//   kind anker (Belegung der Gameplay-Anker-Optik) ist im Format vorgesehen, wird aber erst mit den Anker-Modellen verdrahtet (kit.js propEintrag).
 // Harte Grenzen (Vertrag, nicht per Daten abschaltbar):
 //   - nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln, nie auf festen Kacheln
 //   - höchstens 12 Props je Zelle (8×8), Deko ist nur Optik (keine Kollision), Deckung wird nie gestreut
 // Ergebnis: [{ id, x, y, rot, seed, platz, dx, dz, rolle? }] (rolle nur im Rollenmodus) in Kacheln (x, y = Kachel; dx/dz Versatz in der Kachel, −0,25…0,25 m).
 
 export const MAX_JE_ZELLE = 12;
+export const MAX_ROLLE_JE_ZELLE = 6;   // Rollen-Stücke je 8×8-Zelle; Zellenmodus höchstens 6 (Regeln), zusammen ≤ MAX_JE_ZELLE
 export const GROSS_AB = 49;   // Platzfläche (Kacheln, w × h) ab der Rollen ihr zug_gross nehmen (7×7)
 // Raumtypen (Präfix der Platz-ID) je Kartenart, für die Rollen definiert werden dürfen (Quelle: gen-station.js RAUMNAME, gen-siedlung.js GEB_NAME + kaefig_n).
 // Nur die Gebäude des Außenpostens dürfen auf ihrem Innenboden boden2 bestreut werden; Gänge, Straßen, Station: nie (boden2 ist dort Weg).
@@ -216,7 +219,7 @@ export function streuen(k, regeln, opts = {}) {
     const bw = RO.bauweise;
     const jeZelle = new Map(), belegt = new Set();
     const zKey = (x, y) => Math.floor(x / ZELLE) + ',' + Math.floor(y / ZELLE);
-    for (const d of out) { belegt.add(d.x + ',' + d.y); const z = zKey(d.x, d.y); jeZelle.set(z, (jeZelle.get(z) || 0) + 1); }
+    for (const d of out) belegt.add(d.x + ',' + d.y);   // jeZelle zählt nur Rollen-Stücke (Obergrenze MAX_ROLLE_JE_ZELLE): so hängt das Layout nicht vom Zellenmodus der Bauweise ab (Parität)
     // freie Kacheln im Rechteck: Boden/Gelände/Plateau und (nur hier) der Innenboden boden2 der Gebäude; nie Anker, Tür, Pad, Rampe, Kantenmitte
     const kacheln = (p, fh) => {
       const S = gesperrt(fh), res = [], b2 = boden2Erlaubt(k.art, p.id);
@@ -234,7 +237,7 @@ export function streuen(k, regeln, opts = {}) {
       for (const [x, y] of list) {
         if (got >= n) break;
         const key = x + ',' + y, z = zKey(x, y);
-        if (belegt.has(key) || (jeZelle.get(z) || 0) >= MAX_JE_ZELLE) continue;
+        if (belegt.has(key) || (jeZelle.get(z) || 0) >= MAX_ROLLE_JE_ZELLE) continue;
         const w = wahl(x, y); if (!w) continue;
         let rot = Math.floor(rnd() * 4) * (Math.PI / 2);
         if (w.wand) {   // Rücken zur Wand: +z zeigt von der Wand weg

@@ -892,7 +892,30 @@ async function bauKarte(parent, karteIn, opts) {
         if (!f) { try { f = loader.manifest && loader.manifest(v) ? loader.manifest(v).footprint : null; } catch (e) { f = null; } }
         const quer = Math.abs(Math.sin(rot)) > 0.5;
         const fw = f ? (quer ? f[1] : f[0]) | 0 : 1, fd = f ? (quer ? f[0] : f[1]) | 0 : 1;
-        if (LF) { const g = LF(ax, ay, fw, fd); rect = [g.x0, g.y0, fw, fd]; quelle = a ? 'leitFuss' : 'mitte'; }
+        if (LF) {
+          const g = LF(ax, ay, fw, fd); rect = [g.x0, g.y0, fw, fd]; quelle = a ? 'leitFuss' : 'mitte';
+          // Leitstück ohne Anker (Platzmitte): das Rechteck darf keine Anker-, Weg-, Pad-, Rampen- oder Türkachel treffen (Sensorturm auf dem aussicht-Anker,
+          // Landeplatz über dem abholpunkt). Dann wird das nächste freie Rechteck im Platz gesucht, sonst entfällt das Leitstück (Plattform/Feld bleibt).
+          if (!a) {
+            const sperr = new Set(k.anker.map((q) => q.x + ',' + q.y));
+            const rand = fw * fd >= 4 ? 1 : 0;   // große Stücke halten einen Kachelabstand zu Ankern (Beam-Punkt bleibt frei)
+            const nahAnker = (x, y) => { for (let dy = -rand; dy <= rand; dy++) for (let dx = -rand; dx <= rand; dx++) if (sperr.has((x + dx) + ',' + (y + dy))) return true; return false; };
+            const NICHT = { boden2: 1, pad: 1, rampe: 1, tuer: 1, schott: 1, tor: 1, luke: 1, wand_schwach: 1, wand: 1, zaun: 1, fels: 1, abgrund: 1, leere: 1, kante: 1, gitter: 1, fenster: 1 };
+            let beste = null;
+            for (let y0 = p.y; y0 + fd <= p.y + p.h; y0++) for (let x0 = p.x; x0 + fw <= p.x + p.w; x0++) {
+              let kosten = Math.abs(x0 + fw / 2 - (rect[0] + fw / 2)) + Math.abs(y0 + fd / 2 - (rect[1] + fd / 2)), ok = true;
+              for (let y = y0; y < y0 + fd && ok; y++) for (let x = x0; x < x0 + fw; x++) {
+                const kd = k.kindAt(x, y);
+                if (!kd || NICHT[kd] || nahAnker(x, y)) { ok = false; break; }
+                if (DECKUNG_OPTIK[kd]) kosten += 50;
+              }
+              if (ok && (!beste || kosten < beste.kosten)) beste = { kosten, x0, y0 };
+            }
+            if (!beste) { quelle = 'entfaellt'; rect = null; }
+            else rect = [beste.x0, beste.y0, fw, fd];
+            if (!rect) { stats.leitEntfallen = (stats.leitEntfallen || 0) + 1; continue; }
+          }
+        }
         else { quelle = 'ohneFuss'; countErr('kit.leit', new Error('Shared_Buehne.leitFuss fehlt – Leitstück ohne Grundfläche')); }
       }
       const mx = rect ? rect[0] + rect[2] / 2 : ax + 0.5, my = rect ? rect[1] + rect[3] / 2 : ay + 0.5;   // Modellmitte (Kacheleinheiten)
@@ -906,7 +929,11 @@ async function bauKarte(parent, karteIn, opts) {
   // Hüllen-Karten (Siedlung): Boden außerhalb der Gebäude wie das Gelände draußen (leichte Abstufungen), Straßen etwas dunkler (Kai 2026-10-11)
   const inBau = new Set();
   // Station: Boden als Fliesen mit leichtem Höhenversatz und Helligkeitsstreuung (wie das Gelände im Dorf, aber Metall), einfarbig je Belag (Kai 2026-10-11)
-  const stationBoden = k.art === 'station' && !k.decks;
+  // ORT-01: Bodenmuster der römischen/germanischen Orte (Station, Außenposten) kommen aus den Kit-Slots boden_belag/boden_fuge und sind ruhig
+  // (Kai): der Parameter par = x mod 2 + 2 · (y mod 2) lässt Fugen nur an den Grenzen von 2×2-Kachelblöcken entstehen. Schiff und Ruine bekommen kein par.
+  const ortBoden = (k.art === 'station' || k.art === 'aussenposten') && (bw === 'rom' || bw === 'germanen');
+  const bodenPar = (tx, ty) => (ortBoden ? { par: (tx & 1) + 2 * (ty & 1) } : null);
+  const stationBoden = k.art === 'station' && !k.decks && !ortBoden;   // Fliesen-Rückfall nur für Stationen anderer Bauweisen
   const stationFliese = (kind, tx, ty) => ({ x: tx, y: ty, top: 'metal', fill: 'metal_dark', f: kind === 'boden2' ? 0.72 : 0.9, dick: 0.3, stein: false, var: 0.16, stufe: [0.38, 0.035], nb: nachbarn(tx, ty) });
   // Wege, Platz und Landefeld (Plätze hof, dorfplatz, landeplatz): Sandton, gleiche Unebenheit wie das übrige Gelände (Kai 2026-10-11)
   const WEG_TYPEN = { hof: 1, dorfplatz: 1, landeplatz: 1 };
@@ -940,14 +967,14 @@ async function bauKarte(parent, karteIn, opts) {
         }
         if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad') {
-          placeKit(kind, kitParams(kind, base), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
+          placeKit(kind, kitParams(kind, base, bodenPar(tx, ty)), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
           if (kind === 'plateau') { const h = hoeheOf(kind); if (h > 0.05) { pen.to(bucketAt(d, tx, k.localY(ty)), m); FB.sockel(pen, { h }, F); } }
           continue;
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
         if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
         else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
-        else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
+        else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base, bodenPar(tx, ty)), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
         if (leitDeckt.has(tx + ',' + ty)) continue;   // Leitstück steht hier und trägt die Optik
@@ -1587,7 +1614,7 @@ export async function prefetch(opts = {}) {
     ]);
     // ORT-01: kitIds nimmt auch ort/… und rom/… (Leitstücke, Deckung, Anker der neuen Orte)
     const modelle = new Set(), paletten = new Set(), moods = new Set();
-    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit|ort|rom)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
+    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit|ort)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
     for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); kitIds(t.deckung_props); strings(t.paletten, paletten); strings(t.stimmung, moods); }
     for (const d of dekos) if (d && d.regeln) for (const r of Object.values(d.regeln)) kitIds(r && r.props);

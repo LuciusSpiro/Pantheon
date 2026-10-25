@@ -1,38 +1,228 @@
 {
   "id": "ort/rom/aussenposten/landeplatz",
-  "name": "Landeplatz (Rom, Aquädukt): Marmorplattform, Amberrinnen als Ring, Kreuz und Zulauf, Ladeluke in der Mitte, Gunmetal-Ladeklemmen an den Ecken",
+  "name": "Landeplatz (Rom, Aquädukt): flache Marmorplatte (1 Voxel, 6 cm) mit Goldrand, Fugenkreuz und Amberrinnen als Quadrat, Kreuz und Zulauf; die Figur steht darauf, nichts ragt über den Boden",
   "tier": "detail",
   "palette": "rom",
   "jitter": 0,
-  "tags": ["prop", "rom", "aussenposten", "landeplatz", "leit", "ort01"],
-  "footprint": [4, 4],
-  "params": {
-    "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Rinnen führen Energie" }
-  },
-  "variants": { "aus": { "aktiv": 0 } },
-  "let": { "em": "aktiv ? 0.6 : 0" },
-  "ops": [
-    { "op": "box", "name": "Sockel", "at": [-32, 0, -32], "size": [64, 3, 64], "color": "stone" },
-    { "op": "box", "name": "Sockel Fase", "at": [-31, 3, -31], "size": [62, 1, 62], "color": "stone_light" },
-    { "op": "box", "name": "Platte", "at": [-30, 4, -30], "size": [60, 1, 60], "color": "secondary" },
-    { "op": "box", "name": "Goldrand", "mode": "paint", "at": [-30, 4, -30], "size": [60, 1, 60], "color": { "frame": "trim", "fill": "secondary", "axes": "xz", "width": 2 } },
-    { "op": "box", "name": "Fugen quer", "mode": "paint", "at": [-30, 4, -15], "size": [60, 1, 1], "color": "stone_dark", "repeat": { "count": 3, "var": "i", "step": [0, 0, 15] } },
-    { "op": "box", "name": "Fugen längs", "mode": "paint", "at": [-15, 4, -30], "size": [1, 1, 60], "color": "stone_dark", "repeat": { "count": 3, "var": "i", "step": [15, 0, 0] } },
-    { "op": "box", "name": "Rinne Quadrat vorn", "mode": "paint", "at": [-24, 4, 22], "size": [48, 1, 2], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Rinne Quadrat hinten", "mode": "paint", "at": [-24, 4, -24], "size": [48, 1, 2], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Rinne Quadrat links", "mode": "paint", "at": [-24, 4, -24], "size": [2, 1, 48], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Rinne Quadrat rechts", "mode": "paint", "at": [22, 4, -24], "size": [2, 1, 48], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "cyl", "name": "Rinne Ring", "mode": "paint", "at": [0, 4, 0], "r": 15, "h": 1, "hollow": 2, "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Speiche Nord Süd", "mode": "paint", "at": [-1, 4, -24], "size": [2, 1, 48], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Speiche Ost West", "mode": "paint", "at": [-24, 4, -1], "size": [48, 1, 2], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Zulauf Süd", "mode": "paint", "at": [-1, 4, 24], "size": [2, 1, 6], "color": { "role": "glow2", "emit": "em" } },
-    { "op": "box", "name": "Ecke Rot", "mode": "paint", "at": [-30, 4, -30], "size": [8, 1, 8], "color": "primary", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
-    { "op": "cyl", "name": "Ladeluke", "at": [0, 4, 0], "r": 6.5, "h": 2, "color": "metal_dark" },
-    { "op": "cyl", "name": "Ladeluke Rand", "at": [0, 5, 0], "r": 6.5, "h": 1, "hollow": 1, "color": "trim" },
-    { "op": "cyl", "name": "Ladeluke Kern", "at": [0, 5, 0], "r": 3, "h": 1, "color": { "role": "glow2", "emit": "em * 1.5" } },
-    { "op": "box", "name": "Ladeklemme", "at": [-30, 5, -30], "size": [7, 5, 7], "color": "metal_dark", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
-    { "op": "box", "name": "Ladeklemme Kopf", "at": [-29, 10, -29], "size": [5, 1, 5], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
-    { "op": "box", "name": "Ladeklemme Anzeige", "at": [-28, 8, -23], "size": [3, 1, 1], "color": { "role": "glow2", "emit": "em * 1.5" }, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } }
+  "tags": [
+    "prop",
+    "rom",
+    "aussenposten",
+    "landeplatz",
+    "leit",
+    "ort01"
   ],
-  "anchor": [0, 0, 0]
+  "footprint": [
+    4,
+    4
+  ],
+  "params": {
+    "aktiv": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Rinnen führen Energie"
+    }
+  },
+  "variants": {
+    "aus": {
+      "aktiv": 0
+    }
+  },
+  "let": {
+    "em": "aktiv ? 0.6 : 0"
+  },
+  "ops": [
+    {
+      "name": "Platte",
+      "op": "box",
+      "at": [
+        -32,
+        0,
+        -32
+      ],
+      "size": [
+        64,
+        1,
+        64
+      ],
+      "color": {
+        "frame": "trim",
+        "fill": "secondary",
+        "axes": "xz",
+        "width": 2
+      }
+    },
+    {
+      "name": "Fugen quer",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -30,
+        0,
+        -15
+      ],
+      "size": [
+        60,
+        1,
+        1
+      ],
+      "color": "stone_dark"
+    },
+    {
+      "name": "Fugen längs",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -15,
+        0,
+        -30
+      ],
+      "size": [
+        1,
+        1,
+        60
+      ],
+      "color": "stone_dark"
+    },
+    {
+      "name": "Rinne Quadrat vorn",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        22
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat hinten",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        -24
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat links",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat rechts",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        23,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Speiche Nord Süd",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Speiche Ost West",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        0
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Zulauf Süd",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        24
+      ],
+      "size": [
+        1,
+        1,
+        8
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
 }

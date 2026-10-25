@@ -1,6 +1,6 @@
 {
   "id": "kit/germanen/aussenposten/boden_fuge",
-  "name": "Außenposten Stabbau – boden_fuge: Innenboden helles Eisen, kalte Plattenfuge; Glut nur als seltene Linie (Nordrand, jede vierte Kachel)",
+  "name": "Außenposten Stabbau – boden_fuge: ruhiger heller Eisenboden, kalte Plattenfuge nur an den Grenzen von 2x2-Kachelblöcken, keine Glut im Boden",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
@@ -57,6 +57,13 @@
         "schiff"
       ],
       "label": "Kartenart"
+    },
+    "par": {
+      "default": -1,
+      "min": -1,
+      "max": 3,
+      "step": 1,
+      "label": "Kachellage im 2x2-Block: x mod 2 + 2 * (y mod 2), -1 = unbekannt"
     }
   },
   "anchor": [
@@ -66,7 +73,9 @@
   ],
   "let": {
     "dk": "1 - zustand * 0.06",
-    "em": "zustand < 2 ? 0.45 : 0"
+    "em": "zustand < 2 ? 0.45 : 0",
+    "px": "par < 0 ? 0 : floor(par) % 2",
+    "py": "par < 0 ? 0 : floor(par / 2) % 2"
   },
   "ops": [
     {
@@ -108,24 +117,6 @@
       "if": "belag != 2"
     },
     {
-      "name": "Glutfuge N",
-      "op": "box",
-      "at": [
-        0,
-        "h - 1",
-        0
-      ],
-      "size": [
-        "w",
-        1,
-        1
-      ],
-      "mode": "paint",
-      "color": "#FF7A1A",
-      "emit": "em",
-      "if": "belag == 2 && zustand < 2 && floor(seed) == 0"
-    },
-    {
       "name": "Fuge kalt N",
       "op": "box",
       "at": [
@@ -143,7 +134,7 @@
         "shade": "metal_dark",
         "f": "dk"
       },
-      "if": "belag != 2 || zustand == 2 || floor(seed) != 0"
+      "if": "py == 0"
     },
     {
       "name": "Fuge kalt W",
@@ -162,7 +153,8 @@
       "color": {
         "shade": "metal_dark",
         "f": "dk"
-      }
+      },
+      "if": "px == 0"
     }
   ]
 }
