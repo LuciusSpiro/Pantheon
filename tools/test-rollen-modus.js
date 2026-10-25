@@ -36,6 +36,7 @@ function karte(art, seed, bw) {
 const dp = bauweiseGerm.deckung_props && bauweiseGerm.deckung_props;
 function regelnFuer(art) {   // wie kit.js: Deckungs-Props nicht zusätzlich als Deko
   const ids = new Set(dp && dp[art] ? Object.values(dp[art]).flat() : []);
+  for (const id of (bauweiseGerm.deko_ausschluss && bauweiseGerm.deko_ausschluss[art]) || []) ids.add(id);
   const r = Object.assign({}, dekoGerm, { regeln: {} });
   for (const [t, v] of Object.entries(dekoGerm.regeln)) r.regeln[t] = Object.assign({}, v, { props: v.props.filter((i) => !ids.has(i)) });
   return { regeln: r, ids };
@@ -262,6 +263,7 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
   const prod = (k, art, bw, extra) => {
     const dp = BAUW[bw].deckung_props && BAUW[bw].deckung_props[art];
     const ids = new Set(dp ? Object.values(dp).flat() : []);
+    for (const id of (BAUW[bw].deko_ausschluss && BAUW[bw].deko_ausschluss[art]) || []) ids.add(id);
     const r = Object.assign({}, dekoR[bw], { regeln: {} });
     for (const [t, v] of Object.entries(dekoR[bw].regeln)) r.regeln[t] = Object.assign({}, v, { props: v.props.filter((i) => !ids.has(i)) });
     return streuen(k, r, { extra: extra || [], rollen: { daten: PROD[art], bauweise: bw, ausschluss: ids, leitFuss: BAUW[bw].leit_fuss } });

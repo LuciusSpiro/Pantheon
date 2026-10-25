@@ -61,6 +61,7 @@ async function berechne(nurKarten) {
         const plaetze = Object.keys(k.plaetze).sort().map((id) => { const p = k.plaetze[id]; return { id, typ: p.typ, x: p.rect[0], y: p.rect[1], w: p.rect[2], h: p.rect[3] }; });
         const dp = bauweise.deckung_props && bauweise.deckung_props[k.art];
         const deckIds = new Set(dp ? Object.values(dp).flat() : []);
+        for (const id of (bauweise.deko_ausschluss && bauweise.deko_ausschluss[k.art]) || []) deckIds.add(id);   // wie kit.js (ORT-01)
         let regeln = dekoRegeln;
         if (deckIds.size) { regeln = Object.assign({}, dekoRegeln, { regeln: {} }); for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: r.props.filter((i) => !deckIds.has(i)) }); }
         const opts = { extra };

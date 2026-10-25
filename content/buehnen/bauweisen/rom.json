@@ -138,6 +138,8 @@
       "*": "leit/rom/ruine/fahnenheiligtum"
     },
     "abholpunkt": {
+      "station": "ort/rom/gemein/bake",
+      "aussenposten": "ort/rom/gemein/bake",
       "*": "prop/germanen/gemein/bake_abholpunkt"
     },
     "zelle": {
@@ -150,9 +152,23 @@
     },
     "dorfplatz": {
       "aussenposten": "leit/rom/aussenposten/statue_platz"
+    },
+    "landeplatz": {
+      "aussenposten": "ort/rom/aussenposten/landeplatz"
+    },
+    "wachturm": {
+      "aussenposten": "ort/rom/aussenposten/sensorturm"
     }
   },
   "leit_fuss": {
+    "ort/rom/aussenposten/landeplatz": [
+      4,
+      4
+    ],
+    "ort/rom/aussenposten/sensorturm": [
+      1,
+      1
+    ],
     "ort/rom/station/kartentisch": [
       2,
       1
@@ -212,14 +228,14 @@
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
     "aussenposten": {
       "deckung_halb": [
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug",
-        "prop/germanen/gemein/fass"
+        "ort/rom/aussenposten/deckung_kapsel",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
       ],
       "deckung_voll": [
-        "prop/germanen/gemein/feuerschale",
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug"
+        "ort/rom/aussenposten/deckung_heizer",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
       ]
     }
   },

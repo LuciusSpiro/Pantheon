@@ -45,6 +45,7 @@ function pruefe(mut, aussenMut) {
     ctx.leitFuss[bw] = b.leit_fuss || {};
     ctx.deckung[bw] = {};
     for (const [art, m] of Object.entries(b.deckung_props || {})) if (m && typeof m === 'object' && !Array.isArray(m)) ctx.deckung[bw][art] = new Set(Object.values(m).flat());
+    for (const [art, l] of Object.entries(b.deko_ausschluss || {})) if (Array.isArray(l)) { if (!ctx.deckung[bw][art]) ctx.deckung[bw][art] = new Set(); for (const id of l) ctx.deckung[bw][art].add(id); }
   }
   ctx.ankerRollen = new Set(Object.keys(JSON.parse(fs.readFileSync(path.join(ROOT, 'content/buehnen/anker.json'), 'utf8')).rollen));
   const fehler = (l) => l.filter((x) => x.lvl === 'err');
@@ -98,8 +99,8 @@ function pruefe(mut, aussenMut) {
 
   r = pruefe(null, (a) => { a.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/hocker']; });
   ok(r.code === 1 && /Deckungs-Prop der germanen-Bauweise/.test(r.out), 'Außenposten: germanische Belegung ist Deckungs-Prop (fass) → rot (kit.js nähme es aus der Deko, Rolle bliebe leer)');
-  r = pruefe(null, (a) => { a.rollen['lager.behaelter'].rom = 'prop/germanen/gemein/werkzeug'; });
-  ok(r.code === 1 && /Deckungs-Prop der rom-Bauweise/.test(r.out), 'Außenposten: auch die römische Seite nutzt heute die germanischen Deckungs-Props (deckung_props rom) → rot');
+  r = pruefe(null, (a) => { a.rollen['lager.behaelter'].rom = 'ort/rom/aussenposten/deckung_kapsel'; });
+  ok(r.code === 1 && /Deckungs-Prop der rom-Bauweise/.test(r.out), 'Außenposten: auch die römischen Ersatz-Deckungsmodelle (deckung_props rom, ort/rom/aussenposten/deckung_*) sind als Deko verboten → rot');
   r = pruefe((s) => { s.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/hocker']; }, false);
   ok(r.code === 0, 'Station: fass ist dort kein Deckungs-Prop (deckung_props gilt nur für den Außenposten) → grün');
 

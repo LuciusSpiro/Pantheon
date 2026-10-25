@@ -292,6 +292,7 @@ async function checkRollen(entries, indexModels, dir = ROLLEN_DIR) {
     ctx.leitFuss[bw] = (b && b.leit_fuss) || {};
     ctx.deckung[bw] = {};
     for (const [art, m] of Object.entries((b && b.deckung_props) || {})) if (m && typeof m === 'object' && !Array.isArray(m)) ctx.deckung[bw][art] = new Set(Object.values(m).flat());
+    for (const [art, l] of Object.entries((b && b.deko_ausschluss) || {})) if (Array.isArray(l)) { if (!ctx.deckung[bw][art]) ctx.deckung[bw][art] = new Set(); for (const id of l) ctx.deckung[bw][art].add(id); }
   }
   const an = await readJson(path.join(BUEHNEN, 'anker.json')).catch(() => null);
   if (an && an.rollen) ctx.ankerRollen = new Set(Object.keys(an.rollen));

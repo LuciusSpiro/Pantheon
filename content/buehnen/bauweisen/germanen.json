@@ -301,6 +301,12 @@
     "kontrollraum": {
       "station": "leit/germanen/station/hochsitz_halle"
     },
+    "landeplatz": {
+      "aussenposten": "ort/germanen/aussenposten/landeplatz"
+    },
+    "wachturm": {
+      "aussenposten": "ort/germanen/aussenposten/sensorturm"
+    },
     "bruecke": {
       "schiff": "leit/germanen/schiff/drachenkopf_bug"
     },
@@ -309,6 +315,14 @@
     }
   },
   "leit_fuss": {
+    "ort/germanen/aussenposten/landeplatz": [
+      4,
+      4
+    ],
+    "ort/germanen/aussenposten/sensorturm": [
+      1,
+      1
+    ],
     "ort/germanen/station/kartentisch": [
       2,
       1
@@ -420,11 +434,17 @@
         "prop/germanen/gemein/fass"
       ],
       "deckung_voll": [
-        "prop/germanen/gemein/feuerschale",
+        "ort/germanen/aussenposten/leitfeuer",
         "prop/germanen/gemein/fass",
         "prop/germanen/gemein/werkzeug"
       ]
     }
+  },
+  "deko_ausschluss": {
+    "hinweis": "Zusätzlich zu deckung_props aus der Deko genommen (kit.js, tools): die Feuerschale ist seit ORT-01 keine Deckung mehr (dort steht ort/germanen/aussenposten/leitfeuer), soll aber wie bisher nicht als Streu-Deko in den Außenposten auftauchen (Eisenwald bleibt gleich).",
+    "aussenposten": [
+      "prop/germanen/gemein/feuerschale"
+    ]
   },
   "weg_boden": {
     "hinweis": "Außenposten-Siedlung: Wege, Platz und Landefeld (Geländeboden im Sandton; 'rock' wirkt unter dem warmen Licht wie Sand, 'sand' wird zu gelb)",

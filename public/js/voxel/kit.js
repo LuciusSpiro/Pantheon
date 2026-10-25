@@ -1014,6 +1014,7 @@ async function bauKarte(parent, karteIn, opts) {
     if (dekoRegeln || dekoExtra.length || rollenDaten) {
       // Was als Deckung dient (deckung_props), steht nicht zusätzlich als reine Deko herum: Deckungsobjekte sind zugleich die Streuobjekte
       const deckIds = new Set(); if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) deckIds.add(id);
+      const dekoAus = BW.deko_ausschluss && BW.deko_ausschluss[k.art]; if (Array.isArray(dekoAus)) for (const id of dekoAus) deckIds.add(id);   // ORT-01: ehemalige Deckungs-Props, die weiter nicht gestreut werden
       let regeln = dekoRegeln;
       if (deckIds.size && dekoRegeln && dekoRegeln.regeln) {
         regeln = Object.assign({}, dekoRegeln, { regeln: {} });
