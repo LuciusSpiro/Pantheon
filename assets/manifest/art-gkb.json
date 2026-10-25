@@ -838,19 +838,19 @@
    "tier": "architecture",
    "palette": "nord",
    "footprint": [
-    12,
-    12
+    14,
+    14
    ],
-   "height": 5,
+   "height": 7,
    "facing": "+z",
    "params": {
     "w": [
      2,
-     12
+     14
     ],
     "d": [
      2,
-     12
+     14
     ],
     "zustand": [
      0,
