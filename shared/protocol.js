@@ -255,6 +255,11 @@
     //   Snapshot world.absicht { frei: 0|1, ab: Name des Mindestrangs, angebot?: [{ id, name, text, dauer }] (2 bis 3), rest?: Sprünge bis zum Verfall, laufend?: { id, name, text, rest, dauer } } nur bei Änderung (nie in den großen Snapshots),
     //   world.absicht = null ist das Löschsignal (einmal, wenn der Modus endet), der Client leert dann seinen Block wie world.ruf.
     CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
+    // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund mit Reise-Ereignissen, nach Funkmeldung, römischer Streife, Havarie-Notruf; nie bei Gefahr). cmd { c: 'funk.antworten', id, nr? } wählt eine Option des offenen Angebots (id aus world.funkwahl.optionen)
+    //   oder 'ignorieren' (schließt es für alle, ohne Folge); nr = Nummer des Angebots (ein Klick auf ein älteres Angebot gilt nicht). Jeder Spieler, keine Konsole, keine Rolle; die ERSTE Antwort gilt, jede weitere bekommt „schon beantwortet“.
+    //   Antwort an den Absender: Ereignis funkAntwort { pid, ok, code?, text? } (code: modus | kein_angebot | schon_beantwortet | unbekannt | unruhig). Alle hören die Antwort der Crew und die Reaktion des Sprechers als Ereignis radio.
+    //   Snapshot world.funkwahl { nr, von, optionen: [{ id, text }] (2 bis 3), ignorieren, rest: Sprünge bis zum Verfall } | null (kein Angebot; null ist das Löschsignal) nur bei Änderung (nie in den großen Snapshots).
+    CMD_FUNK_ANTWORT: 'funk.antworten',
     CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen', 'werft.start'],   // werft.start: Szene der Wellenmodi starten (nur Testumgebung, Rüstphase)   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',

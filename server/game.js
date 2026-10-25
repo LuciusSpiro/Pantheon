@@ -32,6 +32,7 @@ const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
+const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
@@ -475,7 +476,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -689,7 +690,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -700,7 +701,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -715,7 +716,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1036,6 +1037,13 @@ class Game {
       if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
     }
     if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, rid: typeof msg.rid === 'string' ? msg.rid.slice(0, 60) : null, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
+    // SUND-03b A: Funk-Antwort am HUD (jeder, keine Konsole, keine Rolle; die erste Antwort gilt, jede weitere bekommt „schon beantwortet“). Antwort an den Absender: funkAntwort { ok, code?, text? }
+    if (c === Protocol.CMD_FUNK_ANTWORT) {
+      if (p.downed) return;
+      const r = FunkAntwort.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));
+      if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'funkAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+      return;
+    }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1964,6 +1972,12 @@ class Game {
       if (ak && ak !== this.sentAbsichtKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.absicht = Absicht.snapshot(this); this.sentAbsichtKey = ak; }
       else if (!ak && this.sentAbsichtKey) { world.absicht = null; this.sentAbsichtKey = null; }
     } catch (e) { this.countError('snapshot-absicht', e); }
+    // SUND-03b A: world.funkwahl (offenes Funk-Antwort-Angebot, nur Freie Fahrt Sund mit Reise-Ereignissen) nur bei Änderung, für alle gleich, nie mit den großen seltenen Teilen; null = Löschsignal (Angebot weg)
+    try {
+      const fk = FunkAntwort.schluessel(this);
+      if (fk && fk !== this.sentFunkKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.funkwahl = FunkAntwort.snapshot(this); this.sentFunkKey = fk; }
+      else if (!fk && this.sentFunkKey) { world.funkwahl = null; this.sentFunkKey = null; }
+    } catch (e) { this.countError('snapshot-funkwahl', e); }
     // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
     const jpFn = fnOf(sprungMod(), 'jpSnapshot');
     if (jpFn) { try { const jp = jpFn(this); if (Array.isArray(jp) && jp.length) spaceOut.jp = jp.slice(0, 6); } catch (e) { this.countError('snapshot-jp', e); } }
