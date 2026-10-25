@@ -35,8 +35,10 @@ function section(name, fn) {
 const kopie = (x) => JSON.parse(JSON.stringify(x));
 const gleich = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-const WJ = require('../content/welt/handel-info-werte.json');
-const W = Object.fromEntries(Object.entries(WJ.werte).map(([k, v]) => [k, v.wert]));
+const WJ = require('../content/welt/handel-info-werte.json');   // Regeln (nur Server)
+const AJ = require('../content/welt/handel-info-anzeige.json');   // Anzeige (das, was der Client bekommt)
+const W = Object.fromEntries(Object.entries(Object.assign({}, WJ.werte, AJ.werte)).map(([k, v]) => [k, v.wert]));
+const Wirkungen = require('../server/weltsim/wirkungen.js');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-handel-info-'));
 let seq = 0;
 const freshDir = () => { const d = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(d, { recursive: true }); return d; };
@@ -54,21 +56,27 @@ function simLauf(seed, ticks, bei) {
     bei({ z, d, tickZahl: z.tick, ereignisse }, t);
   }
 }
-// Unabhängige Ableitung der Wahrheit eines Themas aus dem Sim-Zustand (nicht über handel-info.js)
+// Unabhängige Ableitung der Wahrheit eines Themas aus den DEFINITIONEN DER SIM (kern.js, wirkungen.js), weder über handel-info.js noch über Kern.feldzugFlotten (Fix S4: keine Kopie der Produktionslogik):
+//   Feldzug-Flotten: in der Sammelphase die mit befehl 'sammeln', sonst die mit befehl 'angriff' (kern.js meldeAnkunft/angriffeSchliessen/sammeln: wer sich zurückzieht, gehört nicht mehr dazu)
+//   belagert: Wirkungen.belagerungen (läuft, nicht sammeln/abgebrochen, t_an gesetzt); Klasse: die Sim-Funktion Kern.staerkeKlasse; Zeit: Ticks seit t_an
+//   Hafen gefallen (erobern): neuer Besitzer steht im Zustand; Posten verloren (postenVerlieren): der Ort wird FREI (besitzer null), `durch` ist nur der Zerstörer
 function wahrheit(ctx, thema) {
-  const { z, d } = ctx, [art, a, b, c] = thema.key.split(':');
+  const { z } = ctx, [art, a, b, c] = thema.key.split(':');
   if (art === 'gefallen') {
     const ev = ctx.ereignisse.find((e) => e.typ === a && e.ort === b && String(e.n) === c);
-    return { art, fakten: { ort: ev.ort, fraktion: a === 'hafen_gefallen' ? ev.neu : ev.durch, zeit: ctx.tickZahl - ev.n + 1 } };
+    const hafen = a === 'hafen_gefallen';
+    const w = { art: hafen ? 'gefallen' : 'verloren', fakten: { ort: ev.ort, fraktion: hafen ? ev.neu : ev.durch, zeit: ctx.tickZahl - ev.n + 1 } };
+    if (ev.n === ctx.tickZahl) w.besitzerJetzt = hafen ? ev.neu : null;   // im selben Tick: der Zustand der Sim sagt, wer den Ort jetzt hat (Hafen: der Eroberer, Posten: niemand)
+    return w;
   }
   const rec = z.angriffe.find((r) => r.id === Number(a));
-  const fl = z.flotten.filter((f) => f.angriff === rec.id);
-  const st = fl.reduce((s, f) => s + f.staerke, 0);
-  const klasse = st >= z.werte.staerkeklassen.gross ? 3 : st >= z.werte.staerkeklassen.mittel ? 2 : 1;
-  const wa = rec.t_an !== null ? 'belagert' : rec.phase === 'sammeln' ? 'sammeln' : 'marsch';
+  const befehl = rec.phase === 'sammeln' ? 'sammeln' : 'angriff';
+  const fl = z.flotten.filter((f) => f.angriff === rec.id && f.befehl === befehl);
+  const klasse = Kern.staerkeKlasse(fl.reduce((s, f) => s + f.staerke, 0), z.werte);
+  const wa = Wirkungen.belagerungen(z, rec.ziel, rec.id).length ? 'belagert' : rec.phase === 'sammeln' ? 'sammeln' : 'marsch';
   const fakten = { ort: rec.ziel, fraktion: rec.von, klasse };
   if (wa === 'belagert') fakten.zeit = z.tick - rec.t_an + 1;
-  return { art: wa, fakten };
+  return { art: wa, fakten, flotten: fl.map((f) => f.ort).sort() };
 }
 function erwarteterText(stufe, art, f, d) {
   const zt = (k) => (k === 1 ? W.zeit.eins : W.zeit.mehr).replace('{n}', String(k));
@@ -129,13 +137,18 @@ section('Daten', () => {
   ok(W.preise.gerucht === 30 && W.preise.beleg === 120, 'Standardpreise 30 und 120 Marken');
   ok(Math.abs(W.falschquote - 1 / 3) < 0.001, 'Falschquote ein Drittel (Datenwert)');
   ok(W.angebot.min === 2 && W.angebot.max === 3 && W.beleg_dauer === 40, 'Angebot 2–3 Themen, Beleg-Dauer 40 Ticks');
-  ok(Info.ARTEN.length === 4 && Info.ARTEN.every((a) => W.themen[a] && W.themen[a].label && W.falsch_felder[a]), 'vier Themenarten mit Überschrift und erlaubten Falschfeldern');
+  ok(Info.ARTEN.length === 5 && Info.ARTEN.every((a) => W.themen[a] && W.themen_namen[a] && W.falsch_felder[a] && W.tausch_kandidaten[a] !== undefined), 'fünf Themenarten (Belagerung, Marsch, Sammeln, gefallener Hafen, zerstörter Posten) mit Überschrift (Anzeige), Falschfeldern und Tauschkandidaten');
+  ok(!/Neuer Herr|neuer Herr/.test(W.themen.verloren.gerucht + W.themen.verloren.beleg) && /Neuer Herr/.test(W.themen.gefallen.beleg) && /neuer Herr/.test(W.themen.gefallen.gerucht), 'Fix M1: der Rahmen des Postenverlusts kennt keinen „Neuen Herrn“ (der Ort wird frei), der des Hafenverlusts schon');
+  ok(!W.falsch_felder.gefallen.includes('fraktion') && ['rom', 'ger', 'pirat'].every((x) => W.tausch_kandidaten.verloren.includes(x)) && !Object.values(W.tausch_kandidaten).some((l) => l.includes('kon')) && !W.tausch_kandidaten.marsch.includes('pirat') && !W.tausch_kandidaten.sammeln.includes('pirat') && W.tausch_kandidaten.belagert.includes('pirat'), 'Fix S2: Tauschkandidaten: nie das Konkordat, Piraten nur bei der Belagerung, beim gefallenen Hafen kein Fraktionstausch (die Karte zeigt den Besitzer)');
+  ok(Object.keys(AJ.werte).sort().join() === 'preise,texte,themen_namen' && !/falschquote|falsch_felder|tausch_kandidaten|zeit_abweichung|"gerucht": "Es hei/.test(JSON.stringify(AJ)), 'Fix K1: die Anzeige-Datei (für den Client) trägt nur Preise, Texte und Überschriften, keine Regeln des Handels');
   ok(Info.ARTEN.every((a) => Info.STUFEN.every((s) => Info.rahmenGueltig(W.themen[a][s], a))), 'jeder Rahmen der Daten trägt genau die Platzhalter seines Themas');
   ok(Info.ARTEN.every((a) => W.falsch_felder[a].every((f) => W.themen[a].platzhalter.includes(f))), 'falsch_felder nur aus Feldern, die im Text vorkommen');
   ok(Object.keys(W.kennzeichnung).join() === 'gerucht,beleg' && /Gerücht/.test(W.kennzeichnung.gerucht) && /unbestätigt/.test(W.kennzeichnung.gerucht), 'Kennzeichnung des Gerüchts „Gerücht, unbestätigt“ als Daten');
   ok(W.haefen_besitzer.join() === 'kon,saum', 'Häfen des Konkordats (kon, saum)');
   ok(Object.keys(W.texte).every((k) => typeof W.texte[k] === 'string' && W.texte[k].length > 2) && ['kein_angebot', 'zu_wenig_marken', 'kein_konkordat', 'fehler'].every((k) => W.texte[k]), 'Texte als Daten');
-  ok(!/spieler|P0|Ui\d/i.test(JSON.stringify(WJ)), 'keine Spielernamen');
+  ok(!/spieler|P0|Ui\d/i.test(JSON.stringify(WJ) + JSON.stringify(AJ)), 'keine Spielernamen');
+  { const { resolveStatic } = require('../server/index.js');
+    ok(!!resolveStatic('/content/welt/handel-info-anzeige.json') && resolveStatic('/content/welt/handel-info-werte.json') === null && fs.readFileSync(resolveStatic('/content/welt/handel-info-anzeige.json'), 'utf8').indexOf('falschquote') < 0, 'Fix K1: der Server liefert die Anzeige-Datei, aber nie die Regeln (handel-info-werte.json: Falschquote, Falschfelder, Kandidaten)'); }
   ok(Protocol.CMD_INFO && Protocol.CMD_INFO.join() === 'info.kaufen', 'Protokoll kennt info.kaufen');
 });
 
@@ -163,7 +176,9 @@ section('Angebot: deterministisch, 2–3 Themen, nur was es gibt', () => {
     const ev = (n, ort) => ({ n, typ: 'hafen_gefallen', tick: n, fraktion: 'ger', ort, alt: 'rom', neu: 'ger' });
     const th = Info.themenAus({ z, d, tickZahl: T, ereignisse: [ev(T, '0603'), ev(T - W.gefallen_fenster + 1, '0703'), ev(T - W.gefallen_fenster, '0803')] }).filter((t) => t.art === 'gefallen');
     ok(th.length === 2 && th.every((t) => t.fakten.ort !== '0803') && th.find((t) => t.fakten.ort === '0603').fakten.zeit === 1 && th.find((t) => t.fakten.ort === '0703').fakten.zeit === W.gefallen_fenster, 'gefallene Orte: Fenster ' + W.gefallen_fenster + ' Ticks, zeit zählt ab 1, ältere Ereignisse sind kein Thema');
-    ok(Info.themenAus({ z, d, tickZahl: T, ereignisse: [{ n: T, typ: 'posten_verloren', tick: T, fraktion: 'rom', ort: '0603', ortName: 'x', besitzer: 'rom', durch: null }] }).length === 0, 'Posten ohne bekannten neuen Besitzer ist kein Thema (nichts wird erfunden)');
+    ok(Info.themenAus({ z, d, tickZahl: T, ereignisse: [{ n: T, typ: 'posten_verloren', tick: T, fraktion: 'rom', ort: '0603', ortName: 'x', besitzer: 'rom', durch: null }] }).length === 0, 'Posten ohne bekannten Zerstörer ist kein Thema (nichts wird erfunden)');
+    const pv = Info.themenAus({ z, d, tickZahl: T, ereignisse: [{ n: T, typ: 'posten_verloren', tick: T, fraktion: 'rom', ort: '0603', ortName: 'x', besitzer: 'rom', durch: 'ger' }, ev(T, '0703')] });
+    ok(pv.length === 2 && pv.find((t) => t.art === 'verloren').fakten.fraktion === 'ger' && pv.find((t) => t.art === 'gefallen').fakten.ort === '0703', 'Fix M1: ein verlorener Posten (verloren) und ein gefallener Hafen (gefallen) sind getrennte Themenarten');
   }
   // zwei Spiele, gleicher Seed und Tick: gleiche Liste (Zustand + Zähler), auch bei anderem Hafen anders gemischt
   const A = mitAngebot(11), B = (() => { const s = neuesSpiel({ seed: 11 }); andocken(s.g, KON_HAFEN); for (let i = 0; i < A.g.weltsim.tickZahl; i++) tickEin(s.g); return s; })();
@@ -175,15 +190,20 @@ section('Angebot: deterministisch, 2–3 Themen, nur was es gibt', () => {
 
 // ================================================================================================================================ KERN: Beleg = Sim
 section('KERN: Beleg = Sim (Seeds × Ticks × Themen)', () => {
-  let themen = 0, belege = 0; const proArt = {}; let sichtOk = 0;
+  let themen = 0, belege = 0; const proArt = {}; let sichtOk = 0, klasseVerglichen = 0, klasseGleich = 0;
+  const sichtEnthaeltNur = (sicht, w) => sicht.every((h) => h === w.fakten.ort || w.flotten.includes(h));
   for (let seed = 0; seed < 20; seed++) {
     simLauf(seed, 220, (ctx) => {
       const ts = Info.themenAus(ctx);
-      for (const r of ctx.z.angriffe) if ((r.t_ende !== null || r.phase === 'abgebrochen') && ts.some((t) => t.key.split(':')[1] === String(r.id) && t.art !== 'gefallen')) throw new Error('beendeter Feldzug ' + r.id + ' als Thema');
+      for (const r of ctx.z.angriffe) if ((r.t_ende !== null || r.phase === 'abgebrochen') && ts.some((t) => t.key.split(':')[1] === String(r.id) && t.art !== 'gefallen' && t.art !== 'verloren')) throw new Error('beendeter Feldzug ' + r.id + ' als Thema');
       for (const t of ts) {
         const w = wahrheit(ctx, t), e = Info.ergebnisAus(ctx, t, 'beleg', 0);
         themen++; belege++; proArt[t.art] = (proArt[t.art] || 0) + 1;
         if (t.art !== w.art) throw new Error('Art ' + t.art + ' ≠ ' + w.art);
+        if (w.besitzerJetzt !== undefined && ctx.z.hexe[w.fakten.ort].besitzer !== w.besitzerJetzt) throw new Error('Besitz nach dem Fall ≠ Sim: ' + t.key);   // Hafen: der Eroberer, Posten: frei (niemand)
+        if (t.art === 'verloren' && /Neuer Herr|neuer Herr/i.test(e.text)) throw new Error('Postenverlust nennt einen neuen Herrn: ' + e.text);
+        if (w.flotten) { const sicht = [...new Set(t.sicht.h.concat(w.flotten))].sort(); if (!sichtEnthaeltNur(sicht, w)) throw new Error('Sicht des Belegs ≠ Thema'); }
+        if (!ctx.ereignisse.length || t.art === 'gefallen' || t.art === 'verloren') { /* kein Feldzug-Ereignis */ } else { const id = Number(t.key.split(':')[1]); const evt = ctx.ereignisse.find((q) => q.n === ctx.tickZahl && ['flotte_marsch', 'flotte_belagert', 'flotte_sammelt', 'flotte_aufbruch'].includes(q.typ) && q.angriff === id); if (evt) { klasseVerglichen++; if (evt.klasse === e.fakten.klasse) klasseGleich++; } }
         if (!gleich(e.fakten, w.fakten)) throw new Error(`Beleg ≠ Sim (Seed ${seed}, ${t.key}): ${JSON.stringify(e.fakten)} gegen ${JSON.stringify(w.fakten)}`);
         if (e.text !== erwarteterText('beleg', w.art, w.fakten, ctx.d)) throw new Error('Belegtext ≠ Sim: ' + e.text);
         if (e.wahr !== true || e.zuverlaessigkeit !== 'beleg') throw new Error('Beleg nicht als Beleg');
@@ -193,7 +213,8 @@ section('KERN: Beleg = Sim (Seeds × Ticks × Themen)', () => {
     });
   }
   ok(themen >= 600, `${themen} Themen geprüft: jedes Feld des Belegs gleich dem Sim-Zustand zum Kaufzeitpunkt`);
-  ok(Info.ARTEN.every((a) => proArt[a] > 0), 'alle vier Themenarten geprüft: ' + JSON.stringify(proArt));
+  ok(Info.ARTEN.every((a) => proArt[a] > 0), 'alle fünf Themenarten geprüft: ' + JSON.stringify(proArt));
+  ok(klasseVerglichen >= 300 && klasseGleich / klasseVerglichen >= 0.95, `Stärkeklasse gegen die Klasse im Sim-Ereignis desselben Ticks (flotte_marsch, flotte_belagert, flotte_sammelt): ${klasseGleich} von ${klasseVerglichen} gleich (Abweichung nur durch Verluste im selben Tick)`);
   ok(sichtOk === belege, 'jeder Beleg zeigt seinen Ort auf der Karte');
   // im Spiel: der Kauf liefert dasselbe wie die Sim im Moment des Kaufs (Zustand vorher und nachher gleich)
   let gespielt = 0;
@@ -210,6 +231,56 @@ section('KERN: Beleg = Sim (Seeds × Ticks × Themen)', () => {
   ok(gespielt >= 4, gespielt + ' Belege im Spiel gekauft');
 });
 
+// Fix S2: falsche Gerüchte sind nie schon an sich widerspruchsvoll. Echte Themen aus vielen Sim-Zuständen (Seeds × Ticks), je Thema viele Zähler; die Prüfung gegen die Sim-Fakten des Zustands.
+function realistischeGeruechte() {
+  const zaehl = { falsch: 0, gesamt: 0, proArt: {}, kon: 0, besitzer: 0, nichtFeind: 0, piratNichtBelagert: 0, hafenFraktion: 0, ortUnpassend: 0, ortKeinNachbar: 0, verliererSelbst: 0, mehrAlsEins: 0, fraktionGleich: 0 };
+  for (let seed = 0; seed < 14; seed++) {
+    simLauf(seed, 200, (ctx, t) => {
+      if (t % 3) return;
+      const { z, d } = ctx;
+      for (const th of Info.themenAus(ctx)) {
+        for (let i = 0; i < 24; i++) {
+          const e = Info.ergebnisAus(ctx, th, 'gerucht', seed * 100000 + t * 100 + i);
+          zaehl.gesamt++;
+          if (e.wahr) continue;
+          zaehl.falsch++; zaehl.proArt[th.art + ':' + e.feld] = (zaehl.proArt[th.art + ':' + e.feld] || 0) + 1;
+          const diff = Object.keys(th.fakten).filter((k) => th.fakten[k] !== e.fakten[k]);
+          if (diff.length !== 1) { zaehl.mehrAlsEins++; continue; }
+          const rec = th.art === 'gefallen' || th.art === 'verloren' ? null : z.angriffe.find((r) => r.id === Number(th.key.split(':')[1]));
+          const besitzerZiel = rec ? (z.hexe[rec.ziel] || {}).besitzer : null;
+          if (e.feld === 'fraktion') {
+            const neu = e.fakten.fraktion;
+            if (neu === th.fakten.fraktion) zaehl.fraktionGleich++;
+            if (neu === 'kon') zaehl.kon++;
+            if (rec) {
+              if (neu === besitzerZiel) zaehl.besitzer++;
+              if (typeof besitzerZiel === 'string' && !Kern.feindlich(neu, besitzerZiel)) zaehl.nichtFeind++;
+              if (neu === 'pirat' && th.art !== 'belagert') zaehl.piratNichtBelagert++;
+            } else if (th.art === 'gefallen') zaehl.hafenFraktion++;
+            else { const ev = ctx.ereignisse.find((q) => 'gefallen:' + q.typ + ':' + q.ort + ':' + q.n === th.key); if (neu === ev.besitzer) zaehl.verliererSelbst++; }
+          }
+          if (e.feld === 'ort') {
+            const neu = e.fakten.ort;
+            if (!d.nbr[th.fakten.ort].includes(neu)) zaehl.ortKeinNachbar++;
+            if (rec) { const bz = (z.hexe[neu] || {}).besitzer; if (!(typeof bz === 'string' && Kern.feindlich(rec.von, bz))) zaehl.ortUnpassend++; }
+            else if ((d.hex[neu].hafen !== '') !== (th.art === 'gefallen')) zaehl.ortUnpassend++;   // Hafen-Gerücht nennt einen Hafen, Posten-Gerücht einen Ort ohne Hafen
+          }
+        }
+      }
+    });
+  }
+  ok(zaehl.gesamt > 10000 && zaehl.falsch > 3000, `Gerüchte aus echten Sim-Zuständen: ${zaehl.gesamt} geprüft, ${zaehl.falsch} falsch (${(zaehl.falsch / zaehl.gesamt * 100).toFixed(1)} %)`);
+  ok(zaehl.mehrAlsEins === 0 && zaehl.fraktionGleich === 0, 'jedes falsche Gerücht ändert genau ein Faktum, nie zur wahren Fraktion');
+  ok(zaehl.kon === 0, `Fix S2: nie das Konkordat als Angreifer oder Zerstörer (${zaehl.kon})`);
+  ok(zaehl.besitzer === 0 && zaehl.nichtFeind === 0, `Fix S2: der falsche Angreifer ist nie der Besitzer des Ziels und immer ein Feind des Besitzers (${zaehl.besitzer} / ${zaehl.nichtFeind})`);
+  ok(zaehl.piratNichtBelagert === 0, 'Fix S2: Piraten nur bei einer Belagerung als falscher Angreifer');
+  ok(zaehl.hafenFraktion === 0, 'Fix S2: beim gefallenen Hafen wird nie der neue Herr vertauscht (die Karte zeigt ihn)');
+  ok(zaehl.verliererSelbst === 0, 'Fix S2: beim zerstörten Posten ist nie der Verlierer selbst der Zerstörer');
+  ok(zaehl.ortKeinNachbar === 0 && zaehl.ortUnpassend === 0, `Fix S2: der falsche Ort ist ein Nachbar, der zum Thema passt (Feind als Ziel / Hafen / Ort ohne Hafen) (${zaehl.ortKeinNachbar} / ${zaehl.ortUnpassend})`);
+  const k = Object.keys(zaehl.proArt);
+  ok(['belagert:fraktion', 'belagert:ort', 'marsch:klasse', 'verloren:fraktion', 'gefallen:ort'].every((x) => zaehl.proArt[x] > 20) && !k.includes('gefallen:fraktion'), 'alle plausiblen Felder kommen vor: ' + JSON.stringify(zaehl.proArt));
+}
+
 // ================================================================================================================================ Gerücht
 section('Gerücht: gekennzeichnet, Falschquote, nur erlaubte Felder', () => {
   const z = Kern.erzeuge({ karte: DATEN.karte, werte: DATEN.werte, seed: 5 }), d = Daten.datenVon(z), ctx = { z, d, tickZahl: 1, ereignisse: [] };
@@ -218,6 +289,7 @@ section('Gerücht: gekennzeichnet, Falschquote, nur erlaubte Felder', () => {
     { key: 'marsch:2', art: 'marsch', fakten: { ort: '0403', fraktion: 'pirat', klasse: 1 } },
     { key: 'sammeln:3', art: 'sammeln', fakten: { ort: '0305', fraktion: 'ger', klasse: 3 } },
     { key: 'gefallen:hafen_gefallen:0803:9', art: 'gefallen', fakten: { ort: '0803', fraktion: 'rom', zeit: 2 } },
+    { key: 'gefallen:posten_verloren:0603:9', art: 'verloren', fakten: { ort: '0603', fraktion: 'ger', zeit: 2 } },
   ];
   let falsch = 0, gesamt = 0, ungekennzeichnet = 0, verbotenesFeld = 0, mehrAlsEins = 0, ortKeinNachbar = 0, klasseSprung = 0, gleichGeblieben = 0, artGeaendert = 0, wahrFalsch = 0;
   for (let i = 0; i < 6000; i++) {
@@ -232,7 +304,7 @@ section('Gerücht: gekennzeichnet, Falschquote, nur erlaubte Felder', () => {
     if (!W.falsch_felder[t.art].includes(diff[0]) || e.feld !== diff[0]) verbotenesFeld++;
     if (diff[0] === 'ort' && !d.nbr[t.fakten.ort].includes(e.fakten.ort)) ortKeinNachbar++;
     if (diff[0] === 'klasse' && (Math.abs(e.fakten.klasse - t.fakten.klasse) !== 1 || e.fakten.klasse < 1 || e.fakten.klasse > 3)) klasseSprung++;
-    if (diff[0] === 'fraktion' && !W.tausch_fraktionen.includes(e.fakten.fraktion)) verbotenesFeld++;
+    if (diff[0] === 'fraktion' && !(W.tausch_kandidaten[t.art] || []).includes(e.fakten.fraktion)) verbotenesFeld++;
     if (diff[0] === 'zeit' && !(e.fakten.zeit >= 1)) verbotenesFeld++;
     if (e.text === Info.ergebnisAus(ctx, t, 'beleg', i).text.replace(W.kennzeichnung.beleg, W.kennzeichnung.gerucht)) gleichGeblieben++;
   }
@@ -246,8 +318,9 @@ section('Gerücht: gekennzeichnet, Falschquote, nur erlaubte Felder', () => {
   const felder = {};
   for (let i = 0; i < 4000; i++) { const e = Info.ergebnisAus(ctx, vorlagen[0], 'gerucht', i); if (e.feld) felder[e.feld] = (felder[e.feld] || 0) + 1; }
   ok(W.falsch_felder.belagert.every((f) => felder[f] > 100), 'alle vier Felder des Belagerungs-Gerüchts werden vertauscht: ' + JSON.stringify(felder));
+  realistischeGeruechte();
   // Zufall: eigener Strom, deterministisch je (Seed, Zähler, Thema)
-  ok(Array.from({ length: 60 }, (_, i) => i).every((i) => gleich(Info.ergebnisAus(ctx, vorlagen[i % 4], 'gerucht', i), Info.ergebnisAus(ctx, vorlagen[i % 4], 'gerucht', i))), 'gleicher Zähler = gleiches Gerücht (60 Paare)');
+  ok(Array.from({ length: 60 }, (_, i) => i).every((i) => gleich(Info.ergebnisAus(ctx, vorlagen[i % 5], 'gerucht', i), Info.ergebnisAus(ctx, vorlagen[i % 5], 'gerucht', i))), 'gleicher Zähler = gleiches Gerücht (60 Paare)');
   const verschieden = new Set(); for (let i = 0; i < 40; i++) verschieden.add(Info.ergebnisAus(ctx, vorlagen[0], 'gerucht', i).text);
   ok(verschieden.size > 4, 'andere Zähler = andere Gerüchte (' + verschieden.size + ' verschiedene Texte)');
   // im Spiel: game.rng und der Sim-Strom bleiben unberührt, der Zähler wandert mit
@@ -327,6 +400,27 @@ section('Kauf: Marken atomar, zu wenig Marken, nur Konkordat-Häfen, nur mit Wel
   } finally { Wissen.sondeGesichtet = original; }
   const rr3 = Info.kaufen(g2, s2.p, 't0', 'beleg');
   ok(rr3.ok && g2.inventory.marks === 380, 'nach dem Fehler klappt derselbe Kauf: 500 -> 380');
+  // Fix K4: Art und Kennung aus der Anzeige gelten: hat sich das Angebot geändert, kauft die Id t0 nie ein anderes Thema als das gezeigte
+  { const s5 = mitAngebot(46, null, 2), g5 = s5.g; g5.inventory.marks = 500;
+    const t0 = s5.angebot.themen[0], t1 = s5.angebot.themen[1], snap5 = Info.snapshot(g5);
+    ok(snap5.th.every((q) => /^[a-z]{5}$/.test(q.k)) && snap5.th[0].k === Info.kennung(t0.key) && snap5.th[0].k !== snap5.th[1].k, 'der Anzeigeblock trägt je Thema eine Kennung (5 Buchstaben, verrät nichts vom Thema)');
+    let q = Info.kaufen(g5, s5.p, 't0', 'gerucht', { art: t0.art, k: 'zzzzz' });
+    ok(!q.ok && q.code === 'unbekannt' && g5.inventory.marks === 500, 'falsche Kennung: nichts gekauft, nichts abgebucht');
+    q = Info.kaufen(g5, s5.p, 't0', 'gerucht', { art: t1.art === t0.art ? 'x' : t1.art, k: Info.kennung(t0.key) });
+    ok(!q.ok && q.code === 'unbekannt' && g5.inventory.marks === 500, 'falsche Art: nichts gekauft');
+    q = Info.kaufen(g5, s5.p, 't0', 'gerucht', {});
+    ok(!q.ok && q.code === 'unbekannt' && g5.inventory.marks === 500, 'ohne Art und Kennung (Befehl vom Netz): nichts gekauft');
+    // das Angebot ändert sich mit dem Tick: die alte Anzeige (t0 von damals) kauft nichts Anderes
+    const alt = { art: t0.art, k: Info.kennung(t0.key) };
+    let geaendert = false;
+    for (let i = 0; i < 80 && !geaendert; i++) { tickEin(g5); const a = Info.angebotFuer(g5).themen; if (a.length && a[0].key !== t0.key) geaendert = true; }
+    const marksVor = g5.inventory.marks, gzVor = g5.weltsim.wissen.gz || 0;
+    q = geaendert ? Info.kaufen(g5, s5.p, 't0', 'gerucht', alt) : null;
+    ok(geaendert && !q.ok && q.code === 'unbekannt' && g5.inventory.marks === marksVor && (g5.weltsim.wissen.gz || 0) === gzVor, 'das Angebot hat sich geändert (neuer Tick): ein Klick auf die alte Anzeige kauft nichts, Marken und Zähler bleiben');
+    const neuA = Info.angebotFuer(g5).themen[0];
+    q = Info.kaufen(g5, s5.p, 't0', 'gerucht', { art: neuA.art, k: Info.kennung(neuA.key) });
+    ok(q.ok && g5.inventory.marks === marksVor - W.preise.gerucht, 'mit der Kennung des jetzigen Angebots klappt der Kauf');
+  }
   // nicht am Konkordat
   const s3 = neuesSpiel({ seed: 43 }); for (let i = 0; i < 6; i++) tickEin(s3.g);
   s3.g.inventory.marks = 500;
@@ -344,14 +438,15 @@ section('Kauf: Marken atomar, zu wenig Marken, nur Konkordat-Häfen, nur mit Wel
   ok(!k.g.weltsim && Info.kaufen(k.g, k.p, 't0', 'gerucht').code === 'kein_weltsim' && k.g.inventory.marks === 500 && Info.snapshot(k.g) === null, 'Kampagne ohne Weltsim: kein Kauf, kein Block');
   // jeder darf kaufen (geteilte Marken), der Befehl geht über die Konsole shop
   const s4 = mitAngebot(45); s4.g.inventory.marks = 400;
-  s4.g.handleMessage(s4.c, { t: 'cmd', c: 'info.kaufen', thema: 't0', stufe: 'gerucht' });
+  const anz = (id) => { const q = Info.angebotFuer(s4.g).themen.find((x) => x.id === id); return { art: q.art, k: Info.kennung(q.key) }; };   // Art und Kennung wie angezeigt (wie der Client)
+  s4.g.handleMessage(s4.c, Object.assign({ t: 'cmd', c: 'info.kaufen', thema: 't0', stufe: 'gerucht' }, anz('t0')));
   const antw = s4.c.inbox.filter((m) => m.t === 'event' && m.kind === 'infoAntwort');
   ok(antw.length === 1 && antw[0].ok && antw[0].stufe === 'gerucht' && antw[0].zuv === 'gerucht' && s4.g.inventory.marks === 370 && !('intern' in antw[0]) && !('wahr' in antw[0]) && !('feld' in antw[0]), 'Befehl info.kaufen: Antwort an den Absender, Marken -30, die Antwort verrät nicht, ob das Gerücht stimmt');
   s4.p.console = 'helm';
-  s4.g.handleMessage(s4.c, { t: 'cmd', c: 'info.kaufen', thema: 't1', stufe: 'gerucht' });
+  s4.g.handleMessage(s4.c, Object.assign({ t: 'cmd', c: 'info.kaufen', thema: 't1', stufe: 'gerucht' }, anz('t1')));
   ok(s4.g.inventory.marks === 370, 'ohne Konsole shop: kein Kauf');
   s4.p.console = 'shop'; s4.g.inventory.marks = 5;
-  s4.c.inbox.length = 0; s4.g.handleMessage(s4.c, { t: 'cmd', c: 'info.kaufen', thema: 't0', stufe: 'beleg' });
+  s4.c.inbox.length = 0; s4.g.handleMessage(s4.c, Object.assign({ t: 'cmd', c: 'info.kaufen', thema: 't0', stufe: 'beleg' }, anz('t0')));
   const nein = s4.c.inbox.filter((m) => m.t === 'event' && m.kind === 'infoAntwort');
   ok(nein.length === 1 && !nein[0].ok && nein[0].code === 'zu_wenig_marken' && s4.g.inventory.marks === 5, 'zu wenig Marken über den Befehl: Antwort mit Code, nichts abgebucht');
 });
@@ -407,6 +502,46 @@ section('Karte: zusatzSicht liefert die Beleg-Hexe für die Dauer, danach nicht 
     const hexeAnders = Object.keys(wx.hexe).filter((c) => !gleich(wx.hexe[c], wy.hexe[c]));
     const flAnders = wx.flotten.filter((q) => !wy.flotten.some((o) => gleich(o, q))).map((q) => q.h);
     ok(hexeAnders.every((c) => zs.has(c)) && flAnders.every((h) => zs.has(h)) && zs.size <= 4, 'Beleg: Wissen weicht nur in den Hexen des Belegs ab (' + zs.size + ' Hexe: ' + [...zs].join() + ')'); }
+  // Fix S1: der Beleg gilt nur, solange der Feldzug läuft, und zeigt nur Ziel und die Hexe von Flotten DIESES Feldzugs (nie den Heimathafen, nie Rückzieher)
+  { const X = baue(); X.schritt(); X.g.inventory.marks = 900;
+    const th = Info.angebotFuer(X.g).themen.find((q) => q.art === 'marsch'); Info.kaufen(X.g, X.p, th.id, 'beleg');
+    ok([...Wissen.zusatzSicht(X.g, 0)].sort().join() === '0703,1003', 'S1 Ausgangslage: laufender Feldzug, Beleg zeigt das Ziel (0703) und die Flotte (1003): ' + [...Wissen.zusatzSicht(X.g, 0)].sort().join());
+    const rec = X.z.angriffe.find((r) => r.id === 901);
+    rec.t_ende = X.z.tick; rec.ausgang = 'abgewehrt';   // der Feldzug ist zu Ende, die Flotte fährt heim und behält die Feldzug-Id (wie in der Sim)
+    X.fl.befehl = 'heim'; X.fl.ziel = null; X.fl.ort = X.fl.heimat;
+    ok(Wissen.zusatzSicht(X.g, 0).size === 0, 'S1: nach dem Ende des Feldzugs zeigt der Beleg nichts mehr, weder das Ziel noch den Heimathafen (' + X.fl.heimat + ') der Flotte');
+    X.schritt(); ok(!X.ws.wissen.belege, 'S1: ein Beleg eines beendeten Feldzugs wird geräumt (belegt keinen der höchstens ' + W.beleg_max + ' Plätze)');
+  }
+  { const X = baue(); X.schritt(); X.g.inventory.marks = 900;
+    const zwei = X.z.flotten.find((q) => q.fraktion === 'ger' && q.id !== X.fl.id && q.heimat !== '1003' && q.heimat !== '0703');
+    zwei.angriff = 901; zwei.befehl = 'rueckzug'; zwei.ziel = zwei.heimat; zwei.ort = zwei.heimat;   // zieht sich zurück: gehört nach der Sim nicht mehr zum Feldzug
+    const th = Info.angebotFuer(X.g).themen.find((q) => q.art === 'marsch'); Info.kaufen(X.g, X.p, th.id, 'beleg');
+    const zs = [...Wissen.zusatzSicht(X.g, 0)].sort().join();
+    ok(zs === '0703,1003' && !zs.includes(zwei.ort), 'S1: eine Flotte im Rückzug (und ihr Hex ' + zwei.ort + ') ist nicht Teil des Belegs: ' + zs);
+    zwei.befehl = 'angriff'; zwei.ziel = '0703'; zwei.ort = '1104';   // marschiert mit: jetzt gehört sie dazu und ihr Hex ist sichtbar
+    ok(Wissen.zusatzSicht(X.g, 0).has('1104'), 'S1: eine Flotte mit Angriffsbefehl desselben Feldzugs: ihr Hex gehört zum Beleg');
+    const fremd = X.z.flotten.find((q) => q.fraktion === 'rom' && q.heimat !== '1003');
+    fremd.befehl = 'angriff'; fremd.ziel = '0703'; fremd.ort = '0904'; fremd.angriff = 777;   // fremder Feldzug (nicht im Beleg)
+    ok(!Wissen.zusatzSicht(X.g, 0).has('0904'), 'S1: eine Flotte eines anderen Feldzugs gehört nie zum Beleg');
+  }
+  { const X = szene({ seed: 55 }), fl = flotteVon(X.z, '1004');   // Sammelphase: die sammelnden Flotten zählen
+    fl.befehl = 'sammeln'; fl.ziel = '1105'; fl.ort = '1105'; fl.angriff = 903;
+    X.z.angriffe.push({ id: 903, t0: X.z.tick, ziel: '0703', von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: null, t_ende: null, ausgang: null, phase: 'sammeln', t_marsch: null, stuetz: '1105', flotten: [fl.id] });
+    X.schritt(); X.g.inventory.marks = 500;
+    const th = Info.angebotFuer(X.g).themen.find((q) => q.art === 'sammeln'); const r = Info.kaufen(X.g, X.p, th.id, 'beleg');
+    ok(r.ok && [...Wissen.zusatzSicht(X.g, 0)].sort().join() === '0703,1105', 'S1: Sammelphase: Ziel und der Sammelplatz der Flotte, sonst nichts: ' + [...Wissen.zusatzSicht(X.g, 0)].sort().join());
+  }
+  // Fix S3: die Stärkeklasse zählt nur Flotten, die die Sim zum Feldzug rechnet (Angriffsbefehl); eine Flotte im Rückzug zählt nicht
+  { const X = szene({ seed: 56 }), z = X.z, fl1 = flotteVon(z, '1004'), fl2 = z.flotten.find((q) => q.fraktion === 'ger' && q.id !== fl1.id);
+    marsch(z, fl1, 905, '1003', '0703', { von: 'ger' });
+    fl2.angriff = 905; fl2.befehl = 'rueckzug'; fl2.ziel = fl2.heimat; fl2.ort = fl2.heimat;
+    fl1.staerke = z.werte.staerkeklassen.mittel * 0.5; fl2.staerke = z.werte.staerkeklassen.gross;   // allein klein (1), mit der Rückzieherin groß (3)
+    X.schritt();
+    const th = Info.themenAus(Info.ctxVon(X.g)).find((q) => q.key === 'marsch:905');
+    ok(!!th && th.fakten.klasse === 1, 'S3: Klasse zählt die Rückzieherin nicht mit (klein = 1, nicht ' + (th && th.fakten.klasse) + ')');
+    fl2.befehl = 'angriff'; fl2.ziel = '0703';
+    ok(Info.themenAus(Info.ctxVon(X.g)).find((q) => q.key === 'marsch:905').fakten.klasse === 3, 'S3: mit Angriffsbefehl zählt sie mit (groß = 3)');
+  }
   // Gerücht ändert die Karte nie
   const C = baue(); C.schritt(); const tg = Info.angebotFuer(C.g).themen.find((x) => x.art === 'marsch'); C.g.inventory.marks = 100;
   const vorKarte = JSON.stringify({ h: C.ws.wissen.hexe, f: C.ws.wissen.flotten });
@@ -472,6 +607,7 @@ section('Weltstand: Wissen mit Belegen speichern und laden, müllfest, ohne Käu
   ok(gl, 'Weltstand mit Belegen ist schemagültig');
   // laden: gleiches Wissen, gleiche Sicht
   const s2 = szene({ seed: 71 }); s2.ws.zustand.tick = W1.t; s2.ws.tickZahl = W1.t;
+  marsch(s2.z, flotteVon(s2.z, '1004'), 903, '1003', '0703', { von: 'ger' });   // der Sim-Zustand wird mit dem Feldzug geladen (der Beleg gilt nur, solange er läuft)
   Wissen.restore(s2.g, kopie(W1));
   ok(gleich(Wissen.toSave(s2.ws), W1), 'nach dem Laden: Wissen tief gleich (inklusive belege und gz)');
   ok(Wissen.zusatzSicht(s2.g, 0).has('0703') && s2.ws.wissen.belege[0].an === 903, 'die Sicht des Belegs gilt nach dem Laden weiter (Ziel in zusatzSicht)');
@@ -487,6 +623,9 @@ section('Weltstand: Wissen mit Belegen speichern und laden, müllfest, ohne Käu
     const wx = sx.ws.wissen;
     ok(!geworfen && wx && (!wx.belege || wx.belege.every((b) => b.h.every((h) => /^\d{4}$/.test(h)) && b.bis >= x.t)) && (wx.gz === undefined || wx.gz > 0), 'müllfest: ' + name);
   }
+  { const x = kopie(W1); x.belege[0].bis = x.t + 1000000;   // Fix K5: eine Datei kann keinen ewigen Beleg schenken
+    const sx = szene({ seed: 71 }); sx.ws.zustand.tick = x.t; sx.ws.tickZahl = x.t; Wissen.restore(sx.g, x);
+    ok(sx.ws.wissen.belege && sx.ws.wissen.belege[0].bis === x.t + W.beleg_dauer, 'K5: ein zu großes bis wird auf Tick + beleg_dauer (' + W.beleg_dauer + ') geklemmt'); }
   // abgelaufene Belege fallen beim Laden weg
   const x = kopie(W1); x.belege[0].bis = x.t - 1;
   const sy = szene({ seed: 71 }); sy.ws.zustand.tick = x.t; sy.ws.tickZahl = x.t; Wissen.restore(sy.g, x);
@@ -512,7 +651,7 @@ section('Terminal (echte terminal-ui.js, handel-info.js)', () => {
   for (const f of ['consoles.js', 'handel-info.js', 'terminal-ui.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f), 'utf8'), win, { filename: f });
   const TU = win.TerminalUI, HI = win.HandelInfo;
   ok(TU && HI && typeof HI.modell === 'function', 'TerminalUI und HandelInfo geladen');
-  HI.store.werte = kopie(WJ.werte);
+  HI.store.werte = kopie(AJ.werte);   // das, was der Server dem Client liefert (Fix K1)
   const s = mitAngebot(81, null, 2); const { g, c, p } = s; g.inventory.marks = 500;
   const sicht = () => ({ state: JSON.parse(JSON.stringify(g.snapshot())), me: p, send(m) { g.handleMessage(c, m); }, actions: { sfx() {}, leave() {} } });
   const modell = () => { win.Render.ui = { buttons: [], mouse: { x: 0, y: 0 } }; TU.draw({}, sicht()); return TU.modell(sicht()); };

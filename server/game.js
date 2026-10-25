@@ -1206,9 +1206,9 @@ class Game {
         err = r ? r.text : null;
         break;
       }
-      case 'info.kaufen': {   // SUND-03b I: am Terminal (Konsole shop), jeder darf, die Marken sind geteilt; Antwort an den Absender: infoAntwort { ok, op, stufe?, text, code? }, alle sehen Funk (Gerücht, Beleg) und Karte (Beleg)
+      case 'info.kaufen': {   // Art und Kennung aus der Anzeige (msg.art, msg.k): ein inzwischen geändertes Angebot kauft nichts. SUND-03b I: am Terminal (Konsole shop), jeder darf, die Marken sind geteilt; Antwort an den Absender: infoAntwort { ok, op, stufe?, text, code? }, alle sehen Funk (Gerücht, Beleg) und Karte (Beleg)
         let r;
-        try { r = Info.kaufen(this, p, String(msg.thema), String(msg.stufe)); } catch (e) { this.countError('info-kaufen', e); r = { ok: false, code: 'fehler', text: Info.WERTE.texte.fehler }; }
+        try { r = Info.kaufen(this, p, String(msg.thema), String(msg.stufe), { art: msg.art, k: msg.k }); } catch (e) { this.countError('info-kaufen', e); r = { ok: false, code: 'fehler', text: Info.WERTE.texte.fehler }; }
         if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'infoAntwort', pid: p.id, op: 'kaufen', ok: !!r.ok }, r.ok ? { stufe: r.stufe, text: r.text, zuv: r.zuverlaessigkeit } : { code: r.code, text: r.text }));
         err = r.ok ? null : r.text;
         break;

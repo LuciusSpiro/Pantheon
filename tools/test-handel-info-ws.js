@@ -65,7 +65,7 @@ function client(port, hello) {
   const ws = () => g.weltsim;
   const antwortVon = (x) => x.antw.filter((q) => q.op === 'kaufen');
   const sitz = async (x, console_) => { x.send({ t: 'debug', cmd: 'sitz', console: console_ }); await sleep(250); };
-  const kauf = (x, thema, stufe) => x.send({ t: 'cmd', c: 'info.kaufen', thema, stufe });
+  const kauf = (x, thema, stufe, falsch) => { const t = x.info && x.info.th && x.info.th.find((q) => q.i === thema); x.send({ t: 'cmd', c: 'info.kaufen', thema, stufe, art: t ? t.a : undefined, k: falsch ? 'zzzzz' : (t ? t.k : undefined) }); };   // Art und Kennung wie angezeigt (wie der Client)
 
   // Aufbau: die Lerche liegt in Concordia (Hafen des Konkordats), die Sim läuft, bis das Konkordat zwei Themen hat
   Space.enterScene(g, Sektoren.ortVonHex('0604'), {});
@@ -98,6 +98,11 @@ function client(port, hello) {
   ok(g.inventory.marks === marks0 && !ws().wissen.belege && !ws().wissen.gz, 'ohne Konsole shop und mit gefälschten Nachrichten: nichts gekauft, nichts abgebucht');
   ok(g.errors === 0, 'kein Serverfehler durch gefälschte Nachrichten');
   await sitz(c, 'shop');
+  { const antwVor = antwortVon(b).length, marksB = g.inventory.marks;   // Fix K4: Art und Kennung aus der Anzeige müssen zum Angebot passen
+    kauf(b, 't0', 'gerucht', true); await sleep(400);
+    ok(g.inventory.marks === marksB && !ws().wissen.gz && antwortVon(b).length === antwVor + 1 && antwortVon(b).slice(-1)[0].ok === false && antwortVon(b).slice(-1)[0].code === 'unbekannt', 'falsche Kennung über das Netz: nichts gekauft, Antwort mit Code unbekannt');
+    b.send({ t: 'cmd', c: 'info.kaufen', thema: 't0', stufe: 'gerucht' }); await sleep(300);
+    ok(g.inventory.marks === marksB && !ws().wissen.gz, 'ohne Art und Kennung über das Netz: nichts gekauft'); }
 
   // 4. Gerücht: Bo kauft, alle sehen den Funk, die Marken sind geteilt
   for (const x of [a, b, c]) { x.antw.length = 0; x.funk.length = 0; }

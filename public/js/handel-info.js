@@ -1,6 +1,6 @@
 // SUND-03b I: Informationshandel des Konkordats in der Anzeige (nur Freie Fahrt Sund, nur an Konkordat-Häfen). Globales `HandelInfo`, in Node als Modul (Tests).
 // Storage: store.info = letzter Block world.info { th: [{ i, a, g?, b? }], l?: [{ s, x }] } (kommt nur bei Änderung; world.info = null ist das Löschsignal; welcome und die Lobby leeren ebenfalls).
-//   Gleich für alle Spieler (nur der Server schreibt). store.werte = content/welt/handel-info-werte.json (Preise, Texte, Themenüberschriften; vom Server gelesen).
+//   Gleich für alle Spieler (nur der Server schreibt). store.werte = content/welt/handel-info-anzeige.json (Preise, Texte, Themenüberschriften; vom Server gelesen; die Regeln des Handels bekommt der Client nie).
 // Action: modell() -> null | { themen: [{ id, art, name, gerucht, beleg }], letzte: [{ stufe, text }], preise: { gerucht, beleg } }, müll-fest (ohne Block keine Anzeige, kein Platzhalter).
 // Das Terminal (terminal-ui.js, Bereich „Information“) baut daraus sein Modell und sendet info.kaufen; der Server entscheidet alles.
 (function (root, factory) {
@@ -23,8 +23,8 @@
   const text = (key) => str((wert('texte', {}) || {})[key]);
   function thema(t) {
     if (!t || typeof t !== 'object' || !/^t\d$/.test(str(t.i)) || !str(t.a)) return null;
-    const th = wert('themen', {}) || {};
-    return { id: t.i, art: t.a, name: str((th[t.a] || {}).label) || t.a, gerucht: t.g === 1, beleg: t.b === 1 };
+    const th = wert('themen_namen', {}) || {};
+    return { id: t.i, art: t.a, k: str(t.k), name: str(th[t.a]) || t.a, gerucht: t.g === 1, beleg: t.b === 1 };
   }
   function modellAus(b) {
     if (!b || typeof b !== 'object') return null;
@@ -36,7 +36,7 @@
   const modell = () => modellAus(store.info);
   function laden() {
     if (typeof fetch !== 'function') return;
-    fetch('/content/welt/handel-info-werte.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.werte && typeof j.werte === 'object') store.werte = j.werte; }).catch(() => { /* ohne Texte: leere Beschriftungen */ });
+    fetch('/content/welt/handel-info-anzeige.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.werte && typeof j.werte === 'object') store.werte = j.werte; }).catch(() => { /* ohne Texte: leere Beschriftungen */ });
   }
 
   (function haken() {

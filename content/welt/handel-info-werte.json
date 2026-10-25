@@ -1,8 +1,7 @@
 {
   "format": "handel-info-werte/1",
-  "_hinweis": "SUND-03b I: Informationshandel des Konkordats (server/sim/handel-info.js, nur Freie Fahrt Sund, nur an Konkordat-Haefen). Zwei Stufen: Geruecht (billig, kann falsch sein, immer gekennzeichnet, nur Text) und Beleg (teuer, exakt aus der Sim, wirkt als Kartensicht ueber zusatzSicht in kriegslage-wissen.js). Ein Thema ist eine Wendepunkt-Zeile der Sim: belagerter Ort, Marsch oder Sammeln einer Flotte, gefallener Hafen oder Posten. Falsch heisst: der Code vertauscht EIN Faktum (Ort, Fraktion, Staerkeklasse oder Zeit), er erfindet nie ein Ereignis. Wahr oder falsch entscheidet ein eigener zaehlerbasierter Zufallsstrom (Sim-Seed, Zaehler, Thema), nie game.rng und nie der Strom der Sim. Texte: Rahmen und Fakten-Einsetzung macht der Code aus den Vorlagen hier; Platzhalter je Thema in 'platzhalter' (alle muessen in einem Rahmen vorkommen). Alle Zahlen sind Annahmen, Aenderungen wirken ohne Code.",
+  "_hinweis": "SUND-03b I: Informationshandel des Konkordats (server/sim/handel-info.js, nur Freie Fahrt Sund, nur an Konkordat-Haefen). Zwei Stufen: Geruecht (billig, kann falsch sein, immer gekennzeichnet, nur Text) und Beleg (teuer, exakt aus der Sim, wirkt als Kartensicht ueber zusatzSicht in kriegslage-wissen.js). Ein Thema ist eine Wendepunkt-Zeile der Sim: belagerter Ort, Marsch oder Sammeln einer Flotte, gefallener Hafen oder Posten. Falsch heisst: der Code vertauscht EIN Faktum (Ort, Fraktion, Staerkeklasse oder Zeit), er erfindet nie ein Ereignis. Wahr oder falsch entscheidet ein eigener zaehlerbasierter Zufallsstrom (Sim-Seed, Zaehler, Thema), nie game.rng und nie der Strom der Sim. Texte: Rahmen und Fakten-Einsetzung macht der Code aus den Vorlagen hier (Preise, Meldungstexte und Ueberschriften: handel-info-anzeige.json, die einzige Datei, die der Client sieht); Platzhalter je Thema in 'platzhalter' (alle muessen in einem Rahmen vorkommen). Alle Zahlen sind Annahmen, Aenderungen wirken ohne Code.",
   "werte": {
-    "preise": {"wert": {"gerucht": 30, "beleg": 120}, "einheit": "Marken", "_hinweis": "Preis je Kauf (ganze Marken, geteilte Kasse der Crew). Der Beleg kostet das Vierfache: er ist exakt und zeigt die betroffenen Hexe auf der Karte."},
     "falschquote": {"wert": 0.3333, "einheit": "Anteil 0..1", "_hinweis": "Anteil der Geruechte, die ein vertauschtes Faktum tragen (Standard ein Drittel). Ein Beleg ist nie falsch."},
     "angebot": {"wert": {"min": 2, "max": 3}, "einheit": "Themen je Besuch", "_hinweis": "Anzahl der angebotenen Themen (soweit es gerade so viele gibt). Gibt es keins, sagt das Terminal das und es gibt nichts zu kaufen."},
     "beleg_dauer": {"wert": 40, "einheit": "Ticks (Spruenge)", "_hinweis": "So lange sieht Rom die vom Beleg betroffenen Hexe exakt und ohne Verzoegerung (zusatzSicht). Danach gilt wieder die normale Sicht, der letzte bekannte Stand altert."},
@@ -13,9 +12,16 @@
       "belagert": ["ort", "fraktion", "klasse", "zeit"],
       "marsch": ["ort", "fraktion", "klasse"],
       "sammeln": ["ort", "fraktion", "klasse"],
-      "gefallen": ["ort", "fraktion", "zeit"]
-    }, "einheit": "Thema -> Faktenfelder", "_hinweis": "Nur diese Felder darf ein falsches Geruecht vertauschen (ort = ein Nachbar-Hex im Flottennetz, fraktion = eine andere aus tausch_fraktionen, klasse = eine Stufe weiter oder weniger, zeit = um zeit_abweichung verschoben). Alles andere bleibt wahr."},
-    "tausch_fraktionen": {"wert": ["rom", "ger", "kon", "pirat"], "einheit": "Fraktions-Ids", "_hinweis": "Aus diesen wird bei einem vertauschten Faktum 'fraktion' gewaehlt (nie die wahre)."},
+      "gefallen": ["ort", "zeit"],
+      "verloren": ["ort", "fraktion", "zeit"]
+    }, "einheit": "Thema -> Faktenfelder", "_hinweis": "Nur diese Felder darf ein falsches Geruecht vertauschen (ort = ein Nachbar-Hex, das zum Thema passt (Feldzug: ein Ziel, das der Angreifer angreifen koennte; Hafen: ein Hafen; Posten: ein Ort ohne Hafen), fraktion = ein anderer moeglicher Angreifer aus tausch_kandidaten, klasse = eine Stufe weiter oder weniger, zeit = um zeit_abweichung verschoben). gefallen hat kein Feld fraktion: die Karte zeigt den neuen Besitzer des Hafens, ein anderer waere sofort als falsch erkennbar. Alles andere bleibt wahr."},
+    "tausch_kandidaten": {"wert": {
+      "belagert": ["rom", "ger", "pirat"],
+      "marsch": ["rom", "ger"],
+      "sammeln": ["rom", "ger"],
+      "gefallen": [],
+      "verloren": ["rom", "ger", "pirat"]
+    }, "einheit": "Thema -> Fraktions-Ids", "_hinweis": "Aus diesen wird bei einem vertauschten Faktum 'fraktion' gewaehlt, aber nur ein PLAUSIBLER Kandidat: nie die wahre Fraktion, nie der Besitzer des Ziels (ein Reich greift sich nicht selbst an; bei einem Posten nie der Verlierer), nur Feinde des Besitzers, nie das Konkordat (es greift nicht an). Piraten nur bei einer Belagerung (Raubzug am Ziel), nicht bei Marsch und Sammeln. Bei gefallen gibt es keine Auswahl (die Karte zeigt den Besitzer)."},
     "zeit_abweichung": {"wert": {"min": 2, "max": 5}, "einheit": "Ticks", "_hinweis": "Ein vertauschtes Faktum 'zeit' weicht um so viele Ticks (nach oben oder unten, nie unter 1) ab."},
     "fraktionen": {"wert": {"rom": "Rom", "ger": "die Germanen", "kon": "das Konkordat", "pirat": "Piraten"}, "einheit": "Anzeigename", "_hinweis": "Fuer den Platzhalter {fraktion}."},
     "von": {"wert": "Konkordat", "einheit": "Absender", "_hinweis": "Absender der Funkzeile an alle."},
@@ -23,52 +29,11 @@
     "zuverlaessigkeit": {"wert": {"gerucht": "gerucht", "beleg": "beleg"}, "einheit": "Stufe", "_hinweis": "Zuverlaessigkeits-Stufe im Ergebnis (Wissensmodell und Anzeige)."},
     "zeit": {"wert": {"eins": "{n} Sprung", "mehr": "{n} Sprüngen"}, "einheit": "Text", "_hinweis": "Formatierung des Faktums 'zeit' (Anzahl Spruenge) fuer den Platzhalter {zeit}."},
     "themen": {"wert": {
-      "belagert": {
-        "label": "Eine Belagerung",
-        "platzhalter": ["ort", "fraktion", "klasse", "zeit"],
-        "gerucht": "Es heißt: {ort} wird belagert, Angreifer {fraktion}, Stärke {klasse}, seit {zeit}.",
-        "beleg": "{ort} wird belagert. Angreifer: {fraktion}. Stärke {klasse}, seit {zeit}."
-      },
-      "marsch": {
-        "label": "Ein Flottenmarsch",
-        "platzhalter": ["ort", "fraktion", "klasse"],
-        "gerucht": "Es heißt: Eine Flotte ({fraktion}, Stärke {klasse}) marschiert gegen {ort}.",
-        "beleg": "Eine Flotte ({fraktion}, Stärke {klasse}) marschiert gegen {ort}."
-      },
-      "sammeln": {
-        "label": "Eine Flottensammlung",
-        "platzhalter": ["ort", "fraktion", "klasse"],
-        "gerucht": "Es heißt: Eine Flotte ({fraktion}, Stärke {klasse}) sammelt sich, Ziel {ort}.",
-        "beleg": "Eine Flotte ({fraktion}, Stärke {klasse}) sammelt sich. Ziel: {ort}."
-      },
-      "gefallen": {
-        "label": "Ein gefallener Ort",
-        "platzhalter": ["ort", "fraktion", "zeit"],
-        "gerucht": "Es heißt: {ort} ist vor {zeit} gefallen, neuer Herr {fraktion}.",
-        "beleg": "{ort} ist vor {zeit} gefallen. Neuer Herr: {fraktion}."
-      }
-    }, "einheit": "Thema -> Rahmen", "_hinweis": "label: Ueberschrift im Angebot (ohne Fakten, sonst gaebe es sie gratis). gerucht und beleg: Rahmen mit Platzhaltern {ort} {fraktion} {klasse} {zeit}; platzhalter = die Menge, die das Thema kennt. rahmenFuer(thema, stufe) nimmt einen Rahmen aus einem vorab erzeugten Pool (Paket T), wenn er genau diese Platzhalter vollstaendig enthaelt, sonst diesen Text."},
-    "texte": {"wert": {
-      "kein_angebot": "Das Konkordat hat gerade nichts zu verkaufen.",
-      "angebot_kopf": "Informationen des Konkordats",
-      "bereich_kurz": "Info",
-      "bereich": "Information",
-      "gekauft_kurz": "gekauft",
-      "gerucht_name": "Gerücht",
-      "beleg_name": "Beleg",
-      "gerucht_hinweis": "Billig, aber ohne Gewähr: kann falsch sein. Nur ein Text.",
-      "beleg_hinweis": "Exakt aus dem Geschehen. Rom sieht die betroffenen Orte auf der Karte.",
-      "hilfe": "wählen · Gerücht kaufen · Beleg kaufen",
-      "gekauft": "Schon gekauft.",
-      "wartet": "Warte auf das Konkordat …",
-      "zuschauer": "Zuschauer kaufen nicht.",
-      "zu_wenig_marken": "Nicht genug Marken.",
-      "kein_konkordat": "Informationen gibt es nur an Häfen des Konkordats.",
-      "nicht_angedockt": "Das Hafenterminal funktioniert nur angedockt.",
-      "kein_weltsim": "Das Konkordat verkauft hier keine Informationen.",
-      "unbekannt": "Dieses Thema gibt es nicht (mehr).",
-      "stufe_unbekannt": "Unbekannte Stufe (gerucht oder beleg).",
-      "fehler": "Das Konkordat konnte die Information nicht liefern. Es wurde nichts abgebucht."
-    }, "einheit": "Text", "_hinweis": "Meldungen des Terminals und des Servers (Codes: kein_angebot, zu_wenig_marken, kein_konkordat, nicht_angedockt, kein_weltsim, unbekannt, stufe_unbekannt, gekauft, fehler)."}
+      "belagert": {"platzhalter": ["ort", "fraktion", "klasse", "zeit"], "gerucht": "Es heißt: {ort} wird belagert, Angreifer {fraktion}, Stärke {klasse}, seit {zeit}.", "beleg": "{ort} wird belagert. Angreifer: {fraktion}. Stärke {klasse}, seit {zeit}."},
+      "marsch": {"platzhalter": ["ort", "fraktion", "klasse"], "gerucht": "Es heißt: Eine Flotte ({fraktion}, Stärke {klasse}) marschiert gegen {ort}.", "beleg": "Eine Flotte ({fraktion}, Stärke {klasse}) marschiert gegen {ort}."},
+      "sammeln": {"platzhalter": ["ort", "fraktion", "klasse"], "gerucht": "Es heißt: Eine Flotte ({fraktion}, Stärke {klasse}) sammelt sich, Ziel {ort}.", "beleg": "Eine Flotte ({fraktion}, Stärke {klasse}) sammelt sich. Ziel: {ort}."},
+      "gefallen": {"platzhalter": ["ort", "fraktion", "zeit"], "gerucht": "Es heißt: Der Hafen {ort} ist vor {zeit} gefallen, neuer Herr {fraktion}.", "beleg": "Der Hafen {ort} ist vor {zeit} gefallen. Neuer Herr: {fraktion}."},
+      "verloren": {"platzhalter": ["ort", "fraktion", "zeit"], "gerucht": "Es heißt: Der Posten bei {ort} wurde vor {zeit} von {fraktion} zerstört und ist jetzt frei.", "beleg": "Der Posten bei {ort} wurde vor {zeit} von {fraktion} zerstört. Der Ort ist jetzt frei."}
+    }, "einheit": "Thema -> Rahmen", "_hinweis": "gerucht und beleg: Rahmen mit Platzhaltern {ort} {fraktion} {klasse} {zeit}; platzhalter = die Menge, die das Thema kennt. rahmenFuer(thema, stufe) nimmt einen Rahmen aus einem vorab erzeugten Pool (Paket T), wenn er genau diese Platzhalter vollstaendig enthaelt, sonst diesen Text. Die Ueberschriften stehen in handel-info-anzeige.json. gefallen: ein HAFEN wechselt den Besitzer (hafen_gefallen, erobern in kern.js): Neuer Herr. verloren: ein POSTEN faellt (posten_verloren, postenVerlieren in kern.js): der Ort wird FREI (besitzer null), es gibt keinen neuen Herrn, nur den Zerstoerer {fraktion}."}
   }
 }

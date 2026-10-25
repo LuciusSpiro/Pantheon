@@ -409,11 +409,18 @@ function bewegung(c) {
   }
 }
 
+// Flotten, die zum Feldzug gehören, WIE DIE SIM SIE RECHNET: in der Sammelphase die sammelnden, danach die mit Angriffsbefehl (wer sich zurückzieht, gehört nicht mehr dazu; so rechnen meldeAnkunft und
+// angriffeSchliessen). Auch server/sim/handel-info.js (Stärkeklasse und Beleg) nutzt diese Definition, nie eine Kopie.
+function feldzugFlotten(z, rec) {
+  const befehl = rec.phase === 'sammeln' ? 'sammeln' : 'angriff';
+  return z.flotten.filter((fl) => fl.angriff === rec.id && fl.befehl === befehl);
+}
+
 // Erste Flotte eines Feldzugs am Ziel: Belagerung beginnt (Reichsangriff) bzw. Piratenüberfall; beides löst bei Bedarf einen Notruf aus.
 function meldeAnkunft(c, rec) {
   const { z, w } = c;
   const nd = z.hexe[rec.ziel];
-  const summe = summeStaerke(z.flotten.filter((fl) => fl.angriff === rec.id && fl.befehl === 'angriff'));
+  const summe = summeStaerke(feldzugFlotten(z, rec));
   const klasse = staerkeKlasse(summe, w);
   if (rec.art === 'reich') {
     melde(c, 'flotte_belagert', rec.von, { ziel: rec.ziel, zielArt: rec.zielArt, besitzer: nd.besitzer, staerke: rund(summe), klasse, angriff: rec.id });
@@ -631,4 +638,4 @@ function filtereWirkungen(zustand, wirkungen) {
 const filtereBefehle = Befehle.filtere;
 const pruefeBefehl = Befehle.pruefe;
 
-module.exports = { erzeuge, tick, filtereWirkungen, filtereBefehle, pruefeBefehl, BEFEHLE: Befehle, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, pruefeWirkung: Wirkungen.pruefe, GUETER, FRAKTIONEN };
+module.exports = { erzeuge, tick, filtereWirkungen, filtereBefehle, pruefeBefehl, BEFEHLE: Befehle, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feldzugFlotten, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, pruefeWirkung: Wirkungen.pruefe, GUETER, FRAKTIONEN };

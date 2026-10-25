@@ -289,7 +289,7 @@
     const t = IN.themen.find((q) => q.id === id), preis = IN.preise[stufe];
     if (!t || (stufe === 'gerucht' ? t.gerucht : t.beleg)) return;
     if (n(((view.state || {}).inventory || {}).marks) < preis) { meldung(false, IT('zu_wenig_marken'), 'zu_wenig_marken'); return; }
-    cmd(view, 'info.kaufen', { thema: id, stufe }); warten();
+    cmd(view, 'info.kaufen', { thema: id, stufe, art: t.art, k: t.k }); warten();   // Art und Kennung wie angezeigt: hat sich das Angebot inzwischen geändert, kauft der Server nichts
   }
   function infoBauen(view, m, L, a, bedienbar, hinweis, wartet, ant) {
     const IN = info(), gew = infoThema(IN, a.info), bw = (stufe) => !gew || (stufe === 'gerucht' ? gew.gerucht : gew.beleg);

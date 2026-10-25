@@ -3,9 +3,11 @@
 //   Gerücht (billig, Text, kann FALSCH sein, immer gekennzeichnet, Zuverlässigkeit 'gerucht', keine Wirkung auf die Karte, wird nicht gespeichert: nur Funkzeile an alle und Antwort an den Käufer)
 //   Beleg   (teuer, exakt aus der Sim zum Kaufzeitpunkt, Zuverlässigkeit 'beleg', wirkt als Kartensicht: das Wissensmodell von Rom sieht die betroffenen Hexe `beleg_dauer` Ticks lang
 //            exakt und ohne Verzögerung, über den Erweiterungspunkt zusatzSicht in kriegslage-wissen.js; Wissen.belege, additives Feld, kein neuer Weltstand-Block)
-// Ein Thema ist eine Wendepunkt-Zeile der Sim (wie lage-ausschnitt.js): belagerter Ort, Marsch oder Sammeln einer Flotte, gefallener Hafen oder Posten. Die Fakten eines Themas: ort (Hex), fraktion,
-// klasse (Stärkeklasse 1..3, nur Flotten), zeit (Sprünge seit Belagerung bzw. Fall, mindestens 1). Der Beleg zeigt sie wie die Sim sie hat. Ein falsches Gerücht vertauscht genau EIN Faktum
-// aus `falsch_felder` (ort -> Nachbar-Hex im Flottennetz, fraktion -> eine andere, klasse -> ±1, zeit -> verschoben): nie ein erfundenes Ereignis.
+// Ein Thema ist eine Wendepunkt-Zeile der Sim (wie lage-ausschnitt.js): belagerter Ort, Marsch oder Sammeln einer Flotte, gefallener Hafen (wechselt den Besitzer: `gefallen`, Neuer Herr) oder verlorener Posten
+// (wird FREI, niemand hält ihn: `verloren`, ohne neuen Herrn). Die Fakten eines Themas: ort (Hex), fraktion (Angreifer, neuer Besitzer bzw. Zerstörer), klasse (Stärkeklasse 1..3, nur Flotten), zeit (Sprünge seit
+// Belagerung bzw. Fall, mindestens 1). Der Beleg zeigt sie wie die Sim sie hat; Flotten und Feldzug-Phasen zählen wie in der Sim (Kern.feldzugFlotten, Wirkungen.belagerungen), nie als Kopie. Ein falsches Gerücht
+// vertauscht genau EIN Faktum aus `falsch_felder`, nur gegen PLAUSIBLE Kandidaten (thema.plausibel, aus der Sim abgeleitet; ein falsches Gerücht ist nie schon an sich widerspruchsvoll): ort -> Nachbar-Hex, der zum
+// Thema passt, fraktion -> ein möglicher Angreifer (nie der Besitzer des Ziels, nie Konkordat), klasse -> ±1, zeit -> verschoben: nie ein erfundenes Ereignis.
 // Zufall: eigener, zählerbasierter Strom (wie reise-ereignis.js strom: Sim-Seed, Zähler, Salz), nie game.rng und nie der Strom der Sim. Zähler des Gerüchts = Wissen.gz (Zahl der gekauften Gerüchte, wird mit
 // dem Wissen gespeichert); Zähler des Angebots = der Sim-Tick (ein Besuch = ein Sprung): gleicher Sim-Zustand und gleicher Tick = gleiche Liste. Kein LLM, keine Spielernamen.
 // Der Sim-Zustand wird nie verändert (nur gelesen). Käufe sind atomar: erst steht das Ergebnis fest und wirkt (Rollback des Wissens bei Fehler), dann werden die Marken abgebucht.
@@ -14,16 +16,20 @@
 //   angebotAus(ctx, hex)                    die 2–3 angebotenen Themen für den Hafen hex [{ id: 't0', key, art, fakten, sicht }] (rein, deterministisch)
 //   ergebnisAus(ctx, thema, stufe, n)       { stufe, fakten (angezeigt), wahr, feld, text } (rein; n = Zähler des Gerüchts)
 //   rahmenFuer(thema, stufe)                BENANNTE STELLE für den Rahmentext: Pool von Paket T (setzeRahmenQuelle), sonst der Datentext
-//   kaufen(game, p, themaId, stufe)         Befehl info.kaufen -> { ok: true, stufe, text, preis, ... } | { ok: false, code, text }
+//   kaufen(game, p, themaId, stufe, gezeigt?)  Befehl info.kaufen -> { ok: true, stufe, text, preis, ... } | { ok: false, code, text }. gezeigt = { art, k }: Art und Kennung des Themas, wie die Anzeige sie hatte;
+//                                           stimmt das Thema unter dieser Id inzwischen nicht mehr (Angebot hat sich geändert), wird nichts gekauft (Code unbekannt)
+//   kennung(key)                            kurze Kennung eines Themas für die Anzeige (nur Buchstaben, verrät nichts vom Thema)
 //   snapshot(game) / schluessel(game)       Anzeigeblock world.info (nur an einem Konkordat-Hafen, solange jemand am Terminal sitzt) und sein Änderungsschlüssel
 const Daten = require('../weltsim/daten.js');
 const Kern = require('../weltsim/kern.js');
+const Wirkungen = require('../weltsim/wirkungen.js');
 const Zufall = require('../weltsim/zufall.js');
 const Sektoren = require('../../shared/sektoren.js');
 const KT = require('../../public/js/karte-tokens.js');
 const Wissen = require('./kriegslage-wissen.js');
 
-const W = Object.fromEntries(Object.entries(require('../../content/welt/handel-info-werte.json').werte).map(([k, v]) => [k, v.wert]));
+// Zwei Dateien: die Regeln des Handels (nur Server) und die Anzeige (Preise, Texte, Überschriften: die einzige Datei, die der Client bekommt, server/index.js)
+const W = Object.fromEntries(Object.entries(Object.assign({}, require('../../content/welt/handel-info-werte.json').werte, require('../../content/welt/handel-info-anzeige.json').werte)).map(([k, v]) => [k, v.wert]));
 const STUFEN = ['gerucht', 'beleg'];
 const ARTEN = Object.keys(W.themen);
 const klon = (v) => JSON.parse(JSON.stringify(v));
@@ -47,28 +53,41 @@ function mischen(liste, s) {
   return liste;
 }
 const waehle = (liste, s) => liste[Math.floor(s() * liste.length)];
+function kennung(key) { let h = salzVon('kennung:' + String(key)), t = ''; for (let i = 0; i < 5; i++) { t += String.fromCharCode(97 + (h % 26)); h = Math.floor(h / 26); } return t; }
 
 // ---------------------------------------------------------------------------------------------------------------- Themen (Wahrheit der Sim, nur gelesen)
 const summe = (liste) => liste.reduce((s, fl) => s + fl.staerke, 0);
+const nachbarn = (d, ort) => (d.nbr[ort] || []).filter((c) => c !== ort && d.hex[c]);
 function themenAus(ctx) {
   const { z, d } = ctx, out = [];
   for (const rec of z.angriffe) {
     if (rec.t_ende !== null || rec.phase === 'abgebrochen' || typeof rec.von !== 'string' || !d.hex[rec.ziel]) continue;
-    const fl = z.flotten.filter((f) => f.angriff === rec.id);
+    const fl = Kern.feldzugFlotten(z, rec);   // die Flotten des Feldzugs, wie die Sim sie rechnet (Rückzieher zählen nicht)
     if (!fl.length) continue;
-    const art = rec.t_an !== null ? 'belagert' : rec.phase === 'sammeln' ? 'sammeln' : 'marsch';
+    const art = Wirkungen.belagerungen(z, rec.ziel, rec.id).length ? 'belagert' : rec.phase === 'sammeln' ? 'sammeln' : 'marsch';
     const fakten = { ort: rec.ziel, fraktion: rec.von, klasse: Kern.staerkeKlasse(summe(fl), z.werte) };
     if (art === 'belagert') fakten.zeit = Math.max(1, z.tick - rec.t_an + 1);
-    out.push({ key: art + ':' + rec.id, art, fakten, sicht: { h: [rec.ziel], an: rec.id } });
+    const besitzer = z.hexe[rec.ziel] && z.hexe[rec.ziel].besitzer;
+    const gegner = (a, b) => typeof b !== 'string' || Kern.feindlich(a, b);   // ohne Besitzer (freies Ziel) ist jeder Angreifer denkbar
+    const plausibel = {
+      fraktion: (W.tausch_kandidaten[art] || []).filter((x) => x !== rec.von && x !== besitzer && gegner(x, besitzer)),   // nie der Besitzer des Ziels (greift sich nicht selbst an), nur Feinde des Besitzers
+      ort: nachbarn(d, rec.ziel).filter((c) => { const bz = z.hexe[c] && z.hexe[c].besitzer; return typeof bz === 'string' && Kern.feindlich(rec.von, bz); }),   // ein Ziel, das der Angreifer überhaupt angreifen könnte
+    };
+    out.push({ key: art + ':' + rec.id, art, fakten, plausibel, sicht: { h: [rec.ziel], an: rec.id } });
   }
   for (const ev of ctx.ereignisse || []) {
     if (ev.typ !== 'hafen_gefallen' && ev.typ !== 'posten_verloren') continue;
-    const fraktion = ev.typ === 'hafen_gefallen' ? ev.neu : ev.durch;
+    const hafen = ev.typ === 'hafen_gefallen', art = hafen ? 'gefallen' : 'verloren';
+    const fraktion = hafen ? ev.neu : ev.durch;
     const zeit = ctx.tickZahl - ev.n + 1;
     if (typeof fraktion !== 'string' || !d.hex[ev.ort] || !(zeit >= 1 && zeit <= W.gefallen_fenster)) continue;
     const key = 'gefallen:' + ev.typ + ':' + ev.ort + ':' + ev.n;
     if (out.some((t) => t.key === key)) continue;
-    out.push({ key, art: 'gefallen', fakten: { ort: ev.ort, fraktion, zeit }, sicht: { h: [ev.ort], an: null } });
+    const plausibel = {
+      fraktion: (W.tausch_kandidaten[art] || []).filter((x) => x !== fraktion && x !== ev.besitzer),   // Hafen: die Karte zeigt den Besitzer (keine Auswahl); Posten: nie der Verlierer selbst
+      ort: nachbarn(d, ev.ort).filter((c) => (d.hex[c].hafen !== '') === hafen),   // ein Hafen-Gerücht nennt einen Hafen, ein Posten-Gerücht einen Ort ohne Hafen
+    };
+    out.push({ key, art, fakten: { ort: ev.ort, fraktion, zeit }, plausibel, sicht: { h: [ev.ort], an: null } });
   }
   return out.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
 }
@@ -84,19 +103,20 @@ function angebotAus(ctx, hex) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------- Falsch: genau ein Faktum vertauschen
-function alternative(feld, f, d, s) {
+// Kandidaten kommen aus der Sim (thema.plausibel); ein Thema ohne (von Hand gebaut) fällt auf Nachbar-Hexe und die Kandidaten der Daten zurück.
+function alternative(feld, f, d, s, pl, art) {
   switch (feld) {
-    case 'ort': { const nb = (d.nbr[f.ort] || []).filter((c) => c !== f.ort && d.hex[c]); return nb.length ? waehle(nb, s) : undefined; }
-    case 'fraktion': { const c = W.tausch_fraktionen.filter((x) => x !== f.fraktion); return c.length ? waehle(c, s) : undefined; }
+    case 'ort': { const nb = pl && pl.ort ? pl.ort : nachbarn(d, f.ort); return nb.length ? waehle(nb, s) : undefined; }
+    case 'fraktion': { const c = (pl && pl.fraktion ? pl.fraktion : (W.tausch_kandidaten[art] || []).filter((x) => x !== f.fraktion)).filter((x) => x !== f.fraktion); return c.length ? waehle(c, s) : undefined; }
     case 'klasse': { const c = [f.klasse - 1, f.klasse + 1].filter((k) => k >= 1 && k <= 3); return c.length ? waehle(c, s) : undefined; }
     case 'zeit': { const A = W.zeit_abweichung, dz = A.min + Math.floor(s() * (A.max - A.min + 1)); const v = f.zeit + (s() < 0.5 ? -dz : dz); return v < 1 ? f.zeit + dz : v; }
     default: return undefined;
   }
 }
-function verfaelsche(f, art, d, s) {
+function verfaelsche(f, art, d, s, pl) {
   const reihe = mischen((W.falsch_felder[art] || []).filter((k) => f[k] !== undefined), s);
   for (const feld of reihe) {
-    const neu = alternative(feld, f, d, s);
+    const neu = alternative(feld, f, d, s, pl, art);
     if (neu !== undefined && neu !== f[feld]) return { fakten: Object.assign({}, f, { [feld]: neu }), feld };
   }
   return null;
@@ -132,7 +152,7 @@ function ergebnisAus(ctx, thema, stufe, n) {
   let fakten = klon(thema.fakten), wahr = true, feld = null;
   if (stufe === 'gerucht') {
     const s = strom(seedVon(ctx.z), n | 0, 'gerucht:' + thema.key);
-    if (s() < W.falschquote) { const v = verfaelsche(thema.fakten, thema.art, ctx.d, s); if (v) { fakten = v.fakten; wahr = false; feld = v.feld; } }
+    if (s() < W.falschquote) { const v = verfaelsche(thema.fakten, thema.art, ctx.d, s, thema.plausibel); if (v) { fakten = v.fakten; wahr = false; feld = v.feld; } }
   }
   const text = W.kennzeichnung[stufe] + ': ' + einsetzen(rahmenFuer(thema, stufe), fakten, ctx.d);
   return { stufe, zuverlaessigkeit: W.zuverlaessigkeit[stufe], fakten, wahr, feld, text };
@@ -163,7 +183,7 @@ function angebotFuer(game) {
   return { hex: k.hex, themen: angebotAus(ctxVon(game), k.hex) };
 }
 
-function kaufen(game, p, themaId, stufe) {
+function kaufen(game, p, themaId, stufe, gezeigt) {
   const ws = zustandVon(game);
   if (!ws) return fehl('kein_weltsim');
   const k = konkordatHex(game);
@@ -173,6 +193,7 @@ function kaufen(game, p, themaId, stufe) {
   if (!angebot.length) return fehl('kein_angebot');
   const thema = angebot.find((t) => t.id === themaId);
   if (!thema) return fehl('unbekannt');
+  if (gezeigt !== undefined && (!gezeigt || gezeigt.art !== thema.art || gezeigt.k !== kennung(thema.key))) return fehl('unbekannt');   // das Angebot hat sich seit der Anzeige geändert: nie ein anderes Thema kaufen als das gezeigte
   const gekauft = gekauftVon(ws), gkey = k.hex + ':' + thema.key + ':' + stufe;
   if (gekauft[gkey]) return fehl('gekauft');
   const preis = W.preise[stufe];
@@ -211,7 +232,7 @@ function sichtbar(game) { const ws = zustandVon(game); return !!ws && nutzerAmTe
 function snapshot(game) {
   if (!sichtbar(game)) return null;
   const ws = game.weltsim, a = angebotFuer(game), gek = gekauftVon(ws);
-  const th = a.themen.map((t) => { const o = { i: t.id, a: t.art }; if (gek[a.hex + ':' + t.key + ':gerucht']) o.g = 1; if (gek[a.hex + ':' + t.key + ':beleg']) o.b = 1; return o; });
+  const th = a.themen.map((t) => { const o = { i: t.id, a: t.art, k: kennung(t.key) }; if (gek[a.hex + ':' + t.key + ':gerucht']) o.g = 1; if (gek[a.hex + ':' + t.key + ':beleg']) o.b = 1; return o; });
   const b = { th };
   if (ws.infoLetzte && ws.infoLetzte.length) b.l = ws.infoLetzte.map((q) => ({ s: q.s, x: q.x }));
   return b;
@@ -222,4 +243,4 @@ function schluessel(game) {
   return [ws.tickZahl, k.hex, Object.keys(gek).length, ws.infoZahl || 0].join('|');
 }
 
-module.exports = { WERTE: W, STUFEN, ARTEN, themenAus, angebotAus, ergebnisAus, verfaelsche, rahmenFuer, rahmenGueltig, setzeRahmenQuelle, einsetzen, kaufen, snapshot, schluessel, angebotFuer, konkordatHex, ctxVon, strom };
+module.exports = { kennung, WERTE: W, STUFEN, ARTEN, themenAus, angebotAus, ergebnisAus, verfaelsche, rahmenFuer, rahmenGueltig, setzeRahmenQuelle, einsetzen, kaufen, snapshot, schluessel, angebotFuer, konkordatHex, ctxVon, strom };

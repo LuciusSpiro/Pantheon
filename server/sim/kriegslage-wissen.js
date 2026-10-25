@@ -101,14 +101,23 @@ function zusatzSicht(game, seit) {
 }
 
 // SUND-03b I: Belege des Konkordats (additives Feld Wissen.belege: [{ h: [Hex], an: Feldzug-Id | null, bis: Tick }]). Ein Beleg gilt vom Kauf bis einschließlich Tick `bis` (Kauf + beleg_dauer):
-// Rom sieht seine Hexe exakt und ohne Verzögerung, bei einem Feldzug (`an`) zusätzlich die Hexe, in denen seine Flotten jetzt stehen. Danach liefert er nichts mehr (nachTick räumt ihn weg).
+// Rom sieht seine Hexe exakt und ohne Verzögerung. Regel (SUND-03b Fix S1): ein Beleg zeigt nie mehr als sein Thema.
+//   gefallener Hafen / zerstörter Posten (an null): der Ort, bis `bis`.
+//   Feldzug (an = Feldzug-Id): NUR solange der Feldzug läuft (t_ende null, nicht abgebrochen): das Ziel-Hex und die Hexe, in denen Flotten DIESES Feldzugs stehen (Kern.feldzugFlotten, wie die Sim sie rechnet:
+//   Sammelphase die sammelnden, danach die mit Angriffsbefehl; Rückzieher, fremde Flotten und der Heimathafen zählen nicht). Danach liefert er nichts mehr (nachTick räumt ihn weg).
+// Die Sicht ist hexweise (Kartenmodell): steht eine fremde Flotte im selben Hex, ist sie dort mitsichtbar; ein Hex ohne Flotte des Feldzugs kommt nie hinzu.
+const belegLebt = (z, b) => {
+  if (b.an == null) return true;
+  const rec = (z.angriffe || []).find((r) => r.id === b.an);
+  return !!rec && rec.t_ende === null && rec.phase !== 'abgebrochen';
+};
 function belegHexe(game) {
   const ws = game && game.weltsim, W = ws && ws.wissen, out = new Set();
   if (!W || !Array.isArray(W.belege) || !W.belege.length) return out;
   for (const b of W.belege) {
-    if (!b || !(ws.tickZahl <= b.bis)) continue;
+    if (!b || !(ws.tickZahl <= b.bis) || !belegLebt(ws.zustand, b)) continue;
     for (const h of b.h || []) out.add(h);
-    if (b.an != null) for (const fl of ws.zustand.flotten) if (fl.angriff === b.an) out.add(fl.ort);
+    if (b.an != null) for (const fl of Kern.feldzugFlotten(ws.zustand, ws.zustand.angriffe.find((r) => r.id === b.an))) out.add(fl.ort);
   }
   return out;
 }
@@ -424,7 +433,7 @@ function nachTick(game, vor, ereignisse, nachOrt, opt) {
   const belege = belegHexe(game);   // SUND-03b I: gekaufte Belege wirken in jedem Tick ihrer Dauer wie ein Szenenende: jetziger Stand ohne Verzögerung
   const r = berechne(ws.wissen, { z, d, T, vor: vz <= 0 ? null : ring[0], prev, lerche: lerchenHex(game, nachOrt), ereignisse, direkt: belege.size ? [...((opt && opt.direkt) || []), ...belege] : opt && opt.direkt, stumm: opt && opt.stumm });
   r.W.sondeT = game.time;
-  if (r.W.belege) { r.W.belege = r.W.belege.filter((b) => T <= b.bis); if (!r.W.belege.length) delete r.W.belege; }   // abgelaufene Belege fallen weg
+  if (r.W.belege) { r.W.belege = r.W.belege.filter((b) => T <= b.bis && belegLebt(z, b)); if (!r.W.belege.length) delete r.W.belege; }   // abgelaufene Belege fallen weg
   ws.wissen = r.W;
   ausgeben(game, r.aus);
 }
@@ -503,12 +512,12 @@ function restore(game, block) {
   starten(game);
   return false;
 }
-// SUND-03b I: additive Felder des Konkordats (belege, gz) müllfest lesen: Unbrauchbares und Abgelaufenes fällt weg, ohne die Felder bleibt das Wissen unverändert
+// SUND-03b I: additive Felder des Konkordats (belege, gz) müllfest lesen: Unbrauchbares und Abgelaufenes fällt weg, `bis` wird nach oben auf Tick + beleg_dauer geklemmt (eine Datei kann keinen ewigen Beleg schenken), ohne die Felder bleibt das Wissen unverändert
 function belegeLesen(W, T) {
   if (W.belege !== undefined) {
     const ok = (b) => b && typeof b === 'object' && Array.isArray(b.h) && b.h.length > 0 && b.h.length <= 12 && b.h.every((h) => typeof h === 'string' && /^\d{4}$/.test(h))
       && (b.an === null || Number.isInteger(b.an)) && Number.isInteger(b.bis) && b.bis >= T;
-    const l = Array.isArray(W.belege) ? W.belege.filter(ok).map((b) => ({ h: b.h.slice(), an: b.an, bis: b.bis })).slice(-INFO_W.beleg_max.wert) : [];
+    const l = Array.isArray(W.belege) ? W.belege.filter(ok).map((b) => ({ h: b.h.slice(), an: b.an, bis: Math.min(b.bis, T + INFO_W.beleg_dauer.wert) })).slice(-INFO_W.beleg_max.wert) : [];
     if (l.length) W.belege = l; else delete W.belege;
   }
   if (W.gz !== undefined && !(Number.isInteger(W.gz) && W.gz > 0)) delete W.gz;
