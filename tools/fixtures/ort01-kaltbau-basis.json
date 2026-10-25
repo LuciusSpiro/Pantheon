@@ -1,0 +1,281 @@
+{
+ "format": "ort01-kaltbau-basis/1",
+ "stand": "main 6d912b4 (Paket 1 vor Rollenmodus), Windows 11, Node 22.20, headless Chromium",
+ "werkzeug": "npm run mess:kaltbau -- --arten aussenposten,station,ruine,schiff --modi transfer --seeds 5..16 --json",
+ "hinweis": "Modus transfer (direkt läuft in den 60-s-Timeout). Rund 40 % der Läufe scheitern mit \"nicht gesessen: transfer\" (Werkzeugfehler, nicht repariert). Streuung ±15 %; Abnahme: Median nachher ≤ toleranzMs (+20 % auf den Median), mindestens 5 gültige Läufe. Besitz rostmeute (ruine: rom/herrenlos/verfallen), germanen.",
+ "arten": {
+  "aussenposten": {
+   "gueltigeLaeufe": 12,
+   "fehlgeschlagen": 0,
+   "seeds": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+   ],
+   "buildMs": [
+    434,
+    480,
+    453,
+    458,
+    433,
+    410,
+    412,
+    478,
+    437,
+    429,
+    447,
+    500
+   ],
+   "buildMedian": 442,
+   "toleranzMs": 530,
+   "ladeMedian": 33,
+   "bakeMedian": 368,
+   "akteureMedian": 603,
+   "dreiecke": {
+    "min": 375684,
+    "median": 416068,
+    "max": 436664,
+    "proLauf": [
+     416836,
+     436664,
+     415300,
+     429930,
+     415268,
+     379024,
+     407278,
+     375684,
+     419470,
+     419494,
+     419026,
+     385738
+    ]
+   },
+   "dekoProps": {
+    "min": 98,
+    "median": 115,
+    "max": 139,
+    "proLauf": [
+     116,
+     139,
+     114,
+     131,
+     132,
+     108,
+     118,
+     98,
+     107,
+     113,
+     112,
+     115
+    ]
+   },
+   "platzhalter": 0,
+   "fehlerKit": 0,
+   "dekoOhneAsset": 0
+  },
+  "station": {
+   "gueltigeLaeufe": 9,
+   "fehlgeschlagen": 3,
+   "seeds": [
+    5,
+    6,
+    7,
+    8,
+    10,
+    11,
+    12,
+    13,
+    16
+   ],
+   "buildMs": [
+    381,
+    308,
+    332,
+    304,
+    400,
+    303,
+    368,
+    315,
+    351
+   ],
+   "buildMedian": 332,
+   "toleranzMs": 398,
+   "ladeMedian": 33,
+   "bakeMedian": 237,
+   "akteureMedian": 880,
+   "dreiecke": {
+    "min": 189970,
+    "median": 226652,
+    "max": 294398,
+    "proLauf": [
+     294398,
+     211416,
+     239026,
+     243444,
+     264318,
+     226652,
+     211938,
+     193118,
+     189970
+    ]
+   },
+   "dekoProps": {
+    "min": 48,
+    "median": 64,
+    "max": 79,
+    "proLauf": [
+     79,
+     58,
+     71,
+     69,
+     67,
+     64,
+     50,
+     48,
+     48
+    ]
+   },
+   "platzhalter": 0,
+   "fehlerKit": 0,
+   "dekoOhneAsset": 0
+  },
+  "ruine": {
+   "gueltigeLaeufe": 8,
+   "fehlgeschlagen": 4,
+   "seeds": [
+    5,
+    6,
+    7,
+    8,
+    9,
+    11,
+    12,
+    15
+   ],
+   "buildMs": [
+    340,
+    384,
+    368,
+    422,
+    406,
+    370,
+    363,
+    342
+   ],
+   "buildMedian": 369,
+   "toleranzMs": 443,
+   "ladeMedian": 35,
+   "bakeMedian": 285,
+   "akteureMedian": 769,
+   "dreiecke": {
+    "min": 170650,
+    "median": 178824,
+    "max": 192792,
+    "proLauf": [
+     183372,
+     175428,
+     178986,
+     170650,
+     192792,
+     177772,
+     183558,
+     178662
+    ]
+   },
+   "dekoProps": {
+    "min": 45,
+    "median": 58,
+    "max": 61,
+    "proLauf": [
+     56,
+     59,
+     45,
+     55,
+     51,
+     60,
+     61,
+     61
+    ]
+   },
+   "platzhalter": 0,
+   "fehlerKit": 0,
+   "dekoOhneAsset": 0
+  },
+  "schiff": {
+   "gueltigeLaeufe": 9,
+   "fehlgeschlagen": 3,
+   "seeds": [
+    5,
+    6,
+    8,
+    9,
+    10,
+    12,
+    14,
+    15,
+    16
+   ],
+   "buildMs": [
+    428,
+    402,
+    290,
+    297,
+    330,
+    368,
+    573,
+    576,
+    341
+   ],
+   "buildMedian": 368,
+   "toleranzMs": 442,
+   "ladeMedian": 32,
+   "bakeMedian": 222,
+   "akteureMedian": 759,
+   "dreiecke": {
+    "min": 109482,
+    "median": 123364,
+    "max": 132378,
+    "proLauf": [
+     132378,
+     123364,
+     123988,
+     126214,
+     122418,
+     109482,
+     121362,
+     122760,
+     128330
+    ]
+   },
+   "dekoProps": {
+    "min": 22,
+    "median": 35,
+    "max": 46,
+    "proLauf": [
+     46,
+     28,
+     37,
+     37,
+     35,
+     22,
+     24,
+     35,
+     43
+    ]
+   },
+   "platzhalter": 0,
+   "fehlerKit": 0,
+   "dekoOhneAsset": 0
+  }
+ },
+ "frameBudgetDreiecke": 400000
+}

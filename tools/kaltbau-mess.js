@@ -165,7 +165,7 @@ async function lauf(art, modus, seed) {
       return ok ? { ms: Math.round(performance.now() - ta), fig, wf } : false;
     }, ta, { timeout: 30000, polling: 20 }).then((h) => h.jsonValue()).catch(() => null);
     if (akt) res.akteur = akt.fig + ' + ' + akt.wf;
-    const s = await page.evaluate(() => { const s = VoxelKit.stats(); return { buildMs: s.buildMs, ladeMs: s.ladeMs, assetMs: s.assetMs, bakeMs: s.bakeMs, tris: s.tris, fehler: s.fehler, platzhalter: Object.keys(s.platzhalter || {}).length }; });
+    const s = await page.evaluate(() => { const s = VoxelKit.stats(); return { buildMs: s.buildMs, ladeMs: s.ladeMs, assetMs: s.assetMs, bakeMs: s.bakeMs, tris: s.tris, fehler: s.fehler, platzhalter: Object.keys(s.platzhalter || {}).length, dekoN: s.deko, dekoFehlt: Object.keys(s.dekoFehlt || {}).length }; });
     const arten = {};
     for (const u of reqs.slice(0, nAnfragen)) { const m = /^\/voxel\/assets\/(\w+)\//.exec(u); const k = m ? m[1] : /^\/content\/buehnen\//.test(u) ? 'buehnen' : 'sonst'; arten[k] = (arten[k] || 0) + 1; }
     Object.assign(res, s, { sichtbarBisFertigMs: Math.round(tb - ta), akteureMs: akt ? akt.ms : null, anfragen: nAnfragen, anfragenArten: arten, konsolenfehler: err.length });
