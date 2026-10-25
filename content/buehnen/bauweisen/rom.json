@@ -118,6 +118,16 @@
     "schutt": {
       "id": "kit/rom/deckung_voll",
       "zustand": 2
+    },
+    "gelaende": {
+      "terrain": true,
+      "hinweis": "Außenposten: Gelände außerhalb der Mauer in warmem Travertin (ORT-01); Ruine und übrige Arten unverändert (Rückfall soil)",
+      "je_art": {
+        "aussenposten": {
+          "top": "stone_dark",
+          "fill": "soil_dark"
+        }
+      }
     }
   },
   "anker": {
