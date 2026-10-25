@@ -46,7 +46,7 @@ function fallListen() {
     antwort: bsp.map((b) => ({ art: 'npc', id: b.id, slot: 'antwort', optionId: 'o1', sprecher: b.sprecher, stimme: b.stimme, fakt: b.fakt + ' Die Crew darf jetzt antworten.', option: b.absicht, beispiele: [], platzhalter: [], pflicht: [], muss: [], nicht: [] })),
   };
 }
-const TITEL = { funk: 'Funk (Reise-Ankündigung und Eintreffen)', reaktion: 'NSC-Reaktion (Slot reaktion, Beispiel-Antworten)', verlust: 'Verlustspruch (Hafen gefallen, Posten verloren)', soeldner: 'Söldner-Funk des Konkordats', antwort: 'Antwortoption (Slot antwort, höchstens 40 Zeichen)' };
+const TITEL = { funk: 'Funk (Reise-Ankündigung und Eintreffen)', reaktion: 'NSC-Reaktion (Slot reaktion, Beispiel-Antworten)', verlust: 'Verlustspruch (Hafen gefallen, Posten verloren)', soeldner: 'Söldner-Funk des Konkordats', antwort: 'Antwortoption (Slot antwort, höchstens 40 Zeichen; nur Schnittstelle, im Betrieb sind die Beschriftungen Katalog-Daten)' };
 
 // Ein Lauf: erster Versuch, bei ungültig ein Wiederholungsversuch mit den Fehlern des Prüfers (wie im Pool). Wirft nie.
 async function lauf(llm, spec) {

@@ -125,6 +125,8 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     for (const text of ['Weicht aus!', 'Dreht ab, solange ihr noch könnt!', 'Kehrt um, dann passiert euch nichts.', 'Zieht euch zurück, Lerche.', 'Macht euch davon, Lerche.', 'Haltet Abstand und lasst sie ziehen.']) {
       for (const slot of ['ankuendigung', 'eintreffen', 'reaktion']) nein(text, { slot, platzhalter: [] }, /ausweichen/, `Ausweich-Rat (${slot}): „${text}“`);
     }
+    for (const text of ['Haltet Abstand, Lerche.', 'Lasst sie ziehen, Lerche.']) for (const slot of ['ankuendigung', 'reaktion']) nein(text, { slot, platzhalter: [] }, /ausweichen/, `Ausweich-Rat einzeln (${slot}): „${text}“`);
+    for (const text of ['Der Posten {ort} ist verloren, die Germanen waren stärker.', 'Der Posten {ort} ist verloren, der Feind war stärker.', 'Der Posten {ort} ist verloren, jemand hält ihn jetzt.', 'Der Posten {ort} ist verloren, jemand besetzt ihn.']) nein(text, { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /sieger/, 'Sieger beim Verlust (einzeln): ' + text);
     for (const text of ['Der Posten {ort} ist verloren, die Germanen halten ihn jetzt.', 'Der Posten {ort} ist verloren, Rom hält ihn nicht mehr, der Feind sitzt drin.', 'Der Posten {ort} ist verloren, und dort sitzt jetzt jemand anderes, besetzt für immer.']) nein(text, { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /sieger/, 'Sieger beim Verlust: ' + text);
     nein('Posten {ort} ist gefallen, alle tot.', { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /besatzung/, 'erfundenes Besatzungsschicksal (alle tot)');
     nein('Posten {ort} ist verloren, keiner hat überlebt, Lerche.', { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /besatzung/, 'erfundenes Besatzungsschicksal (überlebt)');
@@ -169,6 +171,11 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
   // ---------------------------------------------------------------------------------------------------------------------------------------------
   await section('Pool: verbrauchen (einmal, FIFO), leer → Katalogtext, Nachfüllen bis zum Ziel', async () => {
     Pool.zuruecksetzen();
+    { const g0 = spiel().g; Pool.setLlm(fakeLlm()); const nSchl = Pool.katalogSpecs().length;   // der am wenigsten gefüllte Schlüssel zuerst (kein Schlüssel verhungert hinter einem anderen)
+      for (let i = 0; i < nSchl; i++) { Pool.beiGrenze(g0); Pool.update(g0, 0.1); await Pool.jobFertig(); }
+      const st0 = Pool.stand();
+      ok(Object.keys(st0.pool).length === nSchl && Object.values(st0.pool).every((x) => x === 1), 'Reihenfolge: nach genau so vielen Jobs wie Schlüsseln hat jeder Schlüssel einen Text (der am wenigsten gefüllte kommt zuerst)');
+      Pool.zuruecksetzen(); }
     ok(Pool.poolEntnehmen('reise', 'piraten_hinterhalt', 'ankuendigung') === null && Pool.stand().gesamt === 0, 'leerer Pool: nichts');
     const t = spiel(); const g = t.g;
     const llm = fakeLlm(); Pool.setLlm(llm);
