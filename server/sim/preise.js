@@ -65,10 +65,18 @@ function preisFuer(game, entry, ctx) {
   return f === 1 ? p : Math.max(1, Math.round(p * f));
 }
 
-function hinweisText(game, faktor, gruende) {
+// Vorzeichen, mit dem ein Treiber auf den Faktor wirkt (aus den Daten: + teurer, - günstiger)
+function vorzeichenVon(grund) {
+  const B = W.belagerung.wert, V = W.vorrat.wert;
+  const z = { embargo: W.embargo.wert.zuschlag, belagerung: B.hafen, umkreis: B.umkreis, vorrat_knapp: V.knapp.zuschlag, vorrat_reichlich: V.reichlich.zuschlag }[grund];
+  return Math.sign(z || 0);
+}
+// Hinweis: Grundtext nach der Richtung der PREISÄNDERUNG (preis gegen Grundpreis), genannt werden nur die Treiber mit diesem Vorzeichen (bei „Belagerung in der Nähe“ und „Munition reichlich“ zugleich steht nie „günstiger: Belagerung …“)
+function hinweisText(game, richtung, gruende) {
   const T = W.texte.wert, z = zustandVon(game), hex = hexVon(game);
   const wer = z && hex && z.hexe[hex] ? W.fraktionen.wert[z.hexe[hex].besitzer] || '' : '';
-  return (faktor > 1 ? T.teurer : T.billiger) + ': ' + gruende.map((g) => (T[g] || g).replace('{fraktion}', wer)).join(', ');
+  const nenne = gruende.filter((g) => vorzeichenVon(g) === richtung);
+  return (richtung > 0 ? T.teurer : T.billiger) + ': ' + nenne.map((g) => (T[g] || g).replace('{fraktion}', wer)).join(', ');
 }
 
 function snapshot(game, ctx) {
@@ -76,10 +84,11 @@ function snapshot(game, ctx) {
   let out = null;
   for (const e of game.C.shop) {
     const l = lageFuer(game, e.id, ctx);
-    if (l.faktor === 1 || !l.gruende.length) continue;
-    (out || (out = {}))[e.id] = [preisFuer(game, e, ctx), hinweisText(game, l.faktor, l.gruende)];
+    const preis = preisFuer(game, e, ctx), grund = grundpreis(e, ctx);
+    if (preis === grund) continue;   // kein Faktor oder der gerundete Preis ändert sich nicht: kein Hinweis (nichts, was er erklären könnte)
+    (out || (out = {}))[e.id] = [preis, hinweisText(game, Math.sign(preis - grund), l.gruende)];
   }
   return out;
 }
 
-module.exports = { faktorAus, lageFuer, faktorFuer, preisFuer, snapshot, WERTE: W };
+module.exports = { vorzeichenVon, faktorAus, lageFuer, faktorFuer, preisFuer, snapshot, WERTE: W };

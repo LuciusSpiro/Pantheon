@@ -264,6 +264,25 @@ section('Anzeige = Kauf', () => {
   ok(Preises(g, 'medipack') === grundPreis(g, 'medipack'), 'nach Ablauf des Embargos: Grundpreis');
 });
 
+section('Hinweis: nur bei geänderter Anzeige, Richtung und Treiber nach dem Vorzeichen (Fix K2)', () => {
+  const D = require('../server/weltsim/daten.js'), V = W.vorrat.wert, B = W.belagerung.wert;
+  const { g } = neu(); andocken(g, ROM_HAFEN); const zz = z(g);
+  const nachbar = D.datenVon(zz).nbr[ROM_HAFEN].find((c) => c !== ROM_HAFEN && D.datenVon(zz).hex[c]);
+  belagerung(zz, nachbar); zz.vorrat.rom.U = V.reichlich.ab;   // Torpedo: Belagerung nebenan (+) und reichlich Munition (-): Summe 0,9
+  ok(Math.abs(F(zz, 'bolzen') - (1 + B.umkreis + V.reichlich.zuschlag)) < 1e-9 && Preise.faktorAus(zz, 'bolzen', ROM_HAFEN).gruende.join() === 'umkreis,vorrat_reichlich', 'Ausgangslage: gemischte Treiber (umkreis und vorrat_reichlich), Faktor ' + F(zz, 'bolzen'));
+  let sn = g.snapshot().shopPreise.bolzen;
+  ok(sn[0] < grundPreis(g, 'bolzen') && /^günstiger: Munition reichlich$/.test(sn[1]), 'günstiger nach der Preisänderung, genannt wird nur der Treiber, der günstiger macht: "' + sn[1] + '"');
+  ok(!/Belagerung/.test(sn[1]), 'der Treiber mit dem anderen Vorzeichen (Belagerung in der Nähe) steht nicht unter „günstiger“');
+  zz.vorrat.rom.U = 20;   // nur noch die Belagerung nebenan: teurer
+  sn = g.snapshot().shopPreise.bolzen;
+  ok(sn[0] > grundPreis(g, 'bolzen') && /^teurer: Belagerung in der Nähe$/.test(sn[1]), 'teurer, nur die Belagerung: "' + sn[1] + '"');
+  eintrag(g, 'bolzen').price = 3;   // 3 x 1,1 = 3,3 rundet auf 3: der angezeigte Preis ändert sich nicht
+  const ohne = g.snapshot().shopPreise;
+  ok(Preises(g, 'bolzen') === 3 && (!ohne || !('bolzen' in ohne)), 'ändert sich der gerundete Preis nicht (3 -> 3), gibt es weder Preis noch Hinweis für den Artikel');
+  eintrag(g, 'bolzen').price = 10;
+  ok(['umkreis', 'belagerung', 'embargo', 'vorrat_knapp'].every((k) => Preise.vorzeichenVon(k) === 1) && Preise.vorzeichenVon('vorrat_reichlich') === -1, 'Vorzeichen der Treiber aus den Daten: Belagerung, Embargo, knapp teurer, reichlich günstiger');
+});
+
 section('Konkordat-Hafen und Stützpunkt', () => {
   const { g } = neu(); const zz = z(g);
   ok(zz.hexe[KON_HAFEN].besitzer === 'kon', 'Concordia gehört dem Konkordat');
