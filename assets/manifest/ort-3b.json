@@ -1,0 +1,1163 @@
+{
+  "team": "ort-3b",
+  "assets": [
+    {
+      "id": "ort/germanen/station/kartentisch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3100,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "kommando"
+      ],
+      "notes": "ORT-01 3b, Rolle: kommando.kartentisch"
+    },
+    {
+      "id": "ort/germanen/station/blasebalg",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "reaktor"
+      ],
+      "notes": "ORT-01 3b, Rolle: reaktor.pumpe"
+    },
+    {
+      "id": "ort/germanen/station/ladebock",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.35,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2000,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "lager"
+      ],
+      "notes": "ORT-01 3b, Rolle: lager.ladebank"
+    },
+    {
+      "id": "ort/germanen/station/kran",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1400,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "lager"
+      ],
+      "notes": "ORT-01 3b, Rolle: lager.kran, werkstatt.kran"
+    },
+    {
+      "id": "ort/germanen/station/koje",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1700,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "quartier"
+      ],
+      "notes": "ORT-01 3b, Rolle: quartier.koje"
+    },
+    {
+      "id": "ort/germanen/station/spind",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {
+        "med": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "med": {
+          "med": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "quartier"
+      ],
+      "notes": "ORT-01 3b, Rolle: quartier.spind, kranken.schrank"
+    },
+    {
+      "id": "ort/germanen/station/glutofen",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1900,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "quartier"
+      ],
+      "notes": "ORT-01 3b, Rolle: quartier.klima"
+    },
+    {
+      "id": "ort/germanen/station/langtisch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        3,
+        1
+      ],
+      "height": 0.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.04,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2600,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "messe"
+      ],
+      "notes": "ORT-01 3b, Rolle: messe.tafel"
+    },
+    {
+      "id": "ort/germanen/station/bank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "messe"
+      ],
+      "notes": "ORT-01 3b, Rolle: messe.bank"
+    },
+    {
+      "id": "ort/germanen/station/kuehlfass",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.48,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "messe"
+      ],
+      "notes": "ORT-01 3b, Rolle: messe.kuehlung"
+    },
+    {
+      "id": "ort/germanen/station/amboss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1600,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "werkstatt"
+      ],
+      "notes": "ORT-01 3b, Rolle: werkstatt.bank"
+    },
+    {
+      "id": "ort/germanen/station/ladegeraet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.04,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "werkstatt"
+      ],
+      "notes": "ORT-01 3b, Rolle: werkstatt.ladegeraet"
+    },
+    {
+      "id": "ort/germanen/station/schweisser",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.66,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1400,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "werkstatt"
+      ],
+      "notes": "ORT-01 3b, Rolle: werkstatt.schweiss"
+    },
+    {
+      "id": "ort/germanen/station/medliege",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.04,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "krankenstation"
+      ],
+      "notes": "ORT-01 3b, Rolle: kranken.liege"
+    },
+    {
+      "id": "ort/germanen/station/scanstele",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 700,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "krankenstation"
+      ],
+      "notes": "ORT-01 3b, Rolle: kranken.scanner"
+    },
+    {
+      "id": "ort/germanen/station/medfass",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.98,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "krankenstation"
+      ],
+      "notes": "ORT-01 3b, Rolle: kranken.medzelle"
+    },
+    {
+      "id": "ort/germanen/station/feldzelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.98,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1800,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "zellen"
+      ],
+      "notes": "ORT-01 3b, Rolle: zellen.feldzelle"
+    },
+    {
+      "id": "ort/germanen/station/runenschloss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.85,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1100,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "zellen"
+      ],
+      "notes": "ORT-01 3b, Rolle: zellen.feldschloss"
+    },
+    {
+      "id": "ort/germanen/station/pritsche",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.41,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "zellen"
+      ],
+      "notes": "ORT-01 3b, Rolle: zellen.pritsche"
+    },
+    {
+      "id": "ort/germanen/gemein/runenholz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.98,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "germanen",
+        "ort01",
+        "prop",
+        "streu"
+      ],
+      "notes": "ORT-01 3b, Rolle: kommando.datentafel, quartier.privat"
+    },
+    {
+      "id": "ort/germanen/gemein/rationsbehaelter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.63,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.73,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "prop",
+        "streu"
+      ],
+      "notes": "ORT-01 3b, Rolle: messe.ration"
+    },
+    {
+      "id": "ort/germanen/gemein/werkzeugkasten",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.54,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 500,
+      "tags": [
+        "germanen",
+        "ort01",
+        "prop",
+        "streu"
+      ],
+      "notes": "ORT-01 3b, Rolle: werkstatt.werkzeug"
+    },
+    {
+      "id": "ort/germanen/gemein/medkiste",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.5,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "prop",
+        "streu"
+      ],
+      "notes": "ORT-01 3b, Rolle: kranken.medkiste"
+    },
+    {
+      "id": "ort/germanen/station/reaktor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "last": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "aus": {
+          "last": 0
+        },
+        "halb": {
+          "last": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1
+        ],
+        "label": [
+          0,
+          2.1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6100,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "reaktor"
+      ],
+      "notes": "ORT-01 3b, Rolle: reaktor.kern"
+    },
+    {
+      "id": "ort/germanen/station/terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "fell": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "gesperrt": {
+          "state": 2
+        },
+        "ohne_fell": {
+          "fell": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.98,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2100,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "kommando"
+      ],
+      "notes": "ORT-01 3b, Rolle: kommando.pult, reaktor.pult, zellen.wachpult"
+    },
+    {
+      "id": "ort/germanen/station/wand",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        4,
+        2
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "len": [
+          4,
+          4
+        ]
+      },
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "bau",
+        "wall",
+        "kit"
+      ],
+      "notes": "ORT-01 3b, Rolle: wand (architecture)"
+    },
+    {
+      "id": "ort/germanen/station/wand_hell",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        4,
+        2
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "len": [
+          4,
+          4
+        ]
+      },
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "bau",
+        "wall",
+        "kit"
+      ],
+      "notes": "ORT-01 3b, Rolle: wand, hellere Variante (Vorschlag)"
+    },
+    {
+      "id": "ort/germanen/gemein/verteiler",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "abgaenge": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "aus": {
+          "abgaenge": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.98,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "reaktor"
+      ],
+      "notes": "ORT-01 3b, Rolle: kommando.verteiler, reaktor.verteiler"
+    },
+    {
+      "id": "ort/germanen/gemein/fassregal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {
+        "belegt": [
+          0,
+          6
+        ]
+      },
+      "states": {
+        "halb": {
+          "belegt": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.73,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3200,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "lager"
+      ],
+      "notes": "ORT-01 3b, Rolle: lager.zellenregal"
+    },
+    {
+      "id": "ort/germanen/gemein/fasszelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "charge": [
+          0,
+          4
+        ]
+      },
+      "states": {
+        "leer": {
+          "charge": 0
+        },
+        "halb": {
+          "charge": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.1,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "germanen",
+        "ort01",
+        "prop",
+        "streu"
+      ],
+      "notes": "ORT-01 3b, Rolle: reaktor.zelle, lager.zelle"
+    },
+    {
+      "id": "ort/germanen/gemein/klinker",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "w": [
+          2,
+          16
+        ],
+        "h": [
+          2,
+          16
+        ],
+        "d": [
+          1,
+          4
+        ],
+        "lage": [
+          4,
+          8
+        ],
+        "glut": [
+          0,
+          2
+        ],
+        "niet": [
+          4,
+          12
+        ]
+      },
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 900,
+      "tags": [
+        "germanen",
+        "ort01",
+        "station",
+        "teil"
+      ],
+      "notes": "ORT-01 3b, Rolle: Teil (nur per use)"
+    }
+  ]
+}
