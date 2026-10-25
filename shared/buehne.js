@@ -1665,7 +1665,8 @@
   // dürfen nicht höher als eine Figur sein – sonst läuft man sichtbar durch sie hindurch (Server-Kollision und
   // Client-Vorhersage kennen nur die Kachel). Hohe Dinge gehören auf einen Block (`O`/`X`, vgl. Leitstück-Fuß) oder
   // an einen blockenden Objektanker.
-  // o = { bauweisen: [bauweise/1-JSON], deko: [deko/1-JSON], modelle: { <id>: { height (m), footprint [w, d] } } }
+  // o = { bauweisen: [bauweise/1-JSON], deko: [deko/1-JSON], rollen?: [rollen/1-JSON], modelle: { <id>: { height (m), footprint [w, d] } } }
+  //   rollen (ORT-01): nur streu-Rollen (Deko auf begehbarer Kachel), beide Bauweisen; Hauptstücke (kind leit/anker) stehen am Anker/auf Block.
   // -> [{ code: 'K-SILHOUETTE', msg, id }]
   const FIGUR_HOEHE_M = 31 / 16;   // Figur bis Helmoberkante 31 Voxel (actors.js FB_PARTS), 16 Voxel = 1 m
   // Ausnahmen mit Grund (Manifest-Höhe gilt für die höchste Variante, die Deko-Streuung nutzt sie nicht):
@@ -1696,6 +1697,14 @@
     for (const d of (o && o.deko) || []) {
       for (const [typ, r] of Object.entries(d.regeln || {})) for (const id of (r && r.props) || []) pruef(id, `deko ${d.id}.${typ}`, !!r.wandnah);
     }
+    for (const r of (o && o.rollen) || []) {
+      const art = {};   // Rolle → { kind, wandnah } aus den Raumtyp-Einträgen
+      for (const rt of Object.values(r.raumtypen || {})) for (const e of (rt && rt.rollen) || []) if (e && e.rolle) art[e.rolle] = { kind: e.kind || 'streu', wand: !!(e.wandnah || (art[e.rolle] && art[e.rolle].wand)) };
+      for (const [name, def] of Object.entries(r.rollen || {})) {
+        if (!def || (art[name] || { kind: 'streu' }).kind !== 'streu') continue;
+        for (const bw of ['rom', 'germanen']) for (const id of [].concat(def[bw] || [])) pruef(id, `rollen ${r.kartenart}.${name}.${bw}`, !!(art[name] && art[name].wand));
+      }
+    }
     return out;
   }
   // Node: Eingaben für silhouetteFehler aus content/buehnen/{bauweisen,deko} und public/voxel/manifest.json
@@ -1708,7 +1717,9 @@
     const man = json(path.join(wurzel, 'public', 'voxel', 'manifest.json'));
     const modelle = {};
     for (const [id, e] of Object.entries(man.assets || {})) modelle[id] = { height: e.height, footprint: e.footprint };
-    return { bauweisen: ordner(path.join(wurzel, 'content', 'buehnen', 'bauweisen')), deko: ordner(path.join(wurzel, 'content', 'buehnen', 'deko')), modelle };
+    const rollenDir = path.join(wurzel, 'content', 'buehnen', 'rollen');
+    return { bauweisen: ordner(path.join(wurzel, 'content', 'buehnen', 'bauweisen')), deko: ordner(path.join(wurzel, 'content', 'buehnen', 'deko')),
+      rollen: fs.existsSync(rollenDir) ? ordner(rollenDir) : [], modelle };
   }
 
   // Zelle als Text (Werkzeug, Galerie-Rückfall): Anker als Buchstaben über den Zeilen

@@ -1,0 +1,7 @@
+{
+  "format": "rollen/1",
+  "kartenart": "aussenposten",
+  "hinweis": "ORT-01: Rollen der Gebäude des Außenpostens je Gebäudeart (Präfix der Platz-ID: kommando, lager, werkstatt, quartier, kantine, krankenstation). Noch leer (Paket 1: Format, Rollenmodus, Parität). Paket 2 füllt raumtypen und rollen; jede Rolle braucht rom UND germanen (npm run check:assets). Format: CONTRACT-ROLLEN-ORT.md.",
+  "raumtypen": {},
+  "rollen": {}
+}

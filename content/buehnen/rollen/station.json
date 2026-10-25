@@ -1,0 +1,7 @@
+{
+  "format": "rollen/1",
+  "kartenart": "station",
+  "hinweis": "ORT-01: Rollen der Station je Raumtyp (Präfix der Platz-ID, z. B. kommando, werkstatt_2 → werkstatt). Noch leer (Paket 1: Format, Rollenmodus, Parität). Paket 3 füllt raumtypen und rollen; jede Rolle braucht rom UND germanen (npm run check:assets). Format: CONTRACT-ROLLEN-ORT.md.",
+  "raumtypen": {},
+  "rollen": {}
+}

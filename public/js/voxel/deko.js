@@ -2,6 +2,13 @@
 // Streut Deko-Props deterministisch aus Karten-Seed und Platz. Reine Funktion ohne three.js (läuft auch in Node).
 // Regeln (Art-Daten content/buehnen/deko/<bauweise>.json):
 //   { format: "deko/1", regeln: { <platztyp>|"*": { props: [ids], dichte: [min, max], wandnah: bool, frei_halten: 2 } } }
+// Rollenmodus (ORT-01, Format rollen/1, content/buehnen/rollen/<kartenart>.json; opts.rollen = { daten, bauweise, ausschluss? }):
+//   Für Plätze, deren Raumtyp (Präfix der Platz-ID ohne _n: kommando, werkstatt_2 → werkstatt) in daten.raumtypen steht, wird je
+//   Platzrechteck nach Rollen gestreut statt je 8×8-Zelle. Die Rolle nennt ihre Belegung je Bauweise (daten.rollen.<name>.<bauweise>),
+//   der Zufall kommt aus einem eigenen Strom je Platz und Rolle (fnv(platzId:rolle, seed)), nie aus game.rng oder dem Generator.
+//   In diesen Rechtecken streut der Zellenmodus nicht mehr (fremde Platztypen wandern nicht hinein). Plätze ohne Raumtyp-Eintrag
+//   und Karten ohne Rollen-Datei laufen unverändert im Zellenmodus (byte-gleich, tools/hash-baseline.js --compare).
+//   Rollen mit kind leit/anker streut dieser Modus nicht: Hauptstücke laufen über bauweise.leit/anker (kit.js).
 // Harte Grenzen (Vertrag, nicht per Daten abschaltbar):
 //   - nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln, nie auf festen Kacheln
 //   - höchstens 12 Props je Zelle (8×8), Deko ist nur Optik (keine Kollision), Deckung wird nie gestreut
@@ -27,6 +34,17 @@ function mulberry32(a) {
     t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
+}
+
+/** Raumtyp eines Platzes aus der Platz-ID: Präfix ohne laufende Nummer (werkstatt_2 → werkstatt, kommando → kommando). */
+export function raumtypVon(platzId) { return String(platzId || '').replace(/_\d+$/, ''); }
+
+/** Belegung einer Rolle für eine Bauweise: Liste von Modell-IDs (String oder Liste in den Daten), ohne `ausschluss` (Set). */
+export function belegungVon(daten, rolle, bauweise, ausschluss) {
+  const r = daten && daten.rollen && daten.rollen[rolle];
+  const v = r && r[bauweise];
+  const l = (typeof v === 'string' ? [v] : Array.isArray(v) ? v : []).filter((id) => typeof id === 'string' && id);
+  return ausschluss ? l.filter((id) => !ausschluss.has(id)) : l;
 }
 
 /** Plätze ohne awayMap.plaetze aus den Anker-IDs (<platz>.<rolle>[.n]) ableiten: Zelle(n) mit Ankern des Platzes, Typ = ID ohne _n. */
@@ -69,7 +87,8 @@ export function istKantenmitte(x, y, k) {
 export function streuen(k, regeln, opts = {}) {
   const R = (regeln && regeln.regeln) || regeln || {};
   const extra = (opts.extra || []).map((e) => (typeof e === 'string' ? { id: e, wandnah: false } : e && e.id ? { id: e.id, wandnah: !!e.wandnah } : null)).filter(Boolean);
-  if (!Object.keys(R).length && !extra.length) return [];
+  const RO = opts.rollen && opts.rollen.daten && opts.rollen.daten.raumtypen && Object.keys(opts.rollen.daten.raumtypen).length ? opts.rollen : null;
+  if (!Object.keys(R).length && !extra.length && !RO) return [];
   const W = k.w, H = k.h;
   const kind = (x, y) => (x < 0 || y < 0 || x >= W || y >= H ? null : k.kindAt(x, y));
   // gesperrte Kacheln: Anker (+ frei_halten), Türen (+ frei_halten), Weg, Kantenmitte
@@ -105,6 +124,10 @@ export function streuen(k, regeln, opts = {}) {
   }
   const seed = (k.seed >>> 0) || fnv(String(k.id || 'karte'));
   const out = [];
+  // Rollenmodus: Plätze mit Raumtyp-Eintrag; ihre Rechtecke sind für den Zellenmodus gesperrt
+  const rollenPlaetze = RO ? plaetze.filter((p) => RO.daten.raumtypen[raumtypVon(p.id)]) : [];
+  const rollenFlaeche = rollenPlaetze.length ? new Uint8Array(W * H) : null;
+  for (const p of rollenPlaetze) for (let y = Math.max(0, p.y); y < Math.min(H, p.y + p.h); y++) for (let x = Math.max(0, p.x); x < Math.min(W, p.x + p.w); x++) rollenFlaeche[y * W + x] = 1;
   const CW = Math.ceil(W / ZELLE), CH = Math.ceil(H / ZELLE);
   for (let cy = 0; cy < CH; cy++) for (let cx = 0; cx < CW; cx++) {
     const p = zelleZuPlatz.get(cx + ',' + cy) || null;
@@ -122,7 +145,7 @@ export function streuen(k, regeln, opts = {}) {
     const kand = [];
     for (let ly = 0; ly < ZELLE; ly++) for (let lx = 0; lx < ZELLE; lx++) {
       const x = cx * ZELLE + lx, y = cy * ZELLE + ly;
-      if (x >= W || y >= H || S[y * W + x] || !frei(x, y)) continue;
+      if (x >= W || y >= H || S[y * W + x] || !frei(x, y) || (rollenFlaeche && rollenFlaeche[y * W + x])) continue;
       if (regel && regel.wandnah && !wandnah(x, y)) continue;
       kand.push([x, y]);
     }
@@ -147,7 +170,74 @@ export function streuen(k, regeln, opts = {}) {
       out.push({ id, x, y, rot, seed: Math.floor(rnd() * 8), platz: p ? p.id : null, dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3 });
     }
   }
+  if (rollenPlaetze.length) rollenStreuen();
   return out;
+
+  // ---- Rollenmodus: je Platzrechteck, je Rolle ein eigener Strom (läuft nach dem Zellenmodus, nutzt dessen Hilfen) ----
+  function rollenStreuen() {
+    const bw = RO.bauweise, aus = RO.ausschluss || null;
+    const jeZelle = new Map(), belegt = new Set();
+    const zKey = (x, y) => Math.floor(x / ZELLE) + ',' + Math.floor(y / ZELLE);
+    for (const d of out) { belegt.add(d.x + ',' + d.y); const z = zKey(d.x, d.y); jeZelle.set(z, (jeZelle.get(z) || 0) + 1); }
+    // freie Kacheln im Rechteck: Boden/Gelände/Plateau und (nur hier) der Innenboden boden2 der Gebäude; nie Anker, Tür, Pad, Rampe, Kantenmitte
+    const kacheln = (p, fh) => {
+      const S = gesperrt(fh), res = [];
+      for (let y = Math.max(0, p.y); y < Math.min(H, p.y + p.h); y++) for (let x = Math.max(0, p.x); x < Math.min(W, p.x + p.w); x++) {
+        const kd = kind(x, y);
+        if (!(DEKO_BODEN[kd] || kd === 'boden2') || S[y * W + x] || istKantenmitte(x, y, k)) continue;
+        res.push([x, y]);
+      }
+      return res;
+    };
+    // wahl(x, y) → { id, wand } | null; wand = Rücken zur Wand
+    const nimm = (list, n, rnd, p, rolle, wahl) => {
+      for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = list[i]; list[i] = list[j]; list[j] = t; }
+      let got = 0;
+      for (const [x, y] of list) {
+        if (got >= n) break;
+        const key = x + ',' + y, z = zKey(x, y);
+        if (belegt.has(key) || (jeZelle.get(z) || 0) >= MAX_JE_ZELLE) continue;
+        const w = wahl(x, y); if (!w) continue;
+        let rot = Math.floor(rnd() * 4) * (Math.PI / 2);
+        if (w.wand) {   // Rücken zur Wand: +z zeigt von der Wand weg
+          if (WANDNAH[kind(x, y - 1)]) rot = 0; else if (WANDNAH[kind(x, y + 1)]) rot = Math.PI;
+          else if (WANDNAH[kind(x - 1, y)]) rot = Math.PI / 2; else if (WANDNAH[kind(x + 1, y)]) rot = -Math.PI / 2;
+        }
+        out.push({ id: w.id, x, y, rot, seed: Math.floor(rnd() * 8), platz: p.id, dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3, rolle });
+        belegt.add(key); jeZelle.set(z, (jeZelle.get(z) || 0) + 1); got++;
+      }
+    };
+    for (const p of rollenPlaetze) {
+      const def = RO.daten.raumtypen[raumtypVon(p.id)] || {};
+      const rollen = (def.rollen || []).filter((e) => e && (e.kind || 'streu') === 'streu')
+        .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, bw, aus) })).filter((r) => r.bel.length);
+      rollen.sort((a, b) => (b.e.pflicht ? 1 : 0) - (a.e.pflicht ? 1 : 0));   // Pflichtrollen zuerst (stabil)
+      for (const r of rollen) {
+        r.rnd = mulberry32(fnv(p.id + ':' + r.e.rolle, seed));
+        const z = Array.isArray(r.e.zug) && r.e.zug.length === 2 ? r.e.zug : [1, 1];
+        const lo = Math.max(0, z[0] | 0), hi = Math.max(lo, z[1] | 0);
+        r.n = lo + Math.floor(r.rnd() * (hi - lo + 1));
+        if (r.e.pflicht) r.n = Math.max(1, r.n);
+      }
+      const extraRnd = extra.length ? mulberry32(fnv(p.id + ':besitz', seed)) : null;
+      const soll = rollen.reduce((s, r) => s + r.n, 0) + (extraRnd ? 1 : 0);
+      if (!soll) continue;
+      // Kapazität: reicht frei_halten nicht, schrittweise kleiner (nie unter 1: Anker und Türen bleiben frei)
+      let fh = Math.max(1, Math.min(4, (def.frei_halten != null ? def.frei_halten : 1) | 0)), kand;
+      for (;;) { kand = kacheln(p, fh); if (kand.length >= soll || fh <= 1) break; fh--; }
+      for (const r of rollen) {
+        const wand = !!r.e.wandnah;
+        nimm(kand.filter(([x, y]) => !wand || wandnah(x, y)), r.n, r.rnd, p, r.e.rolle, () => ({ id: r.bel[Math.floor(r.rnd() * r.bel.length)], wand }));
+      }
+      if (extraRnd) {   // Besitz-Streuung: ein Stück je Platz (Banner usw.; wandnahe Einträge nur an der Wand)
+        nimm(kand.filter(([x, y]) => extra.some((e) => !e.wandnah || wandnah(x, y))), 1, extraRnd, p, 'besitz', (x, y) => {
+          const ok = extra.filter((e) => !e.wandnah || wandnah(x, y));
+          const e = ok[Math.floor(extraRnd() * ok.length)];
+          return { id: e.id, wand: e.wandnah };
+        });
+      }
+    }
+  }
 }
 
 /** Prüfung für Tests/QA: verletzt eine Streuung die Vertragsregeln? → Liste der Verstöße (leer = gut). */
@@ -159,8 +249,10 @@ export function pruefeStreuung(k, liste) {
     const kd = k.kindAt(d.x, d.y);
     if (anker.has(d.x + ',' + d.y)) fehler.push('Anker ' + d.x + ',' + d.y);
     if (TUER[kd]) fehler.push('Tür ' + d.x + ',' + d.y);
-    if (WEG[kd]) fehler.push('Weg ' + d.x + ',' + d.y);
-    if (!DEKO_BODEN[kd]) fehler.push('fest/kein Boden ' + d.x + ',' + d.y + ' (' + kd + ')');
+    const innen = d.rolle && kd === 'boden2';   // Rollenmodus: Innenboden der Gebäude (siehe streuen)
+    if (WEG[kd] && !innen) fehler.push('Weg ' + d.x + ',' + d.y);
+    if (!DEKO_BODEN[kd] && !innen) fehler.push('fest/kein Boden ' + d.x + ',' + d.y + ' (' + kd + ')');
+    if (d.rolle && k.plaetze) { const p = k.plaetze.find((q) => q.id === d.platz); if (!p || d.x < p.x || d.y < p.y || d.x >= p.x + p.w || d.y >= p.y + p.h) fehler.push('Rolle außerhalb des Platzes ' + d.x + ',' + d.y + ' (' + d.platz + ')'); }
     if (istKantenmitte(d.x, d.y, k)) fehler.push('Kantenmitte ' + d.x + ',' + d.y);
     const z = Math.floor(d.x / ZELLE) + ',' + Math.floor(d.y / ZELLE);
     jeZelle.set(z, (jeZelle.get(z) || 0) + 1);

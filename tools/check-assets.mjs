@@ -7,6 +7,8 @@
 //   npm run check:assets -- --no-missing     Liste der fehlenden Vertrags-IDs weglassen
 //   npm run check:assets -- --bauweisen-streng   Lücken der Bauweisen-Tabellen als Fehler (sonst Warnung; auch
 //                                            CHECK_BAUWEISEN_STRENG=1)
+//   npm run check:assets -- --nur-rollen     nur die Rollen-Parität (ORT-01, content/buehnen/rollen/*.json), ohne Asset-Bau
+//   npm run check:assets -- --rollen-dir <d> Rollen-Dateien aus einem anderen Ordner (Tests, Entwürfe)
 //
 // Geprüft: Pflichtfelder (§5), Dreiecke je Zustand gegen budgetTris und Vertragsbudget (Warnung > 100 %, Fehler > 150 %),
 // Grundfläche/Höhe gegen footprint/height (+ 2,2-m-Grenze), Pflicht-Sockets, Parameter aus §3.3/§3.4/§3.6,
@@ -18,6 +20,7 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
+import { pruefeRollenDatei } from './rollen-pruefung.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -29,6 +32,8 @@ const BW_STRICT = argv.includes('--bauweisen-streng') || process.env.CHECK_BAUWE
 const FILTER = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--team')[0] || null;
 const SRC = USE_VW ? path.resolve(ROOT, process.env.VOXELWERK_PATH || '../voxelwerk') : path.join(ROOT, 'public', 'voxel');
 const MANIFEST_DIR = path.join(ROOT, 'assets', 'manifest');
+const NUR_ROLLEN = argv.includes('--nur-rollen');
+const ROLLEN_DIR = opt('--rollen-dir') ? path.resolve(opt('--rollen-dir')) : path.join(ROOT, 'content', 'buehnen', 'rollen');
 
 // ---------------------------------------------------------------------------------------------
 // Vertragswissen (§3.3, §3.4, §3.6, §5)
@@ -271,6 +276,32 @@ async function checkStreu(manifestIds, indexModels) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// ORT-01 Paket 1: Rollenformat rollen/1 und Parität. Jede Rolle braucht eine römische UND eine germanische Belegung, alle Modell-IDs
+// müssen im Manifest stehen (Format, Regeln: tools/rollen-pruefung.mjs, CONTRACT-ROLLEN-ORT.md). Fehler statt Warnung.
+// ---------------------------------------------------------------------------------------------
+async function checkRollen(entries, indexModels, dir = ROLLEN_DIR) {
+  const lines = [];
+  const ctx = { manifestIds: new Set(entries.map((x) => x.id)), indexModels, modelle: {}, leitFuss: {}, deckung: {}, ankerRollen: null };
+  for (const e of entries) ctx.modelle[e.id] = { footprint: e.footprint, height: e.height };
+  for (const bw of ['rom', 'germanen']) {
+    const b = await readJson(path.join(BUEHNEN, 'bauweisen', bw + '.json')).catch(() => null);
+    ctx.leitFuss[bw] = (b && b.leit_fuss) || {};
+    ctx.deckung[bw] = {};
+    for (const [art, m] of Object.entries((b && b.deckung_props) || {})) if (m && typeof m === 'object' && !Array.isArray(m)) ctx.deckung[bw][art] = new Set(Object.values(m).flat());
+  }
+  const an = await readJson(path.join(BUEHNEN, 'anker.json')).catch(() => null);
+  if (an && an.rollen) ctx.ankerRollen = new Set(Object.keys(an.rollen));
+  const files = (await fsp.readdir(dir).catch(() => [])).filter((f) => f.endsWith('.json')).sort();
+  if (!files.length) lines.push({ lvl: 'err', msg: `keine Rollen-Dateien in ${path.relative(ROOT, dir) || dir}` });
+  for (const f of files) {
+    let j;
+    try { j = await readJson(path.join(dir, f)); } catch (err) { lines.push({ lvl: 'err', msg: `${f}: nicht lesbar (${err.message})` }); continue; }
+    lines.push(...pruefeRollenDatei(j, f, ctx));
+  }
+  return lines;
+}
+
+// ---------------------------------------------------------------------------------------------
 const fmt = (n) => Math.round(n).toLocaleString('de-DE');
 const pad = (s, n) => { s = String(s); return s.length >= n ? s : s + ' '.repeat(n - s.length); };
 const padL = (s, n) => { s = String(s); return s.length >= n ? s : ' '.repeat(n - s.length) + s; };
@@ -326,8 +357,23 @@ export async function checkSprites(dir) {
   return out;
 }
 
+function zeigeRollen(rl) {
+  const e = rl.filter((l) => l.lvl === 'err').length, w = rl.filter((l) => l.lvl === 'warn').length;
+  console.log(`\n== Rollen-Parität (ORT-01, content/buehnen/rollen/*.json)`);
+  console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' rollen');
+  for (const l of rl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
+  return { e, w };
+}
+
 async function main() {
   const t0 = performance.now();
+  if (NUR_ROLLEN) {   // schnell: nur Manifest lesen, keine Assets bauen
+    const man = await readManifests(MANIFEST_DIR);
+    const idxJ = JSON.parse(await fsp.readFile(path.join(ROOT, 'public', 'voxel', 'index.json'), 'utf8').catch(() => '{}'));
+    const { e, w } = zeigeRollen(await checkRollen(man.entries, new Set(idxJ.models || [])));
+    console.log(`\n${e ? '✗' : '✓'} ${e} Fehler, ${w} Warnungen · ${Math.round(performance.now() - t0)} ms`);
+    process.exit(e ? 1 : 0);
+  }
   if (!fs.existsSync(path.join(SRC, 'core', 'library.js'))) {
     console.error(`✗ ${SRC}/core/library.js fehlt – ${USE_VW ? 'VOXELWERK_PATH prüfen' : 'erst npm run assets'}`);
     process.exit(1);
@@ -551,6 +597,8 @@ async function main() {
       console.log(`\n== Besitz-streu (content/buehnen/paletten/*.json, AP7)`);
       console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' streu');
       for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
+      const rr = zeigeRollen(await checkRollen(man.entries, new Set(idxJ.models || [])));
+      errors += rr.e; warnings += rr.w;
     }
   }
 

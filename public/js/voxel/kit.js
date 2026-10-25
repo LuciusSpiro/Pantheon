@@ -27,10 +27,12 @@
 //   Im Spiel: Layer `buehne` (boot.js lädt ihn), Zone 'buehne' (renderer.js) für alle Karten außer platform/wreck/kesh.
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
-import { streuen } from './deko.js';
+import { streuen, belegungVon } from './deko.js';
 import { mitAkzent } from './stimmung.js';
 
 const BASE = '/content/buehnen/';
+// ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
+const ROLLEN_ARTEN = ['station', 'aussenposten'];
 const TILE = 32;
 const CHUNK = 12;
 const VERSION = 'kit/1';
@@ -127,16 +129,17 @@ async function ladeDaten(k, opts) {
   const d = opts.daten || {};
   const base = opts.base || BASE;
   const bw = k.bauweise;
-  const [kacheln, anker, bauweise, besitz, deko, SB] = await Promise.all([
+  const [kacheln, anker, bauweise, besitz, deko, rollen, SB] = await Promise.all([
     d.kacheln || getJson(base + 'kacheln.json'),
     d.anker || getJson(base + 'anker.json'),
     d.bauweise !== undefined ? d.bauweise : bw ? getJson(base + 'bauweisen/' + bw + '.json') : null,
     d.besitz !== undefined ? d.besitz : k.besitz ? getJson(base + 'paletten/' + k.besitz + '.json') : null,
     d.deko !== undefined ? d.deko : bw ? getJson(base + 'deko/' + bw + '.json') : null,
+    d.rollen !== undefined ? d.rollen : ROLLEN_ARTEN.includes(k.art) ? getJson(base + 'rollen/' + k.art + '.json') : null,
     d.leitFuss ? null : sharedBuehne(),
   ]);
   const leitFuss = d.leitFuss || (SB && typeof SB.leitFuss === 'function' ? SB.leitFuss : null);
-  return { kacheln, anker, bauweise: bauweise || { kits: {}, anker: {}, leit: {}, paletten: {}, stimmung: {} }, besitz, deko, leitFuss };
+  return { kacheln, anker, bauweise: bauweise || { kits: {}, anker: {}, leit: {}, paletten: {}, stimmung: {} }, besitz, deko, rollen, leitFuss };
 }
 
 // --------------------------------------------------------------------------------------------- Karte normalisieren
@@ -695,6 +698,9 @@ async function bauKarte(parent, karteIn, opts) {
   const dekoExtra = D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : [];
   if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const id of (r && r.props) || []) if (inManifest(id)) want.add(id);
   for (const e of dekoExtra) { const id = typeof e === 'string' ? e : e && e.id; if (id && inManifest(id)) want.add(id); }
+  // ORT-01 Rollenmodus: Belegungen der streu-Rollen für diese Bauweise (nur Plätze der Karte brauchen sie, geladen wird, was im Manifest steht)
+  const rollenDaten = opts.deko === false || !D.rollen || !D.rollen.raumtypen || !Object.keys(D.rollen.raumtypen).length ? null : D.rollen;
+  if (rollenDaten) for (const name of Object.keys(rollenDaten.rollen || {})) for (const id of belegungVon(rollenDaten, name, bw)) if (inManifest(id)) want.add(id);
   const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
   try {
     if (loader.ready) await Promise.race([loader.ready, timeout(5000)]);
@@ -1005,7 +1011,7 @@ async function bauKarte(parent, karteIn, opts) {
   }
   // Deko (deterministisch, nur Optik)
   try {
-    if (dekoRegeln || dekoExtra.length) {
+    if (dekoRegeln || dekoExtra.length || rollenDaten) {
       // Was als Deckung dient (deckung_props), steht nicht zusätzlich als reine Deko herum: Deckungsobjekte sind zugleich die Streuobjekte
       const deckIds = new Set(); if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) deckIds.add(id);
       let regeln = dekoRegeln;
@@ -1013,7 +1019,8 @@ async function bauKarte(parent, karteIn, opts) {
         regeln = Object.assign({}, dekoRegeln, { regeln: {} });
         for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
       }
-      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln, { extra: dekoExtra });
+      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln,
+        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds } : null });
       for (const dd of liste) {
         const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)
@@ -1576,11 +1583,13 @@ export async function prefetch(opts = {}) {
       Promise.all(bws.map((bw) => getJson(base + 'deko/' + bw + '.json'))),
       Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
     ]);
+    const rollenDateien = await Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json')));
     const modelle = new Set(), paletten = new Set(), moods = new Set();
     const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
     for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); strings(t.paletten, paletten); strings(t.stimmung, moods); }
     for (const d of dekos) if (d && d.regeln) for (const r of Object.values(d.regeln)) kitIds(r && r.props);
+    for (const r of rollenDateien) if (r && r.rollen) for (const name of Object.keys(r.rollen)) for (const bw of bws) for (const id of belegungVon(r, name, bw)) modelle.add(id);   // ORT-01
     for (const b of bes) {
       if (!b) continue;
       strings(b.je_bauweise, paletten);
