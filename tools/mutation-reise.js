@@ -71,7 +71,7 @@ const MUTATIONEN = [
   [RE, "    if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); continue; }", "", 'Ausweichen: die Gefahr kommt auch, wenn die Crew weg ist'],
   [RE, "  funk(game, textFuer(L.ev, 'eintreffen'));\n}", "}", 'Eintreffen: kein Funk'],
   [RE, "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", 'Mehrspieler: Funk doppelt'],
-  [RE, "  chronik(game, ev);\n}\n// Eine angekündigte Gefahr", "}\n// Eine angekündigte Gefahr", 'Chronik: Funkmeldung ohne Eintrag'],
+  [RE, "  chronik(game, ev);\n  FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)\n}\n// Eine angekündigte Gefahr", "  FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)\n}\n// Eine angekündigte Gefahr", 'Chronik: Funkmeldung ohne Eintrag'],
   [RE, "  const werte = { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s };", "  const werte = { ort: hexName(ev.hex) };", 'Text: Platzhalter {n} bleibt stehen'],
   // ---- Notruf und Folgen
   [RE, "  notrufVerfaellt(game, R, o, 'abgelehnt');   // Ablehnen kostet nichts: keine Wirkung, kein Ruf", "  notrufVerfaellt(game, R, o, 'abgelehnt'); kl().rufBuchen(game, [{ typ: 'ruf_aenderung', fraktion: 'rom', delta: -3, grund: 'reise_hilfe_rom' }]);", 'Ablehnen kostet Ruf'],

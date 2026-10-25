@@ -22,6 +22,7 @@
 //   abfangenVermerken(game)           das Abfangen des Schnellsprungs zählt für den Abstand
 //   update(game, dt)                  Vorlauf ablaufen lassen, Gegner eintreffen lassen, Folgen nach bewältigter Lage (Aufrufer: reise.update)
 //   textFuer(ereignis, slot) -> { von, text } | null   BENANNTE STELLE für den Text (synchron): ein vorab von Gemma erzeugter Text aus dem Pool (texte-pool.js, nur mit TEXTE_POOL=1), sonst der feste Katalogtext
+//   gruendeBuchen(game, gruende, nurFraktion?) -> n  Folgen buchen (ruf_aenderung unter dem Reise-Ruf-Deckel; rufRaum(game) = Raum darin); folgeBuchen(game, e) = die Folge des Katalogeintrags. SUND-03b A: funk-antwort.js hängt an ausloesenFunkmeldung, ausloesenKontakt (ohne Gefahr), notrufBeantworten (ohne Gefahr), nachSprung und update
 //   ablehnen(game, nr) -> bool        ein offener Notruf wird ausdrücklich abgelehnt (keine Folge)
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
@@ -39,6 +40,7 @@ const RUF_QUELLEN = require('../../content/welt/ruf-werte.json').werte.quellen.w
 const RUF_FENSTER = 100;   // Sprünge, über die der Ruf-Deckel zählt
 const ABSTAND_HART = 3;   // höchstens 1 Ereignis je 3 Sprünge, unabhängig von den Daten
 const ARTEN = ['notruf', 'patrouille', 'piraten', 'funkmeldung'];
+const FA = () => require('./funk-antwort.js');   // lazy: funk-antwort.js lädt dieses Modul
 const kl = () => require('./kriegslage.js');   // lazy: kriegslage.js lädt dieses Modul
 const space = () => require('./space.js');
 const eintrag = (id) => KATALOG.find((e) => e.id === id) || null;
@@ -216,22 +218,34 @@ function chronik(game, ev, kurz) {
 }
 
 // ---------- Folgen (Wirkungen-Katalog: ruf_aenderung)
-function folgeBuchen(game, e) {
-  const gruende = (e && e.folge && e.folge.angenommen) || [];
+const folgeBuchen = (game, e) => gruendeBuchen(game, (e && e.folge && e.folge.angenommen) || []);
+// Gründe aus ruf-werte.json buchen (ruf_aenderung, Kriegslage.rufBuchen, ohne Sim-Tick) unter dem Reise-Ruf-Deckel; auch die Folgen der Funk-Antworten (funk-antwort.js, SUND-03b A) laufen hierüber -> Anzahl angewandter Wirkungen
+// nurFraktion (SUND-03b A, Funk-Antworten): nur die Wirkungen DIESER Fraktion zählen für den Deckel (Konkordat-Antworten verdrängen sonst die Rom-Folgen der Ereignisse, der Deckel schützt die Rangleiter von Rom); ohne Angabe zählt alles wie in SUND-03 D
+function gruendeBuchen(game, gruende, nurFraktion) {
   const wirkungen = gruende.filter((g) => RUF_QUELLEN[g]).map((g) => ({ typ: 'ruf_aenderung', fraktion: RUF_QUELLEN[g].fraktion, delta: RUF_QUELLEN[g].delta, grund: g }));
   if (!wirkungen.length) return 0;
   const R = zustandVon(game);
-  const betrag = wirkungen.reduce((s, w) => s + Math.abs(w.delta), 0);
-  R.rufLog = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);
-  if (R.rufLog.reduce((s, x) => s + x[1], 0) + betrag > WERTE.ruf_max_je_100) return 0;   // Deckel: Reise-Ereignisse sollen die Rangleiter nicht verkürzen
-  R.rufLog.push([R.n, betrag]);
+  const betrag = wirkungen.filter((w) => !nurFraktion || w.fraktion === nurFraktion).reduce((s, w) => s + Math.abs(w.delta), 0);
+  if (betrag > 0) {
+    R.rufLog = R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER);
+    if (R.rufLog.reduce((s, x) => s + x[1], 0) + betrag > WERTE.ruf_max_je_100) return 0;   // Deckel: Reise-Ereignisse sollen die Rangleiter nicht verkürzen
+    R.rufLog.push([R.n, betrag]);
+  }
   try { return kl().rufBuchen(game, wirkungen).angewandt; } catch (err) { if (game.countError) game.countError('reise-folge', err); return 0; }
+}
+
+// Raum im Reise-Ruf-Deckel (Betrag, den eine Folge jetzt noch haben dürfte)
+function rufRaum(game) {
+  const R = zustandVon(game);
+  if (!R) return 0;
+  return WERTE.ruf_max_je_100 - R.rufLog.filter((x) => R.n - x[0] < RUF_FENSTER).reduce((s, x) => s + x[1], 0);
 }
 
 // ---------- Auslösen (je Art eine benannte Funktion)
 function ausloesenFunkmeldung(game, ev) {
   funk(game, textFuer(ev, 'ankuendigung'));
   chronik(game, ev);
+  FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)
 }
 // Eine angekündigte Gefahr: Vorlauf, dann Gegner. `sprung` = Sprungzähler der Ankunft: jeder weitere Sprung (auch zurück in dieselbe Szene) beendet sie ohne Folge.
 function laufendEintragen(game, R, ev, extra) {
@@ -245,7 +259,7 @@ function ausloesenKontakt(game, ev) {   // patrouille, piraten
   funk(game, textFuer(ev, 'ankuendigung'));
   chronik(game, ev);
   if (e.gefahr) gefahrPlanen(game, R, ev);
-  else folgeBuchen(game, e);
+  else { folgeBuchen(game, e); FA().anbieten(game, ev); }
 }
 function ausloesenNotruf(game, ev) {
   const R = zustandVon(game);
@@ -274,7 +288,7 @@ function notrufBeantworten(game, R, o) {
   funk(game, textFuer(o.ev, 'eintreffen'));
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} beantwortet`, param: { art: 'notruf', hex: o.hex } });
   if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);
-  else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank')); }
+  else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank')); FA().anbieten(game, o.ev); }
 }
 function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
@@ -300,6 +314,7 @@ function nachSprung(game, dest) {
   if (!aktiv(game)) return null;
   const R = zustandVon(game);
   zaehleSprung(game);
+  FA().nachSprung(game);   // SUND-03b A: ein offenes Funk-Angebot verfällt nach antwort_gilt_spruenge Sprüngen
   const hex = Sektoren.hexVonOrt(dest);
   for (const o of R.offen.slice()) if (o.bis < R.n) notrufVerfaellt(game, R, o, 'unbeantwortet');   // verfallen ohne Folgen
   const offen = hex && !durchflug(game) && R.offen.find((o) => o.hex === hex);
@@ -326,6 +341,7 @@ function eintreffen(game, L) {
   funk(game, textFuer(L.ev, 'eintreffen'));
 }
 function update(game, dt) {   // eslint-disable-line no-unused-vars
+  FA().update(game);   // SUND-03b A: Reaktion des Sprechers, Angebot in unruhiger Lage zurückziehen
   const R = game.weltsim && game.weltsim.reise;
   if (!R || !R.laufend.length) return;
   for (const L of R.laufend.slice()) {
@@ -366,4 +382,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
