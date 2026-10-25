@@ -1,0 +1,16 @@
+{
+  "id": "rom_verfallen",
+  "name": "rom verfallen: entsättigt, Staub, Licht fast aus (Orte der Römer, Zustand verfallen)",
+  "extends": "rom",
+  "adjust": {
+    "sat": 0.6,
+    "light": 0.9,
+    "tint": "#5E5A44",
+    "mix": 0.18,
+    "except": ["glow", "glow2", "leit"]
+  },
+  "roles": {
+    "glow": { "color": "#7E8A90", "emit": 0.25 },
+    "glow2": { "color": "#8A6A4A", "emit": 0.2 }
+  }
+}

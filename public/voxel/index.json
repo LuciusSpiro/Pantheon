@@ -679,8 +679,12 @@
   "rom_kastell_umkaempft",
   "rom_kastell_verfallen",
   "rom_schiff",
+  "rom_umkaempft",
+  "rom_verfallen",
   "rostmeute",
   "station_esse",
+  "station_esse_umkaempft",
+  "station_esse_verfallen",
   "station_metall",
   "wrack"
  ],

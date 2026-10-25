@@ -239,9 +239,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -260,9 +260,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -281,9 +281,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -302,9 +302,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -323,9 +323,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -344,9 +344,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {
@@ -365,9 +365,9 @@
    ],
    "mode": "paint",
    "color": {
-    "shade": "ember",
-    "f": "1 - zustand * 0.15",
-    "emit": "0.9 - zustand * 0.3"
+    "shade": "#FF7A1A",
+    "f": 1,
+    "emit": "0.6 - zustand * 0.2"
    }
   },
   {

@@ -1,6 +1,6 @@
 {
  "id": "ort/germanen/gemein/medkiste",
- "name": "Medkiste (Germanen, Esse): Eisenkiste mit Frostdeckel und Alarmkreuz, Kupfergriff, Glutriegel",
+ "name": "Medkiste (Germanen, Esse): Eisenkiste mit Frostdeckel und Runensiegel, Kupfergriff, Glutriegel",
  "tier": "detail",
  "palette": "nord",
  "jitter": 0,
@@ -64,34 +64,58 @@
    "mode": "paint"
   },
   {
+   "name": "Runensiegel Stab",
    "op": "box",
-   "name": "Kreuz Deckel a",
    "at": [
-    -1,
+    0,
     7,
     -2
    ],
    "size": [
-    2,
+    1,
     1,
     4
    ],
-   "color": "alarm"
+   "color": {
+    "role": "rune",
+    "emit": 0.8
+   }
   },
   {
+   "name": "Runensiegel Arm links",
    "op": "box",
-   "name": "Kreuz Deckel b",
    "at": [
-    -3,
+    -2,
     7,
     -1
    ],
    "size": [
-    6,
+    2,
     1,
-    2
+    1
    ],
-   "color": "alarm"
+   "color": {
+    "role": "rune",
+    "emit": 0.8
+   }
+  },
+  {
+   "name": "Runensiegel Arm rechts",
+   "op": "box",
+   "at": [
+    1,
+    7,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.8
+   }
   },
   {
    "op": "box",

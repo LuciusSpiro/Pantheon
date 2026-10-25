@@ -1,6 +1,6 @@
 {
   "id": "kit/germanen/aussenposten/boden_belag",
-  "name": "Außenposten Stabbau – boden_belag: Eisenplatten (belag 2 Innenraum, Weg und Rampe: mittleres Eisen; belag 0 Plateau und Hof: helles Eisen)",
+  "name": "Außenposten Stabbau – boden_belag: Eisenplatten (belag 2 Innenraum: helles Eisen, damit Stücke sich abheben; Weg und Rampe ebenso; belag 0 Plateau und Hof: helles Eisen)",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
@@ -82,8 +82,8 @@
         "d"
       ],
       "color": {
-        "shade": "metal",
-        "f": "0.78 * dk"
+        "shade": "metal_light",
+        "f": "0.72 * dk"
       },
       "if": "belag == 2"
     },

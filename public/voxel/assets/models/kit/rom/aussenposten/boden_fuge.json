@@ -1,6 +1,6 @@
 {
   "id": "kit/rom/aussenposten/boden_fuge",
-  "name": "Rom Außenposten boden_fuge: Hof ohne Fuge; Landefeld und Plateau feine Marmorfuge; Gebäude und Weg Gunmetal-Fuge mit Amber-Rinnenfuge an jeder zweiten Kachel",
+  "name": "Rom Außenposten boden_fuge: Hof ohne Fuge; Landefeld und Plateau feine Marmorfuge; Gebäude und Weg Gunmetal-Fuge mit Amber-Rinnenfuge an jeder zweiten Kachel (Integration: Innenfugen Travertin, Amber nur noch an der Krone)",
   "tier": "architecture",
   "palette": "rom",
   "tags": [
@@ -196,8 +196,8 @@
         "d"
       ],
       "color": {
-        "shade": "metal",
-        "f": "0.9 * (1 - zustand * 0.06)"
+        "shade": "stone",
+        "f": "0.92 * (1 - zustand * 0.06)"
       },
       "jitter": false
     },
@@ -205,7 +205,7 @@
       "name": "Fuge Innen N",
       "op": "box",
       "mode": "paint",
-      "if": "belag == 2 && hash(seed, 5) >= 0.5",
+      "if": "belag == 2",
       "at": [
         0,
         0,
@@ -217,29 +217,8 @@
         1
       ],
       "color": {
-        "shade": "metal",
-        "f": "0.9 * (1 - zustand * 0.06)"
-      },
-      "jitter": false
-    },
-    {
-      "name": "Rinnenfuge Innen",
-      "op": "box",
-      "mode": "paint",
-      "if": "belag == 2 && hash(seed, 5) < 0.5",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        1
-      ],
-      "color": {
-        "role": "glow2",
-        "emit": 0.6
+        "shade": "stone",
+        "f": "0.92 * (1 - zustand * 0.06)"
       },
       "jitter": false
     }

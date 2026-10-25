@@ -1,6 +1,6 @@
 {
   "id": "kit/rom/aussenposten/wand_krone",
-  "name": "Rom Außenposten wand_krone: Gunmetal-Mauerkrone mit Amber-Rinne als Ein-Voxel-Linie entlang der Wandrichtung",
+  "name": "Rom Außenposten wand_krone: Travertinkrone mit Amber-Rinne als Ein-Voxel-Linie entlang der Wandrichtung",
   "tier": "architecture",
   "palette": "rom",
   "tags": [
@@ -62,8 +62,8 @@
         "d"
       ],
       "color": {
-        "shade": "metal_dark",
-        "f": "1 * (1 - zustand * 0.06)"
+        "shade": "stone_light",
+        "f": "0.98 * (1 - zustand * 0.06)"
       }
     },
     {

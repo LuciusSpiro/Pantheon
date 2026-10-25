@@ -1,6 +1,6 @@
 {
  "id": "kit/rom/station/wand_krone",
- "name": "Rom-Station wand_krone: Marmorkrone, Amberrinne (1 Voxel Linie) 1 Voxel hinter jeder freien Kante",
+ "name": "Rom-Station wand_krone: Marmorkrone, Amberrinne als EINE 1-Voxel-Linie je Wandachse (Leitfaden: Stücke vor Wand)",
  "tier": "architecture",
  "palette": "rom",
  "tags": [
@@ -66,7 +66,7 @@
    }
   },
   {
-   "name": "Rinne Nord",
+   "name": "Rinne entlang x",
    "op": "box",
    "at": [
     0,
@@ -79,57 +79,14 @@
     1
    ],
    "color": {
-    "shade": "#FFA21A",
-    "f": 1,
+    "role": "glow2",
     "emit": "zustand == 2 ? 0.25 : 0.6"
    },
    "jitter": false,
-   "if": "floor(conn) % 2 == 0"
+   "if": "ce || cw || conn == 0"
   },
   {
-   "name": "Rinne Süd",
-   "op": "box",
-   "at": [
-    0,
-    0,
-    2
-   ],
-   "size": [
-    4,
-    "h",
-    1
-   ],
-   "color": {
-    "shade": "#FFA21A",
-    "f": 1,
-    "emit": "zustand == 2 ? 0.25 : 0.6"
-   },
-   "jitter": false,
-   "if": "floor(conn / 4) % 2 == 0"
-  },
-  {
-   "name": "Rinne Ost",
-   "op": "box",
-   "at": [
-    2,
-    0,
-    0
-   ],
-   "size": [
-    1,
-    "h",
-    4
-   ],
-   "color": {
-    "shade": "#FFA21A",
-    "f": 1,
-    "emit": "zustand == 2 ? 0.25 : 0.6"
-   },
-   "jitter": false,
-   "if": "floor(conn / 2) % 2 == 0"
-  },
-  {
-   "name": "Rinne West",
+   "name": "Rinne entlang z",
    "op": "box",
    "at": [
     1,
@@ -142,17 +99,22 @@
     4
    ],
    "color": {
-    "shade": "#FFA21A",
-    "f": 1,
+    "role": "glow2",
     "emit": "zustand == 2 ? 0.25 : 0.6"
    },
    "jitter": false,
-   "if": "floor(conn / 8) % 2 == 0"
+   "if": "cn || cs"
   }
  ],
  "anchor": [
   0,
   0,
   0
- ]
+ ],
+ "let": {
+  "cn": "floor(conn) % 2",
+  "ce": "floor(conn / 2) % 2",
+  "cs": "floor(conn / 4) % 2",
+  "cw": "floor(conn / 8) % 2"
+ }
 }
