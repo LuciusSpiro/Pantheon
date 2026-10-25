@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // ORT-01: Screenshots der Räume und Gebäude, je Kartenart, Bauweise und Seed (Sichtprüfung der Einrichtung).
 //
-//   node tools/ort01-shots.js [--arten station,aussenposten] [--bauweisen rom,germanen] [--seeds 1,2,3,4,5,6,7,8,9,10]
+//   node tools/ort01-shots.js [--arten station,aussenposten] [--bauweisen rom,germanen|auto] [--seeds 1,2,3,4,5,6,7,8,9,10]
 //                             [--lp helix.station,kesh.grabung]   statt Seeds: bestehende Landepunkte laden (Debug `lp hin <id>`), Ausgabe <out>/lp/<id>/
 //                             [--out shots/ort01] [--port 3386] [--raeume kommando,lager] [--warte 900] [--hud] [--uebersicht] [--root <ordner>] [--v]
 //
@@ -32,7 +32,9 @@ const WARTE = +arg('warte', '900');
 const VERBOSE = process.argv.includes('--v');
 const ART_UEBERSICHT = process.argv.includes('--uebersicht');   // zusätzlich eine Übersicht je Seed
 const MIT_HUD = process.argv.includes('--hud');   // Standard: die 2D-Oberfläche (#game: HUD, Funk, Ziele) wird ausgeblendet, es bleibt die 3D-Ansicht
-const BESITZ = 'rostmeute';
+const BESITZ = arg('besitz', 'rostmeute');
+const GEGNER = arg('gegner', null);   // ORT-01 4b: Fraktion, die die Karte besetzt (Stationskampf), z. B. rom
+const ZUSTAND = arg('zustand', 'intakt');
 const LPS = arg('lp', null) ? arg('lp', '').split(',') : null;   // bestehende Landepunkte (Bestandskarten), z. B. helix.station
 
 function playwright() {
@@ -107,7 +109,7 @@ async function bauKarteWarten(page, art, bw, seed, erste) {
     await page.waitForTimeout(2500);
   }
   const vorher = await page.evaluate(kartenSig);
-  await page.evaluate((l) => __game.dbg(l), `buehne ${art} ${seed} ${bw} ${BESITZ} intakt`);
+  await page.evaluate((l) => __game.dbg(l), `buehne ${art} ${seed} ${bw === 'auto' ? '-' : bw} ${BESITZ} ${ZUSTAND}${GEGNER ? ' - ' + GEGNER : ''}`);
   await page.waitForFunction(([v, sigSrc]) => {
     const st = __game.state, me = st && st.players.find((p) => p.id === __game.pid);
     if (!(me && me.zone === 'away' && st.away && Shared_Maps[st.away.map] && Shared_Maps[st.away.map].buehne)) return false;
@@ -215,6 +217,19 @@ for (const a of ['station', 'aussenposten']) ROLLEN[a] = JSON.parse(fs.readFileS
             const f = path.join(dir, `${seed}-${p.id}.png`);
             await page.screenshot({ path: f });
             dateien.push(path.relative(ROOT, f).split(path.sep).join('/')); nBilder++;
+          }
+          if (GEGNER) {   // ORT-01 4b: Stationskampf – neben die ersten Gegner (je Trupp einer) springen, dort ein Bild
+            await page.evaluate(() => VoxelRender.renderer.setSeat(null));
+            const gs = await page.evaluate(() => (__game.state.away.drones || []).filter((d) => d.alive !== false).map((d) => ({ x: Math.floor(d.x / 32), y: Math.floor(d.y / 32), fr: d.fr || null, ro: d.ro || null, pa: d.pa || null })));
+            const sicht = []; for (const g of gs) if (!sicht.some((q) => Math.abs(q.x - g.x) + Math.abs(q.y - g.y) < 14)) sicht.push(g);
+            for (let gi = 0; gi < Math.min(3, sicht.length); gi++) {
+              await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [sicht[gi].x - 2, sicht[gi].y]);
+              await page.waitForTimeout(WARTE);
+              const f = path.join(dir, `${seed}-gegner${gi + 1}.png`);
+              await page.screenshot({ path: f });
+              dateien.push(path.relative(ROOT, f).split(path.sep).join('/')); nBilder++;
+            }
+            console.error(`  Gegner: ${gs.length} (${[...new Set(gs.map((q) => q.fr + '/' + q.ro + '/' + q.pa))].join(', ')})`);
           }
           if (ART_UEBERSICHT) {   // Übersicht je Seed (Außenseiten, Dächer): nur mit --uebersicht
             await page.setViewportSize({ width: 1920, height: 1080 });

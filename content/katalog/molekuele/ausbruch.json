@@ -79,7 +79,9 @@
             "kontor",
             "raubzug",
             "herrenlos",
-            "kustoden"
+            "kustoden",
+            "rom",
+            "ger"
           ],
           "beschreibung": "Wärter (Fraktion = Besitz-ID); sie sind ruhig, bis die Zellentür knallt"
         },

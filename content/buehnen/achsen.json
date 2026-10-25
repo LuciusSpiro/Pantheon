@@ -36,7 +36,38 @@
       "hinweis": "nur Handkarte B-7"
     },
     "rom": {
-      "status": "spaeter"
+      "status": "aktiv",
+      "hinweis": "Station (Bauweise rom), Außenposten noch nicht"
+    },
+    "ger": {
+      "status": "aktiv",
+      "hinweis": "Gegenstück zu rom (Sektorkarte: ger); baut germanisch wie der Standard"
+    }
+  },
+  "bauweise_nach_besitz": {
+    "hinweis": "ORT-01 4b: Bauweise eines NEUEN Landepunkts nach Besitzer (server/sim/landepunkte.js bauweiseFuerBesitz). erlaubt=false: Abweichung vom Standard der Kartenart nicht freigegeben. Eingefroren im Weltstand, wird nie neu abgeleitet. Besitz ohne Eintrag (kontor, rostmeute, raubzug, herrenlos, kustoden, konkordat, ger) baut Standard der Kartenart.",
+    "kartenarten": {
+      "station": {
+        "erlaubt": true,
+        "je_besitz": {
+          "rom": "rom"
+        }
+      },
+      "aussenposten": {
+        "erlaubt": false,
+        "je_besitz": {
+          "rom": "rom"
+        },
+        "hinweis": "noch nicht: gen-siedlung hat für rom ein eigenes Layout (Cardo, 26 statt 28 Anker), das ist Verhalten, nicht Optik. Erst mit dem Paket Außenposten rom freischalten."
+      },
+      "ruine": {
+        "erlaubt": false,
+        "hinweis": "Ruine ist immer rom (Kartenart)"
+      },
+      "schiff": {
+        "erlaubt": false,
+        "hinweis": "Schiff innen bleibt germanisch"
+      }
     }
   },
   "zustaende": {

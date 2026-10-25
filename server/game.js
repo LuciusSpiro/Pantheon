@@ -884,7 +884,7 @@ class Game {
     // Ketten (L.kette = Name aus Labor.KETTEN) nur serverseitig (Bots, Tests) – nie über lobbyOpt, nie in der Lobby
     const k = L.kette ? Labor.kette(L.kette) : null;
     const r = k ? Labor.laborKette(this, k.ids, { seed: L.seed, staerke: L.staerke, god: L.god, map: k.map, loc: k.loc })
-      : Labor.laborStart(this, id, { seed: L.seed, staerke: L.staerke, god: L.god });
+      : Labor.laborStart(this, id, { seed: L.seed, staerke: L.staerke, god: L.god, ...(L.buehne ? { buehne: L.buehne } : {}) });   // buehne nur serverseitig (Bots, Tests), nie über lobbyOpt
     if (!r.ok) {
       this.countError('labor-start', new Error(r.fehler));
       this.endSession(null, { grund: 'labor' });

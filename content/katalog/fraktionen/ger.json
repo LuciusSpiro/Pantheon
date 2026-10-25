@@ -1,0 +1,59 @@
+{
+  "format": "fraktion/1",
+  "id": "ger",
+  "name": "Germanen",
+  "beschreibung": "Germanische Clans des Grenzlands (Sektorkarte: ger), nicht der Handelsclan und nicht die Plünderer: Hirden und Wachen eines Clanhofs.",
+  "modelle": {
+    "grundtyp": "fig/germanen/grundtyp",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer",
+    "haescher": "fig/germanen/haescher"
+  },
+  "palette": null,
+  "rezepte": {
+    "wache": [
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      },
+      {
+        "rolle": "schuetze",
+        "n": 1
+      }
+    ],
+    "sturmtrupp": [
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "enterer",
+        "n": 1
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": null,
+  "einsatz": {
+    "wache": [
+      "station",
+      "aussenposten",
+      "hand"
+    ],
+    "sturmtrupp": [
+      "station",
+      "aussenposten"
+    ]
+  },
+  "funkstil": "derb und stolz, spricht von Sippe, Ehre und Wergeld"
+}
