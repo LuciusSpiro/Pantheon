@@ -426,7 +426,7 @@
         2,
         1
       ],
-      "height": 1.0,
+      "height": 1,
       "facing": "+z",
       "params": {},
       "states": {},
@@ -1090,7 +1090,7 @@
         "use": [
           0,
           0,
-          1.0
+          1
         ],
         "label": [
           0,
@@ -1159,52 +1159,6 @@
         "terminal",
         "kommando",
         "ort01"
-      ],
-      "notes": "Bestand des Designers (ORT-01 Richtung), hier nur eingetragen."
-    },
-    {
-      "id": "ort/rom/station/wand",
-      "kind": "model",
-      "tier": "architecture",
-      "palette": "rom",
-      "footprint": [
-        16,
-        1
-      ],
-      "height": 3.0,
-      "facing": "+z",
-      "params": {
-        "len": [
-          4,
-          64
-        ],
-        "abgriff": [
-          0,
-          1
-        ]
-      },
-      "states": {},
-      "sockets": {
-        "use": [
-          0,
-          0,
-          0.5
-        ],
-        "label": [
-          0,
-          3.15,
-          0
-        ]
-      },
-      "tint": [],
-      "budgetTris": 1100,
-      "tags": [
-        "bau",
-        "rom",
-        "station",
-        "ort01",
-        "wall",
-        "architecture"
       ],
       "notes": "Bestand des Designers (ORT-01 Richtung), hier nur eingetragen."
     }

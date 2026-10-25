@@ -10,6 +10,7 @@
 //   npm run check:assets -- --nur-rollen     nur die Rollen-Parität (ORT-01, content/buehnen/rollen/*.json), ohne Asset-Bau
 //   npm run check:assets -- --rollen-dir <d> Rollen-Dateien aus einem anderen Ordner (Tests, Entwürfe)
 //
+// Klasse `bau` (Tag im Manifest, tools/asset-klassen.mjs): Gebäude, Türme, Leitstücke der Orte; Höhe bis 10 m, Budget je belegter Kachel.
 // Geprüft: Pflichtfelder (§5), Dreiecke je Zustand gegen budgetTris und Vertragsbudget (Warnung > 100 %, Fehler > 150 %),
 // Grundfläche/Höhe gegen footprint/height (+ 2,2-m-Grenze), Pflicht-Sockets, Parameter aus §3.3/§3.4/§3.6,
 // Posen aus §3.4, Sockets aus dem Rezept (CONTRACT-B1 §10.1, Manifest hat Vorrang), Vollständigkeit der
@@ -22,6 +23,7 @@ import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
 import { pruefeRollenDatei } from './rollen-pruefung.mjs';
+import { isBau, bauBudget, bauHoehe, BAU_H } from './asset-klassen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -112,6 +114,7 @@ const facingOk = (f, id, e) => f === '+z' || (isHeld(id, e) && typeof f === 'str
 /** Vertragsbudget §5 (Dreiecke je Zustand). */
 function contractBudget(id, e, tier) {
   if (e.kind === 'figure' || id.startsWith('lerche/actor/')) return { n: 6000, what: 'Figur' };
+  if (isBau(e)) { const b = bauBudget(e.footprint); return { n: b.n, what: b.what }; }
   if ((e.tags || []).includes('terrain')) return { n: 8000, what: 'Geländeblock' };
   if (/(^|\/)(floor|grate|floor_ruin|quarter_floor)$/.test(id)) return { n: 150, what: 'Bodenkachel' };
   if (/(^|\/)wall(_\w+)?$/.test(id)) return { n: 600, what: 'Wandkachel' };
@@ -536,7 +539,9 @@ async function main() {
         if (maxH > e.height + tol) bad(`Höhe ${maxH.toFixed(2)} m > height ${e.height} m`);
         else if (maxH < e.height - 0.25) meh(`height ${e.height} m, Modell nur ${maxH.toFixed(2)} m hoch`);
       }
-      if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
+      if (isBau(e)) {
+        if (bauHoehe(maxH, tol) === 'fehler') bad(`Höhe ${maxH.toFixed(2)} m > ${BAU_H} m (Klasse bau)`);
+      } else if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
         if (isLeit(e.id)) {
           if (maxH > LEIT_H + tol) bad(`Höhe ${maxH.toFixed(2)} m > 3,5 m (Leitstück, Entscheidung Studioleitung B1)`);
           else if (maxH > 2.2 + tol) meh(`Höhe ${maxH.toFixed(2)} m > 2,2 m – als Leitstück bis 3,5 m zulässig`);

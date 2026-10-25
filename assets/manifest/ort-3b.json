@@ -914,68 +914,6 @@
       "notes": "ORT-01 3b, Rolle: kommando.pult, reaktor.pult, zellen.wachpult"
     },
     {
-      "id": "ort/germanen/station/wand",
-      "kind": "model",
-      "tier": "architecture",
-      "palette": "nord",
-      "footprint": [
-        4,
-        2
-      ],
-      "height": 3,
-      "facing": "+z",
-      "params": {
-        "len": [
-          4,
-          4
-        ]
-      },
-      "states": {},
-      "sockets": {},
-      "tint": [],
-      "budgetTris": 400,
-      "tags": [
-        "germanen",
-        "ort01",
-        "station",
-        "bau",
-        "wall",
-        "kit"
-      ],
-      "notes": "ORT-01 3b, Rolle: wand (architecture)"
-    },
-    {
-      "id": "ort/germanen/station/wand_hell",
-      "kind": "model",
-      "tier": "architecture",
-      "palette": "nord",
-      "footprint": [
-        4,
-        2
-      ],
-      "height": 3,
-      "facing": "+z",
-      "params": {
-        "len": [
-          4,
-          4
-        ]
-      },
-      "states": {},
-      "sockets": {},
-      "tint": [],
-      "budgetTris": 400,
-      "tags": [
-        "germanen",
-        "ort01",
-        "station",
-        "bau",
-        "wall",
-        "kit"
-      ],
-      "notes": "ORT-01 3b, Rolle: wand, hellere Variante (Vorschlag)"
-    },
-    {
       "id": "ort/germanen/gemein/verteiler",
       "kind": "model",
       "tier": "detail",

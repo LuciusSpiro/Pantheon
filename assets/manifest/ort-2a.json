@@ -28,8 +28,7 @@
         "bau",
         "kommando",
         "funk",
-        "ort01",
-        "wall"
+        "ort01"
       ]
     },
     {
@@ -41,7 +40,7 @@
         6,
         4
       ],
-      "height": 4.0,
+      "height": 4,
       "facing": "+z",
       "params": {
         "licht": [
@@ -58,8 +57,7 @@
         "aussenposten",
         "bau",
         "unterkunft",
-        "ort01",
-        "wall"
+        "ort01"
       ]
     },
     {
@@ -71,7 +69,7 @@
         4,
         3
       ],
-      "height": 3.0,
+      "height": 3,
       "facing": "+z",
       "params": {
         "licht": [
@@ -93,8 +91,7 @@
         "bau",
         "lager",
         "energie",
-        "ort01",
-        "wall"
+        "ort01"
       ]
     },
     {
@@ -268,7 +265,7 @@
       "sockets": {
         "light": [
           0,
-          1.0,
+          1,
           0
         ]
       },
@@ -367,7 +364,7 @@
         "wachturm",
         "leit",
         "ort01",
-        "wall"
+        "bau"
       ]
     },
     {
@@ -601,7 +598,7 @@
         "prop",
         "standarte",
         "feldgenerator",
-        "wall"
+        "bau"
       ]
     },
     {
@@ -711,7 +708,7 @@
         "prop",
         "licht",
         "light",
-        "wall"
+        "bau"
       ]
     }
   ]
