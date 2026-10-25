@@ -1585,10 +1585,11 @@ export async function prefetch(opts = {}) {
       Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
       Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json'))),
     ]);
+    // ORT-01: kitIds nimmt auch ort/… und rom/… (Leitstücke, Deckung, Anker der neuen Orte)
     const modelle = new Set(), paletten = new Set(), moods = new Set();
-    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
+    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit|ort|rom)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
-    for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); strings(t.paletten, paletten); strings(t.stimmung, moods); }
+    for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); kitIds(t.deckung_props); strings(t.paletten, paletten); strings(t.stimmung, moods); }
     for (const d of dekos) if (d && d.regeln) for (const r of Object.values(d.regeln)) kitIds(r && r.props);
     for (const r of rollenDateien) if (r && r.rollen) for (const name of Object.keys(r.rollen)) for (const bw of bws) for (const id of belegungVon(r, name, bw)) modelle.add(id);   // ORT-01
     for (const b of bes) {
