@@ -33,6 +33,7 @@ const Kern = require('../weltsim/kern.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Marken = require('./marken.js');
 const KT = require('../../public/js/karte-tokens.js');
+const TextePool = require('./texte-pool.js');   // SUND-03b T: Live-Texte für den Verlust-Funk (nur mit Schalter TEXTE_POOL)
 
 const FK = { rom: 'r', ger: 'g', kon: 'k', pirat: 'p' };
 const KARTEN_FK = { rom: 'r', ger: 'g', saum: 'k', pirat: 'p', frei: '-', vorl: 'v', neutral: '-' };
@@ -319,7 +320,7 @@ function berechne(W0, o) {
       meldung(ev.e, ev.h, ev.f);
       if ((ev.e === 'hf' || ev.e === 'pv') && !(o.stumm || []).includes(ev.h)) {   // stumm: das Szenenende meldet den Ausgang dort selbst (keine Doppelmeldung)
         const posten = ev.e === 'pv';   // SUND-01 F: Posten „verloren“, nur Häfen „gefallen“
-        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
+        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), verlust: { id: posten ? 'posten_verloren' : 'hafen_gefallen', ort: hexName(d, ev.h) }, loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
       }
     };
     for (const ev of geprueft) zeige(ev, false);
@@ -366,6 +367,9 @@ function ausgeben(game, aus) {
   for (const m of aus.markenSetzen) { try { const f = Marken.setze(game, { id: m.id, typ: 'notruf', hex: m.h }); if (f && game.countError) game.countError('lage-marke', new Error(f)); } catch (e) { if (game.countError) game.countError('lage-marke', e); } }
   for (const f of aus.funk) {
     try {
+      // SUND-03b T: Verlust-Funk (Hafen gefallen, Posten verloren): mit TEXTE_POOL ein vorab erzeugter Text, sonst die heutige Vorlage (Rückfall)
+      const live = f.verlust ? TextePool.poolText(game, 'lage', f.verlust.id, 'verlust', { ort: f.verlust.ort }) : null;
+      if (live != null) f.text = live;
       game.emit('radio', Object.assign({ from: f.von, text: f.text, lage: 1, tick: f.t }, f.kz ? { kz: f.kz } : {}));
       if (game.explore && f.log) game.explore.addLog(f.log, f.loc, null);
     } catch (e) { if (game.countError) game.countError('lage-funk', e); }
@@ -486,4 +490,4 @@ function markenNeu(game) {
   for (const nr of ws.wissen.notrufe) Marken.setze(game, { id: nr.m, typ: 'notruf', hex: nr.h });
 }
 
-module.exports = { neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };
+module.exports = { ausgeben, neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };
