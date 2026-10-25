@@ -618,7 +618,7 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   const gek = Prompt.plaeneKuerzen(klammer, s30 + 5);
   const gruende = gek.flatMap((x) => x.befehle).filter((b) => /abgelehnt \(/.test(b)).map((b) => b.slice(b.indexOf('abgelehnt (') + 11, -1));
   ok(JSON.stringify(gek).length <= s30 + 5 && gek.length === 3 && gruende.length === 6 && gruende.every((g) => g.length <= 30) && gek[0].befehle.every((b) => b.endsWith(')') || b.endsWith(': ok')), 'Kurzgründe mit Klammern werden gekürzt, alle drei Pläne bleiben (' + gruende[0] + ')');
-  ok(Prompt.grundKuerzen('regler rom: ok', 5) === 'regler rom: ok' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 0) === 'x: abgelehnt' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 4) === 'x: abgelehnt (Rate)', 'grundKuerzen: ok bleibt, ohne Grund, mit Grund auf len');
+  ok(Prompt.grundKuerzen('regler rom: ok', 5) === 'regler rom: ok' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 0) === 'x: abgelehnt' && Prompt.grundKuerzen('x: abgelehnt (Rate (schon 8))', 4) === 'x: abgelehnt (Rate)' && Prompt.grundKuerzen('x: abgelehnt (kurz)', 30) === 'x: abgelehnt (kurz)' && Prompt.grundKuerzen('x: abgelehnt (a (b) c)', 30) === 'x: abgelehnt (a (b) c)', 'grundKuerzen: ok bleibt, ohne Grund, mit Grund auf len');
   // K3: der Plan-Fokus erscheint als ein Eintrag „fokus (beide) HEX“, angenommen zählt gebuchte Plätze
   const fk = spiel(); const { sl: sfk } = mitLage(fk, { mode: 'script', script: { lage: [
     { json: { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], fokus: { hex: '0105', radius: 2 }, begruendung: 'a' } },
