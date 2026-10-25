@@ -13,7 +13,8 @@
   'use strict';
   const VW = 640, VH = 360;
   const BREITE = 240, ZEILE = 14, UNTEN = 8, RAND = 12, SCHIRM_ABSTAND = 8;   // Breite (längste Option 60 Zeichen passt gekürzt, Kopf und Hinweiszeile messen sich selbst), Knopfhöhe, Abstand zum unteren Rand (Bord) bzw. zum Schirmrand (Konsole)
-  const store = { funkwahl: null, markiert: -1, nr: null, eingeklappt: false, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
+  const BEDIENFLAECHEN = ['technik', 'captain', 'shop'];   // Konsolen, deren Schirm Bedienflächen trägt (Knöpfe, Kacheln, Eingaben; gemessen mit tools/messe-funk-flaechen.js, bewiesen in tools/test-ui-03b.js): dort erscheint das Angebot zuerst nur als Streifen
+  const store = { funkwahl: null, markiert: -1, nr: null, eingeklappt: false, geoeffnetBei: null, konsole: null, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
 
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
@@ -24,7 +25,7 @@
   }
   function zuruecksetzen(block) {
     const neuNr = block && Number.isFinite(block.nr) ? block.nr : null;
-    if (neuNr !== store.nr) { store.markiert = -1; store.eingeklappt = false; }   // ein anderes Angebot: weder Markierung noch „Später“ übernehmen
+    if (neuNr !== store.nr) { store.markiert = -1; store.eingeklappt = false; store.geoeffnetBei = null; }   // ein anderes Angebot: weder Markierung noch „Später“ übernehmen
     store.funkwahl = block; store.nr = neuNr;
   }
   const isNum = (v) => typeof v === 'number' && isFinite(v);
@@ -49,15 +50,29 @@
     return true;
   }
   // Taste: markieren (nächste Zeile, im Kreis) und senden (die markierte)
-  function spaeter(an) { if (offen()) store.eingeklappt = an !== false; return store.eingeklappt; }   // „Später“: die Leiste klappt zu einem schmalen Streifen zusammen, das Angebot bleibt bis zum Verfall
+  // Streifen oder volle Leiste? An Konsolen mit Bedienflächen auf dem Schirm (BEDIENFLAECHEN) ist der Streifen der Standard; die volle Leiste liegt dort nur, solange der Spieler sie an DIESER Konsole selbst
+  // aufgeklappt hat (Taste oder Klick), sonst gilt „Später“. Rein lokal je Client (der Server weiß davon nichts, die erste Antwort gilt weiter).
+  const bedienflaechen = (k) => !!k && BEDIENFLAECHEN.indexOf(k.station) >= 0;
+  function zu(k) { k = k === undefined ? store.konsole : k; return bedienflaechen(k) ? store.geoeffnetBei !== k.station : store.eingeklappt; }
+  function aufklappen() { store.eingeklappt = false; store.geoeffnetBei = bedienflaechen(store.konsole) ? store.konsole.station : null; }
+  function spaeter(an) {   // „Später“: die Leiste klappt zu einem schmalen Streifen zusammen, das Angebot bleibt bis zum Verfall
+    if (!offen()) return store.eingeklappt;
+    if (an === false) aufklappen(); else { store.eingeklappt = true; store.geoeffnetBei = null; }
+    return zu();
+  }
+  // Esc: eine selbst aufgeklappte Leiste an einer Konsole mit Bedienflächen klappt wieder zu (verbraucht die Taste); sonst false (Esc verlässt die Konsole wie bisher)
+  function zuklappen() {
+    if (!offen() || !bedienflaechen(store.konsole) || store.geoeffnetBei !== store.konsole.station) return false;
+    store.geoeffnetBei = null; return true;
+  }
   function markieren() {
     const m = modell(); if (!m) return -1;
-    if (store.eingeklappt) { store.eingeklappt = false; return store.markiert; }   // zugeklappt: die Taste klappt erst auf
+    if (zu()) { aufklappen(); return store.markiert; }   // zugeklappt (Streifen): der erste Druck klappt nur auf, markiert wird erst der nächste
     store.markiert = (store.markiert + 1) % zeilen(m).length;
     return store.markiert;
   }
   function senden(send) {
-    const m = modell(); if (!m || store.eingeklappt || store.markiert < 0) return false;
+    const m = modell(); if (!m || zu() || store.markiert < 0) return false;
     const z = zeilen(m)[store.markiert];
     return !!z && antworten(send, z.id);
   }
@@ -70,17 +85,24 @@
     while (t.length > 1 && R.measure(t + '…', 1) > w) t = t.slice(0, -1);
     return t + '…';
   }
-  const STREIFEN = 13;   // Höhe des zugeklappten Streifens
+  const OBEN = 6;        // oberer Rand der Schirmfläche (Pult.rahmen: Schirm ab y 6), bündig: darunter bleibt die Kopfzeile des Terminals (Marken) lesbar
+  const STREIFEN = 11;   // Höhe des zugeklappten Streifens (niedrig genug, dass am Terminal die Marken-Anzeige darunter lesbar bleibt)
   const KOPF = 15;       // Höhe der Kopfzeile
-  function hoehe(m) { return store.eingeklappt ? STREIFEN : KOPF + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
+  function hoehe(m, streifen) { return streifen ? STREIFEN : KOPF + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
   // S = Oberkante der Statusleiste der Konsole (Pult.statusOben), sonst null (Bordansicht): mit Konsole auf dem Schirm unten rechts über der Statusleiste (verdeckt keinen Knopf des Pults),
   // ohne Konsole unten mittig
-  function rechteck(m, S) {
-    m = m || modell(); const h = hoehe(m);
-    if (S == null) return { x: Math.round((VW - BREITE) / 2), y: VH - h - UNTEN, w: BREITE, h };
-    return { x: VW - BREITE - RAND, y: S - h - SCHIRM_ABSTAND, w: BREITE, h };
+  // k = { S, station } der gezeichneten Konsole (Pult.konsole) oder null; streifen (Standard: gilt für k) = zugeklappt. Der Streifen an einer Konsole mit Bedienflächen sitzt am oberen Rand der Schirmfläche
+  // (dort liegt nirgends eine Bedienfläche, gemessen), die volle Leiste und der Streifen an den übrigen Konsolen über der Statusleiste.
+  function rechteck(m, k, streifen) {
+    m = m || modell(); if (typeof k === 'number') k = { S: k, station: '' };
+    if (streifen === undefined) streifen = k ? zu(k) : store.eingeklappt;
+    const h = hoehe(m, streifen);
+    if (!k) return { x: Math.round((VW - BREITE) / 2), y: VH - h - UNTEN, w: BREITE, h };
+    if (streifen && bedienflaechen(k)) return { x: VW - BREITE - RAND, y: OBEN, w: BREITE, h };
+    return { x: VW - BREITE - RAND, y: k.S - h - SCHIRM_ABSTAND, w: BREITE, h };
   }
   function statusOben(view) { const P = root && root.Pult; return P && typeof P.statusOben === 'function' ? P.statusOben(view) : null; }
+  function konsole(view) { const P = root && root.Pult; return P && typeof P.konsole === 'function' ? P.konsole(view) : null; }
   // Tastenkappe wie im Pult: echte Taste aus Tasten.js, ersatzweise die Standardbelegung
   function kappe(aktion, ersatz) {
     const P = root && root.Pult;
@@ -97,18 +119,21 @@
   function zeichne(ctx, view) {
     const R = root && root.Render, m = modell();
     if (!R || !m || !ctx) return;
-    const r = rechteck(m, statusOben(view));
+    const k = konsole(view);
+    store.konsole = k;
+    const streifen = k ? zu(k) : store.eingeklappt;
+    const r = rechteck(m, k, streifen);
     store.rechteck = r;
     const gehen = () => (view && typeof view.send === 'function' ? view.send : null);
     const maus = (R.ui && R.ui.mouse) || {};
     const ueber = (x, y, w, h) => maus.x >= x && maus.y >= y && maus.x < x + w && maus.y < y + h;
     const kw = kappe('allgemein.funkWaehlen', '.');
-    if (store.eingeklappt) {   // „Später“: ein schmaler Streifen mit Taste, ein Klick (oder die Taste) klappt auf
+    if (streifen) {   // „Später“ bzw. Standard an Konsolen mit Bedienflächen: ein schmaler Streifen mit Taste, ein Klick (oder die Taste) klappt auf
       ctx.fillStyle = ueber(r.x, r.y, r.w, r.h) ? '#1A2238' : '#10151F'; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.fillStyle = SK.frame; ctx.fillRect(r.x, r.y, r.w, 1); ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 1, r.h); ctx.fillRect(r.x + r.w - 1, r.y, 1, r.h);
-      const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 3, kw);
+      const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 2, kw);
       const sp = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
-      R.text(ctx, kuerzen(R, 'FUNK · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 3, { color: SK.text, shadow: false });
+      R.text(ctx, kuerzen(R, 'FUNK · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
       R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Funk antworten', disabled: false, onClick: () => spaeter(false), hotkey: null });
       return;
     }
@@ -147,5 +172,5 @@
     N.on(lesen);
   })();
 
-  return { store, lesen, modellAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zeichne, rechteck, statusOben, BREITE };
+  return { store, lesen, modellAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zuklappen, zeichne, rechteck, statusOben, konsole, zu, BEDIENFLAECHEN, BREITE };
 });

@@ -242,7 +242,7 @@
   function rahmen(c, view, def) {
     K = SKINS[skinId(view)];
     const S = def.S;
-    gezeichnet = { S, t: nowMs() };   // für statusOben (Funkwahl): welches Pult in diesem Bild gezeichnet wurde
+    gezeichnet = { S, station: def.station || '', t: nowMs() };   // für statusOben (Funkwahl): welches Pult in diesem Bild gezeichnet wurde
     c.fillStyle = K.bg; c.fillRect(0, 0, VW, VH);
     const anzeige = { x: 62, y: 6, w: 572, h: S - 12 };
     c.fillStyle = K.screenBg; c.fillRect(anzeige.x, anzeige.y, anzeige.w, anzeige.h);
@@ -287,8 +287,11 @@
   // Das Pult meldet sich beim Zeichnen selbst (rahmen); ein Eintrag, der älter als ein paar Bilder ist, gilt nicht mehr (Konsole verlassen).
   function statusOben(view) { return gezeichnet && nowMs() - gezeichnet.t < 150 ? gezeichnet.S : null; }
 
+  // Wie statusOben, mit Station: { S, station } (Funkwahl: Streifen statt Leiste an Konsolen mit Bedienflächen), sonst null
+  function konsole(view) { return gezeichnet && nowMs() - gezeichnet.t < 150 ? { S: gezeichnet.S, station: gezeichnet.station } : null; }
+
   window.Pult = {
-    FN, SKINS, skinId, rahmen, knopf, zelle, titel, segs, lampe, zeileHi, mitSkin, zeichneHilfe, hilfeUmschalten, statusOben, kappe,
+    FN, SKINS, skinId, rahmen, knopf, zelle, titel, segs, lampe, zeileHi, mitSkin, zeichneHilfe, hilfeUmschalten, statusOben, konsole, kappe,
     get skin() { return K; }, get hilfe() { return hilfe; },
     txt, tw, mix, rgba, cham, rhomb,
   };

@@ -68,6 +68,8 @@ async function lauf(b, vw, vh, port) {
     // 4. Havarie mit Mausklick auf „Nicht antworten“
     await sitz('captain');
     springe(['funk_lage_ger', 'funk_lage_offen', 'funk_lage_rom'], '1003');
+    await shot('06a-captain-streifen', 800);   // UI2: Captain trägt Bedienflächen auf dem Schirm: das Angebot beginnt als Streifen oben rechts
+    await taste('Period');   // der erste Druck klappt nur auf
     await shot('06-lage-drei-optionen', 800);
     {   // Später: die Leiste klappt zum Streifen zusammen, ein Klick klappt auf
       const q = await page.evaluate(() => Funkwahl.store.rechteck);

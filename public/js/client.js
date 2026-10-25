@@ -1988,6 +1988,7 @@
     if (window.TerminalUI && TerminalUI.zusehend && !m.console) { if (code === 'Escape') { TerminalUI.zusehen(Client.view, false); Client.keys = {}; } return; }
     // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste, Punkt markiert die nächste Option, Umschalt+Punkt sendet die markierte (die Maus geht über die Knöpfe der Leiste)
     if (window.Funkwahl && window.Tasten && Funkwahl.offen()) {
+      if (code === 'Escape' && Funkwahl.zuklappen()) { e.preventDefault(); return; }   // UI2: eine selbst aufgeklappte Leiste an einer Konsole mit Bedienflächen klappt zuerst wieder zu (Esc verlässt die Konsole erst beim nächsten Druck)
       if (Tasten.passt(e, 'allgemein.funkWaehlen')) { e.preventDefault(); if (!e.repeat) Funkwahl.markieren(); return; }
       if (Tasten.passt(e, 'allgemein.funkSenden')) { e.preventDefault(); if (!e.repeat) Funkwahl.senden(send); return; }
     }

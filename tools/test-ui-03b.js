@@ -51,6 +51,69 @@ for (const k of [2, 3]) {
   }
   FW.store.eingeklappt = false;
 }
+// ---------------------------------------------------------------- Bedienflächen je Konsole/Ansicht (gemessen im echten Client: tools/messe-funk-flaechen.js -> tools/fixtures/funk-bedienflaechen.json)
+section('Antwortleiste: keine Bedienfläche verdeckt (Leiste im Standardzustand, Streifen, je Konsole und Ansicht)');
+{
+  const F = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'funk-bedienflaechen.json'), 'utf8')).ansichten;
+  const namen = Object.keys(F);
+  const bedien = FW.BEDIENFLAECHEN;
+  const schirmDe = (r, S) => r.x >= 62 && r.y >= 6 && r.x + r.w <= 634 && r.y + r.h <= S - 6;
+  for (const st of ['helm', 'weapons', 'technik', 'captain', 'shop']) ok(namen.some((k) => F[k].station === st), 'Messung deckt die Konsole ab: ' + st);
+  for (const b of ['werft', 'handel', 'info', 'lage']) ok(namen.includes('terminal-' + b), 'Messung deckt den Terminal-Bereich ab: ' + b);
+  ok(namen.some((k) => k.startsWith('technik-1')) && namen.some((k) => k.startsWith('captain-5')), 'Messung deckt Technik-Schadensplan und alle Captain-Reiter ab');
+  ok(namen.every((k) => konsolen.some((ko) => ko.S === F[k].S)), 'jede gemessene Statusleiste (S) kommt in den Layouts vor (Messung nicht veraltet): ' + [...new Set(namen.map((k) => F[k].S))].join(', '));
+  ok(['technik', 'captain', 'shop'].every((s) => bedien.includes(s)) && !bedien.includes('helm') && !bedien.includes('weapons'), 'Bedienflächen-Konsolen: Technik, Captain, Terminal; Steuer und Ops behalten die volle Leiste (' + bedien.join(', ') + ')');
+  let verdeckt = 0;
+  for (const nOpt of [2, 3]) {
+    FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(nOpt) } });
+    const m = FW.modell();
+    for (const k of namen) {
+      const v = F[k], ko = { S: v.S, station: v.station };
+      FW.store.eingeklappt = false; FW.store.geoeffnetBei = null;
+      const zugeklappt = FW.zu(ko);
+      const r = FW.rechteck(m, ko);
+      const hit = v.knoepfe.filter((b) => schneiden(r, b));
+      ok(hit.length === 0 && schirmDe(r, v.S), nOpt + ' Optionen, ' + k + ' (' + v.station + '): Standard = ' + (zugeklappt ? 'Streifen' : 'volle Leiste') + ' ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + ', keine Bedienfläche darunter' + (hit.length ? ' (verdeckt: ' + hit.map((b) => b.label).join(', ') + ')' : ''));
+      ok(zugeklappt === bedien.includes(v.station), '   ... Streifen genau an den Bedienflächen-Konsolen');
+      // aufgeklappt (vom Spieler selbst): darf überdecken, liegt aber auf dem Schirm über der Statusleiste
+      FW.store.geoeffnetBei = v.station; FW.store.eingeklappt = false;
+      const ra = FW.rechteck(m, ko, false);
+      ok(schirmDe(ra, v.S) && ra.y + ra.h <= v.S - 6, '   ... aufgeklappt auf dem Schirm über der Statusleiste');
+      verdeckt += v.knoepfe.filter((b) => schneiden(ra, b)).length;
+      // die volle Leiste an Konsolen OHNE Streifen-Standard verdeckt nie etwas; an den anderen ist der Streifen nötig
+      if (!bedien.includes(v.station)) ok(v.knoepfe.every((b) => !schneiden(ra, b)), '   ... Konsole ohne Bedienflächen unter der Leiste: auch die volle Leiste verdeckt nichts');
+    }
+  }
+  FW.store.geoeffnetBei = null;
+  ok(verdeckt > 0, 'Gegenprobe: aufgeklappt verdeckt die Leiste tatsächlich Knöpfe (Technik „+“, Terminal Handel) – der Streifen ist nötig (' + verdeckt + ' Treffer)');
+  // der Streifen sitzt immer an derselben Stelle ohne Bedienfläche: Gegenprobe über ALLE Ansichten mit Streifen
+  const sr = FW.rechteck(FW.modell(), { S: 258, station: 'captain' });
+  ok(namen.filter((k) => bedien.includes(F[k].station)).every((k) => F[k].knoepfe.every((b) => !schneiden(sr, b))), 'der Streifen am oberen Rand (' + sr.x + ',' + sr.y + ' ' + sr.w + 'x' + sr.h + ') liegt in KEINER Ansicht über einer Bedienfläche');
+}
+section('Antwortleiste: Taste, Esc und Später an Konsolen mit Streifen');
+{
+  FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(3) } });
+  const send = [];
+  FW.store.konsole = { S: 152, station: 'technik' }; FW.store.markiert = -1;
+  ok(FW.zu() === true && FW.rechteck(FW.modell(), FW.store.konsole).h === 11, 'Technik: neues Angebot = Streifen (11 hoch)');
+  ok(FW.markieren() === -1 && FW.zu() === false, 'erster Druck auf „.“ klappt nur auf, markiert nichts');
+  ok(FW.markieren() === 0 && FW.store.markiert === 0, 'zweiter Druck markiert die erste Option');
+  ok(FW.senden((x) => send.push(x)) && send.length === 1 && send[0].id === 'o0', 'Umschalt+Punkt sendet die markierte Option');
+  ok(FW.zuklappen() === true && FW.zu() === true, 'Esc klappt die selbst geöffnete Leiste wieder zu (verbraucht die Taste)');
+  ok(FW.zuklappen() === false, 'noch einmal Esc: nicht verbraucht (verlässt die Konsole wie bisher)');
+  ok(!FW.senden((x) => send.push(x)) && send.length === 1, 'als Streifen sendet Umschalt+Punkt nichts');
+  FW.spaeter(false); ok(FW.zu() === false, 'Klick auf den Streifen klappt auf');
+  FW.spaeter(true); ok(FW.zu() === true && FW.store.eingeklappt, '„Später“ klappt wieder zu');
+  FW.spaeter(false);
+  FW.store.konsole = { S: 238, station: 'shop' }; ok(FW.zu() === true, 'an einer anderen Bedienflächen-Konsole (Terminal) wieder Streifen: aufgeklappt gilt nur dort, wo der Spieler es tat');
+  FW.store.konsole = { S: 200, station: 'helm' }; ok(FW.zu() === false, 'Steuer: volle Leiste wie bisher');
+  ok(FW.zuklappen() === false, 'Steuer: Esc wird nicht verbraucht');
+  FW.store.konsole = { S: 200, station: 'helm' }; FW.spaeter(true); ok(FW.zu() === true && FW.rechteck(FW.modell(), FW.store.konsole).y > 100, 'Steuer: „Später“ = Streifen über der Statusleiste wie bisher');
+  FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: Object.assign(block(3), { nr: 6 }) } });
+  FW.store.konsole = { S: 152, station: 'technik' };
+  ok(FW.store.geoeffnetBei === null && !FW.store.eingeklappt && FW.zu() === true, 'ein neues Angebot beginnt wieder als Streifen');
+  FW.store.konsole = null; FW.store.eingeklappt = false; FW.store.geoeffnetBei = null;
+}
 section('Antwortleiste: Terminal, Knopfzonen des Pults');
 {
   FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: block(3) } });
