@@ -255,6 +255,10 @@
     //   Snapshot world.absicht { frei: 0|1, ab: Name des Mindestrangs, angebot?: [{ id, name, text, dauer }] (2 bis 3), rest?: Sprünge bis zum Verfall, laufend?: { id, name, text, rest, dauer } } nur bei Änderung (nie in den großen Snapshots),
     //   world.absicht = null ist das Löschsignal (einmal, wenn der Modus endet), der Client leert dann seinen Block wie world.ruf.
     CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
+    // SUND-03b I: Informationshandel des Konkordats am Terminal (Konsole 'shop', nur Freie Fahrt Sund, nur an Häfen des Konkordats, jeder Spieler, die Marken sind geteilt). cmd { c: 'info.kaufen', thema: 't0'|'t1'|'t2' (Id im Angebot), stufe: 'gerucht'|'beleg' }.
+    //   Antwort an den Absender: Ereignis infoAntwort { pid, op: 'kaufen', ok, stufe?, text, zuv?: 'gerucht'|'beleg', code? } (Codes: kein_weltsim, nicht_angedockt, kein_konkordat, stufe_unbekannt, kein_angebot, unbekannt, gekauft, zu_wenig_marken, fehler); bei Erfolg an alle die Funkzeile (Absender Konkordat, Gerücht „Gerücht, unbestätigt: …“, Beleg „Beleg des Konkordats: …“).
+    //   Snapshot world.info { th: [{ i: Id, a: Art, g?: 1, b?: 1 }] (2–3 Themen ohne Fakten; g/b = Stufe schon gekauft), l?: [{ s: 'g'|'b', x: Text }] (die letzten Käufe) } nur an einem Konkordat-Hafen, solange jemand am Terminal sitzt, nur bei Änderung; world.info = null ist das Löschsignal.
+    CMD_INFO: ['info.kaufen'],
     CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen', 'werft.start'],   // werft.start: Szene der Wellenmodi starten (nur Testumgebung, Rüstphase)   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',

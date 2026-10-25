@@ -330,6 +330,28 @@ function freieFahrt(S, seed) {
       messen(S, sn);
     }
   }
+  // SUND-03b I: Worst Case des Blocks world.info: Konkordat-Hafen Concordia, jemand am Terminal, 3 Themen (drei Feldzüge der Sim), beide letzten Ergebnisse (die längsten Texte), in jedem Snapshot
+  // gesendet (der Schlüssel wird vor jedem Snapshot zurückgesetzt), zusammen mit world.lage und world.absicht
+  let infoMax = 0, infoMitMax = 0;
+  {
+    const Info = require('../server/sim/handel-info.js'), z = g.weltsim.zustand, ws = g.weltsim;
+    space.enterScene(g, Sektoren.ortVonHex('0604'), {}); g.space.enemies = [];
+    Object.assign(g.ship, { docked: true, dockedAt: Sektoren.ortVonHex('0604'), vx: 0, vy: 0, speed: 0 }); g.players[0].console = 'shop';
+    z.angriffe.length = 0;
+    ['sammeln', 'marsch', 'belagert'].forEach((art, i) => {
+      const fl = z.flotten[i], id = 9000 + i; fl.angriff = id;
+      z.angriffe.push({ id, t0: z.tick, ziel: ['0603', '0403', '0803'][i], von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: art === 'belagert' ? z.tick - 3 : null, t_ende: null, ausgang: null, phase: art === 'sammeln' ? 'sammeln' : 'marsch', t_marsch: null, stuetz: null, flotten: [fl.id] });
+    });
+    ws.infoLetzte = [{ s: 'b', x: 'Beleg des Konkordats: ' + 'x'.repeat(100) }, { s: 'g', x: 'Gerücht, unbestätigt: Es heißt: ' + 'x'.repeat(100) }];
+    for (let k = 0; k < 30; k++) {
+      g.ship.hull = 100; g.step();
+      g.sentLageKey = null; g.sentAbsichtKey = null; g.sentInfoKey = null;
+      const sn = g.snapshot();
+      if (sn.world && sn.world.info) { infoMax = Math.max(infoMax, bytes(sn.world.info)); infoMitMax = Math.max(infoMitMax, bytes(sn)); }
+      messen(S, sn);
+    }
+    g.players[0].console = null;
+  }
   // SUND-02a Client-Runde M2: Sim-Szene im Hafen (Debug szene 40 ger belagerung, bis 12 Schiffe, Vorwarnung, Wellen, Finale): flotte.sz, flotte.wl und fg stehen im Snapshot
   const SimSzene = require('../server/sim/kriegslage-szene.js');
   let szeneMax = 0, szeneSz = 0, szeneTicks = 0;
@@ -364,7 +386,7 @@ function freieFahrt(S, seed) {
   g.ship.hull = 0; messSz(0.4); g.ship.hull = 0; messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
+  return { infoBlock: infoMax, infoSnapshotMax: infoMitMax, fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
 }
 
 // ---------- Lauf ----------
@@ -409,7 +431,7 @@ console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
-console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), world.info ${l.infoBlock} B (Snapshot mit allen drei max ${l.infoSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
 const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);

@@ -39,6 +39,7 @@
     'terminal.werft': { name: 'Bereich Werft' },
     'terminal.handel': { name: 'Bereich Handel' },
     'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
+    'terminal.info': { name: 'Bereich Information (Konkordat)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -187,6 +188,7 @@
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
     A('terminal.lage', 'terminal', 'Bereich Kurs (Absichten, Freie Fahrt)', ['KeyK']),
+    A('terminal.info', 'terminal', 'Bereich Information (Konkordat, Freie Fahrt)', ['KeyI']),
     A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
@@ -209,6 +211,8 @@
     A('terminal.kaufen', 'terminal', 'Artikel kaufen', ['Enter', 'NumpadEnter'], 'terminal.handel'),
     A('terminal.annehmen', 'terminal', 'Absicht annehmen', ['Enter', 'NumpadEnter'], 'terminal.lage'),
     A('terminal.ablehnen', 'terminal', 'Angebot ablehnen (kostet nichts)', ['KeyX'], 'terminal.lage'),
+    A('terminal.gerucht', 'terminal', 'Gerücht kaufen (billig, unbestätigt)', ['Enter', 'NumpadEnter'], 'terminal.info'),
+    A('terminal.beleg', 'terminal', 'Beleg kaufen (teuer, exakt)', ['KeyB'], 'terminal.info'),
   ];
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;

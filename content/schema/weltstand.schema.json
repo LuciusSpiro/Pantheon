@@ -221,7 +221,10 @@
                 "meldungen": { "type": "array", "items": { "type": "object" } },
                 "wartend": { "type": "array", "items": { "type": "object" } },
                 "notrufe": { "type": "array", "items": { "type": "object", "required": ["an", "h"], "properties": { "an": { "type": "integer" }, "h": { "type": "string" }, "m": { "type": "string", "description": "neutrale Marken-Id lage:n<Nummer> (SUND-01 E)" }, "t": { "type": "integer" }, "s": { "type": "integer", "description": "zuletzt gesehen mit Belagerer" } } } },
-                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" }
+                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" },
+                "belege": { "type": "array", "description": "SUND-03b I: gekaufte Belege des Konkordats (server/sim/handel-info.js): Rom sieht die Hexe h (und bei einem Feldzug an die Hexe seiner Flotten) exakt und ohne Verzögerung bis einschließlich Tick bis. Additiv: fehlt im Altstand und solange nichts gekauft wurde; der Leser verwirft Unbrauchbares und Abgelaufenes.",
+                  "items": { "type": "object", "required": ["h", "an", "bis"], "properties": { "h": { "type": "array", "items": { "type": "string" } }, "an": { "type": ["integer", "null"] }, "bis": { "type": "integer" } } } },
+                "gz": { "type": "integer", "minimum": 1, "description": "SUND-03b I: Zahl der gekauften Gerüchte (Zähler des eigenen Zufallsstroms); fehlt, solange keins gekauft wurde" }
               }
             },
             "zustand": {
