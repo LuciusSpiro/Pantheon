@@ -205,7 +205,7 @@ function szeneAbschliessen(game, { wirkungen = [], wo, direkt, stumm } = {}) {
   const ev = tickMit(game, wo || 'szene', undefined, Array.isArray(wirkungen) ? wirkungen : [], opt);
   const r = ws.letzteWirkungen || { angewandt: 0, verworfen: [] };
   if (ev) { try { szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('kriegslage-szene', e); } }   // Besitz kann sich geändert haben (Banner, Andocken)
-  if (ev && (wo || 'szene') === 'szene' && game.lageSpielleiter && game.lageGrenze) game.lageGrenze('szene_ende');   // SUND-03 A2: Ende einer Sim-Szene = Tätigkeitsgrenze (nur der Aufruf, geplant wird zwischen den Ticks)
+  if (ev && (wo || 'szene') === 'szene' && game.lageGrenze) game.lageGrenze('szene_ende');   // SUND-03 A2: Ende einer Sim-Szene = Tätigkeitsgrenze (nur der Aufruf, geplant wird zwischen den Ticks)
   return { ok: !!ev, ereignisse: ev, angewandt: r.angewandt, verworfen: r.verworfen, tick: ws.tickZahl };
 }
 

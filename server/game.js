@@ -8,6 +8,7 @@ const W = require('./world.js');
 const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
 const Reise = require('./sim/reise.js');   // Spieltest: Schnellsprung
+const TextePool = require('./sim/texte-pool.js');   // SUND-03b T: vorab erzeugte Live-Texte (nur mit Schalter TEXTE_POOL)
 const bots = require('./sim/bots.js');
 const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
@@ -263,8 +264,11 @@ class Game {
     if (!this.lageSpielleiter && !this.createLageSpielleiter()) return;
     this.lageSpielleiter.update(dt);
   }
+  // SUND-03b T: Text-Pool (Live-Texte von Sleipnir) zwischen den Ticks; ohne Schalter TEXTE_POOL geschieht nichts. Hat nichts mit dem Lage-Spielleiter (Claude) zu tun.
+  texteUpdate(dt) { TextePool.update(this, dt); }
   // Tätigkeitsgrenze (szene_ende | andocken | absicht): benannter Hook, wirft nie in den Aufrufer
   lageGrenze(art) {
+    TextePool.beiGrenze(this, art);   // SUND-03b T: der Text-Pool füllt an Tätigkeitsgrenzen nach (nur mit TEXTE_POOL; nichts Schweres im Hook)
     const l = this.lageSpielleiter;
     if (!l) return null;
     try { return l.beiGrenze(art); } catch (e) { this.countError('lage-grenze', e); return null; }
@@ -520,7 +524,7 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
-    if (name === 'docked') { this.markSaveDue('docked'); if (this.lageSpielleiter) this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
+    if (name === 'docked') { this.markSaveDue('docked'); this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene
@@ -1189,7 +1193,7 @@ class Game {
         const op = c.slice(8);
         const r = op === 'waehlen' ? Absicht.waehlen(this, String(msg.id)) : Absicht.ablehnen(this);
         if (!r && op === 'waehlen') { try { Absicht.meldeGewaehlt(this); } catch (e) { this.countError('absicht-funk', e); } }
-        if (!r && this.lageSpielleiter) this.lageGrenze('absicht');   // SUND-03 A2: Wahl oder Ablehnung einer Strategischen Option ist eine Tätigkeitsgrenze
+        if (!r) this.lageGrenze('absicht');   // SUND-03 A2: Wahl oder Ablehnung einer Strategischen Option ist eine Tätigkeitsgrenze
         if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
         err = r ? r.text : null;
         break;
@@ -1663,6 +1667,7 @@ class Game {
       this.safe('onboard', () => onboard.updateIvo(this, dt));
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
       if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));   // SUND-03 A2: Lage-Spielleiter (nur mit Schalter), zwischen den Ticks
+      if (this.weltsim) this.safe('texte', () => this.texteUpdate(dt));   // SUND-03b T: Text-Pool (nur mit Schalter TEXTE_POOL)
       this.safe('mission', () => this.mission.update(dt));
       if (this.arena) this.safe('arena', () => arena.update(this, dt));
       if (this.labor) this.safe('labor', () => Labor.update(this));   // AP3a: Ende der Labor-Mission melden

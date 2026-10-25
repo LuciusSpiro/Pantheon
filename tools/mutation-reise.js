@@ -72,7 +72,7 @@ const MUTATIONEN = [
   [RE, "  funk(game, textFuer(L.ev, 'eintreffen'));\n}", "}", 'Eintreffen: kein Funk'],
   [RE, "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", 'Mehrspieler: Funk doppelt'],
   [RE, "  chronik(game, ev);\n}\n// Eine angekündigte Gefahr", "}\n// Eine angekündigte Gefahr", 'Chronik: Funkmeldung ohne Eintrag'],
-  [RE, "{ ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s }) };", "{ ort: hexName(ev.hex) }) };", 'Text: Platzhalter {n} bleibt stehen'],
+  [RE, "  const werte = { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s };", "  const werte = { ort: hexName(ev.hex) };", 'Text: Platzhalter {n} bleibt stehen'],
   // ---- Notruf und Folgen
   [RE, "  notrufVerfaellt(game, R, o, 'abgelehnt');   // Ablehnen kostet nichts: keine Wirkung, kein Ruf", "  notrufVerfaellt(game, R, o, 'abgelehnt'); kl().rufBuchen(game, [{ typ: 'ruf_aenderung', fraktion: 'rom', delta: -3, grund: 'reise_hilfe_rom' }]);", 'Ablehnen kostet Ruf'],
   [RE, "  if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);\n  else {", "  if (e.gefahr) { notrufGefahrPlanen(game, R, o.ev); folgeBuchen(game, e); }\n  else {", 'Folge: der Ruf kommt schon beim Eintreffen, vor dem Kampf'],

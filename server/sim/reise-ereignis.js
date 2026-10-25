@@ -21,7 +21,7 @@
 //   nachSprung(game, dest) -> { id, art, kurz } | null   alles zusammen (Aufrufer: sprung.springeNach). Beantwortet auch offene Notrufe des Ankunftssektors, ohne ein neues Ereignis zu würfeln.
 //   abfangenVermerken(game)           das Abfangen des Schnellsprungs zählt für den Abstand
 //   update(game, dt)                  Vorlauf ablaufen lassen, Gegner eintreffen lassen, Folgen nach bewältigter Lage (Aufrufer: reise.update)
-//   textFuer(ereignis, slot) -> { von, text } | null   BENANNTE STELLE für den Text: heute der feste Katalogtext, Paket 03b liefert hier Live-Texte von Sleipnir
+//   textFuer(ereignis, slot) -> { von, text } | null   BENANNTE STELLE für den Text (synchron): ein vorab von Gemma erzeugter Text aus dem Pool (texte-pool.js, nur mit TEXTE_POOL=1), sonst der feste Katalogtext
 //   ablehnen(game, nr) -> bool        ein offener Notruf wird ausdrücklich abgelehnt (keine Folge)
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
 const Sektoren = require('../../shared/sektoren.js');
@@ -30,6 +30,7 @@ const Chronik = require('./chronik.js');
 const Marken = require('./marken.js');
 const Regie = require('./regie-befehle.js');
 const Ruf = require('./ruf.js');
+const TextePool = require('./texte-pool.js');   // SUND-03b T
 const Zufall = require('../weltsim/zufall.js');
 
 const KATALOG = require('../../content/reise/ereignisse.json').eintraege;
@@ -195,11 +196,15 @@ function abfangenVermerken(game) {
 }
 
 // ---------- Text (benannte Stelle für Paket 03b: Live-Texte)
+// SUND-03b T: ist im Pool ein vorab erzeugter Text für (Eintrag, Slot), kommt er (jeder Text genau einmal, FIFO, ohne Zufall: der Strom der Reise und der Sim bleibt unberührt), sonst der Katalogtext.
+// Ohne Schalter (TEXTE_POOL) ist der Pool immer leer: der Katalogtext, wie in 03a. {ort} und {n} setzt textFuer beim Verbrauch ein.
 function textFuer(ev, slot) {
   const e = ev && eintrag(ev.id);
   const liste = e && e.texte && e.texte[slot];
   if (!liste || !liste.length) return null;
-  return { von: e.sprecher || 'Aufklärung', text: fmt(liste[(ev.textIdx || 0) % liste.length], { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s }) };
+  const werte = { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s };
+  const live = TextePool.freigegeben() ? TextePool.poolEntnehmen('reise', e.id, slot) : null;
+  return { von: e.sprecher || 'Aufklärung', text: fmt(live != null ? live : liste[(ev.textIdx || 0) % liste.length], werte) };
 }
 function funk(game, t) {
   if (!t || !t.text) return;

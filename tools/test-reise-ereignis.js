@@ -491,7 +491,7 @@ section('Weltstand: Speichern, Laden, Altstand, Müll', () => {
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
 section('Review Runde 2: Ankündigung, Abstand zum Abfangen, Sim-Szene, Flucht, Ruf-Deckel, Lücken', () => {
   // M2: die Texte der Gefahr versprechen kein Ausweichen
-  const verboten = /ausweich|spring|keine Pflicht|entkomm|vermeid|abhauen|umgehen/i;
+  const verboten = new RegExp(require('../content/texte/texte-werte.json').werte.verboten.wert.ausweichen.muster, 'i');   // SUND-03b T: dieselbe Liste prüft auch die Pool-Texte (content/texte/texte-werte.json)
   const schlecht = RE.KATALOG.flatMap((e) => Object.values(e.texte).flat().filter((t) => verboten.test(t)).map((t) => e.id + ': ' + t.slice(0, 50)));
   ok(schlecht.length === 0, 'kein Funktext verspricht Ausweichen oder nennt den Sprung als Ausweg (' + schlecht.join(' | ') + ')');
   ok(RE.KATALOG.filter((e) => e.gefahr && e.art !== 'notruf').every((e) => e.texte.ankuendigung.every((t) => t.includes('{n}'))), 'Patrouille und Piraten: die Ankündigung nennt die Vorwarnzeit ({n} Sekunden)');
