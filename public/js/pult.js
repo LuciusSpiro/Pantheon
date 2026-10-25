@@ -177,6 +177,8 @@
 
   // ---------------------------------------------------------------- Zeichnen
   let K = SKINS.rom;   // Skin des laufenden Pults
+  let gezeichnet = null;   // { S, t } des zuletzt gezeichneten Pults (statusOben)
+  const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   let hilfe = false;
   // Knopf im Skin; registriert die Klickfläche wie R.button. opts: hotkey, disabled, gedimmt (gedimmt gezeichnet, aber anklickbar: der Grund steht trotzdem als Hinweis), reason, active, onClick, fn (Funktionsfarbe), text (Anzeige statt label), hold (0..1)
   function knopf(c, x, y, w, h, label, opts) {
@@ -240,6 +242,7 @@
   function rahmen(c, view, def) {
     K = SKINS[skinId(view)];
     const S = def.S;
+    gezeichnet = { S, t: nowMs() };   // für statusOben (Funkwahl): welches Pult in diesem Bild gezeichnet wurde
     c.fillStyle = K.bg; c.fillRect(0, 0, VW, VH);
     const anzeige = { x: 62, y: 6, w: 572, h: S - 12 };
     c.fillStyle = K.screenBg; c.fillRect(anzeige.x, anzeige.y, anzeige.w, anzeige.h);
@@ -280,9 +283,12 @@
     });
   }
   function hilfeUmschalten() { hilfe = !hilfe; }
+  // SUND-03b UI (M1): Oberkante der Statusleiste des Pults, das in diesem Bild gezeichnet wurde (y in 640×360), sonst null (Bordansicht ohne Konsole).
+  // Das Pult meldet sich beim Zeichnen selbst (rahmen); ein Eintrag, der älter als ein paar Bilder ist, gilt nicht mehr (Konsole verlassen).
+  function statusOben(view) { return gezeichnet && nowMs() - gezeichnet.t < 150 ? gezeichnet.S : null; }
 
   window.Pult = {
-    FN, SKINS, skinId, rahmen, knopf, zelle, titel, segs, lampe, zeileHi, mitSkin, zeichneHilfe, hilfeUmschalten,
+    FN, SKINS, skinId, rahmen, knopf, zelle, titel, segs, lampe, zeileHi, mitSkin, zeichneHilfe, hilfeUmschalten, statusOben, kappe,
     get skin() { return K; }, get hilfe() { return hilfe; },
     txt, tw, mix, rgba, cham, rhomb,
   };

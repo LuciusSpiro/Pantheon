@@ -2405,7 +2405,7 @@
         if (it.kind === 'item') owned = 'Lager: ' + n(inv[it.id]) + (it.limit ? '/' + it.limit : '');
         if (it.kind === 'deko') owned = 'Besitz: ' + decoOwned.filter(d => d === it.id).length;
         if (it.kind === 'upgrade' && up[it.id]) owned = 'eingebaut';
-        return Object.assign({}, it, { price, reason, owned, cheaper: price < it.price }, lage ? { preisHinweis: lage[1] } : {});
+        return Object.assign({}, it, { price, basis: it.price, reason, owned, cheaper: price < it.price, teurer: price > it.price }, lage ? { preisHinweis: lage[1] } : {});
       });
     },
     drawShop(ctx, view) {

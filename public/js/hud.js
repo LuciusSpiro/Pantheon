@@ -2017,6 +2017,7 @@
       const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
       const h = kons ? 14 : 22;
       let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      if (inGame && !kons && window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck().y - h - 4);   // SUND-03b UI (S9): steht unten mittig eine Funk-Antwortleiste, kommt das Siegel darüber
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
       let text;

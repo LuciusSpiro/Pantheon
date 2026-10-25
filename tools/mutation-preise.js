@@ -70,7 +70,7 @@ const MUTATIONEN = [
   [PR, ".replace('{fraktion}', wer)", ".replace('{fraktion}', '')", 'Hinweis: der Fraktionsname fehlt'],
   [CO, "const price = lage ? lage[0] : (it.prices", "const price = lage ? it.price : (it.prices", 'Client: zeigt den Grundpreis statt des Lagepreises'],
   [CO, "lage ? { preisHinweis: lage[1] } : {});", "{});", 'Client: reicht den Hinweis nicht weiter'],
-  [TU, "text: (sel.preisHinweis ? sel.preisHinweis + '. ' : '') + (HANDEL_TEXT", "text: ('') + (HANDEL_TEXT", 'Terminal: zeigt den Hinweis nicht'],
+  [TU, "hinweis: sel.preisHinweis ? {", "hinweis: false ? {", 'Terminal: zeigt den Hinweis nicht'],
   // ---- Werft
   [WE, "return hat(t, id) ? t[id] : null; }", "return hat(t, id) ? Math.round(t[id] * require('./preise.js').faktorFuer(game, 'medipack', '0305')) : null; }", 'Werft: Preise folgen der Lage (muss rot werden)'],
 ];
