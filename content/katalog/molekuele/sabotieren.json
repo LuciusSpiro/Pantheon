@@ -334,7 +334,9 @@
             "kontor",
             "raubzug",
             "herrenlos",
-            "kustoden"
+            "kustoden",
+            "rom",
+            "ger"
           ],
           "beschreibung": "Besitzer der Wachen (Fraktion = Besitz-ID); es kommen immer Grundtypen in Zweiergruppen"
         }

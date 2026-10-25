@@ -152,7 +152,31 @@ function laborStart(game, id, params) {
   if (!e) return laborFail(game, `Umsetzung „${id}“ ist im Labor nicht verfügbar.`);
   const u = umsetzungVon(kat, id);
   const ov = ueberschreibungen(u, q);
+  if (q.buehne) {
+    const err = buehneAnlegen(game, u, q, ov);
+    if (err) return laborFail(game, err);
+  }
   return starte(game, kat, [{ key: id, u, override: ov, loc: ov.loc }], { id, name: e.name, eintrag: e, ov }, q);
+}
+// ORT-01 4b: Labor auf einer neu angelegten Karte statt auf dem Test-Landepunkt (nur Bots, Tests, API; nie über die Lobby).
+// buehne { kartenart, besitz?, seed?, zustand? }: legt wie das Testgelände einen Landepunkt am Ort der Umsetzung an (Bauweise folgt dem
+// Besitz, nie im Weltstand), baut die Karte sofort (nie im Tick) und setzt sie als map. Ohne ausdrückliche Fraktion besetzt der
+// Besitz (Fraktion = Besitz des Landepunkts, wie der Szenenbau), sofern die Umsetzung ihn als Fraktion kennt. -> Fehlertext | null
+function buehneAnlegen(game, u, q, ov) {
+  const b = q.buehne;
+  if (!u.params || !u.params.map) return 'Labor: die Umsetzung hat keinen Parameter map (buehne nicht möglich).';
+  const arten = kartenarten(u);
+  if (!b || !b.kartenart || (arten.length && !arten.includes(b.kartenart))) return `Labor: Kartenart ${b && b.kartenart} passt nicht zur Umsetzung (${arten.join(', ')}).`;
+  const L = require('../sim/landepunkte.js');
+  const ort = ov.loc || (u.test && u.test.params && u.test.params.loc) || undefined;
+  let id;
+  try {
+    id = L.testgelaende(game, { ort, art: b.kartenart, besitz: b.besitz || undefined, seed: b.seed != null ? b.seed : undefined, zustand: b.zustand || undefined });
+    L.get(game, id);
+  } catch (e) { game.countError('labor-buehne', e); return `Labor: Karte ${b.kartenart}/${b.besitz || '-'} lässt sich nicht bauen (${e.message}).`; }
+  ov.map = id;
+  if (ov.fraktion === undefined && b.besitz && u.params.fraktion && (!u.params.fraktion.werte || u.params.fraktion.werte.includes(b.besitz))) ov.fraktion = b.besitz;
+  return null;
 }
 function laborFail(game, fehler) { if (game.log) game.log('Labor: ' + fehler); return { ok: false, fehler }; }
 

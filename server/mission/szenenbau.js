@@ -437,7 +437,7 @@ function grobplanVorgaben(env, kontext, opts) {
   for (const ort of k.orte || []) for (const x of ort.landepunkte || []) (x.gesperrt || x.frei ? zu : frei).push(Object.assign({ ort: ort.id }, x));
   if (!frei.length) return L.join('\n');
   const byOrt = {};
-  for (const x of frei) (byOrt[x.ort] = byOrt[x.ort] || []).push(`${x.id} (${[x.art === 'hand' ? 'Handkarte' : x.art, x.besitz, x.zustand].filter(Boolean).join(', ')}${x.besucht ? `, ${x.besucht}× besucht` : ''}${x.alarm ? ', Alarm' : ''})${recent.has(x.id) ? ' ↺' : ''}`);
+  for (const x of frei) (byOrt[x.ort] = byOrt[x.ort] || []).push(`${x.id} (${[x.art === 'hand' ? 'Handkarte' : x.art, x.art === 'hand' ? null : x.bauweise, x.besitz, x.zustand].filter(Boolean).join(', ')}${x.besucht ? `, ${x.besucht}× besucht` : ''}${x.alarm ? ', Alarm' : ''})${recent.has(x.id) ? ' ↺' : ''}`);
   L.push(`Landepunkte (frei${recent.size ? '; ↺ = in den letzten Missionen gespielt, besser buehne neu' : ''}): ${Object.entries(byOrt).map(([ort, l]) => `${ort}: ${l.join(', ')}`).join(' · ')}${zu.length ? `. Tabu (gesperrt/noch nicht frei): ${zu.map((x) => x.id).join(', ')}` : ''}.`);
   L.push('Bodenszenen – passende Kartenarten je Umsetzung: `landepunkt` = ein freier Landepunkt dieser Art am Ort der Szene, oder `buehne: { kartenart, neu: true }`. Handkarten nur, wo sie genannt sind:');
   for (const mol of Object.values((env.katalog && env.katalog.molekuele) || {}).filter((m) => m.status === 'verfuegbar').sort((a, b) => (a.id < b.id ? -1 : 1))) {
