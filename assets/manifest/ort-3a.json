@@ -1161,6 +1161,87 @@
         "ort01"
       ],
       "notes": "Bestand des Designers (ORT-01 Richtung), hier nur eingetragen."
+    },
+    {
+      "id": "kit/rom/schott",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gehackt": {
+          "state": 2
+        },
+        "gehackt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 3
+        },
+        "verschlossen_geschnitten": {
+          "state": 3,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "kit",
+        "schott",
+        "ort01"
+      ],
+      "notes": "ORT-01 3a K2: Rom-Station-Schott; Instanz des Geruests mit bauweise rom, Steckplaetze kit/rom/station/schott_*."
     }
   ]
 }
