@@ -76,6 +76,9 @@ console.log('\nSchalter an gespielt, ohne Schalter weitergespielt und gespeicher
   const d2 = welt(b), s2 = simBlock(d2);
   ok(!('chronik' in s2) && !('reise' in s2) && !('regie' in s2), 'danach ohne Schalter gespeichert: kein Block chronik, reise, regie (die Zusatzdaten gehen verloren)');
   ok(Weltstand.fallbackValidate(d2, MAIN).length === 0, 'und das Schema von main nimmt den Stand an');
+  // frische Regie-Daten (Rate im Fenster, Abkühlzeit, Verlauf) ohne Schalter: der Block bleibt trotzdem weg
+  b.weltsim.regie.rate = [b.weltsim.tickZahl]; b.weltsim.regie.letzte = { fokus: b.weltsim.tickZahl }; b.weltsim.regie.verlauf = [['fokus:{}']];
+  ok(Regie.toSave(b.weltsim) !== null && !('regie' in simBlock(welt(b))) && Weltstand.fallbackValidate(welt(b), MAIN).length === 0, 'auch mit frischen Regie-Daten (Rate, Abkühlzeit, Verlauf) schreibt der Stand ohne Schalter keinen Block regie');
   // abgelaufene Einträge werden auch mit Schalter nicht mehr mitgeschrieben
   const c = lauf(7, { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' });
   const RT = Regie.R.rate.wert;
