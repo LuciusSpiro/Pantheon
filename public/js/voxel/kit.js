@@ -1020,7 +1020,7 @@ async function bauKarte(parent, karteIn, opts) {
         for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
       }
       const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln,
-        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds } : null });
+        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds } : null, onFehler: (e) => countErr('kit.rollen', e) });
       for (const dd of liste) {
         const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)
@@ -1578,12 +1578,12 @@ export async function prefetch(opts = {}) {
     const aktiv = (o, fb) => (o ? Object.keys(o).filter((k) => o[k] && o[k].status === 'aktiv') : fb);
     const bws = aktiv(achsen && achsen.bauweisen, ['germanen', 'rom']);
     const besitze = aktiv(achsen && achsen.besitz, []);
-    const [tabs, dekos, bes] = await Promise.all([
+    const [tabs, dekos, bes, rollenDateien] = await Promise.all([
       Promise.all(bws.map((bw) => getJson(base + 'bauweisen/' + bw + '.json'))),
       Promise.all(bws.map((bw) => getJson(base + 'deko/' + bw + '.json'))),
       Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
+      Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json'))),
     ]);
-    const rollenDateien = await Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json')));
     const modelle = new Set(), paletten = new Set(), moods = new Set();
     const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };

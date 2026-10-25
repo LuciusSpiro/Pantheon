@@ -2,6 +2,7 @@
 // ORT-01: Byte-Gleichheit der Generatorkarten und der Deko-Streuung gegen eine eingefrorene Baseline (main 6d912b4).
 //
 //   node tools/hash-baseline.js --compare    vergleicht mit tools/fixtures/ort01-hash-baseline.json (Exit 1 bei Abweichung)
+//   node tools/hash-baseline.js --compare --karten   nur die Karten-Hashes (schnell, ohne Browser; hängt in npm test)
 //   node tools/hash-baseline.js --write      schreibt die Baseline neu (nur auf einem Stand, der als Referenz gelten soll!)
 //
 // karten: sha1 über JSON.stringify(Karte) für alle festen Generator-Landepunkte (Außenposten, Station) und je 10 Seeds
@@ -20,13 +21,13 @@ const DATEI = path.join(ROOT, 'tools', 'fixtures', 'ort01-hash-baseline.json');
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 const json = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
 
-async function berechne() {
+async function berechne(nurKarten) {
   process.chdir(ROOT);
   const LP = require(path.join(ROOT, 'server/sim/landepunkte.js'));
   const Buehne = require(path.join(ROOT, 'shared/buehne.js'));
   const GS = require(path.join(ROOT, 'shared/gen-siedlung.js'));
   const GT = require(path.join(ROOT, 'shared/gen-station.js'));
-  const { streuen } = await import(pathToFileURL(path.join(ROOT, 'public/js/voxel/deko.js')).href);
+  const { streuen } = nurKarten ? {} : await import(pathToFileURL(path.join(ROOT, 'public/js/voxel/deko.js')).href);
   const kacheln = json(path.join(ROOT, 'content/buehnen/kacheln.json'));
   const BW = path.join(ROOT, 'content/buehnen');
 
@@ -43,6 +44,7 @@ async function berechne() {
   }
 
   const deko = {};
+  if (nurKarten) return { karten, deko };
   const dekoRegeln = json(path.join(BW, 'deko/germanen.json'));
   const bauweise = json(path.join(BW, 'bauweisen/germanen.json'));
   for (const art of ['station', 'aussenposten']) {
@@ -73,7 +75,8 @@ async function berechne() {
 
 (async () => {
   const modus = process.argv.includes('--write') ? 'write' : 'compare';
-  const ist = await berechne();
+  const nurKarten = process.argv.includes('--karten') && modus === 'compare';
+  const ist = await berechne(nurKarten);
   if (modus === 'write') {
     fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/1', stand: 'main 6d912b4', karten: ist.karten, deko: ist.deko }, null, 1) + '\n');
     console.log(`Baseline geschrieben: ${Object.keys(ist.karten).length} Karten-Hashes, ${Object.keys(ist.deko).length} Deko-Hashes -> ${path.relative(ROOT, DATEI)}`);
@@ -81,7 +84,7 @@ async function berechne() {
   }
   const soll = json(DATEI);
   let fehler = 0;
-  for (const teil of ['karten', 'deko']) {
+  for (const teil of nurKarten ? ['karten'] : ['karten', 'deko']) {
     const ab = [];
     for (const k of Object.keys(soll[teil])) if (soll[teil][k] !== ist[teil][k]) ab.push(k);
     for (const k of Object.keys(ist[teil])) if (!(k in soll[teil])) ab.push(k + ' (neu)');

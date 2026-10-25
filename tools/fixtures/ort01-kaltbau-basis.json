@@ -2,7 +2,7 @@
  "format": "ort01-kaltbau-basis/1",
  "stand": "main 6d912b4 (Paket 1 vor Rollenmodus), Windows 11, Node 22.20, headless Chromium",
  "werkzeug": "npm run mess:kaltbau -- --arten aussenposten,station,ruine,schiff --modi transfer --seeds 5..16 --json",
- "hinweis": "Modus transfer (direkt läuft in den 60-s-Timeout). Rund 40 % der Läufe scheitern mit \"nicht gesessen: transfer\" (Werkzeugfehler, nicht repariert). Streuung ±15 %; Abnahme: Median nachher ≤ toleranzMs (+20 % auf den Median), mindestens 5 gültige Läufe. Besitz rostmeute (ruine: rom/herrenlos/verfallen), germanen.",
+ "hinweis": "Modus transfer (direkt läuft in den 60-s-Timeout). Rund 21 % der Läufe (10 von 48) scheitern mit \"nicht gesessen: transfer\" (Werkzeugfehler, nicht repariert). Streuung ±15 %; Abnahme: Median nachher ≤ toleranzMs (+20 % auf den Median), mindestens 5 gültige Läufe. Besitz rostmeute (ruine: rom/herrenlos/verfallen), germanen.",
  "arten": {
   "aussenposten": {
    "gueltigeLaeufe": 12,

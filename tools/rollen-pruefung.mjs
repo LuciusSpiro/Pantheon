@@ -10,12 +10,20 @@
 export const BAUWEISEN = ['rom', 'germanen'];
 export const KINDS = ['streu', 'leit', 'anker'];
 export const KARTENARTEN = ['station', 'aussenposten'];
+// Raumtypen je Kartenart = Präfixe der Platz-IDs der Generatoren (gen-station RAUMNAME, gen-siedlung GEB_NAME + kaefig_n).
+// Muss mit RAUMTYPEN in public/js/voxel/deko.js übereinstimmen (tools/test-rollen-paritaet.js prüft das).
+export const RAUMTYPEN = {
+  station: ['kommando', 'reaktor', 'zellen', 'lager', 'quartier', 'messe', 'werkstatt', 'krankenstation', 'kantine'],
+  aussenposten: ['kommando', 'lager', 'werkstatt', 'quartier', 'kantine', 'krankenstation', 'kaefig'],
+};
+const hat = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+const GERM_ID = new RegExp('(^|/)germanen/'), ROM_ID = new RegExp('(^|/)rom/');
 export const ROLLEN_JE_RAUMTYP = [5, 7];   // Erkundung F5: 1 Hauptstück, 2 Hauptrollen, 2–3 Nebenrollen, 1 Streurolle
 export const MAX_ZUG = 6;                  // Stück je Rolle und Platz (MAX_JE_ZELLE = 12 gilt zusätzlich)
 
 const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'wandnah', 'pflicht', 'ankerRolle'];
 const FELDER_RAUMTYP = ['frei_halten', 'rollen', 'hinweis'];
-const FELDER_ROLLE_DEF = [...BAUWEISEN, 'hinweis'];
+const FELDER_ROLLE_DEF = [...BAUWEISEN, 'hinweis', 'neutral'];
 const FELDER_DATEI = ['format', 'kartenart', 'hinweis', 'raumtypen', 'rollen'];
 
 const istObjekt = (v) => v && typeof v === 'object' && !Array.isArray(v);
@@ -53,6 +61,7 @@ export function pruefeRollenDatei(j, name, ctx) {
   for (const [rt, def] of Object.entries(raumtypen)) {
     const wo = `raumtypen.${rt}`;
     if (!/^[a-z][a-z0-9]*$/.test(rt)) err(`${wo}: Raumtyp = Präfix der Platz-ID in Kleinbuchstaben ohne _n (z. B. kommando, werkstatt)`);
+    else if (RAUMTYPEN[art] && !RAUMTYPEN[art].includes(rt)) err(`${wo}: unbekannter Raumtyp für ${art} (erlaubt: ${RAUMTYPEN[art].join(', ')}; Gänge, Straßen und Tippfehler gehören nicht dazu)`);
     if (!istObjekt(def)) { err(`${wo}: Objekt erwartet`); continue; }
     for (const f of Object.keys(def)) if (!FELDER_RAUMTYP.includes(f)) warn(`${wo}: unbekanntes Feld ${f}`);
     if (def.frei_halten !== undefined && !(Number.isInteger(def.frei_halten) && def.frei_halten >= 1 && def.frei_halten <= 4)) err(`${wo}.frei_halten: ganze Zahl 1–4 (Anker/Türen bleiben mindestens 1 Kachel frei)`);
@@ -69,7 +78,7 @@ export function pruefeRollenDatei(j, name, ctx) {
       if (gesehen.has(e.rolle)) err(`${w}: Rolle ${e.rolle} kommt im Raumtyp doppelt vor`);
       gesehen.add(e.rolle); benutzt.add(e.rolle);
       if (!e.rolle.startsWith(rt + '.') && !e.rolle.startsWith('gemein.')) warn(`${w}: Rollenname ${e.rolle} beginnt weder mit "${rt}." noch mit "gemein."`);
-      if (!rollen[e.rolle]) err(`${w}: Rolle ${e.rolle} ist in "rollen" nicht definiert`);
+      if (!hat(rollen, e.rolle)) err(`${w}: Rolle ${e.rolle} ist in "rollen" nicht definiert`);
       const kind = e.kind === undefined ? 'streu' : e.kind;
       if (!KINDS.includes(kind)) err(`${w} (${e.rolle}): kind "${e.kind}" nicht in ${KINDS.join('|')}`);
       if (e.wandnah !== undefined && typeof e.wandnah !== 'boolean') err(`${w} (${e.rolle}): wandnah muss true/false sein`);
@@ -86,6 +95,7 @@ export function pruefeRollenDatei(j, name, ctx) {
         else if (ctx.ankerRollen && !ctx.ankerRollen.has(e.ankerRolle)) err(`${w} (${e.rolle}): ankerRolle ${e.ankerRolle} steht nicht in anker.json`);
       } else if (e.ankerRolle !== undefined) warn(`${w} (${e.rolle}): ankerRolle gilt nur für kind anker`);
     });
+    if (!def.rollen.some((e) => e && typeof e.rolle === 'string' && (e.kind === undefined || e.kind === 'streu'))) err(`${wo}: keine streu-Rolle (anker/leit-Rollen zählen nicht als Deko, der Raum bliebe ohne Rollen-Deko)`);
     if (summeMax > 12) warn(`${wo}: Summe der zug-Höchstwerte ${summeMax} > 12 (MAX_JE_ZELLE; der Platz wird nie voll)`);
   }
 
@@ -100,6 +110,14 @@ export function pruefeRollenDatei(j, name, ctx) {
     for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_) kinds.add(e.kind || 'streu');
     if (kinds.size > 1) err(`${wo}: wird mit unterschiedlicher kind benutzt (${[...kinds].join(', ')})`);
     const kind = [...kinds][0] || 'streu';
+    // Parität inhaltlich: Rom und Germanen dürfen nicht dieselbe Belegung teilen (Ausnahme: neutrale Technik, "neutral": true)
+    const lr = belegungListe(def.rom), lg = belegungListe(def.germanen);
+    if (def.neutral !== undefined && typeof def.neutral !== 'boolean') err(`${wo}: neutral muss true/false sein`);
+    if (def.neutral !== true && lr && lg) {
+      if (JSON.stringify(lr) === JSON.stringify(lg)) err(`${wo}: rom und germanen haben dieselbe Belegung (Gegenstück fehlt; nur neutrale Technik darf teilen: "neutral": true)`);
+      for (const id of lr) if (GERM_ID.test(id)) err(`${wo}.rom: ${id} ist ein germanisches Modell (Gegenstück fehlt; neutrale Technik: "neutral": true)`);
+      for (const id of lg) if (ROM_ID.test(id)) err(`${wo}.germanen: ${id} ist ein römisches Modell (Gegenstück fehlt; neutrale Technik: "neutral": true)`);
+    }
     for (const bw of BAUWEISEN) {
       const l = belegungListe(def[bw]);
       if (!l) { err(`${wo}: Belegung für ${bw} fehlt (jede Rolle braucht ${BAUWEISEN.join(' UND ')})`); continue; }
@@ -114,7 +132,7 @@ export function pruefeRollenDatei(j, name, ctx) {
         const m = ctx.modelle && ctx.modelle[id];
         if (kind === 'streu' && m && Array.isArray(m.footprint) && Math.max(m.footprint[0], m.footprint[1]) > 1.05) err(`${wo}.${bw}: ${id} ist ${m.footprint[0]}×${m.footprint[1]} m groß – Deko ist 1×1 (Hauptstücke als kind leit/anker)`);
         if (kind === 'leit') {
-          const f = ctx.leitFuss && ctx.leitFuss[bw] && ctx.leitFuss[bw][id];
+          const f = ctx.leitFuss && hat(ctx.leitFuss[bw], id) ? ctx.leitFuss[bw][id] : null;
           if (ctx.leitFuss && !(Array.isArray(f) && f.length === 2)) err(`${wo}.${bw}: Leitstück ${id} hat keinen Eintrag in leit_fuss von bauweisen/${bw}.json`);
         }
       }

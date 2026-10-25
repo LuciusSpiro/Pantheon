@@ -1,8 +1,8 @@
 # CONTRACT-ROLLEN-ORT – Rollenformat `rollen/1` (ORT-01, Paket 1)
 
 Orte (Station, Außenposten) werden je Raumtyp über **Rollen** eingerichtet, nicht über Dateinamen. Jede Rolle hat eine
-**römische und eine germanische Belegung** (Modell-IDs). Alles ist **nur Optik**: nie Deckung, nie auf Anker-, Tür-, Weg-,
-Pad- oder Kantenmitte-Kacheln, das Verhalten der Bühnen ändert sich nicht. Der Generator wird nicht berührt (Karten-Hashes
+**römische und eine germanische Belegung** (Modell-IDs). Alles ist **nur Optik**: nie Deckung, nie auf Anker-, Tür-, Pad- oder
+Kantenmitte-Kacheln und nie auf Wegkacheln (Gang, Straße, Platz; einzige Ausnahme: der Innenboden `boden2` der Außenposten-Gebäude, siehe Rollenmodus), das Verhalten der Bühnen ändert sich nicht. Der Generator wird nicht berührt (Karten-Hashes
 bleiben gleich, `node tools/hash-baseline.js --compare`).
 
 Abgrenzung: `CONTRACT-ROLLEN.md` meint Spielerrollen. Hier geht es um Prop-Rollen.
@@ -42,12 +42,14 @@ Die produktiven Dateien sind in Paket 1 leer (`raumtypen: {}`): Paket 2 (Außenp
 Der Schlüssel ist der **Raumtyp = Präfix der Platz-ID ohne laufende Nummer** (`werkstatt_2` → `werkstatt`, `kommando` → `kommando`).
 Es gibt kein neues Payload-Feld: `awayMap.plaetze` trägt die IDs schon. Raumtypen der Station (`gen-station.js`): `kommando`, `reaktor`,
 `zellen`, `lager`, `quartier`, `messe`, `werkstatt`, `krankenstation`, `kantine` (die Kantine erzeugt der Generator heute nie).
-Gebäudearten des Außenpostens (`gen-siedlung.js`): `kommando`, `lager`, `werkstatt`, `quartier`, `kantine`, `krankenstation`.
-Plätze mit anderem Präfix (Gänge, Straßen, Landefeld, Kulissenhäuser) und Räume ohne Eintrag laufen unverändert im Zellenmodus.
+Gebäudearten des Außenpostens (`gen-siedlung.js`): `kommando`, `lager`, `werkstatt`, `quartier`, `kantine`, `krankenstation`, `kaefig` (Platz-ID `kaefig_n`).
+Nur diese Raumtypen sind erlaubt (`RAUMTYPEN` in `deko.js` und `rollen-pruefung.mjs`, ein Test gleicht beide mit den Generatoren ab);
+ein anderer Eintrag (`gang`, `strasse`, Tippfehler wie `lagr`) ist ein Prüffehler. Plätze mit anderem Präfix (Gänge, Straßen, Landefeld,
+Kulissenhäuser) und Räume ohne Eintrag laufen unverändert im Zellenmodus.
 
 | Feld | Bedeutung |
 |---|---|
-| `rollen` | Liste von Rolleneinträgen. Richtwert 5–7 je Raumtyp (Erkundung F5: 1 Hauptstück, 2 Hauptrollen, 2–3 Nebenrollen, 1 Streurolle). Mehr/weniger: Warnung. |
+| `rollen` | Liste von Rolleneinträgen, **mindestens eine `streu`-Rolle** (anker/leit zählen nicht als Deko; sonst Fehler). Richtwert 5–7 je Raumtyp (Erkundung F5: 1 Hauptstück, 2 Hauptrollen, 2–3 Nebenrollen, 1 Streurolle). Mehr/weniger: Warnung. |
 | `frei_halten` | 1–4 (Standard 1): Radius um Anker und Türen, der frei bleibt. Reicht die Kapazität nicht, geht der Rollenmodus schrittweise bis 1 zurück (nie 0). |
 
 ### Rolleneintrag
@@ -68,21 +70,35 @@ Hauptstück (Paket 2/3).
 ### `rollen.<name>`
 
 `{ "rom": <ID | [IDs]>, "germanen": <ID | [IDs]> }`, optional `hinweis`. Mehrere IDs sind Belegungen; der Seed wählt je Stück eine.
-**Beide Seiten sind Pflicht** (Parität). Gegenstücke müssen nicht formgleich sein, nur dieselbe Rolle erfüllen. Weitere Völker
+**Beide Seiten sind Pflicht** (Parität), und sie müssen **verschieden** sein: rom gleich germanen, eine rom-ID mit `germanen/`-Segment oder
+eine germanen-ID mit `rom/`-Segment ist ein Fehler. Ausnahme für wirklich neutrale Technik (Rohre, Kabel, Kisten): `"neutral": true` an der Rolle. Gegenstücke müssen nicht formgleich sein, nur dieselbe Rolle erfüllen. Weitere Völker
 (`aegypten`, …) sind eine Warnung (unbekanntes Feld), bis das Format sie aufnimmt.
 
 ## Rollenmodus (`public/js/voxel/deko.js`, `streuen(k, regeln, { rollen })`)
 
 `opts.rollen = { daten, bauweise, ausschluss? }` (`kit.js` setzt `bauweise` aus der Karte, `ausschluss` = `deckung_props`).
 
-- Je Platzrechteck mit Raumtyp-Eintrag, nicht je 8×8-Zelle. Kandidaten: Boden/Gelände/Plateau, in Gebäuden auch `boden2` (Innenboden,
-  den der Zellenmodus nie bestreut); nie Anker/Tür (+ `frei_halten`), Pad, Rampe, Kantenmitte.
+- Je Platzrechteck mit Raumtyp-Eintrag, nicht je 8×8-Zelle. Ein Platz zählt nur, wenn für die aktuelle Bauweise (nach Deckungs-Ausschluss) mindestens
+  eine `streu`-Rolle mit Belegung existiert; sonst bleibt er im Zellenmodus (kein Raum ohne Deko). Kandidaten: Boden/Gelände/Plateau; `boden2`
+  (Innenboden, den der Zellenmodus nie bestreut) **nur in den Gebäuden des Außenpostens** (`k.art === 'aussenposten'`, Raumtypen der Liste);
+  nie Anker/Tür (+ `frei_halten`), Pad, Rampe, Kantenmitte, nie `boden2` in Station, Gang, Straße, Platz.
+- Eine strukturell kaputte Rollen-Datei lässt die Zellen-Deko stehen (`try/catch`, `opts.onFehler` → `countErr`).
 - **Strom je Platz und Rolle:** `mulberry32(fnv(platzId + ':' + rolle, kartenseed))`, nie `game.rng` oder ein Generatorstrom. Ein Stück zieht immer
   gleich viele Zufallszahlen, deshalb sind die **Positionen in Rom und Germanen identisch**, nur die Modelle wechseln.
 - In diesen Rechtecken streut der Zellenmodus nicht mehr: Props fremder Platztypen (Gang-Wandmonitore) wandern nicht in Räume.
 - Besitz-Streuung (Banner): ein Stück je Rollen-Platz (Zellenmodus: jedes vierte Prop), wandnahe Einträge nur an der Wand.
 - Grenzen bleiben: `deckung_props`-Filter, `MAX_JE_ZELLE = 12`, `K-SILHOUETTE` (auch für Rollen, `Buehne.silhouetteFehler`).
 - Ohne Rollen-Datei, mit leerem `raumtypen` oder für Plätze ohne Eintrag: **byte-gleiche** Ausgabe wie vorher.
+
+## Voraussetzungen für Belegungen
+
+- **Manifest-Eintrag** (`assets/manifest/*.json`): Der Client lädt nur Manifest-IDs. Ein Modell nur in `public/voxel/index.json` bleibt unsichtbar und ist ein Prüffehler.
+  Heute betrifft das `rom/energiezelle` (Modell vorhanden, kein Manifest-Eintrag). Der Eintrag entsteht mit dem Voxelwerk-Modell in Paket 2/3, nicht in Paket 1.
+- **Außenposten: keine Deckungs-Props** (`fass`, `werkzeug`, `feuerschale`, siehe `deckung_props.aussenposten`; auch `rom.json` zeigt heute auf die
+  germanischen). `kit.js` nimmt sie aus der Deko, die Rolle bliebe leer (Prüffehler). Römische Deckung braucht eigene Modelle (Paket 2).
+- **Streu**: 1×1, nicht blockierend, ≤ 1,94 m (`K-SILHOUETTE`; `check:rollen` prüft es selbst).
+- **Hauptstücke blockieren nicht**: Server und Client kennen nur die Kachelart, Spieler laufen durch Anker-Props (Beleg: Lauf über 159 Ankerkacheln,
+  alle passierbar). Ein Hauptstück ist deshalb optisch ≤ 1,94 m; hohe, blockierende Leitstücke bräuchten `O`/`X`-Fuß, also Deckung, also Generatoränderung.
 
 ## Prüfung
 

@@ -103,6 +103,53 @@ function pruefe(mut, aussenMut) {
   r = pruefe((s) => { s.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/hocker']; }, false);
   ok(r.code === 0, 'Station: fass ist dort kein Deckungs-Prop (deckung_props gilt nur für den Außenposten) → grün');
 
+  section('Mutationsprobe: inhaltliche Parität (neutral)');
+  r = pruefe((s) => { s.rollen['lager.werkzeug'].rom = 'prop/germanen/gemein/werkzeug'; });
+  ok(r.code === 1 && r.out.includes('rom: prop/germanen/gemein/werkzeug ist ein germanisches Modell'), 'rom-Belegung mit germanischem Modell → rot (Paletten-Swap ist kein Gegenstück)');
+  r = pruefe((s) => { s.rollen['lager.werkzeug'].rom = 'prop/germanen/gemein/werkzeug'; s.rollen['lager.werkzeug'].neutral = true; });
+  ok(r.code === 0, 'dieselbe Belegung mit "neutral": true (Rohre, Kabel, Kisten) → grün');
+  r = pruefe((s) => { s.rollen['lager.behaelter'].germanen = s.rollen['lager.behaelter'].rom.slice(); });
+  ok(r.code === 1 && /dieselbe Belegung/.test(r.out), 'rom-Liste gleich germanen-Liste → rot');
+  r = pruefe((s) => { s.rollen['lager.werkzeug'].germanen = 'prop/rom/ruine/deko_stein'; });
+  ok(r.code === 1 && r.out.includes('germanen: prop/rom/ruine/deko_stein ist ein römisches Modell'), 'germanen-Belegung mit römischem Modell → rot');
+  r = pruefe((s) => { s.rollen['lager.werkzeug'].neutral = 'ja'; });
+  ok(r.code === 1 && r.out.includes('neutral muss true/false'), 'neutral muss ein Boolean sein');
+
+  section('Mutationsprobe: Raumtypen und streu-Rolle');
+  for (const rt of ['gang', 'strasse', 'lagr']) {
+    r = pruefe((s) => { s.raumtypen[rt] = s.raumtypen.lager; });
+    ok(r.code === 1 && new RegExp('unbekannter Raumtyp für station').test(r.out) && r.out.includes('raumtypen.' + rt), 'Station: Raumtyp ' + rt + ' → rot');
+  }
+  r = pruefe(null, (a) => { a.raumtypen.kaefig = a.raumtypen.lager; });
+  ok(r.code === 0, 'Außenposten: kaefig ist ein Raumtyp (Platz-ID kaefig_n) → grün');
+  r = pruefe(null, (a) => { a.raumtypen.reaktor = a.raumtypen.lager; });
+  ok(r.code === 1 && /unbekannter Raumtyp für aussenposten/.test(r.out), 'Außenposten: reaktor gibt es dort nicht → rot');
+  r = pruefe((s) => { s.raumtypen.kommando.rollen = [s.raumtypen.lager.rollen[0]]; });
+  ok(r.code === 1 && /keine streu-Rolle/.test(r.out), 'Raumtyp nur mit anker-Rolle (keine Deko) → rot');
+  r = pruefe((s) => { s.raumtypen.kommando.rollen = []; });
+  ok(r.code === 1 && /keine streu-Rolle/.test(r.out), 'Raumtyp ohne Rollen → rot');
+  r = pruefe((s) => { s.rollen['kommando.streu'].germanen = 'prop/germanen/gemein/laterne'; });
+  ok(r.code === 1 && /K-SILHOUETTE/.test(r.out), 'check:rollen meldet K-SILHOUETTE (2,13-m-Laterne als Deko) schon selbst → rot');
+  r = pruefe((s) => { s.rollen.constructor = { rom: 'x', germanen: 'y' }; s.raumtypen.lager.rollen[2].rolle = 'toString'; });
+  ok(r.code === 1 && /toString ist in "rollen" nicht definiert/.test(r.out), 'Rolle "toString" gilt nicht als definiert (Object.hasOwn, keine Prototyp-Treffer)');
+  {
+    const deko = await import(pathToFileURL(path.join(ROOT, 'public/js/voxel/deko.js')).href);
+    const pr = await import(pathToFileURL(path.join(ROOT, 'tools/rollen-pruefung.mjs')).href);
+    ok(JSON.stringify(deko.RAUMTYPEN) === JSON.stringify(pr.RAUMTYPEN), 'Raumtyp-Listen in deko.js und rollen-pruefung.mjs stimmen überein');
+    // gegen die Generatoren: jedes Präfix der erzeugten Raum-IDs steht in der Liste
+    const GT = require('../shared/gen-station.js'), GS = require('../shared/gen-siedlung.js');
+    const gesehen = { station: new Set(), aussenposten: new Set() };
+    for (let sd = 1; sd <= 12; sd++) {
+      for (const id of Object.keys(Buehne.ausRaster(GT.erzeuger(96, 56).karteRoh(sd, 8, { bauweise: 'germanen', id: 't' }), { spiel: true }).karte.plaetze)) gesehen.station.add(deko.raumtypVon(id));
+      for (const id of Object.keys(Buehne.ausRaster(GS.erzeuger(130, 90).karteRoh(sd, 10, { bauweise: 'germanen', typ: 'militaer', id: 't' }), { spiel: true }).karte.plaetze)) gesehen.aussenposten.add(deko.raumtypVon(id));
+    }
+    const raum = { station: ['kommando', 'reaktor', 'zellen', 'lager', 'quartier', 'messe', 'werkstatt', 'krankenstation', 'kantine'], aussenposten: ['kommando', 'lager', 'werkstatt', 'quartier', 'kantine', 'krankenstation', 'kaefig'] };
+    for (const art of ['station', 'aussenposten']) {
+      const fehlt = [...gesehen[art]].filter((t) => raum[art].includes(t) === false && !['transporter', 'gang', 'kreuzung', 'landefeld', 'platz', 'strasse', 'tor', 'haus', 'wachturm', 'depot', 'rohr'].includes(t));
+      ok(fehlt.length === 0, art + ': kein Raum-Präfix der Generatoren fehlt in der Liste (' + [...gesehen[art]].join(',') + ')');
+    }
+  }
+
   section('Mutationsprobe: Format');
   r = pruefe((s) => { s.format = 'rollen/2'; });
   ok(r.code === 1 && /format/.test(r.out), 'falsches format → rot');

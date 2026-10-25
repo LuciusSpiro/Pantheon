@@ -182,7 +182,76 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
     const k = karte('station', 3, 'germanen');
     const alle = streuen(k, regelnFuer('station').regeln, { rollen: { daten: ROLLEN.station, bauweise: 'germanen', ausschluss: new Set(['prop/germanen/gemein/fass']) } });
     ok(!alle.some((d) => d.rolle && d.id === 'prop/germanen/gemein/fass'), 'Ausschluss-Set (Deckungs-Props) wird in der Rollen-Belegung beachtet');
-    info('Kapazitäts-Fallback frei_halten 2 → 1 ist in den Testdateien aktiv (frei_halten 2 im Lager); Abstand ≥ 2 zu Ankern gilt trotzdem');
+  }
+
+  section('frei_halten: gewünschte Stufe, Fallback, kein Platz');
+  {
+    const stufen = { gehalten: 0, fallback: 0, plaetze: 0 };
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'germanen'), bericht = {};
+      const { regeln, ids } = regelnFuer('station');
+      streuen(k, regeln, { rollen: { daten: ROLLEN.station, bauweise: 'germanen', ausschluss: ids, bericht } });
+      for (const b of Object.values(bericht)) { stufen.plaetze++; if (b.frei_halten === b.gewuenscht) stufen.gehalten++; else stufen.fallback++; }
+    }
+    ok(stufen.plaetze > 0 && stufen.gehalten > 0, `frei_halten 2 wird bei genug Platz eingehalten (${stufen.gehalten} von ${stufen.plaetze} Plätzen)`);
+    // Fallback erzwingen: frei_halten 4 passt in keinen Raum
+    const hart = JSON.parse(JSON.stringify(ROLLEN.station)); hart.raumtypen.lager.frei_halten = 4; hart.raumtypen.kommando.frei_halten = 4;
+    let fb = 0, fbPlaetze = 0, nahe = 0;
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'germanen'), bericht = {};
+      const liste = streuen(k, regelnFuer('station').regeln, { rollen: { daten: hart, bauweise: 'germanen', bericht } });
+      for (const b of Object.values(bericht)) { fbPlaetze++; if (b.frei_halten < 4) fb++; if (b.frei_halten < 1) nahe++; }
+      if (pruefeStreuung(k, liste).length) nahe++;
+    }
+    ok(fbPlaetze > 0 && fb > 0, `Fallback greift: frei_halten 4 fällt zurück (${fb} von ${fbPlaetze} Plätzen), nie unter 1, 0 Verstöße`);
+    ok(nahe === 0, 'Fallback-Stufe nie unter 1 und keine Vertragsverstöße');
+    // Raum zu klein: ein 1×1-Platz neben einer Tür hat 0 Kandidaten (Anker/Tür-Sperre) und bleibt ohne Stück, ohne Fehler
+    const klein = { id: 'k', w: 10, h: 10, seed: 5, art: 'station', kindAt: (x, y) => (x === 2 && y === 1 ? 'tuer' : x >= 0 && y >= 0 && x < 10 && y < 10 ? 'boden' : null), anker: [], plaetze: [{ id: 'lager_1', typ: 'lager', x: 1, y: 1, w: 1, h: 1 }] };
+    const bericht = {};
+    let wurf = null, liste = null;
+    try { liste = streuen(klein, {}, { rollen: { daten: ROLLEN.station, bauweise: 'germanen', bericht } }); } catch (e) { wurf = e; }
+    ok(!wurf && liste.length === 0 && bericht.lager_1 && bericht.lager_1.kandidaten === 0 && bericht.lager_1.frei_halten === 1, 'Raum zu klein (0 Kandidaten): kein Stück, kein Fehler, Fallback bis 1');
+  }
+
+  section('Zellenmodus bleibt, wo der Rollenmodus nichts streuen kann');
+  {
+    const nurAnker = { format: 'rollen/1', kartenart: 'station', raumtypen: { lager: { rollen: [ROLLEN.station.raumtypen.lager.rollen[0]] }, kommando: { rollen: [] } }, rollen: ROLLEN.station.rollen };
+    const ohneRom = JSON.parse(JSON.stringify(ROLLEN.station)); for (const r of Object.values(ohneRom.rollen)) delete r.rom;
+    const kaputt = { format: 'rollen/1', kartenart: 'station', raumtypen: { lager: { rollen: 'kaputt' }, kommando: null }, rollen: ROLLEN.station.rollen };
+    let gleich = 0, n2 = 0;
+    for (const s of SEEDS) {
+      const k = karte('station', s, 'rom');
+      const basis = JSON.stringify(plain(k, 'station', BESITZ, null, 'rom'));
+      for (const [daten, bw] of [[nurAnker, 'rom'], [ohneRom, 'rom'], [kaputt, 'rom']]) { n2++; if (JSON.stringify(plain(k, 'station', BESITZ, daten, bw)) === basis) gleich++; }
+    }
+    ok(gleich === n2, `Raumtyp ohne streu-Rolle, Bauweise ohne Belegung und strukturell kaputte Datei: Deko byte-gleich zum Zellenmodus (${gleich}/${n2})`);
+    // Fehler im Rollenmodus: Zellen-Deko bleibt, Fehler wird gemeldet
+    const k = karte('station', 2, 'germanen'), basisLeer = streuen(k, regelnFuer('station').regeln, {});
+    let gemeldet = 0;
+    const falle = new Proxy({}, { set() { throw new Error('Testfehler'); } });
+    const l = streuen(k, regelnFuer('station').regeln, { rollen: { daten: ROLLEN.station, bauweise: 'germanen', bericht: falle }, onFehler: () => gemeldet++ });
+    ok(gemeldet === 1 && l.length > 0 && l.every((d) => !d.rolle), 'Ausnahme im Rollenmodus: kein Wurf, onFehler gemeldet, Zellen-Deko bleibt (keine Rollen-Stücke)');
+  }
+
+  section('boden2 nur in Gebäuden des Außenpostens');
+  {
+    const def = ROLLEN.aussenposten.raumtypen.lager;
+    let strasse = 0, gang = 0, gebaeude = 0;
+    for (const s of SEEDS) {
+      const ka = karte('aussenposten', s, 'germanen');
+      const mitStrasse = { format: 'rollen/1', kartenart: 'aussenposten', raumtypen: { strasse: def, platz: def, tor: def }, rollen: ROLLEN.aussenposten.rollen };
+      for (const d of plain(ka, 'aussenposten', [], mitStrasse)) if (d.rolle && ka.kindAt(d.x, d.y) === 'boden2') strasse++;
+      const ks = karte('station', s, 'germanen');
+      const mitGang = { format: 'rollen/1', kartenart: 'station', raumtypen: { gang: def, kreuzung: def, transporter: def }, rollen: ROLLEN.aussenposten.rollen };
+      for (const d of plain(ks, 'station', [], mitGang)) if (d.rolle && ks.kindAt(d.x, d.y) === 'boden2') gang++;
+      for (const d of plain(ka, 'aussenposten', [], ROLLEN.aussenposten)) if (d.rolle && ka.kindAt(d.x, d.y) === 'boden2') gebaeude++;
+    }
+    ok(strasse === 0, 'Straße, Platz, Tor (auch mit Rollen-Eintrag): nie auf boden2');
+    ok(gang === 0, 'Station: Gang, Kreuzung, Transporter (auch mit Rollen-Eintrag): nie auf boden2 (dort ist boden2 Weg)');
+    ok(gebaeude > 0, `Gebäude des Außenpostens (kommando, lager): boden2 erlaubt (${gebaeude} Stücke)`);
+    const k = karte('aussenposten', 1, 'germanen');
+    const v = pruefeStreuung(Object.assign({}, k, { art: 'station' }), [{ id: 'x', x: 0, y: 0, rolle: 'r', platz: 'lager_1' }]);
+    ok(Array.isArray(v), 'pruefeStreuung läuft für Rollen-Stücke ohne Absturz');
   }
 
   console.log(`\ntest-rollen-modus: ${n - fails}/${n} ok`);

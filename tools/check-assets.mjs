@@ -18,6 +18,7 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
 import { pruefeRollenDatei } from './rollen-pruefung.mjs';
@@ -291,13 +292,18 @@ async function checkRollen(entries, indexModels, dir = ROLLEN_DIR) {
   }
   const an = await readJson(path.join(BUEHNEN, 'anker.json')).catch(() => null);
   if (an && an.rollen) ctx.ankerRollen = new Set(Object.keys(an.rollen));
+  const geladen = [];
   const files = (await fsp.readdir(dir).catch(() => [])).filter((f) => f.endsWith('.json')).sort();
   if (!files.length) lines.push({ lvl: 'err', msg: `keine Rollen-Dateien in ${path.relative(ROOT, dir) || dir}` });
   for (const f of files) {
     let j;
     try { j = await readJson(path.join(dir, f)); } catch (err) { lines.push({ lvl: 'err', msg: `${f}: nicht lesbar (${err.message})` }); continue; }
+    geladen.push(j);
     lines.push(...pruefeRollenDatei(j, f, ctx));
   }
+  // K-SILHOUETTE (shared/buehne.js): streu-Modelle höher als eine Figur sind keine Deko
+  const Buehne = createRequire(import.meta.url)('../shared/buehne.js');
+  for (const v of Buehne.silhouetteFehler({ bauweisen: [], deko: [], rollen: geladen.filter((j) => j && typeof j === 'object'), modelle: ctx.modelle })) lines.push({ lvl: 'err', msg: `${v.code} ${v.msg}` });
   return lines;
 }
 

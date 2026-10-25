@@ -8,13 +8,22 @@
 //   der Zufall kommt aus einem eigenen Strom je Platz und Rolle (fnv(platzId:rolle, seed)), nie aus game.rng oder dem Generator.
 //   In diesen Rechtecken streut der Zellenmodus nicht mehr (fremde Platztypen wandern nicht hinein). Plätze ohne Raumtyp-Eintrag
 //   und Karten ohne Rollen-Datei laufen unverändert im Zellenmodus (byte-gleich, tools/hash-baseline.js --compare).
+//   opts.rollen.bericht (optional, Objekt): je Rollen-Platz { frei_halten (erreicht), gewuenscht, kandidaten, soll } (Tests); opts.onFehler(e) bei kaputter Datei.
 //   Rollen mit kind leit/anker streut dieser Modus nicht: Hauptstücke laufen über bauweise.leit/anker (kit.js).
 // Harte Grenzen (Vertrag, nicht per Daten abschaltbar):
 //   - nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln, nie auf festen Kacheln
 //   - höchstens 12 Props je Zelle (8×8), Deko ist nur Optik (keine Kollision), Deckung wird nie gestreut
-// Ergebnis: [{ id, x, y, rot, seed, platz, dx, dz }] in Kacheln (x, y = Kachel; dx/dz Versatz in der Kachel, −0,25…0,25 m).
+// Ergebnis: [{ id, x, y, rot, seed, platz, dx, dz, rolle? }] (rolle nur im Rollenmodus) in Kacheln (x, y = Kachel; dx/dz Versatz in der Kachel, −0,25…0,25 m).
 
 export const MAX_JE_ZELLE = 12;
+// Raumtypen (Präfix der Platz-ID) je Kartenart, für die Rollen definiert werden dürfen (Quelle: gen-station.js RAUMNAME, gen-siedlung.js GEB_NAME + kaefig_n).
+// Nur die Gebäude des Außenpostens dürfen auf ihrem Innenboden boden2 bestreut werden; Gänge, Straßen, Station: nie (boden2 ist dort Weg).
+export const RAUMTYPEN = {
+  station: ['kommando', 'reaktor', 'zellen', 'lager', 'quartier', 'messe', 'werkstatt', 'krankenstation', 'kantine'],
+  aussenposten: ['kommando', 'lager', 'werkstatt', 'quartier', 'kantine', 'krankenstation', 'kaefig'],
+};
+const hat = (o, k) => !!o && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
+const boden2Erlaubt = (art, platzId) => art === 'aussenposten' && RAUMTYPEN.aussenposten.includes(raumtypVon(platzId));
 const ZELLE = 8;
 // begehbare Untergründe, auf denen Deko liegen darf (Weg ',' / Pad / Rampe / Plateau-Kante nie)
 const DEKO_BODEN = { boden: 1, gelaende: 1, plateau: 1 };
@@ -41,8 +50,8 @@ export function raumtypVon(platzId) { return String(platzId || '').replace(/_\d+
 
 /** Belegung einer Rolle für eine Bauweise: Liste von Modell-IDs (String oder Liste in den Daten), ohne `ausschluss` (Set). */
 export function belegungVon(daten, rolle, bauweise, ausschluss) {
-  const r = daten && daten.rollen && daten.rollen[rolle];
-  const v = r && r[bauweise];
+  const r = daten && hat(daten.rollen, rolle) ? daten.rollen[rolle] : null;
+  const v = hat(r, bauweise) ? r[bauweise] : null;
   const l = (typeof v === 'string' ? [v] : Array.isArray(v) ? v : []).filter((id) => typeof id === 'string' && id);
   return ausschluss ? l.filter((id) => !ausschluss.has(id)) : l;
 }
@@ -125,7 +134,12 @@ export function streuen(k, regeln, opts = {}) {
   const seed = (k.seed >>> 0) || fnv(String(k.id || 'karte'));
   const out = [];
   // Rollenmodus: Plätze mit Raumtyp-Eintrag; ihre Rechtecke sind für den Zellenmodus gesperrt
-  const rollenPlaetze = RO ? plaetze.filter((p) => RO.daten.raumtypen[raumtypVon(p.id)]) : [];
+  // Ein Platz zählt nur, wenn seine Rollen für diese Bauweise mindestens eine streu-Rolle mit Belegung (nach Deckungs-Ausschluss) haben;
+  // sonst bleibt er im Zellenmodus (kein Raum ohne Deko durch fehlende Belegung).
+  const streuRollenVon = (def) => (def && Array.isArray(def.rollen) ? def.rollen : []).filter((e) => e && typeof e.rolle === 'string' && (e.kind || 'streu') === 'streu')
+    .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, RO.bauweise, RO.ausschluss) })).filter((r) => r.bel.length);
+  const sicher = (def) => { try { return streuRollenVon(def); } catch (e) { return []; } };   // kaputte Rollen-Datei: Platz bleibt im Zellenmodus
+  const rollenPlaetze = RO ? plaetze.filter((p) => hat(RO.daten.raumtypen, raumtypVon(p.id)) && sicher(RO.daten.raumtypen[raumtypVon(p.id)]).length) : [];
   const rollenFlaeche = rollenPlaetze.length ? new Uint8Array(W * H) : null;
   for (const p of rollenPlaetze) for (let y = Math.max(0, p.y); y < Math.min(H, p.y + p.h); y++) for (let x = Math.max(0, p.x); x < Math.min(W, p.x + p.w); x++) rollenFlaeche[y * W + x] = 1;
   const CW = Math.ceil(W / ZELLE), CH = Math.ceil(H / ZELLE);
@@ -170,21 +184,24 @@ export function streuen(k, regeln, opts = {}) {
       out.push({ id, x, y, rot, seed: Math.floor(rnd() * 8), platz: p ? p.id : null, dx: (rnd() - 0.5) * 0.3, dz: (rnd() - 0.5) * 0.3 });
     }
   }
-  if (rollenPlaetze.length) rollenStreuen();
+  if (rollenPlaetze.length) {
+    const n0 = out.length;
+    try { rollenStreuen(); } catch (e) { out.length = n0; if (typeof opts.onFehler === 'function') opts.onFehler(e); }   // kaputte Rollen-Datei: Zellen-Deko bleibt
+  }
   return out;
 
   // ---- Rollenmodus: je Platzrechteck, je Rolle ein eigener Strom (läuft nach dem Zellenmodus, nutzt dessen Hilfen) ----
   function rollenStreuen() {
-    const bw = RO.bauweise, aus = RO.ausschluss || null;
+    const bw = RO.bauweise;
     const jeZelle = new Map(), belegt = new Set();
     const zKey = (x, y) => Math.floor(x / ZELLE) + ',' + Math.floor(y / ZELLE);
     for (const d of out) { belegt.add(d.x + ',' + d.y); const z = zKey(d.x, d.y); jeZelle.set(z, (jeZelle.get(z) || 0) + 1); }
     // freie Kacheln im Rechteck: Boden/Gelände/Plateau und (nur hier) der Innenboden boden2 der Gebäude; nie Anker, Tür, Pad, Rampe, Kantenmitte
     const kacheln = (p, fh) => {
-      const S = gesperrt(fh), res = [];
+      const S = gesperrt(fh), res = [], b2 = boden2Erlaubt(k.art, p.id);
       for (let y = Math.max(0, p.y); y < Math.min(H, p.y + p.h); y++) for (let x = Math.max(0, p.x); x < Math.min(W, p.x + p.w); x++) {
         const kd = kind(x, y);
-        if (!(DEKO_BODEN[kd] || kd === 'boden2') || S[y * W + x] || istKantenmitte(x, y, k)) continue;
+        if (!(DEKO_BODEN[kd] || (kd === 'boden2' && b2)) || S[y * W + x] || istKantenmitte(x, y, k)) continue;
         res.push([x, y]);
       }
       return res;
@@ -208,9 +225,8 @@ export function streuen(k, regeln, opts = {}) {
       }
     };
     for (const p of rollenPlaetze) {
-      const def = RO.daten.raumtypen[raumtypVon(p.id)] || {};
-      const rollen = (def.rollen || []).filter((e) => e && (e.kind || 'streu') === 'streu')
-        .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, bw, aus) })).filter((r) => r.bel.length);
+      const def = RO.daten.raumtypen[raumtypVon(p.id)];
+      const rollen = streuRollenVon(def);
       rollen.sort((a, b) => (b.e.pflicht ? 1 : 0) - (a.e.pflicht ? 1 : 0));   // Pflichtrollen zuerst (stabil)
       for (const r of rollen) {
         r.rnd = mulberry32(fnv(p.id + ':' + r.e.rolle, seed));
@@ -225,6 +241,7 @@ export function streuen(k, regeln, opts = {}) {
       // Kapazität: reicht frei_halten nicht, schrittweise kleiner (nie unter 1: Anker und Türen bleiben frei)
       let fh = Math.max(1, Math.min(4, (def.frei_halten != null ? def.frei_halten : 1) | 0)), kand;
       for (;;) { kand = kacheln(p, fh); if (kand.length >= soll || fh <= 1) break; fh--; }
+      if (RO.bericht) RO.bericht[p.id] = { frei_halten: fh, gewuenscht: Math.max(1, Math.min(4, (def.frei_halten != null ? def.frei_halten : 1) | 0)), kandidaten: kand.length, soll };
       for (const r of rollen) {
         const wand = !!r.e.wandnah;
         nimm(kand.filter(([x, y]) => !wand || wandnah(x, y)), r.n, r.rnd, p, r.e.rolle, () => ({ id: r.bel[Math.floor(r.rnd() * r.bel.length)], wand }));
@@ -249,7 +266,7 @@ export function pruefeStreuung(k, liste) {
     const kd = k.kindAt(d.x, d.y);
     if (anker.has(d.x + ',' + d.y)) fehler.push('Anker ' + d.x + ',' + d.y);
     if (TUER[kd]) fehler.push('Tür ' + d.x + ',' + d.y);
-    const innen = d.rolle && kd === 'boden2';   // Rollenmodus: Innenboden der Gebäude (siehe streuen)
+    const innen = d.rolle && kd === 'boden2' && boden2Erlaubt(k.art, d.platz);   // Rollenmodus: Innenboden der Außenposten-Gebäude (siehe streuen)
     if (WEG[kd] && !innen) fehler.push('Weg ' + d.x + ',' + d.y);
     if (!DEKO_BODEN[kd] && !innen) fehler.push('fest/kein Boden ' + d.x + ',' + d.y + ' (' + kd + ')');
     if (d.rolle && k.plaetze) { const p = k.plaetze.find((q) => q.id === d.platz); if (!p || d.x < p.x || d.y < p.y || d.x >= p.x + p.w || d.y >= p.y + p.h) fehler.push('Rolle außerhalb des Platzes ' + d.x + ',' + d.y + ' (' + d.platz + ')'); }
