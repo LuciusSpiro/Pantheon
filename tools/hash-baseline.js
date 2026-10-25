@@ -7,7 +7,10 @@
 //
 // karten: sha1 über JSON.stringify(Karte) für alle festen Generator-Landepunkte (Außenposten, Station) und je 10 Seeds
 //   Außenposten/Station (germanen) für rostmeute, kontor, konkordat (72 Hashes).
-// deko: sha1 über die Deko-Liste (public/js/voxel/deko.js streuen, genau wie kit.js: deckung_props-Filter, Besitz-Streuung,
+// deko_zellen: Zellenmodus allein (ohne Rollen-Dateien), muss auf dem Stand von main bleiben (60 Hashes, germanen).
+// deko / layout: Deko mit den produktiven Rollen-Dateien auf denselben germanischen Karten für BEIDE Bauweisen (120 Hashes); layout = nur Orte,
+//   Drehungen, Rollen, Füße ohne Modell-IDs, Rom und Germanen müssen gleich sein (Layout-Parität, `layout-parität`).
+// deko (Einzelheiten): sha1 über die Deko-Liste (public/js/voxel/deko.js streuen, genau wie kit.js: deckung_props-Filter, Besitz-Streuung,
 //   mit den produktiven Rollen-Dateien content/buehnen/rollen/<art>.json, falls vorhanden) für 10 Seeds je Kartenart und
 //   Besitz. Solange die produktiven Rollen-Dateien keine Raumtypen enthalten, muss die Streuung byte-gleich bleiben.
 'use strict';
@@ -43,10 +46,11 @@ async function berechne(nurKarten) {
     karten[`${art}/germanen/${besitz}/${s * 977}`] = sha(JSON.stringify(LP.karte(gg, id)));
   }
 
-  const deko = {};
-  if (nurKarten) return { karten, deko };
-  const dekoRegeln = json(path.join(BW, 'deko/germanen.json'));
-  const bauweise = json(path.join(BW, 'bauweisen/germanen.json'));
+  const deko = {}, dekoZellen = {}, layout = {};
+  if (nurKarten) return { karten, deko, deko_zellen: dekoZellen, layout };
+  const BWS = ['germanen', 'rom'];
+  const dekoRegeln = {}, bauweise = {};
+  for (const bw of BWS) { dekoRegeln[bw] = json(path.join(BW, 'deko/' + bw + '.json')); bauweise[bw] = json(path.join(BW, 'bauweisen/' + bw + '.json')); }
   for (const art of ['station', 'aussenposten']) {
     const rf = path.join(BW, 'rollen', art + '.json');
     const rollen = fs.existsSync(rf) ? json(rf) : null;
@@ -59,19 +63,28 @@ async function berechne(nurKarten) {
         const k = Buehne.ausRaster(roh, { spiel: true }).karte;
         const kindAt = (x, y) => { const c = (k.rows[y] || '')[x]; return c == null || c === '' ? null : kacheln.zeichen[c] ? kacheln.zeichen[c].kind : null; };
         const plaetze = Object.keys(k.plaetze).sort().map((id) => { const p = k.plaetze[id]; return { id, typ: p.typ, x: p.rect[0], y: p.rect[1], w: p.rect[2], h: p.rect[3] }; });
-        const dp = bauweise.deckung_props && bauweise.deckung_props[k.art];
-        const deckIds = new Set(dp ? Object.values(dp).flat() : []);
-        for (const id of (bauweise.deko_ausschluss && bauweise.deko_ausschluss[k.art]) || []) deckIds.add(id);   // wie kit.js (ORT-01)
-        let regeln = dekoRegeln;
-        if (deckIds.size) { regeln = Object.assign({}, dekoRegeln, { regeln: {} }); for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: r.props.filter((i) => !deckIds.has(i)) }); }
-        const opts = { extra };
-        if (rollen) opts.rollen = { daten: rollen, bauweise: 'germanen', ausschluss: deckIds };
-        const liste = streuen({ id: 't', w: k.w, h: k.h, seed: k.seed, art: k.art, kindAt, anker: k.anker, plaetze }, regeln, opts);
-        deko[`${art}/germanen/${besitz}/${s}`] = sha(JSON.stringify(liste));
+        // Beide Bauweisen auf DERSELBEN (germanischen) Karte: so zeigt der Vergleich nur, was die Bauweise ändert (Modelle), nicht das Layout
+        for (const bw of BWS) {
+          const dp = bauweise[bw].deckung_props && bauweise[bw].deckung_props[k.art];
+          const deckIds = new Set(dp ? Object.values(dp).flat() : []);
+          for (const id of (bauweise[bw].deko_ausschluss && bauweise[bw].deko_ausschluss[k.art]) || []) deckIds.add(id);   // wie kit.js (ORT-01)
+          let regeln = dekoRegeln[bw];
+          if (deckIds.size) { regeln = Object.assign({}, dekoRegeln[bw], { regeln: {} }); for (const [t, r] of Object.entries(dekoRegeln[bw].regeln)) regeln.regeln[t] = Object.assign({}, r, { props: r.props.filter((i) => !deckIds.has(i)) }); }
+          const karteIn = { id: 't', w: k.w, h: k.h, seed: k.seed, art: k.art, kindAt, anker: k.anker, plaetze };
+          const key = art + '/' + bw + '/' + besitz + '/' + s;
+          // Zellenmodus allein (ohne Rollen): muss auf dem Stand von main (6d912b4) bleiben (nur germanen, wie die erste Baseline)
+          if (bw === 'germanen') dekoZellen[key] = sha(JSON.stringify(streuen(karteIn, regeln, { extra })));
+          const opts = { extra };
+          if (rollen) opts.rollen = { daten: rollen, bauweise: bw, ausschluss: deckIds, leitFuss: bauweise[bw].leit_fuss };
+          const liste = streuen(karteIn, regeln, opts);
+          deko[key] = sha(JSON.stringify(liste));
+          // Layout der Rollen-Stücke (ohne Besitz-Banner: sie hängen an der Zellen-Obergrenze 12, die vom Zellenmodus der Bauweise abhängt): nur Orte, Drehungen, Versätze, Rollen und Füße, ohne Modell-IDs (Parität Rom ↔ Germanen; der Zellenmodus hat je Bauweise eigene Regeln)
+          layout[key] = sha(JSON.stringify(liste.filter((d) => d.rolle && d.rolle !== 'besitz').map((d) => [d.x, d.y, d.rot, d.dx, d.dz, d.rolle || null, d.platz, d.fuss || null])));
+        }
       }
     }
   }
-  return { karten, deko };
+  return { karten, deko, deko_zellen: dekoZellen, layout };
 }
 
 (async () => {
@@ -79,19 +92,27 @@ async function berechne(nurKarten) {
   const nurKarten = process.argv.includes('--karten') && modus === 'compare';
   const ist = await berechne(nurKarten);
   if (modus === 'write') {
-    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/1', stand: 'main 6d912b4', karten: ist.karten, deko: ist.deko }, null, 1) + '\n');
-    console.log(`Baseline geschrieben: ${Object.keys(ist.karten).length} Karten-Hashes, ${Object.keys(ist.deko).length} Deko-Hashes -> ${path.relative(ROOT, DATEI)}`);
+    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/2', stand: 'karten und deko_zellen: main 6d912b4; deko und layout: ort01-int mit gefüllten Rollen-Dateien', karten: ist.karten, deko_zellen: ist.deko_zellen, deko: ist.deko, layout: ist.layout }, null, 1) + '\n');
+    console.log(`Baseline geschrieben: ${Object.keys(ist.karten).length} Karten-Hashes, ${Object.keys(ist.deko_zellen).length} Zellen-Deko-Hashes, ${Object.keys(ist.deko).length} Deko-Hashes (beide Bauweisen), ${Object.keys(ist.layout).length} Layout-Hashes -> ${path.relative(ROOT, DATEI)}`);
     return;
   }
   const soll = json(DATEI);
   let fehler = 0;
-  for (const teil of nurKarten ? ['karten'] : ['karten', 'deko']) {
+  for (const teil of nurKarten ? ['karten'] : ['karten', 'deko_zellen', 'deko', 'layout']) {
     const ab = [];
     for (const k of Object.keys(soll[teil])) if (soll[teil][k] !== ist[teil][k]) ab.push(k);
     for (const k of Object.keys(ist[teil])) if (!(k in soll[teil])) ab.push(k + ' (neu)');
     const n = Object.keys(soll[teil]).length;
     console.log(`${ab.length ? '✗' : '✓'} ${teil}: ${n - ab.length}/${n} gleich${ab.length ? ', abweichend: ' + ab.slice(0, 8).join(', ') + (ab.length > 8 ? ' …' : '') : ''}`);
     fehler += ab.length;
+  }
+  if (!nurKarten) {
+    // Layout-Parität: dieselbe Karte, beide Bauweisen: Positionen, Drehungen, Versätze und Füße müssen gleich sein
+    const un = [];
+    for (const key of Object.keys(ist.layout)) if (key.includes('/germanen/') && ist.layout[key] !== ist.layout[key.replace('/germanen/', '/rom/')]) un.push(key);
+    const n = Object.keys(ist.layout).length / 2;
+    console.log(`${un.length ? '✗' : '✓'} layout-parität: ${n - un.length}/${n} Karten mit gleichem Layout in Rom und Germanen${un.length ? ', abweichend: ' + un.slice(0, 6).join(', ') : ''}`);
+    fehler += un.length;
   }
   process.exit(fehler ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });
