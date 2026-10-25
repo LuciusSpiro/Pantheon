@@ -1,6 +1,6 @@
 # ORT-01 Paket 5 Teil B1 (Anker-Optik): Übergabe
 
-Stand: nur Analyse. Es wurden **keine Modelle gebaut**, kein Manifest `assets/manifest/ort-anker.json` angelegt, keine Daten geändert.
+Stand: 13 Modelle gebaut (Voxelwerk-Branch ort01-anker), Manifest assets/manifest/ort-anker.json (13 Eintraege, check:assets --vw 0 Fehler), lokal im Spiel probiert und verworfen (Bauweisen-Eintraege und public/voxel nicht committet).
 
 Befund, Tabelle, Bauliste und Eintragszeilen: `C:\Users\Luciu\projects\voxelwerk-ort01-anker\ANKER-VERDRAHTUNG-ORT01.md`.
 
@@ -10,7 +10,10 @@ Befund, Tabelle, Bauliste und Eintragszeilen: `C:\Users\Luciu\projects\voxelwerk
 - `fund`, `raetsel`, `flagge` erscheinen auf Station/Außenposten nicht.
 - Auch Leitstücke sind Altstücke (`statue_platz` beide Kulturen, germ. `schmiedeherd`/`hochsitz_halle`), aber kein Gameplay-Anker.
 
-## Nächste Schritte
+## Nächste Schritte (Integration)
+0. Eintragszeilen aus ANKER-VERDRAHTUNG-ORT01.md in bauweisen/rom.json und germanen.json uebernehmen; npm run assets; Rollen-Daten: zellen.feldzelle streichen (Leiter-Entscheidung).
+
+(Alt, teils erledigt:)
 1. Modelle laut Bauliste bauen (zuerst terminal und zelle, dort gibt es Vorlagen; ziel, beute, sprengpunkt neu).
 2. `assets/manifest/ort-anker.json` (Format `ort-2a.json`), `npm run check:assets -- --vw` mit `VOXELWERK_PATH`.
 3. Szenen mit allen Zuständen nebeneinander, 3 Kameras, `hall_metall`/`planet_day`; Selbstkritik zu Abnahme 8.
