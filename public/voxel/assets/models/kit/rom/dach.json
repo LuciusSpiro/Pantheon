@@ -1,6 +1,6 @@
 {
   "id": "kit/rom/dach",
-  "name": "Rom – Technikdach (Aquädukt): flaches Gunmetal-Dach mit Marmorattika und Amber-Traufrinne, Lüfter, ab 6×5 Lichtschlitz, ab 8×8 Clipeus; deckt ein Gebäuderechteck, nicht eine Kachel",
+  "name": "Rom – Technikdach (Aquädukt): flaches Terrakotta-Dach mit Marmorattika und Amber-Traufrinne, Lüfter, ab 6×5 Lichtschlitz, ab 8×8 Clipeus; deckt ein Gebäuderechteck, nicht eine Kachel",
   "tier": "architecture",
   "palette": "rom",
   "tags": [
@@ -133,8 +133,8 @@
         "D - 2"
       ],
       "color": {
-        "shade": "metal",
-        "f": "0.8 * (1 - zustand * 0.06)"
+        "shade": "dach",
+        "f": "1.2 * (1 - zustand * 0.06)"
       }
     },
     {

@@ -115,6 +115,11 @@
       "team": "ort-3b",
       "file": "ort-3b.json",
       "count": 29
+    },
+    {
+      "team": "ort-anker",
+      "file": "ort-anker.json",
+      "count": 13
     }
   ],
   "assets": {
@@ -10967,6 +10972,70 @@
       "source": "ort/germanen/aussenposten/feldpfahl",
       "team": "ort-2b"
     },
+    "ort/germanen/aussenposten/glutspeicher": {
+      "id": "ort/germanen/aussenposten/glutspeicher",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        },
+        "platziert": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.625,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.25,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "sprengpunkt",
+        "speicher",
+        "aussenposten"
+      ],
+      "source": "ort/germanen/aussenposten/glutspeicher",
+      "team": "ort-anker"
+    },
     "ort/germanen/aussenposten/halle": {
       "id": "ort/germanen/aussenposten/halle",
       "kind": "model",
@@ -11258,6 +11327,64 @@
       "source": "ort/germanen/gemein/fassregal",
       "team": "ort-3b"
     },
+    "ort/germanen/gemein/fasstresor": {
+      "id": "ort/germanen/gemein/fasstresor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "leer": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.625,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.25,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "beute",
+        "fund",
+        "fass"
+      ],
+      "source": "ort/germanen/gemein/fasstresor",
+      "team": "ort-anker"
+    },
     "ort/germanen/gemein/fasszelle": {
       "id": "ort/germanen/gemein/fasszelle",
       "kind": "model",
@@ -11306,6 +11433,66 @@
       "notes": "ORT-01 3b, Rolle: reaktor.zelle, lager.zelle",
       "source": "ort/germanen/gemein/fasszelle",
       "team": "ort-3b"
+    },
+    "ort/germanen/gemein/feldmast": {
+      "id": "ort/germanen/gemein/feldmast",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.14,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.97,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.94,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1600,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "ziel",
+        "feldgenerator"
+      ],
+      "source": "ort/germanen/gemein/feldmast",
+      "team": "ort-anker"
     },
     "ort/germanen/gemein/glutleitung": {
       "id": "ort/germanen/gemein/glutleitung",
@@ -11554,6 +11741,68 @@
       "source": "ort/germanen/gemein/schildantenne",
       "team": "ort-2b"
     },
+    "ort/germanen/gemein/terminal": {
+      "id": "ort/germanen/gemein/terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "laedt": {
+          "state": 1
+        },
+        "geladen": {
+          "state": 2
+        },
+        "gesperrt": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.08,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.94,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.88,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "terminal"
+      ],
+      "source": "ort/germanen/gemein/terminal",
+      "team": "ort-anker"
+    },
     "ort/germanen/gemein/verteiler": {
       "id": "ort/germanen/gemein/verteiler",
       "kind": "model",
@@ -11636,6 +11885,63 @@
       "notes": "ORT-01 3b, Rolle: werkstatt.werkzeug",
       "source": "ort/germanen/gemein/werkzeugkasten",
       "team": "ort-3b"
+    },
+    "ort/germanen/gemein/zelle": {
+      "id": "ort/germanen/gemein/zelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.08,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.94,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.88,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2100,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "zelle",
+        "feld"
+      ],
+      "source": "ort/germanen/gemein/zelle",
+      "team": "ort-anker"
     },
     "ort/germanen/station/amboss": {
       "id": "ort/germanen/station/amboss",
@@ -12398,6 +12704,70 @@
       "source": "ort/germanen/station/spind",
       "team": "ort-3b"
     },
+    "ort/germanen/station/sprengreaktor": {
+      "id": "ort/germanen/station/sprengreaktor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        },
+        "platziert": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.2,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          1,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          2,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6900,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "germanen",
+        "sprengpunkt",
+        "reaktor",
+        "hauptstueck"
+      ],
+      "source": "ort/germanen/station/sprengreaktor",
+      "team": "ort-anker"
+    },
     "ort/germanen/station/terminal": {
       "id": "ort/germanen/station/terminal",
       "kind": "model",
@@ -12788,6 +13158,70 @@
       "source": "ort/rom/aussenposten/unterkunft",
       "team": "ort-2a"
     },
+    "ort/rom/aussenposten/zellenbatterie": {
+      "id": "ort/rom/aussenposten/zellenbatterie",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        },
+        "platziert": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.51,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.655,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.31,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 900,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "sprengpunkt",
+        "batterie",
+        "aussenposten"
+      ],
+      "source": "ort/rom/aussenposten/zellenbatterie",
+      "team": "ort-anker"
+    },
     "ort/rom/aussenposten/zellendepot": {
       "id": "ort/rom/aussenposten/zellendepot",
       "kind": "model",
@@ -12823,6 +13257,63 @@
       ],
       "source": "ort/rom/aussenposten/zellendepot",
       "team": "ort-2a"
+    },
+    "ort/rom/gemein/abholbake": {
+      "id": "ort/rom/gemein/abholbake",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "gestoert": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.45,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.625,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.25,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "abholpunkt",
+        "bake"
+      ],
+      "source": "ort/rom/gemein/abholbake",
+      "team": "ort-anker"
     },
     "ort/rom/gemein/bake": {
       "id": "ort/rom/gemein/bake",
@@ -12936,6 +13427,124 @@
       ],
       "source": "ort/rom/gemein/energiezelle",
       "team": "ort-2a"
+    },
+    "ort/rom/gemein/feldstandarte": {
+      "id": "ort/rom/gemein/feldstandarte",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "genommen": {
+          "state": 1
+        },
+        "aktiviert": {
+          "state": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.14,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.97,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.94,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "ziel",
+        "feldgenerator"
+      ],
+      "source": "ort/rom/gemein/feldstandarte",
+      "team": "ort-anker"
+    },
+    "ort/rom/gemein/kassenkapsel": {
+      "id": "ort/rom/gemein/kassenkapsel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "leer": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.3299999999999998,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.565,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.13,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "beute",
+        "fund",
+        "kapsel"
+      ],
+      "source": "ort/rom/gemein/kassenkapsel",
+      "team": "ort-anker"
     },
     "ort/rom/gemein/leitung": {
       "id": "ort/rom/gemein/leitung",
@@ -13091,6 +13700,68 @@
       "source": "ort/rom/gemein/tafel",
       "team": "ort-3a"
     },
+    "ort/rom/gemein/terminal": {
+      "id": "ort/rom/gemein/terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "laedt": {
+          "state": 1
+        },
+        "geladen": {
+          "state": 2
+        },
+        "gesperrt": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.0100000000000002,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.905,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.81,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1600,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "terminal"
+      ],
+      "source": "ort/rom/gemein/terminal",
+      "team": "ort-anker"
+    },
     "ort/rom/gemein/verteiler": {
       "id": "ort/rom/gemein/verteiler",
       "kind": "model",
@@ -13161,6 +13832,63 @@
       ],
       "source": "ort/rom/gemein/werkzeugkiste",
       "team": "ort-3a"
+    },
+    "ort/rom/gemein/zelle": {
+      "id": "ort/rom/gemein/zelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "offen": {
+          "state": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.8299999999999998,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.815,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.63,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "zelle",
+        "feld"
+      ],
+      "source": "ort/rom/gemein/zelle",
+      "team": "ort-anker"
     },
     "ort/rom/gemein/zellenarkade": {
       "id": "ort/rom/gemein/zellenarkade",
@@ -14053,6 +14781,70 @@
       ],
       "source": "ort/rom/station/spind",
       "team": "ort-3a"
+    },
+    "ort/rom/station/sprengreaktor": {
+      "id": "ort/rom/station/sprengreaktor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "scharf": {
+          "state": 1
+        },
+        "zerstoert": {
+          "state": 2
+        },
+        "platziert": {
+          "state": 3
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.7,
+          0
+        ],
+        "fx_spark": [
+          0.2,
+          0.75,
+          0.3
+        ],
+        "fx_smoke": [
+          0,
+          1.5,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 5300,
+      "tags": [
+        "prop",
+        "anker",
+        "ort01",
+        "rom",
+        "sprengpunkt",
+        "reaktor",
+        "hauptstueck"
+      ],
+      "source": "ort/rom/station/sprengreaktor",
+      "team": "ort-anker"
     },
     "ort/rom/station/teileregal": {
       "id": "ort/rom/station/teileregal",

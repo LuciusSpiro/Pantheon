@@ -95,12 +95,12 @@
       "color": {
         "stripes": [
           {
-            "shade": "metal_dark",
+            "shade": "metal",
             "f": "dk"
           },
           {
             "shade": "metal_dark",
-            "f": "0.82 * dk"
+            "f": "1.1 * dk"
           }
         ],
         "axis": "y",
@@ -215,11 +215,11 @@
       "color": {
         "stripes": [
           {
-            "shade": "metal",
-            "f": "dk"
+            "shade": "metal_light",
+            "f": "0.9 * dk"
           },
           {
-            "shade": "metal_dark",
+            "shade": "metal",
             "f": "dk"
           }
         ],

@@ -1,0 +1,389 @@
+{
+ "id": "ort/germanen/gemein/feldmast",
+ "name": "Feldmast (Germanen, Anker ziel): Runenmast als Feldgenerator, Glutkern im Eisenkäfig, Glutring; genommen = Käfig leer, aktiviert = Ring glüht und Runenspitze",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "germanen",
+  "ziel",
+  "feldgenerator"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "Ziel (0 frei, 1 genommen, 2 aktiviert)"
+  }
+ },
+ "variants": {
+  "genommen": {
+   "state": 1
+  },
+  "aktiviert": {
+   "state": 2
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß Feld",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "copper_dark",
+    "fill": "metal",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fuß Rost",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "alarm_dark",
+   "if": "state == 1",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Ring Rahmen",
+   "at": [
+    -6,
+    22,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Ring Rahmen frei",
+   "at": [
+    -5,
+    22,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Ring Glut",
+   "at": [
+    -5,
+    22,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "state == 1 ? 0 : (state == 2 ? 1.2 : 0.5)"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ring Glut frei",
+   "at": [
+    -4,
+    22,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Mast",
+   "at": [
+    -2,
+    3,
+    -2
+   ],
+   "size": [
+    4,
+    25,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Speichen x",
+   "at": [
+    -5,
+    21,
+    -1
+   ],
+   "size": [
+    10,
+    1,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Speichen z",
+   "at": [
+    -1,
+    21,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Käfigplatte unten",
+   "at": [
+    -5,
+    4,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Käfigstab",
+   "at": [
+    -5,
+    5,
+    -5
+   ],
+   "size": [
+    1,
+    9,
+    1
+   ],
+   "color": "metal_dark",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Käfigstab Mitte",
+   "at": [
+    -1,
+    5,
+    4
+   ],
+   "size": [
+    2,
+    9,
+    1
+   ],
+   "color": "metal_dark",
+   "if": "state != 1"
+  },
+  {
+   "op": "box",
+   "name": "Käfigplatte oben",
+   "at": [
+    -5,
+    14,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Käfig Niet",
+   "at": [
+    -4,
+    14,
+    4
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Glutkern",
+   "at": [
+    -3,
+    6,
+    -3
+   ],
+   "size": [
+    6,
+    7,
+    6
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "state == 2 ? 1.2 : 1"
+   },
+   "if": "state != 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Mast im Käfig",
+   "at": [
+    -2,
+    5,
+    -2
+   ],
+   "size": [
+    4,
+    9,
+    4
+   ],
+   "color": "metal",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Schlitz oben",
+   "at": [
+    -3,
+    15,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "state == 1 ? 0 : 0.9"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Runenspitze",
+   "at": [
+    -1,
+    28,
+    -1
+   ],
+   "size": [
+    2,
+    3,
+    2
+   ],
+   "color": {
+    "role": "rune",
+    "emit": "state == 2 ? 1.2 : 0.2"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Rune Mast",
+   "at": [
+    -1,
+    17,
+    2
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": "state == 1 ? 0 : 0.8"
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

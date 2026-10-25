@@ -1,0 +1,383 @@
+{
+ "id": "ort/germanen/station/sprengreaktor",
+ "name": "Schmelzofen als Sprengpunkt (Germanen, Anker sprengpunkt): Bestand ort/germanen/station/reaktor, scharf = Haftladung mit rotem Zünder, zerstört = Schacht weggesprengt, platziert = Ladung ohne Zünder",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "germanen",
+  "sprengpunkt",
+  "reaktor",
+  "hauptstueck"
+ ],
+ "footprint": [
+  2,
+  2
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Sprengpunkt (0 intakt, 1 scharf, 2 zerstoert, 3 platziert)"
+  }
+ },
+ "variants": {
+  "scharf": {
+   "state": 1
+  },
+  "zerstoert": {
+   "state": 2
+  },
+  "platziert": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "use",
+   "name": "Reaktor",
+   "model": "ort/germanen/station/reaktor",
+   "params": {
+    "last": "state == 2 ? 0 : (state == 3 ? 1 : 2)"
+   },
+   "at": [
+    0,
+    0,
+    0
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Bruch Schacht",
+   "at": [
+    -10,
+    15,
+    -10
+   ],
+   "size": [
+    20,
+    18,
+    20
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Bruch Flanke",
+   "at": [
+    -4,
+    4,
+    -10
+   ],
+   "size": [
+    8,
+    10,
+    4
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Stumpf 1",
+   "at": [
+    -9,
+    15,
+    -9
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Stumpf 2",
+   "at": [
+    3,
+    15,
+    2
+   ],
+   "size": [
+    5,
+    4,
+    4
+   ],
+   "color": "metal",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Stumpf 3",
+   "at": [
+    -3,
+    15,
+    4
+   ],
+   "size": [
+    3,
+    2,
+    3
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ruß Ofen",
+   "at": [
+    -11,
+    2,
+    -9
+   ],
+   "size": [
+    22,
+    13,
+    18
+   ],
+   "color": {
+    "noise": [
+     "dark",
+     "metal_dark",
+     "alarm_dark"
+    ],
+    "weights": [
+     3,
+     2,
+     1
+    ],
+    "cell": 2
+   },
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Trümmer",
+   "at": [
+    -14,
+    2,
+    8
+   ],
+   "size": [
+    4,
+    2,
+    4
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Trümmer 2",
+   "at": [
+    8,
+    2,
+    -14
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": "metal",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Trümmer 3",
+   "at": [
+    -4,
+    2,
+    13
+   ],
+   "size": [
+    6,
+    1,
+    3
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Glutrest",
+   "at": [
+    -2,
+    14,
+    5
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.5
+   },
+   "if": "state == 2",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ladung vorn",
+   "at": [
+    -4,
+    12,
+    9
+   ],
+   "size": [
+    8,
+    5,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ladung vorn Riemen",
+   "at": [
+    -4,
+    14,
+    12
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": "warning",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ladung Balg",
+   "at": [
+    11,
+    8,
+    -4
+   ],
+   "size": [
+    5,
+    4,
+    8
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Ladung Balg Riemen",
+   "at": [
+    11,
+    10,
+    -4
+   ],
+   "size": [
+    5,
+    1,
+    8
+   ],
+   "color": "warning",
+   "if": "state == 1 || state == 3",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Zünder Licht",
+   "at": [
+    -1,
+    17,
+    10
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "alarm",
+    "emit": 1.6
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zünder Licht Balg",
+   "at": [
+    13,
+    12,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "alarm",
+    "emit": 1.6
+   },
+   "if": "state == 1",
+   "jitter": false,
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Zünder aus",
+   "at": [
+    -1,
+    17,
+    10
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "if": "state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Zünder aus Balg",
+   "at": [
+    13,
+    12,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "if": "state == 3",
+   "mirror": "x",
+   "mirrorAt": 0
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

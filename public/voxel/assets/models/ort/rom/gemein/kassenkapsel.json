@@ -1,0 +1,306 @@
+{
+ "id": "ort/rom/gemein/kassenkapsel",
+ "name": "Kassenkapsel (Rom, Anker beute/fund): versiegelte Marmorkapsel mit Amberschloss und rotem Deckel; leer = Deckel aufgeklappt, Schloss aus",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "rom",
+  "beute",
+  "fund",
+  "kapsel"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Beute (0 voll bzw. da, 1 leer bzw. genommen)"
+  }
+ },
+ "variants": {
+  "leer": {
+   "state": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    2,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Körper lang",
+   "at": [
+    -7,
+    2,
+    -4
+   ],
+   "size": [
+    14,
+    7,
+    8
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Körper breit",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    7,
+    12
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Band quer",
+   "at": [
+    -7,
+    4,
+    -4
+   ],
+   "size": [
+    14,
+    1,
+    8
+   ],
+   "color": "trim",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Band tief",
+   "at": [
+    -6,
+    4,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "trim",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rinne",
+   "at": [
+    -5,
+    5,
+    6
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Innenraum",
+   "at": [
+    -5,
+    6,
+    -5
+   ],
+   "size": [
+    10,
+    3,
+    10
+   ],
+   "color": "metal_dark",
+   "if": "state == 1",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Innenboden",
+   "at": [
+    -5,
+    5,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "dark",
+   "if": "state == 1",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    -6,
+    9,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": "primary",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Deckelkante",
+   "at": [
+    -6,
+    11,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xz",
+    "width": 1
+   },
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Siegel Rinne",
+   "at": [
+    -5,
+    12,
+    -1
+   ],
+   "size": [
+    10,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.7
+   },
+   "if": "state == 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Deckel offen",
+   "at": [
+    -6,
+    9,
+    -7
+   ],
+   "size": [
+    12,
+    9,
+    2
+   ],
+   "color": "primary",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Deckel offen Kante",
+   "at": [
+    -6,
+    17,
+    -7
+   ],
+   "size": [
+    12,
+    1,
+    2
+   ],
+   "color": "trim",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Schloss",
+   "at": [
+    -1,
+    4,
+    6
+   ],
+   "size": [
+    2,
+    4,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 1 : 0"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schloss Fassung",
+   "at": [
+    -2,
+    3,
+    6
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Schloss aus",
+   "at": [
+    -1,
+    4,
+    6
+   ],
+   "size": [
+    2,
+    4,
+    1
+   ],
+   "color": "metal_dark",
+   "if": "state == 1"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

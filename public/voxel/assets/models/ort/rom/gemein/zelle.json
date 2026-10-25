@@ -1,0 +1,326 @@
+{
+ "id": "ort/rom/gemein/zelle",
+ "name": "Feldzelle als Anker zelle (Rom): Bogenzelle, Amber-Feldlinien und Bodenfeld an (zu) oder aus (offen)",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "rom",
+  "zelle",
+  "feld"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Zelle (0 zu, 1 offen)"
+  }
+ },
+ "variants": {
+  "offen": {
+   "state": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Boden",
+   "at": [
+    -8,
+    0,
+    -8
+   ],
+   "size": [
+    16,
+    1,
+    16
+   ],
+   "color": "stone"
+  },
+  {
+   "op": "box",
+   "name": "Rückwand",
+   "at": [
+    -8,
+    1,
+    -8
+   ],
+   "size": [
+    16,
+    22,
+    2
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Rückwand Rot",
+   "at": [
+    -7,
+    2,
+    -6
+   ],
+   "size": [
+    14,
+    5,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Seitenwand",
+   "at": [
+    -8,
+    1,
+    -6
+   ],
+   "size": [
+    2,
+    22,
+    10
+   ],
+   "color": "secondary",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "use",
+   "name": "Portal",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    1,
+    4
+   ],
+   "params": {
+    "w": 10,
+    "h": 16,
+    "d": 3,
+    "wall": 3,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kopfrinne",
+   "at": [
+    -8,
+    24,
+    4
+   ],
+   "size": [
+    16,
+    1,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Kopfrinne Fluss",
+   "at": [
+    -7,
+    25,
+    5
+   ],
+   "size": [
+    14,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Feldlinie",
+   "at": [
+    -4,
+    2,
+    5
+   ],
+   "size": [
+    1,
+    18,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "jitter": false,
+   "repeat": {
+    "count": 5,
+    "step": [
+     2,
+     0,
+     0
+    ]
+   },
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Feldschwelle",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    10,
+    1,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Feldschwelle Fluss",
+   "at": [
+    -4,
+    1,
+    5
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1
+   },
+   "jitter": false,
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Feldquerlinie",
+   "at": [
+    -4,
+    10,
+    5
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.5
+   },
+   "jitter": false,
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Deckenlicht",
+   "at": [
+    -1,
+    22,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.8
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Bodenfeld",
+   "at": [
+    -5,
+    1,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    9
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 0.5 : 0"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Feld aus Schwelle",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    10,
+    1,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Feldschalter",
+   "at": [
+    -8,
+    8,
+    4
+   ],
+   "size": [
+    1,
+    3,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 0.9 : 0"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Feldschalter Fassung",
+   "at": [
+    -8,
+    7,
+    4
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": "trim"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}
