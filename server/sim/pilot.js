@@ -10,6 +10,8 @@ const Flight = require('../../shared/flight.js');
 const Physics = require('../../shared/physics.js');
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage (Freigabe Studioleitung: nur avoid/keepApart)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Segment, das der Lerche zugewandt ist
+const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: Antrieb (e.zs) senkt die Fahrt
+const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: e.fluchtZiel (Tempo, Ankunft aus Daten)
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -409,6 +411,7 @@ function update(game, e, dt) {
   e.forceCenterT = Math.max(0, (e.forceCenterT || 0) - dt);
   let cmd;
   if (e.kind === 'pylon') cmd = pylon(game, e);
+  else if (e.fluchtZiel) cmd = flucht(game, e, c);   // SUND-04a-1 A: Verfolgung – Flucht geht vor dem Rückzug
   else if (e.retreatUntil > game.time) {
     if (e.pstate !== 'retreat') e.preRetreat = e.pstate;
     setState(e, 'retreat');
@@ -424,12 +427,24 @@ function update(game, e, dt) {
   // Stuck-Timer: kaum Fahrt, obwohl die Stufe Fahrt verlangt
   const spd = Math.hypot(e.vx, e.vy);
   const wants = c.stages[cmd.stage] * c.maxSpeed;
-  e.stuckT = wants > 20 && spd < 8 ? (e.stuckT || 0) + dt : 0;
+  e.stuckT = wants > 20 && spd < 8 && !e.zs ? (e.stuckT || 0) + dt : 0;   // SUND-04a-1 A: mit beschädigtem Antrieb ist langsam kein Festsitzen
   if (e.stuckT > p.stuckTime) { e.stuckT = 0; e.forceCenterT = 2; if (e.kind === 'raider') setState(e, 'turn'); }
   let head = cmd.head;
   if (!cmd.noAvoid) head = avoid(game, e, c, head);
   const rudder = cmd.rudder0 && Math.abs(norm(head - cmd.head)) < 1e-6 ? 0 : rudderFor(game, e, c, head);
   return { stage: cmd.stage, rudder, brake: false };
+}
+
+// SUND-04a-1 A: Verfolgung – das Zielschiff fährt auf den Fluchtpunkt (e.fluchtZiel) und hält dort, solange es den Sprung auflädt (e.sprung).
+// Tempo = Anteil der Höchstfahrt (Daten); ein beschädigter Antrieb wirkt über den speedFactor in fly(). Schiffe ohne Stopp-Stufe (Jäger) fliegen weiter.
+function flucht(game, e, c) {
+  const goal = Verfolgung.fluchtZiel(e);
+  const d = Math.hypot(goal.x - e.x, goal.y - e.y);
+  const head = d > 2 ? Math.atan2(goal.y - e.y, goal.x - e.x) : e.angle;
+  if (e.sprung != null || d < 30) return { stage: Flight.stopStage(c), head: d > 2 ? head : e.angle };
+  let speed = Verfolgung.pilotTempo(c, e);
+  if (Math.abs(norm(head - e.angle)) > 1.0) speed = Math.max(Math.min(speed, Flight.stageSpeed(c, Flight.agileStage(c))), 8);   // große Kursänderung: wendigste Stufe
+  return { stage: Math.max(stageFor(c, speed), speed > 4 ? 1 : 0), head };
 }
 
 // Letzte Sicherung gegen Zusammenstöße: unter max(minSeparation, Radiensumme) wird der Gegner hinausgeschoben und
@@ -464,7 +479,7 @@ function keepApart(game, e, c) {
 function fly(game, e, dt) {
   const c = shipClass(game, e.kind);
   const input = update(game, e, dt);
-  Flight.stepBody(e, input, c, null, dt);
+  Flight.stepBody(e, input, c, e.zs ? { speedFactor: Zielsysteme.tempoFaktor(e) } : null, dt);   // SUND-04a-1 A: Antrieb als speedFactor (ohne e.zs wie bisher)
   if (e.kind === 'pylon' && e.home) { e.x = e.home.x; e.y = e.home.y; e.vx = 0; e.vy = 0; }
   else keepApart(game, e, c);
   const sp = game.space; const m = 30;
@@ -473,7 +488,7 @@ function fly(game, e, dt) {
   if (e.y < m) { e.y = m; e.vy = Math.max(0, e.vy); }
   if (e.y > sp.h - m) { e.y = sp.h - m; e.vy = Math.min(0, e.vy); }
   // am Rand abgebremst: Jäger behalten trotzdem ihr Mindesttempo (entlang des Randes)
-  const vmin = c.minSpeed || 0; const v = Math.hypot(e.vx, e.vy);
+  const vmin = (c.minSpeed || 0) * (e.zs ? Math.min(1, Zielsysteme.tempoFaktor(e)) : 1); const v = Math.hypot(e.vx, e.vy);
   if (vmin > 0 && v < vmin) {
     if (v > 1) { e.vx *= vmin / v; e.vy *= vmin / v; }
     else { e.vx = Math.cos(e.angle) * vmin; e.vy = Math.sin(e.angle) * vmin; }

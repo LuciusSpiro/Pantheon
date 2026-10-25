@@ -1,0 +1,187 @@
+{
+  "format": "molekuel/1",
+  "id": "verfolgen",
+  "name": "Verfolgen",
+  "familie": "kampf",
+  "kern": "Ein fliehendes Schiff stellen, bevor es springt: Antrieb gezielt ausschalten oder die Sprungladung stören",
+  "ansaetze": [
+    "gewalt",
+    "technik"
+  ],
+  "szenentypen": [
+    "A6"
+  ],
+  "umsetzungen": [
+    {
+      "id": "fliehenden_stellen",
+      "name": "Flüchtigen stellen",
+      "schauplatz": "weltraum",
+      "beschreibung": "Ein Zielschiff (Klasse, Volk, Name frei: Kurier, Händler, Pirat) flieht zum Sprungpunkt (sonst zum Szenenrand) und lädt dort den Sprung auf (15 s). Die Crew stellt es: Ops scannen es, visieren den Antrieb an und treffen das Heck (Schild durchschlagen), dann sinkt sein Tempo bis zum Stillstand; oder Hüllentreffer verzögern die Ladung. Gestellt, wenn der Antrieb ausfällt und die Lerche nah bleibt. Es zielt selbst auf den Antrieb der Lerche. Entkommt es, kommt bei wiederholung ein neues.",
+      "braucht": [
+        "verfolgung",
+        "zielsysteme",
+        "raumkampf"
+      ],
+      "dauer_min": [
+        2,
+        4
+      ],
+      "dauer_quelle": "schaetzung",
+      "dauer_je_crew": {
+        "1": [
+          3,
+          5
+        ],
+        "2": [
+          2,
+          4
+        ],
+        "3": [
+          2,
+          4
+        ]
+      },
+      "ereignisse": [
+        "verfolgungStart",
+        "verfolgungSprungStart",
+        "verfolgungAusgang",
+        "zielsystemGetroffen",
+        "enemySpawn",
+        "enemyKilled"
+      ],
+      "params": {
+        "loc": {
+          "typ": "loc",
+          "pflicht": true,
+          "beschreibung": "Offener Raumort ohne Brockenfeld (Rabenpass, Boje B-7, Relais): das Zielschiff flieht zum Sprungpunkt oder zum Szenenrand",
+          "werte": [
+            "rabenpass",
+            "b7",
+            "relais"
+          ]
+        },
+        "klasse": {
+          "typ": "text",
+          "default": "korvette",
+          "werte": [
+            "frachter",
+            "raider",
+            "korvette",
+            "fregatte",
+            "kreuzer"
+          ],
+          "beschreibung": "Klasse des Zielschiffs (frachter unbewaffnet, sonst bewaffnet)"
+        },
+        "volk": {
+          "typ": "text",
+          "default": "ger",
+          "werte": [
+            "ger",
+            "rom",
+            "pirat"
+          ],
+          "beschreibung": "Kennung des Zielschiffs"
+        },
+        "name": {
+          "typ": "text",
+          "default": "",
+          "beschreibung": "Name des Zielschiffs für Ansagen und Anzeige (leer: Das Zielschiff), höchstens 20 Zeichen"
+        },
+        "wiederholung": {
+          "typ": "bool",
+          "default": true,
+          "beschreibung": "Entkommt das Zielschiff, kommt nach 8 s ein neues (Szene wiederholt sich); aus: Ausgang entkommen bleibt stehen"
+        },
+        "lage": {
+          "typ": "text",
+          "default": "Das Schiff dreht ab und flieht zum Sprung. Antrieb ausschalten, bevor es springt."
+        }
+      },
+      "vorlage": {
+        "buehne": {
+          "orte": [
+            "{{loc}}"
+          ]
+        },
+        "steps": [
+          {
+            "id": "{{id}}",
+            "loc": "{{loc}}",
+            "restartOnReturn": true,
+            "enter": [
+              {
+                "do": "verfolgung_an",
+                "klasse": "{{klasse}}",
+                "volk": "{{volk}}",
+                "name": "{{name}}",
+                "wiederholung": "{{wiederholung}}"
+              }
+            ],
+            "timers": [
+              {
+                "at": 0.5,
+                "oda": "@{{id}}.lage"
+              },
+              {
+                "at": 25,
+                "if": {
+                  "not": {
+                    "check": {
+                      "name": "verfolgung_erfolg"
+                    }
+                  }
+                },
+                "oda": "@{{id}}.tipp",
+                "garantie": "hinweis"
+              }
+            ],
+            "objectives": [
+              {
+                "id": "stellen",
+                "text": "@{{id}}.ziel",
+                "done": {
+                  "check": {
+                    "name": "verfolgung_erfolg"
+                  }
+                }
+              }
+            ],
+            "next": [
+              {
+                "if": {
+                  "check": {
+                    "name": "verfolgung_erfolg"
+                  }
+                },
+                "goto": "{{weiter}}"
+              }
+            ],
+            "skip": [
+              {
+                "do": "verfolgung_ende"
+              },
+              {
+                "do": "debug_clear_enemies"
+              }
+            ]
+          }
+        ],
+        "texte": {
+          "{{id}}.lage": "{{lage}}",
+          "{{id}}.tipp": "Ops: Ziel anwählen (T), scannen (S halten), Antrieb anvisieren (0), von hinten feuern. Der Antrieb steht am Heck.",
+          "{{id}}.ziel": "Das Zielschiff stellen, bevor der Sprung geladen ist"
+        }
+      },
+      "rueckfall": {
+        "params": {}
+      },
+      "test": {
+        "params": {
+          "loc": "rabenpass",
+          "klasse": "fregatte"
+        }
+      }
+    }
+  ],
+  "quelle": "vault: Auftrag SUND-04 (Paket A), Szenentyp A6 Verfolgung; Umsetzung SUND-04a-1 A"
+}

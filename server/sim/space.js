@@ -14,6 +14,8 @@ const Sprung = require('./sprung.js');
 const Reise = require('./reise.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
+const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
+const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 – Zielschiff flieht zum Fluchtpunkt (e.fluchtZiel), Sprungladung, Ausgang gestellt/entkommen
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
 const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur, Minen, Einsprung (ohne Alarm in der Szene ohne Wirkung)
 const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
@@ -117,12 +119,14 @@ function enterScene(game, locId, opts) {
   ship.jump.dest = null; ship.jump.charge = 0; ship.jump.ready = false;
   game._jumpAuto = false;
   ship.target = null;
+  delete ship.zielsystem;   // SUND-04a-1 A
   ship.markers = { captain: null, tactical: null };
   ship.tscan = { targetId: null, progress: 0, on: false, at: 0 };
   ship.scanning = false;
   const sp = game.space;
   sp.w = sc.w; sp.h = sc.h;
   sp.enemies = []; sp.projectiles = []; sp.beams = [];
+  Zielsysteme.szeneAn(game, false);   // SUND-04a-1 A: der Szenenschalter gilt nur in der Szene, die ihn setzt
   sp.dockOk = dockOk; sp.dockHinweis = false;   // SUND-01 D: Andocken erlaubt? Hinweis „verweigert“ schon gezeigt?
   sp.asteroids = opts && opts.drift ? makeDriftAsteroids(game, loc, postenB, dockB) : makeAsteroids(game, loc, postenB, dockB);   // W2 AP3b: bewegt nur auf Wunsch (Wellen All)
   sp.salvage = [];
@@ -812,6 +816,7 @@ function shipHit(game, sector, dmg, opts) {
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
   if (hull > 0) { Fracht.huellenTreffer(game); game.missionEvent('hullHit', { sector }); }   // PAN-01 A: ungesicherter Frachtraum verliert Ladung
+  if (opts.angriff && hull > 0) Zielsysteme.trifftLerche(game, sector, r, opts);   // SUND-04a-1 A: durchschlagender Treffer auf die Seite des Systems (Heck: Antrieb), nur Angriffe in Szenen mit Schalter
 }
 // Bisherige Treffer-Logik (M3a ohne Schildstoß) – nur Fallback, solange damage.js fehlt
 function hitLegacy(game, sector, dmg, opts) {
@@ -939,12 +944,12 @@ function resolveTarget(game, id) {
   return null;
 }
 function weaponsTarget(game, id) {
-  if (id === null || id === undefined) { game.ship.target = null; return null; }
+  if (id === null || id === undefined) { game.ship.target = null; delete game.ship.zielsystem; return null; }
   const rt = resolveTarget(game, id);
   if (!rt) return 'Ziel nicht gefunden.';
   // W2: Gegner nur innerhalb der Sensorreichweite aufschalten (im Nebel × fogFactor; der Client zeigt dieselbe Grenze)
   if ((rt.type === 'enemy' || rt.type === 'mine') && dist(game.ship.x, game.ship.y, rt.x, rt.y) > sensorReichweite(game) && !require('./sonden.js').sieht(game, rt.x, rt.y)) return 'Ziel außerhalb der Sensoren.';   // SL4: eine Sonde erweitert die Sicht
-  if (game.ship.target !== id) game.ship.tscan.progress = 0;
+  if (game.ship.target !== id) { game.ship.tscan.progress = 0; delete game.ship.zielsystem; }   // SUND-04a-1 A: das Systemziel gilt für das gewählte Ziel
   game.ship.target = id;
   return null;
 }
@@ -1144,7 +1149,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hp -= rest;
   if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
-  if (e.hp > 0) return;
+  if (e.hp > 0) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: Treffer, der den Schild durchschlägt und die Hülle trifft: gezielter Systemtreffer (nur Angriffe)
   if (Entern.onEnemyZero(game, e)) return;   // Welle 0 (CONTRACT-B1 §7): Stub liefert false -> wie bisher
   const C = game.C;
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
@@ -1468,7 +1473,10 @@ function moveLegacy(game, e, dt, retreating) {
     const d = Math.hypot(dx, dy) || 1;
     const toShip = Math.atan2(ship.y - e.y, ship.x - e.x);
     let tx = e.x, ty = e.y, face = null;
-    if (retreating) {
+    if (e.fluchtZiel) {   // SUND-04a-1 A: Verfolgung – das Zielschiff fährt zum Fluchtpunkt und bleibt dort (Sprungladung); gilt auch beim Rückzug
+      const fz = Verfolgung.fluchtZiel(e);
+      tx = fz.x; ty = fz.y;
+    } else if (retreating) {
       tx = ship.x + dx / d * C.combat.retreatDist; ty = ship.y + dy / d * C.combat.retreatDist;
     } else if (e.kind === 'relay') {
       const b = stationPoint(game);
@@ -1511,10 +1519,13 @@ function moveLegacy(game, e, dt, retreating) {
     }
     // QA S2b (Golden m2/3 Seed 6): Steht das Ziel in einer Ecke, lag der Kreispunkt außerhalb der Karte – der Jäger klebte
     // am Rand auf dem Schiff (Abstand 14 px), traf nicht und war nicht zu treffen: 400 s Patt. Zielpunkt im Feld halten.
-    if (!retreating && e.kind !== 'pylon' && e.kind !== 'relay') { tx = clamp(tx, 120, sp.w - 120); ty = clamp(ty, 120, sp.h - 120); }
+    if (!retreating && !e.fluchtZiel && e.kind !== 'pylon' && e.kind !== 'relay') { tx = clamp(tx, 120, sp.w - 120); ty = clamp(ty, 120, sp.h - 120); }
     const mx = tx - e.x, my = ty - e.y;
     const md = Math.hypot(mx, my);
-    const step = Math.min(md, cfg.speed * dt);
+    let vKin = cfg.speed;
+    if (e.fluchtZiel) vKin = Verfolgung.legacyTempo(cfg.speed, e);   // SUND-04a-1 A: Fluchttempo des kinematischen Modells (Daten)
+    if (e.zs) vKin *= Zielsysteme.tempoFaktor(e);   // SUND-04a-1 A: Antrieb beschädigt/ausgefallen (nur mit e.zs)
+    const step = Math.min(md, vKin * dt);
     if (md > 1 && cfg.speed > 0) {
       // W2 AP3b: um Brocken herum (Vorausschau 1,5 s, mindestens 80 px) – ohne Brocken unverändert
       const u = game.space.asteroids.length ? brockenAusweichen(game, e.x, e.y, mx / md, my / md, gegnerRadius(game, e), Math.max(80, cfg.speed * 1.5)) : { x: mx / md, y: my / md };
@@ -1522,7 +1533,7 @@ function moveLegacy(game, e, dt, retreating) {
     }
     e.x = clamp(e.x, 30, sp.w - 30); e.y = clamp(e.y, 30, sp.h - 30);
     if (e.kind !== 'pylon') {
-      const want = retreating ? (md > 2 ? Math.atan2(my, mx) : e.angle) : (face != null ? face : (md > 2 ? Math.atan2(my, mx) : e.angle));
+      const want = retreating || e.fluchtZiel ? (md > 2 ? Math.atan2(my, mx) : e.angle) : (face != null ? face : (md > 2 ? Math.atan2(my, mx) : e.angle));
       e.angle = turnToward(e.angle, want, 3 * dt);
     }
   }
@@ -1537,6 +1548,8 @@ function enemySnapExtra(e) {
   if (st) o.state = st;
   const kx = Konvoi.snapExtra(e);   // EK3 Teil B: sj = Sprungaufladung des Transporters
   if (kx) Object.assign(o, kx);
+  if (e.zs) { const zx = Zielsysteme.snapExtra(e); if (zx) Object.assign(o, zx); }   // SUND-04a-1 A: az = Antriebsstufe des gescannten Ziels (fehlt = voll)
+  if (e.fluchtZiel) { const vx = Verfolgung.snapExtra(e); if (vx) Object.assign(o, vx); }   // SUND-04a-1 A: sj = Sprungladung des Flüchtigen, nm = Name
   return o;
 }
 
@@ -1591,7 +1604,7 @@ function updateTele(game, e, d, retreating, dt) {
       // EK1b: weitere Lanze-Plätze im Bogen verstärken die Ladung (waffenMehr.lanzeJeWeitere je Platz); Korvette: nie mehr als einer im Bogen
       const nL = e.waffen ? Math.max(1, plaetzeImBogen(game, e, ship, 'lanze').length) : 1;
       const mehr = 1 + ((C.waffenMehr && C.waffenMehr.lanzeJeWeitere) || 0) * (nL - 1);
-      shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, { heavy: true, emp });
+      shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, Zielsysteme.szeneAktiv(game) ? { heavy: true, emp, angriff: true, zielt: e.zielsystem } : { heavy: true, emp });
     } else {
       game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
       game.emit('teleMiss', { id: e.id });
@@ -1640,7 +1653,8 @@ function etorpedoTreffer(game, p) {
     return;
   }
   game.stats.torpedoLerche = (game.stats.torpedoLerche || 0) + 1;
-  shipHit(game, sec, p.dmg != null ? p.dmg : T.gegenLerche, { pierce: true, heavy: true, torpedo: true });
+  const eto = Zielsysteme.szeneAktiv(game) ? game.space.enemies.find((e) => e.id === p.owner) : null;
+  shipHit(game, sec, p.dmg != null ? p.dmg : T.gegenLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: eto.zielsystem } : { pierce: true, heavy: true, torpedo: true });
 }
 
 function updateProjectiles(game, dt) {
@@ -1679,6 +1693,7 @@ function updateProjectiles(game, dt) {
         const pierce = !sperr && !!(owner && owner.tag === 'nachzuegler' && !owner.hasHit);
         if (pierce) owner.hasHit = true;
         const hopts = { pierce, emp: p.kind === 'emp' };
+        if (owner && Zielsysteme.szeneAktiv(game)) { hopts.angriff = true; if (owner.zielsystem) hopts.zielt = owner.zielsystem; }   // SUND-04a-1 A: Angriff eines Gegners (gleiche Regel wie Lerche gegen Gegner)
         if (sperr) hopts.sperrfeuer = true;
         if (p.kind === 'sturm') hopts.sturm = true;
         if (p.tgt) { hopts.shielded = p.tgt; if (game.stats.escort) game.stats.escort.shielded++; }   // S2: Lerche fängt Salve auf den Schützling
@@ -1707,7 +1722,7 @@ function updateProjectiles(game, dt) {
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
             const dgel = Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild() }, 'torpedowerfer');
             if (dgel > 0) game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1; else game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;   // Lesart B: am stehenden Schild abgeprallt
-          } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true } : undefined);
+          } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true, angriff: true } : undefined);   // SUND-04a-1 A: Treffer der Verbündeten zählen als Angriff (ungezielt)
           break;
         }
       }
@@ -1734,6 +1749,8 @@ function update(game, dt) {
   updateTargetScan(game, dt);
   updateEnemies(game, dt);
   Konvoi.update(game, dt);   // EK3 Teil B: Zerstörte/Gesprungene, Alarm der Eskorte, Ausgang (ohne Konvoi sofort zurück)
+  Zielsysteme.update(game);   // SUND-04a-1 A: Erholung der Zielsysteme (nur Gegner mit e.zs)
+  Verfolgung.update(game, dt);   // SUND-04a-1 A: Fluchtpunkt, Sprungladung, Stellen, Ausgang (ohne Verfolgung sofort zurück)
   Alarm.update(game, dt);   // EK2: Lärm, Entdeckung, Einsprung, Minen
   Zonen.update(game, dt);   // SL6: Zonen wirken auf Lerche, Gegner und Schützlinge (nach den Flügen, vor den Geschossen)
   // S2 §5: Schützlinge und Rückzugsregel (nur wenn vorhanden – sonst unverändert)

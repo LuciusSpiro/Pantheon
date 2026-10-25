@@ -17,7 +17,8 @@
     "wissen_aufteilen":  { "status": "verfuegbar", "beschreibung": "Captain sieht die Codetabelle, Außenteam gibt ein (Sonde auf B-7)" },
 
     "hyperraum":         { "status": "geplant", "beschreibung": "Langstreckensprung als eigene Szene" },
-    "verfolgung":        { "status": "geplant", "beschreibung": "Flucht und Jagd mit Sprungaufladung unter Druck" },
+    "verfolgung":        { "status": "verfuegbar", "beschreibung": "Ein Zielschiff (Klasse, Volk, Name) flieht Richtung Fluchtpunkt (Sprungpunkt, sonst virtueller Randpunkt) und lädt dort den Sprung auf; stellen durch gezielten Antriebstreffer der Ops (zielsysteme) oder Störung der Sprungladung, Ausgänge gestellt, zerstoert, entkommen mit Wiederholung (SUND-04a-1 A: server/sim/verfolgung.js)" },
+    "zielsysteme":       { "status": "verfuegbar", "beschreibung": "Gezielter Systemtreffer durch die Ops am gescannten Gegner (V1: Antrieb, Daten content/kampf/zielsysteme-werte.json): Treffer, der den Schild durchschlägt und das Heck trifft, senkt das Tempo bis zum Stillstand; gleiche Regeln für die Lerche (SUND-04a-1 A: server/sim/zielsysteme.js)" },
     "schuetzling":       { "status": "verfuegbar", "beschreibung": "NSC-Schiff, das geschützt werden muss (S2: server/sim/escort.js)" },
     "entern":            { "status": "geplant", "beschreibung": "Andocken an fremde Schiffe, Hülle aufschneiden" },
     "verbuendete":       { "status": "verfuegbar", "beschreibung": "Verbündete NSC-Schiffe mit eigener KI (Flug und Feuer über die Klassen-KI, Rollen begleiter/angreifer), kein Eigenbeschuss, höchstens 12 Schiffe je Szene mit Nachschub, Sprung der Flotte, Einblenden (EK4b: server/sim/flotte.js)" },

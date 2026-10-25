@@ -1805,6 +1805,35 @@
       },
       {
         "ansaetze": [
+          "gewalt",
+          "technik"
+        ],
+        "id": "verfolgen",
+        "kern": "Ein fliehendes Schiff stellen, bevor es springt: Antrieb gezielt ausschalten oder die Sprungladung stören",
+        "name": "Verfolgen",
+        "szenentypen": [
+          "A6"
+        ],
+        "umsetzungen": [
+          {
+            "beschreibung": "Ein Zielschiff (Klasse, Volk, Name frei: Kurier, Händler, Pirat) flieht zum Sprungpunkt (sonst zum Szenenrand) und lädt dort den Sprung auf (15 s). Die Crew stellt es: Ops scannen es, visieren den Antrieb an und treffen das Heck (Schild durchschlagen), dann sinkt sein Tempo bis zum Stillstand; oder Hüllentreffer verzögern die Ladung. Gestellt, wenn der Antrieb ausfällt und die Lerche nah bleibt. Es zielt selbst auf den Antrieb der Lerche. Entkommt es, kommt bei wiederholung ein neues.",
+            "dauer_min": [
+              2,
+              4
+            ],
+            "id": "fliehenden_stellen",
+            "name": "Flüchtigen stellen",
+            "nur_an": [
+              "rabenpass",
+              "b7",
+              "relais"
+            ],
+            "schauplatz": "weltraum"
+          }
+        ]
+      },
+      {
+        "ansaetze": [
           "reden"
         ],
         "id": "verhandeln",
@@ -2006,7 +2035,6 @@
         "halten",
         "hyperraumflug",
         "krise_an_bord",
-        "verfolgung",
         "wettflug"
       ]
     },
@@ -2373,6 +2401,23 @@
           "unbemerkt_durchfliegen"
         ],
         "name": "Schleichfahrt",
+        "plaetze": [
+          1,
+          2
+        ]
+      },
+      {
+        "bereich": "weltraum",
+        "id": "verfolgung",
+        "kennung": "A6",
+        "kern": "Fliehen oder jagen, Sprungaufladung unter Druck, Ausweichen",
+        "kippt_zu": [
+          "raumgefecht"
+        ],
+        "molekuele": [
+          "verfolgen"
+        ],
+        "name": "Verfolgung",
         "plaetze": [
           1,
           2

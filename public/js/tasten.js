@@ -91,6 +91,7 @@
     A('ops.schilde', 'ops', 'Schilde hoch/runter', ['KeyH']),
     A('ops.marker', 'ops', 'Marker aufs Ziel', ['KeyM']),
     A('ops.markerLoeschen', 'ops', 'Marker löschen', ['KeyX']),
+    A('ops.systemziel', 'ops', 'Systemziel Antrieb (am gescannten Ziel) an/aus', ['Digit0', 'Numpad0']),
     A('ops.orbitalschlag', 'ops', 'Orbitalschlag auf Markierung', ['KeyO']),
     A('ops.zoom', 'ops', 'Zoom wechseln', ['KeyZ']),
     A('ops.zoomRein', 'ops', 'Hineinzoomen', ['Equal', 'NumpadAdd']),

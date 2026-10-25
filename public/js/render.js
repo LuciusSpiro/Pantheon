@@ -4003,6 +4003,13 @@
         lab('ZIEL', s.x, s.y - zr - 8, { color: PAL.mint, align: 'center' }, 4);
       } else if (!front) arrow(z[0], z[1], PAL.mint, 'ZIEL');
     }
+    if (space.vf) {   // SUND-04a-1 A: Fluchtpunkt der Verfolgung (Sprungpunkt oder Randpunkt): dort lädt das Zielschiff den Sprung
+      const s = toS(space.vf.x, space.vf.y); const vr = Math.max(8, (space.vf.r || 120) * zoom);
+      if (inB(s, vr)) {
+        ctx.strokeStyle = PAL.mint; ctx.lineWidth = 1; ctx.setLineDash([3, 5]); ctx.beginPath(); ctx.arc(s.x, s.y, vr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        lab('FLUCHTPUNKT', s.x, s.y - vr - 8, { color: PAL.mint, align: 'center' }, 4);
+      } else if (!front) arrow(space.vf.x, space.vf.y, PAL.mint, 'FLUCHTPUNKT');
+    }
     if (space.al) lab(space.al >= 2 ? 'ALARM – ALLE GEGNER GREIFEN AN' : 'ALARMSTUFE: MISSTRAUISCH', B.x + B.w / 2, B.y + 12, { color: space.al >= 2 ? PAL.red : PAL.amber, align: 'center' }, 9);
 
     // Aufgedeckte versteckte Objekte (Weitscan)
@@ -4122,6 +4129,10 @@
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
         ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
         lab('SPRUNG', s.x, s.y - size - 22, { color: PAL.mint, align: 'center' }, 3);
+      }
+      if (e.az && window.Zielsysteme) {   // SUND-04a-1 A: Antriebsschaden des gescannten Ziels (Bernstein = Antrieb)
+        const zz = window.Zielsysteme.zustand(e, 'antrieb');
+        if (zz && zz.schaden) lab(zz.name.toUpperCase() + ' ' + zz.text.toUpperCase(), s.x, s.y - size - 32, { color: PAL.amber, align: 'center' }, 3);
       }
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);

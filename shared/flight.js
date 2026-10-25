@@ -106,7 +106,7 @@
       f = f > 0 ? Math.max(f - decel, Math.max(target, 0)) : Math.max(f - accel, target);
     }
     // Mindesttempo (Jäger können nicht stehen bleiben; ohne Antrieb gilt es nicht)
-    const vmin = sf > 0 ? (cls.minSpeed || 0) : 0;
+    const vmin = sf > 0 ? (cls.minSpeed || 0) * Math.min(1, sf) : 0;   // SUND-04a-1 A: ein beschädigter Antrieb senkt auch die Mindestfahrt (Faktor 1: unverändert)
     if (vmin > 0 && f < vmin) f = vmin;
 
     // ---- Drift: Querbewegung dämpfen; der Allstopp bremst sie zusätzlich ----

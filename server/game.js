@@ -15,6 +15,8 @@ const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslog
 const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfahrt (Snapshot: space.mines, space.al, enemies[].pat, ship.sf)
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
+const Zielsysteme = require('./sim/zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer der Ops (Befehl weapons.systemziel, Snapshot ship.zs, enemies[].az)
+const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
 const Fracht = require('./sim/fracht.js');   // EK3 Teil A: Fracht im Raum, Beamen an Bord, Frachtraum
 const Modul = require('./sim/module.js');   // PAN-01 A: Bordmodule (Frachtraum, Krankenstation, Werkstatt), je 1 Energie
 const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche (0–3)
@@ -1120,6 +1122,7 @@ class Game {
         break;
       }
       case 'weapons.target': err = space.weaponsTarget(this, msg.id == null ? null : String(msg.id)); break;
+      case 'weapons.systemziel': err = Zielsysteme.waehle(this, msg.id == null ? null : String(msg.id)); break;   // SUND-04a-1 A: System am gescannten Ziel anvisieren (id) bzw. aufheben (null)
       case 'weapons.fire': {
         // M3a §5.1: Altnamen phase_l/phase_r/both -> port/stbd/all (nur sobald COMBAT die neue Logik liefert)
         const raw = String(msg.mount);
@@ -1401,6 +1404,8 @@ class Game {
       case 'werft': err = Werft.debug(this, argList(msg)); break;   // PAN-01 D: werft [status | freischalten alle | reset]
       case 'ausbau': err = Ausbau.debug(this, argList(msg)); break;   // PAN-01 B: ausbau [status | 0..3] – Ausbaustufe (Waffenplätze, Modulräume, Pforten, Lifts)
       case 'fracht': err = Fracht.debug(this, argList(msg)); break;   // EK3 Teil A: fracht abwerfen [art] [dx dy] | an [art] | leer | gesichert an|aus | abnehmer [ort] | status
+      case 'zielsysteme': err = Zielsysteme.debug(this, argList(msg)); break;   // SUND-04a-1 A: zielsysteme [an|aus|frei] – Szenenschalter (beide Seiten gleiche Regeln), frei = Schäden der Gegner löschen
+      case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
@@ -1938,6 +1943,7 @@ class Game {
     };
     // EK2 (kompakt, „fehlt = Standard“): Minen nur gesehene/nahe, Alarmstufe nur > 0
     { const so = Sonden.snapshot(this); if (so) spaceOut.so = so; }   // SL4: Sonden (≤ 3)
+    { const vf = Verfolgung.snapshot(this); if (vf) spaceOut.vf = vf; }   // SUND-04a-1 A: Fluchtpunkt der Verfolgung (nur solange das Zielschiff flieht)
     { const no = Notrufe.snapshotOrt(this); if (no) spaceOut.nro = no; }   // SL8: Ruf-Ort in der Szene (neutral)
     { const sp = Spur.snapshot(this); if (sp) spaceOut.sp = sp; }
     if (this.weltsim) { try { const po = Posten.snapshot(this) || Verrat.snapshot(this); if (po) spaceOut.po = po; } catch (e) { this.countError('snapshot-posten', e); } }   // SUND-02b A1: Posten gründen/ausbauen (Ops), nur im Modus   // SL5: Spurkern der Szene (nur im Spur-Hex, ungelesen)
@@ -2083,6 +2089,7 @@ class Game {
         scan: { progress: r2(ship.scan.progress), done: ship.scan.done, target: scanT ? { id: scanT.id, label: scanT.label, x: scanT.x, y: scanT.y, range: scanT.range } : null },
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
+        ...(ship.zielsystem ? { zs: ship.zielsystem } : {}),   // SUND-04a-1 A: gewähltes Systemziel der Ops (fehlt = keins)
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
         ...(Alarm.schleichSnap(this) ? { sf: Alarm.schleichSnap(this) } : {}),   // EK2: Schleichfahrt: Signatur, Schilde unten, Ping
         npcs: onboard.npcsSnapshot(this).concat(PersonenBord.bordNpcs(this)),   // SL0: Personen an Bord liegen auf den Frachtbetten

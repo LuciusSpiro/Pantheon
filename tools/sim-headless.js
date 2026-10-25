@@ -2590,6 +2590,35 @@ class GenericAgent extends KeshAgent {
   }
   umsetzung_konvoi_abfangen_pluendern(S, p) { this.konvoiBot(S, p, true); }
   umsetzung_konvoi_abfangen_aufhalten(S, p) { this.konvoiBot(S, p, false); }
+  // SUND-04a-1 A: Verfolgung (A6). Steuer: von hinten ans Zielschiff (Bug aufs Ziel, VOLL bis in die Nähe, dann ¾/½ im Abstand des Zielschiffs), die Taktik scannt (S), wählt das
+  // Systemziel Antrieb (weapons.systemziel) und feuert (fight: Lanze vom Bug, Batterien); nach dem Ausfall bleibt die Lerche nah (stellen). solo: 3 s Steuer, 7 s Taktik wie beim Konvoi.
+  verfolgungBot(S, p) {
+    const en = S.space.enemies; const sh = S.ship; const sim = this.game.simStats;
+    const tg = en.slice().sort((a, b) => dist(sh.x, sh.y, a.x, a.y) - dist(sh.x, sh.y, b.x, b.y))[0];
+    sim.verfolgung = this.game.stats.verfolgung || sim.verfolgung; sim.zielsysteme = this.game.stats.zielsysteme || sim.zielsysteme;   // Zähler des Servers (Ausgänge, Antriebstreffer) für die Messung
+    if (!tg) { this.calm(S, p); return; }
+    const d = dist(sh.x, sh.y, tg.x, tg.y);
+    const diff = norm(Math.atan2(tg.y - sh.y, tg.x - sh.x) - sh.angle);
+    // solo: Steuer, bis das Ziel nah und im Bug ist (Hysterese gegen ständiges Umsteigen), dann Taktik; läuft es weg oder dreht aus dem Bug, zurück an die Steuer
+    const m = this.memo;
+    m.vfSteuer = m.vfSteuer ? (d > 330 || Math.abs(diff) > 0.5) && !(tg.az >= 2 && d < 300) : d > 560 || Math.abs(diff) > 0.9;
+    const steuern = this.role === 'helm' || (this.role === 'solo' && !!m.vfSteuer);
+    if (steuern) {
+      if (!this.enter(S, 'helm')) return;
+      if (tg.az >= 2 && d < 300) { this.brake(S); return; }   // Antrieb aus: nah bleiben, nicht überfliegen
+      // Aus dem (fast) Stand mit vollem Ruder anfahren bleibt hängen, wenn die Restgeschwindigkeit asymptotisch gegen 0 läuft (Vorwärtsanteil −1e-14 gilt als Rückwärts, flight.js): Allstopp setzt sie auf exakt 0
+      if (sh.speed < 1.5 && !sh.helm.autoStop && (m.vfZero || 0) < S.time) { m.vfZero = S.time + 4; this.cmd('helm.stop'); return; }
+      const tv = Math.hypot(tg.vx || 0, tg.vy || 0);
+      const stage = Math.abs(diff) > 0.35 ? HALF : d > 520 ? FULL : d > 260 ? THREEQ : (tv > 55 ? HALF : QUARTER);
+      this.helmS(S, this.turnCmd(S, diff), stage);
+      return;
+    }
+    if (this.role !== 'solo' && this.role !== 'weapons') { this.fightOrHold(S, p); return; }
+    if (!this.enter(S, 'weapons')) return;
+    this.fight(S, { scan: true });
+    if (tg.scanned && sh.zs !== 'antrieb' && (this.memo.zsAt || 0) < S.time) { this.memo.zsAt = S.time + 1; this.cmd('weapons.systemziel', { id: 'antrieb' }); sim.systemziel = (sim.systemziel || 0) + 1; }
+  }
+  umsetzung_verfolgen_fliehenden_stellen(S, p) { this.verfolgungBot(S, p); }
   // Bergungskisten im All einsammeln (überfliegen), wie m1 „route“
   umsetzung_ladung_bergen_bergungskisten(S, p) {
     if (S.space.enemies.length) { this.combatGeneric(S, p); return; }

@@ -262,7 +262,7 @@ function schade(game, e, dmg, x, y, opts, typ) {
   const sp = S();
   const sum = () => (e.hp > 0 ? e.hp : 0) + (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
   const vor = sum();
-  sp.damageEnemy(game, e, dmg, x, y, opts);
+  sp.damageEnemy(game, e, dmg, x, y, opts ? Object.assign({ angriff: true }, opts) : { angriff: true });   // SUND-04a-1 A: Waffen der Lerche sind Angriffe (gezielter Systemtreffer)
   const d = Math.max(0, vor - sum());
   const st = game.stats.waffenSchaden || (game.stats.waffenSchaden = { gesamt: 0 });
   st.gesamt += d; st[typ] = (st[typ] || 0) + d;

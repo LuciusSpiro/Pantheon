@@ -176,6 +176,12 @@
     // Ereignis konvoiSprung { x, y } (Transporter gesprungen), konvoiAusgang { was: 'gepluendert'|'aufgehalten'|'entkommen' }.
     KONVOI_EVENTS: ['konvoiSprung', 'konvoiAusgang'],
     KONVOI_AUSGAENGE: ['gepluendert', 'aufgehalten', 'entkommen'],
+    // SUND-04a-1 A (gezielter Systemtreffer der Ops, Szenentyp A6 Verfolgung): cmd { c: 'weapons.systemziel', id: 'antrieb' | null } wählt das System am gescannten Ziel an (null hebt es auf; verfällt mit dem Ziel und der Szene).
+    // Snapshot: ship.zs = gewähltes Systemziel (fehlt = keins); space.enemies[].az = Antriebsstufe des GESCANNTEN Ziels (1 beschädigt, 2 ausgefallen; fehlt = voll), sj = Fortschritt der Sprungladung 0..1 und nm = Name (nur das fliehende Zielschiff);
+    // space.vf = { x, y, r } Fluchtpunkt der Verfolgung (nur solange das Zielschiff flieht). Daten: content/kampf/zielsysteme-werte.json (der Client lädt sie, public/js/zielsysteme.js) und verfolgung-werte.json.
+    // missionEvent: zielsystemGetroffen { enemy?, system, stufe, seite: 'gegner'|'lerche' }, verfolgungStart, verfolgungSprungStart, verfolgungAusgang { was, klasse, name, volk, versuch }. Debug: zielsysteme [an|aus|frei], verfolgung [klasse] [ohne].
+    ZIELSYSTEME_CMD: ['weapons.systemziel'],
+    VERFOLGUNG_AUSGAENGE: ['gestellt', 'zerstoert', 'entkommen'],
     // ---- EK4 (CONTRACT-EK4): Flotte. Snapshot space.escorts[] enthält zusätzlich Verbündete (al: 1, kind korvette|fregatte|kreuzer|raider, bis CONFIG.flotte.max);
     // Snapshot flotte (fehlt ohne Flotte): { b?: { a: Befehlsart, st: 0 läuft|1 erfüllt|2 gescheitert|3 abgebrochen, r?: Rest-Frist s, k?, n? (Abschüsse), i?, w?: [[x, y, ok]], rad?, s?: Schiff-ID, g?: Grund },
     // wl?: [Welle, von, druck?], sz?: Szenenzeile (nur Freie Fahrt Sund, nur während einer Sim-Szene und CONFIG.simSzene.endeAnzeige (6) s danach: { p: 'v' Vorwarnung|'k' Kampf|'f' Finale|'s' Sieg|'n' Niederlage, v?: [Restsekunden, Vorwarnzeit], f?: 'ger'|'pirat', k?: Stärkeklasse 1–3, g?: lebende Gegner, kd?: Kommandant (≤ 24, nur Finale), o?: Ort (nur Sieg/Niederlage mit Ort), x?: 1 (SUND-02b A2: Angriff der Crew auf einen Posten: Zeile „ANGRIFF AUF POSTEN“, Ergebnis „Posten gesprengt“/„Angriff gescheitert“; im Finale nennt kd den Postenkommandanten) } }; Gegner im Snapshot: fg: 1 = Flaggschiff der Sim-Szene. Funkspruch (Ereignis radio und mission.radio) trägt pid: 'legat' | 'mars' (Porträt bzw. Symbol).

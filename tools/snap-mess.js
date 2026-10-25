@@ -219,6 +219,37 @@ function konvoi(S, seed) {
   return { fehler: g.errors };
 }
 
+// ---------- Aufbau (SUND-04a-1 A): Verfolgung – Worst Case: 4 Spieler, Rabenpass, Zielschiff (Fregatte) flieht und lädt den Sprung, gescannt, Systemziel Antrieb, Antrieb beschädigt dann ausgefallen,
+// dazu 3 gescannte Gegner mit Antriebsschaden (Jäger, Korvetten) und Sperrfeuer ----------
+function verfolgung(S, seed) {
+  const space = require('../server/sim/space.js');
+  const Verfolgung = require('../server/sim/verfolgung.js');
+  const Zs = require('../server/sim/zielsysteme.js');
+  const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
+  for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'V' + i, name: 'V' + i, color: i }); }
+  g.reset(); g.phase = 'play';
+  space.enterScene(g, 'rabenpass', {});
+  g.space.enemies = [];
+  g.god = true;
+  g.players[0].console = 'weapons';
+  Verfolgung.starten(g, { klasse: 'fregatte', name: 'Brynja', volk: 'ger', wiederholung: true });
+  const ziel = Verfolgung.ziel(g);
+  const beg = [];
+  for (const kind of ['raider', 'korvette', 'korvette']) beg.push(space.spawnEnemy(g, kind, { x: g.ship.x + 300 + beg.length * 90, y: g.ship.y + 200 - beg.length * 120, tag: 'vf_beg' }));
+  for (const e of g.space.enemies) e.scanned = true;
+  g.ship.target = ziel.id; Zs.waehle(g, 'antrieb');
+  const treffer = (e) => space.damageEnemy(g, e, 3, e.x - Math.cos(e.angle) * 60, e.y - Math.sin(e.angle) * 60, { angriff: true });
+  for (let k = 0; k < TICKS; k++) {
+    if (k === 20) treffer(ziel);
+    if (k === 80) { treffer(ziel); for (const e of beg) treffer(e); }
+    if (k === 140) for (const e of beg) { g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(e); }
+    g.ship.hull = 100;
+    g.step();
+    messen(S, g.snapshot());
+  }
+  return { fehler: g.errors, ausgang: Verfolgung.ausgang(g) || '-' };
+}
+
 // ---------- Aufbau 4 (EK4): Flotte – Worst Case: Lerche (4 Spieler), 2 Verbündete mit KI, Gegner bis zur Grenze von 12 Schiffen (alle gescannt,
 // Korvetten/Fregatten/Kreuzer mit Waffenlisten), Befehl mit Wegpunkten und Frist, Welle mit Nachschub, Sperrfeuer und Verbündetenfeuer ----------
 function flotte(S, seed) {
@@ -400,8 +431,8 @@ function freieFahrt(S, seed) {
 
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
@@ -411,7 +442,8 @@ for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, k
 for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, flotte(FL, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.orbit.push(Object.assign({ seed: s }, orbit(OB, 70 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.freieFahrt.push(Object.assign({ seed: s }, freieFahrt(FF, 80 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s }, verfolgung(VF, 90 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -441,9 +473,11 @@ zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
 console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), world.funkwahl ${l.funkBlock} B (Snapshot mit Block max ${l.funkSnapshotMax} B), world.info ${l.infoBlock} B (Snapshot mit allen drei max ${l.infoSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.verfolgung);
+console.log('  Läufe: ' + laeufe.verfolgung.map((l) => `s${l.seed} Ausgang ${l.ausgang}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
 ${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

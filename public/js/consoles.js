@@ -1973,7 +1973,7 @@
         if (target.scanned) {
           R.text(ctx, this.shieldText(target), rx, y, { color: PAL.ice });
           y += 11;
-          y += this.zielAusstattung(ctx, target, rx, y, rw, 34, { txt: (s, x, yy, col, al) => R.text(ctx, s, x, yy, { color: col, align: al || 'left' }), dim: PAL.panelLight, text: PAL.star });
+          y += this.zielAusstattung(ctx, target, rx, y, rw, 34, { txt: (s, x, yy, col, al) => R.text(ctx, s, x, yy, { color: col, align: al || 'left' }), dim: PAL.panelLight, text: PAL.star, fn: PAL.amber, alarm: PAL.red, state: view.state });
           y -= 10;
         }
         else R.text(ctx, target.hidden ? (target.found ? 'erfasst' : 'S halten: genauer scannen') : 'Schilde/Waffen unbekannt – scannen', rx, y, { color: PAL.panelLight });
@@ -2065,7 +2065,10 @@
       const ABK = { frachtraum: 'Fracht', krankenstation: 'Krankenst.', werkstatt: 'Werkstatt' };
       const cnt = {}; for (const m of mods) cnt[m] = (cnt[m] || 0) + 1;
       const modText = Object.keys(cnt).map(k => (ABK[k] || k) + (cnt[k] > 1 ? ' ×' + cnt[k] : '')).join(' · ');
-      const lines = rows.length + (modText ? 1 : 0);
+      // SUND-04a-1 A: anvisierbare Zielsysteme des gescannten Ziels (Antrieb: Bernstein) mit Zustand; gewähltes Systemziel markiert
+      const ZS = window.Zielsysteme;
+      const zl = ZS && o.fn ? ZS.zeilen(o.state || {}, target) : [];
+      const lines = rows.length + (modText ? 1 : 0) + zl.length;
       if (!lines) return 0;
       const lh = Math.min(13, Math.floor(maxH / lines)), used = lines * lh;
       let yy = y;
@@ -2078,7 +2081,14 @@
         if (xx + 4 + R.measure(nt, 1) <= x + w) o.txt(nt, xx + 3, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.text);
         yy += lh;
       }
-      if (modText) { o.txt('Module ' + modText, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim); }
+      if (modText) { o.txt('Module ' + modText, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim); yy += lh; }
+      for (const z of zl) {
+        const ty = yy + Math.max(0, Math.floor((lh - 7) / 2));
+        o.txt(z.name, x, ty, o.fn);
+        o.txt(z.text, x + 46, ty, z.stufe >= 2 ? (o.alarm || o.fn) : z.schaden ? o.fn : o.dim);
+        if (z.gewaehlt && R.measure(z.text, 1) + 46 + 40 <= w) o.txt('· Ziel', x + 46 + R.measure(z.text, 1) + 4, ty, o.fn);   // nur wenn Platz ist (der Knopf zeigt es ohnehin)
+        yy += lh;
+      }
       return used;
     },
     // M3a, PAN-01 C: Waffenblock der Ops – alle bestückten Plätze mit Ladepunkten (Q/E wählen unter den Energiewaffen, A/D −/+); §20: Lanze halten, Rest nur auf Befehl.
@@ -2177,6 +2187,15 @@
       const i = list.findIndex(e => e.id === cur);
       const next = list[(i + 1) % list.length];
       this.cmd(view, 'weapons.target', { id: next.id });
+    },
+    // SUND-04a-1 A: Systemziel (Antrieb) am gescannten Ziel an/aus; der Server prüft Scan, Klasse und Ziel und antwortet mit einem Hinweis
+    systemzielWechseln(view) {
+      const ZS = window.Zielsysteme, tg = this.targetOf(view);
+      const ids = ZS ? ZS.systemeFuer(tg) : [];
+      if (!ids.length) { this.denied(!tg ? 'Kein Ziel' : !tg.scanned ? 'Erst das Ziel scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System'); return; }
+      const an = ZS.gewaehlt(view.state) === ids[0];
+      this.cmd(view, 'weapons.systemziel', { id: an ? null : ids[0] });
+      view.actions.sfx('ui_click');
     },
     markerOnTarget(view) {
       const tg = this.targetOf(view);
@@ -3064,6 +3083,7 @@
           if (code === 'KeyW') return press(() => this.tryButton(/^Weitscan/));
           if (code === 'KeyH') return press(() => this.tryButton(/^Schilde (hoch|runter)/));   // EK2: Schleichfahrt
           if (code === 'KeyM') return press(() => this.markerOnTarget(view));
+          if (code === 'Digit0' || code === 'Numpad0') return press(() => this.systemzielWechseln(view));   // SUND-04a-1 A
           if (code === 'KeyX') return press(() => this.tryButton('Löschen'));
           if (code === 'KeyR') { this.denied('Der Torpedowerfer lädt selbst nach'); return true; }
           if (code === 'KeyO') return press(() => this.tryButton('Orbitalschlag auf Markierung'));

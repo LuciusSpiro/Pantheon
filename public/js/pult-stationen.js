@@ -253,6 +253,12 @@
       const ws = ship.widescan || {}, wsR = n(ws.cd) > 0 ? 'Abklingzeit ' + Math.ceil(ws.cd) + ' s' : null;
       P.knopf(ctx, x, y, cw, 14, 'Weitscan (1000)', { hotkey: 'W', aktion: 'ops.weitscan', text: 'Weitscan', fn: 'sensor', disabled: !!wsR, reason: wsR, onClick: () => { this.cmd(view, 'weapons.widescan'); view.actions.sfx('widescan'); } }); y += 17;
       P.knopf(ctx, x, y, cw, 14, 'Zoom', { hotkey: 'Z', aktion: 'ops.zoom', fn: 'sensor', text: 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', onClick: () => this.cycleZoom('weapons') }); y += 17;
+      {   // SUND-04a-1 A: Systemziel (Antrieb) am gescannten Ziel; Bernstein = Antrieb
+        const ZS = window.Zielsysteme, zid = ZS ? ZS.systemeFuer(target) : [], zan = !!zid.length && ZS.gewaehlt(st) === zid[0];
+        if (ZS && ZS.ids().length) {
+          P.knopf(ctx, x, y, cw, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zan ? 'Ziel: Antrieb' : 'Antrieb anvisieren', active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System', onClick: () => this.systemzielWechseln(view) }); y += 17;
+        }
+      }
       if (ship.sf) {
         const sf = ship.sf, unten = !!sf.d && !n(sf.h);
         P.knopf(ctx, x, y, cw, 14, unten ? 'Schilde hoch' : n(sf.h) ? 'Schilde fahren hoch … ' + n(sf.h) + ' s' : 'Schilde runter (leiser)', { hotkey: 'H', aktion: 'ops.schilde', text: unten ? 'Schilde hoch' : n(sf.h) ? 'fahren hoch ' + n(sf.h) : 'Schilde runter', fn: 'shield', active: !!sf.d, disabled: !!n(sf.h), reason: 'Schilde fahren gerade hoch', onClick: () => this.cmd(view, 'weapons.schilde', { unten: !unten }) });
@@ -330,7 +336,7 @@
       // PAN-01 C: Waffen je Seite (Katalog) und Module der Klasse – nur nach dem Scan, passt unter den Schilden in den Kasten
       const ya = cy + 37, yMax = b.y + b.h - 16;
       if (yMax - ya >= 11) {
-        try { this.zielAusstattung(c, target, b.x + 6, ya, b.w - 12, yMax - ya, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); }
+        try { this.zielAusstattung(c, target, b.x + 6, ya, b.w - 12, yMax - ya, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, alarm: P.FN.weapon, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); }
       }
     },
 

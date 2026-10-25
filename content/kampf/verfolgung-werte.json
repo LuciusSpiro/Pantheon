@@ -1,0 +1,46 @@
+{
+  "format": "verfolgung-werte/1",
+  "_hinweis": "SUND-04a-1 A: Szenentyp A6 Verfolgung (server/sim/verfolgung.js, Bausteine verfolgung_an/_ende/_ausgang/_erfolg). Ein Zielschiff flieht Richtung Fluchtpunkt (Sprungpunkt der Szene, sonst virtueller Punkt am Szenenrand) und lädt dort den Sprung auf; die Crew muss es stellen: Antrieb ausschalten (Systemtreffer, content/kampf/zielsysteme-werte.json) oder die Sprungladung stören (Hüllentreffer verzögern sie), bevor sie fertig ist. Alle Zahlen stehen hier, keine im Code. Dauer, Abstand und Tempo sind Annahmen (Messung: tools/sim-headless.js, Bot umsetzung_verfolgen_fliehenden_stellen), Änderungen wirken ohne Code.",
+  "werte": {
+    "ziel": {
+      "wert": {"klasse": "korvette", "klassen": ["frachter", "raider", "korvette", "fregatte", "kreuzer"], "startAbstand": 420},
+      "einheit": "klasse = Standard, klassen = erlaubte Zielklassen, startAbstand px zwischen Lerche und Zielschiff beim Start",
+      "_hinweis": "Das Zielschiff startet auf der Linie Lerche - Fluchtpunkt, startAbstand vor der Lerche: Die Lerche verfolgt von hinten, die Treffer fallen auf das Heck. Relais, Pylon und Wächter fliehen nicht."
+    },
+    "flucht": {
+      "wert": {"tempo": 0.65, "legacyFaktor": 1.5, "ankunftRadius": 120},
+      "einheit": "tempo = Anteil der Klassen-Höchstfahrt (Flugmodell der Piloten), legacyFaktor = Vielfaches von CONFIG.enemies[kind].speed (kinematisches Modell), ankunftRadius px um den Fluchtpunkt, ab dem die Sprungladung beginnt",
+      "_hinweis": "Beide Flugmodelle fahren dasselbe Verhalten (e.fluchtZiel): Pilot (shared/flight.js) und kinematisch (space.moveLegacy). Das Tempo liegt unter der Lerche (130): Korvette 0,65 x 110 = 71 px/s, kinematisch 50 x 1,5 = 75 px/s. Wer den Antrieb trifft, holt auf."
+    },
+    "sprung": {
+      "wert": {"dauer": 15, "verzoegerungJeTreffer": 1.5, "verzoegerungMax": 9, "pausiertBeiAusfall": true},
+      "einheit": "dauer s Sprungladung am Fluchtpunkt, verzoegerungJeTreffer s je Hüllenverlust-Tick, verzoegerungMax s insgesamt",
+      "_hinweis": "Zweiter Weg zum Stellen: Hüllentreffer auf das ladende Schiff verlängern die Ladung (wie die Ladung großer Schiffe, spaceM3.tele). Ein ausgefallener Antrieb hält die Ladung an (pausiertBeiAusfall): ohne Schub kein Sprung. Der Sprung ist erst nach `dauer` s + Verzögerung fertig."
+    },
+    "stellen": {
+      "wert": {"radius": 380, "zeit": 2},
+      "einheit": "radius px um das Zielschiff, zeit s Haltedauer",
+      "_hinweis": "Gestellt: Antrieb ausgefallen UND die Lerche seit `zeit` s innerhalb `radius` (Waffenreichweite der Batterien). Dann gibt das Schiff auf: es fährt nicht mehr und der Antrieb bleibt aus. Zerstört zählt auch als Erfolg (Ausgang zerstoert)."
+    },
+    "fluchtpunkt": {
+      "wert": {"randAbstand": 180, "virtuell": ["west", "ost", "nord", "sued"]},
+      "einheit": "randAbstand px vor dem Szenenrand (wie CONFIG.sektoren.randAbstand der Sprungpunkte), virtuell = Randpunkte ohne Sprungpunkt",
+      "_hinweis": "Zuerst die Sprungpunkte des Orts (Kanten des Hexes zu spielbaren Nachbarn, shared/sektoren.js sprungpunktLage); hat der Ort keinen (Labor-Orte, generierte Orte ohne Kanten), gelten die Randmitten west, ost, nord, sued, je randAbstand vor dem Rand. Gewählt wird der Punkt mit dem größten Abstand zur Lerche: die Flucht führt von ihr weg."
+    },
+    "gegner": {
+      "wert": {"zielenAufAntrieb": true},
+      "einheit": "bool: das Zielschiff zielt auf den Antrieb der Lerche",
+      "_hinweis": "GLEICHE REGELN FÜR BEIDE SEITEN: das Zielschiff hat e.zielsystem = antrieb, seine durchschlagenden Treffer auf das Heck der Lerche setzen sicher eine Stufe (Lerche: engines). Ungezielte Gegner der Szene treffen mit der ungezielten Wahrscheinlichkeit."
+    },
+    "wiederholung": {
+      "wert": {"neuNach": 8},
+      "einheit": "s bis ein neues Zielschiff kommt, wenn das erste entkommen ist (Parameter wiederholung)",
+      "_hinweis": "Wie beim Konvoi: im Labor und in Kampagnenszenen wiederholt sich die Szene, bei einem Faden (Scheitern verändert den Faden) bleibt entkommen stehen."
+    },
+    "ansagen": {
+      "wert": [4],
+      "einheit": "s Restladung, bei denen ODA den nahen Sprung ansagt",
+      "_hinweis": "Zusätzlich sagt ODA den Start der Sprungladung und den Ausgang an."
+    }
+  }
+}
