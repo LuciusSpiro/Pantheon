@@ -27,6 +27,10 @@ const S = 'server/sim/lage-spielleiter.js', P = 'server/sim/lage-prompt.js', M =
   BR = 'tools/regie-bericht.js', LL = 'server/mission/llm.js', RT = 'server/mission/transport-router.js', KT = 'content/welt/lage-katalog.json',
   RB = 'server/sim/regie-befehle.js', A = 'server/sim/lage-ausschnitt.js', SY = 'content/spielleiter/prompts/lage.system.md', RZ = 'content/reise/ereignisse.json',
   BF = 'server/weltsim/befehle.js', PU = 'public/js/pult.js', TX = 'content/flotte/lage-befehle.json';
+// Bewusst nicht in der Liste (äquivalente Mutanten, SUND-03 F2): „der Abbruch-Listener fällt bei exit nicht weg“ (der Guard exitCode/signalCode in baumBeenden deckt dasselbe ab; der Guard allein ist
+// dagegen als Mutation 'PID: taskkill auch nach dem Ende des Prozesses' drin, weil test-llm-cli baumBeenden direkt auf einen beendeten Prozess ruft), „der Fehler-Handler von taskkill ruft p.kill()“
+// (taskkill.exe fehlt nur auf fremden Systemen; der Exit-Code-Pfad ist als Mutation 'scheitert taskkill' drin). Das Selbstcheck vor dem Lauf (Anker genau einmal, sonst Exit 2) verhindert,
+// dass eine Mutation durch eine Umformulierung des Quelltextes still wirkungslos wird; --trocken prüft nur die Anker.
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 // Bewusst nicht in der Liste (äquivalente Mutanten): „die Antwort nach dispose wird nicht in den Eingang gelegt“ (update tut nach dispose nichts, der Eingang bleibt ungelesen).
 const MUTATIONEN = [
@@ -117,11 +121,11 @@ const MUTATIONEN = [
   [RB, "    if (a._rate !== false) s.rate.push(n0);", "    s.rate.push(n0);", 'Rate: der zweite Fokus-Befehl bucht doch einen Platz'],
   [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (false) {", 'plan_wirkungslos: ein Plan ohne angenommenen Befehl gilt als angewandt'],
   [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (kurz.angenommen === 0) {", 'plan_wirkungslos: auch ein leerer Plan ist wirkungslos'],
-  [S, "if (a.befehl.typ === 'fokus') { if (fokusOk) continue; fokusOk = true; }", "if (a.befehl.typ === 'fokus') { fokusOk = true; }", 'letzte_plaene: der Plan-Fokus erscheint je Fraktion'],
+  [S, "if (a.befehl.typ === 'fokus') fokus.ok.push(a.befehl); else out.push(befehlErgebnis(a.befehl, null, maxGrund));", "out.push(befehlErgebnis(a.befehl, null, maxGrund));", 'letzte_plaene: der Plan-Fokus erscheint je Fraktion'],
   [S, "return grund == null ? t + ': ok' :", "return true ? t + ': ok' :", 'letzte_plaene: abgelehnte Befehle erscheinen als ok'],
   [S, "String(grund).replace(/\\s+/g, ' ').slice(0, maxGrund)", "String(grund).replace(/\\s+/g, ' ')", 'letzte_plaene: Kurzgrund nicht gekürzt'],
   [P, "  while (p.length > 1 && groesse() > maxGesamt) p.shift();", "", 'letzte_plaene: keine Zeichenobergrenze'],
-  [RB, "  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz };", "  const out = { rate: RATE.max, piraten, platz };", 'befehle_frei: Rate-Rest fehlt'],
+  [RB, "  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz, marken, soeldner };", "  const out = { rate: RATE.max, piraten, platz, marken, soeldner };", 'befehle_frei: Rate-Rest fehlt'],
   [RB, "    if (rest > 0) abk[key] = rest;", "    abk[key] = rest;", 'befehle_frei: abgelaufene Abkühlung bleibt stehen'],
   [RB, "- z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim').length);", "- 0);", 'befehle_frei: freie Plätze ohne aktive Flotten'],
   [RB, "fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap).length;", "fl.fraktion === 'pirat').length;", 'befehle_frei: auch unbereite Piraten zählen'],
@@ -131,13 +135,13 @@ const MUTATIONEN = [
   [SY, "**Stütze jede Aussage auf ein Feld des Ausschnitts**", "**Erzähle frei**", 'Systemprompt: Regel Aussagen stützen fehlt'],
   // ---- SUND-03 F: CLI finden und Prozessbaum
   [LL, "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');", "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js');", 'CLI: der native Build im npm-Paket wird nicht gefunden'],
-  [LL, "  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return r; }", "", 'CLI: .local/bin wird nicht gesucht'],
-  [LL, "  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return r; }", "", 'CLI: PATH wird nicht durchsucht'],
+  [LL, "  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return mitHinweis(r); }", "", 'CLI: .local/bin wird nicht gesucht'],
+  [LL, "  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return mitHinweis(r); }", "", 'CLI: PATH wird nicht durchsucht'],
   [LL, "  let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');\n  if (r) return r;", "  let r = null;", 'CLI: CLAUDE_CLI wird ignoriert'],
   [LL, "args: [p], pfad: p, quelle, versucht } : {", "args: [], pfad: p, quelle, versucht } : {", 'CLI: eine .js-Datei wird nicht mit Node gestartet'],
   [LL, "    const abbrechen = () => { aborted = true; baumBeenden(p); };", "    const abbrechen = () => { aborted = true; try { p.kill(); } catch (e) { /* weg */ } };", 'Abbruch beendet nur den Elternprozess'],
   [LL, "    const kill = setTimeout(() => { timedOut = true; baumBeenden(p); }, timeoutMs || 5 * 60 * 1000);", "    const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* weg */ } }, timeoutMs || 5 * 60 * 1000);", 'Timeout beendet nur den Elternprozess'],
-  [LL, "['/T', '/F', '/PID', String(p.pid)]", "['/F', '/PID', String(p.pid)]", 'taskkill ohne /T (Kindprozesse bleiben)'],
+  [LL, "[...TASKKILL.vorArgs, '/T', '/F', '/PID', String(p.pid)]", "[...TASKKILL.vorArgs, '/F', '/PID', String(p.pid)]", 'taskkill ohne /T (Kindprozesse bleiben)'],
   // ---- SUND-03 F: Weltstand ohne Schalter, Reise-Verteilung
   [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return true;", 'Weltstand: chronik und reise immer im Stand'],
   [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return ReiseEreignis.aktiv(game);", 'Weltstand: mit Lage-Spielleiter fehlt die Chronik'],
@@ -178,6 +182,22 @@ const MUTATIONEN = [
   [PU, "if (hit(b) && b.reason && (b.disabled || opts.gedimmt)) R.ui.tooltip", "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", 'pult.js: zustand in knopf ungültig (ReferenceError)'],
   [PU, "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", "if (hit(b) && b.disabled && b.reason) R.ui.tooltip", 'pult.js: gedimmte Zelle zeigt keinen Hinweis'],
 ];
+
+// Selbstcheck der Anker (SUND-03 F2): VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie). Sonst bricht die Probe mit Exit 2 ab, statt die Mutation still zu überspringen.
+// --trocken prüft nur die Anker (ohne Tests) und endet.
+{
+  const normal = (t) => t.replace(/\r\n/g, '\n');
+  const schlecht = [];
+  for (const [datei, alt, , was] of MUTATIONEN) {
+    let text;
+    try { text = normal(fs.readFileSync(path.join(TMP, datei), 'utf8')); } catch (e) { schlecht.push(`${was}: Datei ${datei} nicht lesbar`); continue; }
+    const k = text.split(alt).length - 1;
+    if (k !== 1) schlecht.push(`${was}: Anker ${k === 0 ? 'nicht gefunden' : k + 'x gefunden'} (${datei})`);
+  }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  if (process.argv.includes('--trocken')) { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(0); }
+}
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });

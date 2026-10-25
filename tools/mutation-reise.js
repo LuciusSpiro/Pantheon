@@ -108,9 +108,9 @@ const MUTATIONEN = [
   [DC, '"max": {"wert": 40,', '"max": {"wert": 400,', 'Daten: Chronik-Ring 400'],
   [KL, "  try { Chronik.ausTick(game, ev, gueltig, crewPostenVorher); }", "  try { void 0; }", 'Chronik: der Tick meldet nichts an die Chronik'],
   [KL, "  const crewPostenVorher = Object.keys(ws.posten || {});", "  const crewPostenVorher = [];", 'Chronik: gefallene Posten der Crew werden nicht erkannt'],
-  [KL, "  const ch = Chronik.toSave(ws); if (ch) b.chronik = ch;", "", 'Weltstand: Speichern vergisst die Chronik'],
+  [KL, "  const ch = neueBloecke ? Chronik.toSave(ws) : null; if (ch) b.chronik = ch;", "", 'Weltstand: Speichern vergisst die Chronik'],
   [KL, "  game.weltsim.chronik = Chronik.lesen(b.chronik);", "  game.weltsim.chronik = Chronik.neu();", 'Weltstand: Laden vergisst die Chronik'],
-  [KL, "  const re = ReiseEreignis.toSave(ws); if (re) b.reise = re;", "", 'Weltstand: Speichern vergisst den Reise-Zähler'],
+  [KL, "  const re = neueBloecke ? ReiseEreignis.toSave(ws) : null; if (re) b.reise = re;", "", 'Weltstand: Speichern vergisst den Reise-Zähler'],
   [KL, "  game.weltsim.reise = ReiseEreignis.lesen(b.reise);", "  game.weltsim.reise = ReiseEreignis.neu();", 'Weltstand: Laden vergisst den Reise-Zähler'],
   [RE, "  if (R.letzte.length) b.letzte = R.letzte.map((x) => ({ id: x.id, k: x.k, n: x.n }));", "", 'Weltstand: Speichern vergisst die Wiederholungsdaten'],
   [RE, "  if (Number.isFinite(b.n) && b.n >= 0) R.n = Math.min(1e9, Math.floor(b.n));", "", 'Weltstand: Laden vergisst den Sprungzähler'],
@@ -165,6 +165,22 @@ const MUTATIONEN = [
   [LS, "abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,", "abgelehnt: res.abgelehnt.length,", 'Pläne: abgelehnte Wiederholungen zählen nicht in letzte_plaene'],
   [LS, "    while (this.verlauf.length > Math.max(1, this.W.wiederholung.fenster_plaene)) this.verlauf.shift();", "", 'Pläne: der Verlauf wächst ohne Grenze'],
 ];
+
+// Selbstcheck der Anker (SUND-03 F2): VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie). Sonst bricht die Probe mit Exit 2 ab, statt die Mutation still zu überspringen.
+// --trocken prüft nur die Anker (ohne Tests) und endet.
+{
+  const normal = (t) => t.replace(/\r\n/g, '\n');
+  const schlecht = [];
+  for (const [datei, alt, , was] of MUTATIONEN) {
+    let text;
+    try { text = normal(fs.readFileSync(path.join(TMP, datei), 'utf8')); } catch (e) { schlecht.push(`${was}: Datei ${datei} nicht lesbar`); continue; }
+    const k = text.split(alt).length - 1;
+    if (k !== 1) schlecht.push(`${was}: Anker ${k === 0 ? 'nicht gefunden' : k + 'x gefunden'} (${datei})`);
+  }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  if (process.argv.includes('--trocken')) { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(0); }
+}
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });

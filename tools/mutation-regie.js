@@ -29,8 +29,8 @@ const B = 'server/weltsim/befehle.js', K = 'server/weltsim/kern.js', R = 'server
 const MUTATIONEN = [
   // ---- Kern: angreifen
   [B, "      if (!A.hauptwelt_erlaubt && Object.values(d.hauptwelten).includes(b.ziel)) return 'Hauptwelten sind kein Ziel eines Befehls';\n", "", 'angreifen: Hauptwelt als Ziel erlaubt'],
-  [B, "if (st.U < A.min_munition || st.T < A.min_treibstoff) return", "if (st.U < A.min_munition) return", 'angreifen: Treibstoff wird nicht geprüft'],
-  [B, "if (st.U < A.min_munition || st.T < A.min_treibstoff) return", "if (st.T < A.min_treibstoff) return", 'angreifen: Munition wird nicht geprüft'],
+  [B, "return st.U < A.min_munition || st.T < A.min_treibstoff ?", "return st.U < A.min_munition ?", 'angreifen: Treibstoff wird nicht geprüft'],
+  [B, "return st.U < A.min_munition || st.T < A.min_treibstoff ?", "return st.T < A.min_treibstoff ?", 'angreifen: Munition wird nicht geprüft'],
   [B, "      if (a.tot < a.need) return `zu schwach", "      if (false) return `zu schwach", 'angreifen: zu schwache Flotte geht durch'],
   [B, "      if (a.slots <= 0) return 'keine freie Flotte (max_active erreicht)';\n", "", 'angreifen: max_active wird ignoriert'],
   [B, "if (ids !== null && ids.length > a.slots)", "if (false)", 'angreifen: mehr feste Flotten als freie Plätze'],
@@ -57,8 +57,8 @@ const MUTATIONEN = [
   [B, "      if (rec && rec.phase === 'sammeln') fl.angriff = null;   // wie sammeln() beim Abbruch", "", 'rueckzug: sammelnde Flotte bleibt am Feldzug'],
   [B, "      if (!fl || fl.fraktion !== b.fraktion || !H.FRAKTIONEN.includes(fl.fraktion)) return 'unbekannte Flotte';\n      if (!['angriff'", "      if (!fl) return 'unbekannte Flotte';\n      if (!['angriff'", 'rueckzug: Flotte einer anderen Fraktion'],
   // ---- Kern: nachschub
-  [B, "if (z.vorrat.kon[b.gut] - N.kon_reserve < b.menge)", "if (z.vorrat.kon[b.gut] < b.menge)", 'nachschub: das Konkordat gibt seine Reserve her'],
-  [B, "      if (z.marken[b.an] < b.menge * w.price_sell * N.preis_faktor) return 'Marken reichen nicht';\n", "", 'nachschub: ohne Marken'],
+  [B, "if (z.vorrat.kon[gut] - N.kon_reserve < menge)", "if (z.vorrat.kon[gut] < menge)", 'nachschub: das Konkordat gibt seine Reserve her'],
+  [B, "  if (z.marken[an] < menge * w.price_sell * N.preis_faktor) return 'Marken reichen nicht';\n", "", 'nachschub: ohne Marken'],
   [B, "      z.vorrat[b.an][b.gut] += b.menge; z.vorrat.kon[b.gut] -= b.menge;\n      z.marken[b.an] -= preis; z.marken.kon += preis;", "      z.vorrat[b.an][b.gut] += b.menge; z.vorrat.kon[b.gut] -= b.menge;", 'nachschub: keine Marken-Senke'],
   [B, "      z.vorrat[b.an][b.gut] += b.menge; z.vorrat.kon[b.gut] -= b.menge;\n", "      z.vorrat[b.an][b.gut] += b.menge;\n", 'nachschub: Vorrat des Konkordats bleibt'],
   [B, "      if (embargoAktiv(z, b.an)) return `Embargo gegen ${b.an}: das Konkordat liefert nicht`;\n", "", 'nachschub: Lieferung unter Embargo'],
@@ -167,7 +167,7 @@ const MUTATIONEN = [
   [R, "out.letzte[k] = Math.min(Math.floor(v), t);", "out.letzte[k] = Math.floor(v);", 'Weltstand: Leser klemmt Abkühlzeiten nicht'],
   [R, "      if (out.vorgemerkt.length >= R.plan.wert.vorgemerkt_max) break;", "", 'Weltstand: Leser kürzt die Warteschlange nicht'],
   [KL, "  if (regieAus) { try { Regie.melde(game, regieAus); }", "  if (false) { try { Regie.melde(game, regieAus); }", 'Logbuch und Funk nach dem Tick fehlen'],
-  [KL, "  const rg = Regie.toSave(ws); if (rg) b.regie = rg;", "", 'Speichern vergisst die Regie'],
+  [KL, "  const rg = neueBloecke ? Regie.toSave(ws) : null; if (rg) b.regie = rg;", "", 'Speichern vergisst die Regie'],
   [KL, "  game.weltsim.regie = Regie.lesen(b.regie, game.weltsim.tickZahl);", "  game.weltsim.regie = Regie.neu();", 'Laden vergisst die Regie'],
   [KL, "faellig.length ? { wirkungen: gueltig, befehle: faellig.map((e) => e.b) } : { wirkungen: gueltig }", "{ wirkungen: gueltig }", 'Tick gibt die Befehle nicht an die Sim'],
   // ---- Runde 2 (Review): Entwarnung, Tick-Wurf, Besitzwechsel, Crew-Absicht, Klemmen, Ruhe
@@ -258,6 +258,22 @@ const MUTATIONEN = [
   [TX, '"sprecher": "Aufklärung", "text": "Germanische', '"sprecher": "Legat Rufus", "text": "Germanische', 'Text: Sprecher ohne Porträt'],
   [E, "  embargo_beendet: ['gegen'],", "", 'Ereignis embargo_beendet nicht vereinbart'],
 ];
+
+// Selbstcheck der Anker (SUND-03 F2): VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie). Sonst bricht die Probe mit Exit 2 ab, statt die Mutation still zu überspringen.
+// --trocken prüft nur die Anker (ohne Tests) und endet.
+{
+  const normal = (t) => t.replace(/\r\n/g, '\n');
+  const schlecht = [];
+  for (const [datei, alt, , was] of MUTATIONEN) {
+    let text;
+    try { text = normal(fs.readFileSync(path.join(TMP, datei), 'utf8')); } catch (e) { schlecht.push(`${was}: Datei ${datei} nicht lesbar`); continue; }
+    const k = text.split(alt).length - 1;
+    if (k !== 1) schlecht.push(`${was}: Anker ${k === 0 ? 'nicht gefunden' : k + 'x gefunden'} (${datei})`);
+  }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  if (process.argv.includes('--trocken')) { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(0); }
+}
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });
