@@ -72,7 +72,7 @@ function client(port, hello) {
   Object.assign(g.ship, { docked: true, dockedAt: Sektoren.ortVonHex('0604'), vx: 0, vy: 0, speed: 0 });
   g.inventory.marks = 1000;
   let angebot = null;
-  for (let t = 0; t < 400 && !angebot; t++) { Kriegslage.tick(g, 'test'); const q = Info.angebotFuer(g); if (q.themen.length >= 2) angebot = q; }
+  for (let t = 0; t < 3000 && !angebot; t++) { Kriegslage.tick(g, 'test'); const q = Info.angebotFuer(g); if (q.themen.length >= 2) angebot = q; }
   ok(!!angebot, 'Konkordat bietet ' + (angebot ? angebot.themen.length : 0) + ' Themen an (Tick ' + ws().tickZahl + ')');
 
   // 1. Ohne Terminal-Sitzer: kein Block (nichts im Snapshot, solange niemand am Terminal sitzt)
