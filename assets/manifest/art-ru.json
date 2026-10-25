@@ -1365,19 +1365,19 @@
    "tier": "architecture",
    "palette": "rom",
    "footprint": [
-    12,
-    12
+    13,
+    13
    ],
-   "height": 5,
+   "height": 4.5,
    "facing": "+z",
    "params": {
     "w": [
      2,
-     12
+     13
     ],
     "d": [
      2,
-     12
+     13
     ],
     "zustand": [
      0,
