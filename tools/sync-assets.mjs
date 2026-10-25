@@ -91,13 +91,18 @@ async function listFiles(dir, filter = () => true) {
 //   core/render/vendor/assets neuer ist als .git/index. VERSION.json nennt die Quelle in `dirtySource`.
 function readCommit() {
   try {
-    const gitDir = path.join(VW, '.git');
+    let gitDir = path.join(VW, '.git');
+    // Worktree: .git ist eine Datei "gitdir: <pfad>", die Refs liegen im gemeinsamen Verzeichnis (commondir)
+    if (fs.statSync(gitDir).isFile()) gitDir = path.resolve(VW, fs.readFileSync(gitDir, 'utf8').replace(/^gitdir:/, '').trim());
     const head = fs.readFileSync(path.join(gitDir, 'HEAD'), 'utf8').trim();
     if (!head.startsWith('ref:')) return head;
     const ref = head.slice(4).trim();
     const loose = path.join(gitDir, ref);
     if (fs.existsSync(loose)) return fs.readFileSync(loose, 'utf8').trim();
-    const packed = fs.readFileSync(path.join(gitDir, 'packed-refs'), 'utf8');
+    const common = fs.existsSync(path.join(gitDir, 'commondir')) ? path.resolve(gitDir, fs.readFileSync(path.join(gitDir, 'commondir'), 'utf8').trim()) : gitDir;
+    const looseC = path.join(common, ref);
+    if (fs.existsSync(looseC)) return fs.readFileSync(looseC, 'utf8').trim();
+    const packed = fs.readFileSync(path.join(common, 'packed-refs'), 'utf8');
     const line = packed.split('\n').find((l) => l.endsWith(' ' + ref));
     return line ? line.split(' ')[0] : null;
   } catch (e) { return null; }
