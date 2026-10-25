@@ -1,0 +1,480 @@
+{
+ "id": "ort/germanen/station/koje",
+ "name": "Stabkoje (Germanen, Esse): Kopfbrett in Stabbauweise mit Giebel, Fellmatratze und Waid-Decke, Glutheizung im Rahmen, Lebenserhaltungs-Runenpaneel",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "quartier",
+  "koje",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Rahmen",
+   "at": [
+    -15,
+    3,
+    -6
+   ],
+   "size": [
+    30,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rahmenkante",
+   "at": [
+    -15,
+    3,
+    6
+   ],
+   "size": [
+    30,
+    2,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bein",
+   "at": [
+    -14,
+    0,
+    -6
+   ],
+   "size": [
+    3,
+    3,
+    3
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 2,
+    "step": [
+     25,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Bein vorn",
+   "at": [
+    -14,
+    0,
+    4
+   ],
+   "size": [
+    3,
+    3,
+    3
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 2,
+    "step": [
+     25,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kopfbrett",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    3,
+    22,
+    12
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "z",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kopfpfosten",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    3,
+    24,
+    2
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 2,
+    "step": [
+     0,
+     0,
+     10
+    ]
+   }
+  },
+  {
+   "op": "wedge",
+   "name": "Kopfgiebel",
+   "at": [
+    -16,
+    22,
+    -6
+   ],
+   "size": [
+    3,
+    5,
+    12
+   ],
+   "gable": "z",
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Kopfgiebel First",
+   "at": [
+    -16,
+    27,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Kopfniet",
+   "at": [
+    -13,
+    "8 + i*6",
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kopfniet 2",
+   "at": [
+    -13,
+    "8 + i*6",
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fußbrett",
+   "at": [
+    13,
+    0,
+    -6
+   ],
+   "size": [
+    3,
+    9,
+    12
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "z",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fußband",
+   "at": [
+    13,
+    8,
+    -6
+   ],
+   "size": [
+    3,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Matratze",
+   "at": [
+    -13,
+    5,
+    -5
+   ],
+   "size": [
+    26,
+    3,
+    10
+   ],
+   "color": {
+    "noise": [
+     "fur",
+     "fur_dark",
+     "fur_light"
+    ],
+    "weights": [
+     6,
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Decke",
+   "at": [
+    -4,
+    8,
+    -5
+   ],
+   "size": [
+    17,
+    1,
+    10
+   ],
+   "color": {
+    "stripes": [
+     "cloth",
+     {
+      "shade": "cloth",
+      "f": 0.7
+     }
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kissen",
+   "at": [
+    -12,
+    8,
+    -4
+   ],
+   "size": [
+    7,
+    2,
+    8
+   ],
+   "color": {
+    "noise": [
+     "fur_light",
+     "fur"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Heizkasten",
+   "at": [
+    -14,
+    1,
+    5
+   ],
+   "size": [
+    28,
+    2,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Heizglut",
+   "at": [
+    -13,
+    2,
+    7
+   ],
+   "size": [
+    26,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Paneel",
+   "at": [
+    -13,
+    12,
+    -3
+   ],
+   "size": [
+    1,
+    8,
+    6
+   ],
+   "color": "dark"
+  },
+  {
+   "op": "box",
+   "name": "Paneel Rahmen",
+   "at": [
+    -13,
+    12,
+    -3
+   ],
+   "size": [
+    1,
+    8,
+    6
+   ],
+   "color": {
+    "frame": "copper_dark",
+    "fill": "dark",
+    "axes": "yz",
+    "width": 1
+   },
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Puls",
+   "at": [
+    -12,
+    16,
+    -2
+   ],
+   "size": [
+    1,
+    1,
+    4
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Puls 2",
+   "at": [
+    -12,
+    18,
+    -1
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Temp",
+   "at": [
+    -12,
+    14,
+    1
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Temp 2",
+   "at": [
+    -12,
+    14,
+    -2
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.8
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

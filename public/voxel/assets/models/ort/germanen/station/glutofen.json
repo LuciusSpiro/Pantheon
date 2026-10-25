@@ -1,0 +1,319 @@
+{
+ "id": "ort/germanen/station/glutofen",
+ "name": "Glutofen (Germanen, Esse): kleiner Klinker-Heizofen mit Feuerfenster, Lüfterband und Abzugsrohr; Wärme und Luft für den Raum",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "quartier",
+  "klima",
+  "ort01"
+ ],
+ "footprint": [
+  0.75,
+  0.65
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -6,
+    0,
+    -5
+   ],
+   "size": [
+    12,
+    2,
+    10
+   ],
+   "color": "stone_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kern",
+   "at": [
+    -5,
+    2,
+    -4
+   ],
+   "size": [
+    10,
+    15,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "use",
+   "name": "Front",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 12,
+    "h": 14,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.6,
+    "niet": 4
+   },
+   "at": [
+    0,
+    2,
+    4
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Links",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 8,
+    "h": 14,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.6,
+    "niet": 4
+   },
+   "at": [
+    -5,
+    2,
+    0
+   ],
+   "rot": 270
+  },
+  {
+   "op": "use",
+   "name": "Rechts",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 8,
+    "h": 14,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.6,
+    "niet": 4
+   },
+   "at": [
+    5,
+    2,
+    0
+   ],
+   "rot": 90
+  },
+  {
+   "op": "box",
+   "name": "Deckplatte",
+   "at": [
+    -6,
+    16,
+    -5
+   ],
+   "size": [
+    12,
+    1,
+    10
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Feuerfenster",
+   "at": [
+    -3,
+    4,
+    6
+   ],
+   "size": [
+    6,
+    5,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1.2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fenstergitter",
+   "at": [
+    -3,
+    4,
+    7
+   ],
+   "size": [
+    1,
+    5,
+    1
+   ],
+   "color": "dark",
+   "repeat": {
+    "count": 3,
+    "step": [
+     3,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fensterrahmen",
+   "at": [
+    -4,
+    9,
+    6
+   ],
+   "size": [
+    8,
+    1,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Lüfterband",
+   "at": [
+    -4,
+    12,
+    6
+   ],
+   "size": [
+    8,
+    3,
+    1
+   ],
+   "color": "dark"
+  },
+  {
+   "op": "box",
+   "name": "Lüfterstab",
+   "at": [
+    -3,
+    12,
+    7
+   ],
+   "size": [
+    1,
+    3,
+    1
+   ],
+   "color": "metal_light",
+   "repeat": {
+    "count": 4,
+    "step": [
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Thermorune",
+   "at": [
+    3,
+    13,
+    6
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rauchrohr",
+   "at": [
+    -2,
+    17,
+    -4
+   ],
+   "size": [
+    4,
+    10,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Rohrband",
+   "at": [
+    -3,
+    22,
+    -5
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rohrkappe",
+   "at": [
+    -3,
+    27,
+    -5
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rohrglut",
+   "at": [
+    -1,
+    26,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutfuge",
+   "at": [
+    -6,
+    2,
+    5
+   ],
+   "size": [
+    12,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

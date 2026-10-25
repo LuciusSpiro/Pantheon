@@ -1,0 +1,322 @@
+{
+ "id": "ort/germanen/station/medfass",
+ "name": "Infusionsfass (Germanen, Esse): Frostfass am Eisenmast, Füllstandsfenster mit Runenpegel, Tropfkammer und Kupferhahn",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "kranken",
+  "medzelle",
+  "ort01"
+ ],
+ "footprint": [
+  0.9,
+  0.9
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fußnabe",
+   "at": [
+    -2,
+    0,
+    -2
+   ],
+   "size": [
+    4,
+    2,
+    4
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -1
+   ],
+   "size": [
+    14,
+    1,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß quer",
+   "at": [
+    -1,
+    0,
+    -7
+   ],
+   "size": [
+    2,
+    1,
+    14
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Mast",
+   "at": [
+    -1,
+    2,
+    -1
+   ],
+   "size": [
+    2,
+    26,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Konsole",
+   "at": [
+    -5,
+    15,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Infusionsfass a",
+   "at": [
+    -4.5,
+    16,
+    -3.5
+   ],
+   "size": [
+    9,
+    10,
+    7
+   ],
+   "color": {
+    "stripes": [
+     "frost",
+     "frost_dark"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Infusionsfass b",
+   "at": [
+    -3.5,
+    16,
+    -4.5
+   ],
+   "size": [
+    7,
+    10,
+    9
+   ],
+   "color": {
+    "stripes": [
+     "frost",
+     "frost_dark"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Reif",
+   "at": [
+    -5,
+    17,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reif oben",
+   "at": [
+    -5,
+    24,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    -4,
+    26,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Haken",
+   "at": [
+    -1,
+    28,
+    -1
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Füllstand Glas",
+   "at": [
+    -1,
+    18,
+    5
+   ],
+   "size": [
+    2,
+    7,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Füllstand",
+   "at": [
+    -1,
+    18,
+    5
+   ],
+   "size": [
+    2,
+    5,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   },
+   "mode": "paint"
+  },
+  {
+   "op": "line",
+   "name": "Schlauch",
+   "from": [
+    0,
+    16,
+    3
+   ],
+   "to": [
+    0,
+    10,
+    6
+   ],
+   "r": 0.5,
+   "color": "rubber"
+  },
+  {
+   "op": "box",
+   "name": "Tropfkammer",
+   "at": [
+    -1,
+    10,
+    5
+   ],
+   "size": [
+    2,
+    4,
+    2
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Tropfen",
+   "at": [
+    0,
+    11,
+    6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Zapfhahn",
+   "at": [
+    -1,
+    7,
+    5
+   ],
+   "size": [
+    2,
+    2,
+    3
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Herzrune",
+   "at": [
+    3,
+    12,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

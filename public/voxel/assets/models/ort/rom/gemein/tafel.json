@@ -1,0 +1,157 @@
+{
+ "id": "ort/rom/gemein/tafel",
+ "name": "Datentafel (Rom): Wachstafel als Datenpad im Marmorständer, Amberzeilen",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "streu",
+  "datenpad",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.5,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -4,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Ständer",
+   "at": [
+    -1,
+    1,
+    -1
+   ],
+   "size": [
+    2,
+    9,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Ständerring",
+   "at": [
+    -2,
+    6,
+    -2
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Lehne Schräge",
+   "at": [
+    -6,
+    10,
+    -2
+   ],
+   "size": [
+    12,
+    2,
+    4
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "wedge",
+   "name": "Tafel",
+   "at": [
+    -6,
+    12,
+    -3
+   ],
+   "size": [
+    12,
+    10,
+    3
+   ],
+   "color": "secondary",
+   "slope": "+z"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen",
+   "at": [
+    -6,
+    12,
+    -3
+   ],
+   "size": [
+    12,
+    1,
+    3
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Wachsfläche",
+   "at": [
+    -5,
+    13,
+    0
+   ],
+   "size": [
+    10,
+    8,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Zeilen",
+   "at": [
+    -4,
+    15,
+    1
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.7
+   },
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     2,
+     0
+    ]
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

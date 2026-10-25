@@ -1,0 +1,172 @@
+{
+ "id": "ort/rom/station/wandschirm",
+ "name": "Wandschirm (Rom): Anzeige im Marmorbogenrahmen auf Konsole, Amber-Zuleitung von oben",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "kommando",
+  "terminal",
+  "anzeige",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -8,
+    0,
+    -6
+   ],
+   "size": [
+    16,
+    1,
+    8
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Konsole",
+   "at": [
+    -7,
+    1,
+    -6
+   ],
+   "size": [
+    14,
+    5,
+    7
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Konsole Rot",
+   "at": [
+    -5,
+    2,
+    1
+   ],
+   "size": [
+    10,
+    3,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Schirmbogen",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    6,
+    -6
+   ],
+   "params": {
+    "w": 10,
+    "h": 10,
+    "d": 4,
+    "wall": 2,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schirm",
+   "at": [
+    -5,
+    6,
+    -5
+   ],
+   "size": [
+    10,
+    14,
+    1
+   ],
+   "color": "glass",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Schirm Zeilen",
+   "at": [
+    -3,
+    9,
+    -4
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.7
+   },
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     2,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Status",
+   "at": [
+    -4,
+    7,
+    -4
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung",
+   "at": [
+    -1,
+    24,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

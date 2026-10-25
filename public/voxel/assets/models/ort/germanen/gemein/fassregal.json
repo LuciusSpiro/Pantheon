@@ -1,0 +1,442 @@
+{
+ "id": "ort/germanen/gemein/fassregal",
+ "name": "Fasszellen-Regal (Germanen): Eisenbock mit liegenden Achteck-Fass-Akkus, Stirnseiten mit Runensiegel, Glut-Sammelschiene, wandnah",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "lager",
+  "energie",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "params": {
+  "belegt": {
+   "default": 6,
+   "min": 0,
+   "max": 6,
+   "step": 1,
+   "label": "Fässer eingelegt"
+  }
+ },
+ "variants": {
+  "halb": {
+   "belegt": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Pfosten",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    2,
+    24,
+    2
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 2,
+    "step": [
+     30,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfosten vorn",
+   "at": [
+    -16,
+    0,
+    4
+   ],
+   "size": [
+    2,
+    24,
+    2
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 2,
+    "step": [
+     30,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Nieten",
+   "at": [
+    -16,
+    "3 + i*5",
+    6
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Nieten 3",
+   "at": [
+    14,
+    "3 + i*5",
+    6
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückwand",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    22,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bock unten",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Bock Mitte",
+   "at": [
+    -16,
+    11,
+    -6
+   ],
+   "size": [
+    32,
+    1,
+    12
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Bock oben",
+   "at": [
+    -16,
+    22,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Sammelschiene",
+   "at": [
+    -16,
+    24,
+    -2
+   ],
+   "size": [
+    32,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schiene Fassung",
+   "at": [
+    -16,
+    24,
+    -3
+   ],
+   "size": [
+    32,
+    2,
+    1
+   ],
+   "color": "copper_dark",
+   "mirror": "z",
+   "mirrorAt": -1
+  },
+  {
+   "op": "group",
+   "name": "Fässer (Achteck)",
+   "ops": [
+    {
+     "op": "box",
+     "name": "Fass 0 quer",
+     "if": "i < belegt",
+     "at": [
+      "-14 + i*10",
+      3,
+      -4
+     ],
+     "size": [
+      9,
+      7,
+      10
+     ],
+     "color": "metal",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Fass 0 hoch",
+     "if": "i < belegt",
+     "at": [
+      "-13 + i*10",
+      2,
+      -4
+     ],
+     "size": [
+      7,
+      9,
+      10
+     ],
+     "color": "metal",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Reif 0",
+     "mode": "paint",
+     "if": "i < belegt",
+     "at": [
+      "-14 + i*10",
+      2,
+      3
+     ],
+     "size": [
+      9,
+      9,
+      1
+     ],
+     "color": "copper_dark",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Siegel 0",
+     "if": "i < belegt",
+     "at": [
+      "-11 + i*10",
+      5,
+      6
+     ],
+     "size": [
+      3,
+      3,
+      1
+     ],
+     "color": {
+      "role": "rune",
+      "emit": 0.9
+     },
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Fass 1 quer",
+     "if": "(3 + i) < belegt",
+     "at": [
+      "-14 + i*10",
+      14,
+      -4
+     ],
+     "size": [
+      9,
+      7,
+      10
+     ],
+     "color": "metal",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Fass 1 hoch",
+     "if": "(3 + i) < belegt",
+     "at": [
+      "-13 + i*10",
+      13,
+      -4
+     ],
+     "size": [
+      7,
+      9,
+      10
+     ],
+     "color": "metal",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Reif 1",
+     "mode": "paint",
+     "if": "(3 + i) < belegt",
+     "at": [
+      "-14 + i*10",
+      13,
+      3
+     ],
+     "size": [
+      9,
+      9,
+      1
+     ],
+     "color": "copper_dark",
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    },
+    {
+     "op": "box",
+     "name": "Siegel 1",
+     "if": "(3 + i) < belegt",
+     "at": [
+      "-11 + i*10",
+      16,
+      6
+     ],
+     "size": [
+      3,
+      3,
+      1
+     ],
+     "color": {
+      "role": "rune",
+      "emit": 0.9
+     },
+     "repeat": {
+      "count": 3,
+      "var": "i",
+      "step": [
+       0,
+       0,
+       0
+      ]
+     }
+    }
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

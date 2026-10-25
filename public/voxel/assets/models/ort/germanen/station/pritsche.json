@@ -1,0 +1,246 @@
+{
+ "id": "ort/germanen/station/pritsche",
+ "name": "Pritsche (Germanen, Esse): Klappliege mit Eisenrahmen und Fell, an Ketten zur Wand klappbar, Glutfuge am Rahmen",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "zellen",
+  "pritsche",
+  "ort01"
+ ],
+ "footprint": [
+  0.9,
+  0.8
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Rahmen lang",
+   "at": [
+    -7,
+    6,
+    -6
+   ],
+   "size": [
+    2,
+    2,
+    12
+   ],
+   "color": "metal_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Rahmen quer",
+   "at": [
+    -7,
+    6,
+    -6
+   ],
+   "size": [
+    14,
+    2,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen quer vorn",
+   "at": [
+    -7,
+    6,
+    4
+   ],
+   "size": [
+    14,
+    2,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bein",
+   "at": [
+    -7,
+    0,
+    4
+   ],
+   "size": [
+    2,
+    6,
+    2
+   ],
+   "color": "metal_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Beinfuß",
+   "at": [
+    -8,
+    0,
+    3
+   ],
+   "size": [
+    3,
+    1,
+    4
+   ],
+   "color": "copper_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Fellmatte",
+   "at": [
+    -6,
+    8,
+    -5
+   ],
+   "size": [
+    12,
+    2,
+    10
+   ],
+   "color": {
+    "noise": [
+     "fur",
+     "fur_dark",
+     "fur_light"
+    ],
+    "weights": [
+     6,
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kopfkissen",
+   "at": [
+    -5,
+    10,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    3
+   ],
+   "color": {
+    "noise": [
+     "fur_light",
+     "fur"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "line",
+   "name": "Kette",
+   "from": [
+    -6,
+    8,
+    -6
+   ],
+   "to": [
+    -6,
+    20,
+    -7
+   ],
+   "r": 0.5,
+   "color": "metal_light",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Wandhalter",
+   "at": [
+    -7,
+    18,
+    -8
+   ],
+   "size": [
+    3,
+    3,
+    1
+   ],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Kettenglied",
+   "at": [
+    -6,
+    12,
+    -6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "metal_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Fußrune",
+   "at": [
+    -1,
+    7,
+    6
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Heizglut",
+   "at": [
+    -4,
+    6,
+    6
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.7
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "ort/germanen/aussenposten/feldpfahl",
+  "name": "Runen-Feldpfahl (Germanen): Eisenpfahl mit Querarm, zwischen den Pfählen spannt sich die Glut-Feldlinie, Runensiegel auf der Stirn",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "feld", "begrenzung", "aussenposten", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Feld an" }
+  },
+  "variants": { "aus": { "aktiv": 0 } },
+  "let": { "em": "aktiv ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Fuß", "at": [-5, 0, -4], "size": [10, 2, 8], "color": "stone_dark" },
+    { "op": "box", "name": "Fuß Kupfer", "at": [-5, 2, -4], "size": [10, 1, 8], "color": { "frame": "copper_dark", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Pfahl", "at": [-2, 3, -2], "size": [4, 20, 4], "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Pfahlband", "at": [-3, 7, -3], "size": [6, 1, 6], "color": "copper" },
+    { "op": "box", "name": "Pfahlband oben", "at": [-3, 20, -3], "size": [6, 1, 6], "color": "copper_dark" },
+    { "op": "wedge", "name": "Kappe", "at": [-3, 21, -3], "size": [6, 3, 6], "gable": "x", "color": "copper" },
+    { "op": "box", "name": "Siegelrune", "at": [-1, 10, 2], "size": [2, 5, 1], "color": { "role": "rune", "emit": "em * 0.9" } },
+    { "op": "box", "name": "Siegelrune Querstrich", "at": [-2, 12, 2], "size": [4, 1, 1], "color": { "role": "rune", "emit": "em * 0.9" } },
+    { "op": "box", "name": "Querarm", "at": [-8, 15, -1], "size": [16, 2, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Armnieten", "at": [-7, 17, -1], "size": [1, 1, 2], "color": "copper", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Feldlinie", "at": [-8, 17, 0], "size": [16, 1, 1], "color": { "role": "ember", "emit": "em * 0.7" } }
+  ],
+  "anchor": [0, 0, 0]
+}

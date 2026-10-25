@@ -1,0 +1,418 @@
+{
+ "id": "ort/germanen/station/blasebalg",
+ "name": "Blasebalg-Kühlpumpe (Germanen, Esse): ledergefalteter Balg, Kolben und Pleuel am Kupfer-Schwungrad treiben Kühlmittel durch das Kupferrohr; Glutfuge am Sockel",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "reaktor",
+  "pumpe",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Platte",
+   "at": [
+    -6,
+    0,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Plattenrand",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Falte 0",
+   "at": [
+    -6,
+    3,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "leather"
+  },
+  {
+   "op": "box",
+   "name": "Falte 1",
+   "at": [
+    -5.5,
+    5,
+    -4.5
+   ],
+   "size": [
+    9,
+    2,
+    9
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Falte 2",
+   "at": [
+    -5,
+    7,
+    -4
+   ],
+   "size": [
+    8,
+    2,
+    8
+   ],
+   "color": "leather"
+  },
+  {
+   "op": "box",
+   "name": "Falte 3",
+   "at": [
+    -4.5,
+    9,
+    -3.5
+   ],
+   "size": [
+    7,
+    2,
+    7
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Falte 4",
+   "at": [
+    -4,
+    11,
+    -3
+   ],
+   "size": [
+    6,
+    2,
+    6
+   ],
+   "color": "leather"
+  },
+  {
+   "op": "box",
+   "name": "Falte 5",
+   "at": [
+    -3.5,
+    13,
+    -2.5
+   ],
+   "size": [
+    5,
+    2,
+    5
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Deckplatte",
+   "at": [
+    -6,
+    15,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Kolbenstange",
+   "at": [
+    -3,
+    16,
+    -1
+   ],
+   "size": [
+    2,
+    6,
+    2
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Kolbenkopf",
+   "at": [
+    -5,
+    22,
+    -2
+   ],
+   "size": [
+    6,
+    2,
+    4
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Rad a",
+   "at": [
+    0,
+    14,
+    -5
+   ],
+   "size": [
+    8,
+    8,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rad b",
+   "at": [
+    1,
+    13,
+    -5
+   ],
+   "size": [
+    6,
+    10,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rad c",
+   "at": [
+    -1,
+    15,
+    -5
+   ],
+   "size": [
+    9,
+    6,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rad Speiche",
+   "at": [
+    3,
+    15,
+    -5
+   ],
+   "size": [
+    2,
+    6,
+    1
+   ],
+   "color": "metal_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rad Speiche q",
+   "at": [
+    1,
+    17,
+    -5
+   ],
+   "size": [
+    6,
+    2,
+    1
+   ],
+   "color": "metal_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Rad Nabe",
+   "at": [
+    3,
+    17,
+    -6
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Radbock",
+   "at": [
+    3,
+    2,
+    -4
+   ],
+   "size": [
+    4,
+    11,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "line",
+   "name": "Pleuel",
+   "from": [
+    -2,
+    22.5,
+    0
+   ],
+   "to": [
+    6,
+    19.5,
+    -3
+   ],
+   "r": 1,
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Rohr",
+   "at": [
+    -1,
+    4,
+    2
+   ],
+   "size": [
+    6,
+    3,
+    3
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Rohr Flansch",
+   "at": [
+    5,
+    3,
+    1
+   ],
+   "size": [
+    1,
+    5,
+    5
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Pilotglut",
+   "at": [
+    3,
+    5,
+    3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Durchflussrune",
+   "at": [
+    -5,
+    3,
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Durchflussrune 2",
+   "at": [
+    -3,
+    3,
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutfuge",
+   "at": [
+    -6,
+    2,
+    5
+   ],
+   "size": [
+    12,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

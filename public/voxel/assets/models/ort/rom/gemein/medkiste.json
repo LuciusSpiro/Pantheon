@@ -1,0 +1,176 @@
+{
+ "id": "ort/rom/gemein/medkiste",
+ "name": "Medkiste (Rom): Marmorkoffer mit rotem Kreuz, Goldrahmen, Diagnosescanner (kaltweiß) und Amber-Ladelicht",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "streu",
+  "kranken",
+  "medkiste",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.75,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Korpus",
+   "at": [
+    -6,
+    0,
+    -4
+   ],
+   "size": [
+    12,
+    6,
+    8
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen Gold",
+   "at": [
+    -6,
+    5,
+    -4
+   ],
+   "size": [
+    12,
+    1,
+    8
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "secondary",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kreuz senkrecht",
+   "at": [
+    -1,
+    1,
+    4
+   ],
+   "size": [
+    2,
+    4,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kreuz waagrecht",
+   "at": [
+    -2,
+    2,
+    4
+   ],
+   "size": [
+    4,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Griff",
+   "at": [
+    -3,
+    6,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Griffstützen",
+   "at": [
+    -3,
+    5,
+    -1
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": "metal",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Scanner",
+   "at": [
+    2,
+    1,
+    4
+   ],
+   "size": [
+    3,
+    2,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Scanner Anzeige",
+   "at": [
+    3,
+    2,
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ladelicht",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

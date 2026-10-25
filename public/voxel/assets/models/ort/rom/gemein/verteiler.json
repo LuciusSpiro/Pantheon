@@ -1,0 +1,35 @@
+{
+  "id": "ort/rom/gemein/verteiler",
+  "name": "Castellum-Energieverteiler (Rom, Richtung Aquädukt): Rundbecken teilt die Zuleitung auf drei Abgänge, Schieber mit Pegeln",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "energie", "verteiler", "aussenposten", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "abgaenge": { "default": 3, "min": 1, "max": 3, "step": 1, "label": "Abgänge offen" }
+  },
+  "variants": { "einer": { "abgaenge": 1 } },
+  "ops": [
+    { "op": "box", "name": "Platte", "at": [-8, 0, -8], "size": [16, 1, 16], "color": "stone_light" },
+    { "op": "cyl", "name": "Becken", "at": [0, 1, 0], "r": 6.5, "h": 7, "color": "secondary" },
+    { "op": "cyl", "name": "Band Rot", "at": [0, 3, 0], "r": 6.5, "h": 2, "color": "primary", "mode": "paint" },
+    { "op": "cyl", "name": "Rand Gold", "at": [0, 8, 0], "r": 7, "h": 1, "hollow": 1.5, "color": "trim" },
+    { "op": "cyl", "name": "Spiegel", "at": [0, 7, 0], "r": 5.5, "h": 1, "color": { "role": "glow2", "emit": 0.9 } },
+    { "op": "cyl", "name": "Teilerkopf", "at": [0, 8, 0], "r": 1.6, "h": 4, "color": "metal_dark" },
+    { "op": "cyl", "name": "Teilerkappe", "at": [0, 12, 0], "r": 2.2, "h": 1, "color": "trim" },
+    { "op": "box", "name": "Abgang rechts", "at": [6, 5, -2], "size": [2, 3, 4], "color": "secondary" },
+    { "op": "box", "name": "Abgang rechts Fluss", "if": "abgaenge >= 2", "at": [6, 7, -1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.9 } },
+    { "op": "box", "name": "Abgang links", "at": [-8, 5, -2], "size": [2, 3, 4], "color": "secondary" },
+    { "op": "box", "name": "Abgang links Fluss", "if": "abgaenge >= 3", "at": [-8, 7, -1], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.9 } },
+    { "op": "box", "name": "Abgang vorn", "at": [-2, 5, 6], "size": [4, 3, 2], "color": "secondary" },
+    { "op": "box", "name": "Abgang vorn Fluss", "at": [-1, 7, 6], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.9 } },
+    { "op": "box", "name": "Zulauf", "at": [-2, 8, -8], "size": [4, 2, 3], "color": "secondary" },
+    { "op": "box", "name": "Zulauf Fluss", "at": [-1, 9, -8], "size": [2, 1, 3], "color": { "role": "glow2", "emit": 0.9 } },
+    { "op": "box", "name": "Zulauf Stütze", "at": [-1, 1, -8], "size": [2, 7, 2], "color": "stone" },
+    { "op": "box", "name": "Schieber", "at": [5, 9, -1], "size": [1, 3, 2], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Pegeltafel", "at": [-3, 2, 6], "size": [6, 3, 1], "color": "glass" },
+    { "op": "box", "name": "Pegel", "at": [-2, 2, 7], "size": [1, "1 + (i < abgaenge ? 1 : 0)", 1], "color": { "role": "glow", "emit": 1 }, "repeat": { "count": 3, "var": "i", "step": [2, 0, 0] } }
+  ],
+  "anchor": [0, 0, 0]
+}

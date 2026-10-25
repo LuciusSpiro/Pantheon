@@ -1,0 +1,43 @@
+{
+  "id": "ort/germanen/aussenposten/landeplatz",
+  "name": "Landeplatz 4×4 (Germanen): Eisenplattform aus Platten mit Glutfugen, Kupferring und Aufsetzkreuz, acht Kupferpoller mit Glutkopf; Gegenstück zur Aquädukt-Plattform, ersetzt den Holzlandeplatz",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "aussenposten", "landeplatz", "leit", "ort01"],
+  "footprint": [4, 4],
+  "params": {
+    "lit": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Glut an" }
+  },
+  "variants": { "dunkel": { "lit": 0 } },
+  "let": { "em": "lit ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Fundament", "at": [-32, 0, -32], "size": [64, 1, 64], "color": "stone_dark" },
+    { "op": "box", "name": "Rahmen", "at": [-32, 1, -32], "size": [64, 2, 64], "color": "metal_dark" },
+    { "op": "group", "name": "Platten", "repeat": { "count": 4, "var": "j", "step": [0, 0, 0] }, "ops": [
+      { "op": "box", "name": "Platte", "at": ["-30 + i*15", 3, "-30 + j*15"], "size": [14, 1, 14], "color": { "shade": "metal", "f": "1 + ((i + j) % 2) * 0.16" }, "repeat": { "count": 4, "var": "i", "step": [0, 0, 0] } }
+    ] },
+    { "op": "box", "name": "Glutfuge x", "at": [-30, 3, "-16 + k*15"], "size": [60, 1, 1], "color": { "role": "ember", "emit": "em * 0.5" }, "repeat": { "count": 3, "var": "k", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Glutfuge z", "at": ["-16 + k*15", 3, -30], "size": [1, 1, 60], "color": { "role": "ember", "emit": "em * 0.5" }, "repeat": { "count": 3, "var": "k", "step": [0, 0, 0] } },
+    { "op": "cyl", "name": "Kupferring", "at": [0, 4, 0], "r": 14, "h": 1, "hollow": 1, "color": "copper" },
+    { "op": "box", "name": "Aufsetzkreuz x", "at": [-7, 4, -1], "size": [14, 1, 2], "color": { "role": "rune", "emit": "em * 0.7" } },
+    { "op": "box", "name": "Aufsetzkreuz z", "at": [-1, 4, -7], "size": [2, 1, 14], "color": { "role": "rune", "emit": "em * 0.7" } },
+    { "op": "box", "name": "Kantenband", "at": [-32, 3, -32], "size": [64, 1, 2], "color": "copper_dark", "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Kantenband z", "at": [-32, 3, -30], "size": [2, 1, 60], "color": "copper_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "group", "name": "Eckpoller", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 }, "ops": [
+      { "op": "box", "name": "Pollerfuß", "at": [-31, 4, -31], "size": [5, 1, 5], "color": "metal_dark" },
+      { "op": "box", "name": "Pollerkörper", "at": [-30, 5, -30], "size": [3, 5, 3], "color": "copper" },
+      { "op": "box", "name": "Pollerreif", "at": [-31, 8, -31], "size": [5, 1, 5], "color": "copper_dark" },
+      { "op": "box", "name": "Pollerkopf", "at": [-29, 10, -29], "size": [1, 1, 1], "color": { "role": "ember", "emit": "em" } }
+    ] },
+    { "op": "group", "name": "Mittelpoller", "ops": [
+      { "op": "box", "name": "Pollerkörper", "at": [-1, 4, -31], "size": [3, 4, 3], "color": "copper" },
+      { "op": "box", "name": "Pollerkopf", "at": [0, 8, -30], "size": [1, 1, 1], "color": { "role": "ember", "emit": "em" } }
+    ], "mirror": "z", "mirrorAt": 0 },
+    { "op": "group", "name": "Mittelpoller x", "ops": [
+      { "op": "box", "name": "Pollerkörper", "at": [-31, 4, -1], "size": [3, 4, 3], "color": "copper" },
+      { "op": "box", "name": "Pollerkopf", "at": [-30, 8, 0], "size": [1, 1, 1], "color": { "role": "ember", "emit": "em" } }
+    ], "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 0, 0]
+}

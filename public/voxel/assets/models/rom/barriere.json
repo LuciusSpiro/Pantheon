@@ -1,0 +1,38 @@
+{
+  "id": "rom/barriere",
+  "name": "Mobile Schildbarriere (Rom)",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "deckung", "barriere", "verteidigung"],
+  "footprint": [1.5, 0.75],
+  "params": {
+    "w": { "default": 24, "min": 8, "max": 64, "step": 1, "label": "Breite (Voxel)" },
+    "field": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Emitter aktiv" }
+  },
+  "let": { "ribs": "floor((w - 1) / 8) + 1" },
+  "variants": {
+    "kurz": { "w": 12 },
+    "lang": { "w": 48 },
+    "aus": { "field": 0 }
+  },
+  "ops": [
+    { "op": "box", "name": "Bodenplatte", "at": [0, 0, -4], "size": ["w", 2, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Kufen", "repeat": { "count": "ribs", "step": [8, 0, 0], "var": "i" }, "at": [0, 0, -6], "size": [2, 1, 12], "color": "rubber" },
+    { "op": "box", "name": "Kufe Ende", "at": ["w-2", 0, -6], "size": [2, 1, 12], "color": "rubber" },
+    { "op": "box", "name": "Rückwand", "at": [0, 2, -4], "size": ["w", 13, 1], "color": "metal" },
+    { "op": "wedge", "name": "Panzerschräge", "at": [0, 2, -3], "size": ["w", 13, 6], "slope": "+z", "color": "primary" },
+    { "op": "box", "name": "Goldband unten", "at": [0, 2, 2], "size": ["w", 1, 2], "color": "trim" },
+    { "op": "box", "name": "Zierfries", "at": [0, 7, -1], "size": ["w", 1, 4], "color": { "shade": "trim", "f": 0.85 }, "mode": "paint" },
+    { "op": "wedge", "name": "Rippe", "repeat": { "count": "ribs", "step": [8, 0, 0], "var": "i" }, "at": [0, 2, -3], "size": [2, 14, 7], "slope": "+z", "color": "metal" },
+    { "op": "wedge", "name": "Rippe Ende", "at": ["w-2", 2, -3], "size": [2, 14, 7], "slope": "+z", "color": "metal" },
+    { "op": "wedge", "name": "Stütze hinten", "repeat": { "count": "ribs", "step": [8, 0, 0], "var": "i" }, "at": [0, 2, -8], "size": [2, 9, 4], "slope": "-z", "color": "metal_dark" },
+    { "op": "wedge", "name": "Stütze Ende", "at": ["w-2", 2, -8], "size": [2, 9, 4], "slope": "-z", "color": "metal_dark" },
+    { "op": "box", "name": "Emitterholm", "at": [0, 15, -5], "size": ["w", 1, 3], "color": "metal_dark" },
+    { "op": "box", "name": "Emitterkante", "if": "field", "at": [1, 16, -4], "size": ["w-2", 1, 1], "color": { "role": "glow", "emit": 0.8 }, "jitter": false },
+    { "op": "box", "name": "Emitterkante aus", "if": "!field", "at": [1, 16, -4], "size": ["w-2", 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Emitterknoten", "repeat": { "count": "ribs", "step": [8, 0, 0], "var": "i" }, "at": [0, 15, -5], "size": [2, 2, 3], "color": "metal_light" },
+    { "op": "box", "name": "Emitterknoten Ende", "at": ["w-2", 15, -5], "size": [2, 2, 3], "color": "metal_light" },
+    { "op": "box", "name": "Statuslicht", "if": "field", "at": [0, 12, -5], "size": [1, 1, 1], "color": "glow2", "jitter": false }
+  ],
+  "anchor": ["w/2", 0, 0]
+}

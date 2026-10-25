@@ -1,0 +1,33 @@
+{
+  "id": "ort/rom/station/terminal",
+  "name": "Kommandopult unter Bogen (Rom, Richtung Aquädukt): Marmorpult, Schirm im Rundbogen, Kartenhologramm, Zuleitung von oben",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "terminal", "kommando", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 bereit, 1 lädt, 2 gesperrt)" },
+    "holo": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Kartenhologramm" }
+  },
+  "let": { "em": "state == 2 ? 0 : 1" },
+  "variants": { "gesperrt": { "state": 2 }, "ohne_holo": { "holo": 0 } },
+  "ops": [
+    { "op": "box", "name": "Stufe", "at": [-7, 0, -7], "size": [14, 1, 14], "color": "stone_light" },
+    { "op": "box", "name": "Pultkörper", "at": [-6, 1, -3], "size": [12, 10, 8], "color": "secondary" },
+    { "op": "box", "name": "Frontfeld Rot", "at": [-4, 3, 5], "size": [8, 6, 1], "color": { "frame": "trim", "fill": "primary", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Sockelleiste", "at": [-6, 1, 4], "size": [12, 1, 2], "color": "stone" },
+    { "op": "wedge", "name": "Pultschräge", "at": [-7, 11, -3], "size": [14, 2, 10], "slope": "+z", "color": "metal_dark" },
+    { "op": "box", "name": "Goldkante", "at": [-7, 11, 6], "size": [14, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Tasten", "at": [-5, 12, 3], "size": [2, 1, 1], "color": { "role": "glow2", "emit": "em" }, "repeat": { "count": 4, "step": [3, 0, 0] } },
+    { "op": "use", "name": "Schirmbogen", "model": "ort/rom/gemein/bogen", "params": { "w": 10, "h": 20, "d": 3, "wall": 2, "top": 2, "band": 1 }, "at": [0, 1, -7] },
+    { "op": "box", "name": "Schirm", "mode": "under", "at": [-5, 13, -6], "size": [10, 13, 1], "color": "glass" },
+    { "op": "box", "name": "Schirm Zeilen", "if": "state != 2", "at": [-3, 18, -5], "size": [6, 1, 1], "color": { "role": "glow", "emit": "em * 0.7" }, "repeat": { "count": 3, "step": [0, 2, 0] } },
+    { "op": "box", "name": "Sperrband", "if": "state == 2", "at": [-4, 18, -5], "size": [8, 2, 1], "color": "warning" },
+    { "op": "box", "name": "Holo Projektor", "if": "holo", "at": [-1, 13, 0], "size": [2, 1, 2], "color": "trim" },
+    { "op": "box", "name": "Holo Karte", "if": "holo && state != 2", "at": [-4, 16, -2], "size": [8, 1, 6], "color": { "checker": [{ "role": "glow2", "emit": 0.7 }, { "role": "glow", "emit": 0.5 }], "period": 2 } },
+    { "op": "box", "name": "Zuleitung", "at": [-1, 28, -8], "size": [2, 1, 2], "color": { "role": "glow2", "emit": "em" } },
+    { "op": "box", "name": "Zuleitung Rinne", "at": [-2, 27, -8], "size": [4, 1, 3], "color": "secondary" }
+  ],
+  "anchor": [0, 0, 0]
+}

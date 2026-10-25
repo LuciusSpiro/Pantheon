@@ -1,0 +1,43 @@
+{
+  "id": "ort/rom/aussenposten/zellendepot",
+  "name": "Zellendepot (Rom, Aquädukt): offene Arkadenhalle, Laderinne auf dem Dach speist über die Mittelstütze die Ladeschiene an der Rückwand, Zellen stehen darin",
+  "tier": "architecture",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["bau", "rom", "aussenposten", "lager", "energie", "ort01"],
+  "footprint": [4, 3],
+  "params": {
+    "licht": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Ladeschiene aktiv" }
+  },
+  "let": { "em": "licht ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Podium", "at": [-8, 0, -6], "size": [16, 1, 12], "color": "stone" },
+    { "op": "box", "name": "Rückwand", "at": [-8, 1, -6], "size": [16, 8, 2], "color": "secondary" },
+    { "op": "box", "name": "Rückwand Rot", "mode": "paint", "at": [-8, 1, -5], "size": [16, 6, 1], "color": "primary" },
+    { "op": "box", "name": "Seitenwand", "at": [-8, 1, -6], "size": [2, 8, 12], "color": "secondary", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Frontblock", "at": [-8, 1, 4], "size": [16, 8, 2], "color": "secondary" },
+    { "op": "group", "name": "Arkade", "ops": [
+      { "op": "box", "name": "Öffnung", "mode": "carve", "at": [-6, 1, 4], "size": [5, 5, 2], "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Bogen j0", "mode": "carve", "at": [-6, 6, 4], "size": [5, 1, 2], "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Bogen j1", "mode": "carve", "at": [-5, 7, 4], "size": [3, 1, 2], "mirror": "x", "mirrorAt": 0 }
+    ] },
+    { "op": "box", "name": "Mittelstütze Front", "if": "licht", "at": [-1, 2, 5], "size": [2, 6, 1], "color": { "role": "glow2", "emit": 0.5 } },
+    { "op": "box", "name": "Mittelstütze Front Aus", "if": "!licht", "at": [-1, 2, 5], "size": [2, 6, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Mittelstütze Gold", "at": [-1, 1, 5], "size": [2, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Mittelstütze Gold oben", "at": [-1, 8, 5], "size": [2, 1, 1], "color": "trim" },
+    { "op": "box", "name": "Schlusssteine", "mode": "paint", "at": [-5, 8, 5], "size": [2, 1, 1], "color": "trim", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Dach", "at": [-8, 9, -6], "size": [16, 1, 12], "color": "stone_light" },
+    { "op": "box", "name": "Dachrinne Wand", "at": [-8, 10, -2], "size": [16, 2, 1], "color": "secondary" },
+    { "op": "box", "name": "Dachrinne Wand vorn", "at": [-8, 10, 2], "size": [16, 2, 1], "color": "trim" },
+    { "op": "box", "name": "Laderinne", "at": [-8, 10, -1], "size": [16, 1, 3], "color": { "role": "glow2", "emit": 0.6 } },
+    { "op": "box", "name": "Dachrinne Zulauf", "at": [-1, 10, 3], "size": [2, 1, 3], "color": { "role": "glow2", "emit": 0.6 } },
+    { "op": "box", "name": "Dach Kante hinten", "mode": "paint", "at": [-8, 9, -6], "size": [16, 1, 1], "color": "primary" },
+    { "op": "box", "name": "Ladeschiene Boden", "at": [-6, 1, -4], "size": [12, 1, 1], "color": { "role": "glow2", "emit": "em * 0.6" } },
+    { "op": "box", "name": "Ladeschiene Wand", "at": [-6, 4, -4], "size": [12, 1, 1], "color": { "role": "glow2", "emit": "em * 0.6" } },
+    { "op": "box", "name": "Ladeschiene Stützen", "at": [-6, 1, -4], "size": [1, 3, 1], "color": "metal_dark", "repeat": { "count": 2, "step": [11, 0, 0] } },
+    { "op": "box", "name": "Ladeschiene Mitte", "at": [-1, 1, -4], "size": [2, 3, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Verteilerkasten", "at": [-7, 1, 1], "size": [1, 4, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Verteilerkasten Anzeige", "at": [-7, 4, 1], "size": [1, 1, 2], "color": { "role": "glow2", "emit": 0.6 } }
+  ],
+  "anchor": [0, 0, 0]
+}

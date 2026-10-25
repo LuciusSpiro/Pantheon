@@ -1,0 +1,39 @@
+{
+  "id": "ort/germanen/station/terminal",
+  "name": "Hochsitz-Terminal (Germanen, Richtung Esse): zwei Hochsitzpfeiler tragen die Runenplatte, Fell über dem Pult, Glut-Tasten",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "terminal", "kommando", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "Zustand (0 bereit, 1 lädt, 2 gesperrt)" },
+    "fell": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Fell" }
+  },
+  "let": { "em": "state == 2 ? 0 : 1" },
+  "variants": { "gesperrt": { "state": 2 }, "ohne_fell": { "fell": 0 } },
+  "ops": [
+    { "op": "box", "name": "Fußplatte", "at": [-8, 0, -7], "size": [16, 1, 14], "color": "metal_dark" },
+    { "op": "group", "name": "Hochsitzpfeiler", "mirror": "x", "mirrorAt": 0, "ops": [
+      { "op": "box", "name": "Pfeiler", "at": [5, 1, -6], "size": [3, 27, 3], "color": "metal" },
+      { "op": "box", "name": "Kerben", "at": [5, "3 + i*4", -3], "size": [3, 2, 1], "color": "metal_dark", "repeat": { "count": 6, "var": "i", "step": [0, 0, 0] } },
+      { "op": "box", "name": "Kerben Rost", "at": [5, "5 + i*4", -3], "size": [3, 1, 1], "color": "copper_dark", "repeat": { "count": 5, "var": "i", "step": [0, 0, 0] } },
+      { "op": "box", "name": "Pfeilerkopf", "at": [4, 28, -7], "size": [5, 2, 5], "color": "metal_dark" },
+      { "op": "box", "name": "Kopf Rune", "at": [5, 28, -2], "size": [3, 2, 1], "color": { "role": "rune", "emit": "em" } }
+    ] },
+    { "op": "box", "name": "Runenplatte", "at": [-5, 12, -6], "size": [10, 15, 2], "color": "dark" },
+    { "op": "box", "name": "Plattenrahmen", "at": [-5, 12, -5], "size": [10, 15, 1], "color": { "frame": "metal_dark", "fill": "dark", "axes": "xy", "width": 1 } },
+    { "op": "box", "name": "Runenbahn senkrecht", "at": [-3, 14, -4], "size": [1, 11, 1], "color": { "role": "rune", "emit": "em * 0.9" } },
+    { "op": "box", "name": "Runenbahn Äste", "at": [-2, "15 + i*3", -4], "size": ["2 + (i % 2) * 2", 1, 1], "color": { "role": "rune", "emit": "em * 0.9" }, "repeat": { "count": 4, "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Runenbahn rechts", "at": [2, 14, -4], "size": [1, 11, 1], "color": { "role": "rune_dim", "emit": "em * 0.5" } },
+    { "op": "box", "name": "Sperre", "if": "state == 2", "at": [-4, 18, -4], "size": [8, 2, 1], "color": "alarm" },
+    { "op": "box", "name": "Pultkörper", "at": [-5, 1, -3], "size": [10, 9, 7], "color": "metal_dark" },
+    { "op": "use", "name": "Pultfront", "model": "ort/germanen/gemein/klinker", "params": { "w": 10, "h": 8, "d": 0, "lage": 4, "glut": 0, "niet": 3 }, "at": [0, 1, 4] },
+    { "op": "wedge", "name": "Pultplatte", "at": [-6, 10, -3], "size": [12, 2, 9], "slope": "+z", "color": "metal" },
+    { "op": "box", "name": "Glut-Tasten", "at": [-4, 11, 2], "size": [1, 1, 1], "color": { "role": "ember", "emit": "em" }, "repeat": { "count": 4, "step": [3, 0, 0] } },
+    { "op": "box", "name": "Fell", "if": "fell", "at": [-5, 11, -3], "size": [10, 1, 4], "color": { "noise": ["fur", "fur_dark", "fur_light"], "weights": [3, 2, 1], "cell": 2 } },
+    { "op": "box", "name": "Fell hängt", "if": "fell", "at": [-5, 5, -4], "size": [10, 7, 1], "color": { "noise": ["fur", "fur_dark"], "weights": [2, 1], "cell": 2 }, "mode": "add" },
+    { "op": "box", "name": "Kabel", "at": [-1, 1, -7], "size": [2, 11, 1], "color": "rubber" }
+  ],
+  "anchor": [0, 0, 0]
+}

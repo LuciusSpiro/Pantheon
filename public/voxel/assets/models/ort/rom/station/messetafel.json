@@ -1,0 +1,329 @@
+{
+ "id": "ort/rom/station/messetafel",
+ "name": "Messetafel (Rom): Marmortafel auf vier Bogenfüßen, Amberrinne in der Mitte speist sechs Wärmeplatten",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "leit",
+  "messe",
+  "tisch",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  3,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -24,
+    0,
+    -7
+   ],
+   "size": [
+    48,
+    1,
+    14
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "use",
+   "name": "Fuß 0",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -17,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 1",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 2",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    6,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 3",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    17,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Tafel",
+   "at": [
+    -22,
+    12,
+    -7
+   ],
+   "size": [
+    44,
+    2,
+    14
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Tafelkante",
+   "at": [
+    -22,
+    14,
+    -7
+   ],
+   "size": [
+    44,
+    1,
+    14
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "secondary",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rinne Bett",
+   "at": [
+    -20,
+    14,
+    -1
+   ],
+   "size": [
+    40,
+    1,
+    2
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Rinne Fluss",
+   "at": [
+    -20,
+    14,
+    -1
+   ],
+   "size": [
+    40,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Wärmeplatte vorn",
+   "at": [
+    -20,
+    14,
+    2
+   ],
+   "size": [
+    8,
+    1,
+    5
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": {
+     "role": "glow2",
+     "emit": 0.5
+    },
+    "axes": "xz",
+    "width": 1
+   },
+   "repeat": {
+    "count": 3,
+    "step": [
+     16,
+     0,
+     0
+    ]
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Wärmeplatte hinten",
+   "at": [
+    -12,
+    14,
+    -6
+   ],
+   "size": [
+    8,
+    1,
+    5
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": {
+     "role": "glow2",
+     "emit": 0.5
+    },
+    "axes": "xz",
+    "width": 1
+   },
+   "repeat": {
+    "count": 2,
+    "step": [
+     16,
+     0,
+     0
+    ]
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schürze",
+   "at": [
+    -21,
+    10,
+    6
+   ],
+   "size": [
+    42,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Schürze hinten",
+   "at": [
+    -21,
+    10,
+    -7
+   ],
+   "size": [
+    42,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Rinne unten",
+   "at": [
+    -20,
+    1,
+    -1
+   ],
+   "size": [
+    40,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.7
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zulauf",
+   "at": [
+    22,
+    6,
+    -2
+   ],
+   "size": [
+    2,
+    3,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf Fluss",
+   "at": [
+    22,
+    9,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

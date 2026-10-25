@@ -1,0 +1,29 @@
+{
+  "id": "ort/rom/aussenposten/deckung_kapsel",
+  "name": "Frachtkapsel mit Druckgefäß (Rom, Aquädukt): Marmorkapsel auf Kufen, Goldkanten, Verschlusslinie in Amber, Anzeige, Ladestutzen",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "aussenposten", "deckung", "fracht", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Anzeige aktiv" }
+  },
+  "let": { "em": "aktiv ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Kufen", "at": [-6, 0, -6], "size": [2, 1, 12], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Körper", "at": [-7, 1, -5], "size": [14, 11, 10], "color": "secondary" },
+    { "op": "box", "name": "Deckel", "at": [-6, 12, -4], "size": [12, 1, 8], "color": "stone_light" },
+    { "op": "box", "name": "Band Rot", "mode": "paint", "at": [-7, 4, -5], "size": [14, 3, 10], "color": "primary" },
+    { "op": "box", "name": "Eckpfosten", "at": [-7, 1, -5], "size": [1, 11, 1], "color": "trim", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "box", "name": "Verschlusslinie", "at": [-5, 9, 4], "size": [10, 1, 1], "color": { "role": "glow2", "emit": "em * 0.6" } },
+    { "op": "box", "name": "Anzeige Glas", "at": [1, 5, 4], "size": [4, 3, 1], "color": "glass" },
+    { "op": "box", "name": "Anzeige Pegel", "at": [2, 6, 4], "size": [2, 1, 1], "color": { "role": "glow2", "emit": "em * 0.9" } },
+    { "op": "cyl", "name": "Druckgefäß", "at": [-5, 16, 0], "r": 3, "h": 10, "axis": "x", "color": "metal" },
+    { "op": "box", "name": "Druckgefäß Wiege", "at": [-4, 13, -2], "size": [2, 1, 4], "color": "metal_dark", "repeat": { "count": 2, "step": [6, 0, 0] } },
+    { "op": "box", "name": "Druckgefäß Gold", "at": [-5, 14, -3], "size": [1, 5, 6], "color": "trim", "mode": "paint" },
+    { "op": "box", "name": "Ladestutzen", "at": [7, 3, -2], "size": [1, 4, 4], "color": "metal_dark" },
+    { "op": "box", "name": "Ladestutzen Spitze", "at": [7, 4, -1], "size": [1, 2, 2], "color": { "role": "glow2", "emit": "em * 0.9" } }
+  ],
+  "anchor": [0, 0, 0]
+}

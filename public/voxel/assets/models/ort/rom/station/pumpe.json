@@ -1,0 +1,267 @@
+{
+ "id": "ort/rom/station/pumpe",
+ "name": "Kühlpumpe (Rom): Gunmetal-Kolben mit Führungsholmen im Marmorgehäuse, Amberdeck, Druckstutzen",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "reaktor",
+  "pumpe",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -8,
+    0,
+    -8
+   ],
+   "size": [
+    16,
+    1,
+    16
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Gehäuse",
+   "at": [
+    -6,
+    1,
+    -6
+   ],
+   "size": [
+    12,
+    11,
+    12
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Gehäuse Band",
+   "at": [
+    -6,
+    3,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Front Rot",
+   "at": [
+    -5,
+    5,
+    6
+   ],
+   "size": [
+    10,
+    5,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Sichtfenster",
+   "at": [
+    -3,
+    6,
+    7
+   ],
+   "size": [
+    6,
+    3,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Sichtfenster Pegel",
+   "at": [
+    -2,
+    6,
+    7
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Oberdeck",
+   "at": [
+    -6,
+    12,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": {
+     "role": "glow2",
+     "emit": 0.55
+    },
+    "axes": "xz",
+    "width": 1
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Führungsholm",
+   "at": [
+    -5,
+    13,
+    -5
+   ],
+   "size": [
+    1,
+    10,
+    1
+   ],
+   "color": "metal",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": 0,
+    "z": 0
+   }
+  },
+  {
+   "op": "cyl",
+   "name": "Kolbenstange",
+   "at": [
+    0,
+    13,
+    0
+   ],
+   "r": 2,
+   "h": 9,
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Kolbenkopf",
+   "at": [
+    -6,
+    22,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kolbenanzeige",
+   "at": [
+    -1,
+    24,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Druckstutzen",
+   "at": [
+    6,
+    5,
+    -2
+   ],
+   "size": [
+    2,
+    4,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Druckstutzen Fluss",
+   "at": [
+    6,
+    8,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Druckrohr",
+   "at": [
+    7,
+    1,
+    -1
+   ],
+   "size": [
+    1,
+    5,
+    2
+   ],
+   "color": "metal_dark"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

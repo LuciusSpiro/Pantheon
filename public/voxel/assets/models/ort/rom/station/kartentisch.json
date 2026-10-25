@@ -1,0 +1,400 @@
+{
+ "id": "ort/rom/station/kartentisch",
+ "name": "Kartentisch (Rom, Aquädukt): Marmortisch auf Bogenfüßen, Amber-Kartenhologramm, Rinne unter dem Tisch mit Anschluss",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "leit",
+  "kommando",
+  "terminal",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -8
+   ],
+   "size": [
+    32,
+    1,
+    16
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "use",
+   "name": "Fuß links",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -9,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß rechts",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    9,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 6,
+    "h": 8,
+    "d": 12,
+    "wall": 2,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rinne unter Tisch",
+   "at": [
+    -9,
+    1,
+    -1
+   ],
+   "size": [
+    18,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rinnenbett",
+   "at": [
+    -9,
+    1,
+    -2
+   ],
+   "size": [
+    18,
+    1,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Tischplatte",
+   "at": [
+    -14,
+    13,
+    -7
+   ],
+   "size": [
+    28,
+    2,
+    14
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Tischkante Gold",
+   "at": [
+    -14,
+    15,
+    -7
+   ],
+   "size": [
+    28,
+    1,
+    14
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "secondary",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schürze Rot",
+   "at": [
+    -13,
+    11,
+    7
+   ],
+   "size": [
+    26,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Schürze Rot hinten",
+   "at": [
+    -13,
+    11,
+    -8
+   ],
+   "size": [
+    26,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kartenbett",
+   "at": [
+    -12,
+    16,
+    -5
+   ],
+   "size": [
+    24,
+    1,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Hologramm Karte",
+   "at": [
+    -11,
+    17,
+    -4
+   ],
+   "size": [
+    22,
+    1,
+    8
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Karte Längslinie",
+   "at": [
+    -11,
+    17,
+    -3
+   ],
+   "size": [
+    22,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.6
+   },
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     0,
+     3
+    ]
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Karte Querlinie",
+   "at": [
+    -10,
+    17,
+    -4
+   ],
+   "size": [
+    1,
+    1,
+    8
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.6
+   },
+   "repeat": {
+    "count": 6,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Karte Kontur",
+   "at": [
+    -6,
+    18,
+    -2
+   ],
+   "size": [
+    8,
+    1,
+    4
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.45
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Karte Kontur 2",
+   "at": [
+    -3,
+    19,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.6
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Projektor",
+   "at": [
+    -2,
+    17,
+    -1
+   ],
+   "size": [
+    4,
+    2,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Stecknadel",
+   "at": [
+    -8,
+    18,
+    -2
+   ],
+   "size": [
+    1,
+    3,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stecknadel 2",
+   "at": [
+    5,
+    18,
+    1
+   ],
+   "size": [
+    1,
+    3,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stecknadel 3",
+   "at": [
+    1,
+    18,
+    -3
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Anschluss Stutzen",
+   "at": [
+    14,
+    6,
+    -2
+   ],
+   "size": [
+    2,
+    4,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Anschluss Fluss",
+   "at": [
+    14,
+    9,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

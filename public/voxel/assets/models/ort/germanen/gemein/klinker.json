@@ -1,0 +1,29 @@
+{
+  "id": "ort/germanen/gemein/klinker",
+  "name": "Klinkerplatte (Germanen, Richtung Esse): überlappende Eisenplanken mit Rostnieten, Glut in den Fugen; Baustein für Gehäuse",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["teil", "germanen", "ort01"],
+  "footprint": [1, 0.5],
+  "params": {
+    "w": { "default": 16, "min": 2, "max": 40, "step": 1, "label": "Breite" },
+    "h": { "default": 16, "min": 2, "max": 48, "step": 1, "label": "Höhe" },
+    "d": { "default": 4, "min": 1, "max": 32, "step": 1, "label": "Tiefe" },
+    "lage": { "default": 4, "min": 2, "max": 8, "step": 1, "label": "Plankenhöhe" },
+    "glut": { "default": 0.8, "min": 0, "max": 2, "step": 0.1, "label": "Glut in den Fugen" },
+    "niet": { "default": 4, "min": 2, "max": 12, "step": 1, "label": "Nietabstand" }
+  },
+  "let": { "n": "floor(h/lage)" },
+  "ops": [
+    { "op": "box", "name": "Kern", "at": ["-w/2", 0, 0], "size": ["w", "h", "d"], "color": "metal_dark" },
+    { "op": "box", "name": "Planke", "at": ["-w/2", "i*lage + 1", "d"], "size": ["w", "lage - 1", 1], "color": { "stripes": ["metal", "primary"], "axis": "y", "period": 2 }, "repeat": { "count": "n", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Plankenlippe", "at": ["-w/2", "i*lage + 1", "d + 1"], "size": ["w", 1, 1], "color": "metal_light", "repeat": { "count": "n", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Glutfuge", "if": "glut > 0", "at": ["-w/2", "i*lage", "d"], "size": ["w", 1, 1], "color": { "role": "ember", "emit": "glut" }, "repeat": { "count": "n", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Fuge kalt", "if": "glut <= 0", "at": ["-w/2", "i*lage", "d"], "size": ["w", 1, 1], "color": "dark", "repeat": { "count": "n", "var": "i", "step": [0, 0, 0] } },
+    { "op": "group", "name": "Nieten", "repeat": { "count": "n", "var": "i", "step": [0, 0, 0] }, "ops": [
+      { "op": "box", "name": "Niet", "at": ["-w/2 + 1 + k*niet", "i*lage + 1", "d + 2"], "size": [1, 1, 1], "color": "copper", "repeat": { "count": "floor((w - 1)/niet) + 1", "var": "k", "step": [0, 0, 0] } }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

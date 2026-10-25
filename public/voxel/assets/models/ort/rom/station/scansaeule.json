@@ -1,0 +1,249 @@
+{
+ "id": "ort/rom/station/scansaeule",
+ "name": "Scansäule (Rom): Marmorsäule mit Gold-Sensorring, kaltweißen Sensorlichtern und Radom, Gunmetal-Basis mit Statusanzeige",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "kranken",
+  "scanner",
+  "sensor",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -8,
+    0,
+    -8
+   ],
+   "size": [
+    16,
+    1,
+    16
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Basis",
+   "at": [
+    -5,
+    1,
+    -5
+   ],
+   "size": [
+    10,
+    5,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Basis Gold",
+   "at": [
+    -5,
+    5,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Basis Anzeige",
+   "at": [
+    -2,
+    3,
+    5
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "cyl",
+   "name": "Schaft",
+   "at": [
+    0,
+    6,
+    0
+   ],
+   "r": 3.5,
+   "h": 16,
+   "color": "secondary"
+  },
+  {
+   "op": "cyl",
+   "name": "Schaft Band",
+   "at": [
+    0,
+    10,
+    0
+   ],
+   "r": 3.5,
+   "h": 2,
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "cyl",
+   "name": "Schaft Kapitell",
+   "at": [
+    0,
+    22,
+    0
+   ],
+   "r": 4.5,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Streben",
+   "at": [
+    -4,
+    22,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Streben 2",
+   "at": [
+    -1,
+    22,
+    -4
+   ],
+   "size": [
+    2,
+    1,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "cyl",
+   "name": "Sensorring",
+   "at": [
+    0,
+    23,
+    0
+   ],
+   "r": 7,
+   "h": 1,
+   "color": "trim",
+   "hollow": 1.5
+  },
+  {
+   "op": "box",
+   "name": "Sensorlicht",
+   "at": [
+    -1,
+    23,
+    6
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 1.0
+   },
+   "jitter": false,
+   "mirror": "z",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Sensorlicht seitlich",
+   "at": [
+    6,
+    23,
+    -1
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 1.0
+   },
+   "jitter": false,
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "cyl",
+   "name": "Radom",
+   "at": [
+    0,
+    23,
+    0
+   ],
+   "r": 2.5,
+   "h": 5,
+   "color": "glass",
+   "r2": 1
+  },
+  {
+   "op": "box",
+   "name": "Radomkern",
+   "at": [
+    -1,
+    24,
+    -1
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 1.0
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

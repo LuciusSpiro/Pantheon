@@ -1,0 +1,47 @@
+{
+  "id": "ort/rom/station/reaktor",
+  "name": "Kreuzaquädukt-Reaktor (Rom): Druckgefäß in Amphorenform, vier Aquädukt-Arme speisen den Hals, Pumpen an den Ecken",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "reaktor", "hauptstueck", "leit", "ort01"],
+  "footprint": [2, 2],
+  "params": {
+    "last": { "default": 2, "min": 0, "max": 2, "step": 1, "label": "Last (0 aus, 1 halb, 2 voll)" }
+  },
+  "let": { "em": "last == 0 ? 0 : (last == 1 ? 0.6 : 1.0)" },
+  "variants": { "aus": { "last": 0 }, "halb": { "last": 1 } },
+  "ops": [
+    { "op": "box", "name": "Podium", "at": [-16, 0, -16], "size": [32, 1, 32], "color": "stone" },
+    { "op": "box", "name": "Podium Feld", "at": [-15, 1, -15], "size": [30, 1, 30], "color": { "frame": "trim", "fill": "primary", "axes": "xz", "width": 1 } },
+    { "op": "group", "name": "Aquädukt-Arme", "ops": [
+      { "op": "use", "name": "Arm Ost", "model": "ort/rom/gemein/bogen", "params": { "w": 6, "h": 11, "d": 4, "wall": 2, "top": 3, "band": 0 }, "at": [10, 2, -2] },
+      { "op": "use", "name": "Arm West", "model": "ort/rom/gemein/bogen", "params": { "w": 6, "h": 11, "d": 4, "wall": 2, "top": 3, "band": 0 }, "at": [-10, 2, -2] },
+      { "op": "use", "name": "Arm Süd", "model": "ort/rom/gemein/bogen", "params": { "w": 6, "h": 11, "d": 4, "wall": 2, "top": 3, "band": 0 }, "at": [-2, 2, 10], "rot": 90 },
+      { "op": "use", "name": "Arm Nord", "model": "ort/rom/gemein/bogen", "params": { "w": 6, "h": 11, "d": 4, "wall": 2, "top": 3, "band": 0 }, "at": [-2, 2, -10], "rot": 90 },
+      { "op": "box", "name": "Rinne X", "at": [-15, 19, -2], "size": [30, 1, 4], "color": "trim" },
+      { "op": "box", "name": "Rinne Z", "at": [-2, 19, -15], "size": [4, 1, 30], "color": "trim" },
+      { "op": "box", "name": "Energie X", "at": [-15, 20, -1], "size": [30, 1, 2], "color": { "role": "glow2", "emit": "em" } },
+      { "op": "box", "name": "Energie Z", "at": [-1, 20, -15], "size": [2, 1, 30], "color": { "role": "glow2", "emit": "em" } }
+    ] },
+    { "op": "cyl", "name": "Gefäß Fuß", "at": [0, 2, 0], "r": 3.5, "h": 2, "color": "metal_dark" },
+    { "op": "cyl", "name": "Gefäß Bauch unten", "at": [0, 4, 0], "r": 4.5, "r2": 6, "h": 3, "color": "secondary" },
+    { "op": "cyl", "name": "Gefäß Bauch", "at": [0, 7, 0], "r": 6, "h": 7, "color": "secondary" },
+    { "op": "cyl", "name": "Band Rot", "at": [0, 9, 0], "r": 6, "h": 2, "color": "primary", "mode": "paint" },
+    { "op": "cyl", "name": "Band Gold", "at": [0, 13, 0], "r": 6.3, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Schulter", "at": [0, 14, 0], "r": 6, "r2": 3.5, "h": 3, "color": "secondary" },
+    { "op": "box", "name": "Sichtfenster", "at": [-1, 5, -7], "size": [2, 8, 14], "color": { "role": "glow2", "emit": "em * 0.9" }, "mode": "paint" },
+    { "op": "box", "name": "Sichtfenster quer", "at": [-7, 5, -1], "size": [14, 8, 2], "color": { "role": "glow2", "emit": "em * 0.9" }, "mode": "paint" },
+    { "op": "cyl", "name": "Hals", "at": [0, 17, 0], "r": 3, "h": 4, "color": "metal" },
+    { "op": "cyl", "name": "Kragen", "at": [0, 21, 0], "r": 3.6, "h": 1, "color": "trim" },
+    { "op": "cyl", "name": "Emitter", "at": [0, 22, 0], "r": 1.6, "h": 2, "color": { "role": "glow2", "emit": "em * 1.2" } },
+    { "op": "group", "name": "Pumpen", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 }, "ops": [
+      { "op": "box", "name": "Pumpe", "at": [10, 2, 10], "size": [5, 6, 5], "color": "metal_dark" },
+      { "op": "box", "name": "Pumpe Deckel", "at": [10, 8, 10], "size": [5, 1, 5], "color": "trim" },
+      { "op": "box", "name": "Pumpe Anzeige", "at": [11, 4, 15], "size": [3, 2, 1], "color": { "role": "glow2", "emit": "em * 0.8" } },
+      { "op": "box", "name": "Steigrohr", "at": [12, 9, 12], "size": [1, 9, 1], "color": "metal" },
+      { "op": "box", "name": "Zulauf", "at": [12, 18, 2], "size": [1, 1, 11], "color": "metal" }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

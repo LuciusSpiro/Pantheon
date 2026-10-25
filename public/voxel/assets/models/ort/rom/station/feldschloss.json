@@ -1,0 +1,220 @@
+{
+ "id": "ort/rom/station/feldschloss",
+ "name": "Feldschloss (Rom): Marmorkasten auf Stütze mit Goldrahmen, Gunmetal-Feldschalter (Hebel) mit Amber-Statuslicht, Zuleitung oben",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "zellen",
+  "schloss",
+  "feld",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.75,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -6,
+    0,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    6
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Stütze",
+   "at": [
+    -2,
+    1,
+    -6
+   ],
+   "size": [
+    4,
+    9,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Kasten",
+   "at": [
+    -5,
+    10,
+    -6
+   ],
+   "size": [
+    10,
+    11,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Kasten Rahmen",
+   "at": [
+    -5,
+    10,
+    -2
+   ],
+   "size": [
+    10,
+    11,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kasten Rot",
+   "at": [
+    -5,
+    19,
+    -6
+   ],
+   "size": [
+    10,
+    2,
+    4
+   ],
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Schalter Schlitz",
+   "at": [
+    -1,
+    12,
+    -1
+   ],
+   "size": [
+    2,
+    7,
+    1
+   ],
+   "color": "black"
+  },
+  {
+   "op": "box",
+   "name": "Schalterhebel",
+   "at": [
+    -1,
+    14,
+    0
+   ],
+   "size": [
+    2,
+    3,
+    2
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Schaltergriff",
+   "at": [
+    -1,
+    16,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Feld an",
+   "at": [
+    -4,
+    18,
+    -1
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Feld aus",
+   "at": [
+    2,
+    18,
+    -1
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung",
+   "at": [
+    -1,
+    21,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung Fluss",
+   "at": [
+    -1,
+    22,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    3
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

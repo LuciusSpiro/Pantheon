@@ -1,0 +1,179 @@
+{
+ "id": "ort/rom/gemein/rationsbehaelter",
+ "name": "Rationsbehälter (Rom): versiegelte Ration in Amphorenform mit Amber-Siegel",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "streu",
+  "ration",
+  "messe",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.5,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Ständer",
+   "at": [
+    -4,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Fuss",
+   "at": [
+    0,
+    1,
+    0
+   ],
+   "r": 1.5,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Unterbauch",
+   "at": [
+    0,
+    2,
+    0
+   ],
+   "r": 2.0,
+   "h": 3,
+   "color": "secondary",
+   "r2": 3.0
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Bauch",
+   "at": [
+    0,
+    5,
+    0
+   ],
+   "r": 3.0,
+   "h": 3,
+   "color": "secondary"
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Schulter",
+   "at": [
+    0,
+    8,
+    0
+   ],
+   "r": 2.5,
+   "h": 2,
+   "color": "secondary",
+   "r2": 2.0
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Hals",
+   "at": [
+    0,
+    10,
+    0
+   ],
+   "r": 1.5,
+   "h": 2,
+   "color": "metal"
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Muendung",
+   "at": [
+    0,
+    12,
+    0
+   ],
+   "r": 2.0,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Ration Band",
+   "at": [
+    0,
+    5,
+    0
+   ],
+   "r": 3.0,
+   "h": 2,
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Siegel",
+   "at": [
+    -1,
+    3,
+    2
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Siegel Gold",
+   "at": [
+    -2,
+    3,
+    2
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Henkel",
+   "at": [
+    -3,
+    8,
+    -1
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": "trim",
+   "mirror": "x",
+   "mirrorAt": 0
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

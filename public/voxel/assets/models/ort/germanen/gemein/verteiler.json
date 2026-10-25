@@ -1,0 +1,29 @@
+{
+  "id": "ort/germanen/gemein/verteiler",
+  "name": "Runenstein-Verteiler (Germanen, Richtung Esse): Eisenstele, das Schlangenband ist die leuchtende Sammelschiene, Steckpole unten",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "energie", "verteiler", "aussenposten", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "abgaenge": { "default": 3, "min": 0, "max": 3, "step": 1, "label": "Abgänge belegt" }
+  },
+  "variants": { "aus": { "abgaenge": 0 } },
+  "let": { "em": "abgaenge > 0 ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-7, 0, -5], "size": [14, 3, 10], "color": { "noise": ["stone_dark", "stone"], "weights": [2, 1], "cell": 3 } },
+    { "op": "box", "name": "Stele", "at": [-6, 3, -2], "size": [12, 22, 4], "color": { "noise": ["metal", "metal_dark", "copper_dark"], "weights": [5, 2, 1], "cell": 3 } },
+    { "op": "ellipsoid", "name": "Stelenkopf", "at": [0, 25, 0], "r": [6, 5, 2], "half": "+y", "color": { "noise": ["metal", "metal_dark"], "weights": [3, 1], "cell": 3 } },
+    { "op": "line", "name": "Schlange links", "from": [-4, 5, 2.5], "to": [-4, 24, 2.5], "r": 0.9, "color": { "role": "rune", "emit": "em" } },
+    { "op": "line", "name": "Schlange Bogen links", "from": [-4, 24, 2.5], "to": [0, 27, 2.5], "r": 0.9, "color": { "role": "rune", "emit": "em" } },
+    { "op": "line", "name": "Schlange Bogen rechts", "from": [0, 27, 2.5], "to": [4, 24, 2.5], "r": 0.9, "color": { "role": "rune", "emit": "em" } },
+    { "op": "line", "name": "Schlange rechts", "from": [4, 24, 2.5], "to": [4, 9, 2.5], "r": 0.9, "color": { "role": "rune", "emit": "em" } },
+    { "op": "line", "name": "Schlange Kreuzung", "from": [4, 9, 2.5], "to": [-2, 14, 2.5], "r": 0.9, "color": { "role": "rune", "emit": "em" } },
+    { "op": "box", "name": "Schlangenkopf", "at": [-3, 13, 2], "size": [2, 3, 1], "color": { "role": "ember", "emit": "em" } },
+    { "op": "box", "name": "Runen", "at": [-1, "17 + i*3", 2], "size": [2, 1, 1], "color": { "role": "rune_dim", "emit": "em * 0.6" }, "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Steckpol", "at": ["-5 + i*4", 3, 2], "size": [2, 2, 2], "color": "copper", "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } },
+    { "op": "line", "name": "Kabel", "if": "i < abgaenge", "from": ["-4 + i*4", 3, 4], "to": ["-7 + i*7", 0, 8], "r": 0.6, "color": "rubber", "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } }
+  ],
+  "anchor": [0, 0, 0]
+}

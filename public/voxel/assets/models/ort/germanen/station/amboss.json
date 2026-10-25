@@ -1,0 +1,467 @@
+{
+ "id": "ort/germanen/station/amboss",
+ "name": "Amboss-Presse (Germanen, Esse): Amboss mit Horn, Glutherd mit Rostbett zum Erhitzen, Schmiedepresse mit Kolben und Druckrune",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "werkstatt",
+  "bank",
+  "amboss",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Amboss Block",
+   "at": [
+    -12,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    6,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Amboss Block Band",
+   "at": [
+    -12,
+    5,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Amboss Taille",
+   "at": [
+    -11,
+    6,
+    -3
+   ],
+   "size": [
+    6,
+    3,
+    6
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Amboss Bahn",
+   "at": [
+    -13,
+    9,
+    -3
+   ],
+   "size": [
+    10,
+    3,
+    6
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "wedge",
+   "name": "Amboss Horn",
+   "at": [
+    -16,
+    9,
+    -2
+   ],
+   "size": [
+    3,
+    3,
+    4
+   ],
+   "slope": "-x",
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Amboss Rune",
+   "at": [
+    -9,
+    12,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Herdkörper",
+   "at": [
+    -3,
+    0,
+    -5
+   ],
+   "size": [
+    8,
+    8,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "use",
+   "name": "Herdfront",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 8,
+    "h": 8,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.8,
+    "niet": 4
+   },
+   "at": [
+    1,
+    0,
+    5
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Glutbett",
+   "at": [
+    -2,
+    8,
+    -4
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1.2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Herdrand",
+   "at": [
+    -3,
+    8,
+    -5
+   ],
+   "size": [
+    8,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Herdrand Aushub",
+   "at": [
+    -2,
+    8,
+    -4
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": "copper_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Herd Glut zurück",
+   "at": [
+    -2,
+    8,
+    -4
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1.2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rost",
+   "at": [
+    -2,
+    9,
+    -4
+   ],
+   "size": [
+    1,
+    1,
+    8
+   ],
+   "color": "copper_dark",
+   "repeat": {
+    "count": 3,
+    "step": [
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schürhaken",
+   "at": [
+    3,
+    9,
+    2
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Pressbett",
+   "at": [
+    6,
+    0,
+    -4
+   ],
+   "size": [
+    10,
+    8,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bett Planken",
+   "at": [
+    6,
+    1,
+    4
+   ],
+   "size": [
+    10,
+    6,
+    1
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Bettplatte",
+   "at": [
+    7,
+    8,
+    -3
+   ],
+   "size": [
+    8,
+    1,
+    6
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Pressrahmen",
+   "at": [
+    6,
+    8,
+    -5
+   ],
+   "size": [
+    3,
+    19,
+    3
+   ],
+   "color": "metal",
+   "mirror": "x",
+   "mirrorAt": 11
+  },
+  {
+   "op": "box",
+   "name": "Rahmenniet",
+   "at": [
+    6,
+    "12 + i*5",
+    -2
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   },
+   "mirror": "x",
+   "mirrorAt": 11
+  },
+  {
+   "op": "box",
+   "name": "Pressbalken",
+   "at": [
+    6,
+    24,
+    -5
+   ],
+   "size": [
+    10,
+    4,
+    3
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Balkenband",
+   "at": [
+    6,
+    27,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    3
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kolben",
+   "at": [
+    10,
+    15,
+    -4
+   ],
+   "size": [
+    2,
+    9,
+    2
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Pressplatte",
+   "at": [
+    8,
+    12,
+    -4
+   ],
+   "size": [
+    6,
+    3,
+    8
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Pressglut",
+   "at": [
+    8,
+    12,
+    4
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Druckrune",
+   "at": [
+    10,
+    26,
+    -2
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutleitung",
+   "at": [
+    9,
+    9,
+    3
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

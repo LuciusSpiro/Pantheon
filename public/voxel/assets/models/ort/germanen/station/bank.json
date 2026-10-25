@@ -1,0 +1,179 @@
+{
+ "id": "ort/germanen/station/bank",
+ "name": "Eisenbank (Germanen, Esse): Stabbrett-Giebelbeine, Fellsitz, Glutfuge im Rahmen heizt den Sitz",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "messe",
+  "bank",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "group",
+   "name": "Giebelbein",
+   "ops": [
+    {
+     "op": "box",
+     "name": "Brett",
+     "at": [
+      -15,
+      0,
+      -4
+     ],
+     "size": [
+      2,
+      10,
+      8
+     ],
+     "color": {
+      "stripes": [
+       "metal_light",
+       "metal"
+      ],
+      "axis": "z",
+      "period": 1
+     }
+    },
+    {
+     "op": "wedge",
+     "name": "Giebel",
+     "at": [
+      -15,
+      10,
+      -4
+     ],
+     "size": [
+      2,
+      2,
+      8
+     ],
+     "gable": "z",
+     "color": "copper_dark"
+    }
+   ],
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Zarge",
+   "at": [
+    -14,
+    6,
+    -3
+   ],
+   "size": [
+    28,
+    2,
+    6
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Sitz",
+   "at": [
+    -14,
+    8,
+    -4
+   ],
+   "size": [
+    28,
+    2,
+    8
+   ],
+   "color": {
+    "noise": [
+     "fur",
+     "fur_dark",
+     "fur_light"
+    ],
+    "weights": [
+     6,
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Sitzkante",
+   "at": [
+    -14,
+    8,
+    4
+   ],
+   "size": [
+    28,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "use",
+   "name": "Zargenfront",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 28,
+    "h": 3,
+    "d": 0,
+    "lage": 3,
+    "glut": 0,
+    "niet": 8
+   },
+   "at": [
+    0,
+    5,
+    3
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Heizglut",
+   "at": [
+    -13,
+    4,
+    4
+   ],
+   "size": [
+    26,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Heizkasten",
+   "at": [
+    -14,
+    3,
+    3
+   ],
+   "size": [
+    28,
+    1,
+    2
+   ],
+   "color": "copper_dark"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

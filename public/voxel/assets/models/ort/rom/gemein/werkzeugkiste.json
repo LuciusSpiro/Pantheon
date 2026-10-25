@@ -1,0 +1,176 @@
+{
+ "id": "ort/rom/gemein/werkzeugkiste",
+ "name": "Werkzeugkiste (Rom): Gunmetal-Kasten mit Goldrahmen, Diagnoseanzeige in Amber, Schlüssel obenauf",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "streu",
+  "werkzeug",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.75,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Korpus",
+   "at": [
+    -6,
+    0,
+    -4
+   ],
+   "size": [
+    12,
+    5,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen Gold",
+   "at": [
+    -6,
+    4,
+    -4
+   ],
+   "size": [
+    12,
+    1,
+    8
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Frontpaneel",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    10,
+    3,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Griff",
+   "at": [
+    -3,
+    5,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Griffstützen",
+   "at": [
+    -3,
+    4,
+    -1
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": "metal_light",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Diagnoseanzeige",
+   "at": [
+    -2,
+    5,
+    3
+   ],
+   "size": [
+    4,
+    2,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Diagnose Wert",
+   "at": [
+    -1,
+    6,
+    3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schraubenschlüssel",
+   "at": [
+    -5,
+    5,
+    -3
+   ],
+   "size": [
+    1,
+    3,
+    5
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Schlüsselkopf",
+   "at": [
+    -6,
+    8,
+    -3
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "metal_light"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

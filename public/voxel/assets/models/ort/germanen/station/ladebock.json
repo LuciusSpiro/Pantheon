@@ -1,0 +1,610 @@
+{
+ "id": "ort/germanen/station/ladebock",
+ "name": "Ladebock (Germanen, Esse): Eisenbock lädt drei stehende Fasszellen, Glutschiene an der Rückwand speist Kontakte, Runenanzeige je Platz",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "lager",
+  "ladebank",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Rückplatte",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    20,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rückplanken",
+   "at": [
+    -16,
+    1,
+    -4
+   ],
+   "size": [
+    32,
+    18,
+    1
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückpfosten",
+   "at": [
+    -16,
+    0,
+    -4
+   ],
+   "size": [
+    2,
+    19,
+    2
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 3,
+    "step": [
+     15,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfostenniet",
+   "at": [
+    -16,
+    "6 + i*7",
+    -2
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 2,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfostenniet m",
+   "at": [
+    -1,
+    "6 + i*7",
+    -2
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 2,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfostenniet r",
+   "at": [
+    14,
+    "6 + i*7",
+    -2
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 2,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schienenkasten",
+   "at": [
+    -16,
+    15,
+    -4
+   ],
+   "size": [
+    32,
+    4,
+    3
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Glutschiene",
+   "at": [
+    -15,
+    16,
+    -1
+   ],
+   "size": [
+    30,
+    2,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Bockplatte",
+   "at": [
+    -16,
+    7,
+    -4
+   ],
+   "size": [
+    32,
+    2,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "use",
+   "name": "Bockschürze",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 30,
+    "h": 5,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.7,
+    "niet": 6
+   },
+   "at": [
+    0,
+    2,
+    4
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Bockkern",
+   "at": [
+    -15,
+    2,
+    -4
+   ],
+   "size": [
+    30,
+    5,
+    10
+   ],
+   "color": "metal_dark",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -16,
+    0,
+    -5
+   ],
+   "size": [
+    3,
+    2,
+    10
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 3,
+    "step": [
+     14,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Tasche a",
+   "at": [
+    -14,
+    9,
+    -2
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche b",
+   "at": [
+    -13,
+    9,
+    -3
+   ],
+   "size": [
+    8,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer a",
+   "at": [
+    -13,
+    9,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    6
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer b",
+   "at": [
+    -12,
+    9,
+    -2
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kontakt",
+   "at": [
+    -10,
+    10,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung",
+   "at": [
+    -9,
+    10,
+    -3
+   ],
+   "size": [
+    1,
+    6,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -10,
+    12,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Tasche a",
+   "at": [
+    -5,
+    9,
+    -2
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche b",
+   "at": [
+    -4,
+    9,
+    -3
+   ],
+   "size": [
+    8,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer a",
+   "at": [
+    -4,
+    9,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    6
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer b",
+   "at": [
+    -3,
+    9,
+    -2
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kontakt",
+   "at": [
+    -1,
+    10,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung",
+   "at": [
+    0,
+    10,
+    -3
+   ],
+   "size": [
+    1,
+    6,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -1,
+    12,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Tasche a",
+   "at": [
+    4,
+    9,
+    -2
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche b",
+   "at": [
+    5,
+    9,
+    -3
+   ],
+   "size": [
+    8,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer a",
+   "at": [
+    5,
+    9,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    6
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Tasche leer b",
+   "at": [
+    6,
+    9,
+    -2
+   ],
+   "size": [
+    6,
+    1,
+    8
+   ],
+   "color": "dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kontakt",
+   "at": [
+    8,
+    10,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Zuleitung",
+   "at": [
+    9,
+    10,
+    -3
+   ],
+   "size": [
+    1,
+    6,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    8,
+    12,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

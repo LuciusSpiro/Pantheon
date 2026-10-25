@@ -1,0 +1,33 @@
+{
+  "id": "ort/germanen/gemein/schildantenne",
+  "name": "Schildantenne (Germanen): Rundschild aus Eisenplanken als Parabolspiegel, Kupferrand, Schildbuckel mit Speisehorn, Sendering glüht; Gegenstück zum Clipeus",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "funk", "antenne", "kommando", "aussenposten", "station", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "sendet" }
+  },
+  "variants": { "aus": { "aktiv": 0 } },
+  "let": { "em": "aktiv ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Fuß", "at": [-5, 0, -5], "size": [10, 2, 10], "color": "stone_dark" },
+    { "op": "box", "name": "Fuß Kupfer", "at": [-5, 2, -5], "size": [10, 1, 10], "color": { "frame": "copper_dark", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Mast", "at": [-1, 3, -2], "size": [2, 9, 2], "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Gabel", "at": [-4, 10, -2], "size": [8, 2, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Gabelnieten", "at": [-4, 12, -2], "size": [1, 1, 1], "color": "copper", "mirror": "x", "mirrorAt": 0 },
+    { "op": "group", "name": "Schild", "at": [0, 18, 1], "ops": [
+      { "op": "cyl", "name": "Schildplatte", "at": [0, 0, -1], "r": 8, "h": 2, "axis": "z", "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 2 } },
+      { "op": "cyl", "name": "Wölbung", "at": [0, 0, 1], "r": 5.5, "h": 1, "axis": "z", "color": { "stripes": ["metal", "metal_light"], "axis": "x", "period": 2 } },
+      { "op": "cyl", "name": "Kupferrand", "at": [0, 0, -1], "r": 8, "h": 2, "hollow": 1, "axis": "z", "color": "copper" },
+      { "op": "cyl", "name": "Sendering", "at": [0, 0, 1], "r": 4, "h": 1, "hollow": 1, "axis": "z", "color": { "role": "ember", "emit": "em * 0.8" }, "mode": "paint" },
+      { "op": "cyl", "name": "Buckel", "at": [0, 0, 2], "r": 2.5, "h": 2, "axis": "z", "color": "copper" },
+      { "op": "box", "name": "Speisehorn", "at": [-1, -1, 4], "size": [2, 2, 2], "color": { "role": "rune", "emit": "em" } },
+      { "op": "line", "name": "Speisearm oben", "from": [0, 7, 1], "to": [0, 1, 5], "r": 0.5, "color": "copper_dark" },
+      { "op": "line", "name": "Speisearm seitlich", "from": [-6, -4, 1], "to": [0, 0, 5], "r": 0.5, "color": "copper_dark", "mirror": "x", "mirrorAt": 0 },
+      { "op": "box", "name": "Rückenstrebe", "at": [-1, -8, -3], "size": [2, 8, 2], "color": "metal_dark" }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

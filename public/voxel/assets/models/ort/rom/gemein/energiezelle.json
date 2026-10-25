@@ -1,0 +1,21 @@
+{
+  "id": "ort/rom/gemein/energiezelle",
+  "name": "Energiezelle Amber (Rom, Aquädukt): Amphore wie rom/energiezelle, Ladeanzeige und Kontakt in Amber statt Kaltweiß",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["prop", "rom", "energie", "lager", "amphore", "ort01"],
+  "footprint": [0.45, 0.45],
+  "params": {
+    "charge": { "default": 4, "min": 0, "max": 4, "step": 1, "label": "Ladestand (0–4)" },
+    "band": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "Zierband (0 keins, 1 rot, 2 purpur)" },
+    "stand": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Standring" }
+  },
+  "variants": {
+    "leer": { "charge": 0 },
+    "halb": { "charge": 2, "band": 2 }
+  },
+  "ops": [
+    { "op": "use", "name": "Amphore", "model": "rom/energiezelle", "params": { "charge": "charge", "band": "band", "stand": "stand" }, "colors": { "glow": "glow2" }, "at": [0, 0, 0] }
+  ],
+  "anchor": [0, 0, 0]
+}

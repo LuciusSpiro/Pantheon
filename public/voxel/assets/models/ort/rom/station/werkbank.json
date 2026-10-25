@@ -1,0 +1,424 @@
+{
+ "id": "ort/rom/station/werkbank",
+ "name": "Werkbank (Rom): Marmorbank mit Portalbogen, Amber-Schneidarm (Gunmetal-Träger, Düse mit Strahl), Schraubstock, Rinnenzulauf",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "leit",
+  "werkstatt",
+  "werkbank",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "stone"
+  },
+  {
+   "op": "use",
+   "name": "Fuß 0",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -11,
+    2,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 7,
+    "d": 8,
+    "wall": 2,
+    "top": 3,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 1",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    2,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 7,
+    "d": 8,
+    "wall": 2,
+    "top": 3,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 2",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    11,
+    2,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 7,
+    "d": 8,
+    "wall": 2,
+    "top": 3,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückwand unten",
+   "at": [
+    -16,
+    2,
+    -6
+   ],
+   "size": [
+    32,
+    12,
+    2
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Platte",
+   "at": [
+    -16,
+    14,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Plattenkante",
+   "at": [
+    -16,
+    16,
+    -6
+   ],
+   "size": [
+    32,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Portalbogen",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    17,
+    -6
+   ],
+   "params": {
+    "w": 16,
+    "h": 4,
+    "d": 3,
+    "wall": 3,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Portal Rinne",
+   "at": [
+    -11,
+    30,
+    -6
+   ],
+   "size": [
+    22,
+    1,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Portal Fluss",
+   "at": [
+    -10,
+    30,
+    -5
+   ],
+   "size": [
+    20,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schiene",
+   "at": [
+    -1,
+    24,
+    -5
+   ],
+   "size": [
+    2,
+    6,
+    1
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Arm Träger",
+   "at": [
+    -1,
+    24,
+    -5
+   ],
+   "size": [
+    2,
+    2,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Arm Gelenk",
+   "at": [
+    -2,
+    23,
+    -6
+   ],
+   "size": [
+    4,
+    4,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Schneidkopf",
+   "at": [
+    -2,
+    21,
+    1
+   ],
+   "size": [
+    4,
+    3,
+    3
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Schneidkopf Düse",
+   "at": [
+    -1,
+    19,
+    2
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Schneidstrahl",
+   "at": [
+    0,
+    17,
+    2
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Werkstück",
+   "at": [
+    -5,
+    17,
+    -1
+   ],
+   "size": [
+    10,
+    1,
+    7
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Werkstück Schnitt",
+   "at": [
+    0,
+    17,
+    -1
+   ],
+   "size": [
+    1,
+    1,
+    7
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.7
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Schraubstock",
+   "at": [
+    10,
+    17,
+    -3
+   ],
+   "size": [
+    4,
+    3,
+    6
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Schraubstock Backe",
+   "at": [
+    8,
+    17,
+    -2
+   ],
+   "size": [
+    2,
+    2,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -14,
+    17,
+    3
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Anzeige Glas",
+   "at": [
+    -14,
+    16,
+    3
+   ],
+   "size": [
+    4,
+    2,
+    1
+   ],
+   "color": "glass",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf",
+   "at": [
+    14,
+    8,
+    -6
+   ],
+   "size": [
+    2,
+    3,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf Fluss",
+   "at": [
+    14,
+    11,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}
