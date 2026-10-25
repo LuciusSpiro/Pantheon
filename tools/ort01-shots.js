@@ -205,7 +205,7 @@ for (const a of ['station', 'aussenposten']) ROLLEN[a] = JSON.parse(fs.readFileS
             const gs = await page.evaluate(() => (__game.state.away.drones || []).filter((d) => d.alive !== false).map((d) => ({ x: Math.floor(d.x / 32), y: Math.floor(d.y / 32), fr: d.fr || null, ro: d.ro || null, pa: d.pa || null })));
             const sicht = []; for (const g of gs) if (!sicht.some((q) => Math.abs(q.x - g.x) + Math.abs(q.y - g.y) < 14)) sicht.push(g);
             for (let gi = 0; gi < Math.min(3, sicht.length); gi++) {
-              await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [sicht[gi].x - 3, sicht[gi].y]);
+              await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [sicht[gi].x - 2, sicht[gi].y]);
               await page.waitForTimeout(WARTE);
               const f = path.join(dir, `${seed}-gegner${gi + 1}.png`);
               await page.screenshot({ path: f });
