@@ -36,11 +36,11 @@ const S = 'server/sim/lage-spielleiter.js', P = 'server/sim/lage-prompt.js', M =
 const MUTATIONEN = [
   // ---- Grenzen
   [S, "    if (!this.W.grenzen.includes(art)) return { gestartet: false, grund: 'keine_grenze' };\n", "", 'Grenzen: jede Art löst aus (Daten ignoriert)'],
-  [G, "if (this.lageSpielleiter) this.lageGrenze('andocken'); }", "}", 'Hook: Andocken löst nicht aus'],
-  [G, "        if (!r && this.lageSpielleiter) this.lageGrenze('absicht');", "", 'Hook: Wahl/Ablehnung einer Option löst nicht aus'],
-  [G, "        if (!r && this.lageSpielleiter) this.lageGrenze('absicht');", "        if (this.lageSpielleiter) this.lageGrenze('absicht');", 'Hook: auch eine abgelehnte Wahl löst aus'],
-  [K, " && (wo || 'szene') === 'szene' && game.lageSpielleiter", " && game.lageSpielleiter", 'Hook: Posten und Notruf lösen als Szenenende aus'],
-  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageSpielleiter && game.lageGrenze) game.lageGrenze('szene_ende');", "", 'Hook: Szenenende löst nicht aus'],
+  [G, "this.lageGrenze('andocken'); }", "}", 'Hook: Andocken löst nicht aus'],
+  [G, "        if (!r) this.lageGrenze('absicht');", "", 'Hook: Wahl/Ablehnung einer Option löst nicht aus'],
+  [G, "        if (!r) this.lageGrenze('absicht');", "        this.lageGrenze('absicht');", 'Hook: auch eine abgelehnte Wahl löst aus'],
+  [K, " && (wo || 'szene') === 'szene' && game.lageGrenze", " && game.lageGrenze", 'Hook: Posten und Notruf lösen als Szenenende aus'],
+  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageGrenze) game.lageGrenze('szene_ende');", "", 'Hook: Szenenende löst nicht aus'],
   [G, "      if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));", "", 'Game: der Lage-Spielleiter wird nie aktualisiert'],
   [G, "try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); }", "void 0;", 'Game: reset beendet den Lage-Spielleiter nicht'],
   // ---- Schalter
@@ -65,7 +65,7 @@ const MUTATIONEN = [
   [P, "  const text = a.text;", "  const text = namenFiltern(a.text, game);", 'Prompt: zweiter Namensfilter über das ganze Ausschnitt-JSON (N8)'],
   [P, "begruendung: namenFiltern(p.begruendung, game)", "begruendung: p.begruendung", 'Prompt: Namen in den letzten Plänen (begruendung)'],
   [P, "for (let i = t.indexOf('{'); i >= 0; i = t.indexOf('{', i + 1)) {", "for (let i = t.indexOf('{'); i >= 0; i = -1) {", 'Antwort: nur das erste „{“ wird probiert'],
-  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageSpielleiter", "  if ((wo || 'szene') === 'szene' && game.lageSpielleiter", 'Hook: Szenenende auch ohne erfolgreichen Tick (N9)'],
+  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageGrenze", "  if ((wo || 'szene') === 'szene' && game.lageGrenze", 'Hook: Szenenende auch ohne erfolgreichen Tick (N9)'],
   [S, "      if (this.budgetGemeldet) return this.ueberspringen('budget', art);\n      this.budgetGemeldet = true;\n", "", 'Budget leer: Rückfall bei jeder Grenze neu'],
   [S, "      Regie.rueckfall(this.game, `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.W.min_budget})`);\n", "", 'Budget leer: kein Rückfall (N10)'],
   [S, "    this.budgetGemeldet = false;\n", "", 'Budget leer: Meldung wird nie zurückgesetzt'],
