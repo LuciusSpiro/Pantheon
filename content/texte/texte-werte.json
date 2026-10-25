@@ -4,7 +4,7 @@
   "werte": {
     "standard_an": {"wert": false, "einheit": "Schalter", "_hinweis": "Voreinstellung, wenn TEXTE_POOL fehlt (1 oder on = an, 0 oder off = aus). Standard aus: ohne Schalter bleibt alles wie nach SUND-03a (Katalogtexte). Erzeugt wird nur mit LLM_LIVE=1 (Ollama, OLLAMA_URL/OLLAMA_MODEL)."},
     "ziel": {"wert": 3, "einheit": "Texte je Pool-Schluessel", "_hinweis": "So viele Varianten haelt der Pool je Eintrag und Slot vor (2 bis 3). Verbrauchte Texte werden bis zu diesem Ziel nachgefuellt; jeder Text wird genau einmal verbraucht."},
-    "gesamt_max": {"wert": 240, "einheit": "Texte", "_hinweis": "Obergrenze des ganzen Pools (Laufzeit, nicht im Weltstand). Darueber wird nicht weiter erzeugt."},
+    "gesamt_max": {"wert": 300, "einheit": "Texte", "_hinweis": "Obergrenze des ganzen Pools (Laufzeit, nicht im Weltstand). Darueber wird nicht weiter erzeugt."},
     "leerlauf_s": {"wert": 12, "einheit": "Sekunden Spielzeit", "_hinweis": "Ohne Taetigkeitsgrenze startet der naechste Text-Job erst, wenn seit dem Ende des letzten Jobs so viel Spielzeit vergangen ist (Leerlauf). Eine Taetigkeitsgrenze (game.lageGrenze) hebt die Wartezeit auf."},
     "job_timeout_s": {"wert": 45, "einheit": "Sekunden", "_hinweis": "Zeitlimit eines Gemma-Aufrufs (harter Abbruch im Transport). Es laeuft hoechstens EIN Text-Job zugleich (Sleipnir wird mit Kara geteilt)."},
     "versuche": {"wert": 2, "einheit": "Versuche je Text", "_hinweis": "Erster Versuch plus ein Wiederholungsversuch bei Gemma (mit den Fehlern des Pruefers im Prompt). Danach bleibt der Katalogtext; nie Claude."},
@@ -20,7 +20,7 @@
         "dank": {"min": 15, "max": 200, "aufgabe": "Der Funkspruch nach der bewaeltigten Lage: Die Figur dankt der Lerche in ihrer eigenen Art."},
         "soeldner": {"min": 30, "max": 200, "aufgabe": "Ein Lagefunk: Das Konkordat vermietet fuer kurze Zeit Kriegsschiffe an ein Reich. Ein Haendler oder Funker kommentiert es in seiner eigenen Art, ohne Zahlen und ohne Folgen zu erfinden."},
         "verlust": {"min": 20, "max": 140, "aufgabe": "Ein Lagefunk, den ein Funker der roemischen Seite ausruft: Ein Ort ist verloren. Er spricht aus der ersten Person, betroffen und knapp (ein Ausruf, eine Sorge, ein Fluch), nicht als Bericht und nie als Meldung an jemanden. Er nennt den Ort, aber nicht, wer ihn nun hat, und erfindet keine Folgen."},
-        "reaktion": {"min": 30, "max": 220, "aufgabe": "Die Antwort des Sprechers auf das, was die Spieler ihm gerade geantwortet haben (siehe <spieler_antwort>). Die Figur reagiert in ihrer Stimme, ohne neue Ereignisse zu erfinden."},
+        "reaktion": {"min": 10, "max": 220, "aufgabe": "Die Antwort des Sprechers auf das, was die Spieler ihm gerade geantwortet haben (siehe <spieler_antwort>). Die Figur reagiert in ihrer Stimme, ohne neue Ereignisse zu erfinden."},
         "antwort": {"min": 8, "max": 40, "satzende": false, "aufgabe": "Der Text einer Antwortoption, die die Spieler waehlen koennen (sprechend, aus Sicht der Crew, ohne Anrede). Zielwert 20 bis 30 Zeichen, nie mehr als 40, also nur etwa vier bis fuenf Woerter, zum Beispiel: Wir helfen gern. | Kein Lohn noetig. | Erst die Fracht sichern."}
       },
       "einheit": "Zeichen je Slot",

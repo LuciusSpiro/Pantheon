@@ -54,7 +54,7 @@ function fakeLlm(o) {
       calls.push({ kind, input, ao });
       if (opt.hold) await new Promise((res) => held.push(res));
       if (opt.fehler) throw Object.assign(new Error('Fake: ' + opt.fehler), { code: opt.fehler });
-      const text = opt.antwort ? opt.antwort(input.prompt, nr) : gueltigerText(input.prompt, nr);
+      const text = opt.antwort ? opt.antwort(input.prompt, nr) : (/Textart: antwort/.test(input.prompt) ? 'Wir helfen gern ' + String.fromCharCode(97 + (nr % 26)) + String.fromCharCode(97 + (Math.floor(nr / 26) % 26)) : gueltigerText(input.prompt, nr));
       return { text: JSON.stringify({ text }), tokens: 10, sec: 0.01, anbieter: 'ollama', modell: 'fake' };
     },
     freigeben() { while (held.length) held.shift()(); },
@@ -83,7 +83,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     ok(W.slots.antwort.max === 40, 'Optionstext höchstens 40 Zeichen (Paket A)');
     ok(KAT.every((e) => W.fakten[e.id] && W.fakten[e.id].fakt && W.stimmen[W.fakten[e.id].stimme]), `alle ${KAT.length} Katalogeinträge haben Fakt und Stimme`);
     const specs = Pool.katalogSpecs();
-    const sollSlots = KAT.reduce((s, e) => s + Object.keys(e.texte).length, 0) + Object.keys(W.zusatz).length;
+    const sollSlots = KAT.reduce((s, e) => s + Object.keys(e.texte).length + 2 * (e.antworten || []).length, 0) + Object.keys(W.zusatz).length;   // SUND-03b A: je Antwortoption zwei Schlüssel (antwort, reaktion)
     ok(specs.length === sollSlots && new Set(specs.map((s) => Pool.keyVon(s.art, s.id, s.slot, s.optionId))).size === specs.length, `${specs.length} angemeldete Schlüssel = alle Slots der 16 Einträge plus ${Object.keys(W.zusatz).length} Zusatz-Einträge, eindeutig`);
     const schlecht = [];
     for (const sp of specs) for (const t of sp.beispiele) { const r = Pruefer.pruefe(t, { slot: sp.slot, platzhalter: sp.platzhalter.concat(['ort', 'n']), pflicht: [], stimme: sp.stimme }); if (!r.ok) schlecht.push(sp.id + '/' + sp.slot + ': ' + r.fehler.join(', ')); }
@@ -151,7 +151,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     const t = spiel({ crew: 3, names: namen }); const g = t.g;
     const llm = fakeLlm(); Pool.setLlm(llm);
     Pool.poolBefuellenAnfordern({ art: 'npc', id: 'giftig', slot: 'reaktion', sprecher: 'Händler', fakt: 'Mireille_Kas hat dem Händler geholfen.', antwort: 'Danke an Ouzo_Brandt', platzhalter: [], pflicht: [] });
-    await fuellen(g, 60);
+    await fuellen(g);
     ok(llm.calls.length >= 40 && llm.calls.every((c) => c.kind === 'text' && !namen.some((x) => c.input.prompt.includes(x))), `${llm.calls.length} Jobs mit drei Spielern im Raum: kein Prompt enthält einen Namen`);
     ok(llm.calls.some((c) => /Crew/.test(c.input.prompt) && /giftig/.test(c.input.id)), 'der angemeldete Freitext kam gefiltert an („Crew“ statt Namen)');
   });
@@ -482,9 +482,9 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     const re = Pool.poolEntnehmen('npc', 'livia', 'reaktion', 'o1'), an = Pool.poolEntnehmen('npc', 'livia', 'antwort', 'o1');
     ok(/^Funker /.test(re) && an === 'Wir halten den Sektor' && an.length <= 40, 'poolEntnehmen(art, id, slot, optionId): Text oder null; Optionstext höchstens 40 Zeichen');
     ok(Pool.poolEntnehmen('npc', 'livia', 'reaktion', 'o2') === null && Pool.poolEntnehmen('npc', 'livia', 'reaktion') === null, 'andere Option oder keine Option: leer');
-    const antwortPrompt = llm.calls.find((c) => /Textart: antwort/.test(c.input.prompt)).input.prompt;
+    const antwortPrompt = llm.calls.find((c) => /Textart: antwort/.test(c.input.prompt) && /die Crew bestätigt knapp/.test(c.input.prompt)).input.prompt;
     ok(/<option>/.test(antwortPrompt) && /die Crew bestätigt knapp/.test(antwortPrompt) && /Länge: 8 bis 40 Zeichen/.test(antwortPrompt), 'Prompt der Antwortoption: Absicht der Option und die 40-Zeichen-Grenze');
-    const reaPrompt = llm.calls.find((c) => /Textart: reaktion/.test(c.input.prompt)).input.prompt;
+    const reaPrompt = llm.calls.find((c) => /Textart: reaktion/.test(c.input.prompt) && /Optio Livia Rufa/.test(c.input.prompt)).input.prompt;
     ok(/<spieler_antwort>\nSektor gesichert\./.test(reaPrompt) && /Optio Livia Rufa/.test(reaPrompt), 'Prompt der Reaktion: Antwort der Spieler und Sprecher');
     ok(/Erlaubte Platzhalter: \{ort\}\./.test(reaPrompt) && !/\{schiff\}/.test(reaPrompt), 'unbekannte Platzhalter der Anmeldung fallen weg (nur {ort} und {n} sind möglich)');
     // zu langer Optionstext wird abgelehnt

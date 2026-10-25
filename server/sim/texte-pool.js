@@ -65,6 +65,12 @@ function katalogSpecs() {
       const fakt = fmt(f.fakt || e.chronik, { ort: erlaubt.includes('ort') ? '{ort}' : 'dem Ort', n: erlaubt.includes('n') ? '{n}' : 'wenigen' });
       out.push({ art: 'reise', id: e.id, slot, optionId: '', sprecher: e.sprecher, stimme: f.stimme || 'rom', fakt, beispiele: liste.slice(), platzhalter: erlaubt, pflicht, ziel: W.ziel });
     }
+    // SUND-03b A: Antwortoptionen der Funk-Antworten (Gerüst in den Daten): Optionstext und Reaktion des Sprechers je Option
+    for (const o of e.antworten || []) {
+      const kopf = { art: e.art, id: e.id, optionId: o.id, sprecher: e.sprecher, stimme: f.stimme || 'rom', fakt: fmt(f.fakt || e.chronik, { ort: 'dem Ort', n: 'wenigen' }), platzhalter: [], pflicht: [], ziel: W.ziel };
+      out.push(Object.assign({}, kopf, { slot: 'antwort', beispiele: [o.text], option: o.id }));
+      out.push(Object.assign({}, kopf, { slot: 'reaktion', beispiele: [o.reaktion], antwort: o.text }));
+    }
   }
   for (const [id, z] of Object.entries(W.zusatz)) {
     const bsp = Array.isArray(z.beispiele) ? z.beispiele.slice() : id.startsWith('soeldner_an_') ? [((LAGE_TEXTE.soeldner || {})[id.slice(-3) === 'rom' ? 'rom' : 'ger'] || {}).text].filter(Boolean) : [];

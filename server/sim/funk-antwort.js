@@ -69,10 +69,16 @@ function ruhig(game) {
 // ---------- Text (benannte Stelle für Paket T: Pool von Gemma-Texten)
 let pool = null;
 const setzePool = (fn) => { pool = typeof fn === 'function' ? fn : null; };
+// Standard-Quelle: der Pool von Paket T, nur wenn TEXTE_POOL an ist (sonst nie ein Pool-Text); setzePool überschreibt (Tests)
+const standardPool = (game) => {
+  const P = require('./texte-pool.js');
+  return P.aktiv(game) && P.freigegeben() ? P.poolEntnehmen : null;
+};
 function ausPool(game, art, id, slot, optionId, max) {
-  if (!pool) return null;
+  const quelle = pool || standardPool(game);
+  if (!quelle) return null;
   try {
-    const t = pool(art, id, slot, optionId);
+    const t = quelle(art, id, slot, optionId);
     const s = typeof t === 'string' ? t.replace(/\s+/g, ' ').trim() : '';
     if (!s || s.length > max) return null;
     if (game && Ausschnitt.ohneNamen(s, Ausschnitt.spielerNamen(game)) !== s) return null;   // nie ein Spielername im Text
