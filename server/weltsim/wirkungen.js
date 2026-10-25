@@ -20,11 +20,15 @@
 //                        der Posten wird frei wie beim Verlust im Gefecht (postenVerlieren, Ereignis posten_verloren mit durch rom). Prüfer: Posten, kein Hafen, Besitzer feindlich zu rom, Garnison höchstens
 //                        werte.sprengen.garnison_max (posten-werte.json). Die Szene liefert den Rest der Garnison als abwehr_verlust im SELBEN Paket davor: die Prüfung läuft der Reihe nach gegen den Zustand
 //                        nach den früheren Wirkungen (Kern.filtereWirkungen), ein Posten mit voller Garnison lässt sich also nie „einfach“ sprengen.
+//   haltung_aenderung    { npc: Kennung eines NSC der Geschichtsfäden (n<Zahl>), delta: Zahl ≠ 0, grund: Schlüssel aus content/faeden/haltung-werte.json (quellen) }   Haltung eines NSC zur Crew (SUND-04a-1 B). Wie ruf_aenderung eine Aufsatz-Wirkung:
+//                        der Kern ignoriert sie, angewandt wird sie vom Spielaufsatz (server/sim/faden.js, welt.sim.faeden). Der Prüfer hier prüft die Form (delta klein, Vorzeichen und Betrag wie der Grund, Grund bekannt);
+//                        dass der NSC existiert, prüft der Aufsatz (faden.haltungPruefen): der Sim-Zustand kennt keine Fäden.
 // Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
 
 const RUF = require('../../content/welt/ruf-werte.json');   // Daten der Wirkung ruf_aenderung (Fraktionen, Grenzen, Gründe)
+const HALTUNG = require('../../content/faeden/haltung-werte.json');   // SUND-04a-1 B: Daten der Wirkung haltung_aenderung (Grenzen, Gruende)
 const POSTEN = require('../../content/welt/posten-werte.json').werte;   // Daten der Wirkungen posten_gehisst und posten_ausgebaut (Anspruch von Rom)
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const SCHICKSALE = ['entkommen', 'gefallen'];
@@ -161,6 +165,20 @@ const KATALOG = {
       return null;
     },
     anwenden() { /* Spielaufsatz: ruf.js, nach dem Tick */ },
+  },
+  haltung_aenderung: {
+    aufsatz: true,   // gehört dem Spielaufsatz (faden.js), nicht dem Sim-Zustand: der Kern nimmt sie an und tut nichts
+    pruefe(z, d, wk) {
+      const W = HALTUNG.werte;
+      if (typeof wk.npc !== 'string' || !/^n[0-9]{1,6}$/.test(wk.npc)) return 'npc muss die Kennung eines NSC sein (npc)';
+      if (!istZahl(wk.delta) || wk.delta === 0) return 'delta muss eine Zahl ungleich 0 sein';
+      if (Math.abs(wk.delta) > W.delta_max.wert) return `delta ${wk.delta} übersteigt die Grenze ${W.delta_max.wert}`;
+      if (typeof wk.grund !== 'string' || !has(W.quellen.wert, wk.grund)) return 'unbekannter Grund (grund)';
+      const q = W.quellen.wert[wk.grund].delta;
+      if (Math.sign(wk.delta) !== Math.sign(q) || Math.abs(wk.delta) > Math.abs(q)) return `delta ${wk.delta} passt nicht zum Grund ${wk.grund} (${q})`;
+      return null;
+    },
+    anwenden() { /* Spielaufsatz: faden.js */ },
   },
   ort_gefallen: {
     pruefe(z, d, wk) {

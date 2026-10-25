@@ -1,0 +1,61 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "test_geschichte",
+  "titel": "Testvorlage: alle sechs Beats",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gelungen" }],
+  "volk_erlaubt": ["rom", "kon"],
+  "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
+  "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
+  "hinweise": { "h_papiere": { "kanal": "papiere" } },
+  "beats": [
+    {
+      "id": "b_bitte", "typ": "bitte", "hinweise": ["h_papiere"],
+      "parameter": { "text_key": "bitte_mission" },
+      "optionen": [
+        { "id": "zusagen", "text": "Wir helfen Euch.", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        { "id": "ablehnen", "text": "Dafuer haben wir keine Zeit.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
+        { "id": "spaeter", "text": "Meldet Euch spaeter noch einmal.", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_spontan", "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
+        "gescheitert": { "status": "gefangen", "weiter": "b_notruf" }
+      }
+    },
+    {
+      "id": "b_spontan", "typ": "spontanhilfe",
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_enthuell" },
+        "gescheitert": { "status": "schuldet_nichts", "weiter": "b_ende" }
+      }
+    },
+    {
+      "id": "b_notruf", "typ": "notruf",
+      "aus": {
+        "gelungen": { "status": "aktiv", "weiter": "b_enthuell", "folge": [{ "typ": "haltung_aenderung", "grund": "gerettet" }] },
+        "gescheitert": { "status": "tot", "weiter": "b_ende" }
+      }
+    },
+    {
+      "id": "b_enthuell", "typ": "enthuellung",
+      "aus": {
+        "gelungen": { "status": "feindlich", "weiter": "b_jagd" },
+        "gescheitert": { "status": "geflohen", "weiter": "b_jagd" }
+      }
+    },
+    {
+      "id": "b_jagd", "typ": "verfolgung",
+      "parameter": { "fluchtziel": "naechster_sprungpunkt" },
+      "aus": {
+        "gelungen": { "status": "gefangen", "weiter": "b_ende" },
+        "gescheitert": { "status": "geflohen", "weiter": "b_ende" }
+      }
+    },
+    {
+      "id": "b_ende", "typ": "abschluss",
+      "aus": {
+        "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
+        "gescheitert": { "text_key": "ende_verpasst" }
+      }
+    }
+  ]
+}

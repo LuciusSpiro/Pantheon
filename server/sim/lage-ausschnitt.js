@@ -91,10 +91,18 @@ function bauen(game, st, namen) {
   };
 }
 
+// SUND-04a-1 B: kleiner Faden-Block (höchstens 3 Fäden, Zeichenbudget in content/faeden/werte.json), nur mit Schalter FAEDEN=1 und nur wenn es Fäden oder Angebote gibt; sonst ist der Ausschnitt byte-gleich wie vorher.
+// lazy: faden.js lädt das Regie-Modul, das dieses Modul lädt. Nie gekürzt von den Stufen (er ist klein und gehört zum Nichtkürzbaren).
+function fadenBlock(game) {
+  try { return require('./faden.js').ausschnittBlock(game); } catch (e) { return null; }
+}
+
 function ausschnitt(game, { stufe = 0 } = {}) {
   if (!game.weltsim) return { stufe: 0, zeichen: 0, text: '' };
   const s = Math.max(0, Math.min(A.stufen.length - 1, Math.floor(Number(stufe)) || 0));
-  const text = JSON.stringify(Context.sortKeys(bauen(game, A.stufen[s], spielerNamen(game))));
+  const b = bauen(game, A.stufen[s], spielerNamen(game));
+  const fb = fadenBlock(game); if (fb) b.faeden = fb;
+  const text = JSON.stringify(Context.sortKeys(b));
   return { stufe: s, zeichen: text.length, text };
 }
 

@@ -1,0 +1,55 @@
+{
+  "format": "faden-beats/1",
+  "_hinweis": "SUND-04a-1 B: Beat-Katalog der Geschichtsfaeden (server/sim/faden-pruefer.js prueft jede Vorlage gegen diese Eintraege, server/sim/faden-bausteine.js hat zu jedem `baustein` einen benannten Baustein). Ein neuer Beat ist ein neuer Eintrag hier mit seinen Regeln, kein Umbau: der Pruefer liest die Felder, nicht die Namen. Felder: baustein = benannter Baustein (Szene/Funk/Wirkung, in 04a-1 ein Platzhalter, die echten kommen in 04a-2); gefahr = der Beat bringt Gefahr (dann NIE Optionen, Regel aus 03b: Gefahr wird angekuendigt, nicht abgefragt; eine Vorlage darf gefahr nur auf true setzen); optionen = keine | erlaubt (Optionen mit Folge aus dem Wirkungen-Katalog, keine Scheinwahl); braucht.nsc_status = in welchen Zustaenden des NSC der Beat laeuft (nach einem Scheitern kann der NSC tot oder gefangen sein: dann passt nicht jeder Beat); braucht.fluchtziel = die Vorlage nennt ein Fluchtziel (parameter.fluchtziel: Hex-Code oder Symbol aus werte.fluchtziele); braucht.wahrheit = der Faden hat eine verborgene Wahrheit; braucht.hinweis_vorher = auf JEDEM Weg dorthin wurde vorher mindestens ein Hinweis gestreut (Fairness der Enthuellung); braucht.letzter = nur als letzter Beat der Vorlage; abschluss = beendet den Faden (nur dieser Beat darf das, alle Ausgaenge fuehren dorthin); parameter = erlaubte Felder des Beats in der Vorlage (pflicht, optional; Werte sind kurze Texte, Zahlen oder Wahrheitswerte). Jeder Beat hat die Ausgaenge gelungen und gescheitert (werte.ausgaenge), die die Vorlage je Beat mit Folgezustand beschreibt.",
+  "beats": {
+    "bitte": {
+      "zweck": "Der NSC bittet die Crew um Hilfe bei einer Mission; die Crew kann zusagen oder ausschlagen.",
+      "baustein": "bitte",
+      "gefahr": false,
+      "optionen": "erlaubt",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
+      "parameter": {"pflicht": [], "optional": ["text_key"]}
+    },
+    "spontanhilfe": {
+      "zweck": "Der NSC erscheint in einer Schlacht und greift ein (Verbuendeter der Flottenengine).",
+      "baustein": "spontanhilfe",
+      "gefahr": true,
+      "optionen": "keine",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
+      "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]}
+    },
+    "notruf": {
+      "zweck": "Der NSC ruft um Hilfe (Entfuehrung, Havarie); die Crew rettet oder befreit ihn.",
+      "baustein": "notruf",
+      "gefahr": false,
+      "optionen": "keine",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"]},
+      "parameter": {"pflicht": [], "optional": ["text_key", "hex"]}
+    },
+    "enthuellung": {
+      "zweck": "Die verborgene Wahrheit kommt heraus (Sabotage, falsche Identitaet).",
+      "baustein": "enthuellung",
+      "gefahr": false,
+      "optionen": "keine",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet"], "wahrheit": true, "hinweis_vorher": true},
+      "parameter": {"pflicht": [], "optional": ["text_key"]}
+    },
+    "verfolgung": {
+      "zweck": "Der NSC flieht, die Crew jagt ihn (Szenentyp A6 Verfolgung).",
+      "baustein": "verfolgung",
+      "gefahr": true,
+      "optionen": "keine",
+      "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"], "fluchtziel": true},
+      "parameter": {"pflicht": ["fluchtziel"], "optional": ["text_key"]}
+    },
+    "abschluss": {
+      "zweck": "Der Faden endet; der Ausgang schreibt das Gedaechtnis des NSC (und Folgen).",
+      "baustein": "abschluss",
+      "gefahr": false,
+      "optionen": "keine",
+      "abschluss": true,
+      "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen", "tot", "geflohen", "feindlich", "schuldet_nichts"], "letzter": true},
+      "parameter": {"pflicht": [], "optional": ["text_key"]}
+    }
+  }
+}

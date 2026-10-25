@@ -1,0 +1,24 @@
+{
+  "format": "faden-namen/1",
+  "_hinweis": "SUND-04a-1 B: Namenlisten der NSC der Geschichtsfaeden, je Volk (Schluessel wie werte.voelker). NSC entstehen NUR aus diesen Listen, nie vom Modell (server/sim/faden.js nscErzeugen): Name = Vorname + Nachname, dazu Schiffsname und Klasse. Die Klassen sind Bezeichner; welches Schiffsmodell dahinter steht, legen die Bausteine fest (04a-2). Ein Name im Befehl faden_oeffnen muss aus Vor- und Nachname dieser Liste bestehen.",
+  "voelker": {
+    "rom": {
+      "vornamen": ["Lucius", "Marcus", "Titus", "Gaius", "Quintus", "Livia", "Aurelia", "Julia", "Octavia", "Sabina", "Decimus", "Flavia"],
+      "nachnamen": ["Varro", "Calder", "Serran", "Ennor", "Vex", "Dorn", "Fabrin", "Tullus", "Marcell", "Corvin", "Aquil", "Bassus"],
+      "schiffe": ["Fortuna", "Aquila", "Pax Aurea", "Lupa", "Vesta", "Mercurius", "Clementia", "Stella Maris"],
+      "klassen": ["frachter", "kurier", "korvette"]
+    },
+    "ger": {
+      "vornamen": ["Bjarne", "Ragnar", "Sigrid", "Ulf", "Hilde", "Torben", "Astrid", "Gunnar", "Freya", "Leif", "Ingrid", "Harald"],
+      "nachnamen": ["Eisenwald", "Rabenstein", "Nordhammer", "Wolfsang", "Skarn", "Brandir", "Hrolf", "Aschenfeld", "Tyrsson", "Grimsby", "Haldor", "Sturmvik"],
+      "schiffe": ["Hugin", "Nordwind", "Skadi", "Valkyrie", "Draupnir", "Jormun", "Eisbrecher", "Raben Erbe"],
+      "klassen": ["frachter", "kurier", "korvette"]
+    },
+    "kon": {
+      "vornamen": ["Kasimir", "Selma", "Dragan", "Mirela", "Tobiah", "Nessa", "Ilya", "Zora", "Anselm", "Pavla", "Yussuf", "Rhea"],
+      "nachnamen": ["Salzmann", "Brandl", "Voss", "Tarn", "Lindqvist", "Okafor", "Reuss", "Maric", "Hollweg", "Duval", "Petrescu", "Kranich"],
+      "schiffe": ["Gluecksgroschen", "Taubenpost", "Saumpfad", "Zweite Chance", "Lange Reise", "Silberfisch", "Halbmond", "Kupferkahn"],
+      "klassen": ["frachter", "kurier", "haendler"]
+    }
+  }
+}
