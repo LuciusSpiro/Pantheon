@@ -10,6 +10,7 @@
           "rolle": "kommando.hauptstueck",
           "kind": "leit",
           "wandnah": true,
+          "nur_wand": true,
           "pflicht": true
         },
         {

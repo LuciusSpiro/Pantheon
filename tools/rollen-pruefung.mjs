@@ -22,7 +22,7 @@ export const ROLLEN_JE_RAUMTYP = [5, 7];   // Erkundung F5: 1 Hauptstück, 2 Hau
 export const FIGUR_HOEHE = 31 / 16;       // wie shared/buehne.js FIGUR_HOEHE_M
 export const MAX_ZUG = 6;                  // Stück je Rolle und Platz (MAX_JE_ZELLE = 12 gilt zusätzlich)
 
-const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'wandnah', 'pflicht', 'ankerRolle'];
+const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'zug_gross', 'wandnah', 'nur_wand', 'pflicht', 'ankerRolle'];
 const FELDER_RAUMTYP = ['frei_halten', 'rollen', 'hinweis'];
 const FELDER_ROLLE_DEF = [...BAUWEISEN, 'hinweis', 'neutral'];
 const FELDER_DATEI = ['format', 'kartenart', 'hinweis', 'raumtypen', 'rollen'];
@@ -70,7 +70,7 @@ export function pruefeRollenDatei(j, name, ctx) {
     nRollenEintraege += def.rollen.length;
     if (def.rollen.length < ROLLEN_JE_RAUMTYP[0] || def.rollen.length > ROLLEN_JE_RAUMTYP[1]) warn(`${wo}: ${def.rollen.length} Rollen (Erkundung: ${ROLLEN_JE_RAUMTYP[0]}–${ROLLEN_JE_RAUMTYP[1]} je Raumtyp)`);
     const gesehen = new Set();
-    let summeMax = 0;
+    let summeMax = 0, summeGross = 0;
     def.rollen.forEach((e, i) => {
       const w = `${wo}.rollen[${i}]`;
       if (!istObjekt(e)) { err(`${w}: Objekt erwartet`); return; }
@@ -84,6 +84,13 @@ export function pruefeRollenDatei(j, name, ctx) {
       if (!KINDS.includes(kind)) err(`${w} (${e.rolle}): kind "${e.kind}" nicht in ${KINDS.join('|')}`);
       if (e.wandnah !== undefined && typeof e.wandnah !== 'boolean') err(`${w} (${e.rolle}): wandnah muss true/false sein`);
       if (e.pflicht !== undefined && typeof e.pflicht !== 'boolean') err(`${w} (${e.rolle}): pflicht muss true/false sein`);
+      if (e.nur_wand !== undefined && typeof e.nur_wand !== 'boolean') err(`${w} (${e.rolle}): nur_wand muss true/false sein`);
+      if (e.zug_gross !== undefined) {
+        const z = e.zug_gross;
+        if (!(Array.isArray(z) && z.length === 2 && z.every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_ZUG) && z[0] <= z[1])) err(`${w} (${e.rolle}): zug_gross = [min, max] ganze Zahlen 0–${MAX_ZUG}, min ≤ max`);
+        else if (kind === 'streu') summeGross += z[1] - (Array.isArray(e.zug) ? e.zug[1] : 1);
+        if (kind !== 'streu') warn(`${w} (${e.rolle}): zug_gross gilt nur für kind streu`);
+      }
       if (e.zug !== undefined) {
         const z = e.zug;
         if (!(Array.isArray(z) && z.length === 2 && z.every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_ZUG) && z[0] <= z[1])) err(`${w} (${e.rolle}): zug = [min, max] ganze Zahlen 0–${MAX_ZUG}, min ≤ max`);
@@ -97,7 +104,7 @@ export function pruefeRollenDatei(j, name, ctx) {
       } else if (e.ankerRolle !== undefined) warn(`${w} (${e.rolle}): ankerRolle gilt nur für kind anker`);
     });
     if (!def.rollen.some((e) => e && typeof e.rolle === 'string' && (e.kind === undefined || e.kind === 'streu'))) err(`${wo}: keine streu-Rolle (anker/leit-Rollen zählen nicht als Deko, der Raum bliebe ohne Rollen-Deko)`);
-    if (summeMax > 12) warn(`${wo}: Summe der zug-Höchstwerte ${summeMax} > 12 (MAX_JE_ZELLE; der Platz wird nie voll)`);
+    if (summeMax + summeGross > 12) warn(`${wo}: Summe der zug-Höchstwerte ${summeMax} > 12 (MAX_JE_ZELLE; der Platz wird nie voll)`);
   }
 
   let nBelegungen = 0;
@@ -111,8 +118,10 @@ export function pruefeRollenDatei(j, name, ctx) {
     for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_) kinds.add(e.kind || 'streu');
     if (kinds.size > 1) err(`${wo}: wird mit unterschiedlicher kind benutzt (${[...kinds].join(', ')})`);
     const kind = [...kinds][0] || 'streu';
-    let wandnahRolle = false;   // irgendein Raumtyp-Eintrag der Rolle ist wandnah
-    for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_ && e.wandnah === true) wandnahRolle = true;
+    // Höhenregel gilt je Raumtyp-Eintrag: ein Hauptstück über Figurhöhe muss in JEDEM Eintrag wandnah UND nur_wand sein (kein Rückfall auf freie Platzierung)
+    const eintraegeDerRolle = [];
+    for (const d of Object.values(raumtypen)) for (const e of (d && d.rollen) || []) if (e && e.rolle === name_) eintraegeDerRolle.push(e);
+    const wandnahRolle = eintraegeDerRolle.length > 0 && eintraegeDerRolle.every((e) => e.wandnah === true && e.nur_wand === true);
     const fussJe = new Set();   // Hauptstück: leit_fuss aller Belegungen beider Bauweisen (Layout-Parität: gleiche Platzierung)
     // Parität inhaltlich: Rom und Germanen dürfen nicht dieselbe Belegung teilen (Ausnahme: neutrale Technik, "neutral": true)
     const lr = belegungListe(def.rom), lg = belegungListe(def.germanen);
@@ -144,7 +153,7 @@ export function pruefeRollenDatei(j, name, ctx) {
             if (m && Array.isArray(m.footprint) && (Math.ceil(m.footprint[0] - 1e-9) > f[0] || Math.ceil(m.footprint[1] - 1e-9) > f[1])) err(`${wo}.${bw}: ${id} ist ${m.footprint[0]}×${m.footprint[1]} m groß, leit_fuss reserviert nur ${f[0]}×${f[1]} Kacheln`);
           }
           // Hauptstücke auf Bodenkacheln ≤ Figurhöhe; höhere nur wandnah (Spieler laufen durch Hauptstücke, K-SILHOUETTE)
-          if (m && typeof m.height === 'number' && m.height > FIGUR_HOEHE + 0.005 && !wandnahRolle) err(`${wo}.${bw}: ${id} ist ${m.height} m hoch (Figur ${FIGUR_HOEHE.toFixed(2)} m): Hauptstücke dieser Höhe nur wandnah (wandnah: true am Raumtyp-Eintrag)`);
+          if (m && typeof m.height === 'number' && m.height > FIGUR_HOEHE + 0.005 && !wandnahRolle) err(`${wo}.${bw}: ${id} ist ${m.height} m hoch (Figur ${FIGUR_HOEHE.toFixed(2)} m): Hauptstücke dieser Höhe nur wandnah (wandnah: true und nur_wand: true in jedem Raumtyp-Eintrag)`);
         }
       }
     }

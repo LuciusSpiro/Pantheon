@@ -20,6 +20,7 @@
 // Ergebnis: [{ id, x, y, rot, seed, platz, dx, dz, rolle? }] (rolle nur im Rollenmodus) in Kacheln (x, y = Kachel; dx/dz Versatz in der Kachel, −0,25…0,25 m).
 
 export const MAX_JE_ZELLE = 12;
+export const GROSS_AB = 49;   // Platzfläche (Kacheln, w × h) ab der Rollen ihr zug_gross nehmen (7×7)
 // Raumtypen (Präfix der Platz-ID) je Kartenart, für die Rollen definiert werden dürfen (Quelle: gen-station.js RAUMNAME, gen-siedlung.js GEB_NAME + kaefig_n).
 // Nur die Gebäude des Außenpostens dürfen auf ihrem Innenboden boden2 bestreut werden; Gänge, Straßen, Station: nie (boden2 ist dort Weg).
 export const RAUMTYPEN = {
@@ -147,7 +148,19 @@ export function streuen(k, regeln, opts = {}) {
     .map((e) => ({ e, bel: belegungVon(RO.daten, e.rolle, RO.bauweise, RO.ausschluss) })).filter((r) => r.bel.length);
   const fussVon = (id) => { const f = RO.leitFuss && hat(RO.leitFuss, id) ? RO.leitFuss[id] : null; return Array.isArray(f) && f.length === 2 && f[0] >= 1 && f[1] >= 1 ? [f[0] | 0, f[1] | 0] : null; };
   const sicher = (def) => { try { return streuRollenVon(def); } catch (e) { return []; } };   // kaputte Rollen-Datei: Platz bleibt im Zellenmodus
-  const rollenPlaetze = RO ? plaetze.filter((p) => hat(RO.daten.raumtypen, raumtypVon(p.id)) && sicher(RO.daten.raumtypen[raumtypVon(p.id)]).length) : [];
+  // Raumtyp eines Platzes für die Rollen: Präfix der Platz-ID, überschrieben durch die Anker (nur Client, Karten bleiben unberührt): ein Platz mit
+  // Anker sprengpunkt ist der Reaktorraum, ein Kontrollraum mit Anker terminal das Kommando (Module nennen ihre Plätze anders, z. B. messe_1 mit Schmiedeherd).
+  const ankerJePlatz = new Map();
+  for (const a of k.anker || []) { if (!a.platz) continue; if (!ankerJePlatz.has(a.platz)) ankerJePlatz.set(a.platz, new Set()); ankerJePlatz.get(a.platz).add(a.rolle); }
+  const raumtypDe = (p) => {
+    const t0 = raumtypVon(p.id), ar = ankerJePlatz.get(p.id);
+    if (RO && ar) {
+      if (ar.has('sprengpunkt') && hat(RO.daten.raumtypen, 'reaktor') && k.art === 'station') return 'reaktor';
+      if (ar.has('terminal') && p.typ === 'kontrollraum' && hat(RO.daten.raumtypen, 'kommando')) return 'kommando';
+    }
+    return t0;
+  };
+  const rollenPlaetze = RO ? plaetze.filter((p) => hat(RO.daten.raumtypen, raumtypDe(p)) && sicher(RO.daten.raumtypen[raumtypDe(p)]).length) : [];
   const rollenFlaeche = rollenPlaetze.length ? new Uint8Array(W * H) : null;
   for (const p of rollenPlaetze) for (let y = Math.max(0, p.y); y < Math.min(H, p.y + p.h); y++) for (let x = Math.max(0, p.x); x < Math.min(W, p.x + p.w); x++) rollenFlaeche[y * W + x] = 1;
   const CW = Math.ceil(W / ZELLE), CH = Math.ceil(H / ZELLE);
@@ -234,12 +247,19 @@ export function streuen(k, regeln, opts = {}) {
     };
     // Hauptstück (kind leit, rein optisch): Fußabdruck-bewusst im Platzrechteck, nie auf gesperrten Kacheln (Anker/Tür + frei_halten, Kantenmitte,
     // Wege) und nie über die Raumgrenze. wandnah: Rücken (−z) liegt an einer Wand über die ganze Breite, sonst frei mit zufälliger Blickrichtung.
-    // Es wird versucht mit frei_halten fh, dann schrittweise weniger bis 1. Rotation: 0 Wand im Norden (Schauseite +z = Süden), π Süden,
+    // Versuche in dieser Reihenfolge (Ausfallquote niedrig halten): wandnah mit frei_halten fh … 1, dann (nur wandnahe Rollen ohne nur_wand)
+    // frei stehend fh … 1, zuletzt mit Abstand 0 (nur Anker- und Türkachel selbst bleiben frei), erst wandnah, dann frei. Rotation: 0 Wand im Norden (Schauseite +z = Süden), π Süden,
     // π/2 Westen (Schauseite Osten), −π/2 Osten. Gerade Drehungen tauschen Breite und Tiefe des Fußes.
     const ROT = [0, Math.PI, Math.PI / 2, -Math.PI / 2];
     function hauptstueck(p, h, fh0) {
-      const [fw, fd] = h.fuss, wand = !!h.e.wandnah, rnd = h.rnd;
-      for (let fh = fh0; fh >= 1; fh--) {
+      const [fw, fd] = h.fuss, rnd = h.rnd;
+      const versuche = [];
+      const wandErst = !!h.e.wandnah, freiOk = !wandErst || !h.e.nur_wand;
+      for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, wandErst]);
+      if (wandErst && freiOk) for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, false]);
+      versuche.push([0, wandErst]);
+      if (wandErst && freiOk) versuche.push([0, false]);
+      for (const [fh, wand] of versuche) {
         const ok = new Set(kacheln(p, fh).map(([x, y]) => x + ',' + y).filter((key) => !belegt.has(key)));
         const opts = [];
         for (let ri = 0; ri < 4; ri++) {
@@ -271,12 +291,14 @@ export function streuen(k, regeln, opts = {}) {
       return false;
     }
     for (const p of rollenPlaetze) {
-      const def = RO.daten.raumtypen[raumtypVon(p.id)];
+      const def = RO.daten.raumtypen[raumtypDe(p)];
       const rollen = streuRollenVon(def);
       rollen.sort((a, b) => (b.e.pflicht ? 1 : 0) - (a.e.pflicht ? 1 : 0));   // Pflichtrollen zuerst (stabil)
       for (const r of rollen) {
         r.rnd = mulberry32(fnv(p.id + ':' + r.e.rolle, seed));
-        const z = Array.isArray(r.e.zug) && r.e.zug.length === 2 ? r.e.zug : [1, 1];
+        // große Räume (Platzfläche ≥ GROSS_AB Kacheln) nehmen zug_gross, sofern die Rolle es nennt (4–6 Stücke auch in großen Räumen)
+        const zg = p.w * p.h >= GROSS_AB && Array.isArray(r.e.zug_gross) && r.e.zug_gross.length === 2 ? r.e.zug_gross : null;
+        const z = zg || (Array.isArray(r.e.zug) && r.e.zug.length === 2 ? r.e.zug : [1, 1]);
         const lo = Math.max(0, z[0] | 0), hi = Math.max(lo, z[1] | 0);
         r.n = lo + Math.floor(r.rnd() * (hi - lo + 1));
         if (r.e.pflicht) r.n = Math.max(1, r.n);

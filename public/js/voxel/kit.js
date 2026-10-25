@@ -631,7 +631,7 @@ async function bauKarte(parent, karteIn, opts) {
   // Palette: Besitz × Bauweise × Zustand → ID; sonst Bauweisen-Basis (+ _<zustand>, falls vorhanden)
   let paletteId = null;
   try { const jb = D.besitz && D.besitz.je_bauweise && D.besitz.je_bauweise[bw]; if (jb) paletteId = jb[k.zustand] || jb.intakt || null; } catch (e) { /* egal */ }
-  try { const pa = BW.paletten && BW.paletten.art && BW.paletten.art[k.art]; if (pa) paletteId = pa; } catch (e) { /* egal */ }   // Palette je Kartenart schlägt die Besitz-Palette (Station: metallisch, ohne Handelsblau)
+  try { const pa = BW.paletten && BW.paletten.art && BW.paletten.art[k.art]; if (pa) paletteId = typeof pa === 'object' ? (pa[k.zustand] || pa.intakt || paletteId) : pa; } catch (e) { /* egal */ }   // Palette je Kartenart schlägt die Besitz-Palette (Station: metallisch, ohne Handelsblau)
   const basis = (BW.paletten && ((BW.paletten.zustand && BW.paletten.zustand[k.zustand]) || BW.paletten.basis)) || null;   // ohne Besitz: Bauweise × Zustand
   // 2) Assets vorladen (mit Zeitlimit; was fehlt, wird Platzhalter)
   const ta = now();

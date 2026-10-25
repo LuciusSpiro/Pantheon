@@ -208,7 +208,7 @@ function pruefe(mut, aussenMut) {
     c2.manifestIds = new Set([...ctx.manifestIds, 'leit/germanen/station/hochsitz_halle']);
     c2.modelle = Object.assign({}, ctx.modelle, { 'leit/germanen/station/hochsitz_halle': { footprint: [3, 2], height: 3.5 } });
     ok(fehler(meld(hoch, 'station', c2)).some((x) => /nur wandnah/.test(x.msg)), 'Hauptstück 3,5 m hoch ohne wandnah → rot');
-    const hochWand = clone(hoch); hochWand.raumtypen.kommando.rollen.find((e) => e.rolle === 'kommando.kartentisch').wandnah = true;
+    const hochWand = clone(hoch); hochWand.raumtypen.kommando.rollen.find((e) => e.rolle === 'kommando.kartentisch').wandnah = true; hochWand.raumtypen.kommando.rollen.find((e) => e.rolle === 'kommando.kartentisch').nur_wand = true;
     ok(!fehler(meld(hochWand, 'station', c2)).some((x) => /nur wandnah/.test(x.msg)), 'dasselbe Hauptstück mit wandnah: true → die Höhenregel greift nicht mehr');
   }
 

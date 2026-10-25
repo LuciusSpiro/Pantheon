@@ -227,7 +227,8 @@
   "paletten": {
     "basis": "rom_kastell",
     "art": {
-      "station": "rom"
+      "station": { "intakt": "rom", "verfallen": "rom_verfallen", "umkaempft": "rom_umkaempft" },
+      "aussenposten": { "intakt": "rom", "verfallen": "rom_verfallen", "umkaempft": "rom_umkaempft" }
     }
   },
   "stimmung": {

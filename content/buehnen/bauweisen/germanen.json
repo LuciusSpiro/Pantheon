@@ -396,7 +396,7 @@
       "umkaempft": "nord_umkaempft"
     },
     "art": {
-      "station": "station_esse"
+      "station": { "intakt": "station_esse", "verfallen": "station_esse_verfallen", "umkaempft": "station_esse_umkaempft" }
     }
   },
   "stimmung": {
