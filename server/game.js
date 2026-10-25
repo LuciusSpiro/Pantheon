@@ -1045,8 +1045,7 @@ class Game {
     if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, rid: typeof msg.rid === 'string' ? msg.rid.slice(0, 60) : null, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
     // SUND-03b A: Funk-Antwort am HUD (jeder, keine Konsole, keine Rolle; die erste Antwort gilt, jede weitere bekommt „schon beantwortet“). Antwort an den Absender: funkAntwort { ok, code?, text? }
     if (c === Protocol.CMD_FUNK_ANTWORT) {
-      if (p.downed) return;
-      const r = FunkAntwort.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));
+      const r = p.downed ? FunkAntwort.weigerung('am_boden') : FunkAntwort.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));   // wer am Boden liegt, bekommt eine Weigerung statt Schweigen
       if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'funkAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
       return;
     }

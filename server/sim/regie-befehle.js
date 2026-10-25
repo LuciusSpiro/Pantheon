@@ -206,17 +206,19 @@ function vorwarnText(w, ab, n0, b) {
   return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: w.ort ? (Sektoren.hexName(w.ort) || w.ort) : '', n: sprung, waren }) };
 }
 
-// SUND-03b T: Lagefunk des Konkordats beim Annehmen des Befehls soeldner. NUR mit dem Schalter TEXTE_POOL: ein vorab erzeugter Pool-Text, sonst der Katalogtext (lage-befehle.json soeldner). Ohne Schalter
-// gibt es keinen Funk (wie in 03a). Die Wirkung (Miete, Marken) bleibt allein im Kern; der Funk ändert die Sim nie.
-function soeldnerFunk(game, b) {
-  if (!b || b.typ !== 'soeldner' || !TextePool.aktiv(game)) return null;
-  const reich = b.an === 'ger' ? 'ger' : 'rom';
+// SUND-03b T: Lagefunk des Konkordats, wenn die Sim eine Flotte VERMIETET hat (Sim-Ereignis soeldner_vermietet, nicht schon beim Vormerken des Befehls: scheitert der Kern beim Ausführen, wird nichts gefunkt).
+// Gesendet wird nur mit dem Lage-Spielleiter-Schalter (nur er erzeugt Befehle; ohne ihn bleibt alles byte-gleich zu 03a); der Pool-Schalter TEXTE_POOL ändert NUR den Text (Pool-Text, sonst Katalogtext aus
+// lage-befehle.json soeldner), nie ob gefunkt wird. Die Wirkung (Miete, Marken) bleibt allein im Kern; der Funk ändert die Sim nie.
+function soeldnerFunk(game, ev) {
+  if (!ev || ev.typ !== 'soeldner_vermietet') return null;
+  const reich = ev.an === 'ger' ? 'ger' : 'rom';
   const kat = (texte().soeldner || {})[reich];
-  const werte = { n: Array.isArray(b.flotten) ? b.flotten.length : 0 };
-  const live = TextePool.poolText(game, 'lage', 'soeldner_an_' + reich, 'soeldner', werte);
+  const werte = { n: Number.isFinite(Number(ev.flotten)) ? Number(ev.flotten) : 0 };
+  const live = TextePool.poolText(game, 'lage', 'soeldner_an_' + reich, 'soeldner', werte);   // null ohne TEXTE_POOL oder bei leerem Pool
   const text = live != null ? live : (kat && kat.text ? fmt(kat.text, werte) : null);
   return text ? { von: (kat && kat.sprecher) || 'Händlerfunk', text } : null;
 }
+const spielleiterAn = (game) => { try { return require('./lage-spielleiter.js').schalterAn(game.env || process.env); } catch (e) { return false; } };   // lazy: lage-spielleiter.js lädt dieses Modul
 
 function planPruefen(game, plan) {
   if (!game.weltsim) return { ok: false, grund: 'modus', angenommen: [], abgelehnt: [], funk: [] };
@@ -241,7 +243,6 @@ function planAnwenden(game, plan) {
     if (a._rate !== false) s.rate.push(n0);   // der zweite Fokus-Befehl desselben Plans (andere Fraktion) kostet keinen Platz
     if (a._w) { const f = vorwarnText(a._w, a.ab, n0, a.befehl); if (f) funk.push(f); }
   }
-  for (const a of out.angenommen) { const f = soeldnerFunk(game, a.befehl); if (f) funk.push(f); }   // SUND-03b T: Funk beim Söldner-Befehl (nur mit TEXTE_POOL)
   for (const f of funk) funkSenden(game, f);
   for (const a of out.angenommen) schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: a.befehl.typ, plan: a.befehl, begruendung: out.begruendung || (a.vorwarnung ? 'angekündigt, wirksam ab Tick ' + a.ab : 'wirksam ab Tick ' + a.ab) });
   for (const a of out.abgelehnt) schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: istObjekt(a.befehl) && typeof a.befehl.typ === 'string' ? a.befehl.typ : null, plan: kurz(a.befehl), fehler: [a.grund] });
@@ -354,6 +355,7 @@ function vorTick(game, n) {
 // res: Rückgabe von Kern.tick (befehle: { angewandt, abgelehnt }); faellig: die Einträge von vorTick. -> { funk: [{von, text}], log: [Eintrag] }
 function nachTick(game, res, faellig, n) {
   const out = { funk: [], log: [] };
+  if (spielleiterAn(game)) out.soeldner = ((res && res.ereignisse) || []).filter((e) => e && e.typ === 'soeldner_vermietet').map((e) => ({ typ: e.typ, an: e.an, flotten: e.flotten }));   // SUND-03b T: Funk erst nach dem Sim-Ereignis (melde, nach dem Commit)
   for (const e of (faellig && faellig.abgelehnt) || []) out.log.push({ art: 'lage_befehl', ausgang: 'im_tick_abgelehnt', key: e.b.typ, plan: e.b, fehler: ['Ziel gehört inzwischen Rom, es ging keine Vorwarnung hinaus (Crew-Betroffenheit nie unangekündigt)'], begruendung: 'Tick ' + n });
   if (!faellig || !faellig.length) return out;
   const r = (res && res.befehle) || { angewandt: [], abgelehnt: [] };
@@ -370,6 +372,7 @@ function nachTick(game, res, faellig, n) {
 }
 function melde(game, aus) {
   for (const f of aus.funk || []) funkSenden(game, f);
+  for (const ev of aus.soeldner || []) funkSenden(game, soeldnerFunk(game, ev));
   for (const l of aus.log || []) schreibe(game, l);
 }
 

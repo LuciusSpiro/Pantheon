@@ -25,6 +25,7 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
 const W = Pruefer.WERTE;
 const ws = (g) => g.weltsim;
 const ENV = { REISE_EREIGNISSE: '1', TEXTE_POOL: '1' };
+const SPL = { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' };   // Lage-Spielleiter an (Befehle, Funk beim Vermieten)
 const spiel = (o) => F.neuesSpiel(Object.assign({ crew: 1, seed: 7, env: ENV }, o || {}));
 const funkTexte = (t, i) => t.cs[i || 0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio').map((m) => m.text);
 const abbild = (g) => JSON.stringify(Kriegslage.abbild(ws(g).zustand));
@@ -83,7 +84,7 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     ok(W.slots.antwort.max === 40, 'Optionstext höchstens 40 Zeichen (Paket A)');
     ok(KAT.every((e) => W.fakten[e.id] && W.fakten[e.id].fakt && W.stimmen[W.fakten[e.id].stimme]), `alle ${KAT.length} Katalogeinträge haben Fakt und Stimme`);
     const specs = Pool.katalogSpecs();
-    const sollSlots = KAT.reduce((s, e) => s + Object.keys(e.texte).length + 2 * (e.antworten || []).length, 0) + Object.keys(W.zusatz).length;   // SUND-03b A: je Antwortoption zwei Schlüssel (antwort, reaktion)
+    const sollSlots = KAT.reduce((s, e) => s + Object.keys(e.texte).length + (e.antworten || []).length, 0) + Object.keys(W.zusatz).length;   // SUND-03b A: je Antwortoption ein Schlüssel (reaktion; die Beschriftung kommt nie aus dem Pool)
     ok(specs.length === sollSlots && new Set(specs.map((s) => Pool.keyVon(s.art, s.id, s.slot, s.optionId))).size === specs.length, `${specs.length} angemeldete Schlüssel = alle Slots der 16 Einträge plus ${Object.keys(W.zusatz).length} Zusatz-Einträge, eindeutig`);
     const schlecht = [];
     for (const sp of specs) for (const t of sp.beispiele) { const r = Pruefer.pruefe(t, { slot: sp.slot, platzhalter: sp.platzhalter.concat(['ort', 'n']), pflicht: [], stimme: sp.stimme }); if (!r.ok) schlecht.push(sp.id + '/' + sp.slot + ': ' + r.fehler.join(', ')); }
@@ -120,6 +121,15 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     nein('Der Posten {ort} wurde einfach überrannt, Lerche, so schnell ging das.', { slot: 'verlust' }, /kriegsfolgen/, 'erfundene Kriegsfolge (überrannt)');
     nein('Die ganze Wache von {ort} ist ausgelöscht, Lerche, so ein Jammer.', { slot: 'verlust' }, /kriegsfolgen/, 'erfundene Kriegsfolge (ausgelöscht)');
     nein('Wieder ein Stein weg, {ort} ist erobert, Lerche. Verdammt noch eins.', { slot: 'verlust' }, /sieger/, 'Sieger im Verlustspruch');
+    // SUND-03b Fix S3: Lücken der Reviewer (bestanden den Prüfer, verletzten die Regeln): Ausweichen/Rückzug als Rat, Sieger und Besatzungsschicksal im Verlustspruch
+    for (const text of ['Weicht aus!', 'Dreht ab, solange ihr noch könnt!', 'Kehrt um, dann passiert euch nichts.', 'Zieht euch zurück, Lerche.', 'Macht euch davon, Lerche.', 'Haltet Abstand und lasst sie ziehen.']) {
+      for (const slot of ['ankuendigung', 'eintreffen', 'reaktion']) nein(text, { slot, platzhalter: [] }, /ausweichen/, `Ausweich-Rat (${slot}): „${text}“`);
+    }
+    for (const text of ['Der Posten {ort} ist verloren, die Germanen halten ihn jetzt.', 'Der Posten {ort} ist verloren, Rom hält ihn nicht mehr, der Feind sitzt drin.', 'Der Posten {ort} ist verloren, und dort sitzt jetzt jemand anderes, besetzt für immer.']) nein(text, { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /sieger/, 'Sieger beim Verlust: ' + text);
+    nein('Posten {ort} ist gefallen, alle tot.', { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /besatzung/, 'erfundenes Besatzungsschicksal (alle tot)');
+    nein('Posten {ort} ist verloren, keiner hat überlebt, Lerche.', { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }, /besatzung/, 'erfundenes Besatzungsschicksal (überlebt)');
+    ok(pruefe('Wir haben den Kahn zurück erobert, Lerche, und die Germanen ziehen sich zurück, danke.', { slot: 'dank' }).ok, 'S3: „Sieger“ und „Besatzung“ gelten nur für den Verlustspruch (im Dank bleiben sie erlaubt)');
+    ok(pruefe('Posten {ort} ist verloren. Es ist so still dort, ich mag das nicht, Lerche.', { slot: 'verlust', muss: ['Posten'], nicht: ['Hafen'] }).ok, 'kein Fehlalarm bei einem guten Verlustspruch ohne Sieger und Besatzung');
     nein('Meldung an die Lerche: Der Posten {ort} ist verloren. Ende der Meldung.', { slot: 'verlust' }, /meldungston/, 'Meldungston');
     nein('Wir haben keine weiteren Informationen, {ort} ist verloren, Lerche, leider.', { slot: 'verlust' }, /meldungston/, 'Hinweis auf fehlende Information');
     nein('Die Legion wird euch alle holen, Lerche, und die Streife gleich mit dazu.', { slot: 'reaktion', stimme: 'ger', platzhalter: [] }, /Stimme/, 'Germane klingt römisch');
@@ -358,6 +368,19 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     ok(Pool.stand().gesamt > 0 && !/^Funker/.test(RE.textFuer(ev, 'ankuendigung').text) && Pool.freigegeben() === false, 'Schalter aus: der gefüllte Pool wird nicht gelesen');
     Pool.update(g, 0.1);
     ok(/^Funker/.test(RE.textFuer(ev, 'ankuendigung').text), 'Schalter an: wieder gelesen');
+    // Fix K1: die Freigabe ist prozessweit (der zuletzt laufende Raum), der Raum entscheidet selbst: ein Raum OHNE Schalter bekommt nie Pool-Text, auch wenn gerade ein anderer Raum den Pool freigegeben hat
+    Pool.update(g, 0.1);
+    ok(Pool.freigegeben() === true && !/^Funker/.test(RE.textFuer(ev, 'ankuendigung', g2).text) && /^Funker/.test(RE.textFuer(ev, 'ankuendigung', g).text), 'K1: Pool prozessweit freigegeben, trotzdem: der Raum ohne Schalter bekommt den Katalogtext, der Raum mit Schalter den Pooltext');
+    // Fix K1: beim Ziehen greift der Namensfilter des ziehenden Raums (der Pool wurde mit den Namen eines anderen Raums erzeugt)
+    Pool.zuruecksetzen(); Pool.setLlm(fakeLlm({ antwort: (p, nr) => `Hier Funker Quirin ${WOERTER[nr % 8]}, ein Räuber hängt bei {ort} am Heck, Lerche. Wer kommt?` })); await fuellen(g);
+    const gq = spiel({ names: ['Quirin'] }).g;
+    Pool.update(gq, 0.1);
+    const evq = { id: 'notruf_pirat_frachter', textIdx: 0, hex: '0305' };
+    const vorV = Pool.stand().zaehler.verbraucht;
+    const zq = RE.textFuer(evq, 'ankuendigung', gq);
+    ok(!/Quirin/.test(zq.text) && Pool.stand().zaehler.verbraucht === vorV + 1, 'K1: ein Pooltext mit dem Spielernamen des ziehenden Raums wird verworfen (verbraucht), es gilt der Katalogtext: ' + zq.text.slice(0, 50));
+    Pool.update(g, 0.1);
+    ok(/Quirin/.test(RE.textFuer(evq, 'ankuendigung', g).text), 'K1: im Raum ohne diesen Namen ist derselbe Pool-Text in Ordnung (der Filter gilt dem ziehenden Raum)');
   });
 
   // ---------------------------------------------------------------------------------------------------------------------------------------------
@@ -415,31 +438,64 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
   // ---------------------------------------------------------------------------------------------------------------------------------------------
   await section('Neue Slots: Söldner-Funk und Verlust-Funk', async () => {
     Pool.zuruecksetzen();
-    const t = spiel(); const g = t.g;
+    const t = spiel({ env: Object.assign({}, ENV, SPL) }); const g = t.g;
     const kon = () => ws(g).zustand.flotten.find((f) => f.fraktion === 'kon' && !f.miete && f.befehl === 'heim');
     const befehl = (an, id) => ({ befehle: [{ typ: 'soeldner', von: 'kon', an, flotten: [id], dauer: 12 }] });
-    // Pool leer, Schalter an: Katalogtext aus lage-befehle.json
+    // der Funk kommt mit dem Sim-Ereignis soeldner_vermietet (nicht beim Vormerken): vormerken, dann Ticks bis zum Wirksamwerden
+    const vermieten = (gg, an, id) => {
+      const radio = [];
+      const alt = gg.emit.bind(gg); gg.emit = (k, d) => { if (k === 'radio' && d.from === 'Händlerfunk') radio.push(d); return alt(k, d); };
+      try {
+        ws(gg).regie.letzte = {}; ws(gg).regie.rate = [];
+        const r = Regie.planAnwenden(gg, befehl(an, id));
+        const vorher = radio.length;
+        const ab = ws(gg).regie.vorgemerkt[ws(gg).regie.vorgemerkt.length - 1].ab;
+        while (ws(gg).tickZahl < ab) Kriegslage.tick(gg, 'test');
+        return { r, beimVormerken: vorher, radio };
+      } finally { gg.emit = alt; }
+    };
+    // Pool leer, Schalter an: Katalogtext aus lage-befehle.json, erst nach dem Ereignis
     const f0 = kon();
-    const r0 = Regie.planAnwenden(g, befehl('rom', f0.id));
-    ok(r0.ok && r0.funk.length === 1 && r0.funk[0].von === 'Händlerfunk' && /Kriegsschiffe an Rom/.test(r0.funk[0].text), 'Schalter an, Pool leer: Katalogtext des Konkordats beim Befehl soeldner (an Rom)');
+    const v0 = vermieten(g, 'rom', f0.id);
+    ok(v0.r.ok && v0.r.funk.length === 0 && v0.beimVormerken === 0, 'beim Vormerken des Befehls: kein Funk (die Sim hat noch nichts vermietet)');
+    ok(v0.radio.length === 1 && /Kriegsschiffe an Rom/.test(v0.radio[0].text) && ws(g).zustand.flotten.some((f) => f.id === f0.id && f.miete), 'nach dem Ereignis soeldner_vermietet: Katalogtext des Konkordats (an Rom), die Flotte ist wirklich vermietet');
     ok(funkTexte(t).some((x) => /Kriegsschiffe an Rom/.test(x)), 'der Funk ging an die Spieler');
     // mit Pool: Pool-Text, {n} = Zahl der Flotten
     Pool.setLlm(fakeLlm()); await fuellen(g);
     const f1 = ws(g).zustand.flotten.find((f) => f.fraktion === 'kon' && !f.miete && f.befehl === 'heim' && f.id !== f0.id);
-    ws(g).regie.letzte = {}; ws(g).regie.rate = [];
     Pool.update(g, 0.1);
-    const r1 = Regie.planAnwenden(g, befehl('ger', f1.id));
-    ok(r1.ok && r1.funk.length === 1 && /^Funker /.test(r1.funk[0].text) && !/\{/.test(r1.funk[0].text), 'mit Pool: Pool-Text für Söldner an die Germanen' + (r1.funk[0] ? ' (' + r1.funk[0].text.slice(0, 40) + ')' : ''));
+    const v1 = vermieten(g, 'ger', f1.id);
+    ok(v1.radio.length === 1 && /^Funker /.test(v1.radio[0].text) && !/\{/.test(v1.radio[0].text), 'mit Pool: Pool-Text für Söldner an die Germanen' + (v1.radio[0] ? ' (' + v1.radio[0].text.slice(0, 40) + ')' : ''));
     ok(Pool.stand().pool['lage|soeldner_an_ger|soeldner|'] === W.ziel - 1 && Pool.stand().pool['lage|soeldner_an_rom|soeldner|'] === W.ziel, 'der Text kam aus dem Pool-Schlüssel des Reichs (soeldner_an_ger), der andere blieb voll');
-    ok(ws(g).regie.vorgemerkt.length === 2 && ws(g).regie.vorgemerkt.every((e) => e.b.typ === 'soeldner'), 'beide Söldner-Befehle sind vorgemerkt (der Funk ändert nichts an der Sim)');
+    ok(ws(g).zustand.flotten.some((f) => f.id === f1.id && f.miete), 'die Sim hat die Flotte vermietet (der Funk ändert nichts an der Sim)');
     // Pool leer, Söldner an die Germanen: der Katalogtext der Germanen
     Pool.zuruecksetzen(); Pool.update(g, 0.1);
     const f2 = ws(g).zustand.flotten.find((f) => f.fraktion === 'kon' && !f.miete && f.befehl === 'heim' && f.id !== f0.id && f.id !== f1.id);
     if (f2) {
-      ws(g).regie.letzte = {}; ws(g).regie.rate = [];
-      const r2 = Regie.planAnwenden(g, befehl('ger', f2.id));
-      ok(r2.ok && r2.funk.length === 1 && /Kriegsschiffe an die Germanen/.test(r2.funk[0].text), 'Pool leer, Söldner an die Germanen: Katalogtext „… an die Germanen“');
+      const v2 = vermieten(g, 'ger', f2.id);
+      ok(v2.radio.length === 1 && /Kriegsschiffe an die Germanen/.test(v2.radio[0].text), 'Pool leer, Söldner an die Germanen: Katalogtext „… an die Germanen“');
     } else ok(true, 'keine dritte freie Konkordat-Flotte im Testspiel (Germanen-Katalogtext übersprungen)');
+    // Fix S4: scheitert der Kern beim Ausführen (hier: Flotte inzwischen unterwegs), wird nie „vermietet“ gefunkt
+    const gf = spiel({ env: Object.assign({}, ENV, SPL) }).g;
+    const kf = ws(gf).zustand.flotten.find((f) => f.fraktion === 'kon' && !f.miete && f.befehl === 'heim');
+    const radioF = []; const altF = gf.emit.bind(gf); gf.emit = (k, d) => { if (k === 'radio' && d.from === 'Händlerfunk') radioF.push(d); return altF(k, d); };
+    const rf = Regie.planAnwenden(gf, befehl('rom', kf.id));
+    kf.befehl = 'angriff';   // nach der Annahme ändert sich der Stand: der Kern lehnt die Miete beim Ausführen ab
+    const abF = ws(gf).regie.vorgemerkt[0].ab;
+    while (ws(gf).tickZahl < abF) Kriegslage.tick(gf, 'test');
+    ok(rf.ok && radioF.length === 0 && !ws(gf).zustand.flotten.some((f) => f.miete), 'scheiternder Befehl (Kern lehnt beim Ausführen ab): kein Funk, nichts vermietet');
+    // Schalter-Matrix: der Funk hängt nur am Lage-Spielleiter-Schalter, der Pool-Schalter ändert nur den Text
+    const matrix = [];
+    for (const [name, env] of [['nur Pool', ENV], ['nur Spielleiter', Object.assign({ REISE_EREIGNISSE: '1' }, SPL)], ['beide', Object.assign({}, ENV, SPL)], ['keiner', { REISE_EREIGNISSE: '1' }]]) {
+      Pool.zuruecksetzen();
+      const gg = spiel({ env }).g;
+      const kk = ws(gg).zustand.flotten.find((f) => f.fraktion === 'kon' && !f.miete && f.befehl === 'heim');
+      ws(gg).regie.vorgemerkt.push({ b: { typ: 'soeldner', von: 'kon', an: 'rom', flotten: [kk.id], dauer: 12 }, ab: ws(gg).tickZahl + 1 });   // ohne Spielleiter gäbe es den Befehl nicht: direkt vormerken (der Kern führt ihn aus)
+      const rad = []; const al = gg.emit.bind(gg); gg.emit = (k, d) => { if (k === 'radio' && d.from === 'Händlerfunk') rad.push(d); return al(k, d); };
+      Kriegslage.tick(gg, 'test'); Kriegslage.tick(gg, 'test');
+      matrix.push(name + ': ' + rad.length);
+    }
+    ok(matrix.join(' | ') === 'nur Pool: 0 | nur Spielleiter: 1 | beide: 1 | keiner: 0', 'Schalter-Matrix: Funk nur mit dem Lage-Spielleiter (TEXTE_POOL allein funkt nie, ändert nur den Text): ' + matrix.join(' | '));
     // Verlust-Funk
     Pool.setLlm(fakeLlm()); await fuellen(g);
     const radio = [];
@@ -493,6 +549,39 @@ const pruefe = (text, c) => Pruefer.pruefe(text, Object.assign({ slot: 'ankuendi
     const lang = fakeLlm({ antwort: () => 'Das ist eine viel zu lange Antwortoption für die Funkauswahl' }); Pool.setLlm(lang);
     for (let i = 0; i < 3; i++) { Pool.beiGrenze(g); Pool.update(g, 0.1); await Pool.jobFertig(); }
     ok(Pool.poolEntnehmen('npc', 'z', 'antwort', 'a') === null && Pool.stand().zaehler.ungueltig >= 1, 'Optionstext über 40 Zeichen kommt nie in den Pool');
+  });
+
+  // ---------------------------------------------------------------------------------------------------------------------------------------------
+  await section('Funk-Antworten mit ECHTEM Pool: angeklickter Text = Funk = Chronik, Beschriftung nie aus dem Pool (Fix M1, M2)', async () => {
+    const FA = require('../server/sim/funk-antwort.js');
+    Pool.zuruecksetzen(); FA.setzePool(null);
+    const t = spiel(); const g = t.g;
+    const llm = fakeLlm({ antwort: (p, nr) => (/Textart: reaktion/.test(p) ? 'Pool-Reaktion Nummer ' + WOERTER[nr % 8] + ' wird gesendet.' : gueltigerText(p, nr)) }); Pool.setLlm(llm);
+    await fuellen(g);
+    ok(Pool.stand().gesamt > 0 && Object.keys(Pool.stand().pool).every((k) => !/\|antwort\|/.test(k)), 'der Pool enthält keinen einzigen Schlüssel für die Beschriftung einer Option (Slot antwort)');
+    ok(Pool.katalogSpecs().every((s) => s.slot !== 'antwort') && !llm.calls.some((c) => /Textart: antwort/.test(c.input.prompt)), 'keine angemeldete Spec und kein Modellaufruf für Beschriftungen');
+    const reaktionen = Pool.katalogSpecs().filter((s) => s.slot === 'reaktion');
+    ok(reaktionen.length === KAT.reduce((s, e) => s + (e.antworten || []).length, 0) && reaktionen.length > 0 && reaktionen.every((s) => s.antwort && s.beispiele.length === 1 && s.fakt.includes(W.reaktion_regel)), 'alle Reaktions-Specs (eine je Antwortoption) tragen die Regel aus den Daten (bestätigen, nichts versprechen, nicht widersprechen) im Fakt');
+    const spec = reaktionen.find((s) => s.id === 'patrouille_rom_gruss' && s.optionId === 'saum');
+    const pr = Pruefer.promptBauen(Object.assign({}, spec, { namen: [] }), {});
+    ok(pr.includes('<spieler_antwort>\n' + spec.antwort + '\n</spieler_antwort>') && /Wir fliegen für den Saum\./.test(pr) && /kein Versprechen/.test(pr) && /widerspricht ihr nicht/.test(pr), 'Prompt der Reaktion kennt den Katalogtext der gewählten Option und die Regel (kein Gegenteil, kein Versprechen)');
+    Pool.update(g, 0.1);
+    ok(Pool.freigegeben(), 'Pool freigegeben (TEXTE_POOL=1 im Raum)');
+    sicher(() => nur(['patrouille_rom_gruss'], () => { ws(g).zustand.flotten = []; g.space.enemies = []; ws(g).reise.letzter = null; ws(g).reise.letzte = []; springe(g, '0305'); }));
+    const FW = ws(g).funkwahl, off = FW && FW.offen;
+    ok(!!off && off.optionen.length === 2, 'Angebot da (Streife, zwei Optionen)');
+    const gezeigt = off.optionen.find((o) => o.id === 'saum').text;
+    const vorStand = JSON.stringify(Pool.stand().pool);
+    const vorherFunk = funkTexte(t).length;
+    ok(FA.beantworten(g, 'saum', off.lfd) === null, 'Antwort angenommen');
+    const nachStand = Pool.stand().pool;
+    const verbraucht = Object.keys(JSON.parse(vorStand)).filter((k) => (JSON.parse(vorStand)[k] || 0) !== (nachStand[k] || 0));
+    ok(verbraucht.length === 1 && /^patrouille\|patrouille_rom_gruss\|reaktion\|saum$/.test(verbraucht[0]), 'beim Antworten wird genau EIN Pooltext verbraucht: die Reaktion (' + verbraucht.join(',') + ')');
+    lauf(g, RE.WERTE.antwort_reaktion_s + 1);
+    const neu = funkTexte(t).slice(vorherFunk);
+    ok(neu[0] === gezeigt && gezeigt === 'Wir fliegen für den Saum.', 'angeklickter Text = gesendeter Funk: ' + neu[0]);
+    ok(/^Pool-Reaktion Nummer /.test(neu[1] || ''), 'danach die Reaktion des Sprechers aus dem Pool');
+    ok((ws(g).chronik || []).some((c) => c.kurz === 'Funkantwort an Römische Streife: ' + gezeigt), 'Chronik trägt denselben Text');
   });
 
   console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);

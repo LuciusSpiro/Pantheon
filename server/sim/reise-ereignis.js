@@ -21,7 +21,7 @@
 //   nachSprung(game, dest) -> { id, art, kurz } | null   alles zusammen (Aufrufer: sprung.springeNach). Beantwortet auch offene Notrufe des Ankunftssektors, ohne ein neues Ereignis zu würfeln.
 //   abfangenVermerken(game)           das Abfangen des Schnellsprungs zählt für den Abstand
 //   update(game, dt)                  Vorlauf ablaufen lassen, Gegner eintreffen lassen, Folgen nach bewältigter Lage (Aufrufer: reise.update)
-//   textFuer(ereignis, slot) -> { von, text } | null   BENANNTE STELLE für den Text (synchron): ein vorab von Gemma erzeugter Text aus dem Pool (texte-pool.js, nur mit TEXTE_POOL=1), sonst der feste Katalogtext
+//   textFuer(ereignis, slot, game?) -> { von, text } | null   BENANNTE STELLE für den Text (synchron): ein vorab von Gemma erzeugter Text aus dem Pool (texte-pool.js, nur mit TEXTE_POOL=1), sonst der feste Katalogtext
 //   gruendeBuchen(game, gruende, nurFraktion?) -> n  Folgen buchen (ruf_aenderung unter dem Reise-Ruf-Deckel; rufRaum(game) = Raum darin); folgeBuchen(game, e) = die Folge des Katalogeintrags. SUND-03b A: funk-antwort.js hängt an ausloesenFunkmeldung, ausloesenKontakt (ohne Gefahr), notrufBeantworten (ohne Gefahr), nachSprung und update
 //   ablehnen(game, nr) -> bool        ein offener Notruf wird ausdrücklich abgelehnt (keine Folge)
 //   neu() / toSave(ws) / lesen(block) Weltstand welt.sim.reise: { n, letzter?, letzte? } (optional, Altstand = leer); Notruf-Marken und laufende Ereignisse stehen nicht im Weltstand
@@ -200,12 +200,12 @@ function abfangenVermerken(game) {
 // ---------- Text (benannte Stelle für Paket 03b: Live-Texte)
 // SUND-03b T: ist im Pool ein vorab erzeugter Text für (Eintrag, Slot), kommt er (jeder Text genau einmal, FIFO, ohne Zufall: der Strom der Reise und der Sim bleibt unberührt), sonst der Katalogtext.
 // Ohne Schalter (TEXTE_POOL) ist der Pool immer leer: der Katalogtext, wie in 03a. {ort} und {n} setzt textFuer beim Verbrauch ein.
-function textFuer(ev, slot) {
+function textFuer(ev, slot, game) {
   const e = ev && eintrag(ev.id);
   const liste = e && e.texte && e.texte[slot];
   if (!liste || !liste.length) return null;
   const werte = { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s };
-  const live = TextePool.freigegeben() ? TextePool.poolEntnehmen('reise', e.id, slot) : null;
+  const live = TextePool.poolFuer(game, 'reise', e.id, slot);   // mit game: nur mit dem Schalter DIESES Raums und ohne dessen Spielernamen; ohne game (Aufrufer ohne Raum): prozessweite Freigabe
   return { von: e.sprecher || 'Aufklärung', text: fmt(live != null ? live : liste[(ev.textIdx || 0) % liste.length], werte) };
 }
 function funk(game, t) {
@@ -243,7 +243,7 @@ function rufRaum(game) {
 
 // ---------- Auslösen (je Art eine benannte Funktion)
 function ausloesenFunkmeldung(game, ev) {
-  funk(game, textFuer(ev, 'ankuendigung'));
+  funk(game, textFuer(ev, 'ankuendigung', game));
   chronik(game, ev);
   FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)
 }
@@ -256,14 +256,14 @@ const gefahrPlanen = (game, R, ev) => laufendEintragen(game, R, ev, { notruf: fa
 const notrufGefahrPlanen = (game, R, ev) => laufendEintragen(game, R, ev, { notruf: true });   // Notruf mit Gefahr: Ruf und Dank erst nach dem Kampf
 function ausloesenKontakt(game, ev) {   // patrouille, piraten
   const R = zustandVon(game), e = eintrag(ev.id);
-  funk(game, textFuer(ev, 'ankuendigung'));
+  funk(game, textFuer(ev, 'ankuendigung', game));
   chronik(game, ev);
   if (e.gefahr) gefahrPlanen(game, R, ev);
   else { folgeBuchen(game, e); FA().anbieten(game, ev); }
 }
 function ausloesenNotruf(game, ev) {
   const R = zustandVon(game);
-  funk(game, textFuer(ev, 'ankuendigung'));
+  funk(game, textFuer(ev, 'ankuendigung', game));
   chronik(game, ev);
   if (ev.sim) return;   // die Sim kennt den Notruf (Marke, Feldzug); beim Eintreffen gilt ihre Szene
   R.offen.push({ nr: ev.nr, id: ev.id, hex: ev.hex, bis: R.n + WERTE.notruf_gilt_spruenge, marke: 'reise:n' + ev.nr, ev });
@@ -285,10 +285,10 @@ function notrufBeantworten(game, R, o) {
   }
   Marken.entferne(game, o.marke);
   R.offen.splice(R.offen.indexOf(o), 1);
-  funk(game, textFuer(o.ev, 'eintreffen'));
+  funk(game, textFuer(o.ev, 'eintreffen', game));
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} beantwortet`, param: { art: 'notruf', hex: o.hex } });
   if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);
-  else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank')); FA().anbieten(game, o.ev); }
+  else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank', game)); FA().anbieten(game, o.ev); }
 }
 function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
@@ -338,7 +338,7 @@ function eintreffen(game, L) {
     if (g) g.eingesprungen = true;
   }
   L.phase = 'kampf';
-  funk(game, textFuer(L.ev, 'eintreffen'));
+  funk(game, textFuer(L.ev, 'eintreffen', game));
 }
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   FA().update(game);   // SUND-03b A: Reaktion des Sprechers, Angebot in unruhiger Lage zurückziehen
@@ -350,7 +350,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
     if (L.phase === 'erwartet') { if (game.simSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene
     if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt
       weg();
-      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank')); }
+      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); }
     }
   }
 }

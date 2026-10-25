@@ -9,6 +9,9 @@
 // Ereignisse): ohne den Rom-Deckel verkürzten die Antworten die Rangleiter von 02b. Sind sie ausgeschöpft,
 // entfallen die Optionen mit Rom-Gewinn aus dem Angebot (keine Scheinwahl: jede angezeigte Option kann ihre Folge auch buchen); bleiben weniger als zwei Optionen, gibt es kein Angebot.
 //
+// Beim Antworten gilt, was die Crew angeklickt hat (der Text im Angebot, off.optionen), nie ein neu gezogener Text. Die Deckel werden beim Antworten erneut geprüft (zwischen Angebot und Antwort können sie sich füllen):
+// ist die Folge nicht mehr buchbar, wird das Angebot zurückgezogen (Code `deckel`), ohne Funk, Chronik und Reaktion.
+//
 // Zustand: game.weltsim.funkwahl = { lfd, offen: { lfd, id, ev, von, optionen: [{ id, text }], bis } | null, reaktion: { ab, von, text } | null, zuletzt: { lfd, n, id, gebucht } | null, romLog: [[Sprung, Gewinn]] }.
 // Er gilt für die ganze Crew, nur der Server schreibt, er steht NICHT im Weltstand (ein offenes Angebot geht beim Laden verloren, das ist ausdrücklich in Ordnung) und nicht im Sim-Zustand.
 // Das Angebot zieht keinen Zufall und verändert weder die Entscheidung der Reise-Ereignisse noch die Sim: Sim-Zustand und Ereignisring sind mit und ohne Angebot byte-gleich.
@@ -18,17 +21,21 @@
 //   nachSprung(game)                          (Aufrufer: reise-ereignis.nachSprung) nach dem Sprungzähler: abgelaufenes Angebot verwerfen
 //   update(game)                              (Aufrufer: reise-ereignis.update) Reaktion des Sprechers zeitverzögert senden; Angebot in unruhiger Lage zurückziehen
 //   beantworten(game, id, lfd?) -> null | { code, text }   Befehl funk.antworten { id, nr? }: die ERSTE Antwort gilt, jede weitere bekommt „schon beantwortet“; id 'ignorieren' schließt ohne Folge
-//   textFuer(ev, slot, optionId, game?) -> { von, text } | null   BENANNTE STELLE für die Texte (slot 'antwort' | 'reaktion'): heute der Katalogtext; Paket T knüpft hier über setzePool() bzw. poolEntnehmen an
-//   setzePool(fn)                             Paket T: fn(art, id, slot, optionId) -> Text | null (Pool von Gemma-Texten); Rückfall bei null, Fehler, zu langem Text oder Spielername = Katalogtext
+//   textFuer(ev, slot, optionId, game?) -> { von, text } | null   BENANNTE STELLE für die Texte (slot 'antwort' | 'reaktion'). 'antwort' (Beschriftung der Option) ist IMMER der Katalogtext (Daten): Text und Folge gehören zusammen,
+//        ein Modell kennt die Folge nicht (Scheinwahl). 'reaktion' (Antwort des Sprechers): mit TEXTE_POOL zuerst ein Pooltext (setzePool() bzw. poolEntnehmen), sonst der Katalogtext
+//   setzePool(fn)                             Paket T: fn(art, id, slot, optionId) -> Text | null (Pool von Gemma-Texten, nur für die Reaktion); Rückfall bei null, Fehler, zu langem Text (texte-werte slots.reaktion.max) oder Spielername = Katalogtext
+//   weigerung(code) -> { code, text }         Weigerungstext aus den Daten (für den Server, z. B. 'am_boden')
 //   snapshot(game) / schluessel(game)         Anzeigeblock world.funkwahl (null = kein Angebot, Löschsignal) und sein Änderungsschlüssel
 const Chronik = require('./chronik.js');
 const Ausschnitt = require('./lage-ausschnitt.js');
 const RE = require('./reise-ereignis.js');
+const Pruefer = require('./texte-pruefer.js');
 
 const W = RE.WERTE;
 const QUELLEN = require('../../content/welt/ruf-werte.json').werte.quellen.wert;
 const RUF_FENSTER = 100;   // Sprünge, über die der Rom-Deckel zählt (wie der Reise-Ruf-Deckel)
 const OPT_MAX = 3;
+const REAKTION_MAX = Pruefer.WERTE.slots.reaktion.max;   // dieselbe Zahl wie beim Prüfer des Pools (texte-werte.json): ein Pooltext, der den Prüfer besteht, wird hier nie still verworfen
 const IGNORIEREN = 'ignorieren';
 
 const neu = () => ({ lfd: 0, offen: null, reaktion: null, zuletzt: null, romLog: [] });
@@ -39,6 +46,7 @@ function zustandVon(game) {
   return ws.funkwahl;
 }
 const fehl = (code) => ({ code, text: (W.weigerung && W.weigerung[code]) || code });
+const weigerung = fehl;
 const optionen = (e) => (e && Array.isArray(e.antworten) ? e.antworten : []);
 const optionVon = (e, id) => optionen(e).find((o) => o.id === id) || null;
 
@@ -56,6 +64,11 @@ const romBetrag = (gruende) => (Array.isArray(gruende) ? gruende : []).reduce((s
 function romRaum(F, n) {
   F.romLog = F.romLog.filter((x) => n - x[0] < RUF_FENSTER);
   return W.antwort_rom_max_je_100 - F.romLog.reduce((s, x) => s + x[1], 0);
+}
+
+// Darf die Folge jetzt gebucht werden (Rom-Deckel der Antworten und Reise-Ruf-Deckel)? Dieselbe Regel wie beim Filtern der Optionen im Angebot.
+function folgeBuchbar(game, F, gruende) {
+  return romGewinn(gruende) <= romRaum(F, game.weltsim.reise.n) + 1e-9 && romBetrag(gruende) <= RE.rufRaum(game) + 1e-9;
 }
 
 // ---------- Ruhige Lage: keine Sim-Szene, keine laufende (angekündigte) Gefahr, keine Gegner im Sektor
@@ -89,9 +102,8 @@ function textFuer(ev, slot, optionId, game) {
   const e = ev && RE.eintrag(ev.id);
   const o = e && optionVon(e, optionId);
   if (!o || (slot !== 'antwort' && slot !== 'reaktion')) return null;
-  const max = slot === 'antwort' ? W.antwort_text_max : 200;
-  const text = ausPool(game, e.art, e.id, slot, o.id, max) || (slot === 'antwort' ? o.text : o.reaktion);
-  return { von: slot === 'antwort' ? W.antwort_von : (e.sprecher || 'Aufklärung'), text };
+  if (slot === 'antwort') return { von: W.antwort_von, text: o.text };   // Beschriftung = Daten, nie aus dem Pool
+  return { von: e.sprecher || 'Aufklärung', text: ausPool(game, e.art, e.id, slot, o.id, REAKTION_MAX) || o.reaktion };
 }
 function funkSenden(game, von, text) {
   if (!text) return;
@@ -104,13 +116,11 @@ function anbieten(game, ev) {
   if (!e || e.gefahr || !optionen(e).length) return null;   // bei Gefahr nie Optionen
   if (!RE.aktiv(game) || !ruhig(game)) return null;
   const F = zustandVon(game), R = game.weltsim.reise;
-  const raum = romRaum(F, R.n);
-  const rufRaum = RE.rufRaum(game);
-  const erlaubt = optionen(e).slice(0, OPT_MAX).filter((o) => romGewinn(o.folge) <= raum + 1e-9 && romBetrag(o.folge) <= rufRaum + 1e-9);   // Optionen, deren Rom-Gewinn die Deckel nicht mehr zuließen, entfallen
+  const erlaubt = optionen(e).slice(0, OPT_MAX).filter((o) => folgeBuchbar(game, F, o.folge));   // Optionen, deren Rom-Gewinn die Deckel nicht mehr zuließen, entfallen
   if (erlaubt.length < 2) return null;
   F.offen = {
     lfd: ++F.lfd, id: e.id, ev, von: e.sprecher || 'Aufklärung', bis: R.n + W.antwort_gilt_spruenge,
-    optionen: erlaubt.map((o) => ({ id: o.id, text: textFuer(ev, 'antwort', o.id, game).text })),
+    optionen: erlaubt.map((o) => ({ id: o.id, text: textFuer(ev, 'antwort', o.id, game).text })),   // Katalogtext der Beschriftung
   };
   return F.offen;
 }
@@ -140,7 +150,9 @@ function beantworten(game, id, lfd) {
   if (id !== IGNORIEREN && !kat) return fehl('unbekannt');
   F.offen = null;
   if (id === IGNORIEREN) { F.zuletzt = { lfd: off.lfd, n: ws.reise.n, id, gebucht: 0 }; return null; }   // kostet nichts, kein Funk, keine Chronik
-  const antwort = textFuer(off.ev, 'antwort', id, game);
+  if (!folgeBuchbar(game, F, kat.folge)) return fehl('deckel');   // der Deckel hat sich seit dem Angebot gefüllt: das Angebot ist zurückgezogen (F.offen ist schon null), keine Scheinwirkung
+  const gezeigt = off.optionen.find((o) => o.id === id);
+  const antwort = { von: W.antwort_von, text: gezeigt.text };   // genau der Text, den die Crew angeklickt hat (nicht neu gezogen)
   const gebucht = RE.gruendeBuchen(game, Array.isArray(kat.folge) ? kat.folge : [], 'rom');   // im Reise-Ruf-Deckel zählt nur Rom
   F.zuletzt = { lfd: off.lfd, n: ws.reise.n, id, gebucht };
   const gewinn = romGewinn(kat.folge);
@@ -164,4 +176,4 @@ function schluessel(game) {
   return s ? s.nr + ':' + s.rest : null;
 }
 
-module.exports = { IGNORIEREN, OPT_MAX, neu, ruhig, romGewinn, romRaum, anbieten, nachSprung, update, beantworten, textFuer, setzePool, snapshot, schluessel };
+module.exports = { IGNORIEREN, OPT_MAX, neu, ruhig, romGewinn, romRaum, anbieten, nachSprung, update, beantworten, weigerung, textFuer, setzePool, snapshot, schluessel };

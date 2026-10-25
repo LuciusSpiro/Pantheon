@@ -281,14 +281,23 @@ section('Deckel: Rom-Deckel der Antworten und Reise-Ruf-Deckel', () => {
   ok(R3.rufLog.length === 1 && R3.rufLog[0][1] === 1, 'die Folge der Streife (1) steht im Deckel');
   FA.beantworten(g3, 'kennung', offen(g3).lfd);
   ok(R3.rufLog.length === 2 && R3.rufLog.reduce((s, x) => s + x[1], 0) === 1 + GEW, `die Folge der Antwort kommt dazu (${1 + GEW}): ein Deckel für beides`);
-  // ist der Deckel zwischen Angebot und Antwort durch ein Ereignis gefüllt worden, entfällt die Folge, Antwort und Reaktion bleiben
+  // S1: ist der Deckel zwischen Angebot und Antwort durch ein Ereignis gefüllt worden, ist die Folge nicht mehr buchbar: Angebot zurückgezogen (Code deckel), kein Funk, keine Chronik, keine Reaktion, kein ok
   const t5 = spiel(); const g5 = t5.g; ws(g5).reise.n = 50;
   FA.anbieten(g5, ev('patrouille_rom_gruss'));
   while (RE.gruendeBuchen(g5, ['funk_rom_gruss'], 'rom')) { /* Deckel füllen (in kleinen Schritten bis genau zum Rand) */ }
-  const rv = rom(g5);
-  ok(FA.beantworten(g5, 'kennung') === null && ws(g5).funkwahl.zuletzt.gebucht === 0 && rom(g5) === rv && ws(g5).funkwahl.romLog.length === 0, 'füllt ein Ereignis den Deckel zwischen Angebot und Antwort, entfällt die Folge (Funk bleibt, der Rom-Deckel behält seinen Raum)');
+  const rv = rom(g5), funkVor = funkTexte(t5).length, chrVor = JSON.stringify(ws(g5).chronik || null);
+  const rd = FA.beantworten(g5, 'kennung');
+  ok(!!rd && rd.code === 'deckel' && rd.text === W.weigerung.deckel, 'füllt ein Ereignis den Deckel zwischen Angebot und Antwort, wird die Antwort abgelehnt (Code deckel, Text aus den Daten)');
+  ok(!offen(g5) && rom(g5) === rv && ws(g5).funkwahl.romLog.length === 0 && !ws(g5).funkwahl.zuletzt, 'das Angebot ist zurückgezogen, keine Folge, der Rom-Deckel behält seinen Raum');
   lauf(g5, W.antwort_reaktion_s + 1);
-  ok(funkTexte(t5).includes('Verstanden, Lerche. Gute Fahrt.'), 'die Reaktion kommt trotzdem');
+  ok(funkTexte(t5).length === funkVor && !funkTexte(t5).includes('Verstanden, Lerche. Gute Fahrt.') && !funkTexte(t5).includes('Kennung bestätigt, danke.'), 'kein Funk der Crew, keine Reaktion des Sprechers');
+  ok(JSON.stringify(ws(g5).chronik || null) === chrVor, 'keine Chronik-Zeile');
+  ok(FA.beantworten(g5, 'kennung').code === 'kein_angebot', 'eine weitere Antwort: kein Angebot mehr');
+  // eine Konkordat-Antwort bleibt beim vollen Rom-Deckel buchbar (kein Rom-Betrag)
+  const t6 = spiel(); const g6 = t6.g; ws(g6).reise.n = 50;
+  FA.anbieten(g6, ev('funk_handel_stimmen'));
+  while (RE.gruendeBuchen(g6, ['funk_rom_gruss'], 'rom')) { /* Deckel füllen */ }
+  ok(FA.beantworten(g6, 'tipp') === null && ws(g6).funkwahl.zuletzt.gebucht === 1, 'Konkordat-Folge bleibt beim vollen Rom-Deckel buchbar (keine Ablehnung)');
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -308,35 +317,46 @@ section('Ruf-Tempo: die Rangleiter von 02b werden durch die Antworten nicht verk
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
-section('Textstelle: Katalog heute, Pool von Paket T später (Rückfall = Katalogtext)', () => {
+section('Textstelle: Beschriftung nur Katalog (Daten), Reaktion aus dem Pool mit Rückfall auf den Katalogtext', () => {
   const ev = { id: 'patrouille_rom_gruss', nr: 1, hex: HEX.rom, textIdx: 0 };
+  const REAK = 'Wie ihr wollt. Wir behalten euch im Auge.';
   ok(FA.textFuer(ev, 'antwort', 'kennung').text === 'Kennung bestätigt, danke.' && FA.textFuer(ev, 'antwort', 'kennung').von === 'Lerche', 'antwort: Katalogtext, Sprecher ist das Schiff');
   ok(FA.textFuer(ev, 'reaktion', 'kennung').text === 'Verstanden, Lerche. Gute Fahrt.' && FA.textFuer(ev, 'reaktion', 'kennung').von === 'Römische Streife', 'reaktion: Katalogtext, Sprecher des Eintrags');
   ok(FA.textFuer(ev, 'dank', 'kennung') === null && FA.textFuer(ev, 'antwort', 'gibt_es_nicht') === null && FA.textFuer({ id: 'x' }, 'antwort', 'a') === null && FA.textFuer(null, 'antwort', 'a') === null, 'unbekannter Slot, Option oder Eintrag: null');
   const aufrufe = [];
   FA.setzePool((art, id, slot, optionId) => { aufrufe.push([art, id, slot, optionId]); return slot === 'antwort' ? 'Pool-Antwort ' + optionId : 'Pool-Reaktion ' + optionId; });
   try {
-    ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Pool-Antwort saum' && FA.textFuer(ev, 'reaktion', 'saum').text === 'Pool-Reaktion saum', 'mit Pool: der Pooltext gilt');
-    ok(JSON.stringify(aufrufe[0]) === JSON.stringify(['patrouille', 'patrouille_rom_gruss', 'antwort', 'saum']), 'Aufruf poolEntnehmen(art, id, slot, optionId) mit den Slot-Arten antwort und reaktion');
-    FA.setzePool(() => 'x'.repeat(W.antwort_text_max + 1));
-    ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Wir fliegen für den Saum.', 'zu langer Text der Antwort: Katalogtext');
+    ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Wir fliegen für den Saum.', 'mit Pool: die Beschriftung bleibt der Katalogtext (Text und Folge gehören zusammen)');
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === 'Pool-Reaktion saum', 'mit Pool: die Reaktion kommt aus dem Pool');
+    ok(aufrufe.length === 1 && JSON.stringify(aufrufe[0]) === JSON.stringify(['patrouille', 'patrouille_rom_gruss', 'reaktion', 'saum']), 'der Pool wird nur für den Slot reaktion gefragt, nie für antwort');
+    const RMAX = require('../server/sim/texte-pruefer.js').WERTE.slots.reaktion.max;
+    FA.setzePool(() => 'x'.repeat(RMAX));
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === 'x'.repeat(RMAX), `S2: ein Pooltext mit genau der Prüfer-Obergrenze (${RMAX} Zeichen, texte-werte.json) wird übernommen, nicht still verworfen`);
+    FA.setzePool(() => 'x'.repeat(RMAX + 1));
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === REAK, 'ein Pooltext über der Obergrenze: Katalogtext');
     FA.setzePool(() => { throw new Error('Pool kaputt'); });
-    ok(FA.textFuer(ev, 'reaktion', 'saum').text === 'Wie ihr wollt. Wir behalten euch im Auge.', 'Pool wirft: Katalogtext');
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === REAK, 'Pool wirft: Katalogtext');
     FA.setzePool(() => null);
-    ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Wir fliegen für den Saum.', 'Pool liefert nichts: Katalogtext');
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === REAK, 'Pool liefert nichts: Katalogtext');
     FA.setzePool(() => '   ');
-    ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Wir fliegen für den Saum.', 'leerer Text: Katalogtext');
+    ok(FA.textFuer(ev, 'reaktion', 'saum').text === REAK, 'leerer Text: Katalogtext');
     const t = spiel({ names: ['Quirin'] }); const g = t.g;
     FA.setzePool(() => 'Quirin sagt Danke');
-    ok(FA.textFuer(ev, 'antwort', 'saum', g).text === 'Wir fliegen für den Saum.', 'enthält der Pooltext einen Spielernamen: Katalogtext');
+    ok(FA.textFuer(ev, 'reaktion', 'saum', g).text === REAK, 'enthält der Pooltext einen Spielernamen: Katalogtext');
     FA.setzePool((art, id, slot) => (slot === 'antwort' ? 'Alles klar, Streife.' : 'Weiterfliegen, Lerche.'));
     ereignis(g, 'patrouille_rom_gruss', HEX.rom);
-    ok(offen(g).optionen.every((o) => o.text === 'Alles klar, Streife.'), 'Pooltext der Antwort steht im Angebot (für alle gleich, einmal beim Entstehen gezogen)');
+    ok(offen(g).optionen.map((o) => o.text).join('|') === 'Kennung bestätigt, danke.|Wir fliegen für den Saum.', 'das Angebot zeigt die Katalogtexte (nie Pooltexte)');
     FA.beantworten(g, 'saum', offen(g).lfd); lauf(g, W.antwort_reaktion_s + 1);
     const f = funkTexte(t);
-    ok(f.includes('Alles klar, Streife.') && f.includes('Weiterfliegen, Lerche.'), 'Antwort und Reaktion kommen aus dem Pool');
+    ok(f.includes('Wir fliegen für den Saum.') && f.includes('Weiterfliegen, Lerche.') && !f.includes('Alles klar, Streife.'), 'Antwort = Katalogtext der Option, Reaktion aus dem Pool');
   } finally { FA.setzePool(null); }
-  ok(FA.textFuer(ev, 'antwort', 'saum').text === 'Wir fliegen für den Saum.', 'ohne Pool wieder der Katalogtext');
+  ok(FA.textFuer(ev, 'reaktion', 'saum').text === REAK, 'ohne Pool wieder der Katalogtext');
+  // M1: gesendet wird, was im Angebot stand (nie ein neu gezogener Text)
+  const tm = spiel(); const gm = tm.g;
+  ereignis(gm, 'patrouille_rom_gruss', HEX.rom);
+  const angebot = offen(gm); angebot.optionen.find((o) => o.id === 'kennung').text = 'Angezeigte Zeile';
+  FA.beantworten(gm, 'kennung', angebot.lfd);
+  ok(funkTexte(tm).includes('Angezeigte Zeile') && JSON.stringify(ws(gm).chronik || []).includes('Funkantwort an Römische Streife: Angezeigte Zeile'), 'Funk und Chronik tragen genau den Text des Angebots');
 });
 
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -459,7 +479,7 @@ section('Befehl und Leser müllfest', () => {
   ok(antw.length >= 9 && antw.every((m) => m.ok === false && typeof m.text === 'string' && m.text.length > 3) && g.errors === fehlerN, 'jede Weigerung antwortet dem Absender mit Code und Text');
   // ausgeschaltete Spieler antworten nicht
   const aus = t.cs[1]; const pAus = g.players.find((p) => p.conn === aus || (p.conn && p.conn.inbox === aus.inbox));
-  if (pAus) { pAus.downed = true; const ante = aus.inbox.filter((m) => m.kind === 'funkAntwort').length; g.handleMessage(aus, { t: 'cmd', c: 'funk.antworten', id: 'kennung', nr: lfd }); ok(!!offen(g) && rom(g) === 1 && aus.inbox.filter((m) => m.kind === 'funkAntwort').length === ante, 'ein ausgeschalteter Spieler (downed) antwortet nicht: keine Folge, keine Antwort'); pAus.downed = false; } else ok(false, 'Fixture: Spieler zum Client nicht gefunden');
+  if (pAus) { pAus.downed = true; const ante = aus.inbox.filter((m) => m.kind === 'funkAntwort').length; g.handleMessage(aus, { t: 'cmd', c: 'funk.antworten', id: 'kennung', nr: lfd }); const nach = aus.inbox.filter((m) => m.kind === 'funkAntwort'); ok(!!offen(g) && rom(g) === 1 && nach.length === ante + 1 && nach[nach.length - 1].ok === false && nach[nach.length - 1].code === 'am_boden' && nach[nach.length - 1].text === W.weigerung.am_boden, 'K4: ein ausgeschalteter Spieler (downed) bekommt eine Weigerung mit Code statt Schweigen: keine Folge, kein Funk'); pAus.downed = false; } else ok(false, 'Fixture: Spieler zum Client nicht gefunden');
   // gefälschte Nachrichten: kein Spielerzustand nötig, nur Server schreibt
   ok(Protocol.CMD_FUNK_ANTWORT === 'funk.antworten' && FA.beantworten(g, undefined).code === 'unbekannt', 'beantworten(undefined): unbekannt');
   // Client-Leser (public/js/funkwahl.js)

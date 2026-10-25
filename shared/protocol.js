@@ -257,7 +257,7 @@
     CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
     // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund mit Reise-Ereignissen, nach Funkmeldung, römischer Streife, Havarie-Notruf; nie bei Gefahr). cmd { c: 'funk.antworten', id, nr? } wählt eine Option des offenen Angebots (id aus world.funkwahl.optionen)
     //   oder 'ignorieren' (schließt es für alle, ohne Folge); nr = Nummer des Angebots (ein Klick auf ein älteres Angebot gilt nicht). Jeder Spieler, keine Konsole, keine Rolle; die ERSTE Antwort gilt, jede weitere bekommt „schon beantwortet“.
-    //   Antwort an den Absender: Ereignis funkAntwort { pid, ok, code?, text? } (code: modus | kein_angebot | schon_beantwortet | unbekannt | unruhig). Alle hören die Antwort der Crew und die Reaktion des Sprechers als Ereignis radio.
+    //   Antwort an den Absender: Ereignis funkAntwort { pid, ok, code?, text? } (code: modus | kein_angebot | schon_beantwortet | unbekannt | unruhig | deckel | am_boden). Alle hören die Antwort der Crew und die Reaktion des Sprechers als Ereignis radio.
     //   Snapshot world.funkwahl { nr, von, optionen: [{ id, text }] (2 bis 3), ignorieren, rest: Sprünge bis zum Verfall } | null (kein Angebot; null ist das Löschsignal) nur bei Änderung (nie in den großen Snapshots).
     CMD_FUNK_ANTWORT: 'funk.antworten',
     // SUND-03b I: Informationshandel des Konkordats am Terminal (Konsole 'shop', nur Freie Fahrt Sund, nur an Häfen des Konkordats, jeder Spieler, die Marken sind geteilt). cmd { c: 'info.kaufen', thema: 't0'|'t1'|'t2' (Id im Angebot), stufe: 'gerucht'|'beleg' }.

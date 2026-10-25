@@ -17,7 +17,8 @@
 //        antwort höchstens 40 Zeichen). Freitext (fakt, antwort, option, beispiele) läuft vor dem Prompt durch den Namensfilter (Spielernamen des zuletzt aktiven Spiels). Gefüllt wird im Hintergrund
 //        (höchstens ein Job zugleich), der Aufruf kehrt sofort zurück. Die Katalogeinträge der Reise (16) und die Zusatz-Einträge (soeldner_an_rom/_ger, posten_verloren, hafen_gefallen) sind ab Werk angemeldet.
 //   einsetzen(text, werte) -> string                {ort}, {n} usw. einsetzen (unbekannte bleiben stehen)
-//   poolText(game, art, id, slot, werte, optionId?) -> string | null     entnehmen + einsetzen, nur bei Schalter an (für die Lagefunk-Stellen)
+//   poolText(game, art, id, slot, werte, optionId?) -> string | null     entnehmen + einsetzen, nur bei Schalter an (für die Lagefunk-Stellen); der Text enthält nie einen Spielernamen des Raums
+//   poolFuer(game, art, id, slot, optionId?) -> string | null            wie poolEntnehmen, aber für EINEN Raum: nur mit dessen Schalter und ohne dessen Spielernamen (ohne game: freigegeben())
 //   aktiv(game) / schalterAn(env) / modus(env)       Schalter und Modus (live | off)
 //   freigegeben() -> bool                            darf der Pool gelesen werden (der zuletzt laufende Raum hat den Schalter an)? textFuer fragt das; poolEntnehmen selbst liefert immer, was da ist
 //   update(game, dt)                                 zwischen den Ticks (Game-Step): zählt den Leerlauf, startet höchstens einen Job
@@ -27,7 +28,7 @@
 // Der Pool liegt im Prozessspeicher (Laufzeit): er steht NICHT im Weltstand. Wer ihn füllt, ist ein einziger Job-Schalter für den ganzen Prozess (Sleipnir wird mit Kara geteilt).
 const LLM = require('../mission/llm.js');
 const Pruefer = require('./texte-pruefer.js');
-const Ausschnitt = { spielerNamen: (...a) => require('./lage-ausschnitt.js').spielerNamen(...a) };   // lazy: kein Ladezyklus mit regie-befehle.js
+const Ausschnitt = { spielerNamen: (...a) => require('./lage-ausschnitt.js').spielerNamen(...a), ohneNamen: (...a) => require('./lage-ausschnitt.js').ohneNamen(...a) };   // lazy: kein Ladezyklus mit regie-befehle.js
 
 const W = Pruefer.WERTE;
 const KATALOG = require('../../content/reise/ereignisse.json').eintraege;
@@ -65,11 +66,11 @@ function katalogSpecs() {
       const fakt = fmt(f.fakt || e.chronik, { ort: erlaubt.includes('ort') ? '{ort}' : 'dem Ort', n: erlaubt.includes('n') ? '{n}' : 'wenigen' });
       out.push({ art: 'reise', id: e.id, slot, optionId: '', sprecher: e.sprecher, stimme: f.stimme || 'rom', fakt, beispiele: liste.slice(), platzhalter: erlaubt, pflicht, ziel: W.ziel });
     }
-    // SUND-03b A: Antwortoptionen der Funk-Antworten (Gerüst in den Daten): Optionstext und Reaktion des Sprechers je Option
+    // SUND-03b A: Reaktion des Sprechers je Antwortoption (Gerüst in den Daten). Die BESCHRIFTUNG der Option (Slot antwort) kommt bewusst NICHT aus dem Pool: ein Modell kennt die Folge der Option nicht,
+    // Text und Folge müssen immer zusammenpassen (Katalog = Daten). Der Fakt der Reaktion enthält die Regel aus den Daten (reaktion_regel): bestätigen, nichts versprechen, nicht widersprechen.
     for (const o of e.antworten || []) {
-      const kopf = { art: e.art, id: e.id, optionId: o.id, sprecher: e.sprecher, stimme: f.stimme || 'rom', fakt: fmt(f.fakt || e.chronik, { ort: 'dem Ort', n: 'wenigen' }), platzhalter: [], pflicht: [], ziel: W.ziel };
-      out.push(Object.assign({}, kopf, { slot: 'antwort', beispiele: [o.text], option: o.id }));
-      out.push(Object.assign({}, kopf, { slot: 'reaktion', beispiele: [o.reaktion], antwort: o.text }));
+      const fakt = fmt(f.fakt || e.chronik, { ort: 'dem Ort', n: 'wenigen' }) + ' ' + W.reaktion_regel;
+      out.push({ art: e.art, id: e.id, optionId: o.id, sprecher: e.sprecher, stimme: f.stimme || 'rom', fakt, platzhalter: [], pflicht: [], ziel: W.ziel, slot: 'reaktion', beispiele: [o.reaktion], antwort: o.text });
     }
   }
   for (const [id, z] of Object.entries(W.zusatz)) {
@@ -104,9 +105,17 @@ function poolEntnehmen(art, id, slot, optionId) {
 }
 // Darf der Pool gelesen werden? Ja, wenn der zuletzt laufende Raum (update/beiGrenze) den Schalter TEXTE_POOL an hat. textFuer (Reise) fragt das, damit ein Raum ohne Schalter nie Pool-Texte bekommt.
 function freigegeben() { return S.freigabe === true; }
-function poolText(game, art, id, slot, werte, optionId) {
-  if (!aktiv(game)) return null;
+// Pool-Text für EINEN Raum (Fix K1): mit game nur, wenn dieser Raum den Schalter hat (game.env), und nur, wenn der Text keinen Spielernamen DIESES Raums enthält (der Pool ist prozessweit, beim Erzeugen galten die Namen
+// des zuletzt aktiven Raums); sonst null (Katalogtext). Ohne game: wie freigegeben() (prozessweit). Ein verworfener Text ist verbraucht.
+function poolFuer(game, art, id, slot, optionId) {
+  if (game ? !aktiv(game) : !freigegeben()) return null;
   const t = poolEntnehmen(art, id, slot, optionId);
+  if (t == null) return null;
+  if (game) { const namen = Ausschnitt.spielerNamen(game); if (namen && namen.length && Ausschnitt.ohneNamen(t, namen) !== t) return null; }
+  return t;
+}
+function poolText(game, art, id, slot, werte, optionId) {
+  const t = poolFuer(game, art, id, slot, optionId);
   return t == null ? null : einsetzen(t, werte);
 }
 
@@ -254,4 +263,4 @@ function status() {
   return `Text-Pool: ${s.gesamt} Texte in ${Object.keys(s.pool).length} Schlüsseln, Job ${s.job || 'keiner'}, Jobs ${z.jobs} (gültig 1. Versuch ${z.gueltig_1}, 2. ${z.gueltig_2}, ungültig ${z.ungueltig}, Fehler ${z.fehler}), verbraucht ${z.verbraucht}, leer gelesen ${z.leer_gelesen}`;
 }
 
-module.exports = { versuch, getLlm, freigegeben, poolEntnehmen, poolBefuellenAnfordern, einsetzen, poolText, aktiv, schalterAn, modus, update, beiGrenze, stand, status, setLlm, zuruecksetzen, jobFertig, katalogSpecs, keyVon, SLOTS, WERTE: W };
+module.exports = { versuch, getLlm, freigegeben, poolEntnehmen, poolFuer, poolBefuellenAnfordern, einsetzen, poolText, aktiv, schalterAn, modus, update, beiGrenze, stand, status, setLlm, zuruecksetzen, jobFertig, katalogSpecs, keyVon, SLOTS, WERTE: W };
