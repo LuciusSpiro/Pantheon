@@ -41,7 +41,7 @@ function schalterAn(env) {
 const kurzBefehl = (b) => {
   if (!b || typeof b !== 'object') return String(b).slice(0, 40);
   const t = [b.typ];
-  for (const k of ['fraktion', 'an', 'gegen', 'ziel', 'sektor', 'ort', 'hex', 'flotte']) if (b[k] !== undefined) t.push(b[k]);
+  for (const k of ['fraktion', 'an', 'gegen', 'ziel', 'sektor', 'ort', 'hex', 'flotte', 'vorlage', 'faden', 'beat']) if (b[k] !== undefined) t.push(b[k]);
   return t.join(' ').slice(0, 60);
 };
 

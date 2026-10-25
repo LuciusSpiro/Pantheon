@@ -11,6 +11,15 @@ const lesen = (t, d) => { try { return t ? JSON.parse(t) : d; } catch (e) { retu
 
 const VARIANTEN = ['fokus', 'regler', 'nachschub', 'embargo', 'soeldner'];
 
+// SUND-04a-1 B: einfaches Faden-Verhalten für Tests: öffnet aus jedem Angebot einen Faden (erste passende Vorlage) und bringt jeden fälligen Faden weiter. Nur wenn der Ausschnitt einen Faden-Block hat
+// (also nur mit Schalter FAEDEN=1); die Prüfung macht das Modul der Fäden, hier steht keine Regel.
+function fadenBefehle(a, plan) {
+  const fb = a && a.faeden;
+  if (!fb || typeof fb !== 'object') return;
+  for (const x of Array.isArray(fb.aktiv) ? fb.aktiv : []) if (x && x.ph === 'wartet' && x.faellig === 1) plan.befehle.push({ typ: 'faden_weiter', faden: x.id, beat: x.beat });
+  for (const g of Array.isArray(fb.angebote) ? fb.angebote : []) if (g && Array.isArray(g.v) && g.v.length) plan.befehle.push({ typ: 'faden_oeffnen', vorlage: g.v[0], parameter: { angebot: g.nr } });
+}
+
 function planVon(input) {
   const prompt = input && input.prompt;
   const a = lesen(tag(prompt, 'ausschnitt'), {});
@@ -46,6 +55,7 @@ function planVon(input) {
       plan.fokus = fokus(['ger', 'rom'], 2);
   }
   if (!plan.fokus) delete plan.fokus;
+  fadenBefehle(a, plan);
   return plan;
 }
 const planText = (input) => JSON.stringify(planVon(input), null, 1);

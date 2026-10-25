@@ -1,0 +1,25 @@
+{
+  "format": "faden-werte/1",
+  "_hinweis": "SUND-04a-1 B: Zahlen und Listen der Geschichtsfaeden (server/sim/faden.js, faden-pruefer.js). Alle Zahlen stehen hier, keine im Code. `Taetigkeiten` zaehlt faden.t (eigener Zaehler, nie die Chronik). Die Fadenvorlagen liegen als Daten in content/faeden/vorlagen/*.json (Format: content/schema/faden-vorlage.schema.json), der Beat-Katalog in beats.json, Namen in namen.json, Haltung in haltung-werte.json.",
+  "werte": {
+    "aktiv_max": {"wert": 3, "einheit": "Faeden", "_hinweis": "Hoechstens so viele aktive Faeden (Phase wartet oder laeuft). Kontext klein halten (Kai 2026-10-18)."},
+    "abstand": {"wert": {"min": 2, "max": 4}, "einheit": "Taetigkeiten", "_hinweis": "Zwischen dem Ende eines Beats und dem Start des naechsten liegen mindestens `abstand` Taetigkeiten: je Faden wird nach jedem Beat ein Abstand in diesem Bereich gezogen (eigener Zufallsstrom). Vorher startet kein Beat (Pruefer), danach ist der Faden faellig; wann der Spielleiter ihn nimmt, bleibt seine Sache. Eine Vorlage darf den Bereich nur verengen."},
+    "taetigkeiten": {"wert": ["szene_ende", "andocken", "absicht", "notruf"], "einheit": "Arten", "_hinweis": "Diese Arten zaehlt faden.taetigkeit(game, art): die Taetigkeitsgrenzen des Lage-Spielleiters (szene_ende, andocken, absicht) und vom Aufrufer gemeldete Ereignisse (notruf = ein Notruf mit Person am Ausgang, ausgangMitPerson). Andere Arten zaehlen nicht."},
+    "ausloeser": {"wert": ["notruf"], "einheit": "Arten", "_hinweis": "Taetigkeitsausgaenge mit Person, die einen Faden anbieten duerfen (faden.ausgangMitPerson). Weitere Arten (Rettung, Transport, Handel, Geleit) sind spaeter ein Eintrag hier plus ein Hook."},
+    "ausgaenge": {"wert": ["gelungen", "gescheitert"], "einheit": "Ausgaenge", "_hinweis": "Jeder Beat endet mit einem dieser beiden Ausgaenge, beide fuehren zu einem Zustand, der weiterlebt oder den Faden abschliesst."},
+    "angebot": {"wert": {"max": 2, "gilt_taetigkeiten": 6}, "einheit": "Angebote bzw. Taetigkeiten", "_hinweis": "Ein Taetigkeitsausgang mit Person macht ein Angebot an den Spielleiter (faden_oeffnen). Hoechstens `max` offene Angebote (das aelteste faellt), jedes gilt `gilt_taetigkeiten` Taetigkeiten. Angebote stehen nicht im Weltstand."},
+    "beat_frist": {"wert": 6, "einheit": "Taetigkeiten", "_hinweis": "Ein laufender Beat ohne Ausgang gilt nach so vielen Taetigkeiten als gescheitert (nichts blockiert: auch Nichtstun ist ein Ausgang, und Scheitern veraendert den Faden, es beendet ihn nicht)."},
+    "faeden_gesamt_max": {"wert": 9, "einheit": "Faeden", "_hinweis": "Aktive und abgeschlossene zusammen im Weltstand; die aeltesten abgeschlossenen fallen zuerst heraus (ihr Gedaechtnis erlischt mit ihnen)."},
+    "beats_max": {"wert": 8, "einheit": "Beats", "_hinweis": "Laenge einer Vorlage (Pruefer)."},
+    "befehle_je_plan_max": {"wert": 3, "einheit": "Befehle", "_hinweis": "faden_oeffnen und faden_weiter im Plan des Lage-Spielleiters zusammen; sie zaehlen nicht gegen die Rate der Sim-Befehle."},
+    "optionen": {"wert": {"min": 2, "max": 3, "text_max": 80}, "einheit": "Optionen bzw. Zeichen", "_hinweis": "Hat ein Beat Optionen (nur wo der Katalog sie erlaubt und nie bei Gefahr), sind es min bis max, jede mit Folge aus dem Wirkungen-Katalog; die Folgen muessen sich unterscheiden (hoechstens eine ausdruecklich folgenlos)."},
+    "folge_typen": {"wert": ["ruf_aenderung", "haltung_aenderung"], "einheit": "Wirkungstypen", "_hinweis": "Nur diese Wirkungen des Katalogs duerfen Folgen einer Option oder eines Ausgangs sein (Grund aus ruf-werte.json bzw. haltung-werte.json)."},
+    "status": {"wert": ["aktiv", "verbuendet", "gefangen", "tot", "geflohen", "feindlich", "schuldet_nichts"], "einheit": "NSC-Status", "_hinweis": "Zustaende des NSC eines Fadens. tot, gefangen und schuldet_nichts sind die Zustaende nach einem Scheitern."},
+    "hinweis_kanaele": {"wert": ["scan", "geruecht", "papiere", "funk"], "einheit": "Kanaele", "_hinweis": "Wege, auf denen ein Hinweis die Crew erreicht (Baustein der Beats, 04a-2)."},
+    "fluchtziele": {"wert": ["naechster_sprungpunkt", "nachbar_ort", "heimat"], "einheit": "Symbole", "_hinweis": "Fluchtziel einer Verfolgung: ein Hex-Code (vier Ziffern) oder eines dieser Symbole. Ohne Fluchtziel gibt es keine Verfolgung."},
+    "voelker": {"wert": ["rom", "ger", "kon"], "einheit": "Voelker", "_hinweis": "Volk eines NSC (Schluessel in namen.json)."},
+    "gedaechtnis_max": {"wert": 12, "einheit": "Eintraege", "_hinweis": "Gedaechtnis eines NSC: { tick, ereignis, text_key }, die aeltesten fallen zuerst heraus."},
+    "portrait": {"wert": {"varianten": 6}, "einheit": "Varianten", "_hinweis": "V1: der Portraet-Seed waehlt eine von wenigen Varianten (portraetVon). Der Baukasten entsteht spaeter."},
+    "ausschnitt": {"wert": {"zeichen": 900}, "einheit": "Zeichen", "_hinweis": "Obergrenze des Faden-Blocks im Ausschnitt des Lage-Spielleiters (hoechstens aktiv_max Faeden). Ueberschritten: erst die Vorlagenliste, dann fallen Faeden von hinten weg."}
+  }
+}

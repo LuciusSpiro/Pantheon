@@ -163,7 +163,13 @@ function pruefen(game, plan) {
   const roh = p.plan.befehle.map((b, i) => ({ b, i }));
   for (const f of p.plan.fokus ? fokusBefehle(p.plan.fokus) : []) roh.push({ b: f, i: -1 });
   let planN = 0;
+  const Faden = fadenModul(game), fadenKontext = Faden ? require('./faden-pruefer.js').neuerKontext() : null, fadenAngenommen = [];
   for (const { b, i } of roh) {
+    if (i >= 0 && Faden && Faden.istBefehl(b)) {   // SUND-04a-1 B: nicht gegen die Rate und nicht an den Kern, eigene Obergrenze je Plan (faden werte.befehle_je_plan_max)
+      const g = Faden.befehlPruefen(game, b, fadenKontext);
+      if (g) out.abgelehnt.push({ befehl: b, grund: g }); else fadenAngenommen.push({ befehl: klon(b), ab: n0, vorwarnung: false, _w: null, _key: 'faden', _rate: false, _faden: true });
+      continue;
+    }
     if (i >= 0) { planN++; if (planN > R.plan.wert.befehle_max) { out.abgelehnt.push({ befehl: b, grund: `mehr als ${R.plan.wert.befehle_max} Befehle im Plan` }); continue; } }
     const kopie = istObjekt(b) ? klon(b) : b;
     const g = regelFehler(game, kopie, kennzahl);
@@ -193,6 +199,7 @@ function pruefen(game, plan) {
     if (k.fokusPlan) fokusPlatz = true;
     out.angenommen.push({ befehl: k.b, ab, vorwarnung: !!w, _w: w, _key: k.key, _rate: !gratis });
   }
+  out.angenommen.push(...fadenAngenommen);
   return { out, neu: out.angenommen };
 }
 
@@ -218,12 +225,15 @@ function soeldnerFunk(game, ev) {
   const text = live != null ? live : (kat && kat.text ? fmt(kat.text, werte) : null);
   return text ? { von: (kat && kat.sprecher) || 'Händlerfunk', text } : null;
 }
+// SUND-04a-1 B: Faden-Befehle (faden_oeffnen, faden_weiter) stehen im selben Plan, gehen aber NICHT an den Kern der Sim: das Modul der Fäden prüft und wendet sie an (Grund und Logbuch wie die anderen Befehle). Nur mit Schalter FAEDEN=1;
+// sonst sind sie ein unbekannter Typ wie bisher (byte-gleich zu main). lazy: faden.js lädt dieses Modul beim Schreiben ins Logbuch.
+const fadenModul = (game) => { try { const F = require('./faden.js'); return F.aktiv(game) ? F : null; } catch (e) { return null; } };
 const spielleiterAn = (game) => { try { return require('./lage-spielleiter.js').schalterAn(game.env || process.env); } catch (e) { return false; } };   // lazy: lage-spielleiter.js lädt dieses Modul
 
 function planPruefen(game, plan) {
   if (!game.weltsim) return { ok: false, grund: 'modus', angenommen: [], abgelehnt: [], funk: [] };
   const { out } = pruefen(game, plan);
-  return { ok: out.ok, grund: out.grund, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false })), abgelehnt: out.abgelehnt, funk: [] };
+  return { ok: out.ok, grund: out.grund, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false || a._faden === true })), abgelehnt: out.abgelehnt, funk: [] };
 }
 
 function planAnwenden(game, plan) {
@@ -238,15 +248,22 @@ function planAnwenden(game, plan) {
   }
   s.rate = s.rate.filter((t) => n0 - t < RATE.fenster);   // alte Einträge der globalen Rate fallen weg
   for (const a of out.angenommen) {
+    if (a._faden) continue;   // SUND-04a-1 B: unten
     s.vorgemerkt.push(a._w ? { b: a.befehl, ab: a.ab, w: 1 } : { b: a.befehl, ab: a.ab });
     s.letzte[a._key] = n0;
     if (a._rate !== false) s.rate.push(n0);   // der zweite Fokus-Befehl desselben Plans (andere Fraktion) kostet keinen Platz
     if (a._w) { const f = vorwarnText(a._w, a.ab, n0, a.befehl); if (f) funk.push(f); }
   }
+  const fadenOk = [];
+  for (const a of out.angenommen.filter((x) => x._faden)) {   // SUND-04a-1 B: Fäden öffnen und weiterbringen (Prüfung und Logbuch im Modul der Fäden)
+    const r = fadenModul(game).befehlAnwenden(game, a.befehl);
+    if (r.ok) fadenOk.push(a); else out.abgelehnt.push({ befehl: a.befehl, grund: r.grund });
+  }
+  out.angenommen = out.angenommen.filter((a) => !a._faden || fadenOk.includes(a));
   for (const f of funk) funkSenden(game, f);
-  for (const a of out.angenommen) schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: a.befehl.typ, plan: a.befehl, begruendung: out.begruendung || (a.vorwarnung ? 'angekündigt, wirksam ab Tick ' + a.ab : 'wirksam ab Tick ' + a.ab) });
+  for (const a of out.angenommen.filter((x) => !x._faden)) schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: a.befehl.typ, plan: a.befehl, begruendung: out.begruendung || (a.vorwarnung ? 'angekündigt, wirksam ab Tick ' + a.ab : 'wirksam ab Tick ' + a.ab) });
   for (const a of out.abgelehnt) schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: istObjekt(a.befehl) && typeof a.befehl.typ === 'string' ? a.befehl.typ : null, plan: kurz(a.befehl), fehler: [a.grund] });
-  return { ok: true, grund: null, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false })), abgelehnt: out.abgelehnt, funk };
+  return { ok: true, grund: null, angenommen: out.angenommen.map((a) => ({ befehl: a.befehl, ab: a.ab, vorwarnung: a.vorwarnung, platz: a._rate !== false || a._faden === true })), abgelehnt: out.abgelehnt, funk };
 }
 const kurz = (x) => { try { const t = JSON.stringify(x); return t && t.length > 400 ? t.slice(0, 400) : (typeof x === 'string' ? x.slice(0, 400) : x); } catch (e) { return null; } };
 

@@ -270,6 +270,7 @@ class Game {
   texteUpdate(dt) { TextePool.update(this, dt); }
   // Tätigkeitsgrenze (szene_ende | andocken | absicht): benannter Hook, wirft nie in den Aufrufer
   lageGrenze(art) {
+    try { require('./sim/faden.js').taetigkeit(this, art); } catch (e) { this.countError('faden-taetigkeit', e); }   // SUND-04a-1 B: jede Tätigkeitsgrenze zählt für die Geschichtsfäden (nur mit FAEDEN=1; der Spielleiter plant danach mit frischem Zähler)
     TextePool.beiGrenze(this, art);   // SUND-03b T: der Text-Pool füllt an Tätigkeitsgrenzen nach (nur mit TEXTE_POOL; nichts Schweres im Hook)
     const l = this.lageSpielleiter;
     if (!l) return null;

@@ -276,6 +276,11 @@ function ausloesen(game, ev) {
   try { f(game, ev); } catch (err) { if (game.countError) game.countError('reise-ausloesen', err); }
 }
 
+// SUND-04a-1 B: ein bewältigter Notruf hat eine Person am Ausgang: Hook für die Geschichtsfäden (faden.ausgangMitPerson; ohne Schalter FAEDEN=1 tut er nichts, additiv, wirft nie)
+function notrufMitPerson(game, e, ev) {
+  try { require('./faden.js').ausgangMitPerson(game, { art: 'notruf', id: ev.id, hex: ev.hex, sprecher: (e && e.sprecher) || '', ausgang: 'gelungen' }); } catch (err) { if (game.countError) game.countError('reise-faden', err); }
+}
+
 // Die Lerche trifft beim offenen Notruf ein: Funk, bei Gefahr der Vorlauf (Ankündigung zuerst), sonst sofort Folge und Dank
 function notrufBeantworten(game, R, o) {
   const e = eintrag(o.id);
@@ -289,6 +294,7 @@ function notrufBeantworten(game, R, o) {
   Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} beantwortet`, param: { art: 'notruf', hex: o.hex } });
   if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);
   else { folgeBuchen(game, e); funk(game, textFuer(o.ev, 'dank', game)); FA().anbieten(game, o.ev); }
+  if (!e.gefahr) notrufMitPerson(game, e, o.ev);   // SUND-04a-1 B: bewältigt (ohne Gefahr: gleich beim Eintreffen)
 }
 function notrufVerfaellt(game, R, o, text) {
   Marken.entferne(game, o.marke);
@@ -350,7 +356,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
     if (L.phase === 'erwartet') { if (game.simSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene
     if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt
       weg();
-      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); }
+      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson(game, eintrag(L.id), L.ev); }
     }
   }
 }

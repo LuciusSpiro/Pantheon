@@ -1,0 +1,319 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Fadenvorlage (SUND-04a-1 B)",
+  "description": "Form einer Fadenvorlage (content/faeden/vorlagen/*.json). Prueft nur die FORM (Teilmenge, die server/weltstand.js fallbackValidate kann); die Regeln (Beat-Katalog, Hinweise vor der Enthuellung, Reihenfolge, Obergrenzen, Ausgaenge, Optionen, Status) prueft server/sim/faden-pruefer.js gegen die Daten in content/faeden/. Aufzaehlungen (Status, Voelker, Kanaele, Beat-Typen) stehen NUR dort, nicht hier.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "format",
+    "id",
+    "titel",
+    "ausloeser",
+    "volk_erlaubt",
+    "beats"
+  ],
+  "properties": {
+    "format": {
+      "const": "faden-vorlage/1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,31}$"
+    },
+    "titel": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 60
+    },
+    "ausloeser": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "description": "Taetigkeitsausgaenge mit Person, die diesen Faden anbieten duerfen (art aus werte.ausloeser, ausgang aus werte.ausgaenge).",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "art",
+          "ausgang"
+        ],
+        "properties": {
+          "art": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "ausgang": {
+            "type": "string",
+            "maxLength": 20
+          }
+        }
+      }
+    },
+    "volk_erlaubt": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "maxLength": 8
+      }
+    },
+    "nsc": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Startwerte des NSC: Status, Haltung, Schiffsklassen (aus namen.json).",
+      "properties": {
+        "status": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "haltung": {
+          "type": "number"
+        },
+        "klassen": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4,
+          "items": {
+            "type": "string",
+            "maxLength": 20
+          }
+        }
+      }
+    },
+    "wahrheit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id"
+      ],
+      "description": "Die verborgene Wahrheit des NSC (Kennung; der Text lebt in den Bausteinen). fraktion = wer er in Wahrheit ist.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]{1,31}$"
+        },
+        "fraktion": {
+          "type": "string",
+          "maxLength": 8
+        }
+      }
+    },
+    "hinweise": {
+      "type": "object",
+      "maxProperties": 8,
+      "description": "Hinweis-Kennung -> { kanal } (Kanaele: werte.hinweis_kanaele).",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kanal"
+        ],
+        "properties": {
+          "kanal": {
+            "type": "string",
+            "maxLength": 20
+          },
+          "text_key": {
+            "type": "string",
+            "maxLength": 40
+          }
+        }
+      }
+    },
+    "abstand": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "min",
+        "max"
+      ],
+      "description": "Optional: verengt den Abstand zwischen Beats (werte.abstand), erweitern darf eine Vorlage ihn nie.",
+      "properties": {
+        "min": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "max": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "beats": {
+      "type": "array",
+      "minItems": 2,
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "typ",
+          "aus"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]{0,31}$"
+          },
+          "typ": {
+            "type": "string",
+            "maxLength": 24
+          },
+          "parameter": {
+            "type": "object",
+            "maxProperties": 6
+          },
+          "gefahr": {
+            "type": "boolean"
+          },
+          "hinweise": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "type": "string",
+              "maxLength": 32
+            }
+          },
+          "optionen": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id",
+                "text",
+                "folge"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "pattern": "^[a-z][a-z0-9_]{0,23}$"
+                },
+                "text": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "ausgang": {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                "folge": {
+                  "type": "array",
+                  "maxItems": 4,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "typ",
+                      "grund"
+                    ],
+                    "properties": {
+                      "typ": {
+                        "type": "string",
+                        "maxLength": 24
+                      },
+                      "grund": {
+                        "type": "string",
+                        "maxLength": 40
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "aus": {
+            "type": "object",
+            "additionalProperties": false,
+            "description": "Folgezustand je Ausgang (werte.ausgaenge): status des NSC, weiter = Id eines SPAETEREN Beats (fehlt = der naechste), folge = Wirkungen aus dem Katalog, text_key = Schluessel des Gedaechtnis-Eintrags.",
+            "properties": {
+              "gelungen": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "weiter": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                  },
+                  "text_key": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "folge": {
+                    "type": "array",
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "typ",
+                        "grund"
+                      ],
+                      "properties": {
+                        "typ": {
+                          "type": "string",
+                          "maxLength": 24
+                        },
+                        "grund": {
+                          "type": "string",
+                          "maxLength": 40
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "gescheitert": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "maxLength": 20
+                  },
+                  "weiter": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                  },
+                  "text_key": {
+                    "type": "string",
+                    "maxLength": 40
+                  },
+                  "folge": {
+                    "type": "array",
+                    "maxItems": 4,
+                    "items": {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "typ",
+                        "grund"
+                      ],
+                      "properties": {
+                        "typ": {
+                          "type": "string",
+                          "maxLength": 24
+                        },
+                        "grund": {
+                          "type": "string",
+                          "maxLength": 40
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

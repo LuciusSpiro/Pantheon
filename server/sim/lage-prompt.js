@@ -57,8 +57,10 @@ function katalogText() {
   katalogCache = L.join('\n');
   return katalogCache;
 }
-function statischerTeil() {
-  const text = katalogText();
+// SUND-04a-1 B: mit Schalter FAEDEN=1 und mindestens einer geprüften Vorlage kommt der Abschnitt der Fäden (aus den Daten abgeleitet, statisch) ans Ende des Katalogs; sonst ist der Text wie vorher
+const fadenText = (game) => { try { const F = require('./faden.js'); return F.aktiv(game) ? F.promptText() : ''; } catch (e) { return ''; } };
+function statischerTeil(faeden) {
+  const text = katalogText() + (faeden ? '\n' + faeden : '');
   const sys = fs.existsSync(SYSTEM_DATEI) ? fs.readFileSync(SYSTEM_DATEI, 'utf8') : '';
   return { text, hash: crypto.createHash('sha1').update(sys + '\n\n' + text).digest('hex') };
 }
@@ -97,7 +99,7 @@ function plaeneKuerzen(plaene, maxGesamt) {
 // ---------- Prompt
 // art: die Grenze (szene_ende | andocken | absicht | debug), nr: laufende Nummer des Plans in dieser Sitzung, letzte: kurze Pläne (Ringliste des Spielleiters), werte: lage-spielleiter-werte
 function baue(game, { art, nr, letzte, werte }) {
-  const st = statischerTeil();
+  const st = statischerTeil(fadenText(game));
   const letzteTxt = JSON.stringify(plaeneKuerzen(plaeneFiltern(letzte, game), werte.letzte_plaene_zeichen ? werte.letzte_plaene_zeichen.gesamt : 900));
   const grenze = { art: String(art || 'unbekannt'), nr: Number.isInteger(nr) ? nr : 1, tick: game.weltsim ? game.weltsim.tickZahl : 0 };
   const schluss = 'Gib jetzt den Plan aus. Nur das JSON-Objekt.';
