@@ -1,0 +1,25 @@
+{
+  "format": "faden-p3-texte/1",
+  "_hinweis": "SUND-04a-2 P3: Texte der Bausteine notruf, enthuellung und abschluss (server/sim/faden-p3.js). Schluessel = text_key des Beats (Vorlage, parameter.text_key bzw. ausgang.text_key) oder ein Schluessel aus erinnert (Gedaechtnis des NSC: letztes Ereignis -> Text). Platzhalter: {name} (NSC), {ort} (Name des Sektors), {ziel} (Name des Postens bei der Sprengung). Keine Spielernamen, keine Zahlen.",
+  "werte": {
+    "erinnert": {
+      "wert": {
+        "bitte_gescheitert": "notruf_erinnert_abgelehnt",
+        "fracht_gescheitert": "notruf_erinnert_fracht"
+      },
+      "einheit": "Ereignis -> text_key",
+      "_hinweis": "Wiederauftauchen: hat der NSC im Gedaechtnis ein Ereignis dieser Art, spricht der Notruf den Text dazu (letzter Eintrag gewinnt). Schluessel = Beat-Typ + _ + Ausgang (wie im Gedaechtnis)."
+    }
+  },
+  "texte": {
+    "notruf_standard": "{name}: Notruf von {ort}! Der Antrieb ist ausgefallen, und Wachschiffe sind hinter uns her. Kommt sofort!",
+    "notruf_erinnert_abgelehnt": "{name}: Ihr habt mich damals abgewiesen. Jetzt brauche ich Euch bei {ort}, sie hängen mir am Heck!",
+    "notruf_erinnert_fracht": "{name}: Ihr habt meine Ladung damals nicht zu Ende gebracht. Ich bitte Euch trotzdem: {ort}, und zwar schnell!",
+    "notruf_entfuehrt": "{name}: Man hat mich in {ort} in der Station festgesetzt. Wachschiffe sichern den Hafen. Bitte holt mich da raus!",
+    "notruf_dank": "{name}: Ihr seid da! Danke, ich vergesse das nicht.",
+    "enthuellung_sabotage": "{name}: Ich bin kein Händler, ich bin Germane. Die Fracht war eine Sprengladung, und sie ist jetzt scharf. Gebt {ziel} eine Warnung, wenn ihr könnt.",
+    "enthuellung_ohne": "{name}: Ich bin Germane, das ist die Wahrheit. Die Sprengladung zündet nicht: Es gibt bei {ort} keinen römischen Posten, den sie treffen könnte.",
+    "abschluss_gelungen": "{name}: Danke, dass Ihr mit mir gegangen seid. Ich vergesse nicht, was Ihr für mich getan habt.",
+    "abschluss_tot": "{name}: Er ist tot. Ihr habt ihn nicht retten können, aber sein Name bleibt auf den Karten der Crew."
+  }
+}

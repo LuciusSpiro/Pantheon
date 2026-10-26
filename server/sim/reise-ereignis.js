@@ -348,6 +348,7 @@ function eintreffen(game, L) {
 }
 function update(game, dt) {   // eslint-disable-line no-unused-vars
   FA().update(game);   // SUND-03b A: Reaktion des Sprechers, Angebot in unruhiger Lage zurückziehen
+  try { require('./faden-p3.js').update(game); } catch (e) { if (game.countError) game.countError('faden-p3-update', e); }   // SUND-04a-2 P3: die Ankunft am Ort beendet einen Notruf
   try { require('./faden-bitte.js').update(game); } catch (e) { if (game.countError) game.countError('faden-bitte-update', e); }   // SUND-04a-2 P2: Bitte in unruhiger Lage zurückziehen (ohne Folge)
   const R = game.weltsim && game.weltsim.reise;
   if (!R || !R.laufend.length) return;

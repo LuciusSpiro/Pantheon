@@ -116,6 +116,26 @@ function parameterFehler(beat, cat) {
   return out;
 }
 
+// SUND-04a-2 P3: Feindlich-Variante (Daten, beat.variante): wenn der NSC feindlich wiederkehrt (Haltung unter feindlich_unter), laeuft der Variante-Typ statt des Typs des Beats.
+// Gibt den Katalogeintrag und ob die Variante gilt zurueck. Die Haltung entscheidet (Zahl), nie das Modell.
+function effektiv(beat, haltung, status) {
+  if (!beat.variante || status === 'tot' || !(haltung < H.feindlich_unter)) return { cat: B[beat.typ], variante: false };
+  return { cat: B[beat.variante.typ], variante: true };
+}
+// Variante (P3): der Variante-Typ muss ein Katalogbaustein mit Gefahr und Szene sein, der bei einem feindlichen NSC laeuft, und ohne Wahrheit, Fluchtziel, Hinweis und Abschluss
+function varianteFehler(b, cat) {
+  const out = [];
+  const vt = b.variante.typ, vc = has(B, vt) ? B[vt] : null;
+  if (!vc) return [fehl('VARIANTE', `Beat ${b.id}: Variante-Typ "${vt}" steht nicht im Beat-Katalog`)];
+  if (!require('./faden-bausteine.js').vonId(vc.baustein)) out.push(fehl('VARIANTE', `Beat ${b.id}: der Baustein ${vc.baustein} der Variante ist nicht registriert`));
+  if (!(vc.gefahr && vc.szene)) out.push(fehl('VARIANTE', `Beat ${b.id}: die Variante ${vt} muss eine Szene mit Gefahr sein (ein feindlicher NSC greift an)`));
+  const br = vc.braucht || {};
+  if (!(Array.isArray(br.nsc_status) && br.nsc_status.includes('feindlich'))) out.push(fehl('VARIANTE', `Beat ${b.id}: die Variante ${vt} läuft nicht mit einem feindlichen NSC`));
+  if (br.wahrheit || br.fluchtziel || br.hinweis_vorher || br.letzter || vc.abschluss) out.push(fehl('VARIANTE', `Beat ${b.id}: die Variante ${vt} braucht mehr als einen Gegner (Wahrheit, Fluchtziel, Hinweis oder Abschluss)`));
+  if (cat && cat.abschluss) out.push(fehl('VARIANTE', `Beat ${b.id}: ein Abschluss hat keine Variante`));
+  return out;
+}
+
 // ---------- Vorlage
 // Katalog (B-M1): jeder Beat-Typ muss mit beiden Ausgängen ein gültiges Gedächtnis-Ereignis ergeben. Wird beim Laden der Daten (faden-daten.js) geprüft.
 function katalogFehler() {
@@ -159,6 +179,7 @@ function pruefeVorlage(v) {
     if (!cat) { typenOk = false; fehler.push(fehl('TYP_UNBEKANNT', `Beat ${b.id}: Typ "${b.typ}" steht nicht im Beat-Katalog (nur Katalogbausteine)`)); return; }
     if (!Bausteine.vonId(cat.baustein)) fehler.push(fehl('BAUSTEIN_FEHLT', `Beat ${b.id}: der Baustein ${cat.baustein} ist nicht registriert`));
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(fehl('ABSCHLUSS_NICHT_LETZT', `Beat ${b.id} (${b.typ}) darf nur der letzte sein`));
+    if (b.variante) fehler.push(...varianteFehler(b, cat));
     if (cat.braucht && cat.braucht.wahrheit) { wahrheitBeat = true; if (!v.wahrheit) fehler.push(fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Beat ${b.id}: ohne verborgene Wahrheit gibt es nichts zu enthüllen`)); }
     if (b.gefahr === false && cat.gefahr) fehler.push(fehl('GEFAHR_ABGESCHWAECHT', `Beat ${b.id}: ein Beat ${b.typ} bringt immer Gefahr, die Vorlage darf das nicht abschwächen`));
     fehler.push(...parameterFehler(b, cat));
@@ -200,9 +221,13 @@ function pruefeVorlage(v) {
       gesehen.add(key); erreicht.add(i);
       const b = v.beats[i], cat = B[b.typ];
       const m = (code, text) => { const k = code + '|' + b.id + '|' + text; if (!meld.has(k)) { meld.add(k); fehler.push(fehl(code, text)); } };
-      const br = cat.braucht || {};
-      if (br.nsc_status && !br.nsc_status.includes(s)) m('STATUS_PASST_NICHT', `Beat ${b.id} (${b.typ}) kann nicht laufen, wenn der NSC ${s} ist (erlaubt: ${br.nsc_status.join(', ')})`);
-      if (br.hinweis_vorher && !h) m('HINWEIS_FEHLT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin wurde vorher kein Hinweis gestreut (jede Enthüllung braucht mindestens einen Hinweis davor)`);
+      // P3: ohne Variante gilt der Beat-Typ mit dem Status s; mit Variante (feindlicher NSC) der Variante-Typ mit Status feindlich (beide Zweige werden geprüft)
+      const zweige = b.variante && s !== 'tot' ? [{ c: cat, s, typ: b.typ }, { c: B[b.variante.typ], s: 'feindlich', typ: b.variante.typ }] : [{ c: cat, s, typ: b.typ }];
+      for (const z of zweige) {
+        const br = z.c.braucht || {};
+        if (br.nsc_status && !br.nsc_status.includes(z.s)) m('STATUS_PASST_NICHT', `Beat ${b.id} (${z.typ}) kann nicht laufen, wenn der NSC ${z.s} ist (erlaubt: ${br.nsc_status.join(', ')})`);
+        if (br.hinweis_vorher && !h) m('HINWEIS_FEHLT', `Beat ${b.id} (${b.typ}): auf einem Weg dorthin wurde vorher kein Hinweis gestreut (jede Enthüllung braucht mindestens einen Hinweis davor)`);
+      }
       if (cat.abschluss) continue;
       const h2 = h || (Array.isArray(b.hinweise) && b.hinweise.length > 0);
       for (const ag of W.ausgaenge) {
@@ -300,11 +325,12 @@ function pruefeWeiter(F, b, ctx) {
   if (ctx.weiter.has(f.id)) return fehl('DOPPELT', `Faden ${f.id} geht in diesem Plan schon weiter`);
   const v = D.vorlage(f.vorlage);
   if (!v) return fehl('VORLAGE_UNBEKANNT', `Vorlage ${f.vorlage} gibt es nicht mehr`);
-  const beat = v.beats[f.beat], cat = B[beat.typ];
+  const beat = v.beats[f.beat];
+  const eff = effektiv(beat, f.nsc.haltung, f.nsc.status), cat = eff.cat, status = eff.variante ? 'feindlich' : f.nsc.status;   // P3: feindlicher NSC = Variante des Beats
   if (b.beat !== beat.id) return fehl('REIHENFOLGE', `als Nächstes kommt ${beat.id}, nicht ${String(b.beat).slice(0, 32)} (die Reihenfolge der Beats ist fest)`);
   if (f.zaehler < f.abstand) return fehl('ABSTAND', `Faden ${f.id}: erst nach ${f.abstand} Tätigkeiten seit dem letzten Beat (bisher ${f.zaehler})`);
   const br = cat.braucht || {};
-  if (br.nsc_status && !br.nsc_status.includes(f.nsc.status)) return fehl('STATUS_PASST_NICHT', `Beat ${beat.id} (${beat.typ}) läuft nicht mit einem NSC im Zustand ${f.nsc.status}`);
+  if (br.nsc_status && !br.nsc_status.includes(status)) return fehl('STATUS_PASST_NICHT', `Beat ${beat.id} (${eff.variante ? beat.variante.typ : beat.typ}) läuft nicht mit einem NSC im Zustand ${status}`);
   if (br.wahrheit && !f.nsc.wahrheit) return fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Faden ${f.id} hat keine verborgene Wahrheit`);
   if (br.hinweis_vorher && !(f.hinweise && f.hinweise.length)) return fehl('HINWEIS_FEHLT', `Faden ${f.id}: vor der Enthüllung wurde noch kein Hinweis gestreut`);
   if (br.fluchtziel && !fluchtzielOk((beat.parameter || {}).fluchtziel)) return fehl('FLUCHTZIEL_FEHLT', `Beat ${beat.id}: ohne Fluchtziel keine Verfolgung`);
@@ -323,4 +349,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

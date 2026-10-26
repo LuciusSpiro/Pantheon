@@ -177,7 +177,9 @@ function haltungBuchen(game, wirkungen) {
 }
 
 // Folgen eines Ausgangs oder einer Option (Wirkungen des Katalogs, Zahlen aus den Daten)
-function folgenAnwenden(game, f, folge) {
+// mitDeckel: die Folge eines AUSGANGS (Abschluss etc.) zaehlt im Faeden-Ruf-Deckel (faden-bitte.js deckelRaum: eine Schiene fuer alle Faeden-Ruf-Folgen, Daten bitte-werte.json ruf_deckel).
+// Die Folgen einer gewaehlten Option zaehlt die Bitte selbst (beantworten) und kommen ohne Deckel hier an.
+function folgenAnwenden(game, f, folge, mitDeckel) {
   const ruf = [], halt = [];
   for (const x of folge || []) {
     const r = P.folgeWirkung(x, f.nsc.id);
@@ -185,7 +187,16 @@ function folgenAnwenden(game, f, folge) {
     (r.wirkung.typ === 'ruf_aenderung' ? ruf : halt).push(r.wirkung);
   }
   if (halt.length) haltungBuchen(game, halt);
-  if (ruf.length) { try { kl().rufBuchen(game, ruf); } catch (e) { fehlerZaehlen(game, 'faden-ruf', e); } }
+  let rufAn = ruf;
+  if (mitDeckel && ruf.length) {
+    const F = zustandVon(game), BF = require('./faden-bitte.js');
+    rufAn = [];
+    for (const w of ruf) {
+      const b = r2(Math.abs(w.delta));
+      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); } else logbuch(game, 'faden_ereignis', { ausgang: 'ruf_deckel', key: f.id, begruendung: `Ruf-Folge ${w.grund} (${w.delta}) ueber dem Faeden-Ruf-Deckel: entfaellt`, plan: { faden: f.id, grund: w.grund } });
+    }
+  }
+  if (rufAn.length) { try { kl().rufBuchen(game, rufAn); } catch (e) { fehlerZaehlen(game, 'faden-ruf', e); } }
 }
 
 // ---------- Taetigkeiten und Takt
@@ -229,7 +240,8 @@ function ausgangMitPerson(game, o) {
   if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz: ein Angebot waere sinnlos (Obergrenze)
   const hex = typeof o.hex === 'string' && HEX.test(o.hex) ? o.hex : '';
   const volk = hex ? volkVonHex(game, hex) : null;
-  const vorlagen = D.vorlagenIds().filter((id) => { const v = D.vorlage(id); return v.ausloeser.some((a) => a.art === o.art && a.ausgang === o.ausgang) && (!volk || v.volk_erlaubt.includes(volk)); });
+  // P3: ein Auslöser kann auf Ereignis-Kennungen eingeschränkt sein (Daten: ausloeser[].ereignis, z. B. notruf_pirat_frachter); ohne Feld gilt jede Ereignis der Art
+  const vorlagen = D.vorlagenIds().filter((id) => { const v = D.vorlage(id); return v.ausloeser.some((a) => a.art === o.art && a.ausgang === o.ausgang && (!a.ereignis || a.ereignis.includes(o.id))) && (!volk || v.volk_erlaubt.includes(volk)); });
   if (!vorlagen.length) return null;
   const ref = typeof o.id === 'string' ? o.id.slice(0, 40) : '';
   if (F.angebote.some((a) => a.ref === ref && a.hex === hex)) return null;
@@ -277,12 +289,16 @@ function oeffnen(game, b) {
 function weiterSetzen(game, b) {
   const F = zustandVon(game), ws = game.weltsim;
   const f = F.liste.find((x) => x.id === b.faden);
-  const v = D.vorlage(f.vorlage), beat = v.beats[f.beat], cat = B[beat.typ];
+  const v = D.vorlage(f.vorlage), beat = v.beats[f.beat];
+  // P3: ein feindlich wiederkehrender NSC (Haltung unter feindlich_unter) laeuft die Variante des Beats (Daten); der NSC steht dann auf „feindlich“
+  const eff = P.effektiv(beat, f.nsc.haltung, f.nsc.status), cat = eff.cat;
+  if (eff.variante && f.nsc.status !== 'tot') f.nsc.status = 'feindlich';
   f.phase = 'laeuft'; f.zaehler = 0;
   f.laufend = { beat: beat.id, n: 0, seit: ws.tickZahl };
+  if (eff.variante) f.laufend.variante = beat.variante.typ;
   // Hinweise des Beats gelten NICHT schon jetzt: gestreut ist ein Hinweis erst, wenn der Baustein ihn bestaetigt (hinweisGezeigt, B-S1)
   if (cat.braucht && cat.braucht.wahrheit && f.nsc.wahrheit) f.nsc.wahrheit.offenbart = true;
-  melde(game, 'beat_start', f.id, `Beat ${beat.id} (${beat.typ}) beginnt`, { faden: f.id, beat: beat.id, typ: beat.typ });
+  melde(game, 'beat_start', f.id, `Beat ${beat.id} (${eff.variante ? beat.variante.typ : beat.typ}) beginnt${eff.variante ? ', NSC feindlich' : ''}`, { faden: f.id, beat: beat.id, typ: eff.variante ? beat.variante.typ : beat.typ });
   const bs = Bausteine.vonId(cat.baustein);
   let r = null;
   try { r = bs.starten(game, f, { vorlage: v, beat, katalog: cat, parameter: klon(f.parameter), nsc: klon(f.nsc) }); } catch (e) {
@@ -303,7 +319,7 @@ function beatAusgang(game, fadenId, ausgang) {
   const v = D.vorlage(f.vorlage), beat = v.beats[f.beat], cat = B[beat.typ];
   const o = (beat.aus || {})[ausgang] || {};
   if (o.status && f.nsc.status !== 'tot') f.nsc.status = o.status;   // ein toter NSC bleibt tot
-  folgenAnwenden(game, f, o.folge);
+  folgenAnwenden(game, f, o.folge, true);
   gedaechtnisEintragen(f.nsc, ws.tickZahl, beat.typ + '_' + ausgang, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
   delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg

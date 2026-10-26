@@ -1,5 +1,7 @@
 'use strict';
 require('../server/sim/faden-bausteine.js').registriere('bitte', require('../server/sim/faden-bausteine.js').platzhalter('bitte'));   // SUND-04a-2 P2: diese 04a-1-Pruefung laeuft mit dem Platzhalter fuer bitte (der echte Baustein hat eigene Tests: test-faden-bitte.js)
+// SUND-04a-2 P3: diese Pruefung des Kerns (Plan, Ausschnitt, Bot mit Mock) laeuft fuer notruf, enthuellung und abschluss mit Platzhaltern (sie beweist die Schnittstelle, nicht die Bausteine: die echten laufen in test-faden-vorlagen.js)
+for (const b of ['notruf', 'enthuellung', 'abschluss']) require('../server/sim/faden-bausteine.js').registriere(b, require('../server/sim/faden-bausteine.js').platzhalter(b));
 // SUND-04a-1 B: Faeden und Lage-Spielleiter. Prompt und Ausschnitt (kleiner Faden-Block, keine Spielernamen, die Wahrheit nur als Kennung) · Plan-Befehle faden_oeffnen und faden_weiter (Pruefung, Anwendung,
 // Logbuch, nicht gegen die Rate) · ohne Schalter ein unbekannter Typ wie auf main · Mock-Spielleiter · Bot-Lauf: der echte Lage-Spielleiter (Mock) fuehrt zwei NUR in Daten beschriebene Vorlagen ueber alle
 // Pfade, auch durchs Scheitern, ohne Codeaenderung · Ausfall des Spielleiters.

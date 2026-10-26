@@ -45,6 +45,16 @@
           "ausgang": {
             "type": "string",
             "maxLength": 20
+          },
+          "ereignis": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "string",
+              "maxLength": 40,
+              "pattern": "^[a-z0-9_]{1,40}$"
+            },
+            "description": "Optional: nur diese Ereignis-Kennungen (z. B. notruf_pirat_frachter) öffnen die Vorlage; ohne Feld gilt jeder Ereignis der Art."
           }
         }
       }
@@ -320,6 +330,27 @@
                 }
               }
             }
+          },
+          "variante": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "wenn",
+              "typ"
+            ],
+            "properties": {
+              "wenn": {
+                "type": "string",
+                "enum": [
+                  "feindlich"
+                ]
+              },
+              "typ": {
+                "type": "string",
+                "maxLength": 20
+              }
+            },
+            "description": "Optional: wenn der NSC feindlich wiederkehrt (Haltung unter feindlich_unter), läuft dieser Beat-Typ statt des Typs des Beats (Daten, nie im Code)."
           }
         }
       }
