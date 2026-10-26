@@ -117,6 +117,12 @@ section('bereit() je Grund', () => {
   ok(gleich(Finale.bereit(g), { ok: false, grund: 'szene' }), 'in einer Faden-Szene: Grund szene');
   g.fadenSzene = null;
   ok(Finale.bereit(g).ok, 'Szene zu Ende: wieder bereit');
+  // starten prüft bereit() selbst: ohne Rang oder in einer Szene wird nichts gebaut
+  const s0 = stubs();
+  rang(g, 'centurio'); ok(Finale.starten(g) === false && Finale.phase(g) === null && s0.szene === 0, 'starten ohne Rang: false, keine Szene gebaut');
+  rang(g, 'tribun'); g.simSzene = { id: 1, phase: 'anflug' };
+  ok(Finale.starten(g) === false && Finale.phase(g) === null && s0.szene === 0, 'starten in einer Szene: false, keine Szene gebaut');
+  g.simSzene = null;
   // laeuft / beendet
   const s = stubs();
   ok(Finale.starten(g) === true && Finale.phase(g) === 'orbit', 'starten: phase orbit');
@@ -129,7 +135,7 @@ section('bereit() je Grund', () => {
   const k = neu({ start: 'eisenwald_ohne' });
   ok(!k.g.weltsim && gleich(Finale.bereit(k.g), { ok: false, grund: 'modus' }), 'Kampagne (kein Modus): Grund modus');
   ok(Finale.phase(k.g) === null && Finale.schluessel(k.g) === null && Finale.snapshot(k.g) === null, 'Kampagne: phase null, kein Block');
-  ok(Finale.starten(k.g) === false && Finale.waehlen(k.g).code === 'modus', 'Kampagne: starten false, waehlen „modus“');
+  ok(Finale.starten(k.g) === false && (Finale.waehlen(k.g) || {}).code === 'modus', 'Kampagne: starten false, waehlen „modus“');
   ohneStubs();
 });
 
@@ -193,7 +199,7 @@ section('Ablehnen kostet nichts', () => {
   ok(Finale.ablehnen(g) === null && ws(g).finale.angebot === 0, 'Ablehnen: Angebot geschlossen');
   ok(JSON.stringify(ws(g).ruf) === rufVor && JSON.stringify(z(g)) === zVor, 'Ablehnen ändert weder Ruf noch Sim-Zustand');
   ok(Finale.ablehnen(g).code === 'kein_angebot', 'zweites Ablehnen: kein Angebot, keine Folge');
-  ok(Finale.waehlen(g).code === 'kein_angebot', 'ohne Angebot keine Anfrage');
+  ok((Finale.waehlen(g) || {}).code === 'kein_angebot' && !ws(g).finale.anfrage, 'ohne Angebot keine Anfrage');
   tick(g, W.abstand_nach_ablehnen.wert - 1);
   ok(ws(g).finale.angebot === 0, 'in der Pause kommt kein Angebot');
   tick(g, 1 + 1);
@@ -294,6 +300,10 @@ section('Wirkung hauptwelt_erobert', () => {
   ok(Kern.filtereWirkungen(zz, [{ typ: 'hauptwelt_erobert', ort: '0204', an: 'ger' }], { finale: 'boden' }).gueltig.length === 1, 'allgemein: die Hauptwelt jedes Feindes von `an` (Palatina durch ger) ist im Finale gültig, ohne Finale nie');
   bad({ typ: 'hauptwelt_erobert', ort: 'zzzz', an: 'rom' }, 'unbekannter Ort');
   bad({ typ: 'hauptwelt_erobert', ort: '0403', an: 'rom' }, 'Ort ohne Hauptwelt (anderer Hafen/Posten)');
+  const dd = require('../server/weltsim/daten.js').datenVon(zz);
+  const gerHafen = Object.keys(zz.hexe).filter((c) => zz.hexe[c].besitzer === 'ger' && dd.hex[c].hafen !== '' && c !== ZIEL.hex);
+  ok(gerHafen.length > 0, 'die Karte hat einen weiteren germanischen Hafen (' + gerHafen.join(',') + ')');
+  for (const c of gerHafen) bad({ typ: 'hauptwelt_erobert', ort: c, an: 'rom' }, 'feindlicher Hafen ' + c + ', der keine Hauptwelt ist');
   bad({ typ: 'hauptwelt_erobert', an: 'rom' }, 'ohne Ort');
   // Zustand bleibt beim Prüfen unberührt
   ok(zz.hexe[ZIEL.hex].besitzer === 'ger', 'Prüfen verändert den Sim-Zustand nicht');
@@ -354,6 +364,9 @@ section('Snapshot', () => {
   rang(g, 'tribun'); tick(g);
   const s1 = nimm(g);
   ok(s1.world && s1.world.finale && s1.world.finale.frei === 1 && s1.world.finale.angebot === 1 && s1.world.finale.ab === 'Tribun' && s1.world.finale.name === T.anzeige.name, 'Tribun mit Angebot: world.finale { frei 1, angebot 1, ab Tribun, name }');
+  g.sentFinaleKey = null; g.sentExploreVersion = -1;
+  { const sn = g.snapshot(); ok(sn.world && sn.world.locations && !('finale' in sn.world), 'ein Snapshot mit den großen seltenen Teilen trägt den Block nicht (er kommt im nächsten)'); }
+  { const nx = nimm(g); ok(nx.world.finale && gleich(nx.world.finale, Finale.snapshot(g)), 'der Block kommt danach, unverändert'); }
   ok(keiner(g), 'unverändert: der Block wird nicht noch einmal gesendet');
   Finale.waehlen(g); const s3 = nimm(g);
   ok(s3.world && s3.world.finale && s3.world.finale.anfrage === W.bestaetigung.wert.fenster, 'Anfrage: neuer Block mit der Frist');
@@ -368,6 +381,12 @@ section('Snapshot', () => {
   g.weltsim = merk;
   ok(!g.errors, 'kein Serverfehler');
   ohneStubs();
+});
+
+section('Protokoll', () => {
+  const Protocol = require('../shared/protocol.js');
+  ok(gleich(Protocol.CMD_FINALE, ['finale.waehlen', 'finale.bestaetigen', 'finale.ablehnen']), 'CMD_FINALE: genau waehlen, bestaetigen, ablehnen');
+  ok(Protocol.DEBUG_CMDS.includes('finale'), 'Debug-Befehl finale ist im Protokoll');
 });
 
 section('Befehle über handleMessage', () => {
