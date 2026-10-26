@@ -201,7 +201,7 @@ section('Ungezielt und Szenenschalter', () => {
 section('Erholung nach Zeit', () => {
   const T = setup(); const g = T.g;
   const S = DATEN.systeme.wert.antrieb.stufen;
-  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); e.hp = e.hpMax = 5000;   // mehrere Treffer (Immunitaet, gestellt): der Gegner stirbt dabei nicht
   g.god = true; platz(g, 300, 300, 0);   // Lerche weit weg (keine Gegner-Aktion nötig)
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
   treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
@@ -211,7 +211,10 @@ section('Erholung nach Zeit', () => {
   T.run(2);
   ok(e.zs && e.zs.antrieb.s === 1, `nach ${S[2].erholung_s} s: beschädigt (Stufe 1)`);
   treffer(g, e, HECK, 3);
-  ok(e.zs.antrieb.s === 2, 'neuer Treffer: wieder ausgefallen (Frist neu)');
+  ok(e.zs.antrieb.s === 1, 'Immunitaet: ein Treffer direkt nach der Erholung hebt die Stufe nicht an');
+  T.run(DATEN.treffer.wert.immunitaet_s + 0.1);
+  treffer(g, e, HECK, 3);
+  ok(e.zs.antrieb.s === 2, `nach der Immunitaet (${DATEN.treffer.wert.immunitaet_s} s): wieder ausgefallen (neue Frist)`);
   T.run(S[2].erholung_s + 0.5);
   ok(e.zs.antrieb.s === 1, 'Erholung erneut: Stufe 1');
   T.run(S[1].erholung_s + 0.5);
@@ -470,6 +473,52 @@ section('Dauerfeuer auf dem ausgefallenen Antrieb verlängert die Frist nicht (R
   ok(DATEN.treffer.wert.letzteStufeVerlaengert === false, 'Daten: letzteStufeVerlaengert ist aus (Standard)');
 });
 
+
+// Dauerfeuer ueber 100 s (Prueferbefund 1, Entscheidung des Leiters): der Ausfall haelt am Stueck hoechstens die Erholungszeit,
+// danach mindestens die Immunitaet fahrfaehig (mindestens beschaedigt-Tempo). Alle Grenzen stehen in den Daten, nicht im Code.
+function dauerfeuerLauf(modus) {
+  const T = setup(); const g = T.g; g.god = true; platz(g, 200, 200, 0);
+  let alt = null;
+  if (modus === 'kinematisch') { alt = CONFIG.spaceM3b.flightV2; CONFIG.spaceM3b.flightV2 = { arena: false, missions: false }; }
+  try {
+    const e = space.spawnEnemy(g, 'korvette', { x: 700, y: 1900, facing: 0, tag: 'dauer' });
+    e.fluchtZiel = { x: 2900, y: 1900 };   // faehrt weg, das Tempo ist messbar
+    e.hp = e.hpMax = 5000;                 // stirbt im Dauerfeuer nicht
+    e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
+    const S = DATEN.systeme.wert.antrieb.stufen, W = DATEN.treffer.wert;
+    const sperre = W.sperre_s + 0.1;
+    const laeufe = []; let lauf = null, naechster = 0, minF = 1, geschwindigkeiten = [];
+    for (let k = 0; k < Math.round(100 / DT); k++) {
+      if (g.time >= naechster) { treffer(g, e, HECK, 3); naechster = g.time + sperre; }
+      g.step();
+      const aus = Zs.ausgefallen(e, 'antrieb');
+      if (aus) {
+        if (!lauf) lauf = { von: g.time, bis: null, v3: null };
+        if (lauf.v3 == null && g.time - lauf.von >= 3) lauf.v3 = vel(e);
+      } else {
+        if (lauf) { lauf.bis = g.time; laeufe.push(lauf); lauf = null; }
+        minF = Math.min(minF, Zs.tempoFaktor(e));
+      }
+    }
+    if (lauf) { lauf.bis = g.time; laeufe.push(lauf); }
+    const gesamt = laeufe.reduce((s, l) => s + (l.bis - l.von), 0);
+    const laengster = Math.max(0, ...laeufe.map((l) => l.bis - l.von));
+    const luecken = laeufe.slice(1).map((l, i) => l.von - laeufe[i].bis);
+    const zyklus = W.immunitaet_s + S[2].erholung_s;
+    const grenze = (S[2].erholung_s + sperre) / zyklus;   // Stillstand je Zyklus: Erholung plus eine Sperre Schlupf; Zyklus: Erholung plus Immunitaet
+    ok(laeufe.length >= 2, `${modus}: Dauerfeuer ueber 100 s legt den Antrieb mehrfach lahm (${laeufe.length} Ausfaelle, nicht dauerhaft)`);
+    ok(laengster <= S[2].erholung_s + 2 * DT, `${modus}: kein Stillstand am Stueck laenger als die Erholung ${S[2].erholung_s} s (laengster ${laengster.toFixed(2)} s)`);
+    ok(gesamt / 100 <= grenze, `${modus}: Anteil der Zeit im Stillstand ${(gesamt).toFixed(1)} von 100 s (${(gesamt / 100).toFixed(3)}) <= Grenze ${grenze.toFixed(3)} (Erholung + Sperre je Zyklus aus den Daten)`);
+    ok(luecken.every((l) => l >= W.immunitaet_s - 2 * DT), `${modus}: zwischen zwei Ausfaellen liegen mindestens ${W.immunitaet_s} s fahrfaehig (kleinste Luecke ${Math.min(...luecken).toFixed(2)} s)`);
+    ok(minF >= S[1].faktor - 1e-9, `${modus}: fahrfaehig heisst mindestens beschaedigt-Tempo (kleinster Faktor ${minF})`);
+    ok(laeufe.every((l) => l.v3 == null || l.v3 < 1), `${modus}: im Stillstand steht das Schiff nach 3 s (Geschwindigkeit ${laeufe.map((l) => (l.v3 == null ? '-' : l.v3.toFixed(2))).join(', ')} px/s)`);
+    return { laeufe: laeufe.length, gesamt, grenze };
+  } finally { if (alt) CONFIG.spaceM3b.flightV2 = alt; }
+}
+section('Dauerfeuer ueber 100 s: Stillstand begrenzt, Immunitaet nach der Erholung (Pruefbefund 1)', () => {
+  for (const modus of ['pilot', 'kinematisch']) dauerfeuerLauf(modus);
+  ok(DATEN.treffer.wert.immunitaet_s === 10, 'Daten: Immunitaet nach der Erholung 10 s (Standard)');
+});
 
 console.log(`\ntest-zielsysteme: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

@@ -21,15 +21,16 @@
         }
       },
       "einheit": "Eintrag je Zielsystem: seite (bug|stbd|heck|bb), klassen (Gegnerklassen mit diesem System), stufen[] (faktor = Anteil der Fahrt, erholung_s = Sekunden bis eine Stufe zurück, null = keine), lerche = System der Lerche (ship.systems)",
-      "_hinweis": "V1 nur der Antrieb. Stufe 0 (voll) ist der Normalzustand und wird am Gegner nie gespeichert (e.zs fehlt). Beschädigt: halbe Fahrt, ausgefallen: Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). ERHOLUNG, entschieden: ja, nach Zeit. Ein Gegner hat keine Besatzung und kein Reparaturmodell; ein dauerhafter, unumkehrbarer Ausfall würde jede Szene mit einem Treffer entscheiden und den Fokus der Ops belohnen statt fordern. Ausgefallen erholt sich nach 20 s auf beschädigt, beschädigt nach 30 s auf voll: wer den Antrieb ausschaltet, muss in dieser Zeit stellen oder nachlegen (jeder weitere Treffer setzt die Frist neu). Ein gestelltes Schiff (Verfolgung) bleibt dauerhaft ausgefallen. Die Lerche folgt ihrem eigenen Reparaturmodell (Technik)."
+      "_hinweis": "V1 nur der Antrieb. Stufe 0 (voll) ist der Normalzustand und wird am Gegner nie gespeichert (e.zs fehlt). Beschädigt: halbe Fahrt, ausgefallen: Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). ERHOLUNG, entschieden: ja, nach Zeit. Ein Gegner hat keine Besatzung und kein Reparaturmodell; ein dauerhafter, unumkehrbarer Ausfall würde jede Szene mit einem Treffer entscheiden und den Fokus der Ops belohnen statt fordern. Ausgefallen erholt sich nach 20 s auf beschädigt, beschädigt nach 30 s auf voll: wer den Antrieb ausschaltet, muss in dieser Zeit stellen oder nachlegen (Dauerfeuer verlängert die Frist nicht; nach der Erholung auf beschädigt gilt die Immunitätsfrist treffer.immunitaet_s, in der ein Treffer die Stufe nicht wieder erhöht). Ein gestelltes Schiff (Verfolgung) bleibt dauerhaft ausgefallen. Die Lerche folgt ihrem eigenen Reparaturmodell (Technik)."
     },
     "treffer": {
       "wert": {
         "wahrscheinlichkeit": {"gezielt": 1, "ungezielt": 0.35},
         "sperre_s": 1.5,
-        "letzteStufeVerlaengert": false
+        "letzteStufeVerlaengert": false,
+        "immunitaet_s": 10
       },
-      "einheit": "wahrscheinlichkeit 0..1 je durchschlagendem Hüllentreffer in der Seite des Systems, sperre_s Sekunden zwischen zwei Stufen desselben Systems, letzteStufeVerlaengert (bool): setzt ein weiterer Treffer auf der letzten Stufe die Erholungsfrist neu? false = Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist (Review A-S2)",
+      "einheit": "wahrscheinlichkeit 0..1 je durchschlagendem Hüllentreffer in der Seite des Systems, sperre_s Sekunden zwischen zwei Stufen desselben Systems, letzteStufeVerlaengert (bool): setzt ein weiterer Treffer auf der letzten Stufe die Erholungsfrist neu? false = Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist (Review A-S2), immunitaet_s Sekunden nach der Erholung von der letzten Stufe, in denen ein weiterer Treffer die Stufe nicht wieder erhöht (Entscheidung des Leiters nach dem Prüfbefund 1: Dauerfeuer legt einen Gegner höchstens die Erholungszeit lahm und danach mindestens immunitaet_s fahrfähig)",
       "_hinweis": "Ein Treffer zählt nur, wenn er den Schild des getroffenen Segments durchschlägt (Hüllenschaden > 0) UND die Hülle in der Seite des Systems trifft (Antrieb: Heck). Gezielt (Systemziel der Ops bzw. e.zielsystem des Schützen) trifft sicher, ungezielt mit 35 %. Die Sperre verhindert, dass eine Salve (Batterien feuern mehrere Geschosse binnen Sekunden) den Antrieb in einem Zug von voll auf ausgefallen setzt: zwei Stufen brauchen mindestens zwei getrennte Treffer. Das Heck ist bei Jäger, Korvette, Fregatte und Kreuzer die schwache Seite (Schild 0): von hinten angreifen ist ohnehin der Rat des Ziel-Scans."
     },
     "szene": {

@@ -95,6 +95,9 @@ function schaedige(game, e, id) {
   const z = e.zs || (e.zs = {});
   const cur = z[id] || (z[id] = { s: 0, bis: null, sp: 0 });
   if (cur.gehalten || game.time < cur.sp) return false;
+  // Immunitaet nach der Erholung von der letzten Stufe (Daten treffer.immunitaet_s): in dieser Frist steigert ein weiterer Treffer die Stufe nicht.
+  // Dauerfeuer legt einen Gegner so hoechstens die Erholungszeit des Ausfalls lahm und laesst ihn danach die Immunitaet fahrfaehig.
+  if (cur.imm != null && game.time < cur.imm) return false;
   const letzte = maxStufe(id);
   if (cur.s >= letzte) {
     if (TREFFER.letzteStufeVerlaengert) { const d = stufeDaten(id, cur.s); cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null; }
@@ -142,8 +145,10 @@ function update(game) {
     for (const id of Object.keys(e.zs)) {
       const cur = e.zs[id];
       if (cur.bis == null || game.time < cur.bis) continue;
+      const war = cur.s;
       cur.s--;
       if (cur.s <= 0) { delete e.zs[id]; continue; }
+      if (war >= maxStufe(id)) cur.imm = game.time + TREFFER.immunitaet_s;   // Erholung von der letzten Stufe: Immunitaetsfrist beginnt
       const d = stufeDaten(id, cur.s);
       cur.bis = d && d.erholung_s != null ? game.time + d.erholung_s : null;
     }
