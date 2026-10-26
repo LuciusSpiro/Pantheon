@@ -136,15 +136,15 @@
         "stripes": [
           {
             "shade": "dach",
-            "f": "1.2 * (1 - zustand * 0.06)"
+            "f": "1 * (1 - zustand * 0.06)"
           },
           {
             "shade": "dach",
-            "f": "0.9 * (1 - zustand * 0.06)"
+            "f": "0.82 * (1 - zustand * 0.06)"
           }
         ],
         "axis": "z",
-        "period": 4
+        "period": 2
       }
     },
     {
@@ -183,7 +183,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     },

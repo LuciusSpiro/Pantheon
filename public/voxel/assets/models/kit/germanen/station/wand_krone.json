@@ -229,7 +229,7 @@
    "if": "glut && lauf_x",
    "at": [
     0,
-    "h",
+    "h - 1",
     1
    ],
    "size": [
@@ -237,10 +237,11 @@
     1,
     1
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -249,7 +250,7 @@
    "if": "glut && lauf_z",
    "at": [
     1,
-    "h",
+    "h - 1",
     0
    ],
    "size": [
@@ -257,10 +258,11 @@
     1,
     "d"
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -269,7 +271,7 @@
    "if": "glut && ecke",
    "at": [
     1,
-    "h",
+    "h - 1",
     1
    ],
    "size": [
@@ -277,10 +279,11 @@
     1,
     1
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -289,7 +292,7 @@
    "if": "glut && ecke && cn",
    "at": [
     1,
-    "h",
+    "h - 1",
     0
    ],
    "size": [
@@ -297,10 +300,11 @@
     1,
     1
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -309,7 +313,7 @@
    "if": "glut && ecke && cs",
    "at": [
     1,
-    "h",
+    "h - 1",
     2
    ],
    "size": [
@@ -317,10 +321,11 @@
     1,
     2
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -329,7 +334,7 @@
    "if": "glut && ecke && cw",
    "at": [
     0,
-    "h",
+    "h - 1",
     1
    ],
    "size": [
@@ -337,10 +342,11 @@
     1,
     1
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {
@@ -349,7 +355,7 @@
    "if": "glut && ecke && ce",
    "at": [
     2,
-    "h",
+    "h - 1",
     1
    ],
    "size": [
@@ -357,10 +363,11 @@
     1,
     1
    ],
+   "mode": "paint",
    "color": {
     "shade": "#FF7A1A",
     "f": 1,
-    "emit": "0.6 - zustand * 0.2"
+    "emit": "0.45 - zustand * 0.15"
    }
   },
   {

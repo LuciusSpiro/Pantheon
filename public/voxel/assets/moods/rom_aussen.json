@@ -3,7 +3,7 @@
   "name": "Rom-Außenposten: planet_day mit warmer Tönung (Sand und Travertin statt kühlem Grau), Belichtung 1,3 und Hemi 1,6 damit das Gelände nahe #CFC2A6 kommt (ORT-01 Glut)",
   "background": "#D9C6A6",
   "fog": {
-    "color": "#E2D0B2",
+    "color": "#CFC6B8",
     "near": 2.2,
     "far": 6
   },
@@ -22,7 +22,7 @@
     ],
     "softness": 2.5
   },
-  "exposure": 1.3,
+  "exposure": 1.25,
   "bloom": {
     "strength": 0.25,
     "radius": 0.4,

@@ -159,15 +159,15 @@
    ],
    "size": [
     1,
-    "min(3, h - 2)",
+    "min(2, h - 2)",
     "d"
    ],
    "color": {
     "role": "ember",
-    "emit": 0.9
+    "emit": 0.5
    },
    "mode": "paint",
-   "if": "h >= 3 && w >= 4 && zustand < 2 && hash(seed, 9) < 0.3"
+   "if": "h >= 3 && w >= 4 && zustand < 2 && hash(seed, 9) < 0.1"
   },
   {
    "name": "Ruß (umkämpft)",

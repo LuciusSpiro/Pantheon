@@ -47,6 +47,12 @@
       "label": "Nachbarn (N1 O2 S4 W8)"
     }
   },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2"
+  },
   "ops": [
     {
       "name": "Krone",
@@ -67,6 +73,46 @@
       }
     },
     {
+      "name": "Rinne-Einfassung x (beidseitig)",
+      "op": "box",
+      "mode": "paint",
+      "if": "(ce || cw || conn == 0) && d >= 3",
+      "at": [0, 0, 0],
+      "size": ["w", 1, 1],
+      "color": { "shade": "stone_dark", "f": 0.8 },
+      "jitter": false
+    },
+    {
+      "name": "Rinne-Einfassung x (Reihe 2)",
+      "op": "box",
+      "mode": "paint",
+      "if": "(ce || cw || conn == 0) && d >= 3",
+      "at": [0, 0, 2],
+      "size": ["w", 1, 1],
+      "color": { "shade": "stone_dark", "f": 0.8 },
+      "jitter": false
+    },
+    {
+      "name": "Rinne-Einfassung z (Spalte 0)",
+      "op": "box",
+      "mode": "paint",
+      "if": "(cn || cs) && w >= 3",
+      "at": [0, 0, 0],
+      "size": [1, 1, "d"],
+      "color": { "shade": "stone_dark", "f": 0.8 },
+      "jitter": false
+    },
+    {
+      "name": "Rinne-Einfassung z (Spalte 2)",
+      "op": "box",
+      "mode": "paint",
+      "if": "(cn || cs) && w >= 3",
+      "at": [2, 0, 0],
+      "size": [1, 1, "d"],
+      "color": { "shade": "stone_dark", "f": 0.8 },
+      "jitter": false
+    },
+    {
       "name": "Rinne Mitte",
       "op": "box",
       "mode": "paint",
@@ -82,7 +128,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     },
@@ -103,7 +149,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     },
@@ -124,7 +170,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     },
@@ -145,7 +191,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     },
@@ -166,7 +212,7 @@
       ],
       "color": {
         "role": "glow2",
-        "emit": 0.6
+        "emit": 1.1
       },
       "jitter": false
     }

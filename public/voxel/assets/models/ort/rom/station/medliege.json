@@ -96,7 +96,37 @@
     1,
     4
    ],
-   "color": "stone_light"
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil",
+   "at": [
+    -16,
+    5,
+    -6
+   ],
+   "size": [
+    2,
+    8,
+    12
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil Gold",
+   "at": [
+    -16,
+    13,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    12
+   ],
+   "color": "trim"
   },
   {
    "op": "box",
@@ -180,7 +210,7 @@
      ],
      "color": {
       "role": "glow2",
-      "emit": 1.0
+      "emit": 1
      },
      "jitter": false
     },
@@ -245,7 +275,7 @@
    ],
    "color": {
     "role": "glow2",
-    "emit": 1.0
+    "emit": 1
    },
    "jitter": false
   },

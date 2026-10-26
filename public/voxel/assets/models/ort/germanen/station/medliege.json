@@ -67,14 +67,37 @@
     2,
     8
    ],
-   "color": {
-    "stripes": [
-     "frost",
-     "frost_dark"
-    ],
-    "axis": "x",
-    "period": 4
-   }
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil",
+   "at": [
+    -15,
+    5,
+    -5
+   ],
+   "size": [
+    2,
+    8,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil Kupferkante",
+   "at": [
+    -15,
+    13,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": "copper"
   },
   {
    "op": "box",

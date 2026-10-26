@@ -1,8 +1,8 @@
 {
-  "voxelwerkCommit": "538ad7782419ebc974df69791030c92e5d86c59c",
-  "dirty": false,
+  "voxelwerkCommit": "f9f23207dcdd53eca47be1bbd3940fac566a4788",
+  "dirty": true,
   "dirtySource": "git",
-  "date": "2026-10-26T17:36:26.486Z",
+  "date": "2026-10-26T19:37:13.129Z",
   "three": "186",
   "manifests": 25,
   "assets": 341,

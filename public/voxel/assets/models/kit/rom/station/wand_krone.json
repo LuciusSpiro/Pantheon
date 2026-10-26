@@ -46,6 +46,17 @@
    "step": 1
   }
  },
+ "let": {
+  "cn": "floor(conn) % 2",
+  "ce": "floor(conn / 2) % 2",
+  "cs": "floor(conn / 4) % 2",
+  "cw": "floor(conn / 8) % 2",
+  "gx": "ce && cw",
+  "gz": "cn && cs",
+  "lauf_x": "gx || (conn == 0) || (!gz && (ce || cw) && !(cn || cs))",
+  "lauf_z": "!gx && (gz || (!(ce || cw) && (cn || cs)))",
+  "ecke": "!gx && !gz && (ce || cw) && (cn || cs)"
+ },
  "ops": [
   {
    "name": "Krone",
@@ -66,11 +77,11 @@
    }
   },
   {
-   "name": "Rinne entlang x (Oberseite)",
+   "name": "Rinne entlang x",
    "op": "box",
    "at": [
     0,
-    "h",
+    "h - 1",
     1
    ],
    "size": [
@@ -82,15 +93,16 @@
     "role": "glow2",
     "emit": "zustand == 2 ? 0.25 : 0.6"
    },
+   "mode": "paint",
    "jitter": false,
-   "if": "ce || cw || conn == 0"
+   "if": "lauf_x"
   },
   {
-   "name": "Rinne entlang z (Oberseite)",
+   "name": "Rinne entlang z",
    "op": "box",
    "at": [
     1,
-    "h",
+    "h - 1",
     0
    ],
    "size": [
@@ -102,19 +114,120 @@
     "role": "glow2",
     "emit": "zustand == 2 ? 0.25 : 0.6"
    },
+   "mode": "paint",
    "jitter": false,
-   "if": "cn || cs"
+   "if": "lauf_z"
+  },
+  {
+   "name": "Rinne Ecke Mitte",
+   "op": "box",
+   "at": [
+    1,
+    "h - 1",
+    1
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "mode": "paint",
+   "jitter": false,
+   "if": "ecke"
+  },
+  {
+   "name": "Rinne Ecke N",
+   "op": "box",
+   "at": [
+    1,
+    "h - 1",
+    0
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "mode": "paint",
+   "jitter": false,
+   "if": "ecke && cn"
+  },
+  {
+   "name": "Rinne Ecke S",
+   "op": "box",
+   "at": [
+    1,
+    "h - 1",
+    2
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "mode": "paint",
+   "jitter": false,
+   "if": "ecke && cs"
+  },
+  {
+   "name": "Rinne Ecke W",
+   "op": "box",
+   "at": [
+    0,
+    "h - 1",
+    1
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "mode": "paint",
+   "jitter": false,
+   "if": "ecke && cw"
+  },
+  {
+   "name": "Rinne Ecke O",
+   "op": "box",
+   "at": [
+    2,
+    "h - 1",
+    1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "zustand == 2 ? 0.25 : 0.6"
+   },
+   "mode": "paint",
+   "jitter": false,
+   "if": "ecke && ce"
   }
+
  ],
  "anchor": [
   0,
   0,
   0
- ],
- "let": {
-  "cn": "floor(conn) % 2",
-  "ce": "floor(conn / 2) % 2",
-  "cs": "floor(conn / 4) % 2",
-  "cw": "floor(conn / 8) % 2"
- }
+ ]
 }
