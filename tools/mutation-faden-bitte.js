@@ -47,7 +47,8 @@ const MUTATIONEN = [
   [BI, 'funkSenden(game, BW.antwort_von, opt.text);   // die Crew antwortet', 'void 0;   // die Crew antwortet', 'Antwort: die Antwort der Crew fehlt im Funk'],
   [BI, 'optionWaehlen(game, off.fadenId, opt.id);', 'optionWaehlen(game, off.fadenId, "zusagen");', 'Antwort: es wird immer die erste Option gewählt'],
   // ---- Verfall, Wiederholung, Takt, Hinweis
-  [BI, '    else if (F.t >= off.bis) {', '    else if (F.t >= off.bis + 100) {', 'Verfall: viel zu spät'],
+  [BI, '    else if (F.t >= off.bis && Faden().spielleiterAktiv(game)) {', '    else if (F.t >= off.bis + 100 && Faden().spielleiterAktiv(game)) {', 'Verfall: viel zu spät'],
+  [BI, '    else if (F.t >= off.bis && Faden().spielleiterAktiv(game)) {', '    else if (F.t >= off.bis) {', 'Verfall: läuft auch ohne aktiven Spielleiter ab (Nacharbeit L9)'],
   [BI, "      Faden().beatAusgang(game, off.fadenId, 'gescheitert');", '      void 0;', 'Verfall: der Beat gilt nicht als gescheitert'],
   [BI, '  for (const f of F.liste.slice()) {   // ein laufender', '  for (const f of []) {   // ein laufender', 'Wiederholung: eine Bitte wird nach unruhiger Lage nicht erneut angeboten'],
   [BI, '  if (F && F.bitte && !FA().ruhig(game)) F.bitte = null;', '  if (false) F.bitte = null;', 'Takt: unruhige Lage zieht das Angebot nicht zurück'],
@@ -62,6 +63,14 @@ const MUTATIONEN = [
   [BI, 'optionen.push({ id: x.id, text: x.text, folge: klon(quelle.folge), ausgang: quelle.ausgang });', 'optionen.push({ id: x.id, text: x.text, folge: [], ausgang: quelle.ausgang });', 'Weltstand: Folgen kommen nicht aus der Vorlage'],
   [BI, '  if (!Number.isInteger(b.rest) || b.rest < 0 || b.rest > BW.frist_taetigkeiten) return null;', '', 'Weltstand: Müll (Rest zu groß) wird nicht verworfen'],
   [BI, "  if (!Array.isArray(b.optionen) || b.optionen.length < BW.optionen.min || b.optionen.length > BW.optionen.max) return null;", '', 'Weltstand: Müll (Optionen) wird nicht verworfen'],
+  // ---- Nacharbeit Welle 1: Bitten-Deckel im Weltstand (L10), Ruhe bei Faden-Gefahr (L11)
+  [FD, '  if (dk) b.deckel = dk;', '', 'Weltstand: der Zähler des Bitten-Deckels wird nicht gespeichert'],
+  [FD, "F.bitteLog = require('./faden-bitte.js').lesenDeckel(b.deckel, F.t);", 'F.bitteLog = [];', 'Weltstand: der Zähler des Bitten-Deckels wird nicht gelesen'],
+  [BI, 'Number.isFinite(x[1]) && x[1] > 0 && x[1] <= DECKEL_BETRAG_MAX', 'Number.isFinite(x[1])', 'Weltstand: der Deckel-Leser nimmt Müllbeträge'],
+  [BI, 'x[0] <= t && t - x[0] < BW.fenster_taetigkeiten &&', 'true &&', 'Weltstand: der Deckel-Leser nimmt Einträge aus der Zukunft und ausserhalb des Fensters'],
+  [BI, '.map((x) => [x[0], x[1]]).slice(-DECKEL_MAX);\n}', '.map((x) => [x[0], x[1]]);\n}', 'Weltstand: der Deckel-Leser klemmt die Zahl der Einträge nicht'],
+  [BI, 'const l = ((F && F.bitteLog) || []).filter((x) => Array.isArray(x) && t - x[0] < BW.fenster_taetigkeiten);', 'const l = ((F && F.bitteLog) || []).filter((x) => Array.isArray(x));', 'Weltstand: abgelaufene Deckel-Einträge werden mitgeschrieben'],
+  [FA, '  if (game.fadenSzene) return false;   // SUND-04a-2 Nacharbeit L11', '', 'Ruhe: eine angekündigte Faden-Gefahr (Vorlauf) gilt als ruhig'],
   // ---- Befehl, Snapshot, Protokoll
   [GA, "      else if (!bk && this.sentBittenKey) { world.bitte = null; this.sentBittenKey = null; }", '      else if (false) { world.bitte = null; this.sentBittenKey = null; }', 'Snapshot: kein Löschsignal für die Bitte'],
   [GA, '      if (bk && bk !== this.sentBittenKey && !includeAsteroids', '      if (bk && !includeAsteroids', 'Snapshot: die Bitte geht in jedem Snapshot mit (nicht nur bei Änderung)'],
@@ -104,7 +113,7 @@ const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { c
 const einstufung = (r) => {
   if (r.status === 0) return 'gruen';
   const text = (r.stdout || '') + (r.stderr || '');
-  if (r.status === 1 && /FEHLER/.test(text)) return 'rot';
+  if (r.status === 1 && text.split('\n').some((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l))) return 'rot';   // eine Ausnahme (ABSTURZ Ausnahme) ist nie ein Beleg
   return 'absturz';
 };
 let ueberlebt = 0, abstuerze = 0, gelaufen = 0;
@@ -133,7 +142,7 @@ for (const [datei, alt, neu, was] of MUTATIONEN) {
     if (e === 'absturz') { stufe = 'absturz'; wer = path.basename(t[0], '.js').replace('test-', ''); break; }
   }
   fs.writeFileSync(f, orig);
-  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
+  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l));
   if (stufe === 'rot') console.log(`  rot   ${was} (${wer}: ${fehler.length} Fehler, z. B. ${(fehler[0] || '').replace(/^\s*FEHLER\s*/, '').slice(0, 64)})`);
   else if (stufe === 'absturz') { abstuerze++; ueberlebt++; console.log(`  ABSTURZ ${was} (${wer}: Exit ${r.status}, zählt NICHT als erkannt: ${((r.stderr || r.stdout || '').split('\n').find((l) => /Error|FEHLER/.test(l)) || '').slice(0, 80)})`); }
   else { ueberlebt++; console.log(`  GRÜN  ${was}  <-- ÜBERLEBT`); }

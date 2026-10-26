@@ -66,6 +66,20 @@ function deckelRaum(F) {
   return BW.ruf_deckel - F.bitteLog.reduce((s, x) => s + x[1], 0);
 }
 
+// Nacharbeit L10: der Zähler des Bitten-Deckels steht im Weltstand (welt.sim.faeden.deckel, optional, Altstand = leer), wie der Reise-Deckel (welt.sim.reise.r): nur die Einträge im
+// Fenster, höchstens DECKEL_MAX, jeder [Tätigkeitszähler t, Betrag]. Der Leser ist müllfest (Schema: Zähler ganz, nicht in der Zukunft, im Fenster; Betrag > 0 und höchstens DECKEL_BETRAG_MAX).
+// Die Größe des Deckels und die Prüfung beim Antworten (deckelRaum, passt) bleiben unberührt.
+const DECKEL_MAX = 20, DECKEL_BETRAG_MAX = 20;
+function toSaveDeckel(F) {
+  const t = F && Number.isFinite(F.t) ? F.t : 0;
+  const l = ((F && F.bitteLog) || []).filter((x) => Array.isArray(x) && t - x[0] < BW.fenster_taetigkeiten);
+  return l.length ? l.slice(-DECKEL_MAX).map((x) => [x[0], x[1]]) : null;
+}
+function lesenDeckel(b, t) {
+  if (!Array.isArray(b)) return [];
+  return b.filter((x) => Array.isArray(x) && x.length === 2 && Number.isInteger(x[0]) && x[0] >= 0 && x[0] <= t && t - x[0] < BW.fenster_taetigkeiten && Number.isFinite(x[1]) && x[1] > 0 && x[1] <= DECKEL_BETRAG_MAX).map((x) => [x[0], x[1]]).slice(-DECKEL_MAX);
+}
+
 // ---------- Text (Platzhalter {name} {ort}; Schlüssel = text_key des Beats)
 // SUND-04a-2 P3: der Ton folgt der Haltung des NSC (tonVon): gibt es für den Ton einen Text (key_ton), wird er genommen; sonst der Grundtext
 function textVon(beat, f) {
@@ -195,7 +209,7 @@ function nachTaetigkeit(game) {
     const off = F.bitte;
     const f = F.liste.find((x) => x.id === off.fadenId);
     if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.beat !== off.beatId) F.bitte = null;   // der Beat ist nicht mehr da
-    else if (F.t >= off.bis) {   // Verfall in Taetigkeiten: der Beat gilt als gescheitert (der Faden verändert sich, endet nicht)
+    else if (F.t >= off.bis && Faden().spielleiterAktiv(game)) {   // Verfall in Taetigkeiten: der Beat gilt als gescheitert (der Faden verändert sich, endet nicht). Nacharbeit L9: nur mit aktivem Spielleiter (B-S3 „begonnene Fäden stehen“, wie die Frist des Beats in faden.js)
       F.bitte = null;
       logbuch(game, 'faden_ereignis', { ausgang: 'verfall', key: off.fadenId, begruendung: `Bitte ${off.beatId} verfallen nach ${BW.frist_taetigkeiten} Tätigkeiten: gescheitert`, plan: { faden: off.fadenId, beat: off.beatId } });
       Faden().beatAusgang(game, off.fadenId, 'gescheitert');
@@ -267,4 +281,4 @@ const baustein = {
   },
 };
 
-module.exports = { baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };
+module.exports = { toSaveDeckel, lesenDeckel, baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };

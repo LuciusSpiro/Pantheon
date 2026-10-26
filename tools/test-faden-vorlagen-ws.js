@@ -92,4 +92,4 @@ function client(port, hello) {
   if (fails) { console.log('FADEN-VORLAGEN-WS FEHLER: ' + fails); process.exit(1); }
   console.log('FADEN-VORLAGEN-WS OK');
   process.exit(0);
-})().catch((e) => { console.log('FEHLER Ausnahme: ' + (e && e.stack)); process.exit(1); });
+})().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });

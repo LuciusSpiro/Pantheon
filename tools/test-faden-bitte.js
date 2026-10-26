@@ -17,7 +17,7 @@ const Pruefer = require('../server/sim/faden-pruefer.js');
 const { Faden, alsVorlage, registriere } = X;
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
-const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  FEHLER Ausnahme: ' + (e && e.stack)); } };
+const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  ABSTURZ Ausnahme: ' + (e && e.stack)); } };
 const ws = (g) => g.weltsim;
 const weiter = (g, f) => Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: D.vorlage(f.vorlage).beats[f.beat].id });
 const liste = (g) => ws(g).faeden.liste;
@@ -30,6 +30,7 @@ function vorlageBitte() {
 // Ein Spiel mit offener Bitte: Faden über den echten Notruf-Hook geöffnet, Abstand über echte Tätigkeitsgrenzen, Beat per Befehl gestartet
 function bereit(vorlage) {
   const g = X.spiel({}).g;
+  g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };   // der Verfall der Bitte gilt nur mit aktivem Lage-Spielleiter (Nacharbeit L9, wie die Frist in faden.js)
   const f = X.oeffne(g, vorlage || BAS);
   if (!f) throw new Error('kein Faden');
   X.grenzen(g, 6, 'andocken');
@@ -324,6 +325,85 @@ section('Schutzregeln: Gefahr, offene Funk-Antwort, Deckel-Fenster, Ruhe bei der
   ws(g).faeden.liste[0].phase = 'wartet';
   ok(B.beantworten(g, 'zusagen', r3.bitte.nr).code === 'kein_angebot', 'verlaufener Beat: keine Antwort mehr');
   ws(g).faeden.liste[0].phase = 'laeuft'; ws(g).faeden.bitte = null;
+});
+
+// ---------- SUND-04a-2 Nacharbeit, Welle 1: L9 (Verfall nur mit Spielleiter), L10 (Deckel im Weltstand), L11 (Ruhe bei Faden-Gefahr) ----------
+section('L9: ohne aktiven Spielleiter verfaellt eine begonnene Bitte nicht (begonnene Faeden stehen)', () => {
+  const { g, f } = bereit();   // Spielleiter aktiv, die Bitte ist offen
+  const o = bitte(g);
+  ok(!!o && f.phase === 'laeuft', 'Bitte offen, Beat laeuft');
+  g.lageSpielleiter.disposed = true;   // Ausfall des Spielleiters NACH dem Beginn
+  X.grenzen(g, D.BITTE.frist_taetigkeiten + 4, 'andocken');
+  ok(bitte(g) === o && f.phase === 'laeuft' && f.beat === 0, 'nach mehr Taetigkeiten als die Frist der Bitte: die Bitte steht, der Beat laeuft, der Faden steht (kein Verfall)');
+  ok(f.nsc.gedaechtnis.length === 0 && f.nsc.status === 'aktiv', 'kein Gedaechtnis, kein neuer Zustand des NSC (nichts gescheitert)');
+  g.lageSpielleiter.disposed = false;   // der Spielleiter ist wieder da
+  X.grenzen(g, 1, 'andocken');
+  ok(bitte(g) === null && f.beat === 2 && f.nsc.status === 'gefangen', 'wieder aktiv: der Verfall gilt mit der naechsten Taetigkeit (gescheitert, anderer Weg)');
+});
+
+section('L10: der Zaehler des Bitten-Deckels steht im Weltstand (Speichern, Laden, Muell)', () => {
+  const { g } = bereit();
+  const o = bitte(g);
+  ok(B.beantworten(g, 'zusagen', o.nr) === null, 'Annahme mit Ruf-Folge');
+  const live = ws(g).faeden;
+  ok(live.bitteLog.length === 1 && live.bitteLog[0][1] > 0, 'der Deckel hat einen Eintrag (Betrag > 0)');
+  const raum0 = B.deckelRaum(live);
+  ok(raum0 < D.BITTE.ruf_deckel - 1e-9, 'der Deckel ist angebrochen (Raum ' + raum0 + ' unter dem vollen Deckel)');
+  const blk = roh(Faden.toSave(ws(g)));
+  ok(JSON.stringify(blk.deckel) === JSON.stringify(live.bitteLog), 'der Eintrag steht im Block (deckel = [[t, Betrag]])');
+  const data = Weltstand.capture(g);
+  ok(Weltstand.validate(data, g).length === 0, 'der Stand mit Deckel besteht das Weltstand-Schema: ' + Weltstand.validate(data, g).slice(0, 2).join('; '));
+  const F2 = Faden.lesen(blk);
+  ok(JSON.stringify(F2.bitteLog) === JSON.stringify(live.bitteLog) && Math.abs(B.deckelRaum(F2) - raum0) < 1e-9, 'Laden: derselbe Zaehler, derselbe Raum (kein frischer Deckel nach dem Laden)');
+  // ueber die ganze Kette: Kriegslage.toSave und restore
+  const g2 = X.spiel({}).g; Kriegslage.restore(g2, roh(data.welt.sim));
+  ok(JSON.stringify(ws(g2).faeden.bitteLog) === JSON.stringify(live.bitteLog), 'Kriegslage.restore: der Zaehler kommt mit');
+  // Altstand und Muell
+  const alt = roh(blk); delete alt.deckel;
+  ok(Faden.lesen(alt).bitteLog.length === 0, 'Altstand ohne deckel: leer, kein Fehler');
+  const t = blk.t;
+  const m = roh(blk); m.deckel = [[t, 0.1], [t + 5, 0.1], [-1, 0.1], [0.5, 0.1], [t, -1], [t, 0], [t, 'x'], [t, 1e9], ['a', 1], 'q', [t], [t, 0.1, 9], null, [t - D.BITTE.fenster_taetigkeiten - 1, 0.1]];
+  const L = Faden.lesen(m).bitteLog;
+  ok(L.length === 1 && L[0][0] === t && L[0][1] === 0.1, 'Muell fliegt raus, nur der gueltige Eintrag bleibt (' + JSON.stringify(L) + ')');
+  ok(Faden.lesen(Object.assign(roh(blk), { deckel: 'x' })).bitteLog.length === 0 && Faden.lesen(Object.assign(roh(blk), { deckel: { a: 1 } })).bitteLog.length === 0, 'deckel kein Feld: leer, kein Absturz');
+  const viele = roh(blk); viele.deckel = Array.from({ length: 50 }, () => [t, 0.01]);
+  ok(Faden.lesen(viele).bitteLog.length <= 20, 'der Leser klemmt die Zahl der Eintraege (hoechstens 20)');
+  // Eintraege ausserhalb des Fensters werden nicht mitgeschrieben
+  ws(g).faeden.bitteLog = [[ws(g).faeden.t - D.BITTE.fenster_taetigkeiten - 3, 0.2]];
+  ok(!('deckel' in roh(Faden.toSave(ws(g)))), 'abgelaufene Eintraege stehen nicht im Stand');
+});
+
+section('L11: bei angekuendigter Faden-Gefahr (Vorlauf, noch keine Gegner) gibt es keine Bitte und keine Funk-Antwort', () => {
+  const FS = require('../server/sim/faden-szene.js');
+  const FA = require('../server/sim/funk-antwort.js');
+  const RE = require('../server/sim/reise-ereignis.js');
+  const r = registriere(alsVorlage('test_gefahr_l11', (v) => {
+    v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
+    v.beats = [{ id: 'b_szene', typ: 'raumschlacht', aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } }, { id: 'b_ende', typ: 'abschluss', aus: { gelungen: {}, gescheitert: {} } }];
+  }));
+  if (!r.ok) throw new Error(r.fehler.join('; '));
+  vorlageBitte();
+  const g = X.spiel({ env: { REISE_EREIGNISSE: '1' } }).g;
+  g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };
+  const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.stage = 1;   // abgelegt: die Szene beginnt
+  const fb = X.oeffne(g, BAS); X.grenzen(g, 6, 'andocken');
+  const fs = X.oeffne(g, 'test_gefahr_l11'); X.grenzen(g, 6, 'andocken');
+  ok(weiter(g, fs).ok && !!g.fadenSzene && g.fadenSzene.phase === 'vorlauf' && g.space.enemies.length === 0, 'die Faden-Gefahr ist angekuendigt (Vorlauf, noch kein Gegner im Raum)');
+  ok(FA.ruhig(g) === false, 'die Lage gilt nicht als ruhig');
+  ok(weiter(g, fb).ok && bitte(g) === null && fb.phase === 'laeuft', 'eine Bitte kommt nicht (Beat laeuft, kein Angebot)');
+  ok(B.anbieten(g, { fadenId: fb.id, beatId: 'b_bitte', absender: { name: 'X', fraktion: 'rom', portrait: 1 }, text: 'x', optionen: D.vorlage(BAS).beats[0].optionen.map((x) => ({ id: x.id, text: x.text, folge: x.folge, ausgang: x.ausgang })) }).code === 'unruhig', 'anbieten: unruhig');
+  const ev = RE.KATALOG.find((e) => Array.isArray(e.antworten) && e.antworten.length >= 2 && !e.gefahr);
+  ws(g).funkwahl = null;
+  ok(FA.anbieten(g, ev) === null, 'auch keine Funk-Antwort bei angekuendigter Faden-Gefahr');
+  // die Gefahr ist vorbei: die Wiederholung bietet die Bitte an
+  require('../server/sim/faden-szene.js').zuruecksetzen(g);
+  X.grenzen(g, 1, 'andocken');
+  ok(bitte(g) !== null, 'ohne Faden-Gefahr: die Bitte kommt mit der naechsten Taetigkeit (Wiederholung)');
+  // eine offene Bitte wird zurueckgezogen, wenn eine Faden-Gefahr angekuendigt wird (Takt) und kann dann nicht mehr beantwortet werden
+  const nr = bitte(g).nr;
+  g.fadenSzene = { id: 1, fadenId: fs.id, beatId: 'b_szene', art: 'raumschlacht', nsc: null, phase: 'vorlauf', ab: g.time + 10, start: null, szene: s.scene, tag: 'fs1', sek: 10, n: 2 };
+  ok(B.beantworten(g, 'zusagen', nr).code === 'unruhig', 'Antwort waehrend der Vorwarnung: unruhig');
+  g.fadenSzene = null;
 });
 
 console.log(`\n${n - fails} von ${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

@@ -416,6 +416,8 @@ function toSave(ws) {
   if (F.liste.length) b.liste = klon(F.liste);
   const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
   if (bt) b.bitte = bt;
+  const dk = require('./faden-bitte.js').toSaveDeckel(F);   // Nacharbeit L10: Zähler des Bitten-Deckels (optional, wie der Reise-Deckel welt.sim.reise.r)
+  if (dk) b.deckel = dk;
   return b;
 }
 function leseNsc(x, v) {
@@ -462,10 +464,11 @@ function leseFaden(x) {
     const o = istObjekt(x.ausgang) ? x.ausgang : {};
     f.ausgang = { art: W.ausgaenge.includes(o.art) ? o.art : 'gescheitert', status: W.status.includes(o.status) ? o.status : nsc.status, tick: nat(o.tick, 1e9) };   // kein Faden ohne Ausgang
   }
-  if (x.fracht !== undefined) {   // SUND-04a-2 P1: Ware an Bord (nur mit laufendem Beat „fracht“; sonst verworfen)
+  // SUND-04a-2 P1: Ware an Bord (nur mit laufendem Beat „fracht“). Nacharbeit L7: Unbrauchbares (Müll, null, umbenannte Ware, Ware ohne laufenden Fracht-Beat) lässt nur DAS FELD fallen,
+  // der Faden bleibt (die Ware ist dann weg, wie nach einer abgelaufenen Frist); der Weltstand-Schema erlaubt fracht: null
+  if (x.fracht !== undefined && x.fracht !== null && phase === 'laeuft' && D.BEATS[v.beats[f.beat].typ].baustein === 'fracht') {
     const fr = FrachtDaten.leseFracht(x.fracht);
-    if (!fr || phase !== 'laeuft') return { fehler: `${x.id}: Fracht unbrauchbar` };
-    f.fracht = fr;
+    if (fr) f.fracht = fr;
   }
   const e = P.pruefeFaden(f);
   return e.length ? { fehler: `${x.id}: ${e[0]}` } : { faden: f };
@@ -475,6 +478,7 @@ function lesen(b) {
   const F = neu();
   if (!istObjekt(b)) return F;
   F.t = nat(b.t, 1e9);
+  F.bitteLog = require('./faden-bitte.js').lesenDeckel(b.deckel, F.t);   // Nacharbeit L10: müllfest, nur Einträge im Fenster
   let nr = nat(b.nr, 999999), nscNr = nat(b.nsc, 999999);   // B-K2: Kennungen f<n>/n<n> haben höchstens 6 Ziffern (Schema, Leser)
   const ids = new Set();
   for (const x of Array.isArray(b.liste) ? b.liste : []) {

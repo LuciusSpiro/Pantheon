@@ -117,4 +117,4 @@ function client(port, hello) {
   for (const x of [a, b, c]) x.ws.close();
   await sleep(200);
   process.exit(fails ? 1 : 0);
-})().catch((e) => { console.error('FEHLER Ausnahme:', e && e.stack); process.exit(1); });
+})().catch((e) => { console.error('ABSTURZ Ausnahme:', e && e.stack); process.exit(1); });

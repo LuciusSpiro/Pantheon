@@ -38,13 +38,16 @@ const funk = (game, text) => { if (text) game.emit('radio', { from: SPRECHER, te
 // Gate: FAEDEN=1 und Freie Fahrt. Gestartet werden Szenen nur durch einen Beat, und einen Beat startet nur der Spielleiter (faden_weiter); fällt er aus,
 // laufen die Fristen nicht ab (faden.js B-S3), eine begonnene Szene endet wie jede Szene, wenn der Beat schon weg ist.
 const aktiv = (game) => Faden.aktiv(game);
-const crewN = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
-const nachCrew = (map, n) => Number(map[String(Math.min(3, Math.max(1, n)))]) || Number(map['1']) || 0;
+const crewN = (game) => Math.max(W.crew_min, Math.min(W.crew_max, game.players.filter((p) => p.connected).length));
+const nachCrew = (map, n) => Number(map[String(Math.min(W.crew_max, Math.max(W.crew_min, n)))]) || Number(map[String(W.crew_min)]) || 0;
 const pick = (n) => (n ? { id: n.id, name: n.name, schiff: n.schiff, schiffsklasse: n.schiffsklasse, fraktion: n.fraktion } : null);
-// Zufall: eigener Strom, Zähler im Aufrufer (nie game.rng)
-function wuerfel(game, n) {
+// Zufall: eigener Strom, Zähler im Aufrufer (nie game.rng). Nacharbeit L4: der Strom gehört zu GENAU dieser Hilfe: Weltseed, Faden, NSC, Beat und der Tätigkeitszähler der Fäden (gespeichert)
+// stehen im Salz, n zählt die Gefechte dieser Hilfe. Gleiche Eingaben = gleiche Folge; eine andere Hilfe, ein anderer Faden oder ein späterer Anlauf nach beatZurueck/Laden würfelt anders.
+function wuerfel(game, h) {
   const seed = ((Number(game.weltsim.zustand.seed) | 0) ^ 0x48494c46) >>> 0;   // „HILF“
-  return Reise.strom(seed, n, W.spontanhilfe_salz)();
+  const F = Faden.zustandVon(game);
+  const salz = [W.spontanhilfe_salz, h.fadenId, h.nsc, h.beatId, F ? F.t : 0].join(':');
+  return Reise.strom(seed, h.n, salz)();
 }
 // Der Beat läuft noch (Frist und Andocken haben ihn nicht schon beendet)
 function laeuft(game, fadenId, beatId) {
@@ -52,7 +55,8 @@ function laeuft(game, fadenId, beatId) {
   return !!(f && f.phase === 'laeuft' && f.laufend && f.laufend.beat === beatId);
 }
 const verfolgungLaeuft = (game) => Verfolgung.aktiv(game) && !Verfolgung.ausgang(game);
-const frei = (game) => !game.simSzene && !game.fadenSzene && !verfolgungLaeuft(game) && !game.ship.docked;
+// Nacharbeit L1: auch eine laufende Reise-Gefahr (angekündigt oder im Kampf, reise-ereignis.js) ist ein Kampf: nie zwei Kämpfe übereinander (die Gegenrichtung steht in reise-ereignis.update)
+const frei = (game) => !game.simSzene && !game.fadenSzene && !verfolgungLaeuft(game) && !Reise.gefahrLaeuft(game) && !game.ship.docked;
 
 // ---------- Einplanen ----------
 function starten(game, o) {
@@ -79,9 +83,9 @@ function naechsteStarten(game) {
 function beginnen(game, it) {
   game.fadenSzeneN = (game.fadenSzeneN || 0) + 1;
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
-  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek };
-  game.fadenSzene = fs;
   const n = (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n };   // n: die angekündigte Zahl (K2)
+  game.fadenSzene = fs;
   const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
   const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
   funk(game, fmt(T.vorwarnung[it.art], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
@@ -99,9 +103,9 @@ function kampfBeginn(game, fs) {
     if (!z) return enden(game, fs, 'gescheitert', null);
     return null;
   }
-  const C = W[fs.art]; const n = nachCrew(C.anzahl, crewN(game));
+  const C = W[fs.art]; const n = fs.n;   // K2: genau die Zahl, die im Funk stand (die Crewgröße beim Ankündigen), nie mehr
   for (let i = 0; i < n; i++) {
-    const a = (i / n) * Math.PI * 2 + 0.4;
+    const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;
     if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: C.volk })) break;
   }
   return null;
@@ -156,7 +160,8 @@ function kampfTakt(game, fs) {
 // SUND-04a-2 P3: eine zweite Spontanhilfe, während eine läuft, WARTET in einer Schlange (höchstens warteschlange_max wie die Szenen), statt zu scheitern (die Lücke aus P1).
 // Rückt sie nach, wenn die erste Hilfe endet (hilfeNaechste); ein Eintrag, dessen Beat schon beendet ist, fällt weg.
 function hilfeEinplanen(game, q) {
-  if (game.fadenHilfe && !laeuft(game, game.fadenHilfe.fadenId, game.fadenHilfe.beatId)) { hilfeWeg(game); game.fadenHilfe = null; }   // ein Beat, der schon beendet ist, blockiert nichts
+  // Ein Beat, der schon beendet ist, blockiert nichts. Nacharbeit K5: die nächste WARTENDE rückt nach (Reihenfolge), die neue stellt sich hinten an und überspringt die Schlange nie
+  if (game.fadenHilfe && !laeuft(game, game.fadenHilfe.fadenId, game.fadenHilfe.beatId)) { hilfeWeg(game); game.fadenHilfe = null; hilfeNaechste(game); }
   const h = { fadenId: q.fadenId, beatId: q.beatId, nsc: q.nsc ? q.nsc.id : null, schiff: q.nsc ? q.nsc.schiff : '', name: q.nsc ? q.nsc.name : '', versucht: null, n: 0, ally: null };
   if (!game.fadenHilfe) { game.fadenHilfe = h; return { ok: true, grund: null }; }
   const warte = game.fadenHilfeWarte || (game.fadenHilfeWarte = []);
@@ -174,9 +179,12 @@ function wuerfeln(game, h) {
   h.n++;
   const npc = Faden.nscVon(game, h.nsc);
   const p = npc ? Faden.chanceSpontanhilfe(npc) : 0;
-  if (!(wuerfel(game, h.n) < p)) return false;
-  const L = game.ship; const a = h.n * 2.4;   // Platz am Ring der Lerche (deterministisch aus dem Zähler)
-  const tag = 'nsc_' + h.nsc;
+  if (!(wuerfel(game, h) < p)) return false;
+  const L = game.ship; const a = h.n * W.spontanhilfe.winkel_schritt;   // Platz am Ring der Lerche (deterministisch aus dem Zähler)
+  // Nacharbeit L6: der Tag ist je Hilfe eindeutig (Tätigkeitszähler der Fäden, gespeichert): ein im Gefecht zerstörter Verbündeter schreibt den Fakt flotte_<tag> = verloren in den Weltstand,
+  // und flotte.aufstellen gibt für ein „verlorenes“ Tag nie wieder ein Schiff her: derselbe NSC könnte nie mehr helfen
+  const Fz = Faden.zustandVon(game);
+  const tag = 'nsc_' + h.nsc + '_' + (Fz ? Fz.t : 0);
   const es = flotte().aufstellen(game, { tag, kind: W.spontanhilfe.klasse, name: h.schiff, rolle: 'angreifer', von: { x: L.x + Math.cos(a) * W.spontanhilfe.ring, y: L.y + Math.sin(a) * W.spontanhilfe.ring } });
   if (!es) return false;
   h.ally = { tag, kampf: h.versucht };
@@ -194,18 +202,30 @@ function hilfeWeg(game) {
 function hilfeTakt(game) {
   const h = game.fadenHilfe; if (!h) return;
   if (!laeuft(game, h.fadenId, h.beatId)) { hilfeWeg(game); game.fadenHilfe = null; hilfeNaechste(game); return; }   // Frist oder Andocken: der Beat ist nicht mehr da
-  const key = game.simSzene ? 'sim' + game.simSzene.id : (game.fadenSzene && game.fadenSzene.phase === 'kampf' ? 'fs' + game.fadenSzene.id : null);
+  const rg = Reise.gefahrKampf(game);   // Nacharbeit L1: der Kampf einer Reise-Gefahr ist ein Gefecht wie jedes andere
+  const key = game.simSzene ? 'sim' + game.simSzene.id : (game.fadenSzene && game.fadenSzene.phase === 'kampf' ? 'fs' + game.fadenSzene.id : (rg ? 'rg' + rg.nr : null));
   if (h.ally && h.ally.kampf !== key) { hilfeWeg(game); game.fadenHilfe = null; Faden.beatAusgang(game, h.fadenId, 'gelungen'); hilfeNaechste(game); return; }   // das Gefecht ist vorbei: er hat mitgekämpft
   if (!h.ally && key && h.versucht !== key) { h.versucht = key; wuerfeln(game, h); }
 }
 
+// ---------- Zurücksetzen ----------
+// Nacharbeit L3: der Laufzeitzustand gehört zur Partie (nicht zum Weltstand): neues Spiel, Lobby, Laden und Moduswechsel laufen alle über game.reset(), das hier aufruft. Es rührt weder Flotte
+// noch Raum an (beides setzt reset() selbst zurück): ein Verbündeter der alten Partie ruft im neuen Spiel nie flotte().beenden und gibt keinen Funk.
+function zuruecksetzen(game) {
+  game.fadenSzene = null; game.fadenWarte = null; game.fadenHilfe = null; game.fadenHilfeWarte = null; game.fadenSzeneN = 0;
+}
+
 // ---------- Takt ----------
 function update(game) {
+  if (!aktiv(game)) { if (game.fadenSzene || game.fadenWarte || game.fadenHilfe || game.fadenHilfeWarte) zuruecksetzen(game); return; }   // Nacharbeit L3: ohne Schalter und Welt tut der Takt nichts und lässt nichts liegen
   if (!game.fadenSzene && !(game.fadenWarte && game.fadenWarte.length) && !game.fadenHilfe && !(game.fadenHilfeWarte && game.fadenHilfeWarte.length)) return;
   if (game.ship.docked && game.fadenSzene) andockenEnde(game);
   else if (game.simSzene && game.fadenSzene) unterbrechen(game, game.fadenSzene);
   else if (game.fadenSzene && game.fadenSzene.szene !== game.ship.scene) enden(game, game.fadenSzene, 'gescheitert', 'szenenwechsel');
-  else if (game.fadenSzene && game.fadenSzene.phase === 'vorlauf' && game.time >= game.fadenSzene.ab && !game.simSzene) kampfBeginn(game, game.fadenSzene);
+  else if (game.fadenSzene && game.fadenSzene.phase === 'vorlauf' && game.time >= game.fadenSzene.ab && !game.simSzene) {
+    // K1: der Beat läuft noch? (Frist oder ein anderer Weg hat ihn im Vorlauf beendet: kein Kampf für einen Beat, der nicht mehr da ist)
+    if (laeuft(game, game.fadenSzene.fadenId, game.fadenSzene.beatId)) kampfBeginn(game, game.fadenSzene); else aufraeumen(game, game.fadenSzene);
+  }
   else if (game.fadenSzene && game.fadenSzene.phase === 'kampf') kampfTakt(game, game.fadenSzene);
   // Warteschlange: was in einem anderen Sektor geplant war, steht wieder aus
   if (game.fadenWarte && game.fadenWarte.length) {
@@ -244,4 +264,4 @@ function andockenHook(game) {
 // Zustand für Tests und Anzeige
 const zustand = (game) => ({ szene: game.fadenSzene || null, warte: (game.fadenWarte || []).slice(), hilfe: game.fadenHilfe || null });
 
-module.exports = { starten, update, andockenHook, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };
+module.exports = { starten, update, andockenHook, zuruecksetzen, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };

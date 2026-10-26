@@ -462,13 +462,16 @@ function lesen(b, tickZahl) {
   if (!istObjekt(b)) return out;
   const t = Number.isFinite(tickZahl) ? tickZahl : 0;
   if (Array.isArray(b.vorgemerkt)) {
+    let nSab = 0;   // Nacharbeit L12: die Sprengung eines Fadens zählt nicht in vorgemerkt_max der Plan-Befehle (eigene Zählung, gleiche Obergrenze): sie wird beim Laden nie abgeschnitten
     for (const e of b.vorgemerkt) {
-      if (out.vorgemerkt.length >= R.plan.wert.vorgemerkt_max) break;
+      const sab = istObjekt(e) && istObjekt(e.b) && e.b.typ === 'sabotage';
+      if (sab ? nSab >= R.plan.wert.vorgemerkt_max : out.vorgemerkt.length - nSab >= R.plan.wert.vorgemerkt_max) continue;
       if (!istObjekt(e) || !istObjekt(e.b) || typeof e.b.typ !== 'string' || !Object.prototype.hasOwnProperty.call(KATALOG, e.b.typ)) continue;
       const ab = ganz(e.ab, null);
       if (ab == null || ab < 0) continue;
       const eintrag = { b: klon(e.b), ab: Math.min(ab, t + 1 + Math.max(...Object.values(R.vorwarnung.wert.vorlauf), 1)) };
       if (e.w === 1) eintrag.w = 1;
+      if (sab) nSab++;
       out.vorgemerkt.push(eintrag);
     }
   }

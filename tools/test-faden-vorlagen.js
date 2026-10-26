@@ -15,6 +15,7 @@ const LS = require('../server/sim/lage-spielleiter.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Sektoren = require('../shared/sektoren.js');
 const SZ = require('../server/sim/faden-szene.js');
+const P3 = require('../server/sim/faden-p3.js');
 const Bitte = require('../server/sim/faden-bitte.js');
 const Fracht = require('../server/sim/faden-fracht.js');
 const Pruefer = require('../server/sim/faden-pruefer.js');
@@ -347,9 +348,164 @@ async function main() {
     ok((g.fadenHilfeWarte || []).length === 0, 'die Schlange ist leer');
   }
 
+  console.log('\nSprengung (Nacharbeit L12): Ziel ohne Crew-Posten, Reichweite, Hex-Abstand, Entwarnung, Sperre im Plan, Leser');
+  {
+    const Regie = require('../server/sim/regie-befehle.js');
+    const LP = require('../server/sim/lage-prompt.js');
+    const LB = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'flotte', 'lage-befehle.json'), 'utf8'));
+    const REICH = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'p3-texte.json'), 'utf8')).werte.sprengung_reichweite.wert;
+    // eigene Breitensuche (Spruenge ueber die Nachbarn des Rasters), unabhaengig vom Produktivcode
+    const bfs = (a) => { const d = { [a]: 0 }; const q = [a]; while (q.length) { const h = q.shift(); for (const m of Sektoren.nachbarn(h)) if (d[m] === undefined) { d[m] = d[h] + 1; q.push(m); } } return d; };
+    const raster = []; for (let c = 1; c <= Sektoren.KARTE.spalten; c++) for (let r = 1; r <= Sektoren.KARTE.zeilen; r++) raster.push(String(c).padStart(2, '0') + String(r).padStart(2, '0'));
+    const hexe = (g) => g.weltsim.zustand.hexe;
+    const ohnePosten = (g) => { for (const k of Object.keys(hexe(g))) if (hexe(g)[k].posten) { hexe(g)[k].posten = false; delete hexe(g)[k].crew; } };
+    const setze = (g, code, crew) => { const nd = hexe(g)[code]; nd.besitzer = 'rom'; nd.posten = true; if (crew) nd.crew = true; else delete nd.crew; };
+    const frei = (g) => Object.keys(hexe(g)).filter((c) => Dat.datenVon(g.weltsim.zustand).hex[c].hafen === '').sort();   // Hexe ohne Hafen: dort kann ein Posten liegen
+    const erwartet = (g, ort) => { const d = bfs(ort); let best = null, bd = Infinity; for (const c of Object.keys(hexe(g)).sort()) { const nd = hexe(g)[c]; if (!nd.posten || nd.besitzer !== 'rom' || nd.crew === true || d[c] === undefined || d[c] > REICH) continue; if (d[c] < bd) { best = c; bd = d[c]; } } return best; };
+
+    {   // die ganze Karte: fuer jeden Ort des Rasters stimmt das Ziel mit der eigenen Rechnung ueberein (Posten Roms und der Crew gemischt)
+      const g = neu(131);
+      ohnePosten(g);
+      frei(g).forEach((c, i) => setze(g, c, i % 3 === 0));
+      let falsch = 0, treffer = 0;
+      for (const o of raster) { const e = erwartet(g, o), z = P3.ziel(g, o); if (e !== z) falsch++; if (z) treffer++; }
+      ok(raster.length > 60 && treffer > 20 && falsch === 0, 'Ziel der Sprengung fuer jeden Ort des Rasters wie die eigene Rechnung (' + raster.length + ' Orte, ' + treffer + ' mit Ziel, ' + falsch + ' abweichend)');
+    }
+    {   // kein Posten der Crew als Ziel
+      const g = neu(132);
+      ohnePosten(g);
+      const P = '0603', Q = '0605';
+      const dp = bfs(P), dq = bfs(Q);
+      const ort = raster.filter((c) => dp[c] === 1 && dq[c] > 1).sort()[0];
+      ok(!!ort, 'Testwelt: ein Ort neben dem Posten ' + P + ', weiter weg vom Posten ' + Q + ' (' + ort + ')');
+      setze(g, P, true); setze(g, Q, false);
+      ok(P3.ziel(g, ort) === Q, 'der naehere Posten gehoert der Crew: nicht das Ziel, der Posten Roms dahinter ist es (' + P3.ziel(g, ort) + ')');
+      hexe(g)[Q].posten = false;
+      ok(P3.ziel(g, ort) === null, 'nur der Posten der Crew in Reichweite: kein Ziel');
+      const funk = funkMit(g);
+      const r = Regie.fadenSabotage(g, P);
+      ok(r.ok === false && /Crew/.test(r.grund || ''), 'auch der Kern-Pruefer lehnt einen Posten der Crew ab (' + r.grund + ')');
+      ok(g.weltsim.regie.vorgemerkt.length === 0 && funk.length === 0, 'nichts vorgemerkt, keine Vorwarnung');
+    }
+    {   // Reichweite (Hex-Abstand): genau REICH ist ein Ziel, REICH + 1 nicht
+      const g = neu(133);
+      ohnePosten(g);
+      const P = '0603';
+      const d = bfs(P);
+      const gerade = raster.filter((c) => d[c] === REICH).sort()[0], zuweit = raster.filter((c) => d[c] === REICH + 1).sort()[0];
+      ok(!!gerade && !!zuweit, 'Testwelt: Orte im Abstand ' + REICH + ' (' + gerade + ') und ' + (REICH + 1) + ' (' + zuweit + ') vom Posten ' + P);
+      setze(g, P, false);
+      ok(P3.ziel(g, zuweit) === null, 'ein Posten im Abstand ' + (REICH + 1) + ': ausserhalb der Reichweite, kein Ziel');
+      ok(P3.ziel(g, gerade) === P, 'ein Posten im Abstand ' + REICH + ': Ziel');
+    }
+    {   // Hex-Abstand statt Luftlinie ueber Spalten und Zeilen: bei gleichem Hex-Abstand gewinnt der kleinere Code, nicht die kuerzere Luftlinie
+      const g = neu(134);
+      ohnePosten(g);
+      const teile = (h) => ({ c: Number(h.slice(0, 2)), r: Number(h.slice(2)) });
+      let paar = null;
+      for (const ort of raster) {
+        const d = bfs(ort), luft = (h) => Math.hypot(teile(h).c - teile(ort).c, teile(h).r - teile(ort).r);
+        const ks = Object.keys(hexe(g)).sort().filter((c) => d[c] >= 1 && d[c] <= REICH);
+        for (const a of ks) for (const b of ks) if (!paar && d[a] === d[b] && b < a && luft(a) < luft(b)) paar = { ort, a, b };
+      }
+      ok(!!paar, 'Testwelt: zwei Posten im gleichen Hex-Abstand, der mit dem groesseren Code hat die kuerzere Luftlinie (Ort ' + (paar && paar.ort) + ': ' + (paar && paar.a) + ' und ' + (paar && paar.b) + ')');
+      if (paar) { setze(g, paar.a, false); setze(g, paar.b, false); ok(P3.ziel(g, paar.ort) === paar.b, 'gleicher Hex-Abstand: der kleinere Code gewinnt (' + P3.ziel(g, paar.ort) + '), nicht die kuerzere Luftlinie (' + paar.a + ')'); }
+    }
+    {   // kein Ziel in der Enthuellung (nur Posten der Crew): der Beat scheitert mit Funk
+      const g = neu(135);
+      ohnePosten(g);
+      for (const c of frei(g)) setze(g, c, true);
+      const funk = funkMit(g);
+      const a = notrufOhneOrt(g, 'notruf_havarie_konvoi', '0305', 'gelungen');
+      Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
+      const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
+      f.hinweise = ['h_gerucht', 'h_papiere']; f.beat = 2; f.phase = 'wartet'; f.zaehler = f.abstand;
+      ok(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_enthuell' }).ok && f.nsc.status === 'geflohen' && f.beat === 3, 'nur Posten der Crew: die Enthuellung scheitert (der NSC flieht, der Faden geht den anderen Weg)');
+      ok(funk.some((x) => /zündet nicht/.test(String(x.text))) && g.weltsim.regie.vorgemerkt.length === 0, 'Funk: die Sprengladung zuendet nicht; nichts vorgemerkt');
+    }
+    // Entwarnung: die angekuendigte Sprengung kommt nicht
+    const eintrag = LB.entwarnung.sabotage;
+    const ewText = (z) => eintrag.text.replace('{ziel}', Sektoren.hexName(z) || z);
+    const mitPosten = (seed) => { const g = neu(seed); ohnePosten(g); setze(g, '0603', false); return { g, p: '0603' }; };
+    {
+      const { g, p } = mitPosten(136);
+      const funk = funkMit(g);
+      const r = Regie.fadenSabotage(g, p);
+      ok(r.ok === true && funk.length === 1 && /Sprengladung/.test(funk[0].text) && !/Entwarnung/.test(funk[0].text), 'Vorwarnung der Sprengung (Aufklaerung)');
+      Regie.rueckfall(g, 'Ausfall des Spielleiters');
+      const ew = funk.slice(1).find((x) => /Entwarnung/.test(String(x.text)));
+      ok(!!ew && ew.text === ewText(p) && ew.from === eintrag.sprecher, 'Ausfall des Spielleiters: die verworfene Sprengung bekommt ihre Entwarnung (Text aus den Daten): ' + (ew && ew.text));
+      ok(g.weltsim.regie.vorgemerkt.length === 0, 'die Sprengung ist verworfen');
+    }
+    {
+      const { g, p } = mitPosten(137);
+      const funk = funkMit(g);
+      ok(Regie.fadenSabotage(g, p).ok, 'Sprengung vorgemerkt');
+      hexe(g)[p].besitzer = 'ger';   // der Posten faellt vor dem Tick anderweitig
+      for (let i = 0; i < 4; i++) Kriegslage.tick(g, 'test');
+      const ew = funk.find((x) => /Entwarnung/.test(String(x.text)));
+      ok(!!ew && ew.text === ewText(p), 'im Tick abgelehnt (Posten gehoert nicht mehr Rom): Entwarnung (' + (ew && ew.text) + ')');
+      ok(g.weltsim.regie.vorgemerkt.length === 0, 'nichts mehr vorgemerkt');
+    }
+    {   // die Sprengung steht nie im Plan des Spielleiters
+      const { g, p } = mitPosten(138);
+      const r = Regie.planAnwenden(g, { befehle: [{ typ: 'sabotage', ort: p }], begruendung: 'Probe' });
+      ok(r.angenommen.length === 0 && r.abgelehnt.length === 1 && /nur aus einer Enthüllung/.test(r.abgelehnt[0].grund), 'Plan mit sabotage: abgelehnt (' + (r.abgelehnt[0] && r.abgelehnt[0].grund) + ')');
+      ok(g.weltsim.regie.vorgemerkt.length === 0, 'nichts vorgemerkt, keine Rate verbraucht (' + g.weltsim.regie.rate.length + ')');
+      ok(!/sabotage/i.test(LP.katalogText()), 'der Katalogtext des Spielleiters kennt die Sprengung nicht');
+    }
+    {   // Leser: die Sprengung wird nie ueber vorgemerkt_max abgeschnitten
+      const max = Regie.R.plan.wert.vorgemerkt_max;
+      const eins = (typ, i) => Object.assign({ b: typ === 'sabotage' ? { typ, ort: '0603' } : { typ: 'verstaerken', fraktion: 'rom', ort: '0302', menge: i }, ab: 5 + i }, typ === 'sabotage' ? { w: 1 } : {});
+      const normal = Array.from({ length: max + 3 }, (_, i) => eins('verstaerken', i));
+      const L1 = Regie.lesen({ vorgemerkt: normal.concat([eins('sabotage', 0)]) }, 4).vorgemerkt;
+      ok(L1.filter((e) => e.b.typ !== 'sabotage').length === max && L1.filter((e) => e.b.typ === 'sabotage').length === 1, 'Leser: ' + max + ' normale Befehle und die Sprengung dahinter bleiben (' + L1.length + ' Eintraege)');
+      const L2 = Regie.lesen({ vorgemerkt: Array.from({ length: max + 4 }, (_, i) => eins('sabotage', i)) }, 4).vorgemerkt;
+      ok(L2.length === max && L2.every((e) => e.b.typ === 'sabotage'), 'Leser: auch die Sprengungen haben eine Obergrenze (' + L2.length + ')');
+    }
+  }
+
+  console.log('\nNotruf-Beat: mehrere Notrufe gleichzeitig, Speichern und Laden mitten im Notruf');
+  {
+    const v = D.vorlage('entfuehrter_haendler');
+    const nb = v.beats[0];
+    ok(nb.typ === 'notruf', 'Vorlage: der erste Beat ist der Notruf');
+    const naechster = v.beats.findIndex((b) => b.id === nb.aus.gelungen.weiter);   // Erwartung aus den Daten: wohin ein gelungener Notruf fuehrt
+    const oeffneNotruf = (g, hex) => { const a = notrufOhneOrt(g, 'notruf_pirat_haendler', hex, 'gelungen'); const r = Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'entfuehrter_haendler', parameter: { angebot: a.nr } }); return r.faden; };
+    const starte = (g, f) => { X.grenzen(g, f.abstand, 'andocken'); return Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: nb.id }); };
+    {   // zwei Notrufe zugleich (je Faden), jeder endet an seinem Ort
+      const g = neu(121);
+      const f1 = oeffneNotruf(g, '0403'), f2 = oeffneNotruf(g, '0203');
+      ok(!!f1 && !!f2 && f1.id !== f2.id, 'zwei Faeden mit je eigenem Notruf-Ort');
+      ok(starte(g, f1).ok && starte(g, f2).ok && f1.phase === 'laeuft' && f2.phase === 'laeuft', 'beide Notruf-Beats laufen gleichzeitig');
+      g.ship.scene = scene('0403'); P3.update(g);
+      ok(f1.phase === 'wartet' && f1.beat === naechster && f2.phase === 'laeuft', 'Ankunft am ersten Ort: nur der erste Notruf gelingt, der zweite laeuft weiter (kein Platz, der ueberschrieben wird)');
+      g.ship.scene = scene('0203'); P3.update(g);
+      ok(f2.phase === 'wartet' && f2.beat === naechster, 'Ankunft am zweiten Ort: auch der zweite Notruf gelingt');
+      ok(!('fadenNotruf' in g), 'kein eigener Laufzeitzustand neben dem Faden');
+      // ein Faden, dessen laufender Beat nicht zum Beat der Vorlage passt (kaputter Stand): kein Notruf, keine Ankunft zaehlt
+      const g5 = neu(123); const f5 = oeffneNotruf(g5, '0403'); starte(g5, f5); f5.laufend.beat = 'b_fremd';
+      g5.ship.scene = scene('0403'); P3.update(g5);
+      ok(f5.phase === 'laeuft' && f5.laufend.beat === 'b_fremd', 'laufender Beat passt nicht zur Vorlage: die Ankunft laesst nichts gelingen');
+    }
+    {   // Speichern und Laden mitten im Notruf-Beat
+      const g = neu(122);
+      const f = oeffneNotruf(g, '0403');
+      ok(starte(g, f).ok && f.phase === 'laeuft', 'der Notruf-Beat laeuft');
+      X.grenzen(g, 2, 'andocken');
+      const blk = JSON.parse(JSON.stringify(Faden.toSave(g.weltsim)));
+      const F2 = Faden.lesen(blk);
+      const f2 = F2.liste[0];
+      ok(f2.phase === 'laeuft' && f2.laufend && f2.laufend.beat === nb.id && f2.laufend.n === f.laufend.n, 'nach dem Laden laeuft der Notruf-Beat weiter (Beat und Fristzaehler bleiben)');
+      g.weltsim.faeden = F2;   // der geladene Stand ersetzt den laufenden
+      g.ship.scene = scene('0403'); P3.update(g);
+      ok(f2.phase === 'wartet' && f2.beat === naechster && f2.nsc.gedaechtnis.some((x) => x.ereignis === 'notruf_gelungen'), 'nach dem Laden: die Ankunft am Ort laesst den Notruf gelingen (nicht an der Frist gescheitert)');
+    }
+  }
+
   console.log(`\n${n - fails}/${n} Pruefungen ok`);
   if (fails) { console.log('FADEN-VORLAGEN FEHLER: ' + fails); process.exit(1); }
   console.log('FADEN-VORLAGEN OK');
 }
 
-main().catch((e) => { console.log('FEHLER Ausnahme: ' + (e && e.stack)); process.exit(1); });
+main().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });

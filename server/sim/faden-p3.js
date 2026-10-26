@@ -6,17 +6,26 @@
 //               Ausgang gelungen, wenn das Schiff den Ort erreicht (update, Takt aus reise-ereignis), gescheitert, wenn die Frist des Beats abläuft (Faden-Takt).
 //               Der Text erinnert sich: hat der NSC im Gedaechtnis ein Ereignis aus p3-texte.json (erinnert), spricht er es an.
 //   enthuellung (Beat „enthuellung“) Die verborgene Wahrheit kommt heraus (Funk, nsc.wahrheit.offenbart setzt faden.js). Die Folge ist eine germanische Sprengung eines
-//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage: Prüfung, Rate, Vorwarnung und Vorlauf wie bei den Befehlen des Spielleiters).
-//               Gelungen, wenn die Sprengung angekündigt ist; gescheitert, wenn es keinen gültigen Posten gibt oder die Rate voll ist (Fallback: der Faden ändert sich, Funk und Chronik).
+//               römischen Postens in der Nähe des Ortes (Sim-Befehl sabotage, regie-befehle fadenSabotage). Was für die Sprengung gilt (Nacharbeit L12, so im Code):
+//                 Ziel     der nächste römische Posten (nie ein Hafen, NIE ein Posten der Crew) innerhalb von sprengung_reichweite Sprüngen (Daten p3-texte.json, Hex-Abstand
+//                          über shared/sektoren.js hexAbstand), bei Gleichstand der kleinere Code. Der Vorwarntext `sabotage_stuetzpunkt` entfällt: ein Posten der Crew ist kein Ziel.
+//                 Prüfung  der Kern-Prüfer (server/weltsim/befehle.js sabotage) und Vorwarnung mit Vorlauf (regie-werte.json vorwarnung.sabotage, Text in lage-befehle.json), wie bei den
+//                          Befehlen des Spielleiters; Entwarnung (lage-befehle.json entwarnung.sabotage), wenn die Sprengung verfällt (Ausfall, im Tick abgelehnt, Tick gescheitert).
+//                 Rate     KEINE: ein Faden-Befehl zählt nie gegen die Rate der Plan-Befehle und hat keine Abkühlzeit (regie-werte.json abkuehlung.sabotage = 0).
+//                 Obergrenze wartender Befehle: vorgemerkt_max gilt nicht beim Vormerken der Sprengung; der Leser (regie-befehle lesen) schneidet sie nie über vorgemerkt_max ab.
+//               Gelungen, wenn die Sprengung angekündigt ist; gescheitert, wenn es kein gültiges Ziel gibt oder der Kern die Sprengung ablehnt (Fallback: der Faden ändert sich, Funk und Chronik).
 //   abschluss   (letzter Beat) Der Faden endet. Ausgang gelungen: die Crew hat den Faden zu Ende gespielt (auch wenn der NSC dabei gefallen ist: der Text sagt es).
 //               Gedächtnis, Ruf und Haltung schreiben die Ausgänge der Vorlage (Wirkungen aus den Daten, faden.js beatAusgang). Ein Abschluss scheitert nie.
 //
-//   update(game)  Takt (Aufrufer: reise-ereignis.update). Wartet auf die Ankunft des Notrufs (game.fadenNotruf { fadenId, beatId, hex }); verwaiste Notrufe fallen weg.
+//   update(game)  Takt (Aufrufer: reise-ereignis.update). Wartet auf die Ankunft am Ort JEDES laufenden Notruf-Beats. Nacharbeit L8: es gibt keinen eigenen Laufzeitzustand mehr (früher game.fadenNotruf,
+//                 ein Platz, nicht gespeichert): der Faden SELBST (phase laeuft, laufender Beat vom Baustein notruf, gespeichert) ist der Zustand, der Ort kommt aus dem Beat (parameter.hex) oder dem
+//                 Faden (parameter.ort). Mehrere Notrufe laufen gleichzeitig (je Faden), und ein Notruf-Beat überlebt Speichern und Laden (die Frist zählt weiter).
 //   Texte: content/faeden/p3-texte.json.
 const Sektoren = require('../../shared/sektoren.js');
 const TX = require('../../content/faeden/p3-texte.json');
 const T = TX.texte, W = TX.werte;
 const HEX = /^\d{4}$/;
+const D = require('./faden-daten.js');
 const Faden = () => require('./faden.js');
 const Bitte = () => require('./faden-bitte.js');
 const Regie = () => require('./regie-befehle.js');
@@ -52,39 +61,47 @@ const notruf = {
     const f = sagen(game, nsc, text);
     if (!f) return { ausgang: 'gescheitert' };
     for (const h of ctx.beat.hinweise || []) Faden().hinweisGezeigt(game, faden.id, h);   // der Notruf ist gesendet: die Hinweise des Beats gelten
-    game.fadenNotruf = { fadenId: faden.id, beatId: ctx.beat.id, hex };
     logbuch(game, 'faden_baustein', { ausgang: 'notruf', key: 'notruf', begruendung: `Notruf von ${nsc.name} bei ${hexName(hex)}`, plan: { faden: faden.id, beat: ctx.beat.id, hex, text: key } });
     return { laeuft: true };
   },
 };
 
-// Takt: die Ankunft am Ort beendet den Notruf gelungen; ein Notruf, dessen Beat nicht mehr laeuft, faellt weg (die Frist hat ihn beendet)
+// Ort eines laufenden Notruf-Beats (Beat-Parameter hex, sonst der Ort des Fadens); null, wenn der Beat des Fadens kein laufender Notruf ist
+function notrufOrt(f) {
+  if (!f || f.phase !== 'laeuft' || !f.laufend) return null;
+  const v = D.vorlage(f.vorlage), beat = v && v.beats[f.beat];
+  if (!beat || beat.id !== f.laufend.beat || !D.BEATS[beat.typ] || D.BEATS[beat.typ].baustein !== 'notruf') return null;
+  if (require('./faden-bausteine.js').vonId('notruf') !== notruf) return null;   // nur der echte Baustein wartet auf die Ankunft (ein Platzhalter der Tests tut nichts, wie der Beat selbst)
+  const p = beat.parameter || {};
+  const hex = typeof p.hex === 'string' && HEX.test(p.hex) ? p.hex : (f.parameter && f.parameter.ort);
+  return hex && HEX.test(hex) ? hex : null;
+}
+// Takt: die Ankunft am Ort beendet einen laufenden Notruf gelungen (jeden, auch mehrere zugleich); die Frist des Beats beendet ihn gescheitert (faden.js)
 function update(game) {
-  const N = game && game.fadenNotruf;
-  if (!N) return;
+  if (!game || !game.ship || !Faden().aktiv(game)) return;
   const F = Faden().zustandVon(game);
-  const f = F && F.liste.find((x) => x.id === N.fadenId);
-  if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.beat !== N.beatId) { game.fadenNotruf = null; return; }
-  if (!game.ship) return;
-  if (Sektoren.hexVonOrt(game.ship.scene) !== N.hex) return;
-  game.fadenNotruf = null;
-  const nsc = nscVon(game, f.nsc.id) || f.nsc;
-  sagen(game, nsc, fmt(T.notruf_dank, { name: nsc.name }));
-  Faden().beatAusgang(game, f.id, 'gelungen');
+  const hier = Sektoren.hexVonOrt(game.ship.scene);
+  if (!hier) return;
+  for (const f of F.liste.slice()) {
+    if (notrufOrt(f) !== hier) continue;
+    const nsc = nscVon(game, f.nsc.id) || f.nsc;
+    sagen(game, nsc, fmt(T.notruf_dank, { name: nsc.name }));
+    Faden().beatAusgang(game, f.id, 'gelungen');
+  }
 }
 
 // ---------- enthuellung
-// Der Posten Roms, der dem Ort am nächsten liegt (Abstand im Hex-Raster, bei Gleichstand der kleinere Code). Keiner: null.
+// Der Posten Roms, der dem Ort am nächsten liegt (Hex-Abstand in Sprüngen, höchstens sprengung_reichweite; bei Gleichstand der kleinere Code). Nie ein Posten der Crew. Keiner: null.
 function ziel(game, ort) {
   const ws = game.weltsim && game.weltsim.zustand;
   if (!ws || !HEX.test(ort || '')) return null;
-  const teile = (h) => ({ c: Number(h.slice(0, 2)), r: Number(h.slice(2)) });
-  const p = teile(ort);
+  const reichweite = W.sprengung_reichweite.wert;
   let best = null, bd = Infinity;
   for (const code of Object.keys(ws.hexe).sort()) {
     const nd = ws.hexe[code];
-    if (!nd.posten || nd.besitzer !== 'rom') continue;   // ein Posten liegt nie auf einem Hafen
-    const q = teile(code), d = Math.hypot(q.c - p.c, q.r - p.r);
+    if (!nd.posten || nd.besitzer !== 'rom' || nd.crew === true) continue;   // ein Posten liegt nie auf einem Hafen; ein Posten der Crew ist kein Ziel
+    const d = Sektoren.hexAbstand(ort, code);
+    if (d === null || d > reichweite) continue;
     if (d < bd) { best = code; bd = d; }
   }
   return best;

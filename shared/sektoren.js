@@ -70,6 +70,15 @@
   }
   function a1(h) { const p = teile(h); return !!p && p.c >= 1 && p.r >= 1; }
   function sindNachbarn(a, b) { return nachbarn(a).includes(b); }
+  // SUND-04a-2 Nacharbeit L12: Abstand zweier Hexe in Sprüngen (kürzester Weg im Raster über die sechs Nachbarn, unabhängig von den Kanten der Karte); null bei einem ungültigen Code.
+  // Spalten und Zeilen zählen ab 1; ungerade Spalten liegen oben (wie nachbarn): Würfelkoordinaten aus dem Versatz (odd-q mit nullbasiertem Index).
+  function hexAbstand(a, b) {
+    const p = teile(a), q = teile(b);
+    if (!p || !q) return null;
+    const w = (h) => { const x = h.c - 1, y = h.r - 1; const z = y - (x - (x & 1)) / 2; return { x, z, y: -x - z }; };
+    const u = w(p), v = w(q);
+    return Math.max(Math.abs(u.x - v.x), Math.abs(u.y - v.y), Math.abs(u.z - v.z));
+  }
   function kanteId(a, b) { return String(a) < String(b) ? a + '-' + b : b + '-' + a; }
   function kanteAusId(id) {
     const m = /^(\d{4})-(\d{4})$/.exec(String(id || ''));
@@ -196,7 +205,7 @@
   }
 
   Object.assign(api, {
-    LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, kanteId, kanteAusId, kante, kantenVon, anderes,
+    LEER_PREFIX, setzeKarte, beiKarte, nachbarn, sindNachbarn, hexAbstand, kanteId, kanteAusId, kante, kantenVon, anderes,
     hexZuPixel, pixelZuHex, richtung, winkel, sprungpunktLage, imRaster, hexDaten, istLeerraum, spielbar, region, sperrtext,
     hexName, istLeerId, hexVonOrt, ortVonHex, leerraumOrt, datenOrt, datenOrte, fuerClient,
     startOrt, bekanntBeiStart, bodenStart, vorerkundetBeiStart, istVerborgen, kartenId,

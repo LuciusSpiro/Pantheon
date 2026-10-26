@@ -394,6 +394,21 @@ function main() {
     ok((raw.welt.verbindungen_offen || []).includes('kesh') === ex.kanteOffen('0205-0206'), `${f}: offen aus verbindungen_offen`);
   }
 
+  console.log('\nhexAbstand: Sprünge im Raster (SUND-04a-2 Nacharbeit L12), gegen eine eigene Breitensuche über nachbarn');
+  {
+    const K = Sektoren.KARTE;
+    const code = (c, r) => String(c).padStart(2, '0') + String(r).padStart(2, '0');
+    const alle = []; for (let c = 1; c <= K.spalten; c++) for (let r = 1; r <= K.zeilen; r++) alle.push(code(c, r));
+    const bfs = (a) => { const d = { [a]: 0 }; const q = [a]; while (q.length) { const h = q.shift(); for (const m of Sektoren.nachbarn(h)) if (d[m] === undefined) { d[m] = d[h] + 1; q.push(m); } } return d; };
+    const start = [code(1, 1), code(1, 2), code(2, 1), code(K.spalten, K.zeilen), code(K.spalten, 1), code(1, K.zeilen), code(3, 3), code(4, 4), code(Math.ceil(K.spalten / 2), Math.ceil(K.zeilen / 2)), code(5, 2), code(6, 7), code(K.spalten - 1, 3)].filter((h) => alle.includes(h));
+    let paare = 0, falsch = 0, bsp = null;
+    for (const a of start) { const d = bfs(a); for (const b of alle) { if (d[b] === undefined) continue; paare++; if (Sektoren.hexAbstand(a, b) !== d[b]) { falsch++; bsp = bsp || a + '->' + b + ' ' + Sektoren.hexAbstand(a, b) + ' statt ' + d[b]; } } }
+    ok(paare > 300 && falsch === 0, 'Abstand = kuerzester Weg ueber die Nachbarn (' + paare + ' Paare, ' + falsch + ' falsch' + (bsp ? ', z. B. ' + bsp : '') + ')');
+    ok(Sektoren.hexAbstand('0305', '0305') === 0 && Sektoren.nachbarn('0305').every((h) => Sektoren.hexAbstand('0305', h) === 1), 'Abstand 0 zu sich, 1 zu jedem Nachbarn');
+    ok(Sektoren.hexAbstand('0305', '0403') === Sektoren.hexAbstand('0403', '0305'), 'symmetrisch');
+    ok(Sektoren.hexAbstand('abcd', '0305') === null && Sektoren.hexAbstand('0305', null) === null && Sektoren.hexAbstand(1, 2) === null, 'ungueltiger Code: null');
+  }
+
   console.log(`\n${n - fails}/${n} Prüfungen bestanden.`);
   try { fs.rmSync(ROOT_TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
   if (fails) { console.log(`${fails} FEHLER.`); process.exit(1); }

@@ -146,13 +146,13 @@ const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) 
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });
 // Erkannt = ein Test ist mit FEHLER-Zeilen rot (eine Prüfung schlägt fehl). Ein Lauf ohne FEHLER-Zeile bei Exit != 0 ist ein ABSTURZ (SyntaxError,
 // Laufzeitfehler der Mutante): wird getrennt ausgewiesen und NICHT als erkannt gezählt.
-const fehlerZeilen = (r) => ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
+const fehlerZeilen = (r) => ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l));
 let ueberlebt = 0, gelaufen = 0, erkannt = 0, abstuerze = 0;
 console.log(`Mutationsprobe test-zielsysteme.js, test-verfolgung.js, test-verfolgung-bot.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);
 for (const t of TESTS) {
   const basis = lauf(t);
   console.log(`  Ausgangslage ${t.join(' ')}: ${basis.status === 0 ? 'grün' : 'ROT (Abbruch)'}`);
-  if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l) => /FEHLER/.test(l)).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
+  if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l)).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
 }
 for (const [datei, alt, neu, was] of MUTATIONEN) {
   if (FILTER.length && !FILTER.some((f) => was.toLowerCase().includes(f))) continue;

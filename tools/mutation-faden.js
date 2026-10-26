@@ -132,7 +132,7 @@ console.log(`Mutationsprobe test-faden-pruefer.js, test-faden-zustand.js, test-f
 for (const t of TESTS) {
   const basis = lauf(t);
   console.log(`  Ausgangslage ${t.join(' ')}: ${basis.status === 0 ? 'gruen' : 'ROT (Abbruch)'}`);
-  if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l) => /FEHLER/.test(l)).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
+  if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l)).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
 }
 for (const [datei, alt, neu, was] of MUTATIONEN) {
   if (FILTER.length && !FILTER.some((f) => was.toLowerCase().includes(f))) continue;
@@ -147,7 +147,7 @@ for (const [datei, alt, neu, was] of MUTATIONEN) {
   for (const t of TESTS) {
     const r = lauf(t);
     if (r.status === 0) continue;
-    const fz = ((r.stdout || '').split('\n')).filter((l) => /FEHLER/.test(l));
+    const fz = ((r.stdout || '').split('\n')).filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l));
     if (fz.length) { wer = path.basename(t[0], '.js').replace('test-', ''); fehler = fz; break; }
     if (!absturz) absturz = { test: path.basename(t[0], '.js'), text: ((r.stderr || '') + (r.stdout || '')).split('\n').filter((l) => /Error|    at /.test(l)).slice(0, 1).join(' ').trim().slice(0, 120) || `Exit ${r.status}` };
   }
