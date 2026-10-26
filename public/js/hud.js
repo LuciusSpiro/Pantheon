@@ -136,7 +136,32 @@
       return null;
     },
     // EK4: Funkporträt (legat) bzw. Symbol (mars, kein Gesicht) in einem Feld w×w bei (x, y); ohne Kennung nichts (false)
+    // SUND-04a-2 P2: Porträt eines Fadens (pid f:<Variante 0..5>:<rom|ger|kon>, Daten: faden-bitte.js portraetPid). Einfacher Kopf im Stil von legat/mars: die Variante bestimmt
+    // Haar, Helm, Kappe, Bart bzw. Kapuze (die Form trägt die Information), die Fraktion die Schulter (Farbe allein trägt nie)
+    drawPortraetFaden(ctx, pid, x, y, w) {
+      const m = typeof pid === 'string' ? /^f:([0-5]):(rom|ger|kon)$/.exec(pid) : null;
+      if (!m) return false;
+      const v = Number(m[1]), fr = m[2];
+      const u = w / 24;
+      ctx.save(); ctx.translate(Math.round(x), Math.round(y));
+      ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(0, 0, w, w);
+      const r = (a, b, c, d, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(a * u), Math.round(b * u), Math.max(1, Math.round(c * u)), Math.max(1, Math.round(d * u))); };
+      const SKIN = '#E8C9A0', HAAR = '#3B2A1E', MESSING = '#C9974A', FARBE = { rom: '#7A2420', ger: '#4D5A3A', kon: '#2D4F6E' }[fr];
+      r(3, 20, 18, 4, FARBE);
+      r(8, 16, 8, 4, SKIN);
+      r(7, 7, 10, 10, SKIN);
+      r(9, 11, 2, 2, '#0B0E1A'); r(13, 11, 2, 2, '#0B0E1A');
+      if (v === 0) { r(6, 4, 12, 4, HAAR); r(6, 6, 2, 2, HAAR); r(16, 6, 2, 2, HAAR); }
+      else if (v === 1) { r(5, 3, 14, 5, MESSING); r(11, 0, 2, 3, FARBE); }
+      else if (v === 2) { r(6, 4, 12, 4, '#2A3A52'); r(4, 8, 16, 1, '#2A3A52'); }
+      else if (v === 3) { r(6, 4, 12, 4, '#5A3E2B'); r(6, 8, 2, 10, '#5A3E2B'); r(16, 8, 2, 10, '#5A3E2B'); }
+      else if (v === 4) { r(7, 14, 10, 4, '#6B4A33'); }
+      else { r(4, 3, 16, 6, '#3E3E4A'); r(5, 8, 2, 8, '#3E3E4A'); r(17, 8, 2, 8, '#3E3E4A'); }
+      ctx.restore();
+      return true;
+    },
     drawFunkBild(ctx, pid, x, y, w) {
+      if (typeof pid === 'string' && pid.charAt(0) === 'f') return this.drawPortraetFaden(ctx, pid, x, y, w);
       if (pid !== 'legat' && pid !== 'mars') return false;
       const u = w / 24;   // Rastereinheit
       ctx.save(); ctx.translate(Math.round(x), Math.round(y));

@@ -3,6 +3,8 @@
 //   beantwortet, verfallen oder die Lage nicht mehr ruhig; welcome und die Lobby leeren ebenfalls). Gleich für alle Spieler (nur der Server schreibt, die ERSTE Antwort gilt).
 // Action: modell() -> null | { nr, von, optionen: [{ id, text }] (2 bis 3), ignorieren, rest }, müll-fest (ohne Block keine Anzeige, kein Platzhalter). antworten(send, id) sendet funk.antworten,
 //   der Server entscheidet alles (Folgen, Reaktion des Sprechers, „schon beantwortet“).
+// SUND-04a-2 P2: dieselbe Leiste zeigt auch die BITTE eines Fadens (world.bitte { nr, von, pid?, text, optionen, kopf, spaeter, rest }): Kopf „BITTE · <Name>“, Porträt in der Plakette (pid f:<Variante>:<Fraktion>),
+//   Zeilen = die Optionen plus „Später“ (nur zuklappen, kein Befehl). Eine Bitte verdrängt die Funk-Antwort in der Anzeige (der Server hält höchstens eine davon offen). Sendet funk.antworten bzw. faden.bitte.
 // Frontend: zeichne(ctx, view) zeichnet die Antwortleiste im Pult-/HUD-Stil (Messingrahmen wie die Funkplakette, Funk ist neutral: keine Signalfarbe) über allem, mit Knöpfen (Maus) und einer freien Taste
 //   (Tasten.js: allgemein.funkWaehlen = Punkt markiert die nächste Option, allgemein.funkSenden = Umschalt+Punkt sendet die markierte). Kein Zeitdruck: nichts blinkt, nichts läuft ab außer dem Verfall in Sprüngen. „Später“ klappt die Leiste für diesen Spieler zu einem schmalen Streifen zusammen (sie deckt sonst Konsolenfläche), „Nicht antworten“ schließt das Angebot für alle.
 (function (root, factory) {
@@ -14,14 +16,15 @@
   const VW = 640, VH = 360;
   const BREITE = 240, ZEILE = 14, UNTEN = 8, RAND = 12, SCHIRM_ABSTAND = 8;   // Breite (längste Option 60 Zeichen passt gekürzt, Kopf und Hinweiszeile messen sich selbst), Knopfhöhe, Abstand zum unteren Rand (Bord) bzw. zum Schirmrand (Konsole)
   const BEDIENFLAECHEN = ['technik', 'captain', 'shop'];   // Konsolen, deren Schirm Bedienflächen trägt (Knöpfe, Kacheln, Eingaben; gemessen mit tools/messe-funk-flaechen.js, bewiesen in tools/test-ui-03b.js): dort erscheint das Angebot zuerst nur als Streifen
-  const store = { funkwahl: null, markiert: -1, nr: null, eingeklappt: false, geoeffnetBei: null, konsole: null, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
+  const store = { funkwahl: null, bitte: null, bKey: null, markiert: -1, nr: null, eingeklappt: false, geoeffnetBei: null, konsole: null, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
 
   function lesen(msg) {
     if (!msg || typeof msg !== 'object') return;
-    if (msg.t === 'welcome') { zuruecksetzen(null); return; }   // neue Verbindung: der Server sendet den Block neu (sentFunkKey wird zurückgesetzt)
+    if (msg.t === 'welcome') { zuruecksetzen(null); bitteSetzen(null); return; }   // neue Verbindung: der Server sendet den Block neu (sentFunkKey wird zurückgesetzt)
     if (msg.t !== 'snap') return;
-    if (msg.phase === 'lobby') { zuruecksetzen(null); return; }
+    if (msg.phase === 'lobby') { zuruecksetzen(null); bitteSetzen(null); return; }
     if (msg.world && Object.prototype.hasOwnProperty.call(msg.world, 'funkwahl')) zuruecksetzen(msg.world.funkwahl && typeof msg.world.funkwahl === 'object' ? msg.world.funkwahl : null);
+    if (msg.world && Object.prototype.hasOwnProperty.call(msg.world, 'bitte')) bitteSetzen(msg.world.bitte && typeof msg.world.bitte === 'object' ? msg.world.bitte : null);   // SUND-04a-2 P2: null = Löschsignal
   }
   function zuruecksetzen(block) {
     const neuNr = block && Number.isFinite(block.nr) ? block.nr : null;
@@ -34,18 +37,36 @@
     if (!b || typeof b !== 'object' || !Array.isArray(b.optionen)) return null;
     const optionen = b.optionen.filter((o) => o && typeof o === 'object' && str(o.id, 40) && str(o.text, 60)).slice(0, 3).map((o) => ({ id: str(o.id, 40), text: str(o.text, 60) }));
     if (optionen.length < 2 || !isNum(b.nr)) return null;   // weniger als zwei Optionen ist keine Wahl: nichts anzeigen
-    return { nr: Math.floor(b.nr), von: str(b.von, 40), optionen, ignorieren: str(b.ignorieren, 30), rest: isNum(b.rest) ? Math.max(0, Math.floor(b.rest)) : 0 };
+    return { nr: Math.floor(b.nr), art: 'funk', kopf: 'FUNK', pid: null, von: str(b.von, 40), optionen, ignorieren: str(b.ignorieren, 30), rest: isNum(b.rest) ? Math.max(0, Math.floor(b.rest)) : 0 };
   }
-  const modell = () => modellAus(store.funkwahl);
+  // SUND-04a-2 P2: Bitte eines Fadens. Müllfest wie modellAus; Porträt nur in der Form f:<0..5>:<rom|ger|kon> (sonst kein Porträt, kein Fehler)
+  const PID_F = /^f:[0-5]:(rom|ger|kon)$/;
+  function bitteAus(b) {
+    if (!b || typeof b !== 'object' || !Array.isArray(b.optionen) || !isNum(b.nr)) return null;
+    const optionen = b.optionen.filter((o) => o && typeof o === 'object' && str(o.id, 40) && str(o.text, 90)).slice(0, 3).map((o) => ({ id: str(o.id, 40), text: str(o.text, 90) }));
+    if (optionen.length < 2) return null;
+    return { nr: Math.floor(b.nr), art: 'bitte', kopf: str(b.kopf, 12) || 'BITTE', von: str(b.von, 40), pid: typeof b.pid === 'string' && PID_F.test(b.pid) ? b.pid : null, optionen, ignorieren: str(b.spaeter, 20) || 'Später', rest: isNum(b.rest) ? Math.max(0, Math.floor(b.rest)) : 0 };
+  }
+  function bitteSetzen(block) {
+    const m = bitteAus(block), k = m ? 'b' + m.nr : null;
+    if (k !== store.bKey) { store.markiert = -1; store.eingeklappt = false; store.geoeffnetBei = null; }   // eine andere Bitte oder keine: Markierung und Zuklappen nicht übernehmen
+    store.bKey = k; store.bitte = m;
+  }
+  const modell = () => store.bitte || modellAus(store.funkwahl);
   const offen = () => !!modell();
 
   // Zeilen der Leiste: die Optionen, danach „Nicht antworten“ (immer da, kostet nichts)
-  function zeilen(m) { return m.optionen.map((o) => ({ id: o.id, text: o.text })).concat([{ id: 'ignorieren', text: m.ignorieren }]); }
+  function zeilen(m) { return m.optionen.map((o) => ({ id: o.id, text: o.text })).concat([{ id: m.art === 'bitte' ? '__zuklappen' : 'ignorieren', text: m.ignorieren }]); }
 
   // Befehl: die ERSTE Antwort gilt (der Server entscheidet, jede weitere bekommt „schon beantwortet“); nr = das Angebot, das gezeigt wurde
   function antworten(send, id) {
     const m = modell();
     if (!m || typeof send !== 'function' || !zeilen(m).some((z) => z.id === id)) return false;
+    if (m.art === 'bitte') {   // „Später“ (__zuklappen) ist nur das Zuklappen für diesen Spieler; die Daten-Option „spaeter“ der Bitte ist dagegen eine echte Antwort
+      if (id === '__zuklappen') { spaeter(true); return true; }
+      send({ t: 'cmd', c: 'faden.bitte', id, nr: m.nr });
+      return true;
+    }
     send({ t: 'cmd', c: 'funk.antworten', id, nr: m.nr });
     return true;
   }
@@ -88,7 +109,8 @@
   const OBEN = 6;        // oberer Rand der Schirmfläche (Pult.rahmen: Schirm ab y 6), bündig: darunter bleibt die Kopfzeile des Terminals (Marken) lesbar
   const STREIFEN = 11;   // Höhe des zugeklappten Streifens (niedrig genug, dass am Terminal die Marken-Anzeige darunter lesbar bleibt)
   const KOPF = 15;       // Höhe der Kopfzeile
-  function hoehe(m, streifen) { return streifen ? STREIFEN : KOPF + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
+  const kopfH = (m) => (m && m.art === 'bitte' && m.pid ? 26 : KOPF);   // Bitte mit Porträt: die Plakette (22) braucht etwas mehr Kopfhöhe
+  function hoehe(m, streifen) { return streifen ? STREIFEN : kopfH(m) + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
   // S = Oberkante der Statusleiste der Konsole (Pult.statusOben), sonst null (Bordansicht): mit Konsole auf dem Schirm unten rechts über der Statusleiste (verdeckt keinen Knopf des Pults),
   // ohne Konsole unten mittig
   // k = { S, station } der gezeichneten Konsole (Pult.konsole) oder null; streifen (Standard: gilt für k) = zugeklappt. Der Streifen an einer Konsole mit Bedienflächen sitzt am oberen Rand der Schirmfläche
@@ -133,14 +155,17 @@
       ctx.fillStyle = SK.frame; ctx.fillRect(r.x, r.y, r.w, 1); ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 1, r.h); ctx.fillRect(r.x + r.w - 1, r.y, 1, r.h);
       const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 2, kw);
       const sp = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
-      R.text(ctx, kuerzen(R, 'FUNK · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
+      R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
       R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Funk antworten', disabled: false, onClick: () => spaeter(false), hotkey: null });
       return;
     }
     R.panel(ctx, r.x, r.y, r.w, r.h, { style: 'brass' });
     const rest = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
     R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: SK.dim, align: 'right' });
-    R.text(ctx, kuerzen(R, 'FUNK · ' + m.von, r.w - 12 - (R.measure(rest, 1) + 8)), r.x + 6, r.y + 4, { color: SK.text });
+    const bild = m.art === 'bitte' && m.pid && root.Hud && typeof root.Hud.drawFunkBild === 'function';   // Plakette mit Porträt (nur gültige Kennung), sonst nur Text
+    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 4, r.y + 2, 22);
+    const tx = r.x + 6 + (bild ? 26 : 0);
+    R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von, r.w - 12 - (bild ? 26 : 0) - (R.measure(rest, 1) + 8)), tx, r.y + (bild ? 9 : 4), { color: SK.text });
     // eigene Zeilen statt R.button (dessen Mint = aktiv und Amber = Hover tragen hier andere Bedeutung): markiert = Fläche + Rahmen in SK.text, Hover nur Rahmen in SK.dim
     const zeile = (x, y, w, text, markiert, farbe, onClick, label) => {
       const hov = ueber(x, y, w, ZEILE);
@@ -150,15 +175,19 @@
       R.text(ctx, kuerzen(R, text, w - 10), x + 5, y + Math.floor((ZEILE - 7) / 2), { color: farbe, shadow: false });
       R.ui.buttons.push({ x, y, w, h: ZEILE, label: label || text, disabled: false, onClick, hotkey: null });
     };
-    let y = r.y + KOPF;
+    let y = r.y + kopfH(m);
     const z = zeilen(m), n = m.optionen.length;
     for (let i = 0; i < n; i++) {
       zeile(r.x + 6, y, r.w - 12, z[i].text, store.markiert === i, SK.text, () => { const s = gehen(); if (s) antworten(s, z[i].id); });
       y += ZEILE + 1;
     }
-    const bw = Math.round((r.w - 12) * 0.62);   // Nicht antworten (kostet nichts, schließt für alle; eine gültige Wahl: SK.text) und Später (nur für mich, klappt zu)
-    zeile(r.x + 6, y, bw, m.ignorieren, store.markiert === n, SK.text, () => { const s = gehen(); if (s) antworten(s, 'ignorieren'); });
-    zeile(r.x + 6 + bw + 2, y, r.w - 12 - bw - 2, 'Später', false, SK.dim, () => spaeter(true));
+    if (m.art === 'bitte') {   // Bitte: nur „Später“ (zuklappen, kostet nichts); Annahme und Ablehnung sind die Optionen
+      zeile(r.x + 6, y, r.w - 12, m.ignorieren, store.markiert === n, SK.dim, () => spaeter(true));
+    } else {
+      const bw = Math.round((r.w - 12) * 0.62);   // Nicht antworten (kostet nichts, schließt für alle; eine gültige Wahl: SK.text) und Später (nur für mich, klappt zu)
+      zeile(r.x + 6, y, bw, m.ignorieren, store.markiert === n, SK.text, () => { const s = gehen(); if (s) antworten(s, 'ignorieren'); });
+      zeile(r.x + 6 + bw + 2, y, r.w - 12 - bw - 2, 'Später', false, SK.dim, () => spaeter(true));
+    }
     y += ZEILE + 1;
     let hx = kappeZeichnen(ctx, R, r.x + 6, y + 2, kw);   // Hinweiszeile mit Kappen: [.] markieren · [Sh+.] senden
     R.text(ctx, 'markieren', hx + 4, y + 2, { color: SK.dim, shadow: false }); hx += 4 + R.measure('markieren', 1) + 8;
@@ -172,5 +201,5 @@
     N.on(lesen);
   })();
 
-  return { store, lesen, modellAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zuklappen, zeichne, rechteck, statusOben, konsole, zu, BEDIENFLAECHEN, BREITE };
+  return { store, lesen, modellAus, bitteAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zuklappen, zeichne, rechteck, statusOben, konsole, zu, BEDIENFLAECHEN, BREITE };
 });
