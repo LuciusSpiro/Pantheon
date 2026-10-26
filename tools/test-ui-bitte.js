@@ -114,6 +114,24 @@ ok(verdeckt > 0 && plaketten > 0, 'Gegenprobe: die aufgeklappte Leiste verdeckt 
   ok(hoch === ohne + 11, `die Kopfzeile mit Porträt ist 11 Pixel höher (${hoch} gegen ${ohne})`);
 }
 
+section('Geometrie mit dem längsten Bittentext (zwei Zeilen, F1): die volle Leiste liegt weiter auf dem Schirm und verdeckt an Steuer und Ops nichts');
+{
+  const lang = Object.assign(bitteBlock(3, 'f:1:rom'), { text: 'Wir brauchen dringend Hilfe bei Forschungsstation Helix, die Sensoren melden einen Verband, und wir sind allein da draussen.'.slice(0, 90) });
+  alles({ bitte: lang });
+  const m = FW.modell();
+  ok(m.text.length === 90, 'Testtext mit 90 Zeichen');
+  let geprueft = 0;
+  for (const k of namen) {
+    const v = F[k], ko = { S: v.S, station: v.station };
+    FW.store.geoeffnetBei = v.station; FW.store.eingeklappt = false;
+    const ra = FW.rechteck(m, ko, false);
+    ok(schirmDe(ra, v.S), `${k} (${v.station}): aufgeklappt mit zwei Textzeilen auf dem Schirm (${ra.x},${ra.y} ${ra.w}x${ra.h}, S ${v.S})`);
+    if (!bedien.includes(v.station)) { ok(v.knoepfe.every((b) => !schneiden(ra, b)), `${k}: die volle Leiste mit zwei Textzeilen verdeckt keine Bedienfläche`); geprueft++; }
+  }
+  FW.store.geoeffnetBei = null;
+  ok(geprueft >= 2, 'Steuer und Ops geprueft (' + geprueft + ' Ansichten)');
+}
+
 section('Porträt-Zeichnung: gültig zeichnet, Müll zeichnet nichts und wirft nichts');
 {
   // Die Zeichnung steht in hud.js (Hud.drawPortraetFaden). Ohne Browser: die Methode aus dem Quelltext laden und mit einem Protokoll-Kontext aufrufen
@@ -314,10 +332,11 @@ section('Ruf-Slot oben mit Vorrang des Lagefunks (F4): gleiche Lage wie die Lage
       const slot = rects[0];
       ok(rects.length >= 2 && slot.y === 0 && slot.h === 11 && slot.x === 388 && slot.w === 240, `${name}: ohne Lagefunk-Zeile steht der Streifen im Ruf-Slot (${slot && [slot.x, slot.y, slot.w, slot.h].join(',')})`);
       ok(slot.y + slot.h <= LAGEFUNK_Y, `${name}: die Lagefunk-Tafel beginnt bei y ${LAGEFUNK_Y}, der Streifen endet bei ${slot.y + slot.h}: nie darüber`);
+      ok(rects.some((q) => q.x === slot.x && q.w === 3 && q.h === slot.h && q.c === '#C9974A') && rects.some((q) => q.y === slot.y + slot.h - 1 && q.w === slot.w && q.h === 1 && q.c === '#C9974A') && rects.every((q) => q.c !== '#E0473C'), `${name}: Stil wie die Lagefunk-Zeile, 3 px Akzent und 1 px Unterkante in Messing, nie Gefahr-Rot`);
     }
     ok(zeile.y === 0 && zeile.h === 11, `${name}: die Lagefunk-Zeile liegt selbst bei y 0, ${zeile.h} hoch (Slot gemessen am echten zeichneFunkZeile)`);
     const ohneLage = strip(bauHud({ lage: false }), konsole);
-    ok(ohneLage.length >= 2, `${name}: ohne Lagemeldung steht der Streifen (die Taste „.“ und der Klick klappen ihn auf)`);
+    ok(ohneLage.length >= 2 && ohneLage[0].y === 0 && ohneLage[0].h === 11, `${name}: ohne Lagemeldung steht der Streifen im Ruf-Slot oben (y ${ohneLage[0] && ohneLage[0].y}), auch an Steuer und Ops nach „Einklappen“ (die Taste „.“ und der Klick klappen ihn auf)`);
   }
   // Slot, Höhe und Debug-Modus wie die Lagefunk-Zeile
   for (const [titel, o, ex] of [['normal', {}, { y: 0, h: 11 }], ['Szenenzeile (9 hoch)', { szene: true }, { y: 0, h: 9 }], ['Debug (x 404, 232 breit)', { debug: true }, { y: 0, h: 11, x: 404, w: 232 }], ['Debug mit Szenenzeile', { debug: true, szene: true }, { y: 0, h: 9, x: 404, w: 232 }]]) {
