@@ -1,0 +1,182 @@
+{
+  "format": "abspann/1",
+  "_hinweis": "SUND-04a-3: Abspänne der Freien Fahrt Sund (server/sim/abspann.js, Schema content/schema/abspann.schema.json). ENTWURF der Texte: Kai liest und ändert. Ein Block (und jede Zeile als { text, wenn }) darf eine Bedingung `wenn` tragen; sie ist eine kleine reine Sprache über die Fakten des Weltstands (alle Schlüssel gelten zugleich): rang_min / rang_max (Rang-Id: miles, optio, centurio, tribun, legat), haefenVerloren / postenVerloren / kommandantenGefallen / chronikZahl ({ min?, max? }), faedenAusgang ({ vorlage: gelungen | gescheitert | laufend }), finaleGespielt / hauptweltGefallen (wahr/falsch), nicht ({ wenn }) und oder ([{ wenn }, ...]). Unbekannte Schlüssel sind ein Datenfehler (nie still ignoriert). haefenVerloren zählt die Häfen Roms OHNE die Hauptwelt (Palatina fiel ohnehin). Ein Block ohne übrig gebliebene Zeile entfällt. Zeilen höchstens etwa 56 Zeichen, sonst läuft die Zeile im Abspann über. Keine Zahlen bei den Toten, keine Spielernamen.",
+  "abspaenne": {
+    "palatina": {
+      "titel": "Palatina ist gefallen",
+      "text": "Der Sektor geht verloren. Viele ließen ihr Leben.",
+      "bloecke": [
+        {
+          "id": "sektor",
+          "kopf": "DER SEKTOR",
+          "zeilen": [
+            "Palatina ist gefallen.",
+            "Die Flotten sind zerstreut, die Häfen still.",
+            "Viele ließen ihr Leben, auf den Welten und im Raum."
+          ]
+        },
+        {
+          "id": "haefen_gehalten",
+          "kopf": "DIE HÄFEN",
+          "wenn": { "haefenVerloren": { "max": 0 } },
+          "zeilen": [
+            "Kein anderer Hafen war vorher gefallen.",
+            "Palatina allein fiel, und mit ihm alles."
+          ]
+        },
+        {
+          "id": "haefen_verloren",
+          "kopf": "DIE HÄFEN",
+          "wenn": { "haefenVerloren": { "min": 1 } },
+          "zeilen": [
+            "Schon vor Palatina gingen Häfen verloren.",
+            "Der Sektor war nicht mehr zu halten."
+          ]
+        },
+        {
+          "id": "rang_niedrig",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_max": "optio" },
+          "zeilen": [
+            "Ihr wart ein Schiff unter vielen.",
+            "Niemand fragte euch, bevor es zu spät war."
+          ]
+        },
+        {
+          "id": "rang_mittel",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_min": "centurio", "rang_max": "centurio" },
+          "zeilen": [
+            "Ihr führtet Männer und Frauen in den Kampf.",
+            "Es reichte nicht, den Lauf der Dinge zu drehen."
+          ]
+        },
+        {
+          "id": "rang_hoch",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_min": "tribun" },
+          "zeilen": [
+            "Man hörte auf euch, im Rang eines Tribuns und mehr.",
+            "Selbst das kam zu spät."
+          ]
+        },
+        {
+          "id": "geschichten",
+          "kopf": "DIE GESCHICHTEN",
+          "zeilen": [
+            { "text": "Der Händler, der Rom verriet, kam davon.", "wenn": { "faedenAusgang": { "falscher_haendler": "gescheitert" } } },
+            { "text": "Den falschen Händler hattet ihr entlarvt.", "wenn": { "faedenAusgang": { "falscher_haendler": "gelungen" } } },
+            { "text": "Der entführte Händler sah seine Heimat nie wieder.", "wenn": { "faedenAusgang": { "entfuehrter_haendler": "gescheitert" } } },
+            { "text": "Der entführte Händler kam frei und floh vor dem Krieg.", "wenn": { "faedenAusgang": { "entfuehrter_haendler": "gelungen" } } },
+            { "text": "Ein Captain denkt an die, die ihm halfen.", "wenn": { "faedenAusgang": { "dankbarer_captain": "gelungen" } } },
+            { "text": "Ein Captain wartete vergeblich auf Hilfe.", "wenn": { "faedenAusgang": { "dankbarer_captain": "gescheitert" } } }
+          ]
+        },
+        {
+          "id": "gefallene",
+          "kopf": "DIE GEFALLENEN",
+          "wenn": { "kommandantenGefallen": { "min": 1 } },
+          "zeilen": [
+            "Kommandanten, die ihr kanntet, fielen im Krieg."
+          ]
+        },
+        {
+          "id": "posten",
+          "kopf": "EURE POSTEN",
+          "wenn": { "postenVerloren": { "min": 1 } },
+          "zeilen": [
+            "Ein Posten, den ihr gehalten hattet, war schon verloren."
+          ]
+        }
+      ],
+      "schluss": "Hätte sie nur jemand retten können."
+    },
+    "sieg": {
+      "titel": "Hrafnheim ist gefallen",
+      "text": "Der Krieg ist entschieden. Rom hat den Sektor behalten.",
+      "bloecke": [
+        {
+          "id": "sieg",
+          "kopf": "DER SIEG",
+          "zeilen": [
+            "Hrafnheim ist gefallen.",
+            "Der Sektor gehört wieder den Römern und ihren Freunden."
+          ]
+        },
+        {
+          "id": "kampflos",
+          "kopf": "OHNE EUCH",
+          "wenn": { "finaleGespielt": false },
+          "zeilen": [
+            "Die Hauptwelt der Germanen fiel ohne euren Schuss.",
+            "Der Krieg endete, ohne dass ihr dabei wart."
+          ]
+        },
+        {
+          "id": "schrein",
+          "kopf": "DER SCHREIN",
+          "wenn": { "finaleGespielt": true },
+          "zeilen": [
+            "Ihr standet im Schrein von Asgard.",
+            "Dort endete der Krieg."
+          ]
+        },
+        {
+          "id": "haefen_gehalten",
+          "kopf": "DIE HÄFEN",
+          "wenn": { "haefenVerloren": { "max": 0 } },
+          "zeilen": [
+            "Kein römischer Hafen ging auf dem Weg verloren."
+          ]
+        },
+        {
+          "id": "haefen_verloren",
+          "kopf": "DIE HÄFEN",
+          "wenn": { "haefenVerloren": { "min": 1 } },
+          "zeilen": [
+            "Der Sieg hatte einen Preis: Häfen gingen verloren."
+          ]
+        },
+        {
+          "id": "rang_niedrig",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_max": "optio" },
+          "zeilen": [
+            "Ihr wart ein Schiff unter vielen,",
+            "und Rom wird euch trotzdem nicht vergessen."
+          ]
+        },
+        {
+          "id": "rang_mittel",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_min": "centurio", "rang_max": "centurio" },
+          "zeilen": [
+            "Als Centurio habt ihr den Sieg mit erkämpft."
+          ]
+        },
+        {
+          "id": "rang_hoch",
+          "kopf": "EURE ROLLE",
+          "wenn": { "rang_min": "tribun" },
+          "zeilen": [
+            "Ein Tribun mit einem Schiff wie der Lerche:",
+            "Der Senat wird euren Namen kennen."
+          ]
+        },
+        {
+          "id": "geschichten",
+          "kopf": "DIE GESCHICHTEN",
+          "zeilen": [
+            { "text": "Der falsche Händler wurde nie mehr gesehen.", "wenn": { "faedenAusgang": { "falscher_haendler": "gelungen" } } },
+            { "text": "Der falsche Händler verriet Rom bis zuletzt.", "wenn": { "faedenAusgang": { "falscher_haendler": "gescheitert" } } },
+            { "text": "Der entführte Händler fuhr heim, auf euren Kurs.", "wenn": { "faedenAusgang": { "entfuehrter_haendler": "gelungen" } } },
+            { "text": "Der entführte Händler blieb verschollen.", "wenn": { "faedenAusgang": { "entfuehrter_haendler": "gescheitert" } } },
+            { "text": "Ein Captain hebt ein Glas auf euch.", "wenn": { "faedenAusgang": { "dankbarer_captain": "gelungen" } } },
+            { "text": "Ein Captain fuhr allein weiter.", "wenn": { "faedenAusgang": { "dankbarer_captain": "gescheitert" } } }
+          ]
+        }
+      ],
+      "schluss": "Der Sektor atmet auf."
+    }
+  }
+}

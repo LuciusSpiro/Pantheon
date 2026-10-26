@@ -40,6 +40,7 @@ const Regie = require('./regie-befehle.js');   // SUND-03 A: Befehle des Lage-Sp
 const Chronik = require('./chronik.js');   // SUND-03 D: Chronik der Tätigkeiten und Entscheidungen (welt.sim.chronik)
 const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse (welt.sim.reise: Sprungzähler, Wiederholungsdaten)
 const Faden = require('./faden.js');   // SUND-04a-1 B: Geschichtsfäden (welt.sim.faeden, nur mit Schalter FAEDEN=1)
+const Abspann = require('./abspann.js');   // SUND-04a-3: Abspann bei Fall von Palatina bzw. Hrafnheim (Marker szenario_ende im Weltstand)
 const Absicht = require('./absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (welt.sim.absicht, zustand.absichten.rom)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
@@ -256,6 +257,8 @@ function hauptweltFaellt(game, e) {
   if (wer === 'rom' && !ws.hauptweltGefallen) ws.hauptweltGefallen = { fraktion: 'rom', tick: ws.tickZahl };
   game.oda(HAUPTWELT_TEXT[wer], wer === 'rom' ? 'kriegslage_hauptwelt_rom' : null);
   game.missionEvent('hauptwelt_gefallen', { fraktion: wer, ort: e.ort, neu: e.neu, tick: ws.tickZahl });
+  // SUND-04a-3: der Fall einer Hauptwelt beendet das Szenario (Rom: Abspann Palatina; Germanen ohne Finale: Siegabspann). Idempotent, nur mit Weltsim.
+  Abspann.beenden(game, wer === 'rom' ? 'palatina' : 'sieg', 'kriegslage');
 }
 
 // Andock-Erlaubnis, Banner und Posten-Marker der Szene, in der das Schiff steht, neu setzen (nach einem Tick oder Laden ohne enterScene)
@@ -295,6 +298,7 @@ function nachLaden(game) {
   szeneNachziehen(game);
   try { Regie.vorwarnungenErneut(game); } catch (e) { if (game.countError) game.countError('kriegslage-regie', e); }   // SUND-03 A2: wartende angekündigte Befehle einmal je Laden erneut ankündigen
   try { Wissen.markenNeu(game); } catch (e) { if (game.countError) game.countError('kriegslage-wissen', e); }   // Notruf-Marken stehen nicht im Weltstand
+  try { Abspann.nachLaden(game); } catch (e) { if (game.countError) game.countError('kriegslage-abspann', e); }   // SUND-04a-3: Stand mit Marker szenario_ende zeigt den Abspann erneut (ohne Marker nichts)
 }
 
 // Sonden-Sichtung (Hook in Sektorplan.sichten): sofort ins Wissen, ohne Verzögerung

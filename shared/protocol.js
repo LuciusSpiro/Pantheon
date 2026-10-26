@@ -314,7 +314,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'lage',   // SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
@@ -372,7 +372,7 @@
     WELLEN_PHASEN: ['vorbereitung', 'countdown', 'kampf', 'pause', 'ende'],   // vorbereitung = Rüstphase der Testumgebung (Crew rüstet am Terminal aus, werft.start beginnt)
     CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt'],   // Weltstand gibt es für diese Modi
     // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.
-    //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }] } nur in Phase end der Kette (kein freies Spiel danach); Ereignis ending { abspann: true };
+    //   Snapshot abspann { titel, text, bloecke: [{ kopf, zeilen[] }], schluss? } (schluss: SUND-04a-3, Schlusssatz nach der Bilanz) nur in Phase end der Kette bzw. der Freien Fahrt Sund (kein freies Spiel danach); Ereignis ending { abspann: true };
     //   Funkspruch radio { from, text, pid? } mit pid 'mars' (Symbol) | 'legat' (Porträt), Snapshot mission.radio.pid.
     //   SL1: `welt` = Sektorkarte der Partie (content/welt/<welt>.json, server/sim/welt.js); ohne Angabe Limes.
     CAMPAIGN_KETTEN: { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false },

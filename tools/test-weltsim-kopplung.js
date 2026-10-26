@@ -421,7 +421,7 @@ section('Hauptwelt fällt (konstruierter Zustand)');
   const odas = t.events('oda').map((e) => e.text);
   ok(odas.includes('Palatina ist gefallen.'), 'Platzhalter-Meldung „Palatina ist gefallen.“');
   ok(g.mission.events.has('hauptwelt_gefallen'), 'Missionsereignis hauptwelt_gefallen');
-  ok(g.phase === 'play' && g.errors === 0, 'das Spiel läuft weiter');
+  ok(g.phase === 'end' && g.abspann && g.abspann.schluss === 'Hätte sie nur jemand retten können.' && g.errors === 0, 'SUND-04a-3: das Szenario endet (Abspann Palatina), keine Fehler');
   ok(g.weltsim.ereignisse.some((e) => e.typ === 'hauptwelt_gefallen' && e.n === g.weltsim.tickZahl), 'Rohereignis im Ring des Servers');
   const b = Kriegslage.toSave(g);
   ok(b.hauptweltGefallen && b.hauptweltGefallen.fraktion === 'rom', 'Merker im Block');
@@ -438,6 +438,7 @@ section('Hauptwelt fällt (konstruierter Zustand)');
   n = 0;
   while (!t2.events('oda').some((e) => e.text === 'Hrafnheim ist gefallen.') && n++ < 12) Kriegslage.tick(h, 'sprung');
   ok(t2.events('oda').some((e) => e.text === 'Hrafnheim ist gefallen.') && h.weltsim.hauptweltGefallen === null && h.mission.events.has('hauptwelt_gefallen'), 'Hrafnheim: Meldung und Ereignis, kein Merker');
+  ok(h.phase === 'end' && h.abspann && h.abspann.titel === 'Hrafnheim ist gefallen', 'SUND-04a-3: Hrafnheim ohne Finale: Siegabspann');
 }
 
 // =============================================================================================================================

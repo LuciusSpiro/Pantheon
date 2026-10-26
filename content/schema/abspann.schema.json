@@ -1,0 +1,63 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Abspaenne der Freien Fahrt Sund (SUND-04a-3)",
+  "description": "Form von content/welt/abspann.json (Teilmenge, die server/weltstand.js fallbackValidate kann). Die Sprache der Bedingung `wenn` (Schluessel, Operatoren, Rang-Ids, Fadenvorlagen) prueft server/sim/abspann.js pruefen(): unbekannte Schluessel sind ein Datenfehler.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "abspaenne"],
+  "properties": {
+    "format": { "const": "abspann/1" },
+    "_hinweis": { "type": "string" },
+    "abspaenne": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["palatina", "sieg"],
+      "properties": {
+        "palatina": { "$ref": "#/definitions/abspann" },
+        "sieg": { "$ref": "#/definitions/abspann" }
+      }
+    }
+  },
+  "definitions": {
+    "abspann": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["titel", "text", "bloecke"],
+      "properties": {
+        "titel": { "type": "string", "minLength": 1, "maxLength": 40 },
+        "text": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "schluss": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "bloecke": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "kopf", "zeilen"],
+            "properties": {
+              "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+              "kopf": { "type": "string", "minLength": 1, "maxLength": 40 },
+              "wenn": { "type": "object" },
+              "zeilen": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 12,
+                "items": {
+                  "type": ["string", "object"],
+                  "maxLength": 70,
+                  "additionalProperties": false,
+                  "required": ["text"],
+                  "properties": {
+                    "text": { "type": "string", "minLength": 1, "maxLength": 70 },
+                    "wenn": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -36,6 +36,7 @@ const Glyphen = require('./sim/glyphen.js');   // SL10: Glyphen/Sternkarte (Adre
 const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL7c: Monster-Station (Zustandsmaschine, Pult-Reihenfolge)
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
+const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Freien Fahrt Sund (Debug abspann)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
@@ -1399,6 +1400,7 @@ class Game {
       case 'buehne': case 'anker': case 'lp': err = this.onDebugB1(p, cmd, msg); break;                       // B1 §9
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'szene': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : SimSzene.debug(this, argList(msg)); break;   // SUND-02a: szene [staerke] [ger|pirat] [belagerung] – Flotte der Sim im Hex der Lerche, löst die Szene aus
+      case 'abspann': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Abspann.debug(this, argList(msg)); break;   // SUND-04a-3: abspann palatina|sieg – zeigt den Abspann (ohne Marker, nur Freie Fahrt Sund)
       case 'ruf': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Ruf.debug(this, argList(msg)); break;   // SUND-02b B: ruf [rom|ger|kon] [wert] – Ruf setzen/anzeigen (nur Freie Fahrt Sund)
       case 'lage': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : this.onDebugLage(p, argList(msg)); break;   // SUND-03 A2: lage [status | plan | fail] (nur Freie Fahrt Sund mit LAGE_SPIELLEITER=1)
       case 'absicht': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Absicht.debug(this, argList(msg)); break;   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund)

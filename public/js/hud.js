@@ -2130,6 +2130,11 @@
       items.push({ k: 'kopf', t: 'BILANZ', h: 14 });
       items.push({ k: 'zeile', t: 'Spielzeit  ' + fmtTime(s.elapsed != null ? s.elapsed : st.time), h: 11 });
       items.push({ k: 'zeile', t: 'Abschüsse  ' + (s.kills || 0) + '   Reparaturen  ' + (s.repairs || 0), h: 11 });
+      // SUND-04a-3: optionaler Schlusssatz (abspann.schluss) als letzte Zeile NACH der Bilanz; fehlt das Feld, bleibt der Abspann der Kampagne unverändert
+      if (ab.schluss) {
+        items.push({ k: 'luft', t: '', h: 14 });
+        for (const l of R.wrap(String(ab.schluss), colW, 1).slice(0, 3)) items.push({ k: 'schluss', t: l, h: 12 });
+      }
       const total = items.reduce((a, i) => a + i.h, 0);
       const t = Math.max(0, view.time - this.abspannT0);
       const runY = bottom - t * 18;                 // Anfang der Liste: startet unten, steigt
@@ -2144,6 +2149,7 @@
           else if (i.k === 'text') R.text(ctx, i.t, cx, y, { color: PAL.star, align: 'center' });
           else if (i.k === 'kopf') R.text(ctx, i.t, cx, y + 2, { color: PAL.brass, align: 'center' });
           else if (i.k === 'zeile') R.text(ctx, i.t, cx, y, { color: PAL.panelLight, align: 'center' });
+          else if (i.k === 'schluss') R.text(ctx, i.t, cx, y, { color: PAL.mint, align: 'center' });
         }
         y += i.h;
       }
