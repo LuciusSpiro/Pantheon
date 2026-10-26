@@ -1,6 +1,6 @@
 {
   "format": "faden-beats/1",
-  "_hinweis": "SUND-04a-1 B: Beat-Katalog der Geschichtsfaeden (server/sim/faden-pruefer.js prueft jede Vorlage gegen diese Eintraege, server/sim/faden-bausteine.js hat zu jedem `baustein` einen benannten Baustein). Ein neuer Beat ist ein neuer Eintrag hier mit seinen Regeln, kein Umbau: der Pruefer liest die Felder, nicht die Namen. Felder: baustein = benannter Baustein (Szene/Funk/Wirkung, in 04a-1 ein Platzhalter, die echten kommen in 04a-2); gefahr = der Beat bringt Gefahr (dann NIE Optionen, Regel aus 03b: Gefahr wird angekuendigt, nicht abgefragt; eine Vorlage darf gefahr nur auf true setzen); optionen = keine | erlaubt (Optionen mit Folge aus dem Wirkungen-Katalog, keine Scheinwahl); braucht.nsc_status = in welchen Zustaenden des NSC der Beat laeuft (nach einem Scheitern kann der NSC tot oder gefangen sein: dann passt nicht jeder Beat); braucht.fluchtziel = die Vorlage nennt ein Fluchtziel (parameter.fluchtziel: Hex-Code oder Symbol aus werte.fluchtziele); braucht.wahrheit = der Faden hat eine verborgene Wahrheit; braucht.hinweis_vorher = auf JEDEM Weg dorthin wurde vorher mindestens ein Hinweis gestreut (Fairness der Enthuellung); braucht.letzter = nur als letzter Beat der Vorlage; abschluss = beendet den Faden (nur dieser Beat darf das, alle Ausgaenge fuehren dorthin); parameter = erlaubte Felder des Beats in der Vorlage (pflicht, optional; Werte sind kurze Texte, Zahlen oder Wahrheitswerte). Jeder Beat hat die Ausgaenge gelungen und gescheitert (werte.ausgaenge), die die Vorlage je Beat mit Folgezustand beschreibt.",
+  "_hinweis": "SUND-04a-1 B: Beat-Katalog der Geschichtsfaeden (server/sim/faden-pruefer.js prueft jede Vorlage gegen diese Eintraege, server/sim/faden-bausteine.js hat zu jedem `baustein` einen benannten Baustein). Ein neuer Beat ist ein neuer Eintrag hier mit seinen Regeln, kein Umbau: der Pruefer liest die Felder, nicht die Namen. Felder: baustein = benannter Baustein (Szene/Funk/Wirkung); gefahr = der Beat bringt Gefahr (dann NIE Optionen, Regel aus 03b: Gefahr wird angekuendigt, nicht abgefragt; eine Vorlage darf gefahr nur auf true setzen); optionen = keine | erlaubt (Optionen mit Folge aus dem Wirkungen-Katalog, keine Scheinwahl); braucht.nsc_status = in welchen Zustaenden des NSC der Beat laeuft (nach einem Scheitern kann der NSC tot oder gefangen sein: dann passt nicht jeder Beat); braucht.fluchtziel = die Vorlage nennt ein Fluchtziel (parameter.fluchtziel: Hex-Code oder Symbol aus werte.fluchtziele); braucht.wahrheit = der Faden hat eine verborgene Wahrheit; braucht.hinweis_vorher = auf JEDEM Weg dorthin wurde vorher mindestens ein Hinweis gestreut (Fairness der Enthuellung); braucht.letzter = nur als letzter Beat der Vorlage; abschluss = beendet den Faden (nur dieser Beat darf das, alle Ausgaenge fuehren dorthin); szene = der Beat laeuft als Szene in der Freien Fahrt (server/sim/faden-szene.js): ist er beim Speichern noch laufend, steht er beim Laden wieder aus (faden.lesen); parameter = erlaubte Felder des Beats in der Vorlage (pflicht, optional; Werte sind kurze Texte, Zahlen oder Wahrheitswerte). Jeder Beat hat die Ausgaenge gelungen und gescheitert (werte.ausgaenge), die die Vorlage je Beat mit Folgezustand beschreibt. Die Bausteine raumschlacht, befreiung, spontanhilfe, verfolgung, fracht (SUND-04a-2 P1) sind registriert; bitte, enthuellung, abschluss, notruf folgen in P3.",
   "beats": {
     "bitte": {
       "zweck": "Der NSC bittet die Crew um Hilfe bei einer Mission; die Crew kann zusagen oder ausschlagen.",
@@ -15,6 +15,7 @@
       "baustein": "spontanhilfe",
       "gefahr": true,
       "optionen": "keine",
+      "szene": true,
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
       "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]}
     },
@@ -39,8 +40,35 @@
       "baustein": "verfolgung",
       "gefahr": true,
       "optionen": "keine",
+      "szene": true,
       "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"], "fluchtziel": true},
       "parameter": {"pflicht": ["fluchtziel"], "optional": ["text_key"]}
+    },
+    "raumschlacht": {
+      "zweck": "Germanische Schiffe greifen die Crew im aktuellen Sektor an; der NSC ist (oder war) Teil dieser Gegner (Szene in der Freien Fahrt).",
+      "baustein": "raumschlacht",
+      "gefahr": true,
+      "optionen": "keine",
+      "szene": true,
+      "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"]},
+      "parameter": {"pflicht": [], "optional": ["text_key"]}
+    },
+    "befreiung": {
+      "zweck": "Der NSC wird an einem Ort festgehalten, Wachschiffe sichern ihn; die Crew vertreibt die Wachen, der NSC ist frei (Ersatz fuer geiseln_befreien am Boden).",
+      "baustein": "befreiung",
+      "gefahr": true,
+      "optionen": "keine",
+      "szene": true,
+      "braucht": {"nsc_status": ["gefangen"]},
+      "parameter": {"pflicht": [], "optional": ["text_key"]}
+    },
+    "fracht": {
+      "zweck": "Die Crew laedt eine Ware des NSC und liefert sie am Zielhafen ab (Frachtauftrag light, faden-intern: die Ware geht nicht in den Handel).",
+      "baustein": "fracht",
+      "gefahr": false,
+      "optionen": "keine",
+      "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
+      "parameter": {"pflicht": ["nach"], "optional": ["ware", "text_key"]}
     },
     "abschluss": {
       "zweck": "Der Faden endet; der Ausgang schreibt das Gedaechtnis des NSC (und Folgen).",

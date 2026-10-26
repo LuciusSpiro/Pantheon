@@ -17,9 +17,12 @@ const hat = (v, code) => codes(v).includes(code);
 const beat = (v, id) => v.beats.find((b) => b.id === id);
 
 section('Daten und Beat-Katalog', () => {
-  ok(JSON.stringify(Object.keys(D.BEATS).sort()) === JSON.stringify(['abschluss', 'bitte', 'enthuellung', 'notruf', 'spontanhilfe', 'verfolgung']), 'sechs Beat-Typen im Katalog (Daten, nicht im Code): ' + Object.keys(D.BEATS).join(', '));
+  // SUND-04a-2 P1: der Katalog wächst um raumschlacht, befreiung, fracht (neun Typen); bitte, enthuellung, notruf, abschluss bleiben Platzhalter bis P3
+  ok(JSON.stringify(Object.keys(D.BEATS).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'fracht', 'notruf', 'raumschlacht', 'spontanhilfe', 'verfolgung']), 'neun Beat-Typen im Katalog (Daten, nicht im Code): ' + Object.keys(D.BEATS).join(', '));
   const Bs = require('../server/sim/faden-bausteine.js');
-  ok(Object.values(D.BEATS).every((e) => Bs.vonId(e.baustein) && Bs.istPlatzhalter(e.baustein)), 'zu jedem Beat gibt es einen benannten Baustein (in 04a-1 ein Platzhalter)');
+  require('../server/sim/faden-szene.js');   // registriert die Bausteine der P1-Szenen
+  const P1 = ['raumschlacht', 'befreiung', 'spontanhilfe', 'verfolgung', 'fracht'];
+  ok(Object.values(D.BEATS).every((e) => Bs.vonId(e.baustein) && Bs.istPlatzhalter(e.baustein) === !P1.includes(e.baustein)), 'zu jedem Beat gibt es einen benannten Baustein; die P1-Bausteine sind echt, die übrigen Platzhalter');
   ok(Object.values(D.BEATS).every((e) => ['keine', 'erlaubt'].includes(e.optionen) && typeof e.gefahr === 'boolean'), 'jeder Beat sagt, ob er Gefahr bringt und ob er Optionen erlaubt');
   ok(D.BEATS.verfolgung.gefahr === true && D.BEATS.spontanhilfe.gefahr === true && D.BEATS.bitte.gefahr === false, 'Verfolgung und Spontanhilfe bringen Gefahr, die Bitte nicht');
   ok(D.WERTE.aktiv_max === 3 && D.WERTE.abstand.min === 2 && D.WERTE.abstand.max === 4 && D.WERTE.gedaechtnis_max === 12, 'Zahlen der Vorgabe: hoechstens 3 aktive Faeden, Abstand 2 bis 4, Gedaechtnis 12');
