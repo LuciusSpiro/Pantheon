@@ -29,6 +29,7 @@ import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
 import { streuen, belegungVon } from './deko.js';
 import { mitAkzent } from './stimmung.js';
+import { glutAusnahme } from './glut.js';
 
 const BASE = '/content/buehnen/';
 // ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
@@ -313,22 +314,23 @@ function makeFog(w, h) {
   return { tex: { value: tex }, rect: { value: new THREE.Vector4(0, 0, 1 / w, 1 / h) }, on: { value: 0 }, data, w, h,
     cur: new Float32Array(w * h).fill(1), cache: { t: -1e9, key: '' } };
 }
-function makeMaterial(fog) {
+function makeMaterial(fog, glut) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uKitFogTex = fog.tex; sh.uniforms.uKitFogRect = fog.rect; sh.uniforms.uKitFogOn = fog.on;
+    sh.uniforms.uGlutKeep = { value: glut ? 1 : 0 };   // ORT-01 Glut (glut.js): Leuchtflächen bleiben im Nebel hell
     sh.vertexShader = 'attribute float aEmit;\nvarying float vEmit;\nvarying vec2 vKitXZ;\n' + sh.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvEmit = aEmit;')
       .replace('#include <project_vertex>', ['#include <project_vertex>', '{ vec4 kwp = vec4(transformed, 1.0);', '#ifdef USE_INSTANCING',
         '  kwp = instanceMatrix * kwp;', '#endif', '  kwp = modelMatrix * kwp; vKitXZ = kwp.xz; }'].join('\n'));
-    sh.fragmentShader = 'varying float vEmit;\nvarying vec2 vKitXZ;\nuniform sampler2D uKitFogTex;\nuniform vec4 uKitFogRect;\nuniform float uKitFogOn;\n' + sh.fragmentShader
+    sh.fragmentShader = 'varying float vEmit;\nvarying vec2 vKitXZ;\nuniform sampler2D uKitFogTex;\nuniform vec4 uKitFogRect;\nuniform float uKitFogOn;\nuniform float uGlutKeep;\n' + sh.fragmentShader
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * min(1.2, 1.5 / eM); diffuseColor.rgb *= 0.0; }')
-      .replace('#include <dithering_fragment>', ['#include <dithering_fragment>', 'if (uKitFogOn > 0.5) {',
+      .replace('#include <dithering_fragment>', ['#include <dithering_fragment>', 'if (uKitFogOn > 0.5 && !(uGlutKeep > 0.5 && vEmit > 0.5)) {',
         '  float fv = texture2D(uKitFogTex, (vKitXZ - uKitFogRect.xy) * uKitFogRect.zw).r;',
         '  float fl = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));',
         '  gl_FragColor.rgb = mix(vec3(fl), gl_FragColor.rgb, 0.3 + 0.7 * fv) * (0.58 + 0.42 * fv);', '}'].join('\n'));
   };
-  m.customProgramCacheKey = () => 'kit-emit-fog-3';
+  m.customProgramCacheKey = () => 'kit-emit-fog-4';
   return m;
 }
 
@@ -735,7 +737,7 @@ async function bauKarte(parent, karteIn, opts) {
   const deckGroups = [];
   for (let d = 0; d < k.deckN; d++) { const g = new THREE.Group(); g.name = 'deck' + d; root.add(g); deckGroups.push(g); }
   const fogU = makeFog(k.w, k.decks ? k.stride : k.h);
-  const mat = makeMaterial(fogU);
+  const mat = makeMaterial(fogU, glutAusnahme(k.art, bw));
   const geos = [], mats = [mat];
   const chunks = new Map();   // 'd,cx,cz' → Bucket
   const bucketAt = (d, tx, lz) => {
