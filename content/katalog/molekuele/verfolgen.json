@@ -65,7 +65,6 @@
           "default": "korvette",
           "werte": [
             "frachter",
-            "raider",
             "korvette",
             "fregatte",
             "kreuzer"

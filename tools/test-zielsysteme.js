@@ -152,7 +152,7 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen und Heck', () => {
   T.run(DATEN.treffer.wert.sperre_s + 0.1);
   const bis0 = e.zs.antrieb.bis;
   treffer(g, e, HECK, 1);
-  ok(e.zs.antrieb.s === 2 && e.zs.antrieb.bis > bis0, 'weiterer Treffer am Ende der Stufen: bleibt ausgefallen, die Erholungsfrist beginnt neu');
+  ok(e.zs.antrieb.s === 2 && e.zs.antrieb.bis === bis0, 'weiterer Treffer am Ende der Stufen: bleibt ausgefallen, die Erholungsfrist läuft unverändert weiter (Review A-S2)');
   ok(T.odas.filter((t) => /Antrieb des Ziels/.test(t)).length === 2 && T.me('zielsystemGetroffen').length === 2, 'ODA und missionEvent zielsystemGetroffen je Stufe (2)');
   // Klassen ohne Antrieb im Katalog (Pylon): kein Eintrag
   const p = space.spawnEnemy(g, 'pylon', { x: 1700, y: 900 }); p.scanned = true; g.ship.target = p.id;
@@ -436,6 +436,24 @@ section('Snapshot-Größe und Anzeige-Daten', () => {
   const e = es[0]; e.scanned = false; Zs.szeneAn(g, true); g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(g, e, HECK, 3);
   ok(!('az' in g.snapshot().space.enemies.find((q) => q.id === e.id)), 'ungescanntes Ziel: kein az im Snapshot (der Schaden bleibt verborgen)');
 });
+
+section('Dauerfeuer auf dem ausgefallenen Antrieb verlängert die Frist nicht (Review A-S2)', () => {
+  const T = setup(); const g = T.g;
+  const S = DATEN.systeme.wert.antrieb.stufen;
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); e.hp = e.hpMax = 5000;   // ein Ziel, das im Dauerfeuer nicht stirbt
+  g.god = true; platz(g, 300, 300, 0);
+  const sperre = DATEN.treffer.wert.sperre_s + 0.1;
+  treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
+  ok(e.zs.antrieb.s === 2, 'ausgefallen (Stufe 2) am Zeitpunkt t0');
+  const t0 = g.time, frist = S[2].erholung_s;
+  while (g.time < t0 + frist - 5) { treffer(g, e, HECK, 3); T.run(sperre); }
+  ok(e.zs && e.zs.antrieb.s === 2, `Dauerfeuer bis 5 s vor Ablauf der ${frist} s: weiter ausgefallen`);
+  T.run(t0 + frist + 0.5 - g.time);
+  ok(e.zs && e.zs.antrieb.s === 1, `Dauerfeuer endet, Frist läuft ab (nicht verlängert): ${frist + 0.5} s nach dem ersten Ausfall nur noch beschädigt`);
+  // ohne Daten-Flag (Standard aus) gilt das auch für eine gestellte Stufe: halte bleibt unberührt
+  ok(DATEN.treffer.wert.letzteStufeVerlaengert === false, 'Daten: letzteStufeVerlaengert ist aus (Standard)');
+});
+
 
 console.log(`\ntest-zielsysteme: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

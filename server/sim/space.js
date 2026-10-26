@@ -1157,7 +1157,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   game.stats.kills++;
   game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
   game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.waffen || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });
-  if (game.ship.target === e.id) game.ship.target = null;
+  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }   // das Systemziel hängt am Ziel (A-K3)
   game.missionEvent('enemyKilled', { enemy: e });
 }
 

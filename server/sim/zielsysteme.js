@@ -88,14 +88,19 @@ function trifftGegner(game, e, sx, sy, opts) {
   }
   return getroffen;
 }
-// Eine Stufe weiter (mit Sperre); am Ende der Stufen setzt ein weiterer Treffer nur die Erholungsfrist neu
+// Eine Stufe weiter (mit Sperre). Auf der letzten Stufe verlängert ein weiterer Treffer die Erholungsfrist nur, wenn die Daten es verlangen
+// (treffer.letzteStufeVerlaengert, Standard aus): Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist.
 function schaedige(game, e, id) {
   const sys = SYSTEME[id];
   const z = e.zs || (e.zs = {});
   const cur = z[id] || (z[id] = { s: 0, bis: null, sp: 0 });
   if (cur.gehalten || game.time < cur.sp) return false;
   const letzte = maxStufe(id);
-  if (cur.s >= letzte) { const d = stufeDaten(id, cur.s); cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null; cur.sp = game.time + TREFFER.sperre_s; return false; }
+  if (cur.s >= letzte) {
+    if (TREFFER.letzteStufeVerlaengert) { const d = stufeDaten(id, cur.s); cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null; }
+    cur.sp = game.time + TREFFER.sperre_s;
+    return false;
+  }
   cur.s++;
   cur.sp = game.time + TREFFER.sperre_s;
   const d = stufeDaten(id, cur.s);

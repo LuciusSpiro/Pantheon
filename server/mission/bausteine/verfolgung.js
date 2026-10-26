@@ -8,14 +8,16 @@
 // Nur am Ort des Schritts wirksam (wie spawn); das Laufzeitmodul wird erst beim Aufruf geladen. Ein Faden braucht den Baustein nicht: er ruft Verfolgung.starten direkt.
 function verfolgung() { return require('../../sim/verfolgung.js'); }
 const atLoc = (m) => !(m.step && m.step.loc && m.game.ship.scene !== m.step.loc);
-const KLASSEN = ['frachter', 'raider', 'korvette', 'fregatte', 'kreuzer'];
+const W = require('../../../content/kampf/verfolgung-werte.json').werte;
+const KLASSEN = W.ziel.wert.klassen;   // Daten: ohne Jäger (Review A-M1)
 
 module.exports = (Registry) => {
   Registry.define({ id: 'verfolgung_an', art: 'aktion', effekt: 'gegner',
     ereignisse: ['verfolgungStart', 'verfolgungSprungStart', 'verfolgungAusgang', 'zielsystemGetroffen', 'enemySpawn', 'enemyKilled'],
     beschreibung: 'Verfolgung (A6) einrichten: ein Zielschiff (klasse, Standard korvette; volk; name) flieht Richtung Fluchtpunkt (Sprungpunkt des Orts, sonst virtueller Punkt am Szenenrand) und lädt dort den Sprung auf (15 s, Hüllentreffer verzögern, ausgefallener Antrieb hält an). Die Crew stellt es: Ops visieren den Antrieb an (Systemziel) und treffen das Heck, oder sie stören die Sprungladung. wiederholung (Standard an): entkommt es, kommt nach 8 s ein neues',
-    params: { klasse: { typ: 'string', werte: KLASSEN }, volk: { typ: 'string', werte: ['ger', 'rom', 'pirat'] }, name: { typ: 'string' }, tempo: { typ: 'number', min: 0.25, max: 0.9 }, wiederholung: { typ: 'bool' } },
-    run(m, a) { if (atLoc(m)) verfolgung().starten(m.game, a); } });
+    params: { klasse: { typ: 'string', werte: KLASSEN }, volk: { typ: 'string', werte: ['ger', 'rom', 'pirat'] }, name: { typ: 'string' }, tempo: { typ: 'number', min: W.flucht.wert.tempoMin, max: W.flucht.wert.tempoMax }, wiederholung: { typ: 'bool' } },
+    // Der Labor-Baustein setzt die Wiederholung ausdrücklich (Standard an); die Faden-Schnittstelle bleibt bei Standard aus
+    run(m, a) { if (atLoc(m)) verfolgung().starten(m.game, { ...a, wiederholung: a.wiederholung !== false }); } });
   Registry.define({ id: 'verfolgung_ende', art: 'aktion', beschreibung: 'Verfolgung als geschafft werten (Überspringen im Regiebuch)', params: {},
     run(m) { if (atLoc(m)) verfolgung().erzwingen(m.game); } });
   Registry.define({ id: 'verfolgung_ausgang', art: 'pruefung', beschreibung: 'Die Verfolgung endete mit gestellt (Antrieb ausgefallen, Lerche am Ziel), zerstoert oder entkommen (gesprungen)',

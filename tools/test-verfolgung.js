@@ -103,8 +103,8 @@ section('Aufbau: Zielschiff, Fluchtpunkt, Zustand', () => {
   ok(Zs.szeneAktiv(g) && e.zielsystem === 'antrieb', 'Szenenschalter zielsysteme an, das Zielschiff zielt auf den Antrieb (gleiche Regeln)');
   ok(g.space.enemies.length === 1 && Verfolgung.aktiv(g) && Verfolgung.ausgang(g) === null && !Verfolgung.erfolg(g), 'ein Gegner, aktiv, noch kein Ausgang');
   ok(T.me('verfolgungStart').length === 1 && T.odas.some((t) => /Falke dreht ab/.test(t)), 'missionEvent verfolgungStart und Ansage mit dem Namen');
-  const U = raum(); Verfolgung.starten(U.g, { klasse: 'unsinn' });
-  ok(zielVon(U.g).kind === V.ziel.wert.klasse, 'unbekannte Klasse: Standardklasse');
+  const U = raum(); const abgelehnt = Verfolgung.starten(U.g, { klasse: 'unsinn' });
+  ok(abgelehnt === null && !Verfolgung.aktiv(U.g), 'unbekannte Klasse: abgelehnt (keine stille Ersatzklasse, Review A-K1/A-M1)');
   const D = raum(); ok(Verfolgung.debug(D.g, ['frachter', 'ohne']) === null && zielVon(D.g).kind === 'frachter' && D.g.space.verfolgung.wiederholung === false, 'Debug verfolgung frachter ohne');
   // Fluchtpunkt: Sprungpunkt des Orts (Rabenpass hat Kanten) bzw. virtueller Randpunkt (Ort ohne Kanten)
   const kand = Verfolgung.kandidaten(T.g);
@@ -270,7 +270,7 @@ section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen',
 
 section('Zerstörung und Szenenwechsel', () => {
   const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
-  Verfolgung.starten(g, { klasse: 'raider', wiederholung: false });
+  Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });
   const e = zielVon(g); T.run(1);
   space.damageEnemy(g, e, 9999, e.x - 30, e.y, { angriff: true });
   T.run(0.2);
@@ -278,7 +278,7 @@ section('Zerstörung und Szenenwechsel', () => {
   ok(T.me('verfolgungAusgang').length === 1 && T.me('verfolgungAusgang')[0].was === 'zerstoert', 'missionEvent verfolgungAusgang (zerstoert)');
   const U = raum(); Verfolgung.starten(U.g, { klasse: 'korvette' });
   space.enterScene(U.g, 'splitter', {}); U.run(0.2);
-  ok(!Verfolgung.aktiv(U.g) && !Zs.szeneAktiv(U.g) && U.g.space.verfolgung === undefined || U.g.space.verfolgung === null, 'Szenenwechsel: Verfolgung und Szenenschalter sind weg');
+  ok(!Verfolgung.aktiv(U.g) && !Zs.szeneAktiv(U.g) && (U.g.space.verfolgung === undefined || U.g.space.verfolgung === null), 'Szenenwechsel: Verfolgung und Szenenschalter sind weg');
   // erzwingen (Überspringen)
   const S = raum(); Verfolgung.starten(S.g, { klasse: 'korvette' }); S.run(0.5);
   ok(Verfolgung.erzwingen(S.g) === true && Verfolgung.erfolg(S.g), 'erzwingen: als geschafft gewertet');
@@ -373,5 +373,54 @@ section('Snapshot-Größe', () => {
 });
 
 fs.rmSync(TMP, { recursive: true, force: true });
+section('Jäger sind keine Zielklasse; Abweisung statt stiller Ersatzklasse (Review A-M1, A-K1)', () => {
+  const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
+  ok(!V.ziel.wert.klassen.includes('raider') && !V.ziel.wert.klassen.some((k) => k === 'raider'), 'Daten: raider ist keine erlaubte Zielklasse');
+  ok(Verfolgung.starten(g, { klasse: 'raider' }) === null && !Verfolgung.aktiv(g), 'Faden-Schnittstelle: raider wird abgelehnt, keine Verfolgung entsteht');
+  ok(String(Verfolgung.debug(g, ['raider'])).includes('gibt es hier nicht') && !Verfolgung.aktiv(g), 'Debug verfolgung raider: Meldung, keine Verfolgung');
+  ok(V.ziel.wert.klassen.every((k) => CONFIG.enemies[k] && CONFIG.enemies[k].speed * 0 === 0), 'erlaubte Klassen sind bekannte Gegnerklassen');
+  ok(V.ziel.wert.klassen.every((k) => V.flucht.wert.tempo * CONFIG.shipClasses[k].maxSpeed < CONFIG.shipClasses.lerche.maxSpeed), 'alle erlaubten Klassen fliehen langsamer als die Lerche (Fluchttempo unter ihrer Höchstfahrt)');
+});
+
+section('Laufende Verfolgung wird nicht überschrieben; die Wiederholung ist bei der Faden-Schnittstelle aus (Review A-K1, A-K2)', () => {
+  const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
+  const a = Verfolgung.starten(g, { klasse: 'korvette', name: 'Erste' });
+  const e1 = zielVon(g);
+  ok(!!a && e1 && e1.name === 'Erste', 'erste Verfolgung läuft');
+  ok(Verfolgung.starten(g, { klasse: 'fregatte', name: 'Zweite' }) === null, 'zweiter Start während der Verfolgung: abgelehnt');
+  ok(zielVon(g) === e1 && zielVon(g).name === 'Erste' && g.space.enemies.filter((e) => e.tag === 'verfolgung').length === 1, 'das alte Zielschiff bleibt das einzige, kein zweites entsteht');
+  T.run(70);
+  ok(Verfolgung.ausgang(g) === 'entkommen', 'nach dem Ende (entkommen) ist ein neuer Start wieder erlaubt');
+  ok(Verfolgung.starten(g, { klasse: 'fregatte', name: 'Zweite' }) !== null && zielVon(g).name === 'Zweite', 'neuer Start nach dem Ende');
+  // Faden-Schnittstelle: ohne Wiederholung bleibt entkommen stehen (kein neues Zielschiff)
+  const U = raum(); platz(U.g, 600, 1100, 0);
+  Verfolgung.starten(U.g, { klasse: 'korvette' });
+  U.run(70);
+  U.run(30);
+  ok(Verfolgung.ausgang(U.g) === 'entkommen' && U.g.space.verfolgung.versuch === 1 && !zielVon(U.g), 'ohne wiederholung: entkommen bleibt stehen, nach 30 s kein neues Zielschiff');
+  // Labor-Baustein setzt die Wiederholung ausdrücklich: ein neues Zielschiff nach 8 s
+  const W2 = raum(); platz(W2.g, 600, 1100, 0);
+  Verfolgung.starten(W2.g, { klasse: 'korvette', wiederholung: true });
+  W2.run(60, () => Verfolgung.ausgang(W2.g) === 'entkommen'); W2.run(9);
+  ok(W2.g.space.verfolgung && W2.g.space.verfolgung.versuch === 2 && !!zielVon(W2.g), 'mit wiederholung: nach 8 s ein neues Zielschiff (Versuch 2)');
+});
+
+section('Systemziel hängt am Ziel: mit dem Zielschiff geht auch das Systemziel (Review A-K3)', () => {
+  const T = raum(); const g = T.g; g.god = true; platz(g, 600, 1100, 0);
+  Verfolgung.starten(g, { klasse: 'korvette' });
+  const e = zielVon(g); e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
+  ok(g.ship.zielsystem === 'antrieb', 'Systemziel gesetzt');
+  space.damageEnemy(g, e, 9999, e.x - 30, e.y, { angriff: true });
+  ok(g.ship.target == null && g.ship.zielsystem === undefined, 'Zielschiff zerstört: Ziel und Systemziel sind weg');
+});
+
+section('Tempo-Grenzen und Haltewerte kommen aus den Daten (Review A-K4)', () => {
+  const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
+  const k = Verfolgung.starten(g, { klasse: 'korvette', tempo: 5 });
+  ok(k.tempo === V.flucht.wert.tempoMax, 'tempo 5 wird auf die Datengrenze tempoMax geklemmt');
+  ok(Verfolgung.haltAbstand() === V.flucht.wert.haltAbstand && Verfolgung.wendeSchwelle() === V.flucht.wert.wendeSchwelle && Verfolgung.wendeTempoMin() === V.flucht.wert.wendeTempoMin && Verfolgung.stufeMinTempo() === V.flucht.wert.stufeMinTempo, 'Halt, Wende und Stufenschwelle sind Daten');
+});
+
+
 console.log(`\ntest-verfolgung: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

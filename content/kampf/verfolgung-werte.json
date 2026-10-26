@@ -3,14 +3,14 @@
   "_hinweis": "SUND-04a-1 A: Szenentyp A6 Verfolgung (server/sim/verfolgung.js, Bausteine verfolgung_an/_ende/_ausgang/_erfolg). Ein Zielschiff flieht Richtung Fluchtpunkt (Sprungpunkt der Szene, sonst virtueller Punkt am Szenenrand) und lädt dort den Sprung auf; die Crew muss es stellen: Antrieb ausschalten (Systemtreffer, content/kampf/zielsysteme-werte.json) oder die Sprungladung stören (Hüllentreffer verzögern sie), bevor sie fertig ist. Alle Zahlen stehen hier, keine im Code. Dauer, Abstand und Tempo sind Annahmen (Messung: tools/sim-headless.js, Bot umsetzung_verfolgen_fliehenden_stellen), Änderungen wirken ohne Code.",
   "werte": {
     "ziel": {
-      "wert": {"klasse": "korvette", "klassen": ["frachter", "raider", "korvette", "fregatte", "kreuzer"], "startAbstand": 420},
-      "einheit": "klasse = Standard, klassen = erlaubte Zielklassen, startAbstand px zwischen Lerche und Zielschiff beim Start",
-      "_hinweis": "Das Zielschiff startet auf der Linie Lerche - Fluchtpunkt, startAbstand vor der Lerche: Die Lerche verfolgt von hinten, die Treffer fallen auf das Heck. Relais, Pylon und Wächter fliehen nicht."
+      "wert": {"klasse": "korvette", "klassen": ["frachter", "korvette", "fregatte", "kreuzer"], "startAbstand": 420, "randAbstand": 60},
+      "einheit": "klasse = Standard, klassen = erlaubte Zielklassen (Labor, Baustein, Debug und Faden-Schnittstelle lehnen andere ab), startAbstand px zwischen Lerche und Zielschiff beim Start, randAbstand px vom Szenenrand, den das Zielschiff beim Start nicht unterschreitet",
+      "_hinweis": "Das Zielschiff startet auf der Linie Lerche - Fluchtpunkt, startAbstand vor der Lerche: Die Lerche verfolgt von hinten, die Treffer fallen auf das Heck. Relais, Pylon und Wächter fliehen nicht. Jäger (raider) sind nicht erlaubt: Ihre Mindestfahrt liegt über der Lerche (160 px/s gegen höchstens 130), eine Verfolgung wäre nicht zu gewinnen (Review SUND-04a-1 A, Entscheidung)."
     },
     "flucht": {
-      "wert": {"tempo": 0.65, "legacyFaktor": 1.5, "ankunftRadius": 120},
-      "einheit": "tempo = Anteil der Klassen-Höchstfahrt (Flugmodell der Piloten), legacyFaktor = Vielfaches von CONFIG.enemies[kind].speed (kinematisches Modell), ankunftRadius px um den Fluchtpunkt, ab dem die Sprungladung beginnt",
-      "_hinweis": "Beide Flugmodelle fahren dasselbe Verhalten (e.fluchtZiel): Pilot (shared/flight.js) und kinematisch (space.moveLegacy). Das Tempo liegt unter der Lerche (130): Korvette 0,65 x 110 = 71 px/s, kinematisch 50 x 1,5 = 75 px/s. Wer den Antrieb trifft, holt auf."
+      "wert": {"tempo": 0.65, "tempoMin": 0.25, "tempoMax": 0.9, "legacyFaktor": 1.5, "ankunftRadius": 120, "haltAbstand": 30, "wendeSchwelle": 1, "wendeTempoMin": 8, "stufeMinTempo": 4},
+      "einheit": "tempo = Anteil der Klassen-Höchstfahrt (Flugmodell der Piloten), tempoMin/tempoMax = Grenzen des Tempo-Parameters (Baustein, Faden), legacyFaktor = Vielfaches von CONFIG.enemies[kind].speed (kinematisches Modell), ankunftRadius px um den Fluchtpunkt, ab dem die Sprungladung beginnt, haltAbstand px: ab da hält das Pilot-Modell an, wendeSchwelle rad: ab dieser Kursänderung fährt es wendig (Mindestfahrt wendeTempoMin px/s), stufeMinTempo px/s: darunter gilt das Schiff als stehend",
+      "_hinweis": "Beide Flugmodelle fahren dasselbe Verhalten (e.fluchtZiel): Pilot (shared/flight.js) und kinematisch (space.moveLegacy). Das Tempo liegt unter der Lerche (130). ROUNDUNG (gemessen, SUND-04a-1 A): Das Pilot-Modell fährt nur auf Fahrstufen (stageFor rundet auf die nächste Stufe der Klasse), der Tempo-Parameter wirkt daher STUFIG, nicht stetig. Rechnerisch 0,65 x 110 = 71 px/s liegt zwischen zwei Stufen; gemessen fährt die Korvette 82,5 px/s (Pilot), kinematisch 50 x 1,5 = 75 px/s. Wer den Antrieb trifft, holt auf. Zwischen zwei Tempo-Werten, die dieselbe Stufe treffen, gibt es keinen Unterschied."
     },
     "sprung": {
       "wert": {"dauer": 15, "verzoegerungJeTreffer": 1.5, "verzoegerungMax": 9, "pausiertBeiAusfall": true},

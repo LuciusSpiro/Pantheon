@@ -23,7 +23,7 @@ const W = require('../../content/kampf/verfolgung-werte.json').werte;
 const ZIEL = W.ziel.wert, FLUCHT = W.flucht.wert, SPRUNG = W.sprung.wert, STELLEN = W.stellen.wert, FP = W.fluchtpunkt.wert, GEGNER = W.gegner.wert,
   WDH = W.wiederholung.wert, ANSAGEN = W.ansagen.wert;
 const AUSGAENGE = ['gestellt', 'zerstoert', 'entkommen'];
-const KLASSEN = ZIEL.klassen;
+const KLASSEN = ZIEL.klassen;   // erlaubte Zielklassen (Daten): ohne Jäger, deren Mindestfahrt über der Lerche liegt
 const SYSTEM_ZIEL = 'antrieb';   // Zielsystem der Szene (Daten: content/kampf/zielsysteme-werte.json)
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> verfolgung)
@@ -79,15 +79,18 @@ function fluchtpunktWaehlen(game) {
 }
 
 // ---------- Einrichten ----------
-// o: { klasse (frachter|raider|korvette|fregatte|kreuzer), volk? ('ger'|'rom'|'pirat'), name?, tempo? (Anteil der Höchstfahrt, 0,25–0,9), wiederholung? (Standard an),
-//      fluchtpunkt? { x, y } (sonst gewählt) }
+// o: { klasse (frachter|korvette|fregatte|kreuzer; Standard korvette), volk? ('ger'|'rom'|'pirat'), name?, tempo? (Anteil der Höchstfahrt, Daten: flucht.tempoMin–tempoMax),
+//      wiederholung? (Standard AUS: die Faden-Schnittstelle bleibt bei Scheitern stehen; der Labor-Baustein setzt sie ausdrücklich), fluchtpunkt? { x, y } (sonst gewählt) }
+// Rückgabe: der Zustand, oder null wenn abgelehnt (unbekannte Klasse, eine Verfolgung läuft schon). Eine laufende Verfolgung wird nie überschrieben.
 function starten(game, o) {
   const q = o || {};
-  const klasse = KLASSEN.includes(q.klasse) ? q.klasse : ZIEL.klasse;
+  const klasse = q.klasse == null ? ZIEL.klasse : q.klasse;
+  if (!KLASSEN.includes(klasse)) return null;
+  if (aktiv(game) && !ausgang(game)) return null;
   const fpV = q.fluchtpunkt && Number.isFinite(q.fluchtpunkt.x) && Number.isFinite(q.fluchtpunkt.y)
     ? { x: Math.round(q.fluchtpunkt.x), y: Math.round(q.fluchtpunkt.y), virtuell: !!q.fluchtpunkt.virtuell } : fluchtpunktWaehlen(game);
-  const tempo = q.tempo != null ? clamp(Number(q.tempo) || FLUCHT.tempo, 0.25, 0.9) : null;
-  game.space.verfolgung = { ziel: null, klasse, volk: q.volk || null, name: q.name ? String(q.name).slice(0, 20) : null, tempo, wiederholung: q.wiederholung !== false,
+  const tempo = q.tempo != null ? clamp(Number(q.tempo) || FLUCHT.tempo, FLUCHT.tempoMin, FLUCHT.tempoMax) : null;
+  game.space.verfolgung = { ziel: null, klasse, volk: q.volk || null, name: q.name ? String(q.name).slice(0, 20) : null, tempo, wiederholung: q.wiederholung === true,
     fluchtpunkt: fpV, ausgang: null, szene: game.ship.scene, versuch: 1, verz: 0, hpLast: 0, stellT: 0, neuAt: null, ansagt: [] };
   stats(game).starts++;
   Zielsysteme.szeneAn(game, true);   // beide Seiten gleiche Regeln: gezielte und ungezielte Systemtreffer in dieser Szene
@@ -98,7 +101,8 @@ function spawnen(game) {
   const k = st(game); const S = space(); const L = game.ship; const sp = game.space;
   const fp = k.fluchtpunkt;
   const head = Math.atan2(fp.y - L.y, fp.x - L.x);
-  const x = clamp(L.x + Math.cos(head) * ZIEL.startAbstand, 60, sp.w - 60), y = clamp(L.y + Math.sin(head) * ZIEL.startAbstand, 60, sp.h - 60);
+  const m = ZIEL.randAbstand;
+  const x = clamp(L.x + Math.cos(head) * ZIEL.startAbstand, m, sp.w - m), y = clamp(L.y + Math.sin(head) * ZIEL.startAbstand, m, sp.h - m);
   const e = S.spawnEnemy(game, k.klasse, { x, y, facing: Math.atan2(fp.y - y, fp.x - x), tag: 'verfolgung', volk: k.volk || undefined });
   e.fluchtZiel = { x: fp.x, y: fp.y };
   if (k.tempo != null) e.fluchtTempo = k.tempo;
@@ -110,11 +114,16 @@ function spawnen(game) {
   game.missionEvent('verfolgungStart', { enemy: e, klasse: k.klasse, name: k.name, versuch: k.versuch });
   return e;
 }
+// Das Ziel ist weg (Sprung, neues Ziel): Ziel der Ops und ihr Systemziel gehen mit ihm
+function abgeben(game, e) {
+  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }
+}
 // Wiederholung: Rest des Zielschiffs weg, ein neues am Start
 function neu(game) {
   const k = st(game); if (!k) return;
+  const alt = lebt(game, k.ziel);
   game.space.enemies = game.space.enemies.filter((e) => e.id !== k.ziel);
-  if (game.ship.target && !game.space.enemies.some((e) => e.id === game.ship.target)) game.ship.target = null;
+  if (alt) abgeben(game, alt);
   k.versuch++;
   k.fluchtpunkt = fluchtpunktWaehlen(game);
   game.oda('Ein neues Zielschiff dreht ab – diesmal nicht entkommen lassen.', null);
@@ -154,7 +163,7 @@ function update(game, dt) {
 }
 function springen(game, k, e) {
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
-  if (game.ship.target === e.id) game.ship.target = null;
+  abgeben(game, e);
   game.emit('sfx', { name: 'jump' });
   setzeAusgang(game, k, 'entkommen');
 }
@@ -201,9 +210,13 @@ function snapshot(game) {
 function debug(game, args) {
   const a = Array.isArray(args) ? args.map(String) : [];
   if (game.ship.docked) return 'Nicht angedockt.';
-  starten(game, { klasse: a.find((x) => KLASSEN.includes(x)), wiederholung: !a.includes('ohne') });
-  return null;
+  if (aktiv(game) && !ausgang(game)) return 'Läuft schon eine Verfolgung.';
+  const klasse = a.find((x) => x !== 'ohne');
+  return starten(game, { klasse, wiederholung: !a.includes('ohne') }) ? null : `Die Zielklasse ${klasse} gibt es hier nicht (${KLASSEN.join(', ')}).`;
 }
 
-module.exports = { starten, neu, update, erzwingen, debug, aktiv, ausgang, erfolg, ausgangIst, ziel, fluchtpunkt, fluchtZiel, pilotTempo, legacyTempo, snapExtra, snapshot,
+// Fluchtverhalten des Pilot-Modells (pilot.js flucht): Halt am Ziel, wendige Kursänderung, Mindestfahrten (Daten: flucht)
+const haltAbstand = () => FLUCHT.haltAbstand, wendeSchwelle = () => FLUCHT.wendeSchwelle, wendeTempoMin = () => FLUCHT.wendeTempoMin, stufeMinTempo = () => FLUCHT.stufeMinTempo;
+
+module.exports = { starten, neu, update, erzwingen, debug, aktiv, ausgang, erfolg, ausgangIst, ziel, fluchtpunkt, fluchtZiel, pilotTempo, legacyTempo, haltAbstand, wendeSchwelle, wendeTempoMin, stufeMinTempo, snapExtra, snapshot,
   fluchtpunktWaehlen, kandidaten, AUSGAENGE, KLASSEN, SYSTEM_ZIEL };

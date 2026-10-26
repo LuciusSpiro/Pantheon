@@ -2606,7 +2606,8 @@ class GenericAgent extends KeshAgent {
     if (steuern) {
       if (!this.enter(S, 'helm')) return;
       if (tg.az >= 2 && d < 300) { this.brake(S); return; }   // Antrieb aus: nah bleiben, nicht überfliegen
-      // Aus dem (fast) Stand mit vollem Ruder anfahren bleibt hängen, wenn die Restgeschwindigkeit asymptotisch gegen 0 läuft (Vorwärtsanteil −1e-14 gilt als Rückwärts, flight.js): Allstopp setzt sie auf exakt 0
+      // Vorsorge gegen Hängenbleiben aus dem (fast) Stand: der Allstopp setzt die Restfahrt auf 0. Die frühere Begründung (Vorwärtsanteil −1e-14 gilt als Rückwärts, flight.js)
+      // ist NICHT reproduziert (Review A-K9): die Lerche beschleunigt aus der Restfahrt normal. Die Schutzmaßnahme bleibt, bis sie geprüft ist.
       if (sh.speed < 1.5 && !sh.helm.autoStop && (m.vfZero || 0) < S.time) { m.vfZero = S.time + 4; this.cmd('helm.stop'); return; }
       const tv = Math.hypot(tg.vx || 0, tg.vy || 0);
       const stage = Math.abs(diff) > 0.35 ? HALF : d > 520 ? FULL : d > 260 ? THREEQ : (tv > 55 ? HALF : QUARTER);

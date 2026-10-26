@@ -26,9 +26,10 @@
     "treffer": {
       "wert": {
         "wahrscheinlichkeit": {"gezielt": 1, "ungezielt": 0.35},
-        "sperre_s": 1.5
+        "sperre_s": 1.5,
+        "letzteStufeVerlaengert": false
       },
-      "einheit": "wahrscheinlichkeit 0..1 je durchschlagendem Hüllentreffer in der Seite des Systems, sperre_s Sekunden zwischen zwei Stufen desselben Systems",
+      "einheit": "wahrscheinlichkeit 0..1 je durchschlagendem Hüllentreffer in der Seite des Systems, sperre_s Sekunden zwischen zwei Stufen desselben Systems, letzteStufeVerlaengert (bool): setzt ein weiterer Treffer auf der letzten Stufe die Erholungsfrist neu? false = Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist (Review A-S2)",
       "_hinweis": "Ein Treffer zählt nur, wenn er den Schild des getroffenen Segments durchschlägt (Hüllenschaden > 0) UND die Hülle in der Seite des Systems trifft (Antrieb: Heck). Gezielt (Systemziel der Ops bzw. e.zielsystem des Schützen) trifft sicher, ungezielt mit 35 %. Die Sperre verhindert, dass eine Salve (Batterien feuern mehrere Geschosse binnen Sekunden) den Antrieb in einem Zug von voll auf ausgefallen setzt: zwei Stufen brauchen mindestens zwei getrennte Treffer. Das Heck ist bei Jäger, Korvette, Fregatte und Kreuzer die schwache Seite (Schild 0): von hinten angreifen ist ohnehin der Rat des Ziel-Scans."
     },
     "szene": {

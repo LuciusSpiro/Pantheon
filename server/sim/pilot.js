@@ -441,10 +441,10 @@ function flucht(game, e, c) {
   const goal = Verfolgung.fluchtZiel(e);
   const d = Math.hypot(goal.x - e.x, goal.y - e.y);
   const head = d > 2 ? Math.atan2(goal.y - e.y, goal.x - e.x) : e.angle;
-  if (e.sprung != null || d < 30) return { stage: Flight.stopStage(c), head: d > 2 ? head : e.angle };
+  if (e.sprung != null || d < Verfolgung.haltAbstand()) return { stage: Flight.stopStage(c), head: d > 2 ? head : e.angle };
   let speed = Verfolgung.pilotTempo(c, e);
-  if (Math.abs(norm(head - e.angle)) > 1.0) speed = Math.max(Math.min(speed, Flight.stageSpeed(c, Flight.agileStage(c))), 8);   // große Kursänderung: wendigste Stufe
-  return { stage: Math.max(stageFor(c, speed), speed > 4 ? 1 : 0), head };
+  if (Math.abs(norm(head - e.angle)) > Verfolgung.wendeSchwelle()) speed = Math.max(Math.min(speed, Flight.stageSpeed(c, Flight.agileStage(c))), Verfolgung.wendeTempoMin());   // große Kursänderung: wendigste Stufe
+  return { stage: Math.max(stageFor(c, speed), speed > Verfolgung.stufeMinTempo() ? 1 : 0), head };
 }
 
 // Letzte Sicherung gegen Zusammenstöße: unter max(minSeparation, Radiensumme) wird der Gegner hinausgeschoben und

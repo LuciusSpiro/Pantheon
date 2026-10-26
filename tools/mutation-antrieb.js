@@ -42,7 +42,15 @@ const MUTATIONEN = [
   [ZS, "  if (cur.gehalten || game.time < cur.sp) return false;", "  if (cur.gehalten) return false;", 'Stufen: keine Sperre (eine Salve schaltet den Antrieb in einem Zug aus)'],
   [ZS, "  if (cur.gehalten || game.time < cur.sp) return false;", "  if (game.time < cur.sp) return false;", 'Stufen: ein gestelltes Schiff (gehalten) kann sich verschlechtern/erholen'],
   [ZS, "  cur.s++;\n  cur.sp = game.time + TREFFER.sperre_s;", "  cur.s = letzte;\n  cur.sp = game.time + TREFFER.sperre_s;", 'Stufen: der erste Treffer schaltet gleich ganz aus'],
-  [ZS, "  if (cur.s >= letzte) { const d = stufeDaten(id, cur.s); cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null; cur.sp = game.time + TREFFER.sperre_s; return false; }", "  if (cur.s >= letzte) return false;", 'Stufen: ein weiterer Treffer am Ende setzt die Erholungsfrist nicht neu'],
+  [ZS, "    if (TREFFER.letzteStufeVerlaengert) {", "    if (true) {", 'Stufen: Dauerfeuer auf der letzten Stufe verlängert die Erholungsfrist (A-S2)'],
+  [DZ, '"letzteStufeVerlaengert": false', '"letzteStufeVerlaengert": true', 'Daten: letzte Stufe verlängert die Frist'],
+  [VF, "  if (!KLASSEN.includes(klasse)) return null;", "", 'Faden-Schnittstelle: unbekannte Zielklasse (Jäger) wird nicht abgelehnt'],
+  [VF, "  if (aktiv(game) && !ausgang(game)) return null;", "", 'Faden-Schnittstelle: eine laufende Verfolgung wird überschrieben'],
+  [VF, "wiederholung: q.wiederholung === true,", "wiederholung: q.wiederholung !== false,", 'Faden-Schnittstelle: Wiederholung Standard an (A-K2)'],
+  [VF, "  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }", "  if (game.ship.target === e.id) { game.ship.target = null; }", 'Zielsystem: bleibt nach dem Abgang des Ziels stehen (A-K3)'],
+  [DV, '"haltAbstand": 30', '"haltAbstand": 0', 'Daten: Halt am Ziel ohne Abstand (A-K4)'],
+  [DV, '"wendeTempoMin": 8', '"wendeTempoMin": 0', 'Daten: wendiges Fluchttempo ohne Mindestfahrt (A-K4)'],
+  [DV, '"randAbstand": 60', '"randAbstand": 0', 'Daten: Start am Szenenrand (A-K4)'],
   [ZS, "  cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null;\n  game.emit('sfx'", "  cur.bis = null;\n  game.emit('sfx'", 'Erholung: der Antrieb erholt sich nie'],
   [ZS, "      if (cur.bis == null || game.time < cur.bis) continue;", "      if (cur.bis == null) continue;", 'Erholung: sofort'],
   [ZS, "      cur.s--;\n      if (cur.s <= 0) { delete e.zs[id]; continue; }", "      cur.s = 0;\n      if (cur.s <= 0) { delete e.zs[id]; continue; }", 'Erholung: ausgefallen erholt sich in einem Schritt auf voll'],
@@ -83,11 +91,11 @@ const MUTATIONEN = [
   [SP, "  if (e.zs) { const zx = Zielsysteme.snapExtra(e); if (zx) Object.assign(o, zx); }", "", 'Snapshot: kein az'],
   [SP, "  if (e.fluchtZiel) { const vx = Verfolgung.snapExtra(e); if (vx) Object.assign(o, vx); }", "", 'Snapshot: kein sj und nm'],
   // ---- Verfolgung
-  [VF, "  Zielsysteme.szeneAn(game, true);   // beide Seiten gleiche Regeln", "", 'Verfolgung: Szenenschalter wird nicht gesetzt'],
+  [VF, "  Zielsysteme.szeneAn(game, true);", "", 'Verfolgung: Szenenschalter wird nicht gesetzt'],
   [VF, "  if (GEGNER.zielenAufAntrieb) e.zielsystem = SYSTEM_ZIEL;", "", 'Verfolgung: das Zielschiff zielt nicht auf den Antrieb der Lerche'],
   [VF, "  if (k.szene !== game.ship.scene) { delete game.space.verfolgung; return; }", "", 'Verfolgung: lebt über den Szenenwechsel hinaus'],
   [VF, "if (d > bd) { bd = d; best = c; }", "if (d < bd || best === null) { bd = d; best = c; }", 'Fluchtpunkt: der nächste statt der entfernteste'],
-  [VF, "x = clamp(L.x + Math.cos(head) * ZIEL.startAbstand, 60, sp.w - 60)", "x = clamp(L.x - Math.cos(head) * ZIEL.startAbstand, 60, sp.w - 60)", 'Aufbau: das Zielschiff startet hinter der Lerche'],
+  [VF, "x = clamp(L.x + Math.cos(head) * ZIEL.startAbstand, m, sp.w - m)", "x = clamp(L.x - Math.cos(head) * ZIEL.startAbstand, m, sp.w - m)", 'Aufbau: das Zielschiff startet hinter der Lerche'],
   [VF, "  if (e.sprung == null && !aus && dist(e.x, e.y, fp.x, fp.y) <= FLUCHT.ankunftRadius) {", "  if (e.sprung == null && dist(e.x, e.y, fp.x, fp.y) <= FLUCHT.ankunftRadius) {", 'Sprung: auch mit ausgefallenem Antrieb'],
   [VF, "    if (e.hp < k.hpLast - 1e-9) k.verz = Math.min(SPRUNG.verzoegerungMax, k.verz + SPRUNG.verzoegerungJeTreffer);", "", 'Sprung: Hüllentreffer verzögern nicht'],
   [VF, "Math.min(SPRUNG.verzoegerungMax, k.verz + SPRUNG.verzoegerungJeTreffer)", "k.verz + SPRUNG.verzoegerungJeTreffer", 'Sprung: Verzögerung unbegrenzt'],
@@ -134,8 +142,10 @@ const MUTATIONEN = [
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });
-const rot = (r) => r.status !== 0;
-let ueberlebt = 0, gelaufen = 0;
+// Erkannt = ein Test ist mit FEHLER-Zeilen rot (eine Prüfung schlägt fehl). Ein Lauf ohne FEHLER-Zeile bei Exit != 0 ist ein ABSTURZ (SyntaxError,
+// Laufzeitfehler der Mutante): wird getrennt ausgewiesen und NICHT als erkannt gezählt.
+const fehlerZeilen = (r) => ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
+let ueberlebt = 0, gelaufen = 0, erkannt = 0, abstuerze = 0;
 console.log(`Mutationsprobe test-zielsysteme.js, test-verfolgung.js, test-verfolgung-bot.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);
 for (const t of TESTS) {
   const basis = lauf(t);
@@ -151,13 +161,19 @@ for (const [datei, alt, neu, was] of MUTATIONEN) {
   const text = nl ? orig.replace(/\r\n/g, '\n') : orig;
   if (text.split(alt).length !== 2) { console.log(`  ?? ${was}: Textstelle nicht eindeutig gefunden (${datei})`); ueberlebt++; continue; }
   fs.writeFileSync(f, nl ? text.replace(alt, () => neu).replace(/\n/g, '\r\n') : text.replace(alt, () => neu));
-  let wer = null, r = null;
-  for (const t of TESTS) { r = lauf(t); if (rot(r)) { wer = path.basename(t[0], '.js').replace('test-', ''); break; } }
+  let wer = null, fehler = [], absturz = null;
+  for (const t of TESTS) {
+    const r = lauf(t);
+    if (r.status === 0) continue;
+    const fz = fehlerZeilen(r);
+    if (fz.length) { wer = path.basename(t[0], '.js').replace('test-', ''); fehler = fz; break; }
+    if (!absturz) absturz = { test: path.basename(t[0], '.js'), text: ((r.stderr || '') + (r.stdout || '')).split('\n').filter((l) => /Error|    at /.test(l)).slice(0, 1).join(' ').trim().slice(0, 120) || `Exit ${r.status}` };
+  }
   fs.writeFileSync(f, orig);
-  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
-  if (!wer) ueberlebt++;
-  console.log(`  ${wer ? 'rot  ' : 'GRÜN '} ${was}${wer ? ` (${wer}: ${fehler.length} Fehler, z. B. ${(fehler[0] || 'Absturz').replace(/^\s*FEHLER\s*/, '').slice(0, 64)})` : '  <-- ÜBERLEBT'}`);
+  if (wer) { erkannt++; console.log(`  rot   ${was} (${wer}: ${fehler.length} Fehler, z. B. ${fehler[0].replace(/^\s*FEHLER\s*/, '').slice(0, 64)})`); }
+  else if (absturz) { abstuerze++; console.log(`  ABSTURZ ${was} (${absturz.test}: ${absturz.text}) – nicht als erkannt gezählt`); }
+  else { ueberlebt++; console.log(`  GRÜN  ${was}  <-- ÜBERLEBT`); }
 }
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
-console.log(ueberlebt ? `${ueberlebt} von ${gelaufen} Mutation(en) überlebt` : `alle ${gelaufen} Mutationen erkannt`);
-process.exit(ueberlebt ? 1 : 0);
+console.log(`Ergebnis: ${erkannt} erkannt, ${ueberlebt} überlebt, ${abstuerze} Absturz/Syntaxfehler (von ${gelaufen})`);
+process.exit(ueberlebt || abstuerze ? 1 : 0);
