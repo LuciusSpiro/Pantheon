@@ -75,3 +75,20 @@ Gelände Rom-Außenposten: `kits.gelaende` top `stone` und `steinDichte` 0,05 (n
 Gates (Commits `e5c7d39` Baseline, `8b86d9e` assets): `hash-baseline --compare` Karten 72/72, `layout` 120/120, `deko` 120/120 und `deko_zellen` 60/60 nach Neuschreiben mit Grund. Die Baseline ist für `deko_zellen` und `deko` gegenüber main damit NICHT mehr der main-Stand: 30/60 bzw. 30/120 Außenposten-Germanen-Einträge geändert (Paket 6M). `npm test` Exit 0 ohne FEHLER. `check` grün. `check:assets` 0 Fehler, 48 Warnungen (vorher 46). `snap:mess` grün (Worst Case 11661 B). Golden: 60 Traces frisch gegen `Pantheon-main` (`--all --seeds 10`): alle 0 %, GOLDEN GRÜN.
 
 Screenshots: `shots` im Scratchpad `6dtools\final\` (Seeds 1–2, Rom und Germanen, Station und Außenposten, kommando/reaktor/lager/zellen/quartier, `uebersicht`, `lp/helix.station`, `lp/methalle.siedlung`). Stand: Außenposten Germanen Lager zeigt Glut-Fenster und die Deckung in Eisen (Fass verschwunden); Germanen-Station Kommando zeigt keine sichtbare Glut mehr (offen).
+
+## Nachtrag Glut (Paket 7, Merge `ort01-glut` in `ort01-int`)
+
+Ursache (gemessen, Rom-Kommando): Die Amber-Linie (emit 0,6) kommt im Buffer korrekt an (Mesher: sRGB × emit, linearisiert, Wert (0,319; 0,108; 0,011)). Der Emissionszweig des Shaders liefert im gesehenen Raum #BC700B. Verloren geht sie im Nebel-des-Krieges-Zweig von `kit.js` (makeMaterial), der nicht gesehene Kacheln entsättigt und dimmt, auch Leuchtflächen. Gemessen außerhalb der Teamsicht: #6F584B (vorher).
+
+Änderung (Commits `00d85c7`, `a4b0e7a`, `acaf540`, Merge `d402cbe`):
+- `public/js/voxel/glut.js`: `glutAusnahme(art, bauweise)`, nur Kartenart station/aussenposten mit Bauweise rom/germanen.
+- `public/js/voxel/kit.js`: Uniform `uGlutKeep`. Leuchtflächen im Nebel werden nur gedimmt (gleicher Faktor 0,58 + 0,42 fv), ohne Entsättigung. Übrige Fragmente unverändert. Programmschlüssel `kit-emit-fog-4`. Gemessen: Amber im ungesehenen Raum #935604 / #EE8E1F, im gesehenen #BC700B / #F9A056.
+- `tools/test-glut.js` in `npm test`.
+- `content/buehnen/bauweisen/rom.json`: `stimmung.aussenposten = rom_aussen` (vorher Renderer-Standard outpost_frost, nicht planet_day).
+- Voxelwerk (Merge `538ad77`): `assets/moods/rom_aussen.json` (neu, warm, exposure 1,3, hemi 1,6); `assets/models/ort/rom/station/kartentisch.json` Kartenplatte Amber emit 0,6 → 0,35 (Konturlinien bleiben 1,0).
+- `tools/ort01-shots.js`: Station standardmäßig mit Spielerfigur IM Raum (Raummitte, Sitzkamera). `--startpunkt` stellt das alte Verhalten wieder her (Raum dann oft außerhalb der Teamsicht, gedämpft).
+- `public/voxel`: einmal aus Voxelwerk-Stand dieser Session synchronisiert (`npm run assets`, Commit `6d2c9c7` nach dem Merge).
+
+Offen (Entscheidungen): Germanen-Glut bleibt bei ca. `#B85800` (Bau-Regel 3, emit ≤ 0,6). Designer-Review: auf Germanen-Stationen dominiert die Glut in den Screenshots (breite Bänder auf allen Kronen und Planken). Rom-Außenposten: Amber in der warmen Stimmung wirkt eher gold. Gelände Rom-Außenposten bei `#C2B5A6` (Ziel `#CFC2A6`). Nicht geprüft: Verfall und Umkämpft.
+
+Gates (Stand `d402cbe`/`6d2c9c7`): hash-baseline Karten 72/72, deko_zellen 60/60, deko 120/120, layout 120/120, Layout-Parität 60/60; `npm run check` 0; `check:assets` 0 Fehler, 48 Warnungen; `npm test` Exit 0 (alle Blöcke, keine Fehler); `snap:mess` Worst Case 11661 B; Golden Trace siehe Abschlussbericht.
