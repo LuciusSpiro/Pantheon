@@ -1,0 +1,230 @@
+'use strict';
+// SUND-03 A2: Mutationsprobe zu tools/test-lage-spielleiter.js (Muster tools/mutation-regie.js). Kopiert Server, Shared, Content und den Test in ein Temp-Verzeichnis (das Repo bleibt unberührt),
+// ändert dort je Lauf EINE Regel des Lage-Spielleiters und verlangt, dass der Test rot wird (Exit != 0). Überlebt eine Mutation, deckt kein Test die Regel ab.
+// Abgedeckt: Grenzen (Hooks, Daten), Deckel, Mindestabstand, ein Job zugleich, Budget, Schalter, Timeout, Verwerfen später und veralteter Antworten, Rückfall, dispose, Prompt (Namensfilter, Größe,
+// statischer Teil), Antwort lesen, Mock-Regisseur, Router, Bericht.
+//   node tools/mutation-lage.js [begriff …]      (npm run test:lage-mutation)
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const ROOT = path.join(__dirname, '..');
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-lage-'));
+const kopiere = (rel) => fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { recursive: true });
+['server', 'shared', 'content'].forEach(kopiere);
+fs.mkdirSync(path.join(TMP, 'public', 'js'), { recursive: true });
+fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
+fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
+for (const f of ['test-lage-spielleiter.js', 'regie-fixture.js', 'regie-bericht.js', 'test-pult-hover.js', 'test-lage-texte.js', 'test-lage-wiederholung.js', 'test-llm-cli.js', 'messe-reise.js', 'test-reise-verteilung.js', 'test-weltstand-kompat.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
+if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul nötig */ } }
+fs.mkdirSync(path.join(TMP, 'tools', 'fixtures'), { recursive: true });
+fs.copyFileSync(path.join(ROOT, 'tools', 'fixtures', 'weltstand-main.schema.json'), path.join(TMP, 'tools', 'fixtures', 'weltstand-main.schema.json'));
+const TESTS = [['tools/test-lage-spielleiter.js'], ['tools/test-llm-cli.js'], ['tools/test-weltstand-kompat.js'], ['tools/test-reise-verteilung.js'], ['tools/test-pult-hover.js'], ['tools/test-lage-texte.js'], ['tools/test-lage-wiederholung.js']];
+
+const S = 'server/sim/lage-spielleiter.js', P = 'server/sim/lage-prompt.js', M = 'server/sim/lage-mock.js', G = 'server/game.js', K = 'server/sim/kriegslage.js', D = 'content/welt/lage-spielleiter-werte.json',
+  BR = 'tools/regie-bericht.js', LL = 'server/mission/llm.js', RT = 'server/mission/transport-router.js', KT = 'content/welt/lage-katalog.json',
+  RB = 'server/sim/regie-befehle.js', A = 'server/sim/lage-ausschnitt.js', SY = 'content/spielleiter/prompts/lage.system.md', RZ = 'content/reise/ereignisse.json',
+  BF = 'server/weltsim/befehle.js', PU = 'public/js/pult.js', TX = 'content/flotte/lage-befehle.json';
+// Bewusst nicht in der Liste (äquivalente Mutanten, SUND-03 F2): „der Abbruch-Listener fällt bei exit nicht weg“ (der Guard exitCode/signalCode in baumBeenden deckt dasselbe ab; der Guard allein ist
+// dagegen als Mutation 'PID: taskkill auch nach dem Ende des Prozesses' drin, weil test-llm-cli baumBeenden direkt auf einen beendeten Prozess ruft), „der Fehler-Handler von taskkill ruft p.kill()“
+// (taskkill.exe fehlt nur auf fremden Systemen; der Exit-Code-Pfad ist als Mutation 'scheitert taskkill' drin). Das Selbstcheck vor dem Lauf (Anker genau einmal, sonst Exit 2) verhindert,
+// dass eine Mutation durch eine Umformulierung des Quelltextes still wirkungslos wird; --trocken prüft nur die Anker.
+// [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
+// Bewusst nicht in der Liste (äquivalente Mutanten): „die Antwort nach dispose wird nicht in den Eingang gelegt“ (update tut nach dispose nichts, der Eingang bleibt ungelesen).
+const MUTATIONEN = [
+  // ---- Grenzen
+  [S, "    if (!this.W.grenzen.includes(art)) return { gestartet: false, grund: 'keine_grenze' };\n", "", 'Grenzen: jede Art löst aus (Daten ignoriert)'],
+  [G, "this.lageGrenze('andocken'); }", "}", 'Hook: Andocken löst nicht aus'],
+  [G, "        if (!r) this.lageGrenze('absicht');", "", 'Hook: Wahl/Ablehnung einer Option löst nicht aus'],
+  [G, "        if (!r) this.lageGrenze('absicht');", "        this.lageGrenze('absicht');", 'Hook: auch eine abgelehnte Wahl löst aus'],
+  [K, " && (wo || 'szene') === 'szene' && game.lageGrenze", " && game.lageGrenze", 'Hook: Posten und Notruf lösen als Szenenende aus'],
+  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageGrenze) game.lageGrenze('szene_ende');", "", 'Hook: Szenenende löst nicht aus'],
+  [G, "      if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));", "", 'Game: der Lage-Spielleiter wird nie aktualisiert'],
+  [G, "try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); }", "void 0;", 'Game: reset beendet den Lage-Spielleiter nicht'],
+  // ---- Schalter
+  [S, "return String(e.LAGE_SPIELLEITER || '') === '1' && String(e.SPIELLEITER_LLM || 'off').toLowerCase() !== 'off';", "return String(e.SPIELLEITER_LLM || 'off').toLowerCase() !== 'off';", 'Schalter: LAGE_SPIELLEITER wird nicht verlangt'],
+  [S, "return String(e.LAGE_SPIELLEITER || '') === '1' && String(e.SPIELLEITER_LLM || 'off').toLowerCase() !== 'off';", "return String(e.LAGE_SPIELLEITER || '') === '1';", 'Schalter: SPIELLEITER_LLM=off wird ignoriert'],
+  [S, "  if (m === 'live') return e.LLM_LIVE === '1' ? 'live' : 'off';", "  if (m === 'live') return 'live';", 'Modus: live ohne LLM_LIVE=1'],
+  [S, "    if (this.mode === 'off' || (this.llm && this.llm.mode === 'off')) {", "    if (false) {", 'Schalter aus: der Spielleiter fragt trotzdem an'],
+  [S, "      if (!this.ausGemeldet) { this.ausGemeldet = true;", "      if (!this.ausGemeldet) {", 'Schalter aus: Rückfall bei jeder Grenze'],
+  // ---- Takt
+  [S, "    if (this.aufrufe >= this.W.deckel_je_sitzung) return this.ueberspringen('deckel', art);\n", "", 'Deckel je Sitzung fehlt'],
+  [S, "    if (this.letzterStartTick != null && this.game.weltsim.tickZahl - this.letzterStartTick < this.W.min_abstand_ticks) return this.ueberspringen('abstand', art);\n", "", 'Mindestabstand fehlt'],
+  [S, "    return this.anfrageVormerken('debug');", "    return this.taktErlaubt('debug') || this.anfrageVormerken('debug');", 'Debug plan: beachtet Abstand und Deckel'],
+  [S, "{ timeoutMs: 1000 * this.W.timeout_s, signal", "{ timeoutMs: this.W.timeout_s, signal", 'Timeout: Sekunden statt Millisekunden an den Transport (N1)'],
+  [S, "{ timeoutMs: 1000 * this.W.timeout_s, signal: job.abbruch.signal }", "{ signal: job.abbruch.signal }", 'Timeout: wird nicht an den Transport gereicht (N2)'],
+  [S, ", signal: job.abbruch.signal", "", 'Abbruch: kein AbortSignal an den Transport'],
+  [S, "    this.anfrageAbbrechen(this.job);\n", "", 'Abbruch: dispose beendet den Transport nicht'],
+  [S, "      this.anfrageAbbrechen(job);\n      this.stoerung(job, LLM.llmError('ETIMEDOUT',", "      this.stoerung(job, LLM.llmError('ETIMEDOUT',", 'Abbruch: Timeout beendet den Transport nicht'],
+  [LL, "    if (ao.signal) co.signal = ao.signal;", "", 'llm: das Signal erreicht den Transport nicht'],
+  [S, "    if (alter > this.W.plan_alter_max_ticks) {", "    if (alter >= this.W.plan_alter_max_ticks) {", 'Plan-Alter: genau die Grenze gilt schon als veraltet (N5)'],
+  [S, "    if (this.aus) return this.ueberspringen('transport_aus', art);\n", "", 'ENOENT: Transport bleibt an, jede Grenze versucht es neu (N12)'],
+  [S, "if (code === 'ENOENT') this.aus =", "if (false) this.aus =", 'ENOENT schaltet den Transport nicht aus (N7)'],
+  [P, "  const text = a.text;", "  const text = namenFiltern(a.text, game);", 'Prompt: zweiter Namensfilter über das ganze Ausschnitt-JSON (N8)'],
+  [P, "begruendung: namenFiltern(p.begruendung, game)", "begruendung: p.begruendung", 'Prompt: Namen in den letzten Plänen (begruendung)'],
+  [P, "for (let i = t.indexOf('{'); i >= 0; i = t.indexOf('{', i + 1)) {", "for (let i = t.indexOf('{'); i >= 0; i = -1) {", 'Antwort: nur das erste „{“ wird probiert'],
+  [K, "  if (ev && (wo || 'szene') === 'szene' && game.lageGrenze", "  if ((wo || 'szene') === 'szene' && game.lageGrenze", 'Hook: Szenenende auch ohne erfolgreichen Tick (N9)'],
+  [S, "      if (this.budgetGemeldet) return this.ueberspringen('budget', art);\n      this.budgetGemeldet = true;\n", "", 'Budget leer: Rückfall bei jeder Grenze neu'],
+  [S, "      Regie.rueckfall(this.game, `Token-Budget fast leer (${b.used} von ${b.limit}, Rest < ${this.W.min_budget})`);\n", "", 'Budget leer: kein Rückfall (N10)'],
+  [S, "    this.budgetGemeldet = false;\n", "", 'Budget leer: Meldung wird nie zurückgesetzt'],
+  [G, "    try { return l.beiGrenze(art); } catch (e) { this.countError('lage-grenze', e); return null; }", "    return l.beiGrenze(art);", 'Hook ohne try/catch (N11)'],
+  [S, "    if (this.letzterSprung !== schluessel) {", "    if (true) {", 'Logbuch: übersprungene Grenzen fluten (K1)'],
+  [BR, "e.grund || (e.plan && e.plan.grund) || '?'", "'?'", 'Bericht: Grund der übersprungenen Grenze nicht gelesen (S3)'],
+  ['server/mission/regielog.js', "'eskaliert', 'grund']", "'eskaliert']", 'Logbuch: Feld grund wird verworfen'],
+  [S, "    this.letzterStartTick = ws.tickZahl;\n    this.zustand = 'angefragt';", "    this.zustand = 'angefragt';", 'Mindestabstand: Start wird nicht gemerkt'],
+  [S, "    this.aufrufe++;\n", "", 'Deckel: Aufrufe werden nicht gezählt'],
+  [S, "    if (this.zustand !== 'idle') return this.ueberspringen('beschaeftigt', art);\n", "", 'ein Job zugleich: zweite Anfrage während der ersten'],
+  [S, "    if (b.remaining < this.W.min_budget) {", "    if (false) {", 'Budget: wird nicht geprüft'],
+  [S, "    if (this.failNext) { this.failNext = false;", "    if (false) { this.failNext = false;", 'Debug fail: wirkt nicht'],
+  // ---- Frist, späte und veraltete Antworten, Rückfall
+  [S, "    if (this.game.time - job.start > this.W.timeout_s + 1) {", "    if (false) {", 'Timeout in Spielzeit fehlt'],
+  [S, "      if (!job || job.token !== it.token) {", "      if (!job) {", 'späte Antwort: Token-Abgleich fehlt'],
+  [S, "    if (alter > this.W.plan_alter_max_ticks) {", "    if (false) {", 'veralteter Plan wird gespielt'],
+  [S, "    try { Regie.rueckfall(this.game, `${code}: ${String((e && e.message) || e).slice(0, 120)}`); } catch (err) { this.fehlerZaehlen('lage-rueckfall', err); }", "", 'Störung: kein Rückfall'],
+  [S, "    if (!res.ok) return this.stoerung(job, LLM.llmError('EXIT', 'Plan ungültig: ' + res.grund), r);\n", "", 'ungültiger Plan gilt als angewandt'],
+  [S, "    if (gelesen.fehler) return this.stoerung(job, LLM.llmError('EXIT', 'Antwort unbrauchbar: ' + gelesen.fehler), r);\n", "", 'unbrauchbare Antwort ohne eigene Störung'],
+  [S, "    this.job = null; this.zustand = 'idle'; this.inbox = [];\n    if (inDerLuft", "    if (inDerLuft", 'dispose: Job bleibt stehen'],
+  [S, "    if (inDerLuft && this.game.weltsim) {", "    if (false) {", 'dispose: kein Rückfall bei Anfrage in der Luft'],
+  [S, "  bereit() { return !this.disposed && !!this.game.weltsim; }", "  bereit() { return !!this.game.weltsim; }", 'nach dispose arbeitet er weiter'],
+  [S, "    while (this.letzte_plaene.length > this.W.letzte_plaene) this.letzte_plaene.shift();", "", 'letzte Pläne: Ringliste wächst'],
+  [S, "    this.letzte_plaene.push(kurz);", "", 'letzte Pläne: werden nicht gemerkt'],
+  [S, "      this.job = null; this.zustand = 'idle';\n      if (it.e)", "      if (it.e)", 'Abholen: Job bleibt nach der Antwort stehen'],
+  // ---- Prompt
+  [P, "  if (frei < werte.ausschnitt_min_zeichen) return", "  if (false) return", 'Prompt: zu wenig Platz wird nicht gemeldet'],
+  [P, "const frei = Math.min(Ausschnitt.MAX_ZEICHEN, werte.prompt_max_zeichen - ohne.length);", "const frei = Ausschnitt.MAX_ZEICHEN;", 'Prompt: Obergrenze des ganzen Prompts fehlt'],
+  [P, "  const prompt = LLM.buildPrompt({ katalog: st.text, variabel: [['ausschnitt', text], ['letzte_plaene', letzteTxt], ['grenze', JSON.stringify(grenze)]], schluss });", "  const prompt = LLM.buildPrompt({ variabel: [['ausschnitt', text], ['letzte_plaene', letzteTxt], ['grenze', JSON.stringify(grenze)], ['katalog', st.text]], schluss });", 'Prompt: der Katalog steht hinten'],
+  [P, "roh.replace(/,\\s*([}\\]])/g, '$1')", "roh", 'Antwort: Komma vor der Klammer wird nicht repariert'],
+  [P, "L.push(`- ${typ} { ${felder} } –", "L.push(`- ${typ} {} –", 'Katalog: Feldlisten fehlen'],
+  [P, "for (const typ of Object.keys(FELDER).sort()) {", "for (const typ of Object.keys(FELDER).sort().slice(1)) {", 'Katalog: ein Befehl fehlt'],
+  [P, "update(sys + '\\n\\n' + text)", "update(Date.now() + sys + text)", 'Katalog: der Hash des statischen Teils ändert sich je Aufruf'],
+  [KT, '"fraktion": "rom|ger", "ziel": "Hex-Code"', '"fraktion": "rom|ger", "ziel_hex": "Hex-Code"', 'Katalogdaten: Feldname passt nicht zum Kern'],
+  // ---- Mock-Regisseur
+  [M, "      if (sieger === 'rom' || sieger === 'ger') plan.befehle.push(", "      if (true) plan.befehle.push(", 'Mock: Embargo auch bei offener Lage'],
+  [M, "  const nr = Number.isInteger(g.nr) && g.nr > 0 ? g.nr : 1;", "  const nr = 1;", 'Mock: immer derselbe Plan'],
+  [M, "const sw = sieger === 'rom' ? 'ger' : 'rom';", "const sw = 'zzz';", 'Mock: Befehle an eine unbekannte Fraktion'],
+  // ---- llm.js und Router
+  [LL, "const KINDS = ['grobplan', 'szene', 'text', 'lage'];", "const KINDS = ['grobplan', 'szene', 'text'];", 'llm: kind lage fehlt'],
+  [LL, "      if (kind === 'lage') return { text: mockLage(input),", "      if (false) return { text: mockLage(input),", 'llm: mock bedient lage nicht'],
+  [RT, "  if (art === 'lage' && anbieter === 'ollama') throw", "  if (false) throw", 'Router: lage darf an Ollama'],
+  [RT, "lage: { anbieter: 'claude', modell: 'sonnet' } };\nconst STANDARD_ESKALATION", "lage: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", 'Router: lage geht standardmäßig an Ollama'],
+  // ---- Daten
+  [D, '"deckel_je_sitzung": {"wert": 6', '"deckel_je_sitzung": {"wert": 60', 'Daten: Deckel 60 statt 6'],
+  [D, '"grenzen": {"wert": ["szene_ende", "andocken", "absicht"]', '"grenzen": {"wert": ["szene_ende", "andocken"]', 'Daten: Grenze absicht fehlt'],
+  // ---- Bericht
+  [BR, "Rückfälle: ${lageRueck.length}", "Rückfälle: 0", 'Bericht: Rückfälle der Lage'],
+  [BR, "const aufrufe = lage.filter((e) => ['angewandt', 'plan_wirkungslos', 'fehler', 'veraltet'].includes(e.ausgang)", "const aufrufe = lage.filter((e) => ['angewandt'].includes(e.ausgang)", 'Bericht: Fehler zählen nicht als Aufruf'],
+  [BR, "const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan']);", "const CALLS = new Set(['grobplan', 'szene', 'verspaetet']);", 'Bericht: Tokens der Lage fehlen in der Summe'],
+  // ---- SUND-03 F: Rate, plan_wirkungslos, letzte_plaene, befehle_frei
+  [RB, "    const gratis = k.fokusPlan && fokusPlatz;", "    const gratis = false;", 'Rate: der Plan-Fokus kostet je Fraktion einen Platz'],
+  [RB, "    if (a._rate !== false) s.rate.push(n0);", "    s.rate.push(n0);", 'Rate: der zweite Fokus-Befehl bucht doch einen Platz'],
+  [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (false) {", 'plan_wirkungslos: ein Plan ohne angenommenen Befehl gilt als angewandt'],
+  [S, "    if (kurz.angenommen === 0 && kurz.abgelehnt > 0) {", "    if (kurz.angenommen === 0) {", 'plan_wirkungslos: auch ein leerer Plan ist wirkungslos'],
+  [S, "if (a.befehl.typ === 'fokus') fokus.ok.push(a.befehl); else out.push(befehlErgebnis(a.befehl, null, maxGrund));", "out.push(befehlErgebnis(a.befehl, null, maxGrund));", 'letzte_plaene: der Plan-Fokus erscheint je Fraktion'],
+  [S, "return grund == null ? t + ': ok' :", "return true ? t + ': ok' :", 'letzte_plaene: abgelehnte Befehle erscheinen als ok'],
+  [S, "String(grund).replace(/\\s+/g, ' ').slice(0, maxGrund)", "String(grund).replace(/\\s+/g, ' ')", 'letzte_plaene: Kurzgrund nicht gekürzt'],
+  [P, "  while (p.length > 1 && groesse() > maxGesamt) p.shift();", "", 'letzte_plaene: keine Zeichenobergrenze'],
+  [RB, "  const out = { rate: Math.max(0, RATE.max - rateBelegt(s, n0)), piraten, platz, marken, soeldner };", "  const out = { rate: RATE.max, piraten, platz, marken, soeldner };", 'befehle_frei: Rate-Rest fehlt'],
+  [RB, "    if (rest > 0) abk[key] = rest;", "    abk[key] = rest;", 'befehle_frei: abgelaufene Abkühlung bleibt stehen'],
+  [RB, "- z.flotten.filter((fl) => fl.fraktion === f && fl.befehl !== 'heim').length);", "- 0);", 'befehle_frei: freie Plätze ohne aktive Flotten'],
+  [RB, "fl.fraktion === 'pirat' && fl.befehl === 'heim' && fl.staerke >= P.bereit_anteil * fl.kap).length;", "fl.fraktion === 'pirat').length;", 'befehle_frei: auch unbereite Piraten zählen'],
+  [A, "    befehle_frei: Regie.befehleFrei(game),", "", 'Ausschnitt: befehle_frei fehlt'],
+  [P, "angenommene Befehle je ${RW.rate.wert.fenster} Ticks", "Befehle je ${RW.rate.wert.fenster} Ticks", 'Katalog: die Rate fehlt'],
+  [SY, "**Standard ist mindestens ein wirksamer Befehl je Plan.**", "", 'Systemprompt: Haltung handeln fehlt'],
+  [SY, "**Stütze jede Aussage auf ein Feld des Ausschnitts**", "**Erzähle frei**", 'Systemprompt: Regel Aussagen stützen fehlt'],
+  // ---- SUND-03 F: CLI finden und Prozessbaum
+  [LL, "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');", "    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js');", 'CLI: der native Build im npm-Paket wird nicht gefunden'],
+  [LL, "  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return mitHinweis(r); }", "", 'CLI: .local/bin wird nicht gesucht'],
+  [LL, "  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return mitHinweis(r); }", "", 'CLI: PATH wird nicht durchsucht'],
+  [LL, "  let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');\n  if (r) return r;", "  let r = null;", 'CLI: CLAUDE_CLI wird ignoriert'],
+  [LL, "args: [p], pfad: p, quelle, versucht } : {", "args: [], pfad: p, quelle, versucht } : {", 'CLI: eine .js-Datei wird nicht mit Node gestartet'],
+  [LL, "    const abbrechen = () => { aborted = true; baumBeenden(p); };", "    const abbrechen = () => { aborted = true; try { p.kill(); } catch (e) { /* weg */ } };", 'Abbruch beendet nur den Elternprozess'],
+  [LL, "    const kill = setTimeout(() => { timedOut = true; baumBeenden(p); }, timeoutMs || 5 * 60 * 1000);", "    const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* weg */ } }, timeoutMs || 5 * 60 * 1000);", 'Timeout beendet nur den Elternprozess'],
+  [LL, "[...TASKKILL.vorArgs, '/T', '/F', '/PID', String(p.pid)]", "[...TASKKILL.vorArgs, '/F', '/PID', String(p.pid)]", 'taskkill ohne /T (Kindprozesse bleiben)'],
+  // ---- SUND-03 F: Weltstand ohne Schalter, Reise-Verteilung
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return true;", 'Weltstand: chronik und reise immer im Stand'],
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return ReiseEreignis.aktiv(game);", 'Weltstand: mit Lage-Spielleiter fehlt die Chronik'],
+  [K, "const ch = neueBloecke ? Chronik.toSave(ws) : null;", "const ch = Chronik.toSave(ws);", 'Weltstand: chronik ohne Schalter geschrieben'],
+  [K, "const re = neueBloecke ? ReiseEreignis.toSave(ws) : null;", "const re = ReiseEreignis.toSave(ws);", 'Weltstand: reise ohne Schalter geschrieben'],
+  [RZ, '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 1,', '"id": "patrouille_ger_spaeher", "art": "patrouille", "gewicht": 6,', 'Reise: der Späher stellt die Hälfte der Gefahren'],
+  [RZ, '"gewicht": 2,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', '"gewicht": 0.05,\n      "bedingungen": { "besitzer": ["saum", "frei", "pirat"], "rang_min": "optio", "min_abstand": 12 },', 'Reise: das Rudel kommt praktisch nie vor'],
+  // ---- SUND-03 F2
+  [LL, "  if (p.exitCode !== null || p.signalCode !== null) return;", "", 'PID: taskkill auch nach dem Ende des Prozesses (L1)'],
+  [LL, "      k.on('exit', (code) => { if (code !== 0) notfalls(); });", "", 'Abbruch: scheitert taskkill, beendet nichts den Elternprozess (L3)'],
+  [LL, "const TASKKILL = { cmd: path.join(process.env.SystemRoot || process.env.windir || 'C:\\\\Windows', 'System32', 'taskkill.exe'), vorArgs: [] };", "const TASKKILL = { cmd: 'taskkill', vorArgs: [] };", 'taskkill über den Suchpfad statt vollem Pfad (Test prüft nur die Aufrufform, darf überleben)'],
+  [K, "const rg = neueBloecke ? Regie.toSave(ws) : null;", "const rg = Regie.toSave(ws);", 'Weltstand: regie ohne Schalter geschrieben'],
+  [RB, "rate: s0.rate.filter((t) => jetzt - t < RATE.fenster) });", "rate: s0.rate });", 'Weltstand: abgelaufene Rate-Einträge werden mitgeschrieben'],
+  [RB, "if (ganz(R.abkuehlung.wert[k.split(':')[0]], 0) - (jetzt - t) > 0) letzte[k] = t;", "letzte[k] = t;", 'Weltstand: abgelaufene Abkühlzeiten werden mitgeschrieben'],
+  [RB, "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t < RATE.fenster).length;", "const rateBelegt = (s, jetzt) => s.rate.filter((t) => jetzt - t <= RATE.fenster).length;", 'Rate: der Eintrag am Fensterrand zählt noch (R3)'],
+  [S, "    if (Regie.befehleFrei(this.game).rate === 0) return this.ueberspringen('rate', art);", "", 'Rate 0: der Spielleiter fragt trotzdem an (S3)'],
+  [BF, "return st.U < A.min_munition || st.T < A.min_treibstoff ?", "return st.U < A.min_munition ?", 'befehle_frei: Treibstoff wird für den Angriff nicht geprüft'],
+  [BF, "  if (embargoAktiv(z, an)) return 0;\n  let m = 0;", "  let m = 0;", 'befehle_frei: Embargo senkt die Nachschubmenge nicht'],
+  [BF, "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;", "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.ort === fl.heimat;", 'befehle_frei: Söldner auch mit unterwegs befindlicher Flotte'],
+  [BF, "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat;", "const mietbar = (fl) => fl.fraktion === 'kon' && !fl.miete && fl.befehl === 'heim';", 'befehle_frei: Söldner auch mit Flotte außerhalb des Heimathafens'],
+  [RB, "    if (BE.angriffVorratFehler(z, f)) keinAngriff.push(f);", "", 'befehle_frei: kein_angriff fehlt'],
+  [RB, "if (m < BW.nachschub.wert.menge.max) lim[g] = m;", "lim[g] = m;", 'befehle_frei: nachschub_max auch ohne Einschränkung'],
+  [P, "  if (!len) return kopf + ': abgelehnt';", "  if (!len) return s;", 'Kürzen: ohne Grund bleibt der Grund (P1)'],
+  [P, "const grund = s.slice(i + ABGELEHNT.length, s.endsWith(')') ? -1 : undefined);", "const grund = s.slice(i + ABGELEHNT.length);", 'Kürzen: die schließende Klammer bleibt im Grund (P1)'],
+  [P, "const letzteTxt = JSON.stringify(plaeneKuerzen(plaeneFiltern(letzte, game),", "const letzteTxt = JSON.stringify(plaeneFiltern(plaeneKuerzen(letzte || [],", 'Prompt: erst kürzen, dann Namen ersetzen (P3, Block kann die Grenze reißen)'],
+  [S, "const label = (liste) => (liste.length >= 2 ? '(beide)' : liste[0].fraktion);", "const label = (liste) => liste[0].fraktion;", 'letzte_plaene: der Plan-Fokus nennt nur ein Reich'],
+  [S, "angenommen: res.angenommen.filter((a) => a.platz).length,", "angenommen: res.angenommen.length,", 'letzte_plaene: angenommen zählt Befehle statt Rate-Plätze'],
+  [S, "const b = { typ: 'fokus', fraktion: label(liste.map((x) => x.befehl || x)), hex: b0.hex };", "const b = { typ: 'fokus', fraktion: label(liste.map((x) => x.befehl || x)) };", 'letzte_plaene: der Fokus nennt sein Hex nicht (S4)'],
+  [S, "  if (fokus.nein.length) out.push(fokusText(fokus.nein, fokus.nein[0].grund));", "  for (const x of fokus.nein) out.push(fokusText([x], x.grund));", 'letzte_plaene: abgelehnter Plan-Fokus je Fraktion (S3)'],
+  [S, "const leerArt = leer ? (typeof gelesen.plan.begruendung === 'string' && gelesen.plan.begruendung.trim().length >= 5 ? 'leer_begruendet' : 'leer_ohne_begruendung') : null;", "const leerArt = null;", 'Leere Pläne werden nicht getrennt ausgewiesen'],
+  [S, "    if (r && r.cli) this.cli = r.cli;", "", 'CLI-Quelle wird nicht gemerkt'],
+  [LL, "  const falsch = env.CLAUDE_CLI ? `CLAUDE_CLI gesetzt, nicht gefunden (${env.CLAUDE_CLI}) → Fallback` : null;", "  const falsch = null;", 'CLI: falsch gesetztes CLAUDE_CLI ohne Vermerk (K4)'],
+  [K, "  return ReiseEreignis.aktiv(game) || require('./lage-spielleiter.js').schalterAn(game.env || process.env);", "  return require('./lage-spielleiter.js').schalterAn(game.env || process.env);", 'Weltstand: Reise-Ereignisse an, Lage-Spielleiter aus: keine Blöcke (C1)'],
+  [RZ, '"bedingungen": { "besitzer": ["ger", "saum"], "min_abstand": 6 }', '"bedingungen": { "besitzer": ["ger", "saum", "frei"], "min_abstand": 6 }', 'Reise: der Späher kommt wieder auch auf freiem Gebiet (Z1)'],
+  [RZ, '"rang_min": "optio", "min_abstand": 12', '"rang_min": "centurio", "min_abstand": 12', 'Reise: das Rudel erst wieder ab Centurio (Z2)'],
+  [TX, "Die Sperre des Konkordats gilt jetzt. Gesperrt: {waren}.", "Die Sperre des Konkordats gilt jetzt, {waren} kommen nicht mehr zu uns.", 'Text: Wirkungsmeldung mit Singular/Plural-Fehler (Z2)'],
+  [RB, "const warenText = (liste) => { const n = (liste || []).map((g) => (texte().waren || {})[g] || g); return n.length > 1 ? n.slice(0, -1).join(', ') + ' und ' + n[n.length - 1] : n.join(''); };", "const warenText = (liste) => (liste || []).map((g) => (texte().waren || {})[g] || g).join(', ');", 'Text: Waren ohne „und“ aufgezählt'],
+  [PU, "if (hit(b) && b.reason && (b.disabled || opts.gedimmt)) R.ui.tooltip", "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", 'pult.js: zustand in knopf ungültig (ReferenceError)'],
+  [PU, "if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip", "if (hit(b) && b.disabled && b.reason) R.ui.tooltip", 'pult.js: gedimmte Zelle zeigt keinen Hinweis'],
+];
+
+// Selbstcheck der Anker (SUND-03 F2): VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie). Sonst bricht die Probe mit Exit 2 ab, statt die Mutation still zu überspringen.
+// --trocken prüft nur die Anker (ohne Tests) und endet.
+{
+  const normal = (t) => t.replace(/\r\n/g, '\n');
+  const schlecht = [];
+  for (const [datei, alt, , was] of MUTATIONEN) {
+    let text;
+    try { text = normal(fs.readFileSync(path.join(TMP, datei), 'utf8')); } catch (e) { schlecht.push(`${was}: Datei ${datei} nicht lesbar`); continue; }
+    const k = text.split(alt).length - 1;
+    if (k !== 1) schlecht.push(`${was}: Anker ${k === 0 ? 'nicht gefunden' : k + 'x gefunden'} (${datei})`);
+  }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  if (process.argv.includes('--trocken')) { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } process.exit(0); }
+}
+
+const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
+const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });
+const rot = (r) => r.status !== 0;
+let ueberlebt = 0, gelaufen = 0;
+console.log(`Mutationsprobe test-lage-spielleiter.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);
+for (const t of TESTS) {
+  const basis = lauf(t);
+  console.log(`  Ausgangslage ${t.join(' ')}: ${basis.status === 0 ? 'grün' : 'ROT (Abbruch)'}`);
+  if (basis.status !== 0) { console.log((basis.stdout || '').split('\n').filter((l) => /FEHLER/.test(l)).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
+}
+for (const [datei, alt, neu, was] of MUTATIONEN) {
+  if (FILTER.length && !FILTER.some((f) => was.toLowerCase().includes(f))) continue;
+  gelaufen++;
+  const f = path.join(TMP, datei);
+  const orig = fs.readFileSync(f, 'utf8');
+  const nl = orig.includes('\r\n');
+  const text = nl ? orig.replace(/\r\n/g, '\n') : orig;
+  if (text.split(alt).length !== 2) { console.log(`  ?? ${was}: Textstelle nicht eindeutig gefunden (${datei})`); ueberlebt++; continue; }
+  fs.writeFileSync(f, nl ? text.replace(alt, () => neu).replace(/\n/g, '\r\n') : text.replace(alt, () => neu));
+  let wer = null, r = null;
+  for (const t of TESTS) { r = lauf(t); if (rot(r)) { wer = path.basename(t[0], '.js').replace('test-', ''); break; } }
+  fs.writeFileSync(f, orig);
+  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
+  if (!wer) ueberlebt++;
+  console.log(`  ${wer ? 'rot  ' : 'GRÜN '} ${was}${wer ? ` (${fehler.length} Fehler, z. B. ${(fehler[0] || 'Absturz').replace(/^\s*FEHLER\s*/, '').slice(0, 64)})` : '  <-- ÜBERLEBT'}`);
+}
+try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+console.log(ueberlebt ? `${ueberlebt} von ${gelaufen} Mutation(en) überlebt` : `alle ${gelaufen} Mutationen erkannt`);
+process.exit(ueberlebt ? 1 : 0);

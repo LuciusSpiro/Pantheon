@@ -21,6 +21,7 @@
 //     zeichneLage(ctx, rect, infoRect, l)   SUND-02b D: Bereich Lage (Absichten, nur Freie Fahrt Sund): Angebot (2–3 Karten), laufende Absicht oder Hinweis; Rechtecke wie Handel (layout().handel, .handelInfo)
 //     zeichneKreuz(ctx, rects, z)           Waffenkreuz 3×3 wie an der Ops (Pult.zelle), Kappe = Ziffer
 //     zeichneModulraeume(ctx, rects, z)     vier Modulräume als Pult-Zellen, Kappe F1–F4
+//     zeichneInfo(ctx, rect, infoRect, l)   SUND-03b I: Bereich Information (Informationshandel des Konkordats): Themen, Stufen Gerücht und Beleg, letzte Käufe; Rechtecke wie Handel
 //     zeichneBereich(ctx, rects, b)         Umschalter Handel / Werft (H / W), mit b.lage ({ gesperrt, grund }) auch Lage (L), nur Freie Fahrt Sund
 //     zeichneAktionen(ctx, rects, a)        Hauptknopf (Ent Umbau bestätigen | F Freischalten | H Zum Handel), Hinweis, A Ausbau, ↑↓ Teil
 //     zeichneStatus(ctx, rect, s)           Am Gerät: Spielerfarbe · Zusehen: Farben
@@ -203,8 +204,10 @@
       status: { x: 62, y: py + 76, w: 400, h: 9 },
       start: { x: 266, y: py + 64, w: 154, h: 12 },   // Szene starten (Rüstphase der Testumgebung), unter der Energiezeile
       aktionen: {
-        lage: { x: 424, y: py - 4, w: 46, h: KNOPF.h },   // SUND-02b D: nur mit Lage-Modell gezeichnet (Freie Fahrt Sund), links neben Handel
-        handel: { x: 474, y: py - 4, w: KNOPF.halbW, h: KNOPF.h }, werft: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py - 4, w: KNOPF.halbW, h: KNOPF.h },
+        // Bereichsknöpfe: alle vier in 424..628 (rechts von der Spalte Modulraum, die bis 420 reicht); fehlt Info oder Kurs, bleibt die Lücke links
+        info: { x: 424, y: py - 4, w: 40, h: KNOPF.h },   // SUND-03b I: nur mit Info-Modell gezeichnet (Konkordat-Hafen), links neben Kurs
+        lage: { x: 466, y: py - 4, w: 46, h: KNOPF.h },   // SUND-02b D: nur mit Lage-Modell gezeichnet (Freie Fahrt Sund), links neben Handel
+        handel: { x: 514, y: py - 4, w: 56, h: KNOPF.h }, werft: { x: 572, y: py - 4, w: 56, h: KNOPF.h },
         haupt: { x: 474, y: py + 22, w: KNOPF.w, h: KNOPF.hauptH }, hinweis: { x: 474, y: py + 50, w: KNOPF.w, h: 9 },
         ausbau: { x: 474, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH }, teil: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH },
       },
@@ -294,7 +297,7 @@
   // k: { ort, art: 'werft'|'stuetzpunkt'|'test'|'hafen', marken, gesperrt }
   function zeichneKopf(c, r, k) {
     const e = txtRolle(c, k.ort || '', r.x, r.y + 2, k.gesperrt ? 'warn' : 'preis', 'titel');
-    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : k.art === 'lage' ? 'KURS DER LEGION' : 'HAFEN', e + 8, r.y + 2, 'dim');
+    txt(c, k.art === 'werft' ? 'FLOTTENBASIS · WERFT' : k.art === 'stuetzpunkt' ? 'STÜTZPUNKT · WERFT' : k.art === 'test' ? 'TESTUMGEBUNG · WERFT' : k.art === 'lage' ? 'KURS DER LEGION' : k.art === 'info' ? 'KONKORDAT · INFORMATIONEN' : 'HAFEN', e + 8, r.y + 2, 'dim');
     const mw = txt(c, String(k.marken == null ? '' : k.marken), r.x + r.w, r.y, 'text', { scale: 2, align: 'right' });
     txt(c, 'MARKEN', r.x + r.w - tw(String(k.marken), 2) - 6, r.y + 6, 'dim', { align: 'right' }); return mw;
   }
@@ -411,7 +414,7 @@
       const x = r.x + j * Math.floor(r.w / 2), yy = y + 14 + i * 11; txt(c, b.kappe, x + 8, yy, b.fn || 'waffe', { align: 'center' }); txt(c, b.name, x + 20, yy, 'dim');
     }));
   }
-  // h: { artikel: [{ id, name, art ('Vorrat'|'Ausrüstung'|'Deko'), preis, besitz, grund, guenstiger, onClick }], gewaehlt: id, info: { text, grund } }
+  // h: { artikel: [{ id, name, art ('Vorrat'|'Ausrüstung'|'Deko'), preis, besitz, grund, guenstiger, teurer, onClick }], gewaehlt: id, info: { hinweis: { pfeil, text } | null, text, grund } }
   function zeichneHandel(c, r, info, h) {
     const cols = 3, luft = 4, cw = Math.floor((r.w - (cols - 1) * luft) / cols), ch = 22;
     txtRolle(c, 'HANDEL', r.x, r.y - 13, 'preis', 'titel'); txt(c, kappe('terminal.teil', '↑↓') + ' wählen · ' + kappe('terminal.kaufen', 'Ent') + ' kaufen', r.x + r.w, r.y - 13, 'dim', { align: 'right' });
@@ -423,10 +426,16 @@
       const ink = gew ? (zu ? 'text' : 'ink') : zu ? 'textZu' : 'text';
       // Unterzeile nur Art und Besitz (gekürzt); der Grund steht einmal in der Infozeile (h.info.grund), gesperrte Kacheln dimmen nur über Fläche und Preis
       txt(c, a.name, x + 7, y + 3, ink); txt(c, umbruch(a.art + (a.besitz ? ' · ' + a.besitz : ''), cw - 14, 1)[0] || '', x + 7, y + 12, gew ? (zu ? 'text' : 'ink') : 'dim');
-      txt(c, a.preis + ' M', x + cw - 5, y + 3, gew ? ink : zu ? 'textZu' : a.guenstiger ? 'modul' : 'preis', { align: 'right' });
+      txt(c, (a.teurer ? '↑' : a.guenstiger ? '↓' : '') + a.preis + ' M', x + cw - 5, y + 3, gew ? ink : zu ? 'textZu' : 'preis', { align: 'right' });   // Lagepreis: der Pfeil trägt die Bedeutung (↑ teurer, ↓ günstiger), die Farbe bleibt Messing (Mint heißt Schilde)
       klick(b);
     });
-    if (h.info) { rect(c, info.x, info.y - 3, info.w, 1, 'trenner'); umbruch(h.info.text, info.w - 200, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, 'text')); if (h.info.grund) txt(c, h.info.grund, info.x + info.w, info.y + 2, 'warn', { align: 'right' }); }
+    if (h.info) {   // Infozeile: erste Zeile der Preishinweis in Messing mit Pfeil (nur bei Lagepreis), darunter der Artikeltext in voller Breite (200 px frei nur bei einem Sperrgrund rechts); zusammen höchstens 3 Zeilen im Raster 9 (der Schirm endet bei 226)
+      rect(c, info.x, info.y - 3, info.w, 1, 'trenner');
+      const hw = h.info.hinweis, zl = SCHRIFT.zeile; let y = info.y + 2;
+      if (hw && hw.text) { txt(c, (hw.pfeil ? hw.pfeil + ' ' : '') + hw.text, info.x, y, 'preis'); y += zl; }
+      umbruch(h.info.text, info.w - (h.info.grund ? 200 : 0), hw && hw.text ? 2 : 3).forEach((z, i) => txt(c, z, info.x, y + i * zl, 'text'));
+      if (h.info.grund) txt(c, h.info.grund, info.x + info.w, info.y + 2, 'warn', { align: 'right' });
+    }
   }
 
   // SUND-02b D: Bereich Lage (Absichten von Rom, Freie Fahrt Sund). Ruf ist ein Kann: nichts hier drängt, die Anzeige nennt nur, was es gibt; Ablehnen und Ignorieren kosten nichts.
@@ -458,6 +467,50 @@
       });
     }
     if (l.info) {   // Infozeile: Text; eine Absage des Servers („Schon gewählt …“) ersetzt ihn, in Warnfarbe
+      rect(c, info.x, info.y - 3, info.w, 1, 'trenner');
+      const warn = !!l.info.grund;
+      umbruch(warn ? l.info.grund : (l.info.text || ''), info.w, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, warn ? 'warn' : 'text'));
+    }
+  }
+
+  // SUND-03b I: Bereich Information (Informationshandel des Konkordats, Freie Fahrt Sund, nur an Konkordat-Häfen). Links 2–3 Themen ohne Fakten (die gibt es erst nach dem Kauf), rechts die zwei Stufen mit Preis
+  // und Hinweis (Gerücht: kann falsch sein; Beleg: exakt, wirkt auf die Karte), darunter die letzten Käufe (das Gerücht gedimmt: es trägt immer „Gerücht, unbestätigt“), unten die Infozeile.
+  // l: { titel, hilfe, leer: { titel, text } | null, karten: [{ id, name, sub, gewaehlt, onClick }], stufen: [{ name, preis, text, aktiv }], letzte: [{ stufe, text }], info: { text, grund } }
+  function zeichneInfo(c, r, info, l) {
+    txtRolle(c, (l.titel || 'Information'), r.x, r.y - 13, 'preis', 'titel'); if (l.hilfe) txt(c, l.hilfe, r.x + r.w, r.y - 13, 'dim', { align: 'right' });
+    if (l.leer) {
+      const h = 58; cham(c, r.x, r.y, r.w, h, F('kachelZu'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'platzZu');
+      txtRolle(c, l.leer.titel || '', r.x + 14, r.y + 10, 'text', 'titel');
+      umbruch(l.leer.text || '', r.w - 28, 3).forEach((z, i) => txt(c, z, r.x + 14, r.y + 25 + i * SCHRIFT.zeileLuft, 'dim'));
+    } else {
+      const kw = 236, ch = 44, luft = 4;
+      (l.karten || []).slice(0, 3).forEach((k, i) => {
+        const y = r.y + i * (ch + luft), gew = !!k.gewaehlt, b = { x: r.x, y, w: kw, h: ch, label: k.name, onClick: k.onClick, disabled: false };
+        if (gew) cham(c, r.x, y, kw, ch, FARBE.preis, 0, 0, 4, 0);
+        else { cham(c, r.x, y, kw, ch, FARBE.kachel, 0, 0, 4, 0); rect(c, r.x, y, 2, ch, FARBE.preis); }
+        txt(c, k.name, r.x + 10, y + 8, gew ? 'ink' : 'text');
+        txt(c, k.sub || '', r.x + 10, y + 24, gew ? 'ink' : 'dim');
+        klick(b);
+      });
+      const x0 = r.x + kw + 12, w0 = r.w - kw - 12;
+      let y = r.y;
+      (l.stufen || []).forEach((s) => {
+        txtRolle(c, s.name, x0, y, s.aktiv ? 'preis' : 'text', 'titel'); txt(c, s.preis + ' M', x0 + w0, y, s.aktiv ? 'preis' : 'dim', { align: 'right' });
+        umbruch(s.text || '', w0, 2).forEach((z, i) => txt(c, z, x0, y + 12 + i * SCHRIFT.zeileLuft, 'dim'));
+        y += 38;
+      });
+      rect(c, x0, y - 4, w0, 1, 'trenner');
+      // letzte Käufe als eigene Blöcke mit Etikett und Balken links: BELEG = durchgezogen (Messing, 2 px), GERÜCHT · UNBESTÄTIGT = gestrichelt; beide Texte in voller Schrift (das Gerücht trägt seinen Vorbehalt im Etikett, nicht in der Farbe)
+      const zl = SCHRIFT.zeile;
+      (l.letzte || []).slice(0, 2).forEach((q) => {
+        const beleg = q.stufe === 'beleg', ls = umbruch(q.text || '', w0 - 10, 3), bh = zl + 1 + ls.length * zl;
+        if (beleg) rect(c, x0, y, 2, bh, 'preis'); else for (let i = 0; i < bh; i += 4) rect(c, x0, y + i, 2, Math.min(2, bh - i), 'preis');
+        txtRolle(c, (beleg ? 'Beleg' : 'Gerücht · unbestätigt') + (q.thema ? ' · ' + q.thema : ''), x0 + 8, y, 'preis', 'titel');
+        ls.forEach((z, i) => txt(c, z, x0 + 8, y + zl + 1 + i * zl, 'text'));
+        y += bh + 4;
+      });
+    }
+    if (l.info) {
       rect(c, info.x, info.y - 3, info.w, 1, 'trenner');
       const warn = !!l.info.grund;
       umbruch(warn ? l.info.grund : (l.info.text || ''), info.w, 2).forEach((z, i) => txt(c, z, info.x, info.y + 2 + i * SCHRIFT.zeileLuft, warn ? 'warn' : 'text'));
@@ -507,8 +560,9 @@
   // b: { bereich: 'handel'|'werft', werftZu: bool (Nicht-Werft-Hafen), onBereich(b) }
   function zeichneBereich(c, A, b) {
     P.knopf(c, A.handel.x, A.handel.y, A.handel.w, A.handel.h, 'Handel', { hotkey: kappe('terminal.handel', 'H'), fn: 'nav', active: b.bereich === 'handel', onClick: b.onBereich ? () => b.onBereich('handel') : null });
-    P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', text: b.werftZu ? 'Werft · zu' : 'Werft', active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
-    if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, b.lage.label || 'Kurs', { hotkey: kappe('terminal.lage', 'K'), fn: b.lage.gesperrt ? 'neutral' : 'nav', active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
+    P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', gedimmt: !!b.werftZu, reason: b.werftZu ? b.werftGrund : null, active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
+    if (b.info) P.knopf(c, A.info.x, A.info.y, A.info.w, A.info.h, b.info.label || 'Info', { hotkey: kappe('terminal.info', 'I'), fn: 'nav', active: b.bereich === 'info', onClick: b.onBereich ? () => b.onBereich('info') : null });   // SUND-03b I: nur an Häfen des Konkordats
+    if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, b.lage.label || 'Kurs', { hotkey: kappe('terminal.lage', 'K'), fn: b.lage.gesperrt ? 'neutral' : 'nav', gedimmt: !!b.lage.gesperrt, active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
   }
   // a: { haupt: { art: 'umbau'|'freischalten'|'stufe'|'kaufen'|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, onClick }, teil: { disabled, onClick } }
   const HAUPT = {
@@ -516,6 +570,7 @@
     freischalten: { aktion: 'terminal.freischalten', taste: 'F', fn: 'nav' }, kaufen: { aktion: 'terminal.kaufen', taste: 'Ent', fn: 'nav' },
     handel: { aktion: 'terminal.handel', taste: 'H', fn: 'nav' },
     annehmen: { aktion: 'terminal.annehmen', taste: 'Ent', fn: 'nav' },   // SUND-02b D: Bereich Lage
+    gerucht: { aktion: 'terminal.gerucht', taste: 'Ent', fn: 'nav' },   // SUND-03b I: Bereich Information
   };
   function zeichneAktionen(c, A, a) {
     const h = a.haupt || {}, d = HAUPT[h.art] || HAUPT.umbau;
@@ -539,7 +594,7 @@
   }
 
   // ================================================================= ganzes Terminal
-  // m: { bereich: 'werft'|'handel'|'lage' (lage: SUND-02b D, Freie Fahrt Sund; Feld lage), ansicht: 'platz'|'modul'|'stufe'|'gesperrt' (nur Werft), kopf, schnitt, platzKopf, liste, vorschau, stufen, gesperrt, handel,
+  // m: { bereich: 'werft'|'handel'|'lage'|'info' (info: SUND-03b I, Feld info; lage: SUND-02b D, Freie Fahrt Sund; Feld lage), ansicht: 'platz'|'modul'|'stufe'|'gesperrt' (nur Werft), kopf, schnitt, platzKopf, liste, vorschau, stufen, gesperrt, handel,
   //      kreuz, module, aktionen, status, bereichUmschalter }   (Felder je Baustein wie oben)
   function zeichneTerminal(c, view, m) {
     const L = layout(VW, VH);
@@ -547,6 +602,7 @@
     const g = P.rahmen(c, view, { titel: m.titel || 'TERMINAL', S, station: 'shop', anzeige: (cc) => {
       if (m.bereich === 'handel') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneHandel(cc, L.handel, L.handelInfo, m.handel || {}); return; }
       if (m.bereich === 'lage') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneLage(cc, L.handel, L.handelInfo, m.lage || {}); return; }
+      if (m.bereich === 'info') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneInfo(cc, L.handel, L.handelInfo, m.info || {}); return; }
       zeichneSchnitt(cc, L, m.schnitt || {});
       zeichneLegende(cc, L.legende, neu, m.ansicht === 'gesperrt');
       rect(cc, RASTER.trennerX, 12, 1, 214, 'trenner');
@@ -570,7 +626,7 @@
 
   window.PultTerminal = {
     TOKENS, SYMBOLE_MODUL, layout, zeichneTerminal,
-    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage,
+    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage, zeichneInfo,
     zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStart, zeichneStatus, symbolModul, symbolTeil,
     txt, tw, umbruch, kappe, kontrast,
   };

@@ -39,6 +39,7 @@
     'terminal.werft': { name: 'Bereich Werft' },
     'terminal.handel': { name: 'Bereich Handel' },
     'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
+    'terminal.info': { name: 'Bereich Information (Konkordat)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -51,6 +52,9 @@
     A('allgemein.verlassen', 'allgemein', 'Konsole verlassen', ['Escape']),
     // '?' liegt auf deutscher Tastatur auf Shift+ß (code Minus), auf US auf Shift+/ (code Slash)
     A('allgemein.hilfe', 'allgemein', 'Hilfe', ['Shift+Minus', 'Shift+Slash']),
+    // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste (Punkt, auf der deutschen Tastatur Umschalt+Punkt = Doppelpunkt): markiert die nächste Antwort bzw. sendet die markierte; gilt nur, solange ein Angebot offen ist
+    A('allgemein.funkWaehlen', 'allgemein', 'Funkantwort: nächste Option markieren', ['Period']),
+    A('allgemein.funkSenden', 'allgemein', 'Funkantwort: markierte Option senden', ['Shift+Period']),
 
     // ------------------------------------------------------------ Steuer (helm)
     A('steuer.ruderBb', 'steuer', 'Ruder Backbord (halten)', ['KeyA', 'ArrowLeft']),
@@ -187,6 +191,7 @@
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
     A('terminal.lage', 'terminal', 'Bereich Kurs (Absichten, Freie Fahrt)', ['KeyK']),
+    A('terminal.info', 'terminal', 'Bereich Information (Konkordat, Freie Fahrt)', ['KeyI']),
     A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
@@ -209,6 +214,8 @@
     A('terminal.kaufen', 'terminal', 'Artikel kaufen', ['Enter', 'NumpadEnter'], 'terminal.handel'),
     A('terminal.annehmen', 'terminal', 'Absicht annehmen', ['Enter', 'NumpadEnter'], 'terminal.lage'),
     A('terminal.ablehnen', 'terminal', 'Angebot ablehnen (kostet nichts)', ['KeyX'], 'terminal.lage'),
+    A('terminal.gerucht', 'terminal', 'Gerücht kaufen (billig, unbestätigt)', ['Enter', 'NumpadEnter'], 'terminal.info'),
+    A('terminal.beleg', 'terminal', 'Beleg kaufen (teuer, exakt)', ['KeyB'], 'terminal.info'),
   ];
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;

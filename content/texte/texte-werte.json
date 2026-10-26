@@ -1,0 +1,107 @@
+{
+  "format": "texte-werte/1",
+  "_hinweis": "SUND-03b T: Zahlen, Regeln und Lagebeschreibungen der Live-Texte (server/sim/texte-pool.js, texte-pruefer.js, Systemprompt content/spielleiter/prompts/text.system.md). Ein Pool vorab von Gemma (Ollama auf Sleipnir) erzeugter Texte je (Art, Eintrag-Id, Slot[, Option]); textFuer() liest synchron daraus, sonst bleibt der Katalogtext. Alle Zahlen und Wortlisten stehen hier, keine im Code. Die Texte entstehen NIE bei Claude.",
+  "werte": {
+    "standard_an": {"wert": false, "einheit": "Schalter", "_hinweis": "Voreinstellung, wenn TEXTE_POOL fehlt (1 oder on = an, 0 oder off = aus). Standard aus: ohne Schalter bleibt alles wie nach SUND-03a (Katalogtexte). Erzeugt wird nur mit LLM_LIVE=1 (Ollama, OLLAMA_URL/OLLAMA_MODEL)."},
+    "ziel": {"wert": 3, "einheit": "Texte je Pool-Schluessel", "_hinweis": "So viele Varianten haelt der Pool je Eintrag und Slot vor (2 bis 3). Verbrauchte Texte werden bis zu diesem Ziel nachgefuellt; jeder Text wird genau einmal verbraucht."},
+    "gesamt_max": {"wert": 300, "einheit": "Texte", "_hinweis": "Obergrenze des ganzen Pools (Laufzeit, nicht im Weltstand). Darueber wird nicht weiter erzeugt."},
+    "leerlauf_s": {"wert": 4, "einheit": "Sekunden Spielzeit", "_hinweis": "Ohne Taetigkeitsgrenze startet der naechste Text-Job erst, wenn seit dem Ende des letzten Jobs so viel Spielzeit vergangen ist (Leerlauf). Eine Taetigkeitsgrenze (game.lageGrenze) hebt die Wartezeit auf."},
+    "job_timeout_s": {"wert": 45, "einheit": "Sekunden", "_hinweis": "Zeitlimit eines Gemma-Aufrufs (harter Abbruch im Transport). Es laeuft hoechstens EIN Text-Job zugleich (Sleipnir wird mit Kara geteilt)."},
+    "versuche": {"wert": 2, "einheit": "Versuche je Text", "_hinweis": "Erster Versuch plus ein Wiederholungsversuch bei Gemma (mit den Fehlern des Pruefers im Prompt). Danach bleibt der Katalogtext; nie Claude."},
+    "fehler_pause_s": {"wert": {"start": 30, "max": 600}, "einheit": "Sekunden Spielzeit", "_hinweis": "Nach einem Ausfall des Transports (offline, Zeitlimit, Fehler) wird die Pause bei jedem weiteren Fehler verdoppelt (bis max); ein Erfolg setzt sie zurueck. Das Spiel wartet nie."},
+    "schluessel_pause_s": {"wert": 180, "einheit": "Sekunden Spielzeit", "_hinweis": "Lehnt der Pruefer beide Versuche eines Schluessels ab, wird er so lange nicht neu versucht."},
+    "ziffern_erlaubt": {"wert": false, "einheit": "Schalter", "_hinweis": "Ziffern im Text sind verboten: Sekunden und Zahlen stehen nur als Platzhalter {n} (sonst stimmt die Zahl nicht zum Vorlauf des Ereignisses)."},
+    "platzhalter_erlaubt": {"wert": ["ort", "n"], "einheit": "Platzhalter", "_hinweis": "Nur diese Platzhalter in geschweiften Klammern. Welche je Eintrag und Slot erlaubt und Pflicht sind, folgt aus den Katalogtexten (erlaubt = Vereinigung, Pflicht = in allen Katalogtexten des Slots)."},
+    "reaktion_regel": {"wert": "(Regel fuer die Reaktion des Sprechers, nicht im Text erwaehnen: Er bestaetigt oder erwidert nur kurz, was die Crew gesagt hat, im Sinn ihrer Antwort. Er widerspricht ihr nicht, macht kein Versprechen und keine Zusage, bietet nichts an, belohnt oder bestraft nichts und erfindet keine neuen Ereignisse.)", "einheit": "Text", "_hinweis": "SUND-03b Fix: wird an den Fakt jeder Reaktion (Slot reaktion der Funk-Antworten) gehaengt. Die Folge der Option steht allein in den Daten (Ruf), die Reaktion darf sie weder ins Gegenteil verkehren noch etwas Zusaetzliches versprechen."},
+    "beispiele_max": {"wert": 3, "einheit": "Stilvorlagen im Prompt", "_hinweis": "So viele Katalogtexte desselben Eintrags und Slots stehen als Stilvorlage im Prompt."},
+    "slots": {
+      "wert": {
+        "ankuendigung": {"min": 25, "max": 230, "aufgabe": "Der Funkspruch beim Entstehen des Ereignisses: Die Figur meldet, was los ist, und spricht die Lerche an."},
+        "eintreffen": {"min": 15, "max": 200, "aufgabe": "Der Funkspruch in dem Moment, in dem die Lerche eintrifft bzw. die Gegner heran sind. Ein kurzer Ruf, der Kampf beginnt jetzt."},
+        "dank": {"min": 15, "max": 200, "aufgabe": "Der Funkspruch nach der bewaeltigten Lage: Die Figur dankt der Lerche in ihrer eigenen Art."},
+        "soeldner": {"min": 30, "max": 200, "aufgabe": "Ein Lagefunk: Das Konkordat vermietet fuer kurze Zeit Kriegsschiffe an ein Reich. Ein Haendler oder Funker kommentiert es in seiner eigenen Art, ohne Zahlen und ohne Folgen zu erfinden."},
+        "verlust": {"min": 20, "max": 140, "aufgabe": "Ein Lagefunk, den ein Funker der roemischen Seite ausruft: Ein Ort ist verloren. Er spricht aus der ersten Person, betroffen und knapp (ein Ausruf, eine Sorge, ein Fluch), nicht als Bericht und nie als Meldung an jemanden. Er nennt den Ort, aber nicht, wer ihn nun hat, und erfindet keine Folgen."},
+        "reaktion": {"min": 10, "max": 220, "aufgabe": "Die Antwort des Sprechers auf das, was die Spieler ihm gerade geantwortet haben (siehe <spieler_antwort>). Die Figur reagiert in ihrer Stimme, ohne neue Ereignisse zu erfinden."},
+        "antwort": {"min": 8, "max": 40, "satzende": false, "aufgabe": "Der Text einer Antwortoption, die die Spieler waehlen koennen (sprechend, aus Sicht der Crew, ohne Anrede). Zielwert 20 bis 30 Zeichen, nie mehr als 40, also nur etwa vier bis fuenf Woerter, zum Beispiel: Wir helfen gern. | Kein Lohn noetig. | Erst die Fracht sichern."}
+      },
+      "einheit": "Zeichen je Slot",
+      "_hinweis": "Laenge (min bis max) und Aufgabe je Slot-Art. Die Katalogtexte der Reise-Ereignisse haben 20 bis 230 Zeichen (Test). antwort: Optionstext hoechstens 40 Zeichen (Paket A, Funk-Antworten)."
+    },
+    "verboten": {
+      "wert": {
+        "ausweichen": {"muster": "ausweich|spring|keine Pflicht|entkomm|vermeid|abhauen|umgehen|davonfl|fliehen|(?<![a-zäöüß])flucht|umfliegt|umfliegen|weicht aus|weich aus|dreht ab|dreht bei|dreht um|kehrt um|kehrt zurück|kehrt zurueck|zieht euch zurück|zieht euch zurueck|zieht ihr euch|rückzug|rueckzug|macht euch davon|macht ihr euch davon|haut ab|haltet abstand|halt abstand|lasst sie ziehen|lasst ihn ziehen|bleibt weg|haltet euch fern|verschwindet|verdrückt|seht zu, dass ihr", "slots": ["ankuendigung", "eintreffen", "dank", "soeldner", "verlust", "reaktion", "antwort"], "_hinweis": "Gefahr wird nur angekuendigt, kein Text verspricht Ausweichen oder nennt den Sprung als Ausweg (dieselbe Liste wie der Test der Katalogtexte, erweitert). Auch der Rat an die Crew, abzudrehen, umzukehren, sich zurueckzuziehen oder Abstand zu halten, ist Ausweichen (SUND-03b Fix S3)."},
+        "kriegsfolgen": {"muster": "ueberrannt|überrannt|ausgeloescht|ausgelöscht|niedergemetzelt|massakr|gepluendert|geplündert|kapituliert|Überlebende|ueberlebende|vernichtend|zerschlagen|Castra", "slots": ["ankuendigung", "eintreffen", "dank", "soeldner", "verlust", "reaktion", "antwort"], "_hinweis": "Keine nicht vorgegebenen Kriegsfolgen: weder erfundene Besatzungsschicksale noch erfundene Orte (Erkundung: Posten faellt, Text erfindet ein ueberranntes Castra)."},
+        "meldungston": {"muster": "^\\s*(Meldung|Es wird gemeldet|Hiermit|Achtung, Meldung)|keine weiteren|nicht bekannt|unbekannt|keine Informationen", "slots": ["ankuendigung", "eintreffen", "dank", "soeldner", "verlust", "reaktion", "antwort"], "_hinweis": "Figurensprache statt Meldung: kein Amtston (Meldung an …) und kein Hinweis auf fehlende Information (Erkundung: Verlustsprueche sprachen ueber das Ereignis statt aus der Figur)."},
+        "sieger": {"muster": "erobert|besetz|eingenommen|übernommen|uebernommen|germane|römer|roemer|feind|(halten|hält|haelt|hielt|hielten) +(ihn|sie|es|den|die|das|dort|jetzt)|an Rom|in fremder Hand|neuer Herr|neue Herren", "slots": ["verlust"], "_hinweis": "Wer den Ort jetzt haelt, steht nicht in der Lage: kein Sieger im Verlustspruch. Ein verlorener Posten wird in der Sim FREI (niemand haelt ihn), ein Hafen wechselt den Besitzer: der Text nennt in beiden Faellen niemanden (kein Germane, kein Roemer, kein Halten, kein Besetzen; SUND-03b Fix S3)."},
+        "besatzung": {"muster": "(?<![a-zäöüß])tot(e|en|er)?(?![a-zäöüß])|sterben|starben|gestorben|getötet|getoetet|erschlagen|niedergemacht|umgekommen|besatzung besteht|überleb|ueberleb|mann und maus|gefangen|verschleppt|verwundet", "slots": ["verlust"], "_hinweis": "Kein erfundenes Besatzungsschicksal im Verlustspruch: was aus den Menschen wurde, weiss niemand (SUND-03b Fix S3; der Fakt sagt es ausdruecklich)."}
+      },
+      "einheit": "Regex (Gross-/Kleinschreibung egal)",
+      "_hinweis": "Verbotene Woerter und Wendungen je Gruppe. slots = fuer welche Slots die Gruppe gilt."
+    },
+    "stimmen": {
+      "wert": {
+        "rom": {"name": "roemisch", "verboten": "Walhall|Odin\\b|Thor\\b|Jarl|Thing\\b|Sippe|Skal|Skål|Drakkar", "_hinweis": "Roemische Stimmen sagen nichts Germanisches."},
+        "ger": {"name": "germanisch", "verboten": "Streife|Hafenwacht|Posten\\b|Legat|Legion|Centurio|Optio|Tribun|Senat|Imperator|Kaiser|Miles\\b|bei Mars|bei Jupiter|Ave\\b|Vigilia|Ordnung", "_hinweis": "Ein Germane klingt nicht roemisch (Erkundung: Reaktion verschont/treiben klang roemisch-moralisch)."},
+        "kon": {"name": "Konkordat", "verboten": "Walhall|Odin\\b|Legat|Legion|Centurio|bei Mars|bei Jupiter", "_hinweis": "Haendler: weder Heldenmythos noch Dienstrang."},
+        "zivil": {"name": "ziviles Schiff", "verboten": "Walhall|Odin\\b|Legat|Legion|Centurio|bei Mars|bei Jupiter", "_hinweis": "Zivilisten: keine Dienstraenge, kein Mythos."}
+      },
+      "einheit": "Regex (Gross-/Kleinschreibung egal)",
+      "_hinweis": "Woerter, die in der Stimme eines Volkes nicht vorkommen duerfen. Aufklaerung und Oberkommando sind Funkplaketten der roemischen Seite (die Germanen sind dort der Gegner und dürfen genannt werden: der Test gilt der Stimme, nicht dem Thema)."
+    },
+    "stimmen_beschreibung": {
+      "wert": {
+        "rom": "roemisch: knapper Dienstton, Pflicht und Disziplin, Stolz auf Rom und die Legion; Dienstwoerter wie Streife, Hafenwacht, Posten sind erlaubt",
+        "ger": "germanisch: roh, kurz, trotzig, Ehre und Sippe; kein roemisches Dienstwort (nicht Streife, Hafenwacht, Posten, Legat, Legion); denkt in Frost, Eisen, Beute und Gefolgschaft",
+        "kon": "Konkordat: geschaeftiger Haendler, rechnet, feilscht, Preise und Vertraege, spoettisch, dem Profit zugewandt, aber vertragstreu im Wortlaut",
+        "zivil": "ziviles Schiff in Not: Kapitaen oder Funker, menschlich, ein wenig Humor, Sorge um Schiff und Ladung"
+      },
+      "einheit": "Text",
+      "_hinweis": "Kurzbeschreibung der Stimme im Prompt."
+    },
+    "fakten": {
+      "wert": {
+        "notruf_pirat_frachter": {"stimme": "zivil", "fakt": "Der roemische Frachter Aurelia wird bei {ort} von Piraten der Rostmeute bedraengt, der Antrieb stottert. Er ruft jedes Schiff in Funkreichweite um Hilfe. Die Gefahr (Piraten) wird im Notruf genannt."},
+        "notruf_pirat_haendler": {"stimme": "kon", "fakt": "Der Haendler Kupferkranich (Konkordat) wird bei {ort} von Raeubern der Rostmeute geentert oder bedraengt. Er ruft an alle Kontore um Hilfe; das Konkordat zahlt Finderlohn. Die Gefahr (Piraten) wird im Notruf genannt."},
+        "notruf_belagerung_posten": {"stimme": "rom", "fakt": "Der roemische Posten Vigilia bei {ort} ist von germanischen Laeufern umschlossen und hat die Wache halbiert. Er ruft um Hilfe, solange die Mauer haelt. Die Gefahr (Belagerung) wird im Notruf genannt."},
+        "notruf_belagerung_hafen": {"stimme": "rom", "fakt": "Die Hafenwacht von {ort} (ein roemischer Hafen) meldet fremde Kriegsschiffe vor dem Tor. Sie haelt die Kette, aber nicht lange, und ruft jedes Schiff in Reichweite um Hilfe. Die Gefahr (Belagerung) wird im Notruf genannt."},
+        "notruf_havarie_reaktor": {"stimme": "zivil", "fakt": "Der Kutter Fortuna treibt bei {ort} mit durchgegangenem Reaktor, ohne Gefahr durch Feinde. Es friert an Bord. Er bittet um etwas Hilfe (ein Stueck Kabel, ein Schlepp)."},
+        "notruf_havarie_konvoi": {"stimme": "kon", "fakt": "Der Lastkahn Brummbaer (Konkordat) hat bei {ort} Steuerung oder Antrieb verloren und sitzt fest, ohne Gefahr durch Feinde. Er bittet jedes Schiff in Reichweite um Hilfe."},
+        "patrouille_rom_gruss": {"stimme": "rom", "fakt": "Eine roemische Streife kontrolliert die Lerche kurz und laesst sie weiterfliegen: Kennung erfasst, Papiere in Ordnung, ruhige Lage. Keine Gefahr."},
+        "patrouille_ger_spaeher": {"stimme": "rom", "fakt": "Die Aufklaerung (roemische Funkplakette) warnt: Germanische Spaeher (Raeuber-Jaeger der Germanen) halten auf die Lerche zu und sind in {n} Sekunden da. Die Besatzung soll sich bereitmachen."},
+        "patrouille_ger_streife": {"stimme": "rom", "fakt": "Das Oberkommando (roemische Funkplakette) warnt: Eine germanische Streife, staerker als sonst, hat die Lerche im Ring und ist in {n} Sekunden da. Gefechtsstationen besetzen."},
+        "piraten_hinterhalt": {"stimme": "rom", "fakt": "Die Aufklaerung (roemische Funkplakette) warnt: Piraten der Rostmeute haben die Lerche bemerkt und legen sich auf ihren Kurs. Sie sind in {n} Sekunden heran. Die Besatzung soll sich bereitmachen."},
+        "piraten_zoll": {"stimme": "rom", "fakt": "Die Aufklaerung (roemische Funkplakette) warnt: Zwei Piraten der Rostmeute verlangen Wegzoll von der Lerche. Wer nicht antwortet, bekommt sie mit Kanonen zu Besuch, in {n} Sekunden."},
+        "piraten_rudel": {"stimme": "rom", "fakt": "Die Aufklaerung (roemische Funkplakette) warnt: Ein ganzes Rudel der Rostmeute (drei bis vier Raeuberrumpf) hat die Lerche auf der Ortung und ist in {n} Sekunden da. Gefechtsstationen."},
+        "funk_lage_rom": {"stimme": "rom", "fakt": "Lagefunk der Aufklaerung (roemische Funkplakette) an alle Schiffe: Rom hat zuletzt mehr gewonnen als verloren, die Linie haelt, die Germanen werden zurueckgedraengt. Gute Stimmung, ohne konkrete Orte oder Zahlen."},
+        "funk_lage_ger": {"stimme": "rom", "fakt": "Lagefunk der Aufklaerung (roemische Funkplakette) an alle Schiffe: Die Germanen haben zuletzt mehr Boden gutgemacht, als Rom lieb ist. Wachsamkeit, ohne konkrete Orte oder Zahlen."},
+        "funk_lage_offen": {"stimme": "rom", "fakt": "Lagefunk der Aufklaerung (roemische Funkplakette) an alle Schiffe: Rom und Germanen belauern sich, keine Seite hat die Oberhand, nur Scharmuetzel. Ohne konkrete Orte oder Zahlen."},
+        "funk_handel_stimmen": {"stimme": "kon", "fakt": "Haendlerfunk auf offener Welle: Handelsklatsch und Preisgeruechte; wer in {ort} anlegt, bekommt Wasser zum guten Preis. Man hoert viel und glaubt wenig. Keine Kriegsnachrichten."}
+      },
+      "einheit": "Stimme und Lage je Katalog-Id",
+      "_hinweis": "Je Eintrag von content/reise/ereignisse.json: stimme (rom, ger, kon, zivil) und fakt (alles, was der Text als Wahrheit nehmen darf). Platzhalter in den Fakten ({ort}, {n}) bleiben im Text als Platzhalter stehen. Fehlt ein Eintrag, gilt stimme rom und die Chronikzeile als Lage."
+    },
+    "zusatz": {
+      "wert": {
+        "soeldner_an_rom": {"art": "lage", "slot": "soeldner", "sprecher": "Händlerfunk", "stimme": "kon", "platzhalter": ["n"], "pflicht": [], "fakt": "Das Konkordat vermietet fuer kurze Zeit Kriegsschiffe an ROM. Es verdient daran. Der Befehl ist gegeben, die Schiffe wechseln den Dienst. Keine Zahlen, keine Orte, keine Folgen fuer den Krieg."},
+        "soeldner_an_ger": {"art": "lage", "slot": "soeldner", "sprecher": "Händlerfunk", "stimme": "kon", "platzhalter": ["n"], "pflicht": [], "fakt": "Das Konkordat vermietet fuer kurze Zeit Kriegsschiffe an die GERMANEN. Es verdient daran. Der Befehl ist gegeben, die Schiffe wechseln den Dienst. Keine Zahlen, keine Orte, keine Folgen fuer den Krieg."},
+        "posten_verloren": {"art": "lage", "slot": "verlust", "sprecher": null, "stimme": "rom", "platzhalter": ["ort"], "pflicht": ["ort"], "muss": ["Posten"], "nicht": ["Hafen"], "beispiele": ["Posten {ort} antwortet nicht mehr. Wer dort Freunde hatte, trinkt heute auf sie.", "Wieder ein Posten weniger: {ort} ist verloren, und die Funkstille dort ist laut genug.", "Der Posten {ort} ist verloren. Das Oberkommando wird heute Nacht nicht schlafen."], "fakt": "Der Posten {ort} ist verloren. (Nur fuer dich, NICHT im Text erwaehnen: wer ihn jetzt haelt und was aus der Besatzung wurde, weiss niemand.)"},
+        "hafen_gefallen": {"art": "lage", "slot": "verlust", "sprecher": null, "stimme": "rom", "platzhalter": ["ort"], "pflicht": ["ort"], "muss": ["Hafen"], "nicht": ["Posten"], "beispiele": ["Hafen {ort} ist gefallen. Die Kaianlagen, die Märkte, alles still. Ich mag das nicht, Lerche.", "Hafen {ort} verloren. Dort habe ich noch Wasser getankt, als alles ruhig war.", "Der Hafen {ort} ist gefallen. Ein schlechter Tag für jeden, der vom Handel lebt."], "fakt": "Der Hafen {ort} ist gefallen. (Nur fuer dich, NICHT im Text erwaehnen: wer ihn jetzt haelt und was aus den Menschen dort wurde, weiss niemand.)"}
+      },
+      "einheit": "Pool-Eintraege ausserhalb des Reise-Katalogs",
+      "_hinweis": "Soeldner (Befehl soeldner des Lage-Spielleiters, Funk beim Annehmen des Befehls) und Verlust (Lagefunk bei hafen_gefallen und posten_verloren). sprecher null = der Sprecher kommt vom Aufrufer (Lagefunk: naechster eigener Ort). Katalogtexte (Rueckfall): soeldner in content/flotte/lage-befehle.json, Verlust die heutigen Vorlagen funk.postenVerloren und funk.gefallen."
+    },
+    "messbeispiele": {
+      "wert": {
+        "reaktion": [
+          {"id": "bsp_germane_verschont", "absicht": "die Crew verschont das Schiff und schickt es heim", "sprecher": "Schiffsführer der Sippe Rabenfels", "stimme": "ger", "fakt": "Die Lerche hat ein germanisches Schiff im Gefecht ausser Gefecht gesetzt und dann am Leben gelassen. Der germanische Schiffsfuehrer funkt die Lerche an.", "antwort": "Wir schiessen nicht auf Wehrlose. Fliegt heim."},
+          {"id": "bsp_livia_gegenangriff", "absicht": "die Crew meldet den gesicherten Sektor", "sprecher": "Optio Livia Rufa", "stimme": "rom", "fakt": "Die Lerche hat einen Gegenangriff auf die Audax abgewehrt. Der Sektor ist ruhig. Livia Rufa befehligt die Audax.", "antwort": "Wir haben den Sektor gesichert."},
+          {"id": "bsp_haendler_preis", "absicht": "die Crew fordert einen besseren Preis", "sprecher": "Haendlerin Melk", "stimme": "kon", "fakt": "Die Lerche hat der Haendlerin eine Fracht sicher bis zum Hafen gebracht und verlangt dafuer einen besseren Preis.", "antwort": "Ein besserer Preis waere fair."},
+          {"id": "bsp_kutter_dank", "absicht": "die Crew lehnt Lohn ab", "sprecher": "Kutter Fortuna", "stimme": "zivil", "fakt": "Die Lerche hat den Reaktor des Kutters Fortuna wieder zum Laufen gebracht und will keinen Lohn.", "antwort": "Kein Lohn noetig, gute Fahrt."},
+          {"id": "bsp_legat_befehl", "absicht": "die Crew bedauert den Verlust des Schiffs", "sprecher": "Legat Marcus Severus", "stimme": "rom", "fakt": "Die Lerche hat einen Befehl des Legaten ausgefuehrt, aber ein Schiff der Flotte ist dabei verloren gegangen. Der Legat funkt die Lerche an.", "antwort": "Befehl ausgefuehrt, wir bedauern den Verlust."}
+        ]
+      },
+      "einheit": "Beispiele fuer die Messung (Slot reaktion)",
+      "_hinweis": "Platzhalter-Beispiele fuer tools/messe-texte-ollama.js, solange Paket A (Funk-Antworten) keine Katalogoptionen liefert: Sprecher, Stimme, Lage und die Antwortoption der Spieler (Text der Option aus Sicht der Crew)."
+    }
+  }
+}

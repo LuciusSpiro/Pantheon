@@ -1,6 +1,8 @@
 // PAN-01 D2: Hafenterminal (Handel und Werft) als Konsole `shop`. Globales `TerminalUI`.
 // SUND-02b D: dritter Bereich „Lage“ (nur Freie Fahrt Sund, world.absicht über public/js/absicht.js): Angebot von 2–3 Absichten, laufende Absicht; Befehle absicht.waehlen / absicht.ablehnen,
 // jeder am Terminal darf, die erste Wahl gilt (der Server antwortet absichtAntwort). Ruf ist ein Kann: Ablehnen und Liegenlassen kosten nichts.
+// SUND-03b I: vierter Bereich „Information“ (nur an Konkordat-Häfen der Freien Fahrt Sund, world.info über public/js/handel-info.js): 2–3 Themen, Gerücht (billig, kann falsch sein) oder Beleg (teuer, exakt)
+// kaufen; Befehl info.kaufen, der Server entscheidet und antwortet infoAntwort; die Marken sind geteilt, alle sehen das Ergebnis (Funk, Karte).
 // Schichten: Storage = Snapshot (state.werft, ship.st/mounts/mod, inventory.marks, shopContext) und die Ansichtswahl dieser Datei (s);
 // Action = Modell aufbauen und Befehle senden (werft.freischalten / umbau / modul / vorschau / ansicht / zusehen, shop.buy); Frontend = PultTerminal.zeichneTerminal.
 // Der Server entscheidet alles: nichts wird lokal vorweggenommen, Antworten kommen als Ereignisse werftAntwort / werftVorschau / werft.
@@ -31,10 +33,11 @@
     gesendet: null, gesendetT: 0,                                                        // zuletzt gesendete werft.ansicht
     zusehen: false, geoeffnet: false, letzterKauf: null,
     lageId: null,                                                                        // SUND-02b D: gewählte Karte im Bereich Lage (Id der Absicht)
+    infoId: null,                                                                        // SUND-03b I: gewähltes Thema im Bereich Information (Id im Angebot)
   };
   function zuruecksetzen() {
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = 8; s.raum = 1; s.teil = null; s.handel = null; s.antwort = null; s.wartet = null; s.kauf = null;
-    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null;
+    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null; s.infoId = null;
   }
 
   // ---------------------------------------------------------------- Lesen aus dem Snapshot
@@ -60,10 +63,12 @@
 
   // Ansicht, die gerade gilt: der Nutzer = lokal gewählt, Zuschauer = die Ansicht des Nutzers aus dem Snapshot
   function ansicht(L) {
+    if (s.bereich === 'info' && !info()) s.bereich = 'werft';   // SUND-03b I: kein Konkordat-Hafen mehr (abgelegt) oder Modus zu Ende: den Bereich gibt es nicht mehr
     if (s.bereich === 'lage' && !absicht()) s.bereich = 'werft';   // der Modus ist zu Ende (Kampagne, Lobby): der Bereich Kurs gibt es nicht mehr, sonst schluckte er die Tasten
     if (!L.geladen) return { bereich: 'handel', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: s.handel };   // Block kommt erst nach dem Hinsetzen: bis dahin der Handel
-    if (!s.zusehen) return { bereich: s.bereich, auswahl: s.auswahl, platz: s.platz, raum: s.raum, teil: s.teil, handel: s.handel, lage: s.lageId };
+    if (!s.zusehen) return { bereich: s.bereich, auswahl: s.auswahl, platz: s.platz, raum: s.raum, teil: s.teil, handel: s.handel, lage: s.lageId, info: s.infoId };
     const u = (L.w && L.w.ui) || { b: 'w', a: 'p', n: 8, i: null };
+    if (u.b === 'i') return { bereich: 'info', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: null, info: u.i };   // SUND-03b I: Zuschauer sehen das gewählte Thema des Nutzers
     if (u.b === 'l') return { bereich: 'lage', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: null, lage: u.i };   // SUND-02b D: Zuschauer sehen den Bereich Lage mit der Karte des Nutzers
     return { bereich: u.b === 'h' ? 'handel' : 'werft', auswahl: u.a === 'm' ? 'modul' : u.a === 's' ? 'stufe' : 'platz', platz: u.a === 'p' ? u.n || 8 : 8, raum: u.a === 'm' ? u.n || 1 : 1, teil: u.i, handel: u.i };
   }
@@ -134,7 +139,7 @@
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = p; s.teil = null; s.antwort = null;
   }
   function waehleRaum(view, r) { if (s.zusehen) return; s.bereich = 'werft'; s.auswahl = 'modul'; s.raum = r; s.teil = null; s.antwort = null; }
-  function bereichWechseln(b) { if (s.zusehen) return; if (b === 'lage' && !absicht()) return; s.bereich = b; s.antwort = null; }
+  function bereichWechseln(b) { if (s.zusehen) return; if (b === 'lage' && !absicht()) return; if (b === 'info' && !info()) return; s.bereich = b; s.antwort = null; }
   function teilWeiter(view, d) {
     if (s.zusehen) return;
     const L = lage(view), a = ansicht(L);
@@ -192,8 +197,8 @@
   // ---------------------------------------------------------------- Ansicht an den Server (damit Zuschauer dasselbe sehen)
   function ansichtSenden(view, L) {
     if (s.zusehen || !L.geladen) return;
-    const a = ansicht(L), teil = a.bereich === 'handel' ? a.handel : a.bereich === 'lage' ? ((lageKarte(absicht(), a.lage) || {}).id || null) : (gewaehltesTeil(L, a) || {}).id;
-    const m = { b: a.bereich === 'handel' ? 'h' : a.bereich === 'lage' ? 'l' : 'w', a: a.auswahl === 'modul' ? 'm' : a.auswahl === 'stufe' ? 's' : 'p', n: a.auswahl === 'modul' ? a.raum : a.auswahl === 'stufe' ? stufenZiel(L) : a.platz, i: teil || null };
+    const a = ansicht(L), teil = a.bereich === 'handel' ? a.handel : a.bereich === 'info' ? ((infoThema(info(), a.info) || {}).id || null) : a.bereich === 'lage' ? ((lageKarte(absicht(), a.lage) || {}).id || null) : (gewaehltesTeil(L, a) || {}).id;
+    const m = { b: a.bereich === 'handel' ? 'h' : a.bereich === 'lage' ? 'l' : a.bereich === 'info' ? 'i' : 'w', a: a.auswahl === 'modul' ? 'm' : a.auswahl === 'stufe' ? 's' : 'p', n: a.auswahl === 'modul' ? a.raum : a.auswahl === 'stufe' ? stufenZiel(L) : a.platz, i: teil || null };
     const key = JSON.stringify(m);
     if (key === s.gesendet || now() - s.gesendetT < 120) return;
     s.gesendet = key; s.gesendetT = now();
@@ -270,6 +275,49 @@
     return m;
   }
 
+  // ---------------------------------------------------------------- Information (SUND-03b I): Informationshandel des Konkordats, Anzeige aus world.info (HandelInfo.modell), Befehl info.kaufen, Texte und Preise aus content/welt/handel-info-werte.json
+  const info = () => (window.HandelInfo && HandelInfo.modell ? HandelInfo.modell() : null);   // null: kein Konkordat-Hafen (oder Kampagne, Limes): dann gibt es den Bereich nicht
+  const IT = (key) => (window.HandelInfo && HandelInfo.text ? HandelInfo.text(key) : '');
+  const infoThema = (IN, id) => (IN && (IN.themen.find((t) => t.id === id) || IN.themen[0])) || null;   // gewähltes Thema, sonst das erste
+  function infoWeiter(view, d) {
+    const IN = info(); if (s.zusehen || !IN || IN.themen.length < 2) return;
+    const i = Math.max(0, IN.themen.findIndex((t) => t.id === s.infoId));
+    s.infoId = IN.themen[(i + IN.themen.length + d) % IN.themen.length].id; s.antwort = null;
+  }
+  function infoKaufen(view, IN, id, stufe) {
+    if (s.zusehen || !IN || !id || (s.wartet && now() - s.wartet.t < 3000)) return;
+    const t = IN.themen.find((q) => q.id === id), preis = IN.preise[stufe];
+    if (!t || (stufe === 'gerucht' ? t.gerucht : t.beleg)) return;
+    if (n(((view.state || {}).inventory || {}).marks) < preis) { meldung(false, IT('zu_wenig_marken'), 'zu_wenig_marken'); return; }
+    cmd(view, 'info.kaufen', { thema: id, stufe, art: t.art, k: t.k }); warten();   // Art und Kennung wie angezeigt: hat sich das Angebot inzwischen geändert, kauft der Server nichts
+  }
+  function infoBauen(view, m, L, a, bedienbar, hinweis, wartet, ant) {
+    const IN = info(), gew = infoThema(IN, a.info), bw = (stufe) => !gew || (stufe === 'gerucht' ? gew.gerucht : gew.beleg);
+    m.bereich = 'info';
+    m.kopf = { ort: L.ort, art: 'info', marken: L.marks };
+    const grundVon = (stufe) => !gew ? IT('kein_angebot') : bw(stufe) ? IT('gekauft') : L.marks < IN.preise[stufe] ? IT('zu_wenig_marken') : null;
+    const nummer = (t, i) => (IN.themen.filter((q) => q.name === t.name).length > 1 ? ' ' + IN.themen.filter((q, j) => q.name === t.name && j <= i).length : '');   // zwei Themen derselben Art: 1, 2
+    m.info = {
+      titel: IT('bereich'), hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.gerucht', 'Ent') + ' ' + IT('gerucht_name') + ' · ' + T.kappe('terminal.beleg', 'B') + ' ' + IT('beleg_name') : '',
+      leer: IN.themen.length ? null : { titel: IT('angebot_kopf'), text: IT('kein_angebot') },   // keine Themen: das Terminal sagt es, es gibt nichts zu kaufen
+      karten: IN.themen.map((t, i) => ({ id: t.id, name: t.name + nummer(t, i), sub: [t.gerucht ? IT('gerucht_name') + ' ' + IT('gekauft_kurz') : '', t.beleg ? IT('beleg_name') + ' ' + IT('gekauft_kurz') : ''].filter(Boolean).join(' · '), gewaehlt: !!gew && t.id === gew.id, onClick: bedienbar ? () => { s.infoId = t.id; s.antwort = null; } : null })),
+      stufen: [{ name: IT('gerucht_name'), preis: IN.preise.gerucht, text: IT('gerucht_hinweis'), aktiv: false }, { name: IT('beleg_name'), preis: IN.preise.beleg, text: IT('beleg_hinweis'), aktiv: false }],
+      letzte: IN.letzte,
+      info: { text: '', grund: ant && !ant.ok ? ant.text : null },
+    };
+    m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };
+    m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
+    const gg = grundVon('gerucht'), gb = grundVon('beleg');
+    const marksFehlt = gew ? (!gew.gerucht && fehlt(IN.preise.gerucht, L.marks)) || (!gew.beleg && fehlt(IN.preise.beleg, L.marks)) || null : null;   // dieselbe Warnzeile wie im Handel
+    m.aktionen = {
+      haupt: { art: 'gerucht', text: gew ? IT('gerucht_name') + ' kaufen · ' + IN.preise.gerucht + ' M' : 'Nichts im Angebot', disabled: !gew || !bedienbar || wartet || !!gg, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gg, onClick: () => infoKaufen(view, IN, gew && gew.id, 'gerucht') },
+      hinweis: marksFehlt ? hinweis(marksFehlt, 'warn') : hinweis(gew ? gew.name : '', 'dim'),
+      ausbau: { label: gew ? IT('beleg_name') + ' ' + IN.preise.beleg : IT('beleg_name'), aktion: 'terminal.beleg', taste: 'B', disabled: !gew || !bedienbar || wartet || !!gb, grund: !bedienbar ? IT('zuschauer') : wartet ? IT('wartet') : gb, onClick: () => infoKaufen(view, IN, gew && gew.id, 'beleg') },
+      teil: { label: 'Thema', disabled: IN.themen.length < 2 || !bedienbar, onClick: () => infoWeiter(view, 1) },
+    };
+    return m;
+  }
+
   // ---------------------------------------------------------------- Modell (Action-Layer: alles, was das Frontend zeichnet)
   function plaetzeModell(L, neuStufe) {
     const out = {};
@@ -317,6 +365,15 @@
     return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, sperre: voll ? null : L.sperre[ziel] || null, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
       hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' } };
   }
+  const KAUF_TEXT_W = 128;   // Platz für den Text im Hauptknopf (160 px minus Kappe „Ent“)
+  const gross = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());   // der Server schickt „teurer: …“, angezeigt wird „Teurer: …“
+  // Text des Kaufknopfs (160 px, davon ~130 für den Text): mit Lagepreis „Torpedo kaufen · ↑15 M (sonst 10)“; passt das nicht, fällt erst „kaufen“, dann der Name weg (der Preis bleibt immer); gilt auch ohne Lagepreis (lange Namen liefen vorher über den Knopf)
+  function kaufText(sel) {
+    const anders = sel.basis != null && sel.basis !== sel.price, pf = sel.teurer ? '↑' : sel.cheaper ? '↓' : '';
+    const preis = anders ? pf + sel.price + ' M (sonst ' + sel.basis + ')' : sel.price + ' M', name = kurz(sel.name, 100);
+    const vari = [name + ' kaufen · ' + preis, name + ' · ' + preis, name + ' ' + preis, name + ' ' + pf + sel.price + ' M (' + sel.basis + ')', preis];
+    return vari.slice(0, anders ? 5 : 2).find((v) => T.tw(v) <= KAUF_TEXT_W) || (anders ? preis : sel.price + ' M');
+  }
   const fehlt = (preis, marks) => (preis != null && marks < preis ? 'Nicht genug Marken (fehlen ' + (preis - marks) + ')' : null);
 
   // Modell für den Zuschauer: dieselbe Ansicht, aber alles gesperrt, Titel ZUSEHEN, Rahmen in der Farbe des Nutzers
@@ -350,8 +407,9 @@
       return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
     };
     m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv && L.w && L.w.hs ? 'stuetzpunkt' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };   // SUND-02b UI: Stützpunkt der Crew (Werft ja, Handel nein: werft.hs) heißt so
+    const IN0 = info();   // SUND-03b I: Knopf „Info“ nur an einem Konkordat-Hafen
     const AB0 = absicht();   // SUND-02b D: Knopf „Kurs“ nur im Modus (vor Tribun gedimmt, Grund im Tooltip; eine laufende Absicht hält ihn offen)
-    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, onBereich: bedienbar ? (b) => bereichWechseln(b) : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
+    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, werftGrund: (L.w && L.w.grund) || 'Werft nicht verfügbar', onBereich: bedienbar ? (b) => bereichWechseln(b) : null, info: IN0 ? { label: IT('bereich_kurz') || 'Info' } : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
 
@@ -360,21 +418,22 @@
       const rows = handelZeilen(view), sel = rows.find((r) => r.id === a.handel) || rows[0] || null;
       m.handel = {
         artikel: rows.map((r) => ({ id: r.id, name: r.name, art: HANDEL_ART[r.kind] || r.kind, preis: r.price, besitz: String(r.owned || '').replace(/^(Lager|Besitz):\s*/, (x) => x.replace(':', '').trim() + ' '),
-          grund: r.reason, guenstiger: r.cheaper, onClick: bedienbar ? () => { s.handel = r.id; } : null })),
+          grund: r.reason, guenstiger: r.cheaper, teurer: r.teurer, onClick: bedienbar ? () => { s.handel = r.id; } : null })),
         gewaehlt: sel ? sel.id : null,
-        info: sel ? { text: HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : ''), grund: sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) : sel.reason } : { text: 'Kein Sortiment.' },
+        info: sel ? { hinweis: sel.preisHinweis ? { pfeil: sel.teurer ? '↑' : sel.cheaper ? '↓' : '', text: gross(sel.preisHinweis) } : null, text: (HANDEL_TEXT[sel.id] || (sel.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : '')), grund: sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) : sel.reason } : { text: 'Kein Sortiment.' },
       };
       // im Handel stehen Kreuz und Module gedimmt (die Werft ist ein anderer Bereich); ein Klick wechselt in die Werft
       m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null }; m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
       fehlPreis = sel ? sel.price : null;
       const lager = sel && sel.limit ? ' · Lager ' + n((L.st.inventory || {})[sel.id]) + '/' + sel.limit : '';
       m.aktionen = {
-        haupt: { art: 'kaufen', text: sel ? kurz(sel.name, 100) + ' kaufen · ' + sel.price + ' M' : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
+        haupt: { art: 'kaufen', text: sel ? kaufText(sel) : 'Kaufen', disabled: !sel || !!sel.reason || !bedienbar || !!(s.kauf && now() - s.kauf.t < 1500), grund: sel && sel.reason, onClick: () => { if (sel) kaufen(view, sel); } },
         hinweis: (() => { const g = sel && sel.reason ? (sel.reason === 'Nicht genug Marken' ? fehlt(sel.price, L.marks) || sel.reason : sel.reason) : null; return g ? hinweis(g, 'warn') : hinweis(sel ? (lager ? lager.slice(3) : '') : '', 'dim'); })(),   // SUND-02b UI: gesperrt -> Grund unter dem Knopf (wie in der Werft) ausbau: Object.assign({}, ausbauKnopf, { active: false }), teil: { disabled: !bedienbar, onClick: () => teilWeiter(view, 1) },
       };
       return m;
     }
 
+    if (a.bereich === 'info' && info()) return infoBauen(view, m, L, a, bedienbar, hinweis, wartet, ant);
     if (a.bereich === 'lage' && absicht()) return lageBauen(view, m, L, a, bedienbar, hinweis, wartet, ant);
 
     m.bereich = 'werft';
@@ -478,6 +537,15 @@
     if (code === 'KeyH') { bereichWechseln('handel'); return true; }
     if (code === 'KeyW') { bereichWechseln('werft'); return true; }
     if (code === 'KeyK') { bereichWechseln('lage'); return true; }
+    if (code === 'KeyI') { bereichWechseln('info'); return true; }
+    if (a.bereich === 'info') {   // SUND-03b I: Bereich Information: Pfeile wählen, Enter kauft das Gerücht, B den Beleg (nichts anderes tut hier etwas)
+      const IN = info(), k = infoThema(IN, a.info);
+      if (code === 'ArrowUp' || code === 'ArrowLeft') infoWeiter(view, -1);
+      else if (code === 'ArrowDown' || code === 'ArrowRight') infoWeiter(view, 1);
+      else if ((code === 'Enter' || code === 'NumpadEnter') && k) infoKaufen(view, IN, k.id, 'gerucht');
+      else if (code === 'KeyB' && k) infoKaufen(view, IN, k.id, 'beleg');
+      return true;
+    }
     if (a.bereich === 'lage') {   // SUND-02b D: Bereich Kurs: Pfeile wählen, Enter nimmt an, X lehnt ab (nichts anderes tut hier etwas)
       const AB = absicht();
       if (code === 'ArrowUp' || code === 'ArrowLeft') lageWeiter(view, -1);
@@ -511,6 +579,10 @@
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
       meldung(!!ev.ok, ev.ok ? AT(ev.op === 'waehlen' ? 'gewaehlt' : 'abgelehnt') : (ev.text || AT('nicht_moeglich')), ev.ok ? null : ev.code);
+    } else if (ev.kind === 'infoAntwort') {   // SUND-03b I: Antwort des Servers an den Absender (Ergebnis steht im Funk und in world.info.l, hier nur Bestätigung oder Grund der Absage)
+      if (ev.pid && window.Client && ev.pid !== Client.pid) return;
+      s.wartet = null;
+      meldung(!!ev.ok, ev.ok ? (ev.stufe === 'beleg' ? IT('beleg_name') : IT('gerucht_name')) + ' gekauft.' : (ev.text || IT('fehler')), ev.ok ? null : ev.code);
     } else if (ev.kind === 'werftVorschau') {
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       if (typeof ev.rid === 'string' && ev.rid) s.vorschau.cache[ev.rid] = ev.vorschau;
@@ -538,7 +610,7 @@
   window.TerminalUI = {
     draw, keyDown, onEvent, zusehen, drawZusehen, zuruecksetzen, modell, lage, bereit,
     get zusehend() { return s.zusehen; },
-    get bereichJetzt() { return s.bereich === 'lage' && !absicht() ? 'werft' : s.bereich; },   // wirksamer Bereich (nach Modus-Ende nie 'lage'), für die Tastenbelegung
+    get bereichJetzt() { return s.bereich === 'info' && !info() ? 'werft' : s.bereich === 'lage' && !absicht() ? 'werft' : s.bereich; },   // wirksamer Bereich (nach Modus-Ende nie 'lage'), für die Tastenbelegung
     get zustand() { return s; },
   };
 })();

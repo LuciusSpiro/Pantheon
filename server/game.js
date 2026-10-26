@@ -8,6 +8,7 @@ const W = require('./world.js');
 const interior = require('./sim/interior.js');
 const space = require('./sim/space.js');
 const Reise = require('./sim/reise.js');   // Spieltest: Schnellsprung
+const TextePool = require('./sim/texte-pool.js');   // SUND-03b T: vorab erzeugte Live-Texte (nur mit Schalter TEXTE_POOL)
 const bots = require('./sim/bots.js');
 const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
@@ -32,6 +33,8 @@ const Boje = require('./sim/boje.js');   // SL10: Vorläufer-Boje wecken   // SL
 const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Captains (gesichtet, Marken, Schiffe; Snapshot world.sektoren.g/p)
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
+const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
 const Spur = require('./sim/spur.js');   // SL5: Ionenspur über mehrere Hexe (game.spur, Snapshot sp)
@@ -42,6 +45,7 @@ const Flotte = require('./sim/flotte.js');   // EK4: Verbündete, Befehle des Le
 const arena = require('./sim/arena.js');
 const Labor = require('./mission/labor.js');   // AP3a: Szenario-Labor (Lobby-Modus 'labor')
 const shop = require('./sim/shop.js');
+const Preise = require('./sim/preise.js');   // SUND-03b P: Preisfaktor der Verbrauchsgüter im Terminal
 const onboard = require('./sim/onboard.js');
 const { Explore } = require('./sim/explore.js');
 const { Mission } = require('./sim/mission.js');
@@ -59,7 +63,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -246,6 +250,31 @@ class Game {
     try { this.spielleiter = create(this) || null; } catch (e) { this.countError('spielleiter-create', e); this.spielleiter = null; }
     return this.spielleiter;
   }
+  // SUND-03 A2: Lage-Spielleiter der Freien Fahrt Sund (server/sim/lage-spielleiter.js): nur im Modus mit this.weltsim und nur mit LAGE_SPIELLEITER=1 UND SPIELLEITER_LLM ≠ off (Standard aus:
+  // ohne Env läuft alles wie bisher, es entsteht kein Objekt). Eigene Klasse neben dem Spielleiter der Kampagne, der in der Freien Fahrt gesperrt bleibt.
+  createLageSpielleiter() {
+    if (this.lageSpielleiter || !this.weltsim) return this.lageSpielleiter || null;
+    const mod = require('./sim/lage-spielleiter.js');
+    if (this.lageSchalter === undefined) this.lageSchalter = mod.schalterAn(this.env);
+    if (!this.lageSchalter) return null;
+    try { this.lageSpielleiter = mod.create(this); } catch (e) { this.countError('lage-create', e); this.lageSchalter = false; this.lageSpielleiter = null; }
+    return this.lageSpielleiter;
+  }
+  // zwischen den Ticks (Game-Step): Antwort abholen, Frist prüfen, vorgemerkte Anfrage starten; legt den Lage-Spielleiter beim ersten Schritt im Modus an
+  lageUpdate(dt) {
+    if (!this.weltsim || this.lageSchalter === false) return;
+    if (!this.lageSpielleiter && !this.createLageSpielleiter()) return;
+    this.lageSpielleiter.update(dt);
+  }
+  // SUND-03b T: Text-Pool (Live-Texte von Sleipnir) zwischen den Ticks; ohne Schalter TEXTE_POOL geschieht nichts. Hat nichts mit dem Lage-Spielleiter (Claude) zu tun.
+  texteUpdate(dt) { TextePool.update(this, dt); }
+  // Tätigkeitsgrenze (szene_ende | andocken | absicht): benannter Hook, wirft nie in den Aufrufer
+  lageGrenze(art) {
+    TextePool.beiGrenze(this, art);   // SUND-03b T: der Text-Pool füllt an Tätigkeitsgrenzen nach (nur mit TEXTE_POOL; nichts Schweres im Hook)
+    const l = this.lageSpielleiter;
+    if (!l) return null;
+    try { return l.beiGrenze(art); } catch (e) { this.countError('lage-grenze', e); return null; }
+  }
   // Aufruf in den Spielleiter: fehlt er oder die Methode -> undefined; Fehler werden gezählt (nichts wirft in den Tick)
   callSpielleiter(method, ...args) {
     const sl = this.spielleiter;
@@ -376,6 +405,8 @@ class Game {
     if (lpReset) { try { lpReset(this); } catch (e) { this.countError('landepunkte-reset', e); } } else this.landepunkte = null;
     if (this.spielleiter) this.callSpielleiter('dispose');   // S2: laufende Anfragen verwerfen (optional)
     this.spielleiter = null;
+    if (this.lageSpielleiter) { try { this.lageSpielleiter.dispose(); } catch (e) { this.countError('lage-dispose', e); } }   // SUND-03 A2: Anfrage in der Luft verwerfen, späte Antworten kommen nie an
+    this.lageSpielleiter = null; this.lageSchalter = undefined;
     this.phase = 'lobby';
     this.paused = false;
     this.saveDue = null; this.dockSaveT = 0; this.pendingRadio = null;
@@ -451,7 +482,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -495,7 +526,7 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
-    if (name === 'docked') this.markSaveDue('docked');
+    if (name === 'docked') { this.markSaveDue('docked'); this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene
@@ -665,7 +696,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -676,7 +707,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -691,7 +722,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1012,6 +1043,12 @@ class Game {
       if (c === 'werft.zusehen') { Werft.zusehenSetzen(this, p, msg.on !== false); return; }
     }
     if (c === 'werft.vorschau') { if (p.conn) this.sendTo(p.conn, { t: 'event', kind: 'werftVorschau', pid: p.id, rid: typeof msg.rid === 'string' ? msg.rid.slice(0, 60) : null, vorschau: Werft.vorschau(this, { art: String(msg.art), platz: msg.platz, raum: msg.raum, id: msg.id == null ? (msg.waffe == null ? 'leer' : String(msg.waffe)) : msg.id }) }); return; }
+    // SUND-03b A: Funk-Antwort am HUD (jeder, keine Konsole, keine Rolle; die erste Antwort gilt, jede weitere bekommt „schon beantwortet“). Antwort an den Absender: funkAntwort { ok, code?, text? }
+    if (c === Protocol.CMD_FUNK_ANTWORT) {
+      const r = p.downed ? FunkAntwort.weigerung('am_boden') : FunkAntwort.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));   // wer am Boden liegt, bekommt eine Weigerung statt Schweigen
+      if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'funkAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+      return;
+    }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1164,8 +1201,16 @@ class Game {
         const op = c.slice(8);
         const r = op === 'waehlen' ? Absicht.waehlen(this, String(msg.id)) : Absicht.ablehnen(this);
         if (!r && op === 'waehlen') { try { Absicht.meldeGewaehlt(this); } catch (e) { this.countError('absicht-funk', e); } }
+        if (!r) this.lageGrenze('absicht');   // SUND-03 A2: Wahl oder Ablehnung einer Strategischen Option ist eine Tätigkeitsgrenze
         if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
         err = r ? r.text : null;
+        break;
+      }
+      case 'info.kaufen': {   // Art und Kennung aus der Anzeige (msg.art, msg.k): ein inzwischen geändertes Angebot kauft nichts. SUND-03b I: am Terminal (Konsole shop), jeder darf, die Marken sind geteilt; Antwort an den Absender: infoAntwort { ok, op, stufe?, text, code? }, alle sehen Funk (Gerücht, Beleg) und Karte (Beleg)
+        let r;
+        try { r = Info.kaufen(this, p, String(msg.thema), String(msg.stufe), { art: msg.art, k: msg.k }); } catch (e) { this.countError('info-kaufen', e); r = { ok: false, code: 'fehler', text: Info.WERTE.texte.fehler }; }
+        if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'infoAntwort', pid: p.id, op: 'kaufen', ok: !!r.ok }, r.ok ? { stufe: r.stufe, text: r.text, zuv: r.zuverlaessigkeit } : { code: r.code, text: r.text }));
+        err = r.ok ? null : r.text;
         break;
       }
       case 'deco.place': err = shop.placeDeco(this, p, String(msg.slot), msg.item == null ? null : String(msg.item)); break;
@@ -1341,6 +1386,7 @@ class Game {
       case 'waffe': case 'gegner': case 'alarm': case 'fang': err = this.onDebugB2(p, cmd, msg); break;      // B2 §8
       case 'szene': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : SimSzene.debug(this, argList(msg)); break;   // SUND-02a: szene [staerke] [ger|pirat] [belagerung] – Flotte der Sim im Hex der Lerche, löst die Szene aus
       case 'ruf': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Ruf.debug(this, argList(msg)); break;   // SUND-02b B: ruf [rom|ger|kon] [wert] – Ruf setzen/anzeigen (nur Freie Fahrt Sund)
+      case 'lage': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : this.onDebugLage(p, argList(msg)); break;   // SUND-03 A2: lage [status | plan | fail] (nur Freie Fahrt Sund mit LAGE_SPIELLEITER=1)
       case 'absicht': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Absicht.debug(this, argList(msg)); break;   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund)
       case 'flotte': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : Flotte.debug(this, argList(msg)); break;   // EK4: flotte aufstellen [kind] [name] | befehl <art> | welle | neustart | status
       case 'kapitel': {   // EK8: kapitel <id> – Einstieg in ein Kapitel der Kette (Zustand davor wird hergestellt)
@@ -1363,6 +1409,12 @@ class Game {
     if (err) this.notice(p, err);
   }
 
+  // SUND-03 A2: lage status | plan | fail (Antwort als Hinweis an den Absender)
+  onDebugLage(p, args) {
+    const l = this.lageSpielleiter;
+    if (!l) return this.weltsim ? 'Kein Lage-Spielleiter (LAGE_SPIELLEITER=1 und SPIELLEITER_LLM=mock|live setzen).' : 'Kein Lage-Spielleiter – nur in der Freien Fahrt Sund.';
+    try { const r = l.debug(args, p); if (r) this.notice(p, String(r).slice(0, 400)); return null; } catch (e) { this.countError('lage-debug', e); return 'lage: Fehler (' + e.message + ')'; }
+  }
   // S2: sl status | sl plan | sl fail grobplan|szene | sl archiv  (Text in msg.args oder msg.sub/msg.what)
   onDebugSl(p, msg) {
     const args = argList(msg);
@@ -1629,6 +1681,8 @@ class Game {
       this.safe('explore', () => this.explore.update(dt));
       this.safe('onboard', () => onboard.updateIvo(this, dt));
       this.safe('spielleiter', () => this.spielleiter && this.spielleiter.update(dt));   // S2 §3.1: vor mission.update
+      if (this.weltsim) this.safe('lage', () => this.lageUpdate(dt));   // SUND-03 A2: Lage-Spielleiter (nur mit Schalter), zwischen den Ticks
+      if (this.weltsim) this.safe('texte', () => this.texteUpdate(dt));   // SUND-03b T: Text-Pool (nur mit Schalter TEXTE_POOL)
       this.safe('mission', () => this.mission.update(dt));
       if (this.arena) this.safe('arena', () => arena.update(this, dt));
       if (this.labor) this.safe('labor', () => Labor.update(this));   // AP3a: Ende der Labor-Mission melden
@@ -1931,6 +1985,18 @@ class Game {
       if (ak && ak !== this.sentAbsichtKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.absicht = Absicht.snapshot(this); this.sentAbsichtKey = ak; }
       else if (!ak && this.sentAbsichtKey) { world.absicht = null; this.sentAbsichtKey = null; }
     } catch (e) { this.countError('snapshot-absicht', e); }
+    // SUND-03b A: world.funkwahl (offenes Funk-Antwort-Angebot, nur Freie Fahrt Sund mit Reise-Ereignissen) nur bei Änderung, für alle gleich, nie mit den großen seltenen Teilen; null = Löschsignal (Angebot weg)
+    try {
+      const fk = FunkAntwort.schluessel(this);
+      if (fk && fk !== this.sentFunkKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.funkwahl = FunkAntwort.snapshot(this); this.sentFunkKey = fk; }
+      else if (!fk && this.sentFunkKey) { world.funkwahl = null; this.sentFunkKey = null; }
+    } catch (e) { this.countError('snapshot-funkwahl', e); }
+    // SUND-03b I: world.info (Angebot des Konkordats; nur an einem Konkordat-Hafen und solange jemand am Terminal sitzt) nur bei Änderung, für alle gleich, nie mit den großen seltenen Teilen; Löschsignal null wie world.absicht
+    try {
+      const ik = Info.schluessel(this);
+      if (ik && ik !== this.sentInfoKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.info = Info.snapshot(this); this.sentInfoKey = ik; }
+      else if (!ik && this.sentInfoKey) { world.info = null; this.sentInfoKey = null; }
+    } catch (e) { this.countError('snapshot-info', e); }
     // B3 §6: space.jp (bekannte Bojen der Szene, ≤ 6)
     const jpFn = fnOf(sprungMod(), 'jpSnapshot');
     if (jpFn) { try { const jp = jpFn(this); if (Array.isArray(jp) && jp.length) spaceOut.jp = jp.slice(0, 6); } catch (e) { this.countError('snapshot-jp', e); } }
@@ -2066,6 +2132,7 @@ class Game {
       world,
       ...((tr) => (tr ? { transfer: tr } : {}))(this.transferSnap()),   // B1: Landepunkte für die Transfer-Konsole
       shopContext: shop.shopContext(this),
+      ...((sp) => (sp ? { shopPreise: sp } : {}))(this.weltsim && !shop.sperreFuer(this) ? Preise.snapshot(this, shop.shopContext(this)) : null),   // SUND-03b P: nur Verbrauchsgüter mit Lagefaktor != 1 { id: [Preis, Hinweis] }; fehlt sonst
       ...(Werft.testumgebung(this) ? { werftTest: 1 } : {}),   // Testumgebung: Terminal und Werft auch abgedockt (Client)
       ...((wf) => (wf ? { werft: wf } : {}))(Werft.snapshot(this)),   // PAN-01 D: nur wenn jemand am Terminal sitzt
       mission: missionOut,

@@ -1118,7 +1118,7 @@
   function ankerPos(mapId, id) { const m = Maps[mapId || ((Client.state && Client.state.away) || {}).map]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? { x: a[2] * TILE + 16, y: a[3] * TILE + 16 } : null; }
 
   function onEvent(ev) {
-    if (ev.kind && (ev.kind.indexOf('werft') === 0 || ev.kind === 'absichtAntwort') && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau; SUND-02b D: absichtAntwort
+    if (ev.kind && (ev.kind.indexOf('werft') === 0 || ev.kind === 'absichtAntwort' || ev.kind === 'infoAntwort') && window.TerminalUI) { Net.guard('TerminalUI.onEvent', () => TerminalUI.onEvent(ev)); return; }   // PAN-01 D2: werft, werftAntwort, werftVorschau; SUND-02b D: absichtAntwort
     if (window.VoxelFx && typeof window.VoxelFx.onEvent === 'function') { try { window.VoxelFx.onEvent(ev); } catch (e) { Net.reportError('VoxelFx.onEvent', e); } }   // M4: Effekte im Voxel-Modus
     const PAL = R.PAL;
     if (Net.guard('Client.eventS2', () => onEventS2(ev), false)) return;
@@ -1126,6 +1126,7 @@
     if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
+      case 'funkAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;   // SUND-03b A: Weigerung des Servers (schon beantwortet, kein Angebot mehr, nicht ruhig)
       case 'odaWeg': H.odaWeg(); break;   // Fixrunde: Szenenende räumt die Szenen-ODA (Ortung, Erste Welle) weg
       case 'radio': H.onRadio(ev.from, ev.text, ev.pid, ev.lage, ev.kz, !!(ev.sz && !ev.r)); if (ev.lage && window.KarteLage) window.KarteLage.funkMerken(ev); audio.play('radio'); break;   // SUND-01 C: lage = Lagefunk (Freie Fahrt Sund)   // EK4: pid = Porträt (legat) bzw. Symbol (mars)
       case 'notice':
@@ -1985,6 +1986,12 @@
     // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
     if (/^F[1-4]$/.test(code) && (m.console === 'shop' || (window.TerminalUI && TerminalUI.zusehend))) e.preventDefault();
     if (window.TerminalUI && TerminalUI.zusehend && !m.console) { if (code === 'Escape') { TerminalUI.zusehen(Client.view, false); Client.keys = {}; } return; }
+    // SUND-03b A: Funk-Antwort (Freie Fahrt Sund): eine freie Taste, Punkt markiert die nächste Option, Umschalt+Punkt sendet die markierte (die Maus geht über die Knöpfe der Leiste)
+    if (window.Funkwahl && window.Tasten && Funkwahl.offen()) {
+      if (code === 'Escape' && Funkwahl.zuklappen()) { e.preventDefault(); return; }   // UI2: eine selbst aufgeklappte Leiste an einer Konsole mit Bedienflächen klappt zuerst wieder zu (Esc verlässt die Konsole erst beim nächsten Druck)
+      if (Tasten.passt(e, 'allgemein.funkWaehlen')) { e.preventDefault(); if (!e.repeat) Funkwahl.markieren(); return; }
+      if (Tasten.passt(e, 'allgemein.funkSenden')) { e.preventDefault(); if (!e.repeat) Funkwahl.senden(send); return; }
+    }
     Client.keys[code] = true;
     if (DEBUG && Client.serverDebug && code === 'F6') { e.preventDefault(); send({ t: 'debug', cmd: 'skip' }); return; }
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
@@ -2294,6 +2301,7 @@
         K.verdeckt = null; Net.guard('TerminalUI.zusehen', () => { if (!TerminalUI.drawZusehen(ctx, v)) Client.keys = {}; });
         Net.guard('Hud.drawLagefunk', () => H.drawLagefunk(ctx, v));   // SUND-01 C: Lagemeldung auch für Zuschauer am Terminal (sonst gehen die Pflichtmeldungen verloren)
       } else if (Client.minigame) Net.guard('Hud.drawMinigame', () => H.drawMinigame(ctx, v, Client.minigame));
+      if (window.Funkwahl && !uiTop()) Net.guard('Funkwahl.zeichne', () => Funkwahl.zeichne(ctx, v));   // SUND-03b A: Antwortleiste am Funk (nur Freie Fahrt Sund mit Reise-Ereignissen), über Konsole und HUD
       const ended = st.phase === 'end' || !!(st.mission && st.mission.m1Done);
       if (ended && !Client.endDismissed) Net.guard('Hud.drawEnd', () => H.drawEnd(ctx, v));
       if (Client.chapter) Net.guard('Hud.drawChapter', () => H.drawChapter(ctx, v, Client.chapter));   // S2

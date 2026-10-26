@@ -9,17 +9,19 @@
 //     angriffe: [{id, t0, ziel, von, art, relevant, zielArt, t_an, t_ende, ausgang, phase, t_marsch, stuetz, flotten: [flotten-ids]}], naechsteAngriffId,
 //     vorrat: {rom|ger|kon: {T,M,U,E,N}}, marken: {rom,ger,kon}, absichten: {fraktion: {p_act?, aggr?, max_active?}} }
 //   befehl: 'heim' | 'sammeln' | 'angriff' | 'anspruch' | 'rueckzug'.   fraktion der Flotten: rom | ger | kon | pirat.
+//   Optional (SUND-03 A, nur mit Befehlen des Lage-Spielleiters, sonst nie im Zustand): embargo {fraktion: {waren, von, from, bis}}, regie {fraktion: {p_act?, aggr?, max_active?, fokus?, ruhe_bis?, ...}}, flotte.miete, angriff.befohlen (befehle.js).
 //   angriffe enthält die laufenden und die zuletzt beendeten Feldzüge: ein beendeter Feldzug wird `werte.angriff_behalt` Ticks nach seinem Ende entfernt
 //   (sonst wüchse der Zustand mit jedem Feldzug ohne Grenze). Ids kommen aus `naechsteAngriffId` und werden nie wiederverwendet; Verweise auf entfernte
 //   Feldzüge (flotte.angriff, Wissen) müssen mit einer fehlenden Id umgehen können. Die entfernten Datensätze gehen an `messung.angriffe_entfernt`
 //   (Kennzahlen und Eingreif-Fenster der Werkzeuge), der Spielzustand hält sie nicht.
 //
-// tick(zustand, {wirkungen, absichten, messung}) VERÄNDERT den Zustand und gibt { zustand, ereignisse } zurück (derselbe Zustand, kein Klon).
+// tick(zustand, {wirkungen, absichten, befehle, messung}) VERÄNDERT den Zustand und gibt { zustand, ereignisse } zurück (derselbe Zustand, kein Klon).
 //   Wer den alten Stand braucht, klont vorher (structuredClone / JSON). Der Zufallsstrom liegt im Zustand (zustand.zufall).
 //   messung: optionales Objekt für Zähler (nur Werkzeuge und Tests), gehört nicht zum Zustand und ändert nichts am Lauf.
 const Daten = require('./daten.js');
 const Zufall = require('./zufall.js');
 const Ereignisse = require('./ereignisse.js');
+const Befehle = require('./befehle.js');   // SUND-03 A: gezielte Befehle (Katalog, Prüfer, Embargo, Miete, Überlagerung zustand.regie)
 
 const GUETER = ['T', 'M', 'U', 'E', 'N'];
 const FRAKTIONEN = Daten.FRAKTIONEN;                        // rom, ger, kon: Reiche und Konkordat (Piraten haben keine Wirtschaft)
@@ -111,7 +113,9 @@ const feindAm = (c, f, ort, minStaerke) => c.z.flotten.some((o) => feindlich(f, 
 // ---------- Tick (Reihenfolge wie step() im Prototyp)
 function schritt(c) {
   c.z.tick += 1;
+  Befehle.ablauf(c);   // SUND-03 A: Embargo, Überlagerung der Regie und Mieten laufen aus (ohne die Zustandsfelder embargo, regie, miete geschieht nichts)
   wirtschaft(c);
+  if (c.befehle) Befehle.anwenden(c);   // SUND-03 A: gezielte Befehle, nach der Wirtschaft (Vorräte des Ticks gebucht), vor der Standard-KI (sie plant um die befohlenen Flotten herum)
   ki(c);
   bewegung(c);
   sammeln(c);
@@ -181,7 +185,7 @@ function wirtschaft(c) {
       if (nd.besitzer === f && nd.posten && !istHafen(c, code)) st.U = Math.max(0, st.U - nd.garnison * w.up_u);
     }
     for (const fl of z.flotten) {
-      if (fl.fraktion === f && fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke < fl.kap && !ndef && !feindAm(c, f, fl.ort, 0.6)) {
+      if (fl.fraktion === f && !fl.miete && fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke < fl.kap && !ndef && !feindAm(c, f, fl.ort, 0.6)) {
         const rate = w.neubau[d.hex[fl.heimat].hafen] * (mdef ? w.mdef_neubau : 1);
         const amt = Math.min(rate, fl.kap - fl.staerke, st.E / w.cost_e, st.U / w.cost_u);
         if (amt > 0) { st.E -= amt * w.cost_e; st.U -= amt * w.cost_u; fl.staerke += amt; }
@@ -198,7 +202,7 @@ function wirtschaft(c) {
 // Erzeugt höchstens ein zusammenfassendes Ereignis je Tick, nur wenn mehr als werte.konvoi.min_menge gehandelt wurde.
 function handel(c) {
   const { z, w } = c;
-  const emb = w.embargo;
+  const emb = w.embargo, sanktion = z.embargo;   // sanktion (SUND-03 A): zustand.embargo[fraktion] { waren, from, bis }, wird gespeichert; w.embargo ist der Wert des Prototyps
   const reihe = Zufall.mische(z, ['rom', 'ger']);
   const summe = {};
   for (const r of reihe) {
@@ -206,6 +210,7 @@ function handel(c) {
     const s = summe[r] = { verkauf: {}, kauf: {} };
     for (const [g, ziel] of [['M', 6], ['T', 12], ['E', 8]]) {
       if (emb && z.tick >= emb.from && emb.fac === r && emb.goods.includes(g)) continue;
+      if (sanktion && sanktion[r] && z.tick >= sanktion[r].from && z.tick < sanktion[r].bis && sanktion[r].waren.includes(g)) continue;
       const want = Math.min(w.trade_cap, Math.max(0, ziel - st[g]));
       const qty = Math.min(want, Math.max(0, kon[g] - 3), z.marken[r] / w.price_sell);
       st[g] += qty; kon[g] -= qty;
@@ -263,15 +268,13 @@ function ki(c) {
   }
   for (const f of FRAKTIONEN) {
     // Absichten (SUND-03): zustand.absichten[fraktion] überschreibt p_act, aggr, max_active der Standard-KI, sonst gelten die Werte.
-    const ab = z.absichten[f] || {};
-    const pAct = ab.p_act !== undefined ? ab.p_act : w.p_act;
-    const aggr = ab.aggr !== undefined ? ab.aggr : w.aggr;
-    const maxActive = ab.max_active !== undefined ? ab.max_active : w.max_active[f];
+    // SUND-03 A: zwei Überlagerungen in eigenen Namensräumen (Wahl der Crew z.absichten vor der Regie z.regie vor den Werten, befehle.js wirksam): ohne beide gelten die Werte.
+    const { p_act: pAct, aggr, max_active: maxActive, fokus } = Befehle.wirksam(z, f);
     const mine = z.flotten.filter((fl) => fl.fraktion === f);
     const active = mine.filter((fl) => fl.befehl !== 'heim');
     const st = z.vorrat[f];
     if (active.length >= maxActive || Zufall.zahl(z) > pAct) continue;
-    const ready = mine.filter((fl) => fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke >= 0.7 * fl.kap);
+    const ready = mine.filter((fl) => fl.befehl === 'heim' && fl.ort === fl.heimat && fl.staerke >= 0.7 * fl.kap && !fl.miete);   // Mietflotten (SUND-03 A) setzt die Standard-KI nie ein
     if (!ready.length || st.U < 10 || st.T < 10) continue;
     const slots = maxActive - active.length;
     if (f !== 'kon' && w.war && Zufall.zahl(z) < aggr) {
@@ -279,6 +282,7 @@ function ki(c) {
       for (const code of d.codes) {
         const nd = z.hexe[code];
         if (FRAKTIONEN.includes(nd.besitzer) && feindlich(f, nd.besitzer) && istStuetzknoten(c, code)) {
+          if (fokus && dd(c, code, fokus.hex) > fokus.radius) continue;   // SUND-03 A: Fokus, Angriffsziele nur im Umkreis
           const need = w.attack_ratio * Math.max(verteidigung(c, code), 1);
           const cand = ready.filter((fl) => dd(c, fl.ort, code) <= 8).sort((a, b) => b.staerke - a.staerke).slice(0, slots);
           let tot = 0;
@@ -405,11 +409,18 @@ function bewegung(c) {
   }
 }
 
+// Flotten, die zum Feldzug gehören, WIE DIE SIM SIE RECHNET: in der Sammelphase die sammelnden, danach die mit Angriffsbefehl (wer sich zurückzieht, gehört nicht mehr dazu; so rechnen meldeAnkunft und
+// angriffeSchliessen). Auch server/sim/handel-info.js (Stärkeklasse und Beleg) nutzt diese Definition, nie eine Kopie.
+function feldzugFlotten(z, rec) {
+  const befehl = rec.phase === 'sammeln' ? 'sammeln' : 'angriff';
+  return z.flotten.filter((fl) => fl.angriff === rec.id && fl.befehl === befehl);
+}
+
 // Erste Flotte eines Feldzugs am Ziel: Belagerung beginnt (Reichsangriff) bzw. Piratenüberfall; beides löst bei Bedarf einen Notruf aus.
 function meldeAnkunft(c, rec) {
   const { z, w } = c;
   const nd = z.hexe[rec.ziel];
-  const summe = summeStaerke(z.flotten.filter((fl) => fl.angriff === rec.id && fl.befehl === 'angriff'));
+  const summe = summeStaerke(feldzugFlotten(z, rec));
   const klasse = staerkeKlasse(summe, w);
   if (rec.art === 'reich') {
     melde(c, 'flotte_belagert', rec.von, { ziel: rec.ziel, zielArt: rec.zielArt, besitzer: nd.besitzer, staerke: rund(summe), klasse, angriff: rec.id });
@@ -588,16 +599,20 @@ function regeneration(c) {
 }
 
 // ---------- Öffentliche Schnittstelle
-function tick(zustand, { wirkungen = [], absichten, messung } = {}) {
+function tick(zustand, { wirkungen = [], absichten, befehle, messung } = {}) {
   for (const wk of wirkungen) {
     if (!wk || typeof wk.typ !== 'string' || !(wk.typ in WIRKUNGEN)) throw new Error(`Weltsim: unbekannte Wirkung "${wk && wk.typ}"`);
   }
+  if (befehle !== undefined && !Array.isArray(befehle)) throw new Error('Weltsim: befehle muss eine Liste sein');
   if (absichten) zustand.absichten = JSON.parse(JSON.stringify(absichten));
-  const c = { z: zustand, d: Daten.datenVon(zustand), w: zustand.werte, ev: [], mess: messung || null };
+  const c = { z: zustand, d: Daten.datenVon(zustand), w: zustand.werte, ev: [], mess: messung || null, befehle: befehle && befehle.length ? befehle : null, abgelehnt: [], angewandt: [] };
   for (const wk of wirkungen) WIRKUNGEN[wk.typ](c, wk);
   schritt(c);
-  return { zustand, ereignisse: c.ev };
+  return c.befehle ? { zustand, ereignisse: c.ev, befehle: { angewandt: c.angewandt, abgelehnt: c.abgelehnt } } : { zustand, ereignisse: c.ev };
 }
+
+// Gezielte Befehle (SUND-03 A): Helfer des Kerns an befehle.js geben (nach den Funktionen, vor dem ersten Tick).
+Befehle.installiere({ melde, mz, rund, dd, istHafen, istStuetzknoten, feindlich, feindAm, verteidigung, neuerAngriff, stuetzpunktWaehlen, staerkeKlasse, summeStaerke, FRAKTIONEN });
 
 // Wirkungen der Crew (SUND-02): Katalog, Prüfer und Anwender in wirkungen.js, trägt sich in WIRKUNGEN ein.
 const Wirkungen = require('./wirkungen.js');
@@ -619,4 +634,8 @@ function filtereWirkungen(zustand, wirkungen) {
   return { gueltig, verworfen };
 }
 
-module.exports = { erzeuge, tick, filtereWirkungen, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, pruefeWirkung: Wirkungen.pruefe, GUETER, FRAKTIONEN };
+// Probelauf für den Spielaufsatz (wie filtereWirkungen): prüft die Befehle der Reihe nach gegen eine Kopie. -> { gueltig: [befehl], verworfen: [{ befehl, grund }] }
+const filtereBefehle = Befehle.filtere;
+const pruefeBefehl = Befehle.pruefe;
+
+module.exports = { erzeuge, tick, filtereWirkungen, filtereBefehle, pruefeBefehl, BEFEHLE: Befehle, besitzer, istPosten, flottenAm, abstand, staerkeKlasse, feldzugFlotten, feindlich, datenVon: Daten.datenVon, WIRKUNGEN, pruefeWirkung: Wirkungen.pruefe, GUETER, FRAKTIONEN };

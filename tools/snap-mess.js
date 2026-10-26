@@ -301,6 +301,12 @@ function freieFahrt(S, seed) {
   g.weltsim.ruf.rom = 100;
   g.weltsim.absicht.angebot = { ids: Absicht.KATALOG.slice().sort((x, y) => (y.name.length + y.text.length) - (x.name.length + x.text.length)).slice(0, 3).map((k) => k.id), t: g.weltsim.tickZahl, bis: g.weltsim.tickZahl + 100000 };
   let absichtMax = 0, absichtMitMax = 0;
+  // SUND-03b A: Worst Case des Blocks world.funkwahl: Angebot mit 3 Optionen (je 40 Zeichen), der längste Sprecher des Katalogs, in jedem Snapshot gesendet (der Schlüssel wird vor jedem Snapshot zurückgesetzt); der Schalter der Reise-Ereignisse ist dafür an
+  const FunkAntwort = require('../server/sim/funk-antwort.js'), RE = require('../server/sim/reise-ereignis.js');
+  g.env.REISE_EREIGNISSE = '1';
+  g.weltsim.funkwahl = FunkAntwort.neu();
+  g.weltsim.funkwahl.offen = { lfd: 99999, id: 'funk_lage_ger', ev: {}, von: RE.KATALOG.map((e) => e.sprecher).sort((x, y) => y.length - x.length)[0], bis: g.weltsim.reise.n + 100000, optionen: ['a', 'b', 'c'].map((i) => ({ id: 'option_' + i, text: ('Erzählt es den Kontoren im Saumhafen ' + i).slice(0, 40).padEnd(40, 'x') })) };
+  let funkMax = 0, funkMitMax = 0;
   // SUND-01 C: Worst Case des Anzeigeblocks world.lage (12 Flotten mit allen Feldern, 6 Meldungen, Altstand und eigene Flotten gemischt), in jedem Snapshot gesendet,
   // der nach den Slots (Asteroiden, Ortsliste, Logbuch, Buch) Platz hat: der Schlüssel wird vor jedem Snapshot zurückgesetzt
   const wi = g.weltsim.wissen, KT = require('../public/js/karte-tokens.js'), codes = KT.hexReihenfolge(require('../content/welt/sund_frei.json')), T = wi.t = wi.t || 40;
@@ -312,6 +318,9 @@ function freieFahrt(S, seed) {
   let lageMax = 0, lageMitMax = 0;
   const orte = ['vulcania'].concat(posten.length ? [Sektoren.ortVonHex(posten[0])] : []);
   g.god = true;
+  // das Angebot gibt es nur in ruhiger Lage (ohne Gegner): gemessen wird es deshalb vor den Szenen mit den Jägern, im selben Snapshot wie world.lage und world.absicht
+  g.space.enemies = [];
+  for (let k = 0; k < 30; k++) { g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null; const sn = g.snapshot(); if (sn.world && sn.world.funkwahl) { funkMax = Math.max(funkMax, bytes(sn.world.funkwahl)); funkMitMax = Math.max(funkMitMax, bytes(sn)); } messen(S, sn); }
   const je = Math.floor(TICKS / orte.length);
   let maxMarker = 0;
   for (const ort of orte) {
@@ -323,12 +332,34 @@ function freieFahrt(S, seed) {
       g.ship.hull = 100;
       g.step();
       maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
-      g.sentLageKey = null; g.sentAbsichtKey = null;
+      g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;
       const sn = g.snapshot();
       if (sn.world && sn.world.absicht) { absichtMax = Math.max(absichtMax, bytes(sn.world.absicht)); absichtMitMax = Math.max(absichtMitMax, bytes(sn)); }
       if (sn.world && sn.world.lage) { lageMax = Math.max(lageMax, bytes(sn.world.lage)); lageMitMax = Math.max(lageMitMax, bytes(sn)); }
       messen(S, sn);
     }
+  }
+  // SUND-03b I: Worst Case des Blocks world.info: Konkordat-Hafen Concordia, jemand am Terminal, 3 Themen (drei Feldzüge der Sim), beide letzten Ergebnisse (die längsten Texte), in jedem Snapshot
+  // gesendet (der Schlüssel wird vor jedem Snapshot zurückgesetzt), zusammen mit world.lage und world.absicht
+  let infoMax = 0, infoMitMax = 0;
+  {
+    const Info = require('../server/sim/handel-info.js'), z = g.weltsim.zustand, ws = g.weltsim;
+    space.enterScene(g, Sektoren.ortVonHex('0604'), {}); g.space.enemies = [];
+    Object.assign(g.ship, { docked: true, dockedAt: Sektoren.ortVonHex('0604'), vx: 0, vy: 0, speed: 0 }); g.players[0].console = 'shop';
+    z.angriffe.length = 0;
+    ['sammeln', 'marsch', 'belagert'].forEach((art, i) => {
+      const fl = z.flotten[i], id = 9000 + i; fl.angriff = id;
+      z.angriffe.push({ id, t0: z.tick, ziel: ['0603', '0403', '0803'][i], von: 'ger', art: 'reich', relevant: true, zielArt: 'hafen', t_an: art === 'belagert' ? z.tick - 3 : null, t_ende: null, ausgang: null, phase: art === 'sammeln' ? 'sammeln' : 'marsch', t_marsch: null, stuetz: null, flotten: [fl.id] });
+    });
+    ws.infoLetzte = [{ s: 'b', x: 'Beleg des Konkordats: ' + 'x'.repeat(100) }, { s: 'g', x: 'Gerücht, unbestätigt: Es heißt: ' + 'x'.repeat(100) }];
+    for (let k = 0; k < 30; k++) {
+      g.ship.hull = 100; g.step();
+      g.sentLageKey = null; g.sentAbsichtKey = null; g.sentInfoKey = null;
+      const sn = g.snapshot();
+      if (sn.world && sn.world.info) { infoMax = Math.max(infoMax, bytes(sn.world.info)); infoMitMax = Math.max(infoMitMax, bytes(sn)); }
+      messen(S, sn);
+    }
+    g.players[0].console = null;
   }
   // SUND-02a Client-Runde M2: Sim-Szene im Hafen (Debug szene 40 ger belagerung, bis 12 Schiffe, Vorwarnung, Wellen, Finale): flotte.sz, flotte.wl und fg stehen im Snapshot
   const SimSzene = require('../server/sim/kriegslage-szene.js');
@@ -341,7 +372,7 @@ function freieFahrt(S, seed) {
     g.ship.hull = 100;
     g.step();
     if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
-    g.sentLageKey = null; g.sentAbsichtKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
+    g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
     const sn = g.snapshot();
     const sz = sn.flotte && sn.flotte.sz;
     if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
@@ -350,7 +381,7 @@ function freieFahrt(S, seed) {
   // Fixrunde H7: auch die Ergebniszeile nach dem Ende (Phase s Sieg, n Niederlage) wird gemessen: die ersten Sekunden nach dem Ende, dann eine zweite Szene bis zur Niederlage
   const messSz = (sek) => {
     for (let k = 0; k < Math.round(sek * CONFIG.tickHz); k++) {
-      g.step(); g.sentLageKey = null; g.sentAbsichtKey = null;
+      g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;
       const sn = g.snapshot(); const sz = sn.flotte && sn.flotte.sz;
       if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
       messen(S, sn);
@@ -364,7 +395,7 @@ function freieFahrt(S, seed) {
   g.ship.hull = 0; messSz(0.4); g.ship.hull = 0; messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
+  return { infoBlock: infoMax, infoSnapshotMax: infoMitMax, fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, funkBlock: funkMax, funkSnapshotMax: funkMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
 }
 
 // ---------- Lauf ----------
@@ -409,7 +440,7 @@ console.log('  Läufe: ' + laeufe.flotte.map((l) => `s${l.seed} Schiffe max ${l.
 zeigen(res.orbit);
 console.log('  Läufe: ' + laeufe.orbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.freieFahrt);
-console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), world.funkwahl ${l.funkBlock} B (Snapshot mit Block max ${l.funkSnapshotMax} B), world.info ${l.infoBlock} B (Snapshot mit allen drei max ${l.infoSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
 const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);

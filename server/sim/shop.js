@@ -4,6 +4,7 @@ const W = require('../world.js');
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');   // SUND-02b A1: kein Handel am Stützpunkt der Crew
+const Preise = require('./preise.js');   // SUND-03b P: Preisfaktor der Verbrauchsgüter (nur mit Weltsim); Terminal und Kauf rechnen mit derselben Funktion
 
 // Sortiment-Kontext: die Orts-ID (hafen, vaelen) – oder, wenn der Ort es vorgibt (`shop`, EK7: Häfen aus Daten wie
 // Castra Martis und Statio Limitis), dieser Kontext. Häfen ohne Ruf: es gilt nur der Kontext, keine Haltung.
@@ -16,11 +17,14 @@ function shopContext(game) {
 function entryAvailable(entry, ctx) { return !entry.where || entry.where.includes(ctx); }
 function priceFor(entry, ctx) { return ctx === 'vaelen' && entry.priceVaelen != null ? entry.priceVaelen : entry.price; }
 
+// SUND-02b A1: Stützpunkt der Crew: Werft ja, Handel nein (Text oder null); auch das Terminal (Preisfelder im Snapshot) fragt hier
+function sperreFuer(game) { return game.ship.docked ? Besitz.handelSperre(game, Sektoren.hexVonOrt(game.ship.dockedAt)) : null; }
+
 function buy(game, p, itemId) {
   const C = game.C;
   const ctx = shopContext(game);
   if (!ctx) return 'Das Hafenterminal funktioniert nur angedockt.';
-  const sperre = game.ship.docked ? Besitz.handelSperre(game, Sektoren.hexVonOrt(game.ship.dockedAt)) : null;   // SUND-02b A1: Stützpunkt der Crew: Werft ja, Handel nein
+  const sperre = sperreFuer(game);
   if (sperre) return sperre;
   const entry = C.shop.find((s) => s.id === itemId);
   if (!entry) return 'Unbekannter Artikel.';
@@ -28,7 +32,7 @@ function buy(game, p, itemId) {
   if (entry.kind === 'upgrade' && game.upgrades[entry.id]) return 'Schon eingebaut.';
   if (entry.kind === 'gear' && p.gear[entry.id]) return 'Hast du schon.';
   if (entry.kind === 'item' && entry.limit != null && (game.inventory[entry.id] || 0) >= entry.limit) return `Lager voll (höchstens ${entry.limit} ${entry.name}).`;   // PAN-01 C: hartes Lagerlimit (Torpedos)
-  const price = priceFor(entry, ctx);
+  const price = Preise.preisFuer(game, entry, ctx);   // ohne Weltsim und für alles außer Verbrauchsgütern = priceFor(entry, ctx)
   if (game.inventory.marks < price) return 'Nicht genug Marken.';
   game.inventory.marks -= price;
   if (entry.kind === 'upgrade') {
@@ -80,4 +84,4 @@ function setStyle(game, p, part, value) {
   return null;
 }
 
-module.exports = { buy, placeDeco, setStyle, shopContext, priceFor, entryAvailable };
+module.exports = { buy, placeDeco, setStyle, shopContext, priceFor, entryAvailable, sperreFuer };

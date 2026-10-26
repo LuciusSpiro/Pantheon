@@ -1,0 +1,24 @@
+{
+  "format": "lage-befehle/1",
+  "_hinweis": "SUND-03 A: Funktexte zu den Befehlen des Lage-Spielleiters (server/sim/regie-befehle.js, Freie Fahrt Sund). Vorwarnung: jeder Befehl mit Wirkung auf Rom wird vor dem Wirksamwerden angekuendigt (keine Scheinwahl, die Gefahr kommt wirklich). Zahlen stehen in content/welt/regie-werte.json. Platzhalter in geschweiften Klammern. Sprecher ohne neues Portraet (wie Lagefunk und Sim-Szene). soeldner (SUND-03b T): Funk beim Annehmen des Befehls soeldner, NUR mit dem Schalter TEXTE_POOL (Rueckfall des Text-Pools, ohne Schalter kein Funk).",
+  "vorwarnung": {
+    "angreifen": {"sprecher": "Aufklärung", "text": "Germanische Verbände ziehen sich gegen {ziel} zusammen. In etwa {n} Sprüngen ist mit dem Angriff zu rechnen."},
+    "angreifen_stuetzpunkt": {"sprecher": "Aufklärung", "text": "Ein Schlag gegen Euren Stützpunkt {ziel} ist beschlossen. In etwa {n} Sprüngen rücken sie an."},
+    "piratenueberfall": {"sprecher": "Aufklärung", "text": "Piraten sammeln sich für einen Überfall auf {ziel}. Die Beute ist verlockend, in etwa {n} Sprüngen schlagen sie zu."},
+    "piratenueberfall_stuetzpunkt": {"sprecher": "Aufklärung", "text": "Piraten haben es auf Euren Stützpunkt {ziel} abgesehen. In etwa {n} Sprüngen schlagen sie zu."},
+    "embargo": {"sprecher": "Oberkommando", "text": "Das Konkordat droht Rom mit einer Sperre für {waren}. In etwa {n} Sprüngen bleiben die Lieferungen aus, Rom ist dann auf die eigenen Vorräte angewiesen."}
+  },
+  "wirksam": {
+    "embargo": {"sprecher": "Oberkommando", "text": "Die Sperre des Konkordats gilt jetzt. Gesperrt: {waren}."}
+  },
+  "entwarnung": {
+    "angreifen": {"sprecher": "Aufklärung", "text": "Entwarnung: Der angekündigte Schlag gegen {ziel} bleibt aus, die Verbände haben abgedreht."},
+    "piratenueberfall": {"sprecher": "Aufklärung", "text": "Entwarnung: Die Piraten haben den Überfall auf {ziel} abgeblasen."},
+    "embargo": {"sprecher": "Oberkommando", "text": "Entwarnung: Die angedrohte Sperre für {waren} kommt nicht, die Lieferungen laufen weiter."}
+  },
+  "soeldner": {
+    "rom": {"sprecher": "Händlerfunk", "text": "Das Konkordat vermietet Kriegsschiffe an Rom, für gutes Geld und nur für kurze Zeit."},
+    "ger": {"sprecher": "Händlerfunk", "text": "Das Konkordat vermietet Kriegsschiffe an die Germanen, für gutes Geld und nur für kurze Zeit."}
+  },
+  "waren": {"M": "Medizin", "T": "Treibstoff", "E": "Ersatzteile"}
+}

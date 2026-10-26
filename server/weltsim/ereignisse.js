@@ -18,6 +18,11 @@ const TYPEN = {
   konvoi: ['handel', 'menge'],                                                // abstrakter Handel des Konkordats, höchstens eines je Tick
   notruf: ['art', 'ort', 'opfer', 'angreifer', 'staerke', 'klasse', 'angriff'],          // art: 'piratenueberfall' | 'belagerung'; fraktion = Opfer
   hauptwelt_gefallen: ['ort', 'alt', 'neu'],                                  // Palatina 0204 / Hrafnheim 1004; für Rom das Spielende-Signal
+  embargo_verhaengt: ['gegen', 'waren', 'dauer'],                             // SUND-03 A (Befehl embargo): fraktion kon; gegen rom|ger, waren Liste aus M, T, E, dauer in Ticks
+  embargo_beendet: ['gegen'],                                                 // SUND-03 A: das Embargo ist abgelaufen (fraktion kon)
+  soeldner_vermietet: ['an', 'flotten', 'staerke', 'dauer'],                  // SUND-03 A (Befehl soeldner): fraktion kon; an rom|ger, Zahl der Flotten, Summe der Stärke
+  soeldner_zurueck: ['an', 'staerke'],                                        // SUND-03 A: die Mietzeit ist um, die Flotte dient wieder dem Konkordat (an = bisheriger Mieter)
+  flotte_verlegt: ['von', 'ziel', 'staerke', 'klasse'],                       // SUND-03 A (Befehl verstaerken): eine Flotte wechselt in einen anderen eigenen Hafen
 };
 
 const ORTSFELDER = ['ort', 'ziel', 'stuetzpunkt', 'von'];

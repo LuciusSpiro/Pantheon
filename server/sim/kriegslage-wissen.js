@@ -21,11 +21,13 @@
 //   ist h ihr `v`. Nur die Ids der Sim als Schlüssel (intern), sie gehen nie in den Anzeigeblock.
 //   f Fraktion r g k p - v · p (Hex) Posten 0|1 · a Tick der Daten (null = Kartenstand) · k Stärkeklasse 1..3 · p (Flotte) Phase h u s m b r
 // `gesehen` sind die gemerkten Ids (Feldzug + Phase): Funkmeldungen kommen einmal je Feldzug, auch nach Speichern und Laden.
+// SUND-03b I (additive Felder, nur nach Käufen beim Konkordat, sonst byte-gleich): belege: [ { h: [Hex], an: Feldzug-Id | null, bis: Tick } ] (zusatzSicht: Hexe, die Rom bis einschließlich `bis` exakt und ohne
+//   Verzögerung sieht; bei `an` auch die Hexe, in denen die Flotten des Feldzugs jetzt stehen) · gz: Zahl der gekauften Gerüchte (Zähler des Zufallsstroms in server/sim/handel-info.js).
 //
 //   starten(game)                       Wissen beim Modusstart
 //   nachTick(game, vor, ereignisse, nachOrt)   ein Tick der Sim ist gelaufen; vor = Abbild des Sim-Zustands davor, nachOrt = Ort/Hex der Lerche danach
 //   sondeGesichtet(game, hex)           Hook von Sektorplan.sichten (Sonde): Hex sofort, ohne Verzögerung, auch wenn es schon per Karte gesichtet war
-//   zusatzSicht(game, seit)             Erweiterungspunkt SUND-03 (Sonden, Weitscan, Konkordat-Belege): Hexe, die Rom über die Sensorknoten hinaus sieht
+//   zusatzSicht(game, seit)             Erweiterungspunkt SUND-03 (Sonden, Weitscan, Konkordat-Belege): Hexe, die Rom über die Sensorknoten hinaus sieht (SUND-03b I: Sonden + belegHexe)
 //   lage(game) / schluessel(game)       Anzeigeblock world.lage (nur Darstellung) und sein Änderungsschlüssel
 //   toSave(ws) / restore(game, block) / neuLeer()
 const Daten = require('../weltsim/daten.js');
@@ -33,6 +35,7 @@ const Kern = require('../weltsim/kern.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Marken = require('./marken.js');
 const KT = require('../../public/js/karte-tokens.js');
+const TextePool = require('./texte-pool.js');   // SUND-03b T: Live-Texte für den Verlust-Funk (nur mit Schalter TEXTE_POOL)
 
 const FK = { rom: 'r', ger: 'g', kon: 'k', pirat: 'p' };
 const KARTEN_FK = { rom: 'r', ger: 'g', saum: 'k', pirat: 'p', frei: '-', vorl: 'v', neutral: '-' };
@@ -41,6 +44,7 @@ const PH_RANG = { b: 0, m: 1, s: 2, u: 3, r: 3, h: 4 };
 const GESEHEN_MAX = 80, ERST_MAX = 24, WARTEND_MAX = 24, NOTRUF_MAX = 4;
 const klon = (v) => JSON.parse(JSON.stringify(v));
 const KARTE_ID = 'sund_frei';
+const INFO_W = require('../../content/welt/handel-info-werte.json').werte;   // SUND-03b I: beleg_max
 
 // ---------------------------------------------------------------------------------------------------------------- Karte (Anzeigehexe)
 let kartenCache = null;
@@ -92,6 +96,29 @@ function zusatzSicht(game, seit) {
   for (const e of (ws && ws.sondeHexe) || []) out.add(e.hex);
   const g = (game.sektorplan && game.sektorplan.gesichtet) || {};
   for (const [hex, s] of Object.entries(g)) if (s && s.q === 'sonde' && Number(s.t) > (Number(seit) || 0)) out.add(hex);
+  for (const hex of belegHexe(game)) out.add(hex);   // SUND-03b I: Belege des Konkordats (handel-info.js)
+  return out;
+}
+
+// SUND-03b I: Belege des Konkordats (additives Feld Wissen.belege: [{ h: [Hex], an: Feldzug-Id | null, bis: Tick }]). Ein Beleg gilt vom Kauf bis einschließlich Tick `bis` (Kauf + beleg_dauer):
+// Rom sieht seine Hexe exakt und ohne Verzögerung. Regel (SUND-03b Fix S1): ein Beleg zeigt nie mehr als sein Thema.
+//   gefallener Hafen / zerstörter Posten (an null): der Ort, bis `bis`.
+//   Feldzug (an = Feldzug-Id): NUR solange der Feldzug läuft (t_ende null, nicht abgebrochen): das Ziel-Hex und die Hexe, in denen Flotten DIESES Feldzugs stehen (Kern.feldzugFlotten, wie die Sim sie rechnet:
+//   Sammelphase die sammelnden, danach die mit Angriffsbefehl; Rückzieher, fremde Flotten und der Heimathafen zählen nicht). Danach liefert er nichts mehr (nachTick räumt ihn weg).
+// Die Sicht ist hexweise (Kartenmodell): steht eine fremde Flotte im selben Hex, ist sie dort mitsichtbar; ein Hex ohne Flotte des Feldzugs kommt nie hinzu.
+const belegLebt = (z, b) => {
+  if (b.an == null) return true;
+  const rec = (z.angriffe || []).find((r) => r.id === b.an);
+  return !!rec && rec.t_ende === null && rec.phase !== 'abgebrochen';
+};
+function belegHexe(game) {
+  const ws = game && game.weltsim, W = ws && ws.wissen, out = new Set();
+  if (!W || !Array.isArray(W.belege) || !W.belege.length) return out;
+  for (const b of W.belege) {
+    if (!b || !(ws.tickZahl <= b.bis) || !belegLebt(ws.zustand, b)) continue;
+    for (const h of b.h || []) out.add(h);
+    if (b.an != null) for (const fl of Kern.feldzugFlotten(ws.zustand, ws.zustand.angriffe.find((r) => r.id === b.an))) out.add(fl.ort);
+  }
   return out;
 }
 
@@ -319,7 +346,7 @@ function berechne(W0, o) {
       meldung(ev.e, ev.h, ev.f);
       if ((ev.e === 'hf' || ev.e === 'pv') && !(o.stumm || []).includes(ev.h)) {   // stumm: das Szenenende meldet den Ausgang dort selbst (keine Doppelmeldung)
         const posten = ev.e === 'pv';   // SUND-01 F: Posten „verloren“, nur Häfen „gefallen“
-        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
+        aus.funk.push({ von: absender(d, knoten, ev.h), text: posten ? KT.vorlage('funk.postenVerloren', { ort: hexName(d, ev.h) }) : KT.vorlage('funk.gefallen', { ziel: hexName(d, ev.h) }), verlust: { id: posten ? 'posten_verloren' : 'hafen_gefallen', ort: hexName(d, ev.h) }, loc: ortId(ev.h), t: T, log: KT.vorlage(posten ? 'funk.log.postenVerloren' : 'funk.log.gefallen', { t: T }) });
       }
     };
     for (const ev of geprueft) zeige(ev, false);
@@ -366,6 +393,9 @@ function ausgeben(game, aus) {
   for (const m of aus.markenSetzen) { try { const f = Marken.setze(game, { id: m.id, typ: 'notruf', hex: m.h }); if (f && game.countError) game.countError('lage-marke', new Error(f)); } catch (e) { if (game.countError) game.countError('lage-marke', e); } }
   for (const f of aus.funk) {
     try {
+      // SUND-03b T: Verlust-Funk (Hafen gefallen, Posten verloren): mit TEXTE_POOL ein vorab erzeugter Text, sonst die heutige Vorlage (Rückfall)
+      const live = f.verlust ? TextePool.poolText(game, 'lage', f.verlust.id, 'verlust', { ort: f.verlust.ort }) : null;
+      if (live != null) f.text = live;
       game.emit('radio', Object.assign({ from: f.von, text: f.text, lage: 1, tick: f.t }, f.kz ? { kz: f.kz } : {}));
       if (game.explore && f.log) game.explore.addLog(f.log, f.loc, null);
     } catch (e) { if (game.countError) game.countError('lage-funk', e); }
@@ -400,8 +430,10 @@ function nachTick(game, vor, ereignisse, nachOrt, opt) {
   ring.push(prev);
   const vz = z.werte.sicht.verzoegerung;
   while (ring.length > Math.max(1, vz)) ring.shift();
-  const r = berechne(ws.wissen, { z, d, T, vor: vz <= 0 ? null : ring[0], prev, lerche: lerchenHex(game, nachOrt), ereignisse, direkt: opt && opt.direkt, stumm: opt && opt.stumm });
+  const belege = belegHexe(game);   // SUND-03b I: gekaufte Belege wirken in jedem Tick ihrer Dauer wie ein Szenenende: jetziger Stand ohne Verzögerung
+  const r = berechne(ws.wissen, { z, d, T, vor: vz <= 0 ? null : ring[0], prev, lerche: lerchenHex(game, nachOrt), ereignisse, direkt: belege.size ? [...((opt && opt.direkt) || []), ...belege] : opt && opt.direkt, stumm: opt && opt.stumm });
   r.W.sondeT = game.time;
+  if (r.W.belege) { r.W.belege = r.W.belege.filter((b) => T <= b.bis && belegLebt(z, b)); if (!r.W.belege.length) delete r.W.belege; }   // abgelaufene Belege fallen weg
   ws.wissen = r.W;
   ausgeben(game, r.aus);
 }
@@ -467,6 +499,7 @@ function restore(game, block) {
     if (!W.spur || typeof W.spur !== 'object' || Array.isArray(W.spur)) W.spur = {};
     for (const r of W.flotten) if (r.f !== 'r' && 'n' in r) delete r.n;   // Altstand vor SUND-01 E: fremde Flotten tragen nur `v`
     if (!Number.isFinite(W.nrz)) W.nrz = 0;
+    belegeLesen(W, T);
     for (const nr of W.notrufe) {   // Altstand: Marken-Id 'lage:a<Feldzug>' zeigte die globale Feldzug-Nummer, jetzt neutral
       if (typeof nr.m !== 'string') nr.m = 'lage:n' + (++W.nrz);
       if (!Number.isFinite(nr.t)) nr.t = W.t;
@@ -479,6 +512,16 @@ function restore(game, block) {
   starten(game);
   return false;
 }
+// SUND-03b I: additive Felder des Konkordats (belege, gz) müllfest lesen: Unbrauchbares und Abgelaufenes fällt weg, `bis` wird nach oben auf Tick + beleg_dauer geklemmt (eine Datei kann keinen ewigen Beleg schenken), ohne die Felder bleibt das Wissen unverändert
+function belegeLesen(W, T) {
+  if (W.belege !== undefined) {
+    const ok = (b) => b && typeof b === 'object' && Array.isArray(b.h) && b.h.length > 0 && b.h.length <= 12 && b.h.every((h) => typeof h === 'string' && /^\d{4}$/.test(h))
+      && (b.an === null || Number.isInteger(b.an)) && Number.isInteger(b.bis) && b.bis >= T;
+    const l = Array.isArray(W.belege) ? W.belege.filter(ok).map((b) => ({ h: b.h.slice(), an: b.an, bis: Math.min(b.bis, T + INFO_W.beleg_dauer.wert) })).slice(-INFO_W.beleg_max.wert) : [];
+    if (l.length) W.belege = l; else delete W.belege;
+  }
+  if (W.gz !== undefined && !(Number.isInteger(W.gz) && W.gz > 0)) delete W.gz;
+}
 // Notruf-Marken werden nicht im Weltstand gespeichert: nach dem Laden aus dem gemerkten Zustand neu setzen
 function markenNeu(game) {
   const ws = game.weltsim;
@@ -486,4 +529,4 @@ function markenNeu(game) {
   for (const nr of ws.wissen.notrufe) Marken.setze(game, { id: nr.m, typ: 'notruf', hex: nr.h });
 }
 
-module.exports = { neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };
+module.exports = { ausgeben, belegHexe, neuLeer, starten, nachTick, sondeGesichtet, zusatzSicht, lage, schluessel, toSave, restore, markenNeu, berechne, sensorKnoten, knotenAbstand, vermutetesZiel, gruppenBilden, karte };

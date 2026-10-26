@@ -1,0 +1,17 @@
+{
+  "format": "lage-spielleiter-werte/1",
+  "_hinweis": "SUND-03 A2: Takt und Grenzen des Lage-Spielleiters (server/sim/lage-spielleiter.js, Freie Fahrt Sund). Er plant nur an Taetigkeitsgrenzen (Ende einer Sim-Szene, Andocken, Wahl oder Ablehnung einer Strategischen Option) mit Claude einen Grobplan; das Spiel wartet nie auf ihn. Alle Zahlen stehen hier, keine im Code. Ticks sind Spruenge (ws.tickZahl), Sekunden sind Spielzeit. Ziel: 4 bis 6 Grobplaene je Abend (Sitzung = ein Spiel/Raum).",
+  "werte": {
+    "grenzen": {"wert": ["szene_ende", "andocken", "absicht"], "einheit": "Grenzen", "_hinweis": "Nur diese Taetigkeitsgrenzen loesen einen Plan aus (Hooks game.lageGrenze). Eine Grenze, die hier fehlt, bleibt ohne Wirkung."},
+    "min_abstand_ticks": {"wert": 10, "einheit": "Ticks", "_hinweis": "Mindestabstand zwischen dem Start zweier Plaene (in Spruengen). Steht die Zeit der Sim (kein Sprung), loest keine Grenze aus."},
+    "deckel_je_sitzung": {"wert": 6, "einheit": "Anfragen", "_hinweis": "Hoechstens so viele Claude-Anfragen je Sitzung (je Spiel/Raum), gleich wie sie ausgehen. Ziel 4 bis 6 je Abend."},
+    "timeout_s": {"wert": 120, "einheit": "Sekunden Spielzeit", "_hinweis": "Danach gilt die Anfrage als gescheitert (Rueckfall auf die Standard-KI). Der Transport bricht nach derselben Frist ab."},
+    "min_budget": {"wert": 30000, "einheit": "Tokens", "_hinweis": "Unter diesem Rest im Claude-Zaehler (CLAUDE_TOKEN_BUDGET) wird nicht mehr angefragt (wie der Spielleiter der Kampagne)."},
+    "plan_alter_max_ticks": {"wert": 8, "einheit": "Ticks", "_hinweis": "Kommt die Antwort erst, wenn die Sim so viele Ticks weiter ist als beim Start der Anfrage, hat sich die Lage geaendert: der Plan wird verworfen, nie gespielt."},
+    "letzte_plaene": {"wert": 3, "einheit": "Plaene", "_hinweis": "So viele der letzten Plaene (kurz) gehen mit in den naechsten Prompt (Chronik des Spielleiters). Wiederholungsregeln folgen spaeter, hier nur die Datenstelle."},
+    "wiederholung": {"wert": {"fenster_plaene": 3, "ausnahmen": ["fokus", "regler"]}, "einheit": "Plaene bzw. Befehlstypen", "_hinweis": "SUND-03 D, Wiederholungsregeln (server/sim/lage-wiederholung.js): ein Befehl mit gleichem Typ UND gleichem Parametersatz (alle Felder) wie ein Befehl aus den letzten fenster_plaene angewandten Plaenen wird mit dem Grund Wiederholung abgelehnt (Regie-Logbuch). ausnahmen: Befehlstypen, die nachgestellt werden duerfen (Fokus und Regler laufen aus und werden erneuert). Der Prompt-Teil letzte_plaene bleibt unveraendert."},
+    "letzte_plaene_zeichen": {"wert": {"gesamt": 900, "grund": 50}, "einheit": "Zeichen", "_hinweis": "SUND-03 F: je Befehl der letzten Plaene steht Typ, Ziel und Ergebnis (ok oder abgelehnt mit Kurzgrund) im Prompt. grund = laengster Kurzgrund, gesamt = Obergrenze des ganzen Blocks <letzte_plaene> (zuerst kuerzere Gruende, dann faellt der aelteste Plan weg)."},
+    "prompt_max_zeichen": {"wert": 16000, "einheit": "Zeichen", "_hinweis": "Obergrenze des ganzen Prompts (Katalog, Ausschnitt, Chronik, Grenze). Der Ausschnitt bekommt den Rest nach dem Festen, hoechstens regie-werte.json ausschnitt.max_zeichen."},
+    "ausschnitt_min_zeichen": {"wert": 1500, "einheit": "Zeichen", "_hinweis": "Bleibt fuer den Ausschnitt weniger Platz, wird nicht angefragt (Fehler im Logbuch statt eines blinden Plans)."}
+  }
+}

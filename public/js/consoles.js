@@ -2394,7 +2394,8 @@
         return !w || w.indexOf(ctxName || 'hafen') >= 0;
       });
       return list.map(it => {
-        const price = (it.prices && it.prices[ctxName]) || (ctxName === 'vaelen' && it.priceVaelen) || it.price;
+        const lage = (st.shopPreise && st.shopPreise[it.id]) || null;   // SUND-03b P: Preis nach Lage vom Server (nur Freie Fahrt Sund, nur Verbrauchsgüter), sonst fehlt das Feld
+        const price = lage ? lage[0] : (it.prices && it.prices[ctxName]) || (ctxName === 'vaelen' && it.priceVaelen) || it.price;
         let reason = null, owned = '';
         if (it.kind === 'upgrade' && up[it.id]) reason = 'Bereits eingebaut';
         else if (it.kind === 'gear' && me.gear && me.gear[it.id]) reason = 'Hast du schon';
@@ -2404,7 +2405,7 @@
         if (it.kind === 'item') owned = 'Lager: ' + n(inv[it.id]) + (it.limit ? '/' + it.limit : '');
         if (it.kind === 'deko') owned = 'Besitz: ' + decoOwned.filter(d => d === it.id).length;
         if (it.kind === 'upgrade' && up[it.id]) owned = 'eingebaut';
-        return Object.assign({}, it, { price, reason, owned, cheaper: price < it.price });
+        return Object.assign({}, it, { price, basis: it.price, reason, owned, cheaper: price < it.price, teurer: price > it.price }, lage ? { preisHinweis: lage[1] } : {});
       });
     },
     drawShop(ctx, view) {
@@ -2882,7 +2883,7 @@
     tastenBereiche(c, view) {
       const st = view.state || {}, b = new Set();
       if (c === 'technik') b.add(this.ttab === 1 ? 'technik.schaden' : 'technik.energie');
-      if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'lage' ? 'terminal.lage' : tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // SUND-02b D: Bereich Lage (Absichten, Enter nimmt an); PAN-01 D2: Enter kauft im Handel, baut um in der Werft
+      if (c === 'shop') { const tu = window.TerminalUI; b.add(tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'info' ? 'terminal.info' : tu && tu.lage && !tu.zusehend && tu.bereichJetzt === 'lage' ? 'terminal.lage' : tu && tu.lage && tu.zustand.bereich === 'handel' && !tu.zusehend ? 'terminal.handel' : 'terminal.werft'); }   // SUND-02b D: Bereich Lage (Absichten, Enter nimmt an); PAN-01 D2: Enter kauft im Handel, baut um in der Werft
       if (c === 'captain') { b.add(['captain.funk', 'captain.stern', 'captain.lage', 'captain.aussen', 'captain.plan', 'captain.notruf'][this.tab] || 'captain.funk'); if (this.tab === 1 || this.tab === 4) b.add('captain.karte'); }
       if (c === 'weapons') {
         if (this.fracht && this.fracht(st).show) b.add('ops.fracht');

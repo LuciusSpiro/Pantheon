@@ -1,0 +1,331 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pantheon/weltstand/3",
+  "title": "Weltstand (Pantheon, Version 3)",
+  "description": "Speicherstand einer Kampagne: Welt + Schiff + NSC + Chronik (CONTRACT-S1 §5). Liegt auf dem Server (WORLD_DIR, Standard data/worlds/<id>.json), atomar geschrieben, vorherige Fassung als <id>.bak.json. Gespeichert wird angedockt und beim Abschluss einer Mission. Höchstens 5 Weltstände.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "id", "name", "erstellt", "gespeichert", "ort", "schiff", "welt", "missionen", "npc", "chronik"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "enum": [1, 2, 3], "description": "Formatversion 3 (B1–B3, geschrieben wird immer 3). 2 = S2-Stand, 1 = S1-Stand: bleiben gültig und werden beim Laden per server/weltstand.js MIGRATIONS[n] gehoben (v1 -> v2: leerer Block spielleiter; v2 -> v3: leere Blöcke welt.landepunkte, welt.wracks, crew, welt.sektoren aus den Orten)." },
+    "crew": {
+      "type": "object", "additionalProperties": false,
+      "description": "B2 (CONTRACT-B2 §9, CONTRACT-B1 §8): Crew-weite Daten ohne Namen. Inhaber: waffen.js (waffen), squad.js über game.weltstand.rolleGesehen (rollen_gesehen).",
+      "properties": {
+        "waffen": { "type": "object", "description": "Hash der Browser-Kennung (12 Hex-Zeichen, SHA-1) -> gewählte Waffe (Waffenwahl am Transporter, E26). Nie Namen.",
+          "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "string" } },
+        "rollen_gesehen": { "type": "array", "items": { "type": "string" }, "description": "Gegnerrollen, die die Crew schon gesehen hat (Einführungsregel E24)" }
+      }
+    },
+    "spielleiter": {
+      "type": "object",
+      "description": "S2 (CONTRACT-S2 §3.2): Zustand des Spielleiters. Bücher nur für angebotene/aktive Missionen, erledigte nur als Zusammenfassung.",
+      "properties": {
+        "plaene": { "type": "object", "description": "missionId -> { grobplan, anlass, origin, szenen: { sid: { quelle, antwort, key } }, buch }",
+          "additionalProperties": { "type": "object" } },
+        "archiv_gespielt": { "type": "array", "items": { "type": "string" } },
+        "archiv_abgelehnt": { "type": "array", "items": { "type": "string" }, "description": "abgelehnte Archiv-Missionen: erst wieder anbieten, wenn alle anderen gespielt/abgelehnt sind" },
+        "zusammenfassung": { "type": "array", "items": { "type": "object", "properties": {
+          "id": { "type": "string" }, "titel": { "type": "string" }, "auftraggeber": { "type": ["string", "null"] }, "ausgang": { "type": ["string", "null"] },
+          "boden": { "type": "boolean", "description": "B1: Mission hatte eine Bodenszene (Bodenquote)" },
+          "lang": { "type": "boolean", "description": "B1: lange Mission (ab CONFIG.spielleiter.boden.langAbMin)" },
+          "landepunkte": { "type": "array", "items": { "type": "string" }, "description": "B1: benutzte Landepunkte (lpId)" },
+          "dauer_ziel_min": { "type": ["number", "null"], "minimum": 0 } } } },
+        "naechste_id": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "id": { "type": "string", "pattern": "^[a-z0-9-]{4,40}$" },
+    "name": { "type": "string", "maxLength": 40, "description": "Anzeigename in der Lobby, z. B. 'Lerche · 07.10.'" },
+    "erstellt": { "type": "string", "format": "date-time" },
+    "gespeichert": { "type": "string", "format": "date-time" },
+    "spielzeit_s": { "type": "number", "minimum": 0 },
+    "tutorial": { "enum": ["laeuft", "erledigt", "uebersprungen", "gespielt"], "description": "'gespielt' = Altname für 'erledigt'" },
+
+    "meta": {
+      "type": "object", "additionalProperties": false,
+      "description": "Nur zur Anzeige in der Lobby",
+      "properties": {
+        "spieler": { "type": "array", "maxItems": 3, "items": { "type": "string", "maxLength": 24 } },
+        "server": { "type": "string", "description": "SERVER_VERSION beim Speichern" }
+      }
+    },
+
+    "ort": {
+      "type": "object", "additionalProperties": false, "required": ["angedockt"],
+      "description": "Laden setzt das Schiff angedockt hierhin (letzter Andockort bzw. hafen).",
+      "properties": { "angedockt": { "type": "string" } }
+    },
+
+    "schiff": {
+      "type": "object", "additionalProperties": false, "required": ["name", "marken", "lager"],
+      "properties": {
+        "name": { "type": "string" },
+        "marken": { "type": "integer", "minimum": 0 },
+        "lager": { "type": "object", "description": "Gegenstand -> Anzahl (ersatzteil, flickblech, loeschgel, loeschgelCharges, medipack, bolzen, tafel …)", "additionalProperties": { "type": "integer", "minimum": 0 } },
+        "ausbauten": { "type": "array", "items": { "type": "string" }, "description": "gekaufte Upgrades (seitenturm, bolzenwerfer; schildpool entfällt seit PAN-01, bot2/schrauber3 ist das Modul Werkstatt)" },
+        "stufe": { "type": "integer", "minimum": 0, "maximum": 3, "description": "PAN-01 B: Ausbaustufe der Lerche (0 Start: Waffen 8 4 6, Modulräume 1 2 · 1: + Waffen 7 9, Raum 3 · 2: + Waffen 2 5, Raum 4 · 3: + Waffen 1 3). Fehlt das Feld (Altstand), gilt Stufe 0. Öffnet Plätze, Räume und die Fahrt der Lifts ins Unterdeck." },
+        "waffen": { "type": "object", "description": "PAN-01 C: Bestückung der neun Waffenplätze (Ziffernblock 1–9) mit Katalog-Ids (shared/schiffskatalog.js). Fehlt das Feld (Altstand), gilt die Startbestückung 8 Lanze · 4 und 6 Standardbatterie. Nur offene Plätze (Ausbaustufe) sind aktiv.", "additionalProperties": false,
+          "properties": { "1": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "2": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "3": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "4": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "5": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "6": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "7": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "8": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] }, "9": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] } } },
+        "freigeschaltet": { "type": "object", "additionalProperties": false, "description": "PAN-01 D: im Werft-Terminal gekaufte Teile (dauerhaft, kein Rückgabeweg). stufe = höchste gekaufte Ausbaustufe, waffen/module = Katalog-Ids. Optional: fehlt das Feld (Altstand, Format 3 vor Paket D), wird es beim Laden aus Stufe, Bestückung und Modulen abgeleitet (Start-Lerche: Stufe 0, Lanze, Standardbatterie, Frachtraum, Krankenstation).",
+          "properties": { "stufe": { "type": "integer", "minimum": 0, "maximum": 3 },
+            "waffen": { "type": "array", "items": { "enum": ["standardbatterie", "sturmbatterie", "streubatterie", "lanzenbatterie", "lanze", "standardkanone", "torpedowerfer", "abwehrturm"] } },
+            "module": { "type": "array", "items": { "enum": ["frachtraum", "krankenstation", "werkstatt"] } } } },
+        "module": { "type": "array", "description": "PAN-01 A: Bestückung der Modulräume (Bordmodule, je 1 Energie). Fehlt das Feld (Altstand), gilt die Start-Bestückung (Frachtraum, Krankenstation). Die Energieverteilung wird nicht gespeichert.", "maxItems": 4,
+          "items": { "type": "object", "additionalProperties": false, "required": ["id", "raum"], "properties": { "id": { "enum": ["frachtraum", "krankenstation", "werkstatt"] }, "raum": { "type": "integer", "minimum": 1, "maximum": 4, "description": "Modulraum-Nummer" }, "an": { "type": "boolean", "description": "Wunsch der Technik (Standard an)" } } } },
+        "deko": { "type": "array", "items": { "type": "string" }, "description": "Deko im Besitz" },
+        "dekoPlaetze": { "type": "object", "description": "Deko-Platz -> Deko-Kennung oder null", "additionalProperties": { "type": ["string", "null"] } },
+        "quartiere": { "type": "object", "description": "Quartier -> Einrichtung (floor, wall, light)" },
+        "systeme": { "type": "object", "description": "System -> ok|damaged|broken (offline wird ok, geflickt wird damaged)", "additionalProperties": { "enum": ["ok", "damaged", "broken"] } },
+        "huelle": { "type": "number", "minimum": 0 },
+        "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
+        "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } },
+        "fracht": { "type": "array", "description": "EK3 Teil A, PAN-01 B: mitgeführte Ladung (Art je Bucht; höchstens 2 je Modul Frachtraum, also bis zu 8 bei vier Frachträumen)", "maxItems": 8, "items": { "oneOf": [ { "type": "string", "enum": ["sprengstoff", "fracht", "deuterium"] }, { "type": "object", "description": "SL0: Person im Frachtraum (p Kennung, n Name, b Bett)", "required": ["p"], "properties": { "p": { "type": "string" }, "n": { "type": "string" }, "b": { "type": "integer", "minimum": 0 } }, "additionalProperties": false } ] } },
+        "zonen": { "type": "object", "description": "SL6: erkundete Zonen und Zähler (Zonen.toSave; sim-sund fand: ohne dieses Feld lehnt jedes Speichern nach dem Gasfeld ab)", "properties": { "bekannt": { "type": "array", "items": { "type": "string" } }, "zaehler": { "type": "object", "additionalProperties": { "type": "number" } } }, "additionalProperties": false }
+      }
+    },
+
+    "welt": {
+      "type": "object", "additionalProperties": false, "required": ["orte"],
+      "properties": {
+        "orte": {
+          "type": "object", "additionalProperties": false, "required": ["bekannt", "besucht"],
+          "properties": {
+            "bekannt": { "type": "array", "items": { "type": "string" } },
+            "besucht": { "type": "array", "items": { "type": "string" } },
+            "aufgedeckt": { "type": "array", "items": { "type": "string" }, "description": "per Weitscan aufgedeckte Funde" },
+            "gefunden": { "type": "array", "items": { "type": "string" }, "description": "eingesammelte/gescannte Funde" }
+          }
+        },
+        "verbindungen_offen": { "type": "array", "items": { "type": "string" }, "description": "Schlüssel aus LOCKED_LINKS, die offen sind" },
+        "landepunkte": {
+          "type": "object",
+          "description": "B1 (CONTRACT-B1 §8): Landepunkt-ID -> gebaute Karte (Seed) und ihre Zustände. Inhaber server/sim/landepunkte.js (toSave/restore). Weicht bauversion ab, wird neu gebaut und Zustände über Anker-/Kanten-IDs übertragen.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "seed": { "type": "integer" },
+              "bauversion": { "type": ["string", "null"] },
+              "schablone": { "type": ["string", "null"] },
+              "art": { "type": "string" },
+              "bauweise": { "type": ["string", "null"] },
+              "besitz": { "type": ["string", "null"] },
+              "zustand": { "type": ["string", "null"] },
+              "zustaende": { "type": "object", "description": "Anker-ID bzw. Kanten-ID -> Zustand", "additionalProperties": { "type": "string" } },
+              "alarm": { "type": "boolean" },
+              "besuche": { "type": "integer", "minimum": 0 },
+              "letzte_mission": { "type": ["string", "null"] },
+              "neu": { "type": "boolean" },
+              "gesperrt": { "type": "boolean" }
+            }
+          }
+        },
+        "wracks": {
+          "type": "array", "description": "B1 (§7/§8): treibende Wracks als Landepunkte. Inhaber server/sim/entern.js.",
+          "items": { "type": "object", "required": ["lpId"], "properties": {
+            "lpId": { "type": "string" }, "ort": { "type": ["string", "null"] }, "quelle": { "enum": ["entern", "daten"] } } }
+        },
+        "sektoren": {
+          "type": "object", "description": "B3 (CONTRACT-B3 §5): Erkundungsstand der Sektorkarte. Inhaber explore.js/sprung.js. orte.* bleibt als Altfeld.",
+          "properties": {
+            "erkundet": { "type": "array", "items": { "type": "string" }, "description": "besuchte Hexe (SSZZ)" },
+            "bojen": { "type": "array", "items": { "type": "string" }, "description": "bekannte Bojen (Kanten-IDs a-b)" },
+            "temp": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "a": { "type": "string" }, "b": { "type": "string" }, "bis": { "type": "string" } } }, "description": "temporäre Sprungpunkte" },
+            "offen": { "type": "array", "items": { "type": "string" }, "description": "geöffnete gesperrte Kanten" }
+          }
+        },
+        "notrufe": {
+          "type": "object", "description": "SL8 (CONCEPT-SL8): freigeschaltete Notrufe: Id -> Zustand (0 offen, 1 angenommen, 2 vor Ort, 3 erledigt, 4 abgelaufen, 5 abgelehnt), Restzeit in Spielsekunden, gestellte Fragen, Sonde hat gemessen. Inhaber server/sim/notrufe.js.",
+          "additionalProperties": { "type": "object", "properties": { "z": { "type": "integer", "minimum": 0, "maximum": 5 }, "rest": { "type": "number", "minimum": 0 },
+            "befragt": { "type": "array", "items": { "type": "integer" } }, "sonde": { "type": "boolean" },
+            "v": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Index der Variante (0 = Original)" }, "n": { "type": "integer", "minimum": 0, "description": "Wiederkehr: Zahl der bisherigen Wiederkehren" },
+            "w": { "type": "number", "minimum": 0, "description": "Wiederkehr: Sekunden bis der Ruf erneut erscheint" } } }
+        },
+        "sim": {
+          "type": "object", "required": ["modus", "tick", "zustand"], "additionalProperties": false,
+          "description": "SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund. Fehlt der Block, ist der Stand eine Kampagne. Inhaber server/sim/kriegslage.js; der Sim-Zustand (server/weltsim/kern.js) steht ohne werte und karte hier, beide kommen beim Laden aus content/welt/sund-sim*.json.",
+          "properties": {
+            "modus": { "const": "freie_fahrt" },
+            "tick": { "type": "integer", "minimum": 0, "description": "Zahl der Ticks (ein Tick je Sprung)" },
+            "hauptweltGefallen": { "type": "object", "required": ["fraktion", "tick"], "additionalProperties": false, "properties": { "fraktion": { "type": "string" }, "tick": { "type": "integer", "minimum": 0 } } },
+            "kommandanten": {
+              "type": "object", "description": "SUND-02: Gedächtnis der Kommandanten, denen die Crew begegnet ist (Wirkung flaggschiff_gefallen). Fehlt im Altstand (leer). Schlüssel = Name; gefallen bleibt gefallen.",
+              "additionalProperties": { "type": "object", "required": ["fraktion", "schicksal", "begegnungen", "tick"], "properties": { "fraktion": { "type": "string" }, "schicksal": { "enum": ["entkommen", "gefallen"] }, "begegnungen": { "type": "integer", "minimum": 1 }, "tick": { "type": "integer", "minimum": 0 } } }
+            },
+            "ruf": {
+              "type": "object", "additionalProperties": false,
+              "description": "SUND-02b B: Ruf der Crew je Fraktion (server/sim/ruf.js, Grenzen und Dienstgrade in content/welt/ruf-werte.json). Fehlt im Altstand und bei 0/0/0 (alle Werte 0). Der Rang folgt aus rom und wird nicht gespeichert. Nur der Server schreibt.",
+              "properties": { "rom": { "type": "number" }, "ger": { "type": "number" }, "kon": { "type": "number" } }
+            },
+            "absicht": {
+              "type": "object", "additionalProperties": false,
+              "description": "SUND-02b D: Strategische Optionen (server/sim/absicht.js, Katalog und Zahlen in content/welt/absichten.json). laufend: die gewählte Absicht (id, start und bis als Tick der Sim-Takts); angebot: die angebotenen Ids (2 bis 3, t = Tick des Angebots, bis = Tick des Verfalls); frei_ab: Tick, ab dem wieder ein Angebot kommen darf. Fehlt im Altstand und im Ruhezustand (alles leer). Die Wirkung selbst steht in zustand.absichten.rom des Sim-Zustands. Nur der Server schreibt; der Leser verwirft Unbekanntes und Abgelaufenes.",
+              "properties": {
+                "laufend": { "type": "object", "required": ["id", "start", "bis"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "start": { "type": "integer", "minimum": 0 }, "bis": { "type": "integer", "minimum": 0 }, "vorher": { "type": "object", "additionalProperties": false, "description": "Werte der Felder, die zustand.absichten.rom vor der Absicht schon hatte (Schichtung, wird beim Ablauf wiederhergestellt)", "properties": { "p_act": { "type": "number" }, "aggr": { "type": "number" }, "max_active": { "type": "number" } } } } },
+                "angebot": { "type": "object", "required": ["ids", "t", "bis"], "additionalProperties": false, "properties": { "ids": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 3 }, "t": { "type": "integer", "minimum": 0 }, "bis": { "type": "integer", "minimum": 0 } } },
+                "frei_ab": { "type": "integer", "minimum": 0 }
+              }
+            },
+            "posten": {
+              "type": "object", "description": "SUND-02b A1: Posten der Crew (Stuetzpunkte, Merkmal crew im Sim-Hex): Hex -> { t: Tick der Gruendung bzw. des Ausbaus, g: 1 = Halten-Ruf schon gegeben }. Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
+              "additionalProperties": { "type": "object", "required": ["t"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "g": { "type": "integer" } } }
+            },
+            "sprengungen": {
+              "type": "object", "description": "SUND-02b A2: letzte Sprengung eines gegnerischen Postens je Hex: Hex -> Tick (Ruf-Sperre gegen Farmen, content/welt/posten-werte.json sprengen.ruf_sperre_ticks). Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
+              "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "verrat": {
+              "type": "object", "required": ["n", "tick", "hex"], "additionalProperties": false,
+              "description": "SUND-02b E: Gedaechtnis des Beschusses auf roemische Verbuendete (server/sim/verrat.js): n = Zahl der ausgeloesten Verraete (>= 1), tick = Tick der Sim bei der letzten Ausloesung, hex = Sektor der letzten. Fehlt im Altstand und solange es nie einen gab. Nur der Server schreibt.",
+              "properties": { "n": { "type": "integer", "minimum": 1 }, "tick": { "type": "integer", "minimum": 0 }, "hex": { "type": "string" } }
+            },
+            "vorgemerkt": {
+              "type": "array", "description": "SUND-02: Wirkungen der Crew (server/weltsim/wirkungen.js), die der nächste Tick (Sprung) anwendet; Flucht per Sprung.",
+              "items": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }
+            },
+            "wissen": {
+              "type": "object", "required": ["v", "t", "hexe", "flotten", "erst", "gesehen", "meldungen", "wartend", "notrufe"],
+              "description": "SUND-01 C: Wissen von Rom (server/sim/kriegslage-wissen.js). Fehlt der Teil (Altstand), beginnt das Wissen mit dem Kartenstand und der Sicht des Ladezeitpunkts. hexe: letzter bekannter Besitz je Anzeigehex { f: Fraktion r g k p - v, p: Posten 0|1, a: Tick der Daten | null = nie gesehen }; flotten: zuletzt bekannte Plaketten; gesehen: gemerkte Feldzug-Phasen (Funk nie doppelt); wartend: Ereignisse, die Rom einen Tick später erfährt; notrufe: Feldzüge mit Notruf-Marke.",
+              "properties": {
+                "v": { "type": "integer" }, "t": { "type": "integer", "minimum": 0, "description": "Tick des Wissensstands (gleich sim.tick)" },
+                "hexe": { "type": "object", "additionalProperties": { "type": "object", "required": ["f", "p", "a"], "properties": { "f": { "type": "string" }, "p": { "type": "integer" }, "a": { "type": ["integer", "null"] } } } },
+                "flotten": { "type": "array", "items": { "type": "object", "required": ["f", "h", "k", "p", "a", "ids"], "properties": { "f": { "type": "string" }, "h": { "type": "string" }, "k": { "type": "integer" }, "p": { "type": "string" }, "a": { "type": "integer" }, "n": { "type": "string" }, "v": { "type": "string" }, "z": { "type": "string" }, "d": { "type": "integer" }, "an": { "type": "array", "items": { "type": "integer" } }, "ids": { "type": "array", "items": { "type": "integer" } } } } },
+                "erst": { "type": "object", "additionalProperties": { "type": "integer" } },
+                "spur": { "type": "object", "description": "SUND-01 E: je sichtbarer fremder Flotte (Sim-Id) das zuletzt beobachtete Hex h, Stand a, Kurs v (kam von)", "additionalProperties": { "type": "object", "required": ["h", "a"], "properties": { "h": { "type": "string" }, "a": { "type": "integer" }, "v": { "type": "string" } } } },
+                "gesehen": { "type": "array", "items": { "type": "string" } },
+                "meldungen": { "type": "array", "items": { "type": "object" } },
+                "wartend": { "type": "array", "items": { "type": "object" } },
+                "notrufe": { "type": "array", "items": { "type": "object", "required": ["an", "h"], "properties": { "an": { "type": "integer" }, "h": { "type": "string" }, "m": { "type": "string", "description": "neutrale Marken-Id lage:n<Nummer> (SUND-01 E)" }, "t": { "type": "integer" }, "s": { "type": "integer", "description": "zuletzt gesehen mit Belagerer" } } } },
+                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" }
+              }
+            },
+            "zustand": {
+              "type": "object", "required": ["version", "seed", "tick", "zufall", "hexe", "flotten", "naechsteId", "angriffe", "vorrat", "marken", "absichten"],
+              "properties": {
+                "version": { "type": "integer" }, "seed": { "type": "number" }, "tick": { "type": "integer", "minimum": 0 }, "zufall": { "type": "integer", "minimum": 0 },
+                "hexe": { "type": "object", "additionalProperties": { "type": "object" } },
+                "flotten": { "type": "array", "items": { "type": "object" } },
+                "naechsteId": { "type": "integer", "minimum": 1 },
+                "angriffe": { "type": "array", "items": { "type": "object" }, "description": "laufende und zuletzt beendete Feldzüge (beendete fallen nach werte.angriff_behalt Ticks weg)" },
+                "naechsteAngriffId": { "type": "integer", "minimum": 1, "description": "SUND-01 E: nächste Feldzug-Id (Ids werden nie wiederverwendet); fehlt im Altstand, dann höchste Id + 1" },
+                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" }
+              }
+            }
+          }
+        },
+        "spur": {
+          "type": "object", "description": "SL5 (CONCEPT-SL5): laufende Ionenspur. Inhaber server/sim/spur.js; Wegliste steht in content/spuren/<id>.json.",
+          "properties": { "id": { "type": "string" }, "idx": { "type": "integer", "minimum": 0 }, "gelesen": { "type": "boolean" }, "fertig": { "type": "boolean" } }
+        },
+        "sektorplan": {
+          "type": "object", "description": "SL4 (CONCEPT-SL4): Sektorplan des Captains. Inhaber server/sim/sektorplan.js. gesichtet: Hex -> { q: sonde|karte, alter (s) }; marken: Einträge im Szenen-Koordinatensystem; schiffe: Momentaufnahmen mit Alter (s).",
+          "properties": {
+            "gesichtet": { "type": "object", "additionalProperties": { "type": "object", "properties": { "q": { "enum": ["sonde", "karte"] }, "alter": { "type": "number", "minimum": 0 } } } },
+            "marken": { "type": "array", "items": { "type": "object", "properties": { "id": { "type": "string" }, "h": { "type": "string" }, "x": { "type": "number" }, "y": { "type": "number" }, "k": { "type": "string" } } } },
+            "schiffe": { "type": "array", "items": { "type": "object", "properties": { "h": { "type": "string" }, "art": { "type": "string" }, "x": { "type": "number" }, "y": { "type": "number" }, "alter": { "type": "number", "minimum": 0 } } } },
+            "seq": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "karten": { "type": "array", "items": { "type": "string" }, "description": "kartierte Außenkarten (platform, wreck, kesh)" },
+        "flags": { "type": "object", "description": "Weltweite Flags (bribed, decision, technikerRescued …)", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+        "fakten": { "type": "object", "description": "Kanon aus Folgen, z. B. tafel_von_kesh: konkordat_archiv. Der Server schreibt den Wert direkt (Quelle in faktenQuelle); die Form { value, quelle } (wie content/npc.json) wird ebenfalls gelesen.",
+          "additionalProperties": { "type": ["string", "number", "boolean", "null", "object"], "properties": { "value": { "type": ["string", "number", "boolean", "null"] }, "quelle": { "type": ["string", "null"] } } } },
+        "faktenQuelle": { "type": "object", "description": "Fakt -> Quelle (Mission/Ausgang)", "additionalProperties": { "type": "string" } },
+        "faeden": { "type": "array", "items": { "type": "string" }, "description": "S2: offene Erzählfäden (Fakt-Schlüssel aus welt_fakt { faden: true })" },
+        "odaSeen": { "type": "array", "items": { "type": "string" }, "description": "schon gesagte ODA-Einmal-Texte" },
+        "scans": { "type": "array", "items": { "type": "string" }, "description": "abgeschlossene Captain-Scans" },
+        "wrack": {
+          "type": "object", "additionalProperties": false,
+          "properties": {
+            "salvage": { "type": "array", "items": { "type": "boolean" } },
+            "loreRead": { "type": "boolean" },
+            "hollow": { "type": "object", "additionalProperties": false, "properties": { "marked": { "type": "boolean" }, "open": { "type": "boolean" } } }
+          }
+        },
+        "log": {
+          "type": "array", "maxItems": 200, "description": "Logbuch (letzte CONFIG.weltstand.logKeep Einträge)",
+          "items": { "type": "object", "required": ["text"],
+            "properties": { "id": { "type": "string" }, "text": { "type": "string" }, "loc": { "type": ["string", "null"] }, "t": { "type": "number" }, "mission": { "type": ["string", "null"] } } }
+        }
+      }
+    },
+
+    "missionen": {
+      "type": "object",
+      "description": "= mission.toSave(): { missionen: { id: Status }, aktiv, flags, buchFokus }. Laden startet eine aktive Mission beim gespeicherten Schritt (bzw. wiederaufnahme.ab) neu. Altform (Missions-ID -> Status direkt, wie weltstand.beispiel.json) wird weiter gelesen.",
+      "properties": {
+        "missionen": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object", "required": ["status"],
+            "properties": {
+              "status": { "enum": ["angeboten", "aktiv", "erledigt", "gescheitert"] },
+              "schritt": { "type": ["string", "null"] },
+              "v": { "type": "object" },
+              "ereignisse": { "type": "array", "items": { "type": "string" } },
+              "entscheidungen": { "type": "array", "items": { "type": "string" } },
+              "erledigte_ziele": { "type": "array", "items": { "type": "object" } },
+              "fund": { "type": "string", "description": "B1: gemerkter Fund der laufenden Mission (Aktion fund, Textbaustein {fund}); fehlt -> „die Beute“" },
+              "ausgang": { "type": ["string", "null"] },
+              "start_s": { "type": ["number", "null"] }, "ende_s": { "type": ["number", "null"] }
+            }
+          }
+        },
+        "aktiv": { "type": ["string", "null"] },
+        "flags": { "type": "object", "additionalProperties": { "type": ["string", "number", "boolean", "null"] } },
+        "buchFokus": { "type": ["string", "null"] }
+      },
+      "additionalProperties": {
+        "type": "object", "required": ["status"],
+        "properties": {
+          "status": { "enum": ["angeboten", "aktiv", "erledigt", "gescheitert"] },
+          "schritt": { "type": ["string", "null"] },
+          "v": { "type": "object", "description": "Schrittvariablen (m.v)" },
+          "ereignisse": { "type": "array", "items": { "type": "string" }, "description": "für den Neustart nötige Ereignisse (accepted …)" },
+          "entscheidungen": { "type": "array", "items": { "type": "string" } },
+          "erledigte_ziele": { "type": "array", "items": { "type": "object" } },
+          "ausgang": { "type": ["string", "null"] },
+          "start_s": { "type": ["number", "null"] }, "ende_s": { "type": ["number", "null"] }
+        }
+      }
+    },
+
+    "npc": {
+      "type": "object",
+      "description": "NSC als Datensätze (Nemesis-Prinzip). Kennung -> Datensatz. Startwerte aus content/npc.json.",
+      "additionalProperties": {
+        "type": "object", "additionalProperties": false, "required": ["name", "fraktion", "status", "haltung", "gedaechtnis"],
+        "properties": {
+          "name": { "type": "string" },
+          "titel": { "type": "string", "description": "Anzeige im Funk, z. B. 'Hafenmeisterin'" },
+          "fraktion": { "type": "string" },
+          "rolle": { "type": "string" },
+          "status": { "enum": ["lebt", "verwundet", "verletzt", "gefangen", "tot", "verschwunden", "vermisst", "unbekannt", "befoerdert", "uebergelaufen"] },
+          "haltung": { "type": "integer", "minimum": -10, "maximum": 10, "description": "CONFIG.weltstand.attitudeMin … attitudeMax (Standard -3 Feind … 0 neutral … 3 Verbündeter)" },
+          "ort": { "type": "string" },
+          "gedaechtnis": {
+            "type": "array", "maxItems": 50,
+            "description": "Gemeinsame Ereignisse, älteste zuerst. Höchstens CONFIG.weltstand.npcMemoryMax (12): bei mehr fällt der älteste Eintrag mit dem kleinsten Gewicht heraus.",
+            "items": { "type": "object", "additionalProperties": false, "required": ["text"],
+              "properties": {
+                "ereignis": { "type": "string" },
+                "text": { "type": "string", "maxLength": 200 },
+                "mission": { "type": "string" },
+                "schritt": { "type": "string" },
+                "haltung": { "type": "integer" },
+                "gewicht": { "type": "number" },
+                "spielzeit_s": { "type": "number" }
+              } }
+          }
+        }
+      }
+    },
+
+    "chronik": {
+      "type": "array",
+      "description": "Gespielte Missionen und Entscheidungen. Grundlage für 'Was bisher geschah'.",
+      "items": { "type": "object", "additionalProperties": false, "required": ["text"],
+        "properties": { "text": { "type": "string", "maxLength": 300 }, "mission": { "type": "string" }, "ausgang": { "type": "string" }, "spielzeit_s": { "type": "number" } } }
+    }
+  }
+}

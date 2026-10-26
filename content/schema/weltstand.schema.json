@@ -166,6 +166,16 @@
                 "frei_ab": { "type": "integer", "minimum": 0 }
               }
             },
+            "regie": {
+              "type": "object", "additionalProperties": false,
+              "description": "SUND-03 A: Befehle des Lage-Spielleiters (server/sim/regie-befehle.js, Katalog in server/weltsim/befehle.js, Zahlen in content/welt/befehle-werte.json und regie-werte.json). vorgemerkt: angenommene Befehle, die ab dem Tick ab an die Sim gehen (w = angekündigt, Vorwarnung gesendet); letzte: Tick der letzten Annahme je Typ und Fraktion (Abkühlzeit). Fehlt im Altstand und im Ruhezustand (leer). Embargo, Miete und die Überlagerung der Regie stehen im Sim-Zustand (zustand.embargo, zustand.regie, flotte.miete). Nur der Server schreibt; der Leser verwirft Unbekanntes.",
+              "properties": {
+                "vorgemerkt": { "type": "array", "maxItems": 8, "items": { "type": "object", "required": ["b", "ab"], "additionalProperties": false, "properties": { "b": { "type": "object", "required": ["typ"], "properties": { "typ": { "type": "string" } } }, "ab": { "type": "integer", "minimum": 0 }, "w": { "type": "integer" } } } },
+                "letzte": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+                "verlauf": { "type": "array", "maxItems": 10, "description": "SUND-03 D-Fix2: Identitaetsschluessel der angenommenen Befehle der letzten Plaene (Wiederholungsregeln, server/sim/lage-wiederholung.js), je Plan eine Liste.", "items": { "type": "array", "maxItems": 16, "items": { "type": "string", "minLength": 1, "maxLength": 160 } } },
+                "rate": { "type": "array", "maxItems": 100, "items": { "type": "integer", "minimum": 0 }, "description": "A3: Ticks der angenommenen Befehle im Fenster der globalen Befehlsrate" }
+              }
+            },
             "posten": {
               "type": "object", "description": "SUND-02b A1: Posten der Crew (Stuetzpunkte, Merkmal crew im Sim-Hex): Hex -> { t: Tick der Gruendung bzw. des Ausbaus, g: 1 = Halten-Ruf schon gegeben }. Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
               "additionalProperties": { "type": "object", "required": ["t"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "g": { "type": "integer" } } }
@@ -173,6 +183,21 @@
             "sprengungen": {
               "type": "object", "description": "SUND-02b A2: letzte Sprengung eines gegnerischen Postens je Hex: Hex -> Tick (Ruf-Sperre gegen Farmen, content/welt/posten-werte.json sprengen.ruf_sperre_ticks). Fehlt im Altstand (leer). Nur der Server schreibt (server/sim/posten.js).",
               "additionalProperties": { "type": "integer", "minimum": 0 }
+            },
+            "chronik": {
+              "type": "array", "maxItems": 200,
+              "description": "SUND-03 D: Chronik der Freien Fahrt (server/sim/chronik.js, Daten content/welt/chronik-werte.json): Ringliste der letzten Taetigkeiten und Entscheidungen (Reise-Ereignisse, Ausgaenge der Sim-Szenen, Wahl und Ablehnung von Absichten, angewandte Plaene des Lage-Spielleiters, Posten, Wendepunkte). t = Tick der Sim, art = Quelle, ref = Katalog-/Szenen-/Plan-Id, kurz = Text (hoechstens 80 Zeichen, keine Spielernamen), param = wenige Felder. Fehlt im Altstand (leer). Nur der Server schreibt; der Leser verwirft Unbekanntes.",
+              "items": { "type": "object", "required": ["t", "art", "ref", "kurz"], "additionalProperties": false, "properties": { "t": { "type": "integer", "minimum": 0 }, "art": { "enum": ["reise", "szene", "absicht", "plan", "posten", "welt"] }, "ref": { "type": "string", "maxLength": 40 }, "kurz": { "type": "string", "maxLength": 80 }, "param": { "type": "object", "maxProperties": 4 } } }
+            },
+            "reise": {
+              "type": "object", "required": ["n"], "additionalProperties": false,
+              "description": "SUND-03 D: Reise-Ereignisse (server/sim/reise-ereignis.js, Daten content/reise/): n = Zahl der Spruenge seit Beginn (Zaehler des eigenen Zufallsstroms, er hat sonst keinen Zustand), letzter = Sprung des letzten Ereignisses (oder Abfangens), letzte = die letzten Ereignisse { id, k = Parametersatz, n = Sprung } fuer die Wiederholungsregeln. Offene Notrufe und laufende Gefahren stehen nicht im Weltstand. Fehlt im Altstand (Anfang). Nur der Server schreibt.",
+              "properties": {
+                "n": { "type": "integer", "minimum": 0, "maximum": 1000000000 },
+                "r": { "type": "array", "maxItems": 20, "description": "SUND-03 D-Fix2: Ruf aus Reise-Ereignissen der letzten 100 Spruenge [Sprung, Betrag] (Deckel ruf_max_je_100).", "items": { "type": "array", "minItems": 2, "maxItems": 2, "items": { "type": "number" } } },
+                "letzter": { "type": "integer", "minimum": 0 },
+                "letzte": { "type": "array", "maxItems": 32, "items": { "type": "object", "required": ["id", "k", "n"], "additionalProperties": false, "properties": { "id": { "type": "string" }, "k": { "type": "string", "maxLength": 80 }, "n": { "type": "integer", "minimum": 0 } } } }
+              }
             },
             "verrat": {
               "type": "object", "required": ["n", "tick", "hex"], "additionalProperties": false,
@@ -196,7 +221,10 @@
                 "meldungen": { "type": "array", "items": { "type": "object" } },
                 "wartend": { "type": "array", "items": { "type": "object" } },
                 "notrufe": { "type": "array", "items": { "type": "object", "required": ["an", "h"], "properties": { "an": { "type": "integer" }, "h": { "type": "string" }, "m": { "type": "string", "description": "neutrale Marken-Id lage:n<Nummer> (SUND-01 E)" }, "t": { "type": "integer" }, "s": { "type": "integer", "description": "zuletzt gesehen mit Belagerer" } } } },
-                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" }
+                "nrz": { "type": "integer", "minimum": 0, "description": "Zähler der Notruf-Marken-Ids" },
+                "belege": { "type": "array", "description": "SUND-03b I: gekaufte Belege des Konkordats (server/sim/handel-info.js): Rom sieht die Hexe h (und bei einem Feldzug an die Hexe seiner Flotten) exakt und ohne Verzögerung bis einschließlich Tick bis. Additiv: fehlt im Altstand und solange nichts gekauft wurde; der Leser verwirft Unbrauchbares und Abgelaufenes.",
+                  "items": { "type": "object", "required": ["h", "an", "bis"], "properties": { "h": { "type": "array", "items": { "type": "string" } }, "an": { "type": ["integer", "null"] }, "bis": { "type": "integer" } } } },
+                "gz": { "type": "integer", "minimum": 1, "description": "SUND-03b I: Zahl der gekauften Gerüchte (Zähler des eigenen Zufallsstroms); fehlt, solange keins gekauft wurde" }
               }
             },
             "zustand": {
@@ -208,7 +236,9 @@
                 "naechsteId": { "type": "integer", "minimum": 1 },
                 "angriffe": { "type": "array", "items": { "type": "object" }, "description": "laufende und zuletzt beendete Feldzüge (beendete fallen nach werte.angriff_behalt Ticks weg)" },
                 "naechsteAngriffId": { "type": "integer", "minimum": 1, "description": "SUND-01 E: nächste Feldzug-Id (Ids werden nie wiederverwendet); fehlt im Altstand, dann höchste Id + 1" },
-                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" }
+                "vorrat": { "type": "object" }, "marken": { "type": "object" }, "absichten": { "type": "object" },
+                "embargo": { "type": "object", "description": "SUND-03 A: Embargo des Konkordats je Ziel-Fraktion { waren, von, from, bis } (endet von selbst bei bis; werte.embargo des Prototyps wird nicht gespeichert)" },
+                "regie": { "type": "object", "description": "SUND-03 A: Überlagerung der Regie je Fraktion { p_act?, aggr?, max_active?, regler_bis?, fokus?: { hex, radius, bis } } (eigener Namensraum neben zustand.absichten)" }
               }
             }
           }

@@ -2,7 +2,8 @@
 // LLM-Schnittstelle des Spielleiters (CONTRACT-S1 §8.1, CONTRACT-S2 §2.2).
 //
 //   const llm = LLM.create({ mode, fixturesDir, budget, katalog, script, transport, recordDir, model })
-//   await llm.ask(kind, input, { timeoutMs })   // kind: 'grobplan' | 'szene' -> { text, tokens, usage, source, key }
+//   await llm.ask(kind, input, { timeoutMs, schema })   // kind: 'grobplan' | 'szene' | 'text' -> { text, tokens, usage, source, key }
+//   await llm.eskaliere(kind, input, opts)     // SUND-03 B: dieselbe Anfrage an den Eskalations-Anbieter des Routers (Claude)
 //   LLM.budget()                               // EIN Token-Zähler je Prozess: { used, limit, remaining, calls }
 //
 // Modi (Standard aus SPIELLEITER_LLM, sonst 'off'):
@@ -19,11 +20,13 @@
 //            --model sonnet, MAX_THINKING_TOKENS=0), 'api' ist nur als Schnittstelle vorgesehen (wirft). Jeder Live-Aufruf
 //            wird nach <recordDir>/<kind>/<key>.json geschrieben (Format llm-aufzeichnung/1, wie tools/fixtures/llm).
 //
-// Fehler tragen err.code: ETIMEDOUT, ENOENT (CLI fehlt), EXIT (Exit≠0), RATE_LIMIT (429), BUDGET, OFF, REFUSED.
+// Fehler tragen err.code: ABORTED (Aufrufer hat per AbortSignal abgebrochen), ETIMEDOUT, ENOENT (CLI fehlt), EXIT (Exit≠0), RATE_LIMIT (429), BUDGET, OFF, REFUSED.
 //
 // Eingabe 'input' ist ein JSON-Objekt. Für live/replay zählt das ganze Objekt (Schlüssel). Hat es ein Feld 'prompt'
 // (String), wird genau dieser Text gesendet, sonst eine Standardform aus dem Objekt (renderPrompt). Hat es 'system'
 // (Dateipfad), ist das der Systemprompt.
+//
+// 'lage' (SUND-03 A2): Grobplan des Lage-Spielleiters, Systemprompt lage.system.md, Router: immer Claude (Ollama wird abgewiesen).
 //
 // Prompt-Reihenfolge für Caching (buildPrompt): statischer Teil (Katalog) → Grobplan der Mission → variabler Teil.
 
@@ -32,7 +35,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');
-const KINDS = ['grobplan', 'szene'];
+const KINDS = ['grobplan', 'szene', 'text', 'lage'];   // lage: SUND-03 A2, Grobplan des Lage-Spielleiters (Freie Fahrt Sund), geht an Claude
 const MODES = ['off', 'mock', 'replay', 'script', 'live'];
 const TRANSPORT_NAMES = ['cli', 'api'];
 const DEFAULT_FIXTURES = path.join(ROOT, 'tools', 'fixtures', 'llm');
@@ -47,7 +50,7 @@ function systemPromptFile(kind) {
   const f = path.join(PROMPT_DIR, `${kind}.system.md`);
   return fs.existsSync(f) ? f : LEGACY_PROMPTS[kind];
 }
-const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); } };
+const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); }, get lage() { return systemPromptFile('lage'); } };
 
 // ---------- EIN Token-Zähler je Prozess (CONTRACT-S2 Entscheidung 13; Cache-Treffer zählen voll) ----------
 const BUDGET = { used: 0, calls: 0, limit: null };
@@ -92,7 +95,7 @@ function renderPrompt(kind, input) {
   if (input && typeof input.prompt === 'string') return input.prompt;
   const rest = Object.assign({}, input); delete rest.auftrag;
   const auftrag = input && input.auftrag ? (typeof input.auftrag === 'string' ? input.auftrag : JSON.stringify(input.auftrag)) : '';
-  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.';
+  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'lage' ? 'Gib jetzt den Plan aus. Nur das JSON-Objekt.' : kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
   return `<eingabe>\n${JSON.stringify(canonicalize(rest), null, 1)}\n</eingabe>\n\n<auftrag>\n${auftrag}\n</auftrag>\n\n${tail}`;
 }
 
@@ -240,6 +243,12 @@ function mockSzene(input, kat) {
   return { molekuele, verzweigung, wendung: null };
 }
 
+// 'lage' (SUND-03 A2): der Mock-Regisseur liest Ausschnitt und Grenze aus dem Prompt (server/sim/lage-mock.js)
+function mockLage(input) { return require('../sim/lage-mock.js').planText(input); }
+
+// 'text' (Paket C/03b) hat noch keine eigene Erzeugung: mock/script liefern ein Platzhalter-Ergebnis
+const MOCK_TEXT = 'Platzhalter (mock)';
+
 // ---------- Fehler ----------
 function llmError(code, msg) { const e = new Error(msg); e.code = code; return e; }
 const SCRIPT_ERRORS = {
@@ -250,7 +259,55 @@ const SCRIPT_ERRORS = {
 };
 
 // ---------- Transport 'cli' (live) ----------
-function claudeCli() { return process.env.CLAUDE_CLI || path.join(process.env.APPDATA || '', 'npm', 'node_modules', '@anthropic-ai', 'claude-code', 'cli.js'); }
+// SUND-03 F: die Claude-CLI robust finden. Reihenfolge: (1) Env CLAUDE_CLI (Datei .js/.cjs/.mjs: mit Node gestartet, sonst direkt als Programm), (2) cli.js im npm-Paket, (3) der native Build im npm-Paket
+// (bin/claude.exe bzw. bin/claude: neuere Installationen haben kein cli.js mehr), (4) ~/.local/bin/claude(.exe) (USERPROFILE bzw. HOME), (5) claude(.exe) im PATH (ohne Shell: kein .cmd).
+// -> { cmd, args, pfad, quelle, versucht } oder { cmd: null, versucht: [Pfade] }. o: { env, exists, platform, node } für Tests.
+function claudeFinden(o) {
+  o = o || {};
+  const env = o.env || process.env, exists = o.exists || fs.existsSync, plat = o.platform || process.platform, node = o.node || process.execPath;
+  const win = plat === 'win32', exe = win ? 'claude.exe' : 'claude';
+  const versucht = [];
+  const nodeDatei = (p) => /\.(c|m)?js$/i.test(p);
+  const pruefe = (p, quelle) => {
+    if (!p) return null;
+    versucht.push(p);
+    if (!exists(p)) return null;
+    return nodeDatei(p) ? { cmd: node, args: [p], pfad: p, quelle, versucht } : { cmd: p, args: [], pfad: p, quelle, versucht };
+  };
+  let r = pruefe(env.CLAUDE_CLI, 'CLAUDE_CLI');
+  if (r) return r;
+  const falsch = env.CLAUDE_CLI ? `CLAUDE_CLI gesetzt, nicht gefunden (${env.CLAUDE_CLI}) → Fallback` : null;
+  const mitHinweis = (x) => (x && falsch ? Object.assign(x, { hinweis: `${falsch} auf ${x.quelle} (${x.pfad})` }) : x);
+  if (env.APPDATA) {
+    const pkg = path.join(env.APPDATA, 'npm', 'node_modules', '@anthropic-ai', 'claude-code');
+    r = pruefe(path.join(pkg, 'cli.js'), 'npm cli.js') || pruefe(path.join(pkg, 'bin', exe), 'npm native');
+    if (r) return mitHinweis(r);
+  }
+  const heim = win ? env.USERPROFILE : env.HOME;
+  if (heim) { r = pruefe(path.join(heim, '.local', 'bin', exe), '.local/bin'); if (r) return mitHinweis(r); }
+  for (const d of String(env.PATH || env.Path || '').split(win ? ';' : ':').filter(Boolean)) { r = pruefe(path.join(d, exe), 'PATH'); if (r) return mitHinweis(r); }
+  return { cmd: null, args: [], pfad: null, quelle: null, versucht };   // (ein gesetztes, aber falsches CLAUDE_CLI trägt bei einem Fund den Vermerk hinweis)
+}
+// Beendet den GANZEN Prozessbaum genau dieses Prozesses (Windows: taskkill /T /F /PID <eigene pid>, nie /IM; sonst die Prozessgruppe, der Prozess startet dafür detached). Nicht blockierend.
+// taskkill mit vollem Pfad (kein Suchpfad: kein untergeschobenes taskkill.exe); die Tests ersetzen cmd und vorArgs durch ein Fake-Programm
+const TASKKILL = { cmd: path.join(process.env.SystemRoot || process.env.windir || 'C:\\Windows', 'System32', 'taskkill.exe'), vorArgs: [] };
+function baumBeenden(p) {
+  if (!p || !p.pid) return;
+  if (p.exitCode !== null || p.signalCode !== null) return;   // schon beendet: die PID kann neu vergeben sein, nie auf eine fremde PID zielen
+  try {
+    if (process.platform === 'win32') {
+      const k = require('child_process').spawn(TASKKILL.cmd, [...TASKKILL.vorArgs, '/T', '/F', '/PID', String(p.pid)], { stdio: 'ignore', windowsHide: true });
+      // taskkill braucht den lebenden Elternprozess, um den Baum zu finden: p.kill() erst, wenn taskkill selbst scheitert
+      const notfalls = () => { try { p.kill(); } catch (e) { /* schon weg */ } };
+      k.on('error', notfalls);
+      k.on('exit', (code) => { if (code !== 0) notfalls(); });
+      k.unref();
+      return;
+    }
+    process.kill(-p.pid, 'SIGKILL');
+  } catch (e) { /* schon weg */ }
+  try { p.kill(); } catch (e) { /* schon weg */ }
+}
 // S2b §4.2: Die CLI hängt sonst CLAUDE.md-Dateien (Projekt + Nutzer) und Auto-Memory an jeden Aufruf (~13k Tokens je Aufruf,
 // gemessen S2: Szene 24k bei ~8k eigenem Prompt). Der Spielleiter braucht nur seinen Systemprompt: neutrales
 // Arbeitsverzeichnis und CLAUDE.md/Memory aus. LLM_CLI_CONTEXT=voll schaltet das für Vergleichsmessungen ab.
@@ -264,20 +321,25 @@ function cliCwd() {
   const d = path.join(require('os').tmpdir(), 'pantheon-spielleiter-cli');
   try { fs.mkdirSync(d, { recursive: true }); return d; } catch (e) { return process.cwd(); }
 }
-function callClaude(text, sysFile, model, timeoutMs) {
+function callClaude(text, sysFile, model, timeoutMs, signal) {
   const { spawn } = require('child_process');
   return new Promise((resolve, reject) => {
-    const cli = claudeCli();
-    if (!fs.existsSync(cli)) { reject(llmError('ENOENT', `claude nicht gefunden (${cli})`)); return; }
+    if (!sysFile) { reject(llmError('EXIT', 'Kein Systemprompt für diese Anfrageart (claude braucht --system-prompt-file)')); return; }
+    const start = claudeFinden();
+    const cli = start.pfad;
+    if (!start.cmd) { reject(llmError('ENOENT', `claude nicht gefunden (versucht: ${start.versucht.join(', ') || 'nichts'}; CLAUDE_CLI setzen)`)); return; }
     const t0 = Date.now();
     let p;
     try {
-      p = spawn(process.execPath, [cli, '-p', '--model', model, '--tools', '', '--output-format', 'stream-json', '--verbose',
+      p = spawn(start.cmd, [...start.args, '-p', '--model', model, '--tools', '', '--output-format', 'stream-json', '--verbose',
         '--include-partial-messages', '--no-session-persistence', '--strict-mcp-config', '--system-prompt-file', sysFile],
-      { env: cliEnv(), cwd: cliCwd(), windowsHide: true });
+      { env: cliEnv(), cwd: cliCwd(), windowsHide: true, detached: process.platform !== 'win32' });   // ohne Shell; unter POSIX eigene Prozessgruppe, damit baumBeenden alles trifft
     } catch (e) { reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar: ${e.message}`)); return; }
-    let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false;
-    const kill = setTimeout(() => { timedOut = true; try { p.kill(); } catch (e) { /* schon weg */ } }, timeoutMs || 5 * 60 * 1000);
+    let buf = ''; let txt = ''; let result = null; let err = ''; let modelId = null; let timedOut = false; let aborted = false;
+    // SUND-03 A2: der Aufrufer bricht ab (dispose, Timeout in Spielzeit): der Prozess wird beendet statt bis zum eigenen Timer weiterzulaufen
+    const abbrechen = () => { aborted = true; baumBeenden(p); };
+    if (signal) { if (signal.aborted) abbrechen(); else signal.addEventListener('abort', abbrechen, { once: true }); }
+    const kill = setTimeout(() => { timedOut = true; baumBeenden(p); }, timeoutMs || 5 * 60 * 1000);
     p.stdout.on('data', (d) => {
       buf += d; let i;
       while ((i = buf.indexOf('\n')) >= 0) {
@@ -289,22 +351,25 @@ function callClaude(text, sysFile, model, timeoutMs) {
       }
     });
     p.stderr.on('data', (d) => { err += d; });
-    p.on('error', (e) => { clearTimeout(kill); reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar (${cli}): ${e.message}`)); });
+    const listenerWeg = () => { if (signal) signal.removeEventListener('abort', abbrechen); };   // nach dem Ende des Prozesses nie mehr abbrechen (PID-Wiederverwendung)
+    p.on('exit', listenerWeg);
+    p.on('error', (e) => { listenerWeg(); clearTimeout(kill); reject(llmError(e.code === 'ENOENT' ? 'ENOENT' : 'EXIT', `claude nicht startbar (${cli}): ${e.message}`)); });
     p.on('close', (code) => {
-      clearTimeout(kill);
+      listenerWeg(); clearTimeout(kill);
+      if (aborted) return reject(llmError('ABORTED', 'claude: abgebrochen'));
       if (timedOut) return reject(llmError('ETIMEDOUT', `Zeitüberschreitung nach ${Math.round((Date.now() - t0) / 1000)} s`));
       const all = err + ' ' + (result && typeof result.result === 'string' ? result.result.slice(0, 300) : '');
       if (/\b429\b|rate.?limit/i.test(all) && (code !== 0 || (result && result.is_error))) return reject(llmError('RATE_LIMIT', `claude: Ratenlimit (${all.trim().slice(0, 200)})`));
       if (code !== 0 && !result) return reject(llmError('EXIT', `claude fehlgeschlagen (${code}): ${err.slice(0, 300)}`));
       const u = (result && result.usage) || {};
       const usage = { input: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0), output: u.output_tokens || 0 };
-      resolve({ text: (result && result.result) || txt, usage, sec: (Date.now() - t0) / 1000, modelId, cost: result && result.total_cost_usd });
+      resolve({ cli: { quelle: start.quelle, hinweis: start.hinweis || null }, text: (result && result.result) || txt, usage, sec: (Date.now() - t0) / 1000, modelId, cost: result && result.total_cost_usd });
     });
     p.stdin.end(text);
   });
 }
 const TRANSPORTS = {
-  cli: { name: 'cli', call: (text, o) => callClaude(text, o.system, o.model, o.timeoutMs) },
+  cli: { name: 'cli', call: (text, o) => callClaude(text, o.system, o.model, o.timeoutMs, o.signal) },
   // Platzhalter für die spätere API (Entscheidung 11): gleiche Signatur, noch nicht umgesetzt
   api: { name: 'api', call: () => Promise.reject(llmError('EXIT', 'Transport api ist noch nicht umgesetzt (nur cli)')) },
 };
@@ -342,7 +407,7 @@ function create(opts) {
       let text;
       if (e && typeof e.text === 'string') text = e.text;
       else if (e && e.json !== undefined) text = JSON.stringify(e.json);
-      else text = JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
+      else text = kind === 'text' ? MOCK_TEXT : kind === 'lage' ? mockLage(input) : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
       return answerObj(kind, input, text, 'script', e && e.tokens);
     };
     if (e && e.hold) return new Promise((resolve, reject) => { held.push({ run: () => { try { resolve(settle()); } catch (err) { reject(err); } } }); });
@@ -355,6 +420,8 @@ function create(opts) {
     const k = key(kind, input);
     if (mode === 'off') throw llmError('OFF', `Spielleiter-LLM ist aus (SPIELLEITER_LLM=off). Für Tests 'mock' oder 'replay' setzen; '${kind}' wurde nicht angefragt.`);
     if (mode === 'mock') {
+      if (kind === 'text') return { text: MOCK_TEXT, tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
+      if (kind === 'lage') return { text: mockLage(input), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
       const obj = kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog());
       return { text: JSON.stringify(obj, null, 2), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
     }
@@ -366,25 +433,51 @@ function create(opts) {
       const usage = (rec.response && rec.response.usage) || { input: 0, output: 0 };
       return { text: rec.response.text, tokens: (usage.input || 0) + (usage.output || 0), usage, source: 'replay', key: k };
     }
-    // live
+    return live(kind, input, ao, null);
+  }
+
+  // live: opts.transport darf ein Router sein (transport-router.js): anbieterFuer(kind), eskalationFuer(kind). Der Prozess-Zähler
+  // (BUDGET) zählt nur Claude-Läufe; Ollama-Läufe stehen mit ihrer usage im Antwortobjekt (und damit im Regie-Logbuch).
+  // forced = Anbieter, an den diese Anfrage ausdrücklich geht (Eskalation), sonst wählt der Transport nach kind.
+  async function live(kind, input, ao, forced) {
+    const k = key(kind, input);
     if (process.env.LLM_LIVE !== '1') throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
+    const vorab = forced || (typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude');
     const b = budget();
-    if (b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
+    if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
     const sys = (input && typeof input.system === 'string' && input.system) || (opts.systemPrompts && opts.systemPrompts[kind]) || systemPromptFile(kind);
-    const r = await transport.call(renderPrompt(kind, input), { system: sys, model, timeoutMs: ao.timeoutMs });
+    const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };
+    if (ao.signal) co.signal = ao.signal;   // SUND-03 A2: AbortSignal des Aufrufers bis in den Transport
+    if (ao.schema) co.schema = ao.schema;
+    const r = forced ? await transport.callEskalation(renderPrompt(kind, input), co) : await transport.call(renderPrompt(kind, input), co);
     const n = r.usage.input + r.usage.output;
-    used += n; addUsage(n);
+    if (r.anbieter !== 'ollama') { used += n; addUsage(n); }
     const ans = { text: r.text, tokens: n, usage: r.usage, source: 'live', key: k, sec: r.sec, modelId: r.modelId, cost: r.cost };
+    if (r.cli) ans.cli = r.cli;   // SUND-03 F2: welche CLI lief (Quelle) und ein Vermerk bei falsch gesetztem CLAUDE_CLI
+    if (r.anbieter) { ans.anbieter = r.anbieter; ans.modell = r.modell || r.modelId || null; }
+    if (r.eskaliert || forced) ans.eskaliert = true;
     if (opts.recordDir) {
-      try { ans.file = record(opts.recordDir, kind, input, ans, { modell: model, quelle: 'spiel', zeit: new Date().toISOString() }); } catch (e) { ans.recordError = e.message; }
+      try { ans.file = record(opts.recordDir, kind, input, ans, { modell: ans.modell || model, quelle: 'spiel', zeit: new Date().toISOString() }); } catch (e) { ans.recordError = e.message; }
     }
     return ans;
+  }
+
+  // Eskalation (SUND-03 B): dieselbe Anfrage an den Eskalations-Anbieter. Ohne Router/live wie ask().
+  async function eskaliere(kind, input, askOpts) {
+    if (!KINDS.includes(kind)) throw new Error(`Unbekannte Anfrage '${kind}' (erlaubt: ${KINDS.join(', ')})`);
+    const ao = askOpts || {};
+    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' && typeof transport.callEskalation === 'function' ? transport.eskalationFuer(kind) : null;
+    if (!ziel) return ask(kind, input, ao);
+    return live(kind, input, ao, ziel);
   }
 
   return {
     mode, fixturesDir, model, transport: transport.name || transportName,
     get budget() { return budget().limit; },
-    ask, used: () => used, remaining: () => budget().remaining,
+    ask, eskaliere, used: () => used, remaining: () => budget().remaining,
+    // Router: welcher Anbieter bekommt diese Art, und gibt es dafür eine Eskalation? (ohne Router: Claude, keine)
+    anbieterFuer: (kind) => (mode === 'live' && typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude'),
+    eskalationMoeglich: (kind) => mode === 'live' && typeof transport.eskalationFuer === 'function' && !!transport.eskalationFuer(kind),
     // script: offene (hold) Antworten freigeben; n = Anzahl (Standard alle)
     release(n) { const list = held.splice(0, n == null ? held.length : n); list.forEach((h) => h.run()); return list.length; },
     pending: () => held.length,
@@ -394,6 +487,6 @@ function create(opts) {
 
 module.exports = {
   create, key, canonical, canonicalize, record, recordingPath, renderPrompt, buildPrompt, mockGrobplan, mockSzene,
-  budget, addUsage, resetBudget, setBudgetLimit, systemPromptFile, llmError,
+  claudeFinden, baumBeenden, TASKKILL, budget, addUsage, MOCK_TEXT, resetBudget, setBudgetLimit, systemPromptFile, llmError,
   KINDS, MODES, TRANSPORTS, SYSTEM_PROMPTS, DEFAULT_FIXTURES, PROMPT_DIR,
 };

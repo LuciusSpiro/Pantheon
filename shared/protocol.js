@@ -255,6 +255,15 @@
     //   Snapshot world.absicht { frei: 0|1, ab: Name des Mindestrangs, angebot?: [{ id, name, text, dauer }] (2 bis 3), rest?: Sprünge bis zum Verfall, laufend?: { id, name, text, rest, dauer } } nur bei Änderung (nie in den großen Snapshots),
     //   world.absicht = null ist das Löschsignal (einmal, wenn der Modus endet), der Client leert dann seinen Block wie world.ruf.
     CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
+    // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund mit Reise-Ereignissen, nach Funkmeldung, römischer Streife, Havarie-Notruf; nie bei Gefahr). cmd { c: 'funk.antworten', id, nr? } wählt eine Option des offenen Angebots (id aus world.funkwahl.optionen)
+    //   oder 'ignorieren' (schließt es für alle, ohne Folge); nr = Nummer des Angebots (ein Klick auf ein älteres Angebot gilt nicht). Jeder Spieler, keine Konsole, keine Rolle; die ERSTE Antwort gilt, jede weitere bekommt „schon beantwortet“.
+    //   Antwort an den Absender: Ereignis funkAntwort { pid, ok, code?, text? } (code: modus | kein_angebot | schon_beantwortet | unbekannt | unruhig | deckel | am_boden). Alle hören die Antwort der Crew und die Reaktion des Sprechers als Ereignis radio.
+    //   Snapshot world.funkwahl { nr, von, optionen: [{ id, text }] (2 bis 3), ignorieren, rest: Sprünge bis zum Verfall } | null (kein Angebot; null ist das Löschsignal) nur bei Änderung (nie in den großen Snapshots).
+    CMD_FUNK_ANTWORT: 'funk.antworten',
+    // SUND-03b I: Informationshandel des Konkordats am Terminal (Konsole 'shop', nur Freie Fahrt Sund, nur an Häfen des Konkordats, jeder Spieler, die Marken sind geteilt). cmd { c: 'info.kaufen', thema: 't0'|'t1'|'t2' (Id im Angebot), stufe: 'gerucht'|'beleg', art, k (Art und Kennung des Themas wie angezeigt: stimmen sie nicht mehr, hat sich das Angebot geändert und es wird nichts gekauft) }.
+    //   Antwort an den Absender: Ereignis infoAntwort { pid, op: 'kaufen', ok, stufe?, text, zuv?: 'gerucht'|'beleg', code? } (Codes: kein_weltsim, nicht_angedockt, kein_konkordat, stufe_unbekannt, kein_angebot, unbekannt, gekauft, zu_wenig_marken, fehler); bei Erfolg an alle die Funkzeile (Absender Konkordat, Gerücht „Gerücht, unbestätigt: …“, Beleg „Beleg des Konkordats: …“).
+    //   Snapshot world.info { th: [{ i: Id, a: Art, k: Kennung (5 Buchstaben), g?: 1, b?: 1 }] (2–3 Themen ohne Fakten; g/b = Stufe schon gekauft), l?: [{ s: 'g'|'b', x: Text }] (die letzten Käufe) } nur an einem Konkordat-Hafen, solange jemand am Terminal sitzt, nur bei Änderung; world.info = null ist das Löschsignal.
+    CMD_INFO: ['info.kaufen'],
     CMD_WERFT: ['werft.freischalten', 'werft.umbau', 'werft.modul', 'werft.vorschau', 'werft.ansicht', 'werft.zusehen', 'werft.start'],   // werft.start: Szene der Wellenmodi starten (nur Testumgebung, Rüstphase)   // werft.ansicht { b, a, n, i } (nur der Nutzer am Terminal), werft.zusehen { on } und werft.vorschau auch ohne Konsole   // werft.vorschau { art, platz|raum|id } -> Ereignis werftVorschau { pid, vorschau } (Werft.vorschau)
     WERFT_ARTEN: ['stufe', 'waffe', 'modul'],
     WERFT_CODES: ['nicht_angedockt', 'keine_flottenbasis', 'unbekannt', 'schon_freigeschaltet', 'nicht_freigeschaltet', 'stufe_reihenfolge', 'zu_wenig_marken', 'ruf',
@@ -295,7 +304,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht',   // SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'lage',   // SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
