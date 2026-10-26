@@ -122,6 +122,7 @@ function abkuehlSchluessel(b) {
     case 'soeldner': return 'soeldner:' + b.an;
     case 'nachschub': return 'nachschub:' + b.an + ':' + b.gut;
     case 'piratenueberfall': return 'piratenueberfall';
+    case 'sabotage': return 'sabotage';
     case 'fokus': return 'fokus';
     default: return b.typ + ':' + b.fraktion;
   }
@@ -131,7 +132,7 @@ const schluesselOk = (k) => typeof k === 'string' && k.length <= KEY_MAX;
 function trifftRom(z, b) {
   if (!b || typeof b !== 'object') return null;
   if (b.typ === 'embargo') return b.gegen === 'rom' ? { art: 'embargo' } : null;
-  const ort = b.typ === 'angreifen' ? b.ziel : b.typ === 'piratenueberfall' ? b.ort : null;
+  const ort = b.typ === 'angreifen' ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
   if (!ort || typeof ort !== 'string' || !z.hexe[ort] || z.hexe[ort].besitzer !== 'rom') return null;
   return { art: b.typ, ort, stuetzpunkt: z.hexe[ort].crew === true };
 }
@@ -141,6 +142,7 @@ function regelFehler(game, b, kennzahl) {
   const ws = game.weltsim, s = zustandVon(game);
   if (!istObjekt(b)) return 'kein Befehl';
   if (typeof b.typ !== 'string' || !Object.prototype.hasOwnProperty.call(KATALOG, b.typ)) return `unbekannter Typ "${b.typ}"`;
+  if (b.typ === 'sabotage') return 'Sprengung kommt nur aus einer Enthüllung eines Fadens, nicht aus einem Plan';   // SUND-04a-2 P3
   const abk = ganz(R.abkuehlung.wert[b.typ], 0), key = abkuehlSchluessel(b);
   if (!schluesselOk(key)) return 'Schlüssel zu lang';
   if (abk > 0 && Number.isFinite(s.letzte[key]) && ws.tickZahl - s.letzte[key] < abk) return `Abkühlzeit: ${b.typ} gilt erst wieder in ${abk - (ws.tickZahl - s.letzte[key])} Sprüngen`;
@@ -149,6 +151,30 @@ function regelFehler(game, b, kennzahl) {
     if (b.gegen !== kennzahl.sieger) return `Embargo nur gegen die siegreiche Seite (${kennzahl.sieger}), nicht gegen ${b.gegen}`;
   }
   return null;
+}
+
+// SUND-04a-2 P3: die Enthüllung eines Fadens löst die germanische Sprengung aus (Sim-Befehl sabotage). Dieselbe Prüfung wie bei einem Plan (Kern-Prüfer, Rate, Vorwarnung mit
+// Vorlauf über trifftRom/vorlaufVon, Regie-Logbuch), aber ohne Plan: nur ein Faden kann diesen Befehl vormerken. -> { ok, grund?, ab? }
+function fadenSabotage(game, ort) {
+  const ws = game.weltsim;
+  if (!ws) return { ok: false, grund: 'modus' };
+  const s = zustandVon(game), n0 = ws.tickZahl;
+  const b = { typ: 'sabotage', ort };
+  const { gueltig, verworfen } = Kern.filtereBefehle(ws.zustand, s.vorgemerkt.map((e) => e.b).concat([b]));
+  const v = verworfen.find((x) => x.befehl === b);
+  if (v) { schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: 'sabotage', plan: b, fehler: [v.grund], begruendung: 'Faden: Sprengung abgelehnt' }); return { ok: false, grund: v.grund }; }
+  if (!gueltig.includes(b)) return { ok: false, grund: 'abgelehnt' };
+  if (rateBelegt(s, n0) >= RATE.max) return { ok: false, grund: `Rate: höchstens ${RATE.max} Befehle je ${RATE.fenster} Ticks` };
+  s.rate = s.rate.filter((t) => n0 - t < RATE.fenster);
+  const w = trifftRom(ws.zustand, b);
+  const ab = n0 + 1 + (w ? vorlaufVon(w.art) : 0);
+  s.vorgemerkt.push({ b, ab, w: 1 });
+  s.letzte[abkuehlSchluessel(b)] = n0;
+  s.rate.push(n0);
+  const f = w && vorwarnText(w, ab, n0, b);
+  if (f) funkSenden(game, f);
+  schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: 'sabotage', plan: b, begruendung: 'Faden: Sprengung angekündigt, wirksam ab Tick ' + ab });
+  return { ok: true, grund: null, ab };
 }
 
 // ---------- Plan prüfen und anwenden
@@ -321,7 +347,7 @@ function entwarnText(b) {
   const key = b.typ === 'embargo' ? 'embargo' : b.typ;
   const t = (texte().entwarnung || {})[key];
   if (!t) return null;
-  const ort = b.typ === 'angreifen' ? b.ziel : b.typ === 'piratenueberfall' ? b.ort : null;
+  const ort = b.typ === 'angreifen' ? b.ziel : (b.typ === 'piratenueberfall' || b.typ === 'sabotage') ? b.ort : null;
   return { von: t.sprecher || 'Oberkommando', text: fmt(t.text, { ziel: ort ? (Sektoren.hexName(ort) || ort) : '', waren: b.typ === 'embargo' ? warenText(b.waren) : '' }) };
 }
 // Der Tick ist an den fälligen Befehlen gescheitert (Kriegslage.tickMit, im catch, NACH dem Zurückstellen der Sicherung): sie werden verworfen und nicht im nächsten Tick wiederholt, die Sim läuft ohne
@@ -459,4 +485,4 @@ function lesen(b, tickZahl) {
   return out;
 }
 
-module.exports = { R, befehleFrei, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen };
+module.exports = { R, befehleFrei, schreibe, vorwarnungenErneut, tickGescheitert, neu, toSave, lesen, planAnwenden, planPruefen, rueckfall, verwerfe, vorTick, nachTick, melde, lage, trifftRom, abkuehlSchluessel, planLesen, fadenSabotage };

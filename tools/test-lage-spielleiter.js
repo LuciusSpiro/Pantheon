@@ -69,7 +69,7 @@ section('Daten: Takt, Katalog aus den Daten abgeleitet, Felder passen zum Kern',
   ok(Array.isArray(W.grenzen) && W.grenzen.join() === 'szene_ende,andocken,absicht', 'drei Tätigkeitsgrenzen als Daten');
   ok(W.deckel_je_sitzung >= 4 && W.deckel_je_sitzung <= 6, `Deckel ${W.deckel_je_sitzung} im Ziel 4 bis 6 Aufrufe je Abend`);
   ok(Number.isInteger(W.min_abstand_ticks) && W.min_abstand_ticks >= 1 && W.timeout_s > 0 && W.min_budget > 0 && W.plan_alter_max_ticks >= 1 && W.letzte_plaene >= 1, 'Mindestabstand, Timeout, Budget, Alter, Chronik: sinnvolle Zahlen');
-  const typen = Object.keys(Kern.BEFEHLE.FELDER).sort();
+  const typen = Object.keys(Kern.BEFEHLE.FELDER).filter((t) => t !== 'sabotage').sort();   // SUND-04a-2 P3: sabotage nur aus Fäden, nicht im Katalog des Spielleiters
   ok(gleich(Object.keys(KATALOG_DATEI).sort(), typen), 'der Katalog beschreibt genau die Befehlstypen des Kerns (' + typen.length + ')');
   for (const typ of typen) {
     const soll = Kern.BEFEHLE.FELDER[typ].filter((f) => f !== 'typ').sort();

@@ -612,7 +612,7 @@ function tick(zustand, { wirkungen = [], absichten, befehle, messung } = {}) {
 }
 
 // Gezielte Befehle (SUND-03 A): Helfer des Kerns an befehle.js geben (nach den Funktionen, vor dem ersten Tick).
-Befehle.installiere({ melde, mz, rund, dd, istHafen, istStuetzknoten, feindlich, feindAm, verteidigung, neuerAngriff, stuetzpunktWaehlen, staerkeKlasse, summeStaerke, FRAKTIONEN });
+Befehle.installiere({ melde, mz, rund, dd, istHafen, istStuetzknoten, feindlich, feindAm, verteidigung, neuerAngriff, stuetzpunktWaehlen, staerkeKlasse, summeStaerke, FRAKTIONEN, postenVerlieren });
 
 // Wirkungen der Crew (SUND-02): Katalog, Prüfer und Anwender in wirkungen.js, trägt sich in WIRKUNGEN ein.
 const Wirkungen = require('./wirkungen.js');

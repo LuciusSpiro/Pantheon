@@ -75,7 +75,7 @@ const embargoAktiv = (z, f) => !!(z.embargo && z.embargo[f] && z.tick < z.embarg
 // erlaubte Felder je Typ (Fremdfelder lehnt der Prüfer ab: ein Tippfehler im Plan darf nie still etwas anderes bedeuten)
 const FELDER = {
   angreifen: ['typ', 'fraktion', 'ziel', 'flotten', 'flotte', 'von'], beanspruchen: ['typ', 'fraktion', 'sektor'], verstaerken: ['typ', 'fraktion', 'flotte', 'hafen'], rueckzug: ['typ', 'fraktion', 'flotte'],
-  nachschub: ['typ', 'an', 'gut', 'menge', 'hafen'], embargo: ['typ', 'von', 'gegen', 'waren', 'dauer'], soeldner: ['typ', 'von', 'an', 'flotten', 'dauer'], piratenueberfall: ['typ', 'ort'],
+  nachschub: ['typ', 'an', 'gut', 'menge', 'hafen'], embargo: ['typ', 'von', 'gegen', 'waren', 'dauer'], soeldner: ['typ', 'von', 'an', 'flotten', 'dauer'], piratenueberfall: ['typ', 'ort'], sabotage: ['typ', 'ort'],
   fokus: ['typ', 'fraktion', 'hex', 'radius', 'dauer'], regler: ['typ', 'fraktion', 'p_act', 'aggr', 'max_active', 'dauer'],
 };
 function felderFehler(b) {
@@ -302,6 +302,22 @@ const KATALOG = {
         summe += fl.staerke;
       }
       H.melde(c, 'soeldner_vermietet', 'kon', { an: b.an, flotten: b.flotten.length, staerke: H.rund(summe), dauer: b.dauer });
+    },
+  },
+
+  // SUND-04a-2 P3: germanische Sprengung eines römischen POSTENS (Station), nur aus einer Enthüllung eines Fadens (regie-befehle fadenSabotage, nie aus einem Plan des Spielleiters).
+  // Ein Hafen ist keine Sprengziel (Abwehr-Verlust eines Hafens ist eine Wirkung im Gefecht, nicht dieser Befehl).
+  sabotage: {
+    pruefe(c, b) {
+      const { z } = c;
+      if (!istHex(z, b.ort)) return 'unbekannter Ort';
+      if (H.istHafen(c, b.ort)) return 'Sprengung trifft nur einen Posten, nicht einen Hafen';
+      if (!z.hexe[b.ort].posten) return 'Ort hat keinen Posten';
+      if (z.hexe[b.ort].besitzer !== 'rom') return 'Posten gehört nicht Rom';
+      return null;
+    },
+    anwenden(c, b) {
+      H.postenVerlieren(c, b.ort, 'rom', 'ger');
     },
   },
 
