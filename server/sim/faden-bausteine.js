@@ -44,4 +44,5 @@ const vonId = (id) => (Object.prototype.hasOwnProperty.call(bausteine, id) ? bau
 const idVon = (typ) => (Object.prototype.hasOwnProperty.call(D.BEATS, typ) ? D.BEATS[typ].baustein : null);
 const istPlatzhalter = (id) => !!(vonId(id) && vonId(id)[PLATZHALTER]);
 
+registriere('bitte', require('./faden-bitte.js').baustein);   // SUND-04a-2 P2: der erste echte Baustein (Bitten)
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

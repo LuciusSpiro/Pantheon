@@ -1,4 +1,5 @@
 'use strict';
+require('../server/sim/faden-bausteine.js').registriere('bitte', require('../server/sim/faden-bausteine.js').platzhalter('bitte'));   // SUND-04a-2 P2: diese 04a-1-Pruefung laeuft mit dem Platzhalter fuer bitte (der echte Baustein hat eigene Tests: test-faden-bitte.js)
 // SUND-04a-1 B: Zustand und Ablauf der Geschichtsfaeden (server/sim/faden.js) im laufenden Spiel (Freie Fahrt Sund, FAEDEN=1). Prueft: Schalter und Hooks (echte Hooks game.lageGrenze und Reise-Notruf) ·
 // Zaehler (nie ueber die Chronik) · Abstand 2 bis 4 ueber viele Taetigkeiten · Obergrenze 3 · Beats und Ausgaenge (Scheitern veraendert, beendet nicht; Frist; Option; Baustein wirft) · jede Befehlsregel
 // einzeln · NSC aus Datenlisten, Gedaechtnis 12 · Haltung (Wirkung, Tick) · Weltstand (Runde, Altstand, Muell, Obergrenzen) · Ausfall des Spielleiters.

@@ -1126,7 +1126,8 @@
     if (Net.guard('Client.eventB', () => onEventB(ev), false)) return;
     switch (ev.kind) {
       case 'oda': H.pushOda(ev.text); break;
-      case 'funkAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;   // SUND-03b A: Weigerung des Servers (schon beantwortet, kein Angebot mehr, nicht ruhig)
+      case 'funkAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;
+      case 'fadenBitteAntwort': if (!ev.ok && ev.pid === Client.pid) { H.pushNotice(ev.text, PAL.warn); audio.play('error'); } break;   // SUND-04a-2 P2: Weigerung der Bitte eines Fadens (wie funkAntwort)   // SUND-03b A: Weigerung des Servers (schon beantwortet, kein Angebot mehr, nicht ruhig)
       case 'odaWeg': H.odaWeg(); break;
       case 'verfolgungAusgang': case 'verfolgungSprungStart': break;   // SUND-04a-1 A (Review D-M2): der Text kommt als Funkzeile (radio, server/sim/verfolgung.js), hier keine zweite Meldung   // SUND-04a-1 A (Review D-M2): Ausgang und Sprungstart der Verfolgung an alle Stationen (Text aus den Daten)   // Fixrunde: Szenenende räumt die Szenen-ODA (Ortung, Erste Welle) weg
       case 'radio': H.onRadio(ev.from, ev.text, ev.pid, ev.lage, ev.kz, !!(ev.sz && !ev.r)); if (ev.lage && window.KarteLage) window.KarteLage.funkMerken(ev); audio.play('radio'); break;   // SUND-01 C: lage = Lagefunk (Freie Fahrt Sund)   // EK4: pid = Porträt (legat) bzw. Symbol (mars)

@@ -1,0 +1,76 @@
+{
+  "format": "faden-bitte-werte/1",
+  "_hinweis": "SUND-04a-2 P2: Zahlen, Texte und Weigerungen der Bitten der Geschichtsfaeden (server/sim/faden-bitte.js). Eine Bitte ist das Angebot eines Beats der Art `bitte` (beats.json): der NSC bittet die Crew, die Optionen mit ihren Folgen stehen in der Vorlage (Datei), nie beim Modell. Alle Zahlen und Texte stehen hier, keine im Code. Platzhalter im Text: {name} (NSC) und {ort} (Name des Sektors bzw. Hex-Code).",
+  "werte": {
+    "fenster_taetigkeiten": {
+      "wert": 100,
+      "einheit": "Taetigkeiten",
+      "_hinweis": "Fenster des Bitten-Deckels: gezaehlt wird faden.t (eigener Zaehler, nie die Chronik). Eigener Deckel, getrennt vom Rom-Ruf-Deckel der Funk-Antworten und vom Reise-Ruf-Deckel."
+    },
+    "ruf_deckel": {
+      "wert": 0.25,
+      "einheit": "Ruf-Betrag je Fenster",
+      "_hinweis": "Summe der Betraege der Ruf-Folgen angenommener Bitten je fenster_taetigkeiten. Obergrenze fuer das Ruf-Tempo (Messung in SUND-04a-2 P2, Bericht): die Rom-Rate steigt um ruf_deckel mal Taetigkeiten je Sprung geteilt durch 100; der Tribun-Median (Basis 586 Spruenge, sim-ruf) kommt damit hoechstens 3 % frueher, solange hoechstens eine Taetigkeit je Sprung anfaellt (rechnerisch 2,9 %). Passive Crew: 0 Taetigkeiten je Sprung, kein Effekt. Haltungs-Folgen zaehlen nicht. Entfaellt eine Option, bleiben weniger als zwei, gibt es kein Angebot (keine Scheinwahl)."
+    },
+    "frist_taetigkeiten": {
+      "wert": 4,
+      "einheit": "Taetigkeiten",
+      "_hinweis": "So lange bleibt ein Angebot offen (Verfall in Taetigkeiten, nie in Spruengen). Danach gilt der Beat als gescheitert (Ausgang gescheitert der Vorlage). Muss kleiner sein als werte.beat_frist des Fadenkerns (6), sonst entscheidet die Frist des Beats."
+    },
+    "gleichzeitig_max": {
+      "wert": 1,
+      "einheit": "Angebote",
+      "_hinweis": "Hoechstens eine offene Bitte gleichzeitig (Crew, nicht Spieler). Ein Funk-Antwort-Angebot schliesst eine neue Bitte aus, eine offene Bitte schliesst ein neues Funk-Angebot aus."
+    },
+    "text_max": {
+      "wert": 90,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge des Bittentextes (nach dem Einsetzen der Platzhalter) und einer Optionsbeschriftung."
+    },
+    "optionen": {
+      "wert": {
+        "min": 2,
+        "max": 3
+      },
+      "einheit": "Optionen",
+      "_hinweis": "Anzahl der Optionen einer Bitte (wie im Fadenkern, werte.optionen)."
+    },
+    "spaeter_text": {
+      "wert": "Später",
+      "einheit": "Text",
+      "_hinweis": "Beschriftung der Leiste fuer das Zuklappen (nur fuer diesen Spieler, kostet nichts, das Angebot bleibt bis zum Verfall)."
+    },
+    "kopf": {
+      "wert": "BITTE",
+      "einheit": "Text",
+      "_hinweis": "Kopfzeile der Bitte in der Antwortleiste: BITTE · <Name>."
+    },
+    "antwort_von": {
+      "wert": "Lerche",
+      "einheit": "Text",
+      "_hinweis": "Name auf der Funkplakette, wenn die Crew antwortet (das Schiff, nie ein Spielername)."
+    },
+    "texte": {
+      "wert": {
+        "bitte_mission": "{name}: Wir brauchen Hilfe bei {ort}. Könnt ihr uns decken?",
+        "hilfe_rom": "{name}: Wir brauchen Hilfe bei {ort}. Ihr seid die Einzigen in der Nähe.",
+        "hilfe_kon": "{name}: Saum-Kundschaft bei {ort} braucht eine Begleitung. Wollt ihr?"
+      },
+      "einheit": "Texte (text_key)",
+      "_hinweis": "Bittentexte, Schluessel = text_key des Beats (Vorlage, parameter.text_key). Ein fehlender Schluessel ist ein Fehler: die Bitte wird nicht angeboten."
+    },
+    "weigerung": {
+      "wert": {
+        "modus": "Das gibt es nur mit den Fäden.",
+        "kein_angebot": "Es gibt nichts zu beantworten.",
+        "schon_beantwortet": "Schon beantwortet.",
+        "unbekannt": "Diese Antwort gibt es nicht.",
+        "unruhig": "Jetzt nicht, erst die Lage beruhigen.",
+        "deckel": "Die Bitte ist zurückgezogen.",
+        "am_boden": "Wer am Boden liegt, kann nicht funken."
+      },
+      "einheit": "Text",
+      "_hinweis": "Texte der Weigerungen von faden.bitte (Code -> Text)."
+    }
+  }
+}

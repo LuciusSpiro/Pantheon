@@ -115,6 +115,7 @@ function anbieten(game, ev) {
   const e = ev && RE.eintrag(ev.id);
   if (!e || e.gefahr || !optionen(e).length) return null;   // bei Gefahr nie Optionen
   if (!RE.aktiv(game) || !ruhig(game)) return null;
+  if (game.weltsim.faeden && game.weltsim.faeden.bitte) return null;   // SUND-04a-2 P2: eine offene Bitte der Faeden hat die Leiste (hoechstens eine Antwortleiste)
   const F = zustandVon(game), R = game.weltsim.reise;
   const erlaubt = optionen(e).slice(0, OPT_MAX).filter((o) => folgeBuchbar(game, F, o.folge));   // Optionen, deren Rom-Gewinn die Deckel nicht mehr zuließen, entfallen
   if (erlaubt.length < 2) return null;
