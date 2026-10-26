@@ -3801,6 +3801,19 @@
       const e = rayToRect(BT, cx, cy, ang, 12);
       if (front && e.y > BT.y + BT.h - 54) { e.x = s.x < cx ? BT.x + 16 : BT.x + BT.w - 16; e.y = BT.y + BT.h - 60; }
       if (ringe.some((r) => Math.hypot(r.x - e.x, r.y - e.y) < 20)) e.x += e.x < cx ? 16 : -16;   // N2: steht dort schon ein Ring, rückt der Gegnerpfeil 16 px zur Bildmitte
+      // Fix3 (Mangel 1): die Pfeilgrafik meidet Sperrbereiche (Zoom-Anzeige, Leisten) wie Labels; sie rutscht am Rand entlang, bis sie frei ist
+      const sperrFrei = (p) => !(cfg.sperren || []).some((q) => p.x + 8 > q.x && p.x - 8 < q.x + q.w && p.y + 7 > q.y && p.y - 7 < q.y + q.h);
+      if (!sperrFrei(e)) {
+        let frei = null;
+        for (let k = 1; k <= 40 && !frei; k++) {
+          for (const [dx, dy] of [[k * 6, 0], [-k * 6, 0], [0, k * 6], [0, -k * 6]]) {
+            const p = { x: e.x + dx, y: e.y + dy };
+            if (p.x < BT.x + 12 || p.x > BT.x + BT.w - 12 || p.y < BT.y + 12 || p.y > BT.y + BT.h - 12) continue;
+            if (sperrFrei(p)) { frei = p; break; }
+          }
+        }
+        if (frei) { e.x = frei.x; e.y = frei.y; }
+      }
       arrows.push({ e, ang, col, label: label ? String(label) : '' });
       return e;
     };
