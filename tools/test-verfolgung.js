@@ -414,6 +414,38 @@ section('Systemziel hängt am Ziel: mit dem Zielschiff geht auch das Systemziel 
   ok(g.ship.target == null && g.ship.zielsystem === undefined, 'Zielschiff zerstört: Ziel und Systemziel sind weg');
 });
 
+section('Systemziel geht mit dem Zielschiff auch beim Sprung und bei der Wiederholung (Review A-K3, Testlücke)', () => {
+  const T = raum(); const g = T.g; g.god = true; platz(g, 600, 1100, 0);
+  Verfolgung.starten(g, { klasse: 'korvette', wiederholung: true });
+  const e = zielVon(g); e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
+  ok(g.ship.target === e.id && g.ship.zielsystem === 'antrieb', 'Vorbedingung: Ziel und Systemziel Antrieb gesetzt');
+  sprungStart(T); T.run(V.sprung.wert.dauer + 1);
+  ok(Verfolgung.ausgang(g) === 'entkommen' && !zielVon(g), 'Sprung: entkommen, das Zielschiff ist weg');
+  ok(g.ship.target == null && g.ship.zielsystem === undefined, 'Sprung: Ziel und Systemziel sind weg');
+  T.run(V.wiederholung.wert.neuNach + 0.5);
+  const e2 = zielVon(g);
+  ok(e2 && e2.id !== e.id && g.space.verfolgung.versuch === 2, 'Wiederholung: ein neues Zielschiff (Versuch 2)');
+  ok(g.ship.target == null && g.ship.zielsystem === undefined, 'Wiederholung: das neue Zielschiff ist nicht gewählt, kein Systemziel übernommen');
+});
+
+section('Datenwerte wirken: Halt am Ziel und Randabstand des Starts (Review A-K4, Testlücke)', () => {
+  const pilot = require('../server/sim/pilot.js');
+  const Flight = require('../shared/flight.js');
+  const T = raum(); const g = T.g;
+  const H = V.flucht.wert.haltAbstand;
+  // Entscheidung des Pilot-Modells (pilot.update): innerhalb haltAbstand die Stopp-Stufe der Klasse, darüber Fahrt
+  const stufeBei = (x) => { g.space.enemies = []; const e = space.spawnEnemy(g, 'korvette', { x, y: 1100, facing: 0, tag: 'halt' }); e.fluchtZiel = { x: 1400, y: 1100 }; return pilot.update(g, e, DT).stage; };
+  const stopp = Flight.stopStage(CONFIG.shipClasses.korvette);
+  ok(stufeBei(1400 - H / 2) === stopp, `innerhalb haltAbstand (${H} px vom Ziel): Stopp-Stufe der Klasse`);
+  ok(stufeBei(1400 - H - 40) > stopp, `außerhalb haltAbstand (${H + 40} px vom Ziel): fährt weiter`);
+  // Start am Szenenrand: das Zielschiff unterschreitet randAbstand nicht (Lerche östlich, Fluchtpunkt weiter östlich)
+  const R = V.ziel.wert.randAbstand;
+  const Q = raum(); platz(Q.g, 2700, 1100, 0);
+  Verfolgung.starten(Q.g, { klasse: 'korvette', fluchtpunkt: { x: 2900, y: 1100 }, wiederholung: false });
+  const q = zielVon(Q.g);
+  ok(q.x <= Q.g.space.w - R + 0.5 && Math.abs(q.x - (Q.g.space.w - R)) < 1, `Start am Szenenrand: das Zielschiff bleibt ${R} px vor dem Rand (x ${Math.round(q.x)} bei Breite ${Q.g.space.w})`);
+});
+
 section('Tempo-Grenzen und Haltewerte kommen aus den Daten (Review A-K4)', () => {
   const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
   const k = Verfolgung.starten(g, { klasse: 'korvette', tempo: 5 });

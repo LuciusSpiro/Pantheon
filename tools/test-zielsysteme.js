@@ -244,6 +244,22 @@ function fahrtMessung(kind, modus) {
     return r;
   } finally { if (alt) CONFIG.spaceM3b.flightV2 = alt; }
 }
+section('Gestellt (halte): ein beschädigtes Schiff nimmt keinen Schaden mehr an und erholt sich nie', () => {
+  const T = setup(); const g = T.g;
+  const S = DATEN.systeme.wert.antrieb.stufen;
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
+  g.god = true; platz(g, 300, 300, 0);
+  treffer(g, e, HECK, 3);
+  ok(Zs.stufe(e, 'antrieb') === 1, 'beschädigt (Stufe 1)');
+  Zs.halte(e, 'antrieb');
+  T.run(DATEN.treffer.wert.sperre_s + 0.1);
+  treffer(g, e, HECK, 3);
+  ok(Zs.stufe(e, 'antrieb') === 1, 'gestellt: ein weiterer Treffer schädigt nicht mehr (Stufe bleibt 1)');
+  const lang = S[1].erholung_s + S[2].erholung_s + 5;
+  T.run(lang);
+  ok(Zs.stufe(e, 'antrieb') === 1 && !Zs.ausgefallen(e, 'antrieb'), `gestellt: auch nach ${lang} s unverändert beschädigt (keine Erholung)`);
+});
+
 section('Wirkung auf die Fahrt: Pilot-Modell (Messung)', () => {
   const r = fahrtMessung('korvette', 'pilot');
   info(`Korvette (Pilot-Modell): voll ${r.voll.toFixed(1)} px/s, beschädigt ${r.beschaedigt.toFixed(1)}, ausgefallen ${r.aus.toFixed(1)}`);
