@@ -1023,7 +1023,7 @@
       const w = dbg ? 232 : 440, x = dbg ? 404 : Math.round(VW / 2 - w / 2), h = this.szeneVon(view) ? 9 : 11;   // S-2: mit Szenenzeile (beginnt bei y 9) 9 hoch, sonst deckte die Zeile deren Oberkante
       const T = (window.KarteTokens && KarteTokens.PULT) || {};
       const mehr = f.mehr > 0 ? ' +' + f.mehr : '';
-      const txt = this.fit(this.lagefunkZeilenText(f), w - 12 - R.measure(mehr, 1), 1) + mehr;
+      const txt = this.fitWort(this.lagefunkZeilenText(f), w - 12 - R.measure(mehr, 1), 1) + mehr;
       ctx.fillStyle = T.tisch || '#0B0E1A'; ctx.fillRect(x, 0, w, h);
       ctx.fillStyle = T.messing || PAL.brass; ctx.fillRect(x, h - 1, w, 1);
       ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, 0, 3, h);
@@ -1366,6 +1366,17 @@
       if (R.measure(str, scale || 1) <= w) return str;
       while (str.length > 1 && R.measure(str + '…', scale || 1) > w) str = str.slice(0, -1);
       return str + '…';
+    },
+    // SUND-04a-1 Fix4 (Prüfbefund 3a): Kürzung am WORTENDE, mit Messung der Pixelbreite. fit() schneidet mitten im Wort („… – d…“);
+    // nur ein einzelnes Wort, das allein zu breit ist, wird zeichenweise gekürzt.
+    fitWort(str, w, scale) {
+      const s = scale || 1;
+      str = String(str == null ? '' : str);
+      if (R.measure(str, s) <= w) return str;
+      const teile = str.split(' ');
+      while (teile.length > 1 && R.measure(teile.join(' ') + ' …', s) > w) teile.pop();
+      if (teile.length <= 1) return this.fit(str, w, s);
+      return teile.join(' ') + ' …';
     },
     // ⚠-Zeichen (die Pixelschrift kennt kein ⚠): gelbes Dreieck mit Ausrufezeichen
     warnIcon(ctx, x, y) {

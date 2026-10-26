@@ -1034,7 +1034,9 @@
           if (y > a.y + a.h - 20) break;
           const tg = e.tgt != null ? this.escortList(view).find(q => q.id === e.tgt) : null;
           R.text(ctx, (R.ENEMY_NAMES[e.kind] || e.kind) + (tg ? ' → ' + R.escortName(tg) : ''), rx, y, { color: tg ? '#FF5A4A' : PAL.amber }); y += 10;
-          R.text(ctx, this.shieldText(e), rx + 4, y, { color: PAL.ice }); y += 11;
+          // SUND-04a-1 Fix4 (Prüfbefund 3b): die Schildzeile bricht am Spaltenrand um (gemessen), statt rechts abgeschnitten zu werden
+          for (const l of R.wrap(this.shieldText(e), rw - 4, 1)) { R.text(ctx, l, rx + 4, y, { color: PAL.ice }); y += 10; }
+          y += 1;
           // SUND-04a-1 A (Review D-S8): beschädigter oder ausgefallener Antrieb des Ziels; Farblogik wie im Ops-Scan (ausgefallen Bernstein-Chip, beschädigt Bernstein-Text)
           const zz = e.az && window.Zielsysteme ? window.Zielsysteme.zustand(e, 'antrieb') : null;
           if (zz && zz.schaden && y <= a.y + a.h - 10) {

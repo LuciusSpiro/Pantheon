@@ -38,5 +38,11 @@ console.log('');
 console.log('[Captain und Ops-Karte (Review D-S4, D-S8)]');
 ok(/'Antrieb aus'/.test(kons) && /'Antrieb beschädigt'/.test(kons) && /zustand\(e, 'antrieb'\)/.test(kons), 'Captain-Liste GESCANNTE ZIELE: Zeile Antrieb je beschädigtem oder ausgefallenem Ziel (D-S8)');
 ok(/zoomY - 1/.test(kons) && /rect\.x \+ rect\.w - 66/.test(kons), 'Ops-Karte: Zoom-Anzeige ist ein Hindernis für die Kartenlabels, Randpfeile weichen aus (D-S4)');
+console.log('\n[Layout (SUND-04a-1 Fix4, Prüfbefund 3)]');
+const hud = read('public/js/hud.js');
+ok(/    fitWort\(str, w, scale\) \{/.test(hud) && /this\.fitWort\(this\.lagefunkZeilenText\(f\)/.test(hud), 'Funk-Zeile oben: Kürzung am Wortende (fitWort), nicht mitten im Wort');
+ok(/R\.wrap\(this\.shieldText\(e\), rw - 4, 1\)/.test(kons), 'Captain GESCANNTE ZIELE: Schildzeile bricht am Spaltenrand um (gemessen, nicht abgeschnitten)');
+ok(/a\.label !== 'FLUCHTPUNKT'\) continue;[\s\S]{0,300}Math\.hypot\(q\.e\.x - a\.e\.x, q\.e\.y - a\.e\.y\)[\s\S]{0,600}s \* 22 \* tx/.test(render), 'Ops-Karte: Fluchtpunkt-Pfeil rückt bei gleicher Randrichtung entlang des Randes aus');
+
 console.log(`\ntest-zielsysteme-ui: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

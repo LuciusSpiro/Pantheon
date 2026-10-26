@@ -3818,6 +3818,21 @@
       return e;
     };
     const flushArrows = () => {
+      // SUND-04a-1 Fix4 (Prüfbefund 3c): liegen Ziel und Fluchtpunkt in derselben Randrichtung (der Fluchtpunkt liegt auf der Linie
+      // Lerche–Ziel), rückt der Fluchtpunkt-Pfeil entlang des Randes aus. Sonst liegen zwei Pfeile übereinander und der Pfeil
+      // überdeckt das Label „ANTR AUS“. Die Labels bleiben gestapelt (Review D-S4: kein gemeinsamer Pfeil).
+      for (const a of arrows) {
+        if (a.label !== 'FLUCHTPUNKT') continue;
+        const nah = arrows.some((q) => q !== a && q.label !== 'FLUCHTPUNKT' && Math.hypot(q.e.x - a.e.x, q.e.y - a.e.y) < 24);
+        if (!nah) continue;
+        const tx = -Math.sin(a.ang), ty = Math.cos(a.ang);
+        for (const s of [1, -1]) {
+          const p = { x: a.e.x + s * 22 * tx, y: a.e.y + s * 22 * ty };
+          if (p.x < BT.x + 8 || p.x > BT.x + BT.w - 8 || p.y < BT.y + 8 || p.y > BT.y + BT.h - 8) continue;
+          a.e = Object.assign({}, a.e, p);
+          break;
+        }
+      }
       const groups = [];
       for (const a of arrows) {
         // Review D-S4: der Fluchtpunkt-Pfeil teilt sich keinen Pfeil mit dem Zielschiff (sonst verschmelzen beide Labels)
