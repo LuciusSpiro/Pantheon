@@ -620,14 +620,15 @@ Wirkungen.installiere(WIRKUNGEN, { melde, erobern, postenVerlieren, meldeAbgeweh
 
 // Probelauf für den Spielaufsatz: prüft die Wirkungen der Reihe nach gegen eine Kopie des Zustands und wendet jede gültige dort an, so dass spätere
 // Wirkungen den Stand der früheren sehen (z. B. zweimal ort_gefallen für denselben Ort). Der Zustand selbst bleibt unberührt.
+// kontext (optional): Wissen des Spielaufsatzes für Prüfer, die es brauchen (SUND-04a-3: { finale }); ohne ändert sich nichts.
 // -> { gueltig: [wirkung], verworfen: [{ wirkung, grund }] }
-function filtereWirkungen(zustand, wirkungen) {
+function filtereWirkungen(zustand, wirkungen, kontext) {
   const gueltig = [], verworfen = [];
   const rest = Object.fromEntries(Object.entries(zustand).filter(([k]) => k !== 'werte' && k !== 'karte'));
   const probe = Object.assign(JSON.parse(JSON.stringify(rest)), { werte: zustand.werte, karte: zustand.karte });
   const c = { z: probe, d: Daten.datenVon(probe), w: probe.werte, ev: [], mess: null };
   for (const wk of wirkungen) {
-    const p = Wirkungen.pruefe(probe, wk);
+    const p = Wirkungen.pruefe(probe, wk, kontext);
     if (!p.ok) { verworfen.push({ wirkung: wk, grund: p.grund }); continue; }
     try { WIRKUNGEN[wk.typ](c, wk); gueltig.push(wk); } catch (e) { verworfen.push({ wirkung: wk, grund: 'Anwendung wirft: ' + e.message }); }
   }

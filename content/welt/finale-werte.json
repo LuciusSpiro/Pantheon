@@ -1,0 +1,42 @@
+{
+  "format": "finale/1",
+  "_hinweis": "SUND-04a-3 Finale-Kern (server/sim/finale.js): Angebot „Entscheidungsschlacht um Hrafnheim“ ab dem Rang Tribun, zweistufige Bestaetigung, Ablauf Orbit -> Boden -> Sieg. Alle Zahlen und Texte stehen hier, keine im Code. Das Finale ist nicht speicherbar (Abbruch oder Laden = Neubeginn), es gilt fuer die Crew, nicht fuer einen Spieler. Ablehnen und Ignorieren kosten nichts (kein Ruf, keine Sperre jenseits der Pause), nichts blockiert.",
+  "werte": {
+    "mindestrang": {"wert": "tribun", "einheit": "Rang-Id (ruf-werte.json, raenge)", "_hinweis": "Ab diesem Rang von Rom (Ruf.rufErreicht) kommt das Angebot. Davor gibt es keinen Block und kein Angebot."},
+    "ziel": {"wert": {"hex": "1004", "name": "Hrafnheim", "an": "rom"}, "einheit": "Hex der Hauptwelt der Germanen, Fraktion, die sie erobert", "_hinweis": "Die Eroberung gilt der Crew als Offizier Roms (Wirkung hauptwelt_erobert { ort: hex, an })."},
+    "bestaetigung": {"wert": {"fenster": 20}, "einheit": "Sekunden (game.time)", "_hinweis": "Zweistufig wie der Verrat: erst die Anfrage, dann die Bestaetigung innerhalb des Fensters. Wer nicht bestaetigt, verpasst nichts: die Anfrage verfaellt ohne Folgen."},
+    "abstand_nach_ablehnen": {"wert": 12, "einheit": "Ticks (Spruenge)", "_hinweis": "Pause, bis nach einem Ablehnen wieder ein Angebot kommt."},
+    "abstand_nach_scheitern": {"wert": 0, "einheit": "Ticks (Spruenge)", "_hinweis": "Pause nach Niederlage, Flucht oder gefallener Crew im Finale; bei 0 steht das Angebot sofort wieder."}
+  },
+  "texte": {
+    "sprecher": "Oberkommando",
+    "funk": {
+      "angebot": "Das Oberkommando bietet Euch die Entscheidungsschlacht um Hrafnheim an: Das germanische Flaggschiff und die Verteidigung der Hauptwelt, ein harter Kampf. Ihr müsst nicht, und wer ablehnt, verliert nichts.",
+      "anfrage": "Entscheidungsschlacht um Hrafnheim: Das wird gefährlich. Bestätigt innerhalb von {sek} Sekunden, wenn die Crew bereit ist. Sonst bleibt alles, wie es ist.",
+      "angefragt_verfallen": "Die Anfrage zur Entscheidungsschlacht ist verfallen. Das Angebot steht weiter.",
+      "start": "Die Entscheidungsschlacht um Hrafnheim beginnt. Zuerst die Flotte im Orbit.",
+      "orbit_sieg": "Der Orbit über Hrafnheim ist frei. Jetzt der Boden und der Schrein von Asgard.",
+      "orbit_niederlage": "Die Flotte im Orbit hat uns geschlagen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
+      "orbit_flucht": "Der Rückzug aus dem Orbit von Hrafnheim ist gelungen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
+      "boden_nicht": "Die Landung auf Hrafnheim ist nicht möglich. Das Finale beginnt von vorn.",
+      "crew_gefallen": "Die Crew ist auf Hrafnheim gefallen und hat sich zurückgezogen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
+      "sieg": "Hrafnheim ist gefallen. Die Hauptwelt der Germanen gehört Rom."
+    },
+    "anzeige": {
+      "name": "Entscheidungsschlacht um Hrafnheim",
+      "text": "Das germanische Flaggschiff im Orbit, danach der Schrein von Asgard am Boden. Fällt die Crew oder flieht sie, beginnt das Finale von vorn. Ablehnen kostet nichts.",
+      "gesperrt": "Ab dem Rang Tribun"
+    },
+    "weigerung": {
+      "modus": "Das gibt es nur in der Freien Fahrt.",
+      "rang": "Die Entscheidungsschlacht gibt es erst ab dem Rang {rang}.",
+      "laeuft": "Die Entscheidungsschlacht läuft schon.",
+      "beendet": "Die Entscheidungsschlacht ist geschlagen.",
+      "szene": "Mitten in einem Gefecht geht das nicht. Erst die Lage beruhigen.",
+      "kein_angebot": "Es liegt kein Angebot vor.",
+      "schon_angefragt": "Die Anfrage läuft schon: noch {sek} Sekunden zum Bestätigen.",
+      "keine_anfrage": "Keine offene Anfrage, oder die Frist ist abgelaufen. Erst anfragen.",
+      "start": "Der Orbit von Hrafnheim lässt sich nicht aufbauen. Es bleibt alles, wie es war."
+    }
+  }
+}

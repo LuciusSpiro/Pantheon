@@ -40,6 +40,7 @@ const Regie = require('./regie-befehle.js');   // SUND-03 A: Befehle des Lage-Sp
 const Chronik = require('./chronik.js');   // SUND-03 D: Chronik der Tätigkeiten und Entscheidungen (welt.sim.chronik)
 const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse (welt.sim.reise: Sprungzähler, Wiederholungsdaten)
 const Faden = require('./faden.js');   // SUND-04a-1 B: Geschichtsfäden (welt.sim.faeden, nur mit Schalter FAEDEN=1)
+const Finale = require('./finale.js');   // SUND-04a-3: Finale-Kern (Zustand ws.finale, nicht gespeichert)
 const Absicht = require('./absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (welt.sim.absicht, zustand.absichten.rom)
 const Wissen = require('./kriegslage-wissen.js');   // SUND-01 C: Wissensmodell von Rom (Anzeigeblock world.lage, Funk)
 const Sektoren = require('../../shared/sektoren.js');
@@ -141,7 +142,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   let ev, gueltig = [], verworfen = [], kommandanten = [], rang = null, gehalten = [], absichtFunk = [], faellig = [], regieAus = null;
   try {
     if (alle.length) {
-      ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
+      ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle, { finale: Finale.phase(game) }));   // SUND-04a-3: hauptwelt_erobert gilt nur im laufenden Finale
       if (Faden.aktiv(game) && gueltig.some((w) => w && w.typ === 'haltung_aenderung')) { const s = Faden.haltungSortieren(game, gueltig); gueltig = s.gueltig; verworfen = verworfen.concat(s.verworfen); }   // SUND-04a-1 B (B-S2): Haltung eines unbekannten NSC ist verworfen, nicht angewandt
       kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen' && w.kommandant).map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }))
         .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
@@ -179,6 +180,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   if (rang) { try { Ruf.meldeRang(game, rang.vorher, rang.nachher); } catch (e) { if (game.countError) game.countError('kriegslage-ruf', e); } }   // Rangwechsel-Funk nach dem Commit; wie der Wissens-Funk des Ticks steht er VOR der Szenenmeldung
   if (regieAus) { try { Regie.melde(game, regieAus); } catch (e) { if (game.countError) game.countError('kriegslage-regie', e); } }   // SUND-03 A: Funk und Logbuch nach dem Commit
   if (absichtFunk.length) { try { Absicht.melde(game, absichtFunk); } catch (e) { if (game.countError) game.countError('kriegslage-absicht', e); } }   // SUND-02b D: Funk nach dem Commit
+  try { Finale.nachTick(game); } catch (e) { if (game.countError) game.countError('kriegslage-finale', e); }   // SUND-04a-3: Angebot der Entscheidungsschlacht (nach dem Commit, kein Sim-Zustand)
   if (gehalten.length) { try { Posten.meldeGehalten(game, gehalten); } catch (e) { if (game.countError) game.countError('kriegslage-posten', e); } }
   try { Chronik.ausTick(game, ev, gueltig, crewPostenVorher); } catch (e) { if (game.countError) game.countError('kriegslage-chronik', e); }   // SUND-03 D: Posten der Crew und Wendepunkte, nach dem Commit
   for (const e of ev) { ws.ereignisse.push(Object.assign({ n: ws.tickZahl }, e)); }

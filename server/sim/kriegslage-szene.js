@@ -651,4 +651,8 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-module.exports = { SZENEN_TAG, funk, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
+// SUND-04a-3 STUB (Paket Finale-Orbit baut die echte Funktion): baut die Orbit-Szene des Finales im Hex { hex } und -> Szene | null. Der Stub baut nichts und liefert null:
+// finale.starten() scheitert dann sauber (Finale startet nicht). Tests ersetzen ihn über Finale.ersetzen('szene', { finaleStarten }).
+function finaleStarten(game, { hex } = {}) { return null; }   // eslint-disable-line no-unused-vars
+
+module.exports = { SZENEN_TAG, funk, finaleStarten, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
