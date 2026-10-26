@@ -110,6 +110,14 @@ section('Raumschlacht: Szenenwechsel (Sprung) räumt ab und scheitert', () => {
   ok(f.phase === 'wartet' && f.nsc.status === 'geflohen', 'Szenenwechsel = gescheitert: der NSC ist geflohen, der Faden lebt weiter');
 });
 
+section('Gegner nach Crewgroesse: drei Crew = vier Gegner, eine Crew = zwei', () => {
+  vorlage('sz_crew3', 'raumschlacht');
+  const { g } = bereit({ crew: 3, seed: 26 });
+  startSzene(g, 'sz_crew3');
+  laufe(g, W.vorlauf_s + 1);
+  ok(eigeneTags(g, 'fs' + szene(g).id) === W.raumschlacht.anzahl['3'] && W.raumschlacht.anzahl['3'] === 4, 'drei verbundene Spieler: ' + W.raumschlacht.anzahl['3'] + ' Gegner');
+});
+
 section('Befreiung: Wachen vertreiben, der NSC ist frei (Raumszene)', () => {
   vorlage('sz_frei', 'befreiung', null, 'gefangen');
   const { g, radio } = bereit({ crew: 2, seed: 13 });
@@ -305,6 +313,18 @@ section('Speichern mitten in einer Szene: der Beat steht nach dem Laden wieder a
   const F2 = Faden.lesen(Faden.toSave(g.weltsim));
   const f2 = F2.liste.find((x) => x.id === f.id);
   ok(f2 && f2.phase === 'wartet' && f2.laufend === null, 'nach dem Laden: der Beat steht wieder aus (nicht gespeichert, nicht beantwortet)');
+});
+
+section('Spontanhilfe ohne Gefecht: die Frist scheitert den Beat, der Faden lebt', () => {
+  vorlage('sz_hilfe3', 'spontanhilfe', null, 'aktiv');
+  const { g } = bereit({ crew: 1, seed: 27 });
+  g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };   // die Frist läuft nur mit aktivem Spielleiter (faden.js B-S3)
+  const f = oeffne(g, 'sz_hilfe3'); grenzen(g, 5);
+  weiter(g, f);
+  Faden.nscVon(g, f.nsc.id).haltung = -10;   // es kommt nie ein Gefecht, in dem er hilft
+  grenzen(g, D.WERTE.beat_frist + 1);
+  FS.update(g, DT);
+  ok(f.phase === 'wartet' && f.nsc.status === 'geflohen' && !g.fadenHilfe, 'ohne Gefecht: nach der Frist gescheitert, der Faden lebt, der Zustand der Hilfe ist weg');
 });
 
 section('Warteschlange: höchstens drei Fäden, der vierte wird vom Faden-Limit abgelehnt', () => {

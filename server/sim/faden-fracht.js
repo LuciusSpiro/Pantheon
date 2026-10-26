@@ -6,7 +6,8 @@
 //
 //   laden(game, { fadenId, ware, vonHafen?, nachHafen })  -> { ok, grund? }   der laufende Beat „fracht“ bekommt die Ware (Hex-Codes; ware aus den Daten)
 //   andocken(game)                                        Hook am Andock-Ereignis (game.js, missionEvent docked): liegt die Ware im Ziel-Hex, wird sie abgeliefert -> Ausgang gelungen
-//   verloren(game, fadenId, grund?)                       die Ware geht verloren -> Ausgang gescheitert (Hook: Notsprung, game.js)
+//   verloren(game, fadenId)                               die Ware geht verloren -> Ausgang gescheitert (Hook: Notsprung, game.js, über notsprung)
+//   notsprung(game)                                       alle Waren an Bord gehen verloren (Hook in game.js, nach einem gelungenen Notfallsprung)
 //   inventar(game)                                        die Waren an Bord, Name und Gewicht aus den Daten (nur Anzeige und Tests; kein Handel)
 //   leseFracht(x)                                         Lesen aus dem Weltstand (muellfest): null bei unbrauchbaren Feldern
 // Frist und Scheitern kommen aus dem Beat-Takt (beat_frist Taetigkeiten, faden.js): die Ware wird beim Ende des Beats ohnehin aus dem Faden entfernt (faden.beatAusgang).

@@ -138,11 +138,6 @@ function andockenEnde(game) {
   const fs = game.fadenSzene;
   if (fs) enden(game, fs, 'gescheitert', 'szenenwechsel');
 }
-function leereWarteschlange(game) {
-  const warte = game.fadenWarte || [];
-  game.fadenWarte = [];
-  for (const it of warte) Faden.beatZurueck(game, it.fadenId);
-}
 
 // Takt eines laufenden Kampfes: Ausgang nach Art (Gegner gehen oder fallen, Zielschiff gestellt/zerstört/entkommen)
 function kampfTakt(game, fs) {
