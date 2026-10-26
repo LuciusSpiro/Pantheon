@@ -16,8 +16,16 @@
         { "id": "spaeter", "text": "Später.", "folge": [] }
       ],
       "aus": {
-        "gelungen": { "status": "verbuendet", "weiter": "v_notruf" },
+        "gelungen": { "status": "verbuendet", "weiter": "v_dank" },
         "gescheitert": { "status": "aktiv", "weiter": "v_notruf" }
+      }
+    },
+    {
+      "id": "v_dank", "typ": "notruf",
+      "parameter": { "text_key": "notruf_dank" },
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "v_abschluss" },
+        "gescheitert": { "status": "aktiv", "weiter": "v_abschluss" }
       }
     },
     {

@@ -291,7 +291,7 @@ section('Fracht: laden, abliefern am Zielhafen, Ware nicht im Handel, Speichern/
 });
 
 section('Fracht: Frist läuft ab = gescheitert, Notsprung = verloren', () => {
-  vorlage('sz_fracht2', 'fracht', { parameter: { nach: '0406' } });
+  vorlage('sz_fracht2', 'fracht', { parameter: { nach: '0403' } });   // Nacharbeit F6: ein ANDOCKBARER Hafen (0406 hat keinen Liegeplatz, laden lehnt ihn ab)
   const { g } = bereit({ crew: 1, seed: 23 });
   g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };   // die Frist läuft nur mit aktivem Spielleiter (faden.js B-S3)
   const f = oeffne(g, 'sz_fracht2'); grenzen(g, 5);

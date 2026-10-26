@@ -7,28 +7,28 @@
   "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
   "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
   "hinweise": {
-    "h_gerucht": { "kanal": "geruecht" },
-    "h_papiere": { "kanal": "papiere" }
+    "h_gerucht": { "kanal": "geruecht", "text": "Gerücht im Hafenfunk: Von {name} hat kein Kontor je eine Lieferung gesehen." },
+    "h_papiere": { "kanal": "papiere", "text": "Die Frachtpapiere von {name} tragen ein Siegel, das kein Kontor führt." }
   },
   "beats": [
     {
       "id": "b_bitte", "typ": "bitte",
       "hinweise": ["h_gerucht"],
-      "parameter": { "text_key": "bitte_mission" },
+      "parameter": { "text_key": "bitte_transport", "text_key_kein_ziel": "bitte_transport_kein_ziel" },
       "optionen": [
-        { "id": "annehmen", "text": "Wir bringen Eure Ware.", "ausgang": "gelungen", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
-        { "id": "ablehnen", "text": "Sucht Euch jemand anderen.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
-        { "id": "spaeter", "text": "Meldet Euch später.", "folge": [] }
+        { "id": "annehmen", "text": "Wir bringen eure Ware.", "ausgang": "gelungen", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        { "id": "ablehnen", "text": "Sucht euch jemand anderen.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
+        { "id": "spaeter", "text": "Meldet euch später.", "folge": [] }
       ],
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_fracht" },
-        "gescheitert": { "status": "aktiv", "weiter": "b_fracht" }
+        "gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }
       }
     },
     {
       "id": "b_fracht", "typ": "fracht",
       "hinweise": ["h_papiere"],
-      "parameter": { "nach": "$ort", "ware": "fracht_kiste", "text_key": "bitte_mission" },
+      "parameter": { "nach": "$ort", "ware": "fracht_kiste" },
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_enthuell" },
         "gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }

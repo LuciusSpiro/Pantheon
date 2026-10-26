@@ -322,6 +322,7 @@ function beatAusgang(game, fadenId, ausgang) {
   folgenAnwenden(game, f, o.folge, true);
   gedaechtnisEintragen(f.nsc, ws.tickZahl, beat.typ + '_' + ausgang, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
+  if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
   delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
   if (cat.abschluss) {
     f.phase = 'abgeschlossen';

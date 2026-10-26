@@ -20,7 +20,9 @@
 //   beantworten(game, id, nr?) -> null | { code, text }         Befehl faden.bitte { id, nr }: die ERSTE Antwort gilt; id = Option-Id (Später ist nur lokal)
 //   nachTaetigkeit(game)                                        (Aufrufer: faden.taetigkeit, am Ende) Verfall, verwaiste Angebote, Wiederholung
 //   update(game)                                                (Aufrufer: reise-ereignis.update) Angebot in unruhiger Lage zurueckziehen (ohne Folge)
-//   funkVon(game, nsc, text) -> { von, pid, text } | null       Funkzeile eines NSC mit Porträt (pid), Aufrufer: Bitten, Szenen, Bausteine (P1/P3)
+//   funkVon(game, nsc, text) -> { von, pid, text } | null       Funkzeile eines NSC mit Porträt (pid), Aufrufer: Bitten, Szenen, Bausteine (P1/P3). Lagefunk (lage 1) mit Kennung fd 1 (Faden):
+//                                                               ohne lage zeigten die Konsolen (Steuer, Captain, Technik, Ops, Terminal) die Zeile nie (Nacharbeit F3a); fd färbt den Akzent in Messing
+//   funkSprecher(game, von, text) -> { von, text } | null       dieselbe Zeile ohne Porträt von einem Dritten (Lerche, Aufklärung, Hafenfunk): Hinweise, Fracht, Tote (ein Toter spricht nie selbst)
 //   portraetPid(npc) -> 'f:<variante>:<fraktion>' | null ; pidGueltig(pid) -> bool     Porträt-Kennung (Client prüft dieselbe Form)
 //   offen(game) -> Angebot | null ; snapshot(game) / schluessel(game)   Anzeigeblock world.bitte { nr, von, pid, text, optionen: [{ id, text }], kopf, spaeter, rest } | null (Löschsignal)
 //   toSaveBitte(F) -> Block | null ; lesenBitte(block, F) -> Angebot | null   Weltstand (müllfest, Folgen aus der Vorlage)
@@ -33,6 +35,8 @@ const Faden = () => require('./faden.js');
 const FA = () => require('./funk-antwort.js');
 const RE = () => require('./reise-ereignis.js');
 const regie = () => require('./regie-befehle.js');
+const Fracht = () => require('./faden-fracht.js');
+const Hinweis = () => require('./faden-hinweis.js');
 const klon = (v) => JSON.parse(JSON.stringify(v));
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const r2 = (x) => Math.round(x * 100) / 100;
@@ -68,21 +72,29 @@ function deckelRaum(F) {
 
 // ---------- Text (Platzhalter {name} {ort}; Schlüssel = text_key des Beats)
 // SUND-04a-2 P3: der Ton folgt der Haltung des NSC (tonVon): gibt es für den Ton einen Text (key_ton), wird er genommen; sonst der Grundtext
-function textVon(beat, f) {
+// Nacharbeit SUND-04a-2 (F6): {ziel} = Name des andockbaren Zielhafens einer Fracht (faden-fracht zielFuer); gibt es keinen, gilt text_key_kein_ziel des Beats (sonst kein Text)
+function textVon(game, beat, f) {
   const key = beat.parameter && beat.parameter.text_key;
+  const roh = (s) => (typeof s === 'string' && Object.prototype.hasOwnProperty.call(BW.texte, s) ? BW.texte[s] : null);
   let schluessel = key;
   if (typeof key === 'string' && f.nsc) { const ton = Faden().tonVon(f.nsc); if (ton !== 'sachlich' && Object.prototype.hasOwnProperty.call(BW.texte, key + '_' + ton)) schluessel = key + '_' + ton; }
-  const t = typeof schluessel === 'string' && Object.prototype.hasOwnProperty.call(BW.texte, schluessel) ? BW.texte[schluessel] : null;
+  let t = roh(schluessel);
   if (typeof t !== 'string') return null;
   let ort = 'hier';
   if (f.parameter && f.parameter.ort) { try { ort = RE().hexName(f.parameter.ort) || ort; } catch (e) { ort = f.parameter.ort; } }
-  return t.split('{name}').join(f.nsc.name).split('{ort}').join(ort);
+  let ziel = '';
+  if (t.includes('{ziel}')) {
+    const z = Fracht().zielFuer(game, f.parameter && f.parameter.ort);
+    if (z) { try { ziel = RE().hexName(z) || z; } catch (e) { ziel = z; } }
+    else { t = roh(beat.parameter && beat.parameter.text_key_kein_ziel); if (typeof t !== 'string') return null; }
+  }
+  return t.split('{name}').join(f.nsc.name).split('{ort}').join(ort).split('{ziel}').join(ziel);
 }
 
 // ---------- Funk (Crew-Antwort, NSC-Zeile mit Porträt)
 function funkSenden(game, von, text, pid) {
   if (!text) return;
-  const ev = { from: von, text, lage: 1, r: 1 };
+  const ev = { from: von, text, lage: 1, fd: 1, r: 1 };
   if (pid) ev.pid = pid;
   try { game.emit('radio', ev); } catch (e) { fehlerZaehlen(game, 'faden-bitte-funk', e); }
 }
@@ -90,10 +102,16 @@ function funkVon(game, nsc, text) {
   if (!istObjekt(nsc) || typeof nsc.name !== 'string' || typeof text !== 'string' || !text.trim()) return null;
   const pid = portraetPid(nsc);
   const zeile = text.replace(/\s+/g, ' ').trim().slice(0, 160);
-  const ev = { from: nsc.name, text: zeile, r: 1 };
+  const ev = { from: nsc.name, text: zeile, lage: 1, fd: 1, r: 1 };
   if (pid) ev.pid = pid;
   try { game.emit('radio', ev); } catch (e) { fehlerZaehlen(game, 'faden-bitte-funk', e); }
   return { von: nsc.name, text: zeile, pid };
+}
+function funkSprecher(game, von, text) {
+  if (typeof von !== 'string' || !von.trim() || typeof text !== 'string' || !text.trim()) return null;
+  const zeile = text.replace(/\s+/g, ' ').trim().slice(0, 160);
+  try { game.emit('radio', { from: von, text: zeile, lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'faden-bitte-funk', e); }
+  return { von, text: zeile };
 }
 
 // ---------- Angebot
@@ -137,10 +155,12 @@ function anbieten(game, o) {
   const pid = portraetPid(ab);
   F.bitte = {
     nr: F.bitteNr, fadenId: f.id, beatId: beat.id, von: ab.name, volk: ab.fraktion, pid: pid || null, text: o.text.slice(0, BW.text_max),
-    optionen: erlaubt.map((x) => ({ id: x.id, text: String(x.text).slice(0, BW.text_max), folge: klon(x.folge), ausgang: x.ausgang })),
+    optionen: erlaubt.map((x) => ({ id: x.id, text: String(x.text).slice(0, BW.option_text_max), folge: klon(x.folge), ausgang: x.ausgang })),
     bis: F.t + BW.frist_taetigkeiten,
   };
-  for (const h of beat.hinweise || []) Faden().hinweisGezeigt(game, f.id, h);   // die Crew hat die Bitte gesehen: die Hinweise des Beats gelten (B-S1)
+  // Nacharbeit F1/F2: die Bitte geht EINMAL als Funkzeile des NSC an alle (sie steht im Funk-Log), danach werden die Hinweise des Beats gesendet; erst das Senden macht sie gueltig (B-S1)
+  funkVon(game, { name: ab.name, fraktion: ab.fraktion, portrait: ab.portrait }, F.bitte.text);
+  for (const h of beat.hinweise || []) Hinweis().senden(game, f.id, h);
   logbuch(game, 'faden_ereignis', { ausgang: 'angebot', key: f.id, begruendung: `Bitte ${beat.id} angeboten (${erlaubt.length} Optionen)`, plan: { faden: f.id, beat: beat.id, nr: F.bitte.nr } });
   return { ok: true, code: null, bitte: F.bitte };
 }
@@ -151,7 +171,7 @@ function angebotAusVorlage(game, fadenId) {
   const v = D.vorlage(f.vorlage);
   const beat = v && v.beats[f.beat];
   if (!beat) return { ok: false, code: 'kein_beat' };
-  const text = textVon(beat, f);
+  const text = textVon(game, beat, f);
   if (text === null) return { ok: false, code: 'text' };
   return anbieten(game, {
     fadenId: f.id, beatId: beat.id,
@@ -223,6 +243,7 @@ function snapshot(game) {
   if (!F || !F.bitte || !Faden().aktiv(game)) return null;
   const o = F.bitte;
   const s = { nr: o.nr, von: o.von, text: o.text, optionen: o.optionen.map((x) => ({ id: x.id, text: x.text })), kopf: BW.kopf, spaeter: BW.spaeter_text, rest: Math.max(0, o.bis - F.t) };
+  if (BW.kuerzel && BW.kuerzel[o.volk]) s.fk = BW.kuerzel[o.volk];   // Kürzel der Fraktion im Kopf (Design S5: nie nur über die Farbe)
   if (o.pid) s.pid = o.pid;
   return s;
 }
@@ -251,7 +272,7 @@ function lesenBitte(b, F) {
   for (const x of b.optionen) {
     if (!istObjekt(x) || typeof x.id !== 'string' || typeof x.text !== 'string' || ids.has(x.id)) return null;
     const quelle = (beat.optionen || []).find((o) => o.id === x.id);
-    if (!quelle || x.text.length > BW.text_max) return null;
+    if (!quelle || x.text.length > BW.option_text_max) return null;
     ids.add(x.id);
     optionen.push({ id: x.id, text: x.text, folge: klon(quelle.folge), ausgang: quelle.ausgang });
   }
@@ -267,4 +288,4 @@ const baustein = {
   },
 };
 
-module.exports = { baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };
+module.exports = { baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, funkSprecher, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };

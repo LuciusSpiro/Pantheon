@@ -48,10 +48,10 @@ section('Daten: Zahlen, Texte, Weigerungen (bitte-werte.json)', () => {
   ok(W.frist_taetigkeiten < D.WERTE.beat_frist, 'der Verfall liegt unter der Frist des Beats (sonst entscheidet die Frist)');
   ok(W.gleichzeitig_max === 1, 'höchstens ein Angebot gleichzeitig');
   ok(W.optionen.min === 2 && W.optionen.max === 3, 'zwei bis drei Optionen');
-  ok(typeof W.spaeter_text === 'string' && W.spaeter_text.length > 0 && W.kopf === 'BITTE', 'Später und Kopf als Text');
+  ok(typeof W.spaeter_text === 'string' && W.spaeter_text.length > 0 && W.kopf === 'BITTE', 'Einklappen und Kopf als Text');
   for (const k of ['hilfe_rom', 'hilfe_kon', 'bitte_mission']) {
     const t = W.texte[k];
-    ok(typeof t === 'string' && t.length <= W.text_max + 40 && t.includes('{name}'), `Text ${k} da, mit Platzhalter {name}`);
+    ok(typeof t === 'string' && t.length <= W.text_max + 40 && t.includes('{ort}') && !/^\{name\}/.test(t), `Text ${k} da, mit Platzhalter {ort}, ohne doppelten Absendernamen am Anfang (der steht im Funk und im Kopf)`);
   }
   for (const c of ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'unruhig', 'deckel', 'am_boden']) ok(typeof W.weigerung[c] === 'string', `Weigerung ${c} hat einen Text`);
   ok(B.weigerung('gibt_es_nicht').text === 'gibt_es_nicht', 'unbekannter Code: der Code selbst (kein Absturz)');
@@ -84,7 +84,7 @@ section('Angebot: Text, Absender, Porträt, Hinweis erst mit dem Angebot', () =>
   const o = bitte(g);
   ok(!!o, 'nach dem Start des Beats ist die Bitte offen (ruhige Lage)');
   ok(o && o.fadenId === f.id && o.beatId === 'b_bitte' && o.nr === 1, 'Faden, Beat und Nummer 1');
-  ok(o && o.text.includes(f.nsc.name) && !o.text.includes('{name}') && !o.text.includes('{ort}'), 'Text mit NSC-Name, Platzhalter ersetzt');
+  ok(o && !o.text.includes('{name}') && !o.text.includes('{ort}') && !o.text.startsWith(f.nsc.name), 'Text ohne Platzhalter und ohne den Namen des Absenders davor (steht im Kopf)');
   ok(o && o.optionen.map((x) => x.id).join(',') === 'zusagen,ablehnen,spaeter', 'die drei Optionen aus der Vorlage (keine Erfindung)');
   ok(o && o.optionen.every((x) => x.folge && typeof x.folge === 'object'), 'Folgen stehen am Angebot (server-seitig, nie im Snapshot)');
   ok(f.hinweise.includes('h_papiere'), 'der Hinweis des Beats gilt erst mit dem Angebot (B-S1)');

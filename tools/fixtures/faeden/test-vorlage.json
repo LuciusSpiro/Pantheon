@@ -6,15 +6,15 @@
   "volk_erlaubt": ["rom", "kon"],
   "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
   "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
-  "hinweise": { "h_papiere": { "kanal": "papiere" } },
+  "hinweise": { "h_papiere": { "kanal": "papiere", "text": "Die Papiere von {name} tragen ein fremdes Siegel." } },
   "beats": [
     {
       "id": "b_bitte", "typ": "bitte", "hinweise": ["h_papiere"],
       "parameter": { "text_key": "bitte_mission" },
       "optionen": [
-        { "id": "zusagen", "text": "Wir helfen Euch.", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        { "id": "zusagen", "text": "Wir helfen euch.", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
         { "id": "ablehnen", "text": "Dafuer haben wir keine Zeit.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
-        { "id": "spaeter", "text": "Meldet Euch spaeter noch einmal.", "folge": [] }
+        { "id": "spaeter", "text": "Meldet euch spaeter noch einmal.", "folge": [] }
       ],
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_spontan", "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },

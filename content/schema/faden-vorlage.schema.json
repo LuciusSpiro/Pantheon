@@ -112,7 +112,7 @@
     "hinweise": {
       "type": "object",
       "maxProperties": 8,
-      "description": "Hinweis-Kennung -> { kanal } (Kanaele: werte.hinweis_kanaele).",
+      "description": "Hinweis-Kennung -> { kanal, text } (Kanaele: werte.hinweis_kanaele; text = was die Crew vor der Enthuellung tatsaechlich hoert, Pflicht laut Pruefer HINWEIS_TEXT).",
       "additionalProperties": {
         "type": "object",
         "additionalProperties": false,
@@ -127,6 +127,10 @@
           "text_key": {
             "type": "string",
             "maxLength": 40
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 200
           }
         }
       }

@@ -11,6 +11,8 @@
     "verfolgung": {"wert": {"klassen": {"frachter": "frachter", "haendler": "frachter", "kurier": "korvette", "korvette": "korvette", "fregatte": "fregatte"}, "standard": "frachter"}, "einheit": "Zielklassen", "_hinweis": "Schiffsklasse des NSC auf eine Zielklasse der Verfolgung (verfolgung-werte.json: ohne Jäger). Das Zielschiff ist ein Einzelschiff: nicht nach Crewgröße skaliert. Der Fluchtpunkt wählt die Verfolgung (Sprungpunkt)."},
     "spontanhilfe": {"wert": {"klasse": "korvette", "ring": 260}, "einheit": "Klasse, Abstand", "_hinweis": "Das Schiff des NSC kommt als Verbündeter (Flotte, EK4) dazu. Klasse muss zu den Verbündeten-Klassen der Escort gehören. Die Chance kommt aus Haltung (haltung-werte.json, Kurve), gewürfelt mit eigenem Strom."},
     "spontanhilfe_salz": {"wert": "spontanhilfe", "einheit": "Strom", "_hinweis": "Salz des eigenen Zufallsstroms (nie game.rng, nie der Strom der Sim)."},
+    "fracht_reichweite": {"wert": 3, "einheit": "Hex-Schritte", "_hinweis": "Nacharbeit SUND-04a-2 (F6): Das Ziel einer Fracht ist der naechste ANDOCKBARE Hafen in dieser Reichweite (Hex-Abstand im Raster, shared/sektoren.js nachbarn) um den Ort des Fadens. Nicht jeder Ort hat einen Liegeplatz (Andocken setzt eine Szene mit dock voraus), die Crew soll nie eine Ware zu einem Hex tragen, an dem sie nicht abliefern kann."},
+    "fracht_ziel_fraktionen": {"wert": ["rom", "saum"], "einheit": "Fraktionen", "_hinweis": "Besitzer des Zielhafens: roemische und Konkordat-Haefen (germanische und Piratenhaefen verweigern das Andocken; die Karte nennt das Konkordat saum). Die Liste der andockbaren Orte wird aus Karte, Szenen (dock) und Besitz abgeleitet, nie hartkodiert."},
     "waren": {"wert": {"fracht_kiste": {"name": "Versiegelte Frachtkiste", "gewicht": 0}}, "einheit": "Waren", "_hinweis": "Frachtauftrag light (nur Faden-intern): eine Ware als Gegenstand, Gewicht 0, geht NICHT in den Handel."}
   },
   "texte": {
@@ -34,6 +36,12 @@
       "befreiung": "Die Befreiung ist gescheitert. {name} bleibt in der Gewalt der Wachen.",
       "verfolgung": "{name} ist entkommen.",
       "spontanhilfe": "Die Schlacht ist vorbei, ohne dass {name} eingegriffen hat."
+    },
+    "fracht": {
+      "laden": "Ware an Bord: {ware} für {hafen}. Bei der Ankunft im Hafen andocken.",
+      "abgeliefert": "{ware} in {hafen} abgeliefert.",
+      "verloren": "Die Ware ist verloren: {ware} erreicht {hafen} nicht mehr.",
+      "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist."
     },
     "unterbrochen": "Die Szene ist unterbrochen. Der Auftrag wird später erneut angeboten.",
     "szenenwechsel": "Der Sektor wurde verlassen. Die Szene ist beendet.",
