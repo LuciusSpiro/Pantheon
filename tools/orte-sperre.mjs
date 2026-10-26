@@ -11,12 +11,14 @@ export const KARTENARTEN = ['station', 'aussenposten'];
 export const VERBOTEN = [
   [/\/ruine\//, 'Ruine-Modell'], [/(^|\/)truhe$/, 'Truhe'], [/kaefig_zelle$/, 'Käfigzelle'], [/thing_stein$/, 'Thing-Stein'],
   [/gemein\/werkzeug$/, 'Holzwerkbank'], [/legionskasse$/, 'Legionskasse'], [/carcer$/, 'Carcer'],
+  [/kette$/, 'Kette (Altstueck, ORT-01 6M)'], [/gemein\/fass$/, 'Fass (Altstück, ORT-01 6M)'], [/feuerschale$/, 'Feuerschale (Altstueck, ORT-01 6M)'],
 ];
 // Ausnahmen: { id, wo (Regex auf die Stelle, optional), grund }
 export const AUSNAHMEN = [
   { id: /prop\/rom\/ruine\/kassengewoelbe_tor$/, wo: /^anker\.tor$/, grund: 'Anker tor wird nie als Prop gerendert (Türen, kit.js), der Eintrag steht nur als Rückfall der Bauweise' },
   { id: /prop\/rom\/ruine\/aquaedukt_verteiler$/, wo: /^anker\.raetsel$/, grund: 'Rätsel kommen auf Station und Außenposten nicht vor (nur Ruine), Eintrag nur Rückfall' },
-  { id: /prop\/germanen\/gemein\/werkzeug$/, wo: /^(deckung_props|deko)\./, grund: 'Germanische Deckungsobjekte und Zellen-Deko: es gibt noch kein ORT-Deckungsmodell der Germanen; Holzwerkbank bleibt vorerst (Kai entscheidet über Ersatz)' },
+  { id: /prop\/germanen\/gemein\/werkzeug$/, wo: /^deko\./, art: 'station', grund: 'Station: Holzwerkbank in Zellen- und Lager-Deko bleibt vorerst (Bestand Station, ORT-Ersatz nicht in ORT-01 6M; Kai entscheidet)' },
+  { id: /prop\/germanen\/gemein\/(fass|kette|feuerschale)$/, wo: /^deko\./, art: 'station', grund: 'Station: Fass, Kette und Feuerschale in den Deko-Regeln kreuzung, zellen, lager, herzstueck, reaktorraum, quartiere bleiben vorerst (Station-Bestand, nicht Teil von ORT-01 6M; eigenes Station-Paket)' },
 ];
 export const ALT_ERLAUBT = [
   { id: /leit\/(rom|germanen)\/aussenposten\/statue_platz$/, grund: 'Wahrzeichen des Dorfplatzes (kein ORT-Ersatz)' },
@@ -51,7 +53,7 @@ export function pruefeOrte(ctx, opts = {}) {
     let grund = VERBOTEN.find(([re]) => re.test(id));
     if (!grund && bw === 'rom' && /(^|\/)germanen\//.test(id)) grund = [null, 'germanisches Modell in der römischen Bauweise'];
     if (grund) {
-      const a = ausn.find((x) => x.id.test(id) && (!x.wo || x.wo.test(wo)));
+      const a = ausn.find((x) => x.id.test(id) && (!x.wo || x.wo.test(wo)) && (!x.art || x.art === art));
       if (a) { lines.push({ lvl: 'info', msg: `Ausnahme ${stelle}: ${id} (${a.grund})` }); return; }
       lines.push({ lvl: 'err', msg: `${stelle}: ${id} ist ${grund[1]} – Orte lösen das nicht auf (Ausnahme nur explizit in tools/orte-sperre.mjs AUSNAHMEN)` });
       return;

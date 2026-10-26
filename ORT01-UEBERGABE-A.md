@@ -37,3 +37,25 @@ Kritik: Boden jetzt ruhig und klar lesbar (2×2-Felder, dunkle Fuge); Rom-Statio
 - Prüf-Sperre aktiv: tools/orte-sperre.mjs, check:assets Abschnitt orte, tools/test-orte-sperre.js (Mutationsprobe, in npm test). Ausnahmen explizit (AUSNAHMEN): rom anker tor/raetsel (Rückfall, nie als Prop auf Orten), prop/germanen/gemein/werkzeug als Deckung und Zellen-Deko der Germanen (kein ORT-Deckungsmodell). Erlaubte Altstücke (ALT_ERLAUBT): statue_platz, hochsitz_halle, schmiedeherd, kraehenwacht_turm, met_kessel (fund und messe.ausgabe), Schiff-Lift/Leiter.
 - Rom-Dach Terrakotta (dach), Rom-Gelände Travertin (kits.gelaende je_art aussenposten), Germanen-Dach heller; Germanen-Dächer bleiben durch die Besitz-Palette (rostmeute) bräunlich.
 - Nächste Schritte: Ersatz für Holzwerkbank-Deckung der Germanen (ORT-Deckungsmodell), Zustandswechsel der Anker live prüfen, Verfall/Umkämpft im Bild, Dach-Kontrast der Germanen mit Kai klären.
+
+## Nachtrag 6D (Nacharbeit nach Designer-Review R2)
+
+Commits (Spiel `ort01-int`): `e45642d` (Code, Daten, Tests), `9c89754` (Hash-Baseline deko/layout, Grund siehe Commit), `3cbf58d` (`npm run assets`). Voxelwerk: `178e520` (Stimmung hall_rom, Paletten rom_station, nord_aussenposten, station_esse), `464fec1` (Außenposten-Dach neutral).
+
+| Befund R2 | Stand | Belege / Hinweis |
+|---|---|---|
+| 1 Rom-Station Gold/Amber | teilweise. Stimmung `hall_rom` (heller, warm), Palette `rom_station` nur Station (trim `#E0A526`, glow2 `#FF9A2E` emit 1,0). Amber bleibt im Bild taupe (Wandbänder ca. `#705A4D`) | Der Test mit Grün/Magenta zeigte: die Bänder sind glow2, aber im Bild gedämpft. Ursache im Kit-Material/Tonemapping ungeklärt, nicht behoben. Offen |
+| 2 Germanen-Glut/Kupfer | teilweise. `station_esse`: copper `#A9542A`, ember `#FF7A1A` (war schon so) | Glut im Bild kaum sichtbar, Kupfer nur leicht dunkler. `hall_forge` unverändert |
+| 3 Reaktor an der Türwand | umgesetzt: 2×2-Anker bei freier Seite zur Platzmitte (`kit.js`), Hauptstücke ohne Südkachelreihe, Vorrang Wand vor freiem Rückfall | `rom/station/1-reaktor.png`: Reaktor jetzt an der Nordwand gegenüber der Tür |
+| 4 Lager | Station war schon Pflicht (zellenregal, ladebank), Außenposten: `lager.kran` Pflicht | Lager-Zählung Ziel 4–6 nicht gezählt |
+| 5 Kommando groß leer | umgesetzt: `mitte: true` (neues Rollen-Feld, Prüfung und Test), Kartentisch Raummitte bei Platz min(w,h) ≥ 5 | Test 18/18 Räume ≤ 1,5 Kacheln von der Mitte |
+| 6 Außenposten Deko/Deckung | **nicht ausgeführt.** `PAKET6M-VERDRAHTUNG.md` liegt im Voxelwerk-`ort01-m`, Kai hat noch nicht freigegeben | Vorbereitung offen: `deckung_props`, `deko`, `orte-sperre` |
+| 7 Dächer braun | Außenposten Germanen: `nord_aussenposten` (dach `#716D69`) | Bild `germanen/aussenposten/1-uebersicht.png`: Dächer grau-eisern |
+| 8 Braunes Holzfass Kommando | **nicht gelöst.** Gleiche Kachel in Rom und Germanen, nicht aus Bauweise-Deko, Rom hat kein `moebel`, kein `fass` in Rom-Deko | Nächster Schritt: Laufzeit-Debug (Objektliste der Kachel) |
+| 9 Stimmung AP Germanen | nicht geändert (`outpost_frost`), Eisen im Bild grau lesbar | |
+
+Gelände Rom-Außenposten (Hinweis Koordinator): `kits.gelaende` je_art top `stone` (war `stone_dark`), neuer Terrain-Parameter `steinDichte` (0,05 statt 0,1; Standard unverändert). Im Bild bleibt das Gelände grau-beige, da `planet_day` kühl ist. Die Dunkelwürfel auf dem Gelände sind Deko, nicht Sprenkel (nicht verifiziert).
+
+Besitz-Paletten (`raubzug`, `rostmeute`, `kontor`, `konkordat`) **nicht geändert**: die artbezogene Palette `nord_aussenposten` überschreibt sie für Außenposten Germanen, und Schiffe und Ruinen bleiben auf den Besitz-Paletten. Eisenwald und Methalle sehen dadurch anders aus (erlaubt).
+
+Gates: siehe Bericht an den Koordinator.

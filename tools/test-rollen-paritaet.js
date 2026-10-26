@@ -97,8 +97,8 @@ function pruefe(mut, aussenMut) {
   r = pruefe((s) => { s.raumtypen.lager.rollen[1].kind = 'leit'; s.rollen['lager.behaelter'] = { rom: 'prop/rom/ruine/schutt', germanen: 'prop/germanen/gemein/fass' }; });
   ok(r.code === 1 && /keinen Eintrag in leit_fuss/.test(r.out), 'kind leit ohne leit_fuss-Eintrag → rot');
 
-  r = pruefe(null, (a) => { a.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/hocker']; });
-  ok(r.code === 1 && /Deckungs-Prop der germanen-Bauweise/.test(r.out), 'Außenposten: germanische Belegung ist Deckungs-Prop (fass) → rot (kit.js nähme es aus der Deko, Rolle bliebe leer)');
+  r = pruefe(null, (a) => { a.rollen['lager.behaelter'].germanen = ['ort/germanen/aussenposten/deckung_fasszelle', 'prop/germanen/gemein/hocker']; });
+  ok(r.code === 1 && /Deckungs-Prop der germanen-Bauweise/.test(r.out), 'Außenposten: germanische Belegung ist Deckungs-Prop (deckung_fasszelle, ORT-01 6M) → rot (kit.js nähme es aus der Deko, Rolle bliebe leer)');
   r = pruefe(null, (a) => { a.rollen['lager.behaelter'].rom = 'ort/rom/aussenposten/deckung_kapsel'; });
   ok(r.code === 1 && /Deckungs-Prop der rom-Bauweise/.test(r.out), 'Außenposten: auch die römischen Ersatz-Deckungsmodelle (deckung_props rom, ort/rom/aussenposten/deckung_*) sind als Deko verboten → rot');
   r = pruefe((s) => { s.rollen['lager.behaelter'].germanen = ['prop/germanen/gemein/fass', 'prop/germanen/gemein/hocker']; }, false);

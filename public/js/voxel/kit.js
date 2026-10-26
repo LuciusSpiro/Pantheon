@@ -695,7 +695,9 @@ async function bauKarte(parent, karteIn, opts) {
   if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) if (inManifest(id)) want.add(id);
   if (BW.leit) for (const t of Object.keys(BW.leit)) { const v = BW.leit[t] && (BW.leit[t][k.art] || BW.leit[t]['*']); if (typeof v === 'string' && inManifest(v)) want.add(v); }
   const dekoRegeln = opts.deko === false ? null : D.deko;
-  const dekoExtra = D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : [];
+  // ORT-01 6D: Altstücke (Fass, Kette, Holzwerkbank, Feuerschale) aus der Besitz-Streuung fallen in Station und Außenposten weg (Orte lösen keine Altstücke auf, tools/orte-sperre.mjs); Schiff bleibt unverändert
+  const ALT_BESITZ_ORT = /gemein\/(fass|kette|werkzeug|feuerschale)$/;
+  const dekoExtra = (D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : []).filter((e) => k.art === 'schiff' || !ALT_BESITZ_ORT.test(typeof e === 'string' ? e : (e && e.id) || ''));
   if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const id of (r && r.props) || []) if (inManifest(id)) want.add(id);
   for (const e of dekoExtra) { const id = typeof e === 'string' ? e : e && e.id; if (id && inManifest(id)) want.add(id); }
   // ORT-01 Rollenmodus: Belegungen der streu-Rollen für diese Bauweise (nur Plätze der Karte brauchen sie, geladen wird, was im Manifest steht)

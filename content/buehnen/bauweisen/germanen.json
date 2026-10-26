@@ -441,14 +441,14 @@
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
     "aussenposten": {
       "deckung_halb": [
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug",
-        "prop/germanen/gemein/fass"
+        "ort/germanen/aussenposten/deckung_fasszelle",
+        "ort/germanen/aussenposten/deckung_blasebalg",
+        "ort/germanen/aussenposten/deckung_fasszelle"
       ],
       "deckung_voll": [
+        "ort/germanen/aussenposten/deckung_glutspeicher",
         "ort/germanen/aussenposten/leitfeuer",
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug"
+        "ort/germanen/aussenposten/deckung_blasebalg"
       ]
     }
   },

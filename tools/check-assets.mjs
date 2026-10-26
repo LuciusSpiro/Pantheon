@@ -379,7 +379,11 @@ async function checkOrteSperre() {
   const ts = { station: new Set(), aussenposten: new Set() };
   for (let s = 1; s <= 6; s++) {
     for (const p of Object.values(GT.erzeuger(96, 56).karteRoh(s, 8, { bauweise: 'germanen', id: 't' }).plaetze)) ts.station.add(p.typ);
-    for (const p of Object.values(GS.erzeuger(130, 90).karteRoh(s, 10, { bauweise: 'germanen', typ: 'handel', id: 't' }).plaetze)) ts.aussenposten.add(p.typ);
+    // Außenposten: Handel und Militär, Standard und Variante Methalle (Tor, Schleichweg, Zellenblock sind nur dort)
+    for (const [typ, variante] of [['handel'], ['militaer'], ['handel', 'methalle'], ['militaer', 'methalle']]) {
+      const o = { bauweise: 'germanen', typ, id: 't' }; if (variante) o.variante = variante;
+      for (const p of Object.values(GS.erzeuger(130, 90).karteRoh(s, 10, o).plaetze)) ts.aussenposten.add(p.typ);
+    }
   }
   ctx.platztypen = { station: [...ts.station], aussenposten: [...ts.aussenposten] };
   return pruefeOrte(ctx);
