@@ -40,6 +40,8 @@ const lebt = (game, id) => game.space.enemies.find((e) => e.id === id) || null;
 const labelVon = (k, e) => (k && k.name) || (e && e.name) || 'Das Zielschiff';
 // Funk-Text je Ausgang (Daten: funk): {name} = Name des Zielschiffs, ohne Namen die Klasse (Review D-M2)
 const funkText = (was, k, e) => String(FUNK[was] || '').replace('{name}', labelVon(k, e));
+// Funkzeile an alle Stationen (Review D-M2): Sprecher und Text aus den Daten; lage = Lagefunk (eine Zeile, nicht blockierend)
+const funkZeile = (game, text) => game.emit('radio', { from: FUNK.von, text, lage: 1 });
 
 // ---------- Abfragen (Bausteine, Tests, Bots, Fäden) ----------
 function aktiv(game) { return !!st(game); }
@@ -148,6 +150,7 @@ function update(game, dt) {
     e.sprung = 0; k.verz = 0; k.hpLast = e.hp;
     game.emit('sfx', { name: 'jump_charge' });
     game.oda(funkText('sprungStart', k, e), null);
+    funkZeile(game, funkText('sprungStart', k, e));
     game.missionEvent('verfolgungSprungStart', { enemy: e, text: funkText('sprungStart', k, e) });
   }
   if (e.sprung != null) {
@@ -181,6 +184,7 @@ function setzeAusgang(game, k, was) {
   const e = lebt(game, k.ziel);
   const text = funkText(was, k, e);
   game.oda(text, null);
+  funkZeile(game, text);
   game.missionEvent('verfolgungAusgang', { was, klasse: k.klasse, name: k.name, volk: k.volk, versuch: k.versuch, text });
   if (was === 'entkommen' && k.wiederholung) k.neuAt = game.time + WDH.neuNach;
 }

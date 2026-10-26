@@ -38,8 +38,8 @@
       "_hinweis": "Wie beim Konvoi: im Labor und in Kampagnenszenen wiederholt sich die Szene, bei einem Faden (Scheitern verändert den Faden) bleibt entkommen stehen."
     },
     "funk": {
-      "wert": {"gestellt": "{name} gestellt – der Antrieb steht, es kommt nicht mehr weg.", "zerstoert": "{name} ist zerstört.", "entkommen": "{name} ist gesprungen – weg.", "sprungStart": "{name} lädt den Sprung auf!"},
-      "einheit": "Funk-Text je Ausgang (gestellt, zerstoert, entkommen) und zum Start der Sprungladung (sprungStart); {name} = Name des Zielschiffs (ohne Namen: „Das Zielschiff“). Der Text geht als Feld text im Ereignis an alle Stationen (Review D-M2)",
+      "wert": {"von": "Ortung", "gestellt": "{name} gestellt – der Antrieb steht, es kommt nicht mehr weg.", "zerstoert": "{name} ist zerstört.", "entkommen": "{name} ist gesprungen – weg.", "sprungStart": "{name} lädt den Sprung auf!"},
+      "einheit": "von = Sprecher der Funkzeile (Funk an alle Stationen, lage); Funk-Text je Ausgang (gestellt, zerstoert, entkommen) und zum Start der Sprungladung (sprungStart); {name} = Name des Zielschiffs (ohne Namen: „Das Zielschiff“). Der Text geht als Feld text im Ereignis und als Funkzeile an alle Stationen (Review D-M2)",
       "_hinweis": "Die Hinweiszeile an alle Stationen: der Ausgang ist sonst auf keiner Station zu sehen."
     },
     "ansagen": {

@@ -446,6 +446,47 @@ section('Datenwerte wirken: Halt am Ziel und Randabstand des Starts (Review A-K4
   ok(q.x <= Q.g.space.w - R + 0.5 && Math.abs(q.x - (Q.g.space.w - R)) < 1, `Start am Szenenrand: das Zielschiff bleibt ${R} px vor dem Rand (x ${Math.round(q.x)} bei Breite ${Q.g.space.w})`);
 });
 
+section('Funkzeile an alle Stationen: Ausgang und Sprungstart aus den Daten (Review D-M2, Testlücke)', () => {
+  const F = V.funk.wert;
+  // zwei Stationen (Spieler und Beobachter) hören die Ereignisse; Schnappschüsse werden nicht gesammelt
+  const horch = (T) => {
+    const a = [], b = [];
+    T.c.send = (m) => { if (m.t === 'event' && a.length < 400) a.push(m); };
+    T.c.sendRaw = (s) => T.c.send(JSON.parse(s));
+    const c2 = { send(m) { if (m.t === 'event' && b.length < 400) b.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } };
+    T.g.addConnection(c2); c2.observer = true;
+    return { a, b };
+  };
+  const funk = (lst, text) => lst.some((m) => m.kind === 'radio' && m.text === text && m.from === F.von && m.lage === 1);
+  const erw = (was) => F[was].replace('{name}', 'Falke');
+  // Sprungstart und Entkommen
+  const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
+  Verfolgung.starten(g, { klasse: 'korvette', name: 'Falke', wiederholung: false });
+  const h = horch(T);
+  sprungStart(T);
+  ok(funk(h.a, erw('sprungStart')) && funk(h.b, erw('sprungStart')), `Sprungstart: Funkzeile „${erw('sprungStart')}“ von ${F.von} an beide Stationen`);
+  T.run(V.sprung.wert.dauer + 1);
+  ok(funk(h.a, erw('entkommen')) && funk(h.b, erw('entkommen')), `Entkommen: Funkzeile „${erw('entkommen')}“ an beide Stationen`);
+  // Zerstörung
+  const U = raum(); platz(U.g, 600, 1100, 0);
+  Verfolgung.starten(U.g, { klasse: 'korvette', name: 'Falke', wiederholung: false });
+  const hu = horch(U); const eu = zielVon(U.g); U.run(0.5);
+  space.damageEnemy(U.g, eu, 9999, eu.x - 30, eu.y, { angriff: true });
+  U.run(0.2);
+  ok(funk(hu.a, erw('zerstoert')) && funk(hu.b, erw('zerstoert')), `Zerstört: Funkzeile „${erw('zerstoert')}“ an beide Stationen`);
+  // Stellen (Antrieb aus, Lerche nah)
+  const W3 = raum(); platz(W3.g, 600, 1100, 0);
+  Verfolgung.starten(W3.g, { klasse: 'korvette', name: 'Falke', wiederholung: false });
+  const hw = horch(W3); const ew = zielVon(W3.g); W3.run(2);
+  hinterher(W3.g, ew, 250);
+  treffer(W3.g, ew, HECK, 3); W3.run(Zs.TREFFER.sperre_s + 0.2); treffer(W3.g, ew, HECK, 3);
+  platz(W3.g, ew.x - Math.cos(ew.angle) * 250, ew.y - Math.sin(ew.angle) * 250, ew.angle);
+  W3.run(V.stellen.wert.zeit + 2.5);
+  ok(Verfolgung.ausgang(W3.g) === 'gestellt' && funk(hw.a, erw('gestellt')) && funk(hw.b, erw('gestellt')), `Gestellt: Funkzeile „${erw('gestellt')}“ an beide Stationen`);
+  const kl = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8');
+  ok(/case 'verfolgungAusgang': case 'verfolgungSprungStart': break;/.test(kl) && !/verfolgungAusgang[^\n]*pushNotice/.test(kl), 'Client: Ausgang und Sprungstart nur als Funkzeile, keine zweite Hinweiszeile');
+});
+
 section('Tempo-Grenzen und Haltewerte kommen aus den Daten (Review A-K4)', () => {
   const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
   const k = Verfolgung.starten(g, { klasse: 'korvette', tempo: 5 });
