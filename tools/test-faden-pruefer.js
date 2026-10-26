@@ -1,4 +1,5 @@
 'use strict';
+require('../server/sim/faden-bausteine.js').registriere('bitte', require('../server/sim/faden-bausteine.js').platzhalter('bitte'));   // SUND-04a-2 P2: diese 04a-1-Pruefung laeuft mit dem Platzhalter fuer bitte (der echte Baustein hat eigene Tests: test-faden-bitte.js)
 // SUND-04a-1 B: Daten, Beat-Katalog und der EINE Pruefer fuer alle Faeden (server/sim/faden-pruefer.js). Jede Regel wird einzeln gebrochen: die Testvorlage (reine Daten, tools/fixtures/faeden) laeuft
 // unveraendert durch, jede Abwandlung bricht GENAU die eine Regel (erwartet wird der Code der Regel, nicht eine Zahl aus dem Produktivcode). Dazu: ein neuer Beat nur als Katalogeintrag, die Wirkung
 // haltung_aenderung (Katalog, Kern bleibt bitgleich), die Kurve der Haltung.        node tools/test-faden-pruefer.js

@@ -50,7 +50,7 @@ function aktiv(game) {
   const v = String((env && env.FAEDEN) || '').toLowerCase();
   return v === '1' || v === 'on';
 }
-const neu = () => ({ t: 0, nr: 0, nsc: 0, liste: [], angebote: [], angNr: 0, ladeFehler: [], gemeldet: false });
+const neu = () => ({ t: 0, nr: 0, nsc: 0, liste: [], angebote: [], angNr: 0, ladeFehler: [], gemeldet: false, bitte: null, bitteNr: 0, bitteLog: [], bitteZuletzt: null });   // SUND-04a-2 P2: bitte = offene Bitte (faden-bitte.js), Laufzeit-Zähler des Bitten-Deckels
 function zustandVon(game) {
   const ws = game && game.weltsim;
   if (!ws) return null;
@@ -206,6 +206,7 @@ function taetigkeit(game, art) {
       beatAusgang(game, f.id, 'gescheitert');
     }
   }
+  try { require('./faden-bitte.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }   // SUND-04a-2 P2: Verfall und Wiederholung der Bitten (nach dem Frist-Takt)
   return { t: F.t, faellig: F.liste.filter(faellig).map((f) => f.id) };
 }
 
@@ -384,6 +385,8 @@ function toSave(ws) {
   if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc)) return null;
   const b = { t: F.t, nr: F.nr, nsc: F.nsc };
   if (F.liste.length) b.liste = klon(F.liste);
+  const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
+  if (bt) b.bitte = bt;
   return b;
 }
 function leseNsc(x, v) {
@@ -451,6 +454,8 @@ function lesen(b) {
   while (F.liste.length > W.faeden_gesamt_max) { const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen'); F.liste.splice(i < 0 ? 0 : i, 1); }
   for (const f of F.liste) { nr = Math.max(nr, idNr(f.id)); nscNr = Math.max(nscNr, idNr(f.nsc.id)); }
   F.nr = nr; F.nsc = nscNr;
+  const bt = require('./faden-bitte.js').lesenBitte(b.bitte, F);   // SUND-04a-2 P2: offene Bitte (müllfest; Folgen aus der Vorlage)
+  if (bt) { F.bitte = bt; F.bitteNr = bt.nr; } else if (istObjekt(b.bitte)) F.ladeFehler.push('bitte: verworfen');
   return F;
 }
 

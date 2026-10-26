@@ -18,6 +18,7 @@ const BEATS = lies('beats.json').beats;
 const NAMEN = lies('namen.json').voelker;
 const HALTUNG_DATEI = lies('haltung-werte.json');
 const HALTUNG = werteVon(HALTUNG_DATEI);
+const BITTE = werteVon(lies('bitte-werte.json'));   // SUND-04a-2 P2: Bitten (faden-bitte.js): Zahlen, Texte, Weigerungen
 const VORLAGEN_DIR = path.join(DIR, 'vorlagen');
 
 const registry = new Map();   // id -> Vorlage (eingefroren)
@@ -61,4 +62,4 @@ const entferne = (id) => { init(); registry.delete(id); };
 const ladefehler = () => { init(); return fehlerListe.slice(); };
 function zuruecksetzen() { registry.clear(); fehlerListe = []; geladen = false; }
 
-module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, DIR, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, DIR, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };

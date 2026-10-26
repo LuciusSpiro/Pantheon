@@ -36,6 +36,7 @@ const Sektorplan = require('./sim/sektorplan.js');   // SL4: Sektorplan des Capt
 const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Snapshot nr, space.nro)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
@@ -485,7 +486,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -699,7 +700,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -710,7 +711,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
+      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -725,7 +726,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;
+    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1050,6 +1051,12 @@ class Game {
     if (c === Protocol.CMD_FUNK_ANTWORT) {
       const r = p.downed ? FunkAntwort.weigerung('am_boden') : FunkAntwort.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));   // wer am Boden liegt, bekommt eine Weigerung statt Schweigen
       if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'funkAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+      return;
+    }
+    // SUND-04a-2 P2: Bitte der Geschichtsfäden annehmen oder ablehnen (jeder, keine Konsole; die ERSTE Antwort gilt). Antwort an den Absender: fadenBitteAntwort { pid, ok, code?, text? }
+    if (c === Protocol.CMD_FADEN_BITTE) {
+      const r = p.downed ? FadenBitte.weigerung('am_boden') : FadenBitte.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));
+      if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'fadenBitteAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
       return;
     }
     const [prefix] = c.split('.');
@@ -1998,6 +2005,12 @@ class Game {
       if (fk && fk !== this.sentFunkKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.funkwahl = FunkAntwort.snapshot(this); this.sentFunkKey = fk; }
       else if (!fk && this.sentFunkKey) { world.funkwahl = null; this.sentFunkKey = null; }
     } catch (e) { this.countError('snapshot-funkwahl', e); }
+    // SUND-04a-2 P2: world.bitte (offene Bitte der Geschichtsfäden, nur Freie Fahrt Sund mit FAEDEN=1) nur bei Änderung, für alle gleich; null = Löschsignal
+    try {
+      const bk = FadenBitte.schluessel(this);
+      if (bk && bk !== this.sentBittenKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.bitte = FadenBitte.snapshot(this); this.sentBittenKey = bk; }
+      else if (!bk && this.sentBittenKey) { world.bitte = null; this.sentBittenKey = null; }
+    } catch (e) { this.countError('snapshot-bitte', e); }
     // SUND-03b I: world.info (Angebot des Konkordats; nur an einem Konkordat-Hafen und solange jemand am Terminal sitzt) nur bei Änderung, für alle gleich, nie mit den großen seltenen Teilen; Löschsignal null wie world.absicht
     try {
       const ik = Info.schluessel(this);
