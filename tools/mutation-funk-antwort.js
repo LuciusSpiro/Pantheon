@@ -101,9 +101,9 @@ const MUTATIONEN = [
   [FW, "    store.markiert = (store.markiert + 1) % zeilen(m).length;", "    store.markiert = store.markiert + 1;", 'Client: die Markierung läuft nicht im Kreis'],
   [FW, "    send({ t: 'cmd', c: 'funk.antworten', id, nr: m.nr });", "    send({ t: 'cmd', c: 'funk.antworten', id });", 'Client: die Nummer des Angebots fehlt im Befehl'],
   [FW, "    if (optionen.length < 2 || !isNum(b.nr)) return null;", "    if (optionen.length < 1 || !isNum(b.nr)) return null;", 'Client: eine einzelne Option wird angezeigt'],
-  [FW, "    if (neuNr !== store.nr) { store.markiert = -1; store.eingeklappt = false; }", "    if (neuNr !== store.nr) { store.markiert = -1; }", 'Client: „Später“ gilt auch für das nächste Angebot'],
-  [FW, "    if (store.eingeklappt) { store.eingeklappt = false; return store.markiert; }   // zugeklappt: die Taste klappt erst auf\n", "", 'Client: die Taste sendet/markiert auch bei zugeklappter Leiste'],
-  [FW, "const m = modell(); if (!m || store.eingeklappt || store.markiert < 0) return false;", "const m = modell(); if (!m || store.markiert < 0) return false;", 'Client: Senden per Taste bei zugeklappter Leiste'],
+  [FW, "    if (neuNr !== store.nr) { store.markiert = -1; store.eingeklappt = false; store.geoeffnetBei = null; }", "    if (neuNr !== store.nr) { store.markiert = -1; store.geoeffnetBei = null; }", 'Client: „Später“ gilt auch für das nächste Angebot'],
+  [FW, "    if (zu()) { aufklappen(); return store.markiert; }   // zugeklappt (Streifen): der erste Druck klappt nur auf, markiert wird erst der nächste\n", "", 'Client: die Taste sendet/markiert auch bei zugeklappter Leiste'],
+  [FW, "const m = modell(); if (!m || zu() || store.markiert < 0) return false;", "const m = modell(); if (!m || store.markiert < 0) return false;", 'Client: Senden per Taste bei zugeklappter Leiste'],
   [FW, "    if (msg.phase === 'lobby') { zuruecksetzen(null); return; }", "    if (false) { zuruecksetzen(null); return; }", 'Client: die Lobby leert das Angebot nicht'],
 ];
 

@@ -230,7 +230,7 @@ const MUTATIONEN = [
   [L, "if (st.ruhige_zaehlen) flotten.ruhig = ruhig.length; else", "if (false) flotten.ruhig = ruhig.length; else", 'Ausschnitt: ruhige Flotten werden nie nur gezählt'],
   [L, "const belagert = aktiv.filter((a) => a.t_an !== null)", "const belagert = aktiv.filter((a) => a.t_an === null)", 'Ausschnitt: belagert und unterwegs vertauscht'],
   [L, "Daten.abstand(d, c, anker) <= st.radius;", "Daten.abstand(d, c, anker) <= st.radius + 9;", 'Ausschnitt: Umkreis ignoriert den Radius'],
-  [L, "JSON.stringify(Context.sortKeys(bauen(game, A.stufen[s], spielerNamen(game))))", "JSON.stringify(bauen(game, A.stufen[s], spielerNamen(game)))", 'Ausschnitt: Schlüssel unsortiert'],
+  [L, "JSON.stringify(Context.sortKeys(b))", "JSON.stringify(b)", 'Ausschnitt: Schlüssel unsortiert'],
   [L, "    if (letzter.zeichen <= maxZeichen) return", "    if (letzter.zeichen <= 0) return", 'Ausschnitt: ausschnittPassend kürzt immer am meisten'],
   [L, "  for (let s = 0; s < A.stufen.length; s++) {\n    letzter = ausschnitt(game, { stufe: s });", "  for (let s = A.stufen.length - 1; s >= 0; s--) {\n    letzter = ausschnitt(game, { stufe: s });", 'Ausschnitt: ausschnittPassend beginnt bei der stärksten Kürzung'],
   [L, "  if (!game.weltsim) return { stufe: 0, zeichen: 0, text: '' };\n  const s =", "  const s =", 'Ausschnitt: ohne Modus'],

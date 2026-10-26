@@ -55,7 +55,7 @@ const MUTATIONEN = [
   ['server/sim/kriegslage-szene.js', "const ruf = gilt ? Posten.sprengungRuf(game, S.hex, S.fraktion) : [];", "const ruf = gilt ? Posten.sprengungRuf(game, S.hex, 'pirat') : [];", 'Sieg: Ruf-Quelle der Piraten für Germanen'],
   ['server/sim/kriegslage-szene.js', "const p = r2ab(Math.min(nd.garnison, S.garn0 * Math.min(1, S.killPunkte / S.planPunkte)));", "const p = r2ab(Math.min(nd.garnison, S.garn0));", 'Flucht/Niederlage: die ganze Garnison fällt statt anteilig'],
   ['server/sim/kriegslage-szene.js', "  if (S.modus === 'angriff') {   // SUND-02b A2: die Garnison verliert anteilig", "  if (false) {   // SUND-02b A2: die Garnison verliert anteilig", 'Flucht/Niederlage: die Garnison verliert nichts'],
-  ['server/sim/kriegslage-szene.js', "const ruf = imKampf && S.modus !== 'angriff' ? Ruf.szeneFlucht(", "const ruf = imKampf ? Ruf.szeneFlucht(", 'Flucht im Angriff kostet Ruf (Fahrerflucht)'],
+  ['server/sim/kriegslage-szene.js', "const ruf = imKampf && S.modus !== 'angriff' && S.modus !== 'verrat' ? Ruf.szeneFlucht(", "const ruf = imKampf && S.modus !== 'verrat' ? Ruf.szeneFlucht(", 'Flucht im Angriff kostet Ruf (Fahrerflucht)'],
   ['server/sim/kriegslage-szene.js', "    const x = S.modus === 'angriff' ? { x: 1 } : {};", "    const x = {};", 'Szenenzeile kennt den Angriff nicht (x)'],
   ['server/sim/kriegslage-szene.js', "p: 's', o: null, x: 1 };", "p: 's', o: null };", 'Ergebniszeile Sieg ohne x'],
   ['server/sim/kriegslage-szene.js', "p: 'n', o: null, x: 1 };", "p: 'n', o: null };", 'Ergebniszeile Niederlage ohne x'],

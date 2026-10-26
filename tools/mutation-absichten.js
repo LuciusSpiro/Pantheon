@@ -48,7 +48,7 @@ const MUTATIONEN = [
   [A, "if (s.laufend) { const a = eintrag(s.laufend.id); return fehl('schon_gewaehlt'", "if (false) { const a = eintrag(s.laufend.id); return fehl('schon_gewaehlt'", 'zweite Wahl wird angenommen (nicht doppelt wählbar fehlt)'],
   [A, "  if (!rangOk(game)) return fehl('rang'", "  if (false) return fehl('rang'", 'Wahl prüft den Rang nicht'],
   [A, "  if (!s.angebot.ids.includes(a.id)) return fehl('nicht_im_angebot');\n", "", 'Wahl einer nicht angebotenen Absicht geht durch'],
-  [A, "  wirkungUeberlagern(ws.zustand, a);\n  return null;", "  return null;", 'Wahl setzt zustand.absichten.rom nicht'],
+  [A, "  wirkungUeberlagern(ws.zustand, a);\n  Chronik.eintragen(game, { art: 'absicht', ref: a.id, kurz: `Absicht gewählt: ${a.name}`, param: { wahl: 'ja' } });", "  Chronik.eintragen(game, { art: 'absicht', ref: a.id, kurz: `Absicht gewählt: ${a.name}`, param: { wahl: 'ja' } });", 'Wahl setzt zustand.absichten.rom nicht'],
   [A, "bis: ws.tickZahl + a.dauer, vorher", "bis: ws.tickZahl + 1, vorher", 'Wahl: Dauer ignoriert die Daten'],
   [A, "  s.angebot = null;\n  wirkungUeberlagern", "  wirkungUeberlagern", 'Wahl lässt das Angebot stehen'],
   [A, "for (const k of FELDER) if (Number.isFinite(a.wirkung[k])) rom[k] = a.wirkung[k];", "rom.p_act = a.wirkung.p_act;", 'Wirkung setzt nur p_act'],
@@ -85,7 +85,7 @@ const MUTATIONEN = [
   [G, "        if (!r && op === 'waehlen') { try { Absicht.meldeGewaehlt(this); }", "        if (false) { try { Absicht.meldeGewaehlt(this); }", 'kein Funk bei der Wahl'],
   [G, "if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }", "if (false) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'absichtAntwort', pid: p.id, op, ok: !r }", 'keine Antwort an den Absender'],
   ['shared/protocol.js', "CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],", "CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen', 'absicht.setzen'],", 'Protokoll: zusätzlicher Absicht-Befehl'],
-  ['server/sim/werft.js', "const b = msg.b === 'h' ? 'h' : msg.b === 'l' ? 'l' : 'w';", "const b = msg.b === 'h' ? 'h' : 'w';", 'Zuschauer-Ansicht kennt den Bereich Lage nicht'],
+  ['server/sim/werft.js', "const b = msg.b === 'h' ? 'h' : msg.b === 'l' ? 'l' : msg.b === 'i' ? 'i' : 'w';", "const b = msg.b === 'h' ? 'h' : msg.b === 'i' ? 'i' : 'w';", 'Zuschauer-Ansicht kennt den Bereich Lage nicht'],
   // ---- Client
   [U, "    if (s.zusehen || !AB || !AB.angebot.length || !id || abgesagt()) return;\n    cmd(view, 'absicht.waehlen'", "    if (!AB || !AB.angebot.length || !id || abgesagt()) return;\n    cmd(view, 'absicht.waehlen'", 'UI: Zuschauer sendet die Wahl'],
   [U, "    if (s.zusehen || !AB || !AB.angebot.length || abgesagt()) return;\n    cmd(view, 'absicht.ablehnen'", "    if (!AB || !AB.angebot.length || abgesagt()) return;\n    cmd(view, 'absicht.ablehnen'", 'UI: Zuschauer sendet Ablehnen'],
@@ -97,7 +97,7 @@ const MUTATIONEN = [
   // ---- Review-Fixes: Rangverlust, Schichtung, Modus-Ende, Absage, Takt
   [A, "if (s.laufend && n >= s.laufend.bis) {", "if (s.laufend && (n >= s.laufend.bis || !rangOk(game))) {", 'Absicht bricht bei Rangverlust ab'],
   [A, "return [rangOk(game) ? 1 : 0, s.angebot", "return [1, s.angebot", 'Schlüssel ohne Rang (Rangwechsel in der Pause nicht gesendet)'],
-  [K, "    rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)\n    absichtFunk = Absicht.nachTick(game, ws.tickZahl + 1).funk;", "    absichtFunk = Absicht.nachTick(game, ws.tickZahl + 1).funk;\n    rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));", 'Angebot vor dem Ruf-Update des Ticks'],
+  [K, "    rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)\n    if (fadenSicher && gueltig.some((w) => w.typ === 'haltung_aenderung')) Faden.anwenden(game, gueltig);   // SUND-04a-1 B: Haltung der NSC, im selben Atom\n    absichtFunk = Absicht.nachTick(game, ws.tickZahl + 1).funk;", "    absichtFunk = Absicht.nachTick(game, ws.tickZahl + 1).funk;\n    rang = Ruf.anwenden(game, gueltig.concat(po.wirkungen));   // SUND-02b B: Ruf nach dem Tick, im selben Atom (der Kern ignoriert ruf_aenderung)\n    if (fadenSicher && gueltig.some((w) => w.typ === 'haltung_aenderung')) Faden.anwenden(game, gueltig);   // SUND-04a-1 B: Haltung der NSC, im selben Atom", 'Angebot vor dem Ruf-Update des Ticks'],
   [A, "const rom = Object.assign({}, romEintrag(z) || {});\n  for (const k of FELDER)", "const rom = {};\n  for (const k of FELDER)", 'Schichtung: Überlagern überschreibt den fremden Eintrag'],
   [A, "if (rom) for (const k of FELDER) if (Number.isFinite(rom[k])) v[k] = rom[k];", "", 'Schichtung: vorherige Werte werden nicht gemerkt'],
   [A, "if (laufend.vorher && Number.isFinite(laufend.vorher[k])) rom[k] = laufend.vorher[k]; else delete rom[k];", "delete rom[k];", 'Schichtung: Ablauf stellt die vorherigen Werte nicht wieder her'],

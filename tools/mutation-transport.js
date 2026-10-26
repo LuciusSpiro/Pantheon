@@ -24,7 +24,7 @@ const R = 'server/mission/transport-router.js'; const O = 'server/mission/transp
 const L = 'server/mission/llm.js'; const SL = 'server/mission/spielleiter.js'; const SB = 'server/mission/szenenbau.js'; const RL = 'server/mission/regielog.js';
 const MUTATIONEN = [
   // ----- Router -----
-  [R, "szene: { anbieter: 'ollama' }, text: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", "szene: { anbieter: 'claude', modell: 'sonnet' }, text: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", 'Router: Standard schickt Szenen an Claude'],
+  [R, "const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }, szene: { anbieter: 'ollama' }", "const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }, szene: { anbieter: 'claude', modell: 'sonnet' }", 'Router: Standard schickt Szenen an Claude'],
   [R, "const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }", "const STANDARD = { grobplan: { anbieter: 'ollama' }", 'Router: Standard schickt den Grobplan an Ollama'],
   [R, "else { delete co.schema; if (modell) co.model = modell; }", "else { if (modell) co.model = modell; }", 'Router: Schema geht auch an Claude'],
   [R, "{ co.model = modell; if (co.system)", "{ co.model = co.model || modell; if (co.system)", 'Router: Ollama bekommt das Claude-Modell des Aufrufs'],
@@ -38,7 +38,7 @@ const MUTATIONEN = [
   [L, "if (vorab !== 'ollama' && b.used >= b.limit)", "if (false)", 'llm: Claude-Deckel gilt nicht mehr'],
   [L, "const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };", "const co = { system: sys, model, timeoutMs: ao.timeoutMs };", 'llm: kind kommt beim Transport nicht an'],
   [L, "if (ao.schema) co.schema = ao.schema;", "", 'llm: Schema kommt beim Transport nicht an'],
-  [L, "const KINDS = ['grobplan', 'szene', 'text'];", "const KINDS = ['grobplan', 'szene'];", "llm: Art 'text' fehlt"],
+  [L, "const KINDS = ['grobplan', 'szene', 'text', 'lage'];", "const KINDS = ['grobplan', 'szene', 'lage'];", "llm: Art 'text' fehlt"],
   [L, "if (r.eskaliert || forced) ans.eskaliert = true;", "", 'llm: Antwort ohne eskaliert-Kennzeichen'],
   [L, "if (r.anbieter) { ans.anbieter = r.anbieter;", "if (false) { ans.anbieter = r.anbieter;", 'llm: Antwort ohne Anbieter/Modell'],
   // ----- Spielleiter -----
@@ -46,7 +46,7 @@ const MUTATIONEN = [
   [SL, "(job.type === 'szene-eskalation' || this.anbieterFuer(kind) !== 'ollama') && b.remaining < this.C.minBudget", "b.remaining < this.C.minBudget", 'Spielleiter: Claude-Budget sperrt Ollama-Läufe'],
   [SL, "try { repairs.push(...Szenenbau.repairGrobplanReferenzen(g, this.env2())); } catch (e) { this.countError('reparatur', e); }", "", 'Spielleiter: Referenz-Reparaturen werden nicht angewandt'],
   [SL, "if (l.mode !== 'live' || this.anbieterFuer('szene') !== 'ollama') return null;", "if (l.mode !== 'live') return null;", 'Spielleiter: Schema auch für Claude-Szenen'],
-  [RL, "'plan', 'anbieter', 'modell', 'eskaliert']", "'plan']", 'Regielog: verwirft anbieter/modell/eskaliert'],
+  [RL, "'plan', 'anbieter', 'modell', 'eskaliert', 'grund']", "'plan', 'grund']", 'Regielog: verwirft anbieter/modell/eskaliert'],
   // ----- B2 -----
   [R, "return Object.assign(r, { eskaliert: true });\n    },\n  };", "return r;\n    },\n  };", 'Router: callEskalation ohne eskaliert-Kennzeichen'],
   [R, "return einzeln(text, co, eintrag.anbieter, eintrag.modell, eintrag);\n    },", "try { return await einzeln(text, co, eintrag.anbieter, eintrag.modell, eintrag); } catch (e) { if (e.code === 'OFFLINE' && eskCfg) return this.callEskalation(text, co); throw e; }\n    },", 'Router: fällt bei OFFLINE selbst auf Claude zurück (zweiter Eskalationsweg, Deckel umgangen)'],
