@@ -71,6 +71,7 @@ function notrufOrt(f) {
   if (!f || f.phase !== 'laeuft' || !f.laufend) return null;
   const v = D.vorlage(f.vorlage), beat = v && v.beats[f.beat];
   if (!beat || beat.id !== f.laufend.beat || !D.BEATS[beat.typ] || D.BEATS[beat.typ].baustein !== 'notruf') return null;
+  if (require('./faden-bausteine.js').vonId('notruf') !== notruf) return null;   // nur der echte Baustein wartet auf die Ankunft (ein Platzhalter der Tests tut nichts, wie der Beat selbst)
   const p = beat.parameter || {};
   const hex = typeof p.hex === 'string' && HEX.test(p.hex) ? p.hex : (f.parameter && f.parameter.ort);
   return hex && HEX.test(hex) ? hex : null;
