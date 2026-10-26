@@ -53,8 +53,8 @@
     "texte": {
       "wert": {
         "bitte_mission": "{name}: Wir brauchen Hilfe bei {ort}. Könnt ihr uns decken?",
-        "bitte_mission_kalt": "{name}: Ihr habt Euch lange Zeit gelassen. Wir brauchen Hilfe bei {ort}. Oder ist das zu viel verlangt?",
-        "bitte_mission_herzlich": "{name}: Ihr seid Freunde in der Not! Könnt ihr uns bei {ort} decken? Wir vergessen es nie.",
+        "bitte_mission_kalt": "{name}: Ihr habt lange gebraucht. Hilfe bei {ort}, bitte.",
+        "bitte_mission_herzlich": "{name}: Freunde! Könnt ihr uns bei {ort} decken? Danke.",
         "hilfe_rom": "{name}: Wir brauchen Hilfe bei {ort}. Ihr seid die Einzigen in der Nähe.",
         "hilfe_kon": "{name}: Saum-Kundschaft bei {ort} braucht eine Begleitung. Wollt ihr?"
       },

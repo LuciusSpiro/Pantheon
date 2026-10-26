@@ -164,13 +164,11 @@ function fadenSabotage(game, ort) {
   const v = verworfen.find((x) => x.befehl === b);
   if (v) { schreibe(game, { art: 'lage_befehl', ausgang: 'abgelehnt', key: 'sabotage', plan: b, fehler: [v.grund], begruendung: 'Faden: Sprengung abgelehnt' }); return { ok: false, grund: v.grund }; }
   if (!gueltig.includes(b)) return { ok: false, grund: 'abgelehnt' };
-  if (rateBelegt(s, n0) >= RATE.max) return { ok: false, grund: `Rate: höchstens ${RATE.max} Befehle je ${RATE.fenster} Ticks` };
-  s.rate = s.rate.filter((t) => n0 - t < RATE.fenster);
+  // Ein Faden-Befehl zaehlt NICHT gegen die Rate der Befehle des Spielleiters (wie faden_oeffnen und faden_weiter): eine Enthuellung darf nicht daran scheitern, dass der Plan die Rate verbraucht hat
   const w = trifftRom(ws.zustand, b);
   const ab = n0 + 1 + (w ? vorlaufVon(w.art) : 0);
   s.vorgemerkt.push({ b, ab, w: 1 });
   s.letzte[abkuehlSchluessel(b)] = n0;
-  s.rate.push(n0);
   const f = w && vorwarnText(w, ab, n0, b);
   if (f) funkSenden(game, f);
   schreibe(game, { art: 'lage_befehl', ausgang: 'vorgemerkt', key: 'sabotage', plan: b, begruendung: 'Faden: Sprengung angekündigt, wirksam ab Tick ' + ab });

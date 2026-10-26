@@ -36,7 +36,7 @@ function sagen(game, nsc, text) {
 // Erinnerung: der letzte Gedaechtnis-Eintrag mit einem Text aus `erinnert` gewinnt; sonst der Text des Beats
 function notrufText(nsc, beat) {
   let key = (beat.parameter && beat.parameter.text_key) || null;
-  for (const g of (nsc && nsc.gedaechtnis) || []) { const k = W.erinnert[g.ereignis]; if (k && T[k]) key = k; }
+  for (const g of (nsc && nsc.gedaechtnis) || []) { const k = W.erinnert.wert[g.ereignis]; if (k && T[k]) key = k; }
   if (!key || !T[key]) key = 'notruf_standard';
   return key;
 }
