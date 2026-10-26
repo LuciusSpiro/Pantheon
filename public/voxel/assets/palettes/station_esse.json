@@ -1,8 +1,9 @@
 {
   "id": "station_esse",
-  "name": "Station Germanen Esse: nord unverändert, nur die Glut gesättigt (#FF7A1A statt blassgelb), Kupfer, Rostrot, Waid-Blau und Rune bleiben (Kai 2026-10-25)",
+  "name": "Station Germanen Esse: nord unverändert, Kupfer satter und dunkler (Richtung #A9542A, ORT-01 6D), Glut gesättigt (#FF7A1A statt blassgelb), Rostrot, Waid-Blau und Rune bleiben (Kai 2026-10-25)",
   "extends": "nord",
   "roles": {
+    "copper": "#A9542A",
     "ember": {
       "color": "#FF7A1A",
       "emit": 1

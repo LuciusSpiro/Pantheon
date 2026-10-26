@@ -684,6 +684,7 @@
   "lerche_rom",
   "mond_kesh",
   "nord",
+  "nord_aussenposten",
   "nord_umkaempft",
   "nord_verfallen",
   "planet_mediterran",
@@ -692,6 +693,7 @@
   "rom_kastell_umkaempft",
   "rom_kastell_verfallen",
   "rom_schiff",
+  "rom_station",
   "rom_umkaempft",
   "rom_verfallen",
   "rostmeute",
@@ -726,6 +728,7 @@
  "moods": [
   "hall_forge",
   "hall_metall",
+  "hall_rom",
   "hall_warm",
   "kesh_dusk",
   "outpost_frost",

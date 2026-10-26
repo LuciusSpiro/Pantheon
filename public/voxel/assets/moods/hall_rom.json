@@ -1,0 +1,35 @@
+{
+  "id": "hall_rom",
+  "name": "Rom-Station Aquädukt: Ableitung von hall_metall, mehr Licht, weniger Grau im Umgebungslicht, warme Tönung, damit Gold gold bleibt und Amber in den Rinnen leuchtet (ORT-01 6D, Befund Designer-Review R2)",
+  "background": "#1C1A18",
+  "fog": {
+    "color": "#26231F",
+    "near": 2.4,
+    "far": 6
+  },
+  "hemi": {
+    "sky": "#F4E6CC",
+    "ground": "#A08466",
+    "intensity": 1.5
+  },
+  "ambient": {
+    "color": "#6A5C4C",
+    "intensity": 0.72
+  },
+  "sun": {
+    "color": "#FFEBCC",
+    "intensity": 1.9,
+    "dir": [
+      -0.25,
+      1,
+      0.35
+    ],
+    "softness": 4
+  },
+  "exposure": 1.35,
+  "bloom": {
+    "strength": 0.7,
+    "radius": 0.5,
+    "threshold": 0.75
+  }
+}
