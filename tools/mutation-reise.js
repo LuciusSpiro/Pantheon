@@ -65,19 +65,19 @@ const MUTATIONEN = [
 
   [RE, "      if (d >= von && Sektoren.spielbar(nb)", "      if (Sektoren.spielbar(nb)", 'Notruf-Ort: Mindestabstand ignoriert'],
   // ---- Auslösen, Ankündigung, Ausweichen
-  [RE, "  funk(game, textFuer(ev, 'ankuendigung'));\n  chronik(game, ev);\n  if (e.gefahr) gefahrPlanen(game, R, ev);", "  chronik(game, ev);\n  if (e.gefahr) gefahrPlanen(game, R, ev);", 'Ankündigung: Gefahr ohne Funk vorab'],
+  [RE, "  funk(game, textFuer(ev, 'ankuendigung', game));\n  chronik(game, ev);\n  if (e.gefahr) gefahrPlanen(game, R, ev);", "  chronik(game, ev);\n  if (e.gefahr) gefahrPlanen(game, R, ev);", 'Ankündigung: Gefahr ohne Funk vorab'],
   [RE, "else if (game.time >= L.ab) eintreffen(game, L); continue; }", "else eintreffen(game, L); continue; }", 'Ankündigung: kein Vorlauf, die Gegner sind sofort da'],
   [RE, "ab: game.time + e.parameter.vorlauf_s, tag:", "ab: game.time + 1, tag:", 'Ankündigung: Vorlauf auf 1 s verkürzt'],
   [RE, "    if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); continue; }", "", 'Ausweichen: die Gefahr kommt auch, wenn die Crew weg ist'],
-  [RE, "  funk(game, textFuer(L.ev, 'eintreffen'));\n}", "}", 'Eintreffen: kein Funk'],
+  [RE, "  funk(game, textFuer(L.ev, 'eintreffen', game));\n}", "}", 'Eintreffen: kein Funk'],
   [RE, "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", "  try { game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); game.emit('radio', { from: t.von, text: t.text, lage: 1, r: 1 }); }", 'Mehrspieler: Funk doppelt'],
   [RE, "  chronik(game, ev);\n  FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)\n}\n// Eine angekündigte Gefahr", "  FA().anbieten(game, ev);   // SUND-03b A: Funk-Antwort (nur wo der Katalog antworten hat)\n}\n// Eine angekündigte Gefahr", 'Chronik: Funkmeldung ohne Eintrag'],
   [RE, "  const werte = { ort: hexName(ev.hex), n: (e.parameter || {}).vorlauf_s };", "  const werte = { ort: hexName(ev.hex) };", 'Text: Platzhalter {n} bleibt stehen'],
   // ---- Notruf und Folgen
   [RE, "  notrufVerfaellt(game, R, o, 'abgelehnt');   // Ablehnen kostet nichts: keine Wirkung, kein Ruf", "  notrufVerfaellt(game, R, o, 'abgelehnt'); kl().rufBuchen(game, [{ typ: 'ruf_aenderung', fraktion: 'rom', delta: -3, grund: 'reise_hilfe_rom' }]);", 'Ablehnen kostet Ruf'],
   [RE, "  if (e.gefahr) notrufGefahrPlanen(game, R, o.ev);\n  else {", "  if (e.gefahr) { notrufGefahrPlanen(game, R, o.ev); folgeBuchen(game, e); }\n  else {", 'Folge: der Ruf kommt schon beim Eintreffen, vor dem Kampf'],
-  [RE, "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank')); }", "      if (L.notruf) { funk(game, textFuer(L.ev, 'dank')); }", 'Folge: nach dem Kampf kein Ruf'],
-  [RE, "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank')); }", "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); }", 'Folge: nach dem Kampf kein Dank-Funk'],
+  [RE, "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson(game, eintrag(L.id), L.ev); }", "      if (L.notruf) { funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson(game, eintrag(L.id), L.ev); }", 'Folge: nach dem Kampf kein Ruf'],
+  [RE, "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson(game, eintrag(L.id), L.ev); }", "      if (L.notruf) { folgeBuchen(game, eintrag(L.id)); notrufMitPerson(game, eintrag(L.id), L.ev); }", 'Folge: nach dem Kampf kein Dank-Funk'],
   [RE, "    if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt", "    if (!false) {   // bewältigt", 'Folge: gilt sofort als bewältigt'],
   [RE, "  for (const o of R.offen.slice()) if (o.bis < R.n) notrufVerfaellt(game, R, o, 'unbeantwortet');", "", 'Notruf: verfällt nie'],
   [RE, "  Marken.entferne(game, o.marke);\n  R.offen.splice(R.offen.indexOf(o), 1);\n  Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`", "  R.offen.splice(R.offen.indexOf(o), 1);\n  Chronik.eintragen(game, { art: 'reise', ref: o.id, kurz: `Notruf bei ${hexName(o.hex)} ${text}`", 'Notruf: die Marke bleibt nach dem Verfall'],

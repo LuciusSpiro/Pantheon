@@ -77,7 +77,7 @@ const MUTATIONEN = [
   ['server/sim/posten.js', "&& istCrew(z, hex) && !reg[hex]) reg[hex] = { t: z.tick };", "&& false) reg[hex] = { t: z.tick };", 'A1-Fix: Crew-Posten ohne Eintrag bekommen nie den Halten-Ruf'],
   ['server/sim/alarm.js', "sc.station, Besitz.dockLage(game, sc, loc && (loc.hex || Sektoren.hexVonOrt(loc.id)))]", "sc.station, null]", 'A1-Fix: Minen meiden das Stützpunkt-Dock nicht'],
   ['server/weltstand.js', "loc = Welt.startOrt(); ws.lastDockedAt = loc; }", "loc = Welt.startOrt(); }", 'A1-Fix: Rückfall schreibt lastDockedAt nicht'],
-  ['server/sim/posten.js', "|| o.sc.station) return null;   // A1-Fix", ") return null;   // A1-Fix", 'A1-Fix: Feld auch auf Hexen mit Station'],
+  ['server/sim/posten.js', "hatHafen(o) || o.sc.station) return null;", "hatHafen(o)) return null;", 'A1-Fix: Feld auch auf Hexen mit Station'],
   ['content/welt/posten-werte.json', '"rom": ["0503", "0505"]', '"rom": ["0503", "0505", "0703"]', 'Daten: Anspruch ohne Symmetrie'],
   ['content/welt/posten-werte.json', '"gruenden": "miles", "ausbau": "centurio"', '"gruenden": "centurio", "ausbau": "miles"', 'Daten: Ausbau verlangt weniger als Gründen'],
   ['content/flotte/posten.json', '"anspruch": "Dieser Sektor liegt nicht in Roms Anspruch."', '"anspruch": "Nein."', 'Text: Anspruch-Weigerung'],

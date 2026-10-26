@@ -44,7 +44,7 @@ const MUTATIONEN = [
   ['public/js/terminal-ui.js', "L.sperre[ziel] && !voll ? hinweis(L.sperre[ziel], 'warn') : hinweis(preis", "hinweis(preis", 'UI: Hinweiszeile ohne Rang-Grund'],
   ['public/js/pult-terminal-tokens.js', "(st.sperre ? '! ' : '')", "''", 'Zeichnung: kein "!" an gesperrter Kachel'],
   ['public/js/pult-terminal-tokens.js', "hat ? 'modul' : st.sperre ? 'warn' : 'preis'", "hat ? 'modul' : 'preis'", 'Zeichnung: gesperrter Preis nicht in Warnfarbe'],
-  ['public/js/pult-terminal-tokens.js', "if (s.sperre) { txt(c, s.sperre, r.x, y2, 'warn');", "if (false) { txt(c, s.sperre, r.x, y2, 'warn');", 'Zeichnung: Grundzeile im Block entfällt'],
+  ['public/js/pult-terminal-tokens.js', "if (s.sperre) {   // Grund der gesperrten Stufe", "if (false) {   // Grund der gesperrten Stufe", 'Zeichnung: Grundzeile im Block entfällt'],
 ];
 
 let ueberlebt = 0;
