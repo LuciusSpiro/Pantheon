@@ -52,7 +52,12 @@ async function main() {
       const sx = r.w / 640, sy = r.h / 360;
       return { x: Math.round(r.l + x * sx), y: Math.round(r.t + y * sy), width: Math.round(w * sx), height: Math.round(h * sy) };
     };
-    const shot = async (name, rect) => { await page.screenshot({ path: path.join(OUT, name), clip: rect ? await clip(...rect) : undefined }); console.log('Bild', name); };
+    // Fix3: Karte = Ops-Kartenfeld in Bruchteilen der Fensterbreite und -höhe (Pult-Layout skaliert gleichmäßig; 1280/1024/1920 geprüft)
+    const kartenClip = async () => {
+      const v = page.viewportSize();
+      return { x: Math.round(v.width * 0.0975), y: Math.round(v.height * 0.0178), width: Math.round(v.width * 0.63), height: Math.round(v.height * 0.506) };
+    };
+    const shot = async (name, rect) => { await page.screenshot({ path: path.join(OUT, name), clip: rect ? (Array.isArray(rect) ? await clip(...rect) : rect) : undefined }); console.log('Bild', name); };
 
     // ---- ablegen, anhalten, unverwundbar, Verfolgung mit einer Fregatte
     await sitz('helm'); await sleep(600);
@@ -75,11 +80,16 @@ async function main() {
     await shot('antrieb-2-systemziel.png', [400, 6, 234, 200]);
     await dbg('zielsysteme', 'treffer 1'); await sleep(600);
     await shot('antrieb-3-beschaedigt.png', [400, 6, 234, 200]);
-    await shot('antrieb-karte-beschaedigt.png', [62, 6, 336, 184]);
+    await shot('antrieb-karte-beschaedigt.png', await kartenClip());
     await dbg('zielsysteme', 'treffer 1'); await sleep(600);
     await shot('antrieb-4-ausgefallen.png', [400, 6, 234, 200]);
-    await shot('antrieb-karte.png', [62, 6, 336, 184]);
+    await shot('antrieb-karte.png', await kartenClip());
     await shot('antrieb-pult.png', null);
+    // Steuer und Captain (Fix3; Lage = Reiter 2 mit GESCANNTE ZIELE): ganzer Bildschirm, damit Überlagerungen am Rand zu sehen sind
+    await sitz('helm'); await sleep(600);
+    await shot('steuer-ausgefallen.png', null);
+    await sitz('captain'); await page.evaluate(() => { Consoles.tab = 2; }); await sleep(600);
+    await shot('captain-lage.png', null);
     const s = await page.evaluate(() => { const e = (__game.state.space.enemies || [])[0] || {}; return { az: e.az, sj: e.sj, nm: e.nm, zs: (__game.state.ship || {}).zs, vf: (__game.state.space || {}).vf }; });
     console.log('Snapshot', JSON.stringify(s));
     const err = await page.evaluate(() => { const G = window.__game; return G && G.errorLog ? G.errorLog.map((e) => e.label + ': ' + e.msg) : []; });
