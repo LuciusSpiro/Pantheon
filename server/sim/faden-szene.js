@@ -153,11 +153,21 @@ function kampfTakt(game, fs) {
 }
 
 // ---------- Verbündeter der Spontanhilfe ----------
+// SUND-04a-2 P3: eine zweite Spontanhilfe, während eine läuft, WARTET in einer Schlange (höchstens warteschlange_max wie die Szenen), statt zu scheitern (die Lücke aus P1).
+// Rückt sie nach, wenn die erste Hilfe endet (hilfeNaechste); ein Eintrag, dessen Beat schon beendet ist, fällt weg.
 function hilfeEinplanen(game, q) {
   if (game.fadenHilfe && !laeuft(game, game.fadenHilfe.fadenId, game.fadenHilfe.beatId)) { hilfeWeg(game); game.fadenHilfe = null; }   // ein Beat, der schon beendet ist, blockiert nichts
-  if (game.fadenHilfe) return { ok: false, grund: 'HILFE_LAEUFT' };
-  game.fadenHilfe = { fadenId: q.fadenId, beatId: q.beatId, nsc: q.nsc ? q.nsc.id : null, schiff: q.nsc ? q.nsc.schiff : '', name: q.nsc ? q.nsc.name : '', versucht: null, n: 0, ally: null };
-  return { ok: true, grund: null };
+  const h = { fadenId: q.fadenId, beatId: q.beatId, nsc: q.nsc ? q.nsc.id : null, schiff: q.nsc ? q.nsc.schiff : '', name: q.nsc ? q.nsc.name : '', versucht: null, n: 0, ally: null };
+  if (!game.fadenHilfe) { game.fadenHilfe = h; return { ok: true, grund: null }; }
+  const warte = game.fadenHilfeWarte || (game.fadenHilfeWarte = []);
+  if (warte.length >= W.warteschlange_max) return { ok: false, grund: 'HILFE_LAEUFT' };
+  warte.push(h);
+  return { ok: true, grund: 'WARTET' };
+}
+// Rückt die nächste wartende Hilfe nach (ihr Beat läuft noch); fällt sonst weg
+function hilfeNaechste(game) {
+  const warte = game.fadenHilfeWarte || [];
+  while (warte.length) { const h = warte.shift(); if (laeuft(game, h.fadenId, h.beatId)) { game.fadenHilfe = h; return; } }
 }
 // Ein Gefecht (Sim-Szene oder Faden-Kampf) ist da: einmal würfeln; der Verbündete erscheint, wenn der Wurf unter der Chance der Haltung liegt
 function wuerfeln(game, h) {
@@ -183,15 +193,15 @@ function hilfeWeg(game) {
 }
 function hilfeTakt(game) {
   const h = game.fadenHilfe; if (!h) return;
-  if (!laeuft(game, h.fadenId, h.beatId)) { hilfeWeg(game); game.fadenHilfe = null; return; }   // Frist oder Andocken: der Beat ist nicht mehr da
+  if (!laeuft(game, h.fadenId, h.beatId)) { hilfeWeg(game); game.fadenHilfe = null; hilfeNaechste(game); return; }   // Frist oder Andocken: der Beat ist nicht mehr da
   const key = game.simSzene ? 'sim' + game.simSzene.id : (game.fadenSzene && game.fadenSzene.phase === 'kampf' ? 'fs' + game.fadenSzene.id : null);
-  if (h.ally && h.ally.kampf !== key) { hilfeWeg(game); game.fadenHilfe = null; Faden.beatAusgang(game, h.fadenId, 'gelungen'); return; }   // das Gefecht ist vorbei: er hat mitgekämpft
+  if (h.ally && h.ally.kampf !== key) { hilfeWeg(game); game.fadenHilfe = null; Faden.beatAusgang(game, h.fadenId, 'gelungen'); hilfeNaechste(game); return; }   // das Gefecht ist vorbei: er hat mitgekämpft
   if (!h.ally && key && h.versucht !== key) { h.versucht = key; wuerfeln(game, h); }
 }
 
 // ---------- Takt ----------
 function update(game) {
-  if (!game.fadenSzene && !(game.fadenWarte && game.fadenWarte.length) && !game.fadenHilfe) return;
+  if (!game.fadenSzene && !(game.fadenWarte && game.fadenWarte.length) && !game.fadenHilfe && !(game.fadenHilfeWarte && game.fadenHilfeWarte.length)) return;
   if (game.ship.docked && game.fadenSzene) andockenEnde(game);
   else if (game.simSzene && game.fadenSzene) unterbrechen(game, game.fadenSzene);
   else if (game.fadenSzene && game.fadenSzene.szene !== game.ship.scene) enden(game, game.fadenSzene, 'gescheitert', 'szenenwechsel');
@@ -215,8 +225,12 @@ for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) 
 Bausteine.registriere('fracht', {
   starten(game, faden, ctx) {
     const p = ctx.beat.parameter || {};
-    const r = Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: p.nach });
-    return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
+    // P3: „$ort“ ist der Ort des Fadens (der Zielhafen ist der Ort, an dem die Crew den NSC traf); die Hinweise des Beats gelten mit der Beladung (B-S1)
+    const nach = p.nach === '$ort' ? (faden.parameter && faden.parameter.ort) : p.nach;
+    const r = Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach });
+    if (!r.ok) return { ausgang: 'gescheitert' };
+    for (const h of ctx.beat.hinweise || []) Faden.hinweisGezeigt(game, faden.id, h);
+    return { laeuft: true };
   },
 });
 

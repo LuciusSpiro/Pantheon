@@ -1,0 +1,33 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "entfuehrter_haendler",
+  "titel": "Entführter Händler",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gelungen", "ereignis": ["notruf_pirat_haendler"] }],
+  "volk_erlaubt": ["rom", "kon"],
+  "nsc": { "status": "aktiv", "haltung": 1, "klassen": ["frachter", "kurier"] },
+  "hinweise": {},
+  "beats": [
+    {
+      "id": "b_notruf", "typ": "notruf",
+      "parameter": { "text_key": "notruf_entfuehrt" },
+      "aus": {
+        "gelungen": { "status": "gefangen", "weiter": "b_befreiung", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }] },
+        "gescheitert": { "status": "tot", "weiter": "b_abschluss", "folge": [{ "typ": "haltung_aenderung", "grund": "im_stich_gelassen" }] }
+      }
+    },
+    {
+      "id": "b_befreiung", "typ": "befreiung",
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_abschluss", "folge": [{ "typ": "haltung_aenderung", "grund": "gerettet" }] },
+        "gescheitert": { "status": "tot", "weiter": "b_abschluss", "folge": [{ "typ": "haltung_aenderung", "grund": "im_stich_gelassen" }] }
+      }
+    },
+    {
+      "id": "b_abschluss", "typ": "abschluss",
+      "aus": {
+        "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        "gescheitert": { "folge": [] }
+      }
+    }
+  ]
+}

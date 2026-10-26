@@ -1,0 +1,145 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "dankbarer_captain",
+  "titel": "Dankbarer Captain",
+  "ausloeser": [
+    {
+      "art": "notruf",
+      "ausgang": "gelungen",
+      "ereignis": [
+        "notruf_pirat_frachter",
+        "notruf_havarie_reaktor"
+      ]
+    }
+  ],
+  "volk_erlaubt": [
+    "rom",
+    "kon"
+  ],
+  "nsc": {
+    "status": "aktiv",
+    "haltung": 2,
+    "klassen": [
+      "frachter",
+      "kurier"
+    ]
+  },
+  "hinweise": {},
+  "beats": [
+    {
+      "id": "b_bitte",
+      "typ": "bitte",
+      "parameter": {
+        "text_key": "bitte_mission"
+      },
+      "optionen": [
+        {
+          "id": "annehmen",
+          "text": "Wir kommen mit euch.",
+          "ausgang": "gelungen",
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "geholfen"
+            },
+            {
+              "typ": "ruf_aenderung",
+              "grund": "funk_rom_gruss"
+            }
+          ]
+        },
+        {
+          "id": "ablehnen",
+          "text": "Dafür haben wir keine Zeit.",
+          "ausgang": "gescheitert",
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "bitte_abgelehnt"
+            }
+          ]
+        },
+        {
+          "id": "spaeter",
+          "text": "Meldet euch später noch einmal.",
+          "folge": []
+        }
+      ],
+      "aus": {
+        "gelungen": {
+          "status": "aktiv",
+          "weiter": "b_mission"
+        },
+        "gescheitert": {
+          "status": "aktiv",
+          "weiter": "b_spontan"
+        }
+      }
+    },
+    {
+      "id": "b_mission",
+      "typ": "raumschlacht",
+      "aus": {
+        "gelungen": {
+          "status": "verbuendet",
+          "weiter": "b_spontan",
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "gerettet"
+            }
+          ]
+        },
+        "gescheitert": {
+          "status": "aktiv",
+          "weiter": "b_spontan"
+        }
+      }
+    },
+    {
+      "id": "b_spontan",
+      "typ": "spontanhilfe",
+      "variante": {
+        "wenn": "feindlich",
+        "typ": "raumschlacht"
+      },
+      "aus": {
+        "gelungen": {
+          "status": "verbuendet",
+          "weiter": "b_abschluss",
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "gedankt"
+            }
+          ]
+        },
+        "gescheitert": {
+          "status": "aktiv",
+          "weiter": "b_abschluss"
+        }
+      }
+    },
+    {
+      "id": "b_abschluss",
+      "typ": "abschluss",
+      "aus": {
+        "gelungen": {
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "gedankt"
+            },
+            {
+              "typ": "ruf_aenderung",
+              "grund": "funk_rom_gruss"
+            }
+          ]
+        },
+        "gescheitert": {
+          "folge": []
+        }
+      }
+    }
+  ]
+}

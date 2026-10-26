@@ -67,9 +67,12 @@ function deckelRaum(F) {
 }
 
 // ---------- Text (Platzhalter {name} {ort}; Schlüssel = text_key des Beats)
+// SUND-04a-2 P3: der Ton folgt der Haltung des NSC (tonVon): gibt es für den Ton einen Text (key_ton), wird er genommen; sonst der Grundtext
 function textVon(beat, f) {
   const key = beat.parameter && beat.parameter.text_key;
-  const t = typeof key === 'string' && Object.prototype.hasOwnProperty.call(BW.texte, key) ? BW.texte[key] : null;
+  let schluessel = key;
+  if (typeof key === 'string' && f.nsc) { const ton = Faden().tonVon(f.nsc); if (ton !== 'sachlich' && Object.prototype.hasOwnProperty.call(BW.texte, key + '_' + ton)) schluessel = key + '_' + ton; }
+  const t = typeof schluessel === 'string' && Object.prototype.hasOwnProperty.call(BW.texte, schluessel) ? BW.texte[schluessel] : null;
   if (typeof t !== 'string') return null;
   let ort = 'hier';
   if (f.parameter && f.parameter.ort) { try { ort = RE().hexName(f.parameter.ort) || ort; } catch (e) { ort = f.parameter.ort; } }

@@ -1,0 +1,67 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "falscher_haendler",
+  "titel": "Falscher Händler",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gelungen", "ereignis": ["notruf_havarie_konvoi"] }],
+  "volk_erlaubt": ["rom", "kon"],
+  "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
+  "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
+  "hinweise": {
+    "h_gerucht": { "kanal": "geruecht" },
+    "h_papiere": { "kanal": "papiere" }
+  },
+  "beats": [
+    {
+      "id": "b_bitte", "typ": "bitte",
+      "hinweise": ["h_gerucht"],
+      "parameter": { "text_key": "bitte_mission" },
+      "optionen": [
+        { "id": "annehmen", "text": "Wir bringen Eure Ware.", "ausgang": "gelungen", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        { "id": "ablehnen", "text": "Sucht Euch jemand anderen.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
+        { "id": "spaeter", "text": "Meldet Euch später.", "folge": [] }
+      ],
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_fracht" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_fracht" }
+      }
+    },
+    {
+      "id": "b_fracht", "typ": "fracht",
+      "hinweise": ["h_papiere"],
+      "parameter": { "nach": "$ort", "ware": "fracht_kiste", "text_key": "bitte_mission" },
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "b_enthuell" },
+        "gescheitert": { "status": "aktiv", "weiter": "b_enthuell" }
+      }
+    },
+    {
+      "id": "b_enthuell", "typ": "enthuellung",
+      "aus": {
+        "gelungen": { "status": "feindlich", "weiter": "b_jagd" },
+        "gescheitert": { "status": "geflohen", "weiter": "b_jagd" }
+      }
+    },
+    {
+      "id": "b_jagd", "typ": "verfolgung",
+      "parameter": { "fluchtziel": "naechster_sprungpunkt" },
+      "aus": {
+        "gelungen": { "status": "feindlich", "weiter": "b_schlacht" },
+        "gescheitert": { "status": "geflohen", "weiter": "b_schlacht" }
+      }
+    },
+    {
+      "id": "b_schlacht", "typ": "raumschlacht",
+      "aus": {
+        "gelungen": { "status": "tot", "weiter": "b_abschluss", "folge": [{ "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
+        "gescheitert": { "status": "geflohen", "weiter": "b_abschluss" }
+      }
+    },
+    {
+      "id": "b_abschluss", "typ": "abschluss",
+      "aus": {
+        "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
+        "gescheitert": { "folge": [] }
+      }
+    }
+  ]
+}
