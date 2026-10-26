@@ -118,9 +118,10 @@
     // neueste mit „+n im Funk-Reiter“ (n = die davor, `mehr`); die Einblendung läuft höchstens LAGE_SERIE s ab der ersten Meldung der Serie
     // (die Meldungen stehen zusätzlich im Funk-Reiter und im Logbuch)
     // Fixrunde S-1: nurTafel = Szenenmeldung ohne Funk-Reiter-Eintrag (ev.sz && !ev.r, siehe KarteLage.funkMerken); sie zählt nicht in „+n im Funk-Reiter“
-    onRadio(from, text, pid, lage, kz, nurTafel) {
+    // Nacharbeit SUND-04a-2 (F3a): fd = Funk eines Geschichtsfadens (1: Messing-Akzent und „FUNK“, 2: Gefahr wie der Notruf, bleibt Rot)
+    onRadio(from, text, pid, lage, kz, nurTafel, fd) {
       const now = performance.now() / 1000;
-      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now, imReiter: !nurTafel };
+      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now, imReiter: !nurTafel, fd: fd === 1 || fd === 2 ? fd : 0 };
       if (lage && kz) f.kz = String(kz).slice(0, 80);   // Kernaussage für die einzeilige Lagefunk-Zeile (Ort · Fraktion · Stärke)
       const cur = this.radioAktuell();
       if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + (cur.imReiter === false ? 0 : 1); f.t0 = cur.t0 || cur.t; }
@@ -153,10 +154,12 @@
       r(9, 11, 2, 2, '#0B0E1A'); r(13, 11, 2, 2, '#0B0E1A');
       if (v === 0) { r(6, 4, 12, 4, HAAR); r(6, 6, 2, 2, HAAR); r(16, 6, 2, 2, HAAR); }
       else if (v === 1) { r(5, 3, 14, 5, MESSING); r(11, 0, 2, 3, FARBE); }
-      else if (v === 2) { r(6, 4, 12, 4, '#2A3A52'); r(4, 8, 16, 1, '#2A3A52'); }
+      else if (v === 2) { r(6, 4, 12, 4, '#46556A'); r(4, 8, 16, 1, '#46556A'); }   // Mütze: #46556A wie die Tastenkappe, #2A3A52 hob sich kaum vom Grund ab (Design K1)
       else if (v === 3) { r(6, 4, 12, 4, '#5A3E2B'); r(6, 8, 2, 10, '#5A3E2B'); r(16, 8, 2, 10, '#5A3E2B'); }
       else if (v === 4) { r(7, 14, 10, 4, '#6B4A33'); }
       else { r(4, 3, 16, 6, '#3E3E4A'); r(5, 8, 2, 8, '#3E3E4A'); r(17, 8, 2, 8, '#3E3E4A'); }
+      // 1-px-Messingrahmen wie beim Legaten (S4): ohne Rahmen löste sich das Porträt vom Messingrahmen der Leiste
+      ctx.fillStyle = MESSING; ctx.fillRect(0, 0, w, 1); ctx.fillRect(0, w - 1, w, 1); ctx.fillRect(0, 0, 1, w); ctx.fillRect(w - 1, 0, 1, w);
       ctx.restore();
       return true;
     },
@@ -1008,31 +1011,50 @@
       if (view.me.console === 'captain' && window.Consoles && window.Consoles.tab === 1 && window.StarMap && window.StarMap.lageAktiv && window.StarMap.lageAktiv()) return;
       // Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware. Dort steht sie einzeilig ganz oben über der Kopfzeile (y 0–11,
       // der Kopf des Terminals beginnt bei y 12); die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
-      if (view.me.console === 'shop') return this.zeichneFunkZeile(ctx, view, f);
-      // SUND-02b UI (Review A1, Bild 06): an der Ops liegen oben links die Leisten (Fracht, Höhe, Posten gründen samt Weigerungstext) und mittig das Schiff; die 4-zeilige
-      // Tafel (x 204–432) deckte beides. Dort steht die einzeilige Zeile ganz oben wie am Terminal; die Meldung bleibt im Funk-Reiter und im Logbuch.
-      if (view.me.console === 'weapons' && !(window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return this.zeichneFunkZeile(ctx, view, f);
-      // Fixrunde S-2: An der Steuerkonsole (2D-Helm und Voxel-Blick PULT) liegt die Frontsicht mittig bei x 252–443 mit der AUSWEICHEN-Warnung bei y 26–70, links und rechts stehen
-      // Tempo/Kurs und Ort/Sprungziel: für eine 4-zeilige Tafel bleibt kein freier Platz (rechts neben der Frontsicht, x ≥ 450, überdeckte sie Ort und Sprungziel). Dort steht deshalb
-      // die einzeilige Lagefunk-Zeile ganz oben (y 0–11, über allem). Im Voxel-Sitz mit Blick VORN/CREW ist die Konsole nicht zu sehen: dort bleibt die Tafel (mit Versatz).
-      if (view.me.console === 'helm' && !(window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return this.zeichneFunkZeile(ctx, view, f);
+      if (this.lagefunkEinzeilig(view)) return this.zeichneFunkZeile(ctx, view, f);
       this.zeichneFunkTafel(ctx, view, f, null, LAGEFUNK_Y + this.sitzVersatz(view));
+    },
+    // Zeigt die Konsole die Lagemeldung einzeilig (y 0–11, der RUF-SLOT) statt als Tafel? Terminal (shop), Ops (weapons) und Steuer (helm), außer im Voxel-Sitz mit Blick VORN/CREW. Nacharbeit SUND-04a-2 (F4):
+    // die Funk-Antwortleiste (Streifen) teilt sich diesen Slot und weicht dem Lagefunk (Funkwahl.zeichne).
+    //   shop: Handel und Werft am Hafenterminal: die Tafel deckte Infotext, Modulplätze und den Preis der gewählten Ware; die ganze Meldung bleibt im Funk-Reiter und im Logbuch.
+    //   weapons (SUND-02b UI, Review A1): an der Ops liegen oben links die Leisten (Fracht, Höhe, Posten gründen) und mittig das Schiff; die 4-zeilige Tafel (x 204–432) deckte beides.
+    //   helm (Fixrunde S-2): Frontsicht mittig bei x 252–443 mit der AUSWEICHEN-Warnung bei y 26–70, links und rechts Tempo/Kurs und Ort/Sprungziel: für eine 4-zeilige Tafel bleibt kein freier Platz.
+    lagefunkEinzeilig(view) {
+      const f = this.radioAktuell();
+      if (!f || !f.lage || !view || !view.me || !view.me.console) return false;
+      const c = view.me.console;
+      if (c === 'shop') return true;
+      const pult = !(window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult');
+      return (c === 'weapons' || c === 'helm') && pult;
+    },
+    // Höhe der ODA-Zeile unten in der Bordansicht (0 ohne ODA oder an einer Konsole, dort steht sie oben): die Antwortleiste steht darüber (Nacharbeit S3)
+    odaHoehe(view) {
+      const cur = this.oda.cur;
+      if (!cur || (view && view.me && view.me.console)) return 0;
+      return 10 + R.wrap(cur.text, 284 - 44, 1).length * 10;
     },
     // Einzeilige Lagemeldung ohne Inhaltsfläche zu berühren: roter Streifen, „LAGE ·“, Sprecher (nur wenn nicht die eigenen Sensoren), Kernaussage (Ort · Fraktion · Stärke, Server-Feld kz),
     // danach die Prosa (gekürzt), „+n“ bei einer Serie. Fixrunde N5: flache Fläche (Tisch) mit 1 px Messing als Unterkante wie die Szenenzeile statt der 2-px-Fase von R.panel (die Schrift
     // saß in dem 11-px-Feld auf dem Rahmen); die Kürzung trifft nur noch die Prosa.
+    // Akzentfarbe des Funks: Gefahr (Lagemeldung, Faden-Notruf) Rot, Funk der Fäden (fd 1) Messing
+    funkAkzent(f) {
+      return f && f.fd === 1 ? (window.KarteTokens ? KarteTokens.FARBE.funk.akzentLage : '#C9974A') : (window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C');
+    },
     lagefunkZeilenText(f) {
       const von = String(f.from || '');
       const eigen = /^(sensoren lerche|aufklärung)$/i.test(von.trim());
       const text = String(f.text || '');
       const kern = f.kz ? String(f.kz) + ' · ' : '';
+      if (f.fd) return 'FUNK · ' + (von ? von + ' · ' : '') + text;   // Faden-Funk: kein „LAGE“, der Absender immer
       return 'LAGE · ' + (eigen || !von ? '' : von + ' · ') + kern + text;
     },
     // SUND-02b UI2: Unterkante der einzeiligen Lagefunk-Zeile an der Ops (0, wenn keine steht); Beschriftungen oben rechts in der Karte („Zoom 35 %“) rücken darunter
+    // Nacharbeit SUND-04a-2 (F4): auch der Streifen der Funk-Antwortleiste im Ruf-Slot (nach „Einklappen“) zählt: die Zoom-Beschriftung der Karte entfällt dann ebenso
     funkZeileUnten(view) {
+      if (!view || !view.me || view.me.console !== 'weapons' || (window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return 0;
       const f = this.radioAktuell();
-      if (!f || !f.lage || !view || !view.me || view.me.console !== 'weapons' || (window.Sitz && window.Sitz.station && window.Sitz.blick !== 'pult')) return 0;
-      return this.szeneVon(view) ? 9 : 11;
+      if (f && f.lage) return this.szeneVon(view) ? 9 : 11;
+      return window.Funkwahl && typeof Funkwahl.streifenUnten === 'function' ? Funkwahl.streifenUnten(view) : 0;
     },
     // SUND-02b UI2 (Review D): endet der Modus (Löschsignal world.ruf = null bzw. world.absicht = null), ist eine laufende Lagemeldung überholt („Rom bietet Euch …“ stand sonst
     // noch Sekunden über Kampagne oder Lobby); ein zurückgestellter normaler Funkspruch läuft danach wie sonst an
@@ -1051,7 +1073,7 @@
       const txt = this.fitWort(this.lagefunkZeilenText(f), w - 12 - R.measure(mehr, 1), 1) + mehr;
       ctx.fillStyle = T.tisch || '#0B0E1A'; ctx.fillRect(x, 0, w, h);
       ctx.fillStyle = T.messing || PAL.brass; ctx.fillRect(x, h - 1, w, 1);
-      ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, 0, 3, h);
+      ctx.fillStyle = this.funkAkzent(f); ctx.fillRect(x, 0, 3, h);
       R.text(ctx, txt, x + 7, 1, { color: PAL.star, shadow: false });
       return h;
     },
@@ -1106,7 +1128,7 @@
       const mehrZ = !radio && r.mehr > 0 ? 1 : 0;   // SUND-01 F: „+n im Funk-Reiter“
       const h = this.funkTafelHoehe(r, radio);
       R.panel(ctx, x, oy, w, h, { style: 'brass' });
-      if (r.lage) { ctx.fillStyle = window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C'; ctx.fillRect(x, oy, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung
+      if (r.lage) { ctx.fillStyle = this.funkAkzent(r); ctx.fillRect(x, oy, 3, h); }   // SUND-01 C: roter Akzentstreifen der Lagemeldung (Funk der Fäden: Messing)
       R.text(ctx, 'FUNK · ' + (r.from || ''), x + 6, oy + 4, { color: PAL.amber });
       if (pw) this.drawFunkBild(ctx, r.pid, x + 6, oy + 14, 24);
       let y = oy + 15;
@@ -2053,7 +2075,7 @@
       const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
       const h = kons ? 14 : 22;
       let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
-      if (inGame && !kons && window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck().y - h - 4);   // SUND-03b UI (S9): steht unten mittig eine Funk-Antwortleiste, kommt das Siegel darüber
+      if (inGame && !kons && window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck(null, null, undefined, view).y - h - 4);   // SUND-03b UI (S9): steht unten mittig eine Funk-Antwortleiste, kommt das Siegel darüber
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.
       let text;

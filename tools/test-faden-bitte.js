@@ -71,6 +71,20 @@ section('Vorlage: Beat bitte mit Ausgängen; Prüfer lehnt Gefahr und Scheinwahl
   ok(!schein.ok && schein.fehler.some((t) => t.startsWith('SCHEINWAHL')), 'zwei Optionen mit gleicher Folge: Scheinwahl, abgelehnt');
 });
 
+section('Funkzeile zur Bitte (Nacharbeit F1): die Bitte steht EINMAL im Funk, als Lagefunk des NSC mit Porträt', () => {
+  const g = X.spiel({}).g;
+  const funk = [];
+  const orig = g.emit.bind(g);
+  g.emit = (...a) => { if (a[0] === 'radio' && a[1]) funk.push(a[1]); return orig(...a); };
+  const f = X.oeffne(g, BAS);
+  X.grenzen(g, 6, 'andocken');
+  ok(weiter(g, f).ok, 'der Beat startet');
+  const o = bitte(g);
+  const z = funk.filter((x) => x.text === o.text);
+  ok(z.length === 1 && z[0].from === o.von && z[0].lage === 1 && z[0].fd === 1 && z[0].pid === o.pid, `genau eine Funkzeile mit dem Bittentext, from = Absender, lage und fd, Porträt (${z.length} Zeilen)`);
+  ok(!z[0].text.startsWith(o.von + ':') && !/[{}]/.test(z[0].text), 'kein „Name:“ davor (der Absender steht im from) und kein Platzhalter im Text');
+});
+
 section('Schalter: ohne FAEDEN=1 keine Bitte', () => {
   const g = X.spiel({ aus: true }).g;
   const r = B.anbieten(g, { fadenId: 'f1', beatId: 'b_bitte', absender: { name: 'X', fraktion: 'rom', portrait: 1 }, text: 'x', optionen: [] });
@@ -92,6 +106,7 @@ section('Angebot: Text, Absender, Porträt, Hinweis erst mit dem Angebot', () =>
   ok(s && s.nr === 1 && s.kopf === 'BITTE' && s.spaeter === D.BITTE.spaeter_text && s.rest === 4, 'Snapshot: Nummer, Kopf, Später, Verfall in 4 Tätigkeiten');
   ok(s && s.optionen.every((x) => Object.keys(x).sort().join(',') === 'id,text'), 'Snapshot ohne Folgen');
   ok(s && /^f:[0-5]:(rom|kon|ger)$/.test(s.pid), 'Porträt-Kennung im Snapshot');
+  ok(s && s.fk === { rom: 'Rom', ger: 'Ger', kon: 'Kon' }[f.nsc.fraktion], `Snapshot: Kürzel der Fraktion im Kopf (${s && s.fk}), nie nur die Farbe des Porträts (S5)`);
   ok(s && JSON.stringify(s).length < 700, `Snapshot klein (${JSON.stringify(s).length} Zeichen)`);
   const k1 = B.schluessel(g);
   X.grenzen(g, 1, 'andocken');
@@ -110,6 +125,8 @@ section('Angebot: Ablehnungsgründe (Prüfer, Gefahr, unruhig, Angebot schon off
   ok(pr([{ id: 'a', text: 'A', folge: [] }, { id: 'b', text: 'B', folge: [] }]).code === 'optionen', 'zwei folgenlose Optionen: Scheinwahl');
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }], { text: 'x'.repeat(D.BITTE.text_max + 1) }).code === 'text', 'Text zu lang');
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }], { absender: { name: 'X', fraktion: 'xyz', portrait: 1 } }).code === 'absender', 'unbekannte Fraktion des Absenders');
+  ok(pr([{ id: 'a', text: 'x'.repeat(45), folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).code === 'optionen', 'Optionstext mit 45 Zeichen: abgelehnt (Grenze 44)');
+  ok(pr([{ id: 'a', text: 'x'.repeat(44), folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).ok, 'Optionstext mit 44 Zeichen: angenommen');
   g.simSzene = {};
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).code === 'unruhig', 'in einer Sim-Szene: nie eine Bitte (unruhig)');
   g.simSzene = null;

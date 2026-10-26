@@ -409,9 +409,11 @@ async function main() {
     ok(f && f.nsc.status === 'tot' && f.phase === 'abgeschlossen', 'der NSC ist tot, der Faden abgeschlossen (Notruf gescheitert)');
     const tot = funk.find((x) => /ist tot/.test(String(x.text)));
     ok(!!tot && tot.text.startsWith(f.nsc.name) && tot.from === 'Lerche' && tot.pid === undefined, `der Totentext steht beim Schiff (from ${tot && tot.from}), ohne Porträt (pid ${tot && tot.pid}), nennt den Namen`);
+    const notruf = funk.find((x) => /^Man hat mich in /.test(String(x.text)));
+    ok(!!notruf && notruf.fd === 2 && notruf.from === f.nsc.name, 'der Notruf, der Gefahr ankuendigt (Wachschiffe), geht mit fd 2 (Rot), alles andere der Faeden mit fd 1 (Messing)');
     ok(verstoesse.length === 0, 'nach seinem Tod spricht der NSC nie mit eigenem Namen: ' + (verstoesse.length ? verstoesse.join(' | ') : 'keine Zeile'));
     const faden = funk.filter((x) => x.from === f.nsc.name || x.from === 'Lerche');
-    ok(faden.length >= 2 && faden.every((x) => x.fd === 1 && x.lage === 1), `alle ${faden.length} Funkzeilen des NSC und der Lerche gehen als Lagefunk mit Kennung fd (F3a): sonst zeigen die Konsolen (Steuer, Captain, Technik, Ops, Terminal) sie nie`);
+    ok(faden.length >= 2 && faden.every((x) => (x.fd === 1 || x.fd === 2) && x.lage === 1), `alle ${faden.length} Funkzeilen des NSC und der Lerche gehen als Lagefunk mit Kennung fd (F3a): sonst zeigen die Konsolen (Steuer, Captain, Technik, Ops, Terminal) sie nie`);
   }
 
   console.log('\nHinweise werden GESENDET (F2) und Ablehnen laedt keine Ware (F7): alle Wege des falschen Haendlers');
@@ -503,6 +505,7 @@ async function main() {
     const spielbar = Object.keys(KARTE.hexe).filter((h) => KARTE.hexe[h].spielbar).sort();
     ok(spielbar.length >= 23 && hafenCodes.length >= 8, `Karte: ${spielbar.length} spielbare Hexe, ${hafenCodes.length} andockbare roemische/Konkordat-Haefen`);
     const { g } = X.spiel({ crew: 1, seed: 85 });
+    const fk = funkMit(g);
     const schlecht = [], ohne = [];
     let mitZiel = 0;
     for (const h of spielbar) {
@@ -524,6 +527,11 @@ async function main() {
     }
     const gut = Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' });
     ok(gut.ok === true && f.fracht && f.fracht.nach === '0403', 'ein andockbarer Hafen (Speculum) wird geladen');
+    ok(fk.filter((x) => /^Ware an Bord: Versiegelte Frachtkiste für Speculum\./.test(String(x.text))).length === 1 && fk.every((x) => !/Ware an Bord/.test(String(x.text)) || x.lage === 1), 'laden meldet „Ware an Bord: <Ware> für <Hafenname>“ genau einmal per Funk (die abgelehnten Ziele schweigen)');
+    Faden.beatAusgang(g, f.id, 'gescheitert');
+    ok(!f.fracht && fk.filter((x) => /^Die Ware ist verloren: Versiegelte Frachtkiste erreicht Speculum nicht mehr/.test(String(x.text))).length === 1, 'scheitert der Beat mit Ware (Frist, Notsprung), hoert die Crew „Die Ware ist verloren“ (Hafenname statt Hex)');
+    f.phase = 'laeuft'; f.laufend = { beat: f.beat, n: 0, seit: 0 };
+    Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' });
     delete f.fracht;
     g.weltBesitz = g.weltBesitz || { hexe: {} }; g.weltBesitz.hexe['0403'] = { besitzer: 'ger', posten: false };
     ok(Fracht.andockbar(g, '0403') === false && Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' }).ok === false && Fracht.zielFuer(g, '0403') !== '0403', 'ein germanisch gewordener Hafen ist kein Ziel mehr (Besitz-Overlay)');

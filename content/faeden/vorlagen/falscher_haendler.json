@@ -7,8 +7,8 @@
   "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
   "wahrheit": { "id": "ist_germane", "fraktion": "ger" },
   "hinweise": {
-    "h_gerucht": { "kanal": "geruecht", "text": "Gerücht im Hafenfunk: Von {name} hat kein Kontor je eine Lieferung gesehen." },
-    "h_papiere": { "kanal": "papiere", "text": "Die Frachtpapiere von {name} tragen ein Siegel, das kein Kontor führt." }
+    "h_gerucht": { "kanal": "geruecht", "text": "Gerücht: Von {name} hat noch kein Kontor je eine Lieferung gesehen." },
+    "h_papiere": { "kanal": "papiere", "text": "Das Siegel auf den Papieren von {name} führt kein Kontor." }
   },
   "beats": [
     {

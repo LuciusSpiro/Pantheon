@@ -66,7 +66,7 @@
         "bitte_mission_kalt": "Ihr habt lange gebraucht. Hilfe bei {ort}, bitte.",
         "bitte_mission_herzlich": "Freunde! Könnt ihr uns bei {ort} decken? Danke.",
         "bitte_transport": "Bringt diese Ware nach {ziel}. Es eilt, und ich zahle mit meinem Dank.",
-        "bitte_transport_kein_ziel": "Meine Ware muss fort, aber nahe {ort} liegt kein Hafen für euch. Hilft das?",
+        "bitte_transport_kein_ziel": "Meine Ware muss fort. Bei {ort} fehlt euch leider ein Hafen.",
         "hilfe_rom": "Wir brauchen Hilfe bei {ort}. Ihr seid die Einzigen in der Nähe.",
         "hilfe_kon": "Saum-Kundschaft bei {ort} braucht eine Begleitung. Wollt ihr?"
       },

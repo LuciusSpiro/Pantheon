@@ -32,6 +32,10 @@ function sagen(game, nsc, text) {
   if (!text || !nsc) return null;
   return Bitte().funkVon(game, nsc, text);
 }
+function sagenGefahr(game, nsc, text) {   // der Notruf kuendigt Gefahr an (Wachschiffe): roter Akzent wie jede Gefahrmeldung, nie Messing
+  if (!text || !nsc) return null;
+  return Bitte().funkGefahrVon(game, nsc, text);
+}
 
 // ---------- notruf
 // Erinnerung: der letzte Gedaechtnis-Eintrag mit einem Text aus `erinnert` gewinnt; sonst der Text des Beats
@@ -50,7 +54,7 @@ const notruf = {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const key = notrufText(nsc, ctx.beat);
     const text = fmt(T[key], { name: nsc.name, ort: hexName(hex) });
-    const f = sagen(game, nsc, text);
+    const f = sagenGefahr(game, nsc, text);
     if (!f) return { ausgang: 'gescheitert' };
     for (const h of ctx.beat.hinweise || []) Hinweis().senden(game, faden.id, h);   // der Notruf ist gesendet: die Hinweise des Beats werden gesendet und gelten erst danach
     game.fadenNotruf = { fadenId: faden.id, beatId: ctx.beat.id, hex };

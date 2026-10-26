@@ -43,8 +43,10 @@ for (const k of [2, 3]) {
     for (const ko of konsolen) {
       const r = FW.rechteck(m, ko.S);
       const schirm = { x: 62, y: 6, w: 572, h: ko.S - 12 };
-      const drin = r.x >= schirm.x && r.y >= schirm.y && r.x + r.w <= schirm.x + schirm.w && r.y + r.h <= schirm.y + schirm.h;
-      ok(drin, k + ' Optionen' + (eing ? ' (Streifen)' : '') + ' ' + ko.name + ' S=' + ko.S + ': Leiste ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + ' liegt auf dem Schirm');
+      // Nacharbeit SUND-04a-2 (F4): der Streifen (Später) sitzt im Ruf-Slot ganz oben, y 0 bis 11 (über dem Schirmrahmen, die Köpfe beginnen bei y 12); die volle Leiste liegt auf dem Schirm
+      const drin = eing ? r.y === 0 && r.y + r.h <= 11 && r.x >= 0 && r.x + r.w <= VW
+        : r.x >= schirm.x && r.y >= schirm.y && r.x + r.w <= schirm.x + schirm.w && r.y + r.h <= schirm.y + schirm.h;
+      ok(drin, k + ' Optionen' + (eing ? ' (Streifen)' : '') + ' ' + ko.name + ' S=' + ko.S + ': Leiste ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + (eing ? ' liegt im Ruf-Slot oben (y 0 bis 11)' : ' liegt auf dem Schirm'));
       ok(r.y + r.h <= ko.S - 6 && r.x + r.w <= 634 - 6, '   ... über der Statusleiste (Unterkante ' + (r.y + r.h) + ' <= ' + (ko.S - 6) + '), rechts mit Abstand');
       ok(!schneiden(r, { x: 0, y: ko.S, w: VW, h: 360 - ko.S }), '   ... überdeckt nichts unterhalb der Statusleiste (Pult, Knöpfe, Säule)');
     }
@@ -58,6 +60,7 @@ section('Antwortleiste: keine Bedienfläche verdeckt (Leiste im Standardzustand,
   const namen = Object.keys(F);
   const bedien = FW.BEDIENFLAECHEN;
   const schirmDe = (r, S) => r.x >= 62 && r.y >= 6 && r.x + r.w <= 634 && r.y + r.h <= S - 6;
+  const imSlot = (r) => r.y === 0 && r.y + r.h <= 11 && r.x >= 0 && r.x + r.w <= VW;   // F4: der Streifen im Ruf-Slot oben
   for (const st of ['helm', 'weapons', 'technik', 'captain', 'shop']) ok(namen.some((k) => F[k].station === st), 'Messung deckt die Konsole ab: ' + st);
   for (const b of ['werft', 'handel', 'info', 'lage']) ok(namen.includes('terminal-' + b), 'Messung deckt den Terminal-Bereich ab: ' + b);
   ok(namen.some((k) => k.startsWith('technik-1')) && namen.some((k) => k.startsWith('captain-5')), 'Messung deckt Technik-Schadensplan und alle Captain-Reiter ab');
@@ -73,7 +76,7 @@ section('Antwortleiste: keine Bedienfläche verdeckt (Leiste im Standardzustand,
       const zugeklappt = FW.zu(ko);
       const r = FW.rechteck(m, ko);
       const hit = v.knoepfe.filter((b) => schneiden(r, b));
-      ok(hit.length === 0 && schirmDe(r, v.S), nOpt + ' Optionen, ' + k + ' (' + v.station + '): Standard = ' + (zugeklappt ? 'Streifen' : 'volle Leiste') + ' ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + ', keine Bedienfläche darunter' + (hit.length ? ' (verdeckt: ' + hit.map((b) => b.label).join(', ') + ')' : ''));
+      ok(hit.length === 0 && (zugeklappt ? imSlot(r) : schirmDe(r, v.S)), nOpt + ' Optionen, ' + k + ' (' + v.station + '): Standard = ' + (zugeklappt ? 'Streifen' : 'volle Leiste') + ' ' + r.x + ',' + r.y + ' ' + r.w + 'x' + r.h + ', keine Bedienfläche darunter' + (hit.length ? ' (verdeckt: ' + hit.map((b) => b.label).join(', ') + ')' : ''));
       ok(zugeklappt === bedien.includes(v.station), '   ... Streifen genau an den Bedienflächen-Konsolen');
       // aufgeklappt (vom Spieler selbst): darf überdecken, liegt aber auf dem Schirm über der Statusleiste
       FW.store.geoeffnetBei = v.station; FW.store.eingeklappt = false;
@@ -88,7 +91,7 @@ section('Antwortleiste: keine Bedienfläche verdeckt (Leiste im Standardzustand,
   ok(verdeckt > 0, 'Gegenprobe: aufgeklappt verdeckt die Leiste tatsächlich Knöpfe (Technik „+“, Terminal Handel) – der Streifen ist nötig (' + verdeckt + ' Treffer)');
   // der Streifen sitzt immer an derselben Stelle ohne Bedienfläche: Gegenprobe über ALLE Ansichten mit Streifen
   const sr = FW.rechteck(FW.modell(), { S: 258, station: 'captain' });
-  ok(namen.filter((k) => bedien.includes(F[k].station)).every((k) => F[k].knoepfe.every((b) => !schneiden(sr, b))), 'der Streifen am oberen Rand (' + sr.x + ',' + sr.y + ' ' + sr.w + 'x' + sr.h + ') liegt in KEINER Ansicht über einer Bedienfläche');
+  ok(namen.every((k) => F[k].knoepfe.every((b) => !schneiden(sr, b))), 'der Streifen im Ruf-Slot oben (' + sr.x + ',' + sr.y + ' ' + sr.w + 'x' + sr.h + ') liegt in KEINER gemessenen Ansicht über einer Bedienfläche (auch nicht in Steuer und Ops, wo „Später“ ihn zeigt)');
 }
 section('Antwortleiste: Taste, Esc und Später an Konsolen mit Streifen');
 {
@@ -108,7 +111,7 @@ section('Antwortleiste: Taste, Esc und Später an Konsolen mit Streifen');
   FW.store.konsole = { S: 238, station: 'shop' }; ok(FW.zu() === true, 'an einer anderen Bedienflächen-Konsole (Terminal) wieder Streifen: aufgeklappt gilt nur dort, wo der Spieler es tat');
   FW.store.konsole = { S: 200, station: 'helm' }; ok(FW.zu() === false, 'Steuer: volle Leiste wie bisher');
   ok(FW.zuklappen() === false, 'Steuer: Esc wird nicht verbraucht');
-  FW.store.konsole = { S: 200, station: 'helm' }; FW.spaeter(true); ok(FW.zu() === true && FW.rechteck(FW.modell(), FW.store.konsole).y > 100, 'Steuer: „Später“ = Streifen über der Statusleiste wie bisher');
+  FW.store.konsole = { S: 200, station: 'helm' }; FW.spaeter(true); ok(FW.zu() === true && FW.rechteck(FW.modell(), FW.store.konsole).y === 0, 'Steuer: „Später“ = Streifen im Ruf-Slot oben (F4: derselbe Slot wie an Technik, Captain und Terminal)');
   FW.lesen({ t: 'snap', phase: 'play', world: { funkwahl: Object.assign(block(3), { nr: 6 }) } });
   FW.store.konsole = { S: 152, station: 'technik' };
   ok(FW.store.geoeffnetBei === null && !FW.store.eingeklappt && FW.zu() === true, 'ein neues Angebot beginnt wieder als Streifen');

@@ -790,8 +790,8 @@
         for (const e of lf.slice(0, 3)) {
           const rl = R.wrap(e.text, lw - 20, 1).slice(0, 4), ph = 20 + rl.length * 10;
           R.panel(ctx, a.x, y, lw, ph, { style: 'brass' });
-          ctx.fillStyle = KarteTokens.FARBE.funk.akzentFeind; ctx.fillRect(a.x, y, 3, ph);
-          R.text(ctx, 'LAGEFUNK · ' + e.von + (e.t != null ? ' · TICK ' + e.t : ''), a.x + 10, y + 6, { color: PAL.amber });
+          ctx.fillStyle = e.fd === 1 ? KarteTokens.FARBE.funk.akzentLage : KarteTokens.FARBE.funk.akzentFeind; ctx.fillRect(a.x, y, 3, ph);   // Funk der Fäden (fd 1): Messing, Rot bleibt der Gefahr
+          R.text(ctx, (e.fd ? 'FUNK · ' : 'LAGEFUNK · ') + e.von + (e.t != null ? ' · TICK ' + e.t : ''), a.x + 10, y + 6, { color: PAL.amber });
           let ly = y + 18; for (const l of rl) { R.text(ctx, l, a.x + 10, ly, { color: PAL.star }); ly += 10; }
           y += ph + 4;
         }

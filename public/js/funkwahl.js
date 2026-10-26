@@ -41,12 +41,23 @@
   }
   // SUND-04a-2 P2: Bitte eines Fadens. Müllfest wie modellAus; Porträt nur in der Form f:<0..5>:<rom|ger|kon> (sonst kein Porträt, kein Fehler)
   const PID_F = /^f:[0-5]:(rom|ger|kon)$/;
+  // Nacharbeit SUND-04a-2 (F1): der Bittentext wird übernommen (höchstens 90 Zeichen; ein führendes „<von>: “ fällt weg, der Absender steht im Kopf; ein Text mit offenem Platzhalter {…} wird nicht gezeigt)
+  function bitteText(b, von) {
+    let t = str(b.text, 90).replace(/\s+/g, ' ').trim();
+    if (von && t.toLowerCase().indexOf((von + ':').toLowerCase()) === 0) t = t.slice(von.length + 1).trim();
+    return /\{\w*\}/.test(t) ? '' : t;
+  }
   function bitteAus(b) {
     if (!b || typeof b !== 'object' || !Array.isArray(b.optionen) || !isNum(b.nr)) return null;
     const optionen = b.optionen.filter((o) => o && typeof o === 'object' && str(o.id, 40) && str(o.text, 90)).slice(0, 3).map((o) => ({ id: str(o.id, 40), text: str(o.text, 90) }));
     if (optionen.length < 2) return null;
-    return { nr: Math.floor(b.nr), art: 'bitte', kopf: str(b.kopf, 12) || 'BITTE', von: str(b.von, 40), pid: typeof b.pid === 'string' && PID_F.test(b.pid) ? b.pid : null, optionen, ignorieren: str(b.spaeter, 20) || 'Später', rest: isNum(b.rest) ? Math.max(0, Math.floor(b.rest)) : 0 };
+    const von = str(b.von, 40);
+    return { nr: Math.floor(b.nr), art: 'bitte', kopf: str(b.kopf, 12) || 'BITTE', von, fk: str(b.fk, 4), text: bitteText(b, von), pid: typeof b.pid === 'string' && PID_F.test(b.pid) ? b.pid : null, optionen, ignorieren: str(b.spaeter, 20) || 'Einklappen', rest: isNum(b.rest) ? Math.max(0, Math.floor(b.rest)) : 0 };
   }
+  // Kopf der Leiste: BITTE · <Name> · <Kürzel der Fraktion> (S5: die Fraktion steht nie nur als Farbe des Porträts)
+  const kopfText = (m) => (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + (m.art === 'bitte' && m.fk ? ' · ' + m.fk : '');
+  // Frist: die Bitte läuft in Tätigkeiten (nicht sichtbar): „läuft ab“ bei rest ≤ 1, sonst im Streifen „offen“ und in der vollen Leiste nichts (K2); die Funk-Antwort zählt Sprünge
+  const frist = (m, voll) => (m.art === 'bitte' ? (m.rest <= 1 ? 'läuft ab' : voll ? '' : 'offen') : 'noch ' + m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge'));
   function bitteSetzen(block) {
     const m = bitteAus(block), k = m ? 'b' + m.nr : null;
     if (k !== store.bKey) { store.markiert = -1; store.eingeklappt = false; store.geoeffnetBei = null; }   // eine andere Bitte oder keine: Markierung und Zuklappen nicht übernehmen
@@ -99,29 +110,64 @@
   }
 
   // ---------- Zeichnen (Pult-/HUD-Stil: Messingrahmen wie die Funkplakette; Farben aus dem Skin der Lerche, Funk ist neutral: Text in SK.text, keine Signalfarbe)
-  const SK = { text: '#F4EEDC', dim: '#8EA3B5', frame: '#C9974A', bg: '#0B0E1A', offLine: '#3A4A66', markiert: '#2A3A52', zeile: '#141C2E', kappe: '#46556A' };
+  const SK = { text: '#F4EEDC', dim: '#8EA3B5', frame: '#C9974A', bg: '#0B0E1A', offLine: '#3A4A66', markiert: '#2A3A52', zeile: '#141C2E', kappe: '#46556A', tisch: '#0B0E1A', messing: '#C9974A' };
   function kuerzen(R, s, w) {
     let t = String(s || '');
     if (R.measure(t, 1) <= w) return t;
     while (t.length > 1 && R.measure(t + '…', 1) > w) t = t.slice(0, -1);
     return t + '…';
   }
-  const OBEN = 6;        // oberer Rand der Schirmfläche (Pult.rahmen: Schirm ab y 6), bündig: darunter bleibt die Kopfzeile des Terminals (Marken) lesbar
-  const STREIFEN = 11;   // Höhe des zugeklappten Streifens (niedrig genug, dass am Terminal die Marken-Anzeige darunter lesbar bleibt)
+  // Nacharbeit SUND-04a-2 (F4): der Streifen sitzt im RUF-SLOT ganz oben (y 0–11, über dem Schirmrahmen; die Köpfe der Konsolen und Terminals beginnen bei y 12 und tiefer), derselben Lage wie die einzeilige
+  // Lagefunk-Zeile (Hud.zeichneFunkZeile: Höhe 11, 9 mit Szenenzeile, im Debug-Modus x 404 und 232 breit neben der FPS-Zeile). Der Lagefunk hat VORRANG: solange die Konsole die Lagefunk-Zeile zeigt
+  // (Hud.lagefunkEinzeilig: Terminal, Ops, Steuer), wird der Streifen nicht gezeichnet. Rechts statt mittig (x 388 bis 628), weil in Technik (Reiter 1, Bots-Knopf y 8) und Captain (Reiter 4, y 10) Knöpfe
+  // in der Mitte bis an y 8 heranreichen (gemessen: tools/fixtures/funk-bedienflaechen.json).
+  const STREIFEN = 11;   // Höhe des zugeklappten Streifens
   const KOPF = 15;       // Höhe der Kopfzeile
   const kopfH = (m) => (m && m.art === 'bitte' && m.pid ? 26 : KOPF);   // Bitte mit Porträt: die Plakette (22) braucht etwas mehr Kopfhöhe
-  function hoehe(m, streifen) { return streifen ? STREIFEN : kopfH(m) + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Optionen, Zeile Nicht antworten / Später, Hinweis
+  // Bittentext unter dem Kopf: höchstens zwei Zeilen, ein Rest endet mit „…“ (F1)
+  function textZeilen(m, R) {
+    if (!m || m.art !== 'bitte' || !m.text) return [];
+    const w = BREITE - 12;
+    let l;
+    if (R && typeof R.wrap === 'function') l = R.wrap(m.text, w, 1);
+    else { l = []; let z = ''; for (const wort of m.text.split(' ')) { if ((z + ' ' + wort).trim().length > Math.floor(w / 6) && z) { l.push(z); z = wort; } else z = (z + ' ' + wort).trim(); } if (z) l.push(z); }
+    if (l.length > 2) l = [l[0], R && R.measure ? kuerzen(R, l.slice(1).join(' '), w) : l.slice(1).join(' ').slice(0, Math.floor(w / 6) - 1) + '…'];
+    return l;
+  }
+  const textH = (m, R) => { const n = textZeilen(m, R).length; return n ? n * 10 + 3 : 0; };
+  function hoehe(m, streifen, R) { return streifen ? STREIFEN : kopfH(m) + textH(m, R || (root && root.Render)) + (zeilen(m).length) * (ZEILE + 1) + 16; }   // Kopf, Text, Optionen, Zeile Nicht antworten / Einklappen, Hinweis
   // S = Oberkante der Statusleiste der Konsole (Pult.statusOben), sonst null (Bordansicht): mit Konsole auf dem Schirm unten rechts über der Statusleiste (verdeckt keinen Knopf des Pults),
   // ohne Konsole unten mittig
   // k = { S, station } der gezeichneten Konsole (Pult.konsole) oder null; streifen (Standard: gilt für k) = zugeklappt. Der Streifen an einer Konsole mit Bedienflächen sitzt am oberen Rand der Schirmfläche
   // (dort liegt nirgends eine Bedienfläche, gemessen), die volle Leiste und der Streifen an den übrigen Konsolen über der Statusleiste.
-  function rechteck(m, k, streifen) {
+  // Ruf-Slot (Streifen an einer Konsole): y 0, Höhe wie die Lagefunk-Zeile (9 mit Szenenzeile), im Debug-Modus x 404 und 232 breit (neben der FPS-Zeile)
+  function slot(view) {
+    const H = root && root.Hud;
+    const dbg = !!(H && view && typeof H.radioOberkante === 'function' && H.radioOberkante(view) > 6);
+    const sz = !!(H && view && typeof H.szeneVon === 'function' && H.szeneVon(view));
+    return dbg ? { x: 404, y: 0, w: 232, h: sz ? 9 : STREIFEN } : { x: VW - BREITE - RAND, y: 0, w: BREITE, h: sz ? 9 : STREIFEN };
+  }
+  // ODA-Zeile unten in der Bordansicht (S3): die Leiste steht darüber, nicht davor
+  const odaH = (view) => { const H = root && root.Hud; try { return H && view && typeof H.odaHoehe === 'function' ? H.odaHoehe(view) : 0; } catch (e) { return 0; } };
+  function rechteck(m, k, streifen, view) {
     m = m || modell(); if (typeof k === 'number') k = { S: k, station: '' };
     if (streifen === undefined) streifen = k ? zu(k) : store.eingeklappt;
     const h = hoehe(m, streifen);
-    if (!k) return { x: Math.round((VW - BREITE) / 2), y: VH - h - UNTEN, w: BREITE, h };
-    if (streifen && bedienflaechen(k)) return { x: VW - BREITE - RAND, y: OBEN, w: BREITE, h };
+    if (!k) { const o = odaH(view); return { x: Math.round((VW - BREITE) / 2), y: VH - h - UNTEN - (o > 0 ? o + 4 : 0), w: BREITE, h }; }
+    if (streifen) { const sl = slot(view); return { x: sl.x, y: sl.y, w: sl.w, h: sl.h }; }
     return { x: VW - BREITE - RAND, y: k.S - h - SCHIRM_ABSTAND, w: BREITE, h };
+  }
+  // Der Lagefunk hat Vorrang im Ruf-Slot: zeigt die Konsole gerade die einzeilige Lagefunk-Zeile, bleibt der Streifen weg (die Taste klappt trotzdem auf)
+  function lagefunkVorrang(view, k, streifen) {
+    const H = root && root.Hud;
+    try { return !!(streifen && k && H && typeof H.lagefunkEinzeilig === 'function' && H.lagefunkEinzeilig(view)); } catch (e) { return false; }
+  }
+  // Unterkante des Streifens im Ruf-Slot, solange er an der Konsole steht (sonst 0): Ops nimmt die Zoom-Beschriftung der Karte dann weg (wie bei der Lagefunk-Zeile)
+  function streifenUnten(view) {
+    const m = modell(), k = store.konsole;
+    if (!m || !k || !zu(k)) return 0;
+    const sl = slot(view);
+    return sl.y + sl.h;
   }
   function statusOben(view) { const P = root && root.Pult; return P && typeof P.statusOben === 'function' ? P.statusOben(view) : null; }
   function konsole(view) { const P = root && root.Pult; return P && typeof P.konsole === 'function' ? P.konsole(view) : null; }
@@ -135,7 +181,9 @@
   function kappeZeichnen(ctx, R, x, y, k) {   // dunkle Fläche wie SK.knopf, Taste in SK.text; liefert die rechte Kante
     const w = Math.max(13, R.measure(k, 1) + 7);
     ctx.fillStyle = SK.kappe; ctx.fillRect(x, y - 1, w, 9);
-    R.text(ctx, k, x + Math.round(w / 2), y, { color: SK.text, align: 'center', shadow: false });
+    const mx = x + Math.round(w / 2);
+    R.text(ctx, k, mx, y, { color: SK.text, align: 'center', shadow: false });
+    if (k.length === 1 && !/[A-Za-z0-9ÄÖÜäöüß]/.test(k)) R.text(ctx, k, mx + 1, y, { color: SK.text, align: 'center', shadow: false });   // K3: ein einzelnes Satzzeichen (Punkt) ist sonst kaum zu sehen: fett
     return x + w;
   }
   function zeichne(ctx, view) {
@@ -144,28 +192,33 @@
     const k = konsole(view);
     store.konsole = k;
     const streifen = k ? zu(k) : store.eingeklappt;
-    const r = rechteck(m, k, streifen);
+    const r = rechteck(m, k, streifen, view);
     store.rechteck = r;
+    if (lagefunkVorrang(view, k, streifen)) return;   // F4: im Ruf-Slot steht gerade die Lagefunk-Zeile
     const gehen = () => (view && typeof view.send === 'function' ? view.send : null);
     const maus = (R.ui && R.ui.mouse) || {};
     const ueber = (x, y, w, h) => maus.x >= x && maus.y >= y && maus.x < x + w && maus.y < y + h;
     const kw = kappe('allgemein.funkWaehlen', '.');
     if (streifen) {   // „Später“ bzw. Standard an Konsolen mit Bedienflächen: ein schmaler Streifen mit Taste, ein Klick (oder die Taste) klappt auf
-      ctx.fillStyle = ueber(r.x, r.y, r.w, r.h) ? '#1A2238' : '#10151F'; ctx.fillRect(r.x, r.y, r.w, r.h);
-      ctx.fillStyle = SK.frame; ctx.fillRect(r.x, r.y, r.w, 1); ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 1, r.h); ctx.fillRect(r.x + r.w - 1, r.y, 1, r.h);
-      const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 2, kw);
-      const sp = m.art === 'bitte' ? 'offen' : 'noch ' + m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');   // Bitte: die Frist läuft in Tätigkeiten (nicht sichtbar), darum „offen“
-      R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + ' · ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
+      // Stil wie Hud.zeichneFunkZeile (Fläche Tisch, 1 px Messing als Unterkante, 3 px Akzent in Messing: Funk der Fäden ist nie Gefahr-Rot)
+      const ty0 = r.y + 1;   // wie die Lagefunk-Zeile: Schrift 9 Pixel hoch ab y 1, darunter die Messing-Unterkante
+      ctx.fillStyle = ueber(r.x, r.y, r.w, r.h) ? '#1A2238' : SK.tisch; ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = SK.messing; ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 3, r.h);
+      const ex = kappeZeichnen(ctx, R, r.x + 6, ty0, kw);
+      R.text(ctx, kuerzen(R, kopfText(m) + ' · ' + frist(m, false), r.x + r.w - ex - 12), ex + 4, ty0, { color: SK.text, shadow: false });
       R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Funk antworten', disabled: false, onClick: () => spaeter(false), hotkey: null });
       return;
     }
     R.panel(ctx, r.x, r.y, r.w, r.h, { style: 'brass' });
-    const rest = m.art === 'bitte' ? 'offen' : m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
-    R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: SK.dim, align: 'right' });
+    const rest = m.art === 'bitte' ? frist(m, true) : m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');   // K2: in der vollen Leiste bei einer Bitte nur „läuft ab“, nie „offen“
     const bild = m.art === 'bitte' && m.pid && root.Hud && typeof root.Hud.drawFunkBild === 'function';   // Plakette mit Porträt (nur gültige Kennung), sonst nur Text
-    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 4, r.y + 2, 22);
-    const tx = r.x + 6 + (bild ? 26 : 0);
-    R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von, r.w - 12 - (bild ? 26 : 0) - (R.measure(rest, 1) + 8)), tx, r.y + (bild ? 9 : 4), { color: SK.text });
+    const gl = r.y + (bild ? 9 : 4);   // eine Grundlinie für Kopf und Frist (S4)
+    if (rest) R.text(ctx, rest, r.x + r.w - 6, gl, { color: SK.dim, align: 'right' });
+    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 5, r.y + 3, 22);
+    const tx = r.x + 6 + (bild ? 27 : 0);
+    R.text(ctx, kuerzen(R, kopfText(m), r.w - 12 - (bild ? 27 : 0) - (rest ? R.measure(rest, 1) + 8 : 0)), tx, gl, { color: SK.text });
+    let ty = r.y + kopfH(m);
+    for (const l of textZeilen(m, R)) { R.text(ctx, l, r.x + 6, ty, { color: SK.text, shadow: false }); ty += 10; }   // F1: der Bittentext
     // eigene Zeilen statt R.button (dessen Mint = aktiv und Amber = Hover tragen hier andere Bedeutung): markiert = Fläche + Rahmen in SK.text, Hover nur Rahmen in SK.dim
     const zeile = (x, y, w, text, markiert, farbe, onClick, label) => {
       const hov = ueber(x, y, w, ZEILE);
@@ -175,7 +228,7 @@
       R.text(ctx, kuerzen(R, text, w - 10), x + 5, y + Math.floor((ZEILE - 7) / 2), { color: farbe, shadow: false });
       R.ui.buttons.push({ x, y, w, h: ZEILE, label: label || text, disabled: false, onClick, hotkey: null });
     };
-    let y = r.y + kopfH(m);
+    let y = r.y + kopfH(m) + textH(m, R);
     const z = zeilen(m), n = m.optionen.length;
     for (let i = 0; i < n; i++) {
       zeile(r.x + 6, y, r.w - 12, z[i].text, store.markiert === i, SK.text, () => { const s = gehen(); if (s) antworten(s, z[i].id); });
@@ -201,5 +254,5 @@
     N.on(lesen);
   })();
 
-  return { store, lesen, modellAus, bitteAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zuklappen, zeichne, rechteck, statusOben, konsole, zu, BEDIENFLAECHEN, BREITE };
+  return { store, lesen, modellAus, bitteAus, modell, offen, zeilen, antworten, spaeter, markieren, senden, zuklappen, zeichne, rechteck, slot, streifenUnten, textZeilen, kopfText, statusOben, konsole, zu, BEDIENFLAECHEN, BREITE };
 });

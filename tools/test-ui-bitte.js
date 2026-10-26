@@ -83,6 +83,7 @@ const F = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'funk-bedi
 const namen = Object.keys(F);
 const bedien = FW.BEDIENFLAECHEN;
 const schirmDe = (r, S) => r.x >= 62 && r.y >= 6 && r.x + r.w <= 634 && r.y + r.h <= S - 6;
+const imSlot = (r) => r.y === 0 && r.y + r.h <= 11 && r.x >= 0 && r.x + r.w <= VW;   // Nacharbeit F4: der Streifen im Ruf-Slot oben (Köpfe beginnen bei y 12)
 let verdeckt = 0, plaketten = 0;
 for (const pid of ['f:1:rom', null]) for (const nOpt of [2, 3]) {
   alles({ bitte: bitteBlock(nOpt, pid) });
@@ -93,7 +94,7 @@ for (const pid of ['f:1:rom', null]) for (const nOpt of [2, 3]) {
     const zugeklappt = FW.zu(ko);
     const r = FW.rechteck(m, ko);
     const hit = v.knoepfe.filter((b) => schneiden(r, b));
-    ok(hit.length === 0 && schirmDe(r, v.S), `Bitte ${nOpt} Optionen${pid ? ' mit Porträt' : ''}, ${k} (${v.station}): ${zugeklappt ? 'Streifen' : 'volle Leiste'} ${r.x},${r.y} ${r.w}x${r.h}${hit.length ? ' verdeckt: ' + hit.map((b) => b.label).join(', ') : ''}`);
+    ok(hit.length === 0 && (zugeklappt ? imSlot(r) : schirmDe(r, v.S)), `Bitte ${nOpt} Optionen${pid ? ' mit Porträt' : ''}, ${k} (${v.station}): ${zugeklappt ? 'Streifen' : 'volle Leiste'} ${r.x},${r.y} ${r.w}x${r.h}${hit.length ? ' verdeckt: ' + hit.map((b) => b.label).join(', ') : ''}`);
     ok(zugeklappt === bedien.includes(v.station), '   ... Streifen genau an den Bedienflächen-Konsolen');
     FW.store.geoeffnetBei = v.station; FW.store.eingeklappt = false;
     const ra = FW.rechteck(m, ko, false);
@@ -136,6 +137,289 @@ section('Porträt-Zeichnung: gültig zeichnet, Müll zeichnet nichts und wirft n
     ok(draw.call({}, ctx, { kaputt: true }, 0, 0, 22) === false, 'Müll als Objekt: nichts gezeichnet, kein Fehler');
     ok(draw.call({}, ctx, undefined, 0, 0, 22) === false, 'ohne Kennung: nichts gezeichnet');
   }
+}
+
+// =====================================================================================================================================================================
+// Nacharbeit SUND-04a-2, Welle 2 (Design M1, M2, M4, S1–S5, K1–K3): Bittentext in der Leiste, Ruf-Slot oben mit Vorrang des Lagefunks, ODA, Rahmen, Kürzel, Frist, Kappe.
+// Die Schriftbreite ist die ECHTE (art.js measureText, in einem vm-Kontext geladen), nicht 6 Pixel je Zeichen.
+// =====================================================================================================================================================================
+const vm = require('vm');
+const SRC = (f) => fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f), 'utf8').split('\r\n').join('\n');
+const echt = (() => {
+  const w = { console, Math, Object, String, Number, Array, JSON, Date, performance: { now: () => 0 }, document: { createElement: () => ({ getContext: () => ({}), style: {} }) }, setTimeout, clearTimeout, requestAnimationFrame: () => 0 };
+  w.window = w; w.self = w;
+  vm.createContext(w);
+  vm.runInContext(SRC('art.js'), w, { filename: 'art.js' });
+  const measure = (s) => w.Art.measureText(String(s), 1);
+  const wrap = (str, maxW) => { const words = String(str || '').split(/\s+/); const lines = []; let line = ''; for (const x of words) { const t = line ? line + ' ' + x : x; if (measure(t) > maxW && line) { lines.push(line); line = x; } else line = t; } if (line) lines.push(line); return lines; };   // wie Render.wrap
+  return { measure, wrap };
+})();
+// Methoden aus hud.js (echter Quelltext), mit Attrappen für die Umgebung
+const methode = (name) => { const a = HUD_SRC.indexOf('\n    ' + name + '('); if (a < 0) return null; const b = HUD_SRC.indexOf('\n    },', a); return HUD_SRC.slice(a + 1, b + 6); };
+const HUDQ = { lagefunkEinzeilig: methode('lagefunkEinzeilig'), odaHoehe: methode('odaHoehe'), zeichneFunkZeile: methode('zeichneFunkZeile') };
+const LAGEFUNK_Y = +/LAGEFUNK_Y = (\d+)/.exec(HUD_SRC)[1];
+function bauHud(o) {   // o: { lage, debug, szene, sitzBlick, oda }
+  const rects = [];
+  const R = { measure: echt.measure, wrap: echt.wrap, text() {} };
+  const KT = { PULT: { tisch: '#0B0E1A', messing: '#C9974A' }, FARBE: { funk: { akzentFeind: '#E0473C', akzentLage: '#C9974A' } } };
+  const wnd = { Sitz: o.sitz || null, KarteTokens: KT, Consoles: null };
+  const quelle = '{ ' + [HUDQ.lagefunkEinzeilig, HUDQ.odaHoehe, HUDQ.zeichneFunkZeile].join(',\n') + ' }';
+  const H = new Function('R', 'VW', 'PAL', 'window', 'KarteTokens', 'return ' + quelle)(R, VW, { star: '#F4EEDC', brass: '#C9974A' }, wnd, KT);
+  H.oda = { cur: o.oda ? { text: o.oda } : null, queue: [] };
+  H.radioAktuell = () => (o.lage ? { lage: true, from: 'Aufklärung', text: 'Lage.', fd: 0 } : null);
+  H.radioOberkante = () => (o.debug ? 16 : 6);
+  H.szeneVon = () => (o.szene ? { p: 'v' } : null);
+  H.fitWort = (t) => t; H.lagefunkZeilenText = (f) => 'LAGE · ' + f.text; H.funkAkzent = () => '#E0473C';
+  H.zeile = () => { rects.length = 0; const ctx = { fillStyle: '', fillRect(x, y, w, h) { rects.push({ x, y, w, h, c: this.fillStyle }); } }; H.zeichneFunkZeile(ctx, { me: { console: 'shop' } }, H.radioAktuell()); return rects[0]; };
+  return H;
+}
+
+section('Methoden aus hud.js gefunden (Quelltext, nicht nachgebaut)');
+ok(!!HUDQ.lagefunkEinzeilig && !!HUDQ.odaHoehe && !!HUDQ.zeichneFunkZeile, 'lagefunkEinzeilig, odaHoehe und zeichneFunkZeile stehen in hud.js');
+
+section('Bittentext (F1): die Leiste zeigt ihn unter dem Kopf, höchstens zwei Zeilen, ohne doppelten Namen und ohne offenen Platzhalter');
+{
+  const R0 = root.Render;
+  root.Render = Object.assign({}, R0, { measure: echt.measure, wrap: echt.wrap });
+  const FWmod = (extra) => FW.bitteAus(Object.assign(bitteBlock(2), extra));
+  ok(FWmod({ text: 'Wir brauchen Hilfe bei Ostia Nova.' }).text === 'Wir brauchen Hilfe bei Ostia Nova.', 'der Text des Servers wird übernommen');
+  ok(FWmod({ text: 'Quintus Serran: Wir brauchen Hilfe.' }).text === 'Wir brauchen Hilfe.', 'ein führendes „<von>: “ wird abgeschnitten (der Absender steht im Kopf)');
+  ok(FWmod({ text: 'Hilfe bei {ort}!' }).text === '' && FWmod({ text: 'Danke {name}' }).text === '', 'ein Text mit offenem Platzhalter wird nicht gezeigt');
+  ok(FWmod({ text: 'x'.repeat(200) }).text.length === 90, 'höchstens 90 Zeichen');
+  ok(FWmod({ text: undefined }).text === '' && FWmod({ text: 42 }).text === '', 'kein Text oder Müll: leerer Text, kein Fehler');
+  ok(FW.bitteAus({ nr: 1, optionen: OPT(2) }).ignorieren === 'Einklappen', 'ohne Beschriftung vom Server: „Einklappen“ (S2), nicht „Später“');
+  ok(FWmod({ fk: 'Rom' }).fk === 'Rom' && FWmod({ fk: 'x'.repeat(40) }).fk.length <= 4 && FWmod({ fk: undefined }).fk === '', 'Kürzel der Fraktion: höchstens 4 Zeichen, fehlt = leer');
+  // Zeichnen (Bordansicht): Kopf, dann der Text, dann die Optionen
+  const zeichneBitte = (block, k) => {
+    alles({ bitte: block });
+    FW.store.eingeklappt = false; FW.store.geoeffnetBei = null;
+    gezeichnet.length = 0;
+    root.Pult.konsole = () => k || null;
+    const rects = [];
+    const ctx = { fillStyle: '', fillRect(x, y, w, h) { rects.push({ x, y, w, h, c: this.fillStyle }); } };
+    FW.zeichne(ctx, { me: { console: k ? k.station : null }, send() {} });
+    root.Pult.konsole = () => null;
+    return { text: gezeichnet.filter((g) => g[0] === 'text'), panel: gezeichnet.find((g) => g[0] === 'panel'), rects };
+  };
+  {
+    const z = zeichneBitte(bitteBlock(2, 'f:1:rom'));
+    const kopf = z.text.find((t) => /^BITTE · /.test(t[1])), satz = z.text.find((t) => t[1] === 'Hilfe bei Ostia Nova.'), opt = z.text.find((t) => t[1] === 'Wir helfen Euch.');
+    ok(!!kopf && !!satz && !!opt && kopf[3] < satz[3] && satz[3] < opt[3], `der Text steht zwischen Kopf (y ${kopf && kopf[3]}) und Optionen (y ${opt && opt[3]}): y ${satz && satz[3]}`);
+    ok(kopf[1] === 'BITTE · Quintus Serran · Rom'.replace(' · Rom', '') || kopf[1] === 'BITTE · Quintus Serran', `Kopf ohne Kürzel, wenn der Server keins schickt (${kopf[1]})`);
+  }
+  {
+    const lang = 'Wir brauchen dringend Hilfe bei Forschungsstation Helix, die Sensoren melden einen Verband, und wir sind allein.';   // zu lang für zwei Zeilen
+    const z = zeichneBitte(Object.assign(bitteBlock(2, null), { text: lang.slice(0, 90) }));
+    const kopfY = z.text.find((t) => /^BITTE · /.test(t[1]))[3], optY = z.text.find((t) => t[1] === 'Wir helfen Euch.')[3];
+    const zeilenText = z.text.filter((t) => t[3] > kopfY && t[3] < optY - 4);
+    ok(zeilenText.length >= 1 && zeilenText.length <= 2, `höchstens zwei Textzeilen (${zeilenText.length})`);
+    const breit = Object.assign(bitteBlock(2, null), { text: 'WWWWWWWWWW '.repeat(8).trim().slice(0, 90) });
+    const zb = zeichneBitte(breit);
+    const tz = zb.text.filter((t) => t[3] > kopfY && t[3] < optY && /^W/.test(t[1]));
+    ok(tz.length === 2 && /…$/.test(tz[1][1]), `ein zu langer Text endet nach zwei Zeilen mit „…“ (${tz.map((t) => t[1].slice(-4)).join(' | ')})`);
+    // Höhe der Leiste wächst mit dem Text: mit Text höher als ohne, genau um zwei Zeilen und den Abstand
+    const mit = FW.rechteck(FW.modell(), null, false).h;
+    alles({ bitte: Object.assign(bitteBlock(2, null), { text: '' }) });
+    const ohne = FW.rechteck(FW.modell(), null, false).h;
+    ok(mit - ohne === 23, `zwei Textzeilen kosten 23 Pixel Höhe (${mit} gegen ${ohne})`);
+  }
+  // Die Texte der Daten passen in zwei Zeilen der echten Schrift (sonst würde die Leiste kürzen)
+  {
+    const BW = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'faeden', 'bitte-werte.json'), 'utf8')).werte;
+    const EIN = { ort: 'Forschungsstation Helix', ziel: 'Raffinerie Lumen', name: 'Aurelia Aschenfeld' };
+    const falsch = [];
+    for (const [k, t] of Object.entries(BW.texte.wert)) {
+      const s = t.replace(/\{(\w+)\}/g, (m, p) => EIN[p] || m);
+      const l = echt.wrap(s, 228);
+      if (l.length > 2 || s.length > 90) falsch.push(k + ' (' + l.length + ' Zeilen, ' + s.length + ' Zeichen)');
+    }
+    ok(Object.keys(BW.texte.wert).length >= 5 && falsch.length === 0, 'jeder Bittentext der Daten passt mit dem längsten Ort in zwei Zeilen der echten Schrift' + (falsch.length ? ': ' + falsch.join(', ') : ''));
+  }
+  root.Render = R0;
+}
+
+section('Kopf, Frist, Plakette, Kappe (S4, S5, K2, K3)');
+{
+  const R0 = root.Render, H0 = root.Hud;
+  root.Render = Object.assign({}, R0, { measure: echt.measure, wrap: echt.wrap });
+  const bilder = [];
+  root.Hud = { drawFunkBild: (ctx, pid, x, y, w) => bilder.push([pid, x, y, w]) };
+  const zeichne = (block, k, pult) => {
+    alles({ bitte: block }); FW.store.eingeklappt = false; FW.store.geoeffnetBei = null;
+    gezeichnet.length = 0; bilder.length = 0; root.Pult.konsole = () => k || null; if (pult) root.Pult.kappe = pult;
+    const ctx = { fillStyle: '', fillRect() {} };
+    FW.zeichne(ctx, { me: { console: k ? k.station : null }, send() {} });
+    root.Pult.konsole = () => null; root.Pult.kappe = () => '';
+    return gezeichnet.filter((g) => g[0] === 'text');
+  };
+  const voll = (r) => zeichne(Object.assign(bitteBlock(2, 'f:1:rom'), { fk: 'Rom', rest: r }), null);
+  const t3 = voll(3);
+  ok(t3.some((t) => t[1] === 'BITTE · Quintus Serran · Rom'), 'Kopf mit Kürzel der Fraktion: BITTE · Name · Rom (S5)');
+  ok(!t3.some((t) => t[1] === 'offen'), 'volle Leiste: kein „offen“ (K2), es steht nie etwas Unwahres in der Ecke');
+  const t1 = voll(1), t0 = voll(0);
+  ok(t1.some((t) => t[1] === 'läuft ab') && t0.some((t) => t[1] === 'läuft ab'), 'rest 1 und 0: „läuft ab“ in der vollen Leiste (K2)');
+  const kopfY = t1.find((t) => /^BITTE · /.test(t[1]))[3], abY = t1.find((t) => t[1] === 'läuft ab')[3];
+  ok(kopfY === abY, `Kopf und Frist stehen auf einer Grundlinie (S4): y ${kopfY} und ${abY}`);
+  // Plakette: bündig mit dem Rahmen der Leiste (r.x + 5, r.y + 3)
+  {
+    alles({ bitte: Object.assign(bitteBlock(2, 'f:1:rom'), { rest: 3 }) });
+    const r = FW.rechteck(FW.modell(), null, false);
+    voll(3);
+    ok(bilder.length === 1 && bilder[0][1] === r.x + 5 && bilder[0][2] === r.y + 3 && bilder[0][3] === 22, `Plakette bei r.x+5, r.y+3 (${bilder[0] && bilder[0].join(',')} gegen ${r.x + 5},${r.y + 3})`);
+  }
+  // Streifen: „offen“ erst im Streifen, „läuft ab“ bei rest ≤ 1
+  {
+    const k = { S: 152, station: 'technik' };
+    const s3 = zeichne(Object.assign(bitteBlock(2, 'f:1:rom'), { fk: 'Rom', rest: 3 }), k);
+    const s1 = zeichne(Object.assign(bitteBlock(2, 'f:1:rom'), { fk: 'Rom', rest: 1 }), k);
+    ok(s3.some((t) => /^BITTE · Quintus Serran · Rom · offen$/.test(t[1])), `Streifen: „… · Rom · offen“ (${s3.map((t) => t[1]).join(' | ')})`);
+    ok(s1.some((t) => /· läuft ab$/.test(t[1])), 'Streifen bei rest 1: „läuft ab“');
+  }
+  // Kappe: ein einzelnes Satzzeichen wird fett gezeichnet (zweimal, einen Pixel versetzt), ein Buchstabe nicht, „Sh+.“ nicht
+  {
+    const kappen = (taste) => { const t = zeichne(Object.assign(bitteBlock(2, null), { rest: 3 }), null, () => taste); return t.filter((x) => x[1] === taste); };
+    const punkt = kappen('.'), buchstabe = kappen('M');
+    ok(punkt.length === 4 && punkt[1][2] === punkt[0][2] + 1, `Punkt-Kappe fett: zwei Zeichnungen, einen Pixel versetzt (${punkt.map((x) => x[2]).join(',')})`);
+    ok(buchstabe.length === 2, 'Buchstaben-Kappe einmal je Kappe (zwei Kappen)');
+    ok(zeichne(Object.assign(bitteBlock(2, null), { rest: 3 }), null, (n, a) => (a === 'allgemein.funkSenden' ? 'Sh+.' : '.')).filter((x) => x[1] === 'Sh+.').length === 1, '„Sh+.“ (mehrere Zeichen) wird nicht doppelt gezeichnet');
+  }
+  root.Render = R0; root.Hud = H0;
+}
+
+section('Ruf-Slot oben mit Vorrang des Lagefunks (F4): gleiche Lage wie die Lagefunk-Zeile, nie darüber');
+{
+  const R0 = root.Render, H0 = root.Hud;
+  root.Render = Object.assign({}, R0, { measure: echt.measure, wrap: echt.wrap });
+  const F = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'funk-bedienflaechen.json'), 'utf8')).ansichten;
+  const konsolen = { helm: 'helm', weapons: 'weapons', technik: 'technik', captain: 'captain', shop: 'shop' };
+  const EINZEILIG = { helm: true, weapons: true, shop: true, technik: false, captain: false };   // Erwartung aus dem Design: die Konsolen, an denen der Lagefunk einzeilig oben steht
+  const strip = (hud, konsole, block) => {
+    root.Hud = hud; alles({ bitte: block || bitteBlock(2, 'f:1:rom') });
+    FW.store.eingeklappt = true; FW.store.geoeffnetBei = null;
+    const k = { S: 200, station: konsole };
+    root.Pult.konsole = () => k;
+    const rects = []; const ctx = { fillStyle: '', fillRect(x, y, w, h) { rects.push({ x, y, w, h, c: this.fillStyle }); } };
+    FW.zeichne(ctx, { me: { console: konsole }, send() {} });
+    root.Pult.konsole = () => null; FW.store.eingeklappt = false;
+    return rects;
+  };
+  for (const [name, konsole] of Object.entries(konsolen)) {
+    const hud = bauHud({ lage: true });
+    const einzeilig = hud.lagefunkEinzeilig({ me: { console: konsole } });
+    ok(einzeilig === EINZEILIG[name], `${name}: einzeilige Lagefunk-Zeile = ${EINZEILIG[name]} (Hud.lagefunkEinzeilig meldet ${einzeilig})`);
+    const rects = strip(hud, konsole);
+    const zeile = hud.zeile();
+    if (einzeilig) ok(rects.length === 0, `${name}: solange die Lagefunk-Zeile steht, wird der Streifen NICHT gezeichnet (Vorrang, ${rects.length} Flächen)`);
+    else {
+      const slot = rects[0];
+      ok(rects.length >= 2 && slot.y === 0 && slot.h === 11 && slot.x === 388 && slot.w === 240, `${name}: ohne Lagefunk-Zeile steht der Streifen im Ruf-Slot (${slot && [slot.x, slot.y, slot.w, slot.h].join(',')})`);
+      ok(slot.y + slot.h <= LAGEFUNK_Y, `${name}: die Lagefunk-Tafel beginnt bei y ${LAGEFUNK_Y}, der Streifen endet bei ${slot.y + slot.h}: nie darüber`);
+    }
+    ok(zeile.y === 0 && zeile.h === 11, `${name}: die Lagefunk-Zeile liegt selbst bei y 0, ${zeile.h} hoch (Slot gemessen am echten zeichneFunkZeile)`);
+    const ohneLage = strip(bauHud({ lage: false }), konsole);
+    ok(ohneLage.length >= 2, `${name}: ohne Lagemeldung steht der Streifen (die Taste „.“ und der Klick klappen ihn auf)`);
+  }
+  // Slot, Höhe und Debug-Modus wie die Lagefunk-Zeile
+  for (const [titel, o, ex] of [['normal', {}, { y: 0, h: 11 }], ['Szenenzeile (9 hoch)', { szene: true }, { y: 0, h: 9 }], ['Debug (x 404, 232 breit)', { debug: true }, { y: 0, h: 11, x: 404, w: 232 }], ['Debug mit Szenenzeile', { debug: true, szene: true }, { y: 0, h: 9, x: 404, w: 232 }]]) {
+    const hud = bauHud(Object.assign({ lage: true }, o));
+    root.Hud = hud;
+    const sl = FW.slot({ me: { console: 'technik' } });
+    const zeile = hud.zeile();
+    ok(sl.y === ex.y && sl.h === ex.h && sl.h === zeile.h && (ex.x === undefined || (sl.x === ex.x && sl.w === ex.w && zeile.x === ex.x && zeile.w === ex.w)), `Slot ${titel}: ${[sl.x, sl.y, sl.w, sl.h].join(',')}, Lagefunk-Zeile ${[zeile.x, zeile.y, zeile.w, zeile.h].join(',')}`);
+  }
+  // Der Streifen überdeckt in keiner gemessenen Ansicht eine Bedienfläche und liegt über den Köpfen (die beginnen bei y 12: Technik-Zeile, Terminal-Kopf; MISSION 14, MARKEN 16)
+  {
+    root.Hud = bauHud({ lage: false });
+    const KOPF_AB = 12;
+    const sl = FW.slot({ me: { console: 'technik' } });
+    ok(sl.y + sl.h <= KOPF_AB, `der Streifen endet bei y ${sl.y + sl.h}, die Köpfe beginnen bei y ${KOPF_AB}`);
+    const nahe = Object.keys(F).filter((a) => F[a].knoepfe.some((b) => schneiden(sl, b)));
+    ok(nahe.length === 0, 'der Streifen überdeckt in keiner der gemessenen Ansichten eine Bedienfläche' + (nahe.length ? ': ' + nahe.join(', ') : ''));
+    const mitte = { x: 100, y: 0, w: 440, h: 11 };   // die Alternative (mittig wie die Lagefunk-Zeile) täte es: Technik Reiter 1 (Bots-Knopf y 8) und Captain Reiter 4 (y 10)
+    ok(Object.keys(F).some((a) => F[a].knoepfe.some((b) => schneiden(mitte, b))), 'Gegenprobe: mittig (x 100 bis 540) würde der Slot Knöpfe überdecken, darum rechts');
+  }
+  root.Render = R0; root.Hud = H0;
+}
+
+section('ODA unten in der Bordansicht (S3): die Leiste steht darüber');
+{
+  const R0 = root.Render, H0 = root.Hud;
+  root.Render = Object.assign({}, R0, { measure: echt.measure, wrap: echt.wrap });
+  const ODA = 'Aus dem Sektor Lichtkordon kommt ein Notruf. Die Ortung meldet drei Kontakte und einen Frachter im Anflug auf den Hafen.';
+  const hud = bauHud({ oda: ODA });
+  root.Hud = hud;
+  alles({ bitte: bitteBlock(2, 'f:1:rom') });
+  FW.store.eingeklappt = false;
+  const zeilenZahl = echt.wrap(ODA, 284 - 44).length;
+  const odaH = 10 + zeilenZahl * 10, odaOben = 360 - odaH - 6;   // drawOda: y = VH - h - 6
+  ok(hud.odaHoehe({ me: {} }) === odaH && odaH > 20, `odaHoehe = ${odaH} (${zeilenZahl} Zeilen)`);
+  ok(hud.odaHoehe({ me: { console: 'helm' } }) === 0, 'an einer Konsole steht die ODA oben: Höhe 0 für die Leiste');
+  const r = FW.rechteck(FW.modell(), null, false, { me: {} });
+  ok(r.y + r.h <= odaOben, `Leiste (${r.y} bis ${r.y + r.h}) endet über der ODA-Zeile (beginnt bei ${odaOben})`);
+  const ohne = FW.rechteck(FW.modell(), null, false, null);
+  ok(ohne.y + ohne.h > odaOben, 'Gegenprobe: ohne die Rücksicht läge sie auf der ODA-Zeile');
+  const rz = FW.rechteck(FW.modell(), null, true, { me: {} });
+  ok(rz.y + rz.h <= odaOben, 'der zugeklappte Streifen in der Bordansicht ebenso');
+  root.Hud = bauHud({ oda: null });
+  ok(FW.rechteck(FW.modell(), null, false, { me: {} }).y === ohne.y, 'ohne ODA bleibt die Leiste, wo sie war');
+  root.Render = R0; root.Hud = H0;
+}
+
+section('Faden-Porträt (S4, K1): Messingrahmen, hellere Mütze');
+{
+  const m = /drawPortraetFaden\(ctx, pid, x, y, w\) \{[\s\S]*?\n {4}\},\n {4}drawFunkBild/.exec(HUD_SRC);
+  const body = m[0].replace(/,\n {4}drawFunkBild$/, '');
+  const fn = new Function('return { ' + body.trim().replace(/,$/, '') + ' }')();
+  const zeichnen = (pid, w) => { const rects = []; const ctx = { save() {}, restore() {}, translate() {}, fillRect(x, y, bw, bh) { rects.push({ x, y, w: bw, h: bh, c: this.fillStyle }); }, fillStyle: '' }; fn.drawPortraetFaden.call({}, ctx, pid, 0, 0, w); return rects; };
+  const r = zeichnen('f:0:rom', 24);
+  const rahmen = [[0, 0, 24, 1], [0, 23, 24, 1], [0, 0, 1, 24], [23, 0, 1, 24]];
+  ok(rahmen.every(([x, y, w, h]) => r.some((q) => q.x === x && q.y === y && q.w === w && q.h === h && q.c === '#C9974A')), 'Porträt: 1 px Messingrahmen (#C9974A) an allen vier Seiten');
+  const farben = (v) => new Set(zeichnen('f:' + v + ':kon', 24).map((q) => q.c));
+  ok(farben(2).has('#46556A') && !farben(2).has('#2A3A52'), 'Variante 2: Mütze in #46556A, nicht mehr #2A3A52 (K1)');
+  ok([0, 1, 3, 4, 5].every((v) => zeichnen('f:' + v + ':ger', 22).length >= 6), 'die anderen Varianten zeichnen weiter');
+}
+
+section('Funk der Fäden als Lagefunk (F3a): Kennung fd, Messing statt Rot, Konsolen-Zeile und Funk-Reiter');
+{
+  const KT = { FARBE: { funk: { akzentFeind: '#E0473C', akzentLage: '#C9974A' } } };
+  const nameM = ['onRadio', 'funkAkzent', 'lagefunkZeilenText', 'funkZeileUnten'];
+  const src = nameM.map(methode);
+  ok(src.every(Boolean), 'onRadio, funkAkzent, lagefunkZeilenText und funkZeileUnten stehen in hud.js');
+  const wnd = { KarteTokens: KT, Sitz: null, Funkwahl: FW };
+  const H = new Function('window', 'KarteTokens', 'performance', 'Funkwahl', 'return { ' + src.join(',\n') + ' }')(wnd, KT, { now: () => 5000 }, FW);
+  H.radioAktuell = function () { return this.radioFlash || null; };
+  H.szeneVon = () => null;
+  H.onRadio('Titus Varro', 'Hallo', 'f:1:rom', 1, null, false, 1);
+  ok(H.radioFlash.fd === 1 && H.radioFlash.lage === true, 'onRadio übernimmt fd 1 (Funk eines Fadens) und lage');
+  H.radioFlash = null; H.onRadio('Titus Varro', 'Notruf', 'f:1:rom', 1, null, false, 2);
+  ok(H.radioFlash.fd === 2, 'onRadio übernimmt fd 2 (Gefahr)');
+  H.radioFlash = null; H.onRadio('X', 'y', null, 1, null, false, 7);
+  ok(H.radioFlash.fd === 0, 'unbekannte Kennung: fd 0 (Müll wird nie Messing)');
+  H.radioFlash = null; H.onRadio('X', 'y', null, 1, null, false);
+  ok(H.radioFlash.fd === 0, 'ohne Kennung: fd 0, Lagemeldungen bleiben rot');
+  ok(H.funkAkzent({ fd: 1 }) === '#C9974A' && H.funkAkzent({ fd: 2 }) === '#E0473C' && H.funkAkzent({ fd: 0 }) === '#E0473C' && H.funkAkzent({}) === '#E0473C', 'Akzent: Funk der Fäden Messing, Gefahr und gewöhnlicher Lagefunk Rot');
+  ok(H.lagefunkZeilenText({ from: 'Titus Varro', text: 'Hallo.', fd: 1 }) === 'FUNK · Titus Varro · Hallo.', 'Zeile des Fadenfunks: „FUNK · Name · Text“ (kein „LAGE“, der Absender immer)');
+  ok(H.lagefunkZeilenText({ from: 'Aufklärung', text: 'Hallo.', fd: 0 }) === 'LAGE · Hallo.' && H.lagefunkZeilenText({ from: 'HAFEN X', text: 'Hallo.', fd: 0, kz: '0305 · Rom' }) === 'LAGE · HAFEN X · 0305 · Rom · Hallo.', 'die gewöhnliche Lagemeldung bleibt unverändert');
+  // Wiring: client.js reicht fd durch, KarteLage merkt es, der Funk-Reiter färbt danach
+  ok(/H\.onRadio\(ev\.from, ev\.text, ev\.pid, ev\.lage, ev\.kz, !!\(ev\.sz && !ev\.r\), ev\.fd\)/.test(SRC('client.js')), 'client.js: das radio-Ereignis reicht fd an Hud.onRadio durch');
+  global.self = global.self || root;
+  const KL = require('../public/js/karte-lage.js');
+  KL.funkLeeren(); KL.funkMerken({ text: 'Bringt die Ware.', from: 'Titus Varro', fd: 1 }); KL.funkMerken({ text: 'Lage.', from: 'HAFEN X' });
+  ok(KL.funkListe()[1].fd === 1 && KL.funkListe()[0].fd === 0, 'KarteLage.funkMerken nimmt die Zeilen der Fäden auf (Captain-Funkreiter) und merkt fd');
+  ok(/e\.fd === 1 \? KarteTokens\.FARBE\.funk\.akzentLage : KarteTokens\.FARBE\.funk\.akzentFeind/.test(SRC('consoles.js')), 'Funk-Reiter: Akzent Messing bei fd 1, sonst Rot');
+  // Ops: der Streifen im Ruf-Slot nimmt der Karte die Zoom-Beschriftung (wie die Lagefunk-Zeile)
+  H.radioFlash = null;   // keine Lagemeldung: nur der Streifen zaehlt
+  alles({ bitte: bitteBlock(2, 'f:1:rom') });
+  const ops = { me: { console: 'weapons' } };
+  FW.store.konsole = { S: 196, station: 'weapons' }; FW.store.eingeklappt = true; FW.store.geoeffnetBei = null;
+  ok(H.funkZeileUnten(ops) === 11, 'Ops mit Streifen: Unterkante 11 (die Zoom-Zeile der Karte entfällt)');
+  FW.store.eingeklappt = false;
+  ok(H.funkZeileUnten(ops) === 0, 'Ops mit voller Leiste: 0 (die Leiste liegt unten, nicht im Ruf-Slot)');
+  FW.store.eingeklappt = true;
+  ok(H.funkZeileUnten({ me: { console: 'helm' } }) === 0, 'andere Konsolen: 0');
+  alles({ bitte: null }); alles({ funkwahl: null });
+  ok(H.funkZeileUnten(ops) === 0, 'ohne Angebot: 0');
+  FW.store.konsole = null; FW.store.eingeklappt = false;
 }
 
 console.log(`\n${n - fails} von ${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

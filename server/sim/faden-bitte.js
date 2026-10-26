@@ -22,6 +22,7 @@
 //   update(game)                                                (Aufrufer: reise-ereignis.update) Angebot in unruhiger Lage zurueckziehen (ohne Folge)
 //   funkVon(game, nsc, text) -> { von, pid, text } | null       Funkzeile eines NSC mit Porträt (pid), Aufrufer: Bitten, Szenen, Bausteine (P1/P3). Lagefunk (lage 1) mit Kennung fd 1 (Faden):
 //                                                               ohne lage zeigten die Konsolen (Steuer, Captain, Technik, Ops, Terminal) die Zeile nie (Nacharbeit F3a); fd färbt den Akzent in Messing
+//   funkGefahrVon(game, nsc, text)                              wie funkVon, aber fd 2: der Funk kündigt Gefahr an (Notruf), der Akzent bleibt Rot
 //   funkSprecher(game, von, text) -> { von, text } | null       dieselbe Zeile ohne Porträt von einem Dritten (Lerche, Aufklärung, Hafenfunk): Hinweise, Fracht, Tote (ein Toter spricht nie selbst)
 //   portraetPid(npc) -> 'f:<variante>:<fraktion>' | null ; pidGueltig(pid) -> bool     Porträt-Kennung (Client prüft dieselbe Form)
 //   offen(game) -> Angebot | null ; snapshot(game) / schluessel(game)   Anzeigeblock world.bitte { nr, von, pid, text, optionen: [{ id, text }], kopf, spaeter, rest } | null (Löschsignal)
@@ -98,15 +99,18 @@ function funkSenden(game, von, text, pid) {
   if (pid) ev.pid = pid;
   try { game.emit('radio', ev); } catch (e) { fehlerZaehlen(game, 'faden-bitte-funk', e); }
 }
-function funkVon(game, nsc, text) {
+// fd 1 = Funk eines Fadens (Messing), fd 2 = Gefahr (Notruf, der Gefahr ankündigt: Rot wie jede Lagemeldung)
+function nscFunk(game, nsc, text, fd) {
   if (!istObjekt(nsc) || typeof nsc.name !== 'string' || typeof text !== 'string' || !text.trim()) return null;
   const pid = portraetPid(nsc);
   const zeile = text.replace(/\s+/g, ' ').trim().slice(0, 160);
-  const ev = { from: nsc.name, text: zeile, lage: 1, fd: 1, r: 1 };
+  const ev = { from: nsc.name, text: zeile, lage: 1, fd, r: 1 };
   if (pid) ev.pid = pid;
   try { game.emit('radio', ev); } catch (e) { fehlerZaehlen(game, 'faden-bitte-funk', e); }
   return { von: nsc.name, text: zeile, pid };
 }
+const funkVon = (game, nsc, text) => nscFunk(game, nsc, text, 1);
+const funkGefahrVon = (game, nsc, text) => nscFunk(game, nsc, text, 2);
 function funkSprecher(game, von, text) {
   if (typeof von !== 'string' || !von.trim() || typeof text !== 'string' || !text.trim()) return null;
   const zeile = text.replace(/\s+/g, ' ').trim().slice(0, 160);
@@ -288,4 +292,4 @@ const baustein = {
   },
 };
 
-module.exports = { baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, funkSprecher, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };
+module.exports = { baustein, anbieten, angebotAusVorlage, beantworten, nachTaetigkeit, update, funkVon, funkGefahrVon, funkSprecher, portraetPid, pidGueltig, offen, snapshot, schluessel, toSaveBitte, lesenBitte, weigerung, rufBetrag, deckelRaum };
