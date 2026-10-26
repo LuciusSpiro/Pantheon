@@ -92,3 +92,65 @@ Ursache (gemessen, Rom-Kommando): Die Amber-Linie (emit 0,6) kommt im Buffer kor
 Offen (Entscheidungen): Germanen-Glut bleibt bei ca. `#B85800` (Bau-Regel 3, emit ≤ 0,6). Designer-Review: auf Germanen-Stationen dominiert die Glut in den Screenshots (breite Bänder auf allen Kronen und Planken). Rom-Außenposten: Amber in der warmen Stimmung wirkt eher gold. Gelände Rom-Außenposten bei `#C2B5A6` (Ziel `#CFC2A6`). Nicht geprüft: Verfall und Umkämpft.
 
 Gates (Stand `d402cbe`/`6d2c9c7`): hash-baseline Karten 72/72, deko_zellen 60/60, deko 120/120, layout 120/120, Layout-Parität 60/60; `npm run check` 0; `check:assets` 0 Fehler, 48 Warnungen; `npm test` Exit 0 (alle Blöcke, keine Fehler); `snap:mess` Worst Case 11661 B; Golden Trace siehe Abschlussbericht.
+
+## Nachtrag 8 (Nacharbeit nach Designer-Review R3, Befunde B1–B6)
+
+Commits: Voxelwerk `ort01-int`: `f9f2320` (Kit und Stimmung, B1–B3, B6), `18c8eb7` (Liege, Exposure 1,25). Spiel `ort01-int`: `83e6f61` (B4, Bauweisen), `fa79af2` (Übergabe), `31b6038` (`npm run assets`, eigener Commit, Voxelwerk-Stand `18c8eb7`).
+
+### Befunde und Fixes
+| Befund | Stand | Dateien (Voxelwerk `assets/models/kit/…`) | Quads (vorher → nachher) |
+|---|---|---|---|
+| B1 Germanen-Station Glut | umgesetzt: Glutband `h - 1`, `mode: paint`, emit 0,45 − 0,15·z; Glutschlitz p 0,3 → 0,1, emit 0,9 → 0,5, Höhe `min(2, h−2)` | `germanen/station/wand_krone.json`, `wand_fuellung.json` | Krone default 28 → 18, frei 24 → 20, ecke 32 → 21, kreuz 25 → 18, umkämpft 32 → 32; Füllung unverändert (default 25, umkämpft 64, Glutschlitz 29) |
+| B2 Rom-Station Krone | umgesetzt: Rinnenlogik `lauf_x`/`lauf_z`/`ecke` wie germanisch, bündig `h − 1`, paint, emit 0,6 | `rom/station/wand_krone.json` | default 19 → 14 |
+| B3 Rom-Außenposten Amber | umgesetzt: Rinne emit 0,6 → 1,1 (**Ausnahme Bau-Regel 3**, s. u.), beidseitige Einfassung stone_dark f 0,8 (4 Ops) | `rom/aussenposten/wand_krone.json` | 14 → 18 |
+| B3 Rom-Dach | umgesetzt: Dachstreifen period 4 → 2, f 1,0 / 0,82; Traufrinne emit 0,6 → 1,1 (Ausnahme) | `rom/dach.json` | default 181 → 184, gross 334 → 342, max 417 → 432 (Budget 3.200) |
+| B3 Dach-Variante je Gebäudetyp | **nicht gemacht**: `kit.js` reicht den Gebäudetyp nicht bis zum Kit durch (nur melden) | – | – |
+| B3 Gelände dunkle Einzelvoxel | **nicht gemacht** (Feinschliff) | – | – |
+| B4 Schmiedeherd in der Messe | umgesetzt: `leit.herzstueck.station` in `germanen.json`, `germanen_halle_holz.json`, `germanen_halle_stein.json` entfernt (Spiel, `content/buehnen/bauweisen/`). `leit_fuss`-Eintrag belassen. Deko 120/120, Karten 72/72 | Spiel `83e6f61` | – |
+| B5 Krankenstation, Liege | Diagnose und Modelle umgesetzt, siehe unten | `ort/germanen/station/medliege.json`, `ort/rom/station/medliege.json` | Germanen 718, Rom 735 Quads (Budget 2.500) |
+| B6 Rom-Stimmung | umgesetzt: `assets/moods/rom_aussen.json` exposure 1,3 → 1,25, fog `#CFC6B8` | `assets/moods/rom_aussen.json` | – |
+| Feinschliff (Kronen über Ecken, rote Zellenarkade, Fugengitter Landeplatz) | **nicht begonnen** | – | – |
+
+### B5, Diagnose (Rollenmodus)
+- Frage: setzt der Rollenmodus `krankenstation.liege` (leit, pflicht)? Messung mit `shared/buehne.js` + `public/js/voxel/deko.js` (`streuen`), wie `kit.js` übergibt, inkl. `leitFuss` aus `bauweisen/<bw>.json`, Seeds 1–40, Kultur Rom und Germanen.
+- Ergebnis: Liege gesetzt in **11/11** Krankenstation-Plätzen je Kultur (100 %). Keine Platzierungslücke.
+- Fehlerquelle beim ersten Durchlauf war mein Messskript: ohne `leitFuss` entfällt jedes Hauptstück (`fussVon` braucht den Eintrag). Das Spiel übergibt ihn korrekt (`kit.js`, Zeile 1057).
+- Ursache also rein optisch: Matratze (Germanen frost-Streifen Periode 4, Rom Marmor) ohne Kopfteil und ohne Kontrast zum Kissen. Von oben keine Liegefläche lesbar.
+- Fix: Germanen: Matratze einfarbig `frost`, Kopfteil `metal_dark` mit Kupferkante. Rom: Kissen `trim` (Gold), Kopfteil `primary` mit Goldkante.
+- Kontrollbild: `…\scratchpad\8\k2\rom\station\3-krankenstation_1.png` (Rom: Goldkissen klar lesbar). `…\k2\germanen\station\3-krankenstation_1.png` (Germanen: Liege weiterhin schwach erkennbar, Kopfteil zu klein in der Draufsicht). **Nicht erreicht**: Germanen-Liege von oben eindeutig.
+
+### B6, Gelände und gelbe Fläche
+- Pixelmessung auf dem Übersichtsbild (Gelände, sieben Punkte): bei exposure 1,3 Ziel verfehlt (`#C2B5A6` vorher); bei 1,1 nur `#B3A89A`; bei 1,2 `#BAAEA0`; bei **1,25 Mittel `#BDB2A4`** (Ziel ≥ `#BDB0A0`, erreicht). Gelände bleibt warm-beige. Bild: `…\scratchpad\8\k5\rom\aussenposten\3-uebersicht.png`.
+- Gelbe Fläche neben der Station (Rom-Außenposten, Position ca. 760/700 in 1920×1080): bleibt sichtbar und wird mit der Belichtung heller (`#D5AF7B` → `#E2BB84`). Ursache **nicht belegt**. Plausibel: Punktlicht (`public/js/voxel/renderer.js`, `lightReq`, Standardfarbe `#FFC66B`), das Modelle mit Manifest-Tag `light` anfordern (`assets/manifest/art-ap.json` hat solche Einträge). Nicht geändert. Offen.
+
+### Ausnahme Bau-Regel 3 (dokumentiert, Kai/Leiter 2026-10-26)
+Rom-Außenposten: Rinne `emit` 1,1 bei Tag (Krone `rom/aussenposten/wand_krone`, Traufrinne `rom/dach`). Begründung: Amber liest sich bei 0,6 als Gold und sitzt unter der Gelände-Helligkeit. Nicht in `STIL-ORT01.md` (Branch `ort01-richtung`) eingetragen.
+
+### Kritik der Bilder
+- Germanen-Station (`k4\germanen\station\3-uebersicht.png`, `k1\germanen\station\3-kommando.png`): Glut ruhiger als R3, die Schlitze treten zurück. Die orangen Bänder auf den Außenkronen dominieren das Übersichtsbild aber weiter. Das ist eine Entscheidung für Kai, kein Fehler.
+- Rom-Station (`k2\rom\station\3-krankenstation_1.png`): Amber-Linie auf den Kronen ruhig und klar, keine Gitter mehr.
+- Rom-Außenposten (`k5\rom\aussenposten\3-uebersicht.png`): Dächer nicht mehr markisenhaft, Traufrinne als Gold-Amber-Linie lesbar, Gelände warm.
+
+### Gates (Stand nach allen Änderungen, `npm run assets` mit `VOXELWERK_PATH`)
+- `npm test`: Exit 0 (durchgelaufen, incl. `SIM KETTE OK`, „alle Läufe ok“).
+- `npm run check`: Exit 0.
+- `snap:mess`: Exit 0, Worst Case 11661 B.
+- `hash-baseline --compare`: Karten 72/72, deko_zellen 60/60, deko 120/120, layout 120/120, Layout-Parität 60/60. Keine Baseline neu geschrieben.
+- `check:assets`: 0 Fehler, 48 Warnungen (unverändert zu `6M`).
+- Golden Trace: 60 Traces frisch gegen Pantheon-main (`--all --seeds 10`), `--compare`: 0 % Abweichung auf allen Vergleichspaaren, GOLDEN GRÜN. Verzeichnisse: `…\scratchpad\8\golden\main` und `…\golden\neu`.
+- Prüfbogen (5 geänderte Kit-IDs, `--nur-pruefung`): 0 Fehler.
+- `check` Kit (Filter einzeln): 0 Fehler.
+
+### Screenshots (Ordner `…\scratchpad\8\`)
+- `k1\`: Seeds 3–4, Station und Außenposten, Rom und Germanen, Übersichten.
+- `k2\`: Krankenstation und Quartier, Seeds 3–4, Station.
+- `k4\`: Endstand Seeds 3–4, Station und Außenposten, beide Kulturen, Übersichten.
+- `k4lp\`: `helix.station`, `methalle.siedlung`, `eisenwald.siedlung`.
+- `k5\`: Rom-Außenposten-Übersicht mit exposure 1,25.
+
+### Nicht erreicht
+- Germanen-Liege von oben nicht eindeutig lesbar (B5 teilweise).
+- Feinschliff (Kronen über Außenposten-Ecken, rote Zellenarkade, Fugengitter Landeplatz) nicht begonnen.
+- Dach-Variante je Gebäudetyp nicht gemacht (`kit.js` gibt den Typ nicht weiter).
+- Gelbe Fläche bei Rom-Außenposten: Quelle nicht geklärt.
+- Verfall und Umkämpft nicht im Bild geprüft.
