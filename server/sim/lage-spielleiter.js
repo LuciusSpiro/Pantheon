@@ -260,7 +260,7 @@ class LageSpielleiter {
     this.wiederholungenMelden(wh.abgelehnt);
     this.verlauf.push(Wiederholung.verlaufEintrag(wh.plan, res));
     while (this.verlauf.length > Math.max(1, this.W.wiederholung.fenster_plaene)) this.verlauf.shift();
-    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: ergebnisse(res, wh, this.W.letzte_plaene_zeichen.grund), angenommen: res.angenommen.filter((a) => a.platz).length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,   // angenommen = gebuchte Rate-Plätze (der Plan-Fokus für beide Reiche zählt einen)
+    const kurz = { nr: job.nr, tick: ws.tickZahl, grenze: job.art, befehle: ergebnisse(res, wh, this.W.letzte_plaene_zeichen.grund), angenommen: res.angenommen.filter((a) => a.platz && !(a.befehl && /^faden_/.test(a.befehl.typ || ''))).length, abgelehnt: res.abgelehnt.length + wh.abgelehnt.length,   // angenommen = gebuchte Rate-Plätze (der Plan-Fokus für beide Reiche zählt einen; Faden-Befehle (faden_*) zählen nie, sie stehen nicht gegen die Rate)
      
       begruendung: typeof gelesen.plan.begruendung === 'string' ? gelesen.plan.begruendung.slice(0, 120) : null };
     if (gelesen.plan.fokus) kurz.fokus = String(gelesen.plan.fokus.hex || '');

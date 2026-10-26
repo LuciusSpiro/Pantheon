@@ -244,7 +244,8 @@
                   },
                   "text_key": {
                     "type": "string",
-                    "maxLength": 40
+                    "maxLength": 40,
+                    "pattern": "^[a-z0-9_]{1,40}$"
                   },
                   "folge": {
                     "type": "array",
@@ -284,7 +285,8 @@
                   },
                   "text_key": {
                     "type": "string",
-                    "maxLength": 40
+                    "maxLength": 40,
+                    "pattern": "^[a-z0-9_]{1,40}$"
                   },
                   "folge": {
                     "type": "array",

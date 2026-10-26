@@ -23,6 +23,9 @@ function platzhalter(id) {
     [PLATZHALTER]: true,
     id,
     starten(game, faden, ctx) {
+      // B-S1: der Platzhalter zeigt seine Hinweise ausdruecklich (sonst zaehlen sie nicht; die Testvorlage laeuft damit durch)
+      const F = require('./faden.js');
+      for (const h of ctx.beat.hinweise || []) F.hinweisGezeigt(game, faden.id, h);
       logbuch(game, { ausgang: 'platzhalter', key: id, begruendung: `Baustein ${id} ist in 04a-1 ein Platzhalter (Faden ${faden.id}, Beat ${ctx.beat.id})`, plan: { faden: faden.id, beat: ctx.beat.id } });
       return { laeuft: true };
     },

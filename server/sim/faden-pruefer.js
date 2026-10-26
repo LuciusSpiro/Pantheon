@@ -24,6 +24,8 @@ const HEX = /^\d{4}$/;
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const istObjekt = (x) => !!x && typeof x === 'object' && !Array.isArray(x);
 const fehl = (code, text) => `${code}: ${text}`;
+// B-M1: text_key (Ausgang und Gedächtnis) nur a-z, 0-9, _; das Gedächtnis-Ereignis (Beat-Typ + '_' + Ausgang) nur a-z und _ (Weltstand-Schema)
+const TEXT_KEY = /^[a-z0-9_]{1,40}$/, EREIGNIS = /^[a-z_]{1,40}$/;
 const r2 = (x) => Math.round(x * 100) / 100;
 
 let schemaCache = null;
@@ -114,6 +116,13 @@ function parameterFehler(beat, cat) {
 }
 
 // ---------- Vorlage
+// Katalog (B-M1): jeder Beat-Typ muss mit beiden Ausgängen ein gültiges Gedächtnis-Ereignis ergeben. Wird beim Laden der Daten (faden-daten.js) geprüft.
+function katalogFehler() {
+  const out = [];
+  for (const typ of Object.keys(B)) for (const ag of W.ausgaenge) { const e = typ + '_' + ag; if (!EREIGNIS.test(e)) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": das Ereignis "${e}" passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`)); }
+  return out;
+}
+
 function pruefeVorlage(v) {
   const fehler = [];
   const form = require('../weltstand.js').fallbackValidate(v, schema());
@@ -160,6 +169,7 @@ function pruefeVorlage(v) {
       const o = aus[ag];
       if (!o) { fehler.push(fehl('AUSGANG_FEHLT', `Beat ${b.id}: der Ausgang ${ag} fehlt (jeder Beat hat Ausgänge gelungen und gescheitert)`)); continue; }
       if (o.status !== undefined && !W.status.includes(o.status)) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: Status "${o.status}" ist unbekannt`));
+      if (o.text_key !== undefined && !(typeof o.text_key === 'string' && TEXT_KEY.test(o.text_key))) fehler.push(fehl('TEXT_KEY', `Beat ${b.id}, ${ag}: text_key "${String(o.text_key).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
       for (const f of o.folge || []) { const r = folgeWirkung(f, 'n1'); if (r.fehler) fehler.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, ${ag}: ${r.fehler}`)); }
       if (cat.abschluss) { if (o.weiter !== undefined) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}: der Abschluss führt nirgends weiter (weiter ${o.weiter})`)); continue; }
       if (o.status === undefined) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: der Zustand des NSC (status) fehlt`));
@@ -312,4 +322,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

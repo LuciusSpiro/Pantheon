@@ -153,6 +153,17 @@ function anwenden(game, wirkungen) {   // Aufrufer: Kriegslage.tickMit (gueltig 
   return n;
 }
 // Haltung OHNE Sim-Tick (wie Kriegslage.rufBuchen): geprueft, atomar (ein Wurf rollt zurueck). -> { ok, angewandt, verworfen: [{ wirkung, grund }] }
+// B-S2: in der Kriegslage (Tick) zaehlt eine Haltungs-Wirkung fuer einen unbekannten NSC als VERWORFEN (nicht angewandt) und steht im Regie-Logbuch, wie bei haltungBuchen.
+function haltungSortieren(game, wirkungen) {
+  const gueltig = [], verworfen = [];
+  for (const w of Array.isArray(wirkungen) ? wirkungen : []) {
+    if (!w || w.typ !== 'haltung_aenderung') { gueltig.push(w); continue; }
+    const r = haltungPruefen(game, w);
+    if (r.ok) gueltig.push(w); else verworfen.push({ wirkung: w, grund: r.grund });
+  }
+  for (const v of verworfen) logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'haltung_aenderung', plan: v.wirkung, fehler: [v.grund] });
+  return { gueltig, verworfen };
+}
 function haltungBuchen(game, wirkungen) {
   const ws = game.weltsim;
   if (!ws || !ws.faeden) return { ok: false, angewandt: 0, verworfen: [] };
@@ -189,13 +200,19 @@ function taetigkeit(game, art) {
   }
   for (const a of F.angebote) a.alter++;
   F.angebote = F.angebote.filter((a) => a.alter <= W.angebot.gilt_taetigkeiten);
-  for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert (auch ohne Spielleiter)
-    if (f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {
+  for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
+    if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${W.beat_frist} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
       beatAusgang(game, f.id, 'gescheitert');
     }
   }
   return { t: F.t, faellig: F.liste.filter(faellig).map((f) => f.id) };
+}
+
+// B-S3: der Lage-Spielleiter ist da und nicht aus (Schalter aus, Fehler, dispose und Modus off sind Ausfall)
+function spielleiterAktiv(game) {
+  const l = game && game.lageSpielleiter;
+  return !!(l && !l.disposed && l.mode !== 'off');
 }
 
 // ---------- Angebot aus einem Taetigkeitsausgang mit Person
@@ -238,6 +255,7 @@ function oeffnen(game, b) {
   if (!a) return { ok: false, grund: 'KEIN_ANGEBOT: Angebot nicht mehr da' };
   const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
   const nscNr = F.nsc + 1;
+  if (nscNr > 999999) return { ok: false, grund: 'NSC_ZAHL: der Zähler der NSC ist voll' };   // B-K2
   const nsc = nscErzeugen(game, v, volk, p.name, nscNr);
   if (!nsc) { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'faden_oeffnen', plan: b, fehler: ['NAME: kein freier Name'] }); return { ok: false, grund: 'NAME: kein freier Name' }; }
   F.angebote.splice(F.angebote.indexOf(a), 1);
@@ -260,7 +278,7 @@ function weiterSetzen(game, b) {
   const v = D.vorlage(f.vorlage), beat = v.beats[f.beat], cat = B[beat.typ];
   f.phase = 'laeuft'; f.zaehler = 0;
   f.laufend = { beat: beat.id, n: 0, seit: ws.tickZahl };
-  for (const h of beat.hinweise || []) if (!f.hinweise.includes(h)) f.hinweise.push(h);   // der Hinweis ist gestreut, bevor der Beat erzaehlt wird
+  // Hinweise des Beats gelten NICHT schon jetzt: gestreut ist ein Hinweis erst, wenn der Baustein ihn bestaetigt (hinweisGezeigt, B-S1)
   if (cat.braucht && cat.braucht.wahrheit && f.nsc.wahrheit) f.nsc.wahrheit.offenbart = true;
   melde(game, 'beat_start', f.id, `Beat ${beat.id} (${beat.typ}) beginnt`, { faden: f.id, beat: beat.id, typ: beat.typ });
   const bs = Bausteine.vonId(cat.baustein);
@@ -297,6 +315,17 @@ function beatAusgang(game, fadenId, ausgang) {
   }
   melde(game, f.phase === 'abgeschlossen' ? 'abgeschlossen' : 'beat_ende', f.id, `Beat ${beat.id} ${ausgang}${f.phase === 'abgeschlossen' ? ', Faden abgeschlossen' : ', NSC ' + f.nsc.status + ', weiter ' + v.beats[f.beat].id}`, { faden: f.id, beat: beat.id, ausgang, status: f.nsc.status });
   return { ok: true, faden: f };
+}
+
+// B-S1: ein Hinweis gilt erst, wenn der Baustein ihn BESTAETIGT hat (die Crew hat ihn gesehen). Wirft der Baustein, laeuft die Frist ab oder endet der Beat ohne Bestaetigung, zaehlt er nicht.
+function hinweisGezeigt(game, fadenId, hinweisId) {
+  const F = zustandVon(game);
+  const f = F && F.liste.find((x) => x.id === fadenId);
+  if (!f || f.phase !== 'laeuft' || !f.laufend) return { ok: false, grund: 'kein laufender Beat' };
+  const beat = D.vorlage(f.vorlage).beats[f.beat];
+  if (!(beat.hinweise || []).includes(hinweisId)) return { ok: false, grund: 'der laufende Beat hat diesen Hinweis nicht' };
+  if (!f.hinweise.includes(hinweisId)) f.hinweise.push(hinweisId);
+  return { ok: true, grund: null };
 }
 
 // Die Crew waehlt eine Option des laufenden Beats (Baustein meldet die Wahl): Folgen aus dem Katalog, optional gleich der Ausgang. Nie bei Gefahr (Pruefer der Vorlage und Pruefung hier).
@@ -409,7 +438,7 @@ function lesen(b) {
   const F = neu();
   if (!istObjekt(b)) return F;
   F.t = nat(b.t, 1e9);
-  let nr = nat(b.nr, 1e9), nscNr = nat(b.nsc, 1e9);
+  let nr = nat(b.nr, 999999), nscNr = nat(b.nsc, 999999);   // B-K2: Kennungen f<n>/n<n> haben höchstens 6 Ziffern (Schema, Leser)
   const ids = new Set();
   for (const x of Array.isArray(b.liste) ? b.liste : []) {
     const r = leseFaden(x);
@@ -425,4 +454,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, optionWaehlen, haltungPruefen, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, kehrtFeindlichWieder, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, kehrtFeindlichWieder, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };

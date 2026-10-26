@@ -216,12 +216,22 @@ section('Beats und Ausgaenge: Scheitern veraendert den Faden, es beendet ihn nic
 
 section('Frist, Optionen, Bausteine', () => {
   const g = spiel().g, f = oeffne(g);
+  g.lageSpielleiter = { mode: 'mock', disposed: false };   // B-S3: die Frist laeuft nur mit aktivem Lage-Spielleiter
   starte(g, f);
   grenzen(g, D.WERTE.beat_frist - 1, 'andocken');
   ok(f.phase === 'laeuft', `nach ${D.WERTE.beat_frist - 1} Taetigkeiten ohne Ausgang laeuft der Beat noch`);
   grenzen(g, 1, 'andocken');
   ok(f.phase === 'wartet' && f.nsc.status === 'gefangen' && BEATS[f.beat] === 'b_notruf', `nach ${D.WERTE.beat_frist} Taetigkeiten gilt der Beat als gescheitert (nichts blockiert), der Faden lebt weiter`);
   ok(logbuch(g).some((e) => e.art === 'faden_ereignis' && e.ausgang === 'frist'), 'die Frist steht im Regie-Logbuch');
+  // B-S3: ohne aktiven Spielleiter laeuft die Frist NICHT ab: der Zaehler zaehlt, der Beat bleibt stehen
+  const ohne = spiel().g, o = oeffne(ohne); starte(ohne, o);
+  const vorher = JSON.stringify({ phase: o.phase, beat: o.beat, nsc: o.nsc, hinweise: o.hinweise, ausgang: o.ausgang });
+  grenzen(ohne, 20, 'andocken');
+  ok(o.phase === 'laeuft' && o.laufend && o.laufend.n >= 20 && JSON.stringify({ phase: o.phase, beat: o.beat, nsc: o.nsc, hinweise: o.hinweise, ausgang: o.ausgang }) === vorher, 'ohne Spielleiter: 20 Taetigkeiten, der Beat laeuft weiter, nichts wird gescheitert (der Zaehler zaehlt weiter)');
+  ok(!logbuch(ohne).some((e) => e.art === 'faden_ereignis' && e.ausgang === 'frist'), 'ohne Spielleiter steht keine Frist im Regie-Logbuch');
+  ohne.lageSpielleiter = { mode: 'mock', disposed: false };
+  grenzen(ohne, 1, 'andocken');
+  ok(o.phase === 'wartet' && logbuch(ohne).some((e) => e.art === 'faden_ereignis' && e.ausgang === 'frist'), 'Spielleiter wieder da: die Frist greift (der laufende Beat gilt als gescheitert)');
   // Optionen
   const h = spiel().g, q = oeffne(h);
   ok(Faden.optionWaehlen(h, q.id, 'zusagen').ok === false, 'ohne laufenden Beat keine Optionswahl');
@@ -446,6 +456,58 @@ section('Ausfall des Spielleiters: begonnene Faeden bleiben stehen', () => {
   ok(g.errors === 0 && !logbuch(g).some((e) => e.art === 'faden_pruefung'), 'kein Fehler, kein Eintrag im Logbuch');
   ok(ws(g).tickZahl === vorTick + 2, 'die Welt laeuft weiter (Ticks laufen)');
   ok(ws(g).faeden.angebote.length === 0 && aktive(g).length === 1, 'es kommen weder Angebote noch neue Faeden ohne den Spielleiter');
+});
+
+console.log(`\n${n - fails}/${n} Pruefungen ok`);
+section('Hinweise zaehlen erst, wenn der Baustein sie bestaetigt (Review B-S1)', () => {
+  const H = 'h_papiere';
+  // Wurf: der Hinweis zaehlt nicht
+  Bausteine.registriere('bitte', { starten() { throw new Error('Baustein wirft'); } });
+  try {
+    const w = spiel().g, x = oeffne(w); starte(w, x);
+    ok(!x.hinweise.includes(H), 'Wurf: der Hinweis des Beats zaehlt nicht (der Baustein hat ihn nie gezeigt)');
+  } finally { Bausteine.registriere('bitte', Bausteine.platzhalter('bitte')); }
+  // Frist ohne Bestaetigung: der Hinweis zaehlt nicht
+  Bausteine.registriere('bitte', { starten() { return { laeuft: true }; } });
+  try {
+    const w = spiel().g, x = oeffne(w); w.lageSpielleiter = { mode: 'mock', disposed: false }; starte(w, x);
+    grenzen(w, D.WERTE.beat_frist, 'andocken');
+    ok(x.phase === 'wartet' && !x.hinweise.includes(H), 'Frist ohne Bestaetigung: der Beat ist gescheitert, der Hinweis zaehlt nicht');
+  } finally { Bausteine.registriere('bitte', Bausteine.platzhalter('bitte')); }
+  // Bestaetigung: der Hinweis zaehlt
+  Bausteine.registriere('bitte', { starten(game, faden) { Faden.hinweisGezeigt(game, faden.id, H); return { laeuft: true }; } });
+  try {
+    const w = spiel().g, x = oeffne(w); starte(w, x);
+    ok(x.hinweise.includes(H), 'Bestaetigung durch den Baustein: der Hinweis zaehlt');
+    const r = Faden.hinweisGezeigt(w, x.id, 'h_gibt_es_nicht');
+    ok(!r.ok && !x.hinweise.includes('h_gibt_es_nicht'), 'ein Hinweis, den der Beat nicht hat, wird nicht bestaetigt');
+  } finally { Bausteine.registriere('bitte', Bausteine.platzhalter('bitte')); }
+  const z = spiel().g, zz = oeffne(z);
+  ok(Faden.hinweisGezeigt(z, zz.id, H).ok === false, 'vor dem Beat: nichts zu bestaetigen');
+  ok(Bausteine.istPlatzhalter('bitte'), 'der Platzhalter ist wieder eingesetzt');
+});
+
+section('Haltung fuer einen unbekannten NSC im Tick: verworfen, nicht angewandt (Review B-S2)', () => {
+  const g = spiel().g, f = oeffne(g); starte(g, f);
+  const r = Kriegslage.szeneAbschliessen(g, { wirkungen: [{ typ: 'haltung_aenderung', npc: 'n42', delta: 1, grund: 'geholfen' }, { typ: 'haltung_aenderung', npc: f.nsc.id, delta: 1, grund: 'geholfen' }], wo: 'szene' });
+  ok(r.ok && ws(g).letzteWirkungen.angewandt === 1 && f.nsc.haltung === 1, 'im Tick: nur die gueltige Haltung zaehlt als angewandt (1), der unbekannte NSC nicht');
+  ok(ws(g).letzteWirkungen.verworfen.some((v) => v.wirkung && v.wirkung.npc === 'n42'), 'der unbekannte NSC steht unter den verworfenen Wirkungen');
+  ok(logbuch(g).some((e) => e.art === 'faden_pruefung' && e.key === 'haltung_aenderung' && /unbekannter NSC/.test((e.fehler || []).join(' '))), 'und im Regie-Logbuch');
+});
+
+section('Der Leser klemmt die laufenden Nummern (Review B-K2)', () => {
+  const F = Faden.lesen({ t: 1, nr: 1e9, nsc: 1e9, liste: [] });
+  ok(F.nr === 999999 && F.nsc === 999999, `Zaehler nr und nsc werden auf 999999 geklemmt (nr ${F.nr}, nsc ${F.nsc})`);
+});
+
+section('Jeder Zustand einer gueltigen Vorlage ist schemagueltig (Review B-M1)', () => {
+  const g = spiel().g, f = oeffne(g);
+  for (const a of ['gelungen', 'gescheitert']) {
+    if (!f) break;
+    starte(g, f); Faden.beatAusgang(g, f.id, a);
+    const data = Weltstand.capture(g);
+    ok(Weltstand.validate(data, g).length === 0, `nach dem Ausgang ${a}: der Stand besteht das Weltstand-Schema (${Weltstand.validate(data, g).slice(0, 1).join('')})`);
+  }
 });
 
 console.log(`\n${n - fails}/${n} Pruefungen ok`);

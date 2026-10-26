@@ -24,7 +24,7 @@ for (const h of ['regie-fixture.js', 'faden-fixture.js']) fs.copyFileSync(path.j
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
-const PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', RB = 'server/sim/regie-befehle.js', RE = 'server/sim/reise-ereignis.js', GM = 'server/game.js', LA = 'server/sim/lage-ausschnitt.js',
+const BS = 'server/sim/faden-bausteine.js', PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', RB = 'server/sim/regie-befehle.js', RE = 'server/sim/reise-ereignis.js', GM = 'server/game.js', LA = 'server/sim/lage-ausschnitt.js',
   LP = 'server/sim/lage-prompt.js', LM = 'server/sim/lage-mock.js', KL = 'server/sim/kriegslage.js', WI = 'server/weltsim/wirkungen.js',
   DW = 'content/faeden/werte.json', DB = 'content/faeden/beats.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
@@ -61,7 +61,9 @@ const MUTATIONEN = [
   [FA, "f.zaehler = Math.min(f.zaehler + 1, ZAEHLER_MAX);", "f.zaehler = f.zaehler;", 'Zaehler des Fadens laeuft nicht'],
   [FA, "F.t = Math.min(F.t + 1, 1e9);", "F.t = (game.weltsim.chronik || []).length;", 'Taetigkeiten werden ueber die Chronik gezaehlt'],
   [FA, "if (!aktiv(game) || !W.taetigkeiten.includes(art)) return null;", "if (!aktiv(game)) return null;", 'jede Art von Grenze zaehlt als Taetigkeit'],
-  [FA, "if (f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {", "if (false) {", 'Frist aus (ein Beat ohne Ausgang blockiert den Faden)'],
+  [FA, "if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {", "if (false) {", 'Frist aus (ein Beat ohne Ausgang blockiert den Faden)'],
+  [FA, "if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {", "if (f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {", 'Frist laeuft auch ohne Spielleiter (B-S3)'],
+  [FA, "  return !!(l && !l.disposed && l.mode !== 'off');", "  return true;", 'Spielleiter-Ausfall (dispose, Modus off) zaehlt nicht als Ausfall (B-S3)'],
   [FA, "return lo + Math.min(hi - lo, Math.floor(r * (hi - lo + 1)));", "return lo;", 'Abstand wird nicht gezogen (immer der kleinste)'],
   [FA, "if (o.status && f.nsc.status !== 'tot') f.nsc.status = o.status;", "if (o.status) f.nsc.status = o.status;", 'ein toter NSC wird wieder lebendig (Ablauf)'],
   [FA, "while (nsc.gedaechtnis.length > W.gedaechtnis_max) nsc.gedaechtnis.shift();", "", 'Gedaechtnis waechst ohne Grenze'],
@@ -71,7 +73,13 @@ const MUTATIONEN = [
   [FA, "return v === '1' || v === 'on';", "return true;", 'Schalter immer an'],
   [FA, "if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz", "if (false) return null;", 'Angebot trotz voller Obergrenze'],
   [FA, "if (f.laufend.gewaehlt) return { ok: false, grund: 'schon gewählt' };", "", 'Option mehrfach waehlbar'],
-  [FA, "for (const h of beat.hinweise || []) if (!f.hinweise.includes(h)) f.hinweise.push(h);", "", 'Hinweise des Beats werden nicht gestreut'],
+  [FA, "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  if (!(beat.hinweise || []).includes(hinweisId))", "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  for (const h of beat.hinweise || []) if (!f.hinweise.includes(h)) f.hinweise.push(h);\n  if (!(beat.hinweise || []).includes(hinweisId))", 'Hinweise zaehlen ohne Bestaetigung durch den Baustein (B-S1)'],
+  [FA, "  if (!f.hinweise.includes(hinweisId)) f.hinweise.push(hinweisId);", "  if (!f.hinweise.includes(hinweisId) && false) f.hinweise.push(hinweisId);", 'Bestaetigung wird nicht gespeichert (B-S1)'],
+  [BS, "      for (const h of ctx.beat.hinweise || []) F.hinweisGezeigt(game, faden.id, h);", "", 'Platzhalter bestaetigt seine Hinweise nicht (B-S1)'],
+  [KL, "if (Faden.aktiv(game) && gueltig.some((w) => w && w.typ === 'haltung_aenderung')) {", "if (false) {", 'Haltung fuer unbekannte NSC zaehlt im Tick als angewandt (B-S2)'],
+  [FA, "  for (const v of verworfen) logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'haltung_aenderung', plan: v.wirkung, fehler: [v.grund] });\n  return { gueltig, verworfen };", "  return { gueltig, verworfen };", 'verworfene Haltung im Tick steht nicht im Regie-Logbuch (B-S2)'],
+  [FA, "nat(b.nr, 999999), nscNr = nat(b.nsc, 999999);", "nat(b.nr, 1e9), nscNr = nat(b.nsc, 1e9);", 'Leser: Zaehler nr und nsc bis 1e9 (B-K2)'],
+  [PR, "if (!EREIGNIS.test(e)) out.push(", "if (false) out.push(", 'Katalog: Beat-Typ mit ungueltigem Gedaechtnis-Ereignis wird nicht gemeldet (B-M1)'],
   [FA, "if (cat.braucht && cat.braucht.wahrheit && f.nsc.wahrheit) f.nsc.wahrheit.offenbart = true;", "", 'Enthuellung setzt die Wahrheit nicht'],
   [FA, "if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) {", "if (false) {", 'Leser klemmt die Obergrenze nicht'],
   [FA, "const e = P.pruefeFaden(f);\n  return e.length ?", "const e = [];\n  return e.length ?", 'Leser prueft den Faden nicht'],
@@ -117,7 +125,7 @@ const MUTATIONEN = [
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { cwd: TMP, encoding: 'utf8', timeout: 600000 });
 const rot = (r) => r.status !== 0;
-let ueberlebt = 0, gelaufen = 0;
+let ueberlebt = 0, gelaufen = 0, erkannt = 0, abstuerze = 0;
 console.log(`Mutationsprobe test-faden-pruefer.js, test-faden-zustand.js, test-faden-spielleiter.js, test-faden-kompat.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);
 for (const t of TESTS) {
   const basis = lauf(t);
@@ -133,13 +141,19 @@ for (const [datei, alt, neu, was] of MUTATIONEN) {
   const text = nl ? orig.replace(/\r\n/g, '\n') : orig;
   if (text.split(alt).length !== 2) { console.log(`  ?? ${was}: Textstelle nicht eindeutig gefunden (${datei})`); ueberlebt++; continue; }
   fs.writeFileSync(f, nl ? text.replace(alt, () => neu).replace(/\n/g, '\r\n') : text.replace(alt, () => neu));
-  let wer = null, r = null;
-  for (const t of TESTS) { r = lauf(t); if (rot(r)) { wer = path.basename(t[0], '.js').replace('test-', ''); break; } }
+  let wer = null, fehler = [], absturz = null;
+  for (const t of TESTS) {
+    const r = lauf(t);
+    if (r.status === 0) continue;
+    const fz = ((r.stdout || '').split('\n')).filter((l) => /FEHLER/.test(l));
+    if (fz.length) { wer = path.basename(t[0], '.js').replace('test-', ''); fehler = fz; break; }
+    if (!absturz) absturz = { test: path.basename(t[0], '.js'), text: ((r.stderr || '') + (r.stdout || '')).split('\n').filter((l) => /Error|    at /.test(l)).slice(0, 1).join(' ').trim().slice(0, 120) || `Exit ${r.status}` };
+  }
   fs.writeFileSync(f, orig);
-  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
-  if (!wer) ueberlebt++;
-  console.log(`  ${wer ? 'rot  ' : 'GRUEN '} ${was}${wer ? ` (${wer}: ${fehler.length} Fehler, z. B. ${(fehler[0] || 'Absturz').replace(/^\s*FEHLER\s*/, '').slice(0, 64)})` : '  <-- UEBERLEBT'}`);
+  if (wer) { erkannt++; console.log(`  rot    ${was} (${wer}: ${fehler.length} Fehler, z. B. ${fehler[0].replace(/^\s*FEHLER\s*/, '').slice(0, 64)})`); }
+  else if (absturz) { abstuerze++; console.log(`  ABSTURZ ${was} (${absturz.test}: ${absturz.text}) – nicht als erkannt gezaehlt`); }
+  else { ueberlebt++; console.log(`  GRUEN  ${was}  <-- UEBERLEBT`); }
 }
 try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
-console.log(ueberlebt ? `${ueberlebt} von ${gelaufen} Mutation(en) ueberlebt` : `alle ${gelaufen} Mutationen erkannt`);
-process.exit(ueberlebt ? 1 : 0);
+console.log(`Ergebnis: ${erkannt} erkannt, ${ueberlebt} ueberlebt, ${abstuerze} Absturz/Syntaxfehler (von ${gelaufen})`);
+process.exit(ueberlebt || abstuerze ? 1 : 0);

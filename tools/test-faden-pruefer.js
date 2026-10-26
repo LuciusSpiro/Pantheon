@@ -187,6 +187,30 @@ section('Haltung: Kurve, Ton, feindliche Wiederkehr (Daten)', () => {
   ok(Faden.portraetVon({ portrait: 100003 }) >= 0 && Faden.portraetVon({ portrait: 100003 }) < D.WERTE.portrait.varianten, 'Portraet-Seed waehlt eine von wenigen Varianten');
 });
 
+section('text_key und Beat-Katalog gegen das Gedaechtnis-Schema (Review B-M1)', () => {
+  for (const schlecht of ['Ende_Verpasst', 'ende-verpasst', 'ende verpasst', 'ende!', '']) {
+    const v = vorlageTest(); beat(v, 'b_bitte').aus.gescheitert.text_key = schlecht;
+    ok(codes(v).some((c) => c === 'TEXT_KEY' || c === 'FORM'), `text_key "${schlecht}" im Ausgang: TEXT_KEY (Schema verlangt ^[a-z0-9_]{1,40}$)`);
+    ok(!D.registriere(Object.assign(v, { id: 'tk_' + (schlecht.length) + '_' + Math.random().toString(36).slice(2, 6) })).ok, '    und die Vorlage kommt nicht ins Register');
+  }
+  const gut = vorlageTest(); beat(gut, 'b_bitte').aus.gescheitert.text_key = 'ende_verpasst_2';
+  ok(!hat(gut, 'TEXT_KEY'), 'gueltiger text_key (a-z, 0-9, _): kein TEXT_KEY');
+  const lang = vorlageTest(); beat(lang, 'b_bitte').aus.gescheitert.text_key = 'a'.repeat(41);
+  ok(codes(lang).some((c) => c === 'TEXT_KEY' || c === 'FORM'), 'text_key mit 41 Zeichen: TEXT_KEY');
+  ok(Pruefer.katalogFehler().length === 0, 'der Beat-Katalog passt zum Gedaechtnis-Schema');
+  const B = D.BEATS;
+  B['Mit-Bindestrich'] = Object.assign({}, B.bitte, { baustein: 'bitte' });
+  try {
+    ok(Pruefer.katalogFehler().some((t) => /KATALOG_EREIGNIS/.test(t) && /Mit-Bindestrich/.test(t)), 'ein Beat-Typ mit Bindestrich: KATALOG_EREIGNIS (der Katalog wird geprueft)');
+  } finally { delete B['Mit-Bindestrich']; }
+  B['Gross'] = Object.assign({}, B.bitte, { baustein: 'bitte' });
+  try { ok(Pruefer.katalogFehler().some((t) => /Gross/.test(t)), 'Beat-Typ mit Grossbuchstaben: KATALOG_EREIGNIS'); } finally { delete B['Gross']; }
+  B['mit leer'] = Object.assign({}, B.bitte, { baustein: 'bitte' });
+  try { ok(Pruefer.katalogFehler().some((t) => /mit leer/.test(t)), 'Beat-Typ mit Leerzeichen: KATALOG_EREIGNIS'); } finally { delete B['mit leer']; }
+  ok(Pruefer.katalogFehler().length === 0, 'nach dem Aufraeumen wieder ohne Befund');
+});
+
+
 console.log(`\n${n - fails}/${n} Pruefungen ok`);
 if (fails) { console.log(`${fails} FEHLER`); process.exit(1); }
 console.log('FADEN-PRUEFER OK');

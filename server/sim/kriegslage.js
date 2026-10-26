@@ -142,6 +142,7 @@ function tickMit(game, wo, nachOrt, wirkungen, opt) {
   try {
     if (alle.length) {
       ({ gueltig, verworfen } = Kern.filtereWirkungen(ws.zustand, alle));
+      if (Faden.aktiv(game) && gueltig.some((w) => w && w.typ === 'haltung_aenderung')) { const s = Faden.haltungSortieren(game, gueltig); gueltig = s.gueltig; verworfen = verworfen.concat(s.verworfen); }   // SUND-04a-1 B (B-S2): Haltung eines unbekannten NSC ist verworfen, nicht angewandt
       kommandanten = gueltig.filter((w) => w.typ === 'flaggschiff_gefallen' && w.kommandant).map((w) => ({ name: w.kommandant.name, schicksal: w.kommandant.schicksal, fraktion: ws.zustand.flotten.find((f) => f.id === w.flotte).fraktion }))
         .filter((k, i, l) => l.findIndex((x) => x.name === k.name) === i);   // eine Begegnung zählt einmal, auch wenn mehrere Flotten desselben Kommandanten abbrechen (SUND-02a A2)
     }

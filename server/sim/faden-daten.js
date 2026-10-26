@@ -49,6 +49,8 @@ function ladeVerzeichnis(dir) {
 function init() {
   if (geladen) return;
   geladen = true;
+  const kat = require('./faden-pruefer.js').katalogFehler();   // B-M1: der Beat-Katalog muss zum Gedächtnis-Schema passen; Verstöße landen in ladefehler() und im Regie-Logbuch
+  if (kat.length) fehlerListe.push({ datei: 'beats.json', fehler: kat });
   ladeVerzeichnis(VORLAGEN_DIR);
   const env = process.env.FADEN_VORLAGEN_ZUSATZ;
   if (env) for (const d of String(env).split(path.delimiter).filter(Boolean)) ladeVerzeichnis(d);
