@@ -71,7 +71,7 @@ const MUTATIONEN = [
   [FA, "return r2(y0 + (y1 - y0) * ((h - x0) / (x1 - x0)));", "return y1;", 'Kurve der Spontanhilfe springt statt zu interpolieren'],
   [FA, "if (!nscVon(game, w.npc)) return { ok: false, grund: 'unbekannter NSC (npc): er steht in keinem Faden' };", "", 'Haltung fuer einen NSC, den es nicht gibt'],
   [FA, "return v === '1' || v === 'on';", "return true;", 'Schalter immer an'],
-  [FA, "if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz", "if (false) return null;", 'Angebot trotz voller Obergrenze'],
+  [FA, "if (aktive(F).length >= W.aktiv_max) return null;   // kein Platz: ein Angebot waere sinnlos (Obergrenze)", "if (false) return null;", 'Angebot trotz voller Obergrenze'],
   [FA, "if (f.laufend.gewaehlt) return { ok: false, grund: 'schon gewählt' };", "", 'Option mehrfach waehlbar'],
   [FA, "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  if (!(beat.hinweise || []).includes(hinweisId))", "  const beat = D.vorlage(f.vorlage).beats[f.beat];\n  for (const h of beat.hinweise || []) if (!f.hinweise.includes(h)) f.hinweise.push(h);\n  if (!(beat.hinweise || []).includes(hinweisId))", 'Hinweise zaehlen ohne Bestaetigung durch den Baustein (B-S1)'],
   [FA, "  if (!f.hinweise.includes(hinweisId)) f.hinweise.push(hinweisId);", "  if (!f.hinweise.includes(hinweisId) && false) f.hinweise.push(hinweisId);", 'Bestaetigung wird nicht gespeichert (B-S1)'],

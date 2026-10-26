@@ -487,6 +487,20 @@ section('Hinweise zaehlen erst, wenn der Baustein sie bestaetigt (Review B-S1)',
   ok(Bausteine.istPlatzhalter('bitte'), 'der Platzhalter ist wieder eingesetzt');
 });
 
+section('Mehrere Hinweise eines Beats: nur der bestaetigte zaehlt (Review B-S1, Testluecke)', () => {
+  const H1 = 'h_papiere', H2 = 'h_zweit';
+  const zwei = alsVorlage('test_zwei_hinweise', (v) => { v.hinweise[H2] = klon(v.hinweise[H1]); v.beats.find((b) => b.id === 'b_bitte').hinweise = [H1, H2]; });
+  const rz = registriere(zwei);
+  ok(rz.ok, 'Fixture-Vorlage mit einem Beat und zwei Hinweisen ist gueltig' + (rz.ok ? '' : ': ' + rz.fehler.join('; ')));
+  // Baustein bestaetigt nur den ersten Hinweis (die Crew hat nur ihn gesehen)
+  Bausteine.registriere('bitte', { starten(game, faden) { Faden.hinweisGezeigt(game, faden.id, H1); return { laeuft: true }; } });
+  try {
+    const w = spiel().g, x = oeffne(w, 'test_zwei_hinweise'); starte(w, x);
+    ok(x && x.hinweise.includes(H1), 'der bestaetigte Hinweis zaehlt');
+    ok(x && !x.hinweise.includes(H2), 'der zweite Hinweis des Beats ist nicht bestaetigt und zaehlt nicht');
+  } finally { Bausteine.registriere('bitte', Bausteine.platzhalter('bitte')); }
+});
+
 section('Haltung fuer einen unbekannten NSC im Tick: verworfen, nicht angewandt (Review B-S2)', () => {
   const g = spiel().g, f = oeffne(g); starte(g, f);
   const r = Kriegslage.szeneAbschliessen(g, { wirkungen: [{ typ: 'haltung_aenderung', npc: 'n42', delta: 1, grund: 'geholfen' }, { typ: 'haltung_aenderung', npc: f.nsc.id, delta: 1, grund: 'geholfen' }], wo: 'szene' });
