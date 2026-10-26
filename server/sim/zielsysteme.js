@@ -167,7 +167,7 @@ function waehle(game, id) {
 function waehlbar(game, e) { return ids().filter((id) => e && e.scanned && SYSTEME[id].klassen.includes(e.kind)); }
 
 // ---------- Snapshot (nur gescannte Ziele mit Schaden) ----------
-// Feld je System (Daten, Antrieb: az) = Stufe (1 beschädigt, 2 ausgefallen); fehlt = voll
+// Feld je System (Daten, Antrieb: az) = Stufe (1 beschädigt, 2 ausgefallen); fehlt = voll; ag = 1: gestellt (nur mit az)
 function snapExtra(e) {
   if (!e || !e.zs || !e.scanned) return null;
   let o = null;
@@ -175,6 +175,7 @@ function snapExtra(e) {
     const sys = SYSTEME[id]; const z = e.zs[id];
     if (sys && sys.feld && z.s > 0) (o || (o = {}))[sys.feld] = z.s;
   }
+  if (o && Object.keys(e.zs).some((id) => e.zs[id].gehalten)) o.ag = 1;   // gestellt (Verfolgung): der Ausfall bleibt, am Ziel steht GESTELLT (Review D-M2)
   return o;
 }
 

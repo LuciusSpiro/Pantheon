@@ -35,7 +35,7 @@ async function main() {
   const b = await chromium.launch();
   const fehler = [];
   try {
-    const page = await (await b.newContext({ viewport: { width: 1280, height: 720 }, deviceScaleFactor: 2 })).newPage();
+    const page = await (await b.newContext({ viewport: { width: +arg("w", "1280"), height: +arg("h", "720") }, deviceScaleFactor: 2 })).newPage();
     page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 200)); });
     await page.goto(`http://127.0.0.1:${PORT}/?debug=1&render=2d`);

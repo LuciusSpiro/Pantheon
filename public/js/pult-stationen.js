@@ -189,7 +189,7 @@
         // SUND-02b UI2: liegt oben eine Szenenzeile oder die Lagefunk-Zeile, entfällt die Zoom-Beschriftung der Karte: unter der Zeile wird die obere Bogenbeschriftung
         // („BB STANDARD BEREIT“) an den Rand geklemmt und lag in allen Ausweichplätzen darüber; der Wert steht ohnehin auf der Taste „Z Zoom 35 %“ unter SENSOREN
         const zoomOben = !(H.szeneUnten(view) || (H.funkZeileUnten && H.funkZeileUnten(view)));
-        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: this.stapelH ? [{ x: mr.x + 4, y: ms.y + 3, w: 266, h: this.stapelH }].concat(zielX !== mitteX ? (zoomOben ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }] : []).concat([{ x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }]) : []) : [], cx: Math.round(this.opsMitteX) });   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
+        this.maps.weapons = R.drawTactical(c, view, mr, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: [].concat(zoomOben ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }] : [], this.stapelH ? [{ x: mr.x + 4, y: ms.y + 3, w: 266, h: this.stapelH }] : [], zielX !== mitteX ? [{ x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }] : []), cx: Math.round(this.opsMitteX) });   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
         if (zoomOben) R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
         this.drawFracht(c, view, ms); this.drawLpscan(c, view, ms); this.drawZonenscan(c, view, ms); if (this.drawHoehe) this.drawHoehe(c, view, ms); this.drawPersonenBord(c, view, ms); if (this.drawPosten) this.drawPosten(c, view, ms);
         if (window.SondenView) SondenView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
@@ -239,9 +239,13 @@
         const cp = n(ship.chargePoints), used = em.reduce((s, mm) => s + n(mm.alloc), 0);
         const salven = (ship.mounts || []).filter((mm) => { const ww = waffeVon(mm); return ww && ww.art === 'salve'; });
         const batReady = salven.some((mm) => !this.mountInfo(view, mm.id).reason);
-        P.knopf(ctx, x, y, 70, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
-        T(ctx, 'PUNKTE ' + used + '/' + cp, x + 78, y + 1, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
-        T(ctx, 'Q/E · A/D · Rad/Rechtsklick: Punkte', x + 78, y + 9, K.dim);
+        // Review D-S6: Systemziel als breite Zelle unter 1 und 2 (Ziffernblock-Raster), „Leer beide“ rückt unter die 3; SENSOREN bleibt einfarbig
+        const ZS = window.Zielsysteme, zid = ZS ? ZS.systemeFuer(target) : [], zan = !!zid.length && ZS.gewaehlt(st) === zid[0];
+        const zb = 2 * zw + 4;
+        if (ZS && ZS.ids().length) P.knopf(ctx, x, y, zb, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zan ? 'Antrieb anvisiert' : 'Antrieb anvisieren', active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System', onClick: () => this.systemzielWechseln(view) });
+        P.knopf(ctx, x + 2 * (zw + 4), y, zw, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
+        T(ctx, 'PUNKTE ' + used + '/' + cp, x, y + 19, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
+        T(ctx, 'Q/E · A/D · Rad/Rechtsklick: Punkte', x, y + 27, K.dim);
       }
       // ---- SENSOREN
       x = 282; cw = 112;
@@ -253,12 +257,6 @@
       const ws = ship.widescan || {}, wsR = n(ws.cd) > 0 ? 'Abklingzeit ' + Math.ceil(ws.cd) + ' s' : null;
       P.knopf(ctx, x, y, cw, 14, 'Weitscan (1000)', { hotkey: 'W', aktion: 'ops.weitscan', text: 'Weitscan', fn: 'sensor', disabled: !!wsR, reason: wsR, onClick: () => { this.cmd(view, 'weapons.widescan'); view.actions.sfx('widescan'); } }); y += 17;
       P.knopf(ctx, x, y, cw, 14, 'Zoom', { hotkey: 'Z', aktion: 'ops.zoom', fn: 'sensor', text: 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', onClick: () => this.cycleZoom('weapons') }); y += 17;
-      {   // SUND-04a-1 A: Systemziel (Antrieb) am gescannten Ziel; Bernstein = Antrieb
-        const ZS = window.Zielsysteme, zid = ZS ? ZS.systemeFuer(target) : [], zan = !!zid.length && ZS.gewaehlt(st) === zid[0];
-        if (ZS && ZS.ids().length) {
-          P.knopf(ctx, x, y, cw, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zan ? 'Ziel: Antrieb' : 'Antrieb anvisieren', active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System', onClick: () => this.systemzielWechseln(view) }); y += 17;
-        }
-      }
       if (ship.sf) {
         const sf = ship.sf, unten = !!sf.d && !n(sf.h);
         P.knopf(ctx, x, y, cw, 14, unten ? 'Schilde hoch' : n(sf.h) ? 'Schilde fahren hoch … ' + n(sf.h) + ' s' : 'Schilde runter (leiser)', { hotkey: 'H', aktion: 'ops.schilde', text: unten ? 'Schilde hoch' : n(sf.h) ? 'fahren hoch ' + n(sf.h) : 'Schilde runter', fn: 'shield', active: !!sf.d, disabled: !!n(sf.h), reason: 'Schilde fahren gerade hoch', onClick: () => this.cmd(view, 'weapons.schilde', { unten: !unten }) });
@@ -336,7 +334,7 @@
       // PAN-01 C: Waffen je Seite (Katalog) und Module der Klasse – nur nach dem Scan, passt unter den Schilden in den Kasten
       const ya = cy + 37, yMax = b.y + b.h - 16;
       if (yMax - ya >= 11) {
-        try { this.zielAusstattung(c, target, b.x + 6, ya, b.w - 12, yMax - ya, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, alarm: P.FN.weapon, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); }
+        try { this.zielAusstattung(c, target, b.x + 6, ya, b.w - 12, yMax - ya, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); }
       }
     },
 

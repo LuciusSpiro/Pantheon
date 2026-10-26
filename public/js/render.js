@@ -3807,7 +3807,8 @@
     const flushArrows = () => {
       const groups = [];
       for (const a of arrows) {
-        const g = groups.find((q) => Math.hypot(q[0].e.x - a.e.x, q[0].e.y - a.e.y) < 24);
+        // Review D-S4: der Fluchtpunkt-Pfeil teilt sich keinen Pfeil mit dem Zielschiff (sonst verschmelzen beide Labels)
+        const g = a.label === 'FLUCHTPUNKT' ? undefined : groups.find((q) => q[0].label !== 'FLUCHTPUNKT' && Math.hypot(q[0].e.x - a.e.x, q[0].e.y - a.e.y) < 24);
         if (!g) groups.push([a]);
         else if (!g.some((q) => q.label === a.label)) g.push(a);
       }
@@ -4127,12 +4128,16 @@
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
       drawEnemyHitFx(ctx, e, s.x, s.y, kenn ? kenn.r + 4 : (ENEMY_SIZE[e.kind] || 16), view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
-        ctx.strokeStyle = PAL.mint; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
-        lab('SPRUNG', s.x, s.y - size - 22, { color: PAL.mint, align: 'center' }, 3);
+        // Review D-S7: Sprungladung in Messing (nicht Mint wie die Schilde), mit Prozentangabe
+        ctx.strokeStyle = PAL.brass; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(s.x, s.y, size + 8, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0.04, e.sj)); ctx.stroke();
+        lab('SPRUNG ' + Math.round(e.sj * 100) + ' %', s.x, s.y - size - 22, { color: PAL.brass, align: 'center' }, 3);
       }
-      if (e.az && window.Zielsysteme) {   // SUND-04a-1 A: Antriebsschaden des gescannten Ziels (Bernstein = Antrieb)
+      // SUND-04a-1 A / Review D-M1: Antriebsschaden des gescannten Gegners (Bernstein = Antrieb), mit Klasse, dicht über dem Schiff (Prio 6: vor allen anderen Labels).
+      // Das Ziel selbst trägt den Zustand in seinem ZIEL-Label (unten), so liest es sich nie wie ein Ausfall der eigenen Lerche. Gestellt (D-M2): GESTELLT in Messing.
+      if (e.az && window.Zielsysteme && !(target && target.id === e.id)) {
         const zz = window.Zielsysteme.zustand(e, 'antrieb');
-        if (zz && zz.schaden) lab(zz.name.toUpperCase() + ' ' + zz.text.toUpperCase(), s.x, s.y - size - 32, { color: PAL.amber, align: 'center' }, 3);
+        if (e.ag) lab((ENEMY_NAMES[e.kind] || e.kind).toUpperCase() + ': GESTELLT', s.x, s.y - size - 18, { color: PAL.brass, align: 'center' }, 6);
+        else if (zz && zz.schaden) lab((ENEMY_NAMES[e.kind] || e.kind).toUpperCase() + ': ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.'), s.x, s.y - size - 18, { color: PAL.amber, align: 'center' }, 6);
       }
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
@@ -4154,7 +4159,9 @@
         for (const [qx, qy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
           ctx.beginPath(); ctx.moveTo(s.x + qx * r, s.y + qy * (r - 6)); ctx.lineTo(s.x + qx * r, s.y + qy * r); ctx.lineTo(s.x + qx * (r - 6), s.y + qy * r); ctx.stroke();
         }
-        lab('ZIEL', s.x, s.y + size + 8, { color: PAL.amber, align: 'center' }, 4);
+        const zz = target.az && window.Zielsysteme ? window.Zielsysteme.zustand(target, 'antrieb') : null;
+        const ziel = target.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
+        lab(ziel, s.x, s.y + size + 8, { color: target.ag ? PAL.brass : PAL.amber, align: 'center' }, 6);
       }
     }
     // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt die Korvette den Abschuss)
@@ -4286,7 +4293,11 @@
       }
     }
     for (const o of randGegner) {
-      const dist = String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y)));
+      // Review D-S4: der Zustand des verfolgten Ziels steht am Pfeil-Label (Antrieb, Sprungladung), nicht bei einem freien Label
+      let zustand = '';
+      if (o.e.az && window.Zielsysteme) { const zz = window.Zielsysteme.zustand(o.e, 'antrieb'); if (zz && zz.schaden) zustand += ' · ANTR ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.'); }
+      if (o.e.sj != null) zustand += ' · SPRUNG ' + Math.round(o.e.sj * 100) + ' %';
+      const dist = String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))) + zustand;
       const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, (front && o.e.fg ? 'FLAGG ' : '') + dist);
       if (clicks) clicks.push({ id: o.e.id, x: e.x - 10, y: e.y - 10, w: 20, h: 20 });
     }

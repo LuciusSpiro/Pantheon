@@ -1973,14 +1973,17 @@
         if (target.scanned) {
           R.text(ctx, this.shieldText(target), rx, y, { color: PAL.ice });
           y += 11;
-          y += this.zielAusstattung(ctx, target, rx, y, rw, 34, { txt: (s, x, yy, col, al) => R.text(ctx, s, x, yy, { color: col, align: al || 'left' }), dim: PAL.panelLight, text: PAL.star, fn: PAL.amber, alarm: PAL.red, state: view.state });
+          y += this.zielAusstattung(ctx, target, rx, y, rw, 44, { txt: (s, x, yy, col, al) => R.text(ctx, s, x, yy, { color: col, align: al || 'left' }), dim: PAL.panelLight, text: PAL.star, fn: PAL.amber, amber: PAL.amber, dark: '#0B0E1A', state: view.state });
           y -= 10;
         }
         else R.text(ctx, target.hidden ? (target.found ? 'erfasst' : 'S halten: genauer scannen') : 'Schilde/Waffen unbekannt – scannen', rx, y, { color: PAL.panelLight });
       } else { R.text(ctx, (view.enemies || []).length ? 'keins – T wählen' : 'keine Gegner', rx + 30, y, { color: PAL.panelLight }); y += 15; }
       y += 12;
-      R.button(ctx, rx, y, 100, 14, 'Nächstes Ziel', { hotkey: 'T', disabled: !this.targetList(view).length, reason: 'Nichts in Sensorreichweite', onClick: () => this.cycleTarget(view) });
-      R.button(ctx, rx + 104, y, rw - 104, 14, 'Zoom', { hotkey: 'Z', onClick: () => this.cycleZoom('weapons') });
+      // Tastenzeile (Review D-S1): T, 0 Systemziel, Z
+      const ZSk = window.Zielsysteme, zidK = ZSk && target ? ZSk.systemeFuer(target) : [];
+      R.button(ctx, rx, y, 80, 14, 'Nächstes Ziel', { hotkey: 'T', disabled: !this.targetList(view).length, reason: 'Nichts in Sensorreichweite', onClick: () => this.cycleTarget(view) });
+      R.button(ctx, rx + 83, y, 60, 14, 'Systemziel', { hotkey: '0', disabled: !zidK.length, reason: 'Erst ein gescanntes Ziel mit Antrieb wählen', onClick: () => this.systemzielWechseln(view) });
+      R.button(ctx, rx + 146, y, rw - 146, 14, 'Zoom', { hotkey: 'Z', onClick: () => this.cycleZoom('weapons') });
       y += 19;
       // ---- Waffen (bis zu neun Plätze, Torpedowerfer mit Lager)
       y = this.weaponsM3(ctx, view, rx, rw, y);
@@ -2068,11 +2071,15 @@
       // SUND-04a-1 A: anvisierbare Zielsysteme des gescannten Ziels (Antrieb: Bernstein) mit Zustand; gewähltes Systemziel markiert
       const ZS = window.Zielsysteme;
       const zl = ZS && o.fn ? ZS.zeilen(o.state || {}, target) : [];
-      const lines = rows.length + (modText ? 1 : 0) + zl.length;
+      // Zeilenhöhe mindestens 8 px (Review D-S2): passt der Scan nicht, fällt zuerst die Modul-Zeile, dann die Waffenzeilen weg. Die Antriebszeile fällt nie weg.
+      let zeilen = rows.slice(), zeigeMod = !!modText;
+      const anzahl = () => zeilen.length + (zeigeMod ? 1 : 0) + zl.length;
+      while (anzahl() && maxH / anzahl() < 8 && (zeigeMod || zeilen.length)) { if (zeigeMod) zeigeMod = false; else zeilen.pop(); }
+      const lines = anzahl();
       if (!lines) return 0;
       const lh = Math.min(13, Math.floor(maxH / lines)), used = lines * lh;
       let yy = y;
-      for (const s of rows) {
+      for (const s of zeilen) {
         o.txt(s, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim);
         let xx = x + 26;
         for (const e of gruppen[s]) { UI.drawWaffe(ctx, e.id, xx + 6, yy + 6, { scale: lh >= 12 ? 1 : 0.8 }); xx += lh >= 12 ? 13 : 11; }
@@ -2081,12 +2088,17 @@
         if (xx + 4 + R.measure(nt, 1) <= x + w) o.txt(nt, xx + 3, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.text);
         yy += lh;
       }
-      if (modText) { o.txt('Module ' + modText, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim); yy += lh; }
+      if (zeigeMod) { o.txt('Module ' + modText, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim); yy += lh; }
       for (const z of zl) {
         const ty = yy + Math.max(0, Math.floor((lh - 7) / 2));
         o.txt(z.name, x, ty, o.fn);
-        o.txt(z.text, x + 46, ty, z.stufe >= 2 ? (o.alarm || o.fn) : z.schaden ? o.fn : o.dim);
-        if (z.gewaehlt && R.measure(z.text, 1) + 46 + 40 <= w) o.txt('· Ziel', x + 46 + R.measure(z.text, 1) + 4, ty, o.fn);   // nur wenn Platz ist (der Knopf zeigt es ohnehin)
+        const tw = R.measure(z.text, 1);
+        if (z.stufe >= 2 && ctx.fillRect) {   // ausgefallen: gefüllter Bernstein-Chip mit dunkler Schrift (Review D-S3: nicht Rot, Farbe trägt nie allein; der Text steht im Chip)
+          const ch = Math.min(lh, 11);
+          ctx.fillStyle = o.amber || o.fn; ctx.fillRect(x + 44, ty - Math.floor((ch - 7) / 2), tw + 6, ch);
+          o.txt(z.text, x + 47, ty, o.dark || '#0B0E1A');
+        } else o.txt(z.text, x + 46, ty, z.schaden ? (o.amber || o.fn) : (o.dim));   // beschädigt: Bernstein-Text, voll: gedimmt
+        if (z.gewaehlt && tw + 46 + 58 <= w) o.txt('· anvisiert', x + 46 + tw + 10, ty, o.fn);   // nur wenn Platz ist (der Knopf zeigt es ohnehin)
         yy += lh;
       }
       return used;

@@ -21,7 +21,8 @@ const Zielsysteme = require('./zielsysteme.js');
 const W = require('../../content/kampf/verfolgung-werte.json').werte;
 
 const ZIEL = W.ziel.wert, FLUCHT = W.flucht.wert, SPRUNG = W.sprung.wert, STELLEN = W.stellen.wert, FP = W.fluchtpunkt.wert, GEGNER = W.gegner.wert,
-  WDH = W.wiederholung.wert, ANSAGEN = W.ansagen.wert;
+  WDH = W.wiederholung.wert, ANSAGEN = W.ansagen.wert, FUNK = W.funk.wert;
+// Funk-Text je Ausgang (Daten): {name} = Name des Zielschiffs, ohne Namen die Klasse (Review D-M2)
 const AUSGAENGE = ['gestellt', 'zerstoert', 'entkommen'];
 const KLASSEN = ZIEL.klassen;   // erlaubte Zielklassen (Daten): ohne Jäger, deren Mindestfahrt über der Lerche liegt
 const SYSTEM_ZIEL = 'antrieb';   // Zielsystem der Szene (Daten: content/kampf/zielsysteme-werte.json)
@@ -37,6 +38,8 @@ function stats(game) { return game.stats.verfolgung || (game.stats.verfolgung = 
 function st(game) { return (game.space && game.space.verfolgung) || null; }
 const lebt = (game, id) => game.space.enemies.find((e) => e.id === id) || null;
 const labelVon = (k, e) => (k && k.name) || (e && e.name) || 'Das Zielschiff';
+// Funk-Text je Ausgang (Daten: funk): {name} = Name des Zielschiffs, ohne Namen die Klasse (Review D-M2)
+const funkText = (was, k, e) => String(FUNK[was] || '').replace('{name}', labelVon(k, e));
 
 // ---------- Abfragen (Bausteine, Tests, Bots, Fäden) ----------
 function aktiv(game) { return !!st(game); }
@@ -144,8 +147,8 @@ function update(game, dt) {
   if (e.sprung == null && !aus && dist(e.x, e.y, fp.x, fp.y) <= FLUCHT.ankunftRadius) {
     e.sprung = 0; k.verz = 0; k.hpLast = e.hp;
     game.emit('sfx', { name: 'jump_charge' });
-    game.oda(`${labelVon(k, e)} lädt den Sprung auf!`, null);
-    game.missionEvent('verfolgungSprungStart', { enemy: e });
+    game.oda(funkText('sprungStart', k, e), null);
+    game.missionEvent('verfolgungSprungStart', { enemy: e, text: funkText('sprungStart', k, e) });
   }
   if (e.sprung != null) {
     // zweiter Weg zum Stellen: Hüllentreffer verzögern die Ladung
@@ -175,9 +178,10 @@ function gestellt(game, k, e) {
 function setzeAusgang(game, k, was) {
   k.ausgang = was;
   stats(game)[was]++;
-  const e = lebt(game, k.ziel); const n = labelVon(k, e);
-  game.oda({ gestellt: `${n} gestellt – der Antrieb steht, es kommt nicht mehr weg.`, zerstoert: `${n} ist zerstört.`, entkommen: `${n} ist gesprungen – weg.` }[was], null);
-  game.missionEvent('verfolgungAusgang', { was, klasse: k.klasse, name: k.name, volk: k.volk, versuch: k.versuch });
+  const e = lebt(game, k.ziel);
+  const text = funkText(was, k, e);
+  game.oda(text, null);
+  game.missionEvent('verfolgungAusgang', { was, klasse: k.klasse, name: k.name, volk: k.volk, versuch: k.versuch, text });
   if (was === 'entkommen' && k.wiederholung) k.neuAt = game.time + WDH.neuNach;
 }
 // Regiebuch-Überspringen (Baustein verfolgung_ende): die Szene gilt als geschafft, das Zielschiff ist weg
