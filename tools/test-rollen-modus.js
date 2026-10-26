@@ -319,6 +319,34 @@ const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
       freiN++; if (pruefeStreuung(k, a).length === 0 && JSON.stringify(a) === JSON.stringify(lauf(k, false, 'germanen'))) freiOk++;
     }
     ok(freiOk === freiN, `frei stehend: 0 Verstöße und deterministisch (${freiOk}/${freiN})`);
+    // ORT-01 6D: Südkachelreihe bleibt frei (kamerazugewandt), mitte: true setzt das Hauptstück in die Raummitte (Platz ≥ 5 tief)
+    {
+      const dm = (wand, mitte) => ({ format: 'rollen/1', kartenart: 'station', raumtypen: { lager: { frei_halten: 1, rollen: [{ rolle: 'lager.haupt', kind: 'leit', wandnah: wand, mitte }, { rolle: 'lager.streu', kind: 'streu', zug: [1, 2] }] } },
+        rollen: { 'lager.haupt': { rom: 'leit/rom/ruine/x', germanen: 'leit/germanen/x' }, 'lager.streu': { rom: ['prop/rom/ruine/deko_stein'], germanen: ['prop/germanen/gemein/kette'] } } });
+      let sued = 0, hoch = 0, mittig = 0, mittigPlatz = 0, mittigAbstand = 0;
+      for (const s of SEEDS) {
+        const k = karte('station', s, 'germanen');
+        const l1 = streuen(k, {}, { rollen: { daten: dm(false, false), bauweise: 'germanen', leitFuss: fuss } });
+        for (const d of l1.filter((q) => q.fuss)) {
+          const p = k.plaetze.find((q) => q.id === d.platz);
+          if (p && p.h >= 3) { const [, y0, , h] = d.fuss; if (y0 + h - 1 >= p.y + p.h - 1) sued++; }
+        }
+        const l2 = streuen(k, {}, { rollen: { daten: dm(false, true), bauweise: 'germanen', leitFuss: fuss } });
+        for (const d of l2.filter((q) => q.fuss)) {
+          const p = k.plaetze.find((q) => q.id === d.platz);
+          if (!p || Math.min(p.w, p.h) < 5) continue;
+          mittigPlatz++;
+          const [x0, y0, w, h] = d.fuss;
+          const a = Math.hypot(x0 + w / 2 - (p.x + p.w / 2), y0 + h / 2 - (p.y + p.h / 2));
+          if (a <= 1.5) mittig++;
+          mittigAbstand += a;
+        }
+        if (JSON.stringify(l2) !== JSON.stringify(streuen(k, {}, { rollen: { daten: dm(false, true), bauweise: 'germanen', leitFuss: fuss } }))) hoch++;
+      }
+      ok(sued === 0, `Hauptstücke nie in der Südkachelreihe (Platz ab 3 tief, ${sued} Verstöße)`);
+      ok(hoch === 0, 'mitte: true ist deterministisch');
+      ok(mittigPlatz === 0 || mittig >= mittigPlatz * 0.8, `mitte: true: Hauptstück nah der Raummitte (≤ 1,5 Kacheln) in ${mittig}/${mittigPlatz} Räumen ≥ 5 tief (Ø Abstand ${mittigPlatz ? (mittigAbstand / mittigPlatz).toFixed(2) : '–'})`);
+    }
     // Layout-Parität: gleicher Fuß → gleiche Platzierung
     let par = 0;
     for (const s of SEEDS) {

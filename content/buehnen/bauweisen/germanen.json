@@ -403,6 +403,11 @@
         "intakt": "station_esse",
         "verfallen": "station_esse_verfallen",
         "umkaempft": "station_esse_umkaempft"
+      },
+      "aussenposten": {
+        "intakt": "nord_aussenposten",
+        "verfallen": "nord_verfallen",
+        "umkaempft": "nord_umkaempft"
       }
     }
   },

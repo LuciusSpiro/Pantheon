@@ -376,7 +376,7 @@ const FB = {
     if (nb[0] >= 0) skip.push('z-'); if (nb[1] >= 0) skip.push('x+'); if (nb[2] >= 0) skip.push('z+'); if (nb[3] >= 0) skip.push('x-');
     const stufe = p.stufe || [0.2, 0.03];
     pen.box(-0.5, -(p.dick || 1.6), -0.5, 0.5, r < stufe[0] ? -stufe[1] : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
-    if (r > 0.9 && p.stein !== false) {
+    if (r > (p.steinDichte != null ? 1 - p.steinDichte : 0.9) && p.stein !== false) {   // steinDichte (Terrain-Parameter, Standard 0,1 der Kacheln)
       const sx = (hash2(x, y, 54) - 0.5) * 0.5, sz = (hash2(x, y, 55) - 0.5) * 0.5, w = 0.06 + hash2(x, y, 56) * 0.1;
       pen.box(sx - w, 0, sz - w, sx + w, 0.04 + w * 0.6, sz + w, F.get(p.fill || 'soil_dark', 1.25), F.get(p.fill || 'soil_dark'));
     }
@@ -636,14 +636,14 @@ async function bauKarte(parent, karteIn, opts) {
   // 2) Assets vorladen (mit Zeitlimit; was fehlt, wird Platzhalter)
   const ta = now();
   // Eintrag der Bauweisen-Tabelle: String oder { id, <feste Parameter>, je_art: { <art>: {…} }, terrain?, leer?, hoehe?, top?, fill? }
-  const META = { id: 1, je_art: 1, terrain: 1, leer: 1, hoehe: 1, top: 1, fill: 1, hinweis: 1 };
+  const META = { id: 1, je_art: 1, terrain: 1, leer: 1, hoehe: 1, top: 1, fill: 1, steinDichte: 1, hinweis: 1 };
   const eintrag = (e) => {
     if (!e) return null;
     if (typeof e === 'string') return { id: e, fest: {} };
     const m = Object.assign({}, e, (e.je_art && e.je_art[k.art]) || {});
     const fest = {};
     for (const key of Object.keys(m)) if (!META[key]) fest[key] = m[key];
-    return { id: m.id || null, fest, terrain: !!m.terrain, leer: !!m.leer, hoehe: m.hoehe, top: m.top, fill: m.fill };
+    return { id: m.id || null, fest, terrain: !!m.terrain, leer: !!m.leer, hoehe: m.hoehe, top: m.top, fill: m.fill, steinDichte: m.steinDichte };
   };
   const kitCache = new Map();
   const kitId = (kind) => {
@@ -962,10 +962,10 @@ async function bauKarte(parent, karteIn, opts) {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
-          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
-        if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
+        if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad') {
           placeKit(kind, kitParams(kind, base, bodenPar(tx, ty)), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
           if (kind === 'plateau') { const h = hoeheOf(kind); if (h > 0.05) { pen.to(bucketAt(d, tx, k.localY(ty)), m); FB.sockel(pen, { h }, F); } }
@@ -973,7 +973,7 @@ async function bauKarte(parent, karteIn, opts) {
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
         if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
-        else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
+        else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
         else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base, bodenPar(tx, ty)), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
@@ -1033,7 +1033,7 @@ async function bauKarte(parent, karteIn, opts) {
       pen.to(b, m);
       if (kd === 'abgrund') FB.tiefe(pen, {}, F);
       else if (kd === 'fels' || kd === 'wand' || kd === 'zaun') FB.fels(pen, { h: ringHoehe(tx, ty), x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, F);   // Süden niedrig (Kamera)
-      else FB.gelaende(pen, { x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, F);
+      else FB.gelaende(pen, { x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, F);
     }
   }
   // Deko (deterministisch, nur Optik)
@@ -1236,8 +1236,12 @@ async function bauKarte(parent, karteIn, opts) {
       const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
       t.off = [0, 0];
       if (fp && (fp[0] > 1 || fp[1] > 1)) {
-        // 2×2-Prop: in die Blockmitte zur freien Seite
-        const sx = walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5, sz = walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
+        // 2×2-Prop: in die Blockmitte zur freien Seite. Beide Seiten begehbar (freie Wahl): zur Mitte des Platzes (Karte, wenn kein Platz) hin,
+        // damit ein Reaktor nicht an der Türwand landet (ORT-01 6D). Nur der Darstellungsversatz ändert sich, Anker-Kachel und Karte bleiben.
+        const pl = (k.plaetze || []).find((p) => p.id === a.platz);
+        const cx = pl ? pl.x + pl.w / 2 : k.w / 2, cy = pl ? pl.y + pl.h / 2 : k.h / 2;
+        const sx = walk(a.x + 1, a.y) && walk(a.x - 1, a.y) ? (a.x + 0.5 < cx ? 0.5 : -0.5) : walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5;
+        const sz = walk(a.x, a.y + 1) && walk(a.x, a.y - 1) ? (a.y + 0.5 < cy ? 0.5 : -0.5) : walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
         t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
       }
       t.lift = BODEN_HOEHE[k.kindAt(a.x, a.y)] || 0;

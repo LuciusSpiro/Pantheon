@@ -121,11 +121,12 @@
     },
     "gelaende": {
       "terrain": true,
-      "hinweis": "Außenposten: Gelände außerhalb der Mauer in warmem Travertin (ORT-01); Ruine und übrige Arten unverändert (Rückfall soil)",
+      "hinweis": "Außenposten: Gelände außerhalb der Mauer in warmem Travertin (ORT-01, 6D: top stone, Sprenkel steinDichte 0,05 statt 0,1); Ruine und übrige Arten unverändert (Rückfall soil)",
       "je_art": {
         "aussenposten": {
-          "top": "stone_dark",
-          "fill": "soil_dark"
+          "top": "stone",
+          "fill": "soil_dark",
+          "steinDichte": 0.05
         }
       }
     }
@@ -250,7 +251,7 @@
     "basis": "rom_kastell",
     "art": {
       "station": {
-        "intakt": "rom",
+        "intakt": "rom_station",
         "verfallen": "rom_verfallen",
         "umkaempft": "rom_umkaempft"
       },
@@ -262,7 +263,7 @@
     }
   },
   "stimmung": {
-    "station": "hall_metall",
+    "station": "hall_rom",
     "ruine": "ruin_rom"
   },
   "deckung_props": {

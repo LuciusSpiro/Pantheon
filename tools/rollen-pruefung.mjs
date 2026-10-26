@@ -22,7 +22,7 @@ export const ROLLEN_JE_RAUMTYP = [5, 7];   // Erkundung F5: 1 Hauptstück, 2 Hau
 export const FIGUR_HOEHE = 31 / 16;       // wie shared/buehne.js FIGUR_HOEHE_M
 export const MAX_ZUG = 6;                  // Stück je Rolle und Platz (MAX_JE_ZELLE = 12 gilt zusätzlich)
 
-const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'zug_gross', 'wandnah', 'nur_wand', 'pflicht', 'ankerRolle'];
+const FELDER_ROLLE_EINTRAG = ['rolle', 'kind', 'zug', 'zug_gross', 'wandnah', 'nur_wand', 'pflicht', 'ankerRolle', 'mitte'];
 const FELDER_RAUMTYP = ['frei_halten', 'rollen', 'hinweis'];
 const FELDER_ROLLE_DEF = [...BAUWEISEN, 'hinweis', 'neutral'];
 const FELDER_DATEI = ['format', 'kartenart', 'hinweis', 'raumtypen', 'rollen'];
@@ -85,6 +85,8 @@ export function pruefeRollenDatei(j, name, ctx) {
       if (e.wandnah !== undefined && typeof e.wandnah !== 'boolean') err(`${w} (${e.rolle}): wandnah muss true/false sein`);
       if (e.pflicht !== undefined && typeof e.pflicht !== 'boolean') err(`${w} (${e.rolle}): pflicht muss true/false sein`);
       if (e.nur_wand !== undefined && typeof e.nur_wand !== 'boolean') err(`${w} (${e.rolle}): nur_wand muss true/false sein`);
+      if (e.mitte !== undefined && typeof e.mitte !== 'boolean') err(`${w} (${e.rolle}): mitte muss true/false sein`);
+      if (e.mitte === true && e.kind !== 'leit') err(`${w} (${e.rolle}): mitte gilt nur für kind leit (Hauptstück in die Raummitte)`);
       if (e.zug_gross !== undefined) {
         const z = e.zug_gross;
         if (!(Array.isArray(z) && z.length === 2 && z.every((n) => Number.isInteger(n) && n >= 0 && n <= MAX_ZUG) && z[0] <= z[1])) err(`${w} (${e.rolle}): zug_gross = [min, max] ganze Zahlen 0–${MAX_ZUG}, min ≤ max`);

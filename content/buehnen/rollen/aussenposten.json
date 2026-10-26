@@ -9,7 +9,8 @@
         {
           "rolle": "kommando.kartentisch",
           "kind": "leit",
-          "pflicht": true
+          "pflicht": true,
+          "mitte": true
         },
         {
           "rolle": "kommando.funk",
@@ -77,6 +78,7 @@
         {
           "rolle": "lager.kran",
           "kind": "streu",
+          "pflicht": true,
           "zug": [
             1,
             1

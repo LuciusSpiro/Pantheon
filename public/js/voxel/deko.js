@@ -257,12 +257,17 @@ export function streuen(k, regeln, opts = {}) {
     function hauptstueck(p, h, fh0) {
       const [fw, fd] = h.fuss, rnd = h.rnd;
       const versuche = [];
+      const sperreSued = p.h >= 3;   // Hauptstücke nie in der Südkachelreihe (Kamera blickt von Süden, die Hüllenwand verdeckt sie)
+      const zurMitte = !!h.e.mitte && Math.min(p.w, p.h) >= 5;
       const wandErst = !!h.e.wandnah, freiOk = !wandErst || !h.e.nur_wand;
-      for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, wandErst]);
-      if (wandErst && freiOk) for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, false]);
-      versuche.push([0, wandErst]);
-      if (wandErst && freiOk) versuche.push([0, false]);
-      for (const [fh, wand] of versuche) {
+      // Südkachelreihe (sperre) zuerst; wandnah ohne Sperre vor dem freien Rückfall, damit der Rücken an der Wand bleibt
+      for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, wandErst, sperreSued]);
+      if (wandErst && sperreSued) for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, true, false]);
+      if (wandErst && freiOk) for (let fh = fh0; fh >= 1; fh--) versuche.push([fh, false, sperreSued]);
+      versuche.push([0, wandErst, sperreSued]);
+      if (wandErst && sperreSued) versuche.push([0, true, false]);
+      if (wandErst && freiOk) versuche.push([0, false, sperreSued]);
+      for (const [fh, wand, sperre] of versuche) {
         const ok = new Set(kacheln(p, fh).map(([x, y]) => x + ',' + y).filter((key) => !belegt.has(key)));
         const opts = [];
         for (let ri = 0; ri < 4; ri++) {
@@ -271,6 +276,7 @@ export function streuen(k, regeln, opts = {}) {
             let frei = true;
             for (let y = y0; y < y0 + eh && frei; y++) for (let x = x0; x < x0 + ew; x++) if (!ok.has(x + ',' + y)) { frei = false; break; }
             if (!frei) continue;
+            if (sperre && y0 + eh - 1 >= p.y + p.h - 1) continue;   // kamerazugewandte Südkachelreihe bleibt frei (verdeckt sonst durch die Hüllenwand)
             if (wand) {
               let rueck = true;
               if (ri === 0) { for (let x = x0; x < x0 + ew; x++) if (!WANDNAH[kind(x, y0 - 1)]) rueck = false; }
@@ -283,7 +289,10 @@ export function streuen(k, regeln, opts = {}) {
           }
         }
         if (!opts.length) continue;
-        for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = opts[i]; opts[i] = opts[j]; opts[j] = t; }
+        if (zurMitte) {   // Raummitte (mitte: true, Platz mindestens 5 Kacheln tief): die Lage mit dem kleinsten Abstand zur Platzmitte zuerst
+          const dm = (o) => Math.hypot(o[0] + o[3] / 2 - (p.x + p.w / 2), o[1] + o[4] / 2 - (p.y + p.h / 2));
+          opts.sort((u, v) => dm(u) - dm(v));
+        } else for (let i = opts.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); const t = opts[i]; opts[i] = opts[j]; opts[j] = t; }
         const [x0, y0, ri, ew, eh] = opts[0];
         const cx = x0 + ew / 2, cy = y0 + eh / 2, x = Math.floor(cx), y = Math.floor(cy);
         out.push({ id: h.id, x, y, rot: ROT[ri], seed: Math.floor(rnd() * 8), platz: p.id, dx: cx - (x + 0.5), dz: cy - (y + 0.5), rolle: h.e.rolle, fuss: [x0, y0, ew, eh] });
