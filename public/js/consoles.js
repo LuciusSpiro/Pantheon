@@ -1039,7 +1039,8 @@
           const zz = e.az && window.Zielsysteme ? window.Zielsysteme.zustand(e, 'antrieb') : null;
           if (zz && zz.schaden && y <= a.y + a.h - 10) {
             const ty = y - 1, txt = zz.stufe >= 2 ? 'Antrieb aus' : 'Antrieb beschädigt';
-            if (zz.stufe >= 2 && ctx.fillRect) { ctx.fillStyle = PAL.amber; ctx.fillRect(rx + 2, ty - 1, R.measure(txt, 1) + 6, 9); R.text(ctx, txt, rx + 5, ty, { color: '#0B0E1A' }); }
+            // Fix3 (Mangel 2): Chip auf ganzen Pixeln, Text ohne Schatten (der 1-px-Schatten lief auf Bernstein als Unschärfe)
+            if (zz.stufe >= 2 && ctx.fillRect) { const bx = Math.round(rx + 2), by = Math.round(ty - 1); ctx.fillStyle = PAL.amber; ctx.fillRect(bx, by, Math.round(R.measure(txt, 1)) + 6, 9); R.text(ctx, txt, bx + 3, by + 1, { color: '#0B0E1A', shadow: false }); }
             else R.text(ctx, txt, rx + 4, ty, { color: PAL.amber });
             y += 10;
           }
