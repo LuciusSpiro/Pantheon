@@ -92,15 +92,17 @@ async function lauf(g, id, pfad, o) {
     if (geoeffnet && !gespielt) { gespielt = liste(g).find((f) => f.vorlage === id) || null; }
     for (const f of liste(g).filter((x) => x.vorlage === id)) {
       if (f.phase === 'abgeschlossen') continue;
-      if (f.phase === 'laeuft' && f.laufend && seqs.get(f.id) !== undefined && seqs.get(f.id).slice(-1)[0] !== f.laufend.beat) seqs.get(f.id).push(f.laufend.beat);
-      if (f.phase === 'laeuft' && f.laufend && !(seqs.get(f.id) || []).includes(f.laufend.beat)) {
+      // Nacharbeit Welle 2: ein neuer Beat bekommt SEINEN Ausgang aus dem Pfad (vorher legte die erste Zeile den Beat in seqs ab, ohne ihn vorzumerken: nur der erste Beat wurde je gespielt,
+      // alle anderen scheiterten still an der Frist)
+      if (f.phase === 'laeuft' && f.laufend) {
         if (!seqs.has(f.id)) seqs.set(f.id, []);
-        seqs.get(f.id).push(f.laufend.beat);
-        const pos = seqs.get(f.id).length - 1;
-        pendAus.set(f.id, { beat: f.laufend.beat, ausgang: pfad[(aus.get(f.id) || 0)] || 'gelungen' });
-        aus.set(f.id, (aus.get(f.id) || 0) + 1);
-        abstaende.push(f.abstand);
-        void pos;
+        const sq = seqs.get(f.id);
+        if (sq.slice(-1)[0] !== f.laufend.beat) {
+          sq.push(f.laufend.beat);
+          pendAus.set(f.id, { beat: f.laufend.beat, ausgang: pfad[(aus.get(f.id) || 0)] || 'gelungen' });
+          aus.set(f.id, (aus.get(f.id) || 0) + 1);
+          abstaende.push(f.abstand);
+        }
       }
       const p = pendAus.get(f.id);
       if (!p || !f.laufend || f.laufend.beat !== p.beat) continue;
@@ -153,6 +155,8 @@ async function main() {
   for (const id of VORLAGEN) {
     const g = neu(11);
     const funk = funkMit(g);
+    const stand = {};   // Besitz der Posten im Augenblick jeder Meldung „Posten X verloren“ (die Welt laeuft danach weiter, Rom kann ihn zurueckholen)
+    { const em = g.emit.bind(g); g.emit = (...a) => { if (a[0] === 'radio' && a[1] && /^Posten .* verloren\.$/.test(String(a[1].text))) stand[a[1].text] = JSON.parse(JSON.stringify(g.weltsim.zustand.hexe)); return em(...a); }; }
     const v = D.vorlage(id);
     const pfad = v.beats.filter((b) => b.typ !== 'abschluss').map(() => 'gelungen');
     const welt = g.weltsim.zustand;
@@ -171,10 +175,11 @@ async function main() {
       // Ziel: der Posten, den die Enthuellung gewaehlt hat (Logbuch des Bausteins, plan.ziel). Die Sprengung wirkt erst nach dem Vorlauf: die Welt laeuft weiter, bis sie greift (hoechstens 40 Ticks)
       const bs = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).find((e) => e.art === 'faden_baustein' && e.plan && e.plan.beat === 'b_enthuell');
       const ziel = bs && bs.plan.ziel;
-      const hält = () => !!ziel && g.weltsim.zustand.hexe[ziel].posten && g.weltsim.zustand.hexe[ziel].besitzer === 'rom';
-      for (let i = 0; i < 40 && hält(); i++) { Kriegslage.tick(g, 'test'); await pumpen(g, 1); }
-      const verloren = ziel && !hält() ? [ziel] : [];
-      ok(verloren.length === 1 && g.weltsim.zustand.hexe[verloren[0]].besitzer !== 'rom', `falscher Haendler: die Sprengung hat genau einen roemischen Posten vernichtet (Sim-Befehl sabotage, nach der Vorwarnung) [verloren ${verloren.join(',')}, Logbuch: ${lb}]`);
+      // Der Bot spielt jetzt alle Beats (Nacharbeit Welle 2), die Welt laeuft danach weiter und Rom kann den Posten zurueckholen: gezaehlt wird die Meldung der Sprengung (Posten verloren) und das Logbuch
+      const meldung = 'Posten ' + Sektoren.hexName(ziel) + ' verloren.';
+      const vorwarnung = funk.findIndex((x) => /Sprengladung bei /.test(String(x.text))), wirkung = funk.findIndex((x) => x.text === meldung);
+      const gespieltLb = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).some((e) => e.key === 'sabotage' && e.ausgang === 'gespielt');
+      ok(!!ziel && vorwarnung >= 0 && wirkung > vorwarnung && gespieltLb && !!stand[meldung] && stand[meldung][ziel].besitzer !== 'rom', `falscher Haendler: die Sprengung hat den roemischen Posten ${ziel} vernichtet (Sim-Befehl sabotage: erst die Vorwarnung, dann die Meldung „${meldung}“, Logbuch gespielt) [Logbuch: ${lb}]`);
       ok(f.nsc.wahrheit && f.nsc.wahrheit.offenbart === true, 'falscher Haendler: die Wahrheit ist enthuellt');
     }
   }
@@ -325,7 +330,7 @@ async function main() {
     const f = r.faeden[0];
     if (!f) console.log('  (Diagnose: Angebote ' + JSON.stringify(g.weltsim.faeden.angebote.map((a) => a.vorlagen)) + ', Faeden ' + liste(g).length + ', Logbuch ' + ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).slice(-3).map((e) => e.art + '/' + e.ausgang + ' ' + JSON.stringify(e.fehler || '')).join(' ; ') + ')');
     ok(!!f && f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen', 'die vierte Vorlage laeuft per Bot bis zum Abschluss');
-    ok(!!f && (r.seqs.get(f.id) || []).join(' > ') === 'v_bitte > v_notruf > v_abschluss', 'ihre Beats in der Reihenfolge der Daten');
+    ok(!!f && (r.seqs.get(f.id) || []).join(' > ') === 'v_bitte > v_dank > v_abschluss', 'ihre Beats in der Reihenfolge der Daten (Annehmen und Ablehnen fuehren in verschiedene Beats)');
   }
 
   console.log('\nWarteschlange der Spontanhilfe: eine zweite Hilfe wartet, statt zu scheitern, und rueckt nach');
@@ -503,9 +508,214 @@ async function main() {
     }
   }
 
+  // =====================================================================================================================================================================
+  // Nacharbeit SUND-04a-2, Welle 2 „Sichtbarkeit und Fairness“ (F2, F3, F5, F6, F7). Die Erwartungen stehen hier selbst (Zahlen, eigene Hex-Rechnung aus der Rohkarte), nie aus dem Produktivcode.
+  // =====================================================================================================================================================================
+  const lies = (rel) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'));
+  const KARTE = lies('content/welt/sund_frei.json');
+  const NAMEN_D = lies('content/faeden/namen.json').voelker;
+  const TX = lies('content/faeden/p3-texte.json'), BWD = lies('content/faeden/bitte-werte.json').werte, SZW = lies('content/faeden/szenen-werte.json');
+  const vorlagenDaten = VORLAGEN.map((id) => lies('content/faeden/vorlagen/' + id + '.json'));
+
+  console.log('\nTexte der Faden-NSC (F3b, F3c, F5-K4/K5/K6): kein doppelter Name, hoechstens 100 Zeichen, nie Ihrzen, Optionen hoechstens 44, Glücksgroschen');
+  {
+    const laengsterName = Math.max(...Object.values(NAMEN_D).map((v) => Math.max(...v.vornamen.map((s) => s.length)) + 1 + Math.max(...v.nachnamen.map((s) => s.length))));
+    const laengsterOrt = Math.max(...Object.values(KARTE.hexe).map((h) => h.name.length), 'Leerraum 0000'.length);
+    const laengsterHafen = Math.max(...Object.values(KARTE.hexe).filter((h) => h.hafen && h.andocken && ['rom', 'saum'].includes(h.fraktion)).map((h) => h.name.length));
+    const EIN = { name: 'x'.repeat(laengsterName), ort: 'x'.repeat(laengsterOrt), ziel: 'x'.repeat(laengsterHafen), hafen: 'x'.repeat(laengsterHafen), ware: 'Versiegelte Frachtkiste', n: '3', sek: '10', klasse: 'korvette', schiff: 'Raben Erbe' };
+    const fmt = (t) => t.replace(/\{(\w+)\}/g, (m, k) => (EIN[k] !== undefined ? EIN[k] : m));
+    const funkTexte = [];   // [Quelle, Text]: alles, was ein Faden-NSC oder die Faden-Bausteine der Crew per Funk sagen
+    for (const [k, t] of Object.entries(TX.texte)) funkTexte.push(['p3-texte ' + k, t]);
+    for (const [k, t] of Object.entries(BWD.texte.wert)) funkTexte.push(['bitte-werte ' + k, t]);
+    for (const v of vorlagenDaten) for (const [k, h] of Object.entries(v.hinweise || {})) funkTexte.push([v.id + ' Hinweis ' + k, h.text]);
+    for (const [k, t] of Object.entries(SZW.texte.fracht)) funkTexte.push(['szenen-werte fracht ' + k, t]);
+    ok(funkTexte.length >= 20, `Funktexte gesammelt (${funkTexte.length})`);
+    const zuLang = funkTexte.filter(([, t]) => fmt(t).length > 100).map(([q, t]) => q + ' (' + fmt(t).length + ')');
+    ok(zuLang.length === 0, 'jeder Funktext hoechstens 100 Zeichen mit laengstem Namen, Ort und Hafen (die Tafel zeigt vier Zeilen)' + (zuLang.length ? ': ' + zuLang.join(', ') : ''));
+    const doppelt = funkTexte.filter(([, t]) => /^\{name\}\s*:/.test(t)).map(([q]) => q);
+    ok(doppelt.length === 0, 'kein Text beginnt mit "{name}:" (der Sprecher steht schon im Funk, from = Name)' + (doppelt.length ? ': ' + doppelt.join(', ') : ''));
+    const alleStrings = [];
+    const sammle = (x, q) => { if (typeof x === 'string') alleStrings.push([q, x]); else if (x && typeof x === 'object') for (const [k, v] of Object.entries(x)) if (!k.startsWith('_')) sammle(v, q + '.' + k); };
+    sammle(TX.texte, 'p3-texte'); sammle(BWD.texte, 'bitte-werte'); sammle(BWD.spaeter_text, 'bitte-werte spaeter'); sammle(SZW.texte, 'szenen-werte');
+    for (const v of vorlagenDaten) { sammle(v.hinweise, v.id + ' hinweise'); for (const b of v.beats) if (b.optionen) sammle(b.optionen.map((o) => o.text), v.id + ' ' + b.id); }
+    for (const f of ['vierte-geschichte', 'test-kurz', 'test-vorlage']) { const j = lies('tools/fixtures/faeden/' + f + '.json'); sammle(j.hinweise, f + ' hinweise'); for (const b of j.beats) if (b.optionen) sammle(b.optionen.map((o) => o.text), f + ' ' + b.id); }
+    const ihrzen = alleStrings.filter(([, t]) => /\b(Euch|Euer|Eure[nmrs]?)\b/.test(t) || /[^.!?:"„\s]\s+Ihr\b/.test(t)).map(([q]) => q);
+    ok(alleStrings.length > 40 && ihrzen.length === 0, `kein Ihrzen in ${alleStrings.length} Faden-Texten (euch, ihr, eure klein)` + (ihrzen.length ? ': ' + ihrzen.join(', ') : ''));
+    const optLang = [];
+    for (const v of vorlagenDaten) for (const b of v.beats) for (const o of b.optionen || []) if (o.text.length > 44) optLang.push(v.id + ' ' + o.id + ' (' + o.text.length + ')');
+    ok(optLang.length === 0, 'jede Optionsbeschriftung der Vorlagen hoechstens 44 Zeichen' + (optLang.length ? ': ' + optLang.join(', ') : ''));
+    ok(D.WERTE.optionen.text_max === 44 && D.BITTE.option_text_max === 44, 'Grenze der Optionstexte in den Daten: 44 (werte.json optionen.text_max, bitte-werte option_text_max)');
+    ok(D.BITTE.text_max === 90, 'Bittentext bleibt bei 90 (die Leiste zeigt zwei Zeilen)');
+    ok(D.BITTE.spaeter_text === 'Einklappen', 'Beschriftung „Einklappen“ statt „Später“ (S2: Später klang nach einer Antwort)');
+    const schiffe = Object.values(NAMEN_D).flatMap((v) => v.schiffe);
+    ok(schiffe.includes('Glücksgroschen') && !schiffe.some((s) => /gluecks/i.test(s)), 'Schiffsname „Glücksgroschen“ mit Umlaut (K6)');
+    ok(Object.keys(BWD.kuerzel.wert).sort().join() === 'ger,kon,rom' && Object.values(BWD.kuerzel.wert).every((s) => s.length >= 2 && s.length <= 4), 'Kuerzel je Fraktion in den Daten (S5)');
+  }
+
+  console.log('\nTote sprechen nicht (F3d): abschluss_tot hat einen Dritten als Sprecher, ohne Porträt, ohne er/ihn');
+  {
+    ok(!/\b(er|ihn|ihm|sein|seine|seinen|sie|ihr)\b/i.test(TX.texte.abschluss_tot) && TX.texte.abschluss_tot.includes('{name}'), 'der Text nennt den Namen und kein Pronomen (Namenslisten haben Frauen- und Maennernamen)');
+    const g = neu(21);
+    const funk = [];
+    const verstoesse = [];
+    const orig = g.emit.bind(g);
+    g.emit = (...a) => { if (a[0] === 'radio' && a[1]) { funk.push(a[1]); for (const f of liste(g)) if (f.nsc.status === 'tot' && a[1].from === f.nsc.name) verstoesse.push(a[1].text); } return orig(...a); };
+    const r = await lauf(g, 'entfuehrter_haendler', ['gescheitert', 'gescheitert'], { hex: '0403' });
+    const f = r.faeden[0];
+    ok(f && f.nsc.status === 'tot' && f.phase === 'abgeschlossen', 'der NSC ist tot, der Faden abgeschlossen (Notruf gescheitert)');
+    const tot = funk.find((x) => /ist tot/.test(String(x.text)));
+    ok(!!tot && tot.text.startsWith(f.nsc.name) && tot.from === 'Lerche' && tot.pid === undefined, `der Totentext steht beim Schiff (from ${tot && tot.from}), ohne Porträt (pid ${tot && tot.pid}), nennt den Namen`);
+    const notruf = funk.find((x) => /^Man hat mich in /.test(String(x.text)));
+    ok(!!notruf && notruf.fd === 2 && notruf.from === f.nsc.name, 'der Notruf, der Gefahr ankuendigt (Wachschiffe), geht mit fd 2 (Rot), alles andere der Faeden mit fd 1 (Messing)');
+    ok(verstoesse.length === 0, 'nach seinem Tod spricht der NSC nie mit eigenem Namen: ' + (verstoesse.length ? verstoesse.join(' | ') : 'keine Zeile'));
+    const faden = funk.filter((x) => x.from === f.nsc.name || x.from === 'Lerche');
+    ok(faden.length >= 2 && faden.every((x) => (x.fd === 1 || x.fd === 2) && x.lage === 1), `alle ${faden.length} Funkzeilen des NSC und der Lerche gehen als Lagefunk mit Kennung fd (F3a): sonst zeigen die Konsolen (Steuer, Captain, Technik, Ops, Terminal) sie nie`);
+  }
+
+  console.log('\nHinweise werden GESENDET (F2) und Ablehnen laedt keine Ware (F7): alle Wege des falschen Haendlers');
+  {
+    const v = D.vorlage('falscher_haendler');
+    const hinweisText = (id, name) => v.hinweise[id].text.split('{name}').join(name);
+    const wege = [
+      ['Annehmen, Fracht, Enthuellung', ['gelungen', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], true],
+      ['Ablehnen', ['gescheitert', 'gelungen', 'gelungen', 'gelungen', 'gelungen'], false],
+    ];
+    ok(v.hinweise.h_gerucht.text && v.hinweise.h_papiere.text && v.hinweise.h_gerucht.text !== v.hinweise.h_papiere.text, 'beide Hinweise der Vorlage tragen einen eigenen Text (Daten)');
+    for (const [titel, pfad, mitWare] of wege) {
+      const g = neu(21);
+      const funk = funkMit(g);
+      { const z = freierRomPosten(g); if (z) g.weltsim.zustand.hexe[z].posten = true; }   // ein roemischer Posten, den die Sprengung treffen kann (sonst „zuendet nicht“)
+      const r = await lauf(g, 'falscher_haendler', pfad, { hex: '0203' });
+      const f = r.faeden[0];
+      const iEnth = funk.findIndex((x) => /^Ich bin Germane/.test(String(x.text)));
+      ok(!!f && iEnth > 0, `${titel}: die Enthuellung kam per Funk (${iEnth})`);
+      const vor = funk.slice(0, iEnth);
+      const gerucht = vor.find((x) => x.text === hinweisText('h_gerucht', f.nsc.name));
+      ok(!!gerucht && gerucht.from === 'Hafenfunk' && gerucht.lage === 1 && gerucht.fd === 1, `${titel}: VOR der Enthuellung ging der Gerüchte-Hinweis als Funkzeile an alle (from ${gerucht && gerucht.from})`);
+      const papiere = vor.find((x) => x.text === hinweisText('h_papiere', f.nsc.name));
+      ok(mitWare ? !!papiere && papiere.from === 'Frachtpapiere' : !papiere, `${titel}: der Papiere-Hinweis ${mitWare ? 'ging vor der Enthuellung raus' : 'fehlt (es gab keine Ware)'}`);
+      ok(f.hinweise.includes('h_gerucht') && (mitWare ? f.hinweise.includes('h_papiere') : !f.hinweise.includes('h_papiere')), `${titel}: gezaehlt wird, was gesendet wurde (${f.hinweise.join(',')})`);
+      const bitteZeile = funk.find((x) => x.from === f.nsc.name && /^Bringt diese Ware nach /.test(String(x.text)));
+      ok(!!bitteZeile && /Campania/.test(bitteZeile.text) && !/\d{4}/.test(bitteZeile.text) && !!bitteZeile.pid, `${titel}: die Bitte steht als Funkzeile des NSC im Funk-Log, mit Hafenname statt Hex (${bitteZeile && bitteZeile.text})`);
+      ok(!funk.some((x) => /\{|\}|undefined/.test(String(x.text))), `${titel}: in keiner Funkzeile steht ein Platzhalter`);
+      const ware = funk.filter((x) => /^Ware an Bord/.test(String(x.text)));
+      const abl = funk.filter((x) => /abgeliefert/.test(String(x.text)));
+      ok(mitWare ? ware.length === 1 && /Versiegelte Frachtkiste für Campania/.test(ware[0].text) && abl.length === 1 && /Campania/.test(abl[0].text) : ware.length === 0 && abl.length === 0, `${titel}: ${mitWare ? 'die Crew hoert „Ware an Bord“ mit Hafenname und „abgeliefert“' : 'keine Ware an Bord, nichts abgeliefert'} (${ware.map((x) => x.text).join(' | ')})`);
+      ok(mitWare ? f.nsc.gedaechtnis.some((x) => x.ereignis === 'fracht_gelungen') : !f.nsc.gedaechtnis.some((x) => /^fracht_/.test(x.ereignis)), `${titel}: Gedaechtnis des NSC ${mitWare ? 'kennt die Fracht' : 'kennt keine Fracht'}`);
+      const seq = (r.seqs.get(f.id) || []).join(' > ');
+      ok(mitWare ? seq.startsWith('b_bitte > b_fracht > b_enthuell') : seq.startsWith('b_bitte > b_enthuell') && !seq.includes('b_fracht'), `${titel}: Beat-Pfad ${seq}`);
+      const sab = funk[iEnth];
+      ok(mitWare ? /Die Ladung ist scharf/.test(sab.text) : /Meine Ladung geht auch ohne euch hoch/.test(sab.text), `${titel}: der Enthuellungstext passt zum Weg (${sab.text})`);
+    }
+    // Ablehnen direkt: keine Ware, Haltung sinkt, der Faden steht vor der Enthuellung
+    {
+      const g = neu(83);
+      const a = notrufOhneOrt(g, 'notruf_havarie_konvoi', '0203', 'gelungen');
+      Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
+      for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
+      const off = Bitte.offen(g), f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
+      ok(!!off && off.optionen.some((o) => o.id === 'ablehnen'), 'die Bitte ist offen');
+      const h0 = f.nsc.haltung;
+      Bitte.beantworten(g, 'ablehnen', off.nr);
+      ok(!f.fracht && f.beat === 2 && f.nsc.haltung < h0, `Ablehnen: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware (${!!f.fracht}), Haltung ${h0} -> ${f.nsc.haltung}`);
+    }
+    // unbeantwortet verfaellt die Bitte: gleiche Folge wie Ablehnen (kein Laden), der Hinweis ging vorher raus
+    {
+      const g = neu(84);
+      const funk = funkMit(g);
+      const a = notrufOhneOrt(g, 'notruf_havarie_konvoi', '0203', 'gelungen');
+      Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
+      for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
+      const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
+      for (let i = 0; i < 12 && f.beat === 0; i++) await runde(g);
+      ok(f.beat === 2 && !f.fracht, `unbeantwortet verfaellt die Bitte: der Faden steht vor der Enthuellung (Beat ${f.beat}), keine Ware`);
+      ok(f.hinweise.includes('h_gerucht') && funk.some((x) => x.from === 'Hafenfunk'), 'der Hinweis wurde vorher gesendet');
+    }
+  }
+
+  console.log('\nHinweis-Pruefer (F2): jede Vorlage mit Hinweisen braucht Texte; Annehmen und Ablehnen fuehren in verschiedene Beats (F7)');
+  {
+    const klonV = () => JSON.parse(JSON.stringify(lies('content/faeden/vorlagen/falscher_haendler.json')));
+    const pruefe = (aendern) => { const v = klonV(); v.id = 'x_nach2'; aendern(v); return Pruefer.pruefeVorlage(v); };
+    const hat = (r, code) => !r.ok && r.fehler.some((t) => t.startsWith(code + ':'));
+    ok(pruefe(() => {}).ok, 'die Vorlage unveraendert besteht');
+    ok(hat(pruefe((v) => { delete v.hinweise.h_papiere.text; }), 'HINWEIS_TEXT'), 'Hinweis ohne Text -> HINWEIS_TEXT');
+    ok(hat(pruefe((v) => { v.hinweise.h_papiere.text = '   '; }), 'HINWEIS_TEXT'), 'Hinweis mit leerem Text -> HINWEIS_TEXT');
+    ok(hat(pruefe((v) => { v.hinweise.h_papiere.text = 'x'.repeat(101); }), 'HINWEIS_TEXT'), 'Hinweistext ueber 100 Zeichen -> HINWEIS_TEXT');
+    ok(pruefe((v) => { v.hinweise.h_papiere.text = 'x'.repeat(100); }).ok, 'Hinweistext mit genau 100 Zeichen besteht');
+    ok(hat(pruefe((v) => { v.hinweise.h_papiere.text = 'Papiere fuer {ziel} sind gefaelscht.'; }), 'HINWEIS_TEXT'), 'unbekannter Platzhalter {ziel} -> HINWEIS_TEXT');
+    ok(hat(pruefe((v) => { v.hinweise.h_papiere.text = '{name}: Die Papiere sind gefaelscht.'; }), 'HINWEIS_TEXT'), '"{name}:" am Anfang -> HINWEIS_TEXT (der Sprecher steht im Funk)');
+    ok(D.WERTE.hinweis_kanaele.every((k) => Object.prototype.hasOwnProperty.call(D.WERTE.hinweis_sprecher, k)) && D.WERTE.hinweis_sprecher.funk === null, 'jeder Kanal hat einen Sprecher in den Daten (funk = der NSC selbst)');
+    ok(hat(pruefe((v) => { const b = v.beats.find((x) => x.id === 'b_bitte'); b.aus.gescheitert.weiter = 'b_fracht'; }), 'OPTIONEN_GLEICHER_WEG'), 'Annehmen und Ablehnen fuehren in denselben Beat -> OPTIONEN_GLEICHER_WEG (die alte Scheinwahl des falschen Haendlers)');
+    ok(hat(pruefe((v) => { v.beats.find((x) => x.id === 'b_bitte').optionen[0].text = 'x'.repeat(45); }), 'OPTION_UNGUELTIG'), 'Optionstext mit 45 Zeichen -> OPTION_UNGUELTIG');
+    ok(pruefe((v) => { v.beats.find((x) => x.id === 'b_bitte').optionen[0].text = 'x'.repeat(44); }).ok, 'Optionstext mit 44 Zeichen besteht');
+    ok(vorlagenDaten.every((vd) => Object.values(vd.hinweise || {}).every((h) => typeof h.text === 'string' && h.text.length >= 8)), 'alle Hinweise aller Vorlagen in content/ haben einen Text');
+  }
+
+  console.log('\nFracht-Ziel (F6): der naechste ANDOCKBARE roemische/Konkordat-Hafen in Reichweite, fuer alle spielbaren Hexe');
+  {
+    // eigene Rechnung aus der Rohkarte (Spalte c, Zeile r ab 1; ungerade Spalten oben, gerade um eine halbe Zeile nach unten): Wuerfelkoordinaten, odd-q
+    const cube = (hex) => { const c = Number(hex.slice(0, 2)) - 1, r = Number(hex.slice(2)) - 1; const z = r - (c - (c & 1)) / 2; return { x: c, z, y: -c - z }; };
+    const dist = (a, b) => { const p = cube(a), q = cube(b); return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y), Math.abs(p.z - q.z)); };
+    const hafenCodes = Object.keys(KARTE.hexe).filter((h) => KARTE.hexe[h].hafen && KARTE.hexe[h].andocken && ['rom', 'saum'].includes(KARTE.hexe[h].fraktion)).sort();
+    const spielbar = Object.keys(KARTE.hexe).filter((h) => KARTE.hexe[h].spielbar).sort();
+    ok(spielbar.length >= 23 && hafenCodes.length >= 8, `Karte: ${spielbar.length} spielbare Hexe, ${hafenCodes.length} andockbare roemische/Konkordat-Haefen`);
+    const { g } = X.spiel({ crew: 1, seed: 85 });
+    const fk = funkMit(g);
+    const schlecht = [], ohne = [];
+    let mitZiel = 0;
+    for (const h of spielbar) {
+      const kand = hafenCodes.filter((p) => dist(h, p) <= 3).sort((a, b) => dist(h, a) - dist(h, b) || (a < b ? -1 : 1));
+      const erwartetZiel = kand[0] || null;
+      const z = Fracht.zielFuer(g, h);
+      if (z !== erwartetZiel) schlecht.push(h + ': ' + z + ' statt ' + erwartetZiel);
+      if (z) { mitZiel++; if (!Fracht.andockbar(g, z) || dist(h, z) > 3) schlecht.push(h + ': Ziel nicht gueltig'); } else ohne.push(h);
+    }
+    ok(schlecht.length === 0, `fuer alle ${spielbar.length} spielbaren Hexe: das naechste andockbare Ziel in 3 Schritten oder null (${mitZiel} mit Ziel, ohne: ${ohne.join(',') || '-'})` + (schlecht.length ? ' ABWEICHUNG ' + schlecht.join('; ') : ''));
+    ok(ohne.length >= 1 && ohne.length < spielbar.length / 4, 'wenige Orte ohne Ziel (sauberer Fehlschlag), die meisten haben eins');
+    ok(Fracht.zielFuer(g, '9999') === null && Fracht.zielFuer(g, '') === null && Fracht.zielFuer(g, undefined) === null && Fracht.zielFuer(g, 'hier') === null, 'Muell als Ort: kein Ziel, kein Fehler');
+    // laden lehnt nicht andockbare Ziele ab: nie eine Scheinfracht
+    const f = X.oeffne(g, 'test_geschichte');
+    f.phase = 'laeuft'; f.laufend = { beat: f.beat, n: 0, seit: 0 };   // Testzustand: ein Beat laeuft (laden prueft nur das)
+    for (const nicht of ['0503', '0406', '0905', '0602', '0505', '9999']) {
+      const r = Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: nicht });
+      ok(r.ok === false && !f.fracht, `laden lehnt ${nicht} ab (${r.grund})`);
+    }
+    const gut = Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' });
+    ok(gut.ok === true && f.fracht && f.fracht.nach === '0403', 'ein andockbarer Hafen (Speculum) wird geladen');
+    ok(fk.filter((x) => /^Ware an Bord: Versiegelte Frachtkiste für Speculum\./.test(String(x.text))).length === 1 && fk.every((x) => !/Ware an Bord/.test(String(x.text)) || x.lage === 1), 'laden meldet „Ware an Bord: <Ware> für <Hafenname>“ genau einmal per Funk (die abgelehnten Ziele schweigen)');
+    Faden.beatAusgang(g, f.id, 'gescheitert');
+    ok(!f.fracht && fk.filter((x) => /^Die Ware ist verloren: Versiegelte Frachtkiste erreicht Speculum nicht mehr/.test(String(x.text))).length === 1, 'scheitert der Beat mit Ware (Frist, Notsprung), hoert die Crew „Die Ware ist verloren“ (Hafenname statt Hex)');
+    f.phase = 'laeuft'; f.laufend = { beat: f.beat, n: 0, seit: 0 };
+    Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' });
+    delete f.fracht;
+    g.weltBesitz = g.weltBesitz || { hexe: {} }; g.weltBesitz.hexe['0403'] = { besitzer: 'ger', posten: false };
+    ok(Fracht.andockbar(g, '0403') === false && Fracht.laden(g, { fadenId: f.id, ware: 'fracht_kiste', nachHafen: '0403' }).ok === false && Fracht.zielFuer(g, '0403') !== '0403', 'ein germanisch gewordener Hafen ist kein Ziel mehr (Besitz-Overlay)');
+  }
+
+  console.log('\nFracht-Baustein ohne Ziel (F6): kein Hafen in Reichweite -> gescheitert mit Funk, nie eine Scheinfracht');
+  {
+    const g = neu(86);
+    const funk = funkMit(g);
+    const a = notrufOhneOrt(g, 'notruf_havarie_konvoi', '0203', 'gelungen');
+    Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'falscher_haendler', parameter: { angebot: a.nr } });
+    const f = liste(g).find((x) => x.vorlage === 'falscher_haendler');
+    f.parameter.ort = '1105';   // Testzustand: der Ort des Fadens ist Ymirs Zahn (germanisch, ohne Hafen fuer die Crew in 3 Schritten); ein Notruf dort oeffnet keinen Faden (volk_erlaubt rom, kon)
+    ok(f && f.parameter.ort === '1105' && Fracht.zielFuer(g, '1105') === null, 'Testlage: der Ort hat kein andockbares Ziel');
+    for (let i = 0; i < 8 && !Bitte.offen(g); i++) await runde(g);
+    const off = Bitte.offen(g);
+    ok(!!off && /Meine Ware muss fort/.test(off.text) && /Ymirs Zahn/.test(off.text) && !/Bringt diese Ware/.test(off.text), `die Bitte ohne Ziel sagt es ehrlich (${off && off.text})`);
+    Bitte.beantworten(g, 'annehmen', off.nr);
+    for (let i = 0; i < 10 && f.beat < 2; i++) await runde(g);
+    ok(!f.fracht && f.beat >= 2, 'Fracht: gescheitert, keine Scheinfracht, der Faden geht weiter');
+    ok(funk.some((x) => /Kein Hafen für euch in Reichweite/.test(String(x.text)) && x.from === 'Aufklärung'), 'die Crew erfaehrt es per Funk');
+    ok(!funk.some((x) => /^Ware an Bord/.test(String(x.text))), 'nie „Ware an Bord“ ohne Ziel');
+  }
+
   console.log(`\n${n - fails}/${n} Pruefungen ok`);
   if (fails) { console.log('FADEN-VORLAGEN FEHLER: ' + fails); process.exit(1); }
   console.log('FADEN-VORLAGEN OK');
 }
 
-main().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });
+if (require.main === module) main().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });
+else module.exports = { lauf, neu, funkMit, liste, runde, pumpen, notrufOhneOrt };   // Hilfen fuer Diagnose-Skripte

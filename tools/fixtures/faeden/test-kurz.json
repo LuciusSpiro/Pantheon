@@ -6,7 +6,7 @@
   "volk_erlaubt": ["ger"],
   "nsc": { "klassen": ["kurier"] },
   "wahrheit": { "id": "ist_spion", "fraktion": "rom" },
-  "hinweise": { "h_logbuch": { "kanal": "scan" } },
+  "hinweise": { "h_logbuch": { "kanal": "scan", "text": "Der Scan zeigt Spuren von {name} am Ort." } },
   "beats": [
     { "id": "k_bitte", "typ": "bitte", "hinweise": ["h_logbuch"], "aus": { "gelungen": { "status": "verbuendet", "weiter": "k_enthuell" }, "gescheitert": { "status": "schuldet_nichts", "weiter": "k_ende" } } },
     { "id": "k_enthuell", "typ": "enthuellung", "aus": { "gelungen": { "status": "feindlich" }, "gescheitert": { "status": "geflohen" } } },

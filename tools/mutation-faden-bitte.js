@@ -52,7 +52,7 @@ const MUTATIONEN = [
   [BI, "      Faden().beatAusgang(game, off.fadenId, 'gescheitert');", '      void 0;', 'Verfall: der Beat gilt nicht als gescheitert'],
   [BI, '  for (const f of F.liste.slice()) {   // ein laufender', '  for (const f of []) {   // ein laufender', 'Wiederholung: eine Bitte wird nach unruhiger Lage nicht erneut angeboten'],
   [BI, '  if (F && F.bitte && !FA().ruhig(game)) F.bitte = null;', '  if (false) F.bitte = null;', 'Takt: unruhige Lage zieht das Angebot nicht zurück'],
-  [BI, '  for (const h of beat.hinweise || []) Faden().hinweisGezeigt(game, f.id, h);', '', 'Hinweis: wird nicht mit dem Angebot bestätigt (B-S1)'],
+  [BI, '  for (const h of beat.hinweise || []) Hinweis().senden(game, f.id, h);', '', 'Hinweis: wird nicht mit dem Angebot gesendet und bestätigt (B-S1)'],
   [FD, "  try { require('./faden-bitte.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }", '', 'Takt: der Verfall läuft nicht (kein Hook in faden.taetigkeit)'],
   [RE, "require('./faden-bitte.js').update(game);", 'void 0;', 'Takt: kein Hook in reise-ereignis.update'],
   [FA, '  if (game.weltsim.faeden && game.weltsim.faeden.bitte) return null;', '', 'Funk-Antwort: eine offene Bitte verdrängt die Funk-Antwort nicht (zwei Leisten)'],

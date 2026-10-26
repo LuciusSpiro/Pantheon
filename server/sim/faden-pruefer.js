@@ -166,6 +166,14 @@ function pruefeVorlage(v) {
   }
   const hin = v.hinweise || {};
   for (const [k, h] of Object.entries(hin)) if (!W.hinweis_kanaele.includes(h.kanal)) fehler.push(fehl('HINWEIS_UNBEKANNT', `Hinweis ${k}: Kanal "${h.kanal}" ist unbekannt (${W.hinweis_kanaele.join(', ')})`));
+  // Nacharbeit SUND-04a-2 (Fairness): ein Hinweis ist, was die Crew HOERT. Ohne Text wuerde ihn kein Baustein senden: die Vorlage waere formal fair, die Enthuellung aber unfair.
+  for (const [k, h] of Object.entries(hin)) {
+    const t = istObjekt(h) ? h.text : undefined;
+    if (typeof t !== 'string' || t.trim().length < 8) fehler.push(fehl('HINWEIS_TEXT', `Hinweis ${k}: der Text fehlt (hinweise.${k}.text, mindestens 8 Zeichen): ohne Text sieht die Crew den Hinweis nie`));
+    else if (t.length > W.hinweis_text_max) fehler.push(fehl('HINWEIS_TEXT', `Hinweis ${k}: der Text ist länger als ${W.hinweis_text_max} Zeichen`));
+    else if ((t.match(/\{[^}]*\}/g) || []).some((p) => p !== '{name}' && p !== '{ort}')) fehler.push(fehl('HINWEIS_TEXT', `Hinweis ${k}: nur die Platzhalter {name} und {ort} sind erlaubt`));
+    else if (/^\{name\}\s*:/.test(t)) fehler.push(fehl('HINWEIS_TEXT', `Hinweis ${k}: kein "{name}:" am Anfang (der Sprecher steht im Funk)`));
+  }
   if (v.wahrheit && v.wahrheit.fraktion !== undefined && !W.voelker.includes(v.wahrheit.fraktion)) fehler.push(fehl('NSC', `Wahrheit: Fraktion "${v.wahrheit.fraktion}" ist unbekannt`));
 
   // Beats
@@ -200,6 +208,12 @@ function pruefeVorlage(v) {
         if (z === undefined) fehler.push(fehl('WEITER_UNGUELTIG', `Beat ${b.id}, ${ag}: weiter "${o.weiter}" ist kein Beat der Vorlage`));
         else if (z <= i) fehler.push(fehl('WEITER_UNGUELTIG', `Beat ${b.id}, ${ag}: weiter "${o.weiter}" geht nicht nach vorn (die Reihenfolge ist vorwärts)`));
       }
+    }
+    // Nacharbeit SUND-04a-2: eine Wahl muss in der Geschichte etwas aendern. Fuehren zwei Optionen mit verschiedenem Ausgang in DENSELBEN naechsten Beat, haengt der Beat danach davon ab, was
+    // dieser Beat tut (Scheinwahl auf Wegebene: bei falscher_haendler lud auch „Ablehnen“ die Ware, weil beide Wege nach b_fracht fuehrten)
+    if (!cat.abschluss && Array.isArray(b.optionen) && aus.gelungen && aus.gescheitert) {
+      const ags = new Set(b.optionen.map((x) => x && x.ausgang).filter(Boolean));
+      if (ags.has('gelungen') && ags.has('gescheitert') && zielIndex(v, i, aus.gelungen, idx) === zielIndex(v, i, aus.gescheitert, idx)) fehler.push(fehl('OPTIONEN_GLEICHER_WEG', `Beat ${b.id}: Annehmen und Ablehnen führen in denselben Beat (${(v.beats[zielIndex(v, i, aus.gelungen, idx)] || {}).id}): die Wahl ändert den Weg nicht`));
     }
     if (!cat.abschluss && aus.gelungen && aus.gescheitert) {
       const nach = (o) => (o.weiter !== undefined ? o.weiter : (v.beats[i + 1] || {}).id);

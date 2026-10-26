@@ -17,7 +17,7 @@
     "kon": {
       "vornamen": ["Kasimir", "Selma", "Dragan", "Mirela", "Tobiah", "Nessa", "Ilya", "Zora", "Anselm", "Pavla", "Yussuf", "Rhea"],
       "nachnamen": ["Salzmann", "Brandl", "Voss", "Tarn", "Lindqvist", "Okafor", "Reuss", "Maric", "Hollweg", "Duval", "Petrescu", "Kranich"],
-      "schiffe": ["Gluecksgroschen", "Taubenpost", "Saumpfad", "Zweite Chance", "Lange Reise", "Silberfisch", "Halbmond", "Kupferkahn"],
+      "schiffe": ["Glücksgroschen", "Taubenpost", "Saumpfad", "Zweite Chance", "Lange Reise", "Silberfisch", "Halbmond", "Kupferkahn"],
       "klassen": ["frachter", "kurier", "haendler"]
     }
   }

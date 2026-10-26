@@ -8,7 +8,7 @@
       "gefahr": false,
       "optionen": "erlaubt",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": [], "optional": ["text_key"]}
+      "parameter": {"pflicht": [], "optional": ["text_key", "text_key_kein_ziel"]}
     },
     "spontanhilfe": {
       "zweck": "Der NSC erscheint in einer Schlacht und greift ein (Verbuendeter der Flottenengine).",

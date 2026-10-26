@@ -499,7 +499,7 @@
   function funkMerken(ev) {
     if (!ev || typeof ev.text !== 'string') return;
     if (ev.sz && !ev.r) return;   // Fixrunde S2: vom Szenenfunk kommen nur Vorwarnung und Ergebnis (r: 1) in den Reiter, der Rest steht nur an der Konsole; das Wissen von Rom wird nicht verdrängt
-    funk.unshift({ von: String(ev.from || ''), text: ev.text, t: Number.isFinite(ev.tick) ? ev.tick : null });
+    funk.unshift({ von: String(ev.from || ''), text: ev.text, t: Number.isFinite(ev.tick) ? ev.tick : null, fd: ev.fd === 1 || ev.fd === 2 ? ev.fd : 0 });   // fd: Funk eines Geschichtsfadens (Nacharbeit SUND-04a-2)
     if (funk.length > FUNK_MAX) funk.length = FUNK_MAX;
   }
   const funkListe = () => funk.slice();

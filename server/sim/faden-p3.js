@@ -26,6 +26,7 @@ const TX = require('../../content/faeden/p3-texte.json');
 const T = TX.texte, W = TX.werte;
 const HEX = /^\d{4}$/;
 const D = require('./faden-daten.js');
+const Hinweis = () => require('./faden-hinweis.js');
 const Faden = () => require('./faden.js');
 const Bitte = () => require('./faden-bitte.js');
 const Regie = () => require('./regie-befehle.js');
@@ -39,6 +40,10 @@ const nscVon = (game, id) => Faden().nscVon(game, id);
 function sagen(game, nsc, text) {
   if (!text || !nsc) return null;
   return Bitte().funkVon(game, nsc, text);
+}
+function sagenGefahr(game, nsc, text) {   // der Notruf kuendigt Gefahr an (Wachschiffe): roter Akzent wie jede Gefahrmeldung, nie Messing
+  if (!text || !nsc) return null;
+  return Bitte().funkGefahrVon(game, nsc, text);
 }
 
 // ---------- notruf
@@ -58,9 +63,9 @@ const notruf = {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const key = notrufText(nsc, ctx.beat);
     const text = fmt(T[key], { name: nsc.name, ort: hexName(hex) });
-    const f = sagen(game, nsc, text);
+    const f = sagenGefahr(game, nsc, text);
     if (!f) return { ausgang: 'gescheitert' };
-    for (const h of ctx.beat.hinweise || []) Faden().hinweisGezeigt(game, faden.id, h);   // der Notruf ist gesendet: die Hinweise des Beats gelten
+    for (const h of ctx.beat.hinweise || []) Hinweis().senden(game, faden.id, h);   // der Notruf ist gesendet: die Hinweise des Beats werden gesendet und gelten erst danach
     logbuch(game, 'faden_baustein', { ausgang: 'notruf', key: 'notruf', begruendung: `Notruf von ${nsc.name} bei ${hexName(hex)}`, plan: { faden: faden.id, beat: ctx.beat.id, hex, text: key } });
     return { laeuft: true };
   },
@@ -112,7 +117,9 @@ const enthuellung = {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
     const z = ziel(game, faden.parameter && faden.parameter.ort);
     const r = z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' };
-    const key = r.ok ? 'enthuellung_sabotage' : 'enthuellung_ohne';
+    // Nacharbeit F7: hat die Crew nie eine Ware von ihm geladen (Ablehnen, kein Hafen), steht nirgends „die Fracht“
+    const mitFracht = (nsc.gedaechtnis || []).some((g) => /^fracht_/.test(g.ereignis));
+    const key = r.ok ? (mitFracht ? 'enthuellung_sabotage' : 'enthuellung_sabotage_ohne_fracht') : 'enthuellung_ohne';
     sagen(game, nsc, fmt(T[key], { name: nsc.name, ziel: z ? hexName(z) : '', ort: hexName((faden.parameter && faden.parameter.ort) || '') }));
     logbuch(game, 'faden_baustein', { ausgang: r.ok ? 'sabotage' : 'sabotage_abgelehnt', key: 'enthuellung', begruendung: r.ok ? `Sprengung bei ${hexName(z)} angekündigt (ab Tick ${r.ab})` : `Keine Sprengung: ${r.grund}`, plan: { faden: faden.id, beat: ctx.beat.id, ziel: z || null } });
     return { ausgang: r.ok ? 'gelungen' : 'gescheitert' };
@@ -124,8 +131,10 @@ const abschluss = {
   id: 'abschluss',
   starten(game, faden, ctx) {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
-    const key = ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : (nsc.status === 'tot' ? 'abschluss_tot' : 'abschluss_gelungen');
-    sagen(game, nsc, fmt(T[key], { name: nsc.name }));
+    const key = nsc.status === 'tot' ? 'abschluss_tot' : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
+    const text = fmt(T[key], { name: nsc.name });
+    if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
+    else sagen(game, nsc, text);
     return { ausgang: 'gelungen' };
   },
 };

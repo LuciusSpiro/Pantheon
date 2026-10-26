@@ -315,7 +315,7 @@ section('Fracht: laden, abliefern am Zielhafen, Ware nicht im Handel, Speichern/
 });
 
 section('Fracht: Frist läuft ab = gescheitert, Notsprung = verloren', () => {
-  vorlage('sz_fracht2', 'fracht', { parameter: { nach: '0406' } });
+  vorlage('sz_fracht2', 'fracht', { parameter: { nach: '0403' } });   // Nacharbeit F6: ein ANDOCKBARER Hafen (0406 hat keinen Liegeplatz, laden lehnt ihn ab)
   const { g } = bereit({ crew: 1, seed: 23 });
   g.lageSpielleiter = { disposed: false, mode: 'mock', beiGrenze() {} };   // die Frist läuft nur mit aktivem Spielleiter (faden.js B-S3)
   const f = oeffne(g, 'sz_fracht2'); grenzen(g, 5);
@@ -422,7 +422,7 @@ section('L1: der Kampf einer Reise-Gefahr zaehlt fuer die Spontanhilfe als Gefec
 
 section('L2: genau mit der letzten Taetigkeit am Ziel andocken liefert ab, die Frist laeuft nicht vorher ab', () => {
   vorlage('sz_fracht3', 'fracht', { parameter: { nach: '0305' } });
-  vorlage('sz_fracht4', 'fracht', { parameter: { nach: '0406' } });
+  vorlage('sz_fracht4', 'fracht', { parameter: { nach: '0403' } });   // Merge Welle 1+2: 0406 hat keinen Liegeplatz (Fracht-Ziel F6), 0403 ist andockbar
   const unterwegs = D.WERTE.beat_frist - 1;   // Taetigkeiten unterwegs; die naechste waere die Frist (Daten)
   const { g } = bereit({ crew: 1, seed: 34 });
   g.lageSpielleiter = stub();
@@ -435,6 +435,7 @@ section('L2: genau mit der letzten Taetigkeit am Ziel andocken liefert ab, die F
   const { g: g2 } = bereit({ crew: 1, seed: 35 });
   g2.lageSpielleiter = stub();
   const h = oeffne(g2, 'sz_fracht4'); grenzen(g2, 5); weiter(g2, h);
+  ok(!!h.fracht && h.fracht.nach === '0403', 'Gegenprobe: die Ware ist geladen (Ziel 0403, nicht der Hafen des Schiffs)');
   grenzen(g2, unterwegs); g2.missionEvent('docked', {});
   ok(h.phase === 'wartet' && !h.fracht && h.nsc.status === 'geflohen', 'Gegenprobe: am falschen Hafen laeuft die Frist ab (gescheitert, Ware weg)');
 });
@@ -488,7 +489,7 @@ section('L4: die Spontanhilfe wuerfelt je Hilfe eine eigene Folge; gleiche Einga
 });
 
 section('L5: der Notsprung-Hook der Ware haengt am Ereignis (Befehl, Debug, Fehlschlag, Ausnahme)', () => {
-  vorlage('sz_fracht5', 'fracht', { parameter: { nach: '0406' } });
+  vorlage('sz_fracht5', 'fracht', { parameter: { nach: '0403' } });
   const mitWare = (seed) => { const x = bereit({ crew: 1, seed }); const f = oeffne(x.g, 'sz_fracht5'); grenzen(x.g, 5); weiter(x.g, f); x.f = f; return x; };
   const { g, f } = mitWare(36);
   ok(!!f.fracht, 'Ware an Bord');
@@ -615,16 +616,16 @@ section('L13: Warteschlange der Szenen (hoechstens drei) und der Spontanhilfe (h
 });
 
 section('L7: kaputte Fracht im Weltstand verwirft nur das Feld, nie den Faden', () => {
-  vorlage('sz_fracht6', 'fracht', { parameter: { nach: '0406' } });
+  vorlage('sz_fracht6', 'fracht', { parameter: { nach: '0403' } });
   const { g } = bereit({ crew: 1, seed: 52 });
   const f = oeffne(g, 'sz_fracht6'); grenzen(g, 5); weiter(g, f);
   ok(!!f.fracht && f.phase === 'laeuft', 'Ware an Bord, der Beat laeuft');
   const lies = (aendern) => { const b = JSON.parse(JSON.stringify(Faden.toSave(g.weltsim))); aendern(b.liste[0]); return Faden.lesen(b); };
   const gut = lies(() => {});
-  ok(gut.liste.length === 1 && !!gut.liste[0].fracht && gut.liste[0].fracht.nach === '0406' && gut.liste[0].fracht.ware === 'fracht_kiste', 'unveraendert: die Ware bleibt');
+  ok(gut.liste.length === 1 && !!gut.liste[0].fracht && gut.liste[0].fracht.nach === '0403' && gut.liste[0].fracht.ware === 'fracht_kiste', 'unveraendert: die Ware bleibt');
   for (const [name, aendern] of [
     ['Text', (x) => { x.fracht = 'kaputt'; }], ['Zahl', (x) => { x.fracht = 5; }], ['Liste', (x) => { x.fracht = [1]; }], ['null (das Schema erlaubt es)', (x) => { x.fracht = null; }],
-    ['umbenannte Ware', (x) => { x.fracht.ware = 'alte_ware'; }], ['Ziel kaputt', (x) => { x.fracht.nach = 'xx'; }], ['Felder mit Muell', (x) => { x.fracht = { ware: 5, nach: '0406', tick: 'x' }; }],
+    ['umbenannte Ware', (x) => { x.fracht.ware = 'alte_ware'; }], ['Ziel kaputt', (x) => { x.fracht.nach = 'xx'; }], ['Felder mit Muell', (x) => { x.fracht = { ware: 5, nach: '0403', tick: 'x' }; }],
   ]) {
     const F = lies(aendern);
     const h = F.liste[0];

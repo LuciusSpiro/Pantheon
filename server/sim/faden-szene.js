@@ -19,6 +19,8 @@
 const Faden = require('./faden.js');
 const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
+const Hinweis = require('./faden-hinweis.js');
+const Sektoren = require('../../shared/sektoren.js');
 const Verfolgung = require('./verfolgung.js');
 const Zielsysteme = require('./zielsysteme.js');
 const Reise = require('./reise-ereignis.js');
@@ -246,10 +248,12 @@ Bausteine.registriere('fracht', {
   starten(game, faden, ctx) {
     const p = ctx.beat.parameter || {};
     // P3: „$ort“ ist der Ort des Fadens (der Zielhafen ist der Ort, an dem die Crew den NSC traf); die Hinweise des Beats gelten mit der Beladung (B-S1)
-    const nach = p.nach === '$ort' ? (faden.parameter && faden.parameter.ort) : p.nach;
-    const r = Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach });
-    if (!r.ok) return { ausgang: 'gescheitert' };
-    for (const h of ctx.beat.hinweise || []) Faden.hinweisGezeigt(game, faden.id, h);
+    // Nacharbeit F6: „$ort“ = der naechste ANDOCKBARE roemische/Konkordat-Hafen in Reichweite des Ortes (Fracht.zielFuer); gibt es keinen, wird nie eine Scheinfracht geladen
+    const ort = faden.parameter && faden.parameter.ort;
+    const nach = p.nach === '$ort' ? Fracht.zielFuer(game, ort) : p.nach;
+    const r = nach ? Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: nach }) : { ok: false };
+    if (!r.ok) { Fracht.funk(game, 'kein_ziel', { ort: ort ? Sektoren.hexName(ort) : 'hier' }); return { ausgang: 'gescheitert' }; }
+    for (const h of ctx.beat.hinweise || []) Hinweis.senden(game, faden.id, h);   // Nacharbeit F2: der Hinweis (Papiere) wird gesendet, erst dann gilt er
     return { laeuft: true };
   },
 });

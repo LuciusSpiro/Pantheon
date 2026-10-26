@@ -25,7 +25,12 @@
     "text_max": {
       "wert": 90,
       "einheit": "Zeichen",
-      "_hinweis": "Laenge des Bittentextes (nach dem Einsetzen der Platzhalter) und einer Optionsbeschriftung."
+      "_hinweis": "Laenge des Bittentextes (nach dem Einsetzen der Platzhalter); die Leiste zeigt ihn in hoechstens zwei Zeilen unter dem Kopf."
+    },
+    "option_text_max": {
+      "wert": 44,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge einer Optionsbeschriftung in der Leiste (Nacharbeit SUND-04a-2: laengere Texte wurden abgeschnitten; gleiche Grenze wie werte.json optionen.text_max)."
     },
     "optionen": {
       "wert": {
@@ -36,14 +41,19 @@
       "_hinweis": "Anzahl der Optionen einer Bitte (wie im Fadenkern, werte.optionen)."
     },
     "spaeter_text": {
-      "wert": "Später",
+      "wert": "Einklappen",
       "einheit": "Text",
-      "_hinweis": "Beschriftung der Leiste fuer das Zuklappen (nur fuer diesen Spieler, kostet nichts, das Angebot bleibt bis zum Verfall)."
+      "_hinweis": "Beschriftung der Leiste fuer das Zuklappen (nur fuer diesen Spieler, kostet nichts, das Angebot bleibt bis zum Verfall). Nicht „Später“: das klang nach einer Antwort (Design S2)."
     },
     "kopf": {
       "wert": "BITTE",
       "einheit": "Text",
       "_hinweis": "Kopfzeile der Bitte in der Antwortleiste: BITTE · <Name>."
+    },
+    "kuerzel": {
+      "wert": { "rom": "Rom", "ger": "Ger", "kon": "Kon" },
+      "einheit": "Fraktion -> Kürzel",
+      "_hinweis": "Kürzel der Fraktion des Absenders im Kopf der Leiste (BITTE · Name · Rom): die Fraktion steht nie nur als Farbe des Porträts (Design S5)."
     },
     "antwort_von": {
       "wert": "Lerche",
@@ -52,14 +62,16 @@
     },
     "texte": {
       "wert": {
-        "bitte_mission": "{name}: Wir brauchen Hilfe bei {ort}. Könnt ihr uns decken?",
-        "bitte_mission_kalt": "{name}: Ihr habt lange gebraucht. Hilfe bei {ort}, bitte.",
-        "bitte_mission_herzlich": "{name}: Freunde! Könnt ihr uns bei {ort} decken? Danke.",
-        "hilfe_rom": "{name}: Wir brauchen Hilfe bei {ort}. Ihr seid die Einzigen in der Nähe.",
-        "hilfe_kon": "{name}: Saum-Kundschaft bei {ort} braucht eine Begleitung. Wollt ihr?"
+        "bitte_mission": "Wir brauchen Hilfe bei {ort}. Könnt ihr uns decken?",
+        "bitte_mission_kalt": "Ihr habt lange gebraucht. Hilfe bei {ort}, bitte.",
+        "bitte_mission_herzlich": "Freunde! Könnt ihr uns bei {ort} decken? Danke.",
+        "bitte_transport": "Bringt diese Ware nach {ziel}. Es eilt, und ich zahle mit meinem Dank.",
+        "bitte_transport_kein_ziel": "Meine Ware muss fort. Bei {ort} fehlt euch leider ein Hafen.",
+        "hilfe_rom": "Wir brauchen Hilfe bei {ort}. Ihr seid die Einzigen in der Nähe.",
+        "hilfe_kon": "Saum-Kundschaft bei {ort} braucht eine Begleitung. Wollt ihr?"
       },
       "einheit": "Texte (text_key)",
-      "_hinweis": "Bittentexte, Schluessel = text_key des Beats (Vorlage, parameter.text_key). Ein fehlender Schluessel ist ein Fehler: die Bitte wird nicht angeboten."
+      "_hinweis": "Bittentexte, Schluessel = text_key des Beats (Vorlage, parameter.text_key). Platzhalter {ort}, {ziel} (Name des Zielhafens einer Fracht). Der Absender steht im Kopf der Leiste und im Funk (from): KEIN {name}: am Anfang des Textes. Ein fehlender Schluessel ist ein Fehler: die Bitte wird nicht angeboten."
     },
     "weigerung": {
       "wert": {

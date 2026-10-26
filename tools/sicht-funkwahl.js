@@ -1,6 +1,6 @@
 // Sichtprüfung SUND-03b A (Designer-Review): die Antwortleiste am Funk (Funk-Antworten mit Folgen, Freie Fahrt Sund mit Reise-Ereignissen). Echter Server im selben Prozess, echter Browser-Client
 // (Playwright, Chromium): Angebot im HUD und an jeder Konsole (Steuer, Captain, Ops, Technik, Terminal), Markierung per Taste, Antwort per Mausklick, Reaktion des Sprechers, „Nicht antworten“,
-// Havarie-Angebot mit drei Optionen, Verfall. Aufruf: node tools/sicht-funkwahl.js [--shots <Ordner>] [--port 3481] [--vp 1280x720,1920x1080,1024x600]
+// Havarie-Angebot mit drei Optionen, Verfall. Aufruf: node tools/sicht-funkwahl.js [--shots <Ordner>] [--port 3481] [--vp 1280x720,1920x1080,1024x600] [--debug 1]
 'use strict';
 const path = require('path');
 const fs = require('fs');
@@ -12,6 +12,7 @@ const arg = (n, d) => { const i = process.argv.indexOf('--' + n); return i > 0 &
 const PORT = +arg('port', '3481');
 const SHOTS = arg('shots', path.join(os.tmpdir(), 'sund03b-a-shots'));
 const VPS = arg('vp', '1280x720').split(',').map((s) => s.split('x').map(Number));
+const DEBUG = arg('debug', '0') === '1';   // Nacharbeit SUND-04a-2: Standard ist der Client OHNE ?debug=1 (so sieht der Spieler Zeile und Streifen); mit --debug 1 der Debug-Modus (x 404, 232 breit)
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sicht-funkwahl-'));
 process.env.MISSION_SOURCE = 'fallback'; process.env.REGIE_DIR = path.join(TMP, 'regie'); process.env.ERZEUGT_DIR = path.join(TMP, 'erzeugt');
 process.env.REISE_EREIGNISSE = '1';
@@ -36,7 +37,7 @@ async function lauf(b, vw, vh, port) {
     const page = await (await b.newContext({ viewport: { width: vw, height: vh } })).newPage();
     page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 200)); });
-    await page.goto(`http://127.0.0.1:${port}/?debug=1&render=2d`);
+    await page.goto(`http://127.0.0.1:${port}/?${DEBUG ? 'debug=1&' : ''}render=2d`);
     await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000 });
     await page.evaluate(() => { __game.send({ t: 'lobbyOpt', startMission: 'freie_fahrt' }); __game.send({ t: 'ready', ready: true }); });
     await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });

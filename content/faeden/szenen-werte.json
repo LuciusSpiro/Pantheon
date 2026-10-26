@@ -14,6 +14,8 @@
     "crew_min": {"wert": 1, "einheit": "Spieler", "_hinweis": "Untergrenze der Crewgröße, nach der Gegner und Wachschiffe skalieren (verbundene Spieler, mindestens 1)."},
     "crew_max": {"wert": 3, "einheit": "Spieler", "_hinweis": "Obergrenze der Crewgröße für die Skalierung (die Tabellen anzahl kennen 1 bis 3)."},
     "ring_winkel_start": {"wert": 0.4, "einheit": "Bogenmaß", "_hinweis": "Startwinkel der Gegner auf dem Ring um die Lerche (Raumschlacht, Befreiung): danach gleichmäßig verteilt."},
+    "fracht_reichweite": {"wert": 3, "einheit": "Hex-Schritte", "_hinweis": "Nacharbeit SUND-04a-2 (F6): Das Ziel einer Fracht ist der naechste ANDOCKBARE Hafen in dieser Reichweite (Hex-Abstand im Raster, shared/sektoren.js nachbarn) um den Ort des Fadens. Nicht jeder Ort hat einen Liegeplatz (Andocken setzt eine Szene mit dock voraus), die Crew soll nie eine Ware zu einem Hex tragen, an dem sie nicht abliefern kann."},
+    "fracht_ziel_fraktionen": {"wert": ["rom", "saum"], "einheit": "Fraktionen", "_hinweis": "Besitzer des Zielhafens: roemische und Konkordat-Haefen (germanische und Piratenhaefen verweigern das Andocken; die Karte nennt das Konkordat saum). Die Liste der andockbaren Orte wird aus Karte, Szenen (dock) und Besitz abgeleitet, nie hartkodiert."},
     "waren": {"wert": {"fracht_kiste": {"name": "Versiegelte Frachtkiste", "gewicht": 0}}, "einheit": "Waren", "_hinweis": "Frachtauftrag light (nur Faden-intern): eine Ware als Gegenstand, Gewicht 0, geht NICHT in den Handel."}
   },
   "texte": {
@@ -37,6 +39,12 @@
       "befreiung": "Die Befreiung ist gescheitert. {name} bleibt in der Gewalt der Wachen.",
       "verfolgung": "{name} ist entkommen.",
       "spontanhilfe": "Die Schlacht ist vorbei, ohne dass {name} eingegriffen hat."
+    },
+    "fracht": {
+      "laden": "Ware an Bord: {ware} für {hafen}. Bei der Ankunft im Hafen andocken.",
+      "abgeliefert": "{ware} in {hafen} abgeliefert.",
+      "verloren": "Die Ware ist verloren: {ware} erreicht {hafen} nicht mehr.",
+      "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist."
     },
     "unterbrochen": "Die Szene ist unterbrochen. Der Auftrag wird später erneut angeboten.",
     "szenenwechsel": "Der Sektor wurde verlassen. Die Szene ist beendet.",
