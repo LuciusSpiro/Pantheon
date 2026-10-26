@@ -59,6 +59,8 @@ function rufBetrag(folge) {
   }
   return r2(s);
 }
+// Passt eine Ruf-Folge in den Raum des Deckels? Ohne Ruf-Betrag (Haltung) nie eine Sperre, auch bei einem überfüllten Deckel
+const passt = (betrag, raum) => betrag <= 1e-9 || betrag <= raum + 1e-9;
 function deckelRaum(F) {
   F.bitteLog = F.bitteLog.filter((x) => F.t - x[0] < BW.fenster_taetigkeiten);
   return BW.ruf_deckel - F.bitteLog.reduce((s, x) => s + x[1], 0);
@@ -126,7 +128,7 @@ function anbieten(game, o) {
     return { ok: false, code: 'optionen', fehler: ['OPTION_OHNE_AUSGANG'] };
   }
   const raum = deckelRaum(F);
-  const erlaubt = opts.filter((x) => rufBetrag(x.folge) <= raum + 1e-9);   // Optionen, deren Ruf-Folge der Deckel nicht mehr zuließe, entfallen
+  const erlaubt = opts.filter((x) => passt(rufBetrag(x.folge), raum));   // Optionen, deren Ruf-Folge der Deckel nicht mehr zuließe, entfallen (ohne Ruf-Folge entfällt nie eine)
   if (erlaubt.length < 2) return { ok: false, code: 'deckel' };
   F.bitteNr = (F.bitteNr || 0) + 1;
   const pid = portraetPid(ab);
@@ -168,7 +170,7 @@ function beantworten(game, id, nr) {
   const opt = off.optionen.find((x) => x.id === id);
   if (!opt) return fehl('unbekannt');   // nur was im Angebot steht (Später ist nur lokal, kein Befehl)
   const betrag = rufBetrag(opt.folge);
-  if (betrag > deckelRaum(F) + 1e-9) { F.bitte = null; return fehl('deckel'); }   // der Deckel hat sich seit dem Angebot gefüllt: zurückgezogen, ohne Folge
+  if (!passt(betrag, deckelRaum(F))) { F.bitte = null; return fehl('deckel'); }   // der Deckel hat sich seit dem Angebot gefüllt: zurückgezogen, ohne Folge
   F.bitte = null;
   if (opt.ausgang === undefined && !opt.folge.length) {   // Option ohne Ausgang und ohne Folge (Daten: „später“): die Bitte wird zurückgestellt, der Beat bleibt offen; nachTaetigkeit bietet erneut an
     funkSenden(game, BW.antwort_von, opt.text);

@@ -8,9 +8,9 @@
       "_hinweis": "Fenster des Bitten-Deckels: gezaehlt wird faden.t (eigener Zaehler, nie die Chronik). Eigener Deckel, getrennt vom Rom-Ruf-Deckel der Funk-Antworten und vom Reise-Ruf-Deckel."
     },
     "ruf_deckel": {
-      "wert": 2,
+      "wert": 0.25,
       "einheit": "Ruf-Betrag je Fenster",
-      "_hinweis": "Summe der Betraege der Ruf-Folgen angenommener Bitten im Fenster. Ist der Deckel voll, entfaellt eine Option, deren Folge ihn sprengen wuerde; bleiben weniger als zwei Optionen, gibt es kein Angebot (keine Scheinwahl). Haltungs-Folgen zaehlen nicht."
+      "_hinweis": "Summe der Betraege der Ruf-Folgen angenommener Bitten je fenster_taetigkeiten. Obergrenze fuer das Ruf-Tempo (Messung in SUND-04a-2 P2, Bericht): die Rom-Rate steigt um ruf_deckel mal Taetigkeiten je Sprung geteilt durch 100; der Tribun-Median (Basis 586 Spruenge, sim-ruf) kommt damit hoechstens 3 % frueher, solange hoechstens eine Taetigkeit je Sprung anfaellt (rechnerisch 2,9 %). Passive Crew: 0 Taetigkeiten je Sprung, kein Effekt. Haltungs-Folgen zaehlen nicht. Entfaellt eine Option, bleiben weniger als zwei, gibt es kein Angebot (keine Scheinwahl)."
     },
     "frist_taetigkeiten": {
       "wert": 4,

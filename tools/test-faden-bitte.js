@@ -43,7 +43,7 @@ const roh = (g) => JSON.parse(JSON.stringify(g));
 section('Daten: Zahlen, Texte, Weigerungen (bitte-werte.json)', () => {
   const W = D.BITTE;
   ok(W.fenster_taetigkeiten === 100, 'Fenster des Bitten-Deckels: 100 Tätigkeiten');
-  ok(W.ruf_deckel === 2, 'Bitten-Deckel: 2 Ruf je Fenster');
+  ok(W.ruf_deckel === 0.25, 'Bitten-Deckel: 0,25 Ruf je 100 Tätigkeiten (Obergrenze fürs Ruf-Tempo, siehe Messbericht)');
   ok(W.frist_taetigkeiten === 4, 'Verfall nach 4 Tätigkeiten');
   ok(W.frist_taetigkeiten < D.WERTE.beat_frist, 'der Verfall liegt unter der Frist des Beats (sonst entscheidet die Frist)');
   ok(W.gleichzeitig_max === 1, 'höchstens ein Angebot gleichzeitig');
@@ -155,6 +155,7 @@ section('Antwort: erste Antwort gilt, Annahme, Ablehnung, Später', () => {
   ok(B.beantworten(a.g, 'zusagen', oa.nr) === null, 'Annahme: Antwort ohne Weigerung');
   ok(liste(a.g)[0].nsc.haltung === 2, 'Annahme: Haltung +2 (geholfen +1 aus der Option, gedankt +1 aus dem Ausgang gelungen der Vorlage)');
   ok(Math.abs((ws(a.g).ruf.rom - romVor) - 0.25) < 1e-6, 'Annahme: Ruf Rom +0,25 (funk_rom_gruss)');
+  ok(ws(a.g).faeden.bitteLog.length === 1 && Math.abs(ws(a.g).faeden.bitteLog[0][1] - 0.25) < 1e-9, 'Annahme bucht 0,25 im Bitten-Deckel (eigener Zähler)');
   ok(liste(a.g)[0].beat === 1 && liste(a.g)[0].phase === 'wartet', 'Annahme: Ausgang gelungen, der Faden wartet auf den nächsten Beat');
   ok(bitte(a.g) === null, 'nach der Antwort kein Angebot mehr');
   ok(B.beantworten(a.g, 'zusagen', oa.nr).code === 'schon_beantwortet', 'zweite Antwort: schon beantwortet (die erste gilt)');
@@ -236,6 +237,8 @@ section('Weltstand: Runde, Altstand, Müll, Schema', () => {
     ['Option unbekannt', (x) => { x.optionen[0].id = 'gibt_es_nicht'; }],
     ['Text zu lang', (x) => { x.text = 'x'.repeat(500); }],
     ['Rest zu groß', (x) => { x.rest = 99; }],
+    ['Optionen zu wenig', (x) => { x.optionen = x.optionen.slice(0, 1); }],
+    ['Optionen zu viele', (x) => { x.optionen = x.optionen.concat(x.optionen); }],
   ]) {
     const m = roh(sim); aendern(m.faeden.bitte);
     const g4 = X.spiel({}).g;
@@ -271,6 +274,56 @@ section('Faden-Kompatibilität: Bitten ändern die Fadenzähler nicht ohne Angeb
   const g = X.spiel({ aus: true }).g;
   ok(Faden.aktiv(g) === false && Faden.toSave(ws(g)) === null, 'ohne Schalter kein Faden-Block');
   ok(B.snapshot(g) === null, 'ohne Schalter kein Angebot im Snapshot');
+});
+
+section('Verdrahtung: Funk-Angebot wartet während einer Bitte; der Takt zieht eine Bitte in unruhiger Lage zurück (echte Hooks)', () => {
+  const RE = require('../server/sim/reise-ereignis.js');
+  const FA = require('../server/sim/funk-antwort.js');
+  const g = X.spiel({ env: { REISE_EREIGNISSE: '1' } }).g;
+  const f = X.oeffne(g, BAS);
+  X.grenzen(g, 6, 'andocken');
+  weiter(g, f);
+  const ev = RE.KATALOG.find((e) => Array.isArray(e.antworten) && e.antworten.length >= 2 && !e.gefahr);
+  ok(!!ev, 'es gibt einen Funk-Katalogeintrag mit Antworten (Fixture)');
+  ws(g).funkwahl = null;
+  ws(g).faeden.bitte = null;
+  const frei = FA.anbieten(g, ev);
+  ok(!!frei, 'ohne Bitte: der Funk-Eintrag bietet seine Antwort an (Vergleich)');
+  ws(g).funkwahl = null;
+  ws(g).faeden.bitte = { nr: 9, fadenId: f.id, beatId: 'b_bitte', von: 'X', volk: 'rom', pid: null, text: 'x', optionen: [{ id: 'zusagen', text: 'A', folge: [] }, { id: 'ablehnen', text: 'B', folge: [] }], bis: ws(g).faeden.t + 3 };
+  ok(FA.anbieten(g, ev) === null, 'mit offener Bitte: keine Funk-Antwort (eine Antwortleiste)');
+  g.simSzene = {};
+  RE.update(g);
+  ok(bitte(g) === null, 'Takt in unruhiger Lage (RE.update): die Bitte wird zurückgezogen, ohne Folge');
+  g.simSzene = null;
+});
+
+section('Schutzregeln: Gefahr, offene Funk-Antwort, Deckel-Fenster, Ruhe bei der Antwort, verlaufener Beat', () => {
+  const { g, f } = bereit();
+  const opts = D.vorlage(BAS).beats[0].optionen.map((o) => ({ id: o.id, text: o.text, folge: o.folge, ausgang: o.ausgang }));
+  const angebot = (o) => B.anbieten(g, Object.assign({ fadenId: f.id, beatId: 'b_bitte', absender: { name: 'Quintus Serran', fraktion: 'rom', portrait: 2 }, text: 'Hilfe', optionen: opts }, o || {}));
+  const alt = D.BEATS.bitte.gefahr;
+  ws(g).faeden.bitte = null;
+  D.BEATS.bitte.gefahr = true;
+  try { ok(angebot().code === 'gefahr', 'Katalog sagt Gefahr: nie ein Angebot, auch wenn der Prüfer der Vorlage es nicht sähe'); } finally { D.BEATS.bitte.gefahr = alt; }
+  ok(angebot().ok, 'ohne Gefahr: das Angebot kommt (Vergleich)');
+  ws(g).faeden.bitte = null;
+  ws(g).funkwahl = { offen: { lfd: 1, id: 'x', ev: null, von: 'x', optionen: [], bis: 99 }, reaktion: null, zuletzt: null, romLog: [] };
+  ok(angebot().code === 'funk_offen', 'eine offene Funk-Antwort: keine Bitte daneben');
+  ws(g).funkwahl = null;
+  ws(g).faeden.bitteLog = [[ws(g).faeden.t - 200, 2]];
+  const weit = angebot();
+  ok(weit.ok && weit.bitte.optionen.some((x) => x.id === 'zusagen'), 'Deckel: ein Verbrauch vor dem Fenster (100 Tätigkeiten) zählt nicht mehr');
+  ws(g).faeden.bitte = null; ws(g).faeden.bitteLog = [];
+  const r = angebot();
+  g.simSzene = {};
+  ok(B.beantworten(g, 'zusagen', r.bitte.nr).code === 'unruhig', 'Antwort in einer Sim-Szene: unruhig, auch ohne den Takt (Prüfung in der Antwort)');
+  g.simSzene = null;
+  ws(g).faeden.bitte = null;
+  const r3 = angebot();
+  ws(g).faeden.liste[0].phase = 'wartet';
+  ok(B.beantworten(g, 'zusagen', r3.bitte.nr).code === 'kein_angebot', 'verlaufener Beat: keine Antwort mehr');
+  ws(g).faeden.liste[0].phase = 'laeuft'; ws(g).faeden.bitte = null;
 });
 
 console.log(`\n${n - fails} von ${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));

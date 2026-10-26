@@ -104,7 +104,7 @@ const MUTATIONEN = [
   [FW, "    if (neuNr !== store.nr) { store.markiert = -1; store.eingeklappt = false; store.geoeffnetBei = null; }", "    if (neuNr !== store.nr) { store.markiert = -1; store.geoeffnetBei = null; }", 'Client: „Später“ gilt auch für das nächste Angebot'],
   [FW, "    if (zu()) { aufklappen(); return store.markiert; }   // zugeklappt (Streifen): der erste Druck klappt nur auf, markiert wird erst der nächste\n", "", 'Client: die Taste sendet/markiert auch bei zugeklappter Leiste'],
   [FW, "const m = modell(); if (!m || zu() || store.markiert < 0) return false;", "const m = modell(); if (!m || store.markiert < 0) return false;", 'Client: Senden per Taste bei zugeklappter Leiste'],
-  [FW, "    if (msg.phase === 'lobby') { zuruecksetzen(null); return; }", "    if (false) { zuruecksetzen(null); return; }", 'Client: die Lobby leert das Angebot nicht'],
+  [FW, "    if (msg.phase === 'lobby') { zuruecksetzen(null); bitteSetzen(null); return; }", "    if (false) { zuruecksetzen(null); bitteSetzen(null); return; }", 'Client: die Lobby leert das Angebot nicht'],
 ];
 
 // Selbstcheck der Anker: VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie). Sonst bricht die Probe mit Exit 2 ab.

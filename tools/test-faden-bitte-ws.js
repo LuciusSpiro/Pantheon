@@ -67,6 +67,8 @@ function client(port, hello) {
   ok(we.ok, 'der Beat bitte startet (Befehl, Fixture)');
   ok(!!g.weltsim.faeden.bitte, 'das Angebot steht am Server');
   await bis(() => alle((x) => x.bitte), 3000);
+  await sleep(1500);
+  ok(alle((x) => x.bloecke <= 2), 'das Angebot geht nur bei Änderung raus (nicht in jedem Snapshot): ' + [a, b, c].map((x) => x.bloecke).join(','));
   const nr = g.weltsim.faeden.bitte.nr;
   ok(alle((x) => x.bitte && x.bitte.nr === nr), 'alle drei sehen dieselbe Bitte (world.bitte)');
   ok(alle((x) => x.bitte && x.bitte.kopf === 'BITTE' && x.bitte.optionen.map((o) => o.id).join(',') === 'zusagen,ablehnen,spaeter'), 'Kopf BITTE und die drei Optionen (ohne Folgen)');

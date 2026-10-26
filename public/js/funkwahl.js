@@ -154,13 +154,13 @@
       ctx.fillStyle = ueber(r.x, r.y, r.w, r.h) ? '#1A2238' : '#10151F'; ctx.fillRect(r.x, r.y, r.w, r.h);
       ctx.fillStyle = SK.frame; ctx.fillRect(r.x, r.y, r.w, 1); ctx.fillRect(r.x, r.y + r.h - 1, r.w, 1); ctx.fillRect(r.x, r.y, 1, r.h); ctx.fillRect(r.x + r.w - 1, r.y, 1, r.h);
       const ex = kappeZeichnen(ctx, R, r.x + 3, r.y + 2, kw);
-      const sp = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
-      R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + ' · noch ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
+      const sp = m.art === 'bitte' ? 'offen' : 'noch ' + m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');   // Bitte: die Frist läuft in Tätigkeiten (nicht sichtbar), darum „offen“
+      R.text(ctx, kuerzen(R, (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + ' · ' + sp, r.x + r.w - ex - 12), ex + 4, r.y + 2, { color: SK.text, shadow: false });
       R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label: 'Funk antworten', disabled: false, onClick: () => spaeter(false), hotkey: null });
       return;
     }
     R.panel(ctx, r.x, r.y, r.w, r.h, { style: 'brass' });
-    const rest = m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
+    const rest = m.art === 'bitte' ? 'offen' : m.rest + (m.rest === 1 ? ' Sprung' : ' Sprünge');
     R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: SK.dim, align: 'right' });
     const bild = m.art === 'bitte' && m.pid && root.Hud && typeof root.Hud.drawFunkBild === 'function';   // Plakette mit Porträt (nur gültige Kennung), sonst nur Text
     if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 4, r.y + 2, 22);
