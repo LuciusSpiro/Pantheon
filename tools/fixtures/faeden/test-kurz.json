@@ -1,0 +1,15 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "test_kurz",
+  "titel": "Testvorlage kurz",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gescheitert" }],
+  "volk_erlaubt": ["ger"],
+  "nsc": { "klassen": ["kurier"] },
+  "wahrheit": { "id": "ist_spion", "fraktion": "rom" },
+  "hinweise": { "h_logbuch": { "kanal": "scan" } },
+  "beats": [
+    { "id": "k_bitte", "typ": "bitte", "hinweise": ["h_logbuch"], "aus": { "gelungen": { "status": "verbuendet", "weiter": "k_enthuell" }, "gescheitert": { "status": "schuldet_nichts", "weiter": "k_ende" } } },
+    { "id": "k_enthuell", "typ": "enthuellung", "aus": { "gelungen": { "status": "feindlich" }, "gescheitert": { "status": "geflohen" } } },
+    { "id": "k_ende", "typ": "abschluss", "aus": { "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] }, "gescheitert": {} } }
+  ]
+}

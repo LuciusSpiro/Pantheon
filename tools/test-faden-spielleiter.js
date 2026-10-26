@@ -3,6 +3,7 @@
 // Logbuch, nicht gegen die Rate) · ohne Schalter ein unbekannter Typ wie auf main · Mock-Spielleiter · Bot-Lauf: der echte Lage-Spielleiter (Mock) fuehrt zwei NUR in Daten beschriebene Vorlagen ueber alle
 // Pfade, auch durchs Scheitern, ohne Codeaenderung · Ausfall des Spielleiters.
 // Erwartete Abfolgen leitet der Test mit einem eigenen kleinen Interpreter aus der JSON-Datei der Vorlage ab (nicht aus dem Produktivcode).        node tools/test-faden-spielleiter.js
+const fs = require('fs');
 const path = require('path');
 process.chdir(path.join(__dirname, '..'));
 const X = require('./faden-fixture.js');
@@ -47,16 +48,9 @@ function erwartet(v, ausgaenge) {
   return seq;
 }
 
-// Die zweite, nur in Daten beschriebene Vorlage (vierte im Sinne von Abnahme 14a): drei Beats, germanisches Volk, anderer Ausloeser
-const KURZ = {
-  format: 'faden-vorlage/1', id: 'test_kurz', titel: 'Testvorlage kurz', ausloeser: [{ art: 'notruf', ausgang: 'gescheitert' }], volk_erlaubt: ['ger'],
-  nsc: { klassen: ['kurier'] }, wahrheit: { id: 'ist_spion', fraktion: 'rom' }, hinweise: { h_logbuch: { kanal: 'scan' } },
-  beats: [
-    { id: 'k_bitte', typ: 'bitte', hinweise: ['h_logbuch'], aus: { gelungen: { status: 'verbuendet', weiter: 'k_enthuell' }, gescheitert: { status: 'schuldet_nichts', weiter: 'k_ende' } } },
-    { id: 'k_enthuell', typ: 'enthuellung', aus: { gelungen: { status: 'feindlich' }, gescheitert: { status: 'geflohen' } } },
-    { id: 'k_ende', typ: 'abschluss', aus: { gelungen: { folge: [{ typ: 'haltung_aenderung', grund: 'gedankt' }] }, gescheitert: {} } },
-  ],
-};
+// Die zweite, nur in Daten beschriebene Vorlage (vierte im Sinne von Abnahme 14a): drei Beats, germanisches Volk, anderer Ausloeser.
+// Liegt als Datei unter tools/fixtures/faeden/test-kurz.json (nur Daten, kein Produktivcode).
+const KURZ = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'faeden', 'test-kurz.json'), 'utf8'));
 
 async function main() {
   LLM.resetBudget();
