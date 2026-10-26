@@ -71,10 +71,11 @@ function folgeBuchbar(game, F, gruende) {
   return romGewinn(gruende) <= romRaum(F, game.weltsim.reise.n) + 1e-9 && romBetrag(gruende) <= RE.rufRaum(game) + 1e-9;
 }
 
-// ---------- Ruhige Lage: keine Sim-Szene, keine laufende (angekündigte) Gefahr, keine Gegner im Sektor
+// ---------- Ruhige Lage: keine Sim-Szene, keine laufende (angekündigte) Gefahr, keine Faden-Szene (auch nicht im Vorlauf), keine Gegner im Sektor
 function ruhig(game) {
   const R = game.weltsim && game.weltsim.reise;
   if (game.simSzene) return false;
+  if (game.fadenSzene) return false;   // SUND-04a-2 Nacharbeit L11: eine angekündigte Faden-Gefahr (Vorlauf, noch ohne Gegner) ist unruhig; gilt für Funk-Antworten und Bitten
   if (R && R.laufend && R.laufend.length) return false;
   return !((game.space && game.space.enemies) || []).length;
 }

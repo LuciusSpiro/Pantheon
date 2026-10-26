@@ -39,7 +39,7 @@ const MUTATIONEN = [
   [SZ, '  andockenEnde(game);\n  Fracht.andocken(game);', '  Fracht.andocken(game);', 'Andocken beendet die laufende Szene nicht'],
   [FR, "  F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware", "  F().beatAusgang(game, f.id, 'gelungen');   // der Ausgang entfernt die Ware", 'verlorene Ware gilt als gelungen'],
   [FA, '  delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende', '  void 0;   // SUND-04a-2 P1: der Beat ist zu Ende', 'Ware bleibt nach dem Ende des Beats an Bord'],
-  [FA, '  if (x.fracht !== undefined) {', '  if (false) {', 'Ware geht beim Speichern verloren (Leser)'],
+  [FA, "  if (x.fracht !== undefined && x.fracht !== null && phase === 'laeuft' && D.BEATS[v.beats[f.beat].typ].baustein === 'fracht') {", '  if (false) {', 'Ware geht beim Speichern verloren (Leser)'],
   [FA, "  for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) {", "  for (const f of F.liste) if (false && f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) {", 'Szenen-Beat steht nach dem Laden nicht wieder aus'],
   // ---- Nacharbeit Welle 1 (L1 bis L6, K1, K2, K5, L13): Lebenszyklus, Persistenz ----
   [SZ, 'const aktiv = (game) => Faden.aktiv(game);', 'const aktiv = () => true;', 'Faden-Szenen starten auch ohne Schalter (Gate)'],
@@ -62,6 +62,9 @@ const MUTATIONEN = [
   [GM, "this.markSaveDue('docked'); if (this.weltsim) { try { FadenSzene.andockenHook(this); }", "this.markSaveDue('docked'); if (false) { try { FadenSzene.andockenHook(this); }", 'Andock-Hook der Faeden fehlt (Gate in game.js)'],
   [GM, "if (name === 'notsprung' && this.weltsim) { try { FadenFracht.notsprung(this); }", "if (false) { try { FadenFracht.notsprung(this); }", 'Notsprung-Hook der Ware fehlt (Ereignis in game.js)'],
   [GM, "if (this.fadenSzene || this.fadenHilfe || (this.fadenWarte && this.fadenWarte.length)) this.safe('fadenszene',", "if (false) this.safe('fadenszene',", 'Takt der Faden-Szenen fehlt (game.step)'],
+  // ---- Nacharbeit L7: kaputte Fracht im Weltstand
+  [FA, '    if (fr) f.fracht = fr;\n  }', '    if (!fr) return { fehler: `${x.id}: Fracht unbrauchbar` };\n    f.fracht = fr;\n  }', 'Leser: eine kaputte Fracht verwirft den ganzen Faden'],
+  [FA, "x.fracht !== null && phase === 'laeuft' && D.BEATS", "x.fracht !== null && D.BEATS", 'Leser: Fracht ohne laufenden Beat bleibt im Faden'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());

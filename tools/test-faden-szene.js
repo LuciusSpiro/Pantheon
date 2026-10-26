@@ -614,6 +614,28 @@ section('L13: Warteschlange der Szenen (hoechstens drei) und der Spontanhilfe (h
   ok(rs[3].ok === false && rs[3].grund === 'HILFE_LAEUFT' && gh.fadenHilfeWarte.length === 3, 'die vierte wartende wird abgelehnt (hoechstens drei)');
 });
 
+section('L7: kaputte Fracht im Weltstand verwirft nur das Feld, nie den Faden', () => {
+  vorlage('sz_fracht6', 'fracht', { parameter: { nach: '0406' } });
+  const { g } = bereit({ crew: 1, seed: 52 });
+  const f = oeffne(g, 'sz_fracht6'); grenzen(g, 5); weiter(g, f);
+  ok(!!f.fracht && f.phase === 'laeuft', 'Ware an Bord, der Beat laeuft');
+  const lies = (aendern) => { const b = JSON.parse(JSON.stringify(Faden.toSave(g.weltsim))); aendern(b.liste[0]); return Faden.lesen(b); };
+  const gut = lies(() => {});
+  ok(gut.liste.length === 1 && !!gut.liste[0].fracht && gut.liste[0].fracht.nach === '0406' && gut.liste[0].fracht.ware === 'fracht_kiste', 'unveraendert: die Ware bleibt');
+  for (const [name, aendern] of [
+    ['Text', (x) => { x.fracht = 'kaputt'; }], ['Zahl', (x) => { x.fracht = 5; }], ['Liste', (x) => { x.fracht = [1]; }], ['null (das Schema erlaubt es)', (x) => { x.fracht = null; }],
+    ['umbenannte Ware', (x) => { x.fracht.ware = 'alte_ware'; }], ['Ziel kaputt', (x) => { x.fracht.nach = 'xx'; }], ['Felder mit Muell', (x) => { x.fracht = { ware: 5, nach: '0406', tick: 'x' }; }],
+  ]) {
+    const F = lies(aendern);
+    const h = F.liste[0];
+    ok(F.liste.length === 1 && h.id === f.id && h.phase === 'laeuft' && !!h.laufend && h.fracht === undefined && F.ladeFehler.length === 0, 'Fracht ' + name + ': nur das Feld faellt weg, der Faden bleibt und laeuft');
+  }
+  const F2 = lies((x) => { x.phase = 'wartet'; x.laufend = null; });
+  ok(F2.liste.length === 1 && F2.liste[0].phase === 'wartet' && F2.liste[0].fracht === undefined, 'Fracht bei Phase wartet: das Feld faellt weg, der Faden bleibt');
+  const data = Weltstand.capture(g); data.welt.sim.faeden.liste[0].fracht = null;
+  ok(Weltstand.validate(data, g).length === 0, 'Weltstand-Schema: fracht null ist gueltig');
+});
+
 section('Gate: Faden-Szenen im Takt nur mit weltsim und Schalter (game.step)', () => {
   vorlage('sz_gate', 'raumschlacht');
   const { g } = bereit({ crew: 1, seed: 31 });
