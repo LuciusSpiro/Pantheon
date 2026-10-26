@@ -133,9 +133,39 @@
         "D - 2"
       ],
       "color": {
-        "shade": "dach",
-        "f": "1.2 * (1 - zustand * 0.06)"
+        "stripes": [
+          {
+            "shade": "dach",
+            "f": "1.2 * (1 - zustand * 0.06)"
+          },
+          {
+            "shade": "dach",
+            "f": "0.9 * (1 - zustand * 0.06)"
+          }
+        ],
+        "axis": "z",
+        "period": 4
       }
+    },
+    {
+      "name": "Firstband Gold",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        1,
+        13,
+        "cz - 2"
+      ],
+      "size": [
+        "W - 2",
+        1,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.95 * (1 - zustand * 0.06)"
+      },
+      "jitter": false
     },
     {
       "name": "Traufrinne",
@@ -158,7 +188,7 @@
       "jitter": false
     },
     {
-      "name": "Lüfter",
+      "name": "Aggregat Gehäuse",
       "op": "box",
       "at": [
         "floor(W / 4) - 1",
@@ -171,26 +201,18 @@
         4
       ],
       "color": {
-        "shade": "metal",
-        "f": "1 * (1 - zustand * 0.06)"
-      }
-    },
-    {
-      "name": "Lüfterkappe",
-      "op": "box",
-      "at": [
-        "floor(W / 4) - 1",
-        15,
-        "cz - 2"
-      ],
-      "size": [
-        4,
-        1,
-        4
-      ],
-      "color": {
-        "shade": "metal_dark",
-        "f": "1 * (1 - zustand * 0.06)"
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "1 * (1 - zustand * 0.06)"
+          },
+          {
+            "shade": "metal_light",
+            "f": "1 * (1 - zustand * 0.06)"
+          }
+        ],
+        "axis": "x",
+        "period": 1
       }
     },
     {

@@ -1,6 +1,6 @@
 {
  "id": "ort/rom/gemein/kassenkapsel",
- "name": "Kassenkapsel (Rom, Anker beute/fund): versiegelte Marmorkapsel mit Amberschloss und rotem Deckel; leer = Deckel aufgeklappt, Schloss aus",
+ "name": "Kassenkapsel (Rom, Anker beute/fund): Amphore mit Gestell, Henkeln und Amber-Sichtfenster im Bauch, Rinnenanschluss am Hals; leer = Hals offen, Fenster dunkel",
  "tier": "detail",
  "palette": "rom",
  "jitter": 0,
@@ -34,268 +34,211 @@
  "ops": [
   {
    "op": "box",
-   "name": "Sockel",
-   "at": [
-    -7,
-    0,
-    -6
-   ],
-   "size": [
-    14,
-    2,
-    12
-   ],
-   "color": "stone_light"
-  },
-  {
-   "op": "box",
-   "name": "Körper lang",
-   "at": [
-    -7,
-    2,
-    -4
-   ],
-   "size": [
-    14,
-    7,
-    8
-   ],
-   "color": "secondary"
-  },
-  {
-   "op": "box",
-   "name": "Körper breit",
-   "at": [
-    -6,
-    2,
-    -6
-   ],
-   "size": [
-    12,
-    7,
-    12
-   ],
-   "color": "secondary"
-  },
-  {
-   "op": "box",
-   "name": "Band quer",
-   "at": [
-    -7,
-    4,
-    -4
-   ],
-   "size": [
-    14,
-    1,
-    8
-   ],
-   "color": "trim",
-   "mode": "paint"
-  },
-  {
-   "op": "box",
-   "name": "Band tief",
-   "at": [
-    -6,
-    4,
-    -6
-   ],
-   "size": [
-    12,
-    1,
-    12
-   ],
-   "color": "trim",
-   "mode": "paint"
-  },
-  {
-   "op": "box",
-   "name": "Rinne",
+   "name": "Gestell Ring",
    "at": [
     -5,
-    5,
-    6
+    0,
+    -5
    ],
    "size": [
     10,
     1,
-    1
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bauch unten",
+   "at": [
+    -4,
+    2,
+    -4
+   ],
+   "size": [
+    8,
+    2,
+    8
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Bauch breit",
+   "at": [
+    -6,
+    4,
+    -6
+   ],
+   "size": [
+    12,
+    4,
+    12
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Schulter",
+   "at": [
+    -5,
+    8,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Hals",
+   "at": [
+    -3,
+    10,
+    -3
+   ],
+   "size": [
+    6,
+    6,
+    6
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Henkel links",
+   "at": [
+    -7,
+    6,
+    -1
+   ],
+   "size": [
+    2,
+    7,
+    2
    ],
    "color": "trim"
   },
   {
    "op": "box",
-   "name": "Innenraum",
+   "name": "Henkel rechts",
    "at": [
-    -5,
+    5,
     6,
-    -5
+    -1
    ],
    "size": [
-    10,
-    3,
-    10
+    2,
+    7,
+    2
    ],
-   "color": "metal_dark",
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Schacht offen (leer)",
+   "at": [
+    -2,
+    15,
+    -2
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": "dark",
    "if": "state == 1",
    "mode": "carve"
   },
   {
    "op": "box",
-   "name": "Innenboden",
+   "name": "Sichtfenster Amber",
    "at": [
-    -5,
+    -2,
     5,
-    -5
+    5
    ],
    "size": [
-    10,
-    1,
-    10
-   ],
-   "color": "dark",
-   "if": "state == 1",
-   "mode": "paint"
-  },
-  {
-   "op": "box",
-   "name": "Deckel",
-   "at": [
-    -6,
-    9,
-    -6
-   ],
-   "size": [
-    12,
-    2,
-    12
-   ],
-   "color": "primary",
-   "if": "state == 0"
-  },
-  {
-   "op": "box",
-   "name": "Deckelkante",
-   "at": [
-    -6,
-    11,
-    -6
-   ],
-   "size": [
-    12,
-    1,
-    12
-   ],
-   "color": {
-    "frame": "trim",
-    "fill": "primary",
-    "axes": "xz",
-    "width": 1
-   },
-   "if": "state == 0"
-  },
-  {
-   "op": "box",
-   "name": "Siegel Rinne",
-   "at": [
-    -5,
-    12,
-    -1
-   ],
-   "size": [
-    10,
-    1,
-    2
+    4,
+    4,
+    1
    ],
    "color": {
     "role": "glow2",
-    "emit": 0.7
+    "emit": "state == 0 ? 0.6 : 0"
    },
    "if": "state == 0",
    "jitter": false
   },
   {
    "op": "box",
-   "name": "Deckel offen",
-   "at": [
-    -6,
-    9,
-    -7
-   ],
-   "size": [
-    12,
-    9,
-    2
-   ],
-   "color": "primary",
-   "if": "state == 1"
-  },
-  {
-   "op": "box",
-   "name": "Deckel offen Kante",
-   "at": [
-    -6,
-    17,
-    -7
-   ],
-   "size": [
-    12,
-    1,
-    2
-   ],
-   "color": "trim",
-   "if": "state == 1"
-  },
-  {
-   "op": "box",
-   "name": "Schloss",
-   "at": [
-    -1,
-    4,
-    6
-   ],
-   "size": [
-    2,
-    4,
-    1
-   ],
-   "color": {
-    "role": "glow2",
-    "emit": "state == 0 ? 1 : 0"
-   },
-   "jitter": false
-  },
-  {
-   "op": "box",
-   "name": "Schloss Fassung",
+   "name": "Sichtfenster dunkel",
    "at": [
     -2,
-    3,
-    6
+    5,
+    5
    ],
    "size": [
     4,
-    1,
-    1
-   ],
-   "color": "trim"
-  },
-  {
-   "op": "box",
-   "name": "Schloss aus",
-   "at": [
-    -1,
-    4,
-    6
-   ],
-   "size": [
-    2,
     4,
     1
    ],
    "color": "metal_dark",
    "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenanschluss",
+   "at": [
+    3,
+    13,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenfluss Amber",
+   "at": [
+    4,
+    14,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 0.6 : 0"
+   },
+   "if": "state == 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Mündungsring",
+   "at": [
+    -3,
+    16,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "secondary"
   }
  ],
  "anchor": [

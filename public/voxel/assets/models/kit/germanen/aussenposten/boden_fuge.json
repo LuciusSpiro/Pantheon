@@ -134,7 +134,7 @@
         "shade": "metal_dark",
         "f": "dk"
       },
-      "if": "py == 0"
+      "if": "par >= 0 && py == 0"
     },
     {
       "name": "Fuge kalt W",
@@ -154,7 +154,7 @@
         "shade": "metal_dark",
         "f": "dk"
       },
-      "if": "px == 0"
+      "if": "par >= 0 && px == 0"
     }
   ]
 }

@@ -1,0 +1,267 @@
+{
+ "id": "ort/germanen/aussenposten/deckung_blasebalg",
+ "name": "Blasebalg-Pumpenblock (Germanen, Deckung Außenposten): Lederbalg in Eisenfaltung, Kupferblock, Glutauslass an der Düse",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "aussenposten",
+  "deckung",
+  "pumpe",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Pumpenblock",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    4,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Balg 1",
+   "at": [
+    -5,
+    6,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Faltung 1",
+   "at": [
+    -6,
+    7,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Balg 2",
+   "at": [
+    -5,
+    8,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Faltung 2",
+   "at": [
+    -6,
+    9,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Balg 3",
+   "at": [
+    -5,
+    10,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Faltung 3",
+   "at": [
+    -6,
+    11,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Ventil",
+   "at": [
+    -2,
+    12,
+    -2
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kamin",
+   "at": [
+    -1,
+    13,
+    -1
+   ],
+   "size": [
+    2,
+    6,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kamin Spitze",
+   "at": [
+    -1,
+    19,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "#FF7A1A",
+    "emit": 0.6
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Düse",
+   "at": [
+    3,
+    8,
+    -1
+   ],
+   "size": [
+    4,
+    2,
+    2
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Glutauslass",
+   "at": [
+    7,
+    8,
+    -1
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": {
+    "role": "#FF7A1A",
+    "emit": 0.6
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -2,
+    4,
+    6
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.5
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Glut Düsenkappe",
+   "at": [
+    3,
+    10,
+    -1
+   ],
+   "size": [
+    4,
+    1,
+    2
+   ],
+   "color": {
+    "role": "#FF7A1A",
+    "emit": 0.6
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

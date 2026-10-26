@@ -1,0 +1,120 @@
+{
+ "id": "ort/germanen/aussenposten/streu_kabelrolle",
+ "name": "Kabelrolle auf Eisenbock (Germanen, Streu Außenposten): Kupferspule mit Eisenflanschen, Runenanzeige am Bock",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "aussenposten",
+  "streu",
+  "kabel",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Bock",
+   "at": [
+    -6,
+    0,
+    -5
+   ],
+   "size": [
+    12,
+    4,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Spule",
+   "at": [
+    -4,
+    4,
+    -4
+   ],
+   "size": [
+    8,
+    12,
+    8
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Flansch links",
+   "at": [
+    -5,
+    4,
+    -5
+   ],
+   "size": [
+    1,
+    14,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Flansch rechts",
+   "at": [
+    4,
+    4,
+    -5
+   ],
+   "size": [
+    1,
+    14,
+    10
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Kabelende",
+   "at": [
+    4,
+    4,
+    0
+   ],
+   "size": [
+    1,
+    2,
+    3
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -2,
+    2,
+    5
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.5
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

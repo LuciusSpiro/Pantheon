@@ -106,7 +106,27 @@
   },
   {
    "op": "box",
-   "name": "Platte geladen",
+   "name": "Rune Kontur oben",
+   "at": [
+    -4,
+    24,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.6
+   },
+   "jitter": false,
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rune Kontur unten",
    "at": [
     -4,
     14,
@@ -114,15 +134,75 @@
    ],
    "size": [
     8,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.6
+   },
+   "jitter": false,
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rune Kontur links",
+   "at": [
+    -4,
+    14,
+    -4
+   ],
+   "size": [
+    1,
     11,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.6
+   },
+   "jitter": false,
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rune Kontur rechts",
+   "at": [
+    3,
+    14,
+    -4
+   ],
+   "size": [
+    1,
+    11,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.6
+   },
+   "jitter": false,
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Rune Kern",
+   "at": [
+    -1,
+    18,
+    -4
+   ],
+   "size": [
+    2,
+    3,
     1
    ],
    "color": {
     "role": "rune",
     "emit": 0.6
    },
-   "if": "state == 2",
-   "jitter": false
+   "jitter": false,
+   "if": "state == 2"
   },
   {
    "op": "box",

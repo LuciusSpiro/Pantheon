@@ -66,16 +66,16 @@
    }
   },
   {
-   "name": "Rinne entlang x",
+   "name": "Rinne entlang x (Oberseite)",
    "op": "box",
    "at": [
     0,
-    0,
+    "h",
     1
    ],
    "size": [
-    4,
-    "h",
+    "w",
+    1,
     1
    ],
    "color": {
@@ -86,17 +86,17 @@
    "if": "ce || cw || conn == 0"
   },
   {
-   "name": "Rinne entlang z",
+   "name": "Rinne entlang z (Oberseite)",
    "op": "box",
    "at": [
     1,
-    0,
+    "h",
     0
    ],
    "size": [
     1,
-    "h",
-    4
+    1,
+    "d"
    ],
    "color": {
     "role": "glow2",

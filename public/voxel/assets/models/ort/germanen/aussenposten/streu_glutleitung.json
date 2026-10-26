@@ -1,0 +1,90 @@
+{
+ "id": "ort/germanen/aussenposten/streu_glutleitung",
+ "name": "Glutleitung-Stück (Germanen, Streu Außenposten): Kupferrohr auf zwei Eisenstützen mit Glutader oben",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "aussenposten",
+  "streu",
+  "leitung",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Stütze links",
+   "at": [
+    -7,
+    0,
+    -2
+   ],
+   "size": [
+    2,
+    5,
+    4
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Stütze rechts",
+   "at": [
+    5,
+    0,
+    -2
+   ],
+   "size": [
+    2,
+    5,
+    4
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rohr",
+   "at": [
+    -7,
+    5,
+    -1
+   ],
+   "size": [
+    14,
+    3,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Glutader",
+   "at": [
+    -6,
+    8,
+    -1
+   ],
+   "size": [
+    12,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.6
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -147,34 +147,6 @@
   },
   {
    "op": "box",
-   "name": "Feldlinie",
-   "at": [
-    -4,
-    2,
-    5
-   ],
-   "size": [
-    1,
-    18,
-    1
-   ],
-   "color": {
-    "role": "glow2",
-    "emit": 0.8
-   },
-   "jitter": false,
-   "repeat": {
-    "count": 5,
-    "step": [
-     2,
-     0,
-     0
-    ]
-   },
-   "if": "state == 0"
-  },
-  {
-   "op": "box",
    "name": "Feldschwelle",
    "at": [
     -5,
@@ -187,6 +159,46 @@
     3
    ],
    "color": "metal_dark",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Feldquerlinie 1",
+   "at": [
+    -5,
+    6,
+    5
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "jitter": false,
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Feldquerlinie 2",
+   "at": [
+    -5,
+    16,
+    5
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "jitter": false,
    "if": "state == 0"
   },
   {

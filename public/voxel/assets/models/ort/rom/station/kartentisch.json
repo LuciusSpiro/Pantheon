@@ -169,7 +169,7 @@
   },
   {
    "op": "box",
-   "name": "Kartenbett",
+   "name": "Kartenplatte Amber",
    "at": [
     -12,
     16,
@@ -180,74 +180,9 @@
     1,
     10
    ],
-   "color": "metal_dark"
-  },
-  {
-   "op": "box",
-   "name": "Hologramm Karte",
-   "at": [
-    -11,
-    17,
-    -4
-   ],
-   "size": [
-    22,
-    1,
-    8
-   ],
-   "color": "glass"
-  },
-  {
-   "op": "box",
-   "name": "Karte Längslinie",
-   "at": [
-    -11,
-    17,
-    -3
-   ],
-   "size": [
-    22,
-    1,
-    1
-   ],
    "color": {
     "role": "glow2",
     "emit": 0.6
-   },
-   "repeat": {
-    "count": 3,
-    "step": [
-     0,
-     0,
-     3
-    ]
-   },
-   "jitter": false
-  },
-  {
-   "op": "box",
-   "name": "Karte Querlinie",
-   "at": [
-    -10,
-    17,
-    -4
-   ],
-   "size": [
-    1,
-    1,
-    8
-   ],
-   "color": {
-    "role": "glow2",
-    "emit": 0.6
-   },
-   "repeat": {
-    "count": 6,
-    "step": [
-     4,
-     0,
-     0
-    ]
    },
    "jitter": false
   },
@@ -266,7 +201,7 @@
    ],
    "color": {
     "role": "glow2",
-    "emit": 0.45
+    "emit": 1
    },
    "jitter": false
   },
@@ -319,7 +254,7 @@
    ],
    "color": {
     "role": "glow2",
-    "emit": 1.0
+    "emit": 1
    }
   },
   {
@@ -337,7 +272,7 @@
    ],
    "color": {
     "role": "glow2",
-    "emit": 1.0
+    "emit": 1
    }
   },
   {
