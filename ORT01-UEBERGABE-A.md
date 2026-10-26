@@ -95,7 +95,7 @@ Gates (Stand `d402cbe`/`6d2c9c7`): hash-baseline Karten 72/72, deko_zellen 60/60
 
 ## Nachtrag 8 (Nacharbeit nach Designer-Review R3, Befunde B1–B6)
 
-Commits: Voxelwerk `ort01-int`: `f9f2320` (Kit und Stimmung, B1–B3, B6), `18c8eb7` (Liege, Exposure 1,25). Spiel `ort01-int`: `83e6f61` (B4, Bauweisen), `fa79af2` (Übergabe), `31b6038` (`npm run assets`, eigener Commit, Voxelwerk-Stand `18c8eb7`).
+Commits: Voxelwerk `ort01-int`: `f9f2320` (Kit und Stimmung, B1–B3, B6), `18c8eb7` (Liege, Exposure 1,25). Spiel `ort01-int`: `83e6f61` (B4, Bauweisen), (diese Übergabe, Commit danach), `31b6038` (`npm run assets`, eigener Commit, Voxelwerk-Stand `18c8eb7`).
 
 ### Befunde und Fixes
 | Befund | Stand | Dateien (Voxelwerk `assets/models/kit/…`) | Quads (vorher → nachher) |
