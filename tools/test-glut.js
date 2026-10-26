@@ -26,7 +26,9 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
   ok(/import \{ glutAusnahme \} from '\.\/glut\.js';/.test(kit), 'kit.js importiert glutAusnahme aus glut.js');
   ok(/const mat = makeMaterial\(fogU, glutAusnahme\(k\.art, bw\)\);/.test(kit), 'Kartenmaterial bekommt den Schalter aus Kartenart und Bauweise');
   ok(/uniform float uGlutKeep;/.test(kit) && /sh\.uniforms\.uGlutKeep = \{ value: glut \? 1 : 0 \};/.test(kit), 'Uniform uGlutKeep wird deklariert und gesetzt');
-  ok(/if \(uKitFogOn > 0\.5 && !\(uGlutKeep > 0\.5 && vEmit > 0\.5\)\) \{/.test(kit), 'Nebel-Schritt lässt Leuchtflächen aus, nur wenn der Schalter an ist');
+  ok(/if \(uKitFogOn > 0\.5\) \{/.test(kit), 'Nebel-Schritt bleibt für alle Kit-Fragmente aktiv');
+  ok(/if \(uGlutKeep > 0\.5 && vEmit > 0\.5\) gl_FragColor\.rgb \*= \(0\.58 \+ 0\.42 \* fv\);/.test(kit), 'Leuchtflächen mit Schalter werden nur gedimmt (Farbe und Sättigung bleiben), gleicher Faktor wie der Rest');
+  ok(/else gl_FragColor\.rgb = mix\(vec3\(fl\), gl_FragColor\.rgb, 0\.3 \+ 0\.7 \* fv\)/.test(kit), 'übrige Fragmente unverändert entsättigt');
   ok(/totalEmissiveRadiance \+= eC \* min\(1\.2, 1\.5 \/ eM\)/.test(kit), 'Emissionszweig unverändert');
   ok(/kit-emit-fog-4/.test(kit) && !/kit-emit-fog-3/.test(kit), 'Programm-Schlüssel neu (kit-emit-fog-4)');
 

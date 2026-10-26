@@ -325,10 +325,12 @@ function makeMaterial(fog, glut) {
         '  kwp = instanceMatrix * kwp;', '#endif', '  kwp = modelMatrix * kwp; vKitXZ = kwp.xz; }'].join('\n'));
     sh.fragmentShader = 'varying float vEmit;\nvarying vec2 vKitXZ;\nuniform sampler2D uKitFogTex;\nuniform vec4 uKitFogRect;\nuniform float uKitFogOn;\nuniform float uGlutKeep;\n' + sh.fragmentShader
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * min(1.2, 1.5 / eM); diffuseColor.rgb *= 0.0; }')
-      .replace('#include <dithering_fragment>', ['#include <dithering_fragment>', 'if (uKitFogOn > 0.5 && !(uGlutKeep > 0.5 && vEmit > 0.5)) {',
+      .replace('#include <dithering_fragment>', ['#include <dithering_fragment>', 'if (uKitFogOn > 0.5) {',
         '  float fv = texture2D(uKitFogTex, (vKitXZ - uKitFogRect.xy) * uKitFogRect.zw).r;',
         '  float fl = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));',
-        '  gl_FragColor.rgb = mix(vec3(fl), gl_FragColor.rgb, 0.3 + 0.7 * fv) * (0.58 + 0.42 * fv);', '}'].join('\n'));
+        // ORT-01 Glut: Leuchtflächen (uGlutKeep) behalten Farbe und Sättigung, werden nur gedimmt wie der Rest
+        '  if (uGlutKeep > 0.5 && vEmit > 0.5) gl_FragColor.rgb *= (0.58 + 0.42 * fv);',
+        '  else gl_FragColor.rgb = mix(vec3(fl), gl_FragColor.rgb, 0.3 + 0.7 * fv) * (0.58 + 0.42 * fv);', '}'].join('\n'));
   };
   m.customProgramCacheKey = () => 'kit-emit-fog-4';
   return m;
