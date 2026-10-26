@@ -1,0 +1,155 @@
+{
+  "team": "ort-6m",
+  "assets": [
+    {
+      "id": "ort/germanen/aussenposten/deckung_fasszelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "deckung",
+        "fass",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/deckung_blasebalg",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "deckung",
+        "pumpe",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/deckung_glutspeicher",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "deckung",
+        "heizer",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/streu_glutleitung",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.56,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "streu",
+        "leitung",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/streu_kabelrolle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.13,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "streu",
+        "kabel",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/streu_runenpoller",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "prop",
+        "germanen",
+        "aussenposten",
+        "streu",
+        "rune",
+        "ort01"
+      ]
+    }
+  ]
+}
