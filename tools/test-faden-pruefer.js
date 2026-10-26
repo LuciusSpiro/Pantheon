@@ -12,7 +12,7 @@ const Daten = require('../server/weltsim/daten.js');
 const { D, Faden, klon, vorlageTest } = X;
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
-const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  FEHLER Ausnahme: ' + (e && e.stack)); } };
+const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  ABSTURZ Ausnahme: ' + (e && e.stack)); } };
 const codes = (v) => Pruefer.pruefeVorlage(v).fehler.map((t) => t.split(':')[0]);
 const hat = (v, code) => codes(v).includes(code);
 const beat = (v, id) => v.beats.find((b) => b.id === id);

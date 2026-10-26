@@ -403,6 +403,7 @@ class Game {
     Spur.reset(this);
     Notrufe.reset(this);
     Kriegslage.reset(this);
+    FadenSzene.zuruecksetzen(this);   // SUND-04a-2 Nacharbeit L3: Szene, Warteschlangen und Spontanhilfe der Fäden gehören zur Partie
     Sektorplan.reset(this);
     const C = this.C;
     this.releaseWorldLock();   // S1: Sperre beim Beenden/Reset lösen
@@ -532,7 +533,10 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
-    if (name === 'docked') { this.markSaveDue('docked'); this.lageGrenze('andocken'); if (this.weltsim) { try { FadenSzene.andockenHook(this); } catch (e) { this.countError('faden-szene-andocken', e); } } }   // SUND-04a-2 P1: Andocken beendet Faden-Szenen und liefert Fracht ab (nur mit FAEDEN=1)   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
+    // SUND-04a-2 P1: Andocken beendet Faden-Szenen und liefert Fracht ab (nur mit FAEDEN=1). Nacharbeit L2: das geschieht VOR dem Zählen der Tätigkeit (sonst läuft die Frist des Beats mit genau dieser
+    // Tätigkeit ab und die Ware ist weg, bevor sie abgeliefert wird)
+    if (name === 'docked') { this.markSaveDue('docked'); if (this.weltsim) { try { FadenSzene.andockenHook(this); } catch (e) { this.countError('faden-szene-andocken', e); } } this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
+    if (name === 'notsprung' && this.weltsim) { try { FadenFracht.notsprung(this); } catch (x) { this.countError('faden-fracht-notsprung', x); } }   // SUND-04a-2 P1, Nacharbeit L5: ein gelungener Notsprung (Ereignis, auch der Debug-Befehl) verliert die Ware an Bord; ohne Fäden: nichts
     if (name === 'notsprung') this.notsprungIn = this.mission ? this.mission.activeId || null : null;   // B3: Prüfung notgesprungen   // S1 §5.3: speichern am Tick-Ende, wenn noch angedockt
     if (name === 'enemyKilled' && this.flotte && data && data.enemy) { try { Flotte.onEnemyKilled(this, data.enemy); } catch (e) { this.countError('flotte-kill', e); } }   // EK4: Abschüsse zählen für Befehle
     if (this.simSzene && (name === 'enemyKilled' || name === 'allyLost')) { try { SimSzene.ereignis(this, name, data); } catch (e) { this.countError('sim-szene-ereignis', e); } }   // SUND-02a A2: Verluste der Sim-Szene
@@ -1034,7 +1038,6 @@ class Game {
       const fn = fnOf(sprungMod(), 'notsprung');
       let e = fn ? null : 'Notfallsprung noch nicht verfügbar.';
       if (fn) { try { e = fn(this) || null; } catch (x) { this.countError('notsprung', x); e = null; } }
-      if (!e && this.weltsim) { try { FadenFracht.notsprung(this); } catch (x) { this.countError('faden-fracht-notsprung', x); } }   // SUND-04a-2 P1: ein Notsprung verliert die Ware an Bord (ohne Fäden: nichts)
       if (e) this.notice(p, e);
       return;
     }

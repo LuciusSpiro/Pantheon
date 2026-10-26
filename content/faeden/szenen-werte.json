@@ -9,8 +9,11 @@
     "raumschlacht": {"wert": {"klasse": "korvette", "volk": "ger", "anzahl": {"1": 2, "2": 3, "3": 4}, "ring": 300}, "einheit": "Schiffe je Crewgröße", "_hinweis": "Germanische Schiffe um die Lerche. Anzahl nach Crewgröße (verbundene Spieler, 1 bis 3). Ausgang gelungen, wenn alle zerstört oder abgezogen sind."},
     "befreiung": {"wert": {"klasse": "korvette", "volk": "ger", "anzahl": {"1": 2, "2": 2, "3": 3}, "ring": 300}, "einheit": "Wachschiffe je Crewgröße", "_hinweis": "Wachschiffe um den Ort des NSC. Ausgang gelungen, wenn alle vertrieben oder zerstört sind: der NSC ist frei."},
     "verfolgung": {"wert": {"klassen": {"frachter": "frachter", "haendler": "frachter", "kurier": "korvette", "korvette": "korvette", "fregatte": "fregatte"}, "standard": "frachter"}, "einheit": "Zielklassen", "_hinweis": "Schiffsklasse des NSC auf eine Zielklasse der Verfolgung (verfolgung-werte.json: ohne Jäger). Das Zielschiff ist ein Einzelschiff: nicht nach Crewgröße skaliert. Der Fluchtpunkt wählt die Verfolgung (Sprungpunkt)."},
-    "spontanhilfe": {"wert": {"klasse": "korvette", "ring": 260}, "einheit": "Klasse, Abstand", "_hinweis": "Das Schiff des NSC kommt als Verbündeter (Flotte, EK4) dazu. Klasse muss zu den Verbündeten-Klassen der Escort gehören. Die Chance kommt aus Haltung (haltung-werte.json, Kurve), gewürfelt mit eigenem Strom."},
+    "spontanhilfe": {"wert": {"klasse": "korvette", "ring": 260, "winkel_schritt": 2.4}, "einheit": "Klasse, Abstand", "_hinweis": "Das Schiff des NSC kommt als Verbündeter (Flotte, EK4) dazu. Klasse muss zu den Verbündeten-Klassen der Escort gehören. Die Chance kommt aus Haltung (haltung-werte.json, Kurve), gewürfelt mit eigenem Strom."},
     "spontanhilfe_salz": {"wert": "spontanhilfe", "einheit": "Strom", "_hinweis": "Salz des eigenen Zufallsstroms (nie game.rng, nie der Strom der Sim)."},
+    "crew_min": {"wert": 1, "einheit": "Spieler", "_hinweis": "Untergrenze der Crewgröße, nach der Gegner und Wachschiffe skalieren (verbundene Spieler, mindestens 1)."},
+    "crew_max": {"wert": 3, "einheit": "Spieler", "_hinweis": "Obergrenze der Crewgröße für die Skalierung (die Tabellen anzahl kennen 1 bis 3)."},
+    "ring_winkel_start": {"wert": 0.4, "einheit": "Bogenmaß", "_hinweis": "Startwinkel der Gegner auf dem Ring um die Lerche (Raumschlacht, Befreiung): danach gleichmäßig verteilt."},
     "waren": {"wert": {"fracht_kiste": {"name": "Versiegelte Frachtkiste", "gewicht": 0}}, "einheit": "Waren", "_hinweis": "Frachtauftrag light (nur Faden-intern): eine Ware als Gegenstand, Gewicht 0, geht NICHT in den Handel."}
   },
   "texte": {
@@ -18,7 +21,7 @@
     "vorwarnung": {
       "raumschlacht": "Achtung: {n} germanische Schiffe ({klasse}) fallen in {sek} Sekunden in unseren Sektor ein!",
       "befreiung": "Wachschiffe sichern den Ort von {name}. Eintreffen in {sek} Sekunden – die Lage ist gefährlich.",
-      "verfolgung": "{name} ({schiff}) will sich absetzen. Wir haben {sek} Sekunden, bevor das Schiff den Sprungpunkt erreicht.",
+      "verfolgung": "{name} ({schiff}) will sich absetzen. In {sek} Sekunden beginnt die Verfolgung.",
       "spontanhilfe": "Der Verbündete {name} ist im Sektor. Er greift in die Schlacht ein, sobald sie beginnt."
     },
     "hilfe_erscheint": "{name} meldet sich über Funk: „Wir kommen! Haltet durch.“",

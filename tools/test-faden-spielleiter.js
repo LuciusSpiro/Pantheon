@@ -261,4 +261,4 @@ async function main() {
   if (fails) { console.log(`${fails} FEHLER`); process.exit(1); }
   console.log('FADEN-SPIELLEITER OK');
 }
-main().catch((e) => { console.log('FEHLER Ausnahme: ' + (e && e.stack)); process.exit(1); });
+main().catch((e) => { console.log('ABSTURZ Ausnahme: ' + (e && e.stack)); process.exit(1); });

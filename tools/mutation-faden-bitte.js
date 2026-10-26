@@ -104,7 +104,7 @@ const lauf = ([test, ...arg]) => spawnSync(process.execPath, [test, ...arg], { c
 const einstufung = (r) => {
   if (r.status === 0) return 'gruen';
   const text = (r.stdout || '') + (r.stderr || '');
-  if (r.status === 1 && /FEHLER/.test(text)) return 'rot';
+  if (r.status === 1 && text.split('\n').some((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l))) return 'rot';   // eine Ausnahme (ABSTURZ Ausnahme) ist nie ein Beleg
   return 'absturz';
 };
 let ueberlebt = 0, abstuerze = 0, gelaufen = 0;
@@ -133,7 +133,7 @@ for (const [datei, alt, neu, was] of MUTATIONEN) {
     if (e === 'absturz') { stufe = 'absturz'; wer = path.basename(t[0], '.js').replace('test-', ''); break; }
   }
   fs.writeFileSync(f, orig);
-  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l));
+  const fehler = ((r && r.stdout) || '').split('\n').filter((l) => /FEHLER/.test(l) && !/Ausnahme/.test(l));
   if (stufe === 'rot') console.log(`  rot   ${was} (${wer}: ${fehler.length} Fehler, z. B. ${(fehler[0] || '').replace(/^\s*FEHLER\s*/, '').slice(0, 64)})`);
   else if (stufe === 'absturz') { abstuerze++; ueberlebt++; console.log(`  ABSTURZ ${was} (${wer}: Exit ${r.status}, zählt NICHT als erkannt: ${((r.stderr || r.stdout || '').split('\n').find((l) => /Error|FEHLER/.test(l)) || '').slice(0, 80)})`); }
   else { ueberlebt++; console.log(`  GRÜN  ${was}  <-- ÜBERLEBT`); }

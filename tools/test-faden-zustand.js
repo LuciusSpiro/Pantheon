@@ -19,7 +19,7 @@ const Kern = require('../server/weltsim/kern.js');
 const { D, Faden, F, klon, spiel, angebot, oeffne, grenzen, alsVorlage, registriere } = X;
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
-const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  FEHLER Ausnahme: ' + (e && e.stack)); } };
+const section = (t, f) => { console.log('\n' + t); try { f(); } catch (e) { fails++; n++; console.log('  ABSTURZ Ausnahme: ' + (e && e.stack)); } };
 const ws = (g) => g.weltsim;
 const liste = (g) => ws(g).faeden.liste;
 const aktive = (g) => liste(g).filter((f) => f.phase !== 'abgeschlossen');   // eigene Zaehlung des Tests

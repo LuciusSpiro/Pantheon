@@ -355,13 +355,23 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   for (const L of R.laufend.slice()) {
     const weg = () => R.laufend.splice(R.laufend.indexOf(L), 1);
     if (game.ship.scene !== L.szene || R.n !== L.sprung) { weg(); continue; }   // jeder weitere Sprung (in jeder Phase, auch zurück in dieselbe Szene) beendet die Gefahr: weder Gegner noch Ruf noch Dank
-    if (L.phase === 'erwartet') { if (game.simSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene
+    if (L.phase === 'erwartet') { if (game.simSzene || game.fadenSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L); continue; }   // keine zwei Kämpfe übereinander: der Vorlauf wartet auf das Ende der Sim-Szene und einer Faden-Szene (SUND-04a-2 Nacharbeit L1)
     if (!((game.space && game.space.enemies) || []).some((g) => g.tag === L.tag)) {   // bewältigt
       weg();
       if (L.notruf) { folgeBuchen(game, eintrag(L.id)); funk(game, textFuer(L.ev, 'dank', game)); notrufMitPerson(game, eintrag(L.id), L.ev); }
     }
   }
 }
+
+// SUND-04a-2 Nacharbeit L1: gibt es eine laufende Reise-Gefahr (angekündigt oder im Kampf) in der aktuellen Szene? Faden-Szenen starten nie darüber (faden-szene.js frei), und der Kampf
+// einer Reise-Gefahr zählt für die Spontanhilfe der Fäden als Gefecht. Veraltete Einträge (anderer Sprung, andere Szene) zählen nicht: update räumt sie erst im nächsten Takt ab.
+function gefahrAktuell(game) {
+  const R = game && game.weltsim && game.weltsim.reise;
+  if (!R || !R.laufend || !game.ship) return [];
+  return R.laufend.filter((L) => L.szene === game.ship.scene && L.sprung === R.n);
+}
+const gefahrLaeuft = (game) => gefahrAktuell(game).length > 0;
+const gefahrKampf = (game) => gefahrAktuell(game).find((L) => L.phase === 'kampf') || null;
 
 // ---------- Weltstand welt.sim.reise
 function toSave(ws) {
@@ -390,4 +400,4 @@ function lesen(b) {
   return R;
 }
 
-module.exports = { gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
+module.exports = { gefahrLaeuft, gefahrKampf, gruendeBuchen, rufRaum, eintrag, hexName, folgeBuchen, abstandFrei, voreinstellungAn, KATALOG, WERTE, ARTEN, ABSTAND_HART, neu, aktiv, zaehleSprung, entscheiden, ausloesen, nachSprung, abfangenVermerken, update, textFuer, ablehnen, toSave, lesen, strom, umkreis, parameterFuer, kandidaten };
