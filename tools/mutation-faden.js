@@ -37,7 +37,7 @@ const MUTATIONEN = [
   [PR, "if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(", "if (false) fehler.push(", 'Abschluss muss nicht der letzte Beat sein'],
   [PR, "if (braucht.fluchtziel && !fluchtzielOk(p.fluchtziel)) out.push(", "if (false) out.push(", 'Verfolgung ohne Fluchtziel erlaubt'],
   [PR, "if (aus.gescheitert.status === aus.gelungen.status && nach(aus.gescheitert) === nach(aus.gelungen)) fehler.push(", "if (false) fehler.push(", 'Scheitern darf folgenlos sein'],
-  [PR, "if (br.nsc_status && !br.nsc_status.includes(s)) m('STATUS_PASST_NICHT'", "if (false) m('STATUS_PASST_NICHT'", 'Beat laeuft mit jedem Zustand des NSC (Wege werden nicht geprueft)'],
+  [PR, "if (br.nsc_status && !br.nsc_status.includes(z.s)) m('STATUS_PASST_NICHT'", "if (false) m('STATUS_PASST_NICHT'", 'Beat laeuft mit jedem Zustand des NSC (Wege werden nicht geprueft)'],
   [PR, "if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT'", "if (false) m('TOT_BLEIBT_TOT'", 'ein toter NSC darf wieder lebendig werden (Vorlage)'],
   [PR, "else if (z <= i) fehler.push(", "else if (false) fehler.push(", 'weiter darf zurueckspringen (Endlosschleife moeglich)'],
   [PR, "if (!erreicht.has(i)) fehler.push(", "if (false) fehler.push(", 'unerreichbare Beats erlaubt'],
