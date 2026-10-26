@@ -190,8 +190,7 @@
   },
   "leit": {
     "herzstueck": {
-      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
-      "station": "leit/germanen/station/schmiedeherd"
+      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm"
     },
     "kontrollraum": {
       "station": "leit/germanen/station/hochsitz_halle"

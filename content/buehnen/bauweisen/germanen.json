@@ -301,8 +301,7 @@
       "aussenposten": "leit/germanen/aussenposten/statue_platz"
     },
     "herzstueck": {
-      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
-      "station": "leit/germanen/station/schmiedeherd"
+      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm"
     },
     "landeplatz": {
       "aussenposten": "ort/germanen/aussenposten/landeplatz"
