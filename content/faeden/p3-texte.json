@@ -2,6 +2,11 @@
   "format": "faden-p3-texte/1",
   "_hinweis": "SUND-04a-2 P3: Texte der Bausteine notruf, enthuellung und abschluss (server/sim/faden-p3.js). Schluessel = text_key des Beats (Vorlage, parameter.text_key bzw. ausgang.text_key) oder ein Schluessel aus erinnert (Gedaechtnis des NSC: letztes Ereignis -> Text). Platzhalter: {name} (NSC), {ort} (Name des Sektors), {ziel} (Name des Postens bei der Sprengung). Keine Spielernamen, keine Zahlen.",
   "werte": {
+    "sprengung_reichweite": {
+      "wert": 4,
+      "einheit": "Sprünge (Hex-Abstand)",
+      "_hinweis": "Nacharbeit L12: die Sprengung trifft nur einen römischen Posten der Karte (nie einen Posten der Crew) innerhalb dieses Hex-Abstands vom Ort des Fadens (shared/sektoren.js hexAbstand); der nächste gewinnt, bei Gleichstand der kleinere Code. Gibt es keinen, scheitert der Beat mit Funk (enthuellung_ohne)."
+    },
     "erinnert": {
       "wert": {
         "bitte_gescheitert": "notruf_erinnert_abgelehnt",
@@ -18,7 +23,7 @@
     "notruf_entfuehrt": "{name}: Man hat mich in {ort} in der Station festgesetzt. Wachschiffe sichern den Hafen. Bitte holt mich da raus!",
     "notruf_dank": "{name}: Ihr seid da! Danke, ich vergesse das nicht.",
     "enthuellung_sabotage": "{name}: Ich bin kein Händler, ich bin Germane. Die Fracht war eine Sprengladung, und sie ist jetzt scharf. Gebt {ziel} eine Warnung, wenn ihr könnt.",
-    "enthuellung_ohne": "{name}: Ich bin Germane, das ist die Wahrheit. Die Sprengladung zündet nicht: Es gibt bei {ort} keinen römischen Posten, den sie treffen könnte.",
+    "enthuellung_ohne": "{name}: Ich bin Germane, das ist die Wahrheit. Die Sprengladung zündet nicht: Es gibt in der Nähe von {ort} keinen römischen Posten, den sie treffen könnte.",
     "abschluss_gelungen": "{name}: Danke, dass Ihr mit mir gegangen seid. Ich vergesse nicht, was Ihr für mich getan habt.",
     "abschluss_tot": "{name}: Er ist tot. Ihr habt ihn nicht retten können, aber sein Name bleibt auf den Karten der Crew."
   }

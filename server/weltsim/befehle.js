@@ -314,6 +314,7 @@ const KATALOG = {
       if (H.istHafen(c, b.ort)) return 'Sprengung trifft nur einen Posten, nicht einen Hafen';
       if (!z.hexe[b.ort].posten) return 'Ort hat keinen Posten';
       if (z.hexe[b.ort].besitzer !== 'rom') return 'Posten gehört nicht Rom';
+      if (z.hexe[b.ort].crew === true) return 'Posten der Crew ist kein Sprengziel';   // SUND-04a-2 Nacharbeit L12
       return null;
     },
     anwenden(c, b) {
