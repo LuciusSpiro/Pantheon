@@ -34,5 +34,9 @@ const tasten = read('public/js/tasten.js');
 ok(/'ops\.systemziel'.*Digit0/.test(tasten), 'Tastenbelegung ops.systemziel (Digit0, Numpad0) in tasten.js');
 ok(/zielsysteme\.js/.test(read('public/index.html')) && /zielsysteme-werte\.json/.test(read('server/index.js')), 'index.html lädt das Modul, der Server liefert nur zielsysteme-werte.json aus content/kampf');
 
+console.log('');
+console.log('[Captain und Ops-Karte (Review D-S4, D-S8)]');
+ok(/'Antrieb aus'/.test(kons) && /'Antrieb beschädigt'/.test(kons) && /zustand\(e, 'antrieb'\)/.test(kons), 'Captain-Liste GESCANNTE ZIELE: Zeile Antrieb je beschädigtem oder ausgefallenem Ziel (D-S8)');
+ok(/zoomY - 1/.test(kons) && /rect\.x \+ rect\.w - 66/.test(kons), 'Ops-Karte: Zoom-Anzeige ist ein Hindernis für die Kartenlabels, Randpfeile weichen aus (D-S4)');
 console.log(`\ntest-zielsysteme-ui: ${n - fails}/${n} ok`);
 process.exit(fails ? 1 : 0);

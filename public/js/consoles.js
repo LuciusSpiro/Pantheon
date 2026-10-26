@@ -1035,6 +1035,14 @@
           const tg = e.tgt != null ? this.escortList(view).find(q => q.id === e.tgt) : null;
           R.text(ctx, (R.ENEMY_NAMES[e.kind] || e.kind) + (tg ? ' → ' + R.escortName(tg) : ''), rx, y, { color: tg ? '#FF5A4A' : PAL.amber }); y += 10;
           R.text(ctx, this.shieldText(e), rx + 4, y, { color: PAL.ice }); y += 11;
+          // SUND-04a-1 A (Review D-S8): beschädigter oder ausgefallener Antrieb des Ziels; Farblogik wie im Ops-Scan (ausgefallen Bernstein-Chip, beschädigt Bernstein-Text)
+          const zz = e.az && window.Zielsysteme ? window.Zielsysteme.zustand(e, 'antrieb') : null;
+          if (zz && zz.schaden && y <= a.y + a.h - 10) {
+            const ty = y - 1, txt = zz.stufe >= 2 ? 'Antrieb aus' : 'Antrieb beschädigt';
+            if (zz.stufe >= 2 && ctx.fillRect) { ctx.fillStyle = PAL.amber; ctx.fillRect(rx + 2, ty - 1, R.measure(txt, 1) + 6, 9); R.text(ctx, txt, rx + 5, ty, { color: '#0B0E1A' }); }
+            else R.text(ctx, txt, rx + 4, ty, { color: PAL.amber });
+            y += 10;
+          }
         }
       }
       return 'Klick Marker · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–6 Reiter';
@@ -1946,9 +1954,11 @@
       const st = view.state, ship = st.ship || {}, inv = st.inventory || {}, sup = st.support || {};
       const rect = { x: 10, y: 26, w: 404, h: 292 };
       const rs = Object.assign({}, rect, { y: rect.y + H.szeneRandOben(view, rect.y) });   // SUND-02b UI2: Leisten unter der Szenenzeile (ohne Sim-Szene 0)
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : [] });
+      // SUND-04a-1 A (Review D-S4): die Zoom-Anzeige rechts oben ist ein Hindernis für die Kartenlabels (Randpfeil-Labels weichen aus)
+      const zoomY = Math.max(rect.y + 3, H.szeneUnten(view) + 2);
+      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) });
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
-      R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, Math.max(rect.y + 3, H.szeneUnten(view) + 2), { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
+      R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, zoomY, { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
       this.drawFracht(ctx, view, rs);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
       this.drawLpscan(ctx, view, rs);   // SL7b: Landepunkt scannen (Karte kommt auf den Planungstisch)
       this.drawZonenscan(ctx, view, rs);   // SL7a: Verzerrungen scannen
