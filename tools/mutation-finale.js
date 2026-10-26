@@ -79,7 +79,7 @@ const MUTATIONEN = [
   [G, "else if (!fnk && this.sentFinaleKey) { world.finale = null; this.sentFinaleKey = null; }", "else if (!fnk && this.sentFinaleKey) { this.sentFinaleKey = null; }", 'kein Löschsignal'],
   [G, "if (fnk && fnk !== this.sentFinaleKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook)", "if (fnk && fnk !== this.sentFinaleKey)", 'Block auch in den großen Snapshots'],
   [G, "if (fnk && fnk !== this.sentFinaleKey && !includeAsteroids", "if (fnk && !includeAsteroids", 'Block in jedem Snapshot (nicht nur bei Änderung)'],
-  [G, "absicht: 'shop', finale: 'shop',", "absicht: 'shop', finale: 'helm',", 'Befehl finale.* an der falschen Konsole'],
+  [G, "loadout: 'transfer', finale: 'shop' };", "loadout: 'transfer', finale: 'helm' };", 'Befehl finale.* an der falschen Konsole'],
   [G, "op === 'bestaetigen' ? Finale.bestaetigen(this) : Finale.ablehnen(this);", "op === 'bestaetigen' ? Finale.waehlen(this) : Finale.ablehnen(this);", 'Bestätigen wirkt wie Anfragen'],
   [G, "if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'finaleAntwort', pid: p.id, op, ok: !r }", "if (false) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'finaleAntwort', pid: p.id, op, ok: !r }", 'keine Antwort an den Absender'],
   [P, "CMD_FINALE: ['finale.waehlen', 'finale.bestaetigen', 'finale.ablehnen'],", "CMD_FINALE: ['finale.waehlen', 'finale.bestaetigen', 'finale.ablehnen', 'finale.start'],", 'Protokoll: zusätzlicher Finale-Befehl'],

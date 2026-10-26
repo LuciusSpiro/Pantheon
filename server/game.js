@@ -69,7 +69,7 @@ const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', finale: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -489,7 +489,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFinaleKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -703,7 +703,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFinaleKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -714,7 +714,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFinaleKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -729,7 +729,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFinaleKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
