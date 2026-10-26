@@ -59,3 +59,19 @@ Gelände Rom-Außenposten (Hinweis Koordinator): `kits.gelaende` je_art top `sto
 Besitz-Paletten (`raubzug`, `rostmeute`, `kontor`, `konkordat`) **nicht geändert**: die artbezogene Palette `nord_aussenposten` überschreibt sie für Außenposten Germanen, und Schiffe und Ruinen bleiben auf den Besitz-Paletten. Eisenwald und Methalle sehen dadurch anders aus (erlaubt).
 
 Gates: siehe Bericht an den Koordinator.
+
+## Nachtrag 6M und Befunde (Stand Abschluss 6D)
+
+Merges (ohne Konflikt): Voxelwerk `ort01-m` (`0bf786d`) und `ort01-m2` (`8aef8fb`) in `ort01-int`, Spiel `ort01-m` (`fe07f7c`, `assets/manifest/ort-6m.json`). Die Paletten `station_esse`, `rom_station`, `nord_aussenposten` und die Stimmungen sind durch die Merges unverändert.
+
+Punkt 6 (Verdrahtung nach `PAKET6M-VERDRAHTUNG.md`, Commit `12ca2f4`): `deckung_props.aussenposten` (Fasszelle, Blasebalg, Glutspeicher, Leitfeuer), `deko/germanen.json` für Außenposten-Platztypen auf Glutleitung, Kabelrolle, Runenpoller. `orte-sperre.mjs`: Holzwerkbank-Ausnahme nur noch Station, neu verboten `kette`, `gemein/fass`, `feuerschale`, Mutationsproben. Station-Altstücke (fass, kette, feuerschale in kreuzung, zellen, lager, herzstueck, reaktorraum, quartiere) bleiben als benannte Ausnahme für Station.
+
+Befund 8 (braunes Holzfass) gelöst: Es kam aus der Besitz-Streuung (`paletten/rostmeute.json` → `streu`: fass, kette, werkzeug, feuerschale), die `kit.js` in Station und Außenposten zog. Filter in `kit.js` nur für Station und Außenposten (Ruine und Schiff unverändert), Commit `5a8fdbd`.
+
+Befund 1/2 (Amber und Glut, offen): Messung im Rom-Kommando (Wandband, glow2). Die Rinne ist im Bild etwa 5-fach dunkler als die berechnete Emission und verschiebt sich zu Grau-Beige. Bei Emissionsskala 3,0 wird sie rosa-beige, bei 0,45 dunkelbraun. Ursache ist nach den Messungen nicht allein das Tonemapping (NeutralToneMapping kompromiert Hell-Töne, Befund bestätigt). Ein Spiegelanteil auf Emissionsflächen (`material.specularColor` / `specularColorBlended` = 0 nach `lights_physical_fragment`) wurde getestet: Der Shader kompilierte nicht (Timeout bei der Aufnahme), nicht weiter verfolgt. Alle Shader- und Stimmungsexperimente sind zurückgenommen. Nächster Schritt: die Emissionsfarbe im Kit-Mesher nachmessen (Vertex-Farbe der `emit`-Flächen gegen den Modellwert) und den Spiegelanteil mit `specularColorBlended` an der richtigen Stelle (nach `lights_fragment_end`) testen.
+
+Gelände Rom-Außenposten: `kits.gelaende` top `stone` und `steinDichte` 0,05 (neuer Terrain-Parameter, Standard unverändert). Im Bild rund `#93908A` unter `planet_day`, also zu grau, der Warmton fehlt. Offen.
+
+Gates (Commits `e5c7d39` Baseline, `8b86d9e` assets): `hash-baseline --compare` Karten 72/72, `layout` 120/120, `deko` 120/120 und `deko_zellen` 60/60 nach Neuschreiben mit Grund. Die Baseline ist für `deko_zellen` und `deko` gegenüber main damit NICHT mehr der main-Stand: 30/60 bzw. 30/120 Außenposten-Germanen-Einträge geändert (Paket 6M). `npm test` Exit 0 ohne FEHLER. `check` grün. `check:assets` 0 Fehler, 48 Warnungen (vorher 46). `snap:mess` grün (Worst Case 11661 B). Golden: 60 Traces frisch gegen `Pantheon-main` (`--all --seeds 10`): alle 0 %, GOLDEN GRÜN.
+
+Screenshots: `shots` im Scratchpad `6dtools\final\` (Seeds 1–2, Rom und Germanen, Station und Außenposten, kommando/reaktor/lager/zellen/quartier, `uebersicht`, `lp/helix.station`, `lp/methalle.siedlung`). Stand: Außenposten Germanen Lager zeigt Glut-Fenster und die Deckung in Eisen (Fass verschwunden); Germanen-Station Kommando zeigt keine sichtbare Glut mehr (offen).
