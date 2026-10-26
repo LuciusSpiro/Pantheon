@@ -26,7 +26,7 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.
 
 const BS = 'server/sim/faden-bausteine.js', PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', RB = 'server/sim/regie-befehle.js', RE = 'server/sim/reise-ereignis.js', GM = 'server/game.js', LA = 'server/sim/lage-ausschnitt.js',
   LP = 'server/sim/lage-prompt.js', LM = 'server/sim/lage-mock.js', KL = 'server/sim/kriegslage.js', WI = 'server/weltsim/wirkungen.js',
-  DW = 'content/faeden/werte.json', DB = 'content/faeden/beats.json';
+  DW = 'content/faeden/werte.json', DB = 'content/faeden/beats.json', SC = 'content/schema/faden-vorlage.schema.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // ---- Pruefer der Vorlage
@@ -79,6 +79,8 @@ const MUTATIONEN = [
   [KL, "if (Faden.aktiv(game) && gueltig.some((w) => w && w.typ === 'haltung_aenderung')) {", "if (false) {", 'Haltung fuer unbekannte NSC zaehlt im Tick als angewandt (B-S2)'],
   [FA, "  for (const v of verworfen) logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'haltung_aenderung', plan: v.wirkung, fehler: [v.grund] });\n  return { gueltig, verworfen };", "  return { gueltig, verworfen };", 'verworfene Haltung im Tick steht nicht im Regie-Logbuch (B-S2)'],
   [FA, "nat(b.nr, 999999), nscNr = nat(b.nsc, 999999);", "nat(b.nr, 1e9), nscNr = nat(b.nsc, 1e9);", 'Leser: Zaehler nr und nsc bis 1e9 (B-K2)'],
+  [PR, "else if (k === 'text_key' && !(typeof p[k] === 'string' && TEXT_KEY.test(p[k]))) out.push(", "else if (false) out.push(", 'text_key im Beat-Parameter: Muster im Pruefer aus (B-M1; das Schema greift vorher)'],
+  [SC, "\"maxProperties\": 6,\n            \"properties\": {\n              \"text_key\": {\n                \"type\": \"string\",\n                \"maxLength\": 40,\n                \"pattern\": \"^[a-z0-9_]{1,40}$\"", "\"maxProperties\": 6,\n            \"properties\": {\n              \"text_key\": {\n                \"type\": \"string\",\n                \"maxLength\": 40", 'text_key im Beat-Parameter: Muster im Schema aus (B-M1)'],
   [PR, "if (!EREIGNIS.test(e)) out.push(", "if (false) out.push(", 'Katalog: Beat-Typ mit ungueltigem Gedaechtnis-Ereignis wird nicht gemeldet (B-M1)'],
   [FA, "if (cat.braucht && cat.braucht.wahrheit && f.nsc.wahrheit) f.nsc.wahrheit.offenbart = true;", "", 'Enthuellung setzt die Wahrheit nicht'],
   [FA, "if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) {", "if (false) {", 'Leser klemmt die Obergrenze nicht'],

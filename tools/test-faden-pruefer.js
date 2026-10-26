@@ -84,7 +84,7 @@ const REGELN = [
   ['Option mit Wirkung ausserhalb der erlaubten (flotte_verlust)', (v) => { beat(v, 'b_bitte').optionen[0].folge = [{ typ: 'flotte_verlust', grund: 'x' }]; }, 'FOLGE_UNGUELTIG'],
   ['Ausgang mit unbekanntem Ruf-Grund', (v) => { beat(v, 'b_notruf').aus.gelungen.folge = [{ typ: 'ruf_aenderung', grund: 'gibt_es_nicht' }]; }, 'FOLGE_UNGUELTIG'],
   ['unbekannter Parameter am Beat', (v) => { beat(v, 'b_bitte').parameter.zauberei = 'ja'; }, 'PARAMETER'],
-  ['Parameter mit Objekt als Wert', (v) => { beat(v, 'b_bitte').parameter.text_key = { a: 1 }; }, 'PARAMETER'],
+  ['Parameter mit Objekt als Wert (das Schema greift vor dem Pruefer)', (v) => { beat(v, 'b_bitte').parameter.text_key = { a: 1 }; }, 'FORM'],
   ['Abstand ausserhalb 2 bis 4 (erweitern ist verboten)', (v) => { v.abstand = { min: 1, max: 5 }; }, 'ABSTAND'],
   ['Abstand min groesser als max', (v) => { v.abstand = { min: 4, max: 2 }; }, 'ABSTAND'],
   ['unbekanntes Volk', (v) => { v.volk_erlaubt = ['rom', 'atlantis']; }, 'VOLK'],
@@ -197,6 +197,40 @@ section('text_key und Beat-Katalog gegen das Gedaechtnis-Schema (Review B-M1)', 
   ok(!hat(gut, 'TEXT_KEY'), 'gueltiger text_key (a-z, 0-9, _): kein TEXT_KEY');
   const lang = vorlageTest(); beat(lang, 'b_bitte').aus.gescheitert.text_key = 'a'.repeat(41);
   ok(codes(lang).some((c) => c === 'TEXT_KEY' || c === 'FORM'), 'text_key mit 41 Zeichen: TEXT_KEY');
+  // B-M1 (Prueferbefund 2): text_key im Beat-PARAMETER folgt demselben Muster wie im Ausgang (nicht nur die Laenge)
+  for (const schlecht of ['Bitte_Mission', 'bitte-mission', 'bitte mission', 'ä_mission', 5]) {
+    const v = vorlageTest(); beat(v, 'b_bitte').parameter.text_key = schlecht;
+    ok(codes(v).some((c) => c === 'TEXT_KEY' || c === 'FORM'), `text_key ${JSON.stringify(schlecht)} im Beat-Parameter: abgelehnt (Muster ^[a-z0-9_]{1,40}$; Schema und Pruefer)`);
+    ok(!D.registriere(Object.assign(v, { id: 'tkp_' + Math.random().toString(36).slice(2, 8) })).ok, '    und die Vorlage kommt nicht ins Register');
+  }
+  for (const schlecht of ['a'.repeat(41), '']) {
+    const v = vorlageTest(); beat(v, 'b_bitte').parameter.text_key = schlecht;
+    ok(codes(v).some((c) => c === 'TEXT_KEY' || c === 'PARAMETER' || c === 'FORM'), `text_key ${schlecht.length} Zeichen im Beat-Parameter: abgelehnt`);
+  }
+  const gutP = vorlageTest(); beat(gutP, 'b_bitte').parameter.text_key = 'bitte_mission_2';
+  ok(!hat(gutP, 'TEXT_KEY') && !codes(gutP).includes('FORM'), 'gueltiger text_key im Beat-Parameter (a-z, 0-9, _): kein TEXT_KEY, keine Formfehler');
+  // Die beiden Schichten einzeln: das Schema allein (Formpruefung) und der Pruefer allein (Schema-Pruefung kurzgeschlossen).
+  // Ohne diese Trennung wuerde eine Regel-Mutation in einer der Schichten unbemerkt bleiben, weil die andere sie abfaengt.
+  {
+    const WS = require('../server/weltstand.js');
+    const S = JSON.parse(require('fs').readFileSync(require('path').join(__dirname, '..', 'content', 'schema', 'faden-vorlage.schema.json'), 'utf8'));
+    const schlechteTK = ['Bitte_Mission', 'bitte-mission', 'bitte mission', 5];
+    for (const schlecht of schlechteTK) {
+      const v = vorlageTest(); beat(v, 'b_bitte').parameter.text_key = schlecht;
+      ok(WS.fallbackValidate(v, S).some((t) => /text_key/.test(t)), `Schema (Schicht 1): text_key ${JSON.stringify(schlecht)} im Beat-Parameter wird abgelehnt`);
+    }
+    const vg = vorlageTest(); beat(vg, 'b_bitte').parameter.text_key = 'bitte_mission_2';
+    ok(!WS.fallbackValidate(vg, S).some((t) => /text_key/.test(t)), 'Schema (Schicht 1): gueltiger text_key im Beat-Parameter wird nicht abgelehnt');
+    const original = WS.fallbackValidate;
+    try {
+      WS.fallbackValidate = () => [];   // Schicht 1 kurzschliessen: nur der Pruefer (Schicht 2) entscheidet
+      for (const schlecht of schlechteTK) {
+        const v = vorlageTest(); beat(v, 'b_bitte').parameter.text_key = schlecht;
+        ok(Pruefer.pruefeVorlage(v).fehler.some((t) => t.startsWith('TEXT_KEY')), `Pruefer (Schicht 2): text_key ${JSON.stringify(schlecht)} im Beat-Parameter -> TEXT_KEY`);
+      }
+      ok(!Pruefer.pruefeVorlage(vg).fehler.some((t) => t.startsWith('TEXT_KEY')), 'Pruefer (Schicht 2): gueltiger text_key im Beat-Parameter -> kein TEXT_KEY');
+    } finally { WS.fallbackValidate = original; }
+  }
   ok(Pruefer.katalogFehler().length === 0, 'der Beat-Katalog passt zum Gedaechtnis-Schema');
   const B = D.BEATS;
   B['Mit-Bindestrich'] = Object.assign({}, B.bitte, { baustein: 'bitte' });

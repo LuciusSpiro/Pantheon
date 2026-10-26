@@ -163,7 +163,14 @@
           },
           "parameter": {
             "type": "object",
-            "maxProperties": 6
+            "maxProperties": 6,
+            "properties": {
+              "text_key": {
+                "type": "string",
+                "maxLength": 40,
+                "pattern": "^[a-z0-9_]{1,40}$"
+              }
+            }
           },
           "gefahr": {
             "type": "boolean"
