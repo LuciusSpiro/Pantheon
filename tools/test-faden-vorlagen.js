@@ -327,6 +327,26 @@ async function main() {
     ok(!!f && (r.seqs.get(f.id) || []).join(' > ') === 'v_bitte > v_notruf > v_abschluss', 'ihre Beats in der Reihenfolge der Daten');
   }
 
+  console.log('\nWarteschlange der Spontanhilfe: eine zweite Hilfe wartet, statt zu scheitern, und rueckt nach');
+  {
+    // Zwei Faeden stehen am Beat „spontan“ (Testzustand: die Beats laufen, der Bot spielt sie nicht); die Hilfe des ersten Fadens laeuft, der zweite wartet
+    const g = neu(111);
+    const a1 = notrufOhneOrt(g, 'notruf_pirat_frachter', '0403', 'gelungen');
+    Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'dankbarer_captain', parameter: { angebot: a1.nr } });
+    const a2 = notrufOhneOrt(g, 'notruf_havarie_reaktor', '0203', 'gelungen');
+    Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'dankbarer_captain', parameter: { angebot: a2.nr } });
+    const [f1, f2] = liste(g);
+    for (const f of [f1, f2]) { f.beat = 2; f.phase = 'laeuft'; f.zaehler = 0; f.laufend = { beat: 'b_spontan', n: 0, seit: 0 }; }   // Testzustand: der Beat „spontan“ laeuft
+    const r1 = SZ.starten(g, { art: 'spontanhilfe', fadenId: f1.id, beatId: 'b_spontan', nsc: f1.nsc });
+    ok(r1.ok && r1.grund === null && g.fadenHilfe && g.fadenHilfe.fadenId === f1.id, 'die erste Spontanhilfe laeuft');
+    const r2 = SZ.starten(g, { art: 'spontanhilfe', fadenId: f2.id, beatId: 'b_spontan', nsc: f2.nsc });
+    ok(r2.ok && r2.grund === 'WARTET' && (g.fadenHilfeWarte || []).length === 1, 'die zweite Spontanhilfe wartet in der Schlange (kein Scheitern: HILFE_LAEUFT entfaellt)');
+    Faden.beatAusgang(g, f1.id, 'gelungen');
+    SZ.update(g);
+    ok(!!g.fadenHilfe && g.fadenHilfe.fadenId === f2.id, 'nach dem Ende der ersten Hilfe rueckt die zweite nach');
+    ok((g.fadenHilfeWarte || []).length === 0, 'die Schlange ist leer');
+  }
+
   console.log(`\n${n - fails}/${n} Pruefungen ok`);
   if (fails) { console.log('FADEN-VORLAGEN FEHLER: ' + fails); process.exit(1); }
   console.log('FADEN-VORLAGEN OK');
