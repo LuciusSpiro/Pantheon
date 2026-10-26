@@ -263,6 +263,7 @@
     }
   },
   "stimmung": {
+    "aussenposten": "rom_aussen",
     "station": "hall_rom",
     "ruine": "ruin_rom"
   },

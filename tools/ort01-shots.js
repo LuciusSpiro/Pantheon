@@ -4,6 +4,7 @@
 //   node tools/ort01-shots.js [--arten station,aussenposten] [--bauweisen rom,germanen|auto] [--seeds 1,2,3,4,5,6,7,8,9,10]
 //                             [--lp helix.station,kesh.grabung]   statt Seeds: bestehende Landepunkte laden (Debug `lp hin <id>`), Ausgabe <out>/lp/<id>/
 //                             [--out shots/ort01] [--port 3386] [--raeume kommando,lager] [--warte 900] [--hud] [--uebersicht] [--root <ordner>] [--v]
+//   Station: die Spielerfigur steht im Raum (Raummitte, Sitzkamera). --startpunkt: wie früher am Startpunkt (Raum evtl. außerhalb der Teamsicht, dann gedämpft).
 //
 // Je Kartenart und Bauweise startet das Werkzeug einen frischen Server (eigene Datenordner, ohne .env, ohne Live-LLM) und einen
 // headless Chromium im Direktstart (?render=voxel&arena=away&art=…). Weitere Seeds laden über den Debug-Befehl `buehne`. Für jeden
@@ -35,6 +36,7 @@ const MIT_HUD = process.argv.includes('--hud');   // Standard: die 2D-Oberfläch
 const BESITZ = arg('besitz', 'rostmeute');
 const GEGNER = arg('gegner', null);   // ORT-01 4b: Fraktion, die die Karte besetzt (Stationskampf), z. B. rom
 const ZUSTAND = arg('zustand', 'intakt');
+const STARTPUNKT = process.argv.includes('--startpunkt');   // ORT-01 Glut: Station standardmäßig Figur im Raum; --startpunkt = altes Verhalten
 const LPS = arg('lp', null) ? arg('lp', '').split(',') : null;   // bestehende Landepunkte (Bestandskarten), z. B. helix.station
 
 function playwright() {
@@ -88,7 +90,14 @@ async function mitBrowser(art, bw, fn) {
 // Außenposten-Räume: Gebäudehüllen senken sich nur, wenn eine Figur im Raum steht; dort bleibt die Figur im Raum (Standardkamera), nur die Station nutzt die Sitzkamera.
 async function raumAnsicht(page, art, p, start) {
   const [x, y, w, h] = p.rect;
-  if (art === 'station') { await parken(page, start); await kamera(page, x + w / 2, y + h / 2, 10 + Math.max(w, h) * 0.45, 38); }
+  if (art === 'station') {
+    // ORT-01 Glut: Standard ist die Spielerfigur IM Raum (Raummitte), damit Nebel und Sicht dem Spielerlebnis entsprechen.
+    // --startpunkt: wie bisher am Startpunkt parken (dann liegt der Raum oft außerhalb der Teamsicht).
+    if (STARTPUNKT) await parken(page, start);
+    else await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]);
+    await page.waitForTimeout(700);
+    await kamera(page, x + w / 2, y + h / 2, 10 + Math.max(w, h) * 0.45, 38);
+  }
   else { await page.evaluate(() => VoxelRender.renderer.setSeat(null)); await page.evaluate(([cx, cy]) => __game.dbg(`tp ${cx} ${cy}`), [Math.floor(x + w / 2), Math.floor(y + h / 2)]); }
 }
 async function kamera(page, cx, cz, hoch, fov, uebersicht) {

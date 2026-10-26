@@ -182,7 +182,7 @@
    ],
    "color": {
     "role": "glow2",
-    "emit": 0.6
+    "emit": 0.35
    },
    "jitter": false
   },
