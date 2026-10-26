@@ -26,6 +26,7 @@
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
 const Bausteine = require('./faden-bausteine.js');
+const FrachtDaten = require('./faden-fracht.js');   // SUND-04a-2 P1: Frachtauftrag light (Ware als Feld des Fadens)
 
 const W = D.WERTE, B = D.BEATS, N = D.NAMEN, H = D.HALTUNG;
 const regie = () => require('./regie-befehle.js');   // lazy: regie-befehle.js, kriegslage.js und reise-ereignis.js laden dieses Modul
@@ -304,6 +305,7 @@ function beatAusgang(game, fadenId, ausgang) {
   folgenAnwenden(game, f, o.folge);
   gedaechtnisEintragen(f.nsc, ws.tickZahl, beat.typ + '_' + ausgang, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
+  delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
   if (cat.abschluss) {
     f.phase = 'abgeschlossen';
     f.ausgang = { art: ausgang, status: f.nsc.status, tick: ws.tickZahl };
@@ -317,6 +319,17 @@ function beatAusgang(game, fadenId, ausgang) {
   return { ok: true, faden: f };
 }
 
+// SUND-04a-2 P1: die Szene ist aufgeloest OHNE Ausgang (Unterbrechung durch eine Sim-Szene, Andocken, Ladung): der Beat steht wieder aus und ist sofort faellig (er wurde nicht gespielt)
+function beatZurueck(game, fadenId) {
+  const F = zustandVon(game);
+  const f = F && F.liste.find((x) => x.id === fadenId);
+  if (!f || f.phase !== 'laeuft') return { ok: false, grund: 'kein laufender Beat' };
+  const beat = D.vorlage(f.vorlage).beats[f.beat];
+  f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand;
+  delete f.fracht;
+  melde(game, 'beat_zurueck', f.id, `Beat ${beat.id} steht wieder aus (Szene aufgelöst, ohne Ausgang)`, { faden: f.id, beat: beat.id });
+  return { ok: true, faden: f };
+}
 // B-S1: ein Hinweis gilt erst, wenn der Baustein ihn BESTAETIGT hat (die Crew hat ihn gesehen). Wirft der Baustein, laeuft die Frist ab oder endet der Beat ohne Bestaetigung, zaehlt er nicht.
 function hinweisGezeigt(game, fadenId, hinweisId) {
   const F = zustandVon(game);
@@ -430,6 +443,11 @@ function leseFaden(x) {
     const o = istObjekt(x.ausgang) ? x.ausgang : {};
     f.ausgang = { art: W.ausgaenge.includes(o.art) ? o.art : 'gescheitert', status: W.status.includes(o.status) ? o.status : nsc.status, tick: nat(o.tick, 1e9) };   // kein Faden ohne Ausgang
   }
+  if (x.fracht !== undefined) {   // SUND-04a-2 P1: Ware an Bord (nur mit laufendem Beat „fracht“; sonst verworfen)
+    const fr = FrachtDaten.leseFracht(x.fracht);
+    if (!fr || phase !== 'laeuft') return { fehler: `${x.id}: Fracht unbrauchbar` };
+    f.fracht = fr;
+  }
   const e = P.pruefeFaden(f);
   return e.length ? { fehler: `${x.id}: ${e[0]}` } : { faden: f };
 }
@@ -450,8 +468,10 @@ function lesen(b) {
   }
   while (F.liste.length > W.faeden_gesamt_max) { const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen'); F.liste.splice(i < 0 ? 0 : i, 1); }
   for (const f of F.liste) { nr = Math.max(nr, idNr(f.id)); nscNr = Math.max(nscNr, idNr(f.nsc.id)); }
+  // SUND-04a-2 P1: ein Szenen-Beat, der beim Speichern noch lief, steht nach dem Laden wieder aus (die Szene ist nicht speicherbar)
+  for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) { f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; delete f.fracht; }
   F.nr = nr; F.nsc = nscNr;
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, kehrtFeindlichWieder, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, kehrtFeindlichWieder, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };

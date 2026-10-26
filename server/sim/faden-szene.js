@@ -1,0 +1,238 @@
+'use strict';
+// SUND-04a-2 P1: Faden-Szenen der Freien Fahrt Sund (Action-Layer). Ein Beat mit Szene (Katalog: beats.json, Feld szene) startet eine Szene: der Spielleiter hat den Beat
+// gewaehlt (faden_weiter), die Szene macht die Mechanik, die Daten (content/faeden/szenen-werte.json) die Zahlen und Texte. Eigener Pfad, NICHT der Labor-Pfad: der Szenen-Katalog
+// laeuft in der Freien Fahrt nicht (Labor-Start speichert m1–m3, Prüfer lehnt 21 von 27 Orten ab), und eine Faden-Szene ist nicht speicherbar.
+//
+//   starten(game, { art, fadenId, beatId, nsc?, parameter? }) -> { ok, grund? }
+//       art verfolgung | raumschlacht | befreiung (Vorlauf, dann Kampf in der Warteschlange: nie zwei Szenen übereinander, nie bei laufender Sim-Szene)
+//       art spontanhilfe: der Beat wartet auf das nächste Gefecht (Sim-Szene oder Raumschlacht); einmal je Gefecht gewürfelt
+//   update(game, dt)   Takt (aus game.step, nur wenn eine Faden-Szene, eine Warteschlange oder ein Beat „spontanhilfe“ da ist)
+//   andocken(game)     Andocken = Szenenwechsel (Hook: game.js, missionEvent docked): die Szene endet gescheitert, die Warteschlange steht wieder aus
+//   Ausgaenge: gelungen | gescheitert über faden.beatAusgang; Unterbrechung durch eine Sim-Szene und Warteschlange-Abbau über faden.beatZurueck (ohne Ausgang)
+//   Vorwarnung: Funk vor dem Eintreffen, mindestens vorlauf_min_s (8 s). Keine Optionen bei Gefahr (Katalog gefahr, Prüfer).
+//   Zufall: eigener Strom (reise-ereignis.strom mit Salz aus den Daten), nie game.rng, nie der Strom der Sim.
+//   Verbündeter (spontanhilfe): Flotte.aufstellen (EK4, Verbündete); Crew-Geschosse treffen nur space.enemies, Verbündete sind unverwundbar (SUND-02b E). Er verschwindet am Ende.
+//
+// Zustand (nur Laufzeit, nicht gespeichert): game.fadenSzene { id, fadenId, beatId, art, nsc, phase: vorlauf | kampf, ab, start, szene, tag, sek },
+//   game.fadenWarte [ { fadenId, beatId, art, nsc, parameter, szene } ], game.fadenHilfe { fadenId, beatId, nsc, schiff, name, versucht, n, ally: { tag, kampf } | null }.
+// Abweichung (Auftrag, Entscheidung): geiseln_befreien am Boden entfaellt; befreiung ist eine Raumszene mit Wachschiffen (Boden-Szenen laufen in der Freien Fahrt nicht).
+const Faden = require('./faden.js');
+const Bausteine = require('./faden-bausteine.js');
+const Fracht = require('./faden-fracht.js');
+const Verfolgung = require('./verfolgung.js');
+const Zielsysteme = require('./zielsysteme.js');
+const Reise = require('./reise-ereignis.js');
+const DATEN = require('../../content/faeden/szenen-werte.json');
+
+const W = Object.fromEntries(Object.entries(DATEN.werte).map(([k, v]) => [k, v.wert]));
+const T = DATEN.texte;
+const ARTEN = W.arten;
+const SPRECHER = T.sprecher;
+
+let spaceMod = null, flotteMod = null;   // lazy (Zirkelbezug space -> faden-szene über game.js)
+const space = () => spaceMod || (spaceMod = require('./space.js'));
+const flotte = () => flotteMod || (flotteMod = require('./flotte.js'));
+
+const fmt = (t, v) => String(t == null ? '' : t).replace(/\{(\w+)\}/g, (m, k) => (v && v[k] != null ? v[k] : m));
+const funk = (game, text) => { if (text) game.emit('radio', { from: SPRECHER, text: String(text), lage: 1 }); };
+// Gate: FAEDEN=1 und Freie Fahrt. Gestartet werden Szenen nur durch einen Beat, und einen Beat startet nur der Spielleiter (faden_weiter); fällt er aus,
+// laufen die Fristen nicht ab (faden.js B-S3), eine begonnene Szene endet wie jede Szene, wenn der Beat schon weg ist.
+const aktiv = (game) => Faden.aktiv(game);
+const crewN = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+const nachCrew = (map, n) => Number(map[String(Math.min(3, Math.max(1, n)))]) || Number(map['1']) || 0;
+const pick = (n) => (n ? { id: n.id, name: n.name, schiff: n.schiff, schiffsklasse: n.schiffsklasse, fraktion: n.fraktion } : null);
+// Zufall: eigener Strom, Zähler im Aufrufer (nie game.rng)
+function wuerfel(game, n) {
+  const seed = ((Number(game.weltsim.zustand.seed) | 0) ^ 0x48494c46) >>> 0;   // „HILF“
+  return Reise.strom(seed, n, W.spontanhilfe_salz)();
+}
+// Der Beat läuft noch (Frist und Andocken haben ihn nicht schon beendet)
+function laeuft(game, fadenId, beatId) {
+  const F = Faden.zustandVon(game); const f = F && F.liste.find((x) => x.id === fadenId);
+  return !!(f && f.phase === 'laeuft' && f.laufend && f.laufend.beat === beatId);
+}
+const verfolgungLaeuft = (game) => Verfolgung.aktiv(game) && !Verfolgung.ausgang(game);
+const frei = (game) => !game.simSzene && !game.fadenSzene && !verfolgungLaeuft(game) && !game.ship.docked;
+
+// ---------- Einplanen ----------
+function starten(game, o) {
+  const q = o || {};
+  if (!aktiv(game)) return { ok: false, grund: 'INAKTIV' };
+  if (!ARTEN.includes(q.art)) return { ok: false, grund: 'ART_UNBEKANNT' };
+  if (typeof q.fadenId !== 'string' || !q.fadenId) return { ok: false, grund: 'FADEN_FEHLT' };
+  if (typeof q.beatId !== 'string' || !q.beatId) return { ok: false, grund: 'BEAT_FEHLT' };
+  if (!game.ship) return { ok: false, grund: 'SCHIFF_FEHLT' };   // angedockt wird eingereiht, nicht abgewiesen: die Szene beginnt erst nach dem Ablegen (frei)
+  if (q.art === 'spontanhilfe') return hilfeEinplanen(game, q);
+  const warte = game.fadenWarte || (game.fadenWarte = []);
+  if (warte.length >= W.warteschlange_max) return { ok: false, grund: 'WARTESCHLANGE_VOLL' };
+  warte.push({ fadenId: q.fadenId, beatId: q.beatId, art: q.art, nsc: pick(q.nsc), parameter: Object.assign({}, q.parameter || {}), szene: game.ship.scene });
+  naechsteStarten(game);
+  return { ok: true, grund: null };
+}
+
+// ---------- Warteschlange und Beginn ----------
+function naechsteStarten(game) {
+  if (game.fadenWarte && game.fadenWarte.length) game.fadenWarte = game.fadenWarte.filter((it) => laeuft(game, it.fadenId, it.beatId));   // ein Eintrag, dessen Beat schon beendet ist (Frist), wird verworfen
+  if (!game.fadenWarte || !game.fadenWarte.length || !frei(game)) return;
+  beginnen(game, game.fadenWarte.shift());
+}
+function beginnen(game, it) {
+  game.fadenSzeneN = (game.fadenSzeneN || 0) + 1;
+  const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek };
+  game.fadenSzene = fs;
+  const n = (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
+  const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
+  const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
+  funk(game, fmt(T.vorwarnung[it.art], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
+  return fs;
+}
+
+// Kampf beginnt (nach dem Vorlauf): Gegner oder das Zielschiff der Verfolgung
+function kampfBeginn(game, fs) {
+  fs.phase = 'kampf'; fs.start = game.time;
+  const L = game.ship;
+  if (fs.art === 'verfolgung') {
+    const nsc = fs.nsc || {};
+    const klasse = W.verfolgung.klassen[nsc.schiffsklasse] || W.verfolgung.standard;
+    const z = Verfolgung.starten(game, { klasse, volk: nsc.fraktion || undefined, name: nsc.schiff || undefined, wiederholung: false });
+    if (!z) return enden(game, fs, 'gescheitert', null);
+    return null;
+  }
+  const C = W[fs.art]; const n = nachCrew(C.anzahl, crewN(game));
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2 + 0.4;
+    if (!space().spawnEnemy(game, C.klasse, { x: L.x + Math.cos(a) * C.ring, y: L.y + Math.sin(a) * C.ring, tag: fs.tag, volk: C.volk })) break;
+  }
+  return null;
+}
+
+// ---------- Ende ----------
+// Aufräumen: Gegner der Szene und das Zielschiff der Verfolgung gehen, der Verbündete des Gefechts bleibt bis zum Ende seines Gefechts (hilfeTakt)
+function aufraeumen(game, fs) {
+  const sp = game.space;
+  const vf = fs.art === 'verfolgung' ? sp.verfolgung : null;   // nur die Verfolgung dieser Szene, nie eine fremde
+  const weg = sp.enemies.filter((e) => e.tag === fs.tag || (vf && e.id === vf.ziel));
+  if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));
+  if (weg.some((e) => e.id === game.ship.target)) game.ship.target = null;
+  if (vf) { sp.verfolgung = null; if (!game.simSzene) Zielsysteme.szeneAn(game, false); }
+  game.fadenSzene = null;
+}
+// Ende der Szene mit Ausgang (gelungen, gescheitert) oder ohne (Unterbrechung, siehe unterbrechen). textKey: Funk-Text (null = keiner)
+function enden(game, fs, ausgang, textKey) {
+  const name = fs.nsc ? fs.nsc.name : '';
+  const txt = textKey ? T[textKey] : (ausgang === 'gelungen' ? T.gelungen[fs.art] : T.gescheitert[fs.art]);
+  aufraeumen(game, fs);
+  funk(game, fmt(txt, { name }));
+  if (laeuft(game, fs.fadenId, fs.beatId)) Faden.beatAusgang(game, fs.fadenId, ausgang);
+  naechsteStarten(game);
+}
+// Eine Sim-Szene hat Vorrang: die Faden-Szene endet OHNE Ausgang, der Beat steht wieder aus (wird neu angeboten)
+function unterbrechen(game, fs) {
+  aufraeumen(game, fs);
+  Faden.beatZurueck(game, fs.fadenId);
+  funk(game, T.unterbrochen);
+}
+// Andocken: eine laufende Szene endet als Szenenwechsel (gescheitert). Die Warteschlange bleibt: sie wartet, bis das Schiff wieder frei ist (frei) oder der Sektor wechselt (update)
+function andockenEnde(game) {
+  const fs = game.fadenSzene;
+  if (fs) enden(game, fs, 'gescheitert', 'szenenwechsel');
+}
+function leereWarteschlange(game) {
+  const warte = game.fadenWarte || [];
+  game.fadenWarte = [];
+  for (const it of warte) Faden.beatZurueck(game, it.fadenId);
+}
+
+// Takt eines laufenden Kampfes: Ausgang nach Art (Gegner gehen oder fallen, Zielschiff gestellt/zerstört/entkommen)
+function kampfTakt(game, fs) {
+  if (!laeuft(game, fs.fadenId, fs.beatId)) { aufraeumen(game, fs); naechsteStarten(game); return; }   // Frist oder ein anderer Weg hat den Beat schon beendet
+  if (fs.art === 'verfolgung') {
+    const a = Verfolgung.ausgang(game);
+    if (a === 'gestellt' || a === 'zerstoert') return enden(game, fs, 'gelungen', null);
+    if (a === 'entkommen' || !Verfolgung.aktiv(game)) return enden(game, fs, 'gescheitert', null);
+    return null;
+  }
+  if (!game.space.enemies.some((e) => e.tag === fs.tag)) return enden(game, fs, 'gelungen', null);   // alle zerstört oder abgezogen
+  return null;
+}
+
+// ---------- Verbündeter der Spontanhilfe ----------
+function hilfeEinplanen(game, q) {
+  if (game.fadenHilfe && !laeuft(game, game.fadenHilfe.fadenId, game.fadenHilfe.beatId)) { hilfeWeg(game); game.fadenHilfe = null; }   // ein Beat, der schon beendet ist, blockiert nichts
+  if (game.fadenHilfe) return { ok: false, grund: 'HILFE_LAEUFT' };
+  game.fadenHilfe = { fadenId: q.fadenId, beatId: q.beatId, nsc: q.nsc ? q.nsc.id : null, schiff: q.nsc ? q.nsc.schiff : '', name: q.nsc ? q.nsc.name : '', versucht: null, n: 0, ally: null };
+  return { ok: true, grund: null };
+}
+// Ein Gefecht (Sim-Szene oder Faden-Kampf) ist da: einmal würfeln; der Verbündete erscheint, wenn der Wurf unter der Chance der Haltung liegt
+function wuerfeln(game, h) {
+  h.n++;
+  const npc = Faden.nscVon(game, h.nsc);
+  const p = npc ? Faden.chanceSpontanhilfe(npc) : 0;
+  if (!(wuerfel(game, h.n) < p)) return false;
+  const L = game.ship; const a = h.n * 2.4;   // Platz am Ring der Lerche (deterministisch aus dem Zähler)
+  const tag = 'nsc_' + h.nsc;
+  const es = flotte().aufstellen(game, { tag, kind: W.spontanhilfe.klasse, name: h.schiff, rolle: 'angreifer', von: { x: L.x + Math.cos(a) * W.spontanhilfe.ring, y: L.y + Math.sin(a) * W.spontanhilfe.ring } });
+  if (!es) return false;
+  h.ally = { tag, kampf: h.versucht };
+  funk(game, fmt(T.hilfe_erscheint, { name: h.name }));
+  funk(game, fmt(T.hilfe_eingesetzt, { name: h.name, schiff: h.schiff }));
+  return true;
+}
+function hilfeWeg(game) {
+  const h = game.fadenHilfe;
+  if (!h || !h.ally) return;
+  if (game.space.escorts) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);
+  h.ally = null;
+  if (!game.simSzene && game.flotte) { try { flotte().beenden(game); } catch (e) { if (game.countError) game.countError('faden-hilfe', e); } game.flotte = null; }
+}
+function hilfeTakt(game) {
+  const h = game.fadenHilfe; if (!h) return;
+  if (!laeuft(game, h.fadenId, h.beatId)) { hilfeWeg(game); game.fadenHilfe = null; return; }   // Frist oder Andocken: der Beat ist nicht mehr da
+  const key = game.simSzene ? 'sim' + game.simSzene.id : (game.fadenSzene && game.fadenSzene.phase === 'kampf' ? 'fs' + game.fadenSzene.id : null);
+  if (h.ally && h.ally.kampf !== key) { hilfeWeg(game); game.fadenHilfe = null; Faden.beatAusgang(game, h.fadenId, 'gelungen'); return; }   // das Gefecht ist vorbei: er hat mitgekämpft
+  if (!h.ally && key && h.versucht !== key) { h.versucht = key; wuerfeln(game, h); }
+}
+
+// ---------- Takt ----------
+function update(game) {
+  if (!game.fadenSzene && !(game.fadenWarte && game.fadenWarte.length) && !game.fadenHilfe) return;
+  if (game.ship.docked && game.fadenSzene) andockenEnde(game);
+  else if (game.simSzene && game.fadenSzene) unterbrechen(game, game.fadenSzene);
+  else if (game.fadenSzene && game.fadenSzene.szene !== game.ship.scene) enden(game, game.fadenSzene, 'gescheitert', 'szenenwechsel');
+  else if (game.fadenSzene && game.fadenSzene.phase === 'vorlauf' && game.time >= game.fadenSzene.ab && !game.simSzene) kampfBeginn(game, game.fadenSzene);
+  else if (game.fadenSzene && game.fadenSzene.phase === 'kampf') kampfTakt(game, game.fadenSzene);
+  // Warteschlange: was in einem anderen Sektor geplant war, steht wieder aus
+  if (game.fadenWarte && game.fadenWarte.length) {
+    const alt = game.fadenWarte.filter((it) => it.szene !== game.ship.scene);
+    if (alt.length) { game.fadenWarte = game.fadenWarte.filter((it) => it.szene === game.ship.scene); for (const it of alt) Faden.beatZurueck(game, it.fadenId); }
+  }
+  naechsteStarten(game);
+  hilfeTakt(game);
+}
+
+// ---------- Bausteine (faden-bausteine.registriere): jeder Beat mit Szene ruft starten() mit seiner Art ----------
+function beatStarten(game, art, faden, ctx) {
+  const r = starten(game, { art, fadenId: faden.id, beatId: ctx.beat.id, nsc: ctx.nsc, parameter: ctx.parameter });
+  return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
+}
+for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, ctx); } });
+Bausteine.registriere('fracht', {
+  starten(game, faden, ctx) {
+    const p = ctx.beat.parameter || {};
+    const r = Fracht.laden(game, { fadenId: faden.id, ware: p.ware, nachHafen: p.nach });
+    return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
+  },
+});
+
+// Andocken am Zielhafen: Fracht abliefern (faden-fracht.js), dann ist jeder Szenenwechsel durch Andocken erledigt
+function andockenHook(game) {
+  if (!aktiv(game)) return;
+  andockenEnde(game);
+  Fracht.andocken(game);
+}
+
+// Zustand für Tests und Anzeige
+const zustand = (game) => ({ szene: game.fadenSzene || null, warte: (game.fadenWarte || []).slice(), hilfe: game.fadenHilfe || null });
+
+module.exports = { starten, update, andockenHook, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };
