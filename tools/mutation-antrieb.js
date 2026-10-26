@@ -27,7 +27,7 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.
 const ZS = 'server/sim/zielsysteme.js', VF = 'server/sim/verfolgung.js', SP = 'server/sim/space.js', PI = 'server/sim/pilot.js', KO = 'server/sim/konvoi.js', FL = 'shared/flight.js', SW = 'server/sim/schiffswaffen.js',
   DZ = 'content/kampf/zielsysteme-werte.json', DV = 'content/kampf/verfolgung-werte.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
-// Bewusst nicht in der Liste (äquivalente Mutanten): „Wiederholung auch bei wiederholung false“ (update() prüft k.wiederholung ein zweites Mal vor neu()), „das Schiff fährt während der Ladung weiter“ (nur der Bremsweg: es bremst vor oder am Fluchtpunkt), „Geschosse tragen opts.angriff auch ohne Szenenschalter“ (space.js: der Haken fragt den Schalter nur, damit die Optionen in Szenen ohne Schalter unverändert bleiben; trifftLerche prüft ihn selbst, das Verhalten ist gleich).
+// Bewusst nicht in der Liste (äquivalente Mutanten): „wendeTempoMin 0“ (die Wende-Untergrenze 8 px/s rundet auf die Stopp-Stufe, die Klemme tempoMin 0,25 liegt darüber: nur bei Tempo unter 0,041, außerhalb der Klemme, unterscheiden sich die Varianten; Kai 2026-10-26 als äquivalent akzeptiert), „Wiederholung auch bei wiederholung false“ (update() prüft k.wiederholung ein zweites Mal vor neu()), „das Schiff fährt während der Ladung weiter“ (nur der Bremsweg: es bremst vor oder am Fluchtpunkt), „Geschosse tragen opts.angriff auch ohne Szenenschalter“ (space.js: der Haken fragt den Schalter nur, damit die Optionen in Szenen ohne Schalter unverändert bleiben; trifftLerche prüft ihn selbst, das Verhalten ist gleich).
 const MUTATIONEN = [
   // ---- Trefferregel Lerche -> Gegner (zielsysteme.js)
   [ZS, "if (!e || sx == null || !(opts && opts.angriff)) return false;", "if (!e || sx == null) return false;", 'Gegner: auch Treffer ohne opts.angriff (Brocken, Minen, Zonen) zählen'],
@@ -49,7 +49,6 @@ const MUTATIONEN = [
   [VF, "wiederholung: q.wiederholung === true,", "wiederholung: q.wiederholung !== false,", 'Faden-Schnittstelle: Wiederholung Standard an (A-K2)'],
   [VF, "  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }", "  if (game.ship.target === e.id) { game.ship.target = null; }", 'Zielsystem: bleibt nach dem Abgang des Ziels stehen (A-K3)'],
   [DV, '"haltAbstand": 30', '"haltAbstand": 0', 'Daten: Halt am Ziel ohne Abstand (A-K4)'],
-  [DV, '"wendeTempoMin": 8', '"wendeTempoMin": 0', 'Daten: wendiges Fluchttempo ohne Mindestfahrt (A-K4)'],
   [DV, '"randAbstand": 60', '"randAbstand": 0', 'Daten: Start am Szenenrand (A-K4)'],
   [ZS, "  cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null;\n  game.emit('sfx'", "  cur.bis = null;\n  game.emit('sfx'", 'Erholung: der Antrieb erholt sich nie'],
   [ZS, "      if (cur.bis == null || game.time < cur.bis) continue;", "      if (cur.bis == null) continue;", 'Erholung: sofort'],
