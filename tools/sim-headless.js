@@ -1,4 +1,5 @@
 'use strict';
+const BOT_SCHILD_SEKTOR_MAX = 4;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector
 // Headless-Simulation (M1): startet das Spiel im selben Prozess und lässt 1 bzw. 3 skriptgesteuerte Spieler-Bots
 // Mission 1 „Die stumme Boje“ UND Mission 2 „Echo im Nebel“ mit echten Befehlen spielen (keine Debug-Befehle).
 // Beschleunigt (Ticks ohne Echtzeit). Ausgabe: Erfolg, Dauer je Mission/Schritt/Ort (Spielsekunden), Fehler, Softlocks, Snapshot-Größe.
@@ -815,7 +816,7 @@ class Agent {
     if ((m.shieldAt || 0) < S.time && S.space.enemies.length) {
       m.shieldAt = S.time + 1;
       const sec = this.threatSector(S);
-      const al = sh.shields.alloc; const cap = sh.shields.cap || [4, 4, 4, 4];
+      const al = sh.shields.alloc; const cap = (sh.shields.cap || [4, 4, 4, 4]).map((x) => Math.min(x, BOT_SCHILD_SEKTOR_MAX));   // SYS-01 B2: der Bot streut seine Punkte weiter (höchstens 4 je Sektor), obwohl die Kappe jetzt 6 ist; ein Spieler darf auf 6 bündeln
       if (sec != null && al[sec] < cap[sec]) {
         const opp = (sec + 2) % 4;
         const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => (b === opp ? 1 : 0) - (a === opp ? 1 : 0) || al[b] - al[a])[0];
