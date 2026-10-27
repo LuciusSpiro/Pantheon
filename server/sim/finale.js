@@ -16,14 +16,14 @@
 //   anbieten(game)                       Angebot machen (Funk): -> bool (neu entstanden)
 //   waehlen(game) / bestaetigen(game) / ablehnen(game)    Befehle finale.waehlen (Anfrage), finale.bestaetigen, finale.ablehnen: -> null | { code, text }
 //   phase(game)                          -> null | 'orbit' | 'boden' | 'ende'
-//   starten(game)                        -> bool: phase 'orbit', baut die Szene über kriegslage-szene.finaleStarten(game, { hex }) (Stub bis Paket Finale-Orbit)
+//   starten(game)                        -> bool: phase 'orbit', baut die Szene über kriegslage-szene.finaleStarten(game, { hex })
 //   orbitEnde(game, ausgang)             'sieg' | 'niederlage' | 'flucht' -> bool
 //   bodenEnde(game, ausgang)             'sieg' | 'crew_gefallen' -> bool
 //   nachTick(game)                       nach jedem Tick (kriegslage.js, nach dem Commit): Angebot machen, Anfrage verfallen lassen, Angebot bei Rangverlust zurückziehen
 //   snapshot(game) / schluessel(game)    Anzeigeblock world.finale (nur bei Änderung, null = Löschsignal)
 //   debug(game, args)                    nur --debug: finale [status | angebot | start | orbit <ausgang> | boden <ausgang> | reset]
-//   ersetzen(name, modul | null)         nur Tests: Stubs ersetzen ('szene' { finaleStarten }, 'boden' { bodenStarten }, 'abspann' { beenden })
-// Schnittstellen zu anderen Paketen (Stubs, Zusammenführung): kriegslage-szene.finaleStarten (Orbit), finale-boden.bodenStarten (Boden), abspann.beenden (Abspann, Datei server/sim/abspann.js).
+//   ersetzen(name, modul | null)         nur Tests: Schnittstellen ersetzen ('szene' { finaleStarten }, 'boden' { bodenStarten }, 'abspann' { beenden })
+// Schnittstellen zu anderen Paketen (zusammengeführt, in Tests ersetzbar): kriegslage-szene.finaleStarten (Orbit), finale-boden.bodenStarten (Boden), abspann.beenden (Abspann, Datei server/sim/abspann.js).
 const Ruf = require('./ruf.js');
 
 const D = require('../../content/welt/finale-werte.json');
@@ -39,11 +39,7 @@ const fehl = (code, o) => ({ code, text: fmt((T.weigerung || {})[code] || code, 
 const ERSATZ = { szene: null, boden: null, abspann: null };
 const szene = () => ERSATZ.szene || require('./kriegslage-szene.js');
 const boden = () => ERSATZ.boden || require('./finale-boden.js');
-const ABSPANN_STUB = { beenden: () => false };   // bis das Paket Abspann server/sim/abspann.js liefert: kein Abspann, das Finale ist trotzdem beendet
-function abspann() {
-  if (ERSATZ.abspann) return ERSATZ.abspann;
-  try { return require('./abspann.js'); } catch (e) { if (e && e.code === 'MODULE_NOT_FOUND') return ABSPANN_STUB; throw e; }
-}
+const abspann = () => ERSATZ.abspann || require('./abspann.js');
 function ersetzen(name, modul) {
   if (!Object.prototype.hasOwnProperty.call(ERSATZ, name)) throw new Error('unbekannte Schnittstelle: ' + name);
   ERSATZ[name] = modul || null;
@@ -63,7 +59,9 @@ const tickZahl = (game) => (game.weltsim && Number.isFinite(game.weltsim.tickZah
 const anfrageRest = (game) => {   // Sekunden bis zum Ende der Frist, 0 = keine offene Anfrage
   const s = zustandVon(game), f = W.bestaetigung.wert.fenster;
   const a = s && s.anfrage;
-  return a && a.bis > game.time && a.bis - game.time <= f ? a.bis - game.time : 0;
+  if (!a || !(a.bis > game.time)) return 0;
+  const rest = a.bis - game.time;
+  return rest <= f + 1e-9 ? Math.min(rest, f) : 0;   // Gleitkomma: (time + f) - time kann knapp über f liegen (Bestätigung im selben game.time wie die Anfrage)
 };
 
 // ---------- Prüfer
@@ -175,6 +173,9 @@ function bodenEnde(game, ausgang) {
   if (!s || s.phase !== 'boden') return false;
   if (ausgang === 'crew_gefallen') { neubeginn(game, 'crew_gefallen'); return true; }
   if (ausgang !== 'sieg') return false;
+  // Fakt finale_gespielt VOR allem, was den Abspann auslöst: die Siegwirkung lässt Hrafnheim fallen, und kriegslage.hauptweltFaellt ruft Abspann.beenden('sieg')
+  // schon innerhalb von szeneAbschliessen; der Abspann liest den Fakt genau dort (idempotent, ein späterer Aufruf ändert nichts mehr).
+  try { if (game.weltstand && typeof game.weltstand.fact === 'function') game.weltstand.fact('finale_gespielt', true, 'finale'); } catch (e) { if (game.countError) game.countError('finale-fakt', e); }
   // GENAU EIN Sim-Tick mit der Siegwirkung; der Prüfer lässt sie nur zu, solange phase 'boden' (oder 'orbit') ist, also VOR dem Wechsel auf 'ende'
   const Kriegslage = require('./kriegslage.js');
   try { Kriegslage.szeneAbschliessen(game, { wirkungen: [{ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: ZIEL.an }], wo: 'finale' }); } catch (e) { if (game.countError) game.countError('finale-sieg', e); }

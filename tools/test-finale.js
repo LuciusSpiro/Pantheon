@@ -192,6 +192,30 @@ section('zweistufige Bestätigung', () => {
   ohneStubs();
 });
 
+section('Gleitkomma: Bestätigung im selben game.time wie die Anfrage', () => {
+  const f = W.bestaetigung.wert.fenster;
+  // ein game.time, bei dem (time + f) - time knapp über f liegt (Kehrwert-Zeiten wie 1/30-Ticks erzeugen das ständig)
+  let zeit = null;
+  for (let k = 1; k < 100000 && zeit === null; k++) { const x = k / 30 + 0.1; if ((x + f) - x > f) zeit = x; }
+  ok(zeit !== null, 'Testzeit mit (time + fenster) - time > fenster gefunden');
+  const s = stubs();
+  const t = mitAngebot({}); const g = t.g;
+  g.time = zeit;
+  ok(Finale.waehlen(g) === null, 'Anfrage gestellt');
+  ok(Finale.snapshot(g).anfrage === f, 'Snapshot nennt die Frist (nicht f + Rundungsrest)');
+  const e = Finale.waehlen(g);
+  ok(e && e.code === 'schon_angefragt' && /noch 20 /.test(e.text), 'zweite Anfrage im selben game.time: schon angefragt, Rest 20 s (nicht 21)' + (e ? ' ' + e.text : ''));
+  ok(Finale.bestaetigen(g) === null && Finale.phase(g) === 'orbit' && s.szene === 1, 'Bestätigung im selben game.time: Finale beginnt');
+  // Randfälle: genau am Fristende und knapp danach
+  const t2 = mitAngebot({}); const g2 = t2.g; g2.time = zeit; Finale.waehlen(g2);
+  g2.time = zeit + f;
+  ok(Finale.bestaetigen(g2) && Finale.phase(g2) === null, 'genau am Fristende ist die Anfrage verfallen (bis > time gilt nicht mehr)');
+  const t3 = mitAngebot({}); const g3 = t3.g; g3.time = zeit; Finale.waehlen(g3);
+  g3.time = zeit + f - 0.001;
+  ok(Finale.bestaetigen(g3) === null && Finale.phase(g3) === 'orbit', 'eine Millisekunde vor dem Fristende gilt sie noch');
+  ohneStubs();
+});
+
 section('Ablehnen kostet nichts', () => {
   stubs();
   const t = mitAngebot(); const g = t.g;

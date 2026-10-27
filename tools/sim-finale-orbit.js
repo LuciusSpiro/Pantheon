@@ -92,7 +92,7 @@ async function lauf(seed, crew, o) {
 const zeile = (r) => r.fehler ? `  FEHLER crew ${r.crew} seed ${r.seed}: ${r.fehler}` :
   `  ${r.ok ? 'ok    ' : 'FEHLER '}crew ${r.crew} seed ${r.seed}: ${r.ausgang}, ${r.dauer} s, erster Gegner nach ${r.ersterGegner} s, Wachschiffe ${r.wach}, Abschüsse ${Object.entries(r.kills).map(([k, c]) => c + ' ' + k).join(', ')}, Verbündete verloren ${r.verbuendeteVerloren}/${r.verbuendete0}, Hülle ${r.huelle}, Notfall ${r.notfall}, Tick +${r.tickDelta}, Phase ${r.phase}, größte Last ${r.maxSchiffe} Schiffe, Snapshot max ${r.snapMax} B`;
 
-module.exports = { lauf, zeile, TRIBUN };
+module.exports = { lauf, zeile, TRIBUN, OrbitAgent };
 
 if (require.main === module) {
   const args = process.argv.slice(2);
