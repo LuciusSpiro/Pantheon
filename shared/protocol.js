@@ -198,13 +198,16 @@
     // lobbyOpt { world: id | null } – Fortsetzen wählen (null = neu); gesetzt -> startMission wird beim Start ignoriert.
     // world { op: 'delete', id } – nur Lobby; gesperrt -> { t: 'error', code: 'worldbusy' }.
     // menu { op: 'end' } – Partie für alle beenden (angedockt + Kampagne: vorher speichern) -> Ereignis sessionEnded, Lobby.
+    // menu { op: 'zerstoertOk' } – SYS-01 A2b: OK in der Einblendung „Schiff zerstört“ (nur solange snapshot ship.reaktorTod.tot). Die Partie endet
+    //   (sessionEnded { by: null, grund: 'zerstoert', saved: false }, Lobby), wenn alle verbundenen Spieler bestätigt haben. Ohne Speichern.
+    //   Nach dem Tod nimmt der Server sonst nur menu und ping entgegen (und leave).
     // menu { op: 'pause', on } – nur wirksam, wenn genau 1 Spieler verbunden ist.
     // Snapshot: paused (immer); nur in Phase 'lobby': lobby.worlds [WORLD_LIST_FIELDS], lobby.world (id|null), lobby.worldsFull.
     // Kann: mission.chronik (letzte 10 { text, mission?, ausgang?, spielzeit_s }) im Log-Slot (zusammen mit mission.log).
     // Ereignisse: worldSaved { id, name, loc }, worldSaveFailed { reason }, worldLoaded { id, name },
     //   worldLoadFailed { id, reason }, sessionEnded { by, saved }, missionDone { id, title, ausgang }.
     // Start einer neuen Kampagne bei 5 Ständen: abgelehnt (notice „Erst einen Weltstand löschen“, lobby.worldsFull).
-    MENU_OPS: ['end', 'pause'],
+    MENU_OPS: ['end', 'pause', 'zerstoertOk'],
     WORLD_OPS: ['delete'],
     WORLD_STATES: ['ok', 'kaputt', 'neuer', 'belegt'],
     WORLD_LIST_FIELDS: ['id', 'name', 'savedAt', 'playTime', 'loc', 'mission', 'step', 'chronikLast', 'spieler', 'state', 'grund'],

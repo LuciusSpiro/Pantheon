@@ -128,7 +128,7 @@ console.log('\nStatusfeld (Rangfolge) und Modell');
   ok(sf.rang === 'seite' && sf.zust === 'besch' && sf.farbe === 'statusBesch' && /^BUG \d+%$/.test(sf.v), `schwächste Seite Bug beschädigt (${sf.l} ${sf.v})`);
   for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 3 && I.systemAktiv(g, k)) I.setzeZustand(g, k, 'broken');
   sf = PS.statusFeld(g.snapshot().ship);
-  ok(sf.rang === 'offen' && sf.v === 'BB OFFEN' && sf.text === 'MITTE OFFEN' && sf.farbe === 'statusOffen' && sf.zust === 'zer', `Backbord leer: MITTE BB OFFEN geht vor der schwächsten Seite (${sf.l} ${sf.v})`);
+  ok(sf.rang === 'offen' && sf.v === 'BB OFFEN' && sf.text === 'BB OFFEN' && sf.farbe === 'statusOffen' && sf.zust === 'zer', `Backbord leer: MITTE BB OFFEN geht vor der schwächsten Seite (${sf.l} ${sf.v})`);
   for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 1 && I.systemAktiv(g, k)) I.setzeZustand(g, k, 'broken');
   sf = PS.statusFeld(g.snapshot().ship);
   ok(sf.rang === 'offen' && sf.v === '2 SEITEN OFFEN', `zwei leere Seiten: ${sf.v}`);

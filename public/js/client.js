@@ -551,6 +551,8 @@
     },
     // Bodenkampf: Wellen – nach der Ergebnisanzeige sofort zurück in die Lobby (wie „Partie beenden“)
     wellenLobby() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'end' }); audio.play('ui_click'); },
+    // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“ (Server: erst wenn alle verbundenen Spieler OK haben, zurück in die Lobby)
+    zerstoertOk() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'zerstoertOk' }); audio.play('ui_click'); },
     // Bodenkampf: Wellen – Karte reihum (Taste K / Klick); jeder darf umschalten, alle sehen die Wahl
     toggleWellenKarte() {
       const st = Client.state;
@@ -685,6 +687,7 @@
     while (Client.snaps.length > 3 && now - Client.snaps[1].t > 1000) Client.snaps.shift();
     if (Client.snaps.length > 40) Client.snaps.shift();
     if (prev && prev.phase !== 'end' && s.phase === 'end') Client.endDismissed = false;
+    Net.guard('Client.banderole', () => onBanderole(prev, s));
     Net.guard('Client.reconcile', () => reconcile(s));   // F7: ein Fehler hier darf diff/snapB nicht dauerhaft abschneiden
     Net.guard('Client.diff', () => diffState(prev, s));
     Net.guard('Client.snapB', () => onSnapB(prev, s));
@@ -743,6 +746,14 @@
   }
 
   // S1: Lobby-Auswahl merken (für den Hinweis beim Beenden), Overlays bei Phasenwechsel schließen
+  // SYS-01 A2b: Einblendung „Schiff zerstört“ offen (Snapshot ship.reaktorTod.tot). Hat die Partie selbst ein Ende (phase end), zeigt der Endschirm.
+  function zerstoertOffen(st) { return !!(st && st.ship && st.ship.reaktorTod && st.ship.reaktorTod.tot && st.phase !== 'end' && st.phase !== 'lobby'); }
+  // SYS-01 A2b: Ton alarm_red bei Beginn des Reaktor-Countdowns und bei jedem neuen Ausfall (Halbierung); sonst kein Ton
+  function onBanderole(prev, s) {
+    const a = s && s.ship && s.ship.reaktorTod, b = prev && prev.ship && prev.ship.reaktorTod;
+    if (!a || !(a.rest >= 0)) return;
+    if (!b || !(b.rest >= 0) || (a.n || 0) > (b.n || 0)) audio.play('alarm_red');
+  }
   function onPhaseS1(prev, s) {
     if (s.phase === 'lobby' && s.lobby) Client.lastLobby = { startMission: s.lobby.startMission, world: s.lobby.world == null ? null : s.lobby.world };
     const wasLobby = !prev || prev.phase === 'lobby';
@@ -1192,6 +1203,7 @@
         const p = ((Client.state && Client.state.players) || []).find(q => q.id === ev.by);
         const who = ev.byName || (p ? p.name : (typeof ev.by === 'string' && ev.by ? ev.by : 'Jemand'));
         if (ev.grund === 'wellen') H.pushNotice('Runde vorbei – zurück in der Lobby. Enter: noch eine Runde', PAL.amber, 6);
+        else if (ev.grund === 'zerstoert') H.pushNotice('Schiff zerstört – zurück in der Lobby. Der Weltstand bleibt, wie er war', PAL.amber, 6);
         else H.pushNotice((mine ? 'Du hast' : who + ' hat') + ' die Partie beendet' + (ev.saved ? ' – Weltstand gesichert' : ''), mine ? PAL.mint : PAL.amber, 6);
         Client.ui.pauseSent = false; uiCloseAll(true);
         Client.minigame = null; Client.endDismissed = true;
@@ -2002,6 +2014,7 @@
     if (st.phase === 'end' && st.abspann && (code === 'Enter' || code === 'Escape')) { actions.abspannEnde(); return; }   // EK8: Abspann der Kette – kein freies Spiel danach
     if ((st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed && (code === 'Enter' || code === 'Escape')) { actions.dismissEnd(); return; }
     if (st.wellen && st.wellen.ph === 'ende' && code === 'Enter') { actions.wellenLobby(); return; }   // Bodenkampf: Wellen – Ergebnis -> Lobby
+    if (zerstoertOffen(st) && (code === 'Enter' || code === 'KeyE')) { actions.zerstoertOk(); return; }   // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }
     // M3a: Minispiel offen -> nur Leertaste/Esc, kein E an den Server, keine Bewegung
     if (Client.minigame) { if (!e.repeat) Net.guard('Client.minigameKey', () => minigameKey(code)); return; }
@@ -2316,6 +2329,7 @@
     // S1: Pause-Hinweis, Siegel „Weltstand gesichert“, Menüseiten obenauf
     Net.guard('Hud.drawPause', () => H.drawPause(ctx, v, !!uiTop()));
     Net.guard('Hud.drawSaveSeal', () => H.drawSaveSeal(ctx, v));
+    if (zerstoertOffen(Client.state)) Net.guard('Hud.drawSchiffZerstoert', () => H.drawSchiffZerstoert(ctx, v));   // SYS-01 A2b: über allen Stationen, unter den Menüseiten
     if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
     Net.guard('Hud.drawConnection', () => H.drawConnection(ctx, v));
     if (DEBUG) drawDebug(v);

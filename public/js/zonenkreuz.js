@@ -125,7 +125,10 @@
       if (e.zust === 'zer') { rc(x, y + h - 1, w, 1, F.zer); return; }
       if (e.zust === 'offline') { rand(x, y, w, h, F.offline); return; }
       rc(x, y, w, h, F.pipLeer);
-      rc(x, y, Math.max(1, Math.round(w * Math.min(100, e.pct) / 100)), h, F[e.zust === 'besch' ? 'besch' : 'ok']);
+      const fill = Math.max(1, Math.round(w * Math.min(100, e.pct) / 100));
+      // SYS-01 A2b (Review A1c, Sollte): geflickt = Balken in fragil plus 1-px-Tape (Schraffur über dem Balken), damit es nicht nur an der Farbe hängt
+      rc(x, y, fill, h, e.fragil ? F.fragil : F[e.zust === 'besch' ? 'besch' : 'ok']);
+      if (e.fragil) for (let i = 0; i < fill; i += 3) rc(x + i, y - 1, 1, 1, F.text);
     }
     function inhalt(list, body, zn, zu) {
       const zwei = body.w < mass.zweiZeilig, lh = zwei ? 16 : mass.zeile, bw = zwei ? 24 : 30;

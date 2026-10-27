@@ -2208,6 +2208,19 @@
       R.button(ctx, cx - 100, 322, 200, 18, 'Zum Hauptmenü', { hotkey: 'Enter', onClick: () => view.actions.abspannEnde() });
       R.text(ctx, 'Beendet die Partie für alle. Der Weltstand bleibt gespeichert.', cx, 345, { color: PAL.panelLight, align: 'center' });
     },
+    // SYS-01 A2b: Einblendung „SCHIFF ZERSTÖRT – Ihr habt verloren“ über allen Stationen, solange ship.reaktorTod.tot gesetzt ist (nicht bei phase end: dann hat der Endschirm der
+    // Partie das Wort). OK (Klick, Enter, E) schickt menu zerstoertOk; die Partie endet, wenn alle verbundenen Spieler bestätigt haben (game.zerstoertOk).
+    drawSchiffZerstoert(ctx, view) {
+      const PS = window.PultSysteme; if (!PS) return;
+      const T = PS.TOKENS, M = T.MASS.banderole, F = PS.farben(window.Pult ? Pult.skinId(view) : 'rom');
+      const w = 420, h = 70, x = (VW - w) / 2, y = (VH - h) / 2;
+      ctx.fillStyle = window.Pult ? Pult.rgba(F.grund, 0.9) : F.grund; ctx.fillRect(0, 0, VW, VH);
+      ctx.fillStyle = F.grund; ctx.fillRect(x, y, w, h);
+      ctx.fillStyle = F.kachelRand; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);   // 1-px-Rahmen
+      ctx.fillStyle = F.banderole; ctx.fillRect(x, y, w, M.h);   // rote Kopfleiste wie die Banderole
+      R.text(ctx, T.TEXT.schiffZerstoert, VW / 2, y + 5, { color: F.banderoleText, align: 'center', shadow: false });
+      R.button(ctx, VW / 2 - 50, y + h - 26, 100, 18, T.TEXT.schiffOk, { hotkey: 'Enter', onClick: () => view.actions.zerstoertOk && view.actions.zerstoertOk() });
+    },
     drawEnd(ctx, view) {
       const st = view.state;
       if (st.abspann) return this.drawAbspann(ctx, view);   // EK8

@@ -142,7 +142,14 @@
         T(ctx, z.text, x + cw, y, z.aus ? P.FN.warn : z.bereit ? P.FN.shield : K.dim, 'right'); y += 10;
       }
       const reactor = ship.reactor || {}, rs = reactor.state || 'online';
-      P.lampe(ctx, x, y + 1, rs === 'offline' ? 'weapon' : 'shield', rs !== 'offline'); T(ctx, 'Reaktor', x + 10, y, K.text); T(ctx, { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' }[rs] || rs, x + cw, y, rs === 'offline' ? P.FN.weapon : rs === 'overload' ? P.FN.drive : P.FN.shield, 'right'); y += 13;
+      // SYS-01 A2b (Review A1c, Sollte): zerstörter Reaktor = Quadrat in zer und Wort „zerstört“ in zerText (Rot als Text nie FN.weapon), bei laufendem Countdown die Restzeit
+      if (ship.systems && ship.systems.reactor === 'broken') {
+        const PS = window.PultSysteme, F = PS ? PS.farben(P.skinId(view)) : null, bz = PS ? PS.banderole(ship.reaktorTod, 'helm') : null;
+        if (F) { ctx.fillStyle = F.zer; ctx.fillRect(x, y + 1, 7, 7); T(ctx, 'Reaktor', x + 10, y, K.text); T(ctx, 'zerstört' + (bz ? ' ' + bz.zahl + ' s' : ''), x + cw, y, F.zerText, 'right'); }
+        y += 13;
+      } else {
+        P.lampe(ctx, x, y + 1, rs === 'offline' ? 'weapon' : 'shield', rs !== 'offline'); T(ctx, 'Reaktor', x + 10, y, K.text); T(ctx, { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' }[rs] || rs, x + cw, y, rs === 'offline' ? P.FN.weapon : rs === 'overload' ? P.FN.drive : P.FN.shield, 'right'); y += 13;
+      }
       T(ctx, 'MARKER', x, y, K.dim); y += 10;
       const mk = R.markersOf(st);
       for (const who of ['captain', 'tactical']) {

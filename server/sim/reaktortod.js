@@ -7,7 +7,8 @@
 //                            (Verbraucher wie beim Notfallprotokoll) plus Ereignis schiffZerstoert und ship.schiffZerstoert.
 //   zuruecksetzen(game)    – jeder Sprung (normal, Notsprung) und jede Szene, die die Lerche neu aufstellt: Zähler 0, Countdown aus, Zerstört-Flag aus (Alias sprungZurueck).
 //   dauer(game, n)         – Countdown des n-ten Ausfalls seit dem letzten Sprung: start × faktor^(n−1), mindestens minimum (s).
-//   snapshot(game)         – ship.reaktorTod { rest (Zehntelsekunden, -1 kein Countdown), n, tot: 1 nur nach dem Tod }.
+//   snapshot(game)         – ship.reaktorTod { rest (Zehntelsekunden, -1 kein Countdown), n, dauer (s, Countdown dieses Ausfalls), next (s, Countdown des nächsten), tot: 1 nach dem Tod }.
+//   SYS-01 A2b: der Tod bleibt gelatcht (game.zerstoertOffen, bis die Partie in der Lobby ist): Szene von vorn und Sprung setzen den Zerstört-Flag nicht zurück.
 // Sitzungszustand: Countdown und Zähler stehen nicht im Weltstand (der speichert nur die Systemzustände).
 const interior = require('./interior.js');
 
@@ -39,6 +40,7 @@ function tod(game) {
   const n = ship.reaktorAusfaelle || 0;
   ship.reaktorCountdown = null;
   ship.schiffZerstoert = true;
+  game.zerstoertOffen = { ok: new Set() };   // SYS-01 A2b: Einblendung bis OK (zerstoertOk) bzw. Lobby; Weltstand wird dabei nicht gespeichert
   game.emit('schiffZerstoert', { grund: 'reaktor', n });
   require('./space.js').verlustAusloesen(game, 'reaktor');
 }
@@ -63,13 +65,14 @@ function zuruecksetzen(game) {
   const ship = game.ship;
   ship.reaktorAusfaelle = 0;
   ship.reaktorCountdown = null;
-  ship.schiffZerstoert = false;
+  if (!game.zerstoertOffen) ship.schiffZerstoert = false;   // SYS-01 A2b: der Tod bleibt bis zur Lobby
 }
 
 function snapshot(game) {
   const ship = game.ship;
   const cd = ship.reaktorCountdown;
-  const o = { rest: cd ? Math.max(0, Math.round(cd.t * 10)) : -1, n: ship.reaktorAusfaelle || 0 };
+  const n = ship.reaktorAusfaelle || 0;
+  const o = { rest: cd ? Math.max(0, Math.round(cd.t * 10)) : -1, n, dauer: Math.round(dauer(game, Math.max(1, n)) * 10) / 10, next: Math.round(dauer(game, n + 1) * 10) / 10 };
   if (ship.schiffZerstoert) o.tot = 1;
   return o;
 }

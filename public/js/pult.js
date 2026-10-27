@@ -257,7 +257,12 @@
     c.fillStyle = K.bg; c.fillRect(0, 0, VW, VH);
     const anzeige = { x: 62, y: 6, w: 572, h: S - 12 };
     c.fillStyle = K.screenBg; c.fillRect(anzeige.x, anzeige.y, anzeige.w, anzeige.h);
-    if (def.anzeige) { c.save(); c.beginPath(); c.rect(anzeige.x, anzeige.y, anzeige.w, anzeige.h); c.clip(); try { mitSkin(() => def.anzeige(c, anzeige)); } finally { c.restore(); } }
+    // SYS-01 A2b: Banderole „REAKTOR ZERSTÖRT“ über jeder Anzeige, solange der Countdown läuft; der Inhalt rückt um MASS.banderole.versatz nach unten
+    const PS = window.PultSysteme, bd = PS ? PS.banderole((((view.state && view.state.ship) || {}).reaktorTod), def.station) : null;
+    if (bd) banderoleZeichnen(c, view, anzeige, bd);
+    const versatz = bd ? PS.TOKENS.MASS.banderole.versatz : 0;
+    const inhalt = { x: anzeige.x, y: anzeige.y + versatz, w: anzeige.w, h: anzeige.h - versatz };
+    if (def.anzeige) { c.save(); c.beginPath(); c.rect(inhalt.x, inhalt.y, inhalt.w, inhalt.h); c.clip(); try { mitSkin(() => def.anzeige(c, inhalt)); } finally { c.restore(); } }
     K.schirm(c, anzeige);
     const alarm = ((view.state && view.state.ship) || {}).alert === 'red';
     K.saeule(c, S, def.titel, alarm);
@@ -275,9 +280,26 @@
       K.navBlock(c, b.x, b.y, b.w, b.h, nv[0], nv[1], i, nav.length, nv[0] === '?' && hilfe);
       R.ui.buttons.push(b);
     });
-    return { anzeige, pult: { x: 62, y: S + 22, w: 572, h: 346 - (S + 22) }, S, skin: K };
+    return { anzeige: inhalt, pult: { x: 62, y: S + 22, w: 572, h: 346 - (S + 22) }, S, skin: K };
   }
 
+  // SYS-01 A2b: Banderole (Richtung C): rot, volle Breite, ink-Text. Links „REAKTOR ZERSTÖRT“ und der Zähler (zahlScale), dann der Ausfallzähler; rechts der Satz der Station.
+  // Darunter ein Ablaufbalken: Restzeit in Creme auf dunkler Spur. Farben aus den Tokens je Skin, Maße aus MASS.banderole (keine Zahl hier).
+  function banderoleZeichnen(c, view, a, bd) {
+    const PS = window.PultSysteme, M = PS.TOKENS.MASS.banderole, T = PS.TOKENS.TEXT, F = PS.farben(skinId(view));
+    const y = a.y, h = M.h, ink = F.banderoleText;
+    c.fillStyle = F.banderole; c.fillRect(a.x, y, a.w, h);
+    let x = a.x + 6;
+    x = txt(c, T.banderole, x, y + 6, ink) + 8;
+    R.text(c, bd.zahl, x, y + 3, { color: ink, scale: M.zahlScale, shadow: false });
+    x += R.measure(bd.zahl, M.zahlScale) + 4;
+    // Der Satz der Station hat Vorrang vor dem Ausfallzähler: passt beides nicht, bleibt die Sekundenangabe
+    const frei = a.x + a.w - 6 - tw(bd.satz) - 12;
+    x = x + tw(' s · ' + bd.ausfall) <= frei ? txt(c, ' s · ' + bd.ausfall, x, y + 6, ink) : txt(c, ' s', x, y + 6, ink);
+    txt(c, bd.satz, a.x + a.w - 6, y + 6, ink, 'right');
+    c.fillStyle = F.banderoleSpur; c.fillRect(a.x, y + h, a.w, M.ablauf);
+    c.fillStyle = F.banderoleAblauf; c.fillRect(a.x, y + h, Math.round(a.w * bd.anteil), M.ablauf);
+  }
   // Hilfe-Overlay: alle Knöpfe des Pults mit Taste und Sperrgrund (aus R.ui.buttons, daher immer aktuell)
   function zeichneHilfe(c) {
     if (!hilfe) return;

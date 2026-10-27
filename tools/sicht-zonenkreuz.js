@@ -28,6 +28,9 @@ const SZENEN = [
   { id: '4-reaktor', text: 'Reaktor zerstört (und Bb leer)', set: Object.assign(Object.fromEntries(BB.map((k) => [k, 'broken'])), { reactor: 'broken' }) },
   { id: '5-modul', text: 'Modul 1 zerstört, Modul 2 beschädigt', set: { modul_1: 'broken', modul_2: 'damaged', emitter_bow: 'damaged' } },
   { id: '6-gegnerziel', text: 'Gegner zielt auf den Antrieb', set: { thruster_port: 'damaged' }, ziel: true },
+  // SYS-01 A2b: Banderole (Countdown 2. Ausfall, Rest 6,4 s, eingefroren über die Solo-Pause) und Einblendung nach dem Tod (letzter Zustand: Eingabe gesperrt)
+  { id: '7-countdown', text: 'Countdown läuft (Ausfall 2, 6,4 s)', set: {}, countdown: true },
+  { id: '8-zerstoert', text: 'Schiff zerstört (Einblendung)', set: {}, zerstoert: true },
 ];
 
 async function main() {
@@ -54,6 +57,7 @@ async function main() {
     await page.mouse.move(5, 5);
     const sitz = (c) => page.evaluate((cc) => __game.send({ t: 'debug', cmd: 'sitz', console: cc }), c);
     const damage = (system, state) => page.evaluate(([s, st]) => __game.send({ t: 'debug', cmd: 'damage', system: s, state: st }), [system, state]);
+    const damageCd = (system, state) => page.evaluate(([s, st]) => __game.send({ t: 'debug', cmd: 'damage', system: s, state: st, countdown: true }), [system, state]);   // mit Reaktor-Countdown (A2b)
     await sitz('helm'); await sleep(600);
     for (let i = 0; i < 3; i++) await page.evaluate(() => __game.send({ t: 'cmd', c: 'helm.throttle', delta: 1 }));
     await page.waitForFunction(() => { const s = __game.state.ship || {}; return !s.docked && !s.dockedAt; }, null, { timeout: 15000 }).catch(() => console.log('noch angedockt'));
@@ -63,15 +67,27 @@ async function main() {
     await sleep(1500);
     let zielAn = false;
     for (const sz of SZENEN) {
-      for (const k of ALLE) await damage(k, 'ok');
+      if (!sz.zerstoert) for (const k of ALLE) await damage(k, 'ok');
       for (const [k, v] of Object.entries(sz.set)) await damage(k, v);
+      if (sz.countdown) {   // 1. Ausfall, Reparatur (Countdown aus), 2. Ausfall: n = 2, Dauer 10 s; nach 3,6 s steht die Solo-Pause den Rest bei 6,4 s
+        await damageCd('reactor', 'broken'); await sleep(500);
+        await damage('reactor', 'ok'); await sleep(300);
+        await damageCd('reactor', 'broken'); await sleep(3600);
+        await page.evaluate(() => __game.send({ t: 'menu', op: 'pause', on: true })); await sleep(400);
+      }
+      if (sz.zerstoert) {   // Pause lösen, der Countdown läuft ab, Einblendung abwarten
+        await page.evaluate(() => __game.send({ t: 'menu', op: 'pause', on: false }));
+        const t0 = Date.now();
+        while (!(await page.evaluate(() => !!(__game.state.ship.reaktorTod && __game.state.ship.reaktorTod.tot))) && Date.now() - t0 < 40000) await sleep(200);
+        await sleep(400);
+      }
       if (sz.ziel && !zielAn) {
         await page.evaluate(() => __game.send({ t: 'debug', cmd: 'zielsysteme', args: 'an' }));
         await page.evaluate(() => __game.send({ t: 'debug', cmd: 'verfolgung', args: 'korvette' }));
         zielAn = true; await sleep(1200);
       }
       await sleep(500);
-      const snap = await page.evaluate(() => { const s = __game.state.ship; return { zonen: s.zonen, zielAuf: s.zielAuf, reaktor: s.systems.reactor }; });
+      const snap = await page.evaluate(() => { const s = __game.state.ship; return { zonen: s.zonen, zielAuf: s.zielAuf, reaktor: s.systems.reactor, reaktorTod: s.reaktorTod }; });
       console.log(sz.id, sz.text, JSON.stringify(snap));
       for (const skin of ['rom', 'germanen']) {
         await page.evaluate((s) => { try { localStorage.setItem('pantheon.pult', s); } catch (e) { /* egal */ } }, skin);

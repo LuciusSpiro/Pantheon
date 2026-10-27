@@ -91,6 +91,8 @@
     statusBesch: FN.warn,         // ZONEN BB 2/4
     statusOffen: FN.weapon,       // MITTE BB OFFEN
     statusReaktor: FN.weapon,     // REAKTOR 6,4 s
+    // SYS-01 A2b: geflickt (fragil) = Balken in Orange wie FRAGILE_COL (render.js) plus 1-px-Tape-Schraffur darüber (Form, nicht nur Farbe)
+    fragil: '#F08A3C',
   };
   // Skin germanen: nur die Flächen wechseln, Zustände bleiben (Funktion gleich in allen Skins)
   const FARBE_SKIN = {
@@ -146,6 +148,9 @@
     mitteZu: 'Mitte zu · {zone} leeren', mitteOffen: 'Mitte offen über {zone}',
     banderole: 'REAKTOR ZERSTÖRT', ausfall: '{n}. Ausfall · nächster {s} s',
     gezielt: '{wer} zielt {zeichen} {system}',
+    // SYS-01 A2b: der Satz rechts auf der Banderole, je Station (Schlüssel wie Pult.rahmen station)
+    banderoleSatz: { helm: 'Notsprung oder Kurs halten', weapons: 'Schild halten', technik: 'Reaktor reparieren – zu zweit schneller', captain: 'Notsprung befehlen oder Reaktor reparieren lassen' },
+    schiffZerstoert: 'SCHIFF ZERSTÖRT – Ihr habt verloren', schiffOk: 'OK',
   };
   // </tokens>
 
@@ -199,17 +204,31 @@
     const namen = [T.zone.bug, T.zone.stb, T.zone.heck, T.zone.bb];
     if (leer.length) {
       const wer = leer.length === 1 ? namen[leer[0]] : leer.length + ' SEITEN';
-      return { rang: 'offen', l: T.statusLabel.mitte, v: wer + ' ' + T.offen, text: T.statusLabel.mitte + ' ' + T.offen, zust: 'zer', farbe: 'statusOffen', seite: leer[0] };
+      return { rang: 'offen', l: T.statusLabel.mitte, v: wer + ' ' + T.offen, text: wer + ' ' + T.offen, zust: 'zer', farbe: 'statusOffen', seite: leer[0] };
     }
     const sw = schwaechsteSeite(ship);
     if (!sw) return { rang: 'keine', l: T.statusLabel.zonen, v: '–', text: '–', zust: 'keine', farbe: 'statusVoll' };
     if (sw.pct >= 100) return { rang: 'voll', l: T.statusLabel.zonen, v: T.statusVoll, text: T.statusVoll, zust: 'ok', farbe: 'statusVoll', seite: sw.zone, pct: sw.pct };
+    // SYS-01 A2b (Review A1c, Muss): jede Seite unter 100 % ist Gelb (unter VOLL = beschädigt), nicht erst ab 50 %
     const w = sw.name + ' ' + sw.pct + '%';
-    return { rang: 'seite', l: T.statusLabel.zonen, v: w, text: w, zust: sw.zust === 'besch' ? 'besch' : 'ok', farbe: sw.zust === 'besch' ? 'statusBesch' : 'statusVoll', seite: sw.zone, pct: sw.pct };
+    return { rang: 'seite', l: T.statusLabel.zonen, v: w, text: w, zust: 'besch', farbe: 'statusBesch', seite: sw.zone, pct: sw.pct };
+  }
+  // SYS-01 A2b: Banderole über jeder Anzeige, solange der Reaktor-Countdown läuft (rt = ship.reaktorTod: rest Zehntelsekunden, -1 kein Countdown; n; next und dauer in Sekunden).
+  // Rein: Zahl, Ausfallzeile, Satz der Station und Anteil der Restzeit für den Ablaufbalken. Null ohne Countdown.
+  function banderole(rt, station) {
+    if (!rt || !(rt.rest >= 0)) return null;
+    const dauerS = rt.dauer > 0 ? rt.dauer : 20;
+    const komma = (v) => String(Math.round(v * 10) / 10).replace('.', ',');
+    return {
+      zahl: komma(rt.rest / 10),
+      ausfall: text(TEXT.ausfall, { n: rt.n, s: komma(rt.next || 0) }),
+      satz: TEXT.banderoleSatz[station] || '',
+      anteil: Math.max(0, Math.min(1, rt.rest / (dauerS * 10))),
+    };
   }
   function text(vorlage, werte) { return String(vorlage).replace(/\{(\w+)\}/g, (_, k) => (werte && werte[k] != null ? werte[k] : '')); }
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, modulName, MODUL_NAMEN };
+  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, banderole, modulName, MODUL_NAMEN };
 });

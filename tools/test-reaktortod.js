@@ -333,7 +333,8 @@ section('Szene stellt die Lerche neu auf: Zähler, Countdown und Zerstört-Flag 
   const t = zeitBisTod(g, 25);
   ok(g.ship.schiffZerstoert && Math.abs(t - 20) <= 0.1, `Tod nach ${t.toFixed(2)} s`);
   SR.zuruecksetzen(g);
-  ok(g.ship.schiffZerstoert === false && g.ship.reaktorAusfaelle === 0, 'Szenen-Reset nach dem Tod: Flag und Zähler zurück');
+  // SYS-01 A2b: der Tod bleibt gelatcht (Einblendung bis zur Lobby); Zähler und Countdown setzt der Reset trotzdem zurück
+  ok(g.ship.schiffZerstoert === true && !!g.zerstoertOffen && g.ship.reaktorAusfaelle === 0 && g.ship.reaktorCountdown === null, 'Szenen-Reset nach dem Tod: Zähler 0, Countdown aus, Tod bleibt gelatcht bis zur Lobby');
 }
 
 section('Neue Partie (reset) startet mit Zähler 0 – auch das Testgelände (arena.js) braucht keinen eigenen Reset');

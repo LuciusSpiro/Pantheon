@@ -200,6 +200,7 @@ class Game {
   saveWorld(reason, opts) {
     const ws = this.weltstand;
     if (!ws || !ws.persistent || !this.worldsEnabled) return { ok: false, skipped: true };
+    if (this.zerstoertOffen) return { ok: false, skipped: true };   // SYS-01 A2b: nach dem Tod der Lerche wird nichts mehr geschrieben (der letzte Stand bleibt)
     const o = Object.assign({}, opts);
     // §5.3: Erfassen im Tick, Schreiben danach (setImmediate). Synchron nur, wo das Ergebnis sofort gebraucht wird
     // (Partie beenden) oder wenn der Server so gebaut ist (Tests: worldSaveSync).
@@ -363,6 +364,30 @@ class Game {
     if (ws && ws.persistent && this.ship.docked) saved = !!this.saveWorld('end', { sync: true }).ok;
     this.emit('sessionEnded', { by: p ? p.id : null, byName: p ? p.name : null, saved, ...(grund ? { grund } : {}) });   // CLIENT: by = ID, byName = Anzeige
     this.log(`${p ? p.name : grund ? 'Runde (' + grund + ')' : 'Jemand'} hat die Partie beendet${saved ? ' (Weltstand gesichert)' : ''}.`);
+    this.zurLobby();
+  }
+
+  // SYS-01 A2b: Schiff zerstört und alle verbundenen Spieler haben OK gedrückt -> Lobby. Ohne Speichern: der letzte Weltstand bleibt, wie er war.
+  endeZerstoert() {
+    if (!this.zerstoertOffen || this.phase === 'lobby') return false;
+    this.emit('sessionEnded', { by: null, byName: null, saved: false, grund: 'zerstoert' });
+    this.log('Schiff zerstört – Partie beendet, der Weltstand bleibt, wie er war.');
+    this.zurLobby();
+    return true;
+  }
+  // SYS-01 A2b: ein Spieler drückt OK in der Einblendung; die Partie endet, sobald alle verbundenen Spieler bestätigt haben
+  zerstoertOk(p) {
+    const z = this.zerstoertOffen;
+    if (!z || !p) return false;
+    z.ok.add(p.id);
+    if (this.players.filter((q) => q.connected).every((q) => z.ok.has(q.id))) return this.endeZerstoert();
+    return false;
+  }
+
+  // Gemeinsamer Weg in die Lobby (Partie beenden, Zerstörung): Spieler bleiben verbunden, bereit wird zurückgesetzt
+  zurLobby() {
+    const ws = this.weltstand;
+    this.zerstoertOffen = null;   // SYS-01 A2b: die Einblendung endet mit der Partie
     if (this.phase !== 'end') { this.stats.elapsed = this.time - this.stats.playTimeStart; this.logRun(true); }
     const prevWorld = ws && ws.persistent && this.worldsEnabled ? ws.id : null;
     this.muteEvents = true;   // kein „Erstbesuch Hafen“ aus reset() in die Lobby
@@ -390,7 +415,8 @@ class Game {
   }
 
   onMenuMsg(p, msg) {
-    if (msg.op === 'end') { if (this.phase !== 'lobby') this.endSession(p); return; }
+    if (msg.op === 'end') { if (this.phase !== 'lobby' && !this.zerstoertOffen) this.endSession(p); return; }   // nach dem Tod nur über OK (zerstoertOk)
+    if (msg.op === 'zerstoertOk') { this.zerstoertOk(p); return; }   // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“
     if (msg.op === 'pause') {
       if (this.phase === 'lobby') return;
       if (!msg.on) { this.paused = false; return; }
@@ -400,6 +426,7 @@ class Game {
 
   // ---------- Zustand ----------
   reset() {
+    this.zerstoertOffen = null;   // SYS-01 A2b: eine neue Partie beginnt ohne Einblendung
     Reise.reset(this);
     Entschl.reset(this);
     Glyphen.reset(this); this.bojeSim = null;   // SL10
@@ -603,6 +630,7 @@ class Game {
       }
       const p = conn.player;
       if (!p || p.conn !== conn) return;
+      if (this.zerstoertOffen && msg.t !== C.MENU && msg.t !== C.PING && msg.t !== C.LEAVE && msg.t !== C.DEBUG) return;   // SYS-01 A2b: nach dem Tod der Lerche keine Befehle mehr, nur OK und Verlassen (Debug-Befehle bleiben für die Sichtprüfung)
       switch (msg.t) {
         case C.READY: if (this.phase === 'lobby') { p.ready = !!msg.ready; this.checkLobbyStart(); } break;
         case C.LOBBY_OPT:
@@ -1339,7 +1367,7 @@ class Game {
           interior.setzeZustand(this, sys, 'ok');   // Zustand und Integrität gemeinsam
           interior.pruneRepairQueue(this);
         } else if (st === 'offline') interior.setOffline(this, sys, this.C.emp.offlineTime);
-        else interior.damageSystem(this, sys, st, { debug: true });   // SYS-01 A2a: ein Debug-Schaden löst keinen Reaktor-Countdown aus
+        else interior.damageSystem(this, sys, st, msg.countdown ? {} : { debug: true });   // SYS-01 A2a: ein Debug-Schaden löst keinen Reaktor-Countdown aus; countdown: true (Sichtprüfung A2b) schon
         break;
       }
       // M3a §17: fragile <system>, tele [id] (sofort laden), burst <sector> (ohne Prüfung) – tele/burst liegen bei COMBAT
