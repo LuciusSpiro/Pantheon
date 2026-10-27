@@ -217,40 +217,22 @@ function update(game, dt) {
   }
 }
 
-// Dauerdruck der Zone auf die Lerche: erst der Schildsektor zur Zone, der Rest geht als Hüllenschaden durch (5 je Punkt wie damage.js).
+// Dauerdruck der Zone auf die Lerche: erst der Schildsektor zur Zone, der Rest trifft ein System (SYS-01 A1a: keine Hülle mehr).
 // Bewusst KEIN shipHit: Dauerdruck würfelt keine Systemausfälle, Feuer oder Lecks (das macht nur Beschuss); die Technik hat mit Hitze genug zu tun.
 function druck(game, sector, pts) {
   const sh = game.ship.shields; let rest = pts;
   const cur = (sh.current && sh.current[sector]) || 0;
   const absorb = Math.min(cur, rest);
   if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
-  const hull = rest > 0 ? 5 * rest : 0;
-  if (hull > 0 && !game.god) game.ship.hull = Math.max(0, game.ship.hull - hull);
-  if (hull > 0 && !game.god && game.ship.hull <= 0) auftauchenZwang(game);
+  // SYS-01 A1a (Übergang, Zonenschaden kommt mit Paket C): ohne Hülle verfällt der Rest des Dauerdrucks. Kein Systemwurf, kein Schaden an Systemen.
   game.stats.hits++;
-  game.emit('hit', hull > 0 ? { sector, shield: false, dmg: Math.round(hull / 5 * 10) / 10, heavy: false, absorbed: absorb, hull } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });
-  game.emit('sfx', { name: hull > 0 ? 'hull_hit' : 'shield_hit' });
+  game.emit('hit', rest > 0 ? { sector, shield: false, dmg: Math.round(rest * 10) / 10, heavy: false, absorbed: absorb } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });
+  game.emit('sfx', { name: rest > 0 ? 'hull_hit' : 'shield_hit' });
   if (cur > 0 && sh.current[sector] <= 0) game.missionEvent('shieldDown', { sector });
-  if (hull > 0) game.missionEvent('hullHit', { sector });
+  if (rest > 0) game.missionEvent('hullHit', { sector });
 }
 
-// U2: Wer im Gas die Hülle verliert, wird nicht im Kern „wiederbelebt“: das Notfallprotokoll (space.checkEmergency: Hülle 30, 50 Marken) läuft wie immer,
-// vorher wirft die Notautomatik das Schiff aus der Atmosphäre (Seite der Ankunft, Fahrt null). Sonst stürbe es im selben Ring gleich wieder.
-function auftauchenZwang(game) {
-  const sh = game.ship; const zs = szeneZonen(game);
-  const gz = zs.filter((z) => z.zug);
-  if (!gz.length) return;
-  const mitte = gz[0]; const aussen = Math.max(...gz.map((z) => z.r1 || z.r || 0));
-  const loc = Locations.get(sh.scene); const ar = (loc && loc.scene && (loc.scene.arrive || loc.scene.start)) || { x: mitte.x, y: mitte.y + 1 };
-  let dx = ar.x - mitte.x, dy = ar.y - mitte.y; const d = Math.hypot(dx, dy) || 1; dx /= d; dy /= d;
-  const sp = game.space;
-  sh.x = Math.max(40, Math.min(sp.w - 40, mitte.x + dx * (aussen + 160))); sh.y = Math.max(40, Math.min(sp.h - 40, mitte.y + dy * (aussen + 160)));
-  sh.vx = 0; sh.vy = 0; sh.speed = 0; sh.turnVel = 0;
-  if (sh.helm) sh.helm.stage = Math.max(0, Math.min(sh.helm.stage, 1));
-  game.oda('Hülle am Ende! Die Notautomatik schleudert das Schiff aus der Atmosphäre.', 'zone_auftauchen');
-  game.missionEvent('zoneAuftauchen', { zone: mitte.id });
-  space().checkEmergency(game);   // sofort: space.update regeneriert die Hülle vor der Prüfung, ein Schiff mit 0 Hülle würde sonst nie „gerettet“
-}
+// U2 (SYS-01 A1a): das Auftauchen bei Hüllenverlust entfällt mit der Hülle; ein Tod durch Zonenschaden gibt es in A1a nicht mehr.
 
 function beschreibung(z) {
   const t = [];

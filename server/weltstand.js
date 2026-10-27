@@ -707,7 +707,6 @@ function capture(game) {
       dekoPlaetze: clone(game.deco || {}),
       quartiere: clone(game.quarters || {}),
       systeme,
-      huelle: Math.max(0, Math.round(ship.hull * 10) / 10),
       support: clone(game.support || {}),
       pins: clone((game.plan && game.plan.pins) || []),
     },
@@ -829,9 +828,12 @@ function apply(game, data) {
     game.plan.pins = s.pins;
     game.plan.seq = s.pins.reduce((mx, p) => Math.max(mx, Number(String(p.id || '').replace(/\D/g, '')) || 0), 0);
   }
-  if (Number.isFinite(s.huelle)) ship.hull = Math.max(1, Math.min(ship.hullMax, s.huelle));
+  // SYS-01 A1a: `huelle` (Altstand) wird ignoriert. Integrität = Maximum, bei beschädigten/zerstörten Systemen der Grundwert ihrer Stufe.
+  const IN = require('./sim/interior.js');
+  IN.integritaetVoll(game);
   for (const k of SYSTEM_ORDER) if (s.systeme && ['ok', 'damaged', 'broken'].includes(s.systeme[k])) ship.systems[k] = s.systeme[k];
-  require('./sim/interior.js').inaktiveHeilen(game);   // PAN-01 C: Lafetten ohne Platz/Bestückung stehen heil da
+  for (const k of SYSTEM_ORDER) IN.setInteg(game, k, IN.grundwert(game, k, ship.systems[k]));
+  IN.inaktiveHeilen(game);   // PAN-01 C: Lafetten ohne Platz/Bestückung stehen heil da
   ship.offline = {}; ship.fragile = {};
   // Welt
   const w = d.welt || {};

@@ -1061,7 +1061,8 @@ class Mission {
   globalComments() {
     const g = this.game; const ship = g.ship;
     if (ship.o2 < 50) g.oda('Sauerstoff unter 50 %! Lecks flicken.', 'o2low');
-    if (ship.hull < 40) g.oda('Hülle unter 40 %. Ich will nicht drängeln, aber… doch, ich dränge.', 'hulllow');
+    const schwach = require('./interior.js').schwaechsteZone(g);   // SYS-01 A1a: die schwächste Seite (Integrität der Zone) unter 40 %
+    if (schwach && schwach.anteil < 0.4) g.oda('Eine Seite ist unter 40 % Integrität. Ich will nicht drängeln, aber… doch, ich dränge.', 'hulllow');
     if (g.space.enemies.some((e) => e.kind === 'raider' && ['bow', 'port', 'stbd'].some((k) => space.inMountArc(g, k, e.x, e.y)))) {
       g.oda('Jäger im Feuerbogen! Ops: Ziel mit T, 1 Lanze, 2/3 Batterien, Leertaste alles.', 'raiderInArc');
     }

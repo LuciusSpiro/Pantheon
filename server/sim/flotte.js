@@ -606,7 +606,7 @@ function neustart(game) {
     es.hp = es.hpMax; es.state = 'ok'; es.distress = false; es.warned = []; es.skript = { modus: 'folgen' };
     escort().syncFlags(game, es);
   }
-  const hMax = Lr.hullMax || 100; if (Lr.hull < hMax * 0.6) Lr.hull = Math.round(hMax * 0.6);
+  require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Hülle der Lerche entfällt; Rücksetzer = Integrität aller Systeme auf Maximum
   const b = st.befehl;
   if (st.welle) { const w = st.welle; w.i = -1; w.druck = false; w.fertig = false; w.t = game.time; w.n = 0; }
   if (b && b.spec) befehl(game, b.spec);

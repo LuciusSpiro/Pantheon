@@ -442,10 +442,10 @@ class Game {
       // M3a (CONTRACT-M3 §7.2/§8): Abnahme-Zähler
       flicks: 0, swaps: 0, minigames: 0, minigameErrors: 0, bridgeLeaves: 0, bursts: 0, burstsPerfect: 0,
       // M3b §4 (bursts/burstsPerfect bleiben eine Version als Altnamen, zählen nicht mehr)
-      leakHits: 0, escalations: 0, repairSetbacks: 0, overflowHull: 0, reactorAutoStarts: 0 };
+      leakHits: 0, escalations: 0, repairSetbacks: 0, reactorAutoStarts: 0 };
     this.ship = {
       scene: Welt.startOrt(), docked: true, dockedAt: Welt.startOrt(), dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
-      hull: C.ship.hull, hullMax: C.ship.hull, o2: C.o2.max, alert: 'normal',
+      integ: {}, o2: C.o2.max, alert: 'normal',   // SYS-01 A1a: keine Hülle; Integrität je System (interior.integOf, Start = Maximum)
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
@@ -1387,7 +1387,7 @@ class Game {
         if (item === 'loeschgel') this.inventory.loeschgelCharges = 0;
         break;
       }
-      case 'hull': this.ship.hull = clamp(Number(msg.n) || 0, 0, this.ship.hullMax); break;
+      case 'verlust': space.verlustAusloesen(this, 'debug'); break;   // SYS-01 A1a: die Naht des Notfallprotokolls (kein Hüllenwert mehr)
       case 'skip': if (this.phase === 'lobby') this.startGame(); err = this.mission.skip(); break;
       case 'god': this.god = !!msg.on; break;
       case 'tp': {   // QA (EK5/EK6): tp <kachelX> <kachelY> – Spieler auf der Außenkarte an eine Kachel setzen (Karten ansehen, Methalle/Feldzeichen erreichen)
@@ -1754,7 +1754,9 @@ class Game {
     let level = 'normal';
     const downSys = Object.values(s.systems).some((v) => v === 'broken' || v === 'offline');
     if (s.fireList.length || s.breachList.length || downSys || s.reactorCtl.state === 'offline') level = 'yellow';
-    if (this.space.enemies.some((e) => e.kind !== 'relay') || s.hull < 40 || s.o2 < 50) level = 'red';
+    // SYS-01 A1a: Alarm Rot bei Gefecht, Reaktor oder Schildgenerator zerstört (Verlust in der Mitte), wenig Sauerstoff
+    const mitteVerlust = s.systems.reactor === 'broken' || s.systems.shields === 'broken';
+    if (this.space.enemies.some((e) => e.kind !== 'relay') || mitteVerlust || s.o2 < 50) level = 'red';
     // SUND-02a Client-Runde S2: Alarm Rot für die Dauer einer Sim-Szene, auch in der Vorwarnung. Die Stufe ist reine Darstellung (Sirene, Raumlicht, Pult); sie kommt vor jedem
     // Tick neu aus dem Zustand, endet also mit der Szene von selbst. Nicht zu verwechseln mit dem Raum-Alarm (server/sim/alarm.js: Gegner-KI, Minen), der hier unberührt bleibt.
     if (this.simSzene && this.simSzene.phase !== 'ende') level = 'red';
@@ -2105,7 +2107,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
-        hull: Math.round(ship.hull * 10) / 10, hullMax: ship.hullMax, o2: r1(ship.o2), alert: ship.alert,
+        integ: interior.integritaetSnapshot(this).pct, integPct: interior.integritaetSnapshot(this).gesamt, o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(),
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
@@ -2190,7 +2192,7 @@ class Game {
         flicks: this.stats.flicks || 0, swaps: this.stats.swaps || 0, minigames: this.stats.minigames || 0, bridgeLeaves: this.stats.bridgeLeaves || 0,
         bursts: this.stats.bursts || 0, burstsPerfect: this.stats.burstsPerfect || 0,   // Altnamen (Schildstoß entfallen)
         leakHits: this.stats.leakHits || 0, escalations: this.stats.escalations || 0, repairSetbacks: this.stats.repairSetbacks || 0,
-        overflowHull: this.stats.overflowHull || 0, reactorAutoStarts: this.stats.reactorAutoStarts || 0,
+        reactorAutoStarts: this.stats.reactorAutoStarts || 0,
         playTimeStart: r2(this.stats.playTimeStart), stages: this.stats.stages, missions: this.stats.missions, locations: this.locationStats() },
       errors: this.errors,
     };

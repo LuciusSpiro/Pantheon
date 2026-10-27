@@ -9,7 +9,7 @@ const Fracht = require('./fracht.js');
 function zuruecksetzen(game, o) {
   const opt = o || {};
   const ship = game.ship; const sp = game.space;
-  ship.hull = ship.hullMax != null ? ship.hullMax : game.C.ship.hullMax;
+  require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Integrität aller Systeme auf Maximum (keine Hülle mehr)
   for (const k of Object.keys(ship.systems)) ship.systems[k] = 'ok';
   ship.offline = {}; ship.fragile = {};
   ship.fireList = []; ship.breachList = [];

@@ -767,109 +767,59 @@ function selectDest(game, dest) { return Sprung.selectDest(game, dest); }
 
 // ---------- Treffer ----------
 // opts: { pierce (bool, Schild ganz umgehen – Nachzügler), emp, heavy (angekündigter Treffer) }
-// M3b §4: dünne Hülle um damage.resolveHit (SERVER-DAMAGE). resolveHit rechnet Schild, Überlauf, Hülle, EMP,
-// Systemschaden, Feuer/Lecks und Zähler; shipHit behält Signatur, Ereignisse ('hit', sfx) und Missionsereignisse.
-// Fehlt damage.js (parallele Lieferung), gilt die bisherige Logik (hitLegacy).
-let damageMod;   // undefined = noch nicht gesucht, null = nicht vorhanden
-function damageApi(game) {
-  if (damageMod === undefined) {
-    try { damageMod = require('./damage.js'); }
-    catch (err) {
-      damageMod = null;
-      if (err && err.code !== 'MODULE_NOT_FOUND' && game.countError) game.countError('damage-require', err);
-    }
-  }
-  return damageMod && typeof damageMod.resolveHit === 'function' ? damageMod : null;
-}
+// M3b §4: dünne Hülle um damage.resolveHit (SERVER-DAMAGE). resolveHit rechnet Schild, Trefferweg (Integrität), EMP,
+// Feuer und Zähler; shipHit behält Signatur, Ereignisse ('hit', sfx) und Missionsereignisse. SYS-01 A1a: keine Hülle mehr.
+let damageMod = null;
+function damageApi(game) { return damageMod || (damageMod = require('./damage.js')); }
+// Rückgabe: das Ergebnis von damage.resolveHit ({ absorbed, rest, systems, empThrough, … }), rest = Schaden nach Schild
 function shipHit(game, sector, dmg, opts) {
   const ship = game.ship; const sh = ship.shields;
   opts = Alarm.trefferOpts(game, opts || {});   // EK2: Schilde unten (Schleichfahrt) = Treffer ohne Schildabzug
   ensureM3(game);
   game.stats.hits++;
   const D = damageApi(game);
-  if (!D) return hitLegacy(game, sector, dmg, opts);
   const heavy = !!opts.heavy;
   const before = sh.current[sector] || 0;
   // S2 §5: Breitseite als Schild – das 'hit'-Ereignis nennt den geschützten Schützling (shielded: '<escortId>')
   const hitEv = (d) => (opts.shielded ? Object.assign(d, { shielded: opts.shielded }) : d);
-  let r;
-  try { r = D.resolveHit(game, sector, dmg, opts); }
-  catch (err) { if (game.countError) game.countError('resolveHit', err); return hitLegacy(game, sector, dmg, opts); }
-  r = r || {};
+  const r = D.resolveHit(game, sector, dmg, opts) || {};
   syncWeaponsAlias(game);
   if (r.evaded) {   // z. B. Ausweichfenster – kein Treffer
     game.emit('hit', hitEv({ sector, shield: true, dmg: 0, heavy, evaded: true }));
-    return;
+    return r;
   }
-  const hull = Number(r.hull) || 0;
+  const rest = Number(r.rest) || 0;
   const absorbed = Number(r.absorbed) || 0;
-  const empThrough = !!opts.emp && (r.empThrough != null ? !!r.empThrough : hull > 0);
-  if (empThrough) {
+  if (r.empThrough) {
     game.emit('hit', hitEv({ sector, shield: false, dmg: 0, emp: true, heavy, absorbed }));
     game.emit('sfx', { name: 'emp' });
-  } else if (hull > 0) {
-    game.emit('hit', hitEv({ sector, shield: false, dmg: r1(hull / 5), heavy, absorbed, hull: r1(hull) }));
+  } else if (rest > 0) {
+    game.emit('hit', hitEv({ sector, shield: false, dmg: r1(rest), heavy, absorbed }));
     game.emit('sfx', { name: 'hull_hit' });
   } else {
     game.emit('hit', hitEv({ sector, shield: true, dmg, heavy, absorbed }));
     game.emit('sfx', { name: 'shield_hit' });
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
-  if (hull > 0) { Fracht.huellenTreffer(game); game.missionEvent('hullHit', { sector }); }   // PAN-01 A: ungesicherter Frachtraum verliert Ladung
-  if (opts.angriff && hull > 0) Zielsysteme.trifftLerche(game, sector, r, opts);   // SUND-04a-1 A: durchschlagender Treffer auf die Seite des Systems (Heck: Antrieb), nur Angriffe in Szenen mit Schalter
-}
-// Bisherige Treffer-Logik (M3a ohne Schildstoß) – nur Fallback, solange damage.js fehlt
-function hitLegacy(game, sector, dmg, opts) {
-  const C = game.C; const ship = game.ship; const sh = ship.shields;
-  const heavy = !!opts.heavy;
-  if (!opts.pierce && sh.current[sector] > 0) {
-    sh.current[sector] = Math.max(0, sh.current[sector] - dmg);
-    game.emit('hit', { sector, shield: true, dmg, heavy });
-    game.emit('sfx', { name: 'shield_hit' });
-    if (sh.current[sector] === 0) game.missionEvent('shieldDown', { sector });
-    return;
-  }
-  if (opts.emp) {
-    // EMP durch die Schilde: zufälliges System offline statt Hüllenschaden
-    const order = (interior.SYSTEM_ORDER || M3_SYSTEMS).filter((s) => s !== 'weapons' && ship.systems[s] != null);
-    const cand = order.filter((s) => !isDown(ship.systems[s]));
-    game.emit('hit', { sector, shield: false, dmg: 0, emp: true, heavy });
-    game.emit('sfx', { name: 'emp' });
-    if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
-    return;
-  }
-  game.emit('hit', { sector, shield: false, dmg, heavy });
-  game.emit('sfx', { name: 'hull_hit' });
-  if (!game.god) ship.hull = Math.max(0, ship.hull - 5 * dmg);
-  const region = sector;
-  // M3a §4.3: Systemtreffer (fragil, Chance, Gewichte, Sperre, ODA) macht interior.hitSystems (SERVER-SHIP).
-  interior.hitSystems(game, sector);
-  syncWeaponsAlias(game);
-  if (game.rng.chance(C.hitEffects.fireChance)) { const t = interior.randomRegionFloor(game, region, false); if (t) interior.addFire(game, t.x, t.y); }
-  if (game.rng.chance(C.hitEffects.breachChance)) { const t = interior.randomRegionFloor(game, region, true); if (t) interior.addBreach(game, t.x, t.y); }
-  game.missionEvent('hullHit', { sector });
+  if (rest > 0) { Fracht.huellenTreffer(game); game.missionEvent('hullHit', { sector }); }   // PAN-01 A: ungesicherter Frachtraum verliert Ladung
+  if (opts.angriff && rest > 0) Zielsysteme.trifftLerche(game, sector, r, opts);   // SUND-04a-1 A: durchschlagender Treffer auf die Seite des Systems (Heck: Antrieb), nur Angriffe in Szenen mit Schalter
+  return r;
 }
 
-function updateHull(game, dt) {
+// SYS-01 A1a: Naht für das Notfallprotokoll. Die Hülle entfällt; ausgelöst wird es nur noch explizit (Debug `verlust`, Tests).
+// Ereignisse, Zähler und Marken wie bisher; die Systeme bleiben, wie sie sind (der Auslöser für den Tod kommt mit A2).
+function verlustAusloesen(game, grund) {
   const C = game.C; const ship = game.ship;
-  if (game.space.enemies.some((e) => e.kind !== 'relay') || ship.breachList.length || ship.hull >= C.ship.hullRegenMax) return;
-  ship.hull = Math.min(C.ship.hullRegenMax, ship.hull + C.ship.hullRegen * dt);
-}
-
-function checkEmergency(game) {
-  const C = game.C; const ship = game.ship;
-  if (ship.hull > 0) return;
-  ship.hull = C.emergency.hull;
   ship.fireList = [];
   ship.breachList = [];   // M1: Notschaum dichtet auch alle Lecks ab (sonst Notfall-Schleife ohne Flickblech)
   for (const e of game.space.enemies) { e.retreatUntil = game.time + C.combat.retreatTime; if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); } }
   game.space.projectiles = game.space.projectiles.filter((p) => !GEGNER_GESCHOSSE.includes(p.kind));
   game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
   game.stats.emergencies++;
-  game.emit('emergency', {});
-  game.missionEvent('emergency', {});   // SL3: Regiebücher (Falle: Lerche am Ende = Szene von vorn)
+  game.emit('emergency', { grund: grund || null });
+  game.missionEvent('emergency', { grund: grund || null });   // SL3: Regiebücher (Falle: Lerche am Ende = Szene von vorn)
   game.emit('sfx', { name: 'emergency' });
-  game.oda('Notfallprotokoll! Hülle stabilisiert, Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde.', null);
+  game.oda('Notfallprotokoll! Feuer erstickt, Lecks verschäumt. Kostet 50 Marken – und Würde.', null);
 }
 
 // ---------- Waffen (PAN-01 C): neun Plätze, Katalog, Ladepool, Torpedowerfer – siehe server/sim/schiffswaffen.js ----------
@@ -1343,8 +1293,7 @@ function estreuExplosion(game, p) {
   const sec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
   shipHit(game, sec, p.dmg, { streu: { schildFaktor: T.schildFaktor } });
   if (zwei) {
-    shipHit(game, sec, T.durchschlag, { pierce: true, streuZwei: true });
-    interior.hitSystems(game, sec, { chance: 1, maxState: 'broken', centre: false, breakFragile: false, fragileAlways: false });
+    shipHit(game, sec, T.durchschlag, { pierce: true, streuZwei: true });   // SYS-01 A1a: ohne Schild trifft der Durchschlag immer ein System (Trefferweg)
     game.stats.streuZweiLerche = (game.stats.streuZweiLerche || 0) + 1;
   }
 }
@@ -1365,7 +1314,7 @@ function sperrInterval(game, S) {
   return S.interval * (crewScale(game).enemyFireInterval / ref);
 }
 function sperrStats(game) {
-  return game.stats.sperrfeuer || (game.stats.sperrfeuer = { bursts: 0, shots: 0, hits: 0, hull: 0, shielded: 0, escortHits: 0 });
+  return game.stats.sperrfeuer || (game.stats.sperrfeuer = { bursts: 0, shots: 0, hits: 0, schaden: 0, shielded: 0, escortHits: 0 });
 }
 // EK1b: Mündung eines Platzes mit Lage (pos entlang der Schiffslänge, quer seitlich versetzt) – Anteil des Klassenradius; Seitenplätze sitzen
 // außen am Rumpf. Plätze ohne pos (Korvette) nutzen weiter sperrMuzzle / die Schiffsmitte.
@@ -1697,15 +1646,15 @@ function updateProjectiles(game, dt) {
         if (sperr) hopts.sperrfeuer = true;
         if (p.kind === 'sturm') hopts.sturm = true;
         if (p.tgt) { hopts.shielded = p.tgt; if (game.stats.escort) game.stats.escort.shielded++; }   // S2: Lerche fängt Salve auf den Schützling
-        const hull0 = ship.hull;
         // S2b: Sperrfeuer auf einen Schützling, das die Lerche abfängt, zählt × shieldedFactor (sonst räumt es ihren Schild
         // ab, und die nächste Ladung auf den Schützling geht ungedeckt durch)
         let dmg = p.dmg;
         if (sperr && p.tgt) { const SF = sperrCfg(game) || {}; if (SF.shieldedFactor != null) dmg *= Number(SF.shieldedFactor); }
         const hsec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
-        if (dmg > 0) shipHit(game, hsec, dmg, hopts);
+        let rr = null;
+        if (dmg > 0) rr = shipHit(game, hsec, dmg, hopts);
         else { game.emit('hit', { sector: hsec, shield: true, dmg: 0, heavy: false, absorbed: 0, shielded: p.tgt }); game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); }
-        if (sperr) { const st = sperrStats(game); st.hits++; st.hull = r1(st.hull + Math.max(0, hull0 - ship.hull)); if (p.tgt) st.shielded++; }
+        if (sperr) { const st = sperrStats(game); st.hits++; st.schaden = r1(st.schaden + (rr ? Number(rr.rest) || 0 : 0)); if (p.tgt) st.shielded++; }
         if (pierce) game.missionEvent('nachzueglerHit', {});
       } else if (p.tgt) {
         try { hit = Escort.projectileHit(game, p); } catch (err) { if (game.countError) game.countError('escort-projectile', err); }
@@ -1771,9 +1720,7 @@ function update(game, dt) {
     }
   }
   updateProjectiles(game, dt);
-  updateHull(game, dt);
   updateSalvage(game);
-  checkEmergency(game);
 }
 
 // ---------- Konsolenbefehle ----------
@@ -1816,7 +1763,7 @@ function technikShield(game, sector, delta) {
 module.exports = {
   enterScene, update, shipHit, spawnEnemy, volkFuer, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
   weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, technikOverload, reactorOnline,
-  technikPower, technikModul, powerUsed, powerDemand, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, checkEmergency, spawnSalvage, mountIds, inMountArc, jammersPresent,
+  technikPower, technikModul, powerUsed, powerDemand, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, verlustAusloesen, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,
   // M3a §9.4 (SERVER-COMBAT) – Aufrufer: game.js (Befehle, Snapshot)
   weaponsAlloc, weaponsHold, weaponsCharge, lanceTrace, lanceDamage, captainBurst, chargePoints, shieldCaps, turnCaps, mountsSnapshot, shieldsSnapshot, enemyTeleSnap,

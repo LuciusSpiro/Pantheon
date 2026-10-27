@@ -1011,6 +1011,7 @@ function damageSystem(game, sys, toState, opts) {
   else s[sys] = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
   if (s[sys] === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
   if (s[sys] === 'ok' && toState === 'ok' && game.ship.fragile) delete game.ship.fragile[sys];
+  syncInteg(game, sys);   // SYS-01 A1a: die Integrität folgt dem Zustand
   if (s[sys] === before) return;
   game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
   if (s[sys] !== 'ok') {
@@ -1031,61 +1032,112 @@ function heatDamage(game, powerSys) {
   if (game.ship.systems[powerSys] === 'ok') damageSystem(game, powerSys, 'damaged');
 }
 
-// §4.3 Trefferauswahl nach einem Treffer im Sektor s. Rückgabe: [{system, state}] der getroffenen Systeme.
-// M3b §4 (CONTRACT-M3B): opts = { chance, maxState: 'broken'|'damaged', centre, breakFragile, fragileAlways }.
-//   ohne opts: M3a-Verhalten (systemChance, bis zerstört, Mitte möglich, Geflicktes im Sektor bricht sicher).
-//   fragileAlways: Geflicktes im Sektor bricht ohne Würfelwurf (Schild 0 mit Hüllentreffer); sonst nur, wenn der
-//   Durchlass-Wurf gelingt (Schild 1). maxState 'damaged': nur heile, nicht geflickte Systeme kommen in die Auswahl.
-function hitSystems(game, sector, opts) {
-  const C = game.C; const M = C.spaceM3 || {}; const ship = game.ship;
-  if (!Number.isInteger(sector) || sector < 0 || sector > 3) return [];
-  if (!ship.sysHitAt) ship.sysHitAt = {};
-  const o = Object.assign({ chance: C.hitEffects.systemChance, maxState: 'broken', centre: true, breakFragile: true, fragileAlways: true }, opts || {});
-  const out = [];
-  const frag = o.breakFragile ? SYSTEM_ORDER.filter((k) => systemAktiv(game, k) && isFragile(game, k) && systemSector(k) === sector && ship.systems[k] !== 'offline') : [];
-  const breakFrag = () => {
-    for (const k of frag) {
-      damageSystem(game, k, 'broken');
-      delete ship.fragile[k];
-      ship.sysHitAt[k] = game.time;
-      out.push({ system: k, state: ship.systems[k] });
-    }
-    return out;
-  };
-  // 1. Fragile Systeme in s brechen zuerst (ohne Schild sicher, mit Schild 1 nur bei gelungenem Durchlass-Wurf)
-  if (frag.length && o.fragileAlways) return breakFrag();
-  // 2. Mit chance ein System beschädigen
-  if (!(o.chance > 0) || !game.rng.chance(o.chance)) return out;
-  if (frag.length) return breakFrag();
-  const capped = o.maxState === 'damaged';
-  const lock = C.hitEffects.systemCooldown || 0;
-  const ready = (k) => systemAktiv(game, k) && (ship.sysHitAt[k] != null ? ship.sysHitAt[k] : -1e9) + lock <= game.time && ship.systems[k] !== 'offline' &&
-    (!capped || (ship.systems[k] === 'ok' && !isFragile(game, k)));
-  let pick = null;
-  if (o.centre && game.rng.chance(M.centreChance != null ? M.centreChance : 0.15)) {
-    const mid = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && ready(k));
-    if (mid.length) pick = game.rng.pick(mid);
-  } else {
-    const sw = M.sectorWeight != null ? M.sectorWeight : 3; const nw = M.neighbourWeight != null ? M.neighbourWeight : 1;
-    const weighted = [];
-    for (const k of SYSTEM_ORDER) {
-      if (!ready(k)) continue;
-      const ks = systemSector(k);
-      if (ks === sector) weighted.push([k, sw]);
-      else if (ks === (sector + 1) % 4 || ks === (sector + 3) % 4) weighted.push([k, nw]);   // Gegenseite (s+2) und Mitte fallen raus
-    }
-    const total = weighted.reduce((a, w) => a + w[1], 0);
-    if (total > 0) {
-      let r = game.rng.range(0, total);
-      for (const [k, w] of weighted) { r -= w; if (r <= 0) { pick = k; break; } }
-      if (!pick) pick = weighted[weighted.length - 1][0];
-    }
+// ---------- Systemmodell (SYS-01 A1a, Konzept „Systemmodell Zonen“) ----------
+// Integrität je System in ship.integ (Punkte, Maximum je System in config.systemModell.integ). Die Zustände
+// ok/beschädigt/zerstört folgen daraus: ≤ 0 zerstört, unter schwelle × Maximum beschädigt, sonst ok.
+// Reparatur setzt den Grundwert der erreichten Stufe (grundwert). Offline (EMP) bleibt Sache von damageSystem.
+function sysModell(game) { return game.C.systemModell || {}; }
+function integMax(game, sys) {
+  const I = sysModell(game).integ || {};
+  const v = Number(I[sys]);
+  if (v > 0) return v;
+  return Number(I.default) > 0 ? Number(I.default) : 10;
+}
+function schwelleOf(game) { const v = Number(sysModell(game).schwelle); return v > 0 ? v : 0.6; }
+function integOf(game, sys) {
+  const I = game.ship.integ || (game.ship.integ = {});
+  if (I[sys] == null) I[sys] = integMax(game, sys);
+  return I[sys];
+}
+function setInteg(game, sys, v) {
+  const I = game.ship.integ || (game.ship.integ = {});
+  I[sys] = Math.max(0, Math.round((Number(v) || 0) * 10) / 10);
+}
+// Grundwert einer Stufe nach Reparatur: ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0
+function grundwert(game, sys, state) {
+  if (state === 'ok') return integMax(game, sys);
+  if (state === 'damaged') { const r = Number((sysModell(game).reparatur || {}).damaged); return integMax(game, sys) * (r > 0 ? r : 0.5); }
+  return 0;
+}
+// Integrität folgt einem Zustandswechsel (damageSystem): heil = Maximum, zerstört = 0; beschädigt nur, wenn die Punkte
+// nicht schon im beschädigten Bereich liegen (sonst bliebe ein Treffertreffer-Stand verloren).
+function syncInteg(game, sys) {
+  const st = game.ship.systems[sys];
+  if (st === 'ok') setInteg(game, sys, integMax(game, sys));
+  else if (st === 'broken') setInteg(game, sys, 0);
+  else if (st === 'damaged') {
+    const max = integMax(game, sys); const v = integOf(game, sys);
+    if (v <= 0 || v >= schwelleOf(game) * max) setInteg(game, sys, grundwert(game, sys, 'damaged'));
   }
-  if (!pick) return out;
-  ship.sysHitAt[pick] = game.time;
-  damageSystem(game, pick, capped ? 'damaged' : undefined);
-  out.push({ system: pick, state: ship.systems[pick] });
-  return out;
+}
+// Integritätsschaden auf ein System (Trefferweg, Sturm, Streu). Punkte ab, Zustand aus den Schwellen.
+// Geflicktes (ok, fragil) bricht beim Treffer direkt. Rückgabe: { system, state } bei Zustandswechsel, sonst null.
+function systemTreffer(game, sys, schaden) {
+  const s = game.ship.systems;
+  sys = resolveSystem(game, sys, false);
+  const dmg = Number(schaden) || 0;
+  if (!s[sys] || !(dmg > 0)) return null;
+  const v = Math.max(0, integOf(game, sys) - dmg);
+  setInteg(game, sys, v);
+  Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel)
+  const before = s[sys];
+  let ziel = null;
+  if (v <= 0) ziel = 'broken';
+  else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
+  else if (v < schwelleOf(game) * integMax(game, sys)) ziel = 'damaged';
+  if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
+  damageSystem(game, sys, ziel);
+  return s[sys] !== before ? { system: sys, state: s[sys] } : null;
+}
+// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives, nicht offline System der Zone.
+// Ist die Zone leer, geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
+// Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer).
+function trefferweg(game, zone, schaden) {
+  const s = game.ship.systems;
+  const frei = (k) => systemAktiv(game, k) && !isDown(s[k]);
+  // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
+  const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k));
+  if (frag.length) {
+    for (const k of frag) damageSystem(game, k, 'broken');
+    return { system: frag[0], state: s[frag[0]], wechsel: true };
+  }
+  let kand = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && frei(k));
+  if (!kand.length) kand = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && frei(k));
+  if (!kand.length) return null;
+  const pick = game.rng.pick(kand);
+  const r = systemTreffer(game, pick, schaden);
+  return { system: pick, state: s[pick], wechsel: !!r };
+}
+// Schwächste Seite (Zonen 0–3): Anteil der Integrität der aktiven Systeme am Maximum (ODA-Warnung unter 40 %)
+function schwaechsteZone(game) {
+  let best = null;
+  for (let z = 0; z < 4; z++) {
+    let v = 0; let m = 0;
+    for (const k of SYSTEM_ORDER) {
+      if (systemSector(k) !== z || !systemAktiv(game, k)) continue;
+      v += integOf(game, k); m += integMax(game, k);
+    }
+    if (!(m > 0)) continue;
+    const anteil = v / m;
+    if (!best || anteil < best.anteil) best = { zone: z, anteil };
+  }
+  return best;
+}
+// Rücksetzer (Arena, Szenen, Flotte): alle Systeme auf Integrität Maximum
+function integritaetVoll(game) {
+  const I = game.ship.integ || (game.ship.integ = {});
+  for (const k of SYSTEM_ORDER) I[k] = integMax(game, k);
+}
+// Snapshot: Integrität je System in Prozent (feste Reihenfolge SYSTEM_ORDER, nur aktive Systeme) und Gesamt in Prozent
+function integritaetSnapshot(game) {
+  const pct = []; let v = 0; let m = 0;
+  for (const k of SYSTEM_ORDER) {
+    if (!systemAktiv(game, k)) { pct.push(-1); continue; }
+    const max = integMax(game, k); const i = integOf(game, k);
+    pct.push(Math.round(100 * i / max));
+    v += i; m += max;
+  }
+  return { pct, gesamt: m > 0 ? Math.round(100 * v / m) : 0 };
 }
 
 // ODA-Ansage bei Systemschaden, gebündelt mit Abklingzeit spaceM3.repair.odaCooldown (§8.2)
@@ -1138,6 +1190,7 @@ function repairSystem(game, sys, by, how) {
   if (before === 'ok' && !(wasFragile && (how === 'swap' || how === 'minigame'))) return false;
   if (how === 'swap') s[sys] = 'ok';
   else if (before !== 'ok') s[sys] = before === 'broken' ? 'damaged' : 'ok';
+  setInteg(game, sys, grundwert(game, sys, s[sys]));   // SYS-01 A1a: Reparatur setzt den Grundwert der erreichten Stufe
   if (how === 'flick' || how === 'oda') ship.fragile[sys] = true;
   else delete ship.fragile[sys];
   ship.noPartT[sys] = 0;
@@ -1295,10 +1348,7 @@ function updateHazards(game, dt) {
       }
     }
   }
-  for (const b of ship.breachList) {
-    b.t += dt;
-    if (!game.god && !drill) ship.hull = Math.max(0, ship.hull - C.breach.hullPerSec * dt);
-  }
+  for (const b of ship.breachList) b.t += dt;   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (sie entfällt)
   // Softlock-Schutz: Notreparatur, wenn kein Teil mehr verfügbar ist
   const carried = (kind) => game.players.some((p) => p.carry === kind) || game.bots.some((b) => b.carry === kind) ||
     ship.groundItems.some((i) => i.kind === kind);
@@ -1362,10 +1412,12 @@ module.exports = {
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
+  // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
+  integMax, integOf, setInteg, grundwert, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,
   // M3a (CONTRACT-M3 §9.5)
-  hitSystems, systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
+  systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
   stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,
 };

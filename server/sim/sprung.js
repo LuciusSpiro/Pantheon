@@ -305,10 +305,10 @@ function notsprung(game) {
     for (let i = 0; i < kand.length; i++) { r -= gew[i]; if (r <= 0) { nachHex = kand[i]; break; } }
   }
   const nachOrt = nachHex ? Sektoren.ortVonHex(nachHex) : vonOrt;
-  // Wirkung: Reaktor offline (Neustart über die Schalter), Hülle −huelle (nie unter 1), Sprung
+  // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung. SYS-01 A1a (Übergang bis zum Notfallsprung-Umbau, Paket A2):
+  // die Hülle-Kosten entfallen; die neue Kostenregel (ein zufälliges System beschädigt) kommt dort.
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.overloadLeft = 0; rc.warned = false; }
-  ship.hull = Math.max(1, (ship.hull || 0) - (Number(N.huelle) || 0));
   // SUND-02a C: Freie Fahrt (weltsim gesetzt): der Reaktor startet nach autoNeustartFrei s von selbst (Mechanik des Gefechtsstarts, damage.updateReactorAuto);
   // die Kampagne bleibt beim Handneustart (Schalter A+B) bzw. dem Notstart nach autoRestartAfter
   const frei = !!game.weltsim && Number(N.autoNeustartFrei) > 0;

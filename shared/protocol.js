@@ -319,7 +319,7 @@
     HIDDEN_KINDS: ['cache', 'beacon', 'lore', 'hollow'],
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
-    DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
+    DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
@@ -341,7 +341,7 @@
     // §4 Ereignisse: escalated { system, tx, ty } (Feuer neben der Station), repairSetback { system, pid? | bot? },
     // hit { sector, shield, dmg, absorbed, hull, heavy, emp? } (shield = ganz gefangen; absorbed/hull neu).
     // Snapshot ship.escalate { [system]: Restsekunden }, ship.reactor.autoIn (s bis Gefechtsstart, nur wenn aktiv),
-    // enemies[].vx/vy/state (§3), stats.leakHits/escalations/repairSetbacks/overflowHull/reactorAutoStarts.
+    // enemies[].vx/vy/state (§3), stats.leakHits/escalations/repairSetbacks/reactorAutoStarts (SYS-01 A1a: overflowHull entfällt).
     DAMAGE_EVENTS: ['escalated', 'repairSetback'],
     ENEMY_STATES: ['approach', 'overshoot', 'turn', 'station', 'retreat'],
     SECTORS: ['bug', 'steuerbord', 'heck', 'backbord'],

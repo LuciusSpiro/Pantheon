@@ -77,7 +77,7 @@
         "dekoPlaetze": { "type": "object", "description": "Deko-Platz -> Deko-Kennung oder null", "additionalProperties": { "type": ["string", "null"] } },
         "quartiere": { "type": "object", "description": "Quartier -> Einrichtung (floor, wall, light)" },
         "systeme": { "type": "object", "description": "System -> ok|damaged|broken (offline wird ok, geflickt wird damaged)", "additionalProperties": { "enum": ["ok", "damaged", "broken"] } },
-        "huelle": { "type": "number", "minimum": 0 },
+        "huelle": { "type": "number", "minimum": 0, "description": "SYS-01 A1a: entfällt. Altstände mit huelle werden gelesen und ignoriert; die Integrität wird beim Laden aus der Stufe abgeleitet." },
         "support": { "type": "object", "description": "Abklingzeiten der Captain-Unterstützung", "additionalProperties": { "type": "number" } },
         "pins": { "type": "array", "description": "Pins des Planungstischs", "items": { "type": "object" } },
         "fracht": { "type": "array", "description": "EK3 Teil A, PAN-01 B: mitgeführte Ladung (Art je Bucht; höchstens 2 je Modul Frachtraum, also bis zu 8 bei vier Frachträumen)", "maxItems": 8, "items": { "oneOf": [ { "type": "string", "enum": ["sprengstoff", "fracht", "deuterium"] }, { "type": "object", "description": "SL0: Person im Frachtraum (p Kennung, n Name, b Bett)", "required": ["p"], "properties": { "p": { "type": "string" }, "n": { "type": "string" }, "b": { "type": "integer", "minimum": 0 } }, "additionalProperties": false } ] } },

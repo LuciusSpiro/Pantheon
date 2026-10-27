@@ -116,15 +116,15 @@ function schaedige(game, e, id) {
 }
 
 // ---------- Gegner -> Lerche (Aufruf: space.shipHit nach der Trefferauflösung, nur für Angriffe) ----------
-// sector: getroffener Sektor der Lerche (0 Bug … 3 Backbord), r: Ergebnis von damage.resolveHit (hull, systems), opts.zielt = Zielsystem des Schützen
+// sector: getroffener Sektor der Lerche (0 Bug … 3 Backbord), r: Ergebnis von damage.resolveHit (rest = Schaden am Schild vorbei, systems), opts.zielt = Zielsystem des Schützen
 function trifftLerche(game, sector, r, opts) {
-  if (!(opts && opts.angriff) || !szeneAktiv(game) || !r || !(Number(r.hull) > 0)) return false;
+  if (!(opts && opts.angriff) || !szeneAktiv(game) || !r || !(Number(r.rest) > 0)) return false;
   const ship = game.ship;
   let getroffen = false;
   for (const id of ids()) {
     const sys = SYSTEME[id];
     if (!sys.lerche || ship.systems[sys.lerche] == null || sector !== seiteIndex(sys)) continue;
-    if ((r.systems || []).some((x) => x.system === sys.lerche)) continue;   // derselbe Treffer hat das System schon geschädigt (Durchlass-Tabelle)
+    if ((r.systems || []).some((x) => x.system === sys.lerche && x.wechsel)) continue;   // derselbe Treffer hat das System schon geschädigt (Zustandswechsel)
     const sp = ship.zsAt || (ship.zsAt = {});
     if (game.time < (sp[id] != null ? sp[id] : -1e9) + TREFFER.sperre_s) continue;
     const gezielt = opts.zielt === id;

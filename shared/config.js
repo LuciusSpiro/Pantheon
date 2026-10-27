@@ -25,15 +25,14 @@
 
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
-    breach: { hullPerSec: 0.5, o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },
+    breach: { o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (Hülle entfällt)
     // PAN-01 B: Die Lebenserhaltung ist als Station gestrichen (AP10 ruht); O2 sinkt nur durch Lecks.
     o2: { max: 100, regen: 2, suffocateDps: 2 },
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
-    hitEffects: { fireChance: 0.3, breachChance: 0.15, systemChance: 0.45, systemCooldown: 10, spill: 0.4 },   // M3a: 0.35/12 -> 0.45/10 (spill ersetzt durch spaceM3-Gewichte)
+    hitEffects: { fireChance: 0.3, spill: 0.4 },   // SYS-01 A1a: Systemtreffer kommen aus dem Trefferweg (systemModell), Lecks aus Treffern entfallen
 
     ship: {
-      hull: 100,
       maxSpeed: 130, accel: 50, turnRate: 0.5, drag: 0.35, // px/s, px/s², rad/s, Anteil pro s (M3a: 160/70/1.6 -> 130/50/0.5)
       turnAccel: 0.8,          // M3a: rad/s² – Winkelgeschwindigkeit nähert sich helm.turn × turnRate × turnCap
       dodgeImpulse: 350, dodgeCooldown: 7,   // M3a: 6 -> 10; §20.2: 180/10 -> 350/7 (Ausweichen als echte Antwort auf Ladungen)
@@ -42,7 +41,6 @@
       beamTime: 3, beamTimeDamaged: 6,
       // QA M3a: hullRegen 0.4 -> 1.5 – im Testgelände (12 s Pause) kam die Hülle nach einem Notfallprotokoll kaum über 30,
       // jede folgende Welle löste das nächste aus (Kaskade). Jetzt +18 Hülle je Pause; in Missionen schneller zurück auf 70.
-      hullRegen: 1.5, hullRegenMax: 70,   // ohne Gegner und Lecks flicken die Schrauber die Außenhaut (pro s, bis max)
     },
     // PAN-01 A: Reaktor 8. Energieposten sind die drei Hauptsysteme (Antrieb, Schilde, Waffen; mehr ist mehr) und die aktiven Bordmodule
     // (je 1, siehe `module`). default = Standardverteilung der Hauptsysteme bei 2 Modulen (6 Energie); andere Modulzahlen: module.standard.
@@ -213,7 +211,7 @@
     // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
     // Notfallprotokolle je Lauf; im Browser dauerten Korvetten-Wellen 80–150 s)
     crewScaling: { 1: { enemyFireInterval: 2.2, enemyHp: 0.5 }, 2: { enemyFireInterval: 1.7, enemyHp: 0.7 }, 3: { enemyFireInterval: 1.7, enemyHp: 0.7 } },
-    emergency: { hull: 30, marksCost: 50 },
+    emergency: { marksCost: 50 },   // SYS-01 A1a: Hülle entfällt; das Notfallprotokoll wird über Space.verlustAusloesen ausgelöst
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
     // QA S2b: fireMin/fireDelay – brennt es außerhalb des Kampfs an ≥ fireMin Stellen ununterbrochen fireDelay s lang, löscht
@@ -556,7 +554,7 @@
 
     // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
     spaceM3: {
-      enemyHpFactor: 0.8, reactorBrokenOutput: 2, centreChance: 0.15, sectorWeight: 3, neighbourWeight: 1,
+      enemyHpFactor: 0.8, reactorBrokenOutput: 2,
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
         bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
@@ -624,8 +622,7 @@
     // nie (Flugzeit ~3,5 s), nur eine stehende. Jetzt: wer Kurs hält, wird getroffen; Kurs-/Tempowechsel oder Ausweichen
     // in den ~3 s Flugzeit bringen den Stoß vorbei.
     spaceS2b: { sperrfeuer: { burst: 3, burstGap: 0.25, interval: 3, speed: 110, ttl: 6, damage: 0.5, spread: 0.12, range: 520, lead: 1, maxLead: 4,
-      maxProjectiles: 18, escortFactor: 0.5, leakFactor: 0.3, shieldedFactor: 0 } },   // damage 1 -> 0,5 (KAMPF: mit 1 kostete Kurshalten ~1 Hülle/s)
-    // leakFactor: Systemschaden-Chance eines Sperrfeuer-Treffers ohne Schild (× shieldLeak[0]); mit Schild nie.
+      maxProjectiles: 18, escortFactor: 0.5, shieldedFactor: 0 } },   // damage 1 -> 0,5 (KAMPF: mit 1 kostete Kurshalten ~1 Hülle/s)
     // shieldedFactor: Schaden, wenn die Lerche ein Geschoss auf einen Schützling mit dem Rumpf abfängt (0 = Breitseite
     // schluckt es ganz – mit 0,5/1 räumte das Sperrfeuer ihren Schild ab und die nächste Ladung ging ungedeckt durch).
     // Schützlinge: Hülle je Klasse, Gehorsam nach Haltung (s Verzögerung), Warnschwellen, Aggro-Dauer nach Treffer der Lerche
@@ -653,17 +650,8 @@
       // EK1b: Breitseiten-KI (pilot.breitseite) mit Klassenparametern statt einer Funktion je Klasse: range = Soll-Abstand zur Lerche (px, Vorgabe pilot.korvetteRange, höchstens
       // Waffenreichweite − 40), switchCd = Mindestabstand zwischen zwei Seitenwechseln (s). Schwere Schiffe wechseln die Seite seltener.
       pilotKlasse: { korvette: { switchCd: 12 }, fregatte: { range: 420, switchCd: 16 }, kreuzer: { range: 440, switchCd: 20 } },
-      // Schild-Durchlass je Stärke vor dem Treffer (Kai: 1 -> 20 %, 2 -> 5 %)
-      shieldLeak: {
-        0: { chance: 0.45, maxState: 'broken', centre: true, breakFragile: true },
-        1: { chance: 0.2, maxState: 'damaged', centre: false, breakFragile: true },
-        2: { chance: 0.05, maxState: 'damaged', centre: false, breakFragile: false, heavyOnly: true },
-        3: { chance: 0, heavyReduce: 1 },
-        4: { chance: 0, heavyReduce: 1 },
-      },
-      shieldOverflow: true,
       escalation: { after: 20, maxFires: 3 },   // s beschädigt/zerstört im Kampf ohne Arbeit -> Feuer neben der Station; QA S2b: nicht ab 3 Bränden
-      repairHitLoss: 0.5,                  // Anteil Fortschritt, den ein Hüllentreffer im Sektor kostet
+      repairHitLoss: 0.5,                  // Anteil Fortschritt, den ein Systemschaden im Sektor kostet (SYS-01 A1a: jeder Systemschaden, nicht nur Hüllentreffer)
       reactorAutoRestart: 3,               // s: zerstörter Reaktor repariert + Gegner da -> startet selbst
       // QA M3b (Gegnerdruck, nur im neuen Flugmodell): Feuerintervall (× crewScaling) und Vorhalt (0..1) der Blaster-Schüsse
       // Jäger: lead 0 -> 1 (Vorhalt). Vorher zielten sie auf die alte Position und trafen ein fahrendes Schiff kaum
@@ -671,6 +659,16 @@
       // kürzere Intervalle (0,6/1,5 getestet) machten „Nase drauf“ und „Breitseite“ gleich teuer, und im Browser kippten
       // Korvetten-Wellen mit Menschen-Tempo schon mit den alten Werten in Eskalations-Kaskaden (CONTRACT-M3B §9).
       pilotFire: { raider: { fireInterval: 1.9, lead: 1 } },
+    },
+    // ================= SYS-01 A1a „Das Schiff in Zonen“ (Konzept: Vault Pantheon/Mechanik/Systemmodell Zonen) – alles per `tune systemModell.<pfad>` =================
+    // Integrität je System (Punkte). Ein Treffer ohne Schild zieht Punkte ab (Rest × schadenFaktor). Zustände werden daraus getrieben:
+    // Integrität ≤ 0 -> zerstört; unter schwelle × Maximum -> beschädigt; sonst ok. Reparatur setzt den Grundwert der Stufe.
+    systemModell: {
+      integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, Zustandsschwellen)
+      schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
+      reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
+      schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
+      sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
     },
     // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {

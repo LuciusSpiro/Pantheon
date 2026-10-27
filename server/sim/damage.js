@@ -1,10 +1,11 @@
 'use strict';
-// M3b Schritt A (CONTRACT-M3B §4): Schild- und Schadenslogik der Lerche.
-//   resolveHit  – ein Treffer auf Sektor `sector`: Absorbieren mit Überlauf, schwere Treffer, Durchschlag, EMP,
-//                 Systemschaden nach Schild-Durchlass-Tabelle (spaceM3b.shieldLeak), Feuer/Lecks nur bei Rest > 0.
-//   onHullHit   – Rückschlag für laufende Reparaturen im getroffenen Sektor (spaceM3b.repairHitLoss).
+// M3b Schritt A (CONTRACT-M3B §4), SYS-01 A1a: Schild- und Schadenslogik der Lerche.
+//   resolveHit  – ein Treffer auf Sektor `sector`. Schild über 0 fängt ab (min(Schild, Schaden)), der Rest verfällt,
+//                 kein Systemschaden. Ohne Schild (oder durchschlagen) trifft der Rest ein System der Zone
+//                 (interior.trefferweg), Integritätsabzug = Rest × systemModell.schadenFaktor. Feuer nur bei Systemschaden.
+//   onSystemHit – Rückschlag für laufende Reparaturen im Bereich des getroffenen Systems (spaceM3b.repairHitLoss).
 //   update      – Eskalation (spaceM3b.escalation) und Reaktor-Autostart im Gefecht (spaceM3b.reactorAutoRestart).
-// space.shipHit (SERVER-FLIGHT) ist eine dünne Hülle um resolveHit. Alle Werte live per `tune spaceM3b.<pfad>`.
+// space.shipHit (SERVER-FLIGHT) ist eine dünne Hülle um resolveHit. Alle Werte live per `tune spaceM3b.<pfad>` bzw. `tune systemModell.<pfad>`.
 const W = require('../world.js');
 const interior = require('./interior.js');
 const Katalog = require('../../shared/schiffskatalog.js');
@@ -12,7 +13,7 @@ const Katalog = require('../../shared/schiffskatalog.js');
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 
-const STAT_KEYS = ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'];
+const STAT_KEYS = ['leakHits', 'escalations', 'repairSetbacks'];
 const REPAIR_HOLDS = ['flick', 'swap', 'minigame'];
 const r1 = (v) => Math.round(v * 10) / 10;
 
@@ -20,92 +21,73 @@ function cfg(game) { return game.C.spaceM3b || {}; }
 // Kampf = ein Gegner da, der kein Störrelais ist (wie bridgeLeaves/Hüllen-Regeneration)
 function inCombat(game) { return !!(game.space && game.space.enemies && game.space.enemies.some((e) => e.kind !== 'relay')); }
 function ensureStats(game) { for (const k of STAT_KEYS) if (game.stats[k] == null) game.stats[k] = 0; }
-function leakRow(game, s) {
-  const L = cfg(game).shieldLeak || {};
-  const k = Math.max(0, Math.min(4, Math.floor(s)));
-  return L[k] || L[String(k)] || { chance: 0 };
-}
 
-// ---------- Treffer (§4) ----------
-// opts: { pierce: true (Schild ganz umgehen) | Zahl (Schild um so viele Punkte schwächer), emp, heavy, source }
-// Rückgabe: { absorbed, hull, systems: [{system, state}], shield: S vor dem Treffer (wirksam), rest }
+// ---------- Treffer (§4, SYS-01 A1a) ----------
+// opts: { pierce: true (Schild ganz aus) | Zahl (Schild um so viele Punkte schwächer), durchschlag: 'zone' (Zone überspringen,
+//         Mitte), emp, heavy, sturm, streu, source }
+// Rückgabe: { absorbed, rest, systems: [{system, state, wechsel}], shield: S vor dem Treffer, empThrough }
 function resolveHit(game, sector, dmg, opts) {
   const o = opts || {};
-  const C = game.C; const ship = game.ship; const sh = ship.shields; const B = cfg(game);
+  const C = game.C; const sh = game.ship.shields; const B = cfg(game); const M = C.systemModell || {};
   ensureStats(game);
-  // stats.hits, Ereignis 'hit', sfx, shieldDown/hullHit macht die Hülle space.shipHit (SERVER-FLIGHT)
-  const heavy = !!o.heavy; const emp = !!o.emp;
   if (!Number.isInteger(sector) || sector < 0 || sector > 3) sector = 0;
   dmg = Math.max(0, Number(dmg) || 0);
-  // 1. S = Schildstärke des Sektors vor dem Treffer (Durchschlag schwächt sie für diesen Treffer)
+  // 1. Schild vor dem Treffer; wirksam ist er nach Durchschlag (Schild aus, oder um die Zahl schwächer)
   const s0 = Math.max(0, Number(sh.current[sector]) || 0);
   let s = s0;
-  if (o.pierce === true) s = 0;
+  if (o.pierce === true || o.durchschlag === 'schild') s = 0;
   else if (Number(o.pierce) > 0) s = Math.max(0, s0 - Number(o.pierce));
-  // PAN-01 C: Gegner-Sturmbatterie (hoher Schild: kaum Schildschaden, der Schild regeneriert nicht) und Streu-Granate (eine = Schildschaden, nie Hülle)
+  // PAN-01 C: Sturmbatterie (hoher Schild: kaum Schildschaden, der Schild regeneriert nicht) und Streu-Granate (eine = Schildschaden)
   const ST = o.sturm ? Katalog.waffe('sturmbatterie').sturm : null;
   if (ST) sh.regenHold = game.time + ST.regenSperre;
   if ((ST && s0 > ST.niedrig) || o.streu) {
     const take = Math.min(s0, dmg * (ST ? ST.schildFaktor : o.streu.schildFaktor));
     if (take > 0) sh.current[sector] = Math.max(0, r1(s0 - take));
-    return { absorbed: r1(take), hull: 0, systems: [], shield: s0, rest: 0, empThrough: false };
+    return { absorbed: r1(take), rest: 0, systems: [], shield: s0, empThrough: false };
   }
-  const row = leakRow(game, s);
-  // 2. schwerer Treffer gegen S ≥ 3: Schaden − heavyReduce vor dem Absorbieren
-  if (heavy && s >= 3 && row.heavyReduce) dmg = Math.max(0, dmg - row.heavyReduce);
-  let absorbed = Math.min(s, dmg);
-  let rest = r1(dmg - absorbed);
-  if (B.shieldOverflow === false && s > 0) {   // Altverhalten: ein Schildpunkt schluckt den ganzen Treffer
-    absorbed = Math.min(s, dmg); rest = 0;
-  }
-  if (rest < 0.05) rest = 0;
-  absorbed = r1(absorbed);
+  // 2. Der Schild fängt ab; der Rest verfällt, solange er steht (kein Überlauf)
+  const absorbed = r1(Math.min(s, dmg));
   if (absorbed > 0) sh.current[sector] = Math.max(0, r1(s0 - absorbed));
-  const out = { absorbed, hull: 0, systems: [], shield: s, rest, empThrough: false };
-  // 3. EMP: Schild durchschlagen -> ein System offline statt Hüllenschaden (wie bisher)
-  if (emp && rest > 0) {
+  let rest = r1(dmg - absorbed);
+  if (rest < 0.05) rest = 0;
+  const out = { absorbed, rest: s > 0 ? 0 : rest, systems: [], shield: s0, empThrough: false };   // Schild hält: der Rest verfällt (rest 0)
+  // 3. Sturmbatterie bei niedrigem Schild: Systemchance, kleiner Integritätsschaden (Schild bleibt oben)
+  if (ST && s0 > 0 && s0 <= ST.niedrig && game.rng.chance(ST.systemChance)) {
+    const t = interior.trefferweg(game, sector, Number(M.sturmSchaden) || 0);
+    if (t) out.systems.push(t);
+    if (out.systems.length) game.stats.leakHits++;
+  }
+  if (s > 0 || rest <= 0) return out;   // Schild hält: ohne Systemschaden und ohne Überlauf
+  // 4. Schild unten: EMP wie bisher (ein System offline statt Schaden)
+  if (o.emp) {
     out.empThrough = true;
-    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && !interior.isDown(ship.systems[k]) && interior.systemAktiv(game, k));
+    const cand = interior.SYSTEM_ORDER.filter((k) => game.ship.systems[k] != null && !interior.isDown(game.ship.systems[k]) && interior.systemAktiv(game, k));
     if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
     return out;
   }
-  if (rest > 0) {
-    out.hull = r1(5 * rest);
-    if (!game.god) ship.hull = Math.max(0, ship.hull - out.hull);
-    if (s > 0) game.stats.overflowHull = r1(game.stats.overflowHull + out.hull);
+  // 5. Trefferweg: Zone des Sektors, Mitte bei Durchschlag 'zone' oder bei leerer Zone (Integritätsabzug = Rest × Faktor)
+  const zone = o.durchschlag === 'zone' ? -1 : sector;
+  const t = interior.trefferweg(game, zone, rest * (Number(M.schadenFaktor) || 1));
+  if (!t) return out;
+  out.systems.push(t);   // t.wechsel: der Treffer hat den Zustand geändert (Zielsysteme prüfen das)
+  const sysZone = interior.systemSector(t.system);
+  // 6. Feuer nur bei Systemschaden (Zustandswechsel) in der Zone des getroffenen Systems; Lecks entfallen
+  if (t.wechsel) {
+    game.missionEvent('systemDamaged', { system: t.system, state: t.state });
+    if (sysZone >= 0 && game.rng.chance(C.hitEffects.fireChance)) { const f = interior.randomRegionFloor(game, sysZone, false); if (f) interior.addFire(game, f.x, f.y); }
   }
-  // 4. Systemschaden nach Durchlass-Tabelle – bei jedem Treffer, auch voll gefangen
-  const heavyOnly = !!row.heavyOnly && !heavy;
-  let chance = heavyOnly ? 0 : (Number(row.chance) || 0);
-  // S2b: Sperrfeuer ist ein leichter Treffer – mit Schild kein Systemschaden, ohne Schild nur × leakFactor
-  // (sonst würfelte jedes der vielen kleinen Geschosse die volle Durchlass-Tabelle)
-  if (o.sperrfeuer) {
-    const SF = (C.spaceS2b && C.spaceS2b.sperrfeuer) || {};
-    chance = s > 0 ? 0 : chance * (SF.leakFactor != null ? Number(SF.leakFactor) : 1);
-    if (ST) chance = Number(ST.systemChance) || 0;   // PAN-01 C: bei niedrigem Schild trifft die hohe Feuerrate Systeme
-  }
-  out.systems = interior.hitSystems(game, sector, {
-    chance, maxState: row.maxState || 'broken', centre: !!row.centre, breakFragile: !!row.breakFragile && !heavyOnly && !(o.sperrfeuer && s > 0),
-    fragileAlways: s === 0 && rest > 0,   // ohne Schild bricht Geflicktes im Sektor sicher (wie M3a)
-  });
-  if (s > 0 && out.systems.length) game.stats.leakHits++;
-  // 5. Feuer und Lecks nur bei Rest > 0
-  if (rest > 0) {
-    if (game.rng.chance(C.hitEffects.fireChance)) { const t = interior.randomRegionFloor(game, sector, false); if (t) interior.addFire(game, t.x, t.y); }
-    if (game.rng.chance(C.hitEffects.breachChance)) { const t = interior.randomRegionFloor(game, sector, true); if (t) interior.addBreach(game, t.x, t.y); }
-    onHullHit(game, sector);
-  }
+  onSystemHit(game, sysZone);   // Rückschlag bei jedem Systemschaden: die Reparatur im Bereich verliert Fortschritt
   return out;
 }
 
 // ---------- Rückschlag (§4 „Arbeiten im Rhythmus“) ----------
-// Hüllentreffer im Sektor eines Systems, an dem gerade gearbeitet wird -> Fortschritt × (1 − repairHitLoss).
-function onHullHit(game, sector) {
+// Systemschaden im Bereich (Zone) eines Systems, an dem gerade gearbeitet wird -> Fortschritt × (1 − repairHitLoss).
+function onSystemHit(game, zone) {
   const loss = Number(cfg(game).repairHitLoss);
   if (!(loss > 0)) return 0;
   ensureStats(game);
   let n = 0;
-  const inSector = (sys) => sys && interior.systemSector(sys) === sector;
+  const inSector = (sys) => sys && interior.systemSector(sys) === zone;
   for (const p of game.players) {
     const h = p.hold;
     if (!h || !REPAIR_HOLDS.includes(h.kind) || !inSector(h.system) || !(h.t > 0)) continue;
@@ -223,4 +205,4 @@ function update(game, dt) {
   updateReactorAuto(game);
 }
 
-module.exports = { resolveHit, onHullHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };
+module.exports = { resolveHit, onSystemHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };
