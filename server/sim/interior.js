@@ -553,7 +553,7 @@ function interactionsAt(game, p, tx, ty, own) {
       const st = game.ship.systems[sysHier];
       const fragile = isFragile(game, sysHier);
       if (st === 'damaged' || st === 'broken' || (st === 'ok' && fragile && p.carry === 'ersatzteil')) {
-        list.push({ kind: 'repair', system: sysHier, how: p.carry === 'ersatzteil' ? 'swap' : 'flick' });
+        list.push({ kind: 'repair', system: sysHier, how: repairModus(game, sysHier, p.carry === 'ersatzteil' ? 'swap' : 'flick') });
       } else if (st === 'offline') {
         const o = game.ship.offline[sysHier];
         list.push({ kind: 'repair', blocked: `EMP: offline – startet in ${Math.ceil(o ? o.t : 1)} s von selbst neu.` });
@@ -704,7 +704,7 @@ function holdDuration(game, p, kind, extra) {
     case 'revive': return C.player.reviveTime;
     case 'extinguish': return C.fire.extinguishTime;
     case 'patch': return C.breach.patchTime;
-    case 'repair': return repairTime(game, extra && extra.how) * gear;   // M3a §8.1: flick/swap
+    case 'repair': { const sys = extra && extra.system; return repairTime(game, repairModus(game, sys, extra && extra.how), sys) * gear; }   // M3a §8.1: flick/swap; SYS-01 A2a: Sonder am zerstörten Reaktor
     case 'beam': return game.ship.systems.transfer === 'damaged' ? C.ship.beamTimeDamaged : C.ship.beamTime;
     case 'reboot': return C.awayExtra.rebootTime;
     case 'salvage': return C.wreckAway.salvageTime;
@@ -727,7 +727,7 @@ function performInteraction(game, p, it) {
       // M3a: Reparatur-Halten heißt im Zustand nach dem Weg 'flick' bzw. 'swap'
       const hk = it.kind === 'repair' ? (it.how || 'flick') : it.kind;
       p.hold = { kind: hk, t: 0, dur: holdDuration(game, p, it.kind, it), tx: it.tx, ty: it.ty, system: it.system, target: it.target, sw: it.sw, sx: it.sx, sy: it.sy,
-        i: it.i, medkit: it.kind === 'revive' && !!p.medkit };
+        i: it.i, medkit: it.kind === 'revive' && !!p.medkit, von: it.kind === 'repair' ? game.ship.systems[it.system] : undefined };   // von: Zustand beim Start (SYS-01 A2a: eine Stufe je Ausfall)
       if (it.kind === 'repair' && !game.flags.toldHold) { game.flags.toldHold = true; game.oda('E gedrückt halten und stillstehen – dann klappt\'s mit dem Schrauben.', null); }
       if (it.kind === 'switch') game.emit('sfx', { name: 'switch_hold', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
       return;
@@ -882,7 +882,7 @@ function updateHold(game, p, dt) {
   }
   if (!p.actDown || p.moving || p.console) { p.hold = null; return; }
   if (!holdValid(game, p, h)) { p.hold = null; return; }
-  h.t += dt;
+  h.t += dt * (REPAIR_KINDS.includes(h.kind) ? sonderRate(game, h.system) : 1);   // SYS-01 A2a: am zerstörten Reaktor zählt die Zahl der Arbeiter
   if ((h.kind === 'flick' || h.kind === 'swap' || h.kind === 'reboot' || h.kind === 'salvage' || h.kind === 'hollow' || h.kind === 'jammer' || h.kind === 'archkey' || h.kind === 'tablet') && Math.floor((h.t - dt) / 0.5) !== Math.floor(h.t / 0.5)) game.emit('sfx', { name: 'repair_tick', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   if (h.t < h.dur) return;
   p.hold = null;
@@ -897,8 +897,8 @@ function holdValid(game, p, h) {
     case 'extinguish': return p.carry === 'loeschgel' && game.ship.fireList.some((f) => f.tx === h.tx && f.ty === h.ty);
     case 'patch': return p.carry === 'flickblech' && game.ship.breachList.some((b) => b.tx === h.tx && b.ty === h.ty);
     case 'flick': { const st = game.ship.systems[h.system]; return p.zone === 'ship' && (st === 'damaged' || st === 'broken'); }
-    case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system);
-    case 'minigame': return repairable(game, h.system);
+    case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system) && !sonderReparatur(game, h.system);
+    case 'minigame': return repairable(game, h.system) && !sonderReparatur(game, h.system);
     case 'beam': return game.transfer.canBeam(game, h.dir).ok;
     case 'reboot': return p.zone === 'away' && game.away.map === 'platform' && game.away.kustodenpult.disabled && !game.away.coreRebooted;
     case 'switch': return p.zone === 'ship' && game.ship.reactorCtl.state === 'offline';
@@ -930,7 +930,7 @@ function completeHold(game, p, h) {
       removeBreach(game, h.tx, h.ty, 'player');
       p.carry = null;
       break;
-    case 'flick': repairSystem(game, h.system, 'player', 'flick'); break;
+    case 'flick': repairSystem(game, h.system, 'player', 'flick', { von: h.von }); break;
     case 'swap':
       p.carry = null;
       repairSystem(game, h.system, 'player', 'swap');
@@ -1000,14 +1000,39 @@ function repairable(game, sys) {
   const st = game.ship.systems[sys];
   return st === 'damaged' || st === 'broken' || (st === 'ok' && isFragile(game, sys));
 }
-function repairTime(game, how) {
+// SYS-01 A2a (Kai): der zerstörte Reaktor hat genau einen Weg, die Sonderreparatur. Mit n gleichzeitigen Arbeitern (Spieler am Halten, Schrauber in der
+// Arbeit) gilt zeiten[n−1] s; der Fortschritt läuft mit sonderRate (zwei Arbeiter: 12/7 je Sekunde). Ersatzteil und Minispiel gelten dort nicht.
+const REPAIR_KINDS = ['flick', 'swap', 'minigame'];
+function sonderReparatur(game, sys) { return sys === 'reactor' && game.ship.systems.reactor === 'broken'; }
+function sonderZeit(game, n) {
+  const z = game.C.reaktorTod.sonderreparatur.zeiten;
+  return z[Math.min(Math.max(1, n | 0), z.length) - 1];
+}
+function sonderArbeiter(game) {
+  return game.players.filter((p) => p.hold && p.hold.system === 'reactor' && REPAIR_KINDS.includes(p.hold.kind)).length +
+    game.bots.filter((b) => b.task && b.task.kind === 'repair' && b.task.system === 'reactor' && b.task.phase === 'work').length;
+}
+function sonderRate(game, sys) {
+  if (!sonderReparatur(game, sys)) return 1;
+  return sonderZeit(game, 1) / sonderZeit(game, Math.max(1, sonderArbeiter(game)));
+}
+// Modus einer Reparatur: am zerstörten Reaktor immer 'flick' (die Sonderreparatur); Ersatzteil (swap) und Minispiel entfallen dort
+function repairModus(game, sys, mode) { return sonderReparatur(game, sys) ? 'flick' : mode; }
+function repairTime(game, how, sys) {
+  if (sonderReparatur(game, sys)) return sonderZeit(game, 1);
   const R = (game.C.spaceM3 && game.C.spaceM3.repair) || {};
   return how === 'swap' ? (R.partTime || 3) : (R.flickTime || 1.5);
 }
 
 // Schaden um eine Stufe (oder auf toState). Fragile Systeme brechen beim nächsten Schaden direkt.
 // opts.quiet: keine ODA-Ansage (Skripte/Übung).
-function damageSystem(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
+// SYS-01 A2a: der Übergang des Reaktors auf zerstört (auch über eine EMP-Pause hinweg) startet den Countdown (sim/reaktortod.js). opts.debug: kein Countdown.
+function damageSystem(game, sys, toState, opts) {
+  const vorher = sys === 'reactor' ? effZustand(game, sys) : null;
+  damageSystemRoh(game, sys, toState, opts);
+  if (sys === 'reactor' && vorher !== 'broken' && effZustand(game, sys) === 'broken') require('./reaktortod.js').zerstoert(game, opts);
+}
+function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
   if (!s[sys]) return;
@@ -1237,11 +1262,14 @@ function updateSystemAnnounce(game) {
 // Reparatur um eine Stufe bzw. voll (§8.1). how: 'flick' (Stufe + fragil), 'swap' (voll, fragil weg),
 // 'minigame' (Stufe, fragil weg), 'bot' (Stufe, fragil weg; Altweg), 'oda' (Notreparatur: Stufe + fragil).
 // by: 'player'|'bot'|'oda'. Ein zerstörter Reaktor geht nach der Reparatur auf reactorCtl 'offline' (Neustart zu zweit).
-function repairSystem(game, sys, by, how) {
+// opts.von: Zustand bei Arbeitsbeginn. Am Reaktor zählt eine Sonderreparatur nur einmal: hat ein Partner die Stufe schon gemacht, bleibt der Abschluss ohne Wirkung.
+function repairSystem(game, sys, by, how, opts) {
   const ship = game.ship; const s = ship.systems;
   sys = resolveSystem(game, sys, true);
   if (!s[sys] || s[sys] === 'offline') return false;
   how = how || (by === 'oda' ? 'oda' : 'bot');
+  if (sonderReparatur(game, sys) && how !== 'flick') return false;   // SYS-01 A2a: am zerstörten Reaktor nur die Sonderreparatur (kein Ersatzteil, keine Notreparatur)
+  if (sys === 'reactor' && opts && opts.von === 'broken' && s[sys] !== 'broken') return false;   // SYS-01 A2a: der Partner hat die Stufe schon geschafft
   if (!ship.fragile) ship.fragile = {};
   const before = s[sys];
   const wasFragile = !!ship.fragile[sys];
@@ -1304,6 +1332,7 @@ function repairCmd(game, p, c, msg) {
     const st = game.ship.systems[sys];
     if (st === 'offline') { const o = game.ship.offline[sys]; return `EMP: offline – startet in ${Math.ceil(o ? o.t : 1)} s von selbst neu.`; }
     if (!repairable(game, sys)) return `${cap(sysNameNom(sys))} ist heil.`;
+    if (sonderReparatur(game, sys)) return 'Der zerstörte Reaktor braucht die Sonderreparatur: E halten, am Reaktor schrauben.';   // SYS-01 A2a: kein Minispiel
     if (game.players.some((o) => o !== p && o.hold && o.hold.kind === 'minigame' && o.hold.system === sys)) return 'Da schraubt schon jemand.';
     p.hold = { kind: 'minigame', system: sys, t: 0, dur: Infinity };
     p.input.mx = 0; p.input.my = 0; p.moving = false;
@@ -1414,7 +1443,7 @@ function updateHazards(game, dt) {
   const busy = (sys) => game.players.some((p) => p.hold && p.hold.system === sys) ||
     game.bots.some((b) => b.task && b.task.kind === 'repair' && b.task.system === sys && b.task.phase === 'work');
   for (const sys of SYSTEM_ORDER) {
-    if (ship.systems[sys] !== 'broken' || !noParts || busy(sys)) { ship.noPartT[sys] = 0; continue; }
+    if (ship.systems[sys] !== 'broken' || !noParts || busy(sys) || sonderReparatur(game, sys)) { ship.noPartT[sys] = 0; continue; }   // SYS-01 A2a: der Reaktor kommt nur über die Sonderreparatur
     ship.noPartT[sys] = (ship.noPartT[sys] || 0) + dt;
     if (ship.noPartT[sys] >= C.emergencyRepair.brokenDelay) {
       ship.noPartT[sys] = 0;
@@ -1478,4 +1507,6 @@ module.exports = {
   // M3a (CONTRACT-M3 §9.5)
   systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
   stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,
+  // SYS-01 A2a: Sonderreparatur des zerstörten Reaktors (Bots und Tests)
+  sonderReparatur, sonderZeit, sonderArbeiter, sonderRate, repairModus,
 };

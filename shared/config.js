@@ -671,6 +671,10 @@
       torpedoLerche: 10,          // SYS-01 A1b: Gegner-Torpedo gegen die Lerche bei Schild 0: Integritätsabzug in einem System der Zone (ein Standardsystem, 10 = sicher zerstört)
       sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
     },
+    // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff. Der n-te Ausfall seit dem letzten Sprung
+    // startet mit start × faktor^(n−1) s, mindestens minimum (20, 10, 5, 2,5 s …). Sonderreparatur des zerstörten Reaktors: zeiten[n−1] s bei n gleichzeitigen
+    // Arbeitern (1, 2, 3); vor Werkzeuggürtel (×0,7) und Bot-Faktor. Live per `tune reaktorTod.<pfad>`.
+    reaktorTod: { start: 20, faktor: 0.5, minimum: 1.25, sonderreparatur: { zeiten: [12, 7, 5] } },
     // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {
       port: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, station: { x: 520, y: 700 }, arrival: { x: 1650, y: 860, angle: 3.3 } },

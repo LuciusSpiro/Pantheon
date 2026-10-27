@@ -10,6 +10,7 @@
 //   - Temporäre Sprungpunkte, Bojen, Debug-Hilfen und `space.jp` für den Snapshot.
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
+const Reaktortod = require('./reaktortod.js');   // SYS-01 A2a: Reaktor-Countdown (Zähler, Sprung setzt zurück)
 const { dist } = require('../util.js');
 const Kriegslage = require('./kriegslage.js');   // SUND-01 B: Tick der Weltsimulation je Sprung
 const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse nach dem Sprung (nur Freie Fahrt Sund)
@@ -184,6 +185,7 @@ function springeNach(game, dest) {
   const vonHex = Sektoren.hexVonOrt(from), nachHex = Sektoren.hexVonOrt(dest);
   const pflicht = anflugPflicht(game);
   game._jumpAuto = false;
+  Reaktortod.sprungZurueck(game);   // SYS-01 A2a: jeder Sprung setzt den Ausfallzähler des Reaktors zurück
   if (vonHex && nachHex) game._jumpSperre = Sektoren.kanteId(vonHex, nachHex);   // Gegen-Sprungpunkt der Ankunft: erst verlassen, dann wieder Ziel
   game.emit('sfx', { name: 'jump' });
   Kriegslage.tick(game, 'sprung', dest);   // SUND-01 B: ein Tick je Sprung (auch jeder Hop des Schnellsprungs), vor dem Szenenaufbau; ohne Modus nichts
@@ -280,13 +282,28 @@ function notsprungKandidaten(game) {
   if (Sektoren.istLeerraum(here) || ohneKante) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
   return c;
 }
+// SYS-01 A2a (Kai): Der Notfallsprung ist die Rettung bei zerstörtem Reaktor (Notstrom). Gesperrt bleibt er bei Reaktor offline/ausgeschaltet
+// (Steuerung oder EMP, ohne Zerstörung) und beim Andocken. Ein Außenteam sperrt nicht mehr: der Sprung holt es zurück (notrueckholungBeimSprung).
 function notsprungGrund(game) {
   const ship = game.ship; const rc = ship.reactorCtl;
-  if (isDown(ship.systems.reactor) || (rc && rc.state === 'offline')) return 'Reaktor offline – erst neu starten (Maschinenraum, beide Schalter).';
+  const zerstoert = ship.systems.reactor === 'broken';
+  if (!zerstoert && (ship.systems.reactor === 'offline' || (rc && rc.state === 'offline'))) return 'Reaktor offline – erst neu starten (Maschinenraum, beide Schalter).';
   if (ship.docked) return 'Erst ablegen.';
-  if (game.players.some((p) => p.zone === 'away')) return 'Außenteam noch unten – erst alle zurückbeamen.';
-  if (game.transfer && game.transfer.isBeaming(game)) return 'Transfer läuft.';
   return null;
+}
+// SYS-01 A2a: Der Notfallsprung holt ein Außenteam automatisch zurück – die bestehende Notrückholung (combat.squadRecall: alle an Bord,
+// Schild voll; Transfer danach zerstört). Ein laufender Beamvorgang bricht ab, sein Halten geht verloren. Rückgabe: true, wenn jemand unten war.
+function notrueckholungBeimSprung(game) {
+  const ship = game.ship;
+  if (ship.beaming) {
+    for (const id of ship.beaming.pids || []) { const p = game.playerById(id); if (p) p.beamLock = false; }
+    ship.beaming = null;
+    game.oda('Transfer abgebrochen – der Notfallsprung kommt dazwischen.', null);
+  }
+  for (const p of game.players) if (p.hold && p.hold.kind === 'beam') p.hold = null;
+  if (!game.players.some((p) => p.zone === 'away')) return false;
+  require('./combat.js').squadRecall(game);
+  return true;
 }
 // SYS-01 A1b (Kai): Der Notfallsprung beschädigt ein zufälliges System, das noch ok ist (über game.rng). Der Reaktor zählt nicht, er geht ohnehin offline.
 // Gibt es kein ok-System, passiert nichts. Meldung per ODA.
@@ -317,6 +334,11 @@ function notsprung(game) {
     for (let i = 0; i < kand.length; i++) { r -= gew[i]; if (r <= 0) { nachHex = kand[i]; break; } }
   }
   const nachOrt = nachHex ? Sektoren.ortVonHex(nachHex) : vonOrt;
+  // SYS-01 A2a: der Sprung holt ein Außenteam zurück, beendet den Reaktor-Countdown (Zähler 0); ein zerstörter Reaktor geht auf beschädigt (Integrität Grundwert)
+  const reaktorZerstoert = ship.systems.reactor === 'broken';
+  notrueckholungBeimSprung(game);
+  Reaktortod.sprungZurueck(game);
+  if (reaktorZerstoert) require('./interior.js').setzeZustand(game, 'reactor', 'damaged');
   // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung, Kosten: ein zufälliges ok-System beschädigt (SYS-01 A1b, notsprung.systemSchaden)
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.overloadLeft = 0; rc.warned = false; }

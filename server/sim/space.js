@@ -807,7 +807,7 @@ function shipHit(game, sector, dmg, opts) {
   return r;
 }
 
-// SYS-01 A1a: Naht für das Notfallprotokoll. Die Hülle entfällt; ausgelöst wird es nur noch explizit (Debug `verlust`, Tests).
+// SYS-01 A1a: Naht für das Notfallprotokoll. Die Hülle entfällt. SYS-01 A2a: ausgelöst vom Reaktor-Countdown (sim/reaktortod.js), zusätzlich Debug `verlust` und Tests.
 // Ereignisse, Zähler und Marken wie bisher; die Systeme bleiben, wie sie sind (der Auslöser für den Tod kommt mit A2).
 function verlustAusloesen(game, grund) {
   const C = game.C; const ship = game.ship;

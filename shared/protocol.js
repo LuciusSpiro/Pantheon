@@ -350,7 +350,9 @@
     // hit { sector, shield, dmg, absorbed, hull, heavy, emp? } (shield = ganz gefangen; absorbed/hull neu).
     // Snapshot ship.escalate { [system]: Restsekunden }, ship.reactor.autoIn (s bis Gefechtsstart, nur wenn aktiv),
     // enemies[].vx/vy/state (§3), stats.leakHits/escalations/repairSetbacks/reactorAutoStarts (SYS-01 A1a: overflowHull entfällt).
-    DAMAGE_EVENTS: ['escalated', 'repairSetback'],
+    // SYS-01 A2a: schiffZerstoert { grund: 'reaktor', n } – der Reaktor-Countdown ist abgelaufen (Einblendung im Client: Paket A2b).
+    // Snapshot ship.reaktorTod { rest: Zehntelsekunden bis zum Tod (-1 kein Countdown), n: Ausfälle seit dem letzten Sprung, tot: 1 nach dem Tod }.
+    DAMAGE_EVENTS: ['escalated', 'repairSetback', 'schiffZerstoert'],
     ENEMY_STATES: ['approach', 'overshoot', 'turn', 'station', 'retreat'],
     SECTORS: ['bug', 'steuerbord', 'heck', 'backbord'],
     ITEMS: ['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'datenkern', 'tafel'],   // M2: 'tafel' (kein Regal, direkt ins Inventar)

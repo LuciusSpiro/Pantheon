@@ -452,8 +452,10 @@ section('Zerstörter Reaktor braucht Neustart (§4.2, §9.5)', () => {
   I.repairSystem(g, 'reactor', 'p1', 'flick');
   ok(g.ship.systems.reactor === 'ok' && g.ship.reactorCtl.state === 'online', 'beschädigt -> ok: kein Neustart nötig');
   g.ship.systems.reactor = 'broken';
-  I.repairSystem(g, 'reactor', 'p1', 'swap');
-  ok(g.ship.reactorCtl.state === 'offline', 'zerstört -> Austausch: ebenfalls Neustart');
+  I.repairSystem(g, 'reactor', 'p1', 'swap');   // SYS-01 A2a: am zerstörten Reaktor entfällt der Austausch (nur die Sonderreparatur)
+  ok(g.ship.systems.reactor === 'broken', 'zerstört -> Austausch abgelehnt (SYS-01 A2a)');
+  I.repairSystem(g, 'reactor', 'p1', 'flick');
+  ok(g.ship.reactorCtl.state === 'offline', 'zerstört -> Sonderreparatur (flick): ebenfalls Neustart');
 });
 
 // ======================================================================
@@ -1163,7 +1165,7 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
     for (const s of SYS14) g.ship.systems[s] = 'broken';
     g.ship.reactorCtl.state = 'online';
     run(CONFIG.emergencyRepair.brokenDelay + 2, () => noFire(g));
-    const still = SYS14.filter((s) => g.ship.systems[s] === 'broken');
+    const still = SYS14.filter((s) => s !== 'reactor' && g.ship.systems[s] === 'broken');   // SYS-01 A2a: der Reaktor kommt nur über die Sonderreparatur, nicht über die Notreparatur
     ok(still.length === 0, 'Notreparatur-Schutz gilt für alle 14 Systeme' + (still.length ? ' – noch zerstört: ' + still.join(',') : ''));
   }
 });

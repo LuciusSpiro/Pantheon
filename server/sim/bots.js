@@ -113,8 +113,9 @@ function candidates(game) {
   queueOf(game).forEach((e, i) => {
     if (ship.systems[e.system] === 'offline' || entryDone(game, e)) return;
     const first = W.SYSTEM_TILES[e.system] || { x: 0, y: 0 };
-    list.push({ cls: 1 + i * 0.01, kind: 'repair', key: 'sys:' + e.system, system: e.system, mode: e.mode, tx: first.x, ty: first.y,
-      part: e.mode === 'part' ? 'ersatzteil' : null });
+    const mode = interior.repairModus(game, e.system, e.mode);   // SYS-01 A2a: am zerstörten Reaktor nur die Sonderreparatur (flick)
+    list.push({ cls: 1 + i * 0.01, kind: 'repair', key: 'sys:' + e.system, system: e.system, mode, tx: first.x, ty: first.y,
+      part: mode === 'part' ? 'ersatzteil' : null });
   });
   ship.fireList.forEach((f) => list.push(fireTask(f, 2)));
   ship.breachList.forEach((b) => list.push(breachTask(b, 3)));
@@ -166,7 +167,7 @@ function taskStillValid(game, t) {
   const ship = game.ship;
   if (t.kind === 'repair') {
     const e = queueOf(game).find((q) => q.system === t.system);
-    if (!e || e.mode !== t.mode || entryDone(game, e)) return false;
+    if (!e || interior.repairModus(game, t.system, e.mode) !== t.mode || entryDone(game, e)) return false;
     return ship.systems[t.system] !== 'offline';
   }
   if (t.kind === 'extinguish') return ship.fireList.some((f) => f.tx === t.tx && f.ty === t.ty);
@@ -228,7 +229,8 @@ function workDuration(game, bot, task) {
   const C = game.C;
   if (task.kind === 'extinguish') return C.bot.extinguishTime;
   if (task.kind === 'patch') return C.breach.patchTime * C.bot.repairFactor;
-  return interior.repairTime(game, task.mode === 'part' ? 'swap' : 'flick') * C.bot.repairFactor;
+  if (interior.sonderReparatur(game, task.system)) return interior.repairTime(game, 'flick', task.system);   // SYS-01 A2a: die Zeit der Sonderreparatur ist eine Regel des Reaktors, kein Bot-Faktor
+  return interior.repairTime(game, task.mode === 'part' ? 'swap' : 'flick', task.system) * C.bot.repairFactor;
 }
 
 function moveAlong(game, bot, dt) {
@@ -344,6 +346,7 @@ function update(game, dt) {
       if (moveAlong(game, bot, dt)) {
         if (t.kind === 'home') { bot.task = null; bot.moving = false; continue; }
         t.phase = 'work'; bot.progress = 0; t.dur = workDuration(game, bot, t);
+        if (t.kind === 'repair') t.von = game.ship.systems[t.system];   // SYS-01 A2a: Zustand beim Arbeitsbeginn (eine Sonderstufe je Ausfall)
         // zum Ziel drehen
         const c = Physics.toTile(bot.x, bot.y);
         if (t.kind === 'repair') { // M3a: an der tatsächlich erreichten Stationskachel arbeiten
@@ -356,14 +359,14 @@ function update(game, dt) {
       bot.moving = false;
       if (t.kind === 'switch') { bot.progress = Math.min(1, rc.restartProgress / game.C.reactorM1.restartTime); continue; }
       if (t.kind === 'repair' && t.mode === 'part' && bot.carry !== 'ersatzteil') { bot.task = null; continue; }
-      bot.progress += dt / t.dur;
+      bot.progress += (dt * (t.kind === 'repair' ? interior.sonderRate(game, t.system) : 1)) / t.dur;   // SYS-01 A2a: Sonderreparatur am Reaktor nach Zahl der Arbeiter
       if (bot.progress >= 1) {
         bot.progress = 0;
         if (t.kind === 'repair') {
           if (t.mode === 'part') { bot.carry = null; interior.repairSystem(game, t.system, 'bot', 'swap'); }
           else {
-            interior.repairSystem(game, t.system, 'bot', 'flick');
-            if (game.ship.systems[t.system] === 'damaged') { t.dur = workDuration(game, bot, t); continue; } // gleich weiter bis heil
+            interior.repairSystem(game, t.system, 'bot', 'flick', { von: t.von });
+            if (game.ship.systems[t.system] === 'damaged') { t.dur = workDuration(game, bot, t); t.von = 'damaged'; continue; } // gleich weiter bis heil
           }
         } else if (t.kind === 'extinguish') {
           interior.removeFire(game, t.tx, t.ty, 'bot');

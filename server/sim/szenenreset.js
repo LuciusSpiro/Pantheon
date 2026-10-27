@@ -13,6 +13,7 @@ function zuruecksetzen(game, o) {
   for (const k of Object.keys(ship.systems)) ship.systems[k] = 'ok';
   ship.offline = {}; ship.fragile = {};
   ship.fireList = []; ship.breachList = [];
+  require('./reaktortod.js').zuruecksetzen(game);   // SYS-01 A2a: neu aufgestellte Lerche = Ausfallzähler 0, kein Countdown, nicht zerstört
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'online'; rc.overloadLeft = 0; rc.warned = false; rc.switches = { A: false, B: false }; rc.restartProgress = 0; rc.aloneT = 0; rc.offlineT = 0; rc.needBot = null; }
   const sh = ship.shields;

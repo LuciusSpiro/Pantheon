@@ -75,7 +75,7 @@ section('Freie Fahrt: Reaktorsystem wird im Neustartfenster repariert (Review H5
   const bis = rc.autoRestartAt;
   g.ship.systems.reactor = 'broken';
   run(1);
-  ok(I.repairSystem(g, 'reactor', 'bot', 'swap') === true && g.ship.systems.reactor === 'ok', 'Reaktorsystem im Fenster repariert');
+  ok(I.repairSystem(g, 'reactor', 'bot', 'flick') === true && g.ship.systems.reactor === 'damaged', 'Reaktorsystem im Fenster repariert (Sonderreparatur: zerstört -> beschädigt, SYS-01 A2a)');
   ok(rc.autoRestartAt === bis && rc.autoRestartText === 'Reaktor läuft wieder – Neustart durch.', 'Autostart-Zeit und Text unverändert (nicht überschrieben)');
   run(N.autoNeustartFrei + 1);
   ok(rc.state === 'online' && rc.autoRestartAt == null && rc.autoRestartText === undefined, 'Autoneustart kam pünktlich, Hilfsfelder aufgeräumt');

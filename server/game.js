@@ -12,6 +12,7 @@ const TextePool = require('./sim/texte-pool.js');   // SUND-03b T: vorab erzeugt
 const bots = require('./sim/bots.js');
 const Station = require('./sim/station.js');   // R1: aktive Station (Tab-Wechsel), Rechteprüfung
 const damage = require('./sim/damage.js');   // M3b §4: Schild- und Schadenslogik, Eskalation, Rückschlag, Reaktor-Autostart
+const Reaktortod = require('./sim/reaktortod.js');   // SYS-01 A2a: Reaktor-Countdown bis zum Tod der Lerche
 const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfahrt (Snapshot: space.mines, space.al, enemies[].pat, ship.sf)
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
@@ -456,6 +457,7 @@ class Game {
       shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
+      reaktorAusfaelle: 0, reaktorCountdown: null, schiffZerstoert: false,   // SYS-01 A2a: Reaktor-Countdown (sim/reaktortod.js); nicht im Weltstand
       fragile: {}, repairQueue: [], botAuto: false, botAutoChosen: false, sysAnnounce: { list: [], next: 0 },
       turnVel: 0,
       offline: {},
@@ -1337,7 +1339,7 @@ class Game {
           interior.setzeZustand(this, sys, 'ok');   // Zustand und Integrität gemeinsam
           interior.pruneRepairQueue(this);
         } else if (st === 'offline') interior.setOffline(this, sys, this.C.emp.offlineTime);
-        else interior.damageSystem(this, sys, st);
+        else interior.damageSystem(this, sys, st, { debug: true });   // SYS-01 A2a: ein Debug-Schaden löst keinen Reaktor-Countdown aus
         break;
       }
       // M3a §17: fragile <system>, tele [id] (sofort laden), burst <sector> (ohne Prüfung) – tele/burst liegen bei COMBAT
@@ -1667,7 +1669,7 @@ class Game {
     // S1 §6: Solo-Pause – Simulation steht, Snapshots laufen weiter (paused: true)
     if (this.paused) {
       if (this.phase === 'lobby' || this.connectedCount() !== 1) this.paused = false;
-      else return;
+      else return;   // SYS-01 A2a: der Reaktor-Countdown steht mit der Spielpause (er läuft nur im Zweig darunter)
     }
     this.time += dt;
     const connected = this.players.some((p) => p.connected);
@@ -1705,6 +1707,7 @@ class Game {
       { const ent = fnOf(enternMod(), 'update'); if (ent) this.safe('entern', () => ent(this, dt)); }   // B1 §7: treibende Prisen (ENTERN)
       this.safe('hazards', () => interior.updateHazards(this, dt));
       this.safe('damage', () => damage.update(this, dt));   // M3b §4: Eskalation, Reaktor-Autostart
+      this.safe('reaktortod', () => Reaktortod.update(this, dt));   // SYS-01 A2a: Reaktor-Countdown, Rettung, Tod der Lerche
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
@@ -2109,7 +2112,7 @@ class Game {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
         integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
-        power: ship.power, reactor: this.reactorSnap(),
+        power: ship.power, reactor: this.reactorSnap(), reaktorTod: Reaktortod.snapshot(this),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot }
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
         mod: Modul.snapshot(this),   // PAN-01 A: [[code, raum, an, läuft]]
         ...(ship.stufe ? { st: ship.stufe } : {}),   // PAN-01 B: Ausbaustufe 1–3 (fehlt = 0)
