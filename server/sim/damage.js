@@ -44,8 +44,9 @@ function resolveHit(game, sector, dmg, opts) {
   if (ST) sh.regenHold = game.time + ST.regenSperre;
   if ((ST && s0 > ST.niedrig) || o.streu) {
     const take = Math.min(s0, dmg * (ST ? ST.schildFaktor : o.streu.schildFaktor));
-    if (take > 0) sh.current[sector] = Math.max(0, r1(s0 - take));
-    return { absorbed: r1(take), rest: 0, systems: [], shield: s0, empThrough: false };
+    // SYS-01 B2: Sturm-Nadeln nehmen je 0,0375 (0,15 × 0,25) vom Schild. r1 rundete jede Nadel auf 6,0 zurück: der Schild fiel nie. Ohne Rundung im Sturm-Zweig.
+    if (take > 0) sh.current[sector] = Math.max(0, ST ? s0 - take : r1(s0 - take));
+    return { absorbed: ST ? take : r1(take), rest: 0, systems: [], shield: s0, empThrough: false };
   }
   // 2. Der Schild fängt ab; der Rest verfällt, solange er steht (kein Überlauf)
   const absorbed = r1(Math.min(s, dmg));

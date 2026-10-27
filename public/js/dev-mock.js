@@ -161,7 +161,7 @@
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
         heat: { engines: 0, shields: 0, weapons: 0 },
         mod: [['f', 1, 1, 1], ['k', 2, 1, 1]],   // PAN-01 A: Bordmodule [code, raum, an, läuft]
-        shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [4, 4, 4, 4], burst: null, burstCd: 0 },
+        shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector], burst: null, burstCd: 0 },
         escalate: {},   // M3b §4: { [sys]: Restsekunden }
         systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'transfer']).map(s => [s, 'ok'])),
         // M3a (CONTRACT-M3 §9.3)
@@ -903,7 +903,7 @@
         const mt = m3Mount(m.mount); if (!mt) return true;
         const used = s.mounts.reduce((a, x) => a + (x.alloc || 0), 0);
         const v = mt.alloc + m.delta;
-        if (v < 0 || v > 4 || (m.delta > 0 && used >= s.chargePoints)) { notice('Ladepunkte: Grenze erreicht'); return true; }
+        if (v < 0 || v > CFG.shields.maxPerSector || (m.delta > 0 && used >= s.chargePoints)) { notice('Ladepunkte: Grenze erreicht'); return true; }
         mt.alloc = v; return true;
       }
       case 'weapons.hold': notice('Batterien feuern nur auf Befehl.'); return true;
@@ -1029,7 +1029,7 @@
       case 'technik.shield': {
         const sum = s.shields.alloc.reduce((x, y) => x + y, 0);
         const v = s.shields.alloc[m.sector] + m.delta;
-        if (v < 0 || v > 4 || (m.delta > 0 && sum >= s.shields.pool)) return notice('Schildpool erschöpft');
+        if (v < 0 || v > CFG.shields.maxPerSector || (m.delta > 0 && sum >= s.shields.pool)) return notice('Schildpool erschöpft');
         s.shields.alloc[m.sector] = v; break;
       }
       case 'technik.priority': s.priority = m.target; break;

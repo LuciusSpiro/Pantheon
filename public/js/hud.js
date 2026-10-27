@@ -528,12 +528,13 @@
       // Schiffssymbol (Bug rechts) mit 4 Sektor-Balken; M3a: über cap = dunkelrot (½), cap 0 = rot
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(x + 14, y + 6); ctx.lineTo(x + 4, y + 2); ctx.lineTo(x + 4, y + 10); ctx.closePath(); ctx.fill();
-      let capNow = 4;
+      const maxS = (CFG.shields && CFG.shields.maxPerSector) || 4, ps = maxS > 4 ? 2 : 3, pl = maxS > 4 ? 1 : 2;   // SYS-01 B2: Segmente aus der Config; bei 6 enger (Schritt 2, Länge 1), damit das Mini gleich hoch bleibt
+      let capNow = maxS;
       const pips = (n, px, py, vertical, sec) => {
-        capNow = capA ? +capA[sec] : 4;
-        for (let k = 0; k < 4; k++) {
+        capNow = capA ? +capA[sec] : maxS;
+        for (let k = 0; k < maxS; k++) {
           ctx.fillStyle = k < n ? PAL.mint : k >= capNow ? (capNow <= 0 ? PAL.red : '#6A4A1A') : '#2E3A4A';
-          if (vertical) ctx.fillRect(px, py + k * 3, 2, 2); else ctx.fillRect(px + k * 3, py, 2, 2);
+          if (vertical) ctx.fillRect(px, py + k * ps, 2, pl); else ctx.fillRect(px + k * ps, py, pl, 2);
         }
       };
       pips(cur[0] || 0, x + 17, y + 1, true, 0);   // Bug rechts

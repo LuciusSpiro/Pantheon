@@ -142,9 +142,9 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(sh.botAuto === true, 'ship.botAuto solo an');
   const shd = sh.shields || {};
   ok(['pool', 'alloc', 'current', 'cap', 'burst', 'burstCd'].every((k) => k in shd), 'ship.shields: pool, alloc, current, cap, burst, burstCd');
-  ok(JSON.stringify(shd.cap) === '[4,4,4,4]' && shd.burst == null && shd.burstCd === 0, 'Schild-cap [4,4,4,4], kein Stoß, keine Abklingzeit');
+  ok(JSON.stringify(shd.cap) === JSON.stringify([0, 1, 2, 3].map(() => CONFIG.shields.maxPerSector)) && shd.burst == null && shd.burstCd === 0, `Schild-cap [${shd.cap}] (je maxPerSector ${CONFIG.shields.maxPerSector}), kein Stoß, keine Abklingzeit`);
   // M3b §4: Schildpool 6 bei Energie 2 (pointsPerPower 3), neue Zähler und Eskalations-Feld
-  ok(CONFIG.shields.pointsPerPower === 3 && g.ship.power.shields === 2 && shd.pool === 6 && CONFIG.shields.maxPerSector === 4, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 3, maxPerSector 4)`);
+  ok(CONFIG.shields.pointsPerPower === 3 && g.ship.power.shields === 2 && shd.pool === 6 && CONFIG.shields.maxPerSector >= 1, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 3, maxPerSector ${CONFIG.shields.maxPerSector})`);
   ok(['leakHits', 'escalations', 'repairSetbacks'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks = 0 (overflowHull entfällt)');
   ok(sh.escalate && typeof sh.escalate === 'object' && Object.keys(sh.escalate).length === 0, 'M3b: Snapshot ship.escalate {} ohne Kampf');
   ok(sh.chargePoints === g.ship.power.weapons + 2 && sh.chargePoints === 4, 'chargePoints = Energie Waffen + 2 = 4');
@@ -252,14 +252,14 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   // Emitter je Sektor
   for (let sec = 0; sec < 4; sec++) {
     const em = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'][sec];
-    set(em, 'damaged'); const capD = S.shieldCaps(g)[sec];
-    g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.allocIntent[sec] = 4; run(0.1, () => { pin(g); noFire(g); });
+    set(em, 'damaged'); const capD = S.shieldCaps(g)[sec]; const maxS = CONFIG.shields.maxPerSector, capDSoll = Math.floor(maxS * CONFIG.spaceM3.emitterCap.damaged);
+    g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.allocIntent[sec] = maxS; run(0.1, () => { pin(g); noFire(g); });
     const allocD = g.ship.shields.alloc[sec];
     set(em, 'broken'); const capB = S.shieldCaps(g)[sec];
     run(0.1, () => { pin(g); noFire(g); });
     const curB = g.ship.shields.current[sec];
-    ok(capD === 2 && capB === 0 && g.snapshot().ship.shields.cap[sec] === 0, `${em}: cap 4 -> ${capD} (beschädigt) -> ${capB} (zerstört)`);
-    ok(allocD <= 2 && curB === 0, `${em}: Sektor hält höchstens ${capD} (alloc ${allocD}), zerstört offen (current ${curB})`);
+    ok(capD === capDSoll && capD < maxS && capB === 0 && g.snapshot().ship.shields.cap[sec] === 0, `${em}: cap ${maxS} -> ${capD} (beschädigt) -> ${capB} (zerstört)`);
+    ok(allocD <= capDSoll && curB === 0, `${em}: Sektor hält höchstens ${capD} (alloc ${allocD}), zerstört offen (current ${curB})`);
     set(em, 'ok');
     g.ship.shields.allocIntent = CONFIG.shields.default.slice();
   }
@@ -488,13 +488,13 @@ section('M3b: Schildpool 6 (§4)', () => {
   run(0.1, () => { pin(g); noFire(g); });
   const pool = g.snapshot().ship.shields.pool;
   ok(pool === 6, `Pool bei Energie 2: ${pool} (Soll 6)`);
-  // alles auf Sektor 0: höchstens maxPerSector 4, Rest verteilt sich
+  // alles auf Sektor 0: höchstens maxPerSector, Rest verteilt sich
   // (QA M3b: Startverteilung nutzt jetzt den ganzen Pool [2,2,0,2] – erst leeren, sonst ist nichts frei)
   g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.alloc = [0, 0, 0, 0];
   for (let i = 0; i < 6; i++) cmd(0, 'technik.shield', { sector: 0, delta: 1 });
   run(0.1, () => { pin(g); noFire(g); });
   const al = g.ship.shields.alloc;
-  ok(al[0] === 4 && al.reduce((a, b) => a + b, 0) <= 6, `Sektor 0 höchstens 4 (alloc ${al.join('/')}, Summe ≤ 6)`);
+  ok(al[0] === Math.min(CONFIG.shields.maxPerSector, pool) && al.reduce((a, b) => a + b, 0) <= 6, `Sektor 0 höchstens ${CONFIG.shields.maxPerSector} (alloc ${al.join('/')}, Summe ≤ 6)`);
   setPower(g, { shields: 3, weapons: 1 });
   run(0.1, () => { pin(g); noFire(g); });
   ok(g.snapshot().ship.shields.pool === 9, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 9)`);
