@@ -23,6 +23,8 @@
     "voelker": {"wert": ["rom", "ger", "kon"], "einheit": "Voelker", "_hinweis": "Volk eines NSC (Schluessel in namen.json)."},
     "gedaechtnis_max": {"wert": 12, "einheit": "Eintraege", "_hinweis": "Gedaechtnis eines NSC: { tick, ereignis, text_key }, die aeltesten fallen zuerst heraus."},
     "portrait": {"wert": {"varianten": 6}, "einheit": "Varianten", "_hinweis": "V1: der Portraet-Seed waehlt eine von wenigen Varianten (portraetVon). Der Baukasten entsteht spaeter."},
+    "variante_ereignis": {"wert": "feind_", "einheit": "Vorsatz", "_hinweis": "Nacharbeit SUND-04a-2 Welle 4 (S1): Gedaechtnis-Ereignis eines Beats, der als feindliche Variante lief: Vorsatz + Variante-Typ + _ + Ausgang (feind_raumschlacht_gelungen). Es ist nie eines der Ereignisse der Hilfe (spontanhilfe_gelungen) und nie eines, das ein Abschluss als Erfolg zaehlt (erfolg.ereignis nennt nur Beat-Typ_gelungen eines Beats der Vorlage)."},
+    "variante_status": {"wert": ["feindlich", "geflohen", "tot"], "einheit": "NSC-Status", "_hinweis": "Welle 4 (S1): Zustaende, in denen die Variante (feindliche Wiederkehr) einen NSC zuruecklaesst: ein Kampf gegen den Feind macht ihn nie zum Verbuendeten (Pruefer VARIANTE_AUSGANG)."},
     "ausschnitt": {"wert": {"zeichen": 900}, "einheit": "Zeichen", "_hinweis": "Obergrenze des Faden-Blocks im Ausschnitt des Lage-Spielleiters (hoechstens aktiv_max Faeden). Ueberschritten: erst die Vorlagenliste, dann fallen Faeden von hinten weg."}
   }
 }

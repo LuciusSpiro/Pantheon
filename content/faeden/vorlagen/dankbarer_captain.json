@@ -41,10 +41,6 @@
             {
               "typ": "haltung_aenderung",
               "grund": "geholfen"
-            },
-            {
-              "typ": "ruf_aenderung",
-              "grund": "funk_rom_gruss"
             }
           ]
         },
@@ -106,7 +102,19 @@
       "typ": "spontanhilfe",
       "variante": {
         "wenn": "feindlich",
-        "typ": "raumschlacht"
+        "typ": "raumschlacht",
+        "aus": {
+          "gelungen": {
+            "status": "geflohen",
+            "weiter": "b_abschluss",
+            "text_key": "feind_besiegt"
+          },
+          "gescheitert": {
+            "status": "feindlich",
+            "weiter": "b_abschluss",
+            "text_key": "feind_bleibt"
+          }
+        }
       },
       "aus": {
         "gelungen": {

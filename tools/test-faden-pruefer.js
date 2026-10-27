@@ -186,7 +186,9 @@ section('Haltung: Kurve, Ton, feindliche Wiederkehr (Daten)', () => {
   ok(mono, 'je besser die Haltung, desto hoeher die Chance (nie fallend)');
   ok(c(99) === 0.95 && c(-99) === 0 && c(undefined) === c(0), 'ausserhalb der Grenzen geklemmt, ohne Wert wie 0');
   ok(Faden.tonVon({ haltung: -5 }) === 'kalt' && Faden.tonVon({ haltung: 0 }) === 'sachlich' && Faden.tonVon({ haltung: 6 }) === 'herzlich', 'Ton: kalt, sachlich, herzlich je Haltung');
-  ok(Faden.kehrtFeindlichWieder({ haltung: -7 }) && !Faden.kehrtFeindlichWieder({ haltung: -5 }) && !Faden.kehrtFeindlichWieder({ haltung: 3 }), 'feindlich wiederkehren: nur unter -6');
+  const U = D.HALTUNG.feindlich_unter, mitVariante = { typ: 'spontanhilfe', variante: { wenn: 'feindlich', typ: 'raumschlacht' } };   // Welle 4 (KANN): kehrtFeindlichWieder war ungenutzt und ist weg; die Grenze gilt ueber effektiv (Pruefer), Zahl aus den Daten
+  ok(Pruefer.effektiv(mitVariante, U - 0.01, 'aktiv').variante === true && Pruefer.effektiv(mitVariante, U, 'aktiv').variante === false && Pruefer.effektiv(mitVariante, 3, 'aktiv').variante === false, 'feindlich wiederkehren: nur unter feindlich_unter (' + U + '), nie darauf oder darueber');
+  ok(Faden.kehrtFeindlichWieder === undefined, 'kehrtFeindlichWieder (ungenutzt) ist gestrichen');
   ok(Faden.haltungVon({ haltung: 55 }) === 10 && Faden.haltungVon(null) === 0, 'haltungVon: geklemmt, ohne NSC 0');
   ok(Faden.portraetVon({ portrait: 100003 }) >= 0 && Faden.portraetVon({ portrait: 100003 }) < D.WERTE.portrait.varianten, 'Portraet-Seed waehlt eine von wenigen Varianten');
 });

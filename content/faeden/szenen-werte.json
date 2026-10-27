@@ -22,7 +22,7 @@
     "sprecher": "Aufklärung",
     "vorwarnung": {
       "raumschlacht": "Achtung: {n} germanische Schiffe ({klasse}) fallen in {sek} Sekunden in unseren Sektor ein!",
-      "befreiung": "Wachschiffe sichern den Ort von {name}. Eintreffen in {sek} Sekunden – die Lage ist gefährlich.",
+      "befreiung": "Wachschiffe sichern {name}. Eintreffen in {sek} Sekunden – gefährlich! Wer davor andockt oder springt, lässt {name} im Stich: verloren.",
       "verfolgung": "{name} ({schiff}) will sich absetzen. In {sek} Sekunden beginnt die Verfolgung.",
       "spontanhilfe": "Der Verbündete {name} ist im Sektor. Er greift in die Schlacht ein, sobald sie beginnt."
     },
@@ -47,6 +47,7 @@
       "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist."
     },
     "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",
+    "schnellsprung_befreiung": "Schnellsprung angehalten: {name} sitzt bei {ort} fest. Wer jetzt weiterspringt, lässt {name} im Stich.",
     "unterbrochen": "Die Szene ist unterbrochen. Der Auftrag wird später erneut angeboten.",
     "szenenwechsel": "Der Sektor wurde verlassen. Die Szene ist beendet.",
     "warteschlange_voll": "Eine weitere Szene kann im Moment nicht eingeplant werden."

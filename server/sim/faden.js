@@ -20,7 +20,7 @@
 //   ausgangMitPerson(game, { art: 'notruf', id, hex, sprecher, ausgang }) -> Angebot | null   (Hook in reise-ereignis.js, nur wenn aktiv) macht ein Angebot, wenn Platz ist und eine Vorlage passt
 //   befehlPruefen(game, b, ctx) -> null | Grund / befehlAnwenden(game, b) -> { ok, grund?, faden? }   faden_oeffnen { vorlage, parameter? } und faden_weiter { faden, beat } (Aufrufer: regie-befehle.js)
 //   oeffnen / weiterSetzen / beatAusgang(game, fadenId, 'gelungen'|'gescheitert') / optionWaehlen(game, fadenId, optionId)   die Schritte; Ausgang und Optionen melden die Bausteine
-//   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc), kehrtFeindlichWieder(npc)
+//   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc)
 //   ausschnittBlock(game) / promptText()   kleiner Faden-Block fuer den Lage-Spielleiter (hoechstens 3 Faeden, nie Spielernamen, die verborgene Wahrheit nur als Kennung)
 //   neu() / toSave(ws) / lesen(block)     Weltstand welt.sim.faeden
 const D = require('./faden-daten.js');
@@ -128,7 +128,6 @@ function tonVon(npc) {   // Ton der Bitten: der hoechste erreichte Eintrag aus t
   for (const t of H.toene) if (h >= t.ab) ton = t.id;
   return ton;
 }
-const kehrtFeindlichWieder = (npc) => haltungVon(npc) < H.feindlich_unter;
 const nscVon = (game, id) => {
   const F = game && game.weltsim && game.weltsim.faeden;
   const f = F && F.liste.find((x) => x.nsc.id === id);
@@ -187,16 +186,18 @@ function folgenAnwenden(game, f, folge, mitDeckel) {
     (r.wirkung.typ === 'ruf_aenderung' ? ruf : halt).push(r.wirkung);
   }
   if (halt.length) haltungBuchen(game, halt);
-  let rufAn = ruf;
   if (mitDeckel && ruf.length) {
     const F = zustandVon(game), BF = require('./faden-bitte.js');
-    rufAn = [];
-    for (const w of ruf) {
+    for (const w of ruf) {   // Nacharbeit 4 (S2): der Deckel zaehlt nur, was wirklich gebucht wurde (lehnt der Katalog die Wirkung ab, bleibt der Deckel frei)
       const b = r2(Math.abs(w.delta));
-      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); } else logbuch(game, 'faden_ereignis', { ausgang: 'ruf_deckel', key: f.id, begruendung: `Ruf-Folge ${w.grund} (${w.delta}) ueber dem Faeden-Ruf-Deckel: entfaellt`, plan: { faden: f.id, grund: w.grund } });
+      if (b > BF.deckelRaum(F) + 1e-9) { logbuch(game, 'faden_ereignis', { ausgang: 'ruf_deckel', key: f.id, begruendung: `Ruf-Folge ${w.grund} (${w.delta}) ueber dem Faeden-Ruf-Deckel: entfaellt`, plan: { faden: f.id, grund: w.grund } }); continue; }
+      let r = null;
+      try { r = kl().rufBuchen(game, [w]); } catch (e) { fehlerZaehlen(game, 'faden-ruf', e); }
+      if (r && r.ok && r.angewandt > 0) F.bitteLog.push([F.t, b]);
     }
+    return;
   }
-  if (rufAn.length) { try { kl().rufBuchen(game, rufAn); } catch (e) { fehlerZaehlen(game, 'faden-ruf', e); } }
+  if (ruf.length) { try { kl().rufBuchen(game, ruf); } catch (e) { fehlerZaehlen(game, 'faden-ruf', e); } }
 }
 
 // ---------- Taetigkeiten und Takt
@@ -317,11 +318,14 @@ function beatAusgang(game, fadenId, ausgang) {
   if (!f || f.phase !== 'laeuft') return { ok: false, grund: 'kein laufender Beat' };
   if (!W.ausgaenge.includes(ausgang)) return { ok: false, grund: 'unbekannter Ausgang' };
   const v = D.vorlage(f.vorlage), beat = v.beats[f.beat], cat = B[beat.typ];
-  const o = (beat.aus || {})[ausgang] || {};
+  // Nacharbeit 4 (S1): lief der Beat als feindliche Variante (f.laufend.variante), gelten die Ausgaenge der VARIANTE (Daten: beat.variante.aus), nie die des Grund-Beats: ein gewonnener Kampf gegen den
+  // feindlich gewordenen NSC ist keine Hilfe. Das Gedaechtnis erinnert sich an den Kampf (werte.variante_ereignis + Typ), nicht an eine Spontanhilfe.
+  const vb = f.laufend && f.laufend.variante && beat.variante && beat.variante.aus ? beat.variante : null;
+  const o = ((vb ? vb.aus : beat.aus) || {})[ausgang] || {};
   if (o.status && f.nsc.status !== 'tot') f.nsc.status = o.status;   // ein toter NSC bleibt tot
   folgenAnwenden(game, f, o.folge, true);
   // Welle 3: ein Beat mit Ware (Katalog ereignis_ohne_ware), der scheitert, OHNE dass je eine Ware an Bord war (kein Hafen in Reichweite), hinterlaesst nicht „fracht_gescheitert“: der NSC erinnert sich nur an eine Ladung, die es gab
-  const ereignis = ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;
+  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;
   gedaechtnisEintragen(f.nsc, ws.tickZahl, ereignis, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
   if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
@@ -412,11 +416,19 @@ function promptText() {
 }
 
 // ---------- Weltstand welt.sim.faeden
+// Nacharbeit 4 (M1): laufend.variante ist Laufzeit und gehoert nicht in den Weltstand (Schema: laufend hat nur beat, n, seit, gewaehlt; sonst schlug jedes Speichern waehrend einer feindlichen Variante fehl).
+// Sie ist abgeleitet: eine Variante ist immer eine Szene (Pruefer varianteFehler), eine laufende Szene ist nicht speicherbar (lesen setzt den Beat auf „wartet“), und beim naechsten faden_weiter ergibt
+// sie sich wieder aus Haltung und Status des NSC (effektiv), beide stehen im Stand.
+function speicherFaden(f) {
+  const k = klon(f);
+  if (k.laufend) delete k.laufend.variante;
+  return k;
+}
 function toSave(ws) {
   const F = ws && ws.faeden;
   if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc)) return null;
   const b = { t: F.t, nr: F.nr, nsc: F.nsc };
-  if (F.liste.length) b.liste = klon(F.liste);
+  if (F.liste.length) b.liste = F.liste.map(speicherFaden);
   const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
   if (bt) b.bitte = bt;
   const dk = require('./faden-bitte.js').toSaveDeckel(F);   // Nacharbeit L10: Zähler des Bitten-Deckels (optional, wie der Reise-Deckel welt.sim.reise.r)
@@ -502,4 +514,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, kehrtFeindlichWieder, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };

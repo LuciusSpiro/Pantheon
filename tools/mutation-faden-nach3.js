@@ -35,10 +35,10 @@ const MUTATIONEN = [
   // ---- 2. Ruf-Deckel begrenzt nur den Ruf
   [FD, '  folgenAnwenden(game, f, opt.folge, true);   // Welle 3:', '  folgenAnwenden(game, f, opt.folge, false);   // Welle 3:', 'Deckel: die Folge einer Option geht am Deckel vorbei'],
   [BI, '  const erlaubt = opts;   // Welle 3:', '  const erlaubt = opts.filter((x) => rufBetrag(x.folge) <= 1e-9 || rufBetrag(x.folge) <= deckelRaum(F) + 1e-9);   // Welle 3:', 'Deckel: die Annahme (Ruf-Folge) entfaellt aus dem Angebot, wenn der Deckel voll ist'],
-  [FD, '      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); } else logbuch(', '      if (true) { F.bitteLog.push([F.t, b]); rufAn.push(w); } else logbuch(', 'Deckel: der Ruf wird nie begrenzt'],
-  [FD, '      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); }', '      if (b <= BF.deckelRaum(F) + 1e-9) { rufAn.push(w); }', 'Deckel: gebuchter Ruf zaehlt nicht im Deckel'],
+  [FD, '      if (b > BF.deckelRaum(F) + 1e-9) { logbuch(', '      if (false) { logbuch(', 'Deckel: der Ruf wird nie begrenzt'],
+  [FD, '      if (r && r.ok && r.angewandt > 0) F.bitteLog.push([F.t, b]);', '      if (r && r.ok && r.angewandt > 0) { /* nicht gezaehlt */ }', 'Deckel: gebuchter Ruf zaehlt nicht im Deckel'],
   // ---- 3. Haltung erreichbar
-  [VC, '"grund": "hingehalten"', '"grund": "bitte_abgelehnt"', 'Daten: Spaeter kostet nur 1 statt 2 Haltung (Weg zu kalt und feindlich nicht mehr erreichbar)'],
+  [VC, '"grund": "hingehalten"', '"grund": "gedankt"', 'Daten: Spaeter hebt die Haltung (Weg zu kalt und feindlich nicht mehr erreichbar)'],
   [BI, '    if (opt.folge.length) Faden().folgenAnwenden(game, f, opt.folge, true);', '', 'Spaeter: das Hinhalten kostet keine Haltung'],
   [PR, "    if (b.variante && !w.start[i].some((x) => x.s !== 'tot' && x.h < H.feindlich_unter)) out.push(", "    if (false && !w.start[i].some((x) => x.s !== 'tot' && x.h < H.feindlich_unter)) out.push(", 'Pruefer: unerreichbare Variante wird nicht gemeldet'],
   [PR, '        if (!Array.from(w.angebote[i]).some((h) => tonFuer(h) === t.id)) out.push(', '        if (false) out.push(', 'Pruefer: unerreichbarer Ton wird nicht gemeldet'],
@@ -54,7 +54,7 @@ const MUTATIONEN = [
   [SZ, "    if (!ort || !HEX.test(ort)) return { ausgang: 'gescheitert' };", '', 'Befreiung: ein Faden ohne Ort wartet weiter'],
   [SW, '    "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",\n', '', 'Befreiung: kein Funk zur Anreise'],
   // ---- 5. Gedaechtnis
-  [FD, "  const ereignis = ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;", "  const ereignis = beat.typ + '_' + ausgang;", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
+  [FD, "  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;", "  const ereignis = vb ? W.variante_ereignis + vb.typ + '_' + ausgang : beat.typ + '_' + ausgang;", 'Gedaechtnis: fracht_gescheitert auch ohne Ware'],
   [BT, '      "ereignis_ohne_ware": "fracht_ohne_ware",\n', '', 'Katalog: kein Ereignis fuer „ohne Ware“'],
   [P3, "some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');", 'some((g) => /^fracht_/.test(g.ereignis));', 'Enthuellung: auch fracht_ohne_ware gilt als Fracht'],
   // ---- 6. Vorlauf-Fall
