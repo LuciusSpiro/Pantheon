@@ -140,6 +140,12 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     const funk0 = t.cs[0].inbox.filter((m) => m.kind === 'radio').length;
     ok(funk0 >= 1, 'Funk beim Eintreffen');
     for (let i = 0; i < 20 * HZ && erster == null; i++) { g.ship.hull = 100; g.step(); if (eigene(g, S).length) erster = g.time - t0; }
+    const tonVon = (text) => { const e = t.cs[0].inbox.find((m) => m.t === 'event' && m.kind === 'radio' && m.text === text); return e && e.ton; };
+    const FT = require('../content/welt/finale-werte.json').texte.orbit.funk;
+    const ankunft = t.cs[0].inbox.find((m) => m.t === 'event' && m.kind === 'radio' && /Orbit von Hrafnheim/.test(m.text));
+    ok(ankunft && ankunft.ton === 'meldung', 'Welle 5 (M1): Funk „Ankunft“ ist eine Meldung (Messing)');
+    const gegnerFunk = t.cs[0].inbox.find((m) => m.t === 'event' && m.kind === 'radio' && /greifen an/.test(m.text));
+    ok(!!gegnerFunk && gegnerFunk.ton === 'gefahr' && FT.gegner.indexOf('greifen an') > 0, 'Welle 5 (M1): Funk „gegner“ (sie greifen an) ist Gefahr (Rot)');
     ok(erster != null && erster >= 8, 'erster Gegner erst nach ' + (erster && erster.toFixed(1)) + ' s (≥ 8 s)');
     ok(g.snapshot().flotte.sz.p === 'f', 'danach Phase f');
   });
@@ -155,6 +161,7 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     toete(g, eigene(g, S).find((e) => e.flagg));
     run(g, 1);
     ok(enden.length === 1 && enden[0] === 'sieg', 'Finale.orbitEnde("sieg") genau einmal');
+    { const e = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio'); const sg = e.find((m) => /ist gefallen, die Wachschiffe sind weg/.test(m.text)); ok(!!sg && sg.ton === 'meldung' && e.filter((m) => /Orbit über Hrafnheim ist frei/.test(m.text)).every((m) => m.ton === 'meldung'), 'Welle 5 (M1): Funk „Sieg“ und „Orbit frei“ sind Meldungen (Messing)'); }
     ok(Finale.phase(g) === 'boden' && boden === 1, 'Phase boden, Boden einmal gestartet');
     ok(g.weltsim.tickZahl === tick0, 'KEIN Sim-Tick im Orbit-Sieg');
     run(g, 3);
@@ -179,6 +186,7 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     let tick0 = g.weltsim.tickZahl;
     g.ship.hull = 0; g.step(); g.step();
     ok(enden.length === 1 && enden[0] === 'niederlage', 'Notfallprotokoll: orbitEnde("niederlage") einmal');
+    { const e = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio'); const nl = e.find((m) => /Die Lerche ist angeschlagen, die Linie bricht/.test(m.text)); const nb = e.find((m) => /Die Flotte im Orbit hat uns geschlagen/.test(m.text)); ok(!!nl && nl.ton === 'gefahr', 'Welle 5 (M1): Funk der Szene „Niederlage“ (die Linie bricht) ist Gefahr (Rot)'); ok(!!nb && nb.ton === 'meldung', 'Welle 5 (M1): der Neubeginn danach („beginnt von vorn“) ist eine Meldung (Messing)'); }
     ok(Finale.phase(g) === null && g.phase !== 'end' && !g.simSzene, 'Neubeginn: phase null, kein Game Over');
     ok(g.weltsim.tickZahl === tick0, 'kein Sim-Tick');
     ok(g.weltsim.finale.angebot === 1 && Finale.bereit(g).ok, 'das Angebot steht wieder');

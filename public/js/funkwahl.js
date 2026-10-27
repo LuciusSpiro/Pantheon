@@ -15,6 +15,7 @@
   'use strict';
   const VW = 640, VH = 360;
   const BREITE = 240, ZEILE = 14, UNTEN = 8, RAND = 12, SCHIRM_ABSTAND = 8;   // Breite (längste Option 60 Zeichen passt gekürzt, Kopf und Hinweiszeile messen sich selbst), Knopfhöhe, Abstand zum unteren Rand (Bord) bzw. zum Schirmrand (Konsole)
+  const BILD_X = 7, BILD_PLATZ = 29;   // Porträt der Bitte: Abstand zum Rand und Platz links vom Kopftext (Plakette 22 + Luft)
   const BEDIENFLAECHEN = ['technik', 'captain', 'shop'];   // Konsolen, deren Schirm Bedienflächen trägt (Knöpfe, Kacheln, Eingaben; gemessen mit tools/messe-funk-flaechen.js, bewiesen in tools/test-ui-03b.js): dort erscheint das Angebot zuerst nur als Streifen
   const store = { funkwahl: null, bitte: null, bKey: null, markiert: -1, nr: null, eingeklappt: false, geoeffnetBei: null, konsole: null, rechteck: null };   // rechteck = zuletzt gezeichnet (für Klicktests)   // eingeklappt = „Später“: nur dieser Spieler, nur für dieses Angebot
 
@@ -110,7 +111,9 @@
   }
 
   // ---------- Zeichnen (Pult-/HUD-Stil: Messingrahmen wie die Funkplakette; Farben aus dem Skin der Lerche, Funk ist neutral: Text in SK.text, keine Signalfarbe)
-  const SK = { text: '#F4EEDC', dim: '#8EA3B5', frame: '#C9974A', bg: '#0B0E1A', offLine: '#3A4A66', markiert: '#2A3A52', zeile: '#141C2E', kappe: '#46556A', tisch: '#0B0E1A', messing: '#C9974A' };
+  // Welle 5 (K5): Werte, die es in KarteTokens.PULT gibt (hell, stahlhell, messing, tisch, aus), kommen von dort; markiert, zeile und kappe gibt es dort nicht (eigene Töne des Skins der Lerche). Ohne KarteTokens (Node-Tests) gelten dieselben Werte als Ersatz.
+  const PU = (root && root.KarteTokens && root.KarteTokens.PULT) || {};
+  const SK = { text: PU.hell || '#F4EEDC', dim: PU.stahlhell || '#8EA3B5', frame: PU.messing || '#C9974A', bg: PU.tisch || '#0B0E1A', offLine: PU.aus || '#3A4A66', markiert: '#2A3A52', zeile: '#141C2E', kappe: '#46556A', tisch: PU.tisch || '#0B0E1A', messing: PU.messing || '#C9974A' };
   function kuerzen(R, s, w) {
     let t = String(s || '');
     if (R.measure(t, 1) <= w) return t;
@@ -178,12 +181,16 @@
     try { k = P && typeof P.kappe === 'function' ? P.kappe(null, aktion) : ''; } catch (e) { k = ''; }
     return k && k !== '–' ? k : ersatz;
   }
+  // Welle 5 (S9): die Punkt-Taste („.“ und „Sh+.“) war als Glyph unlesbar (auch doppelt gezeichnet): der Punkt steht als 2×2-Block auf der Grundlinie, mittig in der Kappe; ein Präfix („Sh+“) davor
+  const PUNKT = /(^|\+)\.$/;
   function kappeZeichnen(ctx, R, x, y, k) {   // dunkle Fläche wie SK.knopf, Taste in SK.text; liefert die rechte Kante
-    const w = Math.max(13, R.measure(k, 1) + 7);
+    const punkt = PUNKT.test(k), vor = punkt ? k.slice(0, -1) : k;
+    const tw = vor ? R.measure(vor, 1) : 0, inhalt = tw + (punkt ? (vor ? 1 : 0) + 2 : 0);
+    const w = Math.max(13, inhalt + 7);
     ctx.fillStyle = SK.kappe; ctx.fillRect(x, y - 1, w, 9);
-    const mx = x + Math.round(w / 2);
-    R.text(ctx, k, mx, y, { color: SK.text, align: 'center', shadow: false });
-    if (k.length === 1 && !/[A-Za-z0-9ÄÖÜäöüß]/.test(k)) R.text(ctx, k, mx + 1, y, { color: SK.text, align: 'center', shadow: false });   // K3: ein einzelnes Satzzeichen (Punkt) ist sonst kaum zu sehen: fett
+    const sx = x + Math.round((w - inhalt) / 2);
+    if (vor) R.text(ctx, vor, sx, y, { color: SK.text, shadow: false });
+    if (punkt) { ctx.fillStyle = SK.text; ctx.fillRect(sx + tw + (vor ? 1 : 0), y + 5, 2, 2); }
     return x + w;
   }
   function zeichne(ctx, view) {
@@ -214,9 +221,9 @@
     const bild = m.art === 'bitte' && m.pid && root.Hud && typeof root.Hud.drawFunkBild === 'function';   // Plakette mit Porträt (nur gültige Kennung), sonst nur Text
     const gl = r.y + (bild ? 9 : 4);   // eine Grundlinie für Kopf und Frist (S4)
     if (rest) R.text(ctx, rest, r.x + r.w - 6, gl, { color: SK.dim, align: 'right' });
-    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 5, r.y + 3, 22);
-    const tx = r.x + 6 + (bild ? 27 : 0);
-    R.text(ctx, kuerzen(R, kopfText(m), r.w - 12 - (bild ? 27 : 0) - (rest ? R.measure(rest, 1) + 8 : 0)), tx, gl, { color: SK.text });
+    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + BILD_X, r.y + 3, 22);   // Welle 5 (K4): 2 px weiter innen (x 7 statt 5), der Kopftext rückt mit
+    const tx = r.x + 6 + (bild ? BILD_PLATZ : 0);
+    R.text(ctx, kuerzen(R, kopfText(m), r.w - 12 - (bild ? BILD_PLATZ : 0) - (rest ? R.measure(rest, 1) + 8 : 0)), tx, gl, { color: SK.text });
     let ty = r.y + kopfH(m);
     for (const l of textZeilen(m, R)) { R.text(ctx, l, r.x + 6, ty, { color: SK.text, shadow: false }); ty += 10; }   // F1: der Bittentext
     // eigene Zeilen statt R.button (dessen Mint = aktiv und Amber = Hover tragen hier andere Bedeutung): markiert = Fläche + Rahmen in SK.text, Hover nur Rahmen in SK.dim

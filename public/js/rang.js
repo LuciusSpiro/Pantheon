@@ -36,11 +36,12 @@
     const i = R.findIndex((r) => r && r.id === ruf.rang);
     const naechster = bis != null && i >= 0 && R[i + 1] ? R[i + 1].name : null;
     const anteil = bis != null && bis > ab ? Math.max(0, Math.min(1, (rom - ab) / (bis - ab))) : null;
-    const w = { rang: ruf.name, ruf: rom, bis, naechster };
+    const ganz = (v) => (isNum(v) ? Math.floor(v) : v);   // Welle 5 (S8): ganze Zahlen („MILES 0/8“ statt „0.25/8“); der Fortschritt (anteil, voll) rechnet weiter mit dem genauen Wert
+    const w = { rang: ruf.name, ruf: ganz(rom), bis: ganz(bis), naechster };
     return {
       name: String(ruf.name), ruf: rom, ab, bis, anteil, segmente: SEGMENTE, voll: anteil == null ? 0 : Math.floor(anteil * SEGMENTE + 1e-9),
       naechster, titel: T.titel || '',
-      zahl: bis != null && T.fortschritt ? fuellen(T.fortschritt, w) : bis != null ? rom + '/' + bis : '',
+      zahl: bis != null && T.fortschritt ? fuellen(T.fortschritt, w) : bis != null ? ganz(rom) + '/' + ganz(bis) : '',
       weiter: naechster && T.naechster ? fuellen(T.naechster, w) : '',
       hoechster: bis == null ? (T.hoechster || '') : '',
       jetzt: bis != null ? (T.jetzt ? fuellen(T.jetzt, w) : '') : (T.jetzt_hoechster ? fuellen(T.jetzt_hoechster, w) : ''),

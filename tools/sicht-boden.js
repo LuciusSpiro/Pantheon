@@ -67,6 +67,13 @@ async function main() {
         console.log('Bild', `${name}-${w}x${h}`);
       }
     };
+    // Welle 5 (M3): das HUD zeigt das Ziel des Bodens in zwei Stufen, nie „Frei erkunden – Entdeckungen“, und am Boden keine Zähler (away.oz)
+    const ziel = async (name, erwartet) => {
+      const o = await page.evaluate(() => ({ ziele: ((__game.state.mission || {}).objectives || []).map((x) => x.text + (x.done ? ' [erledigt]' : '')), oz: (__game.state.away || {}).oz }));
+      console.log('Ziele', name, JSON.stringify(o.ziele), 'away.oz', o.oz);
+      if (o.ziele.some((t) => /Frei erkunden/.test(t)) || !o.ziele.some((t) => t.indexOf(erwartet) === 0) || o.oz !== 1) fehler.push('Ziel am Boden (' + name + '): ' + JSON.stringify(o));
+    };
+    await ziel('01-landung', 'Schrein von Asgard: Wächter besiegen');
     await shot('01-landung');
     // am Schrein vor dem Wächter
     const z = k.anker.find((a) => a.id === g.finaleBoden.ziel);
@@ -79,6 +86,7 @@ async function main() {
     // Wächter fällt
     const boss = g.away.drones.find((e) => e.boss); boss.alive = false; boss.hp = 0;
     await sleep(1500);
+    await ziel('03-schrein-frei', 'Schrein von Asgard: Schrein halten');
     await shot('03-schrein-frei');
     await page.keyboard.down('e'); await sleep(1200);
     await shot('04-schrein-halten');

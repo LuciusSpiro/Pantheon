@@ -1838,14 +1838,14 @@ class Game {
   }
 
   // B1 §9: Snapshot away für gebaute Karten: kv + Anker-/Kantenabweichungen, Alarm, Countdown (anker.js, BUEHNE:
-  // awaySnap(game, aw) -> { ao?, ko?, al?, cd? }). Handkarten: leer (Golden/Budget unverändert).
+  // awaySnap(game, aw) -> { ao?, ko?, al?, cd?, sp?, oz? }). Handkarten: leer (Golden/Budget unverändert).
   awayB1Snap(aw) {
     if (!aw || ['platform', 'wreck', 'kesh'].includes(aw.map)) return {};
     const k = this.karteOf(aw.map);
     if (!k || k.art === 'hand') return {};
     const o = { kv: Game.kartenVersion(k) };
     const fn = fnOf(ankerMod(), 'awaySnap');
-    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
+    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp', 'oz']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
     return o;
   }
 

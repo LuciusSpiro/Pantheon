@@ -265,14 +265,17 @@
   // Modell der Karte für T.zeichneFinale; bei laufendem Finale (Phase) gibt es keine Knöpfe und keine Klickflächen
   function finaleKarte(view, bedienbar) {
     const fi = finale(); if (!fi) return null;
-    const k = { zustand: fi.zustand, name: fi.name, text: fi.text, rest: fi.rest, frist: fi.frist };
+    // Neubeginn (Niederlage, Flucht, gefallene Crew): die Rückmeldung der Wahl davor („Die Schlacht beginnt.“) steht nicht mehr da (Welle 5, S4)
+    if (s.finaleWechsel !== undefined && s.finaleWechsel !== fi.wechsel && s.antwort && s.antwort.finale) s.antwort = null;
+    s.finaleWechsel = fi.wechsel;
+    const k = { zustand: fi.zustand, name: fi.name, text: fi.text, rest: fi.rest, frist: fi.frist, neuerAnlauf: !!fi.neuerAnlauf };
     if (fi.zustand === 'phase') {
       const orbit = fi.phase === 'orbit', ende = fi.phase === 'ende';
-      return Object.assign(k, { tag: FT(ende ? 'tag_ende' : 'tag_laeuft'), hinweis: FT('status_' + fi.phase), schritte: [{ label: 'Orbit', aktiv: orbit, fertig: !orbit }, { label: 'Boden', aktiv: fi.phase === 'boden', fertig: ende }], haupt: null, ablehnen: null });
+      return Object.assign(k, { tag: FT(ende ? 'tag_ende' : 'tag_laeuft'), hinweis: FT('status_' + fi.phase), schritte: [{ label: FT('orbit'), fertigLabel: FT('orbit_frei'), aktiv: orbit, fertig: !orbit }, { label: FT('boden'), fertigLabel: FT('boden_frei'), aktiv: fi.phase === 'boden', fertig: ende }], haupt: null, ablehnen: null });
     }
     const wartet = wartetJetzt(), grund = !bedienbar ? FT('zuschauer') : wartet ? FT('wartet') : null, anfrage = fi.zustand === 'anfrage';
     return Object.assign(k, {
-      tag: FT(anfrage ? 'tag_anfrage' : 'tag_angebot'), hinweis: anfrage ? FT('frist') : FT('angebot_hinweis'),
+      tag: FT(anfrage ? 'tag_anfrage' : 'tag_angebot'), hinweis: anfrage ? FT('frist') : fi.neuerAnlauf ? FT('neuer_anlauf') : FT('angebot_hinweis'),
       haupt: { text: anfrage ? FT('bestaetigen', { n: fi.rest }) : FT('anfragen'), disabled: !!grund || !bedienbar, grund, onClick: bedienbar ? () => finaleTaste(view) : null },
       ablehnen: { text: FT('ablehnen'), disabled: !!grund || !bedienbar, grund, onClick: bedienbar ? () => finaleAblehnen(view) : null },
     });
@@ -298,6 +301,8 @@
     m.kopf = { ort: AT('kopf'), art: 'lage', marken: L.marks };
     m.lage = Object.assign(lageModell(view, AB, a, bedienbar, ant), { bereich: AT('bereich') });
     const fk = finaleKarte(view, bedienbar); if (fk) m.lage.finale = fk;   // SUND-04a-3: Karte der Entscheidungsschlacht (nur mit Angebot oder laufendem Finale)
+    // Welle 5 (S1): solange die Karte Tasten hat (Angebot, Anfrage), nennt die Tastenzeile oben rechts auch E und N; bei laufendem Finale sind sie ohne Wirkung und stehen nicht da
+    if (fk && fk.haupt && bedienbar) m.lage.hilfe = [m.lage.hilfe, T.kappe('terminal.finale', 'E') + ' ' + FT('hilfe_schlacht'), T.kappe('terminal.finaleAblehnen', 'N') + ' ' + FT('hilfe_ablehnen')].filter(Boolean).join(' · ');
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };   // wie im Handel: Kreuz und Module gedimmt
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
     const gew = lageKarte(AB, a.lage), sperre = abgesagt(), hat = AB.frei && !AB.laufend && AB.angebot.length > 0 && !sperre;
@@ -620,7 +625,8 @@
     } else if (ev.kind === 'finaleAntwort') {   // SUND-04a-3: Antwort des Servers an den Absender (ok, oder der Grund, z. B. „Die Entscheidungsschlacht läuft schon“)
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
-      meldung(!!ev.ok, ev.ok ? FT('gewaehlt_' + (ev.op === 'bestaetigen' ? 'bestaetigen' : ev.op === 'ablehnen' ? 'ablehnen' : 'waehlen')) : (ev.text || FT('nicht_moeglich')), ev.ok ? null : ev.code);
+      meldung(!!ev.ok, ev.ok ? (window.Finale && Finale.antwortText ? Finale.antwortText(ev.op) : '') : (ev.text || FT('nicht_moeglich')), ev.ok ? null : ev.code);
+      if (s.antwort) s.antwort.finale = 1;   // markiert: beim Neubeginn des Finales wird sie geleert
     } else if (ev.kind === 'infoAntwort') {   // SUND-03b I: Antwort des Servers an den Absender (Ergebnis steht im Funk und in world.info.l, hier nur Bestätigung oder Grund der Absage)
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;

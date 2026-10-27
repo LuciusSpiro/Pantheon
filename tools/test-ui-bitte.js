@@ -12,6 +12,7 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
 const section = (t) => console.log('\n[' + t + ']');
 const schneiden = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const VW = 640;
+const KT0 = require('../public/js/karte-tokens.js');   // Welle 5 (S7): das Porträt liest die Fraktionsflächen aus KarteTokens
 
 // Attrappe des Render-Moduls (Maße, Zeichnen als Protokoll) und des Pults (keine Konsole gezeichnet: die Leiste ist dann die Bordansicht)
 const gezeichnet = [];
@@ -139,7 +140,7 @@ section('Porträt-Zeichnung: gültig zeichnet, Müll zeichnet nichts und wirft n
   ok(!!m, 'drawPortraetFaden steht in hud.js');
   if (m) {
     const body = m[0].replace(/,\n {4}drawFunkBild$/, '');
-    const fn = new Function('return { ' + body.trim().replace(/,$/, '') + ' }')();
+    const fn = new Function('window', 'return { ' + body.trim().replace(/,$/, '') + ' }')({ KarteTokens: KT0 });
     const rects = [];
     const ctx = { save() {}, restore() {}, translate() {}, fillRect(x, y, w, h) { rects.push([x, y, w, h]); }, fillStyle: '' };
     const draw = fn.drawPortraetFaden;
@@ -262,10 +263,11 @@ section('Kopf, Frist, Plakette, Kappe (S4, S5, K2, K3)');
   root.Render = Object.assign({}, R0, { measure: echt.measure, wrap: echt.wrap });
   const bilder = [];
   root.Hud = { drawFunkBild: (ctx, pid, x, y, w) => bilder.push([pid, x, y, w]) };
+  const rechtecke = [];   // fillRect-Aufrufe der Leiste: [x, y, w, h, Farbe] (Welle 5, S9: der Punkt der Kappe)
   const zeichne = (block, k, pult) => {
     alles({ bitte: block }); FW.store.eingeklappt = false; FW.store.geoeffnetBei = null;
-    gezeichnet.length = 0; bilder.length = 0; root.Pult.konsole = () => k || null; if (pult) root.Pult.kappe = pult;
-    const ctx = { fillStyle: '', fillRect() {} };
+    gezeichnet.length = 0; bilder.length = 0; rechtecke.length = 0; root.Pult.konsole = () => k || null; if (pult) root.Pult.kappe = pult;
+    const ctx = { fillStyle: '', fillRect(x, y, w, h) { rechtecke.push([x, y, w, h, this.fillStyle]); } };
     FW.zeichne(ctx, { me: { console: k ? k.station : null }, send() {} });
     root.Pult.konsole = () => null; root.Pult.kappe = () => '';
     return gezeichnet.filter((g) => g[0] === 'text');
@@ -283,7 +285,9 @@ section('Kopf, Frist, Plakette, Kappe (S4, S5, K2, K3)');
     alles({ bitte: Object.assign(bitteBlock(2, 'f:1:rom'), { rest: 3 }) });
     const r = FW.rechteck(FW.modell(), null, false);
     voll(3);
-    ok(bilder.length === 1 && bilder[0][1] === r.x + 5 && bilder[0][2] === r.y + 3 && bilder[0][3] === 22, `Plakette bei r.x+5, r.y+3 (${bilder[0] && bilder[0].join(',')} gegen ${r.x + 5},${r.y + 3})`);
+    ok(bilder.length === 1 && bilder[0][1] === r.x + 7 && bilder[0][2] === r.y + 3 && bilder[0][3] === 22, `Plakette bei r.x+7 (2 px weiter innen, Welle 5 K4), r.y+3 (${bilder[0] && bilder[0].join(',')} gegen ${r.x + 7},${r.y + 3})`);
+    const kopf = gezeichnet.find((q) => q[0] === 'text' && q[1].indexOf('BITTE') === 0);
+    ok(!!kopf && kopf[2] === r.x + 6 + 29 && kopf[2] >= bilder[0][1] + 22 + 4, `Kopftext rückt mit: x ${kopf && kopf[2]} (≥ Plakette + 4 px Luft)`);
   }
   // Streifen: „offen“ erst im Streifen, „läuft ab“ bei rest ≤ 1
   {
@@ -293,13 +297,21 @@ section('Kopf, Frist, Plakette, Kappe (S4, S5, K2, K3)');
     ok(s3.some((t) => /^BITTE · Quintus Serran · Rom · offen$/.test(t[1])), `Streifen: „… · Rom · offen“ (${s3.map((t) => t[1]).join(' | ')})`);
     ok(s1.some((t) => /· läuft ab$/.test(t[1])), 'Streifen bei rest 1: „läuft ab“');
   }
-  // Kappe: ein einzelnes Satzzeichen wird fett gezeichnet (zweimal, einen Pixel versetzt), ein Buchstabe nicht, „Sh+.“ nicht
+  // Kappe (Welle 5, S9): die Punkt-Taste wird nicht als Glyph, sondern als 2×2-Block auf der Grundlinie gezeichnet; „Sh+.“ mit Präfix „Sh+“ als Text davor; ein Buchstabe bleibt Text
   {
+    const bloecke = () => rechtecke.filter((r) => r[2] === 2 && r[3] === 2 && r[4] === '#F4EEDC');
     const kappen = (taste) => { const t = zeichne(Object.assign(bitteBlock(2, null), { rest: 3 }), null, () => taste); return t.filter((x) => x[1] === taste); };
-    const punkt = kappen('.'), buchstabe = kappen('M');
-    ok(punkt.length === 4 && punkt[1][2] === punkt[0][2] + 1, `Punkt-Kappe fett: zwei Zeichnungen, einen Pixel versetzt (${punkt.map((x) => x[2]).join(',')})`);
-    ok(buchstabe.length === 2, 'Buchstaben-Kappe einmal je Kappe (zwei Kappen)');
-    ok(zeichne(Object.assign(bitteBlock(2, null), { rest: 3 }), null, (n, a) => (a === 'allgemein.funkSenden' ? 'Sh+.' : '.')).filter((x) => x[1] === 'Sh+.').length === 1, '„Sh+.“ (mehrere Zeichen) wird nicht doppelt gezeichnet');
+    const punkt = kappen('.');
+    ok(punkt.length === 0 && bloecke().length === 2, `Punkt-Kappe: kein Glyph „.“, dafür ein 2×2-Block je Kappe (${bloecke().length} Blöcke, zwei Kappen)`);
+    const kappeR = rechtecke.filter((r) => r[3] === 9 && r[4] === '#46556A');
+    const mitte = (b, k) => b[0] + 1 - (k[0] + k[2] / 2);
+    ok(kappeR.length === 2 && bloecke().every((b, i) => Math.abs(mitte(b, kappeR[i])) <= 1 && b[1] === kappeR[i][1] + 6), 'der Block sitzt mittig in der Kappe, auf der Grundlinie des Textes (' + bloecke().map((b) => b.join(',')).join(' | ') + ')');
+    const buchstabe = kappen('M');
+    ok(buchstabe.length === 2 && bloecke().length === 0, 'Buchstaben-Kappe: Text, kein Block');
+    const sh = zeichne(Object.assign(bitteBlock(2, null), { rest: 3 }), null, (n, a) => (a === 'allgemein.funkSenden' ? 'Sh+.' : '.'));
+    ok(sh.filter((x) => x[1] === 'Sh+').length === 1 && sh.filter((x) => x[1] === 'Sh+.').length === 0 && bloecke().length === 2, '„Sh+.“: „Sh+“ als Text, der Punkt als Block dahinter (kein „.“-Glyph)');
+    const shB = bloecke().find((b, i) => b[0] > 0 && sh.some((x) => x[1] === 'Sh+' && b[0] > x[2]));
+    ok(!!shB, 'der Block von „Sh+.“ steht rechts neben „Sh+“');
   }
   root.Render = R0; root.Hud = H0;
 }
@@ -388,7 +400,7 @@ section('Faden-Porträt (S4, K1): Messingrahmen, hellere Mütze');
 {
   const m = /drawPortraetFaden\(ctx, pid, x, y, w\) \{[\s\S]*?\n {4}\},\n {4}drawFunkBild/.exec(HUD_SRC);
   const body = m[0].replace(/,\n {4}drawFunkBild$/, '');
-  const fn = new Function('return { ' + body.trim().replace(/,$/, '') + ' }')();
+  const fn = new Function('window', 'return { ' + body.trim().replace(/,$/, '') + ' }')({ KarteTokens: KT0 });
   const zeichnen = (pid, w) => { const rects = []; const ctx = { save() {}, restore() {}, translate() {}, fillRect(x, y, bw, bh) { rects.push({ x, y, w: bw, h: bh, c: this.fillStyle }); }, fillStyle: '' }; fn.drawPortraetFaden.call({}, ctx, pid, 0, 0, w); return rects; };
   const r = zeichnen('f:0:rom', 24);
   const rahmen = [[0, 0, 24, 1], [0, 23, 24, 1], [0, 0, 1, 24], [23, 0, 1, 24]];
@@ -396,6 +408,30 @@ section('Faden-Porträt (S4, K1): Messingrahmen, hellere Mütze');
   const farben = (v) => new Set(zeichnen('f:' + v + ':kon', 24).map((q) => q.c));
   ok(farben(2).has('#46556A') && !farben(2).has('#2A3A52'), 'Variante 2: Mütze in #46556A, nicht mehr #2A3A52 (K1)');
   ok([0, 1, 3, 4, 5].every((v) => zeichnen('f:' + v + ':ger', 22).length >= 6), 'die anderen Varianten zeichnen weiter');
+}
+
+section('Funkwahl (Welle 5, K5): Farben aus KarteTokens.PULT');
+{
+  const PULT = KT0.PULT;
+  delete require.cache[require.resolve('../public/js/funkwahl.js')];
+  root.KarteTokens = KT0;
+  const FW2 = require('../public/js/funkwahl.js');
+  const quelle = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'funkwahl.js'), 'utf8');
+  ok(/text: PU.hell/.test(quelle) && /dim: PU.stahlhell/.test(quelle) && /frame: PU.messing/.test(quelle) && /offLine: PU.aus/.test(quelle) && /bg: PU.tisch/.test(quelle), 'SK liest hell, stahlhell, messing, aus und tisch aus KarteTokens.PULT');
+  ok(!!FW2 && PULT.hell === '#F4EEDC' && PULT.stahlhell === '#8EA3B5' && PULT.messing === '#C9974A' && PULT.aus === '#3A4A66' && PULT.tisch === '#0B0E1A', 'die Pult-Werte sind dieselben wie die bisherigen festen Hex-Werte (keine Farbänderung)');
+  delete root.KarteTokens;
+  delete require.cache[require.resolve('../public/js/funkwahl.js')];
+  require('../public/js/funkwahl.js');
+}
+
+section('Faden-Porträt (Welle 5, S7): Schulterfarbe aus den Fraktions-Tokens der Karte');
+{
+  const m = /drawPortraetFaden\(ctx, pid, x, y, w\) \{[\s\S]*?\n {4}\},\n {4}drawFunkBild/.exec(HUD_SRC);
+  const body = m[0].replace(/,\n {4}drawFunkBild$/, '');
+  const fn = new Function('window', 'return { ' + body.trim().replace(/,$/, '') + ' }')({ KarteTokens: KT0 });
+  const schulter = (fr) => { const rects = []; const ctx = { save() {}, restore() {}, translate() {}, fillRect(x, y, bw, bh) { rects.push({ x, y, w: bw, h: bh, c: this.fillStyle }); }, fillStyle: '' }; fn.drawPortraetFaden.call({}, ctx, 'f:0:' + fr, 0, 0, 24); return rects.find((q) => q.x === 3 && q.y === 20 && q.w === 18 && q.h === 4); };
+  for (const [fr, k] of [['rom', 'r'], ['ger', 'g'], ['kon', 'k']]) ok(!!schulter(fr) && schulter(fr).c === KT0.FARBE.fraktion[k].flaeche, `Schulter ${fr}: ${KT0.FARBE.fraktion[k].flaeche} (KarteTokens.FARBE.fraktion.${k}.flaeche)`);
+  ok(new Set(['rom', 'ger', 'kon'].map((fr) => schulter(fr).c)).size === 3, 'die drei Fraktionen bleiben an der Schulter unterscheidbar');
 }
 
 section('Funk der Fäden als Lagefunk (F3a): Kennung fd, Messing statt Rot, Konsolen-Zeile und Funk-Reiter');
@@ -420,12 +456,21 @@ section('Funk der Fäden als Lagefunk (F3a): Kennung fd, Messing statt Rot, Kons
   ok(H.lagefunkZeilenText({ from: 'Titus Varro', text: 'Hallo.', fd: 1 }) === 'FUNK · Titus Varro · Hallo.', 'Zeile des Fadenfunks: „FUNK · Name · Text“ (kein „LAGE“, der Absender immer)');
   ok(H.lagefunkZeilenText({ from: 'Aufklärung', text: 'Hallo.', fd: 0 }) === 'LAGE · Hallo.' && H.lagefunkZeilenText({ from: 'HAFEN X', text: 'Hallo.', fd: 0, kz: '0305 · Rom' }) === 'LAGE · HAFEN X · 0305 · Rom · Hallo.', 'die gewöhnliche Lagemeldung bleibt unverändert');
   // Wiring: client.js reicht fd durch, KarteLage merkt es, der Funk-Reiter färbt danach
-  ok(/H\.onRadio\(ev\.from, ev\.text, ev\.pid, ev\.lage, ev\.kz, !!\(ev\.sz && !ev\.r\), ev\.fd\)/.test(SRC('client.js')), 'client.js: das radio-Ereignis reicht fd an Hud.onRadio durch');
+  ok(/H\.onRadio\(ev\.from, ev\.text, ev\.pid, ev\.lage, ev\.kz, !!\(ev\.sz && !ev\.r\), ev\.fd, ev\.ton\)/.test(SRC('client.js')), 'client.js: das radio-Ereignis reicht fd und ton an Hud.onRadio durch');
   global.self = global.self || root;
   const KL = require('../public/js/karte-lage.js');
   KL.funkLeeren(); KL.funkMerken({ text: 'Bringt die Ware.', from: 'Titus Varro', fd: 1 }); KL.funkMerken({ text: 'Lage.', from: 'HAFEN X' });
   ok(KL.funkListe()[1].fd === 1 && KL.funkListe()[0].fd === 0, 'KarteLage.funkMerken nimmt die Zeilen der Fäden auf (Captain-Funkreiter) und merkt fd');
-  ok(/e\.fd === 1 \? KarteTokens\.FARBE\.funk\.akzentLage : KarteTokens\.FARBE\.funk\.akzentFeind/.test(SRC('consoles.js')), 'Funk-Reiter: Akzent Messing bei fd 1, sonst Rot');
+  ok(/e\.fd === 1 \|\| e\.ton === 'meldung' \? KarteTokens\.FARBE\.funk\.akzentLage : KarteTokens\.FARBE\.funk\.akzentFeind/.test(SRC('consoles.js')), 'Funk-Reiter: Akzent Messing bei fd 1 und ton meldung, sonst Rot');
+  // Welle 5 (M1): ton 'meldung' (Oberkommando: Angebot, Sieg, Rom bietet an) Messing, ton 'gefahr' und ohne ton Rot
+  H.radioFlash = null; H.onRadio('Oberkommando', 'Rom bietet Euch an', null, 1, null, false, undefined, 'meldung');
+  ok(H.radioFlash.ton === 'meldung' && H.radioFlash.fd === 0 && H.funkAkzent(H.radioFlash) === '#C9974A', 'onRadio: ton meldung färbt den Akzent Messing (Oberkommando)');
+  H.radioFlash = null; H.onRadio('Oberkommando', 'Sie greifen an!', null, 1, null, false, undefined, 'gefahr');
+  ok(H.radioFlash.ton === 'gefahr' && H.funkAkzent(H.radioFlash) === '#E0473C', 'onRadio: ton gefahr bleibt Rot');
+  H.radioFlash = null; H.onRadio('X', 'y', null, 1, null, false, undefined, 'quatsch');
+  ok(H.radioFlash.ton === '' && H.funkAkzent(H.radioFlash) === '#E0473C', 'unbekannter ton: wie ohne ton, Rot (Müll wird nie Messing)');
+  KL.funkLeeren(); KL.funkMerken({ text: 'Rom bietet.', from: 'Oberkommando', ton: 'meldung' }); KL.funkMerken({ text: 'Angriff.', from: 'Oberkommando', ton: 'gefahr' });
+  ok(KL.funkListe()[1].ton === 'meldung' && KL.funkListe()[0].ton === '', 'KarteLage.funkMerken merkt ton meldung (Funk-Reiter färbt Messing), gefahr bleibt leer = Rot');
   // Ops: der Streifen im Ruf-Slot nimmt der Karte die Zoom-Beschriftung (wie die Lagefunk-Zeile)
   H.radioFlash = null;   // keine Lagemeldung: nur der Streifen zaehlt
   alles({ bitte: bitteBlock(2, 'f:1:rom') });

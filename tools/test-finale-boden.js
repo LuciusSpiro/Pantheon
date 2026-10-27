@@ -53,10 +53,10 @@ function neu(crew, seed) {
   g.space.enemies = [];
   g.debugGoto('hrafnheim', false); run(g, 2);
   g.weltsim.ruf.rom = 1e9;
-  const radio = [];
+  const radio = [], radioEv = [];
   const emit0 = g.emit.bind(g);
-  g.emit = (k, d) => { if (k === 'radio') radio.push(d.text); return emit0(k, d); };
-  const t = { g, cs, ps: g.players, radio, dir, boden: [], abspann: [], bodenEnde0: Finale.bodenEnde };
+  g.emit = (k, d) => { if (k === 'radio') { radio.push(d.text); radioEv.push(d); } return emit0(k, d); };
+  const t = { g, cs, ps: g.players, radio, radioEv, dir, boden: [], abspann: [], bodenEnde0: Finale.bodenEnde };
   Finale.ersetzen('szene', { finaleStarten: () => ({ id: 1 }) });
   Finale.ersetzen('abspann', { beenden: (game, art) => { t.abspann.push(art); return true; } });
   Finale.bodenEnde = (game, a) => { t.boden.push(a); return t.bodenEnde0(game, a); };   // zaehlt die Meldungen (Finale().bodenEnde wird beim Aufruf nachgeschlagen)
@@ -312,6 +312,93 @@ section('Bot-Lauf: landen, Waechter besiegen, Schrein halten', () => {
     console.log(`  MESS crew ${crew}: Waechter ${d1.toFixed(1)} s, Schrein ${d2.toFixed(1)} s, Wachen ${FB.wachenFuer(crew)}`);
     t.fertig();
   }
+});
+
+section('Welle 5: Ton des Funks (M1), Missionsziel in zwei Stufen und keine Zähler (M3)', () => {
+  const t = neu(1); const g = t.g;
+  const ton = (text) => (t.radioEv.find((e) => e.text === text) || {}).ton;
+  imBoden(t);
+  ok(ton(D.texte.funk.bereit) === 'meldung', 'Funk „bereit“: Meldung (Messing)');
+  ok(t.radioEv.length > 0 && t.radioEv.every((e) => e.ton === 'meldung'), 'bis zur Landung ist jeder Funk des Oberkommandos eine Meldung (Start, Orbit frei, bereit)');
+  const ziele = () => (g.snapshot().mission || {}).objectives || [];
+  run(g, 1);   // die Mission schreibt ihre Ziele im nächsten Tick
+  ok(ziele().length === 1 && ziele()[0].text === D.texte.ziel.sperre && !ziele()[0].done, 'Ziel vor der Landung: „' + D.texte.ziel.sperre + '“, nicht erledigt');
+  hinunter(t);
+  ok(ton(D.texte.funk.landung) === 'gefahr', 'Funk „Landung“: Gefahr (Rot)');
+  ok(g.away.ohneZaehler === true, 'Boden-Karte ist ohne Zähler markiert');
+  const sn = () => { for (let i = 0; i < 6; i++) { const s = g.snapshot(); if (s.away && s.away.ao) return s.away; } return {}; };
+  ok(sn().oz === 1, 'Snapshot away.oz = 1: das HUD blendet Zelle, Kiste, Sprengpunkt aus');
+  ok(ziele().length === 1 && ziele()[0].text === D.texte.ziel.sperre, 'am Boden, Wächter steht: ein Ziel „' + D.texte.ziel.sperre + '“ (nicht „Frei erkunden“)');
+  const boss = drones(t).find((e) => e.boss);
+  for (const e of drones(t)) { e.alive = false; e.hp = 0; }
+  run(g, 1);
+  ok(g.finaleBoden.frei && boss, 'Wächter besiegt');
+  const z2 = ziele();
+  ok(z2.length === 2 && z2[0].text === D.texte.ziel.sperre && z2[0].done === true && z2[1].text === D.texte.ziel.halten && z2[1].done === false, 'Stufe 2: „' + D.texte.ziel.halten + '“, die erste Stufe steht abgehakt');
+  ok(t.radioEv.filter((e) => e.text === D.texte.funk.frei).every((e) => e.ton === 'meldung'), 'Funk „frei“: Meldung');
+  ok(!ziele().some((o) => /Frei erkunden/.test(o.text)), 'nie „Frei erkunden – Entdeckungen“ am Boden');
+  t.fertig();
+  // Client: die Zähler hängen an away.oz (hud.js: Minikarte, consoles.js: Captain-Lage); ohne Schutz stünden sie wieder da (die Sichtprüfung tools/sicht-boden.js belegt das Bild)
+  for (const [datei, muster] of [['public/js/hud.js', /if \(!away\.oz\) for \(const r of Object\.keys\(cnt\)\) lines\.push/], ['public/js/consoles.js', /if \(!away\.oz\) for \(const r of Object\.keys\(cnt\)\)/]]) {
+    ok(muster.test(fs.readFileSync(path.join(__dirname, '..', datei), 'utf8')), datei + ': Zähler nur ohne away.oz');
+  }
+  const Tx = D.texte.ziel;
+  ok(Tx.sperre && Tx.sperre_wachen && Tx.halten && Object.values(Tx).every((x) => /^Schrein von Asgard: /.test(x)), 'Texte des Ziels stehen in den Daten');
+});
+
+// =============================================================================================================================
+// Welle 5 (S6): der versiegelte Schrein im HUD (public/js/hud.js drawInteraction, drawNotices), ohne Browser: die Methoden aus dem Quelltext laden, mit Attrappen aufrufen
+section('Welle 5 (S6): „Versiegelt“ ohne Tastenkappe, gedämpft im Messingrahmen; der Hinweis steht über dem Label', () => {
+  const HUD = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'hud.js'), 'utf8').split('\r\n').join('\n');
+  const methode = (name) => { const a = HUD.indexOf('\n    ' + name + '('); if (a < 0) return null; const b = HUD.indexOf('\n    },', a); return HUD.slice(a + 1, b + 6); };
+  const src = ['drawInteraction', 'drawNotices'].map(methode);
+  ok(src.every(Boolean), 'drawInteraction und drawNotices stehen in hud.js');
+  if (!src.every(Boolean)) return;
+  ok(/label: 'Versiegelt', ok: false, versiegelt: true/.test(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8')), 'client.js markiert den gesperrten Schrein als versiegelt (Interaktion mit versiegelt: true)');
+  const KT = require('../public/js/karte-tokens.js');
+  const aufruf = [];
+  const R = {
+    measure: (s) => String(s).length * 6, backdrop: (c, x, y, w, h) => aufruf.push({ t: 'backdrop', x, y, w, h }),
+    text: (c, s, x, y, o) => aufruf.push({ t: 'text', s, x, y, col: o && o.color }),
+    worldToScreen: (x, y) => ({ x: 320, y: 150 }), overlay3d: { on: false }, uiDenied: null,
+  };
+  const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, globalAlpha: 1, fillRect(x, y, w, h) { aufruf.push({ t: 'fill', x, y, w, h, col: this.fillStyle }); }, strokeRect(x, y, w, h) { aufruf.push({ t: 'stroke', x, y, w, h, col: this.strokeStyle }); } };
+  const PAL = { amber: '#FFC66B', star: '#F4EEDC', space: '#000', warn: '#F2C94C' };
+  let zeit = 1000;
+  const bauen = () => {
+    const H = new Function('R', 'PAL', 'VW', 'VH', 'TILE', 'window', 'performance', 'LAGEFUNK_Y', 'return { ' + src.join(',\n') + ' }')(R, PAL, 640, 360, 32, { KarteTokens: KT }, { now: () => zeit }, 12);
+    H.notices = []; H.iaOben = null; H.sitzVersatz = () => 0; H.radioAktuell = () => null; H.fit = (t) => t; H.funkTafelHoehe = () => 0;
+    return H;
+  };
+  // 1. versiegelt: keine Kappe, Rahmen Messing, Text gedämpft
+  let H = bauen(); aufruf.length = 0;
+  H.drawInteraction(ctx, { interaction: { label: 'Versiegelt', ok: false, versiegelt: true, tx: 9, ty: 9 }, me: null });
+  const kappe = aufruf.filter((a) => a.t === 'fill' && a.w === 9 && a.h === 9), rahmen = aufruf.find((a) => a.t === 'stroke'), label = aufruf.find((a) => a.t === 'text' && a.s === 'Versiegelt');
+  ok(kappe.length === 0 && !aufruf.some((a) => a.t === 'text' && a.s === 'E'), 'versiegelt: keine Tastenkappe, kein „E“');
+  ok(!!rahmen && rahmen.col === KT.PULT.messing, 'dünner Messingrahmen (1 px, ' + (rahmen && rahmen.col) + ')');
+  ok(!!label && label.col === KT.PULT.grau, '„Versiegelt“ in dim (Pult-Grau ' + KT.PULT.grau + ')');
+  ok(!!H.iaOben && H.iaOben.y === rahmen.y - 0.5 && rahmen.w === 'Versiegelt'.length * 6 + 8 - 1, 'der Rahmen misst Text + 8 px (keine Kappe), die Oberkante steht für die Hinweise bereit');
+  const oben = H.iaOben.y;
+  // 2. ein bedienbarer Anker behält Kappe und Taste
+  aufruf.length = 0; const H2 = bauen();
+  H2.drawInteraction(ctx, { interaction: { label: 'E halten (3 s)', ok: true, tx: 9, ty: 9 }, me: null });
+  ok(aufruf.some((a) => a.t === 'fill' && a.w === 9 && a.h === 9) && aufruf.some((a) => a.t === 'text' && a.s === 'E') && H2.iaOben === null, 'bedienbar: Kappe „E“ wie bisher, keine Oberkante gemerkt');
+  // 3. Hinweis: relativ zum Label (11 px über der Oberkante, ein einzeiliger also 24 px darüber), sonst wie bisher auf 96
+  H.notices = [{ text: 'Der Schrein ist versiegelt, solange der Wächter des Schreins steht.', color: PAL.warn, t: zeit / 1000, d: 3 }];
+  aufruf.length = 0; H.drawNotices(ctx, { }, undefined, 0);
+  const n1 = aufruf.find((a) => a.t === 'backdrop');
+  ok(!!n1 && n1.y === oben - 11 - 13, 'Hinweis über dem Label: y ' + (n1 && n1.y) + ' = Oberkante ' + oben + ' − 11 − Höhe 13 (24 px über der Oberkante)');
+  H2.notices = [{ text: 'Der Schrein ist versiegelt, solange der Wächter des Schreins steht.', color: PAL.warn, t: zeit / 1000, d: 3 }];
+  aufruf.length = 0; H2.drawNotices(ctx, { }, undefined, 0);
+  ok(aufruf.find((a) => a.t === 'backdrop').y === 96, 'ohne „Versiegelt“ bleibt der Hinweis auf y 96');
+  // nicht mehr aktuell (die Spielerin ist weg vom Schrein): zurück auf 96
+  zeit += 500; H.notices[0].t = zeit / 1000; aufruf.length = 0; H.drawNotices(ctx, { }, undefined, 0);
+  ok(aufruf.find((a) => a.t === 'backdrop').y === 96, 'das Label ist ein halbes Bild alt (nicht mehr am Schirm): der Hinweis steht wieder auf y 96');
+  // mehrere Hinweise: der Stapel endet über dem Label
+  zeit += 10; H.iaOben = { y: oben, t: zeit }; H.notices = [{ text: 'a', color: PAL.warn, t: zeit / 1000, d: 3 }, { text: 'b', color: PAL.warn, t: zeit / 1000, d: 3 }];
+  aufruf.length = 0; H.drawNotices(ctx, { }, undefined, 0);
+  const bd = aufruf.filter((a) => a.t === 'backdrop');
+  ok(bd.length === 2 && bd[1].y + bd[1].h === oben - 11, 'zwei Hinweise: der Stapel endet 11 px über dem Label (' + bd.map((b) => b.y + '+' + b.h).join(', ') + ')');
 });
 
 console.log(`\n${n - fails}/${n} ok` + (fails ? `, ${fails} FEHLER` : ''));

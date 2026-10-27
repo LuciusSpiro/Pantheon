@@ -38,6 +38,7 @@ const Flotte = require('./flotte.js');
 const Escort = require('./escort.js');
 const Kriegslage = require('./kriegslage.js');
 const Besitz = require('./besitz.js');
+const OKFunk = require('./oberkommando-funk.js');   // Welle 5, M1: Funk des Finales in Meldung (Messing) und Gefahr (Rot)
 const Ruf = require('./ruf.js');   // SUND-02b B: Ruf-Wirkungen am Szenenende (Regeln stehen in ruf.js, Zahlen in content/welt/ruf-werte.json)
 const KT = require('../../public/js/karte-tokens.js');   // Stärkenamen (wie Wissen von Rom, kriegslage-wissen.js)
 const Sektoren = require('../../shared/sektoren.js');
@@ -674,12 +675,13 @@ const finaleD = () => Finale.WERTE;
 const finaleT = () => require('../../content/welt/finale-werte.json').texte.orbit;
 const finaleCrew = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
 const finaleListe = (w, n) => (w.wert[String(n)] || []).slice();
-function finaleFunk(game, key, vars, reiter) {
+// Welle 5, M1: Meldung (ankunft, sieg: Messing) und Gefahr (gegner, niederlage: Rot) als zwei benannte Wege
+function finaleFunkText(game, weg, key, vars, reiter) {
   const T = finaleT();
-  const text = fmt((T.funk || {})[key], vars);
-  if (!text) return;
-  game.emit('radio', Object.assign({ from: T.sprecher || 'Oberkommando', text, lage: 1, sz: 1 }, reiter ? { r: 1 } : {}));
+  weg(game, T.sprecher, fmt((T.funk || {})[key], vars), Object.assign({ sz: 1 }, reiter ? { r: 1 } : {}));
 }
+const finaleMeldung = (game, key, vars, reiter) => finaleFunkText(game, OKFunk.meldung, key, vars, reiter);
+const finaleGefahr = (game, key, vars, reiter) => finaleFunkText(game, OKFunk.gefahr, key, vars, reiter);
 const finaleVars = (S) => ({ schiff: S.flagg.name, kommandant: S.kommandant.name, n: S.nWach, v: S.nVerb, sek: Math.round(S.vorlauf) });
 const klemme = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
@@ -730,7 +732,7 @@ function finaleStarten(game, { hex } = {}) {
   });
   try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }   // Andocken gesperrt, Dock-Marker weg
   const vars = finaleVars(S);
-  finaleFunk(game, 'ankunft', vars, true);
+  finaleMeldung(game, 'ankunft', vars, true);
   game.oda(fmt(T.funk.hinweis, vars), null);
   return S;
 }
@@ -758,7 +760,7 @@ function finaleGegnerAufstellen(game, S) {
     if (e) e.finaleS = S.id;
   });
   S.phase = 'kampf'; S.finale = true; S.emBasis = game.stats.emergencies || 0;
-  finaleFunk(game, 'gegner', finaleVars(S), false);
+  finaleGefahr(game, 'gegner', finaleVars(S), false);
 }
 
 const finaleImKampf = (game, S) => game.space.enemies.filter((e) => e.finaleS === S.id && !e.leaving);
@@ -786,7 +788,8 @@ function finaleEnde(game, S, ausgang) {
   aufraeumen(game, S);
   endeAufraeumen(game);
   if (ausgang === 'sieg' || ausgang === 'niederlage') game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: ausgang === 'sieg' ? 's' : 'n', o: null };
-  if (ausgang === 'sieg' || ausgang === 'niederlage') finaleFunk(game, ausgang, finaleVars(S), true);
+  if (ausgang === 'sieg') finaleMeldung(game, ausgang, finaleVars(S), true);
+  else if (ausgang === 'niederlage') finaleGefahr(game, ausgang, finaleVars(S), true);
   merken(game, S, ausgang === 'flucht' ? 'abbruch' : ausgang, [], { finale: true });
   try { Finale.orbitEnde(game, ausgang); } catch (e) { if (game.countError) game.countError('finale-orbit-ende', e); }
   return null;

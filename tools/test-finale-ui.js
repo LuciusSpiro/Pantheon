@@ -174,8 +174,8 @@ section('Angebot: Karte, Anfrage (E), Bestätigen (n s), Start');
   let m = T.m(); const g = T.g;
   ok(g.weltsim.finale.angebot === 1 && FI.modell() && FI.modell().zustand === 'angebot', 'Tribun: Server legt das Angebot an, der Block kommt an');
   const f = m.lage.finale;
-  ok(m.bereich === 'lage' && f && f.zustand === 'angebot' && f.tag === FI.TEXTE.tag_angebot && f.name === ANZ.name && f.text === ANZ.text, 'Karte im Bereich Kurs: Tag ANGEBOT, Name und Text vom Server (finale-werte.json, anzeige)');
-  ok(f.haupt.text === FI.TEXTE.anfragen && f.haupt.disabled === false && f.ablehnen.text === 'Ablehnen' && f.ablehnen.disabled === false && typeof f.haupt.onClick === 'function', 'Knöpfe „Entscheidungsschlacht“ und „Ablehnen“ aktiv');
+  ok(m.bereich === 'lage' && f && f.zustand === 'angebot' && f.tag === 'FINALE · ANGEBOT' && f.name === ANZ.name && f.text === ANZ.text, 'Karte im Bereich Kurs: Tag ANGEBOT, Name und Text vom Server (finale-werte.json, anzeige)');
+  ok(f.haupt.text === 'Anfragen' && f.haupt.disabled === false && f.ablehnen.text === 'Schlacht ablehnen' && f.ablehnen.disabled === false && typeof f.haupt.onClick === 'function', 'Knöpfe „Anfragen“ und „Schlacht ablehnen“ aktiv');
   ok(m.lage.zustand === 'angebot' || m.lage.zustand === 'leer', 'die Absichten daneben bleiben (Zustand ' + m.lage.zustand + ')');
   // E: Anfrage
   T.key('KeyE');
@@ -183,7 +183,7 @@ section('Angebot: Karte, Anfrage (E), Bestätigen (n s), Start');
   ok(c1.length === 1 && JSON.stringify(c1[0]) === JSON.stringify({ t: 'cmd', c: 'finale.waehlen' }), 'E sendet genau cmd { c: "finale.waehlen" } ohne weitere Felder');
   ok(g.weltsim.finale.anfrage && TU.zustand.antwort && TU.zustand.antwort.ok === true && TU.zustand.antwort.text === FI.TEXTE.gewaehlt_waehlen, 'Server: Anfrage gestellt, Antwort ok mit Text aus der Datei');
   m = T.m(); const a = m.lage.finale;
-  ok(a.zustand === 'anfrage' && a.tag === FI.TEXTE.tag_anfrage && a.haupt.text === 'Bestätigen (' + FENSTER + ' s)' && a.rest === FENSTER && a.frist === FENSTER, 'Karte: Anfrage, Knopf „Bestätigen (' + FENSTER + ' s)“');
+  ok(a.zustand === 'anfrage' && a.tag === 'FINALE · ANFRAGE' && a.hinweis === 'Verstreicht die Frist, passiert nichts.' && a.haupt.text === 'Bestätigen (' + FENSTER + ' s)' && a.rest === FENSTER && a.frist === FENSTER, 'Karte: Anfrage, Knopf „Bestätigen (' + FENSTER + ' s)“');
   ok(a.ablehnen.disabled === false && g.weltsim.finale.phase === null && szenen === 0, 'Ablehnen bleibt möglich, das Finale läuft noch nicht');
   uhr.t += 4200; m = T.m();
   ok(m.lage.finale.haupt.text === 'Bestätigen (' + (FENSTER - 4) + ' s)', 'der Knopf zählt mit: ' + m.lage.finale.haupt.text);
@@ -196,7 +196,7 @@ section('Angebot: Karte, Anfrage (E), Bestätigen (n s), Start');
   ok(c2.length === 1 && JSON.stringify(c2[0]) === JSON.stringify({ t: 'cmd', c: 'finale.bestaetigen' }), 'E danach sendet genau cmd { c: "finale.bestaetigen" }');
   ok(g.weltsim.finale.phase === 'orbit' && szenen === 1 && TU.zustand.antwort.ok === true && TU.zustand.antwort.text === FI.TEXTE.gewaehlt_bestaetigen, 'Server: Finale läuft (Phase orbit), Antwort ok');
   m = T.m(); const l = m.lage.finale;
-  ok(l.zustand === 'phase' && l.tag === FI.TEXTE.tag_laeuft && l.hinweis === FI.TEXTE.status_orbit && l.haupt === null && l.ablehnen === null, 'Karte: läuft (Orbit), Statushinweis, keine Knöpfe');
+  ok(l.zustand === 'phase' && l.tag === 'FINALE · LÄUFT' && l.hinweis === FI.TEXTE.status_orbit && l.haupt === null && l.ablehnen === null, 'Karte: läuft (Orbit), Statushinweis, keine Knöpfe');
   ok(l.schritte.length === 2 && l.schritte[0].aktiv === true && l.schritte[1].aktiv === false, 'Schritte Orbit (aktiv) und Boden');
   T.key('KeyE'); T.key('KeyN');
   ok(T.fcmds().length === 0, 'E und N bei laufendem Finale: keine Befehle');
@@ -211,7 +211,7 @@ section('Ablehnen (N) kostet nichts, auch aus der Anfrage');
   T.key('KeyN');
   const c = T.fcmds();
   ok(c.length === 1 && JSON.stringify(c[0]) === JSON.stringify({ t: 'cmd', c: 'finale.ablehnen' }), 'N sendet genau cmd { c: "finale.ablehnen" }');
-  ok(g.weltsim.finale.angebot === 0 && JSON.stringify(g.weltsim.ruf) === ruf0 && TU.zustand.antwort.ok === true && TU.zustand.antwort.text === FI.TEXTE.gewaehlt_ablehnen, 'Server: Angebot weg, Ruf gleich; Antwort „Abgelehnt, ohne Folgen.“');
+  ok(g.weltsim.finale.angebot === 0 && JSON.stringify(g.weltsim.ruf) === ruf0 && TU.zustand.antwort.ok === true && TU.zustand.antwort.text === 'Entscheidungsschlacht abgelehnt. Sie kommt in ' + DATEN.werte.abstand_nach_ablehnen.wert + ' Sprüngen wieder.', 'Server: Angebot weg, Ruf gleich; Antwort „Entscheidungsschlacht abgelehnt. Sie kommt in ' + DATEN.werte.abstand_nach_ablehnen.wert + ' Sprüngen wieder.“ (Zahl aus den Daten, über den Block)');
   ok(T.m().lage.finale === undefined && FI.modell() === null, 'danach keine Karte (Pause), kein Platzhalter');
   const U = partie(); U.anbieten(); U.key('KeyE'); U.fcmds(); warte(10);
   const m = U.m();
@@ -226,7 +226,7 @@ section('Verfallene Anfrage: kein Bestätigen ohne Frist');
   T.key('KeyE'); T.fcmds(); T.m();
   uhr.t += (FENSTER + 1) * 1000;
   let m = T.m();
-  ok(m.lage.finale.zustand === 'angebot' && m.lage.finale.haupt.text === FI.TEXTE.anfragen && !/Bestätigen/.test(m.lage.finale.haupt.text), 'Frist um: der Knopf heißt wieder „Entscheidungsschlacht“, kein Bestätigen');
+  ok(m.lage.finale.zustand === 'angebot' && m.lage.finale.haupt.text === 'Anfragen' && !/Bestätigen/.test(m.lage.finale.haupt.text), 'Frist um: der Knopf heißt wieder „Entscheidungsschlacht“, kein Bestätigen');
   warte(650); T.key('KeyE');
   const c = T.fcmds();
   ok(c.every((q) => q.c !== 'finale.bestaetigen') && g.weltsim.finale.phase === null, 'E nach der Frist sendet kein finale.bestaetigen');
@@ -296,6 +296,81 @@ section('Löschsignal, Rangverlust, Modus-Ende');
   U.g.weltsim = merk;
 }
 
+section('Welle 5 (S1, S3, S4): Tastenzeile, Tags, Ablehnen mit Pause, Neubeginn');
+{
+  const T = partie(); T.anbieten(); const g = T.g;
+  let m = T.m();
+  ok(/ · E Schlacht · N ablehnen$/.test(m.lage.hilfe || ''), 'Tastenzeile der Karte endet auf „E Schlacht · N ablehnen“ (' + m.lage.hilfe + ')');
+  ok(/↑↓ wählen/.test(m.lage.hilfe), 'die Tasten der Absichten bleiben in der Zeile');
+  ok(ANZ.text.indexOf('Ablehnen kostet nichts') < 0 && !/ablehn/i.test(ANZ.text), 'Anzeigetext (finale-werte.json) ohne „Ablehnen kostet nichts.“');
+  T.key('KeyE'); T.fcmds(); m = T.m();
+  ok(m.lage.finale.tag === 'FINALE · ANFRAGE' && m.lage.finale.hinweis === 'Verstreicht die Frist, passiert nichts.', 'Anfrage: Tag „FINALE · ANFRAGE“, Frist-Hinweis „Verstreicht die Frist, passiert nichts.“');
+  warte(650); T.key('KeyE'); T.fcmds(); m = T.m();
+  const l = m.lage.finale;
+  ok(l.zustand === 'phase' && l.tag === 'FINALE · LÄUFT' && !/ablehn/i.test(l.text + ' ' + l.hinweis), 'läuft: Tag „FINALE · LÄUFT“, kein Ablehnen-Satz');
+  ok(!/Schlacht/.test(m.lage.hilfe || ''), 'bei laufendem Finale steht E/N nicht in der Tastenzeile (ohne Wirkung)');
+  ok(TU.zustand.antwort && TU.zustand.antwort.text === 'Die Schlacht beginnt.', 'Rückmeldung nach dem Bestätigen: „Die Schlacht beginnt.“');
+  // Niederlage im Orbit: Neubeginn, das Angebot steht wieder da (Pause 0)
+  FinaleServer.orbitEnde(g, 'niederlage'); T.tick(); m = T.m();
+  const n1 = m.lage.finale;
+  ok(!!n1 && n1.zustand === 'angebot' && n1.neuerAnlauf === true && n1.hinweis === 'Neuer Anlauf: Die Crew ist zurück.', 'Neubeginn nach der Niederlage: die Hinweiszeile sagt „Neuer Anlauf: Die Crew ist zurück.“' + (n1 ? ' (' + n1.hinweis + ')' : ''));
+  ok(TU.zustand.antwort === null, 'die Rückmeldung „Die Schlacht beginnt.“ ist beim Wechsel von Phase auf Angebot geleert');
+  ok(n1.tag === 'FINALE · ANGEBOT', 'Tag wieder „FINALE · ANGEBOT“');
+  // neue Anfrage: kein „Neuer Anlauf“ mehr
+  T.key('KeyE'); T.fcmds(); m = T.m();
+  ok(m.lage.finale.zustand === 'anfrage' && m.lage.finale.hinweis === 'Verstreicht die Frist, passiert nichts.', 'nach der neuen Anfrage steht wieder der Frist-Hinweis');
+  T.key('KeyN'); T.fcmds(); T.tick(); T.m();
+  // Boden: gefallene Crew
+  const U = partie(); U.anbieten(); U.key('KeyE'); U.fcmds(); warte(650); U.key('KeyE'); U.fcmds();
+  U.m(); FinaleServer.orbitEnde(U.g, 'sieg'); U.m(); FinaleServer.bodenEnde(U.g, 'crew_gefallen'); U.tick(); const mu = U.m();
+  ok(mu.lage.finale && mu.lage.finale.zustand === 'angebot' && mu.lage.finale.neuerAnlauf === true && mu.lage.finale.hinweis === 'Neuer Anlauf: Die Crew ist zurück.', 'Neubeginn nach dem Boden (Crew gefallen): ebenso');
+  // ohne Neubeginn, nur ein neues Angebot: der normale Hinweis
+  const V = partie(); V.anbieten();
+  ok(V.m().lage.finale.neuerAnlauf === false && V.m().lage.finale.hinweis === 'Erst anfragen, dann bestätigen.', 'ohne Neubeginn: „Erst anfragen, dann bestätigen.“');
+}
+
+section('Welle 5 (S4): „Neuer Anlauf“ nur direkt nach einem Neubeginn');
+{
+  FI.lesen({ t: 'welcome' });
+  const ist = () => FI.modell();
+  FI.lesen(snap(block({ phase: 'orbit' })));
+  ok(ist().zustand === 'phase' && ist().neuerAnlauf === false, 'laufende Phase: kein neuer Anlauf');
+  const w0 = ist().wechsel;
+  FI.lesen(snap(block({ angebot: 1 })));
+  ok(ist().zustand === 'angebot' && ist().neuerAnlauf === true && ist().wechsel === w0 + 1, 'Phase orbit → Angebot: neuer Anlauf, der Wechsel ist gezählt');
+  FI.lesen(snap(block({ angebot: 1, rest: 1 })));
+  ok(ist().neuerAnlauf === true && ist().wechsel === w0 + 1, 'derselbe Block noch einmal: bleibt, zählt nicht doppelt');
+  FI.lesen(snap(block({ angebot: 1, anfrage: FENSTER })));
+  ok(ist().zustand === 'anfrage' && ist().neuerAnlauf === false, 'eine neue Anfrage beendet den neuen Anlauf');
+  FI.lesen(snap(block({ angebot: 1 })));
+  ok(ist().zustand === 'angebot' && ist().neuerAnlauf === false, 'zurück auf Angebot (Frist verfallen): kein „Neuer Anlauf“ mehr');
+  FI.lesen(snap(block({ phase: 'boden' }))); FI.lesen(snap(block({})));
+  ok(ist() === null, 'Neubeginn ohne Angebot (Pause): keine Karte');
+  FI.lesen(snap(block({ angebot: 1 })));
+  ok(ist().neuerAnlauf === false, 'das Angebot nach der Pause trägt keinen „Neuer Anlauf“ mehr');
+  FI.lesen(snap(block({ phase: 'orbit' }))); FI.lesen(snap(block({ phase: 'ende' }))); FI.lesen(snap(block({ angebot: 1 })));
+  ok(ist().neuerAnlauf === false, 'nach dem Ende (phase ende) ist kein Neubeginn');
+  FI.lesen({ t: 'welcome' });
+}
+
+section('Welle 5 (S1): Rückmeldung zum Ablehnen mit der Pause aus dem Block');
+{
+  FI.lesen({ t: 'welcome' });
+  ok(FI.antwortText('ablehnen') === 'Entscheidungsschlacht abgelehnt.', 'ohne bekannte Pause: „Entscheidungsschlacht abgelehnt.“ (ohne Zahl)');
+  FI.lesen(snap(block({ angebot: 1, pause: 12 })));
+  ok(FI.antwortText('ablehnen') === 'Entscheidungsschlacht abgelehnt. Sie kommt in 12 Sprüngen wieder.', 'Pause 12 aus dem Block: „… Sie kommt in 12 Sprüngen wieder.“');
+  FI.lesen(snap(block({ angebot: 1, pause: 1 })));
+  ok(FI.antwortText('ablehnen') === 'Entscheidungsschlacht abgelehnt. Sie kommt in 1 Sprung wieder.', 'Pause 1: „… in 1 Sprung wieder.“');
+  FI.lesen(snap(block({ pause: 12 })));
+  ok(FI.antwortText('ablehnen').indexOf('12 Sprüngen') > 0, 'die Pause bleibt auch erhalten, wenn das Angebot schon weg ist (die Antwort kommt nach dem Block)');
+  FI.lesen(snap(block({ angebot: 1, pause: -3 }))); FI.lesen({ t: 'welcome' });
+  ok(FI.antwortText('bestaetigen') === 'Die Schlacht beginnt.' && FI.antwortText('waehlen') === 'Angefragt: jetzt bestätigen.', 'die anderen Rückmeldungen bleiben');
+  const blk = require('../server/sim/finale.js');
+  ok(typeof blk.snapshot === 'function', 'Server liefert snapshot');
+  const T = partie(); T.anbieten();
+  ok(T.g.weltsim.finale && FI.store.finale && FI.store.finale.pause === DATEN.werte.abstand_nach_ablehnen.wert, 'der Block trägt die Pause aus den Daten (abstand_nach_ablehnen = ' + DATEN.werte.abstand_nach_ablehnen.wert + ')');
+}
+
 // ---------------------------------------------------------------- Layout mit der echten pult-terminal-tokens.js
 section('Layout: Karte und Knöpfe im Bereich, ohne Überdeckung, kein Rot');
 {
@@ -310,7 +385,7 @@ section('Layout: Karte und Knöpfe im Bereich, ohne Überdeckung, kein Rot');
     ui: { buttons: [], mouse: { x: -1, y: -1 } },
   };
   const P2 = { FN, SKINS: { rom: { screenBg: '#000008', bg: '#000009', text: '#fffff0', dim: '#888881', ink: '#000010', off: '#000011', offLine: '#000012', frame: '#000013' } }, mix: (a) => a, rgba: (a) => a, cham() {}, zelle() {}, titel() {},
-    knopf(c, x, y, w, h, label, o) { const b = { x, y, w, h, label, fn: o && o.fn, disabled: !!(o && o.disabled), onClick: o && o.onClick, hotkey: o && o.hotkey }; gezeichnet.knoepfe.push(b); R2.ui.buttons.push(b); return b; } };
+    knopf(c, x, y, w, h, label, o) { const b = { x, y, w, h, label, fn: o && o.fn, kontur: !!(o && o.kontur), disabled: !!(o && o.disabled), onClick: o && o.onClick, hotkey: o && o.hotkey }; gezeichnet.knoepfe.push(b); R2.ui.buttons.push(b); return b; } };
   const w2 = { Render: R2, Pult: P2, Shared_Protocol: {}, performance, Tasten: TA };
   w2.window = w2; vm.createContext(w2);
   vm.runInContext(J('pult-terminal-tokens.js'), w2, { filename: 'pult-terminal-tokens.js' });
@@ -320,6 +395,47 @@ section('Layout: Karte und Knöpfe im Bereich, ohne Überdeckung, kein Rot');
   ok(drin(G.karte, L.handel) && !schneiden(G.karte, L.handelInfo), 'Karte liegt im Bereich (' + G.karte.x + ',' + G.karte.y + ' ' + G.karte.w + 'x' + G.karte.h + ') und überdeckt die Infozeile nicht');
   ok([G.haupt, G.ablehnen].every((b) => drin(b, G.karte)) && !schneiden(G.haupt, G.ablehnen) && !schneiden(G.haupt, G.hinweis) && !schneiden(G.hinweis, G.text) && !schneiden(G.text, G.name) && !schneiden(G.tag, G.name) && !schneiden(G.schritte, G.hinweis), 'Geometrie: Knöpfe in der Karte, Zeilen überschneiden sich nicht');
   ok(G.haupt.h >= 14 && G.ablehnen.h >= 13 && G.haupt.w >= 120, 'Knöpfe so groß wie die übrigen Terminalknöpfe (≥ 13 px hoch)');
+
+  // Welle 5 (S2, S5): Anfrage: Leiste auf hinweis.y − 5 über die ganze Breite, Text auf hinweis.y + 5, Ablehnen auf k.h − 22; Angebot: 1-px-Messingrahmen, Name in der Rolle titel
+  {
+    ok(G.ablehnen.y === G.karte.y + G.karte.h - 22 && G.ablehnen.y >= G.haupt.y + G.haupt.h, 'ablehnen.y = k.h − 22 und unter dem Hauptknopf (' + G.ablehnen.y + ' ≥ ' + (G.haupt.y + G.haupt.h) + ')');
+    const T = partie(); T.anbieten(); T.key('KeyE'); T.fcmds(); const mA = T.m();
+    const zeichneKarte = (lage) => { gezeichnet.rects.length = 0; gezeichnet.texte.length = 0; gezeichnet.knoepfe.length = 0; R2.ui.buttons.length = 0; PT.zeichneLage(ctx, L.handel, L.handelInfo, lage); };
+    zeichneKarte(mA.lage);
+    const leiste = gezeichnet.rects.filter((r) => r.h === 4 && r.y === G.hinweis.y - 5 && r.x >= G.hinweis.x);
+    ok(leiste.length >= FENSTER, 'Anfrage: Segmentleiste auf hinweis.y − 5 (' + leiste.length + ' Rechtecke)');
+    const rechtsEnde = Math.max(...leiste.map((r) => r.x + r.w)), linksAnfang = Math.min(...leiste.map((r) => r.x));
+    ok(linksAnfang === G.hinweis.x && rechtsEnde === G.hinweis.x + G.hinweis.w, 'Segmentleiste verteilt die Breite: von ' + linksAnfang + ' bis ' + rechtsEnde + ' (Rand ' + (G.hinweis.x + G.hinweis.w) + ')');
+    const hin = gezeichnet.texte.find((t) => /^Verstreicht die Frist/.test(t.s));
+    ok(!!hin && hin.y === G.hinweis.y + 5 && hin.x === G.hinweis.x, 'Anfrage: Frist-Text auf hinweis.y + 5 (y ' + (hin && hin.y) + ')');
+    ok(hin && hin.y + 7 <= G.haupt.y + 1, 'der Frist-Text liegt über dem Hauptknopf (Glyphe 7 px, Unterkante ' + (hin && hin.y + 7) + ' ≤ ' + (G.haupt.y + 1) + ')');
+    // Anfrage: doppelter Rahmen, Angebot: einfacher
+    const rahmen = (col) => gezeichnet.rects.filter((r) => r.col === col && ((r.w === G.karte.w && r.h === 1) || (r.h === G.karte.h && r.w === 1)));
+    ok(rahmen(FARBE.warn).length === 4 && gezeichnet.rects.filter((r) => r.col === FARBE.warn && r.w === G.karte.w - 4 && r.h === 1).length === 2, 'Anfrage: doppelter Rahmen (außen und innen)');
+    const U = partie(); U.anbieten(); const mG = U.m(); zeichneKarte(mG.lage);
+    ok(rahmen(FARBE.preis).length === 4, 'Angebot: 1-px-Messingrahmen um die Karte (4 Linien in preis, ' + rahmen(FARBE.preis).length + ')');
+    ok(gezeichnet.rects.filter((r) => r.col === FARBE.preis && r.w === G.karte.w - 4 && r.h === 1).length === 0, 'Angebot: kein zweiter (innerer) Rahmen, der doppelte bleibt der Anfrage');
+    // K3: der Ablehnen-Knopf ist die Kontur-Variante (leiser), der Hauptknopf bleibt die Fläche
+    const knA = gezeichnet.knoepfe;
+    ok(knA.length === 2 && knA[0].kontur === false && knA[1].kontur === true && knA[1].label === 'Schlacht ablehnen', 'Hauptknopf als Fläche, „Schlacht ablehnen“ als Kontur-Variante (Welle 5, K3)');
+    const nameZ = gezeichnet.texte.filter((t) => t.x >= G.name.x && t.y >= G.name.y && t.y < G.name.y + 20);
+    const nameS = nameZ.map((t) => t.s).join('');
+    ok(nameZ.length > 5 && nameZ.every((t) => t.s.length === 1) && nameS.replace(/ /g, '') === ANZ.name.toUpperCase().replace(/ /g, ''), 'Name in der Rolle titel: Versalien, einzeln gesperrt gesetzt („' + nameS + '“)');
+    ok(new Set(nameZ.map((t) => t.y)).size <= 2 && nameZ.every((t) => t.x + t.w <= G.name.x + G.name.w + 7), 'der Name passt in höchstens zwei Zeilen innerhalb der Karte');
+    const textZ = new Set(gezeichnet.texte.filter((t) => t.x === G.text.x && t.y >= G.text.y && t.y < G.text.y + G.text.h).map((t) => t.y));
+    ok(textZ.size >= 3 && textZ.size <= 5, 'der Text der Karte braucht ' + textZ.size + ' Zeilen (höchstens 5)');
+  }
+
+  // K1: erledigter Schritt „Orbit frei“ in dim, kein „+ Orbit“
+  {
+    const T = partie(); T.anbieten(); T.key('KeyE'); T.fcmds(); warte(650); T.key('KeyE'); T.fcmds(); T.m(); FinaleServer.orbitEnde(T.g, 'sieg'); const mb = T.m();
+    const sch = mb.lage.finale.schritte;
+    ok(sch[0].fertig === true && sch[0].fertigLabel === 'Orbit frei' && sch[1].aktiv === true && sch[1].label === 'Boden', 'Modell: Schritt Orbit fertig mit fertigLabel „Orbit frei“, Boden aktiv');
+    gezeichnet.rects.length = 0; gezeichnet.texte.length = 0; PT.zeichneLage(ctx, L.handel, L.handelInfo, mb.lage);
+    const orb = gezeichnet.texte.find((t) => t.s === 'Orbit frei');
+    ok(!!orb && orb.col === FARBE.dim, 'gezeichnet: „Orbit frei“ in dim (' + (orb && orb.col) + ')');
+    ok(!gezeichnet.texte.some((t) => /^\+ /.test(t.s)), 'kein „+ Orbit“ mehr');
+  }
 
   const farbenVonKnopf = new Set();
   function pruefe(name, zustand, karten, zuschauer) {
@@ -343,7 +459,7 @@ section('Layout: Karte und Knöpfe im Bereich, ohne Überdeckung, kein Rot');
     ok(links.every((b) => b.x + b.w <= G.karte.x - 4 && drin(b, L.handel)), name + ': Klickflächen der Absichten (' + links.length + ') bleiben links von der Karte (Abstand ≥ 4) und im Bereich');
     ok(links.every((b) => rechts.every((q) => !schneiden(b, q))), name + ': Absichten und Karte überdecken sich nicht');
     if (zustand !== 'phase') {
-      ok(kn.length === 2 && kn[0].label === f.haupt.text && kn[1].label === 'Ablehnen' && /^[A-Z]$/.test(String(kn[0].hotkey)) && /^[A-Z]$/.test(String(kn[1].hotkey)), name + ': Knöpfe tragen die echte Taste: ' + kn.map((b) => b.label + ' [' + b.hotkey + ']').join(' · '));
+      ok(kn.length === 2 && kn[0].label === f.haupt.text && kn[1].label === 'Schlacht ablehnen' && /^[A-Z]$/.test(String(kn[0].hotkey)) && /^[A-Z]$/.test(String(kn[1].hotkey)), name + ': Knöpfe tragen die echte Taste: ' + kn.map((b) => b.label + ' [' + b.hotkey + ']').join(' · '));
       ok(kn[0].hotkey === 'E' && kn[1].hotkey === 'N', name + ': Tastenkappen E und N kommen aus tasten.js');
       kn.forEach((b) => farbenVonKnopf.add(b.fn));
       ok(zuschauer ? kn.every((b) => b.disabled && !b.onClick) : kn.every((b) => !b.disabled && typeof b.onClick === 'function'), name + ': ' + (zuschauer ? 'Zuschauer: Knöpfe gesperrt' : 'Knöpfe bedienbar'));

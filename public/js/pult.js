@@ -181,12 +181,21 @@
   const nowMs = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
   let hilfe = false;
   // Knopf im Skin; registriert die Klickfläche wie R.button. opts: hotkey, disabled, gedimmt (gedimmt gezeichnet, aber anklickbar: der Grund steht trotzdem als Hinweis), reason, active, onClick, fn (Funktionsfarbe), text (Anzeige statt label), hold (0..1)
+  // Kontur-Variante (Welle 5, K3): leiser Nebenknopf (Ablehnen) ohne Farbfläche: Hintergrund, 1-px-Rand in gedämpfter Funktionsfarbe, Kappe und Text in Hell. Gesperrt bleibt der gepunktete Rand des Skins.
+  function knopfKontur(S, c, b, col, kz, text) {
+    const { x, y, w, h } = b, ty = y + Math.floor((h - 7) / 2), kw = kz ? Math.max(13, tw(kz) + 7) : 0, lin = mix(col, S.bg, hit(b) ? 0.25 : 0.6);
+    c.fillStyle = hit(b) ? mix(col, S.bg, 0.82) : S.bg; c.fillRect(x, y, w, h);
+    rand(c, x, y, w, h, lin);
+    if (kw) { c.fillStyle = lin; c.fillRect(x + kw, y + 2, 1, h - 4); txt(c, kz, x + kw / 2, ty, S.text, 'center'); }
+    txt(c, text, kw ? x + kw + 5 : x + w / 2, ty, S.text, kw ? undefined : 'center');
+  }
   function knopf(c, x, y, w, h, label, opts) {
     opts = opts || {};
     const b = { x, y, w, h, label, disabled: !!opts.disabled, reason: opts.reason, onClick: opts.onClick, hotkey: opts.hotkey || null, active: !!opts.active, hold: opts.hold };
     const col = FN[opts.fn] || (opts.color && opts.color !== PAL.star ? opts.color : null) || (opts.active ? FN.shield : FN.neutral);
     b.hotkey = kappe(opts.hotkey, opts.aktion) || null;
-    K.knopf(c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);
+    if (opts.kontur && !b.disabled) knopfKontur(K, c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);   // Welle 5 (K3): Kontur statt Fläche
+    else K.knopf(c, b, col, b.hotkey || '', opts.text != null ? opts.text : label);
     R.ui.buttons.push(b);
     if (hit(b) && b.reason && (b.disabled || opts.gedimmt)) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y };
     return b;

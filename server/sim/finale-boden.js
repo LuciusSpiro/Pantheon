@@ -19,6 +19,7 @@ const LPD = D.landepunkt;
 const G = D.gegner;
 const T = D.texte;
 
+const OKFunk = require('./oberkommando-funk.js');
 const lazy = (f) => { let m = null; return () => m || (m = require(f)); };
 const Finale = lazy('./finale.js');
 const LP = lazy('./landepunkte.js');
@@ -27,10 +28,9 @@ const Endkampf = lazy('./endkampf.js');
 const Away = lazy('./away.js');
 
 const fehler = (game, wo, e) => { if (game.countError) game.countError(wo, e); };
-function funk(game, key) {
-  const text = (T.funk || {})[key];
-  if (text) game.emit('radio', { from: T.sprecher || 'Oberkommando', text, lage: 1, r: 1 });
-}
+// Meldung (Messing): bereit, frei, schrein; Gefahr (Rot): die Landung unter Beschuss (Welle 5, M1)
+const funkMeldung = (game, key) => OKFunk.meldung(game, T.sprecher, (T.funk || {})[key], { r: 1 });
+const funkGefahr = (game, key) => OKFunk.gefahr(game, T.sprecher, (T.funk || {})[key], { r: 1 });
 
 const aktiv = (game) => !!(game.weltsim && Finale().phase(game) === 'boden');
 
@@ -73,6 +73,7 @@ function bodenStarten(game) {
     if (!aw || !ziel) throw new Error('Schrein-Karte ohne Anker ' + D.schrein.rolle);
     game.finaleBoden.ziel = ziel.id;
     aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [ziel.id]: sperrText() });
+    aw.ohneZaehler = true;   // Welle 5, M3: das HUD zeigt hier keine Zähler für Zelle, Kiste, Sprengpunkt (der Boden hat ein eigenes Ziel)
     game.transferZiel = { lp: id, scene: ort };
     game.setAwayMap(id);
   } catch (e) {
@@ -81,8 +82,17 @@ function bodenStarten(game) {
     aufraeumen(game);
     return false;
   }
-  funk(game, 'bereit');
+  funkMeldung(game, 'bereit');
   return true;
+}
+// Missionsziel in zwei Stufen (Welle 5, M3): erst den Wächter besiegen (die Schrein-Sperre), dann den Schrein halten; die erste Stufe steht danach abgehakt. Das Ziel ersetzt „Frei erkunden – Entdeckungen“
+// (mission.js refreshObjectives ruft ziele() auf, solange ein Boden-Teil läuft); null = kein Boden-Teil.
+function ziele(game) {
+  const S = game.finaleBoden, Z = T.ziel || {};
+  if (!S || S.ende || !aktiv(game)) return null;
+  const wachen = D.freigabe.nach === 'wachen', erste = wachen ? Z.sperre_wachen : Z.sperre;
+  if (!erste || !Z.halten) return null;
+  return S.frei ? [{ id: 'schrein_sperre', text: erste, done: true }, { id: 'schrein_halten', text: Z.halten, done: false }] : [{ id: 'schrein_sperre', text: erste, done: false }];
 }
 const sperrText = () => (D.freigabe.nach === 'wachen' ? T.sperre_wachen : T.sperre);
 
@@ -115,11 +125,11 @@ function update(game) {
   if (!S.frei && bedingung(game, S, aw)) {
     S.frei = true;
     if (aw.ankerSperre) delete aw.ankerSperre[S.ziel];
-    funk(game, Endkampf().bossBesiegt(game, S.lp, S.tag) ? 'frei' : 'frei_wachen');
+    funkMeldung(game, Endkampf().bossBesiegt(game, S.lp, S.tag) ? 'frei' : 'frei_wachen');
     if (G.alle_abziehen_nach_boss) Endkampf().gegnerAbziehen(game, S.lp, S.tag);
   }
   if (S.frei && Anker().zustand(game, S.lp, S.ziel) === 'aktiviert') {
-    funk(game, 'schrein');
+    funkMeldung(game, 'schrein');
     ende(game, S, 'sieg', 'sieg');
   }
 }
@@ -127,7 +137,7 @@ function landung(game, S, aw, n) {
   let k = 0;
   try { k = Endkampf().angriffStarten(game, { map: S.lp, fraktion: G.fraktion, tag: S.tag, gegner: wachenFuer(n), boss: G.boss }); } catch (e) { fehler(game, 'finale-boden-gegner', e); }
   if (!k) { fehler(game, 'finale-boden-gegner', new Error('keine Gegner erschienen')); ende(game, S, 'crew_gefallen', 'ohne_gegner'); return; }
-  funk(game, 'landung');
+  funkGefahr(game, 'landung');
 }
 
 // ---------- Aufraeumen
@@ -149,4 +159,4 @@ function aufraeumen(game) {
   if (L.verwerfen(game, S.lp) || !L.eintrag(game, S.lp)) game.finaleBoden = null;   // sonst im naechsten Tick noch einmal (Crew noch unten)
 }
 
-module.exports = { bodenStarten, update, aufraeumen, sperrgrund, wachenFuer, DATEN: D };
+module.exports = { bodenStarten, update, ziele, aufraeumen, sperrgrund, wachenFuer, DATEN: D };

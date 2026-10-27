@@ -469,6 +469,7 @@ function awaySnap(game, aw) {
   });
   const o = { ao, ko, al: aw.alarm ? 1 : 0 };
   const sp = aw.ankerSperre ? k.anker.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
+  if (aw.ohneZaehler) o.oz = 1;   // Welle 5, M3: Boden des Finales ohne Erkunden-/Plünder-Zähler (finale-boden.js)
   if (sp.length) o.sp = sp;   // SUND-04a-3: gesperrte Anker (Index), der Client zeigt „Versiegelt“ statt des Haltehinweises
   const ids = Object.keys(L.ladung).sort();
   if (ids.length) { const i = k.anker.findIndex((a) => a.id === ids[0]); o.cd = { i, t: Math.max(0, Math.round(L.ladung[ids[0]].t * 10) / 10) }; }

@@ -37,6 +37,28 @@ R.ui.buttons.length = 0; R.ui.tooltip = null; R.ui.mouse = { x: 15, y: 15 };
 e = sag(() => P.knopf(ctx(), 10, 10, 60, 14, 'Kurs', { gedimmt: true, fn: 'neutral', reason: 'Erst ab Tribun', onClick() {} }));
 ok(e === null && R.ui.tooltip && R.ui.tooltip.text === 'Erst ab Tribun', 'gedimmter, anklickbarer Knopf (Kurs vor Tribun): keine Ausnahme, Tooltip mit dem Grund');
 
+// Welle 5 (K3): kontur: true zeichnet keine Farbfläche (Rand und Text statt voller Funktionsfarbe), gesperrt bleibt der Skin-Knopf
+{
+  const rects = [], texte = [];
+  const rc = new Proxy({}, { get: (t, k) => (k === 'fillRect' ? (x, y, w, h) => rects.push({ x, y, w, h, c: rc.fillStyle }) : t[k]), set: (t, k, v) => { t[k] = v; return true; } });
+  R.text = (c, s, x, y, o) => texte.push({ s, c: o && o.color });
+  R.ui.buttons.length = 0; R.ui.mouse = { x: -1, y: -1 };
+  const FNn = P.FN.neutral;
+  P.knopf(rc, 10, 10, 100, 14, 'Schlacht ablehnen', { fn: 'neutral', hotkey: 'N', onClick() {} });
+  const flaecheVon = (liste) => liste.filter((q) => q.c === FNn).reduce((a, q) => a + q.w * q.h, 0);   // Fläche in der Funktionsfarbe (der Skin zeichnet in Streifen)
+  const flaeche = flaecheVon(rects);
+  rects.length = 0; texte.length = 0; R.ui.buttons.length = 0;
+  P.knopf(rc, 10, 10, 100, 14, 'Schlacht ablehnen', { fn: 'neutral', kontur: true, hotkey: 'N', onClick() {} });
+  const flaeche2 = flaecheVon(rects);
+  ok(flaeche > 500 && flaeche2 === 0, 'Knopf mit kontur: keine Fläche in der Funktionsfarbe (normal ' + flaeche + ' px², kontur ' + flaeche2 + ' px²)');
+  ok(rects.some((q) => q.w === 100 && q.h === 1) && rects.some((q) => q.h === 14 && q.w === 1), 'Knopf mit kontur: 1-px-Rand rundum');
+  ok(texte.some((t) => t.s === 'Schlacht ablehnen') && R.ui.buttons.length === 1 && R.ui.buttons[0].label === 'Schlacht ablehnen', 'Knopf mit kontur: Text da, als Knopf registriert');
+  rects.length = 0; texte.length = 0; R.ui.buttons.length = 0;
+  P.knopf(rc, 10, 10, 100, 14, 'Schlacht ablehnen', { fn: 'neutral', kontur: true, disabled: true, hotkey: 'N' });
+  ok(rects.filter((q) => q.w === 1 && q.h === 1).length > 10, 'gesperrt mit kontur: der gepunktete Rand des Skins');
+  R.text = () => {};
+}
+
 // Maus auf einem freigegebenen Knopf mit reason: kein Tooltip (Verhalten wie vorher), keine Ausnahme
 R.ui.buttons.length = 0; R.ui.tooltip = null;
 e = sag(() => P.knopf(ctx(), 10, 10, 60, 14, 'Annehmen', { reason: 'nur ein Hinweis', onClick() {} }));

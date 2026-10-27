@@ -22,6 +22,7 @@
 const fs = require('fs');
 const path = require('path');
 const Ruf = require('./ruf.js');
+const OKFunk = require('./oberkommando-funk.js');
 const Chronik = require('./chronik.js');   // SUND-03 D: Wahl und Ablehnung stehen in der Chronik
 
 const W = require('../../content/welt/absichten.json').werte;
@@ -152,7 +153,7 @@ function ablehnen(game) {
 // ---------- Funk
 function funkSenden(game, text) {
   if (!text) return;
-  game.emit('radio', { from: texte().sprecher || 'Oberkommando', text, lage: 1, r: 1 });
+  OKFunk.meldung(game, texte().sprecher, text, { r: 1 });   // Welle 5, M1: Rom bietet an, das ist eine Meldung (Messing), keine Gefahr
 }
 function melde(game, funk) { for (const t of funk || []) funkSenden(game, t); }
 function meldeGewaehlt(game) {
