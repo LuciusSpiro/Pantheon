@@ -7,9 +7,16 @@
   const CFG = window.Shared_Config || {};
   const PROTO = window.Shared_Protocol || {};
   const PAL = R.PAL;
-  // SYS-01 A1c: schwächste eigene Seite für die Statusleiste; Farbe nach Zustand (Rot zerstört, Gelb beschädigt, sonst Creme)
-  const schwaechsteSeite = (ship) => (window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null);
-  const zonenFarbe = (sw) => (!sw ? PAL.star : sw.zust === 'zer' ? PAL.red : sw.zust === 'besch' ? PAL.warn : PAL.panelLight);
+  // SYS-01 A1c: Lage der eigenen Zonen (PultSysteme.statusFeld: Reaktor zerstört > Mitte offen > schwächste Seite). Roter Text nur in zerText (≥ 4,5:1), Gelb beschädigt.
+  const statusFeld = (ship) => (window.PultSysteme ? PultSysteme.statusFeld(ship) : null);
+  const zonenFarbe = (sf) => { const T = window.PultSysteme ? PultSysteme.TOKENS.FARBE : null; return !sf || !T ? PAL.star : sf.zust === 'zer' ? T.zerText : sf.zust === 'besch' ? T.besch : PAL.panelLight; };
+  // Balken (schwächste Seite, 0 bei offener Seite) plus Text in einer Zeile, nie breiter als maxW: der Balken gibt Platz ab, der Text hat Vorrang
+  function zonenAnzeige(ctx, x, y, maxW, ship) {
+    const sf = statusFeld(ship), sw = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null, col = zonenFarbe(sf), txt = sf ? sf.text : '–';
+    const bw = Math.max(10, Math.min(48, maxW - R.measure(txt, 1) - 4));
+    R.bar(ctx, x, y + 2, bw, 5, sw ? sw.pct / 100 : 0, col);
+    R.text(ctx, txt, x + bw + 3, y, { color: col });
+  }
   const TILE = 32, VW = 640, VH = 360;
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
@@ -92,7 +99,7 @@
   }
 
   const Hud = {
-    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, sysName, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, sysName, zonenAnzeige, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -542,12 +549,9 @@
       const x0 = VW - 7 * 16 - 4;
       // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
       R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
-      const sw = schwaechsteSeite(ship);   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
-      const swCol = zonenFarbe(sw);
       const yo = -18;
       R.icon(ctx, 'hull', x0 + 6, 31 + yo);
-      R.bar(ctx, x0 + 14, 28 + yo, 48, 5, sw ? sw.pct / 100 : 0, swCol);
-      R.text(ctx, sw ? sw.name + ' ' + sw.pct + '%' : '–', x0 + 65, 26 + yo, { color: swCol });
+      zonenAnzeige(ctx, x0 + 14, 26 + yo, 98, ship);   // SYS-01 A1c: Lage der Zonen statt Gesamtintegrität
       const o2 = ship.o2 == null ? 100 : ship.o2;
       R.icon(ctx, 'o2', x0 + 6, 45 + yo);
       R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
@@ -638,9 +642,7 @@
       const ac = alert === 'red' ? PAL.red : alert === 'yellow' ? PAL.warn : PAL.moss;
       ctx.fillStyle = ac; ctx.beginPath(); ctx.arc(x0 + 48, 8, 3, 0, Math.PI * 2); ctx.fill();
       R.text(ctx, alert === 'red' ? 'Alarm rot' : alert === 'yellow' ? 'Alarm gelb' : 'normal', x0 + 54, 5, { color: ac });
-      const swk = schwaechsteSeite(ship);   // SYS-01 A1c: schwächste eigene Seite (Balken in Zustandsfarbe)
-      R.icon(ctx, 'hull', x0 + 6, 22);
-      R.bar(ctx, x0 + 14, 19, 60, 5, swk ? swk.pct / 100 : 0, zonenFarbe(swk));
+      zonenAnzeige(ctx, x0, 17, 80, ship);   // SYS-01 A1c: Lage der Zonen mit Text, ohne Hull-Icon (es gibt keine Hülle mehr)
       this.drawShieldMini(ctx, view, x0 + 84, 18);
       const tr = (ship.systems && ship.systems.transfer) || 'ok';
       R.icon(ctx, 'transfer', x0 + 6, 37, { color: STATE_COL[tr] });

@@ -1,5 +1,5 @@
 'use strict';
-// SYS-01 A1c „Zonenkreuz“ (Teil): Snapshot ship.zonen (Integrität je Seite in %), Statusleiste = schwächste eigene Seite,
+// SYS-01 A1c „Zonenkreuz“: Snapshot ship.zonen (Integrität je Seite in %), Statusleiste = schwächste eigene Seite,
 // Modulsysteme modul_1..4 mit Namen nach dem Modul im Raum, Reparatur-Gate für modul_N.
 // Client-Hilfen (PultSysteme) laufen hier in Node; hud.js/consoles.js/pult.js brauchen den Browser (Sichtprüfung über tools/sicht-systeme.js).
 //   node tools/test-zonenkreuz.js
@@ -115,5 +115,126 @@ console.log('\nClient-Quelltext (Übergang entfernt)');
   ok(!/H\.SYS_NAMES\[(sys|s|ev\.system)\] \|\| /.test(alle), 'Namen laufen über H.sysName (Modulnamen)');
 }
 
-console.log('\n' + (fails ? `${fails} FEHLER von ${n}` : `${n}/${n} ok`) + ' (SYS-01 A1c Zonenkreuz, Teil Daten)');
+console.log('\nStatusfeld (Rangfolge) und Modell');
+{
+  const Zs = require('../server/sim/zielsysteme.js');
+  const ZK = require('../public/js/zonenkreuz.js');
+  const g = newGame(21);
+  const F = PS.TOKENS.FARBE;
+  let sf = PS.statusFeld(g.snapshot().ship);
+  ok(sf.rang === 'voll' && sf.v === 'VOLL' && sf.farbe === 'statusVoll', `heiles Schiff: ZONEN VOLL (${sf.l} ${sf.v})`);
+  for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 0 && I.systemAktiv(g, k)) I.setInteg(g, k, Math.round(I.integMax(g, k) * 0.4));
+  sf = PS.statusFeld(g.snapshot().ship);
+  ok(sf.rang === 'seite' && sf.zust === 'besch' && sf.farbe === 'statusBesch' && /^BUG \d+%$/.test(sf.v), `schwächste Seite Bug beschädigt (${sf.l} ${sf.v})`);
+  for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 3 && I.systemAktiv(g, k)) I.setzeZustand(g, k, 'broken');
+  sf = PS.statusFeld(g.snapshot().ship);
+  ok(sf.rang === 'offen' && sf.v === 'BB OFFEN' && sf.text === 'MITTE OFFEN' && sf.farbe === 'statusOffen' && sf.zust === 'zer', `Backbord leer: MITTE BB OFFEN geht vor der schwächsten Seite (${sf.l} ${sf.v})`);
+  for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 1 && I.systemAktiv(g, k)) I.setzeZustand(g, k, 'broken');
+  sf = PS.statusFeld(g.snapshot().ship);
+  ok(sf.rang === 'offen' && sf.v === '2 SEITEN OFFEN', `zwei leere Seiten: ${sf.v}`);
+  I.setzeZustand(g, 'reactor', 'broken');
+  sf = PS.statusFeld(g.snapshot().ship);
+  ok(sf.rang === 'reaktor' && sf.l === 'REAKTOR' && sf.text === 'REAKTOR' && sf.farbe === 'statusReaktor', `Reaktor zerstört geht vor Mitte offen (${sf.l} ${sf.v})`);
+  ok(PS.farben('rom')[sf.farbe] && PS.farben('germanen')[sf.farbe] === F.zerText, 'Farbe über Tokens (germanen: Text in zerText)');
+  ok(PS.statusFeld(null).rang === 'keine' && PS.statusFeld({}).rang === 'keine', 'ohne Daten: Feld leer, kein Fehler');
+
+  // Modell: Zone je System aus der Legende, Zustand, leere Zone, Gegnerziel
+  const g2 = newGame(22);
+  I.setzeZustand(g2, 'battery_port', 'broken'); I.setInteg(g2, 'emitter_stbd', 5); g2.ship.systems.emitter_stbd = 'damaged';
+  const m = ZK.modell({ ship: g2.snapshot().ship }, { name: (id) => id });
+  ok(m.zonen.bb.sys.some((e) => e.id === 'battery_port' && e.zust === 'zer' && e.platz === 4), 'Modell: Bb-Batterie zerstört, Ops-Platz 4');
+  ok(m.zonen.stb.sys.some((e) => e.id === 'emitter_stbd' && e.zust === 'besch') && m.zonen.bug.sys.some((e) => e.id === 'emitter_bow' && e.zust === 'ok'), 'Modell: Stb-Emitter beschädigt, Bug-Emitter heil');
+  ok(m.mitte.sys.some((e) => e.id === 'reactor') && m.mitte.sys.some((e) => e.id === 'modul_1') && !m.mitte.sys.some((e) => e.id === 'modul_3'), 'Modell: Mitte = Reaktor, Schildgenerator, aktive Module (leere Modulräume fehlen)');
+  ok(m.offen.length === 0 && !m.zonen.bb.leer, 'Modell: eine Zone mit einem zerstörten System ist nicht leer');
+  for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === 3 && I.systemAktiv(g2, k)) I.setzeZustand(g2, k, 'broken');
+  const m2 = ZK.modell({ ship: g2.snapshot().ship });
+  ok(m2.zonen.bb.leer && m2.offen.join() === 'bb' && m2.zonen.bb.sys.every((e) => e.zust === 'zer'), 'Modell: Zone leer = Server-Zahl zonen[3] = 0, alle Systeme zerstört');
+  ok(ZK.sektorVon('emitter_port') === 3 && ZK.sektorVon('reactor') === -1 && ZK.sektorVon('modul_2') === -1, 'Zone je System wie interior.systemSector');
+  for (const k of I.SYSTEM_ORDER) ok(ZK.sektorVon(k) === I.systemSector(k), `Zone von ${k}: Client = Server`);
+
+  // Zeichnung gegen eine aufzeichnende Fläche: leere Zone gestrichelt, offene Wand, ZU, Gegnerziel
+  const rec = []; const ctx = new Proxy({}, { get: (t, p) => (p === 'fillRect' ? (x, y, w, h) => rec.push({ f: ctx.fillStyle, x, y, w, h }) : p === 'fillStyle' ? t.fillStyle : () => {}), set: (t, p, v) => { t[p] = v; return true; } });
+  const texte = [];
+  const env = { R: { text: (c, s) => texte.push(s), measure: (s) => String(s).length * 6, ui: { buttons: [] } }, P: { mix: (a) => a, skin: { id: 'rom' } } };
+  const rect = { x: 10, y: 10, w: 372, h: 188 };
+  const erg = ZK.zeichne(ctx, m2, rect, { env, skin: 'rom', gezieltId: 'thruster_port', klick: () => {} });
+  const wand = PS.farben('rom').wandEigen;
+  ok(rec.some((r) => r.f === wand && r.x === erg.mitte.x - 3), 'Zeichnung: offene Wand zur Mitte auf der Bb-Seite in wandEigen (Rot)');
+  ok(texte.includes('LEER') && texte.includes('→'), 'Zeichnung: LEER in der leeren Zone, → am Gegnerziel');
+  ok(!texte.includes('ZU') && !erg.zu, 'Zeichnung eigenes Schiff: keine Mitte „ZU“ ohne zugewandte Zone');
+  ok(env.R.ui.buttons.length === m2.zonen.bug.sys.length + m2.zonen.stb.sys.length + m2.zonen.heck.sys.length + m2.zonen.bb.sys.length + m2.mitte.sys.length, 'jede Zeile ist anwählbar (Klickfläche je System)');
+  texte.length = 0;
+  const erg2 = ZK.zeichne(ctx, m, rect, { env, skin: 'rom', gegner: true, zugewandt: 'stb' });
+  ok(erg2.zu && texte.includes('ZU'), 'Mitte „ZU“, solange die zugewandte Zone nicht leer ist');
+  texte.length = 0;
+  const erg3 = ZK.zeichne(ctx, m2, rect, { env, skin: 'rom', gegner: true, zugewandt: 'bb' });
+  ok(!erg3.zu && !texte.includes('ZU'), 'Mitte offen, sobald die zugewandte Zone leer ist');
+
+  // Gegnerziel im Snapshot: ship.zielAuf = Index in SYSTEMS_INTEG, Abbildung aus den Zielsysteme-Werten (Feld `lerche`)
+  const g3 = newGame(23);
+  const space = require('../server/sim/space.js');
+  const mk = () => space.spawnEnemy(g3, 'korvette', { x: g3.ship.x + 400, y: g3.ship.y, facing: 0 });
+  const e1 = mk(); g3.space.enemies = [e1];
+  ok(g3.snapshot().ship.zielAuf === -1, 'zielAuf: -1, solange niemand zielt');
+  e1.zielsystem = 'antrieb';
+  ok(g3.snapshot().ship.zielAuf === -1, 'zielAuf: -1 ohne Szenenschalter (die Zielregel wirkt dann nicht)');
+  Zs.szeneAn(g3, true);
+  const idxEng = Protocol.SYSTEMS_INTEG.indexOf(Zs.SYSTEME.antrieb.lerche);
+  ok(idxEng >= 0 && g3.snapshot().ship.zielAuf === idxEng && Protocol.SYSTEMS_INTEG[idxEng] === 'engines', `zielAuf: antrieb -> Index ${idxEng} (${Zs.SYSTEME.antrieb.lerche})`);
+  const mm = ZK.modell({ ship: g3.snapshot().ship });
+  ok(mm.gezieltId === 'engines', 'Client: gezieltId = engines (Snapshot-Index über SYSTEMS_INTEG)');
+  Zs.SYSTEME.testziel = { name: 'Test', lerche: 'shields', seite: 'bug', klassen: ['korvette'], stufen: [] };
+  const e2 = mk(); e2.zielsystem = 'testziel'; g3.space.enemies = [e1, e2];
+  ok(g3.snapshot().ship.zielAuf === Protocol.SYSTEMS_INTEG.indexOf('shields'), 'zielAuf: mehrere Gegner -> der zuletzt erschienene gewinnt');
+  e2.zielsystem = null;
+  ok(g3.snapshot().ship.zielAuf === idxEng, 'zielAuf: zielt der neuere nicht mehr, gilt der vorige');
+  delete Zs.SYSTEME.testziel;
+  g3.space.enemies = [];
+  ok(g3.snapshot().ship.zielAuf === -1, 'zielAuf: ohne Gegner -1');
+  const zielSn = JSON.stringify(g3.snapshot().ship).length;
+  ok(zielSn > 0, `Snapshot-Ship ${zielSn} B`);
+}
+
+console.log('\nModule: Reparatur durch den Spieler (E halten, R Minispiel)');
+{
+  const Physics = require('../shared/physics.js');
+  const g = new Game({ noStore: true, seed: 24, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const c = { inbox: [], send(mm) { this.inbox.push(mm); } };
+  g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'M0', name: 'M0', color: 0 });
+  g.handleMessage(c, { t: 'lobbyOpt', startMission: 'arena_space' }); g.handleMessage(c, { t: 'ready', ready: true });
+  if (g.arena) g.arena.nextAt = null;
+  g.space.enemies = []; g.space.projectiles = [];
+  const p = g.players[0];
+  const run = (sec) => { for (let k = 0; k < Math.round(sec * 30); k++) { g.space.enemies = []; g.space.projectiles = []; g.step(); } };
+  const send = (mm) => g.handleMessage(c, mm);
+  const st = W.STATIONS.find((s) => s.system === 'modul_1');
+  const STAND = [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']];
+  const spot = STAND.map(([dx, dy, dir]) => ({ x: st.x + dx, y: st.y + dy, dir })).find((s) => !W.ship.solid(s.x, s.y));
+  ok(!!st && !!spot, `Modulstation modul_1 liegt auf Boden (${st && st.x},${st && st.y}), Standplatz daneben`);
+  const place = () => { const q = Physics.tileCenter(spot.x, spot.y); p.x = q.x; p.y = q.y; p.dir = spot.dir; p.input.mx = 0; p.input.my = 0; if (p.console) send({ t: 'leave' }); };
+  const hold = (sec) => { send({ t: 'act', down: true }); run(sec); send({ t: 'act', down: false }); run(0.05); };
+  g.ship.fireList = []; g.ship.breachList = [];
+  I.setzeZustand(g, 'modul_1', 'broken');
+  place();
+  const ia = I.interactionsAt(g, p, st.x, st.y, false);
+  ok(ia.some((q) => q.kind === 'repair' && q.system === 'modul_1'), 'Server: E am Modulraum-Mitte bietet die Reparatur modul_1 an');
+  hold(1.8);
+  ok(g.ship.systems.modul_1 === 'damaged', `E halten flickt das zerstörte Modul (zerstört -> beschädigt): ${g.ship.systems.modul_1}`);
+  g.ship.systems.modul_1 = 'damaged';
+  place();
+  send({ t: 'cmd', c: 'repair.start', system: 'modul_1' });
+  ok(p.hold && p.hold.kind === 'minigame' && p.hold.system === 'modul_1', 'R: repair.start akzeptiert modul_1 (Station in Reichweite)');
+  run(2.7);
+  send({ t: 'cmd', c: 'repair.done', system: 'modul_1', errors: 0 });
+  ok(g.ship.systems.modul_1 === 'ok', `Minispiel repariert das Modul dauerhaft: ${g.ship.systems.modul_1}`);
+  send({ t: 'cmd', c: 'repair.start', system: 'modul_3' });
+  ok(!(p.hold && p.hold.kind === 'minigame'), 'repair.start auf einen leeren Modulraum (modul_3) wird abgelehnt');
+  // Bot-Reparaturliste kennt Modulsysteme
+  g.ship.systems.modul_2 = 'broken';
+  const bots = require('../server/sim/bots.js');
+  ok(bots.queueRepair(g, 'modul_2', 'flick') === null, 'technik.repair akzeptiert modul_2 (Reparaturliste der Schrauber)');
+  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
+}
+
+console.log('\n' + (fails ? `${fails} FEHLER von ${n}` : `${n}/${n} ok`) + ' (SYS-01 A1c Zonenkreuz)');
 process.exit(fails ? 1 : 0);

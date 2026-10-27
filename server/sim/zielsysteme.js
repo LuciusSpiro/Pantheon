@@ -15,6 +15,7 @@
 // Erholung nach Zeit (Daten), ein gestelltes Schiff bleibt aus (halte).
 const Schilde = require('../../shared/schilde.js');
 const Physics = require('../../shared/physics.js');
+const Protocol = require('../../shared/protocol.js');
 const W = require('../../content/kampf/zielsysteme-werte.json').werte;
 
 const SYSTEME = W.systeme.wert;
@@ -185,6 +186,22 @@ function snapExtra(e) {
   return o;
 }
 
+// ---------- Gegnerziel gegen die Lerche (Snapshot ship.zielAuf) ----------
+// SYS-01 A1c: Index des Lerche-Systems in Protocol.SYSTEMS_INTEG, auf das ein Gegner gezielt anlegt (-1 = niemand). Der Eintrag der Zielsysteme-Werte (`lerche`) sagt,
+// welches System der Lerche gemeint ist; ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also zeigt die Technik auch nichts. Mehrere Gegner: der zuletzt
+// erschienene (letzter in space.enemies) gewinnt.
+function zielAuf(game) {
+  if (!szeneAktiv(game)) return -1;
+  const list = (game.space && game.space.enemies) || [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    const e = list[i];
+    const sys = e && !e.ally && e.zielsystem ? SYSTEME[e.zielsystem] : null;
+    const idx = sys && sys.lerche ? Protocol.SYSTEMS_INTEG.indexOf(sys.lerche) : -1;
+    if (idx >= 0) return idx;
+  }
+  return -1;
+}
+
 // ---------- Debug: zielsysteme [an|aus|frei|treffer [n] [system]] ----------
 function debug(game, args) {
   const a = Array.isArray(args) ? args.map(String) : [];
@@ -202,4 +219,4 @@ function debug(game, args) {
 }
 
 module.exports = { SYSTEME, TREFFER, SCHALTER, ids, system, szeneAn, szeneAktiv, stufe, stufeDaten, maxStufe, ausgefallen, tempoFaktor, halte, zuruecksetzen,
-  trifftGegner, trifftLerche, schaedige, update, waehle, waehlbar, snapExtra, debug, seiteGetroffen };
+  trifftGegner, trifftLerche, schaedige, update, waehle, waehlbar, snapExtra, zielAuf, debug, seiteGetroffen };

@@ -209,8 +209,9 @@
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);
     }
-    const swz = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
-    werte.push(['ZONE', swz ? swz.name + ' ' + swz.pct + ' %' : '–', swz && swz.zust === 'zer' ? PAL.red : swz && swz.zust === 'besch' ? PAL.warn : PAL.ice]);
+    const swz = window.PultSysteme ? PultSysteme.statusFeld(ship) : null;   // SYS-01 A1c: Reaktor zerstört > Mitte offen > schwächste Seite; roter Text in zerText
+    const FT = window.PultSysteme ? PultSysteme.TOKENS.FARBE : null;
+    werte.push([swz ? swz.l : 'ZONEN', swz ? swz.v : '–', !swz || !FT ? PAL.ice : swz.zust === 'zer' ? FT.zerText : swz.zust === 'besch' ? FT.besch : PAL.ice]);
     let x = 120;
     for (const [k, v, col] of werte) {
       R.text(ctx, k, x, y + 2, { color: PAL.brass });

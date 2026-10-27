@@ -435,11 +435,13 @@
       // ---- rechts: Schilde, Hülle, Reaktor, Marker
       y = 30;
       R.text(ctx, 'SCHILDE', rx, y, { color: PAL.brass });
-      const swz = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
-      const swCol = !swz ? PAL.panelLight : swz.zust === 'zer' ? PAL.red : swz.zust === 'besch' ? PAL.warn : PAL.panelLight;
-      R.text(ctx, swz ? swz.name + ' ' + swz.pct + ' %' : '–', rx + rw, y, { color: swCol, align: 'right' }); y += 10;
+      const swz = window.PultSysteme ? PultSysteme.statusFeld(ship) : null;   // SYS-01 A1c: Reaktor zerstört > Mitte offen > schwächste Seite
+      const swb = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;
+      const FT = window.PultSysteme ? PultSysteme.TOKENS.FARBE : null;
+      const swCol = !swz || !FT ? PAL.panelLight : swz.zust === 'zer' ? FT.zerText : swz.zust === 'besch' ? FT.besch : PAL.panelLight;
+      R.text(ctx, swz ? swz.text : '–', rx + rw, y, { color: swCol, align: 'right' }); y += 10;
       this.drawShieldUp(ctx, rx + 34, y + 26, ship, view);
-      R.bar(ctx, rx + 74, y + 8, rw - 76, 5, swz ? swz.pct / 100 : 0, swCol);
+      R.bar(ctx, rx + 74, y + 8, rw - 76, 5, swb ? swb.pct / 100 : 0, swCol);
       const reactor = ship.reactor || {};
       const rs = reactor.state || 'online';
       R.text(ctx, 'Reaktor', rx + 74, y + 20, { color: PAL.panelLight });
@@ -1342,95 +1344,97 @@
       if (CFG.spaceM3 || ship0.repairQueue || (ship0.systems && ship0.systems.weapon_bow)) return this.capDamagePlan(ctx, view, a);
       return this.capDamageOld(ctx, view, a);
     },
-    // M3a: Schadensplan (Listenversion) – alle 14 Systeme mit Ort, Zustand (dreifach), Laufzeit; Reparaturliste für die Bots
+    // M3a: Schadensplan – SYS-01 A1c: Zonenkreuz als Reparaturtafel (Anwahl einer Zeile = Auswahl wie bisher: W/S, F/Enter flicken, T Teil, Entf, P),
+    // darunter Zustand, Reparaturlisten-Knöpfe und Priorität des gewählten Eintrags, rechts Decksplan, Feuer/Lecks, Schrauber und Lager.
     capDamagePlan(ctx, view, a) {
       const st = view.state, ship = st.ship || {};
       const rows = this.damageRows(st);
       this.sel.damage = clamp(this.sel.damage, 0, rows.length - 1);
       const queue = ship.repairQueue || [];
       const max = m3('repair.queueMax', 3);
+      const PS = window.PultSysteme, ZK = window.Zonenkreuz;
+      const skin = window.Pult ? Pult.skinId(view) : 'rom';
+      const F = PS ? PS.farben(skin) : null;
       let y = a.y + 1;
       R.text(ctx, 'SCHADENSPLAN', a.x, y, { color: PAL.brass });
       R.text(ctx, 'Bot-Liste ' + queue.length + '/' + max, a.x + 84, y, { color: queue.length >= max ? PAL.amber : PAL.panelLight });
       const auto = !!ship.botAuto;
       R.button(ctx, a.x + 170, y - 3, 148, 13, 'Bots automatisch: ' + (auto ? 'AN' : 'AUS'), { hotkey: 'A', active: auto, onClick: () => this.cmd(view, 'technik.botAuto', { on: !auto }) });
-      y += 12;
-      R.text(ctx, 'ORT', a.x, y, { color: PAL.panelLight }); R.text(ctx, 'SYSTEM', a.x + 34, y, { color: PAL.panelLight });
-      R.text(ctx, 'ZUSTAND', a.x + 128, y, { color: PAL.panelLight }); R.text(ctx, 'WEG', a.x + 196, y, { color: PAL.panelLight, align: 'right' });
-      R.text(ctx, 'BOTS', a.x + 202, y, { color: PAL.panelLight });
-      y += 10;
       const bots = st.bots || [];
       const botName = (id) => { const i = bots.findIndex(b => b.id === id); return i >= 0 ? 'S' + (i + 1) : String(id || ''); };
-      rows.forEach((r, i) => {
-        const sel = this.sel.damage === i;
-        const rh = 13;
-        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.10)'; ctx.fillRect(a.x - 2, y - 1, 322, rh); ctx.strokeStyle = PAL.amber; ctx.strokeRect(a.x - 1.5, y - 0.5, 321, rh - 1); }
-        if (r.sys) {
-          const stn = R.stationOfSystem(r.target);
-          const side = stn ? stn.side : 'mid';
-          const fr = R.fragileOf(st, r.target);
-          // Ort (Messingplakette) vor Zahl
-          const lab = R.SIDE_SHORT[side] || '';
-          ctx.fillStyle = PAL.brass; ctx.fillRect(a.x, y, 31, 10);
-          R.text(ctx, lab, a.x + 15, y + 1, { color: PAL.space, align: 'center', shadow: false });
-          R.text(ctx, H.SYS_SHORT[r.target] || r.label, a.x + 34, y + 1, { color: r.state === 'ok' && !fr ? PAL.panelLight : PAL.star });
-          R.stateBadge(ctx, a.x + 128, y, 36, 10, r.state, fr);
-          const wt = this.walkTime(r.target);
-          // M3b §4: Eskalations-Countdown ersetzt die Laufzeit („Feuer in 12 s“), Zeile glimmt rot
-          const esc = (ship.escalate || {})[r.target];
-          if (esc != null) {
-            const blink = n(esc) <= 5 && Math.floor(view.time * 4) % 2;
-            ctx.strokeStyle = blink ? PAL.red : 'rgba(224,71,60,0.6)'; ctx.strokeRect(a.x - 1.5, y - 0.5, 199, rh - 1);
-            const ecol = n(esc) <= 5 ? PAL.red : '#F08A3C';
-            R.text(ctx, Math.ceil(n(esc)) + 's', a.x + 196, y + 1, { color: ecol, align: 'right' });
-            // kleine Flamme vor dem Countdown
-            const fx0 = a.x + 196 - R.measure(Math.ceil(n(esc)) + 's', 1) - 7;
-            ctx.fillStyle = ecol; ctx.fillRect(fx0 + 1, y + 4, 4, 5); ctx.fillRect(fx0 + 2, y + 2, 2, 2);
-            ctx.fillStyle = PAL.amber; ctx.fillRect(fx0 + 2, y + 6, 2, 3);
-          } else R.text(ctx, wt != null ? f1(wt) + ' s' : '–', a.x + 196, y + 1, { color: PAL.panelLight, align: 'right' });
-          const q = this.queueOf(ship, r.target);
-          const needs = r.state !== 'ok' || fr;
-          const dis = !needs && !q;
-          R.button(ctx, a.x + 202, y - 1, 42, 12, 'Flicken', { active: !!(q && q.mode === 'flick'), disabled: dis, reason: 'System ist heil', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, 'flick'); } });
-          R.button(ctx, a.x + 246, y - 1, 28, 12, 'Teil', { active: !!(q && q.mode === 'part'), disabled: dis, reason: 'System ist heil', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, 'part'); } });
-          R.button(ctx, a.x + 276, y - 1, 14, 12, '—', { disabled: !q, reason: 'Nicht in der Liste', onClick: () => { this.sel.damage = i; this.setRepair(view, r.target, null); } });
-          if (q) R.text(ctx, q.bot ? botName(q.bot) : '…', a.x + 293, y + 1, { color: q.bot ? PAL.amber : PAL.panelLight });
-          if (ship.priority === r.target) R.text(ctx, '1.', a.x + 310, y + 1, { color: PAL.amber });
+      const selRow = rows[this.sel.damage];
+      const selectId = (id) => { const i = rows.findIndex(r => r.target === id); if (i >= 0) this.sel.damage = i; };
+      if (ZK && PS) {
+        const sw = (id) => PS.modulName(ship, id) || (/^lafette_/.test(id) ? 'Lafette' : (H.SYS_SHORT[id] || H.sysName(id, ship)));
+        const mod = ZK.modell(st, { name: sw, reihenfolge: H.SYSTEM_ORDER });
+        // Gegnerziel (Server ship.zielAuf): Zeile mit → im Kreuz, Satz unter den Knöpfen (siehe unten)
+        const geZiel = mod.gezieltId ? ZK.eintrag(mod, mod.gezieltId) : null;
+        const kr = { x: a.x, y: a.y + 14, w: 372, h: 188 };
+        ZK.zeichne(ctx, mod, kr, {
+          skin, selId: selRow && selRow.sys ? selRow.target : null, gezieltId: mod.gezieltId,
+          queued: (id) => { const q = this.queueOf(ship, id); return q ? (q.bot ? 2 : 1) : 0; },
+          klick: (e) => selectId(e.id),
+        });
+        // Zustand und Reparatur des gewählten Systems
+        const dy = kr.y + kr.h + 6;
+        if (selRow && selRow.sys) {
+          const e = ZK.eintrag(mod, selRow.target), id = selRow.target;
+          const q = this.queueOf(ship, id), fr = R.fragileOf(st, id), needs = selRow.state !== 'ok' || fr, dis = !needs && !q;
+          const wt = this.walkTime(id), esc = (ship.escalate || {})[id];
+          const zt = e ? (e.zust === 'zer' ? 'zerstört' : e.zust === 'offline' ? 'offline (EMP)' : e.zust === 'besch' ? 'beschädigt' : fr ? 'geflickt' : 'heil') : '–';
+          const zc = e ? (e.zust === 'zer' ? F.zerText : e.zust === 'besch' ? F.besch : e.zust === 'offline' ? F.dim : F.text) : PAL.panelLight;
+          R.text(ctx, selRow.label, a.x, dy, { color: PAL.star });
+          R.text(ctx, zt + (e && e.zust !== 'zer' ? ' ' + e.pct + ' %' : ''), a.x + 150, dy, { color: zc });
+          if (esc != null) R.text(ctx, 'brennt in ' + Math.ceil(n(esc)) + ' s', a.x + 372, dy, { color: n(esc) <= 5 && Math.floor(view.time * 4) % 2 ? PAL.red : '#F08A3C', align: 'right' });
+          else R.text(ctx, 'Weg ' + (wt != null ? f1(wt) + ' s' : '–'), a.x + 372, dy, { color: PAL.panelLight, align: 'right' });
+          const by = dy + 12;
+          R.button(ctx, a.x, by, 62, 13, 'Flicken', { hotkey: 'F', active: !!(q && q.mode === 'flick'), disabled: dis, reason: 'System ist heil', onClick: () => this.setRepair(view, id, 'flick') });
+          R.button(ctx, a.x + 66, by, 40, 13, 'Teil', { hotkey: 'T', active: !!(q && q.mode === 'part'), disabled: dis, reason: 'System ist heil', onClick: () => this.setRepair(view, id, 'part') });
+          R.button(ctx, a.x + 110, by, 62, 13, 'Entfernen', { disabled: !q, reason: 'Nicht in der Liste', onClick: () => this.setRepair(view, id, null) });
+          R.text(ctx, q ? (q.bot ? botName(q.bot) + ' arbeitet daran' : 'in der Liste, wartet auf Schrauber') : 'nicht in der Liste', a.x + 178, by + 3, { color: q && q.bot ? PAL.amber : PAL.panelLight });
         } else {
-          const active = (ship.priority || null) === r.target;
-          R.button(ctx, a.x, y - 1, 196, 12, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'technik.priority', { target: r.target }); } });
-          if (active) R.text(ctx, 'PRIO', a.x + 202, y + 1, { color: PAL.amber });
+          R.text(ctx, 'Feuer oder Leck gewählt: Priorität unten', a.x, dy, { color: PAL.panelLight });
         }
-        y += rh;
-      });
+        // Priorität: Feuer, Lecks, keine
+        const py = dy + 28, pw = [118, 112, 106];
+        let px0 = a.x, k = 0;
+        rows.forEach((r, i) => {
+          if (r.sys) return;
+          const w = pw[k++] || 100;
+          const active = (ship.priority || null) === r.target;
+          R.button(ctx, px0, py, w, 13, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'technik.priority', { target: r.target }); } });
+          px0 += w + 4;
+        });
+        if (geZiel) R.text(ctx, PS.text(PS.TOKENS.TEXT.gezielt, { wer: 'Gegner', zeichen: PS.TOKENS.ZEICHEN.gezielt, system: geZiel.name }), a.x, py + 19, { color: F.gezielt });
+      }
       // rechts: Decksplan, Feuer/Lecks, Schrauber, Lager
-      const px = a.x + 332, pw = a.w - 332;
-      const cell = Math.max(3, Math.min(8, Math.floor(pw / Maps.ship.w)));
+      const px = a.x + 382, pw2 = a.w - 382;
+      const cell = Math.max(3, Math.min(8, Math.floor(pw2 / Maps.ship.w)));
       R.drawMiniPlan(ctx, view, px, a.y + 4, { zone: 'ship', cell });
       let ly = a.y + 4 + R.miniPlanSize('ship', cell).h + 8;
       const fires = ship.fires || [], br = ship.breaches || [];
-      R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 3) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
-      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 3) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 11;
+      R.text(ctx, 'Feuer: ' + (fires.length ? roomList(fires, 2) : 'keine'), px, ly, { color: fires.length ? PAL.red : PAL.moss }); ly += 11;
+      R.text(ctx, 'Lecks: ' + (br.length ? roomList(br.map(b => [b.tx, b.ty]), 2) : 'keine'), px, ly, { color: br.length ? PAL.ice : PAL.moss }); ly += 11;
       // M3b §4: Eskalation – unbearbeitete Schäden im Gefecht fangen Feuer
       const escl = Object.keys(ship.escalate || {}).map(k => [k, n(ship.escalate[k])]).sort((p, q) => p[1] - q[1]);
       if (escl.length) {
-        const txt = escl.slice(0, 2).map(([k, s]) => (H.SYS_SHORT[k] || k) + ' brennt in ' + Math.ceil(s) + ' s').join(' · ') + (escl.length > 2 ? ' …' : '');
-        R.text(ctx, txt, px, ly, { color: escl[0][1] <= 5 && Math.floor(view.time * 4) % 2 ? PAL.red : '#F08A3C' }); ly += 11;
-      } else { R.text(ctx, 'Unbearbeitet im Gefecht: Feuer nach ' + (((CFG.spaceM3b || {}).escalation || {}).after || 20) + ' s', px, ly, { color: PAL.panelLight }); ly += 11; }
+        escl.slice(0, 2).forEach(([k, s]) => { R.text(ctx, (H.SYS_SHORT[k] || H.sysName(k, ship)) + ' brennt ' + Math.ceil(s) + ' s', px, ly, { color: s <= 5 && Math.floor(view.time * 4) % 2 ? PAL.red : '#F08A3C' }); ly += 10; });
+      }
       ly += 3;
       R.text(ctx, 'SCHRAUBER', px, ly, { color: PAL.brass });
-      R.text(ctx, auto ? 'füllen die Liste selbst' : 'Systeme nur aus der Liste', px + 62, ly, { color: PAL.panelLight }); ly += 11;
+      R.text(ctx, auto ? 'füllen selbst' : 'nur Liste', px + 62, ly, { color: PAL.panelLight }); ly += 11;
       bots.forEach((b, i) => {
-        const KIND = { repair: 'repariert', flick: 'flickt', swap: 'baut Teil ein', extinguish: 'löscht', patch: 'dichtet ab', fetch: 'holt Teil', switch: 'hält Reaktorschalter' };
-        const task = b.task ? (KIND[b.task.kind] || b.task.kind) + (b.task.system ? ' ' + (H.SYS_SHORT[b.task.system] || b.task.system) : ' – ' + H.roomOf(Math.floor(b.task.x / TILE) || 0, Math.floor(b.task.y / TILE) || 0)) : 'wartet';
+        const KIND = { repair: 'repariert', flick: 'flickt', swap: 'baut Teil ein', extinguish: 'löscht', patch: 'dichtet ab', fetch: 'holt Teil', switch: 'Reaktorschalter' };
+        const task = b.task ? (KIND[b.task.kind] || b.task.kind) + (b.task.system ? ' ' + (H.SYS_SHORT[b.task.system] || b.task.system) : '') : 'wartet';
         R.text(ctx, 'S' + (i + 1) + ': ' + task, px, ly, { color: b.task ? PAL.star : PAL.panelLight }); ly += 10;
       });
       const inv = st.inventory || {};
       ly += 4;
       const stock = (it) => (R.shelfStock ? R.shelfStock(inv, it) : n(inv[it]));
-      R.text(ctx, 'Ersatzteile ' + stock('ersatzteil') + ' · Flickbleche ' + stock('flickblech') + ' · Löschgel ' + stock('loeschgel'), px, ly, { color: stock('ersatzteil') ? PAL.panelLight : PAL.warn }); ly += 11;
-      R.text(ctx, 'Flicken = schnell, fragil · Teil = heil', px, ly, { color: PAL.panelLight }); ly += 10;
-      R.text(ctx, 'Minispiel (vor Ort, R) = dauerhaft', px, ly, { color: PAL.panelLight });
+      R.text(ctx, 'Ersatzteile ' + stock('ersatzteil') + ' · Flickbleche ' + stock('flickblech'), px, ly, { color: stock('ersatzteil') ? PAL.panelLight : PAL.warn }); ly += 10;
+      R.text(ctx, 'Löschgel ' + stock('loeschgel'), px, ly, { color: PAL.panelLight }); ly += 12;
+      R.text(ctx, 'Flicken = schnell, fragil', px, ly, { color: PAL.panelLight }); ly += 10;
+      R.text(ctx, 'Teil = heil · Minispiel (R) vor Ort', px, ly, { color: PAL.panelLight });
       return 'W/S wählen · F/Enter flicken · T Teil · Entf entfernen · P an die Spitze · A Bots automatisch · 1–2 Reiter';
     },
     capDamageOld(ctx, view, a) {

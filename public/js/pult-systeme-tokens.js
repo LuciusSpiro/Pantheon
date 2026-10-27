@@ -8,6 +8,8 @@
 //   PultSysteme.zustand(i, max, offline?) -> 'ok' | 'besch' | 'zer' | 'offline'   (beschädigt = höchstens die Hälfte, Annahme Designrichtungen)
 //   PultSysteme.lage(rect, m)   -> Kacheln { bug, stb, heck, bb, mitte } des Kreuzes, Bug oben; m = MASS.kreuz.<station>
 //   PultSysteme.kontrast(a, b)  -> WCAG-2.1-Kontrast zweier Hex-Farben
+//   PultSysteme.statusFeld(ship) -> Feld der Statusleiste (Rangfolge Reaktor > Mitte offen > schwächste Seite), siehe dort
+//   PultSysteme.modulName(ship, sys) / MODUL_NAMEN -> Name von modul_N nach dem Modul im Raum (Codes aus shared/config.js, keine Kopie)
 //
 // Regeln (kurz, ausführlich in der Notiz):
 //   - Rot (zer, zerText) heißt Gefahr/zerstört, Bernstein heißt „Weg frei / Ziel gewählt“, Mint heißt Schild, Gelb beschädigt, Creme heil.
@@ -176,15 +178,38 @@
     return best;
   }
   // SYS-01 A1c: modul_N heißt nach dem Modul im Raum N (ship.mod = [[code, raum, an, lauf]], code = config.module.codes)
-  const MODUL_NAMEN = { f: 'Frachtraum', k: 'Krankenstation', w: 'Werkstatt' };
+  // Die Codes kommen aus der einen Quelle shared/config.js (module.codes: { frachtraum: 'f', ... }), der Name ist die Modul-ID groß geschrieben.
+  const CONFIG = root.Shared_Config || (typeof require === 'function' ? require('../../shared/config.js') : null);
+  const MODUL_NAMEN = {};
+  for (const id of Object.keys((CONFIG && CONFIG.module && CONFIG.module.codes) || {})) MODUL_NAMEN[CONFIG.module.codes[id]] = id.charAt(0).toUpperCase() + id.slice(1);
   function modulName(ship, sys) {
     const m = /^modul_([1-4])$/.exec(sys || ''); if (!m) return null;
     const e = ship && Array.isArray(ship.mod) ? ship.mod.find((q) => q[1] === Number(m[1])) : null;
     return (e && MODUL_NAMEN[e[0]]) || ('Modulraum ' + m[1]);
   }
+  // SYS-01 A1c: Feld der Statusleiste (alle Stationen) statt HÜLLE. Rangfolge: Reaktor zerstört > Mitte offen (eine Seite leer) > schwächste Seite.
+  // Zahlen und Zustände kommen vom Server (ship.systems, ship.zonen), hier steht nur Text und Farbrolle. Rückgabe:
+  //   { rang: 'reaktor'|'offen'|'seite'|'voll'|'keine', l (Label), v (Wert), text (kurz, für HUD/Liste), zust: 'zer'|'besch'|'ok'|'keine', farbe (Token FARBE.status…), seite?, pct? }
+  function statusFeld(ship) {
+    const T = TEXT;
+    if (ship && ship.systems && ship.systems.reactor === 'broken') return { rang: 'reaktor', l: T.statusLabel.reaktor, v: ZEICHEN.zerLang.toUpperCase(), text: T.statusLabel.reaktor, zust: 'zer', farbe: 'statusReaktor' };
+    const z = ship && Array.isArray(ship.zonen) ? ship.zonen : null;
+    const leer = [];
+    if (z) for (let i = 0; i < 4; i++) if (z[i] === 0) leer.push(i);
+    const namen = [T.zone.bug, T.zone.stb, T.zone.heck, T.zone.bb];
+    if (leer.length) {
+      const wer = leer.length === 1 ? namen[leer[0]] : leer.length + ' SEITEN';
+      return { rang: 'offen', l: T.statusLabel.mitte, v: wer + ' ' + T.offen, text: T.statusLabel.mitte + ' ' + T.offen, zust: 'zer', farbe: 'statusOffen', seite: leer[0] };
+    }
+    const sw = schwaechsteSeite(ship);
+    if (!sw) return { rang: 'keine', l: T.statusLabel.zonen, v: '–', text: '–', zust: 'keine', farbe: 'statusVoll' };
+    if (sw.pct >= 100) return { rang: 'voll', l: T.statusLabel.zonen, v: T.statusVoll, text: T.statusVoll, zust: 'ok', farbe: 'statusVoll', seite: sw.zone, pct: sw.pct };
+    const w = sw.name + ' ' + sw.pct + '%';
+    return { rang: 'seite', l: T.statusLabel.zonen, v: w, text: w, zust: sw.zust === 'besch' ? 'besch' : 'ok', farbe: sw.zust === 'besch' ? 'statusBesch' : 'statusVoll', seite: sw.zone, pct: sw.pct };
+  }
   function text(vorlage, werte) { return String(vorlage).replace(/\{(\w+)\}/g, (_, k) => (werte && werte[k] != null ? werte[k] : '')); }
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, modulName, MODUL_NAMEN };
+  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, modulName, MODUL_NAMEN };
 });

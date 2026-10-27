@@ -849,9 +849,15 @@
         if (info && info.system) out.push({ system: info.system, x, y, sector: info.sector != null ? info.sector : -1, side: info.side || 'mid', kind: info.kind, ch });
       }
     }
+    // SYS-01 A1c: Modulsysteme (modul_N) haben keine Legendenkachel; ihre Station ist die Mitte des Modulraums (wie server/world.js STATIONS)
+    for (const mr of (Maps && Maps.MODUL_RAEUME) || []) {
+      const r = (Maps.SHIP_ROOMS || []).find((q) => q.id === mr.room);
+      if (r) out.push({ system: 'modul_' + mr.raum, x: (r.x0 + r.x1) >> 1, y: (r.y0 + r.y1) >> 1, sector: -1, side: 'mid', kind: 'sys_modul', ch: null, modul: true });
+    }
     return (stationCache = out);
   }
   function stationOfSystem(sys) { return shipStations().find(s => s.system === sys) || null; }
+  function modulSysAt(tx, ty) { const s = shipStations().find(q => q.modul && q.x === tx && q.y === ty); return s ? s.system : null; }
 
   // ------------------------------------------------------------------ Fallback-Zeichnungen
   function hash(n) { n = (n ^ 61) ^ (n >>> 16); n = n + (n << 3); n = n ^ (n >>> 4); n = Math.imul(n, 0x27d4eb2d); return ((n ^ (n >>> 15)) >>> 0) / 4294967296; }
@@ -3725,6 +3731,18 @@
     }
   }
 
+  // SYS-01 A1c: Bresche der Taktikkarte (Token MASS.bresche, FARBE.brescheEigen/brescheGegner): Keil vom Ring zum Kern, Fläche transparent, Kante voll.
+  // wer: 'eigen' (Rot) oder 'gegner' (Bernstein; Rot auf der roten Kennung verschwände). Gegner-Zonen sind noch nicht im Snapshot (Ziel-Scan C1), dort wird nichts gezeichnet.
+  function breschenKeil(ctx, x, y, mitte, r, wer) {
+    const PS = window.PultSysteme; if (!PS) return;
+    const M = PS.TOKENS.MASS.bresche, col = PS.TOKENS.FARBE[wer === 'gegner' ? 'brescheGegner' : 'brescheEigen'];
+    ctx.save();
+    ctx.globalAlpha = M.deckkraft; ctx.fillStyle = col;
+    ctx.beginPath(); ctx.moveTo(x, y); ctx.arc(x, y, r, mitte - M.halbwinkel, mitte + M.halbwinkel); ctx.closePath(); ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = col; ctx.lineWidth = M.kante;
+    ctx.beginPath(); ctx.arc(x, y, r, mitte - M.halbwinkel, mitte + M.halbwinkel); ctx.stroke();
+    ctx.restore();
+  }
   function drawSpace(ctx, view, rect, cfg) {
     const st = view.state;
     const ship = view.ship || st.ship || {};
@@ -4274,6 +4292,8 @@
         ctx.strokeStyle = 'rgba(255,90,74,' + (0.5 + 0.5 * Math.sin(t * 10)) + ')'; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(cx, cy, sr + 9, a0, a1); ctx.stroke(); ctx.setLineDash([]);
       }
+      // SYS-01 A1c: Bresche = leere Zone (alle aktiven Systeme der Seite zerstört, Server ship.zonen[i] = 0): Keil vom Schildring zum Kern, beim eigenen Schiff Rot
+      if (Array.isArray(sship.zonen) && sship.zonen[i] === 0) breschenKeil(ctx, cx, cy, mid, sr + 6, 'eigen');
     }
 
     // §20.1/§20.3: Strahlen, Mündungsblitze, Visierlinie der Lanze – über Schiff und Gegnern
@@ -4821,7 +4841,7 @@
     ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, escortBarCol, FLOTTE_ART_NAMEN, fbEscort, drawEscortSprite,
     // M3a
     SIDE_SHORT, STATE_SHORT, FRAGILE_COL, OFFLINE_COL, BURST_COL, MOUNT_SYS, SECTOR_SHORT,
-    fragileOf, stateCode, stateColor, stateBadge, stationPlate, hatch, crossX, tape, shipStations, stationOfSystem, actionBar, cfgM3, fmt1, wedge,
+    fragileOf, stateCode, stateColor, stateBadge, stationPlate, hatch, crossX, tape, shipStations, stationOfSystem, modulSysAt, actionBar, cfgM3, fmt1, wedge,
     lanceDamage, lanceDamageMax, ingestSnap, resetBeamFx,
     lastState: null,
     uiDenied: null,

@@ -48,6 +48,7 @@
     "test:zonen": "node tools/test-zonen.js",
     "test:systemmodell": "node tools/test-systemmodell.js",
     "test:zonenkreuz": "node tools/test-zonenkreuz.js",
+    "sicht:zonenkreuz": "node tools/sicht-zonenkreuz.js",
     "test:lpscan": "node tools/test-lpscan.js",
     "test:monster": "node tools/test-monster.js && node tools/test-forschungsstation.js",
     "test:boje": "node tools/test-boje.js",

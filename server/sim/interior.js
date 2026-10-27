@@ -546,14 +546,16 @@ function interactionsAt(game, p, tx, ty, own) {
       else list.push({ kind: 'patch', blocked: 'Hüllenbruch! Hol ein Flickblech aus dem Lager (Regal 3).' });
     }
     const info = map.info(tx, ty);
-    if (info.system) {
+    // SYS-01 A1c: Module haben keine Kachel mit Station in der Legende; ihre Station ist die Mitte des Modulraums (world.STATIONS, modul_N)
+    const sysHier = info.system || ((W.STATIONS.find((q) => q.x === tx && q.y === ty && MODUL_SYS.test(q.system)) || {}).system) || null;
+    if (sysHier) {
       // M3a §8.1: E halten = flicken (ohne Teil) bzw. austauschen (mit Ersatzteil); zerstört ist ohne Teil flickbar.
-      const st = game.ship.systems[info.system];
-      const fragile = isFragile(game, info.system);
+      const st = game.ship.systems[sysHier];
+      const fragile = isFragile(game, sysHier);
       if (st === 'damaged' || st === 'broken' || (st === 'ok' && fragile && p.carry === 'ersatzteil')) {
-        list.push({ kind: 'repair', system: info.system, how: p.carry === 'ersatzteil' ? 'swap' : 'flick' });
+        list.push({ kind: 'repair', system: sysHier, how: p.carry === 'ersatzteil' ? 'swap' : 'flick' });
       } else if (st === 'offline') {
-        const o = game.ship.offline[info.system];
+        const o = game.ship.offline[sysHier];
         list.push({ kind: 'repair', blocked: `EMP: offline – startet in ${Math.ceil(o ? o.t : 1)} s von selbst neu.` });
       }
     }

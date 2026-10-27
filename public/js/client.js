@@ -1678,7 +1678,7 @@
       const seated = (st.players || []).filter(p => p.console === 'plan').length;
       return seated >= ((CFG.plan && CFG.plan.maxSeated) || 4) ? { label: 'Planungstisch: voll', ok: false } : { label: 'Planungstisch: Platz nehmen' + (seated ? ' (' + seated + ' sitzen)' : ''), ok: true };
     }
-    const sys = R.sysOf ? R.sysOf(map, ch) : R.SYS_BY_CHAR[ch];
+    const sys = (R.sysOf ? R.sysOf(map, ch) : R.SYS_BY_CHAR[ch]) || (zone === 'ship' && R.modulSysAt ? R.modulSysAt(tx, ty) : null);   // SYS-01 A1c: Modulstation = Mitte des Modulraums
     if (sys && zone === 'ship') {
       // M3a §8.1: drei Wege – E flicken (ohne Teil), E Teil einbauen (mit Teil, auch an heilem fragilem System), R Minispiel
       const state = R.sysState(st, sys);
