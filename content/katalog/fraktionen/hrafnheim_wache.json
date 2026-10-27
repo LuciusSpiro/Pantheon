@@ -1,0 +1,33 @@
+{
+  "format": "fraktion/1",
+  "id": "hrafnheim_wache",
+  "name": "Wache von Hrafnheim",
+  "beschreibung": "Die Verteidiger des Schreins von Asgard auf Hrafnheim. Nur im Finale (SUND-04a-3) von Skript gesetzt, nicht im Spielleiter-Katalog.",
+  "nur_skript": true,
+  "modelle": {
+    "grundtyp": "fig/germanen/grundtyp",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer"
+  },
+  "palette": null,
+  "rezepte": {
+    "schildwall": [
+      { "rolle": "niederhalter", "n": 1 },
+      { "rolle": "grundtyp", "n": 2 }
+    ],
+    "schreinwache": [
+      { "rolle": "schuetze", "n": 1 },
+      { "rolle": "grenadier", "n": 1 },
+      { "rolle": "enterer", "n": 1 }
+    ]
+  },
+  "staerke": { "klein": 1, "mittel": 2, "gross": 3 },
+  "gross_extra": null,
+  "einsatz": {
+    "schildwall": ["aussenposten"],
+    "schreinwache": ["aussenposten"]
+  },
+  "funkstil": "knapp und ernst, ruft die Ahnen von Asgard an"
+}

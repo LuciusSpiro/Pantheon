@@ -144,7 +144,7 @@ function interactionsAt(game, p, tx, ty, list) {
         break;
       case 'zelle': if (z === 'zu') it(); else block('Die Zelle steht offen.'); break;
       case 'beute': if (z === 'voll') it(); else block('Leer geräumt.'); break;
-      case 'ziel': if (z === 'frei') it(); else block('Erledigt.'); break;
+      case 'ziel': if (z !== 'frei') block('Erledigt.'); else if (aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]); else it(); break;   // ankerSperre: { ankerId: Text } zur Laufzeit (Finale-Boden: Schrein gesperrt bis der Wächter fällt)
       case 'fund': if (z === 'da') it(); else block('Der Sockel ist leer.'); break;
       case 'raetsel':
         if (z === 'geloest') block('Gelöst.');
@@ -219,7 +219,7 @@ function holdValid(game, p, h) {
     case 'flagge': return z === 'unten' && flaggeCrew(game).length >= flaggeCfg(game).min;   // lebt nur noch einer: Hissen nicht möglich
     case 'zelle': return z === 'zu';
     case 'beute': return z === 'voll';
-    case 'ziel': return z === 'frei';
+    case 'ziel': return z === 'frei' && !(aw.ankerSperre && aw.ankerSperre[a.id]);
     case 'fund': return z === 'da';
     case 'raetsel': return z === 'ruhe';
     case 'versteck': return z !== 'offen';
@@ -468,6 +468,8 @@ function awaySnap(game, aw) {
     if (zi >= 0) ko.push([i, zi]);
   });
   const o = { ao, ko, al: aw.alarm ? 1 : 0 };
+  const sp = aw.ankerSperre ? k.anker.map((a, i) => (aw.ankerSperre[a.id] ? i : -1)).filter((i) => i >= 0) : [];
+  if (sp.length) o.sp = sp;   // SUND-04a-3: gesperrte Anker (Index), der Client zeigt „Versiegelt“ statt des Haltehinweises
   const ids = Object.keys(L.ladung).sort();
   if (ids.length) { const i = k.anker.findIndex((a) => a.id === ids[0]); o.cd = { i, t: Math.max(0, Math.round(L.ladung[ids[0]].t * 10) / 10) }; }
   return o;

@@ -281,6 +281,7 @@ function pruefeBesetzung(besetzung, ctx) {
   for (const [i, b] of (Array.isArray(besetzung) ? besetzung : []).entries()) {
     const f = (k.fraktionen || {})[b && b.fraktion];
     if (!f) { fehler.push({ code: 'FRAKTION', msg: `besetzung[${i}]: Fraktion '${b && b.fraktion}' unbekannt` }); continue; }
+    if (f.nur_skript) { fehler.push({ code: 'FRAKTION', msg: `besetzung[${i}]: Fraktion '${f.id}' ist nur für Skripte (nur_skript) und in Besetzungen nicht wählbar` }); continue; }
     if (b.staerke && !(f.staerke || {})[b.staerke]) fehler.push({ code: 'FRAKTION', msg: `besetzung[${i}]: Stärke '${b.staerke}' fehlt bei '${f.id}'` });
     const rezepte = Object.keys(f.rezepte || {}).filter((rz) => !c.kartenart || !f.einsatz || !f.einsatz[rz] || f.einsatz[rz].includes(c.kartenart));
     if (!rezepte.length) fehler.push({ code: 'FRAKTION', msg: `besetzung[${i}]: '${f.id}' hat kein Rezept für Kartenart '${c.kartenart}'` });

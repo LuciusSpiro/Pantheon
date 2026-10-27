@@ -196,6 +196,42 @@ function endkampfLauf(S, seed) {
   return { lp, gegner: max, boss, fehler: g.errors };
 }
 
+// ---------- Aufbau (SUND-04a-3 Boden): Schrein von Asgard – Freie Fahrt Sund, 4 Spieler landen auf hrafnheim.schrein, 10 Wachen und der Waechter greifen von allen Seiten an,
+// alle Spieler bleiben stehen (Worst Case: 4 Spieler + 11 Gegner + world.finale mit allen Feldern) ----------
+function bodenLauf(S, seed) {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const Finale = require('../server/sim/finale.js');
+  const interior = require('../server/sim/interior.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'snap-boden-'));
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(dir, 'regie') }, log });
+  const cs = [];
+  for (let i = 0; i < 4; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'B' + i, name: 'B' + i, color: i }); cs.push(c); }
+  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 30; k++) g.step();
+  g.space.enemies = [];
+  g.debugGoto('hrafnheim', false); for (let k = 0; k < 40; k++) g.step();
+  g.weltsim.ruf.rom = 1e9;
+  Finale.ersetzen('szene', { finaleStarten: () => ({ id: 1 }) });
+  Finale.ersetzen('abspann', { beenden: () => true });
+  g.ship.speed = 0;
+  Finale.starten(g); Finale.orbitEnde(g, 'sieg');
+  g.players.forEach((p, i) => { interior.placeOnShipPad(g, p, i); p.console = 'transfer'; });
+  g.handleMessage(cs[0], { t: 'cmd', c: 'transfer.down' });
+  let max = 0, boss = 0;
+  for (let k = 0; k < TICKS + 100; k++) {
+    g.step();
+    for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
+    g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;
+    const sn = g.snapshot(); if (k >= 100) messen(S, sn);
+    const ds = (sn.away && sn.away.drones) || [];
+    max = Math.max(max, ds.length); if (ds.some((d) => d.gs)) boss = 1;
+  }
+  const unten = g.players.filter((p) => p.zone === 'away').length;
+  Finale.ersetzen('szene', null); Finale.ersetzen('abspann', null);
+  return { lp: 'hrafnheim.schrein', gegner: max, boss, unten, fehler: g.errors };
+}
+
 // ---------- Aufbau 4 (EK3 Teil B): Konvoi – 4 Spieler, Rabenpass, 3 Transporter mit Eskorte (alle gescannt), 2 Transporter zerstört (Fracht liegt),
 // einer lädt den Sprung, Beamen läuft, eine Ladung schon an Bord ----------
 function konvoi(S, seed) {
@@ -466,20 +502,21 @@ function finaleOrbit(S, seed) {
 
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.methalle.push(Object.assign({ seed: s }, methalleLauf(WM, 30 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.endkampf.push(Object.assign({ seed: s }, endkampfLauf(WE, 40 + s)));
+for (let s = 1; s <= SEEDS; s++) laeufe.boden.push(Object.assign({ seed: s }, bodenLauf(WB, 100 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.konvoi.push(Object.assign({ seed: s }, konvoi(KV, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, flotte(FL, 60 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.orbit.push(Object.assign({ seed: s }, orbit(OB, 70 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.freieFahrt.push(Object.assign({ seed: s }, freieFahrt(FF, 80 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s }, verfolgung(VF, 90 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.finaleOrbit.push(Object.assign({ seed: s }, finaleOrbit(FO, 100 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), laeufe, ms: Date.now() - t0 };
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -501,6 +538,8 @@ zeigen(res.methalle);
 console.log('  Läufe: ' + laeufe.methalle.map((l) => `s${l.seed} ${l.lp} ${l.wachen} Wachen${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.endkampf);
 console.log('  Läufe: ' + laeufe.endkampf.map((l) => `s${l.seed} ${l.lp} ${l.gegner} Gegner im Snapshot, Anführer ${l.boss ? 'ja' : 'NEIN'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.boden);
+console.log('  Läufe: ' + laeufe.boden.map((l) => `s${l.seed} ${l.lp} ${l.gegner} Gegner im Snapshot, ${l.unten} Spieler unten, Wächter ${l.boss ? 'ja' : 'NEIN'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.konvoi);
 console.log('  Läufe: ' + laeufe.konvoi.map((l) => `s${l.seed}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.flotte);
@@ -515,7 +554,7 @@ zeigen(res.finaleOrbit);
 console.log('  Läufe: ' + laeufe.finaleOrbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

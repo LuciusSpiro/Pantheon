@@ -41,6 +41,7 @@ const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienst
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
+const FinaleBoden = require('./sim/finale-boden.js');   // SUND-04a-3 Boden: Treiber des Boden-Teils (Schrein von Asgard)
 const Finale = require('./sim/finale.js');   // SUND-04a-3: Finale-Kern (Entscheidungsschlacht um Hrafnheim, nur Freie Fahrt Sund)
 const Absicht = require('./sim/absicht.js');   // SUND-02b D: Strategische Optionen ab Tribun (nur Freie Fahrt Sund)
 const Kriegslage = require('./sim/kriegslage.js');   // SUND-01 B: Weltsimulation im Modus Freie Fahrt Sund (game.weltsim, game.weltBesitz)
@@ -479,6 +480,7 @@ class Game {
     this.notsprungVon = null; this.notsprungT = -1;   // EK2: Ort und Zeit des letzten Notfallsprungs (Prüfung rueckzug)
     this.betretenKeys = new Set();   // B1: Landepunkt-Besuche (lpId@missionId) in dieser Partie
     this.transferZiel = null;   // B1 §6.1: { lp, scene } – per transfer.ziel gewählter Landepunkt am aktuellen Ort
+    this.finaleBoden = null;    // SUND-04a-3 Boden: Zustand des Boden-Teils der Entscheidungsschlacht (nie gespeichert)
     this.vorbauOrt = null;      // B1: Ort, dessen Landepunkte zuletzt vorgebaut wurden (vorbauBeiAnkunft)
     this.arena = null;   // Testgelände (server/sim/arena.js), nur bei Lobby-Start arena_space/arena_away
     this.explore = new Explore(this);
@@ -1707,6 +1709,7 @@ class Game {
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
+      if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
       this.safe('betreten', () => this.trackBetreten());
       this.safe('personen', () => weltBausteine().personenNachruecken(this));   // B1: wartende Personen auf gebauten Karten   // B1 §6.1: erstes Hinunterbeamen zählt den Besuch
       this.safe('explore', () => this.explore.update(dt));
@@ -1842,7 +1845,7 @@ class Game {
     if (!k || k.art === 'hand') return {};
     const o = { kv: Game.kartenVersion(k) };
     const fn = fnOf(ankerMod(), 'awaySnap');
-    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
+    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
     return o;
   }
 
