@@ -630,6 +630,13 @@ section('Plan-Rückmeldung: letzte_plaene je Befehl, plan_wirkungslos', async ()
   tick(fk.g, RW.abkuehlung.wert.fokus + 1); sfk.beiGrenze('andocken'); await pumpen(fk.g, 4);
   const q2 = sfk.letzte_plaene.at(-1);
   ok(q2.befehle.length === 1 && q2.befehle[0] === 'fokus rom 0204: ok' && q2.angenommen === 1, 'Fokus nur für ein Reich: „fokus rom 0204: ok“, ein Platz');
+  // SUND-04a: Faden-Befehle (faden_*) belegen keinen Rate-Platz: Regie.planAnwenden meldet sie mit platz:true, „angenommen“ der letzten Pläne zählt sie nicht mit
+  const fa = spiel(); const { sl: sfa } = mitLage(fa, { mode: 'script', script: { lage: [{ json: { befehle: [{ typ: 'regler', fraktion: 'rom', p_act: 0.2, dauer: 5 }], begruendung: 'faden' } }] } }, { min_abstand_ticks: 1 });
+  const planAlt = Regie.planAnwenden;
+  Regie.planAnwenden = (game, plan) => { const r = planAlt(game, plan); r.angenommen.push({ befehl: { typ: 'faden_oeffnen', vorlage: 'x' }, ab: 0, vorwarnung: false, platz: true }, { befehl: { typ: 'faden_weiter', faden: 'f1', beat: 'b' }, ab: 0, vorwarnung: false, platz: true }); return r; };
+  try { tick(fa.g); sfa.beiGrenze('andocken'); await pumpen(fa.g, 4); } finally { Regie.planAnwenden = planAlt; }
+  const qa = sfa.letzte_plaene.at(-1);
+  ok(qa && qa.angenommen === 1, 'letzte_plaene: ein Regler plus zwei Faden-Befehle ergeben angenommen 1 (Faden-Befehle zählen nicht als Rate-Plätze): ' + JSON.stringify(qa));
   // P3: erst die Namen ersetzen, dann kürzen (ein kurzer Name wird zu „Crew“ und macht den Text länger: die Grenze gilt für den fertigen Block)
   const kn = spiel({ crew: 1, names: ['An'] });
   const pa = { nr: 1, tick: 1, grenze: 'andocken', befehle: [], angenommen: 0, abgelehnt: 0, begruendung: 'An '.repeat(30) }, pb = { nr: 2, tick: 2, grenze: 'andocken', befehle: [], angenommen: 0, abgelehnt: 0, begruendung: 'kurz' };
