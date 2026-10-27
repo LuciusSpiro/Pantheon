@@ -431,10 +431,43 @@ function freieFahrt(S, seed) {
   return { infoBlock: infoMax, infoSnapshotMax: infoMitMax, fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, funkBlock: funkMax, funkSnapshotMax: funkMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
 }
 
+// ---------- Aufbau 10 (SUND-04a-3 Orbit): Orbit-Szene des Finales über Hrafnheim, 4 Spieler (die Szene skaliert auf höchstens 3), Rang Tribun, Finale gestartet: Vorwarnung, Flaggschiff, Wachschiffe,
+// 3 römische Verbündete, laufende Treffer; der Block world.finale steht in jedem Snapshot (Worst Case). ----------
+function finaleOrbit(S, seed) {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const space = require('../server/sim/space.js');
+  const Finale = require('../server/sim/finale.js');
+  const Kriegslage = require('../server/sim/kriegslage.js');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-finorbit-mess-'));
+  const g = new Game({ noStore: true, worlds: true, worldSaveSync: true, worldDir: dir, seed, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(dir, 'regie') }, log });
+  const cs = [];
+  for (let i = 0; i < 4; i++) { const c = { send() {}, sendRaw() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'F' + i, name: 'F' + i, color: i }); cs.push(c); }
+  g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 30; k++) g.step();
+  g.space.enemies = [];
+  g.weltsim.ruf.rom = require('../content/welt/ruf-werte.json').werte.raenge.wert.find((r) => r.id === 'tribun').ab;
+  Kriegslage.tick(g, 'test');
+  const fehlerStart = Finale.waehlen(g) || Finale.bestaetigen(g);
+  let max = 0, flagg = false;
+  for (let k = 0; k < Math.max(TICKS, 40 * CONFIG.tickHz); k++) {
+    g.ship.hull = 100;
+    g.step();
+    if (k % 60 === 30) { const e = g.space.enemies.find((x) => !x.flagg); if (e) { e.hp = Math.max(1, e.hp - 5); space.damageEnemy(g, e, 1, e.x - 50, e.y); } }
+    if (g.space.enemies.some((e) => e.flagg)) flagg = true;
+    max = Math.max(max, g.space.enemies.length + (g.space.escorts || []).length);
+    g.sentFinaleKey = null;
+    messen(S, g.snapshot());
+  }
+  const fehler = g.errors + (fehlerStart ? 1 : 0) + (g.simSzene && g.simSzene.modus === 'finale' && flagg ? 0 : 1);
+  g.releaseWorldLock && g.releaseWorldLock();
+  return { fehler, schiffeMax: max };
+}
+
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [] };
+const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit');
+const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
@@ -445,7 +478,8 @@ for (let s = 1; s <= SEEDS; s++) laeufe.flotte.push(Object.assign({ seed: s }, f
 for (let s = 1; s <= SEEDS; s++) laeufe.orbit.push(Object.assign({ seed: s }, orbit(OB, 70 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.freieFahrt.push(Object.assign({ seed: s }, freieFahrt(FF, 80 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s }, verfolgung(VF, 90 + s)));
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), laeufe, ms: Date.now() - t0 };
+for (let s = 1; s <= SEEDS; s++) laeufe.finaleOrbit.push(Object.assign({ seed: s }, finaleOrbit(FO, 100 + s)));
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -477,9 +511,11 @@ zeigen(res.freieFahrt);
 console.log('  Läufe: ' + laeufe.freieFahrt.map((l) => `s${l.seed} ${l.orte} (${l.posten} Posten, ${l.marker} Marker, world.lage ${l.lageBlock} B, world.absicht ${l.absichtBlock} B (Snapshot mit beiden max ${l.absichtSnapshotMax} B), world.funkwahl ${l.funkBlock} B (Snapshot mit Block max ${l.funkSnapshotMax} B), world.info ${l.infoBlock} B (Snapshot mit allen drei max ${l.infoSnapshotMax} B), Snapshot mit Block max ${l.lageSnapshotMax} B, Szene max ${l.szeneMax} B, sz max ${l.szeneSz} B, Phasen ${l.szenePhasen})${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.verfolgung);
 console.log('  Läufe: ' + laeufe.verfolgung.map((l) => `s${l.seed} Ausgang ${l.ausgang}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.finaleOrbit);
+console.log('  Läufe: ' + laeufe.finaleOrbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
+const alleOk = phasenOk && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

@@ -273,9 +273,9 @@ section('Zustandsübergänge (Stubs)', () => {
   s = stubs({ szene: false }); t = mitAngebot(); g = t.g;
   Finale.waehlen(g); const e = Finale.bestaetigen(g);
   ok(e && e.code === 'start' && Finale.phase(g) === null && ws(g).finale.angebot === 1, 'Szene lässt sich nicht bauen: kein Start, das Angebot bleibt');
-  // ohne Ersatz: der Stub von kriegslage-szene.js baut nichts
+  // ohne Ersatz: die echte Orbit-Szene von kriegslage-szene.js (SUND-04a-3 Orbit) baut den Orbit; Tests dazu: tools/test-finale-orbit.js
   ohneStubs(); t = mitAngebot(); g = t.g; Finale.waehlen(g);
-  ok(Finale.bestaetigen(g).code === 'start' && Finale.phase(g) === null, 'echter Stub (finaleStarten liefert null): das Finale startet nicht, nichts bricht');
+  ok(Finale.bestaetigen(g) === null && Finale.phase(g) === 'orbit' && g.simSzene && g.simSzene.modus === 'finale', 'echte Orbit-Szene (finaleStarten): das Finale startet im Orbit');
   // Abspann-Stub fehlt: das Finale endet trotzdem
   Finale.ersetzen('szene', { finaleStarten: () => ({}) });
   t = mitAngebot(); g = t.g; Finale.waehlen(g); Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg');

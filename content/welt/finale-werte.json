@@ -6,7 +6,17 @@
     "ziel": {"wert": {"hex": "1004", "name": "Hrafnheim", "an": "rom"}, "einheit": "Hex der Hauptwelt der Germanen, Fraktion, die sie erobert", "_hinweis": "Die Eroberung gilt der Crew als Offizier Roms (Wirkung hauptwelt_erobert { ort: hex, an })."},
     "bestaetigung": {"wert": {"fenster": 20}, "einheit": "Sekunden (game.time)", "_hinweis": "Zweistufig wie der Verrat: erst die Anfrage, dann die Bestaetigung innerhalb des Fensters. Wer nicht bestaetigt, verpasst nichts: die Anfrage verfaellt ohne Folgen."},
     "abstand_nach_ablehnen": {"wert": 12, "einheit": "Ticks (Spruenge)", "_hinweis": "Pause, bis nach einem Ablehnen wieder ein Angebot kommt."},
-    "abstand_nach_scheitern": {"wert": 0, "einheit": "Ticks (Spruenge)", "_hinweis": "Pause nach Niederlage, Flucht oder gefallener Crew im Finale; bei 0 steht das Angebot sofort wieder."}
+    "abstand_nach_scheitern": {"wert": 0, "einheit": "Ticks (Spruenge)", "_hinweis": "Pause nach Niederlage, Flucht oder gefallener Crew im Finale; bei 0 steht das Angebot sofort wieder."},
+    "orbit_vorwarnung": {"wert": 12, "einheit": "Sekunden (game.time)", "_hinweis": "Orbit (SUND-04a-3): Zeit von der Ankunft bis das erste germanische Schiff erscheint, mindestens 8 s (Test). Die Funk-Ankuendigung kommt sofort bei der Ankunft."},
+    "orbit_erinnerung": {"wert": [6,3], "einheit": "Restsekunden der Vorwarnung", "_hinweis": "Hinweis in der Hinweiszeile bei diesen Restsekunden."},
+    "orbit_flaggschiff": {"wert": {"klasse":"kreuzer","name":"Naglfar","kommandant":"Jarl Sigtrygg","huelle_faktor":{"1":1.2,"2":0.3,"3":0.3},"mitte":{"x":1820,"y":1020}}, "einheit": "Klasse, Schiffsname, Kommandant, Faktor auf die Huelle je Crewgroesse (1, 2, 3; zusaetzlich zur Crew-Skalierung der Gegner, CONFIG.crewScaling; eingemessen mit dem Bot, tools/sim-finale-orbit.js), Aufstellung in Szenenpixeln", "_hinweis": "Festes Flaggschiff der Germanen im Orbit von Hrafnheim, immer ein Kreuzer. Name und Kommandant sind feste Daten (kein Spielername, kein Eintrag im Gedaechtnis der Sim). Mitte = Aufstellung vor der Station (Station 1449/1057, Planet 2122/1219)."},
+    "orbit_wachschiffe": {"wert": {"1":["korvette","korvette"],"2":["korvette","korvette"],"3":["korvette","korvette","korvette"]}, "einheit": "Klassen je Crewgroesse (1, 2, 3 verbundene Spieler)", "_hinweis": "Begleitflotte des Flaggschiffs, skaliert nach Crewgroesse (wie crewScaling). Nie Jaeger als Hauptgegner. Zusammen mit den Verbuendeten und dem Flaggschiff hoechstens CONFIG.flotte.max Schiffe (Test)."},
+    "orbit_wachschiffe_abstand": {"wert": 330, "einheit": "px", "_hinweis": "Ring der Wachschiffe um das Flaggschiff (Startwinkel aus dem eigenen Zufallsstrom der Szene)."},
+    "orbit_verbuendete": {"wert": {"1":["fregatte","korvette"],"2":["fregatte","korvette"],"3":["fregatte","fregatte","fregatte"]}, "einheit": "Klassen roemischer Verbuendeter je Crewgroesse (2 bis 3 Schiffe)", "_hinweis": "Die Flotte von Rom schliesst sich der Crew an (Flotte.aufstellen, Rolle angreifer). Sie verteidigt keinen Hafen: faellt sie, geht die Schlacht weiter; das Notfallprotokoll der Lerche entscheidet."},
+    "orbit_verbuendete_namen": {"wert": ["Aquila","Cornix","Lupa"], "einheit": "Schiffsnamen", "_hinweis": "Nur Namen, keine Personen."},
+    "orbit_verbuendete_huelle": {"wert": 100, "einheit": "Prozent der Klassenhuelle (CONFIG.flotte.hull)", "_hinweis": "Eichung gegen die Gegner."},
+    "orbit_notfall_bis_niederlage": {"wert": 1, "einheit": "Notfallprotokolle der Lerche", "_hinweis": "So viele Notfallprotokolle gelten im Orbit als Niederlage (kein Game Over: das Finale beginnt von vorn)."},
+    "orbit_sieg": {"wert": "flaggschiff_und_wachschiffe", "einheit": "Bedingung", "_hinweis": "Sieg = das Flaggschiff ist zerstoert UND kein Wachschiff steht mehr im Kampf (zerstoert oder abgezogen: faellt das Flaggschiff, brechen die Wachschiffe ab). Wachschiffe allein genuegen nie. Die Station ist kein Ziel: ihre Abwehr gilt mit dem Sieg als gebrochen, der Boden folgt; die Szene schreibt keine Sim-Wirkung und loest keinen Tick aus."}
   },
   "texte": {
     "sprecher": "Oberkommando",
@@ -37,6 +47,16 @@
       "schon_angefragt": "Die Anfrage läuft schon: noch {sek} Sekunden zum Bestätigen.",
       "keine_anfrage": "Keine offene Anfrage, oder die Frist ist abgelaufen. Erst anfragen.",
       "start": "Der Orbit von Hrafnheim lässt sich nicht aufbauen. Es bleibt alles, wie es war."
+    },
+    "orbit": {
+      "sprecher": "Oberkommando",
+      "funk": {
+        "ankunft": "Orbit von Hrafnheim. Das germanische Flaggschiff {schiff} unter {kommandant} sammelt sich mit {n} Wachschiffen, ein harter Kampf. {v} römische Schiffe schließen sich Euch an. Klarmachen, die ersten Gegner kommen in {sek} Sekunden.",
+        "gegner": "{schiff} und die Wachschiffe greifen an!",
+        "sieg": "Das Flaggschiff {schiff} ist gefallen, die Wachschiffe sind weg. Die Abwehr der Station ist gebrochen.",
+        "niederlage": "Die Lerche ist angeschlagen, die Linie bricht.",
+        "hinweis": "Erste Gegner in {sek} s – Klarmachen."
+      }
     }
   }
 }
