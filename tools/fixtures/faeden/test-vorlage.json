@@ -10,7 +10,7 @@
   "beats": [
     {
       "id": "b_bitte", "typ": "bitte", "hinweise": ["h_papiere"],
-      "parameter": { "text_key": "bitte_mission" },
+      "parameter": { "text_key": "hilfe_rom" },
       "optionen": [
         { "id": "zusagen", "text": "Wir helfen euch.", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
         { "id": "ablehnen", "text": "Dafuer haben wir keine Zeit.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
@@ -51,7 +51,7 @@
       }
     },
     {
-      "id": "b_ende", "typ": "abschluss",
+      "id": "b_ende", "typ": "abschluss", "erfolg": { "ereignis": ["verfolgung_gelungen"] },
       "aus": {
         "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
         "gescheitert": { "text_key": "ende_verpasst" }

@@ -54,7 +54,7 @@ section('Daten: Zahlen, Texte, Weigerungen (bitte-werte.json)', () => {
     const t = W.texte[k];
     ok(typeof t === 'string' && t.length <= W.text_max + 40 && t.includes('{ort}') && !/^\{name\}/.test(t), `Text ${k} da, mit Platzhalter {ort}, ohne doppelten Absendernamen am Anfang (der steht im Funk und im Kopf)`);
   }
-  for (const c of ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'unruhig', 'deckel', 'am_boden']) ok(typeof W.weigerung[c] === 'string', `Weigerung ${c} hat einen Text`);
+  for (const c of ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'unruhig', 'am_boden']) ok(typeof W.weigerung[c] === 'string', `Weigerung ${c} hat einen Text`);
   ok(B.weigerung('gibt_es_nicht').text === 'gibt_es_nicht', 'unbekannter Code: der Code selbst (kein Absturz)');
 });
 
@@ -122,7 +122,8 @@ section('Angebot: Ablehnungsgründe (Prüfer, Gefahr, unruhig, Angebot schon off
   const folge = (g2) => [{ typ: 'haltung_aenderung', grund: g2 }];
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('geholfen'), ausgang: 'gelungen' }]).code === 'optionen', 'gleiche Folge und gleicher Ausgang: Scheinwahl abgelehnt');
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('geholfen'), ausgang: 'gescheitert' }]).ok, 'gleiche Folge, anderer Ausgang: erlaubt (echte Wahl)');
-  ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen') }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).code === 'optionen', 'Option mit Folge ohne Ausgang: abgelehnt (sonst bliebe der Beat offen)');
+  ok(pr([{ id: 'a', text: 'A', folge: [{ typ: 'ruf_aenderung', grund: 'funk_rom_gruss' }] }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).code === 'optionen', 'Option mit Ruf-Folge ohne Ausgang: abgelehnt (sonst bliebe der Beat als Zusage offen)');
+  ok(pr([{ id: 'a', text: 'A', folge: folge('hingehalten') }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }]).ok, 'Welle 3: Option ohne Ausgang mit Haltungs-Folge (Später, hingehalten) ist erlaubt: sie stellt die Bitte zurück und kostet Haltung');
   ok(pr([{ id: 'a', text: 'A', folge: [] }, { id: 'b', text: 'B', folge: [] }]).code === 'optionen', 'zwei folgenlose Optionen: Scheinwahl');
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }], { text: 'x'.repeat(D.BITTE.text_max + 1) }).code === 'text', 'Text zu lang');
   ok(pr([{ id: 'a', text: 'A', folge: folge('geholfen'), ausgang: 'gelungen' }, { id: 'b', text: 'B', folge: folge('bitte_abgelehnt'), ausgang: 'gescheitert' }], { absender: { name: 'X', fraktion: 'xyz', portrait: 1 } }).code === 'absender', 'unbekannte Fraktion des Absenders');
@@ -133,37 +134,41 @@ section('Angebot: Ablehnungsgründe (Prüfer, Gefahr, unruhig, Angebot schon off
   g.simSzene = null;
 });
 
-section('Deckel: eigener Deckel, Option entfällt statt Scheinwahl, Zurückziehen beim Antworten', () => {
+section('Deckel (Welle 3): er begrenzt NUR den Ruf, nie die Annahme einer Bitte', () => {
   const { g, f } = bereit();
-  // Deckel voll: die Option mit Ruf-Folge entfällt, die zwei übrigen (Ablehnen, Später) bleiben eine echte Wahl
+  const alle = D.vorlage(BAS).beats[0].optionen.map((o) => ({ id: o.id, text: o.text, folge: o.folge, ausgang: o.ausgang }));
+  // Deckel voll: das Angebot kommt trotzdem, mit ALLEN Optionen (auch die Annahme mit Ruf-Folge)
   ws(g).faeden.bitte = null;
   ws(g).faeden.bitteLog = [[ws(g).faeden.t, 2]];
-  const v = D.vorlage(BAS).beats[0].optionen;
-  const r = B.anbieten(g, { fadenId: f.id, beatId: 'b_bitte', absender: { name: 'Quintus Serran', fraktion: 'rom', portrait: 2 }, text: 'Hilfe', optionen: v.map((o) => ({ id: o.id, text: o.text, folge: o.folge, ausgang: o.ausgang })) });
-  ok(r.ok && r.bitte.optionen.map((x) => x.id).join(',') === 'ablehnen,spaeter', 'Deckel voll: nur die Optionen ohne Ruf-Folge (zusagen entfällt)');
+  const r = B.anbieten(g, { fadenId: f.id, beatId: 'b_bitte', absender: { name: 'Quintus Serran', fraktion: 'rom', portrait: 2 }, text: 'Hilfe', optionen: alle });
+  ok(r.ok && r.bitte.optionen.map((x) => x.id).join(',') === alle.map((x) => x.id).join(','), 'Deckel voll: das Angebot behält alle Optionen (zusagen bleibt)');
   ws(g).faeden.bitte = null;
-  ws(g).faeden.bitteLog = [];
-  // Nur Optionen mit Ruf-Folge, Deckel voll: weniger als zwei Optionen, kein Angebot
+  // nur Optionen mit Ruf-Folge, Deckel voll: trotzdem ein Angebot
   const nurRuf = [
     { id: 'a', text: 'A', folge: [{ typ: 'ruf_aenderung', grund: 'funk_rom_gruss' }], ausgang: 'gelungen' },
     { id: 'b', text: 'B', folge: [{ typ: 'ruf_aenderung', grund: 'funk_kon_nachricht' }], ausgang: 'gescheitert' },
-    { id: 'c', text: 'C', folge: [{ typ: 'ruf_aenderung', grund: 'reise_havarie_rom' }], ausgang: 'gescheitert' },
   ];
   ws(g).faeden.bitteLog = [[ws(g).faeden.t, 2]];
   const r2 = B.anbieten(g, { fadenId: f.id, beatId: 'b_bitte', absender: { name: 'X', fraktion: 'rom', portrait: 2 }, text: 'Hilfe', optionen: nurRuf });
-  ok(!r2.ok && r2.code === 'deckel', 'Deckel voll und keine Option ohne Ruf: kein Angebot (keine Scheinwahl)');
+  ok(r2.ok && r2.bitte.optionen.length === 2, 'Deckel voll und nur Ruf-Optionen: das Angebot kommt (der Deckel nimmt keine Option weg)');
   ws(g).faeden.bitteLog = [];
-  // zwischen Angebot und Antwort füllt sich der Deckel: zurückgezogen, ohne Folge, der Beat bleibt
+  // zwischen Angebot und Antwort (und beim Antworten) ist der Deckel voll: die Annahme gilt (Ausgang, Haltung), nur der Ruf entfällt
   ws(g).faeden.bitte = null;
-  ws(g).faeden.bitteLog = [];
   const rr = bereit();
   const o = bitte(rr.g);
   const haltungVor = liste(rr.g)[0].nsc.haltung, romVor = ws(rr.g).ruf.rom;
   ws(rr.g).faeden.bitteLog = [[ws(rr.g).faeden.t, 2]];
   const ant = B.beantworten(rr.g, 'zusagen', o.nr);
-  ok(ant && ant.code === 'deckel', 'Antwort bei vollem Deckel: Weigerung deckel');
-  ok(bitte(rr.g) === null && liste(rr.g)[0].phase === 'laeuft' && liste(rr.g)[0].laufend.gewaehlt === undefined, 'Angebot zurückgezogen, Beat unverändert');
-  ok(liste(rr.g)[0].nsc.haltung === haltungVor && ws(rr.g).ruf.rom === romVor, 'keine Folge gebucht');
+  ok(ant === null, 'Antwort bei vollem Deckel: keine Weigerung, die Annahme gilt');
+  ok(bitte(rr.g) === null && liste(rr.g)[0].beat === 1 && liste(rr.g)[0].phase === 'wartet', 'Annahme bei vollem Deckel: Ausgang gelungen, der Faden geht zum nächsten Beat');
+  ok(liste(rr.g)[0].nsc.haltung > haltungVor, 'Annahme bei vollem Deckel: die Haltung wird gebucht (' + haltungVor + ' -> ' + liste(rr.g)[0].nsc.haltung + ')');
+  ok(ws(rr.g).ruf.rom === romVor, 'Annahme bei vollem Deckel: der Ruf entfällt (Deckel begrenzt den Ruf)');
+  ok(ws(rr.g).faeden.bitteLog.length === 1, 'der volle Deckel bleibt wie er war (der entfallene Ruf zählt nicht)');
+  // freier Deckel: derselbe Weg bucht den Ruf und zählt ihn genau einmal im Deckel
+  const fr = bereit(); const of = bitte(fr.g);
+  const rom0 = ws(fr.g).ruf.rom;
+  B.beantworten(fr.g, 'zusagen', of.nr);
+  ok(Math.abs((ws(fr.g).ruf.rom - rom0) - 0.25) < 1e-6 && ws(fr.g).faeden.bitteLog.length === 1, 'freier Deckel: Ruf +0,25 und genau ein Eintrag im Deckel (kein doppeltes Zählen)');
 });
 
 section('Antwort: erste Antwort gilt, Annahme, Ablehnung, Später', () => {
@@ -396,7 +401,7 @@ section('L11: bei angekuendigter Faden-Gefahr (Vorlauf, noch keine Gegner) gibt 
   const RE = require('../server/sim/reise-ereignis.js');
   const r = registriere(alsVorlage('test_gefahr_l11', (v) => {
     v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
-    v.beats = [{ id: 'b_szene', typ: 'raumschlacht', aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } }, { id: 'b_ende', typ: 'abschluss', aus: { gelungen: {}, gescheitert: {} } }];
+    v.beats = [{ id: 'b_szene', typ: 'raumschlacht', aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } }, { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['raumschlacht_gelungen'] }, aus: { gelungen: {}, gescheitert: {} } }];
   }));
   if (!r.ok) throw new Error(r.fehler.join('; '));
   vorlageBitte();

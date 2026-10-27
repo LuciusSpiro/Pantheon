@@ -17,6 +17,7 @@
 //   game.fadenWarte [ { fadenId, beatId, art, nsc, parameter, szene } ], game.fadenHilfe { fadenId, beatId, nsc, schiff, name, versucht, n, ally: { tag, kampf } | null }.
 // Abweichung (Auftrag, Entscheidung): geiseln_befreien am Boden entfaellt; befreiung ist eine Raumszene mit Wachschiffen (Boden-Szenen laufen in der Freien Fahrt nicht).
 const Faden = require('./faden.js');
+const D = require('./faden-daten.js');
 const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
 const Hinweis = require('./faden-hinweis.js');
@@ -244,6 +245,36 @@ function beatStarten(game, art, faden, ctx) {
   return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
 }
 for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, ctx); } });
+
+// Welle 3: die Befreiung findet am ORT DES NSC statt (faden.parameter.ort), nirgends sonst. Ist das Schiff schon dort, beginnt sie wie jede Szene (Vorwarnung, Vorlauf, Wachschiffe).
+// Sonst sagt der Funk, wo er festsitzt, der Beat laeuft und wartet auf die Ankunft (befreiungAnkunft, Takt aus faden-p3.update, wie der Notruf): der Faden SELBST ist der Zustand, nichts davon wird
+// gespeichert; die Frist des Beats scheitert die Befreiung, wenn die Crew nicht kommt. Ein Faden ohne Ort kann nichts befreien: gescheitert.
+const HEX = /^\d{4}$/;
+const hexName = (hex) => { try { return Sektoren.hexName(hex) || hex; } catch (e) { return hex; } };
+const echteBefreiung = () => Bausteine.vonId('befreiung') === befreiungBaustein;
+const befreiungBaustein = {
+  starten(game, faden, ctx) {
+    const ort = faden.parameter && faden.parameter.ort;
+    if (!ort || !HEX.test(ort)) return { ausgang: 'gescheitert' };
+    if (Sektoren.hexVonOrt(game.ship.scene) === ort) return beatStarten(game, 'befreiung', faden, ctx);
+    funk(game, fmt(T.befreiung_ort, { name: faden.nsc.name, ort: hexName(ort) }));
+    return { laeuft: true };
+  },
+};
+Bausteine.registriere('befreiung', befreiungBaustein);
+// Takt: jeder laufende Befreiungs-Beat, dessen Szene noch nicht eingeplant ist, beginnt, sobald das Schiff am Ort des NSC ist
+function befreiungAnkunft(game, hier) {
+  if (!aktiv(game) || !echteBefreiung() || !game.ship) return;
+  const F = Faden.zustandVon(game);
+  for (const f of F.liste.slice()) {
+    if (f.phase !== 'laeuft' || !f.laufend) continue;
+    const beat = D.vorlage(f.vorlage).beats[f.beat];
+    if (!beat || beat.id !== f.laufend.beat || D.BEATS[beat.typ].baustein !== 'befreiung') continue;
+    if (f.parameter.ort !== hier) continue;
+    if ((game.fadenSzene && game.fadenSzene.fadenId === f.id) || (game.fadenWarte || []).some((it) => it.fadenId === f.id)) continue;   // schon eingeplant oder laeuft
+    starten(game, { art: 'befreiung', fadenId: f.id, beatId: beat.id, nsc: f.nsc, parameter: f.parameter });
+  }
+}
 Bausteine.registriere('fracht', {
   starten(game, faden, ctx) {
     const p = ctx.beat.parameter || {};
@@ -268,4 +299,4 @@ function andockenHook(game) {
 // Zustand für Tests und Anzeige
 const zustand = (game) => ({ szene: game.fadenSzene || null, warte: (game.fadenWarte || []).slice(), hilfe: game.fadenHilfe || null });
 
-module.exports = { starten, update, andockenHook, zuruecksetzen, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };
+module.exports = { befreiungAnkunft, starten, update, andockenHook, zuruecksetzen, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };

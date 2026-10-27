@@ -14,8 +14,8 @@
 //                 Rate     KEINE: ein Faden-Befehl zählt nie gegen die Rate der Plan-Befehle und hat keine Abkühlzeit (regie-werte.json abkuehlung.sabotage = 0).
 //                 Obergrenze wartender Befehle: vorgemerkt_max gilt nicht beim Vormerken der Sprengung; der Leser (regie-befehle lesen) schneidet sie nie über vorgemerkt_max ab.
 //               Gelungen, wenn die Sprengung angekündigt ist; gescheitert, wenn es kein gültiges Ziel gibt oder der Kern die Sprengung ablehnt (Fallback: der Faden ändert sich, Funk und Chronik).
-//   abschluss   (letzter Beat) Der Faden endet. Ausgang gelungen: die Crew hat den Faden zu Ende gespielt (auch wenn der NSC dabei gefallen ist: der Text sagt es).
-//               Gedächtnis, Ruf und Haltung schreiben die Ausgänge der Vorlage (Wirkungen aus den Daten, faden.js beatAusgang). Ein Abschluss scheitert nie.
+//   abschluss   (letzter Beat) Der Faden endet. Welle 3: gelungen nur, wenn die Crew etwas geleistet hat (Daten: beat.erfolg.ereignis, Gedächtnis des NSC), sonst gescheitert. Nur der gelungene Abschluss
+//               zahlt Haltung und Ruf seines Ausgangs (Wirkungen aus den Daten, faden.js beatAusgang); ein gescheiterter Faden endet ohne Belohnung (Text abschluss_gescheitert, ein Toter: abschluss_tot).
 //
 //   update(game)  Takt (Aufrufer: reise-ereignis.update). Wartet auf die Ankunft am Ort JEDES laufenden Notruf-Beats. Nacharbeit L8: es gibt keinen eigenen Laufzeitzustand mehr (früher game.fadenNotruf,
 //                 ein Platz, nicht gespeichert): der Faden SELBST (phase laeuft, laufender Beat vom Baustein notruf, gespeichert) ist der Zustand, der Ort kommt aus dem Beat (parameter.hex) oder dem
@@ -26,6 +26,7 @@ const TX = require('../../content/faeden/p3-texte.json');
 const T = TX.texte, W = TX.werte;
 const HEX = /^\d{4}$/;
 const D = require('./faden-daten.js');
+const Pruefer = require('./faden-pruefer.js');
 const Hinweis = () => require('./faden-hinweis.js');
 const Faden = () => require('./faden.js');
 const Bitte = () => require('./faden-bitte.js');
@@ -87,6 +88,7 @@ function update(game) {
   const F = Faden().zustandVon(game);
   const hier = Sektoren.hexVonOrt(game.ship.scene);
   if (!hier) return;
+  try { require('./faden-szene.js').befreiungAnkunft(game, hier); } catch (e) { fehlerZaehlen(game, 'faden-befreiung', e); }   // Welle 3: eine wartende Befreiung beginnt, sobald das Schiff am Ort des NSC ist
   for (const f of F.liste.slice()) {
     if (notrufOrt(f) !== hier) continue;
     const nsc = nscVon(game, f.nsc.id) || f.nsc;
@@ -118,7 +120,8 @@ const enthuellung = {
     const z = ziel(game, faden.parameter && faden.parameter.ort);
     const r = z ? Regie().fadenSabotage(game, z) : { ok: false, grund: 'kein römischer Posten in der Nähe' };
     // Nacharbeit F7: hat die Crew nie eine Ware von ihm geladen (Ablehnen, kein Hafen), steht nirgends „die Fracht“
-    const mitFracht = (nsc.gedaechtnis || []).some((g) => /^fracht_/.test(g.ereignis));
+    // Welle 3: nur eine Ware, die WIRKLICH an Bord war (Ereignis fracht_gelungen oder fracht_gescheitert), nicht fracht_ohne_ware (kein Hafen, nie geladen)
+    const mitFracht = (nsc.gedaechtnis || []).some((g) => g.ereignis === 'fracht_gelungen' || g.ereignis === 'fracht_gescheitert');
     const key = r.ok ? (mitFracht ? 'enthuellung_sabotage' : 'enthuellung_sabotage_ohne_fracht') : 'enthuellung_ohne';
     sagen(game, nsc, fmt(T[key], { name: nsc.name, ziel: z ? hexName(z) : '', ort: hexName((faden.parameter && faden.parameter.ort) || '') }));
     logbuch(game, 'faden_baustein', { ausgang: r.ok ? 'sabotage' : 'sabotage_abgelehnt', key: 'enthuellung', begruendung: r.ok ? `Sprengung bei ${hexName(z)} angekündigt (ab Tick ${r.ab})` : `Keine Sprengung: ${r.grund}`, plan: { faden: faden.id, beat: ctx.beat.id, ziel: z || null } });
@@ -127,15 +130,18 @@ const enthuellung = {
 };
 
 // ---------- abschluss
+// Welle 3: der Ausgang haengt davon ab, was die Crew geleistet hat (beat.erfolg.ereignis, Daten, Pruefer ERFOLG_FEHLT): nur ein gelungener Abschluss zahlt seine Folgen (Haltung, Ruf).
+// Ein Toter spricht nie selbst (tot geht vor); ohne Erfolg bekommt der NSC den Text abschluss_gescheitert.
 const abschluss = {
   id: 'abschluss',
   starten(game, faden, ctx) {
     const nsc = nscVon(game, faden.nsc.id) || faden.nsc;
-    const key = nsc.status === 'tot' ? 'abschluss_tot' : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
+    const gelungen = Pruefer.abschlussGelungen(ctx.beat, nsc);
+    const key = nsc.status === 'tot' ? 'abschluss_tot' : !gelungen ? 'abschluss_gescheitert' : (ctx.beat.parameter && ctx.beat.parameter.text_key && T[ctx.beat.parameter.text_key] ? ctx.beat.parameter.text_key : 'abschluss_gelungen');
     const text = fmt(T[key], { name: nsc.name });
     if (nsc.status === 'tot') Bitte().funkSprecher(game, W.tot_sprecher.wert, text);   // Nacharbeit F3d: ein Toter spricht nie selbst (kein eigener Name, kein Porträt)
     else sagen(game, nsc, text);
-    return { ausgang: 'gelungen' };
+    return { ausgang: gelungen ? 'gelungen' : 'gescheitert' };
   },
 };
 

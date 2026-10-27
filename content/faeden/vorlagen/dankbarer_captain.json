@@ -62,7 +62,12 @@
         {
           "id": "spaeter",
           "text": "Meldet euch später noch einmal.",
-          "folge": []
+          "folge": [
+            {
+              "typ": "haltung_aenderung",
+              "grund": "hingehalten"
+            }
+          ]
         }
       ],
       "aus": {
@@ -123,6 +128,11 @@
     {
       "id": "b_abschluss",
       "typ": "abschluss",
+      "erfolg": {
+        "ereignis": [
+          "raumschlacht_gelungen"
+        ]
+      },
       "aus": {
         "gelungen": {
           "folge": [

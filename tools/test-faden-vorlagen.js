@@ -192,7 +192,7 @@ async function main() {
     if (id === 'falscher_haendler') { const ziel = freierRomPosten(g); if (ziel) g.weltsim.zustand.hexe[ziel].posten = true; }
     const r = await lauf(g, id, pfad, { hex: id === 'falscher_haendler' ? '0203' : '0403' });
     const f = r.faeden[0];
-    ok(f && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gelungen', `${id} im Scheitern: der Faden kommt bis zum Abschluss, nichts blockiert`);
+    ok(f && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert', `${id} im Scheitern: der Faden kommt bis zum Abschluss, nichts blockiert; ohne Leistung der Crew endet er gescheitert (Welle 3: keine Belohnung)`);
     const gespielt = (r.seqs.get(f && f.id) || []).join(' > ');
     const prot = ((g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || []).filter((e) => e.art === 'faden_ereignis').map((e) => e.ausgang + ':' + (e.begruendung || '')).join(' | ');
     ok(gespielt === erwartet(v, pfad).join(' > '), `${id} im Scheitern: der Weg ueber die gescheiterten Ausgaenge (${gespielt}) [${prot.slice(0, 500)}]`);

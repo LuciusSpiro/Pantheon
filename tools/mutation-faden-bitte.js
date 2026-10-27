@@ -33,11 +33,10 @@ const MUTATIONEN = [
   [BI, 'if (ohneAusgang.length) {', 'if (false) {', 'Angebot: Option mit Folge ohne Ausgang wird angeboten (Beat bliebe offen)'],
   [BI, "  if (game.weltsim.funkwahl && game.weltsim.funkwahl.offen) return { ok: false, code: 'funk_offen' };", '', 'Angebot: neben einer Funk-Antwort'],
   // ---- Deckel
-  [BI, 'const erlaubt = opts.filter((x) => passt(rufBetrag(x.folge), raum));', 'const erlaubt = opts;', 'Deckel: Optionen mit Ruf-Folge bleiben trotz vollem Deckel im Angebot'],
-  [BI, "  if (!passt(betrag, deckelRaum(F))) { F.bitte = null; return fehl('deckel'); }", "  if (false) { F.bitte = null; return fehl('deckel'); }", 'Deckel: beim Antworten nicht geprüft'],
+  [BI, '  const erlaubt = opts;   // Welle 3:', '  const erlaubt = opts.filter((x) => rufBetrag(x.folge) <= 1e-9 || rufBetrag(x.folge) <= deckelRaum(F) + 1e-9);   // Welle 3:', 'Deckel: Optionen mit Ruf-Folge entfallen aus dem Angebot (Welle 3: der Deckel nimmt nie eine Option weg)'],
+  [FD, '  folgenAnwenden(game, f, opt.folge, true);   // Welle 3:', '  folgenAnwenden(game, f, opt.folge, false);   // Welle 3:', 'Deckel: die Folge der Option geht am Deckel vorbei (Ruf nicht begrenzt)'],
   [BI, '  F.bitteLog = F.bitteLog.filter((x) => F.t - x[0] < BW.fenster_taetigkeiten);', '', 'Deckel: läuft nie ab'],
-  [BI, 'if (betrag > 0) F.bitteLog.push([F.t, betrag]);', '', 'Deckel: der Betrag wird nicht gebucht'],
-  [BI, 'const passt = (betrag, raum) => betrag <= 1e-9 || betrag <= raum + 1e-9;', 'const passt = (betrag, raum) => betrag <= raum + 1e-9;', 'Deckel: eine Option ohne Ruf-Folge entfällt bei vollem Deckel (Scheinwahl-Regression)'],
+  [FD, '      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); }', '      if (b <= BF.deckelRaum(F) + 1e-9) { rufAn.push(w); }', 'Deckel: der Betrag wird nicht gebucht'],
   // ---- Antwort: erste gilt, Nummer, Ausgang, Folgen, Funk
   [BI, "  if (!off) return fehl(F.bitteZuletzt && nr === F.bitteZuletzt.nr ? 'schon_beantwortet' : 'kein_angebot');", "  if (!off) return fehl('kein_angebot');", 'Antwort: „schon beantwortet“ fehlt (die erste gilt nicht)'],
   [BI, '  F.bitteZuletzt = { nr: off.nr };', '', 'Antwort: die erste Antwort wird nicht festgehalten'],

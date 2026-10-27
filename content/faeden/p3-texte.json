@@ -31,6 +31,7 @@
     "enthuellung_sabotage_ohne_fracht": "Ich bin Germane. Meine Ladung geht auch ohne euch hoch: {ziel}. Warnt es!",
     "enthuellung_ohne": "Ich bin Germane. Die Ladung zündet nicht: kein römischer Posten bei {ort}.",
     "abschluss_gelungen": "Danke, dass ihr mit mir gegangen seid. Ich vergesse nicht, was ihr getan habt.",
+    "abschluss_gescheitert": "Von {name} hört ihr nichts mehr. Die Sache verläuft im Sand.",
     "abschluss_tot": "{name} ist tot. Der Name bleibt auf den Karten der Crew."
   }
 }

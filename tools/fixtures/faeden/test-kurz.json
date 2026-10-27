@@ -10,6 +10,6 @@
   "beats": [
     { "id": "k_bitte", "typ": "bitte", "hinweise": ["h_logbuch"], "aus": { "gelungen": { "status": "verbuendet", "weiter": "k_enthuell" }, "gescheitert": { "status": "schuldet_nichts", "weiter": "k_ende" } } },
     { "id": "k_enthuell", "typ": "enthuellung", "aus": { "gelungen": { "status": "feindlich" }, "gescheitert": { "status": "geflohen" } } },
-    { "id": "k_ende", "typ": "abschluss", "aus": { "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] }, "gescheitert": {} } }
+    { "id": "k_ende", "typ": "abschluss", "erfolg": { "ereignis": ["enthuellung_gelungen"] }, "aus": { "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] }, "gescheitert": {} } }
   ]
 }

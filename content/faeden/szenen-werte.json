@@ -46,6 +46,7 @@
       "verloren": "Die Ware ist verloren: {ware} erreicht {hafen} nicht mehr.",
       "kein_ziel": "Kein Hafen für euch in Reichweite von {ort}: die Ware bleibt, wo sie ist."
     },
+    "befreiung_ort": "{name} sitzt bei {ort} fest. Fliegt hin und vertreibt die Wachen.",
     "unterbrochen": "Die Szene ist unterbrochen. Der Auftrag wird später erneut angeboten.",
     "szenenwechsel": "Der Sektor wurde verlassen. Die Szene ist beendet.",
     "warteschlange_voll": "Eine weitere Szene kann im Moment nicht eingeplant werden."

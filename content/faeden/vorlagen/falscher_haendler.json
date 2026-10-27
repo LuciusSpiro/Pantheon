@@ -18,7 +18,7 @@
       "optionen": [
         { "id": "annehmen", "text": "Wir bringen eure Ware.", "ausgang": "gelungen", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
         { "id": "ablehnen", "text": "Sucht euch jemand anderen.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
-        { "id": "spaeter", "text": "Meldet euch später.", "folge": [] }
+        { "id": "spaeter", "text": "Meldet euch später.", "folge": [{ "typ": "haltung_aenderung", "grund": "hingehalten" }] }
       ],
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "b_fracht" },
@@ -57,7 +57,7 @@
       }
     },
     {
-      "id": "b_abschluss", "typ": "abschluss",
+      "id": "b_abschluss", "typ": "abschluss", "erfolg": { "ereignis": ["raumschlacht_gelungen"] },
       "aus": {
         "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
         "gescheitert": { "folge": [] }

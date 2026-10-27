@@ -128,7 +128,7 @@ const MUTATIONEN = [
   [RS, "  if (!treffer || !ReiseEreignis.abstandFrei(game)) {", "  if (!treffer) {", 'Abfangen: ignoriert den Abstand zu Reise-Ereignissen'],
   [RS, "  const treffer = game.rng.chance(p);", "  const treffer = ReiseEreignis.abstandFrei(game) && game.rng.chance(p);", 'Abfangen: der Wurf wird bei zu kleinem Abstand nicht gezogen'],
   [RE, "  if (game.simSzene) {   // zwei Kämpfe übereinander gibt es nicht: der Notruf bleibt offen, bis die Szene vorbei ist", "  if (false) {", 'Notruf: Gegner auch bei laufender Sim-Szene'],
-  [RE, "if (game.simSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L);", "if (game.time >= L.ab) eintreffen(game, L);", 'Gefahr: der Vorlauf wartet nicht auf das Ende der Sim-Szene'],
+  [RE, "if (game.simSzene || game.fadenSzene) L.ab = Math.max(L.ab, game.time + 1); else if (game.time >= L.ab) eintreffen(game, L);", "if (game.time >= L.ab) eintreffen(game, L);", 'Gefahr: der Vorlauf wartet nicht auf das Ende der Sim-Szene'],
   [RE, " || R.n !== L.sprung) { weg(); continue; }", ") { weg(); continue; }", 'Flucht: zurück in dieselbe Szene beendet die Gefahr nicht'],
   [RE, "  const offen = hex && !durchflug(game) && R.offen", "  const offen = hex && R.offen", 'Notruf: Durchflug im Schnellsprung gilt als beantwortet'],
   [RE, "  if (R.rufLog.reduce((s, x) => s + x[1], 0) + betrag > WERTE.ruf_max_je_100) return 0;", "  if (false) return 0;", 'Ruf: kein Deckel'],

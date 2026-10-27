@@ -177,8 +177,8 @@ function haltungBuchen(game, wirkungen) {
 }
 
 // Folgen eines Ausgangs oder einer Option (Wirkungen des Katalogs, Zahlen aus den Daten)
-// mitDeckel: die Folge eines AUSGANGS (Abschluss etc.) zaehlt im Faeden-Ruf-Deckel (faden-bitte.js deckelRaum: eine Schiene fuer alle Faeden-Ruf-Folgen, Daten bitte-werte.json ruf_deckel).
-// Die Folgen einer gewaehlten Option zaehlt die Bitte selbst (beantworten) und kommen ohne Deckel hier an.
+// mitDeckel: die Folge eines AUSGANGS (Abschluss etc.) und die einer gewaehlten Option der Bitte zaehlen im Faeden-Ruf-Deckel (faden-bitte.js deckelRaum: eine Schiene fuer alle Faeden-Ruf-Folgen,
+// Daten bitte-werte.json ruf_deckel). Welle 3: der Deckel begrenzt NUR den Ruf; eine Ruf-Folge, die nicht mehr passt, entfaellt (Logbuch ruf_deckel), die Haltung und der Ausgang gelten.
 function folgenAnwenden(game, f, folge, mitDeckel) {
   const ruf = [], halt = [];
   for (const x of folge || []) {
@@ -320,7 +320,9 @@ function beatAusgang(game, fadenId, ausgang) {
   const o = (beat.aus || {})[ausgang] || {};
   if (o.status && f.nsc.status !== 'tot') f.nsc.status = o.status;   // ein toter NSC bleibt tot
   folgenAnwenden(game, f, o.folge, true);
-  gedaechtnisEintragen(f.nsc, ws.tickZahl, beat.typ + '_' + ausgang, o.text_key || beat.id);
+  // Welle 3: ein Beat mit Ware (Katalog ereignis_ohne_ware), der scheitert, OHNE dass je eine Ware an Bord war (kein Hafen in Reichweite), hinterlaesst nicht „fracht_gescheitert“: der NSC erinnert sich nur an eine Ladung, die es gab
+  const ereignis = ausgang === 'gescheitert' && cat.ereignis_ohne_ware && !f.fracht ? cat.ereignis_ohne_ware : beat.typ + '_' + ausgang;
+  gedaechtnisEintragen(f.nsc, ws.tickZahl, ereignis, o.text_key || beat.id);
   f.laufend = null; f.zaehler = 0;
   if (f.fracht && ausgang === 'gescheitert') { try { require('./faden-fracht.js').verlustMelden(game, f); } catch (e) { fehlerZaehlen(game, 'faden-fracht-funk', e); } }   // Nacharbeit F6: die Crew hoert, dass die Ware weg ist
   delete f.fracht;   // SUND-04a-2 P1: der Beat ist zu Ende (Ausgang, Frist): eine Ware an Bord ist weg
@@ -370,7 +372,7 @@ function optionWaehlen(game, fadenId, optionId) {
   const opt = (beat.optionen || []).find((x) => x.id === optionId);
   if (!opt) return { ok: false, grund: 'unbekannte Option' };
   f.laufend.gewaehlt = opt.id;
-  folgenAnwenden(game, f, opt.folge);
+  folgenAnwenden(game, f, opt.folge, true);   // Welle 3: der Ruf-Deckel begrenzt nur den RUF (eine Ruf-Folge ueber dem Deckel entfaellt), Haltung und Ausgang der Option gelten immer
   if (opt.ausgang) beatAusgang(game, f.id, opt.ausgang);
   return { ok: true, ausgang: opt.ausgang || null };
 }

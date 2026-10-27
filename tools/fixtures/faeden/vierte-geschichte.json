@@ -4,7 +4,7 @@
   "titel": "Vierte Geschichte (nur Daten, Abnahme 14a)",
   "ausloeser": [{ "art": "notruf", "ausgang": "gelungen" }],
   "volk_erlaubt": ["rom", "kon"],
-  "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
+  "nsc": { "status": "aktiv", "haltung": 2, "klassen": ["frachter", "kurier"] },
   "hinweise": {},
   "beats": [
     {
@@ -13,7 +13,7 @@
       "optionen": [
         { "id": "annehmen", "text": "Wir helfen.", "ausgang": "gelungen", "folge": [{ "typ": "haltung_aenderung", "grund": "geholfen" }] },
         { "id": "ablehnen", "text": "Nein danke.", "ausgang": "gescheitert", "folge": [{ "typ": "haltung_aenderung", "grund": "bitte_abgelehnt" }] },
-        { "id": "spaeter", "text": "Später.", "folge": [] }
+        { "id": "spaeter", "text": "Später.", "folge": [{ "typ": "haltung_aenderung", "grund": "hingehalten" }] }
       ],
       "aus": {
         "gelungen": { "status": "verbuendet", "weiter": "v_dank" },
@@ -37,7 +37,7 @@
       }
     },
     {
-      "id": "v_abschluss", "typ": "abschluss",
+      "id": "v_abschluss", "typ": "abschluss", "erfolg": { "ereignis": ["notruf_gelungen"] },
       "aus": {
         "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }] },
         "gescheitert": { "folge": [] }
