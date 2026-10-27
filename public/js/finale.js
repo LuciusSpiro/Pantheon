@@ -17,9 +17,9 @@
   const TEXTE = {
     tag_angebot: 'ANGEBOT', tag_anfrage: 'ANFRAGE', tag_laeuft: 'LÄUFT', tag_ende: 'ENTSCHIEDEN',
     anfragen: 'Entscheidungsschlacht', bestaetigen: 'Bestätigen ({n} s)', ablehnen: 'Ablehnen',
-    frist: 'Noch {n} s zum Bestätigen. Danach bleibt alles, wie es ist.', angebot_hinweis: 'Zwei Schritte: erst anfragen, dann bestätigen.',
+    frist: 'Danach bleibt alles, wie es ist.', angebot_hinweis: 'Erst anfragen, dann bestätigen.',
     status_orbit: 'Die Flotte im Orbit von Hrafnheim.', status_boden: 'Die Landung und der Schrein von Asgard.', status_ende: 'Die Entscheidung ist gefallen.',
-    gewaehlt_waehlen: 'Angefragt: jetzt bestätigen.', gewaehlt_bestaetigen: 'Die Entscheidungsschlacht beginnt.', gewaehlt_ablehnen: 'Abgelehnt, ohne Folgen.', nicht_moeglich: 'Nicht möglich.',
+    gewaehlt_waehlen: 'Angefragt: jetzt bestätigen.', gewaehlt_bestaetigen: 'Die Schlacht beginnt.', gewaehlt_ablehnen: 'Abgelehnt, ohne Folgen.', nicht_moeglich: 'Nicht möglich.',
     zuschauer: 'Zuschauer bedienen nicht', wartet: 'Warte auf den Server …',
   };
   const uhr = () => (typeof store.uhr === 'function' ? store.uhr() : (typeof performance !== 'undefined' ? performance.now() : Date.now()));

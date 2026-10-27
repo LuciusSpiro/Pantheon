@@ -50,6 +50,7 @@ const block = (o) => Object.assign({ frei: 1, ab: 'Tribun', name: ANZ.name, text
 
 section('finale.js: Modell, Frist, Löschsignal, welcome, Lobby');
 {
+  for (const bad of [null, undefined, 'x', 5, []]) { let fehler = null, r; try { r = FI.modellAus(bad); } catch (e) { fehler = e; } ok(!fehler && r === null, 'modellAus(' + JSON.stringify(bad) + ') ist null, ohne Ausnahme'); }
   FI.lesen({ t: 'welcome' });
   ok(FI.modell() === null, 'ohne Block: keine Karte');
   FI.lesen(snap(block({ angebot: 1 })));
@@ -67,9 +68,10 @@ section('finale.js: Modell, Frist, Löschsignal, welcome, Lobby');
   FI.lesen(snap(block({ angebot: 1 })));
   FI.lesen(snap(block({ angebot: 1, anfrage: FENSTER })));
   ok(FI.modell().zustand === 'anfrage' && FI.modell().rest === FENSTER, 'neue Anfrage nach dem Verfall: die Frist beginnt neu');
-  FI.lesen(snap(block({ angebot: 1, anfrage: FENSTER })));
   uhr.t += 3000;
-  ok(FI.modell().rest === FENSTER - 3, 'derselbe Block noch einmal: die Frist läuft weiter (kein Neustart des Zählers)');
+  FI.lesen(snap(block({ angebot: 1, anfrage: FENSTER })));
+  uhr.t += 1000;
+  ok(FI.modell().rest === FENSTER - 4, 'derselbe Block noch einmal: die Frist läuft weiter (kein Neustart des Zählers)');
   FI.lesen(snap(block({ phase: 'orbit' })));
   m = FI.modell();
   ok(m.zustand === 'phase' && m.phase === 'orbit' && m.rest === 0, 'läuft: Phase orbit, kein Rest');
@@ -266,6 +268,18 @@ section('Zuschauer sehen die Karte, bedienen sie nicht');
   const v1 = T.view(1);
   for (const code of ['KeyE', 'KeyN']) TU.keyDown({ code, preventDefault() {} }, v1);
   ok(T.fcmds().length === 0 && g.weltsim.finale.phase === null && g.weltsim.finale.anfrage, 'E und N des Zuschauers senden nichts, die Anfrage bleibt');
+  TU.zusehen({ send() {} }, false);
+}
+
+section('Zuschauer können nicht anfragen und nicht ablehnen');
+{
+  const T = partie(); T.anbieten(); const g = T.g;
+  warte(130); T.zeichnen(); g.handleMessage(T.conns[1], { t: 'cmd', c: 'werft.zusehen', on: true });
+  TU.zusehen({ send() {} }, true); T.lesen();
+  const v1 = T.view(1);
+  for (const code of ['KeyE', 'KeyN']) TU.keyDown({ code, preventDefault() {} }, v1);
+  const mz = TU.modell(T.view(1)); if (mz.lage && mz.lage.finale) { mz.lage.finale.haupt.onClick && mz.lage.finale.haupt.onClick(); mz.lage.finale.ablehnen.onClick && mz.lage.finale.ablehnen.onClick(); }
+  ok(mz.lage && mz.lage.finale && mz.lage.finale.zustand === 'angebot' && T.fcmds().length === 0 && g.weltsim.finale.angebot === 1 && g.weltsim.finale.anfrage === null, 'Zuschauer: E, N und Klicks im Angebot senden nichts, das Angebot steht unverändert');
   TU.zusehen({ send() {} }, false);
 }
 

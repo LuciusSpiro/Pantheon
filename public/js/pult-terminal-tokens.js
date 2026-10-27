@@ -477,7 +477,7 @@
     }
     if (anfrage) {   // Frist: eine Segmentleiste, ein Segment je Sekunde (höchstens 30), gefüllt = noch übrig
       const n = Math.max(1, Math.min(30, f.frist || 1)), voll = Math.max(0, Math.min(n, f.rest || 0)), sw = Math.max(2, Math.floor((G.hinweis.w - (n - 1)) / n));
-      for (let i = 0; i < n; i++) { const sx = G.hinweis.x + i * (sw + 1), by = G.hinweis.y - 3; if (i < voll) rect(c, sx, by, sw, 4, farbe); else { rect(c, sx, by, sw, 4, 'raumLinie'); rect(c, sx + 1, by + 1, Math.max(0, sw - 2), 2, 'kachel'); } }
+      for (let i = 0; i < n; i++) { const sx = G.hinweis.x + i * (sw + 1), by = G.hinweis.y - 2; if (i < voll) rect(c, sx, by, sw, 4, farbe); else { rect(c, sx, by, sw, 4, 'raumLinie'); rect(c, sx + 1, by + 1, Math.max(0, sw - 2), 2, 'kachel'); } }
       umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 3 + i * SCHRIFT.zeileLuft, 'text'));
     } else umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 1 + i * SCHRIFT.zeileLuft, 'dim'));
     const h = f.haupt || {}, a = f.ablehnen || {};
