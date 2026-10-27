@@ -155,7 +155,7 @@
       world: { location: 'hafen', locations: LOCS.map(l => Object.assign({}, l, { known: ['hafen', 'splitter', 'b7', 'vaelen', 'wrack', 'nebel', 'kesh'].indexOf(l.id) >= 0, visited: ['hafen', 'splitter', 'b7'].indexOf(l.id) >= 0, unknown: false, map: l.id === 'b7' ? 'platform' : l.id === 'wrack' ? 'wreck' : l.id === 'kesh' ? 'kesh' : null, discoveries: { found: 0, total: (SCENES[l.id].hidden || []).length + 1 } })) },
       ship: {
         scene: 'hafen', docked: true, dockedAt: 'hafen', x: 700, y: 700, angle: 0, vx: 0, vy: 0, speed: 0,
-        hull: 100, hullMax: 100, o2: 100, alert: 'normal',
+        integPct: 100, o2: 100, alert: 'normal',   // SYS-01 A1a: keine Hülle mehr
         helm: { turn: 0, thrust: 0, manned: false, stage: 1, autoStop: false },   // M3b: stage = Index in shipClasses.lerche.stages
         power: Object.assign({}, CFG.power.default),
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
@@ -725,16 +725,13 @@
     const x = cand[Math.floor(Math.random() * cand.length)];
     damageSys(x, W.ship.systems[x] === 'ok' ? 'damaged' : 'broken');
   }
-  // M3b §4 (grob): Überlauf auf die Hülle, Durchlass-Tabelle je Schildstärke VOR dem Treffer, Rückschlag laufender Reparaturen
+  // SYS-01 A1a (grob): Schild hält sicher, ohne Schild trifft ein Treffer ein System (Integrität), Rückschlag laufender Reparaturen
   function m3Hit(sector, dmg, heavy) {
     const s = W.ship, sh = s.shields;
     const S = sh.current[sector];
-    if (S >= 3 && heavy) dmg = Math.max(0, dmg - 1);
     const take = Math.min(S, dmg); sh.current[sector] -= take; const rest = dmg - take;
-    if (rest > 0) { s.hull = Math.max(30, s.hull - rest * 5); setbackSector(sector); }
-    const L = ((CFG.spaceM3b && CFG.spaceM3b.shieldLeak) || {})[Math.min(4, S)] || {};
-    if ((L.chance || 0) > 0 && (!L.heavyOnly || heavy) && Math.random() < L.chance) hitSystems(sector, L.maxState || 'damaged');
-    ev('hit', { sector, shield: take > 0 && rest <= 0, dmg, absorbed: take, hull: rest * 5, heavy: !!heavy });
+    if (rest > 0) { setbackSector(sector); hitSystems(sector, 'damaged'); }
+    ev('hit', { sector, shield: take > 0 && rest <= 0, dmg: rest > 0 ? rest : dmg, absorbed: take, heavy: !!heavy });
   }
   function setbackSector(sector) {
     const loss = (CFG.spaceM3b && CFG.spaceM3b.repairHitLoss) || 0.5;
@@ -1331,7 +1328,7 @@
       if (Math.hypot(pr.x - s.x, pr.y - s.y) < 40) {
         const sec = Phys.sectorOf(s.x, s.y, s.angle, pr.x, pr.y);
         const shield = s.shields.current[sec] > 0;
-        if (shield) s.shields.current[sec]--; else s.hull = Math.max(30, s.hull - 5);
+        if (shield) s.shields.current[sec]--; else s.integPct = Math.max(0, (s.integPct != null ? s.integPct : 100) - 5);
         ev('hit', { sector: sec, shield, dmg: 1 });
         sp.projectiles.splice(sp.projectiles.indexOf(pr), 1);
       } else if (Math.hypot(pr.x - s.x, pr.y - s.y) > 1400) sp.projectiles.splice(sp.projectiles.indexOf(pr), 1);
@@ -1363,7 +1360,7 @@
     if (a.map !== 'kesh') for (const pr of a.projectiles) { pr.x += Math.cos(pr.angle) * 360 * dt; pr.y += Math.sin(pr.angle) * 360 * dt; pr._life -= dt; for (const d of a.drones) if (d.alive && Math.hypot(d.x - pr.x, d.y - 14 - pr.y) < 14) { d.hp -= 2; pr._life = 0; if (d.hp <= 0) d.alive = false; } }
     if (a.map !== 'kesh') a.projectiles = a.projectiles.filter(pr => pr._life > 0);
     for (const k in W.support) W.support[k] = Math.max(0, W.support[k] - dt);
-    s.alert = (sp.enemies.length || s.hull < 40) ? 'red' : (r.state === 'offline' || s.fires.length) ? 'yellow' : 'normal';
+    s.alert = (sp.enemies.length || (s.integPct != null ? s.integPct : 100) < 40) ? 'red' : (r.state === 'offline' || s.fires.length) ? 'yellow' : 'normal';
     sp.hidden = W._hidden.filter(x => x.revealed).map(x => ({ id: x.id, kind: x.kind, x: x.x, y: x.y, found: !!x.found }));
     W.world.locations.forEach(l => { l.unknown = !l.known && W.world.locations.some(k => k.known && (k.links || []).indexOf(l.id) >= 0 && !(k.id === 'nebel' && l.id === 'relais')); });
   }

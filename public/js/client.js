@@ -1197,7 +1197,7 @@
         Client.minigame = null; Client.endDismissed = true;
         break;
       }
-      case 'emergency': H.pushNotice('NOTFALLPROTOKOLL – Hülle notdürftig stabilisiert', PAL.red); audio.play('emergency'); break;
+      case 'emergency': H.pushNotice('NOTFALLPROTOKOLL – Schiff notdürftig stabilisiert', PAL.red); audio.play('emergency'); break;
       case 'strike': R.addFx('strike', 'away', ev.x, ev.y, 0.9); audio.play('strike', { pan: audio.panFor(ev.x, 'away') }); break;
       case 'codeResult': audio.play(ev.ok ? 'code_ok' : 'code_fail'); break;
       // M1 (tolerant: der Server darf diese Ereignisse schicken, muss aber nicht)

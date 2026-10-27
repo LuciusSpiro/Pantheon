@@ -96,7 +96,7 @@
   }
   function seitenTeile(best, seite, neu) { return [7, 4, 1, 9, 6, 3].filter((p) => KAT.PLATZ[p].seite === seite && best[p]).map((p) => ({ t: p + ' ' + kurzName(best[p]), neu: p === neu })); }
   window.Consoles = window.Consoles || { helmInfo: () => ({ names: ['DOCK'], stage: 0 }) };   // Statusleiste wie angedockt
-  const view = { state: { ship: { speed: 0, shields: { current: [1, 1, 1, 0] }, hull: 100, hullMax: 100, alert: 'normal', docked: true } }, actions: { leave() {} }, send() {} };
+  const view = { state: { ship: { speed: 0, shields: { current: [1, 1, 1, 0] }, integPct: 100, alert: 'normal', docked: true } }, actions: { leave() {} }, send() {} };
   function energieText(s) { const n = Object.keys(s.module).length; return 'ENERGIE  Module ' + n + ' · frei ' + (8 - n); }
   function teilWaffe(s, id, platz) {
     const w = KAT.BY_ID[id], ein = s.bestueckt[platz] === id;

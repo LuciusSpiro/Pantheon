@@ -209,7 +209,7 @@
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);
     }
-    werte.push(['HÜLLE', String(Math.round(n(ship.hull != null ? ship.hull : 100))), PAL.ice]);
+    werte.push(['SYS', String(Math.round(n(ship.integPct != null ? ship.integPct : 100))) + ' %', PAL.ice]);   // SYS-01 A1a (Übergang): Gesamtintegrität
     let x = 120;
     for (const [k, v, col] of werte) {
       R.text(ctx, k, x, y + 2, { color: PAL.brass });

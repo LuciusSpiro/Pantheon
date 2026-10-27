@@ -535,11 +535,11 @@
       const x0 = VW - 7 * 16 - 4;
       // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
       R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
-      const hullFrac = ship.hullMax ? ship.hull / ship.hullMax : (ship.hull || 0) / 100;
+      const hullFrac = (ship.integPct != null ? ship.integPct : 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität
       const yo = -18;
       R.icon(ctx, 'hull', x0 + 6, 31 + yo);
       R.bar(ctx, x0 + 14, 28 + yo, 48, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
-      R.text(ctx, String(Math.round(ship.hull || 0)), x0 + 65, 26 + yo, { color: PAL.star });
+      R.text(ctx, String(Math.round(ship.integPct != null ? ship.integPct : 100)), x0 + 65, 26 + yo, { color: PAL.star });
       const o2 = ship.o2 == null ? 100 : ship.o2;
       R.icon(ctx, 'o2', x0 + 6, 45 + yo);
       R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
@@ -630,7 +630,7 @@
       const ac = alert === 'red' ? PAL.red : alert === 'yellow' ? PAL.warn : PAL.moss;
       ctx.fillStyle = ac; ctx.beginPath(); ctx.arc(x0 + 48, 8, 3, 0, Math.PI * 2); ctx.fill();
       R.text(ctx, alert === 'red' ? 'Alarm rot' : alert === 'yellow' ? 'Alarm gelb' : 'normal', x0 + 54, 5, { color: ac });
-      const hullFrac = ship.hullMax ? ship.hull / ship.hullMax : (ship.hull || 0) / 100;
+      const hullFrac = (ship.integPct != null ? ship.integPct : 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität
       R.icon(ctx, 'hull', x0 + 6, 22);
       R.bar(ctx, x0 + 14, 19, 60, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
       this.drawShieldMini(ctx, view, x0 + 84, 18);

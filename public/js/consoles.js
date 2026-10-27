@@ -88,14 +88,10 @@
     return c[c.length - 1][1];
   }
   // M3b §4: Schild-Durchlass je Stärke (config.spaceM3b.shieldLeak) als Kurztext
+  // SYS-01 A1a (Übergang, Anzeige kommt mit Paket A3): die Durchlass-Tabelle entfällt. Ohne Schild trifft ein Treffer ein System, mit Schild keiner.
   function leakText(s) {
-    const L = (CFG.spaceM3b && CFG.spaceM3b.shieldLeak) || {};
-    const row = L[Math.max(0, Math.min(4, Math.round(s)))] || {};
-    const pct = Math.round((row.chance != null ? row.chance : [0.45, 0.2, 0.05, 0, 0][Math.max(0, Math.min(4, s))]) * 100);
-    if (s <= 0) return { short: 'offen', long: 'offen – ' + pct + ' % Systemschaden', col: '#FF5A4A' };
-    if (pct <= 0) return { short: 'dicht', long: 'dicht – kein Systemschaden', col: '#7FE0C2' };
-    if (row.heavyOnly) return { short: pct + ' %', long: pct + ' % (nur schwere Treffer)', col: '#F2C94C' };
-    return { short: 'Kratzer ' + pct + ' %', long: 'Kratzer – ' + pct + ' % Systemschaden', col: '#F08A3C' };
+    if (s <= 0) return { short: 'offen', long: 'offen – Treffer geht ins System', col: '#FF5A4A' };
+    return { short: 'dicht', long: 'dicht – kein Systemschaden', col: '#7FE0C2' };
   }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function n(v, d) { return typeof v === 'number' && isFinite(v) ? v : (d || 0); }
@@ -445,8 +441,8 @@
       // ---- rechts: Schilde, Hülle, Reaktor, Marker
       y = 30;
       R.text(ctx, 'SCHILDE', rx, y, { color: PAL.brass });
-      const hullFrac = ship.hullMax ? n(ship.hull) / ship.hullMax : n(ship.hull) / 100;
-      R.text(ctx, 'Hülle ' + Math.round(n(ship.hull)), rx + rw, y, { color: hullFrac < 0.4 ? PAL.red : PAL.panelLight, align: 'right' }); y += 10;
+      const hullFrac = n(ship.integPct, 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität in % statt Hülle
+      R.text(ctx, 'SYS ' + Math.round(n(ship.integPct, 100)) + ' %', rx + rw, y, { color: hullFrac < 0.4 ? PAL.red : PAL.panelLight, align: 'right' }); y += 10;
       this.drawShieldUp(ctx, rx + 34, y + 26, ship, view);
       R.bar(ctx, rx + 74, y + 8, rw - 76, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
       const reactor = ship.reactor || {};
@@ -578,7 +574,7 @@
         R.button(ctx, lx, y, bw, 14, 'Ja, Notsprung', { hotkey: 'J', active: true, onClick: () => { this.notsprungAsk = -1e9; this.cmd(view, 'helm.notsprung', {}); } });
         R.button(ctx, lx + bw + 2, y, lw - bw - 2, 14, 'Nein', { hotkey: 'N', onClick: () => { this.notsprungAsk = -1e9; } });
         y += 16;
-        R.text(ctx, 'Reaktor fällt aus, Hülle −' + ((CFG.sektoren && CFG.sektoren.notsprung && CFG.sektoren.notsprung.huelle) || 15), lx, y, { color: PAL.red }); y += 10;
+        R.text(ctx, 'Reaktor fällt aus, Notsprung möglich', lx, y, { color: PAL.red }); y += 10;
       } else {
         R.button(ctx, lx, y, lw, 14, 'Notsprung …', { hotkey: 'N', disabled: !!reason, reason, onClick: () => { this.notsprungAsk = performance.now(); } });
         y += 16;
@@ -1260,11 +1256,11 @@
       {
         let lx2 = a.x + 330;
         R.text(ctx, 'Systemschaden je Treffer:', lx2, a.y + 15, { color: PAL.panelLight });
-        const leg = [[0, '0 offen'], [1, '1 Kratzer'], [2, '2'], [3, '3–4 dicht']];
+        const leg = [[0, '0 offen'], [1, '1 dicht'], [2, '2 dicht'], [3, '3–4 dicht']];
         let ly2 = a.y + 25;
         for (const [s, lab] of leg) {
           const lk = leakText(s);
-          const txt = s === 1 || s === 2 ? lab + ' ' + lk.short.replace('Kratzer ', '') : lab;
+          const txt = lab;
           ctx.fillStyle = lk.col; ctx.fillRect(lx2, ly2 + 2, 4, 4);
           R.text(ctx, txt, lx2 + 6, ly2, { color: lk.col });
           lx2 += R.measure(txt, 1) + 14;

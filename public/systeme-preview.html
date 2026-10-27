@@ -160,7 +160,7 @@
     return { l: TX.statusLabel.zonen, v: TX.statusVoll, col: F.statusVoll };
   }
   function pultRahmen(c, titel, S, sh, anzeige) {
-    const view = { state: { ship: { alert: 'red', hull: 100, hullMax: 100, shields: { current: ZONEN.map((n) => sh.zonen[n].schild.reduce((a, l) => a + l.v, 0)) } } }, send() {}, actions: { leave() {} } };
+    const view = { state: { ship: { alert: 'red', integPct: 100, shields: { current: ZONEN.map((n) => sh.zonen[n].schild.reduce((a, l) => a + l.v, 0)) } } }, send() {}, actions: { leave() {} } };
     R.ui.buttons = [];
     const g = P.rahmen(c, view, { titel, S, station: 'technik', anzeige });
     const avail = 634 - 142 - 9, w = Math.round(avail / 3.8), x = 142 + 2 * (w + 3), f = statusFeld(sh);
