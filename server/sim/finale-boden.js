@@ -140,7 +140,11 @@ function aufraeumen(game) {
   if (unten(game, S.lp).length) return;   // die Crew ist noch unten (nach dem Sieg): Transferziel und Karte bleiben, damit sie hochbeamen kann
   if (game.transferZiel && game.transferZiel.lp === S.lp) game.transferZiel = null;
   if (game.away && game.away.map === S.lp) {   // die Karte nicht mehr als Aussenkarte halten, sonst gilt sie als belegt
-    try { const sp = Away().beamSpot(game); if (sp && sp.map !== S.lp) game.setAwayMap(sp.map); } catch (e) { fehler(game, 'finale-boden-aufraeumen', e); }
+    try {
+      const sp = Away().beamSpot(game);   // Karte des Orts (ohne Transferziel); gibt es keine (generierter Ort), irgendeine andere geladene Aussenkarte (Handkarten gibt es immer)
+      const ziel = sp && sp.map !== S.lp ? sp.map : Object.keys(game.aways).sort().find((m) => m !== S.lp);
+      if (ziel) game.setAwayMap(ziel);
+    } catch (e) { fehler(game, 'finale-boden-aufraeumen', e); }
   }
   if (L.verwerfen(game, S.lp) || !L.eintrag(game, S.lp)) game.finaleBoden = null;   // sonst im naechsten Tick noch einmal (Crew noch unten)
 }
