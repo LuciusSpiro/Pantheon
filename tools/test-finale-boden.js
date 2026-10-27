@@ -193,6 +193,9 @@ section('Schrein nur nach dem Waechter', () => {
   Anker.interactionsAt(g, p, z.x, z.y, list);
   ok(list.length === 1 && list[0].blocked === D.texte.sperre, 'vor dem Waechter: Interaktion gesperrt mit Hinweis');
   ok(Anker.holdValid(g, p, { kind: 'anker:ziel', anker: z.id }) === false, 'vor dem Waechter: Halten ungueltig');
+  const zi = k.anker.findIndex((a) => a.id === z.id);
+  const sn = (gg) => { for (let i = 0; i < 6; i++) { const s = gg.snapshot(); if (s.away && s.away.ao) return s.away; } return {}; };
+  ok(Array.isArray(sn(g).sp) && sn(g).sp.includes(zi), 'Snapshot away.sp nennt den gesperrten Schrein (der Client zeigt Versiegelt)');
   const q = t.ps[1]; p.x = q.x = z.x * 32 + 16; p.y = q.y = z.y * 32 + 16;
   interior.onAct(g, p, true); run(g, 4);
   ok(Anker.zustand(g, ID, z.id) === 'frei' && !p.hold && !g.finaleBoden.frei && g.finaleBoden.ende === null, 'vier Sekunden halten vor dem Waechter: nichts passiert');
@@ -202,6 +205,7 @@ section('Schrein nur nach dem Waechter', () => {
   ok(!g.finaleBoden.frei, 'alle Wachen besiegt, Waechter steht (freigabe boss): weiter gesperrt');
   boss.alive = false; boss.hp = 0; run(g, 1);
   ok(g.finaleBoden.frei && !(g.away.ankerSperre && g.away.ankerSperre[z.id]), 'Waechter besiegt: Schrein frei');
+  ok(sn(g).sp === undefined, 'Snapshot ohne away.sp, sobald frei');
   ok(t.radio.some((x) => x === D.texte.funk.frei), 'Funk zur Freigabe');
   ok(t.boden.length === 0, 'noch kein bodenEnde');
   interior.onAct(g, p, false); interior.onAct(g, p, true); run(g, 4);
@@ -221,6 +225,7 @@ section('Sieg genau einmal', () => {
   ok(g.errors === 0, 'kein Serverfehler');
   // die Crew kann hochbeamen (Transferziel bleibt, solange jemand unten ist), danach raeumt der Treiber auf
   ok(g.transferZiel && g.transferZiel.lp === ID, 'Transferziel bleibt, solange die Crew unten ist');
+  ok(LP.liste(g, 'hrafnheim').every((x) => x.id !== ID) && LP.waehlen(g, ID, t.ps[0]) === D.texte.sperrgrund, 'nach dem Finale: der Landepunkt steht nicht mehr in der Transfer-Liste und ist nicht anwaehlbar');
   away.executeBeam(g, [t.ps[0].id], 'up'); run(g, 2);
   ok(!g.finaleBoden && !g.aways[ID] && g.transferZiel === null, 'Crew oben: Landepunkt aufgeraeumt');
   ok(t.boden.length === 1, 'weiterhin genau eine Meldung');

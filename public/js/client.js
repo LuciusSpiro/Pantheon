@@ -1532,7 +1532,9 @@
           return z === 'zu' ? { label: 'E halten: Zelle öffnen (' + sec('zelle') + ')', ok: true } : { label: 'Zelle offen', ok: false };
         }
         case 'beute': return z === 'voll' ? { label: 'E halten: Kiste bergen (' + sec('beute') + ')', ok: true } : { label: 'Leer geräumt', ok: false };
-        case 'ziel': return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
+        case 'ziel':
+          if (z === 'frei' && st.away && Array.isArray(st.away.sp) && st.away.sp.includes(i)) return { label: 'Versiegelt', ok: false };   // SUND-04a-3: Schrein gesperrt (anker.js ankerSperre, Snapshot away.sp)
+          return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
         case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };
         case 'raetsel':
           if (z === 'geloest') return { label: 'Gelöst', ok: false };

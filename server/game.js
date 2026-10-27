@@ -1840,7 +1840,7 @@ class Game {
     if (!k || k.art === 'hand') return {};
     const o = { kv: Game.kartenVersion(k) };
     const fn = fnOf(ankerMod(), 'awaySnap');
-    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
+    if (fn) { try { const x = fn(this, aw); if (x && typeof x === 'object') for (const key of ['ao', 'ko', 'al', 'cd', 'sp']) if (x[key] != null) o[key] = x[key]; } catch (e) { this.countError('snapshot-anker', e); } }
     return o;
   }
 
