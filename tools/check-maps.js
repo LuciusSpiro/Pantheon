@@ -249,7 +249,8 @@ for (const sp of Maps.SHIP_SPAWNS) check(shipSet.has(sp.y * ship.w + sp.x), `Spi
   check(ship.w === 40 && ship.h === 45, `Lerche (PAN-01-B-Atlas) 40×45 (ist ${ship.w}×${ship.h})`);
   check(shipLegend !== Maps.LEGEND && shipLegend === Maps.SHIP_LEGEND, 'Schiffskarte nutzt die eigene Legende SHIP_LEGEND');
   // 19 Stationen = Protocol.SYSTEMS ohne den Altnamen 'weapons' (die Lebenserhaltung ist gestrichen; PAN-01 C: die sechs Lafetten sind echte Systeme)
-  const want = Protocol.SYSTEMS.filter((s) => s !== 'weapons');
+  // SYS-01 A1a: die vier Modulsysteme (modul_N, Mitte) haben keine Kachel auf der Karte (Station im Modulraum kommt aus world.js)
+  const want = Protocol.SYSTEMS.filter((s) => s !== 'weapons' && !/^modul_/.test(s));
   check(want.length === 19, `Protocol.SYSTEMS: 19 Systeme ohne Altname weapons (${want.length}; 13 + Lafetten 5 7 9 1 3 2)`);
   check(!systems.includes('weapons') && !systems.includes('life') && !Protocol.SYSTEMS.includes('life'), 'Altname weapons und Lebenserhaltung haben keine Station mehr');
   check(want.every((s) => systems.includes(s)) && systems.every((s) => want.includes(s)), 'Stationen auf der Karte = 19 Systeme laut Protokoll' +

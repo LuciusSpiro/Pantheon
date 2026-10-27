@@ -30,6 +30,12 @@ for (const t of findAll(ship, (ch) => !!ship.legend[ch])) {
   }
   if (info.console) (CONSOLE_TILES[info.console] = CONSOLE_TILES[info.console] || []).push(t);
 }
+// SYS-01 A1a: Die Bordmodule sind Systeme der Mitte (modul_<Raum>). Sie haben keine Kachel auf der Karte (die Karte bleibt unverändert);
+// ihre Station für Reparatur und Brandeskalation ist die Mitte des Modulraums (immer Boden).
+for (const m of Maps.MODUL_RAEUME) {
+  const r = Maps.SHIP_ROOMS.find((q) => q.id === m.room);
+  if (r) STATIONS.push({ system: 'modul_' + m.raum, x: (r.x0 + r.x1) >> 1, y: (r.y0 + r.y1) >> 1, sector: -1, side: null });
+}
 // Regale aus dem Schiffslayout ({x,y,item,access}), Reihenfolge = Regal 1..5
 const SHELF_TILES = Maps.SHELF_TILES.map((s) => ({ x: s.x, y: s.y, item: s.item, access: s.access ? { x: s.access.x, y: s.access.y } : null }));
 const SHIP_PADS = findAll(ship, (ch) => (ship.legend[ch] || {}).kind === 'pad');   // M3a: über die Legende statt Zeichen

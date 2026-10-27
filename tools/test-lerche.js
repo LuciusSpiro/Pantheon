@@ -379,7 +379,7 @@ section('Lifts und Lafetten: nicht beschädigbar, Auskunft am Waffenplatz', () =
 section('Schiffssysteme ohne Lebenserhaltung', () => {
   const T = arena();
   const g = T.g;
-  ok(Object.keys(g.ship.systems).filter((k) => !/^lafette_/.test(k)).length === 13 && !('life' in g.ship.systems) && !W.STATIONS.some((s) => s.system === 'life'), '13 Systeme, keine Station life auf der Karte');
+  ok(Object.keys(g.ship.systems).filter((k) => !/^lafette_/.test(k) && !/^modul_/.test(k)).length === 13 && !('life' in g.ship.systems) && !W.STATIONS.some((s) => s.system === 'life'), '13 Systeme, keine Station life auf der Karte');
   ok(!Maps.SHIP_ROWS.join('').includes('O') && !('O' in Maps.SHIP_LEGEND), 'Legende und Karte ohne die Lebenserhaltung');
   const snap = g.snapshot().ship;
   ok(!('life' in snap.systems) && !('life' in snap.power) && !('life' in snap.heat), 'Snapshot ohne life');

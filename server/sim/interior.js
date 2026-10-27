@@ -19,12 +19,17 @@ const away = () => awayMod || (awayMod = require('./away.js'));
 // verschlossen: kein Trefferziel, kein Feuer, keine Reparatur, nicht im Snapshot.
 const SYSTEM_ORDER = ['reactor', 'engines', 'shields', 'transfer',
   'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
-  'weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
+  'weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
+  'modul_1', 'modul_2', 'modul_3', 'modul_4'];   // SYS-01 A1a: Bordmodule als Systeme in der Mitte (aktiv, wenn im Modulraum ein Modul steht)
 const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
 const WEAPON_SYS_PLATZ = {}; for (const p of W.Maps.WAFFENPLAETZE) WEAPON_SYS_PLATZ[p.system] = p;
+const MODUL_SYS = /^modul_([1-4])$/;
 function systemAktiv(game, sys) {
   const pl = WEAPON_SYS_PLATZ[sys];
-  if (!pl) return true;
+  if (!pl) {
+    const mm = MODUL_SYS.exec(sys);   // SYS-01 A1a: Modulsystem nur mit einem Modul im Raum
+    return mm ? require('./module.js').liste(game).some((m) => m.raum === Number(mm[1])) : true;
+  }
   const s = game.ship;
   return (s.stufe | 0) >= pl.stufe && !!(s.waffen && s.waffen[pl.platz]);
 }
@@ -977,6 +982,10 @@ function inaktiveHeilen(game) {
     if (systemAktiv(game, k) || game.ship.systems[k] === 'ok') continue;
     game.ship.systems[k] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[k]; if (game.ship.offline) delete game.ship.offline[k];
   }
+  for (const k of SYSTEM_ORDER) {   // SYS-01 A1a: ein ausgebautes oder ersetztes Modul nimmt seinen Schaden nicht mit
+    if (!MODUL_SYS.test(k) || systemAktiv(game, k) || game.ship.systems[k] === 'ok') continue;
+    game.ship.systems[k] = 'ok'; setInteg(game, k, integMax(game, k)); if (game.ship.fragile) delete game.ship.fragile[k]; if (game.ship.offline) delete game.ship.offline[k];
+  }
 }
 function systemSector(sys) {
   const st = W.STATIONS.find((q) => q.system === sys);
@@ -1399,6 +1408,7 @@ const SYS_NAMES = {
   emitter_aft: ['der', 'den', 'Heck-Emitter'], emitter_port: ['der', 'den', 'Backbord-Emitter'],
   weapon_bow: ['die', 'die', 'Bug-Waffe'], battery_port: ['die', 'die', 'Backbord-Batterie'], battery_stbd: ['die', 'die', 'Steuerbord-Batterie'],
   weapons: ['die', 'die', 'Waffenbank'],
+  modul_1: ['das', 'das', 'Modul in Raum 1'], modul_2: ['das', 'das', 'Modul in Raum 2'], modul_3: ['das', 'das', 'Modul in Raum 3'], modul_4: ['das', 'das', 'Modul in Raum 4'],   // SYS-01 A1a
 };
 const SYS_LABEL = Object.fromEntries(Object.entries(SYS_NAMES).map(([k, v]) => [k, v[2]]));
 const SECTOR_LABEL = ['Bugsektor', 'Steuerbordsektor', 'Hecksektor', 'Backbordsektor'];

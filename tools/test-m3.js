@@ -22,7 +22,7 @@ const M3B = CONFIG.spaceM3b;
 
 const M3 = CONFIG.spaceM3;
 const FILTER = process.argv.slice(2).map((s) => s.toLowerCase());
-const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons' && !/^lafette_/.test(s));   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen); PAN-01 C: die sechs Lafetten (lafette_N) sind nur mit offenem, bestücktem Platz aktiv (tools/test-waffen-schiff.js)
+const SYS14 = Protocol.SYSTEMS.filter((s) => s !== 'weapons' && !/^lafette_/.test(s) && !/^modul_/.test(s));   // PAN-01 B: 13 Systeme (Name bleibt, die Lebenserhaltung ist gestrichen); PAN-01 C: die sechs Lafetten (lafette_N) sind nur mit offenem, bestücktem Platz aktiv (tools/test-waffen-schiff.js)
 const COMBAT12 = SYS14.filter((s) => s !== 'transfer');
 
 let fails = 0, n = 0;
@@ -165,7 +165,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
 });
 
 section('Interior-Hilfen (§9.5)', () => {
-  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 19 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && Protocol.SYSTEMS.filter((s) => /^lafette_/.test(s)).every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme + 6 Lafetten (PAN-01 C), ohne weapons und ohne Lebenserhaltung');
+  ok(Array.isArray(interior.SYSTEM_ORDER) && interior.SYSTEM_ORDER.length === 23 && SYS14.length === 13 && SYS14.every((s) => interior.SYSTEM_ORDER.includes(s)) && Protocol.SYSTEMS.filter((s) => /^lafette_/.test(s)).every((s) => interior.SYSTEM_ORDER.includes(s)) && !interior.SYSTEM_ORDER.includes('weapons') && !interior.SYSTEM_ORDER.includes('life'), 'SYSTEM_ORDER: 13 Systeme + 6 Lafetten (PAN-01 C) + 4 Modulräume (SYS-01 A1a), ohne weapons und ohne Lebenserhaltung');
   ok(SYS14.every((s) => typeof interior.sysName(s) === 'string' && interior.sysName(s) !== s && interior.sysNameNom(s) !== s), 'deutsche Namen für alle 13 Systeme');
   const want = { weapon_bow: 0, emitter_bow: 0, thruster_stbd: 1, battery_stbd: 1, emitter_stbd: 1, transfer: 1, engines: 2, emitter_aft: 2,
     thruster_port: 3, battery_port: 3, emitter_port: 3, reactor: -1, shields: -1 };

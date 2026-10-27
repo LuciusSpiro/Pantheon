@@ -268,12 +268,70 @@ section('Alarm und Zonen-Auswertung', () => {
   ok(sz && sz.zone === 3 && sz.anteil === 0, `Schwächste Seite erkennt die leere Backbordzone (Zone ${sz && sz.zone}, Anteil ${sz && sz.anteil})`);
 });
 
-// ---------------------------------------------------------------- Module in der Mitte (Regel 4): Übergang
-section('Module in der Mitte (Regel 4): Übergang, noch ohne Zustand', () => {
-  // Der Modul-Schadenszustand ist in A1a noch nicht umgesetzt. Hier nur der Stand, damit eine spätere Umsetzung
-  // gegen diesen Test läuft: Frachtraum, Krankenstation, Werkstatt liegen heute nicht in SYSTEM_ORDER.
-  const mod = ['frachtraum', 'krankenstation', 'werkstatt'];
-  ok(mod.every((m) => !I.SYSTEM_ORDER.includes(m)), 'Module sind noch keine Systeme mit Zustand (Übergang, Paket A1a Teil 2)');
+// ---------------------------------------------------------------- Module in der Mitte (Regel 4)
+section('Module in der Mitte (Regel 4): Zustand, Trefferweg, Funktion, Reparatur', () => {
+  const Modul = require('../server/sim/module.js');
+  const g = newGame(90);
+  const ms = ['modul_1', 'modul_2'];   // Start-Lerche: Frachtraum (Raum 1), Krankenstation (Raum 2)
+  ok(ms.every((m) => I.SYSTEM_ORDER.includes(m) && I.systemSector(m) === -1 && I.systemAktiv(g, m)), 'Module der Start-Lerche sind Systeme der Mitte (Sektor -1) und aktiv');
+  ok(!I.systemAktiv(g, 'modul_3') && !I.systemAktiv(g, 'modul_4'), 'Leere Modulräume sind keine Systeme (kein Trefferziel)');
+  ok(ms.every((m) => g.ship.systems[m] === 'ok' && integ(g, m) === SM.integ.default), 'Start: ok, Integrität = Standardmaximum');
+  ok(ms.every((m) => MITTE().includes(m)) && MITTE().includes('reactor') && MITTE().includes('shields'), 'Mitte = Reaktor, Schildgenerator und die Module');
+  const sn = g.snapshot().ship;
+  ok(ms.every((m) => sn.systems[m] === 'ok') && sn.systems.modul_3 === undefined, 'Snapshot: aktive Module mit Zustand, leere Räume fehlen');
+
+  // 1. Zugewandte Zone nicht leer: Module bleiben heil (wie Reaktor und Schildgenerator)
+  let anyMid = 0;
+  for (let i = 0; i < 40; i++) { const b = snapShot(g); hit(g, 0, 3); for (const k of MITTE()) if (g.ship.systems[k] !== b[k] || integ(g, k) !== b.__i[k]) anyMid++; if (i % 6 === 5) { for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; I.integritaetVoll(g); } }
+  ok(anyMid === 0, 'Treffer auf eine Zone mit lebenden Systemen: Mitte (auch Module) bleibt unberührt');
+
+  // 2. Durchschlag 'zone' trifft die Mitte, und zwar auch die Module
+  const g2 = newGame(91);
+  const treffer = new Set();
+  for (let i = 0; i < 60; i++) { const r = hit(g2, 0, 3, { durchschlag: 'zone' }); for (const s of r.systems || []) treffer.add(s.system); I.integritaetVoll(g2); for (const k of I.SYSTEM_ORDER) g2.ship.systems[k] = 'ok'; }
+  ok(treffer.has('modul_1') && treffer.has('modul_2') && [...treffer].every((k) => MITTE().includes(k)), `Durchschlag 'zone': trifft nur die Mitte, Module sind Ziele (${[...treffer].join(', ')})`);
+
+  // 3. Leere zugewandte Zone: der Überlauf geht in die Mitte, Module sind dabei
+  const g3 = newGame(92);
+  for (const k of ZONE(0)) { g3.ship.systems[k] = 'broken'; I.setInteg(g3, k, 0); }
+  const t3 = new Set();
+  for (let i = 0; i < 60; i++) { const r = hit(g3, 0, 3); for (const s of r.systems || []) t3.add(s.system); for (const k of MITTE()) { g3.ship.systems[k] = 'ok'; I.setInteg(g3, k, I.integMax(g3, k)); } }
+  ok(t3.has('modul_1') && t3.has('modul_2') && [...t3].every((k) => MITTE().includes(k)), `Leere Bugzone: Treffer gehen in die Mitte inkl. Module (${[...t3].join(', ')})`);
+
+  // 4. Zustände: ok -> beschädigt -> zerstört über Integrität
+  const g4 = newGame(93);
+  I.systemTreffer(g4, 'modul_2', 5);
+  ok(g4.ship.systems.modul_2 === 'damaged' && integ(g4, 'modul_2') === 5, 'Modul beschädigt bei Integrität < 60 %');
+  const tick = (gg) => space.update(gg, 0.1);   // Leistung und Modul-Wirkung werden im Raumtick neu bestimmt
+  tick(g4);
+  ok(Modul.liste(g4).find((m) => m.raum === 2).lauf === true, 'Beschädigtes Modul läuft wie heute');
+  I.systemTreffer(g4, 'modul_2', 5);
+  ok(g4.ship.systems.modul_2 === 'broken' && integ(g4, 'modul_2') === 0, 'Modul zerstört bei Integrität 0');
+
+  // 5. Zerstörtes Modul funktioniert nicht
+  tick(g4);
+  const kr = Modul.liste(g4).find((m) => m.id === 'krankenstation');
+  ok(kr.lauf === false && !Modul.laeuft(g4, 'krankenstation'), 'Zerstörte Krankenstation läuft nicht');
+  I.systemTreffer(g4, 'modul_1', 10);
+  tick(g4);
+  ok(g4.ship.systems.modul_1 === 'broken' && Modul.liste(g4).find((m) => m.id === 'frachtraum').lauf === false, 'Zerstörter Frachtraum läuft nicht');
+  const Fr = require('../server/sim/fracht.js');
+  ok(Fr.gesichert(g4) === false, 'Zerstörter Frachtraum: Ladung ungesichert (Wirkung folgt dem Lauf-Zustand)');
+
+  // 6. Reparatur über den bestehenden Weg (repairSystem), Station im Modulraum
+  ok(I.repairable(g4, 'modul_2') && I.stationInReach !== undefined, 'Zerstörtes Modul ist reparierbar');
+  const W = require('../server/world.js');
+  ok(W.STATIONS.some((s) => s.system === 'modul_1') && W.STATIONS.some((s) => s.system === 'modul_2'), 'Jedes Modul hat eine Station im Modulraum (Reparatur, Brandeskalation)');
+  ok(I.repairSystem(g4, 'modul_2', 'player', 'minigame') !== false && g4.ship.systems.modul_2 === 'damaged' && near(integ(g4, 'modul_2'), SM.integ.default * SM.reparatur.damaged, 1e-9), 'Reparatur: zerstört -> beschädigt (Grundwert 50 %)');
+  tick(g4);
+  ok(Modul.liste(g4).find((m) => m.raum === 2).lauf === true, 'Repariertes Modul (beschädigt) läuft wieder');
+  I.repairSystem(g4, 'modul_2', 'player', 'minigame');
+  ok(g4.ship.systems.modul_2 === 'ok' && integ(g4, 'modul_2') === SM.integ.default, 'Zweite Reparatur: ok, volle Integrität');
+
+  // 7. Ausgebautes Modul nimmt den Schaden nicht mit
+  Modul.entfernen(g4, 'krankenstation', 2);
+  I.inaktiveHeilen(g4);
+  ok(!I.systemAktiv(g4, 'modul_2') && g4.ship.systems.modul_2 === 'ok', 'Modul ausgebaut: Raum ist kein System mehr');
 });
 
 // ---------------------------------------------------------------- Weltstand

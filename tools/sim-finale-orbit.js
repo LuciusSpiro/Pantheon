@@ -50,6 +50,7 @@ function neuesSpiel(seed, crew, opts, tmp) {
 }
 
 // Ein Lauf: Finale beginnen (wie im Spiel), die Bots kämpfen, bis die Szene endet. -> Ergebnis
+const PASSIV_VERLUST_NACH = 90;   // s: passive Crew verliert nach dieser Kampfzeit über die Naht verlustAusloesen (Hülle entfällt)
 async function lauf(seed, crew, o) {
   const opt = o || {};
   const tmp = opt.tmp || fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-orbitbot-'));
@@ -66,11 +67,12 @@ async function lauf(seed, crew, o) {
   const tick0 = g.weltsim.tickZahl;
   const t0 = g.time; let snap = g.snapshot(); let snapMax = 0; let maxSchiffe = 0; let erster = null;
   const maxSek = opt.max || 600;
-  let n = 0; const verbundete0 = (g.space.escorts || []).filter((q) => q.sim === S.id).length;
+  let verlust = false; let n = 0; const verbundete0 = (g.space.escorts || []).filter((q) => q.sim === S.id).length;
   while (g.simSzene && g.time - t0 < maxSek) {
     g.step(); n++;
     if (g.wantsSnapshot()) { snap = g.snapshot(); const b = Buffer.byteLength(JSON.stringify(snap)); if (b > snapMax) snapMax = b; }
     for (const a of agents) a.update(snap);
+    if (opt.passiv && !verlust && g.time - t0 >= PASSIV_VERLUST_NACH) { verlust = true; require('../server/sim/space.js').verlustAusloesen(g, 'sim'); }   // SYS-01 A1a: ohne Hülle stirbt die passive Crew nicht mehr von selbst
     if (erster == null && g.space.enemies.some((e) => e.finaleS === S.id)) erster = g.time - t0;
     maxSchiffe = Math.max(maxSchiffe, g.space.enemies.length + (g.space.escorts || []).filter((q) => q.state !== 'entkommen').length);
     if (opt.verbose && n % (30 * HZ) === 0) console.log(`  [t ${(g.time - t0).toFixed(0)}] Gegner ${g.space.enemies.length} Verbündete ${(g.space.escorts || []).filter((q) => q.sim === S.id && q.state === 'ok').length} Hülle ${Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt)} Notfall ${g.stats.emergencies}`);

@@ -21,6 +21,7 @@ const Abspann = require('../server/sim/abspann.js');
 const LP = require('../server/sim/landepunkte.js');
 const away = require('../server/sim/away.js');
 const interior = require('../server/sim/interior.js');
+const Space = require('../server/sim/space.js');
 const { OrbitAgent, TRIBUN } = require('./sim-finale-orbit.js');
 
 let n = 0, fails = 0;
@@ -54,13 +55,18 @@ function neu(seed, crew) {
 const erholen = (g) => {  g.ship.shields.current = g.ship.shields.alloc.slice(); };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
+const PASSIV_VERLUST_NACH = 90;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus
 // Orbit: die Bots kämpfen, bis die Szene endet. -> Ausgang der Szene
 function orbit(t, maxSek) {
   const g = t.g; let snap = g.snapshot(); const t0 = g.time;
+  let verlust = false;
   while (g.simSzene && g.time - t0 < maxSek) {
     g.step();
     if (g.wantsSnapshot()) snap = g.snapshot();
     for (const a of t.agents) a.update(snap);
+    // SYS-01 A1a: Die Hülle entfällt, die Lerche stirbt nicht mehr von selbst (der Auslöser kommt mit A2). Die passive Crew
+    // verliert nach einer Kampfzeit über die Naht des Notfallprotokolls, den Kampf davor spielt die echte Szene.
+    if (t.opts.passiv && !verlust && g.time - t0 >= PASSIV_VERLUST_NACH) { verlust = true; Space.verlustAusloesen(g, 'test'); }
   }
   const L = g.simSzeneLetzte;
   return g.simSzene ? null : (L && L.finale ? L.ausgang : null);

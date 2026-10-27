@@ -136,7 +136,7 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   ok(T.g.ship.systems.transfer === 'ok' && !away.recall(T.g, 'x').includes('Energie'), 'Transfer hat keinen Energieposten (Zustand unabhängig vom Reaktor)');
   // Lebenserhaltung: als Station und System gestrichen (PAN-01 B); O2 sinkt nur durch Lecks
   const interior = require('../server/sim/interior.js');
-  ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s)).length === 13, 'kein System life mehr (13 Systeme + Lafetten 5 7 9 1 3 2)');
+  ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s) && !/^modul_/.test(s)).length === 13, 'kein System life mehr (13 Systeme + Lafetten 5 7 9 1 3 2)');
   T.g.ship.o2 = 100; T.run(5);
   ok(T.g.ship.o2 >= 99.9, 'ohne Lecks sinkt O2 nicht');
   let getroffen = 0;

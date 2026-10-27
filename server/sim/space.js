@@ -44,7 +44,8 @@ const WEAPON_SYSTEMS = ['weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5
 const EMITTERS = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];   // Sektor 0..3
 const M3_SYSTEMS = ['reactor', 'engines', 'shields', 'transfer', 'thruster_port', 'thruster_stbd',
   'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
-  'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'];
+  'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
+  'modul_1', 'modul_2', 'modul_3', 'modul_4'];
 const SECTOR_LABEL = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
 const ENEMY_LABEL = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 const STATE_RANK = { ok: 0, damaged: 1, offline: 2, broken: 3 };
@@ -364,7 +365,7 @@ function enforcePower(game) {
   const pw = ship.power;
   for (const k of POWER_SYSTEMS) pw[k] = Math.max(0, Math.min(game.C.power.maxPerSystem, Number(ship.powerIntent[k]) || 0));
   const mods = Modul.liste(game);
-  for (const m of mods) m.lauf = !!m.an;
+  for (const m of mods) m.lauf = !!m.an && !interior.isDown(ship.systems['modul_' + m.raum]);   // SYS-01 A1a: ein zerstörtes Modul läuft nicht, bis es repariert ist
   const cut = (min) => {
     let top = null;
     for (const k of CUT_ORDER) if (pw[k] > min && (top === null || pw[k] > pw[top])) top = k;
