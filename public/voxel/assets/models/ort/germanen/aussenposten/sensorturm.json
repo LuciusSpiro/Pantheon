@@ -1,0 +1,455 @@
+{
+ "id": "ort/germanen/aussenposten/sensorturm",
+ "name": "Drachensteven-Sensormast (Germanen): Stabmast aus Eisenplanken, oben ein Stevendrache mit Rückenkamm, Augen sind die Optiken, im offenen Maul glüht der Sender",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "sensor",
+  "wachturm",
+  "aussenposten",
+  "leit",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "aktiv": {
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Sensor aktiv"
+  }
+ },
+ "variants": {
+  "aus": {
+   "aktiv": 0
+  }
+ },
+ "let": {
+  "em": "aktiv ? 1.1 : 0"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "stone_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß Kupfer",
+   "at": [
+    -7,
+    1,
+    -7
+   ],
+   "size": [
+    14,
+    1,
+    14
+   ],
+   "color": {
+    "frame": "copper_dark",
+    "fill": "stone_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Mast",
+   "at": [
+    -4,
+    2,
+    -4
+   ],
+   "size": [
+    8,
+    28,
+    8
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Mastbänder",
+   "at": [
+    -5,
+    "8 + i*12",
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark",
+   "repeat": {
+    "count": 2,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutfuge",
+   "at": [
+    -1,
+    4,
+    4
+   ],
+   "size": [
+    2,
+    24,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em * 0.7"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kragen",
+   "at": [
+    -5,
+    30,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Hals 1",
+   "at": [
+    -2,
+    32,
+    -3
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Hals 2",
+   "at": [
+    -2,
+    35,
+    -5
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Hals 3",
+   "at": [
+    -2,
+    38,
+    -5
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Hals 4",
+   "at": [
+    -2,
+    41,
+    -3
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Schädel",
+   "at": [
+    -3,
+    42,
+    0
+   ],
+   "size": [
+    6,
+    5,
+    5
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Oberkiefer",
+   "at": [
+    -2,
+    44,
+    5
+   ],
+   "size": [
+    4,
+    3,
+    9
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Nüstern",
+   "at": [
+    -2,
+    46,
+    12
+   ],
+   "size": [
+    4,
+    1,
+    2
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Unterkiefer",
+   "at": [
+    -2,
+    40,
+    4
+   ],
+   "size": [
+    4,
+    1,
+    9
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Zähne oben",
+   "at": [
+    -2,
+    43,
+    6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "trim",
+   "mirror": "x",
+   "mirrorAt": 0,
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     0,
+     2
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutmaul",
+   "at": [
+    -1,
+    41,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    8
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Augen",
+   "at": [
+    -4,
+    45,
+    2
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": {
+    "role": "rune",
+    "emit": "em"
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "wedge",
+   "name": "Rückenkamm",
+   "at": [
+    -0.5,
+    35,
+    -8
+   ],
+   "size": [
+    1,
+    9,
+    3
+   ],
+   "slope": "-z",
+   "color": "copper"
+  },
+  {
+   "op": "wedge",
+   "name": "Kopfkamm",
+   "at": [
+    -0.5,
+    47,
+    -2
+   ],
+   "size": [
+    1,
+    4,
+    6
+   ],
+   "slope": "-z",
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Flügel innen",
+   "at": [2, 38, -6],
+   "size": [3, 1, 5],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Flügel mitte",
+   "at": [5, 38, -8],
+   "size": [2, 1, 6],
+   "color": "copper_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Flügel spitze",
+   "at": [7, 38, -11],
+   "size": [1, 1, 7],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "line",
+   "name": "Flügelrippe Glut",
+   "from": [2, 39, -2],
+   "to": [7, 39, -9],
+   "r": 0.5,
+   "color": {
+    "role": "ember",
+    "emit": "em * 0.5"
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Schwanz",
+   "at": [-1, 31, -8],
+   "size": [2, 2, 5],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Schwanz 2",
+   "at": [-1, 32, -12],
+   "size": [2, 1, 4],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Schwanzrune",
+   "at": [-1, 32, -13],
+   "size": [2, 1, 1],
+   "color": {
+    "role": "rune",
+    "emit": "em"
+   }
+  },
+  {
+   "op": "line",
+   "name": "Ohren",
+   "from": [
+    -2,
+    47,
+    1
+   ],
+   "to": [
+    -4,
+    50,
+    -2
+   ],
+   "r": 0.6,
+   "color": "copper_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

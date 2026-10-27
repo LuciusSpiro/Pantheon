@@ -272,6 +272,10 @@ const KARTEN_WELLEN = {
 };
 // neuer Seed je Start: Partie-Seed (je Reset neu) und Startzähler (auch bei festem Server-Seed, z. B. in Tests, je Start anders)
 function wellenSeed(game) { return 1 + ((Math.imul((game.seed >>> 0) ^ 0x9E3779B1, 2654435761) + Math.imul(game.runCounter | 0, 40503)) >>> 0) % 99999; }
+// ORT-01 4b: ausdrücklich gewählte Fraktion (URL &fraktion=rom, Bots) besetzt die Wellen, sofern der Katalog sie kennt; sonst Standard der Karte
+function wellenFraktion(game, id) {
+  try { return id && (require('./combat.js').katalogDaten(game).fraktionen || {})[id] ? id : null; } catch (e) { return null; }
+}
 function startWellen(game, karte, params) {
   const Wellen = require('./wellen.js');
   const url = params && params.art ? params : null;
@@ -303,7 +307,7 @@ function startWellen(game, karte, params) {
   }
   const echteKarte = lp === 'kesh' ? 'kesh' : art;
   game.arena = { kind: 'arena_away', lp, wellen: null, params: url ? Object.assign({}, url) : null };
-  Wellen.start(game, { karte: echteKarte, seed, lp, fraktion: (KARTEN_WELLEN[echteKarte] || K).fraktion, name: (KARTEN_WELLEN[echteKarte] || K).name });
+  Wellen.start(game, { karte: echteKarte, seed, lp, fraktion: wellenFraktion(game, url && url.fraktion) || (KARTEN_WELLEN[echteKarte] || K).fraktion, name: (KARTEN_WELLEN[echteKarte] || K).name });
 }
 
 function update(game, dt) {

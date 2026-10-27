@@ -1,0 +1,41 @@
+{
+  "id": "ort/germanen/aussenposten/unterkunft",
+  "name": "Mannschaftsunterkunft (Germanen): kleine Stabhalle ohne Turm, Eisenplanken, gestaffelte Steildächer, Glutfuge am First, Glutofen-Schornstein, Fenster mit Glutlinie",
+  "tier": "architecture",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["bau", "germanen", "aussenposten", "unterkunft", "ort01"],
+  "footprint": [6, 4],
+  "params": {
+    "licht": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Glut und Runen an" }
+  },
+  "let": { "em": "licht ? 0.6 : 0" },
+  "ops": [
+    { "op": "box", "name": "Fundament", "at": [-12, 0, -8], "size": [24, 1, 16], "color": "stone_dark" },
+    { "op": "box", "name": "Umgang", "at": [-11, 1, -7], "size": [22, 4, 14], "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Umgang Sockel", "at": [-11, 1, -7], "size": [22, 1, 14], "color": "metal_dark", "mode": "paint" },
+    { "op": "box", "name": "Pfosten", "at": ["-11 + i*7", 1, 7], "size": [1, 4, 1], "color": "metal_dark", "repeat": { "count": 4, "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Pfosten Nieten", "at": ["-11 + i*7", 3, 7], "size": [1, 1, 1], "color": "copper", "repeat": { "count": 4, "var": "i", "step": [0, 0, 0] } },
+    { "op": "wedge", "name": "Umgangdach", "at": [-12, 5, -8], "size": [24, 3, 16], "gable": "z", "color": { "stripes": ["metal", "metal_light"], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "Traufe Kupfer", "at": [-12, 5, 7], "size": [24, 1, 1], "color": "copper_dark", "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Hauptschiff", "at": [-8, 5, -5], "size": [16, 4, 10], "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Runenfries", "at": [-8, 7, 5], "size": [16, 1, 1], "color": "metal_dark" },
+    { "op": "box", "name": "Runen", "at": ["-7 + i*4", 7, 5], "size": [1, 1, 1], "color": { "role": "rune", "emit": "em" }, "repeat": { "count": 4, "var": "i", "step": [0, 0, 0] } },
+    { "op": "wedge", "name": "Hauptdach", "at": [-9, 9, -6], "size": [18, 7, 12], "gable": "z", "color": { "stripes": ["metal", "metal_light"], "axis": "y", "period": 1 } },
+    { "op": "box", "name": "First Kupfer", "at": [-9, 15, -1], "size": [18, 1, 2], "color": "copper_dark" },
+    { "op": "box", "name": "Glutfuge First", "at": [-8, 16, -1], "size": [16, 1, 1], "color": { "role": "ember", "emit": "em" } },
+    { "op": "box", "name": "Tor", "at": [-2, 1, 6], "size": [4, 4, 1], "color": "dark" },
+    { "op": "box", "name": "Torpfosten", "at": [-3, 1, 7], "size": [1, 5, 1], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Torsturz", "at": [-3, 5, 7], "size": [6, 1, 1], "color": "copper_dark" },
+    { "op": "box", "name": "Tor Glutlinie", "at": [-2, 1, 7], "size": [4, 1, 1], "color": { "role": "ember", "emit": "em" } },
+    { "op": "box", "name": "Fenster", "at": [-9, 2, 6], "size": [3, 2, 1], "color": "glass", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Fenster Glut", "at": [-9, 1, 7], "size": [3, 1, 1], "color": { "role": "ember", "emit": "em" }, "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Schornstein", "at": [4, 12, -4], "size": [2, 5, 2], "color": "metal_dark" },
+    { "op": "box", "name": "Schornstein Kupfer", "at": [4, 17, -4], "size": [2, 1, 2], "color": "copper" },
+    { "op": "box", "name": "Schornstein Glut", "at": [4, 18, -4], "size": [2, 1, 2], "color": { "role": "ember", "emit": "em" } },
+    { "op": "line", "name": "Giebelbretter", "from": [-9, 10, -3], "to": [-9, 15, 3], "r": 0.5, "color": "copper_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "line", "name": "Giebelbretter 2", "from": [-9, 10, 3], "to": [-9, 15, -3], "r": 0.5, "color": "copper_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Giebelspitzen", "at": [-10, 15, 3], "size": [1, 1, 1], "color": { "role": "rune", "emit": "em" }, "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } }
+  ],
+  "anchor": [0, 0, 0]
+}

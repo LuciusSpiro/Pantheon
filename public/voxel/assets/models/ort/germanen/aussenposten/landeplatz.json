@@ -1,0 +1,203 @@
+{
+  "id": "ort/germanen/aussenposten/landeplatz",
+  "name": "Landeplatz 4×4 (Germanen): flache Eisenplatte (1 Voxel, 6 cm) mit Kupferrand, kalter Plattenfuge, Glutlinie als Kreuz und Runen-Aufsetzkreuz; die Figur steht darauf, nichts ragt über den Boden",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": [
+    "prop",
+    "germanen",
+    "aussenposten",
+    "landeplatz",
+    "leit",
+    "ort01"
+  ],
+  "footprint": [
+    4,
+    4
+  ],
+  "params": {
+    "lit": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Glut an"
+    }
+  },
+  "variants": {
+    "dunkel": {
+      "lit": 0
+    }
+  },
+  "let": {
+    "em": "lit ? 1 : 0"
+  },
+  "ops": [
+    {
+      "name": "Platte",
+      "op": "box",
+      "at": [
+        -32,
+        0,
+        -32
+      ],
+      "size": [
+        64,
+        1,
+        64
+      ],
+      "color": {
+        "frame": "copper_dark",
+        "fill": "metal_light",
+        "axes": "xz",
+        "width": 2
+      }
+    },
+    {
+      "name": "Fuge quer",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -30,
+        0,
+        -15
+      ],
+      "size": [
+        60,
+        1,
+        1
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Fuge längs",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -15,
+        0,
+        -30
+      ],
+      "size": [
+        1,
+        1,
+        60
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Fuge quer 2",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -30,
+        0,
+        14
+      ],
+      "size": [
+        60,
+        1,
+        1
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Fuge längs 2",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        14,
+        0,
+        -30
+      ],
+      "size": [
+        1,
+        1,
+        60
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Glutlinie x",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        0
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "ember",
+        "emit": "em * 0.5"
+      }
+    },
+    {
+      "name": "Glutlinie z",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "ember",
+        "emit": "em * 0.5"
+      }
+    },
+    {
+      "name": "Aufsetzkreuz x",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -7,
+        0,
+        -1
+      ],
+      "size": [
+        14,
+        1,
+        1
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em * 0.7"
+      }
+    },
+    {
+      "name": "Aufsetzkreuz z",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -1,
+        0,
+        -7
+      ],
+      "size": [
+        1,
+        1,
+        14
+      ],
+      "color": {
+        "role": "rune",
+        "emit": "em * 0.7"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

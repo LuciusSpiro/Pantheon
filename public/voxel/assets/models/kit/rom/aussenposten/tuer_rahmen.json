@@ -1,0 +1,226 @@
+{
+  "id": "kit/rom/aussenposten/tuer_rahmen",
+  "name": "Rom Außenposten tuer_rahmen: Marmorschwelle mit Goldkante und Torschiene; Sturz mit Gunmetal-Führungskasten, roter Anzeige-Leiste und Goldschlussstein (Zustand als Anzeige)",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 8,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 3,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "teil": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1
+    },
+    "state": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1
+    }
+  },
+  "ops": [
+    {
+      "name": "Schwelle",
+      "op": "box",
+      "if": "teil == 0",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "frame": {
+          "shade": "trim",
+          "f": "0.9 * (1 - zustand * 0.06)"
+        },
+        "fill": {
+          "shade": "stone_light",
+          "f": "1 * (1 - zustand * 0.06)"
+        },
+        "axes": "x"
+      }
+    },
+    {
+      "name": "Torschiene",
+      "op": "box",
+      "if": "teil == 0",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        1
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Sturz",
+      "op": "box",
+      "if": "teil == 1",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Führungskasten",
+      "op": "box",
+      "if": "teil == 1",
+      "mode": "paint",
+      "at": [
+        0,
+        1,
+        0
+      ],
+      "size": [
+        "w",
+        "h - 1",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "1.2 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Sturz Band",
+      "op": "box",
+      "if": "teil == 1",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "color": {
+        "shade": "primary",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Schlussstein",
+      "op": "box",
+      "if": "teil == 1 && h >= 3",
+      "mode": "paint",
+      "at": [
+        "floor(w / 2) - 1",
+        1,
+        0
+      ],
+      "size": [
+        2,
+        "h - 1",
+        "d"
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.95 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Anzeige offen",
+      "op": "box",
+      "if": "teil == 1 && h >= 3 && state == 0",
+      "at": [
+        "floor(w / 2) - 1",
+        1,
+        "d - 1"
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Anzeige gesperrt",
+      "op": "box",
+      "if": "teil == 1 && h >= 3 && state >= 2",
+      "at": [
+        "floor(w / 2) - 1",
+        1,
+        "d - 1"
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "primary",
+        "f": "1.1 * (1 - zustand * 0.06)"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

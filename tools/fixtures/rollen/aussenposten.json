@@ -1,0 +1,162 @@
+{
+  "format": "rollen/1",
+  "kartenart": "aussenposten",
+  "hinweis": "TESTDATEI (nicht in content/): Gebäudearten des Außenpostens (Innenboden boden2). Struktur, kein Design. Germanische Belegung ohne fass/werkzeug/feuerschale: das sind auf dem Außenposten Deckungs-Props (deckung_props) und fielen aus der Deko.",
+  "raumtypen": {
+    "kommando": {
+      "frei_halten": 2,
+      "rollen": [
+        {
+          "rolle": "kommando.hauptstueck",
+          "kind": "leit",
+          "wandnah": true,
+          "nur_wand": true,
+          "pflicht": true
+        },
+        {
+          "rolle": "kommando.behaelter",
+          "kind": "streu",
+          "zug": [
+            1,
+            2
+          ],
+          "wandnah": true
+        },
+        {
+          "rolle": "kommando.markierung",
+          "kind": "streu",
+          "zug": [
+            1,
+            2
+          ],
+          "wandnah": true
+        },
+        {
+          "rolle": "kommando.leuchte",
+          "kind": "streu",
+          "zug": [
+            1,
+            2
+          ]
+        },
+        {
+          "rolle": "kommando.streu",
+          "kind": "streu",
+          "zug": [
+            0,
+            2
+          ]
+        }
+      ]
+    },
+    "lager": {
+      "frei_halten": 2,
+      "rollen": [
+        {
+          "rolle": "lager.behaelter",
+          "kind": "streu",
+          "zug": [
+            2,
+            3
+          ],
+          "wandnah": true,
+          "pflicht": true
+        },
+        {
+          "rolle": "lager.werkzeug",
+          "kind": "streu",
+          "zug": [
+            1,
+            2
+          ],
+          "wandnah": true
+        },
+        {
+          "rolle": "lager.markierung",
+          "kind": "streu",
+          "zug": [
+            0,
+            1
+          ],
+          "wandnah": true
+        },
+        {
+          "rolle": "lager.leuchte",
+          "kind": "streu",
+          "zug": [
+            0,
+            1
+          ]
+        },
+        {
+          "rolle": "lager.streu",
+          "kind": "streu",
+          "zug": [
+            1,
+            3
+          ]
+        }
+      ]
+    }
+  },
+  "rollen": {
+    "kommando.hauptstueck": {
+      "rom": "leit/rom/aussenposten/statue_platz",
+      "germanen": "leit/germanen/aussenposten/statue_platz"
+    },
+    "kommando.behaelter": {
+      "rom": "prop/rom/ruine/schutt",
+      "germanen": "prop/germanen/gemein/hocker"
+    },
+    "kommando.markierung": {
+      "rom": "prop/rom/ruine/deko_standartenfuss",
+      "germanen": "prop/germanen/gemein/decal_runen"
+    },
+    "kommando.leuchte": {
+      "rom": "prop/rom/ruine/deko_standartenfuss",
+      "germanen": "prop/germanen/gemein/hocker"
+    },
+    "kommando.streu": {
+      "rom": [
+        "prop/rom/ruine/deko_gras",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "germanen": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/decal_runen"
+      ]
+    },
+    "lager.behaelter": {
+      "rom": [
+        "prop/rom/ruine/schutt",
+        "prop/rom/ruine/deko_stein"
+      ],
+      "germanen": [
+        "prop/germanen/gemein/hocker",
+        "prop/germanen/gemein/kette"
+      ]
+    },
+    "lager.werkzeug": {
+      "rom": "prop/rom/ruine/deko_stein",
+      "germanen": "prop/germanen/gemein/kette"
+    },
+    "lager.markierung": {
+      "rom": "prop/rom/ruine/deko_standartenfuss",
+      "germanen": "prop/germanen/gemein/decal_runen"
+    },
+    "lager.leuchte": {
+      "rom": "prop/rom/ruine/deko_standartenfuss",
+      "germanen": "prop/germanen/gemein/hocker"
+    },
+    "lager.streu": {
+      "rom": [
+        "prop/rom/ruine/deko_gras",
+        "prop/rom/ruine/schutt"
+      ],
+      "germanen": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/decal_runen"
+      ]
+    }
+  }
+}

@@ -1,0 +1,199 @@
+{
+  "id": "kit/rom/aussenposten/wand_fuellung",
+  "name": "Rom Außenposten wand_fuellung: abwechselnd Marmorfeld mit Gunmetal-Attikaband und Gunmetal-Aggregatfeld mit Goldbändern; selten eine Amber-Energieleitung senkrecht",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "ops": [
+    {
+      "name": "Marmor",
+      "op": "box",
+      "if": "hash(seed, 7) >= 0.5",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": "0.92 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Marmor Band",
+      "op": "box",
+      "if": "hash(seed, 7) >= 0.5 && h > 5",
+      "mode": "paint",
+      "at": [
+        0,
+        "h - 2",
+        0
+      ],
+      "size": [
+        "w",
+        2,
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "1.25 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Marmor Fuge",
+      "op": "box",
+      "if": "hash(seed, 7) >= 0.5 && h > 5",
+      "mode": "paint",
+      "at": [
+        0,
+        3,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": "0.75 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Leitung",
+      "op": "box",
+      "if": "hash(seed, 7) >= 0.5 && hash(seed, 3) < 0.3 && w >= 3",
+      "mode": "paint",
+      "at": [
+        1,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h - 2",
+        "d"
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Aggregat",
+      "op": "box",
+      "if": "hash(seed, 7) < 0.5",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_dark",
+            "f": "1.2 * (1 - zustand * 0.06)"
+          },
+          {
+            "shade": "metal",
+            "f": "0.95 * (1 - zustand * 0.06)"
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Aggregat Gold",
+      "op": "box",
+      "if": "hash(seed, 7) < 0.5 && h > 5",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.9 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Aggregat Gold oben",
+      "op": "box",
+      "if": "hash(seed, 7) < 0.5 && h > 5",
+      "mode": "paint",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.9 * (1 - zustand * 0.06)"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

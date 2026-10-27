@@ -1,0 +1,303 @@
+{
+ "id": "ort/rom/station/koje",
+ "name": "Kojennische (Rom): Bogennische mit Bett, Lebenserhaltungspaneel (Luft, Wärme, Energie), Amberrinne oben",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "leit",
+  "quartier",
+  "koje",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "stone"
+  },
+  {
+   "op": "use",
+   "name": "Nische",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    2,
+    -6
+   ],
+   "params": {
+    "w": 24,
+    "h": 12,
+    "d": 12,
+    "wall": 4,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückwand",
+   "at": [
+    -16,
+    2,
+    -6
+   ],
+   "size": [
+    32,
+    26,
+    1
+   ],
+   "color": "primary",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Bettrahmen",
+   "at": [
+    -12,
+    3,
+    -5
+   ],
+   "size": [
+    24,
+    3,
+    11
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Matratze",
+   "at": [
+    -12,
+    6,
+    -5
+   ],
+   "size": [
+    24,
+    2,
+    11
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Decke",
+   "at": [
+    -4,
+    8,
+    -5
+   ],
+   "size": [
+    16,
+    1,
+    11
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "cloth",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kissen",
+   "at": [
+    -12,
+    8,
+    -3
+   ],
+   "size": [
+    7,
+    2,
+    7
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Lichtleiste",
+   "at": [
+    -10,
+    18,
+    -5
+   ],
+   "size": [
+    20,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.6
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Paneel Rahmen",
+   "at": [
+    8,
+    10,
+    -5
+   ],
+   "size": [
+    4,
+    8,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Paneel Glas",
+   "at": [
+    9,
+    11,
+    -4
+   ],
+   "size": [
+    2,
+    6,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Paneel Anzeige",
+   "at": [
+    9,
+    13,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Paneel Anzeige Luft",
+   "at": [
+    9,
+    15,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Paneel Anzeige Wärme",
+   "at": [
+    9,
+    11,
+    -3
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Lüftungsband",
+   "at": [
+    -4,
+    13,
+    -5
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     2,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Dachrinne",
+   "at": [
+    -16,
+    28,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Dachrinne Fluss",
+   "at": [
+    -15,
+    29,
+    -5
+   ],
+   "size": [
+    30,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

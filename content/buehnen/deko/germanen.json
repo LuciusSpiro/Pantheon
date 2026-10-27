@@ -2,48 +2,1183 @@
   "format": "deko/1",
   "id": "germanen",
   "quelle": "CONTRACT-B1.md §10.3, ART-PLAN §5 Wunsch 6 (Art pflegt: ART-GK-BAU)",
-  "hinweis": "Platztyp → Streu-Props. Nur Optik: keine Ankerobjekte (Truhe, Käfig, Runenstein, Bake, Tanks, Kessel), nie Deckung (kiste_stapel), nur 1-Kachel-Props (keine Bank 2×1). Besitzbanner kommen über die Besitz-Streuung (paletten/<besitz>.json). Dichte je 8×8-Zelle, Sichtung B1: Außenposten-Hof höchstens 4, Gefechtsplätze höchstens 6 je Zelle (deko.js begrenzt zusätzlich auf 12). Platztypen, die in mehreren Kartenarten vorkommen (herzstueck, lager, quartiere, zellen, schleuse), nutzen nur gemeinsame Props.",
+  "hinweis": "Platztyp → Streu-Props. Nur Optik: keine Ankerobjekte (Truhe, Käfig, Runenstein, Bake, Tanks, Kessel), nie Deckung (kiste_stapel), nur 1-Kachel-Props (keine Bank 2×1). Besitzbanner kommen über die Besitz-Streuung (paletten/<besitz>.json, in Orten ohne Altstücke: besitzStreuFuerOrt). Dichte je 8×8-Zelle, Sichtung B1: Außenposten-Hof höchstens 4, Gefechtsplätze höchstens 6 je Zelle (deko.js begrenzt zusätzlich auf 12). Platztypen, die in mehreren Kartenarten vorkommen (herzstueck, lager, quartiere, zellen, schleuse), nutzen nur gemeinsame Props. ORT-01 Paket 9: Station und Außenposten haben keine Altstücke mehr (Fass, Kette, Holzwerkbank, Feuerschale ersetzt durch ORT-Stücke, tools/orte-sperre.mjs). Leitfeuer ist Deckung auf dem Außenposten (deckung_voll), dort nicht als Streu. Schiff-Typen (antrieb, laderaum, …) bleiben auf Altstücken.",
   "regeln": {
-    "*": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": false, "frei_halten": 1 },
-
-    "herzstueck": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
-    "lager": { "props": ["prop/germanen/gemein/fass", "prop/germanen/station/regal", "prop/germanen/gemein/werkzeug"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
-    "quartiere": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/kette", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 1 },
-    "zellen": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
-    "schleuse": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-
-    "abfluss": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/fass"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "funkmast": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass"], "dichte": [1, 3], "wandnah": false, "frei_halten": 2 },
-    "gelaende": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": false, "frei_halten": 1 },
-    "hof": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [1, 4], "wandnah": false, "frei_halten": 2 },
-    "huegel": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": false, "frei_halten": 1 },
-    "lagerhalle": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
-    "landeplatz": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "lichtung": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": false, "frei_halten": 2 },
-    "palisade": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },
-    "innenzaun": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [1, 3], "wandnah": true, "frei_halten": 1 },
-    "tor": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 2 },
-    "treibstofflager": { "props": ["prop/germanen/gemein/fass", "prop/germanen/gemein/werkzeug"], "dichte": [2, 5], "wandnah": true, "frei_halten": 2 },
-    "wachturm": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": false, "frei_halten": 2 },
-    "zaunluecke": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "zellenblock": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/fass"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
-
-    "kontrollraum": { "props": ["prop/germanen/station/wandmonitor", "prop/germanen/station/kontrollpult", "prop/germanen/gemein/decal_runen"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
-    "korridor": { "props": ["prop/germanen/gemein/decal_runen", "prop/germanen/station/wandmonitor"], "dichte": [0, 2], "wandnah": true, "frei_halten": 1 },
-    "kreuzung": { "props": ["prop/germanen/gemein/feuerschale", "prop/germanen/gemein/decal_runen"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "reaktorraum": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette", "prop/germanen/station/regal"], "dichte": [2, 4], "wandnah": true, "frei_halten": 2 },
-    "schacht": { "props": ["prop/germanen/gemein/kette", "prop/germanen/gemein/werkzeug"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "schachtzugang": { "props": ["prop/germanen/gemein/kette"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
-    "schott": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
-
-    "antrieb": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette", "prop/germanen/schiff/ladenetz"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
-    "batteriedeck": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 2 },
-    "bruecke": { "props": ["prop/germanen/gemein/decal_runen", "prop/germanen/gemein/fass"], "dichte": [0, 2], "wandnah": true, "frei_halten": 2 },
-    "bug_oben": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/fass"], "dichte": [1, 2], "wandnah": true, "frei_halten": 1 },
-    "heck_oben": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/kette"], "dichte": [1, 2], "wandnah": true, "frei_halten": 1 },
-    "laderaum": { "props": ["prop/germanen/schiff/ladenetz", "prop/germanen/gemein/fass", "prop/germanen/gemein/kette"], "dichte": [3, 6], "wandnah": true, "frei_halten": 1 },
-    "reaktor": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"], "dichte": [1, 3], "wandnah": true, "frei_halten": 2 },
-    "transferkammer": { "props": ["prop/germanen/gemein/decal_runen"], "dichte": [0, 1], "wandnah": true, "frei_halten": 2 },
-    "waffenkammer": { "props": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/fass", "prop/germanen/gemein/kette"], "dichte": [2, 4], "wandnah": true, "frei_halten": 1 }
+    "*": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "herzstueck": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "lager": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/station/regal",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "quartiere": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "zellen": {
+      "props": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "schleuse": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "abfluss": {
+      "props": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "funkmast": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "gelaende": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "hof": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        1,
+        4
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "huegel": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "lagerhalle": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "landeplatz": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "lichtung": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "palisade": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "innenzaun": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "tor": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "treibstofflager": {
+      "props": [
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        2,
+        5
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "wachturm": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "zaunluecke": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "zellenblock": {
+      "props": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "kontrollraum": {
+      "props": [
+        "prop/germanen/station/wandmonitor",
+        "prop/germanen/station/kontrollpult",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "korridor": {
+      "props": [
+        "prop/germanen/gemein/decal_runen",
+        "prop/germanen/station/wandmonitor"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "kreuzung": {
+      "props": [
+        "prop/germanen/gemein/feuerschale",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "reaktorraum": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette",
+        "prop/germanen/station/regal"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "schacht": {
+      "props": [
+        "prop/germanen/gemein/kette",
+        "prop/germanen/gemein/werkzeug"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "schachtzugang": {
+      "props": [
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "schott": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "antrieb": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette",
+        "prop/germanen/schiff/ladenetz"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "batteriedeck": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "bruecke": {
+      "props": [
+        "prop/germanen/gemein/decal_runen",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "bug_oben": {
+      "props": [
+        "prop/germanen/schiff/ladenetz",
+        "prop/germanen/gemein/fass"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "heck_oben": {
+      "props": [
+        "prop/germanen/schiff/ladenetz",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "laderaum": {
+      "props": [
+        "prop/germanen/schiff/ladenetz",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "reaktor": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "transferkammer": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "waffenkammer": {
+      "props": [
+        "prop/germanen/gemein/werkzeug",
+        "prop/germanen/gemein/fass",
+        "prop/germanen/gemein/kette"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:*": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:*": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:herzstueck": {
+      "props": [
+        "ort/germanen/aussenposten/leitfeuer",
+        "ort/germanen/gemein/fasszelle",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:herzstueck": {
+      "props": [
+        "ort/germanen/aussenposten/leitfeuer",
+        "ort/germanen/gemein/fasszelle",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:lager": {
+      "props": [
+        "ort/germanen/gemein/fasszelle",
+        "prop/germanen/station/regal",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:lager": {
+      "props": [
+        "ort/germanen/gemein/fasszelle",
+        "prop/germanen/station/regal",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:quartiere": {
+      "props": [
+        "ort/germanen/gemein/rationsbehaelter",
+        "ort/germanen/gemein/medkiste",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:quartiere": {
+      "props": [
+        "ort/germanen/gemein/rationsbehaelter",
+        "ort/germanen/gemein/medkiste",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:zellen": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:zellen": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:schleuse": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:schleuse": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:abfluss": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/gemein/rationsbehaelter"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:abfluss": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/gemein/rationsbehaelter"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:funkmast": {
+      "props": [
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:funkmast": {
+      "props": [
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "station:gelaende": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:gelaende": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:hof": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        4
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:hof": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        4
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "station:huegel": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:huegel": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:lagerhalle": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:lagerhalle": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:landeplatz": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:landeplatz": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:dorfplatz": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:dorfplatz": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:kulisse": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:kulisse": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:rohr": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:rohr": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "station:lichtung": {
+      "props": [
+        "ort/germanen/gemein/runenholz",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:lichtung": {
+      "props": [
+        "ort/germanen/gemein/runenholz",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "station:palisade": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:palisade": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:innenzaun": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:innenzaun": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "ort/germanen/gemein/werkzeugkasten"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:tor": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:tor": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:treibstofflager": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        2,
+        5
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:treibstofflager": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        2,
+        5
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:wachturm": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:wachturm": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "station:zaunluecke": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:zaunluecke": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:zellenblock": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:zellenblock": {
+      "props": [
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "ort/germanen/aussenposten/streu_kabelrolle",
+        "ort/germanen/aussenposten/streu_runenpoller"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:kontrollraum": {
+      "props": [
+        "prop/germanen/station/wandmonitor",
+        "prop/germanen/station/kontrollpult",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:kontrollraum": {
+      "props": [
+        "prop/germanen/station/wandmonitor",
+        "prop/germanen/station/kontrollpult",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:korridor": {
+      "props": [
+        "prop/germanen/gemein/decal_runen",
+        "prop/germanen/station/wandmonitor"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:korridor": {
+      "props": [
+        "prop/germanen/gemein/decal_runen",
+        "prop/germanen/station/wandmonitor"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:kreuzung": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:kreuzung": {
+      "props": [
+        "ort/germanen/aussenposten/streu_runenpoller",
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:reaktorraum": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "prop/germanen/station/regal"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:reaktorraum": {
+      "props": [
+        "ort/germanen/gemein/werkzeugkasten",
+        "ort/germanen/aussenposten/streu_glutleitung",
+        "prop/germanen/station/regal"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:schott": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:schott": {
+      "props": [
+        "prop/germanen/gemein/decal_runen"
+      ],
+      "dichte": [
+        0,
+        1
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    }
   }
 }

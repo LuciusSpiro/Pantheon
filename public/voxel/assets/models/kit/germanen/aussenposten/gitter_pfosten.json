@@ -1,0 +1,131 @@
+{
+  "id": "kit/germanen/aussenposten/gitter_pfosten",
+  "name": "Außenposten Stabbau – gitter_pfosten: Eisenpfosten mit Granitfuß und Kupferkappe, Glutband unter der Kappe",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K2 (Gruppe 2b).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 2,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 10,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.6 : 0"
+  },
+  "ops": [
+    {
+      "name": "Pfosten",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.8 * dk"
+      }
+    },
+    {
+      "name": "Fuß",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "stone_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Kupferkappe",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper",
+        "f": "dk"
+      },
+      "if": "h >= 4"
+    },
+    {
+      "name": "Glutband",
+      "op": "box",
+      "at": [
+        0,
+        "h - 3",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "h >= 5 && zustand < 2"
+    }
+  ]
+}

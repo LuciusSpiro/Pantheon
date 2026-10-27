@@ -1,0 +1,253 @@
+{
+  "id": "kit/germanen/aussenposten/wand_krone",
+  "name": "Außenposten Stabbau – wand_krone: dunkle Eisenkrone mit heller Eisenrand und durchlaufender Glutfuge (von oben die Linie des Hauses)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K1 (Gruppe 2b). Füllt die ganze Kachel oben (Naht). Die Glutfuge läuft wie die Wand (conn), emit 0,5, umkämpft erloschen.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn (N1 O2 S4 W8)"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.6 : 0",
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "bz": "cn || cs",
+    "bx": "ce || cw || !(cn || cs)"
+  },
+  "variants": {
+    "nord_sued": {
+      "conn": 5
+    },
+    "ecke": {
+      "conn": 6
+    },
+    "kreuz": {
+      "conn": 15
+    },
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 2
+    }
+  },
+  "ops": [
+    {
+      "name": "Krone Eisen",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "0.85 * dk"
+      }
+    },
+    {
+      "name": "Eisenrand hell N",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.85 * dk"
+      },
+      "if": "!cn"
+    },
+    {
+      "name": "Eisenrand hell S",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        "d - 1"
+      ],
+      "size": [
+        "w",
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.85 * dk"
+      },
+      "if": "!cs"
+    },
+    {
+      "name": "Eisenrand hell W",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.85 * dk"
+      },
+      "if": "!cw"
+    },
+    {
+      "name": "Eisenrand hell O",
+      "op": "box",
+      "at": [
+        "w - 1",
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_light",
+        "f": "0.85 * dk"
+      },
+      "if": "!ce"
+    },
+    {
+      "name": "Glutfuge entlang x",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        "floor(d / 2)"
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF7A1A",
+      "if": "bx && d >= 3 && zustand < 2",
+      "emit": "em"
+    },
+    {
+      "name": "Glutfuge entlang z",
+      "op": "box",
+      "at": [
+        "floor(w / 2)",
+        "h - 1",
+        0
+      ],
+      "size": [
+        1,
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": "#FF7A1A",
+      "if": "bz && w >= 3 && zustand < 2",
+      "emit": "em"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal_dark",
+            "f": 0.85
+          },
+          {
+            "shade": "metal_dark",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

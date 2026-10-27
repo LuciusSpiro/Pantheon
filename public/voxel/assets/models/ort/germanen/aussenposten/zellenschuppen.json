@@ -1,0 +1,430 @@
+{
+ "id": "ort/germanen/aussenposten/zellenschuppen",
+ "name": "Zellenschuppen (Germanen): offener Stabschuppen zum Lagern und Laden von Fasszellen, Pultdach über der Rückwand, davor die Ladefläche mit Glutschiene und Kupferpollern",
+ "tier": "architecture",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "bau",
+  "germanen",
+  "aussenposten",
+  "zellenlager",
+  "ort01"
+ ],
+ "footprint": [
+  4,
+  3
+ ],
+ "params": {
+  "licht": {
+   "default": 1,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Glut an"
+  }
+ },
+ "let": {
+  "em": "licht ? 0.6 : 0"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fundament",
+   "at": [
+    -8,
+    0,
+    -6
+   ],
+   "size": [
+    16,
+    1,
+    12
+   ],
+   "color": "stone_dark"
+  },
+  {
+   "op": "box",
+   "name": "Ladefläche",
+   "at": [
+    -7,
+    1,
+    0
+   ],
+   "size": [
+    14,
+    1,
+    5
+   ],
+   "color": {
+    "frame": "metal_dark",
+    "fill": "metal",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutschiene vorn",
+   "at": [
+    -6,
+    2,
+    3
+   ],
+   "size": [
+    12,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schienenkontakt",
+   "at": [
+    "-5 + i*3",
+    2,
+    2
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückwand",
+   "at": [
+    -8,
+    1,
+    -6
+   ],
+   "size": [
+    16,
+    6,
+    1
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Seitenwand",
+   "at": [
+    -8,
+    1,
+    -5
+   ],
+   "size": [
+    1,
+    6,
+    5
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Wandsockel",
+   "at": [
+    -8,
+    1,
+    -6
+   ],
+   "size": [
+    16,
+    1,
+    1
+   ],
+   "color": "metal_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Innere Glutschiene",
+   "at": [
+    -7,
+    2,
+    -5
+   ],
+   "size": [
+    14,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfosten",
+   "at": [
+    "-8 + i*5",
+    1,
+    0
+   ],
+   "size": [
+    1,
+    6,
+    1
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfosten Nieten",
+   "at": [
+    "-8 + i*5",
+    3,
+    1
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "wedge",
+   "name": "Pultdach",
+   "at": [
+    -8,
+    7,
+    -6
+   ],
+   "size": [
+    16,
+    4,
+    5
+   ],
+   "slope": "+z",
+   "color": {
+    "stripes": [
+     "metal",
+     "metal_light"
+    ],
+    "axis": "y",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Dachfirst Kupfer",
+   "at": [
+    -8,
+    10,
+    -6
+   ],
+   "size": [
+    16,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Traufe Kupfer",
+   "at": [
+    -8,
+    7,
+    -1
+   ],
+   "size": [
+    16,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Traufe Glut",
+   "at": [
+    -8,
+    7,
+    -2
+   ],
+   "size": [
+    16,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fasszelle links",
+   "at": [
+    -6,
+    2,
+    0
+   ],
+   "size": [
+    3,
+    5,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Fasszelle links Reifen",
+   "at": [
+    -6,
+    4,
+    0
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Fasszelle rechts",
+   "at": [
+    2,
+    2,
+    0
+   ],
+   "size": [
+    3,
+    5,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Fasszelle rechts Reifen",
+   "at": [
+    2,
+    4,
+    0
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Poller",
+   "at": [
+    -7,
+    2,
+    4
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Poller Glut",
+   "at": [
+    -7,
+    4,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "em"
+   },
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Rune",
+   "at": [
+    -1,
+    4,
+    -5
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": "em"
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

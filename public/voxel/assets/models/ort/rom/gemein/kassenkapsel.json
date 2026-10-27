@@ -1,0 +1,249 @@
+{
+ "id": "ort/rom/gemein/kassenkapsel",
+ "name": "Kassenkapsel (Rom, Anker beute/fund): Amphore mit Gestell, Henkeln und Amber-Sichtfenster im Bauch, Rinnenanschluss am Hals; leer = Hals offen, Fenster dunkel",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "rom",
+  "beute",
+  "fund",
+  "kapsel"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Beute (0 voll bzw. da, 1 leer bzw. genommen)"
+  }
+ },
+ "variants": {
+  "leer": {
+   "state": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Gestell Ring",
+   "at": [
+    -5,
+    0,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Bauch unten",
+   "at": [
+    -4,
+    2,
+    -4
+   ],
+   "size": [
+    8,
+    2,
+    8
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Bauch breit",
+   "at": [
+    -6,
+    4,
+    -6
+   ],
+   "size": [
+    12,
+    4,
+    12
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Schulter",
+   "at": [
+    -5,
+    8,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Hals",
+   "at": [
+    -3,
+    10,
+    -3
+   ],
+   "size": [
+    6,
+    6,
+    6
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Henkel links",
+   "at": [
+    -7,
+    6,
+    -1
+   ],
+   "size": [
+    2,
+    7,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Henkel rechts",
+   "at": [
+    5,
+    6,
+    -1
+   ],
+   "size": [
+    2,
+    7,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Schacht offen (leer)",
+   "at": [
+    -2,
+    15,
+    -2
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": "dark",
+   "if": "state == 1",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Sichtfenster Amber",
+   "at": [
+    -2,
+    5,
+    5
+   ],
+   "size": [
+    4,
+    4,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 0.6 : 0"
+   },
+   "if": "state == 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Sichtfenster dunkel",
+   "at": [
+    -2,
+    5,
+    5
+   ],
+   "size": [
+    4,
+    4,
+    1
+   ],
+   "color": "metal_dark",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenanschluss",
+   "at": [
+    3,
+    13,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenfluss Amber",
+   "at": [
+    4,
+    14,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 0 ? 0.6 : 0"
+   },
+   "if": "state == 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Mündungsring",
+   "at": [
+    -3,
+    16,
+    -3
+   ],
+   "size": [
+    6,
+    1,
+    6
+   ],
+   "color": "secondary"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

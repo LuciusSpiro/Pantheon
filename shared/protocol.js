@@ -31,7 +31,7 @@
     //   Bauweise eine Grundfläche kennt (leit_fuss); sonst fehlen beide (VOXEL: Platzmitte bzw. Anker).
     // Statische Daten für den Kit-Renderer: GET /content/buehnen/<pfad>.json (nur .json, nur lesen, kein Listing) – kacheln.json,
     //   bauweisen/<bw>.json, paletten/<besitz>.json, deko/<bw>.json.
-    // Debug: buehne <art> <seed> [bauweise besitz zustand] | anker <id> <zustand> | lp list | lp neu <ort> <art>.
+    // Debug: buehne <art> <seed> [bauweise besitz zustand] | anker <id> <zustand> | lp list | lp neu <ort> <art> | lp hin <landepunkt-id> (ORT-01: bestehenden Landepunkt laden und hinbeamen, Screenshots/QA).
     // Debug für QA (QA_DEBUG, nur --debug; { c: 'debug', cmd, args: 'text' }):
     //   sprungpunkt auf <hex|ort> [temp] | sprungpunkt zu <hex|ort|kantenId>   (Kante vom Hex des aktuellen Orts)
     //   ladung [ankerId] [sek]   Sprengpunkt der aktuellen gebauten Karte scharf (Countdown im Snapshot away.cd)

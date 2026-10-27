@@ -1,0 +1,33 @@
+{
+  "id": "ort/rom/aussenposten/sensorturm",
+  "name": "Tholos-Sensorturm (Rom): Säule mit Leitungsschlitz trägt den offenen Sensorring, Radomkegel, Antenne",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "sensor", "wachturm", "aussenposten", "leit", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "aktiv": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Sensor aktiv" }
+  },
+  "variants": { "aus": { "aktiv": 0 } },
+  "let": { "em": "aktiv ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Sockel", "at": [-7, 0, -7], "size": [14, 3, 14], "color": "stone" },
+    { "op": "box", "name": "Sockel Rot", "at": [-7, 1, -7], "size": [14, 1, 14], "color": "primary", "mode": "paint" },
+    { "op": "box", "name": "Schaltkasten", "at": [-4, 3, 4], "size": [8, 6, 3], "color": "metal_dark" },
+    { "op": "box", "name": "Schaltkasten Anzeige", "at": [-2, 5, 7], "size": [4, 2, 1], "color": { "role": "glow2", "emit": "em * 0.8" } },
+    { "op": "box", "name": "Schaft", "at": [-3, 3, -3], "size": [6, 30, 6], "color": "secondary" },
+    { "op": "box", "name": "Leitungsschlitz", "at": [-1, 9, 3], "size": [2, 23, 1], "color": { "role": "glow2", "emit": "em * 0.7" } },
+    { "op": "box", "name": "Schaftband", "at": [-4, 20, -4], "size": [8, 1, 8], "color": "trim" },
+    { "op": "box", "name": "Kapitell", "at": [-5, 33, -5], "size": [10, 2, 10], "color": "trim" },
+    { "op": "box", "name": "Plattform", "at": [-7, 35, -7], "size": [14, 1, 14], "color": { "frame": "trim", "fill": "secondary", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Säulchen", "at": [-6, 36, -6], "size": [2, 7, 2], "color": "secondary", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "cyl", "name": "Sensorring", "at": [0, 38, 0], "r": 4, "h": 2, "hollow": 1, "color": "metal_dark" },
+    { "op": "ellipsoid", "name": "Sensorkern", "at": [0, 39.5, 0], "r": 2.2, "color": { "role": "glow", "emit": "em * 1.3" } },
+    { "op": "box", "name": "Gebälk", "at": [-7, 43, -7], "size": [14, 1, 14], "color": "trim" },
+    { "op": "cyl", "name": "Radomkegel", "at": [0, 44, 0], "r": 6.5, "r2": 1.5, "h": 6, "color": "primary" },
+    { "op": "line", "name": "Antenne", "from": [0, 50, 0], "to": [0, 55, 0], "r": 0.5, "color": "trim" },
+    { "op": "box", "name": "Antennenlicht", "at": [-0.5, 55, -0.5], "size": [1, 1, 1], "color": { "role": "glow", "emit": "em * 1.5" } }
+  ],
+  "anchor": [0, 0, 0]
+}

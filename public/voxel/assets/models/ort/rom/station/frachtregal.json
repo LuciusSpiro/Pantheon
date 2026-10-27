@@ -1,0 +1,384 @@
+{
+ "id": "ort/rom/station/frachtregal",
+ "name": "Frachtregal (Rom): zwei Marmorbögen als Fächer, Amber-Ladeschienen, Frachtmodule, Rinne oben (Ersatz für rom/zellenregal)",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "lager",
+  "regal",
+  "fracht",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    12
+   ],
+   "color": "stone"
+  },
+  {
+   "op": "use",
+   "name": "Fach links",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -8,
+    2,
+    -6
+   ],
+   "params": {
+    "w": 10,
+    "h": 19,
+    "d": 12,
+    "wall": 3,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fach rechts",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    8,
+    2,
+    -6
+   ],
+   "params": {
+    "w": 10,
+    "h": 19,
+    "d": 12,
+    "wall": 3,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rückwand",
+   "at": [
+    -16,
+    2,
+    -6
+   ],
+   "size": [
+    32,
+    26,
+    1
+   ],
+   "color": "primary",
+   "mode": "under"
+  },
+  {
+   "op": "box",
+   "name": "Mittelboden",
+   "at": [
+    -13,
+    11,
+    -6
+   ],
+   "size": [
+    10,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Mittelboden r",
+   "at": [
+    3,
+    11,
+    -6
+   ],
+   "size": [
+    10,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Schiene unten",
+   "at": [
+    -13,
+    12,
+    5
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schiene unten r",
+   "at": [
+    3,
+    12,
+    5
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Gesims",
+   "at": [
+    -16,
+    28,
+    -6
+   ],
+   "size": [
+    32,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Rinne",
+   "at": [
+    -16,
+    29,
+    -6
+   ],
+   "size": [
+    32,
+    2,
+    2
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Rinne Fluss",
+   "at": [
+    -15,
+    30,
+    -5
+   ],
+   "size": [
+    30,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kiste unten",
+   "at": [
+    -12,
+    2,
+    -4
+   ],
+   "size": [
+    8,
+    6,
+    8
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kiste unten Licht",
+   "at": [
+    -9,
+    5,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben",
+   "at": [
+    -13,
+    13,
+    -4
+   ],
+   "size": [
+    10,
+    5,
+    8
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben Deckel",
+   "at": [
+    -13,
+    18,
+    -4
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben Licht",
+   "at": [
+    -9,
+    15,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kiste unten",
+   "at": [
+    4,
+    2,
+    -4
+   ],
+   "size": [
+    8,
+    6,
+    8
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kiste unten Licht",
+   "at": [
+    7,
+    5,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben",
+   "at": [
+    3,
+    13,
+    -4
+   ],
+   "size": [
+    10,
+    5,
+    8
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben Deckel",
+   "at": [
+    3,
+    18,
+    -4
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Kiste oben Licht",
+   "at": [
+    7,
+    15,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

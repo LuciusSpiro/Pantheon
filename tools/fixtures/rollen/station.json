@@ -1,0 +1,41 @@
+{
+  "format": "rollen/1",
+  "kartenart": "station",
+  "hinweis": "TESTDATEI (nicht in content/): Beleg des Formats rollen/1 mit Modellen, die beide Seiten schon haben. Die Rom-Seite sind Ruinen-Props, nur Struktur, kein Design.",
+  "raumtypen": {
+    "lager": {
+      "frei_halten": 2,
+      "rollen": [
+        { "rolle": "lager.hauptstueck", "kind": "anker", "ankerRolle": "beute", "pflicht": true },
+        { "rolle": "lager.behaelter", "kind": "streu", "zug": [2, 3], "wandnah": true, "pflicht": true },
+        { "rolle": "lager.werkzeug", "kind": "streu", "zug": [1, 2], "wandnah": true },
+        { "rolle": "lager.markierung", "kind": "streu", "zug": [0, 1], "wandnah": true },
+        { "rolle": "lager.leuchte", "kind": "streu", "zug": [0, 1] },
+        { "rolle": "lager.streu", "kind": "streu", "zug": [1, 3] }
+      ]
+    },
+    "kommando": {
+      "frei_halten": 1,
+      "rollen": [
+        { "rolle": "kommando.behaelter", "kind": "streu", "zug": [1, 2], "wandnah": true },
+        { "rolle": "kommando.markierung", "kind": "streu", "zug": [1, 2], "wandnah": true },
+        { "rolle": "kommando.leuchte", "kind": "streu", "zug": [1, 2] },
+        { "rolle": "kommando.streu", "kind": "streu", "zug": [0, 2] },
+        { "rolle": "kommando.werkzeug", "kind": "streu", "zug": [0, 1] }
+      ]
+    }
+  },
+  "rollen": {
+    "lager.hauptstueck": { "rom": "prop/rom/ruine/munitionskammer", "germanen": "prop/germanen/gemein/truhe" },
+    "lager.behaelter": { "rom": ["prop/rom/ruine/schutt", "prop/rom/ruine/deko_stein"], "germanen": ["prop/germanen/gemein/fass", "prop/germanen/gemein/hocker"] },
+    "lager.werkzeug": { "rom": "prop/rom/ruine/deko_stein", "germanen": "prop/germanen/gemein/werkzeug" },
+    "lager.markierung": { "rom": "prop/rom/ruine/deko_standartenfuss", "germanen": "prop/germanen/gemein/decal_runen" },
+    "lager.leuchte": { "rom": "prop/rom/ruine/deko_standartenfuss", "germanen": "prop/germanen/gemein/feuerschale" },
+    "lager.streu": { "rom": ["prop/rom/ruine/deko_gras", "prop/rom/ruine/schutt"], "germanen": ["prop/germanen/gemein/kette", "prop/germanen/gemein/fass"] },
+    "kommando.behaelter": { "rom": "prop/rom/ruine/schutt", "germanen": "prop/germanen/gemein/fass" },
+    "kommando.markierung": { "rom": "prop/rom/ruine/deko_standartenfuss", "germanen": "prop/germanen/gemein/decal_runen" },
+    "kommando.leuchte": { "rom": "prop/rom/ruine/deko_standartenfuss", "germanen": "prop/germanen/gemein/feuerschale" },
+    "kommando.streu": { "rom": ["prop/rom/ruine/deko_gras", "prop/rom/ruine/deko_stein"], "germanen": ["prop/germanen/gemein/werkzeug", "prop/germanen/gemein/kette"] },
+    "kommando.werkzeug": { "rom": "prop/rom/ruine/deko_stein", "germanen": "prop/germanen/gemein/werkzeug" }
+  }
+}

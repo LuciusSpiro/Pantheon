@@ -1,0 +1,158 @@
+{
+  "id": "kit/germanen/station/boden_fuge",
+  "name": "Station - boden_fuge: Fuge nur an den Grenzen von 2x2-Kachelblöcken (Eisen; Planke und Schmuckfeld Kupfer)",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "station",
+    "slot",
+    "kit",
+    "ort01"
+  ],
+  "notes": "ART-GK-BAU, gemeinsamer Steckplatz (Fallback für alle Kartenarten ohne eigenes Teil). Füllt seinen Kasten in der Kantenschicht voll (Naht); Zustand dunkelt ab (dk), umkämpft Ruß.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "belag": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "0 Platte · 1 Gitter · 2 Planke · 3 Schmuck"
+    },
+    "art": {
+      "default": "station",
+      "options": [
+        "aussenposten",
+        "station",
+        "ruine",
+        "schiff"
+      ],
+      "label": "Kartenart"
+    },
+    "par": {
+      "default": -1,
+      "min": -1,
+      "max": 3,
+      "step": 1,
+      "label": "Kachellage im 2x2-Block: x mod 2 + 2 * (y mod 2), -1 = unbekannt"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.1",
+    "px": "par < 0 ? 0 : floor(par) % 2",
+    "py": "par < 0 ? 0 : floor(par / 2) % 2"
+  },
+  "variants": {},
+  "ops": [
+    {
+      "name": "Fuge N (Platte, Gitter)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        1
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.8 * dk"
+      },
+      "if": "py == 0 && (belag != 3)"
+    },
+    {
+      "name": "Fuge W (Platte, Gitter)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.8 * dk"
+      },
+      "if": "px == 0 && (belag != 3)"
+    },
+    {
+      "name": "Fuge N (Planke, Schmuck)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        1
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "py == 0 && (belag == 3)"
+    },
+    {
+      "name": "Fuge W (Planke, Schmuck)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        1,
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "px == 0 && (belag == 3)"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

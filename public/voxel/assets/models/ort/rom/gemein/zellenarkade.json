@@ -1,0 +1,27 @@
+{
+  "id": "ort/rom/gemein/zellenarkade",
+  "name": "Zellenarkade (Rom, Richtung Aquädukt): Amphorenzellen in Ladebögen, Laderinne oben, wandnah",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "rom", "lager", "energie", "ort01"],
+  "footprint": [2, 0.75],
+  "params": {
+    "belegt": { "default": 0, "min": 0, "max": 3, "step": 1, "label": "Zellen eingesetzt" }
+  },
+  "variants": { "voll": { "belegt": 3 } },
+  "ops": [
+    { "op": "use", "name": "Ladebögen", "model": "ort/rom/gemein/bogen", "params": { "w": 8, "h": 15, "d": 10, "wall": 2, "top": 3, "band": 2 }, "at": ["-10 + i*10", 0, -5], "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Endpfeiler links", "at": [-16, 0, -5], "size": [1, 22, 10], "color": "secondary" },
+    { "op": "box", "name": "Endpfeiler rechts", "at": [15, 0, -5], "size": [1, 22, 10], "color": "secondary" },
+    { "op": "box", "name": "Rückwand", "at": [-16, 0, -6], "size": [32, 22, 1], "color": "primary" },
+    { "op": "box", "name": "Boden", "at": [-16, 0, -5], "size": [32, 1, 10], "color": "stone" },
+    { "op": "box", "name": "Ladekontakt", "at": ["-11 + i*10", 18, -2], "size": [2, 1, 2], "color": { "role": "glow2", "emit": 0.9 }, "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } },
+    { "op": "use", "name": "Zellen", "model": "rom/energiezelle", "at": ["-10 + i*10", 1, 0], "if": "i < belegt", "repeat": { "count": 3, "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Gesims", "at": [-16, 22, -6], "size": [32, 1, 12], "color": "stone_light" },
+    { "op": "box", "name": "Rinne hinten", "at": [-16, 23, -6], "size": [32, 2, 1], "color": "secondary" },
+    { "op": "box", "name": "Rinne vorn", "at": [-16, 23, 4], "size": [32, 2, 1], "color": "trim" },
+    { "op": "box", "name": "Laderinne", "at": [-16, 23, -3], "size": [32, 1, 5], "color": { "role": "glow2", "emit": 0.9 } }
+  ],
+  "anchor": [0, 0, 0]
+}

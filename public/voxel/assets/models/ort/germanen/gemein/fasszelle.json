@@ -1,0 +1,27 @@
+{
+  "id": "ort/germanen/gemein/fasszelle",
+  "name": "Fasszelle (Germanen, Richtung Esse): Energiezelle als eisengedauberter Fass-Akku, Eisenreifen, Glutschlitz zeigt Ladung, Kupferpole",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "energie", "lager", "fass", "ort01"],
+  "footprint": [0.6, 0.6],
+  "params": {
+    "charge": { "default": 4, "min": 0, "max": 4, "step": 1, "label": "Ladestand (0–4)" }
+  },
+  "variants": { "leer": { "charge": 0 }, "halb": { "charge": 2 } },
+  "ops": [
+    { "op": "cyl", "name": "Bauch", "at": [0, 1, 0], "r": 4.5, "h": 12, "color": { "stripes": ["metal", "metal_dark"], "axis": "x", "period": 2 } },
+    { "op": "cyl", "name": "Bauch Mitte", "at": [0, 4, 0], "r": 5, "h": 6, "color": { "stripes": ["metal", "metal_dark"], "axis": "x", "period": 2 } },
+    { "op": "cyl", "name": "Boden", "at": [0, 0, 0], "r": 4, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Reif unten", "at": [0, 2, 0], "r": 4.8, "h": 1, "color": "copper_dark" },
+    { "op": "cyl", "name": "Reif Mitte", "at": [0, 6, 0], "r": 5.3, "h": 2, "color": "metal_dark" },
+    { "op": "cyl", "name": "Reif oben", "at": [0, 11, 0], "r": 4.8, "h": 1, "color": "copper_dark" },
+    { "op": "box", "name": "Glutschlitz Glas", "at": [-1, 3, 4], "size": [2, 8, 2], "color": "glass", "mode": "paint" },
+    { "op": "box", "name": "Ladung", "if": "charge > 0", "at": [-1, 3, 4], "size": [2, "charge * 2", 2], "color": { "role": "ember", "emit": 1 }, "mode": "paint" },
+    { "op": "cyl", "name": "Deckel", "at": [0, 13, 0], "r": 3.8, "h": 1, "color": "metal_dark" },
+    { "op": "cyl", "name": "Runenring", "at": [0, 13, 0], "r": 3, "h": 1, "hollow": 1, "color": { "role": "rune", "emit": "charge > 0 ? 0.8 : 0" }, "mode": "paint" },
+    { "op": "box", "name": "Pol", "at": [-2, 14, -1], "size": [1, 2, 1], "color": "copper", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "anchor": [0, 0, 0]
+}

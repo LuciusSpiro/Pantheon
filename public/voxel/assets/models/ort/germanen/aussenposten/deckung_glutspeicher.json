@@ -1,0 +1,171 @@
+{
+ "id": "ort/germanen/aussenposten/deckung_glutspeicher",
+ "name": "Glut-Wärmespeicher (Germanen, Deckung Außenposten): Steinblock mit Kupferbändern, Glutfenster und Abzugsrohr; Gegenstück zum Heizer",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "aussenposten",
+  "deckung",
+  "heizer",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Speicherkörper",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    12,
+    12
+   ],
+   "color": "stone_dark"
+  },
+  {
+   "op": "box",
+   "name": "Band unten",
+   "at": [
+    -6,
+    5,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Band oben",
+   "at": [
+    -6,
+    10,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Glutfenster",
+   "at": [
+    -4,
+    4,
+    6
+   ],
+   "size": [
+    8,
+    6,
+    1
+   ],
+   "color": {
+    "role": "#FF7A1A",
+    "emit": 0.6
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Fenster Rahmen",
+   "at": [
+    -4,
+    3,
+    6
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Haube",
+   "at": [
+    -5,
+    14,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Abzugsrohr",
+   "at": [
+    -1,
+    16,
+    -1
+   ],
+   "size": [
+    2,
+    5,
+    2
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Glutkappe",
+   "at": [
+    -1,
+    21,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "#FF7A1A",
+    "emit": 0.6
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

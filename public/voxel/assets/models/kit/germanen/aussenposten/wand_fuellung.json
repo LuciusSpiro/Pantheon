@@ -1,21 +1,170 @@
 {
   "id": "kit/germanen/aussenposten/wand_fuellung",
-  "name": "Außenposten – wand_fuellung: Langhaus-Bohlenwand mit Riegel",
+  "name": "Außenposten Stabbau – wand_fuellung: senkrechte Eisen-Stabplanken hell/mittel, dunkler Fußbalken, Kupfer-Traufband unter der Krone",
   "tier": "architecture",
   "palette": "nord",
-  "tags": ["germanen", "aussenposten", "slot"],
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K1 (Gruppe 2b): ersetzt die Eichen-Bohlenwand. Füllt den Kasten w×h×d in der Kantenschicht voll (Naht). Stabplanken = Streifen Achse x, Periode 1; hell gehalten, sonst dunkle Scheune.",
   "jitter": 0,
   "params": {
-    "w": {"default": 4, "min": 1, "max": 16, "step": 1, "label": "Breite (Voxel)"},
-    "h": {"default": 9, "min": 1, "max": 16, "step": 1, "label": "Höhe (Voxel)"},
-    "d": {"default": 1, "min": 1, "max": 4, "step": 1, "label": "Tiefe (Voxel)"},
-    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"}
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.06"
+  },
+  "variants": {
+    "verfallen": {
+      "zustand": 1,
+      "seed": 3
+    },
+    "umkaempft": {
+      "zustand": 2,
+      "seed": 5
+    },
+    "geschnitten": {
+      "h": 3
+    }
   },
   "ops": [
-    {"name": "Bohlen", "op": "box", "at": [0, 0, 0], "size": ["w", "h", "d"], "color": {"stripes": [{"shade": "wood", "f": "1 - zustand * 0.12"}, {"shade": "wood", "f": "0.82 - zustand * 0.1"}], "axis": "x", "period": 1}},
-    {"name": "Riegel", "op": "box", "if": "h > 4", "at": [0, "floor(h / 2)", 0], "size": ["w", 1, "d"], "mode": "paint", "color": {"shade": "wood_dark", "f": "1 - zustand * 0.12"}},
-    {"name": "Fußbohle", "op": "box", "at": [0, 0, 0], "size": ["w", 1, "d"], "mode": "paint", "color": {"shade": "wood_dark", "f": 0.9}},
-    {"name": "Ruß (umkämpft)", "op": "box", "if": "zustand == 2", "at": [0, 0, 0], "size": ["w", "h", "d"], "mode": "paint", "color": {"noise": [{"shade": "wood", "f": 0.75}, "dark", "wood_dark"], "weights": [3, 1, 2], "seed": "seed"}}
+    {
+      "name": "Stabplanken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal_light",
+            "f": "dk"
+          },
+          {
+            "shade": "metal",
+            "f": "dk"
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Fußbalken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      }
+    },
+    {
+      "name": "Kupfer-Traufband",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "h >= 4"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal",
+            "f": 0.85
+          },
+          {
+            "shade": "metal",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
   ],
-  "anchor": [0, 0, 0]
+  "anchor": [
+    0,
+    0,
+    0
+  ]
 }

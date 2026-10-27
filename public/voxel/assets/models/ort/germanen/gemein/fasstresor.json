@@ -1,0 +1,339 @@
+{
+ "id": "ort/germanen/gemein/fasstresor",
+ "name": "Fass-Tresor (Germanen, Anker beute/fund): Eisenfass mit Kupferreifen, Runensiegel und Glutschlitz im Deckel; leer = Deckel offen, Siegel aus",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "germanen",
+  "beute",
+  "fund",
+  "fass"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "Beute (0 voll bzw. da, 1 leer bzw. genommen)"
+  }
+ },
+ "variants": {
+  "leer": {
+   "state": 1
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -6,
+    0,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fass lang",
+   "at": [
+    -6,
+    2,
+    -4
+   ],
+   "size": [
+    12,
+    9,
+    8
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "primary"
+    ],
+    "axis": "z",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fass breit",
+   "at": [
+    -4,
+    2,
+    -6
+   ],
+   "size": [
+    8,
+    9,
+    12
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "primary"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Reifen lang",
+   "at": [
+    -6,
+    4,
+    -4
+   ],
+   "size": [
+    12,
+    1,
+    8
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reifen breit",
+   "at": [
+    -4,
+    4,
+    -6
+   ],
+   "size": [
+    8,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reifen oben lang",
+   "at": [
+    -6,
+    9,
+    -4
+   ],
+   "size": [
+    12,
+    1,
+    8
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reifen oben breit",
+   "at": [
+    -4,
+    9,
+    -6
+   ],
+   "size": [
+    8,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Niet",
+   "at": [
+    -5,
+    6,
+    6
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Innenraum",
+   "at": [
+    -5,
+    8,
+    -5
+   ],
+   "size": [
+    10,
+    3,
+    10
+   ],
+   "color": "metal_dark",
+   "if": "state == 1",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Innenboden",
+   "at": [
+    -5,
+    7,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "dark",
+   "if": "state == 1",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    -5,
+    11,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "metal_dark",
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Deckelreif",
+   "at": [
+    -5,
+    13,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "frame": "copper",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   },
+   "if": "state == 0"
+  },
+  {
+   "op": "box",
+   "name": "Glutschlitz",
+   "at": [
+    -3,
+    14,
+    -1
+   ],
+   "size": [
+    6,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   },
+   "if": "state == 0",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Deckel offen",
+   "at": [
+    -5,
+    11,
+    -7
+   ],
+   "size": [
+    10,
+    9,
+    2
+   ],
+   "color": "metal_dark",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Deckel offen Reif",
+   "at": [
+    -5,
+    19,
+    -7
+   ],
+   "size": [
+    10,
+    1,
+    2
+   ],
+   "color": "copper_dark",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Siegel",
+   "at": [
+    -2,
+    5,
+    6
+   ],
+   "size": [
+    4,
+    4,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": "state == 0 ? 0.9 : 0"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Siegel Fassung",
+   "at": [
+    -3,
+    4,
+    6
+   ],
+   "size": [
+    6,
+    6,
+    1
+   ],
+   "color": "copper_dark",
+   "mode": "under"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

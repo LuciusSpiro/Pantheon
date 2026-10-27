@@ -1,0 +1,154 @@
+{
+  "id": "kit/rom/station/boden_belag",
+  "name": "Rom-Station boden_belag: ruhiger dunkler Gunmetal-Marmor in großen Feldern (0, 2, 3), Gitterrost (1); keine Pro-Kachel-Streuung, kein Rinnenmuster im Boden",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "slot",
+    "station",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "belag": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "0 Gunmetal-Marmor · 1 Gitterrost · 2 Amber-Rinnenplatte (nur Gänge/Rinnenzonen) · 3 Schmuckplatte"
+    },
+    "par": {
+      "default": -1,
+      "min": -1,
+      "max": 3,
+      "step": 1,
+      "label": "Kachellage im 2x2-Block: x mod 2 + 2 * (y mod 2), -1 = unbekannt"
+    }
+  },
+  "ops": [
+    {
+      "name": "Marmorplatte",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.775 * (1 - zustand * 0.08)"
+      },
+      "if": "belag == 0"
+    },
+    {
+      "name": "Gitterrost",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "0.85 * (1 - zustand * 0.08)"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "0.9 * (1 - zustand * 0.08)"
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      },
+      "if": "belag == 1"
+    },
+    {
+      "name": "Gangplatte",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.84 * (1 - zustand * 0.08)"
+      },
+      "if": "belag == 2"
+    },
+    {
+      "name": "Schmuckplatte",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.9 * (1 - zustand * 0.08)"
+      },
+      "if": "belag == 3"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "let": {
+    "px": "par < 0 ? 0 : floor(par) % 2",
+    "py": "par < 0 ? 0 : floor(par / 2) % 2"
+  }
+}

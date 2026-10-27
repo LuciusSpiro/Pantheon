@@ -1,0 +1,82 @@
+{
+ "id": "kit/rom/station/deckung_voll_oberkante",
+ "name": "Rom-Station deckung_voll_oberkante: dunkle Gunmetal-Krone mit Silberrand",
+ "tier": "architecture",
+ "palette": "rom",
+ "tags": [
+  "rom",
+  "slot",
+  "station",
+  "ort01"
+ ],
+ "jitter": 0,
+ "params": {
+  "w": {
+   "default": 4,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Breite (Voxel)"
+  },
+  "h": {
+   "default": 1,
+   "min": 1,
+   "max": 16,
+   "step": 1,
+   "label": "Höhe (Voxel)"
+  },
+  "d": {
+   "default": 4,
+   "min": 1,
+   "max": 4,
+   "step": 1,
+   "label": "Tiefe (Voxel)"
+  },
+  "zustand": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "0 intakt · 1 verfallen · 2 umkämpft"
+  },
+  "conn": {
+   "default": 10,
+   "min": 0,
+   "max": 15,
+   "step": 1
+  }
+ },
+ "ops": [
+  {
+   "name": "Krone dunkel",
+   "op": "box",
+   "at": [
+    0,
+    0,
+    0
+   ],
+   "size": [
+    "w",
+    "h",
+    "d"
+   ],
+   "color": {
+    "frame": {
+     "shade": "metal_light",
+     "f": "0.8 * (1 - zustand * 0.08)"
+    },
+    "fill": {
+     "shade": "metal_dark",
+     "f": "0.85 * (1 - zustand * 0.08)"
+    },
+    "axes": "xz",
+    "width": 1
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

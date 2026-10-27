@@ -1,0 +1,60 @@
+{
+  "format": "fraktion/1",
+  "id": "rom",
+  "name": "Rom",
+  "beschreibung": "Das Imperium im Saumraum: disziplinierte Kohorten in rotem Tuch und Segmentpanzer. Dieselben Körper und Waffen wie alle Figuren, nur Palette und Haltung römisch.",
+  "modelle": {
+    "grundtyp": "fig/germanen/grundtyp",
+    "niederhalter": "fig/germanen/niederhalter",
+    "grenadier": "fig/germanen/grenadier",
+    "schuetze": "fig/germanen/schuetze",
+    "enterer": "fig/germanen/enterer",
+    "haescher": "fig/germanen/haescher"
+  },
+  "palette": "rom",
+  "palette_senden": true,
+  "rezepte": {
+    "wache": [
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      },
+      {
+        "rolle": "schuetze",
+        "n": 1
+      }
+    ],
+    "sturmtrupp": [
+      {
+        "rolle": "niederhalter",
+        "n": 1
+      },
+      {
+        "rolle": "enterer",
+        "n": 1
+      },
+      {
+        "rolle": "grundtyp",
+        "n": 1
+      }
+    ]
+  },
+  "staerke": {
+    "klein": 1,
+    "mittel": 2,
+    "gross": 3
+  },
+  "gross_extra": null,
+  "einsatz": {
+    "wache": [
+      "station",
+      "aussenposten",
+      "hand"
+    ],
+    "sturmtrupp": [
+      "station",
+      "aussenposten"
+    ]
+  },
+  "funkstil": "knapp und befehlend, Rang und Pflicht; Latein nur als Losung, nie als Schnörkel"
+}

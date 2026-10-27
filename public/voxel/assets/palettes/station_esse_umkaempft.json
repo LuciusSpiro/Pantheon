@@ -1,0 +1,16 @@
+{
+  "id": "station_esse_umkaempft",
+  "name": "station_esse umkämpft: Ruß, warmer Feuerschein, gesättigte Flächen",
+  "extends": "station_esse",
+  "adjust": {
+    "sat": 0.95,
+    "light": 0.85,
+    "tint": "#4A2818",
+    "mix": 0.2,
+    "except": ["glow", "glow2", "rune", "rune_dim", "ember", "alarm", "leit"]
+  },
+  "roles": {
+    "dark": "#141210",
+    "ember": { "color": "#FFB070", "emit": 1.2 }
+  }
+}

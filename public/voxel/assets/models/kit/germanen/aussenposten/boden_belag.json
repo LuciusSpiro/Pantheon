@@ -1,14 +1,16 @@
 {
   "id": "kit/germanen/aussenposten/boden_belag",
-  "name": "Germanen Außenposten – boden_belag: einfarbig und ruhig (Hof/Platz hell, Weg/Innenraum dunkler), ohne Fugen und Rauschen (Kai 2026-10-11)",
+  "name": "Außenposten Stabbau – boden_belag: Eisenplatten (belag 2 Innenraum: helles Eisen, damit Stücke sich abheben; Weg und Rampe ebenso; belag 0 Plateau und Hof: helles Eisen)",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
     "germanen",
     "aussenposten",
     "slot",
-    "boden"
+    "stabbau",
+    "ort01"
   ],
+  "notes": "ORT-01 K2 (Gruppe 2b). Fläche einfarbig, das Plattenraster malt boden_fuge (N- und W-Rand).",
   "jitter": 0,
   "params": {
     "w": {
@@ -44,7 +46,7 @@
       "min": 0,
       "max": 3,
       "step": 1,
-      "label": "0 Hof/Platz · 2 Weg/Innenraum (beide einfarbig)"
+      "label": "Belag"
     },
     "art": {
       "default": "aussenposten",
@@ -57,51 +59,52 @@
       "label": "Kartenart"
     }
   },
-  "ops": [
-    {
-      "name": "Weg und Innenraum (belag 2)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "paving",
-        "f": 1.0
-      },
-      "jitter": false,
-      "if": "belag == 2"
-    },
-    {
-      "name": "Hof und Platz (sonst)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "stone_light",
-        "f": 0.88
-      },
-      "jitter": false,
-      "if": "belag != 2"
-    }
-  ],
   "anchor": [
     0,
     0,
     0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06"
+  },
+  "ops": [
+    {
+      "name": "Eisenplatte Innenraum und Weg",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_light",
+        "f": "0.72 * dk"
+      },
+      "if": "belag == 2"
+    },
+    {
+      "name": "Eisenplatte Hof und Plateau",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_light",
+        "f": "0.8 * dk"
+      },
+      "if": "belag != 2"
+    }
   ]
 }

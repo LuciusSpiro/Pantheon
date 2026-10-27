@@ -1,0 +1,19 @@
+{
+  "format": "besitz-palette/1",
+  "besitz": "rom",
+  "je_bauweise": {
+    "germanen": {
+      "intakt": "nord",
+      "verfallen": "nord_verfallen",
+      "umkaempft": "nord_umkaempft"
+    },
+    "rom": {
+      "intakt": "rom_kastell",
+      "verfallen": "rom_kastell_verfallen",
+      "umkaempft": "rom_kastell_umkaempft"
+    }
+  },
+  "banner": null,
+  "streu": [],
+  "hinweis": "Rom als Besitzer: Bauweisen-Basis, kein Banner. Die Station baut mit Palette rom (Kartenart schlägt Besitz, bauweisen/rom.json paletten.art). Eigene Banner und Streu folgen mit dem Kit."
+}

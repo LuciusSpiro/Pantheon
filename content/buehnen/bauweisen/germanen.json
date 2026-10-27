@@ -224,6 +224,8 @@
   },
   "anker": {
     "terminal": {
+      "station": "ort/germanen/gemein/terminal",
+      "aussenposten": "ort/germanen/gemein/terminal",
       "*": "prop/germanen/gemein/runenstein_terminal"
     },
     "raetsel": {
@@ -233,23 +235,27 @@
       }
     },
     "sprengpunkt": {
-      "aussenposten": "prop/germanen/aussenposten/runenmast",
-      "station": "prop/germanen/station/schmiedeherd_reaktor_2x2",
+      "aussenposten": "ort/germanen/aussenposten/glutspeicher",
+      "station": "ort/germanen/station/sprengreaktor",
       "schiff": "prop/germanen/schiff/reaktor_schiff",
       "*": "prop/germanen/aussenposten/tank"
     },
     "zelle": {
+      "station": "ort/germanen/gemein/zelle",
+      "aussenposten": "ort/germanen/gemein/zelle",
       "*": "prop/germanen/gemein/kaefig_zelle"
     },
     "beute": {
+      "station": "ort/germanen/gemein/fasstresor",
+      "aussenposten": "ort/germanen/gemein/fasstresor",
       "*": "prop/germanen/gemein/truhe"
     },
     "fund": {
       "*": "prop/germanen/station/met_kessel"
     },
     "ziel": {
-      "aussenposten": "leit/germanen/aussenposten/thing_stein",
-      "station": "prop/germanen/schiff/schildgenerator",
+      "aussenposten": "ort/germanen/gemein/feldmast",
+      "station": "ort/germanen/gemein/feldmast",
       "schiff": "prop/germanen/schiff/schildgenerator",
       "*": "leit/germanen/aussenposten/thing_stein"
     },
@@ -295,11 +301,13 @@
       "aussenposten": "leit/germanen/aussenposten/statue_platz"
     },
     "herzstueck": {
-      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm",
-      "station": "leit/germanen/station/schmiedeherd"
+      "aussenposten": "leit/germanen/aussenposten/kraehenwacht_turm"
     },
-    "kontrollraum": {
-      "station": "leit/germanen/station/hochsitz_halle"
+    "landeplatz": {
+      "aussenposten": "ort/germanen/aussenposten/landeplatz"
+    },
+    "wachturm": {
+      "aussenposten": "ort/germanen/aussenposten/sensorturm"
     },
     "bruecke": {
       "schiff": "leit/germanen/schiff/drachenkopf_bug"
@@ -309,6 +317,54 @@
     }
   },
   "leit_fuss": {
+    "ort/germanen/aussenposten/landeplatz": [
+      4,
+      4
+    ],
+    "ort/germanen/aussenposten/sensorturm": [
+      1,
+      1
+    ],
+    "ort/germanen/station/kartentisch": [
+      2,
+      1
+    ],
+    "ort/germanen/gemein/glutleitung": [
+      2,
+      1
+    ],
+    "ort/germanen/gemein/fassregal": [
+      2,
+      1
+    ],
+    "ort/germanen/station/ladebock": [
+      2,
+      1
+    ],
+    "ort/germanen/station/koje": [
+      2,
+      1
+    ],
+    "ort/germanen/station/langtisch": [
+      3,
+      1
+    ],
+    "ort/germanen/station/bank": [
+      2,
+      1
+    ],
+    "ort/germanen/station/amboss": [
+      2,
+      1
+    ],
+    "ort/germanen/station/medliege": [
+      2,
+      1
+    ],
+    "ort/germanen/station/feldzelle": [
+      1,
+      1
+    ],
     "leit/germanen/aussenposten/kraehenwacht_turm": [
       2,
       2
@@ -342,12 +398,21 @@
       "umkaempft": "nord_umkaempft"
     },
     "art": {
-      "station": "station_metall"
+      "station": {
+        "intakt": "station_esse",
+        "verfallen": "station_esse_verfallen",
+        "umkaempft": "station_esse_umkaempft"
+      },
+      "aussenposten": {
+        "intakt": "nord_aussenposten",
+        "verfallen": "nord_verfallen",
+        "umkaempft": "nord_umkaempft"
+      }
     }
   },
   "stimmung": {
     "aussenposten": "outpost_frost",
-    "station": "hall_metall",
+    "station": "hall_forge",
     "schiff": "ship_nord",
     "ruine": "outpost_frost"
   },
@@ -375,16 +440,22 @@
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
     "aussenposten": {
       "deckung_halb": [
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug",
-        "prop/germanen/gemein/fass"
+        "ort/germanen/aussenposten/deckung_fasszelle",
+        "ort/germanen/aussenposten/deckung_blasebalg",
+        "ort/germanen/aussenposten/deckung_fasszelle"
       ],
       "deckung_voll": [
-        "prop/germanen/gemein/feuerschale",
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug"
+        "ort/germanen/aussenposten/deckung_glutspeicher",
+        "ort/germanen/aussenposten/leitfeuer",
+        "ort/germanen/aussenposten/deckung_blasebalg"
       ]
     }
+  },
+  "deko_ausschluss": {
+    "hinweis": "Zusätzlich zu deckung_props aus der Deko genommen (kit.js, tools): die Feuerschale ist seit ORT-01 keine Deckung mehr (dort steht ort/germanen/aussenposten/leitfeuer), soll aber wie bisher nicht als Streu-Deko in den Außenposten auftauchen (Eisenwald bleibt gleich).",
+    "aussenposten": [
+      "prop/germanen/gemein/feuerschale"
+    ]
   },
   "weg_boden": {
     "hinweis": "Außenposten-Siedlung: Wege, Platz und Landefeld (Geländeboden im Sandton; 'rock' wirkt unter dem warmen Licht wie Sand, 'sand' wird zu gelb)",
@@ -394,33 +465,78 @@
   "boden_varianten": {
     "hinweis": "TA (Kai 2026-10-14): Bodenton der Siedlung, vom Generator je Welt/Planet nach Seed gewählt (Welt-Datei siedlung.boden bzw. Landepunkt gen.boden; ohne Angabe bleibt alles wie bisher). gelaende = Gelände und Höfe, weg = Straßen, Platz, Landefeld. Rollen sandton/wiese/wald (je mit _hell) stehen in voxel/kit.js (FARB_FB).",
     "sand": {
-      "gelaende": { "top": "sandton", "fill": "soil_dark" },
-      "weg": { "top": "sandton_hell", "f": 1.0 }
+      "gelaende": {
+        "top": "sandton",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "sandton_hell",
+        "f": 1
+      }
     },
     "gras": {
-      "gelaende": { "top": "wiese", "fill": "soil_dark" },
-      "weg": { "top": "wiese_hell", "f": 1.0 }
+      "gelaende": {
+        "top": "wiese",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "wiese_hell",
+        "f": 1
+      }
     },
     "wald": {
-      "gelaende": { "top": "wald", "fill": "soil_dark" },
-      "weg": { "top": "wald_hell", "f": 1.0 }
+      "gelaende": {
+        "top": "wald",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "wald_hell",
+        "f": 1
+      }
     }
   },
   "moebel": {
     "hinweis": "TA: Möbel der Siedlungsausstattung (Karte.meta.moebel, Schlüssel → Prop; Objekt = { id, <feste Parameter> }). Die Kachel ist zugleich Deckung ('o'), die Optik kommt von hier.",
-    "tisch": { "id": "prop/germanen/gemein/tisch", "kruege": 2 },
-    "tisch_leer": { "id": "prop/germanen/gemein/tisch", "kruege": 0 },
-    "tisch_gedeckt": { "id": "prop/germanen/gemein/tisch", "kruege": 3 },
+    "tisch": {
+      "id": "prop/germanen/gemein/tisch",
+      "kruege": 2
+    },
+    "tisch_leer": {
+      "id": "prop/germanen/gemein/tisch",
+      "kruege": 0
+    },
+    "tisch_gedeckt": {
+      "id": "prop/germanen/gemein/tisch",
+      "kruege": 3
+    },
     "hocker": "prop/germanen/gemein/hocker",
-    "tresen": { "id": "prop/germanen/gemein/tresen", "deko": 0 },
-    "tresen_krug": { "id": "prop/germanen/gemein/tresen", "deko": 1 },
-    "tresen_flasche": { "id": "prop/germanen/gemein/tresen", "deko": 2 },
+    "tresen": {
+      "id": "prop/germanen/gemein/tresen",
+      "deko": 0
+    },
+    "tresen_krug": {
+      "id": "prop/germanen/gemein/tresen",
+      "deko": 1
+    },
+    "tresen_flasche": {
+      "id": "prop/germanen/gemein/tresen",
+      "deko": 2
+    },
     "fass": "prop/germanen/gemein/fass",
     "feuerschale": "prop/germanen/gemein/feuerschale",
     "bank": "prop/germanen/gemein/bank",
-    "marktstand": { "id": "prop/germanen/gemein/marktstand", "ware": 0 },
-    "marktstand_kaese": { "id": "prop/germanen/gemein/marktstand", "ware": 1 },
-    "marktstand_werkzeug": { "id": "prop/germanen/gemein/marktstand", "ware": 2 },
+    "marktstand": {
+      "id": "prop/germanen/gemein/marktstand",
+      "ware": 0
+    },
+    "marktstand_kaese": {
+      "id": "prop/germanen/gemein/marktstand",
+      "ware": 1
+    },
+    "marktstand_werkzeug": {
+      "id": "prop/germanen/gemein/marktstand",
+      "ware": 2
+    },
     "laterne": "prop/germanen/gemein/laterne"
   }
 }

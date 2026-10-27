@@ -1,0 +1,31 @@
+{
+  "id": "ort/germanen/aussenposten/leitfeuer",
+  "name": "Glut-Leitfeuer (Germanen): Landefeuer im Eisenkorb auf Pfahl, Glutband zeigt Betrieb, Kupferreifen; Peilbake für den Landeanflug",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "licht", "landeplatz", "aussenposten", "streu", "ort01"],
+  "footprint": [1, 1],
+  "params": {
+    "lit": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Feuer an" }
+  },
+  "variants": { "aus": { "lit": 0 } },
+  "let": { "em": "lit ? 1 : 0" },
+  "ops": [
+    { "op": "box", "name": "Fuß", "at": [-5, 0, -5], "size": [10, 2, 10], "color": "stone_dark" },
+    { "op": "box", "name": "Fuß Kupfer", "at": [-5, 2, -5], "size": [10, 1, 10], "color": { "frame": "copper_dark", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Pfahl", "at": [-1, 3, -1], "size": [2, 16, 2], "color": { "stripes": ["metal_light", "metal"], "axis": "x", "period": 1 } },
+    { "op": "box", "name": "Pfahl Glutband", "at": [-1, 5, 1], "size": [2, 12, 1], "color": { "role": "ember", "emit": "em * 0.6" } },
+    { "op": "box", "name": "Reif", "at": [-2, 9, -2], "size": [4, 1, 4], "color": "copper" },
+    { "op": "line", "name": "Strebe", "from": [-4, 3, 0], "to": [-1, 12, 0], "r": 0.5, "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Korbboden", "at": [-5, 19, -5], "size": [10, 1, 10], "color": "metal_dark" },
+    { "op": "box", "name": "Korbpfosten", "at": [-5, 20, -5], "size": [1, 6, 1], "color": "metal_dark", "mirror": "xz", "mirrorAt": { "x": 0, "z": 0 } },
+    { "op": "box", "name": "Korbreif", "at": [-5, 25, -5], "size": [10, 1, 10], "color": { "frame": "copper", "fill": "metal_dark", "axes": "xz", "width": 1 } },
+    { "op": "box", "name": "Gitter", "at": [-5, 22, -5], "size": [10, 1, 1], "color": "metal_dark", "mirror": "z", "mirrorAt": 0 },
+    { "op": "box", "name": "Gitter x", "at": [-5, 22, -4], "size": [1, 1, 8], "color": "metal_dark", "mirror": "x", "mirrorAt": 0 },
+    { "op": "box", "name": "Glut", "at": [-3, 20, -3], "size": [6, 5, 6], "color": { "role": "ember", "emit": "em" } },
+    { "op": "box", "name": "Funkenkrone", "at": [-1, 25, -1], "size": [2, 2, 2], "color": { "role": "ember", "emit": "em * 0.8" } },
+    { "op": "box", "name": "Rune Peilzeichen", "at": [-1, 27, -1], "size": [2, 1, 2], "color": { "role": "rune", "emit": "em * 0.8" } }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,273 @@
+{
+  "id": "kit/germanen/aussenposten/tor_rahmen",
+  "name": "Außenposten Stabbau – tor_rahmen: Eisenschwelle mit Glutlinie (teil 0), Sturz aus Eisen mit Kupferbalken und Runenzeichen (teil 1); 2 bis 4 Kacheln breit",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K2 (Gruppe 2b). Wie tuer_rahmen, breiter. Glut erloschen bei gesprengt (state 2) oder umkämpft.",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 8,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 3,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "teil": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "0 Schwelle · 1 Sturz"
+    },
+    "state": {
+      "default": 0,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "Torzustand"
+    }
+  },
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "(state == 2 || zustand == 2) ? 0 : 0.6"
+  },
+  "variants": {
+    "schwelle": {
+      "teil": 0,
+      "h": 1
+    },
+    "gesprengt": {
+      "state": 2
+    },
+    "breit": {
+      "w": 16
+    }
+  },
+  "ops": [
+    {
+      "name": "Schwelle",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "teil == 0"
+    },
+    {
+      "name": "Schwelle Glutlinie",
+      "op": "box",
+      "at": [
+        1,
+        "h - 1",
+        "d - 2"
+      ],
+      "size": [
+        "w - 2",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "emit": "em",
+      "if": "teil == 0 && w >= 4 && em > 0"
+    },
+    {
+      "name": "Sturz",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "0.9 * dk"
+      },
+      "if": "teil == 1"
+    },
+    {
+      "name": "Sturzbalken Kupfer",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper",
+        "f": "dk"
+      },
+      "if": "teil == 1"
+    },
+    {
+      "name": "Krone dunkel",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "teil == 1 && h >= 3"
+    },
+    {
+      "name": "Runenzeichen links",
+      "op": "box",
+      "at": [
+        1,
+        1,
+        "d - 1"
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "rune"
+      },
+      "emit": "em",
+      "if": "teil == 1 && h >= 3 && w >= 6 && em > 0"
+    },
+    {
+      "name": "Runenzeichen rechts",
+      "op": "box",
+      "at": [
+        "w - 3",
+        1,
+        "d - 1"
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "rune"
+      },
+      "emit": "em",
+      "if": "teil == 1 && h >= 3 && w >= 6 && em > 0"
+    },
+    {
+      "name": "Runenzeichen Mitte",
+      "op": "box",
+      "at": [
+        "floor(w / 2) - 1",
+        1,
+        "d - 1"
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "rune"
+      },
+      "emit": "em",
+      "if": "teil == 1 && h >= 3 && w >= 12 && em > 0"
+    },
+    {
+      "name": "Ruß (gesprengt/umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal_dark",
+            "f": 0.85
+          },
+          {
+            "shade": "metal_dark",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "teil == 1 && (state == 2 || zustand == 2)"
+    }
+  ]
+}

@@ -1,0 +1,357 @@
+{
+  "team": "ort-2b",
+  "notes": "ORT-01 Gruppe 2b: Germanen-Außenposten (Stabbau-Architektur in Esse-Farben). Palette nord. Bau-Teile (halle, unterkunft, zellenschuppen) Stufe architecture, Pivot Mitte unten, Vorderseite +z; Props Stufe detail. Bestandsmodelle des Designers halle und sensorturm sind hier eingetragen. ort/germanen/gemein/schildantenne und glutleitung gehören hier hin und werden von der Station (3b) per ID mitbenutzt. Nur Optik, nie Deckung.",
+  "assets": [
+    {
+      "id": "ort/germanen/aussenposten/halle",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        8.5,
+        6
+      ],
+      "height": 8.75,
+      "facing": "+z",
+      "params": {
+        "licht": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "licht": 1
+        },
+        "aus": {
+          "licht": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "germanen",
+        "ort",
+        "bau",
+        "aussenposten",
+        "kommando",
+        "stabbau"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/unterkunft",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        6,
+        4
+      ],
+      "height": 4.75,
+      "facing": "+z",
+      "params": {
+        "licht": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "licht": 1
+        },
+        "aus": {
+          "licht": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 4000,
+      "tags": [
+        "germanen",
+        "ort",
+        "bau",
+        "aussenposten",
+        "unterkunft",
+        "stabbau"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/zellenschuppen",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "nord",
+      "footprint": [
+        4,
+        3
+      ],
+      "height": 2.75,
+      "facing": "+z",
+      "params": {
+        "licht": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "licht": 1
+        },
+        "aus": {
+          "licht": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "ort",
+        "bau",
+        "aussenposten",
+        "zellenlager",
+        "stabbau"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/landeplatz",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        4,
+        4
+      ],
+      "height": 0.08,
+      "facing": "+z",
+      "params": {
+        "lit": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "lit": 1
+        },
+        "dunkel": {
+          "lit": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          0.6,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "germanen",
+        "ort",
+        "aussenposten",
+        "landeplatz",
+        "leit"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/leitfeuer",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {
+        "lit": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "lit": 1
+        },
+        "aus": {
+          "lit": 0
+        }
+      },
+      "sockets": {
+        "light": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "germanen",
+        "ort",
+        "aussenposten",
+        "landeplatz",
+        "streu"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/feldpfahl",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "aktiv": 1
+        },
+        "aus": {
+          "aktiv": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "germanen",
+        "ort",
+        "aussenposten",
+        "feld",
+        "begrenzung",
+        "anker"
+      ]
+    },
+    {
+      "id": "ort/germanen/aussenposten/sensorturm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1.8
+      ],
+      "height": 3.2,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "aktiv": 1
+        },
+        "aus": {
+          "aktiv": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "germanen",
+        "ort",
+        "aussenposten",
+        "wachturm",
+        "sensor",
+        "leit",
+        "bau"
+      ]
+    },
+    {
+      "id": "ort/germanen/gemein/schildantenne",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.65,
+      "facing": "+z",
+      "params": {
+        "aktiv": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "an": {
+          "aktiv": 1
+        },
+        "aus": {
+          "aktiv": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "germanen",
+        "ort",
+        "gemein",
+        "funk",
+        "antenne",
+        "anker"
+      ]
+    },
+    {
+      "id": "ort/germanen/gemein/glutleitung",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "nord",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {
+        "n": [
+          1,
+          2
+        ],
+        "fluss": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "zwei": {
+          "n": 2
+        },
+        "eins": {
+          "n": 1
+        },
+        "leer": {
+          "fluss": 0
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "germanen",
+        "ort",
+        "gemein",
+        "energie",
+        "leitung",
+        "anker"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1247 @@
+{
+  "team": "ort-3a",
+  "assets": [
+    {
+      "id": "ort/rom/station/kartentisch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.46,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "prop",
+        "leit",
+        "kommando",
+        "terminal",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/clipeus_wand",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "prop",
+        "funk",
+        "antenne",
+        "kommando",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/wandschirm",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.71,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "kommando",
+        "terminal",
+        "anzeige",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/pumpe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.71,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "prop",
+        "reaktor",
+        "pumpe",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/ladebank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {
+        "belegt": [
+          0,
+          3
+        ]
+      },
+      "states": {
+        "voll": {
+          "belegt": 3
+        },
+        "zwei": {
+          "belegt": 2
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.15,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4500,
+      "tags": [
+        "prop",
+        "lager",
+        "energie",
+        "ladebank",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/kran",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.96,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "lager",
+        "werkstatt",
+        "kran",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/koje",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.03,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "prop",
+        "leit",
+        "quartier",
+        "koje",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/spind",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "med": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "med": {
+          "med": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.96,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "quartier",
+        "kranken",
+        "spind",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/hypokaustum",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.78,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "quartier",
+        "klima",
+        "heizung",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/messetafel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        3,
+        1
+      ],
+      "height": 0.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.09,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 4500,
+      "tags": [
+        "prop",
+        "leit",
+        "messe",
+        "tisch",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/amphorenspender",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.84,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1600,
+      "tags": [
+        "prop",
+        "messe",
+        "ausgabe",
+        "automat",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/bank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.15,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2000,
+      "tags": [
+        "prop",
+        "messe",
+        "sitz",
+        "bank",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/kuehlamphore",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.96,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "messe",
+        "kuehlung",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/werkbank",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.09,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "prop",
+        "leit",
+        "werkstatt",
+        "werkbank",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/ladegeraet",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.38,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.53,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1200,
+      "tags": [
+        "prop",
+        "werkstatt",
+        "ladegeraet",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/teileregal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.88,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.03,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2100,
+      "tags": [
+        "prop",
+        "werkstatt",
+        "regal",
+        "teile",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/schweisser",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.56,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.71,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1300,
+      "tags": [
+        "prop",
+        "werkstatt",
+        "schweisser",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/medliege",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.19,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.34,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "prop",
+        "leit",
+        "kranken",
+        "liege",
+        "scanner",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/scansaeule",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "kranken",
+        "scanner",
+        "sensor",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/medamphore",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.69,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.84,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "kranken",
+        "infusion",
+        "amphore",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/feldzelle",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.63,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.78,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 2500,
+      "tags": [
+        "prop",
+        "leit",
+        "zellen",
+        "zelle",
+        "feld",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/feldschloss",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.44,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.59,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "zellen",
+        "schloss",
+        "feld",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/pritsche",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.9,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1000,
+      "tags": [
+        "prop",
+        "zellen",
+        "pritsche",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/frachtregal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 1.94,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          2.09,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 3400,
+      "tags": [
+        "prop",
+        "lager",
+        "regal",
+        "fracht",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/tafel",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.31,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.46,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 700,
+      "tags": [
+        "prop",
+        "streu",
+        "datenpad",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/rationsbehaelter",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.81,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.96,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "prop",
+        "streu",
+        "ration",
+        "messe",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/werkzeugkiste",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.57,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.71,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "streu",
+        "werkzeug",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/medkiste",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.44,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          0.59,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "prop",
+        "streu",
+        "kranken",
+        "medkiste",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/gemein/bake",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.25,
+      "facing": "+z",
+      "params": {},
+      "states": {},
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.4,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "prop",
+        "streu",
+        "bake",
+        "warnung",
+        "rom",
+        "ort01"
+      ]
+    },
+    {
+      "id": "ort/rom/station/reaktor",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        2,
+        2
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "last": [
+          0,
+          2
+        ]
+      },
+      "states": {
+        "aus": {
+          "last": 0
+        },
+        "halb": {
+          "last": 1
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          1
+        ],
+        "label": [
+          0,
+          1.65,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 6000,
+      "tags": [
+        "prop",
+        "rom",
+        "reaktor",
+        "hauptstueck",
+        "leit",
+        "ort01"
+      ],
+      "notes": "Bestand des Designers (ORT-01 Richtung), hier nur eingetragen."
+    },
+    {
+      "id": "ort/rom/station/terminal",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "rom",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.81,
+      "facing": "+z",
+      "params": {
+        "state": [
+          0,
+          2
+        ],
+        "holo": [
+          0,
+          1
+        ]
+      },
+      "states": {
+        "gesperrt": {
+          "state": 2
+        },
+        "ohne_holo": {
+          "holo": 0
+        }
+      },
+      "sockets": {
+        "use": [
+          0,
+          0,
+          0.5
+        ],
+        "label": [
+          0,
+          1.96,
+          0
+        ]
+      },
+      "tint": [],
+      "budgetTris": 1500,
+      "tags": [
+        "prop",
+        "rom",
+        "terminal",
+        "kommando",
+        "ort01"
+      ],
+      "notes": "Bestand des Designers (ORT-01 Richtung), hier nur eingetragen."
+    },
+    {
+      "id": "kit/rom/schott",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "rom",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "state": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "geschnitten": {
+          "cut": 1
+        },
+        "verfallen": {
+          "zustand": 1,
+          "seed": 1
+        },
+        "umkaempft": {
+          "zustand": 2,
+          "seed": 2
+        },
+        "zu": {
+          "state": 0
+        },
+        "zu_geschnitten": {
+          "state": 0,
+          "cut": 1
+        },
+        "offen": {
+          "state": 1
+        },
+        "offen_geschnitten": {
+          "state": 1,
+          "cut": 1
+        },
+        "gehackt": {
+          "state": 2
+        },
+        "gehackt_geschnitten": {
+          "state": 2,
+          "cut": 1
+        },
+        "verschlossen": {
+          "state": 3
+        },
+        "verschlossen_geschnitten": {
+          "state": 3,
+          "cut": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 3000,
+      "tags": [
+        "rom",
+        "kit",
+        "schott",
+        "ort01"
+      ],
+      "notes": "ORT-01 3a K2: Rom-Station-Schott; Instanz des Geruests mit bauweise rom, Steckplaetze kit/rom/station/schott_*."
+    }
+  ]
+}

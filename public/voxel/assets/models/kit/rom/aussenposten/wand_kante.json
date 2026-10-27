@@ -1,0 +1,86 @@
+{
+  "id": "kit/rom/aussenposten/wand_kante",
+  "name": "Rom Außenposten wand_kante: goldener Eckpilaster mit Gunmetal-Fuß",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 1,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 11,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 1,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
+  },
+  "ops": [
+    {
+      "name": "Pilaster",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.95 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Fuß",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        2,
+        "d"
+      ],
+      "color": {
+        "shade": "metal_dark",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

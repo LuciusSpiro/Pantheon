@@ -1,0 +1,209 @@
+{
+  "id": "kit/germanen/aussenposten/tuer_blatt",
+  "name": "Außenposten Stabbau – tuer_blatt: dunkles Plankenblatt, Kupferbänder, Glutfuge in der Mitte; verschlossen mit kaltweißem Rune-Siegel statt Glut",
+  "tier": "architecture",
+  "palette": "nord",
+  "tags": [
+    "germanen",
+    "aussenposten",
+    "slot",
+    "stabbau",
+    "ort01"
+  ],
+  "notes": "ORT-01 K1 (Gruppe 2b). Nur in geschlossenen Zuständen (state 1 zu, 2 verschlossen).",
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 8,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 9,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "state": {
+      "default": 1,
+      "min": 0,
+      "max": 3,
+      "step": 1,
+      "label": "Türzustand"
+    }
+  },
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand == 2 ? 0 : 0.6"
+  },
+  "variants": {
+    "verschlossen": {
+      "state": 2
+    }
+  },
+  "ops": [
+    {
+      "name": "Planken",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "dk"
+          },
+          {
+            "shade": "metal_dark",
+            "f": "1.1 * dk"
+          }
+        ],
+        "axis": "x",
+        "period": 2
+      }
+    },
+    {
+      "name": "Kupferband unten",
+      "op": "box",
+      "at": [
+        0,
+        1,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "h >= 4"
+    },
+    {
+      "name": "Kupferband oben",
+      "op": "box",
+      "at": [
+        0,
+        "h - 2",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "copper_dark",
+        "f": "dk"
+      },
+      "if": "h >= 4"
+    },
+    {
+      "name": "Glutfuge Mitte",
+      "op": "box",
+      "at": [
+        "floor(w / 2) - 1",
+        0,
+        "d - 1"
+      ],
+      "size": [
+        1,
+        "h",
+        1
+      ],
+      "mode": "paint",
+      "color": "#FF8A1A",
+      "if": "state != 2 && w >= 6 && zustand < 2",
+      "emit": "em"
+    },
+    {
+      "name": "Siegelrune (verschlossen)",
+      "op": "box",
+      "at": [
+        "floor(w / 2) - 1",
+        "floor(h / 2) - 1",
+        "d - 1"
+      ],
+      "size": [
+        2,
+        3,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "role": "rune",
+        "emit": "zustand == 2 ? 0 : 0.6"
+      },
+      "if": "state == 2 && w >= 6"
+    },
+    {
+      "name": "Ruß (umkämpft)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "mode": "paint",
+      "color": {
+        "noise": [
+          {
+            "shade": "metal",
+            "f": 0.85
+          },
+          {
+            "shade": "metal",
+            "f": 1
+          },
+          "dark"
+        ],
+        "weights": [
+          4,
+          3,
+          1
+        ],
+        "seed": "seed"
+      },
+      "if": "zustand == 2"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

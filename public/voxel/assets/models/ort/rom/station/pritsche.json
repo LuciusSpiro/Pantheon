@@ -1,0 +1,210 @@
+{
+ "id": "ort/rom/station/pritsche",
+ "name": "Pritsche (Rom): Klappliege mit Gunmetal-Rahmen, Goldrand und Scharnier am Wandbogen, Amber-Nachtlicht",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "zellen",
+  "pritsche",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.875,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "use",
+   "name": "Wandbogen",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    1,
+    -6
+   ],
+   "params": {
+    "w": 8,
+    "h": 5,
+    "d": 2,
+    "wall": 2,
+    "top": 2,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen",
+   "at": [
+    -6,
+    5,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rahmen Gold",
+   "at": [
+    -6,
+    7,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Matratze",
+   "at": [
+    -5,
+    8,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Decke",
+   "at": [
+    -5,
+    9,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    6
+   ],
+   "color": "cloth"
+  },
+  {
+   "op": "box",
+   "name": "Bein vorn",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    2,
+    4,
+    2
+   ],
+   "color": "metal",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Bein vorn Gold",
+   "at": [
+    -5,
+    1,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "trim",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Scharnier",
+   "at": [
+    -6,
+    5,
+    -6
+   ],
+   "size": [
+    12,
+    2,
+    1
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Nachtlicht",
+   "at": [
+    -1,
+    11,
+    -5
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Lade Kontakt",
+   "at": [
+    3,
+    9,
+    -5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

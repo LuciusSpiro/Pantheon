@@ -1,0 +1,8 @@
+{
+  "id": "nord_aussenposten",
+  "name": "Germanen-Außenposten: Dach heller (Stabdach aus Eisen und Holz, ORT-01 6D, Befund R2: Dächer dunkelbraun), sonst nord",
+  "extends": "nord",
+  "roles": {
+    "dach": "#716D69"
+  }
+}

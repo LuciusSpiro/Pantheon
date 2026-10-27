@@ -1,0 +1,285 @@
+{
+ "id": "ort/rom/station/hypokaustum",
+ "name": "Hypokaustum-Säule (Rom): Heiz- und Lüftersäule, Amber-Heizgitter, Lüfterrotor oben, Rinnenzulauf",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "quartier",
+  "klima",
+  "heizung",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -8,
+    0,
+    -8
+   ],
+   "size": [
+    16,
+    1,
+    16
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Körper A",
+   "at": [
+    -5,
+    1,
+    -3
+   ],
+   "size": [
+    10,
+    21,
+    6
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Körper B",
+   "at": [
+    -3,
+    1,
+    -5
+   ],
+   "size": [
+    6,
+    21,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Band Rot",
+   "at": [
+    -5,
+    3,
+    -5
+   ],
+   "size": [
+    10,
+    3,
+    10
+   ],
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Gitter vorn",
+   "at": [
+    -3,
+    8,
+    5
+   ],
+   "size": [
+    6,
+    11,
+    1
+   ],
+   "color": {
+    "stripes": [
+     "metal_dark",
+     {
+      "role": "glow2",
+      "emit": 0.7
+     }
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Gitter hinten",
+   "at": [
+    -3,
+    8,
+    -6
+   ],
+   "size": [
+    6,
+    11,
+    1
+   ],
+   "color": {
+    "stripes": [
+     "metal_dark",
+     {
+      "role": "glow2",
+      "emit": 0.7
+     }
+    ],
+    "axis": "x",
+    "period": 1
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Gitter Seite",
+   "at": [
+    5,
+    8,
+    -3
+   ],
+   "size": [
+    1,
+    11,
+    6
+   ],
+   "color": {
+    "stripes": [
+     "metal_dark",
+     {
+      "role": "glow2",
+      "emit": 0.7
+     }
+    ],
+    "axis": "z",
+    "period": 1
+   },
+   "jitter": false,
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Gesims",
+   "at": [
+    -6,
+    22,
+    -4
+   ],
+   "size": [
+    12,
+    1,
+    8
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Lüfterring",
+   "at": [
+    -4,
+    23,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": {
+     "role": "glow2",
+     "emit": 0.55
+    },
+    "axes": "xz",
+    "width": 1
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Rotor 1",
+   "at": [
+    -4,
+    24,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rotor 2",
+   "at": [
+    -1,
+    24,
+    -4
+   ],
+   "size": [
+    2,
+    1,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Nabe",
+   "at": [
+    -1,
+    24,
+    -1
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf",
+   "at": [
+    5,
+    2,
+    -1
+   ],
+   "size": [
+    3,
+    3,
+    2
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf Fluss",
+   "at": [
+    5,
+    5,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

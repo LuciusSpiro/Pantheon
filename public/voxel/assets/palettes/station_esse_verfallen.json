@@ -1,0 +1,17 @@
+{
+  "id": "station_esse_verfallen",
+  "name": "station_esse verfallen: entsättigt, Staub, Glut und Runen fast aus",
+  "extends": "station_esse",
+  "adjust": {
+    "sat": 0.45,
+    "light": 0.88,
+    "tint": "#5E5E44",
+    "mix": 0.2,
+    "except": ["glow", "glow2", "rune", "rune_dim", "ember", "alarm", "leit"]
+  },
+  "roles": {
+    "glow": { "color": "#7E8A90", "emit": 0.25 },
+    "rune": { "color": "#7E8A90", "emit": 0.25 },
+    "ember": { "color": "#8A5A3A", "emit": 0.15 }
+  }
+}

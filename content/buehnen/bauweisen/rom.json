@@ -27,7 +27,12 @@
     },
     "rampe": {
       "id": "kit/rom/boden",
-      "belag": 2
+      "belag": 2,
+      "je_art": {
+        "station": {
+          "belag": 0
+        }
+      }
     },
     "pad": {
       "id": "kit/rom/boden",
@@ -89,6 +94,7 @@
         }
       }
     },
+    "schott": "kit/rom/schott",
     "luke": {
       "id": "kit/rom/luke",
       "je_art": {
@@ -112,10 +118,23 @@
     "schutt": {
       "id": "kit/rom/deckung_voll",
       "zustand": 2
+    },
+    "gelaende": {
+      "terrain": true,
+      "hinweis": "Außenposten: Gelände außerhalb der Mauer in warmem Travertin (ORT-01, 6D: top stone, Sprenkel steinDichte 0,05 statt 0,1); Ruine und übrige Arten unverändert (Rückfall soil)",
+      "je_art": {
+        "aussenposten": {
+          "top": "stone",
+          "fill": "soil_dark",
+          "steinDichte": 0.05
+        }
+      }
     }
   },
   "anker": {
     "terminal": {
+      "station": "ort/rom/gemein/terminal",
+      "aussenposten": "ort/rom/gemein/terminal",
       "*": "prop/rom/ruine/offiziersschloss"
     },
     "raetsel": {
@@ -123,24 +142,36 @@
       "innerstes": "prop/rom/ruine/offiziersschloss"
     },
     "sprengpunkt": {
+      "station": "ort/rom/station/sprengreaktor",
+      "aussenposten": "ort/rom/aussenposten/zellenbatterie",
       "*": "prop/rom/ruine/munitionskammer"
     },
     "beute": {
+      "station": "ort/rom/gemein/kassenkapsel",
+      "aussenposten": "ort/rom/gemein/kassenkapsel",
       "*": "prop/rom/ruine/legionskasse"
     },
     "fund": {
+      "station": "ort/rom/gemein/kassenkapsel",
+      "aussenposten": "ort/rom/gemein/kassenkapsel",
       "*": "prop/rom/ruine/legionskasse"
     },
     "tor": {
       "*": "prop/rom/ruine/kassengewoelbe_tor"
     },
     "ziel": {
+      "station": "ort/rom/gemein/feldstandarte",
+      "aussenposten": "ort/rom/gemein/feldstandarte",
       "*": "leit/rom/ruine/fahnenheiligtum"
     },
     "abholpunkt": {
+      "station": "ort/rom/gemein/abholbake",
+      "aussenposten": "ort/rom/gemein/abholbake",
       "*": "prop/germanen/gemein/bake_abholpunkt"
     },
     "zelle": {
+      "station": "ort/rom/gemein/zelle",
+      "aussenposten": "ort/rom/gemein/zelle",
       "*": "prop/rom/ruine/carcer"
     }
   },
@@ -150,9 +181,63 @@
     },
     "dorfplatz": {
       "aussenposten": "leit/rom/aussenposten/statue_platz"
+    },
+    "landeplatz": {
+      "aussenposten": "ort/rom/aussenposten/landeplatz"
+    },
+    "wachturm": {
+      "aussenposten": "ort/rom/aussenposten/sensorturm"
     }
   },
   "leit_fuss": {
+    "ort/rom/aussenposten/landeplatz": [
+      4,
+      4
+    ],
+    "ort/rom/aussenposten/sensorturm": [
+      1,
+      1
+    ],
+    "ort/rom/station/kartentisch": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/leitung": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/zellenarkade": [
+      2,
+      1
+    ],
+    "ort/rom/station/ladebank": [
+      2,
+      1
+    ],
+    "ort/rom/station/koje": [
+      2,
+      1
+    ],
+    "ort/rom/station/messetafel": [
+      3,
+      1
+    ],
+    "ort/rom/station/bank": [
+      2,
+      1
+    ],
+    "ort/rom/station/werkbank": [
+      2,
+      1
+    ],
+    "ort/rom/station/medliege": [
+      2,
+      1
+    ],
+    "ort/rom/station/feldzelle": [
+      1,
+      1
+    ],
     "leit/rom/ruine/fahnenheiligtum": [
       2,
       2
@@ -163,23 +248,37 @@
     ]
   },
   "paletten": {
-    "basis": "rom_kastell"
+    "basis": "rom_kastell",
+    "art": {
+      "station": {
+        "intakt": "rom_station",
+        "verfallen": "rom_verfallen",
+        "umkaempft": "rom_umkaempft"
+      },
+      "aussenposten": {
+        "intakt": "rom",
+        "verfallen": "rom_verfallen",
+        "umkaempft": "rom_umkaempft"
+      }
+    }
   },
   "stimmung": {
+    "aussenposten": "rom_aussen",
+    "station": "hall_rom",
     "ruine": "ruin_rom"
   },
   "deckung_props": {
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
     "aussenposten": {
       "deckung_halb": [
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug",
-        "prop/germanen/gemein/fass"
+        "ort/rom/aussenposten/deckung_kapsel",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
       ],
       "deckung_voll": [
-        "prop/germanen/gemein/feuerschale",
-        "prop/germanen/gemein/fass",
-        "prop/germanen/gemein/werkzeug"
+        "ort/rom/aussenposten/deckung_heizer",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
       ]
     }
   },

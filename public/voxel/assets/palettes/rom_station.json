@@ -1,0 +1,9 @@
+{
+  "id": "rom_station",
+  "name": "Rom-Station Aquädukt: Gold und Amber für die Station, Amber ohne Überstrahlung (emit ≤ 1,0, sonst kippt ACES das Amber nach Beige), sonst wie rom (ORT-01 6D, Befund Designer-Review R2)",
+  "extends": "rom",
+  "roles": {
+    "trim": "#E0A526",
+    "glow2": { "color": "#FF9A2E", "emit": 1.0 }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "id": "ort/rom/gemein/bogen",
+  "name": "Bogenteil (Rom, Richtung Aquädukt): Pfeilerpaar mit Rundbogen, Bogenband, als Baustein für Pult, Leitung, Zellenarkade",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["teil", "rom", "ort01"],
+  "footprint": [1, 0.5],
+  "params": {
+    "w": { "default": 10, "min": 4, "max": 24, "step": 2, "label": "Öffnung (Voxel, gerade)" },
+    "h": { "default": 14, "min": 2, "max": 40, "step": 1, "label": "Kämpferhöhe (Voxel)" },
+    "d": { "default": 6, "min": 1, "max": 24, "step": 1, "label": "Tiefe (Voxel)" },
+    "wall": { "default": 3, "min": 1, "max": 8, "step": 1, "label": "Pfeilerbreite" },
+    "top": { "default": 2, "min": 1, "max": 8, "step": 1, "label": "Mauer über Scheitel" },
+    "band": { "default": 1, "min": 0, "max": 2, "step": 1, "label": "Bogenband (0 keins, 1 Gold, 2 Rot)" }
+  },
+  "let": { "r": "w/2", "W": "w + 2*wall", "H": "h + w/2 + top" },
+  "ops": [
+    { "op": "box", "name": "Mauerkörper", "at": ["-W/2", 0, 0], "size": ["W", "H", "d"], "color": "secondary" },
+    { "op": "box", "name": "Kämpferband", "at": ["-W/2", "h-1", 0], "size": ["W", 1, "d"], "color": "stone_light" },
+    { "op": "box", "name": "Bogenband Gold", "if": "band == 1", "mode": "paint", "at": ["-floor(sqrt(max(0,(r+1.6)*(r+1.6)-(j+0.5)*(j+0.5)))+0.5)", "h+j", 0], "size": ["2*floor(sqrt(max(0,(r+1.6)*(r+1.6)-(j+0.5)*(j+0.5)))+0.5)", 1, "d"], "color": "trim", "repeat": { "count": "r+2", "var": "j", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Bogenband Rot", "if": "band == 2", "mode": "paint", "at": ["-floor(sqrt(max(0,(r+1.6)*(r+1.6)-(j+0.5)*(j+0.5)))+0.5)", "h+j", 0], "size": ["2*floor(sqrt(max(0,(r+1.6)*(r+1.6)-(j+0.5)*(j+0.5)))+0.5)", 1, "d"], "color": "primary", "repeat": { "count": "r+2", "var": "j", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Öffnung Pfeilerteil", "mode": "carve", "at": ["-r", 0, 0], "size": ["w", "h", "d"] },
+    { "op": "box", "name": "Öffnung Bogen", "mode": "carve", "at": ["-floor(sqrt(max(0,r*r-(j+0.5)*(j+0.5)))+0.5)", "h+j", 0], "size": ["2*floor(sqrt(max(0,r*r-(j+0.5)*(j+0.5)))+0.5)", 1, "d"], "repeat": { "count": "r", "var": "j", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Schlussstein", "at": [-1, "h+r", -1], "size": [2, 2, "d+2"], "color": "trim" }
+  ],
+  "anchor": [0, 0, 0]
+}

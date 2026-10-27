@@ -7,7 +7,11 @@
 //   npm run check:assets -- --no-missing     Liste der fehlenden Vertrags-IDs weglassen
 //   npm run check:assets -- --bauweisen-streng   Lücken der Bauweisen-Tabellen als Fehler (sonst Warnung; auch
 //                                            CHECK_BAUWEISEN_STRENG=1)
+//   npm run check:assets -- --nur-rollen     nur die Rollen-Parität (ORT-01, content/buehnen/rollen/*.json), ohne Asset-Bau
+//   npm run check:assets -- --nur-orte      Orte-Sperre (ORT-01) mit Liste der Ausnahmen; --ohne-orte-sperre schaltet sie im Gesamtlauf ab
+//   npm run check:assets -- --rollen-dir <d> Rollen-Dateien aus einem anderen Ordner (Tests, Entwürfe)
 //
+// Klasse `bau` (Tag im Manifest, tools/asset-klassen.mjs): Gebäude, Türme, Leitstücke der Orte; Höhe bis 10 m, Budget je belegter Kachel.
 // Geprüft: Pflichtfelder (§5), Dreiecke je Zustand gegen budgetTris und Vertragsbudget (Warnung > 100 %, Fehler > 150 %),
 // Grundfläche/Höhe gegen footprint/height (+ 2,2-m-Grenze), Pflicht-Sockets, Parameter aus §3.3/§3.4/§3.6,
 // Posen aus §3.4, Sockets aus dem Rezept (CONTRACT-B1 §10.1, Manifest hat Vorrang), Vollständigkeit der
@@ -16,8 +20,12 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
+import { createRequire } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readManifests, mergeSockets } from './sync-assets.mjs';
+import { pruefeRollenDatei } from './rollen-pruefung.mjs';
+import { pruefeOrte } from './orte-sperre.mjs';
+import { isBau, bauBudget, bauHoehe, bauFlaecheUrteil, BAU_H } from './asset-klassen.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2);
@@ -29,6 +37,8 @@ const BW_STRICT = argv.includes('--bauweisen-streng') || process.env.CHECK_BAUWE
 const FILTER = argv.filter((a, i) => !a.startsWith('--') && argv[i - 1] !== '--team')[0] || null;
 const SRC = USE_VW ? path.resolve(ROOT, process.env.VOXELWERK_PATH || '../voxelwerk') : path.join(ROOT, 'public', 'voxel');
 const MANIFEST_DIR = path.join(ROOT, 'assets', 'manifest');
+const NUR_ROLLEN = argv.includes('--nur-rollen');
+const ROLLEN_DIR = opt('--rollen-dir') ? path.resolve(opt('--rollen-dir')) : path.join(ROOT, 'content', 'buehnen', 'rollen');
 
 // ---------------------------------------------------------------------------------------------
 // Vertragswissen (§3.3, §3.4, §3.6, §5)
@@ -106,10 +116,11 @@ const facingOk = (f, id, e) => f === '+z' || (isHeld(id, e) && typeof f === 'str
 /** Vertragsbudget §5 (Dreiecke je Zustand). */
 function contractBudget(id, e, tier) {
   if (e.kind === 'figure' || id.startsWith('lerche/actor/')) return { n: 6000, what: 'Figur' };
+  if (isBau(e)) { const b = bauBudget(e.footprint); return { n: b.n, what: b.what }; }
   if ((e.tags || []).includes('terrain')) return { n: 8000, what: 'Geländeblock' };
   if (/(^|\/)(floor|grate|floor_ruin|quarter_floor)$/.test(id)) return { n: 150, what: 'Bodenkachel' };
   if (/(^|\/)wall(_\w+)?$/.test(id)) return { n: 600, what: 'Wandkachel' };
-  if (isDach(id)) return { n: 3200, what: 'Dach über einem Gebäude (bis 12×12 Kacheln)' };
+  if (isDach(id)) return { n: 3200, what: 'Dach über einem Gebäude (bis 14×14 Kacheln, germanen 14×14, rom 13×13)' };
   if (isStation(id)) return { n: 6000, what: 'Station/Konsole' };
   if (tier === 'architecture' || tier === 'terrain') return { n: 3000, what: 'Architekturmodul' };
   // Detail-Prop: 2.500 je belegter Kachel (2×2-Möbel wie Messetisch = 10.000) – Auslegung PIPELINE, siehe Bericht
@@ -271,6 +282,38 @@ async function checkStreu(manifestIds, indexModels) {
 }
 
 // ---------------------------------------------------------------------------------------------
+// ORT-01 Paket 1: Rollenformat rollen/1 und Parität. Jede Rolle braucht eine römische UND eine germanische Belegung, alle Modell-IDs
+// müssen im Manifest stehen (Format, Regeln: tools/rollen-pruefung.mjs, CONTRACT-ROLLEN-ORT.md). Fehler statt Warnung.
+// ---------------------------------------------------------------------------------------------
+async function checkRollen(entries, indexModels, dir = ROLLEN_DIR) {
+  const lines = [];
+  const ctx = { manifestIds: new Set(entries.map((x) => x.id)), indexModels, modelle: {}, leitFuss: {}, deckung: {}, ankerRollen: null };
+  for (const e of entries) ctx.modelle[e.id] = { footprint: e.footprint, height: e.height };
+  for (const bw of ['rom', 'germanen']) {
+    const b = await readJson(path.join(BUEHNEN, 'bauweisen', bw + '.json')).catch(() => null);
+    ctx.leitFuss[bw] = (b && b.leit_fuss) || {};
+    ctx.deckung[bw] = {};
+    for (const [art, m] of Object.entries((b && b.deckung_props) || {})) if (m && typeof m === 'object' && !Array.isArray(m)) ctx.deckung[bw][art] = new Set(Object.values(m).flat());
+    for (const [art, l] of Object.entries((b && b.deko_ausschluss) || {})) if (Array.isArray(l)) { if (!ctx.deckung[bw][art]) ctx.deckung[bw][art] = new Set(); for (const id of l) ctx.deckung[bw][art].add(id); }
+  }
+  const an = await readJson(path.join(BUEHNEN, 'anker.json')).catch(() => null);
+  if (an && an.rollen) ctx.ankerRollen = new Set(Object.keys(an.rollen));
+  const geladen = [];
+  const files = (await fsp.readdir(dir).catch(() => [])).filter((f) => f.endsWith('.json')).sort();
+  if (!files.length) lines.push({ lvl: 'err', msg: `keine Rollen-Dateien in ${path.relative(ROOT, dir) || dir}` });
+  for (const f of files) {
+    let j;
+    try { j = await readJson(path.join(dir, f)); } catch (err) { lines.push({ lvl: 'err', msg: `${f}: nicht lesbar (${err.message})` }); continue; }
+    geladen.push(j);
+    lines.push(...pruefeRollenDatei(j, f, ctx));
+  }
+  // K-SILHOUETTE (shared/buehne.js): streu-Modelle höher als eine Figur sind keine Deko
+  const Buehne = createRequire(import.meta.url)('../shared/buehne.js');
+  for (const v of Buehne.silhouetteFehler({ bauweisen: [], deko: [], rollen: geladen.filter((j) => j && typeof j === 'object'), modelle: ctx.modelle })) lines.push({ lvl: 'err', msg: `${v.code} ${v.msg}` });
+  return lines;
+}
+
+// ---------------------------------------------------------------------------------------------
 const fmt = (n) => Math.round(n).toLocaleString('de-DE');
 const pad = (s, n) => { s = String(s); return s.length >= n ? s : s + ' '.repeat(n - s.length); };
 const padL = (s, n) => { s = String(s); return s.length >= n ? s : ' '.repeat(n - s.length) + s; };
@@ -326,8 +369,53 @@ export async function checkSprites(dir) {
   return out;
 }
 
+/** ORT-01 Prüf-Sperre (tools/orte-sperre.mjs): keine Altstücke in Orten; abschaltbar mit --ohne-orte-sperre. */
+async function checkOrteSperre() {
+  const BW = path.join(ROOT, 'content', 'buehnen');
+  const j = async (p) => JSON.parse(await fsp.readFile(path.join(BW, p), 'utf8'));
+  const ctx = { bauweisen: { rom: await j('bauweisen/rom.json'), germanen: await j('bauweisen/germanen.json') }, deko: { rom: await j('deko/rom.json'), germanen: await j('deko/germanen.json') },
+    platztypen: { station: [], aussenposten: [] }, raumRollen: { station: await j('rollen/station.json'), aussenposten: await j('rollen/aussenposten.json') }, besitz: {} };
+  for (const f of (await fsp.readdir(path.join(BW, 'paletten'))).filter((x) => x.endsWith('.json'))) ctx.besitz[f.replace(/.json$/, '')] = await j('paletten/' + f);   // Besitz-Streu (Orte filtern sie, orte-sperre.mjs)
+  const GT = createRequire(import.meta.url)('../shared/gen-station.js'), GS = createRequire(import.meta.url)('../shared/gen-siedlung.js');
+  const ts = { station: new Set(), aussenposten: new Set() };
+  for (let s = 1; s <= 6; s++) {
+    for (const p of Object.values(GT.erzeuger(96, 56).karteRoh(s, 8, { bauweise: 'germanen', id: 't' }).plaetze)) ts.station.add(p.typ);
+    // Außenposten: Handel und Militär, Standard und Variante Methalle (Tor, Schleichweg, Zellenblock sind nur dort)
+    for (const [typ, variante] of [['handel'], ['militaer'], ['handel', 'methalle'], ['militaer', 'methalle']]) {
+      const o = { bauweise: 'germanen', typ, id: 't' }; if (variante) o.variante = variante;
+      for (const p of Object.values(GS.erzeuger(130, 90).karteRoh(s, 10, o).plaetze)) ts.aussenposten.add(p.typ);
+    }
+  }
+  ctx.platztypen = { station: [...ts.station], aussenposten: [...ts.aussenposten] };
+  return pruefeOrte(ctx);
+}
+function zeigeOrte(ol) {
+  const e = ol.filter((l) => l.lvl === 'err').length;
+  console.log('\n== Orte-Sperre (ORT-01: keine Ruine-/Alt-Stücke in Station und Außenposten, tools/orte-sperre.mjs)');
+  console.log(' ' + (e ? '✗' : '✓') + ' orte');
+  const ausn = ol.filter((l) => l.lvl === 'info' && /^Ausnahme/.test(l.msg)).length, alt = ol.filter((l) => l.lvl === 'info' && /^Altstück/.test(l.msg)).length;
+  for (const l of ol) if (l.lvl === 'err') console.log('       ✗ ' + l.msg);
+  console.log(`       · ${ausn} dokumentierte Ausnahmen, ${alt} erlaubte Altstücke (Liste: node tools/check-assets.mjs --nur-orte)`);
+  if (argv.includes('--nur-orte')) for (const l of ol) if (l.lvl === 'info') console.log('       · ' + l.msg);
+  return e;
+}
+function zeigeRollen(rl) {
+  const e = rl.filter((l) => l.lvl === 'err').length, w = rl.filter((l) => l.lvl === 'warn').length;
+  console.log(`\n== Rollen-Parität (ORT-01, content/buehnen/rollen/*.json)`);
+  console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' rollen');
+  for (const l of rl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
+  return { e, w };
+}
+
 async function main() {
   const t0 = performance.now();
+  if (NUR_ROLLEN) {   // schnell: nur Manifest lesen, keine Assets bauen
+    const man = await readManifests(MANIFEST_DIR);
+    const idxJ = JSON.parse(await fsp.readFile(path.join(ROOT, 'public', 'voxel', 'index.json'), 'utf8').catch(() => '{}'));
+    const { e, w } = zeigeRollen(await checkRollen(man.entries, new Set(idxJ.models || [])));
+    console.log(`\n${e ? '✗' : '✓'} ${e} Fehler, ${w} Warnungen · ${Math.round(performance.now() - t0)} ms`);
+    process.exit(e ? 1 : 0);
+  }
   if (!fs.existsSync(path.join(SRC, 'core', 'library.js'))) {
     console.error(`✗ ${SRC}/core/library.js fehlt – ${USE_VW ? 'VOXELWERK_PATH prüfen' : 'erst npm run assets'}`);
     process.exit(1);
@@ -484,7 +572,12 @@ async function main() {
         if (maxH > e.height + tol) bad(`Höhe ${maxH.toFixed(2)} m > height ${e.height} m`);
         else if (maxH < e.height - 0.25) meh(`height ${e.height} m, Modell nur ${maxH.toFixed(2)} m hoch`);
       }
-      if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
+      if (isBau(e)) {
+        const fu = res.dims ? bauFlaecheUrteil(res.dims[0], res.dims[1], e.footprint) : 'ok';
+        if (fu === 'fehler') bad(`gemessene Grundfläche ${res.dims[0].toFixed(2)} × ${res.dims[1].toFixed(2)} m viel kleiner als footprint ${JSON.stringify(e.footprint)} (Klasse bau: Budget je Kachel)`);
+        else if (fu === 'warnung') meh(`gemessene Grundfläche ${res.dims[0].toFixed(2)} × ${res.dims[1].toFixed(2)} m unter 50 % des footprints ${JSON.stringify(e.footprint)}`);
+        if (bauHoehe(maxH, tol) === 'fehler') bad(`Höhe ${maxH.toFixed(2)} m > ${BAU_H} m (Klasse bau)`);
+      } else if (!heightExempt(e.id, e) && !isHeld(e.id, e)) {
         if (isLeit(e.id)) {
           if (maxH > LEIT_H + tol) bad(`Höhe ${maxH.toFixed(2)} m > 3,5 m (Leitstück, Entscheidung Studioleitung B1)`);
           else if (maxH > 2.2 + tol) meh(`Höhe ${maxH.toFixed(2)} m > 2,2 m – als Leitstück bis 3,5 m zulässig`);
@@ -551,6 +644,9 @@ async function main() {
       console.log(`\n== Besitz-streu (content/buehnen/paletten/*.json, AP7)`);
       console.log(' ' + (e ? '✗' : w ? '!' : '✓') + ' streu');
       for (const l of sl) console.log('       ' + (l.lvl === 'err' ? '✗ ' : l.lvl === 'warn' ? '! ' : '· ') + l.msg);
+      const rr = zeigeRollen(await checkRollen(man.entries, new Set(idxJ.models || [])));
+      errors += rr.e; warnings += rr.w;
+      if (!argv.includes('--ohne-orte-sperre')) errors += zeigeOrte(await checkOrteSperre());
     }
   }
 

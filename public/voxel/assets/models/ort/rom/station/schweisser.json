@@ -1,0 +1,352 @@
+{
+ "id": "ort/rom/station/schweisser",
+ "name": "Schweißgerät (Rom): Gunmetal-Wagen mit Marmorgerät, Amber-Lichtbogenbrenner, Gasflasche als Amphore mit rotem Band",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "werkstatt",
+  "schweisser",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Wagen",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    2,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Wagen Gold",
+   "at": [
+    -7,
+    2,
+    -6
+   ],
+   "size": [
+    14,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rad",
+   "at": [
+    -8,
+    0,
+    -5
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": "black",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Gerät",
+   "at": [
+    -6,
+    3,
+    -5
+   ],
+   "size": [
+    7,
+    10,
+    9
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Gerät Rot",
+   "at": [
+    -6,
+    5,
+    4
+   ],
+   "size": [
+    7,
+    4,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Anzeige",
+   "at": [
+    -5,
+    9,
+    4
+   ],
+   "size": [
+    5,
+    2,
+    1
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Anzeige Wert",
+   "at": [
+    -4,
+    10,
+    5
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Regler",
+   "at": [
+    -5,
+    6,
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "trim",
+   "repeat": {
+    "count": 3,
+    "step": [
+     2,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kappe",
+   "at": [
+    -6,
+    13,
+    -5
+   ],
+   "size": [
+    7,
+    1,
+    9
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Lichtbogenkopf",
+   "at": [
+    -6,
+    14,
+    -1
+   ],
+   "size": [
+    3,
+    3,
+    3
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Fuss",
+   "at": [
+    4,
+    2,
+    -1
+   ],
+   "r": 1.5,
+   "h": 2,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Unterbauch",
+   "at": [
+    4,
+    4,
+    -1
+   ],
+   "r": 2.0,
+   "h": 6,
+   "color": "secondary",
+   "r2": 3.0
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Bauch",
+   "at": [
+    4,
+    10,
+    -1
+   ],
+   "r": 3.0,
+   "h": 6,
+   "color": "secondary"
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Schulter",
+   "at": [
+    4,
+    16,
+    -1
+   ],
+   "r": 3.0,
+   "h": 4,
+   "color": "secondary",
+   "r2": 2.0
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Hals",
+   "at": [
+    4,
+    20,
+    -1
+   ],
+   "r": 1.5,
+   "h": 4,
+   "color": "metal"
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Muendung",
+   "at": [
+    4,
+    24,
+    -1
+   ],
+   "r": 2.0,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Flasche Band",
+   "at": [
+    4,
+    10,
+    -1
+   ],
+   "r": 3.0,
+   "h": 4,
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "line",
+   "name": "Gasschlauch",
+   "from": [
+    4,
+    24,
+    -1
+   ],
+   "to": [
+    -1,
+    14,
+    2
+   ],
+   "r": 0.5,
+   "color": "metal"
+  },
+  {
+   "op": "line",
+   "name": "Brennerarm",
+   "from": [
+    -6,
+    15,
+    0
+   ],
+   "to": [
+    -6,
+    17,
+    5
+   ],
+   "r": 0.5,
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Brennerspitze",
+   "at": [
+    -7,
+    16,
+    5
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Funke",
+   "at": [
+    -7,
+    16,
+    7
+   ],
+   "size": [
+    2,
+    2,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1.0
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

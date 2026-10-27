@@ -1,0 +1,269 @@
+{
+ "id": "ort/rom/station/clipeus_wand",
+ "name": "Wand-Clipeus (Rom): Rundschild als Funkspiegel auf Marmorpodest mit Amberspeisung, Speisehorn kaltweiß",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "funk",
+  "antenne",
+  "kommando",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -8,
+    0,
+    -6
+   ],
+   "size": [
+    16,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Podest",
+   "at": [
+    -6,
+    1,
+    -5
+   ],
+   "size": [
+    12,
+    7,
+    9
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Podest Rot",
+   "at": [
+    -6,
+    3,
+    4
+   ],
+   "size": [
+    12,
+    3,
+    1
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "primary",
+    "axes": "xy",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Podest Rinne",
+   "at": [
+    -5,
+    8,
+    -4
+   ],
+   "size": [
+    10,
+    1,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Podest Fluss",
+   "at": [
+    -4,
+    8,
+    -1
+   ],
+   "size": [
+    8,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   }
+  },
+  {
+   "op": "box",
+   "name": "Gabel",
+   "at": [
+    -1,
+    9,
+    -4
+   ],
+   "size": [
+    2,
+    5,
+    2
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "group",
+   "name": "Spiegel",
+   "ops": [
+    {
+     "op": "cyl",
+     "name": "Schild",
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "r": 7.5,
+     "h": 2,
+     "color": "primary",
+     "axis": "z"
+    },
+    {
+     "op": "cyl",
+     "name": "Schild Wölbung",
+     "at": [
+      0,
+      0,
+      2
+     ],
+     "r": 5.5,
+     "h": 1,
+     "color": "primary",
+     "axis": "z"
+    },
+    {
+     "op": "cyl",
+     "name": "Goldrand",
+     "at": [
+      0,
+      0,
+      0
+     ],
+     "r": 7.5,
+     "h": 2,
+     "color": "trim",
+     "hollow": 1,
+     "axis": "z"
+    },
+    {
+     "op": "cyl",
+     "name": "Zierring",
+     "at": [
+      0,
+      0,
+      2
+     ],
+     "r": 3.5,
+     "h": 1,
+     "color": "trim",
+     "hollow": 1,
+     "axis": "z",
+     "mode": "paint"
+    },
+    {
+     "op": "cyl",
+     "name": "Buckel",
+     "at": [
+      0,
+      0,
+      3
+     ],
+     "r": 2,
+     "h": 1,
+     "color": "trim",
+     "axis": "z"
+    },
+    {
+     "op": "line",
+     "name": "Speisearm oben",
+     "from": [
+      0,
+      6,
+      2
+     ],
+     "to": [
+      0,
+      1,
+      6
+     ],
+     "r": 0.5,
+     "color": "metal_dark"
+    },
+    {
+     "op": "line",
+     "name": "Speisearm links",
+     "from": [
+      -5,
+      -4,
+      2
+     ],
+     "to": [
+      0,
+      0,
+      6
+     ],
+     "r": 0.5,
+     "color": "metal_dark"
+    },
+    {
+     "op": "line",
+     "name": "Speisearm rechts",
+     "from": [
+      5,
+      -4,
+      2
+     ],
+     "to": [
+      0,
+      0,
+      6
+     ],
+     "r": 0.5,
+     "color": "metal_dark"
+    },
+    {
+     "op": "box",
+     "name": "Speisehorn",
+     "at": [
+      -1,
+      -1,
+      6
+     ],
+     "size": [
+      2,
+      2,
+      2
+     ],
+     "color": {
+      "role": "glow",
+      "emit": 1.0
+     }
+    }
+   ],
+   "at": [
+    0,
+    21,
+    -2
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

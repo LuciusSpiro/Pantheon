@@ -1,0 +1,341 @@
+{
+ "id": "ort/rom/station/medliege",
+ "name": "Medizinliege (Rom): Liege unter Scanbogen (der Bogen ist der Scanner: Amber-Scanlinie, kaltweißer Sensorbalken), Bedienpult am Kopfende",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "leit",
+  "kranken",
+  "liege",
+  "scanner",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -6
+   ],
+   "size": [
+    32,
+    1,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Liegenfuß",
+   "at": [
+    -15,
+    1,
+    -3
+   ],
+   "size": [
+    30,
+    5,
+    6
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Liegenfuß Gold",
+   "at": [
+    -15,
+    5,
+    -3
+   ],
+   "size": [
+    30,
+    1,
+    6
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "metal_dark",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Matratze",
+   "at": [
+    -14,
+    6,
+    -3
+   ],
+   "size": [
+    28,
+    2,
+    6
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Kissen",
+   "at": [
+    -14,
+    8,
+    -2
+   ],
+   "size": [
+    6,
+    1,
+    4
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil",
+   "at": [
+    -16,
+    5,
+    -6
+   ],
+   "size": [
+    2,
+    8,
+    12
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kopfteil Gold",
+   "at": [
+    -16,
+    13,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    12
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Kreuz senkrecht",
+   "at": [
+    9,
+    8,
+    -2
+   ],
+   "size": [
+    2,
+    1,
+    4
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Kreuz waagrecht",
+   "at": [
+    7,
+    8,
+    -1
+   ],
+   "size": [
+    4,
+    1,
+    2
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Liegenkante Rot",
+   "at": [
+    -14,
+    3,
+    3
+   ],
+   "size": [
+    28,
+    2,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "group",
+   "name": "Scanbogen",
+   "ops": [
+    {
+     "op": "use",
+     "name": "Bogen",
+     "model": "ort/rom/gemein/bogen",
+     "at": [
+      0,
+      0,
+      -2
+     ],
+     "params": {
+      "w": 8,
+      "h": 11,
+      "d": 4,
+      "wall": 2,
+      "top": 2,
+      "band": 1
+     }
+    },
+    {
+     "op": "box",
+     "name": "Scanlinie",
+     "at": [
+      -4,
+      7,
+      0
+     ],
+     "size": [
+      8,
+      1,
+      2
+     ],
+     "color": {
+      "role": "glow2",
+      "emit": 1
+     },
+     "jitter": false
+    },
+    {
+     "op": "box",
+     "name": "Sensor oben",
+     "at": [
+      -1,
+      17,
+      -3
+     ],
+     "size": [
+      2,
+      1,
+      6
+     ],
+     "color": {
+      "role": "glow",
+      "emit": 0.9
+     },
+     "jitter": false
+    }
+   ],
+   "at": [
+    3,
+    1,
+    0
+   ],
+   "rot": 90,
+   "pivot": [
+    0,
+    0
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Bedienpult",
+   "at": [
+    -16,
+    1,
+    -6
+   ],
+   "size": [
+    3,
+    12,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Bedienpult Anzeige",
+   "at": [
+    -13,
+    10,
+    -5
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 1
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Bedienpult Kaltweiß",
+   "at": [
+    -13,
+    6,
+    -5
+   ],
+   "size": [
+    1,
+    2,
+    2
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zulauf",
+   "at": [
+    -16,
+    13,
+    -6
+   ],
+   "size": [
+    4,
+    1,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf Fluss",
+   "at": [
+    -15,
+    14,
+    -5
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

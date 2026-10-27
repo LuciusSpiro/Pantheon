@@ -1,0 +1,321 @@
+{
+ "id": "ort/rom/gemein/feldstandarte",
+ "name": "Feldstandarte (Rom, Anker ziel): Feldgenerator mit Amberkern in vier Marmorpfosten auf Sockel; genommen = Kern fehlt, aktiviert = Ring und Strahl",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "rom",
+  "ziel",
+  "feldgenerator"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 2,
+   "step": 1,
+   "label": "Ziel (0 frei, 1 genommen, 2 aktiviert)"
+  }
+ },
+ "variants": {
+  "genommen": {
+   "state": 1
+  },
+  "aktiviert": {
+   "state": 2
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -7,
+    0,
+    -7
+   ],
+   "size": [
+    14,
+    2,
+    14
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Sockel Feld",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "secondary",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Sockel Rot",
+   "at": [
+    -6,
+    2,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "primary",
+   "if": "state == 1",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kernhalter",
+   "at": [
+    -3,
+    3,
+    -3
+   ],
+   "size": [
+    6,
+    2,
+    6
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Pfosten",
+   "at": [
+    -6,
+    3,
+    -6
+   ],
+   "size": [
+    2,
+    15,
+    2
+   ],
+   "color": "secondary",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfostenband",
+   "at": [
+    -6,
+    9,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "trim",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Pfostenkapitell",
+   "at": [
+    -6,
+    18,
+    -6
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "trim",
+   "mirror": "xz",
+   "mirrorAt": {
+    "x": -0.5,
+    "z": -0.5
+   }
+  },
+  {
+   "op": "box",
+   "name": "Ringrahmen",
+   "at": [
+    -6,
+    19,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Ringrahmen frei",
+   "at": [
+    -5,
+    19,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "metal_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Ring Licht",
+   "at": [
+    -5,
+    19,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 1 ? 0 : (state == 2 ? 0.6 : 0.4)"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Ring Licht frei",
+   "at": [
+    -4,
+    19,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "ellipsoid",
+   "name": "Kern",
+   "if": "state != 1",
+   "at": [
+    0,
+    11,
+    0
+   ],
+   "r": 3.5,
+   "color": {
+    "role": "glow2",
+    "emit": "state == 2 ? 1.2 : 0.9"
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Kern Halter oben",
+   "at": [
+    -1,
+    14,
+    -1
+   ],
+   "size": [
+    2,
+    4,
+    2
+   ],
+   "color": "metal",
+   "if": "state != 1"
+  },
+  {
+   "op": "box",
+   "name": "Kernmulde",
+   "at": [
+    -2,
+    5,
+    -2
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": "dark",
+   "if": "state == 1",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Mastrest",
+   "at": [
+    -1,
+    5,
+    -1
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "metal_dark",
+   "if": "state == 1"
+  },
+  {
+   "op": "box",
+   "name": "Strahl",
+   "at": [
+    -1,
+    20,
+    -1
+   ],
+   "size": [
+    2,
+    11,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "if": "state == 2",
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -27,10 +27,13 @@
 //   Im Spiel: Layer `buehne` (boot.js lädt ihn), Zone 'buehne' (renderer.js) für alle Karten außer platform/wreck/kesh.
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
-import { streuen } from './deko.js';
+import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent } from './stimmung.js';
+import { glutAusnahme } from './glut.js';
 
 const BASE = '/content/buehnen/';
+// ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
+const ROLLEN_ARTEN = ['station', 'aussenposten'];
 const TILE = 32;
 const CHUNK = 12;
 const VERSION = 'kit/1';
@@ -127,16 +130,17 @@ async function ladeDaten(k, opts) {
   const d = opts.daten || {};
   const base = opts.base || BASE;
   const bw = k.bauweise;
-  const [kacheln, anker, bauweise, besitz, deko, SB] = await Promise.all([
+  const [kacheln, anker, bauweise, besitz, deko, rollen, SB] = await Promise.all([
     d.kacheln || getJson(base + 'kacheln.json'),
     d.anker || getJson(base + 'anker.json'),
     d.bauweise !== undefined ? d.bauweise : bw ? getJson(base + 'bauweisen/' + bw + '.json') : null,
     d.besitz !== undefined ? d.besitz : k.besitz ? getJson(base + 'paletten/' + k.besitz + '.json') : null,
     d.deko !== undefined ? d.deko : bw ? getJson(base + 'deko/' + bw + '.json') : null,
+    d.rollen !== undefined ? d.rollen : ROLLEN_ARTEN.includes(k.art) ? getJson(base + 'rollen/' + k.art + '.json') : null,
     d.leitFuss ? null : sharedBuehne(),
   ]);
   const leitFuss = d.leitFuss || (SB && typeof SB.leitFuss === 'function' ? SB.leitFuss : null);
-  return { kacheln, anker, bauweise: bauweise || { kits: {}, anker: {}, leit: {}, paletten: {}, stimmung: {} }, besitz, deko, leitFuss };
+  return { kacheln, anker, bauweise: bauweise || { kits: {}, anker: {}, leit: {}, paletten: {}, stimmung: {} }, besitz, deko, rollen, leitFuss };
 }
 
 // --------------------------------------------------------------------------------------------- Karte normalisieren
@@ -310,22 +314,25 @@ function makeFog(w, h) {
   return { tex: { value: tex }, rect: { value: new THREE.Vector4(0, 0, 1 / w, 1 / h) }, on: { value: 0 }, data, w, h,
     cur: new Float32Array(w * h).fill(1), cache: { t: -1e9, key: '' } };
 }
-function makeMaterial(fog) {
+function makeMaterial(fog, glut) {
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0 });
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uKitFogTex = fog.tex; sh.uniforms.uKitFogRect = fog.rect; sh.uniforms.uKitFogOn = fog.on;
+    sh.uniforms.uGlutKeep = { value: glut ? 1 : 0 };   // ORT-01 Glut (glut.js): Leuchtflächen bleiben im Nebel hell
     sh.vertexShader = 'attribute float aEmit;\nvarying float vEmit;\nvarying vec2 vKitXZ;\n' + sh.vertexShader
       .replace('#include <begin_vertex>', '#include <begin_vertex>\n\tvEmit = aEmit;')
       .replace('#include <project_vertex>', ['#include <project_vertex>', '{ vec4 kwp = vec4(transformed, 1.0);', '#ifdef USE_INSTANCING',
         '  kwp = instanceMatrix * kwp;', '#endif', '  kwp = modelMatrix * kwp; vKitXZ = kwp.xz; }'].join('\n'));
-    sh.fragmentShader = 'varying float vEmit;\nvarying vec2 vKitXZ;\nuniform sampler2D uKitFogTex;\nuniform vec4 uKitFogRect;\nuniform float uKitFogOn;\n' + sh.fragmentShader
+    sh.fragmentShader = 'varying float vEmit;\nvarying vec2 vKitXZ;\nuniform sampler2D uKitFogTex;\nuniform vec4 uKitFogRect;\nuniform float uKitFogOn;\nuniform float uGlutKeep;\n' + sh.fragmentShader
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\tif (vEmit > 0.5) { vec3 eC = diffuseColor.rgb; float eM = max(max(eC.r, eC.g), max(eC.b, 1e-3)); totalEmissiveRadiance += eC * min(1.2, 1.5 / eM); diffuseColor.rgb *= 0.0; }')
       .replace('#include <dithering_fragment>', ['#include <dithering_fragment>', 'if (uKitFogOn > 0.5) {',
         '  float fv = texture2D(uKitFogTex, (vKitXZ - uKitFogRect.xy) * uKitFogRect.zw).r;',
         '  float fl = dot(gl_FragColor.rgb, vec3(0.299, 0.587, 0.114));',
-        '  gl_FragColor.rgb = mix(vec3(fl), gl_FragColor.rgb, 0.3 + 0.7 * fv) * (0.58 + 0.42 * fv);', '}'].join('\n'));
+        // ORT-01 Glut: Leuchtflächen (uGlutKeep) behalten Farbe und Sättigung, werden nur gedimmt wie der Rest
+        '  if (uGlutKeep > 0.5 && vEmit > 0.5) gl_FragColor.rgb *= (0.58 + 0.42 * fv);',
+        '  else gl_FragColor.rgb = mix(vec3(fl), gl_FragColor.rgb, 0.3 + 0.7 * fv) * (0.58 + 0.42 * fv);', '}'].join('\n'));
   };
-  m.customProgramCacheKey = () => 'kit-emit-fog-3';
+  m.customProgramCacheKey = () => 'kit-emit-fog-4';
   return m;
 }
 
@@ -373,7 +380,7 @@ const FB = {
     if (nb[0] >= 0) skip.push('z-'); if (nb[1] >= 0) skip.push('x+'); if (nb[2] >= 0) skip.push('z+'); if (nb[3] >= 0) skip.push('x-');
     const stufe = p.stufe || [0.2, 0.03];
     pen.box(-0.5, -(p.dick || 1.6), -0.5, 0.5, r < stufe[0] ? -stufe[1] : 0, 0.5, top, F.get(p.fill || 'soil_dark'), { jit: false, low: 0.7, skip });
-    if (r > 0.9 && p.stein !== false) {
+    if (r > (p.steinDichte != null ? 1 - p.steinDichte : 0.9) && p.stein !== false) {   // steinDichte (Terrain-Parameter, Standard 0,1 der Kacheln)
       const sx = (hash2(x, y, 54) - 0.5) * 0.5, sz = (hash2(x, y, 55) - 0.5) * 0.5, w = 0.06 + hash2(x, y, 56) * 0.1;
       pen.box(sx - w, 0, sz - w, sx + w, 0.04 + w * 0.6, sz + w, F.get(p.fill || 'soil_dark', 1.25), F.get(p.fill || 'soil_dark'));
     }
@@ -628,19 +635,19 @@ async function bauKarte(parent, karteIn, opts) {
   // Palette: Besitz × Bauweise × Zustand → ID; sonst Bauweisen-Basis (+ _<zustand>, falls vorhanden)
   let paletteId = null;
   try { const jb = D.besitz && D.besitz.je_bauweise && D.besitz.je_bauweise[bw]; if (jb) paletteId = jb[k.zustand] || jb.intakt || null; } catch (e) { /* egal */ }
-  try { const pa = BW.paletten && BW.paletten.art && BW.paletten.art[k.art]; if (pa) paletteId = pa; } catch (e) { /* egal */ }   // Palette je Kartenart schlägt die Besitz-Palette (Station: metallisch, ohne Handelsblau)
+  try { const pa = BW.paletten && BW.paletten.art && BW.paletten.art[k.art]; if (pa) paletteId = typeof pa === 'object' ? (pa[k.zustand] || pa.intakt || paletteId) : pa; } catch (e) { /* egal */ }   // Palette je Kartenart schlägt die Besitz-Palette (Station: metallisch, ohne Handelsblau)
   const basis = (BW.paletten && ((BW.paletten.zustand && BW.paletten.zustand[k.zustand]) || BW.paletten.basis)) || null;   // ohne Besitz: Bauweise × Zustand
   // 2) Assets vorladen (mit Zeitlimit; was fehlt, wird Platzhalter)
   const ta = now();
   // Eintrag der Bauweisen-Tabelle: String oder { id, <feste Parameter>, je_art: { <art>: {…} }, terrain?, leer?, hoehe?, top?, fill? }
-  const META = { id: 1, je_art: 1, terrain: 1, leer: 1, hoehe: 1, top: 1, fill: 1, hinweis: 1 };
+  const META = { id: 1, je_art: 1, terrain: 1, leer: 1, hoehe: 1, top: 1, fill: 1, steinDichte: 1, hinweis: 1 };
   const eintrag = (e) => {
     if (!e) return null;
     if (typeof e === 'string') return { id: e, fest: {} };
     const m = Object.assign({}, e, (e.je_art && e.je_art[k.art]) || {});
     const fest = {};
     for (const key of Object.keys(m)) if (!META[key]) fest[key] = m[key];
-    return { id: m.id || null, fest, terrain: !!m.terrain, leer: !!m.leer, hoehe: m.hoehe, top: m.top, fill: m.fill };
+    return { id: m.id || null, fest, terrain: !!m.terrain, leer: !!m.leer, hoehe: m.hoehe, top: m.top, fill: m.fill, steinDichte: m.steinDichte };
   };
   const kitCache = new Map();
   const kitId = (kind) => {
@@ -692,9 +699,13 @@ async function bauKarte(parent, karteIn, opts) {
   if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) if (inManifest(id)) want.add(id);
   if (BW.leit) for (const t of Object.keys(BW.leit)) { const v = BW.leit[t] && (BW.leit[t][k.art] || BW.leit[t]['*']); if (typeof v === 'string' && inManifest(v)) want.add(v); }
   const dekoRegeln = opts.deko === false ? null : D.deko;
-  const dekoExtra = D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : [];
+  // ORT-01 6D/9: Altstücke (Fass, Kette, Holzwerkbank, Feuerschale) fallen aus der Besitz-Streuung in Station und Außenposten weg (deko.js besitzStreuFuerOrt, auch von tools/hash-baseline.js benutzt); Schiff und Ruine bleiben unverändert
+  const dekoExtra = besitzStreuFuerOrt(k.art, D.besitz && D.besitz.streu);
   if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const id of (r && r.props) || []) if (inManifest(id)) want.add(id);
   for (const e of dekoExtra) { const id = typeof e === 'string' ? e : e && e.id; if (id && inManifest(id)) want.add(id); }
+  // ORT-01 Rollenmodus: Belegungen der streu-Rollen für diese Bauweise (nur Plätze der Karte brauchen sie, geladen wird, was im Manifest steht)
+  const rollenDaten = opts.deko === false || !D.rollen || !D.rollen.raumtypen || !Object.keys(D.rollen.raumtypen).length ? null : D.rollen;
+  if (rollenDaten) for (const name of Object.keys(rollenDaten.rollen || {})) for (const id of belegungVon(rollenDaten, name, bw)) if (inManifest(id)) want.add(id);
   const timeout = (ms) => new Promise((r) => setTimeout(r, ms));
   try {
     if (loader.ready) await Promise.race([loader.ready, timeout(5000)]);
@@ -727,7 +738,7 @@ async function bauKarte(parent, karteIn, opts) {
   const deckGroups = [];
   for (let d = 0; d < k.deckN; d++) { const g = new THREE.Group(); g.name = 'deck' + d; root.add(g); deckGroups.push(g); }
   const fogU = makeFog(k.w, k.decks ? k.stride : k.h);
-  const mat = makeMaterial(fogU);
+  const mat = makeMaterial(fogU, glutAusnahme(k.art, bw));
   const geos = [], mats = [mat];
   const chunks = new Map();   // 'd,cx,cz' → Bucket
   const bucketAt = (d, tx, lz) => {
@@ -886,7 +897,30 @@ async function bauKarte(parent, karteIn, opts) {
         if (!f) { try { f = loader.manifest && loader.manifest(v) ? loader.manifest(v).footprint : null; } catch (e) { f = null; } }
         const quer = Math.abs(Math.sin(rot)) > 0.5;
         const fw = f ? (quer ? f[1] : f[0]) | 0 : 1, fd = f ? (quer ? f[0] : f[1]) | 0 : 1;
-        if (LF) { const g = LF(ax, ay, fw, fd); rect = [g.x0, g.y0, fw, fd]; quelle = a ? 'leitFuss' : 'mitte'; }
+        if (LF) {
+          const g = LF(ax, ay, fw, fd); rect = [g.x0, g.y0, fw, fd]; quelle = a ? 'leitFuss' : 'mitte';
+          // Leitstück ohne Anker (Platzmitte): das Rechteck darf keine Anker-, Weg-, Pad-, Rampen- oder Türkachel treffen (Sensorturm auf dem aussicht-Anker,
+          // Landeplatz über dem abholpunkt). Dann wird das nächste freie Rechteck im Platz gesucht, sonst entfällt das Leitstück (Plattform/Feld bleibt).
+          if (!a) {
+            const sperr = new Set(k.anker.map((q) => q.x + ',' + q.y));
+            const rand = fw * fd >= 4 ? 1 : 0;   // große Stücke halten einen Kachelabstand zu Ankern (Beam-Punkt bleibt frei)
+            const nahAnker = (x, y) => { for (let dy = -rand; dy <= rand; dy++) for (let dx = -rand; dx <= rand; dx++) if (sperr.has((x + dx) + ',' + (y + dy))) return true; return false; };
+            const NICHT = { boden2: 1, pad: 1, rampe: 1, tuer: 1, schott: 1, tor: 1, luke: 1, wand_schwach: 1, wand: 1, zaun: 1, fels: 1, abgrund: 1, leere: 1, kante: 1, gitter: 1, fenster: 1 };
+            let beste = null;
+            for (let y0 = p.y; y0 + fd <= p.y + p.h; y0++) for (let x0 = p.x; x0 + fw <= p.x + p.w; x0++) {
+              let kosten = Math.abs(x0 + fw / 2 - (rect[0] + fw / 2)) + Math.abs(y0 + fd / 2 - (rect[1] + fd / 2)), ok = true;
+              for (let y = y0; y < y0 + fd && ok; y++) for (let x = x0; x < x0 + fw; x++) {
+                const kd = k.kindAt(x, y);
+                if (!kd || NICHT[kd] || nahAnker(x, y)) { ok = false; break; }
+                if (DECKUNG_OPTIK[kd]) kosten += 50;
+              }
+              if (ok && (!beste || kosten < beste.kosten)) beste = { kosten, x0, y0 };
+            }
+            if (!beste) { quelle = 'entfaellt'; rect = null; }
+            else rect = [beste.x0, beste.y0, fw, fd];
+            if (!rect) { stats.leitEntfallen = (stats.leitEntfallen || 0) + 1; continue; }
+          }
+        }
         else { quelle = 'ohneFuss'; countErr('kit.leit', new Error('Shared_Buehne.leitFuss fehlt – Leitstück ohne Grundfläche')); }
       }
       const mx = rect ? rect[0] + rect[2] / 2 : ax + 0.5, my = rect ? rect[1] + rect[3] / 2 : ay + 0.5;   // Modellmitte (Kacheleinheiten)
@@ -900,7 +934,11 @@ async function bauKarte(parent, karteIn, opts) {
   // Hüllen-Karten (Siedlung): Boden außerhalb der Gebäude wie das Gelände draußen (leichte Abstufungen), Straßen etwas dunkler (Kai 2026-10-11)
   const inBau = new Set();
   // Station: Boden als Fliesen mit leichtem Höhenversatz und Helligkeitsstreuung (wie das Gelände im Dorf, aber Metall), einfarbig je Belag (Kai 2026-10-11)
-  const stationBoden = k.art === 'station' && !k.decks;
+  // ORT-01: Bodenmuster der römischen/germanischen Orte (Station, Außenposten) kommen aus den Kit-Slots boden_belag/boden_fuge und sind ruhig
+  // (Kai): der Parameter par = x mod 2 + 2 · (y mod 2) lässt Fugen nur an den Grenzen von 2×2-Kachelblöcken entstehen. Schiff und Ruine bekommen kein par.
+  const ortBoden = (k.art === 'station' || k.art === 'aussenposten') && (bw === 'rom' || bw === 'germanen');
+  const bodenPar = (tx, ty) => (ortBoden ? { par: (tx & 1) + 2 * (ty & 1) } : null);
+  const stationBoden = k.art === 'station' && !k.decks && !ortBoden;   // Fliesen-Rückfall nur für Stationen anderer Bauweisen
   const stationFliese = (kind, tx, ty) => ({ x: tx, y: ty, top: 'metal', fill: 'metal_dark', f: kind === 'boden2' ? 0.72 : 0.9, dick: 0.3, stein: false, var: 0.16, stufe: [0.38, 0.035], nb: nachbarn(tx, ty) });
   // Wege, Platz und Landefeld (Plätze hof, dorfplatz, landeplatz): Sandton, gleiche Unebenheit wie das übrige Gelände (Kai 2026-10-11)
   const WEG_TYPEN = { hof: 1, dorfplatz: 1, landeplatz: 1 };
@@ -929,19 +967,19 @@ async function bauKarte(parent, karteIn, opts) {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
-          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
-        if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
+        if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad') {
-          placeKit(kind, kitParams(kind, base), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
+          placeKit(kind, kitParams(kind, base, bodenPar(tx, ty)), m, d, tx, ty, { ids: kandidaten(kind), floor: true, lift: hoeheOf(kind), fb: kind });
           if (kind === 'plateau') { const h = hoeheOf(kind); if (h > 0.05) { pen.to(bucketAt(d, tx, k.localY(ty)), m); FB.sockel(pen, { h }, F); } }
           continue;
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
         if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
-        else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
-        else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base), m, d, tx, ty, { floor: true, fb: 'boden' });
+        else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
+        else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base, bodenPar(tx, ty)), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
         if (TUER_KINDS[kind]) { dyn.push({ typ: 'tuer', kind, tx, ty, zustaende: inf.zustaende, d }); continue; }
         if (leitDeckt.has(tx + ',' + ty)) continue;   // Leitstück steht hier und trägt die Optik
@@ -1000,20 +1038,22 @@ async function bauKarte(parent, karteIn, opts) {
       pen.to(b, m);
       if (kd === 'abgrund') FB.tiefe(pen, {}, F);
       else if (kd === 'fels' || kd === 'wand' || kd === 'zaun') FB.fels(pen, { h: ringHoehe(tx, ty), x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, F);   // Süden niedrig (Kamera)
-      else FB.gelaende(pen, { x: tx, y: ty, top: gel.top, fill: gel.fill, nb: nachbarn(tx, ty) }, F);
+      else FB.gelaende(pen, { x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, F);
     }
   }
   // Deko (deterministisch, nur Optik)
   try {
-    if (dekoRegeln || dekoExtra.length) {
+    if (dekoRegeln || dekoExtra.length || rollenDaten) {
       // Was als Deckung dient (deckung_props), steht nicht zusätzlich als reine Deko herum: Deckungsobjekte sind zugleich die Streuobjekte
       const deckIds = new Set(); if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) deckIds.add(id);
+      const dekoAus = BW.deko_ausschluss && BW.deko_ausschluss[k.art]; if (Array.isArray(dekoAus)) for (const id of dekoAus) deckIds.add(id);   // ORT-01: ehemalige Deckungs-Props, die weiter nicht gestreut werden
       let regeln = dekoRegeln;
       if (deckIds.size && dekoRegeln && dekoRegeln.regeln) {
         regeln = Object.assign({}, dekoRegeln, { regeln: {} });
         for (const [t, r] of Object.entries(dekoRegeln.regeln)) regeln.regeln[t] = Object.assign({}, r, { props: ((r && r.props) || []).filter((id) => !deckIds.has(id)) });
       }
-      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln, { extra: dekoExtra });
+      const liste = streuen({ id: k.id, w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt: k.kindAt, anker: k.anker, plaetze: k.plaetze }, regeln,
+        { extra: dekoExtra, rollen: rollenDaten ? { daten: rollenDaten, bauweise: bw, ausschluss: deckIds, leitFuss: BW.leit_fuss || null } : null, onFehler: (e) => countErr('kit.rollen', e) });
       for (const dd of liste) {
         const g = assetGeo(dd.id, { seed: dd.seed, zustand: zKit, art: k.art });
         if (!g) { stats.dekoFehlt[dd.id] = (stats.dekoFehlt[dd.id] || 0) + 1; continue; }   // Deko ohne Asset: weglassen (kein Platzhalter)
@@ -1201,8 +1241,12 @@ async function bauKarte(parent, karteIn, opts) {
       const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
       t.off = [0, 0];
       if (fp && (fp[0] > 1 || fp[1] > 1)) {
-        // 2×2-Prop: in die Blockmitte zur freien Seite
-        const sx = walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5, sz = walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
+        // 2×2-Prop: in die Blockmitte zur freien Seite. Beide Seiten begehbar (freie Wahl): zur Mitte des Platzes (Karte, wenn kein Platz) hin,
+        // damit ein Reaktor nicht an der Türwand landet (ORT-01 6D). Nur der Darstellungsversatz ändert sich, Anker-Kachel und Karte bleiben.
+        const pl = (k.plaetze || []).find((p) => p.id === a.platz);
+        const cx = pl ? pl.x + pl.w / 2 : k.w / 2, cy = pl ? pl.y + pl.h / 2 : k.h / 2;
+        const sx = walk(a.x + 1, a.y) && walk(a.x - 1, a.y) ? (a.x + 0.5 < cx ? 0.5 : -0.5) : walk(a.x + 1, a.y) || !walk(a.x - 1, a.y) ? 0.5 : -0.5;
+        const sz = walk(a.x, a.y + 1) && walk(a.x, a.y - 1) ? (a.y + 0.5 < cy ? 0.5 : -0.5) : walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
         t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
       }
       t.lift = BODEN_HOEHE[k.kindAt(a.x, a.y)] || 0;
@@ -1571,16 +1615,19 @@ export async function prefetch(opts = {}) {
     const aktiv = (o, fb) => (o ? Object.keys(o).filter((k) => o[k] && o[k].status === 'aktiv') : fb);
     const bws = aktiv(achsen && achsen.bauweisen, ['germanen', 'rom']);
     const besitze = aktiv(achsen && achsen.besitz, []);
-    const [tabs, dekos, bes] = await Promise.all([
+    const [tabs, dekos, bes, rollenDateien] = await Promise.all([
       Promise.all(bws.map((bw) => getJson(base + 'bauweisen/' + bw + '.json'))),
       Promise.all(bws.map((bw) => getJson(base + 'deko/' + bw + '.json'))),
       Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
+      Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json'))),
     ]);
+    // ORT-01: kitIds nimmt auch ort/… (Leitstücke, Deckung, Anker, Streu der neuen Orte); rom/… allein wird nicht erkannt (die Regex unten nennt nur kit|prop|leit|ort)
     const modelle = new Set(), paletten = new Set(), moods = new Set();
-    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
+    const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit|ort)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
-    for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); strings(t.paletten, paletten); strings(t.stimmung, moods); }
+    for (const t of tabs) if (t) { kitIds(t.kits); kitIds(t.anker); kitIds(t.leit); kitIds(t.deckung_props); strings(t.paletten, paletten); strings(t.stimmung, moods); }
     for (const d of dekos) if (d && d.regeln) for (const r of Object.values(d.regeln)) kitIds(r && r.props);
+    for (const r of rollenDateien) if (r && r.rollen) for (const name of Object.keys(r.rollen)) for (const bw of bws) for (const id of belegungVon(r, name, bw)) modelle.add(id);   // ORT-01
     for (const b of bes) {
       if (!b) continue;
       strings(b.je_bauweise, paletten);

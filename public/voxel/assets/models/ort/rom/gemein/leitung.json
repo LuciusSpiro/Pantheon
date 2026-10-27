@@ -1,0 +1,266 @@
+{
+  "id": "ort/rom/gemein/leitung",
+  "name": "Aquädukt-Energieleitung (Rom, Richtung Aquädukt): Bogenreihe trägt offene Energierinne, wandnah",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": [
+    "prop",
+    "rom",
+    "energie",
+    "leitung",
+    "ort01"
+  ],
+  "footprint": [
+    2,
+    0.5
+  ],
+  "params": {
+    "n": {
+      "default": 2,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Bögen (je 1 m)"
+    },
+    "fluss": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Energie fließt"
+    }
+  },
+  "let": {
+    "L": "n*16",
+    "Y": 24
+  },
+  "variants": {
+    "eins": {
+      "n": 1
+    },
+    "leer": {
+      "fluss": 0
+    }
+  },
+  "ops": [
+    {
+      "op": "use",
+      "name": "Bögen",
+      "model": "ort/rom/gemein/bogen",
+      "params": {
+        "w": 10,
+        "h": 14,
+        "d": 6,
+        "wall": 3,
+        "top": 5,
+        "band": 0
+      },
+      "at": [
+        "-L/2 + 8 + i*16",
+        0,
+        -3
+      ],
+      "repeat": {
+        "count": "n",
+        "var": "i",
+        "step": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "op": "box",
+      "name": "Sockelband",
+      "at": [
+        "-L/2",
+        0,
+        -4
+      ],
+      "size": [
+        "L",
+        2,
+        8
+      ],
+      "color": "stone"
+    },
+    {
+      "op": "box",
+      "name": "Gesims",
+      "at": [
+        "-L/2",
+        "Y",
+        -4
+      ],
+      "size": [
+        "L",
+        1,
+        8
+      ],
+      "color": "stone_light"
+    },
+    {
+      "op": "box",
+      "name": "Rinne Wand hinten",
+      "at": [
+        "-L/2",
+        "Y+1",
+        -4
+      ],
+      "size": [
+        "L",
+        3,
+        1
+      ],
+      "color": "secondary"
+    },
+    {
+      "op": "box",
+      "name": "Rinne Wand vorn",
+      "at": [
+        "-L/2",
+        "Y+1",
+        3
+      ],
+      "size": [
+        "L",
+        3,
+        1
+      ],
+      "color": "primary"
+    },
+    {
+      "op": "box",
+      "name": "Goldkante",
+      "at": [
+        "-L/2",
+        "Y+3",
+        3
+      ],
+      "size": [
+        "L",
+        1,
+        1
+      ],
+      "color": "trim"
+    },
+    {
+      "op": "box",
+      "name": "Energie in der Rinne",
+      "if": "fluss",
+      "at": [
+        "-L/2",
+        "Y+1",
+        -2
+      ],
+      "size": [
+        "L",
+        1,
+        4
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.9
+      }
+    },
+    {
+      "op": "box",
+      "name": "Rinne leer",
+      "if": "!fluss",
+      "at": [
+        "-L/2",
+        "Y+1",
+        -3
+      ],
+      "size": [
+        "L",
+        1,
+        6
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "op": "box",
+      "name": "Bolzen",
+      "at": [
+        "-L/2 + 7 + i*16",
+        "Y+1",
+        4
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": "trim",
+      "repeat": {
+        "count": "n",
+        "var": "i",
+        "step": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "op": "box",
+      "name": "Abgriff Glas",
+      "at": [
+        "-L/2 + i*16 - 1 + (i == 0 ? 2 : 0) - (i == n ? 2 : 0)",
+        6,
+        3
+      ],
+      "size": [
+        2,
+        4,
+        1
+      ],
+      "color": "glass",
+      "repeat": {
+        "count": "n+1",
+        "var": "i",
+        "step": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "op": "box",
+      "name": "Abgriff Fluss",
+      "if": "fluss",
+      "at": [
+        "-L/2 + i*16 - 1 + (i == 0 ? 2 : 0) - (i == n ? 2 : 0)",
+        7,
+        4
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1.1
+      },
+      "repeat": {
+        "count": "n+1",
+        "var": "i",
+        "step": [
+          0,
+          0,
+          0
+        ]
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

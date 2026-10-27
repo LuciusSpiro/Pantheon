@@ -17,6 +17,20 @@
   "flags": {},
   "fraktionen": [
     {
+      "id": "ger",
+      "name": "Germanen",
+      "rezepte": [
+        "sturmtrupp",
+        "wache"
+      ],
+      "rollen": [
+        "enterer",
+        "grundtyp",
+        "niederhalter",
+        "schuetze"
+      ]
+    },
+    {
       "id": "herrenlos",
       "name": "Herrenlos",
       "rezepte": [
@@ -62,6 +76,20 @@
       "rollen": [
         "enterer",
         "grenadier",
+        "grundtyp",
+        "niederhalter",
+        "schuetze"
+      ]
+    },
+    {
+      "id": "rom",
+      "name": "Rom",
+      "rezepte": [
+        "sturmtrupp",
+        "wache"
+      ],
+      "rollen": [
+        "enterer",
         "grundtyp",
         "niederhalter",
         "schuetze"

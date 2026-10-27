@@ -1,0 +1,367 @@
+{
+ "id": "ort/germanen/station/kran",
+ "name": "Galgenkran (Germanen, Esse): Stabplanken-Mast, Klinkerausleger mit Fahrleitung aus Glut, Winde mit Glutschlitz, Kette und Kupferhaken",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "lager",
+  "werkstatt",
+  "kran",
+  "ort01"
+ ],
+ "footprint": [
+  1,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fußplatte",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    1,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß Kupfer",
+   "at": [
+    -7,
+    1,
+    -6
+   ],
+   "size": [
+    14,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Mast",
+   "at": [
+    -2,
+    2,
+    -5
+   ],
+   "size": [
+    4,
+    24,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "metal_light",
+     "metal"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Mastkante",
+   "at": [
+    -3,
+    2,
+    -6
+   ],
+   "size": [
+    1,
+    24,
+    6
+   ],
+   "color": "metal_dark",
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Mast Niet",
+   "at": [
+    -1,
+    "5 + i*5",
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Ausleger",
+   "at": [
+    -2,
+    24,
+    -5
+   ],
+   "size": [
+    4,
+    3,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Ausleger Klinker",
+   "at": [
+    -2,
+    24,
+    7
+   ],
+   "size": [
+    4,
+    3,
+    1
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Auslegerband",
+   "at": [
+    -2,
+    27,
+    -5
+   ],
+   "size": [
+    4,
+    1,
+    12
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fahrleitung",
+   "at": [
+    -1,
+    23,
+    -4
+   ],
+   "size": [
+    2,
+    1,
+    10
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.7
+   }
+  },
+  {
+   "op": "line",
+   "name": "Strebe",
+   "from": [
+    0,
+    10,
+    -1
+   ],
+   "to": [
+    0,
+    24,
+    5
+   ],
+   "r": 1,
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Windenkasten",
+   "at": [
+    -5,
+    10,
+    -6
+   ],
+   "size": [
+    10,
+    8,
+    6
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "use",
+   "name": "Winde Front",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 10,
+    "h": 8,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.5,
+    "niet": 5
+   },
+   "at": [
+    0,
+    10,
+    0
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Windenkopf",
+   "at": [
+    -4,
+    18,
+    -5
+   ],
+   "size": [
+    8,
+    1,
+    4
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Windenschlitz",
+   "at": [
+    -3,
+    13,
+    1
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Windenrune",
+   "at": [
+    -1,
+    16,
+    1
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Laufkatze",
+   "at": [
+    -3,
+    22,
+    3
+   ],
+   "size": [
+    6,
+    2,
+    4
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "line",
+   "name": "Kette",
+   "from": [
+    0,
+    22,
+    5
+   ],
+   "to": [
+    0,
+    10,
+    5
+   ],
+   "r": 0.5,
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Kettenglied",
+   "at": [
+    -1,
+    "13 + i*3",
+    5
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "metal_dark",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     0,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Haken",
+   "at": [
+    -1,
+    7,
+    4
+   ],
+   "size": [
+    2,
+    3,
+    3
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Hakenspitze",
+   "at": [
+    -1,
+    6,
+    5
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

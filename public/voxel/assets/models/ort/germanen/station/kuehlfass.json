@@ -1,0 +1,300 @@
+{
+ "id": "ort/germanen/station/kuehlfass",
+ "name": "Kühlfass (Germanen, Esse): Eisenfass mit Raureif-Kühlschlange an der Front, Zapfhahn, Thermorune; gekühlte Vorräte",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "messe",
+  "kuehlung",
+  "ort01"
+ ],
+ "footprint": [
+  0.75,
+  0.75
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -5,
+    0,
+    -5
+   ],
+   "size": [
+    10,
+    2,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fass a",
+   "at": [
+    -6,
+    2,
+    -5
+   ],
+   "size": [
+    12,
+    18,
+    10
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "primary"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fass b",
+   "at": [
+    -5,
+    2,
+    -6
+   ],
+   "size": [
+    10,
+    18,
+    12
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "primary"
+    ],
+    "axis": "x",
+    "period": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Reif unten",
+   "at": [
+    -6,
+    4,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reif oben",
+   "at": [
+    -6,
+    17,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    -5,
+    20,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Deckelrand",
+   "at": [
+    -6,
+    20,
+    -6
+   ],
+   "size": [
+    12,
+    1,
+    12
+   ],
+   "color": "frost_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Kühlschlange a",
+   "at": [
+    -5,
+    7,
+    6
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Kühlschlange b",
+   "at": [
+    -5,
+    11,
+    6
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Kühlschlange c",
+   "at": [
+    -5,
+    15,
+    6
+   ],
+   "size": [
+    10,
+    1,
+    1
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Bogen 1",
+   "at": [
+    4,
+    7,
+    6
+   ],
+   "size": [
+    1,
+    5,
+    1
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Bogen 2",
+   "at": [
+    -5,
+    11,
+    6
+   ],
+   "size": [
+    1,
+    5,
+    1
+   ],
+   "color": "frost"
+  },
+  {
+   "op": "box",
+   "name": "Anschluss",
+   "at": [
+    -5,
+    2,
+    6
+   ],
+   "size": [
+    1,
+    5,
+    1
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Zapfhahn",
+   "at": [
+    1,
+    5,
+    6
+   ],
+   "size": [
+    2,
+    2,
+    2
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Zapfhahn Hals",
+   "at": [
+    2,
+    7,
+    6
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Thermorune",
+   "at": [
+    -2,
+    18,
+    6
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Raureif",
+   "at": [
+    -4,
+    21,
+    -4
+   ],
+   "size": [
+    3,
+    1,
+    3
+   ],
+   "color": "frost"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

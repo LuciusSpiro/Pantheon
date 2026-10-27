@@ -421,6 +421,19 @@ function freigeben(game, lpId) {
 }
 
 // ---------- neue Landepunkte ----------
+// Bauweise nach Besitzer (ORT-01 4b): die einzige Stelle, die aus Kartenart und Besitz die Bauweise eines NEUEN Landepunkts ableitet.
+// Datentabelle: content/buehnen/achsen.json bauweise_nach_besitz.kartenarten.<art> { erlaubt, je_besitz: { <besitz>: <bauweise> } }.
+// Ohne Eintrag, nicht freigegeben (erlaubt != true), unbekannter Besitz oder nicht aktive Bauweise: Standard der Kartenart.
+// Gilt nur beim Anlegen (neu: Vorschau, Spielleiter, Debug); der Wert steht danach im Weltstand und wird nie neu abgeleitet
+// (Eroberung baut nichts um, feste Landepunkte behalten ihre Bauweise).
+function bauweiseFuerBesitz(art, besitz) {
+  const ach = Buehne.daten().achsen || {};
+  const std = ((ach.kartenarten || {})[art] || {}).bauweise || 'germanen';
+  const t = ((ach.bauweise_nach_besitz || {}).kartenarten || {})[art];
+  if (!t || t.erlaubt !== true) return std;
+  const bw = (t.je_besitz || {})[besitz];
+  return bw && ((ach.bauweisen || {})[bw] || {}).status === 'aktiv' ? bw : std;
+}
 // neu(game, ort, { art, besitz, bauweise?, zustand?, seed?, gen?, name?, id?, frei?, beam?, fluechtig? }) -> lpId (<ort>.<art>-<n>), neuer Seed
 // SUND-04a-3: id = feste ID (statt <ort>.<art>-<n>; wirft, wenn sie belegt ist), frei = Freigabe ('immer' | 'finale'), beam = { x, y, range } (statt Ort),
 // fluechtig = nie im Weltstand (wie ein Testgelände, aber ohne Testmarke)
@@ -438,7 +451,7 @@ function neu(game, ort, o) {
   }
   const seed = o.seed != null ? (o.seed | 0) : ((Buehne.fnv(id + ':' + ((game.seed | 0) >>> 0) + ':' + Object.keys(S.eintraege).length) % 100000) + 1);
   const ach = Buehne.daten().achsen || { kartenarten: {} };
-  const bw = o.bauweise || ((ach.kartenarten[o.art] || {}).bauweise) || 'germanen';
+  const bw = o.bauweise || bauweiseFuerBesitz(o.art, o.besitz);
   const zs = o.zustand || ((ach.kartenarten[o.art] || {}).zustand) || 'intakt';
   const basis = defs().orte[ort] && defs().orte[ort][0];
   S.dyn[id] = { id, ort, art: o.art, bauweise: bw, besitz: o.besitz || 'herrenlos', zustand: zs, seed, schablone: o.schablone || null,
@@ -552,7 +565,7 @@ function ankerZahlen(game, lpId) {
   return out;
 }
 
-// ---------- Debug (§9): lp list | lp neu <ort> <art> | buehne <art> <seed> [bauweise besitz zustand] ----------
+// ---------- Debug (§9): lp list | lp neu <ort> <art> [besitz] | buehne <art> <seed> [bauweise|- besitz zustand variante|- fraktion] ----------
 function debug(game, cmd, args, p) {
   args = args || [];
   if (cmd === 'lp') {
@@ -573,7 +586,19 @@ function debug(game, cmd, args, p) {
       if (game.notice && p) game.notice(p, `Neuer Landepunkt ${id} (Seed ${eintrag(game, id).seed}).`);
       return null;
     }
-    return 'lp list | lp neu <ort> <art> [besitz]';
+    if (sub === 'hin') {   // lp hin <id>: einen bestehenden Landepunkt (z. B. helix.station) laden und hinbeamen (Screenshots, QA)
+      const id = args[1];
+      try { get(game, id); } catch (x) { countError(game, 'debug-lp-hin', x); return 'lp hin: ' + x.message; }
+      game.transferZiel = { lp: id, scene: Object.keys(defs().orte).find((o) => defs().orte[o].some((d) => d.id === id)) || (eintrag(game, id) || {}).ort || (game.ship && game.ship.scene) || 'kesh' };   // Szene des Landepunkts, nicht die des Schiffs
+      if (game.setAwayMap) game.setAwayMap(id);
+      try {
+        const away = require('./away.js');
+        const pids = (game.players || []).filter((q) => q.connected && q.zone === 'ship').map((q) => q.id);
+        if (pids.length && typeof away.executeBeam === 'function') away.executeBeam(game, pids, 'down');
+      } catch (x) { countError(game, 'debug-lp-hin-beam', x); }
+      return null;
+    }
+    return 'lp list | lp neu <ort> <art> [besitz] | lp hin <id>';
   }
   if (cmd === 'buehne') {
     const art = args[0] || 'ruine';
@@ -582,7 +607,7 @@ function debug(game, cmd, args, p) {
     // 6. Wert (EK5/EK6): Generator-Variante methalle | eisenwald (Methalle: Militärsiedlung mit Rohr; Eisenwald: Siedlung mit Feldzeichen)
     const variante = ['methalle', 'eisenwald'].includes(args[5]) ? args[5] : null;
     const gen = variante ? { variante, typ: variante === 'methalle' ? 'militaer' : 'handel', haeuser: variante === 'methalle' ? 10 : 12 } : undefined;
-    const id = testgelaende(game, { ort, art, seed, bauweise: args[2], besitz: args[3], zustand: args[4], gen });
+    const id = testgelaende(game, { ort, art, seed, bauweise: args[2] && args[2] !== '-' ? args[2] : undefined, besitz: args[3], zustand: args[4], gen });   // Bauweise '-' = aus dem Besitz ableiten (bauweiseFuerBesitz)
     try { get(game, id); } catch (x) { countError(game, 'debug-buehne', x); return 'buehne: ' + x.message; }
     game.transferZiel = { lp: id, scene: ort };
     if (game.setAwayMap) game.setAwayMap(id);
@@ -592,14 +617,18 @@ function debug(game, cmd, args, p) {
       const pids = (game.players || []).filter((q) => q.connected && q.zone === 'ship').map((q) => q.id);
       if (pids.length && typeof away.executeBeam === 'function') away.executeBeam(game, pids, 'down');
     } catch (x) { countError(game, 'debug-buehne-beam', x); }
-    if (game.notice && p) game.notice(p, `Bühne ${id}: ${art} Seed ${eintrag(game, id).seed}.`);
+    // 7. Wert (ORT-01 4b): Fraktion, die die Karte besetzt (Stationskampf mit römischen Gegnern: buehne station 3 - rom umkaempft - rom)
+    if (args[6] && args[6] !== '-') {
+      try { const n = require('./combat.js').besetzen(game, { map: id, fraktion: args[6], staerke: 'mittel', haltung: 'wach', tag: 'debug', neue_rolle: null }); if (!n) return 'buehne: Besetzung mit ' + args[6] + ' ergab keine Gegner'; } catch (x) { countError(game, 'debug-buehne-besetzen', x); return 'buehne: ' + x.message; }
+    }
+    if (game.notice && p) game.notice(p, `Bühne ${id}: ${art} Seed ${eintrag(game, id).seed}, Bauweise ${eintrag(game, id).bauweise}${args[6] && args[6] !== '-' ? ', besetzt von ' + args[6] : ''}.`);
     return null;
   }
   return `${cmd}: unbekannt`;
 }
 
 module.exports = {
-  MAX_GEBAUT, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
+  MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
   toSave, restore, ankerZahlen, debug, sichern, eintrag,
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren,   // F1, F6, F9b
 };

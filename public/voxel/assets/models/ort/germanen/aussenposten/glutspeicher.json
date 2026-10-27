@@ -1,0 +1,420 @@
+{
+ "id": "ort/germanen/aussenposten/glutspeicher",
+ "name": "Glutspeicher (Germanen, Anker sprengpunkt Außenposten): Klinkerblock mit drei Glutschlitzen und Kupferkappen unter dem Glutrohr; scharf = Haftladung, zerstört = aufgerissen",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "germanen",
+  "sprengpunkt",
+  "speicher",
+  "aussenposten"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Sprengpunkt (0 intakt, 1 scharf, 2 zerstoert, 3 platziert)"
+  }
+ },
+ "variants": {
+  "scharf": {
+   "state": 1
+  },
+  "zerstoert": {
+   "state": 2
+  },
+  "platziert": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fundament",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    2,
+    12
+   ],
+   "color": "stone_dark"
+  },
+  {
+   "op": "box",
+   "name": "Körper",
+   "at": [
+    -6,
+    2,
+    -5
+   ],
+   "size": [
+    12,
+    12,
+    10
+   ],
+   "color": {
+    "stripes": [
+     "metal",
+     "primary"
+    ],
+    "axis": "y",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Eckpfosten",
+   "at": [
+    -6,
+    2,
+    5
+   ],
+   "size": [
+    1,
+    12,
+    1
+   ],
+   "color": "metal_dark",
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Niet",
+   "at": [
+    -6,
+    4,
+    5
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 3,
+    "step": [
+     0,
+     4,
+     0
+    ]
+   },
+   "mirror": "x",
+   "mirrorAt": -0.5
+  },
+  {
+   "op": "box",
+   "name": "Glutschlitz",
+   "at": [
+    -5,
+    5,
+    5
+   ],
+   "size": [
+    2,
+    7,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": "state == 2 ? 0 : 1"
+   },
+   "jitter": false,
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Schlitz dunkel",
+   "at": [
+    -5,
+    5,
+    5
+   ],
+   "size": [
+    2,
+    7,
+    1
+   ],
+   "color": "dark",
+   "if": "state == 2",
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Reifen",
+   "at": [
+    -6,
+    14,
+    -5
+   ],
+   "size": [
+    12,
+    1,
+    10
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kappe",
+   "at": [
+    -5,
+    15,
+    -1
+   ],
+   "size": [
+    2,
+    3,
+    2
+   ],
+   "color": "copper",
+   "if": "state != 2",
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Kappenglut",
+   "at": [
+    -5,
+    18,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   },
+   "if": "state != 2",
+   "jitter": false,
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Glutrohr",
+   "at": [
+    -6,
+    19,
+    -1
+   ],
+   "size": [
+    12,
+    1,
+    2
+   ],
+   "color": "metal_dark",
+   "if": "state != 2"
+  },
+  {
+   "op": "box",
+   "name": "Bruch",
+   "at": [
+    -6,
+    8,
+    -5
+   ],
+   "size": [
+    7,
+    8,
+    10
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Zacke",
+   "at": [
+    -6,
+    14,
+    -2
+   ],
+   "size": [
+    2,
+    3,
+    3
+   ],
+   "color": "metal",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Zacke 2",
+   "at": [
+    3,
+    14,
+    1
+   ],
+   "size": [
+    3,
+    2,
+    3
+   ],
+   "color": "copper_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ruß",
+   "at": [
+    -6,
+    2,
+    -5
+   ],
+   "size": [
+    12,
+    13,
+    10
+   ],
+   "color": {
+    "noise": [
+     "dark",
+     "metal_dark"
+    ],
+    "weights": [
+     3,
+     2
+    ],
+    "cell": 2
+   },
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Trümmer",
+   "at": [
+    -9,
+    0,
+    2
+   ],
+   "size": [
+    3,
+    2,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ladung",
+   "at": [
+    -4,
+    3,
+    6
+   ],
+   "size": [
+    8,
+    6,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ladung Riemen",
+   "at": [
+    -4,
+    5,
+    8
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": "warning",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Zünder",
+   "at": [
+    -1,
+    9,
+    7
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "alarm",
+    "emit": 1.6
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zünder aus",
+   "at": [
+    -1,
+    9,
+    7
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "if": "state == 3"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

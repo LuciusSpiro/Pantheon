@@ -1,14 +1,16 @@
 {
   "id": "kit/germanen/aussenposten/boden_fuge",
-  "name": "Germanen Außenposten – boden_fuge: keine Fugen (einfarbiger Boden); malt nur dieselbe Farbe",
+  "name": "Außenposten Stabbau – boden_fuge: ruhiger heller Eisenboden, kalte Plattenfuge nur an den Grenzen von 2x2-Kachelblöcken, keine Glut im Boden",
   "tier": "architecture",
   "palette": "nord",
   "tags": [
     "germanen",
     "aussenposten",
     "slot",
-    "boden"
+    "stabbau",
+    "ort01"
   ],
+  "notes": "ORT-01 K2 (Gruppe 2b), Integration: Glutraster (\"Lava-Waffel\") entfernt. paint am N- und W-Rand → 1-m-Raster; Glut nur an Kacheln mit seed == 0 (seed = Muster-Hash 0..3), emit 0,45, #FF7A1A.",
   "jitter": 0,
   "params": {
     "w": {
@@ -44,7 +46,7 @@
       "min": 0,
       "max": 3,
       "step": 1,
-      "label": "0 Hof/Platz · 2 Weg/Innenraum (beide einfarbig)"
+      "label": "Belag"
     },
     "art": {
       "default": "aussenposten",
@@ -55,53 +57,104 @@
         "schiff"
       ],
       "label": "Kartenart"
+    },
+    "par": {
+      "default": -1,
+      "min": -1,
+      "max": 3,
+      "step": 1,
+      "label": "Kachellage im 2x2-Block: x mod 2 + 2 * (y mod 2), -1 = unbekannt"
     }
   },
-  "ops": [
-    {
-      "name": "keine Fuge (Weg)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "paving",
-        "f": 1.0
-      },
-      "jitter": false,
-      "if": "belag == 2"
-    },
-    {
-      "name": "keine Fuge (Hof)",
-      "op": "box",
-      "at": [
-        0,
-        0,
-        0
-      ],
-      "size": [
-        "w",
-        "h",
-        "d"
-      ],
-      "color": {
-        "shade": "stone_light",
-        "f": 0.88
-      },
-      "jitter": false,
-      "if": "belag != 2"
-    }
-  ],
   "anchor": [
     0,
     0,
     0
+  ],
+  "let": {
+    "dk": "1 - zustand * 0.06",
+    "em": "zustand < 2 ? 0.45 : 0",
+    "px": "par < 0 ? 0 : floor(par) % 2",
+    "py": "par < 0 ? 0 : floor(par / 2) % 2"
+  },
+  "ops": [
+    {
+      "name": "Platte (für sich allein, im Gerüst nur Anstrich)",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_light",
+        "f": "0.72 * dk"
+      },
+      "if": "belag == 2"
+    },
+    {
+      "name": "Platte Hof",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "metal_light",
+        "f": "0.8 * dk"
+      },
+      "if": "belag != 2"
+    },
+    {
+      "name": "Fuge kalt N",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        1
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "par >= 0 && py == 0"
+    },
+    {
+      "name": "Fuge kalt W",
+      "op": "box",
+      "at": [
+        0,
+        "h - 1",
+        1
+      ],
+      "size": [
+        1,
+        1,
+        "d - 1"
+      ],
+      "mode": "paint",
+      "color": {
+        "shade": "metal_dark",
+        "f": "dk"
+      },
+      "if": "par >= 0 && px == 0"
+    }
   ]
 }

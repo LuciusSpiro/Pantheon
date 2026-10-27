@@ -1,0 +1,94 @@
+{
+  "id": "kit/rom/aussenposten/kante_koerper",
+  "name": "Rom Außenposten kante_koerper: Marmorbrüstung mit rotem Fuß",
+  "tier": "architecture",
+  "palette": "rom",
+  "tags": [
+    "rom",
+    "aussenposten",
+    "slot",
+    "ort01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 4,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 2,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 4,
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn (N1 O2 S4 W8)"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "box",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        "h",
+        "d"
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": "0.92 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Fuß rot",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "size": [
+        "w",
+        1,
+        "d"
+      ],
+      "color": {
+        "shade": "primary",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

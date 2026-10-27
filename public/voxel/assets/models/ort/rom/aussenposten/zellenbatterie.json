@@ -1,0 +1,386 @@
+{
+ "id": "ort/rom/aussenposten/zellenbatterie",
+ "name": "Zellenbatterie (Rom, Anker sprengpunkt Außenposten): Marmorblock mit drei Amber-Sichtfenstern und Amphorenhälsen unter einer Rinne; scharf = Haftladung, zerstört = aufgerissen",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "anker",
+  "ort01",
+  "rom",
+  "sprengpunkt",
+  "batterie",
+  "aussenposten"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "params": {
+  "state": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "Sprengpunkt (0 intakt, 1 scharf, 2 zerstoert, 3 platziert)"
+  }
+ },
+ "variants": {
+  "scharf": {
+   "state": 1
+  },
+  "zerstoert": {
+   "state": 2
+  },
+  "platziert": {
+   "state": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    14,
+    2,
+    12
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "box",
+   "name": "Körper",
+   "at": [
+    -6,
+    2,
+    -5
+   ],
+   "size": [
+    12,
+    12,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Sockelband Rot",
+   "at": [
+    -6,
+    2,
+    5
+   ],
+   "size": [
+    12,
+    3,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Fenster",
+   "at": [
+    -5,
+    6,
+    5
+   ],
+   "size": [
+    2,
+    6,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": "state == 2 ? 0 : 0.9"
+   },
+   "jitter": false,
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Fenster dunkel",
+   "at": [
+    -5,
+    6,
+    5
+   ],
+   "size": [
+    2,
+    6,
+    1
+   ],
+   "color": "dark",
+   "if": "state == 2",
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Goldband",
+   "at": [
+    -6,
+    14,
+    -5
+   ],
+   "size": [
+    12,
+    1,
+    10
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Hals",
+   "at": [
+    -5,
+    15,
+    -1
+   ],
+   "size": [
+    2,
+    4,
+    2
+   ],
+   "color": "secondary",
+   "if": "state != 2",
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halskappe",
+   "at": [
+    -5,
+    19,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "if": "state != 2",
+   "jitter": false,
+   "repeat": {
+    "count": 3,
+    "step": [
+     4,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rinne",
+   "at": [
+    -6,
+    20,
+    -1
+   ],
+   "size": [
+    12,
+    1,
+    2
+   ],
+   "color": "trim",
+   "if": "state != 2"
+  },
+  {
+   "op": "box",
+   "name": "Bruch",
+   "at": [
+    -6,
+    8,
+    -5
+   ],
+   "size": [
+    7,
+    8,
+    10
+   ],
+   "color": "metal_dark",
+   "if": "state == 2",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Zacke",
+   "at": [
+    -6,
+    14,
+    -2
+   ],
+   "size": [
+    2,
+    3,
+    3
+   ],
+   "color": "secondary",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Zacke 2",
+   "at": [
+    3,
+    14,
+    1
+   ],
+   "size": [
+    3,
+    2,
+    3
+   ],
+   "color": "trim",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ruß",
+   "at": [
+    -6,
+    2,
+    -5
+   ],
+   "size": [
+    12,
+    13,
+    10
+   ],
+   "color": {
+    "noise": [
+     "dark",
+     "secondary"
+    ],
+    "weights": [
+     3,
+     2
+    ],
+    "cell": 2
+   },
+   "if": "state == 2",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Trümmer",
+   "at": [
+    -9,
+    0,
+    2
+   ],
+   "size": [
+    3,
+    2,
+    3
+   ],
+   "color": "secondary",
+   "if": "state == 2"
+  },
+  {
+   "op": "box",
+   "name": "Ladung",
+   "at": [
+    -4,
+    3,
+    6
+   ],
+   "size": [
+    8,
+    6,
+    3
+   ],
+   "color": "metal_dark",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Ladung Band",
+   "at": [
+    -4,
+    5,
+    8
+   ],
+   "size": [
+    8,
+    1,
+    1
+   ],
+   "color": "warning",
+   "if": "state == 1 || state == 3"
+  },
+  {
+   "op": "box",
+   "name": "Zünder",
+   "at": [
+    -1,
+    9,
+    7
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "primary",
+    "emit": 1.6
+   },
+   "if": "state == 1",
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zünder aus",
+   "at": [
+    -1,
+    9,
+    7
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "metal",
+   "if": "state == 3"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

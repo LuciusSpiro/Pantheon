@@ -1,0 +1,228 @@
+{
+  "id": "ort/rom/aussenposten/landeplatz",
+  "name": "Landeplatz (Rom, Aquädukt): flache Marmorplatte (1 Voxel, 6 cm) mit Goldrand, Fugenkreuz und Amberrinnen als Quadrat, Kreuz und Zulauf; die Figur steht darauf, nichts ragt über den Boden",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": [
+    "prop",
+    "rom",
+    "aussenposten",
+    "landeplatz",
+    "leit",
+    "ort01"
+  ],
+  "footprint": [
+    4,
+    4
+  ],
+  "params": {
+    "aktiv": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Rinnen führen Energie"
+    }
+  },
+  "variants": {
+    "aus": {
+      "aktiv": 0
+    }
+  },
+  "let": {
+    "em": "aktiv ? 0.6 : 0"
+  },
+  "ops": [
+    {
+      "name": "Platte",
+      "op": "box",
+      "at": [
+        -32,
+        0,
+        -32
+      ],
+      "size": [
+        64,
+        1,
+        64
+      ],
+      "color": {
+        "frame": "trim",
+        "fill": "secondary",
+        "axes": "xz",
+        "width": 2
+      }
+    },
+    {
+      "name": "Fugen quer",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -30,
+        0,
+        -15
+      ],
+      "size": [
+        60,
+        1,
+        1
+      ],
+      "color": "stone_dark"
+    },
+    {
+      "name": "Fugen längs",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -15,
+        0,
+        -30
+      ],
+      "size": [
+        1,
+        1,
+        60
+      ],
+      "color": "stone_dark"
+    },
+    {
+      "name": "Rinne Quadrat vorn",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        22
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat hinten",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        -24
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat links",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Rinne Quadrat rechts",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        23,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Speiche Nord Süd",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        -24
+      ],
+      "size": [
+        1,
+        1,
+        48
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Speiche Ost West",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        -24,
+        0,
+        0
+      ],
+      "size": [
+        48,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    },
+    {
+      "name": "Zulauf Süd",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        0,
+        24
+      ],
+      "size": [
+        1,
+        1,
+        8
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": "em"
+      }
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

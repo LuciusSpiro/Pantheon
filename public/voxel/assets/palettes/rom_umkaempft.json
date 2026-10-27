@@ -1,0 +1,16 @@
+{
+  "id": "rom_umkaempft",
+  "name": "rom umkämpft: Ruß an dunklen Flächen, warmer Feuerschein, Marmor bleibt lesbar",
+  "extends": "rom",
+  "adjust": {
+    "sat": 0.9,
+    "light": 0.86,
+    "tint": "#4A2818",
+    "mix": 0.14,
+    "except": ["glow", "glow2", "leit"]
+  },
+  "roles": {
+    "dark": "#141210",
+    "glow2": { "color": "#FFB070", "emit": 1.2 }
+  }
+}

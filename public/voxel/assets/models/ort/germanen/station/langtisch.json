@@ -1,0 +1,371 @@
+{
+ "id": "ort/germanen/station/langtisch",
+ "name": "Eisen-Langtisch (Germanen, Esse): Klinkerschürze, in der Mitte eine Glutrinne mit Kupfer-Wärmeplatten (hält das Essen warm), Platzrunen",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "messe",
+  "tafel",
+  "ort01"
+ ],
+ "footprint": [
+  3,
+  1
+ ],
+ "ops": [
+  {
+   "op": "group",
+   "name": "Bock",
+   "ops": [
+    {
+     "op": "box",
+     "name": "Bein a",
+     "at": [
+      -24,
+      0,
+      -6
+     ],
+     "size": [
+      3,
+      12,
+      3
+     ],
+     "color": "metal_dark"
+    },
+    {
+     "op": "box",
+     "name": "Bein b",
+     "at": [
+      -24,
+      0,
+      3
+     ],
+     "size": [
+      3,
+      12,
+      3
+     ],
+     "color": "metal_dark"
+    },
+    {
+     "op": "box",
+     "name": "Quer",
+     "at": [
+      -24,
+      3,
+      -6
+     ],
+     "size": [
+      3,
+      2,
+      12
+     ],
+     "color": "metal_dark"
+    },
+    {
+     "op": "box",
+     "name": "Fuß",
+     "at": [
+      -24,
+      0,
+      -7
+     ],
+     "size": [
+      5,
+      1,
+      14
+     ],
+     "color": "copper_dark"
+    }
+   ],
+   "mirror": "x",
+   "mirrorAt": 0
+  },
+  {
+   "op": "box",
+   "name": "Mittelbock",
+   "at": [
+    -1,
+    0,
+    -6
+   ],
+   "size": [
+    2,
+    12,
+    12
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Körper",
+   "at": [
+    -22,
+    6,
+    -5
+   ],
+   "size": [
+    44,
+    6,
+    10
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "use",
+   "name": "Schürze vorn",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 44,
+    "h": 6,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.7,
+    "niet": 8
+   },
+   "at": [
+    0,
+    6,
+    5
+   ]
+  },
+  {
+   "op": "use",
+   "name": "Schürze hinten",
+   "model": "ort/germanen/gemein/klinker",
+   "params": {
+    "w": 44,
+    "h": 6,
+    "d": 0,
+    "lage": 4,
+    "glut": 0.7,
+    "niet": 8
+   },
+   "at": [
+    0,
+    6,
+    -5
+   ],
+   "rot": 180
+  },
+  {
+   "op": "box",
+   "name": "Platte",
+   "at": [
+    -24,
+    12,
+    -7
+   ],
+   "size": [
+    48,
+    2,
+    14
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Kante Kupfer",
+   "at": [
+    -24,
+    13,
+    -7
+   ],
+   "size": [
+    48,
+    1,
+    1
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Kante Kupfer v",
+   "at": [
+    -24,
+    13,
+    6
+   ],
+   "size": [
+    48,
+    1,
+    1
+   ],
+   "color": "copper"
+  },
+  {
+   "op": "box",
+   "name": "Rinne",
+   "at": [
+    -22,
+    12,
+    -2
+   ],
+   "size": [
+    44,
+    2,
+    4
+   ],
+   "color": "metal_dark",
+   "mode": "carve"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenglut",
+   "at": [
+    -22,
+    12,
+    -2
+   ],
+   "size": [
+    44,
+    1,
+    4
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Rinnenfassung",
+   "at": [
+    -23,
+    13,
+    -3
+   ],
+   "size": [
+    46,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Rinnenfassung v",
+   "at": [
+    -23,
+    13,
+    2
+   ],
+   "size": [
+    46,
+    1,
+    1
+   ],
+   "color": "copper_dark"
+  },
+  {
+   "op": "box",
+   "name": "Wärmeplatte",
+   "at": [
+    -20,
+    13,
+    -2
+   ],
+   "size": [
+    6,
+    1,
+    4
+   ],
+   "color": "metal",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     14,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Platte Niet",
+   "at": [
+    -18,
+    14,
+    0
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "copper",
+   "repeat": {
+    "count": 3,
+    "var": "i",
+    "step": [
+     14,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Platzrune",
+   "at": [
+    -20,
+    13,
+    "-5"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.9
+   },
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     10,
+     0,
+     0
+    ]
+   }
+  },
+  {
+   "op": "box",
+   "name": "Platzrune h",
+   "at": [
+    -20,
+    13,
+    "4"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "rune_dim",
+    "emit": 0.9
+   },
+   "repeat": {
+    "count": 4,
+    "var": "i",
+    "step": [
+     10,
+     0,
+     0
+    ]
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

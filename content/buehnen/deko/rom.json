@@ -1,7 +1,7 @@
 {
   "format": "deko/1",
   "id": "rom",
-  "hinweis": "ART-RUINE. Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen).",
+  "hinweis": "ART-RUINE (Ruinen-Regeln) und ORT-01 Paket 9 (Außenposten und Station-Gänge, Spiegel der Germanen-Regeln mit römischen Technik-Stücken; kein '*'-Rückfall, weil die Ruine dieselbe Datei nutzt). Nur Optik, nie Deckung, nie auf Anker-, Tür-, Weg- oder Kantenmitte-Kacheln. Nach Kartensichtung: Dichten halbiert, höchstens 4 Props je Zelle, alle Regeln wandnah (nur an Wänden und in Ecken, keine freien Flächen).",
   "regeln": {
     "porta": {
       "props": [
@@ -169,6 +169,262 @@
       "dichte": [
         1,
         3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:hof": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        1,
+        4
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:lagerhalle": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:landeplatz": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:dorfplatz": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:kulisse": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:rohr": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 1
+    },
+    "aussenposten:palisade": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "aussenposten:tor": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:treibstofflager": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        2,
+        5
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "aussenposten:wachturm": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        1,
+        2
+      ],
+      "wandnah": false,
+      "frei_halten": 2
+    },
+    "aussenposten:zellenblock": {
+      "props": [
+        "ort/rom/gemein/verteiler",
+        "ort/rom/gemein/tafel",
+        "ort/rom/gemein/energiezelle"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:korridor": {
+      "props": [
+        "ort/rom/station/clipeus_wand",
+        "ort/rom/station/wandschirm"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:kreuzung": {
+      "props": [
+        "ort/rom/gemein/energiezelle",
+        "ort/rom/station/clipeus_wand"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:schleuse": {
+      "props": [
+        "ort/rom/gemein/werkzeugkiste",
+        "ort/rom/station/clipeus_wand"
+      ],
+      "dichte": [
+        0,
+        2
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:herzstueck": {
+      "props": [
+        "ort/rom/gemein/energiezelle",
+        "ort/rom/station/hypokaustum",
+        "ort/rom/station/clipeus_wand"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:lager": {
+      "props": [
+        "ort/rom/gemein/energiezelle",
+        "ort/rom/station/teileregal",
+        "ort/rom/gemein/werkzeugkiste"
+      ],
+      "dichte": [
+        3,
+        6
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:quartiere": {
+      "props": [
+        "ort/rom/gemein/energiezelle",
+        "ort/rom/station/spind",
+        "ort/rom/station/clipeus_wand"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 1
+    },
+    "station:zellen": {
+      "props": [
+        "ort/rom/station/feldschloss",
+        "ort/rom/gemein/werkzeugkiste"
+      ],
+      "dichte": [
+        1,
+        3
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:reaktorraum": {
+      "props": [
+        "ort/rom/gemein/werkzeugkiste",
+        "ort/rom/gemein/verteiler",
+        "ort/rom/station/teileregal"
+      ],
+      "dichte": [
+        2,
+        4
+      ],
+      "wandnah": true,
+      "frei_halten": 2
+    },
+    "station:kontrollraum": {
+      "props": [
+        "ort/rom/station/wandschirm",
+        "ort/rom/gemein/tafel",
+        "ort/rom/station/clipeus_wand"
+      ],
+      "dichte": [
+        2,
+        4
       ],
       "wandnah": true,
       "frei_halten": 2

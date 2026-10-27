@@ -1,0 +1,243 @@
+{
+ "id": "ort/rom/station/bank",
+ "name": "Bank (Rom): Marmorbank auf Bogenfüßen, Amber-Heizrinne in der Sitzkante, Rinnenanschluss seitlich",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "messe",
+  "sitz",
+  "bank",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  2,
+  0.65
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Sockel",
+   "at": [
+    -16,
+    0,
+    -5
+   ],
+   "size": [
+    32,
+    1,
+    10
+   ],
+   "color": "stone_light"
+  },
+  {
+   "op": "use",
+   "name": "Fuß 0",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    -11,
+    1,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 3,
+    "d": 8,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 1",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    0,
+    1,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 3,
+    "d": 8,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "use",
+   "name": "Fuß 2",
+   "model": "ort/rom/gemein/bogen",
+   "at": [
+    11,
+    1,
+    -4
+   ],
+   "params": {
+    "w": 6,
+    "h": 3,
+    "d": 8,
+    "wall": 2,
+    "top": 1,
+    "band": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Sitz",
+   "at": [
+    -14,
+    7,
+    -5
+   ],
+   "size": [
+    28,
+    2,
+    10
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Sitzkante",
+   "at": [
+    -14,
+    9,
+    -5
+   ],
+   "size": [
+    28,
+    1,
+    10
+   ],
+   "color": {
+    "frame": "trim",
+    "fill": "secondary",
+    "axes": "xz",
+    "width": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Lehne",
+   "at": [
+    -14,
+    10,
+    -5
+   ],
+   "size": [
+    28,
+    5,
+    2
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Lehne Rot",
+   "at": [
+    -13,
+    11,
+    -3
+   ],
+   "size": [
+    26,
+    3,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Lehne Gold",
+   "at": [
+    -14,
+    15,
+    -5
+   ],
+   "size": [
+    28,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Heizrinne",
+   "at": [
+    -12,
+    9,
+    2
+   ],
+   "size": [
+    24,
+    1,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Heizrinne Fluss",
+   "at": [
+    -11,
+    9,
+    3
+   ],
+   "size": [
+    22,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.8
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Zulauf",
+   "at": [
+    -16,
+    3,
+    -2
+   ],
+   "size": [
+    2,
+    3,
+    4
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Zulauf Fluss",
+   "at": [
+    -16,
+    6,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

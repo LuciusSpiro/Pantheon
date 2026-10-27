@@ -1,0 +1,154 @@
+{
+ "id": "ort/germanen/gemein/rationsbehaelter",
+ "name": "Rationsfass (Germanen, Esse): kleines versiegeltes Eisenfass, Runensiegel auf dem Deckel, Glutriegel zeigt: verschlossen",
+ "tier": "detail",
+ "palette": "nord",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "germanen",
+  "messe",
+  "ration",
+  "streu",
+  "ort01"
+ ],
+ "footprint": [
+  0.5,
+  0.5
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fass a",
+   "at": [
+    -4.5,
+    0,
+    -3.5
+   ],
+   "size": [
+    9,
+    8,
+    7
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Fass b",
+   "at": [
+    -3.5,
+    0,
+    -4.5
+   ],
+   "size": [
+    7,
+    8,
+    9
+   ],
+   "color": "metal"
+  },
+  {
+   "op": "box",
+   "name": "Reif unten",
+   "at": [
+    -5,
+    1,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Reif oben",
+   "at": [
+    -5,
+    6,
+    -5
+   ],
+   "size": [
+    10,
+    1,
+    10
+   ],
+   "color": "copper_dark",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Deckel",
+   "at": [
+    -4,
+    8,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Siegel",
+   "at": [
+    -1,
+    9,
+    -1
+   ],
+   "size": [
+    3,
+    1,
+    3
+   ],
+   "color": {
+    "role": "rune",
+    "emit": 0.9
+   }
+  },
+  {
+   "op": "box",
+   "name": "Siegel Loch",
+   "at": [
+    0,
+    9,
+    0
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "dark"
+  },
+  {
+   "op": "box",
+   "name": "Riegel",
+   "at": [
+    -1,
+    7,
+    4
+   ],
+   "size": [
+    3,
+    1,
+    1
+   ],
+   "color": {
+    "role": "ember",
+    "emit": 0.9
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

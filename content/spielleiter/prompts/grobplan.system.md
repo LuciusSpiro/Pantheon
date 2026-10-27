@@ -54,11 +54,15 @@ lehnt alles andere ab.
 
 ## Bodenszenen und Landepunkte
 - Eine **Bodenszene** ist eine Szene mit einer Umsetzung, die draußen spielt (Außenteam auf einer Karte). Die Karten
-  heißen **Landepunkte**; `<vorgaben>` nennt die freien je Ort (Kartenart, Besitz, Zustand) und je Bodenumsetzung die
+  heißen **Landepunkte**; `<vorgaben>` nennt die freien je Ort (Kartenart, Bauweise, Besitz, Zustand) und je Bodenumsetzung die
   passenden Kartenarten („auch …“ = zusätzlich diese Landepunkte, „nicht …“ = diese nicht, „nur …“ = ausschließlich).
 - Wähle für eine Bodenszene entweder `landepunkt` (ein passender Landepunkt am Ort der Szene) **oder** `buehne:
   { kartenart, besitz, neu: true }` mit einer passenden Kartenart – dann baut das Spiel eine neue Karte dieser Art am
   Ort. **Nie Koordinaten** (`x`, `y`, `tile`, `pos`), keine erfundenen Karten oder Module.
+- Die **Bauweise** eines neuen Orts folgt dem Besitz, du wählst sie nicht: eine Station mit Besitz `rom` ist eine
+  römische Station (Marmor, Rot und Gold, Amphorenzellen), jede andere Station und jeder Außenposten ist germanisch
+  (auch bei Besitz `rom`; eine Eroberung baut bestehende Orte nicht um). Beschreibe den Ort passend zu der Bauweise, die
+  `<vorgaben>` nennt. Besetzung am Ort: Fraktion `rom` für römische Wachen, `ger` für germanische Clanwachen.
 - **Handkarten** (`wreck`, `platform`, `kesh`) sind keine Schiffe, Stationen oder Ruinen: nur für Umsetzungen, bei
   denen `<vorgaben>` sie nennt. Ein Gefecht im Wrack „Zaunkönig“ braucht ein Schiff (`wrack.langschiff` oder
   `buehne: { kartenart: "schiff", neu: true }`).

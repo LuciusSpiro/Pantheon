@@ -1,0 +1,31 @@
+{
+  "id": "ort/germanen/gemein/glutleitung",
+  "name": "Glutleitung (Germanen): Klinkerkanal mit leuchtenden Plankenfugen und Glutschlitz oben, auf Eisenböcken, wandnah; Gegenstück zur Aquädukt-Leitung",
+  "tier": "detail",
+  "palette": "nord",
+  "jitter": 0,
+  "tags": ["prop", "germanen", "energie", "leitung", "aussenposten", "station", "ort01"],
+  "footprint": [2, 0.5],
+  "params": {
+    "n": { "default": 2, "min": 1, "max": 4, "step": 1, "label": "Felder (je 1 m)" },
+    "fluss": { "default": 1, "min": 0, "max": 1, "step": 1, "label": "Glut fließt" }
+  },
+  "let": { "L": "n*16", "Y": 12, "em": "fluss ? 1 : 0" },
+  "variants": { "eins": { "n": 1 }, "leer": { "fluss": 0 } },
+  "ops": [
+    { "op": "box", "name": "Bockbein", "at": ["-L/2 + i*16 + (i == 0 ? 0 : (i == n ? -2 : -1))", 0, -3], "size": [2, "Y", 2], "color": { "stripes": ["metal", "metal_light"], "axis": "x", "period": 1 }, "mirror": "z", "mirrorAt": 0, "repeat": { "count": "n+1", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Bockfuß", "at": ["-L/2 + i*16 + (i == 0 ? 0 : (i == n ? -4 : -2))", 0, -4], "size": [4, 1, 8], "color": "stone_dark", "repeat": { "count": "n+1", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Bockjoch", "at": ["-L/2 + i*16 + (i == 0 ? 0 : (i == n ? -4 : -2))", "Y-2", -4], "size": [4, 2, 8], "color": "copper_dark", "repeat": { "count": "n+1", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Kanalkern", "at": ["-L/2", "Y", -4], "size": ["L", 7, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Plankenlage", "at": ["-L/2", "Y + 1 + k*2", 4], "size": ["L", 1, 1], "color": { "stripes": ["metal", "primary"], "axis": "x", "period": 4 }, "repeat": { "count": 3, "var": "k", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Glutfuge", "at": ["-L/2", "Y + 2 + k*2", 4], "size": ["L", 1, 1], "color": { "role": "ember", "emit": "em * 0.6" }, "repeat": { "count": 3, "var": "k", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Plankenlippe", "at": ["-L/2", "Y + 6", 4], "size": ["L", 1, 1], "color": "metal_light" },
+    { "op": "box", "name": "Deckel", "at": ["-L/2", "Y + 7", -4], "size": ["L", 1, 8], "color": "metal_dark" },
+    { "op": "box", "name": "Glutschlitz", "at": ["-L/2", "Y + 7", -1], "size": ["L", 1, 2], "color": { "role": "ember", "emit": "0.9 * em" } },
+    { "op": "box", "name": "Schlitz kalt", "if": "!fluss", "at": ["-L/2", "Y + 7", -1], "size": ["L", 1, 2], "color": "dark" },
+    { "op": "box", "name": "Flansch", "at": ["-L/2 + i*16 + (i == 0 ? 0 : (i == n ? -2 : -1))", "Y", -4], "size": [2, 8, 8], "color": "copper_dark", "repeat": { "count": "n+1", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Nieten", "at": ["-L/2 + 3 + i*4", "Y + 4", 5], "size": [1, 1, 1], "color": "copper", "repeat": { "count": "n*4 - 1", "var": "i", "step": [0, 0, 0] } },
+    { "op": "box", "name": "Abgriff Siegel", "at": ["-L/2 + i*16 + (i == 0 ? 0 : (i == n ? -2 : -1))", "Y + 3", 4], "size": [2, 2, 2], "color": { "role": "rune", "emit": "em * 0.8" }, "repeat": { "count": "n+1", "var": "i", "step": [0, 0, 0] } }
+  ],
+  "anchor": [0, 0, 0]
+}

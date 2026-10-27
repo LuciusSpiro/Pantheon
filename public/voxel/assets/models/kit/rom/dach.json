@@ -1,36 +1,445 @@
 {
   "id": "kit/rom/dach",
-  "name": "Rom – Satteldach (Terrakotta-Ziegelreihen, dunkler First, Traufe mit Überstand); deckt ein Gebäuderechteck, nicht eine Kachel",
+  "name": "Rom – Technikdach (Aquädukt): flaches Terrakotta-Dach mit Marmorattika und Amber-Traufrinne, Lüfter, ab 6×5 Lichtschlitz, ab 8×8 Clipeus; deckt ein Gebäuderechteck, nicht eine Kachel",
   "tier": "architecture",
   "palette": "rom",
-  "tags": ["kit", "rom", "dach"],
-  "footprint": [12, 12],
+  "tags": [
+    "kit",
+    "rom",
+    "dach"
+  ],
+  "footprint": [
+    13,
+    13
+  ],
   "jitter": 0,
   "variants": {
-    "klein": {"w": 3, "d": 3},
-    "lang": {"w": 7, "d": 4},
-    "tief": {"w": 4, "d": 7}
+    "klein": {
+      "w": 3,
+      "d": 3
+    },
+    "lang": {
+      "w": 7,
+      "d": 4
+    },
+    "tief": {
+      "w": 4,
+      "d": 7
+    },
+    "gross": {
+      "w": 8,
+      "d": 8
+    },
+    "max": {
+      "w": 13,
+      "d": 13
+    }
   },
   "params": {
-    "w": {"default": 5, "min": 2, "max": 12, "step": 1, "label": "Breite (Kacheln, Ost-West)"},
-    "d": {"default": 4, "min": 2, "max": 12, "step": 1, "label": "Tiefe (Kacheln, Nord-Süd)"},
-    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"}
+    "w": {
+      "default": 5,
+      "min": 2,
+      "max": 13,
+      "step": 1,
+      "label": "Breite (Kacheln, Ost-West)"
+    },
+    "d": {
+      "default": 4,
+      "min": 2,
+      "max": 13,
+      "step": 1,
+      "label": "Tiefe (Kacheln, Nord-Süd)"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "0 intakt · 1 verfallen · 2 umkämpft"
+    }
   },
   "let": {
     "W": "w * 4 + 2",
     "D": "d * 4 + 2",
-    "lang": "w >= d",
-    "S": "lang ? D : W",
-    "h": "min(8, max(3, round(S * 0.3)))"
+    "cx": "floor(W / 2)",
+    "cz": "floor(D / 2)",
+    "grossDach": "w >= 6 && d >= 5",
+    "kommando": "w >= 8 && d >= 8",
+    "klein": "!(w >= 6 && d >= 5)"
   },
   "ops": [
-    {"name": "Dach, First entlang Ost-West (Giebel an Ost und West)", "op": "wedge", "if": "lang", "at": [0, 12, 0], "size": ["W", "h", "D"], "gable": "z",
-     "color": {"stripes": ["dach", {"shade": "dach", "f": 0.84}], "axis": "x", "period": 2}},
-    {"name": "Dach, First entlang Nord-Süd (Giebel an Nord und Süd)", "op": "wedge", "if": "!lang", "at": [0, 12, 0], "size": ["W", "h", "D"], "gable": "x",
-     "color": {"stripes": ["dach", {"shade": "dach", "f": 0.84}], "axis": "z", "period": 2}},
-    {"name": "Firstziegel Ost-West", "op": "box", "if": "lang", "at": [0, "12 + h - 1", "floor(D / 2) - 1"], "size": ["W", 1, 2], "color": {"shade": "dach", "f": 0.62}},
-    {"name": "Firstziegel Nord-Süd", "op": "box", "if": "!lang", "at": ["floor(W / 2) - 1", "12 + h - 1", 0], "size": [2, 1, "D"], "color": {"shade": "dach", "f": 0.62}},
-    {"name": "Verfall", "op": "erode", "if": "zustand > 0", "density": "zustand == 1 ? 0.12 : 0.25", "depth": "zustand", "at": [0, 12, 0], "size": ["W", "h", "D"]}
+    {
+      "name": "Gesims",
+      "op": "box",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        1,
+        "D"
+      ],
+      "color": {
+        "shade": "stone_light",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Attika",
+      "op": "box",
+      "at": [
+        0,
+        13,
+        0
+      ],
+      "size": [
+        "W",
+        2,
+        "D"
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Dachfläche frei",
+      "op": "box",
+      "mode": "carve",
+      "at": [
+        1,
+        13,
+        1
+      ],
+      "size": [
+        "W - 2",
+        2,
+        "D - 2"
+      ]
+    },
+    {
+      "name": "Dachplatte",
+      "op": "box",
+      "at": [
+        1,
+        13,
+        1
+      ],
+      "size": [
+        "W - 2",
+        1,
+        "D - 2"
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "dach",
+            "f": "1 * (1 - zustand * 0.06)"
+          },
+          {
+            "shade": "dach",
+            "f": "0.82 * (1 - zustand * 0.06)"
+          }
+        ],
+        "axis": "z",
+        "period": 2
+      }
+    },
+    {
+      "name": "Firstband Gold",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        1,
+        13,
+        "cz - 2"
+      ],
+      "size": [
+        "W - 2",
+        1,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.95 * (1 - zustand * 0.06)"
+      },
+      "jitter": false
+    },
+    {
+      "name": "Traufrinne",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        0,
+        14,
+        0
+      ],
+      "size": [
+        "W",
+        1,
+        "D"
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1.1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Aggregat Gehäuse",
+      "op": "box",
+      "at": [
+        "floor(W / 4) - 1",
+        13,
+        "cz - 2"
+      ],
+      "size": [
+        4,
+        2,
+        4
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "metal",
+            "f": "1 * (1 - zustand * 0.06)"
+          },
+          {
+            "shade": "metal_light",
+            "f": "1 * (1 - zustand * 0.06)"
+          }
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Lichtschlitz frei",
+      "op": "box",
+      "mode": "carve",
+      "if": "grossDach",
+      "at": [
+        "cx + 1",
+        13,
+        "cz - 2"
+      ],
+      "size": [
+        2,
+        1,
+        4
+      ]
+    },
+    {
+      "name": "Lichtschlitz Amber",
+      "op": "box",
+      "mode": "paint",
+      "if": "grossDach",
+      "at": [
+        "cx + 1",
+        12,
+        "cz - 2"
+      ],
+      "size": [
+        2,
+        1,
+        4
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Zulaufrinne",
+      "op": "box",
+      "mode": "paint",
+      "if": "grossDach",
+      "at": [
+        "cx + 3",
+        13,
+        "cz"
+      ],
+      "size": [
+        "W - 2 - cx",
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Kleiner Schlitz frei",
+      "op": "box",
+      "mode": "carve",
+      "if": "klein && w * d >= 6",
+      "at": [
+        "cx + 1",
+        13,
+        "cz - 1"
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ]
+    },
+    {
+      "name": "Kleiner Schlitz Amber",
+      "op": "box",
+      "mode": "paint",
+      "if": "klein && w * d >= 6",
+      "at": [
+        "cx + 1",
+        12,
+        "cz - 1"
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.6
+      },
+      "jitter": false
+    },
+    {
+      "name": "Kleiner Mast",
+      "op": "box",
+      "if": "klein",
+      "at": [
+        "W - 5",
+        13,
+        "D - 5"
+      ],
+      "size": [
+        1,
+        4,
+        1
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Kleiner Mast Spitze",
+      "op": "box",
+      "if": "klein",
+      "at": [
+        "W - 5",
+        17,
+        "D - 5"
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "0.95 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Clipeus Mast",
+      "op": "box",
+      "if": "kommando",
+      "at": [
+        "W - 8",
+        13,
+        "D - 8"
+      ],
+      "size": [
+        2,
+        3,
+        2
+      ],
+      "color": {
+        "shade": "metal",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Clipeus Schild",
+      "op": "cyl",
+      "if": "kommando",
+      "at": [
+        "W - 7",
+        16,
+        "D - 7"
+      ],
+      "r": 3.5,
+      "h": 1,
+      "color": {
+        "shade": "primary",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Clipeus Rand",
+      "op": "cyl",
+      "if": "kommando",
+      "at": [
+        "W - 7",
+        17,
+        "D - 7"
+      ],
+      "r": 3.5,
+      "h": 1,
+      "hollow": 1,
+      "color": {
+        "shade": "trim",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Clipeus Buckel",
+      "op": "box",
+      "if": "kommando",
+      "at": [
+        "W - 8",
+        17,
+        "D - 8"
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": {
+        "shade": "trim",
+        "f": "1 * (1 - zustand * 0.06)"
+      }
+    },
+    {
+      "name": "Verfall",
+      "op": "erode",
+      "if": "zustand > 0",
+      "density": "zustand == 1 ? 0.1 : 0.2",
+      "depth": "zustand",
+      "at": [
+        0,
+        12,
+        0
+      ],
+      "size": [
+        "W",
+        4,
+        "D"
+      ]
+    }
   ],
-  "anchor": [1, 0, 1]
+  "anchor": [
+    1,
+    0,
+    1
+  ]
 }

@@ -1,0 +1,322 @@
+{
+ "id": "ort/rom/station/medamphore",
+ "name": "Infusionsamphore (Rom): weiße Amphore mit rotem Band am Goldständer, Tropfkammer, Infusionspumpe mit Anzeige",
+ "tier": "detail",
+ "palette": "rom",
+ "jitter": 0,
+ "tags": [
+  "prop",
+  "kranken",
+  "infusion",
+  "amphore",
+  "rom",
+  "ort01"
+ ],
+ "footprint": [
+  0.9,
+  0.9
+ ],
+ "ops": [
+  {
+   "op": "box",
+   "name": "Fuß",
+   "at": [
+    -7,
+    0,
+    -1
+   ],
+   "size": [
+    14,
+    1,
+    2
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß 2",
+   "at": [
+    -1,
+    0,
+    -7
+   ],
+   "size": [
+    2,
+    1,
+    14
+   ],
+   "color": "metal_dark"
+  },
+  {
+   "op": "box",
+   "name": "Fuß Gold",
+   "at": [
+    -1,
+    1,
+    -1
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "box",
+   "name": "Ständer",
+   "at": [
+    -1,
+    2,
+    -1
+   ],
+   "size": [
+    2,
+    13,
+    2
+   ],
+   "color": "metal_light"
+  },
+  {
+   "op": "box",
+   "name": "Teller",
+   "at": [
+    -4,
+    14,
+    -4
+   ],
+   "size": [
+    8,
+    1,
+    8
+   ],
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Fuss",
+   "at": [
+    0,
+    15,
+    0
+   ],
+   "r": 1.5,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Unterbauch",
+   "at": [
+    0,
+    16,
+    0
+   ],
+   "r": 2.0,
+   "h": 3,
+   "color": "secondary",
+   "r2": 3.0
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Bauch",
+   "at": [
+    0,
+    19,
+    0
+   ],
+   "r": 3.0,
+   "h": 3,
+   "color": "secondary"
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Schulter",
+   "at": [
+    0,
+    22,
+    0
+   ],
+   "r": 3.0,
+   "h": 2,
+   "color": "secondary",
+   "r2": 2.0
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Hals",
+   "at": [
+    0,
+    24,
+    0
+   ],
+   "r": 1.5,
+   "h": 2,
+   "color": "metal"
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Muendung",
+   "at": [
+    0,
+    26,
+    0
+   ],
+   "r": 2.0,
+   "h": 1,
+   "color": "trim"
+  },
+  {
+   "op": "cyl",
+   "name": "Infusion Band",
+   "at": [
+    0,
+    19,
+    0
+   ],
+   "r": 3.0,
+   "h": 2,
+   "color": "primary",
+   "mode": "paint"
+  },
+  {
+   "op": "box",
+   "name": "Tropfkammer",
+   "at": [
+    -1,
+    11,
+    1
+   ],
+   "size": [
+    2,
+    3,
+    2
+   ],
+   "color": "glass"
+  },
+  {
+   "op": "box",
+   "name": "Tropfen",
+   "at": [
+    0,
+    12,
+    2
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Pumpe",
+   "at": [
+    -3,
+    5,
+    1
+   ],
+   "size": [
+    6,
+    4,
+    3
+   ],
+   "color": "secondary"
+  },
+  {
+   "op": "box",
+   "name": "Pumpe Rot",
+   "at": [
+    -3,
+    5,
+    4
+   ],
+   "size": [
+    6,
+    1,
+    1
+   ],
+   "color": "primary"
+  },
+  {
+   "op": "box",
+   "name": "Pumpe Anzeige",
+   "at": [
+    -2,
+    7,
+    4
+   ],
+   "size": [
+    4,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow",
+    "emit": 1.0
+   },
+   "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Pumpe Fluss",
+   "at": [
+    -1,
+    6,
+    4
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "role": "glow2",
+    "emit": 0.9
+   },
+   "jitter": false
+  },
+  {
+   "op": "line",
+   "name": "Schlauch",
+   "from": [
+    0,
+    11,
+    1.5
+   ],
+   "to": [
+    0,
+    9,
+    2
+   ],
+   "r": 0.5,
+   "color": "metal_light"
+  },
+  {
+   "op": "line",
+   "name": "Schlauch unten",
+   "from": [
+    0,
+    5,
+    2
+   ],
+   "to": [
+    4,
+    1,
+    4
+   ],
+   "r": 0.5,
+   "color": "metal_light"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

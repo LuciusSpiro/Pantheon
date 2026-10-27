@@ -3552,7 +3552,7 @@ async function runGeneric(opts) {
   if (opts.mode === 'labor') {
     // AP3a: derselbe Einstieg wie in der Lobby – Modus labor, Umsetzung, Seed; erst alle verbinden, dann alle bereit
     game.lobbyOpts.startMission = 'labor';
-    game.lobbyOpts.labor = { id: opts.labor, seed, staerke: opts.staerke || null, god: false, ...(opts.kette ? { kette: opts.kette } : {}) };
+    game.lobbyOpts.labor = { id: opts.labor, seed, staerke: opts.staerke || null, god: false, ...(opts.kette ? { kette: opts.kette } : {}), ...(opts.buehne ? { buehne: opts.buehne } : {}) };
     for (const a of agents) {
       game.addConnection(a.conn);
       a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx });
@@ -3865,7 +3865,7 @@ async function flotteMain() {
 }
 
 // ---------- AP3a: Szenario-Labor (derselbe Einstieg wie die Lobby: server/mission/labor.js) ----------
-//   node tools/sim-headless.js labor <id>|alle [--seeds N] [--crew 1|3] [--staerke klein|mittel|gross]
+//   node tools/sim-headless.js labor <id>|alle [--seeds N] [--crew 1|3] [--staerke klein|mittel|gross] [--buehne <kartenart>[:<besitz>]]
 //   node tools/sim-headless.js umsetzung …   Alias (auch --only <id>)
 // Tabelle: Umsetzung, Crew, erledigt (Mission erfolgreich, Szene ohne Skip), Median-Zeit der Szene (ohne Anflug), Fehler, Softlock.
 function laborIds() {
@@ -3882,6 +3882,9 @@ async function umsetzungMain() {
   const crews = argVal('--crew', null) ? [Number(argVal('--crew'))] : [1, 3];
   const ids = laborIds();
   const staerke = argVal('--staerke', null);
+  // ORT-01 4b: --buehne station:rom = auf einer neu angelegten Karte dieser Kartenart und diesem Besitz (Bauweise folgt dem Besitz, Gegner = Fraktion des Besitzes)
+  const bArg = argVal('--buehne', null);
+  const buehne = bArg ? { kartenart: bArg.split(':')[0], besitz: bArg.split(':')[1] || undefined } : null;
   const samples = []; const runs = [];
   // EK6: Umsetzungen mit dauer_je_crew spielen nur die dort genannten Crewgrößen (Feldzeichen hissen: mindestens 2, Bots: zu dritt)
   const katalog = require('../server/mission/katalog.js').load({});
@@ -3889,7 +3892,7 @@ async function umsetzungMain() {
   for (const crew of crews) for (let i = 0; i < nSeeds; i++) {
     for (const id of ids) {
       if (!crewOk(id, crew)) continue;
-      const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, staerke, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
+      const r = await runGeneric({ seed: base + i, crew, mode: 'labor', labor: id, staerke, buehne, pilot: 'maneuver', maxSec: 4000, funk: (base + i) % 2 ? 'b' : 'a' });
       runs.push({ id, crew, seed: base + i, r });
       if (VERBOSE || r.aborted || r.errors || r.missions.some((m) => !m.success || m.skips)) printGenericRun(r, 'Labor ' + id);
       for (const s of umsetzungSamples(r)) samples.push(Object.assign({ crew, seed: base + i, src: 'test', errors: r.missions[0] ? r.missions[0].errors : 0 }, s));
@@ -4029,7 +4032,7 @@ async function dauerMain() {
 }
 
 // ---------- Bodenkampf: Wellen (Lobby-Start arena_away mit Kartenwahl, server/sim/wellen.js) ----------
-//   node tools/sim-headless.js wellen [--karte aussenposten|…|alle] [--players 1|3|beide] [--seed n] [--max 900]
+//   node tools/sim-headless.js wellen [--karte aussenposten|…|alle] [--players 1|3|beide] [--seed n] [--max 900] [--besitz rom|ger|…]
 // Bot-Spieler kämpfen ohne Debug-Befehle (Deckung, Ziel, Aufhelfen; ohne Sicht zum nächsten Gegner). Ausgabe je Lauf:
 // erreichte Welle, Zeit, Abschüsse je Spieler, Fehler, Snapshot-Max (Budget 20 KB), höchstens stehende Gegner.
 class WellenAgent extends GenericAgent {
@@ -4107,6 +4110,7 @@ async function runWellen(opts) {
   game.addConnection(watcher); watcher.observer = true;
   game.lobbyOpts.startMission = 'arena_away';
   game.lobbyOpts.wellen = opts.karte;
+  if (opts.besitz) game.lobbyOpts.arena = { art: opts.karte, besitz: opts.besitz, fraktion: opts.besitz };   // ORT-01 4b: neue Karte dieser Art mit diesem Besitz (Bauweise folgt), Wellen aus dieser Fraktion
   // erst alle verbinden, dann alle bereit (sonst startet die Runde mit dem ersten Spieler und die anderen kommen oben an)
   for (const a of agents) {
     game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx });
@@ -4170,7 +4174,7 @@ async function wellenMain() {
   const waffenRows = [];
   log(`\n=== Bodenkampf: Wellen – Bot-Läufe (keine Debug-Befehle), max ${maxSec} s je Lauf, Snapshot-Budget 20 KB${process.env.BOT_WAFFE ? ', BOT_WAFFE=' + process.env.BOT_WAFFE : ''} ===`);
   for (const karte of karten) for (const np of crews) for (let si = 0; si < nSeeds; si++) {
-    const r = await runWellen({ karte, players: np, seed: base + si, maxSec });
+    const r = await runWellen({ karte, players: np, seed: base + si, maxSec, besitz: argVal('--besitz', null) });
     for (const w of r.waffen || []) waffenRows.push(Object.assign({ karte, crew: np, seed: base + si, welle: r.welle }, w));
     const bad = r.errors > 0 || r.softlock || r.snapMax >= CONFIG.net.snapMax || r.maxStehend > CONFIG.wellen.maxLebend;
     if (bad) ok = false;
