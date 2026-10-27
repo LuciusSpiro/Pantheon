@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-// ORT-01: Byte-Gleichheit der Generatorkarten und der Deko-Streuung gegen eine eingefrorene Baseline (main 6d912b4).
+// ORT-01: Byte-Gleichheit der Generatorkarten und der Deko-Streuung gegen die Baseline tools/fixtures/ort01-hash-baseline.json.
+//   karten: unverändert seit main 6d912b4. deko_zellen, deko, layout: Stand ORT-01 Paket 9 (Ersatz der Altstücke in deko/germanen.json, Besitz-Streu ohne Altstücke in Orten, Rom-Deko).
 //
 //   node tools/hash-baseline.js --compare    vergleicht mit tools/fixtures/ort01-hash-baseline.json (Exit 1 bei Abweichung)
 //   node tools/hash-baseline.js --compare --karten   nur die Karten-Hashes (schnell, ohne Browser; hängt in npm test)
@@ -7,7 +8,7 @@
 //
 // karten: sha1 über JSON.stringify(Karte) für alle festen Generator-Landepunkte (Außenposten, Station) und je 10 Seeds
 //   Außenposten/Station (germanen) für rostmeute, kontor, konkordat (72 Hashes).
-// deko_zellen: Zellenmodus allein (ohne Rollen-Dateien), muss auf dem Stand von main bleiben (60 Hashes, germanen).
+// deko_zellen: Zellenmodus allein (ohne Rollen-Dateien), 60 Hashes, germanen. Stand ORT-01 Paket 9: nicht mehr main 6d912b4 (Regeln und Besitz-Streu der Orte bewusst geändert, Grund im Commit).
 // deko / layout: Deko mit den produktiven Rollen-Dateien auf denselben germanischen Karten für BEIDE Bauweisen (120 Hashes); layout = nur Orte,
 //   Drehungen, Rollen, Füße ohne Modell-IDs, Rom und Germanen müssen gleich sein (Layout-Parität, `layout-parität`).
 // deko (Einzelheiten): sha1 über die Deko-Liste (public/js/voxel/deko.js streuen, genau wie kit.js: deckung_props-Filter, Besitz-Streuung,
@@ -30,7 +31,7 @@ async function berechne(nurKarten) {
   const Buehne = require(path.join(ROOT, 'shared/buehne.js'));
   const GS = require(path.join(ROOT, 'shared/gen-siedlung.js'));
   const GT = require(path.join(ROOT, 'shared/gen-station.js'));
-  const { streuen } = nurKarten ? {} : await import(pathToFileURL(path.join(ROOT, 'public/js/voxel/deko.js')).href);
+  const { streuen, besitzStreuFuerOrt } = nurKarten ? {} : await import(pathToFileURL(path.join(ROOT, 'public/js/voxel/deko.js')).href);
   const kacheln = json(path.join(ROOT, 'content/buehnen/kacheln.json'));
   const BW = path.join(ROOT, 'content/buehnen');
 
@@ -55,7 +56,7 @@ async function berechne(nurKarten) {
     const rf = path.join(BW, 'rollen', art + '.json');
     const rollen = fs.existsSync(rf) ? json(rf) : null;
     for (const besitz of ['rostmeute', 'kontor', 'konkordat']) {
-      const extra = (json(path.join(BW, 'paletten', besitz + '.json')).streu) || [];
+      const extra = besitzStreuFuerOrt(art, json(path.join(BW, 'paletten', besitz + '.json')).streu);   // wie kit.js: Altstücke fallen in Orten weg
       for (let s = 1; s <= 10; s++) {
         const roh = art === 'station'
           ? GT.erzeuger(96, 56).karteRoh(s, 8, { bauweise: 'germanen', besitz, zustand: 'intakt', id: 't' })
@@ -72,7 +73,7 @@ async function berechne(nurKarten) {
           if (deckIds.size) { regeln = Object.assign({}, dekoRegeln[bw], { regeln: {} }); for (const [t, r] of Object.entries(dekoRegeln[bw].regeln)) regeln.regeln[t] = Object.assign({}, r, { props: r.props.filter((i) => !deckIds.has(i)) }); }
           const karteIn = { id: 't', w: k.w, h: k.h, seed: k.seed, art: k.art, kindAt, anker: k.anker, plaetze };
           const key = art + '/' + bw + '/' + besitz + '/' + s;
-          // Zellenmodus allein (ohne Rollen): muss auf dem Stand von main (6d912b4) bleiben (nur germanen, wie die erste Baseline)
+          // Zellenmodus allein (ohne Rollen), nur germanen: Stand ORT-01 Paket 9 (Kopfkommentar)
           if (bw === 'germanen') dekoZellen[key] = sha(JSON.stringify(streuen(karteIn, regeln, { extra })));
           const opts = { extra };
           if (rollen) opts.rollen = { daten: rollen, bauweise: bw, ausschluss: deckIds, leitFuss: bauweise[bw].leit_fuss };
@@ -84,7 +85,26 @@ async function berechne(nurKarten) {
       }
     }
   }
-  return { karten, deko, deko_zellen: dekoZellen, layout };
+  // ORT-01 9: Schiff (germanen) und Ruine (rom) ohne Orte-Regeln: byte-gleich zu main 3c7f8cd (Referenz im Fixture, Schlüssel schiff_ruine, nicht neu schreiben)
+  const schiffRuine = {};
+  for (const [art, bw] of [['schiff', 'germanen'], ['ruine', 'rom']]) {
+    const B = json(path.join(BW, 'bauweisen/' + bw + '.json')), reg = json(path.join(BW, 'deko/' + bw + '.json'));
+    const dp = B.deckung_props && B.deckung_props[art];
+    const ids = new Set(dp ? Object.values(dp).flat() : []);
+    for (const i of (B.deko_ausschluss && B.deko_ausschluss[art]) || []) ids.add(i);
+    const regeln = Object.assign({}, reg, { regeln: {} });
+    for (const [t, v] of Object.entries(reg.regeln)) regeln.regeln[t] = Object.assign({}, v, { props: v.props.filter((i) => !ids.has(i)) });
+    const extra = art === 'schiff' ? (json(path.join(BW, 'paletten/rostmeute.json')).streu || []) : [];
+    for (let s = 1; s <= 10; s++) {
+      const g = { seed: 7 };
+      const id = LP.neu(g, 'kesh', { art, besitz: 'rostmeute', bauweise: bw, seed: s * 977 });
+      const k = LP.karte(g, id);
+      const kindAt = (x, y) => { const c = (k.rows[y] || '')[x]; return c == null || c === '' ? null : kacheln.zeichen[c] ? kacheln.zeichen[c].kind : null; };
+      const plaetze = Object.keys(k.plaetze || {}).sort().map((pid) => { const p = k.plaetze[pid]; return { id: pid, typ: p.typ, x: p.rect[0], y: p.rect[1], w: p.rect[2], h: p.rect[3] }; });
+      schiffRuine[art + '/' + bw + '/' + s] = sha(JSON.stringify(streuen({ id: 't', w: k.w, h: k.h, seed: k.seed, art: k.art, stride: k.stride, kindAt, anker: k.anker || [], plaetze }, regeln, { extra, rollen: null })));
+    }
+  }
+  return { karten, deko, deko_zellen: dekoZellen, layout, schiff_ruine: schiffRuine };
 }
 
 (async () => {
@@ -92,13 +112,13 @@ async function berechne(nurKarten) {
   const nurKarten = process.argv.includes('--karten') && modus === 'compare';
   const ist = await berechne(nurKarten);
   if (modus === 'write') {
-    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/2', stand: 'karten und deko_zellen: main 6d912b4; deko und layout: ort01-int mit gefüllten Rollen-Dateien', karten: ist.karten, deko_zellen: ist.deko_zellen, deko: ist.deko, layout: ist.layout }, null, 1) + '\n');
+    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/2', stand: 'karten: main 6d912b4 (unverändert); deko_zellen, deko, layout: ORT-01 Paket 9 (Altstücke ersetzt, Besitz-Streu der Orte gefiltert, Rom-Deko für Außenposten und Station-Gänge)', karten: ist.karten, deko_zellen: ist.deko_zellen, deko: ist.deko, layout: ist.layout, schiff_ruine: fs.existsSync(DATEI) && json(DATEI).schiff_ruine ? json(DATEI).schiff_ruine : ist.schiff_ruine }, null, 1) + '\n');
     console.log(`Baseline geschrieben: ${Object.keys(ist.karten).length} Karten-Hashes, ${Object.keys(ist.deko_zellen).length} Zellen-Deko-Hashes, ${Object.keys(ist.deko).length} Deko-Hashes (beide Bauweisen), ${Object.keys(ist.layout).length} Layout-Hashes -> ${path.relative(ROOT, DATEI)}`);
     return;
   }
   const soll = json(DATEI);
   let fehler = 0;
-  for (const teil of nurKarten ? ['karten'] : ['karten', 'deko_zellen', 'deko', 'layout']) {
+  for (const teil of nurKarten ? ['karten'] : ['karten', 'deko_zellen', 'deko', 'layout', 'schiff_ruine']) {
     const ab = [];
     for (const k of Object.keys(soll[teil])) if (soll[teil][k] !== ist[teil][k]) ab.push(k);
     for (const k of Object.keys(ist[teil])) if (!(k in soll[teil])) ab.push(k + ' (neu)');

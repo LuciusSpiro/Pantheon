@@ -24,6 +24,20 @@
 export const MAX_JE_ZELLE = 12;
 export const MAX_ROLLE_JE_ZELLE = 6;   // Rollen-Stücke je 8×8-Zelle; Zellenmodus höchstens 6 (Regeln), zusammen ≤ MAX_JE_ZELLE
 export const GROSS_AB = 49;   // Platzfläche (Kacheln, w × h) ab der Rollen ihr zug_gross nehmen (7×7)
+// Altstücke der Holz- und Fass-Welt (ORT-01): in Orten (Station, Außenposten) nicht aus der Besitz-Streu (paletten/<besitz>.json), Ruine und Schiff behalten sie.
+export const ALT_BESITZ_ORT = /gemein\/(fass|kette|werkzeug|feuerschale)$/;
+// Orte (Station, Außenposten, ORT-01 9): nur Regeln mit Kartenart-Präfix ('station:lager', 'aussenposten:*'), nie die
+// unpräfixierten Altstück-Regeln, die Schiff und Ruine weiter nutzen (Schiff und Ruine byte-gleich zu main).
+export function regelFuer(typ, art, R) {
+  if (art === 'station' || art === 'aussenposten') return R[art + ':' + typ] || R[art + ':*'] || null;
+  return R[typ] || R['*'] || null;
+}
+/** Besitz-Streu für eine Kartenart: in Station und Außenposten ohne ALT_BESITZ_ORT, sonst unverändert (kit.js und tools/hash-baseline.js). */
+export function besitzStreuFuerOrt(art, streu) {
+  const liste = Array.isArray(streu) ? streu : [];
+  if (art !== 'station' && art !== 'aussenposten') return liste;
+  return liste.filter((e) => !ALT_BESITZ_ORT.test(typeof e === 'string' ? e : (e && e.id) || ''));
+}
 // Raumtypen (Präfix der Platz-ID) je Kartenart, für die Rollen definiert werden dürfen (Quelle: gen-station.js RAUMNAME, gen-siedlung.js GEB_NAME + kaefig_n).
 // Nur die Gebäude des Außenpostens dürfen auf ihrem Innenboden boden2 bestreut werden; Gänge, Straßen, Station: nie (boden2 ist dort Weg).
 export const RAUMTYPEN = {
@@ -170,7 +184,7 @@ export function streuen(k, regeln, opts = {}) {
   for (let cy = 0; cy < CH; cy++) for (let cx = 0; cx < CW; cx++) {
     const p = zelleZuPlatz.get(cx + ',' + cy) || null;
     const typ = p ? p.typ : '*';
-    const regel = R[typ] || R['*'] || null;
+    const regel = regelFuer(typ, k.art, R);
     const props = ((regel && regel.props) || []).filter(Boolean);
     const pool = props.concat(extra);
     if (!pool.length) continue;

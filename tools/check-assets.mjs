@@ -120,7 +120,7 @@ function contractBudget(id, e, tier) {
   if ((e.tags || []).includes('terrain')) return { n: 8000, what: 'Geländeblock' };
   if (/(^|\/)(floor|grate|floor_ruin|quarter_floor)$/.test(id)) return { n: 150, what: 'Bodenkachel' };
   if (/(^|\/)wall(_\w+)?$/.test(id)) return { n: 600, what: 'Wandkachel' };
-  if (isDach(id)) return { n: 3200, what: 'Dach über einem Gebäude (bis 12×12 Kacheln)' };
+  if (isDach(id)) return { n: 3200, what: 'Dach über einem Gebäude (bis 14×14 Kacheln, germanen 14×14, rom 13×13)' };
   if (isStation(id)) return { n: 6000, what: 'Station/Konsole' };
   if (tier === 'architecture' || tier === 'terrain') return { n: 3000, what: 'Architekturmodul' };
   // Detail-Prop: 2.500 je belegter Kachel (2×2-Möbel wie Messetisch = 10.000) – Auslegung PIPELINE, siehe Bericht
@@ -374,7 +374,8 @@ async function checkOrteSperre() {
   const BW = path.join(ROOT, 'content', 'buehnen');
   const j = async (p) => JSON.parse(await fsp.readFile(path.join(BW, p), 'utf8'));
   const ctx = { bauweisen: { rom: await j('bauweisen/rom.json'), germanen: await j('bauweisen/germanen.json') }, deko: { rom: await j('deko/rom.json'), germanen: await j('deko/germanen.json') },
-    platztypen: { station: [], aussenposten: [] }, raumRollen: { station: await j('rollen/station.json'), aussenposten: await j('rollen/aussenposten.json') } };
+    platztypen: { station: [], aussenposten: [] }, raumRollen: { station: await j('rollen/station.json'), aussenposten: await j('rollen/aussenposten.json') }, besitz: {} };
+  for (const f of (await fsp.readdir(path.join(BW, 'paletten'))).filter((x) => x.endsWith('.json'))) ctx.besitz[f.replace(/.json$/, '')] = await j('paletten/' + f);   // Besitz-Streu (Orte filtern sie, orte-sperre.mjs)
   const GT = createRequire(import.meta.url)('../shared/gen-station.js'), GS = createRequire(import.meta.url)('../shared/gen-siedlung.js');
   const ts = { station: new Set(), aussenposten: new Set() };
   for (let s = 1; s <= 6; s++) {

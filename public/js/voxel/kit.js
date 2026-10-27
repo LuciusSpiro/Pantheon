@@ -27,7 +27,7 @@
 //   Im Spiel: Layer `buehne` (boot.js lädt ihn), Zone 'buehne' (renderer.js) für alle Karten außer platform/wreck/kesh.
 import * as THREE from 'three';
 import * as DefaultLoader from './loader.js';
-import { streuen, belegungVon } from './deko.js';
+import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
 
@@ -699,9 +699,8 @@ async function bauKarte(parent, karteIn, opts) {
   if (deckProps) for (const l of Object.values(deckProps)) for (const id of l || []) if (inManifest(id)) want.add(id);
   if (BW.leit) for (const t of Object.keys(BW.leit)) { const v = BW.leit[t] && (BW.leit[t][k.art] || BW.leit[t]['*']); if (typeof v === 'string' && inManifest(v)) want.add(v); }
   const dekoRegeln = opts.deko === false ? null : D.deko;
-  // ORT-01 6D: Altstücke (Fass, Kette, Holzwerkbank, Feuerschale) aus der Besitz-Streuung fallen in Station und Außenposten weg (Orte lösen keine Altstücke auf, tools/orte-sperre.mjs); Schiff und Ruine bleiben unverändert
-  const ALT_BESITZ_ORT = /gemein\/(fass|kette|werkzeug|feuerschale)$/;
-  const dekoExtra = (D.besitz && Array.isArray(D.besitz.streu) ? D.besitz.streu : []).filter((e) => (k.art !== 'station' && k.art !== 'aussenposten') || !ALT_BESITZ_ORT.test(typeof e === 'string' ? e : (e && e.id) || ''));
+  // ORT-01 6D/9: Altstücke (Fass, Kette, Holzwerkbank, Feuerschale) fallen aus der Besitz-Streuung in Station und Außenposten weg (deko.js besitzStreuFuerOrt, auch von tools/hash-baseline.js benutzt); Schiff und Ruine bleiben unverändert
+  const dekoExtra = besitzStreuFuerOrt(k.art, D.besitz && D.besitz.streu);
   if (dekoRegeln && dekoRegeln.regeln) for (const r of Object.values(dekoRegeln.regeln)) for (const id of (r && r.props) || []) if (inManifest(id)) want.add(id);
   for (const e of dekoExtra) { const id = typeof e === 'string' ? e : e && e.id; if (id && inManifest(id)) want.add(id); }
   // ORT-01 Rollenmodus: Belegungen der streu-Rollen für diese Bauweise (nur Plätze der Karte brauchen sie, geladen wird, was im Manifest steht)
@@ -1622,7 +1621,7 @@ export async function prefetch(opts = {}) {
       Promise.all(besitze.map((b) => getJson(base + 'paletten/' + b + '.json'))),
       Promise.all(ROLLEN_ARTEN.map((a) => getJson(base + 'rollen/' + a + '.json'))),
     ]);
-    // ORT-01: kitIds nimmt auch ort/… und rom/… (Leitstücke, Deckung, Anker der neuen Orte)
+    // ORT-01: kitIds nimmt auch ort/… (Leitstücke, Deckung, Anker, Streu der neuen Orte); rom/… allein wird nicht erkannt (die Regex unten nennt nur kit|prop|leit|ort)
     const modelle = new Set(), paletten = new Set(), moods = new Set();
     const kitIds = (v) => { if (!v) return; if (typeof v === 'string') { if (/^(kit|prop|leit|ort)\//.test(v)) modelle.add(v); return; } if (Array.isArray(v)) v.forEach(kitIds); else if (typeof v === 'object') Object.values(v).forEach(kitIds); };
     const strings = (v, set) => { if (!v) return; if (typeof v === 'string') set.add(v); else if (typeof v === 'object') Object.values(v).forEach((x) => strings(x, set)); };
