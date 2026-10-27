@@ -154,3 +154,47 @@ Rom-Außenposten: Rinne `emit` 1,1 bei Tag (Krone `rom/aussenposten/wand_krone`,
 - Dach-Variante je Gebäudetyp nicht gemacht (`kit.js` gibt den Typ nicht weiter).
 - Gelbe Fläche bei Rom-Außenposten: Quelle nicht geklärt.
 - Verfall und Umkämpft nicht im Bild geprüft.
+
+## Nachtrag 9 (Prüfer-Befunde A–D, Schlussreview)
+
+Commit Spiel `ort01-final`: `f988dac` (Code, Daten, Tests, Baseline, Doku). `public/voxel` unverändert (der Build `npm run assets` gegen Voxelwerk `18c8eb7` ändert nur das Build-Datum in `VERSION.json` und Zeilenenden, kein eigener Commit). Kein Push, kein Merge nach main.
+
+### Befunde
+| Befund | Fix | Dateien | Zählung vorher → nachher (10 Seeds, Besitz rostmeute) |
+|---|---|---|---|
+| A Germanen-Station Altstücke | Platztypen herzstueck, lager, quartiere, zellen, schleuse, kreuzung, reaktorraum, korridor, kontrollraum, Module (abfluss, funkmast, innenzaun, zaunluecke, lichtung) mit ORT-Stücken (fasszelle, werkzeugkasten, medkiste, rationsbehaelter, runenholz, streu_*, leitfeuer nur Station) | `content/buehnen/deko/germanen.json` (Schlüssel `station:<typ>`) | Fass 82, Werkzeug 81, Kette 21, Feuerschale 6 (190) → 0 |
+| B Germanen-Außenposten Fass | `aussenposten:*` (Freiland) und alle Außenposten-Platztypen ohne Altstück (streu_glutleitung/kabelrolle/runenpoller, runenholz, leitfeuer nur Station, weil Deckung) | `content/buehnen/deko/germanen.json` (Schlüssel `aussenposten:<typ>`) | Fass 120 → 0 |
+| C Rom-Außenposten dünn | 11 Außenposten-Regeln (verteiler, tafel, energiezelle, Dichte wie Germanen) und 9 Station-Regeln (Gänge und Räume: clipeus_wand, wandschirm, werkzeugkiste, teileregal, spind, feldschloss, hypokaustum, energiezelle) | `content/buehnen/deko/rom.json` (Schlüssel `aussenposten:<typ>`, `station:<typ>`) | Außenposten 45–73 → 105–136 (Germanen 120–158, ca. 88 %); Station 55–88 → 78–137 (Germanen 81–137) |
+| D1 Kommentare und Stand | Kopf- und Stand-Texte von `tools/hash-baseline.js` und Fixture auf Paket 9 | `tools/hash-baseline.js`, `tools/fixtures/ort01-hash-baseline.json` | – |
+| D2 Besitz-Streu ohne Filter | `besitzStreuFuerOrt(art, streu)` in `deko.js`, von `kit.js` und `hash-baseline.js` benutzt; Baseline neu mit Grund | `public/js/voxel/deko.js`, `kit.js`, `hash-baseline.js` | – |
+| D3 toter Eintrag | `hochsitz_halle`, `schmiedeherd` aus `ALT_ERLAUBT` gestrichen | `tools/orte-sperre.mjs` | – |
+| D4 Doku | Übergabe Teil A Zeilen 37/38 korrigiert; `check-assets` Dach 14×14 (germanen), 13×13 (rom); `kitIds`-Kommentar | `ORT01-UEBERGABE-A.md`, `tools/check-assets.mjs`, `public/js/voxel/kit.js` | – |
+
+Zusatz (Kais Entscheidung): Schiff und Ruine bleiben unverändert. Umsetzung über Kartenart-Präfix: Orte lesen nur `station:<typ>`, `aussenposten:<typ>` (und `<art>:*`), `deko.js` `regelFuer`. Unpräfixierte Regeln sind main 3c7f8cd, Schiff und Ruine nutzen sie unverändert. Beleg: Hash-Abschnitt `schiff_ruine` (20 Hashes, Schiff germanen und Ruine rom, Seeds 1–10), gegen main gemessen: 20/20 gleich.
+
+### Gates (Stand `f988dac`)
+- `hash-baseline --compare`: karten 72/72, deko_zellen 60/60, deko 120/120, layout 120/120, layout-Parität 60/60, schiff_ruine 20/20 (= main).
+- `npm test`: Exit 0 (sauberer Lauf nach allen Änderungen).
+- `npm run check`: Exit 0.
+- `check:assets`: 0 Fehler, 48 Warnungen (unverändert zu 6M). Orte-Sperre grün: 4 dokumentierte Ausnahmen (Rom-Anker `tor` und `raetsel`, je Station und Außenposten), erlaubte Altstücke: `statue_platz`, `kraehenwacht_turm`, `met_kessel` (fund, messe.ausgabe), Schiff-`lift_schacht` und `leiter` als Anker in Orten.
+- `test-orte-sperre.js`: alle Proben grün (Mutation `*`, `station:lager`, `aussenposten:hof` etc. rot; unpräfixierte Altstück-Regel grün; Besitz mit und ohne Filter).
+- `snap:mess`: Exit 0, Worst Case 11661 B (unverändert).
+- Golden Trace (frisch, `--all --seeds 10 --jobs 4 --dir`, gegen Pantheon-main 3c7f8cd): `--compare` GOLDEN GRÜN, 0 % Abweichung auf allen Paaren.
+
+### Dreiecke und Dichte (Screenshot-Lauf, Seeds 1–4)
+| Bühne | Dreiecke min / med / max | Deko min–max |
+|---|---|---|
+| Außenposten germanen | 311 k / 334 k / 354 k | 125–164 |
+| Außenposten rom | 312 k / 317 k / 368 k | 112–150 |
+| Station germanen | 180 k / 296 k / 308 k | 78–144 |
+| Station rom | 161 k / 270 k / 280 k | 75–141 |
+Grenze Außenposten 458 k eingehalten.
+
+### Screenshots (Seeds 1–4, `--uebersicht`)
+- Ordner: `…\scratchpad\9\s1\<bauweise>\<kartenart>\<seed>-*.png` und `…\s1\<bauweise>\<kartenart>\<seed>-uebersicht.png`; Landepunkte `…\scratchpad\9\lp\` (helix.station, methalle.siedlung, eisenwald.siedlung).
+- Kritik Übersicht (Seed 1): Germanen-Außenposten: keine braunen Fässer oder Holzwerkbänke erkennbar, kleine Streu-Stücke (Kabelrolle, Poller) lesbar, Dächer grau-eisern. Rom-Außenposten: Dichte vergleichbar, dunkle Terrakotta-Dächer, Stücke als helle Geräte. Germanen-Station: keine Altstücke im Überblick, Korridore dicht mit Kantenstreifen; Rom-Station: helle Wände, Amber-Linien, Einrichtung ähnlich dicht. Offen: Details bei Maßstab Übersicht nicht sicher lesbar; Verfall und Umkämpft nicht geprüft.
+
+### Offen
+- Rom-Freiland (`*`) fehlt bewusst: `rom.json` wird auch von der Ruine genutzt. Akzeptiert (Kai).
+- Schiffe und Ruinen unverändert (Beleg oben).
+- `npm run assets` ohne eigenen Commit (nur Zeitstempel und Zeilenenden).
