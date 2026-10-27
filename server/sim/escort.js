@@ -20,6 +20,7 @@ const Besitz = require('./besitz.js');   // SUND-02b A1: dockLage
 const Pilot = require('./pilot.js');
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> escort)
+const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gegner-Lebensanzeige (integPct)
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 let flotteMod = null;  // EK4: Verbündete (flotte.js) – lazy (Zirkelbezug flotte -> escort)
 const flotte = () => flotteMod || (flotteMod = require('./flotte.js'));
@@ -504,7 +505,7 @@ function applyRetreat(game) {
   for (const e of game.space.enemies) {
     if (e.leaving || e.kind === 'relay' || e.kind === 'pylon') continue;
     if (R.tag && e.tag !== R.tag && e.kind !== R.tag) continue;
-    if (!(e.hp / (e.hpMax || 1) * 100 < R.pct)) continue;
+    if (!(Gsys.integPct(e) < R.pct)) continue;
     e.leaving = true; e.leaveT = 0; e.retreatUntil = game.time + 9999; e.targetId = null;
     if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); }
     game.missionEvent('enemyRetreat', { enemy: e });

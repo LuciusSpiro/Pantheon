@@ -7,6 +7,7 @@ const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const onboard = require('./onboard.js');   // R0: Ivo abgeben (onboard lädt interior nicht)
 const Station = require('./station.js');   // R1 §4.4: aktive Station (lädt nichts aus interior)
+const Integ = require('./integritaet.js');   // SYS-01 C1a-1: Schwellen und Grundwert (Lerche und Gegner)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
 
 const TILE = Physics.TILE;
@@ -1106,10 +1107,9 @@ function setInteg(game, sys, v) {
 }
 // Integrität, die zu einem Zustand gehört (eine Quelle für Reparatur, Neustart, Bestückung, Missionen, Weltstand):
 // ok = Maximum, beschädigt = reparatur.damaged × Maximum (50 %), zerstört = 0
-function integAusZustand(game, sys, state) {
-  if (state === 'ok') return integMax(game, sys);
-  if (state === 'damaged') { const r = Number((sysModell(game).reparatur || {}).damaged); return integMax(game, sys) * (r > 0 ? r : 0.5); }
-  return 0;
+function integAusZustand(game, sys, state) {   // SYS-01 C1a-1: die Regel steht in integritaet.js (auch für die Gegner)
+  const r = Number((sysModell(game).reparatur || {}).damaged);
+  return Integ.grundwertVon(state, integMax(game, sys), r > 0 ? r : 0.5);
 }
 const grundwert = integAusZustand;   // alter Name (Reparatur, Weltstand, Tests)
 // Zustand eines Systems ohne EMP-Pause: offline zählt als die vorgemerkte Stufe (prev)
@@ -1159,9 +1159,10 @@ function systemTreffer(game, sys, schaden, opts) {
   if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
   const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe: der Treffer mindert die Integrität und merkt sich den Schaden
   let ziel = null;
-  if (v <= 0) ziel = 'broken';
+  const zl = Integ.zustandVon(v, integMax(game, sys), schwelleOf(game));
+  if (zl === 'broken') ziel = 'broken';
   else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
-  else if (v < schwelleOf(game) * integMax(game, sys)) ziel = 'damaged';
+  else if (zl === 'damaged') ziel = 'damaged';
   if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
   damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
   return effZustand(game, sys) !== before ? { system: sys, state: s[sys] } : null;

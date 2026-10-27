@@ -1,0 +1,41 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Systemmodell der Gegner (SYS-01 C1a-1)",
+  "description": "Form von content/kampf/gegner-systeme.json. Prueft die FORM (Pflichtfelder, Aufzaehlungen, Zahlen). Die Regeln (fuenf Zonen je Klasse, jede Waffe in enemyWeapons genau ein System, Schildseiten) prueft tools/test-gegnersystem.js gegen shared/config.js.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "zonen", "arten", "klassen"],
+  "properties": {
+    "format": { "const": "gegner-systeme/1" },
+    "_hinweis": { "type": "string" },
+    "zonen": { "type": "array", "items": { "enum": ["bug", "stb", "heck", "bb", "mitte"] }, "minItems": 5, "maxItems": 5 },
+    "arten": { "type": "array", "items": { "enum": ["waffe", "antrieb", "emitter", "schildgenerator", "reaktor", "modul"] } },
+    "klassen": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["systeme"],
+        "properties": {
+          "systeme": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "zone", "art", "gewicht"],
+              "properties": {
+                "id": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+                "zone": { "enum": ["bug", "stb", "heck", "bb", "mitte"] },
+                "art": { "enum": ["waffe", "antrieb", "emitter", "schildgenerator", "reaktor", "modul"] },
+                "platz": { "type": "string", "minLength": 1 },
+                "modul": { "enum": ["krankenstation", "werkstatt", "frachtraum"] },
+                "gewicht": { "type": "number", "exclusiveMinimum": 0 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

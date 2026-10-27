@@ -12,6 +12,7 @@ const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
 const Station = require('./station.js');   // R1 §4.4
 const space = require('./space.js');
+const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gegner-Lebensanzeige (integPct)
 const { dist } = require('../util.js');
 const Registry = require('../mission/registry.js');
 const Loader = require('../mission/loader.js');
@@ -732,7 +733,7 @@ class Mission {
       case 'enemiesCleared': return !g.space.enemies.some((e) => v === true || e.tag === v || e.kind === v);
       case 'enemiesLeft': return g.space.enemies.filter((e) => (!v.kind || e.kind === v.kind) && (!v.tag || e.tag === v.tag)).length <= (v.max || 0);
       case 'killed': return (this.kills[v.tag || v.kind] || 0) >= (v.min || 1);
-      case 'enemyHpBelow': return g.space.enemies.some((e) => (!v.tag || e.tag === v.tag) && (!v.kind || e.kind === v.kind) && e.hp <= e.hpMax * v.frac);
+      case 'enemyHpBelow': return g.space.enemies.some((e) => (!v.tag || e.tag === v.tag) && (!v.kind || e.kind === v.kind) && Gsys.integPct(e) <= v.frac * 100);
       case 'scanDone': return g.scans.has(v);
       case 'itemAboard': return v === 'datenkern' ? this.datenkernAboard() : ((g.inventory[v] || 0) > 0 || (!!g.fracht && g.fracht.lager.some((l) => l.art === v)));   // EK3 Teil A: Fracht im Frachtraum (sprengstoff) zählt
       case 'choiceMade': return this.choicesMade.has(v);

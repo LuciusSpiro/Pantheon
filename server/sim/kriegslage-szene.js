@@ -36,6 +36,7 @@ const Plan = require('../weltsim/wellenplan.js');
 const Zufall = require('../weltsim/zufall.js');
 const Flotte = require('./flotte.js');
 const Escort = require('./escort.js');
+const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Verrat setzt die Hüllen-Quote auf die Systemintegrität
 const Kriegslage = require('./kriegslage.js');
 const Besitz = require('./besitz.js');
 const OKFunk = require('./oberkommando-funk.js');   // Welle 5, M1: Funk des Finales in Meldung (Messing) und Gefahr (Rot)
@@ -524,7 +525,7 @@ function verratStarten(game) {
       if (!e) throw new Error('Gegner nicht erzeugt');
       neue.push(e);
       Object.assign(e, { wv: w.id, wvN: 1, ohneBeute: true, verratS: S.id, simPts: q.simPts || P[q.kind] || 0, name: q.name });
-      e.hp = Math.max(1, Math.round(e.hpMax * Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1)))));
+      Gsys.setzeAnteil(game, e, Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1))));   // SYS-01 C1a-1: Quote auf die Systemintegrität (e.hp ist abgeleitet)
     }
     // 3. ab hier wirft nichts mehr: die Gegner der Szene drehen ab (sofort; die Regel wird gleich wieder gelöscht), die neuen tragen den Szenen-Tag (das Szenenende lässt sie abziehen)
     Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;

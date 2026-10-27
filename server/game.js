@@ -16,7 +16,8 @@ const Reaktortod = require('./sim/reaktortod.js');   // SYS-01 A2a: Reaktor-Coun
 const Alarm = require('./sim/alarm.js');   // EK2: Raum-Alarm, Minen, Schleichfahrt (Snapshot: space.mines, space.al, enemies[].pat, ship.sf)
 const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
-const Zielsysteme = require('./sim/zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer der Ops (Befehl weapons.systemziel, Snapshot ship.zs, enemies[].az)
+const Zielsysteme = require('./sim/zielsysteme.js');
+const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
 const FadenSzene = require('./sim/faden-szene.js');   // SUND-04a-2 P1: Faden-Szenen (nur mit FAEDEN=1 und Lage-Spielleiter; ohne Schalter tut der Takt nichts)
 const FadenFracht = require('./sim/faden-fracht.js');   // SUND-04a-2 P1: Frachtauftrag light (Notsprung: die Ware geht verloren)
@@ -1910,6 +1911,14 @@ class Game {
     if (fn) fn(this, lp);
   }
 
+  // SYS-01 C1a-1: Systemzustand des anvisierten Gegners (gegnersystem.snapshotZiel). Nur mit gesetztem Ziel, sonst keine Zeile im Snapshot.
+  zielSysSnap() {
+    if (this.ship.target == null || !this.space) return {};
+    const e = this.space.enemies.find((q) => q.id === this.ship.target);
+    const z = e ? Gsys.snapshotZiel(e) : null;
+    return z ? { zielSys: z } : {};
+  }
+
   // B2 (Wunsch CLIENT): wf = gewählte Waffe auch außerhalb der Außenzone (Bord, Transfer-Konsole). Unten setzt combat.playerSnap
   // wf selbst (PLAYER_SNAP_B2). Nur zone 'ship', nur mit aktiven Waffen; ≈ 16 B je Spieler an Bord.
   wfAnBord(p) {
@@ -2180,6 +2189,7 @@ class Game {
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         ...(ship.zielsystem ? { zs: ship.zielsystem } : {}),   // SUND-04a-1 A: gewähltes Systemziel der Ops (fehlt = keins)
+        ...this.zielSysSnap(),   // SYS-01 C1a-1: Systeme des anvisierten Gegners (flach, nur bei gesetztem Ziel, ohne Modell fehlt es)
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
         ...(Alarm.schleichSnap(this) ? { sf: Alarm.schleichSnap(this) } : {}),   // EK2: Schleichfahrt: Signatur, Schilde unten, Ping
         npcs: onboard.npcsSnapshot(this).concat(PersonenBord.bordNpcs(this)),   // SL0: Personen an Bord liegen auf den Frachtbetten

@@ -670,6 +670,12 @@
       schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
       torpedoLerche: 10,          // SYS-01 A1b: Gegner-Torpedo gegen die Lerche bei Schild 0: Integritätsabzug in einem System der Zone (ein Standardsystem, 10 = sicher zerstört)
       sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
+      // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
+      gegner: {
+        taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5
+        regenGeneratorBeschaedigt: 2,     // beschädigter Schildgenerator: Schild-Regeneration doppelt so langsam (Intervall × 2)
+        emitterBeschaedigt: 0.5,          // beschädigter Emitter: Schild-Obergrenze der Seite × 0,5 (zerstört: 0)
+      },
     },
     // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff. Der n-te Ausfall seit dem letzten Sprung
     // startet mit start × faktor^(n−1) s, mindestens minimum (20, 10, 5, 2,5 s …). Sonderreparatur des zerstörten Reaktors: zeiten[n−1] s bei n gleichzeitigen

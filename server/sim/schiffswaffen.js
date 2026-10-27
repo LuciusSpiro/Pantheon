@@ -17,6 +17,7 @@ const W = require('../world.js');
 const Station = require('./station.js');
 const Alarm = require('./alarm.js');
 const Escort = require('./escort.js');
+const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gesamtintegrität der Gegner (Waffenstatistik)
 const { clamp, dist, turnToward } = require('../util.js');
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> schiffswaffen -> space
@@ -260,7 +261,8 @@ function chargeTime(game, id) {
 // Treffer der Lerche auf einen Gegner (Schild + Hülle) mit Zähler game.stats.waffenSchaden { gesamt, <waffe-id>: Summe } für die Bot-Messung (Feuerkraft je Waffenzahl)
 function schade(game, e, dmg, x, y, opts, typ) {
   const sp = S();
-  const sum = () => (e.hp > 0 ? e.hp : 0) + (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
+  // SYS-01 C1a-1: Gegner mit Modell: Σ der Systemintegrität (e.hp wird beim Tod auf 0 gesetzt, das zählte sonst die Restintegrität als Schaden); ohne Modell die Hülle
+  const sum = () => (Gsys.hat(e) ? Gsys.summe(e) : (e.hp > 0 ? e.hp : 0)) + (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
   const vor = sum();
   sp.damageEnemy(game, e, dmg, x, y, opts ? Object.assign({ angriff: true }, opts) : { angriff: true });   // SUND-04a-1 A: Waffen der Lerche sind Angriffe (gezielter Systemtreffer)
   const d = Math.max(0, vor - sum());

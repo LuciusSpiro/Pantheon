@@ -14,6 +14,7 @@ const Sprung = require('./sprung.js');
 const Reise = require('./reise.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, Welle 0 wörtlich aus dieser Datei verschoben
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
+const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
 const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 – Zielschiff flieht zum Fluchtpunkt (e.fluchtZiel), Sprungladung, Ausgang gestellt/entkommen
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
@@ -1016,6 +1017,7 @@ function spawnEnemy(game, kind, opts) {
     shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
+  Gsys.anlegen(e);   // SYS-01 C1a-1: Systeme mit Integrität je Klassenbudget (e.hp = Summe); ohne Modell (relay) bleibt e.hp
   const vk = volkFuer(game, kind, o.volk);   // Kennung auf den Raumkarten (Snapshot vk, fehlt = CONFIG.kennung.gegner)
   if (vk) e.volk = vk;
   if (hatPlaetze(game, kind)) e.waffen = bestueckung(game, kind, o.waffen);   // EK1: Korvette, EK1b: Fregatte, Kreuzer
@@ -1055,6 +1057,9 @@ function crewScale(game) {
 
 // Schaden aus Richtung (srcX, srcY): erst Schildsektor des Gegners, dann Hülle.
 // opts.pierce: der Schildsektor zählt bei diesem Treffer so viele Punkte weniger (Lanze, §5.1).
+// SYS-01 C1a-1: Gegner mit Systemmodell (gegnersystem.js) bekommen keine Hülle mehr: ein Treffer, der den Schild durchschlägt, trifft ein
+// System der Zone der Seite (Mitte bei Durchschlag 'zone' oder leerer Zone). Der Schild über 0 fängt ab, der Rest verfällt (kein Überlauf).
+// Gegner ohne Modell (Störrelais) behalten die alte Hülle e.hp.
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hitT = game.time;
   if (e.pat) Alarm.ausloeser(game, 'entdeckt');   // EK2: ein Treffer auf eine Patrouille verrät uns
@@ -1065,44 +1070,71 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     const add = Math.min(T.delayPerHit, Math.max(0, T.delayMax - (e.tele.delayed || 0)));
     if (add > 0) { e.tele.left += add; e.tele.dur += add; e.tele.delayed = (e.tele.delayed || 0) + add; }
   }
+  const modell = Gsys.hat(e);
   let rest = dmg;
-  if (srcX != null && e.shields && !(opts && opts.huelle && !opts.nurOhneSchild)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei (nurOhneSchild: wirkt nur auf ein ausgefallenes Segment)
+  let zone = null;   // Zone des Treffers im Modell: Seite des getroffenen Segments
+  if (srcX != null && e.shields) {
     // EK1b: Segment des Treffers (Seite aus dem Winkel, Seitenbereich aus der Längslage – shared/schilde.js); Klassen ohne Segmente: Sektor wie bisher
     const lay = Schilde.layout(game.C, e.kind);
     let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
-    // SYS-01 B1: Durchschlag 'zone' (Vollladung der Lanze) umgeht den Schild ganz; die Mitte des Gegners ist hier die Hülle
-    const pierce = opts && opts.durchschlag === 'zone' ? Infinity : (opts && opts.pierce) || 0;
-    const sv = e.shields[sec];
-    if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
-    if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
-      const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
-      if (sv > T.niedrig) {
-        const take = Math.min(sv, dmg * T.schildFaktor);
+    if (modell) zone = Gsys.zoneVonSegment(game, e, sec);
+    if (!(opts && opts.huelle && !opts.nurOhneSchild)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei (nurOhneSchild: wirkt nur auf ein ausgefallenes Segment)
+      // SYS-01 B1: Durchschlag 'zone' (Vollladung der Lanze) umgeht den Schild ganz; die Mitte des Gegners ist hier die Hülle
+      const pierce = opts && opts.durchschlag === 'zone' ? Infinity : (opts && opts.pierce) || 0;
+      const sv = e.shields[sec];
+      if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
+      if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
+        const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
+        if (sv > T.niedrig) {
+          const take = Math.min(sv, dmg * T.schildFaktor);
+          e.shields[sec] = Math.max(0, sv - take); if (e.shields[sec] < EPS) e.shields[sec] = 0;
+          e.shieldHitT = game.time; e.shieldHitSector = sec;
+          game.emit('sfx', { name: 'shield_hit', volume: 0.3 });
+          return;
+        }
+        stoereGegner(e, T.stoerung);   // niedriger Schild: der Schild nimmt den Treffer, ohne Überlauf (wie die Lerche in damage.resolveHit); erst bei Schild 0 trifft ein System
+      } else if (opts && opts.streu) {   // PAN-01 C: eine Streu-Granate = Schildschaden (Schildbrecher), nie Hülle
+        const take = Math.min(sv, dmg * opts.streu.schildFaktor);
         e.shields[sec] = Math.max(0, sv - take); if (e.shields[sec] < EPS) e.shields[sec] = 0;
-        e.shieldHitT = game.time; e.shieldHitSector = sec;
-        game.emit('sfx', { name: 'shield_hit', volume: 0.3 });
+        if (take > 0) { e.shieldHitT = game.time; e.shieldHitSector = sec; }
+        game.missionEvent('enemyShieldHit', { enemy: e, sector: sec });
         return;
       }
-      stoereGegner(e, T.stoerung);
-    } else if (opts && opts.streu) {   // PAN-01 C: eine Streu-Granate = Schildschaden (Schildbrecher), nie Hülle
-      const take = Math.min(sv, dmg * opts.streu.schildFaktor);
-      e.shields[sec] = Math.max(0, sv - take); if (e.shields[sec] < EPS) e.shields[sec] = 0;
-      if (take > 0) { e.shieldHitT = game.time; e.shieldHitSector = sec; }
-      game.missionEvent('enemyShieldHit', { enemy: e, sector: sec });
-      return;
+      const absorb = Math.min(Math.max(0, e.shields[sec] - pierce), rest);
+      // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Ops verloren sonst Schaden);
+      // gerundet wird nur im Snapshot. EPS fängt Gleitkomma-Reste ab.
+      if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }   // sec = Index des Segments in e.shields (bei 4 Sektoren der Sektor)
+      if (modell && Math.max(0, sv - pierce) > EPS) {   // SYS-01 C1a-1: der Schild hält, der Rest verfällt (kein Überlauf in das System)
+        game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return;
+      }
+      if (rest <= EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
     }
-    const absorb = Math.min(Math.max(0, e.shields[sec] - pierce), rest);
-    // QA M3a: nicht mehr auf 0,1 runden (Teiltreffer wie 0,75 bei unbesetzter Ops verloren sonst Schaden);
-    // gerundet wird nur im Snapshot. EPS fängt Gleitkomma-Reste ab.
-    if (absorb > 0) { e.shields[sec] = Math.max(0, e.shields[sec] - absorb); if (e.shields[sec] < EPS) e.shields[sec] = 0; rest -= absorb; e.shieldHitT = game.time; e.shieldHitSector = sec; }   // sec = Index des Segments in e.shields (bei 4 Sektoren der Sektor)
-    if (rest <= EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }
+  }
+  if (modell) {
+    if (opts && opts.durchschlag === 'zone') zone = 'mitte';
+    return trefferSystem(game, e, rest, zone || 'bug', srcX, srcY, opts);
   }
   e.hp -= rest;
   if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
   if (e.hp > 0) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: Treffer, der den Schild durchschlägt und die Hülle trifft: gezielter Systemtreffer (nur Angriffe)
   if (Entern.onEnemyZero(game, e)) return;   // Welle 0 (CONTRACT-B1 §7): Stub liefert false -> wie bisher
+  enemyDown(game, e);
+}
+
+// SYS-01 C1a-1: Treffer, der den Schild durchschlägt, auf das Systemmodell eines Gegners: Trefferweg in der Zone (Mitte bei leerer Zone),
+// Integrität -= Rest. Tot ist der Gegner erst mit zerstörtem Reaktor (Platzhalter bis C1a-2 „Jäger sofort“ und Kapern über den Schildgenerator).
+function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
+  Gsys.treffen(game, e, zone, rest);
+  game.missionEvent('enemyDamaged', { enemy: e });
+  if (!Gsys.tot(e)) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: gezielter Systemtreffer (nur Angriffe), der Schild ist durch
+  e.hp = 0;
+  if (Entern.onEnemyZero(game, e)) return;   // gleicher Pfad wie bei der alten Hülle (Entern/Kapern, Beute, Explosion)
+  enemyDown(game, e);
+}
+// Tod eines Gegners (Buchhaltung wie ein Abschuss): entfernen, Marken, Explosion, Ansage
+function enemyDown(game, e) {
   const C = game.C;
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
   if (!e.ohneBeute) game.inventory.marks += C.enemies[e.kind].salvage;   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
@@ -1132,7 +1164,8 @@ function stationPoint(game) {
 // EK1: Waffenplätze eines Gegners. Ohne Waffenart (typ) alle, mit typ nur die Plätze mit dieser Bestückung (nur Klassen mit Plätzen
 // (Korvette, Fregatte, Kreuzer: enemyWeapons[kind][].platz) haben eine Bestückung je Platz, bei allen anderen gilt jeder Platz für jede Art).
 function waffenPlaetze(game, e, typ) {
-  const W = game.C.enemyWeapons[e.kind] || [];
+  // SYS-01 C1a-1: eine zerstörte Waffe (System broken) schießt nicht; die Plätze fallen aus allen Feuerpfaden heraus
+  const W = (game.C.enemyWeapons[e.kind] || []).filter((w) => !Gsys.zerstoertPlatz(e, w));
   if (!typ || !e.waffen) return W;
   return W.filter((w) => Katalog.verhaltenVon(e.waffen[w.platz]) === typ);   // PAN-01 C: Altart oder Katalog-Id -> Verhalten
 }
@@ -1164,10 +1197,12 @@ function updateEnemies(game, dt) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   for (const e of sp.enemies) {
     const cfg = C.enemies[e.kind];
-    // Schild-Regeneration je Sektor
+    // Schild-Regeneration je Sektor. SYS-01 C1a-1: die Obergrenze je Segment kommt aus den Emittern und dem Schildgenerator (ohne Modell: das Maximum)
+    const caps = Gsys.schildGrenzen(game, e);
+    Gsys.schildPflege(game, e, caps);
     e.regenT += dt;
     if (game.time < (e.regenHold || 0)) e.regenT = 0;   // PAN-01 C: Sturmbatterie unterdrückt die Regeneration
-    if (e.regenT >= C.enemyShieldRegen) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < e.shieldsMax[i]) e.shields[i] = Math.min(e.shieldsMax[i], Math.floor(e.shields[i]) + 1); }
+    if (e.regenT >= C.enemyShieldRegen * Gsys.regenFaktor(game, e)) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1); }
     const retreating = e.retreatUntil > game.time;
     if (Konvoi.faehrt(e)) { Konvoi.fahre(game, e, dt); continue; }   // EK3 Teil B: Transporter und wachende Eskorte fahren die Route, kein Feuer
     if (e.pat) { Alarm.patrouille(game, e, dt); continue; }   // EK2: ruhige Patrouille: Strecke (Brocken ignoriert), kein Feuer
@@ -1210,7 +1245,7 @@ function updateEnemies(game, dt) {
     // QA M3b: im neuen Flugmodell eigenes Feuerintervall und Vorhalt (spaceM3b.pilotFire) – sonst trafen Jäger im kurzen
     // Anflug kaum: ein Schuss je Überflug, gezielt auf die alte Position (Schiff fährt 1–1,5 s Flugzeit weiter)
     const PF = Pilot.flies(game, e) ? ((M3B(game).pilotFire || {})[e.kind] || null) : null;
-    const interval = PF && PF.fireInterval != null ? PF.fireInterval : cfg.fireInterval;
+    const interval = (PF && PF.fireInterval != null ? PF.fireInterval : cfg.fireInterval) * Gsys.taktFaktor(game, e, waffenPlaetze(game, e));   // SYS-01 C1a-1: beschädigte Waffe: Feuerintervall × systemModell.gegner.taktBeschaedigt
     if (!retreating && e.fireT >= interval * crewScale(game).enemyFireInterval && d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e) && !ship.docked && !holdingFire(game)) {
       e.fireT = 0;
       const kind = cfg.emp ? 'emp' : 'enemy';
@@ -1230,10 +1265,11 @@ function updateBolzen(game, e, d, toShip, retreating, dt) {
   if (!hatWaffe(game, e, 'bolzen')) return;
   e.boltT = (e.boltT == null ? cfg.fireInterval * 0.5 : e.boltT) + dt;
   if (e.tele || retreating || ship.docked || holdingFire(game)) return;
-  if (e.boltT < cfg.fireInterval * crewScale(game).enemyFireInterval || d > waffenReichweite(game, cfg.range) || !enemyCanHit(game, e, null, 'bolzen')) return;
+  // SYS-01 C1a-1: Feuerintervall × Takt-Faktor der Plätze dieser Art (eine beschädigte Waffe schießt langsamer; zerstörte Plätze fehlen in waffenPlaetze)
+  if (e.boltT < cfg.fireInterval * crewScale(game).enemyFireInterval * Gsys.taktFaktor(game, e, waffenPlaetze(game, e, 'bolzen')) || d > waffenReichweite(game, cfg.range) || !enemyCanHit(game, e, null, 'bolzen')) return;
   e.boltT = 0;
   // EK1b: je Bolzen-Platz im Bogen ein Schuss aus der Mündung des Platzes (Plätze ohne Lage pos: aus der Schiffsmitte wie bisher)
-  const W = plaetzeImBogen(game, e, ship, 'bolzen');
+  const W = plaetzeImBogen(game, e, ship, 'bolzen');   // zerstörte Plätze fehlen (waffenPlaetze); enemyCanHit verlangt oben einen Platz im Bogen
   const quellen = W.length ? W : [null];
   for (const w of quellen) {
     const o = w && w.pos != null ? platzPunkt(game, e, w) : { x: e.x, y: e.y };
@@ -1252,7 +1288,7 @@ function updateStreuG(game, e, d, retreating, dt) {
   const ship = game.ship; const w = Katalog.waffe('streubatterie'); const T = w.streu;
   e.streuG = (e.streuG == null ? 1.5 : e.streuG) + dt;
   if (e.tele || retreating || ship.docked || holdingFire(game)) return;
-  const iv = game.C.enemies[e.kind].fireInterval * 1.5 * crewScale(game).enemyFireInterval;
+  const iv = game.C.enemies[e.kind].fireInterval * 1.5 * crewScale(game).enemyFireInterval * Gsys.taktFaktor(game, e, waffenPlaetze(game, e, 'streu'));   // SYS-01 C1a-1: beschädigte Waffe: Intervall × Takt-Faktor
   if (e.streuG < iv || d > waffenReichweite(game, w.reichweite) || !enemyCanHit(game, e, null, 'streu')) return;
   e.streuG = 0;
   const W = plaetzeImBogen(game, e, ship, 'streu', w.reichweite);
@@ -1274,7 +1310,7 @@ function updateTorpedoG(game, e, d, retreating, dt) {
   const ship = game.ship; const T = Katalog.TORPEDO;
   e.torpG = (e.torpG == null ? T.cooldown * 0.5 : e.torpG) + dt;
   if (e.tele || retreating || ship.docked || holdingFire(game)) return;
-  const iv = T.cooldown * 1.2 * (crewScale(game).enemyFireInterval / ((game.C.crewScaling[3] || {}).enemyFireInterval || 1));
+  const iv = T.cooldown * 1.2 * (crewScale(game).enemyFireInterval / ((game.C.crewScaling[3] || {}).enemyFireInterval || 1)) * Gsys.taktFaktor(game, e, waffenPlaetze(game, e, 'torpedo'));   // SYS-01 C1a-1: beschädigte Waffe: Intervall × Takt-Faktor
   if (e.torpG < iv || d > waffenReichweite(game, 650) || !enemyCanHit(game, e, null, 'torpedo')) return;
   e.torpG = 0;
   const pl = plaetzeImBogen(game, e, ship, 'torpedo', 650)[0];
@@ -1402,7 +1438,7 @@ function updateSperrfeuer(game, e, retreating, dt, verh) {
     return;
   }
   sf.t += dt;
-  if (sf.t < sperrInterval(game, S) || !inArc) return;
+  if (sf.t < sperrInterval(game, S) * Gsys.taktFaktor(game, e, W) || !inArc) return;   // SYS-01 C1a-1: beschädigte Waffe: Intervall × Takt-Faktor (W = Plätze dieser Art ohne zerstörte)
   // Kurz vor einer Ladung keinen Stoß beginnen (lesbar: erst Sperrfeuer, dann Ruhe, dann Ladung)
   const teleIv = cfg.fireInterval * crewScale(game).enemyFireInterval;
   const burstDur = (S.burst - 1) * (S.burstGap || 0.25);
@@ -1564,7 +1600,7 @@ function updateTele(game, e, d, retreating, dt) {
     return;
   }
   e.fireT += dt;
-  if (!retreating && !ship.docked && !holdingFire(game) && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval && d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e, null, 'lanze')) startTele(game, e);
+  if (!retreating && !ship.docked && !holdingFire(game) && e.fireT >= cfg.fireInterval * crewScale(game).enemyFireInterval * Gsys.taktFaktor(game, e, waffenPlaetze(game, e, 'lanze')) && d <= waffenReichweite(game, cfg.range) && enemyCanHit(game, e, null, 'lanze')) startTele(game, e);   // SYS-01 C1a-1: beschädigtes Lanzensystem: Intervall × Takt-Faktor
 }
 // M4 §2.4: erster Feindkontakt frühestens CONFIG.lift.firstContactDelay s nach dem Gefechtsalarm, wenn jemand auf Deck II war
 // (game.updateAlert setzt ship.holdFireUntil).

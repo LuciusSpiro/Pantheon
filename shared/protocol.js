@@ -296,6 +296,7 @@
     // SYS-01 A1: ship.integ im Snapshot ist positionsbasiert (Prozent je System, -1 = nicht aktiv) in genau dieser Reihenfolge (= interior.SYSTEM_ORDER, ohne den Altnamen 'weapons'; tools/test-systemmodell.js prüft die Gleichheit). Eine Quelle für den Client.
     // SYS-01 A1c: ship.zonen = Integrität je Seite in % (0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord; -1 keine aktive Seite), Mitte zählt nicht. Vier Zahlen, Quelle interior.zonenSnapshot.
     // SYS-01 A1c: ship.zielAuf = Index (in SYSTEMS_INTEG) des Lerche-Systems, auf das ein Gegner gezielt anlegt, -1 = niemand (Quelle zielsysteme.zielAuf, Abbildung aus content/kampf/zielsysteme-werte.json Feld `lerche`).
+    // SYS-01 C1a-1: ship.zielSys = flaches Array [Zustand, Integrität %] je System des ANVISIERTEN Gegners (Reihenfolge wie content/kampf/gegner-systeme.json, Zustand 0 ok, 1 beschädigt, 2 zerstört). Fehlt ohne gesetztes Ziel und bei Klassen ohne Modell (relay). Nur das Ziel, nicht alle Gegner (Budget).
     SYSTEMS_INTEG: ['reactor', 'engines', 'shields', 'transfer',
       'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
       'weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
