@@ -9,6 +9,7 @@ const V = require('./test-faden-vorlagen.js');   // Hilfen (neu, funkMit, liste,
 const X = require('./faden-fixture.js');
 const Sektoren = require('../shared/sektoren.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sprung = require('../server/sim/sprung.js');
 const Reise = require('../server/sim/reise.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
@@ -37,7 +38,7 @@ function oeffne(g, id, hex) {
   return r.faden;
 }
 const faellig = (f, i, status) => { f.beat = i; f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; if (status) f.nsc.status = status; };
-const kill = (g, tag) => { for (const e of g.space.enemies.filter((x) => x.tag === tag)) Space.damageEnemy(g, e, 99999, e.x, e.y); };
+const kill = (g, tag) => { for (const e of g.space.enemies.filter((x) => x.tag === tag)) Testhilfe.toeten(g, e); };
 const bis = async (g, fn, max) => { for (let i = 0; i < (max || 900) && !fn(); i++) await pumpen(g, 1); return fn(); };
 const logb = (g) => (g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || [];
 const klon = (x) => JSON.parse(JSON.stringify(x));

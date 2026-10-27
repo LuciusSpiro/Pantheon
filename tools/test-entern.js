@@ -24,6 +24,7 @@ if (!LP_ECHT) {
 
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Entern = require('../server/sim/entern.js');
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
@@ -63,7 +64,7 @@ function spawn(g, opts) {
   const sh = g.ship;
   return space.spawnEnemy(g, 'raider', Object.assign({ x: sh.x + 250, y: sh.y, facing: Math.PI }, opts || {}));
 }
-const kill = (g, e) => space.damageEnemy(g, e, 9999);
+const kill = (g, e) => Testhilfe.toeten(g, e);
 
 section('Hülle 0 ohne entern: Gegner wird wie bisher entfernt', () => {
   const { g, ev } = arena();

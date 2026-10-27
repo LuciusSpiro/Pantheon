@@ -20,6 +20,7 @@ const { startServer } = require('../server/index.js');
 const Sektoren = require('../shared/sektoren.js');
 const Szene = require('../server/sim/kriegslage-szene.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const CONFIG = require('../shared/config.js');
 function playwright() { for (const k of [process.env.PLAYWRIGHT_CORE, 'C:/tmp/pw-test/node_modules/playwright-core', 'playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* weiter */ } } console.error('playwright-core nicht gefunden (PLAYWRIGHT_CORE setzen)'); process.exit(2); }
 const { chromium } = playwright();
@@ -78,7 +79,7 @@ async function main() {
     await shot(a, '07-ops-verrat-laeuft', 300); await shot(c, '08-captain-verrat-zeile', 300);
     console.log('  nach Auslösung: Ruf', g.weltsim.ruf.rom, 'Rang', JSON.stringify(g.snapshot().world && g.snapshot().world.ruf), 'Gegner', g.space.enemies.filter((e) => e.verratS).length);
     // 5) Sieg
-    for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.filter((x) => x.verratS)) { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); } await sleep(100); }
+    for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.filter((x) => x.verratS)) { Testhilfe.toeten(g, e); } await sleep(100); }
     await shot(a, '09-ops-sieg-ergebnis', 1200); await shot(c, '10-captain-sieg-ergebnis', 200);
     console.log('  Ergebnis:', JSON.stringify(Szene.letzte(g)).slice(0, 220), 'Ruf', g.weltsim.ruf.rom);
     // 6) ohne Verbündete: kein Knopf

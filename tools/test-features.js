@@ -11,6 +11,7 @@ const Schema = require('../shared/schema.js');
 const interior = require('../server/sim/interior.js');
 const Schilde = require('../shared/schilde.js');
 const CONFIG_F = require('../shared/config.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
 
 const W = require('../server/world.js');
 
@@ -283,7 +284,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   const M3 = g.C.spaceM3;
   // Korvette oben (Backbord des Schiffs), Blick nach Osten: seine Steuerbord-Seite (Sektor 1, Schild 2) zeigt zum Schiff
   const e = space.spawnEnemy(g, 'korvette', { x: 1000, y: 1150, facing: 0 });
-  e.hp = e.hpMax = 40;
+  Testhilfe.setzeBudget(e, 400);   // SYS-01 C1a-1: Klassenbudget 400 (keine Hülle), alle Systeme ok; jedes System fasst mehr als ein Treffer
   const hold = (en, x, y, a) => () => { en.x = x; en.y = y; en.vx = 0; en.vy = 0; en.angle = a; en.fireT = -999; en.tele = null; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe || q.kind === 'torpedo'); };   // PAN-01 C: Projektile der Lerche bleiben
   const runPinned = (sec, f) => { for (let k = 0; k < Math.round(sec * 30); k++) { f(); g.step(); } };
   const pinE = hold(e, 1000, 1150, 0);
@@ -301,13 +302,13 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
   let batteryBeams = 0;
   runPinned(1.2, () => { pinE(); batteryBeams += g.space.projectiles.filter((b) => b.kind === 'pbatterie' && !b.seen).map((b) => (b.seen = true)).length; });
-  ok(e.shields[1] === 0 && e.shields[3] === 2 && Math.abs(e.hp - (40 - (M3.mounts.port.damage - 2))) < 0.01, `Altname both: Bb-Schuss (ein Projektil, SYS-01 B1) auf den Schild zum Schiff (2 -> 0), Rest auf die Hülle (hp ${e.hp})`);
+  ok(e.shields[1] === 0 && e.shields[3] === 2 && Math.abs(e.hp - 400) < 1e-6, `Altname both: Bb-Schuss (ein Projektil, SYS-01 B1) leert den Schild zum Schiff (2 -> 0), der Schild fängt ohne Überlauf: kein Systemschaden (Gesamtintegrität ${e.hp})`);
   ok(batteryBeams === 1 && !g.space.beams.some((b) => b.kind === 'battery'), 'ein Batterie-Projektil je Zyklus (kind pbatterie, kein Strahl): ' + batteryBeams);
-  e.shields = [0, 0, 0, 0]; e.hp = 40;
+  e.shields = [0, 0, 0, 0]; Testhilfe.setzeGesamt(e, 400);
   sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });   // Altname phase_l -> port
   runPinned(1.2, () => { pinE(); e.shields = [0, 0, 0, 0]; });
-  ok(e.hp === 40 - M3.mounts.port.damage, 'Altname phase_l -> Bb-Batterie, Schild weg -> Hüllenschaden (hp ' + e.hp + ')');
+  ok(Math.abs(e.hp - (400 - M3.mounts.port.damage)) < 1e-9, 'Altname phase_l -> Bb-Batterie, Schild weg -> Systemschaden (Gesamtintegrität ' + e.hp + ')');
   // Ziel außerhalb des Bogens: Ziel auf Steuerbord, Bb feuern
   e.x = 1000; e.y = 1850;
   sh.mount.port.charge = 1;
@@ -339,10 +340,10 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   send(0, { t: 'leave' });
   g.space.enemies = [];
   const r = space.spawnEnemy(g, 'raider', { x: 1000, y: 1150, facing: Math.PI / 2 });
-  r.shields = [0, 0, 0, 0]; r.hp = 10; sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
+  r.shields = [0, 0, 0, 0]; Testhilfe.setzeBudget(r, 100); sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
   runPinned(2.5, () => { r.x = 1000; r.y = 1150; r.vx = 0; r.vy = 0; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe); });
   // Toleranz: space.damageEnemy rundet HP je Treffer auf 0,1 (0,75 -> 0,7)
-  ok(Math.abs(r.hp - (10 - M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden je Projektil ' + M3.mounts.port.damage + ', SYS-01 B1) – hp ' + r.hp);
+  ok(Math.abs(r.hp - (100 - M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden je Projektil ' + M3.mounts.port.damage + ', SYS-01 B1) – Gesamtintegrität ' + r.hp);
   // EMP des Wächters
   g.space.enemies = [];
   sh.shields.current = [0, 0, 0, 0]; sh.shields.alloc = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];

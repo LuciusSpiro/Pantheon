@@ -23,6 +23,7 @@ const Besitz = require('../server/sim/besitz.js');
 const Ruf = require('../server/sim/ruf.js');
 const Posten = require('../server/sim/posten.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sprung = require('../server/sim/sprung.js');
 const Fracht = require('../server/sim/fracht.js');
 
@@ -112,7 +113,7 @@ function flotte(g, hex, fraktion, staerke) {
 const halt = (g) => g.fracht && g.fracht.halt;
 const grund = (g) => { const e = Posten.angreifenPruefen(g, false); return e ? e.code : null; };
 const text = (g) => { const e = Posten.angreifenPruefen(g, false); return e ? e.text : null; };
-const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+const kill = (g, e) => Testhilfe.toeten(g, e);
 const killAlle = (g, ohneFlagg) => { for (const e of g.space.enemies.slice()) if (!(ohneFlagg && e.flagg)) kill(g, e); };
 function angriff(g) { const e = Posten.angreifenStart(g, g.players[0]); if (e) return e; run(g, PW.angreifen.wert.dauer + 1.5); return null; }   // Anlauf bis zum Abschluss
 // Wellen abräumen bis zum Ende der Szene (Sieg)

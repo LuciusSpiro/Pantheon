@@ -13,6 +13,7 @@ const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
 const interior = require('../server/sim/interior.js');
 const Flight = require('../shared/flight.js');
 let damage = null;
@@ -103,7 +104,7 @@ function arena(players, opts) {
 function pinnedEnemy(g, kind, x, y, angle, opts) {
   const o = opts || {};
   const e = S.spawnEnemy(g, kind, { x, y, facing: angle != null ? angle : Math.atan2(g.ship.y - y, g.ship.x - x), waffen: o.waffen || VOLL_BESTUECKT });
-  if (o.hp) { e.hp = e.hpMax = o.hp; }
+  if (o.hp) Testhilfe.setzeBudget(e, o.hp);   // SYS-01 C1a-1: Klassenbudget statt Hülle
   if (o.noShields !== false) e.shields = [0, 0, 0, 0];
   e.pin = { x, y, angle: e.angle };
   return e;
@@ -763,43 +764,49 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   ok(lanceBeam && !lanceBeam.miss && near(Math.hypot(lanceBeam.x2 - lanceBeam.x1, lanceBeam.y2 - lanceBeam.y1), 400 - 34, 25), 'Strahl lance bis zum Gegner');
   ok(!events('lance').some((x) => x.kind !== 'lance'), 'Ereignis lance: Typ nicht überschrieben');
   // Schaden je power: halb -> 3 + 9 × 0,5 = 7,5
-  e.hp = 999; setCharge(g, 'bow', 1);
+  Testhilfe.setzeGesamt(e, 999); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.charge', { mount: 'bow', on: true });
   run(L.chargeTime / 2 - 1 / 30, tick);   // ein Tick im Befehl schon mitgezählt? nein -> power genau ½
   const pw = mountOf(g, 'bow').power;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
   ok(near(999 - e.hp, L.minDamage + (L.maxDamage - L.minDamage) * pw, 0.01) && near(pw, 0.5, 0.05), `power ${pw.toFixed(2)}: Schaden ${(999 - e.hp).toFixed(2)} = min + (max − min) × power`);
   // aus dem Stand: weapons.fire bow = power 0 -> Mindestschaden
-  e.hp = 999; setCharge(g, 'bow', 1);
+  Testhilfe.setzeGesamt(e, 999); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'bow' });
   ok(near(999 - e.hp, L.minDamage, 0.01), `weapons.fire bow aus dem Stand: Mindestschaden ${999 - e.hp}`);
   // Treffer = erster Gegner nahe der Linie (seitlich versetzt innerhalb hitRadius + width), ohne Ziel
-  e.hp = 999;
+  Testhilfe.setzeGesamt(e, 999);
   const e2 = pinnedEnemy(g, 'raider', sh.x + 250, sh.y + (CONFIG.combat.hitRadius.raider + L.width - 3), Math.PI, { hp: 999 });
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.target', { id: e.id });   // gewähltes Ziel spielt keine Rolle
   cmd(0, 'weapons.fire', { mount: 'bow' });
   ok(e2.hp < 999 && e.hp === 999, 'erster Gegner auf der Linie wird getroffen (seitlich 23 px versetzt, vor dem gewählten Ziel)');
   // knapp außerhalb (hitRadius + width + 3): kein Treffer an e2, aber e dahinter
-  e2.pin.y = sh.y + (CONFIG.combat.hitRadius.raider + L.width + 3); e2.hp = 999; run(0.05, tick);
+  e2.pin.y = sh.y + (CONFIG.combat.hitRadius.raider + L.width + 3); Testhilfe.setzeGesamt(e2, 999); run(0.05, tick);
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'bow' });
   ok(e2.hp === 999 && e.hp < 999, 'knapp neben der Linie: verfehlt, der Gegner dahinter wird getroffen');
   g.space.enemies = g.space.enemies.filter((q) => q !== e2);
   // Durchschlagend 2: Schild 4 zählt 2 -> Hülle = Schaden − 2 (SYS-01 B1: bei Vollladung durchschlägt die Lanze den Schild ganz, das prüft test-waffen-cooldown)
-  e.hp = 999; e.keepShields = true; e.shields = [4, 4, 4, 4];
+  Testhilfe.setzeGesamt(e, 999); e.keepShields = true; e.shields = [4, 4, 4, 4]; e.shieldsMax = [4, 4, 4, 4];   // Obergrenze mit anheben: schildPflege kappt auf shieldsMax
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.charge', { mount: 'bow', on: true });
   run(L.chargeTime * 0.5, tick);
   const pTeil = g.ship.mount.bow.power;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
-  const erwartet = L.minDamage + (L.maxDamage - L.minDamage) * pTeil - M3.mounts.bow.pierce;
-  ok(pTeil < 1 && near(999 - e.hp, erwartet, 0.05), `durchschlagend 2 (Teilladung ${pTeil.toFixed(2)}): Schild 4 zählt 2 -> Hülle −${(999 - e.hp).toFixed(2)} = ${erwartet.toFixed(2)}`);
+  // Alte Regel (Hülle): Schild 4 zählt 2, der Rest (Schaden − 2) geht auf die Hülle. Neue Regel (SYS-01 C1a-1, wie bei der Lerche in damage.resolveHit): ein
+  // Schild, der nach dem Durchschlag noch über 0 steht, fängt ohne Überlauf ab; erst bei wirksamem Schild 0 trifft der volle Schaden ein System der Zone.
+  const dmgTeil = L.minDamage + (L.maxDamage - L.minDamage) * pTeil;
+  const schildSumme = () => e.shields.reduce((a, v) => a + v, 0);
+  ok(pTeil < 1 && dmgTeil > M3.mounts.bow.pierce && Testhilfe.gesamtIntegritaet(e) === 999 && near(16 - schildSumme(), M3.mounts.bow.pierce, 1e-6), `durchschlagend 2 (Teilladung ${pTeil.toFixed(2)}): Schild 4 zählt 2, fängt ${(16 - schildSumme()).toFixed(2)} ab (Schaden ${dmgTeil.toFixed(2)}), kein Überlauf: Integrität ${Testhilfe.gesamtIntegritaet(e)}`);
+  e.shields = [2, 2, 2, 2];
+  S.damageEnemy(g, e, dmgTeil, e.x + 100, e.y, { pierce: M3.mounts.bow.pierce });
+  ok(near(999 - e.hp, dmgTeil, 1e-6) && schildSumme() === 8, `durchschlagend 2: Schild 2 zählt 0 -> der volle Schaden ${dmgTeil.toFixed(2)} trifft ein System (Integrität −${(999 - e.hp).toFixed(2)}), Schild unberührt`);
   e.keepShields = false;
   // Fehlschuss ins Leere: Strahl bis range, kind lance, miss
   e.pin.y = sh.y + 300; run(0.05, tick);
   clearInbox();
-  setCharge(g, 'bow', 1); e.hp = 999;
+  setCharge(g, 'bow', 1); Testhilfe.setzeGesamt(e, 999);
   cmd(0, 'weapons.fire', { mount: 'bow' });
   const mb = g.space.beams.filter((b) => b.kind === 'lance').pop();
   const snapBeam = (g.snapshot().space.beams || []).find((b) => b.kind === 'lance' && b.miss);
@@ -808,7 +815,7 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   e.pin.y = sh.y;
   // Konsole verlassen: Aufladen verpufft ohne Schuss
   run(0.05, tick);
-  setCharge(g, 'bow', 1); e.hp = 999;
+  setCharge(g, 'bow', 1); Testhilfe.setzeGesamt(e, 999);
   cmd(0, 'weapons.charge', { mount: 'bow', on: true });
   run(1, tick);
   clearInbox();
@@ -835,7 +842,7 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   g.ship.systems.weapon_bow = 'ok';
   // Unbesetzt: Lanze feuert automatisch mit autoPower, wenn ein Gegner in der Linie liegt
   leave(0);
-  e.hp = 999; setCharge(g, 'bow', 1);
+  Testhilfe.setzeGesamt(e, 999); setCharge(g, 'bow', 1);
   e.pin.y = sh.y + 300; run(0.5, tick);
   ok(e.hp === 999 && mountOf(g, 'bow').charge >= 1, 'unbesetzt, kein Gegner in der Linie: kein Schuss');
   e.pin.y = sh.y; run(0.2, tick);
@@ -947,7 +954,7 @@ section('Ladepunkte (§5.2, §5.5)', () => {
   run(1.5, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); });
   // Abweichung (Studioleitung genehmigt): unbesetzte Taktik = halbe LADEgeschwindigkeit, voller Schaden je Treffer
   ok(near(hp0 - t.hp, M3.mounts.port.tubes * M3.mounts.port.damage, 0.05), `unbesetzt: Bb-Salve mit vollem Schaden (${(hp0 - t.hp).toFixed(1)} von ${M3.mounts.port.tubes * 1.5})`);
-  setCharge(g, 'port', 0); run(4, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); t.hp = 999; });
+  setCharge(g, 'port', 0); run(4, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); Testhilfe.setzeGesamt(t, 999); });
   const rUn = mountOf(g, 'port').charge / 4;
   const zyk = M3.mounts.port.secPerPoint + (require('../shared/schiffskatalog.js').waffe('standardbatterie').nachlauf || 0);   // SYS-01 B1 Nacharbeit: Zyklus = Ladekosten + Nachlauf
   ok(near(rUn, 1 / zyk * M3.autoFactor, 0.005), `unbesetzt: Bb lädt mit halber Geschwindigkeit (${(1 / rUn).toFixed(1)} s statt ${zyk} s)`);
@@ -1226,14 +1233,19 @@ section('QA: tune spaceM3.<pfad> (§10, §17)', () => {
 // ======================================================================
 section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   const { g } = arena(1);
-  const e = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y, Math.PI, { hp: 3 });
-  for (let i = 0; i < 4; i++) S.damageEnemy(g, e, 0.75);   // 4 × 0,75 = 3 (vorher: 0,8 je Treffer gerundet -> 3,2, aber 0,05er-Fehler je Treffer)
-  ok(!g.space.enemies.includes(e), '4 × 0,75 Schaden zerstören einen Gegner mit 3 HP');
-  const e2 = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y + 50, Math.PI, { hp: 1 });
-  for (let i = 0; i < 3; i++) S.damageEnemy(g, e2, 0.3);
-  ok(g.space.enemies.includes(e2) && Math.abs(e2.hp - 0.1) < 1e-6, `3 × 0,3 Schaden lassen 0,1 HP übrig (${e2.hp.toFixed(3)})`);
-  S.damageEnemy(g, e2, 0.1);
-  ok(!g.space.enemies.includes(e2), 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört');
+  // SYS-01 C1a-1: alte Regel „Hülle 3 HP, Teiltreffer summieren sich bis 0“ -> neue Regel: Teiltreffer summieren sich auf dem getroffenen System (Reaktor in der Mitte,
+  // Durchschlag 'zone'); der Gegner stirbt, wenn dessen Integrität 0 erreicht (Gleitkomma-Reste zählen nicht).
+  const hitMitte = (e) => S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' });
+  const e = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y, Math.PI, { hp: 300 });
+  Testhilfe.mitteNurReaktor(e); Testhilfe.setzeIntegritaet(e, 'reaktor', 3);
+  for (let i = 0; i < 4; i++) hitMitte(e);   // 4 × 0,75 = 3 (vorher: 0,8 je Treffer gerundet -> 3,2, aber 0,05er-Fehler je Treffer)
+  ok(!g.space.enemies.includes(e), '4 × 0,75 Schaden zerstören den Reaktor mit 3 Punkten Integrität: der Gegner stirbt');
+  const e2 = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y + 50, Math.PI, { hp: 300 });
+  Testhilfe.mitteNurReaktor(e2); Testhilfe.setzeIntegritaet(e2, 'reaktor', 1);
+  for (let i = 0; i < 3; i++) S.damageEnemy(g, e2, 0.3, e2.x - 100, e2.y, { durchschlag: 'zone' });
+  ok(g.space.enemies.includes(e2) && Math.abs(e2.sys.reaktor.i - 0.1) < 1e-6, `3 × 0,3 Schaden lassen 0,1 Integrität am Reaktor übrig (${e2.sys.reaktor.i.toFixed(3)})`);
+  S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
+  ok(!g.space.enemies.includes(e2), 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört den Reaktor, der Gegner stirbt');
 });
 
 // ======================================================================

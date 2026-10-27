@@ -13,6 +13,7 @@ const Katalog = require('../shared/schiffskatalog.js');
 const Maps = require('../shared/maps.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Schilde samt Obergrenze)
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
 const { execFileSync } = require('child_process');
@@ -52,7 +53,7 @@ function bestueck(g, platz, id) {
 // Gegner still, ohne Schild (oder mit Schild s), mit fast unendlicher Hülle; pin hält die Position fest
 function ziel(g, kind, dx, dy, schild) {
   const sh = g.ship; const e = space.spawnEnemy(g, kind, { x: sh.x + dx, y: sh.y + dy, facing: Math.PI });
-  e.shields = e.shields.map(() => (schild == null ? 0 : schild)); e.hp = e.hpMax = 1e9; e.pin = { x: e.x, y: e.y, angle: e.angle };
+  Testhilfe.setzeSchilde(e, e.shields.map(() => (schild == null ? 0 : schild))); Testhilfe.setzeBudget(e, 1e9); e.pin = { x: e.x, y: e.y, angle: e.angle };
   return e;
 }
 function pin(g) {
@@ -169,7 +170,7 @@ section('Start-Lerche (Lanze + 2 Standardbatterien, Pool 4) wie vor B1, innerhal
 
 section('Sturmbatterie unter anhaltendem Feuer: der Schild fällt auf 0, bis dahin kein Systemschaden, Regeneration gesperrt', () => {
   const T = arena(); const g = T.g; bestueck(g, 4, 'sturmbatterie'); poolVier(g);
-  const e = ziel(g, 'korvette', 0, -250, 6); e.shields = [6, 6, 6, 6]; pin(g);
+  const e = ziel(g, 'korvette', 0, -250, 6); Testhilfe.setzeSchilde(e, [6, 6, 6, 6]); pin(g);
   g.ship.wAllocIntent = { port: 4 };
   const regenSperre = Katalog.waffe('sturmbatterie').sturm.regenSperre;
   const hp0 = e.hp; let schildNull = null, hpBisNull = 0, zsBisNull = false, regenOk = true, fruehstens = Infinity;
@@ -228,14 +229,18 @@ section('Gegnerfeuer (Standardbatterie-Verhalten) auf die Lerche: Zonensysteme z
 
 section('Lanze: Schildpierce 2, bei Vollladung Durchschlag bis in die Mitte', () => {
   const T = arena(); const g = T.g; bestueck(g, 8, 'lanze'); poolVier(g);
-  const e = ziel(g, 'korvette', 250, 0, 4); e.shields = [4, 4, 4, 4]; pin(g);
+  const e = ziel(g, 'korvette', 250, 0, 4); Testhilfe.setzeSchilde(e, [4, 4, 4, 4]); pin(g);
   const sh0 = e.shields.slice(); const hp0 = e.hp;
   Waffen.fireLance(g, 'bow', 1, false);
   ok(near(hp0 - e.hp, 12, 0.01) && e.shields.every((v, i) => v === sh0[i]), `Vollladung: Hülle −${(hp0 - e.hp).toFixed(2)} = 12, Schild unberührt (durchschlägt die Zone)`);
-  e.shields = [4, 4, 4, 4]; const hp1 = e.hp; Waffen.fireLance(g, 'bow', 0.5, false);
+  Testhilfe.setzeSchilde(e, [4, 4, 4, 4]); const hp1 = e.hp; Waffen.fireLance(g, 'bow', 0.5, false);
   const teil = 3 + 9 * 0.5;
   const sekt = e.shields.findIndex((v) => v < 4);
-  ok(sekt >= 0 && near(e.shields[sekt], 2, 0.01) && near(hp1 - e.hp, teil - 2, 0.01), `Teilladung 0,5: Schild um 2 (pierce) gesenkt (${e.shields[sekt]}), Hülle −${(hp1 - e.hp).toFixed(2)} = ${teil} − 2`);
+  // alte Regel: Schild 4 zählt 2, der Rest (7,5 − 2) trifft die Hülle. Neue Regel (SYS-01 C1a-1, wie die Lerche in damage.resolveHit): bleibt der Schild nach dem Durchschlag über 0,
+  // fängt er den Treffer ohne Überlauf ab (Schild um 2 gesenkt, kein Systemschaden); erst bei wirksamem Schild 0 trifft der volle Schaden ein System.
+  ok(sekt >= 0 && near(e.shields[sekt], 2, 0.01) && near(hp1 - e.hp, 0, 1e-6), `Teilladung 0,5: Schild um 2 (pierce) gesenkt (${e.shields[sekt]}), kein Überlauf: Integrität −${(hp1 - e.hp).toFixed(2)} (Soll 0)`);
+  const hp1b = e.hp; Testhilfe.setzeSchilde(e, [2, 2, 2, 2]); Waffen.fireLance(g, 'bow', 0.5, false);
+  ok(near(hp1b - e.hp, teil, 0.01) && e.shields.every((v) => near(v, 2, 1e-9)), `Teilladung 0,5 gegen Schild 2: wirksamer Schild 0, der volle Schaden trifft ein System (Integrität −${(hp1b - e.hp).toFixed(2)} = ${teil}), Schild unberührt`);
   g.space.enemies = g.space.enemies.filter((q) => q !== e);   // der erste Gegner auf der Linie hätte den Schuss sonst abgefangen
   const e2 = ziel(g, 'korvette', 250, 0, 4); e2.shields = [0, 0, 0, 0]; const hp2 = e2.hp;
   Waffen.fireLance(g, 'bow', 1, false);
@@ -244,7 +249,7 @@ section('Lanze: Schildpierce 2, bei Vollladung Durchschlag bis in die Mitte', ()
 
 section('Sturmbatterie gegen vollen Schild: Schild fällt, Regeneration gesperrt, kein Systemschaden', () => {
   const T = arena(); const g = T.g; bestueck(g, 4, 'sturmbatterie'); poolVier(g);
-  const e = ziel(g, 'korvette', 0, -250, 40); e.shields = [40, 40, 40, 40]; pin(g);
+  const e = ziel(g, 'korvette', 0, -250, 40); Testhilfe.setzeSchilde(e, [40, 40, 40, 40]); pin(g);
   const sum0 = e.shields.reduce((a, b) => a + b, 0); const hp0 = e.hp;
   g.ship.wAllocIntent = { port: 1 };
   g.ship.mount.port.charge = 1; Waffen.weaponsFire(g, 'port');
@@ -267,7 +272,7 @@ section('Standardbatterie gegen Schild 0: Hülle getroffen (Lücke: geleerte Geg
 
 section('Torpedo umgeht den stehenden Schild nicht (Lesart B)', () => {
   const T = arena(); const g = T.g;
-  const e = ziel(g, 'korvette', 0, -250, 40); e.shields = [40, 40, 40, 40]; const hp0 = e.hp;
+  const e = ziel(g, 'korvette', 0, -250, 40); Testhilfe.setzeSchilde(e, [40, 40, 40, 40]); const hp0 = e.hp;
   space.damageEnemy(g, e, 9, e.x, e.y - 80, { huelle: true, nurOhneSchild: true });
   ok(e.hp === hp0 && e.shields.every((v) => v === 40), 'stehender Schild: Torpedo prallt ab (Hülle und Schild unberührt)');
 });

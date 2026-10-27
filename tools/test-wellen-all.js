@@ -10,6 +10,7 @@ const Drift = require('../shared/drift.js');
 const Locations = require('../shared/locations.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Wellen = require('../server/sim/wellen.js');
 const { makeRng } = require('../server/util.js');
 
@@ -258,7 +259,7 @@ section('ablauf: Welle, Pause, Ende beim Notfallprotokoll, Ergebnis, Lobby', () 
   ok(S().ph === 'kampf' && S().n === 1 && S().gesamt === soll && events('welle').length === 1, `Welle 1: ${soll} Gegner (aus der Tabelle)`);
   // alle abschießen (Spieler an der Taktik bekommt die Abschüsse)
   g.players[0].console = 'weapons';
-  for (const e of g.space.enemies.slice()) space.damageEnemy(g, e, 999, null, null);
+  for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e);
   for (let i = 0; i < 30; i++) g.step();
   ok(S().ph === 'pause' && S().abschuesse === soll && S().kills[g.players[0].id] === soll && events('welleGeschafft').length === 1, `Pause nach Welle 1, ${soll} Abschüsse für die Taktik`);
   for (let i = 0; i < 30 * (C.pause + 1); i++) g.step();

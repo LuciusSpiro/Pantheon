@@ -21,6 +21,7 @@ const Szene = require('../server/sim/kriegslage-szene.js');
 const Besitz = require('../server/sim/besitz.js');
 const Sprung = require('../server/sim/sprung.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Escort = require('../server/sim/escort.js');
 const Flotte = require('../server/sim/flotte.js');
 const Reise = require('../server/sim/reise.js');
@@ -90,7 +91,7 @@ function flotte(g, hex, fraktion, staerke, o) {
 const ohneFlotten = (g, hex) => { const st = z(g); st.flotten = st.flotten.filter((f) => f.ort !== hex); };
 // Ankunft in einem Hex (wie nach einem Sprung, ohne Tick)
 function ankunft(g, hex) { Space.enterScene(g, Sektoren.ortVonHex(hex), {}); ab(g); }
-const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+const kill = (g, e) => Testhilfe.toeten(g, e);
 const killAlle = (g, ohneFlagg) => { for (const e of g.space.enemies.slice()) if (!(ohneFlagg && e.flagg)) kill(g, e); };
 const gegner = (g) => g.space.enemies.filter((e) => e.wv != null);
 const verbuendete = (g) => (g.space.escorts || []).filter((q) => q.ally && q.sim);

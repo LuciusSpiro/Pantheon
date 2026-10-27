@@ -22,6 +22,7 @@ const Verrat = require('../server/sim/verrat.js');
 const Werft = require('../server/sim/werft.js');
 const Flotte = require('../server/sim/flotte.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sprung = require('../server/sim/sprung.js');
 const Fracht = require('../server/sim/fracht.js');
 
@@ -105,7 +106,7 @@ function bereit(o) {
 }
 const halt = (g) => g.fracht && g.fracht.halt;
 const grund = (g) => { const e = Verrat.pruefen(g, false); return e ? e.code : null; };
-const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+const kill = (g, e) => Testhilfe.toeten(g, e);
 const ex = (g) => g.space.enemies.filter((e) => e.verratS);
 const allies = (g) => (g.space.escorts || []).filter((q) => q.ally);
 // zweistufig (Review E): erster Druck = Anfrage, zweiter Druck im Fenster = Anlauf; Weigerungen kommen schon beim ersten Druck
@@ -725,9 +726,9 @@ section('Gleiche Regeln für Ex-Verbündete wie für Gegner', () => {
     ok(gleich(Object.values(e.waffen || {}).length, Object.values(norm.waffen || {}).length) && Object.values(e.waffen || {}).every((x) => typeof x === 'string'), 'bestückt wie ein Gegner (Katalogwaffen je Platz)');
   }
   // dieselbe Treffer- und Schadenslogik: ein Geschoss der Lerche wirkt auf einen Ex-Verbündeten wie auf einen Gegner gleicher Klasse
-  const e1 = ex(g)[0]; const cmp = Space.spawnEnemy(g, e1.kind, { tag: 'vergleich', x: e1.x + 400, y: e1.y + 400 }); cmp.hp = cmp.hpMax = e1.hpMax; e1.hp = e1.hpMax;
+  const e1 = ex(g)[0]; const cmp = Space.spawnEnemy(g, e1.kind, { tag: 'vergleich', x: e1.x + 400, y: e1.y + 400 }); Testhilfe.setzeGesamt(cmp, cmp.hpMax); Testhilfe.setzeGesamt(e1, e1.hpMax);
   e1.shields.fill(0); cmp.shields.fill(0);
-  Space.damageEnemy(g, e1, 5, e1.x - 100, e1.y, {}); Space.damageEnemy(g, cmp, 5, cmp.x - 100, cmp.y, {});
+  Space.damageEnemy(g, e1, 0.5, e1.x - 100, e1.y, {}); Space.damageEnemy(g, cmp, 0.5, cmp.x - 100, cmp.y, {});   // klein genug, dass kein System (zufällige Wahl) davon zerstört wird
   ok(Math.abs((e1.hpMax - e1.hp) - (cmp.hpMax - cmp.hp)) < 1e-9 && e1.hp < e1.hpMax, 'gleicher Schaden bei gleichem Treffer (' + (e1.hpMax - e1.hp) + ')');
 });
 

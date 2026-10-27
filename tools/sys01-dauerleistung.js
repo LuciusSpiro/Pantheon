@@ -10,6 +10,7 @@ const CONFIG = require('../shared/config.js');
 const Katalog = require('../shared/schiffskatalog.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
 const Maps = require('../shared/maps.js');
@@ -40,9 +41,9 @@ function messe(t, punkte) {
   Object.assign(g.ship.power, g.ship.powerIntent);
   const ids = Waffen.energieMounts(g).map((x) => x.id);
   g.space.enemies = []; g.space.projectiles = [];
-  const mk = (kind, dx, dy) => { const e = space.spawnEnemy(g, kind, { x: sh.x + dx, y: sh.y + dy, facing: Math.PI }); e.shields = e.shields.map(() => 0); e.hp = e.hpMax = 1e9; e.pin = { x: e.x, y: e.y, angle: e.angle }; return e; };
+  const mk = (kind, dx, dy) => { const e = space.spawnEnemy(g, kind, { x: sh.x + dx, y: sh.y + dy, facing: Math.PI }); Testhilfe.setzeSchilde(e, e.shields.map(() => 0)); Testhilfe.setzeBudget(e, 1e9); e.pin = { x: e.x, y: e.y, angle: e.angle }; return e; };
   mk('korvette', 400, 0); mk('korvette', 0, -300); mk('korvette', 0, 300); mk('raider', -120, 90);
-  const pin = () => { sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; for (const e of g.space.enemies) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; e.hp = 1e9; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; } };
+  const pin = () => { sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; for (const e of g.space.enemies) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; Testhilfe.setzeGesamt(e, 1e9); e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; } };
   const want = {}; for (const id of ids) want[id] = punkte; g.ship.wAllocIntent = want;
   const fenster = [[0, 10], [30, SEK]]; const sum = fenster.map(() => 0); let last = 0, tt = 0, schuss = 0;
   const zaehl = () => ((g.stats.waffenSchaden || {}).gesamt || 0);

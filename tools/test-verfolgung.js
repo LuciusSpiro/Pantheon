@@ -21,6 +21,10 @@ const Labor = require('../server/mission/labor.js');
 const Spielleiter = require('../server/mission/spielleiter.js');
 const Checker = require('../server/mission/checker.js');
 const V = require('../content/kampf/verfolgung-werte.json').werte;
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Abschuss über den Reaktor, Schild unten)
+// SYS-01 C1a-1: Die Zielschiffe haben kein Hüllenkonto mehr; ein Treffer von 3 (früher ein Hüllenpunkt-Betrag) nähme ein ganzes System (Korvette solo: Antrieb 1,9 von 16). Diese Tests prüfen die
+// Verfolgungs- und Zielsystemregeln (Stufen, Stellen, Verzögerung), nicht die Kalibrierung der Integrität: das Klassenbudget ist hier ×50, damit kein Systemtreffer über die Zone in die Mitte läuft.
+CONFIG.spaceM3.enemyHpFactor *= 50;
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const DT = 1 / CONFIG.tickHz;
@@ -212,7 +216,8 @@ section('Sprungladung stören', () => {
   ok(e.sprung != null, 'Sprungladung läuft');
   const k = g.space.verfolgung;
   ok(k.verz === 0, 'keine Verzögerung');
-  // Hüllentreffer (an der Seite, ohne Antriebstreffer: kein Systemziel, kein Heck)
+  // Hüllentreffer (an der Seite, ohne Antriebstreffer: kein Systemziel, kein Heck); ohne Schild (ein stehender Schild fängt ohne Überlauf und verzögert nicht)
+  Testhilfe.schildNull(e);
   space.damageEnemy(g, e, 4, e.x + Math.cos(e.angle + Math.PI / 2) * 60, e.y + Math.sin(e.angle + Math.PI / 2) * 60, { angriff: true });
   T.run(0.1);
   ok(Math.abs(k.verz - V.sprung.wert.verzoegerungJeTreffer) < 1e-9, `ein Hüllentreffer verzögert die Ladung um ${V.sprung.wert.verzoegerungJeTreffer} s`);
@@ -272,7 +277,7 @@ section('Zerstörung und Szenenwechsel', () => {
   const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
   Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });
   const e = zielVon(g); T.run(1);
-  space.damageEnemy(g, e, 9999, e.x - 30, e.y, { angriff: true });
+  Testhilfe.toeten(g, e, { von: [e.x - 30, e.y], angriff: true });
   T.run(0.2);
   ok(Verfolgung.ausgang(g) === 'zerstoert' && Verfolgung.erfolg(g), 'zerstört: Ausgang zerstoert zählt als Erfolg');
   ok(T.me('verfolgungAusgang').length === 1 && T.me('verfolgungAusgang')[0].was === 'zerstoert', 'missionEvent verfolgungAusgang (zerstoert)');
@@ -410,7 +415,7 @@ section('Systemziel hängt am Ziel: mit dem Zielschiff geht auch das Systemziel 
   Verfolgung.starten(g, { klasse: 'korvette' });
   const e = zielVon(g); e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
   ok(g.ship.zielsystem === 'antrieb', 'Systemziel gesetzt');
-  space.damageEnemy(g, e, 9999, e.x - 30, e.y, { angriff: true });
+  Testhilfe.toeten(g, e, { von: [e.x - 30, e.y], angriff: true });
   ok(g.ship.target == null && g.ship.zielsystem === undefined, 'Zielschiff zerstört: Ziel und Systemziel sind weg');
 });
 
@@ -471,7 +476,7 @@ section('Funkzeile an alle Stationen: Ausgang und Sprungstart aus den Daten (Rev
   const U = raum(); platz(U.g, 600, 1100, 0);
   Verfolgung.starten(U.g, { klasse: 'korvette', name: 'Falke', wiederholung: false });
   const hu = horch(U); const eu = zielVon(U.g); U.run(0.5);
-  space.damageEnemy(U.g, eu, 9999, eu.x - 30, eu.y, { angriff: true });
+  Testhilfe.toeten(U.g, eu, { von: [eu.x - 30, eu.y], angriff: true });
   U.run(0.2);
   ok(funk(hu.a, erw('zerstoert')) && funk(hu.b, erw('zerstoert')), `Zerstört: Funkzeile „${erw('zerstoert')}“ an beide Stationen`);
   // Stellen (Antrieb aus, Lerche nah)

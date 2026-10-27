@@ -14,6 +14,7 @@ const { Game } = require('../server/game.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Finale = require('../server/sim/finale.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Szene = require('../server/sim/kriegslage-szene.js');
 const Bot = require('./sim-finale-orbit.js');
 
@@ -61,7 +62,7 @@ const zurueck = () => { enden = []; boden = 0; };
 
 const eigene = (g, S) => g.space.enemies.filter((e) => e.finaleS === S.id);
 const verbuendete = (g, S) => (g.space.escorts || []).filter((q) => q.sim === S.id);
-const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.y, {}); };
+const toete = (g, e) => Testhilfe.toeten(g, e);
 
 (async () => {
   await section('Daten', () => {

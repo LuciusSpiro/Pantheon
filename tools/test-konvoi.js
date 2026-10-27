@@ -11,6 +11,7 @@ const CONFIG = require('../shared/config.js');
 const Weltstand = require('../server/weltstand.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Konvoi = require('../server/sim/konvoi.js');
 const Fracht = require('../server/sim/fracht.js');
 const Escort = require('../server/sim/escort.js');
@@ -82,7 +83,7 @@ function raum(opts) {
   return T;
 }
 const alleT = (g) => Konvoi.transporter(g);
-const kill = (g, e) => space.damageEnemy(g, e, 9999, e.x - 30, e.y);
+const kill = (g, e) => Testhilfe.toeten(g, e, { von: [e.x - 30, e.y] });
 const platz = (g, x, y, ang) => { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; s.turnVel = 0; if (ang != null) s.angle = ang; };
 // Lerche weit weg vom Konvoi (kein Alarm durch Nähe)
 const fern = (g) => platz(g, 300, 300, 0);
@@ -377,7 +378,7 @@ section('Gleiche Regeln: Schilde, Treffer, Marken, Lanze, Schützlings-Pfad', ()
   space.damageEnemy(g, t, 0.5, t.x + Math.cos(t.angle) * 100, t.y + Math.sin(t.angle) * 100);
   ok(t.hp === hp0 && t.shields.some((v, i) => v < sh0[i]), 'Schild nimmt den Treffer (Hülle unberührt): Schilde ' + JSON.stringify(t.shields));
   const marks0 = g.inventory.marks, kills0 = g.stats.kills;
-  space.damageEnemy(g, t, 9999, t.x - 50, t.y);
+  Testhilfe.toeten(g, t, { von: [t.x - 50, t.y] });
   ok(g.inventory.marks === marks0 + CONFIG.enemies.frachter.salvage && g.stats.kills === kills0 + 1, 'Zerstörung gibt Marken (salvage) und zählt als Abschuss wie bei jedem Gegner');
   // Lanze trifft Transporter (hitRadius)
   const U = raum(); const gu = U.g; fern(gu);

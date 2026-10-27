@@ -10,6 +10,7 @@ const X = require('./faden-fixture.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Sektoren = require('../shared/sektoren.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Bitte = require('../server/sim/faden-bitte.js');
 const Pruefer = require('../server/sim/faden-pruefer.js');
 const P3 = require('../server/sim/faden-p3.js');
@@ -192,7 +193,7 @@ async function main() {
   console.log('\n4. Befreiung findet am Ort des NSC statt');
   {
     const SZW = SZ.werte;
-    const kill = (g, tag) => { for (const e of g.space.enemies.filter((x) => x.tag === tag)) Space.damageEnemy(g, e, 99999, e.x, e.y); };
+    const kill = (g, tag) => { for (const e of g.space.enemies.filter((x) => x.tag === tag)) Testhilfe.toeten(g, e); };
     const bis = async (g, fn, max) => { for (let i = 0; i < (max || 900) && !fn(); i++) await pumpen(g, 1); return fn(); };
     const wachen = (g) => g.space.enemies.filter((e) => /^fs\d+$/.test(e.tag || '')).length;
     {   // Schiff woanders: keine Szene, keine Wachen, Funk nennt den Ort; Ankunft startet die Szene; die Wachen weg = frei
@@ -360,8 +361,8 @@ async function main() {
       for (let i = 0; i < 900 && !(g.fadenSzene && g.fadenSzene.phase === 'kampf'); i++) await pumpen(g, 1);
       const fs2 = g.fadenSzene;
       if (!fs2 || fs2.phase !== 'kampf') return false;
-      if (typ === 'verfolgung') { const z = g.space.verfolgung && g.space.verfolgung.ziel; const e = g.space.enemies.find((x) => x.id === z); if (e) Space.damageEnemy(g, e, 99999, e.x, e.y); }
-      else for (const e of g.space.enemies.filter((x) => x.tag === fs2.tag)) Space.damageEnemy(g, e, 99999, e.x, e.y);
+      if (typ === 'verfolgung') { const z = g.space.verfolgung && g.space.verfolgung.ziel; const e = g.space.enemies.find((x) => x.id === z); if (e) Testhilfe.toeten(g, e); }
+      else for (const e of g.space.enemies.filter((x) => x.tag === fs2.tag)) Testhilfe.toeten(g, e);
       await pumpen(g, 6);
       return true;
     };

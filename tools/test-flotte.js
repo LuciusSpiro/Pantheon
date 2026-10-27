@@ -10,6 +10,7 @@ const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Escort = require('../server/sim/escort.js');
 const Flotte = require('../server/sim/flotte.js');
 const Pilot = require('../server/sim/pilot.js');
@@ -59,7 +60,7 @@ function platz(g, x, y) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Verbündeten so lange treffen, bis die Hülle unter den Anteil fällt (nach Hits à dmg)
 function treffen(g, es, bisFrac) { let i = 0; while (es.hp / es.hpMax >= bisFrac && es.state !== 'zerstoert' && i++ < 400) Escort.hit(g, es, 4, {}); }
-function toeten(g, e) { e.hp = 1; space.damageEnemy(g, e, 50, e.x - 100, e.y, {}); }
+const toeten = (g, e) => Testhilfe.toeten(g, e);
 const npcMem = (g, id) => (g.weltstand && g.weltstand.data && g.weltstand.data.npc[id] && g.weltstand.data.npc[id].gedaechtnis) || [];
 
 section('Protokoll, Konfiguration und Daten', () => {

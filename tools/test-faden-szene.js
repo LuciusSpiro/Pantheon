@@ -7,6 +7,7 @@
 // Erwartete Werte: eigene Zählung im Test, nicht aus dem Produktivcode abgeleitet.      node tools/test-faden-szene.js
 const CONFIG = require('../shared/config.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sektoren = require('../shared/sektoren.js');
 const Verfolgung = require('../server/sim/verfolgung.js');
 const Weltstand = require('../server/weltstand.js');
@@ -92,7 +93,7 @@ section('Raumschlacht: Vorwarnung, Kampf, gelungen (alle abgezogen oder zerstör
   const tag = 'fs' + szene(g).id;
   ok(szene(g).phase === 'kampf' && eigeneTags(g, tag) === 2, 'Kampf mit 2 Gegnern (eine Crew)');
   const gegner = g.space.enemies.filter((e) => e.tag === tag);
-  for (const e of gegner) Space.damageEnemy(g, e, 9999, e.x, e.y);
+  for (const e of gegner) Testhilfe.toeten(g, e);
   laufe(g, 1);
   ok(!szene(g) && f.phase === 'wartet' && f.beat === 1, 'alle zerstört: gelungen, der Beat ist zu Ende, der Faden geht zum Abschluss');
   ok(radio.some((t) => t === T.gelungen.raumschlacht), 'Ergebnis per Funk');
@@ -128,7 +129,7 @@ section('Befreiung: Wachen vertreiben, der NSC ist frei (Raumszene)', () => {
   laufe(g, W.vorlauf_s + 1);
   const tag = 'fs' + szene(g).id;
   ok(eigeneTags(g, tag) === W.befreiung.anzahl['2'], 'zwei Crew: ' + W.befreiung.anzahl['2'] + ' Wachschiffe');
-  for (const e of g.space.enemies.filter((x) => x.tag === tag)) Space.damageEnemy(g, e, 9999, e.x, e.y);
+  for (const e of g.space.enemies.filter((x) => x.tag === tag)) Testhilfe.toeten(g, e);
   laufe(g, 1);
   ok(f.nsc.status === 'verbuendet' && f.phase === 'wartet', 'gelungen: der NSC ist frei (Status verbuendet, Faden geht weiter)');
   ok(radio.some((t) => /sind vertrieben/.test(t) || /ist frei/.test(t)), 'Ergebnis per Funk');
@@ -262,6 +263,7 @@ section('Spontanhilfe: Chance aus der Haltung, eigener Strom, Verbündeter unver
   ok(es2.hp < hp2, 'Gegenprobe: ein Gegner-Geschoss mit tgt trifft den Verbuendeten (' + hp2 + ' -> ' + es2.hp + ')');
   // Gegenprobe 2: ein Crew-Geschoss trifft einen Gegner
   const gz = Space.spawnEnemy(g, 'raider', { x: es.x - 600, y: es.y + 600, tag: 'probe' });
+  Testhilfe.schildNull(gz);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf, die Gegenprobe prüft den Systemtreffer
   const hz = gz.hp;
   g.space.projectiles.push({ id: 'pl', kind: 'laser', x: gz.x, y: gz.y, angle: 0, speed: 0, ttl: 5, dmg: 80 });
   laufe(g, 0.2);
@@ -284,7 +286,7 @@ section('Spontanhilfe in einer Raumschlacht: erscheint, kämpft mit, verschwinde
   // Verbündet erscheint mit hoher Chance; der Ausgang des Beats hängt davon ab (erschienen = gelungen am Gefechtsende, sonst wartet er weiter)
   const erschienen = !!ally;
   if (erschienen) ok(g.space.escorts.some((q) => q.tag === ally.tag && q.ally), 'der Verbündete ist im Gefecht dabei');
-  for (const e of g.space.enemies.filter((x) => x.tag === tag)) Space.damageEnemy(g, e, 9999, e.x, e.y);
+  for (const e of g.space.enemies.filter((x) => x.tag === tag)) Testhilfe.toeten(g, e);
   laufe(g, 1);
   ok(!szene(g), 'Raumschlacht vorbei');
   ok(!g.space.escorts.some((q) => q.ally && q.tag.startsWith('nsc_' + f.nsc.id)), 'Verbündeter verschwindet am Ende des Gefechts');
@@ -356,7 +358,7 @@ section('Spontanhilfe ohne Gefecht: die Frist scheitert den Beat, der Faden lebt
 const stub = () => ({ disposed: false, mode: 'mock', beiGrenze() {} });   // aktiver Lage-Spielleiter (Fristen laufen nur mit ihm, faden.js B-S3)
 const faGegner = (g) => g.space.enemies.filter((e) => /^fs\d+$/.test(e.tag || '')).length;
 const reiseGegner = (g, L) => g.space.enemies.filter((e) => e.tag === L.tag).length;
-const toeteAlle = (g, tagTest) => { for (const e of g.space.enemies.filter((x) => tagTest(x.tag || ''))) Space.damageEnemy(g, e, 9999, e.x, e.y); };
+const toeteAlle = (g, tagTest) => { for (const e of g.space.enemies.filter((x) => tagTest(x.tag || ''))) Testhilfe.toeten(g, e); };
 // eine echte Reise-Gefahr des Katalogs (piraten_hinterhalt: Vorlauf, dann Raeuber) ueber die benannte Ausloese-Funktion, wie nach einem Sprung
 function reiseGefahr(g) {
   const nr = Reise.zaehleSprung(g);

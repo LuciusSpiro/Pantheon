@@ -13,6 +13,7 @@ const Absicht = require('../server/sim/absicht.js');
 const Ausschnitt = require('../server/sim/lage-ausschnitt.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sprung = require('../server/sim/sprung.js');
 const RE = require('../server/sim/reise-ereignis.js');
 const LageSL = require('../server/sim/lage-spielleiter.js');
@@ -127,7 +128,7 @@ section('Sim-Szene: Sieg und Flucht', () => {
     }
   };
   const ab = (g) => { const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.stage = 1; s.vx = 0; s.vy = 0; s.speed = 0; s.helm.thrust = 0; s.helm.turn = 0; };
-  const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+  const kill = (g, e) => Testhilfe.toeten(g, e);
   // Sieg
   let g = spiel().g;
   ab(g); ws(g).zustand.flotten = ws(g).zustand.flotten.filter((f) => f.ort !== OSTIA); flotte(g, OSTIA, 'ger', 17, true);

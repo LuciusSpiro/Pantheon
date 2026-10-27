@@ -12,6 +12,7 @@ const CONFIG = require('../shared/config.js');
 const Schilde = require('../shared/schilde.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget)
 const Zs = require('../server/sim/zielsysteme.js');
 const Konvoi = require('../server/sim/konvoi.js');
 const interior = require('../server/sim/interior.js');
@@ -83,7 +84,7 @@ section('Ohne Systemziel und Schalter: nichts ändert sich', () => {
   const e = leer(g, 'korvette', 1500, 1100);
   e.scanned = true;
   treffer(g, e, HECK, 5);
-  ok(e.zs === undefined && e.hp < e.hpMax, 'Heck-Treffer durch den Schild: Hülle sinkt, kein Systemzustand (e.zs fehlt)');
+  ok(e.zs === undefined && e.hp < e.hpMax, 'Heck-Treffer durch den Schild: Systemintegrität sinkt, kein Systemzustand (e.zs fehlt)');
   const s = g.snapshot().space.enemies.find((q) => q.id === e.id);
   ok(!('az' in s), 'Snapshot ohne az');
   ok(!('zs' in g.snapshot().ship), 'Snapshot ship ohne zs');
@@ -140,9 +141,13 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen und Heck', () => {
   const hp0 = e.hp;
   treffer(g, e, HECK, 2);
   ok(e.zs === undefined && e.hp === hp0 && e.shields[heckIdx] === 3, 'Heck-Treffer, den der Schild fängt (Schild 5 -> 3): kein Antriebstreffer');
+  // alte Regel: Schild 1, Treffer 3 -> Rest 2 > 0 geht auf die Hülle. Neue Regel (SYS-01 C1a-1, wie die Lerche): ein Schild über 0 fängt ohne Überlauf, nur ein ausgefallener Schild (0) lässt
+  // den Treffer in die Zone (Heck: Antrieb)
   e.shields[heckIdx] = 1;
   treffer(g, e, HECK, 3);
-  ok(e.zs && e.zs.antrieb.s === 1 && e.hp < hp0, 'Heck-Treffer, der den Schild durchschlägt (Rest > 0): Antrieb beschädigt (Stufe 1)');
+  ok(e.zs === undefined && e.hp === hp0 && e.shields[heckIdx] === 0, 'Heck-Treffer mit Schild 1 (Treffer 3): der Schild fängt ohne Überlauf, kein Antriebstreffer');
+  treffer(g, e, HECK, 3);
+  ok(e.zs && e.zs.antrieb.s === 1 && e.hp < hp0, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb beschädigt (Stufe 1)');
   ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'Tempofaktor beschädigt = ' + Zs.tempoFaktor(e));
   treffer(g, e, HECK, 1);
   ok(e.zs.antrieb.s === 1, 'zweiter Treffer binnen der Sperre (' + DATEN.treffer.wert.sperre_s + ' s): bleibt Stufe 1 (eine Salve schaltet nicht alles auf einmal aus)');
@@ -201,7 +206,7 @@ section('Ungezielt und Szenenschalter', () => {
 section('Erholung nach Zeit', () => {
   const T = setup(); const g = T.g;
   const S = DATEN.systeme.wert.antrieb.stufen;
-  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); e.hp = e.hpMax = 5000;   // mehrere Treffer (Immunitaet, gestellt): der Gegner stirbt dabei nicht
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // mehrere Treffer (Immunitaet, gestellt): der Gegner stirbt dabei nicht
   g.god = true; platz(g, 300, 300, 0);   // Lerche weit weg (keine Gegner-Aktion nötig)
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
   treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
@@ -238,9 +243,9 @@ function fahrtMessung(kind, modus) {
     const r = { flies: pilot.flies(g, e) };
     T.run(14); r.voll = vel(e);
     e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
-    treffer(g, e, HECK, 3);
+    Testhilfe.schildNull(e); treffer(g, e, HECK, 3);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf, das Heck-Segment muss unten sein
     T.run(8); r.beschaedigt = vel(e);
-    T.run(DATEN.treffer.wert.sperre_s); treffer(g, e, HECK, 3);
+    T.run(DATEN.treffer.wert.sperre_s); Testhilfe.schildNull(e); treffer(g, e, HECK, 3);
     T.run(8); r.aus = vel(e);
     const x1 = e.x; T.run(2); r.weg = e.x - x1;
     r.snap = g.snapshot().space.enemies.find((q) => q.id === e.id);
@@ -292,6 +297,7 @@ section('Wirkung auf die Fahrt: Konvoi-Transporter', () => {
   const e = Konvoi.transporter(g)[0];
   T.run(12); const voll = vel(e);
   e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
+  Testhilfe.schildNull(e);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf
   space.damageEnemy(g, e, 9, e.x - Math.cos(e.angle) * 60, e.y - Math.sin(e.angle) * 60, { angriff: true });
   T.run(0.1);
   ok(e.zs && e.zs.antrieb.s === 1, 'Transporter: Heck-Treffer beschädigt den Antrieb');
@@ -459,7 +465,7 @@ section('Snapshot-Größe und Anzeige-Daten', () => {
 section('Dauerfeuer auf dem ausgefallenen Antrieb verlängert die Frist nicht (Review A-S2)', () => {
   const T = setup(); const g = T.g;
   const S = DATEN.systeme.wert.antrieb.stufen;
-  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); e.hp = e.hpMax = 5000;   // ein Ziel, das im Dauerfeuer nicht stirbt
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // ein Ziel, das im Dauerfeuer nicht stirbt
   g.god = true; platz(g, 300, 300, 0);
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
   treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
@@ -483,7 +489,7 @@ function dauerfeuerLauf(modus) {
   try {
     const e = space.spawnEnemy(g, 'korvette', { x: 700, y: 1900, facing: 0, tag: 'dauer' });
     e.fluchtZiel = { x: 2900, y: 1900 };   // faehrt weg, das Tempo ist messbar
-    e.hp = e.hpMax = 5000;                 // stirbt im Dauerfeuer nicht
+    Testhilfe.setzeBudget(e, 5000);                 // stirbt im Dauerfeuer nicht
     e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
     const S = DATEN.systeme.wert.antrieb.stufen, W = DATEN.treffer.wert;
     const sperre = W.sperre_s + 0.1;

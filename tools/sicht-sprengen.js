@@ -21,6 +21,7 @@ const Sektoren = require('../shared/sektoren.js');
 const Locations = require('../shared/locations.js');
 const Besitz = require('../server/sim/besitz.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const PW = require('../content/welt/posten-werte.json').werte;
 function playwright() { for (const k of [process.env.PLAYWRIGHT_CORE, 'C:/tmp/pw-test/node_modules/playwright-core', 'playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* weiter */ } } console.error('playwright-core nicht gefunden (PLAYWRIGHT_CORE setzen)'); process.exit(2); }
 const { chromium } = playwright();
@@ -69,7 +70,7 @@ async function main() {
     await page.waitForFunction(() => __game.state.flotte && __game.state.flotte.sz && __game.state.flotte.sz.p === 'k', null, { timeout: 30000 });
     await shot('06-szene-kampf-welle', 2500);
     // 6) Sieg
-    for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.slice()) { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); } await sleep(100); }
+    for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.slice()) { Testhilfe.toeten(g, e); } await sleep(100); }
     await shot('07-szene-sieg-posten-gesprengt', 1200);
     console.log('  Posten:', JSON.stringify(z().hexe[GER1]), 'Ruf', JSON.stringify(g.weltsim.ruf), 'Szene:', JSON.stringify(require('../server/sim/kriegslage-szene.js').letzte(g)).slice(0, 200));
     await shot('08-ops-nach-dem-sprengen', 7000);

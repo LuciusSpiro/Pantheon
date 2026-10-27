@@ -24,6 +24,7 @@ const Locations = require('../shared/locations.js');
 const Besitz = require('../server/sim/besitz.js');
 const Szene = require('../server/sim/kriegslage-szene.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Kriegslage = require('../server/sim/kriegslage.js');
 const PW = require('../content/welt/posten-werte.json').werte;
 function playwright() { for (const k of [process.env.PLAYWRIGHT_CORE, 'C:/tmp/pw-test/node_modules/playwright-core', 'playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* weiter */ } } console.error('playwright-core nicht gefunden (PLAYWRIGHT_CORE setzen)'); process.exit(2); }
@@ -58,7 +59,7 @@ async function lauf(b, vw, vh, port) {
     const anPosten = (hex) => { const p = Besitz.postenLage(Locations.get(Sektoren.ortVonHex(hex)).scene); Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 }); g.ship.helm.stage = 1; };
     const plaetze = async () => { await sitz(ops, 'weapons'); await sitz(cap, 'captain'); await sitz(helm, 'helm'); await sitz(term, 'shop'); await sleep(400); };
     const z = () => g.weltsim.zustand;
-    const siegen = async (filter) => { for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.filter(filter || (() => true))) { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); } await sleep(100); } };
+    const siegen = async (filter) => { for (let i = 0; i < 600 && g.simSzene; i++) { for (const e of g.space.enemies.filter(filter || (() => true))) { Testhilfe.toeten(g, e); } await sleep(100); } };
     g.inventory.ersatzteil = 6;
 
     if (teil('verrat')) {

@@ -16,6 +16,7 @@ const Sektoren = require('../shared/sektoren.js');
 const Kern = require('../server/weltsim/kern.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Sprung = require('../server/sim/sprung.js');
 const Szene = require('../server/sim/kriegslage-szene.js');
 const { startServer } = require('../server/index.js');
@@ -46,7 +47,7 @@ function client(port, hello) {
     ws.on('open', () => { c.send(Object.assign({ t: 'hello', code: CODE }, hello)); resolve(c); });
   });
 }
-const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+const kill = (g, e) => Testhilfe.toeten(g, e);
 function flotte(g, hex, fraktion, staerke, belagerung) {
   const z = g.weltsim.zustand;
   const fl = { id: z.naechsteId++, fraktion, heimat: ({ ger: '1004', pirat: '0602', kon: '0604' })[fraktion] || hex, ort: hex, staerke, kap: Math.max(staerke, 5), befehl: 'rueckzug', ziel: null, warte: 0, versorgung: 1, angriff: null }; fl.befehl = 'angriff'; fl.ziel = hex;   // steht im Feld (die Sim kennt 'heim' nur im eigenen Hafen, dort löst sie keine Szene aus; im Rückzug zöge sie im nächsten Tick ab)

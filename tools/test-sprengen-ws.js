@@ -14,6 +14,7 @@ const Sektoren = require('../shared/sektoren.js');
 const Besitz = require('../server/sim/besitz.js');
 const Locations = require('../shared/locations.js');
 const Space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Szene = require('../server/sim/kriegslage-szene.js');
 const { startServer } = require('../server/index.js');
 
@@ -46,7 +47,7 @@ function client(port, hello) {
     ws.on('open', () => { c.send(Object.assign({ t: 'hello', code: CODE }, hello)); resolve(c); });
   });
 }
-const kill = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); };
+const kill = (g, e) => Testhilfe.toeten(g, e);
 
 (async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-sprengen-ws-'));

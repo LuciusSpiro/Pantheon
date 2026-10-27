@@ -13,6 +13,7 @@ const Maps = require('../shared/maps.js');
 const Weltstand = require('../server/weltstand.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
 const interior = require('../server/sim/interior.js');
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
@@ -82,7 +83,7 @@ function gegner(T, kind, dx, dy, o) {
   const g = T.g; const sh = g.ship; const opt = o || {};
   const e = space.spawnEnemy(g, kind, Object.assign({ x: sh.x + dx, y: sh.y + dy, facing: Math.PI }, opt.spawn || {}));
   if (!opt.schild) e.shields = e.shields.map(() => 0);
-  e.pin = { x: e.x, y: e.y, angle: e.angle }; e.hp = opt.hp != null ? opt.hp : e.hp; if (opt.hp != null) e.hpMax = opt.hp;
+  e.pin = { x: e.x, y: e.y, angle: e.angle }; if (opt.hp != null) Testhilfe.setzeBudget(e, opt.hp);   // SYS-01 C1a-1: Klassenbudget statt Hülle
   return e;
 }
 function pin(g) {
@@ -260,7 +261,7 @@ section('Torpedowerfer: Regeln', () => {
   // Wirkung: kein Schildschaden, trifft die Hülle; Jäger sofort tot, Korvette nur angeschlagen
   // Kai 2026-10-18: Lesart B – der Torpedo wirkt nur auf freie Hülle (Schildsegment ausgefallen); bei stehendem Schild prallt er ab (Schaden 0, kein Schildabzug)
   ok(Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild', 'Katalog: schildUmgehung nur-ohne-schild (Lesart B, alle Ziele)');
-  const j = gegner(T, 'raider', -300, 0, { schild: true }); j.shields = [4, 4, 4, 4];
+  const j = gegner(T, 'raider', -300, 0, { schild: true }); j.shields = [4, 4, 4, 4]; j.shieldsMax = [4, 4, 4, 4];   // Obergrenze mit anheben: sonst kappt schildPflege auf die Klassenwerte
   g.ship.target = j.id;
   const sh0 = j.shields.slice(); const jh = j.hp;
   ok(T.cmd(0, 'weapons.fire', { mount: 'bolzen' }).length === 0, 'Torpedo auf den Jäger abgefeuert');
@@ -271,17 +272,20 @@ section('Torpedowerfer: Regeln', () => {
   j.shields = [0, 0, 0, 0];   // Schild ausgefallen (z. B. von Sturm, Streu und Batterie aufgebrochen)
   T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
   t = 0; while (alive() && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(!alive() && g.stats.torpedoTreffer === 1, `Jäger ohne Schild mit einem Torpedo direkt zerstört (${t.toFixed(1)} s Flug): der Torpedo ist der Finisher`);
+  // SYS-01 C1a-1: „Torpedo zerstört einen Jäger sofort“ ist Paket C1a-2 (Daten und Regel dort). Bis dahin trifft der Torpedo ein System der Zone (Schild unten, keine Hülle mehr):
+  // der Treffer kommt an und kostet Integrität, der Jäger lebt noch. Die alte Prüfung (direkt zerstört) kommt mit C1a-2 zurück.
+  ok(g.stats.torpedoTreffer === 1 && Testhilfe.gesamtIntegritaet(j) < jh || !alive(), `Jäger ohne Schild: der Torpedo trifft (Integrität ${jh.toFixed(1)} -> ${alive() ? Testhilfe.gesamtIntegritaet(j).toFixed(1) : 'tot'}) – info: „sofort zerstört“ bis C1a-2`);
+  console.log('  info   Jäger sofort zerstört (Torpedo): bis C1a-2 zurückgestellt (Modell: nur Reaktor tötet)');
   lauf(T, Katalog.TORPEDO.cooldown + 0.5);
-  const k = gegner(T, 'korvette', -300, 0, { schild: true, hp: 22 }); k.hpMax = 22; k.shields = [2, 2, 2, 2];
+  const k = gegner(T, 'korvette', -300, 0, { schild: true, hp: 220 }); k.shields = [2, 2, 2, 2]; k.shieldsMax = [2, 2, 2, 2];   // Budget 220: jedes System fasst mehr als einen Treffer (Überschuss über ein System verfällt)
   g.ship.target = k.id; const s0 = k.shields.slice();
   T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
   t = 0; while ((g.stats.torpedoAbgeprallt || 0) < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(k.hp === 22 && JSON.stringify(k.shields) === JSON.stringify(s0), `Korvette mit stehendem Schild ${JSON.stringify(k.shields)}: abgeprallt, Hülle ${k.hp}`);
+  ok(k.hp === 220 && JSON.stringify(k.shields) === JSON.stringify(s0), `Korvette mit stehendem Schild ${JSON.stringify(k.shields)}: abgeprallt, Integrität ${k.hp}`);
   lauf(T, Katalog.TORPEDO.cooldown + 0.5);
   k.shields = [0, 0, 0, 0]; T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
   t = 0; while (g.stats.torpedoTreffer < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(g.space.enemies.includes(k) && k.hp === 22 - Katalog.torpedoSchaden('korvette'), `Korvette ohne Schild (Hülle 22): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp})`);
+  ok(g.space.enemies.includes(k) && Math.abs(k.hp - (220 - Katalog.torpedoSchaden('korvette'))) < 1e-6, `Korvette ohne Schild (Integrität 220): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp})`);
   ok(Katalog.torpedoSchaden('fregatte') < 22 && Katalog.torpedoSchaden('kreuzer') < 22, 'Fregatte und Kreuzer: derselbe Schaden, also mehrere Treffer');
   ok(Katalog.torpedoSchaden('raider') >= Math.round(CONFIG.enemies.raider.hp * 1 * CONFIG.spaceM3.enemyHpFactor) && Katalog.torpedoSchaden('raider') >= 25, 'Jäger-Schaden über jeder Jäger-Hülle (auch bei voller Crew-Skalierung)');
   // Cooldown
@@ -632,7 +636,7 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
     const ids2 = Waffen.energieMounts(x).map((a) => a.id);
     let t = 0, d0 = 0;
     while (t < 120) {
-      pin(x); e.hp = 1e9;
+      pin(x); Testhilfe.setzeGesamt(e, 1e9);
       for (const id of ids2) { const m = x.ship.mount[id]; const w = Waffen.waffeAn(x, id); if (w.art === 'lanze') continue; if (m.charge >= 1 && !(m.salvo > 0) && Waffen.inMountArc(x, id, e.x, e.y)) Waffen.weaponsFire(x, id); }
       x.step(); t += DT; if (Math.abs(t - 20) < DT / 2) d0 = (x.stats.waffenSchaden || { gesamt: 0 }).gesamt;
     }
@@ -667,23 +671,23 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
 
   // M1: Torpedo und Schild-Rätsel (Pylon, Wächter): nur bei ausgefallenem Schild; Lesart B als Katalogwert
   const Q = arena(); const q = Q.g; Q.debug('ausbau', '2'); Q.debug('bestueck', '2 torpedowerfer'); q.inventory.bolzen = 12;
-  const py = gegner(Q, 'pylon', -300, 0, { schild: true, hp: 50 }); py.hpMax = 50; py.angle = 0; py.pin.angle = 0;   // Bug (geschützt) zur Lerche
+  const py = gegner(Q, 'pylon', -300, 0, { schild: true, hp: 500 }); py.angle = 0; py.pin.angle = 0;   // Bug (geschützt) zur Lerche
   const sec = Physics.sectorOf(py.x, py.y, py.angle, q.ship.x, q.ship.y);
   q.ship.target = py.id;
   const feuer = () => { q.ship.mount.p2.cd = 0; Q.cmd(0, 'weapons.fire', { mount: 'p2' }); let t = 0; const c0 = q.stats.torpedoTreffer || 0; while ((q.stats.torpedoTreffer || 0) === c0 && t < 4) { pin(q); Q.run(DT); t += DT; } };
   py.shields[sec] = 4; const hp0 = py.hp; feuer();
   ok(py.hp === hp0 && py.shields[sec] === 4, 'Pylon mit Schild: der Torpedo prallt ab (Schaden 0), Schild unberührt');
   py.shields[sec] = 0; feuer();
-  ok(py.hp === hp0 - Katalog.torpedoSchaden('pylon'), 'Pylon mit ausgefallenem Schildsegment: Torpedo trifft die Hülle (−' + Katalog.torpedoSchaden('pylon') + ')');
+  ok(Math.abs(py.hp - (hp0 - Katalog.torpedoSchaden('pylon'))) < 1e-6, 'Pylon mit ausgefallenem Schildsegment: Torpedo trifft ein System (−' + Katalog.torpedoSchaden('pylon') + ')');
   q.space.enemies = q.space.enemies.filter((e) => e !== py);
-  const kj = gegner(Q, 'korvette', -300, 0, { schild: true, hp: 22 }); kj.angle = 0; kj.pin.angle = 0; q.ship.target = kj.id;
+  const kj = gegner(Q, 'korvette', -300, 0, { schild: true, hp: 220 }); kj.shieldsMax = [3, 3, 3, 3]; kj.angle = 0; kj.pin.angle = 0; q.ship.target = kj.id;
   const sk = Physics.sectorOf(kj.x, kj.y, kj.angle, q.ship.x, q.ship.y); kj.shields[sk] = 3; const kh = kj.hp; feuer();
   ok(kj.hp === kh, 'Lesart B gilt für alle Ziele (kein Sonderfall Pylon/Wächter): Korvette mit stehendem Schild -> Schaden 0');
   kj.shields[sk] = 0; const kh2 = kj.hp; feuer();
-  ok(kj.hp === kh2 - 9, 'Lesart B: ausgefallenes Schildsegment -> Treffer (−9)');
+  ok(Math.abs(kj.hp - (kh2 - 9)) < 1e-6, 'Lesart B: ausgefallenes Schildsegment -> Treffer (−9)');
   Katalog.TORPEDO.schildUmgehung = 'immer';   // nur noch Testschalter (Lesart A)
   kj.shields[sk] = 3; q.ship.target = kj.id; const kh3 = kj.hp; feuer();
-  ok(kj.hp === kh3 - 9, 'Testschalter Lesart A (immer): Korvette mit Schild wird getroffen (−9)');
+  ok(Math.abs(kj.hp - (kh3 - 9)) < 1e-6, 'Testschalter Lesart A (immer): Korvette mit Schild wird getroffen (−9)');
   Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';
 
   // M3: Torpedo-Lager hart 12 auch bei Funden; Überhang wird zu Marken

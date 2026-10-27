@@ -10,6 +10,7 @@ const path = require('path');
 const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle, Abschuss über den Reaktor
 const Escort = require('../server/sim/escort.js');
 const Flotte = require('../server/sim/flotte.js');
 const Pilot = require('../server/sim/pilot.js');
@@ -58,7 +59,7 @@ const ally = (g, tag) => (g.space.escorts || []).find((q) => q.ally && q.tag ===
 const enemies = (g, kind) => g.space.enemies.filter((e) => !kind || e.kind === kind);
 function platz(g, x, y) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; }
 function verwunden(g, tag, dmg) { const es = ally(g, tag); es.einBis = 0; Escort.hit(g, es, dmg || 500, {}); }
-function toeten(g, e) { e.hp = 1; space.damageEnemy(g, e, 50, e.x - 100, e.y, {}); }
+const toeten = (g, e) => Testhilfe.toeten(g, e);
 function bis(g, f, maxSek, ticksPro) { for (let i = 0; i < maxSek * CONFIG.tickHz; i++) { if (f()) return true; g.step(); } return !!f(); }
 // direkt in den Schritt (Befehl 1 / 2 / 3), die Vorgeschichte entfällt
 function vor(t, ziel) { t.g.mission.setStep(ziel); run(t.g, 0.5); return stage(t.g) === ziel; }

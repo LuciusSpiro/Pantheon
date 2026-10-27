@@ -16,6 +16,8 @@
 // (Mittel) und je Gegnerfeld bzw. Spielerfeld (Mittel, Anteil am Gegner bzw. Spieler).
 // Gemessen wird wie im Vertrag: Buffer.byteLength(JSON.stringify(g.snapshot())). Grenze: CONFIG.net.snapMax − snapLuft.
 const CONFIG = require('../shared/config.js');
+
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Abschuss für die Messung über den Reaktor (Gegner ohne Modell: alte Hülle)
 const Physics = require('../shared/physics.js');
 const { Game } = require('../server/game.js');
 const combat = require('../server/sim/combat.js');
@@ -308,7 +310,7 @@ function flotte(S, seed) {
     
     g.step();
     for (const e of g.space.enemies) e.scanned = true;
-    if (k % 90 === 60) { const e = g.space.enemies[0]; if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }   // alle 3 s fällt einer: Nachschub rückt nach
+    if (k % 90 === 60) { const e = g.space.enemies[0]; if (e) { Testhilfe.toeten(g, e, { von: [e.x - 50, e.y] }); } }   // alle 3 s fällt einer: Nachschub rückt nach
     max = Math.max(max, Flotte.schiffe(g));
     messen(S, g.snapshot());
   }
@@ -339,7 +341,7 @@ function orbit(S, seed) {
     
     g.step();
     for (const e of g.space.enemies) e.scanned = true;
-    if (k % 90 === 60) { const e = g.space.enemies.find((x) => x.kind !== 'fregatte'); if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }
+    if (k % 90 === 60) { const e = g.space.enemies.find((x) => x.kind !== 'fregatte'); if (e) { Testhilfe.toeten(g, e, { von: [e.x - 50, e.y] }); } }
     max = Math.max(max, Flotte.schiffe(g));
     messen(S, g.snapshot());
   }
@@ -440,7 +442,7 @@ function freieFahrt(S, seed) {
   for (let k = 0; k < Math.round(60 * CONFIG.tickHz) && g.simSzene; k++) {
     
     g.step();
-    if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
+    if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { Testhilfe.toeten(g, e); }   // laufend Verluste, damit Wellen und Finale kommen
     g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
     const sn = g.snapshot();
     const sz = sn.flotte && sn.flotte.sz;
