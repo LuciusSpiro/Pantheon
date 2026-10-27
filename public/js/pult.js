@@ -91,7 +91,7 @@
     },
     lampe(c, x, y, col, an) { c.fillStyle = an ? col : this.offLine; c.fillRect(x, y, 6, 6); if (an) { c.fillStyle = rgba(col, 0.25); c.fillRect(x - 1, y - 1, 8, 8); c.fillStyle = col; c.fillRect(x, y, 6, 6); } },
     zeileHi(c, x, y, w, h, col) { c.fillStyle = rgba(col, 0.12); c.fillRect(x, y, w, h); c.fillStyle = col; c.fillRect(x, y, 2, h); },
-    zelle(c, b, kz, label, sub, col, zustand, p) {
+    zelle(c, b, kz, label, sub, col, zustand, p, opts) {
       const { x, y, w, h } = b, kw = 12;
       if (zustand === 'leer') {
         c.fillStyle = this.offLine; for (let i = 0; i < w; i += 3) { c.fillRect(x + i, y, 1, 1); c.fillRect(x + i, y + h - 1, 1, 1); } for (let i = 0; i < h; i += 3) { c.fillRect(x, y + i, 1, 1); c.fillRect(x + w - 1, y + i, 1, 1); }
@@ -101,10 +101,10 @@
       const hold = zustand === 'hold';
       cham(c, x, y, kw, h, mix(col, this.bg, 0.55), 4, 0, 0, 0);
       cham(c, x + kw + 1, y, w - kw - 1, h, hold ? mix(col, this.bg, 0.62) : hit(b) ? mix(col, '#FFFFFF', 0.18) : col, 0, 0, 4, 0);
-      if (hold) { c.fillStyle = mix(this.ink, col, 0.3); c.fillRect(x + kw + 1, y + h - 2, w - kw - 4, 2); c.fillStyle = this.text; c.fillRect(x + kw + 1, y + h - 2, Math.round((w - kw - 4) * (p || 0)), 2); }
+      if (hold) { c.fillStyle = mix(this.ink, col, 0.3); c.fillRect(x + kw + 1, y + h - 2, w - kw - 4, 2); c.fillStyle = (opts && opts.balken) || this.text; c.fillRect(x + kw + 1, y + h - 2, Math.round((w - kw - 4) * (p || 0)), 2); }
       txt(c, kz, x + 6, y + 3, this.text, 'center');
-      txt(c, label, x + kw + 4, y + 3, hold ? this.text : this.ink); if (sub) txt(c, sub, x + kw + 4, y + 13, hold ? col : mix(this.ink, col, 0.3));
-      if (zustand === 'sel') rand(c, x - 2, y - 2, w + 4, h + 4, this.text);
+      txt(c, label, x + kw + 4, y + 3, hold ? this.text : this.ink); if (sub) txt(c, sub, x + kw + 4, y + 13, hold ? ((opts && opts.subFarbe) || col) : mix(this.ink, col, 0.3));   // SYS-01 B2: Cooldown-Sekunden in cdText (Creme), nicht in Rot (3,0:1)
+      if (zustand === 'sel' || (hold && opts && opts.sel)) rand(c, x - 2, y - 2, w + 4, h + 4, this.text);   // SYS-01 B2: die Cooldown-Zelle (hold) behält den Auswahlrahmen
     },
   };
   // GERMANEN: „Schmiede & Bernstein“. Eisenplatten mit Kerben und Nieten, Wolfszahn, Ochsenblut, Bernstein.
@@ -150,15 +150,15 @@
     segs(c, x, y, n, f, col, sw = 9) { const step = Math.max(7, sw); for (let i = 0; i < n; i++) rhomb(c, x + i * step, y + 1, i < f ? col : this.offLine); return x + n * step; },
     lampe(c, x, y, col, an) { rhomb(c, x, y, an ? col : this.offLine); },
     zeileHi(c, x, y, w, h, col) { c.fillStyle = rgba(col, 0.1); c.fillRect(x, y, w, h); rhomb(c, x - 7, y + Math.floor(h / 2) - 2, col); },
-    zelle(c, b, kz, label, sub, col, zustand, p) {
+    zelle(c, b, kz, label, sub, col, zustand, p, opts) {
       const { x, y, w, h } = b, kw = 13, leer = zustand === 'leer', off = zustand === 'off' || leer;
-      if (zustand === 'sel') { cham(c, x - 2, y - 2, w + 4, h + 4, col, 4, 4, 4, 4); cham(c, x - 1, y - 1, w + 2, h + 2, this.bg, 4, 4, 4, 4); }
+      if (zustand === 'sel' || (zustand === 'hold' && opts && opts.sel)) { cham(c, x - 2, y - 2, w + 4, h + 4, col, 4, 4, 4, 4); cham(c, x - 1, y - 1, w + 2, h + 2, this.bg, 4, 4, 4, 4); }
       if (leer) { cham(c, x, y, w, h, this.off, 3, 3, 3, 3); cham(c, x + 1, y + 1, w - 2, h - 2, this.bg, 2, 2, 2, 2); } else cham(c, x, y, w, h, off ? this.off : hit(b) ? mix(this.plate, col, 0.12) : this.plate, 3, 3, 3, 3);
       cham(c, x + 1, y + 1, kw, h - 2, off ? (leer ? this.off : this.offLine) : col, 3, 3, 3, 3);
       if (!off) { c.fillStyle = mix(col, '#FFFFFF', 0.35); c.fillRect(x + 4, y + 2, kw - 6, 1); }
       txt(c, kz, x + 1 + kw / 2, y + Math.floor((h - 7) / 2), off ? this.dim : this.ink, 'center');
       txt(c, label, x + kw + 5, y + 3, leer ? this.offLine : off ? mix(this.dim, this.bg, 0.2) : this.text); if (sub) txt(c, sub, x + kw + 5, y + 13, leer ? this.offLine : off ? this.dim : col);
-      if (zustand === 'hold') { c.fillStyle = this.offLine; c.fillRect(x + kw + 5, y + h - 2, w - kw - 9, 1); c.fillStyle = col; c.fillRect(x + kw + 5, y + h - 3, Math.round((w - kw - 9) * (p || 0)), 2); }
+      if (zustand === 'hold') { c.fillStyle = this.offLine; c.fillRect(x + kw + 5, y + h - 2, w - kw - 9, 1); c.fillStyle = (opts && opts.balken) || col; c.fillRect(x + kw + 5, y + h - 3, Math.round((w - kw - 9) * (p || 0)), 2); }
     },
   };
 
@@ -217,7 +217,7 @@
       const fit = (t) => { if (t == null) return t; t = String(t); if (tw(t) <= aw) return t; if (kurz[t] && tw(kurz[t]) <= aw) return kurz[t]; while (t.length > 2 && tw(t + '.') > aw) t = t.slice(0, -1); return t + '.'; };
       label = fit(label); sub = fit(sub);
     }
-    K.zelle(c, b, kz, label, sub, FN[fn] || fn, zustand, p);
+    K.zelle(c, b, kz, label, sub, FN[fn] || fn, zustand, p, opts);
     if (zustand !== 'leer') { R.ui.buttons.push(b); if (hit(b) && b.reason && (b.disabled || zustand === 'off')) R.ui.tooltip = { text: b.reason, x: R.ui.mouse.x, y: R.ui.mouse.y }; }
     return b;
   }

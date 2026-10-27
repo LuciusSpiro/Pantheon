@@ -1234,17 +1234,17 @@
       // Schilde rechts: Schiffssymbol mit 4 Sektoren
       const sh = ship.shields || {};
       const alloc = sh.alloc || [0, 0, 0, 0], cur = sh.current || [0, 0, 0, 0];
-      const pool = n(sh.pool);
+      const pool = n(sh.pool), maxS = ((CFG.shields && CFG.shields.maxPerSector) || 4);   // SYS-01 B2: Kappe je Sektor aus der Config (6), nicht mehr fest 4
       const allocSum = alloc.reduce((s, v) => s + n(v), 0);
       const cx = a.x + 455, cy = a.y + 130;
       R.text(ctx, 'SCHILDE', a.x + 330, a.y + 4, { color: PAL.brass });
       R.text(ctx, 'Pool ' + allocSum + ' / ' + pool, a.x + 390, a.y + 4, { color: allocSum >= pool ? PAL.amber : PAL.mint });
-      R.text(ctx, '(' + ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie, max 4 je Sektor)', a.x + 450, a.y + 4, { color: PAL.panelLight });
+      R.text(ctx, '(' + ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie, max ' + maxS + ' je Sektor)', a.x + 450, a.y + 4, { color: PAL.panelLight });
       if (sysDown(ship, 'shields')) R.text(ctx, 'Schildgenerator zerstört!', a.x + 470, a.y + 31, { color: PAL.red, align: 'center' });
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(cx + 26, cy); ctx.lineTo(cx - 18, cy - 12); ctx.lineTo(cx - 24, cy); ctx.lineTo(cx - 18, cy + 12); ctx.closePath(); ctx.fill();
       const pos = [[cx + 95, cy], [cx, cy + 70], [cx - 95, cy], [cx, cy - 70]];
-      const capA = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
+      const capA = Array.isArray(sh.cap) ? sh.cap : [maxS, maxS, maxS, maxS];
       const tele = this.teleLate(view);
       const t = view.time;
       for (let i = 0; i < 4; i++) {
@@ -1252,7 +1252,7 @@
         const sel = this.sel.power === SEL_SCH0 + i;
         const bw = 110, bh = 40;
         const bx = px - bw / 2, by = py - bh / 2;
-        const cap = n(capA[i], 4);
+        const cap = n(capA[i], maxS);
         const em = EMITTER_OF[i], emSt = (ship.systems || {})[em] || 'ok';
         ctx.fillStyle = sel ? 'rgba(127,224,194,0.12)' : 'rgba(21,27,43,0.9)'; ctx.fillRect(bx, by, bw, bh);
         if (cap <= 0) R.crossX(ctx, bx, by, bw, bh, 'rgba(224,71,60,0.55)', 2);
@@ -1261,20 +1261,21 @@
         ctx.strokeStyle = sel ? PAL.amber : PAL.panel; ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
         R.text(ctx, H.SECTOR_NAMES[i], bx + 5, by + 3, { color: sel ? PAL.amber : PAL.star });
         if (tl) R.text(ctx, f1(tl.left) + ' s!', bx + bw - 4, by + 3, { color: PAL.red, align: 'right' });
-        else if (emSt !== 'ok') R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, emSt, R.fragileOf(view.state, em), { code: cap <= 0 ? 'AUS' : cap < 4 ? '1/2' : undefined });
+        else if (emSt !== 'ok') R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, emSt, R.fragileOf(view.state, em), { code: cap <= 0 ? 'AUS' : cap < maxS ? '1/2' : undefined });
         else if (R.fragileOf(view.state, em)) R.stateBadge(ctx, bx + bw - 38, by + 2, 34, 10, 'ok', true);
-        for (let k = 0; k < 4; k++) {
+        const pstep = Math.floor(66 / maxS), pw = pstep - 2;   // 4 Segmente: 16/14 (wie bisher 12/10 im 48er Feld), 6 Segmente: 11/9
+        for (let k = 0; k < maxS; k++) {
           const filled = k < n(cur[i]), wanted = k < n(alloc[i]);
           const over = k >= cap;
-          const pxx = px - 22 + k * 12, pyy = by + 13;
+          const pxx = px - 33 + k * pstep, pyy = by + 13;
           ctx.fillStyle = filled ? PAL.mint : over ? '#3A2A1A' : wanted ? '#2F5A50' : '#26313F';
-          ctx.fillRect(pxx, pyy, 10, 8);
-          if (over && cap > 0) R.hatch(ctx, pxx, pyy, 10, 8, 'rgba(242,201,76,0.7)', 3);
+          ctx.fillRect(pxx, pyy, pw, 8);
+          if (over && cap > 0) R.hatch(ctx, pxx, pyy, pw, 8, 'rgba(242,201,76,0.7)', 3);
         }
-        if (cap > 0 && cap < 4) R.text(ctx, '1/2', px + 28, by + 13, { color: PAL.warn });
+        if (cap > 0 && cap < maxS) R.text(ctx, '1/2', px + 36, by + 13, { color: PAL.warn });
         if (cap <= 0) R.text(ctx, 'AUS', px, by + 13, { color: PAL.red, align: 'center', scale: 1 });
         const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
-        const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
+        const plusR = n(alloc[i]) >= maxS ? 'Maximum (' + maxS + ')' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
         R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
         R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
       }
@@ -2039,7 +2040,8 @@
       if (m.blk && n(m.charge) < 1) return { text: 'Magazin voll', kind: 'reserve', info };   // PAN-01 C: Waffe hat Punkte, der Anfangsstoß-Deckel lässt sie nicht laden
       if (n(m.alloc) <= 0 && n(m.charge) < 1) return { text: 'Reserve', kind: 'reserve', info };
       if (n(m.charge) >= 1) return { text: info.reason ? 'geladen' : (w && w.art === 'lanze' ? 'halten' : 'bereit'), kind: 'bereit', info };
-      return { text: Math.round(n(m.charge) * 100) + ' %', kind: 'laedt', info };
+      const cdz = window.PultSysteme && window.PultSysteme.cdZelle ? window.PultSysteme.cdZelle({ charge: n(m.charge), rest10: m.rest10, besch: st === 'damaged' }) : null;   // SYS-01 B2: Restsekunden wie im Pult (cdZelle), ohne Server-Feld bleibt der Prozentwert
+      return { text: cdz ? cdz.sek : Math.round(n(m.charge) * 100) + ' %', kind: 'laedt', info };
     },
     // Ausstattung eines gescannten Ziels: Waffen je Seite (Symbol, bei wenigen Waffen auch Name) und die Module der Klasse. Rückgabe: belegte Höhe.
     // o: { txt(s, x, y, col, align), dim, text }

@@ -160,6 +160,13 @@
 
   // ================================================================= Hilfen (rein)
   function farben(skinId) { return Object.assign({}, FARBE, FARBE_SKIN[skinId] || {}); }
+  // SYS-01 B2: Cooldown-Zelle einer Energiewaffe (Batterie, Kanone, Abwehrturm). m = { charge 0..1, rest10 (Server: Restzeit in Zehntelsekunden, ganzzahl), besch (Waffe beschädigt) }.
+  // Rückgabe: { p (Füllung von links, 0..1), sek ('1,4 s'), farbe (Sekundentext: cdText, beschädigt cdBesch), balken (cdBalken) } oder null (keine Cooldown-Zelle: bereit, ohne Feld, Lanze/Salve).
+  function cdZelle(m, skinId) {
+    if (!m || !(m.rest10 >= 0) || !(m.charge < 1)) return null;
+    const f = farben(skinId);
+    return { p: Math.max(0, Math.min(1, Number(m.charge) || 0)), sek: (m.rest10 / 10).toFixed(1).replace('.', ',') + ZEICHEN.sekunde, farbe: m.besch ? f.cdBesch : f.cdText, balken: f.cdBalken };
+  }
   function zustand(i, max, offline) { if (offline) return 'offline'; if (!(i > 0)) return 'zer'; return i <= max / 2 ? 'besch' : 'ok'; }
   // Kacheln des Kreuzes, Bug oben (wie Werft-Terminal und Ziffernblock): Bb links über die ganze Höhe, Stb rechts, Bug/Mitte/Heck in der Mittelspalte
   function lage(b, m) {
@@ -232,5 +239,5 @@
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, banderole, modulName, MODUL_NAMEN };
+  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, banderole, modulName, MODUL_NAMEN, cdZelle };
 });

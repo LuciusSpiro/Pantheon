@@ -788,6 +788,8 @@ function mountsSnapshot(game) {
       if (mm.blk && mm.alloc > 0 && mm.charge <= 0) o.blk = 1;   // Magazin voll: lädt nicht, weil der Anfangsstoß-Deckel erreicht ist
       if (a.w.art === 'lanze') { o.power = r2(mm.power || 0); o.charging = !!mm.charging; o.dmg = r1(lanceDamage(game, mm.power || 0, a.id)); }
       else { o.salvo = mm.salvo || 0; o.salvoMax = rohre(game, a.id); }
+      // SYS-01 B2: Restzeit des Cooldowns (Ladezeit bis 1, am echten Ladepool) in Zehntelsekunden, Ganzzahl. Lanze (eigene Ladeanzeige), Salve und Magazin-voll ohne Feld.
+      if (a.w.art !== 'lanze' && !(mm.salvo > 0) && !(mm.charge >= 1)) { const t = chargeTime(game, a.id); if (t != null) o.rest10 = Math.ceil((1 - clamp(mm.charge || 0, 0, 1)) * t * 10); }
     }
     out.push(o);
   }

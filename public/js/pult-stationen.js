@@ -235,7 +235,9 @@
         const sub = isTorp ? n(m.ammo) + '/' + lagerMax + (stt.kind === 'laedt' ? ' ' + n(m.cd) + 's' : stt.kind === 'bereit' ? '' : ' leer') : stt.text;
         const onClick = () => this.mountKlick(view, m);   // Klick = Taste: wählen und bedienen, ohne Ladepunkte gibt er den ersten
         if (iE >= 0) this.waffenZellen.push({ x: zx, y: zy, w: zw, h: zh, id: m.id });
-        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, sub, 'weapon', zustand, n(m.power), { label: w.name, reason: info.reason, onClick, klickbar: true, aktion: PLATZ_AKTION[platz], rechts: 8 });
+        // SYS-01 B2: Energiewaffe lädt = Cooldown-Zelle (Füllung von links, Restsekunden in cdText); Lanze, Salve, Reserve und „außerhalb“ behalten ihre Anzeige
+        const cd = !isTorp && stt.kind === 'laedt' && zustand !== 'off' && window.PultSysteme ? window.PultSysteme.cdZelle({ charge: ch, rest10: m.rest10, besch: m.state === 'damaged' }, P.skinId(view)) : null;
+        P.zelle(ctx, zx, zy, zw, zh, String(platz), w.kurz, cd ? cd.sek : sub, 'weapon', cd ? 'hold' : zustand, cd ? cd.p : n(m.power), { label: w.name, reason: info.reason, onClick, klickbar: true, aktion: PLATZ_AKTION[platz], rechts: 8, subFarbe: cd && cd.farbe, balken: cd && cd.balken, sel: !!cd && zustand === 'sel' });
         // Symbol der Waffe rechts, darüber die Ladepunkte der Energiewaffe als Pünktchen (der Torpedowerfer hat keine)
         if (UI) UI.drawWaffe(ctx, w.id, zx + zw - 7, zy + 13, { color: zustand === 'off' ? K.dim : P.mix(K.ink, P.FN.weapon, 0.12) });
         if (!isTorp) for (let k = 0; k < amax; k++) { ctx.fillStyle = k < n(m.alloc) ? P.FN.drive : K.offLine; ctx.fillRect(zx + zw - 15 + k * 3, zy + zh - 4, 2, 2); }   // Ladepunkte unten rechts, damit sie keinen Namen überdecken
@@ -357,30 +359,31 @@
       const power = ship.power || {}, heat = ship.heat || {}, reactor = ship.reactor || {};
       const output = n(reactor.output, 8), used = n(reactor.used, POWER_SYS.reduce((s, k) => s + n(power[k]), 0));
       const sh = ship.shields || {}, alloc = sh.alloc || [0, 0, 0, 0], cur = sh.current || [0, 0, 0, 0], pool = n(sh.pool);
-      const allocSum = alloc.reduce((s, v) => s + n(v), 0), capA = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
+      const allocSum = alloc.reduce((s, v) => s + n(v), 0), maxS = ((CFG.shields && CFG.shields.maxPerSector) || 4), capA = Array.isArray(sh.cap) ? sh.cap : [maxS, maxS, maxS, maxS];   // SYS-01 B2: Kappe aus der Config
       const tele = this.teleLate(view);
       const g = P.rahmen(ctx, view, { titel: 'TECHNIK', S: 152, station: 'technik', anzeige: (c, r) => {
         const K = P.skin, cx = r.x + r.w / 2, cy = r.y + r.h / 2 + 2;
         T(c, 'SCHILDPOOL ' + allocSum + ' / ' + pool, r.x + 8, r.y + 6, allocSum >= pool ? P.FN.drive : P.FN.shield);
-        T(c, ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie · max 4 je Sektor', r.x + r.w - 8, r.y + 6, K.dim, 'right');
+        T(c, ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie · max ' + maxS + ' je Sektor', r.x + r.w - 8, r.y + 6, K.dim, 'right');
         if (sysDown(ship, 'shields')) T(c, 'Schildgenerator zerstört!', cx, r.y + 18, P.FN.weapon, 'center');
         c.fillStyle = K.dim; c.beginPath(); c.moveTo(cx + 26, cy); c.lineTo(cx - 18, cy - 11); c.lineTo(cx - 24, cy); c.lineTo(cx - 18, cy + 11); c.closePath(); c.fill();
         const pos = [[cx + 150, cy], [cx, cy + 38], [cx - 150, cy], [cx, cy - 38]];
         for (let i = 0; i < 4; i++) {
           const [px, py] = pos[i], bw = 120, bh = 26, bx = Math.round(px - bw / 2), by = Math.round(py - bh / 2);
-          const sel = this.sel.power === SEL_SCH0 + i, cap = n(capA[i], 4);
+          const sel = this.sel.power === SEL_SCH0 + i, cap = n(capA[i], maxS);
           if (sel) P.zeileHi(c, bx, by, bw, bh, 'shield');
           if (tele[i]) { c.strokeStyle = Math.floor(view.time * 8) % 2 ? PAL.red : '#FF8A7A'; c.setLineDash([4, 3]); c.strokeRect(bx - 0.5, by - 0.5, bw + 1, bh + 1); c.setLineDash([]); }
           T(c, SECTOR[i], bx + 22, by + 2, sel ? P.FN.drive : K.text);
           if (tele[i]) T(c, f1(tele[i].left) + ' s!', bx + bw - 22, by + 2, P.FN.weapon, 'right');
           else if (cap <= 0) T(c, 'AUS', bx + bw - 22, by + 2, P.FN.weapon, 'right');
-          else if (cap < 4) T(c, '1/2', bx + bw - 22, by + 2, P.FN.warn, 'right');
-          for (let k = 0; k < 4; k++) {
+          else if (cap < maxS) T(c, '1/2', bx + bw - 22, by + 2, P.FN.warn, 'right');
+          const pstep = Math.floor(78 / maxS);   // Feld zwischen den Tasten: 4 Segmente 19/16 wie bisher, 6 Segmente 13/10
+          for (let k = 0; k < maxS; k++) {
             const filled = k < n(cur[i]), wanted = k < n(alloc[i]), over = k >= cap;
-            c.fillStyle = filled ? P.FN.shield : over ? '#3A2A1A' : wanted ? '#2F5A50' : K.offLine; c.fillRect(bx + 22 + k * 19, by + 13, 16, 7);
+            c.fillStyle = filled ? P.FN.shield : over ? '#3A2A1A' : wanted ? '#2F5A50' : K.offLine; c.fillRect(bx + 22 + k * pstep, by + 13, pstep - 3, 7);
           }
           const minusR = n(alloc[i]) <= 0 ? 'Minimum erreicht' : null;
-          const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
+          const plusR = n(alloc[i]) >= maxS ? 'Maximum (' + maxS + ')' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
           P.knopf(c, bx, by + 6, 17, 16, '-', { disabled: !!minusR, reason: minusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
           P.knopf(c, bx + bw - 17, by + 6, 17, 16, '+', { disabled: !!plusR, reason: plusR, fn: 'shield', onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
         }
