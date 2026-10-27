@@ -12,6 +12,7 @@
 // Regeln der Vorlage (Code): FORM · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUSTEIN_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · WAHRHEIT_OHNE_ENTHUELLUNG ·
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
+//   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
 const fs = require('fs');
 const path = require('path');
@@ -136,11 +137,69 @@ function varianteFehler(b, cat) {
   return out;
 }
 
+// Nacharbeit Welle 3 (Abschluss): ein Faden endet GELUNGEN, wenn die Crew etwas geleistet hat: das Gedaechtnis des NSC kennt mindestens eines der Ereignisse aus beat.erfolg.ereignis
+// (Beat-Typ_gelungen eines Beats der Vorlage, Daten). Nur der gelungene Abschluss zahlt seine Folgen (Haltung, Ruf); ohne Erfolg bleibt der Abschluss ohne Belohnung.
+const abschlussGelungen = (beat, nsc) => { const e = beat && beat.erfolg && beat.erfolg.ereignis; return Array.isArray(e) && ((nsc && nsc.gedaechtnis) || []).some((g) => e.includes(g.ereignis)); };
+
+// Nacharbeit Welle 3 (Haltung): kann die Crew mit den Wegen DIESER Vorlage die Haltung dorthin bringen, wo ein Verbraucher greift? Wege wie der Pruefer der Vorlage (nur vorwaerts), Haltung nach den Folgen
+// der Ausgaenge und der Optionen (Zahlen aus haltung-werte.json); die Option ohne Ausgang mit Haltungs-Folge (Spaeter, „hingehalten“) stellt eine Bitte zurueck und kann bis zur Frist des Beats wiederholt
+// werden. -> { start: [{ s, h }] je Beat (Haltung beim Beginn des Beats), angebote: [Set h] je Beat (Haltung bei jedem Angebot einer Bitte, auch nach dem Zurueckstellen) }
+const tonFuer = (h) => { let t = H.toene[0].id; for (const x of H.toene) if (h >= x.ab) t = x.id; return t; };
+const klemmH = (x) => r2(Math.min(H.grenzen.max, Math.max(H.grenzen.min, x)));
+const haltungDelta = (folge) => { let d = 0; for (const f of Array.isArray(folge) ? folge : []) { const r = folgeWirkung(f, 'n1'); if (r.wirkung && r.wirkung.typ === 'haltung_aenderung') d += r.wirkung.delta; } return d; };
+function haltungsWege(v, idx) {
+  const start = v.beats.map(() => []), angebote = v.beats.map(() => new Set());
+  const gesehen = new Set(), stack = [{ i: 0, s: (v.nsc && v.nsc.status) || 'aktiv', h: klemmH((v.nsc && v.nsc.haltung) || 0) }];
+  const MAXK = Math.max(0, W.beat_frist - 1);   // jedes Zurueckstellen braucht eine Taetigkeit bis zum naechsten Angebot, nach beat_frist Taetigkeiten ist der Beat vorbei
+  while (stack.length) {
+    const { i, s, h } = stack.pop();
+    const key = i + '|' + s + '|' + h;
+    if (gesehen.has(key)) continue;
+    gesehen.add(key);
+    start[i].push({ s, h });
+    const b = v.beats[i], cat = B[b.typ];
+    if (cat.abschluss) continue;
+    const opts = Array.isArray(b.optionen) ? b.optionen : [];
+    const zurueck = opts.filter((o) => o && o.ausgang === undefined && haltungDelta(o.folge) !== 0).map((o) => haltungDelta(o.folge));
+    const hs = new Set([h]);
+    angebote[i].add(h);
+    for (const d of zurueck) { let x = h; for (let k = 0; k < MAXK; k++) { x = klemmH(x + d); hs.add(x); angebote[i].add(x); } }
+    for (const hk of hs) {
+      const wege = [{ ag: 'gescheitert', d: 0 }];   // ohne Antwort: die Frist scheitert den Beat
+      if (!opts.length) wege.push({ ag: 'gelungen', d: 0 });
+      for (const o of opts) if (o && o.ausgang) wege.push({ ag: o.ausgang, d: haltungDelta(o.folge) });
+      for (const w of wege) {
+        const o = b.aus[w.ag];
+        if (!o) continue;
+        const z = zielIndex(v, i, o, idx);
+        if (z === null) continue;
+        stack.push({ i: z, s: o.status !== undefined && s !== 'tot' ? o.status : s, h: klemmH(hk + w.d + haltungDelta(o.folge)) });
+      }
+    }
+  }
+  return { start, angebote };
+}
+function haltungFehler(v, idx) {
+  const out = [], w = haltungsWege(v, idx);
+  v.beats.forEach((b, i) => {
+    if (b.variante && !w.start[i].some((x) => x.s !== 'tot' && x.h < H.feindlich_unter)) out.push(fehl('VARIANTE_UNERREICHBAR', `Beat ${b.id}: kein Weg der Vorlage bringt die Haltung unter ${H.feindlich_unter}: die Variante (feindliche Wiederkehr) läuft nie (Haltung wirkt nur, was erreichbar ist)`));
+    const key = b.parameter && b.parameter.text_key;
+    if (B[b.typ] && B[b.typ].baustein === 'bitte' && typeof key === 'string') {
+      for (const t of H.toene) {
+        if (t.id === 'sachlich' || !has(D.BITTE.texte, key + '_' + t.id)) continue;
+        if (!Array.from(w.angebote[i]).some((h) => tonFuer(h) === t.id)) out.push(fehl('TON_UNERREICHBAR', `Beat ${b.id}: der Text ${key}_${t.id} wird nie gesprochen, kein Weg der Vorlage bringt die Haltung zum Ton ${t.id} (Start ${(v.nsc && v.nsc.haltung) || 0}, Haltung wirkt nur, was erreichbar ist)`));
+      }
+    }
+  });
+  return out;
+}
+
 // ---------- Vorlage
 // Katalog (B-M1): jeder Beat-Typ muss mit beiden Ausgängen ein gültiges Gedächtnis-Ereignis ergeben. Wird beim Laden der Daten (faden-daten.js) geprüft.
 function katalogFehler() {
   const out = [];
   for (const typ of Object.keys(B)) for (const ag of W.ausgaenge) { const e = typ + '_' + ag; if (!EREIGNIS.test(e)) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": das Ereignis "${e}" passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`)); }
+  for (const [typ, c] of Object.entries(B)) if (c.ereignis_ohne_ware !== undefined && !(typeof c.ereignis_ohne_ware === 'string' && EREIGNIS.test(c.ereignis_ohne_ware))) out.push(fehl('KATALOG_EREIGNIS', `Beat-Typ "${typ}": ereignis_ohne_ware passt nicht zu ${EREIGNIS} (Gedächtnis des NSC)`));
   return out;
 }
 
@@ -192,6 +251,13 @@ function pruefeVorlage(v) {
     if (b.gefahr === false && cat.gefahr) fehler.push(fehl('GEFAHR_ABGESCHWAECHT', `Beat ${b.id}: ein Beat ${b.typ} bringt immer Gefahr, die Vorlage darf das nicht abschwächen`));
     fehler.push(...parameterFehler(b, cat));
     fehler.push(...optionenFehler(b, cat));
+    // Nacharbeit Welle 3 (Abschluss): ohne `erfolg` waere jeder Abschluss gelungen und zahlte seine Folgen auch nach einem Faden, den die Crew nicht gespielt hat
+    if (cat.abschluss) {
+      const e = b.erfolg && b.erfolg.ereignis;
+      const moegliche = new Set(v.beats.filter((x) => has(B, x.typ) && !B[x.typ].abschluss).map((x) => x.typ + '_gelungen'));
+      if (!Array.isArray(e) || !e.length) fehler.push(fehl('ERFOLG_FEHLT', `Beat ${b.id}: der Abschluss braucht erfolg.ereignis (wann gilt der Faden als gelungen: Gedächtnis-Ereignisse der Crew), sonst gäbe er jeden Faden als gelungen aus`));
+      else for (const x of e) if (!moegliche.has(x)) fehler.push(fehl('ERFOLG_UNGUELTIG', `Beat ${b.id}: erfolg.ereignis "${x}" kommt in der Vorlage nie vor (erlaubt: ${Array.from(moegliche).join(', ') || 'keines'})`));
+    } else if (b.erfolg !== undefined) fehler.push(fehl('ERFOLG_UNGUELTIG', `Beat ${b.id}: erfolg gibt es nur am Abschluss`));
     for (const h of b.hinweise || []) if (!has(hin, h)) fehler.push(fehl('HINWEIS_UNBEKANNT', `Beat ${b.id}: Hinweis "${h}" ist in hinweise nicht beschrieben`));
     // Ausgaenge
     const aus = b.aus || {};
@@ -253,6 +319,7 @@ function pruefeVorlage(v) {
       }
     }
     v.beats.forEach((b, i) => { if (!erreicht.has(i)) fehler.push(fehl('UNERREICHBAR', `Beat ${b.id} wird auf keinem Weg erreicht`)); });
+    if (!fehler.some((f) => /^(TYP_UNBEKANNT|FOLGE_UNGUELTIG|OPTION_UNGUELTIG|AUSGANG_UNGUELTIG)/.test(f))) fehler.push(...haltungFehler(v, idx));   // Nacharbeit Welle 3: Haltung erreichbar
   }
   return { ok: fehler.length === 0, fehler };
 }
@@ -363,4 +430,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

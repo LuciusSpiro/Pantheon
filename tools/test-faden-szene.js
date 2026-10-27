@@ -42,7 +42,7 @@ function vorlage(id, typ, extra, status) {
     delete v.wahrheit; delete v.hinweise;     // keine Enthüllung in diesen Vorlagen (die Fixture hätte sonst eine Wahrheit ohne Enthüllungs-Beat)
     v.beats = [
       Object.assign({ id: 'b_szene', typ, aus: { gelungen: { status: 'verbuendet', weiter: 'b_ende' }, gescheitert: { status: 'geflohen', weiter: 'b_ende' } } }, extra || {}),
-      { id: 'b_ende', typ: 'abschluss', aus: { gelungen: {}, gescheitert: { text_key: 'ende_verpasst' } } },
+      { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: [typ + '_gelungen'] }, aus: { gelungen: {}, gescheitert: { text_key: 'ende_verpasst' } } },
     ];
   }));
   if (!r.ok) throw new Error('Vorlage ' + id + ' ungueltig: ' + r.fehler.join('; '));
@@ -508,7 +508,7 @@ section('L6: derselbe NSC kann nach einem verlorenen Verbuendeten wieder helfen;
   const r = registriere(alsVorlage('sz_zwei', (v) => {
     v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
     const aus = (w) => ({ gelungen: { status: 'verbuendet', weiter: w }, gescheitert: { status: 'aktiv', weiter: w } });
-    v.beats = [{ id: 'b_h1', typ: 'spontanhilfe', aus: aus('b_h2') }, { id: 'b_h2', typ: 'spontanhilfe', aus: aus('b_ende') }, { id: 'b_ende', typ: 'abschluss', aus: { gelungen: {}, gescheitert: {} } }];
+    v.beats = [{ id: 'b_h1', typ: 'spontanhilfe', aus: aus('b_h2') }, { id: 'b_h2', typ: 'spontanhilfe', aus: aus('b_ende') }, { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['spontanhilfe_gelungen'] }, aus: { gelungen: {}, gescheitert: {} } }];
   }));
   if (!r.ok) throw new Error(r.fehler.join('; '));
   const { g } = bereit({ crew: 1, seed: 45 });
@@ -538,7 +538,7 @@ section('K5: eine verwaiste Hilfe wird ersetzt, die Warteschlange behaelt ihre R
   const r = registriere(alsVorlage('sz_zwei2', (v) => {
     v.nsc.status = 'aktiv'; v.volk_erlaubt = ['rom', 'kon', 'ger']; delete v.wahrheit; delete v.hinweise;
     const aus = (w) => ({ gelungen: { status: 'verbuendet', weiter: w }, gescheitert: { status: 'aktiv', weiter: w } });
-    v.beats = [{ id: 'b_h1', typ: 'spontanhilfe', aus: aus('b_h2') }, { id: 'b_h2', typ: 'spontanhilfe', aus: aus('b_ende') }, { id: 'b_ende', typ: 'abschluss', aus: { gelungen: {}, gescheitert: {} } }];
+    v.beats = [{ id: 'b_h1', typ: 'spontanhilfe', aus: aus('b_h2') }, { id: 'b_h2', typ: 'spontanhilfe', aus: aus('b_ende') }, { id: 'b_ende', typ: 'abschluss', erfolg: { ereignis: ['spontanhilfe_gelungen'] }, aus: { gelungen: {}, gescheitert: {} } }];
   }));
   if (!r.ok) throw new Error(r.fehler.join('; '));
   const { g } = bereit({ crew: 1, seed: 46 });

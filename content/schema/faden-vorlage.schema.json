@@ -335,6 +335,26 @@
               }
             }
           },
+          "erfolg": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "ereignis"
+            ],
+            "description": "Nur Abschluss-Beats (Pflicht laut Pruefer, ERFOLG_FEHLT): der Faden endet gelungen, wenn das Gedaechtnis des NSC mindestens eines dieser Ereignisse kennt (Beat-Typ_gelungen eines Beats der Vorlage), sonst gescheitert. Nur bei gelungenem Abschluss gelten dessen Folgen (Belohnung nur bei Erfolg).",
+            "properties": {
+              "ereignis": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 4,
+                "items": {
+                  "type": "string",
+                  "maxLength": 40,
+                  "pattern": "^[a-z_]{1,40}$"
+                }
+              }
+            }
+          },
           "variante": {
             "type": "object",
             "additionalProperties": false,

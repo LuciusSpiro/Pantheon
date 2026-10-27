@@ -1,0 +1,33 @@
+{
+  "format": "faden-vorlage/1",
+  "id": "notruf_mit_hinweis",
+  "titel": "Notruf mit Hinweis (Test, Welle 3)",
+  "ausloeser": [{ "art": "notruf", "ausgang": "gelungen", "ereignis": ["notruf_test_hinweis"] }],
+  "volk_erlaubt": ["rom", "kon"],
+  "nsc": { "status": "aktiv", "haltung": 0, "klassen": ["frachter", "kurier"] },
+  "wahrheit": { "id": "ist_spion", "fraktion": "ger" },
+  "hinweise": {
+    "h_scan": { "kanal": "scan", "text": "Der Scan zeigt: Der Notruf von {name} kam von einem fremden Sender." }
+  },
+  "beats": [
+    {
+      "id": "n_notruf", "typ": "notruf", "hinweise": ["h_scan"],
+      "parameter": { "text_key": "notruf_standard" },
+      "aus": {
+        "gelungen": { "status": "verbuendet", "weiter": "n_enthuell" },
+        "gescheitert": { "status": "aktiv", "weiter": "n_enthuell" }
+      }
+    },
+    {
+      "id": "n_enthuell", "typ": "enthuellung",
+      "aus": {
+        "gelungen": { "status": "feindlich", "weiter": "n_ende" },
+        "gescheitert": { "status": "geflohen", "weiter": "n_ende" }
+      }
+    },
+    {
+      "id": "n_ende", "typ": "abschluss", "erfolg": { "ereignis": ["notruf_gelungen"] },
+      "aus": { "gelungen": {}, "gescheitert": {} }
+    }
+  ]
+}

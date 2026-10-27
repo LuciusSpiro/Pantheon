@@ -195,8 +195,8 @@ section('Beats und Ausgaenge: Scheitern veraendert den Faden, es beendet ihn nic
   pfad(g, f, ['gescheitert']);
   ok(f.nsc.status === 'tot' && BEATS[f.beat] === 'b_ende' && f.phase === 'wartet', 'Scheitern des Notrufs: der NSC ist tot, weiter geht es zum Abschluss');
   const lief = pfad(g, f, ['gelungen']);
-  ok(lief.join() === 'b_ende' && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gelungen' && f.ausgang.status === 'tot', 'der Abschluss beendet den Faden mit einem Ausgang; ein toter NSC bleibt tot');
-  ok(f.nsc.gedaechtnis.map((x) => x.ereignis).join() === 'bitte_gescheitert,notruf_gescheitert,abschluss_gelungen', 'Gedaechtnis in Reihenfolge: ' + f.nsc.gedaechtnis.map((x) => x.ereignis).join());
+  ok(lief.join() === 'b_ende' && f.phase === 'abgeschlossen' && f.ausgang && f.ausgang.art === 'gescheitert' && f.ausgang.status === 'tot', 'der Abschluss beendet den Faden mit einem Ausgang (Welle 3: nichts geleistet = gescheitert, ohne Belohnung); ein toter NSC bleibt tot');
+  ok(f.nsc.gedaechtnis.map((x) => x.ereignis).join() === 'bitte_gescheitert,notruf_gescheitert,abschluss_gescheitert', 'Gedaechtnis in Reihenfolge: ' + f.nsc.gedaechtnis.map((x) => x.ereignis).join());
   ok(!weiter(g, f).ok && /^FADEN_ABGESCHLOSSEN/.test(Faden.befehlAnwenden(g, { typ: 'faden_weiter', faden: f.id, beat: 'b_ende' }).grund), 'ein abgeschlossener Faden geht nicht weiter');
   // der Weg im Gelingen, mit jedem Beat
   const h = spiel().g, e = oeffne(h);

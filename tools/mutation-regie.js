@@ -255,7 +255,7 @@ const MUTATIONEN = [
   [DR, '"max_zeichen": 4800', '"max_zeichen": 9000', 'Daten: Obergrenze des Ausschnitts'],
   [DR, '{"ereignisse": 6, "chronik": 5, "radius": 1, "gefallen": 3, "ruhige_zaehlen": false}', '{"ereignisse": 6, "chronik": 5, "radius": 2, "gefallen": 3, "ruhige_zaehlen": false}', 'Daten: Stufe 2 ohne kleineren Radius'],
   [DR, '"abkuehlung": {"wert": {"sabotage": 0, "angreifen": 80,', '"abkuehlung": {"wert": {"sabotage": 0, "angreifen": 6000,', 'Daten: Abkühlzeit unsinnig'],
-  [TX, '"angreifen": {"sprecher": "Aufklärung", "text": "Germanische', '"angreifen": {"sprecher": "Legat Rufus", "text": "Germanische', 'Text: Sprecher ohne Porträt'],
+  [TX, '"angreifen": {"sprecher": "Aufklärung", "text": "Germanische Verbände', '"angreifen": {"sprecher": "Legat Rufus", "text": "Germanische Verbände', 'Text: Sprecher ohne Porträt'],
   [E, "  embargo_beendet: ['gegen'],", "", 'Ereignis embargo_beendet nicht vereinbart'],
 ];
 

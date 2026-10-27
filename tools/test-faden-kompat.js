@@ -12,6 +12,9 @@ const Absicht = require('../server/sim/absicht.js');
 const RE = require('../server/sim/reise-ereignis.js');
 
 const { F, Faden, grenzen } = X;
+// Welle 3: die Hinweise einer Bitte gelten mit dem Beginn des Beats, die gespielte Geschichte erreicht jetzt die Enthuellung. Deren Sprengung ist ein Sim-Befehl (sabotage, P3: sie beruehrt die Sim ABSICHTLICH,
+// geprueft in test-faden-vorlagen); diese Pruefung gilt dem Rest der Faeden und nimmt die Enthuellung deshalb als Platzhalter
+require('../server/sim/faden-bausteine.js').registriere('enthuellung', require('../server/sim/faden-bausteine.js').platzhalter('enthuellung'));
 let n = 0, fails = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const MAIN = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'weltstand-main.schema.json'), 'utf8'));

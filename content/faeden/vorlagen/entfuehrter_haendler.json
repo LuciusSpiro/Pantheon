@@ -23,7 +23,7 @@
       }
     },
     {
-      "id": "b_abschluss", "typ": "abschluss",
+      "id": "b_abschluss", "typ": "abschluss", "erfolg": { "ereignis": ["befreiung_gelungen"] },
       "aus": {
         "gelungen": { "folge": [{ "typ": "haltung_aenderung", "grund": "gedankt" }, { "typ": "ruf_aenderung", "grund": "funk_rom_gruss" }] },
         "gescheitert": { "folge": [] }

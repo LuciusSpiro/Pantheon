@@ -4,10 +4,11 @@
 // Die Anzeige ist die Antwortleiste der Funk-Antworten (public/js/funkwahl.js, gemeinsame Anzeige), eigener Block world.bitte. Zahlen und Texte: content/faeden/bitte-werte.json.
 //
 // Regeln: keine Scheinwahl (der Pruefer des Fadenkerns, optionenFehler: unterschiedliche Folgen, hoechstens eine folgenlose Option), nie bei Gefahr (Beat ohne gefahr, und nie in unruhiger Lage),
-// Ablehnen kostet nur die dokumentierte Haltung (Daten), „Später“ ist nur das Zuklappen der Leiste fuer diesen Spieler (kein Befehl, kein Folgen), Verfall nach frist_taetigkeiten (faden.t, nie Sprünge)
+// Ablehnen kostet nur die dokumentierte Haltung (Daten), „Einklappen“ ist nur das Zuklappen der Leiste fuer diesen Spieler (kein Befehl, keine Folge); die Daten-Option „Später“ stellt die Bitte zurueck und darf Haltung kosten (hingehalten, Welle 3: der Ton der naechsten Bitte folgt der Haltung), Verfall nach frist_taetigkeiten (faden.t, nie Sprünge)
 // als Ausgang „gescheitert“ des Beats (der Faden verändert sich, endet nicht), höchstens EIN Angebot gleichzeitig (die Crew, nicht der Spieler), die ERSTE Antwort gilt.
-// Der Bitten-Deckel (bitte-werte.json ruf_deckel je fenster_taetigkeiten) ist eigener Deckel: getrennt vom Rom-Ruf-Deckel der Funk-Antworten und vom Reise-Ruf-Deckel. Passt eine Ruf-Folge nicht,
-// entfaellt die Option; bleiben weniger als zwei, gibt es kein Angebot (keine Scheinwahl). Folgen laufen über faden.optionWaehlen (Kriegslage.rufBuchen, haltungBuchen).
+// Der Bitten-Deckel (bitte-werte.json ruf_deckel je fenster_taetigkeiten) ist eigener Deckel: getrennt vom Rom-Ruf-Deckel der Funk-Antworten und vom Reise-Ruf-Deckel. Welle 3: er begrenzt NUR den Ruf.
+// Er nimmt nie eine Option weg und zieht kein Angebot zurück (auch die Annahme bleibt immer möglich): passt die Ruf-Folge nicht mehr, entfällt nur sie (Logbuch ruf_deckel), Haltung und Ausgang gelten.
+// Folgen laufen über faden.optionWaehlen (Kriegslage.rufBuchen mit Deckel, haltungBuchen).
 //
 // Zustand: game.weltsim.faeden.bitte = { nr, fadenId, beatId, von, volk, pid, text, optionen: [{ id, text, folge }], bis (Stand von faden.t) } | null; .bitteZuletzt = { nr } (Antwort gilt, Laufzeit);
 //   .bitteLog = [[t, betrag]] (Bitten-Deckel, Laufzeit); .bitteNr (laufende Nummer). Gespeichert wird nur das offene Angebot (welt.sim.faeden.bitte), Folgen stehen in der Vorlage.
@@ -15,7 +16,7 @@
 //
 //   baustein                                       der Baustein `bitte` (faden-bausteine.js registriert ihn): starten() bietet die Bitte an, Text aus beat.parameter.text_key
 //   anbieten(game, { fadenId, beatId, absender: { name, fraktion, portrait }, text, optionen: [{ id, text, folge }] }) -> { ok, code, bitte?, fehler? }
-//       code (bei ok false): aus | kein_faden | kein_beat | schon_offen | funk_offen | gefahr | unruhig | text | absender | optionen | deckel
+//       code (bei ok false): aus | kein_faden | kein_beat | schon_offen | funk_offen | gefahr | unruhig | text | absender | optionen
 //   angebotAusVorlage(game, fadenId) -> { ok, code, bitte? }    Text und Optionen aus der Vorlage des laufenden Beats (Baustein und Wiederholung)
 //   beantworten(game, id, nr?) -> null | { code, text }         Befehl faden.bitte { id, nr }: die ERSTE Antwort gilt; id = Option-Id (Später ist nur lokal)
 //   nachTaetigkeit(game)                                        (Aufrufer: faden.taetigkeit, am Ende) Verfall, verwaiste Angebote, Wiederholung
@@ -64,8 +65,6 @@ function rufBetrag(folge) {
   }
   return r2(s);
 }
-// Passt eine Ruf-Folge in den Raum des Deckels? Ohne Ruf-Betrag (Haltung) nie eine Sperre, auch bei einem überfüllten Deckel
-const passt = (betrag, raum) => betrag <= 1e-9 || betrag <= raum + 1e-9;
 function deckelRaum(F) {
   F.bitteLog = F.bitteLog.filter((x) => F.t - x[0] < BW.fenster_taetigkeiten);
   return BW.ruf_deckel - F.bitteLog.reduce((s, x) => s + x[1], 0);
@@ -73,7 +72,7 @@ function deckelRaum(F) {
 
 // Nacharbeit L10: der Zähler des Bitten-Deckels steht im Weltstand (welt.sim.faeden.deckel, optional, Altstand = leer), wie der Reise-Deckel (welt.sim.reise.r): nur die Einträge im
 // Fenster, höchstens DECKEL_MAX, jeder [Tätigkeitszähler t, Betrag]. Der Leser ist müllfest (Schema: Zähler ganz, nicht in der Zukunft, im Fenster; Betrag > 0 und höchstens DECKEL_BETRAG_MAX).
-// Die Größe des Deckels und die Prüfung beim Antworten (deckelRaum, passt) bleiben unberührt.
+// Die Größe des Deckels bleibt unberührt (Prüfung beim Buchen: faden.folgenAnwenden, deckelRaum).
 const DECKEL_MAX = 20, DECKEL_BETRAG_MAX = 20;
 function toSaveDeckel(F) {
   const t = F && Number.isFinite(F.t) ? F.t : 0;
@@ -161,14 +160,13 @@ function anbieten(game, o) {
   }
   // Bitte-Regel: eine Option mit Folge (Annahme, Ablehnung) trägt einen Ausgang, sonst bliebe der Beat nach der Zusage offen und liefe ins Scheitern;
   // nur die Option ohne Ausgang und ohne Folge (Daten: „später“) stellt die Bitte zurück
-  const ohneAusgang = opts.filter((x) => Array.isArray(x.folge) && x.folge.length && x.ausgang === undefined);
+  // Welle 3: das Zurückstellen darf Haltung kosten (hingehalten), aber keinen Ruf: eine Option ohne Ausgang mit anderer Folge als Haltung bliebe als Zusage offen
+  const ohneAusgang = opts.filter((x) => Array.isArray(x.folge) && x.folge.some((fo) => !fo || fo.typ !== 'haltung_aenderung') && x.ausgang === undefined);
   if (ohneAusgang.length) {
     logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'bitte', plan: { faden: f.id, beat: beat.id }, fehler: ['OPTION_OHNE_AUSGANG: ' + ohneAusgang.map((x) => x.id).join(', ')] });
     return { ok: false, code: 'optionen', fehler: ['OPTION_OHNE_AUSGANG'] };
   }
-  const raum = deckelRaum(F);
-  const erlaubt = opts.filter((x) => passt(rufBetrag(x.folge), raum));   // Optionen, deren Ruf-Folge der Deckel nicht mehr zuließe, entfallen (ohne Ruf-Folge entfällt nie eine)
-  if (erlaubt.length < 2) return { ok: false, code: 'deckel' };
+  const erlaubt = opts;   // Welle 3: der Ruf-Deckel nimmt nie eine Option weg (auch nicht die Annahme): er begrenzt erst beim Buchen den Ruf (faden.folgenAnwenden)
   F.bitteNr = (F.bitteNr || 0) + 1;
   const pid = portraetPid(ab);
   F.bitte = {
@@ -210,15 +208,13 @@ function beantworten(game, id, nr) {
   if (!f || f.phase !== 'laeuft' || !f.laufend || f.laufend.beat !== off.beatId || f.laufend.gewaehlt) { F.bitte = null; return fehl('kein_angebot'); }
   const opt = off.optionen.find((x) => x.id === id);
   if (!opt) return fehl('unbekannt');   // nur was im Angebot steht (Später ist nur lokal, kein Befehl)
-  const betrag = rufBetrag(opt.folge);
-  if (!passt(betrag, deckelRaum(F))) { F.bitte = null; return fehl('deckel'); }   // der Deckel hat sich seit dem Angebot gefüllt: zurückgezogen, ohne Folge
   F.bitte = null;
-  if (opt.ausgang === undefined && !opt.folge.length) {   // Option ohne Ausgang und ohne Folge (Daten: „später“): die Bitte wird zurückgestellt, der Beat bleibt offen; nachTaetigkeit bietet erneut an
+  if (opt.ausgang === undefined) {   // Option ohne Ausgang (Daten: „später“): die Bitte wird zurückgestellt, der Beat bleibt offen; nachTaetigkeit bietet erneut an. Welle 3: eine Haltungs-Folge (hingehalten) gilt, der Ton der nächsten Bitte folgt ihr
     funkSenden(game, BW.antwort_von, opt.text);
+    if (opt.folge.length) Faden().folgenAnwenden(game, f, opt.folge, true);
     return null;
   }
   F.bitteZuletzt = { nr: off.nr };
-  if (betrag > 0) F.bitteLog.push([F.t, betrag]);
   funkSenden(game, BW.antwort_von, opt.text);   // die Crew antwortet mit dem angeklickten Text (nie neu gezogen)
   const r = Faden().optionWaehlen(game, off.fadenId, opt.id);   // Folgen (Ruf, Haltung) und Ausgang des Beats aus der Vorlage
   if (!r.ok) fehlerZaehlen(game, 'faden-bitte', new Error('optionWaehlen: ' + r.grund));
@@ -301,7 +297,11 @@ function lesenBitte(b, F) {
 const baustein = {
   id: 'bitte',
   starten(game, faden) {
-    angebotAusVorlage(game, faden.id);   // kann verweigert sein (Deckel, unruhig, Angebot schon offen): nichts blockiert, nachTaetigkeit wiederholt es
+    const r = angebotAusVorlage(game, faden.id);   // kann verweigert sein (unruhig, Angebot schon offen, Funk-Antwort offen): nichts blockiert, nachTaetigkeit wiederholt es
+    if (!r.ok) {   // Welle 3 (Vorlauf-Fall): die Hinweise des Beats gelten mit dem BEGINN des Beats, nicht erst mit dem Angebot: bleibt die Bitte bis zur Frist unangeboten, steht die Enthuellung sonst nie an (HINWEIS_FEHLT)
+      const v = D.vorlage(faden.vorlage), beat = v && v.beats[faden.beat];
+      for (const h of (beat && beat.hinweise) || []) Hinweis().senden(game, faden.id, h);
+    }
     return { laeuft: true };
   },
 };

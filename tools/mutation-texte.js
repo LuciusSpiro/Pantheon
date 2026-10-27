@@ -127,7 +127,7 @@ const MUTATIONEN = [
   [GA, "    TextePool.beiGrenze(this, art);   // SUND-03b T", "    void art;   // SUND-03b T", 'Hook: game.lageGrenze stößt den Pool nicht an'],
   [GA, "  texteUpdate(dt) { TextePool.update(this, dt); }", "  texteUpdate(dt) { void dt; }", 'Hook: der Step treibt den Pool nicht'],
   [GA, "      if (this.weltsim) this.safe('texte', () => this.texteUpdate(dt));", "      void 0;", 'Hook: der Step ruft texteUpdate nicht'],
-  [GA, "this.countError('faden-szene-andocken', e); } } this.lageGrenze('andocken'); }", "this.countError('faden-szene-andocken', e); } } if (this.lageSpielleiter) this.lageGrenze('andocken'); }", 'Hook: Andocken ist ohne Lage-Spielleiter keine Grenze für den Pool'],
+  [GA, "this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters", "if (this.lageSpielleiter) this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters", 'Hook: Andocken ist ohne Lage-Spielleiter keine Grenze für den Pool'],
   [KL, "if (ev && (wo || 'szene') === 'szene' && game.lageGrenze) game.lageGrenze('szene_ende');", "if (ev && (wo || 'szene') === 'szene' && game.lageSpielleiter && game.lageGrenze) game.lageGrenze('szene_ende');", 'Hook: Szenenende ist ohne Lage-Spielleiter keine Grenze für den Pool'],
   // ---- Daten
   [DT, '"standard_an": {"wert": false', '"standard_an": {"wert": true', 'Daten: Standard an'],
