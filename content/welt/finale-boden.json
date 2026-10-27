@@ -1,0 +1,52 @@
+{
+  "format": "finale-boden/1",
+  "_hinweis": "SUND-04a-3 Boden (server/sim/finale-boden.js): die Bodenkarte „Schrein von Asgard“ in Hrafnheim und der Treiber des Boden-Teils der Entscheidungsschlacht. Alle Zahlen und Texte stehen hier, keine im Code. Der Landepunkt entsteht zur Laufzeit (nie im Weltstand, nie ausserhalb des Finales anwaehlbar), die Szene ist nicht speicherbar (Laden = Finale beginnt von vorn, die Crew steht am Dock). Karte aus dem Siedlungsgenerator (Militaersiedlung, Kommando mit dem Schrein als Anker-Rolle ziel), kein neuer Generator-Code.",
+  "landepunkt": {
+    "id": "hrafnheim.schrein",
+    "name": "Schrein von Asgard",
+    "art": "aussenposten",
+    "bauweise": "germanen_halle_stein",
+    "besitz": "herrenlos",
+    "zustand": "intakt",
+    "seed": 1,
+    "gen": { "typ": "militaer", "haeuser": 8 },
+    "beam_reichweite": 500,
+    "_hinweis": "Transferpunkt = Position des Schiffs beim Start des Boden-Teils (der Orbit-Teil hat es dort abgestellt), Reichweite in px. seed fest: gleiche Karte in jedem Versuch. besitz herrenlos: die Verteidiger kommen aus dem Katalog (fraktion unten), nicht aus dem Besitz der Karte."
+  },
+  "schrein": {
+    "rolle": "ziel",
+    "_hinweis": "Anker-Rolle des Schreins in der Karte (Kommandogebaeude). Halten dauert CONFIG.anker.halten.ziel (3 s), eine Person genuegt (Solo geht). Gesperrt, bis die Freigabe unten erfuellt ist."
+  },
+  "gegner": {
+    "fraktion": "hrafnheim_wache",
+    "tag": "schrein",
+    "boss": 1,
+    "nach_crew": {
+      "wert": { "1": 4, "2": 6, "3": 8, "4": 10 },
+      "einheit": "Wachen je Zahl der Spieler im Aussenteam bei der Landung, ohne den Waechter (Boss, immer 1); jede Zahl darueber nimmt den hoechsten Eintrag",
+      "_hinweis": "Solo vier Wachen und der Waechter, zu dritt acht. Rollen und Mischung bestimmt der Endkampf (nur Rollen, die die Crew schon kennt). Die Zahl wird einmal bei der Landung festgelegt."
+    },
+    "alle_abziehen_nach_boss": true
+  },
+  "freigabe": {
+    "nach": "boss",
+    "_hinweis": "Wann der Schrein aktiviert werden darf: boss = der Waechter ist besiegt | wachen = alle Wachen sind abgezogen oder besiegt | boss_oder_wachen = eines von beiden. Vorher ist der Schrein gesperrt (Hinweis im Spiel)."
+  },
+  "abbruch": {
+    "wert": "neubeginn",
+    "_hinweis": "Hochbeamen, bevor der Schrein aktiviert ist (und niemand mehr unten ist), sowie eine per Notrueckholung abgezogene Crew beenden den Boden-Teil als crew_gefallen: das Finale beginnt von vorn (Finale.bodenEnde), kein Game Over, keine Strafe, kein Ruf-Abzug. Verlaesst das Schiff vor der Landung den Ort, gilt dasselbe."
+  },
+  "texte": {
+    "sprecher": "Oberkommando",
+    "funk": {
+      "bereit": "Der Transfer ist auf den Schrein von Asgard gestellt. Landet, wenn die Crew bereit ist: Der Wächter des Schreins und seine Wachen stehen dort.",
+      "landung": "Landung auf Hrafnheim. Der Wächter des Schreins und seine Wachen greifen von allen Seiten an.",
+      "frei": "Der Wächter des Schreins ist gefallen. Der Weg zum Schrein von Asgard ist frei: Haltet ihn, bis er erwacht.",
+      "frei_wachen": "Die Wachen sind abgezogen. Der Weg zum Schrein von Asgard ist frei: Haltet ihn, bis er erwacht.",
+      "schrein": "Der Schrein von Asgard erwacht."
+    },
+    "sperre": "Der Schrein ist versiegelt, solange der Wächter des Schreins steht.",
+    "sperre_wachen": "Der Schrein ist versiegelt, solange seine Wachen stehen.",
+    "sperrgrund": "Nur in der Entscheidungsschlacht um Hrafnheim erreichbar."
+  }
+}

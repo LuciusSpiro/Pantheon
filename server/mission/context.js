@@ -209,7 +209,7 @@ function bodenbilanzOf(w) {
 
 // B2 §7: Fraktionen (Besetzung nur über Fraktion, Stärke, Haltung) und Gegnerrollen (für höchstens eine neue_rolle)
 function fraktionenOf(k) {
-  return Object.values(obj(k && k.fraktionen)).map((f) => ({ id: f.id, name: f.name, rezepte: Object.keys(obj(f.rezepte)).sort(),
+  return Object.values(obj(k && k.fraktionen)).filter((f) => !f.nur_skript).map((f) => ({ id: f.id, name: f.name, rezepte: Object.keys(obj(f.rezepte)).sort(),
     rollen: [...new Set(Object.values(obj(f.rezepte)).flatMap((t) => arr(t).map((x) => x.rolle)))].sort() })).sort(byId);
 }
 function gegnerOf(k) {

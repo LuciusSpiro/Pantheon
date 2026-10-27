@@ -1412,7 +1412,7 @@ async function b1Tests(T) {
       bilanz: c.bodenbilanz.pflicht_jetzt === true && c.bodenbilanz.letzte.length === 2 && c.bodenbilanz.lang_ab_min === 25 && c.bodenbilanz.letzte[0].landepunkte[0] === 'kesh.kastell',
       bewaffnung: JSON.stringify(c.crew.bewaffnung) === '{"blaster":1,"lanze":1}' && !JSON.stringify(c).includes('a1b2c3d4e5f6'),
       rollen: JSON.stringify(c.rollen_gesehen) === '["grundtyp"]',
-      fraktionen: !Object.keys(katalog.fraktionen || {}).length || (c.fraktionen.length === Object.keys(katalog.fraktionen).length && c.fraktionen.every((f) => f.rezepte.length && f.rollen.length)),
+      fraktionen: !Object.keys(katalog.fraktionen || {}).length || (c.fraktionen.length === Object.values(katalog.fraktionen).filter((f) => !f.nur_skript).length && !c.fraktionen.some((f) => (katalog.fraktionen[f.id] || {}).nur_skript) && c.fraktionen.every((f) => f.rezepte.length && f.rollen.length)),
       gegner: !Object.keys(katalog.gegner || {}).length || c.gegner.every((g) => g.rolle && g.name),
       brauchtAnker: !mitBraucht.length || mitBraucht.every((u) => !u.karten),
     };

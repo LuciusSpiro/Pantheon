@@ -364,6 +364,7 @@ function sperrgrund(game, lpId) {
   if (d.frei === 'nach_tutorial' && !tutorialErledigt(game)) return 'Erst nach der Ausbildung erreichbar.';
   if (d.frei === 'nach_raumgefecht' && !(e && e.frei)) return 'Noch nicht entdeckt – erst ein Raumgefecht dort.';
   if (d.frei === 'labor' && !game.labor) return 'Nur im Szenario-Labor erreichbar.';   // EK5: Platzhalter-Landepunkt, bis der Ort methalle existiert
+  if (d.frei === 'finale') return require('./finale-boden.js').sperrgrund(game, lpId);   // SUND-04a-3: Schrein von Asgard, nur im Boden-Teil des Finales
   return null;
 }
 // Landepunkte eines Orts (Transfer-Konsole, Kontext): [{ id, name, art, bauweise, besitz, zustand, frei, gesperrt, grund, beam, inReichweite? }]
@@ -373,6 +374,7 @@ function liste(game, ort) {
   const all = (defs().orte[o] || []).concat(Object.values(st(game).dyn).filter((d) => d.ort === o));
   for (const d of all) {
     if (d.frei === 'labor' && !game.labor) continue;   // Labor-Landepunkte erscheinen nur im Labor (Transfer-Konsole, Vorbau)
+    if (d.frei === 'finale' && sperrgrund(game, d.id)) continue;   // SUND-04a-3: der Schrein erscheint nur im Boden-Teil des Finales
     const e = st(game).eintraege[d.id];
     const grund = sperrgrund(game, d.id);
     const r = { id: d.id, name: d.name || d.id, art: d.art, bauweise: (e && e.bauweise) || d.bauweise || null, besitz: (e && e.besitz) || d.besitz || null,
@@ -419,7 +421,9 @@ function freigeben(game, lpId) {
 }
 
 // ---------- neue Landepunkte ----------
-// neu(game, ort, { art, besitz, bauweise?, zustand?, seed? }) -> lpId (<ort>.<art>-<n>), neuer Seed
+// neu(game, ort, { art, besitz, bauweise?, zustand?, seed?, gen?, name?, id?, frei?, beam?, fluechtig? }) -> lpId (<ort>.<art>-<n>), neuer Seed
+// SUND-04a-3: id = feste ID (statt <ort>.<art>-<n>; wirft, wenn sie belegt ist), frei = Freigabe ('immer' | 'finale'), beam = { x, y, range } (statt Ort),
+// fluechtig = nie im Weltstand (wie ein Testgelände, aber ohne Testmarke)
 function neu(game, ort, o) {
   o = o || {};
   if (!ort) throw new Error('neu: ort fehlt');
@@ -427,14 +431,18 @@ function neu(game, ort, o) {
   const S = st(game);
   let n = 1;
   while (defs().byId[`${ort}.${o.art}-${n}`] || S.dyn[`${ort}.${o.art}-${n}`] || S.eintraege[`${ort}.${o.art}-${n}`]) n++;
-  const id = `${ort}.${o.art}-${n}`;
+  let id = `${ort}.${o.art}-${n}`;
+  if (o.id) {
+    if (defs().byId[o.id] || S.dyn[o.id] || S.eintraege[o.id]) throw new Error(`neu: Landepunkt ${o.id} gibt es schon`);
+    id = String(o.id);
+  }
   const seed = o.seed != null ? (o.seed | 0) : ((Buehne.fnv(id + ':' + ((game.seed | 0) >>> 0) + ':' + Object.keys(S.eintraege).length) % 100000) + 1);
   const ach = Buehne.daten().achsen || { kartenarten: {} };
   const bw = o.bauweise || ((ach.kartenarten[o.art] || {}).bauweise) || 'germanen';
   const zs = o.zustand || ((ach.kartenarten[o.art] || {}).zustand) || 'intakt';
   const basis = defs().orte[ort] && defs().orte[ort][0];
   S.dyn[id] = { id, ort, art: o.art, bauweise: bw, besitz: o.besitz || 'herrenlos', zustand: zs, seed, schablone: o.schablone || null,
-    beam: (basis && basis.beam) || ortBeam(ort), name: o.name || null, frei: 'immer', gesperrt: false, neu: true, ...(o.gen ? { gen: o.gen } : {}) };
+    beam: o.beam || (basis && basis.beam) || ortBeam(ort), name: o.name || null, frei: o.frei || 'immer', gesperrt: false, neu: true, ...(o.gen ? { gen: o.gen } : {}), ...(o.fluechtig ? { fluechtig: true } : {}) };
   const e = eintrag(game, id);
   e.neu = true; e.ort = ort;
   return id;
@@ -500,7 +508,7 @@ function toSave(game) {
   for (const id of Object.keys(game.aways || {})) if (S.eintraege[id] && !istHand(id)) sichern(game, id);
   const out = {};
   for (const id of Object.keys(S.eintraege).sort()) {
-    if (S.dyn[id] && S.dyn[id].test) continue;   // Testgelände-Landepunkte nie in den Weltstand (F6)
+    if (S.dyn[id] && (S.dyn[id].test || S.dyn[id].fluechtig)) continue;   // Testgelände-Landepunkte nie in den Weltstand (F6); fluechtig: Schrein des Finales (SUND-04a-3), das nicht speicherbar ist
     const e = S.eintraege[id];
     const o = {};
     for (const f of FELDER) o[f] = e[f] === undefined ? null : JSON.parse(JSON.stringify(e[f]));
