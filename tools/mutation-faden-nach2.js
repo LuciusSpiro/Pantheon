@@ -81,9 +81,9 @@ const MUTATIONEN = [
   [FW, "const kopfText = (m) => (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von + (m.art === 'bitte' && m.fk ? ' · ' + m.fk : '');", "const kopfText = (m) => (m.art === 'bitte' ? m.kopf : 'FUNK') + ' · ' + m.von;", 'Client: Kopf ohne Kuerzel der Fraktion'],
   [FW, "(m.art === 'bitte' ? (m.rest <= 1 ? 'läuft ab' : voll ? '' : 'offen')", "(m.art === 'bitte' ? (m.rest <= 0 ? 'läuft ab' : voll ? '' : 'offen')", 'Client: „läuft ab“ erst bei rest 0'],
   [FW, "voll ? '' : 'offen'", "voll ? 'offen' : 'offen'", 'Client: „offen“ auch in der vollen Leiste'],
-  [FW, '    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 5, r.y + 3, 22);', '    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 4, r.y + 2, 22);', 'Client: Plakette nicht bündig'],
+  [FW, '    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + BILD_X, r.y + 3, 22);', '    if (bild) root.Hud.drawFunkBild(ctx, m.pid, r.x + 4, r.y + 2, 22);', 'Client: Plakette nicht bündig'],
   [FW, "    if (rest) R.text(ctx, rest, r.x + r.w - 6, gl, { color: SK.dim, align: 'right' });", "    if (rest) R.text(ctx, rest, r.x + r.w - 6, r.y + 4, { color: SK.dim, align: 'right' });", 'Client: Frist nicht auf der Grundlinie des Kopfes'],
-  [FW, "    if (k.length === 1 && !/[A-Za-z0-9ÄÖÜäöüß]/.test(k)) R.text(", "    if (false) R.text(", 'Client: Punkt-Kappe nicht fett'],
+  [FW, "    if (punkt) { ctx.fillStyle = SK.text; ctx.fillRect(", "    if (false) { ctx.fillStyle = SK.text; ctx.fillRect(", 'Client: Punkt-Kappe nicht fett'],
   [FW, '  const kopfH = (m) => (m && m.art === \'bitte\' && m.pid ? 26 : KOPF);', '  const kopfH = (m) => KOPF;', 'Client: Kopf mit Porträt nicht höher'],
   // ---- Client: Ruf-Slot und Vorrang, ODA
   [FW, '    return dbg ? { x: 404, y: 0, w: 232, h: sz ? 9 : STREIFEN } : { x: VW - BREITE - RAND, y: 0, w: BREITE, h: sz ? 9 : STREIFEN };', '    return dbg ? { x: 404, y: 0, w: 232, h: sz ? 9 : STREIFEN } : { x: VW - BREITE - RAND, y: 6, w: BREITE, h: sz ? 9 : STREIFEN };', 'Ruf-Slot: y 6 statt 0 (ueber den Koepfen)'],
@@ -101,12 +101,12 @@ const MUTATIONEN = [
   // ---- Client: Portrait, Funk der Faeden
   [HU, '      ctx.fillStyle = MESSING; ctx.fillRect(0, 0, w, 1); ctx.fillRect(0, w - 1, w, 1); ctx.fillRect(0, 0, 1, w); ctx.fillRect(w - 1, 0, 1, w);', '', 'Portraet ohne Messingrahmen'],
   [HU, "      else if (v === 2) { r(6, 4, 12, 4, '#46556A'); r(4, 8, 16, 1, '#46556A'); }", "      else if (v === 2) { r(6, 4, 12, 4, '#2A3A52'); r(4, 8, 16, 1, '#2A3A52'); }", 'Portraet: Muetze wieder dunkel'],
-  [HU, "      return f && f.fd === 1 ? (window.KarteTokens", "      return false ? (window.KarteTokens", 'Hud: Funk der Faeden bleibt rot'],
+  [HU, "      return f && (f.fd === 1 || f.ton === 'meldung') ? (window.KarteTokens", "      return f && f.ton === 'meldung' ? (window.KarteTokens", 'Hud: Funk der Faeden bleibt rot'],
   [HU, "      if (f.fd) return 'FUNK · ' + (von ? von + ' · ' : '') + text;", '', 'Hud: Zeile des Fadenfunks beginnt mit LAGE'],
-  [HU, 'fd: fd === 1 || fd === 2 ? fd : 0 };', 'fd: fd };', 'Hud: onRadio nimmt jede Kennung als fd'],
-  [CL, ', !!(ev.sz && !ev.r), ev.fd);', ', !!(ev.sz && !ev.r));', 'Client: fd geht nicht an Hud.onRadio'],
-  [KL, 't: Number.isFinite(ev.tick) ? ev.tick : null, fd: ev.fd === 1 || ev.fd === 2 ? ev.fd : 0 });', 't: Number.isFinite(ev.tick) ? ev.tick : null });', 'Funk-Reiter: KarteLage merkt fd nicht'],
-  [CO, 'e.fd === 1 ? KarteTokens.FARBE.funk.akzentLage : KarteTokens.FARBE.funk.akzentFeind', 'KarteTokens.FARBE.funk.akzentFeind', 'Funk-Reiter: Fadenfunk in Rot'],
+  [HU, 'fd: fd === 1 || fd === 2 ? fd : 0, ton:', 'fd: fd, ton:', 'Hud: onRadio nimmt jede Kennung als fd'],
+  [CL, ', !!(ev.sz && !ev.r), ev.fd, ev.ton);', ', !!(ev.sz && !ev.r), undefined, ev.ton);', 'Client: fd geht nicht an Hud.onRadio'],
+  [KL, 't: Number.isFinite(ev.tick) ? ev.tick : null, fd: ev.fd === 1 || ev.fd === 2 ? ev.fd : 0, ton:', 't: Number.isFinite(ev.tick) ? ev.tick : null, ton:', 'Funk-Reiter: KarteLage merkt fd nicht'],
+  [CO, "e.fd === 1 || e.ton === 'meldung' ? KarteTokens.FARBE.funk.akzentLage : KarteTokens.FARBE.funk.akzentFeind", "e.ton === 'meldung' ? KarteTokens.FARBE.funk.akzentLage : KarteTokens.FARBE.funk.akzentFeind", 'Funk-Reiter: Fadenfunk in Rot'],
 ];
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
