@@ -34,6 +34,8 @@ const MAX = CONFIG.net.snapMax;
 const LUFT = CONFIG.net.snapLuft;
 const ZIEL = MAX - LUFT;
 const bytes = (v) => Buffer.byteLength(JSON.stringify(v));
+// SUND-04a-3: Worst Case des Blocks world.finale (Angebot, offene Anfrage und Phase zugleich, in jedem Snapshot gesendet: der Schlüssel wird vor jedem Snapshot zurückgesetzt)
+const finaleWorst = (g) => { g.sentFinaleKey = null; if (g.weltsim) g.weltsim.finale = { phase: 'boden', angebot: 1, anfrage: { bis: g.time + 10 }, frei_ab: 0, versuche: 0 }; };
 const log = () => {};
 
 // ---------- Sammler ----------
@@ -351,7 +353,7 @@ function freieFahrt(S, seed) {
   g.god = true;
   // das Angebot gibt es nur in ruhiger Lage (ohne Gegner): gemessen wird es deshalb vor den Szenen mit den Jägern, im selben Snapshot wie world.lage und world.absicht
   g.space.enemies = [];
-  for (let k = 0; k < 30; k++) { g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null; const sn = g.snapshot(); if (sn.world && sn.world.funkwahl) { funkMax = Math.max(funkMax, bytes(sn.world.funkwahl)); funkMitMax = Math.max(funkMitMax, bytes(sn)); } messen(S, sn); }
+  for (let k = 0; k < 30; k++) { g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null; const sn = g.snapshot(); if (sn.world && sn.world.funkwahl) { funkMax = Math.max(funkMax, bytes(sn.world.funkwahl)); funkMitMax = Math.max(funkMitMax, bytes(sn)); } messen(S, sn); }
   const je = Math.floor(TICKS / orte.length);
   let maxMarker = 0;
   for (const ort of orte) {
@@ -363,7 +365,7 @@ function freieFahrt(S, seed) {
       g.ship.hull = 100;
       g.step();
       maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
-      g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;
+      g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;
       const sn = g.snapshot();
       if (sn.world && sn.world.absicht) { absichtMax = Math.max(absichtMax, bytes(sn.world.absicht)); absichtMitMax = Math.max(absichtMitMax, bytes(sn)); }
       if (sn.world && sn.world.lage) { lageMax = Math.max(lageMax, bytes(sn.world.lage)); lageMitMax = Math.max(lageMitMax, bytes(sn)); }
@@ -385,7 +387,7 @@ function freieFahrt(S, seed) {
     ws.infoLetzte = [{ s: 'b', x: 'Beleg des Konkordats: ' + 'x'.repeat(100) }, { s: 'g', x: 'Gerücht, unbestätigt: Es heißt: ' + 'x'.repeat(100) }];
     for (let k = 0; k < 30; k++) {
       g.ship.hull = 100; g.step();
-      g.sentLageKey = null; g.sentAbsichtKey = null; g.sentInfoKey = null;
+      g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentInfoKey = null;
       const sn = g.snapshot();
       if (sn.world && sn.world.info) { infoMax = Math.max(infoMax, bytes(sn.world.info)); infoMitMax = Math.max(infoMitMax, bytes(sn)); }
       messen(S, sn);
@@ -403,7 +405,7 @@ function freieFahrt(S, seed) {
     g.ship.hull = 100;
     g.step();
     if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
-    g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
+    g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
     const sn = g.snapshot();
     const sz = sn.flotte && sn.flotte.sz;
     if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
@@ -412,7 +414,7 @@ function freieFahrt(S, seed) {
   // Fixrunde H7: auch die Ergebniszeile nach dem Ende (Phase s Sieg, n Niederlage) wird gemessen: die ersten Sekunden nach dem Ende, dann eine zweite Szene bis zur Niederlage
   const messSz = (sek) => {
     for (let k = 0; k < Math.round(sek * CONFIG.tickHz); k++) {
-      g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; g.sentFunkKey = null;
+      g.step(); g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;
       const sn = g.snapshot(); const sz = sn.flotte && sn.flotte.sz;
       if (sz) { szeneTicks++; phasen.add(sz.p); szeneSz = Math.max(szeneSz, bytes(sz)); szeneMax = Math.max(szeneMax, bytes(sn)); }
       messen(S, sn);

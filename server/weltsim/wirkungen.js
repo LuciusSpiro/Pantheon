@@ -23,6 +23,8 @@
 //   haltung_aenderung    { npc: Kennung eines NSC der Geschichtsfäden (n<Zahl>), delta: Zahl ≠ 0, grund: Schlüssel aus content/faeden/haltung-werte.json (quellen) }   Haltung eines NSC zur Crew (SUND-04a-1 B). Wie ruf_aenderung eine Aufsatz-Wirkung:
 //                        der Kern ignoriert sie, angewandt wird sie vom Spielaufsatz (server/sim/faden.js, welt.sim.faeden). Der Prüfer hier prüft die Form (delta klein, Vorzeichen und Betrag wie der Grund, Grund bekannt);
 //                        dass der NSC existiert, prüft der Aufsatz (faden.haltungPruefen): der Sim-Zustand kennt keine Fäden.
+//   hauptwelt_erobert    { ort, an: fraktion }                 (SUND-04a-3) die Crew erobert die Hauptwelt eines Feindes von `an` im Finale (ohne Sim-Belagerung: die Sim belagert Hrafnheim praktisch nie, gemessen). Wie erobern(): Ereignisse hafen_gefallen + hauptwelt_gefallen.
+//                        NUR gültig, solange das Finale läuft: der Prüfer bekommt den Finale-Zustand als 3. Parameter `kontext` ({ finale: 'orbit' | 'boden' | ... }, kriegslage.js tickMit). Ohne Kontext oder ohne laufendes Finale: abgelehnt, nie eine Auswirkung. Der Kern kennt das Finale nicht.
 // Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
@@ -33,6 +35,7 @@ const POSTEN = require('../../content/welt/posten-werte.json').werte;   // Daten
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const SCHICKSALE = ['entkommen', 'gefallen'];
 const NAME_MAX = 60;
+const FINALE_PHASEN = ['orbit', 'boden'];   // Phasen des Finales (server/sim/finale.js), in denen hauptwelt_erobert gilt
 const istZahl = (x) => typeof x === 'number' && Number.isFinite(x);
 const istId = (x) => Number.isInteger(x) && x >= 1;
 let H = null;   // Helfer des Kerns (melde, erobern, ...), von installiere() gesetzt
@@ -198,14 +201,28 @@ const KATALOG = {
       if (H.istHafen(c, wk.ort)) H.erobern(c, wk.ort, wk.an); else H.postenVerlieren(c, wk.ort, nd.besitzer, wk.an);
     },
   },
+  hauptwelt_erobert: {
+    pruefe(z, d, wk, kontext) {
+      if (!kontext || !FINALE_PHASEN.includes(kontext.finale)) return 'kein laufendes Finale';   // das Tor: ohne Finale nie eine Auswirkung
+      const k = hexKnoten(z, d, wk.ort);
+      if (!k) return 'unbekannter Ort';
+      if (typeof wk.an !== 'string' || !['rom', 'ger', 'kon'].includes(wk.an)) return 'unbekannte Fraktion (an)';
+      if (!k.hafen) return 'Ort hat keinen Hafen';
+      const alt = k.nd.besitzer;
+      if (!alt || d.hauptwelten[alt] !== wk.ort) return 'Ort ist keine Hauptwelt';
+      if (!feind(wk.an, alt)) return `${wk.an} ist nicht feindlich zu ${alt}`;
+      return null;
+    },
+    anwenden(c, wk) { H.erobern(c, wk.ort, wk.an); },
+  },
 };
 
-// Prüft eine Wirkung gegen den Zustand. -> { ok, grund }
-function pruefe(zustand, wirkung) {
+// Prüft eine Wirkung gegen den Zustand. kontext (optional, nur vom Spielaufsatz): Wissen von außerhalb des Sim-Zustands, bisher { finale } für hauptwelt_erobert. -> { ok, grund }
+function pruefe(zustand, wirkung, kontext) {
   if (!wirkung || typeof wirkung !== 'object' || Array.isArray(wirkung)) return { ok: false, grund: 'keine Wirkung' };
   if (typeof wirkung.typ !== 'string' || !Object.prototype.hasOwnProperty.call(KATALOG, wirkung.typ)) return { ok: false, grund: `unbekannter Typ "${wirkung.typ}"` };
   let grund;
-  try { grund = KATALOG[wirkung.typ].pruefe(zustand, Daten.datenVon(zustand), wirkung); } catch (e) { grund = 'Prüfung fehlgeschlagen: ' + e.message; }
+  try { grund = KATALOG[wirkung.typ].pruefe(zustand, Daten.datenVon(zustand), wirkung, kontext); } catch (e) { grund = 'Prüfung fehlgeschlagen: ' + e.message; }
   return grund ? { ok: false, grund } : { ok: true, grund: null };
 }
 

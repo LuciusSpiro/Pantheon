@@ -261,6 +261,12 @@
     //   Snapshot world.absicht { frei: 0|1, ab: Name des Mindestrangs, angebot?: [{ id, name, text, dauer }] (2 bis 3), rest?: Sprünge bis zum Verfall, laufend?: { id, name, text, rest, dauer } } nur bei Änderung (nie in den großen Snapshots),
     //   world.absicht = null ist das Löschsignal (einmal, wenn der Modus endet), der Client leert dann seinen Block wie world.ruf.
     CMD_ABSICHT: ['absicht.waehlen', 'absicht.ablehnen'],
+    // SUND-04a-3: Entscheidungsschlacht um Hrafnheim am Terminal (Konsole 'shop', nur Freie Fahrt Sund, ab Tribun, jeder Spieler, keine Rolle), zweistufig wie der Verrat: cmd { c: 'finale.waehlen' } stellt die Anfrage,
+    //   cmd { c: 'finale.bestaetigen' } beginnt das Finale (nur innerhalb der Frist nach der Anfrage, die erste Bestätigung gilt), cmd { c: 'finale.ablehnen' } schließt das Angebot (ohne Folgen).
+    //   Antwort an den Absender: Ereignis finaleAntwort { pid, op: 'waehlen'|'bestaetigen'|'ablehnen', ok, code?, text? }.
+    //   Snapshot world.finale { frei: 0|1, ab: Name des Mindestrangs, name, text, angebot?: 1, anfrage?: Sekunden der Frist, phase?: 'orbit'|'boden'|'ende' } nur bei Änderung (nie in den großen Snapshots), erst ab Tribun,
+    //   world.finale = null ist das Löschsignal (Modus endet oder der Rang fällt, ohne Angebot und ohne Finale). Das Finale ist nicht speicherbar. Debug finale [status | angebot | start | orbit <ausgang> | boden <ausgang> | reset].
+    CMD_FINALE: ['finale.waehlen', 'finale.bestaetigen', 'finale.ablehnen'],
     // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund mit Reise-Ereignissen, nach Funkmeldung, römischer Streife, Havarie-Notruf; nie bei Gefahr). cmd { c: 'funk.antworten', id, nr? } wählt eine Option des offenen Angebots (id aus world.funkwahl.optionen)
     //   oder 'ignorieren' (schließt es für alle, ohne Folge); nr = Nummer des Angebots (ein Klick auf ein älteres Angebot gilt nicht). Jeder Spieler, keine Konsole, keine Rolle; die ERSTE Antwort gilt, jede weitere bekommt „schon beantwortet“.
     //   Antwort an den Absender: Ereignis funkAntwort { pid, ok, code?, text? } (code: modus | kein_angebot | schon_beantwortet | unbekannt | unruhig | deckel | am_boden). Alle hören die Antwort der Crew und die Reaktion des Sprechers als Ereignis radio.
@@ -314,7 +320,7 @@
     PIN_LABELS: ['ziel', 'gefahr', 'landeplatz', 'treffpunkt', 'frage'],
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'hull', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
-      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)
