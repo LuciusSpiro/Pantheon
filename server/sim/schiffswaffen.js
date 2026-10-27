@@ -83,7 +83,7 @@ function label(game, id) {
 // Werte einer Waffe (Katalog; Standardbatterie und Lanze lesen die Config, damit `tune spaceM3.…` wirkt und die Altwerte maßgeblich bleiben)
 function wcfg(game, w) {
   const M = M3(game); const P = M.mounts.port;
-  const c = { schaden: w.schaden, rohre: w.rohre, gap: w.salvoGap || 0.15, ladekosten: w.ladekosten, bogen: w.bogen, reichweite: w.reichweite,
+  const c = { schaden: w.schaden, rohre: w.rohre, gap: w.salvoGap || 0.15, ladekosten: w.ladekosten, nachlauf: w.nachlauf || 0, bogen: w.bogen, reichweite: w.reichweite,
     rohreKaputt: Math.max(1, Math.ceil(w.rohre / 2)), kaputtFaktor: P.damagedFactor || 1 };   // Batterie/Kanone: wie vor PAN-01 C kein Zeitfaktor (nur weniger Rohre), die Config kennt keinen damagedFactor für port/stbd
   if (w.id === 'standardbatterie') Object.assign(c, { schaden: P.damage, rohre: P.tubes, ladekosten: P.secPerPoint, bogen: P.arc, reichweite: P.range, rohreKaputt: P.tubesDamaged });   // SYS-01 B1: kein Salvenabstand mehr (ein Projektil)
   if (w.art === 'lanze') {
@@ -249,7 +249,7 @@ function chargeTime(game, id) {
   const st = mountState(game, id);
   if (isDown(st) || !(m.alloc > 0)) return null;
   const c = wcfg(game, w);
-  let t = c.ladekosten / m.alloc;
+  let t = c.ladekosten / m.alloc + c.nachlauf;   // SYS-01 B1 Nacharbeit: Nachlauf = fester Anteil je Schuss (wie die Salvendauer vor B1), unabhängig von den Ladepunkten
   if (st === 'damaged') t *= c.kaputtFaktor;
   // §5.5 unbesetzte Ops: autoFactor wirkt auf die Ladezeit (halbe Feuerrate, voller Schaden je Treffer). Der Abwehrturm hat seinen eigenen Faktor (ohne Taktik).
   if (w.art === 'turm') { if (!weaponsManned(game)) t *= (w.turm.autoFaktor || 1); }

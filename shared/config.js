@@ -558,8 +558,8 @@
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
         bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
-        port: { facing: -90, arc: 70, range: 520, damage: 2.9, tubes: 1, tubesDamaged: 1, tubesUpgrade: 5, secPerPoint: 5 },   // SYS-01 B1: ein Projektil je Zyklus (Ziel-Zyklus 5 s bei 1 Punkt), Schaden 2,9 (Obergrenze Erkundung 1d)
-        stbd: { facing: 90, arc: 70, range: 520, damage: 2.9, tubes: 1, tubesDamaged: 1, tubesUpgrade: 5, secPerPoint: 5 },
+        port: { facing: -90, arc: 70, range: 520, damage: 2.66, tubes: 1, tubesDamaged: 1, tubesUpgrade: 5, secPerPoint: 3.9 },   // SYS-01 B1: ein Projektil je Zyklus; Zyklus 3,9 s/Punkt + 0,2 s Nachlauf (Katalog), Schaden 2,66 (Start-Lerche wie vor B1, Erkundung 1d)
+        stbd: { facing: 90, arc: 70, range: 520, damage: 2.66, tubes: 1, tubesDamaged: 1, tubesUpgrade: 5, secPerPoint: 3.9 },
       },
       allocMax: 4, allocDefault: { bow: 2, port: 1, stbd: 1 }, autoFactor: 0.5,
       aimTime: 1.5, aimTolerance: 5, aimAbortCharge: 0.7,

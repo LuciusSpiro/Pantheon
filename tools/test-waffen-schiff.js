@@ -595,7 +595,8 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
   const P = CONFIG.spaceM3.mounts.port;
   g.ship.systems.battery_port = 'damaged';
   const al = g.ship.mount.port.alloc;
-  ok(near(Waffen.chargeTime(g, 'port'), P.secPerPoint / al, 1e-9) && !P.damagedFactor, `beschädigte Standardbatterie lädt wie vor PAN-01 C (${Waffen.chargeTime(g, 'port').toFixed(2)} s = ${P.secPerPoint} / ${al}), ohne Faktor`);
+  const nl = Katalog.waffe('standardbatterie').nachlauf || 0;   // SYS-01 B1 Nacharbeit: Zyklus = Ladekosten / Punkte + Nachlauf
+  ok(near(Waffen.chargeTime(g, 'port'), P.secPerPoint / al + nl, 1e-9) && !P.damagedFactor, `beschädigte Standardbatterie lädt wie vor PAN-01 C (${Waffen.chargeTime(g, 'port').toFixed(2)} s = ${P.secPerPoint} / ${al} + ${nl}), ohne Faktor`);
   ok(Waffen.rohre(g, 'port') === P.tubesDamaged, 'beschädigt: ' + P.tubesDamaged + ' Rohre');
   g.ship.systems.weapon_bow = 'damaged';
   ok(near(Waffen.chargeTime(g, 'bow'), CONFIG.spaceM3.mounts.bow.secPerPoint / g.ship.mount.bow.alloc * 1.5, 1e-9), 'beschädigte Lanze lädt 1,5× so langsam (wie bisher)');

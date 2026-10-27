@@ -51,8 +51,13 @@ function neu(seed, crew) {
   g.emit = (k, d) => { if (k === 'radio') radio.push(d.text); return emit0(k, d); };
   return { g, agents, opts, radio };
 }
-// Zwischen den Versuchen erholt sich die Crew (Hülle, Schilde); sonst entscheidet der Verschleiß des vorigen Kampfes statt des Finales
-const erholen = (g) => {  g.ship.shields.current = g.ship.shields.alloc.slice(); };
+// Zwischen den Versuchen erholt sich die Crew (Schilde und, seit SYS-01 A1a ohne Hülle, die Systeme samt Feuern und Lecks); sonst entscheidet der Verschleiß des vorigen Kampfes statt des Finales
+// (ein zerstörter Transfer verhindert das Hinunterbeamen, ein zerstörter Reaktor ändert den Kampf). Die Prüfungen selbst bleiben unverändert.
+const erholen = (g) => {
+  g.ship.shields.current = g.ship.shields.alloc.slice();
+  for (const k of interior.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
+  interior.integritaetVoll(g); g.ship.fireList.length = 0; g.ship.breachList.length = 0;
+};
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
 const PASSIV_VERLUST_NACH = 90;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus

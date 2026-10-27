@@ -94,7 +94,7 @@ function messe(k) {
   return { k, ids, stufe, anfang: sum[0], vorrat0, rate0: dauer(fenster[0], 0), rate1: dauer(fenster[1], 1), rate2: dauer(fenster[2], 2), alloc: ids.map((id) => g.ship.mount[id].alloc).join(',') };
 }
 
-console.log(`PAN-01 C Feuerkraft: Pool ${POOL} Ladepunkte (Energie ${POOL - 2} + 2), Verteilung ${VERT}, ${SEK} s, feste Attrappen; Magazindeckel ${Katalog.MAGAZINDECKEL.stossMax.toFixed(1)} (1,5 × ${Katalog.MAGAZINDECKEL.stossStart.toFixed(1)}; SYS-01 B1: Ladung = schaden × rohre)`);
+console.log(`PAN-01 C Feuerkraft: Pool ${POOL} Ladepunkte (Energie ${POOL - 2} + 2), Verteilung ${VERT}, ${SEK} s, feste Attrappen; Magazindeckel ${Katalog.MAGAZINDECKEL.stossMax.toFixed(1)} (1,5 × ${Katalog.MAGAZINDECKEL.stossStart.toFixed(1)}; SYS-01 B1: Magazinlast wie vor B1)`);
 console.log('| Energiewaffen | Plätze | Anfangsstoß (Vorrat) | Schaden 0–10 s | Schaden/s 10–60 s | Schaden/s 60–180 s | Faktor Dauerfeuer gegen 3 Waffen |');
 console.log('|---|---|---|---|---|---|---|');
 const ergeb = [3, 5, 7, 9].map(messe);

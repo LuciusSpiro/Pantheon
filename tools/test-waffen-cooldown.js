@@ -1,6 +1,7 @@
 'use strict';
 // SYS-01 B1: Cooldown statt Salven. Ein Projektil je Zyklus für Standardbatterie, Sturmbatterie, Standardkanone und Abwehrturm; die Streubatterie behält die Salve.
-// Zyklus = ladekosten / Ladepunkte am Pool. Dauerleistung am Pool je Waffe darf den Ist-Wert der Erkundung (Auftrag SYS-01 – Erkundung, Frage 1d) um höchstens 3 % überschreiten.
+// Zyklus = ladekosten / Ladepunkte am Pool + nachlauf (Standardbatterie: 0,2 s). Dauerleistung am Pool je Waffe darf den Ist-Wert der Erkundung (Auftrag SYS-01 – Erkundung, Frage 1d) um höchstens 3 % überschreiten.
+// Nacharbeit: die Start-Lerche (Lanze + 2 Standardbatterien, Pool 4) liegt innerhalb ±2 % der Ist-Werte vor B1 (Anfangsstoß 28, Dauerfeuer 2,24 / 2,43).
 // Waffenrollen: Lanze (Schildpierce 2, Vollladung durchschlägt den Schild), Sturm (Schild fällt, Regeneration gesperrt, kein Systemschaden), Torpedo (Lesart B),
 // Katalog ohne Feld stoss. Lücke: Zonen der Gegner gibt es noch nicht (Paket C), deshalb prüft die Standardbatterie-Regel hier den Schild 0 statt der geleerten Zone.
 //   node tools/test-waffen-cooldown.js
@@ -14,6 +15,7 @@ const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
+const { execFileSync } = require('child_process');
 
 const DT = 1 / CONFIG.tickHz;
 let fails = 0, n = 0;
@@ -62,9 +64,11 @@ const SCHUSS_ZIELE = {
   standardbatterie: { platz: 4, ziel: ['korvette', 0, -300] }, sturmbatterie: { platz: 4, ziel: ['korvette', 0, -300] },
   standardkanone: { platz: 5, ziel: ['korvette', 300, 0] }, abwehrturm: { platz: 2, ziel: ['raider', -120, 90] },
 };
-// Ist-Werte Erkundung 1d (gemessen, 100 % Treffer, ruhende Ziele): Schaden/s bei 1 / 2 / 4 Punkten
+// Ist-Werte Erkundung 1d (gemessen, 100 % Treffer, ruhende Ziele): Schaden/s bei 1 / 2 / 4 Punkten.
+// Standardbatterie bei 1 Punkt: 0,63 statt 0,60. Die Erkundung zählte 9 Salven à 8 im Fenster 30–150 s (0,60); die Salve von vor B1 (alle 12,77 s) liefert über ein langes Fenster (600 s,
+// Stand 3f4f2f4) 0,63 (2 Punkte 1,20, 4 Punkte 2,24); die Start-Lerche (Messung unten) liegt nur mit diesem Wert bei den Ist-Zahlen.
 const IST = {
-  standardbatterie: [0.60, 1.20, 2.20], sturmbatterie: [0.56, 1.03, 1.87], standardkanone: [0.60, 1.25, 2.27], abwehrturm: [0.32, 0.64, 1.26],
+  standardbatterie: [0.63, 1.20, 2.20], sturmbatterie: [0.56, 1.03, 1.87], standardkanone: [0.60, 1.25, 2.27], abwehrturm: [0.32, 0.64, 1.26],
 };
 // Messung am Pool: Ops feuert bei Bereitschaft, Schüsse nach t = 10 s zählen. Liefert Schaden je Sekunde (Fenster 10 … sek), Zeitpunkte der Schüsse.
 function messe(id, punkte, sek) {
@@ -92,11 +96,12 @@ section('Katalog: ein Projektil je Zyklus, kein Feld stoss', () => {
   }
   ok(Katalog.waffe('streubatterie').rohre === 3 && Katalog.waffe('streubatterie').salvoGap > 0, 'Streubatterie: Salve bleibt (drei Granaten)');
   ok(Katalog.WAFFEN.every((w) => !('stoss' in w)), 'kein Katalogeintrag hat mehr das Feld stoss');
-  ok(near(Katalog.volley('standardbatterie'), 2.9, 1e-9) && Katalog.volley('lanze') === 12 && Katalog.volley('torpedowerfer') === 0, 'Ladung = schaden × rohre: Standardbatterie 2,9, Lanze 12, Torpedo 0');
-  ok(near(Katalog.MAGAZINDECKEL.stossStart, 12 + 2 * 2.9, 1e-9) && near(Katalog.MAGAZINDECKEL.stossMax, 1.5 * Katalog.MAGAZINDECKEL.stossStart, 1e-9),
-    `Magazindeckel: Start-Lerche ${Katalog.MAGAZINDECKEL.stossStart.toFixed(2)} (Lanze 12 + 2 × 2,9), Obergrenze ${Katalog.MAGAZINDECKEL.stossMax.toFixed(2)}`);
+  ok(Katalog.volley('standardbatterie') === 6 && Katalog.volley('sturmbatterie') === 4.8 && Katalog.volley('standardkanone') === 4.5 && Katalog.volley('abwehrturm') === 2.4 && Katalog.volley('lanze') === 12 && Katalog.volley('torpedowerfer') === 0,
+    'Magazinlast (Feld magazin, Werte wie vor B1): Batterie 6, Sturm 4,8, Kanone 4,5, Turm 2,4, Lanze 12, Torpedo 0');
+  ok(Katalog.MAGAZINDECKEL.stossStart === 24 && Katalog.MAGAZINDECKEL.stossMax === 36, `Magazindeckel wie vor B1: Start-Lerche ${Katalog.MAGAZINDECKEL.stossStart} (Lanze 12 + 2 × 6), Obergrenze ${Katalog.MAGAZINDECKEL.stossMax}`);
   const P = CONFIG.spaceM3.mounts.port;
-  ok(P.tubes === 1 && P.secPerPoint === 5 && P.damage === Katalog.waffe('standardbatterie').schaden && P.salvoGap === undefined, 'Config spaceM3.mounts.port = Katalog (Rohre 1, 5 s, Schaden 2,9)');
+  ok(P.tubes === 1 && P.secPerPoint === 3.9 && P.damage === 2.66 && P.damage === Katalog.waffe('standardbatterie').schaden && P.secPerPoint === Katalog.waffe('standardbatterie').ladekosten && Katalog.waffe('standardbatterie').nachlauf === 0.2 && P.salvoGap === undefined,
+    'Config spaceM3.mounts.port = Katalog (Rohre 1, 3,9 s + 0,2 s Nachlauf, Schaden 2,66)');
   ok(Katalog.waffe('sturmbatterie').gegner.burst === 8 && Katalog.waffe('sturmbatterie').gegner.burstGap === 0.07, 'Gegner-Sperrfeuer (Sturm): acht Nadeln, Takt 0,07 s – vom Katalogwert der Lerche entkoppelt');
   ok(Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild' && Katalog.TORPEDO.cooldown === 10, 'Torpedo unverändert (Lesart B, Cooldown 10 s)');
 });
@@ -122,17 +127,17 @@ section('Ein Projektil je Schuss (Standardbatterie, Sturm, Kanone, Abwehrturm); 
   ok(gren === 3, `streubatterie: Salve = ${gren} Granaten (drei Rohre, Abstand 0,4 s)`);
 });
 
-section('Zyklus = ladekosten / Ladepunkte (1, 2, 4)', () => {
+section('Zyklus = ladekosten / Ladepunkte + nachlauf (1, 2, 4)', () => {
   for (const id of ['standardbatterie', 'standardkanone', 'sturmbatterie']) {
     const cyc = [];
     for (const p of [1, 2, 4]) {
       const r = messe(id, p, 40);
       const w = Katalog.waffe(id);
-      const soll = w.ladekosten / p;
+      const soll = w.ladekosten / p + (w.nachlauf || 0);
       const diffs = []; for (let i = 1; i < r.zeiten.length; i++) diffs.push(r.zeiten[i] - r.zeiten[i - 1]);
       const mittel = diffs.length ? diffs.reduce((a, b) => a + b, 0) / diffs.length : null;
       cyc.push(`${p} Pkt: ${mittel != null ? mittel.toFixed(2) : '–'} s (Soll ${soll.toFixed(2)})`);
-      ok(mittel != null && near(mittel, soll, 0.1), `${id} ${p} Punkt(e): Zyklus ${mittel != null ? mittel.toFixed(2) : '–'} s = ${w.ladekosten} / ${p} = ${soll.toFixed(2)} s`);
+      ok(mittel != null && near(mittel, soll, 0.1), `${id} ${p} Punkt(e): Zyklus ${mittel != null ? mittel.toFixed(2) : '–'} s = ${w.ladekosten} / ${p} + ${w.nachlauf || 0} = ${soll.toFixed(2)} s`);
     }
     info(id + ' Zyklen: ' + cyc.join(' · '));
   }
@@ -149,6 +154,76 @@ section('Dauerleistung am Pool <= Ist + 3 % (Erkundung 1d)', () => {
     });
     info(id + ': ' + zeile.join(' · '));
   }
+});
+
+section('Start-Lerche (Lanze + 2 Standardbatterien, Pool 4) wie vor B1, innerhalb ±2 %', () => {
+  const out = execFileSync(process.execPath, [path.join(__dirname, 'pan01-feuerkraft-messung.js'), '--pool', '4', '--sek', '180'], { encoding: 'utf8' });
+  const zeile = out.split('\n').find((l) => /^\| 3 \|/.test(l));
+  const c = zeile.split('|').map((x) => x.trim());
+  const anfang = Number(c[4]), d1 = Number(c[5]), d2 = Number(c[6]);
+  const innen = (v, soll) => Math.abs(v - soll) <= soll * 0.02 + 1e-9;
+  ok(innen(anfang, 28), `Anfangsstoß 0–10 s ${anfang} (Ist vor B1 28, ±2 %)`);
+  ok(innen(d1, 2.24), `Dauerfeuer 10–60 s ${d1} (Ist 2,24, ±2 %)`);
+  ok(innen(d2, 2.43), `Dauerfeuer 60–180 s ${d2} (Ist 2,43, ±2 %)`);
+});
+
+section('Sturmbatterie unter anhaltendem Feuer: der Schild fällt auf 0, bis dahin kein Systemschaden, Regeneration gesperrt', () => {
+  const T = arena(); const g = T.g; bestueck(g, 4, 'sturmbatterie'); poolVier(g);
+  const e = ziel(g, 'korvette', 0, -250, 6); e.shields = [6, 6, 6, 6]; pin(g);
+  g.ship.wAllocIntent = { port: 4 };
+  const regenSperre = Katalog.waffe('sturmbatterie').sturm.regenSperre;
+  const hp0 = e.hp; let schildNull = null, hpBisNull = 0, zsBisNull = false, regenOk = true, fruehstens = Infinity;
+  for (let t = 0; t < 200 && schildNull == null; t += DT) {
+    pin(g);
+    const m = g.ship.mount.port;
+    if (m.charge >= 1 && !(m.salvo > 0)) Waffen.weaponsFire(g, 'port');
+    g.step();
+    const sum = e.shields.reduce((a, b) => a + b, 0);
+    if (sum < 24 - 1e-6 && !(e.regenHold != null && e.regenHold > g.time - regenSperre - 1e-6)) regenOk = false;   // Schild unter Voll ohne laufende Sperre = regeneriert
+    if (e.shields.some((v) => v <= 1e-9)) { schildNull = t; fruehstens = Math.min(fruehstens, t); }
+    else { hpBisNull += hp0 - e.hp; if (e.zs) zsBisNull = true; }
+  }
+  ok(schildNull != null, `anhaltendes Sturmfeuer: ein Schildsegment fällt auf 0 (nach ${schildNull != null ? schildNull.toFixed(0) : '–'} s), es sinkt nicht nur`);
+  ok(hpBisNull === 0 && !zsBisNull, 'bis dahin kein Hüllen- und kein Systemschaden (Hülle unberührt, keine Zielsystem-Stufe)');
+  ok(regenOk, `die Regeneration bleibt während des Dauerfeuers gesperrt (${regenSperre} s nach jedem Treffer)`);
+});
+
+section('Gegnerfeuer (Standardbatterie-Verhalten) auf die Lerche: Zonensysteme zuerst, Mitte erst nach geleerter Zone (Trefferweg aus A1)', () => {
+  const I = require('../server/sim/interior.js');
+  const lauf = (vorLeeren) => {
+    const T = arena(); const g = T.g; g.god = false;
+    g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9;
+    for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
+    I.integritaetVoll(g);
+    const zone = (k) => I.systemSector(k) === 3;   // Backbord: der Gegner steht bei (0, -300)
+    const zoneSys = I.SYSTEM_ORDER.filter((k) => zone(k) && I.systemAktiv(g, k));
+    if (vorLeeren) for (const k of zoneSys) { g.ship.systems[k] = 'broken'; I.setInteg(g, k, 0); }
+    const sh = g.ship;
+    const e = space.spawnEnemy(g, 'korvette', { x: sh.x, y: sh.y - 300, facing: Math.PI });
+    e.waffen = { bug: 'batterie', stbd: 'batterie', bb: 'batterie' };   // alle Rohre mit dem Verhalten der Standardbatterie
+    const ex = e.x, ey = e.y, ea = e.angle;
+    const integ = () => { const o = {}; for (const k of I.SYSTEM_ORDER) o[k] = I.integOf(g, k); return o; };
+    let prev = integ(); let treffer = 0, inZone = 0, mitteOffen = 0, mitteGeleert = 0, fremd = 0;
+    for (let i = 0; i < 90 * CONFIG.tickHz; i++) {
+      sh.vx = 0; sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; e.x = ex; e.y = ey; e.angle = ea; e.vx = 0; e.vy = 0;
+      const zoneOffen = zoneSys.some((k) => g.ship.systems[k] !== 'broken');
+      g.step();
+      const cur = integ();
+      for (const k of I.SYSTEM_ORDER) {
+        if (!(cur[k] < prev[k] - 1e-9)) continue;
+        treffer++;
+        if (zone(k)) inZone++;
+        else if (I.systemSector(k) === -1) { if (zoneOffen) mitteOffen++; else mitteGeleert++; }
+        else fremd++;
+      }
+      prev = cur;
+    }
+    return { treffer, inZone, mitteOffen, mitteGeleert, fremd };
+  };
+  const a = lauf(false);
+  ok(a.treffer >= 10 && a.fremd === 0 && a.mitteOffen === 0 && a.inZone > 0, `Gegnerfeuer aus Backbord: ${a.treffer} Treffer, ${a.inZone} in der Zone 3, andere Seiten ${a.fremd}, Mitte bei offener Zone ${a.mitteOffen} (Soll 0)`);
+  const b = lauf(true);
+  ok(b.treffer >= 10 && b.fremd === 0 && b.mitteOffen === 0 && b.mitteGeleert > 0, `Zone 3 vorab geleert: ${b.treffer} Treffer, ${b.mitteGeleert} in der Mitte bei leerer Zone, Mitte bei wieder offener Zone ${b.mitteOffen} (Soll 0; ${b.inZone} Zonentreffer erst nach einer Reparatur), andere Seiten ${b.fremd}`);
 });
 
 section('Lanze: Schildpierce 2, bei Vollladung Durchschlag bis in die Mitte', () => {
@@ -187,7 +262,7 @@ section('Standardbatterie gegen Schild 0: Hülle getroffen (Lücke: geleerte Geg
   g.ship.mount.port.charge = 1; Waffen.weaponsFire(g, 'port');
   T.run(8, () => pin(g));
   const schaden = hp0 - e.hp;
-  ok(schaden > 0 && near(schaden / 2.9, Math.round(schaden / 2.9), 1e-6), `ohne Schild trifft jeder Schuss die Hülle: −${schaden.toFixed(2)} (ganzzahlig × 2,9)`);
+  ok(schaden > 0 && near(schaden / 2.66, Math.round(schaden / 2.66), 1e-6), `ohne Schild trifft jeder Schuss die Hülle: −${schaden.toFixed(2)} (ganzzahlig × 2,66)`);
 });
 
 section('Torpedo umgeht den stehenden Schild nicht (Lesart B)', () => {

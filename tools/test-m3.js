@@ -949,7 +949,8 @@ section('Ladepunkte (§5.2, §5.5)', () => {
   ok(near(hp0 - t.hp, M3.mounts.port.tubes * M3.mounts.port.damage, 0.05), `unbesetzt: Bb-Salve mit vollem Schaden (${(hp0 - t.hp).toFixed(1)} von ${M3.mounts.port.tubes * 1.5})`);
   setCharge(g, 'port', 0); run(4, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); t.hp = 999; });
   const rUn = mountOf(g, 'port').charge / 4;
-  ok(near(rUn, 1 / M3.mounts.port.secPerPoint * M3.autoFactor, 0.005), `unbesetzt: Bb lädt mit halber Geschwindigkeit (${(1 / rUn).toFixed(1)} s statt ${M3.mounts.port.secPerPoint} s)`);
+  const zyk = M3.mounts.port.secPerPoint + (require('../shared/schiffskatalog.js').waffe('standardbatterie').nachlauf || 0);   // SYS-01 B1 Nacharbeit: Zyklus = Ladekosten + Nachlauf
+  ok(near(rUn, 1 / zyk * M3.autoFactor, 0.005), `unbesetzt: Bb lädt mit halber Geschwindigkeit (${(1 / rUn).toFixed(1)} s statt ${zyk} s)`);
   g.space.enemies = [];
   const f = pinnedEnemy(g, 'raider', sh.x + 400, sh.y, Math.PI, { hp: 999 });
   setCharge(g, 'bow', 1);

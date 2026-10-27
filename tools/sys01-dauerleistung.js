@@ -64,7 +64,7 @@ console.log('| Waffe | Platz | Punkte | Katalog: Schaden × Rohre | Ladung je Wa
 console.log('|---|---|---|---|---|---|---|---|---|---|---|');
 for (const t of TESTS) for (const p of PUNKTE) {
   const w = Katalog.waffe(t.id); const r = messe(t, p);
-  const calc = w.schaden * w.rohre / (w.ladekosten / p);   // Dauerleistung nach Modell
+  const calc = w.schaden * w.rohre / (w.ladekosten / p + (w.nachlauf || 0));   // Dauerleistung nach Modell
   console.log(`| ${t.id} | ${t.platz} | ${p} | ${w.schaden} × ${w.rohre} = ${f2(w.schaden * w.rohre)} | ${Katalog.volley(t.id)} | ${w.ladekosten} | ${f2(calc)} | ${f2(r.rate)} | ${f2(r.rate / p)} | ${f2(r.stoss)} | ${r.schuss} |`);
 }
 const T = Katalog.TORPEDO;

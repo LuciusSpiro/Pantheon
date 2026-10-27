@@ -11,7 +11,8 @@
 //   schaden (je Rohr/Treffer; Torpedo: Tabelle je Zielklasse), rohre (Rohre/Granaten je Salve; SYS-01 B1: Projektil je Zyklus = 1), salvoGap (nur Salven mit mehreren Rohren, Streubatterie), ladekosten (Sekunden je Ladepunkt für 0 → 1; SYS-01 B1: Zyklus eines Projektils bei 1 Punkt),
 //   cooldown (nur Torpedo), bogen (Grad), reichweite (px), modell (Lafettenmodell: Voxelwerk lerche/station/lafette), projektil { form, farbe },
 //   effekt, ton (audio.js-Name), symbol (Pixel-Maske 10×10, SYMBOLE), munition (null | 'torpedo'), gegner { verhalten, burst?, burstGap? } (Gegner-Verhalten; burst/burstGap = Sturm-Sperrfeuer der Gegner, unabhängig von der Lerche).
-//   Ladung einer Energiewaffe = schaden × rohre (volley): gespeicherter Anfangsstoß je voller Waffe, Grundlage des Magazindeckels (SYS-01 B1: das Feld stoss entfällt).
+//   magazin (Energiewaffen): Magazinlast = Nennwert des gespeicherten Anfangsstoßes je voller Waffe (Rechengröße des Magazindeckels, volley()); NICHT der Schaden. Werte wie vor SYS-01 B1 (Feld stoss),
+//   damit sich der Deckel und jeder weitere Batterie-Platz nicht ändern. nachlauf (s, optional): fester Anteil je Zyklus, unabhängig von den Ladepunkten (Zyklus = ladekosten / Punkte + nachlauf).
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.Shared_Schiffskatalog = factory();
@@ -35,7 +36,7 @@
 
   // ---------- Magazindeckel (SYS-01 B1) ----------
   // Dauerfeuer ist Pool × Schaden je Punkt, unabhängig von der Zahl der Halterungen; nur der Anfangsstoß (gespeicherte volle Ladungen) wächst mit der Zahl.
-  // Ladung einer Energiewaffe = schaden × rohre (volley). stossStart = Summe der Ladungen der Start-Lerche (Lanze 12 + 2 × Standardbatterie), stossMax = faktor × stossStart (unten berechnet).
+  // Magazinlast je Energiewaffe = Feld magazin (volley). stossStart = Summe der Start-Lerche (Lanze 12 + 2 × Standardbatterie 6 = 24, wie vor B1), stossMax = faktor × stossStart = 36 (unten berechnet).
   const MAGAZINDECKEL = { faktor: 1.5 };
 
   // ---------- Torpedo ----------
@@ -57,14 +58,14 @@
     {
       id: 'standardbatterie', name: 'Standardbatterie', kurz: 'STANDARD', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Salve aus vier Rohren, kontinuierliches Feuer, der Allrounder.',
-      schaden: 2.9, rohre: 1, ladekosten: 5, bogen: 70, reichweite: 520,   // SYS-01 B1: ein Projektil je Zyklus; 2,9 statt 3,0, weil bei 4 Punkten 3,0 die Ist-Dauerleistung um 4,5 % überschritten hätte (Erkundung 1d, Toleranz 3 %)
+      schaden: 2.66, rohre: 1, ladekosten: 3.9, nachlauf: 0.2, bogen: 70, reichweite: 520, magazin: 6,   // SYS-01 B1 Nacharbeit: ein Projektil je Zyklus; 3,9 s/Punkt + 0,2 s Nachlauf = 4,1 s bei 1 Punkt, Schaden 2,66: Start-Lerche (je 1 Punkt) wie vor B1 (Anfangsstoß 28, Dauerfeuer 2,24/2,43), Dauerleistung bei 2 und 4 Punkten nicht über dem Ist
       modell: 'lerche/station/lafette_batterie', projektil: { form: 'doppelbolzen', kind: 'pbatterie', farbe: '#F2C14E' }, geschw: 450, streuung: 0.012, effekt: 'doppelbolzen', ton: 'battery_salvo', symbol: 'schiff_batterie',
       munition: null, gegner: { verhalten: 'batterie' },
     },
     {
       id: 'sturmbatterie', name: 'Sturmbatterie', kurz: 'STURM', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Unterdrückung: kaum Schildschaden, aber der Schild regeneriert nicht; bei niedrigem Schild Systemschaden.',
-      schaden: 1.08, rohre: 1, ladekosten: 2, bogen: 60, reichweite: 440,   // SYS-01 B1: ein Projektil je Zyklus (~2 s bei 1 Punkt); 1,08 statt 1,12, weil bei 4 Punkten 1,12 die Ist-Dauerleistung um 5,9 % überschritten hätte
+      schaden: 1.08, rohre: 1, ladekosten: 2, bogen: 60, reichweite: 440, magazin: 4.8,   // SYS-01 B1: ein Projektil je Zyklus (~2 s bei 1 Punkt); 1,08 statt 1,12, weil bei 4 Punkten 1,12 die Ist-Dauerleistung um 5,9 % überschritten hätte
       // sturm: schildFaktor = Anteil des Schadens, der den Schild trifft (Rest verpufft); regenSperre = s ohne Schildregeneration nach einem Treffer;
       // niedrig = Schildstand (Punkte) des getroffenen Segments, ab dem Treffer in die Hülle gehen; stoerung = s, um die der nächste Schuss eines Gegner-Ziels zurückgeworfen wird; systemChance = Systemtreffer-Chance je Nadel gegen die Lerche bei niedrigem Schild
       sturm: { schildFaktor: 0.25, regenSperre: 6, niedrig: 1, stoerung: 0.35, systemChance: 0.08 },
@@ -74,7 +75,7 @@
     {
       id: 'streubatterie', name: 'Streubatterie', kurz: 'STREU', platzart: 'seite', energie: true, art: 'salve',
       wirkung: 'Granaten, die verzögert explodieren: eine = Schildschaden, zwei = sicherer Systemschaden.',
-      schaden: 2, rohre: 3, salvoGap: 0.4, ladekosten: 12, bogen: 70, reichweite: 480,   // Salve bleibt (drei Granaten)
+      schaden: 2, rohre: 3, salvoGap: 0.4, ladekosten: 12, bogen: 70, reichweite: 480, magazin: 6,   // Salve bleibt (drei Granaten)
       // streu: zuend = s bis zur Explosion, radius = Wirkradius (px), geschw = Flug (px/s), schildFaktor = Schildpunkte je Schadenspunkt,
       // fenster = s, in denen zwei Explosionen auf dasselbe Ziel als „zwei“ zählen, durchschlag = Hüllenschaden der zweiten (ohne Schild, sicher)
       streu: { zuend: 1.4, radius: 70, geschw: 150, schildFaktor: 1.5, fenster: 2, durchschlag: 3 },
@@ -84,7 +85,7 @@
     {
       id: 'lanzenbatterie', name: 'Lanzenbatterie', kurz: 'LANZ-BT', platzart: 'seite', energie: true, art: 'lanze',
       wirkung: 'Wie die Bug-Lanze: aufladen, Kurs halten. Optisch zwei Lanzen, Schaden einmal.',
-      schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650,
+      schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, magazin: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 2, abstand: 7, pierce: 2 },
       modell: 'lerche/station/lafette_lanzen', projektil: { form: 'doppelstrahl', strahl: true, farbe: '#FFF1B8' }, effekt: 'doppelstrahl', ton: 'lance_fire', symbol: 'schiff_lanzenbatterie',
       munition: null, gegner: { verhalten: 'lanze' },
@@ -92,7 +93,7 @@
     {
       id: 'lanze', name: 'Lanze', kurz: 'LANZE', platzart: 'bug', energie: true, art: 'lanze',
       wirkung: 'Aufladen, Kurs halten: der gehaltene Strahl trifft den ersten Gegner in der Linie.',
-      schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650,
+      schaden: 12, rohre: 1, ladekosten: 18.5, bogen: 16, reichweite: 650, magazin: 12,
       lanze: { aufladen: 2.3, min: 3, max: 12, breite: 10, strahlen: 1, abstand: 0, pierce: 2 },
       modell: 'lerche/station/lafette_lanze_bug', projektil: { form: 'strahl', strahl: true, farbe: '#FFF1B8' }, effekt: 'lanzenstrahl', ton: 'lance_fire', symbol: 'schiff_lanze',
       munition: null, gegner: { verhalten: 'lanze' },
@@ -100,7 +101,7 @@
     {
       id: 'standardkanone', name: 'Standardkanone', kurz: 'KANONE', platzart: 'bug', energie: true, art: 'salve',
       wirkung: 'Wie die Standardbatterie, aber nach vorn: drei Rohre, enger Bogen.',
-      schaden: 2.4, rohre: 1, ladekosten: 4, bogen: 50, reichweite: 560,   // SYS-01 B1: ein Projektil je Zyklus
+      schaden: 2.4, rohre: 1, ladekosten: 4, bogen: 50, reichweite: 560, magazin: 4.5,   // SYS-01 B1: ein Projektil je Zyklus
       modell: 'lerche/station/lafette_kanone', projektil: { form: 'bolzen', kind: 'pkanone', farbe: '#FF7A3C' }, geschw: 520, streuung: 0.008, effekt: 'bolzen', ton: 'kanone_salvo', symbol: 'schiff_kanone',
       munition: null, gegner: { verhalten: 'bolzen' },
     },
@@ -114,7 +115,7 @@
     {
       id: 'abwehrturm', name: 'Abwehrturm', kurz: 'ABWEHR', platzart: 'heck', energie: true, art: 'turm',
       wirkung: 'Nahabwehr: dreht sich selbst, schießt auf Jäger im Überflug und auf anfliegende Torpedos; unbesetzt schwach automatisch.',
-      schaden: 0.48, rohre: 1, ladekosten: 1.5, bogen: 360, reichweite: 260,   // SYS-01 B1: ein Projektil je Zyklus
+      schaden: 0.48, rohre: 1, ladekosten: 1.5, bogen: 360, reichweite: 260, magazin: 2.4,   // SYS-01 B1: ein Projektil je Zyklus
       // turm: ziele = Klassen, die er bekämpft (nicht die großen Schiffe), autoFaktor = Ladezeit-Faktor ohne Besetzung (Taktik), torpedos = schießt Torpedos ab
       turm: { ziele: ['raider'], autoFaktor: 2, torpedos: true },
       modell: 'lerche/station/lafette_abwehr', projektil: { form: 'funke', kind: 'pfunke', farbe: '#A9D6E5' }, geschw: 700, streuung: 0.01, effekt: 'funke', ton: 'abwehr_feuer', symbol: 'schiff_abwehrturm',
@@ -191,8 +192,8 @@
   // Torpedo-Schaden gegen eine Gegnerklasse (Schadenspunkte)
   const torpedoSchaden = (kind) => (TORPEDO.schaden[kind] != null ? TORPEDO.schaden[kind] : 9);
   // Volley einer Waffe (Schaden einer vollen Salve bzw. Lanze bei voller Aufladung)
-  // Ladung einer Energiewaffe = Schaden je Projektil × Rohre (gespeicherter Anfangsstoß); Torpedo und Unbekannte: 0
-  const volley = (id) => { const w = BY_ID[id]; return w && w.energie ? w.schaden * w.rohre : 0; };
+  // Magazinlast einer Energiewaffe (Feld magazin); Torpedo und Unbekannte: 0
+  const volley = (id) => { const w = BY_ID[id]; return w && w.energie ? w.magazin || 0 : 0; };
   MAGAZINDECKEL.stossStart = Object.values(START_BESTUECKUNG).reduce((a, id) => a + volley(id), 0);
   MAGAZINDECKEL.stossMax = MAGAZINDECKEL.faktor * MAGAZINDECKEL.stossStart;
   const moduleFuerKlasse = (kind) => (own(MODULE_JE_KLASSE, kind) ? MODULE_JE_KLASSE[kind] : []).slice();
