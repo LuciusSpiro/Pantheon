@@ -256,6 +256,9 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
       const a = mitAngebot(); starte(a.g);
       const S = a.g.simSzene;
       ok(S && S.klasse === 1 && S.fraktion === 'kon' && S.kommandant.volk === 'rom', 'Klasse, Fraktion und Volk der Szene folgen den Daten (' + (S && [S.klasse, S.fraktion, S.kommandant.volk].join('/')) + ')');
+      run(a.g, Number(W.orbit_vorwarnung.wert) + 2);
+      const gg = a.g.space.enemies.filter((e) => e.finaleS === S.id);
+      ok(gg.length > 0 && gg.every((e) => e.volk === 'rom'), 'das Volk der gespawnten Gegner folgt den Daten (' + gg.map((e) => e.volk).join(',') + ')');
       FW.orbit_szene.wert = sz0; zurueck();
       FW.orbit_wachschiffe.wert = { '1': wach0['1'], '2': wach0['2'] };   // keine Stufe 3: drei Spieler bekommen die groesste bekannte Stufe (2)
       FW.orbit_verbuendete.wert = { '1': verb0['1'], '2': verb0['2'] };
