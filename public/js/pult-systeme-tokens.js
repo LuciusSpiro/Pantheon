@@ -150,7 +150,9 @@
     gezielt: '{wer} zielt {zeichen} {system}',
     // SYS-01 A2b: der Satz rechts auf der Banderole, je Station (Schlüssel wie Pult.rahmen station)
     banderoleSatz: { helm: 'Notsprung oder Kurs halten', weapons: 'Schild halten', technik: 'Reaktor reparieren – zu zweit schneller', captain: 'Notsprung befehlen oder Reaktor reparieren lassen' },
-    schiffZerstoert: 'SCHIFF ZERSTÖRT – Ihr habt verloren', schiffOk: 'OK',
+    schiffZerstoert: 'SCHIFF ZERSTÖRT – Ihr habt verloren', schiffOk: 'OK', schiffWartet: 'wartet auf {n} Spieler',
+    // SYS-01 A2 Nacharbeit: Kantenleiste der VORN-Ansicht (Sitz): Restzeit und Ausfallzähler, solange der Countdown läuft
+    kanteLabel: 'COUNTDOWN', kanteWert: '{s} s · {n}. Ausfall',
   };
   // </tokens>
 

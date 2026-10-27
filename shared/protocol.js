@@ -354,7 +354,8 @@
     // Snapshot ship.escalate { [system]: Restsekunden }, ship.reactor.autoIn (s bis Gefechtsstart, nur wenn aktiv),
     // enemies[].vx/vy/state (§3), stats.leakHits/escalations/repairSetbacks/reactorAutoStarts (SYS-01 A1a: overflowHull entfällt).
     // SYS-01 A2a: schiffZerstoert { grund: 'reaktor', n } – der Reaktor-Countdown ist abgelaufen (Einblendung im Client: Paket A2b).
-    // Snapshot ship.reaktorTod { rest: Zehntelsekunden bis zum Tod (-1 kein Countdown), n: Ausfälle seit dem letzten Sprung, tot: 1 nach dem Tod }.
+    // Snapshot ship.reaktorTod { rest: Zehntelsekunden bis zum Tod (-1 kein Countdown), n: Ausfälle seit dem letzten Sprung, tot: 1 nach dem Tod, wartet: verbundene Spieler ohne OK (nur mit tot) };
+    //   das Feld fehlt im Ruhezustand (kein Countdown, n 0, nicht tot).
     DAMAGE_EVENTS: ['escalated', 'repairSetback', 'schiffZerstoert'],
     ENEMY_STATES: ['approach', 'overshoot', 'turn', 'station', 'retreat'],
     SECTORS: ['bug', 'steuerbord', 'heck', 'backbord'],

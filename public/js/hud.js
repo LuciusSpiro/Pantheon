@@ -2219,7 +2219,11 @@
       ctx.fillStyle = F.kachelRand; ctx.fillRect(x, y, w, 1); ctx.fillRect(x, y + h - 1, w, 1); ctx.fillRect(x, y, 1, h); ctx.fillRect(x + w - 1, y, 1, h);   // 1-px-Rahmen
       ctx.fillStyle = F.banderole; ctx.fillRect(x, y, w, M.h);   // rote Kopfleiste wie die Banderole
       R.text(ctx, T.TEXT.schiffZerstoert, VW / 2, y + 5, { color: F.banderoleText, align: 'center', shadow: false });
-      R.button(ctx, VW / 2 - 50, y + h - 26, 100, 18, T.TEXT.schiffOk, { hotkey: 'Enter', onClick: () => view.actions.zerstoertOk && view.actions.zerstoertOk() });
+      const rt = (view.state && view.state.ship && view.state.ship.reaktorTod) || {};
+      const mehrere = ((view.state && view.state.players) || []).filter((q) => q.connected !== false).length > 1;
+      // SYS-01 A2 Nacharbeit: „wartet auf n Spieler“, solange nicht alle bestätigt haben (nach meinem OK, oder immer bei mehreren Spielern)
+      if (rt.wartet > 0 && (view.zerstoertOkGesendet || mehrere)) R.text(ctx, PS.text(T.TEXT.schiffWartet, { n: rt.wartet }), VW / 2, view.zerstoertOkGesendet ? y + h - 20 : y + h - 38, { color: F.text, align: 'center', shadow: false });
+      if (!view.zerstoertOkGesendet) R.button(ctx, VW / 2 - 50, y + h - 26, 100, 18, T.TEXT.schiffOk, { hotkey: 'Enter', onClick: () => view.actions.zerstoertOk && view.actions.zerstoertOk() });
     },
     drawEnd(ctx, view) {
       const st = view.state;

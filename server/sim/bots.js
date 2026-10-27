@@ -168,6 +168,7 @@ function taskStillValid(game, t) {
   if (t.kind === 'repair') {
     const e = queueOf(game).find((q) => q.system === t.system);
     if (!e || interior.repairModus(game, t.system, e.mode) !== t.mode || entryDone(game, e)) return false;
+    if (t.phase === 'work' && !interior.stufeGleich(game, t.system, t.von)) return false;   // SYS-01 A2 Nacharbeit: der Zustand hat sich seit Arbeitsbeginn geändert (Reaktor zerstört): neu wählen
     return ship.systems[t.system] !== 'offline';
   }
   if (t.kind === 'extinguish') return ship.fireList.some((f) => f.tx === t.tx && f.ty === t.ty);

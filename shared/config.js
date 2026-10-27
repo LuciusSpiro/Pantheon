@@ -673,7 +673,7 @@
     },
     // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff. Der n-te Ausfall seit dem letzten Sprung
     // startet mit start × faktor^(n−1) s, mindestens minimum (20, 10, 5, 2,5 s …). Sonderreparatur des zerstörten Reaktors: zeiten[n−1] s bei n gleichzeitigen
-    // Arbeitern (1, 2, 3); vor Werkzeuggürtel (×0,7) und Bot-Faktor. Live per `tune reaktorTod.<pfad>`.
+    // Arbeitern (1, 2, 3); feste Zeiten: weder Werkzeuggürtel (×0,7) noch Bot-Faktor gelten dort (Nacharbeit A2). Live per `tune reaktorTod.<pfad>`.
     reaktorTod: { start: 20, faktor: 0.5, minimum: 1.25, sonderreparatur: { zeiten: [12, 7, 5] } },
     // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {

@@ -209,6 +209,9 @@
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);
     }
+    // SYS-01 A2 Nacharbeit: Restzeit und Ausfallzähler des Reaktor-Countdowns in der Kantenleiste (die Banderole steckt im Pult-Puffer und erscheint erst im Blick PULT)
+    const cd = window.PultSysteme ? PultSysteme.banderole(ship.reaktorTod, S.station) : null;
+    if (cd) { const TT = PultSysteme.TOKENS.TEXT; werte.unshift([TT.kanteLabel, PultSysteme.text(TT.kanteWert, { s: cd.zahl, n: ship.reaktorTod.n }), PultSysteme.TOKENS.FARBE.zerText]); }
     const swz = window.PultSysteme ? PultSysteme.statusFeld(ship) : null;   // SYS-01 A1c: Reaktor zerstört > Mitte offen > schwächste Seite; roter Text in zerText
     const FT = window.PultSysteme ? PultSysteme.TOKENS.FARBE : null;
     werte.push([swz ? swz.l : 'ZONEN', swz ? swz.v : '–', !swz || !FT ? PAL.ice : swz.zust === 'zer' ? FT.zerText : swz.zust === 'besch' ? FT.besch : PAL.ice]);
@@ -219,6 +222,7 @@
       x += Math.max(R.measure(k, 1), R.measure(String(v), 1)) + 18;
     }
     const hint = S.blick === 'crew' ? 'Maus an den Rand: zurück · Rad ▼ Pult' : 'Rad ▼ / Maus nach unten: Pult · Maus an den Seitenrand: Crew';
+    if (cd) return;   // SYS-01 A2 Nacharbeit: Countdown hat Vorrang vor den Bedienhinweisen (sonst überlagern sie die Werte)
     R.text(ctx, hint, VW - 10, y + 12, { color: PAL.panelLight, align: 'right' });
     R.text(ctx, 'Tasten der Station wirken weiter · Esc verlassen', VW - 10, y + 2, { color: PAL.panelLight, align: 'right' });
   }

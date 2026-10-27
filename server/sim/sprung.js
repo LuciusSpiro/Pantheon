@@ -286,7 +286,7 @@ function notsprungKandidaten(game) {
 // (Steuerung oder EMP, ohne Zerstörung) und beim Andocken. Ein Außenteam sperrt nicht mehr: der Sprung holt es zurück (notrueckholungBeimSprung).
 function notsprungGrund(game) {
   const ship = game.ship; const rc = ship.reactorCtl;
-  const zerstoert = ship.systems.reactor === 'broken';
+  const zerstoert = require('./interior.js').effZustand(game, 'reactor') === 'broken';   // SYS-01 A2 Nacharbeit: effektiver Zustand
   if (!zerstoert && (ship.systems.reactor === 'offline' || (rc && rc.state === 'offline'))) return 'Reaktor offline – erst neu starten (Maschinenraum, beide Schalter).';
   if (ship.docked) return 'Erst ablegen.';
   return null;
