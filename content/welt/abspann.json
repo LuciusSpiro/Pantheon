@@ -10,7 +10,7 @@
           "id": "sektor",
           "kopf": "DER SEKTOR",
           "zeilen": [
-            "Palatina ist gefallen.",
+            "Die Hauptwelt Roms im Sektor ist verloren.",
             "Die Flotten sind zerstreut, die Häfen still.",
             "Viele ließen ihr Leben, auf den Welten und im Raum."
           ]
@@ -21,7 +21,7 @@
           "wenn": { "haefenVerloren": { "max": 0 } },
           "zeilen": [
             "Kein anderer Hafen war vorher gefallen.",
-            "Palatina allein fiel, und mit ihm alles."
+            "Palatina allein fiel, und mit der Hauptwelt alles."
           ]
         },
         {
@@ -89,7 +89,7 @@
           ]
         }
       ],
-      "schluss": "Hätte sie nur jemand retten können."
+      "schluss": "Hätte Palatina nur jemand retten können."
     },
     "sieg": {
       "titel": "Hrafnheim ist gefallen",
@@ -99,7 +99,7 @@
           "id": "sieg",
           "kopf": "DER SIEG",
           "zeilen": [
-            "Hrafnheim ist gefallen.",
+            "Die Hauptwelt der Germanen ist erobert.",
             "Der Sektor gehört wieder den Römern und ihren Freunden."
           ]
         },

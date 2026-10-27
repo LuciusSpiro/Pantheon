@@ -25,6 +25,7 @@
 //   ersetzen(name, modul | null)         nur Tests: Schnittstellen ersetzen ('szene' { finaleStarten }, 'boden' { bodenStarten }, 'abspann' { beenden })
 // Schnittstellen zu anderen Paketen (zusammengeführt, in Tests ersetzbar): kriegslage-szene.finaleStarten (Orbit), finale-boden.bodenStarten (Boden), abspann.beenden (Abspann, Datei server/sim/abspann.js).
 const Ruf = require('./ruf.js');
+const OKFunk = require('./oberkommando-funk.js');
 
 const D = require('../../content/welt/finale-werte.json');
 const W = D.werte;
@@ -77,11 +78,8 @@ function bereit(game) {
 const weigerung = (grund) => fehl(grund, { rang: Ruf.rangName(W.mindestrang.wert) });
 
 // ---------- Funk
-function funkSenden(game, text) {
-  if (!text) return;
-  game.emit('radio', { from: T.sprecher || 'Oberkommando', text, lage: 1, r: 1 });
-}
-const funk = (game, key, vars) => funkSenden(game, fmt((T.funk || {})[key], vars));
+// Alles Funk des Finale-Kerns ist Meldung (Messing); Gefahr (Rot) meldet nur die Szene im Orbit (Angriff, Niederlage) und die Landung am Boden (oberkommando-funk.js)
+const funkMeldung = (game, key, vars) => OKFunk.meldung(game, T.sprecher, fmt((T.funk || {})[key], vars), { r: 1 });
 
 // ---------- Angebot
 function angebotSetzen(game) {   // ohne Funk (Neubeginn sagt es selbst)
@@ -92,13 +90,13 @@ function angebotSetzen(game) {   // ohne Funk (Neubeginn sagt es selbst)
 }
 function anbieten(game) {
   if (!angebotSetzen(game)) return false;
-  funk(game, 'angebot');
+  funkMeldung(game, 'angebot');
   return true;
 }
 function nachTick(game) {
   const s = zustandVon(game);
   if (!s) return;
-  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funk(game, 'angefragt_verfallen'); }
+  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funkMeldung(game, 'angefragt_verfallen'); }
   if (s.angebot && !rangOk(game)) { s.angebot = 0; s.anfrage = null; }   // fällt der Rang, zieht Rom das Angebot zurück (ohne Pause, ohne Folgen)
   anbieten(game);
 }
@@ -114,7 +112,7 @@ function waehlen(game) {   // Stufe 1: Anfrage
   if (rest) return fehl('schon_angefragt', { sek: Math.ceil(rest) });
   const f = W.bestaetigung.wert.fenster;
   s.anfrage = { bis: game.time + f };
-  funk(game, 'anfrage', { sek: Math.round(f) });
+  funkMeldung(game, 'anfrage', { sek: Math.round(f) });
   return null;
 }
 function bestaetigen(game) {   // Stufe 2: innerhalb der Frist; die erste Bestätigung gilt
@@ -147,13 +145,13 @@ function starten(game) {
   try { S = szene().finaleStarten(game, { hex: ZIEL.hex }); } catch (e) { if (game.countError) game.countError('finale-start', e); }
   if (!S) { s.phase = null; s.angebot = angebot; return false; }   // nichts gebaut: es bleibt alles, wie es war
   s.versuche++;
-  funk(game, 'start');
+  funkMeldung(game, 'start');
   return true;
 }
 function neubeginn(game, key) {   // Niederlage, Flucht, gefallene Crew: kein Game Over, das Finale beginnt von vorn
   const s = zustandVon(game);
   s.phase = null; s.anfrage = null; s.angebot = 0; s.frei_ab = tickZahl(game) + W.abstand_nach_scheitern.wert;
-  funk(game, key);
+  funkMeldung(game, key);
   angebotSetzen(game);   // bei Pause 0 steht das Angebot sofort wieder (die Crew entscheidet, nichts startet von selbst)
 }
 function orbitEnde(game, ausgang) {
@@ -162,7 +160,7 @@ function orbitEnde(game, ausgang) {
   if (ausgang === 'niederlage' || ausgang === 'flucht') { neubeginn(game, 'orbit_' + ausgang); return true; }
   if (ausgang !== 'sieg') return false;
   s.phase = 'boden';   // keine Sim-Wirkung, kein Tick: die Welt wartet bis zum Boden-Sieg
-  funk(game, 'orbit_sieg');
+  funkMeldung(game, 'orbit_sieg');
   let ok = false;
   try { ok = boden().bodenStarten(game) !== false; } catch (e) { if (game.countError) game.countError('finale-boden', e); }
   if (!ok) neubeginn(game, 'boden_nicht');
@@ -180,13 +178,13 @@ function bodenEnde(game, ausgang) {
   const Kriegslage = require('./kriegslage.js');
   try { Kriegslage.szeneAbschliessen(game, { wirkungen: [{ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: ZIEL.an }], wo: 'finale' }); } catch (e) { if (game.countError) game.countError('finale-sieg', e); }
   s.phase = 'ende'; s.angebot = 0; s.anfrage = null;
-  funk(game, 'sieg');
+  funkMeldung(game, 'sieg');
   try { abspann().beenden(game, 'sieg'); } catch (e) { if (game.countError) game.countError('finale-abspann', e); }
   return true;
 }
 
 // ---------- Anzeige (nur Daten)
-// world.finale = { frei: 0|1, ab: Name des Mindestrangs, name, text, angebot?: 1, anfrage?: Sekunden der Frist (feste Zahl, die Anzeige zählt selbst), phase?: 'orbit'|'boden'|'ende' }
+// world.finale = { frei: 0|1, ab: Name des Mindestrangs, name, text, pause (Sprünge nach dem Ablehnen), angebot?: 1, anfrage?: Sekunden der Frist (feste Zahl, die Anzeige zählt selbst), phase?: 'orbit'|'boden'|'ende' }
 // Vor Tribun und ohne Zustand gibt es keinen Block (null = kein Modus oder noch nichts zu sagen).
 function aktiv(game) {
   const s = game.weltsim && game.weltsim.finale;
@@ -195,7 +193,7 @@ function aktiv(game) {
 function snapshot(game) {
   if (!game.weltsim) return null;
   const s = zustandVon(game);
-  const b = { frei: rangOk(game) ? 1 : 0, ab: Ruf.rangName(W.mindestrang.wert), name: T.anzeige.name, text: T.anzeige.text };
+  const b = { frei: rangOk(game) ? 1 : 0, ab: Ruf.rangName(W.mindestrang.wert), name: T.anzeige.name, text: T.anzeige.text, pause: W.abstand_nach_ablehnen.wert };   // pause: Sprünge bis zum nächsten Angebot nach dem Ablehnen (Anzeige „Sie kommt in N Sprüngen wieder“)
   if (s.angebot) b.angebot = 1;
   if (anfrageRest(game)) b.anfrage = W.bestaetigung.wert.fenster;
   if (phase(game)) b.phase = phase(game);

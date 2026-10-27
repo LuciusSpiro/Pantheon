@@ -35,7 +35,7 @@ const freshDir = () => { const d = path.join(TMP, 'w' + (++seq)); fs.mkdirSync(d
 const HZ = CONFIG.tickHz;
 const run = (g, sek) => { for (let i = 0; i < Math.round(sek * HZ); i++) g.step(); };
 const ENV = () => ({ MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', REGIE_DIR: path.join(TMP, 'regie') });
-const SCHLUSS = 'Hätte sie nur jemand retten können.';
+const SCHLUSS = 'Hätte Palatina nur jemand retten können.';
 
 function neu(o) {
   o = o || {};
@@ -74,7 +74,7 @@ const FAKTEN = (o) => Object.assign({ haefenVerloren: 0, postenVerloren: 0, rang
 section('Daten und Schema', () => {
   ok(gleich(Abspann.pruefen(DOC), []), 'content/welt/abspann.json besteht Schema und Regeln (keine Fehler)');
   ok(DOC.format === 'abspann/1' && Object.keys(DOC.abspaenne).sort().join() === 'palatina,sieg', 'Format abspann/1, genau die Abspaenne palatina und sieg');
-  ok(DOC.abspaenne.palatina.schluss === SCHLUSS, 'palatina.schluss ist exakt „Hätte sie nur jemand retten können.“');
+  ok(DOC.abspaenne.palatina.schluss === SCHLUSS, 'palatina.schluss ist exakt „Hätte Palatina nur jemand retten können.“');
   const mitWenn = DOC.abspaenne.palatina.bloecke.filter((b) => b.wenn !== undefined || b.zeilen.some((z) => typeof z === 'object' && z.wenn));
   ok(mitWenn.length >= 3, `palatina: mindestens drei Bloecke mit Bedingungen (${mitWenn.length})`);
   const verwendet = JSON.stringify(DOC.abspaenne.palatina.bloecke);
@@ -438,7 +438,8 @@ function hudZeichner(quelle) {
   const fn = new Function('R', 'PAL', 'VW', 'VH', 'fmtTime', 'return { ' + body.trim().replace(/,$/, '') + ' }')(R, PAL, 640, 360, (s) => 'T' + Math.round(s));
   return (ab, zeit, extra) => {
     const log = [];
-    const ctx = { log, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, fillRect(x, y, bw, bh) { log.push({ rect: [x, y, bw, bh] }); } };
+    const clips = []; log.clips = clips;   // Ausschnitte (ctx.rect vor ctx.clip), Eigenschaft am Array: gleich() vergleicht nur die Einträge
+    const ctx = { log, save() {}, restore() {}, beginPath() {}, rect(x, y, bw, bh) { clips.push([x, y, bw, bh]); }, clip() {}, fillRect(x, y, bw, bh) { log.push({ rect: [x, y, bw, bh] }); } };
     const hud = Object.assign({ endTitle: 'Freie Fahrt Sund', abspannKey: (ab.titel || '') + '|' + (ab.text || ''), abspannT0: 0 }, extra);   // Startzeit 0: view.time ist die Zeit seit Beginn des Abspanns
     fn.drawAbspann.call(hud, ctx, { state: { abspann: ab, stats: { elapsed: 125, kills: 7, repairs: 3 }, time: 0 }, time: zeit, actions: { abspannEnde() {} } });
     return log;
@@ -461,12 +462,32 @@ section('Client: Schlusszeile im Abspann (Layout)', () => {
     ok(liste[liste.length - 1].s === SCHLUSS, `${name}: der Schluss ist die letzte Zeile der Liste (nach der Bilanz)`);
     const t = texte[sch];
     ok(t.y >= top - 6 && t.y + 11 <= bottom + 6, `${name}: der Schluss liegt im sichtbaren Fenster (y ${t.y}, Fenster ${top - 6}..${bottom + 6})`);
-    ok(t.c === 'MINT' && t.c !== 'ROT', `${name}: Pult-Farbe (mint), kein Rot`);
+    ok(t.c === 'STAR', `${name}: Schluss in Hell (Star), weder Mint noch Rot (Welle 5, K2)`);
     ok(t.x === 320 && t.mess <= 400, `${name}: mittig, Breite ${t.mess} px in der 400-px-Spalte`);
     const zeilen = texte.filter((l) => l.s !== 'Zum Hauptmenü' && !/^Beendet die Partie/.test(l.s));
     ok(zeilen.every((l) => l.mess <= 400), `${name}: keine Zeile breiter als die Spalte (${Math.max(...zeilen.map((l) => l.mess))} px)`);
     const sichtbar = texte.filter((l) => l.y >= top - 6 && l.y + 10 <= bottom + 6 && l.s !== 'Zum Hauptmenü' && !/^Beendet die Partie/.test(l.s));
     ok(sichtbar.some((l) => l.s === 'BILANZ') && sichtbar.some((l) => l.s.startsWith('Abschüsse')) && sichtbar.some((l) => l.s === SCHLUSS), `${name}: Bilanz und Schluss am Ende komplett sichtbar`);
+  }
+  // Welle 5 (M2): Titel und Untertitel stehen fest, auch wenn die Liste nicht ins Bild passt; der Scrollbereich beginnt darunter; die Ausschnitte bleiben innerhalb der Linien (top-8 / bottom+8)
+  for (const [name, ab] of [['voller Palatina-Abspann', palatina], ['kurzer Abspann', mini]]) {
+    for (const zeit of [1000, 40]) {
+      const log = zeichne(ab, zeit), texte = log.filter((l) => l.s !== undefined);
+      const ti = texte.find((l) => l.s === ab.titel.toUpperCase()), su = texte.find((l) => l.s === 'Freie Fahrt Sund');
+      ok(!!ti && ti.y === top + 8 && ti.sc === 2, `${name} (t=${zeit}): der Titel steht fest oben (y ${ti && ti.y})`);
+      ok(!!su && su.y === top + 8 + 26, `${name} (t=${zeit}): der Untertitel steht unter dem Titel (y ${su && su.y})`);
+      const rest = texte.filter((l) => l !== ti && l !== su && l.s !== 'Zum Hauptmenü' && !/^Beendet die Partie/.test(l.s));
+      const scrollOben = top + 8 + 26 + 14;
+      ok(log.clips.every((c) => c[1] >= top - 7 && c[1] + c[3] <= bottom + 7), `${name}: kein Ausschnitt reicht über die Linien (${JSON.stringify(log.clips)})`);
+      ok(log.clips.some((c) => c[1] >= scrollOben - 3 - 1e-9 && c[1] <= scrollOben), `${name}: der Scrollbereich beginnt unter dem Kopf (Ausschnitt ab y ${scrollOben - 3})`);
+      if (zeit === 1000) ok(rest.filter((l) => l.y >= scrollOben - 3 && l.y + 8 <= bottom + 3).length >= 3, `${name}: unter dem Kopf stehen sichtbare Zeilen`);
+    }
+  }
+  // Der Titel wiederholt sich in keinem Block (Palatina und Sieg): weder als Zeile noch als Text
+  for (const art of ['palatina', 'sieg']) {
+    const a = DOC.abspaenne[art], titel = a.titel.replace(/[.]$/, '').toLowerCase();
+    const alle = a.bloecke.reduce((s, b) => s.concat(b.zeilen.map((z) => (typeof z === 'string' ? z : z.text))), []).concat([a.text, a.schluss]);
+    ok(alle.every((z) => z.replace(/[.]$/, '').toLowerCase() !== titel), `${art}: keine Zeile doppelt den Titel „${a.titel}“`);
   }
   // am Anfang (kurz nach dem Start) liegt der Schluss ausserhalb, nicht im Bild
   const frueh = zeichne(palatina, 0).filter((l) => l.s === SCHLUSS);

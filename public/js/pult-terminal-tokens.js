@@ -138,6 +138,14 @@
     while (l.length > 1 && R.measure(l + '…', 1) > w) l = l.slice(0, -1).replace(/\s+$/, '');
     out[n - 1] = l + '…'; return out;
   }
+  // Umbruch nach Pixelbreite in einer Schriftrolle (Versalien und Sperrung verbreitern die Wörter), höchstens n Zeilen
+  function umbruchRolle(s, w, n, name) {
+    const r = rolle(name), mass = (t) => tw(r.versal ? t.toUpperCase() : t, r.scale, r.sperr), out = [];
+    let z = '';
+    for (const wort of String(s || '').split(/\s+/).filter(Boolean)) { const t = z ? z + ' ' + wort : wort; if (z && mass(t) > w) { out.push(z); z = wort; } else z = t; }
+    if (z) out.push(z);
+    return n && out.length > n ? out.slice(0, n - 1).concat([out.slice(n - 1).join(' ')]) : out;
+  }
   // Kappe: echte Taste aus tasten.js, wenn die Aktion dort steht, sonst Ersatzbeschriftung (Tasten.kappe liefert für unbekannte Aktionen '–')
   function kappe(aktion, ersatz) {
     try { if (aktion && window.Tasten && Tasten.belegung && Tasten.belegung(aktion).length) return Tasten.kappe(aktion); } catch (e) { /* Ersatz */ }
@@ -450,20 +458,21 @@
     return {
       karte: k, tag: { x: ix, y: k.y + 6, w: iw, h: 9 }, name: { x: ix, y: k.y + 18, w: iw, h: 18 }, text: { x: ix, y: k.y + 40, w: iw, h: 50 },
       hinweis: { x: ix, y: k.y + 96, w: iw, h: 12 }, schritte: { x: ix, y: k.y + 112, w: iw, h: 16 },
-      haupt: { x: ix, y: k.y + 108, w: iw, h: 22 }, ablehnen: { x: ix, y: k.y + k.h - 18, w: iw, h: 14 },
+      haupt: { x: ix, y: k.y + 111, w: iw, h: 19 }, ablehnen: { x: ix, y: k.y + k.h - 22, w: iw, h: 14 },
     };
   }
   const fl = (r) => ({ x: r.x, y: r.y, w: r.w - FINALE_W - FINALE_LUFT, h: r.h });   // Rest links für die Absichten
   // f: { zustand: 'angebot'|'anfrage'|'phase', tag, name, text, hinweis, rest, frist, schritte: [{ label, aktiv, fertig }] (phase), haupt: { text, disabled, grund, onClick }, ablehnen: { text, disabled, grund, onClick } }
   // Form statt Farbe: die Anfrage trägt einen doppelten Rahmen und die Frist als Segmentleiste (Rot bleibt der Gefahr vorbehalten, das Angebot ist eine Entscheidung); der Zustand steht immer auch im Tag.
   function zeichneFinale(c, r, f) {
-    const G = finaleLayout(r), k = G.karte, anfrage = f.zustand === 'anfrage', phase = f.zustand === 'phase';
+    const G = finaleLayout(r), k = G.karte, anfrage = f.zustand === 'anfrage', phase = f.zustand === 'phase', angebot = !anfrage && !phase;
     const farbe = anfrage ? 'warn' : phase ? 'modul' : 'preis';
     cham(c, k.x, k.y, k.w, k.h, FARBE.kachel, 0, 0, 6, 0);
     rect(c, k.x, k.y, 3, k.h, farbe);
     if (anfrage) { rand(c, k.x, k.y, k.w, k.h, farbe); rand(c, k.x + 2, k.y + 2, k.w - 4, k.h - 4, farbe); }
+    else if (angebot) rand(c, k.x, k.y, k.w, k.h, farbe);   // Welle 5 (S5): das Angebot trägt einen einfachen Messingrahmen (1 px), der doppelte bleibt der Anfrage
     txtRolle(c, f.tag || '', G.tag.x, G.tag.y, farbe, 'titel');
-    umbruch(f.name || '', G.name.w, 2).forEach((z, i) => txt(c, z, G.name.x, G.name.y + i * SCHRIFT.zeileLuft, 'text'));
+    umbruchRolle(f.name || '', G.name.w, 2, 'titel').forEach((z, i) => txtRolle(c, z, G.name.x, G.name.y + i * SCHRIFT.zeileLuft, 'text', 'titel'));   // Welle 5 (S5): der Name in der Rolle titel (Versalien, Sperrung)
     umbruch(f.text || '', G.text.w, 5).forEach((z, i) => txt(c, z, G.text.x, G.text.y + i * SCHRIFT.zeileLuft, 'dim'));
     if (phase) {
       umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 1 + i * SCHRIFT.zeileLuft, 'text'));
@@ -471,18 +480,22 @@
       st.forEach((q, i) => {
         const x = G.schritte.x + i * (sw + 4), y = G.schritte.y;
         if (q.aktiv) { rect(c, x, y, sw, G.schritte.h, 'modul'); txt(c, '> ' + q.label, x + 5, y + 4, 'ink'); }
-        else { rand(c, x, y, sw, G.schritte.h, q.fertig ? 'modul' : 'platzZu'); txt(c, (q.fertig ? '+ ' : '') + q.label, x + 5, y + 4, q.fertig ? 'modul' : 'dim'); }
+        else { rand(c, x, y, sw, G.schritte.h, 'platzZu'); txt(c, q.fertig && q.fertigLabel ? q.fertigLabel : q.label, x + 5, y + 4, 'dim'); }   // Welle 5 (K1): erledigt heißt „Orbit frei“ in dim, kein „+ Orbit“ in Mint (Mint heißt Schilde)
       });
       return;
     }
     if (anfrage) {   // Frist: eine Segmentleiste, ein Segment je Sekunde (höchstens 30), gefüllt = noch übrig
-      const n = Math.max(1, Math.min(30, f.frist || 1)), voll = Math.max(0, Math.min(n, f.rest || 0)), sw = Math.max(2, Math.floor((G.hinweis.w - (n - 1)) / n));
-      for (let i = 0; i < n; i++) { const sx = G.hinweis.x + i * (sw + 1), by = G.hinweis.y - 2; if (i < voll) rect(c, sx, by, sw, 4, farbe); else { rect(c, sx, by, sw, 4, 'raumLinie'); rect(c, sx + 1, by + 1, Math.max(0, sw - 2), 2, 'kachel'); } }
-      umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 3 + i * SCHRIFT.zeileLuft, 'text'));
+      // Welle 5 (S2): Leiste auf hinweis.y − 5, Text auf hinweis.y + 5; die Segmente verteilen die ganze Breite (der Rest der Teilung wird auf die Segmente verteilt, keine Lücke am Rand)
+      const n = Math.max(1, Math.min(30, f.frist || 1)), voll = Math.max(0, Math.min(n, f.rest || 0)), ges = G.hinweis.w + 1;
+      for (let i = 0; i < n; i++) {
+        const x0 = Math.floor(i * ges / n), sw = Math.max(2, Math.floor((i + 1) * ges / n) - x0 - 1), sx = G.hinweis.x + x0, by = G.hinweis.y - 5;
+        if (i < voll) rect(c, sx, by, sw, 4, farbe); else { rect(c, sx, by, sw, 4, 'raumLinie'); rect(c, sx + 1, by + 1, Math.max(0, sw - 2), 2, 'kachel'); }
+      }
+      umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 5 + i * SCHRIFT.zeileLuft, 'text'));
     } else umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 1 + i * SCHRIFT.zeileLuft, 'dim'));
     const h = f.haupt || {}, a = f.ablehnen || {};
     P.knopf(c, G.haupt.x, G.haupt.y, G.haupt.w, G.haupt.h, h.text, { hotkey: kappe('terminal.finale', 'E'), fn: anfrage ? 'warn' : 'nav', text: h.text, disabled: !!h.disabled, reason: h.grund, onClick: h.onClick });
-    P.knopf(c, G.ablehnen.x, G.ablehnen.y, G.ablehnen.w, G.ablehnen.h, a.text, { hotkey: kappe('terminal.finaleAblehnen', 'N'), fn: 'neutral', text: a.text, disabled: !!a.disabled, reason: a.grund, onClick: a.onClick });
+    P.knopf(c, G.ablehnen.x, G.ablehnen.y, G.ablehnen.w, G.ablehnen.h, a.text, { hotkey: kappe('terminal.finaleAblehnen', 'N'), fn: 'neutral', kontur: true, text: a.text, disabled: !!a.disabled, reason: a.grund, onClick: a.onClick });
   }
 
   function zeichneLage(c, r, info, l) {

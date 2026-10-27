@@ -66,12 +66,18 @@ const MUTATIONEN = [
   [K, "wer === 'rom' ? 'palatina' : 'sieg'", "wer === 'rom' ? 'sieg' : 'palatina'", 'Palatina und Sieg vertauscht'],
   [K, "  try { Abspann.nachLaden(game); }", "  try { /* nachLaden aus */ }", 'Laden zeigt den Abspann nicht'],
   // ---- Client
-  [H, "          else if (i.k === 'schluss') R.text(ctx, i.t, cx, y, { color: PAL.mint, align: 'center' });\n", "", 'Client zeichnet den Schluss nicht'],
+  [H, "          else if (i.k === 'schluss') R.text(ctx, i.t, cx, y, { color: PAL.star, align: 'center' });   // Welle 5 (K2): nicht Mint, auch nicht beim Fall von Palatina\n", "", 'Client zeichnet den Schluss nicht'],
   [H, "      if (ab.schluss) {", "      if (false) {", 'Client uebernimmt den Schluss nicht'],
-  [H, "{ color: PAL.mint, align: 'center' });\n        }\n        y += i.h;", "{ color: PAL.alarmrot, align: 'center' });\n        }\n        y += i.h;", 'Schluss in Rot'],
+  [H, "{ color: PAL.star, align: 'center' });   // Welle 5 (K2): nicht Mint, auch nicht beim Fall von Palatina\n        }\n        y += i.h;", "{ color: PAL.alarmrot, align: 'center' });\n        }\n        y += i.h;", 'Schluss in Rot'],
+  // Welle 5: M2 (Titel fest, Ausschnitt innerhalb der Linien, Scrollbereich unter dem Kopf, keine Doppelung), K2 (Schluss nicht Mint)
+  [H, "const kopfY = Math.max(top + 8, runY);", "const kopfY = runY;", 'Titel scrollt mit weg (M2)'],
+  [H, "ctx.beginPath(); ctx.rect(0, top - 3, VW, bottom - top + 6); ctx.clip();", "ctx.beginPath(); ctx.rect(0, top - 10, VW, bottom - top + 20); ctx.clip();", 'Ausschnitt reicht über die Linien (M2)'],
+  [H, "const restOben = top + 8 + kopfH;", "const restOben = top - 8;", 'Scrollbereich beginnt über dem Kopf (M2)'],
+  [H, "{ color: PAL.star, align: 'center' });   // Welle 5 (K2): nicht Mint, auch nicht beim Fall von Palatina", "{ color: PAL.mint, align: 'center' });", 'Schluss wieder in Mint (K2)'],
+  [D, '"Die Hauptwelt der Germanen ist erobert."', '"Hrafnheim ist gefallen."', 'Daten: Zeile doppelt den Titel (M2)'],
   [H, "items.push({ k: 'luft', t: '', h: 14 });\n        for (const l of R.wrap(String(ab.schluss), colW, 1).slice(0, 3))", "for (const l of R.wrap(String(ab.schluss), 900, 1).slice(0, 3))", 'Schluss ohne Zeilenumbruch'],
   // ---- Daten
-  [D, '"schluss": "Hätte sie nur jemand retten können."', '"schluss": "Hätte sie jemand retten können."', 'Daten: Schluss veraendert'],
+  [D, '"schluss": "Hätte Palatina nur jemand retten können."', '"schluss": "Hätte Palatina jemand retten können."', 'Daten: Schluss veraendert'],
   [D, '"wenn": { "rang_min": "tribun" },\n          "zeilen": [\n            "Man hörte auf euch', '"wenn": { "rang_min": "legat" },\n          "zeilen": [\n            "Man hörte auf euch', 'Daten: Rangschwelle des hohen Rollenblocks verschoben'],
   [D, '"wenn": { "haefenVerloren": { "min": 1 } },\n          "zeilen": [\n            "Schon vor Palatina', '"wenn": { "haefenVerloren": { "min": 2 } },\n          "zeilen": [\n            "Schon vor Palatina', 'Daten: Verlustgrenze verschoben'],
   [D, '"wenn": { "finaleGespielt": false },', '"wenn": { "finaleGespielt": true },', 'Daten: kampflos mit falscher Bedingung'],

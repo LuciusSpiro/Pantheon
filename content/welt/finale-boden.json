@@ -45,6 +45,11 @@
       "frei_wachen": "Die Wachen sind abgezogen. Der Weg zum Schrein von Asgard ist frei: Haltet ihn, bis er erwacht.",
       "schrein": "Der Schrein von Asgard erwacht."
     },
+    "ziel": {
+      "sperre": "Schrein von Asgard: Wächter besiegen",
+      "sperre_wachen": "Schrein von Asgard: Wachen besiegen",
+      "halten": "Schrein von Asgard: Schrein halten"
+    },
     "sperre": "Der Schrein ist versiegelt, solange der Wächter des Schreins steht.",
     "sperre_wachen": "Der Schrein ist versiegelt, solange seine Wachen stehen.",
     "sperrgrund": "Nur in der Entscheidungsschlacht um Hrafnheim erreichbar."

@@ -25,6 +25,17 @@ const BI = 'server/sim/faden-bitte.js', FD = 'server/sim/faden.js', GA = 'server
   FA = 'server/sim/funk-antwort.js', RE = 'server/sim/reise-ereignis.js', BA = 'server/sim/faden-bausteine.js', BW = 'content/faeden/bitte-werte.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
+  // ---- Welle 5: Ton des Funks (M1), Porträt-Farben (S7), Punkt-Kappe (S9), Porträt-Abstand (K4), Farben aus KarteTokens (K5)
+  [HU, "(f.fd === 1 || f.ton === 'meldung')", "(f.fd === 1)", 'Akzent: ton meldung bleibt Rot (M1)'],
+  [HU, "ton: ton === 'meldung' || ton === 'gefahr' ? ton : '' };", "ton: ton || '' };", 'Müll als ton wird übernommen (M1)'],
+  ['public/js/karte-lage.js', "ton: ev.ton === 'meldung' ? 'meldung' : '' });", "ton: '' });", 'Funk-Reiter merkt ton nicht (M1)'],
+  ['public/js/client.js', "ev.fd, ev.ton);", "ev.fd);", 'client.js reicht ton nicht durch (M1)'],
+  ['public/js/consoles.js', "e.fd === 1 || e.ton === 'meldung' ? KarteTokens", "e.fd === 1 ? KarteTokens", 'Funk-Reiter färbt ton meldung Rot (M1)'],
+  [HU, "FARBE = window.KarteTokens ? window.KarteTokens.FARBE.fraktion[{ rom: 'r', ger: 'g', kon: 'k' }[fr]].flaeche : { rom: '#6B2E2E', ger: '#3F4A28', kon: '#4A4466' }[fr];", "FARBE = { rom: '#7A2420', ger: '#4D5A3A', kon: '#2D4F6E' }[fr];", 'Porträt mit festen Fraktionsfarben (S7)'],
+  [FW, "if (punkt) { ctx.fillStyle = SK.text; ctx.fillRect(sx + tw + (vor ? 1 : 0), y + 5, 2, 2); }", "if (punkt) R.text(ctx, '.', sx, y, { color: SK.text, shadow: false });", 'Punkt-Kappe als Glyph (S9)'],
+  [FW, "const BILD_X = 7, BILD_PLATZ = 29;", "const BILD_X = 5, BILD_PLATZ = 27;", 'Porträt 2 px weiter außen (K4)'],
+  [FW, "text: PU.hell || '#F4EEDC'", "text: '#F4EEDC'", 'SK.text fest statt KarteTokens (K5)'],
+
   // ---- Angebot: Prüfer, Gefahr, unruhig, Angebot schon offen, Ausgang-Regel
   [BI, '  if (fehler.length) {', '  if (false) {', 'Angebot: Scheinwahl und Optionsfehler werden nicht geprüft'],
   [BI, "  if (B[beat.typ].gefahr || beat.gefahr === true) return { ok: false, code: 'gefahr' };", '', 'Angebot: auch bei Gefahr'],

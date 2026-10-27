@@ -50,6 +50,10 @@ section('Anzeigemodell', () => {
   ok(Rang.modellAus(null, RAENGE, TEXTE) === null && Rang.modellAus(undefined, RAENGE, TEXTE) === null && Rang.modellAus({}, RAENGE, TEXTE) === null, 'ohne Block (Kampagne, Limes): kein Modell, kein Platzhalter');
   const m0 = Rang.modellAus({ rom: 0, ger: 0, kon: 0, rang: 'miles', name: 'Miles', ab: 0, bis: 8 }, RAENGE, TEXTE);
   ok(m0 && m0.name === 'Miles' && m0.zahl === '0/8' && m0.weiter === '→ Optio' && m0.voll === 0 && m0.anteil === 0 && m0.titel === TEXTE.titel, 'Miles 0: „0/8 → Optio“, keine Segmente gefüllt');
+  const mb = Rang.modellAus({ rom: 0.25, ger: 0, kon: 0, rang: 'miles', name: 'Miles', ab: 0, bis: 8 }, RAENGE, TEXTE);
+  ok(mb && mb.zahl === '0/8' && mb.jetzt && !/[.]/.test(mb.jetzt) && mb.voll === 0, 'Welle 5 (S8): Ruf 0,25 zeigt ganze Zahlen („0/8“, nie „0.25/8“)');
+  const mc = Rang.modellAus({ rom: 19.9, ger: 0, kon: 0, rang: 'optio', name: 'Optio', ab: 8, bis: 30 }, RAENGE, TEXTE);
+  ok(mc && mc.zahl === '19/30' && !/[.]/.test(mc.jetzt), 'Welle 5 (S8): 19,9 wird abgerundet („19/30“), der Fortschritt rechnet mit dem genauen Wert');
   const m1 = Rang.modellAus({ rom: 20, ger: 0, kon: 0, rang: 'optio', name: 'Optio', ab: 8, bis: 30 }, RAENGE, TEXTE);
   ok(m1 && m1.zahl === '20/30' && m1.weiter === '→ Centurio' && m1.voll === Math.floor((12 / 22) * Rang.SEGMENTE) && m1.jetzt === 'jetzt Optio · 20/30', 'Optio 20: 20/30, Segmente nach (ruf − ab)/(bis − ab), „jetzt Optio · 20/30“');
   const m2 = Rang.modellAus({ rom: 30, ger: 0, kon: 0, rang: 'centurio', name: 'Centurio', ab: 30, bis: 80 }, RAENGE, TEXTE);

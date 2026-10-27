@@ -409,6 +409,20 @@ section('Snapshot', () => {
   ohneStubs();
 });
 
+section('Welle 5 (M1): Funk des Finale-Kerns ist Meldung (Messing), nie Gefahr', () => {
+  const TEXTE = require('../content/welt/finale-werte.json').texte;
+  const t = neu(); const g = t.g;
+  const ev = [];
+  const e0 = g.emit.bind(g); g.emit = (k, d) => { if (k === 'radio') ev.push(d); return e0(k, d); };
+  rang(g, 'tribun');
+  stubs();
+  Finale.debug(g, ['angebot']);
+  ok(ev.some((d) => d.text === TEXTE.funk.angebot && d.ton === 'meldung'), 'Angebot: ton meldung');
+  Finale.waehlen(g); ok(ev.some((d) => /^Entscheidungsschlacht um Hrafnheim: Das wird gefährlich/.test(d.text) && d.ton === 'meldung'), 'Anfrage („Das wird gefährlich“): ton meldung, nicht Rot');
+  Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg'); Finale.bodenEnde(g, 'crew_gefallen');
+  ok(ev.length >= 5 && ev.every((d) => d.ton === 'meldung' && d.lage === 1 && d.r === 1 && d.from === TEXTE.sprecher), 'alle ' + ev.length + ' Funksprüche des Kerns (Start, Orbit frei, Neubeginn, …): ton meldung, Lagefunk wie bisher');
+});
+
 section('Protokoll', () => {
   const Protocol = require('../shared/protocol.js');
   ok(gleich(Protocol.CMD_FINALE, ['finale.waehlen', 'finale.bestaetigen', 'finale.ablehnen']), 'CMD_FINALE: genau waehlen, bestaetigen, ablehnen');

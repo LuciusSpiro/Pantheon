@@ -24,7 +24,7 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.
 const F = 'server/sim/finale.js', WK = 'server/weltsim/wirkungen.js', KL = 'server/sim/kriegslage.js', G = 'server/game.js', D = 'content/welt/finale-werte.json', P = 'shared/protocol.js';
 const SIEG = "try { Kriegslage.szeneAbschliessen(game, { wirkungen: [{ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: ZIEL.an }], wo: 'finale' }); }";
 const ABLEHNEN = "  s.angebot = 0; s.anfrage = null; s.frei_ab = tickZahl(game) + W.abstand_nach_ablehnen.wert;\n  return null;";
-const NEUBEGINN = "  s.phase = null; s.anfrage = null; s.angebot = 0; s.frei_ab = tickZahl(game) + W.abstand_nach_scheitern.wert;\n  funk(game, key);";
+const NEUBEGINN = "  s.phase = null; s.anfrage = null; s.angebot = 0; s.frei_ab = tickZahl(game) + W.abstand_nach_scheitern.wert;\n  funkMeldung(game, key);";
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // ---- die fünf Pflicht-Mutationen
@@ -40,7 +40,7 @@ const MUTATIONEN = [
   [F, "if (!a || !(a.bis > game.time)) return 0;", "if (!a) return 0;", 'Frist: Anfrage verfällt nie'],
   [F, "return rest <= f + 1e-9 ? Math.min(rest, f) : 0;", "return rest <= f ? rest : 0;", 'Frist: ohne Gleitkomma-Toleranz scheitert die Bestätigung im selben game.time'],
   [F, "return rest <= f + 1e-9 ? Math.min(rest, f) : 0;", "return rest <= f + 1e-9 ? rest : 0;", 'Frist: der Rest darf das Fenster nicht überschreiten (Anzeige 21 statt 20)'],
-  [F, "  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funk(game, 'angefragt_verfallen'); }\n", "", 'verfallene Anfrage wird nicht geräumt'],
+  [F, "  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funkMeldung(game, 'angefragt_verfallen'); }\n", "", 'verfallene Anfrage wird nicht geräumt'],
   [F, "  if (rest) return fehl('schon_angefragt', { sek: Math.ceil(rest) });\n", "", 'zweite Anfrage in der Frist geht durch'],
   [F, "  if (!s.angebot) return fehl('kein_angebot');\n  const rest = anfrageRest(game);", "  const rest = anfrageRest(game);", 'Anfrage ohne Angebot'],
   [F, "  if (!starten(game)) { s.anfrage = null; return fehl('start'); }\n  return null;", "  starten(game);\n  return null;", 'misslungener Start wird als Erfolg gemeldet'],
@@ -57,7 +57,7 @@ const MUTATIONEN = [
   [F, SIEG, SIEG.replace(" }); }", " }); Kriegslage.tick(game, 'finale'); }"), 'Sieg löst zwei Sim-Ticks aus'],
   [F, "  try { abspann().beenden(game, 'sieg'); }", "  try { /* kein Abspann */ }", 'Sieg ohne Abspann'],
   [F, "  try { abspann().beenden(game, 'sieg'); }", "  try { abspann().beenden(game, 'niederlage'); }", 'Abspann mit falscher Art'],
-  [F, "  s.phase = 'ende'; s.angebot = 0; s.anfrage = null;\n  funk(game, 'sieg');", "  s.angebot = 0; s.anfrage = null;\n  funk(game, 'sieg');", 'Sieg setzt phase nicht auf ende'],
+  [F, "  s.phase = 'ende'; s.angebot = 0; s.anfrage = null;\n  funkMeldung(game, 'sieg');", "  s.angebot = 0; s.anfrage = null;\n  funkMeldung(game, 'sieg');", 'Sieg setzt phase nicht auf ende'],
   [F, "  if (!s || s.phase !== 'orbit') return false;", "  if (!s) return false;", 'Orbit-Ende in jeder Phase gültig'],
   [F, "  if (!s || s.phase !== 'boden') return false;", "  if (!s) return false;", 'Boden-Ende in jeder Phase gültig'],
   [F, "  if (!ok) neubeginn(game, 'boden_nicht');", "", 'Boden nicht aufbaubar: Finale hängt in boden'],
@@ -65,11 +65,14 @@ const MUTATIONEN = [
   [F, "  if ((game.simSzene && game.simSzene.phase !== 'ende') || game.fadenSzene) return { ok: false, grund: 'szene' };", "  if (game.simSzene && game.simSzene.phase !== 'ende') return { ok: false, grund: 'szene' };", 'Start mitten in einer Faden-Szene'],
   [F, "  if (p === 'ende') return { ok: false, grund: 'beendet' };\n", "", 'beendetes Finale lässt sich neu starten'],
   [F, "  if (!game.weltsim) return { ok: false, grund: 'modus' };\n  const p = phase(game);", "  const p = phase(game);", 'bereit ohne Modus-Prüfung'],
-  [F, "  funk(game, 'anfrage', { sek: Math.round(f) });", "", 'keine Gefahrenankündigung bei der Anfrage'],
-  [F, "  funk(game, 'angebot');\n  return true;", "  return true;", 'kein Funk beim Angebot'],
+  [F, "  funkMeldung(game, 'anfrage', { sek: Math.round(f) });", "", 'keine Gefahrenankündigung bei der Anfrage'],
+  [F, "  funkMeldung(game, 'angebot');\n  return true;", "  return true;", 'kein Funk beim Angebot'],
   [F, "  return [rangOk(game) ? 1 : 0, s.angebot ? 1 : 0, anfrageRest(game) ? 1 : 0, phase(game) || '-'].join('|');", "  return [rangOk(game) ? 1 : 0, s.angebot ? 1 : 0, phase(game) || '-'].join('|');", 'Änderungsschlüssel ohne Anfrage'],
   [F, "  if (anfrageRest(game)) b.anfrage = W.bestaetigung.wert.fenster;\n", "", 'Anzeige ohne Anfrage'],
   [F, "  return !!game.weltsim && (rangOk(game) || !!(s && (s.phase || s.angebot)));", "  return !!game.weltsim;", 'Block schon vor Tribun'],
+  // ---- Welle 5 (M1): Funk des Kerns ist Meldung (Messing), nie Gefahr
+  [F, "const funkMeldung = (game, key, vars) => OKFunk.meldung(game, T.sprecher, fmt((T.funk || {})[key], vars), { r: 1 });", "const funkMeldung = (game, key, vars) => OKFunk.gefahr(game, T.sprecher, fmt((T.funk || {})[key], vars), { r: 1 });", 'Funk des Kerns als Gefahr (Rot)'],
+  ['server/sim/oberkommando-funk.js', "const meldung = (game, von, text, extra) => senden(game, TON.meldung, von, text, extra);", "const meldung = (game, von, text, extra) => senden(game, undefined, von, text, extra);", 'Meldung ohne ton (Client färbt Rot)'],
   // ---- Wirkung hauptwelt_erobert
   [WK, "      if (!alt || d.hauptwelten[alt] !== wk.ort) return 'Ort ist keine Hauptwelt';\n", "", 'hauptwelt_erobert: auch Nicht-Hauptwelten'],
   [WK, "      if (!feind(wk.an, alt)) return `${wk.an} ist nicht feindlich zu ${alt}`;\n      return null;\n    },\n    anwenden(c, wk) { H.erobern(c, wk.ort, wk.an); },", "      return null;\n    },\n    anwenden(c, wk) { H.erobern(c, wk.ort, wk.an); },", 'hauptwelt_erobert: eigene Hauptwelt erobern'],

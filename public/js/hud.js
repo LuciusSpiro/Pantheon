@@ -119,9 +119,10 @@
     // (die Meldungen stehen zusätzlich im Funk-Reiter und im Logbuch)
     // Fixrunde S-1: nurTafel = Szenenmeldung ohne Funk-Reiter-Eintrag (ev.sz && !ev.r, siehe KarteLage.funkMerken); sie zählt nicht in „+n im Funk-Reiter“
     // Nacharbeit SUND-04a-2 (F3a): fd = Funk eines Geschichtsfadens (1: Messing-Akzent und „FUNK“, 2: Gefahr wie der Notruf, bleibt Rot)
-    onRadio(from, text, pid, lage, kz, nurTafel, fd) {
+    // Welle 5 (M1): ton = 'meldung' (Oberkommando, Messing wie der Funk der Fäden) | 'gefahr' | leer (alter Lagefunk, Rot)
+    onRadio(from, text, pid, lage, kz, nurTafel, fd, ton) {
       const now = performance.now() / 1000;
-      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now, imReiter: !nurTafel, fd: fd === 1 || fd === 2 ? fd : 0 };
+      const f = { from: from || 'Funk', text: text || '', t: now, pid: pid || null, lage: !!lage, mehr: 0, t0: now, imReiter: !nurTafel, fd: fd === 1 || fd === 2 ? fd : 0, ton: ton === 'meldung' || ton === 'gefahr' ? ton : '' };
       if (lage && kz) f.kz = String(kz).slice(0, 80);   // Kernaussage für die einzeilige Lagefunk-Zeile (Ort · Fraktion · Stärke)
       const cur = this.radioAktuell();
       if (lage && cur && cur.lage) { f.mehr = (cur.mehr || 0) + (cur.imReiter === false ? 0 : 1); f.t0 = cur.t0 || cur.t; }
@@ -147,7 +148,7 @@
       ctx.save(); ctx.translate(Math.round(x), Math.round(y));
       ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(0, 0, w, w);
       const r = (a, b, c, d, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(a * u), Math.round(b * u), Math.max(1, Math.round(c * u)), Math.max(1, Math.round(d * u))); };
-      const SKIN = '#E8C9A0', HAAR = '#3B2A1E', MESSING = '#C9974A', FARBE = { rom: '#7A2420', ger: '#4D5A3A', kon: '#2D4F6E' }[fr];
+      const SKIN = '#E8C9A0', HAAR = '#3B2A1E', MESSING = '#C9974A', FARBE = window.KarteTokens ? window.KarteTokens.FARBE.fraktion[{ rom: 'r', ger: 'g', kon: 'k' }[fr]].flaeche : { rom: '#6B2E2E', ger: '#3F4A28', kon: '#4A4466' }[fr];   // Welle 5 (S7): Fraktionsflächen aus den Tokens (wie die Lagekarte)
       r(3, 20, 18, 4, FARBE);
       r(8, 16, 8, 4, SKIN);
       r(7, 7, 10, 10, SKIN);
@@ -704,7 +705,7 @@
           if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen'].indexOf(z) >= 0) c[0]++;
           if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
         });
-        for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
+        if (!away.oz) for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);
         if (pins.length) lines.push(['Plan-Pins: ' + pins.length, PAL.panelLight]);
         if (lines.length) {
           hy = VH - map.h * mc - 12 - lines.length * 10;
@@ -921,13 +922,16 @@
         // M3a: zweite Zeile (z. B. „R: reparieren (Minispiel)“) – Stationsmarke sitzt darüber, daher Hinweis darunter/daneben
         const alt = ia.alt || null;
         const info = !!ia.info;   // reiner Namenshinweis (heiles System): ohne Tastensymbol
-        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + (info ? 8 : 20);
+        const versiegelt = !!ia.versiegelt;   // Welle 5 (S6): gesperrter Anker (Schrein): keine Tastenkappe, nur „Versiegelt“ gedämpft in dünnem Messingrahmen
+        const w = Math.max(R.measure(label, 1), alt ? R.measure(alt.label, 1) : 0) + (info || versiegelt ? 8 : 20);
         const h = alt ? 25 : 13;
         const yy = v3 ? s.y - h - (ia.sys ? 16 : 4) : ia.sys ? s.y + 34 : s.y - 22;   // 2D: an Stationen unter die Kachel; 3D: darüber, Platz für die Zustandsmarke
         const x = Math.round(Math.max(2, Math.min(VW - w - 2, s.x - w / 2))), y = Math.round(Math.max(2, Math.min(VH - h - 2, yy)));
         R.backdrop(ctx, x, y, w, h, 0.8);
+        if (versiegelt) { const C = window.KarteTokens && window.KarteTokens.PULT; ctx.strokeStyle = C ? C.messing : '#C9974A'; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); this.iaOben = { y, t: performance.now() }; }
         const key = (k, kx, ky, on) => { ctx.fillStyle = on ? PAL.amber : '#4A5260'; ctx.fillRect(kx, ky, 9, 9); R.text(ctx, k, kx + 2, ky + 1, { color: PAL.space, shadow: false }); };
-        if (info) R.text(ctx, label, x + 4, y + 3, { color: PAL.star, shadow: false });
+        if (versiegelt) R.text(ctx, label, x + 4, y + 3, { color: window.KarteTokens ? window.KarteTokens.PULT.grau : '#9AA6B8', shadow: false });
+        else if (info) R.text(ctx, label, x + 4, y + 3, { color: PAL.star, shadow: false });
         else {
           key(ia.key || 'E', x + 2, y + 2, ia.ok);
           R.text(ctx, label, x + 15, y + 3, { color: ia.ok ? PAL.star : '#8C93A0', shadow: false });
@@ -1036,9 +1040,9 @@
     // Einzeilige Lagemeldung ohne Inhaltsfläche zu berühren: roter Streifen, „LAGE ·“, Sprecher (nur wenn nicht die eigenen Sensoren), Kernaussage (Ort · Fraktion · Stärke, Server-Feld kz),
     // danach die Prosa (gekürzt), „+n“ bei einer Serie. Fixrunde N5: flache Fläche (Tisch) mit 1 px Messing als Unterkante wie die Szenenzeile statt der 2-px-Fase von R.panel (die Schrift
     // saß in dem 11-px-Feld auf dem Rahmen); die Kürzung trifft nur noch die Prosa.
-    // Akzentfarbe des Funks: Gefahr (Lagemeldung, Faden-Notruf) Rot, Funk der Fäden (fd 1) Messing
+    // Akzentfarbe des Funks: Gefahr (Lagemeldung, Faden-Notruf, ton 'gefahr') Rot, Meldung (Funk der Fäden fd 1, Oberkommando ton 'meldung') Messing
     funkAkzent(f) {
-      return f && f.fd === 1 ? (window.KarteTokens ? KarteTokens.FARBE.funk.akzentLage : '#C9974A') : (window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C');
+      return f && (f.fd === 1 || f.ton === 'meldung') ? (window.KarteTokens ? KarteTokens.FARBE.funk.akzentLage : '#C9974A') : (window.KarteTokens ? KarteTokens.FARBE.funk.akzentFeind : '#E0473C');
     },
     lagefunkZeilenText(f) {
       const von = String(f.from || '');
@@ -1175,7 +1179,7 @@
       if (max > 0) all = all.slice(-max);   // S1: über Overlays nur der neueste Hinweis
       // QA-Abnahme S2: lange Hinweise (z. B. Logbuch-Notizen) umbrechen statt abschneiden – höchstens 2 Zeilen
       const maxW = Math.min(VW - 40, 440);
-      for (const n of all) {
+      const bloecke = all.map((n) => {
         let lines = [n.text];
         if (R.measure(n.text, 1) > maxW) {
           lines = [''];
@@ -1186,8 +1190,12 @@
           }
           if (lines.length > 2) { lines = [lines[0], this.fit(lines.slice(1).join(' '), maxW, 1)]; }
         }
-        const w = Math.max(...lines.map((l) => R.measure(l, 1))) + 12;
-        const h = 13 + (lines.length - 1) * 10;
+        return { n, lines, w: Math.max(...lines.map((l) => R.measure(l, 1))) + 12, h: 13 + (lines.length - 1) * 10 };
+      });
+      // Welle 5 (S6): steht der Hinweis „Versiegelt“ am Schirm (Label des gesperrten Ankers), sitzen die Hinweise relativ dazu 11 px über seiner Oberkante (ein einzeiliger: 24 px) statt auf den Wandobjekten
+      const io = this.iaOben;
+      if (y0 == null && io && performance.now() - io.t < 120 && bloecke.length) y = Math.max(2, Math.round(io.y - 11 - (bloecke.reduce((a, b) => a + b.h, 0) + 3 * (bloecke.length - 1))));
+      for (const { n, lines, w, h } of bloecke) {
         const a = Math.max(0, Math.min(1, (n.d || 3) - (now - n.t)));
         ctx.globalAlpha = a;
         R.backdrop(ctx, VW / 2 - w / 2, y, w, h, 0.85);
@@ -2157,21 +2165,31 @@
         items.push({ k: 'luft', t: '', h: 14 });
         for (const l of R.wrap(String(ab.schluss), colW, 1).slice(0, 3)) items.push({ k: 'schluss', t: l, h: 12 });
       }
-      const total = items.reduce((a, i) => a + i.h, 0);
+      // Welle 5 (M2): Titel und Untertitel (die ersten Einträge: Art 'titel' und 'sub') stehen fest, sobald der Lauf oben angekommen ist; nur der Rest läuft darunter weiter (und endet
+      // unten bündig, wenn er nicht ganz hineinpasst). Passt alles ins Bild, ist das Ergebnis dasselbe wie die eine Liste vorher. Der Ausschnitt bleibt 3 px innerhalb der Linien.
+      const kopfN = items.findIndex((i) => i.k !== 'titel' && i.k !== 'sub');
+      const kopfH = items.slice(0, kopfN).reduce((a, i) => a + i.h, 0), restH = items.slice(kopfN).reduce((a, i) => a + i.h, 0);
       const t = Math.max(0, view.time - this.abspannT0);
       const runY = bottom - t * 18;                 // Anfang der Liste: startet unten, steigt
-      const stopY = Math.min(top + 8, bottom - total);   // oben angekommen (oder: passt ganz ins Bild)
-      let y = Math.max(stopY, runY);
+      const kopfY = Math.max(top + 8, runY);        // oben angekommen: der Titel bleibt stehen
+      const restOben = top + 8 + kopfH;             // Der Scrollbereich beginnt unter dem Kopf
+      const restY = Math.max(Math.min(restOben, bottom - restH), runY + kopfH);
       ctx.save();
-      ctx.beginPath(); ctx.rect(0, top - 6, VW, bottom - top + 12); ctx.clip();
-      for (const i of items) {
+      ctx.beginPath(); ctx.rect(0, top - 3, VW, bottom - top + 6); ctx.clip();
+      let y = kopfY;
+      for (let n = 0; n < items.length; n++) {
+        const i = items[n];
+        if (n === kopfN) {   // ab hier der Scrollbereich: er wird unter dem Kopf abgeschnitten
+          y = restY; ctx.restore(); ctx.save();
+          ctx.beginPath(); ctx.rect(0, restOben - 3, VW, bottom + 3 - (restOben - 3)); ctx.clip();
+        }
         if (y + i.h >= top - 6 && y <= bottom + 6) {
           if (i.k === 'titel') R.text(ctx, i.t, cx, y, { color: PAL.amber, scale: 2, align: 'center' });
           else if (i.k === 'sub') R.text(ctx, i.t, cx, y, { color: PAL.mint, align: 'center' });
           else if (i.k === 'text') R.text(ctx, i.t, cx, y, { color: PAL.star, align: 'center' });
           else if (i.k === 'kopf') R.text(ctx, i.t, cx, y + 2, { color: PAL.brass, align: 'center' });
           else if (i.k === 'zeile') R.text(ctx, i.t, cx, y, { color: PAL.panelLight, align: 'center' });
-          else if (i.k === 'schluss') R.text(ctx, i.t, cx, y, { color: PAL.mint, align: 'center' });
+          else if (i.k === 'schluss') R.text(ctx, i.t, cx, y, { color: PAL.star, align: 'center' });   // Welle 5 (K2): nicht Mint, auch nicht beim Fall von Palatina
         }
         y += i.h;
       }

@@ -958,6 +958,8 @@ class Mission {
   // ---------- Ziele ----------
   refreshObjectives() {
     if (!this.step) {
+      const boden = this.game.finaleBoden ? require('./finale-boden.js').ziele(this.game) : null;   // SUND-04a Welle 5 (M3): der Boden des Finales setzt sein eigenes Ziel
+      if (boden) { this.state.objectives = boden; return; }
       this.state.objectives = [{ id: 'explore', text: this.tpl('Frei erkunden – Entdeckungen {found}/{total}'), done: false, optional: true }];
       return;
     }

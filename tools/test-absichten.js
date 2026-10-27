@@ -583,6 +583,7 @@ section('Debug-Befehl und Funk', () => {
   const u = neu(); tribun(u.g); tick(u.g);
   const radio = u.cs[0].inbox.filter((q) => q.kind === 'radio' && q.text === TEXTE.funk.angebot);
   ok(radio.length === 1 && radio[0].lage === 1 && radio[0].r === 1 && radio[0].from === TEXTE.sprecher, 'Angebots-Funk ist Lagefunk (lage 1, r 1) vom Oberkommando, einmal');
+  ok(radio[0].ton === 'meldung', 'Welle 5 (M1): „Rom bietet Euch …“ ist eine Meldung (Messing), keine Gefahr');
 });
 
 console.log(`\n${n} Prüfungen, ${fails ? fails + ' FEHLER' : 'ABSICHTEN OK'}`);
