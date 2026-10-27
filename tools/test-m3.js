@@ -153,7 +153,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(bow && bow.facing === 0 && bow.arc === 16 && bow.range === 650 && port.facing === -90 && port.arc === 70 && stbd.facing === 90 && stbd.range === 520, 'Bögen laut §5.1');
   ok(bow && bow.alloc === 2 && port.alloc === 1 && stbd.alloc === 1, 'Start-Ladepunkte { bow 2, port 1, stbd 1 }');
   ok(bow && ['charge', 'alloc', 'state', 'power', 'charging'].every((k) => k in bow) && bow.state === 'ok' && !('aim' in bow) && bow.power === 0 && bow.charging === false, 'bow: charge, alloc, state, power 0, charging false, kein aim (§20.3)');
-  ok(port && ['salvo', 'salvoMax', 'state', 'charge'].every((k) => k in port) && !('hold' in port) && port.salvoMax === 4 && port.salvo === 0, 'Batterien: salvo 0, salvoMax 4, kein hold (§20.4)');
+  ok(port && ['salvo', 'salvoMax', 'state', 'charge'].every((k) => k in port) && !('hold' in port) && port.salvoMax === 1 && port.salvo === 0, 'Batterien: salvo 0, salvoMax 1 (ein Projektil je Zyklus, SYS-01 B1), kein hold (§20.4)');
   ok(['bursts', 'burstsPerfect', 'flicks', 'swaps', 'minigames', 'bridgeLeaves', 'dodges', 'dodgeEvades'].every((k) => g.stats[k] === 0), 'stats: bursts, burstsPerfect, flicks, swaps, minigames, bridgeLeaves, dodges, dodgeEvades = 0');
   ok(CONFIG.ship.turnRate === 0.5 && CONFIG.ship.maxSpeed === 130 && CONFIG.ship.accel === 50 && CONFIG.ship.dodgeCooldown === 7 && CONFIG.ship.dodgeImpulse === 350 && CONFIG.ship.turnAccel === 0.8, 'CONFIG.ship laut §10/§20.2 (Ausweichen 350/7)');
   ok(M3.dodgeWindow === 0.8 && M3.lance && M3.lance.chargeTime === 2.3 && M3.lance.minDamage === 3 && M3.lance.maxDamage === 12 && M3.lance.width === 10 && M3.lance.autoPower === 0.5, 'CONFIG.spaceM3 laut §20.5 (dodgeWindow, lance)');
@@ -786,13 +786,15 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   cmd(0, 'weapons.fire', { mount: 'bow' });
   ok(e2.hp === 999 && e.hp < 999, 'knapp neben der Linie: verfehlt, der Gegner dahinter wird getroffen');
   g.space.enemies = g.space.enemies.filter((q) => q !== e2);
-  // Durchschlagend 2: Schild 4 zählt 2 -> bei voller power 12 − 2 = 10
+  // Durchschlagend 2: Schild 4 zählt 2 -> Hülle = Schaden − 2 (SYS-01 B1: bei Vollladung durchschlägt die Lanze den Schild ganz, das prüft test-waffen-cooldown)
   e.hp = 999; e.keepShields = true; e.shields = [4, 4, 4, 4];
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.charge', { mount: 'bow', on: true });
-  run(L.chargeTime + 0.2, tick);
+  run(L.chargeTime * 0.5, tick);
+  const pTeil = g.ship.mount.bow.power;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
-  ok(near(999 - e.hp, L.maxDamage - (4 - M3.mounts.bow.pierce), 0.01), `durchschlagend 2: Schild 4 zählt 2 -> Hülle −${999 - e.hp}`);
+  const erwartet = L.minDamage + (L.maxDamage - L.minDamage) * pTeil - M3.mounts.bow.pierce;
+  ok(pTeil < 1 && near(999 - e.hp, erwartet, 0.05), `durchschlagend 2 (Teilladung ${pTeil.toFixed(2)}): Schild 4 zählt 2 -> Hülle −${(999 - e.hp).toFixed(2)} = ${erwartet.toFixed(2)}`);
   e.keepShields = false;
   // Fehlschuss ins Leere: Strahl bis range, kind lance, miss
   e.pin.y = sh.y + 300; run(0.05, tick);
@@ -993,10 +995,10 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
       if (sb && !(Number.isFinite(sb.x) && Number.isFinite(sb.angle))) inSnaps.set('badfields', 1);
     }
   }
-  ok(near(hp0 - t.hp, 4 * M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Salve auf den nächsten Gegner im Bogen (4 Projektile × ${M3.mounts.stbd.damage} = ${hp0 - t.hp})`);
-  ok(midSalvo !== null && midSalvo >= 1 && beams === 4, `Salve über Zeit (salvo ${midSalvo} ausstehend, 4 Projektile pbatterie)`);
+  ok(near(hp0 - t.hp, M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Schuss auf den nächsten Gegner im Bogen (1 Projektil × ${M3.mounts.stbd.damage} = ${hp0 - t.hp})`);
+  ok(midSalvo === null && beams === 1, `Schuss sofort im Flug (kein ausstehender Rest, SYS-01 B1; 1 Projektil pbatterie, Rest ${midSalvo})`);
   const counts = [...inSnaps.entries()].filter(([k]) => k !== 'badfields').map(([, v]) => v);
-  ok(counts.length === 4 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jedes Salvenprojektil in ≥ 2 Snapshots (${counts.join('/')}), mit Lage und Winkel`);
+  ok(counts.length === 1 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jedes Schussprojektil in ≥ 2 Snapshots (${counts.join('/')}), mit Lage und Winkel`);
   ok(events('sfx').some((e) => e.name === 'battery_salvo'), 'sfx battery_salvo');
   // ohne Gegner im Bogen: ins Leere, senkrecht zur Flanke, Strahlen trotzdem da
   g.space.enemies = [];
@@ -1006,7 +1008,7 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
   const voids = [];
   run(1, () => { setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); for (const b of g.space.projectiles) if (b.kind === 'pbatterie' && !voids.some((v) => v.id === b.id)) voids.push({ id: b.id, angle: b.angle }); });
   const perp = voids.every((b) => Math.abs(Physics.normAngle(b.angle - (sh.angle - Math.PI / 2))) < 0.15);
-  ok(notices(0).length === nn && voids.length === 4 && perp, `ohne Gegner: Salve ins Leere (${voids.length} Projektile, senkrecht zur Backbord-Flanke)`);
+  ok(notices(0).length === nn && voids.length === 1 && perp, `ohne Gegner: Schuss ins Leere (${voids.length} Projektil, senkrecht zur Backbord-Flanke)`);
   // all = beide Batterien (nicht die Lanze)
   setCharge(g, 'port', 1); setCharge(g, 'stbd', 1); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'all' });

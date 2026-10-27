@@ -57,14 +57,14 @@ function messe(k) {
   // Verteilung wählen
   const verteile = () => {
     if (VERT === 'ziel') {   // Ops verteilt gezielt: nur auf Waffen, die ein Ziel im Bogen haben (einseitig: Steuerbord), nach Schaden je Punkt
-      const rate = (id) => { const w = Waffen.waffeAn(g, id); return w.stoss / w.ladekosten; };
+      const rate = (id) => { const w = Waffen.waffeAn(g, id); return Katalog.volley(w.id) / w.ladekosten; };
       const mc = (id) => Waffen.mountCfg(g, id);
       const treffen = ids.filter((id) => (EINSEITIG ? mc(id).facing === 90 : true)).sort((a, b) => rate(b) - rate(a));
       const want = {}; for (const id of ids) want[id] = 0; let left = POOL;
       for (const id of treffen) { const q = Math.min(CONFIG.spaceM3.allocMax, left); want[id] = q; left -= q; }
       g.ship.wAllocIntent = want;
     } else if (VERT === 'best') {
-      const rate = (id) => { const w = Waffen.waffeAn(g, id); return w.stoss / w.ladekosten; };
+      const rate = (id) => { const w = Waffen.waffeAn(g, id); return Katalog.volley(w.id) / w.ladekosten; };
       const order = ids.slice().sort((a, b) => rate(b) - rate(a));
       const want = {}; let left = POOL; for (const id of order) { const q = Math.min(CONFIG.spaceM3.allocMax, left); want[id] = q; left -= q; }
       g.ship.wAllocIntent = want;
@@ -94,7 +94,7 @@ function messe(k) {
   return { k, ids, stufe, anfang: sum[0], vorrat0, rate0: dauer(fenster[0], 0), rate1: dauer(fenster[1], 1), rate2: dauer(fenster[2], 2), alloc: ids.map((id) => g.ship.mount[id].alloc).join(',') };
 }
 
-console.log(`PAN-01 C Feuerkraft: Pool ${POOL} Ladepunkte (Energie ${POOL - 2} + 2), Verteilung ${VERT}, ${SEK} s, feste Attrappen; Magazindeckel ${Katalog.MAGAZINDECKEL.stossMax} (1,5 × ${Katalog.MAGAZINDECKEL.stossStart})`);
+console.log(`PAN-01 C Feuerkraft: Pool ${POOL} Ladepunkte (Energie ${POOL - 2} + 2), Verteilung ${VERT}, ${SEK} s, feste Attrappen; Magazindeckel ${Katalog.MAGAZINDECKEL.stossMax.toFixed(1)} (1,5 × ${Katalog.MAGAZINDECKEL.stossStart.toFixed(1)}; SYS-01 B1: Ladung = schaden × rohre)`);
 console.log('| Energiewaffen | Plätze | Anfangsstoß (Vorrat) | Schaden 0–10 s | Schaden/s 10–60 s | Schaden/s 60–180 s | Faktor Dauerfeuer gegen 3 Waffen |');
 console.log('|---|---|---|---|---|---|---|');
 const ergeb = [3, 5, 7, 9].map(messe);

@@ -301,13 +301,13 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   cmd(0, 'weapons.fire', { mount: 'both' });   // Altname both -> all
   let batteryBeams = 0;
   runPinned(1.2, () => { pinE(); batteryBeams += g.space.projectiles.filter((b) => b.kind === 'pbatterie' && !b.seen).map((b) => (b.seen = true)).length; });
-  ok(e.shields[1] === 0 && e.shields[3] === 2 && e.hp === 40 - (4 * M3.mounts.port.damage - 2), `Altname both: Bb-Salve 4×1,5 auf den Schild zum Schiff (2 -> 0), Rest auf die Hülle (hp ${e.hp})`);
-  ok(batteryBeams === 4 && !g.space.beams.some((b) => b.kind === 'battery'), 'vier Batterie-Projektile (kind pbatterie, kein Strahl): ' + batteryBeams);
+  ok(e.shields[1] === 0 && e.shields[3] === 2 && Math.abs(e.hp - (40 - (M3.mounts.port.damage - 2))) < 0.01, `Altname both: Bb-Schuss (ein Projektil, SYS-01 B1) auf den Schild zum Schiff (2 -> 0), Rest auf die Hülle (hp ${e.hp})`);
+  ok(batteryBeams === 1 && !g.space.beams.some((b) => b.kind === 'battery'), 'ein Batterie-Projektil je Zyklus (kind pbatterie, kein Strahl): ' + batteryBeams);
   e.shields = [0, 0, 0, 0]; e.hp = 40;
   sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });   // Altname phase_l -> port
   runPinned(1.2, () => { pinE(); e.shields = [0, 0, 0, 0]; });
-  ok(e.hp === 40 - 4 * M3.mounts.port.damage, 'Altname phase_l -> Bb-Batterie, Schild weg -> Hüllenschaden (hp ' + e.hp + ')');
+  ok(e.hp === 40 - M3.mounts.port.damage, 'Altname phase_l -> Bb-Batterie, Schild weg -> Hüllenschaden (hp ' + e.hp + ')');
   // Ziel außerhalb des Bogens: Ziel auf Steuerbord, Bb feuern
   e.x = 1000; e.y = 1850;
   sh.mount.port.charge = 1;
@@ -316,7 +316,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   const hpOut = e.hp;
   let voidBeams = 0;
   runPinned(1.2, () => { e.x = 1000; e.y = 1850; e.fireT = -999; e.tele = null; voidBeams += g.space.projectiles.filter((b) => b.kind === 'pbatterie' && !b.seen).map((b) => (b.seen = true)).length; });
-  ok(e.hp === hpOut && voidBeams === 4, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Projektile fliegen am Ziel vorbei), kein Schaden')
+  ok(e.hp === hpOut && voidBeams === 1, 'Ziel außerhalb des Feuerbogens: Salve ins Leere (' + voidBeams + ' Projektile fliegen am Ziel vorbei), kein Schaden')
   e.x = 1000; e.y = 1150;
   cmd(0, 'weapons.fire', { mount: 'bolzen' });
   ok(notices(0).some((t) => /Torpedowerfer/.test(t)), 'Torpedowerfer nicht eingebaut (Heck 2, ab Stufe 2; PAN-01 C)');
@@ -342,7 +342,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   r.shields = [0, 0, 0, 0]; r.hp = 10; sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
   runPinned(2.5, () => { r.x = 1000; r.y = 1150; r.vx = 0; r.vy = 0; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe); });
   // Toleranz: space.damageEnemy rundet HP je Treffer auf 0,1 (0,75 -> 0,7)
-  ok(Math.abs(r.hp - (10 - 4 * M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden 4×1,5) – hp ' + r.hp);
+  ok(Math.abs(r.hp - (10 - M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden je Projektil ' + M3.mounts.port.damage + ', SYS-01 B1) – hp ' + r.hp);
   // EMP des Wächters
   g.space.enemies = [];
   sh.shields.current = [0, 0, 0, 0]; sh.shields.alloc = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];

@@ -1071,7 +1071,8 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     const lay = Schilde.layout(game.C, e.kind);
     let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
-    const pierce = (opts && opts.pierce) || 0;
+    // SYS-01 B1: Durchschlag 'zone' (Vollladung der Lanze) umgeht den Schild ganz; die Mitte des Gegners ist hier die Hülle
+    const pierce = opts && opts.durchschlag === 'zone' ? Infinity : (opts && opts.pierce) || 0;
     const sv = e.shields[sec];
     if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
     if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
@@ -1308,7 +1309,8 @@ function sperrCfg(game) { const s = game.C.spaceS2b; return s && s.sperrfeuer ? 
 // PAN-01 C: Sturmbatterie des Gegners = Sperrfeuer mit den Katalogwerten (viele dünne Nadeln, kaum Schildschaden, Schild der Lerche regeneriert nicht)
 function sturmCfg(game) {
   const base = sperrCfg(game); const w = Katalog.waffe('sturmbatterie');
-  return base ? Object.assign({}, base, { burst: w.rohre, burstGap: w.salvoGap, speed: 170, ttl: 4, damage: 0.15, spread: 0.1, range: w.reichweite, maxProjectiles: 24 }) : null;
+  // SYS-01 B1: Gegner-Sperrfeuer hat eigene Werte (gegner.burst/burstGap), nicht den Katalogwert der Lerche
+  return base ? Object.assign({}, base, { burst: w.gegner.burst, burstGap: w.gegner.burstGap, speed: 170, ttl: 4, damage: 0.15, spread: 0.1, range: w.reichweite, maxProjectiles: 24 }) : null;
 }
 function sperrInterval(game, S) {
   const cs = game.C.crewScaling || {}; const ref = (cs[3] && cs[3].enemyFireInterval) || 1;

@@ -85,7 +85,7 @@ function wcfg(game, w) {
   const M = M3(game); const P = M.mounts.port;
   const c = { schaden: w.schaden, rohre: w.rohre, gap: w.salvoGap || 0.15, ladekosten: w.ladekosten, bogen: w.bogen, reichweite: w.reichweite,
     rohreKaputt: Math.max(1, Math.ceil(w.rohre / 2)), kaputtFaktor: P.damagedFactor || 1 };   // Batterie/Kanone: wie vor PAN-01 C kein Zeitfaktor (nur weniger Rohre), die Config kennt keinen damagedFactor für port/stbd
-  if (w.id === 'standardbatterie') Object.assign(c, { schaden: P.damage, rohre: P.tubes, gap: P.salvoGap, ladekosten: P.secPerPoint, bogen: P.arc, reichweite: P.range, rohreKaputt: P.tubesDamaged });
+  if (w.id === 'standardbatterie') Object.assign(c, { schaden: P.damage, rohre: P.tubes, ladekosten: P.secPerPoint, bogen: P.arc, reichweite: P.range, rohreKaputt: P.tubesDamaged });   // SYS-01 B1: kein Salvenabstand mehr (ein Projektil)
   if (w.art === 'lanze') {
     const L = M.lance || {}; const B = M.mounts.bow; const K = w.lanze;
     Object.assign(c, { aufladen: L.chargeTime != null ? L.chargeTime : K.aufladen, min: L.minDamage != null ? L.minDamage : K.min, max: L.maxDamage != null ? L.maxDamage : K.max,
@@ -113,7 +113,7 @@ function neuerMount(game, id, w, charge) {
 }
 function vorrat(game) {   // gespeicherter Anfangsstoß aller Energiewaffen
   let sum = 0;
-  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && m.charge != null) sum += m.charge * a.w.stoss; }
+  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && m.charge != null) sum += m.charge * Katalog.volley(a.w.id); }
   return sum;
 }
 // Magazin: jede Energiewaffe mit Ladung (auch angefangener) belegt ihren vollen Anfangsstoß; zusammen höchstens MAGAZINDECKEL.stossMax. Eine Waffe ohne Ladung fängt erst an zu laden,
@@ -121,7 +121,7 @@ function vorrat(game) {   // gespeicherter Anfangsstoß aller Energiewaffen
 // Ausgefallene Waffen belegen nichts. Waffen MIT Ladepunkten haben Vorrang: braucht eine solche Platz, geben volle Waffen OHNE Ladepunkte (Reserve) ihre Ladung ab (update).
 function reserviert(game) {
   let sum = 0;
-  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && (m.charge > 0 || m.charging) && !isDown(mountState(game, a.id))) sum += a.w.stoss; }
+  for (const a of energieMounts(game)) { const m = game.ship.mount[a.id]; if (m && (m.charge > 0 || m.charging) && !isDown(mountState(game, a.id))) sum += Katalog.volley(a.w.id); }
   return sum;
 }
 function ensureMounts(game) {
@@ -131,7 +131,7 @@ function ensureMounts(game) {
     const cur = m[a.id];
     const passt = cur && ((a.w.art === 'torpedo') === (cur.cd !== undefined)) && ((a.w.art === 'lanze') === (cur.power !== undefined));
     if (passt) continue;
-    const passt1 = a.w.stoss <= 0 || reserviert(game) + a.w.stoss <= Katalog.MAGAZINDECKEL.stossMax + 1e-9;   // neue Waffe startet geladen, wenn ihr Stoß noch ins Magazin passt
+    const passt1 = Katalog.volley(a.w.id) <= 0 || reserviert(game) + Katalog.volley(a.w.id) <= Katalog.MAGAZINDECKEL.stossMax + 1e-9;   // neue Waffe startet geladen, wenn ihr Stoß noch ins Magazin passt
     m[a.id] = neuerMount(game, a.id, a.w, passt1 ? 1 : 0);
     neu = true;
   }
@@ -314,18 +314,18 @@ function update(game, dt) {
     if (a.w.art !== 'lanze' && mm.salvo > 0) continue;
     const t = chargeTime(game, a.id);
     if (t == null || mm.charge >= 1) continue;
-    if (mm.charge <= 0 && a.w.stoss > 0) {   // erst laden, wenn der Stoß ins Magazin passt
+    if (mm.charge <= 0 && Katalog.volley(a.w.id) > 0) {   // erst laden, wenn der Stoß ins Magazin passt
       const cap = Katalog.MAGAZINDECKEL.stossMax + 1e-9;
-      if (belegt + a.w.stoss > cap) {   // Platz schaffen: Waffen ohne Ladepunkte (Reserve) geben ihre Ladung ab, die hinterste zuerst
+      if (belegt + Katalog.volley(a.w.id) > cap) {   // Platz schaffen: Waffen ohne Ladepunkte (Reserve) geben ihre Ladung ab, die hinterste zuerst
         for (const b of list.slice().reverse()) {
-          if (belegt + a.w.stoss <= cap) break;
+          if (belegt + Katalog.volley(a.w.id) <= cap) break;
           const bm = m[b.id];
-          if (b.id === a.id || !b.w.energie || b.w.stoss <= 0 || !bm || bm.charge <= 0 || bm.charging || bm.alloc > 0 || isDown(mountState(game, b.id))) continue;
-          bm.charge = 0; belegt -= b.w.stoss;
+          if (b.id === a.id || !b.w.energie || Katalog.volley(b.w.id) <= 0 || !bm || bm.charge <= 0 || bm.charging || bm.alloc > 0 || isDown(mountState(game, b.id))) continue;
+          bm.charge = 0; belegt -= Katalog.volley(b.w.id);
         }
       }
-      if (belegt + a.w.stoss > cap) { mm.blk = true; continue; }   // Magazin voll: Anzeige „Magazin voll“
-      belegt += a.w.stoss;
+      if (belegt + Katalog.volley(a.w.id) > cap) { mm.blk = true; continue; }   // Magazin voll: Anzeige „Magazin voll“
+      belegt += Katalog.volley(a.w.id);
     }
     mm.blk = false;
     mm.charge = Math.min(1, mm.charge + dt / t);
@@ -475,7 +475,8 @@ function fireLance(game, id, power, auto) {
   game.emit('sfx', { name: 'lance_fire', power: r2(p), mount: id });
   if (tr.hit) {
     game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
-    schade(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce }, w.id);
+    // SYS-01 B1 (Entwicklungsleiter-Entscheidung, Kai prüft): Vollladung durchschlägt den Schild ganz (Durchschlag 'zone' = bis in die Mitte, hier die Hülle); sonst schwächt der Treffer den Schild um pierce
+    schade(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce, durchschlag: p >= 1 - EPS ? 'zone' : undefined }, w.id);
   }
   if (tr.mine) Alarm.abschuss(game, tr.mine);   // EK2: Mine abgeschossen
   game.missionEvent('lanceFire', { power: p, hit: tr.hit ? tr.hit.id : null, auto: !!auto });
@@ -554,7 +555,8 @@ function schussAb(game, id, w, c, e, o, idx, b) {
   const ship = game.ship; const mc = mountCfg(game, id);
   const n = Math.max(1, b.salvoMax || c.rohre);
   let ang = e ? vorhaltWinkel(o, e, zielVel(e), w.geschw, 3) : ship.angle + mc.facing * Math.PI / 180;
-  ang += ((idx % 4) - 1.5) * w.streuung;
+  // SYS-01 B1: ein Projektil je Zyklus fliegt ohne Fächerung (sonst ein fester Versatz von 1,5 Streuungen je Schuss)
+  if (n > 1) ang += ((idx % 4) - 1.5) * w.streuung;
   const q = (idx - (n - 1) / 2) * 2.2;   // Rohre nebeneinander (px quer zur Flugrichtung)
   const reach = S().waffenReichweite(game, c.reichweite);
   game.space.projectiles.push({ id: game.nextId('pr'), kind: w.projektil.kind, x: o.x - Math.sin(ang) * q, y: o.y + Math.cos(ang) * q, angle: ang, speed: w.geschw,

@@ -43,6 +43,7 @@ section('Server: weapons.alloc auf frisch bestückte, nie benutzte Waffen');
   // Ladepool leeren, dann neue Waffe (Platz 9) einzeln versorgen
   const ids = (g.snapshot().ship.mounts || []).filter((m) => m.alloc !== undefined).map((m) => m.id);
   for (const id of ids) for (let k = 0; k < 6; k++) T.cmd('weapons.alloc', { mount: id, delta: -1 });
+  g.ship.mount.p9.charge = 0;   // SYS-01 B1: der Magazindeckel (26,7) lässt eine neue Batterie neben Lanze, Batterien und Kanone geladen starten; die Prüfung will eine Waffe ohne Ladung
   T.run(0.1);
   const p9 = () => mountOf(g, 'p9');
   ok(p9() && p9().alloc === 0 && p9().charge === 0, 'Platz 9: bestückt, 0 Punkte, Ladung 0, nie benutzt');
@@ -88,6 +89,7 @@ section('Klickpfad im Client (consoles.js und pult-stationen.js mit Attrappen)')
     const alleIds = () => (g.snapshot().ship.mounts || []).filter((m) => m.alloc !== undefined).map((m) => m.id);
     const leeren = () => { for (const id of alleIds()) for (let k = 0; k < 6; k++) T.cmd('weapons.alloc', { mount: id, delta: -1 }); T.run(0.1); };
     leeren();
+    g.ship.mount.p9.charge = 0;   // SYS-01 B1: wie oben – die Waffe ohne Ladung, sonst löst der Klick einen Schuss aus
     const m9 = () => (sicht().state.ship.mounts || []).find((m) => m.id === 'p9');
     // Linksklick auf die neue Waffe ohne Punkte
     klingt.length = 0;

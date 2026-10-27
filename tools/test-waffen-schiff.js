@@ -97,7 +97,7 @@ section('Katalog: vollständig und konsistent', () => {
   const ids = Katalog.WAFFEN.map((w) => w.id);
   ok(ids.length === 8 && new Set(ids).size === 8, 'acht Waffen, Ids eindeutig: ' + ids.join(', '));
   ok(JSON.stringify(ids.slice().sort()) === JSON.stringify(['abwehrturm', 'lanze', 'lanzenbatterie', 'standardbatterie', 'standardkanone', 'streubatterie', 'sturmbatterie', 'torpedowerfer']), 'genau die Waffen des Auftrags');
-  const pflicht = ['id', 'name', 'kurz', 'platzart', 'wirkung', 'energie', 'art', 'schaden', 'rohre', 'bogen', 'reichweite', 'modell', 'projektil', 'effekt', 'ton', 'symbol', 'munition', 'stoss', 'gegner'];
+  const pflicht = ['id', 'name', 'kurz', 'platzart', 'wirkung', 'energie', 'art', 'schaden', 'rohre', 'bogen', 'reichweite', 'modell', 'projektil', 'effekt', 'ton', 'symbol', 'munition', 'gegner'];   // SYS-01 B1: das Feld stoss entfällt (Ladung = schaden × rohre)
   for (const w of Katalog.WAFFEN) {
     const fehlt = pflicht.filter((k) => w[k] === undefined);
     ok(fehlt.length === 0, `${w.id}: alle Felder (${fehlt.join(',') || 'vollständig'})`);
@@ -118,7 +118,7 @@ section('Katalog: vollständig und konsistent', () => {
   // Startwerte gleich der Config (Golden-Stabilität: Standardbatterie = Batterie, Lanze = Lanze)
   const P = CONFIG.spaceM3.mounts.port, L = CONFIG.spaceM3.lance, B = CONFIG.spaceM3.mounts.bow;
   const sb = art('standardbatterie'), la = art('lanze');
-  ok(sb.schaden === P.damage && sb.rohre === P.tubes && sb.ladekosten === P.secPerPoint && sb.bogen === P.arc && sb.reichweite === P.range && sb.salvoGap === P.salvoGap, 'Standardbatterie = spaceM3.mounts.port');
+  ok(sb.schaden === P.damage && sb.rohre === P.tubes && sb.ladekosten === P.secPerPoint && sb.bogen === P.arc && sb.reichweite === P.range, 'Standardbatterie = spaceM3.mounts.port (SYS-01 B1: ein Projektil je Zyklus)');
   ok(la.lanze.aufladen === L.chargeTime && la.lanze.min === L.minDamage && la.lanze.max === L.maxDamage && la.lanze.breite === L.width && la.bogen === B.arc && la.reichweite === B.range && la.ladekosten === B.secPerPoint && la.lanze.pierce === B.pierce, 'Lanze = spaceM3.lance + mounts.bow');
   ok(CONFIG.economy.startInventory.bolzen === Katalog.TORPEDO.lagerStart && CONFIG.shelfCapacity.bolzen === Katalog.TORPEDO.lagerMax && CONFIG.shop.find((s) => s.id === 'bolzen').limit === Katalog.TORPEDO.lagerMax, 'Torpedo: Start 6, Lager 12 (Config = Katalog)');
   // Magazindeckel: 1,5 × Start-Lerche
@@ -203,7 +203,8 @@ section('Ladepool geteilt (Energiewaffen), Torpedowerfer außerhalb', () => {
   const kosten = () => sum(Waffen.energieMounts(g).map((a) => g.ship.mount[a.id].charge * Waffen.wcfg(g, a.w).ladekosten));
   T.run(10);
   const gewonnen = kosten();
-  ok(gewonnen <= 4 * 10 + 0.5 && gewonnen > 4 * 10 * 0.7, `Energiewaffen laden aus demselben Pool: ${gewonnen.toFixed(1)} Punktsekunden in 10 s (Pool 4 → höchstens 40)`);
+  // SYS-01 B1: die Batterien sind mit einem Projektil je Zyklus nach 5 s voll (Ladung = 1), der Pool wird dann nicht mehr gebraucht
+  ok(gewonnen <= 4 * 10 + 0.5 && gewonnen > 4 * 10 * 0.5, `Energiewaffen laden aus demselben Pool: ${gewonnen.toFixed(1)} Punktsekunden in 10 s (Pool 4 → höchstens 40, volle Waffen halten nicht weiter)`);
   const reserve = Waffen.energieMounts(g).filter((a) => g.ship.mount[a.id].alloc === 0).map((a) => g.ship.mount[a.id].charge);
   ok(reserve.length === 4 && reserve.every((c) => c === 0), 'Waffen ohne Ladepunkt laden nicht (Reserve: ' + reserve.length + ' von 8)');
   // Torpedo: Cooldown unabhängig von Energie und Triebwerk
@@ -218,7 +219,7 @@ section('Ladepool geteilt (Energiewaffen), Torpedowerfer außerhalb', () => {
 
 section('Magazindeckel: Anfangsstoß bei neun Waffen höchstens 1,5 × Start', () => {
   const T = arena(); const g = T.g;
-  ok(near(Waffen.vorrat(g), 24, 1e-9), 'Start-Lerche: Anfangsstoß ' + Waffen.vorrat(g) + ' (Lanze 12 + 2 × 6)');
+  ok(near(Waffen.vorrat(g), Katalog.MAGAZINDECKEL.stossStart, 1e-9), 'Start-Lerche: Anfangsstoß ' + Waffen.vorrat(g).toFixed(2) + ' (Lanze 12 + 2 × 2,9 je Projektil)');
   T.debug('bestueck', 'alle 3');
   // neun Energiewaffen: Heck 2 als Abwehrturm statt Torpedowerfer
   T.debug('bestueck', '2 abwehrturm');
@@ -442,6 +443,7 @@ section('Lanzenbatterie: wie die Lanze, zwei Strahlen, Schaden einmal', () => {
   const tr = Waffen.lanceTrace(g, 'p7');
   e.pin = { x: tr.o.x + tr.dx * 300, y: tr.o.y + tr.dy * 300, angle: 0 }; pin(g);
   g.ship.mount.p7.alloc = 4; g.ship.wAllocIntent = { bow: 0, port: 0, stbd: 0, p7: 4 };
+  g.ship.mount.p7.charge = 1;   // Magazindeckel (27) lässt die Lanzenbatterie neben Lanze und zwei Batterien nicht gefüllt starten; geprüft wird das Aufladen
   T.cmd(0, 'weapons.charge', { mount: 'p7', on: true });
   ok(g.ship.mount.p7.charging === true, 'weapons.charge p7: Aufladen beginnt (Kurs halten)');
   lauf(T, 2.5);
@@ -486,7 +488,7 @@ section('Seiten verschieden bestückt, Navigation sieht es', () => {
   const sh = snapShip(T);
   const bb = sh.mounts.find((m) => m.id === 'port'), stb = sh.mounts.find((m) => m.id === 'stbd');
   ok(bb.typ === 'sturmbatterie' && stb.typ === 'streubatterie' && bb.facing === -90 && stb.facing === 90, 'Snapshot: Bb Sturm, Stb Streu – je Seite die eigene Waffe');
-  ok(bb.salvoMax === 8 && stb.salvoMax === 3 && bb.range !== stb.range, 'unterschiedliche Werte je Seite (Rohre ' + bb.salvoMax + '/' + stb.salvoMax + ', Reichweite ' + bb.range + '/' + stb.range + ')');
+  ok(bb.salvoMax === 1 && stb.salvoMax === 3 && bb.range !== stb.range, 'unterschiedliche Werte je Seite (Rohre ' + bb.salvoMax + '/' + stb.salvoMax + ', Reichweite ' + bb.range + '/' + stb.range + '; SYS-01 B1: Sturm ein Projektil je Zyklus)');
   const e1 = gegner(T, 'korvette', 0, -250, { hp: 9999, schild: true }); const e2 = gegner(T, 'korvette', 0, 250, { hp: 9999 });
   e1.shields = [0, 0, 0, 0];
   T.cmd(0, 'weapons.fire', { mount: 'all' });
@@ -638,7 +640,7 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
   const d3 = dauer(3), d5 = dauer(5), d9 = dauer(9);
   ok(d5 >= d3 * 0.9 && d9 >= d3 * 0.9, `einseitiges Gefecht (nur Steuerbord): Dauerfeuer 3 Waffen ${d3.toFixed(2)}, 5: ${d5.toFixed(2)}, 9: ${d9.toFixed(2)} Schaden/s – sinkt mit mehr Plätzen nicht (Magazin legt keine Punkte still)`);
   // Anzeige: blockierte Waffe meldet „Magazin voll“ (blk im Snapshot), solange nichts Platz macht
-  const Z = arena(); const z = Z.g; Z.debug('bestueck', 'alle 3');
+  const Z = arena(); const z = Z.g; Z.debug('bestueck', 'alle 3'); Z.debug('bestueck', '9 streubatterie');   // SYS-01 B1: Streu (Ladung 6) sprengt den Deckel 27 (Lanze 12 + 2 × 2,9 + Kanone 2,4 + Batterie 2,9 = 23,1)
   z.ship.powerIntent = { engines: 1, shields: 1, weapons: 4 }; Object.assign(z.ship.power, z.ship.powerIntent);   // 6 Ladepunkte
   z.ship.wAllocIntent = { bow: 1, port: 1, stbd: 1, p5: 1, p7: 1, p9: 1 };
   for (const id of Waffen.energieMounts(z).map((a) => a.id)) z.ship.mount[id].charge = 0;
@@ -717,7 +719,7 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
     ok(g.space.projectiles.some((q) => q.kind === 'pbatterie') && g.space.beams.length === 0, 'Batterie: Projektile (pbatterie) in der Luft, kein Strahl');
     lauf(T, 1.5);
     const n = g.stats.schussTreffer || 0; const verl = hp0 - e.hp;
-    ok(n >= 3 && n <= w.rohre && near(verl, n * w.schaden, 1e-6), `Treffer ${n}/${w.rohre}: Hülle −${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer)`);
+    ok(n >= 1 && n <= w.rohre && near(verl, n * w.schaden, 1e-6), `Treffer ${n}/${w.rohre}: Hülle −${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer, ein Projektil je Zyklus)`);
     ok(n / (g.stats.schuesse || 1) > 0.5, 'ruhendes Ziel: Trefferquote ' + Math.round(100 * n / (g.stats.schuesse || 1)) + ' %');
   }
   // Trefferquote auf ein ruhendes Ziel (Korvette, 250 px): je Klasse gemessen, im Contract §9 genannt
@@ -745,7 +747,7 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
     const e = gegner(T, 'korvette', 0, -250, { hp: 9999, schild: true }); e.shieldsMax = [40, 40, 40, 40]; e.shields = [40, 40, 40, 40]; const hp0 = e.hp;
     schiess(T, e, 'port'); lauf(T, 1.5);
     const n = g.stats.schussTreffer || 0; const nehm = 160 - e.shields.reduce((a, b) => a + b, 0);
-    ok(n >= 3 && e.hp === hp0 && near(nehm, n * w.schaden, 1e-6), `Schild: ${n} Treffer nehmen ${nehm} Schild (je ${w.schaden} wie an der Hülle), Hülle unberührt`);
+    ok(n >= 1 && e.hp === hp0 && near(nehm, n * w.schaden, 1e-6), `Schild: ${n} Treffer nehmen ${nehm} Schild (je ${w.schaden} wie an der Hülle), Hülle unberührt`);
   }
   // Ausweichen: das Ziel bricht nach dem Schuss seitlich aus (Vorhalt rechnet mit gleichem Kurs und Tempo)
   {
@@ -791,12 +793,12 @@ section('Snapshot-Budget mit neun feuernden Waffen (Projektile im Flug)', () => 
   for (let i = 0; i < 30 * 20; i++) {
     pin(g);
     for (const id of Object.keys(g.ship.mount)) { const m = g.ship.mount[id]; if (m.charge != null && !(m.salvo > 0)) m.charge = 1; }
-    if (i % 20 === 0) T.cmd(0, 'weapons.fire', { mount: 'all' });
+    if (i % 4 === 0) T.cmd(0, 'weapons.fire', { mount: 'all' });   // SYS-01 B1: Schuss alle 4 Ticks (Cooldown umgangen), damit viele Projektile fliegen
     T.run(1 / 30);
     const n = JSON.stringify(g.snapshot()).length; if (n > max) max = n;
     const pr = g.space.projectiles.length; if (pr > maxPr) maxPr = pr;
   }
-  ok(max <= 18944 && maxPr >= 20, `Snapshot max ${max} B bei bis zu ${maxPr} Projektilen gleichzeitig (Budget 18944 B)`);
+  ok(max <= 18944 && maxPr >= 7, `Snapshot max ${max} B bei bis zu ${maxPr} Projektilen gleichzeitig (Budget 18944 B)`);
 });
 
 console.log(`\ntest-waffen-schiff: ${n - fails}/${n} Prüfungen bestanden` + (fails ? `, ${fails} FEHLER` : ''));
