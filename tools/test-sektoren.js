@@ -185,11 +185,11 @@ function main() {
     const p = g.players[0]; p.zone = 'away';
     ok(/Außenteam/.test(Sprung.notsprung(g) || ''), 'Außenteam unten: kein Notfallsprung');
     p.zone = 'ship';
-    const hull = g.ship.hull; t.c.inbox.length = 0;
+    const hull = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt; t.c.inbox.length = 0;
     ok(Sprung.notsprung(g) === null, 'Notfallsprung aus dem Hafen');
     const ev = t.events('notsprung')[0];
     ok(ev && ev.von === '0206' && Sektoren.sindNachbarn('0206', ev.nach) && Sektoren.spielbar(ev.nach) && Sektoren.hexVonOrt(g.ship.scene) === ev.nach, `Ereignis notsprung { von: 0206, nach: ${ev && ev.nach} }`);
-    ok(g.ship.reactorCtl.state === 'offline' && g.ship.hull === hull - g.C.sektoren.notsprung.huelle, 'Reaktor offline, Hülle −15');
+    ok(g.ship.reactorCtl.state === 'offline' && require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull, 'Reaktor offline, ohne Hüllenkosten (Übergang bis A2)');
     ok(/Reaktor offline/.test(Sprung.notsprung(g) || ''), 'zweiter Notfallsprung erst nach dem Reaktor-Neustart');
     const sc = Locations.get(g.ship.scene).scene;
     ok(g.ship.x >= sc.w / 3 - 1 && g.ship.x <= sc.w * 2 / 3 + 1 && g.ship.y >= sc.h / 3 - 1 && g.ship.y <= sc.h * 2 / 3 + 1, 'Ankunft im mittleren Drittel');

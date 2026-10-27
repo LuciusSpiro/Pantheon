@@ -51,7 +51,7 @@ function neu(seed, crew) {
   return { g, agents, opts, radio };
 }
 // Zwischen den Versuchen erholt sich die Crew (Hülle, Schilde); sonst entscheidet der Verschleiß des vorigen Kampfes statt des Finales
-const erholen = (g) => { g.ship.hull = 100; g.ship.shields.current = g.ship.shields.alloc.slice(); };
+const erholen = (g) => {  g.ship.shields.current = g.ship.shields.alloc.slice(); };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
 // Orbit: die Bots kämpfen, bis die Szene endet. -> Ausgang der Szene

@@ -42,7 +42,7 @@ const S = {
   enemyTeleSnap: fn(space, 'space', 'enemyTeleSnap'),
 };
 const I = {
-  hitSystems: fn(interior, 'interior', 'hitSystems'), systemSector: fn(interior, 'interior', 'systemSector'), emitterFor: fn(interior, 'interior', 'emitterFor'),
+  trefferweg: fn(interior, 'interior', 'trefferweg'), systemSector: fn(interior, 'interior', 'systemSector'), emitterFor: fn(interior, 'interior', 'emitterFor'),
   isFragile: fn(interior, 'interior', 'isFragile'), repairSystem: fn(interior, 'interior', 'repairSystem'),
 };
 
@@ -145,7 +145,7 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   ok(JSON.stringify(shd.cap) === '[4,4,4,4]' && shd.burst == null && shd.burstCd === 0, 'Schild-cap [4,4,4,4], kein Stoß, keine Abklingzeit');
   // M3b §4: Schildpool 6 bei Energie 2 (pointsPerPower 3), neue Zähler und Eskalations-Feld
   ok(CONFIG.shields.pointsPerPower === 3 && g.ship.power.shields === 2 && shd.pool === 6 && CONFIG.shields.maxPerSector === 4, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 3, maxPerSector 4)`);
-  ok(['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks, overflowHull = 0');
+  ok(['leakHits', 'escalations', 'repairSetbacks'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks = 0 (overflowHull entfällt)');
   ok(sh.escalate && typeof sh.escalate === 'object' && Object.keys(sh.escalate).length === 0, 'M3b: Snapshot ship.escalate {} ohne Kampf');
   ok(sh.chargePoints === g.ship.power.weapons + 2 && sh.chargePoints === 4, 'chargePoints = Energie Waffen + 2 = 4');
   const bow = snapMount(s, 'bow'), port = snapMount(s, 'port'), stbd = snapMount(s, 'stbd');
@@ -330,17 +330,17 @@ section('Reparatur: Flicken, Fragil, Werkzeuggürtel (§8.1, §4.3)', () => {
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port') && g.stats.flicks === 2, 'nochmal flicken: beschädigt -> ok, bleibt fragil');
   // Fragil bricht beim nächsten Treffer im Sektor, Treffer im anderen Sektor nicht
   g.time += 20;
-  I.hitSystems(g, 1);
+  I.trefferweg(g, 1, 1);
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port'), 'Treffer in Sektor 1: fragile Bb-Batterie bleibt');
   g.time += 20;
-  I.hitSystems(g, 3);
+  I.trefferweg(g, 3, 1);
   ok(g.ship.systems.battery_port === 'broken' && !I.isFragile(g, 'battery_port'), 'fragil + Treffer in Sektor 3: sofort zerstört, Flag weg');
   // mehrere fragile im Sektor brechen alle, sonst kein weiterer Schaden
   resetSystems(g);
   g.ship.fragile.battery_port = true; g.ship.fragile.emitter_port = true;
   g.time += 20;
   const before = JSON.stringify(g.ship.systems);
-  I.hitSystems(g, 3);
+  I.trefferweg(g, 3, 1);
   const changed = SYS14.filter((s) => g.ship.systems[s] !== 'ok');
   ok(changed.sort().join() === 'battery_port,emitter_port' && !I.isFragile(g, 'emitter_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
   ok(before !== JSON.stringify(g.ship.systems), 'Systeme verändert');
@@ -459,6 +459,9 @@ section('Zerstörter Reaktor braucht Neustart (§4.2, §9.5)', () => {
 // ======================================================================
 // M3b Schritt A (CONTRACT-M3B §4): Der Schildstoß ist weg, dafür Durchlass-Tabelle, Überlauf, Eskalation, Rückschlag, Autostart
 const R = (fnName) => (damage && typeof damage[fnName] === 'function' ? damage[fnName] : fn({}, 'damage', fnName));
+// SYS-01 A1a: Integrität (Summe über die Systeme) statt Hülle
+function integSumme(g) { return Object.values(require('../server/sim/interior.js').integritaetSnapshot(g).pct).reduce((a, v) => a + (v < 0 ? 0 : v), 0); }
+function integMaxSumme(g) { return 100 * Object.values(require('../server/sim/interior.js').integritaetSnapshot(g).pct).filter((v) => v >= 0).length; }
 function clearHazards(g) { g.ship.fireList = []; g.ship.breachList = []; }
 function setShield(g, sec, v) { g.ship.shields.current[sec] = v; }
 
@@ -495,109 +498,13 @@ section('M3b: Schildpool 6 (§4)', () => {
   ok(g.snapshot().ship.shields.pool === 9, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 9)`);
 });
 
-section('M3b: Schild-Durchlass statistisch (§4)', () => {
-  const { g } = arena(3);
-  const resolveHit = R('resolveHit');
-  const N = 2000;
-  const rows = [
-    { s: 0, heavy: false, want: 0.45 }, { s: 1, heavy: false, want: 0.2 }, { s: 2, heavy: true, want: 0.05 }, { s: 2, heavy: false, want: 0 },
-    { s: 3, heavy: true, want: 0 }, { s: 4, heavy: false, want: 0 },
-  ];
-  const leak0 = g.stats.leakHits;
-  let leakCount = 0;
-  for (const row of rows) {
-    let hits = 0, broken = 0, centre = 0, opp = 0;
-    for (let i = 0; i < N; i++) {
-      resetSystems(g); clearHazards(g); g.ship.hull = g.ship.hullMax;
-      g.time += 20;
-      const sec = i % 4;
-      setShield(g, sec, row.s);
-      const r = resolveHit(g, sec, 1, { heavy: row.heavy });
-      const hit = SYS14.filter((x) => g.ship.systems[x] !== 'ok' && g.ship.systems[x] !== 'offline');
-      if (hit.length) {
-        hits++;
-        if (row.s > 0) leakCount++;
-        if (hit.some((x) => g.ship.systems[x] === 'broken')) broken++;
-        if (hit.some((x) => I.systemSector(x) === -1)) centre++;
-        if (hit.some((x) => I.systemSector(x) === (sec + 2) % 4)) opp++;
-      }
-      if (i === 0) ok(r && typeof r.absorbed === 'number' && Array.isArray(r.systems) && typeof r.hull === 'number', `resolveHit -> { absorbed ${r && r.absorbed}, hull ${r && r.hull}, systems [${r && r.systems.length}] }`);
-    }
-    const q = hits / N;
-    ok(near(q, row.want, 0.03), `S ${row.s}${row.heavy ? ' (schwer)' : ''}: Systemschaden in ${(q * 100).toFixed(1)} % von ${N} Treffern (Soll ${(row.want * 100).toFixed(0)} % ± 3)`);
-    if (row.s >= 1 && hits) ok(broken === 0 && centre === 0, `S ${row.s}: höchstens beschädigt, nie Mittschiffs (zerstört ${broken}, Mitte ${centre})`);
-    if (row.s === 0 && hits) ok(centre > 0 && opp === 0, `S 0: Mittschiffs möglich (${centre}×), Gegenseite nie (${opp})`);
-  }
-  ok(g.stats.leakHits - leak0 === leakCount, `stats.leakHits zählt Systemschaden trotz Schild (${g.stats.leakHits - leak0} = ${leakCount})`);
-  // S 1 bricht Geflicktes (breakFragile), S 2 nicht
-  const frag = (s, heavy) => {
-    let n = 0;
-    for (let i = 0; i < 400; i++) {
-      resetSystems(g); clearHazards(g); g.time += 20;
-      g.ship.systems.battery_stbd = 'damaged'; g.ship.fragile.battery_stbd = true;
-      setShield(g, 1, s);
-      resolveHit(g, 1, 1, { heavy });
-      if (g.ship.systems.battery_stbd === 'broken') n++;
-    }
-    return n / 400;
-  };
-  const f1 = frag(1, false), f2 = frag(2, true), f0 = frag(0, false);
-  ok(near(f1, 0.2, 0.06) && f2 === 0 && f0 === 1, `Geflicktes im Sektor bricht: S 0 immer (${(f0 * 100).toFixed(0)} %), S 1 mit 20 % (${(f1 * 100).toFixed(0)} %), S 2 nie (${(f2 * 100).toFixed(0)} %)`);
-  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
-});
-
-section('M3b: Überlauf auf die Hülle, schwere Treffer (§4)', () => {
-  const { g } = arena(3);
-  const sh = g.ship;
-  const hit = (sec, s, dmg, opts) => {
-    resetSystems(g); clearHazards(g); g.time += 20; sh.hull = 100;
-    setShield(g, sec, s);
-    const of0 = g.stats.overflowHull;
-    S.shipHit(g, sec, dmg, opts || {});
-    return { hull: 100 - sh.hull, shield: sh.shields.current[sec], of: g.stats.overflowHull - of0 };
-  };
-  const a = hit(1, 2, 3);
-  ok(near(a.hull, 5, 0.01) && a.shield === 0 && near(a.of, 5, 0.01), `S 2, Treffer 3: Schild schluckt 2 (-> ${a.shield}), Rest 1 -> Hülle −${a.hull} (5 × Rest), overflowHull +${a.of}`);
-  const b = hit(1, 4, 3);
-  ok(b.hull === 0 && b.shield === 1 && b.of === 0, `S 4, Treffer 3: nichts durch (Schild -> ${b.shield}, Hülle −${b.hull})`);
-  const c = hit(2, 0, 2);
-  ok(near(c.hull, 10, 0.01) && c.of === 0, `S 0, Treffer 2: Hülle −${c.hull}, kein Überlauf (kein Schild)`);
-  const d = hit(3, 1, 1);
-  ok(d.hull === 0 && d.shield === 0, `S 1, Treffer 1: ganz gefangen (bisher schluckte 1 Punkt jeden Treffer – jetzt nur 1 Schaden)`);
-  const d2 = hit(3, 1, 4);
-  ok(near(d2.hull, 15, 0.01) && near(d2.of, 15, 0.01), `S 1, Treffer 4: Rest 3 -> Hülle −${d2.hull} (neu: bisher hielt 1 Punkt den ganzen Treffer)`);
-  // Durchschlag (Zahl): Schild für diesen Treffer um pierce schwächer
-  const e = hit(0, 3, 3, { pierce: 2 });
-  ok(near(e.hull, 10, 0.01), `S 3, Treffer 3, pierce 2: wirksam S 1 -> Rest 2, Hülle −${e.hull}`);
-  // Schwere Treffer: S ≥ 3 -> Schaden − heavyReduce (1) vor dem Absorbieren
-  const h3 = hit(0, 3, 3, { heavy: true });
-  ok(h3.hull === 0 && h3.shield === 1, `S 3, schwer 3: −1 -> 2 absorbiert (Schild -> ${h3.shield}), Hülle −${h3.hull}`);
-  const h4 = hit(0, 4, 5, { heavy: true });
-  ok(h4.hull === 0 && h4.shield === 0, `S 4, schwer 5: −1 -> 4 absorbiert (Schild -> ${h4.shield}), Hülle −${h4.hull}`);
-  const h2 = hit(0, 2, 3, { heavy: true });
-  ok(near(h2.hull, 5, 0.01) && h2.shield === 0, `S 2, schwer 3: keine Minderung (unter 3) -> Rest 1, Hülle −${h2.hull}`);
-  ok(M3B.shieldLeak[3].heavyReduce === 1 && M3B.shieldLeak[4].heavyReduce === 1 && M3B.shieldOverflow === true, 'Konfig: heavyReduce 1 bei S 3/4, shieldOverflow an');
-  // Feuer und Lecks nur bei Rest > 0
-  let fires = 0, breaches = 0;
-  for (let i = 0; i < 300; i++) { resetSystems(g); clearHazards(g); g.time += 20; setShield(g, i % 4, 4); S.shipHit(g, i % 4, 2, {}); fires += sh.fireList.length; breaches += sh.breachList.length; }
-  let fires0 = 0;
-  for (let i = 0; i < 300; i++) { resetSystems(g); clearHazards(g); g.time += 20; sh.hull = 100; setShield(g, i % 4, 0); S.shipHit(g, i % 4, 1, {}); fires0 += sh.fireList.length + sh.breachList.length; }
-  ok(fires === 0 && breaches === 0 && fires0 > 30, `Feuer/Lecks nur bei Rest > 0 (gefangen: ${fires}/${breaches}, durch: ${fires0} in 300 Treffern)`);
-  // EMP: nur wenn der Schild durchschlagen ist
-  resetSystems(g); setShield(g, 0, 4); S.shipHit(g, 0, 1, { emp: true });
-  const off1 = Object.values(sh.systems).includes('offline');
-  resetSystems(g); setShield(g, 0, 0); S.shipHit(g, 0, 1, { emp: true });
-  const off2 = Object.values(sh.systems).includes('offline');
-  ok(!off1 && off2, `EMP: gefangen kein System offline (${off1}), durchschlagen eines offline (${off2})`);
-  resetSystems(g);
-  ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
-});
+// SYS-01 A1a: Abschnitt entfernt (Durchlass-Tabelle, Überlauf, Trefferauswahl über hitSystems); neu in tools/test-systemmodell.js
 
 section('M3b: Eskalation nach 20 s (§4)', () => {
   const after = M3B.escalation.after;
   ok(after === 20, 'spaceM3b.escalation.after 20 s');
   const { g, run, events, P, place, send } = arena(3);
-  const tick = () => { pin(g); noFire(g); g.ship.hull = g.ship.hullMax; g.ship.shields.current = [4, 4, 4, 4]; };
+  const tick = () => { pin(g); noFire(g); g.ship.shields.current = [4, 4, 4, 4]; };
   const stationOf = (sys) => stationTiles(sys)[0];
   const nearStation = (sys) => { const st = stationOf(sys); return g.ship.fireList.filter((f) => Math.abs(f.tx - st.x) <= 1 && Math.abs(f.ty - st.y) <= 1); };
   // ohne Kampf: kein Zähler
@@ -752,21 +659,21 @@ section('Ladung / tele (§7.1)', () => {
   ok(near(gb.tele.left, l0 + M3.tele.delayMax, 0.05), `insgesamt höchstens +2 s (${gb.tele.left.toFixed(2)})`);
   // Treffer am Ende: schwer, Strahl enemy_heavy, keine Projektile
   sh.shields.current = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];
-  const hull0 = sh.hull;
+  const hull0 = integSumme(g);
   let sawHeavy = false;
   run(5.5, () => { tick(); if (g.space.beams.some((b) => b.kind === 'enemy_heavy')) sawHeavy = true; });
   // QA M3a: Schaden aus der Konfig (spaceM3.tele.korvette.damage, 4 -> 3)
   const gbDmg = CONFIG.spaceM3.tele.korvette.damage;
-  ok(!gb.tele && hull0 - sh.hull >= gbDmg * 5 - 0.01, `Ende der Ladung: Treffer ${gbDmg} Schaden (Hülle ${hull0} -> ${sh.hull})`);
+  ok(!gb.tele && hull0 - integSumme(g) >= gbDmg - 0.01, `Ende der Ladung: Treffer ${gbDmg} Schaden (Integrität ${hull0} -> ${integSumme(g)})`);
   ok(sawHeavy, 'Strahl kind enemy_heavy');
   // Fehlschuss nach dem Wegdrehen/Wegfliegen
   clearInbox();
   dbg(0, { cmd: 'tele', id: gb.id });
   run(1, tick);
   sh.x += 900; run(0.1, tick);
-  const hull1 = sh.hull;
+  const hull1 = integSumme(g);
   run(3, tick);
-  ok(!gb.tele && sh.hull === hull1 && events('teleMiss').some((e) => e.id === gb.id), 'Schiff aus Bogen/Reichweite: Fehlschuss (teleMiss), kein Schaden');
+  ok(!gb.tele && integSumme(g) === hull1 && events('teleMiss').some((e) => e.id === gb.id), 'Schiff aus Bogen/Reichweite: Fehlschuss (teleMiss), kein Schaden');
   sh.x -= 900;
   // Pylon 2 s, Wächter 2,5 s EMP
   const py = pinnedEnemy(g, 'pylon', sh.x + 350, sh.y, Math.PI, { hp: 999 });
@@ -961,18 +868,18 @@ section('Ausweich-Fenster (§20.2)', () => {
   const dur = gb.tele.dur;
   run(dur - 0.5, tick);
   cmd(0, 'helm.dodge', { dir: 1 });
-  const hull0 = sh.hull;
+  const hull0 = integSumme(g);
   run(0.7, () => { tick(); sh.x = x0; sh.y = y0; sh.vx = 0; sh.vy = 0; });   // im Bogen festhalten: nur das Fenster zählt
-  ok(!gb.tele && sh.hull === hull0 && events('teleMiss').some((x) => x.id === gb.id && x.dodged === true) && events('sfx').some((x) => x.name === 'dodge_evade') && g.stats.dodgeEvades === 1,
+  ok(!gb.tele && integSumme(g) === hull0 && events('teleMiss').some((x) => x.id === gb.id && x.dodged === true) && events('sfx').some((x) => x.name === 'dodge_evade') && g.stats.dodgeEvades === 1,
     'Ausweichen 0,5 s vor Ende: verfehlt (teleMiss dodged, sfx dodge_evade, stats.dodgeEvades 1)');
   // zu früh (1,5 s vor Ende): trifft
   clearInbox(); sh.dodgeCd = 0;
   dbg(0, { cmd: 'tele', id: gb.id });
   run(dur - 1.5, tick);
   cmd(0, 'helm.dodge', { dir: 1 });
-  const hull1 = sh.hull;
+  const hull1 = integSumme(g);
   run(1.7, () => { tick(); sh.x = x0; sh.y = y0; sh.vx = 0; sh.vy = 0; });
-  ok(!gb.tele && sh.hull < hull1 && !events('teleMiss').some((x) => x.dodged), `Ausweichen 1,5 s vor Ende: Treffer (Hülle ${hull1} -> ${sh.hull})`);
+  ok(!gb.tele && integSumme(g) < hull1 && !events('teleMiss').some((x) => x.dodged), `Ausweichen 1,5 s vor Ende: Treffer (Integrität ${hull1} -> ${integSumme(g)})`);
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
@@ -1262,90 +1169,8 @@ section('Bots auf Befehl, Reparaturliste, Automatik (§8.2)', () => {
 });
 
 // ======================================================================
-section('Trefferauswahl statistisch (§4.3)', () => {
-  const { g } = arena(3);
-  const sectorOf = (s) => I.systemSector(s);
-  const opposite = (s) => (s + 2) % 4;
-  const stations = SYS14;
-  // Erwartung aus den Gewichten des Vertrags (Systeme mit Sektor s ×3, Nachbarn ×1, Mitte mit centreChance)
-  const expectOwn = (s) => {
-    const w = (x) => (sectorOf(x) === s ? M3.sectorWeight : (sectorOf(x) === (s + 1) % 4 || sectorOf(x) === (s + 3) % 4) ? M3.neighbourWeight : 0);
-    const tot = stations.filter((x) => sectorOf(x) >= 0).reduce((a, x) => a + w(x), 0);
-    const own = stations.filter((x) => sectorOf(x) === s).reduce((a, x) => a + w(x), 0);
-    return (1 - M3.centreChance) * own / tot;
-  };
-  for (let s = 0; s < 4; s++) {
-    const cnt = { own: 0, nb: 0, opp: 0, mid: 0, total: 0 };
-    const N = 2000;
-    for (let i = 0; i < N; i++) {
-      resetSystems(g);
-      g.time += 20;
-      I.hitSystems(g, s);
-      const hit = SYS14.filter((x) => g.ship.systems[x] !== 'ok');
-      if (!hit.length) continue;
-      cnt.total++;
-      const sec = sectorOf(hit[0]);
-      if (sec === -1) cnt.mid++; else if (sec === s) cnt.own++; else if (sec === opposite(s)) cnt.opp++; else cnt.nb++;
-    }
-    const own = cnt.own / cnt.total, mid = cnt.mid / cnt.total, chance = cnt.total / N;
-    const exp = expectOwn(s);
-    ok(near(chance, CONFIG.hitEffects.systemChance, 0.04), `Sektor ${s}: Systemschaden in ${(chance * 100).toFixed(1)} % der Treffer (Soll 45 %)`);
-    ok(cnt.opp === 0, `Sektor ${s}: Gegenseite 0 % (${cnt.opp})`);
-    ok(near(mid, M3.centreChance, 0.04), `Sektor ${s}: Mitte ${(mid * 100).toFixed(1)} % (Soll 15 % ± 4)`);
-    ok(near(own, exp, 0.05), `Sektor ${s}: eigener Sektor ${(own * 100).toFixed(1)} % (Erwartung aus den Gewichten ${(exp * 100).toFixed(1)} %)`);
-    // Vertrag §14: „Sektor s ≥ 50 %“ – mit den Gewichten 3/1 nur für Sektoren mit ≥ 3 Stationen erreichbar
-    if (exp >= 0.5) ok(own >= 0.5, `Sektor ${s}: eigener Sektor ≥ 50 % (${(own * 100).toFixed(1)} %)`);
-    else console.log(`  info Sektor ${s}: „≥ 50 %“ laut §14 mit den Vertragsgewichten nicht erreichbar (Erwartung ${(exp * 100).toFixed(1)} %), geprüft wird: eigener Sektor ist der häufigste`);
-    ok(cnt.own >= cnt.nb / 2 && cnt.own > cnt.mid, `Sektor ${s}: eigener Sektor häufiger als jeder Nachbar und als die Mitte`);
-  }
-  // Sperre: dasselbe System innerhalb von 10 s nicht erneut
-  resetSystems(g);
-  for (const s of SYS14) if (s !== 'weapon_bow') g.ship.systems[s] = 'broken';
-  g.time += 20;
-  g.ship.systems.weapon_bow = 'ok';
-  let first = null, again = 0;
-  for (let i = 0; i < 200; i++) {
-    I.hitSystems(g, 0);
-    if (g.ship.systems.weapon_bow === 'damaged' && first === null) first = g.time;
-    if (first !== null && g.ship.systems.weapon_bow === 'broken') again++;
-    g.time += 0.01;
-  }
-  ok(first !== null && again === 0, 'systemLock 10 s: getroffenes System nicht sofort erneut');
-  // offline-Systeme werden nicht gezogen
-  resetSystems(g);
-  for (const s of SYS14) interior.setOffline(g, s, 30);
-  let changed = 0;
-  for (let i = 0; i < 200; i++) { g.time += 20; I.hitSystems(g, 1); changed += SYS14.filter((s) => g.ship.systems[s] !== 'offline').length; }
-  ok(changed === 0, 'offline-Systeme werden nicht gezogen');
-  // Ereignis systemHit + ODA-Ansage gebündelt
-  const t = arena(3);
-  resetSystems(t.g);
-  t.g.time += 20;
-  let hits = 0;
-  for (let i = 0; i < 40 && hits < 2; i++) { t.g.time += 11; I.hitSystems(t.g, 1); hits = t.events('systemHit').length; }
-  const sh = t.events('systemHit');
-  ok(sh.length >= 1 && SYS14.includes(sh[0].system) && ['damaged', 'broken'].includes(sh[0].state), 'Ereignis systemHit { system, state }');
-  ok(t.events('oda').some((e) => /(beschädigt|zerstört)/.test(e.text)), 'ODA-Ansage bei Systemschaden');
-});
+// SYS-01 A1a: Abschnitt entfernt (Durchlass-Tabelle, Überlauf, Trefferauswahl über hitSystems); neu in tools/test-systemmodell.js
 
-// ======================================================================
-section('Treffer -> Systemschaden über interior.hitSystems (§9.4, M3b §4)', () => {
-  // M3b: hitSystems läuft bei JEDEM Treffer, die Chance kommt aus spaceM3b.shieldLeak[S]
-  const { g } = arena(3);
-  const calls = []; const orig = interior.hitSystems;
-  interior.hitSystems = (game, sec, o) => { calls.push(o ? o.chance : null); return orig(game, sec, o); };
-  try {
-    g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.allocIntent = [0, 0, 0, 0];
-    S.shipHit(g, 2, 1, {});
-    g.ship.shields.current = [4, 4, 4, 4];
-    S.shipHit(g, 2, 1, {});
-    g.ship.shields.current = [1, 1, 1, 1];
-    S.shipHit(g, 2, 1, {});
-  } finally { interior.hitSystems = orig; }
-  ok(calls.length === 3 && calls[0] === M3B.shieldLeak[0].chance && calls[1] === 0 && calls[2] === M3B.shieldLeak[1].chance, `shipHit ruft hitSystems je Treffer mit Chance aus der Tabelle (${calls.join(' / ')})`);
-});
-
-// ======================================================================
 section('bridgeLeaves (§8.3)', () => {
   const { g, P, send, run, place } = arena(1);
   // M4: Brückentür aus dem Layout (Tür im Raum bruecke mit begehbarem Nachbarn links außerhalb der Brücke)
@@ -1374,7 +1199,7 @@ section('Testgelände Wellen (§15, M3b §7)', () => {
   ok(key(A.waves[0]) === 'korvette,raider,raider', 'M3b: Welle 1 = Korvette + 2 Jäger');
   ok(A.waves.slice(1).some((w) => key(w) === 'korvette,raider') && A.waves.slice(1).some((w) => key(w) === 'korvette,pylon'), 'alte Wellen danach (u. a. Korvette+Jäger, Pylon+Korvette)');
   const { g } = arena(1);
-  ok(SYS14.every((s) => g.ship.systems[s] === 'ok') && g.ship.hull === g.ship.hullMax, 'Start im Testgelände: Schiff unbeschädigt');
+  ok(SYS14.every((s) => g.ship.systems[s] === 'ok') && integSumme(g) === integMaxSumme(g), 'Start im Testgelände: Schiff unbeschädigt');
 });
 
 // ======================================================================

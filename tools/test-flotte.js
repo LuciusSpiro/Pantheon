@@ -245,7 +245,7 @@ section('Scheitern: Frist, Schiff verloren, Notfallprotokoll; eigenmächtig und 
   const t3 = raum(1, { sterblich: true }); const g3 = t3.g;
   space.spawnEnemy(g3, 'raider', { x: 2900, y: 1500 });   // mit Gegnern im Raum regeneriert die Hülle nicht
   const e3 = Flotte.befehl(g3, { art: 'durchbrechen', punkte: 'ost' });
-  g3.ship.hull = 0; ticks(g3, 0.2);
+  require('../server/sim/space.js').verlustAusloesen(g3, 'test'); ticks(g3, 0.2);
   ok(g3.stats.emergencies >= 1 && e3.st === 2 && e3.grund === 'notfall', 'Notfallprotokoll der Lerche (zerstört, muss fliehen/von vorn): Befehl gescheitert (notfall)');
   // eigenmächtig: die Lerche entfernt sich vom Ziel
   const t4 = raum(); const g4 = t4.g; platz(g4, 1400, 800);
@@ -381,10 +381,10 @@ section('EK4b: eigene KI – Flug und Feuer, kein Eigenbeschuss', () => {
   const t2 = raum(); const g2 = t2.g; platz(g2, 1500, 800);
   const a2 = Flotte.aufstellen(g2, { tag: 'fulminata', von: { x: 1700, y: 800 }, rolle: 'skript' }); const b2 = Flotte.aufstellen(g2, { tag: 'audax', von: { x: 1500, y: 1000 }, rolle: 'skript' });
   Flotte.modus(g2, null, 'halten');
-  g2.ship.hull = 100; const hpA = b2.hp;
+   const hpA = b2.hp;
   for (const [tx, ty] of [[g2.ship.x, g2.ship.y], [b2.x, b2.y]]) g2.space.projectiles.push({ id: g2.nextId('pr'), kind: 'ally', x: tx - 30, y: ty, angle: 0, speed: 100, ttl: 3, dmg: 50, owner: a2.id });
   ticks(g2, 1);
-  ok(g2.ship.hull === 100 && b2.hp === hpA && g2.space.projectiles.length >= 1, 'kein Eigenbeschuss: Geschoss der Verbündeten trifft weder die Lerche noch einen Verbündeten');
+  ok(require('../server/sim/interior.js').integritaetSnapshot(g2).gesamt === 100 && b2.hp === hpA && g2.space.projectiles.length >= 1, 'kein Eigenbeschuss: Geschoss der Verbündeten trifft weder die Lerche noch einen Verbündeten');
   // Lanze der Lerche durch ein Schiff: Rüffel, kein Schaden
   const hpB = a2.hp; g2.ship.angle = 0; g2.ship.mount.bow.charge = 1; space.weaponsFire(g2, 'bow'); ticks(g2, 0.3);
   ok(a2.hp === hpB, 'Lanze der Lerche verletzt Verbündete nicht');

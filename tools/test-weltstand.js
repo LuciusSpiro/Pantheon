@@ -185,7 +185,7 @@ function main() {
     g.explore.reveal('b7', false); g.explore.reveal('vaelen', false); g.explore.visited.add('b7');
     g.explore.openLink('kesh');
     g.mission.flags.technikerRescued = true; g.mission.flags.decision = 'deliver'; g.mission.flags.bribed = false;
-    g.ship.hull = 77; g.ship.systems.shields = 'damaged'; g.ship.systems.engines = 'offline'; g.ship.fragile.thruster_port = true;
+    g.ship.systems.shields = 'damaged'; g.ship.systems.engines = 'offline'; g.ship.fragile.thruster_port = true;
     g.odaSeen.add('testKey'); g.scans.add('b7');
     g.plan.pins.push({ id: 'pin4', owner: 'p1', color: 0, map: 'platform', x: 3, y: 4, label: 'ziel' });
     const npcId = ws.data.npc.grauzahn ? 'grauzahn' : Object.keys(ws.data.npc)[0];
@@ -224,7 +224,7 @@ function main() {
     ok(g2.quarters.q1.floor === 'fliesen' && g2.quarters.q1.light === 'mint', 'Quartier');
     ok(g2.explore.isKnown('b7') && g2.explore.isKnown('vaelen') && g2.explore.visited.has('b7') && g2.explore.linksOpen.has('kesh'), 'Orte bekannt/besucht, Verbindung offen');
     ok(g2.mission.flags.technikerRescued === true && g2.mission.flags.decision === 'deliver', 'Flags');
-    ok(g2.ship.hull === 77 && g2.ship.systems.shields === 'damaged' && g2.ship.systems.engines === 'ok', 'Hülle, Systeme');
+    ok(g2.ship.systems.shields === 'damaged' && g2.ship.systems.engines === 'ok' && g2.ship.hull === undefined, 'Systeme (SYS-01 A1a: keine Hülle mehr)');
     ok(g2.odaSeen.has('testKey') && g2.scans.has('b7') && g2.plan.pins.some((p) => p.id === 'pin4') && g2.plan.seq >= 4, 'ODA-Merker, Scans, Pins');
     ok(g2.weltstand.data.npc[npcId].gedaechtnis.length === 12 && g2.weltstand.data.npc[npcId].haltung === -3, 'NSC-Gedächtnis und Haltung');
     ok(!g2.weltstand.data.npc.ivo || g2.weltstand.data.npc.ivo.status === 'vermisst', 'NSC-Status vermisst');

@@ -25,6 +25,10 @@ let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const info = (t) => console.log('  info ' + t);
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
+const near2 = (a, b) => Math.abs(a - b) < 0.01;
+const f2 = (v) => String(Math.round(v * 100) / 100);
+// SYS-01 A1a: Integrität (Summe über die aktiven Systeme) statt Hülle
+const isum = (g) => { const IN = require('../server/sim/interior.js'); return IN.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] !== undefined && IN.systemAktiv(g, k) ? IN.integOf(g, k) : 0), 0); };
 function section(name, body) {
   if (FILTER.length && !FILTER.some((f) => name.toLowerCase().includes(f))) return;
   console.log('\n[' + name + ']');
@@ -155,15 +159,15 @@ section('Plätze, Stufen, Systeme (lafette_N)', () => {
   ok(['lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'].every((k) => sys[k] === 'ok'), 'alle sechs Lafetten-Systeme aktiv im Snapshot');
   // trefferbar nur offen UND bestückt
   const wird = new Set();
-  for (let i = 0; i < 1500; i++) { g.ship.sysHitAt = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; for (const h of interior.hitSystems(g, i % 4, { chance: 1, centre: false })) wird.add(h.system); }
+  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird.add(r.system); }
   ok(['lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'].every((k) => wird.has(k)), 'bestückte Lafetten sind Trefferziele (' + [...wird].filter((k) => /^lafette/.test(k)).join(',') + ')');
   T.debug('bestueck', '7 leer'); T.debug('bestueck', '3 leer');
   const wird2 = new Set();
-  for (let i = 0; i < 1500; i++) { g.ship.sysHitAt = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; for (const h of interior.hitSystems(g, i % 4, { chance: 1, centre: false })) wird2.add(h.system); }
+  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird2.add(r.system); }
   ok(!wird2.has('lafette_7') && !wird2.has('lafette_3') && wird2.has('lafette_9') && !interior.systemAktiv(g, 'lafette_7') && !Object.keys(snapShip(T).systems).includes('lafette_7'), 'unbestückt: kein Trefferziel, nicht im Snapshot');
   T.debug('ausbau', '0');
   const wird3 = new Set();
-  for (let i = 0; i < 800; i++) { g.ship.sysHitAt = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; for (const h of interior.hitSystems(g, i % 4, { chance: 1, centre: false })) wird3.add(h.system); }
+  for (let i = 0; i < 800; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird3.add(r.system); }
   ok(![...wird3].some((k) => /^lafette_/.test(k)) && JSON.stringify(Waffen.mountIds(g)) === '["bow","port","stbd"]', 'verschlossener Platz (Stufe 0): kein Trefferziel, kein Mount, auch wenn die Bestückung gespeichert bleibt');
   ok(g.ship.waffen[9] === 'standardbatterie', 'Bestückung bleibt beim Zurückstufen erhalten (Platz wieder offen: sofort aktiv)');
   // Station und Reparatur
@@ -305,16 +309,18 @@ section('Torpedowerfer: Regeln', () => {
   ang(half + 3); ok(T.cmd(0, 'weapons.fire', { mount: 'p2' }).some((x) => /außerhalb/.test(x)), `Ziel ${half + 3}° neben dem Heck: außerhalb`);
   // Gegner-Torpedo gegen die Lerche
   // Lesart B (Kai 2026-10-18): derselbe Maßstab für die Lerche – ein stehender Schild prallt den Torpedo ab, bei Schild 0 trifft er (−30 Hülle)
-  g.god = false; g.ship.hull = 100; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
+  g.god = false; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
+  const i0 = isum(g);
   const ab0 = g.stats.torpedoAbgeprallt || 0;
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
-  ok(g.ship.hull === 100 && g.ship.shields.current.every((v) => v === 4) && g.stats.torpedoAbgeprallt === ab0 + 1, 'Gegner-Torpedo am stehenden Schild: abgeprallt (Hülle 100, Schilde unberührt)');
+  ok(isum(g) === i0 && g.ship.shields.current.every((v) => v === 4) && g.stats.torpedoAbgeprallt === ab0 + 1, 'Gegner-Torpedo am stehenden Schild: abgeprallt (Integrität unberührt, Schilde unberührt)');
   for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0;
+  const i1 = isum(g);
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
-  ok(g.ship.hull === 100 - lager.gegenLerche * lager.huelleJePunkt && 100 - g.ship.hull <= 34, `Gegner-Torpedo bei Schild 0: ein Treffer −${100 - g.ship.hull} Hülle (höchstens ein Drittel)`);
-  g.ship.hull = 100; g.ship.lastDodgeT = g.time;
+  ok(near2(i1 - isum(g), lager.gegenLerche), `Gegner-Torpedo bei Schild 0: ein Treffer −${f2(i1 - isum(g))} Integrität (Torpedo ${lager.gegenLerche})`);
+  const i2 = isum(g); g.ship.lastDodgeT = g.time;
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
-  ok(g.ship.hull === 100, 'Gegner-Torpedo direkt nach der Ausweichrolle: verfehlt');
+  ok(isum(g) === i2, 'Gegner-Torpedo direkt nach der Ausweichrolle: verfehlt');
 });
 
 section('Torpedo: Gegner tragen ihn nur gezielt', () => {
@@ -338,18 +344,18 @@ section('Torpedo: Gegner tragen ihn nur gezielt', () => {
   let sah = false, h0 = 0;
   for (let i = 0; i < 30 * 12; i++) {
     k.x = g.ship.x + 250; k.y = g.ship.y; k.angle = Math.PI / 2; k.fireT = -999; k.boltT = -999; if (k.sf) k.sf.t = -999; nullSchild();
-    if (g.space.projectiles.some((q) => q.kind === 'etorpedo')) { sah = true; if (!h0) h0 = g.ship.hull; }
+    if (g.space.projectiles.some((q) => q.kind === 'etorpedo')) { sah = true; if (!h0) h0 = isum(g); }
     g.step();
-    if (sah && g.ship.hull < h0) break;
+    if (sah && isum(g) < h0) break;
   }
-  ok(sah && g.stats.torpedoLerche === 1 && g.ship.hull === h0 - 30, 'Gegner-Torpedo fliegt auf die Lerche und trifft: Hülle −' + (h0 - g.ship.hull) + ' (30, ein Drittel)');
+  ok(sah && g.stats.torpedoLerche === 1 && near2(h0 - isum(g), 30 / 5), 'Gegner-Torpedo fliegt auf die Lerche und trifft: Integrität −' + f2(h0 - isum(g)) + ' (Torpedo ' + (30 / 5) + ')');
   // Abwehrturm schießt ihn ab
   const T2 = arena(); const g2 = T2.g; T2.debug('ausbau', '2'); T2.debug('bestueck', '2 abwehrturm'); g2.ship.mount.p2.charge = 1;
   g2.space.projectiles.push({ id: 'prx1', kind: 'etorpedo', x: g2.ship.x - 140, y: g2.ship.y, angle: 0, speed: 100, ttl: 5, dmg: 6, owner: 'e0' });
   g2.players[0].console = null;   // Taktik unbesetzt: Abwehrturm schießt allein
-  const h = g2.ship.hull;
+  const h = isum(g2);
   T2.run(3);
-  ok(!g2.space.projectiles.some((q) => q.kind === 'etorpedo') && g2.ship.hull === h && g2.stats.torpedosAbgeschossen === 1, 'Abwehrturm schießt den anfliegenden Torpedo ab (Hülle unberührt)');
+  ok(!g2.space.projectiles.some((q) => q.kind === 'etorpedo') && isum(g2) === h && g2.stats.torpedosAbgeschossen === 1, 'Abwehrturm schießt den anfliegenden Torpedo ab (Integrität unberührt)');
 });
 
 section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Schild', () => {
@@ -379,12 +385,13 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   const nHuelle = Math.round((hp1 - e.hp) / w.schaden);
   ok(e.hp < hp1 && nHuelle >= Math.ceil(w.rohre * 0.6) && nHuelle <= w.rohre && near(hp1 - e.hp, nHuelle * w.schaden, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (${nHuelle} von ${w.rohre} Nadeln treffen, je ${w.schaden})`);
   // Lerche als Ziel (Gegner-Sturm)
-  g.god = false; g.ship.hull = 100; g.ship.shields.current = [4, 4, 4, 4];
+  g.god = false; g.ship.shields.current = [4, 4, 4, 4];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
-  ok(g.ship.shields.regenHold > g.time && g.ship.shields.current[0] > 3.8 && g.ship.hull === 100, 'Gegner-Sturm gegen die Lerche: hoher Schild fast unberührt, Regeneration gesperrt');
-  g.ship.shields.current = [0, 0, 0, 0]; const hh = g.ship.hull; let sys = 0;
-  for (let i = 0; i < 400; i++) { g.ship.sysHitAt = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; space.shipHit(g, 1, 0.15, { sperrfeuer: true, sturm: true }); if (Object.values(g.ship.systems).some((v) => v !== 'ok')) sys++; g.ship.hull = hh; }
-  ok(sys > 5 && sys < 200, `niedriger Schild: Sturm trifft Systeme (${sys} von 400 Nadeln, Chance ${w.sturm.systemChance})`);
+  ok(g.ship.shields.regenHold > g.time && g.ship.shields.current[0] > 3.8, 'Gegner-Sturm gegen die Lerche: hoher Schild fast unberührt, Regeneration gesperrt');
+  // SYS-01 A1a: niedriger Schild = 1 Punkt (ST.niedrig); ohne Schild trifft jeder Treffer ein System, das ist eine andere Regel
+  let sys = 0;
+  for (let i = 0; i < 400; i++) { require('../server/sim/interior.js').integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; g.ship.shields.current[1] = 1; const i0 = isum(g); space.shipHit(g, 1, 0.15, { sperrfeuer: true, sturm: true }); if (isum(g) < i0) sys++; }
+  ok(Math.abs(sys / 400 - w.sturm.systemChance) < 0.04, `niedriger Schild: Sturm trifft Systeme (${sys} von 400 Nadeln, ${(100 * sys / 400).toFixed(1)} %, Soll ${(100 * w.sturm.systemChance).toFixed(0)} % ± 4)`);
 });
 
 section('Streubatterie: eine = Schildschaden, zwei = sicherer Systemschaden', () => {
@@ -415,14 +422,15 @@ section('Streubatterie: eine = Schildschaden, zwei = sicherer Systemschaden', ()
   lauf(T, S.zuend + 0.3);
   ok(T.ev('explosion').some((x) => x.small), 'Granaten explodieren verzögert (explosion, small)' + (booms ? '' : ''));
   // Lerche als Ziel
-  g.god = false; g.ship.hull = 100; g.ship.shields.current = [4, 4, 4, 4]; g.ship.systems.reactor = 'ok';
+  g.god = false; g.ship.shields.current = [4, 4, 4, 4]; g.ship.systems.reactor = 'ok';
+  const i5 = isum(g);
   const gp = (dx) => ({ x: g.ship.x + dx, y: g.ship.y, dmg: w.schaden, kind: 'estreu' });
   space.estreuExplosion(g, gp(10));
-  ok(g.ship.hull === 100 && g.ship.shields.current.some((v) => v < 4), 'Gegner-Granate: eine = Schildschaden');
+  ok(isum(g) === i5 && g.ship.shields.current.some((v) => v < 4), 'Gegner-Granate: eine = Schildschaden');
   const sys0 = Object.values(g.ship.systems).filter((v) => v !== 'ok').length;
   T.run(0.3); space.estreuExplosion(g, gp(10));
   const sys1 = Object.values(g.ship.systems).filter((v) => v !== 'ok').length;
-  ok(g.ship.hull < 100 && sys1 > sys0, `Gegner-Granate: zwei im Fenster = Hülle −${100 - g.ship.hull} und sicherer Systemschaden (${sys0} -> ${sys1} Systeme)`);
+  ok(isum(g) < i5 && sys1 >= sys0, `Gegner-Granate: zwei im Fenster = Integrität −${f2(i5 - isum(g))} (Systeme mit Schaden ${sys0} -> ${sys1})`);
 });
 function events(T, kind) { return T.events.filter((e) => e.kind === kind); }
 

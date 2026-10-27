@@ -31,7 +31,7 @@ const TRIBUN = Bot.TRIBUN;
 const HZ = CONFIG.tickHz;
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-finale-orbit-'));
 let seq = 0;
-const run = (g, sek) => { for (let i = 0; i < Math.round(sek * HZ); i++) { g.ship.hull = Math.max(g.ship.hull, 100); g.step(); } };
+const run = (g, sek) => { for (let i = 0; i < Math.round(sek * HZ); i++) {  g.step(); } };
 
 function neu(o) {
   const opt = o || {};
@@ -139,7 +139,7 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     const S = g.simSzene; const t0 = g.time; let erster = null;
     const funk0 = t.cs[0].inbox.filter((m) => m.kind === 'radio').length;
     ok(funk0 >= 1, 'Funk beim Eintreffen');
-    for (let i = 0; i < 20 * HZ && erster == null; i++) { g.ship.hull = 100; g.step(); if (eigene(g, S).length) erster = g.time - t0; }
+    for (let i = 0; i < 20 * HZ && erster == null; i++) {  g.step(); if (eigene(g, S).length) erster = g.time - t0; }
     const tonVon = (text) => { const e = t.cs[0].inbox.find((m) => m.t === 'event' && m.kind === 'radio' && m.text === text); return e && e.ton; };
     const FT = require('../content/welt/finale-werte.json').texte.orbit.funk;
     const ankunft = t.cs[0].inbox.find((m) => m.t === 'event' && m.kind === 'radio' && /Orbit von Hrafnheim/.test(m.text));
@@ -184,7 +184,7 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     let t = mitAngebot(); let g = t.g; starte(g);
     run(g, Number(W.orbit_vorwarnung.wert) + 1);
     let tick0 = g.weltsim.tickZahl;
-    g.ship.hull = 0; g.step(); g.step();
+    require('../server/sim/space.js').verlustAusloesen(g, 'test'); g.step(); g.step();
     ok(enden.length === 1 && enden[0] === 'niederlage', 'Notfallprotokoll: orbitEnde("niederlage") einmal');
     { const e = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio'); const nl = e.find((m) => /Die Lerche ist angeschlagen, die Linie bricht/.test(m.text)); const nb = e.find((m) => /Die Flotte im Orbit hat uns geschlagen/.test(m.text)); ok(!!nl && nl.ton === 'gefahr', 'Welle 5 (M1): Funk der Szene „Niederlage“ (die Linie bricht) ist Gefahr (Rot)'); ok(!!nb && nb.ton === 'meldung', 'Welle 5 (M1): der Neubeginn danach („beginnt von vorn“) ist eine Meldung (Messing)'); }
     ok(Finale.phase(g) === null && g.phase !== 'end' && !g.simSzene, 'Neubeginn: phase null, kein Game Over');

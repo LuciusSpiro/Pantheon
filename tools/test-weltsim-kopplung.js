@@ -209,7 +209,7 @@ section('Ein Tick je Sprung, sonst keiner');
   ok(Sprung.notsprung(g) === null, 'Notfallsprung ausgeführt');
   ok(ticks(g) === tn + 1 && g.weltsim.letzteQuelle === 'notsprung', 'Notfallsprung (Ortswechsel): genau ein Tick');
   // Notfallsprung ohne Ortswechsel (kein Kandidat): auch ein Tick
-  place(g, 1000, 1000); g.ship.reactorCtl.state = 'online'; g.ship.hull = g.ship.hullMax;
+  place(g, 1000, 1000); g.ship.reactorCtl.state = 'online'; 
   const spielbar = Sektoren.spielbar; Sektoren.spielbar = () => false;
   const t2 = ticks(g), s2 = g.ship.scene;
   let r2; try { r2 = Sprung.notsprung(g); } finally { Sektoren.spielbar = spielbar; }

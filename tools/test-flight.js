@@ -183,7 +183,7 @@ function arena(players, opts) {
 // Schiff unverwundbar halten und eigene Waffen leer (Messung der Flugbahnen, nicht des Kampfes)
 function keepShip(g) {
   const sh = g.ship;
-  sh.hull = sh.hullMax;
+ 
   for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable && sh.systems[k] !== 'ok') sh.systems[k] = 'ok'; }
   sh.offline = {};
   for (const f of ['fireList', 'breachList']) if (Array.isArray(sh[f])) sh[f].length = 0;

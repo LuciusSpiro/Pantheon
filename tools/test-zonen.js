@@ -216,25 +216,25 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
   const lauf = (r, sek) => {
     const T = setup({ god: false }); const g = T.g; const s = g.ship;
     const pool = () => s.shields.current.reduce((a, b) => a + b, 0);
-    T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.hull = 100; s.shields.current = s.shields.current.map(() => 2);
-    const eng0 = s.systems.engines; let minH = s.hull; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
+    T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.shields.current = s.shields.current.map(() => 2);
+    const eng0 = s.systems.engines; let minH = 100; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
     let tTot = null, ausserhalb = null; const em0 = g.stats.emergencies;
     for (let k = 0; k < Math.round(sek / DT); k++) {
-      T.platz(GC.x + r, GC.y, 0); g.step(); minH = Math.min(minH, s.hull);      if (g.stats.emergencies > em0 && tTot == null) { tTot = k * DT; minH = 0; ausserhalb = Math.hypot(s.x - GC.x, s.y - GC.y); }   // Hülle 0 -> Notfallprotokoll (nach dem Hinauswurf)
+      T.platz(GC.x + r, GC.y, 0); g.step(); minH = minH;      if (g.stats.emergencies > em0 && tTot == null) { tTot = k * DT; minH = 0; ausserhalb = Math.hypot(s.x - GC.x, s.y - GC.y); }   // Hülle 0 -> Notfallprotokoll (nach dem Hinauswurf)
     }
     return { dHull: 100 - minH, dPool: p0 - pool(), minH, tTot, ausserhalb, hits: g.stats.hits - hits0, eng0, eng: s.systems.engines, fire: (s.fires || []).length - fire0, odas: T.odas };
   };
   const w = lauf(WOLKE, 10);
   ok(w.dPool > 0 && w.dHull <= 25, 'Wolkendecke (0,5/s): Schilde zuerst, Hülle nur wenig (Schilde −' + w.dPool + ', Hülle −' + w.dHull + ' in 10 s)');
   const f = lauf(FOERDER, 10);
-  ok(f.dPool >= 2 && f.dHull >= 20 && f.dHull <= 45, 'Förderschicht (0,8/s): merklich, aber überlebbar (Schilde −' + f.dPool + ', Hülle −' + f.dHull + ' in 10 s; eine Einheit schöpfen dauert 10 s)');
+  ok(f.dPool >= 2, 'Förderschicht (0,8/s): Schilde −' + f.dPool + ' in 10 s (Übergang A1a: Zonendruck ohne Hüllenwirkung, Zonenschaden kommt mit Paket C)');
   const f2 = lauf(FOERDER, 20);
-  ok(f2.minH > 0 && f2.minH <= 50, 'Förderschicht, 20 s (zwei Einheiten): die Hülle hält gerade noch (' + f2.minH + ' von 100)');
+  ok(f2.dPool >= f.dPool, 'Förderschicht, 20 s (zwei Einheiten): Schilde weiter gedrückt (Übergang A1a) (' + f2.minH + ' von 100)');
   const t = lauf(TIEFE, 14);
-  ok(t.minH <= 0 && t.tTot < 12, 'Tiefe (3/s): tödlich in ' + (t.tTot == null ? '-' : t.tTot.toFixed(1)) + ' s (Notfallprotokoll)');
+  ok(t.tTot == null && t.minH >= 0, 'Übergang A1a: Tiefe (3/s) tötet nicht mehr (kein Hüllenwert, Auslöser kommt mit Paket A2)');
   const k = lauf(KERN, 8);
-  ok(k.minH <= 0 && k.tTot < 4, 'Kern (8/s): tödlich in ' + (k.tTot == null ? '-' : k.tTot.toFixed(1)) + ' s');
-  ok(k.ausserhalb > GC.r * 1.9 && k.odas.some((x) => /Notautomatik schleudert/.test(x)), 'Zerstörung = Auftauchen-Zwang: das Schiff liegt danach außerhalb der Atmosphäre (' + Math.round(k.ausserhalb) + ' > ' + Math.round(GC.r * 1.9) + ' px), Meldung');
+  ok(k.tTot == null, 'Übergang A1a: Kern (8/s) tötet nicht mehr (kein Hüllenwert)');
+  ok(!k.odas.some((x) => /Notautomatik schleudert/.test(x)), 'Übergang A1a: kein Auftauchen-Zwang mehr (ohne Hülle kein Tod durch Zonendruck)');
   ok(t.hits + k.hits + f.hits > 20, 'Druck kommt als Treffer an (' + (t.hits + k.hits + f.hits) + ' Treffer)');
   ok(f.eng === f.eng0 && t.eng === t.eng0 && k.eng === k.eng0 && f.fire === 0, 'Kein Zufallsausfall: Triebwerk bleibt ' + f.eng0 + ', keine Feuer (Dauerdruck ist kein shipHit)');
 });
@@ -379,13 +379,13 @@ section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {
     g.players[0].console = 'weapons';
     const halt = () => { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; };
     halt(); run(8); ok(Fracht.anBord(g) === 0, 'ohne Aktion füllt sich nichts (8 s in der Förderschicht)');
-    g.ship.hull = 100; g.ship.shields.current = g.ship.shields.current.map(() => 2);   // der Druck hat gewirkt: Reparatur vor dem Schöpfen
+     g.ship.shields.current = g.ship.shields.current.map(() => 2);   // der Druck hat gewirkt: Reparatur vor dem Schöpfen
     halt(); run(0.2); c.inbox.length = 0; g.handleMessage(c, { t: 'cmd', c: 'weapons.schoepfen' });
     ok(g.fracht.halt && g.fracht.halt.kind === 'schoepf', 'Bot startet das Schöpfen (weapons.schoepfen)');
     for (let i = 0; i < 400 && Fracht.anBord(g, 'deuterium') < 1; i++) { halt(); run(0.1); }
     ok(Fracht.anBord(g, 'deuterium') === 1, 'Bot schöpft eine Einheit Deuterium in der Förderschicht');
     g.handleMessage(c, { t: 'cmd', c: 'weapons.schoepfen', off: true });
-    ok(g.ship.hull > 40, 'Hülle überlebt eine Einheit (' + g.ship.hull + ')');
+    ok(true, 'Hülle überlebt eine Einheit (SYS-01 A1a: die Hülle entfällt, Gas trifft keine Systeme)');
     g.debugGoto('concordia', true); run(3);
     ok(m.step && m.step.id === 'verkauf', 'in Concordia (nach dem Auftauchen): Schritt verkauf');
     g.players[0].console = 'weapons';
@@ -462,7 +462,7 @@ section('SL7a Gravimetrie: Forschungsstation Helix (Sund 0506)', () => {
     run(40, () => { g.ship.helm.stage = 5; g.ship.helm.turn = 0; return mev.some((e) => e.kind === 'zoneRuecksetzen'); });
     ok(mev.some((e) => e.kind === 'zoneRuecksetzen'), 'ungeausgeglichen geradeaus: Verzerrungskern wirft zurück (Rücksetzer)');
     ok(Math.hypot(g.ship.x - gv.start.x, g.ship.y - gv.start.y) < 60 && g.ship.speed === 0, 'Lerche steht wieder am Start, Fahrt null');
-    ok(g.ship.hull > 0 && g.snapshot().ship && true, 'Kein Tod: Hülle intakt');
+    ok(g.snapshot().ship && true, 'Kein Tod (SYS-01 A1a: kein Auslöser durch Zonendruck)');
     // 2) nach Ansage (Ausgleich) kommt sie durch
     g.ship.x = gv.start.x; g.ship.y = gv.start.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.angle = 0; g.ship.turnVel = 0; mev.length = 0;
     flieg(gv.weg.slice(1), true, 80, () => g.ship.x > gv.station.x - 260);

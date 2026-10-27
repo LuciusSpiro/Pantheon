@@ -142,7 +142,7 @@ function raumAlarm(S, seed) {
   Alarm.ausloeser(g, 'mine');
   for (let k = 0; k < TICKS; k++) {
     for (const p of g.players) { p.console = p.console || null; }
-    g.ship.hull = 100;
+    
     g.step();
     messen(S, g.snapshot());
   }
@@ -250,7 +250,7 @@ function konvoi(S, seed) {
   for (let k = 0; k < TICKS; k++) {
     if (k === 30) { const T = Konvoi.transporter(g); space.damageEnemy(g, T[0], 9999, T[0].x - 30, T[0].y); space.damageEnemy(g, T[1], 9999, T[1].x - 30, T[1].y); }
     if (k === 60) { const T = Konvoi.transporter(g)[0]; if (T) { T.sprung = 1; T.sprungDauer = 8; } const d = Fracht.draussen(g)[0]; if (d) { g.ship.x = d.x - 100; g.ship.y = d.y; Fracht.beamStart(g, g.players[0], null); } }
-    g.ship.hull = 100;
+    
     g.step();
     messen(S, g.snapshot());
   }
@@ -281,7 +281,7 @@ function verfolgung(S, seed) {
     if (k === 20) treffer(ziel);
     if (k === 80) { treffer(ziel); for (const e of beg) treffer(e); }
     if (k === 140) for (const e of beg) { g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(e); }
-    g.ship.hull = 100;
+    
     g.step();
     messen(S, g.snapshot());
   }
@@ -305,7 +305,7 @@ function flotte(S, seed) {
   Flotte.wellenStart(g, { wellen: 'korvette:3,fregatte:2,kreuzer:1,raider:6|kreuzer:2,raider:6', ziel: 'auto', richtung: 'alle', takt: 0, ueberdruck: true });
   let max = 0;
   for (let k = 0; k < TICKS; k++) {
-    g.ship.hull = 100;
+    
     g.step();
     for (const e of g.space.enemies) e.scanned = true;
     if (k % 90 === 60) { const e = g.space.enemies[0]; if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }   // alle 3 s fällt einer: Nachschub rückt nach
@@ -336,7 +336,7 @@ function orbit(S, seed) {
   Flotte.wellenStart(g, { wellen: 'korvette:3,raider:6|korvette:2,raider:6', ziel: 'auto', richtung: 'alle', takt: 0, ueberdruck: true });
   let max = 0;
   for (let k = 0; k < TICKS; k++) {
-    g.ship.hull = 100;
+    
     g.step();
     for (const e of g.space.enemies) e.scanned = true;
     if (k % 90 === 60) { const e = g.space.enemies.find((x) => x.kind !== 'fregatte'); if (e) { e.hp = 1; space.damageEnemy(g, e, 99, e.x - 50, e.y); } }
@@ -398,7 +398,7 @@ function freieFahrt(S, seed) {
     for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; space.spawnEnemy(g, 'raider', { x: g.ship.x + Math.cos(a) * 500, y: g.ship.y + Math.sin(a) * 500, facing: a + Math.PI, tag: 'mess' }); }
     for (const e of g.space.enemies) e.scanned = true;
     for (let k = 0; k < je; k++) {
-      g.ship.hull = 100;
+      
       g.step();
       maxMarker = Math.max(maxMarker, (g.space.markers || []).length);
       g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;
@@ -422,7 +422,7 @@ function freieFahrt(S, seed) {
     });
     ws.infoLetzte = [{ s: 'b', x: 'Beleg des Konkordats: ' + 'x'.repeat(100) }, { s: 'g', x: 'Gerücht, unbestätigt: Es heißt: ' + 'x'.repeat(100) }];
     for (let k = 0; k < 30; k++) {
-      g.ship.hull = 100; g.step();
+       g.step();
       g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentInfoKey = null;
       const sn = g.snapshot();
       if (sn.world && sn.world.info) { infoMax = Math.max(infoMax, bytes(sn.world.info)); infoMitMax = Math.max(infoMitMax, bytes(sn)); }
@@ -438,7 +438,7 @@ function freieFahrt(S, seed) {
   SimSzene.debug(g, ['40', 'ger', 'belagerung']);
   const phasen = new Set();
   for (let k = 0; k < Math.round(60 * CONFIG.tickHz) && g.simSzene; k++) {
-    g.ship.hull = 100;
+    
     g.step();
     if (k % 45 === 0) for (const e of g.space.enemies.slice(0, 2)) { e.hp = 1; space.damageEnemy(g, e, 500, e.x - 100, e.y, {}); }   // laufend Verluste, damit Wellen und Finale kommen
     g.sentLageKey = null; g.sentAbsichtKey = null; finaleWorst(g); g.sentFunkKey = null;   // Worst Case: die Blöcke world.lage und world.absicht stehen im selben Snapshot
@@ -461,7 +461,7 @@ function freieFahrt(S, seed) {
   SimSzene.debug(g, ['40', 'ger', 'belagerung']);
   messSz(21);   // Vorwarnung und Beginn des Kampfes
   for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('../server/sim/escort.js').hit(g, q, 99999, {});   // alle Verteidiger fallen
-  g.ship.hull = 0; messSz(0.4); g.ship.hull = 0; messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
+  require('../server/sim/space.js').verlustAusloesen(g, 'test'); messSz(0.4); require('../server/sim/space.js').verlustAusloesen(g, 'test'); messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
   return { infoBlock: infoMax, infoSnapshotMax: infoMitMax, fehler, posten: posten.length, orte: orte.join('+'), marker: maxMarker, lageBlock: lageMax, lageSnapshotMax: lageMitMax, absichtBlock: absichtMax, absichtSnapshotMax: absichtMitMax, funkBlock: funkMax, funkSnapshotMax: funkMitMax, szeneMax, szeneSz, szeneTicks, szenePhasen: [...phasen].join('') };
@@ -487,7 +487,7 @@ function finaleOrbit(S, seed) {
   const fehlerStart = Finale.waehlen(g) || Finale.bestaetigen(g);
   let max = 0, flagg = false;
   for (let k = 0; k < Math.max(TICKS, 40 * CONFIG.tickHz); k++) {
-    g.ship.hull = 100;
+    
     g.step();
     if (k % 60 === 30) { const e = g.space.enemies.find((x) => !x.flagg); if (e) { e.hp = Math.max(1, e.hp - 5); space.damageEnemy(g, e, 1, e.x - 50, e.y); } }
     if (g.space.enemies.some((e) => e.flagg)) flagg = true;

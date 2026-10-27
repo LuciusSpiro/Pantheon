@@ -129,16 +129,18 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
     const T = falleStart(seed);
     ok(T.step() === 'falle' && T.g.space.enemies.length >= 5, 'Seed ' + seed + ': Falle läuft, ' + T.g.space.enemies.length + ' Piraten');
     const t0 = T.g.time;
-    const lost = T.run(200, () => (T.ev('emergency').length > 0));
+    let lost = T.run(200, () => (T.ev('emergency').length > 0));
+    // Übergang A1a: ohne Hülle löst kein Schaden mehr das Notfallprotokoll aus (der Reaktor-Countdown kommt mit A2). Die Naht wird hier von Hand gerufen.
+    if (!lost) { require('../server/sim/space.js').verlustAusloesen(T.g, 'falle-naht'); lost = T.ev('emergency').length > 0; }
     const dt = Math.round((T.g.time - t0) * 10) / 10;
     zeiten.push(dt);
-    ok(lost, 'Seed ' + seed + ': Hülle erreicht 0 nach ' + dt + ' s');
+    ok(lost, 'Seed ' + seed + ': Verlust (Naht, Übergang A1a) nach ' + dt + ' s');
     T.run(1);
     const d = T.done().find((e) => e.id === 'k3_falle');
     ok(d && d.ausgang === 'verloren', 'Seed ' + seed + ': Ausgang verloren (' + (d && d.ausgang) + ')');
   }
   info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Ziel 22–40 s)');
-  ok(zeiten.every((z) => z >= 22 && z <= 40), 'alle Zeiten im Fenster 22–40 s (PAN-01 C: die Automatik der unbesetzten Ops schießt Projektile, die ein manövrierendes Ziel öfter verfehlen; vorher 25)');
+  ok(zeiten.every((z) => z > 0), 'Übergang A1a: Zeiten bis zur Naht gemessen (das Fenster 22–40 s gilt erst mit dem Reaktor-Countdown, Paket A2)');
 });
 
 section('Kapitel 3 Falle: Szene von vorn (Reset)', () => {
@@ -148,7 +150,7 @@ section('Kapitel 3 Falle: Szene von vorn (Reset)', () => {
   const g = T.g;
   // Die Kette würde jetzt wiederholen: Buch neu starten
   T.buch('k3_falle'); T.run(0.3);
-  ok(g.ship.hull >= g.ship.hullMax - 1e-6, 'Hülle wieder voll (' + g.ship.hull + ')');
+  ok(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === 100, 'Integrität wieder voll');
   ok(g.ship.reactorCtl.state === 'online' && g.space.enemies.length >= 5, 'Reaktor an, Piraten neu: ' + g.space.enemies.length);
   ok(!PB.personAnBord(g, 'evert'), 'Evert bleibt abgegeben');
   const sh = g.ship; const st = Locations.get('pulverhorn').scene.station;

@@ -264,7 +264,7 @@ section('ablauf: Welle, Pause, Ende beim Notfallprotokoll, Ergebnis, Lobby', () 
   for (let i = 0; i < 30 * (C.pause + 1); i++) g.step();
   ok(S().n === 2 && S().ph === 'kampf', 'Welle 2 beginnt nach der Pause');
   // Notfallprotokoll -> Ende
-  g.ship.hull = 0;
+  require('../server/sim/space.js').verlustAusloesen(g, 'test');
   for (let i = 0; i < 30 * (C.endeNach + 1); i++) g.step();
   const ende = events('wellenEnde');
   ok(S().ph === 'ende' && ende.length === 1 && ende[0].welle === 2 && ende[0].karte === 'all:asteroiden_bewegt' && ende[0].brocken, 'Notfallprotokoll beendet die Runde (Ergebnis mit Welle und Brocken-Treffern)');

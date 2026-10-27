@@ -73,12 +73,12 @@ async function lauf(seed, crew, o) {
     for (const a of agents) a.update(snap);
     if (erster == null && g.space.enemies.some((e) => e.finaleS === S.id)) erster = g.time - t0;
     maxSchiffe = Math.max(maxSchiffe, g.space.enemies.length + (g.space.escorts || []).filter((q) => q.state !== 'entkommen').length);
-    if (opt.verbose && n % (30 * HZ) === 0) console.log(`  [t ${(g.time - t0).toFixed(0)}] Gegner ${g.space.enemies.length} Verbündete ${(g.space.escorts || []).filter((q) => q.sim === S.id && q.state === 'ok').length} Hülle ${Math.round(g.ship.hull)} Notfall ${g.stats.emergencies}`);
+    if (opt.verbose && n % (30 * HZ) === 0) console.log(`  [t ${(g.time - t0).toFixed(0)}] Gegner ${g.space.enemies.length} Verbündete ${(g.space.escorts || []).filter((q) => q.sim === S.id && q.state === 'ok').length} Hülle ${Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt)} Notfall ${g.stats.emergencies}`);
     if (n % 3000 === 0) await new Promise((r) => setImmediate(r));
   }
   const L = g.simSzeneLetzte;
   res.dauer = Math.round(g.time - t0); res.ersterGegner = erster == null ? null : Math.round(erster * 10) / 10; res.snapMax = snapMax; res.maxSchiffe = maxSchiffe;
-  res.huelle = Math.round(g.ship.hull); res.notfall = g.stats.emergencies; res.kills = Object.assign({}, S.kills);
+  res.huelle = Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt); res.notfall = g.stats.emergencies; res.kills = Object.assign({}, S.kills);
   res.verbuendeteVerloren = verbundete0 - (g.space.escorts || []).filter((q) => q.sim === S.id && q.state === 'ok').length;
   res.verbuendete0 = verbundete0; res.wach = S.nWach; res.tickDelta = g.weltsim.tickZahl - tick0; res.phase = Finale.phase(g);
   res.ausgang = L && L.finale ? L.ausgang : null;

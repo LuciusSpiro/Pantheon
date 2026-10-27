@@ -147,9 +147,9 @@ try {
   console.log('Ignorieren kostet nichts, Ablauf in Spielzeit, Szene verlassen');
   {
     const t = setup('pulverhorn'); const g = t.g; Notrufe.freischalten(g, 'sl_klar,sl_echt');
-    const marks0 = g.inventory.marks, hull0 = g.ship.hull;
+    const marks0 = g.inventory.marks, hull0 = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt;
     ok(Notrufe.ablehnen(g, 'sl_echt') === null && Notrufe.finde(g, 'sl_echt').z === Notrufe.Z.ABGELEHNT, 'ablehnen');
-    ok(g.inventory.marks === marks0 && g.ship.hull === hull0 && !Marken.da(g, 'notruf:sl_echt'), 'Ignorieren kostet nichts (Marken, Hülle), Marke weg');
+    ok(g.inventory.marks === marks0 && require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull0 && !Marken.da(g, 'notruf:sl_echt'), 'Ignorieren kostet nichts (Marken, Integrität), Marke weg');
     ok(!g.explore.kanteOffen(Sektoren.kanteId('0605', '0705')), 'Tor des abgelehnten Rufs zu');
     t.run(g.C.notrufe.dauer - 5);
     ok(Notrufe.finde(g, 'sl_klar').z === Notrufe.Z.OFFEN, 'nach dem Großteil der Zeit noch offen');

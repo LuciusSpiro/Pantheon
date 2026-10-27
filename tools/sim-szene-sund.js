@@ -115,14 +115,14 @@ async function lauf(name, seed, o) {
     for (const a of agents) a.update(snap);
     maxSchiffe = Math.max(maxSchiffe, g.space.enemies.length + (g.space.escorts || []).filter((q) => q.state !== 'entkommen').length);
     const w = g.flotte && g.flotte.welle; if (w && w.n !== letzteWelle) { letzteWelle = w.n; wellen = w.n; }
-    if (VERBOSE && ticks % (30 * HZ) === 0) console.log(`  [t ${(g.time - t0).toFixed(0)}] Welle ${wellen}/${wellenGroesse.length} Gegner ${g.space.enemies.length} Verbündete ${(g.space.escorts || []).filter((q) => q.sim && q.state === 'ok').length} Hülle ${Math.round(g.ship.hull)} Verluste ${S.killPunkte}`);
+    if (VERBOSE && ticks % (30 * HZ) === 0) console.log(`  [t ${(g.time - t0).toFixed(0)}] Welle ${wellen}/${wellenGroesse.length} Gegner ${g.space.enemies.length} Verbündete ${(g.space.escorts || []).filter((q) => q.sim && q.state === 'ok').length} Hülle ${Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt)} Verluste ${S.killPunkte}`);
     if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
   }
   kills = Object.assign({}, S.kills);
   const L = Szene.letzte(g);
   res.dauer = Math.round(g.time - t0); res.wellen = wellen; res.maxSchiffe = maxSchiffe; res.snapMax = snapMax; res.kills = kills; res.killPunkte = S.killPunkte;
   res.verlorenVert = Math.round((S.vert.ges ? S.vert.verloren / S.vert.ges : 0) * 100);
-  res.huelle = Math.round(g.ship.hull); res.notfall = g.stats.emergencies;
+  res.huelle = Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt); res.notfall = g.stats.emergencies;
   if (g.simSzene) { res.fehler = 'Zeitlimit ' + MAXSEK + ' s (Szene läuft noch, Welle ' + wellen + '/' + wellenGroesse.length + ')'; return res; }
   res.ausgang = L && L.ausgang; res.grund = L && (L.grund || L.schicksal);
   res.wirkungen = L ? L.wirkungen.map((w) => w.typ + (w.punkte != null ? ' ' + w.punkte : '')).join(', ') : '';

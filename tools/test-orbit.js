@@ -225,7 +225,7 @@ section('Rückzug (Notfallsprung) wiederholt die Szene, Verbündete erscheinen n
   const t = start(1); const g = t.g;
   g.mission.setStep('ankunft'); run(g, 9);
   ok(stage(g) === 'befehl1_durchbrechen' && !!ally(g, 'audax'), 'Szene läuft, Audax da');
-  g.god = false; g.ship.hull = 80;
+  g.god = false; 
   g.ship.reactorCtl && (g.ship.reactorCtl.state = 'online');
   const why = Sprung.notsprung(g);
   run(g, 0.5);

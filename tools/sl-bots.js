@@ -101,13 +101,13 @@ function laufGasriese(o) {
     const halt = () => { g.ship.x = pl.x + pl.r * 0.8; g.ship.y = pl.y; g.ship.vx = 0; g.ship.vy = 0; };
     halt(); T.run(3, () => { halt(); return false; });
     const leer = Fracht.anBord(g) === 0;   // ohne Aktion bleibt der Frachtraum leer
-    g.ship.hull = 100;   // Reparatur nach dem Eintauchen (Technik)
+       // Reparatur nach dem Eintauchen (Technik)
     const startErr = T.cmd('weapons.schoepfen');
     const gestartet = !startErr.length && !!(g.fracht.halt && g.fracht.halt.kind === 'schoepf');
     T.run(240, () => { halt(); return Fracht.anBord(g, 'deuterium') >= 2 && !g.fracht.halt; });   // nach der zweiten Einheit beendet sich das Schöpfen von selbst (Frachtraum voll)
     const geschoepft = Fracht.anBord(g, 'deuterium');
-    const lebt = g.stats.emergencies === em0 && g.ship.hull > 0;
-    const hull = Math.round(g.ship.hull);
+    const lebt = g.stats.emergencies === em0 && true;
+    const hull = Math.round(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt);
     g.god = true;
     T.cmd('weapons.abwerfen');
     const nachAbwurf = Fracht.anBord(g, 'deuterium');

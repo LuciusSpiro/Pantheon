@@ -140,7 +140,7 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   T.g.ship.o2 = 100; T.run(5);
   ok(T.g.ship.o2 >= 99.9, 'ohne Lecks sinkt O2 nicht');
   let getroffen = 0;
-  for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); T.g.ship.sysHitAt = {}; for (const r of interior.hitSystems(T.g, i % 4, { chance: 1 })) if (r.system === 'life') getroffen++; }
+  for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); const r = interior.trefferweg(T.g, i % 4, 1); if (r && r.system === 'life') getroffen++; }   // SYS-01 A1a: Trefferweg statt hitSystems
   ok(getroffen === 0, 'in 400 Treffern kommt kein System life vor');
 });
 

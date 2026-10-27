@@ -32,7 +32,7 @@ function arena(players, seed) {
   return { g, conns, run, ev };
 }
 function keep(g) {
-  const sh = g.ship; sh.hull = 100;
+  const sh = g.ship;
   for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable && sh.systems[k] !== 'ok') sh.systems[k] = 'ok'; }
   sh.fireList.length = 0; sh.breachList.length = 0;
 }

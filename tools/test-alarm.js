@@ -1,4 +1,5 @@
 'use strict';
+const integSum = (g) => { const IN = require('../server/sim/interior.js'); return IN.SYSTEM_ORDER.reduce((a, k) => a + (IN.systemAktiv(g, k) ? IN.integOf(g, k) : 0), 0); };   // SYS-01 A1a: Integrität (Summe) statt Hülle
 // EK2 Raum-Alarm: Alarmstufen, Lärm, Patrouillen mit Sensorkreisen, Einsprung, Minen (zünden, abschießen, Besitzer, ohne Strom),
 // Signatur und Schilde-Knopf, Weitscan, Schleichfahrt im Labor (durchlaufen, mit Entdeckung, Rückzug), Snapshot, Katalog/Prüfer.
 //   node tools/test-alarm.js [begriff …]   -> nur Abschnitte, deren Name einen der Begriffe enthält
@@ -36,7 +37,7 @@ function raum(loc, seed, np) {
   return { g, cs };
 }
 const ticks = (g, sek, each) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) { if (each) each(i * DT); g.step(); } };
-const heil = (g) => { const sh = g.ship; sh.hull = 100; for (const k of interior.SYSTEM_ORDER) sh.systems[k] = 'ok'; sh.fireList.length = 0; sh.breachList.length = 0; };
+const heil = (g) => { const sh = g.ship; for (const k of interior.SYSTEM_ORDER) sh.systems[k] = 'ok'; sh.fireList.length = 0; sh.breachList.length = 0; };
 const punkte = (g) => interior.SYSTEM_ORDER.reduce((a, k) => a + ({ ok: 0, damaged: 1, broken: 2, offline: 1 }[g.ship.systems[k]] || 0), 0);
 // Lerche auf einen Punkt setzen, ruhig
 function platz(g, x, y, ang) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; if (ang != null) s.angle = ang; }
@@ -181,11 +182,11 @@ section('Minen: zünden (ignoriert Schilde, 6 Punkte Systemschaden, Alarm)', () 
   ok(g.space.minen.length === 1 && Alarm.stufe(g) === 0, 'außerhalb des Zündradius passiert nichts');
   platz(g, 1500 - A.mine.zuend + 10, 800, 0);
   heil(g);
-  const sc0 = g.ship.shields.current.slice(); const h0 = g.ship.hull;
+  const sc0 = g.ship.shields.current.slice(); const h0 = integSum(g);
   g.step();
   ok(g.space.minen.length === 0, 'zu nahe: Mine explodiert');
   ok(punkte(g) === A.mine.punkte, `6 Punkte Systemschaden (beschädigt 1, zerstört 2): ${punkte(g)}`);
-  ok(g.ship.hull === h0 && g.ship.shields.current.every((v, i) => v === sc0[i]) && sc0.some((v) => v > 0), `ignoriert Schilde: Schildpunkte (${sc0.join('/')}) und Hülle unberührt`);
+  ok(g.ship.shields.current.every((v, i) => v === sc0[i]) && sc0.some((v) => v > 0), `ignoriert Schilde: Schildpunkte (${sc0.join('/')}) unberührt (SYS-01 A1a: der Systemschaden der Mine bleibt, Minen sind nicht Teil von A1a)`);
   ok(Alarm.stufe(g) === 2 && g.space.alarm.grund === 'mine', 'löst Alarm aus (Grund mine)');
   ok(cs[0].inbox.some((e) => e.kind === 'explosion') && cs[0].inbox.some((e) => e.kind === 'oda' && /Minentreffer/.test(e.text || '')), 'Explosion und Ansage');
   // Verteilung auf zufällige Systeme: über mehrere Seeds nie mehr als 14 Systeme, immer genau 6 Punkte, und nicht immer dieselben
@@ -376,22 +377,22 @@ section('Schilde hoch/runter: Treffer gehen an den Schilden vorbei', () => {
   Alarm.an(g, { schleichfahrt: true, einsprung: false });
   platz(g, 800, 800, 0);
   for (let k = 0; k < 4; k++) g.ship.shields.current[k] = 4;
-  const hull0 = g.ship.hull;
+  const hull0 = integSum(g);
   space.shipHit(g, 0, 1, {});
-  ok(g.ship.hull === hull0 && g.ship.shields.current[0] === 3, 'Schilde oben: Treffer geht in den Schild');
+  ok(integSum(g) === hull0 && g.ship.shields.current[0] === 3, 'Schilde oben: Treffer geht in den Schild');
   Alarm.schildeSchalten(g, true);
   space.shipHit(g, 0, 1, {});
-  ok(g.ship.hull < hull0 && g.ship.shields.current[0] === 3, 'Schilde unten: Treffer geht in die Hülle, Schildpunkte bleiben');
+  ok(integSum(g) < hull0 && g.ship.shields.current[0] === 3, 'Schilde unten: Treffer geht ins System (Integrität), Schildpunkte bleiben');
   const sf = g.snapshot().ship.sf;
   ok(sf && sf.d === 1 && sf.sig >= 0, 'Snapshot ship.sf: d = 1 (unten)');
   Alarm.schildeSchalten(g, false);
   ok(Alarm.schildeUnten(g) && g.space.alarm.hochBis > g.time, 'hoch: Schilde fahren hoch (noch ohne Schutz)');
-  const h1 = g.ship.hull; space.shipHit(g, 0, 1, {});
-  ok(g.ship.hull < h1, 'während des Hochfahrens noch ungeschützt');
+  const h1 = integSum(g); space.shipHit(g, 0, 1, {});
+  ok(integSum(g) < h1, 'während des Hochfahrens noch ungeschützt');
   ticks(g, A.signatur.schildeHoch + 0.3);
   ok(!Alarm.schildeUnten(g), `nach ${A.signatur.schildeHoch} s wieder oben`);
-  const h2 = g.ship.hull; space.shipHit(g, 0, 1, {});
-  ok(g.ship.hull === h2, 'wieder oben: Treffer geht in den Schild');
+  const h2 = integSum(g); space.shipHit(g, 0, 1, {});
+  ok(integSum(g) === h2, 'wieder oben: Treffer geht in den Schild');
   // Kommando
   const r = raum(); const k = r.g; Alarm.an(k, { schleichfahrt: true });
   const p0 = k.players[0]; p0.console = 'weapons'; p0.zone = 'ship';

@@ -66,7 +66,7 @@ function springe(S, ziel) {
   if (err) return { ok: false, grund: err, t: 0, strecke: 0, brocken: 0 };
   const t0 = g.time; let strecke = 0; let px = sh.x, py = sh.y; const b0 = (g.stats.brocken || {}).lerche || 0;
   for (let i = 0; i < 30 * 600; i++) {
-    sh.hull = sh.hullMax;
+   
     const p = Sprung.sprungpunkt(g, ziel);
     if (!p) return { ok: false, grund: 'kein Sprungpunkt', t: g.time - t0, strecke, brocken: 0 };
     if (sh.jump.ready) {

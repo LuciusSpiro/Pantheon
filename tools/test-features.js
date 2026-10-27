@@ -346,10 +346,10 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   // EMP des Wächters
   g.space.enemies = [];
   sh.shields.current = [0, 0, 0, 0]; sh.shields.alloc = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];
-  const hull = sh.hull;
+  const hull = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt;
   space.shipHit(g, 0, 1, { emp: true });
   const off = Object.entries(sh.systems).find(([, v]) => v === 'offline');
-  ok(!!off && sh.hull === hull, 'EMP durch die Schilde: ein System offline statt Hüllenschaden (' + (off && off[0]) + ')');
+  ok(!!off && require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull, 'EMP durch die Schilde: ein System offline statt Hüllenschaden (' + (off && off[0]) + ')');
   ok(!!off && g.snapshot().ship.offline[off[0]] === 12, 'Snapshot ship.offline (Restsekunden)');
   run(12.2);
   ok(!!off && sh.systems[off[0]] !== 'offline', 'nach 12 s startet das System selbst wieder');
@@ -561,9 +561,10 @@ console.log('\n[Selbst-Transfer, Transfer broken, Bots, Notfall]');
   run(46);
   ok(g.ship.systems.engines !== 'broken', 'Notreparatur nach 45 s ohne Ersatzteile');
   const marks = g.inventory.marks;
-  g.ship.hull = 0; g.ship.fireList.push({ tx: FLOOR_PAIR.b.x, ty: FLOOR_PAIR.b.y, spreadT: 0, dmgT: 0 }); g.ship.breachList.push({ tx: FLOOR_PAIR.a.x, ty: FLOOR_PAIR.a.y, t: 0 });
+  g.ship.fireList.push({ tx: FLOOR_PAIR.b.x, ty: FLOOR_PAIR.b.y, spreadT: 0, dmgT: 0 }); g.ship.breachList.push({ tx: FLOOR_PAIR.a.x, ty: FLOOR_PAIR.a.y, t: 0 });
+  require('../server/sim/space.js').verlustAusloesen(g, 'test');
   run(0.1);
-  ok(g.ship.hull === 30 && g.ship.fireList.length === 0 && g.ship.breachList.length === 0 && g.inventory.marks === Math.max(0, marks - 50) && g.stats.emergencies === 1, 'Notfallprotokoll (inkl. Lecks verschäumt)');
+  ok(g.ship.fireList.length === 0 && g.ship.breachList.length === 0 && g.inventory.marks === Math.max(0, marks - 50) && g.stats.emergencies === 1, 'Notfallprotokoll (inkl. Lecks verschäumt)');
 }
 
 console.log('\n[Missions-Engine, Mission 2, Ende M1, Snapshot]');
@@ -646,8 +647,8 @@ console.log('\n[Debug-Befehle M1, Schutz]');
   send(0, { t: 'debug', cmd: 'scanall' });
   ok(g.space.enemies.every((e) => e.scanned) && g.explore.hiddenHere().every((h) => g.explore.isRevealed(h.id)), 'debug scanall');
   const g2 = setup(1, { debug: false });
-  g2.send(0, { t: 'debug', cmd: 'hull', n: 1 });
-  ok(g2.g.ship.hull === 100 && g2.notices(0).some((t) => /deaktiviert/.test(t)), 'Debug ohne --debug abgelehnt');
+  g2.send(0, { t: 'debug', cmd: 'verlust' });
+  ok(require('../server/sim/interior.js').integritaetSnapshot(g2.g).gesamt === 100 && g2.notices(0).some((t) => /deaktiviert/.test(t)), 'Debug ohne --debug abgelehnt');
 }
 
 console.log('\n[M0: Raumcode]');

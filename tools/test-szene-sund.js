@@ -382,12 +382,12 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   const tick0 = ticks(g);
   run(g, 21);
   ok(g.simSzene && g.simSzene.phase === 'kampf', 'Kampf läuft');
-  g.ship.hull = 0; run(g, 0.3);
+  require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   ok(g.simSzene && g.stats.emergencies === 1 && ticks(g) === tick0, 'Notfallprotokoll der Lerche mit lebenden Verteidigern: die Schlacht geht weiter, kein Tick');
   for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
   run(g, 1);
   ok(g.simSzene && g.simSzene.vert.lebend === 0, 'Verteidiger gefallen: Gnadenfrist (das frühere Protokoll zählt nicht mit)');
-  g.ship.hull = 0; run(g, 0.3);
+  require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   const L = Szene.letzte(g);
   ok(!g.simSzene && L && L.ausgang === 'niederlage' && L.grund === 'lerche' && g.stats.emergencies === 2, 'Notfallprotokoll der Lerche ohne Verteidiger = Crew unterlegen: Szene endet');
   ok(ticks(g) === tick0 + 1 && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.ort === OSTIA && x.an === 'ger'), 'ein Tick, ort_gefallen an ger');
@@ -423,7 +423,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   flotte(g, OSTIA, 'pirat', 9, { belagerung: true });
   ankunft(g, OSTIA); run(g, 21);
   for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
-  g.ship.hull = 0; run(g, 0.3);
+  require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   const L4 = Szene.letzte(g);
   ok(L4.ausgang === 'niederlage' && !L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom', 'Piraten gegen einen Hafen: kein ort_gefallen aus der Szene (Piraten erobern keinen Hafen)');
 });
@@ -432,7 +432,7 @@ section('Durchziehende Flotte (keine Belagerung): der Ort fällt nicht', () => {
   // Gegenprobe zu „Hafen gefallen“: dieselbe Niederlage, aber ohne Feldzug gegen den Ort. Ohne die Crew hätte die Sim nie erobert (Auftrag §3).
   // wie in der Sim: wer durchzieht, ist unterwegs (Rückzug nach Hause) und verlässt das Hex im nächsten Tick; „heim“ gibt es nur im eigenen Hafen
   const durchzug = (f) => { f.befehl = 'rueckzug'; f.ziel = f.heimat; return f; };
-  const unterliegen = (g) => { run(g, 21); for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); run(g, 0.3); g.ship.hull = 0; run(g, 0.5); return Szene.letzte(g); };
+  const unterliegen = (g) => { run(g, 21); for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); return Szene.letzte(g); };
   let t = neu(); let g = t.g; ab(g);
   ohneFlotten(g, OSTIA);
   const fl = durchzug(flotte(g, OSTIA, 'ger', 3));   // keine Belagerung
@@ -458,7 +458,7 @@ section('Durchziehende Flotte (keine Belagerung): der Ort fällt nicht', () => {
   g.weltBesitz.hexe[P] = { besitzer: 'rom', posten: true };
   ohneFlotten(g, P);
   durchzug(flotte(g, P, 'ger', 8));
-  ankunft(g, P); run(g, 21); g.ship.hull = 0; run(g, 0.5);
+  ankunft(g, P); run(g, 21); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5);
   const L3 = Szene.letzte(g);
   ok(L3.ausgang === 'niederlage' && z(g).hexe[P].besitzer === 'rom' && z(g).hexe[P].posten && hatEreignis(g, 'posten_verloren').length === 0, 'Posten ohne Belagerung: bleibt stehen');
   // Gegenprobe mit Belagerung: derselbe Aufbau, der Hafen fällt (siehe Abschnitt davor)
@@ -507,7 +507,7 @@ section('Posten gehalten und gefallen', () => {
   flotte(g, POSTEN, 'ger', 8, { belagerung: true });
   ankunft(g, POSTEN); run(g, 21);
   ok(g.simSzene && g.simSzene.vert.n0 === 0, 'Garnison 0: keine Verteidiger');
-  g.ship.hull = 0; run(g, 0.3);
+  require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   L = Szene.letzte(g);
   ok(L.ausgang === 'niederlage' && L.grund === 'lerche' && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.an === 'ger') && z(g).hexe[POSTEN].besitzer === null && !z(g).hexe[POSTEN].posten && hatEreignis(g, 'posten_verloren').length === 1, 'Posten gefallen (Lerche allein unterlegen): ort_gefallen, Posten verloren (posten_verloren), Ort frei');
   ok(vergleich(g), 'Weltstand = Vergleichslauf');
@@ -643,7 +643,7 @@ section('Keine Endlos-Neuauslösung', () => {
   // Niederlage mit stehender Flotte: bleibt die Crew, bleibt Ruhe (die Flotte ist noch da, die Szene nicht)
   const t2 = neu(); const g2 = t2.g; ab(g2);
   ohneFlotten(g2, '0505'); flotte(g2, '0505', 'ger', 17, { steht: true });
-  ankunft(g2, '0505'); run(g2, 21); g2.ship.hull = 0; run(g2, 0.3);
+  ankunft(g2, '0505'); run(g2, 21); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3);
   ok(!g2.simSzene && z(g2).flotten.some((f) => f.ort === '0505' && f.fraktion === 'ger'), 'nach der Niederlage (Lerche allein im freien Sektor) steht die Flotte noch im Hex');
   run(g2, 60);
   ok(!g2.simSzene && Szene.letzte(g2).ausgang === 'niederlage', 'Flotte noch da, Crew bleibt: keine Neuauslösung in 60 s');
@@ -806,7 +806,7 @@ section('Client-Runde M1: Szenenfunk läuft über den Lagefunk-Pfad (Konsolen, F
   ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g2, OSTIA); run(g2, 21);
   for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
-  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5);
+  require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5);
   const nl = t2.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage).map((m) => m.text);
   ok(nl.some((s) => /ist verloren/.test(s)) && nl.some((s) => /Lerche ist angeschlagen/.test(s)), 'Niederlage als Lagefunk');
 });
@@ -844,7 +844,7 @@ section('Client-Runde M2: Szenenzeile im Snapshot (flotte.sz) und Messung', () =
   ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g2, OSTIA); run(g2, 21);
   for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
-  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5);
+  require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5);
   const s2 = g2.snapshot().flotte;
   ok(s2 && s2.sz && s2.sz.p === 'n' && s2.sz.o === 'Ostia Nova', 'Niederlage: sz.p n mit Ort');
   // Szenenwechsel beendet die Ergebnisanzeige (kein Nachhall in einem anderen Hex)
@@ -946,7 +946,7 @@ section('Fixrunde M2: oberste Meldung nach dem Ende ist das Ergebnis, kein „wi
   ankunft(g2, OSTIA); run(g2, 21);
   const m0 = lageFunk(t2).length;
   for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
-  g2.ship.hull = 0; run(g2, 0.3); g2.ship.hull = 0; run(g2, 0.5); run(g2, 3);
+  require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5); run(g2, 3);
   const nl = lageFunk(t2).slice(m0).map((m) => m.text);
   const letzte = nl[nl.length - 1] || '';
   ok(/Ostia Nova ist verloren/.test(letzte), 'Niederlage: das LETZTE Lagefunk-Ereignis ist das Ergebnis „' + letzte + '“');
@@ -990,7 +990,7 @@ section('Fixrunde 3 (R-S1): der End-Tick sendet Funk für ein ANDERES Hex – di
     ankunft(g, OSTIA); run(g, 21);
     const n0 = lageFunk(t).length; kernZusatz = [fremd];
     for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
-    g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3); kernZusatz = [];
+    require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3); kernZusatz = [];
     const tx = lageFunk(t).slice(n0).map((m) => m.text);
     const iF = idx(tx, /gefallen/), iGrund = idx(tx, /Die Lerche ist angeschlagen|Die Verteidigung bricht zusammen/), iEr = idx(tx, /Ostia Nova ist verloren/);
     ok(iF >= 0, 'Niederlage: der End-Tick hat einen Wissens-Funk für ein anderes Hex erzeugt (' + tx.map((s) => s.slice(0, 26)).join(' | ') + ')');
@@ -1020,7 +1020,7 @@ section('Fixrunde 3 (R-S3): scheitert der End-Tick, gibt es keine Ausgangsmeldun
     ankunft(g, OSTIA); run(g, 21);
     const n0 = lageFunk(t).length;
     kernWirft = true;
-    try { for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3); } finally { kernWirft = false; }
+    try { for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3); } finally { kernWirft = false; }
     const tx = lageFunk(t).slice(n0).map((m) => m.text);
     ok(Besitz.besitzer(g, OSTIA) === 'rom', 'Niederlage, Tick wirft: Ostia Nova bleibt römisch');
     ok(!tx.some((s) => /ist verloren|Die Lerche ist angeschlagen|Verteidigung bricht/.test(s)), 'Niederlage, Tick wirft: keine „ist verloren“-Meldung (' + tx.map((s) => s.slice(0, 30)).join(' | ') + ')');
@@ -1046,7 +1046,7 @@ section('Fixrunde 3 (H-e): direkt/stumm hängen nicht an werte.sicht.verzoegerun
       ankunft(g, OSTIA); run(g, 21);
       const n0 = lageFunk(t).length;
       for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
-      g.ship.hull = 0; run(g, 0.3); g.ship.hull = 0; run(g, 0.5); run(g, 3);
+      require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3);
       const tx = lageFunk(t).slice(n0).map((m) => m.text);
       ok(/Ostia Nova ist verloren/.test(tx[tx.length - 1] || '') && tx.filter((s) => /Ostia Nova/.test(s) && /verloren|gefallen/.test(s)).length === 1 && !tx.some((s) => /belagert/.test(s)), 'Verzögerung ' + vz + ', Niederlage: Ergebnis zuletzt, einmal gemeldet, kein „belagert“ (' + tx.map((s) => s.slice(0, 22)).join(' | ') + ')'); }
   }

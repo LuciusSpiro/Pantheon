@@ -493,7 +493,7 @@ section('Verrat an einem römischen Hafen: die Verteidiger-Regel gilt nicht mehr
   const abw0 = z(g).hexe[OSTIA].abwehr;
   verrat(g);
   ok(g.simSzene.modus === 'verrat' && ex(g).length > 0, 'Verrat am Hafen');
-  run(g, CONFIG.simSzene.erschoepfungGnade + 8, () => { g.ship.hull = g.ship.hullMax; g.ship.shields && g.ship.shields.fill && g.ship.shields.fill(1e4); });   // die Lerche schießt nicht und fliegt nicht: Hülle halten, sonst endet es mit dem Notfallprotokoll
+  run(g, CONFIG.simSzene.erschoepfungGnade + 8, () => {  g.ship.shields && g.ship.shields.fill && g.ship.shields.fill(1e4); });   // die Lerche schießt nicht und fliegt nicht: Hülle halten, sonst endet es mit dem Notfallprotokoll
   ok(g.simSzene && g.simSzene.modus === 'verrat' && g.simSzene.vert.erschT == null, 'die Verteidigung „bricht“ nicht zusammen (ehemalige Verbündete sind keine Verteidiger mehr, keine Gnadenfrist, kein Niederlage-Zähler)');
   durchspielen(g, 600);
   ok(Szene.letzte(g).ausgang === 'sieg' && Szene.letzte(g).verrat === true, 'Sieg im Verrat am Hafen');

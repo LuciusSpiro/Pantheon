@@ -664,8 +664,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(A.waves.slice(1).some((w) => key(w) === 'korvette,raider') && A.waves.slice(1).some((w) => key(w) === 'korvette,pylon'), 'M3a-Wellen Korvette + Jäger und Pylon + Korvette bleiben');
     g.space.enemies = []; run(A.nextWaveDelay + 0.5);
     ok(g.arena.wave === A.waves.length + 1 && arenaEnemies(g).length === A.waves[0].length && g.arena.round === 2, `Welle ${A.waves.length + 1}: zyklisch von vorn (Runde 2)`);
-    g.ship.hull = 0; run(0.1);
-    ok(g.ship.hull > 0 && g.stats.emergencies === 1 && g.phase === 'play', 'Notfallprotokoll wie im Spiel, kein Ende');
+    require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(0.1);   // SYS-01 A1a: die Naht ersetzt den Hüllenwert 0
+    ok(g.stats.emergencies === 1 && g.phase === 'play', 'Notfallprotokoll (Naht) wie im Spiel, kein Ende');
     g.handleMessage(cs[0], { t: 'debug', cmd: 'spawn', kind: 'raider' });
     ok(cs[0].inbox.some((m) => m.kind === 'notice' && /deaktiviert/.test(m.text)), 'ohne --debug keine Debug-Befehle');
     { const sz = Buffer.byteLength(JSON.stringify(g.snapshot())); ok(sz <= SNAP_ZIEL && g.errors === 0, 'Snapshot ≤ ' + SNAP_ZIEL + ' B (' + sz + ' B), keine Fehler'); }
@@ -746,7 +746,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
   }
   // Lerche heil halten (Messung des Sperrfeuers, nicht der Folgeschäden) und im Feld zentrieren
   function keep(g) {
-    const sh = g.ship; sh.hull = 100;
+    const sh = g.ship;
     for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable && sh.systems[k] !== 'ok') sh.systems[k] = 'ok'; }
     sh.fireList.length = 0; sh.breachList.length = 0;
     const cx = g.space.w / 2, cy = g.space.h / 2;
@@ -885,7 +885,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
   {
     const res = {};
     for (const how of ['steht', 'kurs', 'weicht']) {
-      let shots = 0, hits = 0, hull = 0, absorbed = 0;
+      let shots = 0, hits = 0, hull = 0, absorbed = 0;   // hull = Integritätsschaden (S.schaden)
       for (let seed = 1; seed <= 6; seed++) {
         const { g, run } = spaceArena(2, 100 + seed);   // R1: zu zweit, damit die Waffenautomatik (nur ≤ 2 Spieler) wie im Messwert feuert
         const sh = g.ship;
@@ -907,7 +907,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
           gb.fireT = Math.min(gb.fireT, 0.5);
         });
         const S = g.stats.sperrfeuer || {};
-        shots += S.shots || 0; hits += S.hits || 0; hull += S.hull || 0;
+        shots += S.shots || 0; hits += S.hits || 0; hull += S.schaden || 0;
         if (g.errors) fails++;
       }
       res[how] = { shots, hits, rate: shots ? hits / shots : 0, hull };
@@ -916,7 +916,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(res.steht.rate >= 0.7, `stehende Lerche wird getroffen (${Math.round(res.steht.rate * 100)} %, Soll ≥ 70 %)`);
     ok(res.kurs.rate >= 0.6, `Lerche hält Kurs (½): wird getroffen (${Math.round(res.kurs.rate * 100)} %, Soll ≥ 60 %; war 70 vor den 30 % höheren Feuerraten)`);
     ok(res.weicht.rate <= res.kurs.rate * 0.7, `ausweichende Lerche deutlich seltener getroffen (${Math.round(res.weicht.rate * 100)} % ≤ 0,7 × ${Math.round(res.kurs.rate * 100)} %)`);
-    ok(res.weicht.hull < res.kurs.hull * 0.6 && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Hülle (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
+    ok(res.weicht.hull < res.kurs.hull * 0.6 && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Integrität (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
   }
 
   console.log('\n[S2b: Sperrfeuer – leichter Treffer, kein Systemschaden durch den Schild]');
@@ -934,7 +934,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       for (const k of Object.keys(sh.systems)) { const d = Object.getOwnPropertyDescriptor(sh.systems, k); if (d && d.writable) sh.systems[k] = 'ok'; }
     }
     ok(sys === 0, `200 Treffer auf Schild 1: kein Systemschaden (${sys})`);
-    ok(sh.hull === 100, `Schild fängt den Treffer (Hülle ${sh.hull})`);
+    ok(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === 100, 'Schild fängt den Treffer (Integrität 100 %)');
   }
 
   console.log('\n[S2b: Sperrfeuer auf Schützlinge – Breitseite schützt]');
@@ -990,7 +990,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     const F = g.C.spaceM3b.flightV2; const savedArena = F.arena; F.arena = false;   // Missions-KI (moveLegacy)
     try {
       const sh = g.ship; const W2 = g.space.w;
-      const pinShip = () => { sh.x = W2 - 40; sh.y = 40; sh.vx = 0; sh.vy = 0; sh.hull = 100; };
+      const pinShip = () => { sh.x = W2 - 40; sh.y = 40; sh.vx = 0; sh.vy = 0; };
       pinShip();
       const e = space.spawnEnemy(g, 'raider', { tag: 'ecke', x: W2 - 30, y: 30 }); e.hp = e.hpMax = 9999;
       e.x = W2 - 30; e.y = 30;

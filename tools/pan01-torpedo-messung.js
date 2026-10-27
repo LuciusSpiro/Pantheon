@@ -94,20 +94,20 @@ function teil2() {
   const T = Katalog.TORPEDO;
   const g = neuesSpiel(3); const sh = g.ship; g.god = false;
   const mess = (opt) => {
-    g.ship.hull = g.ship.hullMax; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = opt.schildNull ? 0 : 4;
+     for (let i = 0; i < 4; i++) g.ship.shields.current[i] = opt.schildNull ? 0 : 4;
     g.ship.lastDodgeT = opt.ausweichen ? g.time : -99;
-    const h0 = g.ship.hull; const s0 = g.ship.shields.current.slice();
+    const h0 = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt; const s0 = g.ship.shields.current.slice();
     space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche });
-    return { huelle: h0 - g.ship.hull, schild: s0.map((v, i) => v - g.ship.shields.current[i]).reduce((a, b) => a + b, 0) };
+    return { huelle: h0 - require('../server/sim/interior.js').integritaetSnapshot(g).gesamt, schild: s0.map((v, i) => v - g.ship.shields.current[i]).reduce((a, b) => a + b, 0) };
   };
   const r0 = mess({});
   console.log(`Lesart B (Kai 2026-10-18) gilt auch für die Lerche: ein Treffer bei vollen Schilden (4 je Sektor): Hülle −${f1(r0.huelle)} (abgeprallt), Schildabzug ${f1(r0.schild)}.`);
   const r = mess({ schildNull: true });
-  console.log(`Ein Treffer bei Schild 0 im getroffenen Sektor: Hülle −${f1(r.huelle)} von ${sh.hullMax} (${f1(r.huelle / sh.hullMax * 100)} %), Schildabzug ${f1(r.schild)}.`);
+  console.log(`Ein Treffer bei Schild 0 im getroffenen Sektor: Hülle −${f1(r.huelle)} von 100 (${f1(r.huelle / sh.hullMax * 100)} %), Schildabzug ${f1(r.schild)}.`);
   const a = mess({ ausweichen: true, schildNull: true });
   console.log(`Treffer direkt nach einer Ausweichrolle (Fenster ${CONFIG.spaceM3.dodgeWindow} s): Hülle −${f1(a.huelle)} (verfehlt).`);
-  const dreimal = (() => { g.ship.hull = g.ship.hullMax; g.ship.lastDodgeT = -99; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0; for (let i = 0; i < 3; i++) space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche }); return g.ship.hullMax - g.ship.hull; })();
-  console.log(`Drei Treffer in Folge (Schild 0): Hülle −${f1(dreimal)} (Notfallprotokoll bei 0, nie Game Over; ${f1(dreimal)} < ${sh.hullMax}).`);
+  const dreimal = (() => {  g.ship.lastDodgeT = -99; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0; for (let i = 0; i < 3; i++) space.etorpedoTreffer(g, { x: sh.x + 30, y: sh.y, dmg: T.gegenLerche }); return g.ship.hullMax - g.ship.hull; })();
+  console.log(`Drei Treffer in Folge (Schild 0): Hülle −${f1(dreimal)} (Notfallprotokoll bei 0, nie Game Over; ${f1(dreimal)} < 100).`);
   return r;
 }
 

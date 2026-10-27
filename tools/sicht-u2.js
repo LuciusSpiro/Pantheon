@@ -47,7 +47,7 @@ async function main() {
     const cmd = (c, extra) => A.evaluate(([c2, e]) => __game.send(Object.assign({ t: 'cmd', c: c2 }, e || {})), [c, extra]);
     const sitz = (k) => A.evaluate((c) => __game.send({ t: 'debug', cmd: 'sitz', console: c }), k);
     const shot = async (name) => { await sleep(400); await A.screenshot({ path: path.join(SHOTS, name + '.png') }); console.log('Bild', name); };
-    const ship = () => A.evaluate(() => { const s = __game.state.ship; return { x: Math.round(s.x), y: Math.round(s.y), hull: Math.round(s.hull), p: s.power && s.power.engines, f: __game.state.fracht && JSON.stringify(__game.state.fracht) }; });
+    const ship = () => A.evaluate(() => { const s = __game.state.ship; return { x: Math.round(s.x), y: Math.round(s.y), hull: s.integPct, p: s.power && s.power.engines, f: __game.state.fracht && JSON.stringify(__game.state.fracht) }; });
     // das Schiff in der Schicht festhalten (der Antrieb der Navigation hält die Höhe): Position alle 120 ms neu setzen
     const halt = async (sek, x, y) => { for (let t = 0; t < sek * 1000; t += 120) { await dbg('sl', `pos ${x} ${y}`); await sleep(120); } };
     await dbg('god', '', { on: false });

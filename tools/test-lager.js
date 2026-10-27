@@ -190,7 +190,7 @@ section('Beamen mit Systemtreffer (bricht ab) und Schildtreffer (bricht nicht ab
   S.g.ship.shields.current = [4, 4, 4, 4];
   S.g.rng.chance = () => false;   // kein Durchlass-Wurf: reiner Schildtreffer
   const r = damage.resolveHit(S.g, 0, 1);
-  ok(r.absorbed > 0 && r.systems.length === 0 && r.hull === 0, 'Schildtreffer vom Schild gefangen, kein System getroffen');
+  ok(r.absorbed > 0 && r.systems.length === 0 && r.rest === 0, 'Schildtreffer vom Schild gefangen, kein System getroffen');
   ok(!!S.g.fracht.halt, 'Schildtreffer bricht nicht ab');
   S.run(2.2);
   ok(Fracht.anBord(S.g) === 1, 'Beamen nach Schildtreffer fertig');

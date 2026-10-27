@@ -360,7 +360,7 @@ section('Lifts und Lafetten: nicht beschädigbar, Auskunft am Waffenplatz', () =
     if (kind === 'lift' || kind === 'ladder' || Maps.ship.solid(t.x, t.y) || Maps.deckOf(t.y) === 1) bad++;
   }
   ok(bad === 0, 'Stufe 3: 24000 Treffer-Orte nie auf Lift, Leiter, Wand oder dem Oberdeck');
-  for (let i = 0; i < 300; i++) { interior.hitSystems(g, i % 4, { chance: 1 }); }
+  for (let i = 0; i < 300; i++) { interior.trefferweg(g, i % 4, 1); }   // SYS-01 A1a: Trefferweg statt hitSystems
   ok(Object.keys(g.ship.systems).every((s) => interior.SYSTEM_ORDER.includes(s)) && !Object.keys(g.ship.systems).some((s) => /lift|ladder|leiter/.test(s)), 'Lifts und Leiter sind keine Systeme (kein Schaden, keine Reparatur)');
   ok(W.STATIONS.every((s) => !['lift', 'ladder'].includes(Maps.ship.info(s.x, s.y).kind)), 'keine Station auf Lift oder Leiter');
   // E an einer Lafette: Auskunft

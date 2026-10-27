@@ -325,15 +325,15 @@ section('Gegenseite: Gegner treffen die Lerche mit derselben Regel', () => {
   ok(T.me('zielsystemGetroffen').filter((e) => e.seite === 'lerche').length === 2, 'missionEvent zielsystemGetroffen (seite lerche) je Stufe');
   ok(space.engineSpeedFactor(g) === 0, 'engineSpeedFactor der Lerche = 0 (bestehendes Systemmodell, nichts Paralleles)');
   // ungezielt mit gelungenem Wurf
-  ship.systems.engines = 'ok'; delete ship.zsAt; T.run(0.1);
+  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
   g.rng.chance = () => true; hit(2, {}); g.rng.chance = chance;
   ok(eng() === 'damaged', 'ungezielt, Wurf gelungen: beschädigt');
   // kein Angriff (Mine, Brocken): nichts
-  ship.systems.engines = 'ok'; delete ship.zsAt; T.run(0.1);
+  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
   g.rng.chance = () => false; ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, 2, 2, { pierce: true }); g.rng.chance = chance;
   ok(eng() === 'ok', 'Treffer ohne opts.angriff (Mine, Brocken): Triebwerk heil');
   // ein Treffer schädigt das Triebwerk nicht doppelt (Durchlass-Tabelle und Regel im selben Treffer)
-  ship.systems.engines = 'ok'; delete ship.zsAt; T.run(0.1);
+  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
   const d0 = interior.damageSystem; let n = 0; interior.damageSystem = function (...a) { if (a[1] === 'engines') n++; return d0.apply(this, a); };
   ship.shields.current = [0, 0, 0, 0];
   g.rng.chance = () => true; space.shipHit(g, 2, 2, { angriff: true, zielt: 'antrieb' }); g.rng.chance = chance;
@@ -354,7 +354,7 @@ section('Gegenseite: Gegner-Geschosse und Ladungen tragen die Regel', () => {
   T.run(0.5);
   ok(ship.systems.engines === 'damaged', 'Geschoss eines Gegners mit Systemziel trifft das Heck: Triebwerk beschädigt');
   // ohne Systemziel des Schützen: ungezielt, Wurf verfehlt
-  ship.systems.engines = 'ok'; delete ship.zsAt; T.run(0.1);
+  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
   e.zielsystem = null;
   ship.shields.current = [0, 0, 0, 0];
   g.space.projectiles.push({ id: 'pr2', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 1, owner: e.id });
@@ -390,16 +390,16 @@ section('Regel als Funktion: Einzelfälle (Verträge der Funktionen, unabhängig
   // trifftLerche: nur durchschlagende Angriffe in Szenen mit Schalter, nur das Heck
   Zs.szeneAn(g, true);
   const k = (r, o) => Zs.trifftLerche(g, 2, r, o);
-  ship.systems.engines = 'ok'; delete ship.zsAt;
-  ok(k({ hull: 0, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Hüllenschaden (Schild gefangen): Triebwerk heil');
-  ok(k({ hull: 5, systems: [] }, { zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne opts.angriff (Mine, Brocken): Triebwerk heil');
-  ok(Zs.trifftLerche(g, 0, { hull: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche am Bug: Triebwerk heil');
+  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt;
+  ok(k({ rest: 0, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Hüllenschaden (Schild gefangen): Triebwerk heil');
+  ok(k({ rest: 5, systems: [] }, { zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne opts.angriff (Mine, Brocken): Triebwerk heil');
+  ok(Zs.trifftLerche(g, 0, { rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche am Bug: Triebwerk heil');
   Zs.szeneAn(g, false);
-  ok(k({ hull: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Szenenschalter: Triebwerk heil');
+  ok(k({ rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Szenenschalter: Triebwerk heil');
   Zs.szeneAn(g, true);
-  ok(k({ hull: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === true && ship.systems.engines === 'damaged', 'trifftLerche: durchschlagender gezielter Angriff am Heck: Triebwerk beschädigt');
+  ok(k({ rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === true && ship.systems.engines === 'damaged', 'trifftLerche: durchschlagender gezielter Angriff am Heck: Triebwerk beschädigt');
   T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  ok(k({ hull: 5, systems: [{ system: 'engines', state: 'damaged' }] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'damaged', 'derselbe Treffer hat das Triebwerk schon geschädigt (Durchlass-Tabelle): keine zweite Stufe');
+  ok(k({ rest: 5, systems: [{ system: 'engines', state: 'damaged', wechsel: true }] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'damaged', 'derselbe Treffer hat das Triebwerk schon geschädigt (Durchlass-Tabelle): keine zweite Stufe');
 });
 
 section('Gegenseite: Ladung der Gegner (Lanze) und Geschosse der Verbündeten tragen die Regel', () => {
