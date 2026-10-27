@@ -163,9 +163,28 @@
       mitte: { x: b.x + ws + g, y: b.y + hb + g, w: wc, h: hm },
     };
   }
+  // SYS-01 A1c: Statusleiste zeigt die schwächste eigene Seite aus ship.zonen (Server-Zahlen, keine zweite Zonentabelle). Zustand wie bei Systemen: 0 % zerstört, höchstens die Hälfte beschädigt.
+  function zonenZustand(pct) { if (!(pct >= 0)) return 'keine'; if (pct <= 0) return 'zer'; return pct <= 50 ? 'besch' : 'ok'; }
+  function schwaechsteSeite(ship) {
+    const z = ship && ship.zonen; if (!Array.isArray(z)) return null;
+    const namen = [TEXT.zone.bug, TEXT.zone.stb, TEXT.zone.heck, TEXT.zone.bb];   // Reihenfolge = interior.SECTOR_LABEL (0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord)
+    let best = null;
+    for (let i = 0; i < 4; i++) {
+      const p = z[i]; if (!(p >= 0)) continue;
+      if (!best || p < best.pct) best = { zone: i, name: namen[i], pct: p, zust: zonenZustand(p) };
+    }
+    return best;
+  }
+  // SYS-01 A1c: modul_N heißt nach dem Modul im Raum N (ship.mod = [[code, raum, an, lauf]], code = config.module.codes)
+  const MODUL_NAMEN = { f: 'Frachtraum', k: 'Krankenstation', w: 'Werkstatt' };
+  function modulName(ship, sys) {
+    const m = /^modul_([1-4])$/.exec(sys || ''); if (!m) return null;
+    const e = ship && Array.isArray(ship.mod) ? ship.mod.find((q) => q[1] === Number(m[1])) : null;
+    return (e && MODUL_NAMEN[e[0]]) || ('Modulraum ' + m[1]);
+  }
   function text(vorlage, werte) { return String(vorlage).replace(/\{(\w+)\}/g, (_, k) => (werte && werte[k] != null ? werte[k] : '')); }
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, zustand, lage, text, kontrast };
+  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, modulName, MODUL_NAMEN };
 });

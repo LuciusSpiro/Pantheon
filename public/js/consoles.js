@@ -87,12 +87,6 @@
     for (let i = 1; i < c.length; i++) if (f <= c[i][0]) { const a = c[i - 1], b = c[i], s = b[0] - a[0]; return s > 0 ? a[1] + (b[1] - a[1]) * (f - a[0]) / s : b[1]; }
     return c[c.length - 1][1];
   }
-  // M3b §4: Schild-Durchlass je Stärke (config.spaceM3b.shieldLeak) als Kurztext
-  // SYS-01 A1a (Übergang, Anzeige kommt mit Paket A3): die Durchlass-Tabelle entfällt. Ohne Schild trifft ein Treffer ein System, mit Schild keiner.
-  function leakText(s) {
-    if (s <= 0) return { short: 'offen', long: 'offen – Treffer geht ins System', col: '#FF5A4A' };
-    return { short: 'dicht', long: 'dicht – kein Systemschaden', col: '#7FE0C2' };
-  }
   function clamp(v, a, b) { return v < a ? a : v > b ? b : v; }
   function n(v, d) { return typeof v === 'number' && isFinite(v) ? v : (d || 0); }
   function sysDown(ship, sys) { const s = (ship.systems || {})[sys]; return s === 'broken' || s === 'offline'; }
@@ -441,10 +435,11 @@
       // ---- rechts: Schilde, Hülle, Reaktor, Marker
       y = 30;
       R.text(ctx, 'SCHILDE', rx, y, { color: PAL.brass });
-      const hullFrac = n(ship.integPct, 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität in % statt Hülle
-      R.text(ctx, 'SYS ' + Math.round(n(ship.integPct, 100)) + ' %', rx + rw, y, { color: hullFrac < 0.4 ? PAL.red : PAL.panelLight, align: 'right' }); y += 10;
+      const swz = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
+      const swCol = !swz ? PAL.panelLight : swz.zust === 'zer' ? PAL.red : swz.zust === 'besch' ? PAL.warn : PAL.panelLight;
+      R.text(ctx, swz ? swz.name + ' ' + swz.pct + ' %' : '–', rx + rw, y, { color: swCol, align: 'right' }); y += 10;
       this.drawShieldUp(ctx, rx + 34, y + 26, ship, view);
-      R.bar(ctx, rx + 74, y + 8, rw - 76, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
+      R.bar(ctx, rx + 74, y + 8, rw - 76, 5, swz ? swz.pct / 100 : 0, swCol);
       const reactor = ship.reactor || {};
       const rs = reactor.state || 'online';
       R.text(ctx, 'Reaktor', rx + 74, y + 20, { color: PAL.panelLight });
@@ -706,7 +701,7 @@
       }
       return out;
     },
-    // kompakte Schild-Übersicht (Captain-Konsole, nur zum Ansehen): Füllstand + Durchlass-Farbe, Ladung rot. Keine Knöpfe.
+    // kompakte Schild-Übersicht (Captain-Konsole, nur zum Ansehen): Füllstand, Ladung rot. Keine Knöpfe.
     shieldStrip(ctx, view, x, y) {
       const ship = view.state.ship || {}, sh = ship.shields || {};
       if (!sh.current) return;
@@ -720,14 +715,12 @@
       for (let j = 0; j < 4; j++) {
         const i = order[j];
         const bx = x + j * (bw + 1);
-        const lk = leakText(n(cur[i]));
         ctx.fillStyle = '#26313F'; ctx.fillRect(bx, y, bw, 15);
         if (n(cap[i], 4) <= 0) R.crossX(ctx, bx, y, bw, 15, 'rgba(224,71,60,0.6)', 1);
         else if (n(cap[i], 4) < 4) R.hatch(ctx, bx, y, bw, 15, 'rgba(242,201,76,0.25)', 4);
         const tl = tele[i];
         if (!tl) R.text(ctx, SHORT[i], bx + 2, y + 1, { color: PAL.star });
         for (let k = 0; k < 4; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], 4) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 2 + k * 4, y + 11, 3, 2); }
-        ctx.fillStyle = lk.col; ctx.fillRect(bx + bw - 4, y + 10, 2, 3);   // Durchlass-Ampel
         if (tl) {
           ctx.strokeStyle = PAL.red; ctx.setLineDash([3, 2]); ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); ctx.setLineDash([]);
           R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
@@ -1252,21 +1245,6 @@
       const capA = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
       const tele = this.teleLate(view);
       const t = view.time;
-      // M3b §4: Durchlass je Stärke – kleine Legende oben (Werte aus config.spaceM3b.shieldLeak)
-      {
-        let lx2 = a.x + 330;
-        R.text(ctx, 'Systemschaden je Treffer:', lx2, a.y + 15, { color: PAL.panelLight });
-        const leg = [[0, '0 offen'], [1, '1 dicht'], [2, '2 dicht'], [3, '3–4 dicht']];
-        let ly2 = a.y + 25;
-        for (const [s, lab] of leg) {
-          const lk = leakText(s);
-          const txt = lab;
-          ctx.fillStyle = lk.col; ctx.fillRect(lx2, ly2 + 2, 4, 4);
-          R.text(ctx, txt, lx2 + 6, ly2, { color: lk.col });
-          lx2 += R.measure(txt, 1) + 14;
-        }
-        void ly2;
-      }
       for (let i = 0; i < 4; i++) {
         const [px, py] = pos[i];
         const sel = this.sel.power === SEL_SCH0 + i;
@@ -1297,9 +1275,6 @@
         const plusR = n(alloc[i]) >= 4 ? 'Maximum (4)' : allocSum >= pool ? 'Schildpool erschöpft – mehr Energie auf Schilde' : null;
         R.button(ctx, bx + 4, by + 25, 16, 13, '-', { disabled: !!minusR, reason: minusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: -1 }); } });
         R.button(ctx, bx + bw - 20, by + 25, 16, 13, '+', { disabled: !!plusR, reason: plusR, onClick: () => { this.sel.power = SEL_SCH0 + i; this.cmd(view, 'technik.shield', { sector: i, delta: 1 }); } });
-        // Durchlass bei aktueller Stärke
-        const lk = leakText(n(cur[i]));
-        R.text(ctx, n(cur[i]) + ': ' + lk.short, px, by + bh + 2, { color: lk.col, align: 'center' });
       }
       return '↑/↓ wählen · ←/→ verteilen / Modul aus·an · U überladen · 1–2 Reiter';
     },
@@ -1307,7 +1282,7 @@
     damageRows(st) {
       const ship = st.ship || {};
       const list = (H.SYSTEM_ORDER && ship.systems && Object.keys(ship.systems).length > 6) || CFG.spaceM3 ? H.SYSTEM_ORDER : SYSTEMS;
-      const rows = list.filter(s => !/^lafette_/.test(s) || (ship.systems && s in ship.systems)).map(s => ({ target: s, sys: true, label: H.SYS_NAMES[s], state: (ship.systems || {})[s] || 'ok' }));   // PAN-01 C: Lafetten nur, wenn offen und bestückt
+      const rows = list.filter(s => !/^(lafette_|modul_)/.test(s) || (ship.systems && s in ship.systems)).map(s => ({ target: s, sys: true, label: H.sysName(s, ship), state: (ship.systems || {})[s] || 'ok' }));   // PAN-01 C: Lafetten nur, wenn offen und bestückt
       rows.push({ target: 'fire', label: 'Feuer löschen (' + ((ship.fires || []).length) + ')', state: (ship.fires || []).length ? 'broken' : 'ok' });
       rows.push({ target: 'breach', label: 'Lecks flicken (' + ((ship.breaches || []).length) + ')', state: (ship.breaches || []).length ? 'damaged' : 'ok' });
       rows.push({ target: null, label: 'Keine Priorität', state: 'ok' });

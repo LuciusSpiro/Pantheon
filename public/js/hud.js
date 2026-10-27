@@ -7,6 +7,9 @@
   const CFG = window.Shared_Config || {};
   const PROTO = window.Shared_Protocol || {};
   const PAL = R.PAL;
+  // SYS-01 A1c: schwächste eigene Seite für die Statusleiste; Farbe nach Zustand (Rot zerstört, Gelb beschädigt, sonst Creme)
+  const schwaechsteSeite = (ship) => (window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null);
+  const zonenFarbe = (sw) => (!sw ? PAL.star : sw.zust === 'zer' ? PAL.red : sw.zust === 'besch' ? PAL.warn : PAL.panelLight);
   const TILE = 32, VW = 640, VH = 360;
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
@@ -20,6 +23,8 @@
     weapon_bow: 'Bug-Waffe', battery_port: 'Backbord-Batterie', battery_stbd: 'Steuerbord-Batterie',
     // PAN-01 C: Lafetten der weiteren Waffenplätze (nur im Snapshot, wenn der Platz offen und bestückt ist; Ziffernblock-Platz im Namen)
     lafette_5: 'Lafette 5', lafette_7: 'Lafette 7', lafette_9: 'Lafette 9', lafette_1: 'Lafette 1', lafette_3: 'Lafette 3', lafette_2: 'Lafette 2',
+    // SYS-01 A1c: Modulsysteme in der Mitte; der Name nach dem Modul im Raum kommt aus sysName (PultSysteme.modulName)
+    modul_1: 'Modulraum 1', modul_2: 'Modulraum 2', modul_3: 'Modulraum 3', modul_4: 'Modulraum 4',
   };
   const SYS_SHORT = {
     reactor: 'Reaktor', engines: 'Triebwerk', shields: 'Schildgen.', weapons: 'Waffen', transfer: 'Transfer',
@@ -35,8 +40,10 @@
   };
   // Reihenfolge nach Ort: Bug – Backbord – Steuerbord – Heck – Mitte
   const SYSTEM_ORDER = ['weapon_bow', 'lafette_5', 'emitter_bow', 'thruster_port', 'battery_port', 'lafette_7', 'lafette_1', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'lafette_9', 'lafette_3',
-    'emitter_stbd', 'transfer', 'engines', 'emitter_aft', 'lafette_2', 'reactor', 'shields'];   // PAN-01 C: Lafetten nur anzeigen, wenn im Snapshot vorhanden (systemListe)
+    'emitter_stbd', 'transfer', 'engines', 'emitter_aft', 'lafette_2', 'reactor', 'shields', 'modul_1', 'modul_2', 'modul_3', 'modul_4'];   // SYS-01 A1c: Module zuletzt (Mitte)   // PAN-01 C: Lafetten nur anzeigen, wenn im Snapshot vorhanden (systemListe)
   // Systeme in Anzeigereihenfolge, die der Snapshot kennt (Lafetten fehlen, solange der Platz zu oder unbestückt ist)
+  // SYS-01 A1c: Anzeigename eines Systems; modul_N heißt nach dem Modul im Raum N
+  const sysName = (sys, ship) => (window.PultSysteme && PultSysteme.modulName(ship, sys)) || SYS_NAMES[sys] || sys;
   const systemListe = (ship) => SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s) || (ship && ship.systems && s in ship.systems));
   // HUD-Raster: obere Zeile Heck/Mitte/Bug, untere Zeile Backbord | Steuerbord
   const HUD_ROWS = [['engines', 'emitter_aft', 'reactor', 'shields', 'weapon_bow', 'emitter_bow'],
@@ -85,7 +92,7 @@
   }
 
   const Hud = {
-    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
+    SYS_NAMES, SYS_SHORT, SYS_CODE, SYSTEM_ORDER, systemListe, sysName, ITEM_NAMES, STATE_NAMES, CONSOLE_NAMES, SECTOR_NAMES, STATE_COL, roomOf, fmtTime, holIn,
     oda: { queue: [], cur: null },
     notices: [],
     radioFlash: null,
@@ -535,11 +542,12 @@
       const x0 = VW - 7 * 16 - 4;
       // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
       R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
-      const hullFrac = (ship.integPct != null ? ship.integPct : 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität
+      const sw = schwaechsteSeite(ship);   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
+      const swCol = zonenFarbe(sw);
       const yo = -18;
       R.icon(ctx, 'hull', x0 + 6, 31 + yo);
-      R.bar(ctx, x0 + 14, 28 + yo, 48, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
-      R.text(ctx, String(Math.round(ship.integPct != null ? ship.integPct : 100)), x0 + 65, 26 + yo, { color: PAL.star });
+      R.bar(ctx, x0 + 14, 28 + yo, 48, 5, sw ? sw.pct / 100 : 0, swCol);
+      R.text(ctx, sw ? sw.name + ' ' + sw.pct + '%' : '–', x0 + 65, 26 + yo, { color: swCol });
       const o2 = ship.o2 == null ? 100 : ship.o2;
       R.icon(ctx, 'o2', x0 + 6, 45 + yo);
       R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
@@ -630,9 +638,9 @@
       const ac = alert === 'red' ? PAL.red : alert === 'yellow' ? PAL.warn : PAL.moss;
       ctx.fillStyle = ac; ctx.beginPath(); ctx.arc(x0 + 48, 8, 3, 0, Math.PI * 2); ctx.fill();
       R.text(ctx, alert === 'red' ? 'Alarm rot' : alert === 'yellow' ? 'Alarm gelb' : 'normal', x0 + 54, 5, { color: ac });
-      const hullFrac = (ship.integPct != null ? ship.integPct : 100) / 100;   // SYS-01 A1a (Übergang): Gesamtintegrität
+      const swk = schwaechsteSeite(ship);   // SYS-01 A1c: schwächste eigene Seite (Balken in Zustandsfarbe)
       R.icon(ctx, 'hull', x0 + 6, 22);
-      R.bar(ctx, x0 + 14, 19, 60, 5, hullFrac, hullFrac < 0.4 ? PAL.red : PAL.panelLight);
+      R.bar(ctx, x0 + 14, 19, 60, 5, swk ? swk.pct / 100 : 0, zonenFarbe(swk));
       this.drawShieldMini(ctx, view, x0 + 84, 18);
       const tr = (ship.systems && ship.systems.transfer) || 'ok';
       R.icon(ctx, 'transfer', x0 + 6, 37, { color: STATE_COL[tr] });

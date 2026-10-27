@@ -796,7 +796,7 @@
     const PAL = R.PAL;
     const m = me();
     const con = K.stationOf(m);   // R1: aktives Interface
-    const name = (s) => H.SYS_NAMES[s] || s;
+    const name = (s) => H.sysName(s, (Client.state || {}).ship);
     // tele: Der Server schickt { kind:'tele', id, sector, dur, tkind|enemy }. Liegt das Feld kind fälschlich auf 'shot'/'emp',
     // erkennen wir das Ereignis an id + sector + dur.
     const isTele = ev.kind === 'tele' || ((ev.kind === 'shot' || ev.kind === 'emp') && ev.id != null && ev.sector != null && ev.dur != null);
@@ -1202,7 +1202,7 @@
       case 'codeResult': audio.play(ev.ok ? 'code_ok' : 'code_fail'); break;
       // M1 (tolerant: der Server darf diese Ereignisse schicken, muss aber nicht)
       case 'discovery': audio.play('discovery'); if (ev.text) H.pushNotice('Entdeckung: ' + ev.text, PAL.ice); break;
-      case 'emp': audio.play('emp'); H.pushNotice('EMP-Treffer: ' + (H.SYS_NAMES[ev.system] || ev.system || 'System') + ' kurz offline', PAL.red); break;
+      case 'emp': audio.play('emp'); H.pushNotice('EMP-Treffer: ' + (ev.system ? H.sysName(ev.system, (Client.state || {}).ship) : 'System') + ' kurz offline', PAL.red); break;
       case 'lore': audio.play('lore'); if (ev.text) H.pushOda(ev.text); break;
       case 'arrive': if (ev.loc) H.showArrival(R.locName(Client.state, ev.loc), ''); break;
       case 'm1end': case 'ending':
@@ -1683,7 +1683,7 @@
       // M3a §8.1: drei Wege – E flicken (ohne Teil), E Teil einbauen (mit Teil, auch an heilem fragilem System), R Minispiel
       const state = R.sysState(st, sys);
       const fragile = R.fragileOf(st, sys);
-      const name = H.SYS_NAMES[sys] || sys;
+      const name = H.sysName(sys, st.ship);
       const RC = (CFG.spaceM3 && CFG.spaceM3.repair) || {};
       const belt = !!(m.gear && m.gear.werkzeuggurt);
       const secs = (v) => String(Math.round(v * (belt ? 0.7 : 1) * 10) / 10).replace('.', ',') + ' s';
@@ -1861,8 +1861,8 @@
     const st = Client.state, m = me();
     if (!st || !m || m.zone !== 'ship' || m.console || Client.minigame) return;
     const state = R.sysState(st, sys);
-    if (state === 'offline') { H.pushNotice((H.SYS_NAMES[sys] || sys) + ' ist offline (EMP) – startet selbst neu', R.PAL.warn); return; }
-    if (state === 'ok' && !R.fragileOf(st, sys)) { H.pushNotice((H.SYS_NAMES[sys] || sys) + ' ist heil', R.PAL.mint); return; }
+    if (state === 'offline') { H.pushNotice(H.sysName(sys, st.ship) + ' ist offline (EMP) – startet selbst neu', R.PAL.warn); return; }
+    if (state === 'ok' && !R.fragileOf(st, sys)) { H.pushNotice(H.sysName(sys, st.ship) + ' ist heil', R.PAL.mint); return; }
     if (Client.actDown) { Client.actDown = false; send({ t: P.C.ACT || 'act', down: false }); }
     const mg = { system: sys, broken: state === 'broken', phase: 'wait', t0: Client.time, confirmT: null, pos: 0, dir: 1, speed: 0.85, hits: 0, errors: 0, lockUntil: -1, sent: false };
     mg.zone = mgZone(mg);

@@ -1182,6 +1182,20 @@ function integritaetSnapshot(game) {
   return { pct, gesamt: m > 0 ? Math.round(100 * v / m) : 0 };
 }
 
+// SYS-01 A1c: Integrität je Seite in % (0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord; -1 = keine aktive Systeme dort). Die Mitte zählt nicht als Seite.
+function zonenSnapshot(game) {
+  const out = [];
+  for (let z = 0; z < 4; z++) {
+    let v = 0; let m = 0;
+    for (const k of SYSTEM_ORDER) {
+      if (systemSector(k) !== z || !systemAktiv(game, k)) continue;
+      v += integOf(game, k); m += integMax(game, k);
+    }
+    out.push(m > 0 ? Math.round(100 * v / m) : -1);
+  }
+  return out;
+}
+
 // ODA-Ansage bei Systemschaden, gebündelt mit Abklingzeit spaceM3.repair.odaCooldown (§8.2)
 function queueSystemAnnounce(game, sys, state) {
   const ship = game.ship;
@@ -1455,7 +1469,7 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
-  integMax, integOf, setInteg, grundwert, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, integritaetVoll,
+  integMax, integOf, setInteg, grundwert, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,

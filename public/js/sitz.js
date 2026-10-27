@@ -209,7 +209,8 @@
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);
     }
-    werte.push(['SYS', String(Math.round(n(ship.integPct != null ? ship.integPct : 100))) + ' %', PAL.ice]);   // SYS-01 A1a (Übergang): Gesamtintegrität
+    const swz = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;   // SYS-01 A1c: schwächste eigene Seite statt Gesamtintegrität
+    werte.push(['ZONE', swz ? swz.name + ' ' + swz.pct + ' %' : '–', swz && swz.zust === 'zer' ? PAL.red : swz && swz.zust === 'besch' ? PAL.warn : PAL.ice]);
     let x = 120;
     for (const [k, v, col] of werte) {
       R.text(ctx, k, x, y + 2, { color: PAL.brass });

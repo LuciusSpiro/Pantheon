@@ -233,12 +233,12 @@
     const hi = window.Consoles && Consoles.helmInfo ? Consoles.helmInfo(ship) : null;
     const sp = Math.round(n(ship.speed, Math.hypot(n(ship.vx), n(ship.vy))));
     const sh = (ship.shields && ship.shields.current) || [0, 0, 0, 0];
-    const hull = Math.round(n(ship.integPct, 100)), hullMax = 100;   // SYS-01 A1a (Übergang): Gesamtintegrität in % statt Hülle
+    const sw = window.PultSysteme ? PultSysteme.schwaechsteSeite(ship) : null;   // SYS-01 A1c: schwächste eigene Seite statt HÜLLE/SYS
     const alarm = ship.alert || 'normal';
     const L = [
       { l: 'ANTRIEB', v: (hi ? hi.names[hi.stage] : '–') + '·' + sp, fn: 'drive', w: 1 },
       { l: 'SCHILDE', v: [0, 1, 2, 3].map((i) => n(sh[i])).join(' '), fn: 'shield', w: 1 },
-      { l: 'SYS', v: String(hull), fn: hull / hullMax < 0.4 ? 'weapon' : 'sensor', w: 1 },
+      { l: 'ZONE', v: sw ? sw.name + ' ' + sw.pct + ' %' : '–', fn: sw && sw.zust === 'zer' ? 'weapon' : sw && sw.zust === 'besch' ? 'warn' : 'sensor', w: 1 },
       { l: 'ALARM', v: alarm === 'red' ? 'ROT' : alarm === 'yellow' ? 'GELB' : 'GRÜN', fn: alarm === 'red' ? 'weapon' : alarm === 'yellow' ? 'warn' : 'shield', w: 0.8 },
     ];
     let x = 142; const total = L.reduce((a, s) => a + s.w, 0), avail = 634 - x - (L.length - 1) * 3;
