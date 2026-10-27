@@ -16,6 +16,7 @@
     "orbit_verbuendete_namen": {"wert": ["Aquila","Cornix","Lupa"], "einheit": "Schiffsnamen", "_hinweis": "Nur Namen, keine Personen."},
     "orbit_verbuendete_huelle": {"wert": 100, "einheit": "Prozent der Klassenhuelle (CONFIG.flotte.hull)", "_hinweis": "Eichung gegen die Gegner."},
     "orbit_notfall_bis_niederlage": {"wert": 1, "einheit": "Notfallprotokolle der Lerche", "_hinweis": "So viele Notfallprotokolle gelten im Orbit als Niederlage (kein Game Over: das Finale beginnt von vorn)."},
+    "orbit_szene": {"wert": {"klasse": 3, "fraktion": "ger", "volk": "ger"}, "einheit": "Staerkeklasse der Szene (Anzeige der Vorwarnung, Kernaussage), Fraktion und Volk der germanischen Seite", "_hinweis": "Zahlen und Kennungen, die die Orbit-Szene fuer Anzeige und Banner braucht (kriegslage-szene.js finaleAufbauen). Die Crewgroesse-Stufen der Aufstellung sind die Schluessel von orbit_wachschiffe (hoechster Schluessel = groesste Stufe)."},
     "orbit_sieg": {"wert": "flaggschiff_und_wachschiffe", "einheit": "Bedingung", "_hinweis": "Sieg = das Flaggschiff ist zerstoert UND kein Wachschiff steht mehr im Kampf (zerstoert oder abgezogen: faellt das Flaggschiff, brechen die Wachschiffe ab). Wachschiffe allein genuegen nie. Die Station ist kein Ziel: ihre Abwehr gilt mit dem Sieg als gebrochen, der Boden folgt; die Szene schreibt keine Sim-Wirkung und loest keinen Tick aus."}
   },
   "texte": {
@@ -28,20 +29,21 @@
       "orbit_sieg": "Der Orbit über Hrafnheim ist frei. Jetzt der Boden und der Schrein von Asgard.",
       "orbit_niederlage": "Die Flotte im Orbit hat uns geschlagen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
       "orbit_flucht": "Der Rückzug aus dem Orbit von Hrafnheim ist gelungen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
+      "sieg_nicht": "Der Sieg über Hrafnheim ließ sich nicht verbuchen: Die Hauptwelt gehört noch den Germanen. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
       "boden_nicht": "Die Landung auf Hrafnheim ist nicht möglich. Das Finale beginnt von vorn.",
       "crew_gefallen": "Der Einsatz auf Hrafnheim ist beendet, die Crew ist zurück. Das Finale beginnt von vorn, sobald die Crew bereit ist.",
       "sieg": "Hrafnheim ist gefallen. Die Hauptwelt der Germanen gehört Rom."
     },
     "anzeige": {
       "name": "Entscheidungsschlacht um Hrafnheim",
-      "text": "Das germanische Flaggschiff im Orbit, danach der Schrein von Asgard am Boden. Fällt die Crew oder flieht sie, beginnt das Finale von vorn.",
-      "gesperrt": "Ab dem Rang Tribun"
+      "text": "Das germanische Flaggschiff im Orbit, danach der Schrein von Asgard am Boden. Fällt die Crew oder flieht sie, beginnt das Finale von vorn."
     },
     "weigerung": {
       "modus": "Das gibt es nur in der Freien Fahrt.",
       "rang": "Die Entscheidungsschlacht gibt es erst ab dem Rang {rang}.",
       "laeuft": "Die Entscheidungsschlacht läuft schon.",
       "beendet": "Die Entscheidungsschlacht ist geschlagen.",
+      "aussen": "Das Außenteam ist noch unten. Erst alle an Bord holen, dann beginnt die Entscheidungsschlacht.",
       "szene": "Mitten in einem Gefecht geht das nicht. Erst die Lage beruhigen.",
       "kein_angebot": "Es liegt kein Angebot vor.",
       "schon_angefragt": "Die Anfrage läuft schon: noch {sek} Sekunden zum Bestätigen.",

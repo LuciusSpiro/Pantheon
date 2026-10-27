@@ -60,7 +60,8 @@ const MUTATIONEN = [
   [A, "if (game.weltstand && typeof game.weltstand.fact === 'function') game.weltstand.fact(FAKT, art, quelle || 'kriegslage');", "if (game.weltstand && typeof game.weltstand.fact === 'function') game.weltstand.fact(FAKT, art, quelle || 'kriegslage');\n  if (game.weltstand) game.weltstand.fact('szenario_ende_x', 1, 'x');", 'beenden schreibt zusaetzliche Fakten'],
   [A, "  zeigen(game, bauen(fakten(game), art));\n  return null;", "  beenden(game, art, 'debug');\n  return null;", 'Debug setzt den Marker (die Welt waere danach beendet)'],
   [A, "if (!game.weltsim) return 'Nur in der Freien Fahrt Sund.';", "", 'Debug ohne Freie-Fahrt-Pruefung'],
-  [A, "const SZENARIO = 'Freie Fahrt Sund';", "const SZENARIO = 'Palatina ist gefallen';", 'Untertitel doppelt den Titel'],
+  [A, "const szenario = () => String(daten().szenario || '');", "const szenario = () => 'Palatina ist gefallen';", 'Untertitel doppelt den Titel'],
+  [A, "const szenario = () => String(daten().szenario || '');", "const szenario = () => 'Freie Fahrt Sund';", 'Untertitel fest im Code statt aus den Daten (K7)'],
   // ---- Haken im Spiel
   [K, "  Abspann.beenden(game, wer === 'rom' ? 'palatina' : 'sieg', 'kriegslage');", "", 'Fall der Hauptwelt beendet das Szenario nicht'],
   [K, "wer === 'rom' ? 'palatina' : 'sieg'", "wer === 'rom' ? 'sieg' : 'palatina'", 'Palatina und Sieg vertauscht'],

@@ -24,7 +24,7 @@
 //                        der Kern ignoriert sie, angewandt wird sie vom Spielaufsatz (server/sim/faden.js, welt.sim.faeden). Der Prüfer hier prüft die Form (delta klein, Vorzeichen und Betrag wie der Grund, Grund bekannt);
 //                        dass der NSC existiert, prüft der Aufsatz (faden.haltungPruefen): der Sim-Zustand kennt keine Fäden.
 //   hauptwelt_erobert    { ort, an: fraktion }                 (SUND-04a-3) die Crew erobert die Hauptwelt eines Feindes von `an` im Finale (ohne Sim-Belagerung: die Sim belagert Hrafnheim praktisch nie, gemessen). Wie erobern(): Ereignisse hafen_gefallen + hauptwelt_gefallen.
-//                        NUR gültig, solange das Finale läuft: der Prüfer bekommt den Finale-Zustand als 3. Parameter `kontext` ({ finale: 'orbit' | 'boden' | ... }, kriegslage.js tickMit). Ohne Kontext oder ohne laufendes Finale: abgelehnt, nie eine Auswirkung. Der Kern kennt das Finale nicht.
+//                        NUR gültig in der Finale-Phase 'boden' (der Orbit schreibt nie eine Sim-Wirkung): der Prüfer bekommt den Finale-Zustand als 3. Parameter `kontext` ({ finale: 'orbit' | 'boden' | ... }, kriegslage.js tickMit). Ohne Kontext, im Orbit oder ohne laufendes Finale: abgelehnt, nie eine Auswirkung. Der Kern kennt das Finale nicht.
 // Das Merkmal crew fehlt in Altständen und im Prototyp (additiv, optional); postenVerlieren räumt es weg (kern.js).
 // Neue Wirkung = neuer Eintrag in KATALOG (pruefe + anwenden), kein Umbau. pruefe liefert null (gültig) oder den Grund der Ablehnung.
 const Daten = require('./daten.js');
@@ -35,7 +35,7 @@ const POSTEN = require('../../content/welt/posten-werte.json').werte;   // Daten
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const SCHICKSALE = ['entkommen', 'gefallen'];
 const NAME_MAX = 60;
-const FINALE_PHASEN = ['orbit', 'boden'];   // Phasen des Finales (server/sim/finale.js), in denen hauptwelt_erobert gilt
+const FINALE_PHASEN = ['boden'];   // Phasen des Finales (server/sim/finale.js), in denen hauptwelt_erobert gilt: nur der Boden (K2; der Orbit schreibt nie eine Sim-Wirkung)
 const istZahl = (x) => typeof x === 'number' && Number.isFinite(x);
 const istId = (x) => Number.isInteger(x) && x >= 1;
 let H = null;   // Helfer des Kerns (melde, erobern, ...), von installiere() gesetzt

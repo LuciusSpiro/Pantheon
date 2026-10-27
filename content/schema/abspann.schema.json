@@ -8,6 +8,7 @@
   "properties": {
     "format": { "const": "abspann/1" },
     "_hinweis": { "type": "string" },
+    "szenario": { "type": "string", "minLength": 1, "maxLength": 60, "description": "Untertitel unter dem Titel des Abspanns (K7: aus den Daten statt fest im Code)" },
     "abspaenne": {
       "type": "object",
       "additionalProperties": false,

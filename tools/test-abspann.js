@@ -243,7 +243,12 @@ section('beenden: idempotent, Marker auch ungedockt gespeichert', () => {
   ok(erst === true && g.phase === 'end', 'beenden gibt true, Phase end');
   ok(g.abspann && g.abspann.schluss === SCHLUSS && g.abspann.titel === DOC.abspaenne.palatina.titel && Array.isArray(g.abspann.bloecke) && g.abspann.bloecke.length >= 1, 'Abspann am Spiel: Titel, Bloecke, exakter Schluss');
   ok(endings(c).length === 1 && endings(c)[0].abspann === true, 'genau ein ending-Ereignis');
-  ok(endings(c)[0].title === 'Freie Fahrt Sund' && endings(c)[0].title !== g.abspann.titel, 'Untertitel unter dem Titel ist das Szenario („Freie Fahrt Sund“), nicht der Titel noch einmal');
+  ok(endings(c)[0].title === 'Freie Fahrt Sund' && endings(c)[0].title === DOC.szenario && endings(c)[0].title !== g.abspann.titel, 'Untertitel unter dem Titel ist das Szenario („Freie Fahrt Sund", aus den Daten szenario), nicht der Titel noch einmal');
+  {   // K7: der Untertitel kommt aus den Daten, nicht fest aus dem Code
+    const alt = Abspann.daten().szenario;
+    Abspann.daten().szenario = 'Probe-Szenario';
+    try { const k = neu({ dir: freshDir(), seed: 4 }); ungedockt(k.g); Abspann.beenden(k.g, 'sieg', 'test'); ok(endings(k.c)[0] && endings(k.c)[0].title === 'Probe-Szenario', 'Untertitel folgt den Daten (szenario geaendert: ' + (endings(k.c)[0] && endings(k.c)[0].title) + ')'); } finally { Abspann.daten().szenario = alt; }
+  }
   ok(gleich(Object.keys(g.weltstand.data.fakten).sort(), faktenVor.concat(['szenario_ende']).sort()), 'beenden schreibt genau einen Fakt (szenario_ende) in den Weltstand');
   const kopie1 = JSON.stringify(g.abspann);
   ok(Abspann.beenden(g, 'palatina') === false && Abspann.beenden(g, 'sieg') === false, 'zweiter Aufruf (auch mit anderer Art): false');

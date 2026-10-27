@@ -670,10 +670,12 @@ function debug(game, args) {
 //  - SIEG: Flaggschiff zerstört UND kein Wachschiff mehr im Kampf (zerstört oder abgezogen: mit dem Flaggschiff brechen sie ab). Die Station ist kein Ziel; ihre Abwehr gilt mit dem Sieg als gebrochen.
 //  - NIEDERLAGE: Notfallprotokoll der Lerche (orbit_notfall_bis_niederlage), auch mit lebenden Verbündeten: die Schlacht gehört der Crew. FLUCHT: Sprung, Notsprung, Szenenwechsel.
 //  - Keine Sim-Wirkung, kein Ruf, kein eigener Sim-Tick (ein Sprung als Flucht hat seinen eigenen). Das Ende meldet sich GENAU EINMAL über Finale.orbitEnde(game, 'sieg'|'niederlage'|'flucht').
-//  - Eigener Zufallsstrom (Zufall, Seed aus Hex und Versuch): die Szene würfelt nie über game.rng und nie über den Sim-Strom. Nicht speicherbar: game.simSzene und game.weltsim.finale stehen nicht im Weltstand.
+//  - Eigener Zufallsstrom (Zufall, Seed aus Hex und Versuch) für die Entscheidungen der Szene selbst (Aufstellungswinkel); der Sim-Strom bleibt unberührt. Die Waffen- und Spawn-Würfe der Gegner (space.spawnEnemy, Flotte) ziehen wie in jeder anderen Sim-Szene aus game.rng: die Szene selbst zieht dort nie direkt. Nicht speicherbar: game.simSzene und game.weltsim.finale stehen nicht im Weltstand.
 const finaleD = () => Finale.WERTE;
 const finaleT = () => require('../../content/welt/finale-werte.json').texte.orbit;
-const finaleCrew = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+// Crewgroesse der Orbit-Aufstellung: verbundene Spieler, begrenzt auf die groesste Stufe, die die Daten kennen (K7: keine feste 3; werte.orbit_wachschiffe hat je Stufe einen Eintrag)
+const finaleStufen = () => Object.keys(finaleD().orbit_wachschiffe.wert).map(Number).filter(Number.isInteger);
+const finaleCrew = (game) => Math.max(1, Math.min(Math.max(1, ...finaleStufen()), game.players.filter((p) => p.connected).length));
 const finaleListe = (w, n) => (w.wert[String(n)] || []).slice();
 // Welle 5, M1: Meldung (ankunft, sieg: Messing) und Gefahr (gegner, niederlage: Rot) als zwei benannte Wege
 function finaleFunkText(game, weg, key, vars, reiter) {
@@ -686,7 +688,23 @@ const finaleVars = (S) => ({ schiff: S.flagg.name, kommandant: S.kommandant.name
 const klemme = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
 
 // -> Szene | null (die Szene baut nichts, wenn eine Voraussetzung fehlt: das Finale startet dann nicht)
-function finaleStarten(game, { hex } = {}) {
+// K6: wirft der Aufbau (z. B. Flotte.aufstellen), bleibt keine halbe Szene zurueck: simSzene weg, Verbuendete und Flottenzustand weg, das Schiff zurueck am Ausgangsort. Der Fehler wird gezaehlt;
+// Finale.starten sieht null und laesst alles, wie es war.
+function finaleStarten(game, opt) {
+  const merk = { von: null };
+  try { return finaleAufbauen(game, opt || {}, merk); } catch (e) {
+    if (game.countError) game.countError('finale-orbit-aufbau', e);
+    try {
+      const S = game.simSzene;
+      if (S && S.modus === 'finale') aufraeumen(game, S);
+      game.simSzene = null;
+      endeAufraeumen(game);
+      if (merk.von && game.ship && game.ship.scene !== merk.von) require('./space.js').enterScene(game, merk.von, { docked: false });
+    } catch (e2) { if (game.countError) game.countError('finale-orbit-abbau', e2); }
+    return null;
+  }
+}
+function finaleAufbauen(game, { hex } = {}, merk) {
   const ws = game.weltsim;
   if (!ws || !hex || !game.ship || !ws.finale || ws.finale.phase !== 'orbit') return null;   // nur aus Finale.starten (die Phase steht dann auf orbit)
   if ((game.simSzene && game.simSzene.phase !== 'ende') || game.fadenSzene || (game.space && game.space.verfolgung)) return null;   // keine zwei Szenen übereinander
@@ -703,6 +721,7 @@ function finaleStarten(game, { hex } = {}) {
   game.simSzeneEnde = null;
   // Ankunft im Orbit (wie ein Sprung, ohne Sim-Tick): die Crew ist freiwillig hier, das Terminal bleibt zurück
   const von = game.ship.scene;
+  merk.von = von;
   try { const interior = require('./interior.js'); for (const p of game.players) if (p.zone === 'away') interior.placeOnShipPad(game, p); } catch (e) { if (game.countError) game.countError('finale-orbit-pad', e); }
   require('./space.js').enterScene(game, ort, { docked: false });
   if (game.ship.scene !== ort) return null;
@@ -712,7 +731,7 @@ function finaleStarten(game, { hex } = {}) {
   const vorlauf = Math.max(0, Number(D.orbit_vorwarnung.wert) || 0);
   const seed = Plan.seedAus('finale-orbit', hex, ws.finale.versuche || 0);
   const S = { id: game.simSzeneN, modus: 'finale', hex, ort: null, ortName: Sektoren.hexName(hex) || loc.name || hex, szene: ort, phase: 'vorwarnung',
-    klasse: 3, fraktion: 'ger', angreifer: [], summe: 0, seed, plan: null, kommandant: { name: String(fl.kommandant), volk: 'ger', zug: '' }, kills: {}, killPunkte: 0, flaggGefallen: false,
+    klasse: Number(D.orbit_szene.wert.klasse), fraktion: String(D.orbit_szene.wert.fraktion), angreifer: [], summe: 0, seed, plan: null, kommandant: { name: String(fl.kommandant), volk: String(D.orbit_szene.wert.volk), zug: '' }, kills: {}, killPunkte: 0, flaggGefallen: false,
     flagg: { kind: fl.klasse, name: String(fl.name) }, wach, nWach: wach.length, nVerb: 0, rng: { zufall: Zufall.startzustand(seed) },
     t0: game.time, vorlauf, erinnern: (D.orbit_erinnerung.wert || []).filter((x) => x < vorlauf).sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false, crew: n,
     vert: { gruppen: [], schiffe: [], ges: 0, verloren: 0, lebend: 0, n0: 0, erschT: null } };
@@ -742,7 +761,7 @@ function finaleGegnerAufstellen(game, S) {
   const D = finaleD(); const sp = game.space; const fl = D.orbit_flaggschiff.wert; const L = game.ship;
   const spawn = (kind, x, y) => {
     const px = klemme(x, 60, sp.w - 60), py = klemme(y, 60, sp.h - 60);
-    return require('./space.js').spawnEnemy(game, kind, { x: px, y: py, angle: 0, facing: Math.atan2(L.y - py, L.x - px), tag: FINALE_TAG, ziel: 'auto', volk: 'ger' });
+    return require('./space.js').spawnEnemy(game, kind, { x: px, y: py, angle: 0, facing: Math.atan2(L.y - py, L.x - px), tag: FINALE_TAG, ziel: 'auto', volk: String(D.orbit_szene.wert.volk) });
   };
   const m = fl.mitte || { x: sp.w * 0.6, y: sp.h * 0.5 };
   const f = spawn(fl.klasse, m.x, m.y);

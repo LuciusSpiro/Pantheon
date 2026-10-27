@@ -23,8 +23,8 @@
     "boss": 1,
     "nach_crew": {
       "wert": { "1": 4, "2": 6, "3": 8, "4": 10 },
-      "einheit": "Wachen je Zahl der Spieler im Aussenteam bei der Landung, ohne den Waechter (Boss, immer 1); jede Zahl darueber nimmt den hoechsten Eintrag",
-      "_hinweis": "Solo vier Wachen und der Waechter, zu dritt acht. Rollen und Mischung bestimmt der Endkampf (nur Rollen, die die Crew schon kennt). Die Zahl wird einmal bei der Landung festgelegt."
+      "einheit": "Wachen je Crewgroesse (verbundene Spieler, wie die Orbit-Skalierung), ohne den Waechter (Boss, immer 1); jede Zahl darueber nimmt den hoechsten Eintrag",
+      "_hinweis": "Solo vier Wachen und der Waechter, zu dritt acht. Rollen und Mischung bestimmt der Endkampf (nur Rollen, die die Crew schon kennt). Die Zahl wird einmal bei der Landung festgelegt und zaehlt die verbundenen Spieler, nicht die, die in diesem Takt schon unten sind (die Crew beamt gestaffelt hinunter)."
     },
     "alle_abziehen_nach_boss": true
   },

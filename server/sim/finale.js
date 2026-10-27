@@ -12,7 +12,7 @@
 // Zustand: game.weltsim.finale = { phase, angebot: 0|1, anfrage: { bis } | null, frei_ab: Tick, versuche: Zahl } – NICHT im Weltstand (toSave kennt ihn nicht): Laden und Neustart = phase null, das Angebot
 // entsteht neu (beim nächsten Tick). Ein beendetes Finale (Fakt szenario_ende) gehört dem Paket Abspann.
 //
-//   bereit(game)                         -> { ok, grund: null | 'rang' | 'modus' | 'laeuft' | 'beendet' | 'szene' }
+//   bereit(game)                         -> { ok, grund: null | 'rang' | 'modus' | 'laeuft' | 'beendet' | 'szene' | 'aussen' }   (aussen: ein verbundener Spieler ist im Aussenteam; das Angebot bleibt, der Start wartet)
 //   anbieten(game)                       Angebot machen (Funk): -> bool (neu entstanden)
 //   waehlen(game) / bestaetigen(game) / ablehnen(game)    Befehle finale.waehlen (Anfrage), finale.bestaetigen, finale.ablehnen: -> null | { code, text }
 //   phase(game)                          -> null | 'orbit' | 'boden' | 'ende'
@@ -73,6 +73,7 @@ function bereit(game) {
   if (p) return { ok: false, grund: 'laeuft' };
   if ((game.simSzene && game.simSzene.phase !== 'ende') || game.fadenSzene) return { ok: false, grund: 'szene' };
   if (!rangOk(game)) return { ok: false, grund: 'rang' };
+  if (game.players.some((p) => p.connected && p.zone === 'away')) return { ok: false, grund: 'aussen' };   // S3: der Start risse sonst Spieler aus einem laufenden Aussen-Einsatz (kriegslage-szene.js finaleStarten setzt alle auf die Pads); die Crew holt das Team erst zurueck
   return { ok: true, grund: null };
 }
 const weigerung = (grund) => fehl(grund, { rang: Ruf.rangName(W.mindestrang.wert) });
@@ -84,7 +85,8 @@ const funkMeldung = (game, key, vars) => OKFunk.meldung(game, T.sprecher, fmt((T
 // ---------- Angebot
 function angebotSetzen(game) {   // ohne Funk (Neubeginn sagt es selbst)
   const s = zustandVon(game);
-  if (!s || s.angebot || !bereit(game).ok || tickZahl(game) < s.frei_ab) return false;
+  const b = bereit(game);
+  if (!s || s.angebot || (!b.ok && b.grund !== 'aussen') || tickZahl(game) < s.frei_ab) return false;   // 'aussen' sperrt nur den Start, nicht das Angebot (es bleibt sichtbar)
   s.angebot = 1;
   return true;
 }
@@ -93,10 +95,19 @@ function anbieten(game) {
   funkMeldung(game, 'angebot');
   return true;
 }
+// Verfall der Anfrage: gemeldet, sobald die Frist um ist (game.js ruft das in jedem Schritt, solange eine Anfrage offen ist), nicht erst im naechsten Sim-Tick (K5: der kommt erst mit dem
+// naechsten Sprung, eventuell Minuten spaeter und an einem anderen Ort). nachTick ruft es ebenfalls (Absicherung, z. B. fuer Tests ohne Schritte).
+function verfall(game) {
+  const s = game.weltsim && game.weltsim.finale;
+  if (!s || !s.anfrage || anfrageRest(game)) return false;
+  s.anfrage = null;
+  if (s.angebot) funkMeldung(game, 'angefragt_verfallen');
+  return true;
+}
 function nachTick(game) {
   const s = zustandVon(game);
   if (!s) return;
-  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funkMeldung(game, 'angefragt_verfallen'); }
+  verfall(game);
   if (s.angebot && !rangOk(game)) { s.angebot = 0; s.anfrage = null; }   // fällt der Rang, zieht Rom das Angebot zurück (ohne Pause, ohne Folgen)
   anbieten(game);
 }
@@ -174,9 +185,13 @@ function bodenEnde(game, ausgang) {
   // Fakt finale_gespielt VOR allem, was den Abspann auslöst: die Siegwirkung lässt Hrafnheim fallen, und kriegslage.hauptweltFaellt ruft Abspann.beenden('sieg')
   // schon innerhalb von szeneAbschliessen; der Abspann liest den Fakt genau dort (idempotent, ein späterer Aufruf ändert nichts mehr).
   try { if (game.weltstand && typeof game.weltstand.fact === 'function') game.weltstand.fact('finale_gespielt', true, 'finale'); } catch (e) { if (game.countError) game.countError('finale-fakt', e); }
-  // GENAU EIN Sim-Tick mit der Siegwirkung; der Prüfer lässt sie nur zu, solange phase 'boden' (oder 'orbit') ist, also VOR dem Wechsel auf 'ende'
+  // GENAU EIN Sim-Tick mit der Siegwirkung; der Prüfer lässt sie nur zu, solange phase 'boden' ist (K2), also VOR dem Wechsel auf 'ende'
   const Kriegslage = require('./kriegslage.js');
   try { Kriegslage.szeneAbschliessen(game, { wirkungen: [{ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: ZIEL.an }], wo: 'finale' }); } catch (e) { if (game.countError) game.countError('finale-sieg', e); }
+  // K1: der Abspann Sieg laeuft nur, wenn Hrafnheim WIRKLICH gefallen ist (Besitzer = ZIEL.an). Warf der Siegestick oder lehnte der Pruefer die Wirkung ab, beginnt das Finale von vorn
+  // (wie bei einem nicht aufbaubaren Boden), statt dass die Crew einen Sieg ueber eine Hauptwelt sieht, die noch germanisch ist.
+  const hx = game.weltsim.zustand && game.weltsim.zustand.hexe && game.weltsim.zustand.hexe[ZIEL.hex];
+  if (!hx || hx.besitzer !== ZIEL.an) { neubeginn(game, 'sieg_nicht'); return true; }
   s.phase = 'ende'; s.angebot = 0; s.anfrage = null;
   funkMeldung(game, 'sieg');
   try { abspann().beenden(game, 'sieg'); } catch (e) { if (game.countError) game.countError('finale-abspann', e); }
@@ -220,4 +235,4 @@ function debug(game, args) {
   return 'finale [status | angebot | start | orbit <ausgang> | boden <ausgang> | reset]';
 }
 
-module.exports = { WERTE: W, neu, bereit, anbieten, nachTick, waehlen, bestaetigen, ablehnen, phase, starten, orbitEnde, bodenEnde, snapshot, schluessel, debug, ersetzen };
+module.exports = { WERTE: W, neu, bereit, anbieten, nachTick, verfall, waehlen, bestaetigen, ablehnen, phase, starten, orbitEnde, bodenEnde, snapshot, schluessel, debug, ersetzen };

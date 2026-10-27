@@ -184,6 +184,25 @@ section('Beamen und Gegner: genau einmal, nach Crewgroesse', () => {
   ok(w[0] < w[1] && w[1] < w[2], 'Skalierung: mehr Spieler, mehr Wachen ' + w.join(' < '));
 });
 
+// S1 des Finale-Reviews: die Crew beamt gestaffelt; die Landung startet im ersten Takt mit irgendeinem Spieler unten und zaehlte bisher nur diese
+section('Gestaffeltes Hinunterbeamen: Wachen nach Crewgroesse, nicht nach den ersten unten', () => {
+  for (const crew of [2, 3]) {
+    const t = neu(crew); const g = t.g;
+    imBoden(t);
+    const p0 = t.ps[0]; interior.placeOnShipPad(g, p0, 0); p0.console = 'transfer';
+    g.handleMessage(t.cs[0], { t: 'cmd', c: 'transfer.down' }); run(g, 6);
+    ok(unten(t).length === 1 && g.finaleBoden.gelandet, `${crew}: erst ein Spieler unten, die Landung steht`);
+    ok(lebende(t).length === FB.wachenFuer(crew) + 1, `${crew}: Wachen nach der Crewgroesse (${FB.wachenFuer(crew)}) trotz nur einem Spieler unten (${lebende(t).length - 1})`);
+    t.fertig();
+  }
+  const t = neu(3); imBoden(t);
+  t.ps[2].connected = false;   // ein getrennter Spieler zaehlt nicht zur Crew (wie im Orbit)
+  const p0 = t.ps[0]; interior.placeOnShipPad(t.g, p0, 0); p0.console = 'transfer';
+  t.g.handleMessage(t.cs[0], { t: 'cmd', c: 'transfer.down' }); run(t.g, 6);
+  ok(lebende(t).length === FB.wachenFuer(2) + 1, 'zwei verbundene Spieler von drei: Wachen fuer 2 (' + (lebende(t).length - 1) + ')');
+  t.fertig();
+});
+
 section('Schrein nur nach dem Waechter', () => {
   const t = neu(2); const g = t.g;
   imBoden(t); hinunter(t);

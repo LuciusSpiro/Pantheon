@@ -40,7 +40,7 @@ function sperrgrund(game, lpId) {
   return aktiv(game) && S && !S.ende && S.lp === lpId ? null : T.sperrgrund;
 }
 
-// Wachen je Zahl der Spieler im Aussenteam (nach_crew: hoechster Eintrag gilt darueber, kleinster darunter)
+// Wachen je Crewgroesse (nach_crew: hoechster Eintrag gilt darueber, kleinster darunter)
 function wachenFuer(n) {
   const w = G.nach_crew.wert;
   const keys = Object.keys(w).map(Number).sort((a, b) => a - b);
@@ -48,6 +48,9 @@ function wachenFuer(n) {
   for (const x of keys) if (x <= n) k = x;
   return w[String(k)];
 }
+// Crewgroesse = verbundene Spieler (wie die Orbit-Skalierung, finaleCrew in kriegslage-szene.js), NICHT die Zahl derer, die gerade unten sind: die Crew beamt gestaffelt hinunter,
+// und die Landung startet im ersten Takt mit irgendeinem Spieler unten (S1 des Finale-Reviews)
+const crewGroesse = (game) => game.players.filter((p) => p.connected).length;
 const unten = (game, lp) => game.players.filter((p) => p.zone === 'away' && game.away && game.away.map === lp);
 
 // ---------- Start
@@ -117,7 +120,7 @@ function update(game) {
   if (!aw) { ende(game, S, 'crew_gefallen', 'karte_weg'); return; }
   const da = unten(game, S.lp);
   if (!S.gelandet) {
-    if (da.length) { S.gelandet = true; landung(game, S, aw, da.length); }
+    if (da.length) { S.gelandet = true; landung(game, S, aw, crewGroesse(game)); }
     else if (game.ship.scene !== S.ort) ende(game, S, 'crew_gefallen', 'abbruch');   // das Schiff ist vor der Landung weggeflogen
     return;
   }

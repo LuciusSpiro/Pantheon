@@ -90,7 +90,7 @@ section('Daten', () => {
   ok(/hart|Gefahr|gefährlich/i.test(T.funk.angebot + T.anzeige.text), 'die Gefahr wird vorab angekündigt');
   ok(!/müsst jetzt|Strafe|Abzug|Pflicht/i.test(JSON.stringify(T)), 'kein Text droht oder verpflichtet (kein Zwang)');
   ok(!/\b(Ada|Bo|Cem)\b/.test(JSON.stringify(T)), 'keine Spielernamen in den Texten');
-  ok(['modus', 'rang', 'laeuft', 'beendet', 'szene', 'kein_angebot', 'schon_angefragt', 'keine_anfrage', 'start'].every((k) => T.weigerung[k]), 'Weigerungstexte da');
+  ok(['modus', 'rang', 'laeuft', 'beendet', 'szene', 'aussen', 'kein_angebot', 'schon_angefragt', 'keine_anfrage', 'start'].every((k) => T.weigerung[k]), 'Weigerungstexte da');
   ok(!Object.keys(RW.quellen.wert).some((k) => /finale/i.test(k)), 'ruf-werte.json hat keine Ruf-Quelle fürs Finale (Ablehnen und Ignorieren kosten nichts)');
 });
 
@@ -318,7 +318,8 @@ section('Wirkung hauptwelt_erobert', () => {
   ok(Kern.pruefeWirkung(zz, wk).ok === false && /Finale/.test(Kern.pruefeWirkung(zz, wk).grund), 'ohne Kontext (ohne Finale): abgelehnt');
   for (const f of [null, undefined, 'ende', 'quatsch']) ok(Kern.filtereWirkungen(zz, [wk], { finale: f }).gueltig.length === 0, `Finale-Phase ${f}: abgelehnt`);
   ok(Kern.filtereWirkungen(zz, [wk], {}).gueltig.length === 0 && Kern.filtereWirkungen(zz, [wk]).gueltig.length === 0, 'ohne Kontext und mit leerem Kontext: abgelehnt');
-  for (const f of ['orbit', 'boden']) ok(Kern.filtereWirkungen(zz, [wk], { finale: f }).gueltig.length === 1, `Finale-Phase ${f}: gültig`);
+  ok(Kern.filtereWirkungen(zz, [wk], { finale: 'boden' }).gueltig.length === 1, 'Finale-Phase boden: gültig');
+  ok(Kern.filtereWirkungen(zz, [wk], { finale: 'orbit' }).gueltig.length === 0, 'Finale-Phase orbit: abgelehnt (K2, der Orbit schreibt nie eine Sim-Wirkung)');
   const bad = (w, was) => { const r = Kern.filtereWirkungen(zz, [w], { finale: 'boden' }); ok(r.gueltig.length === 0 && r.verworfen.length === 1, was + ': ' + (r.verworfen[0] && r.verworfen[0].grund)); };
   bad({ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: 'ger' }, 'Germanen erobern ihre eigene Hauptwelt');
   bad({ typ: 'hauptwelt_erobert', ort: ZIEL.hex, an: 'kon' }, 'Konkordat ist nicht feindlich zu Germanen');
@@ -341,10 +342,10 @@ section('Wirkung hauptwelt_erobert', () => {
   ok(z(g).hexe[ZIEL.hex].besitzer === 'ger', 'auch vorgemerkt (Flucht per Sprung): ohne Finale ohne Auswirkung');
   // im Tick MIT Finale
   const s = stubs(); rang(g, 'tribun'); tick(g);
-  Finale.waehlen(g); Finale.bestaetigen(g);
+  Finale.waehlen(g); Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg');
   const tk = ws(g).tickZahl;
   const r = Kriegslage.tickMit(g, 'test', undefined, [wk]);
-  ok(r && z(g).hexe[ZIEL.hex].besitzer === 'rom' && ws(g).tickZahl === tk + 1, 'im Tick mit laufendem Finale: Hrafnheim gehört Rom, ein Tick');
+  ok(r && z(g).hexe[ZIEL.hex].besitzer === 'rom' && ws(g).tickZahl === tk + 1, 'im Tick mit laufendem Boden-Teil: Hrafnheim gehört Rom, ein Tick');
   ok(r.some((e) => e.typ === 'hafen_gefallen') && r.some((e) => e.typ === 'hauptwelt_gefallen' && e.alt === 'ger'), 'Ereignisse hafen_gefallen + hauptwelt_gefallen');
   void s; ohneStubs();
   // Hauptwelt-Befehle bleiben gesperrt
@@ -421,6 +422,64 @@ section('Welle 5 (M1): Funk des Finale-Kerns ist Meldung (Messing), nie Gefahr',
   Finale.waehlen(g); ok(ev.some((d) => /^Entscheidungsschlacht um Hrafnheim: Das wird gefährlich/.test(d.text) && d.ton === 'meldung'), 'Anfrage („Das wird gefährlich“): ton meldung, nicht Rot');
   Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg'); Finale.bodenEnde(g, 'crew_gefallen');
   ok(ev.length >= 5 && ev.every((d) => d.ton === 'meldung' && d.lage === 1 && d.r === 1 && d.from === TEXTE.sprecher), 'alle ' + ev.length + ' Funksprüche des Kerns (Start, Orbit frei, Neubeginn, …): ton meldung, Lagefunk wie bisher');
+});
+
+// S3: der Start risse sonst Spieler aus einem laufenden Aussen-Einsatz; das Angebot bleibt sichtbar, der Start wartet
+section('Aussenteam unten: Angebot bleibt, Start wartet (S3)', () => {
+  ohneStubs();
+  const s = stubs();
+  const t = neu({ crew: 2 }); const g = t.g;
+  g.players[1].zone = 'away';
+  rang(g, 'tribun'); tick(g);
+  ok(gleich(Finale.bereit(g), { ok: false, grund: 'aussen' }), 'ein Spieler im Aussenteam: Grund aussen');
+  ok(ws(g).finale.angebot === 1 && t.funk().includes(T.funk.angebot), 'das Angebot entsteht und bleibt sichtbar, auch mit Aussenteam');
+  const a = Finale.waehlen(g);
+  ok(a && a.code === 'aussen' && a.text === T.weigerung.aussen && /Außenteam/.test(a.text), 'Anfrage: Weigerung mit dem Text aus den Daten (' + (a && a.text) + ')');
+  ok(Finale.starten(g) === false && Finale.phase(g) === null && s.szene === 0 && g.players[1].zone === 'away', 'starten: nichts gebaut, der Spieler bleibt unten (kein Pad-Wurf)');
+  ok(ws(g).finale.angebot === 1 && ws(g).finale.anfrage === null, 'das Angebot bleibt nach der Weigerung');
+  const snap = Finale.snapshot(g);
+  ok(snap && snap.angebot === 1, 'Snapshot zeigt das Angebot weiter');
+  g.players[1].connected = false;
+  ok(Finale.bereit(g).ok === true, 'ein getrennter Spieler im Aussenteam blockiert nicht');
+  g.players[1].connected = true; g.players[1].zone = 'ship';
+  ok(Finale.bereit(g).ok === true && Finale.waehlen(g) === null && Finale.bestaetigen(g) === null && Finale.phase(g) === 'orbit' && s.szene === 1, 'alle an Bord: der Start geht durch');
+  ohneStubs();
+});
+
+// K1: der Abspann Sieg laeuft nur, wenn Hrafnheim wirklich gefallen ist
+section('Boden-Sieg: Abspann nur bei gefallener Hauptwelt (K1)', () => {
+  const s = stubs();
+  const t = mitAngebot(); const g = t.g;
+  Finale.waehlen(g); Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg');
+  const orig = Kriegslage.szeneAbschliessen;
+  Kriegslage.szeneAbschliessen = () => { throw new Error('Test: Siegestick wirft'); };
+  let r; const fehler = []; g.countError = (wo) => fehler.push(wo);
+  try { r = Finale.bodenEnde(g, 'sieg'); } finally { Kriegslage.szeneAbschliessen = orig; }
+  ok(r === true && fehler.includes('finale-sieg'), 'der Siegestick warf (gezaehlt)');
+  ok(s.abspann.length === 0 && g.phase !== 'end', 'kein Abspann Sieg, das Spiel laeuft weiter');
+  ok(z(g).hexe[ZIEL.hex].besitzer === 'ger', 'Hrafnheim ist noch germanisch');
+  ok(Finale.phase(g) === null && ws(g).finale.angebot === 1, 'das Finale beginnt von vorn (Neubeginn, Angebot wieder da), nicht haengen in boden');
+  ok(t.funk().includes(T.funk.sieg_nicht) && !t.funk().includes(T.funk.sieg), 'Funk sagt, dass der Sieg nicht verbucht wurde, nie „Hrafnheim ist gefallen“');
+  // Kontrolle: derselbe Weg ohne Fehler gibt den Abspann
+  Finale.waehlen(g); Finale.bestaetigen(g); Finale.orbitEnde(g, 'sieg');
+  ok(Finale.bodenEnde(g, 'sieg') === true && gleich(s.abspann, ['sieg']) && z(g).hexe[ZIEL.hex].besitzer === 'rom', 'Kontrolle: ohne Fehler faellt Hrafnheim und der Abspann Sieg laeuft einmal');
+  ohneStubs();
+});
+
+// K5: der Verfall der Anfrage wird zur Zeit der Frist gemeldet, nicht erst im naechsten Sim-Tick
+section('Verfall der Anfrage kommt rechtzeitig (K5)', () => {
+  ohneStubs();
+  const t = mitAngebot(); const g = t.g;
+  const f = W.bestaetigung.wert.fenster;
+  const tk = ws(g).tickZahl;
+  Finale.waehlen(g);
+  run(g, f - 3);
+  ok(ws(g).finale.anfrage && !t.funk().includes(T.funk.angefragt_verfallen), 'in der Frist: Anfrage offen, kein Verfall-Funk');
+  run(g, 4);
+  ok(ws(g).tickZahl === tk && t.funk().filter((x) => x === T.funk.angefragt_verfallen).length === 1, 'nach der Frist: genau ein Verfall-Funk, OHNE dass ein Sim-Tick lief');
+  ok(ws(g).finale.anfrage === null && ws(g).finale.angebot === 1, 'Anfrage geraeumt, das Angebot steht');
+  run(g, 5); tick(g);
+  ok(t.funk().filter((x) => x === T.funk.angefragt_verfallen).length === 1, 'auch der naechste Tick meldet nichts doppelt');
 });
 
 section('Protokoll', () => {

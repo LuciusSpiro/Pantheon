@@ -24,6 +24,8 @@ if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.
 const FB = 'server/sim/finale-boden.js', LPF = 'server/sim/landepunkte.js', AK = 'server/sim/anker.js', DB = 'content/welt/finale-boden.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
+  [FB, 'landung(game, S, aw, crewGroesse(game)); }', 'landung(game, S, aw, da.length); }', 'Wachen zaehlen nur die Spieler, die im ersten Takt unten sind (S1)'],
+  [FB, 'const crewGroesse = (game) => game.players.filter((p) => p.connected).length;', 'const crewGroesse = (game) => game.players.length;', 'Crewgroesse zaehlt auch Getrennte (S1)'],
   [FB, "    aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [ziel.id]: sperrText() });\n", "", 'Schrein-Aktivierung ohne Boss (keine Sperre)'],
   [AK, "    case 'ziel': return z === 'frei' && !(aw.ankerSperre && aw.ankerSperre[a.id]);", "    case 'ziel': return z === 'frei';", 'Schrein-Sperre gilt nicht fuer das Halten'],
   [FB, "  return nach === 'wachen' ? wachen : nach === 'boss_oder_wachen' ? boss || wachen : boss;", "  return true;", 'Freigabe ohne Bedingung'],
@@ -33,7 +35,7 @@ const MUTATIONEN = [
   [FB, "  if (!da.length || Endkampf().crewGefallen(game, S.lp)) {", "  if (Endkampf().crewGefallen(game, S.lp)) {", 'Hochbeamen beendet den Boden-Teil nicht'],
   [FB, "gegner: wachenFuer(n), boss: G.boss", "gegner: wachenFuer(1), boss: G.boss", 'Skalierung nach Crewgroesse ignoriert'],
   [FB, "  funkMeldung(game, 'bereit');\n  return true;", "  game.rng.int(2);\n  funkMeldung(game, 'bereit');\n  return true;", 'game.rng gezogen'],
-  [FB, "    if (da.length) { S.gelandet = true; landung(game, S, aw, da.length); }", "    if (da.length) { landung(game, S, aw, da.length); }", 'Gegner bei jedem Tick (Landung nicht gemerkt)'],
+  [FB, "    if (da.length) { S.gelandet = true; landung(game, S, aw, crewGroesse(game)); }", "    if (da.length) { landung(game, S, aw, crewGroesse(game)); }", 'Gegner bei jedem Tick (Landung nicht gemerkt)'],
   [FB, "    game.transferZiel = { lp: id, scene: ort };\n", "", 'Transferziel nicht gesetzt'],
   [FB, "  if (L.verwerfen(game, S.lp) || !L.eintrag(game, S.lp)) game.finaleBoden = null;", "", 'Aufraeumen fehlt (Landepunkt bleibt)'],
   [FB, "    if (G.alle_abziehen_nach_boss) Endkampf().gegnerAbziehen(game, S.lp, S.tag);", "", 'Wachen ziehen nach dem Waechter nicht ab'],

@@ -53,7 +53,7 @@ function pruefen(game, laufend) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') return fehl('keine_szene');
   if (S.modus === 'verrat') return fehl('schon');
-  if (S.modus === 'finale') return fehl('hauptwelt');   // SUND-04a-3 Orbit: kein Verrat in der Entscheidungsschlacht um Hrafnheim
+  if (S.modus === 'finale') return fehl('finale');   // SUND-04a-3 Orbit: kein Verrat in der Entscheidungsschlacht um Hrafnheim (eigener Text, K4: „An Roms Hauptwelt“ stimmt dort nicht, es ist die Hauptwelt der Germanen)
   if (!W.phasen.wert.includes(S.phase)) return fehl('phase');
   if (!laufend && game.ship.docked) return fehl('docked');
   if (!verbuendete(game, S).length) return fehl('keine_verbuendeten');

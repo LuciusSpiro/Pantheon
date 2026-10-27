@@ -179,8 +179,8 @@ function bauen(fk, art) {
 
 // ---------- Ende, Marker, Laden
 const markerVon = (game) => { const fk = game.weltstand && game.weltstand.data && game.weltstand.data.fakten; return fk && ARTEN.includes(fk[FAKT]) ? fk[FAKT] : null; };
-const SZENARIO = 'Freie Fahrt Sund';   // Untertitel unter dem Titel des Abspanns (der Titel selbst steht in den Daten)
-const zeigen = (game, a) => game.endGame({ title: SZENARIO, text: a.text, abspann: Object.assign({ titel: a.titel, text: a.text, bloecke: a.bloecke }, a.schluss ? { schluss: a.schluss } : {}) });
+const szenario = () => String(daten().szenario || '');   // Untertitel unter dem Titel des Abspanns (K7: aus den Daten, content/welt/abspann.json szenario; der Titel selbst steht auch dort)
+const zeigen = (game, a) => game.endGame({ title: szenario(), text: a.text, abspann: Object.assign({ titel: a.titel, text: a.text, bloecke: a.bloecke }, a.schluss ? { schluss: a.schluss } : {}) });
 
 function beenden(game, art, quelle) {
   if (!game || !game.weltsim || !ARTEN.includes(art)) return false;

@@ -246,12 +246,54 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     ok(Finale.phase(c.g) === null && !c.g.simSzene, 'Laden: phase null, keine Szene');
   });
 
+  // K7: Klasse, Fraktion, Volk und die Crew-Stufen kommen aus den Daten (finale-werte.json), nicht fest aus dem Code
+  await section('Daten statt fester Zahlen (K7)', () => {
+    zurueck();
+    const FW = Finale.WERTE;
+    const sz0 = FW.orbit_szene.wert, wach0 = FW.orbit_wachschiffe.wert, verb0 = FW.orbit_verbuendete.wert, hf0 = FW.orbit_flaggschiff.wert;
+    try {
+      FW.orbit_szene.wert = { klasse: 1, fraktion: 'kon', volk: 'rom' };
+      const a = mitAngebot(); starte(a.g);
+      const S = a.g.simSzene;
+      ok(S && S.klasse === 1 && S.fraktion === 'kon' && S.kommandant.volk === 'rom', 'Klasse, Fraktion und Volk der Szene folgen den Daten (' + (S && [S.klasse, S.fraktion, S.kommandant.volk].join('/')) + ')');
+      FW.orbit_szene.wert = sz0; zurueck();
+      FW.orbit_wachschiffe.wert = { '1': wach0['1'], '2': wach0['2'] };   // keine Stufe 3: drei Spieler bekommen die groesste bekannte Stufe (2)
+      FW.orbit_verbuendete.wert = { '1': verb0['1'], '2': verb0['2'] };
+      const b = mitAngebot({ crew: 3 }); starte(b.g);
+      ok(b.g.simSzene && b.g.simSzene.nWach === wach0['2'].length && b.g.simSzene.crew === 2, 'groesste Stufe der Daten ist die Grenze der Crewgroesse (drei Spieler, Daten bis 2: Stufe ' + (b.g.simSzene && b.g.simSzene.crew) + ')');
+    } finally { FW.orbit_szene.wert = sz0; FW.orbit_wachschiffe.wert = wach0; FW.orbit_verbuendete.wert = verb0; FW.orbit_flaggschiff.wert = hf0; zurueck(); }
+  });
+
+  // K6 des Finale-Reviews: wirft der Szenenaufbau nach game.simSzene = S, bleibt keine Szene ohne Finale zurueck
+  await section('Fehler im Aufbau: nichts bleibt halb stehen', () => {
+    zurueck();
+    const FL = require('../server/sim/flotte.js');
+    const echt = FL.aufstellen; let n = 0;
+    const t = mitAngebot(); const g = t.g;
+    const von = g.ship.scene; const fehler = []; g.countError = (wo) => { fehler.push(wo); };   // der erwartete Fehler soll nicht in der Ausgabe landen
+    FL.aufstellen = function () { n++; if (n >= 2) throw new Error('Test: Aufstellung wirft'); return echt.apply(FL, arguments); };
+    let e;
+    try { e = starte(g); } finally { FL.aufstellen = echt; }
+    ok(n >= 2, 'Kontrolle: der erste Verbuendete stand schon, der zweite warf (' + n + ')');
+    ok(e && e.code === 'start', 'Finale.bestaetigen meldet „start“ (nicht aufbaubar)');
+    ok(!g.simSzene, 'game.simSzene ist zurueckgesetzt');
+    ok(Finale.phase(g) === null && g.weltsim.finale.angebot === 1, 'das Finale steht auf null, das Angebot bleibt');
+    ok(g.ship.scene === von, 'das Schiff ist zurueck am Ausgangsort (' + von + ', nicht ' + g.ship.scene + ')');
+    ok(!(g.space.escorts || []).some((q) => q.sim), 'kein Verbuendeter der halben Szene bleibt stehen');
+    ok(!g.flotte, 'kein Flottenzustand der halben Szene');
+    ok(fehler.includes('finale-orbit-aufbau') && fehler.length === 1, 'der Fehler ist gezaehlt (genau einer, kein Folgefehler im Abbau: ' + fehler.join(',') + ')');
+    const w = starte(g);
+    ok(w === null && Finale.phase(g) === 'orbit' && g.simSzene && g.simSzene.modus === 'finale', 'ein zweiter Versuch ohne Fehler startet sauber');
+    zurueck();
+  });
+
   await section('Verrat gesperrt', () => {
     zurueck();
     const t = mitAngebot(); const g = t.g; starte(g); run(g, 14);
     const Verrat = require('../server/sim/verrat.js');
-    const r = Verrat.pruefen ? Verrat.pruefen(g, false) : { code: 'hauptwelt' };
-    ok(r && r.code, 'kein Verrat in der Entscheidungsschlacht (' + (r && r.code) + ')');
+    const r = Verrat.pruefen(g, false);
+    const TX = require('../content/flotte/verrat.json').weigerung;
+    ok(r && r.code === 'finale' && r.text === TX.finale && TX.finale !== TX.hauptwelt && !/Roms Hauptwelt/.test(r.text), 'kein Verrat in der Entscheidungsschlacht, eigener Text ohne „Roms Hauptwelt“ (' + (r && r.code) + ')');
     zurueck();
   });
 

@@ -1,5 +1,6 @@
 {
   "format": "abspann/1",
+  "szenario": "Freie Fahrt Sund",
   "_hinweis": "SUND-04a-3: Abspänne der Freien Fahrt Sund (server/sim/abspann.js, Schema content/schema/abspann.schema.json). ENTWURF der Texte: Kai liest und ändert. Ein Block (und jede Zeile als { text, wenn }) darf eine Bedingung `wenn` tragen; sie ist eine kleine reine Sprache über die Fakten des Weltstands (alle Schlüssel gelten zugleich): rang_min / rang_max (Rang-Id: miles, optio, centurio, tribun, legat), haefenVerloren / postenVerloren / kommandantenGefallen / chronikZahl ({ min?, max? }), faedenAusgang ({ vorlage: gelungen | gescheitert | laufend }), finaleGespielt / hauptweltGefallen (wahr/falsch), nicht ({ wenn }) und oder ([{ wenn }, ...]). Unbekannte Schlüssel sind ein Datenfehler (nie still ignoriert). haefenVerloren zählt die Häfen Roms OHNE die Hauptwelt (Palatina fiel ohnehin). Ein Block ohne übrig gebliebene Zeile entfällt. Zeilen höchstens etwa 56 Zeichen, sonst läuft die Zeile im Abspann über. Keine Zahlen bei den Toten, keine Spielernamen.",
   "abspaenne": {
     "palatina": {

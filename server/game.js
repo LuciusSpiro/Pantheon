@@ -1709,6 +1709,7 @@ class Game {
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
+      if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
       this.safe('betreten', () => this.trackBetreten());
       this.safe('personen', () => weltBausteine().personenNachruecken(this));   // B1: wartende Personen auf gebauten Karten   // B1 §6.1: erstes Hinunterbeamen zählt den Besuch
