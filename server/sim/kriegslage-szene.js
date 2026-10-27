@@ -45,11 +45,13 @@ const Locations = require('../../shared/locations.js');
 const Verrat = require('./verrat.js');   // SUND-02b E: Texte und Daten des Verrats
 const Posten = require('./posten.js');   // SUND-02b A2: Ruf-Regel der Sprengung (Sperre am Hex)
 const Chronik = require('./chronik.js');   // SUND-03 D: der Ausgang jeder Szene steht in der Chronik
+const Finale = require('./finale.js');   // SUND-04a-3 Orbit: Szenenmodus 'finale' (Entscheidungsschlacht um Hrafnheim); Daten: content/welt/finale-werte.json
 const ANGRIFF = require('../../content/welt/posten-werte.json').werte.angreifen.wert;   // SUND-02b A2: Vorlauf und Stärkefaktor des Angriffs (Daten)
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'sim-szene.json');
 const FEIND_VON = 'rom';   // die Crew spielt für Rom: Gegner sind alle, die zu Rom feindlich sind (ger, pirat)
 const AUSLOESER_BEFEHLE = ['angriff', 'anspruch', 'rueckzug'];   // Flotten im Feld (wie BEFEHLE_FELD in weltsim/kern.js); 'heim' und 'sammeln' stehen im eigenen Hafen
+const FINALE_TAG = 'finale_orbit';   // SUND-04a-3 Orbit: Spawn-Tag der germanischen Schiffe der Orbit-Szene
 const SZENEN_TAG = 'sim_szene';   // Spawn-Tag der Gegner dieser Szene (Flotte.wellenStartAusPlan)
 const DEBUG_STAERKE_MAX = 200;   // Debug `szene <staerke>`: darüber wäre der Plan nur noch eine Last für den Server
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -197,7 +199,7 @@ function aufraeumen(game, S) {
   if (game.flotte) { Flotte.beenden(game); game.flotte = null; }   // in Freie Fahrt gehört der Flottenzustand der Szene
   // die übrigen Gegner DER SZENE (Spawn-Tag SZENEN_TAG) drehen ab und verlassen das Feld (sichtbar, höchstens ~14 s); die Rückzugsregel gilt nur für diese Gegner, nicht für spätere.
   // Gegner anderer Herkunft (z. B. der Hinterhalt eines Notrufs im selben Hex) bleiben: ihr Verschwinden würde sonst als „erledigt“ zählen (Lohn ohne Kampf, zweiter Tick).
-  try { Escort.retreat(game, { tag: SZENEN_TAG }); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('sim-szene-retreat', e); }
+  try { Escort.retreat(game, { tag: S.modus === 'finale' ? FINALE_TAG : SZENEN_TAG }); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('sim-szene-retreat', e); }
   game.simSzene = null;
 }
 function merken(game, S, ausgang, wirkungen, extra) {
@@ -207,7 +209,7 @@ function merken(game, S, ausgang, wirkungen, extra) {
 }
 // SUND-03 D: Ausgang der Szene (Sieg, Niederlage, Flucht) als kurzer Chronik-Eintrag; ein gescheiterter End-Tick (gestoert) gilt nicht
 const AUSGANG_WORT = { sieg: 'Sieg', niederlage: 'Niederlage', abbruch: 'Flucht' };
-const MODUS_WORT = { angriff: 'Angriff auf Posten', verrat: 'Verrat' };
+const MODUS_WORT = { angriff: 'Angriff auf Posten', verrat: 'Verrat', finale: 'Entscheidungsschlacht' };
 function chronikEintrag(game, S, ausgang) {
   if (!AUSGANG_WORT[ausgang]) return;
   const modus = MODUS_WORT[S.modus] ? ` (${MODUS_WORT[S.modus]})` : '';
@@ -349,6 +351,7 @@ function verratNiederlage(game, S, grund) {
 function abbrechen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
+  if (S.modus === 'finale') { finaleEnde(game, S, 'flucht'); return null; }   // SUND-04a-3 Orbit: der Sprung ist die Flucht, ohne Verluste, Ruf und Wirkungen (der Sprung-Tick ist der des Sprungs)
   const imKampf = S.phase === 'kampf';   // B-Fix 1: Phase merken, bevor sie auf 'ende' geht; ein Sprung in der Vorwarnung (vor dem ersten Schuss) ist keine Fahrerflucht
   S.phase = 'ende';
   const ruf = imKampf && S.modus !== 'angriff' && S.modus !== 'verrat' ? Ruf.szeneFlucht(S, S.ort && Kern.pruefeWirkung(game.weltsim.zustand, { typ: 'ort_gehalten', ort: S.hex }).ok) : [];   // SUND-02b B: Fahrerflucht kostet Ruf (Piraten ignorieren: keine Quelle); B-Fix 2: Ort-Satz nur bei laufender Belagerung, wie beim Sieg
@@ -364,6 +367,7 @@ function abbrechen(game, wo) {
 function verlassen(game, wo) {
   const S = game.simSzene;
   if (!S || S.phase === 'ende') { game.simSzene = null; return null; }
+  if (S.modus === 'finale') { finaleEnde(game, S, 'flucht'); return null; }   // SUND-04a-3 Orbit: Szenenwechsel ohne Sprung = Flucht, KEIN eigener Tick
   S.phase = 'ende';
   const w = gueltige(game, verlustWirkungen(game, S));
   aufraeumen(game, S);
@@ -413,6 +417,7 @@ function verteidigerAufstellen(game, S, L) {
 }
 function betreten(game, hex) {
   if (game.simSzene) verlassen(game, 'neu');   // eine alte Szene ragt nie in eine neue hinein (nach einem Sprung ist sie schon weg, siehe verlassen)
+  if (Finale.phase(game) === 'orbit') return null;   // SUND-04a-3 Orbit: die Ankunft des Finales (finaleStarten) löst keine zweite Szene aus
   const ws = game.weltsim;
   if (!ws || !hex || !game.ship || game.ship.docked) return null;
   const L = lage(game, hex);
@@ -550,6 +555,7 @@ function update(game, dt) {   // eslint-disable-line no-unused-vars
   const S = game.simSzene;
   if (!S || S.phase === 'ende') return;
   if (game.ship.scene !== S.szene) { verlassen(game, 'verlassen'); return; }   // Ortswechsel ohne Sprung (Debug): die Szene schließt selbst ab
+  if (S.modus === 'finale') { finaleUpdate(game, S); return; }   // SUND-04a-3 Orbit: eigener Ablauf
   const C = cfg(game); const T = texte();
   const rest = S.start - game.time;
   if (S.phase === 'vorwarnung') {
@@ -584,6 +590,10 @@ function ereignis(game, name, data) {
   if (!S || S.phase === 'ende' || !data) return;
   if (name === 'enemyKilled') {
     const e = data.enemy; const w = game.flotte && game.flotte.welle;
+    if (S.modus === 'finale') {   // SUND-04a-3 Orbit: die germanischen Schiffe der Szene tragen finaleS; fällt das Flaggschiff (flagg), ist die Bedingung des Sieges zur Hälfte erfüllt
+      if (e && e.finaleS === S.id) { S.kills[e.kind] = (S.kills[e.kind] || 0) + 1; if (e.flagg) S.flaggGefallen = true; }
+      return;
+    }
     if (e && e.verratS === S.id) {   // SUND-02b E: ein ehemaliger Verbündeter ist gefallen: Verlust der römischen Seite, nie Gegnerpunkte (killPunkte gehören den Angreifern)
       S.vert.verloren += e.simPts || 0; S.verrat.tot++;
       return;
@@ -615,7 +625,7 @@ function snapshot(game) {
     if (S.modus === 'verrat') x.vt = 1;   // SUND-02b E: Verrat läuft (Zeile „VERRAT“)
     if (S.phase === 'vorwarnung') return Object.assign({ p: 'v', v: [Math.max(0, Math.ceil(S.start - game.time)), Math.round(S.vorlauf)], f: S.fraktion, k: S.klasse }, x);
     const w = game.flotte && game.flotte.welle;
-    const g = w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0;
+    const g = S.modus === 'finale' ? game.space.enemies.filter((e) => e.finaleS === S.id && !e.leaving).length : (w ? game.space.enemies.filter((e) => e.wv === w.id).length : 0);
     if (S.modus === 'verrat') return Object.assign({ p: 'k', g }, x);   // kein Finale, kein Flaggschiff: die ehemaligen Verbündeten sind die eine Welle
     const kdName = S.kommandant ? S.kommandant.name : (S.modus === 'angriff' ? (texte().angriff || {}).kommandant : null);   // A2-Fix: das Finale des Angriffs nennt den Postenkommandanten
     return Object.assign(S.finale ? Object.assign({ p: 'f', g }, kdName ? { kd: kurz(kdName, 24) } : {}) : { p: 'k', g }, x);
@@ -651,8 +661,135 @@ function debug(game, args) {
   return S ? null : 'Keine Szene ausgelöst.';
 }
 
-// SUND-04a-3 STUB (Paket Finale-Orbit baut die echte Funktion): baut die Orbit-Szene des Finales im Hex { hex } und -> Szene | null. Der Stub baut nichts und liefert null:
-// finale.starten() scheitert dann sauber (Finale startet nicht). Tests ersetzen ihn über Finale.ersetzen('szene', { finaleStarten }).
-function finaleStarten(game, { hex } = {}) { return null; }   // eslint-disable-line no-unused-vars
+// ---------- SUND-04a-3 Orbit: die Entscheidungsschlacht um Hrafnheim (Szenenmodus 'finale') ----------
+// Eigener Modus, kein Anhängsel von angriffStarten (das lehnt Häfen ab) und keine Sim-Belagerung: die Crew kommt FREIWILLIG in den Orbit (Finale.starten, zweistufig bestätigt), die Gefahr wird
+// per Funk angekündigt, bevor das erste Schiff erscheint (orbit_vorwarnung ≥ 8 s). Germanische Seite: festes Flaggschiff (Kreuzer, Name und Kommandant aus den Daten) und Wachschiffe nach Crewgröße;
+// römische Verbündete der Flotte (2 bis 3). Alle Zahlen: content/welt/finale-werte.json (werte.orbit_*). Aufbau: Space.enterScene(Hrafnheim) + game.simSzene mit modus 'finale', damit Andocken,
+// Szenenzeile, Sprung-Flucht (Kriegslage.tick -> abbrechen) und die Sperren der Nachbarn (Reise-Ereignis, Fäden, Posten) wie bei jeder Sim-Szene greifen.
+//  - SIEG: Flaggschiff zerstört UND kein Wachschiff mehr im Kampf (zerstört oder abgezogen: mit dem Flaggschiff brechen sie ab). Die Station ist kein Ziel; ihre Abwehr gilt mit dem Sieg als gebrochen.
+//  - NIEDERLAGE: Notfallprotokoll der Lerche (orbit_notfall_bis_niederlage), auch mit lebenden Verbündeten: die Schlacht gehört der Crew. FLUCHT: Sprung, Notsprung, Szenenwechsel.
+//  - Keine Sim-Wirkung, kein Ruf, kein eigener Sim-Tick (ein Sprung als Flucht hat seinen eigenen). Das Ende meldet sich GENAU EINMAL über Finale.orbitEnde(game, 'sieg'|'niederlage'|'flucht').
+//  - Eigener Zufallsstrom (Zufall, Seed aus Hex und Versuch): die Szene würfelt nie über game.rng und nie über den Sim-Strom. Nicht speicherbar: game.simSzene und game.weltsim.finale stehen nicht im Weltstand.
+const finaleD = () => Finale.WERTE;
+const finaleT = () => require('../../content/welt/finale-werte.json').texte.orbit;
+const finaleCrew = (game) => Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
+const finaleListe = (w, n) => (w.wert[String(n)] || []).slice();
+function finaleFunk(game, key, vars, reiter) {
+  const T = finaleT();
+  const text = fmt((T.funk || {})[key], vars);
+  if (!text) return;
+  game.emit('radio', Object.assign({ from: T.sprecher || 'Oberkommando', text, lage: 1, sz: 1 }, reiter ? { r: 1 } : {}));
+}
+const finaleVars = (S) => ({ schiff: S.flagg.name, kommandant: S.kommandant.name, n: S.nWach, v: S.nVerb, sek: Math.round(S.vorlauf) });
+const klemme = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
+
+// -> Szene | null (die Szene baut nichts, wenn eine Voraussetzung fehlt: das Finale startet dann nicht)
+function finaleStarten(game, { hex } = {}) {
+  const ws = game.weltsim;
+  if (!ws || !hex || !game.ship || !ws.finale || ws.finale.phase !== 'orbit') return null;   // nur aus Finale.starten (die Phase steht dann auf orbit)
+  if ((game.simSzene && game.simSzene.phase !== 'ende') || game.fadenSzene || (game.space && game.space.verfolgung)) return null;   // keine zwei Szenen übereinander
+  const ort = Sektoren.ortVonHex(hex); const loc = ort && Locations.get(ort);
+  if (!loc || !loc.scene) return null;
+  const D = finaleD(); const C = game.C; const n = finaleCrew(game);
+  const fl = D.orbit_flaggschiff.wert;
+  const wach = finaleListe(D.orbit_wachschiffe, n); const verb = finaleListe(D.orbit_verbuendete, n);
+  if (!C.enemies[fl.klasse] || !wach.length || wach.some((k) => !C.enemies[k]) || verb.some((k) => !C.flotte.hull[k])) return null;
+  if (1 + wach.length + verb.length > (Number(C.flotte.max) || 12)) return null;
+  const sp = game.space; const T = finaleT();
+  game.simSzene = null;
+  game.simSzeneN = (game.simSzeneN || 0) + 1;
+  game.simSzeneEnde = null;
+  // Ankunft im Orbit (wie ein Sprung, ohne Sim-Tick): die Crew ist freiwillig hier, das Terminal bleibt zurück
+  const von = game.ship.scene;
+  try { const interior = require('./interior.js'); for (const p of game.players) if (p.zone === 'away') interior.placeOnShipPad(game, p); } catch (e) { if (game.countError) game.countError('finale-orbit-pad', e); }
+  require('./space.js').enterScene(game, ort, { docked: false });
+  if (game.ship.scene !== ort) return null;
+  game.emit('sfx', { name: 'jump' });
+  game.emit('jump', { scene: ort, location: ort, from: von });
+  try { if (game.explore) game.explore.arrive(ort); } catch (e) { if (game.countError) game.countError('finale-orbit-arrive', e); }
+  const vorlauf = Math.max(0, Number(D.orbit_vorwarnung.wert) || 0);
+  const seed = Plan.seedAus('finale-orbit', hex, ws.finale.versuche || 0);
+  const S = { id: game.simSzeneN, modus: 'finale', hex, ort: null, ortName: Sektoren.hexName(hex) || loc.name || hex, szene: ort, phase: 'vorwarnung',
+    klasse: 3, fraktion: 'ger', angreifer: [], summe: 0, seed, plan: null, kommandant: { name: String(fl.kommandant), volk: 'ger', zug: '' }, kills: {}, killPunkte: 0, flaggGefallen: false,
+    flagg: { kind: fl.klasse, name: String(fl.name) }, wach, nWach: wach.length, nVerb: 0, rng: { zufall: Zufall.startzustand(seed) },
+    t0: game.time, vorlauf, erinnern: (D.orbit_erinnerung.wert || []).filter((x) => x < vorlauf).sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false, crew: n,
+    vert: { gruppen: [], schiffe: [], ges: 0, verloren: 0, lebend: 0, n0: 0, erschT: null } };
+  S.start = S.t0 + S.vorlauf;
+  game.simSzene = S;
+  // römische Verbündete der Flotte: hinter der Lerche, Rolle angreifer (jagen den nächsten Gegner)
+  const P = C.wellenplan.punkte; const L = game.ship; const namen = D.orbit_verbuendete_namen.wert || [];
+  const hf = Number(D.orbit_verbuendete_huelle.wert) > 0 ? Number(D.orbit_verbuendete_huelle.wert) / 100 : 1;
+  verb.forEach((kind, i) => {
+    const a = L.angle + Math.PI + (i - (verb.length - 1) / 2) * 0.8 + Zufall.gleichverteilt(S.rng, -0.1, 0.1);
+    const es = Flotte.aufstellen(game, { tag: 'finale_v' + i, kind, name: namen.length ? namen[i % namen.length] : undefined, rolle: 'angreifer',
+      von: { x: klemme(L.x + Math.cos(a) * 140, 60, sp.w - 60), y: klemme(L.y + Math.sin(a) * 140, 60, sp.h - 60) } });
+    if (!es) return;
+    if (hf !== 1) { es.hpMax = Math.max(1, Math.round(es.hpMax * hf)); es.hp = es.hpMax; }
+    es.sim = S.id; es.simPts = P[kind] || 0;
+    S.vert.schiffe.push(es.tag); S.vert.ges += es.simPts; S.vert.lebend++; S.vert.n0++; S.nVerb++;
+  });
+  try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }   // Andocken gesperrt, Dock-Marker weg
+  const vars = finaleVars(S);
+  finaleFunk(game, 'ankunft', vars, true);
+  game.oda(fmt(T.funk.hinweis, vars), null);
+  return S;
+}
+
+// Das Flaggschiff und die Wachschiffe erscheinen (nach der Vorwarnung): Aufstellung vor der Station, Winkel aus dem eigenen Zufallsstrom
+function finaleGegnerAufstellen(game, S) {
+  const D = finaleD(); const sp = game.space; const fl = D.orbit_flaggschiff.wert; const L = game.ship;
+  const spawn = (kind, x, y) => {
+    const px = klemme(x, 60, sp.w - 60), py = klemme(y, 60, sp.h - 60);
+    return require('./space.js').spawnEnemy(game, kind, { x: px, y: py, angle: 0, facing: Math.atan2(L.y - py, L.x - px), tag: FINALE_TAG, ziel: 'auto', volk: 'ger' });
+  };
+  const m = fl.mitte || { x: sp.w * 0.6, y: sp.h * 0.5 };
+  const f = spawn(fl.klasse, m.x, m.y);
+  if (f) {
+    const hfd = fl.huelle_faktor && typeof fl.huelle_faktor === 'object' ? fl.huelle_faktor[String(S.crew)] : fl.huelle_faktor;   // je Crewgröße (1, 2, 3) oder eine Zahl
+    const hf = Number(hfd) > 0 ? Number(hfd) : 1;
+    f.hpMax = Math.max(1, Math.round(f.hpMax * hf)); f.hp = f.hpMax;
+    Object.assign(f, { finaleS: S.id, flagg: true, name: S.flagg.name });
+  }
+  const ring = Number(D.orbit_wachschiffe_abstand.wert) || 330;
+  const a0 = Zufall.gleichverteilt(S.rng, 0, Math.PI * 2);
+  S.wach.forEach((kind, i) => {
+    const a = a0 + (i / S.wach.length) * Math.PI * 2;
+    const e = spawn(kind, m.x + Math.cos(a) * ring, m.y + Math.sin(a) * ring);
+    if (e) e.finaleS = S.id;
+  });
+  S.phase = 'kampf'; S.finale = true; S.emBasis = game.stats.emergencies || 0;
+  finaleFunk(game, 'gegner', finaleVars(S), false);
+}
+
+const finaleImKampf = (game, S) => game.space.enemies.filter((e) => e.finaleS === S.id && !e.leaving);
+function finaleUpdate(game, S) {
+  const D = finaleD(); const T = finaleT();
+  if (S.phase === 'vorwarnung') {
+    const rest = S.start - game.time;
+    while (S.erinnern.length && rest <= S.erinnern[0]) { S.erinnern.shift(); if (rest > 0) game.oda(fmt(T.funk.hinweis, { sek: Math.max(1, Math.round(rest)) }), null); }
+    if (rest <= 0) finaleGegnerAufstellen(game, S);
+    return;
+  }
+  if (S.flaggGefallen && !S.abzug) {   // das Flaggschiff ist gefallen: die Wachschiffe brechen ab (sichtbar, höchstens ~14 s)
+    S.abzug = true;
+    try { Escort.retreat(game, { tag: FINALE_TAG }); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('finale-orbit-abzug', e); }
+  }
+  if (S.flaggGefallen && finaleImKampf(game, S).length === 0) { finaleEnde(game, S, 'sieg'); return; }   // ein Sieg im selben Takt geht der Niederlage vor
+  // Notfallprotokoll der Lerche = Niederlage (auch mit lebenden Verbündeten)
+  if ((game.stats.emergencies || 0) >= S.emBasis + Math.max(1, Number(D.orbit_notfall_bis_niederlage.wert) || 1)) { finaleEnde(game, S, 'niederlage'); return; }
+}
+
+// Ende der Orbit-Szene: aufräumen, melden, GENAU EIN Aufruf Finale.orbitEnde (die Szene räumt sich selbst auf, orbitEnde tut das nicht). Kein Sim-Tick, keine Wirkung.
+function finaleEnde(game, S, ausgang) {
+  if (!S || S.beendet) return null;
+  S.beendet = true; S.phase = 'ende';
+  aufraeumen(game, S);
+  endeAufraeumen(game);
+  if (ausgang === 'sieg' || ausgang === 'niederlage') game.simSzeneEnde = { bis: game.time + endeAnzeige(game), szene: game.ship.scene, p: ausgang === 'sieg' ? 's' : 'n', o: null };
+  if (ausgang === 'sieg' || ausgang === 'niederlage') finaleFunk(game, ausgang, finaleVars(S), true);
+  merken(game, S, ausgang === 'flucht' ? 'abbruch' : ausgang, [], { finale: true });
+  try { Finale.orbitEnde(game, ausgang); } catch (e) { if (game.countError) game.countError('finale-orbit-ende', e); }
+  return null;
+}
 
 module.exports = { SZENEN_TAG, funk, finaleStarten, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
