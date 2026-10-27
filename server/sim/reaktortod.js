@@ -7,7 +7,8 @@
 //                            (Verbraucher wie beim Notfallprotokoll) plus Ereignis schiffZerstoert und ship.schiffZerstoert.
 //   zuruecksetzen(game)    – jeder Sprung (normal, Notsprung) und jede Szene, die die Lerche neu aufstellt: Zähler 0, Countdown aus, Zerstört-Flag aus (Alias sprungZurueck).
 //   dauer(game, n)         – Countdown des n-ten Ausfalls seit dem letzten Sprung: start × faktor^(n−1), mindestens minimum (s).
-//   snapshot(game)         – ship.reaktorTod { rest (Zehntelsekunden, -1 kein Countdown), n, dauer (s, Countdown dieses Ausfalls), next (s, Countdown des nächsten), tot: 1 nach dem Tod }.
+//   snapshot(game)         – ship.reaktorTod { rest (Zehntelsekunden, -1 kein Countdown), n, dauer (s, Countdown dieses Ausfalls), next (s, Countdown des nächsten), tot: 1 nach dem Tod, wartet: Spieler ohne OK, nur mit tot }.
+//                            Im Ruhezustand (kein Countdown, n 0, nicht tot) fehlt das Feld (snapshotKompakt, für game.snapshot). In der Phase end gilt kein Tod (gilt()).
 //   SYS-01 A2b: der Tod bleibt gelatcht (game.zerstoertOffen, bis die Partie in der Lobby ist): Szene von vorn und Sprung setzen den Zerstört-Flag nicht zurück.
 // Sitzungszustand: Countdown und Zähler stehen nicht im Weltstand (der speichert nur die Systemzustände).
 const interior = require('./interior.js');
@@ -15,7 +16,7 @@ const interior = require('./interior.js');
 function cfg(game) { return game.C.reaktorTod; }
 function gilt(game) {
   const m = game.mission;
-  return !(m && typeof m.isDrill === 'function' && m.isDrill()) && !game.god;
+  return !(m && typeof m.isDrill === 'function' && m.isDrill()) && !game.god && game.phase !== 'end';   // SYS-01 A2 Nacharbeit: in der Phase end (Partie vorbei) kein Tod mehr
 }
 function dauer(game, n) {
   const C = cfg(game);
@@ -54,7 +55,7 @@ function update(game, dt) {
     game.oda('Reaktor wieder ganz – der Countdown ist aus.', null);
     return;
   }
-  if (!gilt(game)) { ship.reaktorCountdown = null; return; }   // Übung oder Gottmodus: kein Tod
+  if (!gilt(game)) { ship.reaktorCountdown = null; return; }   // Übung, Gottmodus oder Phase end: kein Tod
   cd.t -= dt;
   if (cd.t > 0) return;
   tod(game);
@@ -73,10 +74,20 @@ function snapshot(game) {
   const cd = ship.reaktorCountdown;
   const n = ship.reaktorAusfaelle || 0;
   const o = { rest: cd ? Math.max(0, Math.round(cd.t * 10)) : -1, n, dauer: Math.round(dauer(game, Math.max(1, n)) * 10) / 10, next: Math.round(dauer(game, n + 1) * 10) / 10 };
-  if (ship.schiffZerstoert) o.tot = 1;
+  if (ship.schiffZerstoert) {
+    o.tot = 1;
+    const z = game.zerstoertOffen;   // SYS-01 A2 Nacharbeit: wie viele verbundene Spieler das OK noch nicht gedrückt haben (nur während tot)
+    if (z) o.wartet = game.zerstoertWartet();
+  }
   return o;
+}
+
+// SYS-01 A2 Nacharbeit: im Ruhezustand (kein Countdown, Zähler 0, nicht tot) fehlt das Feld im Snapshot (spart ~52 B je Tick); der Client toleriert Fehlen
+function snapshotKompakt(game) {
+  const o = snapshot(game);
+  return o.rest < 0 && o.n === 0 && !o.tot ? undefined : o;
 }
 
 const sprungZurueck = zuruecksetzen;
 
-module.exports = { zerstoert, update, zuruecksetzen, sprungZurueck, snapshot, dauer, gilt };
+module.exports = { zerstoert, update, zuruecksetzen, sprungZurueck, snapshot, snapshotKompakt, dauer, gilt };

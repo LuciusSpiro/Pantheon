@@ -380,8 +380,17 @@ class Game {
     const z = this.zerstoertOffen;
     if (!z || !p) return false;
     z.ok.add(p.id);
-    if (this.players.filter((q) => q.connected).every((q) => z.ok.has(q.id))) return this.endeZerstoert();
-    return false;
+    return this.zerstoertPruefen();
+  }
+  // SYS-01 A2 Nacharbeit: wie viele verbundene Spieler das OK noch nicht gedrückt haben (Snapshot ship.reaktorTod.wartet)
+  zerstoertWartet() {
+    const z = this.zerstoertOffen;
+    return z ? this.players.filter((q) => q.connected && !z.ok.has(q.id)).length : 0;
+  }
+  // Haben alle verbleibenden verbundenen Spieler bestätigt? Dann Lobby. Auch nach einem Verbindungsverlust (removeConnection). Ohne verbundenen Spieler bleibt der Tod stehen.
+  zerstoertPruefen() {
+    if (!this.zerstoertOffen || this.connectedCount() === 0) return false;
+    return this.zerstoertWartet() === 0 ? this.endeZerstoert() : false;
   }
 
   // Gemeinsamer Weg in die Lobby (Partie beenden, Zerstörung): Spieler bleiben verbunden, bereit wird zurückgesetzt
@@ -415,7 +424,12 @@ class Game {
   }
 
   onMenuMsg(p, msg) {
-    if (msg.op === 'end') { if (this.phase !== 'lobby' && !this.zerstoertOffen) this.endSession(p); return; }   // nach dem Tod nur über OK (zerstoertOk)
+    if (msg.op === 'end') {   // nach dem Tod nur über OK (zerstoertOk); in der Phase end (Endschirm/Abspann) führt end auch dann in die Lobby (SYS-01 A2 Nacharbeit)
+      if (this.phase === 'lobby') return;
+      if (!this.zerstoertOffen) this.endSession(p);
+      else if (this.phase === 'end') this.endeZerstoert();
+      return;
+    }
     if (msg.op === 'zerstoertOk') { this.zerstoertOk(p); return; }   // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“
     if (msg.op === 'pause') {
       if (this.phase === 'lobby') return;
@@ -610,6 +624,7 @@ class Game {
       p.beamLock = false;
     }
     this.log(`Spieler ${p.name} getrennt.`);
+    if (this.zerstoertOffen && this.phase !== 'lobby') this.zerstoertPruefen();   // SYS-01 A2 Nacharbeit: A hat OK gedrückt, B trennt -> Lobby
   }
 
   handleRaw(conn, raw) {
@@ -2140,7 +2155,7 @@ class Game {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
         integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
-        power: ship.power, reactor: this.reactorSnap(), reaktorTod: Reaktortod.snapshot(this),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot }
+        power: ship.power, reactor: this.reactorSnap(), ...(Reaktortod.snapshotKompakt(this) ? { reaktorTod: Reaktortod.snapshotKompakt(this) } : {}),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot, wartet }; im Ruhezustand fehlt das Feld
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
         mod: Modul.snapshot(this),   // PAN-01 A: [[code, raum, an, läuft]]
         ...(ship.stufe ? { st: ship.stufe } : {}),   // PAN-01 B: Ausbaustufe 1–3 (fehlt = 0)

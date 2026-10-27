@@ -698,7 +698,7 @@ function holdDuration(game, p, kind, extra) {
   const C = game.C;
   if (istAnker(kind)) return ankerRuf(game, 'holdDuration', 1, p, kind, extra);
   if (istB2(kind)) return combat().holdDurationB2(game, p, kind, extra);
-  const gear = p.gear.werkzeuggurt ? C.repair.werkzeuggurtFactor : 1;
+  const gear = p.gear.werkzeuggurt && !(kind === 'repair' && sonderReparatur(game, extra && extra.system)) ? C.repair.werkzeuggurtFactor : 1;   // SYS-01 A2 Nacharbeit: die Sonderreparatur hat feste Zeiten (kein Gürtel)
   if (p.zone === 'away' && ['revive', 'jammer', 'archkey', 'tablet'].includes(kind) && combat().isV2(game)) return combat().holdDuration(game, p, kind);
   switch (kind) {
     case 'revive': return C.player.reviveTime;
@@ -896,7 +896,7 @@ function holdValid(game, p, h) {
     case 'revive': return h.target.downed && h.target.zone === p.zone;
     case 'extinguish': return p.carry === 'loeschgel' && game.ship.fireList.some((f) => f.tx === h.tx && f.ty === h.ty);
     case 'patch': return p.carry === 'flickblech' && game.ship.breachList.some((b) => b.tx === h.tx && b.ty === h.ty);
-    case 'flick': { const st = game.ship.systems[h.system]; return p.zone === 'ship' && (st === 'damaged' || st === 'broken'); }
+    case 'flick': { const st = game.ship.systems[h.system]; return p.zone === 'ship' && (st === 'damaged' || st === 'broken') && stufeGleich(game, h.system, h.von); }
     case 'swap': return p.zone === 'ship' && p.carry === 'ersatzteil' && repairable(game, h.system) && !sonderReparatur(game, h.system);
     case 'minigame': return repairable(game, h.system) && !sonderReparatur(game, h.system);
     case 'beam': return game.transfer.canBeam(game, h.dir).ok;
@@ -1004,6 +1004,9 @@ function repairable(game, sys) {
 // Arbeit) gilt zeiten[n−1] s; der Fortschritt läuft mit sonderRate (zwei Arbeiter: 12/7 je Sekunde). Ersatzteil und Minispiel gelten dort nicht.
 const REPAIR_KINDS = ['flick', 'swap', 'minigame'];
 function sonderReparatur(game, sys) { return sys === 'reactor' && game.ship.systems.reactor === 'broken'; }
+// SYS-01 A2 Nacharbeit: am Reaktor hängt die Dauer vom Zustand bei Arbeitsbeginn ab (Flicken 1,5 s, zerstört = Sonderreparatur 12/7/5 s). Ändert sich der Zustand
+// während der Arbeit (beschädigt -> zerstört), gilt die begonnene Arbeit nicht mehr: Halten bzw. Bot-Aufgabe brechen ab, die Sonderreparatur beginnt neu.
+function stufeGleich(game, sys, von) { return sys !== 'reactor' || von === undefined || game.ship.systems.reactor === von; }
 function sonderZeit(game, n) {
   const z = game.C.reaktorTod.sonderreparatur.zeiten;
   return z[Math.min(Math.max(1, n | 0), z.length) - 1];
@@ -1030,7 +1033,16 @@ function repairTime(game, how, sys) {
 function damageSystem(game, sys, toState, opts) {
   const vorher = sys === 'reactor' ? effZustand(game, sys) : null;
   damageSystemRoh(game, sys, toState, opts);
-  if (sys === 'reactor' && vorher !== 'broken' && effZustand(game, sys) === 'broken') require('./reaktortod.js').zerstoert(game, opts);
+  if (sys === 'reactor' && vorher !== 'broken' && effZustand(game, sys) === 'broken') {
+    const s = game.ship.systems;
+    if (s.reactor === 'offline') {   // SYS-01 A2 Nacharbeit: die Zerstörung hebt die EMP-Pause auf (zerstört ohne Offline-Merkmal: Reparatur und Notsprung gehen)
+      delete game.ship.offline.reactor; s.reactor = 'broken'; syncInteg(game, 'reactor');
+      game.emit('sfx', { name: 'system_break', zone: 'ship' });
+      game.emit('systemHit', { system: 'reactor', state: 'broken' });
+      if (!(opts && opts.quiet)) queueSystemAnnounce(game, 'reactor', 'broken');
+    }
+    require('./reaktortod.js').zerstoert(game, opts);
+  }
 }
 function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
   const s = game.ship.systems;
@@ -1269,7 +1281,7 @@ function repairSystem(game, sys, by, how, opts) {
   if (!s[sys] || s[sys] === 'offline') return false;
   how = how || (by === 'oda' ? 'oda' : 'bot');
   if (sonderReparatur(game, sys) && how !== 'flick') return false;   // SYS-01 A2a: am zerstörten Reaktor nur die Sonderreparatur (kein Ersatzteil, keine Notreparatur)
-  if (sys === 'reactor' && opts && opts.von === 'broken' && s[sys] !== 'broken') return false;   // SYS-01 A2a: der Partner hat die Stufe schon geschafft
+  if (sys === 'reactor' && opts && opts.von && opts.von !== s[sys]) return false;   // SYS-01 A2a: der Partner hat die Stufe schon geschafft; A2 Nacharbeit: der Zustand hat sich seit Arbeitsbeginn geändert (kein Schnellweg)
   if (!ship.fragile) ship.fragile = {};
   const before = s[sys];
   const wasFragile = !!ship.fragile[sys];
@@ -1508,5 +1520,5 @@ module.exports = {
   systemSector, emitterFor, isFragile, heatDamage, makeSystems, repairable, repairCmd, pruneRepairQueue,
   stationInReach, repairTime, WEAPON_SYSTEMS, EMITTERS, SYS_LABEL, SECTOR_LABEL,
   // SYS-01 A2a: Sonderreparatur des zerstörten Reaktors (Bots und Tests)
-  sonderReparatur, sonderZeit, sonderArbeiter, sonderRate, repairModus,
+  sonderReparatur, stufeGleich, sonderZeit, sonderArbeiter, sonderRate, repairModus,
 };

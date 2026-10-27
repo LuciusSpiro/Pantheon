@@ -1365,7 +1365,9 @@
       const selRow = rows[this.sel.damage];
       const selectId = (id) => { const i = rows.findIndex(r => r.target === id); if (i >= 0) this.sel.damage = i; };
       if (ZK && PS) {
-        const sw = (id) => PS.modulName(ship, id) || (/^lafette_/.test(id) ? 'Lafette' : (H.SYS_SHORT[id] || H.sysName(id, ship)));
+        // SYS-01 A2 Nacharbeit: Waffensysteme heißen nach der Waffe am Platz (Katalog-Kurzname, z. B. „Lanze“, „Standard“) wie im Mockup und in der Ops-Anzeige; die Ziffer steht im Kästchen davor
+        const waffeAmPlatz = (id) => { const pl = ZK.platzVon(id), SU = window.SchiffsUI; if (!pl || !SU) return null; const m = (ship.mounts || []).find((q) => SU.platzVon(q) === pl); const w = m && SU.waffeVon(m); return w && w.kurz ? w.kurz.charAt(0) + w.kurz.slice(1).toLowerCase() : null; };
+        const sw = (id) => PS.modulName(ship, id) || waffeAmPlatz(id) || (/^lafette_/.test(id) ? 'Lafette' : (H.SYS_SHORT[id] || H.sysName(id, ship)));
         const mod = ZK.modell(st, { name: sw, reihenfolge: H.SYSTEM_ORDER });
         // Gegnerziel (Server ship.zielAuf): Zeile mit → im Kreuz, Satz unter den Knöpfen (siehe unten)
         const geZiel = mod.gezieltId ? ZK.eintrag(mod, mod.gezieltId) : null;
@@ -1383,7 +1385,7 @@
           const wt = this.walkTime(id), esc = (ship.escalate || {})[id];
           const zt = e ? (e.zust === 'zer' ? 'zerstört' : e.zust === 'offline' ? 'offline (EMP)' : e.zust === 'besch' ? 'beschädigt' : fr ? 'geflickt' : 'heil') : '–';
           const zc = e ? (e.zust === 'zer' ? F.zerText : e.zust === 'besch' ? F.besch : e.zust === 'offline' ? F.dim : F.text) : PAL.panelLight;
-          R.text(ctx, selRow.label, a.x, dy, { color: PAL.star });
+          R.text(ctx, (e && e.name) || selRow.label, a.x, dy, { color: PAL.star });   // SYS-01 A2 Nacharbeit: derselbe Name wie in der Zeile (Waffentyp statt „Bug-Waffe“)
           R.text(ctx, zt + (e && e.zust !== 'zer' ? ' ' + e.pct + ' %' : ''), a.x + 150, dy, { color: zc });
           if (esc != null) R.text(ctx, 'brennt in ' + Math.ceil(n(esc)) + ' s', a.x + 372, dy, { color: n(esc) <= 5 && Math.floor(view.time * 4) % 2 ? PAL.red : '#F08A3C', align: 'right' });
           else R.text(ctx, 'Weg ' + (wt != null ? f1(wt) + ' s' : '–'), a.x + 372, dy, { color: PAL.panelLight, align: 'right' });

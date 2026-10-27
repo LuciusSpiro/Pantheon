@@ -65,6 +65,27 @@ async function main() {
     // ein Gegner in Sicht (Karte), nicht schießend genug, um das Bild zu verändern: Schilde und Schäden setzen wir danach selbst
     await page.evaluate(() => __game.send({ t: 'debug', cmd: 'spawn', kind: 'fregatte', volk: 'ger' }));
     await sleep(1500);
+    // SYS-01 A2 Nacharbeit (Befund 6): Sitz in der Voxel-Brücke, Blick VORN. Zuerst der Countdown (Kantenleiste mit Restzeit und Ausfallzähler), nach der Szene „zerstört“ die Einblendung.
+    const vorn = async (name, mitCountdown) => {
+      await page.goto(`http://127.0.0.1:${PORT}/?debug=1&render=voxel`);
+      await page.waitForFunction(() => window.__game && __game.send && __game.state && window.Sitz, null, { timeout: 30000 });
+      await page.waitForFunction(() => window.VoxelRender && VoxelRender.ready, null, { timeout: 60000 }).catch(() => console.log('Voxel nicht bereit'));
+      await page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'helm', hin: true })); await sleep(800);
+      await page.mouse.move(640, 300); await sleep(1200);
+      if (mitCountdown) {
+        await damageCd('reactor', 'broken'); await sleep(500);
+        await damage('reactor', 'ok'); await sleep(300);
+        await damageCd('reactor', 'broken'); await sleep(3600);
+        await page.evaluate(() => __game.send({ t: 'menu', op: 'pause', on: true })); await sleep(600);
+      }
+      console.log('VORN ' + name + ':', JSON.stringify(await page.evaluate(() => ({ blick: Sitz.blick, rt: __game.state.ship.reaktorTod }))));
+      await page.screenshot({ path: path.join(SHOTS, 'vorn-' + name + '.png') });
+      if (mitCountdown) { await page.evaluate(() => __game.send({ t: 'menu', op: 'pause', on: false })); await damage('reactor', 'ok'); await sleep(300); }
+      await page.goto(`http://127.0.0.1:${PORT}/?debug=1&render=2d`);
+      await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000 });
+      await page.mouse.move(5, 5);
+    };
+    await vorn('countdown', true);
     let zielAn = false;
     for (const sz of SZENEN) {
       if (!sz.zerstoert) for (const k of ALLE) await damage(k, 'ok');
@@ -125,6 +146,7 @@ async function main() {
     console.log('HUD-Felder:', hud.grenzen.map((g) => `${g.text} ${g.breite}px ${g.ok ? 'passt' : 'ZU BREIT'}`).join(' | '));
     if (hud.grenzen.some((g) => !g.ok)) fehler.push('HUD-Feld: Text zu breit');
     await page.evaluate(() => { try { localStorage.removeItem('pantheon.pult'); } catch (e) { /* egal */ } });
+    await vorn('zerstoert', false);
   } finally {
     await b.close(); srv.kill();
     const fe = [...new Set(fehler)];

@@ -552,7 +552,7 @@
     // Bodenkampf: Wellen – nach der Ergebnisanzeige sofort zurück in die Lobby (wie „Partie beenden“)
     wellenLobby() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'end' }); audio.play('ui_click'); },
     // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“ (Server: erst wenn alle verbundenen Spieler OK haben, zurück in die Lobby)
-    zerstoertOk() { send({ t: (P.C && P.C.MENU) || 'menu', op: 'zerstoertOk' }); audio.play('ui_click'); },
+    zerstoertOk() { Client.zerstoertOkGesendet = true; send({ t: (P.C && P.C.MENU) || 'menu', op: 'zerstoertOk' }); audio.play('ui_click'); },
     // Bodenkampf: Wellen – Karte reihum (Taste K / Klick); jeder darf umschalten, alle sehen die Wahl
     toggleWellenKarte() {
       const st = Client.state;
@@ -688,6 +688,7 @@
     if (Client.snaps.length > 40) Client.snaps.shift();
     if (prev && prev.phase !== 'end' && s.phase === 'end') Client.endDismissed = false;
     Net.guard('Client.banderole', () => onBanderole(prev, s));
+    if (!(s.ship && s.ship.reaktorTod && s.ship.reaktorTod.tot)) Client.zerstoertOkGesendet = false;   // SYS-01 A2 Nacharbeit: Merker „mein OK ist raus“ nur während der Einblendung
     Net.guard('Client.reconcile', () => reconcile(s));   // F7: ein Fehler hier darf diff/snapB nicht dauerhaft abschneiden
     Net.guard('Client.diff', () => diffState(prev, s));
     Net.guard('Client.snapB', () => onSnapB(prev, s));
@@ -2013,8 +2014,8 @@
     // QA M1: Der Ende-Screen erscheint auch über Konsolen (der Captain sitzt beim Kernscan an der Konsole) – Enter/Esc schließt ihn zuerst.
     if (st.phase === 'end' && st.abspann && (code === 'Enter' || code === 'Escape')) { actions.abspannEnde(); return; }   // EK8: Abspann der Kette – kein freies Spiel danach
     if ((st.phase === 'end' || (st.mission && st.mission.m1Done)) && !Client.endDismissed && (code === 'Enter' || code === 'Escape')) { actions.dismissEnd(); return; }
+    if (zerstoertOffen(st) && (code === 'Enter' || code === 'KeyE')) { actions.zerstoertOk(); return; }   // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“ (A2 Nacharbeit: vor wellenLobby, der Server sperrt end nach dem Tod)
     if (st.wellen && st.wellen.ph === 'ende' && code === 'Enter') { actions.wellenLobby(); return; }   // Bodenkampf: Wellen – Ergebnis -> Lobby
-    if (zerstoertOffen(st) && (code === 'Enter' || code === 'KeyE')) { actions.zerstoertOk(); return; }   // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“
     if (m.console) { Net.guard('Consoles.keyDown', () => K.keyDown(e, Client.view)); return; }
     // M3a: Minispiel offen -> nur Leertaste/Esc, kein E an den Server, keine Bewegung
     if (Client.minigame) { if (!e.repeat) Net.guard('Client.minigameKey', () => minigameKey(code)); return; }
@@ -2272,6 +2273,7 @@
     if (Client.shipHit) v.shipHit = { sector: Client.shipHit.sector, t: (nowMs - Client.shipHit.t0) / 1000 };
     v.interaction = Client.minigame ? null : Net.guard('Client.interaction', () => computeInteraction(st, m, v.self), null);
     v.minigame = Client.minigame;
+    v.zerstoertOkGesendet = !!Client.zerstoertOkGesendet;
     if (Client.dodgeFx) { const age = (nowMs - Client.dodgeFx.t0) / 1000; if (age > 2) Client.dodgeFx = null; else v.dodgeFx = { age }; }
     // M3b: Rückschläge der letzten 1,5 s (Render zeichnet den Rückschritt am Balken)
     Client.setbacks = Client.setbacks.filter(s => nowMs - s.t0 < 1500);
