@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b A1: Mutationsprobe zu tools/test-posten.js. Kopiert Server, Shared, Content und den Test in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE
 // Regel und verlangt, dass test-ruf.js rot wird (Exit != 0). Überlebt eine Mutation, deckt der Test die Regel nicht ab.
-//   node tools/mutation-posten.js          (npm run test:posten-mutation)
+//   node tools/mutation-posten.js [--trocken]          (npm run test:posten-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -82,6 +82,22 @@ const MUTATIONEN = [
   ['content/welt/posten-werte.json', '"gruenden": "miles", "ausbau": "centurio"', '"gruenden": "centurio", "ausbau": "miles"', 'Daten: Ausbau verlangt weniger als Gründen'],
   ['content/flotte/posten.json', '"anspruch": "Dieser Sektor liegt nicht in Roms Anspruch."', '"anspruch": "Nein."', 'Text: Anspruch-Weigerung'],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe test-posten.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);

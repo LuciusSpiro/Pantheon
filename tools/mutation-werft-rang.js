@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b C: Mutationsprobe zu tools/test-werft-rang.js und test-werft-ui.js. Kopiert Server, Shared, Content, Client und die Tests in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE
 // Regel und verlangt, dass test-werft-rang.js rot wird (Exit != 0). Überlebt eine Mutation, deckt der Test die Regel nicht ab.
-//   node tools/mutation-werft-rang.js          (npm run test:werft-rang-mutation)
+//   node tools/mutation-werft-rang.js [--trocken]          (npm run test:werft-rang-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -46,6 +46,22 @@ const MUTATIONEN = [
   ['public/js/pult-terminal-tokens.js', "hat ? 'modul' : st.sperre ? 'warn' : 'preis'", "hat ? 'modul' : 'preis'", 'Zeichnung: gesperrter Preis nicht in Warnfarbe'],
   ['public/js/pult-terminal-tokens.js', "if (s.sperre) {   // Grund der gesperrten Stufe", "if (false) {   // Grund der gesperrten Stufe", 'Zeichnung: Grundzeile im Block entfällt'],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe test-werft-rang.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);

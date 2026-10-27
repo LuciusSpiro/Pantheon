@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b A2: Mutationsprobe zu tools/test-sprengen.js. Kopiert Server, Shared, Content und den Test in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE Regel
 // und verlangt, dass test-sprengen.js rot wird (Exit != 0). Überlebt eine Mutation, deckt der Test die Regel nicht ab.
-//   node tools/mutation-sprengen.js          (npm run test:sprengen-mutation)
+//   node tools/mutation-sprengen.js [--trocken]          (npm run test:sprengen-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -90,6 +90,22 @@ const MUTATIONEN = [
   ["server/sim/posten.js","  const e = angreifenPruefen(game, true);\n  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }\n  const o = ort(game);","  const e = null;\n  if (e) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: e.code }); game.oda(abbruchText(art, e.code), null); return false; }\n  const o = ort(game);","A2-Fix: Anlauf-Abschluss ohne Schlussprüfung"],
   ["server/sim/kriegslage.js","if (t > game.weltsim.zustand.tick) delete game.weltsim.sprengungen[hex];","if (false) delete game.weltsim.sprengungen[hex];","A2-Fix: Sprengung aus der Zukunft bleibt nach neuer Welt"],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe test-sprengen.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);

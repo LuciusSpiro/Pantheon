@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b E: Mutationsprobe zu tools/test-verrat.js (und test-verrat-ws.js für Mutationen mit Marke 'ws'). Kopiert Server, Shared, Content und die Tests in ein Temp-Verzeichnis (das Repo bleibt
 // unberührt), ändert dort je Lauf EINE Regel und verlangt, dass der Test rot wird (Exit != 0). Überlebt eine Mutation, deckt der Test die Regel nicht ab.
-//   node tools/mutation-verrat.js          (npm run test:verrat-mutation)
+//   node tools/mutation-verrat.js [--trocken]          (npm run test:verrat-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -133,6 +133,22 @@ const MUTATIONEN = [
   [S, "const hmin = Number(Verrat.W.huelle_min.wert);", "const hmin = 0.5;", 'Mindest-Hülle fest statt aus den Daten'],
   ['content/welt/verrat-werte.json', '"hexe": ["0204"]', '"hexe": []', 'Daten: Hauptwelt nicht gesperrt'],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe test-verrat.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);

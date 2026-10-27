@@ -258,6 +258,8 @@ section('Zustandsübergänge (Stubs)', () => {
   ok(z(g).hexe[ZIEL.hex].besitzer === 'ger', 'vor dem Sieg gehört Hrafnheim den Germanen');
   ok(Finale.bodenEnde(g, 'sieg') === true && Finale.phase(g) === 'ende', 'Boden sieg: phase ende');
   ok(gleich(s.abspann, ['sieg']), 'Abspann: beenden(game, "sieg") genau einmal');
+  ok(g.weltstand.data.fakten.finale_gespielt === true, 'Fakt finale_gespielt gesetzt');
+  ok(g.phase === 'end' && g.abspann && g.abspann.bloecke.some((b) => b.kopf === 'DER SCHREIN') && !g.abspann.bloecke.some((b) => b.kopf === 'OHNE EUCH'), 'Fakt steht VOR dem Abspann: der Fall der Hauptwelt in der Siegwirkung ruft ihn schon, er zeigt den Block Schrein statt kampflos');
   ok(ws(g).tickZahl === tickBoden + 1, 'Siegwirkungen: GENAU EIN Sim-Tick');
   ok(z(g).hexe[ZIEL.hex].besitzer === 'rom', 'Hafen 1004 gehört Rom');
   ok(t.funk().includes(T.funk.sieg) && !g.errors, 'Funk zum Sieg, kein Serverfehler');

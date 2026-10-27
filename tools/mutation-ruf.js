@@ -1,7 +1,7 @@
 'use strict';
 // SUND-02b B: Mutationsprobe zu tools/test-ruf.js. Kopiert Server, Shared, Content und den Test in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE
 // Regel und verlangt, dass test-ruf.js rot wird (Exit != 0). Überlebt eine Mutation, deckt der Test die Regel nicht ab.
-//   node tools/mutation-ruf.js          (npm run test:ruf-mutation)
+//   node tools/mutation-ruf.js [--trocken]          (npm run test:ruf-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -47,8 +47,8 @@ const MUTATIONEN = [
   ['server/game.js', "world.ruf = Ruf.snapshot(this); this.sentRufKey = rk;", "world.ruf = Ruf.snapshot(this);", 'sentRufKey wird nie gesetzt'],
   ['server/sim/ruf.js', "FRAKTIONEN.map((f) => ruf(game, f)).join(':')", "ruf(game, 'rom')", 'B-Fix 3 (B): Snapshot-Schlüssel nur aus rom'],
   ['server/game.js', "!includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.ruf = Ruf.snapshot(this);", "true) { world.ruf = Ruf.snapshot(this);", 'B-Fix 3 (E): world.ruf auch in den großen Snapshots'],
-  ['server/game.js', "this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;\n    this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);", "this.sentLageKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;\n    this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);", 'B-Fix 3 (C): Beitritt setzt sentRufKey nicht zurück'],
-  ['server/game.js', "this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;\n    this.runId = null;", "this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentInfoKey = null;\n    this.runId = null;", 'B-Fix 3 (D): reset() setzt sentRufKey nicht zurück'],
+  ['server/game.js', "this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;\n    this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);", "this.sentLageKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;\n    this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);", 'B-Fix 3 (C): Beitritt setzt sentRufKey nicht zurück'],
+  ['server/game.js', "this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;\n    this.runId = null;", "this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;\n    this.runId = null;", 'B-Fix 3 (D): reset() setzt sentRufKey nicht zurück'],
   ['server/game.js', "else if (!rk && this.sentRufKey) { world.ruf = null; this.sentRufKey = null; }", "", 'B-Fix 3: kein Löschsignal'],
   ['server/sim/ruf.js', "ws.ruf[a[0]] = klemmen(a[0], v);", "ws.ruf[a[0]] = v;", 'B-Fix 4: Debug klemmt nicht'],
   ['content/welt/ruf-werte.json', '"fahrerflucht_ger":       {"fraktion": "rom", "delta": -3,', '"fahrerflucht_pirat": {"fraktion": "rom", "delta": -3}, "fahrerflucht_ger":       {"fraktion": "rom", "delta": -3,', 'Daten: Flucht vor Piraten kostet Ruf'],
@@ -56,6 +56,22 @@ const MUTATIONEN = [
   ['content/welt/ruf-werte.json', '{"id": "centurio", "name": "Centurio", "ab": 30}', '{"id": "centurio", "name": "Centurio", "ab": 5}', 'Daten: Schwelle nicht aufsteigend'],
   ['content/welt/ruf-werte.json', '"sieg_feld_ger":          {"fraktion": "rom", "delta": 3,', '"sieg_feld_ger":          {"fraktion": "rom", "delta": 0,', 'Daten: Quelle mit delta 0'],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe test-ruf.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);

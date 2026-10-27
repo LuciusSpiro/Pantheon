@@ -36,7 +36,10 @@ const MUTATIONEN = [
   // ---- Zustandsmaschine und Befehle
   [F, "  if (ausgang === 'crew_gefallen') { neubeginn(game, 'crew_gefallen'); return true; }", "  if (ausgang === 'crew_gefallen') { neubeginn(game, 'crew_gefallen'); game.endGame({ title: 'Game Over' }); return true; }", 'gefallene Crew beendet das Spiel'],
   [F, "  if (!anfrageRest(game)) { s.anfrage = null; return fehl('keine_anfrage'); }", "  if (!s.anfrage) { return fehl('keine_anfrage'); }", 'Frist ignoriert (verfallene Anfrage gilt)'],
-  [F, "return a && a.bis > game.time && a.bis - game.time <= f ? a.bis - game.time : 0;", "return a ? Math.max(1, a.bis - game.time) : 0;", 'Frist: Anfrage verfällt nie'],
+  [F, "  try { if (game.weltstand && typeof game.weltstand.fact === 'function') game.weltstand.fact('finale_gespielt', true, 'finale'); }", "  try { if (game.weltstand && typeof game.weltstand.fact === 'function') void 0; }", 'Fakt finale_gespielt wird nie gesetzt'],
+  [F, "if (!a || !(a.bis > game.time)) return 0;", "if (!a) return 0;", 'Frist: Anfrage verfällt nie'],
+  [F, "return rest <= f + 1e-9 ? Math.min(rest, f) : 0;", "return rest <= f ? rest : 0;", 'Frist: ohne Gleitkomma-Toleranz scheitert die Bestätigung im selben game.time'],
+  [F, "return rest <= f + 1e-9 ? Math.min(rest, f) : 0;", "return rest <= f + 1e-9 ? rest : 0;", 'Frist: der Rest darf das Fenster nicht überschreiten (Anzeige 21 statt 20)'],
   [F, "  if (s.anfrage && !anfrageRest(game)) { s.anfrage = null; if (s.angebot) funk(game, 'angefragt_verfallen'); }\n", "", 'verfallene Anfrage wird nicht geräumt'],
   [F, "  if (rest) return fehl('schon_angefragt', { sek: Math.ceil(rest) });\n", "", 'zweite Anfrage in der Frist geht durch'],
   [F, "  if (!s.angebot) return fehl('kein_angebot');\n  const rest = anfrageRest(game);", "  const rest = anfrageRest(game);", 'Anfrage ohne Angebot'],

@@ -2,7 +2,7 @@
 // SUND-03 B: Mutationsprobe zu den Transport-Tests (Ollama-Transport, Router/Eskalation, Schema-Ableitung, Reparaturen). Kopiert die
 // nötigen Teile in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE Regel und verlangt, dass mindestens
 // einer der Tests rot wird (Exit != 0). Überlebt eine Mutation, deckt kein Test die Regel ab.
-//   node tools/mutation-transport.js          (npm run test:transport-mutation)
+//   node tools/mutation-transport.js [--trocken]          (npm run test:transport-mutation)
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -119,6 +119,22 @@ const MUTATIONEN = [
   [O, "return { ok: true, url, version };", "return { ok: true, url };", 'Healthcheck: ohne Version'],
   [O, "if (!res.ok) return { ok: false, url, fehler: `HTTP ${res.status}`, code: 'EXIT' };", "", 'Healthcheck: HTTP-Fehler gilt als gesund'],
 ];
+
+// --trocken: nur der Anker-Check (jeder Anker genau einmal im Quelltext der Kopie, sonst Exit 2); die Tests laufen nicht
+if (process.argv.includes('--trocken')) {
+  const schlecht = [];
+  for (const [datei, alt, neu, was, zusatz] of MUTATIONEN) {
+    let text;
+    try { text = fs.readFileSync(path.join(TMP, datei), 'utf8').replace(/\r\n/g, '\n'); } catch (e) { schlecht.push(was + ': Datei fehlt (' + datei + ')'); continue; }
+    const n = text.split(alt).length - 1;
+    if (n !== 1) { schlecht.push(was + (n === 0 ? ': Anker nicht gefunden' : ': Anker ' + n + 'x gefunden') + ' (' + datei + ')'); continue; }
+    if (Array.isArray(zusatz) && !text.replace(alt, () => neu).includes(zusatz[0])) schlecht.push(was + ': zweiter Anker nicht gefunden (' + datei + ')');
+  }
+  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  process.exit(0);
+}
 
 let ueberlebt = 0;
 console.log(`Mutationsprobe Transport (${MUTATIONEN.length} Mutationen, ${TESTS.length} Tests, Kopie in ${TMP})`);
