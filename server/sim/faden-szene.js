@@ -263,13 +263,26 @@ const befreiungBaustein = {
 };
 Bausteine.registriere('befreiung', befreiungBaustein);
 // Takt: jeder laufende Befreiungs-Beat, dessen Szene noch nicht eingeplant ist, beginnt, sobald das Schiff am Ort des NSC ist
+// Der laufende Befreiungs-Beat eines Fadens (sonst null)
+function befreiungBeat(f) {
+  if (f.phase !== 'laeuft' || !f.laufend) return null;
+  const beat = D.vorlage(f.vorlage).beats[f.beat];
+  return beat && beat.id === f.laufend.beat && D.BEATS[beat.typ].baustein === 'befreiung' ? beat : null;
+}
+// Welle 4 (S4): ein Schnellsprung (reise.js) darf nicht durch den Ort eines wartenden NSC fuehren und von dort weiterspringen: das Verlassen des Sektors beendet die Befreiung gescheitert (der NSC
+// stirbt), ohne dass die Crew es wollte. Text fuer den Halt am Ort (der Rest der Route bleibt gewaehlt, wie nach einem Reise-Ereignis), sonst null.
+function befreiungHalt(game, hex) {
+  if (!aktiv(game) || !echteBefreiung() || !game.ship) return null;
+  const F = Faden.zustandVon(game);
+  const f = F.liste.find((x) => befreiungBeat(x) && x.parameter.ort === hex);
+  return f ? fmt(T.schnellsprung_befreiung, { name: f.nsc.name, ort: hexName(hex) }) : null;
+}
 function befreiungAnkunft(game, hier) {
   if (!aktiv(game) || !echteBefreiung() || !game.ship) return;
   const F = Faden.zustandVon(game);
   for (const f of F.liste.slice()) {
-    if (f.phase !== 'laeuft' || !f.laufend) continue;
-    const beat = D.vorlage(f.vorlage).beats[f.beat];
-    if (!beat || beat.id !== f.laufend.beat || D.BEATS[beat.typ].baustein !== 'befreiung') continue;
+    const beat = befreiungBeat(f);
+    if (!beat) continue;
     if (f.parameter.ort !== hier) continue;
     if ((game.fadenSzene && game.fadenSzene.fadenId === f.id) || (game.fadenWarte || []).some((it) => it.fadenId === f.id)) continue;   // schon eingeplant oder laeuft
     starten(game, { art: 'befreiung', fadenId: f.id, beatId: beat.id, nsc: f.nsc, parameter: f.parameter });
@@ -299,4 +312,4 @@ function andockenHook(game) {
 // Zustand für Tests und Anzeige
 const zustand = (game) => ({ szene: game.fadenSzene || null, warte: (game.fadenWarte || []).slice(), hilfe: game.fadenHilfe || null });
 
-module.exports = { befreiungAnkunft, starten, update, andockenHook, zuruecksetzen, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };
+module.exports = { befreiungAnkunft, befreiungHalt, starten, update, andockenHook, zuruecksetzen, zustand, ARTEN, aufraeumen, wuerfeln, verfolgungLaeuft, frei, unterbrechen, kampfTakt };

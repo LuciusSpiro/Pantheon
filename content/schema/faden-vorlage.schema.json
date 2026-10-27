@@ -360,7 +360,8 @@
             "additionalProperties": false,
             "required": [
               "wenn",
-              "typ"
+              "typ",
+              "aus"
             ],
             "properties": {
               "wenn": {
@@ -372,6 +373,95 @@
               "typ": {
                 "type": "string",
                 "maxLength": 20
+              },
+              "aus": {
+                "type": "object",
+                "additionalProperties": false,
+                "description": "Welle 4 (S1): Ausgaenge der VARIANTE (der NSC kehrt feindlich wieder): status des NSC, weiter, folge, text_key wie aus. Pflicht: ein gewonnener Kampf gegen den Feind ist keine Hilfe (Pruefer VARIANTE_AUS, VARIANTE_AUSGANG).",
+                "properties": {
+                  "gelungen": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "weiter": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                      },
+                      "text_key": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z0-9_]{1,40}$"
+                      },
+                      "folge": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "typ",
+                            "grund"
+                          ],
+                          "properties": {
+                            "typ": {
+                              "type": "string",
+                              "maxLength": 24
+                            },
+                            "grund": {
+                              "type": "string",
+                              "maxLength": 40
+                            }
+                          }
+                        }
+                      }
+                    }
+                  },
+                  "gescheitert": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "status": {
+                        "type": "string",
+                        "maxLength": 20
+                      },
+                      "weiter": {
+                        "type": "string",
+                        "pattern": "^[a-z][a-z0-9_]{0,31}$"
+                      },
+                      "text_key": {
+                        "type": "string",
+                        "maxLength": 40,
+                        "pattern": "^[a-z0-9_]{1,40}$"
+                      },
+                      "folge": {
+                        "type": "array",
+                        "maxItems": 4,
+                        "items": {
+                          "type": "object",
+                          "additionalProperties": false,
+                          "required": [
+                            "typ",
+                            "grund"
+                          ],
+                          "properties": {
+                            "typ": {
+                              "type": "string",
+                              "maxLength": 24
+                            },
+                            "grund": {
+                              "type": "string",
+                              "maxLength": 40
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
               }
             },
             "description": "Optional: wenn der NSC feindlich wiederkehrt (Haltung unter feindlich_unter), läuft dieser Beat-Typ statt des Typs des Beats (Daten, nie im Code)."

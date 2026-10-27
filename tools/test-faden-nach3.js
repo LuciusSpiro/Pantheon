@@ -121,9 +121,18 @@ async function main() {
     ok(Bitte.beantworten(g, 'annehmen', off.nr) === null, 'bei vollem Deckel: die Annahme wird nicht verweigert');
     ok(f.beat === 1 && f.phase === 'wartet', 'der Faden geht mit Ausgang gelungen zur Mission');
     ok(f.nsc.haltung > h0, `die Haltung wird gebucht (${h0} -> ${f.nsc.haltung})`);
-    ok(g.weltsim.ruf.rom === rom0, 'der Ruf entfaellt (Deckel voll)');
-    const logb = (g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || [];
-    ok(logb.some((e) => e.ausgang === 'ruf_deckel'), 'der entfallene Ruf steht im Regie-Logbuch (ruf_deckel)');
+    ok(g.weltsim.ruf.rom === rom0, 'Annehmen zahlt keinen Ruf (Welle 4, S2: Ruf nur fuer die Leistung am Abschluss)');
+    const logb = () => (g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || [];
+    ok(!logb().some((e) => e.ausgang === 'ruf_deckel'), 'Annehmen hat keine Ruf-Folge, die der Deckel streichen muesste');
+    // der Abschluss nach geleisteter Mission zahlt den Ruf; bei vollem Deckel entfaellt er (Logbuch ruf_deckel), die Haltung gilt
+    const v = D.vorlage('dankbarer_captain'), iEnde = v.beats.length - 1;
+    faellig(f, iEnde, 'verbuendet');
+    f.nsc.gedaechtnis = [{ tick: 1, ereignis: 'raumschlacht_gelungen', text_key: 'x' }];
+    g.weltsim.faeden.bitteLog = [[g.weltsim.faeden.t, BW.ruf_deckel.wert]];
+    const h1 = f.nsc.haltung, rom1 = g.weltsim.ruf.rom;
+    ok(weiter(g, f).ok && f.phase === 'abgeschlossen' && f.ausgang.art === 'gelungen', 'der Abschluss mit Leistung laeuft gelungen');
+    ok(f.nsc.haltung > h1 && g.weltsim.ruf.rom === rom1, 'bei vollem Deckel: Haltung gilt, der Ruf entfaellt');
+    ok(logb().some((e) => e.ausgang === 'ruf_deckel'), 'der entfallene Ruf steht im Regie-Logbuch (ruf_deckel)');
   }
 
   // =====================================================================================================================================================================
@@ -135,7 +144,8 @@ async function main() {
     ok(hat(pruefe('dankbarer_captain', (v) => { v.beats[0].optionen.find((o) => o.id === 'spaeter').folge = []; }), 'TON_UNERREICHBAR'), 'Spaeter ohne Haltungs-Folge: der kalte Ton wird nie gesprochen -> TON_UNERREICHBAR');
     ok(hat(pruefe('dankbarer_captain', (v) => { v.beats[0].optionen.find((o) => o.id === 'spaeter').folge = []; }), 'VARIANTE_UNERREICHBAR'), 'Spaeter ohne Haltungs-Folge: die feindliche Variante laeuft nie -> VARIANTE_UNERREICHBAR');
     ok(hat(pruefe('dankbarer_captain', (v) => { v.nsc.haltung = 0; }), 'TON_UNERREICHBAR'), 'Start 0: der herzliche Ton wird nie gesprochen -> TON_UNERREICHBAR');
-    ok(pruefe('dankbarer_captain', (v) => { v.nsc.haltung = 4; }).ok, 'Start 4 (herzlich ab 2): besteht');
+    ok(hat(pruefe('dankbarer_captain', (v) => { v.nsc.haltung = 4; }), 'VARIANTE_UNERREICHBAR') && hat(pruefe('dankbarer_captain', (v) => { v.nsc.haltung = 4; }), 'TON_UNERREICHBAR'), 'Start 4: mit hingehalten -1 reicht der Weg nicht mehr bis kalt und bis zur feindlichen Wiederkehr (4 - 5 Spaeter - Ablehnen = -2, nicht unter ' + HW.feindlich_unter.wert + ')');
+    ok(pruefe('dankbarer_captain', (v) => { v.nsc.haltung = 2; }).ok, 'Start 2 (herzlich ab 2): besteht');
     // Verbraucher im echten Spiel: der Ton der Bitte folgt der Haltung; mehrmals hingehalten kehrt der NSC feindlich wieder
     const g = neu(330);
     ab(g);
@@ -147,24 +157,24 @@ async function main() {
     const textRoh = (hh) => { const ton = tonVon(hh); const k = 'bitte_mission' + (ton === 'sachlich' ? '' : '_' + ton); return BW.texte.wert[k] || BW.texte.wert.bitte_mission; };
     const kopf = (t) => t.split('{ort}')[0];
     const toene = [];
-    for (let k = 0; k < 5; k++) {
+    for (let k = 0; k < 6; k++) {
       let off = null;
       for (let i = 0; i < 6 && !(off = Bitte.offen(g)); i++) await runde(g);
       if (!off) break;
       toene.push(tonVon(h));
       ok(off.text.startsWith(kopf(textRoh(h))), `Angebot ${k + 1} (Haltung ${h}, Ton ${tonVon(h)}): „${off.text}“`);
-      if (k === 4) break;   // fuenf Angebote gesehen (vier Mal hingehalten): danach ablehnen
+      if (k === 5) break;   // sechs Angebote gesehen (fuenf Mal hingehalten, hingehalten = -1, Welle 4 S3): danach ablehnen
       Bitte.beantworten(g, 'spaeter', off.nr);
       h = Math.round((h + delta) * 100) / 100;
       ok(f.nsc.haltung === h, `nach dem ${k + 1}. Hinhalten: Haltung ${f.nsc.haltung} (erwartet ${h})`);
     }
     ok(toene.includes('herzlich') && toene.includes('sachlich') && toene.includes('kalt'), `alle drei Toene waren im Spiel zu hoeren (${toene.join(', ')})`);
-    // der fuenfte Weg: nach vier Hinhalte-Antworten ablehnen -> die Haltung liegt unter der Grenze, b_spontan laeuft als Raumschlacht gegen den NSC
+    // der sechste Weg: nach fuenf Hinhalte-Antworten ablehnen -> die Haltung liegt unter der Grenze, b_spontan laeuft als Raumschlacht gegen den NSC
     const off = Bitte.offen(g);
     ok(!!off, 'das letzte Angebot ist offen');
     Bitte.beantworten(g, 'ablehnen', off.nr);
     const erwartetH = Math.max(HW.grenzen.wert.min, Math.round((h + HW.quellen.wert.bitte_abgelehnt.delta) * 100) / 100);
-    ok(f.nsc.haltung === erwartetH && f.nsc.haltung < HW.feindlich_unter.wert, `nach vier Hinhalte-Antworten und Ablehnen: Haltung ${f.nsc.haltung} unter ${HW.feindlich_unter.wert}`);
+    ok(f.nsc.haltung === erwartetH && f.nsc.haltung < HW.feindlich_unter.wert, `nach fuenf Hinhalte-Antworten und Ablehnen: Haltung ${f.nsc.haltung} unter ${HW.feindlich_unter.wert}`);
     for (let i = 0; i < 14 && !(f.phase === 'laeuft' && f.laufend && f.laufend.beat === 'b_spontan'); i++) await runde(g);
     ok(f.phase === 'laeuft' && f.laufend && f.laufend.beat === 'b_spontan' && f.laufend.variante === 'raumschlacht' && f.nsc.status === 'feindlich', `der Beat b_spontan laeuft als Variante Raumschlacht, der NSC ist feindlich (${f.laufend && f.laufend.variante}, ${f.nsc.status})`);
     const sz = g.fadenSzene || (g.fadenWarte || [])[0];
@@ -199,7 +209,7 @@ async function main() {
       ankunft(g, '0403');
       await pumpen(g, 5);
       ok(!!g.fadenSzene && g.fadenSzene.art === 'befreiung' && g.fadenSzene.phase === 'vorlauf', 'Ankunft am Ort: die Szene beginnt mit Vorwarnung (Vorlauf)');
-      ok(funk.some((x) => /Wachschiffe sichern den Ort von/.test(String(x.text))), 'Vorwarnung (Gefahr wird angekuendigt)');
+      ok(funk.some((x) => /Wachschiffe sichern/.test(String(x.text))), 'Vorwarnung (Gefahr wird angekuendigt)');
       ok(await bis(g, () => g.fadenSzene && g.fadenSzene.phase === 'kampf'), 'nach dem Vorlauf beginnt der Kampf');
       ok(wachen(g) >= 2, `Wachschiffe am Ort (${wachen(g)})`);
       kill(g, g.fadenSzene.tag);

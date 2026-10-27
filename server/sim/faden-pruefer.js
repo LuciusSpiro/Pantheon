@@ -124,7 +124,7 @@ function effektiv(beat, haltung, status) {
   return { cat: B[beat.variante.typ], variante: true };
 }
 // Variante (P3): der Variante-Typ muss ein Katalogbaustein mit Gefahr und Szene sein, der bei einem feindlichen NSC laeuft, und ohne Wahrheit, Fluchtziel, Hinweis und Abschluss
-function varianteFehler(b, cat) {
+function varianteFehler(b, cat, v, i, idx) {
   const out = [];
   const vt = b.variante.typ, vc = has(B, vt) ? B[vt] : null;
   if (!vc) return [fehl('VARIANTE', `Beat ${b.id}: Variante-Typ "${vt}" steht nicht im Beat-Katalog`)];
@@ -134,6 +134,36 @@ function varianteFehler(b, cat) {
   if (!(Array.isArray(br.nsc_status) && br.nsc_status.includes('feindlich'))) out.push(fehl('VARIANTE', `Beat ${b.id}: die Variante ${vt} läuft nicht mit einem feindlichen NSC`));
   if (br.wahrheit || br.fluchtziel || br.hinweis_vorher || br.letzter || vc.abschluss) out.push(fehl('VARIANTE', `Beat ${b.id}: die Variante ${vt} braucht mehr als einen Gegner (Wahrheit, Fluchtziel, Hinweis oder Abschluss)`));
   if (cat && cat.abschluss) out.push(fehl('VARIANTE', `Beat ${b.id}: ein Abschluss hat keine Variante`));
+  out.push(...varianteAusFehler(b, v, i, idx));
+  return out;
+}
+
+// Welle 4 (S1): die Variante hat EIGENE Ausgaenge (variante.aus, Daten). Ohne sie buchte ein gewonnener Kampf gegen den feindlich gewordenen NSC die Ausgaenge des Grund-Beats (Spontanhilfe: „verbuendet“,
+// Haltung steigt, Gedaechtnis spontanhilfe_gelungen). Regeln: beide Ausgaenge da, Zustand aus werte.variante_status (nie verbuendet), die Haltung steigt nie (keine Wirkung mit positivem delta), weiter nur nach vorn,
+// Scheitern veraendert den Faden (Zustand oder Weg anders als Gelingen).
+function varianteAusFehler(b, v, i, idx) {
+  const out = [], aus = istObjekt(b.variante.aus) ? b.variante.aus : {};   // fehlt aus ganz, haelt schon die Form (Schema: Pflicht) die Vorlage auf; hier fehlt dann jeder Ausgang
+  for (const ag of W.ausgaenge) {
+    const o = aus[ag];
+    if (!istObjekt(o)) { out.push(fehl('VARIANTE_AUS', `Beat ${b.id}: der Ausgang ${ag} der Variante fehlt (variante.aus braucht gelungen und gescheitert): ein Kampf gegen den Feind ist keine Hilfe`)); continue; }
+    if (!W.status.includes(o.status)) out.push(fehl('VARIANTE_AUS', `Beat ${b.id}, Variante ${ag}: der Zustand des NSC (status) fehlt oder ist unbekannt`));
+    else if (!W.variante_status.includes(o.status)) out.push(fehl('VARIANTE_AUSGANG', `Beat ${b.id}, Variante ${ag}: ein Kampf gegen den Feind laesst ihn nie "${o.status}" zurueck (erlaubt: ${W.variante_status.join(', ')})`));
+    if (o.text_key !== undefined && !(typeof o.text_key === 'string' && TEXT_KEY.test(o.text_key))) out.push(fehl('TEXT_KEY', `Beat ${b.id}, Variante ${ag}: text_key "${String(o.text_key).slice(0, 40)}" ist ungueltig`));
+    for (const f of o.folge || []) {
+      const r = folgeWirkung(f, 'n1');
+      if (r.fehler) out.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, Variante ${ag}: ${r.fehler}`));
+      else if (r.wirkung.typ === 'haltung_aenderung' && r.wirkung.delta > 0) out.push(fehl('VARIANTE_AUSGANG', `Beat ${b.id}, Variante ${ag}: die Haltung des Feindes steigt nicht (${f.grund}, +${r.wirkung.delta}): kein Dank fuer einen Kampf`));
+    }
+    if (o.weiter !== undefined) {
+      const z = idx ? idx.get(o.weiter) : undefined;
+      if (z === undefined) out.push(fehl('WEITER_UNGUELTIG', `Beat ${b.id}, Variante ${ag}: weiter "${o.weiter}" ist kein Beat der Vorlage`));
+      else if (z <= i) out.push(fehl('WEITER_UNGUELTIG', `Beat ${b.id}, Variante ${ag}: weiter "${o.weiter}" geht nicht nach vorn`));
+    }
+  }
+  if (istObjekt(aus.gelungen) && istObjekt(aus.gescheitert)) {
+    const nach = (o) => (o.weiter !== undefined ? o.weiter : (v && v.beats[i + 1] || {}).id);
+    if (aus.gelungen.status === aus.gescheitert.status && nach(aus.gelungen) === nach(aus.gescheitert)) out.push(fehl('VARIANTE_AUS', `Beat ${b.id}: Scheitern der Variante veraendert den Faden nicht (gleicher Zustand, gleicher Weg wie Gelingen)`));
+  }
   return out;
 }
 
@@ -165,11 +195,12 @@ function haltungsWege(v, idx) {
     angebote[i].add(h);
     for (const d of zurueck) { let x = h; for (let k = 0; k < MAXK; k++) { x = klemmH(x + d); hs.add(x); angebote[i].add(x); } }
     for (const hk of hs) {
+      const vb = b.variante && istObjekt(b.variante.aus) && s !== 'tot' && hk < H.feindlich_unter ? b.variante.aus : null;   // Welle 4 (S1): bei dieser Haltung laeuft die Variante, mit ihren eigenen Ausgaengen
       const wege = [{ ag: 'gescheitert', d: 0 }];   // ohne Antwort: die Frist scheitert den Beat
-      if (!opts.length) wege.push({ ag: 'gelungen', d: 0 });
-      for (const o of opts) if (o && o.ausgang) wege.push({ ag: o.ausgang, d: haltungDelta(o.folge) });
+      if (!opts.length || vb) wege.push({ ag: 'gelungen', d: 0 });
+      if (!vb) for (const o of opts) if (o && o.ausgang) wege.push({ ag: o.ausgang, d: haltungDelta(o.folge) });
       for (const w of wege) {
-        const o = b.aus[w.ag];
+        const o = (vb || b.aus)[w.ag];
         if (!o) continue;
         const z = zielIndex(v, i, o, idx);
         if (z === null) continue;
@@ -246,7 +277,7 @@ function pruefeVorlage(v) {
     if (!cat) { typenOk = false; fehler.push(fehl('TYP_UNBEKANNT', `Beat ${b.id}: Typ "${b.typ}" steht nicht im Beat-Katalog (nur Katalogbausteine)`)); return; }
     if (!Bausteine.vonId(cat.baustein)) fehler.push(fehl('BAUSTEIN_FEHLT', `Beat ${b.id}: der Baustein ${cat.baustein} ist nicht registriert`));
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(fehl('ABSCHLUSS_NICHT_LETZT', `Beat ${b.id} (${b.typ}) darf nur der letzte sein`));
-    if (b.variante) fehler.push(...varianteFehler(b, cat));
+    if (b.variante) fehler.push(...varianteFehler(b, cat, v, i, idx));
     if (cat.braucht && cat.braucht.wahrheit) { wahrheitBeat = true; if (!v.wahrheit) fehler.push(fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Beat ${b.id}: ohne verborgene Wahrheit gibt es nichts zu enthüllen`)); }
     if (b.gefahr === false && cat.gefahr) fehler.push(fehl('GEFAHR_ABGESCHWAECHT', `Beat ${b.id}: ein Beat ${b.typ} bringt immer Gefahr, die Vorlage darf das nicht abschwächen`));
     fehler.push(...parameterFehler(b, cat));
@@ -311,11 +342,12 @@ function pruefeVorlage(v) {
       if (cat.abschluss) continue;
       const h2 = h || (Array.isArray(b.hinweise) && b.hinweise.length > 0);
       for (const ag of W.ausgaenge) {
-        const o = b.aus[ag];
-        let s2 = s;
-        if (o.status !== undefined) { if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT', `Beat ${b.id}, ${ag}: ein toter NSC wird nicht wieder ${o.status}`); else s2 = o.status; }
-        const z = zielIndex(v, i, o, idx);
-        if (z !== null) stack.push({ i: z, s: s2, h: h2 });
+        for (const o of b.variante && istObjekt(b.variante.aus) && s !== 'tot' && istObjekt(b.variante.aus[ag]) ? [b.aus[ag], b.variante.aus[ag]] : [b.aus[ag]]) {   // Welle 4 (S1): beide Zweige, auch die Ausgaenge der Variante
+          let s2 = s;
+          if (o.status !== undefined) { if (s === 'tot' && o.status !== 'tot') m('TOT_BLEIBT_TOT', `Beat ${b.id}, ${ag}: ein toter NSC wird nicht wieder ${o.status}`); else s2 = o.status; }
+          const z = zielIndex(v, i, o, idx);
+          if (z !== null) stack.push({ i: z, s: s2, h: h2 });
+        }
       }
     }
     v.beats.forEach((b, i) => { if (!erreicht.has(i)) fehler.push(fehl('UNERREICHBAR', `Beat ${b.id} wird auf keinem Weg erreicht`)); });

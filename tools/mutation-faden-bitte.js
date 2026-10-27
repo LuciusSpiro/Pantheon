@@ -36,7 +36,7 @@ const MUTATIONEN = [
   [BI, '  const erlaubt = opts;   // Welle 3:', '  const erlaubt = opts.filter((x) => rufBetrag(x.folge) <= 1e-9 || rufBetrag(x.folge) <= deckelRaum(F) + 1e-9);   // Welle 3:', 'Deckel: Optionen mit Ruf-Folge entfallen aus dem Angebot (Welle 3: der Deckel nimmt nie eine Option weg)'],
   [FD, '  folgenAnwenden(game, f, opt.folge, true);   // Welle 3:', '  folgenAnwenden(game, f, opt.folge, false);   // Welle 3:', 'Deckel: die Folge der Option geht am Deckel vorbei (Ruf nicht begrenzt)'],
   [BI, '  F.bitteLog = F.bitteLog.filter((x) => F.t - x[0] < BW.fenster_taetigkeiten);', '', 'Deckel: läuft nie ab'],
-  [FD, '      if (b <= BF.deckelRaum(F) + 1e-9) { F.bitteLog.push([F.t, b]); rufAn.push(w); }', '      if (b <= BF.deckelRaum(F) + 1e-9) { rufAn.push(w); }', 'Deckel: der Betrag wird nicht gebucht'],
+  [FD, '      if (r && r.ok && r.angewandt > 0) F.bitteLog.push([F.t, b]);', '      if (r && r.ok && r.angewandt > 0) { /* nicht gezaehlt */ }', 'Deckel: der Betrag wird nicht gebucht'],
   // ---- Antwort: erste gilt, Nummer, Ausgang, Folgen, Funk
   [BI, "  if (!off) return fehl(F.bitteZuletzt && nr === F.bitteZuletzt.nr ? 'schon_beantwortet' : 'kein_angebot');", "  if (!off) return fehl('kein_angebot');", 'Antwort: „schon beantwortet“ fehlt (die erste gilt nicht)'],
   [BI, '  F.bitteZuletzt = { nr: off.nr };', '', 'Antwort: die erste Antwort wird nicht festgehalten'],

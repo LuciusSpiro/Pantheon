@@ -114,6 +114,9 @@ function update(game, dt) {
   hop(game, r);
 }
 
+function befreiungHalt(game, hex) {
+  try { return require('./faden-szene.js').befreiungHalt(game, hex); } catch (e) { if (game.countError) game.countError('reise-befreiung', e); return null; }
+}
 function hop(game, r) {
   const here = hexOf(game); const next = r.hops[r.i];
   const ort = Sektoren.ortVonHex(next);
@@ -125,6 +128,8 @@ function hop(game, r) {
   if (game.simSzene) { game.reisePlan = null; return stop(game, null); }   // SUND-02a A2: Feindkontakt (Sim-Szene) beendet den Schnellsprung wie ein Abfangen
   if (ereignis) return stop(game, `Schnellsprung unterbrochen: ${ereignis.kurz}`);   // SUND-03 D: ein Reise-Ereignis bricht ab; die Rest-Route bleibt gewählt (Faltsprung setzt sie fort), das Abfangen wird in diesem Hop nicht gewürfelt (kein zweites Ereignis)
   if (abfangen(game, next)) { game.reisePlan = null; return stop(game, null); }
+  const halt = befreiungHalt(game, next);   // SUND-04a-2 Welle 4 (S4): am Ort eines wartenden Befreiungs-Beats haelt der Schnellsprung an (ohne FAEDEN=1 immer null)
+  if (halt) return stop(game, halt);
   if (r.abbruch || r.i >= r.hops.length) {   // (die Rest-Route bleibt bei einem Abbruch gewählt: Faltsprung setzt sie fort)
     return stop(game, r.i >= r.hops.length ? `Schnellsprung abgeschlossen: ${Sektoren.hexName(next)}.` : `Schnellsprung abgebrochen: ${Sektoren.hexName(next)}.`);
   }

@@ -6,7 +6,7 @@
     "delta_max": {"wert": 3, "einheit": "Haltungspunkte je Wirkung", "_hinweis": "Pruefer von haltung_aenderung: |delta| groesser als das wird abgelehnt."},
     "kurve_spontanhilfe": {"wert": [[-10, 0], [-3, 0], [0, 0.25], [4, 0.6], [10, 0.95]], "einheit": "[Haltung, Chance]", "_hinweis": "Stuetzpunkte (aufsteigend) der Chance, dass ein NSC in einer Schlacht spontan hilft; dazwischen linear."},
     "toene": {"wert": [{"id": "kalt", "ab": -10}, {"id": "sachlich", "ab": -2}, {"id": "herzlich", "ab": 2}], "einheit": "Ton ab Haltung", "_hinweis": "Ton der Bitten, aufsteigend; der hoechste erreichte gilt. Nacharbeit SUND-04a-2 Welle 3: herzlich ab 2 (vorher 4): der dankbare Captain beginnt mit Haltung 2 und bittet zuerst herzlich; jede Vertroestung (Spaeter-Option, hingehalten) senkt den Ton ueber sachlich zu kalt. Der Pruefer verlangt, dass jeder Ton mit eigenem Text im Weg der Vorlage erreichbar ist (TON_UNERREICHBAR)."},
-    "feindlich_unter": {"wert": -6, "einheit": "Haltungspunkte", "_hinweis": "Unter dieser Haltung kehrt ein NSC feindlich wieder (kehrtFeindlichWieder)."},
+    "feindlich_unter": {"wert": -3, "einheit": "Haltungspunkte", "_hinweis": "Unter dieser Haltung kehrt ein NSC feindlich wieder (Beat-Variante, faden-pruefer.js effektiv). Welle 4 (S3): -3 statt -6. Mit hingehalten = -1 faellt die Haltung des dankbaren Captains (Start 2, noetig fuer den herzlichen Ton) hoechstens auf -3 nach fuenf Spaeter-Antworten (beat_frist 6 gibt sechs Angebote) und -4 nach dem folgenden Ablehnen; bei -6 waere die Variante unerreichbar (VARIANTE_UNERREICHBAR). -3 ist zugleich der Punkt, ab dem die Spontanhilfe-Kurve null ist (kurve_spontanhilfe): wer so tief steht, hilft nie mehr, er kehrt feindlich wieder. Annahme, Entscheidung bei Kai (README)."},
     "quellen": {"wert": {
       "gerettet":          {"delta": 2,  "_hinweis": "Die Crew hat dem NSC in der Not geholfen."},
       "geholfen":          {"delta": 1,  "_hinweis": "Die Crew hat eine Bitte erfuellt."},
@@ -14,7 +14,7 @@
       "im_stich_gelassen": {"delta": -2, "_hinweis": "Ein Notruf des NSC blieb unbeantwortet oder scheiterte."},
       "verraten":          {"delta": -3, "_hinweis": "Die Crew hat den NSC verraten (Verfolgung, Beschuss)."},
       "gedankt":           {"delta": 1,  "_hinweis": "Der NSC hat sich erkenntlich gezeigt, die Beziehung wuchs."},
-      "hingehalten":       {"delta": -2, "_hinweis": "Die Crew hat eine Bitte aufgeschoben (Option Spaeter der Bitte): jedes Hinhalten kuehlt den Ton ab. Mehrmals hingehalten kehrt ein NSC feindlich wieder (Pruefer VARIANTE_UNERREICHBAR verlangt einen Weg dorthin)."}
+      "hingehalten":       {"delta": -1, "_hinweis": "Die Crew hat eine Bitte aufgeschoben (Option Spaeter der Bitte): jedes Hinhalten kuehlt den Ton ab. Welle 4 (S3): -1, wie das Ablehnen (vorher -2: Hinhalten kostete doppelt so viel wie ein klares Nein). Mehrmals hingehalten kehrt ein NSC feindlich wieder (Pruefer VARIANTE_UNERREICHBAR verlangt einen Weg dorthin)."}
     }, "einheit": "Haltungspunkte", "_hinweis": "Tabelle grund -> delta (wie quellen in ruf-werte.json). Der Pruefer von haltung_aenderung kennt nur diese Gruende; das delta der Wirkung muss das Vorzeichen des Grundes haben und darf seinen Betrag nicht uebersteigen."}
   }
 }

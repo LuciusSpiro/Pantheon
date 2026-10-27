@@ -27,7 +27,7 @@ const MUT = [
   ['Abschluss nicht der letzte Beat', 'entfuehrter_haendler', (v) => { const a = v.beats.pop(); v.beats.splice(1, 0, a); }, 'ABSCHLUSS_NICHT_LETZT'],
   ['Scheinwahl (zwei Optionen mit gleicher Folge)', 'dankbarer_captain', (v) => { const o = beat(v, 'b_bitte').optionen; o[1].folge = JSON.parse(JSON.stringify(o[0].folge)); o[1].ausgang = o[0].ausgang; }, 'SCHEINWAHL'],
   ['Enthuellung ohne verborgene Wahrheit', 'falscher_haendler', (v) => { delete v.wahrheit; }, 'ENTHUELLUNG_OHNE_WAHRHEIT'],
-  ['Variante mit einem Typ, der nicht zu einem Gegner passt (Bitte)', 'dankbarer_captain', (v) => { beat(v, 'b_spontan').variante = { wenn: 'feindlich', typ: 'bitte' }; }, 'VARIANTE'],
+  ['Variante mit einem Typ, der nicht zu einem Gegner passt (Bitte)', 'dankbarer_captain', (v) => { beat(v, 'b_spontan').variante.typ = 'bitte'; }, 'VARIANTE'],
   ['Auslöser mit unbekannter Art', 'entfuehrter_haendler', (v) => { v.ausloeser[0].art = 'rettung'; }, 'AUSLOESER'],
   ['Weiter nach hinten (Schleife)', 'falscher_haendler', (v) => { beat(v, 'b_enthuell').aus.gelungen.weiter = 'b_bitte'; }, 'WEITER_UNGUELTIG'],
   ['Status passt nicht (Enthuellung nach totem NSC)', 'entfuehrter_haendler', (v) => { beat(v, 'b_notruf').aus.gelungen.status = 'tot'; beat(v, 'b_notruf').aus.gelungen.weiter = 'b_befreiung'; }, 'STATUS_PASST_NICHT'],
