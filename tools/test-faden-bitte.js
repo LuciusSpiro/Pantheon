@@ -169,6 +169,12 @@ section('Deckel (Welle 3): er begrenzt NUR den Ruf, nie die Annahme einer Bitte'
   const rom0 = ws(fr.g).ruf.rom;
   B.beantworten(fr.g, 'zusagen', of.nr);
   ok(Math.abs((ws(fr.g).ruf.rom - rom0) - 0.25) < 1e-6 && ws(fr.g).faeden.bitteLog.length === 1, 'freier Deckel: Ruf +0,25 und genau ein Eintrag im Deckel (kein doppeltes Zählen)');
+  // Verbrauch ausserhalb des Fensters (100 Tätigkeiten): der Deckel ist wieder frei, der Ruf wird gebucht, der alte Eintrag fällt aus dem Zähler
+  const ab = bereit(); const oa = bitte(ab.g);
+  ws(ab.g).faeden.bitteLog = [[ws(ab.g).faeden.t - 200, 2]];
+  const romA = ws(ab.g).ruf.rom;
+  B.beantworten(ab.g, 'zusagen', oa.nr);
+  ok(Math.abs((ws(ab.g).ruf.rom - romA) - 0.25) < 1e-6 && ws(ab.g).faeden.bitteLog.length === 1 && ws(ab.g).faeden.bitteLog[0][1] === 0.25, 'Deckel läuft ab: ein Verbrauch vor dem Fenster zählt nicht mehr, Ruf +0,25 wird gebucht, nur der neue Eintrag bleibt');
 });
 
 section('Antwort: erste Antwort gilt, Annahme, Ablehnung, Später', () => {
