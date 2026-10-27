@@ -157,7 +157,7 @@ function setzeRoh(game, platz, id, behalteZustand) {
   if (id) wm[platz] = id; else delete wm[platz];
   delete game.ship.mount[mid];
   const sys = MOUNT_SYSTEM[mid];   // neue Hardware: Schaden, Flickstelle und EMP-Pause des Platzes gelten nicht mehr
-  if (sys && !behalteZustand) { game.ship.systems[sys] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[sys]; if (game.ship.offline) delete game.ship.offline[sys]; }
+  if (sys && !behalteZustand) require('./interior.js').setzeZustand(game, sys, 'ok');
   ensureMounts(game);
   verteilungZuruecksetzen(game);
 }

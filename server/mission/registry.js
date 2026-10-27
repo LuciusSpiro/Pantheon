@@ -75,7 +75,7 @@ define({ id: 'ship_incident', art: 'aktion', effekt: 'schaden', ereignisse: ['fi
       const t = i === 0 && pos.breach ? pos.breach : I.randomRegionFloor(g, g.rng.int(4), true);
       I.addBreach(g, t.x, t.y);
     }
-    if (a.system) g.ship.systems[a.system] = a.state || 'broken';
+    if (a.system) I.setzeZustand(g, a.system, a.state || 'broken');   // Zustand und Integrität gemeinsam (still, wie bisher)
   } });
 define({ id: 'ship_fire', art: 'aktion', effekt: 'schaden', ereignisse: ['fire', 'hit'],
   beschreibung: 'Feuer an Bord in einer Region (0–3 oder zufällig), optional ODA-Text',
@@ -241,7 +241,7 @@ define({ id: 'debug_clear_incidents', art: 'aktion', intern: true, beschreibung:
   run(m) {
     const g = g_(m);
     if (!m.isDrillStep()) return;
-    g.ship.fireList = []; g.ship.breachList = []; g.ship.systems[g.C.drill.system] = 'ok';
+    g.ship.fireList = []; g.ship.breachList = []; interior().setzeZustand(g, g.C.drill.system, 'ok');
   } });
 define({ id: 'debug_item_aboard', art: 'aktion', intern: true, beschreibung: 'Gegenstand direkt an Bord legen (Datenkern auf das Pad)',
   params: { item: { typ: 'item', pflicht: true } },

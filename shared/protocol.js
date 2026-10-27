@@ -290,6 +290,11 @@
       'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port', 'weapon_bow', 'battery_port', 'battery_stbd',
       'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
       'modul_1', 'modul_2', 'modul_3', 'modul_4'],   // SYS-01 A1a: Bordmodule als Systeme (Mitte); PAN-01 C: Lafetten als echte Systeme (nur mit offenem, bestücktem Platz aktiv)
+    // SYS-01 A1: ship.integ im Snapshot ist positionsbasiert (Prozent je System, -1 = nicht aktiv) in genau dieser Reihenfolge (= interior.SYSTEM_ORDER, ohne den Altnamen 'weapons'; tools/test-systemmodell.js prüft die Gleichheit). Eine Quelle für den Client.
+    SYSTEMS_INTEG: ['reactor', 'engines', 'shields', 'transfer',
+      'thruster_port', 'thruster_stbd', 'emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port',
+      'weapon_bow', 'battery_port', 'battery_stbd', 'lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2',
+      'modul_1', 'modul_2', 'modul_3', 'modul_4'],
     // PAN-01 A: nur die Hauptsysteme; die Lebenserhaltung ist kein Energieposten mehr, Bordmodule zählen über ship.mod
     POWER_SYSTEMS: ['engines', 'shields', 'weapons'],
     // M1: Systemzustände ('offline' = EMP, zählt wie broken, startet nach CONFIG.emp.offlineTime selbst neu)

@@ -647,8 +647,9 @@ console.log('\n[Debug-Befehle M1, Schutz]');
   send(0, { t: 'debug', cmd: 'scanall' });
   ok(g.space.enemies.every((e) => e.scanned) && g.explore.hiddenHere().every((h) => g.explore.isRevealed(h.id)), 'debug scanall');
   const g2 = setup(1, { debug: false });
+  const integVor = require('../server/sim/interior.js').integritaetSnapshot(g2.g).gesamt;   // die Hafenübung hat den Transfer zerstört: nicht 100, aber der abgelehnte Befehl ändert nichts
   g2.send(0, { t: 'debug', cmd: 'verlust' });
-  ok(require('../server/sim/interior.js').integritaetSnapshot(g2.g).gesamt === 100 && g2.notices(0).some((t) => /deaktiviert/.test(t)), 'Debug ohne --debug abgelehnt');
+  ok(require('../server/sim/interior.js').integritaetSnapshot(g2.g).gesamt === integVor && integVor < 100 && g2.notices(0).some((t) => /deaktiviert/.test(t)), 'Debug ohne --debug abgelehnt');
 }
 
 console.log('\n[M0: Raumcode]');

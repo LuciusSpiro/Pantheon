@@ -2384,7 +2384,7 @@
       case 'reveal': msg.loc = args[0] || 'all'; break;
       case 'reactor': msg.state = args[0]; break;
       case 'inv': msg.item = args[0]; msg.n = num(args[1]); break;
-      case 'marks': case 'hull': msg.n = num(args[0]); break;
+      case 'marks': msg.n = num(args[0]); break;
       case 'god': msg.on = !(args[0] === 'off' || args[0] === '0'); break;
       case 'spawn': msg.kind = args[0]; break;
       case 'damage': msg.system = args[0]; msg.state = args[1]; break;

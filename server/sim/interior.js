@@ -980,11 +980,11 @@ function resolveSystem(game, sys, pickWorst) {
 function inaktiveHeilen(game) {
   for (const k of WEAPON_SYSTEMS) {
     if (systemAktiv(game, k) || game.ship.systems[k] === 'ok') continue;
-    game.ship.systems[k] = 'ok'; if (game.ship.fragile) delete game.ship.fragile[k]; if (game.ship.offline) delete game.ship.offline[k];
+    setzeZustand(game, k, 'ok');
   }
   for (const k of SYSTEM_ORDER) {   // SYS-01 A1a: ein ausgebautes oder ersetztes Modul nimmt seinen Schaden nicht mit
     if (!MODUL_SYS.test(k) || systemAktiv(game, k) || game.ship.systems[k] === 'ok') continue;
-    game.ship.systems[k] = 'ok'; setInteg(game, k, integMax(game, k)); if (game.ship.fragile) delete game.ship.fragile[k]; if (game.ship.offline) delete game.ship.offline[k];
+    setzeZustand(game, k, 'ok');
   }
 }
 function systemSector(sys) {
@@ -1011,8 +1011,12 @@ function damageSystem(game, sys, toState, opts) {   // opts.quiet (keine ODA), o
   if (!s[sys]) return;
   if (s[sys] === 'offline') {   // EMP-Pause: Schaden merken wir für danach
     const o = game.ship.offline[sys];
-    if (o) o.prev = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
-    if (o && o.prev === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
+    if (o) {   // SYS-01 A1 Nacharbeit: die vorgemerkte Stufe wird nie milder; die Integrität folgt ihr sofort
+      const neu = toState || (o.prev === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken');
+      if ((STATE_RANK[neu] || 0) > (STATE_RANK[o.prev] || 0)) o.prev = neu;
+      if (o.prev === 'broken' && game.ship.fragile) delete game.ship.fragile[sys];
+      syncInteg(game, sys);
+    }
     return;
   }
   const before = s[sys];
@@ -1053,25 +1057,50 @@ function integMax(game, sys) {
   return Number(I.default) > 0 ? Number(I.default) : 10;
 }
 function schwelleOf(game) { const v = Number(sysModell(game).schwelle); return v > 0 ? v : 0.6; }
-function integOf(game, sys) {
-  const I = game.ship.integ || (game.ship.integ = {});
-  if (I[sys] == null) I[sys] = integMax(game, sys);
-  return I[sys];
+function integOf(game, sys) {   // lesend: ein fehlender Eintrag zählt als Maximum, wird aber nicht geschrieben
+  const v = game.ship.integ && game.ship.integ[sys];
+  return v == null ? integMax(game, sys) : v;
 }
 function setInteg(game, sys, v) {
   const I = game.ship.integ || (game.ship.integ = {});
   I[sys] = Math.max(0, Math.round((Number(v) || 0) * 10) / 10);
 }
-// Grundwert einer Stufe nach Reparatur: ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0
-function grundwert(game, sys, state) {
+// Integrität, die zu einem Zustand gehört (eine Quelle für Reparatur, Neustart, Bestückung, Missionen, Weltstand):
+// ok = Maximum, beschädigt = reparatur.damaged × Maximum (50 %), zerstört = 0
+function integAusZustand(game, sys, state) {
   if (state === 'ok') return integMax(game, sys);
   if (state === 'damaged') { const r = Number((sysModell(game).reparatur || {}).damaged); return integMax(game, sys) * (r > 0 ? r : 0.5); }
   return 0;
 }
+const grundwert = integAusZustand;   // alter Name (Reparatur, Weltstand, Tests)
+// Zustand eines Systems ohne EMP-Pause: offline zählt als die vorgemerkte Stufe (prev)
+function effZustand(game, sys) {
+  const st = game.ship.systems[sys];
+  if (st !== 'offline') return st;
+  const o = game.ship.offline && game.ship.offline[sys];
+  return (o && o.prev) || 'ok';
+}
+// Harter Setzer (Bestückung, Missionen, Debug): Zustand und Integrität gemeinsam; Flickstelle und EMP-Pause entfallen.
+// Altname 'weapons' setzt alle drei Waffen. Wirkt still (keine ODA, kein Ereignis); Schaden im Spiel geht über damageSystem.
+function setzeZustand(game, sys, state) {
+  for (const k of (sys === 'weapons' ? WEAPON_SYSTEMS : [sys])) {
+    if (!game.ship.systems[k]) continue;
+    game.ship.systems[k] = state;
+    setInteg(game, k, integAusZustand(game, k, state));
+    if (game.ship.fragile) delete game.ship.fragile[k];
+    if (game.ship.offline) delete game.ship.offline[k];
+  }
+}
+// Passt die Integrität nicht zum (effektiven) Zustand, wird sie auf dessen Grundwert gesetzt; sonst bleibt sie.
+function integKonsistent(game, sys) {
+  const st = effZustand(game, sys); const max = integMax(game, sys); const v = integOf(game, sys); const sw = schwelleOf(game) * max;
+  const passt = st === 'ok' ? v >= sw : st === 'damaged' ? (v > 0 && v < sw) : st === 'broken' ? v <= 0 : true;
+  if (!passt) setInteg(game, sys, integAusZustand(game, sys, st));
+}
 // Integrität folgt einem Zustandswechsel (damageSystem): heil = Maximum, zerstört = 0; beschädigt nur, wenn die Punkte
 // nicht schon im beschädigten Bereich liegen (sonst bliebe ein Treffertreffer-Stand verloren).
 function syncInteg(game, sys) {
-  const st = game.ship.systems[sys];
+  const st = effZustand(game, sys);   // offline: die vorgemerkte Stufe
   if (st === 'ok') setInteg(game, sys, integMax(game, sys));
   else if (st === 'broken') setInteg(game, sys, 0);
   else if (st === 'damaged') {
@@ -1089,21 +1118,21 @@ function systemTreffer(game, sys, schaden, opts) {
   const v = Math.max(0, integOf(game, sys) - dmg);
   setInteg(game, sys, v);
   if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
-  const before = s[sys];
+  const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe: der Treffer mindert die Integrität und merkt sich den Schaden
   let ziel = null;
   if (v <= 0) ziel = 'broken';
   else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
   else if (v < schwelleOf(game) * integMax(game, sys)) ziel = 'damaged';
   if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
   damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
-  return s[sys] !== before ? { system: sys, state: s[sys] } : null;
+  return effZustand(game, sys) !== before ? { system: sys, state: s[sys] } : null;
 }
-// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives, nicht offline System der Zone.
-// Ist die Zone leer, geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
+// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives System der Zone (Offline/EMP bleibt im Topf).
+// Leer heißt: alle aktiven Systeme der Zone sind zerstört. Dann geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
 // Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer).
 function trefferweg(game, zone, schaden, opts) {
   const s = game.ship.systems;
-  const frei = (k) => systemAktiv(game, k) && !isDown(s[k]);
+  const frei = (k) => systemAktiv(game, k) && s[k] !== 'broken';
   // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
   const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k));
   if (frag.length) {
@@ -1136,6 +1165,10 @@ function schwaechsteZone(game) {
 function integritaetVoll(game) {
   const I = game.ship.integ || (game.ship.integ = {});
   for (const k of SYSTEM_ORDER) I[k] = integMax(game, k);
+}
+// Rücksetzer, der den Zustand behält (Flottenneustart): jedes System bekommt die Integrität seines Zustands (EMP: der vorgemerkten Stufe)
+function integritaetAusZustand(game) {
+  for (const k of SYSTEM_ORDER) setInteg(game, k, integAusZustand(game, k, effZustand(game, k) || 'ok'));
 }
 // Snapshot: Integrität je System in Prozent (feste Reihenfolge SYSTEM_ORDER, nur aktive Systeme) und Gesamt in Prozent
 function integritaetSnapshot(game) {
@@ -1288,8 +1321,7 @@ function updateOffline(game, dt) {
   for (const sys of Object.keys(off)) {
     off[sys].t -= dt;
     if (off[sys].t > 0) continue;
-    if (game.ship.systems[sys] === 'offline') game.ship.systems[sys] = off[sys].prev || 'ok';
-    delete off[sys];
+    if (game.ship.systems[sys] === 'offline') { game.ship.systems[sys] = off[sys].prev || 'ok'; delete off[sys]; integKonsistent(game, sys); } else delete off[sys];
     game.emit('sfx', { name: 'reactor_up', zone: 'ship', volume: 0.4 });
   }
 }
@@ -1423,7 +1455,7 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
-  integMax, integOf, setInteg, grundwert, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, integritaetVoll,
+  integMax, integOf, setInteg, grundwert, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,

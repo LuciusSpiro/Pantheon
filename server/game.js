@@ -1334,8 +1334,7 @@ class Game {
         if (!this.ship.systems[sys]) { err = 'Unbekanntes System.'; break; }
         const st = ['ok', 'damaged', 'broken', 'offline'].includes(msg.state) ? msg.state : null;
         if (st === 'ok') {
-          const list = sys === 'weapons' ? interior.WEAPON_SYSTEMS : [sys];
-          for (const k of list) { this.ship.systems[k] = 'ok'; delete this.ship.offline[k]; delete this.ship.fragile[k]; }
+          interior.setzeZustand(this, sys, 'ok');   // Zustand und Integrität gemeinsam
           interior.pruneRepairQueue(this);
         } else if (st === 'offline') interior.setOffline(this, sys, this.C.emp.offlineTime);
         else interior.damageSystem(this, sys, st);
@@ -1919,6 +1918,7 @@ class Game {
   // ---------- Snapshot (§5.3 + M1 §10) ----------
   snapshot() {
     const C = this.C; const ship = this.ship; const sp = this.space; const aw = this.away;
+    const integSnap = interior.integritaetSnapshot(this);   // SYS-01 A1: einmal je Snapshot, ohne Schreibzugriff
     this.snapCount++;
     const includeAsteroids = this.asteroidsDirty || this.snapCount % C.net.asteroidSnapEvery === 0;
     this.asteroidsDirty = false;
@@ -2107,7 +2107,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
-        integ: interior.integritaetSnapshot(this).pct, integPct: interior.integritaetSnapshot(this).gesamt, o2: r1(ship.o2), alert: ship.alert,
+        integ: integSnap.pct, integPct: integSnap.gesamt, o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(),
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },
