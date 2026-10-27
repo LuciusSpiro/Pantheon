@@ -18,6 +18,18 @@ const space = require('../server/sim/space.js');
 const Fracht = require('../server/sim/fracht.js');
 const Modul = require('../server/sim/module.js');
 const Bots = require('../server/sim/bots.js');
+// SYS-01 A1b: Fracht-Verlust nur bei einem Treffer auf das Frachtraum-Modul. Der Trefferweg wählt in der Mitte ein zufälliges System,
+// daher werden hier die anderen Mitte-Systeme zerstört: der Treffer trifft sicher das Frachtraum-Modul (systemSchaden prüft den Verlust).
+function frachtraumTreffer(g, n) {
+  const I = require('../server/sim/interior.js'); const D = require('../server/sim/damage.js');
+  const raum = Modul.liste(g).find((m) => m.id === 'frachtraum').raum; const sys = 'modul_' + raum;
+  const alt = {};
+  for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === -1 && k !== sys) { alt[k] = g.ship.systems[k]; g.ship.systems[k] = 'broken'; }
+  g.ship.systems[sys] = 'ok'; I.setInteg(g, sys, I.integMax(g, sys));
+  const r = D.systemSchaden(g, { systems: [] }, -1, n);
+  for (const k of Object.keys(alt)) g.ship.systems[k] = alt[k];   // die übrigen Mitte-Systeme bleiben, wie sie waren
+  return r;
+}
 const combat = require('../server/sim/combat.js');
 const away = require('../server/sim/away.js');
 
@@ -238,7 +250,7 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   ok(FL.gesichert === false && /UNGESICHERT/.test(FL.text), 'Frachtliste der Taktik zeigt UNGESICHERT: ' + FL.text);
   // Wirkung: Hüllentreffer löst Ladung (die älteste Ware), sie treibt hinter dem Schiff und lässt sich neu beamen
   g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.allocIntent = [0, 0, 0, 0];
-  space.shipHit(g, 0, 1, {});
+  frachtraumTreffer(g, 1);
   ok(Fracht.anBord(g) === 1 && Fracht.draussen(g).length === 1 && Fracht.draussen(g)[0].art === 'sprengstoff', 'Hüllentreffer: genau eine Ladung (Sprengstoff, die älteste) löst sich und treibt');
   ok(T.ev('frachtVerloren').length === 1 && T.odas().some((t) => /gelöst/.test(t)), 'Ereignis frachtVerloren, ODA „hat sich gelöst“');
   const pod = Fracht.draussen(g)[0];
@@ -271,7 +283,7 @@ section('Frachtraum ungesichert: sichtbare Folge', () => {
   const S = arena();
   Fracht.anBordLegen(S.g, 'sprengstoff'); Fracht.setGesichert(S.g, false); S.g.ship.shields.current = [0, 0, 0, 0];
   S.g.ship.module.forEach((m) => { m.an = false; });
-  space.shipHit(S.g, 0, 1, {});
+  frachtraumTreffer(S.g, 1);
   const hier = S.g.ship.scene;
   ok(Fracht.draussen(S.g).length === 1 && S.g.fracht.draussen[0].eigene, 'gelöste Ware liegt im Sektor');
   S.g.ship.scene = 'andernorts'; S.run(0.1);

@@ -26,6 +26,12 @@ function setup(start) {
   run(1); g.space.enemies = [];
   return { g, run, c };
 }
+// SYS-01 A1b: Kosten des Notfallsprungs = genau ein System (nicht der Reaktor) ist von ok auf beschädigt gegangen
+function kostenSystem(g) {
+  const I = require('../server/sim/interior.js');
+  const nicht = I.SYSTEM_ORDER.filter((k) => g.ship.systems[k] !== 'ok' && k !== 'reactor');
+  return nicht.length === 1 && g.ship.systems[nicht[0]] === 'damaged';
+}
 function frei(g) { const s = g.ship; s.helm.stage = 1; s.docked = false; s.dockedAt = null; s.x = 1000; s.y = 1000; s.vx = 0; s.vy = 0; s.speed = 0; g.space.enemies = []; g.ship.reactorCtl.state = 'online';  }
 
 section('Freie Fahrt: Notfallsprung, Reaktor startet von selbst');
@@ -33,9 +39,9 @@ section('Freie Fahrt: Notfallsprung, Reaktor startet von selbst');
   const { g, run, c } = setup('freie_fahrt');
   const N = g.C.sektoren.notsprung;
   ok(!!g.weltsim && N.autoNeustartFrei > 0 && N.autoNeustartFrei <= 12, 'weltsim gesetzt, autoNeustartFrei ' + N.autoNeustartFrei + ' s (Konfig)');
-  frei(g); const hull = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt; c.inbox.length = 0;
+  frei(g); c.inbox.length = 0;
   ok(Sprung.notsprung(g) === null, 'Notfallsprung ausgeführt');
-  ok(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull, 'Notsprung ohne Hüllenkosten (Übergang bis zum Umbau in Paket A2)');
+  ok(kostenSystem(g), 'Notsprung: genau ein zufälliges ok-System ist beschädigt, der Reaktor zählt nicht (SYS-01 A1b)');
   ok(g.ship.reactorCtl.state === 'offline', 'Reaktor direkt nach dem Sprung offline');
   ok(/Reaktor offline/.test(Sprung.notsprung(g) || ''), 'zweiter Notfallsprung bis zum Neustart gesperrt');
   const funk = c.inbox.filter((m) => /Notfallsprung/.test(JSON.stringify(m))).map((m) => JSON.stringify(m)).join(' ');
@@ -82,9 +88,9 @@ section('Kampagne: Reaktor bleibt offline (Handneustart)');
 {
   const { g, run, c } = setup('free');
   ok(!g.weltsim, 'kein weltsim');
-  frei(g); const hull = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt; c.inbox.length = 0;
+  frei(g); c.inbox.length = 0;
   ok(Sprung.notsprung(g) === null, 'Notfallsprung ausgeführt');
-  ok(require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull, 'Notsprung ohne Hüllenkosten (Übergang bis A2)');
+  ok(kostenSystem(g), 'Notsprung: genau ein zufälliges ok-System ist beschädigt (SYS-01 A1b)');
   ok(g.ship.reactorCtl.autoRestartAt == null && g.ship.reactorCtl.autoRestartText === undefined, 'kein Autoneustart gesetzt');
   ok(/Reaktor überladen und offline/.test(c.inbox.map((m) => JSON.stringify(m)).join(' ')), 'Funkspruch unverändert');
   run(30);

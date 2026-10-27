@@ -37,7 +37,7 @@ function raum(loc, seed, np) {
   return { g, cs };
 }
 const ticks = (g, sek, each) => { const k = Math.round(sek * CONFIG.tickHz); for (let i = 0; i < k; i++) { if (each) each(i * DT); g.step(); } };
-const heil = (g) => { const sh = g.ship; for (const k of interior.SYSTEM_ORDER) sh.systems[k] = 'ok'; sh.fireList.length = 0; sh.breachList.length = 0; };
+const heil = (g) => { const sh = g.ship; for (const k of interior.SYSTEM_ORDER) sh.systems[k] = 'ok'; interior.integritaetVoll(g); sh.fireList.length = 0; sh.breachList.length = 0; };
 const punkte = (g) => interior.SYSTEM_ORDER.reduce((a, k) => a + ({ ok: 0, damaged: 1, broken: 2, offline: 1 }[g.ship.systems[k]] || 0), 0);
 // Lerche auf einen Punkt setzen, ruhig
 function platz(g, x, y, ang) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; if (ang != null) s.angle = ang; }
@@ -185,25 +185,36 @@ section('Minen: zünden (ignoriert Schilde, 6 Punkte Systemschaden, Alarm)', () 
   const sc0 = g.ship.shields.current.slice(); const h0 = integSum(g);
   g.step();
   ok(g.space.minen.length === 0, 'zu nahe: Mine explodiert');
-  ok(punkte(g) === A.mine.punkte, `6 Punkte Systemschaden (beschädigt 1, zerstört 2): ${punkte(g)}`);
+  // SYS-01 A1b: die Mine trifft EIN System der nächstgelegenen Zone (Mine voraus = Bug, Sektor 0), Integritätsabzug = mine.punkte
+  const beschaedigt = interior.SYSTEM_ORDER.filter((k) => g.ship.systems[k] !== 'ok');
+  ok(Math.abs((h0 - integSum(g)) - A.mine.punkte) < 0.01, `Mine: Integritätsabzug ${A.mine.punkte} (gemessen ${(h0 - integSum(g)).toFixed(1)})`);
+  ok(beschaedigt.length === 1 && interior.systemSector(beschaedigt[0]) === require('../shared/physics.js').sectorOf(g.ship.x, g.ship.y, g.ship.angle, 1500, 800), `Mine voraus trifft ein System der nächsten Zone: ${beschaedigt.join(',') || 'keins'}`);
   ok(g.ship.shields.current.every((v, i) => v === sc0[i]) && sc0.some((v) => v > 0), `ignoriert Schilde: Schildpunkte (${sc0.join('/')}) unberührt (SYS-01 A1a: der Systemschaden der Mine bleibt, Minen sind nicht Teil von A1a)`);
   ok(Alarm.stufe(g) === 2 && g.space.alarm.grund === 'mine', 'löst Alarm aus (Grund mine)');
   ok(cs[0].inbox.some((e) => e.kind === 'explosion') && cs[0].inbox.some((e) => e.kind === 'oda' && /Minentreffer/.test(e.text || '')), 'Explosion und Ansage');
-  // Verteilung auf zufällige Systeme: über mehrere Seeds nie mehr als 14 Systeme, immer genau 6 Punkte, und nicht immer dieselben
+  // Verteilung über Seeds: immer genau 6 Integrität aus der Bugzone, und nicht immer dasselbe System (Zufall über game.rng)
   const verteilungen = new Set();
   for (let s = 1; s <= 12; s++) {
-    const r = raum('splitter', s); const q = r.g; heil(q);
-    Alarm.minenSetzen(q, { n: 1, positionen: [{ x: 1500, y: 800 }] }); platz(q, 1500, 800, 0); ticks(q, 0.1);
-    if (punkte(q) !== 6) { ok(false, `Seed ${s}: ${punkte(q)} Punkte`); }
-    verteilungen.add(interior.SYSTEM_ORDER.filter((k) => q.ship.systems[k] !== 'ok').join(','));
+    const r = raum('splitter', s); const q = r.g; heil(q); const i0 = integSum(q);
+    Alarm.minenSetzen(q, { n: 1, positionen: [{ x: 1500, y: 800 }] }); platz(q, 1500, 800, 0);
+    ticks(q, 0.1);
+    // die Zone ist der Sektor, den der Treffer meldet (Richtung der Mine, wie beim Schildsektor), nicht eine Annahme
+    const he = r.cs[0].inbox.find((e) => e.kind === 'hit' && e.mine);
+    if (!he) { ok(false, `Seed ${s}: kein Minentreffer gemeldet`); continue; }
+    const zone = he.sector;
+    if (Math.abs((i0 - integSum(q)) - 6) > 0.01) { ok(false, `Seed ${s}: Integritätsabzug ${(i0 - integSum(q)).toFixed(1)}`); }
+    const kaputt = interior.SYSTEM_ORDER.filter((k) => q.ship.systems[k] !== 'ok');
+    if (kaputt.some((k) => interior.systemSector(k) !== zone)) ok(false, `Seed ${s}: Treffer außerhalb der Zone ${zone}: ${kaputt.join(',')}`);
+    verteilungen.add(interior.SYSTEM_ORDER.filter((k) => interior.integOf(q, k) < interior.integMax(q, k)).join(','));
   }
-  ok(verteilungen.size > 3, `Systeme zufällig verteilt (${verteilungen.size} verschiedene Muster in 12 Seeds)`);
-  // Teilweise schon beschädigt: beschädigt -> zerstört
+  ok(verteilungen.size >= 2, `Systeme zufällig verteilt (${verteilungen.size} verschiedene Ziele in 12 Seeds)`);
+  // Zone leer -> Mitte (SYS-01 A1b): alle Bugsysteme zerstört, der Treffer geht in die Mitte; das Heck bleibt unberührt
   const r2 = raum(); const k2 = r2.g; heil(k2);
-  for (const sy of interior.SYSTEM_ORDER) k2.ship.systems[sy] = 'broken';
-  k2.ship.systems.engines = 'ok'; k2.ship.systems.reactor = 'damaged';
+  for (const sy of interior.SYSTEM_ORDER) if (interior.systemSector(sy) === 0) k2.ship.systems[sy] = 'broken';
+  k2.ship.systems.engines = 'ok'; k2.ship.systems.reactor = 'damaged'; interior.setInteg(k2, 'reactor', 12);
+  const i2 = interior.integOf(k2, 'reactor');
   Alarm.minenSetzen(k2, { n: 1, positionen: [{ x: 1500, y: 800 }] }); platz(k2, 1500, 800, 0); ticks(k2, 0.1);
-  ok(k2.ship.systems.engines === 'broken' && k2.ship.systems.reactor === 'broken' && interior.SYSTEM_ORDER.filter((k) => k !== 'engines' && k !== 'reactor').every((k) => k2.ship.systems[k] === 'broken'), 'Systeme gehen eine Stufe tiefer (ok → beschädigt → zerstört), bereits zerstörte bleiben unberührt');
+  ok(k2.ship.systems.engines === 'ok' && Math.abs(interior.integOf(k2, 'reactor') - (i2 - 6)) < 0.01, 'Zone leer: der Treffer geht in die Mitte (Reaktor −6), das Heck bleibt ok');
 });
 
 section('Minen: abschießen (Explosion auf Distanz, macht trotzdem Alarm)', () => {
@@ -218,10 +229,11 @@ section('Minen: abschießen (Explosion auf Distanz, macht trotzdem Alarm)', () =
   ok(Alarm.stufe(g) === 2 && g.space.alarm.grund === 'mine', 'trotzdem Alarm');
   // Lanze aus 120 px: die Lerche steht im Sprengradius
   const r2 = raum(); const k = r2.g; heil(k);
+  const ik0 = integSum(k);
   Alarm.minenSetzen(k, { n: 1, positionen: [{ x: 1500, y: 800 }] });
   platz(k, 1500 - 120, 800, 0);
   lanze(k);
-  ok(k.space.minen.length === 0 && punkte(k) === 6, `im Sprengradius (120 < ${A.mine.spreng}): Systemschaden ${punkte(k)}`);
+  ok(k.space.minen.length === 0 && Math.abs((ik0 - integSum(k)) - 6) < 0.01, `im Sprengradius (120 < ${A.mine.spreng}): Systemschaden ${(ik0 - integSum(k)).toFixed(1)} Integrität`);
   // Mine hinter einem Gegner: der Gegner steht davor und wird getroffen, die Mine bleibt
   const r3 = raum(); const q = r3.g;
   Alarm.minenSetzen(q, { n: 1, positionen: [{ x: 1500, y: 800 }] });
@@ -554,9 +566,10 @@ section('Minenfeld im Labor: zünden bzw. abschießen, Einsprung', () => {
   ok(r.ok && g.space.minen.length === 6 && g.space.alarm.aktiv && !g.space.alarm.schleich, `Minenfeld: 6 Minen, Alarm an (${r.fehler || ''})`);
   heil(g);
   const m = g.space.minen[0];
+  const integSum0 = integSum(g);
   platz(g, m.x, m.y, 0);
   ticks(g, 0.2);
-  ok(punkte(g) === 6 && g.space.minen.length === 5 && Alarm.stufe(g) === 2, 'Mine gezündet: 6 Punkte, Alarm');
+  ok(Math.abs(integSum0 - integSum(g) - 6) < 0.01, 'Mine gezündet: 6 Integrität aus einem System der Zone, Alarm');
   ticks(g, 6);
   ok(g.space.enemies.filter((e) => e.tag === 'einsprung').length === 2, 'Alarm ohne Patrouille: zwei Jäger sind eingesprungen');
   // zweite Partie: Mine abschießen

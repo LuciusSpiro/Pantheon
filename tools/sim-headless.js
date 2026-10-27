@@ -10,6 +10,8 @@
 const Maps = require('../shared/maps.js');
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
+// SYS-01 A1b: die Lerche hat keine Hülle mehr; Ersatz ist die Gesamtintegrität aller aktiven Systeme in % (interior.integritaetSnapshot)
+const IG = (g) => require('../server/sim/interior.js').integritaetSnapshot(g).gesamt;
 // W1 AP1: Bots lesen die KI-Rolle der Gegner (d.role === 'aufrichten'); der Snapshot sendet sie nur mit diesem Schalter.
 // Gilt auch für golden-trace.js (lädt diese Datei ohne Hauptteil). Snapshot-Leser: alive fehlt = true, asleep/cr fehlen = false.
 CONFIG.debug.snapKiRolle = true;
@@ -1788,14 +1790,14 @@ async function runArena(opts) {
   for (const a of agents) { game.addConnection(a.conn); a.hello(); }
   let S = game.snapshot();
   const waves = []; let cur = null;
-  let prevHull = game.ship.hull, hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
+  let prevHull = IG(game), hullLoss = 0, ticks = 0, lastProgress = 0, softlock = false;
   const gbArcs = (kind) => CONFIG.enemyWeapons[kind] || [];   // EK1b: Breitseiten-Schiffe (Korvette, Fregatte, Kreuzer)
   const bs = { gbTicks: 0, gbBroadside: 0 };
   while (game.time < opts.maxSec) {
     game.step(); ticks++;
     if (game.wantsSnapshot()) S = game.snapshot();
     for (const a of agents) a.update(S);
-    const h = game.ship.hull;
+    const h = IG(game);
     if (h < prevHull) hullLoss += prevHull - h;
     prevHull = h;
     const sh = game.ship;
@@ -1814,7 +1816,7 @@ async function runArena(opts) {
     }
     if (VERBOSE && ticks % 300 === 0) {
       const s2 = S.ship;
-      log(`  [t ${game.time.toFixed(0)} W${A.wave}${A.active ? '' : '-'}] Hülle ${s2.hull} Stufe ${s2.helm && s2.helm.stage} v${Math.round(s2.speed)} Sys ${Object.entries(s2.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Schilde ${s2.shields.current.join('/')} ` +
+      log(`  [t ${game.time.toFixed(0)} W${A.wave}${A.active ? '' : '-'}] Integrität ${IG(game)} % Stufe ${s2.helm && s2.helm.stage} v${Math.round(s2.speed)} Sys ${Object.entries(s2.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Schilde ${s2.shields.current.join('/')} ` +
         `Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + (e.state ? ' ' + e.state : '') + (e.tele ? ' T' + e.tele.left : '') + ' @' + Math.round(dist(e.x, e.y, s2.x, s2.y))).join('; ')} Spieler ${S.players.map((q) => q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32)).join(' ')}`);
     }
     // Zeitlimit je Welle: zählt als „Welle nicht geschafft“ (Gegner werden wie mit Debug-skip entfernt), kein Softlock
@@ -1831,7 +1833,7 @@ async function runArena(opts) {
     leakHits: st.leakHits || 0, escalations: st.escalations || 0, repairSetbacks: st.repairSetbacks || 0, overflowHull: st.overflowHull || 0,
     statsMissing: ['leakHits', 'escalations', 'repairSetbacks', 'overflowHull'].filter((k) => st[k] == null),
     broadside: bs.gbTicks ? bs.gbBroadside / bs.gbTicks : null, gbSec: bs.gbTicks * DT,
-    ev, sim: game.simStats, hull: Math.round(game.ship.hull),
+    ev, sim: game.simStats, hull: IG(game),
     waffenSchaden: Math.round(((st.waffenSchaden || {}).gesamt || 0) * 10) / 10, torpedos: st.torpedos || 0, torpedoTreffer: st.torpedoTreffer || 0, torpedoLerche: st.torpedoLerche || 0, schuesse: st.schuesse || 0, schussTreffer: st.schussTreffer || 0, torpedoAbgeprallt: st.torpedoAbgeprallt || 0,   // PAN-01 C: Schaden der Lerche an Gegnern (Schild + Hülle), Torpedos
   };
 }
@@ -1875,7 +1877,7 @@ async function runWellenAll(opts) {
     if (game.stats.brocken) brocken = Object.assign({}, game.stats.brocken);
     if (VERBOSE && ticks % 300 === 0 && W8) {
       const sh = game.ship;
-      log(`  [t ${game.time.toFixed(0)} W${W8.n} ${W8.ph}] Hülle ${Math.round(sh.hull)} v${Math.round(sh.speed)} Gegner ${game.space.enemies.map((e) => e.kind + ' ' + Math.round(e.hp) + (e.pstate ? ' ' + e.pstate : '') + ' @' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Spieler ${S.players.map((q) => q.console || '-').join(' ')}`);
+      log(`  [t ${game.time.toFixed(0)} W${W8.n} ${W8.ph}] Integrität ${IG(game)} % v${Math.round(sh.speed)} Gegner ${game.space.enemies.map((e) => e.kind + ' ' + Math.round(e.hp) + (e.pstate ? ' ' + e.pstate : '') + ' @' + Math.round(dist(e.x, e.y, sh.x, sh.y))).join('; ')} Spieler ${S.players.map((q) => q.console || '-').join(' ')}`);
     }
     if (game.time - lastProgress > 300) { softlock = true; break; }
     if (ticks % 3000 === 0) await new Promise((r) => setImmediate(r));
@@ -2045,7 +2047,7 @@ async function runScenario(n, opts) {
     for (const a of agents) a.update(S);
     if (VERBOSE && ticks % 450 === 0) {
       const sh = S.ship;
-      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Hülle ${sh.hull} Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + '<' + Math.round(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle) * 57.3) + '°').join('; ')} v${Math.round(sh.speed)} tv${sh.turnVel} Waffen ${(sh.mounts || []).map((m) => m.id + ':' + m.alloc + '/' + m.charge + (m.charging ? 'L' + m.power : '') + (m.salvo ? 'S' + m.salvo : '')).join(',')} Ziel ${sh.target} Q ${JSON.stringify(sh.repairQueue)} Bots ${S.bots.map((b) => b.task ? b.task.kind : '-').join('/')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
+      log(`  [t ${game.time.toFixed(0)} ${S.mission.stage}@${sh.scene}] Integrität ${IG(game)} % Reaktor ${sh.reactor.state} Schilde ${sh.shields.current.join('/')} Sys ${Object.entries(sh.systems).filter(([, v]) => v !== 'ok').map(([k, v]) => k + ':' + v).join(',')} Feuer ${sh.fires.length} Lecks ${sh.breaches.length} Gegner ${S.space.enemies.map((e) => e.kind + ' ' + e.hp + ' ' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + '<' + Math.round(norm(Math.atan2(e.y - sh.y, e.x - sh.x) - sh.angle) * 57.3) + '°').join('; ')} v${Math.round(sh.speed)} tv${sh.turnVel} Waffen ${(sh.mounts || []).map((m) => m.id + ':' + m.alloc + '/' + m.charge + (m.charging ? 'L' + m.power : '') + (m.salvo ? 'S' + m.salvo : '')).join(',')} Ziel ${sh.target} Q ${JSON.stringify(sh.repairQueue)} Bots ${S.bots.map((b) => b.task ? b.task.kind : '-').join('/')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'} Spieler ${S.players.map((p) => p.zone + ':' + (p.console || Math.floor(p.x / 32) + ',' + Math.floor(p.y / 32))).join(' ')}`);
     }
     const key = (S.mission.stage || 'free') + (game.simStats.wreckDone ? '' : (game.ship.scene === 'wrack' ? '+wrack' : ''));
     if (key !== stage) { stage = key; stageStart = game.time; }
@@ -2067,7 +2069,7 @@ async function runScenario(n, opts) {
     sim: game.simStats, discoveries: game.explore.discoveries(),
     flags: game.mission.state.flags, teaser: game.mission.state.teaser && { source: game.mission.state.teaser.source, title: game.mission.state.teaser.title },
     snapshot: { maxBytes: snapMax, maxBytesFull: snapMaxAst, avgBytes: Math.round(snapSum / Math.max(1, snapN)) },
-    notices, odaCount: odaTexts.length, odaTooLong: [...new Set(odaTexts.filter((t) => t.length > 120))], hull: Math.round(game.ship.hull), marks: game.inventory.marks,
+    notices, odaCount: odaTexts.length, odaTooLong: [...new Set(odaTexts.filter((t) => t.length > 120))], hull: IG(game), marks: game.inventory.marks,
     inventory: { ersatzteil: game.inventory.ersatzteil, flickblech: game.inventory.flickblech },
   };
 }
@@ -2083,7 +2085,7 @@ function printResult(r) {
   log(`Statistik: Abschüsse ${r.stats.kills}, Reparaturen ${r.stats.repairs}, Feuer gelöscht ${r.stats.firesOut}, Treffer ${r.stats.hits}, Notfälle ${r.stats.emergencies} · Entdeckungen ${r.discoveries.found}/${r.discoveries.total} · Reaktor-Neustarts ${r.sim.reactorRestarts} · Liftfahrten ${r.sim.liftRides || 0}${r.wreck ? ' · Wrack ' + (r.sim.wreckDone ? 'erledigt (' + Math.round(r.sim.wreckTime || 0) + ' s unten/oben)' : 'NICHT erledigt') : ''}`);
   log(`Flags: ${JSON.stringify(r.flags)} · Teaser: ${r.teaser ? `${r.teaser.title} [${r.teaser.source}]` : '—'}`);
   log(`Snapshot: max ${r.snapshot.maxBytes} B normal / ${r.snapshot.maxBytesFull} B mit Asteroiden/Ortsliste, Ø ${r.snapshot.avgBytes} B`);
-  log(`Ende: Hülle ${r.hull}, Marken ${r.marks}, Ersatzteile ${r.inventory.ersatzteil}, Flickbleche ${r.inventory.flickblech}, ODA-Texte ${r.odaCount}`);
+  log(`Ende: Integrität ${r.hull} %, Marken ${r.marks}, Ersatzteile ${r.inventory.ersatzteil}, Flickbleche ${r.inventory.flickblech}, ODA-Texte ${r.odaCount}`);
   if (r.odaTooLong.length) log('ODA-Texte > 120 Zeichen: ' + r.odaTooLong.map((t) => t.length + ': ' + t).join(' | '));
   const top = Object.entries(r.notices).sort((a, b) => b[1] - a[1]).slice(0, 6);
   if (top.length) log('Häufigste Notices: ' + top.map(([t, c]) => `${c}× „${t}“`).join(' | '));
@@ -3607,7 +3609,7 @@ async function runGeneric(opts) {
     const m = game.mission;
     if (VERBOSE && ticks % Number(argVal('--every', 120)) === 0) {
       const sh = game.ship;
-      log(`  [t ${game.time.toFixed(0)} ${m.state.stage || '-'}@${sh.scene}] v${Math.round(Math.hypot(sh.vx, sh.vy))} Hülle ${Math.round(sh.hull)} Gegner ${game.space.enemies.map((e) => e.kind + ':' + Math.round(e.hp) + '@' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + (e.targetId ? '>' + e.targetId : '') + (e.tele ? 'T' : '')).join(' ')}`
+      log(`  [t ${game.time.toFixed(0)} ${m.state.stage || '-'}@${sh.scene}] v${Math.round(Math.hypot(sh.vx, sh.vy))} Integrität ${IG(game)} % Gegner ${game.space.enemies.map((e) => e.kind + ':' + Math.round(e.hp) + '@' + Math.round(dist(e.x, e.y, sh.x, sh.y)) + (e.targetId ? '>' + e.targetId : '') + (e.tele ? 'T' : '')).join(' ')}`
         + ` Schützling ${(game.space.escorts || []).map((q) => `${q.tag}:${q.state}:${Math.round(q.hp)}@${Math.round(dist(q.x, q.y, sh.x, sh.y))}`).join(' ')} Spieler ${S.players.map((q) => q.zone + ':' + (q.console || Math.floor(q.x / 32) + ',' + Math.floor(q.y / 32))).join(' ')} Sprung ${sh.jump.dest}:${sh.jump.blockedReason || Math.round(sh.jump.charge * 100) + '%'}`
         + (S.away.active ? ` | unten ${S.away.map}: Salvage ${(S.away.salvage || []).map((q) => `${q.x},${q.y}${q.done ? '✓' : ''}${q.hidden ? 'h' : ''}`).join(' ')} Gegner ${(S.away.drones || []).filter((d) => d.alive !== false).length} Aktion ${S.players.map((q) => q.action ? q.action.kind : '-').join('/')}` : ''));
     }
@@ -3692,7 +3694,7 @@ async function runGeneric(opts) {
   if (!res.aborted && game.time >= maxSec) res.aborted = `Spielzeit über ${maxSec} s`;
   res.eng = { sammeln: 0, sturm: 0, flanke: 0 };   // W2 AP6
   for (const aw of Object.values(game.aways || {})) if (aw && aw.engStats) for (const k of Object.keys(res.eng)) res.eng[k] += aw.engStats[k] || 0;
-  res.errors = game.errors; res.sim = game.simStats; res.gameTime = r1(game.time); res.marks = game.inventory.marks; res.hull = Math.round(game.ship.hull);
+  res.errors = game.errors; res.sim = game.simStats; res.gameTime = r1(game.time); res.marks = game.inventory.marks; res.hull = IG(game);
   return res;
 }
 

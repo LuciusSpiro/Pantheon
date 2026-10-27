@@ -3,11 +3,13 @@
 //   resolveHit  – ein Treffer auf Sektor `sector`. Schild über 0 fängt ab (min(Schild, Schaden)), der Rest verfällt,
 //                 kein Systemschaden. Ohne Schild (oder durchschlagen) trifft der Rest ein System der Zone
 //                 (interior.trefferweg), Integritätsabzug = Rest × systemModell.schadenFaktor. Feuer nur bei Systemschaden.
+//   systemSchaden – ein Systemtreffer in einer Zone (Trefferweg) mit Ereignis, Frachtraum-Verlust und genau einem Rückschlag je Zone.
 //   onSystemHit – Rückschlag für laufende Reparaturen im Bereich des getroffenen Systems (spaceM3b.repairHitLoss).
 //   update      – Eskalation (spaceM3b.escalation) und Reaktor-Autostart im Gefecht (spaceM3b.reactorAutoRestart).
 // space.shipHit (SERVER-FLIGHT) ist eine dünne Hülle um resolveHit. Alle Werte live per `tune spaceM3b.<pfad>` bzw. `tune systemModell.<pfad>`.
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
@@ -53,8 +55,7 @@ function resolveHit(game, sector, dmg, opts) {
   const out = { absorbed, rest: s > 0 ? 0 : rest, systems: [], shield: s0, empThrough: false };   // Schild hält: der Rest verfällt (rest 0)
   // 3. Sturmbatterie bei niedrigem Schild: Systemchance, kleiner Integritätsschaden (Schild bleibt oben)
   if (ST && s0 > 0 && s0 <= ST.niedrig && game.rng.chance(ST.systemChance)) {
-    const t = interior.trefferweg(game, sector, Number(M.sturmSchaden) || 0);
-    if (t) out.systems.push(t);
+    systemSchaden(game, out, sector, Number(M.sturmSchaden) || 0);
     if (out.systems.length) game.stats.leakHits++;
   }
   if (s > 0 || rest <= 0) return out;   // Schild hält: ohne Systemschaden und ohne Überlauf
@@ -67,17 +68,33 @@ function resolveHit(game, sector, dmg, opts) {
   }
   // 5. Trefferweg: Zone des Sektors, Mitte bei Durchschlag 'zone' oder bei leerer Zone (Integritätsabzug = Rest × Faktor)
   const zone = o.durchschlag === 'zone' ? -1 : sector;
-  const t = interior.trefferweg(game, zone, rest * (Number(M.schadenFaktor) || 1));
+  const t = systemSchaden(game, out, zone, rest * (Number(M.schadenFaktor) || 1));   // t.wechsel: der Treffer hat den Zustand geändert (Zielsysteme prüfen das)
   if (!t) return out;
-  out.systems.push(t);   // t.wechsel: der Treffer hat den Zustand geändert (Zielsysteme prüfen das)
   const sysZone = interior.systemSector(t.system);
-  // 6. Feuer nur bei Systemschaden (Zustandswechsel) in der Zone des getroffenen Systems; Lecks entfallen
-  if (t.wechsel) {
-    game.missionEvent('systemDamaged', { system: t.system, state: t.state });
-    if (sysZone >= 0 && game.rng.chance(C.hitEffects.fireChance)) { const f = interior.randomRegionFloor(game, sysZone, false); if (f) interior.addFire(game, f.x, f.y); }
-  }
-  onSystemHit(game, sysZone);   // Rückschlag bei jedem Systemschaden: die Reparatur im Bereich verliert Fortschritt
+  // 6. Feuer nur bei Systemschaden (Zustandswechsel) in der Zone des getroffenen Systems; Lecks entfallen. (systemDamaged meldet damageSystem selbst.)
+  if (t.wechsel && sysZone >= 0 && game.rng.chance(C.hitEffects.fireChance)) { const f = interior.randomRegionFloor(game, sysZone, false); if (f) interior.addFire(game, f.x, f.y); }
   return out;
+}
+
+// ---------- Systemtreffer je Zone (SYS-01 A1b) ----------
+// Ein Treffer auf eine Zone geht über den Trefferweg (interior.trefferweg). Trifft er das Frachtraum-Modul, prüft Fracht den Verlust.
+// out.zonen merkt sich, in welchen Zonen der Treffer den Rückschlag schon ausgelöst hat: je Treffer und Zone genau einmal.
+function systemSchaden(game, out, zone, schaden, opts) {
+  const t = interior.trefferweg(game, zone, schaden, opts);
+  if (!t) return null;
+  out.systems.push(t);
+  game.missionEvent('systemHit', { system: t.system, state: t.state, zone: interior.systemSector(t.system) });
+  if (Fracht.frachtraumTreffer(game, t.system)) Fracht.huellenTreffer(game);   // PAN-01 A: nur ein Treffer auf das Frachtraum-Modul löst Ladung
+  rueckschlag(game, out, interior.systemSector(t.system));
+  return t;
+}
+// Rückschlag für eine Zone, höchstens einmal je Treffer (out ist das Ergebnis von resolveHit oder ein eigenes { systems: [] }).
+function rueckschlag(game, out, zone) {
+  if (!out.zonen) out.zonen = [];
+  if (out.zonen.includes(zone)) return false;
+  out.zonen.push(zone);
+  onSystemHit(game, zone);
+  return true;
 }
 
 // ---------- Rückschlag (§4 „Arbeiten im Rhythmus“) ----------
@@ -205,4 +222,4 @@ function update(game, dt) {
   updateReactorAuto(game);
 }
 
-module.exports = { resolveHit, onSystemHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };
+module.exports = { resolveHit, systemSchaden, rueckschlag, onSystemHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };

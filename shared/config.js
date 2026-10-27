@@ -668,6 +668,7 @@
       schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
       schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
+      torpedoLerche: 10,          // SYS-01 A1b: Gegner-Torpedo gegen die Lerche bei Schild 0: Integritätsabzug in einem System der Zone (ein Standardsystem, 10 = sicher zerstört)
       sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
     },
     // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
@@ -738,7 +739,7 @@
       sprungpunktRadius: 250,          // px: so nah muss die Lerche am Sprungpunkt sein, damit der Antrieb lädt
       randAbstand: 180,                // px: Lage des Sprungpunkts vor dem Szenenrand in Kantenrichtung
       weitscanBoje: 1400,              // px: Weitscan findet unbekannte Bojen in dieser Entfernung
-      notsprung: { huelle: 15, reaktor: 'offline', autoNeustartFrei: 10, richtung: 3, streuung: 0.35, sperreAuftrag: false },
+      notsprung: { systemSchaden: true, reaktor: 'offline', autoNeustartFrei: 10, richtung: 3, streuung: 0.35, sperreAuftrag: false },   // SYS-01 A1b: Kosten = ein zufälliges ok-System beschädigt (kein Reaktor)
       leerraumSzene: { w: 2400, h: 1800, asteroids: 0 },
     },
   };

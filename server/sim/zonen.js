@@ -217,14 +217,17 @@ function update(game, dt) {
   }
 }
 
-// Dauerdruck der Zone auf die Lerche: erst der Schildsektor zur Zone, der Rest trifft ein System (SYS-01 A1a: keine Hülle mehr).
-// Bewusst KEIN shipHit: Dauerdruck würfelt keine Systemausfälle, Feuer oder Lecks (das macht nur Beschuss); die Technik hat mit Hitze genug zu tun.
+// Dauerdruck der Zone auf die Lerche (SYS-01 A1b): erst der Schild des Sektors, bei Schild 0 trifft der Rest per Trefferweg ein System des Sektors.
+// Bewusst KEIN shipHit und KEIN Feuer: Dauerdruck ist kein Beschuss. Der Systemtreffer meldet sich wie jeder andere (systemSchaden, ein Rückschlag je Takt).
 function druck(game, sector, pts) {
   const sh = game.ship.shields; let rest = pts;
   const cur = (sh.current && sh.current[sector]) || 0;
   const absorb = Math.min(cur, rest);
   if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
-  // SYS-01 A1a (Übergang, Zonenschaden kommt mit Paket C): ohne Hülle verfällt der Rest des Dauerdrucks. Kein Systemwurf, kein Schaden an Systemen.
+  if (rest > 0) {
+    const D = require('./damage.js'); const M = game.C.systemModell || {};
+    D.systemSchaden(game, { systems: [] }, sector, rest * (Number(M.schadenFaktor) || 1), { dauer: true });   // Dauerdruck bricht kein Schöpfen/Beamen ab (wie bisher)
+  }
   game.stats.hits++;
   game.emit('hit', rest > 0 ? { sector, shield: false, dmg: Math.round(rest * 10) / 10, heavy: false, absorbed: absorb } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });
   game.emit('sfx', { name: rest > 0 ? 'hull_hit' : 'shield_hit' });
@@ -238,7 +241,7 @@ function beschreibung(z) {
   const t = [];
   if (z.sicht != null && z.sicht < 1) t.push('Sicht schlechter');
   if (z.hitze) t.push('Hitze');
-  if (z.schaden) t.push('Druck auf die Hülle');
+  if (z.schaden) t.push('Druck auf die Systeme');
   if (z.drift || z.tang) t.push('Strömung zieht am Schiff');
   if (z.zug) t.push('Sog nach innen');
   if (z.ertrag && String(z.ertrag.ziel).startsWith('fracht:')) t.push('Schöpfen mit der Ops möglich');

@@ -341,24 +341,14 @@ function minenSnap(game) {
   }
   return out.length ? out : null;
 }
-// Systemschaden: punkte Schritte, je Schritt ein zufälliges nicht zerstörtes System eine Stufe tiefer (ok → beschädigt = 1,
-// beschädigt → zerstört = 1, zusammen 2). -> [{ system, state }] (Endzustand je betroffenem System)
-function systemSchaden(game, punkte) {
-  const ship = game.ship; const res = {};
-  for (let i = 0; i < punkte; i++) {
-    const cand = interior.SYSTEM_ORDER.filter((k) => ship.systems[k] != null && ship.systems[k] !== 'broken' && ship.systems[k] !== 'offline' && interior.systemAktiv(game, k));
-    if (!cand.length) break;
-    const k = game.rng.pick(cand);
-    const to = ship.systems[k] === 'ok' ? 'damaged' : 'broken';
-    interior.damageSystem(game, k, to, { quiet: true });
-    res[k] = ship.systems[k];
-  }
-  return Object.keys(res).map((k) => ({ system: k, state: res[k] }));
-}
+// SYS-01 A1b: Die Mine trifft die nächstgelegene Zone (der Sektor der Richtung, wie der Schildsektor eines Treffers) als Systemtreffer
+// mit Durchschlag 'schild' über den Trefferweg (Schilde gelten nicht). Integritätsabzug = mine.punkte × schadenFaktor.
+// -> [{ system, state }] (Endzustand je betroffenem System)
 function minenTreffer(game, m) {
   const M = C(game).mine || {};
-  const list = systemSchaden(game, M.punkte != null ? M.punkte : 6);
   const sector = Physics.sectorOf(game.ship.x, game.ship.y, game.ship.angle, m.x, m.y);
+  const r = require('./damage.js').resolveHit(game, sector, M.punkte != null ? M.punkte : 6, { durchschlag: 'schild', mine: true });
+  const list = (r.systems || []).map((t) => ({ system: t.system, state: t.state }));
   game.emit('hit', { sector, shield: false, dmg: 3, heavy: true, mine: true });
   game.emit('sfx', { name: 'hull_hit' });
   const lab = (k) => (interior.SYS_LABEL && interior.SYS_LABEL[k]) || k;
@@ -517,6 +507,6 @@ module.exports = {
   sprungpunkte, naechsterSprungpunkt, einspringen,
   signatur, sensorRadius, schildeSchalten, schildeUnten, trefferOpts,
   patrouilleSetzen, patrouille, sichtbar, patrouillenSnap,
-  minenSetzen, mineById, mineAt, mineImStrahl, mineSichtbar, minenSnap, explodiere, abschuss, systemSchaden,
+  minenSetzen, mineById, mineAt, mineImStrahl, mineSichtbar, minenSnap, explodiere, abschuss,
   onWidescan, update, schleichSnap, zielSetzen, amZiel, schleichfahrtEinrichten,
 };

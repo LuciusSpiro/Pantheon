@@ -288,6 +288,18 @@ function notsprungGrund(game) {
   if (game.transfer && game.transfer.isBeaming(game)) return 'Transfer läuft.';
   return null;
 }
+// SYS-01 A1b (Kai): Der Notfallsprung beschädigt ein zufälliges System, das noch ok ist (über game.rng). Der Reaktor zählt nicht, er geht ohnehin offline.
+// Gibt es kein ok-System, passiert nichts. Meldung per ODA.
+function notsprungSchaden(game) {
+  const I = require('./interior.js');
+  const s = game.ship.systems;
+  const cand = I.SYSTEM_ORDER.filter((k) => k !== 'reactor' && s[k] === 'ok' && I.systemAktiv(game, k));
+  if (!cand.length) return null;
+  const k = game.rng.pick(cand);
+  I.damageSystem(game, k, 'damaged');
+  game.oda(`Notsprung: ${I.SYS_LABEL[k] || k} ist beschädigt.`, null);
+  return k;
+}
 function notsprung(game) {
   const why = notsprungGrund(game);
   if (why) return why;
@@ -305,10 +317,10 @@ function notsprung(game) {
     for (let i = 0; i < kand.length; i++) { r -= gew[i]; if (r <= 0) { nachHex = kand[i]; break; } }
   }
   const nachOrt = nachHex ? Sektoren.ortVonHex(nachHex) : vonOrt;
-  // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung. SYS-01 A1a (Übergang bis zum Notfallsprung-Umbau, Paket A2):
-  // die Hülle-Kosten entfallen; die neue Kostenregel (ein zufälliges System beschädigt) kommt dort.
+  // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung, Kosten: ein zufälliges ok-System beschädigt (SYS-01 A1b, notsprung.systemSchaden)
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.overloadLeft = 0; rc.warned = false; }
+  if (N.systemSchaden) notsprungSchaden(game);
   // SUND-02a C: Freie Fahrt (weltsim gesetzt): der Reaktor startet nach autoNeustartFrei s von selbst (Mechanik des Gefechtsstarts, damage.updateReactorAuto);
   // die Kampagne bleibt beim Handneustart (Schalter A+B) bzw. dem Notstart nach autoRestartAfter
   const frei = !!game.weltsim && Number(N.autoNeustartFrei) > 0;
@@ -466,6 +478,6 @@ function debugErkundeAlle(game) {
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
   tutorialLaeuft, anflugPflicht, springeNach, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
-  notsprung, notsprungGrund, notsprungKandidaten, oeffnen, schliessen, missionEnde, bojeAufdecken, kanteEnthuellen, jpSnapshot,
+  notsprung, notsprungGrund, notsprungKandidaten, notsprungSchaden, oeffnen, schliessen, missionEnde, bojeAufdecken, kanteEnthuellen, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };

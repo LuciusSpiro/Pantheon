@@ -1005,7 +1005,7 @@ function repairTime(game, how) {
 
 // Schaden um eine Stufe (oder auf toState). Fragile Systeme brechen beim nächsten Schaden direkt.
 // opts.quiet: keine ODA-Ansage (Skripte/Übung).
-function damageSystem(game, sys, toState, opts) {
+function damageSystem(game, sys, toState, opts) {   // opts.quiet (keine ODA), opts.dauer (Dauerdruck: kein Abbruch des Fracht-Beamens/Schöpfens)
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
   if (!s[sys]) return;
@@ -1024,7 +1024,7 @@ function damageSystem(game, sys, toState, opts) {
   if (s[sys] === before) return;
   game.emit('sfx', { name: s[sys] === 'broken' ? 'system_break' : 'hull_hit', zone: 'ship' });
   if (s[sys] !== 'ok') {
-    Fracht.systemTreffer(game, sys);   // EK3 Teil A: ein Systemtreffer bricht das Fracht-Beamen ab (Schildtreffer erreichen diese Stelle nie)
+    if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: ein Systemtreffer bricht das Fracht-Beamen ab (Schildtreffer erreichen diese Stelle nie)
     game.emit('systemHit', { system: sys, state: s[sys] });
     if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
   }
@@ -1081,27 +1081,27 @@ function syncInteg(game, sys) {
 }
 // Integritätsschaden auf ein System (Trefferweg, Sturm, Streu). Punkte ab, Zustand aus den Schwellen.
 // Geflicktes (ok, fragil) bricht beim Treffer direkt. Rückgabe: { system, state } bei Zustandswechsel, sonst null.
-function systemTreffer(game, sys, schaden) {
+function systemTreffer(game, sys, schaden, opts) {
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
   const dmg = Number(schaden) || 0;
   if (!s[sys] || !(dmg > 0)) return null;
   const v = Math.max(0, integOf(game, sys) - dmg);
   setInteg(game, sys, v);
-  Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel)
+  if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
   const before = s[sys];
   let ziel = null;
   if (v <= 0) ziel = 'broken';
   else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
   else if (v < schwelleOf(game) * integMax(game, sys)) ziel = 'damaged';
   if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
-  damageSystem(game, sys, ziel);
+  damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
   return s[sys] !== before ? { system: sys, state: s[sys] } : null;
 }
 // Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives, nicht offline System der Zone.
 // Ist die Zone leer, geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
 // Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer).
-function trefferweg(game, zone, schaden) {
+function trefferweg(game, zone, schaden, opts) {
   const s = game.ship.systems;
   const frei = (k) => systemAktiv(game, k) && !isDown(s[k]);
   // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
@@ -1114,7 +1114,7 @@ function trefferweg(game, zone, schaden) {
   if (!kand.length) kand = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && frei(k));
   if (!kand.length) return null;
   const pick = game.rng.pick(kand);
-  const r = systemTreffer(game, pick, schaden);
+  const r = systemTreffer(game, pick, schaden, opts);
   return { system: pick, state: s[pick], wechsel: !!r };
 }
 // Schwächste Seite (Zonen 0–3): Anteil der Integrität der aktiven Systeme am Maximum (ODA-Warnung unter 40 %)

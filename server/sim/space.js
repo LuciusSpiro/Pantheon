@@ -802,7 +802,7 @@ function shipHit(game, sector, dmg, opts) {
     game.emit('sfx', { name: 'shield_hit' });
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
-  if (rest > 0) { Fracht.huellenTreffer(game); game.missionEvent('hullHit', { sector }); }   // PAN-01 A: ungesicherter Frachtraum verliert Ladung
+  if (rest > 0) game.missionEvent('hullHit', { sector });   // Alias (SYS-01 A1b): ein Treffer, der den Schild durchbricht. Der Systemtreffer meldet 'systemHit' (damage.systemSchaden), der Frachtraum-Verlust hängt am Frachtraum-Modul dort.
   if (opts.angriff && rest > 0) Zielsysteme.trifftLerche(game, sector, r, opts);   // SUND-04a-1 A: durchschlagender Treffer auf die Seite des Systems (Heck: Antrieb), nur Angriffe in Szenen mit Schalter
   return r;
 }
@@ -1244,7 +1244,7 @@ function updateBolzen(game, e, d, toShip, retreating, dt) {
 
 // ---------- PAN-01 C: Streu- und Torpedo-Plätze der Gegner (nur gezielt bestückt: Labor, Spielleiter, Regiebuch) ----------
 // Streu: alle streuIv s ein Wurf von Granaten auf den vorhergesagten Ort der Lerche (verzögert, ausweichbar). Torpedo: ein zielsuchender Torpedo je torpedoIv s,
-// langsam und schwer, nimmt der Lerche höchstens ein Drittel der Hülle (TORPEDO.gegenLerche), geht an den Schilden vorbei, ist ausweichbar (Ausweichfenster) und
+// langsam und schwer, trifft die Lerche als ein System der Zone (systemModell.torpedoLerche), geht an den Schilden vorbei, ist ausweichbar (Ausweichfenster) und
 // vom Abwehrturm abschießbar. Gleiche Regeln wie für die Lerche: derselbe Katalog.
 function updateStreuG(game, e, d, retreating, dt) {
   if (!e.waffen || !hatWaffe(game, e, 'streu')) return;
@@ -1278,7 +1278,7 @@ function updateTorpedoG(game, e, d, retreating, dt) {
   e.torpG = 0;
   const pl = plaetzeImBogen(game, e, ship, 'torpedo', 650)[0];
   const o = pl && pl.pos != null ? platzPunkt(game, e, pl) : { x: e.x, y: e.y };
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'etorpedo', x: o.x, y: o.y, angle: Math.atan2(ship.y - o.y, ship.x - o.x), speed: T.gegnerGeschw, ttl: T.gegnerTtl, dmg: T.gegenLerche, owner: e.id });
+  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'etorpedo', x: o.x, y: o.y, angle: Math.atan2(ship.y - o.y, ship.x - o.x), speed: T.gegnerGeschw, ttl: T.gegnerTtl, dmg: game.C.systemModell.torpedoLerche, owner: e.id });
   game.emit('sfx', { name: 'torpedo', enemy: e.kind, x: Math.round(o.x), y: Math.round(o.y) });
 }
 // Explosion einer Gegner-Granate an der Lerche: eine = Schildschaden, zwei (andere Granaten) im Fenster = Durchschlag in die Hülle und sicherer Systemschaden
@@ -1582,7 +1582,7 @@ function debugTele(game, id) {
 }
 
 function torpedoNurOhneSchild() { return Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }   // Kai 2026-10-18: Lesart B für alle Ziele
-// PAN-01 C: Gegner-Torpedo trifft die Lerche: geht an Schild und Schildpool vorbei, ein Treffer nimmt höchstens ein Drittel der Hülle (TORPEDO.gegenLerche × 5).
+// PAN-01 C, SYS-01 A1b: Gegner-Torpedo trifft die Lerche: bei Schild 0 im Sektor (Lesart B) ein System der Zone mit systemModell.torpedoLerche Integrität. Kein Durchschlag der Zone.
 // Wer kurz vorher ausgewichen ist (Ausweichfenster wie bei der Ladung), wird verfehlt.
 function etorpedoTreffer(game, p) {
   const ship = game.ship; const T = Katalog.TORPEDO;
@@ -1604,7 +1604,7 @@ function etorpedoTreffer(game, p) {
   }
   game.stats.torpedoLerche = (game.stats.torpedoLerche || 0) + 1;
   const eto = Zielsysteme.szeneAktiv(game) ? game.space.enemies.find((e) => e.id === p.owner) : null;
-  shipHit(game, sec, p.dmg != null ? p.dmg : T.gegenLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: eto.zielsystem } : { pierce: true, heavy: true, torpedo: true });
+  shipHit(game, sec, p.dmg != null ? p.dmg : game.C.systemModell.torpedoLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: eto.zielsystem } : { pierce: true, heavy: true, torpedo: true });
 }
 
 function updateProjectiles(game, dt) {

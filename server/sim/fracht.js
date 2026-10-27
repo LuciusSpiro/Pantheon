@@ -70,12 +70,21 @@ function fracht_abwerfen(game, x, y, art) {
 }
 
 // PAN-01 A: Ungesichert (Frachtraum-Modul aus) + Hüllentreffer: die älteste Ware löst sich und treibt hinter dem Schiff (neu beamen möglich). Rückgabe: Anzahl.
+// SYS-01 A1b: Auslöser ist ein Treffer auf das Frachtraum-Modul (Trefferweg, damage.systemSchaden), nicht mehr jeder Hüllenrest.
+function frachtraumTreffer(game, sys) {
+  const mm = /^modul_([1-4])$/.exec(String(sys || ''));
+  return !!mm && require('./module.js').liste(game).some((m) => m.id === 'frachtraum' && m.raum === Number(mm[1]));
+}
 function huellenTreffer(game) {
-  if (gesichert(game)) return 0;
+  // SYS-01 A1b: ungesichert = ein Frachtraum ist aus ODER zerstört (ein zerstörtes Modul läuft nicht, gilt also als ungesichert).
   // Nur wer den Frachtraum bewusst abgeschaltet hat (Technik), trägt das Risiko. Fällt er nur durch Reaktorschaden aus (Notstrom), zeigt die Anzeige
   // UNGESICHERT, aber die Ladung bleibt: sonst ginge Kampagnen-Fracht (Konvoi, Eisenwald) durch einen Treffer auf den Reaktor verloren (Kette k2).
   const M = require('./module.js');
-  if (M.installiert(game, 'frachtraum') && !M.liste(game).some((m) => m.id === 'frachtraum' && !m.an)) return 0;
+  const fr = M.liste(game).filter((m) => m.id === 'frachtraum');
+  if (!fr.length) return 0;
+  const aus = fr.some((m) => !m.an);
+  const zerstoert = fr.some((m) => game.ship.systems['modul_' + m.raum] === 'broken');
+  if (!aus && !zerstoert) return 0;
   const s = state(game); const sh = game.ship;
   const lim = (game.C.module && game.C.module.fracht && game.C.module.fracht.verlustJeTreffer) || 1;
   let n = 0;
@@ -294,6 +303,6 @@ module.exports = {
   neu, state, update, snapshot, toSave, restore, debug,
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
-  anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, lagerArten, draussen, abgeliefert,
+  anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
   setAbnehmer, skriptAbliefern, anBordLegen, artOk,
 };

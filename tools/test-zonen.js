@@ -177,7 +177,8 @@ function hoehe(T, E, stufe, r0, last) {
   T.platz(GC.x + r0, GC.y, 0); s.vx = f; s.vy = 0; s.helm.stage = stufe;
   const rr = () => Math.hypot(s.x - GC.x, s.y - GC.y);
   const a = rr();
-  for (let k = 0; k < Math.round(1.5 / DT); k++) { s.angle = Math.atan2(s.y - GC.y, s.x - GC.x); g.step(); }
+  // SYS-01 A1b: der Dauerdruck trifft nach dem Schild die Heck-Zone (Triebwerk); die Höhenmessung hält das Triebwerk, sie misst die Physik
+  for (let k = 0; k < Math.round(1.5 / DT); k++) { s.angle = Math.atan2(s.y - GC.y, s.x - GC.x); s.systems.engines = 'operational'; g.step(); }
   return { vr: (rr() - a) / 1.5, f };
 }
 section('Gasriese: Zug und Höhe halten (Messung)', () => {
@@ -218,11 +219,13 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
     const pool = () => s.shields.current.reduce((a, b) => a + b, 0);
     T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.shields.current = s.shields.current.map(() => 2);
     const eng0 = s.systems.engines; let minH = 100; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
+    const integ = () => { const I = require('../server/sim/interior.js'); return I.SYSTEM_ORDER.reduce((a, k) => a + (I.systemAktiv(g, k) ? I.integOf(g, k) : 0), 0); };
+    const i0 = integ();
     let tTot = null, ausserhalb = null; const em0 = g.stats.emergencies;
     for (let k = 0; k < Math.round(sek / DT); k++) {
       T.platz(GC.x + r, GC.y, 0); g.step(); minH = minH;      if (g.stats.emergencies > em0 && tTot == null) { tTot = k * DT; minH = 0; ausserhalb = Math.hypot(s.x - GC.x, s.y - GC.y); }   // Hülle 0 -> Notfallprotokoll (nach dem Hinauswurf)
     }
-    return { dHull: 100 - minH, dPool: p0 - pool(), minH, tTot, ausserhalb, hits: g.stats.hits - hits0, eng0, eng: s.systems.engines, fire: (s.fires || []).length - fire0, odas: T.odas };
+    return { dHull: 100 - minH, dPool: p0 - pool(), minH, tTot, ausserhalb, hits: g.stats.hits - hits0, eng0, eng: s.systems.engines, fire: (s.fires || []).length - fire0, odas: T.odas, dInteg: i0 - integ() };
   };
   const w = lauf(WOLKE, 10);
   ok(w.dPool > 0 && w.dHull <= 25, 'Wolkendecke (0,5/s): Schilde zuerst, Hülle nur wenig (Schilde −' + w.dPool + ', Hülle −' + w.dHull + ' in 10 s)');
@@ -236,7 +239,8 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
   ok(k.tTot == null, 'Übergang A1a: Kern (8/s) tötet nicht mehr (kein Hüllenwert)');
   ok(!k.odas.some((x) => /Notautomatik schleudert/.test(x)), 'Übergang A1a: kein Auftauchen-Zwang mehr (ohne Hülle kein Tod durch Zonendruck)');
   ok(t.hits + k.hits + f.hits > 20, 'Druck kommt als Treffer an (' + (t.hits + k.hits + f.hits) + ' Treffer)');
-  ok(f.eng === f.eng0 && t.eng === t.eng0 && k.eng === k.eng0 && f.fire === 0, 'Kein Zufallsausfall: Triebwerk bleibt ' + f.eng0 + ', keine Feuer (Dauerdruck ist kein shipHit)');
+  ok(f.fire === 0 && t.fire === 0 && k.fire === 0, 'Dauerdruck ist kein Beschuss: keine Feuer (SYS-01 A1b)');
+  ok(f.dInteg + t.dInteg + k.dInteg > 0, 'SYS-01 A1b: der Dauerdruck trifft nach dem Schild ein System (Integritätsabzug ' + (f.dInteg + t.dInteg + k.dInteg).toFixed(1) + ')');
 });
 
 section('Gasriese: Deuterium schöpfen per Ops-Aktion, Gewicht, Abwerfen', () => {
@@ -246,7 +250,7 @@ section('Gasriese: Deuterium schöpfen per Ops-Aktion, Gewicht, Abwerfen', () =>
   const z = ZonenSim.szeneZonen(g).filter((q) => q.ertrag)[0];
   ok(!!z && z.name === 'Förderschicht', 'Szene hat genau eine Ertragszone: die Förderschicht');
   // Zug zieht das Schiff aus dem Ring: für die Messung der Schöpfzeit bleibt die Lerche per Neusetzen an Ort und Stelle (Antrieb hält die Höhe)
-  const halt = (r) => T.platz(GC.x + (r || FOERDER), GC.y, 0);
+  const halt = (r) => { T.platz(GC.x + (r || FOERDER), GC.y, 0); g.ship.systems.engines = 'operational'; };   // SYS-01 A1b: Dauerdruck trifft das Triebwerk; das Schöpfen misst die Menge
   const lauf = (sek, r, bis) => { let t = 0; for (; t < sek; t += DT) { halt(r); g.step(); if (bis && bis()) break; } return t; };
   lauf(20);
   ok(Fracht.anBord(g) === 0 && !g.fracht.halt && !(g.fracht.fuell > 0), 'Ohne Aktion füllt sich NICHTS von selbst (20 s in der Förderschicht: 0 Einheiten, Füllstand 0)');

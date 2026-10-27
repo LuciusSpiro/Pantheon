@@ -50,7 +50,7 @@
     schildUmgehung: 'nur-ohne-schild',
     geschw: 400, wenden: 1.6, ttl: 3,
     schaden: { raider: 45, korvette: 9, fregatte: 9, kreuzer: 9, sentinel: 9, pylon: 9, frachter: 9, relay: 9 },
-    gegenLerche: 6, gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6, huelleJePunkt: 5,
+    gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6,   // SYS-01 A1b: Schaden gegen die Lerche = CONFIG.systemModell.torpedoLerche (ein System der Zone)
   };
 
   // ---------- Waffen ----------
@@ -146,7 +146,7 @@
   //   batterie -> Standardkanone (Bug) bzw. Standardbatterie (Seite), Sperrfeuer-Salve
   //   bolzen   -> Standardkanone (Bug) bzw. Standardbatterie (Seite), einzelner gezielter Schuss (der Gegner-Bolzen hat nie Schild- oder Energiebezug gehabt;
   //               Katalogwert der Kanone/Batterie für die Lerche gilt dort nicht, der Gegner-Schaden steht in CONFIG.enemies)
-  // Der Torpedowerfer ist für Gegner nie Zufall: nur wer ihn ausdrücklich trägt, schießt Torpedos (Schaden gegen die Lerche: TORPEDO.gegenLerche).
+  // Der Torpedowerfer ist für Gegner nie Zufall: nur wer ihn ausdrücklich trägt, schießt Torpedos (Schaden gegen die Lerche: CONFIG.systemModell.torpedoLerche).
   const LEGACY = { lanze: { bug: 'lanze', seite: 'lanzenbatterie', verhalten: 'lanze' }, batterie: { bug: 'standardkanone', seite: 'standardbatterie', verhalten: 'batterie' },
     bolzen: { bug: 'standardkanone', seite: 'standardbatterie', verhalten: 'bolzen' } };
   // Platzart eines Gegner-Platzes aus dem Namen (bug, bug2 = Bug; stbd, bb, stbd1… = Seite)
@@ -189,8 +189,8 @@
   // darf diese Waffe auf diesen Platz? (Platzart gleich)
   const passtAuf = (id, platz) => { const w = BY_ID[id]; return !!w && own(PLATZ, platz) && w.platzart === PLATZ[platz].art; };
   const fuerPlatzart = (art) => WAFFEN.filter((w) => w.platzart === art);
-  // Torpedo-Schaden gegen eine Zielklasse (Schadenspunkte); die Lerche trägt gegenLerche
-  const torpedoSchaden = (kind) => (kind === 'lerche' ? TORPEDO.gegenLerche : (TORPEDO.schaden[kind] != null ? TORPEDO.schaden[kind] : 9));
+  // Torpedo-Schaden gegen eine Gegnerklasse (Schadenspunkte)
+  const torpedoSchaden = (kind) => (TORPEDO.schaden[kind] != null ? TORPEDO.schaden[kind] : 9);
   // Volley einer Waffe (Schaden einer vollen Salve bzw. Lanze bei voller Aufladung)
   const volley = (id) => { const w = BY_ID[id]; return w ? w.stoss : 0; };
   const moduleFuerKlasse = (kind) => (own(MODULE_JE_KLASSE, kind) ? MODULE_JE_KLASSE[kind] : []).slice();

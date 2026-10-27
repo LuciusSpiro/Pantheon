@@ -1,5 +1,7 @@
 'use strict';
 // SYS-01 A1a „Das Schiff in Zonen“ (Paket A, Teil 1): Systemmodell der Lerche.
+// SYS-01 A1b (Paket A, Teil 2): Minen über die nächste Zone, Dauerdruck als Systemtreffer, Frachtraum-Verlust nur am Modul,
+// Notfallsprung-Kosten, Torpedo als ein System der Zone, Rückschlag je Treffer und Zone genau einmal.
 // Integrität je System, Zustände aus den Schwellen, Reparatur auf den Grundwert, Schild hält sicher, Trefferweg
 // über die Zonen (Bug, Backbord, Heck, Steuerbord = Sektoren 0–3, Mitte = -1), Durchschlag 'schild' und 'zone',
 // Sturm- und Streu-Ausnahmen, Hülle entfällt, Naht des Notfallprotokolls, Weltstand mit Altstand (huelle).
@@ -353,6 +355,70 @@ section('Weltstand: Altstand mit huelle (Regel 8)', () => {
 });
 
 // ---------------------------------------------------------------- Testhelfer-Kompatibilität
+section('SYS-01 A1b: Mine trifft die nächste Zone, Schilde gelten nicht (Punkt 1)', () => {
+  const Alarm = require('../server/sim/alarm.js');
+  const Phys = require('../shared/physics.js');
+  for (const [dx, dy] of [[40, 0], [0, 40], [-40, 0], [0, -40]]) {
+    const g = newGame(31);
+    g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0; g.ship.docked = false; g.ship.shields.current = [3, 3, 3, 3];
+    const m = { id: 9001, x: g.ship.x + dx, y: g.ship.y + dy, besitzer: 'gegner' };
+    g.space.minen = [m];
+    const zone = Phys.sectorOf(g.ship.x, g.ship.y, g.ship.angle, m.x, m.y);
+    const s0 = snapShot(g);
+    Alarm.explodiere(g, m, 'test');
+    const ch = changed(g, s0);
+    const verlust = I.SYSTEM_ORDER.reduce((a, k) => a + (s0.__i[k] - integ(g, k)), 0);
+    ok(g.ship.shields.current.every((v) => v === 3), `Mine (Richtung ${dx},${dy}, Zone ${zone}): Schilde unberührt`);
+    ok(near(verlust, CONFIG.alarm.mine.punkte, 0.01) && ch.length >= 1 && ch.every((k) => I.systemSector(k) === zone), `Mine: ${CONFIG.alarm.mine.punkte} Integrität aus der nächsten Zone (${ch.join(',') || 'keins'})`);
+  }
+});
+
+section('SYS-01 A1b: Gegner-Torpedo gegen die Lerche = ein System der Zone (Punkt 5)', () => {
+  const g = newGame(33); g.ship.shields.current = [0, 0, 0, 0];
+  ok(CONFIG.systemModell.torpedoLerche === 10, 'Startwert torpedoLerche 10 (ein Standardsystem wird sicher zerstört)');
+  const s0 = snapShot(g);
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
+  const ch = changed(g, s0);
+  ok(ch.length === 1 && I.systemSector(ch[0]) === 0 && g.ship.systems[ch[0]] === 'broken', `Torpedo bei Schild 0: genau ein System der Bugzone zerstört (${ch.join(',')})`);
+});
+
+section('SYS-01 A1b: Frachtraum-Verlust nur bei Treffer auf das Modul (Punkt 3)', () => {
+  const Fracht = require('../server/sim/fracht.js'); const Modul = require('../server/sim/module.js');
+  const g = newGame(43);
+  const fr = Modul.liste(g).find((m) => m.id === 'frachtraum');
+  ok(!!fr, 'Start-Lerche hat einen Frachtraum');
+  Fracht.anBordLegen(g, 'fracht'); fr.an = false; g.ship.shields.current = [0, 0, 0, 0];
+  hit(g, 0, 1, {});   // Treffer auf die Bugzone, nicht auf das Modul
+  ok(Fracht.anBord(g) === 1 && Fracht.draussen(g).length === 0, 'ungesicherter Frachtraum, Treffer auf die Bugzone: keine Ladung verloren');
+});
+
+section('SYS-01 A1b: Notfallsprung beschädigt ein zufälliges ok-System (Punkt 4)', () => {
+  const S = require('../server/sim/sprung.js');
+  const g = newGame(37);
+  const k = S.notsprungSchaden(g);
+  ok(!!k && k !== 'reactor' && g.ship.systems[k] === 'damaged', `Notsprung: ${k} ist beschädigt (ok → beschädigt, nicht der Reaktor)`);
+  const g2 = newGame(41); for (const sy of I.SYSTEM_ORDER) if (sy !== 'reactor') g2.ship.systems[sy] = 'damaged';
+  const s2 = snapShot(g2);
+  ok(S.notsprungSchaden(g2) === null && changed(g2, s2).length === 0, 'kein ok-System: der Notsprung bewirkt nichts');
+  const a = newGame(45); const b = newGame(45);
+  ok(S.notsprungSchaden(a) === S.notsprungSchaden(b), 'deterministisch über game.rng (gleicher Seed, gleiches System)');
+});
+
+section('SYS-01 A1b: Rückschlag der Reparatur genau einmal je Treffer und Zone (Punkt 7)', () => {
+  const D = require('../server/sim/damage.js');
+  const g = newGame(35); g.ship.shields.current = [0, 0, 0, 0];
+  g.players = [{ id: 'p1', hold: { kind: 'flick', system: 'emitter_bow', t: 5 } }];   // laufende Reparatur in der Bugzone
+  let n = 0; const emit0 = g.emit.bind(g);
+  g.emit = (name, data) => { if (name === 'repairSetback') n++; return emit0(name, data); };
+  hit(g, 0, 6, {});   // ein Treffer, ein Systemschaden in der Bugzone
+  ok(n === 1, `ein Treffer, ein Systemschaden: genau ein Rückschlag (${n})`);
+  n = 0; const out = { systems: [] };
+  D.rueckschlag(g, out, 0); D.rueckschlag(g, out, 0);
+  ok(n === 1, `zweimal dieselbe Zone im selben Treffer: nur ein Rückschlag (${n})`);
+  n = 0; hit(g, 0, 6, {}); hit(g, 0, 6, {});
+  ok(n === 2, `zwei Treffer: zwei Rückschläge (${n})`);
+});
+
 section('Protokoll', () => {
   ok(Array.isArray(Protocol.DEBUG_CMDS || []) || true, 'Protokoll lädt');
   const ds = (Protocol.DEBUG_CMDS || []);

@@ -312,14 +312,14 @@ section('Torpedowerfer: Regeln', () => {
   g.god = false; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
   const i0 = isum(g);
   const ab0 = g.stats.torpedoAbgeprallt || 0;
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
   ok(isum(g) === i0 && g.ship.shields.current.every((v) => v === 4) && g.stats.torpedoAbgeprallt === ab0 + 1, 'Gegner-Torpedo am stehenden Schild: abgeprallt (Integrität unberührt, Schilde unberührt)');
   for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0;
   const i1 = isum(g);
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
-  ok(near2(i1 - isum(g), lager.gegenLerche), `Gegner-Torpedo bei Schild 0: ein Treffer −${f2(i1 - isum(g))} Integrität (Torpedo ${lager.gegenLerche})`);
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
+  ok(near2(i1 - isum(g), CONFIG.systemModell.torpedoLerche), `Gegner-Torpedo bei Schild 0: ein Treffer −${f2(i1 - isum(g))} Integrität (Torpedo ${CONFIG.systemModell.torpedoLerche})`);
   const i2 = isum(g); g.ship.lastDodgeT = g.time;
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: lager.gegenLerche });
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
   ok(isum(g) === i2, 'Gegner-Torpedo direkt nach der Ausweichrolle: verfehlt');
 });
 
@@ -348,7 +348,7 @@ section('Torpedo: Gegner tragen ihn nur gezielt', () => {
     g.step();
     if (sah && isum(g) < h0) break;
   }
-  ok(sah && g.stats.torpedoLerche === 1 && near2(h0 - isum(g), 30 / 5), 'Gegner-Torpedo fliegt auf die Lerche und trifft: Integrität −' + f2(h0 - isum(g)) + ' (Torpedo ' + (30 / 5) + ')');
+  ok(sah && g.stats.torpedoLerche === 1 && near2(h0 - isum(g), CONFIG.systemModell.torpedoLerche), 'Gegner-Torpedo fliegt auf die Lerche und trifft: Integrität −' + f2(h0 - isum(g)) + ' (Torpedo ' + CONFIG.systemModell.torpedoLerche + ', ein System der Zone)');
   // Abwehrturm schießt ihn ab
   const T2 = arena(); const g2 = T2.g; T2.debug('ausbau', '2'); T2.debug('bestueck', '2 abwehrturm'); g2.ship.mount.p2.charge = 1;
   g2.space.projectiles.push({ id: 'prx1', kind: 'etorpedo', x: g2.ship.x - 140, y: g2.ship.y, angle: 0, speed: 100, ttl: 5, dmg: 6, owner: 'e0' });

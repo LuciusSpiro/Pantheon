@@ -185,11 +185,12 @@ function main() {
     const p = g.players[0]; p.zone = 'away';
     ok(/Außenteam/.test(Sprung.notsprung(g) || ''), 'Außenteam unten: kein Notfallsprung');
     p.zone = 'ship';
-    const hull = require('../server/sim/interior.js').integritaetSnapshot(g).gesamt; t.c.inbox.length = 0;
+    const I = require('../server/sim/interior.js'); const sys0 = Object.assign({}, g.ship.systems); t.c.inbox.length = 0;
     ok(Sprung.notsprung(g) === null, 'Notfallsprung aus dem Hafen');
     const ev = t.events('notsprung')[0];
     ok(ev && ev.von === '0206' && Sektoren.sindNachbarn('0206', ev.nach) && Sektoren.spielbar(ev.nach) && Sektoren.hexVonOrt(g.ship.scene) === ev.nach, `Ereignis notsprung { von: 0206, nach: ${ev && ev.nach} }`);
-    ok(g.ship.reactorCtl.state === 'offline' && require('../server/sim/interior.js').integritaetSnapshot(g).gesamt === hull, 'Reaktor offline, ohne Hüllenkosten (Übergang bis A2)');
+    const neu = I.SYSTEM_ORDER.filter((k) => g.ship.systems[k] !== sys0[k] && k !== 'reactor');
+    ok(g.ship.reactorCtl.state === 'offline' && neu.length === 1 && g.ship.systems[neu[0]] === 'damaged', 'Reaktor offline, Notsprung beschädigt genau ein zufälliges ok-System (SYS-01 A1b)');
     ok(/Reaktor offline/.test(Sprung.notsprung(g) || ''), 'zweiter Notfallsprung erst nach dem Reaktor-Neustart');
     const sc = Locations.get(g.ship.scene).scene;
     ok(g.ship.x >= sc.w / 3 - 1 && g.ship.x <= sc.w * 2 / 3 + 1 && g.ship.y >= sc.h / 3 - 1 && g.ship.y <= sc.h * 2 / 3 + 1, 'Ankunft im mittleren Drittel');

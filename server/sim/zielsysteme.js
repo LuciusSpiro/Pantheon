@@ -131,6 +131,7 @@ function trifftLerche(game, sector, r, opts) {
     if (!wuerfeln(game, gezielt ? TREFFER.wahrscheinlichkeit.gezielt : TREFFER.wahrscheinlichkeit.ungezielt)) continue;
     sp[id] = game.time;
     interior().damageSystem(game, sys.lerche);
+    require('./damage.js').rueckschlag(game, r, sector);   // SYS-01 A1b: der Zielsystem-Treffer löst den Rückschlag der Zone aus, höchstens einmal je Treffer
     stats(game).lerche++;
     game.missionEvent('zielsystemGetroffen', { system: id, stufe: ship.systems[sys.lerche], seite: 'lerche' });
     getroffen = true;
