@@ -1,6 +1,6 @@
 // PAN-01 D2: Hafenterminal (Handel und Werft) als Konsole `shop`. Globales `TerminalUI`.
 // SUND-02b D: dritter Bereich „Lage“ (nur Freie Fahrt Sund, world.absicht über public/js/absicht.js): Angebot von 2–3 Absichten, laufende Absicht; Befehle absicht.waehlen / absicht.ablehnen,
-// jeder am Terminal darf, die erste Wahl gilt (der Server antwortet absichtAntwort). Ruf ist ein Kann: Ablehnen und Liegenlassen kosten nichts.
+// jeder am Terminal darf, die erste Wahl gilt (der Server antwortet absichtAntwort). SUND-04a-3: in demselben Bereich die Karte der Entscheidungsschlacht (public/js/finale.js, finaleAntwort). Ruf ist ein Kann: Ablehnen und Liegenlassen kosten nichts.
 // SUND-03b I: vierter Bereich „Information“ (nur an Konkordat-Häfen der Freien Fahrt Sund, world.info über public/js/handel-info.js): 2–3 Themen, Gerücht (billig, kann falsch sein) oder Beleg (teuer, exakt)
 // kaufen; Befehl info.kaufen, der Server entscheidet und antwortet infoAntwort; die Marken sind geteilt, alle sehen das Ergebnis (Funk, Karte).
 // Schichten: Storage = Snapshot (state.werft, ship.st/mounts/mod, inventory.marks, shopContext) und die Ansichtswahl dieser Datei (s);
@@ -34,10 +34,11 @@
     zusehen: false, geoeffnet: false, letzterKauf: null,
     lageId: null,                                                                        // SUND-02b D: gewählte Karte im Bereich Lage (Id der Absicht)
     infoId: null,                                                                        // SUND-03b I: gewähltes Thema im Bereich Information (Id im Angebot)
+    finaleT: 0,                                                                          // SUND-04a-3: Zeitpunkt der eigenen Anfrage zur Entscheidungsschlacht (Entprellen des Bestätigens)
   };
   function zuruecksetzen() {
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = 8; s.raum = 1; s.teil = null; s.handel = null; s.antwort = null; s.wartet = null; s.kauf = null;
-    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null; s.infoId = null;
+    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null; s.infoId = null; s.finaleT = 0;
   }
 
   // ---------------------------------------------------------------- Lesen aus dem Snapshot
@@ -242,6 +243,40 @@
     const i = Math.max(0, AB.angebot.findIndex((k) => k.id === s.lageId));
     s.lageId = AB.angebot[(i + AB.angebot.length + d) % AB.angebot.length].id; s.antwort = null;
   }
+  // ---------------------------------------------------------------- Entscheidungsschlacht (SUND-04a-3 Finale-UI): Karte rechts im Bereich Kurs, Anzeige aus world.finale (Finale.modell), Befehle finale.waehlen / .bestaetigen / .ablehnen.
+  // Zweistufig wie der Verrat: erst die Anfrage (E), dann „Bestätigen (n s)“ (E) innerhalb der Frist; N lehnt ab und kostet nichts. Alle am Terminal sehen die Anfrage, die erste Bestätigung gilt (Server).
+  const finale = () => (window.Finale && Finale.modell ? Finale.modell() : null);   // null: kein Angebot, kein Finale (dann keine Karte)
+  const FT = (key, w) => (window.Finale && Finale.text ? Finale.text(key, w) : '');
+  const FINALE_ENTPRELL_MS = 600;   // so lange nach der eigenen Anfrage ignoriert das Terminal ein Bestätigen (ein Doppeldruck bestätigt nicht aus Versehen)
+  const wartetJetzt = () => !!s.wartet && now() - s.wartet.t < 3000;
+  function finaleAnfragen(view) {
+    const fi = finale(); if (s.zusehen || !fi || fi.zustand !== 'angebot' || wartetJetzt()) return;
+    s.finaleT = now(); warten(); cmd(view, 'finale.waehlen');
+  }
+  function finaleBestaetigen(view) {
+    const fi = finale(); if (s.zusehen || !fi || fi.zustand !== 'anfrage' || fi.rest <= 0 || wartetJetzt() || now() - s.finaleT < FINALE_ENTPRELL_MS) return;
+    warten(); cmd(view, 'finale.bestaetigen');
+  }
+  function finaleAblehnen(view) {
+    const fi = finale(); if (s.zusehen || !fi || (fi.zustand !== 'angebot' && fi.zustand !== 'anfrage') || wartetJetzt()) return;
+    warten(); cmd(view, 'finale.ablehnen');
+  }
+  const finaleTaste = (view) => { const fi = finale(); if (fi && fi.zustand === 'anfrage') finaleBestaetigen(view); else finaleAnfragen(view); };
+  // Modell der Karte für T.zeichneFinale; bei laufendem Finale (Phase) gibt es keine Knöpfe und keine Klickflächen
+  function finaleKarte(view, bedienbar) {
+    const fi = finale(); if (!fi) return null;
+    const k = { zustand: fi.zustand, name: fi.name, text: fi.text, rest: fi.rest, frist: fi.frist };
+    if (fi.zustand === 'phase') {
+      const orbit = fi.phase === 'orbit', ende = fi.phase === 'ende';
+      return Object.assign(k, { tag: FT(ende ? 'tag_ende' : 'tag_laeuft'), hinweis: FT('status_' + fi.phase), schritte: [{ label: 'Orbit', aktiv: orbit, fertig: !orbit }, { label: 'Boden', aktiv: fi.phase === 'boden', fertig: ende }], haupt: null, ablehnen: null });
+    }
+    const wartet = wartetJetzt(), grund = !bedienbar ? FT('zuschauer') : wartet ? FT('wartet') : null, anfrage = fi.zustand === 'anfrage';
+    return Object.assign(k, {
+      tag: FT(anfrage ? 'tag_anfrage' : 'tag_angebot'), hinweis: anfrage ? FT('frist') : FT('angebot_hinweis'),
+      haupt: { text: anfrage ? FT('bestaetigen', { n: fi.rest }) : FT('anfragen'), disabled: !!grund || !bedienbar, grund, onClick: bedienbar ? () => finaleTaste(view) : null },
+      ablehnen: { text: FT('ablehnen'), disabled: !!grund || !bedienbar, grund, onClick: bedienbar ? () => finaleAblehnen(view) : null },
+    });
+  }
   // „Schon gewählt“ vom Server: die Karten sind sofort gesperrt, bis der neue Snapshot das Angebot wegnimmt (kein bedienbares Angebot neben der Absage)
   const abgesagt = () => !!s.antwort && s.antwort.ok === false && s.antwort.code === 'schon_gewaehlt' && now() - s.antwort.t < KOMMENTAR_MS;
   // Modell des Bereichs für T.zeichneLage (a.lage = gewählte Id, bei Zuschauern die des Nutzers)
@@ -262,6 +297,7 @@
     m.bereich = 'lage';
     m.kopf = { ort: AT('kopf'), art: 'lage', marken: L.marks };
     m.lage = Object.assign(lageModell(view, AB, a, bedienbar, ant), { bereich: AT('bereich') });
+    const fk = finaleKarte(view, bedienbar); if (fk) m.lage.finale = fk;   // SUND-04a-3: Karte der Entscheidungsschlacht (nur mit Angebot oder laufendem Finale)
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };   // wie im Handel: Kreuz und Module gedimmt
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
     const gew = lageKarte(AB, a.lage), sperre = abgesagt(), hat = AB.frei && !AB.laufend && AB.angebot.length > 0 && !sperre;
@@ -552,6 +588,8 @@
       else if (code === 'ArrowDown' || code === 'ArrowRight') lageWeiter(view, 1);
       else if ((code === 'Enter' || code === 'NumpadEnter') && AB && AB.frei && !AB.laufend) { const k = lageKarte(AB, a.lage); annehmen(view, AB, k && k.id); }
       else if (code === 'KeyX' && AB && AB.frei && !AB.laufend) ablehnen(view, AB);
+      else if (code === 'KeyE') finaleTaste(view);   // SUND-04a-3: anfragen, dann bestätigen
+      else if (code === 'KeyN') finaleAblehnen(view);
       return true;
     }
     if (code === 'ArrowUp' || code === 'ArrowLeft') { teilWeiter(view, -1); return true; }
@@ -579,6 +617,10 @@
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
       meldung(!!ev.ok, ev.ok ? AT(ev.op === 'waehlen' ? 'gewaehlt' : 'abgelehnt') : (ev.text || AT('nicht_moeglich')), ev.ok ? null : ev.code);
+    } else if (ev.kind === 'finaleAntwort') {   // SUND-04a-3: Antwort des Servers an den Absender (ok, oder der Grund, z. B. „Die Entscheidungsschlacht läuft schon“)
+      if (ev.pid && window.Client && ev.pid !== Client.pid) return;
+      s.wartet = null;
+      meldung(!!ev.ok, ev.ok ? FT('gewaehlt_' + (ev.op === 'bestaetigen' ? 'bestaetigen' : ev.op === 'ablehnen' ? 'ablehnen' : 'waehlen')) : (ev.text || FT('nicht_moeglich')), ev.ok ? null : ev.code);
     } else if (ev.kind === 'infoAntwort') {   // SUND-03b I: Antwort des Servers an den Absender (Ergebnis steht im Funk und in world.info.l, hier nur Bestätigung oder Grund der Absage)
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;

@@ -215,6 +215,8 @@
     A('terminal.kaufen', 'terminal', 'Artikel kaufen', ['Enter', 'NumpadEnter'], 'terminal.handel'),
     A('terminal.annehmen', 'terminal', 'Absicht annehmen', ['Enter', 'NumpadEnter'], 'terminal.lage'),
     A('terminal.ablehnen', 'terminal', 'Angebot ablehnen (kostet nichts)', ['KeyX'], 'terminal.lage'),
+    A('terminal.finale', 'terminal', 'Entscheidungsschlacht anfragen, dann bestätigen', ['KeyE'], 'terminal.lage'),
+    A('terminal.finaleAblehnen', 'terminal', 'Entscheidungsschlacht ablehnen (kostet nichts)', ['KeyN'], 'terminal.lage'),
     A('terminal.gerucht', 'terminal', 'Gerücht kaufen (billig, unbestätigt)', ['Enter', 'NumpadEnter'], 'terminal.info'),
     A('terminal.beleg', 'terminal', 'Beleg kaufen (teuer, exakt)', ['KeyB'], 'terminal.info'),
   ];

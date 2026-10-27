@@ -18,6 +18,7 @@
 //     zeichneStufen(ctx, rect, s)           Ausbaustufen 0–3, was Stufe n öffnet, Marken vorher → nachher
 //     zeichneGesperrt(ctx, rect, g)         Werft gesperrt (Nicht-Werft-Hafen): Grund, Erklärung, nächste Werft; darunter Bestückung zur Ansicht
 //     zeichneHandel(ctx, rect, infoRect, h) Handelsliste als Pult-Zellen (3 Spalten), Info zum gewählten Artikel (Rechtecke: layout().handel, .handelInfo)
+//     zeichneFinale(ctx, rect, f)            SUND-04a-3 Finale-UI: Karte „Entscheidungsschlacht um Hrafnheim“ (rechte Spalte im Bereich Lage, l.finale), finaleLayout(rect) = Geometrie
 //     zeichneLage(ctx, rect, infoRect, l)   SUND-02b D: Bereich Lage (Absichten, nur Freie Fahrt Sund): Angebot (2–3 Karten), laufende Absicht oder Hinweis; Rechtecke wie Handel (layout().handel, .handelInfo)
 //     zeichneKreuz(ctx, rects, z)           Waffenkreuz 3×3 wie an der Ops (Pult.zelle), Kappe = Ziffer
 //     zeichneModulraeume(ctx, rects, z)     vier Modulräume als Pult-Zellen, Kappe F1–F4
@@ -441,8 +442,52 @@
   // SUND-02b D: Bereich Lage (Absichten von Rom, Freie Fahrt Sund). Ruf ist ein Kann: nichts hier drängt, die Anzeige nennt nur, was es gibt; Ablehnen und Ignorieren kosten nichts.
   // l: { zustand: 'gesperrt'|'leer'|'angebot'|'laeuft', titel, text (gesperrt/leer), hilfe (Tastenzeile rechts), karten: [{ id, name, text, dauer, gewaehlt, onClick }] (angebot),
   //      laufend: { name, text, rest, dauer } (laeuft), info: { text, grund } }
+  // SUND-04a-3 Finale-UI: die Karte „Entscheidungsschlacht um Hrafnheim“ rechts im Bereich Kurs (nur mit l.finale). Eine feste Spalte, die Absichten links schrumpfen auf den Rest.
+  // Geometrie an einer Stelle (auch für den Layout-Test): finaleLayout(r) -> { karte, tag, name, text, hinweis, schritte, haupt, ablehnen }.
+  const FINALE_W = 228, FINALE_LUFT = 8;
+  function finaleLayout(r) {
+    const k = { x: r.x + r.w - FINALE_W, y: r.y, w: FINALE_W, h: r.h }, ix = k.x + 10, iw = k.w - 18;
+    return {
+      karte: k, tag: { x: ix, y: k.y + 6, w: iw, h: 9 }, name: { x: ix, y: k.y + 18, w: iw, h: 18 }, text: { x: ix, y: k.y + 40, w: iw, h: 50 },
+      hinweis: { x: ix, y: k.y + 96, w: iw, h: 12 }, schritte: { x: ix, y: k.y + 112, w: iw, h: 16 },
+      haupt: { x: ix, y: k.y + 108, w: iw, h: 22 }, ablehnen: { x: ix, y: k.y + k.h - 18, w: iw, h: 14 },
+    };
+  }
+  const fl = (r) => ({ x: r.x, y: r.y, w: r.w - FINALE_W - FINALE_LUFT, h: r.h });   // Rest links für die Absichten
+  // f: { zustand: 'angebot'|'anfrage'|'phase', tag, name, text, hinweis, rest, frist, schritte: [{ label, aktiv, fertig }] (phase), haupt: { text, disabled, grund, onClick }, ablehnen: { text, disabled, grund, onClick } }
+  // Form statt Farbe: die Anfrage trägt einen doppelten Rahmen und die Frist als Segmentleiste (Rot bleibt der Gefahr vorbehalten, das Angebot ist eine Entscheidung); der Zustand steht immer auch im Tag.
+  function zeichneFinale(c, r, f) {
+    const G = finaleLayout(r), k = G.karte, anfrage = f.zustand === 'anfrage', phase = f.zustand === 'phase';
+    const farbe = anfrage ? 'warn' : phase ? 'modul' : 'preis';
+    cham(c, k.x, k.y, k.w, k.h, FARBE.kachel, 0, 0, 6, 0);
+    rect(c, k.x, k.y, 3, k.h, farbe);
+    if (anfrage) { rand(c, k.x, k.y, k.w, k.h, farbe); rand(c, k.x + 2, k.y + 2, k.w - 4, k.h - 4, farbe); }
+    txtRolle(c, f.tag || '', G.tag.x, G.tag.y, farbe, 'titel');
+    umbruch(f.name || '', G.name.w, 2).forEach((z, i) => txt(c, z, G.name.x, G.name.y + i * SCHRIFT.zeileLuft, 'text'));
+    umbruch(f.text || '', G.text.w, 5).forEach((z, i) => txt(c, z, G.text.x, G.text.y + i * SCHRIFT.zeileLuft, 'dim'));
+    if (phase) {
+      umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 1 + i * SCHRIFT.zeileLuft, 'text'));
+      const st = f.schritte || [], sw = Math.floor((G.schritte.w - 4 * Math.max(0, st.length - 1)) / Math.max(1, st.length));
+      st.forEach((q, i) => {
+        const x = G.schritte.x + i * (sw + 4), y = G.schritte.y;
+        if (q.aktiv) { rect(c, x, y, sw, G.schritte.h, 'modul'); txt(c, '> ' + q.label, x + 5, y + 4, 'ink'); }
+        else { rand(c, x, y, sw, G.schritte.h, q.fertig ? 'modul' : 'platzZu'); txt(c, (q.fertig ? '+ ' : '') + q.label, x + 5, y + 4, q.fertig ? 'modul' : 'dim'); }
+      });
+      return;
+    }
+    if (anfrage) {   // Frist: eine Segmentleiste, ein Segment je Sekunde (höchstens 30), gefüllt = noch übrig
+      const n = Math.max(1, Math.min(30, f.frist || 1)), voll = Math.max(0, Math.min(n, f.rest || 0)), sw = Math.max(2, Math.floor((G.hinweis.w - (n - 1)) / n));
+      for (let i = 0; i < n; i++) { const sx = G.hinweis.x + i * (sw + 1), by = G.hinweis.y - 2; if (i < voll) rect(c, sx, by, sw, 4, farbe); else { rect(c, sx, by, sw, 4, 'raumLinie'); rect(c, sx + 1, by + 1, Math.max(0, sw - 2), 2, 'kachel'); } }
+      umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 3 + i * SCHRIFT.zeileLuft, 'text'));
+    } else umbruch(f.hinweis || '', G.hinweis.w, 1).forEach((z, i) => txt(c, z, G.hinweis.x, G.hinweis.y + 1 + i * SCHRIFT.zeileLuft, 'dim'));
+    const h = f.haupt || {}, a = f.ablehnen || {};
+    P.knopf(c, G.haupt.x, G.haupt.y, G.haupt.w, G.haupt.h, h.text, { hotkey: kappe('terminal.finale', 'E'), fn: anfrage ? 'warn' : 'nav', text: h.text, disabled: !!h.disabled, reason: h.grund, onClick: h.onClick });
+    P.knopf(c, G.ablehnen.x, G.ablehnen.y, G.ablehnen.w, G.ablehnen.h, a.text, { hotkey: kappe('terminal.finaleAblehnen', 'N'), fn: 'neutral', text: a.text, disabled: !!a.disabled, reason: a.grund, onClick: a.onClick });
+  }
+
   function zeichneLage(c, r, info, l) {
     txtRolle(c, (l.bereich || 'Kurs'), r.x, r.y - 13, 'preis', 'titel'); if (l.hilfe) txt(c, l.hilfe, r.x + r.w, r.y - 13, 'dim', { align: 'right' });
+    if (l.finale) { zeichneFinale(c, r, l.finale); r = fl(r); }   // SUND-04a-3: Karte rechts, die Absichten links
     if (l.zustand === 'gesperrt' || l.zustand === 'leer' || !l.zustand) {
       const h = 58; cham(c, r.x, r.y, r.w, h, F('kachelZu'), 0, 0, 6, 0); rect(c, r.x, r.y, 3, h, 'platzZu');
       txtRolle(c, l.titel || '', r.x + 14, r.y + 10, 'text', 'titel');
@@ -626,7 +671,7 @@
 
   window.PultTerminal = {
     TOKENS, SYMBOLE_MODUL, layout, zeichneTerminal,
-    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage, zeichneInfo,
+    zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage, zeichneFinale, finaleLayout, zeichneInfo,
     zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStart, zeichneStatus, symbolModul, symbolTeil,
     txt, tw, umbruch, kappe, kontrast,
   };
