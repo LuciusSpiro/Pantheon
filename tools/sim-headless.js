@@ -285,6 +285,10 @@ class Agent {
     if ((st === 'ok' && !(how === 'swap' && fragile)) || st === 'offline' || st == null) { this.memo.mg = null; return 'done'; }
     if (p.zone !== 'ship') return 'skip';
     if (p.console) { this.send({ t: 'leave' }); return 'running'; }
+    if (sys === 'reactor' && st === 'broken') {   // SYS-01 A2a: der zerstörte Reaktor hat nur die Sonderreparatur (E halten, kein Ersatzteil in der Hand)
+      if (p.carry) { this.send({ t: 'drop' }); return 'running'; }
+      how = 'flick';
+    }
     if (!how) how = st === 'broken' && (S.inventory.ersatzteil > 0 || p.carry === 'ersatzteil') ? 'swap' : 'flick';
     if (how === 'swap' && p.carry !== 'ersatzteil') {
       if (S.inventory.ersatzteil <= 0) how = 'flick';
@@ -367,13 +371,13 @@ class Agent {
     const cand = REPAIR_PRIO.filter((s) => sh.systems[s] === 'broken' || sh.systems[s] === 'damaged')
       .filter((s) => !botBusy(s) && !taken(s))
       .filter((s) => o.damaged || sh.systems[s] === 'broken')
-      .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
+      .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1) || (b === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0) - (a === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0));   // SYS-01 A2a: der zerstörte Reaktor (Countdown) zuerst
     const sys = cand[0];
     if (!sys) return false;
     const st = sh.systems[sys];
     const pressure = S.space.enemies.some((e) => e.tele);
     let how;
-    if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure ? 'swap' : 'flick';
+    if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure && sys !== 'reactor' ? 'swap' : 'flick';   // SYS-01 A2a: Reaktor nur Sonderreparatur
     else how = pressure || o.fast ? 'flick' : 'minigame';
     m.job = { sys, how, from: st, at: S.time, seen: S.time };
     m.jobCd = S.time + (o.cooldown || 4);
@@ -838,6 +842,7 @@ class Agent {
       if (wantFire && !m.firePrio) { m.firePrio = true; this.technikCmd(S, 'technik.priority', { target: 'fire' }); return; }
       if (!wantFire && m.firePrio) { m.firePrio = false; this.technikCmd(S, 'technik.priority', { target: null }); }
       const q = sh.repairQueue || [];
+      if (sh.systems.reactor === 'broken' && (!q.length || q[0].system !== 'reactor')) { this.technikCmd(S, 'technik.priority', { target: 'reactor' }); return; }   // SYS-01 A2a: zerstörter Reaktor (Countdown) an die Spitze der Reparaturliste
       const busyPlayer = (s) => (this.game.simAgents || []).some((a) => a.memo.job && a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
       const want = REPAIR_PRIO.filter((s) => (sh.systems[s] === 'broken' || sh.systems[s] === 'damaged') && !busyPlayer(s))
         .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1));
@@ -946,6 +951,16 @@ class Agent {
   teamOnShipCaptain(S) { return S.players.some((o) => o.id !== this.pid && o.zone === 'ship' && o.console === 'captain'); }
 
   // Reaktor offline: Schalter A halten (Steuer-Spieler im Trio, sonst solo) – ein Schrauber kommt an B
+  // SYS-01 A2a: Reaktor zerstört = Countdown. Der Schrauber und die Reparaturgänge (repairDuty, Captain-Liste) holen den Reaktor mit Vorrang; reicht die Zeit
+  // nicht (Rest unter 8 s), springt der Helm per Notfallsprung (Notstrom, holt das Außenteam zurück, beendet den Countdown). -> true, wenn der Bot damit beschäftigt ist
+  reaktorRettung(S, p) {
+    const rt = S.ship.reaktorTod;
+    if (!rt || rt.rest < 0 || rt.rest > 80 || !this.is('helm') || p.zone !== 'ship' || S.ship.docked) return false;
+    if (!this.enter(S, 'helm')) return true;
+    this.cmd('helm.notsprung');
+    this.game.simStats.reaktorNotsprung = (this.game.simStats.reaktorNotsprung || 0) + 1;
+    return true;
+  }
   reactorDuty(S, p) {
     if (!S.ship.reactor || S.ship.reactor.state !== 'offline') return false;
     if (S.space.enemies.length && this.role !== 'solo') return false;
@@ -2141,6 +2156,7 @@ class GenericAgent extends KeshAgent {
       if (p.zone === 'away' && S.away.map === 'kesh') { this.awayLogic(S, p, 'courtyard'); return; }   // KeshAgent: verwundet weiterschießen
       this.input(0, 0); this.act(false); this.ix = null; return;
     }
+    if (this.reaktorRettung(S, p)) return;
     if (this.reactorDuty(S, p)) return;
     if (S.en && this.entschlBot(S, p)) return;   // SL5: Signal entschlüsseln (Ops)
     if (this.opts && this.opts.notrufeBot && S.nr && this.notrufBot(S, p)) return;   // SL8: Notrufe annehmen/ignorieren (opts.notrufeBot = 'folgen')
