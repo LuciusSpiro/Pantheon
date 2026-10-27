@@ -428,6 +428,36 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   ok(L4.ausgang === 'niederlage' && !L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom', 'Piraten gegen einen Hafen: kein ort_gefallen aus der Szene (Piraten erobern keinen Hafen)');
 });
 
+// SYS-01 A2a: die Niederlage über den echten Weg – Reaktor zerstört, der Countdown läuft ab (statt der Naht von Hand)
+function reaktorTod(g) {
+  const I = require('../server/sim/interior.js');
+  require('../server/sim/bots.js').setBotAuto(g, false);   // kein Schrauber rettet den Reaktor
+  if (g.ship.systems.reactor === 'broken') I.repairSystem(g, 'reactor', 'player', 'flick');   // nach einem Tod bleibt er zerstört: erst auf beschädigt
+  const em0 = g.stats.emergencies;
+  I.damageSystem(g, 'reactor', 'broken');
+  bis(g, () => g.stats.emergencies > em0, 25);
+  return g.stats.emergencies - em0;
+}
+section('Hafen gefallen durch den Reaktor-Countdown (statt der Naht)', () => {
+  const t = neu(); const g = t.g; ab(g);
+  flotte(g, OSTIA, 'ger', 17, { belagerung: true });
+  ankunft(g, OSTIA);
+  const tick0 = ticks(g);
+  run(g, 21);
+  ok(g.simSzene && g.simSzene.phase === 'kampf', 'Kampf läuft');
+  ok(reaktorTod(g) === 1 && g.ship.schiffZerstoert === true, 'Countdown abgelaufen: ein Notfallprotokoll (Ereignis emergency, grund reaktor)');
+  run(g, 0.3);
+  ok(g.simSzene && g.stats.emergencies === 1 && ticks(g) === tick0, 'mit lebenden Verteidigern geht die Schlacht weiter, kein Tick (wie bei der Naht)');
+  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  run(g, 1);
+  ok(g.simSzene && g.simSzene.vert.lebend === 0, 'Verteidiger gefallen: Gnadenfrist');
+  ok(reaktorTod(g) === 1 && g.stats.emergencies === 2, 'zweiter Reaktor-Tod (Zähler lief weiter, 10-s-Countdown)');
+  run(g, 0.3);
+  const L = Szene.letzte(g);
+  ok(!g.simSzene && L && L.ausgang === 'niederlage' && L.grund === 'lerche', 'Notfallprotokoll aus dem Countdown ohne Verteidiger = Crew unterlegen: Szene endet (grund lerche)');
+  ok(ticks(g) === tick0 + 1 && L.wirkungen.some((x) => x.typ === 'ort_gefallen' && x.ort === OSTIA && x.an === 'ger') && z(g).hexe[OSTIA].besitzer === 'ger', 'ein Tick, ort_gefallen an ger, Hafen übertragen');
+});
+
 section('Durchziehende Flotte (keine Belagerung): der Ort fällt nicht', () => {
   // Gegenprobe zu „Hafen gefallen“: dieselbe Niederlage, aber ohne Feldzug gegen den Ort. Ohne die Crew hätte die Sim nie erobert (Auftrag §3).
   // wie in der Sim: wer durchzieht, ist unterwegs (Rückzug nach Hause) und verlässt das Hex im nächsten Tick; „heim“ gibt es nur im eigenen Hafen

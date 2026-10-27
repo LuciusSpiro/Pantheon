@@ -192,6 +192,22 @@ const toete = (g, e) => { e.hp = 1; Space.damageEnemy(g, e, 99999, e.x - 100, e.
     ok(g.weltsim.finale.angebot === 1 && Finale.bereit(g).ok, 'das Angebot steht wieder');
     ok(starte(g) === null && Finale.phase(g) === 'orbit' && g.weltsim.finale.versuche === 2, 'zweiter Versuch startet');
     zurueck();
+    // SYS-01 A2a: dieselbe Niederlage über den echten Weg – Reaktor zerstört, der Countdown läuft ab (statt der Naht von Hand)
+    t = mitAngebot(); g = t.g; starte(g);
+    require('../server/sim/bots.js').setBotAuto(g, false);   // kein Schrauber rettet den Reaktor
+    run(g, Number(W.orbit_vorwarnung.wert) + 1);
+    tick0 = g.weltsim.tickZahl;
+    const em0 = g.stats.emergencies;
+    require('../server/sim/interior.js').damageSystem(g, 'reactor', 'broken');
+    ok(g.ship.reaktorCountdown && Math.abs(g.ship.reaktorCountdown.t - 20) < 1e-9, 'Reaktor zerstört: Countdown 20 s läuft');
+    run(g, 19);
+    ok(enden.length === 0 && !!g.simSzene, 'vor Ablauf des Countdowns läuft die Szene weiter');
+    run(g, 2);
+    ok(g.ship.schiffZerstoert === true && g.stats.emergencies === em0 + 1, 'Countdown abgelaufen: Schiff zerstört, Notfallprotokoll (stats.emergencies +1)');
+    ok(enden.length === 1 && enden[0] === 'niederlage', 'Reaktor-Countdown: orbitEnde("niederlage") genau einmal');
+    ok(Finale.phase(g) === null && g.phase !== 'end' && !g.simSzene && g.weltsim.tickZahl === tick0, 'Neubeginn wie bei der Naht: kein Game Over, kein Sim-Tick');
+    ok(g.weltsim.finale.angebot === 1 && Finale.bereit(g).ok, 'das Angebot steht wieder');
+    zurueck();
     // Flucht per Sprung (der Sprung-Tick ist der des Sprungs)
     t = mitAngebot(); g = t.g; starte(g); run(g, 3);
     tick0 = g.weltsim.tickZahl;

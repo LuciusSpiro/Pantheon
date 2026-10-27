@@ -143,6 +143,22 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
   ok(zeiten.every((z) => z > 0), 'Übergang A1a: Zeiten bis zur Naht gemessen (das Fenster 22–40 s gilt erst mit dem Reaktor-Countdown, Paket A2)');
 });
 
+section('Kapitel 3 Falle: Verlust durch den Reaktor-Countdown (on.emergency)', () => {
+  const T = falleStart(2);
+  require('../server/sim/bots.js').setBotAuto(T.g, false);   // kein Schrauber rettet den Reaktor
+  ok(T.step() === 'falle' && T.g.space.enemies.length >= 5, 'Falle läuft, ' + T.g.space.enemies.length + ' Piraten');
+  T.g.ship.systems.reactor === 'broken' || require('../server/sim/interior.js').damageSystem(T.g, 'reactor', 'broken');
+  const t0 = T.g.time;
+  ok(T.g.ship.reaktorCountdown && Math.abs(T.g.ship.reaktorCountdown.t - 20) < 1e-9, 'Reaktor zerstört: Countdown 20 s');
+  const lost = T.run(40, () => T.ev('emergency').length > 0);
+  const dt = Math.round((T.g.time - t0) * 10) / 10;
+  ok(lost && Math.abs(dt - 20) <= 0.5, 'Ereignis emergency durch den Countdown nach ' + dt + ' s (Soll 20 s)');
+  ok(T.ev('emergency')[0] && T.ev('emergency')[0].grund === 'reaktor' && T.g.stats.emergencies === 1, 'emergency mit grund reaktor, Zähler 1');
+  T.run(1);
+  const d = T.done().find((e) => e.id === 'k3_falle');
+  ok(d && d.ausgang === 'verloren', 'Hook on.emergency: Ausgang verloren (' + (d && d.ausgang) + ')');
+});
+
 section('Kapitel 3 Falle: Szene von vorn (Reset)', () => {
   const T = falleStart(2);
   T.run(200, () => T.ev('emergency').length > 0);
