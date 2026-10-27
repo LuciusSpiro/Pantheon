@@ -239,7 +239,7 @@ section('Crew gefallen und Abbruch: Neubeginn', () => {
   combat.squadRecall(g); run(g, 1);
   ok(t.boden.length === 1 && t.boden[0] === 'crew_gefallen', 'Notrueckholung: bodenEnde("crew_gefallen") einmal');
   ok(Finale.phase(g) === null && g.weltsim.finale.angebot === 1, 'Finale: Neubeginn (phase null, Angebot steht), kein Game Over');
-  ok(t.radio.some((x) => /gefallen/.test(x)), 'Funk des Finale zur gefallenen Crew');
+  ok(t.radio.some((x) => x === require('../content/welt/finale-werte.json').texte.funk.crew_gefallen), 'Funk des Finale zum Ende des Einsatzes (neutraler Text, gilt auch fuer den freiwilligen Abbruch)');
   run(g, 3);
   ok(!g.finaleBoden && !g.aways[ID] && t.boden.length === 1, 'Landepunkt aufgeraeumt, keine zweite Meldung');
   // zweiter Versuch
