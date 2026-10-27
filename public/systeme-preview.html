@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantheon – Systemanzeige-Tokens</title>
+<style>
+  /* Seite um die Vorschau; die Canvas-Inhalte zeichnen nur aus PultSysteme.TOKENS und dem echten Pult-Rahmen (pult.js) */
+  :root { --bg: #0B0E1A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 ui-monospace, Consolas, monospace; }
+  header { padding: 8px 16px; border-bottom: 2px solid var(--brass); display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  header h1 { font-size: 16px; margin: 0; color: var(--brass); }
+  header a { color: var(--muted); text-decoration: none; }
+  section { padding: 12px 16px 18px; }
+  section h2 { font-size: 13px; color: var(--brass); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .scroll { overflow-x: auto; max-width: 100%; }
+  canvas { image-rendering: pixelated; display: block; width: 1280px; height: 720px; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 1280px; }
+</style>
+</head>
+<body>
+<header><h1>SYS-01 · Systemanzeige „Zonenkreuz“ · Tokens im Pult-Rahmen</h1>
+  <a href="?pult=rom">Skin rom</a><a href="?pult=germanen">Skin germanen</a><span id="status">lade …</span></header>
+<section><h2>1 · Technik: Anflug (alles voll, Bb-Düse beschädigt, gegnerisches Zielen auf Bb-Düse)</h2><div class="scroll"><canvas id="c1" width="640" height="360"></canvas></div></section>
+<section><h2>2 · Technik: Bb leer, Wand rot offen, Reaktor zerstört (Banderole, Countdown in der Mitte)</h2><div class="scroll"><canvas id="c2" width="640" height="360"></canvas></div></section>
+<section><h2>3 · Ops: Zielkasten Mitte ZU / Mitte offen, Steuer-Kreuze, Bresche, Cooldown-Zellen</h2><div class="scroll"><canvas id="c3" width="640" height="360"></canvas></div>
+  <p class="note">Referenzzeichnung, kein Spielcode: Die Entwickler bauen die Stationen in pult-stationen.js; Farben, Maße und Zeichen kommen aus PultSysteme.TOKENS. Die Statusleiste ist der echte Pult.rahmen, das dritte Feld ist mit dem neuen Feld überzeichnet.</p></section>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/protocol.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tasten.js"></script>
+<script src="js/pult.js"></script>
+<script src="js/pult-systeme-tokens.js"></script>
+<script>
+(function () {
+  'use strict';
+  const R = window.Render, P = window.Pult, PS = window.PultSysteme, T = PS.TOKENS, M = T.MASS, Z = T.ZEICHEN, TX = T.TEXT;
+  const skinId = P.skinId(null), F = PS.farben(skinId);
+  const ZONEN = ['bug', 'stb', 'heck', 'bb'];
+  const rect = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  const rand = (c, x, y, w, h, col) => { rect(c, x, y, w, 1, col); rect(c, x, y + h - 1, w, 1, col); rect(c, x, y, 1, h, col); rect(c, x + w - 1, y, 1, h, col); };
+  const strich = (c, x, y, w, h, col, s) => { s = s || 2; c.fillStyle = col; for (let i = 0; i < w; i += s) { c.fillRect(x + i, y, 1, 1); c.fillRect(x + i, y + h - 1, 1, 1); } for (let i = 0; i < h; i += s) { c.fillRect(x, y + i, 1, 1); c.fillRect(x + w - 1, y + i, 1, 1); } };
+  const schraffur = (c, x, y, w, h, col, s) => { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = col; for (let d = -h; d < w; d += s) for (let r = 0; r < h; r++) c.fillRect(x + d + r, y + r, 1, 1); c.restore(); };
+  const txt = (c, s, x, y, col, align, scale) => { R.text(c, String(s), x, y, { color: col, align: align || 'left', scale: scale || 1, shadow: false }); };
+  const f1 = (v) => v.toFixed(1).replace('.', ',');
+
+  // ---------------------------------------------------------------- Beispieldaten (Designrichtungen, Integrität = Annahmen)
+  const S = (n, k, max, i, platz) => ({ n, k, max, i: i == null ? max : i, platz });
+  function lerche(d, sch, rk) {
+    const g = (id, m) => (d[id] != null ? d[id] : m), sl = (i) => [{ v: sch[i], max: 5 }];
+    return { zonen: {
+      bug: { schild: sl(0), sys: [S('Bug-Emitter', 'EMIT', 4, g('bugE', 4)), S('Lanze', 'LANZE', 5, g('lanze', 5), 8)] },
+      stb: { schild: sl(1), sys: [S('Stb-Emitter', 'EMIT', 4, g('stbE', 4)), S('Batterie 6', 'BATT', 4, g('b6', 4), 6), S('Batterie 9', 'BATT', 4, g('b9', 4), 9), S('Stb-Düse', 'DÜSE', 3, g('stbD', 3)), S('Transfer', 'TRANS', 3, g('trans', 3))] },
+      heck: { schild: sl(2), sys: [S('Heck-Emitter', 'EMIT', 4, g('heckE', 4)), S('Antrieb', 'ANTR', 6, g('antr', 6))] },
+      bb: { schild: sl(3), sys: [S('Bb-Emitter', 'EMIT', 4, g('bbE', 4)), S('Batterie 4', 'BATT', 4, g('b4', 4), 4), S('Sturm 7', 'STURM', 4, g('s7', 4), 7), S('Bb-Düse', 'DÜSE', 3, g('bbD', 3))] } },
+      mitte: { sys: [S('Reaktor', 'REAKT', 8, g('reakt', 8)), S('Schildgenerator', 'SGEN', 6, g('sgen', 6)), S('Frachtraum', 'FRACHT', 3), S('Krankenstation', 'KRANK', 3, g('kranken', 3)), S('Werkstatt', 'WERK', 3)] },
+      reaktor: rk || null };
+  }
+  function fregatte(d, stb) {
+    const g = (id, m) => (d[id] != null ? d[id] : m);
+    return { zonen: {
+      bug: { schild: [{ v: 2, max: 3 }], sys: [S('Bug-Emitter', 'EMIT', 3), S('Kanone', 'KANONE', 4)] },
+      stb: { schild: stb, sys: [S('Stb-Emitter', 'EMIT', 3, g('stbE', 3)), S('Lanzenbatterie', 'LANZ-B', 4, g('lb', 4)), S('Batterie', 'BATT', 4, g('stbB', 4)), S('Stb-Düse', 'DÜSE', 2, g('stbD', 2))] },
+      heck: { schild: [{ v: 3, max: 3 }], sys: [S('Heck-Emitter', 'EMIT', 3), S('Antrieb', 'ANTR', 4)] },
+      bb: { schild: [{ v: 3, max: 3 }, { v: 3, max: 3 }], sys: [S('Bb-Emitter', 'EMIT', 3), S('Batterie', 'BATT', 4, g('bbB', 4)), S('Batterie', 'BATT', 4), S('Bb-Düse', 'DÜSE', 2)] } },
+      mitte: { sys: [S('Reaktor', 'REAKT', 6, g('reakt', 6)), S('Schildgenerator', 'SGEN', 4, g('sgen', 4)), S('Werkstatt', 'WERK', 2), S('Frachtraum', 'FRACHT', 2)] } };
+  }
+  const leer = (z) => z.sys.every((s) => s.i <= 0);
+  const heil = (z) => z.sys.filter((s) => s.i > 0).length;
+
+  // ---------------------------------------------------------------- Referenz: Kreuz aus Tokens
+  function pips(c, x, y, s, p) {
+    const st = PS.zustand(s.i, s.max, s.offline);
+    for (let k = 0; k < s.max; k++) {
+      const xx = x + k * (p.w + p.fuge);
+      if (st === 'zer') rect(c, xx, y + p.h - 1, p.w, 1, F.zer);
+      else if (st === 'offline') rand(c, xx, y, p.w, p.h, F.offline);
+      else rect(c, xx, y, p.w, p.h, k < s.i ? F[st] : F.pipLeer);
+    }
+  }
+  function schildKante(c, t, z, m) {
+    const d = m.schild, f = m.schichtFuge, body = Object.assign({}, t), hor = t.kante === 'o' || t.kante === 'u';
+    z.schild.forEach((l, j) => {   // j = 0 äußere Schicht
+      const len = (hor ? t.w : t.h) - 4, sw = Math.max(1, Math.floor((len - (l.max - 1)) / l.max));
+      for (let k = 0; k < l.max; k++) {
+        const off = 2 + k * (sw + 1); let x, y, w, h;
+        if (t.kante === 'o') { x = t.x + off; y = t.y + j * (d + f); w = sw; h = d; }
+        else if (t.kante === 'u') { x = t.x + off; y = t.y + t.h - (j + 1) * (d + f) + f; w = sw; h = d; }
+        else if (t.kante === 'l') { x = t.x + j * (d + f); y = t.y + off; w = d; h = sw; }
+        else { x = t.x + t.w - (j + 1) * (d + f) + f; y = t.y + off; w = d; h = sw; }
+        if (k < l.v) rect(c, x, y, w, h, F.schild);
+        else if (l.unt) { rect(c, x, y, w, h, F.schildUnt); schraffur(c, x, y, w, h, F.schildUntStrich, M.schraffurUnt); }
+        else { rect(c, x, y, w, h, F.schildLeerRand); if (w > 2 && h > 2) rect(c, x + 1, y + 1, w - 2, h - 2, F.schildLeer); }
+      }
+    });
+    const s = z.schild.length * (d + f) + 1;
+    if (t.kante === 'o') { body.y += s; body.h -= s; } else if (t.kante === 'u') body.h -= s; else if (t.kante === 'l') { body.x += s; body.w -= s; } else body.w -= s;
+    return body;
+  }
+  function inhalt(c, list, b, m, o, zn, zu) {
+    if (!m.text) {   // Steuer: Blöcke statt Text
+      const bl = m.block, per = Math.max(1, Math.floor((b.w - 2) / (bl.w + bl.fuge)));
+      list.forEach((s, k) => { const x = b.x + 1 + (k % per) * (bl.w + bl.fuge), y = b.y + 1 + Math.floor(k / per) * (bl.h + bl.fuge); if (y + bl.h <= b.y + b.h) rect(c, x, y, bl.w, bl.h, F[PS.zustand(s.i, s.max)]); });
+      return;
+    }
+    const zwei = b.w < m.zweiZeilig, lh = zwei ? m.zeileZweiZeilig || 16 : m.zeile, pp = zwei ? m.pipZweiZeilig || m.pip : m.pip;
+    let y = b.y + 3;
+    list.forEach((s, k) => {
+      if (y + 8 > b.y + b.h) return;
+      const st = PS.zustand(s.i, s.max), ziel = o.ziel && o.ziel.zone === zn && o.ziel.idx === k, gez = o.gezielt && o.gezielt.zone === zn && o.gezielt.idx === k;
+      if (ziel || gez) { rect(c, b.x + 1, y - 2, b.w - 2, lh - 1, ziel ? F.systemzielZeile : F.gezieltZeile); rect(c, b.x + 1, y - 2, M.systemzielMarke, lh - 1, ziel ? F.systemziel : F.gezielt); }
+      let x = b.x + M.innen;
+      if (gez) { txt(c, Z.gezielt, x, y, F.gezielt); x += 8; }
+      if (m.tasten && s.platz) { rect(c, x, y - 1, 9, 9, P.mix(T.FN.weapon, F.grund, 0.55)); txt(c, s.platz, x + 5, y, F.text, 'center'); x += 12; }
+      const col = ziel ? F.systemziel : gez ? F.gezielt : st === 'zer' ? F.zerText : zu ? F.dim : F.text;
+      txt(c, m.text === 'lang' ? s.n : s.k, x, y, col);
+      if (zwei) { if (st !== 'zer') pips(c, b.x + M.innen, y + 9, s, pp); }
+      else if (st !== 'zer') pips(c, b.x + b.w - M.innen - s.max * (pp.w + pp.fuge), y + 1, s, pp);
+      else txt(c, m.text === 'lang' ? Z.zerLang : Z.zerKurz, b.x + b.w - M.innen, y, F.zerText, 'right');
+      y += lh;
+    });
+  }
+  function kreuz(c, sh, b, m, o) {
+    o = o || {};
+    const L = PS.lage(b, m), offen = ZONEN.filter((n) => leer(sh.zonen[n]));
+    ZONEN.forEach((zn) => {
+      const z = sh.zonen[zn], t = L[zn], body = schildKante(c, t, z, m), lr = leer(z);
+      rect(c, body.x, body.y, body.w, body.h, lr ? F.kachelLeer : F.kachel);
+      if (lr) strich(c, body.x, body.y, body.w, body.h, F.zer, 2); else rand(c, body.x, body.y, body.w, body.h, F.kachelRand);
+      if (o.seite === zn) rand(c, t.x - M.seiteRahmen, t.y - M.seiteRahmen, t.w + 2 * M.seiteRahmen, t.h + 2 * M.seiteRahmen, F.seiteZugewandt);
+      inhalt(c, z.sys, body, m, o, zn);
+      if (lr && m.text && body.w >= m.zweiZeilig) txt(c, Z.leer, body.x + body.w - M.innen, body.y + body.h - 10, F.zerText, 'right');
+    });
+    const mt = L.mitte, rk = sh.reaktor, zu = o.gegner && !offen.length;
+    rect(c, mt.x, mt.y, mt.w, mt.h, rk ? F.kachelReaktor : F.kachel); rand(c, mt.x, mt.y, mt.w, mt.h, rk ? F.zer : F.kachelRand);
+    const wc = o.gegner ? F.wandGegner : F.wandEigen, w = M.wand;
+    offen.forEach((zn) => {
+      if (zn === 'bb') rect(c, mt.x - 3, mt.y + 2, 3 + w, mt.h - 4, wc);
+      if (zn === 'stb') rect(c, mt.x + mt.w - w, mt.y + 2, 3 + w, mt.h - 4, wc);
+      if (zn === 'bug') rect(c, mt.x + 2, mt.y - 3, mt.w - 4, 3 + w, wc);
+      if (zn === 'heck') rect(c, mt.x + 2, mt.y + mt.h - w, mt.w - 4, 3 + w, wc);
+    });
+    if (rk && !m.text) { rect(c, mt.x + 2, mt.y + 2, mt.w - 4, mt.h - 4, F.zer); txt(c, f1(rk.rest), mt.x + mt.w / 2, mt.y + mt.h / 2 - 3, F.ink, 'center'); }
+    else if (rk) {
+      txt(c, 'REAKTOR', mt.x + mt.w / 2, mt.y + 4, F.zerText, 'center');
+      txt(c, f1(rk.rest) + Z.sekunde, mt.x + mt.w / 2, mt.y + 14, F.text, 'center', m.zahlScale);
+      txt(c, PS.text(TX.ausfall, { n: rk.ausfall, s: rk.naechster }), mt.x + mt.w / 2, mt.y + 14 + 7 * m.zahlScale + 4, F.besch, 'center');
+    } else inhalt(c, sh.mitte.sys, { x: mt.x + 2, y: mt.y + 2, w: mt.w - 4, h: mt.h - 4 }, m, o, 'mitte', zu);
+    if (zu) { schraffur(c, mt.x + 1, mt.y + 1, mt.w - 2, mt.h - 2, F.zuSchraffur, M.schraffurZu); if (m.text) { const tw = P.tw(Z.zu) + 6; rect(c, mt.x + mt.w - tw - 1, mt.y + mt.h - 11, tw, 10, F.grund); txt(c, Z.zu, mt.x + mt.w - 4, mt.y + mt.h - 9, F.zuText, 'right'); } }
+    return L;
+  }
+  // Statusfeld statt HÜLLE (schwächste eigene Seite)
+  function statusFeld(sh) {
+    if (sh.reaktor) return { l: TX.statusLabel.reaktor, v: f1(sh.reaktor.rest) + Z.sekunde, col: F.statusReaktor };
+    const [zn, z] = ZONEN.map((n) => [n, sh.zonen[n]]).sort((a, b) => heil(a[1]) / a[1].sys.length - heil(b[1]) / b[1].sys.length)[0];
+    if (leer(z)) return { l: TX.statusLabel.mitte, v: TX.zone[zn] + ' ' + TX.offen, col: F.statusOffen };
+    if (heil(z) < z.sys.length) return { l: TX.statusLabel.zonen, v: TX.zone[zn] + ' ' + heil(z) + '/' + z.sys.length, col: F.statusBesch };
+    return { l: TX.statusLabel.zonen, v: TX.statusVoll, col: F.statusVoll };
+  }
+  function pultRahmen(c, titel, S, sh, anzeige) {
+    const view = { state: { ship: { alert: 'red', hull: 100, hullMax: 100, shields: { current: ZONEN.map((n) => sh.zonen[n].schild.reduce((a, l) => a + l.v, 0)) } } }, send() {}, actions: { leave() {} } };
+    R.ui.buttons = [];
+    const g = P.rahmen(c, view, { titel, S, station: 'technik', anzeige });
+    const avail = 634 - 142 - 9, w = Math.round(avail / 3.8), x = 142 + 2 * (w + 3), f = statusFeld(sh);
+    rect(c, x - 1, S, w + 2, 14, P.skin.bg); P.skin.status(c, x, S, w, 14, f.l, f.v, f.col);
+    return g;
+  }
+  function banderole(c, rk, hinweis) {
+    const b = M.banderole, x = 62, y = 6, w = 572;
+    rect(c, x, y, w, b.h, F.banderole);
+    txt(c, TX.banderole, x + 6, y + 2, F.banderoleText); txt(c, PS.text(TX.ausfall, { n: rk.ausfall, s: rk.naechster }), x + 6, y + 10, F.banderoleText);
+    txt(c, f1(rk.rest) + Z.sekunde, x + w / 2, y + 2, F.banderoleText, 'center', b.zahlScale);
+    txt(c, hinweis, x + w - 6, y + 6, F.banderoleText, 'right');
+    rect(c, x, y + b.h, w, b.ablauf, F.banderoleSpur); rect(c, x, y + b.h, Math.round(w * rk.rest / rk.voll), b.ablauf, F.banderoleAblauf);
+  }
+  function legende(c, x, y) {
+    txt(c, 'LEGENDE', x, y, F.dim); y += 12;
+    [['heil', F.ok], ['beschädigt', F.besch], ['zerstört', F.zerText], ['Schild', F.schild], ['→ Gegner zielt', F.gezielt], ['0 Systemziel', F.systemziel]].forEach(([s, col]) => { txt(c, s, x, y, col); y += 10; });
+  }
+  // Cooldown-Zelle: Pult.zelle 'hold' zeichnet die Sekunden in Rot (3,0:1). Die Referenz überzeichnet sie in cdText (Hinweis für A1: subFarbe in Pult.zelle).
+  function waffe(c, x, y, p, kurz, wf) {
+    const w = 68, h = 24;
+    if (wf.zer) { P.zelle(c, x, y, w, h, String(p), kurz, '', 'weapon', 'off'); txt(c, Z.zerLang, x + 16, y + 13, F.zerText); return; }
+    if (wf.cd == null) { P.zelle(c, x, y, w, h, String(p), kurz, Z.bereit, 'weapon', 'normal'); return; }
+    P.zelle(c, x, y, w, h, String(p), kurz, '', 'weapon', 'hold', 1 - wf.cd / wf.max);
+    txt(c, f1(wf.cd) + Z.sekunde, x + 16, y + 13, wf.besch ? F.cdBesch : F.cdText);
+  }
+
+  // ---------------------------------------------------------------- Szenen
+  const ANFLUG = lerche({ bbD: 1 }, [3, 4, 2, 1]);
+  const REAKT = lerche({ bbE: 0, b4: 0, s7: 0, bbD: 0, reakt: 0, sgen: 3, kranken: 0, heckE: 3, stbE: 2 }, [2, 3, 1, 0], { ausfall: 2, rest: 6.4, voll: 10, naechster: 5 });
+  function technik(id, sh, o) {
+    const c = document.getElementById(id).getContext('2d'); c.imageSmoothingEnabled = false;
+    const S = M.technikS;
+    pultRahmen(c, 'TECHNIK', S, sh, (cc, r) => {
+      const m = M.kreuz.technik, vs = sh.reaktor ? M.banderole.versatz - m.dy + 4 : 0, kb = { x: r.x + m.dx, y: r.y + m.dy + vs, w: m.w, h: m.h - vs };
+      if (!sh.reaktor) txt(cc, Z.bug, kb.x + kb.w / 2, r.y + 5, F.dim, 'center');
+      kreuz(cc, sh, kb, m, o);
+      txt(cc, 'SCHILDE', r.x + 8, r.y + 30, F.dim);
+      ZONEN.forEach((zn, i) => { const v = sh.zonen[zn].schild.reduce((a, l) => a + l.v, 0); txt(cc, TX.zone[zn], r.x + 8, r.y + 44 + i * 14, F.text); txt(cc, v, r.x + 50, r.y + 44 + i * 14, v ? F.schild : F.zerText); });
+      legende(cc, r.x + r.w - 88, r.y + 30);
+      if (o.gezielt) txt(cc, PS.text(TX.gezielt, { wer: 'Fregatte', zeichen: Z.gezielt, system: 'Bb-Düse' }), r.x + r.w - 6, r.y + r.h - 12, F.gezielt, 'right');
+    });
+    let y = S + 22; P.titel(c, 62, y, 212, 'WAFFEN · COOLDOWN', 'weapon'); y += 13;
+    const wf = o.waffen; [7, 8, 9, 4, 5, 6].forEach((p, i) => { const w = wf[p]; if (w) waffe(c, 62 + (i % 3) * 72, y + Math.floor(i / 3) * 27, p, w.kurz, w); });
+    if (sh.reaktor) banderole(c, sh.reaktor, 'S1 Sonderreparatur 35 %');
+  }
+  technik('c1', ANFLUG, { gezielt: { zone: 'bb', idx: 3 }, waffen: { 7: { kurz: 'STURM', cd: 1.4, max: 2 }, 8: { kurz: 'LANZE' }, 9: { kurz: 'STAND.', cd: 4.1, max: 5 }, 4: { kurz: 'STAND.' }, 6: { kurz: 'STAND.', cd: 2.6, max: 5, besch: true } } });
+  technik('c2', REAKT, { waffen: { 7: { kurz: 'STURM', zer: true }, 8: { kurz: 'LANZE', cd: 3.0, max: 6 }, 9: { kurz: 'STAND.' }, 4: { kurz: 'STAND.', zer: true }, 6: { kurz: 'STAND.', cd: 3.4, max: 5 } } });
+
+  // Ops: zwei Zielkästen, Steuer-Kreuze, Bresche auf Kartengrund
+  (function () {
+    const c = document.getElementById('c3').getContext('2d'); c.imageSmoothingEnabled = false;
+    const zuF = fregatte({ stbE: 2 }, [{ v: 0, max: 3, unt: 4.2 }, { v: 2, max: 3 }]);
+    const offF = fregatte({ stbE: 0, lb: 0, stbB: 0, stbD: 0, reakt: 4, sgen: 3, bbB: 3 }, [{ v: 0, max: 3, unt: 2.1 }, { v: 0, max: 3 }]);
+    pultRahmen(c, 'OPS', 196, REAKT, (cc, r) => {
+      const zk = (x, sh, ziel, satz, satzCol) => {
+        rect(cc, x, r.y + 4, M.zielKastenW, r.h - 8, P.skin.bg); let y = r.y + M.banderole.versatz;
+        txt(cc, 'FREGATTE', x + 6, y, F.zerText); txt(cc, '412 m', x + M.zielKastenW - 6, y, F.dim, 'right'); y += 11;
+        txt(cc, Z.bug, x + M.zielKastenW / 2, y, F.dim, 'center'); y += 9;
+        const m = M.kreuz.ziel; kreuz(cc, sh, { x: x + m.dx, y, w: M.zielKastenW + m.w, h: m.h }, m, { gegner: true, seite: 'stb', ziel });
+        y += m.h + 4; const sy = (ziel.zone === 'mitte' ? sh.mitte : sh.zonen[ziel.zone]).sys[ziel.idx];
+        txt(cc, '0: ' + sy.n, x + 6, y, F.systemziel); txt(cc, sy.i + '/' + sy.max, x + M.zielKastenW - 6, y, F.systemziel, 'right'); y += 9;
+        txt(cc, satz, x + 6, y, satzCol);
+      };
+      zk(r.x + 4, zuF, { zone: 'stb', idx: 1 }, PS.text(TX.mitteZu, { zone: 'STB' }), F.dim);
+      zk(r.x + 168, offF, { zone: 'mitte', idx: 0 }, PS.text(TX.mitteOffen, { zone: 'STB' }), F.systemziel);
+      // Karte: Bresche (Gegner Bernstein, eigen Rot), Schildring vereinfacht
+      const kx = r.x + 336, kw = r.w - 340, kart = F.karteGrund;
+      rect(cc, kx, r.y + 4, kw, r.h - 8, kart);
+      const keil = (x, y, a, col) => { const b = M.bresche, R0 = 18; cc.globalAlpha = b.deckkraft; cc.fillStyle = col; cc.beginPath(); cc.moveTo(x, y); cc.arc(x, y, R0, a - b.halbwinkel, a + b.halbwinkel); cc.closePath(); cc.fill(); cc.globalAlpha = 1; cc.strokeStyle = col; cc.lineWidth = b.kante; cc.beginPath(); cc.arc(x, y, R0, a - b.halbwinkel, a + b.halbwinkel); cc.stroke(); };
+      keil(kx + 60, r.y + 50, Math.PI / 2, F.brescheGegner); rect(cc, kx + 54, r.y + 47, 12, 6, T.FN.weapon); txt(cc, 'Gegner: Stb leer', kx + 60, r.y + 76, F.dim, 'center');
+      keil(kx + 60, r.y + 130, -Math.PI / 2, F.brescheEigen); rect(cc, kx + 53, r.y + 127, 14, 6, F.text); txt(cc, 'wir: Bb leer', kx + 60, r.y + 152, F.dim, 'center');
+      const m = M.kreuz.steuer; txt(cc, 'STEUER', kx + 150, r.y + 10, F.dim, 'center');
+      kreuz(cc, REAKT, { x: kx + 120, y: r.y + 22, w: m.w, h: m.h }, m, {}); kreuz(cc, offF, { x: kx + 120, y: r.y + 92, w: m.w, h: m.h }, m, { gegner: true, seite: 'stb' });
+    });
+    banderole(c, REAKT.reaktor, 'Steuer: N springt sofort');
+    let y = 196 + 22; P.titel(c, 62, y, 212, 'WAFFEN · ZIFFERNBLOCK', 'weapon'); y += 13;
+    const wf = { 7: { kurz: 'STURM', cd: 1.4, max: 2, besch: true }, 8: { kurz: 'LANZE' }, 9: { kurz: 'STAND.', cd: 4.1, max: 5 }, 4: { kurz: 'STAND.', zer: true }, 6: { kurz: 'STAND.', cd: 2.6, max: 5 } };
+    [7, 8, 9, 4, 5, 6].forEach((p, i) => { const w = wf[p]; if (w) waffe(c, 62 + (i % 3) * 72, y + Math.floor(i / 3) * 27, p, w.kurz, w); else P.zelle(c, 62 + (i % 3) * 72, y + Math.floor(i / 3) * 27, 68, 24, String(p), 'gesperrt', 'Stufe 2', 'weapon', 'leer'); });
+  })();
+  document.getElementById('status').textContent = 'Skin ' + skinId + ' · fertig';
+  window.__fertig = true;
+})();
+</script>
+</body>
+</html>

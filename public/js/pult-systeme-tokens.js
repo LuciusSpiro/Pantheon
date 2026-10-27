@@ -69,6 +69,7 @@
     gezielt: '#FF6B5E',           // Gegner zielt auf dieses System: Zeichen → und Name (= zerText)
     gezieltZeile: '#39232E',      // Zeilenfläche (Rot 18 % in Kachel): zerText 5,2 · Creme 12,5
     // Bresche auf der Taktikkarte (leere Zone: Keil vom Schildring zum Kern)
+    karteGrund: ROM.bg,           // Grund der Taktikkarte (render.js PAL.space)
     brescheGegner: FN.drive,      // Gegner: Bernstein wie die offene Wand (Rot auf roter Kennung verschwindet), 12,3:1 auf Karte
     brescheEigen: FN.weapon,      // eigenes Schiff: Rot, 4,7:1 auf Karte
     // Reaktor-Countdown: Banderole über jeder Anzeige
@@ -97,6 +98,8 @@
       text: SKIN.germanen.text, ok: SKIN.germanen.text, dim: SKIN.germanen.dim, ink: SKIN.germanen.ink,
       schildLeer: SKIN.germanen.off, schildLeerRand: SKIN.germanen.offLine, banderoleText: SKIN.germanen.ink, cdBalken: SKIN.germanen.text, cdText: SKIN.germanen.text,
       banderoleAblauf: SKIN.germanen.text,
+      // Statusleiste germanen: Wert steht als TEXT auf der Platte (nicht ink auf Fläche) -> Rot als zerText (5,6:1 statt 3,8:1)
+      statusOffen: FARBE.zerText, statusReaktor: FARBE.zerText,
     },
   };
 
@@ -125,7 +128,7 @@
     wand: 2,                       // Dicke der offenen Wand zur Mitte (ragt 3 px in die Fuge)
     systemzielMarke: 2,            // Strich links an der Zeile des Systemziels / des gezielten Systems
     schraffurZu: 4, schraffurUnt: 2,
-    banderole: { h: 18, ablauf: 2, zahlScale: 2 },   // über der Anzeige (y 6), volle Breite 572
+    banderole: { h: 18, ablauf: 2, zahlScale: 2, versatz: 22 },   // über der Anzeige (y 6), volle Breite 572; Inhalt der Anzeige darunter um `versatz` nach unten
     cdBalken: 2,                   // Höhe Cooldown-Balken in der Zelle (wie Halten der Lanze)
     bresche: { halbwinkel: 0.6, deckkraft: 0.35, kante: 1 },   // Keil auf der Karte: Winkel wie die Schildseite (±0,6 rad), Fläche transparent, Kante voll
   };

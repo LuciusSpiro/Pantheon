@@ -37,12 +37,15 @@ const paare = [
   ['zer', 'kachel', GRAFIK, 'zerstört als Grafik'], ['zer', 'kachelLeer', GRAFIK, 'gestrichelter Rand leere Zone'], ['pipLeer', 'kachel', GRAFIK, 'verlorener Pip'], ['offline', 'kachel', GRAFIK, 'Pip offline'],
   ['schild', 'kachel', GRAFIK, 'Schildsegment'], ['schild', 'grund', GRAFIK, 'Schildsegment am Rand'], ['wandGegner', 'kachel', GRAFIK, 'offene Wand Gegner'], ['wandEigen', 'kachel', GRAFIK, 'offene Wand eigen'],
 ];
-const KARTE = '#0A0F1E';   // Grund der Taktikkarte (render.js)
+// Statusleiste: rom = ink auf voller Fläche, germanen = Farbe als Text auf der Platte (pult.js SKINS.*.status)
+const STATUS = { rom: (k) => ['ink', k], germanen: (k) => [k, 'kachel'] };
+const KARTE = FARBE.karteGrund;   // Grund der Taktikkarte (render.js PAL.space)
 const fmt = (v) => v.toFixed(2).replace('.', ',');
 for (const skin of ['rom', 'germanen']) {
   const F = PS.farben(skin);
   console.log(`Skin ${skin}:`);
-  for (const [a, b, min, rolle] of paare) {
+  const status = ['statusVoll', 'statusBesch', 'statusOffen', 'statusReaktor'].map((k) => STATUS[skin](k).concat([TEXT, 'Statusfeld ' + k]));
+  for (const [a, b, min, rolle] of paare.filter((p) => !/^Statusfeld/.test(p[3])).concat(status)) {
     const v = PS.kontrast(F[a], F[b]);
     console.log(`  ${fmt(v).padStart(6)}:1  ${(a + ' auf ' + b).padEnd(30)} ${rolle}${v < min ? '   < ' + min : ''}`);
     ok(v >= min, `${skin}: ${a} auf ${b} ${fmt(v)}:1 < ${min}:1 (${rolle})`);
