@@ -13,6 +13,7 @@
 //   Faden    { id, vorlage, parameter: { volk, ort, name }, beat (Index: der laufende bzw. naechste), phase: wartet | laeuft | abgeschlossen, zaehler (Taetigkeiten seit dem letzten Beat), abstand (Ziel 2 bis 4),
 //              laufend: { beat, n, seit, gewaehlt? } | null, hinweise: [Kennungen gestreut], ausgang: { art, status, tick } | null, begonnen: Tick, nsc }
 //   NSC      { id, name, fraktion, schiff, schiffsklasse, status, haltung, gedaechtnis: [{ tick, ereignis, text_key }] (hoechstens 12), wahrheit: { id, fraktion?, offenbart } | null, portrait: Seed }
+//   abenteuerAngebote (nur Laufzeit) { nr, art: 'abenteuer', ref: Vorlagen-Id, hex, volk, vorlage: expandierte Vorlage, alter }   Faden.plan (nur Abenteuer, SUND-04b A1) = die expandierte Vorlage, steht im Weltstand
 //   angebote (nur Laufzeit) { nr, art, ref, hex, volk, vorlagen: [Id], alter }: Taetigkeiten mit Person, aus denen der Spielleiter einen Faden oeffnen darf
 //
 //   aktiv(game)                          Schalter und Modus
@@ -51,7 +52,7 @@ function aktiv(game) {
   const v = String((env && env.FAEDEN) || '').toLowerCase();
   return v === '1' || v === 'on';
 }
-const neu = () => ({ t: 0, nr: 0, nsc: 0, liste: [], angebote: [], angNr: 0, ladeFehler: [], gemeldet: false, bitte: null, bitteNr: 0, bitteLog: [], bitteZuletzt: null });   // SUND-04a-2 P2: bitte = offene Bitte (faden-bitte.js), Laufzeit-Zähler des Bitten-Deckels
+const neu = () => ({ t: 0, nr: 0, nsc: 0, liste: [], angebote: [], abenteuerAngebote: [], angNr: 0, ladeFehler: [], gemeldet: false, bitte: null, bitteNr: 0, bitteLog: [], bitteZuletzt: null });   // SUND-04a-2 P2: bitte = offene Bitte (faden-bitte.js), Laufzeit-Zähler des Bitten-Deckels
 function zustandVon(game) {
   const ws = game && game.weltsim;
   if (!ws) return null;
@@ -213,6 +214,8 @@ function taetigkeit(game, art) {
   }
   for (const a of F.angebote) a.alter++;
   F.angebote = F.angebote.filter((a) => a.alter <= W.angebot.gilt_taetigkeiten);
+  for (const a of F.abenteuerAngebote) a.alter++;   // SUND-04b A1: Abenteuer-Angebote verfallen wie die der Notrufe (eigene Frist)
+  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
     if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {
       melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${W.beat_frist} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
@@ -250,6 +253,56 @@ function ausgangMitPerson(game, o) {
   F.angebote.push(a);
   while (F.angebote.length > W.angebot.max) F.angebote.shift();
   return a;
+}
+
+// ---------- Abenteuer (SUND-04b A1): ein Faden, den ein geprueftes Bauplan beschreibt (faden-bauplan.js), nicht eine Datei unter vorlagen/. Zwei benannte Schritte statt eines Parameters an faden_oeffnen:
+//   abenteuerAnbieten(game, bauplan, { hex }) -> { ok, angebot } | { ok: false, grund, fehler? }   expandiert und prueft den Plan (derselbe Pruefer wie fuer die Dateien), hoechstens angebote_max offene Angebote
+//   abenteuerOeffnen(game, nr, { volk?, name? }) -> { ok, faden } | { ok: false, grund }          macht aus einem Angebot einen Faden (aktiv_max, laufend_max, Abstand wie bei jedem Faden); der Plan steht im Faden (f.plan)
+// Ohne Schalter FAEDEN=1 tun beide nichts. Die Angebote sind Laufzeit (nicht im Weltstand), der Plan eines laufenden Abenteuers steht im Weltstand (welt.sim.faeden.liste[].plan).
+const Bauplan = () => require('./faden-bauplan.js');
+function abenteuerAnbieten(game, bauplan, o) {
+  if (!aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet' };
+  const F = zustandVon(game);
+  o = istObjekt(o) ? o : {};
+  const abgelehnt = (grund, fehler) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_anbieten', plan: { titel: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.slice(0, 60) : null }, fehler: (fehler || [grund]).slice(0, 6) }); return { ok: false, grund, fehler: fehler || [grund] }; };
+  const g = P.pruefeAbenteuerAnbieten(F, o);
+  if (g) return abgelehnt(g);
+  const r = Bauplan().pruefe(bauplan);
+  if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);
+  if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt('ABENTEUER_DOPPELT: dieses Abenteuer liegt an diesem Ort schon als Angebot vor');
+  const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
+  F.abenteuerAngebote.push(a);
+  melde(game, 'abenteuer_angeboten', r.vorlage.id, `Abenteuer ${r.vorlage.id} als Angebot ${a.nr} bei ${o.hex}`, { vorlage: r.vorlage.id, angebot: a.nr });
+  return { ok: true, angebot: a };
+}
+function abenteuerOeffnen(game, nr, p) {
+  if (!aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet' };
+  const F = zustandVon(game), ws = game.weltsim;
+  p = p === undefined ? {} : p;
+  const abgelehnt = (grund) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_oeffnen', plan: { angebot: Number.isInteger(nr) ? nr : null }, fehler: [grund] }); return { ok: false, grund }; };
+  const g = P.pruefeAbenteuerOeffnen(F, nr, p);
+  if (g) return abgelehnt(g);
+  const a = F.abenteuerAngebote.find((x) => x.nr === nr);
+  const reg = D.registriereAbenteuer(a.vorlage);
+  if (!reg.ok) return abgelehnt(reg.fehler[0]);
+  const v = D.vorlage(a.vorlage.id);
+  const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
+  const nscNr = F.nsc + 1;
+  if (nscNr > 999999) return abgelehnt('NSC_ZAHL: der Zähler der NSC ist voll');
+  const nsc = nscErzeugen(game, v, volk, p.name, nscNr);
+  if (!nsc) return abgelehnt('NAME: kein freier Name');
+  F.abenteuerAngebote.splice(F.abenteuerAngebote.indexOf(a), 1);
+  F.nsc = nscNr; F.nr++;
+  const f = { id: 'f' + F.nr, vorlage: v.id, plan: klon(v), parameter: { volk, ort: a.hex, name: nsc.name }, beat: 0, phase: 'wartet', zaehler: 0, abstand: 0, laufend: null, hinweise: [], ausgang: null, begonnen: ws.tickZahl, nsc };
+  f.abstand = abstandZiehen(game, f);
+  F.liste.push(f);
+  while (F.liste.length > W.faeden_gesamt_max) {
+    const i = F.liste.findIndex((x) => x.phase === 'abgeschlossen');
+    if (i < 0) break;
+    F.liste.splice(i, 1);
+  }
+  melde(game, 'geoeffnet', f.id, `Abenteuer ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
+  return { ok: true, faden: f };
 }
 
 // ---------- Befehle des Lage-Spielleiters
@@ -453,6 +506,14 @@ function leseNsc(x, v) {
 }
 function leseFaden(x) {
   if (!istObjekt(x) || typeof x.id !== 'string' || !/^f\d{1,6}$/.test(x.id)) return { fehler: 'Faden-Kennung ungültig' };
+  // SUND-04b A1: ein Abenteuer bringt seinen Plan mit (x.plan); er wird erneut vom Pruefer geprueft, ein ungueltiger Plan beendet den Faden ohne Fehler (er faellt weg, mit Meldung). Ein Faden mit der Id
+  // eines Abenteuers, aber ohne Plan, faellt ebenfalls weg (sonst ginge der Plan beim naechsten Speichern verloren)
+  let plan = null;
+  if (x.plan !== undefined) {
+    const reg = istObjekt(x.plan) && x.plan.id === x.vorlage ? D.registriereAbenteuer(x.plan) : { ok: false, fehler: ['ABENTEUER_ID: der Plan gehoert nicht zu diesem Faden'] };
+    if (!reg.ok) return { fehler: `${x.id}: Plan ungültig (${String(reg.fehler[0]).slice(0, 80)})` };
+    plan = klon(D.vorlage(x.vorlage));
+  } else if (D.istAbenteuer(x.vorlage)) return { fehler: `${x.id}: Abenteuer ohne Plan` };
   const v = typeof x.vorlage === 'string' ? D.vorlage(x.vorlage) : null;
   if (!v) return { fehler: `${x.id}: Vorlage "${String(x.vorlage).slice(0, 30)}" unbekannt` };
   const nsc = leseNsc(x.nsc, v);
@@ -461,13 +522,12 @@ function leseFaden(x) {
   const phase = ['wartet', 'laeuft', 'abgeschlossen'].includes(x.phase) ? x.phase : null;
   if (!phase || !Number.isInteger(x.beat) || x.beat < 0 || x.beat >= v.beats.length) return { fehler: `${x.id}: Phase oder Beat ungültig` };
   const a = v.abstand || W.abstand;
-  const f = {
-    id: x.id, vorlage: v.id,
+  const f = Object.assign({ id: x.id, vorlage: v.id }, plan ? { plan } : {}, {   // plan gleich hinter vorlage (wie beim Oeffnen: Speichern und Laden ergibt denselben Block)
     parameter: { volk: W.voelker.includes(p.volk) ? p.volk : nsc.fraktion, ort: typeof p.ort === 'string' && (p.ort === '' || HEX.test(p.ort)) ? p.ort : '', name: nsc.name },
     beat: x.beat, phase, zaehler: nat(x.zaehler, ZAEHLER_MAX),
     abstand: Number.isInteger(x.abstand) ? Math.min(Math.min(a.max, W.abstand.max), Math.max(Math.max(a.min, W.abstand.min), x.abstand)) : Math.max(a.min, W.abstand.min),
     laufend: null, hinweise: [], ausgang: null, begonnen: nat(x.begonnen, 1e9), nsc,
-  };
+  });
   if (Array.isArray(x.hinweise)) for (const h of x.hinweise) if (typeof h === 'string' && has(v.hinweise || {}, h) && !f.hinweise.includes(h)) f.hinweise.push(h);
   if (phase === 'laeuft') {
     const l = istObjekt(x.laufend) ? x.laufend : {};
@@ -501,6 +561,7 @@ function lesen(b) {
     if (!r.faden) { F.ladeFehler.push(r.fehler); continue; }
     if (ids.has(r.faden.id) || F.liste.some((y) => y.nsc.id === r.faden.nsc.id)) { F.ladeFehler.push(`${r.faden.id}: Kennung doppelt`); continue; }
     if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.aktiv_max} aktive Fäden, verworfen`); continue; }
+    if (r.faden.plan && r.faden.phase !== 'abgeschlossen' && P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.abenteuer.laufend_max} laufendes Abenteuer, verworfen`); continue; }
     ids.add(r.faden.id);
     F.liste.push(r.faden);
   }
@@ -514,4 +575,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };

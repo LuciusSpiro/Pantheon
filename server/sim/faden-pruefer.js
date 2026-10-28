@@ -12,6 +12,7 @@
 // Regeln der Vorlage (Code): FORM · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUSTEIN_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · WAHRHEIT_OHNE_ENTHUELLUNG ·
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
+//   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
 const fs = require('fs');
@@ -250,6 +251,11 @@ function pruefeVorlage(v) {
     if (v.nsc.haltung !== undefined && !(v.nsc.haltung >= H.grenzen.min && v.nsc.haltung <= H.grenzen.max)) fehler.push(fehl('NSC', `Start-Haltung außerhalb ${H.grenzen.min} bis ${H.grenzen.max}`));
     for (const k of v.nsc.klassen || []) for (const vk of v.volk_erlaubt) if (N[vk] && !N[vk].klassen.includes(k)) fehler.push(fehl('NSC', `Klasse "${k}" gibt es für das Volk ${vk} nicht (namen.json)`));
   }
+  // SUND-04b A1: ein namenloses Abenteuer haengt nicht an einem festen NSC. Der NSC bleibt technisch erhalten (Gedaechtnis, Haltung), sein Zustand aber aktiv: die Statusregeln unten gelten unveraendert
+  // (STATUS_PASST_NICHT lehnt z. B. eine Befreiung ab), nur der status der Ausgaenge faellt weg.
+  const namenlos = !!(v.nsc && v.nsc.rolle === 'namenlos');
+  if (v.nsc && v.nsc.rolle !== undefined && !W.nsc_rollen.includes(v.nsc.rolle)) fehler.push(fehl('NSC', `Rolle "${v.nsc.rolle}" ist unbekannt (erlaubt: ${W.nsc_rollen.join(', ')})`));
+  if (namenlos && v.nsc.status !== undefined && v.nsc.status !== 'aktiv') fehler.push(fehl('NAMENLOS', 'ein namenloser NSC startet im Zustand aktiv'));
   if (v.abstand) {
     const a = v.abstand;
     if (!(a.min >= W.abstand.min && a.max <= W.abstand.max && a.min <= a.max)) fehler.push(fehl('ABSTAND', `Abstand ${a.min} bis ${a.max} liegt nicht in ${W.abstand.min} bis ${W.abstand.max} (eine Vorlage darf den Bereich nur verengen)`));
@@ -277,6 +283,7 @@ function pruefeVorlage(v) {
     if (!cat) { typenOk = false; fehler.push(fehl('TYP_UNBEKANNT', `Beat ${b.id}: Typ "${b.typ}" steht nicht im Beat-Katalog (nur Katalogbausteine)`)); return; }
     if (!Bausteine.vonId(cat.baustein)) fehler.push(fehl('BAUSTEIN_FEHLT', `Beat ${b.id}: der Baustein ${cat.baustein} ist nicht registriert`));
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(fehl('ABSCHLUSS_NICHT_LETZT', `Beat ${b.id} (${b.typ}) darf nur der letzte sein`));
+    if (b.variante && namenlos) fehler.push(fehl('NAMENLOS', `Beat ${b.id}: ein namenloses Abenteuer hat keine feindliche Variante (kein fester NSC, der wiederkehrt)`));
     if (b.variante) fehler.push(...varianteFehler(b, cat, v, i, idx));
     if (cat.braucht && cat.braucht.wahrheit) { wahrheitBeat = true; if (!v.wahrheit) fehler.push(fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Beat ${b.id}: ohne verborgene Wahrheit gibt es nichts zu enthüllen`)); }
     if (b.gefahr === false && cat.gefahr) fehler.push(fehl('GEFAHR_ABGESCHWAECHT', `Beat ${b.id}: ein Beat ${b.typ} bringt immer Gefahr, die Vorlage darf das nicht abschwächen`));
@@ -296,10 +303,11 @@ function pruefeVorlage(v) {
       const o = aus[ag];
       if (!o) { fehler.push(fehl('AUSGANG_FEHLT', `Beat ${b.id}: der Ausgang ${ag} fehlt (jeder Beat hat Ausgänge gelungen und gescheitert)`)); continue; }
       if (o.status !== undefined && !W.status.includes(o.status)) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: Status "${o.status}" ist unbekannt`));
+      if (namenlos && o.status !== undefined && o.status !== 'aktiv') fehler.push(fehl('NAMENLOS', `Beat ${b.id}, ${ag}: ein namenloser NSC bleibt aktiv (status "${o.status}")`));
       if (o.text_key !== undefined && !(typeof o.text_key === 'string' && TEXT_KEY.test(o.text_key))) fehler.push(fehl('TEXT_KEY', `Beat ${b.id}, ${ag}: text_key "${String(o.text_key).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
       for (const f of o.folge || []) { const r = folgeWirkung(f, 'n1'); if (r.fehler) fehler.push(fehl('FOLGE_UNGUELTIG', `Beat ${b.id}, ${ag}: ${r.fehler}`)); }
       if (cat.abschluss) { if (o.weiter !== undefined) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}: der Abschluss führt nirgends weiter (weiter ${o.weiter})`)); continue; }
-      if (o.status === undefined) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: der Zustand des NSC (status) fehlt`));
+      if (o.status === undefined && !namenlos) fehler.push(fehl('AUSGANG_UNGUELTIG', `Beat ${b.id}, ${ag}: der Zustand des NSC (status) fehlt`));
       if (o.weiter !== undefined) {
         const z = idx.get(o.weiter);
         if (z === undefined) fehler.push(fehl('WEITER_UNGUELTIG', `Beat ${b.id}, ${ag}: weiter "${o.weiter}" ist kein Beat der Vorlage`));
@@ -314,7 +322,8 @@ function pruefeVorlage(v) {
     }
     if (!cat.abschluss && aus.gelungen && aus.gescheitert) {
       const nach = (o) => (o.weiter !== undefined ? o.weiter : (v.beats[i + 1] || {}).id);
-      if (aus.gescheitert.status === aus.gelungen.status && nach(aus.gescheitert) === nach(aus.gelungen)) fehler.push(fehl('SCHEITERN_FOLGENLOS', `Beat ${b.id}: Scheitern verändert den Faden nicht (gleicher Zustand, gleicher Weg wie Gelingen); es muss etwas ändern, ohne den Faden zu beenden`));
+      const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);   // namenlos: ohne Status veraendert Scheitern ueber Weg oder Folge
+      if (aus.gescheitert.status === aus.gelungen.status && nach(aus.gescheitert) === nach(aus.gelungen) && gleicheFolge) fehler.push(fehl('SCHEITERN_FOLGENLOS', `Beat ${b.id}: Scheitern verändert den Faden nicht (gleicher Zustand, gleicher Weg wie Gelingen); es muss etwas ändern, ohne den Faden zu beenden`));
     }
   });
   if (v.wahrheit && !wahrheitBeat) fehler.push(fehl('WAHRHEIT_OHNE_ENTHUELLUNG', 'die Vorlage hat eine verborgene Wahrheit, aber keinen Enthüllungs-Beat (ohne Enthüllung sind auch die Hinweise sinnlos)'));
@@ -453,6 +462,32 @@ function pruefeWeiter(F, b, ctx) {
   return null;
 }
 
+// ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
+// Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
+const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
+function pruefeAbenteuerAnbieten(F, o) {
+  if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl('ABENTEUER_ANGEBOTE', `hoechstens ${W.abenteuer.angebote_max} offene Abenteuer-Angebote`);
+  if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && require('../../shared/sektoren.js').spielbar(o.hex))) return fehl('PARAMETER', 'hex (Ort des Abenteuers) ist kein spielbarer Sektor');
+  return null;
+}
+function pruefeAbenteuerOeffnen(F, nr, p) {
+  p = p === undefined ? {} : p;
+  if (!istObjekt(p)) return fehl('PARAMETER', 'parameter ist kein Objekt');
+  for (const k of Object.keys(p)) if (!['volk', 'name'].includes(k)) return fehl('PARAMETER', `unbekannter Parameter "${k}" (erlaubt: volk, name)`);
+  const a = Number.isInteger(nr) ? (F.abenteuerAngebote || []).find((x) => x.nr === nr) : null;
+  if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot ${String(nr).slice(0, 12)} gibt es nicht (mehr)`);
+  if (aktive(F).length >= W.aktiv_max) return fehl('OBERGRENZE', `hoechstens ${W.aktiv_max} aktive Faeden`);
+  if (abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl('ABENTEUER_LAUFEND', `hoechstens ${W.abenteuer.laufend_max} laufendes Abenteuer`);
+  const v = a.vorlage;
+  if (p.volk !== undefined && !v.volk_erlaubt.includes(p.volk)) return fehl('PARAMETER', `volk "${p.volk}" ist fuer dieses Abenteuer nicht erlaubt (${v.volk_erlaubt.join(', ')})`);
+  const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
+  if (p.name !== undefined) {
+    if (!nameOk(p.name, volk)) return fehl('NAME', `name muss aus Vor- und Nachname der Liste des Volkes ${volk} bestehen (NSC entstehen nur aus Datenlisten)`);
+    if (F.liste.some((f) => f.nsc.name === p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);
+  }
+  return null;
+}
+
 function befehlPruefen(F, b, ctx) {
   if (!istObjekt(b) || !has(BEFEHL_FELDER, b.typ)) return fehl('BEFEHL_FELD', 'kein Faden-Befehl');
   if (ctx.n >= W.befehle_je_plan_max) return fehl('BEFEHLE_JE_PLAN', `höchstens ${W.befehle_je_plan_max} Faden-Befehle je Plan`);
@@ -462,4 +497,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
