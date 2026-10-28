@@ -143,7 +143,7 @@ section('Flottenfunktion wellenStartAusPlan (unskaliert, Eisenwald-Pfad unverän
     ok(w && w.ohneSkala && g.space.enemies.length === erste, `Crew ${crew}: Welle 1 hat ${erste} Schiffe wie im Plan (${g.space.enemies.length}), keine Skalierung mit der Crew`);
     hp[crew] = g.space.enemies.map((e) => e.hpMax);
   }
-  ok(hp[1].length === hp[3].length && hp[1].every((h, i) => Math.abs(h / hp[3][i] - CONFIG.crewScaling[1].enemyHp / CONFIG.crewScaling[3].enemyHp) < 0.06), 'nur die Hülle skaliert mit der Crew (crewScaling.enemyHp 0,5 gegen 0,7), nicht die Schiffszahl');
+  ok(hp[1].length === hp[3].length && hp[1].every((h, i) => Math.abs(h / hp[3][i] - CONFIG.crewScaling[1].gegnerIntegritaet / CONFIG.crewScaling[3].gegnerIntegritaet) < 0.06), 'nur die Integrität skaliert mit der Crew (crewScaling.gegnerIntegritaet 0,4 gegen 0,56), nicht die Schiffszahl');
   // der Eisenwald-Pfad: wellenStart skaliert weiter (1 Spieler 0,67)
   const t = neu(); const g = t.g; ab(g);
   Flotte.wellenStart(g, { wellen: 'raider:3|raider:4', takt: 0, rest: 0 });

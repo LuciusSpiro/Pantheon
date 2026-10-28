@@ -427,7 +427,7 @@ function update(game, e, dt) {
   // Stuck-Timer: kaum Fahrt, obwohl die Stufe Fahrt verlangt
   const spd = Math.hypot(e.vx, e.vy);
   const wants = c.stages[cmd.stage] * c.maxSpeed;
-  e.stuckT = wants > 20 && spd < 8 && !e.tempoAn ? (e.stuckT || 0) + dt : 0;   // SUND-04a-1 A: mit beschädigtem Antrieb ist langsam kein Festsitzen
+  e.stuckT = wants > 20 && spd < 8 && Zielsysteme.tempoFaktor(e) >= 1 ? (e.stuckT || 0) + dt : 0;   // SUND-04a-1 A: mit beschädigtem Antrieb ist langsam kein Festsitzen (C2a: ohne Schalter)
   if (e.stuckT > p.stuckTime) { e.stuckT = 0; e.forceCenterT = 2; if (e.kind === 'raider') setState(e, 'turn'); }
   let head = cmd.head;
   if (!cmd.noAvoid) head = avoid(game, e, c, head);
@@ -479,7 +479,7 @@ function keepApart(game, e, c) {
 function fly(game, e, dt) {
   const c = shipClass(game, e.kind);
   const input = update(game, e, dt);
-  Flight.stepBody(e, input, c, e.tempoAn ? { speedFactor: Zielsysteme.tempoFaktor(e) } : null, dt);   // SUND-04a-1 A: Antrieb als speedFactor (ohne e.zs wie bisher)
+  Flight.stepBody(e, input, c, { speedFactor: Zielsysteme.tempoFaktor(e) }, dt);   // SUND-04a-1 A: Antrieb als speedFactor (C2a: ohne Schalter, ohne Antrieb-Modell 1)
   if (e.kind === 'pylon' && e.home) { e.x = e.home.x; e.y = e.home.y; e.vx = 0; e.vy = 0; }
   else keepApart(game, e, c);
   const sp = game.space; const m = 30;
@@ -488,7 +488,7 @@ function fly(game, e, dt) {
   if (e.y < m) { e.y = m; e.vy = Math.max(0, e.vy); }
   if (e.y > sp.h - m) { e.y = sp.h - m; e.vy = Math.min(0, e.vy); }
   // am Rand abgebremst: Jäger behalten trotzdem ihr Mindesttempo (entlang des Randes)
-  const vmin = (c.minSpeed || 0) * (e.tempoAn ? Math.min(1, Zielsysteme.tempoFaktor(e)) : 1); const v = Math.hypot(e.vx, e.vy);
+  const vmin = (c.minSpeed || 0) * Math.min(1, Zielsysteme.tempoFaktor(e)); const v = Math.hypot(e.vx, e.vy);
   if (vmin > 0 && v < vmin) {
     if (v > 1) { e.vx *= vmin / v; e.vy *= vmin / v; }
     else { e.vx = Math.cos(e.angle) * vmin; e.vy = Math.sin(e.angle) * vmin; }

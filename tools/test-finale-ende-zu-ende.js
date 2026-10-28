@@ -95,6 +95,7 @@ function hinunter(t) {
 }
 function hinauf(t) {   // freiwilliger Abbruch: alle hochbeamen
   const g = t.g;
+  g.ship.speed = 0;   // wie hinunter: die Crew stoppt das Schiff vor dem Beamen (die Bots der Orbit-Szene lassen die Fahrstufe stehen, mit C2a endet der Kampf mit anderem Tempo)
   for (const p of unten(t)) { p.console = 'transfer'; }
   g.handleMessage(t.agents[0].conn, { t: 'cmd', c: 'transfer.up' });
   for (let i = 0; i < 6 * HZ; i++) g.step();

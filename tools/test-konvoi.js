@@ -119,7 +119,7 @@ section('Aufbau: Transporter, Eskorte, Klassen aus der Config', () => {
     ok(U.g.space.enemies.filter((e) => e.kind === 'raider').length === r && U.g.space.enemies.filter((e) => e.kind === 'korvette').length === kv, `Eskorte ${esk}: ${r} Jäger, ${kv} Korvette`);
   }
   const g = T.g; const e = g.space.enemies.find((q) => q.kind === 'frachter');
-  const hp = Math.max(1, Math.round(CONFIG.enemies.frachter.hp * space.crewScale(g).enemyHp * (CONFIG.spaceM3.enemyHpFactor || 1)));
+  const hp = Math.max(1, Math.round(CONFIG.enemies.frachter.hp * space.crewScale(g).gegnerIntegritaet));
   ok(e.hpMax === hp && e.hp === hp, `Hülle nach CONFIG.enemies.frachter und Crew-Skalierung (${e.hpMax})`);
   ok(JSON.stringify(e.shieldsMax) === JSON.stringify(CONFIG.enemyShields.frachter), 'Schilde nach CONFIG.enemyShields.frachter ' + JSON.stringify(e.shieldsMax));
   ok(!e.waffen && space.waffenPlaetze(g, e, null).length === 0, 'unbewaffnet: kein Waffenplatz');
@@ -135,7 +135,7 @@ section('Aufbau: Transporter, Eskorte, Klassen aus der Config', () => {
   // Crew-Skalierung (Mehrspieler)
   const T3 = raum({ np: 3 }); fern(T3.g); Konvoi.an(T3.g, { n: 1 });
   const e3 = T3.g.space.enemies.find((q) => q.kind === 'frachter');
-  ok(e3.hpMax > e.hpMax || space.crewScale(T3.g).enemyHp === space.crewScale(g).enemyHp, `Mehrspieler: Hülle skaliert wie bei jedem Gegner (3 Spieler ${e3.hpMax}, 1 Spieler ${e.hpMax})`);
+  ok(e3.hpMax > e.hpMax || space.crewScale(T3.g).gegnerIntegritaet === space.crewScale(g).gegnerIntegritaet, `Mehrspieler: Hülle skaliert wie bei jedem Gegner (3 Spieler ${e3.hpMax}, 1 Spieler ${e.hpMax})`);
 });
 
 section('Unbewaffnet, Eskorte wacht, Alarm', () => {

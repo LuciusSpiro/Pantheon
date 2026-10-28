@@ -96,9 +96,9 @@ section('Ohne Systemziel und Schalter: nichts ändert sich', () => {
   const e = leer(g, 'korvette', 1500, 1100);
   e.scanned = true;
   treffer(g, e, HECK, 5);
-  ok(e.tempoAn === undefined && e.hp < e.hpMax, 'Heck-Treffer durch den Schild: Systemintegrität sinkt, kein Tempo-Zustand (tempoAn fehlt)');
+  ok(e.hp < e.hpMax && !('tempoAn' in e), 'Heck-Treffer durch den Schild: Systemintegrität sinkt (SYS-01 C2a: e.tempoAn entfällt, kein Schalter nötig)');
   const s = g.snapshot().space.enemies.find((q) => q.id === e.id);
-  ok(!('az' in s), 'Snapshot ohne az (der Antrieb wirkt nicht)');
+  ok(('az' in s) === (antriebZ(e) !== 'ok'), 'Snapshot: az genau dann, wenn der Antrieb nicht ok ist (ohne Schalter)');
   ok(!('zs' in g.snapshot().ship), 'Snapshot ship ohne zs');
   const e2 = leer(g, 'raider', 1700, 1300);
   const ran = []; const ch = g.rng.chance.bind(g.rng); g.rng.chance = (p) => { ran.push(p); return ch(p); };
@@ -109,7 +109,7 @@ section('Ohne Systemziel und Schalter: nichts ändert sich', () => {
   // Brocken, Minen und Zonen sind keine Angriffe: auch mit Systemziel kein gezielter Treffer
   stb(g, e2);
   space.damageEnemy(g, e2, 5, e2.x - Math.cos(e2.angle) * 60, e2.y - Math.sin(e2.angle) * 60);
-  ok(e2.tempoAn === undefined, 'Treffer ohne opts.angriff (Brocken, Mine, Zone) lösen keinen gezielten Treffer und kein Tempo aus');
+  ok(!(g.stats.zielsysteme && g.stats.zielsysteme.gegner), 'Treffer ohne opts.angriff (Brocken, Mine, Zone) lösen keinen gezielten Treffer aus');
 });
 
 section('Befehl weapons.systemziel: jede System-Id des Ziels, Erreichbarkeit bei der Wahl', () => {
@@ -150,9 +150,9 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen, Zone des Ziels, Wa
   ok(stb(g, e) === null, 'Systemziel Antrieb am gescannten Ziel (von hinten)');
   const a0 = e.sys.antrieb.i;
   treffer(g, e, BUG, 2);
-  ok(e.sys.antrieb.i === a0 && !e.tempoAn, 'Treffer am Bug: kein gezielter Antriebstreffer (Zone Bug)');
+  ok(e.sys.antrieb.i === a0 && Zs.tempoFaktor(e) === 1, 'Treffer am Bug: kein Antriebstreffer, kein Tempo (Zone Bug)');
   treffer(g, e, STB, 2);
-  ok(e.sys.antrieb.i === a0 && !e.tempoAn, 'Treffer an der Seite: kein gezielter Antriebstreffer');
+  ok(e.sys.antrieb.i === a0 && Zs.tempoFaktor(e) === 1, 'Treffer an der Seite: kein Antriebstreffer, kein Tempo');
   // Heck mit stehendem Schild: der Schild fängt den Treffer
   const lay = Schilde.layout(CONFIG, 'korvette');
   const heckIdx = lay.seiten[2][0];
@@ -164,7 +164,7 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen, Zone des Ziels, Wa
   treffer(g, e, HECK, 3);
   ok(e.sys.antrieb.i === a0 && e.shields[heckIdx] === 0, 'Heck-Treffer mit Schild 1 (Treffer 3): der Schild fängt ohne Überlauf, kein Antriebstreffer');
   treffer(g, e, HECK, 3);
-  ok(e.sys.antrieb.i < a0 && e.tempoAn === true, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb trifft sicher (gezielt)');
+  ok(e.sys.antrieb.i < a0, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb wird getroffen (Heck hat nur den Antrieb; gezielt in test-zielsysteme-zonen)');
   // beschädigt: Integrität unter 60 %
   const ziel = anteil(e, 'antrieb', 0.45);
   e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.sys.antrieb.sp = null;
@@ -182,8 +182,9 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen, Zone des Ziels, Wa
   ok(antriebZ(t) === 'damaged', 'Torpedo (huelle) am Heck: Antrieb beschädigt (gleiche Regel)');
   // Verbündete: nie gezielt, ohne Szenenschalter kein Tempo
   const a = leer(g, 'raider', 2100, 1500); a.angle = 0; a.scanned = true; g.ship.target = a.id; g.ship.zielsystem = 'antrieb';
+  const gz0 = (g.stats.zielsysteme || { gegner: 0 }).gegner;
   treffer(g, a, HECK, 3, { ally: true });
-  ok(a.tempoAn === undefined, 'Treffer der Verbündeten ohne Szenenschalter: kein gezielter Treffer (gezielt gilt nur für die Lerche)');
+  ok((g.stats.zielsysteme || { gegner: 0 }).gegner === gz0, 'Treffer der Verbündeten ohne Szenenschalter: kein gezielter Treffer (gezielt gilt nur für die Lerche)');
 });
 
 section('Zufall in der Zone und Szenenschalter', () => {
@@ -195,11 +196,11 @@ section('Zufall in der Zone und Szenenschalter', () => {
   g.rng.chance = (p) => { w.push(p); return false; };
   treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
   g.rng.chance = chance;
-  ok(w.length === 0 && antriebZ(e) === 'damaged' && e.tempoAn === true, 'ohne Systemziel, Schalter an: Heck-Treffer trifft den Antrieb (Zufall in der Zone, Heck = nur Antrieb), kein Würfelwurf');
+  ok(w.length === 0 && antriebZ(e) === 'damaged' && Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'ohne Systemziel, Schalter an: Heck-Treffer trifft den Antrieb (Zufall in der Zone, Heck = nur Antrieb), kein Würfelwurf');
   // Verbündete im Schalter: ungezielt, kein gezielter Treffer
   const a = leer(g, 'raider', 2100, 1500); a.angle = 0; a.scanned = true; g.ship.target = a.id; g.ship.zielsystem = 'antrieb';
   treffer(g, a, HECK, 3, { ally: true });
-  ok(a.tempoAn === true, 'Verbündeter trifft im Szenenschalter: Tempo-Wirkung (der Schalter gilt auf beiden Seiten)');
+  ok(antriebZ(a) !== 'ok', 'Verbündeter trifft im Szenenschalter: Antrieb getroffen (der Schalter gilt auf beiden Seiten)');
   const aus = Zs.debug(g, ['aus']);
   ok(aus === null && !Zs.szeneAktiv(g), 'Debug zielsysteme aus');
   space.enterScene(g, 'b7', {});
@@ -207,7 +208,7 @@ section('Zufall in der Zone und Szenenschalter', () => {
   ok(!Zs.szeneAktiv(g), 'Szenenwechsel setzt den Schalter zurück');
 });
 
-section('Keine Erholung nach Zeit (C1b-1): ausgefallen bleibt ausgefallen bis zur Reparatur (C2)', () => {
+section('Keine Erholung nach Zeit ohne Reparatur (gestellt): ausgefallen bleibt ausgefallen (SYS-01 C2a: die Reparatur ist die einzige Erholung)', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // mehrere Treffer: der Gegner stirbt dabei nicht
   g.god = true; platz(g, 300, 300, 0);   // Lerche weit weg (keine Gegner-Aktion nötig)
@@ -215,10 +216,11 @@ section('Keine Erholung nach Zeit (C1b-1): ausgefallen bleibt ausgefallen bis zu
   treffer(g, e, HECK, anteil(e, 'antrieb', 0.45)); T.run(sperre); treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
   T.run(sperre);
   ok(antriebZ(e) === 'broken', 'ausgefallen');
+  Zs.halte(e);   // C2a: gestellt = keine Reparatur (ohne das würde der Gegner den Antrieb nach 10 s + 6 s selbst reparieren, siehe test-gegner-reparatur.js)
   T.run(120);
-  ok(antriebZ(e) === 'broken' && Zs.tempoFaktor(e) === 0, '120 s später: noch ausgefallen (keine Erholung)');
+  ok(antriebZ(e) === 'broken' && Zs.tempoFaktor(e) === 0, 'gestellt: 120 s später noch ausgefallen (keine Erholung)');
   T.run(60);
-  ok(e.tempoAn === true && antriebZ(e) === 'broken', 'auch nach weiteren 60 s: ausgefallen (Erholung entfällt, C2 setzt die Reparatur)');
+  ok(antriebZ(e) === 'broken', 'gestellt: auch nach weiteren 60 s ausgefallen (Erholung entfällt)');
 });
 
 section('Gestellt (halte): der Schalter bleibt aus, die Reparatur ist ausgeschaltet', () => {
@@ -244,6 +246,7 @@ function fahrtMessung(kind, modus) {
   try {
     const e = space.spawnEnemy(g, kind, { x: 700, y: 1900, facing: 0, tag: 'fahrt' });
     e.fluchtZiel = { x: 2900, y: 1900 };
+    Zs.halte(e);   // SYS-01 C2a: die Messung läuft ohne Reparatur des Gegners (gestellt), sonst repariert er den Antrieb während der Messfenster
     const pilot = require('../server/sim/pilot.js');
     const r = { flies: pilot.flies(g, e) };
     T.run(14); r.voll = vel(e);
@@ -286,6 +289,7 @@ section('Wirkung auf die Fahrt: Konvoi-Transporter', () => {
   const T = setup(); const g = T.g; g.god = true; platz(g, 200, 200, 0);
   Konvoi.an(g, { n: 1, sieg: 'aufhalten', eskorte: 'keine' });
   const e = Konvoi.transporter(g)[0];
+  Zs.halte(e);   // SYS-01 C2a: Messung ohne Reparatur (gestellt)
   T.run(12); const voll = vel(e);
   e.scanned = true; g.ship.target = e.id; hinten(g, e, 200); Zs.waehle(g, 'antrieb');
   Testhilfe.schildNull(e);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf
@@ -363,10 +367,11 @@ section('Regel als Funktion: gezielt nur für das gewählte Ziel', () => {
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
   ok(ship.target === e.id && ship.zielsystem === 'antrieb', 'Systemziel liegt am Ziel A');
   const b = leer(g, 'korvette', 1800, 1300); b.angle = 0; b.scanned = true;
+  const gzB = (g.stats.zielsysteme || { gegner: 0 }).gegner;
   treffer(g, b, HECK, anteil(b, 'antrieb', 0.45));
-  ok(b.tempoAn === undefined, 'Treffer auf ein anderes Ziel B (kein Szenenschalter): das Systemziel gilt nur für das gewählte Ziel');
+  ok((g.stats.zielsysteme || { gegner: 0 }).gegner === gzB, 'Treffer auf ein anderes Ziel B (kein Szenenschalter): das Systemziel gilt nur für das gewählte Ziel (kein gezielter Treffer)');
   treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
-  ok(antriebZ(e) === 'damaged' && e.tempoAn === true, 'Treffer auf das gewählte Ziel A: Antrieb beschädigt');
+  ok(antriebZ(e) === 'damaged' && Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'Treffer auf das gewählte Ziel A: Antrieb beschädigt, Tempo wirkt');
   // Ohne Ziel-Wahl der Ops: Systemtreffer des Ziels bleibt ein Zufall in der Zone
   ok(Zs.gezielt(g, e) !== null && Zs.gezielt(g, b) === null, 'gezielt() liefert das Systemziel nur für das Ziel der Ops');
 });
@@ -400,10 +405,10 @@ section('Gegenseite: Ladung der Gegner (Lanze) und Geschosse der Verbündeten tr
   const schuss = (id) => w.space.projectiles.push({ id, kind: 'ally', x: z.x - 30, y: z.y, angle: 0, speed: 60, ttl: 2, dmg: anteil(z, 'antrieb', 0.5) });
   w.rng.chance = () => true;
   schuss('pa0'); V.run(0.3);
-  ok(z.tempoAn === undefined, 'Geschoss eines Verbündeten ohne Szenenschalter: keine Tempo-Wirkung');
+  ok(antriebZ(z) !== 'ok' && Zs.tempoFaktor(z) < 1, 'Geschoss eines Verbündeten ohne Szenenschalter: Antrieb am Heck getroffen, Tempo wirkt (C2a: kein Schalter)');
   Zs.szeneAn(w, true);
   schuss('pa1'); V.run(0.3);
-  ok(antriebZ(z) !== 'ok' && z.tempoAn === true, 'Geschoss eines Verbündeten mit Szenenschalter am Heck: Antrieb beschädigt (Zufall in der Zone, Heck = Antrieb)');
+  ok(antriebZ(z) !== 'ok' && Zs.tempoFaktor(z) < 1, 'Geschoss eines Verbündeten mit Szenenschalter am Heck: Antrieb beschädigt (Zufall in der Zone, Heck = Antrieb)');
 });
 
 section('Snapshot-Größe und Anzeige-Daten', () => {
@@ -426,9 +431,10 @@ section('Snapshot-Größe und Anzeige-Daten', () => {
   ok(!('az' in g.snapshot().space.enemies.find((q) => q.id === e.id)), 'ungescanntes Ziel: kein az im Snapshot (der Schaden bleibt verborgen)');
 });
 
-section('Dauerfeuer auf dem ausgefallenen Antrieb: der Zustand hält, keine Frist (C1b-1)', () => {
+section('Dauerfeuer auf dem ausgefallenen Antrieb: der Zustand hält, keine Frist (C1b-1; C2a: gestellt, ohne Reparatur)', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // ein Ziel, das im Dauerfeuer nicht stirbt
+  Zs.halte(e);   // SYS-01 C2a: ohne Reparatur, sonst repariert der Gegner den Antrieb im Dauerfeuer-Fenster
   g.god = true; platz(g, 300, 300, 0);
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
   treffer(g, e, HECK, anteil(e, 'antrieb', 0.45)); T.run(sperre); treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));

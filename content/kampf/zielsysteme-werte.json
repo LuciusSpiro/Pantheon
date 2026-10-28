@@ -22,14 +22,14 @@
         }
       },
       "einheit": "Eintrag je System mit Regel: wirkung (tempo = Faktor auf die Fahrt), seite (Zone Heck), lerche (Id des Lerchensystems, auf das ein Gegner mit diesem Systemziel zielt), sperre (true = zwischen zwei Zustandswechseln liegt treffer.sperre_s), stufen[] (Reihenfolge ok, damaged, broken; faktor = Anteil der Fahrt)",
-      "_hinweis": "Der Antrieb ist das einzige System mit Tempo-Wirkung. Beschädigt halbe Fahrt, ausgefallen Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). Wirkt nur, wenn der Gegner sie spürt (e.tempoAn: Szenenschalter oder gezielter Treffer), sonst bleibt jede Szene ohne Zielsystem unverändert. Die Erholung nach Zeit entfällt (SYS-01 C1b-1): bis zur Gegner-Reparatur (C2) repariert ein Gegner nicht."
+      "_hinweis": "Der Antrieb ist das einzige System mit Tempo-Wirkung. Beschädigt halbe Fahrt, ausgefallen Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). Gilt in jeder Szene, ohne Schalter (SYS-01 C2a: Gegner funktionieren wie das Schiff der Crew). Ein Gegner repariert seinen Antrieb wie die übrigen Systeme (server/sim/gegnerreparatur.js)."
     },
     "treffer": {
       "wert": {
         "sperre_s": 1.5,
         "immunitaet_s": 10
       },
-      "einheit": "sperre_s Sekunden zwischen zwei Zustandswechseln desselben Systems (nur Systeme mit sperre), immunitaet_s Sekunden nach einer Reparatur (C2, reparaturFertig), in denen ein Treffer den Zustand nicht verschlechtert",
+      "einheit": "sperre_s Sekunden zwischen zwei Zustandswechseln desselben Systems (nur Systeme mit sperre), immunitaet_s Sekunden nach einer Reparatur (C2a, reparaturFertig), in denen ein Treffer den Zustand nicht verschlechtert",
       "_hinweis": "Die Sperre verhindert, dass eine Salve in einem Zug einen Antrieb von voll auf ausgefallen setzt: der Zustand holt nach, sobald die Sperre frei ist. Ungezielte Treffer haben keine Wahrscheinlichkeit mehr: ungezielt ist der Zufall in der Zone."
     },
     "szene": {

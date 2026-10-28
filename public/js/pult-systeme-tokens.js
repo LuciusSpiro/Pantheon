@@ -155,7 +155,7 @@
     kanteLabel: 'COUNTDOWN', kanteWert: '{s} s · {n}. Ausfall',
     // SYS-01 C1b-2 (Ziel-Scan): Reaktor-Countdown am Ziel (zerText, kein Pult-Banner), Gesamtintegrität statt HÜLLE, Grund für nicht anwählbare Systeme
     reaktorZiel: 'REAKTOR ZERSTÖRT · {s} s', gesamt: 'GESAMT {p} %', systemziel: 'Systemziel',
-    nichtWaehlbar: { seite: 'Seite {zone} abgewandt', mitte: 'Mitte erst, wenn {zone} leer ist' },
+    nichtWaehlbar: { seite: 'Seite {zone} abgewandt', mitte: 'Mitte erst, wenn {zone} leer ist', zerstoert: 'System zerstört' },
   };
   // </tokens>
 

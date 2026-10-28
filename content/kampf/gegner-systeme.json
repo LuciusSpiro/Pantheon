@@ -3,9 +3,14 @@
   "_hinweis": "SYS-01 C1a-1 „Das Schiff in Zonen“: Systemmodell der Gegner (server/sim/gegnersystem.js), gleicher Aufbau wie die Lerche. Jede Klasse hat die fünf Zonen (bug, stb, heck, bb = die Seiten, mitte = innen). Zonen-Zuordnung der Schildseiten wie shared/schilde.js (Bug 0, Steuerbord 1, Heck 2, Backbord 3). Ein System: id, zone, art, gewicht (Anteil am Klassenbudget = Gegnerhülle, gewicht / Summe × hpMax), platz (Waffenplatz aus enemyWeapons, bei Klassen ohne Plätze fehlt er), modul (Modul-Id aus MODULE_JE_KLASSE). Jede Waffe in enemyWeapons hat genau ein System (Zone: bug/bug2 → bug, stbd*/stbd1.. → stb, bb* → bb). Arten: waffe (zerstört = schießt nicht, beschädigt = Feuerintervall der Waffenart × taktBeschaedigt), emitter (Seite: beschädigt = Schild-Obergrenze halbiert, zerstört = Schild 0), schildgenerator (zerstört = alle Schilde 0 und keine Regeneration, beschädigt = Regeneration langsamer), antrieb (nur Zustand, Wirkung in C1b), reaktor (zerstört = der Gegner stirbt), modul (nur Zustand, Wirkung in C1a-2/C2). Vereinfacht (Wächter, Pylon, Frachter): 1–2 Systeme je Zone, kein Frachtraum-Modul beim Frachter. Relais (relay) hat kein Modell und fehlt hier absichtlich. Gewichte stehen hier; die Wirkungswerte (taktBeschaedigt, regenGeneratorBeschaedigt, emitterBeschaedigt) stehen in shared/config.js unter systemModell.gegner, live per `tune systemModell.gegner.<pfad>`. Keine Zahl im Code.",
   "zonen": ["bug", "stb", "heck", "bb", "mitte"],
   "arten": ["waffe", "antrieb", "emitter", "schildgenerator", "reaktor", "modul"],
+  "reparatur": {
+    "_hinweis": "SYS-01 C2a: Reihenfolge, nach der ein Gegner beschädigte und zerstörte Systeme repariert (server/sim/gegnerreparatur.js, von vorn). Ein Gegner repariert ein System gleichzeitig; ein Werkstatt-Modul erlaubt einen zweiten Vorgang, bei zerstörtem Reaktor bleibt es bei einem (der Reaktor kommt zuerst). Gleichstand: Reihenfolge der Systeme in dieser Datei. Zeiten und Anteile: shared/config.js systemModell.gegner.reparatur.",
+    "prioritaet": ["reaktor", "schildgenerator", "antrieb", "waffe", "emitter", "modul"]
+  },
   "klassen": {
     "raider": {
       "name": "Jäger",
+      "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
@@ -18,6 +23,7 @@
     },
     "korvette": {
       "name": "Korvette",
+      "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
@@ -33,6 +39,7 @@
     },
     "fregatte": {
       "name": "Fregatte",
+      "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
@@ -52,6 +59,7 @@
     },
     "kreuzer": {
       "name": "Kreuzer",
+      "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug 1", "kurz": "WBg1", "funktion": "weapon" },
         { "id": "waffe_bug2", "zone": "bug", "art": "waffe", "platz": "bug2", "gewicht": 2, "name": "Waffe Bug 2", "kurz": "WBg2", "funktion": "weapon" },
@@ -75,6 +83,7 @@
     },
     "sentinel": {
       "name": "Wächter",
+      "repariert": false,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
@@ -88,6 +97,7 @@
     },
     "pylon": {
       "name": "Pylon",
+      "repariert": false,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
@@ -99,6 +109,7 @@
     },
     "frachter": {
       "name": "Frachter",
+      "repariert": false,
       "systeme": [
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
         { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
