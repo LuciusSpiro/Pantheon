@@ -805,7 +805,6 @@ function shipHit(game, sector, dmg, opts) {
   }
   if (before > 0 && (sh.current[sector] || 0) <= 0) game.missionEvent('shieldDown', { sector });
   if (rest > 0) game.missionEvent('hullHit', { sector });   // Alias (SYS-01 A1b): ein Treffer, der den Schild durchbricht. Der Systemtreffer meldet 'systemHit' (damage.systemSchaden), der Frachtraum-Verlust hängt am Frachtraum-Modul dort.
-  if (opts.angriff && rest > 0) Zielsysteme.trifftLerche(game, sector, r, opts);   // SUND-04a-1 A: durchschlagender Treffer auf die Seite des Systems (Heck: Antrieb), nur Angriffe in Szenen mit Schalter
   return r;
 }
 
@@ -1121,7 +1120,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   e.hp -= rest;
   if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
-  if (e.hp > 0) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: Treffer, der den Schild durchschlägt und die Hülle trifft: gezielter Systemtreffer (nur Angriffe)
+  if (e.hp > 0) return;   // Störrelais (ohne Systemmodell): die alte Hülle, ohne Zielsysteme (C1b-1)
   enemyDown(game, e);   // Gegner ohne Systemmodell (Störrelais): kein Schildgenerator, also kein Kapern
 }
 
@@ -1129,10 +1128,13 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
 // Integrität -= Rest. SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
 // zerstörter Schildgenerator bei einem Enterziel = Prise (sim/gegnertod.js). Gegner ohne Tod kämpfen weiter.
 function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
-  const t = Gsys.treffen(game, e, zone, rest);
+  // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
+  const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
+  const t = Gsys.treffen(game, e, zone, rest, gez);
+  if (t) Zielsysteme.merke(game, e, t.gezielt);   // Tempo-Wirkung des Antriebs: Schalter oder gezielter Treffer
   game.missionEvent('enemyDamaged', { enemy: e });
+  if (t && t.gezielt && t.state !== t.vorher) Zielsysteme.gegnerGetroffen(game, e, t);
   if (t && t.state === 'broken' && t.vorher !== 'broken' && Gegnertod.systemZerstoert(game, e, t.id)) return;   // Prise: der Gegner treibt (entern.js)
-  if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts);   // SUND-04a-1 A: gezielter Systemtreffer (nur Angriffe)
 }
 // Tod eines Gegners (Buchhaltung wie ein Abschuss): entfernen, Marken, Explosion, Ansage. Aufrufer: Countdown abgelaufen, Sofort-Tod, Störrelais ohne Modell, Testhilfe
 function enemyDown(game, e) {
@@ -1515,7 +1517,7 @@ function moveLegacy(game, e, dt, retreating) {
     const md = Math.hypot(mx, my);
     let vKin = cfg.speed;
     if (e.fluchtZiel) vKin = Verfolgung.legacyTempo(cfg.speed, e);   // SUND-04a-1 A: Fluchttempo des kinematischen Modells (Daten)
-    if (e.zs) vKin *= Zielsysteme.tempoFaktor(e);   // SUND-04a-1 A: Antrieb beschädigt/ausgefallen (nur mit e.zs)
+    vKin *= Zielsysteme.tempoFaktor(e);   // C1b-1: Antrieb (e.sys) beschädigt/ausgefallen; ohne e.tempoAn genau 1
     const step = Math.min(md, vKin * dt);
     if (md > 1 && cfg.speed > 0) {
       // W2 AP3b: um Brocken herum (Vorausschau 1,5 s, mindestens 80 px) – ohne Brocken unverändert
@@ -1539,7 +1541,7 @@ function enemySnapExtra(e) {
   if (st) o.state = st;
   const kx = Konvoi.snapExtra(e);   // EK3 Teil B: sj = Sprungaufladung des Transporters
   if (kx) Object.assign(o, kx);
-  if (e.zs) { const zx = Zielsysteme.snapExtra(e); if (zx) Object.assign(o, zx); }   // SUND-04a-1 A: az = Antriebsstufe des gescannten Ziels (fehlt = voll)
+  { const zx = Zielsysteme.snapExtra(e); if (zx) Object.assign(o, zx); }   // C1b-1: az = Antriebsstufe aus e.sys (fehlt = voll oder ohne Wirkung), ag = gestellt
   if (e.fluchtZiel) { const vx = Verfolgung.snapExtra(e); if (vx) Object.assign(o, vx); }   // SUND-04a-1 A: sj = Sprungladung des Flüchtigen, nm = Name
   return o;
 }
@@ -1595,7 +1597,7 @@ function updateTele(game, e, d, retreating, dt) {
       // EK1b: weitere Lanze-Plätze im Bogen verstärken die Ladung (waffenMehr.lanzeJeWeitere je Platz); Korvette: nie mehr als einer im Bogen
       const nL = e.waffen ? Math.max(1, plaetzeImBogen(game, e, ship, 'lanze').length) : 1;
       const mehr = 1 + ((C.waffenMehr && C.waffenMehr.lanzeJeWeitere) || 0) * (nL - 1);
-      shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, Zielsysteme.szeneAktiv(game) ? { heavy: true, emp, angriff: true, zielt: e.zielsystem } : { heavy: true, emp });
+      shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, Zielsysteme.szeneAktiv(game) ? { heavy: true, emp, angriff: true, zielt: Zielsysteme.lercheZiel(e.zielsystem) } : { heavy: true, emp });
     } else {
       game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
       game.emit('teleMiss', { id: e.id });
@@ -1645,7 +1647,7 @@ function etorpedoTreffer(game, p) {
   }
   game.stats.torpedoLerche = (game.stats.torpedoLerche || 0) + 1;
   const eto = Zielsysteme.szeneAktiv(game) ? game.space.enemies.find((e) => e.id === p.owner) : null;
-  shipHit(game, sec, p.dmg != null ? p.dmg : game.C.systemModell.torpedoLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: eto.zielsystem } : { pierce: true, heavy: true, torpedo: true });
+  shipHit(game, sec, p.dmg != null ? p.dmg : game.C.systemModell.torpedoLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: Zielsysteme.lercheZiel(eto.zielsystem) } : { pierce: true, heavy: true, torpedo: true });
 }
 
 function updateProjectiles(game, dt) {
@@ -1684,7 +1686,7 @@ function updateProjectiles(game, dt) {
         const pierce = !sperr && !!(owner && owner.tag === 'nachzuegler' && !owner.hasHit);
         if (pierce) owner.hasHit = true;
         const hopts = { pierce, emp: p.kind === 'emp' };
-        if (owner && Zielsysteme.szeneAktiv(game)) { hopts.angriff = true; if (owner.zielsystem) hopts.zielt = owner.zielsystem; }   // SUND-04a-1 A: Angriff eines Gegners (gleiche Regel wie Lerche gegen Gegner)
+        if (owner && Zielsysteme.szeneAktiv(game)) { hopts.angriff = true; if (owner.zielsystem) hopts.zielt = Zielsysteme.lercheZiel(owner.zielsystem); }   // SUND-04a-1 A: Angriff eines Gegners (gleiche Regel wie Lerche gegen Gegner)
         if (sperr) hopts.sperrfeuer = true;
         if (p.kind === 'sturm') hopts.sturm = true;
         if (p.tgt) { hopts.shielded = p.tgt; if (game.stats.escort) game.stats.escort.shielded++; }   // S2: Lerche fängt Salve auf den Schützling

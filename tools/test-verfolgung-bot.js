@@ -18,29 +18,30 @@ const ID = 'verfolgen/fliehenden_stellen';
     const m = r.missions[0]; const v = r.sim.verfolgung || {}; const z = r.sim.zielsysteme || {};
     info(`Seed ${seed}: ${m ? m.dur : '–'} s, Ausgänge ${JSON.stringify(v)}, Systemstufen Gegner ${z.gegner}, Systemziel gewählt ${r.sim.systemziel}`);
     ok(!r.aborted && m && m.success && !m.skips, `Seed ${seed}: Mission erfolgreich ohne Überspringen`);
-    // SYS-01 C1a-1, Seed 3 (zu dritt): bis C1b / C1a-2 nur info. Die Bot-Lanze schlägt bei Vollladung (Durchschlag 'zone') in die Mitte des Zielschiffs (Fregatte, Budget 50: Reaktor 6,5 gegen
-    // Lanze 12); der Treffer folgt der Zonenwahl, nicht dem gewählten Systemziel Antrieb, und der zerstörte Reaktor tötet sofort (Platzhalter). Der Antrieb bekommt dann keine zwei Stufen, das
-    // Schiff endet „zerstört“ statt „gestellt“. Behoben wird es dort, wo es hingehört: C1b (Systemziel im Zonenmodell: der Treffer folgt dem gewählten System) und C1a-2 (Reaktor-Countdown statt Sofort-Tod).
-    // Belegt per Trace (Gegenprobe: ohne den ersten Reaktor-Tod stirbt das Schiff bei der nächsten Vollladung). Die Seeds 1 und 2 laufen, weil die Zufallswahl in der Mitte den Reaktor später trifft.
-    const bisC1b = seed === 3;
-    const pruefe = bisC1b ? (c, t) => console.log((c ? '  ok   ' : '  info (bis C1b, offen) ') + t) : ok;
-    pruefe(v.gestellt === 1 && !v.entkommen, `Seed ${seed}: gestellt, nicht entkommen (Ausgänge ${JSON.stringify(v)})`);
-    pruefe(r.sim.systemziel >= 1 && z.gegner >= 2, `Seed ${seed}: der Bot hat das Systemziel Antrieb gewählt und den Antrieb ausgeschaltet (${z.gegner} Stufen)`);
+    // C1b-1 (Seed 3 war bis C1b offen): der Bot wählt das Systemziel Antrieb erst, wenn er aus dem Heck steht (Lanze und Batterien halten bis dahin), und
+    // die Vollladung der Lanze (Durchschlag bis in die Mitte) feuert er nicht mehr mit gesetztem Systemziel. Alte Regel: zwei Stufen voll→beschädigt→ausgefallen.
+    // Neue Regel: der Antrieb wechselt gezielt mindestens einmal (eine schwere Lanzensalve bringt eine Korvette, deren Heck nur aus dem Antrieb besteht, sofort auf ausgefallen).
+    ok(v.gestellt === 1 && !v.entkommen, `Seed ${seed}: gestellt, nicht entkommen (Ausgänge ${JSON.stringify(v)})`);
+    ok(r.sim.systemziel >= 1 && z.gegner >= 1, `Seed ${seed}: der Bot hat das Systemziel Antrieb gewählt und ihn gezielt getroffen (${z.gegner} gezielte Zustandswechsel)`);
     ok(!r.errors, `Seed ${seed}: keine Server-Fehler`);
     zeiten.push(m.dur);
   }
   info(`Zeit bis zum Stellen: ${zeiten.join(', ')} s (Sprungladung 15 s nach der Ankunft, Flucht ~30 s)`);
   console.log('\n[Bot solo (Steuer und Ops in einer Person)]');
-  let gestellt = 0;
+  let gestellt = 0; let solo_systemziel = 0;
   for (const seed of [1, 2, 3, 4]) {
     const r = await runGeneric({ seed, crew: 1, mode: 'labor', labor: ID, pilot: 'maneuver', maxSec: 900, funk: 'a' });
     const m = r.missions[0]; const v = r.sim.verfolgung || {}; const z = r.sim.zielsysteme || {};
     info(`Seed ${seed}: ${m ? m.dur : '–'} s, Ausgänge ${JSON.stringify(v)}, Systemstufen Gegner ${z.gegner}`);
     ok(!r.aborted && m && m.success && !m.skips && !r.errors, `Seed ${seed}: Mission erfolgreich ohne Überspringen und ohne Fehler`);
-    ok(r.sim.systemziel >= 1, `Seed ${seed}: Systemziel Antrieb gewählt`);
+    // C1b-1: die unbesetzte Ops feuert die Lanze automatisch (autoPower) auf jedes Ziel in der Linie. Steht die Lerche hinter dem Ziel, trifft dieser Auto-Schuss das Heck,
+    // bevor das Systemziel gewählt ist; der Antrieb ist dann ausgefallen, das Ziel gestellt. Deshalb nur info je Lauf, die Prüfung zählt im Aggregat.
+    if (r.sim.systemziel >= 1) solo_systemziel++;
+    info(`Seed ${seed}: Systemziel vor dem Stellen gewählt: ${r.sim.systemziel >= 1 ? 'ja' : 'nein (Auto-Lanze der unbesetzten Ops zuerst)'}`);
     if (v.gestellt) gestellt++;
   }
   ok(gestellt >= 1, `solo: mindestens ein Lauf stellt das Zielschiff über den Antrieb (${gestellt}/4)`);
+  ok(solo_systemziel >= 1, `solo: mindestens ein Lauf wählt das Systemziel Antrieb vor dem Stellen (${solo_systemziel}/4)`);
   console.log(`\ntest-verfolgung-bot: ${n - fails}/${n} ok`);
   process.exit(fails ? 1 : 0);
 })().catch((e) => { console.log('  FEHLER ' + (e && e.stack || e)); process.exit(1); });

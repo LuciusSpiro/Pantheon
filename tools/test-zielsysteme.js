@@ -1,10 +1,13 @@
 'use strict';
-// SUND-04a-1 A: Gezielter Systemtreffer (Antrieb) mit gleichen Regeln für beide Seiten (server/sim/zielsysteme.js, Daten content/kampf/zielsysteme-werte.json).
-//  - Daten: Zielsysteme als Katalog, Seiten, Stufen, Klassen
-//  - Regel Lerche -> Gegner: Schild durchschlagen UND Heck, gezielt/ungezielt, Sperre, Erholung, Szenenschalter, Befehl weapons.systemziel
+// SUND-04a-1 A, umgestellt auf SYS-01 C1b-1 „Zielsysteme im Zonenmodell“: Gezielter Systemtreffer mit gleichen Regeln für beide Seiten
+// (server/sim/zielsysteme.js, server/sim/gegnersystem.js, Daten content/kampf/zielsysteme-werte.json). e.zs entfällt: der Antrieb ist e.sys.antrieb.
+// Die neuen Regeln (Zone, Erreichbarkeit, Wahl statt Zufall, Sperre, Immunität, Zonen-Lerche) stehen in tools/test-zielsysteme-zonen.js.
+//  - Daten: Systeme als Katalog, Seiten, Stufen (ohne Erholung), Sperre
+//  - Wahl (weapons.systemziel): jede System-Id des Ziels, Erreichbarkeit bei der Wahl
+//  - Trefferregel Lerche -> Gegner: Schild durchschlagen und Zone des Ziels, Wahl statt Zufall, Sperre
 //  - Wirkung auf die Fahrt in allen drei Flugwegen (Pilot, kinematisch, Konvoi), mit Messung vorher/nachher
 //  - Gegenseite: Gegner -> Lerche mit derselben Regel (ship.systems.engines)
-//  - Ohne Systemziel/Schalter bleibt alles beim Alten (kein e.zs, kein Snapshot-Feld, keine Zufallsnutzung)
+//  - Ohne Systemziel/Schalter bleibt alles beim Alten (kein tempoAn, kein Snapshot-Feld, keine Zufallsnutzung)
 //   node tools/test-zielsysteme.js            -> alle Abschnitte
 //   node tools/test-zielsysteme.js erholung   -> nur Abschnitte, deren Name einen der Begriffe enthält
 const fs = require('fs');
@@ -14,12 +17,14 @@ const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget)
 const Zs = require('../server/sim/zielsysteme.js');
+const Gsys = require('../server/sim/gegnersystem.js');
 const Konvoi = require('../server/sim/konvoi.js');
 const interior = require('../server/sim/interior.js');
 const DATEN = require('../content/kampf/zielsysteme-werte.json').werte;
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const DT = 1 / CONFIG.tickHz;
+
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const info = (t) => console.log('  info ' + t);
@@ -59,24 +64,31 @@ const treffer = (g, e, rel, dmg, opts) => space.damageEnemy(g, e, dmg == null ? 
 const HECK = Math.PI, BUG = 0, STB = Math.PI / 2, BB = -Math.PI / 2;
 const vel = (e) => Math.hypot(e.vx || 0, e.vy || 0);
 const leer = (g, kind, x, y) => { const e = space.spawnEnemy(g, kind, { x, y, facing: 0, tag: 'zs' }); e.retreatUntil = 0; return e; };
-const stb = (g, e) => { e.scanned = true; g.ship.target = e.id; return Zs.waehle(g, 'antrieb'); };
+// Lerche 300 px hinter dem Ziel (Zone Heck = zugewandt), Ziel gescannt und das Systemziel gewählt
+function hinten(g, e, abstand) { const a = e.angle + Math.PI; platz(g, e.x + Math.cos(a) * (abstand || 300), e.y + Math.sin(a) * (abstand || 300), e.angle); }
+const stb = (g, e) => { e.scanned = true; g.ship.target = e.id; hinten(g, e); return Zs.waehle(g, 'antrieb'); };
+// Anteil am Systemmaximum (C1b-1: die Schwellen gelten für die Integrität)
+const anteil = (e, id, f) => f * Gsys.maxOf(e, id);
+const antriebZ = (e) => e.sys.antrieb.z;
 
 section('Daten: Zielsysteme als Katalog', () => {
   const S = DATEN.systeme.wert;
-  ok(Object.keys(S).includes('antrieb'), 'V1 enthält den Antrieb');
+  ok(Object.keys(S).includes('antrieb'), 'das Antrieb-System steht in den Daten');
   for (const [id, s] of Object.entries(S)) {
-    ok(Schilde.SEITEN.includes(s.seite), `${id}: Seite ${s.seite} ist eine Schildseite`);
+    ok(s.seite === 'heck' && Schilde.SEITEN.includes('heck'), `${id}: Seite ${s.seite} (Zone Heck)`);
     ok(s.klassen.every((k) => CONFIG.enemies[k]), `${id}: alle Klassen (${s.klassen.join(', ')}) gibt es in CONFIG.enemies`);
-    ok(s.stufen[0].faktor === 1 && s.stufen[0].erholung_s === null && s.stufen.every((st, i) => i === 0 || (st.faktor >= 0 && st.faktor < s.stufen[i - 1].faktor)), `${id}: Stufe 0 = voll (Faktor 1), danach fallende Faktoren`);
-    ok(s.stufen.slice(1).every((st) => st.erholung_s > 0), `${id}: jede beschädigte Stufe erholt sich nach Zeit (Daten)`);
+    ok(s.stufen[0].faktor === 1 && s.stufen.every((st, i) => i === 0 || (st.faktor >= 0 && st.faktor < s.stufen[i - 1].faktor)), `${id}: Stufe ok = voll (Faktor 1), danach fallende Faktoren`);
+    ok(s.stufen.every((st) => st.erholung_s === undefined), `${id}: keine Erholungszeit mehr in den Daten (C1b-1, die Gegner-Reparatur kommt in C2)`);
     ok(!s.lerche || interior.SYSTEM_ORDER.includes(s.lerche), `${id}: Systemname der Lerche (${s.lerche}) gibt es im Schiff`);
     ok(s.wirkung === 'tempo', `${id}: Wirkungsart tempo`);
+    ok(s.sperre === true, `${id}: Sperre zwischen zwei Zustandswechseln (Daten)`);
   }
   const T = DATEN.treffer.wert;
-  ok(T.wahrscheinlichkeit.gezielt === 1 && T.wahrscheinlichkeit.ungezielt > 0 && T.wahrscheinlichkeit.ungezielt < 1 && T.sperre_s > 0, `Trefferregel: gezielt ${T.wahrscheinlichkeit.gezielt}, ungezielt ${T.wahrscheinlichkeit.ungezielt}, Sperre ${T.sperre_s} s`);
-  ok(Zs.SYSTEME === S && Zs.TREFFER === T, 'das Modul liest dieselben Daten (keine Zahlen im Code)');
+  ok(T.sperre_s > 0 && T.immunitaet_s > 0 && T.wahrscheinlichkeit === undefined, `Trefferregel: Sperre ${T.sperre_s} s, Immunität ${T.immunitaet_s} s, ohne Wahrscheinlichkeit (ungezielt = Zufall in der Zone)`);
+  ok(Zs.SYSTEME === S, 'das Modul liest dieselben Daten (keine Zahlen im Code)');
   const src = fs.readFileSync(require('path').join(__dirname, '..', 'server', 'sim', 'zielsysteme.js'), 'utf8');
   ok(!/'antrieb'|"antrieb"|'engines'|'heck'/.test(src.replace(/\/\/.*$/gm, '')), 'kein Systemname im Code von zielsysteme.js (nur in den Daten)');
+  ok(Zs.trifftGegner === undefined && Zs.trifftLerche === undefined && Zs.schaedige === undefined && Zs.stufe === undefined && Zs.zuruecksetzen === undefined, 'entfernt: trifftGegner, trifftLerche, schaedige, stufe, zuruecksetzen (Parallelmodell e.zs)');
 });
 
 section('Ohne Systemziel und Schalter: nichts ändert sich', () => {
@@ -84,35 +96,41 @@ section('Ohne Systemziel und Schalter: nichts ändert sich', () => {
   const e = leer(g, 'korvette', 1500, 1100);
   e.scanned = true;
   treffer(g, e, HECK, 5);
-  ok(e.zs === undefined && e.hp < e.hpMax, 'Heck-Treffer durch den Schild: Systemintegrität sinkt, kein Systemzustand (e.zs fehlt)');
+  ok(e.tempoAn === undefined && e.hp < e.hpMax, 'Heck-Treffer durch den Schild: Systemintegrität sinkt, kein Tempo-Zustand (tempoAn fehlt)');
   const s = g.snapshot().space.enemies.find((q) => q.id === e.id);
-  ok(!('az' in s), 'Snapshot ohne az');
+  ok(!('az' in s), 'Snapshot ohne az (der Antrieb wirkt nicht)');
   ok(!('zs' in g.snapshot().ship), 'Snapshot ship ohne zs');
   const e2 = leer(g, 'raider', 1700, 1300);
   const ran = []; const ch = g.rng.chance.bind(g.rng); g.rng.chance = (p) => { ran.push(p); return ch(p); };
   treffer(g, e2, HECK, 3);
   g.rng.chance = ch;
-  ok(!ran.length, 'kein Würfelwurf der Trefferregel');
+  ok(!ran.length, 'kein Würfelwurf der Trefferregel (ungezielt = Zufall in der Zone)');
   ok(!Zs.szeneAktiv(g) && g.ship.zielsystem === undefined, 'Szenenschalter aus, kein Systemziel');
-  // Brocken, Minen und Zonen sind keine Angriffe: auch mit Systemziel kein Systemtreffer
+  // Brocken, Minen und Zonen sind keine Angriffe: auch mit Systemziel kein gezielter Treffer
   stb(g, e2);
   space.damageEnemy(g, e2, 5, e2.x - Math.cos(e2.angle) * 60, e2.y - Math.sin(e2.angle) * 60);
-  ok(e2.zs === undefined, 'Treffer ohne opts.angriff (Brocken, Mine, Zone) lösen keinen Systemtreffer aus');
+  ok(e2.tempoAn === undefined, 'Treffer ohne opts.angriff (Brocken, Mine, Zone) lösen keinen gezielten Treffer und kein Tempo aus');
 });
 
-section('Befehl weapons.systemziel', () => {
+section('Befehl weapons.systemziel: jede System-Id des Ziels, Erreichbarkeit bei der Wahl', () => {
   const T = setup(); const g = T.g; T.taktik();
   ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).some((t) => /Ziel wählen/.test(t)), 'ohne Ziel: Hinweis');
   const e = leer(g, 'korvette', 1500, 1100);
   g.ship.target = e.id;
   ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).some((t) => /scannen/.test(t)) && !g.ship.zielsystem, 'ungescanntes Ziel: Hinweis (erst scannen)');
-  e.scanned = true;
-  ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).length === 0 && g.ship.zielsystem === 'antrieb', 'gescanntes Ziel: Systemziel Antrieb gesetzt');
+  e.scanned = true; hinten(g, e);
+  ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).length === 0 && g.ship.zielsystem === 'antrieb', 'gescanntes Ziel von hinten: Systemziel Antrieb gesetzt');
   ok(g.snapshot().ship.zs === 'antrieb', 'Snapshot ship.zs = antrieb');
-  ok(T.cmd('weapons.systemziel', { id: 'unsinn' }).some((t) => /Unbekannt/.test(t)), 'unbekanntes System: Hinweis');
-  const p = space.spawnEnemy(g, 'pylon', { x: 1700, y: 900 }); p.scanned = true; g.ship.target = null;
-  g.ship.target = p.id; delete g.ship.zielsystem;
-  ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).some((t) => /keinen Antrieb/.test(t)) && !g.ship.zielsystem, 'Pylon hat keinen Antrieb: Hinweis');
+  ok(T.cmd('weapons.systemziel', { id: 'unsinn' }).some((t) => /kein solches System/.test(t)), 'unbekannte System-Id: Hinweis');
+  // C1b-1: jede System-Id des Ziels ist wählbar (hier der Reaktor in der Mitte), aber nur wenn erreichbar: die Zone der zugewandten Seite (Heck) ist offen
+  ok(T.cmd('weapons.systemziel', { id: 'reaktor' }).some((t) => /nicht erreichbar/.test(t)) && g.ship.zielsystem === 'antrieb', 'Reaktor (Mitte) bei offener zugewandter Zone: nicht erreichbar, Wahl abgelehnt');
+  // das Ziel von vorn: der Antrieb im Heck ist nicht erreichbar
+  platz(g, e.x + Math.cos(e.angle) * 300, e.y + Math.sin(e.angle) * 300, e.angle + Math.PI);
+  ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).some((t) => /nicht erreichbar/.test(t)), 'Antrieb im Heck, Lerche von vorn: nicht erreichbar');
+  hinten(g, e);
+  const p = space.spawnEnemy(g, 'pylon', { x: 1700, y: 900 }); p.scanned = true;
+  g.ship.target = p.id; delete g.ship.zielsystem; hinten(g, p);
+  ok(T.cmd('weapons.systemziel', { id: 'antrieb' }).length === 0 && g.ship.zielsystem === 'antrieb', 'Pylon hat einen Antrieb (Daten): wählbar, wenn von hinten erreichbar (C1b-1: kein Klassen-Filter mehr)');
   g.ship.target = e.id; T.cmd('weapons.systemziel', { id: 'antrieb' });
   ok(g.ship.zielsystem === 'antrieb', 'wieder gesetzt');
   T.cmd('weapons.target', { id: p.id });
@@ -126,76 +144,62 @@ section('Befehl weapons.systemziel', () => {
   ok(!g.ship.zielsystem, 'Szenenwechsel: kein Systemziel');
 });
 
-section('Trefferregel Lerche -> Gegner: Schild durchschlagen und Heck', () => {
+section('Trefferregel Lerche -> Gegner: Schild durchschlagen, Zone des Ziels, Wahl statt Zufall', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0;
-  ok(stb(g, e) === null, 'Systemziel Antrieb am gescannten Ziel');
+  ok(stb(g, e) === null, 'Systemziel Antrieb am gescannten Ziel (von hinten)');
+  const a0 = e.sys.antrieb.i;
   treffer(g, e, BUG, 2);
-  ok(e.zs === undefined, 'Treffer am Bug: kein Antriebstreffer (Hülle wird getroffen, falsche Seite)');
+  ok(e.sys.antrieb.i === a0 && !e.tempoAn, 'Treffer am Bug: kein gezielter Antriebstreffer (Zone Bug)');
   treffer(g, e, STB, 2);
-  ok(e.zs === undefined, 'Treffer an der Seite: kein Antriebstreffer');
+  ok(e.sys.antrieb.i === a0 && !e.tempoAn, 'Treffer an der Seite: kein gezielter Antriebstreffer');
   // Heck mit stehendem Schild: der Schild fängt den Treffer
   const lay = Schilde.layout(CONFIG, 'korvette');
   const heckIdx = lay.seiten[2][0];
   e.shields[heckIdx] = 5;
-  const hp0 = e.hp;
   treffer(g, e, HECK, 2);
-  ok(e.zs === undefined && e.hp === hp0 && e.shields[heckIdx] === 3, 'Heck-Treffer, den der Schild fängt (Schild 5 -> 3): kein Antriebstreffer');
-  // alte Regel: Schild 1, Treffer 3 -> Rest 2 > 0 geht auf die Hülle. Neue Regel (SYS-01 C1a-1, wie die Lerche): ein Schild über 0 fängt ohne Überlauf, nur ein ausgefallener Schild (0) lässt
-  // den Treffer in die Zone (Heck: Antrieb)
+  ok(e.sys.antrieb.i === a0 && e.shields[heckIdx] === 3, 'Heck-Treffer, den der Schild fängt (Schild 5 -> 3): kein Antriebstreffer');
+  // Schild 1, Treffer 3: der Schild fängt, der Rest verfällt (kein Überlauf)
   e.shields[heckIdx] = 1;
   treffer(g, e, HECK, 3);
-  ok(e.zs === undefined && e.hp === hp0 && e.shields[heckIdx] === 0, 'Heck-Treffer mit Schild 1 (Treffer 3): der Schild fängt ohne Überlauf, kein Antriebstreffer');
+  ok(e.sys.antrieb.i === a0 && e.shields[heckIdx] === 0, 'Heck-Treffer mit Schild 1 (Treffer 3): der Schild fängt ohne Überlauf, kein Antriebstreffer');
   treffer(g, e, HECK, 3);
-  ok(e.zs && e.zs.antrieb.s === 1 && e.hp < hp0, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb beschädigt (Stufe 1)');
-  ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'Tempofaktor beschädigt = ' + Zs.tempoFaktor(e));
-  treffer(g, e, HECK, 1);
-  ok(e.zs.antrieb.s === 1, 'zweiter Treffer binnen der Sperre (' + DATEN.treffer.wert.sperre_s + ' s): bleibt Stufe 1 (eine Salve schaltet nicht alles auf einmal aus)');
+  ok(e.sys.antrieb.i < a0 && e.tempoAn === true, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb trifft sicher (gezielt)');
+  // beschädigt: Integrität unter 60 %
+  const ziel = anteil(e, 'antrieb', 0.45);
+  e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.sys.antrieb.sp = null;
+  treffer(g, e, HECK, ziel);
+  ok(antriebZ(e) === 'damaged' && Math.abs(Zs.tempoFaktor(e) - DATEN.systeme.wert.antrieb.stufen[1].faktor) < 1e-9, 'Stufe beschädigt, Tempofaktor = ' + Zs.tempoFaktor(e));
+  // zweiter Treffer binnen der Sperre (sperre_s): der Zustand bleibt beschädigt, auch wenn die Integrität ausreicht
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
+  ok(antriebZ(e) === 'damaged', 'zweiter Treffer binnen der Sperre (' + DATEN.treffer.wert.sperre_s + ' s): bleibt beschädigt (eine Salve schaltet nicht alles auf einmal aus)');
   T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  treffer(g, e, HECK, 1);
-  ok(e.zs.antrieb.s === 2 && Zs.tempoFaktor(e) === 0 && Zs.ausgefallen(e, 'antrieb'), 'nach der Sperre: Stufe 2 (ausgefallen), Tempofaktor 0');
-  T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  const bis0 = e.zs.antrieb.bis;
-  treffer(g, e, HECK, 1);
-  ok(e.zs.antrieb.s === 2 && e.zs.antrieb.bis === bis0, 'weiterer Treffer am Ende der Stufen: bleibt ausgefallen, die Erholungsfrist läuft unverändert weiter (Review A-S2)');
-  ok(T.odas.filter((t) => /Antrieb des Ziels/.test(t)).length === 2 && T.me('zielsystemGetroffen').length === 2, 'ODA und missionEvent zielsystemGetroffen je Stufe (2)');
-  // Klassen ohne Antrieb im Katalog (Pylon): kein Eintrag
-  const p = space.spawnEnemy(g, 'pylon', { x: 1700, y: 900 }); p.scanned = true; g.ship.target = p.id;
-  g.ship.zielsystem = 'antrieb'; treffer(g, p, HECK, 9);
-  ok(p.zs === undefined, 'Pylon (Klasse nicht im Katalog): kein Antriebstreffer');
+  ok(antriebZ(e) === 'broken' && Zs.tempoFaktor(e) === 0 && Zs.ausgefallen(e, 'antrieb'), 'nach der Sperre holt der Zustand nach: ausgefallen, Tempofaktor 0');
+  ok(T.odas.filter((t) => /Antrieb des Ziels/.test(t)).length === 2 && T.me('zielsystemGetroffen').length === 2, 'ODA und missionEvent zielsystemGetroffen je Zustandswechsel (2)');
   // Torpedo (huelle): geht an den Schilden vorbei, trifft die Hülle am Heck
   const t = leer(g, 'korvette', 1900, 1500); t.angle = 0; stb(g, t);
-  treffer(g, t, HECK, 3, { huelle: true });
-  ok(t.zs && t.zs.antrieb.s === 1, 'Torpedo (huelle) am Heck: Antrieb beschädigt (gleiche Regel)');
-  // Verbündete: nur ungezielt, nur mit Szenenschalter
+  treffer(g, t, HECK, anteil(t, 'antrieb', 0.45), { huelle: true });
+  ok(antriebZ(t) === 'damaged', 'Torpedo (huelle) am Heck: Antrieb beschädigt (gleiche Regel)');
+  // Verbündete: nie gezielt, ohne Szenenschalter kein Tempo
   const a = leer(g, 'raider', 2100, 1500); a.angle = 0; a.scanned = true; g.ship.target = a.id; g.ship.zielsystem = 'antrieb';
   treffer(g, a, HECK, 3, { ally: true });
-  ok(a.zs === undefined, 'Treffer der Verbündeten ohne Szenenschalter: kein Systemtreffer (gezielt gilt nur für die Lerche)');
+  ok(a.tempoAn === undefined, 'Treffer der Verbündeten ohne Szenenschalter: kein gezielter Treffer (gezielt gilt nur für die Lerche)');
 });
 
-section('Ungezielt und Szenenschalter', () => {
+section('Zufall in der Zone und Szenenschalter', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; e.scanned = true;
   Zs.szeneAn(g, true);
   ok(Zs.szeneAktiv(g), 'Szenenschalter an');
   const chance = g.rng.chance.bind(g.rng); const w = [];
   g.rng.chance = (p) => { w.push(p); return false; };
-  treffer(g, e, HECK, 3);
-  ok(e.zs === undefined && w.length === 1 && w[0] === DATEN.treffer.wert.wahrscheinlichkeit.ungezielt, 'ohne Systemziel: Würfelwurf mit der ungezielten Wahrscheinlichkeit (' + w[0] + '), verfehlt');
-  g.rng.chance = () => true;
-  treffer(g, e, HECK, 3);
-  ok(e.zs && e.zs.antrieb.s === 1, 'Wurf gelungen: Stufe 1');
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
   g.rng.chance = chance;
-  // gezielt: sicher, ohne Wurf
-  const f = leer(g, 'korvette', 1800, 1300); f.angle = 0; stb(g, f);
-  g.rng.chance = () => { throw new Error('kein Wurf bei gezielt'); };
-  treffer(g, f, HECK, 3);
-  g.rng.chance = chance;
-  ok(f.zs && f.zs.antrieb.s === 1, 'gezielt (Systemziel am Ziel): trifft sicher, ohne Würfelwurf');
-  // Verbündete im Schalter: ungezielt
+  ok(w.length === 0 && antriebZ(e) === 'damaged' && e.tempoAn === true, 'ohne Systemziel, Schalter an: Heck-Treffer trifft den Antrieb (Zufall in der Zone, Heck = nur Antrieb), kein Würfelwurf');
+  // Verbündete im Schalter: ungezielt, kein gezielter Treffer
   const a = leer(g, 'raider', 2100, 1500); a.angle = 0; a.scanned = true; g.ship.target = a.id; g.ship.zielsystem = 'antrieb';
-  g.rng.chance = () => true; treffer(g, a, HECK, 3, { ally: true }); g.rng.chance = chance;
-  ok(a.zs && a.zs.antrieb.s === 1, 'Verbündeter trifft im Szenenschalter ungezielt (Wurf)');
+  treffer(g, a, HECK, 3, { ally: true });
+  ok(a.tempoAn === true, 'Verbündeter trifft im Szenenschalter: Tempo-Wirkung (der Schalter gilt auf beiden Seiten)');
   const aus = Zs.debug(g, ['aus']);
   ok(aus === null && !Zs.szeneAktiv(g), 'Debug zielsysteme aus');
   space.enterScene(g, 'b7', {});
@@ -203,32 +207,33 @@ section('Ungezielt und Szenenschalter', () => {
   ok(!Zs.szeneAktiv(g), 'Szenenwechsel setzt den Schalter zurück');
 });
 
-section('Erholung nach Zeit', () => {
+section('Keine Erholung nach Zeit (C1b-1): ausgefallen bleibt ausgefallen bis zur Reparatur (C2)', () => {
   const T = setup(); const g = T.g;
-  const S = DATEN.systeme.wert.antrieb.stufen;
-  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // mehrere Treffer (Immunitaet, gestellt): der Gegner stirbt dabei nicht
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // mehrere Treffer: der Gegner stirbt dabei nicht
   g.god = true; platz(g, 300, 300, 0);   // Lerche weit weg (keine Gegner-Aktion nötig)
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
-  treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
-  ok(e.zs.antrieb.s === 2, 'ausgefallen (Stufe 2)');
-  T.run(S[2].erholung_s - 1);
-  ok(e.zs && e.zs.antrieb.s === 2, `${S[2].erholung_s - 1} s später: noch ausgefallen`);
-  T.run(2);
-  ok(e.zs && e.zs.antrieb.s === 1, `nach ${S[2].erholung_s} s: beschädigt (Stufe 1)`);
-  treffer(g, e, HECK, 3);
-  ok(e.zs.antrieb.s === 1, 'Immunitaet: ein Treffer direkt nach der Erholung hebt die Stufe nicht an');
-  T.run(DATEN.treffer.wert.immunitaet_s + 0.1);
-  treffer(g, e, HECK, 3);
-  ok(e.zs.antrieb.s === 2, `nach der Immunitaet (${DATEN.treffer.wert.immunitaet_s} s): wieder ausgefallen (neue Frist)`);
-  T.run(S[2].erholung_s + 0.5);
-  ok(e.zs.antrieb.s === 1, 'Erholung erneut: Stufe 1');
-  T.run(S[1].erholung_s + 0.5);
-  ok(e.zs === undefined, `nach weiteren ${S[1].erholung_s} s: voll, Zustand gelöscht (e.zs fehlt wieder)`);
-  // gehalten (gestellt): keine Erholung
-  treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
-  Zs.halte(e, 'antrieb');
-  T.run(S[2].erholung_s + S[1].erholung_s + 5);
-  ok(e.zs && e.zs.antrieb.s === 2, 'ein gestelltes Schiff (halte) bleibt ausgefallen');
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.45)); T.run(sperre); treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
+  T.run(sperre);
+  ok(antriebZ(e) === 'broken', 'ausgefallen');
+  T.run(120);
+  ok(antriebZ(e) === 'broken' && Zs.tempoFaktor(e) === 0, '120 s später: noch ausgefallen (keine Erholung)');
+  T.run(60);
+  ok(e.tempoAn === true && antriebZ(e) === 'broken', 'auch nach weiteren 60 s: ausgefallen (Erholung entfällt, C2 setzt die Reparatur)');
+});
+
+section('Gestellt (halte): der Schalter bleibt aus, die Reparatur ist ausgeschaltet', () => {
+  const T = setup(); const g = T.g;
+  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
+  g.god = true; platz(g, 300, 300, 0);
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
+  ok(antriebZ(e) === 'damaged', 'beschädigt');
+  Zs.halte(e);
+  ok(e.gestellt === true && !Zs.reparaturErlaubt(e), 'gestellt: Reparatur aus (reparaturErlaubt = false)');
+  T.run(DATEN.treffer.wert.sperre_s + 0.1);
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
+  ok(antriebZ(e) === 'broken', 'gestellt: ein weiterer Treffer wirkt weiter (die Integrität sinkt), der Zustand folgt');
+  const snap = Zs.snapExtra(e);
+  ok(snap && snap.ag === 1 && snap.az === 2, 'Snapshot: az = 2 und ag = 1 (gestellt)');
 });
 
 // Fahrt: ein Gegner mit Fluchtziel (e.fluchtZiel, Verhalten der Verfolgung) fährt in jedem Flugmodell geradeaus; gemessen wird sein Tempo vorher und nachher
@@ -242,32 +247,18 @@ function fahrtMessung(kind, modus) {
     const pilot = require('../server/sim/pilot.js');
     const r = { flies: pilot.flies(g, e) };
     T.run(14); r.voll = vel(e);
-    e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
-    Testhilfe.schildNull(e); treffer(g, e, HECK, 3);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf, das Heck-Segment muss unten sein
+    e.scanned = true; g.ship.target = e.id; hinten(g, e, 200); Zs.waehle(g, 'antrieb');
+    Testhilfe.schildNull(e); treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));   // ein stehender Schild fängt ohne Überlauf, das Heck-Segment muss unten sein
+    platz(g, 200, 200, 0);   // die Lerche wieder weit weg (wie vor der Wahl): nah am Ziel steht es im Flugmodell
     T.run(8); r.beschaedigt = vel(e);
-    T.run(DATEN.treffer.wert.sperre_s); Testhilfe.schildNull(e); treffer(g, e, HECK, 3);
+    hinten(g, e, 200); Testhilfe.schildNull(e); T.run(DATEN.treffer.wert.sperre_s); treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
+    platz(g, 200, 200, 0);
     T.run(8); r.aus = vel(e);
     const x1 = e.x; T.run(2); r.weg = e.x - x1;
     r.snap = g.snapshot().space.enemies.find((q) => q.id === e.id);
     return r;
   } finally { if (alt) CONFIG.spaceM3b.flightV2 = alt; }
 }
-section('Gestellt (halte): ein beschädigtes Schiff nimmt keinen Schaden mehr an und erholt sich nie', () => {
-  const T = setup(); const g = T.g;
-  const S = DATEN.systeme.wert.antrieb.stufen;
-  const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
-  g.god = true; platz(g, 300, 300, 0);
-  treffer(g, e, HECK, 3);
-  ok(Zs.stufe(e, 'antrieb') === 1, 'beschädigt (Stufe 1)');
-  Zs.halte(e, 'antrieb');
-  T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  treffer(g, e, HECK, 3);
-  ok(Zs.stufe(e, 'antrieb') === 1, 'gestellt: ein weiterer Treffer schädigt nicht mehr (Stufe bleibt 1)');
-  const lang = S[1].erholung_s + S[2].erholung_s + 5;
-  T.run(lang);
-  ok(Zs.stufe(e, 'antrieb') === 1 && !Zs.ausgefallen(e, 'antrieb'), `gestellt: auch nach ${lang} s unverändert beschädigt (keine Erholung)`);
-});
-
 section('Wirkung auf die Fahrt: Pilot-Modell (Messung)', () => {
   const r = fahrtMessung('korvette', 'pilot');
   info(`Korvette (Pilot-Modell): voll ${r.voll.toFixed(1)} px/s, beschädigt ${r.beschaedigt.toFixed(1)}, ausgefallen ${r.aus.toFixed(1)}`);
@@ -296,11 +287,12 @@ section('Wirkung auf die Fahrt: Konvoi-Transporter', () => {
   Konvoi.an(g, { n: 1, sieg: 'aufhalten', eskorte: 'keine' });
   const e = Konvoi.transporter(g)[0];
   T.run(12); const voll = vel(e);
-  e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
+  e.scanned = true; g.ship.target = e.id; hinten(g, e, 200); Zs.waehle(g, 'antrieb');
   Testhilfe.schildNull(e);   // SYS-01 C1a-1: ein stehender Schild fängt ohne Überlauf
-  space.damageEnemy(g, e, 9, e.x - Math.cos(e.angle) * 60, e.y - Math.sin(e.angle) * 60, { angriff: true });
+  space.damageEnemy(g, e, anteil(e, 'antrieb', 0.45), e.x - Math.cos(e.angle) * 60, e.y - Math.sin(e.angle) * 60, { angriff: true });
+  platz(g, 200, 200, 0);
   T.run(0.1);
-  ok(e.zs && e.zs.antrieb.s === 1, 'Transporter: Heck-Treffer beschädigt den Antrieb');
+  ok(e.sys && antriebZ(e) !== 'ok', 'Transporter: Heck-Treffer beschädigt den Antrieb');
   T.run(5); const b = vel(e);
   info(`Transporter: voll ${voll.toFixed(1)}, beschädigt ${b.toFixed(1)} px/s`);
   ok(voll > 20 && b < voll * 0.75, 'Konvoi-Transporter fährt mit beschädigtem Antrieb langsamer (dritter Haken)');
@@ -311,38 +303,35 @@ section('Gegenseite: Gegner treffen die Lerche mit derselben Regel', () => {
   const eng = () => ship.systems.engines;
   const chance = g.rng.chance.bind(g.rng);
   const hit = (sector, opts, dmg) => { ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, sector, dmg == null ? 2 : dmg, Object.assign({ angriff: true }, opts || {})); };
-  g.rng.chance = () => false;   // der Durchlass-Wurf der Systemtabelle würfelt nie: nur die neue Regel wirkt
-  hit(2, { zielt: 'antrieb' });
+  g.rng.chance = () => false;
+  hit(2, { zielt: 'engines' });
   ok(eng() === 'ok', 'ohne Szenenschalter: Heck-Treffer ohne Angriffs-Regel, Triebwerk heil');
   Zs.szeneAn(g, true);
-  hit(0, { zielt: 'antrieb' }); hit(1, { zielt: 'antrieb' }); hit(3, { zielt: 'antrieb' });
+  hit(0, { zielt: 'engines' }); hit(1, { zielt: 'engines' }); hit(3, { zielt: 'engines' });
   ok(eng() === 'ok', 'Bug, Steuerbord, Backbord: Triebwerk heil (nur das Heck zählt, Sektor 2)');
-  ship.shields.current = [0, 0, 5, 0]; space.shipHit(g, 2, 2, { angriff: true, zielt: 'antrieb' });
+  ship.shields.current = [0, 0, 5, 0]; space.shipHit(g, 2, 2, { angriff: true, zielt: 'engines' });
   ok(eng() === 'ok', 'Heck-Treffer, den der Schild fängt: Triebwerk heil');
-  hit(2, {});
-  ok(eng() === 'ok', 'ungezielt, Wurf verfehlt: Triebwerk heil');
-  hit(2, { zielt: 'antrieb' }, 0.5);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g);
+  hit(2, { zielt: 'engines' }, 8);
   ok(eng() === 'damaged', 'gezielt, Schild durchschlagen, Heck: Triebwerk beschädigt (ship.systems.engines)');
-  hit(2, { zielt: 'antrieb' });
-  ok(eng() === 'damaged', 'zweiter Treffer binnen der Sperre: bleibt beschädigt');
-  T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  hit(2, { zielt: 'antrieb' });
-  ok(eng() === 'broken', 'nach der Sperre: zerstört (zwei Stufen wie beim Gegner)');
-  ok(T.me('zielsystemGetroffen').filter((e) => e.seite === 'lerche').length === 2, 'missionEvent zielsystemGetroffen (seite lerche) je Stufe');
+  hit(2, { zielt: 'engines' }, 12);
+  ok(eng() === 'broken', 'zweiter gezielter Treffer: zerstört (Lerche hat keine Sperre, der Schaden folgt der Integrität)');
+  ok(T.me('zielsystemGetroffen').filter((e) => e.seite === 'lerche').length >= 2, 'missionEvent zielsystemGetroffen (seite lerche) je gezieltem Treffer');
   ok(space.engineSpeedFactor(g) === 0, 'engineSpeedFactor der Lerche = 0 (bestehendes Systemmodell, nichts Paralleles)');
-  // ungezielt mit gelungenem Wurf
-  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
-  g.rng.chance = () => true; hit(2, {}); g.rng.chance = chance;
-  ok(eng() === 'damaged', 'ungezielt, Wurf gelungen: beschädigt');
+  // ungezielt: Zufall in der Zone, kein gezielter Treffer gezählt
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  const z0 = g.stats.zielsysteme.lerche;
+  hit(2, {}, 3);
+  ok(g.stats.zielsysteme.lerche === z0, 'ungezielt: kein gezielter Systemtreffer gezählt (Zufall in der Zone)');
   // kein Angriff (Mine, Brocken): nichts
-  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
   g.rng.chance = () => false; ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, 2, 2, { pierce: true }); g.rng.chance = chance;
   ok(eng() === 'ok', 'Treffer ohne opts.angriff (Mine, Brocken): Triebwerk heil');
-  // ein Treffer schädigt das Triebwerk nicht doppelt (Durchlass-Tabelle und Regel im selben Treffer)
-  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
+  // ein Treffer schädigt das Triebwerk nicht doppelt
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
   const d0 = interior.damageSystem; let n = 0; interior.damageSystem = function (...a) { if (a[1] === 'engines') n++; return d0.apply(this, a); };
   ship.shields.current = [0, 0, 0, 0];
-  g.rng.chance = () => true; space.shipHit(g, 2, 2, { angriff: true, zielt: 'antrieb' }); g.rng.chance = chance;
+  space.shipHit(g, 2, 2, { angriff: true, zielt: 'engines' });
   interior.damageSystem = d0;
   ok(n <= 1 && eng() !== 'broken', 'ein Treffer: das Triebwerk wird höchstens einmal geschädigt (' + n + ')');
 });
@@ -354,58 +343,32 @@ section('Gegenseite: Gegner-Geschosse und Ladungen tragen die Regel', () => {
   platz(g, 1500, 1100, 0);
   // Gegner HINTER der Lerche schießt (Heck der Lerche = Sektor 2), mit Systemziel
   const e = space.spawnEnemy(g, 'raider', { x: 1300, y: 1100, facing: 0, tag: 'zs' });
-  e.zielsystem = 'antrieb';
+  e.zielsystem = 'engines';
   ship.shields.current = [0, 0, 0, 0];
-  g.space.projectiles.push({ id: 'pr1', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 1, owner: e.id });
+  g.space.projectiles.push({ id: 'pr1', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 8, owner: e.id });
   T.run(0.5);
   ok(ship.systems.engines === 'damaged', 'Geschoss eines Gegners mit Systemziel trifft das Heck: Triebwerk beschädigt');
-  // ohne Systemziel des Schützen: ungezielt, Wurf verfehlt
-  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt; T.run(0.1);
-  e.zielsystem = null;
+  // ohne Szenenschalter: dasselbe Geschoss lässt das Triebwerk heil (Gegner zielen nur mit Schalter)
+  Zs.szeneAn(g, false); ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  const z0 = g.stats.zielsysteme.lerche;
   ship.shields.current = [0, 0, 0, 0];
-  g.space.projectiles.push({ id: 'pr2', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 1, owner: e.id });
+  g.space.projectiles.push({ id: 'pr3', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 8, owner: e.id });
   T.run(0.5);
-  ok(ship.systems.engines === 'ok', 'Gegner ohne Systemziel: ungezielt, Wurf verfehlt');
-  // ohne Szenenschalter: nichts
-  Zs.szeneAn(g, false); e.zielsystem = 'antrieb';
-  ship.shields.current = [0, 0, 0, 0];
-  g.space.projectiles.push({ id: 'pr3', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 1, owner: e.id });
-  T.run(0.5);
-  ok(ship.systems.engines === 'ok', 'ohne Szenenschalter: dasselbe Geschoss lässt das Triebwerk heil');
+  ok(g.stats.zielsysteme.lerche === z0, 'ohne Szenenschalter: kein gezielter Treffer (Gegner zielen nur mit Schalter)');
 });
 
-section('Regel als Funktion: Einzelfälle (Verträge der Funktionen, unabhängig von den Haken)', () => {
+section('Regel als Funktion: gezielt nur für das gewählte Ziel', () => {
   const T = setup(); const g = T.g; const ship = g.ship;
   const qx = (e, rel) => [e.x + Math.cos(e.angle + rel) * 60, e.y + Math.sin(e.angle + rel) * 60];
-  // trifftGegner: nur Angriffe
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e);
-  ok(Zs.trifftGegner(g, e, ...qx(e, HECK), {}) === false && e.zs === undefined, 'trifftGegner ohne opts.angriff: kein Systemtreffer (Brocken, Mine, Zone)');
-  ok(Zs.trifftGegner(g, e, null, null, { angriff: true }) === false, 'trifftGegner ohne Trefferquelle: nichts');
-  // nur das gewählte Ziel: Systemziel auf A, Treffer auf B
-  const b = leer(g, 'korvette', 1800, 1300); b.angle = 0; b.scanned = true;
   ok(ship.target === e.id && ship.zielsystem === 'antrieb', 'Systemziel liegt am Ziel A');
-  ok(Zs.trifftGegner(g, b, ...qx(b, HECK), { angriff: true }) === false && b.zs === undefined, 'Treffer auf ein anderes Ziel B (kein Szenenschalter): das Systemziel gilt nur für das gewählte Ziel');
-  ok(Zs.trifftGegner(g, e, ...qx(e, HECK), { angriff: true }) === true && e.zs.antrieb.s === 1, 'Treffer auf das gewählte Ziel A: Antrieb beschädigt');
-  // gestellt (gehalten): weitere Treffer ändern nichts, auch die Frist wird nicht neu gesetzt
-  T.run(DATEN.treffer.wert.sperre_s + 0.1); Zs.trifftGegner(g, e, ...qx(e, HECK), { angriff: true });
-  Zs.halte(e, 'antrieb');
-  const s0 = e.zs.antrieb.s;
-  T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  Zs.trifftGegner(g, e, ...qx(e, HECK), { angriff: true });
-  ok(e.zs.antrieb.s === s0 && e.zs.antrieb.bis === null && e.zs.antrieb.gehalten === true, 'gehalten: ein weiterer Treffer gibt keine Erholungsfrist zurück');
-  // trifftLerche: nur durchschlagende Angriffe in Szenen mit Schalter, nur das Heck
-  Zs.szeneAn(g, true);
-  const k = (r, o) => Zs.trifftLerche(g, 2, r, o);
-  ship.systems.engines = 'ok'; require('../server/sim/interior.js').integritaetVoll(g); delete ship.zsAt;
-  ok(k({ rest: 0, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Hüllenschaden (Schild gefangen): Triebwerk heil');
-  ok(k({ rest: 5, systems: [] }, { zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne opts.angriff (Mine, Brocken): Triebwerk heil');
-  ok(Zs.trifftLerche(g, 0, { rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche am Bug: Triebwerk heil');
-  Zs.szeneAn(g, false);
-  ok(k({ rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'ok', 'trifftLerche ohne Szenenschalter: Triebwerk heil');
-  Zs.szeneAn(g, true);
-  ok(k({ rest: 5, systems: [] }, { angriff: true, zielt: 'antrieb' }) === true && ship.systems.engines === 'damaged', 'trifftLerche: durchschlagender gezielter Angriff am Heck: Triebwerk beschädigt');
-  T.run(DATEN.treffer.wert.sperre_s + 0.1);
-  ok(k({ rest: 5, systems: [{ system: 'engines', state: 'damaged', wechsel: true }] }, { angriff: true, zielt: 'antrieb' }) === false && ship.systems.engines === 'damaged', 'derselbe Treffer hat das Triebwerk schon geschädigt (Durchlass-Tabelle): keine zweite Stufe');
+  const b = leer(g, 'korvette', 1800, 1300); b.angle = 0; b.scanned = true;
+  treffer(g, b, HECK, anteil(b, 'antrieb', 0.45));
+  ok(b.tempoAn === undefined, 'Treffer auf ein anderes Ziel B (kein Szenenschalter): das Systemziel gilt nur für das gewählte Ziel');
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
+  ok(antriebZ(e) === 'damaged' && e.tempoAn === true, 'Treffer auf das gewählte Ziel A: Antrieb beschädigt');
+  // Ohne Ziel-Wahl der Ops: Systemtreffer des Ziels bleibt ein Zufall in der Zone
+  ok(Zs.gezielt(g, e) !== null && Zs.gezielt(g, b) === null, 'gezielt() liefert das Systemziel nur für das Ziel der Ops');
 });
 
 section('Gegenseite: Ladung der Gegner (Lanze) und Geschosse der Verbündeten tragen die Regel', () => {
@@ -414,116 +377,66 @@ section('Gegenseite: Ladung der Gegner (Lanze) und Geschosse der Verbündeten tr
   g.rng.chance = () => false; g.god = false;
   platz(g, 1500, 1100, 0);
   Zs.szeneAn(g, true);
-  // Die Lanze der Korvette sitzt am Steuerbord (Bogen 90°): sie steht hinter der Lerche und zeigt mit der Steuerbordseite auf sie (Bug nach oben)
   const e = space.spawnEnemy(g, 'korvette', { x: 1300, y: 1100, facing: -Math.PI / 2, tag: 'zs' });
-  e.zielsystem = 'antrieb'; e.vx = 0; e.vy = 0;
+  e.zielsystem = 'engines'; e.vx = 0; e.vy = 0;
   ship.shields.current = [0, 0, 0, 0];
   e.tele = { kind: 'shot', left: 0.02, dur: 2.2, sector: 2, delayed: 0 };
+  const integ0 = ship.integ.engines;
   T.run(0.2);
   ok(g.stats.heavyHits >= 1, 'die Ladung traf die Lerche (Voraussetzung des Tests)');
-  ok(ship.systems.engines === 'damaged', 'schwere Ladung eines Gegners mit Systemziel trifft das Heck: Triebwerk beschädigt');
-  // dieselbe Ladung ohne Szenenschalter: Triebwerk heil (der Durchlass-Wurf ist abgeschaltet)
+  ok(ship.integ.engines < integ0, 'schwere Ladung eines Gegners mit Systemziel trifft das Heck: Triebwerk getroffen (Integrität ' + integ0 + ' -> ' + ship.integ.engines.toFixed(1) + ')');
+  // dieselbe Ladung ohne Szenenschalter: Triebwerk heil
   const U = setup(); const h = U.g; h.rng.chance = () => false; h.god = false;
   platz(h, 1500, 1100, 0);
   const e2 = space.spawnEnemy(h, 'korvette', { x: 1300, y: 1100, facing: -Math.PI / 2, tag: 'zs' });
-  e2.zielsystem = 'antrieb'; e2.vx = 0; e2.vy = 0; h.ship.shields.current = [0, 0, 0, 0];
+  e2.zielsystem = 'engines'; e2.vx = 0; e2.vy = 0; h.ship.shields.current = [0, 0, 0, 0];
   e2.tele = { kind: 'shot', left: 0.02, dur: 2.2, sector: 2, delayed: 0 };
   U.run(0.2);
   ok(h.stats.heavyHits >= 1 && h.ship.systems.engines === 'ok', 'ohne Szenenschalter: dieselbe Ladung lässt das Triebwerk heil');
-  // Geschoss eines Verbündeten am Heck eines Gegners: ungezielt (Wurf), nur mit Szenenschalter
+  // Geschoss eines Verbündeten am Heck eines Gegners: nur mit Szenenschalter eine Tempo-Wirkung
   const V = setup(); const w = V.g; w.god = true;
   platz(w, 300, 300, 0);
   const z = space.spawnEnemy(w, 'korvette', { x: 1500, y: 1100, facing: 0, tag: 'zs' }); z.vx = 0; z.vy = 0; z.scanned = true;
-  const schuss = (id) => w.space.projectiles.push({ id, kind: 'ally', x: z.x - 30, y: z.y, angle: 0, speed: 60, ttl: 2, dmg: 3 });
+  const schuss = (id) => w.space.projectiles.push({ id, kind: 'ally', x: z.x - 30, y: z.y, angle: 0, speed: 60, ttl: 2, dmg: anteil(z, 'antrieb', 0.5) });
   w.rng.chance = () => true;
   schuss('pa0'); V.run(0.3);
-  ok(z.zs === undefined, 'Geschoss eines Verbündeten ohne Szenenschalter: kein Systemtreffer');
+  ok(z.tempoAn === undefined, 'Geschoss eines Verbündeten ohne Szenenschalter: keine Tempo-Wirkung');
   Zs.szeneAn(w, true);
   schuss('pa1'); V.run(0.3);
-  ok(z.zs && z.zs.antrieb.s === 1, 'Geschoss eines Verbündeten mit Szenenschalter am Heck: Antrieb beschädigt (ungezielt, Wurf gelungen)');
+  ok(antriebZ(z) !== 'ok' && z.tempoAn === true, 'Geschoss eines Verbündeten mit Szenenschalter am Heck: Antrieb beschädigt (Zufall in der Zone, Heck = Antrieb)');
 });
 
 section('Snapshot-Größe und Anzeige-Daten', () => {
   const T = setup({ np: 3 }); const g = T.g;
   const es = [];
   for (let i = 0; i < 4; i++) { const e = leer(g, 'korvette', 1200 + i * 150, 1000 + i * 80); e.angle = 0; e.scanned = true; es.push(e); }
-  g.ship.target = es[0].id; Zs.waehle(g, 'antrieb');
-  for (const e of es) { Zs.szeneAn(g, true); const gz = g.ship.zielsystem; g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(g, e, HECK, 3); g.ship.zielsystem = gz; }
+  g.ship.target = es[0].id; hinten(g, es[0]); Zs.waehle(g, 'antrieb');
+  Zs.szeneAn(g, true);
+  for (const e of es) { treffer(g, e, HECK, anteil(e, 'antrieb', 0.45)); }
   const eintraege = () => JSON.stringify(g.snapshot().space.enemies.filter((q) => es.some((e) => e.id === q.id))).length;
   const sz0 = JSON.stringify(g.snapshot().ship.zs || '').length;
   const s0 = eintraege() + sz0;
-  const zsAlt = es.map((e) => e.zs);
-  for (const e of es) delete e.zs;
+  const tAlt = es.map((e) => e.tempoAn);
+  for (const e of es) delete e.tempoAn;
   const s1 = eintraege();
   info(`Snapshot-Einträge von 4 beschädigten, gescannten Zielen samt Systemziel: ${s0} B, ohne Schaden: ${s1} B (Zusatz ${s0 - s1} B)`);
-  es.forEach((e, i) => { e.zs = zsAlt[i]; });
+  es.forEach((e, i) => { e.tempoAn = tAlt[i]; });
   ok(s0 - s1 <= 80, 'Zusatz ≤ 80 B für vier Ziele und das Systemziel (je gescanntem Ziel klein)');
-  const e = es[0]; e.scanned = false; Zs.szeneAn(g, true); g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(g, e, HECK, 3);
+  const e = es[0]; e.scanned = false; g.ship.zielsystem = 'antrieb'; g.ship.target = e.id; treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));
   ok(!('az' in g.snapshot().space.enemies.find((q) => q.id === e.id)), 'ungescanntes Ziel: kein az im Snapshot (der Schaden bleibt verborgen)');
 });
 
-section('Dauerfeuer auf dem ausgefallenen Antrieb verlängert die Frist nicht (Review A-S2)', () => {
+section('Dauerfeuer auf dem ausgefallenen Antrieb: der Zustand hält, keine Frist (C1b-1)', () => {
   const T = setup(); const g = T.g;
-  const S = DATEN.systeme.wert.antrieb.stufen;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0; stb(g, e); Testhilfe.setzeBudget(e, 5000);   // ein Ziel, das im Dauerfeuer nicht stirbt
   g.god = true; platz(g, 300, 300, 0);
   const sperre = DATEN.treffer.wert.sperre_s + 0.1;
-  treffer(g, e, HECK, 3); T.run(sperre); treffer(g, e, HECK, 3);
-  ok(e.zs.antrieb.s === 2, 'ausgefallen (Stufe 2) am Zeitpunkt t0');
-  const t0 = g.time, frist = S[2].erholung_s;
-  while (g.time < t0 + frist - 5) { treffer(g, e, HECK, 3); T.run(sperre); }
-  ok(e.zs && e.zs.antrieb.s === 2, `Dauerfeuer bis 5 s vor Ablauf der ${frist} s: weiter ausgefallen`);
-  T.run(t0 + frist + 0.5 - g.time);
-  ok(e.zs && e.zs.antrieb.s === 1, `Dauerfeuer endet, Frist läuft ab (nicht verlängert): ${frist + 0.5} s nach dem ersten Ausfall nur noch beschädigt`);
-  // ohne Daten-Flag (Standard aus) gilt das auch für eine gestellte Stufe: halte bleibt unberührt
-  ok(DATEN.treffer.wert.letzteStufeVerlaengert === false, 'Daten: letzteStufeVerlaengert ist aus (Standard)');
-});
-
-
-// Dauerfeuer ueber 100 s (Prueferbefund 1, Entscheidung des Leiters): der Ausfall haelt am Stueck hoechstens die Erholungszeit,
-// danach mindestens die Immunitaet fahrfaehig (mindestens beschaedigt-Tempo). Alle Grenzen stehen in den Daten, nicht im Code.
-function dauerfeuerLauf(modus) {
-  const T = setup(); const g = T.g; g.god = true; platz(g, 200, 200, 0);
-  let alt = null;
-  if (modus === 'kinematisch') { alt = CONFIG.spaceM3b.flightV2; CONFIG.spaceM3b.flightV2 = { arena: false, missions: false }; }
-  try {
-    const e = space.spawnEnemy(g, 'korvette', { x: 700, y: 1900, facing: 0, tag: 'dauer' });
-    e.fluchtZiel = { x: 2900, y: 1900 };   // faehrt weg, das Tempo ist messbar
-    Testhilfe.setzeBudget(e, 5000);                 // stirbt im Dauerfeuer nicht
-    e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
-    const S = DATEN.systeme.wert.antrieb.stufen, W = DATEN.treffer.wert;
-    const sperre = W.sperre_s + 0.1;
-    const laeufe = []; let lauf = null, naechster = 0, minF = 1, geschwindigkeiten = [];
-    for (let k = 0; k < Math.round(100 / DT); k++) {
-      if (g.time >= naechster) { treffer(g, e, HECK, 3); naechster = g.time + sperre; }
-      g.step();
-      const aus = Zs.ausgefallen(e, 'antrieb');
-      if (aus) {
-        if (!lauf) lauf = { von: g.time, bis: null, v3: null };
-        if (lauf.v3 == null && g.time - lauf.von >= 3) lauf.v3 = vel(e);
-      } else {
-        if (lauf) { lauf.bis = g.time; laeufe.push(lauf); lauf = null; }
-        minF = Math.min(minF, Zs.tempoFaktor(e));
-      }
-    }
-    if (lauf) { lauf.bis = g.time; laeufe.push(lauf); }
-    const gesamt = laeufe.reduce((s, l) => s + (l.bis - l.von), 0);
-    const laengster = Math.max(0, ...laeufe.map((l) => l.bis - l.von));
-    const luecken = laeufe.slice(1).map((l, i) => l.von - laeufe[i].bis);
-    const zyklus = W.immunitaet_s + S[2].erholung_s;
-    const grenze = (S[2].erholung_s + sperre) / zyklus;   // Stillstand je Zyklus: Erholung plus eine Sperre Schlupf; Zyklus: Erholung plus Immunitaet
-    ok(laeufe.length >= 2, `${modus}: Dauerfeuer ueber 100 s legt den Antrieb mehrfach lahm (${laeufe.length} Ausfaelle, nicht dauerhaft)`);
-    ok(laengster <= S[2].erholung_s + 2 * DT, `${modus}: kein Stillstand am Stueck laenger als die Erholung ${S[2].erholung_s} s (laengster ${laengster.toFixed(2)} s)`);
-    ok(gesamt / 100 <= grenze, `${modus}: Anteil der Zeit im Stillstand ${(gesamt).toFixed(1)} von 100 s (${(gesamt / 100).toFixed(3)}) <= Grenze ${grenze.toFixed(3)} (Erholung + Sperre je Zyklus aus den Daten)`);
-    ok(luecken.every((l) => l >= W.immunitaet_s - 2 * DT), `${modus}: zwischen zwei Ausfaellen liegen mindestens ${W.immunitaet_s} s fahrfaehig (kleinste Luecke ${Math.min(...luecken).toFixed(2)} s)`);
-    ok(minF >= S[1].faktor - 1e-9, `${modus}: fahrfaehig heisst mindestens beschaedigt-Tempo (kleinster Faktor ${minF})`);
-    ok(laeufe.every((l) => l.v3 == null || l.v3 < 1), `${modus}: im Stillstand steht das Schiff nach 3 s (Geschwindigkeit ${laeufe.map((l) => (l.v3 == null ? '-' : l.v3.toFixed(2))).join(', ')} px/s)`);
-    return { laeufe: laeufe.length, gesamt, grenze };
-  } finally { if (alt) CONFIG.spaceM3b.flightV2 = alt; }
-}
-section('Dauerfeuer ueber 100 s: Stillstand begrenzt, Immunitaet nach der Erholung (Pruefbefund 1)', () => {
-  for (const modus of ['pilot', 'kinematisch']) dauerfeuerLauf(modus);
-  ok(DATEN.treffer.wert.immunitaet_s === 10, 'Daten: Immunitaet nach der Erholung 10 s (Standard)');
+  treffer(g, e, HECK, anteil(e, 'antrieb', 0.45)); T.run(sperre); treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
+  T.run(sperre);
+  ok(antriebZ(e) === 'broken', 'ausgefallen am Zeitpunkt t0');
+  const t0 = g.time;
+  while (g.time < t0 + 100) { treffer(g, e, HECK, 3); T.run(sperre); }
+  ok(antriebZ(e) === 'broken' && Zs.tempoFaktor(e) === 0, '100 s Dauerfeuer: der Antrieb bleibt ausgefallen (keine Erholung, keine Lücke)');
 });
 
 console.log(`\ntest-zielsysteme: ${n - fails}/${n} ok`);

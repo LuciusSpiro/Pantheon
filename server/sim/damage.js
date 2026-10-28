@@ -69,7 +69,7 @@ function resolveHit(game, sector, dmg, opts) {
   }
   // 5. Trefferweg: Zone des Sektors, Mitte bei Durchschlag 'zone' oder bei leerer Zone (Integritätsabzug = Rest × Faktor)
   const zone = o.durchschlag === 'zone' ? -1 : sector;
-  const t = systemSchaden(game, out, zone, rest * (Number(M.schadenFaktor) || 1));   // t.wechsel: der Treffer hat den Zustand geändert (Zielsysteme prüfen das)
+  const t = systemSchaden(game, out, zone, rest * (Number(M.schadenFaktor) || 1), o.zielt ? { ziel: o.zielt, zugewandt: sector } : null);   // t.wechsel: der Treffer hat den Zustand geändert; t.gezielt: Systemziel (C1b-1, nur mit Schalter)
   if (!t) return out;
   const sysZone = interior.systemSector(t.system);
   // 6. Feuer nur bei Systemschaden (Zustandswechsel) in der Zone des getroffenen Systems; Lecks entfallen. (systemDamaged meldet damageSystem selbst.)
@@ -84,6 +84,7 @@ function systemSchaden(game, out, zone, schaden, opts) {
   const t = interior.trefferweg(game, zone, schaden, opts);
   if (!t) return null;
   out.systems.push(t);
+  if (t.gezielt) require('./zielsysteme.js').lercheGetroffen(game, t);   // C1b-1: Zähler und Ereignis des gezielten Systemtreffers
   game.missionEvent('systemHit', { system: t.system, state: t.state, zone: interior.systemSector(t.system) });
   if (Fracht.frachtraumTreffer(game, t.system)) Fracht.huellenTreffer(game);   // PAN-01 A: nur ein Treffer auf das Frachtraum-Modul löst Ladung
   rueckschlag(game, out, interior.systemSector(t.system));

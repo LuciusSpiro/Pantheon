@@ -16,6 +16,8 @@ const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
 const Verfolgung = require('../server/sim/verfolgung.js');
 const Zs = require('../server/sim/zielsysteme.js');
+const Gsys = require('../server/sim/gegnersystem.js');
+const ZW = require('../content/kampf/zielsysteme-werte.json').werte;   // C1b-1: Sperre der Zielsysteme (Daten)
 const Registry = require('../server/mission/registry.js');
 const Labor = require('../server/mission/labor.js');
 const Spielleiter = require('../server/mission/spielleiter.js');
@@ -104,7 +106,7 @@ section('Aufbau: Zielschiff, Fluchtpunkt, Zustand', () => {
   ok(Math.abs(dL - V.ziel.wert.startAbstand) < 30, `Zielschiff ${Math.round(dL)} px vor der Lerche (startAbstand ${V.ziel.wert.startAbstand})`);
   const a1 = Math.atan2(k.fluchtpunkt.y - 1100, k.fluchtpunkt.x - 600), a2 = Math.atan2(e.y - 1100, e.x - 600);
   ok(Math.abs(Math.atan2(Math.sin(a1 - a2), Math.cos(a1 - a2))) < 0.05, 'es steht auf der Linie Lerche – Fluchtpunkt (die Lerche verfolgt von hinten)');
-  ok(Zs.szeneAktiv(g) && e.zielsystem === 'antrieb', 'Szenenschalter zielsysteme an, das Zielschiff zielt auf den Antrieb (gleiche Regeln)');
+  ok(Zs.szeneAktiv(g) && e.zielsystem === 'antrieb' && Zs.lercheZiel(e.zielsystem) === 'engines', 'Szenenschalter zielsysteme an, das Zielschiff zielt auf den Antrieb und damit auf das Triebwerk der Lerche (engines, gleiche Regeln)');
   ok(g.space.enemies.length === 1 && Verfolgung.aktiv(g) && Verfolgung.ausgang(g) === null && !Verfolgung.erfolg(g), 'ein Gegner, aktiv, noch kein Ausgang');
   ok(T.me('verfolgungStart').length === 1 && T.odas.some((t) => /Falke dreht ab/.test(t)), 'missionEvent verfolgungStart und Ansage mit dem Namen');
   const U = raum(); const abgelehnt = Verfolgung.starten(U.g, { klasse: 'unsinn' });
@@ -174,11 +176,11 @@ section('Stellen: Antrieb ausschalten', () => {
   T.run(3);
   ok(hinterher(g, e, 250) === null, 'Ops: gescannt, Systemziel Antrieb gewählt');
   const v0 = vel(e);
-  treffer(g, e, HECK, 3);
+  treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb'));
   T.run(0.2);
   T.run(V.stellen.wert.zeit + 0.5);
-  ok(!Verfolgung.ausgang(g) && Zs.stufe(e, 'antrieb') === 1, 'Antrieb nur beschädigt: noch nicht gestellt');
-  T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 3);
+  ok(!Verfolgung.ausgang(g) && e.sys.antrieb.z === 'damaged', 'Antrieb nur beschädigt: noch nicht gestellt');
+  T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
   ok(Zs.ausgefallen(e, 'antrieb'), 'zweiter Treffer: Antrieb ausgefallen');
   platz(g, e.x - Math.cos(e.angle) * 250, e.y - Math.sin(e.angle) * 250, e.angle);
   T.run(3); const v1 = vel(e);
@@ -187,25 +189,26 @@ section('Stellen: Antrieb ausschalten', () => {
   const bleibt = T.run(V.stellen.wert.zeit + 2, () => Verfolgung.ausgang(g) === 'gestellt');
   ok(bleibt && Verfolgung.erfolg(g), 'Lerche nah (' + V.stellen.wert.radius + ' px) seit ' + V.stellen.wert.zeit + ' s: Ausgang gestellt (Erfolg)');
   ok(e.fluchtZiel === null && e.sprung === null, 'das gestellte Schiff flieht nicht mehr');
+  ok(e.gestellt === true && !Zs.reparaturErlaubt(e), 'gestellt: der Reparatur-Schalter ist aus (C2 prüft ihn)');
   ok(g.space.enemies.length === 1, 'das Schiff bleibt im Raum (die Szene kann zum Raumgefecht kippen)');
-  T.run(Zs.SYSTEME.antrieb.stufen[2].erholung_s + Zs.SYSTEME.antrieb.stufen[1].erholung_s + 5);
+  T.run(60);   // C1b-1: keine Erholung mehr (die Gegner-Reparatur kommt in C2)
   ok(Zs.ausgefallen(e, 'antrieb') && vel(e) < 1, 'der Antrieb bleibt aus (halte), das Schiff steht weiter');
   const ev = T.me('verfolgungAusgang');
   ok(ev.length === 1 && ev[0].was === 'gestellt' && T.odas.some((t) => /gestellt/.test(t)), 'missionEvent verfolgungAusgang (gestellt)');
 });
-function DATEN_SPERRE() { return Zs.TREFFER.sperre_s; }
+function DATEN_SPERRE() { return ZW.treffer.wert.sperre_s; }
 
-section('Stellen: zu weit weg oder Antrieb erholt sich', () => {
+section('Stellen: zu weit weg, der Antrieb bleibt ausgefallen (keine Erholung in C1b-1)', () => {
   const T = raum(); const g = T.g; platz(g, 600, 1100, 0);
   Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });
   const e = zielVon(g); T.run(2);
   hinterher(g, e, 200);
-  treffer(g, e, HECK, 3); T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 3);
+  treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb')); T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
   platz(g, 300, 300, 0);   // weit weg
   T.run(V.stellen.wert.zeit + 3);
   ok(Zs.ausgefallen(e, 'antrieb') && !Verfolgung.ausgang(g), 'Antrieb aus, aber die Lerche ist weit weg: nicht gestellt');
-  T.run(Zs.SYSTEME.antrieb.stufen[2].erholung_s);
-  ok(Zs.stufe(e, 'antrieb') === 1 && !Verfolgung.ausgang(g), 'nach der Erholungsfrist: nur noch beschädigt, die Flucht geht weiter');
+  T.run(60);
+  ok(Zs.ausgefallen(e, 'antrieb') && !Verfolgung.ausgang(g), 'ohne Reparatur bleibt der Antrieb aus: die Lerche kann später noch stellen (kein Erholungs-Timer)');
 });
 
 section('Sprungladung stören', () => {
@@ -235,11 +238,11 @@ section('Sprungladung stören', () => {
   // ausgefallener Antrieb hält die Ladung an
   const p = raum(); platz(p.g, 600, 1100, 0); Verfolgung.starten(p.g, { klasse: 'korvette', wiederholung: false });
   const e3 = zielVon(p.g); sprungStart(p); hinterher(p.g, e3, 900);
-  treffer(p.g, e3, HECK, 0.5); p.run(DATEN_SPERRE() + 0.2); treffer(p.g, e3, HECK, 0.5);
+  treffer(p.g, e3, HECK, 0.45 * Gsys.maxOf(e3, 'antrieb')); p.run(DATEN_SPERRE() + 0.2); treffer(p.g, e3, HECK, 0.6 * Gsys.maxOf(e3, 'antrieb'));
   const s1 = e3.sprung; p.run(3);
   ok(Zs.ausgefallen(e3, 'antrieb') && Math.abs(e3.sprung - s1) < 1e-6, 'ausgefallener Antrieb: die Sprungladung steht (pausiertBeiAusfall)');
-  p.run(Zs.SYSTEME.antrieb.stufen[2].erholung_s);
-  ok(e3.sprung > s1, 'nach der Erholung läuft die Ladung weiter');
+  p.run(60);
+  ok(Math.abs(e3.sprung - s1) < 1e-6, 'ohne Reparatur (C2) bleibt die Ladung stehen: kein Erholungs-Timer mehr (C1b-1)');
 });
 
 section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen', () => {
@@ -248,7 +251,7 @@ section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen',
   Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });
   const e = zielVon(g); T.run(2);
   hinterher(g, e, 250);
-  treffer(g, e, HECK, 3); T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 3);
+  treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb')); T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
   e.hp = e.hpMax = 9999;
   platz(g, e.x - Math.cos(e.angle) * 250, e.y - Math.sin(e.angle) * 250, e.angle);
   T.run(V.stellen.wert.zeit - 0.6);
@@ -256,9 +259,9 @@ section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen',
   T.run(1.5);
   ok(Verfolgung.ausgang(g) === 'gestellt', 'nach der Haltezeit gestellt');
   // nach dem Stellen erholt sich der Antrieb nie (der Lerche-Automat darf das Schiff nicht vorher zerstören: Hülle hoch gesetzt)
-  const S = Zs.SYSTEME.antrieb.stufen;
+  const S = [];
   platz(g, 300, 300, 0); delete g.ship.zielsystem; Zs.szeneAn(g, false);   // die Lerche schießt nicht weiter nach (neue Treffer würden die Frist ohnehin erneuern)
-  T.run(S[2].erholung_s + S[1].erholung_s + 5);
+  T.run(60);
   ok(g.space.enemies.includes(e) && Zs.ausgefallen(e, 'antrieb'), 'ein gestelltes Schiff bleibt ausgefallen, auch nach allen Erholungsfristen');
   // ein ausgefallener Antrieb am Fluchtpunkt startet die Ladung nicht
   const U = raum(); const h = U.g; platz(h, 600, 1100, 0);
@@ -267,7 +270,7 @@ section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen',
   z.scanned = true; h.ship.target = z.id; Zs.waehle(h, 'antrieb');
   const fp = h.space.verfolgung.fluchtpunkt;
   z.x = fp.x - 60; z.y = fp.y + 60; z.angle = Math.atan2(fp.y - z.y, fp.x - z.x);
-  treffer(h, z, HECK, 3); z.zs.antrieb.sp = 0; treffer(h, z, HECK, 3);   // beide Stufen im selben Tick, noch vor dem Ankunftstest
+  treffer(h, z, HECK, 0.45 * Gsys.maxOf(z, 'antrieb')); z.sys.antrieb.sp = null; treffer(h, z, HECK, 0.6 * Gsys.maxOf(z, 'antrieb'));   // beide Stufen im selben Tick, noch vor dem Ankunftstest (die Sperre ist hier aufgehoben)
   platz(h, 300, 300, 0);
   U.run(2);
   ok(Zs.ausgefallen(z, 'antrieb') && z.sprung == null, 'ausgefallener Antrieb im Ankunftsradius: die Sprungladung beginnt nicht');
@@ -298,7 +301,7 @@ section('Gleiche Regeln: das Zielschiff zielt auf den Antrieb der Lerche', () =>
   // das Zielschiff liegt hinter der Lerche und schießt auf ihr Heck
   e.x = 400; e.y = 1100; e.angle = 0; e.vx = 0; e.vy = 0; e.fluchtZiel = null;
   g.ship.shields.current = [0, 0, 0, 0];
-  g.space.projectiles.push({ id: 'prV', kind: 'enemy', x: 570, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 1, owner: e.id });
+  g.space.projectiles.push({ id: 'prV', kind: 'enemy', x: 570, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 8, owner: e.id });   // C1b-1: Integrität statt Stufe: Schaden 8 beschädigt das Triebwerk der Lerche (12 fällt aus)
   T.run(0.5);
   ok(g.ship.systems.engines === 'damaged', 'Treffer des Zielschiffs auf das Heck der Lerche: Triebwerk beschädigt (derselbe Regelweg wie gegen Gegner)');
 });
@@ -338,7 +341,8 @@ section('Katalog, Labor, Bausteine, Prüfer', () => {
   g.god = true;
   const e = zielVon(g);
   hinterher(g, e, 250);
-  treffer(g, e, HECK, 3); L.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 3);
+  Testhilfe.schildNull(e);   // C1b-1: die Fregatte hat Heckschilde, die Antriebstreffer sollen durch
+  treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb')); L.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
   platz(g, e.x - Math.cos(e.angle) * 250, e.y - Math.sin(e.angle) * 250, e.angle);
   L.run(V.stellen.wert.zeit + 4);
   const ms = g.mission.missions[g.labor.buch];
@@ -368,7 +372,7 @@ section('Snapshot-Größe', () => {
   Verfolgung.starten(g, { klasse: 'korvette', name: 'Falke' });
   const e = zielVon(g); e.scanned = true; g.ship.target = e.id; Zs.waehle(g, 'antrieb');
   const e0 = JSON.stringify(g.snapshot().space.enemies.find((q) => q.id === e.id)).length;
-  e.sprung = 3; e.sprungDauer = 12; treffer(g, e, HECK, 3);
+  e.sprung = 3; e.sprungDauer = 12; treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb'));
   const eintrag = JSON.stringify(g.snapshot().space.enemies.find((q) => q.id === e.id));
   const sn = g.snapshot();
   info(`Zielschiff-Eintrag: ${e0} B vor dem Sprung, ${eintrag.length} B mit sj, nm, az; space.vf ${JSON.stringify(sn.space.vf).length} B; ship.zs ${JSON.stringify(sn.ship.zs).length} B`);
@@ -484,7 +488,7 @@ section('Funkzeile an alle Stationen: Ausgang und Sprungstart aus den Daten (Rev
   Verfolgung.starten(W3.g, { klasse: 'korvette', name: 'Falke', wiederholung: false });
   const hw = horch(W3); const ew = zielVon(W3.g); W3.run(2);
   hinterher(W3.g, ew, 250);
-  treffer(W3.g, ew, HECK, 3); W3.run(Zs.TREFFER.sperre_s + 0.2); treffer(W3.g, ew, HECK, 3);
+  treffer(W3.g, ew, HECK, 0.45 * Gsys.maxOf(ew, 'antrieb')); W3.run(ZW.treffer.wert.sperre_s + 0.2); treffer(W3.g, ew, HECK, 0.6 * Gsys.maxOf(ew, 'antrieb'));
   platz(W3.g, ew.x - Math.cos(ew.angle) * 250, ew.y - Math.sin(ew.angle) * 250, ew.angle);
   W3.run(V.stellen.wert.zeit + 2.5);
   ok(Verfolgung.ausgang(W3.g) === 'gestellt' && funk(hw.a, erw('gestellt')) && funk(hw.b, erw('gestellt')), `Gestellt: Funkzeile „${erw('gestellt')}“ an beide Stationen`);

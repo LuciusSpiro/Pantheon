@@ -5,6 +5,10 @@
 // (die frühere Hülle: enemies.hp × crewScale.enemyHp × spaceM3.enemyHpFactor). e.hp ist die Summe der Integrität (abgeleitet, wird nie direkt
 // abgezogen). Ohne Modell (Störrelais `relay`) bleibt e.hp die alte Hülle.
 // Trefferweg: ein zufälliges, nicht zerstörtes System der Zone (game.rng); ist die Zone leer, geht der Treffer in die Mitte.
+// SYS-01 C1b-1 (Zielsysteme im Zonenmodell): gezielter Treffer = Wahl statt Zufall. Ist das Systemziel (gez = { id, zugewandt }) in der Zone des Treffers
+// und erreichbar (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone) und nicht zerstört, trifft der Treffer dieses System sicher.
+// Sperre (Daten zielsysteme-werte.json, systeme.<id>.sperre): zwischen zwei Zustandswechseln desselben Systems liegt sperre_s; der Zustand holt
+// verzögert nach (nachholen). Immunität (treffer.immunitaet_s) bremst eine Verschlechterung nach einer Reparatur (C2 setzt st.imm, reparaturFertig).
 // Wirkungen (nur Gegner mit Modell): Waffe zerstört = schießt nicht, beschädigt = Feuerintervall × taktBeschaedigt (der Takt der Waffenart: taktFaktor);
 // Emitter der Seite beschädigt = Schild-Obergrenze × emitterBeschaedigt, zerstört = Schild 0; Schildgenerator zerstört = alle Schilde 0,
 // beschädigt = Regeneration regenGeneratorBeschaedigt-mal so langsam; Reaktor zerstört = Countdown (SYS-01 C1a-2, sim/gegnertod.js), dann stirbt der Gegner. Antrieb und Module tragen nur den Zustand (C1b/C2).
@@ -19,6 +23,9 @@ const RANG = { ok: 0, damaged: 1, broken: 2 };
 const EPS = 1e-9;
 
 const summenCache = new Map();
+const ZW = require('../../content/kampf/zielsysteme-werte.json').werte;
+const SPERRE_S = ZW.treffer.wert.sperre_s;
+const IMMUN_S = ZW.treffer.wert.immunitaet_s;
 
 function systemeVon(kind) { const k = DATEN.klassen[kind]; return k ? k.systeme : null; }
 function defOf(kind, id) { const ds = systemeVon(kind); return ds ? ds.find((d) => d.id === id) || null : null; }
@@ -36,6 +43,22 @@ function ids(e) { return Object.keys(e.sys); }
 function artVon(e, id) { const d = defOf(e.kind, id); return d ? d.art : null; }
 function idVon(e, art) { return ids(e).find((id) => artVon(e, id) === art) || null; }
 function summe(e) { let v = 0; for (const id of ids(e)) v += e.sys[id].i; return v; }
+function frei(e, z) { return ids(e).filter((id) => defOf(e.kind, id).zone === z && e.sys[id].z !== 'broken'); }
+// Erreichbarkeit eines Systemziels (SYS-01 C1b-1): Zone der zugewandten Seite immer, Mitte erst wenn die zugewandte Zone keine nicht zerstörten Systeme mehr hat
+function erreichbar(e, id, zugewandt) {
+  if (!e.sys || !e.sys[id]) return false;
+  const z = defOf(e.kind, id).zone;
+  return z === zugewandt || (z === 'mitte' && !!zugewandt && frei(e, zugewandt).length === 0);
+}
+// Sperre und Immunität eines Systems (nur Systeme mit Regel in den Zielsysteme-Daten); gesperrt = Zustand darf sich jetzt nicht verschlechtern
+function regelVon(id) { return ZW.systeme.wert[id] || null; }
+function gesperrt(game, st, id) {
+  const now = game.time;
+  const reg = regelVon(id);
+  if (!reg) return false;
+  if (reg.sperre && st.sp != null && now < st.sp + SPERRE_S) return true;
+  return st.imm != null && now < st.imm;
+}
 
 // Anlegen beim Spawn: alle Systeme ok mit dem Maximum. e.hp wird die Summe (= Klassenbudget).
 function anlegen(e) {
@@ -67,21 +90,41 @@ function tot(e) {
 }
 
 // Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher } oder null.
-function treffen(game, e, zone, schaden) {
-  const frei = (z) => ids(e).filter((id) => defOf(e.kind, id).zone === z && e.sys[id].z !== 'broken');
+function treffen(game, e, zone, schaden, gez) {
   let zielZone = zone;
-  let kand = frei(zone);
-  if (!kand.length && zone !== 'mitte') { zielZone = 'mitte'; kand = frei('mitte'); }
+  let kand = frei(e, zone);
+  if (!kand.length && zone !== 'mitte') { zielZone = 'mitte'; kand = frei(e, 'mitte'); }
   if (!kand.length) return null;
-  const id = game.rng.pick(kand);
+  let id = null;
+  if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;
+  const gezielt = id !== null;
+  if (!gezielt) id = game.rng.pick(kand);
   const st = e.sys[id];
   st.i = Math.max(0, st.i - Math.max(0, Number(schaden) || 0));
+  e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
   const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
   const vorher = st.z;
-  if (RANG[z] > RANG[st.z]) st.z = z;
+  if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = z; st.sp = game.time; }
   e.hp = summe(e);
-  return { id, zone: zielZone, state: st.z, vorher };
+  return { id, zone: zielZone, state: st.z, vorher, gezielt };
 }
+// Verzögerte Zustandswechsel: der Zustand folgt der Integrität, sobald Sperre und Immunität frei sind (Zielsysteme.update, jeden Tick)
+function nachholen(game, e) {
+  if (!hat(e)) return;
+  for (const id of ids(e)) {
+    if (!regelVon(id)) continue;
+    const st = e.sys[id];
+    const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
+    if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = z; st.sp = game.time; }
+  }
+}
+// Reparatur aus dem Zustand zerstört (C2 ruft das): danach gilt die Immunität, in der ein Treffer den Zustand nicht wieder verschlechtert
+function reparaturFertig(game, e, id) {
+  const st = e.sys && e.sys[id];
+  if (st) st.imm = game.time + IMMUN_S;
+}
+// Reaktor zerstört (Verfolgung: die Sprungladung bricht ab)
+function reaktorZerstoert(e) { if (!hat(e)) return false; const r = idVon(e, 'reaktor'); return !!r && e.sys[r].z === 'broken'; }
 
 // Zustand einer Waffe (Platz) des Gegners: Waffen ohne Platz (raider, sentinel, pylon) haben ein System ohne platz.
 function waffeId(e, w) { return ids(e).find((id) => artVon(e, id) === 'waffe' && defOf(e.kind, id).platz === w.platz) || null; }
@@ -143,6 +186,7 @@ function zoneVonSegment(game, e, sec) {
 }
 
 module.exports = {
-  ZONEN, SEITE_ZONE, DATEN, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, summe, setzeAnteil,
+  ZONEN, SEITE_ZONE, DATEN, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
+  summe, setzeAnteil,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

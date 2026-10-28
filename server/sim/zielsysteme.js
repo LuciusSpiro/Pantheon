@@ -1,35 +1,21 @@
 'use strict';
-// SUND-04a-1 A: Gezielter Systemtreffer (Ops, Taktik) mit gleichen Regeln für beide Seiten. Alle Zahlen und Zielsysteme stehen in
-// content/kampf/zielsysteme-werte.json (V1: nur der Antrieb); dieses Modul kennt keinen Systemnamen im Code, nur die Wirkungsarten.
-//
-// Regel (gleich für beide Seiten): Ein Treffer, der den Schild des getroffenen Segments durchschlägt (Hüllenschaden > 0) UND die Hülle in der
-// Seite des Systems trifft (Antrieb: Heck), schädigt das System um eine Stufe. Wahrscheinlichkeit: gezielt 1, ungezielt 0,35 (Daten); zwischen zwei
-// Stufen eines Systems liegt eine Sperre (Salve).
-//   - Lerche -> Gegner (space.damageEnemy, Angriffe tragen opts.angriff): e.zs[system] = { s: Stufe, bis: Erholung, sp: Sperre, gehalten }.
-//     Fehlt e.zs, gilt der Normalzustand (voll): alle Haken sind dann ohne Wirkung und rechnen nicht (Golden Trace, Kampagnen unverändert).
-//     Gezielt = die Ops haben das System am Ziel gewählt (ship.zielsystem, Befehl weapons.systemziel).
-//   - Gegner -> Lerche (space.shipHit): schädigt das bestehende System der Lerche (ship.systems, interior.damageSystem), nichts Paralleles.
-//     Gezielt = der Schütze hat das System als Ziel (e.zielsystem).
-// Aktiv: auf der Seite der Lerche gegen Gegner sobald die Ops ein Systemziel gewählt haben ODER die Szene den Schalter hat (space.zielsysteme);
-// gegen die Lerche nur mit Schalter. Wirkungsarten: 'tempo' (Faktor auf die Fahrt: tempoFaktor, Haken in space.moveLegacy, pilot.fly, konvoi.steuern).
-// Erholung nach Zeit (Daten), ein gestelltes Schiff bleibt aus (halte).
+// SYS-01 C1b-1 „Zielsysteme im Zonenmodell“ (Ersatz für SUND-04a-1 A, das Parallelmodell e.zs entfällt): dünner Aufsatz über dem Systemmodell.
+//   - Wahl: die Ops wählen am gescannten Gegner eine System-Id aus e.sys (weapons.systemziel, ship.zielsystem). Wirkung am Treffer: gegnersystem.treffen
+//     (Gegner) bzw. interior.trefferweg (Lerche): Ist das Ziel in der Zone des Treffers und erreichbar, trifft der Treffer es sicher, sonst der Zufall in der Zone.
+//   - Erreichbar = Zone der zugewandten Seite; Mitte nur, wenn die zugewandte Zone keine nicht zerstörten Systeme mehr hat (zugewandteZone, Gsys.erreichbar).
+//   - Gegner gegen die Lerche: e.zielsystem = Id eines Lerchensystems (SYSTEMS_INTEG). Wirkt nur mit Szenenschalter (space.zielsysteme, Verfolgung).
+//   - Tempo: der Antrieb (e.sys.antrieb) senkt die Fahrt (tempoFaktor, Faktoren aus den Daten). Ohne e.tempoAn (kein Schalter, kein gezielter Treffer) genau 1.
+//   - halte(e) setzt e.gestellt; die Reparatur bleibt aus (reparaturErlaubt, C2).
+// Alle Zahlen in content/kampf/zielsysteme-werte.json; Sperre und Immunität der Systeme leben in gegnersystem.js (nachholen, reparaturFertig).
+const Protocol = require('../../shared/protocol.js');
 const Schilde = require('../../shared/schilde.js');
 const Physics = require('../../shared/physics.js');
-const Protocol = require('../../shared/protocol.js');
+const Gsys = require('./gegnersystem.js');
 const W = require('../../content/kampf/zielsysteme-werte.json').werte;
 
 const SYSTEME = W.systeme.wert;
-const TREFFER = W.treffer.wert;
 const SCHALTER = W.szene.wert.schalter;
-const SEITEN = Schilde.SEITEN;
-
-let interiorMod = null;   // lazy (Zirkelbezug space -> zielsysteme -> interior)
-const interior = () => interiorMod || (interiorMod = require('./interior.js'));
-
-const ids = () => Object.keys(SYSTEME);
-const system = (id) => SYSTEME[id] || null;
-const seiteIndex = (sys) => SEITEN.indexOf(sys.seite);
-const enemyOf = (game) => (game.ship.target == null ? null : game.space.enemies.find((e) => e.id === game.ship.target) || null);
+const ZUSTAND = ['ok', 'damaged', 'broken'];   // Reihenfolge der Stufen in den Daten
 
 // ---------- Szenenschalter ----------
 function szeneAn(game, an) {
@@ -37,30 +23,28 @@ function szeneAn(game, an) {
 }
 function szeneAktiv(game) { return !!(game.space && game.space[SCHALTER] === true); }
 
-// ---------- Zustand am Gegner ----------
-function stufe(e, id) { return e && e.zs && e.zs[id] ? e.zs[id].s : 0; }
-function stufeDaten(id, s) { const sys = SYSTEME[id]; return sys ? sys.stufen[Math.min(s, sys.stufen.length - 1)] : null; }
-function maxStufe(id) { const sys = SYSTEME[id]; return sys ? sys.stufen.length - 1 : 0; }
-function ausgefallen(e, id) { return stufe(e, id) >= maxStufe(id) && stufe(e, id) > 0; }
-// Fahrtfaktor (0..1) aus allen Systemen mit Wirkung 'tempo'. Ohne e.zs genau 1.
+// ---------- Tempo und Zustand ----------
+// Fahrtfaktor (0..1) aus den Systemen mit Wirkung 'tempo' im Zustand des Gegners. Ohne e.tempoAn genau 1 (Golden, Kampagnen ohne Zielsystem).
 function tempoFaktor(e) {
-  if (!e || !e.zs) return 1;
+  if (!e || !e.sys || !e.tempoAn) return 1;
   let f = 1;
-  for (const id of Object.keys(e.zs)) {
+  for (const id of Object.keys(SYSTEME)) {
     const sys = SYSTEME[id];
-    if (!sys || sys.wirkung !== 'tempo') continue;
-    const d = stufeDaten(id, e.zs[id].s);
+    if (sys.wirkung !== 'tempo' || !e.sys[id]) continue;
+    const d = sys.stufen[ZUSTAND.indexOf(e.sys[id].z)];
     if (d && d.faktor != null) f *= d.faktor;
   }
   return f;
 }
-// Ein gestelltes Schiff bleibt aus: keine Erholung mehr
-function halte(e, id) { if (e && e.zs && e.zs[id]) { e.zs[id].gehalten = true; e.zs[id].bis = null; } }
-function zuruecksetzen(e) { if (e && e.zs) delete e.zs; }
+// Das System ist ausgefallen (zerstört): Verfolgung stellt das Schiff über den Antrieb
+function ausgefallen(e, id) { return !!(e && e.sys && e.sys[id] && e.sys[id].z === 'broken'); }
+// Ein Gegner wird vom Schalter oder einem gezielten Treffer gespürt (Tempo, Snapshot)
+function merke(game, e, gezielt) { if (e && (gezielt || szeneAktiv(game))) e.tempoAn = true; }
+// Gestellt (Verfolgung): der Schalter bleibt aus, die Reparatur (C2) prüft reparaturErlaubt
+function halte(e) { if (e) e.gestellt = true; }
+function reparaturErlaubt(e) { return !(e && e.gestellt); }
 
-// Zähler für Bots und Messung (game.stats.zielsysteme): gegner = Stufen, die Gegner verloren haben; lerche = Stufen der Lerche
-function stats(game) { return game.stats.zielsysteme || (game.stats.zielsysteme = { gegner: 0, lerche: 0 }); }
-
+// ---------- Zonen und Erreichbarkeit ----------
 // Seite (0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord), in der ein Treffer aus (sx, sy) das Schiff e trifft: über das Segment der Klasse, sonst über den Sektor
 function seiteGetroffen(game, e, sx, sy) {
   const lay = Schilde.layout(game.C, e.kind);
@@ -70,153 +54,110 @@ function seiteGetroffen(game, e, sx, sy) {
   }
   return Physics.sectorOf(e.x, e.y, e.angle, sx, sy);
 }
-function wuerfeln(game, p) { return p >= 1 ? true : p > 0 && game.rng.chance(p); }
-
-// ---------- Lerche -> Gegner (Aufruf: space.damageEnemy nach einem Hüllentreffer, nur für Angriffe) ----------
-function trifftGegner(game, e, sx, sy, opts) {
-  if (!e || sx == null || !(opts && opts.angriff)) return false;
-  const gewaehlt = !opts.ally && game.ship.target === e.id ? game.ship.zielsystem || null : null;
-  const szene = szeneAktiv(game);
-  let getroffen = false;
-  for (const id of ids()) {
-    const sys = SYSTEME[id];
-    if (!sys.klassen.includes(e.kind)) continue;
-    const gezielt = gewaehlt === id;
-    if (!szene && !gezielt) continue;
-    if (seiteGetroffen(game, e, sx, sy) !== seiteIndex(sys)) continue;
-    if (!wuerfeln(game, gezielt ? TREFFER.wahrscheinlichkeit.gezielt : TREFFER.wahrscheinlichkeit.ungezielt)) continue;
-    if (schaedige(game, e, id)) getroffen = true;
-  }
-  return getroffen;
-}
-// Eine Stufe weiter (mit Sperre). Auf der letzten Stufe verlängert ein weiterer Treffer die Erholungsfrist nur, wenn die Daten es verlangen
-// (treffer.letzteStufeVerlaengert, Standard aus): Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist.
-function schaedige(game, e, id) {
-  const sys = SYSTEME[id];
-  const z = e.zs || (e.zs = {});
-  const cur = z[id] || (z[id] = { s: 0, bis: null, sp: 0 });
-  if (cur.gehalten || game.time < cur.sp) return false;
-  // Immunitaet nach der Erholung von der letzten Stufe (Daten treffer.immunitaet_s): in dieser Frist steigert ein weiterer Treffer die Stufe nicht.
-  // Dauerfeuer legt einen Gegner so hoechstens die Erholungszeit des Ausfalls lahm und laesst ihn danach die Immunitaet fahrfaehig.
-  if (cur.imm != null && game.time < cur.imm) return false;
-  const letzte = maxStufe(id);
-  if (cur.s >= letzte) {
-    if (TREFFER.letzteStufeVerlaengert) { const d = stufeDaten(id, cur.s); cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null; }
-    cur.sp = game.time + TREFFER.sperre_s;
-    return false;
-  }
-  cur.s++;
-  cur.sp = game.time + TREFFER.sperre_s;
-  const d = stufeDaten(id, cur.s);
-  cur.bis = d.erholung_s != null ? game.time + d.erholung_s : null;
-  game.emit('sfx', { name: cur.s >= letzte ? 'system_break' : 'hull_hit' });
-  if (e.scanned) game.oda(`${sys.name} des Ziels ${d.name}.`, null);
-  stats(game).gegner++;
-  game.missionEvent('zielsystemGetroffen', { enemy: e, system: id, stufe: cur.s, seite: 'gegner' });
-  return true;
-}
-
-// ---------- Gegner -> Lerche (Aufruf: space.shipHit nach der Trefferauflösung, nur für Angriffe) ----------
-// sector: getroffener Sektor der Lerche (0 Bug … 3 Backbord), r: Ergebnis von damage.resolveHit (rest = Schaden am Schild vorbei, systems), opts.zielt = Zielsystem des Schützen
-function trifftLerche(game, sector, r, opts) {
-  if (!(opts && opts.angriff) || !szeneAktiv(game) || !r || !(Number(r.rest) > 0)) return false;
-  const ship = game.ship;
-  let getroffen = false;
-  for (const id of ids()) {
-    const sys = SYSTEME[id];
-    if (!sys.lerche || ship.systems[sys.lerche] == null || sector !== seiteIndex(sys)) continue;
-    if ((r.systems || []).some((x) => x.system === sys.lerche && x.wechsel)) continue;   // derselbe Treffer hat das System schon geschädigt (Zustandswechsel)
-    const sp = ship.zsAt || (ship.zsAt = {});
-    if (game.time < (sp[id] != null ? sp[id] : -1e9) + TREFFER.sperre_s) continue;
-    const gezielt = opts.zielt === id;
-    if (!wuerfeln(game, gezielt ? TREFFER.wahrscheinlichkeit.gezielt : TREFFER.wahrscheinlichkeit.ungezielt)) continue;
-    sp[id] = game.time;
-    interior().damageSystem(game, sys.lerche);
-    require('./damage.js').rueckschlag(game, r, sector);   // SYS-01 A1b: der Zielsystem-Treffer löst den Rückschlag der Zone aus, höchstens einmal je Treffer
-    stats(game).lerche++;
-    game.missionEvent('zielsystemGetroffen', { system: id, stufe: ship.systems[sys.lerche], seite: 'lerche' });
-    getroffen = true;
-  }
-  return getroffen;
-}
-
-// ---------- Erholung (Aufruf: space.update, nach updateEnemies) ----------
-function update(game) {
-  for (const e of game.space.enemies) {
-    if (!e.zs) continue;
-    for (const id of Object.keys(e.zs)) {
-      const cur = e.zs[id];
-      if (cur.bis == null || game.time < cur.bis) continue;
-      const war = cur.s;
-      cur.s--;
-      if (cur.s <= 0) { delete e.zs[id]; continue; }
-      if (war >= maxStufe(id)) cur.imm = game.time + TREFFER.immunitaet_s;   // Erholung von der letzten Stufe: Immunitaetsfrist beginnt
-      const d = stufeDaten(id, cur.s);
-      cur.bis = d && d.erholung_s != null ? game.time + d.erholung_s : null;
-    }
-    if (!Object.keys(e.zs).length) delete e.zs;
-  }
+// Zone der Seite des Gegners, die zur Lerche zeigt (Geometrie wie der Schildsektor des Treffers)
+function zugewandteZone(game, e) { return Gsys.SEITE_ZONE[seiteGetroffen(game, e, game.ship.x, game.ship.y)] || null; }
+// Systemziel der Ops gegen dieses Ziel als { id, zugewandt } (Treffer prüft Zone und Erreichbarkeit erneut)
+function gezielt(game, e) {
+  const id = game.ship.zielsystem;
+  if (!id || !e || game.ship.target !== e.id || !e.sys || !e.sys[id]) return null;
+  return { id, zugewandt: zugewandteZone(game, e) };
 }
 
 // ---------- Systemziel der Ops (Befehl weapons.systemziel { id | null }) ----------
+// id: jede System-Id des gescannten Ziels (e.sys). Erreichbarkeit wird schon bei der Wahl geprüft und bei jedem Treffer erneut.
+function enemyOf(game) { return game.ship.target == null ? null : game.space.enemies.find((e) => e.id === game.ship.target) || null; }
 function waehle(game, id) {
   const ship = game.ship;
   if (id == null || id === '') { delete ship.zielsystem; return null; }
-  const sys = SYSTEME[id];
-  if (!sys) return 'Unbekanntes Systemziel.';
   const e = enemyOf(game);
   if (!e) return 'Erst ein Ziel wählen (T oder anklicken).';
   if (!e.scanned) return 'Erst das Ziel scannen (S halten).';
-  if (!sys.klassen.includes(e.kind)) return `Dieses Ziel hat keinen ${sys.name} zum Anvisieren.`;
+  if (!Gsys.hat(e) || !e.sys[id]) return 'Dieses Ziel hat kein solches System zum Anvisieren.';
+  if (!Gsys.erreichbar(e, id, zugewandteZone(game, e))) return 'Von hier nicht erreichbar – erst die Seite öffnen, zu der das System gehört.';
   ship.zielsystem = id;
   return null;
 }
-function waehlbar(game, e) { return ids().filter((id) => e && e.scanned && SYSTEME[id].klassen.includes(e.kind)); }
+// Wählbare System-Ids eines gescannten Ziels (Erreichbarkeit wie bei der Wahl)
+function waehlbar(game, e) {
+  if (!e || !e.scanned || !Gsys.hat(e)) return [];
+  const zug = zugewandteZone(game, e);
+  return Gsys.ids(e).filter((id) => Gsys.erreichbar(e, id, zug));
+}
 
-// ---------- Snapshot (nur gescannte Ziele mit Schaden) ----------
-// Feld je System (Daten, Antrieb: az) = Stufe (1 beschädigt, 2 ausgefallen); fehlt = voll; ag = 1: gestellt (nur mit az)
-function snapExtra(e) {
-  if (!e || !e.zs || !e.scanned) return null;
-  let o = null;
-  for (const id of Object.keys(e.zs)) {
-    const sys = SYSTEME[id]; const z = e.zs[id];
-    if (sys && sys.feld && z.s > 0) (o || (o = {}))[sys.feld] = z.s;
-  }
-  if (o && Object.keys(e.zs).some((id) => e.zs[id].gehalten)) o.ag = 1;   // gestellt (Verfolgung): der Ausfall bleibt, am Ziel steht GESTELLT (Review D-M2)
-  return o;
+// ---------- Treffer-Auswertung (Aufruf aus space.trefferSystem und damage.systemSchaden) ----------
+// Zähler für Bots und Messung (game.stats.zielsysteme): gegner = gezielte Zustandswechsel an Gegnern, lerche = gezielte Systemtreffer auf die Lerche
+function stats(game) { return game.stats.zielsysteme || (game.stats.zielsysteme = { gegner: 0, lerche: 0 }); }
+const ZUST_TEXT = { damaged: 'beschädigt', broken: 'zerstört' };
+function gegnerGetroffen(game, e, t) {
+  stats(game).gegner++;
+  game.emit('sfx', { name: t.state === 'broken' ? 'system_break' : 'hull_hit' });
+  if (e.scanned) game.oda(`${(SYSTEME[t.id] && SYSTEME[t.id].name) || t.id} des Ziels ${ZUST_TEXT[t.state] || t.state}.`, null);
+  game.missionEvent('zielsystemGetroffen', { enemy: e, system: t.id, stufe: t.state, seite: 'gegner' });
+}
+function lercheGetroffen(game, t) {
+  stats(game).lerche++;
+  game.missionEvent('zielsystemGetroffen', { system: t.system, stufe: t.state, seite: 'lerche' });
+}
+
+// ---------- Tick (space.update) ----------
+// Verzögerte Zustandswechsel der Gegner (Sperre) holen nach
+function update(game) {
+  for (const e of game.space.enemies) if (e.sys) Gsys.nachholen(game, e);
 }
 
 // ---------- Gegnerziel gegen die Lerche (Snapshot ship.zielAuf) ----------
-// SYS-01 A1c: Index des Lerche-Systems in Protocol.SYSTEMS_INTEG, auf das ein Gegner gezielt anlegt (-1 = niemand). Der Eintrag der Zielsysteme-Werte (`lerche`) sagt,
-// welches System der Lerche gemeint ist; ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also zeigt die Technik auch nichts. Mehrere Gegner: der zuletzt
-// erschienene (letzter in space.enemies) gewinnt.
+// e.zielsystem ist die Id des Zielsystems (Daten: systeme.<id>.lerche = System der Lerche); ohne Eintrag gilt die Id selbst (ein Lerchensystem)
+function lercheZiel(id) { const s = id ? SYSTEME[id] : null; return s && s.lerche ? s.lerche : (id || null); }
+// Index des Lerche-Systems in Protocol.SYSTEMS_INTEG, auf das ein Gegner zielt (-1 = niemand). Ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also zeigt die Technik auch nichts.
 function zielAuf(game) {
   if (!szeneAktiv(game)) return -1;
   const list = (game.space && game.space.enemies) || [];
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
-    const sys = e && !e.ally && e.zielsystem ? SYSTEME[e.zielsystem] : null;
-    const idx = sys && sys.lerche ? Protocol.SYSTEMS_INTEG.indexOf(sys.lerche) : -1;
+    const idx = e && !e.ally && e.zielsystem ? Protocol.SYSTEMS_INTEG.indexOf(lercheZiel(e.zielsystem)) : -1;
     if (idx >= 0) return idx;
   }
   return -1;
+}
+
+// ---------- Snapshot (gescanntes Ziel) ----------
+// az = Antriebsstufe (1 beschädigt, 2 ausgefallen), nur wenn der Antrieb wirkt (e.tempoAn); ag = 1: gestellt
+function snapExtra(e) {
+  if (!e || !e.scanned || !e.sys) return null;
+  let o = null;
+  const a = e.sys.antrieb;
+  if (a && e.tempoAn && a.z !== 'ok') o = { az: a.z === 'broken' ? 2 : 1 };
+  if (e.gestellt) (o || (o = {})).ag = 1;
+  return o;
 }
 
 // ---------- Debug: zielsysteme [an|aus|frei|treffer [n] [system]] ----------
 function debug(game, args) {
   const a = Array.isArray(args) ? args.map(String) : [];
   if (a[0] === 'aus') { szeneAn(game, false); return null; }
-  if (a[0] === 'frei') { for (const e of game.space.enemies) zuruecksetzen(e); return null; }
-  if (a[0] === 'treffer') {   // n Stufen am gewählten Ziel (ohne Sperre, Sichtprüfung und Tests)
-    const e = enemyOf(game); const id = SYSTEME[a[2]] ? a[2] : ids()[0];
-    if (!e) return 'Erst ein Ziel wählen.';
-    if (!SYSTEME[id].klassen.includes(e.kind)) return `Dieses Ziel hat keinen ${SYSTEME[id].name}.`;
-    for (let i = 0; i < Math.max(1, Math.min(maxStufe(id), Number(a[1]) || 1)); i++) { if (e.zs && e.zs[id]) e.zs[id].sp = 0; schaedige(game, e, id); }
+  if (a[0] === 'frei') {   // Zustände zurück auf voll, Tempo und gestellt aus
+    for (const e of game.space.enemies) {
+      if (!Gsys.hat(e)) continue;
+      for (const id of Gsys.ids(e)) { e.sys[id].i = Gsys.maxOf(e, id); e.sys[id].z = 'ok'; delete e.sys[id].sp; delete e.sys[id].imm; }
+      e.hp = Gsys.summe(e); delete e.tempoAn; delete e.gestellt;
+    }
+    return null;
+  }
+  if (a[0] === 'treffer') {   // n Treffer (je halbe Integrität des Systems) auf das gewählte System; ohne Sperre, Sichtprüfung und Tests
+    const e = enemyOf(game); const id = a[2] && e && e.sys && e.sys[a[2]] ? a[2] : Object.keys(SYSTEME)[0];   // Standard: das erste Zielsystem der Daten
+    if (!e || !Gsys.hat(e) || !e.sys[id]) return 'Erst ein Ziel wählen.';
+    const zone = Gsys.defOf(e.kind, id).zone;
+    for (let i = 0; i < Math.max(1, Math.min(4, Number(a[1]) || 1)); i++) {
+      e.sys[id].sp = null;
+      const t = Gsys.treffen(game, e, zone, Gsys.maxOf(e, id) / 2, { id, zugewandt: zone });
+      merke(game, e, true);
+      if (t && t.gezielt && t.state !== t.vorher) gegnerGetroffen(game, e, t);
+    }
     return null;
   }
   szeneAn(game, true);
   return null;
 }
 
-module.exports = { SYSTEME, TREFFER, SCHALTER, ids, system, szeneAn, szeneAktiv, stufe, stufeDaten, maxStufe, ausgefallen, tempoFaktor, halte, zuruecksetzen,
-  trifftGegner, trifftLerche, schaedige, update, waehle, waehlbar, snapExtra, zielAuf, debug, seiteGetroffen };
+module.exports = { SYSTEME, SCHALTER, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, merke, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
+  waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, snapExtra, debug };

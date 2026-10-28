@@ -1,7 +1,7 @@
 'use strict';
 // SUND-04a-1 A: Szenentyp A6 Verfolgung. Ein Zielschiff (Klasse, Volk, Name als Parameter) flieht Richtung Fluchtpunkt und lädt dort den Sprung auf; die Crew
-// muss es STELLEN, bevor die Ladung fertig ist: den Antrieb ausschalten (gezielter Systemtreffer, zielsysteme.js) oder die Sprungladung stören (Hüllentreffer
-// verzögern sie). Ausgänge: 'gestellt' (Antrieb ausgefallen und die Lerche seit stellen.zeit s im stellen.radius) | 'zerstoert' | 'entkommen' (Sprung fertig;
+// muss es STELLEN, bevor die Ladung fertig ist: den Antrieb ausschalten (Systemtreffer am Heck, zielsysteme.js) oder die Sprungladung stören (jeder Systemtreffer
+// verzögert sie). Der zerstörte Reaktor bricht die Ladung ab; der Ausgang zerstoert kommt erst mit dem Ablauf des Reaktor-Countdowns (C1b-1). Ausgänge: 'gestellt' (Antrieb ausgefallen und die Lerche seit stellen.zeit s im stellen.radius) | 'zerstoert' | 'entkommen' (Sprung fertig;
 // bei wiederholung kommt nach neuNach s ein neues Zielschiff). Alle Zahlen in content/kampf/verfolgung-werte.json.
 //
 // Das Zielschiff ist ein gewöhnlicher Gegner in space.enemies mit e.fluchtZiel = { x, y } (neues KI-Verhalten in BEIDEN Flugmodellen: Pilot in pilot.js und
@@ -9,7 +9,7 @@
 // Gegner. e.sprung = Fortschritt der Sprungladung (s), e.sprungDauer = Gesamtdauer; der Snapshot trägt sj (Ring wie beim Konvoi) und nm (Name).
 //
 // Zustand (nur im Raum, je Szene neu): game.space.verfolgung = null | { ziel, klasse, volk, name, tempo, wiederholung, fluchtpunkt { x, y, virtuell },
-//   ausgang, szene, versuch, verz, hpLast, stellT, neuAt, ansagt }.
+//   ausgang, szene, versuch, verz, trLast, stellT, neuAt, ansagt }.
 //
 // FADEN-SCHNITTSTELLE (Paket B / SUND-04a-2): die Szene ist unabhängig vom Labor-Pfad aufrufbar. starten(game, { klasse, volk, name, tempo, wiederholung,
 // fluchtpunkt? }) legt Zielschiff und Zustand im aktuellen Ort an (der Ort ist der Ort der Lerche: vorher space.enterScene bzw. Reise), ausgang(game) liefert
@@ -18,6 +18,7 @@
 // Haken in space.js: moveLegacy (fluchtZiel, legacyTempo), update (update), enemySnapExtra (snapExtra); pilot.js: update/fly (flucht).
 const Sektoren = require('../../shared/sektoren.js');
 const Zielsysteme = require('./zielsysteme.js');
+const Gsys = require('./gegnersystem.js');
 const W = require('../../content/kampf/verfolgung-werte.json').werte;
 
 const ZIEL = W.ziel.wert, FLUCHT = W.flucht.wert, SPRUNG = W.sprung.wert, STELLEN = W.stellen.wert, FP = W.fluchtpunkt.wert, GEGNER = W.gegner.wert,
@@ -96,7 +97,7 @@ function starten(game, o) {
     ? { x: Math.round(q.fluchtpunkt.x), y: Math.round(q.fluchtpunkt.y), virtuell: !!q.fluchtpunkt.virtuell } : fluchtpunktWaehlen(game);
   const tempo = q.tempo != null ? clamp(Number(q.tempo) || FLUCHT.tempo, FLUCHT.tempoMin, FLUCHT.tempoMax) : null;
   game.space.verfolgung = { ziel: null, klasse, volk: q.volk || null, name: q.name ? String(q.name).slice(0, 20) : null, tempo, wiederholung: q.wiederholung === true,
-    fluchtpunkt: fpV, ausgang: null, szene: game.ship.scene, versuch: 1, verz: 0, hpLast: 0, stellT: 0, neuAt: null, ansagt: [] };
+    fluchtpunkt: fpV, ausgang: null, szene: game.ship.scene, versuch: 1, verz: 0, trLast: 0, stellT: 0, neuAt: null, ansagt: [] };
   stats(game).starts++;
   Zielsysteme.szeneAn(game, true);   // beide Seiten gleiche Regeln: gezielte und ungezielte Systemtreffer in dieser Szene
   spawnen(game);
@@ -112,9 +113,9 @@ function spawnen(game) {
   e.fluchtZiel = { x: fp.x, y: fp.y };
   if (k.tempo != null) e.fluchtTempo = k.tempo;
   if (k.name) e.name = k.name;
-  if (GEGNER.zielenAufAntrieb) e.zielsystem = SYSTEM_ZIEL;
+  if (GEGNER.zielenAufAntrieb) e.zielsystem = SYSTEM_ZIEL;   // Zielsystem des Gegners (Daten: lerche = engines): der Schütze trifft das Heck der Lerche gezielt
   e.sprung = null;
-  k.ziel = e.id; k.ausgang = null; k.verz = 0; k.hpLast = e.hp; k.stellT = 0; k.neuAt = null; k.ansagt = []; k.t0 = game.time;
+  k.ziel = e.id; k.ausgang = null; k.verz = 0; k.trLast = e.sysTreffer || 0; k.stellT = 0; k.neuAt = null; k.ansagt = []; k.t0 = game.time;
   game.oda(`${labelVon(k, e)} dreht ab und flieht${fp.virtuell ? '' : ' zum Sprungpunkt'}! Antrieb treffen, bevor die Sprungladung fertig ist.`, null);
   game.missionEvent('verfolgungStart', { enemy: e, klasse: k.klasse, name: k.name, versuch: k.versuch });
   return e;
@@ -145,18 +146,22 @@ function update(game, dt) {
   if (!e) { setzeAusgang(game, k, 'zerstoert'); return; }
   const L = game.ship; const fp = k.fluchtpunkt;
   const aus = Zielsysteme.ausgefallen(e, SYSTEM_ZIEL);
+  // Reaktor zerstört (C1b-1): die Sprungladung bricht ab, der Countdown läuft weiter; ohne Reaktor kein neuer Ladeversuch
+  const reaktorAus = Gsys.reaktorZerstoert(e);
+  if (reaktorAus && e.sprung != null) { e.sprung = null; k.verz = 0; }
   // Ankunft am Fluchtpunkt: die Sprungladung beginnt (ohne Schub nicht)
-  if (e.sprung == null && !aus && dist(e.x, e.y, fp.x, fp.y) <= FLUCHT.ankunftRadius) {
-    e.sprung = 0; k.verz = 0; k.hpLast = e.hp;
+  if (e.sprung == null && !aus && !reaktorAus && dist(e.x, e.y, fp.x, fp.y) <= FLUCHT.ankunftRadius) {
+    e.sprung = 0; k.verz = 0; k.trLast = e.sysTreffer || 0;
     game.emit('sfx', { name: 'jump_charge' });
     game.oda(funkText('sprungStart', k, e), null);
     funkZeile(game, funkText('sprungStart', k, e));
     game.missionEvent('verfolgungSprungStart', { enemy: e, text: funkText('sprungStart', k, e) });
   }
   if (e.sprung != null) {
-    // zweiter Weg zum Stellen: Hüllentreffer verzögern die Ladung
-    if (e.hp < k.hpLast - 1e-9) k.verz = Math.min(SPRUNG.verzoegerungMax, k.verz + SPRUNG.verzoegerungJeTreffer);
-    k.hpLast = e.hp;
+    // zweiter Weg zum Stellen: jeder Systemtreffer (Integrität eines Systems gesenkt) verzögert die Ladung, je Treffer
+    const neu = (e.sysTreffer || 0) - k.trLast;
+    if (neu > 0) k.verz = Math.min(SPRUNG.verzoegerungMax, k.verz + neu * SPRUNG.verzoegerungJeTreffer);
+    k.trLast = e.sysTreffer || 0;
     const dauer = SPRUNG.dauer + k.verz;
     if (!(aus && SPRUNG.pausiertBeiAusfall)) e.sprung += dt;
     e.sprungDauer = dauer;
@@ -175,7 +180,7 @@ function springen(game, k, e) {
 }
 function gestellt(game, k, e) {
   e.fluchtZiel = null; e.sprung = null; e.sprungDauer = null;
-  Zielsysteme.halte(e, SYSTEM_ZIEL);   // ein gestelltes Schiff bleibt ausgefallen
+  Zielsysteme.halte(e);   // ein gestelltes Schiff bleibt ausgefallen (die Reparatur bleibt aus, C2)
   setzeAusgang(game, k, 'gestellt');
 }
 function setzeAusgang(game, k, was) {
