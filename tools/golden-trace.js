@@ -12,7 +12,7 @@
 //
 // Aufrufe:
 //   node tools/golden-trace.js --mission m1|m2|m3 --crew 1|3 --seed N [--out datei.json]
-//   node tools/golden-trace.js --all [--seeds 20] [--seed-base 1] [--dir tools/fixtures/golden/base] [--jobs 4]
+//   node tools/golden-trace.js --all [--seeds 20] [--seed-base 1] [--dir tools/fixtures/golden/base] [--jobs 4] [--softlock 420]   (Sekunden ohne Stufenwechsel bis „Softlock“)
 //   node tools/golden-trace.js --summary <dir>       (Tabelle Median/Min/Max je Mission × Crew)
 //   node tools/golden-trace.js --compare <dirA> <dirB> [--allow allow.json] [--tol 15] [--step-tol 1] [--strict-steps] [--lenient]
 //     (nicht erlaubte Text-/Flag-/Inventar-Abweichungen sind rot; --lenient berichtet sie nur)
@@ -43,7 +43,7 @@ const ROOT = path.join(__dirname, '..');
 const args = process.argv.slice(2);
 const has = (k) => args.includes(k);
 const val = (k, d) => { const i = args.indexOf(k); return i >= 0 && i + 1 < args.length ? args[i + 1] : d; };
-const SOFTLOCK_SEC = 420;
+const SOFTLOCK_SEC = Number(val('--softlock', 420)) || 420;   // SYS-01 D: --softlock <s> (Standard 420). Mit dem Zonenmodell dauert m2/relay solo länger als 420 s, ohne zu hängen (siehe SYS-01 D, Bericht)
 const MAX_GAME_SEC = 3600;
 const r1 = (x) => Math.round(x * 10) / 10;
 
@@ -272,10 +272,10 @@ async function cmdAll() {
   const jobs = Math.max(1, Number(val('--jobs', '4')));
   const crews = (val('--crews', '1,3')).split(',').map(Number);
   const missions = (val('--missions', 'campaign,m3')).split(',');
-  const queue = [];
+  const queue = []; const sl = has('--softlock') ? ['--softlock', val('--softlock', '420')] : [];
   for (const crew of crews) for (let s = base; s < base + seeds; s++) {
-    if (missions.includes('campaign')) queue.push(['--mission', 'm2', '--both', '--crew', String(crew), '--seed', String(s), '--dir', dir]);
-    if (missions.includes('m3')) queue.push(['--mission', 'm3', '--crew', String(crew), '--seed', String(s), '--dir', dir]);
+    if (missions.includes('campaign')) queue.push(['--mission', 'm2', '--both', '--crew', String(crew), '--seed', String(s), '--dir', dir, ...sl]);
+    if (missions.includes('m3')) queue.push(['--mission', 'm3', '--crew', String(crew), '--seed', String(s), '--dir', dir, ...sl]);
   }
   const t0 = Date.now();
   let failed = 0;
