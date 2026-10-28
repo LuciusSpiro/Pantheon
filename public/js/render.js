@@ -3732,7 +3732,7 @@
   }
 
   // SYS-01 A1c: Bresche der Taktikkarte (Token MASS.bresche, FARBE.brescheEigen/brescheGegner): Keil vom Ring zum Kern, Fläche transparent, Kante voll.
-  // wer: 'eigen' (Rot) oder 'gegner' (Bernstein; Rot auf der roten Kennung verschwände). Gegner-Zonen sind noch nicht im Snapshot (Ziel-Scan C1), dort wird nichts gezeichnet.
+  // wer: 'eigen' (Rot) oder 'gegner' (Bernstein; Rot auf der roten Kennung verschwände). Gegner: nur das gescannte Ziel (ship.zielZon, SYS-01 C1b-2).
   function breschenKeil(ctx, x, y, mitte, r, wer) {
     const PS = window.PultSysteme; if (!PS) return;
     const M = PS.TOKENS.MASS.bresche, col = PS.TOKENS.FARBE[wer === 'gegner' ? 'brescheGegner' : 'brescheEigen'];
@@ -4172,6 +4172,8 @@
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (kenn && kennungZeichne(ctx, kenn, e.kind, s.x, s.y, eAng, hitT < 0.15 ? '#FFFFFF' : PAL.red)) { /* Kennung: rot = feindlich, weiß = Treffer */ }
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
+      // SYS-01 C1b-2 (Ziel-Scan): Bresche des gescannten Gegners, wenn seine zugewandte Zone leer ist (zielZon, Bernstein = Weg frei). Keil am Schildring, ohne Abzeichen (breschenKeil).
+      if (!front && target && target.id === e.id && sship.zielZon && sship.zielZon.leer && sship.zielZon.z >= 0 && sship.zielZon.leer[sship.zielZon.z] === 1) breschenKeil(ctx, s.x, s.y, eAng + [0, Math.PI / 2, Math.PI, -Math.PI / 2][sship.zielZon.z], (kenn ? kenn.r : (ENEMY_SIZE[e.kind] || 16)) + 6, 'gegner');
       drawEnemyHitFx(ctx, e, s.x, s.y, kenn ? kenn.r + 4 : (ENEMY_SIZE[e.kind] || 16), view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
         // Review D-S7: Sprungladung in Messing (nicht Mint wie die Schilde), mit Prozentangabe
@@ -4181,7 +4183,7 @@
       // SUND-04a-1 A / Review D-M1: Antriebsschaden des gescannten Gegners (Bernstein = Antrieb), mit Klasse, dicht über dem Schiff (Prio 6: vor allen anderen Labels).
       // Das Ziel selbst trägt den Zustand in seinem ZIEL-Label (unten), so liest es sich nie wie ein Ausfall der eigenen Lerche. Gestellt (D-M2): GESTELLT in Messing.
       if (e.az && window.Zielsysteme && !(target && target.id === e.id)) {
-        const zz = window.Zielsysteme.zustand(e, 'antrieb');
+        const zz = window.Zielsysteme.antriebZustand(e);
         if (e.ag) lab((ENEMY_NAMES[e.kind] || e.kind).toUpperCase() + ': GESTELLT', s.x, s.y - size - 18, { color: PAL.brass, align: 'center' }, 6);
         else if (zz && zz.schaden) lab((ENEMY_NAMES[e.kind] || e.kind).toUpperCase() + ': ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.'), s.x, s.y - size - 18, { color: PAL.amber, align: 'center' }, 6);
       }
@@ -4205,7 +4207,7 @@
         for (const [qx, qy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
           ctx.beginPath(); ctx.moveTo(s.x + qx * r, s.y + qy * (r - 6)); ctx.lineTo(s.x + qx * r, s.y + qy * r); ctx.lineTo(s.x + qx * (r - 6), s.y + qy * r); ctx.stroke();
         }
-        const zz = target.az && window.Zielsysteme ? window.Zielsysteme.zustand(target, 'antrieb') : null;
+        const zz = target.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(target) : null;
         const ziel = target.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
         lab(ziel, s.x, s.y + size + 8, { color: target.ag ? PAL.brass : PAL.amber, align: 'center' }, 6);
       }
@@ -4343,7 +4345,7 @@
     for (const o of randGegner) {
       // Review D-S4: der Zustand des verfolgten Ziels steht am Pfeil-Label (Antrieb, Sprungladung), nicht bei einem freien Label
       let zustand = '';
-      if (o.e.az && window.Zielsysteme) { const zz = window.Zielsysteme.zustand(o.e, 'antrieb'); if (zz && zz.schaden) zustand += ' · ANTR ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.'); }
+      if (o.e.az && window.Zielsysteme) { const zz = window.Zielsysteme.antriebZustand(o.e); if (zz && zz.schaden) zustand += ' · ANTR ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.'); }
       if (o.e.sj != null) zustand += ' · SPRUNG ' + Math.round(o.e.sj * 100) + ' %';
       const dist = String(Math.round(Math.hypot(o.e.x - ship.x, o.e.y - ship.y))) + zustand;
       const e = arrow(o.e.x, o.e.y, (o.e.kind === 'korvette' || o.e.kind === 'fregatte' || o.e.kind === 'kreuzer') ? PAL.rust : PAL.red, (front && o.e.fg ? 'FLAGG ' : '') + dist);

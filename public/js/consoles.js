@@ -1029,7 +1029,7 @@
           for (const l of R.wrap(this.shieldText(e), rw - 4, 1)) { R.text(ctx, l, rx + 4, y, { color: PAL.ice }); y += 10; }
           y += 1;
           // SUND-04a-1 A (Review D-S8): beschädigter oder ausgefallener Antrieb des Ziels; Farblogik wie im Ops-Scan (ausgefallen Bernstein-Chip, beschädigt Bernstein-Text)
-          const zz = e.az && window.Zielsysteme ? window.Zielsysteme.zustand(e, 'antrieb') : null;
+          const zz = e.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(e) : null;
           if (zz && zz.schaden && y <= a.y + a.h - 10) {
             const ty = y - 1, txt = zz.stufe >= 2 ? 'Antrieb aus' : 'Antrieb beschädigt';
             // Fix3 (Mangel 2): Chip auf ganzen Pixeln, Text ohne Schatten (der 1-px-Schatten lief auf Bernstein als Unschärfe)
@@ -1408,7 +1408,9 @@
           R.button(ctx, px0, py, w, 13, r.label, { active, onClick: () => { this.sel.damage = i; this.cmd(view, 'technik.priority', { target: r.target }); } });
           px0 += w + 4;
         });
-        if (geZiel) R.text(ctx, PS.text(PS.TOKENS.TEXT.gezielt, { wer: 'Gegner', zeichen: PS.TOKENS.ZEICHEN.gezielt, system: geZiel.name }), a.x, py + 19, { color: F.gezielt });
+        // SYS-01 C1b-2: der Absender ist die Klasse des Gegners, der auf die Lerche zielt (ship.zielAufKl, Mehrere: der zuletzt erschienene)
+        const kl = geZiel && window.Zielsysteme ? window.Zielsysteme.klasseName(ship.zielAufKl) : null;
+        if (geZiel) R.text(ctx, PS.text(PS.TOKENS.TEXT.gezielt, { wer: kl || 'Gegner', zeichen: PS.TOKENS.ZEICHEN.gezielt, system: geZiel.name }), a.x, py + 19, { color: F.gezielt });
       }
       // rechts: Decksplan, Feuer/Lecks, Schrauber, Lager
       const px = a.x + 382, pw2 = a.w - 382;
@@ -1971,9 +1973,9 @@
       } else { R.text(ctx, (view.enemies || []).length ? 'keins – T wählen' : 'keine Gegner', rx + 30, y, { color: PAL.panelLight }); y += 15; }
       y += 12;
       // Tastenzeile (Review D-S1): T, 0 Systemziel, Z
-      const ZSk = window.Zielsysteme, zidK = ZSk && target ? ZSk.systemeFuer(target) : [];
+      const ZSk = window.Zielsysteme, zidK = ZSk && target ? ZSk.wahlbar(view.state, target) : [];
       R.button(ctx, rx, y, 80, 14, 'Nächstes Ziel', { hotkey: 'T', disabled: !this.targetList(view).length, reason: 'Nichts in Sensorreichweite', onClick: () => this.cycleTarget(view) });
-      R.button(ctx, rx + 83, y, 60, 14, 'Systemziel', { hotkey: '0', disabled: !zidK.length, reason: 'Erst ein gescanntes Ziel mit Antrieb wählen', onClick: () => this.systemzielWechseln(view) });
+      R.button(ctx, rx + 83, y, 60, 14, 'Systemziel', { hotkey: '0', disabled: !zidK.length, reason: 'Kein System des Ziels ist erreichbar (erst die Seite öffnen)', onClick: () => this.systemzielWechseln(view) });
       R.button(ctx, rx + 146, y, rw - 146, 14, 'Zoom', { hotkey: 'Z', onClick: () => this.cycleZoom('weapons') });
       y += 19;
       // ---- Waffen (bis zu neun Plätze, Torpedowerfer mit Lager)
@@ -2062,10 +2064,12 @@
       const modText = Object.keys(cnt).map(k => (ABK[k] || k) + (cnt[k] > 1 ? ' ×' + cnt[k] : '')).join(' · ');
       // SUND-04a-1 A: anvisierbare Zielsysteme des gescannten Ziels (Antrieb: Bernstein) mit Zustand; gewähltes Systemziel markiert
       const ZS = window.Zielsysteme;
-      const zl = ZS && o.fn ? ZS.zeilen(o.state || {}, target) : [];
+      // SYS-01 C1b-2: nur anwählbare Systeme in der Liste (die übrigen zeigt das Kreuz gedimmt); eine Zeile nennt den Grund des ersten nicht anwählbaren
+      const zl = ZS && o.fn ? ZS.zeilen(o.state || {}, target).filter(z => z.wahl).map(z => ({ name: z.name, text: z.zust === 'zer' ? 'zerstört' : z.zust === 'besch' ? 'beschädigt' : 'heil', stufe: z.zust === 'zer' ? 2 : 0, schaden: z.zust !== 'ok', gewaehlt: z.gewaehlt })) : [];
+      const weg = ZS && o.fn ? ZS.zeilen(o.state || {}, target).find(q => !q.wahl) : null;
       // Zeilenhöhe mindestens 8 px (Review D-S2): passt der Scan nicht, fällt zuerst die Modul-Zeile, dann die Waffenzeilen weg. Die Antriebszeile fällt nie weg.
       let zeilen = rows.slice(), zeigeMod = !!modText;
-      const anzahl = () => zeilen.length + (zeigeMod ? 1 : 0) + zl.length;
+      const anzahl = () => zeilen.length + (zeigeMod ? 1 : 0) + zl.length + (weg ? 1 : 0);
       while (anzahl() && maxH / anzahl() < 8 && (zeigeMod || zeilen.length)) { if (zeigeMod) zeigeMod = false; else zeilen.pop(); }
       const lines = anzahl();
       if (!lines) return 0;
@@ -2093,6 +2097,7 @@
         if (z.gewaehlt && tw + 46 + 58 <= w) o.txt('· anvisiert', x + 46 + tw + 10, ty, o.fn);   // nur wenn Platz ist (der Knopf zeigt es ohnehin)
         yy += lh;
       }
+      if (weg) { o.txt(weg.name + ': ' + weg.grund, x, yy + Math.max(0, Math.floor((lh - 7) / 2)), o.dim); yy += lh; }
       return used;
     },
     // M3a, PAN-01 C: Waffenblock der Ops – alle bestückten Plätze mit Ladepunkten (Q/E wählen unter den Energiewaffen, A/D −/+); §20: Lanze halten, Rest nur auf Befehl.
@@ -2194,11 +2199,12 @@
     },
     // SUND-04a-1 A: Systemziel (Antrieb) am gescannten Ziel an/aus; der Server prüft Scan, Klasse und Ziel und antwortet mit einem Hinweis
     systemzielWechseln(view) {
+      // SYS-01 C1b-2: reihum über die anwählbaren Systeme des gescannten Ziels, nach dem letzten: aus (null)
       const ZS = window.Zielsysteme, tg = this.targetOf(view);
-      const ids = ZS ? ZS.systemeFuer(tg) : [];
-      if (!ids.length) { this.denied(!tg ? 'Kein Ziel' : !tg.scanned ? 'Erst das Ziel scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System'); return; }
-      const an = ZS.gewaehlt(view.state) === ids[0];
-      this.cmd(view, 'weapons.systemziel', { id: an ? null : ids[0] });
+      const wl = ZS && tg ? ZS.wahlbar(view.state, tg) : [];
+      if (!wl.length) { this.denied(!tg ? 'Kein Ziel' : !tg.scanned ? 'Erst das Ziel scannen (S halten)' : 'Kein System des Ziels ist erreichbar (erst die Seite öffnen)'); return; }
+      const next = ZS.reihum(view.state, tg);
+      this.cmd(view, 'weapons.systemziel', { id: next === undefined ? null : next });
       view.actions.sfx('ui_click');
     },
     markerOnTarget(view) {

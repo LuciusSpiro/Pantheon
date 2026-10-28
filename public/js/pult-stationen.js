@@ -249,9 +249,11 @@
         const salven = (ship.mounts || []).filter((mm) => { const ww = waffeVon(mm); return ww && ww.art === 'salve'; });
         const batReady = salven.some((mm) => !this.mountInfo(view, mm.id).reason);
         // Review D-S6: Systemziel als breite Zelle unter 1 und 2 (Ziffernblock-Raster), „Leer beide“ rückt unter die 3; SENSOREN bleibt einfarbig
-        const ZS = window.Zielsysteme, zid = ZS ? ZS.systemeFuer(target) : [], zan = !!zid.length && ZS.gewaehlt(st) === zid[0];
+        // SYS-01 C1b-2: Taste 0 wählt reihum die anwählbaren Systeme des gescannten Ziels; die Beschriftung nennt das gewählte (Kurzname)
+        const ZS = window.Zielsysteme, zid = ZS && target ? ZS.wahlbar(st, target) : [], zsel = ZS ? ZS.gewaehlt(st) : null, zan = !!zsel;
         const zb = 2 * zw + 4;
-        if (ZS && ZS.ids().length) P.knopf(ctx, x, y, zb, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zan ? 'Antrieb anvisiert' : 'Antrieb anvisieren', active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Dieses Ziel hat kein anvisierbares System', onClick: () => this.systemzielWechseln(view) });
+        const zname = zan && ZS ? ((ZS.zeilen(st, target).find((q) => q.id === zsel) || {}).kurz || 'Ziel') : 'Systemziel';
+        if (ZS && target && target.scanned) P.knopf(ctx, x, y, zb, 14, 'Systemziel', { hotkey: '0', aktion: 'ops.systemziel', fn: 'drive', text: zname, active: zan, disabled: !zid.length, reason: !target ? 'Kein Ziel' : !target.scanned ? 'Erst scannen (S halten)' : 'Kein System des Ziels ist erreichbar (erst die Seite öffnen)', onClick: () => this.systemzielWechseln(view) });
         P.knopf(ctx, x + 2 * (zw + 4), y, zw, 14, 'Batterien', { hotkey: 'Leer', aktion: 'ops.waffe.beideSeiten', text: salven.length > 2 ? 'alle' : 'beide', fn: 'weapon', disabled: !batReady, reason: 'Keine Batterie geladen', onClick: () => this.cmd(view, 'weapons.fire', { mount: 'all' }) });
         T(ctx, 'PUNKTE ' + used + '/' + cp, x, y + 19, cp === 0 ? P.FN.weapon : used < cp ? P.FN.drive : P.FN.shield);
         T(ctx, 'Q/E · A/D · Rad/Rechtsklick: Punkte', x, y + 27, K.dim);
@@ -323,8 +325,21 @@
       T(c, wrap1(nm, b.w - 12), b.x + 6, y, P.FN.weapon); y += 10;
       const VOLK = { ger: 'Germanen', rom: 'Rom', pirat: 'Piraten' };
       T(c, (target.vk ? (VOLK[target.vk] || target.vk) + ' · ' : '') + d + ' m', b.x + 6, y, K.dim); y += 12;
-      if (!target.hidden && target.hpMax) { T(c, 'HÜLLE', b.x + 6, y, K.dim); P.segs(c, b.x + 40, y, 10, Math.ceil(10 * n(target.hp) / target.hpMax), 'weapon', 9, 6); y += 11; }
+      // SYS-01 C1b-2: Gesamtintegrität in % statt HÜLLE (die schwächste Zone steht im Kreuz)
+      const PSt = window.PultSysteme;
+      if (!target.hidden && target.hpMax) { T(c, PSt ? PSt.text(PSt.TOKENS.TEXT.gesamt, { p: Math.round(100 * n(target.hp) / target.hpMax) }) : 'GESAMT', b.x + 6, y, K.dim); P.segs(c, b.x + 70, y, 10, Math.ceil(10 * n(target.hp) / target.hpMax), 'weapon', 9, 6); y += 11; }
       if (!target.scanned) { T(c, target.hidden ? (target.found ? 'erfasst' : 'S halten: genauer scannen') : 'S: scannen für Schilde', b.x + 6, y, K.dim); return; }
+      // SYS-01 C1b-2 (Ziel-Scan): das Kreuz des gescannten Ziels ersetzt Schildschema und Kennung (Zonen als Schichten, Systeme mit Zustand, Mitte ZU/offen)
+      const ZSk = window.Zielsysteme, PSk = window.PultSysteme, ZKk = window.Zonenkreuz, SCk = window.Shared_Schilde;
+      const zmod = ZSk && PSk && ZKk && target.kind ? ZKk.modellZiel(view.state, { systeme: ZSk.systemeVon(target.kind), lay: SCk ? SCk.layout(CFG, target.kind) : null, schild: target.shields }) : null;
+      if (zmod) {
+        const kh = PSk.TOKENS.MASS.kreuz.ziel.h, F = PSk.farben(P.skinId(view)), zug = zmod.zugewandt, rest = ZSk.reaktorRest(view.state, target);
+        ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(view.state) });
+        y += kh + 3;
+        if (rest != null) { T(c, PSk.text(PSk.TOKENS.TEXT.reaktorZiel, { s: rest.toFixed(1).replace('.', ',') }), b.x + 6, y, F.zerText); y += 10; }
+        if (b.y + b.h - 4 - y >= 11) { try { this.zielAusstattung(c, target, b.x + 6, y, b.w - 12, b.y + b.h - 4 - y, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); } }
+        return;
+      }
       // vier Schildsektoren als Schema (Bug rechts, Heck links, Bb oben, Stb unten): Werte je Seite aus dem Schildmodell (shared/schilde.js)
       const SC = window.Shared_Schilde, lay = SC && SC.layout(CFG, target.kind);
       const vals = target.shields || (lay ? lay.max : null) || [0, 0, 0, 0];

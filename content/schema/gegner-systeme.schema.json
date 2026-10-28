@@ -17,6 +17,7 @@
         "additionalProperties": false,
         "required": ["systeme"],
         "properties": {
+          "name": { "type": "string", "minLength": 1 },
           "systeme": {
             "type": "array",
             "minItems": 1,
@@ -30,7 +31,10 @@
                 "art": { "enum": ["waffe", "antrieb", "emitter", "schildgenerator", "reaktor", "modul"] },
                 "platz": { "type": "string", "minLength": 1 },
                 "modul": { "enum": ["krankenstation", "werkstatt", "frachtraum"] },
-                "gewicht": { "type": "number", "exclusiveMinimum": 0 }
+                "gewicht": { "type": "number", "exclusiveMinimum": 0 },
+                "name": { "type": "string", "minLength": 1 },
+                "kurz": { "type": "string", "minLength": 1, "maxLength": 9 },
+                "funktion": { "enum": ["weapon", "shield", "drive", "nav", "sensor", "cmd", "neutral"] }
               }
             }
           }

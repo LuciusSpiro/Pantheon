@@ -178,6 +178,22 @@ function snapshotZiel(e) {
   return out;
 }
 
+// SYS-01 C1b-2 (Ziel-Scan): Zonen des gescannten Gegners für die Anzeige (ship.zielZon). pct = Integrität je Seite in % (wie ship.zonen der Lerche, Σ Punkte / Σ Maximum der
+// Systeme der Seite), leer = 1, wenn keine nicht zerstörten Systeme mehr da sind (Erreichbarkeit der Mitte, Trefferweg). Reihenfolge = SEITE_ZONE (0 Bug, 1 Stb, 2 Heck, 3 Bb).
+function zonenWerte(e) {
+  const pct = [], leer = [];
+  for (const z of SEITE_ZONE) {
+    let i = 0, m = 0;
+    for (const id of ids(e)) if (defOf(e.kind, id).zone === z) { i += e.sys[id].i; m += maxOf(e, id); }
+    pct.push(m > 0 ? Math.max(0, Math.min(100, Math.round(100 * i / m))) : 0);
+    leer.push(frei(e, z).length === 0 ? 1 : 0);
+  }
+  return { pct, leer };
+}
+// Index der Klasse in gegner-systeme.json (Reihenfolge der Schlüssel): ship.zielAufKl
+const KLASSEN = Object.keys(DATEN.klassen);
+function klasseIndex(kind) { return KLASSEN.indexOf(kind); }
+
 // Zone, in der ein Treffer auf Segment sec landet (Seite des Segments)
 function zoneVonSegment(game, e, sec) {
   const lay = Schilde.layout(game.C, e.kind);
@@ -187,6 +203,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  summe, setzeAnteil,
+  summe, setzeAnteil, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

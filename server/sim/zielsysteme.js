@@ -108,17 +108,20 @@ function update(game) {
 // ---------- Gegnerziel gegen die Lerche (Snapshot ship.zielAuf) ----------
 // e.zielsystem ist die Id des Zielsystems (Daten: systeme.<id>.lerche = System der Lerche); ohne Eintrag gilt die Id selbst (ein Lerchensystem)
 function lercheZiel(id) { const s = id ? SYSTEME[id] : null; return s && s.lerche ? s.lerche : (id || null); }
-// Index des Lerche-Systems in Protocol.SYSTEMS_INTEG, auf das ein Gegner zielt (-1 = niemand). Ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also zeigt die Technik auch nichts.
-function zielAuf(game) {
-  if (!szeneAktiv(game)) return -1;
+// Der Gegner, der auf die Lerche zielt (der zuletzt erschienene, wie ship.zielAuf). Ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also null.
+function anvisierer(game) {
+  if (!szeneAktiv(game)) return null;
   const list = (game.space && game.space.enemies) || [];
   for (let i = list.length - 1; i >= 0; i--) {
     const e = list[i];
-    const idx = e && !e.ally && e.zielsystem ? Protocol.SYSTEMS_INTEG.indexOf(lercheZiel(e.zielsystem)) : -1;
-    if (idx >= 0) return idx;
+    if (e && !e.ally && e.zielsystem && Protocol.SYSTEMS_INTEG.indexOf(lercheZiel(e.zielsystem)) >= 0) return e;
   }
-  return -1;
+  return null;
 }
+// Index des Lerche-Systems in Protocol.SYSTEMS_INTEG, auf das ein Gegner zielt (-1 = niemand).
+function zielAuf(game) { const e = anvisierer(game); return e ? Protocol.SYSTEMS_INTEG.indexOf(lercheZiel(e.zielsystem)) : -1; }
+// SYS-01 C1b-2: Klassen-Index (gegner-systeme.json) des Anvisierers, für „Fregatte zielt → Triebwerk“ (ship.zielAufKl, -1 = niemand)
+function zielAufKlasse(game) { const e = anvisierer(game); return e ? Gsys.klasseIndex(e.kind) : -1; }
 
 // ---------- Snapshot (gescanntes Ziel) ----------
 // az = Antriebsstufe (1 beschädigt, 2 ausgefallen), nur wenn der Antrieb wirkt (e.tempoAn); ag = 1: gestellt
@@ -160,4 +163,4 @@ function debug(game, args) {
 }
 
 module.exports = { SYSTEME, SCHALTER, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, merke, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
-  waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, snapExtra, debug };
+  waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, zielAufKlasse, snapExtra, debug };

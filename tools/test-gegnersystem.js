@@ -70,7 +70,7 @@ section('Daten: Form (Schema) und Zonen', () => {
     const ids = new Set();
     for (const s of k.systeme) {
       for (const pf of ['id', 'zone', 'art', 'gewicht']) if (s[pf] === undefined) { formOk = false; fehler.push(kind + '.' + (s.id || '?') + ' ohne ' + pf); }
-      for (const key of Object.keys(s)) if (!['id', 'zone', 'art', 'platz', 'modul', 'gewicht'].includes(key)) { formOk = false; fehler.push(kind + ' Zusatzfeld ' + key); }
+      for (const key of Object.keys(s)) if (!['id', 'zone', 'art', 'platz', 'modul', 'gewicht', 'name', 'kurz', 'funktion'].includes(key)) { formOk = false; fehler.push(kind + ' Zusatzfeld ' + key); }
       if (!ZONEN.includes(s.zone) || !ARTEN.includes(s.art)) { formOk = false; fehler.push(kind + '.' + s.id + ' Zone/Art'); }
       if (s.art === 'modul' && !MODULE.includes(s.modul)) { formOk = false; fehler.push(kind + '.' + s.id + ' Modul'); }
       if (!(s.gewicht > 0)) { formOk = false; fehler.push(kind + '.' + s.id + ' Gewicht'); }
@@ -326,6 +326,8 @@ section('Snapshot: zielSys nur für das anvisierte Ziel, flach, Zustand 0/1/2', 
   ok(z.every((v, i) => (i % 2 === 0 ? v === 0 || v === 1 || v === 2 : v >= 0 && v <= 100)), 'Zustand 0..2 und Integrität 0..100 %');
   ok(Gsys.snapshotZiel({ kind: 'relay' }) === null, 'Klasse ohne Modell: kein zielSys');
   g.ship.target = e.id;
+  ok(Object.keys(g.zielSysSnap()).length === 0, 'ungescannt: kein zielSys im Snapshot (C1b-2: die Systeme sind verborgen, wie weapons und Schilde)');
+  e.scanned = true;
   const snap = g.zielSysSnap();
   ok(snap.zielSys && snap.zielSys.length === z.length + 1 && snap.zielSys[z.length] === -1, 'Ziel gesetzt: zielSys im Snapshot, letztes Element -1 (kein Reaktor-Countdown, SYS-01 C1a-2)');
   Gegnertod.brechen(g, e, 'reaktor');

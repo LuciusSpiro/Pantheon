@@ -1,49 +1,81 @@
-// SUND-04a-1 A: Zielsysteme der Ops in der Anzeige (gezielter Systemtreffer, V1: Antrieb). Globales `Zielsysteme`, in Node als Modul (Tests).
-// Storage: store.werte = content/kampf/zielsysteme-werte.json (vom Server ausgeliefert, nur diese Datei): Systeme, Klassen, Stufen, Namen. Ohne die Datei gibt es keine
-//   Anzeige und keinen Knopf (müll-fest). Der Zustand kommt aus dem Snapshot: enemies[].az (Stufe des Antriebs am GESCANNTEN Ziel, fehlt = voll), ship.zs (gewähltes Systemziel).
-// Action: der Knopf „Systemziel“ der Ops sendet weapons.systemziel { id | null }; der Server entscheidet (gescannt, Klasse, Szene).
-// Anzeige: Funktionsfarben der Pulte (Bernstein = Antrieb): `funktion` in den Daten, die Konsole übersetzt sie in ihre Farbe.
+// SYS-01 C1b-2 „Ziel-Scan“: Zielsysteme der Ops am gescannten Gegner (Systemziel, Taste 0). Globales `Zielsysteme`, in Node als Modul (Tests).
+// Daten: store.daten = content/kampf/gegner-systeme.json (vom Server ausgeliefert): je Klasse die Systeme in Reihenfolge mit Zone, Name, Kurzname, Funktion.
+// Zustand, Integrität, Zonen und die anwählbaren Systeme kommen aus dem Snapshot (keine Regel hier):
+//   ship.zielSys   flach [Zustand 0/1/2, Integrität %] je System in der Reihenfolge der Daten, letztes Element = Countdown-Rest (Zehntelsekunden, -1 kein Countdown)
+//   ship.zielZon   { z (Sektor der zugewandten Seite, -1 keiner), pct (je Seite), leer (je Seite 0/1) }
+//   ship.zielWahl  Indizes der anwählbaren Systeme (Erreichbarkeit prüft der Server)
+//   ship.zs        gewähltes Systemziel (System-Id)
+// Action: der Knopf „Systemziel“ (Taste 0) sendet weapons.systemziel { id | null }; reihum über die anwählbaren Systeme, nach dem letzten: aus.
+// Anzeige: Funktionsfarben kommen aus den Daten (`funktion`, Token FN), Texte aus PultSysteme.TOKENS.TEXT.
 (function (root, factory) {
   const api = factory(root);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Zielsysteme = api;
 })(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
-  const store = { werte: null };
-  const W = () => (store.werte && typeof store.werte === 'object' ? store.werte : {});
-  const systeme = () => { const s = W().systeme; return s && s.wert && typeof s.wert === 'object' ? s.wert : {}; };
-  const ids = () => Object.keys(systeme());
-  const info = (id) => systeme()[id] || null;
-  // Systeme, die das Ziel (Klasse kind) hat und die die Ops anvisieren können (nur gescannte Ziele)
+  const req = (p) => (typeof require === 'function' ? require(p) : null);
+  const ps = () => root.PultSysteme || req('./pult-systeme-tokens.js');
+  const store = { daten: null };
+  const ZUST = ['ok', 'besch', 'zer'];   // Code im Snapshot: 0 heil, 1 beschädigt, 2 zerstört
+  const klassen = () => (store.daten && store.daten.klassen && typeof store.daten.klassen === 'object' ? store.daten.klassen : {});
+  function systeme(kind) { const k = klassen()[kind]; return k && Array.isArray(k.systeme) ? k.systeme : []; }
+  // Systeme des gescannten Ziels (Reihenfolge der Daten); ungescannt, Station, verborgen oder ohne Klasse: keine
   function systemeFuer(target) {
     if (!target || !target.scanned || target.station || target.hidden || !target.kind) return [];
-    return ids().filter((id) => (systeme()[id].klassen || []).indexOf(target.kind) >= 0);
+    return systeme(target.kind).map((d) => d.id);
   }
-  // Stufe (0 voll …) eines Systems am gescannten Ziel; das Snapshot-Feld steht in den Daten (feld, Antrieb: az)
-  function stufe(target, id) {
-    const s = info(id);
-    if (!s || !target || !target.scanned || !s.feld) return 0;
-    const v = Number(target[s.feld]);
-    return Number.isFinite(v) && v > 0 ? Math.min(v, (s.stufen || []).length - 1) : 0;
+  // Gültiger Snapshot des Ziels (Länge 2 je System + Countdown), sonst null (müll-fest: keine Anzeige)
+  function liste(state, target) {
+    const ship = state && state.ship;
+    const sys = target && target.scanned ? systeme(target.kind) : [];
+    const zs = ship && Array.isArray(ship.zielSys) ? ship.zielSys : null;
+    return sys.length && zs && zs.length === 2 * sys.length + 1 ? sys : null;
   }
-  // { id, name, kurz, funktion, stufe, text (voll|beschädigt|ausgefallen), faktor, schaden: bool }
-  function zustand(target, id) {
-    const s = info(id);
-    if (!s) return null;
-    const st = stufe(target, id);
-    const d = (s.stufen || [])[st] || {};
-    return { id, name: String(s.name || id), kurz: String(s.kurz || s.name || id), funktion: String(s.funktion || ''), stufe: st, text: String(d.name || ''), faktor: d.faktor != null ? Number(d.faktor) : 1, schaden: st > 0 };
+  const gewaehlt = (state) => { const z = state && state.ship && state.ship.zs; return typeof z === 'string' && z ? z : null; };
+  const zielZon = (state) => { const z = state && state.ship && state.ship.zielZon; return z && typeof z === 'object' ? z : null; };
+  // Sektor-Namen wie der Server (0 Bug, 1 Stb, 2 Heck, 3 Bb) und Zone-Namen der Daten (bug, stb, heck, bb, mitte)
+  const SEITEN = ['bug', 'stb', 'heck', 'bb'];
+  // Grund, warum ein System nicht anwählbar ist (Texte aus den Tokens)
+  function grund(state, zone) {
+    const T = ps().TOKENS.TEXT, Z = ps().TOKENS.TEXT.zone, zz = zielZon(state), zug = zz && zz.z >= 0 ? SEITEN[zz.z] : null;
+    if (zone === 'mitte') return T.nichtWaehlbar.mitte.replace('{zone}', zug ? Z[zug] : '–');
+    return T.nichtWaehlbar.seite.replace('{zone}', Z[zone] || zone);
   }
-  const gewaehlt = (state) => { const z = state && state.ship && state.ship.zs; return typeof z === 'string' && info(z) ? z : null; };
-  // Zeilen des Ziel-Scans: je anvisierbares System { name, text, funktion, schaden, gewaehlt }
+  // Zeilen des Ziel-Scans: je System { id, name, kurz, zone, funktion, zust ('ok'|'besch'|'zer'), pct, wahl, gewaehlt, grund }
   function zeilen(state, target) {
-    const g = gewaehlt(state);
-    return systemeFuer(target).map((id) => Object.assign(zustand(target, id), { gewaehlt: g === id }));
+    const sys = liste(state, target); if (!sys) return [];
+    const zs = state.ship.zielSys, wahl = new Set(Array.isArray(state.ship.zielWahl) ? state.ship.zielWahl : []), g = gewaehlt(state);
+    return sys.map((d, i) => {
+      const w = wahl.has(i);
+      return { id: d.id, name: String(d.name || d.id), kurz: String(d.kurz || d.name || d.id), zone: String(d.zone), funktion: String(d.funktion || 'neutral'),
+        zust: ZUST[zs[2 * i]] || 'ok', pct: Number(zs[2 * i + 1]) || 0, wahl: w, gewaehlt: g === d.id, grund: w ? '' : grund(state, d.zone) };
+    });
   }
+  // Anwählbare System-Ids (Erreichbarkeit wie der Server)
+  function wahlbar(state, target) { return zeilen(state, target).filter((z) => z.wahl).map((z) => z.id); }
+  // Nächstes Ziel reihum: nach dem letzten anwählbaren System kommt null (aus), dann wieder das erste. Ohne anwählbares System: undefined.
+  function reihum(state, target) {
+    const list = wahlbar(state, target); if (!list.length) return undefined;
+    const cur = gewaehlt(state), i = list.indexOf(cur);
+    if (cur == null || i < 0) return list[0];
+    return i + 1 < list.length ? list[i + 1] : null;
+  }
+  // Countdown des Reaktors am Ziel in Sekunden (null ohne Countdown)
+  function reaktorRest(state, target) {
+    const zs = state && state.ship && state.ship.zielSys; if (!Array.isArray(zs) || !liste(state, target)) return null;
+    const r = zs[zs.length - 1]; return r >= 0 ? r / 10 : null;
+  }
+  // Name der Klasse zum Index aus ship.zielAufKl (Reihenfolge der Schlüssel in gegner-systeme.json), null ohne Eintrag
+  function klasseName(index) {
+    const keys = Object.keys(klassen()); if (!(index >= 0) || index >= keys.length) return null;
+    return String(klassen()[keys[index]].name || keys[index]);
+  }
+  // Antrieb am Gegner (Snapshot az, nur Verfolgung): Stufe 0 voll, 1 beschädigt, 2 ausgefallen. Für die Karte, nicht für den Ziel-Scan.
+  function antriebZustand(e) { const s = e && e.az > 0 ? Math.min(2, Math.floor(e.az)) : 0; return { stufe: s, schaden: s > 0 }; }
   function laden() {
     if (typeof fetch !== 'function') return;
-    fetch('/content/kampf/zielsysteme-werte.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.werte && typeof j.werte === 'object') store.werte = j.werte; }).catch(() => { /* ohne Daten: keine Anzeige */ });
+    fetch('/content/kampf/gegner-systeme.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.klassen && typeof j.klassen === 'object') store.daten = j; }).catch(() => { /* ohne Daten: keine Anzeige */ });
   }
   if (root && typeof root.document !== 'undefined') laden();
-  return { store, ids, info, systemeFuer, stufe, zustand, gewaehlt, zeilen, laden };
+  return { store, systemeFuer, systemeVon: systeme, zeilen, wahlbar, reihum, gewaehlt, zielZon, reaktorRest, klasseName, antriebZustand, laden };
 });

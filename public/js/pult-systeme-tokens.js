@@ -122,7 +122,7 @@
   const MASS = {
     kreuz: {
       technik: { dx: 98, dy: 16, w: 378, h: 166, ws: 0.32, hb: 0.25, gap: 4, schild: 3, schichtFuge: 1, pip: { w: 4, h: 5, fuge: 1 }, zeile: 10, zweiZeilig: 66, text: 'lang', tasten: true, zahlScale: 2 },
-      ziel: { dx: 6, w: -12, h: 116, ws: 0.31, hb: 0.22, gap: 4, schild: 2, schichtFuge: 1, pip: { w: 2, h: 5, fuge: 1 }, pipZweiZeilig: { w: 2, h: 3, fuge: 1 }, zeile: 10, zeileZweiZeilig: 16, zweiZeilig: 66, text: 'kurz' },
+      ziel: { dx: 6, w: -12, h: 116, ws: 0.31, hb: 0.22, gap: 4, schild: 2, schichtFuge: 1, pip: { w: 2, h: 5, fuge: 1 }, pipZweiZeilig: { w: 2, h: 3, fuge: 1 }, zeile: 10, zeileZweiZeilig: 16, zweiZeilig: 66, leerMin: 24, text: 'kurz' },
       steuer: { w: 58, h: 58, ws: 0.28, hb: 0.27, gap: 2, schild: 2, schichtFuge: 1, block: { w: 4, h: 3, fuge: 1 }, text: null },
     },
     technikS: 200,                 // Statusleiste der Technik (Anzeige 188 px hoch), wie im Mockup
@@ -153,6 +153,9 @@
     schiffZerstoert: 'SCHIFF ZERSTÖRT – Ihr habt verloren', schiffOk: 'OK', schiffWartet: 'wartet auf {n} Spieler',
     // SYS-01 A2 Nacharbeit: Kantenleiste der VORN-Ansicht (Sitz): Restzeit und Ausfallzähler, solange der Countdown läuft
     kanteLabel: 'COUNTDOWN', kanteWert: '{s} s · {n}. Ausfall',
+    // SYS-01 C1b-2 (Ziel-Scan): Reaktor-Countdown am Ziel (zerText, kein Pult-Banner), Gesamtintegrität statt HÜLLE, Grund für nicht anwählbare Systeme
+    reaktorZiel: 'REAKTOR ZERSTÖRT · {s} s', gesamt: 'GESAMT {p} %', systemziel: 'Systemziel',
+    nichtWaehlbar: { seite: 'Seite {zone} abgewandt', mitte: 'Mitte erst, wenn {zone} leer ist' },
   };
   // </tokens>
 
@@ -167,6 +170,8 @@
     const f = farben(skinId);
     return { p: Math.max(0, Math.min(1, Number(m.charge) || 0)), sek: (m.rest10 / 10).toFixed(1).replace('.', ',') + ZEICHEN.sekunde, farbe: m.besch ? f.cdBesch : f.cdText, balken: f.cdBalken };
   }
+  // SYS-01 C1b-2: Funktionsfarbe eines Systems aus den Daten (funktion: weapon, shield, drive, nav, sensor, neutral …), unbekannt = neutral
+  function funktion(key) { return FN[key] || FN.neutral; }
   function zustand(i, max, offline) { if (offline) return 'offline'; if (!(i > 0)) return 'zer'; return i <= max / 2 ? 'besch' : 'ok'; }
   // Kacheln des Kreuzes, Bug oben (wie Werft-Terminal und Ziffernblock): Bb links über die ganze Höhe, Stb rechts, Bug/Mitte/Heck in der Mittelspalte
   function lage(b, m) {
@@ -239,5 +244,5 @@
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, banderole, modulName, MODUL_NAMEN, cdZelle };
+  return { TOKENS, farben, funktion, zustand, lage, text, kontrast, zonenZustand, schwaechsteSeite, statusFeld, banderole, modulName, MODUL_NAMEN, cdZelle };
 });

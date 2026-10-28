@@ -1914,11 +1914,17 @@ class Game {
   }
 
   // SYS-01 C1a-1: Systemzustand des anvisierten Gegners (gegnersystem.snapshotZiel). Nur mit gesetztem Ziel, sonst keine Zeile im Snapshot.
+  // SYS-01 C1b-2: zielZon { z: Sektor der zugewandten Seite (-1 keiner), pct, leer } je Seite; zielWahl: Indizes der anwählbaren Systeme (Reihenfolge der Daten), beides nur mit gescanntem Ziel.
   zielSysSnap() {
     if (this.ship.target == null || !this.space) return {};
     const e = this.space.enemies.find((q) => q.id === this.ship.target);
-    const z = e ? Gsys.snapshotZiel(e) : null;
-    return z ? { zielSys: z.concat([Gegnertod.restZehntel(e)]) } : {};   // SYS-01 C1a-2: letztes Element = Restzeit des Reaktor-Countdowns (Zehntelsekunden, -1 kein Countdown)
+    const z = e && e.scanned ? Gsys.snapshotZiel(e) : null;   // nur das gescannte Ziel: ungescannt verbirgt der Snapshot die Systeme (wie weapons und Schilde)
+    if (!z) return {};
+    const zug = Zielsysteme.zugewandteZone(this, e);
+    const ids = Gsys.systemeVon(e.kind).map((d) => d.id);
+    const wahl = Zielsysteme.waehlbar(this, e).map((id) => ids.indexOf(id));
+    const zz = Gsys.zonenWerte(e);
+    return { zielSys: z.concat([Gegnertod.restZehntel(e)]), zielZon: { z: Gsys.SEITE_ZONE.indexOf(zug), pct: zz.pct, leer: zz.leer }, zielWahl: wahl };   // SYS-01 C1a-2: letztes Element = Restzeit des Reaktor-Countdowns (Zehntelsekunden, -1 kein Countdown)
   }
 
   // B2 (Wunsch CLIENT): wf = gewählte Waffe auch außerhalb der Außenzone (Bord, Transfer-Konsole). Unten setzt combat.playerSnap
@@ -2164,7 +2170,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
-        integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), o2: r1(ship.o2), alert: ship.alert,
+        integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), zielAufKl: Zielsysteme.zielAufKlasse(this), o2: r1(ship.o2), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(), ...(Reaktortod.snapshotKompakt(this) ? { reaktorTod: Reaktortod.snapshotKompakt(this) } : {}),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot, wartet }; im Ruhezustand fehlt das Feld
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },

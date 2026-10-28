@@ -96,6 +96,8 @@
     const schraffur = (x, y, w, h, col, s) => { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = col; for (let d = -h; d < w; d += s) for (let r = 0; r < h; r++) c.fillRect(x + d + r, y + r, 1, 1); c.restore(); };
     const txt = (s, x, y, col, align, scale) => R.text(c, String(s), x, y, { color: col, align: align || 'left', scale: scale || 1, shadow: false });
     const tw = (s) => R.measure(String(s), 1);
+    // SYS-01 C1b-2 (Sicht Ziel-Scan): ein Name, der nicht in seine Spalte passt, endet mit „.“ statt in die Nachbarschrift zu laufen
+    const kuerzen = (s, w) => { s = String(s); if (tw(s) <= w) return s; while (s.length > 1 && tw(s + '.') > w) s = s.slice(0, -1); return s + '.'; };
     const L = PS.lage(rect, mass);
     const bodies = {};
 
@@ -132,20 +134,22 @@
     }
     function inhalt(list, body, zn, zu) {
       const zwei = body.w < mass.zweiZeilig, lh = zwei ? 16 : mass.zeile, bw = zwei ? 24 : 30;
-      let y = body.y + 3;
+      let y = body.y + 3, weg = 0;
       list.forEach((e) => {
-        if (y + 8 > body.y + body.h) return;
+        if (y + 8 > body.y + body.h) { weg++; return; }   // SYS-01 C1b-2: passt nicht mehr in die Kachel, Anzahl steht als +N unten
         const sel = o.selId === e.id, gez = o.gezieltId === e.id;
         if (sel || gez) { rc(body.x + 1, y - 2, body.w - 2, lh - 1, gez ? F.gezieltZeile : F.systemzielZeile); rc(body.x + 1, y - 2, MASS.systemzielMarke, lh - 1, gez ? F.gezielt : F.systemziel); }
         let x = body.x + MASS.innen;
         if (gez) { txt(ZEICHEN.gezielt, x, y, F.gezielt); x += 8; }
         if (mass.tasten && e.platz) { rc(x, y - 1, 9, 9, P.mix(T.FN.weapon, F.grund, 0.55)); txt(e.platz, x + 5, y, F.text, 'center'); x += 12; }
-        const col = gez ? F.gezielt : sel ? F.systemziel : e.zust === 'zer' ? F.zerText : e.zust === 'offline' ? F.dim : zu ? F.dim : F.text;
-        txt(e.name, x, y, col);
+        const col = gez ? F.gezielt : sel ? F.systemziel : e.zust === 'zer' ? F.zerText : e.zust === 'offline' ? F.dim : (zu || e.hinter) ? F.dim : F.text;
         const rechts = body.x + body.w - MASS.innen;
+        // Namensbreite: zwei Zeilen = ganze Kachel (Wort zerstört in der zweiten Zeile), eine Zeile = bis vor Balken bzw. „zer.“
+        const nameW = zwei ? rechts - x : e.zust === 'zer' ? rechts - x - tw(ZEICHEN.zerKurz) - 4 : rechts - x - bw - 4;
+        txt(kuerzen(e.name, nameW), x, y, col);
         if (e.zust === 'zer') {
-          const wort = x + tw(e.name) + 6 + tw(ZEICHEN.zerLang) <= rechts - 2 ? ZEICHEN.zerLang : ZEICHEN.zerKurz;
-          txt(wort, rechts, y, F.zerText, 'right');
+          if (zwei) txt(ZEICHEN.zerKurz, rechts, y + 9, F.zerText, 'right');
+          else { const wort = x + tw(kuerzen(e.name, nameW)) + 6 + tw(ZEICHEN.zerLang) <= rechts - 2 ? ZEICHEN.zerLang : ZEICHEN.zerKurz; txt(wort, rechts, y, F.zerText, 'right'); }
         } else if (zwei) balken(body.x + MASS.innen, y + 9, body.w - 2 * MASS.innen, e);
         else {
           if (e.zust === 'offline') txt(ZEICHEN.offline, rechts - bw - 4, y, F.dim, 'right');
@@ -158,6 +162,7 @@
         if (o.klick && R.ui && R.ui.buttons) R.ui.buttons.push({ x: body.x + 1, y: y - 2, w: body.w - 2, h: lh - 1, label: e.name, hotkey: null, onClick: () => o.klick(e) });
         y += lh;
       });
+      if (weg) txt('+' + weg, body.x + MASS.innen, body.y + body.h - 9, F.dim);
     }
 
     ZONEN.forEach((zn) => {
@@ -167,7 +172,7 @@
       if (z.leer) strich(body.x, body.y, body.w, body.h, F.zer, 2); else rand(body.x, body.y, body.w, body.h, F.kachelRand);
       if (o.seite === zn) rand(t.x - MASS.seiteRahmen, t.y - MASS.seiteRahmen, t.w + 2 * MASS.seiteRahmen, t.h + 2 * MASS.seiteRahmen, F.seiteZugewandt);
       inhalt(z.sys, body, zn, false);
-      if (z.leer && body.w >= mass.zweiZeilig) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
+      if (z.leer && body.w >= (mass.leerMin || mass.zweiZeilig)) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
     });
     // Mitte: zu (schraffiert), solange die zugewandte Zone nicht leer ist; sonst offen. Reaktor zerstört = Fläche kachelReaktor.
     const mt = L.mitte, zu = !!o.zugewandt && !m.zonen[o.zugewandt].leer;
@@ -189,5 +194,29 @@
     return { kacheln: L, bodies, mitte: mt, zu };
   }
 
-  return { ZONEN, modell, eintrag, zeichne, zustandVon, sektorVon, platzVon };
+  // SYS-01 C1b-2 (Ziel-Scan): Kreuz des gescannten Gegners aus dem Snapshot. Zustand und Zahlen kommen vom Server (ship.zielSys, ship.zielZon, ship.zielWahl);
+  // die Systeme (Zone, Kurzname, Funktion) aus der Klasse in gegner-systeme.json (opts.systeme), die Schilde aus dem Aufbau der Klasse (opts.lay = Shared_Schilde.layout,
+  // opts.schild = Werte je Segment). Nicht anwählbare Systeme: hinter (gedimmt). Null, wenn die Daten nicht zum Snapshot passen.
+  function modellZiel(state, opts) {
+    opts = opts || {};
+    const ship = (state && state.ship) || {}, sys = Array.isArray(opts.systeme) ? opts.systeme : [], zs = Array.isArray(ship.zielSys) ? ship.zielSys : null;
+    if (!zs || zs.length !== 2 * sys.length + 1) return null;
+    const zz = ship.zielZon || {}, pcts = Array.isArray(zz.pct) ? zz.pct : [], leer = Array.isArray(zz.leer) ? zz.leer : [];
+    const wahl = new Set(Array.isArray(ship.zielWahl) ? ship.zielWahl : []), code = ['ok', 'damaged', 'broken'];
+    const zonen = {}; ZONEN.forEach((z, i) => { zonen[z] = { sys: [], schild: [], leer: leer[i] === 1, pct: pcts[i] >= 0 ? pcts[i] : -1 }; });
+    const mitte = { sys: [] };
+    let reaktorZer = false;
+    sys.forEach((d, i) => {
+      const st = code[zs[2 * i]] || 'ok', pct = Math.max(0, Math.min(100, Number(zs[2 * i + 1]) || 0));
+      const e = { id: d.id, name: String(d.kurz || d.name || d.id), pct, state: st, zust: zustandVon(pct, st), platz: null, fragil: false, idx: i, hinter: !wahl.has(i), funktion: d.funktion };
+      if (d.art === 'reaktor' && st === 'broken') reaktorZer = true;
+      (ZONEN.indexOf(d.zone) >= 0 ? zonen[d.zone].sys : mitte.sys).push(e);
+    });
+    // Schilde: je Segment des Aufbaus eine Schicht an seiner Seite (Reihenfolge der Segmente = Schichten von außen)
+    const lay = opts.lay || null, werte = Array.isArray(opts.schild) ? opts.schild : (lay ? lay.max : []);
+    if (lay && Array.isArray(lay.segs)) lay.segs.forEach((g, i) => { const z = zonen[ZONEN[g.seite]]; if (z) z.schild.push({ v: Math.max(0, Math.min(lay.max[i], +werte[i] || 0)), max: lay.max[i], cap: lay.max[i] }); });
+    return { zonen, mitte, offen: ZONEN.filter((z) => zonen[z].leer), reaktorZer, gezieltId: null, zugewandt: Number.isInteger(zz.z) && zz.z >= 0 ? ZONEN[zz.z] : null };
+  }
+
+  return { ZONEN, modell, modellZiel, eintrag, zeichne, zustandVon, sektorVon, platzVon };
 });
