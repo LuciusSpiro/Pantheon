@@ -93,8 +93,8 @@
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
     },
     enemies: {
-      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp wird noch mit crewScaling.enemyHp
-      // (solo 0,5 / zu zweit, zu dritt 0,7) und spaceM3.enemyHpFactor 0,8 multipliziert – mit 36 hatte ein Jäger zu dritt
+      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp wird noch mit crewScaling.gegnerIntegritaet (C2a)
+      // (solo 0,5 / zu zweit, zu dritt 0,7) (vorher zusätzlich spaceM3.enemyHpFactor 0,8, in den Faktoren enthalten) – mit 36 hatte ein Jäger zu dritt
       // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
       // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
       raider: { hp: 44, speed: 120, fireInterval: 1.9, damage: 1, range: 400, salvage: 20 },
@@ -210,7 +210,9 @@
     // M1: mit Gegner-Schildsektoren solo milder (QA-Ziel: höchstens 1–2 Notfallprotokolle pro Abend)
     // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
     // Notfallprotokolle je Lauf; im Browser dauerten Korvetten-Wellen 80–150 s)
-    crewScaling: { 1: { enemyFireInterval: 2.2, enemyHp: 0.5 }, 2: { enemyFireInterval: 1.7, enemyHp: 0.7 }, 3: { enemyFireInterval: 1.7, enemyHp: 0.7 } },
+    // SYS-01 C2a: gegnerIntegritaet = Faktor auf die Integrität aller Gegnersysteme (Klassenbudget = enemies.<klasse>.hp × Faktor; Zonen bleiben gleich).
+    // Solo 0,4 (0,5 × 0,8), zu zweit und zu dritt 0,56 (0,7 × 0,8): der frühere Faktor spaceM3.enemyHpFactor ist darin enthalten. Die Lerche wird nicht skaliert.
+    crewScaling: { 1: { enemyFireInterval: 2.2, gegnerIntegritaet: 0.4 }, 2: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 }, 3: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 } },
     emergency: { marksCost: 50 },   // SYS-01 A1a: Hülle entfällt; das Notfallprotokoll wird über Space.verlustAusloesen ausgelöst
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
@@ -554,7 +556,7 @@
 
     // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
     spaceM3: {
-      enemyHpFactor: 0.8, reactorBrokenOutput: 2,
+      reactorBrokenOutput: 2,
       turnCap: { ok: 1, damaged: 0.5, broken: 0.15 }, emitterCap: { ok: 1, damaged: 0.5, broken: 0 }, generatorDamagedPool: -2,
       mounts: {
         bow: { facing: 0, arc: 16, range: 650, damage: 8, pierce: 2, secPerPoint: 18.5, damagedFactor: 1.5 },
@@ -676,6 +678,16 @@
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5
         regenGeneratorBeschaedigt: 2,     // beschädigter Schildgenerator: Schild-Regeneration doppelt so langsam (Intervall × 2)
         emitterBeschaedigt: 0.5,          // beschädigter Emitter: Schild-Obergrenze der Seite × 0,5 (zerstört: 0)
+        // SYS-01 C2a: Reparatur der Gegner (server/sim/gegnerreparatur.js). Zeiten als Startwerte (Messziele für Paket D, Erkundung Frage 4: Spieler 1,5 s je Stufe,
+        // Schrauber-Bot 2,6 s je Stufe + Laufweg). Die Reaktor-Sonderreparatur zerstört → beschädigt kommt aus reaktorTod.sonderreparatur.zeiten[0] (12 s), nicht hier.
+        // Keine Skalierung mit der Crewgröße. Die Stufe beschädigt setzt die Integrität auf systemModell.reparatur.damaged, ok auf das Maximum.
+        reparatur: {
+          zerstoertZuBeschaedigt: 10,     // s: zerstörtes System (außer Reaktor) → beschädigt
+          beschaedigtZuOk: 6,             // s: beschädigtes System → ok
+          rueckschlag: 0.5,               // Anteil des Fortschritts, der bei einem Systemtreffer in der Zone des Systems verloren geht (wie spaceM3b.repairHitLoss der Lerche)
+          reaktor: false,                 // Gegner reparieren den Reaktor selbst (Sonderreparatur 12 s)? Aus: ein zerstörter Reaktor ist ein Todesurteil (Kai: Kämpfe werden durch Zerstörung entschieden)
+          werkstattPlaetze: 1,            // zusätzliche gleichzeitige Vorgänge durch ein Werkstatt-Modul (nur wenn Werkstatt und Reaktor nicht zerstört sind)
+        },
       },
     },
     // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff. Der n-te Ausfall seit dem letzten Sprung

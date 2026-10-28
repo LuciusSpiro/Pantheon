@@ -31,17 +31,15 @@ const ZS = 'server/sim/zielsysteme.js', VF = 'server/sim/verfolgung.js', SP = 's
 // Dateien je Kürzel (ZSD) und Einträge [Datei, alter Text (genau einmal), neuer Text, Beschreibung] für das Zonenmodell (C1b-1)
 const ZSD = {ZS: "server/sim/zielsysteme.js", GS: "server/sim/gegnersystem.js", SPC: "server/sim/space.js", PI: "server/sim/pilot.js", KO: "server/sim/konvoi.js", VF: "server/sim/verfolgung.js", IN: "server/sim/interior.js", DM: "server/sim/damage.js", WZ: "content/kampf/zielsysteme-werte.json"};
 const MUTATIONEN = [
-  [ZSD.ZS, "  if (!e || !e.sys || !e.tempoAn) return 1;", "  if (!e || !e.sys) return 1;", "Tempo: der Antrieb bremst auch ohne Wirkung (Golden würde kippen)"],
+  [ZSD.ZS, "function tempoFaktor(e) {\n  if (!e || !e.sys) return 1;", "function tempoFaktor(e) {\n  if (!e || !e.sys || !e.tempoAn) return 1;", "Tempo: ohne Schalter bremst der Antrieb nicht (alte Regel C1b-1; C2a: immer)"],
   [ZSD.ZS, "    if (d && d.faktor != null) f *= d.faktor;", "    if (d && d.faktor != null) f *= 1;", "Tempo: die Faktoren aus den Daten wirken nicht"],
-  [ZSD.ZS, "function merke(game, e, gezielt) { if (e && (gezielt || szeneAktiv(game))) e.tempoAn = true; }", "function merke(game, e, gezielt) { if (e) e.tempoAn = true; }", "Tempo: jeder Treffer macht den Antrieb wirksam"],
   [ZSD.ZS, "  if (!id || !e || game.ship.target !== e.id || !e.sys || !e.sys[id]) return null;", "  if (!id || !e || !e.sys || !e.sys[id]) return null;", "Systemziel: gilt für jedes Ziel, nicht nur das gewählte"],
   [ZSD.SPC, "const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ?", "const gez = opts && opts.angriff && game.ship.target === e.id ?", "Gegner: Verbündete treffen gezielt"],
-  [ZSD.SPC, "  if (t) Zielsysteme.merke(game, e, t.gezielt);", "", "Gegner: der gezielte Treffer macht den Antrieb nicht wirksam"],
   [ZSD.SPC, "  if (t && t.gezielt && t.state !== t.vorher) Zielsysteme.gegnerGetroffen(game, e, t);", "", "Gegner: gezielte Zustandswechsel werden nicht gemeldet"],
   [ZSD.SPC, "    vKin *= Zielsysteme.tempoFaktor(e);", "    vKin *= 1;", "Kinematisches Modell ignoriert den Antrieb"],
-  [ZSD.PI, "Flight.stepBody(e, input, c, e.tempoAn ? { speedFactor: Zielsysteme.tempoFaktor(e) } : null, dt);", "Flight.stepBody(e, input, c, null, dt);", "Pilot-Modell ignoriert den Antrieb"],
-  [ZSD.PI, "(c.minSpeed || 0) * (e.tempoAn ? Math.min(1, Zielsysteme.tempoFaktor(e)) : 1);", "(c.minSpeed || 0);", "Jäger: Mindestfahrt ohne Antrieb-Wirkung"],
-  [ZSD.KO, "{ speedFactor: e.tempoAn ? Zielsysteme.tempoFaktor(e) : 1 }", "{ speedFactor: 1 }", "Konvoi-Transporter ignoriert den Antrieb"],
+  [ZSD.PI, "Flight.stepBody(e, input, c, { speedFactor: Zielsysteme.tempoFaktor(e) }, dt);", "Flight.stepBody(e, input, c, null, dt);", "Pilot-Modell ignoriert den Antrieb"],
+  [ZSD.PI, "(c.minSpeed || 0) * Math.min(1, Zielsysteme.tempoFaktor(e));", "(c.minSpeed || 0);", "Jäger: Mindestfahrt ohne Antrieb-Wirkung"],
+  [ZSD.KO, "{ speedFactor: Zielsysteme.tempoFaktor(e) }", "{ speedFactor: 1 }", "Konvoi-Transporter ignoriert den Antrieb"],
   [ZSD.ZS, "  if (!Gsys.erreichbar(e, id, zugewandteZone(game, e))) return 'Von hier nicht erreichbar – erst die Seite öffnen, zu der das System gehört.';", "", "Wahl: keine Erreichbarkeit bei der Wahl"],
   [ZSD.GS, "  if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;", "  if (gez && e.sys[gez.id]) id = gez.id;", "Gezielt: wirkt auch außerhalb der Zone und ohne Erreichbarkeit"],
   [ZSD.GS, "  return z === zugewandt || (z === 'mitte' && !!zugewandt && frei(e, zugewandt).length === 0);", "  return true;", "Erreichbarkeit: jede Zone ist erreichbar"],

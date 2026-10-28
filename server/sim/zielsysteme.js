@@ -4,8 +4,8 @@
 //     (Gegner) bzw. interior.trefferweg (Lerche): Ist das Ziel in der Zone des Treffers und erreichbar, trifft der Treffer es sicher, sonst der Zufall in der Zone.
 //   - Erreichbar = Zone der zugewandten Seite; Mitte nur, wenn die zugewandte Zone keine nicht zerstörten Systeme mehr hat (zugewandteZone, Gsys.erreichbar).
 //   - Gegner gegen die Lerche: e.zielsystem = Id eines Lerchensystems (SYSTEMS_INTEG). Wirkt nur mit Szenenschalter (space.zielsysteme, Verfolgung).
-//   - Tempo: der Antrieb (e.sys.antrieb) senkt die Fahrt (tempoFaktor, Faktoren aus den Daten). Ohne e.tempoAn (kein Schalter, kein gezielter Treffer) genau 1.
-//   - halte(e) setzt e.gestellt; die Reparatur bleibt aus (reparaturErlaubt, C2).
+//   - Tempo: der Antrieb (e.sys.antrieb) senkt die Fahrt (tempoFaktor, Faktoren aus den Daten), in jeder Szene (SYS-01 C2a: kein Schalter mehr, e.tempoAn entfällt). Ohne Antrieb-Modell genau 1.
+//   - halte(e) setzt e.gestellt; die Reparatur bleibt aus (reparaturErlaubt, SYS-01 C2a: server/sim/gegnerreparatur.js).
 // Alle Zahlen in content/kampf/zielsysteme-werte.json; Sperre und Immunität der Systeme leben in gegnersystem.js (nachholen, reparaturFertig).
 const Protocol = require('../../shared/protocol.js');
 const Schilde = require('../../shared/schilde.js');
@@ -24,9 +24,9 @@ function szeneAn(game, an) {
 function szeneAktiv(game) { return !!(game.space && game.space[SCHALTER] === true); }
 
 // ---------- Tempo und Zustand ----------
-// Fahrtfaktor (0..1) aus den Systemen mit Wirkung 'tempo' im Zustand des Gegners. Ohne e.tempoAn genau 1 (Golden, Kampagnen ohne Zielsystem).
+// Fahrtfaktor (0..1) aus den Systemen mit Wirkung 'tempo' im Zustand des Gegners (SYS-01 C2a: immer, wie bei der Lerche). Ohne Antrieb-Modell genau 1.
 function tempoFaktor(e) {
-  if (!e || !e.sys || !e.tempoAn) return 1;
+  if (!e || !e.sys) return 1;
   let f = 1;
   for (const id of Object.keys(SYSTEME)) {
     const sys = SYSTEME[id];
@@ -38,9 +38,7 @@ function tempoFaktor(e) {
 }
 // Das System ist ausgefallen (zerstört): Verfolgung stellt das Schiff über den Antrieb
 function ausgefallen(e, id) { return !!(e && e.sys && e.sys[id] && e.sys[id].z === 'broken'); }
-// Ein Gegner wird vom Schalter oder einem gezielten Treffer gespürt (Tempo, Snapshot)
-function merke(game, e, gezielt) { if (e && (gezielt || szeneAktiv(game))) e.tempoAn = true; }
-// Gestellt (Verfolgung): der Schalter bleibt aus, die Reparatur (C2) prüft reparaturErlaubt
+// Gestellt (Verfolgung): die Reparatur bleibt aus (reparaturErlaubt, SYS-01 C2a)
 function halte(e) { if (e) e.gestellt = true; }
 function reparaturErlaubt(e) { return !(e && e.gestellt); }
 
@@ -124,12 +122,12 @@ function zielAuf(game) { const e = anvisierer(game); return e ? Protocol.SYSTEMS
 function zielAufKlasse(game) { const e = anvisierer(game); return e ? Gsys.klasseIndex(e.kind) : -1; }
 
 // ---------- Snapshot (gescanntes Ziel) ----------
-// az = Antriebsstufe (1 beschädigt, 2 ausgefallen), nur wenn der Antrieb wirkt (e.tempoAn); ag = 1: gestellt
+// az = Antriebsstufe (1 beschädigt, 2 ausgefallen), wenn der Antrieb nicht ok ist; ag = 1: gestellt
 function snapExtra(e) {
   if (!e || !e.scanned || !e.sys) return null;
   let o = null;
   const a = e.sys.antrieb;
-  if (a && e.tempoAn && a.z !== 'ok') o = { az: a.z === 'broken' ? 2 : 1 };
+  if (a && a.z !== 'ok') o = { az: a.z === 'broken' ? 2 : 1 };
   if (e.gestellt) (o || (o = {})).ag = 1;
   return o;
 }
@@ -142,7 +140,7 @@ function debug(game, args) {
     for (const e of game.space.enemies) {
       if (!Gsys.hat(e)) continue;
       for (const id of Gsys.ids(e)) { e.sys[id].i = Gsys.maxOf(e, id); e.sys[id].z = 'ok'; delete e.sys[id].sp; delete e.sys[id].imm; }
-      e.hp = Gsys.summe(e); delete e.tempoAn; delete e.gestellt;
+      e.hp = Gsys.summe(e); delete e.gestellt;
     }
     return null;
   }
@@ -153,7 +151,6 @@ function debug(game, args) {
     for (let i = 0; i < Math.max(1, Math.min(4, Number(a[1]) || 1)); i++) {
       e.sys[id].sp = null;
       const t = Gsys.treffen(game, e, zone, Gsys.maxOf(e, id) / 2, { id, zugewandt: zone });
-      merke(game, e, true);
       if (t && t.gezielt && t.state !== t.vorher) gegnerGetroffen(game, e, t);
     }
     return null;
@@ -162,5 +159,5 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { SYSTEME, SCHALTER, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, merke, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
+module.exports = { SYSTEME, SCHALTER, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
   waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, zielAufKlasse, snapExtra, debug };

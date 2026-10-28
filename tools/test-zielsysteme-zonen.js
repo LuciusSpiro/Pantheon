@@ -122,6 +122,7 @@ section('Sperre: nur Systeme mit Regel (Antrieb) holen den Zustand verzögert na
 section('Immunität nach einer Reparatur (C2-Hook): ein Treffer verschlechtert den Zustand nicht', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0;
+  Zs.halte(e);   // SYS-01 C2a: ohne Reparatur des Gegners, damit nur die Immunität geprüft wird
   setze(e, 'antrieb', Gsys.maxOf(e, 'antrieb') * 0.3);   // beschädigt
   Gsys.reparaturFertig(g, e, 'antrieb');
   ok(e.sys.antrieb.imm > g.time, 'reparaturFertig setzt die Immunität (Dauer aus den Daten)');
@@ -131,15 +132,13 @@ section('Immunität nach einer Reparatur (C2-Hook): ein Treffer verschlechtert d
   ok(e.sys.antrieb.z === 'broken', 'Immunität abgelaufen: der Zustand holt nach (Integrität 0, ausgefallen)');
 });
 
-section('Tempo: nur mit Wirkung (Schalter oder gezielter Treffer), Faktoren aus den Daten', () => {
+section('Tempo: Faktoren aus den Daten, ohne Schalter (SYS-01 C2a: e.tempoAn entfällt)', () => {
   const T = setup(); const g = T.g;
   const e = leer(g, 'korvette', 1500, 1100); e.angle = 0;
   setze(e, 'antrieb', 0);
-  ok(Zs.tempoFaktor(e) === 1, 'ausgefallener Antrieb ohne Wirkung (kein Schalter, kein gezielter Treffer): Faktor 1');
-  e.tempoAn = true;
-  ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[2].faktor, 'mit Wirkung: ausgefallen = Faktor 0 (aus den Daten)');
+  ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[2].faktor, 'ausgefallener Antrieb ohne Schalter und ohne gezielten Treffer: Faktor 0 (aus den Daten, wie bei der Lerche)');
   setze(e, 'antrieb', Gsys.maxOf(e, 'antrieb') * 0.3);
-  ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'mit Wirkung: beschädigt = Faktor 0,5');
+  ok(Zs.tempoFaktor(e) === DATEN.systeme.wert.antrieb.stufen[1].faktor, 'beschädigt = Faktor 0,5');
   ok(Zs.snapExtra(e) === null, 'Snapshot ungescannt: keine Felder');
   e.scanned = true;
   ok(Zs.snapExtra(e).az === 1, 'Snapshot am gescannten Ziel: az = 1 (beschädigt), abgeleitet aus e.sys');
@@ -148,7 +147,7 @@ section('Tempo: nur mit Wirkung (Schalter oder gezielter Treffer), Faktoren aus 
   Zs.szeneAn(g, true);
   trefferZone(g, f, 'heck', 1, null);
   space.damageEnemy(g, f, 1, f.x + Math.cos(f.angle + HECK) * 60, f.y + Math.sin(f.angle + HECK) * 60, { angriff: true });
-  ok(f.tempoAn === true, 'Schalter an: ein Treffer macht den Antrieb des Ziels wirksam (tempoAn)');
+  ok(!('tempoAn' in f), 'Schalter an: e.tempoAn entfällt (C2a), der Schalter schaltet keine Tempo-Wirkung mehr frei');
   Zs.szeneAn(g, false);
 });
 
@@ -186,6 +185,7 @@ section('Verfolgung: der zerstörte Reaktor bricht die Sprungladung ab, der Ausg
   Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });
   const e = Verfolgung.ziel(g);
   const fp = g.space.verfolgung.fluchtpunkt;
+  Zs.halte(e);   // SYS-01 C2a: ohne Reparatur des Zielschiffs, sonst repariert es den Reaktor, bevor der Countdown abläuft
   e.x = fp.x - 40; e.y = fp.y; e.angle = 0;
   platz(g, 600, 1100, 0); T.run(0.3);
   ok(e.sprung != null, 'Vorbedingung: die Sprungladung läuft');

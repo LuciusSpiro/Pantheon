@@ -46,9 +46,10 @@
     const sys = liste(state, target); if (!sys) return [];
     const zs = state.ship.zielSys, wahl = new Set(Array.isArray(state.ship.zielWahl) ? state.ship.zielWahl : []), g = gewaehlt(state);
     return sys.map((d, i) => {
-      const w = wahl.has(i);
+      const w = wahl.has(i), zu = ZUST[zs[2 * i]] || 'ok';
+      // SYS-01 C2a: ein zerstörtes System ist nicht anwählbar (der Server liefert es nicht in zielWahl)
       return { id: d.id, name: String(d.name || d.id), kurz: String(d.kurz || d.name || d.id), zone: String(d.zone), funktion: String(d.funktion || 'neutral'),
-        zust: ZUST[zs[2 * i]] || 'ok', pct: Number(zs[2 * i + 1]) || 0, wahl: w, gewaehlt: g === d.id, grund: w ? '' : grund(state, d.zone) };
+        zust: zu, pct: Number(zs[2 * i + 1]) || 0, wahl: w, gewaehlt: g === d.id, grund: w ? '' : (zu === 'zer' ? ps().TOKENS.TEXT.nichtWaehlbar.zerstoert : grund(state, d.zone)) };
     });
   }
   // Anwählbare System-Ids (Erreichbarkeit wie der Server)

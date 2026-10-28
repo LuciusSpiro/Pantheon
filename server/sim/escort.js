@@ -311,9 +311,9 @@ function onLercheHit(game, e) {
 }
 
 // ---------- Angriffe auf Schützlinge (aus space.updateEnemies) ----------
+// SYS-01 C2a (Review H1): über die Waffenplätze des Systemmodells (zerstörte Waffen fallen weg, Reichweite wie im Gefecht mit Nebel)
 function enemyCanHitEscort(game, e, es) {
-  const W = game.C.enemyWeapons[e.kind] || [];
-  return W.some((w) => Physics.inArc(e.x, e.y, e.angle, w.facing, w.arc, w.range, es.x, es.y));
+  return space().enemyCanHit(game, e, es);
 }
 // Liegt die Lerche auf der Linie e -> es (zwischen beiden)? -> { sector } sonst null
 function interposed(game, e, es) {
@@ -392,7 +392,8 @@ function updateAttack(game, e, es, d, retreating, dt) {
   }
   e.fireT += dt;
   const PF = Pilot.flies(game, e) ? (((game.C.spaceM3b || {}).pilotFire || {})[e.kind] || null) : null;
-  const interval = (PF && PF.fireInterval != null ? PF.fireInterval : cfgE.fireInterval) * S.crewScale(game).enemyFireInterval;
+  // SYS-01 C2a (Review H1): beschädigte Waffe lädt langsamer (Takt-Faktor des Systemmodells), wie im Gefecht mit der Lerche
+  const interval = (PF && PF.fireInterval != null ? PF.fireInterval : cfgE.fireInterval) * S.crewScale(game).enemyFireInterval * Gsys.taktFaktor(game, e, S.waffenPlaetze(game, e));
   if (!retreating && !ship.docked && !S.holdingFire(game) && e.fireT >= interval && d <= (cfgE.range || 0) && enemyCanHitEscort(game, e, es)) startTele(game, e, es);
 }
 
@@ -515,6 +516,7 @@ function updateLeaving(game, dt) {
   const sp = game.space; const out = [];
   for (const e of sp.enemies) {
     if (!e.leaving) continue;
+    if (e.rt && e.rt.rest != null) continue;   // SYS-01 C2a (Review M1): läuft der Reaktor-Countdown, zieht der Gegner nicht ab; er stirbt dort (gegnertod)
     e.leaveT = (e.leaveT || 0) + dt;
     const m = 90;
     if (e.leaveT > 14 || e.x < m || e.y < m || e.x > sp.w - m || e.y > sp.h - m) out.push(e);

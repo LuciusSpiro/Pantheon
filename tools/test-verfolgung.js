@@ -26,7 +26,7 @@ const V = require('../content/kampf/verfolgung-werte.json').werte;
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Abschuss über den Reaktor, Schild unten)
 // SYS-01 C1a-1: Die Zielschiffe haben kein Hüllenkonto mehr; ein Treffer von 3 (früher ein Hüllenpunkt-Betrag) nähme ein ganzes System (Korvette solo: Antrieb 1,9 von 16). Diese Tests prüfen die
 // Verfolgungs- und Zielsystemregeln (Stufen, Stellen, Verzögerung), nicht die Kalibrierung der Integrität: das Klassenbudget ist hier ×50, damit kein Systemtreffer über die Zone in die Mitte läuft.
-CONFIG.spaceM3.enemyHpFactor *= 50;
+for (const k of Object.keys(CONFIG.crewScaling)) CONFIG.crewScaling[k].gegnerIntegritaet *= 50;   // SYS-01 C2a: vorher spaceM3.enemyHpFactor × 50
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const DT = 1 / CONFIG.tickHz;
@@ -208,7 +208,8 @@ section('Stellen: zu weit weg, der Antrieb bleibt ausgefallen (keine Erholung in
   T.run(V.stellen.wert.zeit + 3);
   ok(Zs.ausgefallen(e, 'antrieb') && !Verfolgung.ausgang(g), 'Antrieb aus, aber die Lerche ist weit weg: nicht gestellt');
   T.run(60);
-  ok(Zs.ausgefallen(e, 'antrieb') && !Verfolgung.ausgang(g), 'ohne Reparatur bleibt der Antrieb aus: die Lerche kann später noch stellen (kein Erholungs-Timer)');
+  // SYS-01 C2a: das Zielschiff repariert den Antrieb selbst (10 s + 6 s, nicht gestellt). Die Lerche ist weit weg: nicht gestellt, nicht ausgang „gestellt“.
+  ok(!Zs.ausgefallen(e, 'antrieb') && Verfolgung.ausgang(g) !== 'gestellt' && !e.gestellt, 'ohne Stellen repariert das Zielschiff den Antrieb (C2a): nach 60 s wieder ok, nicht gestellt');
 });
 
 section('Sprungladung stören', () => {
@@ -241,8 +242,11 @@ section('Sprungladung stören', () => {
   treffer(p.g, e3, HECK, 0.45 * Gsys.maxOf(e3, 'antrieb')); p.run(DATEN_SPERRE() + 0.2); treffer(p.g, e3, HECK, 0.6 * Gsys.maxOf(e3, 'antrieb'));
   const s1 = e3.sprung; p.run(3);
   ok(Zs.ausgefallen(e3, 'antrieb') && Math.abs(e3.sprung - s1) < 1e-6, 'ausgefallener Antrieb: die Sprungladung steht (pausiertBeiAusfall)');
-  p.run(60);
-  ok(Math.abs(e3.sprung - s1) < 1e-6, 'ohne Reparatur (C2) bleibt die Ladung stehen: kein Erholungs-Timer mehr (C1b-1)');
+  // SYS-01 C2a: die Reparatur des Zielschiffs (ausgefallen → beschädigt 10 s → ok 6 s) gibt den Antrieb zurück, die Ladung läuft danach weiter
+  p.run(6);   // 9 s nach dem Ausfall: noch ausgefallen (Reparatur zerstört → beschädigt 10 s)
+  ok(Math.abs(e3.sprung - s1) < 1e-6 && Zs.ausgefallen(e3, 'antrieb'), 'vor Ablauf der Reparatur (9 s) steht die Ladung noch (ausgefallen)');
+  p.run(5);   // 14 s: beschädigt (Antrieb wirkt wieder, halbe Fahrt), die Ladung läuft weiter
+  ok(!Zs.ausgefallen(e3, 'antrieb') && e3.sprung !== s1, 'nach der Reparatur auf beschädigt (C2a, 14 s) läuft die Sprungladung weiter');
 });
 
 section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen', () => {

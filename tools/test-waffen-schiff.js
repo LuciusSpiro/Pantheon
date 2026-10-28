@@ -287,7 +287,8 @@ section('Torpedowerfer: Regeln', () => {
   t = 0; while (g.stats.torpedoTreffer < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
   ok(g.space.enemies.includes(k) && Math.abs(k.hp - (220 - Katalog.torpedoSchaden('korvette'))) < 1e-6, `Korvette ohne Schild (Integrität 220): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp})`);
   ok(Katalog.torpedoSchaden('fregatte') < 22 && Katalog.torpedoSchaden('kreuzer') < 22, 'Fregatte und Kreuzer: derselbe Schaden, also mehrere Treffer');
-  ok(Katalog.torpedoSchaden('raider') >= Math.round(CONFIG.enemies.raider.hp * 1 * CONFIG.spaceM3.enemyHpFactor) && Katalog.torpedoSchaden('raider') >= 25, 'Jäger-Schaden über jeder Jäger-Hülle (auch bei voller Crew-Skalierung)');
+  // SYS-01 C2a: die Obergrenze bleibt wie bisher hp × 0,8 (vorher spaceM3.enemyHpFactor), die Crew-Faktoren liegen darunter
+  ok(Katalog.torpedoSchaden('raider') >= Math.round(CONFIG.enemies.raider.hp * 1 * 0.8) && Katalog.torpedoSchaden('raider') >= 25, 'Jäger-Schaden über jeder Jäger-Hülle (auch bei voller Crew-Skalierung)');
   // Cooldown
   ok(g.ship.mount.p2.cd > 0 && T.cmd(0, 'weapons.fire', { mount: 'p2' }).some((x) => /lädt nach/.test(x)), 'Cooldown: zu früh gefeuert -> „lädt nach“');
   T.run(g.ship.mount.p2.cd + 0.1);

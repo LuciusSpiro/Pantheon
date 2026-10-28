@@ -47,6 +47,7 @@ function frei(e, z) { return ids(e).filter((id) => defOf(e.kind, id).zone === z 
 // Erreichbarkeit eines Systemziels (SYS-01 C1b-1): Zone der zugewandten Seite immer, Mitte erst wenn die zugewandte Zone keine nicht zerstörten Systeme mehr hat
 function erreichbar(e, id, zugewandt) {
   if (!e.sys || !e.sys[id]) return false;
+  if (e.sys[id].z === 'broken') return false;   // SYS-01 C2a: ein zerstörtes System ist nicht anwählbar und trifft nicht gezielt
   const z = defOf(e.kind, id).zone;
   return z === zugewandt || (z === 'mitte' && !!zugewandt && frei(e, zugewandt).length === 0);
 }

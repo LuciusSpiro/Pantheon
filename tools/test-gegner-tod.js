@@ -51,6 +51,7 @@ function gegner(g, kind, o) {
   const sh = g.ship;
   const e = space.spawnEnemy(g, kind, Object.assign({ x: sh.x + 250, y: sh.y, facing: Math.PI }, o || {}));
   e.vx = 0; e.vy = 0;
+  e.gestellt = true;   // SYS-01 C2a: diese Tests prüfen den Tod; ohne Reparatur des Gegners (der Reaktor käme sonst nach 12 s zurück). Reparatur: tools/test-gegner-reparatur.js
   return e;
 }
 // Crewgröße: verbundene Spieler (space.crewScale zählt sie). Fehlende Spieler werden als Platzhalter angelegt.

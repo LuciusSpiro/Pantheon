@@ -16,6 +16,7 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als r
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
 const Gegnertod = require('./gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Reaktor-Countdown, Sofort-Tod, Kapern über den Schildgenerator)
+const Gegnerreparatur = require('./gegnerreparatur.js');   // SYS-01 C2a: Reparatur der Gegner (Vorgänge, Rückschlag)
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
 const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 – Zielschiff flieht zum Fluchtpunkt (e.fluchtZiel), Sprungladung, Ausgang gestellt/entkommen
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
@@ -1004,8 +1005,8 @@ function spawnEnemy(game, kind, opts) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   const o = opts || {};
   const cfg = C.enemies[kind];
-  // M3a §6: zusätzlich spaceM3.enemyHpFactor (nicht beim Störrelais)
-  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).enemyHp * (M3(game).enemyHpFactor || 1))));
+  // SYS-01 C2a: Klassenbudget = Hülle × crewScaling.gegnerIntegritaet (nicht beim Störrelais)
+  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).gegnerIntegritaet)));
   const a = o.angle != null ? o.angle : game.rng.range(-Math.PI, Math.PI);
   let x = o.x != null ? o.x : ship.x + Math.cos(a) * C.combat.spawnDist;
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;
@@ -1052,7 +1053,7 @@ function volkFuer(game, kind, explizit) {
 
 function crewScale(game) {
   const n = Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
-  return game.C.crewScaling[n] || { enemyFireInterval: 1, enemyHp: 1 };
+  return game.C.crewScaling[n] || { enemyFireInterval: 1, gegnerIntegritaet: 1 };
 }
 
 // Schaden aus Richtung (srcX, srcY): erst Schildsektor des Gegners, dann Hülle.
@@ -1131,8 +1132,8 @@ function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
   // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
   const t = Gsys.treffen(game, e, zone, rest, gez);
-  if (t) Zielsysteme.merke(game, e, t.gezielt);   // Tempo-Wirkung des Antriebs: Schalter oder gezielter Treffer
   game.missionEvent('enemyDamaged', { enemy: e });
+  if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
   if (t && t.gezielt && t.state !== t.vorher) Zielsysteme.gegnerGetroffen(game, e, t);
   if (t && t.state === 'broken' && t.vorher !== 'broken' && Gegnertod.systemZerstoert(game, e, t.id)) return;   // Prise: der Gegner treibt (entern.js)
 }
@@ -1517,7 +1518,7 @@ function moveLegacy(game, e, dt, retreating) {
     const md = Math.hypot(mx, my);
     let vKin = cfg.speed;
     if (e.fluchtZiel) vKin = Verfolgung.legacyTempo(cfg.speed, e);   // SUND-04a-1 A: Fluchttempo des kinematischen Modells (Daten)
-    vKin *= Zielsysteme.tempoFaktor(e);   // C1b-1: Antrieb (e.sys) beschädigt/ausgefallen; ohne e.tempoAn genau 1
+    vKin *= Zielsysteme.tempoFaktor(e);   // C1b-1: Antrieb (e.sys) beschädigt/ausgefallen; ohne Antrieb-Modell genau 1
     const step = Math.min(md, vKin * dt);
     if (md > 1 && cfg.speed > 0) {
       // W2 AP3b: um Brocken herum (Vorausschau 1,5 s, mindestens 80 px) – ohne Brocken unverändert
@@ -1741,6 +1742,7 @@ function update(game, dt) {
   updateWeapons(game, dt);
   updateTargetScan(game, dt);
   updateEnemies(game, dt);
+  for (const e of game.space.enemies) if (e.sys) Gegnerreparatur.tick(game, e, dt);   // SYS-01 C2a: Reparatur der Gegner (in jeder Szene)
   Konvoi.update(game, dt);   // EK3 Teil B: Zerstörte/Gesprungene, Alarm der Eskorte, Ausgang (ohne Konvoi sofort zurück)
   Zielsysteme.update(game);   // SUND-04a-1 A: Erholung der Zielsysteme (nur Gegner mit e.zs)
   Verfolgung.update(game, dt);   // SUND-04a-1 A: Fluchtpunkt, Sprungladung, Stellen, Ausgang (ohne Verfolgung sofort zurück)

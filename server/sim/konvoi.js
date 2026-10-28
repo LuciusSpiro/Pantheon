@@ -147,7 +147,7 @@ function fahre(game, e, dt) {
 }
 function steuern(game, e, c, goal, dt) {
   const input = Pilot.escort(game, e, c, goal);
-  Flight.stepBody(e, input, c, { speedFactor: e.tempoAn ? Zielsysteme.tempoFaktor(e) : 1 }, dt);   // SUND-04a-1 A: Antrieb des Transporters (ohne e.zs 1)
+  Flight.stepBody(e, input, c, { speedFactor: Zielsysteme.tempoFaktor(e) }, dt);   // SUND-04a-1 A: Antrieb des Transporters (ohne e.zs 1)
   const sp = game.space; const m = 40;
   if (e.x < m) { e.x = m; e.vx = Math.max(0, e.vx); }
   if (e.x > sp.w - m) { e.x = sp.w - m; e.vx = Math.min(0, e.vx); }
