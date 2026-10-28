@@ -124,9 +124,9 @@ section('Klassenbudget = alte Hülle (Σ Integrität = hp × Crew-Integritätsfa
   const g = newGame(3);
   for (const kind of KLASSEN) {
     const e = gegner(g, kind);
-    const erwartet = Math.max(1, Math.round(CONFIG.enemies[kind].hp * space.crewScale(g).gegnerIntegritaet));
+    const erwartet = Math.max(1, Math.round(CONFIG.enemies[kind].hp * space.crewScale(g).gegnerIntegritaet * Gsys.budgetFaktor(kind)));   // SYS-01 D: Klassenfaktor budgetFaktor (Daten)
     const summe = Object.values(e.sys).reduce((a, s) => a + s.i, 0);
-    ok(e.hpMax === erwartet, kind + ': hpMax = hp × crewScale.gegnerIntegritaet (' + e.hpMax + ' = ' + erwartet + ')');
+    ok(e.hpMax === erwartet, kind + ': hpMax = hp × crewScale.gegnerIntegritaet × budgetFaktor (' + e.hpMax + ' = ' + erwartet + ')');
     ok(Math.abs(summe - e.hpMax) < 1e-6, kind + ': Σ Integrität = Klassenbudget (' + summe.toFixed(4) + ')');
     ok(Math.abs(e.hp - summe) < 1e-6, kind + ': e.hp ist die Summe der Integrität');
     for (const id of Object.keys(e.sys)) if (e.sys[id].z !== 'ok') { ok(false, kind + ' ' + id + ' startet nicht ok'); break; }

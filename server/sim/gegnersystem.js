@@ -33,6 +33,8 @@ function summeGewicht(kind) {
   if (!summenCache.has(kind)) summenCache.set(kind, (systemeVon(kind) || []).reduce((a, d) => a + d.gewicht, 0));
   return summenCache.get(kind);
 }
+// SYS-01 D: Klassenfaktor auf das Klassenbudget (Daten: klassen.<klasse>.budgetFaktor, Standard 1). Budget = enemies.<klasse>.hp × crewScaling.gegnerIntegritaet × budgetFaktor.
+function budgetFaktor(kind) { const k = DATEN.klassen[kind]; return k && typeof k.budgetFaktor === 'number' ? k.budgetFaktor : 1; }
 // Hat die Gegnerklasse ein Systemmodell? (relay nicht)
 function hat(e) { return !!(e && e.sys); }
 // Maximum eines Systems: Anteil am Klassenbudget (e.hpMax)
@@ -211,7 +213,7 @@ function zoneVonSegment(game, e, sec) {
 }
 
 module.exports = {
-  ZONEN, SEITE_ZONE, DATEN, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
+  ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
   summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };
