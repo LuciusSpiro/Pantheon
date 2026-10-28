@@ -12,6 +12,7 @@ const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
+const Zielsysteme = require('../server/sim/zielsysteme.js');
 let Flight = null;
 try { Flight = require('../shared/flight.js'); } catch (e) { Flight = null; }
 
@@ -324,7 +325,8 @@ function raidRun(opts) {
   const st = stateReader(g);
   const R = CLS.raider;
   const eps = {}; const done = [];
-  let minSep = Infinity, minSepPair = '', minRaider = Infinity, edgeMax = 0, edgeWho = '';
+  let minSep = Infinity, minSepPair = '', minRaider = Infinity, minIntakt = Infinity, minBeschaedigt = Infinity, maxZerstoert = 0, minRelativ = Infinity, edgeMax = 0, edgeWho = '';
+  const tfVor = {};
   const edgeT = {}; const STRIP = o.strip || 100;
   const sp = g.space;
   const stateCount = {};
@@ -340,7 +342,17 @@ function raidRun(opts) {
       // Mindestabstand: zur Lerche und zu den anderen Gegnern
       if (d < minSep) { minSep = d; minSepPair = e.kind + '–Lerche'; }
       for (const q of live) if (q !== e && q.id > e.id) { const dq = dist(e.x, e.y, q.x, q.y); if (dq < minSep) { minSep = dq; minSepPair = e.kind + '–' + q.kind; } }
-      if (e.kind === 'raider') minRaider = Math.min(minRaider, Math.hypot(e.vx || 0, e.vy || 0));
+      if (e.kind === 'raider') {
+        // C2a: der Antrieb wirkt in jeder Szene, die Mindestfahrt gilt mit dem Antriebsfaktor (intakt 1, beschädigt 0,5, zerstört 0).
+        // Maßgeblich ist der Faktor, mit dem das Tempo berechnet wurde (der Schritt vom Tick davor): die Reparatur läuft nach der Bewegung.
+        const v = Math.hypot(e.vx || 0, e.vy || 0), tf = Zielsysteme.tempoFaktor(e);
+        const tfSchritt = tfVor[e.id] != null ? tfVor[e.id] : tf; tfVor[e.id] = tf;
+        minRaider = Math.min(minRaider, v);
+        if (tfSchritt >= 1) minIntakt = Math.min(minIntakt, v);
+        else if (tfSchritt > 0) minBeschaedigt = Math.min(minBeschaedigt, v);
+        else maxZerstoert = Math.max(maxZerstoert, v);
+        if (tfSchritt > 0) minRelativ = Math.min(minRelativ, v / tfSchritt);
+      }
       // Randstreifen
       const inStrip = e.x < STRIP || e.y < STRIP || e.x > sp.w - STRIP || e.y > sp.h - STRIP;
       edgeT[e.id] = inStrip ? (edgeT[e.id] || 0) + DT : 0;
@@ -360,7 +372,7 @@ function raidRun(opts) {
     }
   });
   for (const id of Object.keys(eps)) if (eps[id] && eps[id].phase === 'after') done.push(eps[id]);
-  return { g, done, minSep, minSepPair, minRaider, edgeMax, edgeWho, stateCount, enemies };
+  return { g, done, minSep, minSepPair, minRaider, minIntakt, minBeschaedigt, maxZerstoert, minRelativ, edgeMax, edgeWho, stateCount, enemies };
 }
 
 section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
@@ -374,7 +386,10 @@ section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
   ok(all.length >= 6, `genug Anflüge gemessen (${all.length} in 3 × 120 s)`);
   ok(share >= 0.8, `Überflüge: ${pass.length}/${all.length} = ${f1(share * 100)} % mit Abstand < 150 und danach > 300 (Soll ≥ 80 %)`);
   const minR = Math.min(...runs.map((r) => r.minRaider));
-  ok(minR >= CLS.raider.minSpeed - 1, `Jäger im Spiel nie unter minSpeed ${CLS.raider.minSpeed} (min ${f1(minR)} px/s)`);
+  info('Trace Jäger: min gesamt ' + f1(minR) + ' · intakter Antrieb min ' + f1(Math.min(...runs.map((r) => r.minIntakt))) + ' · beschädigt min ' + f1(Math.min(...runs.map((r) => r.minBeschaedigt))) + ' · zerstört max ' + f1(Math.max(...runs.map((r) => r.maxZerstoert))) + ' · Tempo/Faktor min ' + f1(Math.min(...runs.map((r) => r.minRelativ))));
+  const minI = Math.min(...runs.map((r) => r.minIntakt)), minRel = Math.min(...runs.map((r) => r.minRelativ));
+  ok(minI >= CLS.raider.minSpeed - 1, `Jäger mit intaktem Antrieb im Spiel nie unter minSpeed ${CLS.raider.minSpeed} (min ${f1(minI)} px/s)`);
+  ok(minRel >= CLS.raider.minSpeed - 1, `Jäger im Spiel nie unter minSpeed × Antriebsfaktor (beschädigt: ${CLS.raider.minSpeed} × 0,5; min Tempo/Faktor ${f1(minRel)}, beschädigt min ${f1(Math.min(...runs.map((r) => r.minBeschaedigt)))} px/s)`);
   ok(runs.every((r) => r.g.errors === 0), 'keine Server-Fehler');
 });
 
