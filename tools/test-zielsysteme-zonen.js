@@ -180,6 +180,41 @@ section('Gleiche Regeln gegen die Lerche: Zielsystem der Gegner, Zone, Mitte nur
   Zs.szeneAn(g, false);
 });
 
+section('SYS-01 C Nacharbeit: Ziel der Mitte, Lerche und Gegner im gleichen Fall gleich (Überlauf in die Mitte)', () => {
+  const T = setup(); const g = T.g; const ship = g.ship;
+  g.rng.chance = () => false; Zs.szeneAn(g, true);
+  const mal = 40;
+  // Lerche: Treffer auf das Heck (zugewandt), Ziel Reaktor (Mitte), ohne Durchschlag
+  const lerche = (heckLeer) => {
+    let gez = 0;
+    for (let i = 0; i < mal; i++) {
+      interior.integritaetVoll(g); ship.shields.current = [0, 0, 0, 0];
+      if (heckLeer) for (const k of ['engines', 'emitter_aft', 'lafette_2']) { ship.integ[k] = 0; if (ship.systems) ship.systems[k] = 'broken'; }
+      const zl = () => ((g.stats.zielsysteme || {}).lerche || 0); const z0 = zl();
+      space.shipHit(g, 2, 2, { angriff: true, zielt: 'reactor' });
+      if (zl() === z0 + 1) gez++;
+    }
+    return gez;
+  };
+  // Gegner (Fregatte): Treffer auf das Heck, Ziel Reaktor
+  const gegner = (heckLeer) => {
+    let gez = 0;
+    const e = leer(g, 'fregatte', 1500, 1100); e.angle = 0; hinten(g, e);
+    for (let i = 0; i < mal; i++) {
+      Testhilfe.setzeGesamt(e, e.hpMax);
+      if (heckLeer) for (const id of Gsys.ids(e)) if (Gsys.defOf(e.kind, id).zone === 'heck') setze(e, id, 0);
+      const t = trefferZone(g, e, 'heck', 1, { id: 'reaktor', zugewandt: 'heck' });
+      if (t && t.gezielt && t.id === 'reaktor') gez++;
+    }
+    return gez;
+  };
+  ok(lerche(false) === 0 && gegner(false) === 0, 'Heck lebt: Ziel der Mitte weder bei der Lerche noch beim Gegner gezielt (0 von ' + mal + ')');
+  const l = lerche(true), ge = gegner(true);
+  ok(ge === mal && l === mal, 'Heck leer: Ziel der Mitte ohne Durchschlag gezielt, Lerche ' + l + '/' + mal + ' = Gegner ' + ge + '/' + mal);
+  g.rng.chance = Math.random.bind(Math);
+  Zs.szeneAn(g, false);
+});
+
 section('Verfolgung: der zerstörte Reaktor bricht die Sprungladung ab, der Ausgang kommt erst mit dem Countdown', () => {
   const T = setup(); const g = T.g;
   Verfolgung.starten(g, { klasse: 'korvette', wiederholung: false });

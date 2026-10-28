@@ -1184,7 +1184,8 @@ function trefferweg(game, zone, schaden, opts) {
   const zoneFrei = (z) => SYSTEM_ORDER.some((k) => systemSector(k) === z && frei(k));
   const erreichbarZone = (sz, zug) => sz === zug || (sz === -1 && zug != null && !zoneFrei(zug));
   const ziel = opts && opts.ziel;
-  if (ziel && frei(ziel) && systemSector(ziel) === zone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
+  const zielZone = zone !== -1 && !zoneFrei(zone) ? -1 : zone;   // Überlauf wie Gsys.treffen: eine leere Zone läuft in die Mitte, ein Ziel der Mitte gilt dann
+  if (ziel && frei(ziel) && systemSector(ziel) === zielZone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
     const r = systemTreffer(game, ziel, schaden, opts);
     return { system: ziel, state: s[ziel], wechsel: !!r, gezielt: true };
   }

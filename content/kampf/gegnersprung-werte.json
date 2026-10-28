@@ -6,7 +6,8 @@
       "wert": 8,
       "einheit": "s",
       "min": 0.1,
-      "_hinweis": "Sprungladung eines Gegners, Standard des Bausteins. Ist sie kürzer als der Rest eines Reaktor-Countdowns, entkommt der Gegner; sonst stirbt er."
+      "max": 60,
+      "_hinweis": "Sprungladung eines Gegners, Standard des Bausteins. Ist sie kürzer als der Rest eines Reaktor-Countdowns, entkommt der Gegner; sonst stirbt er (der Countdown läuft auch während der Ladung). max: Obergrenze im Vertrag (Prüfer)."
     },
     "prozent_standard": {
       "wert": 50,

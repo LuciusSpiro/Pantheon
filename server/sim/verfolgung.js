@@ -19,6 +19,7 @@
 const Sektoren = require('../../shared/sektoren.js');
 const Zielsysteme = require('./zielsysteme.js');
 const Gsys = require('./gegnersystem.js');
+const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C Nacharbeit: Notfallsprung (Baustein) = entkommen
 const W = require('../../content/kampf/verfolgung-werte.json').werte;
 
 const ZIEL = W.ziel.wert, FLUCHT = W.flucht.wert, SPRUNG = W.sprung.wert, STELLEN = W.stellen.wert, FP = W.fluchtpunkt.wert, GEGNER = W.gegner.wert,
@@ -122,7 +123,7 @@ function spawnen(game) {
 }
 // Das Ziel ist weg (Sprung, neues Ziel): Ziel der Ops und ihr Systemziel gehen mit ihm
 function abgeben(game, e) {
-  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }
+  if (game.ship.target === e.id) { Zielsysteme.zielLoeschen(game); }
 }
 // Wiederholung: Rest des Zielschiffs weg, ein neues am Start
 function neu(game) {
@@ -143,7 +144,7 @@ function update(game, dt) {
   if (k.szene !== game.ship.scene) { delete game.space.verfolgung; return; }   // Szene verlassen: die Verfolgung ist vorbei
   if (k.ausgang) { if (k.ausgang === 'entkommen' && k.wiederholung && k.neuAt != null && game.time >= k.neuAt) neu(game); return; }
   const e = lebt(game, k.ziel);
-  if (!e) { setzeAusgang(game, k, 'zerstoert'); return; }
+  if (!e) { setzeAusgang(game, k, Gegnersprung.istEntkommen(game, k.ziel) ? 'entkommen' : 'zerstoert'); return; }   // Notfallsprung (Baustein) ist Entkommen, kein Abschuss
   const L = game.ship; const fp = k.fluchtpunkt;
   const aus = Zielsysteme.ausgefallen(e, SYSTEM_ZIEL);
   // Reaktor zerstört (C1b-1): die Sprungladung bricht ab, der Countdown läuft weiter; ohne Reaktor kein neuer Ladeversuch

@@ -16,6 +16,7 @@ const Flight = require('../../shared/flight.js');
 const Pilot = require('./pilot.js');
 const Fracht = require('./fracht.js');
 const Zielsysteme = require('./zielsysteme.js');
+const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C Nacharbeit: ein Transporter mit Notfallsprung (Baustein) ist entkommen, nicht zerstört
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> konvoi)
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -131,7 +132,7 @@ function stufeFuer(c, speed) {
 function neu(game) {
   const k = st(game); if (!k) return;
   game.space.enemies = game.space.enemies.filter((e) => !e.kv);
-  if (game.ship.target && !game.space.enemies.some((e) => e.id === game.ship.target)) game.ship.target = null;
+  if (game.ship.target && !game.space.enemies.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
   k.versuch++;
   k.route = routeFuer(game);
   game.oda('Ein neuer Konvoi rollt auf derselben Route an – diesmal nicht entkommen lassen.', null);
@@ -220,6 +221,7 @@ function update(game, dt) {
     const e = lebt(game, id);
     if (e) { k.pos[id] = { x: e.x, y: e.y }; if (e.sprung != null && e.sprung >= (C.springDauer || 4) && !k.fertig[id]) springen(game, k, e); continue; }
     if (k.fertig[id]) continue;
+    if (Gegnersprung.istEntkommen(game, id)) { entkommen(game, k, id); continue; }   // weg per Notfallsprung: kein Wrack, keine Fracht, der Konvoi ist (teilweise) durch
     k.fertig[id] = 'zerstoert';
     verloren(game, k, id);
   }
@@ -256,11 +258,16 @@ function update(game, dt) {
 function springen(game, k, e) {
   k.fertig[e.id] = 'gesprungen';
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
-  if (game.ship.target === e.id) game.ship.target = null;
+  if (game.ship.target === e.id) Zielsysteme.zielLoeschen(game);
   game.emit('sfx', { name: 'jump' });
   game.emit('konvoiSprung', { x: Math.round(e.x), y: Math.round(e.y) });
   game.oda('Transporter gesprungen – weg ist er.', null);
   game.missionEvent('konvoiSprung', { id: e.id, x: e.x, y: e.y });
+}
+function entkommen(game, k, id) {
+  k.fertig[id] = 'gesprungen';
+  game.oda('Transporter per Notfallsprung weg – er ist durch.', null);
+  game.missionEvent('konvoiSprung', { id, x: (k.pos[id] || {}).x, y: (k.pos[id] || {}).y });
 }
 function verloren(game, k, id) {
   const p = k.pos[id] || { x: game.ship.x, y: game.ship.y };

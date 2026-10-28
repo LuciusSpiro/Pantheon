@@ -146,6 +146,7 @@ function enterScene(game, locId, opts) {
   if (sc.beam && game.setAwayMap && !game.players.some((p) => p.zone === 'away')) game.setAwayMap(sc.beam.map);
   // S2 §5: Rückzugsregel gilt nur im Ort; Schützlinge springen mit oder bleiben zurück
   if (sp.retreatRule) delete sp.retreatRule;
+  Gegnersprung.szeneVerlassen(game);   // SYS-01 C Nacharbeit: Notfallsprung-Regeln des Bausteins gelten nur in der Szene, die sie setzt (Abnahme 16)
   if (sp.escorts && sp.escorts.length) { try { Escort.onSceneChange(game, fromScene); } catch (err) { if (game.countError) game.countError('escort-scene', err); } }
   if (game.weltsim) { try { require('./kriegslage-szene.js').betreten(game, hexB); } catch (err) { if (game.countError) game.countError('sim-szene', err); } }   // SUND-02a A2: Flotte der Sim im Hex? Szene beginnt (nach dem Aufbau, nur Freie Fahrt Sund)
 }
@@ -898,7 +899,7 @@ function resolveTarget(game, id) {
   return null;
 }
 function weaponsTarget(game, id) {
-  if (id === null || id === undefined) { game.ship.target = null; delete game.ship.zielsystem; return null; }
+  if (id === null || id === undefined) { Zielsysteme.zielLoeschen(game); return null; }
   const rt = resolveTarget(game, id);
   if (!rt) return 'Ziel nicht gefunden.';
   // W2: Gegner nur innerhalb der Sensorreichweite aufschalten (im Nebel × fogFactor; der Client zeigt dieselbe Grenze)
@@ -1147,7 +1148,7 @@ function enemyDown(game, e) {
   game.stats.kills++;
   game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
   game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.waffen || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });
-  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }   // das Systemziel hängt am Ziel (A-K3)
+  if (game.ship.target === e.id) { Zielsysteme.zielLoeschen(game); }   // das Systemziel hängt am Ziel (A-K3)
   game.missionEvent('enemyKilled', { enemy: e });
 }
 
@@ -1209,8 +1210,8 @@ function updateEnemies(game, dt) {
     e.regenT += dt;
     if (game.time < (e.regenHold || 0)) e.regenT = 0;   // PAN-01 C: Sturmbatterie unterdrückt die Regeneration
     if (e.regenT >= C.enemyShieldRegen * Gsys.regenFaktor(game, e)) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1); }
+    if (Gegnertod.tick(game, e, dt)) { enemyDown(game, e); continue; }   // SYS-01 C1a-2: Reaktor-Countdown abgelaufen (der Gegner kämpft bis dahin weiter, auch gestellt oder fliehend); SYS-01 C Nacharbeit: tickt auch während der Sprungladung
     if (Gegnersprung.schritt(game, e, dt)) continue;   // SYS-01 C2b: Notfallsprung (nur mit Baustein): lädt und hält Stellung, danach entkommen (ohne enemyDown)
-    if (Gegnertod.tick(game, e, dt)) { enemyDown(game, e); continue; }   // SYS-01 C1a-2: Reaktor-Countdown abgelaufen (der Gegner kämpft bis dahin weiter, auch gestellt oder fliehend)
     const retreating = e.retreatUntil > game.time;
     if (Konvoi.faehrt(e)) { Konvoi.fahre(game, e, dt); continue; }   // EK3 Teil B: Transporter und wachende Eskorte fahren die Route, kein Feuer
     if (e.pat) { Alarm.patrouille(game, e, dt); continue; }   // EK2: ruhige Patrouille: Strecke (Brocken ignoriert), kein Feuer

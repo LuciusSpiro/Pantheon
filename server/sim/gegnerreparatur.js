@@ -9,7 +9,8 @@
 // Regeln:
 //   - Fortschritt je System (st.rp in s, st.rpVon = Zustand, zu dem er gehört). Ein Wechsel des Zustands durch einen Treffer setzt ihn zurück.
 //   - Eine fertige Stufe setzt die Integrität auf den Grundwert (integritaet.grundwertVon: ok = Maximum, beschädigt = systemModell.reparatur.damaged × Maximum),
-//     und reparaturFertig setzt die Immunität (Schutz vor einer sofortigen Verschlechterung).
+//     und reparaturFertig setzt die Immunität (st.imm). Sie schützt nur Systeme mit Regel in den Daten (zielsysteme-werte.json systeme, heute der Antrieb; Gsys.gesperrt
+//     prüft regelVon): bei allen anderen Systemen wird imm gesetzt, wirkt aber nicht (Entscheidung SYS-01 C Nacharbeit, kein Code geändert).
 //   - Keine Skalierung mit der Crewgröße. Kein Zufall (game.rng wird nicht benutzt).
 //   - Gestellte Gegner (reparaturErlaubt, Verfolgung) reparieren nicht. Gegner ohne Systemmodell (Störrelais) auch nicht. Gegner, die abziehen, reparieren weiter.
 //   - Regelabweichung vom Konzept (Entwicklungsleiter, C2a Nacharbeit): Gegner reparieren den REAKTOR nicht selbst (systemModell.gegner.reparatur.reaktor, Standard false, live per `tune`).

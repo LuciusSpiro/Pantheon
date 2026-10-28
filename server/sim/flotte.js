@@ -597,7 +597,7 @@ function trennen(game, es) {
 // Gegner weg, Wellen und Befehl von vorn, lebende Verbündete repariert, Lerche auf mindestens 60 % Hülle. Zerstörte Schiffe bleiben verloren.
 function neustart(game) {
   const st = state(game); const sp = game.space; const Lr = lerche(game);
-  for (const e of sp.enemies) if (game.ship.target === e.id) game.ship.target = null;
+  for (const e of sp.enemies) if (game.ship.target === e.id) require('./zielsysteme.js').zielLoeschen(game);
   sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => !['enemy', 'emp', 'sperrfeuer', 'sturm', 'etorpedo', 'estreu', 'ally'].includes(p.kind));
   st.nachschub.length = 0;
   for (const es of allies(game)) {

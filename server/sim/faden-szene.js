@@ -121,7 +121,7 @@ function aufraeumen(game, fs) {
   const vf = fs.art === 'verfolgung' ? sp.verfolgung : null;   // nur die Verfolgung dieser Szene, nie eine fremde
   const weg = sp.enemies.filter((e) => e.tag === fs.tag || (vf && e.id === vf.ziel));
   if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));
-  if (weg.some((e) => e.id === game.ship.target)) game.ship.target = null;
+  if (weg.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
   if (vf) { sp.verfolgung = null; if (!game.simSzene) Zielsysteme.szeneAn(game, false); }
   game.fadenSzene = null;
 }

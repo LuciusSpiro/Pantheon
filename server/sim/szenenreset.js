@@ -19,6 +19,7 @@ function zuruecksetzen(game, o) {
   const sh = ship.shields;
   if (sh && Array.isArray(sh.alloc)) sh.current = sh.alloc.slice();
   sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind === 'ally');
+  require('./gegnersprung.js').szeneVerlassen(game);   // SYS-01 C Nacharbeit: Szene von vorn = ohne die Notfallsprung-Regeln der alten Szene
   if (Fracht.state(game).halt) Fracht.beamStop(game, 'szene');
   ship.docked = false;
   ship.vx = 0; ship.vy = 0; ship.speed = 0; ship.turnVel = 0;

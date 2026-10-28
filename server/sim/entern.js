@@ -158,7 +158,7 @@ function treiben(game, e) {
   const ec = (C.enemies || {})[e.kind] || {};
   if (game.inventory) game.inventory.marks += ec.salvage || 0;
   if (game.stats) game.stats.kills = (game.stats.kills || 0) + 1;
-  if (game.ship && game.ship.target === e.id) game.ship.target = null;
+  if (game.ship && game.ship.target === e.id) require('./zielsysteme.js').zielLoeschen(game);
   if (typeof game.emit === 'function') {
     game.emit('sfx', { name: 'explosion_small' });
     game.emit('enternFrei', { id: e.id });

@@ -5,11 +5,15 @@
 //   schritt(game, e, dt)  – je Tick vor dem Gegner-Takt. true = der Gegner handelt diesen Tick nicht (er lädt den Sprung, hält Stellung und feuert nicht,
 //                           oder er ist eben entkommen). false = normal weiter.
 // Auslöser: reaktor_zerstoert (Reaktor des Gegners zerstört), integritaet_unter (Gesamtintegrität in % unter prozent), sofort (ab dem ersten Tick).
-// Konkurrenz mit dem Reaktor-Countdown (gegnertod.js): läuft ein Countdown mit Rest r, startet der Sprung nur bei verzoegerung_s < r. Dann entkommt der Gegner
-// (der Countdown ruht während der Ladung und endet nie); sonst läuft der Countdown ab und der Gegner stirbt.
-// Entkommen: der Gegner verlässt das Feld (game.space.enemies), OHNE enemyDown: kein Abschuss, keine Beute, keine Explosion. Ereignis enemyEscaped.
+// Konkurrenz mit dem Reaktor-Countdown (gegnertod.js): beide laufen gleichzeitig, auch während der Sprungladung (space.updateEnemies tickt den Countdown vor dem Sprung);
+// wer zuerst abläuft, gewinnt. Läuft ein Countdown mit Rest r, startet der Sprung nur bei verzoegerung_s < r; beginnt der Countdown erst während der Ladung, entscheidet der
+// Ablauf (Gleichstand: der Gegner stirbt). Der Gegner stirbt dann über enemyDown (kein Entkommen).
+// Entkommen: der Gegner verlässt das Feld (game.space.enemies), OHNE enemyDown: kein Abschuss, keine Beute, keine Explosion. Ereignis enemyEscaped; die ID steht in
+// game.space.entkommene (istEntkommen(game, id): Verfolgung und Konvoi unterscheiden so „entkommen“ von „zerstört“).
+// Die Regeln gelten nur in der Szene, die sie setzt (szeneVerlassen: Szenenwechsel, Szene von vorn).
 // Zahlen: content/kampf/gegnersprung-werte.json. Zufall: keiner.
 const Gsys = require('./gegnersystem.js');
+const Zielsysteme = require('./zielsysteme.js');
 const W = require('../../content/kampf/gegnersprung-werte.json').werte;
 
 function regel(game, r) {
@@ -33,11 +37,16 @@ function ausgeloest(R, e) {
   return false;
 }
 
+// Die Regeln und die Liste der Entkommenen gehören zur Szene (space.enterScene, szenenreset)
+function szeneVerlassen(game) { if (game.space) { delete game.space.sprungRegeln; delete game.space.entkommene; } }
+function istEntkommen(game, id) { const l = game.space && game.space.entkommene; return !!(l && l.includes(id)); }
+
 function entkommen(game, e) {
   const sp = game.space;
   e.notsprung = null;
+  (sp.entkommene || (sp.entkommene = [])).push(e.id);
   sp.enemies = sp.enemies.filter((o) => o !== e);
-  if (game.ship.target === e.id) { game.ship.target = null; delete game.ship.zielsystem; }
+  if (game.ship.target === e.id) { Zielsysteme.zielLoeschen(game); }
   game.emit('sfx', { name: 'jump' });
   game.missionEvent('enemyEscaped', { enemy: e });
 }
@@ -60,4 +69,4 @@ function schritt(game, e, dt) {
   return true;
 }
 
-module.exports = { regel, schritt, AUSLOESER: W.ausloeser.wert };
+module.exports = { regel, schritt, szeneVerlassen, istEntkommen };

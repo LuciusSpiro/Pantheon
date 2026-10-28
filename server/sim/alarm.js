@@ -370,7 +370,7 @@ function explodiere(game, m, grund) {
     if (dist(m.x, m.y, e.x, e.y) <= R) space().damageEnemy(game, e, M.gegner != null ? M.gegner : 20, m.x, m.y, { pierce: 99 });
   }
   if (game.flotte && m.besitzer !== 'lerche') { try { require('./flotte.js').mineSchaden(game, m, R); } catch (err) { if (game.countError) game.countError('flotte-mine', err); } }   // EK4b: Verbündete im Sprengradius
-  if (game.ship.target === m.id) game.ship.target = null;
+  if (game.ship.target === m.id) require('./zielsysteme.js').zielLoeschen(game);
   ausloeser(game, 'mine');
   game.missionEvent(grund === 'abschuss' ? 'mineAbgeschossen' : 'mineGezuendet', { id: m.id, getroffen, systeme: liste.length });
   game.missionEvent('mineExploded', { id: m.id, grund, getroffen });
@@ -380,7 +380,7 @@ function explodiere(game, m, grund) {
 function abschuss(game, m) {
   if (m.ohneStrom) {
     game.space.minen = game.space.minen.filter((q) => q !== m);
-    if (game.ship.target === m.id) game.ship.target = null;
+    if (game.ship.target === m.id) require('./zielsysteme.js').zielLoeschen(game);
     game.oda('Stromlose Mine getroffen – ein Blindgänger, es passiert nichts.', null);
     game.missionEvent('mineAbgeschossen', { id: m.id, blind: true });
     return { blind: true };

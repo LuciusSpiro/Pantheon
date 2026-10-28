@@ -558,7 +558,7 @@ function updateLeaving(game, dt) {
   if (!out.length) return;
   sp.enemies = sp.enemies.filter((e) => !out.includes(e));
   for (const e of out) {
-    if (game.ship.target === e.id) game.ship.target = null;
+    if (game.ship.target === e.id) zielsys().zielLoeschen(game);
     game.emit('teleMiss', { id: e.id });
     game.missionEvent('enemyLeft', { enemy: e });
   }

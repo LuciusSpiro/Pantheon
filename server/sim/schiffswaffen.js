@@ -332,7 +332,7 @@ function update(game, dt) {
     mm.blk = false;
     mm.charge = Math.min(1, mm.charge + dt / t);
   }
-  if (ship.target && !S().resolveTarget(game, ship.target)) ship.target = null;
+  if (ship.target && !S().resolveTarget(game, ship.target)) require('./zielsysteme.js').zielLoeschen(game);
   const manned = weaponsManned(game);
   S().meldeWaffenAutomatik(game, manned);
   for (const a of list) if (a.w.art === 'lanze') updateLanceCharge(game, a.id, dt, manned);

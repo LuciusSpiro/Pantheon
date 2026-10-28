@@ -21,6 +21,8 @@ const ZUSTAND = ['ok', 'damaged', 'broken'];   // Reihenfolge der Stufen in den 
 function szeneAn(game, an) {
   if (an === false) delete game.space[SCHALTER]; else game.space[SCHALTER] = true;
 }
+// Das Ziel der Ops ist weg (Abschuss, Sprung, Szene, Abzug): Ziel und Systemziel gehen gemeinsam (der Snapshot meldet sonst weiter zs). Alle Stellen, die ship.target leeren, rufen das.
+function zielLoeschen(game) { game.ship.target = null; delete game.ship.zielsystem; }
 function szeneAktiv(game) { return !!(game.space && game.space[SCHALTER] === true); }
 
 // ---------- Tempo und Zustand ----------
@@ -159,5 +161,5 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { SYSTEME, SCHALTER, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
+module.exports = { SYSTEME, zielLoeschen, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
   waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, zielAufKlasse, snapExtra, debug };
