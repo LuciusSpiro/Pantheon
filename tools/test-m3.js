@@ -14,6 +14,7 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
+const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Reaktor-Countdown der Gegner
 const interior = require('../server/sim/interior.js');
 const Flight = require('../shared/flight.js');
 let damage = null;
@@ -1238,14 +1239,20 @@ section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   const hitMitte = (e) => S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' });
   const e = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y, Math.PI, { hp: 300 });
   Testhilfe.mitteNurReaktor(e); Testhilfe.setzeIntegritaet(e, 'reaktor', 3);
+  // SYS-01 C1a-2: der zerstörte Reaktor startet den Countdown, der Gegner stirbt erst, wenn er abläuft (ablaufen: Gegnertod.tick bis 0)
+  const ablaufen = (e2) => { if (e2.rt && e2.rt.rest != null && Gegnertod.tick(g, e2, e2.rt.rest)) space.enemyDown(g, e2); };
   for (let i = 0; i < 4; i++) hitMitte(e);   // 4 × 0,75 = 3 (vorher: 0,8 je Treffer gerundet -> 3,2, aber 0,05er-Fehler je Treffer)
-  ok(!g.space.enemies.includes(e), '4 × 0,75 Schaden zerstören den Reaktor mit 3 Punkten Integrität: der Gegner stirbt');
+  ok(g.space.enemies.includes(e) && !!e.rt && e.rt.rest != null, '4 × 0,75 Schaden zerstören den Reaktor mit 3 Punkten Integrität: Countdown läuft, der Gegner lebt');
+  ablaufen(e);
+  ok(!g.space.enemies.includes(e), 'Countdown abgelaufen: der Gegner stirbt');
   const e2 = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y + 50, Math.PI, { hp: 300 });
   Testhilfe.mitteNurReaktor(e2); Testhilfe.setzeIntegritaet(e2, 'reaktor', 1);
   for (let i = 0; i < 3; i++) S.damageEnemy(g, e2, 0.3, e2.x - 100, e2.y, { durchschlag: 'zone' });
   ok(g.space.enemies.includes(e2) && Math.abs(e2.sys.reaktor.i - 0.1) < 1e-6, `3 × 0,3 Schaden lassen 0,1 Integrität am Reaktor übrig (${e2.sys.reaktor.i.toFixed(3)})`);
   S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
-  ok(!g.space.enemies.includes(e2), 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört den Reaktor, der Gegner stirbt');
+  ok(g.space.enemies.includes(e2) && !!e2.rt && e2.rt.rest != null, 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört den Reaktor, Countdown läuft');
+  ablaufen(e2);
+  ok(!g.space.enemies.includes(e2), 'Countdown abgelaufen: der Gegner stirbt');
 });
 
 // ======================================================================

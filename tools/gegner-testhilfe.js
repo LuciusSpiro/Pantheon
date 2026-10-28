@@ -6,6 +6,7 @@ const CONFIG = require('../shared/config.js');
 const Schilde = require('../shared/schilde.js');
 const space = require('../server/sim/space.js');
 const Gsys = require('../server/sim/gegnersystem.js');
+const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Countdown und Sofort-Tod
 const Integ = require('../server/sim/integritaet.js');
 
 const schwelle = () => Number(CONFIG.systemModell && CONFIG.systemModell.schwelle) || 0.6;
@@ -60,16 +61,26 @@ function mitteNurReaktor(e) {
 // Schilde samt Obergrenze setzen (updateEnemies kappt die Schilde auf shieldsMax bzw. die Grenzen aus Emitter und Schildgenerator; ein Test mit Schild 6 braucht Maximum 6)
 function setzeSchilde(e, werte) { e.shields = werte.slice(); e.shieldsMax = werte.slice(); }
 
-// Abschuss über den echten Modellpfad: Schilde weg, ein Durchschlag 'zone' trifft die Mitte; die übrigen Systeme der Mitte sind vorher
-// zerstört, damit der Treffer sicher den Reaktor erwischt (Reaktor zerstört -> der Gegner stirbt, damageEnemy ruft Entern/enemyDown).
+// SYS-01 C1a-2: Abschuss über den echten Modellpfad mit Zeitvorlauf. Schilde weg; zuerst der Schildgenerator (Übergang wie im Spiel: ein Enterziel
+// wird dabei Prise, dann ist der Abschuss erledigt, kein Tod); danach die übrigen Systeme der Mitte, damit ein Durchschlag 'zone' sicher den Reaktor trifft.
+// Der Reaktor startet den Countdown (Gegnertod.systemZerstoert), der hier bis zum Ablauf vorgespult wird: der Gegner stirbt über space.enemyDown.
 // opts: von = [x, y] (Quelle, Standard 100 px hinter dem Gegner), dazu alle damageEnemy-Optionen. Ohne Modell: alte Hülle (hp 1, Treffer 500).
 function toeten(game, e, opts) {
   const o = Object.assign({}, opts || {}); const von = o.von || [e.x - 100, e.y]; delete o.von;
   if (!Gsys.hat(e)) { e.hp = 1; space.damageEnemy(game, e, 500, von[0], von[1], o); return; }
-  schildNull(e); mitteNurReaktor(e);
+  schildNull(e);
+  const sg = Gsys.idVon(e, 'schildgenerator');
+  if (sg && e.sys[sg].z !== 'broken' && Gegnertod.brechen(game, e, sg)) return;   // Enterziel: Prise, der Gegner treibt
+  mitteNurReaktor(e);
   const r = Gsys.idVon(e, 'reaktor');
   e.sys[r].i = Math.min(e.sys[r].i, 0.01); e.sys[r].z = 'damaged'; e.hp = Gsys.summe(e);
   space.damageEnemy(game, e, 1e6, von[0], von[1], Object.assign(o, { durchschlag: 'zone' }));
+  if (e.rt && e.rt.rest != null && game.space.enemies.includes(e) && Gegnertod.tick(game, e, e.rt.rest)) space.enemyDown(game, e);   // Countdown ablaufen lassen
+}
+// Abschuss ohne Countdown (Tests, die ihn nicht abwarten wollen): wie der Torpedo-Sofort-Tod, kein Kapern. Ohne Modell wie toeten.
+function toetenSofort(game, e) {
+  if (!Gsys.hat(e)) { toeten(game, e); return; }
+  Gegnertod.sofort(e); space.enemyDown(game, e);
 }
 
-module.exports = { setzeSchilde, toeten, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };
+module.exports = { setzeSchilde, toeten, toetenSofort, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };

@@ -66,7 +66,7 @@ function spawn(g, opts) {
 }
 const kill = (g, e) => Testhilfe.toeten(g, e);
 
-section('Hülle 0 ohne entern: Gegner wird wie bisher entfernt', () => {
+section('Abschuss ohne entern: Gegner wird wie bisher entfernt (Reaktor-Countdown, SYS-01 C1a-2)', () => {
   const { g, ev } = arena();
   const e = spawn(g);
   const kills0 = g.stats.kills; const marks0 = g.inventory.marks;
@@ -79,13 +79,13 @@ section('Hülle 0 ohne entern: Gegner wird wie bisher entfernt', () => {
   ok(Object.keys(g.entern ? g.entern.prisen : {}).length === 0, 'keine Prise');
 });
 
-section('Hülle 0 mit entern: Schiff treibt, feuert nicht, dreht langsam, Prise (§7)', () => {
+section('Schildgenerator 0 mit entern (SYS-01 C1a-2, vorher Hülle 0): Schiff treibt, feuert nicht, dreht langsam, Prise (§7)', () => {
   const { g, tick, ev, noWeapons } = arena();
   const e = spawn(g, { tag: 'beute' });
   e.entern = true;
   const kills0 = g.stats.kills; const marks0 = g.inventory.marks;
   kill(g, e);
-  ok(e.st === 'treibt' && e.hp === 0, 'Zustand treibt, Hülle 0');
+  ok(e.st === 'treibt' && e.hp === 0, 'Zustand treibt, Integrität 0');
   ok(!g.space.enemies.includes(e) && Entern.treibende(g).includes(e), 'aus space.enemies in space.treibend (Raumkampf zählt ihn nicht mehr)');
   ok(g.stats.kills === kills0 + 1 && g.inventory.marks === marks0 + CONFIG.enemies.raider.salvage, 'Buchhaltung wie ein Abschuss');
   ok(ev('enternFrei').length === 1 && ev('enternFrei')[0].id === e.id, 'Ereignis enternFrei { id }');
@@ -120,8 +120,8 @@ section('Hülle 0 mit entern: Schiff treibt, feuert nicht, dreht langsam, Prise 
   ok(!g.space.projectiles.some((q) => q.owner === e.id) && g.space.projectiles.length <= proj0, 'feuert nicht');
   ok(Math.hypot(e.vx, e.vy) <= (CONFIG.entern.driftMax || 6) + 1e-9, 'treibt höchstens mit driftMax');
   ok(g.ship.target !== e.id, 'nicht mehr als Ziel gewählt');
-  // nochmal Schaden auf das treibende Schiff -> bleibt (onEnemyZero true)
-  ok(Entern.onEnemyZero(g, e) === true, 'onEnemyZero auf treibendem Schiff -> true');
+  // nochmal der Schildgenerator-Übergang auf das treibende Schiff -> bleibt (onSchildgeneratorZero true)
+  ok(Entern.onSchildgeneratorZero(g, e) === true, 'onSchildgeneratorZero auf treibendem Schiff -> true');
   // Snapshot (ENGINE trägt st ein: sp.enemies.concat(Entern.treibende(game)) + o.st)
   const snap = g.snapshot ? g.snapshot() : null;
   const se = snap && snap.space && (snap.space.enemies || []).find((x) => x.id === e.id);

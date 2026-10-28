@@ -2,7 +2,7 @@
 // SYS-01 C1a-1 „Das Schiff in Zonen“ (Paket C, Gegner): Systemmodell der Gegner.
 // Daten (content/kampf/gegner-systeme.json, Schema content/schema/gegner-systeme.schema.json), Zonen je Klasse, jede Waffe genau ein System,
 // Integrität = Klassenbudget (alte Hülle), Trefferweg über die Seite des Segments (Schild über 0 fängt ab, ohne Schild trifft ein System der Zone,
-// leere Zone -> Mitte, Durchschlag 'zone' -> Mitte), Tod nur mit zerstörtem Reaktor (Platzhalter bis C1a-2), Waffen, Emitter, Schildgenerator,
+// leere Zone -> Mitte, Durchschlag 'zone' -> Mitte), Tod über den Reaktor-Countdown (C1a-2, test-gegner-tod.js), Waffen, Emitter, Schildgenerator,
 // Schwellen und Grundwert gemeinsam mit der Lerche (integritaet.js), Snapshot des Ziels, Determinismus über game.rng.
 //   node tools/test-gegnersystem.js
 const fs = require('fs');
@@ -14,6 +14,7 @@ const space = require('../server/sim/space.js');
 const Gsys = require('../server/sim/gegnersystem.js');
 const Integ = require('../server/sim/integritaet.js');
 const Testhilfe = require('./gegner-testhilfe.js');
+const Gegnertod = require('../server/sim/gegnertod.js');
 const info = (t) => console.log('  info ' + t);
 
 const ROOT = path.join(__dirname, '..');
@@ -198,7 +199,7 @@ section('Durchschlag zone (Lanze bei Vollladung) trifft direkt die Mitte', () =>
   ok(e.shields[0] === 5, 'Durchschlag zone umgeht den Schild');
 });
 
-section('Tod nur mit zerstörtem Reaktor (Platzhalter bis C1a-2)', () => {
+section('Tod: zerstörter Reaktor startet den Countdown statt sofort (SYS-01 C1a-2, Details in test-gegner-tod.js)', () => {
   const g = newGame(19);
   const e = gegner(g, 'korvette');
   e.shields.fill(0);
@@ -207,11 +208,12 @@ section('Tod nur mit zerstörtem Reaktor (Platzhalter bis C1a-2)', () => {
   space.damageEnemy(g, e, 0.5, e.x + 300, e.y, {});
   ok(g.space.enemies.includes(e), 'Treffer ohne Reaktorschaden: der Gegner lebt');
   ok(kills() === k0, 'kein Abschuss ohne zerstörten Reaktor');
-  e.sys.reaktor.z = 'broken'; e.sys.reaktor.i = 0;
-  space.damageEnemy(g, e, 0.01, e.x + 300, e.y, {});
-  ok(!g.space.enemies.includes(e), 'zerstörter Reaktor: der Gegner ist weg (Platzhalter, Hülle 0 entfällt)');
-  ok(kills() === k0 + 1, 'Abschuss genau einmal gezählt');
+  Testhilfe.mitteNurReaktor(e); e.sys.reaktor.z = 'damaged'; e.sys.reaktor.i = 0.01; e.hp = Gsys.summe(e);
+  space.damageEnemy(g, e, 0.01, e.x + 300, e.y, { durchschlag: 'zone' });   // Durchschlag in die Mitte: der Reaktor fällt über den echten Pfad
+  ok(g.space.enemies.includes(e) && kills() === k0, 'zerstörter Reaktor: der Gegner lebt weiter, bis der Countdown abläuft (kein Sofort-Tod mehr)');
+  ok(e.rt && e.rt.n === 1 && e.rt.rest != null, 'Countdown gestartet, Ausfallzähler 1');
   ok(Gsys.tot({ kind: 'korvette', hpMax: 1, hp: 0, sys: undefined }) === true, 'tot ohne Modell: Hülle 0');
+  ok(Gsys.tot(e) === false, 'tot mit Modell: der zerstörte Reaktor allein ist kein Tod, erst alle Systeme zerstört');
 });
 
 section('Waffe: zerstört schießt nicht, beschädigt Takt ×1,5 (Intervall-Faktor aus der Config)', () => {
@@ -325,7 +327,9 @@ section('Snapshot: zielSys nur für das anvisierte Ziel, flach, Zustand 0/1/2', 
   ok(Gsys.snapshotZiel({ kind: 'relay' }) === null, 'Klasse ohne Modell: kein zielSys');
   g.ship.target = e.id;
   const snap = g.zielSysSnap();
-  ok(snap.zielSys && snap.zielSys.length === z.length, 'Ziel gesetzt: zielSys im Snapshot');
+  ok(snap.zielSys && snap.zielSys.length === z.length + 1 && snap.zielSys[z.length] === -1, 'Ziel gesetzt: zielSys im Snapshot, letztes Element -1 (kein Reaktor-Countdown, SYS-01 C1a-2)');
+  Gegnertod.brechen(g, e, 'reaktor');
+  ok(g.zielSysSnap().zielSys[z.length] === Math.round(CONFIG.reaktorTod.start * 10), 'Countdown läuft: Restzeit in Zehntelsekunden (Start ' + CONFIG.reaktorTod.start + ' s)');
   g.ship.target = null;
   ok(Object.keys(g.zielSysSnap()).length === 0, 'kein Ziel: kein Feld');
   g.ship.target = 'e-unbekannt';

@@ -15,6 +15,7 @@ const Reise = require('./reise.js');   // B3 (Team SEKTOR): Reisen/Faltsprung, W
 const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als reine Funktion der Spielzeit (Server und Client)
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
+const Gegnertod = require('./gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Reaktor-Countdown, Sofort-Tod, Kapern über den Schildgenerator)
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
 const Verfolgung = require('./verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 – Zielschiff flieht zum Fluchtpunkt (e.fluchtZiel), Sprungladung, Ausgang gestellt/entkommen
 const Konvoi = require('./konvoi.js');   // EK3 Teil B: Konvoi-Szene (Transporter, Eskorte, Route, Sprung) – ohne Konvoi in der Szene ohne Wirkung
@@ -1112,6 +1113,8 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     }
   }
   if (modell) {
+    // SYS-01 C1a-2 (Kai 2026-10-26): Torpedo gegen eine Klasse mit systemModell.torpedoSofortTod.<klasse> = true (Jäger; Config, live per tune) bei Schild 0 (die Schildprüfung oben ist durch): sofort tot, bei jeder Crewgröße, kein Countdown, kein Kapern
+    if (opts && opts.torpedo && (game.C.systemModell.torpedoSofortTod || {})[e.kind] === true) { Gegnertod.sofort(e); return enemyDown(game, e); }
     if (opts && opts.durchschlag === 'zone') zone = 'mitte';
     return trefferSystem(game, e, rest, zone || 'bug', srcX, srcY, opts);
   }
@@ -1119,23 +1122,22 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   if (e.hp < EPS) e.hp = 0;
   game.missionEvent('enemyDamaged', { enemy: e });
   if (e.hp > 0) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: Treffer, der den Schild durchschlägt und die Hülle trifft: gezielter Systemtreffer (nur Angriffe)
-  if (Entern.onEnemyZero(game, e)) return;   // Welle 0 (CONTRACT-B1 §7): Stub liefert false -> wie bisher
-  enemyDown(game, e);
+  enemyDown(game, e);   // Gegner ohne Systemmodell (Störrelais): kein Schildgenerator, also kein Kapern
 }
 
 // SYS-01 C1a-1: Treffer, der den Schild durchschlägt, auf das Systemmodell eines Gegners: Trefferweg in der Zone (Mitte bei leerer Zone),
-// Integrität -= Rest. Tot ist der Gegner erst mit zerstörtem Reaktor (Platzhalter bis C1a-2 „Jäger sofort“ und Kapern über den Schildgenerator).
+// Integrität -= Rest. SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
+// zerstörter Schildgenerator bei einem Enterziel = Prise (sim/gegnertod.js). Gegner ohne Tod kämpfen weiter.
 function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
-  Gsys.treffen(game, e, zone, rest);
+  const t = Gsys.treffen(game, e, zone, rest);
   game.missionEvent('enemyDamaged', { enemy: e });
-  if (!Gsys.tot(e)) { if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts); return; }   // SUND-04a-1 A: gezielter Systemtreffer (nur Angriffe), der Schild ist durch
-  e.hp = 0;
-  if (Entern.onEnemyZero(game, e)) return;   // gleicher Pfad wie bei der alten Hülle (Entern/Kapern, Beute, Explosion)
-  enemyDown(game, e);
+  if (t && t.state === 'broken' && t.vorher !== 'broken' && Gegnertod.systemZerstoert(game, e, t.id)) return;   // Prise: der Gegner treibt (entern.js)
+  if (opts && opts.angriff) Zielsysteme.trifftGegner(game, e, srcX, srcY, opts);   // SUND-04a-1 A: gezielter Systemtreffer (nur Angriffe)
 }
-// Tod eines Gegners (Buchhaltung wie ein Abschuss): entfernen, Marken, Explosion, Ansage
+// Tod eines Gegners (Buchhaltung wie ein Abschuss): entfernen, Marken, Explosion, Ansage. Aufrufer: Countdown abgelaufen, Sofort-Tod, Störrelais ohne Modell, Testhilfe
 function enemyDown(game, e) {
   const C = game.C;
+  Entern.abschuss(game);   // feste Wracks des Ortes nach jedem Abschuss frei
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
   if (!e.ohneBeute) game.inventory.marks += C.enemies[e.kind].salvage;   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
   game.stats.kills++;
@@ -1203,6 +1205,7 @@ function updateEnemies(game, dt) {
     e.regenT += dt;
     if (game.time < (e.regenHold || 0)) e.regenT = 0;   // PAN-01 C: Sturmbatterie unterdrückt die Regeneration
     if (e.regenT >= C.enemyShieldRegen * Gsys.regenFaktor(game, e)) { e.regenT = 0; for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1); }
+    if (Gegnertod.tick(game, e, dt)) { enemyDown(game, e); continue; }   // SYS-01 C1a-2: Reaktor-Countdown abgelaufen (der Gegner kämpft bis dahin weiter, auch gestellt oder fliehend)
     const retreating = e.retreatUntil > game.time;
     if (Konvoi.faehrt(e)) { Konvoi.fahre(game, e, dt); continue; }   // EK3 Teil B: Transporter und wachende Eskorte fahren die Route, kein Feuer
     if (e.pat) { Alarm.patrouille(game, e, dt); continue; }   // EK2: ruhige Patrouille: Strecke (Brocken ignoriert), kein Feuer
@@ -1708,7 +1711,7 @@ function updateProjectiles(game, dt) {
             Waffen.schade(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.waffe === 'sturmbatterie' ? { sturm: wk.sturm } : undefined, p.waffe);
           } else if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
-            const dgel = Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild() }, 'torpedowerfer');
+            const dgel = Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild(), torpedo: true }, 'torpedowerfer');
             if (dgel > 0) game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1; else game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;   // Lesart B: am stehenden Schild abgeprallt
           } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true, angriff: true } : undefined);   // SUND-04a-1 A: Treffer der Verbündeten zählen als Angriff (ungezielt)
           break;
@@ -1800,7 +1803,7 @@ function technikShield(game, sector, delta) {
 }
 
 module.exports = {
-  enterScene, update, shipHit, spawnEnemy, volkFuer, damageEnemy, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
+  enterScene, update, shipHit, spawnEnemy, volkFuer, damageEnemy, enemyDown, dodge, doJump, selectDest, weaponsFire, weaponsReload, weaponsTarget,
   weaponsScan, weaponsWidescan, setMarker, markerOnTarget, resolveTarget, technikOverload, reactorOnline,
   technikPower, technikModul, powerUsed, powerDemand, technikShield, waffenAutomatikAktiv, shieldPool, reactorOutput, maxSpeed, verlustAusloesen, spawnSalvage, mountIds, inMountArc, jammersPresent,
   stationPoint, isDown, PHASES,

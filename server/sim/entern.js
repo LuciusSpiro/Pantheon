@@ -3,7 +3,9 @@
 //
 // Ablauf:
 //   - Ein Gegner mit e.entern === true oder mit einem Tag, den der Baustein entern_ziel markiert hat (markieren()),
-//     wird bei Hülle 0 nicht gelöscht: onEnemyZero -> true. Er bekommt st = 'treibt' und wandert aus space.enemies in
+//     wird nicht gelöscht, sobald sein Schildgenerator zerstört ist (SYS-01 C1a-2; vorher: bei Hülle 0): onSchildgeneratorZero -> true.
+//     Stirbt er über den Reaktor (Countdown abgelaufen oder Sofort-Tod, sim/gegnertod.js), ist Kapern ausgeschlossen: keine Prise, er wird entfernt.
+//     Ist der Schildgenerator schon zerstört, bevor der Reaktor fällt, gilt die Prise (auch wenn ein Reaktor-Countdown läuft; der bricht ab). Er bekommt st = 'treibt' und wandert aus space.enemies in
 //     space.treibend. Grund: In space.enemies würde er weiter feuern/fliegen und alle Zählstellen des Raumkampfs
 //     verfälschen (enemiesCleared, Störsender-Sprungsperre, Alarmstufe Rot, Hüllen-Regeneration, Auto-Zielwahl der
 //     Ops, Geschosskollision). So bleibt der Raumkampf unverändert; der Snapshot hängt treibende Schiffe mit
@@ -17,8 +19,8 @@
 //     (welt.wracks, quelle 'daten').
 //   - Nie im Tutorial (aktive Mission mit kopf.tutorial bzw. m1–m3): dann bleibt alles wie bisher.
 //
-// Schnittstellen: onEnemyZero, update (Tick, nach space.update), markieren, merken, treibende, transferFrei, beamPunkt,
-// frei, verfallen, toSave, restore.
+// Schnittstellen: onSchildgeneratorZero, abschuss (jeder Tod eines Gegners, space.enemyDown), update (Tick, nach space.update), markieren, merken,
+// treibende, transferFrei, beamPunkt, frei, verfallen, toSave, restore.
 const fs = require('fs');
 const path = require('path');
 
@@ -111,15 +113,21 @@ function merken(game, ziel) {
   return n;
 }
 
-// ---------- Hülle 0 (space.damageEnemy) ----------
-function onEnemyZero(game, e) {
+// ---------- Schildgenerator zerstört (sim/gegnertod.js systemZerstoert) ----------
+// Kapern über den Schildgenerator (SYS-01 C1a-2): ein Enterziel mit zerstörtem Schildgenerator treibt als Prise.
+function onSchildgeneratorZero(game, e) {
   if (!e) return false;
   if (e.st === ZUSTAND_TREIBT) return true;   // schon kampfunfähig (sollte nicht mehr in space.enemies liegen)
   if (!aktiv(game)) return false;
-  try { wrackFreiNachGefecht(game); } catch (x) { err(game, 'entern-datenwrack', x); }
   if (!istZiel(game, e)) return false;
   if (priseBelegt(game, ortVon(game))) return false;   // je Ort höchstens eine Prise (landepunkte: <ort>.prise)
   try { return treiben(game, e); } catch (x) { err(game, 'entern', x); return false; }
+}
+
+// Jeder Tod eines Gegners (space.enemyDown, auch Reaktor und Sofort-Tod): Feste Wracks mit frei nach_raumgefecht werden am Ort frei
+function abschuss(game) {
+  if (!aktiv(game)) return;
+  try { wrackFreiNachGefecht(game); } catch (x) { err(game, 'entern-datenwrack', x); }
 }
 
 function ortVon(game) { return (game.ship && game.ship.scene) || null; }
@@ -132,6 +140,7 @@ function priseBelegt(game, ort) {
 function treiben(game, e) {
   const C = game.C || {}; const K = cfg(game); const sp = game.space;
   const mk = markierung(game, e) || {};
+  abschuss(game);   // feste Wracks des Ortes wie bei jedem Abschuss frei (wie bisher vor der Prüfung)
   e.st = ZUSTAND_TREIBT;
   e.hp = 0;
   e.entern = true;
@@ -145,7 +154,7 @@ function treiben(game, e) {
   e.spin = (h & 1 ? 1 : -1) * (K.drehMin + ((h >>> 1) % 1000) / 1000 * (K.drehMax - K.drehMin));
   sp.enemies = sp.enemies.filter((o) => o !== e);
   treibListe(game).push(e);
-  // Buchhaltung wie ein Abschuss (space.damageEnemy macht das nach onEnemyZero nicht mehr)
+  // Buchhaltung wie ein Abschuss (space.enemyDown macht das nicht, der Gegner wird hier nur aus space.enemies genommen)
   const ec = (C.enemies || {})[e.kind] || {};
   if (game.inventory) game.inventory.marks += ec.salvage || 0;
   if (game.stats) game.stats.kills = (game.stats.kills || 0) + 1;
@@ -284,6 +293,6 @@ function restore(block, game) {
 }
 
 module.exports = {
-  onEnemyZero, update, markieren, merken, verfallen, treibende, snapExtra, istPrise, beamPunkt, transferFrei, frei,
+  onSchildgeneratorZero, abschuss, update, markieren, merken, verfallen, treibende, snapExtra, istPrise, beamPunkt, transferFrei, frei,
   toSave, restore, aktiv, ZUSTAND_TREIBT,
 };

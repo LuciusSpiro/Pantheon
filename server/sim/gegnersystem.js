@@ -7,7 +7,7 @@
 // Trefferweg: ein zufälliges, nicht zerstörtes System der Zone (game.rng); ist die Zone leer, geht der Treffer in die Mitte.
 // Wirkungen (nur Gegner mit Modell): Waffe zerstört = schießt nicht, beschädigt = Feuerintervall × taktBeschaedigt (der Takt der Waffenart: taktFaktor);
 // Emitter der Seite beschädigt = Schild-Obergrenze × emitterBeschaedigt, zerstört = Schild 0; Schildgenerator zerstört = alle Schilde 0,
-// beschädigt = Regeneration regenGeneratorBeschaedigt-mal so langsam; Reaktor zerstört = der Gegner ist tot. Antrieb und Module tragen nur den Zustand (C1b/C1a-2/C2).
+// beschädigt = Regeneration regenGeneratorBeschaedigt-mal so langsam; Reaktor zerstört = Countdown (SYS-01 C1a-2, sim/gegnertod.js), dann stirbt der Gegner. Antrieb und Module tragen nur den Zustand (C1b/C2).
 // Die Wirkungswerte stehen in shared/config.js (systemModell.gegner, live per `tune systemModell.gegner.<pfad>`), Gewichte und Zonen in den Daten.
 const DATEN = require('../../content/kampf/gegner-systeme.json');
 const Schilde = require('../../shared/schilde.js');
@@ -59,14 +59,14 @@ function setzeAnteil(game, e, anteil) {
 // Lebensanzeige: Gesamtintegrität in Prozent der Klasse (früher Hülle in %). Verbraucher: escort (unter_pct), mission (enemyHpBelow).
 function integPct(e) { return e.hp / (e.hpMax || 1) * 100; }
 
-// Zerstörung des Gegners: mit Modell der Reaktor (oder keine Integrität mehr), ohne Modell e.hp ≤ 0
+// Keine Integrität mehr (mit Modell: alle Systeme zerstört; ohne Modell e.hp ≤ 0). SYS-01 C1a-2: der zerstörte Reaktor ist kein Tod mehr,
+// er startet den Countdown (sim/gegnertod.js), der Gegner kämpft weiter.
 function tot(e) {
   if (!hat(e)) return !(e.hp > 0);
-  const r = idVon(e, 'reaktor');
-  return (r != null && e.sys[r].z === 'broken') || summe(e) <= EPS;
+  return summe(e) <= EPS;
 }
 
-// Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone } oder null.
+// Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher } oder null.
 function treffen(game, e, zone, schaden) {
   const frei = (z) => ids(e).filter((id) => defOf(e.kind, id).zone === z && e.sys[id].z !== 'broken');
   let zielZone = zone;
@@ -77,9 +77,10 @@ function treffen(game, e, zone, schaden) {
   const st = e.sys[id];
   st.i = Math.max(0, st.i - Math.max(0, Number(schaden) || 0));
   const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
+  const vorher = st.z;
   if (RANG[z] > RANG[st.z]) st.z = z;
   e.hp = summe(e);
-  return { id, zone: zielZone, state: st.z };
+  return { id, zone: zielZone, state: st.z, vorher };
 }
 
 // Zustand einer Waffe (Platz) des Gegners: Waffen ohne Platz (raider, sentinel, pylon) haben ein System ohne platz.

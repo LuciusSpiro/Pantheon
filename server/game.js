@@ -18,6 +18,7 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
+const Gegnertod = require('./sim/gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Countdown, Kapern; Debug prise, Ziel-Snapshot)
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
 const FadenSzene = require('./sim/faden-szene.js');   // SUND-04a-2 P1: Faden-Szenen (nur mit FAEDEN=1 und Lage-Spielleiter; ohne Schalter tut der Takt nichts)
 const FadenFracht = require('./sim/faden-fracht.js');   // SUND-04a-2 P1: Frachtauftrag light (Notsprung: die Ware geht verloren)
@@ -1588,8 +1589,8 @@ class Game {
   //   sprungpunkt auf <ziel> [temp] | sprungpunkt zu <ziel|kantenId>   (sprung.oeffnen/schliessen, SEKTOR; ziel = Hex SSZZ oder Ort-ID)
   //   ladung [ankerId] [sek]   Sprengladung auf der aktuellen gebauten Karte scharf schalten (anker.ladungScharf, BUEHNE);
   //                            ohne ankerId der erste intakte Sprengpunkt; sek setzt den Countdown (Snapshot away.cd)
-  //   prise [kind]             Feindschiff am aktuellen Ort erscheinen lassen und sofort kampfunfähig machen -> <ort>.prise
-  //                            (space.spawnEnemy + entern.onEnemyZero, ENTERN)
+  //   prise [kind]             Feindschiff am aktuellen Ort erscheinen lassen und den Schildgenerator zerstören -> <ort>.prise
+  //                            (space.spawnEnemy + gegnertod.brechen -> entern.onSchildgeneratorZero, ENTERN; SYS-01 C1a-2)
   onDebugQa(p, cmd, msg) {
     if (this.phase === 'lobby') return 'Erst das Spiel starten.';
     const args = argList(msg);
@@ -1637,7 +1638,7 @@ class Game {
       return null;
     }
     if (cmd === 'prise') {
-      const E = enternMod(); const fn = fnOf(E, 'onEnemyZero');
+      const E = enternMod(); const fn = fnOf(E, 'onSchildgeneratorZero');
       if (!fn) return 'prise: noch nicht verfügbar (ENTERN).';
       if (this.ship.docked) return 'prise: erst ablegen (angedockt).';
       const kind = Protocol.ENEMY_KINDS.includes(args[0]) && args[0] !== 'relay' ? args[0] : 'raider';
@@ -1645,9 +1646,10 @@ class Game {
       if (!e) return 'prise: Gegner ließ sich nicht erzeugen.';
       const a = this.ship.angle || 0;   // 220 px vor dem Bug, ruhend: in Transferreichweite
       e.x = this.ship.x + Math.cos(a) * 220; e.y = this.ship.y + Math.sin(a) * 220; e.vx = 0; e.vy = 0;
-      e.entern = true; e.hp = 0;
+      e.entern = true;
+      if (!(e.sys && e.sys.schildgenerator)) { this.space.enemies = this.space.enemies.filter((o) => o !== e); return `prise: ${kind} hat keinen Schildgenerator (Kapern nur über den Schildgenerator).`; }   // SYS-01 C1a-2
       let ok = false;
-      try { ok = !!fn(this, e); } catch (x) { this.countError('debug-prise', x); }
+      try { ok = !!Gegnertod.brechen(this, e, 'schildgenerator'); } catch (x) { this.countError('debug-prise', x); }   // Schildgenerator zerstört: Prise (entern.js)
       if (!ok) {
         this.space.enemies = this.space.enemies.filter((o) => o !== e);
         return 'prise: ENTERN lehnt ab (Tutorial läuft, Entern aus oder am Ort liegt schon eine Prise).';
@@ -1916,7 +1918,7 @@ class Game {
     if (this.ship.target == null || !this.space) return {};
     const e = this.space.enemies.find((q) => q.id === this.ship.target);
     const z = e ? Gsys.snapshotZiel(e) : null;
-    return z ? { zielSys: z } : {};
+    return z ? { zielSys: z.concat([Gegnertod.restZehntel(e)]) } : {};   // SYS-01 C1a-2: letztes Element = Restzeit des Reaktor-Countdowns (Zehntelsekunden, -1 kein Countdown)
   }
 
   // B2 (Wunsch CLIENT): wf = gewählte Waffe auch außerhalb der Außenzone (Bord, Transfer-Konsole). Unten setzt combat.playerSnap

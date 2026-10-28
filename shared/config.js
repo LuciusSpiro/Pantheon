@@ -669,6 +669,7 @@
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
       schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
       torpedoLerche: 10,          // SYS-01 A1b: Gegner-Torpedo gegen die Lerche bei Schild 0: Integritätsabzug in einem System der Zone (ein Standardsystem, 10 = sicher zerstört)
+      torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
       sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {

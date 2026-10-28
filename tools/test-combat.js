@@ -8,6 +8,7 @@ const { Game } = require('../server/game.js');
 const combat = require('../server/sim/combat.js');
 const squad = require('../server/sim/squad.js');
 const away = require('../server/sim/away.js');
+const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Reaktor-Countdown der Gegner
 // B2: Die Abschnitte bis „B2 Welle 2“ prüfen die Kampfregeln von M2/S2b und Welle 1 auf dem Altregel-Pfad
 // (Schalter WAFFEN=aus). Die B2-Abschnitte am Ende schalten waffen.js ein.
 const WAFFEN_MOD = require('../server/sim/waffen.js');
@@ -774,13 +775,17 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       };
       const alive = () => g.space.enemies.includes(e);
       const hp = [e.hpMax];
+      // SYS-01 C1a-2: der Tod kommt über den Reaktor-Countdown. Gemessen wird, nach wie vielen Salven der Reaktor fällt (Countdown startet);
+      // danach läuft der Countdown ab (unten), und der Jäger stirbt.
       let dead = 0;
-      for (let s = 1; s <= 3 && alive(); s++) { e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!alive()) dead = s; }
+      for (let s = 1; s <= 3 && alive(); s++) { e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!dead && e.rt && e.rt.rest != null) dead = s; }
       // Solo (crewScaling.enemyHp 0,5) hält der Jäger keine volle Salve aus – solo feuert die Taktik selten alle drei Waffen
       // zugleich (Bericht); geprüft wird zu zweit und zu dritt
       if (crew >= 2) ok(hp[1] > 0, `${crew} Spieler: Jäger (${e.hpMax} HP) übersteht eine volle Salve (${full} Schaden roh) – Rest ${hp[1]} HP`);
       else info(`solo: Jäger ${e.hpMax} HP, nach einer vollen Salve ${hp[1]} HP`);
-      ok(dead >= 1 && dead <= 3 && (crew < 2 || dead >= 2), `${crew} Spieler: nach spätestens drei Salven zerstört (nach ${dead}; HP ${hp.join(' -> ')})`);
+      ok(dead >= 1 && dead <= 3 && (crew < 2 || dead >= 2), `${crew} Spieler: Reaktor nach spätestens drei Salven zerstört (nach ${dead}; HP ${hp.join(' -> ')})`);
+      for (let t = 0; t < 400 && alive() && e.rt && e.rt.rest != null; t++) { if (Gegnertod.tick(g, e, 0.1)) space.enemyDown(g, e); }   // Countdown ablaufen lassen
+      ok(!alive(), `${crew} Spieler: Countdown abgelaufen, der Jäger ist zerstört`);
     }
   }
 
