@@ -70,6 +70,8 @@ const dist = (ax, ay, bx, by) => Math.hypot(bx - ax, by - ay);
 const KEINE_PERSON = Object.freeze({ id: null, x: 0, y: 0, dir: 'down', following: null, injured: false, rescued: false, present: false });
 function personenIm(S) { return ((S.away && S.away.npcs) || []).map((n) => Object.assign({ dir: 'down', following: null, injured: false, rescued: false }, n, { present: !n.rescued })); }
 function hauptPersonIm(S) { return personenIm(S)[0] || KEINE_PERSON; }   // Ivo bzw. die erste Person
+const VF_HECK_PUNKT = 150;   // C1b-1: Abstand (px) des Steuerpunkts hinter dem Zielschiff
+const VF_HINTEN = 0.7;   // C1b-1: Bot-Verfolgung, Abweichung (rad) von der Heckrichtung des Zielschiffs, ab der das Systemziel Antrieb gewählt wird
 const NEBEL_WAYPOINTS = [{ x: 1300, y: 1200 }, { x: 2200, y: 800 }, { x: 2300, y: 1700 }, { x: 1200, y: 600 }, { x: 900, y: 1900 }];
 
 // ---------- Spieler-Agent ----------
@@ -575,6 +577,7 @@ class Agent {
       this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); }
     }
     this.allocFor(S, target, M);
+    if (opts && opts.lanzeHalten) return;   // C1b-1: die Verfolgung hält alle Waffen, bis das Systemziel Antrieb steht (sonst stellt ein früher Heck-Treffer das Ziel)
     this.lanceFight(S, target, M);
     // §20.4: Batterien feuern nur auf Befehl – geladene Batterie mit einem Gegner im Bogen (Reaktion wie ein Mensch, ~0,3 s)
     const bat = ['port', 'stbd'].filter((id) => M[id] && M[id].charge >= 1 && !(M[id].salvo > 0) && M[id].state !== 'broken' && enemies.some((e) => this.inArcM(S, M[id], e, 6)));
@@ -658,7 +661,8 @@ class Agent {
     const long = S.time - (m.lanceT0 || S.time) > 8;
     // Jäger quert die Linie nur kurz (200 px/s): ab halber Ladung sofort feuern
     const raiderOnLine = hit && hit.kind === 'raider' && bow.power >= 0.4;
-    if (hit && (bow.power >= 0.85 || (leaving && bow.power >= 0.4) || long || raiderOnLine)) {
+    // C1b-1: mit Systemziel (Heck) nie bis zur Vollladung laden: Vollladung durchschlägt bis in die Mitte und träfe nicht das Ziel; ab 0,85 lösen
+    if ((hit && (bow.power >= 0.85 || (leaving && bow.power >= 0.4) || long || raiderOnLine)) || (sh.zs && bow.power >= 0.85)) {
       this.cmd('weapons.charge', { mount: 'bow', on: false });
       m.lanceAt = S.time + 0.4;
     }
@@ -2648,7 +2652,9 @@ class GenericAgent extends KeshAgent {
     const diff = norm(Math.atan2(tg.y - sh.y, tg.x - sh.x) - sh.angle);
     // solo: Steuer, bis das Ziel nah und im Bug ist (Hysterese gegen ständiges Umsteigen), dann Taktik; läuft es weg oder dreht aus dem Bug, zurück an die Steuer
     const m = this.memo;
-    m.vfSteuer = m.vfSteuer ? (d > 330 || Math.abs(diff) > 0.5) && !(tg.az >= 2 && d < 300) : d > 560 || Math.abs(diff) > 0.9;
+    // C1b-1: das Systemziel Antrieb wirkt nur aus dem Heck (Zone der zugewandten Seite): die Lerche steht hinter dem Ziel, sonst steuert der Bot dorthin
+    const hinten = Math.abs(norm(Math.atan2(sh.y - tg.y, sh.x - tg.x) - tg.angle - Math.PI)) < VF_HINTEN;
+    m.vfSteuer = m.vfSteuer ? (d > 330 || Math.abs(diff) > 0.5 || !hinten) && !(tg.az >= 2 && d < 300) : d > 560 || Math.abs(diff) > 0.9;
     const steuern = this.role === 'helm' || (this.role === 'solo' && !!m.vfSteuer);
     if (steuern) {
       if (!this.enter(S, 'helm')) return;
@@ -2658,13 +2664,15 @@ class GenericAgent extends KeshAgent {
       if (sh.speed < 1.5 && !sh.helm.autoStop && (m.vfZero || 0) < S.time) { m.vfZero = S.time + 4; this.cmd('helm.stop'); return; }
       const tv = Math.hypot(tg.vx || 0, tg.vy || 0);
       const stage = Math.abs(diff) > 0.35 ? HALF : d > 520 ? FULL : d > 260 ? THREEQ : (tv > 55 ? HALF : QUARTER);
-      this.helmS(S, this.turnCmd(S, diff), stage);
+      // C1b-1: Kurs auf einen Punkt hinter dem Ziel (Heck), damit die Lerche das Systemziel Antrieb aus dem Heck wählen kann
+      const ax = tg.x - Math.cos(tg.angle) * VF_HECK_PUNKT, ay = tg.y - Math.sin(tg.angle) * VF_HECK_PUNKT;
+      this.helmS(S, this.turnCmd(S, norm(Math.atan2(ay - sh.y, ax - sh.x) - sh.angle)), stage);
       return;
     }
     if (this.role !== 'solo' && this.role !== 'weapons') { this.fightOrHold(S, p); return; }
     if (!this.enter(S, 'weapons')) return;
-    this.fight(S, { scan: true });
-    if (tg.scanned && sh.zs !== 'antrieb' && (this.memo.zsAt || 0) < S.time) { this.memo.zsAt = S.time + 1; this.cmd('weapons.systemziel', { id: 'antrieb' }); sim.systemziel = (sim.systemziel || 0) + 1; }
+    this.fight(S, { scan: true, lanzeHalten: sh.zs !== 'antrieb' });
+    if (tg.scanned && hinten && sh.zs !== 'antrieb' && (this.memo.zsAt || 0) < S.time) { this.memo.zsAt = S.time + 1; this.cmd('weapons.systemziel', { id: 'antrieb' }); sim.systemziel = (sim.systemziel || 0) + 1; }
   }
   umsetzung_verfolgen_fliehenden_stellen(S, p) { this.verfolgungBot(S, p); }
   // Bergungskisten im All einsammeln (überfliegen), wie m1 „route“

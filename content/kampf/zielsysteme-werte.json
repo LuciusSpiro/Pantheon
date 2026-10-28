@@ -1,6 +1,6 @@
 {
-  "format": "zielsysteme-werte/1",
-  "_hinweis": "SUND-04a-1 A: Gezielter Systemtreffer (server/sim/zielsysteme.js). Die Ops wählen am gescannten Gegner ein System als Ziel (Befehl weapons.systemziel, Taste 0). Ein Zielsystem ist ein Eintrag in `systeme`: Snapshot-Feld des Zustands (feld), Seite des Schiffs, in der es liegt (bug|stbd|heck|bb, Index wie shared/schilde.js SEITEN), betroffene Klassen, Stufen mit Wirkungsfaktor und Erholung, Systemname der Lerche. Neue Systeme (Schildgenerator zum Entern, Waffenplatz) sind neue Einträge samt Wirkung, kein Umbau der Trefferregel. GLEICHE REGELN FÜR BEIDE SEITEN: ein Treffer, der den Schild durchschlägt und die Hülle in der Seite des Systems trifft, schädigt das System um eine Stufe (Wahrscheinlichkeit je nach gezielt/ungezielt, Sperre je System). Gezielt = die Ops haben das System am Ziel gewählt bzw. der Schütze hat es als Ziel (e.zielsystem). Aktiv nur in Szenen mit Schalter (space.zielsysteme, gesetzt vom Szenentyp Verfolgung) und, auf der Seite der Lerche gegen Gegner, sobald die Ops ein Systemziel gewählt haben: ohne beides bleibt jede Szene, Kampagne und Golden Trace unverändert. Alle Zahlen stehen hier, keine im Code. Änderungen wirken ohne Code.",
+  "format": "zielsysteme-werte/2",
+  "_hinweis": "SYS-01 C1b-1 „Zielsysteme im Zonenmodell“ (server/sim/zielsysteme.js, server/sim/gegnersystem.js). Die Ops wählen am gescannten Gegner ein System seines Systemmodells (Befehl weapons.systemziel, jede System-Id von e.sys: content/kampf/gegner-systeme.json). Ein Treffer, der den Schild durchschlägt und in der Zone liegt, die das Ziel enthält, und das Ziel erreichbar ist (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone), trifft dieses System sicher. Sonst gilt der Zufall in der Zone. GLEICHE REGELN FÜR BEIDE SEITEN: Gegner gegen Lerche (e.zielsystem = Id eines Lerchensystems, SYSTEMS_INTEG) und Lerche gegen Gegner. Der Zustand eines Systems folgt seiner Integrität (Schwellen in shared/config.js). Alle Zahlen stehen hier, keine im Code.",
   "werte": {
     "systeme": {
       "wert": {
@@ -11,32 +11,31 @@
           "feld": "az",
           "wirkung": "tempo",
           "seite": "heck",
-          "lerche": "engines",
           "klassen": ["raider", "korvette", "fregatte", "kreuzer", "sentinel", "frachter"],
+          "lerche": "engines",
+          "sperre": true,
           "stufen": [
-            {"id": "voll", "name": "voll", "faktor": 1, "erholung_s": null},
-            {"id": "beschaedigt", "name": "beschädigt", "faktor": 0.5, "erholung_s": 30},
-            {"id": "ausgefallen", "name": "ausgefallen", "faktor": 0, "erholung_s": 20}
+            {"id": "ok", "name": "voll", "faktor": 1},
+            {"id": "damaged", "name": "beschädigt", "faktor": 0.5},
+            {"id": "broken", "name": "ausgefallen", "faktor": 0}
           ]
         }
       },
-      "einheit": "Eintrag je Zielsystem: seite (bug|stbd|heck|bb), klassen (Gegnerklassen mit diesem System), stufen[] (faktor = Anteil der Fahrt, erholung_s = Sekunden bis eine Stufe zurück, null = keine), lerche = System der Lerche (ship.systems)",
-      "_hinweis": "V1 nur der Antrieb. Stufe 0 (voll) ist der Normalzustand und wird am Gegner nie gespeichert (e.zs fehlt). Beschädigt: halbe Fahrt, ausgefallen: Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). ERHOLUNG, entschieden: ja, nach Zeit. Ein Gegner hat keine Besatzung und kein Reparaturmodell; ein dauerhafter, unumkehrbarer Ausfall würde jede Szene mit einem Treffer entscheiden und den Fokus der Ops belohnen statt fordern. Ausgefallen erholt sich nach 20 s auf beschädigt, beschädigt nach 30 s auf voll: wer den Antrieb ausschaltet, muss in dieser Zeit stellen oder nachlegen (Dauerfeuer verlängert die Frist nicht; nach der Erholung auf beschädigt gilt die Immunitätsfrist treffer.immunitaet_s, in der ein Treffer die Stufe nicht wieder erhöht). Ein gestelltes Schiff (Verfolgung) bleibt dauerhaft ausgefallen. Die Lerche folgt ihrem eigenen Reparaturmodell (Technik)."
+      "einheit": "Eintrag je System mit Regel: wirkung (tempo = Faktor auf die Fahrt), seite (Zone Heck), lerche (Id des Lerchensystems, auf das ein Gegner mit diesem Systemziel zielt), sperre (true = zwischen zwei Zustandswechseln liegt treffer.sperre_s), stufen[] (Reihenfolge ok, damaged, broken; faktor = Anteil der Fahrt)",
+      "_hinweis": "Der Antrieb ist das einzige System mit Tempo-Wirkung. Beschädigt halbe Fahrt, ausgefallen Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). Wirkt nur, wenn der Gegner sie spürt (e.tempoAn: Szenenschalter oder gezielter Treffer), sonst bleibt jede Szene ohne Zielsystem unverändert. Die Erholung nach Zeit entfällt (SYS-01 C1b-1): bis zur Gegner-Reparatur (C2) repariert ein Gegner nicht."
     },
     "treffer": {
       "wert": {
-        "wahrscheinlichkeit": {"gezielt": 1, "ungezielt": 0.35},
         "sperre_s": 1.5,
-        "letzteStufeVerlaengert": false,
         "immunitaet_s": 10
       },
-      "einheit": "wahrscheinlichkeit 0..1 je durchschlagendem Hüllentreffer in der Seite des Systems, sperre_s Sekunden zwischen zwei Stufen desselben Systems, letzteStufeVerlaengert (bool): setzt ein weiterer Treffer auf der letzten Stufe die Erholungsfrist neu? false = Dauerfeuer hält den Ausfall höchstens bis zum Ablauf der Frist (Review A-S2), immunitaet_s Sekunden nach der Erholung von der letzten Stufe, in denen ein weiterer Treffer die Stufe nicht wieder erhöht (Entscheidung des Leiters nach dem Prüfbefund 1: Dauerfeuer legt einen Gegner höchstens die Erholungszeit lahm und danach mindestens immunitaet_s fahrfähig)",
-      "_hinweis": "Ein Treffer zählt nur, wenn er den Schild des getroffenen Segments durchschlägt (Hüllenschaden > 0) UND die Hülle in der Seite des Systems trifft (Antrieb: Heck). Gezielt (Systemziel der Ops bzw. e.zielsystem des Schützen) trifft sicher, ungezielt mit 35 %. Die Sperre verhindert, dass eine Salve (Batterien feuern mehrere Geschosse binnen Sekunden) den Antrieb in einem Zug von voll auf ausgefallen setzt: zwei Stufen brauchen mindestens zwei getrennte Treffer. Das Heck ist bei Jäger, Korvette, Fregatte und Kreuzer die schwache Seite (Schild 0): von hinten angreifen ist ohnehin der Rat des Ziel-Scans."
+      "einheit": "sperre_s Sekunden zwischen zwei Zustandswechseln desselben Systems (nur Systeme mit sperre), immunitaet_s Sekunden nach einer Reparatur (C2, reparaturFertig), in denen ein Treffer den Zustand nicht verschlechtert",
+      "_hinweis": "Die Sperre verhindert, dass eine Salve in einem Zug einen Antrieb von voll auf ausgefallen setzt: der Zustand holt nach, sobald die Sperre frei ist. Ungezielte Treffer haben keine Wahrscheinlichkeit mehr: ungezielt ist der Zufall in der Zone."
     },
     "szene": {
       "wert": {"schalter": "zielsysteme"},
       "einheit": "Name des Szenenschalters in space (space.zielsysteme = true)",
-      "_hinweis": "Szenen mit Schalter wenden die Regel auf beiden Seiten an (Gegner treffen die Lerche gezielt bzw. ungezielt, die Verbündeten und die Lerche ungezielt, mit Systemziel gezielt). Gesetzt wird er von der Verfolgung (server/sim/verfolgung.js) und vom Debug-Befehl `zielsysteme an|aus`; er gilt bis zum Szenenwechsel."
+      "_hinweis": "Der Schalter setzt die Verfolgung (A6) und der Debug-Befehl zielsysteme an|aus. Er schaltet die Gegner gegen die Lerche frei (e.zielsystem, Tempo-Wirkung auf den Antrieb) und gilt bis zum Szenenwechsel."
     }
   }
 }

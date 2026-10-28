@@ -1179,6 +1179,15 @@ function trefferweg(game, zone, schaden, opts) {
     for (const k of frag) damageSystem(game, k, 'broken');
     return { system: frag[0], state: s[frag[0]], wechsel: true };
   }
+  // SYS-01 C1b-1 (Zielsystem der Ops, nur Gegner-Angriffe mit Schalter und Lerche-Angriffe): das Ziel trifft sicher, wenn es in der Zone des Treffers liegt
+  // und erreichbar ist (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone). Sonst der Zufall in der Zone.
+  const zoneFrei = (z) => SYSTEM_ORDER.some((k) => systemSector(k) === z && frei(k));
+  const erreichbarZone = (sz, zug) => sz === zug || (sz === -1 && zug != null && !zoneFrei(zug));
+  const ziel = opts && opts.ziel;
+  if (ziel && frei(ziel) && systemSector(ziel) === zone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
+    const r = systemTreffer(game, ziel, schaden, opts);
+    return { system: ziel, state: s[ziel], wechsel: !!r, gezielt: true };
+  }
   let kand = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && frei(k));
   if (!kand.length) kand = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && frei(k));
   if (!kand.length) return null;
