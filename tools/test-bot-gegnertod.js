@@ -102,5 +102,15 @@ console.log('\n[reaktorRettung: Reparatur nur, wenn Weg und Sonderreparatur in d
   { const { game, a } = mit(amReaktor); a.enter = () => true; game.players[0].hold = { system: 'reactor', t: 1, dur: 12 };
     ok(a.reaktorRettung(S, SITZ) === true && a.cmds.includes('helm.notsprung'), 'Sonderreparatur würde zu spät fertig: Notsprung'); }
 }
+console.log('\n[helmFight: ein stehender/zurückgezogener Jäger außerhalb der Reichweite wird angeflogen (SYS-02c)]');
+{
+  const a = bot('helm'); const steuer = []; a.steer = (S, x, y) => { steuer.push([x, y]); return false; }; a.helmS = () => {}; a.dodgeTele = () => {};
+  a.opts = { pilot: 'maneuver' }; a.mountsOf = () => ({});
+  const S = S0(); S.ship.x = 500; S.ship.y = 700; S.ship.angle = 0; S.ship.dodgeCd = 0; S.space.projectiles = [];
+  a.helmFight(S, { id: 'j', kind: 'raider', x: 1400, y: 700 });
+  ok(steuer.length === 1 && steuer[0][0] === 1400, 'Jäger 900 px weg (Antrieb aus, Rückzug): die Steuer setzt nach');
+  a.helmFight(S, { id: 'j', kind: 'raider', x: 800, y: 700 });
+  ok(steuer.length === 1, 'Jäger 300 px: Kurs halten wie bisher');
+}
 console.log(fails ? `\nFEHLER: ${fails}` : '\ntest-bot-gegnertod: alle ok');
 process.exit(fails ? 1 : 0);

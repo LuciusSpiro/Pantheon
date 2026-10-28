@@ -23,6 +23,7 @@ const { Game } = require('../server/game.js');
 const { bfs, clamp, makeRng } = require('../server/util.js');
 const W = require('../server/world.js');
 const Station = require('../server/sim/station.js');   // R1: aktive Station der Bots (Tab-Wechsel)
+const Gsys = require('../server/sim/gegnersystem.js');   // SYS-02c: Zonen und Systeme der Gegner (Katalogdaten) für die Zonen-Taktik
 let simRng = makeRng(1);
 // M3b §2/§6: Temporegler in Stufen. Die Bots stellen Stufen ein (helm.throttle) und geben nur noch das Ruder.
 let Flight = null;
@@ -45,6 +46,9 @@ const stationTile = (sys) => { const st = (W.STATIONS || []).find((s) => s.syste
 const M3 = CONFIG.spaceM3 || {};
 const MOUNT_IDS = ['bow', 'port', 'stbd'];
 const ZUSATZ_IDS = ['p5', 'p7', 'p9', 'p1', 'p3', 'p2'];   // PAN-01 C: Plätze 5 7 9 1 3 und Heck 2 (nur mit Stufe und Bestückung; Start-Lerche: nie)
+const ZONEN_ZIELE = ['korvette', 'fregatte', 'kreuzer'];   // SYS-02c: Klassen, auf die die Taktik das Zonenmodell anwendet
+const JAEGER_NACHSETZEN = 550;   // SYS-02c: Abstand, ab dem die Steuer einem Jäger nachsetzt (Waffenreichweite 400)
+const LANGSAM_ZIELE = ['fregatte', 'kreuzer'];   // SYS-02c
 const SECTOR_OF_SIDE = { port: 3, stbd: 1 };
 const EMITTER_OF = ['emitter_bow', 'emitter_stbd', 'emitter_aft', 'emitter_port'];
 // Reihenfolge, in der Spieler-Bots zerstörte/beschädigte Systeme angehen (Kampfwert zuerst)
@@ -252,7 +256,7 @@ class Agent {
   }
   enter(S, kind) {
     const p = this.me(S);
-    if (p.console === kind) { this.ix = null; return true; }
+    if (p.console === kind) { this.ix = null; return p.station && p.station !== kind ? this.stationTab(S, kind) : true; }   // SYS-02c: am Ort, aber ein anderes Interface (Tab) aktiv: zurückschalten
     if (p.console) { this.send({ t: 'leave' }); return false; }
     if (p.zone !== 'ship' && kind !== 'kustodenpult') return false;
     if (this.actDown) this.act(false);
@@ -262,6 +266,12 @@ class Agent {
     // Snapshot kommt nur jeden 2. Tick: kurz warten, bis die Konsole im Snapshot steht (sonst „dreht“ sich der Bot weg)
     if (r === 'done') this.waitT = 0.1;
     return false;
+  }
+  // SYS-02c: Solo im Gefecht wechselt wie ein Spieler per Tab zwischen Steuer und Ops (Station.tab, ohne Laufweg); ohne Konsole geht der Bot erst hin
+  enterTab(S, kind) {
+    const p = this.me(S);
+    if (p.console && Protocol.STATION_KREIS.includes(p.console) && Protocol.STATION_KREIS.includes(kind)) { this.ix = null; return this.stationTab(S, kind); }
+    return this.enter(S, kind);
   }
   leave(S) { const p = this.me(S); if (p.console) this.send({ t: 'leave' }); }
   // R1 §4.4: Interface per Tab-Befehl wechseln, ohne den Ort zu verlassen (Tab-Kreis; belegte Stationen überspringt der Server)
@@ -361,6 +371,9 @@ class Agent {
     const taken = (s) => mates.some((a) => a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
     if (m.job && S.time - (m.job.seen || S.time) > 2) { m.job = null; m.mg = null; }   // liegengebliebener Auftrag (Rolle war woanders)
     if (m.job && m.job.sys !== 'reactor' && sh.systems.reactor === 'broken' && !taken('reactor')) { m.job = null; m.mg = null; m.jobCd = 0; this.ix = null; if (this.actDown) this.act(false); }   // SYS-01 C1a-2 Nacharbeit: der zerstörte Reaktor (Countdown) geht jeder anderen Arbeit vor
+    if (m.job && botBusy(m.job.sys) && !(p.action && (p.action.kind === 'repair' || p.action.kind === 'minigame')) && S.time - m.job.at > 1) {   // SYS-02c: der Schrauber hat das System übernommen (gleicher Tick der Wahl): nicht doppelt hinlaufen und kein zweites Ersatzteil holen
+      m.job = null; m.mg = null; m.jobCd = S.time + (o.cooldown || 4); this.ix = null; if (this.actDown) this.act(false); this.game.simStats.jobAbgegeben = (this.game.simStats.jobAbgegeben || 0) + 1; return false;
+    }
     if (m.job) {
       m.job.seen = S.time;
       const st = sh.systems[m.job.sys];
@@ -374,7 +387,8 @@ class Agent {
     if ((m.jobCd || 0) > S.time) return false;
     const cand = REPAIR_PRIO.filter((s) => sh.systems[s] === 'broken' || sh.systems[s] === 'damaged')
       .filter((s) => !botBusy(s) && !taken(s))
-      .filter((s) => o.damaged || sh.systems[s] === 'broken')
+      .filter((s) => o.damaged || sh.systems[s] === 'broken' || (o.kritisch && s === 'shields'))
+      .filter((s) => !o.kritisch || s === 'reactor' || s === 'shields')   // SYS-02c: im Solo-Gefecht nur die kritischen Systeme
       .sort((a, b) => (sh.systems[a] === 'broken' ? 0 : 1) - (sh.systems[b] === 'broken' ? 0 : 1) || (b === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0) - (a === 'reactor' && sh.systems.reactor === 'broken' ? 1 : 0));   // SYS-01 A2a: der zerstörte Reaktor (Countdown) zuerst
     const sys = cand[0];
     if (!sys) return false;
@@ -383,7 +397,7 @@ class Agent {
     let how;
     if (st === 'broken') how = S.inventory.ersatzteil > 0 && !pressure && sys !== 'reactor' ? 'swap' : 'flick';   // SYS-01 A2a: Reaktor nur Sonderreparatur
     else how = pressure || o.fast ? 'flick' : 'minigame';
-    m.job = { sys, how, from: st, at: S.time, seen: S.time };
+    m.job = { sys, how, from: st, at: S.time, seen: S.time, kritisch: !!o.kritisch };
     m.jobCd = S.time + (o.cooldown || 4);
     this.game.simStats.jobs = this.game.simStats.jobs || {};
     this.game.simStats.jobs[how] = (this.game.simStats.jobs[how] || 0) + 1;
@@ -556,6 +570,30 @@ class Agent {
     const live = S.space.enemies.filter((e) => !sterbend[e.id]);
     return live.length ? live : S.space.enemies;
   }
+  // SYS-02c: Zonenmodell für die Taktik. Das Ziel wird gescannt (nur dann zeigt der Snapshot Zonen und wählbare Systeme). Mit gescanntem Ziel: ist die zugewandte Seite leer (offene Wand),
+  // wird der Reaktor Systemziel (er zerstört den Gegner über den Countdown); sonst ein System der zugewandten Zone (Emitter zuerst: ein zerstörter Emitter nimmt der Seite den Schild,
+  // dann Waffen, damit die Zone leer wird). Alles nur aus dem Snapshot (zielZon, zielWahl) und den Katalogdaten; gewählt wird höchstens alle 0,5 s.
+  zonenZiel(S, target, M) {
+    const sh = S.ship; const m = this.memo;
+    if (!ZONEN_ZIELE.includes(target.kind)) return;   // Jäger: zu schnell für Scan und Systemziel (Messung SYS-02c: schlechter als ohne)
+    if (!target.scanned) {
+      if (dist(target.x, target.y, sh.x, sh.y) < 780 && (this.memo.scanUntil || 0) < S.time + 10) { this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); } }
+      return;
+    }
+    const z = sh.zielZon; const defs = Gsys.systemeVon(target.kind);
+    if (!z || !defs || z.z < 0 || sh.target !== target.id || (m.zsAt2 || 0) > S.time) return;
+    const zone = Gsys.SEITE_ZONE[z.z];
+    const wahl = (sh.zielWahl || []).map((i) => defs[i]).filter(Boolean);
+    const inZone = wahl.filter((d) => d.zone === zone);
+    let want = null;
+    if (z.leer[z.z] === 1) { const r = wahl.find((d) => d.art === 'reaktor'); want = r ? r.id : null; }
+    else want = ((inZone.find((d) => d.art === 'emitter') || inZone.find((d) => d.art === 'waffe') || inZone[0]) || {}).id || null;
+    if (want === (sh.zs || null)) return;
+    m.zsAt2 = S.time + 0.5;
+    this.cmd('weapons.systemziel', { id: want });
+    this.game.simStats.zonenZiele = (this.game.simStats.zonenZiele || 0) + (want ? 1 : 0);
+    if (want && defs.find((d) => d.id === want).art === 'reaktor') this.game.simStats.reaktorZiele = (this.game.simStats.reaktorZiele || 0) + 1;
+  }
   fight(S, opts) {
     const sh = S.ship;
     const enemies = this.lebende(S);
@@ -577,6 +615,7 @@ class Agent {
       this.scanT -= DT; if (this.scanT <= 0) { this.scanT = 0.3; this.cmd('weapons.scan', { on: true }); }
     }
     this.allocFor(S, target, M);
+    if (!(opts && (opts.lanzeHalten || opts.zonen === false)) && this.opts.zonen !== false) this.zonenZiel(S, target, M);   // SYS-02c: Zonenmodell (Scan, Systemziel)
     if (opts && opts.lanzeHalten) return;   // C1b-1: die Verfolgung hält alle Waffen, bis das Systemziel Antrieb steht (sonst stellt ein früher Heck-Treffer das Ziel)
     this.lanceFight(S, target, M);
     // §20.4: Batterien feuern nur auf Befehl – geladene Batterie mit einem Gegner im Bogen (Reaktion wie ein Mensch, ~0,3 s)
@@ -733,8 +772,10 @@ class Agent {
     // Kurs halten bei ½ (wendig für den nächsten Anflug), die Taktik nimmt sie auf der Anfluglinie mit der Lanze.
     // QA M3b: „circle“ = bekannte Lücke prüfen – Dauerkreis bei ½ mit leichtem Ruder (0,3), egal was kommt
     if (this.pilot() === 'circle') { this.dodgeTele(S); this.helmS(S, 0.3, HALF); return; }
+    // SYS-02c: Ein Jäger ohne Waffe zieht sich zurück (Rückzug, Countdown steht nicht an) und kehrt ohne Reparatur nie wieder: der Bot setzt ihm nach, statt den Kurs zu halten (Messung: 9 von 79 Wellen zu dritt nicht beendet)
+    if (e.kind === 'raider' && dist(sh.x, sh.y, e.x, e.y) > JAEGER_NACHSETZEN) { this.steer(S, e.x, e.y, 330, 220); return; }
     if (e.kind === 'raider' || e.kind === 'relay') this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), HALF);   // SYS-01 C1a-2 Nacharbeit: Kurs halten, am Kartenrand zur Mitte (sonst steht die Lerche mit dem Bug an der Wand, ein Jäger mit Restintegrität fliegt Kreise außer Bogen)
-    else if (this.pilot() === 'maneuver') this.helmManeuver(S, e);
+    else if (this.pilot() === 'maneuver') this.helmManeuver(S, e, LANGSAM_ZIELE.includes(e.kind) ? { slow: true } : undefined);   // SYS-02c: gegen langsame Kampfschiffe (Kreuzer 32 px/s) stehen bleiben: die Breitseite schleppt das Ziel mit (es kreist auf Lerche ± 90°), mit ½-Tempo läuft es ab und feuert aus der Reichweite
     else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
     // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
     if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
@@ -807,7 +848,7 @@ class Agent {
     const heading = norm(bearing - s * (Math.PI / 2 - delta));
     const hd = norm(heading - sh.angle);
     let stage;
-    if (opts && opts.slow) stage = Math.abs(hd) > 0.3 ? HALF : (d > 480 ? QUARTER : STOP);
+    if (opts && opts.slow) stage = Math.abs(hd) > 0.3 ? HALF : (d > 480 ? (d > 700 ? THREEQ : d > 560 ? HALF : QUARTER) : STOP);   // SYS-02c: weit weg (Ziel zieht sich zurück, repariert) nachsetzen, nah stehen
     else if (Math.abs(hd) > 0.5) stage = HALF;   // Wenden
     else {
       // Tempo des Ziels längs unseres Kurses mitgehen (Breitseite halten), weit weg ¾
@@ -831,8 +872,13 @@ class Agent {
     return e ? Physics.sectorOf(sh.x, sh.y, sh.angle, e.x, e.y) : null;
   }
   captainFight(S, p) {
-    const sh = S.ship; const m = this.memo;
     if (!this.enter(S, 'captain')) return;
+    this.schildVerteilung(S);
+    this.queueRepairs(S);
+  }
+  // Schildpunkte zur Bedrohung verteilen (Captain; SYS-02c: auch Solo im Gefecht per Tab auf die Technik, wie ein Spieler)
+  schildVerteilung(S) {
+    const sh = S.ship; const m = this.memo;
     if ((m.shieldAt || 0) < S.time && S.space.enemies.length) {
       m.shieldAt = S.time + 1;
       const sec = this.threatSector(S);
@@ -847,7 +893,6 @@ class Agent {
         this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1;
       }
     }
-    this.queueRepairs(S);
   }
   // Reparaturliste füllen (zu dritt; solo macht das die Automatik). Läuft in jedem Missionsschritt, sobald der Captain an der Konsole ist.
   queueRepairs(S) {
@@ -887,14 +932,19 @@ class Agent {
       if (!e) return;
       const threat = S.space.enemies.some((q) => q.tele && q.tele.left < 2.5);
       // Reparaturgang: zerstörtes System, solange keine Ladung kurz bevorsteht (Bots machen den Rest per Automatik)
-      if (this.memo.job || (!threat && (this.memo.offArc || 0) < 1)) { if (this.repairDuty(S, p, { cooldown: 15 })) return; }
+      // SYS-02c: im Gefecht verlässt Solo die Konsole nur noch für den Reaktor oder die Schilde (kritisch); Triebwerke, Emitter, Batterien u. a. macht der Schrauber (Reparaturliste, Automatik an).
+      // Vorher lief der Bot für jedes zerstörte System zum Regal und zur Station (20–30 s je Gang), während der Gegner das Heck weiter traf: Schleife aus Gang, Treffer, Ausfall, Gang, ohne Steuer und Ops.
+      const kritisch = ['reactor', 'shields'].some((k) => sh.systems[k] === 'broken' || sh.systems[k] === 'damaged');
+      if ((kritisch || (this.memo.job && this.memo.job.kritisch)) && (this.memo.job || (!threat && (this.memo.offArc || 0) < 1))) { if (this.repairDuty(S, p, { cooldown: 15, kritisch: !!kritisch })) return; }
+      if (p.console && Protocol.STATION_KREIS.includes(p.console) && this.opts.soloSchild !== false) this.schildVerteilung(S);   // SYS-02c: Solo verteilt die Schildpunkte wie der Captain (kurz per Tab auf die Technik)
       const M = this.mountsOf(S);
-      const inAny = MOUNT_IDS.some((id) => M[id] && M[id].state !== 'broken' && this.inArcM(S, M[id], e, 4));
+      // SYS-02c: gegen alles außer Jägern zählt nur der Bogen der Seitenbatterien (Breitseite) bzw. des Bugs (nose); die Lanze allein (Reichweite 650) hielt den Bot an einem Pylon fest, den er nur mit der Lanze beschoss (Golden m2/relay solo)
+      const inAny = (e.kind === 'raider' ? MOUNT_IDS : (this.pilot() === 'nose' ? ['bow'] : ['port', 'stbd'])).some((id) => M[id] && M[id].state !== 'broken' && this.inArcM(S, M[id], e, 4));
       if (!inAny) this.memo.offArc = (this.memo.offArc || 0) + DT; else this.memo.offArc = 0;
       if (this.memo.turning || this.memo.offArc > (e.kind === 'raider' ? 8 : 3)) {
         // Solo: kurz ans Steuer und das Ziel in einen Bogen drehen (nose: Bug, maneuver: Breitseite), dann zurück an die Taktik
         this.memo.turning = true;
-        if (!this.enter(S, 'helm')) return;
+        if (!this.enterTab(S, 'helm')) return;   // SYS-02c: per Tab, kein Laufweg
         const want = this.pilot() === 'nose' ? ['bow'] : ['port', 'stbd'];
         if (this.pilot() === 'maneuver') this.helmManeuver(S, e, { slow: true }); else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450, { slow: true });
         const M2 = this.mountsOf(S);
@@ -903,7 +953,7 @@ class Agent {
         return;
       }
       this.memo.turnT = 0;
-      if (this.enter(S, 'weapons')) this.fight(S);
+      if (this.enterTab(S, 'weapons')) this.fight(S);
       return;
     }
     if (this.role === 'weapons') {
@@ -2671,7 +2721,7 @@ class GenericAgent extends KeshAgent {
     }
     if (this.role !== 'solo' && this.role !== 'weapons') { this.fightOrHold(S, p); return; }
     if (!this.enter(S, 'weapons')) return;
-    this.fight(S, { scan: true, lanzeHalten: sh.zs !== 'antrieb' });
+    this.fight(S, { scan: true, zonen: false, lanzeHalten: sh.zs !== 'antrieb' });
     if (tg.scanned && hinten && sh.zs !== 'antrieb' && (this.memo.zsAt || 0) < S.time) { this.memo.zsAt = S.time + 1; this.cmd('weapons.systemziel', { id: 'antrieb' }); sim.systemziel = (sim.systemziel || 0) + 1; }
   }
   umsetzung_verfolgen_fliehenden_stellen(S, p) { this.verfolgungBot(S, p); }
