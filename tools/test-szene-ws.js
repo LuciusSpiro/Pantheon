@@ -120,7 +120,7 @@ const ohne = (g, hex) => { const z = g.weltsim.zustand; z.flotten = z.flotten.fi
   ok(g.simSzene && g.simSzene.ort === 'hafen', 'Hafen-Szene über das Netz');
   await warteAufKampf();
   ok(g.space.dockOk === false, 'Andocken gesperrt (space.dockOk im Server, Dock-Marker weg): ' + !g.space.markers.some((m) => m.kind === 'dock'));
-  for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('../server/sim/escort.js').hit(g, q, 99999, {});   // die Hafenflotte fällt, dann unterliegt die Lerche
+  for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('./gegner-testhilfe.js').toetenVerbuendeten(g, q);   // die Hafenflotte fällt, dann unterliegt die Lerche
   await sleep(500);
   require('../server/sim/space.js').verlustAusloesen(g, 'test');
   await bis(() => !g.simSzene, 3000);

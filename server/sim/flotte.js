@@ -560,7 +560,7 @@ function minenPruefen(game) {
 function mineSchaden(game, m, R) {
   if (m.besitzer === 'lerche') return;
   const dmg = kcfg(game).minenSchaden;
-  for (const es of alliesActive(game)) if (hyp(m.x - es.x, m.y - es.y) <= R) { escort().hit(game, es, dmg, { mine: true }); }
+  for (const es of alliesActive(game)) if (hyp(m.x - es.x, m.y - es.y) <= R) { escort().hit(game, es, dmg, { mine: true, von: { x: m.x, y: m.y } }); }
 }
 // Sprung innerhalb der Szene (Notfallsprung am selben Ort): die Flotte springt mit und steht wieder hinter der Lerche
 function sprungFolgen(game) {
@@ -603,7 +603,7 @@ function neustart(game) {
   for (const es of allies(game)) {
     if (!escort().active(es)) continue;
     es.kiZielObj = null;
-    es.hp = es.hpMax; es.state = 'ok'; es.distress = false; es.warned = []; es.skript = { modus: 'folgen' };
+    escort().heile(game, es); es.state = 'ok'; es.distress = false; es.warned = []; es.skript = { modus: 'folgen' };   // SYS-01 C2b: Systeme voll, Countdown aus
     escort().syncFlags(game, es);
   }
   require('./interior.js').integritaetAusZustand(game);   // SYS-01 A1: Hülle entfällt; die Integrität folgt dem Zustand (ok = Maximum, beschädigt = 50 %, zerstört = 0), der Zustand bleibt

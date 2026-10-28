@@ -8,6 +8,7 @@ const space = require('../server/sim/space.js');
 const Gsys = require('../server/sim/gegnersystem.js');
 const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Countdown und Sofort-Tod
 const Integ = require('../server/sim/integritaet.js');
+const Escort = require('../server/sim/escort.js');   // SYS-01 C2b: Verbündete (Escort-Einträge mit ally)
 
 const schwelle = () => Number(CONFIG.systemModell && CONFIG.systemModell.schwelle) || 0.6;
 const zustand = (e, id) => Integ.zustandVon(e.sys[id].i, Gsys.maxOf(e, id), schwelle());
@@ -83,4 +84,12 @@ function toetenSofort(game, e) {
   Gegnertod.sofort(e); space.enemyDown(game, e);
 }
 
-module.exports = { setzeSchilde, toeten, toetenSofort, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };
+// SYS-01 C2b: Verbündeten abschießen (Verlust über die Flotte, wie der Tod eines Verbündeten im Spiel): alle Systeme zerstört, Countdown aus, escort.disable -> allyLost.
+// Ein einzelner Großtreffer zerstört nur ein System (Trefferweg), darum Tests, die einen Verbündeten abschießen wollen, über diese Hilfe.
+function toetenVerbuendeten(game, es) {
+  if (!Escort.active(es)) return;   // schon zerstört (Treffer bis 0): kein zweiter Verlust
+  if (!Gsys.hat(es)) { Escort.hit(game, es, 1e6, {}); return; }
+  Gegnertod.sofort(es); Escort.disable(game, es);
+}
+
+module.exports = { toetenVerbuendeten, setzeSchilde, toeten, toetenSofort, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };

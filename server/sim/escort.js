@@ -10,6 +10,12 @@
 //   Liegt die Lerche dazwischen und hält ihr Schild zur Schussseite ≥ 1, fängt sie die Ladung (Breitseite als Schild).
 //   Hülle 0 -> kampfunfähig (treibt, Wrack), nie gelöscht. Kein Eigenbeschuss, nur ein Funk-Rüffel.
 //
+// SYS-01 C2b: VERBÜNDETE (ally) haben das Systemmodell ihrer Klasse (Budget flotte.hull, hp = Σ der Integrität) und denselben Trefferweg wie Gegner (allyTreffer).
+//   Verbündete haben (heute) KEINE Schildsegmente: Treffer gehen unmittelbar auf Systeme (bei Gegnern fangen Schildsegmente einen Teil ab). Das verschiebt die Kampfstärke
+//   gegenüber der alten Hülle: ein Großtreffer zerstört nur EIN System, der Überlauf verfällt (er geht nicht auf weitere Systeme über), und ein zerstörter Reaktor tötet
+//   nach dem Countdown (wie bei Gegnern). Die Zahlen (crewDamage, hullPerDamage, Systemverteilung) sind in Paket D zu kalibrieren. crewDamage bleibt der Schadensfaktor;
+//   "keine Crew-Skalierung" betrifft nur das Budget. Schützlinge (npc) bleiben bei der einfachen Hülle (hp/hpMax).
+//
 // Aufrufer: space.js (update, Angriffe, Treffer, Szenenwechsel, Lanze), game.js/ENGINE (snapshot, enemyTgt, command,
 // debug, hpPct), server/mission/bausteine/escort.js (Bausteine). Ohne Schützlinge ändert nichts am bisherigen Ablauf.
 const Flight = require('../../shared/flight.js');
@@ -24,6 +30,10 @@ const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gegner-Lebensanzei
 const space = () => spaceMod || (spaceMod = require('./space.js'));
 let flotteMod = null;  // EK4: Verbündete (flotte.js) – lazy (Zirkelbezug flotte -> escort)
 const flotte = () => flotteMod || (flotteMod = require('./flotte.js'));
+// SYS-01 C2b: Verbündete mit Systemmodell nutzen Trefferweg, Reaktor-Countdown und Reparatur der Gegner (lazy: Zirkelbezüge über space.js)
+const gtod = () => require('./gegnertod.js');
+const greparatur = () => require('./gegnerreparatur.js');
+const zielsys = () => require('./zielsysteme.js');
 
 const norm = Physics.normAngle;
 const clamp = (v, lo, hi) => (v < lo ? lo : v > hi ? hi : v);
@@ -186,6 +196,7 @@ function spawn(game, opts) {
     docked: false, spawnT: game.time, ausgang: null,
   };
   if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
+  if (ally) { Gsys.anlegen(es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität)
   if (ally) {   // Kennung auf den Karten: ausdrücklich (flotte_aufstellen volk), sonst CONFIG.kennung.verbuendet (Rom). Snapshot vk nur abweichend
     const K = game.C.kennung || {};
     es.volk = (K.voelker || []).includes(o.volk) ? o.volk : (K.verbuendet || 'rom');
@@ -387,7 +398,7 @@ function updateAttack(game, e, es, d, retreating, dt) {
     }
     game.space.beams.push({ x1: e.x, y1: e.y, x2: es.x, y2: es.y, ttl: C.combat.beamTtl * 1.6, kind: 'enemy_heavy', owner: e.id });
     game.emit('sfx', { name: 'heavy_hit', enemy: e.kind });
-    hit(game, es, t.damage != null ? t.damage : cfgE.damage, { heavy: true, emp, enemy: e });
+    hit(game, es, t.damage != null ? t.damage : cfgE.damage, { heavy: true, emp, enemy: e, von: { x: e.x, y: e.y } });
     return;
   }
   e.fireT += dt;
@@ -413,7 +424,8 @@ function hit(game, es, dmg, opts) {
   } else {
     const cd = ((es.ally ? (game.C.flotte || {}).crewDamage : null) || C.crewDamage || {})[crewN(game)];   // QA-INTEGRATION S2: Härte skaliert mit der Crewgröße (EK4: Verbündete eigene Tafel)
     hull = r1((Number(dmg) || 0) * C.hullPerDamage * (Number(cd) > 0 ? Number(cd) : 1));
-    es.hp = Math.max(0, r1(es.hp - hull));
+    if (es.ally && Gsys.hat(es) && Gsys.systemeVon(es.kind)) allyTreffer(game, es, hull, o);
+    else es.hp = Math.max(0, r1(es.hp - hull));
   }
   st.hits++; st.hullLost = r1(st.hullLost + hull);
   const f1 = hpFrac(es);
@@ -437,8 +449,30 @@ function hit(game, es, dmg, opts) {
   es.distress = f1 < distressLimit(game, es);
   return { hull };
 }
+// SYS-01 C2b: Treffer auf einen Verbündeten mit Systemmodell – derselbe Trefferweg wie bei Gegnern: Zone der Seite zur Quelle (o.von; ohne Quelle eine
+// zufällige Seite), Schild gibt es bei Verbündeten nicht (Schild 0), Reaktor zerstört = Countdown (gegnertod). es.hp bleibt die Summe der Integrität.
+function zoneVon(game, es, von) {
+  if (!von || !Number.isFinite(von.x) || !Number.isFinite(von.y)) return game.rng.pick(Gsys.SEITE_ZONE);
+  return Gsys.SEITE_ZONE[zielsys().seiteGetroffen(game, es, von.x, von.y)] || 'bug';
+}
+function allyTreffer(game, es, rest, o) {
+  const t = Gsys.treffen(game, es, zoneVon(game, es, o && o.von), rest, null);
+  if (!t) { es.hp = 0; return; }
+  greparatur().rueckschlag(game, es, t.zone);
+  if (t.state === 'broken' && t.vorher !== 'broken' && Gsys.artVon(es, t.id) === 'reaktor') gtod().systemZerstoert(game, es, t.id);   // Countdown (kein Kapern bei Verbündeten)
+  es.hp = Gsys.summe(es);
+}
+// SYS-01 C2b: Reparatur und Reaktor-Countdown eines Verbündeten mit Systemmodell (je Tick); abgelaufener Countdown = zerstört (wie hp ≤ 0)
+function allySysTick(game, es, dt) {
+  greparatur().tick(game, es, dt);
+  if (gtod().tick(game, es, dt)) disable(game, es);
+}
+// SYS-01 C2b: Neustart der Szene (flotte.neustart): Verbündeter voll, Systeme auf dem Maximum, Countdown aus
+function heile(game, es) {
+  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); } else es.hp = es.hpMax;
+}
 function disable(game, es) {
-  if (es.ally) { es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht
+  if (es.ally) { if (Gsys.hat(es)) gtod().sofort(es); es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht
   es.hp = 0; es.state = 'kampfunfaehig'; es.distress = false; es.befehl = null; es.pending = null; es.docked = false;
   es.ausgang = es.npc ? 'schwer_beschaedigt' : 'verloren';
   syncFlags(game, es);
@@ -485,11 +519,11 @@ function projectileHit(game, p) {
   if (p.kind === 'sperrfeuer') {
     const S = (game.C.spaceS2b && game.C.spaceS2b.sperrfeuer) || {};
     const f = S.escortFactor != null ? Number(S.escortFactor) : 1;
-    hit(game, es, (Number(p.dmg) || 0) * f, { light: true });
+    hit(game, es, (Number(p.dmg) || 0) * f, { light: true, von: { x: p.x, y: p.y } });
     if (game.stats.sperrfeuer) game.stats.sperrfeuer.escortHits++;
     return true;
   }
-  hit(game, es, p.dmg, { emp: p.kind === 'emp' });
+  hit(game, es, p.dmg, { emp: p.kind === 'emp', von: { x: p.x, y: p.y } });
   return true;
 }
 
@@ -674,6 +708,7 @@ function update(game, dt) {
   for (const e of sp.enemies) if (e.aggroUntil != null) e.aggroT = Math.max(0, e.aggroUntil - game.time);
   for (const es of list(game)) {
     try { stepEscort(game, es, dt); } catch (err) { if (game.countError) game.countError('escort', err); }
+    if (es.ally && Gsys.hat(es) && active(es)) { try { allySysTick(game, es, dt); } catch (err) { if (game.countError) game.countError('escort-sys', err); } }
   }
   // EK4: zerstörte Verbündete verlassen die Liste (Erinnerung in escortsGone bleibt für Prüfungen und Ausgang)
   if (sp.escorts && sp.escorts.some((q) => q.weg)) {
@@ -775,6 +810,6 @@ function debugSpawn(game, kind, extra) {
 
 module.exports = {
   spawn, command, order, setOrder, setBehaviour, update, hit, disable, snapshot, enemyTgt, pickTarget, onLercheHit, updateAttack, interposed, lanceCrossed,
-  projectileHit, retreat, onSceneChange, hpPct, outcome, stateOf, arrived, find, list, debug, debugSpawn, point, active, memo, syncFlags,
+  projectileHit, retreat, onSceneChange, heile, hpPct, outcome, stateOf, arrived, find, list, debug, debugSpawn, point, active, memo, syncFlags,
   targetOf: Pilot.targetOf, KINDS, VERHALTEN, BEFEHLE, STATES, POINTS,
 };

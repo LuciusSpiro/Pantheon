@@ -1,0 +1,21 @@
+{
+  "format": "gegnersprung-werte/1",
+  "_hinweis": "SYS-01 C2b „Gegner flieht per Notfallsprung“: Szenenbaustein gegner_notfallsprung (server/mission/bausteine/gegnersprung.js, Laufzeit server/sim/gegnersprung.js). Ein Gegner lädt bei erfülltem Auslöser den Sprung und entkommt danach; ohne Baustein flieht kein Gegner. Die Zahlen sind Startwerte, live per Daten. Keine Grundregel.",
+  "werte": {
+    "verzoegerung_s": {
+      "wert": 8,
+      "einheit": "s",
+      "min": 0.1,
+      "_hinweis": "Sprungladung eines Gegners, Standard des Bausteins. Ist sie kürzer als der Rest eines Reaktor-Countdowns, entkommt der Gegner; sonst stirbt er."
+    },
+    "prozent_standard": {
+      "wert": 50,
+      "einheit": "%",
+      "_hinweis": "Schwelle des Auslösers integritaet_unter, wenn der Baustein keinen Wert nennt (Anteil der Gesamtintegrität des Klassenbudgets)."
+    },
+    "ausloeser": {
+      "wert": ["reaktor_zerstoert", "integritaet_unter", "sofort"],
+      "_hinweis": "reaktor_zerstoert: Reaktor des Gegners zerstört (Countdown läuft); integritaet_unter: Gesamtintegrität unter prozent; sofort: ab dem ersten Tick."
+    }
+  }
+}

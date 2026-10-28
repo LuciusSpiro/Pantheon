@@ -522,7 +522,7 @@ section('L6: derselbe NSC kann nach einem verlorenen Verbuendeten wieder helfen;
   ok(!!h1.ally, 'der Verbuendete erscheint');
   const es = g.space.escorts.find((q) => q.tag === h1.ally.tag);
   FS.update(g, DT);
-  g.space.projectiles.push({ id: 'pz', kind: 'enemy', x: es.x, y: es.y, angle: 0, speed: 0, ttl: 5, dmg: 500, tgt: es.id });   // ein Gegner-Geschoss auf ihn
+  for (let i = 0; i < 12; i++) g.space.projectiles.push({ id: 'pz' + i, kind: 'enemy', x: es.x, y: es.y, angle: 0, speed: 0, ttl: 5, dmg: 500, tgt: es.id });   // SYS-01 C2b: Gegner-Geschosse auf ihn (ein Großtreffer zerstört nur ein System des Trefferwegs, alle Systeme fallen erst mit mehreren)
   laufe(g, 0.5);
   ok(es.state === 'zerstoert', 'der Verbuendete wird im Gefecht zerstoert');
   g.simSzene = null; FS.update(g, DT);

@@ -354,7 +354,7 @@ section('Hafen gehalten', () => {
   const tick0 = ticks(g);
   run(g, 21);
   // einen Verbündeten verlieren
-  const v0 = verbuendete(g)[0]; Escort.hit(g, v0, 99999, {});
+  const v0 = verbuendete(g)[0]; Testhilfe.toetenVerbuendeten(g, v0);
   ok(S.vert.verloren === v0.simPts && S.vert.lebend === S.vert.n0 - 1, `ein Verbündeter zerstört: ${v0.simPts} Schiffspunkte verloren`);
   ok(!(g.weltstand.data.fakten || {})['flotte_' + v0.tag] && !Object.keys(g.weltstand.data.npc || {}).some((k) => (g.weltstand.data.npc[k].gedaechtnis || []).some((x) => x.ereignis === 'schiff_verloren')), 'kein Weltstand-Eintrag (Fakt, Legat-Gedächtnis) für Schiffe der Sim-Szene');
   bisFlaggschiff(g, 300);
@@ -385,7 +385,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   ok(g.simSzene && g.simSzene.phase === 'kampf', 'Kampf läuft');
   require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   ok(g.simSzene && g.stats.emergencies === 1 && ticks(g) === tick0, 'Notfallprotokoll der Lerche mit lebenden Verteidigern: die Schlacht geht weiter, kein Tick');
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 1);
   ok(g.simSzene && g.simSzene.vert.lebend === 0, 'Verteidiger gefallen: Gnadenfrist (das frühere Protokoll zählt nicht mit)');
   require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
@@ -400,7 +400,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   flotte(g, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g, OSTIA);
   run(g, 21);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 0.2);
   ok(g.simSzene && g.simSzene.vert.lebend === 0 && g.simSzene.vert.erschT != null && t.funk().some((s) => /Die letzten Verteidiger sind gefallen/.test(s)), 'alle Verteidiger gefallen: Gnadenfrist mit Funkspruch');
   const t1 = ticks(g);
@@ -415,7 +415,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   ankunft(g, OSTIA);
   run(g, 21);
   bisFlaggschiff(g, 300);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 1);
   kill(g, g.space.enemies.find((e) => e.flagg)); run(g, 0.2);
   ok(Szene.letzte(g).ausgang === 'sieg' && z(g).hexe[OSTIA].besitzer === 'rom', 'Flaggschiff in der Gnadenfrist gefallen: Sieg, Hafen gehalten');
@@ -423,7 +423,7 @@ section('Hafen gefallen (Crew unterlegen / Verteidiger erschöpft)', () => {
   t = neu(); g = t.g; ab(g);
   flotte(g, OSTIA, 'pirat', 9, { belagerung: true });
   ankunft(g, OSTIA); run(g, 21);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3);
   const L4 = Szene.letzte(g);
   ok(L4.ausgang === 'niederlage' && !L4.wirkungen.some((x) => x.typ === 'ort_gefallen') && z(g).hexe[OSTIA].besitzer === 'rom', 'Piraten gegen einen Hafen: kein ort_gefallen aus der Szene (Piraten erobern keinen Hafen)');
@@ -449,7 +449,7 @@ section('Hafen gefallen durch den Reaktor-Countdown (statt der Naht)', () => {
   ok(reaktorTod(g) === 1 && g.ship.schiffZerstoert === true, 'Countdown abgelaufen: ein Notfallprotokoll (Ereignis emergency, grund reaktor)');
   run(g, 0.3);
   ok(g.simSzene && g.stats.emergencies === 1 && ticks(g) === tick0, 'mit lebenden Verteidigern geht die Schlacht weiter, kein Tick (wie bei der Naht)');
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 1);
   ok(g.simSzene && g.simSzene.vert.lebend === 0, 'Verteidiger gefallen: Gnadenfrist');
   ok(reaktorTod(g) === 1 && g.stats.emergencies === 2, 'zweiter Reaktor-Tod (Zähler lief weiter, 10-s-Countdown)');
@@ -463,7 +463,7 @@ section('Durchziehende Flotte (keine Belagerung): der Ort fällt nicht', () => {
   // Gegenprobe zu „Hafen gefallen“: dieselbe Niederlage, aber ohne Feldzug gegen den Ort. Ohne die Crew hätte die Sim nie erobert (Auftrag §3).
   // wie in der Sim: wer durchzieht, ist unterwegs (Rückzug nach Hause) und verlässt das Hex im nächsten Tick; „heim“ gibt es nur im eigenen Hafen
   const durchzug = (f) => { f.befehl = 'rueckzug'; f.ziel = f.heimat; return f; };
-  const unterliegen = (g) => { run(g, 21); for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); return Szene.letzte(g); };
+  const unterliegen = (g) => { run(g, 21); for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); return Szene.letzte(g); };
   let t = neu(); let g = t.g; ab(g);
   ohneFlotten(g, OSTIA);
   const fl = durchzug(flotte(g, OSTIA, 'ger', 3));   // keine Belagerung
@@ -546,7 +546,7 @@ section('Posten gehalten und gefallen', () => {
   ({ g } = aufbau(4));
   flotte(g, POSTEN, 'ger', 8, { belagerung: true });
   ankunft(g, POSTEN); run(g, 21);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, CONFIG.simSzene.erschoepfungGnade + 1);
   L = Szene.letzte(g);
   ok(L.ausgang === 'niederlage' && L.grund === 'verteidigung' && z(g).hexe[POSTEN].besitzer === null && L.wirkungen.some((x) => x.typ === 'abwehr_verlust' && x.punkte === 4), 'Posten gefallen (Garnison erschöpft): abwehr_verlust 4, ort_gefallen');
@@ -836,7 +836,7 @@ section('Client-Runde M1: Szenenfunk läuft über den Lagefunk-Pfad (Konsolen, F
   const t2 = neu(); const g2 = t2.g; ab(g2);
   ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g2, OSTIA); run(g2, 21);
-  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  for (const v of verbuendete(g2)) Testhilfe.toetenVerbuendeten(g2, v);
   require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5);
   const nl = t2.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && m.lage).map((m) => m.text);
   ok(nl.some((s) => /ist verloren/.test(s)) && nl.some((s) => /Lerche ist angeschlagen/.test(s)), 'Niederlage als Lagefunk');
@@ -874,7 +874,7 @@ section('Client-Runde M2: Szenenzeile im Snapshot (flotte.sz) und Messung', () =
   const t2 = neu(); const g2 = t2.g; ab(g2);
   ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g2, OSTIA); run(g2, 21);
-  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  for (const v of verbuendete(g2)) Testhilfe.toetenVerbuendeten(g2, v);
   require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5);
   const s2 = g2.snapshot().flotte;
   ok(s2 && s2.sz && s2.sz.p === 'n' && s2.sz.o === 'Ostia Nova', 'Niederlage: sz.p n mit Ort');
@@ -908,14 +908,14 @@ section('Client-Runde GRNDS.: Gnadenfrist-Meldung ohne Belagerung ohne „verlor
   let t = neu(); let g = t.g; ab(g);
   ohneFlotten(g, OSTIA); durchzug(flotte(g, OSTIA, 'ger', 3));
   ankunft(g, OSTIA); run(g, 21);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 0.3);
   const f1 = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio').map((m) => m.text).filter((s) => /Die letzten Verteidiger/.test(s));
   ok(f1.length === 1 && !/verloren/.test(f1[0]) && /sonst bricht die Linie/.test(f1[0]), 'durchziehende Flotte: Gnadenfrist ohne „… verloren“: „' + f1[0] + '“');
   t = neu(); g = t.g; ab(g);
   ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g, OSTIA); run(g, 21);
-  for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+  for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
   run(g, 0.3);
   const f2 = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio').map((m) => m.text).filter((s) => /Die letzten Verteidiger/.test(s));
   ok(f2.length === 1 && /sonst ist Ostia Nova verloren/.test(f2[0]), 'mit Belagerung: wie bisher „sonst ist Ostia Nova verloren!“');
@@ -976,7 +976,7 @@ section('Fixrunde M2: oberste Meldung nach dem Ende ist das Ergebnis, kein „wi
   ohneFlotten(g2, OSTIA); flotte(g2, OSTIA, 'ger', 17, { belagerung: true });
   ankunft(g2, OSTIA); run(g2, 21);
   const m0 = lageFunk(t2).length;
-  for (const v of verbuendete(g2)) Escort.hit(g2, v, 99999, {});
+  for (const v of verbuendete(g2)) Testhilfe.toetenVerbuendeten(g2, v);
   require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.3); require('../server/sim/space.js').verlustAusloesen(g2, 'test'); run(g2, 0.5); run(g2, 3);
   const nl = lageFunk(t2).slice(m0).map((m) => m.text);
   const letzte = nl[nl.length - 1] || '';
@@ -1020,7 +1020,7 @@ section('Fixrunde 3 (R-S1): der End-Tick sendet Funk für ein ANDERES Hex – di
     ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
     ankunft(g, OSTIA); run(g, 21);
     const n0 = lageFunk(t).length; kernZusatz = [fremd];
-    for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+    for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
     require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3); kernZusatz = [];
     const tx = lageFunk(t).slice(n0).map((m) => m.text);
     const iF = idx(tx, /gefallen/), iGrund = idx(tx, /Die Lerche ist angeschlagen|Die Verteidigung bricht zusammen/), iEr = idx(tx, /Ostia Nova ist verloren/);
@@ -1051,7 +1051,7 @@ section('Fixrunde 3 (R-S3): scheitert der End-Tick, gibt es keine Ausgangsmeldun
     ankunft(g, OSTIA); run(g, 21);
     const n0 = lageFunk(t).length;
     kernWirft = true;
-    try { for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {}); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3); } finally { kernWirft = false; }
+    try { for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3); } finally { kernWirft = false; }
     const tx = lageFunk(t).slice(n0).map((m) => m.text);
     ok(Besitz.besitzer(g, OSTIA) === 'rom', 'Niederlage, Tick wirft: Ostia Nova bleibt römisch');
     ok(!tx.some((s) => /ist verloren|Die Lerche ist angeschlagen|Verteidigung bricht/.test(s)), 'Niederlage, Tick wirft: keine „ist verloren“-Meldung (' + tx.map((s) => s.slice(0, 30)).join(' | ') + ')');
@@ -1076,7 +1076,7 @@ section('Fixrunde 3 (H-e): direkt/stumm hängen nicht an werte.sicht.verzoegerun
       ohneFlotten(g, OSTIA); flotte(g, OSTIA, 'ger', 17, { belagerung: true });
       ankunft(g, OSTIA); run(g, 21);
       const n0 = lageFunk(t).length;
-      for (const v of verbuendete(g)) Escort.hit(g, v, 99999, {});
+      for (const v of verbuendete(g)) Testhilfe.toetenVerbuendeten(g, v);
       require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.3); require('../server/sim/space.js').verlustAusloesen(g, 'test'); run(g, 0.5); run(g, 3);
       const tx = lageFunk(t).slice(n0).map((m) => m.text);
       ok(/Ostia Nova ist verloren/.test(tx[tx.length - 1] || '') && tx.filter((s) => /Ostia Nova/.test(s) && /verloren|gefallen/.test(s)).length === 1 && !tx.some((s) => /belagert/.test(s)), 'Verzögerung ' + vz + ', Niederlage: Ergebnis zuletzt, einmal gemeldet, kein „belagert“ (' + tx.map((s) => s.slice(0, 22)).join(' | ') + ')'); }

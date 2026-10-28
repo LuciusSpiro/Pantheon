@@ -14,6 +14,7 @@ const space = require('../server/sim/space.js');
 const Escort = require('../server/sim/escort.js');
 const Pilot = require('../server/sim/pilot.js');
 const Registry = require('../server/mission/registry.js');
+const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C2b: Verbündete abschießen über die Testhilfe
 
 const ARGV = process.argv.slice(2);
 const seedsArg = ARGV.indexOf('--seeds');
@@ -123,7 +124,7 @@ section('Befehle: Gehorsam nach Haltung (§5)', () => {
   const last = ev('escortOrder').slice(n0)[0];
   ok(last && last.ok === false, 'Havarist ohne Antrieb: folgen abgelehnt (ok false)');
   const e2 = Escort.spawn(g, { tag: 'k', kind: 'karawane', verhalten: 'folgt_kurs', von: { x: 1000, y: 900 } });
-  Escort.hit(g, e2, 999, {});
+  Testhilfe.toetenVerbuendeten(g, e2);
   const err2 = Escort.order(g, 'k', 'halten');
   ok(typeof err2 === 'string' && e2.state === 'kampfunfaehig', `kampfunfähig: Befehl abgelehnt („${err2}“)`);
   ok(typeof Escort.order(g, 'k', 'tanzen') === 'string', 'unbekannter Befehl -> Fehlertext');
@@ -151,7 +152,7 @@ section('Zielwahl der Gegner: ziel, Aggro, Rückfall (§5)', () => {
   run(CONFIG.escorts.aggroOnHit + 0.5, () => { noWeapons(g); for (const e of g.space.enemies) e.hp = e.hpMax; });
   ok(Pilot.targetOf(g, c) === es, `nach ${CONFIG.escorts.aggroOnHit} s wieder auf den Schützling`);
   // Ausfall: Gegner kehren zur Lerche zurück
-  Escort.hit(g, es, 9999, {});
+  Testhilfe.toetenVerbuendeten(g, es);
   ok(es.state === 'kampfunfaehig' && Pilot.targetOf(g, b) === g.ship && b.targetId == null, 'Schützling kampfunfähig: Gegner nehmen die Lerche');
 });
 
@@ -237,7 +238,7 @@ section('Breitseite als Schild + Schaden/Zustände (§5)', () => {
   ok(Escort.outcome(g, 'k2') === 'verloren', `unbenannt: Ausgang ${Escort.outcome(g, 'k2')}`);
   g.space.escorts = g.space.escorts.filter((q) => q !== e2);
   const e3 = Escort.spawn(g, { tag: 'k3', kind: 'bergungsboot', npc: 'melk', verhalten: 'treibt', von: { x: 2500, y: 2500 } });
-  Escort.hit(g, e3, 999, {});
+  Testhilfe.toetenVerbuendeten(g, e3);
   ok(e3.state === 'kampfunfaehig' && Escort.outcome(g, 'k3') === 'schwer_beschaedigt', `benannter NSC: Ausgang ${Escort.outcome(g, 'k3')} (stirbt nicht)`);
   const x0 = e3.x; for (let i = 0; i < 30; i++) space.update(g, DT);
   ok(e3.state === 'kampfunfaehig' && g.space.escorts.includes(e3) && Number.isFinite(e3.x) && Math.abs(e3.x - x0) < 50, 'kampfunfähig treibt weiter (wird nicht gelöscht)');

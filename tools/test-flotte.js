@@ -117,7 +117,7 @@ section('Hilferuf bei großem Schaden, theatralischer Funkspruch bei Zerstörung
   ok(rs.length === 2 && rs[0].text.startsWith('Schilde gebrochen') && rs[1].text.startsWith('Hülle bricht') && !('pid' in rs[0]), 'Audax: Optio Livia Rufa ruft (ohne Porträt-Kennung), Texte aus den Daten');
   // Zerstörung
   const x0 = a.x, y0 = a.y;
-  treffen(g, a, 0.001); Escort.hit(g, a, 50, {}); ticks(g, 0.1);
+  treffen(g, a, 0.001); Testhilfe.toetenVerbuendeten(g, a); ticks(g, 0.1);
   const lost = t.ev('allyLost');
   ok(lost.length === 1 && lost[0].tag === 'fulminata' && lost[0].name === 'Fulminata' && lost[0].kapsel === F.kapsel.dauer && Math.abs(lost[0].x - x0) < 80, 'Ereignis allyLost mit Position und Kapsel-Dauer');
   const last = t.radios().pop();
@@ -125,7 +125,7 @@ section('Hilferuf bei großem Schaden, theatralischer Funkspruch bei Zerstörung
   ok(t.ev('explosion').length >= 1 && g.space.escorts.every((e) => e.tag !== 'fulminata') && Escort.stateOf(g, 'fulminata') === 'zerstoert' && Escort.outcome(g, 'fulminata') === 'verloren', 'explodiert, aus dem Raum, Zustand zerstoert, Ausgang verloren');
   ok(g.mission.flags.fulminata_verloren === true && g.mission.flags.fulminata_heil === false, 'Flags: fulminata_verloren');
   // Audax: Funkspruch bei Zerstörung
-  Escort.hit(g, b, 500, {});
+  Testhilfe.toetenVerbuendeten(g, b);
   ok(t.radios().pop().text.startsWith('Wir gehen unter. Für Rom'), 'Audax: „Wir gehen unter. Für Rom ... Für alle!“');
   // Gegner lassen vom Toten ab
   const e = space.spawnEnemy(g, 'raider', { x: 2000, y: 800, ziel: 'verbuendet' });
@@ -139,7 +139,7 @@ section('Weltstand: Verlust bleibt, Legat überlebt, Gedächtnis speichern und l
   ok(g.weltstand && g.weltstand.persistent && g.weltstand.data.npc.legat && g.weltstand.data.npc.legat.status === 'lebt', 'Kampagne: Legat im Weltstand (lebt)');
   const a = Flotte.aufstellen(g, { tag: 'fulminata' });
   platz(g, 300, 800); a.x = 1800; a.y = 800;   // die Lerche ist weit weg (im Stich gelassen)
-  Escort.hit(g, a, 500, {});
+  Testhilfe.toetenVerbuendeten(g, a);
   const ws = g.weltstand.data;
   ok(ws.fakten.flotte_fulminata === 'verloren', 'Fakt flotte_fulminata = verloren');
   const mem = npcMem(g, 'legat');
@@ -240,7 +240,7 @@ section('Scheitern: Frist, Schiff verloren, Notfallprotokoll; eigenmächtig und 
   const t2 = raum(); const g2 = t2.g;
   const s2 = Flotte.aufstellen(g2, { tag: 'fulminata' });
   const e2 = Flotte.befehl(g2, { art: 'eskortieren', schiff: 'fulminata', punkte: 'ost' });
-  Escort.hit(g2, s2, 5000, {}); ticks(g2, 0.2);
+  Testhilfe.toetenVerbuendeten(g2, s2); ticks(g2, 0.2);
   ok(e2.st === 2 && e2.grund === 'schiff', 'Schiff zerstört: Befehl gescheitert (schiff)');
   // Notfallprotokoll -> gescheitert (notfall)
   const t3 = raum(1, { sterblich: true }); const g3 = t3.g;
@@ -264,12 +264,12 @@ section('Scheitern: Frist, Schiff verloren, Notfallprotokoll; eigenmächtig und 
   // im Stich gelassen: Erinnerungstext
   const t6 = raum(); const g6 = t6.g; platz(g6, 200, 800);
   const a6 = Flotte.aufstellen(g6, { tag: 'audax', von: { x: 1700, y: 800 } });
-  Escort.hit(g6, a6, 5000, {});
+  Testhilfe.toetenVerbuendeten(g6, a6);
   ok(Flotte.erinnerung(g6) === 'im_stich' && Flotte.erinnerungText(g6) === 'Die Audax ist tot. Ihr habt es gesehen. Ich auch.', 'im Stich gelassen: „Die Audax ist tot. Ihr habt es gesehen. Ich auch.“');
   // dicht dabei: nicht im Stich gelassen
   const t7 = raum(); const g7 = t7.g; platz(g7, 1500, 800);
   const a7 = Flotte.aufstellen(g7, { tag: 'audax', von: { x: 1650, y: 800 } });
-  Escort.hit(g7, a7, 5000, {});
+  Testhilfe.toetenVerbuendeten(g7, a7);
   ok(Flotte.erinnerung(g7) === null, 'war die Lerche nah, ist es kein Im-Stich-Lassen');
   ok([g, g2, g3, g4, g5, g6, g7].every((x) => x.errors === 0), 'keine Server-Fehler');
 });
@@ -310,7 +310,7 @@ section('Szenenwechsel: Verbündete springen mit', () => {
   Flotte.modus(g, 'audax', 'halten');
   space.enterScene(g, 'nebel', {});
   ok(g.space.escorts.length === 2 && g.space.escorts.every((e) => e.ally && dist(e, g.ship) < 400), 'beide Verbündete in der neuen Szene, hinter der Lerche (auch mit Skript halten)');
-  Escort.hit(g, b, 5000, {});
+  Testhilfe.toetenVerbuendeten(g, b);
   space.enterScene(g, 'splitter', {});
   ok(g.space.escorts.length === 1 && g.space.escorts[0].tag === 'fulminata' && Escort.stateOf(g, 'audax') === 'zerstoert', 'zerstörte Schiffe springen nicht mit');
   ok(g.errors === 0, 'keine Server-Fehler');

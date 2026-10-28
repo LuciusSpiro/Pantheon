@@ -80,6 +80,14 @@ function setzeAnteil(game, e, anteil) {
   return e;
 }
 
+// SYS-01 C2b: Klassenbudget neu setzen (Eichung der Szene, Flaggschiff-Faktor): Maximum neu aus dem Budget, alle Systeme voll (wie ein Neuspawn).
+// Ohne Modell e.hp = Budget. Ersetzt das frühere `e.hpMax = n; e.hp = n`, das die Systeme auf dem alten Maximum ließ.
+function setzeBudget(game, e, budget) {
+  e.hpMax = Math.max(1, Math.round(Number(budget) || 1));
+  if (!hat(e)) { e.hp = e.hpMax; return e; }
+  return setzeAnteil(game, e, 1);
+}
+
 // Lebensanzeige: Gesamtintegrität in Prozent der Klasse (früher Hülle in %). Verbraucher: escort (unter_pct), mission (enemyHpBelow).
 function integPct(e) { return e.hp / (e.hpMax || 1) * 100; }
 
@@ -204,6 +212,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  summe, setzeAnteil, zonenWerte, klasseIndex,
+  summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

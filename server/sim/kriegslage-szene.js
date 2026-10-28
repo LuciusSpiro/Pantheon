@@ -412,7 +412,7 @@ function verteidigerAufstellen(game, S, L) {
       von: { x: Math.max(60, Math.min((sc.w || game.space.w) - 60, ank.x + Math.cos(a) * ring)), y: Math.max(60, Math.min((sc.h || game.space.h) - 60, ank.y + Math.sin(a) * ring)) } });
     if (!es) return;
     const hf = Number(V.huelle) > 0 ? Number(V.huelle) / 100 : 1;   // Hülle der Szenen-Verteidiger in Prozent der Klassenhülle (Eichung gegen die Gegner, CONFIG.simSzene.verteidiger.huelle)
-    if (hf !== 1) { es.hpMax = Math.max(1, Math.round(es.hpMax * hf)); es.hp = es.hpMax; }
+    if (hf !== 1) Gsys.setzeBudget(game, es, es.hpMax * hf);   // SYS-01 C2b: Budget neu (Systeme voll, Σ = hp)
     es.sim = S.id; es.simPts = P[kind];
     S.vert.schiffe.push(tag); S.vert.ges += P[kind]; S.vert.lebend++; S.vert.n0++;
   });
@@ -746,7 +746,7 @@ function finaleAufbauen(game, { hex } = {}, merk) {
     const es = Flotte.aufstellen(game, { tag: 'finale_v' + i, kind, name: namen.length ? namen[i % namen.length] : undefined, rolle: 'angreifer',
       von: { x: klemme(L.x + Math.cos(a) * 140, 60, sp.w - 60), y: klemme(L.y + Math.sin(a) * 140, 60, sp.h - 60) } });
     if (!es) return;
-    if (hf !== 1) { es.hpMax = Math.max(1, Math.round(es.hpMax * hf)); es.hp = es.hpMax; }
+    if (hf !== 1) Gsys.setzeBudget(game, es, es.hpMax * hf);   // SYS-01 C2b: Budget neu (Systeme voll, Σ = hp)
     es.sim = S.id; es.simPts = P[kind] || 0;
     S.vert.schiffe.push(es.tag); S.vert.ges += es.simPts; S.vert.lebend++; S.vert.n0++; S.nVerb++;
   });
@@ -769,7 +769,7 @@ function finaleGegnerAufstellen(game, S) {
   if (f) {
     const hfd = fl.huelle_faktor && typeof fl.huelle_faktor === 'object' ? fl.huelle_faktor[String(S.crew)] : fl.huelle_faktor;   // je Crewgröße (1, 2, 3) oder eine Zahl
     const hf = Number(hfd) > 0 ? Number(hfd) : 1;
-    f.hpMax = Math.max(1, Math.round(f.hpMax * hf)); f.hp = f.hpMax;
+    Gsys.setzeBudget(game, f, f.hpMax * hf);   // SYS-01 C2b: Flaggschiff-Faktor auf das Budget; die Systeme folgen
     Object.assign(f, { finaleS: S.id, flagg: true, name: S.flagg.name });
   }
   const ring = Number(D.orbit_wachschiffe_abstand.wert) || 330;

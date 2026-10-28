@@ -58,7 +58,8 @@ const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const ally = (g, tag) => (g.space.escorts || []).find((q) => q.ally && q.tag === tag);
 const enemies = (g, kind) => g.space.enemies.filter((e) => !kind || e.kind === kind);
 function platz(g, x, y) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; }
-function verwunden(g, tag, dmg) { const es = ally(g, tag); es.einBis = 0; Escort.hit(g, es, dmg || 500, {}); }
+// SYS-01 C2b: Verbündete abschießen über die Testhilfe (ein Großtreffer zerstört nur ein System des Trefferwegs)
+function verwunden(g, tag) { const es = ally(g, tag); es.einBis = 0; Testhilfe.toetenVerbuendeten(g, es); }
 const toeten = (g, e) => Testhilfe.toeten(g, e);
 function bis(g, f, maxSek, ticksPro) { for (let i = 0; i < maxSek * CONFIG.tickHz; i++) { if (f()) return true; g.step(); } return !!f(); }
 // direkt in den Schritt (Befehl 1 / 2 / 3), die Vorgeschichte entfällt
