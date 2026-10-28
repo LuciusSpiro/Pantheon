@@ -13,6 +13,7 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const Zielsysteme = require('../server/sim/zielsysteme.js');
+require('../server/sim/gegnersystem.js').DATEN.klassen.raider.repariert = true;   // SYS-02c: die Eichung dieses Tests stammt aus der Zeit mit Jäger-Reparatur; das Klassen-Flag raider.repariert steht jetzt auf false (Regelpaket SYS-02a). Der Test misst keine Reparatur: Eichbedingung festhalten, Neumessung gehört zu SYS-02a
 let Flight = null;
 try { Flight = require('../shared/flight.js'); } catch (e) { Flight = null; }
 

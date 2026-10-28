@@ -311,18 +311,18 @@ section('N Entscheidungen: Reaktor-Schalter (aus = Todesurteil, an = Sonderrepar
   ok(zust(j, 'reaktor') === 'damaged' && j.rt.rest === null && h.space.enemies.includes(j), 'Schalter an: nach 12 s beschädigt, Countdown endet, der Gegner lebt');
   runH(10);
   ok(h.space.enemies.includes(j) && h.stats.kills === 0, 'und stirbt auch nach 22 s nicht');
-  // N3 Klassen-Flag repariert (Daten): Schiffsklassen true, Strukturen und Frachter false; Wirkung in tick
+  // N3 Klassen-Flag repariert (Daten): Korvette, Fregatte, Kreuzer true; Jäger, Strukturen und Frachter false (SYS-02c: Jäger-Reparatur aus, wie SYS-02a); Wirkung in tick
   const klassen = ['raider', 'korvette', 'fregatte', 'kreuzer', 'sentinel', 'pylon', 'frachter'];
   const flags = klassen.map((c) => c + ':' + DATEN.klassen[c].repariert).join();
-  ok(flags === 'raider:true,korvette:true,fregatte:true,kreuzer:true,sentinel:false,pylon:false,frachter:false', 'Daten: repariert je Klasse (' + flags + ')');
+  ok(flags === 'raider:false,korvette:true,fregatte:true,kreuzer:true,sentinel:false,pylon:false,frachter:false', 'Daten: repariert je Klasse (' + flags + ')');
   R().reaktor = false;
   const { g: m, run: runM } = arena(77);
   const cs = {};
   for (const c of klassen) { cs[c] = gegner(m, c); Testhilfe.setzeIntegritaet(cs[c], 'antrieb', 0); }
   runM(11);
   const stand = klassen.map((c) => c + ':' + zust(cs[c], 'antrieb')).join();
-  ok(['raider', 'korvette', 'fregatte', 'kreuzer'].every((c) => zust(cs[c], 'antrieb') === 'damaged') && ['sentinel', 'pylon', 'frachter'].every((c) => zust(cs[c], 'antrieb') === 'broken'), 'nach 11 s: Schiffsklassen repariert (beschädigt), Wächter, Pylon, Frachter nicht (' + stand + ')');
-  ok(Gegnerreparatur.repariert(cs.raider) && !Gegnerreparatur.repariert(cs.pylon), 'Gegnerreparatur.repariert(e) liest das Klassen-Flag');
+  ok(['korvette', 'fregatte', 'kreuzer'].every((c) => zust(cs[c], 'antrieb') === 'damaged') && ['raider', 'sentinel', 'pylon', 'frachter'].every((c) => zust(cs[c], 'antrieb') === 'broken'), 'nach 11 s: Korvette, Fregatte, Kreuzer repariert (beschädigt), Jäger, Wächter, Pylon, Frachter nicht (' + stand + ')');
+  ok(Gegnerreparatur.repariert(cs.korvette) && !Gegnerreparatur.repariert(cs.raider) && !Gegnerreparatur.repariert(cs.pylon), 'Gegnerreparatur.repariert(e) liest das Klassen-Flag');
   // N4 Schützling außerhalb der Erfassung (Nebel, space.waffenReichweite): der Gegner greift den Schützling nicht an, in Erfassung schon (Befund 5b)
   const angriff = (erfassung) => {
     const t0 = CONFIG.tscan.range; CONFIG.tscan.range = erfassung;

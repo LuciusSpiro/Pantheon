@@ -11,7 +11,7 @@
     "raider": {
       "name": "Jäger",
       "budgetFaktor": 0.3,
-      "repariert": true,
+      "repariert": false,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
         { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
