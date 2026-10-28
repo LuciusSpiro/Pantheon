@@ -1,0 +1,24 @@
+{
+  "format": "faden-bauplan-katalog/1",
+  "_hinweis": "SUND-04b A1: Daten des Expanders (server/sim/faden-bauplan.js). Ein Bauplan (faden-bauplan/1, Form content/schema/faden-bauplan.schema.json) nennt nur Typenfolge, Parameter und Verzweigung; Zustaende, Ausgaenge, Folgen, Optionen und Hinweise kommen aus diesen Daten und aus beats.json (je Beat-Typ `bauplan`). Der Expander macht daraus eine volle Vorlage (faden-vorlage/1), derselbe Pruefer (faden-pruefer.js) prueft sie. Katalog = Grenze der Moeglichkeiten: was hier nicht steht, kann kein Plan.",
+  "werte": {
+    "id_praefix": {"wert": "abenteuer_", "einheit": "Text", "_hinweis": "Vorlagen-Id eines Abenteuers = id_praefix + die ersten id_hash_laenge Hexzeichen des SHA-1 ueber den Inhalt der Vorlage (ohne id). Die Id ist damit vom Inhalt abhaengig: derselbe Plan ergibt dieselbe Id, ein gespeicherter Plan mit falscher Id wird beim Laden verworfen."},
+    "id_hash_laenge": {"wert": 12, "einheit": "Hexzeichen", "_hinweis": "Laenge des Hash-Teils der Id (Vorlagen-Id hoechstens 32 Zeichen laut Schema)."},
+    "ausloeser": {"wert": {"art": "notruf", "ausgang": "gelungen"}, "einheit": "Ausloeser", "_hinweis": "Die expandierte Vorlage braucht laut Schema einen Ausloeser; ein Abenteuer wird nie ueber ihn angeboten (es liegt in einem eigenen Register, faden-daten.js registriereAbenteuer), der Eintrag ist nur Form."},
+    "volk_erlaubt_standard": {"wert": ["rom", "kon"], "einheit": "Voelker", "_hinweis": "Voelker des NSC, wenn der Bauplan keine nennt."},
+    "nsc_haltung_start": {"wert": 0, "einheit": "Haltung", "_hinweis": "Start-Haltung des NSC einer expandierten Vorlage."},
+    "titel": {"wert": {"min": 3, "max": 60}, "einheit": "Zeichen", "_hinweis": "Laenge des Titels (wie das Schema der Vorlage)."},
+    "anlass": {"wert": {"min": 8, "max": 160}, "einheit": "Zeichen", "_hinweis": "Laenge des Anlasses (Freitext des Spielleiters: warum gibt es dieses Abenteuer). Keine Platzhalter, keine Spielernamen: der Text bleibt Crew-neutral (Mehrspieler)."},
+    "erfolg_max": {"wert": 4, "einheit": "Typen", "_hinweis": "Hoechstens so viele Beat-Typen zaehlen als Erfolg des Abschlusses (erfolg.ereignis der Vorlage, Schema: hoechstens 4). Ohne Angabe im Plan gelten die letzten erfolg_max Typen des Plans: wer mindestens einen davon geschafft hat, hat den Faden gelungen."},
+    "wahrheit_standard": {"wert": "ist_germane", "einheit": "Kennung", "_hinweis": "Verborgene Wahrheit, wenn der Plan eine Enthuellung hat und keine nennt (Schluessel in wahrheiten)."}
+  },
+  "wahrheiten": {
+    "ist_germane": {"fraktion": "ger", "hinweise": ["h_gerucht", "h_papiere", "h_scan", "h_hafenfunk"], "_hinweis": "Der NSC ist in Wahrheit Germane (Enthuellung: Sabotage, Baustein enthuellung). hinweise = welche Hinweise des Katalogs zu dieser Wahrheit passen (der Expander streut nur diese)."}
+  },
+  "hinweise": {
+    "h_gerucht": {"kanal": "geruecht", "mit_name": true, "text": "Gerücht: Von {name} hat noch kein Kontor je eine Lieferung gesehen."},
+    "h_papiere": {"kanal": "papiere", "mit_name": true, "text": "Das Siegel auf den Papieren von {name} führt kein Kontor."},
+    "h_scan": {"kanal": "scan", "mit_name": false, "text": "Scan bei {ort}: Der Transponder des Schiffs passt nicht zu seinen Papieren."},
+    "h_hafenfunk": {"kanal": "geruecht", "mit_name": false, "text": "Hafenfunk: Bei {ort} fragt jemand nach römischen Posten statt nach Ware."}
+  }
+}

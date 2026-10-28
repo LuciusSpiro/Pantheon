@@ -25,6 +25,12 @@
       "minLength": 3,
       "maxLength": 60
     },
+    "anlass": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 160,
+      "description": "SUND-04b A1: Freitext des Spielleiters, warum es dieses Abenteuer gibt (nur bei expandierten Plaenen)."
+    },
     "ausloeser": {
       "type": "array",
       "minItems": 1,
@@ -79,6 +85,11 @@
         },
         "haltung": {
           "type": "number"
+        },
+        "rolle": {
+          "type": "string",
+          "maxLength": 12,
+          "description": "SUND-04b A1: Rolle des NSC (werte.nsc_rollen): namenlos = das Abenteuer haengt nicht an einem festen NSC (Zustand bleibt aktiv, Ausgaenge ohne status)."
         },
         "klassen": {
           "type": "array",

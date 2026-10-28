@@ -1,6 +1,6 @@
 {
   "format": "faden-beats/1",
-  "_hinweis": "SUND-04a-1 B: Beat-Katalog der Geschichtsfaeden (server/sim/faden-pruefer.js prueft jede Vorlage gegen diese Eintraege, server/sim/faden-bausteine.js hat zu jedem `baustein` einen benannten Baustein). Ein neuer Beat ist ein neuer Eintrag hier mit seinen Regeln, kein Umbau: der Pruefer liest die Felder, nicht die Namen. Felder: baustein = benannter Baustein (Szene/Funk/Wirkung); gefahr = der Beat bringt Gefahr (dann NIE Optionen, Regel aus 03b: Gefahr wird angekuendigt, nicht abgefragt; eine Vorlage darf gefahr nur auf true setzen); optionen = keine | erlaubt (Optionen mit Folge aus dem Wirkungen-Katalog, keine Scheinwahl); braucht.nsc_status = in welchen Zustaenden des NSC der Beat laeuft (nach einem Scheitern kann der NSC tot oder gefangen sein: dann passt nicht jeder Beat); braucht.fluchtziel = die Vorlage nennt ein Fluchtziel (parameter.fluchtziel: Hex-Code oder Symbol aus werte.fluchtziele); braucht.wahrheit = der Faden hat eine verborgene Wahrheit; braucht.hinweis_vorher = auf JEDEM Weg dorthin wurde vorher mindestens ein Hinweis gestreut (Fairness der Enthuellung); braucht.letzter = nur als letzter Beat der Vorlage; abschluss = beendet den Faden (nur dieser Beat darf das, alle Ausgaenge fuehren dorthin); ereignis_ohne_ware = Nacharbeit Welle 3: scheitert ein Beat, der eine Ware an Bord haben sollte, OHNE dass je eine Ware geladen wurde (kein Hafen in Reichweite), schreibt das Gedaechtnis dieses Ereignis statt <typ>_gescheitert (sonst erinnert sich der NSC an eine Ladung, die nie an Bord war); szene = der Beat laeuft als Szene in der Freien Fahrt (server/sim/faden-szene.js): ist er beim Speichern noch laufend, steht er beim Laden wieder aus (faden.lesen); parameter = erlaubte Felder des Beats in der Vorlage (pflicht, optional; Werte sind kurze Texte, Zahlen oder Wahrheitswerte). Jeder Beat hat die Ausgaenge gelungen und gescheitert (werte.ausgaenge), die die Vorlage je Beat mit Folgezustand beschreibt. Die Bausteine raumschlacht, befreiung, spontanhilfe, verfolgung, fracht (SUND-04a-2 P1) sind registriert; bitte, enthuellung, abschluss, notruf folgen in P3.",
+  "_hinweis": "SUND-04a-1 B: Beat-Katalog der Geschichtsfaeden (server/sim/faden-pruefer.js prueft jede Vorlage gegen diese Eintraege, server/sim/faden-bausteine.js hat zu jedem `baustein` einen benannten Baustein). Ein neuer Beat ist ein neuer Eintrag hier mit seinen Regeln, kein Umbau: der Pruefer liest die Felder, nicht die Namen. Felder: baustein = benannter Baustein (Szene/Funk/Wirkung); gefahr = der Beat bringt Gefahr (dann NIE Optionen, Regel aus 03b: Gefahr wird angekuendigt, nicht abgefragt; eine Vorlage darf gefahr nur auf true setzen); optionen = keine | erlaubt (Optionen mit Folge aus dem Wirkungen-Katalog, keine Scheinwahl); braucht.nsc_status = in welchen Zustaenden des NSC der Beat laeuft (nach einem Scheitern kann der NSC tot oder gefangen sein: dann passt nicht jeder Beat); braucht.fluchtziel = die Vorlage nennt ein Fluchtziel (parameter.fluchtziel: Hex-Code oder Symbol aus werte.fluchtziele); braucht.wahrheit = der Faden hat eine verborgene Wahrheit; braucht.hinweis_vorher = auf JEDEM Weg dorthin wurde vorher mindestens ein Hinweis gestreut (Fairness der Enthuellung); braucht.letzter = nur als letzter Beat der Vorlage; abschluss = beendet den Faden (nur dieser Beat darf das, alle Ausgaenge fuehren dorthin); ereignis_ohne_ware = Nacharbeit Welle 3: scheitert ein Beat, der eine Ware an Bord haben sollte, OHNE dass je eine Ware geladen wurde (kein Hafen in Reichweite), schreibt das Gedaechtnis dieses Ereignis statt <typ>_gescheitert (sonst erinnert sich der NSC an eine Ladung, die nie an Bord war); szene = der Beat laeuft als Szene in der Freien Fahrt (server/sim/faden-szene.js): ist er beim Speichern noch laufend, steht er beim Laden wieder aus (faden.lesen); parameter = erlaubte Felder des Beats in der Vorlage (pflicht, optional; Werte sind kurze Texte, Zahlen oder Wahrheitswerte). Jeder Beat hat die Ausgaenge gelungen und gescheitert (werte.ausgaenge), die die Vorlage je Beat mit Folgezustand beschreibt. Die Bausteine raumschlacht, befreiung, spontanhilfe, verfolgung, fracht (SUND-04a-2 P1) sind registriert; bitte, enthuellung, abschluss, notruf folgen in P3. SUND-04b A1: `bauplan` = Standards fuer den Expander (server/sim/faden-bauplan.js, Bauplan-Format faden-bauplan/1): start_status (Zustand des NSC, wenn der Typ der erste Beat ist), hinweis_traeger (der Baustein sendet die Hinweise des Beats, der Expander streut Hinweise nur dort), optionen_pflicht + optionen (Optionen mit Folge, nur wo optionen = erlaubt), parameter (je Parameter standard und erlaubt: Liste, fluchtziel oder waren), aus.<Ausgang>.status = Kandidaten in Reihenfolge (der erste, den der Folgebeat zulaesst, gilt) und aus.<Ausgang>.folge = Wirkungen des Ausgangs. Ein Typ ohne `bauplan` kann in keinem Bauplan vorkommen.",
   "beats": {
     "bitte": {
       "zweck": "Der NSC bittet die Crew um Hilfe bei einer Mission; die Crew kann zusagen oder ausschlagen.",
@@ -8,7 +8,8 @@
       "gefahr": false,
       "optionen": "erlaubt",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": [], "optional": ["text_key", "text_key_kein_ziel"]}
+      "parameter": {"pflicht": [], "optional": ["text_key", "text_key_kein_ziel"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"optionen_pflicht":true,"parameter":{"text_key":{"standard":"hilfe_rom","erlaubt":["hilfe_rom","hilfe_kon"]}},"optionen":[{"id":"annehmen","text":"Wir helfen euch.","ausgang":"gelungen","folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},{"id":"ablehnen","text":"Sucht euch jemand anderen.","ausgang":"gescheitert","folge":[{"typ":"haltung_aenderung","grund":"bitte_abgelehnt"}]}],"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
     },
     "spontanhilfe": {
       "zweck": "Der NSC erscheint in einer Schlacht und greift ein (Verbuendeter der Flottenengine).",
@@ -17,7 +18,8 @@
       "optionen": "keine",
       "szene": true,
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]}
+      "parameter": {"pflicht": [], "optional": ["text_key", "staerke"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"gerettet"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "notruf": {
       "zweck": "Der NSC ruft um Hilfe (Entfuehrung, Havarie); die Crew rettet oder befreit ihn.",
@@ -25,7 +27,8 @@
       "gefahr": false,
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen"]},
-      "parameter": {"pflicht": [], "optional": ["text_key", "hex"]}
+      "parameter": {"pflicht": [], "optional": ["text_key", "hex"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"text_key":{"standard":"notruf_standard","erlaubt":["notruf_standard","notruf_entfuehrt"]}},"aus":{"gelungen":{"status":["verbuendet","gefangen","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["gefangen","aktiv","geflohen","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "enthuellung": {
       "zweck": "Die verborgene Wahrheit kommt heraus (Sabotage, falsche Identitaet).",
@@ -33,7 +36,8 @@
       "gefahr": false,
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"], "wahrheit": true, "hinweis_vorher": true},
-      "parameter": {"pflicht": [], "optional": ["text_key"]}
+      "parameter": {"pflicht": [], "optional": ["text_key"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["feindlich","aktiv"],"folge":[]},"gescheitert":{"status":["geflohen","aktiv"],"folge":[]}}}
     },
     "verfolgung": {
       "zweck": "Der NSC flieht, die Crew jagt ihn (Szenentyp A6 Verfolgung).",
@@ -42,7 +46,8 @@
       "optionen": "keine",
       "szene": true,
       "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"], "fluchtziel": true},
-      "parameter": {"pflicht": ["fluchtziel"], "optional": ["text_key"]}
+      "parameter": {"pflicht": ["fluchtziel"], "optional": ["text_key"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{"fluchtziel":{"standard":"naechster_sprungpunkt","erlaubt":"fluchtziel"}},"aus":{"gelungen":{"status":["feindlich","aktiv"],"folge":[]},"gescheitert":{"status":["geflohen","aktiv"],"folge":[]}}}
     },
     "raumschlacht": {
       "zweck": "Germanische Schiffe greifen die Crew im aktuellen Sektor an; der NSC ist (oder war) Teil dieser Gegner (Szene in der Freien Fahrt).",
@@ -51,7 +56,8 @@
       "optionen": "keine",
       "szene": true,
       "braucht": {"nsc_status": ["aktiv", "feindlich", "geflohen"]},
-      "parameter": {"pflicht": [], "optional": ["text_key"]}
+      "parameter": {"pflicht": [], "optional": ["text_key"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["tot","feindlich","aktiv"],"folge":[{"typ":"ruf_aenderung","grund":"funk_rom_gruss"}]},"gescheitert":{"status":["geflohen","feindlich","aktiv"],"folge":[]}}}
     },
     "befreiung": {
       "zweck": "Der NSC wird an einem Ort festgehalten, Wachschiffe sichern ihn; die Crew vertreibt die Wachen, der NSC ist frei (Ersatz fuer geiseln_befreien am Boden).",
@@ -60,7 +66,8 @@
       "optionen": "keine",
       "szene": true,
       "braucht": {"nsc_status": ["gefangen"]},
-      "parameter": {"pflicht": [], "optional": ["text_key"]}
+      "parameter": {"pflicht": [], "optional": ["text_key"]},
+      "bauplan": {"start_status":"gefangen","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"gerettet"}]},"gescheitert":{"status":["gefangen","aktiv","tot"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "fracht": {
       "zweck": "Die Crew laedt eine Ware des NSC und liefert sie am Zielhafen ab (Frachtauftrag light, faden-intern: die Ware geht nicht in den Handel).",
@@ -69,7 +76,8 @@
       "gefahr": false,
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
-      "parameter": {"pflicht": ["nach"], "optional": ["ware", "text_key"]}
+      "parameter": {"pflicht": ["nach"], "optional": ["ware", "text_key"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"nach":{"standard":"$ort","erlaubt":["$ort"]},"ware":{"standard":"fracht_kiste","erlaubt":"waren"}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[{"typ":"haltung_aenderung","grund":"im_stich_gelassen"}]}}}
     },
     "abschluss": {
       "zweck": "Der Faden endet; der Ausgang schreibt das Gedaechtnis des NSC (und Folgen).",
@@ -78,7 +86,8 @@
       "optionen": "keine",
       "abschluss": true,
       "braucht": {"nsc_status": ["aktiv", "verbuendet", "gefangen", "tot", "geflohen", "feindlich", "schuldet_nichts"], "letzter": true},
-      "parameter": {"pflicht": [], "optional": ["text_key"]}
+      "parameter": {"pflicht": [], "optional": ["text_key"]},
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":false,"parameter":{},"aus":{"gelungen":{"folge":[{"typ":"haltung_aenderung","grund":"gedankt"}]},"gescheitert":{"folge":[]}}}
     }
   }
 }
