@@ -132,28 +132,43 @@
       rc(x, y, fill, h, e.fragil ? F.fragil : F[e.zust === 'besch' ? 'besch' : 'ok']);
       if (e.fragil) for (let i = 0; i < fill; i += 3) rc(x + i, y - 1, 1, 1, F.text);
     }
+    // SYS-01 C1b-2 Nacharbeit (Review): Zeilenform je Kachel. Breite Kachel (Technik): eine Zeile mit Balken rechts. Schmale Kachel (Ziel-Scan): Name, darunter der Balken
+    // (zwei Zeilen, lh 18); passen darin keine zwei Zeilen untereinander, einzeilig mit kurzem Balken (bw 12). Passt die Liste nicht, wird eine Zeile weniger gezeichnet und
+    // „+N“ steht in der frei gewordenen Zeile (nie auf einem Balken); das Systemziel bleibt immer sichtbar (es rückt an die letzte gezeichnete Stelle).
     function inhalt(list, body, zn, zu) {
-      const zwei = body.w < mass.zweiZeilig, lh = zwei ? 16 : mass.zeile, bw = zwei ? 24 : 30;
-      let y = body.y + 3, weg = 0;
-      list.forEach((e) => {
-        if (y + 8 > body.y + body.h) { weg++; return; }   // SYS-01 C1b-2: passt nicht mehr in die Kachel, Anzahl steht als +N unten
+      const schmal = body.w < mass.zweiZeilig, ZW = mass.zeileZweiZeilig || 18, NEED2 = 13, NEED1 = 8;
+      const passt = (lh, need) => (body.h - 3 >= need ? Math.floor((body.h - 3 - need) / lh) + 1 : 0);
+      const zwei = schmal && passt(ZW, NEED2) >= 2, kompakt = schmal && !zwei;
+      const lh = zwei ? ZW : mass.zeile, bw = kompakt ? 12 : 30, cap = passt(lh, zwei ? NEED2 : NEED1);
+      let show = list, weg = 0;
+      if (list.length > cap) {
+        const k = cap >= 2 ? cap - 1 : cap;   // bei nur einer möglichen Zeile bleibt keine für „+N“
+        show = list.slice(0, k); weg = cap >= 2 ? list.length - k : 0;
+        const wichtig = list.find((q) => q.id === o.selId || q.id === o.gezieltId);
+        if (k >= 1 && wichtig && !show.includes(wichtig)) show[k - 1] = wichtig;
+      }
+      let y = body.y + 3;
+      show.forEach((e) => {
         const sel = o.selId === e.id, gez = o.gezieltId === e.id;
-        if (sel || gez) { rc(body.x + 1, y - 2, body.w - 2, lh - 1, gez ? F.gezieltZeile : F.systemzielZeile); rc(body.x + 1, y - 2, MASS.systemzielMarke, lh - 1, gez ? F.gezielt : F.systemziel); }
+        // Markierung nur hinter der Namenszeile (zwei Zeilen: 10 px), damit sie das „zer.“ der Zeile darüber nie anschneidet
+        if (sel || gez) { const mh = zwei ? 10 : lh - 1; rc(body.x + 1, y - 2, body.w - 2, mh, gez ? F.gezieltZeile : F.systemzielZeile); rc(body.x + 1, y - 2, MASS.systemzielMarke, mh, gez ? F.gezielt : F.systemziel); }
         let x = body.x + MASS.innen;
         if (gez) { txt(ZEICHEN.gezielt, x, y, F.gezielt); x += 8; }
         if (mass.tasten && e.platz) { rc(x, y - 1, 9, 9, P.mix(T.FN.weapon, F.grund, 0.55)); txt(e.platz, x + 5, y, F.text, 'center'); x += 12; }
         const col = gez ? F.gezielt : sel ? F.systemziel : e.zust === 'zer' ? F.zerText : e.zust === 'offline' ? F.dim : (zu || e.hinter) ? F.dim : F.text;
         const rechts = body.x + body.w - MASS.innen;
-        // Namensbreite: zwei Zeilen = ganze Kachel (Wort zerstört in der zweiten Zeile), eine Zeile = bis vor Balken bzw. „zer.“
-        const nameW = zwei ? rechts - x : e.zust === 'zer' ? rechts - x - tw(ZEICHEN.zerKurz) - 4 : rechts - x - bw - 4;
+        // Namensbreite: zwei Zeilen = ganze Kachel (Wort zerstört in der zweiten Zeile), eine Zeile = bis vor Balken bzw. „zer.“ (kompakt: der Strich des Balkens sagt zerstört)
+        const nameW = zwei ? rechts - x : e.zust === 'zer' && !kompakt ? rechts - x - tw(ZEICHEN.zerKurz) - 4 : rechts - x - bw - 4;
         txt(kuerzen(e.name, nameW), x, y, col);
-        if (e.zust === 'zer') {
+        const dimmen = (zu || e.hinter) && !sel && !gez && e.zust !== 'zer';   // nicht wählbare Zeilen: auch der Balken gedimmt, nicht nur der Name
+        if (e.zust === 'zer' && !kompakt) {
           if (zwei) txt(ZEICHEN.zerKurz, rechts, y + 9, F.zerText, 'right');
           else { const wort = x + tw(kuerzen(e.name, nameW)) + 6 + tw(ZEICHEN.zerLang) <= rechts - 2 ? ZEICHEN.zerLang : ZEICHEN.zerKurz; txt(wort, rechts, y, F.zerText, 'right'); }
-        } else if (zwei) balken(body.x + MASS.innen, y + 9, body.w - 2 * MASS.innen, e);
+        } else if (zwei) { if (dimmen) c.globalAlpha = 0.5; balken(body.x + MASS.innen, y + 9, body.w - 2 * MASS.innen, e); c.globalAlpha = 1; }
         else {
-          if (e.zust === 'offline') txt(ZEICHEN.offline, rechts - bw - 4, y, F.dim, 'right');
-          balken(rechts - bw, y + 1, bw, e);
+          if (e.zust === 'offline' && !kompakt) txt(ZEICHEN.offline, rechts - bw - 4, y, F.dim, 'right');
+          if (dimmen) c.globalAlpha = 0.5;
+          balken(rechts - bw, y + 1, bw, e); c.globalAlpha = 1;
         }
         if (o.queued) {   // Schrauberstrich unter der Zeile: in der Reparaturliste (gedimmt) bzw. ein Schrauber arbeitet daran (voll)
           const q = o.queued(e.id);
@@ -162,7 +177,7 @@
         if (o.klick && R.ui && R.ui.buttons) R.ui.buttons.push({ x: body.x + 1, y: y - 2, w: body.w - 2, h: lh - 1, label: e.name, hotkey: null, onClick: () => o.klick(e) });
         y += lh;
       });
-      if (weg) txt('+' + weg, body.x + MASS.innen, body.y + body.h - 9, F.dim);
+      if (weg) txt('+' + weg, body.x + MASS.innen, y, F.dim);
     }
 
     ZONEN.forEach((zn) => {

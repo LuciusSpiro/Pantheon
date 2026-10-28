@@ -3752,6 +3752,7 @@
     const zoom = cfg.zoom || 0.35, rot = cfg.rot || 0;
     const cx = cfg.cx, cy = cfg.cy;
     const front = cfg.mode === 'front';
+    const breschen = [];   // SYS-01 C1b-2 Nacharbeit: Keile der Gegner-Bresche, nach den Strahlen gezeichnet
     const cosR = Math.cos(rot), sinR = Math.sin(rot);
     const toS = (wx, wy) => { const dx = (wx - ship.x) * zoom, dy = (wy - ship.y) * zoom; return { x: Math.round(cx + dx * cosR - dy * sinR), y: Math.round(cy + dx * sinR + dy * cosR) }; };
     const toW = (sx, sy) => { const dx = (sx - cx) / zoom, dy = (sy - cy) / zoom; return { x: ship.x + dx * cosR + dy * sinR, y: ship.y - dx * sinR + dy * cosR }; };
@@ -4172,8 +4173,8 @@
       if (e.kind === 'relay') drawRelay(ctx, s.x, s.y, t, hitT);
       else if (kenn && kennungZeichne(ctx, kenn, e.kind, s.x, s.y, eAng, hitT < 0.15 ? '#FFFFFF' : PAL.red)) { /* Kennung: rot = feindlich, weiß = Treffer */ }
       else if (!artEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, { hpFrac, hitT, time: t, tele: tShown ? e.tele : null, fraktion: e.fr || e.fraktion })) fbEnemy(ctx, e.kind, s.x, s.y, (e.angle || 0) + rot, t, hitT);
-      // SYS-01 C1b-2 (Ziel-Scan): Bresche des gescannten Gegners, wenn seine zugewandte Zone leer ist (zielZon, Bernstein = Weg frei). Keil am Schildring, ohne Abzeichen (breschenKeil).
-      if (!front && target && target.id === e.id && sship.zielZon && sship.zielZon.leer && sship.zielZon.z >= 0 && sship.zielZon.leer[sship.zielZon.z] === 1) breschenKeil(ctx, s.x, s.y, eAng + [0, Math.PI / 2, Math.PI, -Math.PI / 2][sship.zielZon.z], (kenn ? kenn.r : (ENEMY_SIZE[e.kind] || 16)) + 6, 'gegner');
+      // SYS-01 C1b-2 (Ziel-Scan): Bresche des gescannten Gegners, wenn seine zugewandte Zone leer ist (Bernstein = Weg frei). Der Keil wird gemerkt und erst nach Strahlen und Treffern gezeichnet (Review: sonst darunter nicht zu erkennen).
+      if (!front && target && target.id === e.id && window.Zielsysteme) { const zb = window.Zielsysteme.bresche(st); if (zb) breschen.push({ x: s.x, y: s.y, mitte: eAng + zb.winkel, r: (kenn ? kenn.r : (ENEMY_SIZE[e.kind] || 16)) + 6 }); }
       drawEnemyHitFx(ctx, e, s.x, s.y, kenn ? kenn.r + 4 : (ENEMY_SIZE[e.kind] || 16), view);   // SL0: Schildtreffer blau, Hüllentreffer Funken (nach dem Sprite, sonst verdeckt; für alle Stationen)
       if (e.sj != null) {   // EK3 Teil B: Transporter lädt den Sprung auf (Fortschrittsring)
         // Review D-S7: Sprungladung in Messing (nicht Mint wie die Schilde), mit Prozentangabe
@@ -4301,6 +4302,7 @@
     // §20.1/§20.3: Strahlen, Mündungsblitze, Visierlinie der Lanze – über Schiff und Gegnern
     try { drawLanceSight(ctx, view, ship, sship, toS, zoom, t, lab, front); } catch (e) { report('Render.lanceSight', e); }
     try { drawBeamsFx(ctx, toS, t, ship); } catch (e) { report('Render.beams', e); }
+    for (const k of breschen) breschenKeil(ctx, k.x, k.y, k.mitte, k.r, 'gegner');   // Bresche des Ziels: über Strahlen und Treffern
     try { drawMuzzles(ctx, sship, ship, rot, shipScale, cx, cy, t); } catch (e) { report('Render.muzzles', e); }
 
     // Weitscan-Puls

@@ -7,106 +7,106 @@
     "raider": {
       "name": "Jäger",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" }
       ]
     },
     "korvette": {
       "name": "Korvette",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "waffe_stbd", "zone": "stb", "art": "waffe", "platz": "stbd", "gewicht": 2, "name": "Waffe Stb", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "waffe_bb", "zone": "bb", "art": "waffe", "platz": "bb", "gewicht": 2, "name": "Waffe Bb", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" },
-        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werkst.", "funktion": "neutral" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "waffe_stbd", "zone": "stb", "art": "waffe", "platz": "stbd", "gewicht": 2, "name": "Waffe Stb", "kurz": "WSt", "funktion": "weapon" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "waffe_bb", "zone": "bb", "art": "waffe", "platz": "bb", "gewicht": 2, "name": "Waffe Bb", "kurz": "WBb", "funktion": "weapon" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" },
+        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werk", "funktion": "neutral" }
       ]
     },
     "fregatte": {
       "name": "Fregatte",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "waffe_stbd1", "zone": "stb", "art": "waffe", "platz": "stbd1", "gewicht": 2, "name": "Waffe Stb 1", "kurz": "Waffe 1", "funktion": "weapon" },
-        { "id": "waffe_stbd2", "zone": "stb", "art": "waffe", "platz": "stbd2", "gewicht": 2, "name": "Waffe Stb 2", "kurz": "Waffe 2", "funktion": "weapon" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "waffe_bb1", "zone": "bb", "art": "waffe", "platz": "bb1", "gewicht": 2, "name": "Waffe Bb 1", "kurz": "Waffe 1", "funktion": "weapon" },
-        { "id": "waffe_bb2", "zone": "bb", "art": "waffe", "platz": "bb2", "gewicht": 2, "name": "Waffe Bb 2", "kurz": "Waffe 2", "funktion": "weapon" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" },
-        { "id": "modul_krankenstation", "zone": "mitte", "art": "modul", "modul": "krankenstation", "gewicht": 1, "name": "Krankenstation", "kurz": "Kranken", "funktion": "neutral" },
-        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werkst.", "funktion": "neutral" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "waffe_stbd1", "zone": "stb", "art": "waffe", "platz": "stbd1", "gewicht": 2, "name": "Waffe Stb 1", "kurz": "WSt1", "funktion": "weapon" },
+        { "id": "waffe_stbd2", "zone": "stb", "art": "waffe", "platz": "stbd2", "gewicht": 2, "name": "Waffe Stb 2", "kurz": "WSt2", "funktion": "weapon" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "EHk", "funktion": "shield" },
+        { "id": "waffe_bb1", "zone": "bb", "art": "waffe", "platz": "bb1", "gewicht": 2, "name": "Waffe Bb 1", "kurz": "WBb1", "funktion": "weapon" },
+        { "id": "waffe_bb2", "zone": "bb", "art": "waffe", "platz": "bb2", "gewicht": 2, "name": "Waffe Bb 2", "kurz": "WBb2", "funktion": "weapon" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" },
+        { "id": "modul_krankenstation", "zone": "mitte", "art": "modul", "modul": "krankenstation", "gewicht": 1, "name": "Krankenstation", "kurz": "Krank", "funktion": "neutral" },
+        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werk", "funktion": "neutral" }
       ]
     },
     "kreuzer": {
       "name": "Kreuzer",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug 1", "kurz": "Waffe 1", "funktion": "weapon" },
-        { "id": "waffe_bug2", "zone": "bug", "art": "waffe", "platz": "bug2", "gewicht": 2, "name": "Waffe Bug 2", "kurz": "Waffe 2", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "waffe_stbd1", "zone": "stb", "art": "waffe", "platz": "stbd1", "gewicht": 2, "name": "Waffe Stb 1", "kurz": "Waffe 1", "funktion": "weapon" },
-        { "id": "waffe_stbd2", "zone": "stb", "art": "waffe", "platz": "stbd2", "gewicht": 2, "name": "Waffe Stb 2", "kurz": "Waffe 2", "funktion": "weapon" },
-        { "id": "waffe_stbd3", "zone": "stb", "art": "waffe", "platz": "stbd3", "gewicht": 2, "name": "Waffe Stb 3", "kurz": "Waffe 3", "funktion": "weapon" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "waffe_bb1", "zone": "bb", "art": "waffe", "platz": "bb1", "gewicht": 2, "name": "Waffe Bb 1", "kurz": "Waffe 1", "funktion": "weapon" },
-        { "id": "waffe_bb2", "zone": "bb", "art": "waffe", "platz": "bb2", "gewicht": 2, "name": "Waffe Bb 2", "kurz": "Waffe 2", "funktion": "weapon" },
-        { "id": "waffe_bb3", "zone": "bb", "art": "waffe", "platz": "bb3", "gewicht": 2, "name": "Waffe Bb 3", "kurz": "Waffe 3", "funktion": "weapon" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" },
-        { "id": "modul_krankenstation", "zone": "mitte", "art": "modul", "modul": "krankenstation", "gewicht": 1, "name": "Krankenstation", "kurz": "Kranken", "funktion": "neutral" },
-        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werkst.", "funktion": "neutral" },
-        { "id": "modul_frachtraum", "zone": "mitte", "art": "modul", "modul": "frachtraum", "gewicht": 1, "name": "Frachtraum", "kurz": "Fracht", "funktion": "neutral" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug 1", "kurz": "WBg1", "funktion": "weapon" },
+        { "id": "waffe_bug2", "zone": "bug", "art": "waffe", "platz": "bug2", "gewicht": 2, "name": "Waffe Bug 2", "kurz": "WBg2", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "waffe_stbd1", "zone": "stb", "art": "waffe", "platz": "stbd1", "gewicht": 2, "name": "Waffe Stb 1", "kurz": "WSt1", "funktion": "weapon" },
+        { "id": "waffe_stbd2", "zone": "stb", "art": "waffe", "platz": "stbd2", "gewicht": 2, "name": "Waffe Stb 2", "kurz": "WSt2", "funktion": "weapon" },
+        { "id": "waffe_stbd3", "zone": "stb", "art": "waffe", "platz": "stbd3", "gewicht": 2, "name": "Waffe Stb 3", "kurz": "WSt3", "funktion": "weapon" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "EHk", "funktion": "shield" },
+        { "id": "waffe_bb1", "zone": "bb", "art": "waffe", "platz": "bb1", "gewicht": 2, "name": "Waffe Bb 1", "kurz": "WBb1", "funktion": "weapon" },
+        { "id": "waffe_bb2", "zone": "bb", "art": "waffe", "platz": "bb2", "gewicht": 2, "name": "Waffe Bb 2", "kurz": "WBb2", "funktion": "weapon" },
+        { "id": "waffe_bb3", "zone": "bb", "art": "waffe", "platz": "bb3", "gewicht": 2, "name": "Waffe Bb 3", "kurz": "WBb3", "funktion": "weapon" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" },
+        { "id": "modul_krankenstation", "zone": "mitte", "art": "modul", "modul": "krankenstation", "gewicht": 1, "name": "Krankenstation", "kurz": "Krank", "funktion": "neutral" },
+        { "id": "modul_werkstatt", "zone": "mitte", "art": "modul", "modul": "werkstatt", "gewicht": 1, "name": "Werkstatt", "kurz": "Werk", "funktion": "neutral" },
+        { "id": "modul_frachtraum", "zone": "mitte", "art": "modul", "modul": "frachtraum", "gewicht": 1, "name": "Frachtraum", "kurz": "Frach", "funktion": "neutral" }
       ]
     },
     "sentinel": {
       "name": "Wächter",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "EHk", "funktion": "shield" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" }
       ]
     },
     "pylon": {
       "name": "Pylon",
       "systeme": [
-        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "Waffe", "funktion": "weapon" },
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" }
+        { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" }
       ]
     },
     "frachter": {
       "name": "Frachter",
       "systeme": [
-        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antrieb", "funktion": "drive" },
-        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "Emitter", "funktion": "shield" },
-        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reaktor", "funktion": "weapon" },
-        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schild", "funktion": "shield" }
+        { "id": "emitter_bug", "zone": "bug", "art": "emitter", "gewicht": 1, "name": "Emitter Bug", "kurz": "EBg", "funktion": "shield" },
+        { "id": "emitter_stb", "zone": "stb", "art": "emitter", "gewicht": 1, "name": "Emitter Stb", "kurz": "ESt", "funktion": "shield" },
+        { "id": "antrieb", "zone": "heck", "art": "antrieb", "gewicht": 2, "name": "Antrieb", "kurz": "Antr", "funktion": "drive" },
+        { "id": "emitter_heck", "zone": "heck", "art": "emitter", "gewicht": 1, "name": "Emitter Heck", "kurz": "EHk", "funktion": "shield" },
+        { "id": "emitter_bb", "zone": "bb", "art": "emitter", "gewicht": 1, "name": "Emitter Bb", "kurz": "EBb", "funktion": "shield" },
+        { "id": "reaktor", "zone": "mitte", "art": "reaktor", "gewicht": 3, "name": "Reaktor", "kurz": "Reakt", "funktion": "weapon" },
+        { "id": "schildgenerator", "zone": "mitte", "art": "schildgenerator", "gewicht": 2, "name": "Schildgenerator", "kurz": "Schld", "funktion": "shield" }
       ]
     }
   }

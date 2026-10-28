@@ -318,24 +318,38 @@
       T(c, 'ZIEL', b.x + 6, y, K.dim);
       const list = this.targetList(view);
       if (target) { const i = list.findIndex((e) => e.id === target.id); T(c, (i + 1) + ' / ' + list.length, b.x + b.w - 6, y, K.dim, 'right'); }
-      y += 11;
+      y += 10;   // Review C1b-2: Kopfzeilen enger (9–10 px), damit das Kreuz über der Frachtraum-Leiste endet
       if (!target) { T(c, list.length ? 'keins – T wählen' : 'keine Gegner', b.x + 6, y, K.dim); return; }
       const nm = target.station ? target.name : target.hidden ? (R.HIDDEN_NAMES[target.kind] || 'Signal') : (R.ENEMY_NAMES[target.kind] || target.kind);
       const d = Math.round(Math.hypot(target.x - n(ship.x), target.y - n(ship.y)));
-      T(c, wrap1(nm, b.w - 12), b.x + 6, y, P.FN.weapon); y += 10;
+      T(c, wrap1(nm, b.w - 12), b.x + 6, y, P.FN.weapon); y += 9;
       const VOLK = { ger: 'Germanen', rom: 'Rom', pirat: 'Piraten' };
-      T(c, (target.vk ? (VOLK[target.vk] || target.vk) + ' · ' : '') + d + ' m', b.x + 6, y, K.dim); y += 12;
-      // SYS-01 C1b-2: Gesamtintegrität in % statt HÜLLE (die schwächste Zone steht im Kreuz)
-      const PSt = window.PultSysteme;
-      if (!target.hidden && target.hpMax) { T(c, PSt ? PSt.text(PSt.TOKENS.TEXT.gesamt, { p: Math.round(100 * n(target.hp) / target.hpMax) }) : 'GESAMT', b.x + 6, y, K.dim); P.segs(c, b.x + 70, y, 10, Math.ceil(10 * n(target.hp) / target.hpMax), 'weapon', 9, 6); y += 11; }
+      const kopf = (target.vk ? (VOLK[target.vk] || target.vk) + ' · ' : '') + d + ' m';
+      T(c, kopf, b.x + 6, y, K.dim);
+      // SYS-01 C1b-2 Nacharbeit (d): die schwächste Zone des Ziels rechts in der Kopfzeile (PultSysteme.statusFeld mit den Zonenwerten aus ship.zielZon; Reaktor steht im Kreuz und im Countdown)
+      const PSt = window.PultSysteme, zzK = ship.zielZon;
+      if (PSt && target.scanned && zzK && Array.isArray(zzK.pct)) {
+        const sf = PSt.statusFeld({ zonen: zzK.pct }), FS = PSt.farben(P.skinId(view));
+        let v = sf.v; if (P.tw(kopf) + 8 + P.tw(v) > b.w - 12) v = v.replace(' SEITEN', '');
+        T(c, v, b.x + b.w - 6, y, sf.zust === 'zer' ? FS.zerText : sf.zust === 'besch' ? FS.besch : FS.statusVoll, 'right');
+      }
+      y += 11;
+      // SYS-01 C1b-2: Gesamtintegrität in % statt HÜLLE (die schwächste Zone steht rechts in der Kopfzeile und im Kreuz). Review: Balken ab Textende + 4 px, Segmente aus der Restbreite, abgerundet
+      if (!target.hidden && target.hpMax) {
+        const gt = PSt ? PSt.text(PSt.TOKENS.TEXT.gesamt, { p: Math.round(100 * n(target.hp) / target.hpMax) }) : 'GESAMT';
+        T(c, gt, b.x + 6, y, K.dim);
+        const bx = b.x + 6 + P.tw(gt) + 4, pitch = Math.max(4, Math.floor((b.x + b.w - 6 - bx) / 10));
+        P.segs(c, bx, y, 10, Math.floor(10 * Math.max(0, n(target.hp)) / target.hpMax), 'weapon', P.skinId(view) === 'germanen' ? pitch : pitch - 2, 6); y += 10;
+      }
       if (!target.scanned) { T(c, target.hidden ? (target.found ? 'erfasst' : 'S halten: genauer scannen') : 'S: scannen für Schilde', b.x + 6, y, K.dim); return; }
       // SYS-01 C1b-2 (Ziel-Scan): das Kreuz des gescannten Ziels ersetzt Schildschema und Kennung (Zonen als Schichten, Systeme mit Zustand, Mitte ZU/offen)
       const ZSk = window.Zielsysteme, PSk = window.PultSysteme, ZKk = window.Zonenkreuz, SCk = window.Shared_Schilde;
       const zmod = ZSk && PSk && ZKk && target.kind ? ZKk.modellZiel(view.state, { systeme: ZSk.systemeVon(target.kind), lay: SCk ? SCk.layout(CFG, target.kind) : null, schild: target.shields }) : null;
       if (zmod) {
-        const kh = PSk.TOKENS.MASS.kreuz.ziel.h, F = PSk.farben(P.skinId(view)), zug = zmod.zugewandt, rest = ZSk.reaktorRest(view.state, target);
+        const F = PSk.farben(P.skinId(view)), zug = zmod.zugewandt, rest = ZSk.reaktorRest(view.state, target);
+        const kh = PSk.TOKENS.MASS.kreuz.ziel.h - (rest != null ? 10 : 0);   // Countdown: eine Textzeile unter dem Kreuz, das Kreuz wird dafür kürzer (die Frachtraum-Leiste bleibt frei)
         ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(view.state) });
-        y += kh + 3;
+        y += kh + PSk.TOKENS.MASS.seiteRahmen + 3;   // Review C1b-2: unter dem Bernstein-Rahmen der zugewandten Seite weiter
         if (rest != null) { T(c, PSk.text(PSk.TOKENS.TEXT.reaktorZiel, { s: rest.toFixed(1).replace('.', ',') }), b.x + 6, y, F.zerText); y += 10; }
         if (b.y + b.h - 4 - y >= 11) { try { this.zielAusstattung(c, target, b.x + 6, y, b.w - 12, b.y + b.h - 4 - y, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); } }
         return;

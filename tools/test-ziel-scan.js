@@ -47,9 +47,10 @@ function snap(g, e) { g.ship.target = e.id; const s = g.snapshot(); return { shi
 // Fake-Zeichenfläche: zählt Texte, zeichnet nichts
 function fakeCtx() {
   const texte = [];
-  const ctx = { fillStyle: '', fillRect() {}, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {} };
-  const R = { text: (c, s) => texte.push({ s: String(s) }), measure: (s) => String(s).length * 6 };
-  return { ctx, R, texte };
+  const rects = [];
+  const ctx = { fillStyle: '', globalAlpha: 1, fillRect(x, y, w, h) { rects.push({ x, y, w, h, f: this.fillStyle }); }, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {} };
+  const R = { text: (c, s, x, y) => texte.push({ s: String(s), x, y }), measure: (s) => String(s).length * 6 };
+  return { ctx, R, texte, rects };
 }
 
 const GEGNER_JS = read('public/js/zielsysteme.js');
@@ -191,13 +192,59 @@ section('Kreuz: Modell und Zeichnung (ZU-Regel, LEER, Bresche Gegner, Texte und 
   ok(ZK.modellZiel({ ship: {} }, { systeme: [] }) === null && ZK.modellZiel({ ship: { zielSys: [0, 100] } }, { systeme: DATEN.klassen.fregatte.systeme }) === null, 'müll-fest: kein Modell ohne passenden Snapshot');
 });
 
+section('Review C1b-2 Nacharbeit: Kurznamen, „+N“, Systemziel sichtbar, Bresche, Gesamt-Balken', () => {
+  // Kurzbezeichnungen: höchstens 5 Zeichen, je Klasse eindeutig (Taste 0 und Kreuz nennen dasselbe System)
+  for (const [kind, kl] of Object.entries(DATEN.klassen)) {
+    const k = kl.systeme.map((s) => s.kurz);
+    ok(k.every((s) => typeof s === 'string' && s.length >= 1 && s.length <= 5) && new Set(k).size === k.length, `${kind}: Kurznamen ≤ 5 Zeichen und eindeutig (${k.join(' ')})`);
+  }
+  const schema = JSON.parse(read('content/schema/gegner-systeme.schema.json'));
+  ok(schema.properties.klassen.additionalProperties.properties.systeme.items.properties.kurz.maxLength === 5, 'Schema: kurz höchstens 5 Zeichen');
+  // „+N“ steht in einer eigenen Zeile, nie auf einem Balken; das Systemziel bleibt sichtbar
+  const g = setup();
+  const e = leer(g, 'fregatte', 1500, 1100); e.angle = 0; e.scanned = true;
+  hinten(g, e);
+  const lay = Schilde.layout(CONFIG, 'fregatte');
+  const { ship, target } = snap(g, e);
+  const m = ZK.modellZiel({ ship }, { systeme: DATEN.klassen.fregatte.systeme, lay, schild: target.shields });
+  const zeichne = (mm, selId) => { const cx = fakeCtx(); ZK.zeichne(cx.ctx, mm, { x: 0, y: 0, w: 146, h: 116 }, { skin: 'rom', mass: PS.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: 'heck', seite: 'heck', selId, env: { R: cx.R, P: {} } }); return cx; };
+  const c1 = zeichne(m, null);
+  const plus = c1.texte.filter((t) => /^\+\d+$/.test(t.s));
+  ok(plus.length >= 1, `Fregatte: Überlauf als „+N“ (${plus.map((t) => t.s).join(' ')})`);
+  const balken = c1.rects.filter((r) => r.h === 4 && r.w >= 12);
+  ok(plus.every((t) => !balken.some((r) => t.x < r.x + r.w && t.x + 12 > r.x && t.y < r.y + r.h && t.y + 7 > r.y)), '„+N“ liegt auf keinem Balken');
+  ok(!c1.texte.some((t) => t.s === 'Werk'), 'ohne Systemziel: Werkstatt (hinten in der Mitte) ist der Überlauf');
+  const c2 = zeichne(m, 'modul_werkstatt');
+  ok(c2.texte.some((t) => t.s === 'Werk'), 'Systemziel im Überlauf rückt in die gezeichneten Zeilen (immer sichtbar)');
+  // Jäger: Bug-Kachel zu niedrig für zwei Zeilen -> einzeilig, beide Systeme sichtbar, kein „+N“
+  const e2 = leer(g, 'raider', 1800, 1100); e2.angle = 0; e2.scanned = true; g.ship.target = e2.id;
+  const sn2 = g.snapshot(); const mr = ZK.modellZiel({ ship: sn2.ship }, { systeme: DATEN.klassen.raider.systeme, lay: Schilde.layout(CONFIG, 'raider'), schild: sn2.space.enemies.find((q) => q.id === e2.id).shields });
+  const c3 = zeichne(mr, null);
+  ok(c3.texte.some((t) => t.s === 'WBg') && c3.texte.some((t) => t.s === 'EBg') && !c3.texte.some((t) => /^\+\d+$/.test(t.s) && t.y < 30), 'Jäger: beide Bug-Systeme einzeilig sichtbar, kein „+N“ in der Bug-Kachel');
+  // Bresche des Ziels: Winkel zur zugewandten leeren Seite, sonst keine
+  for (const id of Gsys.ids(e)) if (Gsys.defOf(e.kind, id).zone === 'heck') setze(e, id, 0);
+  const s2 = snap(g, e).ship;
+  const zb = Z.bresche({ ship: s2 });
+  ok(zb && zb.seite === 2 && Math.abs(zb.winkel - Math.PI) < 1e-9, 'Z.bresche: Heck leer -> Seite 2, Winkel π');
+  ok(Z.bresche({ ship }) === null && Z.bresche({ ship: {} }) === null, 'Z.bresche: Zone nicht leer oder kein Scan -> null');
+  const rsrc = read('public/js/render.js');
+  ok(/zb = window\.Zielsysteme\.bresche\(st\)/.test(rsrc) && rsrc.indexOf("breschenKeil(ctx, k.x, k.y, k.mitte, k.r, 'gegner')") > rsrc.indexOf('drawBeamsFx(ctx, toS, t, ship)'), 'Karte: breschenKeil wird bei leerer zugewandter Zone gerufen, und zwar nach den Strahlen');
+  ok(PS.TOKENS.MASS.bresche.kante === 2, 'Bresche: Kante 2 px');
+  // Zielkasten: Gesamt-Balken ab Textende, abgerundet; Kreuz endet über der Frachtraum-Leiste
+  const pult = read('public/js/pult-stationen.js');
+  ok(/Math\.floor\(10 \* Math\.max\(0, n\(target\.hp\)\) \/ target\.hpMax\)/.test(pult) && !/Math\.ceil\(10 \* n\(target\.hp\)/.test(pult), 'GESAMT: Segmente abgerundet (93 % = 9 von 10)');
+  ok(/bx = b\.x \+ 6 \+ P\.tw\(gt\) \+ 4/.test(pult), 'GESAMT: Balken beginnt 4 px hinter dem Text');
+  ok(/y \+= kh \+ PSk\.TOKENS\.MASS\.seiteRahmen \+ 3/.test(pult), 'Zielkasten: unter dem Rahmen der zugewandten Seite weiter');
+  ok(PS.kontrast(PS.farben('rom').zerText, PS.farben('rom').systemzielZeile) >= 4.5 && PS.kontrast(PS.farben('germanen').zerText, PS.farben('germanen').systemzielZeile) >= 4.5, 'zer. auf der Systemziel-Zeile ≥ 4,5:1 (beide Skins)');
+});
+
 section('Test, Vorher → Nachher (Ziel-Scan, Einbindung)', () => {
   const kons = read('public/js/consoles.js'), pult = read('public/js/pult-stationen.js'), render = read('public/js/render.js');
   ok(kons.includes('wahlbar(view.state, target)') && kons.includes('wahlbar(view.state, tg)') && /reihum/.test(kons), 'Ops-Knopf und Taste 0 wählen reihum über die anwählbaren Systeme');
   const zk = pult.split('pultZielkasten(c, view, b, target)')[1] || '';
   ok(!/T\(c, 'HÜLLE'/.test(zk.slice(0, 1200)), 'Ops-Zielkasten: HÜLLE-Zeile entfällt (Gesamtintegrität in %)');
   ok(pult.includes('ZKk.modellZiel(view.state'), 'Ops-Zielkasten: Kreuz des gescannten Ziels');
-  ok(render.includes('breschenKeil(ctx, s.x, s.y, eAng'), 'Karte: Bresche des gescannten Gegners');
+  ok(render.includes('breschenKeil(ctx, k.x, k.y, k.mitte'), 'Karte: Bresche des gescannten Gegners');
 });
 
 console.log(`\ntest-ziel-scan: ${n - fails}/${n} ok`);

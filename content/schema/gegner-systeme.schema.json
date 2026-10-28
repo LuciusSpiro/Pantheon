@@ -33,7 +33,7 @@
                 "modul": { "enum": ["krankenstation", "werkstatt", "frachtraum"] },
                 "gewicht": { "type": "number", "exclusiveMinimum": 0 },
                 "name": { "type": "string", "minLength": 1 },
-                "kurz": { "type": "string", "minLength": 1, "maxLength": 9 },
+                "kurz": { "type": "string", "minLength": 1, "maxLength": 5 },
                 "funktion": { "enum": ["weapon", "shield", "drive", "nav", "sensor", "cmd", "neutral"] }
               }
             }

@@ -30,7 +30,7 @@ const paare = [
   ['text', 'kachel', TEXT, 'Systemname heil'], ['dim', 'kachel', TEXT, 'Beschriftung, Systeme hinter ZU'], ['besch', 'kachel', TEXT, 'beschädigt (Pips/Text)'],
   ['zerText', 'kachel', TEXT, 'zer. / zerstört auf Kachel'], ['zerText', 'kachelLeer', TEXT, 'LEER auf leerer Zone'], ['zerText', 'kachelReaktor', TEXT, 'REAKTOR auf Reaktor-Kachel'],
   ['zerText', 'grund', TEXT, 'ZU auf Grund-Fleck'], ['text', 'kachelReaktor', TEXT, 'Countdown-Zahl groß'], ['text', 'kachelLeer', TEXT, 'Name zerstört (Creme) in leerer Zone'],
-  ['systemziel', 'systemzielZeile', TEXT, 'Systemziel auf Zeile'], ['gezielt', 'gezieltZeile', TEXT, 'gezielter Treffer auf Zeile'], ['systemziel', 'kachel', TEXT, 'Systemziel ohne Zeile'],
+  ['systemziel', 'systemzielZeile', TEXT, 'Systemziel auf Zeile'], ['zerText', 'systemzielZeile', TEXT, 'zer. auf Zeile des Systemziels'], ['text', 'systemzielZeile', TEXT, 'Name auf Zeile des Systemziels'], ['gezielt', 'gezieltZeile', TEXT, 'gezielter Treffer auf Zeile'], ['systemziel', 'kachel', TEXT, 'Systemziel ohne Zeile'],
   ['banderoleText', 'banderole', TEXT, 'Banderole Text'], ['banderoleAblauf', 'banderoleSpur', GRAFIK, 'Banderole Ablauf'],
   ['cdText', 'cdFlaeche', TEXT, 'Cooldown Sekunden'], ['cdBesch', 'cdFlaeche', TEXT, 'Cooldown Sekunden, Waffe beschädigt'], ['ink', 'bereit', TEXT, 'Waffe bereit'],
   ['ink', 'statusVoll', TEXT, 'Statusfeld ZONEN VOLL'], ['ink', 'statusBesch', TEXT, 'Statusfeld BB 2/4'], ['ink', 'statusReaktor', TEXT, 'Statusfeld REAKTOR'],

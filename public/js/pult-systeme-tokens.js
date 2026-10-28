@@ -67,7 +67,7 @@
     seiteZugewandt: FN.drive,     // Rahmen um die Zone, die uns das Ziel zeigt
     // Systemziel (Ops, Taste 0) und gezielter Treffer gegen uns (Technik)
     systemziel: FN.drive,         // Name und Marke des anvisierten Systems
-    systemzielZeile: '#484139',   // Zeilenfläche (Bernstein 22 % in Kachel): Bernstein darauf 6,5 · Creme 8,7
+    systemzielZeile: '#333133',   // Zeilenfläche (Bernstein 13 % in Kachel): Bernstein darauf 8,3 · Creme 11,1 · zerText 4,6 (Review C1b-2: war 22 %, zerText 3,6)
     gezielt: '#FF6B5E',           // Gegner zielt auf dieses System: Zeichen → und Name (= zerText)
     gezieltZeile: '#39232E',      // Zeilenfläche (Rot 18 % in Kachel): zerText 5,2 · Creme 12,5
     // Bresche auf der Taktikkarte (leere Zone: Keil vom Schildring zum Kern)
@@ -101,7 +101,7 @@
       grund: SKIN.germanen.screenBg, kachel: SKIN.germanen.plate, kachelRand: SKIN.germanen.iron,   // Creme 12,3 · Dim 4,9 · zerText 5,6 auf Platte
       text: SKIN.germanen.text, ok: SKIN.germanen.text, dim: SKIN.germanen.dim, ink: SKIN.germanen.ink,
       schildLeer: SKIN.germanen.off, schildLeerRand: SKIN.germanen.offLine, banderoleText: SKIN.germanen.ink, cdBalken: SKIN.germanen.text, cdText: SKIN.germanen.text,
-      banderoleAblauf: SKIN.germanen.text,
+      banderoleAblauf: SKIN.germanen.text, systemzielZeile: '#383025',   // Bernstein 8 % auf der Platte: zerText 4,65 · Bernstein 8,4
       // Statusleiste germanen: Wert steht als TEXT auf der Platte (nicht ink auf Fläche) -> Rot als zerText (5,6:1 statt 3,8:1)
       statusOffen: FARBE.zerText, statusReaktor: FARBE.zerText,
     },
@@ -122,7 +122,7 @@
   const MASS = {
     kreuz: {
       technik: { dx: 98, dy: 16, w: 378, h: 166, ws: 0.32, hb: 0.25, gap: 4, schild: 3, schichtFuge: 1, pip: { w: 4, h: 5, fuge: 1 }, zeile: 10, zweiZeilig: 66, text: 'lang', tasten: true, zahlScale: 2 },
-      ziel: { dx: 6, w: -12, h: 116, ws: 0.31, hb: 0.22, gap: 4, schild: 2, schichtFuge: 1, pip: { w: 2, h: 5, fuge: 1 }, pipZweiZeilig: { w: 2, h: 3, fuge: 1 }, zeile: 10, zeileZweiZeilig: 16, zweiZeilig: 66, leerMin: 24, text: 'kurz' },
+      ziel: { dx: 6, w: -12, h: 116, ws: 0.31, hb: 0.22, gap: 4, schild: 2, schichtFuge: 1, pip: { w: 2, h: 5, fuge: 1 }, pipZweiZeilig: { w: 2, h: 3, fuge: 1 }, zeile: 10, zeileZweiZeilig: 18, zweiZeilig: 66, leerMin: 24, text: 'kurz' },
       steuer: { w: 58, h: 58, ws: 0.28, hb: 0.27, gap: 2, schild: 2, schichtFuge: 1, block: { w: 4, h: 3, fuge: 1 }, text: null },
     },
     technikS: 200,                 // Statusleiste der Technik (Anzeige 188 px hoch), wie im Mockup
@@ -134,7 +134,7 @@
     schraffurZu: 4, schraffurUnt: 2,
     banderole: { h: 18, ablauf: 2, zahlScale: 2, versatz: 22 },   // über der Anzeige (y 6), volle Breite 572; Inhalt der Anzeige darunter um `versatz` nach unten
     cdBalken: 2,                   // Höhe Cooldown-Balken in der Zelle (wie Halten der Lanze)
-    bresche: { halbwinkel: 0.6, deckkraft: 0.35, kante: 1 },   // Keil auf der Karte: Winkel wie die Schildseite (±0,6 rad), Fläche transparent, Kante voll
+    bresche: { halbwinkel: 0.6, deckkraft: 0.35, kante: 2 },   // Keil auf der Karte: Winkel wie die Schildseite (±0,6 rad), Fläche transparent, Kante voll (2 px seit Review C1b-2: 1 px ging unter Strahlen und Treffern unter)
   };
   const ABSTAND = { xs: 2, s: 4, m: 8, l: 12, xl: 16 };   // 4er-Raster mit 2er-Feinschritt (wie Terminal)
 

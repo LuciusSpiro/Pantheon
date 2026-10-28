@@ -70,6 +70,11 @@
     const keys = Object.keys(klassen()); if (!(index >= 0) || index >= keys.length) return null;
     return String(klassen()[keys[index]].name || keys[index]);
   }
+  // SYS-01 C1b-2 Nacharbeit: Bresche des gescannten Ziels auf der Karte (zugewandte Seite leer): Seite und Winkel zum Gegner (Bug 0, Steuerbord +90°, Heck 180°, Backbord −90°), sonst null
+  function bresche(state) {
+    const z = zielZon(state); if (!z || !(z.z >= 0) || !Array.isArray(z.leer) || z.leer[z.z] !== 1) return null;
+    return { seite: z.z, winkel: [0, Math.PI / 2, Math.PI, -Math.PI / 2][z.z] || 0 };
+  }
   // Antrieb am Gegner (Snapshot az, nur Verfolgung): Stufe 0 voll, 1 beschädigt, 2 ausgefallen. Für die Karte, nicht für den Ziel-Scan.
   function antriebZustand(e) { const s = e && e.az > 0 ? Math.min(2, Math.floor(e.az)) : 0; return { stufe: s, schaden: s > 0 }; }
   function laden() {
@@ -77,5 +82,5 @@
     fetch('/content/kampf/gegner-systeme.json').then((r) => (r.ok ? r.json() : null)).then((j) => { if (j && j.klassen && typeof j.klassen === 'object') store.daten = j; }).catch(() => { /* ohne Daten: keine Anzeige */ });
   }
   if (root && typeof root.document !== 'undefined') laden();
-  return { store, systemeFuer, systemeVon: systeme, zeilen, wahlbar, reihum, gewaehlt, zielZon, reaktorRest, klasseName, antriebZustand, laden };
+  return { store, systemeFuer, systemeVon: systeme, zeilen, wahlbar, reihum, gewaehlt, zielZon, reaktorRest, bresche, klasseName, antriebZustand, laden };
 });
