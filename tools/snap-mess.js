@@ -462,7 +462,7 @@ function freieFahrt(S, seed) {
   g.simSzene = null; g.simSzeneEnde = null;
   SimSzene.debug(g, ['40', 'ger', 'belagerung']);
   messSz(21);   // Vorwarnung und Beginn des Kampfes
-  for (const q of (g.space.escorts || []).filter((x) => x.sim)) require('../server/sim/escort.js').hit(g, q, 99999, {});   // alle Verteidiger fallen
+  for (const q of (g.space.escorts || []).filter((x) => x.sim)) Testhilfe.toetenVerbuendeten(g, q);   // alle Verteidiger fallen (SYS-01 C2b: ein Großtreffer zerstört nur ein System, der Abschuss geht über die Testhilfe)
   require('../server/sim/space.js').verlustAusloesen(g, 'test'); messSz(0.4); require('../server/sim/space.js').verlustAusloesen(g, 'test'); messSz(3);   // Notfallprotokoll der Lerche: Niederlage (Phase n)
   const fehler = g.errors;
   g.releaseWorldLock && g.releaseWorldLock();
