@@ -3,7 +3,8 @@
 //   - Schildregeneration unterdrücken (sturm.regenSperre, wie bisher), kaum Schildschaden (schildFaktor): der Sturm nutzt volle Schilde nicht ab.
 //   - Reparatursperre: ein Sturm-Treffer in einer Zone sperrt die Reparatur aller Systeme dieser Zone für reparaturSperre_s (Fortschritt laufender Reparaturen sofort 0).
 //   - Bei Schild ≤ sturm.niedrig oder 0 wirkt der Sturm-Schaden gegen das System × systemFaktor.
-// Die Werte liegen als Startwerte im Katalog (sturmbatterie.sturm); zur Laufzeit gilt CONFIG.systemModell.sturm (live per `tune systemModell.sturm.<wert>`).
+//   - Ausnahme (bewusst, Softlock-Schutz): die ODA-Notreparatur (interior.js, emergencyRepair.brokenDelay 45 s, nur ohne Ersatzteile und ohne Arbeitenden) beachtet die Sperre nicht.
+// Es GILT CONFIG.systemModell.sturm (live per `tune systemModell.sturm.<wert>`); die Katalogwerte (sturmbatterie.sturm) sind nur der Rückfallwert, wenn dort nichts steht.
 const Katalog = require('../../shared/schiffskatalog.js');
 
 function wert(game, key) {

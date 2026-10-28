@@ -59,7 +59,8 @@ function resolveHit(game, sector, dmg, opts) {
   const out = { absorbed, rest: s > 0 ? 0 : rest, systems: [], shield: s0, empThrough: false };   // Schild hält: der Rest verfällt (rest 0)
   // 3. Sturmbatterie bei niedrigem Schild: Systemchance, kleiner Integritätsschaden (Schild bleibt oben)
   if (ST && s0 > 0 && s0 <= ST.niedrig && game.rng.chance(ST.systemChance)) {
-    systemSchaden(game, out, sector, (Number(M.sturmSchaden) || 0) * Sturm.systemFaktor(game));   // SYS-02a: systemFaktor gilt bei niedrigem Schild
+    const t3 = systemSchaden(game, out, sector, (Number(M.sturmSchaden) || 0) * Sturm.systemFaktor(game));   // SYS-02a: systemFaktor gilt bei niedrigem Schild
+    if (t3 && interior.systemSector(t3.system) !== sector) interior.reparaturSperren(game, interior.systemSector(t3.system), Sturm.reparaturSperre(game));   // SYS-02a Nacharbeit: läuft der Treffer bei leerer Zone in die Mitte über, ist auch sie gesperrt (wie bei den Gegnern, trefferSystem)
     if (out.systems.length) game.stats.leakHits++;
   }
   if (s > 0 || rest <= 0) return out;   // Schild hält: ohne Systemschaden und ohne Überlauf

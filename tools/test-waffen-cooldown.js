@@ -154,6 +154,8 @@ section('Dauerleistung am Pool <= Ist + 3 % (Erkundung 1d)', () => {
       // SYS-02a (Kai): der Sturm wirkt bei Schild 0 mit Faktor systemFaktor gegen das System (Dauerleistung gegen Systeme steigt mit ihm); gegen Schild gilt der alte Grenzwert
       const fak = id === 'sturmbatterie' ? require('../server/sim/sturm.js').systemFaktor({ C: CONFIG }) : 1;
       ok(r.rate <= ist * fak * 1.03 + 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≤ Ist ${ist.toFixed(2)}${fak !== 1 ? ' × systemFaktor ' + fak : ''} + 3 % (${(ist * fak * 1.03).toFixed(2)})`);
+      // Nacharbeit SYS-02a: Untergrenze gegen den festen Beschlusswert 1,5 (nicht gegen die Config: mit systemFaktor 1 bliebe sonst die Obergrenze allein grün). Toleranz nach unten 8 %: bei 1 Punkt liegt die Messung 5 % unter Ist × Faktor (Gesamtschaden zählt gekappten Systemschaden nicht ganz)
+      if (id === 'sturmbatterie') { const soll = 1.5; ok(r.rate >= ist * soll * 0.92 - 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≥ Ist ${ist.toFixed(2)} × Beschlusswert systemFaktor ${soll} − 8 % (${(ist * soll * 0.92).toFixed(2)}), Schild 0`); }
     });
     info(id + ': ' + zeile.join(' · '));
   }

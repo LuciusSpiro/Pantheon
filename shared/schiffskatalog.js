@@ -69,7 +69,7 @@
       // sturm: schildFaktor = Anteil des Schadens, der den Schild trifft (Rest verpufft); regenSperre = s ohne Schildregeneration nach einem Treffer;
       // niedrig = Schildstand (Punkte) des getroffenen Segments, ab dem Treffer in die Hülle gehen; stoerung = s, um die der nächste Schuss eines Gegner-Ziels zurückgeworfen wird; systemChance = Systemtreffer-Chance je Nadel gegen die Lerche bei niedrigem Schild
       // SYS-02a (Kai 2026-10-28, Sturm = Unterdrückung, nicht Abnutzen): reparaturSperre_s = s, in denen die Reparatur aller Systeme der getroffenen Zone nicht steigt (Fortschritt beim Treffer 0);
-      // systemFaktor = Faktor auf den Systemschaden bei Schild ≤ niedrig oder 0. Zur Laufzeit gilt CONFIG.systemModell.sturm (tune); hier der Startwert.
+      // systemFaktor = Faktor auf den Systemschaden bei Schild ≤ niedrig oder 0. NUR RÜCKFALLWERT (sim/sturm.js liest ihn nur, wenn CONFIG.systemModell.sturm fehlt); es GILT: CONFIG.systemModell.sturm (live per tune).
       sturm: { schildFaktor: 0.25, regenSperre: 6, niedrig: 1, stoerung: 0.35, systemChance: 0.08, reparaturSperre_s: 6, systemFaktor: 1.5 },
       modell: 'lerche/station/lafette_sturm', projektil: { form: 'nadel', kind: 'psturm', farbe: '#7FD6C8' }, geschw: 800, streuung: 0.02, effekt: 'nadel', ton: 'sturm_salvo', symbol: 'schiff_sturm',
       munition: null, gegner: { verhalten: 'sturm', burst: 8, burstGap: 0.07 },   // Gegner-Sperrfeuer wie bisher (acht Nadeln im Takt 0,07 s), vom Katalogwert der Lerche entkoppelt

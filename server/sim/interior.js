@@ -1208,22 +1208,20 @@ function zoneFrei(game, zone) {
 // (Spieler am Halten, Schrauber-Bots) steigt nicht und wird bei Beginn auf 0 gesetzt (voller Rückschlag, stärker als repairHitLoss). Die Sonderreparatur des Reaktors
 // gilt wie jede Reparatur; der Reaktor-Countdown läuft unabhängig weiter. Die Sperre verlängert sich nur durch weitere Sturm-Treffer.
 function reparaturSperren(game, zone, s) {
-  if (!(s > 0)) return 0;
+  if (!(s > 0)) return;
   const ship = game.ship;
   const S = ship.repSperre || (ship.repSperre = {});
   S[zone] = Math.max(S[zone] || 0, game.time + s);
-  let n = 0;
   for (const p of game.players) {
     const h = p.hold;
     if (!h || !REPAIR_KINDS.includes(h.kind) || systemSector(h.system) !== zone || !(h.t > 0)) continue;
-    h.t = 0; n++;
+    h.t = 0;
   }
   for (const b of game.bots) {
     const t = b.task;
     if (!t || t.kind !== 'repair' || t.phase !== 'work' || systemSector(t.system) !== zone || !(b.progress > 0)) continue;
-    b.progress = 0; n++;
+    b.progress = 0;
   }
-  return n;
 }
 function reparaturGesperrt(game, sys) {
   const S = game.ship.repSperre;
@@ -1491,7 +1489,8 @@ function updateHazards(game, dt) {
     }
   }
   for (const b of ship.breachList) b.t += dt;   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (sie entfällt)
-  // Softlock-Schutz: Notreparatur, wenn kein Teil mehr verfügbar ist
+  // Softlock-Schutz: Notreparatur, wenn kein Teil mehr verfügbar ist. SYS-02a (Kai, Nacharbeit): beachtet die Sturm-Reparatursperre bewusst NICHT (reparaturGesperrt) – ohne Ersatzteile
+  // und ohne Arbeitenden greift sie nach brokenDelay (45 s) auch in einer gesperrten Zone, damit der Sturm keinen Softlock erzeugt (die Sperre dauert nur 6 s, kein Dauerlock, aber der Schutz bleibt dicht).
   const carried = (kind) => game.players.some((p) => p.carry === kind) || game.bots.some((b) => b.carry === kind) ||
     ship.groundItems.some((i) => i.kind === kind);
   const noParts = game.inventory.ersatzteil <= 0 && !carried('ersatzteil');

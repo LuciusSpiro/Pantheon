@@ -1098,7 +1098,14 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
           game.emit('sfx', { name: 'shield_hit', volume: 0.3 });
           return;
         }
-        stoereGegner(e, T.stoerung);   // niedriger Schild: der Schild nimmt den Treffer, ohne Überlauf (wie die Lerche in damage.resolveHit); erst bei Schild 0 trifft ein System
+        stoereGegner(e, T.stoerung);   // niedriger Schild: der Schild nimmt den Treffer (wie die Lerche in damage.resolveHit)
+        if (sv > EPS && modell) {   // SYS-02a Nacharbeit: wie die Lerche (damage.resolveHit Schritt 3): bei 0 < Schild ≤ niedrig mit sturm.systemChance ein System der Zone, sturmSchaden × systemFaktor; Zone leer: Mitte (gesperrt in trefferSystem)
+          const absorbiert = Math.min(sv, rest);
+          e.shields[sec] = Math.max(0, sv - absorbiert); if (e.shields[sec] < EPS) e.shields[sec] = 0;
+          if (absorbiert > 0) { e.shieldHitT = game.time; e.shieldHitSector = sec; }
+          if (game.rng.chance(T.systemChance)) return trefferSystem(game, e, (Number(game.C.systemModell.sturmSchaden) || 0) * Sturm.systemFaktor(game), zone || 'bug', srcX, srcY, opts);
+          game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return;
+        }
       } else if (opts && opts.streu) {   // PAN-01 C: eine Streu-Granate = Schildschaden (Schildbrecher), nie Hülle
         const take = Math.min(sv, dmg * opts.streu.schildFaktor);
         e.shields[sec] = Math.max(0, sv - take); if (e.shields[sec] < EPS) e.shields[sec] = 0;

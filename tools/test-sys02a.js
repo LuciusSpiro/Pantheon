@@ -223,6 +223,53 @@ section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein System
   ok(nadeln === Math.ceil(max / (1.08 * SM.sturm.systemFaktor)), `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (Maximum ${max.toFixed(1)}; ohne Faktor ${Math.ceil(max / 1.08)})`);
 });
 
+// ---- Nacharbeit (Review): Sturm bei niedrigem Schild (0 < Schild <= niedrig) und leerer Zone, Lerche und Gegner gleiche Regel (Spiegeltests)
+const mitMitte = (fn) => { const c0 = ST.systemChance; ST.systemChance = 1; try { fn(); } finally { ST.systemChance = c0; } };   // Systemchance 1: der Treffer fällt sicher durch (Zufall bleibt game.rng)
+const leereZoneBug = (e) => { for (const id of Gsys.ids(e)) if (Gsys.defOf(e.kind, id).zone === 'bug') Testhilfe.setzeIntegritaet(e, id, 0); };
+section('2i Nacharbeit 1: Sturm bei niedrigem Schild und leerer Zone sperrt auch die Mitte (Lerche = Gegner)', () => {
+  mitMitte(() => {
+    const { g } = lerche(1, 31);
+    for (const k of zone0()) { g.ship.systems[k] = 'broken'; I.setInteg(g, k, 0); }
+    g.ship.shields.current = [0.5, 6, 6, 6];
+    sturmHit(g, 0, 1.08);
+    const mitte = I.SYSTEM_ORDER.filter((k) => I.systemSector(k) === -1 && I.integOf(g, k) < I.integMax(g, k));
+    ok(mitte.length > 0, 'Lerche: der Treffer ist in die Mitte übergelaufen (' + mitte.join() + ')');
+    ok(mitte.length > 0 && mitte.every((k) => I.reparaturGesperrt(g, k)) && g.ship.repSperre[0] > g.time, 'Lerche: Zone 0 und Mitte gesperrt');
+    const { g: ga } = arena(91);
+    const e = gegner(ga, 'korvette'); e.gestellt = true; leereZoneBug(e);
+    Testhilfe.setzeSchilde(e, [0.5, 6, 6, 6]);
+    const s0 = Gsys.summe(e);
+    treffer(ga, e, 0, 1.08, sturmOpts());
+    const mitteIds = Gsys.ids(e).filter((id) => Gsys.defOf('korvette', id).zone === 'mitte');
+    ok(Gsys.summe(e) < s0, 'Gegner: der Treffer ist in die Mitte übergelaufen (Systemschaden ' + (s0 - Gsys.summe(e)).toFixed(2) + ')');
+    ok(mitteIds.length > 0 && mitteIds.every((id) => Gegnerreparatur.gesperrt(ga, e, id)), 'Gegner: Mitte gesperrt');
+  });
+});
+
+section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein System der Zone × systemFaktor (Lerche = Gegner), darüber nicht', () => {
+  mitMitte(() => {
+    const L = (s) => { const { g } = lerche(1, 32); g.ship.shields.current = [s, 6, 6, 6]; const v0 = isum(g); sturmHit(g, 0, 1.08); return v0 - isum(g); };
+    // G: Zone Bug nur mit waffe_bug (Maximum > Schaden), damit der Abzug nicht an 0 klemmt
+    const G = (s) => { const { g } = arena(92); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeIntegritaet(e, 'emitter_bug', 0); Testhilfe.setzeSchilde(e, [s, 6, 6, 6]); const v0 = Gsys.summe(e); treffer(g, e, 0, 1.08, sturmOpts()); return v0 - Gsys.summe(e); };
+    const soll = SM.sturmSchaden * SM.sturm.systemFaktor;
+    ok(near(L(0.5), soll, 0.06), 'Lerche, Schild 0,5: Integrität −' + L(0.5).toFixed(2) + ' (sturmSchaden × systemFaktor ' + soll + ')');
+    ok(near(G(0.5), soll, 0.06), 'Gegner, Schild 0,5: Integrität −' + G(0.5).toFixed(2) + ' (gleich)');
+    ok(near(G(ST.niedrig), soll, 0.06) && near(L(ST.niedrig), soll, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
+    ok(L(ST.niedrig + 0.5) === 0 && G(ST.niedrig + 0.5) === 0, 'Schild über niedrig: kein Systemschaden (beide)');
+    ok(L(6) === 0 && G(6) === 0, 'voller Schild: kein Systemschaden (beide)');
+  });
+  const c0 = ST.systemChance; ST.systemChance = 0;
+  try {
+    const { g } = arena(93); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeSchilde(e, [0.5, 6, 6, 6]); const v0 = Gsys.summe(e);
+    treffer(g, e, 0, 1.08, sturmOpts());
+    ok(Gsys.summe(e) === v0, 'systemChance 0: kein Systemschaden beim Gegner (Zufall nur game.rng)');
+  } finally { ST.systemChance = c0; }
+  // der Schild nimmt den Treffer weiter ab (Schild 0,5 -> 0), Regeneration gesperrt
+  const { g } = arena(94); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeSchilde(e, [0.5, 6, 6, 6]);
+  treffer(g, e, 0, 1.08, sturmOpts());
+  ok(e.shields[0] === 0 && e.regenHold > g.time, 'Gegner: Schild 0,5 verbraucht, Regeneration gesperrt');
+});
+
 // =============================================================== 3 Torpedo
 section('3a Torpedo gegen die Lerche: zwei Treffer zerstören den Reaktor (Countdown), ein Treffer System zerstört und Reaktor beschädigt', () => {
   ok(SM.torpedoLerche === undefined && SM.torpedo.reaktorAnteil === 0.5, 'torpedo.reaktorAnteil 0,5; torpedoLerche entfällt (eine Wahrheit)');
