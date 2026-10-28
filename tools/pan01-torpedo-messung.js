@@ -5,7 +5,7 @@
 //
 // Teil 1  Wirkung: Treffer bis Zerstörung je Zielklasse und Crewgröße (Hüllenwerte aus CONFIG.enemies × crewScaling × enemyHpFactor), dazu die Zeit bei Cooldown
 //         8 / 10 / 12 s (n − 1 Cooldowns plus Flugzeit). Das Ziel steht still im Heckbogen, der Werfer feuert, sobald er bereit ist.
-// Teil 2  Gegner-Torpedo gegen die Lerche: Integritätsverlust je Treffer (SYS-01 A1b: ein System der Zone, systemModell.torpedoLerche; ohne Schild- und Poolwirkung) und Ausweichfenster.
+// Teil 2  Gegner-Torpedo gegen die Lerche: Integritätsverlust je Treffer (SYS-02a: System der Zone zerstört + Reaktor-Durchschlag, systemModell.torpedo; ohne Schild- und Poolwirkung) und Ausweichfenster.
 // Teil 3  Heckbogen 60° gegen 90° bei Cooldown 8 / 10 / 12 s im Arena-Bot (3 Spieler): Torpedos je Lauf, Treffer, Wellen, Dauer – wie viel der Bogen hergibt.
 const path = require('path');
 const fs = require('fs');

@@ -16,6 +16,7 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als r
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
 const Gegnertod = require('./gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Reaktor-Countdown, Sofort-Tod, Kapern über den Schildgenerator)
+const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre und Systemfaktor des Sturms
 const Gegnerreparatur = require('./gegnerreparatur.js');   // SYS-01 C2a: Reparatur der Gegner (Vorgänge, Rückschlag)
 const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C2b: Notfallsprung der Gegner (Szenenbaustein gegner_notfallsprung)
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
@@ -1089,6 +1090,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
       if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); game.missionEvent('enemyShieldHit', { enemy: e, sector: sec }); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
       if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
         const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
+        if (modell) Gegnerreparatur.sperren(game, e, zone, Sturm.reparaturSperre(game));   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (Fortschritt 0)
         if (sv > T.niedrig) {
           const take = Math.min(sv, dmg * T.schildFaktor);
           e.shields[sec] = Math.max(0, sv - take); if (e.shields[sec] < EPS) e.shields[sec] = 0;
@@ -1117,8 +1119,9 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   if (modell) {
     // SYS-01 C1a-2 (Kai 2026-10-26): Torpedo gegen eine Klasse mit systemModell.torpedoSofortTod.<klasse> = true (Jäger; Config, live per tune) bei Schild 0 (die Schildprüfung oben ist durch): sofort tot, bei jeder Crewgröße, kein Countdown, kein Kapern
     if (opts && opts.torpedo && (game.C.systemModell.torpedoSofortTod || {})[e.kind] === true) { Gegnertod.sofort(e); return enemyDown(game, e); }
+    if (opts && opts.torpedo) return torpedoSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-02a: System der Zone zerstört, Durchschlag auf den Reaktor
     if (opts && opts.durchschlag === 'zone') zone = 'mitte';
-    return trefferSystem(game, e, rest, zone || 'bug', srcX, srcY, opts);
+    return trefferSystem(game, e, opts && opts.sturm ? rest * Sturm.systemFaktor(game) : rest, zone || 'bug', srcX, srcY, opts);   // SYS-02a: Sturm bei niedrigem/leerem Schild × systemFaktor gegen das System
   }
   e.hp -= rest;
   if (e.hp < EPS) e.hp = 0;
@@ -1136,8 +1139,26 @@ function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
   const t = Gsys.treffen(game, e, zone, rest, gez);
   game.missionEvent('enemyDamaged', { enemy: e });
   if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
+  if (t && opts && opts.sturm) Gegnerreparatur.sperren(game, e, t.zone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Sturm in die Mitte über, ist auch sie gesperrt
   if (t && t.gezielt && t.state !== t.vorher) Zielsysteme.gegnerGetroffen(game, e, t);
   if (t && t.state === 'broken' && t.vorher !== 'broken' && Gegnertod.systemZerstoert(game, e, t.id)) return;   // Prise: der Gegner treibt (entern.js)
+}
+// SYS-02a (Kai 2026-10-28): Torpedo gegen einen Gegner mit Systemmodell (Schild 0 im Segment, Lesart B; Jäger sind vorher sofort tot). Zerstört das getroffene System der Zone sicher
+// (Schaden mindestens dessen Maximum; Zufall game.rng oder Systemziel) und schlägt auf den Reaktor durch: systemModell.torpedo.reaktorAnteil × Reaktor-Maximum. Eine leere Zone
+// läuft nicht in die Mitte: dann trifft der Torpedo nur den Reaktor. Zerstörter Reaktor = Countdown (gegnertod.js), wie jede Reaktorzerstörung.
+function torpedoSystem(game, e, zone, srcX, srcY, opts) {
+  const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
+  const ts = [];
+  const t = Gsys.treffen(game, e, zone, Katalog.torpedoSchaden(e.kind), gez, { zerstoeren: true, keinUeberlauf: true });
+  if (t) ts.push(t);
+  const rid = Gsys.idVon(e, 'reaktor'); const anteil = Number((game.C.systemModell.torpedo || {}).reaktorAnteil) || 0;
+  if (rid && e.sys[rid].z !== 'broken' && anteil > 0) ts.push(Gsys.treffenAuf(game, e, rid, 'mitte', anteil * Gsys.maxOf(e, rid), false));
+  game.missionEvent('enemyDamaged', { enemy: e });
+  for (const x of ts) {
+    Gegnerreparatur.rueckschlag(game, e, x.zone);
+    if (x.gezielt && x.state !== x.vorher) Zielsysteme.gegnerGetroffen(game, e, x);
+    if (x.state === 'broken' && x.vorher !== 'broken' && Gegnertod.systemZerstoert(game, e, x.id)) return;
+  }
 }
 // Tod eines Gegners (Buchhaltung wie ein Abschuss): entfernen, Marken, Explosion, Ansage. Aufrufer: Countdown abgelaufen, Sofort-Tod, Störrelais ohne Modell, Testhilfe
 function enemyDown(game, e) {
@@ -1290,7 +1311,7 @@ function updateBolzen(game, e, d, toShip, retreating, dt) {
 
 // ---------- PAN-01 C: Streu- und Torpedo-Plätze der Gegner (nur gezielt bestückt: Labor, Spielleiter, Regiebuch) ----------
 // Streu: alle streuIv s ein Wurf von Granaten auf den vorhergesagten Ort der Lerche (verzögert, ausweichbar). Torpedo: ein zielsuchender Torpedo je torpedoIv s,
-// langsam und schwer, trifft die Lerche als ein System der Zone (systemModell.torpedoLerche), geht an den Schilden vorbei, ist ausweichbar (Ausweichfenster) und
+// langsam und schwer, zerstört ein System der Zone der Lerche und trifft den Reaktor (systemModell.torpedo), geht an den Schilden vorbei, ist ausweichbar (Ausweichfenster) und
 // vom Abwehrturm abschießbar. Gleiche Regeln wie für die Lerche: derselbe Katalog.
 function updateStreuG(game, e, d, retreating, dt) {
   if (!e.waffen || !hatWaffe(game, e, 'streu')) return;
@@ -1324,7 +1345,7 @@ function updateTorpedoG(game, e, d, retreating, dt) {
   e.torpG = 0;
   const pl = plaetzeImBogen(game, e, ship, 'torpedo', 650)[0];
   const o = pl && pl.pos != null ? platzPunkt(game, e, pl) : { x: e.x, y: e.y };
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'etorpedo', x: o.x, y: o.y, angle: Math.atan2(ship.y - o.y, ship.x - o.x), speed: T.gegnerGeschw, ttl: T.gegnerTtl, dmg: game.C.systemModell.torpedoLerche, owner: e.id });
+  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'etorpedo', x: o.x, y: o.y, angle: Math.atan2(ship.y - o.y, ship.x - o.x), speed: T.gegnerGeschw, ttl: T.gegnerTtl, owner: e.id });
   game.emit('sfx', { name: 'torpedo', enemy: e.kind, x: Math.round(o.x), y: Math.round(o.y) });
 }
 // Explosion einer Gegner-Granate an der Lerche: eine = Schildschaden, zwei (andere Granaten) im Fenster = Durchschlag in die Hülle und sicherer Systemschaden
@@ -1629,7 +1650,7 @@ function debugTele(game, id) {
 }
 
 function torpedoNurOhneSchild() { return Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }   // Kai 2026-10-18: Lesart B für alle Ziele
-// PAN-01 C, SYS-01 A1b: Gegner-Torpedo trifft die Lerche: bei Schild 0 im Sektor (Lesart B) ein System der Zone mit systemModell.torpedoLerche Integrität. Kein Durchschlag der Zone.
+// PAN-01 C, SYS-02a: Gegner-Torpedo trifft die Lerche: bei Schild 0 im Sektor (Lesart B) wird ein System der Zone zerstört und der Reaktor anteilig getroffen (damage.torpedoTreffer, systemModell.torpedo).
 // Wer kurz vorher ausgewichen ist (Ausweichfenster wie bei der Ladung), wird verfehlt.
 function etorpedoTreffer(game, p) {
   const ship = game.ship; const T = Katalog.TORPEDO;
@@ -1651,7 +1672,7 @@ function etorpedoTreffer(game, p) {
   }
   game.stats.torpedoLerche = (game.stats.torpedoLerche || 0) + 1;
   const eto = Zielsysteme.szeneAktiv(game) ? game.space.enemies.find((e) => e.id === p.owner) : null;
-  shipHit(game, sec, p.dmg != null ? p.dmg : game.C.systemModell.torpedoLerche, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: Zielsysteme.lercheZiel(eto.zielsystem) } : { pierce: true, heavy: true, torpedo: true });
+  shipHit(game, sec, 1, eto ? { pierce: true, heavy: true, torpedo: true, angriff: true, zielt: Zielsysteme.lercheZiel(eto.zielsystem) } : { pierce: true, heavy: true, torpedo: true });
 }
 
 function updateProjectiles(game, dt) {

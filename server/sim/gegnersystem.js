@@ -101,23 +101,29 @@ function tot(e) {
 }
 
 // Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher } oder null.
-function treffen(game, e, zone, schaden, gez) {
+// SYS-02a opts (Torpedo): zerstoeren = Schaden mindestens das Maximum des Systems (zerstört sicher, auch gegen Sperre/Immunität); keinUeberlauf = eine leere Zone läuft nicht in die Mitte.
+function treffen(game, e, zone, schaden, gez, opts) {
   let zielZone = zone;
   let kand = frei(e, zone);
-  if (!kand.length && zone !== 'mitte') { zielZone = 'mitte'; kand = frei(e, 'mitte'); }
+  if (!kand.length && zone !== 'mitte') { if (opts && opts.keinUeberlauf) return null; zielZone = 'mitte'; kand = frei(e, 'mitte'); }
   if (!kand.length) return null;
   let id = null;
   if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;
   const gezielt = id !== null;
   if (!gezielt) id = game.rng.pick(kand);
+  return treffenAuf(game, e, id, zielZone, schaden, gezielt, opts);
+}
+// Integritätsabzug auf ein bestimmtes System (Trefferweg und Torpedo-Durchschlag auf den Reaktor). Rückgabe { id, zone, state, vorher, gezielt }.
+function treffenAuf(game, e, id, zielZone, schaden, gezielt, opts) {
   const st = e.sys[id];
-  st.i = Math.max(0, st.i - Math.max(0, Number(schaden) || 0));
+  const zerstoeren = !!(opts && opts.zerstoeren);
+  st.i = Math.max(0, st.i - Math.max(zerstoeren ? maxOf(e, id) : 0, Number(schaden) || 0));
   e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
   const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
   const vorher = st.z;
-  if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = z; st.sp = game.time; }
+  if (RANG[z] > RANG[st.z] && (zerstoeren || !gesperrt(game, st, id))) { st.z = z; st.sp = game.time; }
   e.hp = summe(e);
-  return { id, zone: zielZone, state: st.z, vorher, gezielt };
+  return { id, zone: zielZone, state: st.z, vorher, gezielt: !!gezielt };
 }
 // Verzögerte Zustandswechsel: der Zustand folgt der Integrität, sobald Sperre und Immunität frei sind (Zielsysteme.update, jeden Tick)
 function nachholen(game, e) {
@@ -214,6 +220,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
+  treffenAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

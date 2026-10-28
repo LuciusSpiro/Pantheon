@@ -42,7 +42,7 @@ function zeit(game, e, id) {
 // Reparaturbedürftige Systeme (nicht ok), nach Priorität der Arten sortiert; bei Gleichstand bleibt die Reihenfolge der Daten
 function kandidaten(game, e) {
   const rang = (id) => { const i = PRIO.indexOf(Gsys.artVon(e, id)); return i < 0 ? PRIO.length : i; };
-  return Gsys.ids(e).map((id, i) => ({ id, i, r: rang(id) })).filter((k) => e.sys[k.id].z !== 'ok' && (Gsys.artVon(e, k.id) !== 'reaktor' || reaktorRepariert(game))).sort((a, b) => a.r - b.r || a.i - b.i).map((k) => k.id);
+  return Gsys.ids(e).map((id, i) => ({ id, i, r: rang(id) })).filter((k) => e.sys[k.id].z !== 'ok' && (Gsys.artVon(e, k.id) !== 'reaktor' || reaktorRepariert(game)) && !gesperrt(game, e, k.id)).sort((a, b) => a.r - b.r || a.i - b.i).map((k) => k.id);
 }
 function vorgaenge(game, e) { return kandidaten(game, e).slice(0, plaetze(game, e)); }
 
@@ -71,6 +71,20 @@ function tick(game, e, dt) {
   }
 }
 
+// SYS-02a (Kai 2026-10-28): Reparatursperre durch Sturm-Treffer (wie interior.reparaturSperren der Lerche). Die Zone ist s Sekunden gesperrt: der Fortschritt der Systeme
+// dort wird sofort 0 (voller Rückschlag), und sie kommen in dieser Zeit nicht als Vorgang in Frage (ein gesperrtes System blockiert keinen Platz). Die Sonderreparatur des
+// Reaktors (Schalter reaktor) gilt wie jede Reparatur.
+function sperren(game, e, zone, s) {
+  if (!Gsys.hat(e) || !(s > 0)) return;
+  const S = e.repSperre || (e.repSperre = {});
+  S[zone] = Math.max(S[zone] || 0, game.time + s);
+  for (const id of Gsys.ids(e)) if (Gsys.defOf(e.kind, id).zone === zone) { e.sys[id].rp = 0; }
+}
+function gesperrt(game, e, id) {
+  const S = e.repSperre;
+  return !!S && game.time < (S[Gsys.defOf(e.kind, id).zone] || 0);
+}
+
 function rueckschlag(game, e, zone) {
   if (!Gsys.hat(e)) return;
   const f = 1 - (Number(cfgR(game).rueckschlag) || 0);
@@ -81,4 +95,4 @@ function rueckschlag(game, e, zone) {
   }
 }
 
-module.exports = { repariert, reaktorRepariert, tick, rueckschlag, plaetze, vorgaenge, zeit };
+module.exports = { sperren, gesperrt, repariert, reaktorRepariert, tick, rueckschlag, plaetze, vorgaenge, zeit };

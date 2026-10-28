@@ -13,6 +13,7 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const Zielsysteme = require('../server/sim/zielsysteme.js');
+const Gsys = require('../server/sim/gegnersystem.js');
 let Flight = null;
 try { Flight = require('../shared/flight.js'); } catch (e) { Flight = null; }
 
@@ -335,6 +336,7 @@ function raidRun(opts) {
     if (o.recentre !== false) recentre(g);
     const sh = g.ship;
     const live = g.space.enemies;
+    if (o.antriebHeil) for (const e of live) if (e.sys && e.sys.antrieb && e.sys.antrieb.z !== 'ok') { e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.hp = Gsys.summe(e); }
     for (const e of live) {
       const s = st(e);
       stateCount[s] = (stateCount[s] || 0) + 1;
@@ -377,11 +379,14 @@ function raidRun(opts) {
 
 section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
   const runs = [21, 22, 23].map((seed, i) => raidRun({ seed, stage: [3, 4, 1][i], sec: 120 }));
-  const all = runs.flatMap((r) => r.done);
+  // SYS-02a: Jäger reparieren nicht mehr; mit beschädigtem/zerstörtem Antrieb (Treffer der Lerche) fliegt er langsamer und überfliegt nicht. Das Überflugverhalten gilt für einen Jäger mit
+  // Antrieb: die Anflüge werden in Läufen gezählt, in denen der Antrieb heil gehalten wird (antriebHeil, wie vorher die Reparatur); die Trace-Prüfungen unten laufen weiter mit den Läufen ohne Eingriff.
+  const heil = [21, 22, 23].map((seed, i) => raidRun({ seed, stage: [3, 4, 1][i], sec: 120, antriebHeil: true }));
+  const all = heil.flatMap((r) => r.done);
   const pass = all.filter((ep) => ep.minD < 150 && ep.maxAfter > 300);
   const share = all.length ? pass.length / all.length : 0;
   info('Zustände (Ticks): ' + runs.map((r) => Object.entries(r.stateCount).map(([k, v]) => k + ' ' + v).join(', ')).join(' | '));
-  info('Anflüge je Lauf (½ / ¾ / Stopp): ' + runs.map((r) => `${r.done.filter((ep) => ep.minD < 150 && ep.maxAfter > 300).length}/${r.done.length}`).join(' · ') +
+  info('Anflüge je Lauf (½ / ¾ / Stopp): ' + heil.map((r) => `${r.done.filter((ep) => ep.minD < 150 && ep.maxAfter > 300).length}/${r.done.length}`).join(' · ') +
     ' · nächster Abstand Ø ' + f1(all.reduce((a, ep) => a + ep.minD, 0) / Math.max(1, all.length)) + ' px');
   ok(all.length >= 6, `genug Anflüge gemessen (${all.length} in 3 × 120 s)`);
   ok(share >= 0.8, `Überflüge: ${pass.length}/${all.length} = ${f1(share * 100)} % mit Abstand < 150 und danach > 300 (Soll ≥ 80 %)`);

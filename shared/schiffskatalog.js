@@ -50,7 +50,7 @@
     schildUmgehung: 'nur-ohne-schild',
     geschw: 400, wenden: 1.6, ttl: 3,
     schaden: { raider: 45, korvette: 9, fregatte: 9, kreuzer: 9, sentinel: 9, pylon: 9, frachter: 9, relay: 9 },
-    gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6,   // SYS-01 A1b: Schaden gegen die Lerche = CONFIG.systemModell.torpedoLerche (ein System der Zone)
+    gegnerGeschw: 150, gegnerWenden: 0.9, gegnerTtl: 6,   // SYS-02a: Wirkung gegen Lerche und Gegner = CONFIG.systemModell.torpedo (System der Zone zerstört, Durchschlag auf den Reaktor); schaden je Klasse ist die Untergrenze (Wirkung mindestens das Systemmaximum des Ziels)
   };
 
   // ---------- Waffen ----------
@@ -68,7 +68,9 @@
       schaden: 1.08, rohre: 1, ladekosten: 2, bogen: 60, reichweite: 440, magazin: 4.8,   // SYS-01 B1: ein Projektil je Zyklus (~2 s bei 1 Punkt); 1,08 statt 1,12, weil bei 4 Punkten 1,12 die Ist-Dauerleistung um 5,9 % überschritten hätte
       // sturm: schildFaktor = Anteil des Schadens, der den Schild trifft (Rest verpufft); regenSperre = s ohne Schildregeneration nach einem Treffer;
       // niedrig = Schildstand (Punkte) des getroffenen Segments, ab dem Treffer in die Hülle gehen; stoerung = s, um die der nächste Schuss eines Gegner-Ziels zurückgeworfen wird; systemChance = Systemtreffer-Chance je Nadel gegen die Lerche bei niedrigem Schild
-      sturm: { schildFaktor: 0.25, regenSperre: 6, niedrig: 1, stoerung: 0.35, systemChance: 0.08 },
+      // SYS-02a (Kai 2026-10-28, Sturm = Unterdrückung, nicht Abnutzen): reparaturSperre_s = s, in denen die Reparatur aller Systeme der getroffenen Zone nicht steigt (Fortschritt beim Treffer 0);
+      // systemFaktor = Faktor auf den Systemschaden bei Schild ≤ niedrig oder 0. Zur Laufzeit gilt CONFIG.systemModell.sturm (tune); hier der Startwert.
+      sturm: { schildFaktor: 0.25, regenSperre: 6, niedrig: 1, stoerung: 0.35, systemChance: 0.08, reparaturSperre_s: 6, systemFaktor: 1.5 },
       modell: 'lerche/station/lafette_sturm', projektil: { form: 'nadel', kind: 'psturm', farbe: '#7FD6C8' }, geschw: 800, streuung: 0.02, effekt: 'nadel', ton: 'sturm_salvo', symbol: 'schiff_sturm',
       munition: null, gegner: { verhalten: 'sturm', burst: 8, burstGap: 0.07 },   // Gegner-Sperrfeuer wie bisher (acht Nadeln im Takt 0,07 s), vom Katalogwert der Lerche entkoppelt
     },
@@ -146,7 +148,7 @@
   //   batterie -> Standardkanone (Bug) bzw. Standardbatterie (Seite), Sperrfeuer-Salve
   //   bolzen   -> Standardkanone (Bug) bzw. Standardbatterie (Seite), einzelner gezielter Schuss (der Gegner-Bolzen hat nie Schild- oder Energiebezug gehabt;
   //               Katalogwert der Kanone/Batterie für die Lerche gilt dort nicht, der Gegner-Schaden steht in CONFIG.enemies)
-  // Der Torpedowerfer ist für Gegner nie Zufall: nur wer ihn ausdrücklich trägt, schießt Torpedos (Schaden gegen die Lerche: CONFIG.systemModell.torpedoLerche).
+  // Der Torpedowerfer ist für Gegner nie Zufall: nur wer ihn ausdrücklich trägt, schießt Torpedos (Wirkung gegen die Lerche: CONFIG.systemModell.torpedo).
   const LEGACY = { lanze: { bug: 'lanze', seite: 'lanzenbatterie', verhalten: 'lanze' }, batterie: { bug: 'standardkanone', seite: 'standardbatterie', verhalten: 'batterie' },
     bolzen: { bug: 'standardkanone', seite: 'standardbatterie', verhalten: 'bolzen' } };
   // Platzart eines Gegner-Platzes aus dem Namen (bug, bug2 = Bug; stbd, bb, stbd1… = Seite)
