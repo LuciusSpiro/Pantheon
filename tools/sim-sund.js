@@ -157,7 +157,11 @@ const HOOKS = {
   // Kap. 9B: Söldner-Kontakt in Concordia andocken; Schlacht über die allgemeinen Kampfpfade
   'k9b_soeldner/kontakt'(a, S, p) { return S.mission.choice ? false : anDocken(a, S, p, 'concordia'); },
   // Kap. 9B Lager: Ops scannt das Lager, Team beamt hinunter, holt Evert (folgt), zurück zu den Pads. Gebaute Karte wie die Labor-Szenen (buehneScene).
-  'k9b_soeldner/lager'(a, S, p, info) { return lagerEinsatz(a, S, p, info, 'schrottkante.lager'); },
+  // Hat ein Notsprung (Reaktorausfall in der Schlacht, SYS-01 C1a-2) die Lerche aus der Szene getragen, fliegt der Bot zuerst zurück nach Schrottkante.
+  'k9b_soeldner/lager'(a, S, p, info) {
+    if (p.zone === 'ship' && S.ship.scene !== 'schrottkante' && !S.space.enemies.length && !S.ship.docked) { a.travel(S, p, 'schrottkante'); return true; }
+    return lagerEinsatz(a, S, p, info, 'schrottkante.lager');
+  },
   // ABKÜRZUNGEN (benannt, im Bericht gezählt): Szenen, die ein eigener Bot (tools/sl-bots.js, T4) einzeln spielt, in der Kette per forceStep
   'sl_forschung/gravimetrie'(a, S, p) { return abkuerzung(a, 'sl_forschung', 'gravimetrie', 'station'); },
   'sl_forschung/station'(a, S, p) { return abkuerzung(a, 'sl_forschung', 'station', 'rueckbeamen'); },

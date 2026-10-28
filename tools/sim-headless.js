@@ -358,6 +358,7 @@ class Agent {
     const mates = (this.game.simAgents || []).filter((a) => a !== this && a.memo.job);
     const taken = (s) => mates.some((a) => a.memo.job.sys === s && S.time - (a.memo.job.seen || 0) < 2);
     if (m.job && S.time - (m.job.seen || S.time) > 2) { m.job = null; m.mg = null; }   // liegengebliebener Auftrag (Rolle war woanders)
+    if (m.job && m.job.sys !== 'reactor' && sh.systems.reactor === 'broken' && !taken('reactor')) { m.job = null; m.mg = null; m.jobCd = 0; this.ix = null; if (this.actDown) this.act(false); }   // SYS-01 C1a-2 Nacharbeit: der zerstörte Reaktor (Countdown) geht jeder anderen Arbeit vor
     if (m.job) {
       m.job.seen = S.time;
       const st = sh.systems[m.job.sys];
@@ -544,9 +545,18 @@ class Agent {
   // ---------- M3a: Waffen (Taktik verteilt Ladepunkte und feuert alles, §5) ----------
   mountsOf(S) { return Object.fromEntries((S.ship.mounts || []).map((m) => [m.id, m])); }
   inArcM(S, m, e, shrink) { const sh = S.ship; return !!m && Physics.inArc(sh.x, sh.y, sh.angle, m.facing, Math.max(2, m.arc - (shrink || 0)), m.range, e.x, e.y); }
+  // SYS-01 C1a-2 Nacharbeit: Gegner mit laufendem Reaktor-Countdown sind so gut wie tot (Ziel-Snapshot: letztes Element von ship.zielSys = Restzehntel, -1 kein Countdown);
+  // der Bot wendet sich dem nächsten zu, statt am Sterbenden zu stehen (Golden m2/1: drei Pylone je 20 s Countdown). Sind alle am Sterben, bleibt es bei allen.
+  lebende(S) {
+    const sh = S.ship; const sterbend = this.memo.sterbend || (this.memo.sterbend = {});
+    const z = sh.zielSys;
+    if (sh.target && z && z.length && z[z.length - 1] >= 0) sterbend[sh.target] = true;
+    const live = S.space.enemies.filter((e) => !sterbend[e.id]);
+    return live.length ? live : S.space.enemies;
+  }
   fight(S, opts) {
     const sh = S.ship;
-    const enemies = S.space.enemies;
+    const enemies = this.lebende(S);
     const M = this.mountsOf(S);
     // §20.3: Lanze lädt noch, aber keine Gegner mehr -> loslassen (ins Leere)
     if (!enemies.length) { if (M.bow && M.bow.charging) this.cmd('weapons.charge', { mount: 'bow', on: false }); return; }
@@ -719,11 +729,17 @@ class Agent {
     // Kurs halten bei ½ (wendig für den nächsten Anflug), die Taktik nimmt sie auf der Anfluglinie mit der Lanze.
     // QA M3b: „circle“ = bekannte Lücke prüfen – Dauerkreis bei ½ mit leichtem Ruder (0,3), egal was kommt
     if (this.pilot() === 'circle') { this.dodgeTele(S); this.helmS(S, 0.3, HALF); return; }
-    if (e.kind === 'raider' || e.kind === 'relay') this.helmS(S, this.turnCmd(S, 0), HALF);
+    if (e.kind === 'raider' || e.kind === 'relay') this.helmS(S, this.turnCmd(S, this.randNachMitte(S)), HALF);   // SYS-01 C1a-2 Nacharbeit: Kurs halten, am Kartenrand zur Mitte (sonst steht die Lerche mit dem Bug an der Wand, ein Jäger mit Restintegrität fliegt Kreise außer Bogen)
     else if (this.pilot() === 'maneuver') this.helmManeuver(S, e);
     else this.aimHelm(S, e, e.kind === 'pylon' || e.kind === 'relay' ? 380 : 450);
     // Reflex beider Strategien: Ausweichrolle vor einem nahen Projektil
     if (S.space.projectiles.some((q) => (q.kind === 'enemy' || q.kind === 'emp') && dist(q.x, q.y, sh.x, sh.y) < 90) && sh.dodgeCd === 0 && (this.memo.dodgeAt || 0) < S.time) { this.memo.dodgeAt = S.time + 1; this.cmd('helm.dodge', { dir: simRng() < 0.5 ? -1 : 1 }); }
+  }
+  // Drehwunsch (rad, relativ zum Bug) zur Kartenmitte, wenn das Schiff im Randstreifen liegt; sonst 0 (Kurs halten)
+  randNachMitte(S) {
+    const sh = S.ship; const w = S.space.w || 2400, h = S.space.h || 1400, rand = 160;
+    if (sh.x > rand && sh.y > rand && sh.x < w - rand && sh.y < h - rand) return 0;
+    return norm(Math.atan2(h / 2 - sh.y, w / 2 - sh.x) - sh.angle);
   }
   dodgeTele(S) {
     const sh = S.ship; const m = this.memo; const W = M3.dodgeWindow || 0.8;
@@ -796,7 +812,7 @@ class Agent {
     }
     this.helmS(S, this.turnCmd(S, hd), stage);
   }
-  nearestEnemy(S) { const sh = S.ship; let e = null, ed = Infinity; for (const o of S.space.enemies) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } } return e; }
+  nearestEnemy(S) { const sh = S.ship; let e = null, ed = Infinity; for (const o of this.lebende(S)) { const d = dist(sh.x, sh.y, o.x, o.y); if (d < ed) { ed = d; e = o; } } return e; }
 
   // ---------- Captain (M3b §6: kein Schildstoß mehr; Schildverteilung zur Bedrohung, Reparaturliste) ----------
   // Bedrohung = Sektor einer laufenden Ladung, sonst der Sektor des gefährlichsten nahen Gegners (Korvette/Pylon/Wächter
@@ -956,7 +972,19 @@ class Agent {
   // nicht (Rest unter 8 s), springt der Helm per Notfallsprung (Notstrom, holt das Außenteam zurück, beendet den Countdown). -> true, wenn der Bot damit beschäftigt ist
   reaktorRettung(S, p) {
     const rt = S.ship.reaktorTod;
-    if (!rt || rt.rest < 0 || rt.rest > 80 || !this.is('helm') || p.zone !== 'ship' || S.ship.docked) return false;
+    if (!rt || rt.rest < 0 || !this.is('helm') || p.zone !== 'ship' || S.ship.docked) return false;
+    // SYS-01 C1a-2 Nacharbeit: Reparatur zuerst, solange sie in die Frist passt (Sonderreparatur 1 Arbeiter + Weg); läuft sie schon und endet vor dem Ablauf, bleibt der Bot dran.
+    // Vorher (Trace sim-sund k9b): der Helm lief für ein Nebensystem (Heck-Emitter) ans andere Schiffsende, der Notsprung ab 8 s war nicht mehr erreichbar, die Lerche starb.
+    const frist = rt.rest / 10;
+    const hold = (this.game.players.find((q) => q.id === this.pid) || {}).hold;
+    if (hold && hold.system === 'reactor' && hold.dur - hold.t < frist - 1) return false;
+    // Reparatur nur, wenn Weg zum Reaktor plus Sonderreparatur (1 Arbeiter) in die Frist passen (Laufweg ~ Luftlinie × 1,4 bei player.speed); sonst ans Steuer und springen.
+    const me = this.game.players.find((q) => q.id === this.pid);
+    const rs = stationTile('reactor');
+    const weg = me && rs ? dist(me.x, me.y, rs.x * TILE + TILE / 2, rs.y * TILE + TILE / 2) * 1.4 / this.game.C.player.speed : 0;
+    if (frist > weg + this.game.C.reaktorTod.sonderreparatur.zeiten[0] + 2 && this.repairDuty(S, p, { cooldown: 1 })) return true;
+    if (this.role === 'helm' && p.console !== 'helm') { this.enter(S, 'helm'); return true; }   // vom Nebenjob zurück ans Steuer, sofort: der Weg kostet Zeit (solo wechselt die Konsolen selbst)
+    if (rt.rest > 80) return false;
     if (!this.enter(S, 'helm')) return true;
     this.cmd('helm.notsprung');
     this.game.simStats.reaktorNotsprung = (this.game.simStats.reaktorNotsprung || 0) + 1;
