@@ -89,14 +89,14 @@ const unten = (t) => players(t).filter((p) => p.zone === 'away');
 function hinunter(t) {
   const g = t.g;
   g.ship.speed = 0;
-  players(t).forEach((p, i) => { interior.placeOnShipPad(g, p, i); p.console = 'transfer'; });
+  players(t).forEach((p, i) => { interior.placeOnShipPad(g, p, i); p.console = 'transfer'; p.station = null; });   // SYS-02c: der Solo-Bot wechselt im Kampf per Tab (p.station); wer an die Transfer-Konsole tritt, hat dort kein fremdes Interface mehr
   g.handleMessage(t.agents[0].conn, { t: 'cmd', c: 'transfer.down' });
   for (let i = 0; i < 6 * HZ; i++) { for (const p of players(t)) { p.input.mx = 0; p.input.my = 0; } g.step(); }   // die Bots der Orbit-Szene lassen ihre letzte Laufeingabe stehen: unten steht die Crew still
 }
 function hinauf(t) {   // freiwilliger Abbruch: alle hochbeamen
   const g = t.g;
   g.ship.speed = 0;   // wie hinunter: die Crew stoppt das Schiff vor dem Beamen (die Bots der Orbit-Szene lassen die Fahrstufe stehen, mit C2a endet der Kampf mit anderem Tempo)
-  for (const p of unten(t)) { p.console = 'transfer'; }
+  for (const p of unten(t)) { p.console = 'transfer'; p.station = null; }
   g.handleMessage(t.agents[0].conn, { t: 'cmd', c: 'transfer.up' });
   for (let i = 0; i < 6 * HZ; i++) g.step();
 }
