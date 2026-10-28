@@ -106,7 +106,8 @@ function validate(v, s, p, out, root) {
         if (pn.enum && !pn.enum.includes(k)) out.push([`${p}.${k}`, `unbekannter Schlüssel '${k}'`]);
         if (pn.pattern && !re(pn.pattern).test(k)) out.push([`${p}.${k}`, `Schlüssel passt nicht zu ${pn.pattern}`]);
       }
-      if (props && k in props) validate(v[k], props[k], `${p}.${k}`, out, root);
+      if ((k === '__proto__' || k === 'constructor' || k === 'prototype') && !(props && Object.prototype.hasOwnProperty.call(props, k))) out.push([`${p}.${k}`, `unbekanntes Feld '${k}'`]);
+      else if (props && Object.prototype.hasOwnProperty.call(props, k)) validate(v[k], props[k], `${p}.${k}`, out, root);
       else if (ap === false) out.push([`${p}.${k}`, `unbekanntes Feld '${k}'`]);
       else if (typeof ap === 'object' && ap !== null) validate(v[k], ap, `${p}.${k}`, out, root);
     }

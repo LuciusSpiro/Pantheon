@@ -50,10 +50,26 @@ function abenteuerId(v) {
   const o = Object.assign({}, v); delete o.id;
   return BAUPLAN.werte.id_praefix + require('crypto').createHash('sha1').update(kanonisch(o)).digest('hex').slice(0, BAUPLAN.werte.id_hash_laenge);
 }
+const BAUPLAN_PLAN_MAX = () => WERTE.abenteuer.plan_max_zeichen;
 const istAbenteuer = (id) => typeof id === 'string' && id.startsWith(BAUPLAN.werte.id_praefix);
+const PROTO_SCHLUESSEL = ['__proto__', 'constructor', 'prototype'];
+// der Plan kommt von aussen (Spielleiter, gespeicherter Stand): tief nach Prototyp-Schluesseln absuchen (Object.assign und Schemas wuerden sie verschlucken oder aus dem Prototyp lesen)
+function protoSchluessel(x, tiefe) {
+  if (!x || typeof x !== 'object') return false;
+  if (tiefe > 12) return true;
+  for (const k of Object.keys(x)) if (PROTO_SCHLUESSEL.includes(k) || protoSchluessel(x[k], tiefe + 1)) return true;
+  return false;
+}
 function registriereAbenteuer(v) {
   const P = require('./faden-pruefer.js');
   init();
+  // vor Hash und Pruefer: Prototyp-Schluessel (ABENTEUER_FORM) und Groesse (ABENTEUER_GROESSE)
+  if (istObjekt(v) && protoSchluessel(v, 0)) return { ok: false, fehler: ['ABENTEUER_FORM: der Plan enthaelt einen verbotenen Schluessel (__proto__, constructor, prototype)'], id: null };
+  if (istObjekt(v)) {
+    let zeichen = Infinity;
+    try { zeichen = JSON.stringify(v).length; } catch (e) { /* unbrauchbar: gilt als zu gross */ }
+    if (!(zeichen <= BAUPLAN_PLAN_MAX())) return { ok: false, fehler: ['ABENTEUER_GROESSE: der Plan ist groesser als ' + BAUPLAN_PLAN_MAX() + ' Zeichen'], id: null };
+  }
   if (!istObjekt(v) || v.id !== abenteuerId(v)) return { ok: false, fehler: ['ABENTEUER_ID: die Id ist nicht Praefix ' + BAUPLAN.werte.id_praefix + ' + Hash des Inhalts'], id: null };
   if (registry.has(v.id)) return { ok: false, fehler: ['ABENTEUER_ID: die Id gehoert einer Vorlage der Dateien'], id: null };
   if (abenteuer.has(v.id)) return { ok: true, fehler: [], id: v.id };   // derselbe Inhalt, schon geprueft (nur Zeitersparnis: ohne diese Zeile gaebe dieselbe Pruefung dasselbe Ergebnis)

@@ -198,6 +198,12 @@ ungueltig('Plan ohne beats', { format: 'faden-bauplan/1', titel: 'Ohne Beats' },
 ungueltig('Titel mit Platzhalter', plan([b('spontanhilfe'), b('abschluss')], { titel: 'Hilfe fuer {name}' }), 'BAUPLAN_TEXT');
 ungueltig('gescheiterter Weg fuehrt zu einem Beat, der keinen passenden Zustand zulaesst (Befreiung)', plan([b('spontanhilfe', { verzweigung: { gescheitert: 'bf' } }), b('notruf'), b('befreiung', { id: 'bf' }), b('abschluss')]), 'STATUS_PASST_NICHT');
 ungueltig('zu viele Typen im Erfolg (mehr als vier)', plan([b('spontanhilfe'), b('abschluss', { erfolg: ['spontanhilfe', 'spontanhilfe', 'spontanhilfe', 'spontanhilfe', 'spontanhilfe'] })]), 'FORM');
+// Prototyp-Schluessel (Nacharbeit): props[k] fand constructor/toString im Prototyp, __proto__ als eigener Schluessel (nur aus JSON.parse) wurde vom Hash ignoriert
+ungueltig('Prototyp-Schluessel constructor im Kopf des Plans', plan([b('spontanhilfe'), b('abschluss')], { constructor: 'x'.repeat(5000) }), 'FORM');
+ungueltig('Prototyp-Schluessel toString im Kopf des Plans', plan([b('spontanhilfe'), b('abschluss')], { toString: { a: 1 } }), 'FORM');
+ungueltig('Prototyp-Schluessel constructor an einem Beat', plan([b('spontanhilfe', { constructor: 5 }), b('abschluss')]), 'FORM');
+ungueltig('Prototyp-Schluessel __proto__ im Kopf des Plans (JSON)', JSON.parse('{"format":"faden-bauplan/1","titel":"Probe Abenteuer","__proto__":{"x":1},"beats":[{"typ":"spontanhilfe"},{"typ":"abschluss"}]}'), 'FORM');
+ungueltig('Prototyp-Schluessel prototype an einem Beat', plan([b('spontanhilfe', { prototype: 1 }), b('abschluss')]), 'FORM');
 
 section('(c) Mindestens 20 ungueltige Plaene werden mit dem richtigen Code abgelehnt (vom Expander selbst, nicht erst vom Pruefer)', () => {
   ok(UNGUELTIG.length >= 20, `${UNGUELTIG.length} ungueltige Plaene`);
@@ -374,11 +380,59 @@ section('(e) Speichern und Laden mitten im Abenteuer; ungueltiger gespeicherter 
     'Faden verweist auf eine Vorlage der Dateien, traegt aber einen Plan': [(l) => { l.vorlage = 'falscher_haendler'; }, true],
     'Plan mit fremder Id (kein Praefix)': [(l) => { l.plan.id = 'falscher_haendler'; l.vorlage = 'falscher_haendler'; }, true],
     'Muell in plan': (l) => { l.plan = { beats: 5 }; },
+    'Prototyp-Schluessel constructor mit 2 MB Text (Id neu berechnet)': (l) => { l.plan.constructor = 'x'.repeat(2e6); },
+    'Prototyp-Schluessel toString (Id neu berechnet)': (l) => { l.plan.toString = { a: 1 }; },
+    'Prototyp-Schluessel tief in einem Beat': (l) => { l.plan.beats[0].constructor = 5; },
+    'uebergrosser Plan (unbekanntes Feld mit 9000 Zeichen, Id neu berechnet)': (l) => { l.plan.zusatz = 'x'.repeat(9000); },
   };
   for (const [text, e] of Object.entries(FALLE)) {
     const k = Array.isArray(e) ? kaputt(e[0], e[1]) : kaputt(e);
     ok(!k.fehler && k.liste.length === 0 && k.gg.weltsim.faeden.ladeFehler.length >= 1 && k.gg.errors === 0, `ungueltiger Plan (${text}): der Faden faellt weg, kein Wurf, Meldung (${k.gg.weltsim.faeden.ladeFehler[0] || ''})`.slice(0, 190));
     const k2 = k.gg; for (let i = 0; i < 6; i++) { k2.lageGrenze('andocken'); } ok(k2.errors === 0, '    danach laeuft das Spiel ohne Fehler weiter');
+  }
+  // __proto__ als EIGENER Schluessel (nur aus JSON.parse): wird vor dem Hash abgelehnt, nicht erst von der Id-Bindung (Object.assign haette ihn zum Prototyp gemacht und der Hash ihn ignoriert)
+  {
+    const s = JSON.parse(JSON.stringify(sim)); const l0 = s.faeden.liste[0];
+    const text = JSON.stringify(l0.plan).replace(/^{/, '{"__proto__":{"a":1},');
+    l0.plan = JSON.parse(text);
+    ok(Object.keys(l0.plan).includes('__proto__') && l0.plan.id === l0.vorlage, 'Probe: der Plan traegt einen eigenen Schluessel __proto__ und die alte (passende) Id');
+    const reg = D.registriereAbenteuer(l0.plan);
+    ok(!reg.ok && /^ABENTEUER_FORM: /.test(reg.fehler[0]), '__proto__ im Plan: Ablehnung mit ABENTEUER_FORM VOR dem Hash (' + reg.fehler[0].slice(0, 40) + ')');
+    const gg = spiel(); let fehler = null; try { Kriegslage.restore(gg, s); } catch (e) { fehler = e; }
+    ok(!fehler && gg.weltsim.faeden.liste.length === 0 && gg.weltsim.faeden.ladeFehler.length >= 1 && gg.errors === 0, 'beim Laden faellt der Faden mit __proto__ im Plan ohne Fehler weg');
+  }
+  {
+    const v = JSON.parse(JSON.stringify(sim.faeden.liste[0].plan)); v.zusatz = 'x'.repeat(9000); v.id = D.abenteuerId(v);
+    const r = D.registriereAbenteuer(v);
+    ok(!r.ok && /^ABENTEUER_GROESSE: /.test(r.fehler[0]), 'zu grosser Plan: eigener Code ABENTEUER_GROESSE (' + r.fehler[0].slice(0, 40) + ')');
+    const echt = JSON.stringify(sim.faeden.liste[0].plan).length;
+    ok(echt <= D.WERTE.abenteuer.plan_max_zeichen / 2, 'ein echter Plan (' + echt + ' Zeichen) liegt weit unter der Grenze ' + D.WERTE.abenteuer.plan_max_zeichen);
+  }
+  {
+    const v = JSON.parse(JSON.stringify(sim.faeden.liste[0].plan)); let t = {}; v.zusatz = t; for (let i = 0; i < 50; i++) { t.x = {}; t = t.x; } v.id = D.abenteuerId(v);
+    const r = D.registriereAbenteuer(v);
+    ok(!r.ok && /^ABENTEUER_FORM: /.test(r.fehler[0]), 'ein Plan mit 50 Ebenen Tiefe wird abgelehnt (ABENTEUER_FORM), ohne Absturz');
+  }
+  {   // Map-Schema (additionalProperties als Schema): ein Prototyp-Schluessel ist auch dort kein Eintrag
+    const sch = { type: 'object', additionalProperties: { type: 'number' } };
+    ok(Weltstand.fallbackValidate({ a: 1 }, sch).length === 0 && Weltstand.fallbackValidate({ constructor: 5 }, sch).length === 1 && Weltstand.fallbackValidate(JSON.parse('{"__proto__":5}'), sch).length === 1, 'fallbackValidate: in einer Map gilt constructor/__proto__ nicht als Eintrag, normale Schluessel schon');
+  }
+  {   // der Checker (ENGINE, validiert alle Weltstaende) und der eigene Pruefer verhalten sich gleich
+    const C = require('../server/mission/checker.js');
+    const sch = { type: 'object', additionalProperties: false, properties: { a: { type: 'number' } } };
+    ok(C.validate({ a: 1 }, sch).length === 0 && C.validate({ constructor: 5 }, sch).length === 1 && C.validate({ toString: 5 }, sch).length === 1 && C.validate(JSON.parse('{"__proto__":5}'), sch).length === 1, 'Checker.validate: constructor, toString und __proto__ sind unbekannte Felder, a bleibt gueltig');
+    const map = { type: 'object', additionalProperties: { type: 'number' } };
+    ok(C.validate({ k: 1 }, map).length === 0 && C.validate({ constructor: 5 }, map).length === 1 && C.validate(JSON.parse('{"__proto__":5}'), map).length === 1, 'Checker.validate: in einer Map gilt constructor/__proto__ nicht als Eintrag');
+    const pf = { type: 'object', required: ['toString'] };
+    ok(Weltstand.fallbackValidate({}, pf).length === 1 && Weltstand.fallbackValidate({ toString: 1 }, pf).length === 0, 'fallbackValidate: ein Pflichtfeld toString fehlt, auch wenn der Prototyp eines hat');
+  }
+  // Weltstand-Schema: Prototyp-Schluessel an einem Faden sind unbekannte Felder (beide Pruefer, der des Checkers und der eigene)
+  {
+    const d2 = JSON.parse(JSON.stringify(data)); d2.welt.sim.faeden.liste[0].constructor = 5;
+    ok(Weltstand.validate(d2, g).length > 0, 'Weltstand.validate lehnt constructor an einem Faden ab');
+    ok(Weltstand.fallbackValidate(d2, Weltstand.schema()).some((t) => /unbekanntes Feld constructor/.test(t)), 'fallbackValidate lehnt constructor an einem Faden ab');
+    const d3 = JSON.parse(JSON.stringify(data)); d3.welt.sim.faeden.liste[0].nsc = JSON.parse(JSON.stringify(d3.welt.sim.faeden.liste[0].nsc).replace(/^{/, '{"__proto__":{"a":1},'));
+    ok(Weltstand.fallbackValidate(d3, Weltstand.schema()).some((t) => /unbekanntes Feld __proto__/.test(t)) && Weltstand.validate(d3, g).length > 0, 'ein eigener Schluessel __proto__ im Stand wird von beiden Pruefern abgelehnt');
   }
   const ohnePlan = kaputt((l) => { delete l.plan; }, true);
   ok(ohnePlan.liste.length === 0 && !ohnePlan.fehler, 'ein Faden mit der Id eines Abenteuers, aber ohne Plan, faellt weg (der Plan ginge sonst beim Speichern verloren)');

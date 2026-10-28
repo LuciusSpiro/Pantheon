@@ -25,6 +25,7 @@ fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'))
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
 const BP = 'server/sim/faden-bauplan.js', PR = 'server/sim/faden-pruefer.js', FA = 'server/sim/faden.js', DD = 'server/sim/faden-daten.js',
+  WS = 'server/weltstand.js', CK = 'server/mission/checker.js',
   DB = 'content/faeden/beats.json', DW = 'content/faeden/werte.json', DP = 'content/faeden/bauplan.json', SC = 'content/schema/faden-bauplan.schema.json', SV = 'content/schema/faden-vorlage.schema.json', SW = 'content/schema/weltstand.schema.json';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
@@ -153,6 +154,19 @@ const MUTATIONEN = [
   [FA, "} else if (D.istAbenteuer(x.vorlage)) return { fehler:", "} else if (false) return { fehler:", 'Laden: Abenteuer ohne Plan wird gespielt'],
   [FA, "if (r.faden.plan && r.faden.phase !== 'abgeschlossen' && P.abenteuerLaufend(F) >= W.abenteuer.laufend_max) {", "if (false) {", 'Laden: mehr als ein laufendes Abenteuer im Stand'],
   [FA, "plan = klon(D.vorlage(x.vorlage));", "plan = null;", 'Laden: der Plan geht beim Laden verloren'],
+  // ---- Prototyp-Schluessel und Groesse (Nacharbeit)
+  [WS, "else if (Object.prototype.hasOwnProperty.call(props, k)) fallbackValidate(", "else if (props[k]) fallbackValidate(", 'Weltstand-Pruefer: props[k] findet Felder im Prototyp (constructor, toString)'],
+  [WS, "if (PROTO_SCHLUESSEL.includes(k) && !Object.prototype.hasOwnProperty.call(props, k)) out.push(", "if (false) out.push(", 'Weltstand-Pruefer: Prototyp-Schluessel in einer Map erlaubt'],
+  [WS, "if (!Object.prototype.hasOwnProperty.call(v, k)) out.push(`${p}: Pflichtfeld", "if (!(k in v)) out.push(`${p}: Pflichtfeld", 'Weltstand-Pruefer: Pflichtfeld aus dem Prototyp'],
+  [CK, "else if (props && Object.prototype.hasOwnProperty.call(props, k)) validate(", "else if (props && k in props) validate(", 'Checker: k in props findet Felder im Prototyp'],
+  [CK, "if ((k === '__proto__' || k === 'constructor' || k === 'prototype') && !(props && Object.prototype.hasOwnProperty.call(props, k))) out.push(", "if (false) out.push(", 'Checker: Prototyp-Schluessel in einer Map erlaubt'],
+  [DD, "if (istObjekt(v) && protoSchluessel(v, 0)) return", "if (false) return", 'Register: Prototyp-Schluessel im Plan nicht vor dem Hash abgelehnt'],
+  [DD, "for (const k of Object.keys(x)) if (PROTO_SCHLUESSEL.includes(k) || protoSchluessel(x[k], tiefe + 1)) return true;", "for (const k of Object.keys(x)) if (PROTO_SCHLUESSEL.includes(k)) return true;", 'Register: Prototyp-Schluessel nur auf der obersten Ebene gesucht'],
+  [DD, "if (tiefe > 12) return true;", "if (tiefe > 1e9) return true;", 'Register: beliebig tief verschachtelter Plan'],
+  [DD, "if (!(zeichen <= BAUPLAN_PLAN_MAX())) return", "if (false) return", 'Register: keine Groessengrenze fuer einen Plan'],
+  [DD, "WERTE.abenteuer.plan_max_zeichen;", "WERTE.abenteuer.plan_max_zeichen * 100;", 'Register: Groessengrenze 100-fach'],
+  [DD, "try { zeichen = JSON.stringify(v).length; } catch (e) { /* unbrauchbar: gilt als zu gross */ }", "zeichen = 0;", 'Register: Groesse wird nicht gemessen'],
+  [DW, '"plan_max_zeichen": 8000,', '"plan_max_zeichen": 800,', 'Daten: Groessengrenze eines Plans 800 (zu knapp fuer echte Plaene)'],
   // ---- Daten
   [DW, '"abenteuer": {"wert": {"laufend_max": 1,', '"abenteuer": {"wert": {"laufend_max": 2,', 'Daten: zwei laufende Abenteuer erlaubt'],
   [DW, '"angebote_max": 3,', '"angebote_max": 4,', 'Daten: vier Abenteuer-Angebote erlaubt'],

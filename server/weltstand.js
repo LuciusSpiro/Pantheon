@@ -153,6 +153,7 @@ function typeOk(v, t) {
     default: return true;
   }
 }
+const PROTO_SCHLUESSEL = ['__proto__', 'constructor', 'prototype'];
 function fallbackValidate(v, s, p, out) {
   p = p || '$'; out = out || [];
   if (!s || typeof s !== 'object' || out.length > 20) return out;
@@ -174,10 +175,12 @@ function fallbackValidate(v, s, p, out) {
     if (s.items) v.forEach((x, i) => fallbackValidate(x, s.items, `${p}[${i}]`, out));
   }
   if (typeOk(v, 'object')) {
-    for (const k of s.required || []) if (!(k in v)) out.push(`${p}: Pflichtfeld ${k} fehlt`);
+    for (const k of s.required || []) if (!Object.prototype.hasOwnProperty.call(v, k)) out.push(`${p}: Pflichtfeld ${k} fehlt`);
     const props = s.properties || {};
+    // SUND-04b A1 Nacharbeit: nur EIGENE Schluessel des Schemas gelten als bekannt (props[k] fand constructor, toString ... im Prototyp); __proto__, constructor und prototype sind nie ein Feld
     for (const [k, x] of Object.entries(v)) {
-      if (props[k]) fallbackValidate(x, props[k], `${p}.${k}`, out);
+      if (PROTO_SCHLUESSEL.includes(k) && !Object.prototype.hasOwnProperty.call(props, k)) out.push(`${p}: unbekanntes Feld ${k}`);
+      else if (Object.prototype.hasOwnProperty.call(props, k)) fallbackValidate(x, props[k], `${p}.${k}`, out);
       else if (s.additionalProperties === false) out.push(`${p}: unbekanntes Feld ${k}`);
       else if (s.additionalProperties && typeof s.additionalProperties === 'object') fallbackValidate(x, s.additionalProperties, `${p}.${k}`, out);
     }
