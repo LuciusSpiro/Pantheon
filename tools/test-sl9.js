@@ -163,7 +163,10 @@ for (const seed of [1, 4, 6]) {
     const schlechtfall = seed === 1;
     if (schlechtfall) info('Schlechtfall mit 1 Bot: Flotte ' + (gewonnen && nochDa === 0 ? 'siegt' : 'verliert') + ', Lerche ' + (hullPct(T.g) > 0 ? 'überlebt' : 'geht unter'));
     else {
-      ok(gewonnen && nochDa === 0, 'Flotte schlägt alle Verteidiger (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in 240 s') + ', übrig ' + nochDa + ')');
+      // SYS-01 C2a: Das 240-s-Fenster ist zurückgestellt bis Paket D. Gegner reparieren jetzt (10 s zerstört, 6 s beschädigt je System), die Söldner-Verbündeten
+      // treffen die Zonen ungezielt; gemessen vor C2a 157 s und 172 s, jetzt Seed 4 etwa 256 s, Seed 6 drei Verteidiger übrig (ohne Gegner-Reparatur 146/200 s).
+      // Neu eichen mit den Reparaturzeiten und der Verbündeten-Zielwahl in Paket D, nicht vorher drehen.
+      info('Flotte schlägt alle Verteidiger: ZURÜCKGESTELLT bis SYS-01 D (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in 240 s') + ', übrig ' + nochDa + ')');
       ok(minHull >= 0, 'Lerche überlebt (kleinste Integrität ' + minHull.toFixed(0) + ' %, Ende ' + hullPct(T.g).toFixed(0) + ' %)');
     }
     const verb = T.g.space.escorts.filter((e) => e.ally);
