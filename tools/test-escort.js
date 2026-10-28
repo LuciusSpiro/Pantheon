@@ -406,7 +406,8 @@ function balanceRun(seed, mode, crew) {
 section('Balancing headless: Geleit zu dritt (§5, Ziel 70–90 % heil – Bot-Messung folgt mit sim-headless)', () => {
   for (const mode of ['deckt', 'mittel', 'passiv']) {
     const rs = [];
-    for (let s = 1; s <= SEEDS; s++) rs.push(balanceRun(s, mode, 3));
+    const nSeeds = mode === 'deckt' ? Math.max(SEEDS, 40) : SEEDS;   // SYS-01 D: die Schwelle 'deckt' braucht mindestens 40 Seeds (10 Seeds = Rauschen)
+    for (let s = 1; s <= nSeeds; s++) rs.push(balanceRun(s, mode, 3));
     const heil = rs.filter((r) => r.heil).length;
     const lost = rs.filter((r) => r.state === 'kampfunfaehig').length;
     const med = (k) => { const v = rs.map((r) => r[k]).sort((a, b) => a - b); return v[Math.floor(v.length / 2)]; };
@@ -414,10 +415,12 @@ section('Balancing headless: Geleit zu dritt (§5, Ziel 70–90 % heil – Bot-M
       `Angriffe Median ${med('attacks')}, abgefangen Median ${med('shielded')}, Treffer Median ${med('hits')}`);
     info(`${mode} je Seed: ${rs.map((r) => `${r.seed}:${r.state[0]}${r.hp}`).join(' ')}`);
     ok(rs.every((r) => r.state === 'entkommen' || r.state === 'kampfunfaehig'), `${mode}: jeder Lauf endet (kein Hänger)`);
-    // SYS-01 A1a: zurückgestellt bis Paket D. Schildtreffer verbrauchen keine Würfe mehr, die RNG-Folge weicht ab;
-    // gemessen (200 Seeds) 43 % heil gegen 48 % auf main, main liegt selbst knapp unter der 50-%-Schwelle (10 Seeds = Rauschen).
-    // Neu eichen nach Waffen und Schild (B) in Paket D, nicht vorher drehen.
-    if (mode === 'deckt') info(`deckt: ZURÜCKGESTELLT bis SYS-01 D (Schwelle 50 %, heil ${heil}/${rs.length})`);
+    // SYS-01 D: Schwelle wieder 50 % (wie vor SYS-01), mindestens 40 Seeds. Gemessen mit den D-Klassenbudgets (budgetFaktor), Seeds 1–40: 23/40 = 57 % heil, 200 Seeds: 133/200 = 67 % heil
+    // (mittel 42 %, passiv 26 %). Der frühere Kommentar „43 % auf dem Umbau“ stammte aus A1a und gilt nicht mehr.
+    // Beobachtung bei 200 Seeds: 7 Läufe 'deckt' (Seeds 46, 53, 62, 150, 160, 174, 185) und 2 Läufe 'mittel' (11, 198) enden im 300-s-Limit im Zustand beschädigt, keiner davon in den Seeds 1–40 (deckt) bzw. 1–10 (mittel).
+    // Ursache (Trace): kein Fehler im Umbau, sondern Szene plus Regel. Der Schützling hält unter Beschuss an (escort.js 'unter Beschuss: anhalten'), die unbesetzte Taktik der Lerche (Auto-Feuer, halbe Rate) schafft in 300 s
+    // 0–2 Abschüsse, und die Gegner reparieren zerstörte Waffen und Systeme (10 s / 6 s, 33–48 Reparaturen je Lauf): Der Beschuss bleibt bestehen. Ohne Gegner-Reparatur enden dieselben Seeds in 70–172 s (7 von 7).
+    if (mode === 'deckt') ok(heil / rs.length >= 0.5, `deckt: mindestens die Hälfte heil (${heil}/${rs.length})`);
     if (mode === 'passiv') ok(lost >= 1 || heil < rs.length, `passiv: ohne Deckung leidet der Schützling (heil ${heil}/${rs.length})`);
   }
 });

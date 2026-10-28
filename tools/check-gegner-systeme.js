@@ -17,6 +17,7 @@ function pruefe(doc) {
   const out = fallbackValidate(doc, SCHEMA);
   for (const [kind, k] of Object.entries((doc && doc.klassen) || {})) {
     const ids = new Set();
+    if (k && typeof k.budgetFaktor === 'number' && !(k.budgetFaktor > 0)) out.push(`$.klassen.${kind}: budgetFaktor muss größer als 0 sein`);   // SYS-01 D
     for (const s of (k && k.systeme) || []) {
       if (typeof s.gewicht === 'number' && !(s.gewicht > 0)) out.push(`$.klassen.${kind}.${s.id}: gewicht muss größer als 0 sein`);
       if (ids.has(s.id)) out.push(`$.klassen.${kind}: Id doppelt ${s.id}`);
@@ -43,6 +44,8 @@ if (process.argv.includes('--selftest')) {
     ['Id doppelt', (d) => { d.klassen.raider.systeme[1].id = d.klassen.raider.systeme[0].id; }],
     ['Modul unbekannt', (d) => { d.klassen.korvette.systeme.find((s) => s.art === 'modul').modul = 'bar'; }],
     ['Format falsch', (d) => { d.format = 'gegner-systeme/2'; }],
+    ['budgetFaktor 0', (d) => { d.klassen.raider.budgetFaktor = 0; }],
+    ['budgetFaktor kein Zahlwert', (d) => { d.klassen.raider.budgetFaktor = 'viel'; }],
   ];
   for (const [name, mut] of faelle) {
     const d = kopie(); mut(d);

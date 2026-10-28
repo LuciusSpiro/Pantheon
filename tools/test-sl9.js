@@ -156,17 +156,18 @@ for (const seed of [1, 4, 6]) {
     ok(start === 5 && T.g.space.escorts.filter((e) => e.ally).length === 2, '5 Verteidiger gegen 2 Söldnerschiffe');
     const hullPct = (g) => require('../server/sim/interior.js').integritaetSnapshot(g).gesamt;   // SYS-01 A1a: Integrität in %
     let minHull = hullPct(T.g), tEnde = null;
-    const gewonnen = T.run(240, (t) => { minHull = Math.min(minHull, hullPct(T.g)); if (T.step() === 'lager') { tEnde = t; return true; } return false; });
+    const gewonnen = T.run(360, (t) => { minHull = Math.min(minHull, hullPct(T.g)); if (T.step() === 'lager') { tEnde = t; return true; } return false; });
     const nochDa = T.g.space.enemies.filter((e) => e.tag === 'verteidiger').length;
     // Seit „nur EIN Bot als Standard“ (Kai) geht die passive Lerche in Seed 1 unter (vorher 22 % Hülle mit 2 Bots, Seed 4 knapp 2 %):
     // Seed 1 bleibt als Beobachtung stehen (info), die Zusagen gelten für Seeds 4 und 6. Aktive Crew: sim-sund --kapitel k9b_soeldner.
     const schlechtfall = seed === 1;
     if (schlechtfall) info('Schlechtfall mit 1 Bot: Flotte ' + (gewonnen && nochDa === 0 ? 'siegt' : 'verliert') + ', Lerche ' + (hullPct(T.g) > 0 ? 'überlebt' : 'geht unter'));
     else {
-      // SYS-01 C2a: Das 240-s-Fenster ist zurückgestellt bis Paket D. Gegner reparieren jetzt (10 s zerstört, 6 s beschädigt je System), die Söldner-Verbündeten
-      // treffen die Zonen ungezielt; gemessen vor C2a 157 s und 172 s, jetzt Seed 4 etwa 256 s, Seed 6 drei Verteidiger übrig (ohne Gegner-Reparatur 146/200 s).
-      // Neu eichen mit den Reparaturzeiten und der Verbündeten-Zielwahl in Paket D, nicht vorher drehen.
-      info('Flotte schlägt alle Verteidiger: ZURÜCKGESTELLT bis SYS-01 D (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in 240 s') + ', übrig ' + nochDa + ')');
+      // SYS-01 D: Fenster neu geeicht (vorher 240 s, Basis vor dem Umbau Seed 4: 157 s, Seed 6: 172 s). Gegner reparieren jetzt (10 s zerstört, 6 s beschädigt je System),
+      // die Söldner-Verbündeten treffen die Zonen ungezielt. Gemessen (tools/test-sl9.js-Aufbau, Seeds 2–22 ohne den Schlechtfall-Seed 1, 21 Läufe, nach der D-Kalibrierung der
+      // Klassenbudgets): Sieg nach Median 240 s (min 163, max 393), Seed 4 192 s, Seed 6 232 s, jeder Lauf mit allen Verteidigern erledigt. Fenster = Median + 50 % = 360 s;
+      // 2 von 21 Seeds (16, 17: 387/393 s) liegen darüber, die Seeds 4 und 6 mit Marge darunter.
+      ok(gewonnen && nochDa === 0, 'Flotte schlägt alle Verteidiger (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in 360 s') + ', übrig ' + nochDa + ')');
       ok(minHull >= 0, 'Lerche überlebt (kleinste Integrität ' + minHull.toFixed(0) + ' %, Ende ' + hullPct(T.g).toFixed(0) + ' %)');
     }
     const verb = T.g.space.escorts.filter((e) => e.ally);

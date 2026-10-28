@@ -1,6 +1,6 @@
 {
   "format": "gegner-systeme/1",
-  "_hinweis": "SYS-01 C1a-1 „Das Schiff in Zonen“: Systemmodell der Gegner (server/sim/gegnersystem.js), gleicher Aufbau wie die Lerche. Jede Klasse hat die fünf Zonen (bug, stb, heck, bb = die Seiten, mitte = innen). Zonen-Zuordnung der Schildseiten wie shared/schilde.js (Bug 0, Steuerbord 1, Heck 2, Backbord 3). Ein System: id, zone, art, gewicht (Anteil am Klassenbudget = Gegnerhülle, gewicht / Summe × hpMax), platz (Waffenplatz aus enemyWeapons, bei Klassen ohne Plätze fehlt er), modul (Modul-Id aus MODULE_JE_KLASSE). Jede Waffe in enemyWeapons hat genau ein System (Zone: bug/bug2 → bug, stbd*/stbd1.. → stb, bb* → bb). Arten: waffe (zerstört = schießt nicht, beschädigt = Feuerintervall der Waffenart × taktBeschaedigt), emitter (Seite: beschädigt = Schild-Obergrenze halbiert, zerstört = Schild 0), schildgenerator (zerstört = alle Schilde 0 und keine Regeneration, beschädigt = Regeneration langsamer), antrieb (nur Zustand, Wirkung in C1b), reaktor (zerstört = der Gegner stirbt), modul (nur Zustand, Wirkung in C1a-2/C2). Vereinfacht (Wächter, Pylon, Frachter): 1–2 Systeme je Zone, kein Frachtraum-Modul beim Frachter. Relais (relay) hat kein Modell und fehlt hier absichtlich. Gewichte stehen hier; die Wirkungswerte (taktBeschaedigt, regenGeneratorBeschaedigt, emitterBeschaedigt) stehen in shared/config.js unter systemModell.gegner, live per `tune systemModell.gegner.<pfad>`. Keine Zahl im Code.",
+  "_hinweis": "SYS-01 C1a-1 „Das Schiff in Zonen“: Systemmodell der Gegner (server/sim/gegnersystem.js), gleicher Aufbau wie die Lerche. Jede Klasse hat die fünf Zonen (bug, stb, heck, bb = die Seiten, mitte = innen). Zonen-Zuordnung der Schildseiten wie shared/schilde.js (Bug 0, Steuerbord 1, Heck 2, Backbord 3). Ein System: id, zone, art, gewicht (Anteil am Klassenbudget = Gegnerhülle, gewicht / Summe × hpMax), platz (Waffenplatz aus enemyWeapons, bei Klassen ohne Plätze fehlt er), modul (Modul-Id aus MODULE_JE_KLASSE). Jede Waffe in enemyWeapons hat genau ein System (Zone: bug/bug2 → bug, stbd*/stbd1.. → stb, bb* → bb). Arten: waffe (zerstört = schießt nicht, beschädigt = Feuerintervall der Waffenart × taktBeschaedigt), emitter (Seite: beschädigt = Schild-Obergrenze halbiert, zerstört = Schild 0), schildgenerator (zerstört = alle Schilde 0 und keine Regeneration, beschädigt = Regeneration langsamer), antrieb (nur Zustand, Wirkung in C1b), reaktor (zerstört = der Gegner stirbt), modul (nur Zustand, Wirkung in C1a-2/C2). Vereinfacht (Wächter, Pylon, Frachter): 1–2 Systeme je Zone, kein Frachtraum-Modul beim Frachter. Relais (relay) hat kein Modell und fehlt hier absichtlich. Gewichte stehen hier; die Wirkungswerte (taktBeschaedigt, regenGeneratorBeschaedigt, emitterBeschaedigt) stehen in shared/config.js unter systemModell.gegner, live per `tune systemModell.gegner.<pfad>`. Keine Zahl im Code. SYS-01 D: Feld budgetFaktor je Klasse (Standard 1) = Klassenfaktor auf das Klassenbudget: Budget = enemies.<klasse>.hp × crewScaling.gegnerIntegritaet × budgetFaktor (Jäger 0,3, Korvette 1,2, Kreuzer 0,8, Fregatte 1; Messung Abnahme 13, Spawn → Reaktor zerstört, siehe tools/sys01-lauf.js). Unter etwa 0,3 (Jäger) bringt ein kleineres Budget nichts mehr: jedes System fällt dann mit einem Treffer, die Zeit hängt an der Trefferzahl.",
   "zonen": ["bug", "stb", "heck", "bb", "mitte"],
   "arten": ["waffe", "antrieb", "emitter", "schildgenerator", "reaktor", "modul"],
   "reparatur": {
@@ -10,6 +10,7 @@
   "klassen": {
     "raider": {
       "name": "Jäger",
+      "budgetFaktor": 0.3,
       "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
@@ -23,6 +24,7 @@
     },
     "korvette": {
       "name": "Korvette",
+      "budgetFaktor": 1.2,
       "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug", "kurz": "WBg", "funktion": "weapon" },
@@ -59,6 +61,7 @@
     },
     "kreuzer": {
       "name": "Kreuzer",
+      "budgetFaktor": 0.8,
       "repariert": true,
       "systeme": [
         { "id": "waffe_bug", "zone": "bug", "art": "waffe", "platz": "bug", "gewicht": 2, "name": "Waffe Bug 1", "kurz": "WBg1", "funktion": "weapon" },

@@ -1007,8 +1007,8 @@ function spawnEnemy(game, kind, opts) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   const o = opts || {};
   const cfg = C.enemies[kind];
-  // SYS-01 C2a: Klassenbudget = Hülle × crewScaling.gegnerIntegritaet (nicht beim Störrelais)
-  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).gegnerIntegritaet)));
+  // SYS-01 C2a: Klassenbudget = Hülle × crewScaling.gegnerIntegritaet × Klassenfaktor budgetFaktor (SYS-01 D, Daten gegner-systeme.json; nicht beim Störrelais)
+  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).gegnerIntegritaet * Gsys.budgetFaktor(kind))));
   const a = o.angle != null ? o.angle : game.rng.range(-Math.PI, Math.PI);
   let x = o.x != null ? o.x : ship.x + Math.cos(a) * C.combat.spawnDist;
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;

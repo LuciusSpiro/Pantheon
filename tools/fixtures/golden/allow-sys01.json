@@ -1,0 +1,27 @@
+{
+  "_kommentar": "SYS-01 Paket D (Das Schiff in Zonen), Allow-Datei fuer Vergleiche der neuen Basis base-sys01 GEGEN base-pan01c3 (PAN-01-Stand, Maßstab laut Steckbrief ist ein frischer Lauf von main; main und base-pan01c3 haben gleiche Gefechtsregeln): node tools/golden-trace.js --compare tools/fixtures/golden/base-pan01c3 tools/fixtures/golden/base-sys01 --allow tools/fixtures/golden/allow-sys01.json. base-sys01 entstand mit --softlock 1200 (siehe unten). Nur 40 von 120 Traces sind byte-identisch (m3 vollstaendig; m1 und m2 weichen ab), weil jedes Gefecht jetzt nach dem Zonenmodell laeuft (Schild haelt sicher, Systemschaden statt Huelle, Gegner-Reparatur 10 s / 6 s, Gegner sterben ueber den Reaktor-Countdown 20 s, Klassenbudgets budgetFaktor), danach anderer Zufall. Begruendete Abweichungen: (1) stages m1/* und m2/*: Schrittzeiten verschieben sich um die laengere Kampfdauer (Reaktor-Countdown mindestens 20 s je Gegner, Reparatur, Pylon-Frontschild 4 gegen Schild-haelt-sicher), die Schrittfolge selbst ist gleich. (2) texts: das Notfallprotokoll (Hülle 0 -> 30, 50 Marken) gibt es nicht mehr, der Reaktor-Countdown ersetzt es (Regel von SYS-01 A2, daher fehlt der Text 36 mal); Schadens-, Brand-, Reparatur-, Notstrom- und Warnmeldungen der Lerche (die Systemzustaende treffen andere Systeme zu anderen Zeiten, der alte Hueldenstand 'Huelle unter 40 %' entfaellt, 'Korvette/Waechter/Pylon laedt' haengt an der Gefechtsdauer) sowie Erzaehltexte, die in der Basis fehlen, weil dort der Lauf bei m1/return, m2/ambush oder m2/parley haengen blieb (Bot-Schwaeche der Basis: Basis 15/20 m1 und 13/20 m2 zu dritt; base-sys01 schliesst 120 von 120 Laeufen ab). (3) inventory marks, ersatzteil, flickblech, deko: Reparaturen verbrauchen anderes Material, Gegner lassen Beute zu anderen Zeiten fallen, 'trophaee_boje' und die Marken kommen aus Stationen der Kette, die die Basis wegen des Haengers nie erreichte. (4) flags vaelenHelped, selaCalled, m3Direct: erst gesetzt/gelesen, wenn der Lauf den Schritt erreicht (Basis blieb davor haengen). (5) duration m2/1 und m2/3: Median +33 % und +19 % (Grenze 15 %), nur berichtet: die Stufe m2/relay (drei plus zwei Pylonen und ein Waechter, Pylon-Frontschild 4) dauert solo im Median 383 s statt 267 s, zu dritt 204 s statt 94 s; jeder Gegner stirbt erst nach dem Countdown von mindestens 20 s. Mit dem Standard-Softlock von 420 s je Stufe bleiben solo 9 von 20 Laeufen bei m2/relay stehen (kein Haenger: alle 9 enden mit --softlock 1200 nach 735 bis 867 s). Regeländerung/Entscheidung steht im Bericht von SYS-01 D.",
+  "stages": [
+    "m1/*",
+    "m2/*"
+  ],
+  "texts": [
+    "(beschädigt|zerstört|Notstrom|Notstart|notrepariert|Ersatzteil|Löscher|gelöscht|Feuer an Bord|Kabelbaum|Schildsektor leer|unter 40 %|lädt – |EMP-Treffer|Schildkuppel|Treffer im Sektor|Reparatur|Schrauber|Modul in Raum|Reaktor|Liegengeblieben|Brocken|Überladung|Hilfsbatterie|Unbesetzte Ops|Integrität|Notfallprotokoll|Dauerbrand|Schalter A|Frachtraum|k.o.)",
+    "^(Hafenmeisterin Tesk|Techniker Ivo|Sela|Grauzahn|Kustoden-Relais|Weitscan|Zuhause|Ops: W|Das Echo|Jetzt das Echo|Terminal: Marken|Ops unbesetzt|Gerücht notiert|Angedockt|Ein Notruf|Eine Kustoden-Leitbake|Die Leitbake|Bluff durchschaut|Pylon|Scan: |Prüfung bestanden|Kurs |Wächter erwacht|Das Relais|Das Kustoden-Relais|Planungstisch|Im Nebel|Hinterhalt|Graue Weite|Faltsprung|Vaelen-Karawane|Captain: Sela|Ich habe das Echo|Treffer auf den Frontschild|Dein Quartier)",
+    "(Pylon|Wächter erwacht|Vaelen-Karawane|Graue Weite|Relais|Planungstisch)"
+  ],
+  "flags": [
+    "vaelenHelped",
+    "selaCalled",
+    "m3Direct"
+  ],
+  "inventory": [
+    "marks",
+    "ersatzteil",
+    "flickblech",
+    "deko"
+  ],
+  "duration": [
+    "m2/1",
+    "m2/3"
+  ]
+}

@@ -1097,7 +1097,7 @@ section('Flugmodell (§6, M3b §2)', () => {
   // Gegner-HP × 0,8
   const e = S.spawnEnemy(g, 'korvette', {});
   const r = S.spawnEnemy(g, 'relay', {});
-  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.korvette.hp * CONFIG.crewScaling[1].gegnerIntegritaet)) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-Integrität = Hülle × crewScaling.gegnerIntegritaet (Korvette solo ${e.hpMax}), Relais unverändert`);
+  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.korvette.hp * CONFIG.crewScaling[1].gegnerIntegritaet * require('../server/sim/gegnersystem.js').budgetFaktor('korvette'))) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-Integrität = Hülle × crewScaling.gegnerIntegritaet × budgetFaktor (Korvette solo ${e.hpMax}), Relais unverändert`);
 });
 
 // ======================================================================
