@@ -47,11 +47,13 @@ function katalogText() {
     const opt = c.optionen === 'erlaubt' ? (bp.optionen_pflicht ? 'Optionen Pflicht ("optionen": true)' : 'Optionen erlaubt ("optionen": true)') : 'keine Optionen';
     const st = (ag) => (bp.aus && bp.aus[ag] && bp.aus[ag].status ? liste(bp.aus[ag].status) : 'unveraendert');
     const nach = c.abschluss ? 'beendet den Faden' : `NSC danach: gelungen ${st('gelungen')}, gescheitert ${st('gescheitert')}`;
-    const braucht = [br.nsc_status ? `braucht den NSC im Zustand ${liste(br.nsc_status)}` : null, br.wahrheit ? 'braucht eine Wahrheit' : null, br.hinweis_vorher ? 'braucht vorher einen Beat mit Hinweis-Traeger auf jedem Weg' : null, br.letzter ? 'nur als letzter Beat' : null].filter(Boolean);
+    const braucht = [br.nsc_status ? `braucht den NSC im Zustand ${liste(br.nsc_status)}` : null, br.wahrheit ? 'braucht eine Wahrheit' : null, br.hinweis_vorher ? 'braucht vorher einen Beat mit Hinweis-Traeger auf jedem Weg' : null, br.letzter ? 'nur als letzter Beat' : null, br.lage ? `braucht die Lage ${br.lage} (Kontext faeden.lage.${br.lage} groesser 0)` : null].filter(Boolean);
     L.push(`- ${typ}${flags.length ? ' [' + flags.join(', ') + ']' : ''}: ${c.zweck} ${opt}. Parameter: ${parameterText(bp)}. ${bp.hinweis_traeger ? 'Hinweis-Traeger. ' : ''}${braucht.length ? braucht.join('; ') + '. ' : ''}Start-Zustand ${bp.start_status}. ${nach}.`);
   }
   L.push(`Wahrheiten (nur mit einem Beat, der eine Wahrheit braucht): ${Object.entries(BP.wahrheiten).map(([k, w]) => `${k} (${w.fraktion ? 'der NSC ist in Wahrheit ' + w.fraktion : 'verborgen'})`).join('; ')}. Ohne Angabe gilt ${BW.wahrheit_standard}. Die Hinweise streut der Code an alle Hinweis-Traeger vor der Enthuellung.`);
   if (Object.values(B).some((c) => c.braucht && c.braucht.nsc_alt === true)) L.push(`Kontext faeden.wiedersehen_nsc: Zahl je Volk (${liste(W.voelker)}) der NSC aus abgeschlossenen Faeden, die fuer einen Beat mit NSC aus einem frueheren Faden taugen (nur Zahlen, keine Namen). Ein solcher Beat steht nur am Anfang und nur, wenn die Zahl in mindestens einem Volk deines volk_erlaubt (Standard ${BW.volk_erlaubt_standard.join(' | ')}) groesser 0 ist; sonst kein Angebot. Setzt du volk_erlaubt, nimm ein Volk mit einer Zahl groesser 0.`);
+  const lagen = Array.from(new Set(Object.values(B).map((c) => c.braucht && c.braucht.lage).filter(Boolean)));
+  if (lagen.length) L.push(`Kontext faeden.lage: Zahl je Lage (${lagen.join(' | ')}), nur Zahlen, keine Namen. Ein Beat, der eine Lage braucht, steht nur im Plan, wenn seine Zahl groesser 0 ist (sonst lehnt der Pruefer den Plan ab); sie haengt von der Welt ab und aendert sich, die Zahl im Kontext gilt jetzt.`);
   L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen.`);
   katalogCache = L.join('\n');
   return katalogCache;
@@ -75,7 +77,10 @@ function fadenKontext(game) {
   }
   // SUND-04b B1: wie viele NSC aus abgeschlossenen Faeden fuer ein Wiedersehen taugen, JE VOLK (nur Zahlen, nie ein Name): ein Plan mit Wiedersehen braucht einen in einem Volk seines volk_erlaubt, sonst gibt es kein Angebot
   const wiedersehen = require('./faden-pruefer.js').wiedersehenZahlen(F);
-  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen };
+  // SUND-04b B2: Lagen-Bedingungen der Beats (Sabotage: wie viele Ziele stehen, 0 in der Pause): nur Zahlen
+  const lage = {};
+  for (const c of Object.values(B)) { const k = c.braucht && c.braucht.lage; const l = typeof k === 'string' ? require('./faden-b2.js').lage(k) : null; if (l) lage[k] = l.zahl(game); }
+  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen, lage };
 }
 // Der verdichtete Kontext: nur was der Ausschnitt der Lage schon gefiltert liefert (Chronik ohne Namen, Crew ohne Namen) und der Faden-Zustand ohne NSC-Namen.
 function kontextVon(game, werte, letzte, stufe) {

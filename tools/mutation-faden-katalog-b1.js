@@ -99,7 +99,7 @@ const MUTATIONEN = [
   [BS, "registriere('spur', B1.spur);", "", 'Bausteine: spur bleibt Platzhalter'],
   [BS, "registriere('wiedersehen', B1.wiedersehen);", "", 'Bausteine: wiedersehen bleibt Platzhalter'],
   // ---- Komposition: Kontext und Mock
-  [AP, "wiedersehen_nsc: wiedersehen };", "wiedersehen_nsc: 0 };", 'Kontext: wiedersehen_nsc ist immer 0'],
+  [AP, "wiedersehen_nsc: wiedersehen, lage };", "wiedersehen_nsc: 0, lage };", 'Kontext: wiedersehen_nsc ist immer 0'],
   [AM, "!nscAlt(t) || opt.wiedersehen === true || opt.mit === t", "true", 'Mock: auch ohne NSC kommt ein Wiedersehen vor'],
   [AM, "!nscAlt(t) || opt.wiedersehen === true || opt.mit === t", "!nscAlt(t) || opt.mit === t", 'Mock: auch mit NSC kommt nie ein Wiedersehen vor'],
   [AM, "    if (opt.mit) beats[0] = { typ: opt.mit };", "", 'Mock: opt.mit setzt den Typ nicht'],
@@ -142,7 +142,7 @@ const MUTATIONEN = [
   [PR, "volk_erlaubt: [volk] }).length : 0;", "volk_erlaubt: W.voelker }).length : 0;", "Kontext: wiedersehen_nsc zaehlt jeden NSC fuer jedes Volk"],
   [PR, "sundSpielbar(o.hex))) return", "require('../../shared/sektoren.js').spielbar(o.hex))) return", "Pruefer: der Ort des Abenteuers gilt fuer den global geladenen Kartenstand"],
   [PR, "sundSpielbar(p.ort))) return", "require('../../shared/sektoren.js').spielbar(p.ort))) return", "Pruefer: ort von faden_oeffnen gilt fuer den global geladenen Kartenstand"],
-  [AM, "wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc) }", "wiedersehen: true }", "Mock: der Kontext (wiedersehen_nsc) wird nicht gelesen"],
+  [AM, "wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc), lage:", "wiedersehen: true, lage:", "Mock: der Kontext (wiedersehen_nsc) wird nicht gelesen"],
   [AM, "D.BAUPLAN.werte.volk_erlaubt_standard.some((v) => Number(z[v]) > 0)", "Object.values(z).some((v) => Number(v) > 0)", "Mock: jedes Volk zaehlt fuer ein Wiedersehen, auch eines ausserhalb des Standard-Sets"],
   [AP, "  if (Object.values(B).some((c) => c.braucht && c.braucht.nsc_alt === true)) L.push(`Kontext", "  if (false) L.push(`Kontext", "Katalog: die Zahl wiedersehen_nsc je Volk wird nicht erklaert"],
   [SYS, "unter `faeden.wiedersehen_nsc` für", "unter `faeden` für", "Systemprompt: die Zahl wiedersehen_nsc wird nicht erklaert"],

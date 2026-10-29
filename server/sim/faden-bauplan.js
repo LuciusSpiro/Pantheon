@@ -108,6 +108,7 @@ function katalogFehler() {
       if (e.length) g('Standard-Optionen ungueltig: ' + e[0]);
     } else if (bp.optionen_pflicht) g('optionen_pflicht ohne optionen');
   }
+  out.push(...require('./faden-b2.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B2: Daten der Szenen konvoi und geleit, des Beats sabotage, braucht.lage und frist
   out.push(...require('./faden-b1.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B1: Texte, Spuren und Parameter der Bausteine geruecht, spur, wiedersehen
   return out;
 }

@@ -6,6 +6,7 @@
 // Gerücht (der Hafenfunk nennt einen Sektor, die Crew fliegt hin), Rätsel-Spur fundort (die Ops liest ueber die Verbindung weapons.spur.lesen und entschluesselt die Teilung, die verborgene Kante wird offen) und Wiedersehen
 // (der NSC aus dem ersten Faden meldet sich und erinnert an eine konkrete Tat). Der Ort der Crew (ship.scene) und der Platz der Ops werden gesetzt, wie in den Tests: die Mechanik der Beats ist in test-faden-katalog-b1.js geprueft.
 // Das Geruecht erreicht die Crew ueber ECHTE Spruenge (Weitscan weapons.widescan, helm.jump, Antrieb 8 s); Spur und Wiedersehen setzen den Ort per Space.enterScene (Luecke, siehe README B1 Nacharbeit H3).
+// SUND-04b B2: danach Konvoi abfangen, Schützling geleiten (Geleit, Havarist, Panne) und der Sabotage-Auftrag (echte Sprünge, der Posten wird wirklich gesprengt); das Zerstören der Gegner ist ein Testhelfer (der Bot hat keine Bordkanone).
 // Aufruf: node tools/spiel-faden.js [--out datei.txt]   (npm run spiel:faden)
 const fs = require('fs');
 const os = require('os');
@@ -225,8 +226,104 @@ function client(port, hello, name) {
   }
   const alleB1 = ergebnisse.every(([, ok]) => ok);
   zeile('SUND-04b B1: ' + ergebnisse.map(([k, ok]) => k + ' ' + (ok ? 'ok' : 'FEHLT')).join(', ') + '; Serverfehler ' + g.errors);
+  // ---------------------------------------------------------------- SUND-04b B2: Konvoi abfangen, Schützling geleiten (drei Modi), Sabotage-Auftrag
+  // Der Server spielt die Szenen selbst (Vorwarnung, Konvoi, Schützling, Angreifer); der Bot hat keine Bordkanone: das Zerstören der Gegner ist wie in den Tests ein Testhelfer (gegner-testhilfe.js: Abschuss über den Reaktor).
+  // Alles andere läuft über die echten Wege: Abenteuer anbieten > Prüfer > öffnen, der Spielleiter (Mock) startet den Beat (faden_weiter), die Szene beginnt nach der Vorwarnung, die Ausgänge kommen aus Konvoi und Escort.
+  // Der Sabotage-Auftrag fliegt ECHTE Sprünge zum Ziel und sprengt den Posten wirklich (Ops, weapons.posten.angreifen, Sim-Szene, Wellen abräumen). Das Ziel ist ein germanischer Posten auf einem Quell-Hex, den der Bot
+  // in den Zustand der Sim setzt (wie tools/test-sprengen.js): ohne ihn gäbe es in diesem Lauf keinen (er existiert nur in 29 bis 46 % der Läufe).
+  const Testhilfe = require('./gegner-testhilfe.js');
+  const Konvoi = require('../server/sim/konvoi.js');
+  const Escort = require('../server/sim/escort.js');
+  const Besitz = require('../server/sim/besitz.js');
+  const Locations = require('../shared/locations.js');
+  const ergB2 = [];
+  const alleGegner = () => { for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e); };
+  const szeneDa = (f) => g.fadenSzene && g.fadenSzene.fadenId === f.id;
+  async function bisKampf(f, ms) { for (let i = 0; i < (ms || 300); i++) { if (szeneDa(f) && g.fadenSzene.phase === 'kampf') return true; if (f.phase !== 'laeuft') return false; await sleep(100); } return false; }
+  async function bisEnde(f, jeSchritt, ms) { for (let i = 0; i < (ms || 600) && f.phase === 'laeuft'; i++) { if (jeSchritt) jeSchritt(); await sleep(100); } return f.phase !== 'laeuft'; }
+  const planB2 = (typ, parameter) => { const p = plan(typ); if (parameter) p.beats[0].parameter = parameter; return p; };
+  const neuerOrt = () => { flieg('0305'); g.ship.x = 300; g.ship.y = 300; g.ship.vx = 0; g.ship.vy = 0; };   // weit weg von der Route des Konvois: die Eskorte bleibt ruhig
+
+  // 4. Konvoi abfangen (aufhalten)
+  {
+    neuerOrt(); await sleep(300);
+    const n0 = cl[0].funk.length;
+    const f = await abenteuer('Konvoi', planB2('konvoi'));
+    if (f && await bisBeat(f, 'konvoi')) {
+      zeile('Konvoi: Beat läuft, Vorwarnung per Funk: ' + funkSeit(n0));
+      const kampf = await bisKampf(f);
+      zeile('Konvoi: Kampf ' + kampf + ', ' + Konvoi.transporter(g).length + ' Transporter, Eskorte ' + Konvoi.mitglieder(g, 'e').map((e) => e.kind).join('+') + ' (drei Spieler verbunden)');
+      await sleep(1500); for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
+      const ende1 = await bisEnde(f, null, 100); await sleep(300);
+      zeile('Konvoi nach dem Zerstören der Transporter: Phase ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'konvoi') + '; Funk: ' + funkSeit(n0).slice(-160));
+      ergB2.push(['Konvoi aufhalten', kampf && ende1 && f.nsc.gedaechtnis.some((x) => x.ereignis === 'konvoi_gelungen') && !g.space.konvoi && g.space.enemies.length === 0]);
+      ergB2.push(['Konvoi-Faden zu Ende', await ende(f)]);
+    } else ergB2.push(['Konvoi aufhalten', false]);
+  }
+
+  // 5. Schützling geleiten: Geleit (er kommt am Ziel an), Havarist (die Angreifer fallen), Panne (die Crew flickt längsseits)
+  for (const modus of ['geleit', 'havarist', 'panne']) {
+    neuerOrt(); await sleep(300);
+    const n0 = cl[0].funk.length;
+    const f = await abenteuer('Geleit ' + modus, planB2('geleit', { modus }));
+    if (f && await bisBeat(f, 'geleit')) {
+      const kampf = await bisKampf(f);
+      const es = () => (g.space.escorts || []).find((q) => q.tag === (g.fadenSzene && g.fadenSzene.tag));
+      zeile('Geleit ' + modus + ': Kampf ' + kampf + ', Schützling ' + (es() ? es().name + ' (' + es().kind + ', ' + es().verhalten + ')' : '-') + ', Angreifer ' + g.space.enemies.filter((e) => g.fadenSzene && e.tag === g.fadenSzene.tag).length + '; Funk: ' + funkSeit(n0).slice(0, 220));
+      await sleep(1500);
+      let ende2 = false;
+      if (modus === 'geleit') { alleGegner(); await sleep(500); const q = es(); if (q && q.ziel) { q.x = q.ziel.x; q.y = q.ziel.y; q.vx = 0; q.vy = 0; } ende2 = await bisEnde(f, null, 100); }
+      else if (modus === 'havarist') { alleGegner(); ende2 = await bisEnde(f, null, 100); }
+      else { alleGegner(); ende2 = await bisEnde(f, () => { const q = es(); if (q) { g.ship.x = q.x + 90; g.ship.y = q.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; } }, 600); }
+      await sleep(300);
+      zeile('Geleit ' + modus + ' am Ende: Phase ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'geleit') + ', Schützling weg ' + !es());
+      ergB2.push(['Geleit ' + modus, kampf && ende2 && f.nsc.gedaechtnis.some((x) => x.ereignis === 'geleit_gelungen') && !es() && g.space.enemies.length === 0]);
+      ergB2.push(['Geleit-' + modus + '-Faden zu Ende', await ende(f)]);
+    } else ergB2.push(['Geleit ' + modus, false]);
+  }
+
+  // 6. Sabotage-Auftrag: Ziel nennen, ECHTE Sprünge, den Posten sprengen
+  {
+    flieg('0305'); await sleep(300);
+    const z = g.weltsim.zustand, ziel = '0505';
+    const pflanze = () => { Object.assign(z.hexe[ziel], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); if (g.weltBesitz && g.weltBesitz.hexe[ziel]) g.weltBesitz.hexe[ziel] = { besitzer: 'ger', posten: true }; z.flotten = z.flotten.filter((x) => x.ort !== ziel); g.weltsim.ruf.rom = Math.max(g.weltsim.ruf.rom, 1); };
+    pflanze();
+    const B2 = require('../server/sim/faden-b2.js');
+    zeile('Sabotage: Lage vor dem Plan: Ziele ' + JSON.stringify(B2.ziele(g)) + ', Kontext faeden.lage.sabotage_ziel ' + B2.lage('sabotage_ziel').zahl(g));
+    const n0 = cl[0].funk.length;
+    const f = await abenteuer('Sabotage', plan('sabotage'));
+    let gestartet = false;
+    for (let i = 0; f && i < 200 && !gestartet; i++) { if (f.phase === 'wartet') pflanze(); await runde(); gestartet = f.phase === 'laeuft' && beatTyp(f) === 'sabotage'; if (f.phase === 'abgeschlossen') break; }
+    if (f && gestartet) {
+      zeile('Sabotage: Beat läuft, Ziel ' + Sektoren.hexName(f.parameter.ort) + ' (' + f.parameter.ort + '), Pause im Stand ' + JSON.stringify(g.weltsim.faeden.sabotage) + '; Funk: ' + funkSeit(n0).slice(0, 200));
+      pflanze();
+      const da = await springe(f.parameter.ort); await sleep(300);
+      zeile('Sabotage: Crew bei ' + Sektoren.hexName(hierHex()) + ' (echte Sprünge ' + da + '), Posten steht ' + z.hexe[ziel].posten + ', Beat ' + f.phase);
+      let gesprengt = false;
+      if (da && f.phase === 'laeuft') {
+        await konsole('weapons');
+        const p = Besitz.postenLage(Locations.get(Sektoren.ortVonHex(ziel)).scene); Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 });
+        cl[0].send({ t: 'cmd', c: 'weapons.posten.angreifen' });
+        for (let i = 0; i < 300 && !g.simSzene; i++) { Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 }); await sleep(100); }
+        zeile('Sabotage: Sim-Szene Posten angreifen läuft: ' + !!g.simSzene);
+        for (let i = 0; i < 1800 && g.simSzene; i++) { alleGegner(); await sleep(100); }
+        await sleep(600);
+        gesprengt = !z.hexe[ziel].posten;
+      }
+      zeile('Sabotage am Ende: Posten gesprengt ' + gesprengt + ', Beat ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'sabotage') + ', Pause ' + JSON.stringify(g.weltsim.faeden.sabotage) + '; Funk: ' + funkSeit(n0).slice(-170));
+      ergB2.push(['Sabotage (echte Sprünge, Posten gesprengt)', da && gesprengt && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen')]);
+      ergB2.push(['Sabotage-Faden zu Ende', await ende(f)]);
+    } else ergB2.push(['Sabotage (echte Sprünge, Posten gesprengt)', false]);
+    // ohne Ziel: kein Angebot (Lage), der Abenteuer-Weg lehnt es ab
+    z.hexe[ziel].posten = false; z.hexe[ziel].besitzer = null;
+    const ohne = Faden.abenteuerAnbieten(g, plan('sabotage'), { hex: hierHex() });
+    zeile('Sabotage ohne Ziel: ' + (ohne.ok ? 'ANGEBOTEN (falsch)' : 'abgelehnt: ' + String(ohne.grund).slice(0, 90)));
+    ergB2.push(['Sabotage ohne Ziel wird nicht angeboten', !ohne.ok && /LAGE_ZIEL_FEHLT|SABOTAGE_PAUSE/.test(ohne.grund)]);
+  }
+  const alleB2 = ergB2.every(([, ok]) => ok);
+  zeile('SUND-04b B2: ' + ergB2.map(([k, ok]) => k + ' ' + (ok ? 'ok' : 'FEHLT')).join(', ') + '; Serverfehler ' + g.errors);
   fs.writeFileSync(outDatei, protokoll.join('\n') + '\n');
   zeile(`Protokoll geschrieben: ${outDatei}`);
   for (const x of cl) x.ws.close();
-  process.exit(fertig && alleB1 && g.errors === 0 ? 0 : 1);
+  process.exit(fertig && alleB1 && alleB2 && g.errors === 0 ? 0 : 1);
 })().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); process.exit(1); });

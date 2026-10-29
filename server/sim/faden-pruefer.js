@@ -13,6 +13,7 @@
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
 //   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
+//   LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
@@ -515,6 +516,25 @@ function pruefeWeiter(F, b, ctx) {
   return null;
 }
 
+// ---------- Lage (SUND-04b B2): ein Beat mit braucht.lage haengt von der Welt ab (Sabotage: ein germanischer Versorgungsposten muss stehen, den die Crew sprengen darf, und die Pause darf nicht laufen). Die Bedingung steht
+// in faden-b2.js lage(key); der Pruefer fragt sie beim Anbieten und beim Oeffnen (faden.js abenteuerAnbieten, abenteuerOeffnen, faden_oeffnen). Fehlt die Lage, wird der Plan nicht angeboten und nicht geoeffnet
+// (Code LAGE_ZIEL_FEHLT, SABOTAGE_PAUSE); faellt sie zwischen Oeffnen und Beginn des Beats weg, scheitert der Beat sofort (der Baustein) und der Plan geht den Weg des Scheiterns weiter. -> null | 'CODE: Text'
+function pruefeLage(game, v) {
+  if (!v || !Array.isArray(v.beats)) return null;
+  const B2 = require('./faden-b2.js');
+  const gefragt = new Set();
+  for (const b of v.beats) {
+    const c = istObjekt(b) && has(B, b.typ) ? B[b.typ] : null;
+    const key = c && c.braucht ? c.braucht.lage : undefined;
+    if (key === undefined || gefragt.has(key)) continue;
+    gefragt.add(key);
+    const l = typeof key === 'string' ? B2.lage(key) : null;
+    const g = l ? l.fehler(game) : fehl('LAGE_UNBEKANNT', `Beat ${b.id}: die Lagen-Bedingung "${String(key).slice(0, 30)}" gibt es nicht`);
+    if (g) return g;
+  }
+  return null;
+}
+
 // ---------- Abenteuer (SUND-04b A1): der zweite, benannte Weg, einen Faden zu oeffnen (nicht ueber ein Notruf-Angebot, sondern ueber einen geprueften Bauplan)
 // Obergrenze aktiv_max und Abstand gelten weiter (der Abstand wird beim Oeffnen gezogen, faden.js); dazu hoechstens laufend_max laufende Abenteuer und hoechstens angebote_max offene Abenteuer-Angebote.
 const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;
@@ -552,4 +572,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { sundSpielbar, nscAlt, wiedersehenNsc, wiedersehenZahlen, pruefeNscVon, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { sundSpielbar, nscAlt, wiedersehenNsc, wiedersehenZahlen, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

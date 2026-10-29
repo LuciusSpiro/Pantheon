@@ -215,6 +215,8 @@ function folgenAnwenden(game, f, folge, mitDeckel) {
 
 // ---------- Taetigkeiten und Takt
 const faellig = (f) => f.phase === 'wartet' && f.zaehler >= f.abstand;
+// SUND-04b B2: ein Beat darf im Katalog eine eigene Frist nennen (beats.json frist, Taetigkeiten), sonst gilt werte.json beat_frist
+function fristVon(f) { const v = D.vorlage(f.vorlage), b = v && v.beats[f.beat], c = b && has(B, b.typ) ? B[b.typ] : null; return c && Number.isInteger(c.frist) && c.frist >= 1 ? c.frist : W.beat_frist; }
 function taetigkeit(game, art) {
   if (!aktiv(game) || !W.taetigkeiten.includes(art)) return null;
   const F = zustandVon(game);
@@ -229,8 +231,8 @@ function taetigkeit(game, art) {
   for (const a of F.abenteuerAngebote) a.alter++;   // SUND-04b A1: Abenteuer-Angebote verfallen wie die der Notrufe (eigene Frist)
   F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);
   for (const f of F.liste.slice()) {   // Frist: ein Beat ohne Ausgang gilt als gescheitert, nichts blockiert. Ohne aktiven Lage-Spielleiter laeuft die Frist NICHT ab (B-S3): der Zaehler zaehlt weiter, gescheitert wird nichts
-    if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= W.beat_frist) {
-      melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${W.beat_frist} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
+    if (spielleiterAktiv(game) && f.phase === 'laeuft' && f.laufend && f.laufend.n >= fristVon(f)) {
+      melde(game, 'frist', f.id, `Beat ${f.laufend.beat} ohne Ausgang nach ${fristVon(f)} Tätigkeiten: gescheitert`, { faden: f.id, beat: f.laufend.beat });
       beatAusgang(game, f.id, 'gescheitert');
     }
   }
@@ -283,6 +285,8 @@ function abenteuerAnbieten(game, bauplan, o) {
   const r = Bauplan().pruefe(bauplan);
   if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);
   if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt('ABENTEUER_DOPPELT: dieses Abenteuer liegt an diesem Ort schon als Angebot vor');
+  const lg = P.pruefeLage(game, r.vorlage);   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage: ein Ziel muss stehen), wird nie ohne sie angeboten
+  if (lg) return abgelehnt(lg);
   if (P.nscAlt(r.vorlage) && !wiedersehenKandidaten(game, r.vorlage).length) return abgelehnt('WIEDERSEHEN_KEIN_NSC: es gibt keinen NSC aus einem abgeschlossenen Faden, der sich an eine Tat der Crew erinnert');   // SUND-04b B1
   const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
   F.abenteuerAngebote.push(a);
@@ -297,6 +301,8 @@ function abenteuerOeffnen(game, nr, p) {
   const g = P.pruefeAbenteuerOeffnen(F, nr, p);
   if (g) return abgelehnt(g);
   const a = F.abenteuerAngebote.find((x) => x.nr === nr);
+  const lg = P.pruefeLage(game, a.vorlage);   // SUND-04b B2: das Angebot kann veraltet sein (das Ziel ist weg, die Pause laeuft)
+  if (lg) return abgelehnt(lg);
   const reg = D.registriereAbenteuer(a.vorlage, F);
   if (!reg.ok) return abgelehnt(reg.fehler[0]);
   const v = D.vorlage(a.vorlage.id);
@@ -335,11 +341,15 @@ function abenteuerRegisterAufraeumen(game) {
 
 // ---------- Befehle des Lage-Spielleiters
 const istBefehl = P.istBefehl;
-function befehlPruefen(game, b, ctx) { return P.befehlPruefen(zustandVon(game), b, ctx || P.neuerKontext()); }
+function befehlPruefen(game, b, ctx) {
+  const g = P.befehlPruefen(zustandVon(game), b, ctx || P.neuerKontext());
+  return g || (b && b.typ === 'faden_oeffnen' ? P.pruefeLage(game, D.vorlage(b.vorlage)) : null);   // SUND-04b B2: Lage der Vorlage (nach der Form: die Vorlage ist geprueft da)
+}
 function befehlAnwenden(game, b) {
   const F = zustandVon(game);
   const ctx = P.neuerKontext();   // frisch: was im selben Plan schon angewandt wurde, steht im Zustand
-  const g = b && b.typ === 'faden_oeffnen' ? P.pruefeOeffnen(F, b, ctx) : b && b.typ === 'faden_weiter' ? P.pruefeWeiter(F, b, ctx) : 'BEFEHL_FELD: kein Faden-Befehl';
+  let g = b && b.typ === 'faden_oeffnen' ? P.pruefeOeffnen(F, b, ctx) : b && b.typ === 'faden_weiter' ? P.pruefeWeiter(F, b, ctx) : 'BEFEHL_FELD: kein Faden-Befehl';
+  if (!g && b.typ === 'faden_oeffnen') g = P.pruefeLage(game, D.vorlage(b.vorlage));   // SUND-04b B2
   if (g) { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: b && b.typ, plan: b, fehler: [g] }); return { ok: false, grund: g }; }
   return b.typ === 'faden_oeffnen' ? oeffnen(game, b) : weiterSetzen(game, b);
 }
@@ -508,11 +518,13 @@ function speicherFaden(f) {
 }
 function toSave(ws) {
   const F = ws && ws.faeden;
-  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc)) return null;
+  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc && !F.sabotage)) return null;
   const b = { t: F.t, nr: F.nr, nsc: F.nsc };
   if (F.liste.length) b.liste = F.liste.map(speicherFaden);
   const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
   if (bt) b.bitte = bt;
+  const sb = require('./faden-b2.js').toSave(F);   // SUND-04b B2: Pause der Sabotage-Auftraege (optional, Altstand = keine)
+  if (sb) b.sabotage = sb;
   const dk = require('./faden-bitte.js').toSaveDeckel(F);   // Nacharbeit L10: Zähler des Bitten-Deckels (optional, wie der Reise-Deckel welt.sim.reise.r)
   if (dk) b.deckel = dk;
   return b;
@@ -599,6 +611,8 @@ function lesen(b) {
   // SUND-04a-2 P1: ein Szenen-Beat, der beim Speichern noch lief, steht nach dem Laden wieder aus (die Szene ist nicht speicherbar)
   for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) { f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; delete f.fracht; }
   F.nr = nr; F.nsc = nscNr;
+  const sb = require('./faden-b2.js').lesen(b.sabotage);   // SUND-04b B2: muellfest, fehlt = keine Pause
+  if (sb) F.sabotage = sb; else if (b.sabotage !== undefined) F.ladeFehler.push('sabotage: verworfen');
   const bt = require('./faden-bitte.js').lesenBitte(b.bitte, F);   // SUND-04a-2 P2: offene Bitte (müllfest; Folgen aus der Vorlage)
   if (bt) { F.bitte = bt; F.bitteNr = bt.nr; } else if (istObjekt(b.bitte)) F.ladeFehler.push('bitte: verworfen');
   return F;

@@ -36,6 +36,25 @@ function vertragsBausteine() {
   } catch (e) { return new Set(); }
 }
 
+// SUND-04b B2: Umsetzungen mit "sund_frei" sind in der Freien Fahrt Sund spielbar, als Beat der Geschichtsfaeden (content/faeden/beats.json). Querverweis: der Beat gibt es und ist planbar (bauplan), die Wahl (parameter) steht in
+// den erlaubten Werten des Beats, die Umsetzung spielt im Weltraum (Boden und Regiebuch gibt es dort nicht). Die Daten der Faeden werden hier nur gelesen (kein Code der Sim). -> [Text]
+let faedenBeats = null;
+function sundFreiFehler(u) {
+  const out = []; const s = u.sund_frei;
+  if (!faedenBeats) { try { faedenBeats = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'faeden', 'beats.json'), 'utf8')).beats; } catch (e) { faedenBeats = {}; } }
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  if (u.schauplatz !== 'weltraum') out.push('nur Weltraum-Umsetzungen sind in der Freien Fahrt spielbar (kein Boden, kein Regiebuch)');
+  if (!has(faedenBeats, s.beat)) { out.push(`der Beat '${s.beat}' steht nicht in content/faeden/beats.json`); return out; }
+  const bp = faedenBeats[s.beat].bauplan;
+  if (!bp || typeof bp !== 'object') { out.push(`der Beat '${s.beat}' hat keine Standards (bauplan) und steht in keinem Plan`); return out; }
+  for (const [k, v] of Object.entries(s.parameter || {})) {
+    const p = has(bp.parameter || {}, k) ? bp.parameter[k] : null;
+    if (!p || !Array.isArray(p.erlaubt)) out.push(`der Parameter '${k}' gehoert nicht zum Beat '${s.beat}' (bauplan.parameter)`);
+    else if (!p.erlaubt.includes(v)) out.push(`der Wert '${v}' ist fuer '${k}' nicht erlaubt (${p.erlaubt.join(', ')})`);
+  }
+  return out;
+}
+
 // ---------- Vorlagen einsetzen ----------
 // Platzhalter {{name}}: ganzer String -> Wert (beliebiger Typ), sonst Textersetzung. Gilt auch für Objektschlüssel.
 function expand(node, vars) {
@@ -158,6 +177,7 @@ function load(opts) {
       if (ids.has(u.id)) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}' doppelt in '${m.id}'` });
       ids.add(u.id);
       for (const x of u.braucht) if (!MECH[x]) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': Mechanik '${x}' unbekannt` });
+      if (u.sund_frei) for (const t of sundFreiFehler(u)) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': sund_frei: ${t}` });   // SUND-04b B2
       for (const n of u.nach || []) { const [mm, uu] = n.split('/'); if (!molekuele[mm] || !molekuele[mm].umsetzungen.some((x) => x.id === uu)) fehler.push({ datei: u.quelle_datei, msg: `Umsetzung '${u.id}': 'nach' verweist auf unbekannte Umsetzung '${n}'` }); }
       const fehlend = mechOk(u.braucht);
       const { frag, errs } = instantiate(u, u.test.params, 's1', 'test_ende');
@@ -303,4 +323,4 @@ function pruefeBesetzung(besetzung, ctx) {
   return { fehler, warnungen };
 }
 
-module.exports = { pruefeBesetzung, load, instantiate, expand, resolveParams, fuerSpielleiter, testRegiebuch, KAT };
+module.exports = { sundFreiFehler, pruefeBesetzung, load, instantiate, expand, resolveParams, fuerSpielleiter, testRegiebuch, KAT };

@@ -74,7 +74,7 @@ section('Gate: ohne FAEDEN=1 gibt es keine Faden-Szene', () => {
 });
 
 section('Daten: Arten, Vorwarnung >= 8 s, Gegner nach Crewgroesse', () => {
-  ok(JSON.stringify(W.arten) === JSON.stringify(['verfolgung', 'raumschlacht', 'befreiung', 'spontanhilfe']), 'vier Arten in den Daten');
+  ok(JSON.stringify(W.arten) === JSON.stringify(['verfolgung', 'raumschlacht', 'befreiung', 'spontanhilfe', 'konvoi', 'geleit']), 'sechs Arten in den Daten (SUND-04b B2: konvoi und geleit kamen zu den vier der Szenen dazu)');
   ok(W.vorlauf_min_s >= 8 && W.vorlauf_s >= W.vorlauf_min_s, 'Vorwarnung mindestens 8 s (Daten: ' + W.vorlauf_s + ' s, Untergrenze ' + W.vorlauf_min_s + ' s)');
   ok(W.raumschlacht.anzahl['1'] < W.raumschlacht.anzahl['3'] && W.befreiung.anzahl['1'] <= W.befreiung.anzahl['3'], 'Anzahl steigt mit der Crewgroesse');
   ok(T.vorwarnung.raumschlacht && T.gelungen.raumschlacht && T.gescheitert.raumschlacht, 'Funktexte je Art vorhanden (Daten)');

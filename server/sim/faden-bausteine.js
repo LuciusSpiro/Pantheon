@@ -53,4 +53,6 @@ const B1 = require('./faden-b1.js');   // SUND-04b B1: Gerücht, Rätsel-Spur, W
 registriere('geruecht', B1.geruecht);
 registriere('spur', B1.spur);
 registriere('wiedersehen', B1.wiedersehen);
+const B2 = require('./faden-b2.js');   // SUND-04b B2: Sabotage-Auftrag (die Szenen konvoi und geleit registriert faden-szene.js)
+registriere('sabotage', B2.sabotage);
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

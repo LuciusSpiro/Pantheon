@@ -15,6 +15,7 @@
     {
       "id": "andocken_und_flicken",
       "name": "Längsseits gehen und flicken",
+      "sund_frei": { "beat": "geleit", "parameter": { "modus": "panne" }, "belegt": "tools/test-faden-katalog-b2.js (g) und tools/spiel-faden.js" },
       "schauplatz": "weltraum",
       "beschreibung": "Ein Havarist treibt mit totem Antrieb. Die Steuer bringt die Lerche nah heran und fast zum Stehen, dann flicken die Schrauber den Antrieb von außen (Fortschritt läuft nur nah, langsam und ohne Beschuss). Optional stören Jäger als angekündigte Wendung. Ruhige, präzise Flugarbeit; der Captain hält die Lage im Blick.",
       "braucht": [

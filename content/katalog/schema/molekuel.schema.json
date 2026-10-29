@@ -220,6 +220,17 @@
             }
           }
         },
+        "sund_frei": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["beat", "belegt"],
+          "description": "SUND-04b B2: die Umsetzung ist in der Freien Fahrt Sund spielbar, als Beat der Geschichtsfaeden (content/faeden/beats.json), ueber das Sim-Modul der Mechanik (nicht ueber den Labor-Pfad, der den Weltstand verfaelscht). beat = Beat-Typ, parameter = die Wahl des Plans (nur Werte aus bauplan.parameter.<name>.erlaubt), belegt = der Beleg (Test und Bot-Lauf). Nur Weltraum-Umsetzungen; Boden und Regiebuch gibt es dort nicht.",
+          "properties": {
+            "beat": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+            "parameter": { "type": "object", "additionalProperties": { "type": "string" } },
+            "belegt": { "type": "string", "minLength": 8, "maxLength": 200 }
+          }
+        },
         "ereignisse": {
           "type": "array",
           "items": {

@@ -37,10 +37,11 @@ if (require.main === module) {
   const sV = Object.values(k.szenentypen); const mV = Object.values(k.molekuele); const uV = mV.flatMap((m) => m.umsetzungen.map((u) => Object.assign({ mol: m.id }, u)));
   console.log(`Szenentypen: ${sV.length} (verfügbar ${sV.filter((s) => s.status === 'verfuegbar').length}, geplant ${sV.filter((s) => s.status === 'geplant').length})`);
   console.log(`Moleküle:    ${mV.length} (verfügbar ${mV.filter((m) => m.status === 'verfuegbar').length}, geplant ${mV.filter((m) => m.status === 'geplant').length})`);
+  console.log(`Auf sund_frei spielbar (Beat der Faeden, SUND-04b B2): ${uV.filter((u) => u.sund_frei).length} Umsetzungen`);
   console.log(`Umsetzungen: ${uV.length} (verfügbar ${uV.filter((u) => u.status === 'verfuegbar').length}, geplant ${uV.filter((u) => u.status === 'geplant').length}, fehlerhaft ${uV.filter((u) => u.status === 'fehlerhaft').length})`);
   if (!args.includes('--quiet')) {
     console.log('\nUmsetzungen:');
-    for (const u of uV) console.log(`  ${u.status === 'verfuegbar' ? '✓' : u.status === 'geplant' ? '…' : '✗'} ${u.mol}/${u.id} (${u.herkunft})${u.fehlende_mechaniken.length ? ' – fehlt: ' + u.fehlende_mechaniken.join(', ') : ''}${u.pruefung.warnungen ? ` – ${u.pruefung.warnungen} Warnungen` : ''}`);
+    for (const u of uV) console.log(`  ${u.status === 'verfuegbar' ? '✓' : u.status === 'geplant' ? '…' : '✗'} ${u.mol}/${u.id} (${u.herkunft})${u.sund_frei ? ' [sund_frei: Beat ' + u.sund_frei.beat + Object.entries(u.sund_frei.parameter || {}).map(([a, b]) => ' ' + a + '=' + b).join('') + ']' : ''}${u.fehlende_mechaniken.length ? ' – fehlt: ' + u.fehlende_mechaniken.join(', ') : ''}${u.pruefung.warnungen ? ` – ${u.pruefung.warnungen} Warnungen` : ''}`);
     console.log('\nSzenentypen verfügbar: ' + sV.filter((s) => s.status === 'verfuegbar').map((s) => `${s.kennung} ${s.name}`).join(', '));
   }
   if (k.fehler.length) { console.log(`\n${k.fehler.length} Fehler:`); for (const f of k.fehler) console.log(`  ✗ ${f.datei}: ${f.msg}`); }

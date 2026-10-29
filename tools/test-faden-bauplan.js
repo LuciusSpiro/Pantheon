@@ -328,6 +328,7 @@ section('Zufallsplaene im Spiel: jeder angenommene Plan laeuft bis zum Abschluss
       const pr0 = BP.pruefe(p);
       if (!pr0.ok) continue;
       if (Pruefer.nscAlt(pr0.vorlage) && !Faden.wiedersehenKandidaten(g, pr0.vorlage).length) continue;   // SUND-04b B1: ohne einen NSC aus einem abgeschlossenen Faden gibt es fuer ein Wiedersehen kein Angebot
+      if (Pruefer.pruefeLage(g, pr0.vorlage)) continue;   // SUND-04b B2: ohne ein Ziel gibt es fuer einen Sabotage-Auftrag kein Angebot (der Test der Lage: tools/test-faden-katalog-b2.js)
       const o = abenteuer(g, p, hexe[k % hexe.length]);
       if (!o.f) { probleme++; console.log('    Oeffnen scheitert: ' + JSON.stringify(o.r || o.a).slice(0, 160)); continue; }
       gespielt++; je++;

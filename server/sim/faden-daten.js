@@ -1,6 +1,6 @@
 'use strict';
 // SUND-04a-1 B: Daten der Geschichtsfaeden (Freie Fahrt Sund) und das Register der Fadenvorlagen. Reine Daten und Nachschlagen, kein Spielzustand.
-//   WERTE / BEATS / NAMEN / HALTUNG   die Dateien in content/faeden/ (werte.json, beats.json, namen.json, haltung-werte.json), Zahlen als Werte (ohne einheit und _hinweis); B1 (SUND-04b B1) = b1-texte.json: werte, texte, spuren
+//   WERTE / BEATS / NAMEN / HALTUNG   die Dateien in content/faeden/ (werte.json, beats.json, namen.json, haltung-werte.json), Zahlen als Werte (ohne einheit und _hinweis); B1 (SUND-04b B1) = b1-texte.json: werte, texte, spuren; B2 (SUND-04b B2) = b2-texte.json: werte, texte
 //   vorlage(id) / vorlagenIds()        gepruefte Vorlagen (nur was server/sim/faden-pruefer.js bestanden hat, ist hier; Ungueltiges wird nie gespielt)
 //   registriere(v) -> { ok, fehler }   eine Vorlage pruefen und eintragen (Tiefenkopie, eingefroren); entferne(id); zuruecksetzen()  (Tests, Werkstatt)
 //   ladeVerzeichnis(dir) -> { geladen: [id], fehler: [{ datei, fehler: [Text] }] }   alle *.json eines Verzeichnisses; Fehler landen auch in ladefehler() und (sobald ein Spiel laeuft) im Regie-Logbuch
@@ -28,6 +28,8 @@ const BAUPLAN_DATEI = lies('bauplan.json');   // SUND-04b A1: Daten des Expander
 const BAUPLAN = { werte: werteVon(BAUPLAN_DATEI), wahrheiten: BAUPLAN_DATEI.wahrheiten, hinweise: BAUPLAN_DATEI.hinweise };
 const B1_DATEI = lies('b1-texte.json');   // SUND-04b B1: Zahlen und Texte der Bausteine geruecht, spur, wiedersehen (faden-b1.js)
 const B1 = { werte: werteVon(B1_DATEI), texte: B1_DATEI.texte, spuren: B1_DATEI.spuren };
+const B2_DATEI = lies('b2-texte.json');   // SUND-04b B2: Zahlen und Texte des Beats sabotage (faden-b2.js)
+const B2 = { werte: werteVon(B2_DATEI), texte: B2_DATEI.texte };
 const VORLAGEN_DIR = path.join(DIR, 'vorlagen');
 
 const registry = new Map();   // id -> Vorlage (eingefroren)
@@ -145,4 +147,4 @@ const entferne = (id) => { init(); registry.delete(id); };
 const ladefehler = () => { init(); return fehlerListe.slice(); };
 function zuruecksetzen() { registry.clear(); abenteuer.clear(); abenteuerBesitzer.clear(); fehlerListe = []; geladen = false; }
 
-module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };

@@ -24,13 +24,15 @@ const wahl = (rng, liste) => liste[Math.floor(rng() * liste.length) % liste.leng
 
 const planbar = () => Object.keys(D.BEATS).filter((t) => D.BEATS[t].bauplan && typeof D.BEATS[t].bauplan === 'object' && !D.BEATS[t].abschluss);
 const nscAlt = (t) => !!(D.BEATS[t].braucht && D.BEATS[t].braucht.nsc_alt === true);   // SUND-04b B1: Wiedersehen braucht einen NSC aus einem frueheren Faden
+const lageKey = (t) => (D.BEATS[t].braucht && D.BEATS[t].braucht.lage) || null;   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage), steht nur im Plan, wenn der Kontext (faeden.lage) ein Ziel nennt
 const abschlussTyp = () => Object.keys(D.BEATS).find((t) => D.BEATS[t].abschluss);
 
 // ein gueltiger Bauplan: zufaellige Typenfolge, die der Expander annimmt (er ist hier das Orakel); sonst der einfachste Plan
+// opt.lage: { Lagen-Bedingung: Zahl } (Kontext faeden.lage; fehlt = keine Lage da, kein Beat, der sie braucht)
 // opt.wiedersehen: false = kein Beat mit einem NSC aus einem frueheren Faden (Kontext: wiedersehen_nsc 0, dann gibt es kein Angebot); opt.mit = dieser Beat-Typ steht an erster Stelle (Tests, Bot-Lauf)
 function gueltigerPlan(rng, o) {
   const opt = o || {};
-  const typen = planbar().filter((t) => !nscAlt(t) || opt.wiedersehen === true || opt.mit === t);
+  const typen = planbar().filter((t) => (!nscAlt(t) || opt.wiedersehen === true || opt.mit === t) && (!lageKey(t) || (opt.lage && opt.lage[lageKey(t)] > 0) || opt.mit === t));
   const min = Math.max(opt.min || M.beats.min, 2), max = Math.max(M.beats.max, min);
   for (let versuch = 0; versuch < 300; versuch++) {
     const n = min + Math.floor(rng() * (max - min + 1));   // Beats inklusive Abschluss
@@ -78,7 +80,7 @@ function erzeuge(input) {
   const rng = rngVon(['abenteuer', a.nr, a.art, a.hex, k.tick, (k.ruf && JSON.stringify(k.ruf)) || '', (k.chronik || []).length].join('|'));
   const kaputt = rng() < M.ungueltig_anteil;
   const name = kaputt ? wahl(rng, M.korruptionen.filter((n) => KORRUPTION[n])) : null;
-  let plan = gueltigerPlan(rng, { min: name ? 3 : 2, wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc) });
+  let plan = gueltigerPlan(rng, { min: name ? 3 : 2, wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc), lage: k.faeden && k.faeden.lage });
   let text;
   if (name) { const r = KORRUPTION[name](plan); text = typeof r === 'string' ? r : JSON.stringify(r); }
   else text = JSON.stringify(plan);

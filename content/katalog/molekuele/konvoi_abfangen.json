@@ -15,6 +15,7 @@
     {
       "id": "pluendern",
       "name": "Konvoi plündern",
+      "sund_frei": { "beat": "konvoi", "parameter": { "sieg": "pluendern" }, "belegt": "tools/test-faden-katalog-b2.js (g) und tools/spiel-faden.js" },
       "schauplatz": "weltraum",
       "beschreibung": "Konvoi aus Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Zerstörte Transporter lassen Fracht fallen (Kampagne: Sprengstoff), die Ops beamt sie an Bord (3 s halten, Systemtreffer bricht ab, Frachtraum: zwei Ladungen). Geschafft mit genug Fracht an Bord; springen die Transporter vorher davon, scheitert die Szene und ein neuer Konvoi rollt an (Fracht an Bord bleibt).",
       "braucht": [
@@ -197,6 +198,7 @@
     {
       "id": "aufhalten",
       "name": "Konvoi aufhalten",
+      "sund_frei": { "beat": "konvoi", "parameter": { "sieg": "aufhalten" }, "belegt": "tools/test-faden-katalog-b2.js (g) und tools/spiel-faden.js" },
       "schauplatz": "weltraum",
       "beschreibung": "Konvoi aus unbewaffneten Transportern und Eskorte (Jäger, Korvette) fährt eine Route und springt an ihrem Ende. Geschafft, wenn alle Transporter zerstört sind, bevor sie springen; entkommt einer, scheitert die Szene und ein neuer Konvoi rollt an. Die Eskorte fährt mit und greift an, sobald die Lerche nah kommt oder ein Konvoi-Schiff getroffen wird.",
       "braucht": [

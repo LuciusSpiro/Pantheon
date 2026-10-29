@@ -5,6 +5,8 @@
 // Strategien:
 //   ohne    keine Wirkung
 //   wenig   ab Tick 20: höchstens eine Sprengung alle 40 Ticks (der erste feindliche Posten, den es gibt; ein Spieler, der gelegentlich vorbeifliegt)
+//   sabotage SUND-04b B2: wie der Beat sabotage (server/sim/faden-b2.js): hoechstens eine Sprengung je pause_ticks Ticks (content/faeden/b2-texte.json, mit --pause N ueberschreibbar), nur ein germanischer Posten auf einem Quell-Hex (Hex mit Quelle, kein Hafen),
+//           nicht in der Ruf-Sperre je Hex (posten-werte.json), ab Tick 20; die Crew sprengt, sobald das Ziel steht (Obergrenze: die Zeit der Crew bis zum Ziel ist nicht abgebildet)
 //   viel    Obergrenze (Mensch kaum erreichbar): alle 8 Ticks ab Tick 4 wird JEDER feindliche Posten gesprengt, sobald er steht (Farm-Schleife: sprengen, Gegner gründet neu, sprengen …)
 // Gemessen: die SUND-01-Bänder (Eroberungen 1,0–2,2 je Lauf, Angriffe 1,5–3,0 je 100 Ticks, Stillstand ≤ 8 %, Kollaps 0, Hauptwelt nie verloren), dazu die Versorgung (wie viele feindliche Posten stehen,
 // wie viele werden gegründet), die Neugründung nach einer Sprengung (Wartezeit bis zum nächsten germanischen Posten am selben Hex) und der Ruf, den die Strategie bekäme (mit und ohne Sperre je Hex,
@@ -21,6 +23,7 @@ const args = process.argv.slice(2);
 const argVal = (k, d) => (args.indexOf(k) >= 0 ? args[args.indexOf(k) + 1] : d);
 const laeufe = Number(argVal('--laeufe', 100)), ticks = Number(argVal('--ticks', 300)), seed0 = Number(argVal('--seed0', 0));
 const SPERRE = Number(argVal('--sperre', PW.sprengen.wert.ruf_sperre_ticks));
+const PAUSE = Number(argVal('--pause', require('../content/faeden/b2-texte.json').werte.sabotage.wert.pause_ticks));   // SUND-04b B2: Pause der Sabotage-Auftraege
 const { karte, werte } = Daten.laden();
 
 const feindlich = (nd) => nd.posten && (nd.besitzer === 'ger' || nd.besitzer === 'pirat');
@@ -32,6 +35,7 @@ function sprengung(z, hex) {
 }
 const gilt = (z, liste) => Kern.filtereWirkungen(z, liste).gueltig.length === liste.length;   // wie im Spiel: der Prüfer läuft der Reihe nach
 // -> { eingriff, sprengungen: [{ ort, besitzer, tick }] } (die Sprengungen der CREW; die Sim verliert auch selbst Posten an Rom, die zählen nicht)
+const quellHex = (h) => !!(karte.hexe.find((x) => x.code === h) || { quellen: [] }).quellen.length && !(karte.hexe.find((x) => x.code === h) || {}).hafenklasse;   // SUND-04b B2: Versorgungsposten = Quelle, kein Hafen
 function strategie(name) {
   const sprengungen = [];
   if (name === 'ohne') return { eingriff: null, sprengungen };
@@ -41,6 +45,11 @@ function strategie(name) {
     const out = [];
     if (name === 'wenig') {
       if (t >= 20 && t - letzte >= 40) for (const [h, nd] of Object.entries(z.hexe)) if (feindlich(nd) && gilt(z, sprengung(z, h))) { out.push(...sprengung(z, h)); sprengungen.push({ ort: h, besitzer: nd.besitzer, tick: z.tick }); letzte = t; break; }
+    } else if (name === 'sabotage') {   // SUND-04b B2
+      if (t >= 20 && t - letzte >= PAUSE) for (const [h, nd] of Object.entries(z.hexe)) {
+        const sperreAm = sprengungen.some((x) => x.ort === h && z.tick - x.tick < SPERRE);
+        if (nd.posten && nd.besitzer === 'ger' && !nd.crew && quellHex(h) && !sperreAm && gilt(z, sprengung(z, h))) { out.push(...sprengung(z, h)); sprengungen.push({ ort: h, besitzer: nd.besitzer, tick: z.tick }); letzte = t; break; }
+      }
     } else if (name === 'viel') {
       if (t >= 4 && t % 8 === 4) for (const [h, nd] of Object.entries(z.hexe)) if (feindlich(nd) && gilt(z, sprengung(z, h))) { out.push(...sprengung(z, h)); sprengungen.push({ ort: h, besitzer: nd.besitzer, tick: z.tick }); }
     }
@@ -64,7 +73,7 @@ const pq = (a, q) => { if (!a.length) return null; const s = a.slice().sort((x, 
 const med = (a) => { if (!a.length) return null; const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 
 const ergebnis = {};
-for (const name of ['ohne', 'wenig', 'viel']) {
+for (const name of ['ohne', 'wenig', 'sabotage', 'viel']) {
   const rs = [];
   const ersteTicks = []; const zweiteTicks = [];
   let sprengungen = 0, ruf = 0, rufOhneSperre = 0, gesperrt = 0, gruendungenFeind = 0, nachSprengung = 0; const wartezeiten = []; let standMittel = 0; let standN = 0; let lebendLaeufe = 0;
@@ -104,7 +113,7 @@ for (const [name, e] of Object.entries(ergebnis)) {
   console.log(`${name.padEnd(10)} ${f2(e.eroberungen).padStart(10)}  ${f2(e.angriffe_je100).padStart(12)}  ${(e.still * 100).toFixed(1).padStart(8)} %  ${f2(e.kollaps).padStart(7)}  ${f2(e.hw_verloren).padStart(9)}  ${f2(e.rom_h)}/${f2(e.ger_h)}/${f2(e.kon_h)}   ${f2(e.sprengungen_je_lauf).padStart(14)}  ${(e.laeufe_mit_sprengung * 100).toFixed(0).padStart(14)} %${bad.length ? '   AUSSERHALB: ' + bad.join(', ') : ''}`);
 }
 const o = ergebnis.ohne;
-for (const name of ['wenig', 'viel']) { const e = ergebnis[name]; console.log(`Differenz ${name} − ohne: Eroberungen ${f2(e.eroberungen - o.eroberungen)}, Angriffe/100 ${f2(e.angriffe_je100 - o.angriffe_je100)}, Stillstand ${((e.still - o.still) * 100).toFixed(1)} Pp, Hauptwelt ${f2(e.hw_verloren - o.hw_verloren)}`); }
+for (const name of ['wenig', 'sabotage', 'viel']) { const e = ergebnis[name]; console.log(`Differenz ${name} − ohne: Eroberungen ${f2(e.eroberungen - o.eroberungen)}, Angriffe/100 ${f2(e.angriffe_je100 - o.angriffe_je100)}, Stillstand ${((e.still - o.still) * 100).toFixed(1)} Pp, Hauptwelt ${f2(e.hw_verloren - o.hw_verloren)}`); }
 console.log(`\nVersorgung und Farming (Sperre je Hex ${SPERRE} Ticks):`);
 console.log('Strategie  feindl. Gründungen/Lauf  Neugründung am selben Hex/Lauf  Wartezeit bis dahin (Median, min, n)  Ruf/Lauf mit Sperre  Ruf/Lauf ohne Sperre  durch Sperre gestrichen/Lauf  Ruf je 100 Ticks');
 for (const [name, e] of Object.entries(ergebnis)) console.log(`${name.padEnd(10)} ${f2(e.feind_gruendungen_je_lauf).padStart(20)}  ${f2(e.neugruendung_am_hex_je_lauf).padStart(30)}  ${(e.wartezeit_median == null ? '–' : e.wartezeit_median + ', ' + e.wartezeit_min + ', ' + e.wartezeit_n).padStart(36)}  ${f2(e.ruf_je_lauf).padStart(19)}  ${f2(e.ruf_ohne_sperre_je_lauf).padStart(20)}  ${f2(e.ruf_gesperrt_je_lauf).padStart(28)}  ${f2(e.ruf_je_100).padStart(15)}`);

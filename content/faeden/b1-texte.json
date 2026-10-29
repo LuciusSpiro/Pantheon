@@ -18,7 +18,10 @@
         "befreiung_gelungen": "wiedersehen_befreiung_gelungen",
         "spontanhilfe_gelungen": "wiedersehen_spontanhilfe_gelungen",
         "raumschlacht_gelungen": "wiedersehen_raumschlacht_gelungen",
-        "verfolgung_gelungen": "wiedersehen_verfolgung_gelungen"
+        "verfolgung_gelungen": "wiedersehen_verfolgung_gelungen",
+        "konvoi_gelungen": "wiedersehen_konvoi_gelungen",
+        "geleit_gelungen": "wiedersehen_geleit_gelungen",
+        "sabotage_gelungen": "wiedersehen_sabotage_gelungen"
       },
       "einheit": "Ereignis -> text_key",
       "_hinweis": "Schluessel = Beat-Typ + _ + Ausgang (wie im Gedaechtnis des NSC, faden.js beatAusgang). Nur diese Ereignisse sind konkrete Taten der Crew, an die ein NSC erinnern kann; ein NSC ohne eines davon taugt nicht fuer ein Wiedersehen (Pruefer NSC_VON)."
@@ -39,6 +42,9 @@
     "wiedersehen_spontanhilfe_gelungen": "Ihr standet in der Schlacht an meiner Seite. Wir treffen uns bei {ort}.",
     "wiedersehen_raumschlacht_gelungen": "Ihr habt mein Geschwader zerschlagen. Ich will reden, bei {ort}.",
     "wiedersehen_verfolgung_gelungen": "Ihr habt mich durch den Sektor gejagt. Bei {ort} sprechen wir in Ruhe.",
+    "wiedersehen_konvoi_gelungen": "Ihr habt den Konvoi aufgehalten. Bei {ort} habe ich einen neuen Auftrag.",
+    "wiedersehen_geleit_gelungen": "Ihr habt mich durchgebracht. Das vergesse ich nicht. Bei {ort} können wir reden.",
+    "wiedersehen_sabotage_gelungen": "Der Posten ist gefallen, dank euch. Bei {ort} habe ich neue Arbeit für euch.",
     "wiedersehen_dank": "Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
   },
   "spuren": {

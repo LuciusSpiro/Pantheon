@@ -19,7 +19,7 @@ fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures'), path.join(TMP, 'tools', 'fixtures'), { recursive: true });
 const TESTS = [['tools/test-faden-szene.js'], ['tools/test-faden-zustand.js']];
 for (const [t] of TESTS) fs.copyFileSync(path.join(ROOT, t), path.join(TMP, t));
-for (const h of ['regie-fixture.js', 'faden-fixture.js']) fs.copyFileSync(path.join(ROOT, 'tools', h), path.join(TMP, 'tools', h));
+for (const h of ['regie-fixture.js', 'faden-fixture.js', 'gegner-testhilfe.js']) fs.copyFileSync(path.join(ROOT, 'tools', h), path.join(TMP, 'tools', h));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
@@ -32,9 +32,9 @@ const MUTATIONEN = [
   [SZ, '  if (game.space.escorts) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);', '  if (false) game.space.escorts = game.space.escorts.filter((q) => q.tag !== h.ally.tag);', 'Verbündeter bleibt nach dem Gefecht im Raum'],
   [SZ, '  const p = npc ? Faden.chanceSpontanhilfe(npc) : 0;', '  const p = npc ? 0.5 : 0;', 'Chance der Spontanhilfe ignoriert die Haltung'],
   [SZ, '  if (!(wuerfel(game, h) < p)) return false;', '  if (!(game.rng.chance(p))) return false;', 'Wurf der Spontanhilfe zieht game.rng statt des eigenen Stroms'],
-  [SZ, '  funk(game, fmt(T.vorwarnung[it.art], vars));', '  void vars;', 'Gefahr ohne Vorwarnung per Funk'],
+  [SZ, '  funk(game, fmt(T.vorwarnung[fs.textKey], vars));', '  void vars;', 'Gefahr ohne Vorwarnung per Funk'],
   [SZ, '  const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);', '  const sek = 2;', 'Vorwarnung unter 8 s'],
-  [SZ, "  const n = (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;", "  const n = (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, 1) : 1;", 'Gegner nicht nach Crewgroesse skaliert'],
+  [SZ, "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;", "  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, 1) : 1;", 'Gegner nicht nach Crewgroesse skaliert'],
   [SZ, '  if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', '  if (false) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));', 'Szenenwechsel räumt die Gegner der Szene nicht ab'],
   [SZ, '  andockenEnde(game);\n  Fracht.andocken(game);', '  Fracht.andocken(game);', 'Andocken beendet die laufende Szene nicht'],
   [FR, "  F().beatAusgang(game, f.id, 'gescheitert');   // der Ausgang entfernt die Ware", "  F().beatAusgang(game, f.id, 'gelungen');   // der Ausgang entfernt die Ware", 'verlorene Ware gilt als gelungen'],

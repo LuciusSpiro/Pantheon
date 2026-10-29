@@ -16,6 +16,7 @@
     {
       "id": "geleit_durch_angriff",
       "name": "Geleit durch einen Angriff",
+      "sund_frei": { "beat": "geleit", "parameter": { "modus": "geleit" }, "belegt": "tools/test-faden-katalog-b2.js (g) und tools/spiel-faden.js" },
       "schauplatz": "weltraum",
       "beschreibung": "Ein NSC-Schiff (Frachter, Karawane, Bergungsboot) fährt quer durch die Szene. Angekündigte Jäger gehen auf den Schützling, danach kommen angekündigte Wellen (Korvette + Jäger), bis er am Ziel ist. Die Lerche stellt sich mit der Breitseite dazwischen, der Captain gibt dem Schützling Befehle (halten, folgen, volle Kraft). Endet, wenn der Schützling durch ist oder kampfunfähig treibt. Nur innerhalb dieser Szene, kein Sprung mit dem Schützling.",
       "braucht": [
@@ -199,6 +200,7 @@
     {
       "id": "notruf_verteidigen",
       "name": "Notruf: Havaristen verteidigen",
+      "sund_frei": { "beat": "geleit", "parameter": { "modus": "havarist" }, "belegt": "tools/test-faden-katalog-b2.js (g) und tools/spiel-faden.js" },
       "schauplatz": "weltraum",
       "beschreibung": "Ein liegengebliebenes NSC-Schiff funkt Notruf, Jäger kreisen schon und laden auf den Havaristen. Die Lerche fängt Ladungen mit der Breitseite ab und vertreibt die Angreifer. Endet, wenn die Angreifer erledigt sind oder der Havarist kampfunfähig treibt. Lässt sich mit Pannenhilfe danach verbinden.",
       "braucht": [

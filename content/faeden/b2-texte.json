@@ -1,0 +1,18 @@
+{
+  "format": "faden-b2-texte/1",
+  "_hinweis": "SUND-04b B2: Zahlen und Texte des Beats sabotage (server/sim/faden-b2.js). Die Szenen konvoi und geleit stehen in szenen-werte.json. Ein Sabotage-Auftrag nennt ein Ziel (ein germanischer Posten auf einem Quell-Hex der Sim) und WARTET auf das Ereignis posten_verloren (durch rom) an diesem Hex; die Sprengung selbst macht die Crew in der Sim-Szene Posten angreifen (kriegslage-szene.js, Wirkung posten_gesprengt). Der Beat baut keinen eigenen Angriff der Sim und aendert werte.json folge_typen nicht. Platzhalter: {name} (NSC), {ort} (Name des Sektors). Keine Spielernamen, keine Zahlen im Text. Jeder Funktext hoechstens werte.json funk_text_max Zeichen mit eingesetzten Platzhaltern (Test).",
+  "werte": {
+    "sabotage": {
+      "wert": {"erreichbar_max": 6, "pause_ticks": 80, "quell_besitzer": ["ger"]},
+      "einheit": "Spruenge, Sim-Ticks, Besitzer",
+      "_hinweis": "erreichbar_max: das Ziel liegt hoechstens so viele Spruenge (Wege ueber offene Sprungpunkte) vom Sektor der Crew. pause_ticks: Sperre ueber alle Sabotage-Auftraege (Sitzung/Abend): nach dem Beginn eines Sabotage-Beats beginnt in den naechsten pause_ticks Ticks der Sim kein weiterer (der Stand haelt den Tick des letzten Beginns, welt.sim.faeden.sabotage). Gemessen (Erkundung SUND-04b, tools/sim-crew-sprengen.js): eine Sprengung alle 40 Ticks haelt die Baender der Sim, Dauerfeuer haelt das untere Band nur knapp, 80 laesst Luft. Dazu gilt die Ruf-Sperre je Hex der Sim (posten-werte.json sprengen.ruf_sperre_ticks): ein Hex in der Sperre ist kein Ziel. quell_besitzer: nur Posten dieser Besitzer auf einem Hex mit Quelle (Versorgungsposten) sind ein Ziel."
+    }
+  },
+  "texte": {
+    "sabotage_start": "Ziel: der germanische Posten bei {ort}. Er versorgt ihre Flotte. Sprengt ihn!",
+    "sabotage_gelungen": "Der Posten bei {ort} ist gefallen. Ihre Flotte bekommt von dort nichts mehr.",
+    "sabotage_ziel_weg": "Der Posten bei {ort} steht nicht mehr. Der Auftrag hat sich erledigt.",
+    "sabotage_kein_ziel": "Im Moment gibt es kein Ziel für einen Sabotage-Auftrag. Das Angebot ist hinfällig.",
+    "sabotage_pause": "Ihr habt erst vor Kurzem einen Posten gesprengt. Wir warten, bis sich die Lage beruhigt."
+  }
+}

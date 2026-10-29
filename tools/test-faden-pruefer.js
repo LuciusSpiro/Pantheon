@@ -18,8 +18,8 @@ const hat = (v, code) => codes(v).includes(code);
 const beat = (v, id) => v.beats.find((b) => b.id === id);
 
 section('Daten und Beat-Katalog', () => {
-  // SUND-04a-2 P1: der Katalog wächst um raumschlacht, befreiung, fracht (neun Typen); bitte, enthuellung, notruf, abschluss bleiben Platzhalter bis P3; SUND-04b B1: geruecht, spur, wiedersehen (zwölf Typen)
-  ok(JSON.stringify(Object.keys(D.BEATS).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'fracht', 'geruecht', 'notruf', 'raumschlacht', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen']), 'zwoelf Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen): ' + Object.keys(D.BEATS).join(', '));
+  // SUND-04a-2 P1: der Katalog wächst um raumschlacht, befreiung, fracht (neun Typen); bitte, enthuellung, notruf, abschluss bleiben Platzhalter bis P3; SUND-04b B1: geruecht, spur, wiedersehen (zwölf Typen); SUND-04b B2: konvoi, geleit, sabotage (15 Typen)
+  ok(JSON.stringify(Object.keys(D.BEATS).sort()) === JSON.stringify(['abschluss', 'befreiung', 'bitte', 'enthuellung', 'fracht', 'geleit', 'geruecht', 'konvoi', 'notruf', 'raumschlacht', 'sabotage', 'spontanhilfe', 'spur', 'verfolgung', 'wiedersehen']), '15 Beat-Typen im Katalog (Daten, nicht im Code; SUND-04b B1: geruecht, spur, wiedersehen; B2: konvoi, geleit, sabotage): ' + Object.keys(D.BEATS).join(', '));
   const Bs = require('../server/sim/faden-bausteine.js');
   require('../server/sim/faden-szene.js');   // registriert die Bausteine der P1-Szenen
   // SUND-04a-2 P3: alle Katalog-Bausteine sind echt (P1: Szenen und Fracht, P2: bitte, P3: notruf, enthuellung, abschluss); kein Platzhalter bleibt

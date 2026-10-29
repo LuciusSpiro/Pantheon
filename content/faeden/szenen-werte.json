@@ -2,7 +2,7 @@
   "format": "faden-szenen/1",
   "_hinweis": "SUND-04a-2 P1: Faden-Szenen der Freien Fahrt Sund (server/sim/faden-szene.js). Alle Zahlen und Texte stehen hier, keine im Code. Vier Arten: verfolgung (Szenentyp A6 ueber Verfolgung.starten), raumschlacht (germanische Schiffe im aktuellen Sektor), befreiung (Wachschiffe um einen festgehaltenen NSC, Ersatz fuer geiseln_befreien am Boden: eine Raumszene), spontanhilfe (das Schiff des NSC kommt in einer Sim-Szene oder Raumschlacht als Verbündeter dazu). Die Faden-Szene ist nicht speicherbar: Sprung, Andocken oder Unterbrechung loesen sie vorher auf.",
   "werte": {
-    "arten": {"wert": ["verfolgung", "raumschlacht", "befreiung", "spontanhilfe"], "einheit": "Arten", "_hinweis": "Die Szenenarten der Bausteine (Beat-Baustein = Art). Ein Baustein ruft starten() mit seiner Art auf; eine unbekannte Art wird abgelehnt."},
+    "arten": {"wert": ["verfolgung", "raumschlacht", "befreiung", "spontanhilfe", "konvoi", "geleit"], "einheit": "Arten", "_hinweis": "Die Szenenarten der Bausteine (Beat-Baustein = Art). Ein Baustein ruft starten() mit seiner Art auf; eine unbekannte Art wird abgelehnt. SUND-04b B2: konvoi und geleit (server/sim/faden-szene-b2.js)."},
     "vorlauf_s": {"wert": 10, "einheit": "Sekunden", "_hinweis": "Gefahr wird angekündigt: Funk vorab, dann Vorlauf bis zum Eintreffen der Gegner (Regel wie Reise-Gefahr). Ist nie kleiner als vorlauf_min_s."},
     "vorlauf_min_s": {"wert": 8, "einheit": "Sekunden", "_hinweis": "Untergrenze der Vorwarnung (Fairness: wie Reise-Gefahr, mindestens 8 s)."},
     "warteschlange_max": {"wert": 3, "einheit": "Szenen", "_hinweis": "Hoechstens so viele Faden-Szenen warten, waehrend eine laeuft. Mehr wird abgelehnt."},
@@ -10,6 +10,8 @@
     "befreiung": {"wert": {"klasse": "korvette", "volk": "ger", "anzahl": {"1": 2, "2": 2, "3": 3}, "ring": 300}, "einheit": "Wachschiffe je Crewgröße", "_hinweis": "Wachschiffe um den Ort des NSC. Ausgang gelungen, wenn alle vertrieben oder zerstört sind: der NSC ist frei."},
     "verfolgung": {"wert": {"klassen": {"frachter": "frachter", "haendler": "frachter", "kurier": "korvette", "korvette": "korvette", "fregatte": "fregatte"}, "standard": "frachter"}, "einheit": "Zielklassen", "_hinweis": "Schiffsklasse des NSC auf eine Zielklasse der Verfolgung (verfolgung-werte.json: ohne Jäger). Das Zielschiff ist ein Einzelschiff: nicht nach Crewgröße skaliert. Der Fluchtpunkt wählt die Verfolgung (Sprungpunkt)."},
     "spontanhilfe": {"wert": {"klasse": "korvette", "ring": 260, "winkel_schritt": 2.4}, "einheit": "Klasse, Abstand", "_hinweis": "Das Schiff des NSC kommt als Verbündeter (Flotte, EK4) dazu. Klasse muss zu den Verbündeten-Klassen der Escort gehören. Die Chance kommt aus Haltung (haltung-werte.json, Kurve), gewürfelt mit eigenem Strom."},
+    "konvoi": {"wert": {"anzahl": {"1": 1, "2": 2, "3": 2}, "eskorte": {"1": "jaeger", "2": "voll", "3": "voll"}, "siegen": ["aufhalten", "pluendern"], "sieg_standard": "aufhalten", "ladung": "fracht", "volk": "ger", "max_s": 300}, "einheit": "Transporter und Eskorte je Crewgröße, Siegarten, Ladungsart der Beute, Volk, Höchstdauer in Sekunden", "_hinweis": "SUND-04b B2: Konvoi abfangen (server/sim/konvoi.js, ohne Mission). Der Konvoi fährt seine Route und springt an ihrem Ende. Gelungen = aufgehalten (alle Transporter zerstört, Sieg aufhalten) bzw. geplündert (Fracht an Bord, Sieg pluendern) laut Konvoi-Ausgang; entkommt der Konvoi oder läuft max_s ab, ist der Beat gescheitert (der Konvoi kommt nicht wieder, wiederholung aus). Beute: die Ladungsart aus game.C.fracht.arten, nicht der Sprengstoff der Kampagne."},
+    "geleit": {"wert": {"modi": {"geleit": {"kind": "frachter", "verhalten": "folgt_kurs", "huelle": 100, "reparatur_s": 0, "angreifer": {"1": 2, "2": 2, "3": 3}, "erfolg": "angekommen"}, "havarist": {"kind": "bergungsboot", "verhalten": "treibt", "huelle": 60, "reparatur_s": 0, "angreifer": {"1": 1, "2": 2, "3": 2}, "erfolg": "angreifer_weg"}, "panne": {"kind": "bergungsboot", "verhalten": "treibt", "huelle": 70, "reparatur_s": 20, "angreifer": {"1": 1, "2": 1, "3": 2}, "erfolg": "repariert"}}, "modus_standard": "geleit", "ziele": ["west", "ost"], "angreifer": {"klasse": "raider", "volk": "ger", "ring": 450}, "max_s": 360}, "einheit": "Modi (Schützling, Hülle, Reparatur, Angreifer je Crewgröße), Zielseiten, Angreifer, Höchstdauer in Sekunden", "_hinweis": "SUND-04b B2: Schützling geleiten (server/sim/escort.js, ohne Mission; die Engine kennt höchstens 2 Schützlinge). Modus geleit: der Schützling fährt zur weiter entfernten der Seiten ziele und ist gelungen, wenn er dort ankommt. Modus havarist (Notruf: treibt, Angreifer greifen ihn an): gelungen, wenn alle Angreifer weg sind und er noch fährt oder treibt. Modus panne (Längsseits gehen und flicken): gelungen, wenn er repariert ist. Gescheitert, wenn er kampfunfähig wird oder max_s abläuft. Die Angreifer sind angekündigt (Vorwarnung) und greifen den Schützling an (Escort.tele). kind: Klasse der Escort-Engine (frachter, karawane, bergungsboot)."},
     "spontanhilfe_salz": {"wert": "spontanhilfe", "einheit": "Strom", "_hinweis": "Salz des eigenen Zufallsstroms (nie game.rng, nie der Strom der Sim)."},
     "crew_min": {"wert": 1, "einheit": "Spieler", "_hinweis": "Untergrenze der Crewgröße, nach der Gegner und Wachschiffe skalieren (verbundene Spieler, mindestens 1)."},
     "crew_max": {"wert": 3, "einheit": "Spieler", "_hinweis": "Obergrenze der Crewgröße für die Skalierung (die Tabellen anzahl kennen 1 bis 3)."},
@@ -24,7 +26,12 @@
       "raumschlacht": "Achtung: {n} germanische Schiffe ({klasse}) fallen in {sek} Sekunden in unseren Sektor ein!",
       "befreiung": "Wachschiffe sichern {name}. Eintreffen in {sek} Sekunden – gefährlich! Wer davor andockt oder springt, lässt {name} im Stich: verloren.",
       "verfolgung": "{name} ({schiff}) will sich absetzen. In {sek} Sekunden beginnt die Verfolgung.",
-      "spontanhilfe": "Der Verbündete {name} ist im Sektor. Er greift in die Schlacht ein, sobald sie beginnt."
+      "spontanhilfe": "Der Verbündete {name} ist im Sektor. Er greift in die Schlacht ein, sobald sie beginnt.",
+      "konvoi": "Ein germanischer Konvoi mit Eskorte zieht in {sek} Sekunden durch den Sektor. Haltet ihn auf!",
+      "konvoi_pluendern": "Ein germanischer Konvoi mit Eskorte zieht in {sek} Sekunden durch. Beute beamen!",
+      "geleit": "{name} braucht Geleit. In {sek} Sekunden greifen {n} germanische Jäger an. Dazwischen bleiben!",
+      "havarist": "Notruf von {name}: Antrieb tot. In {sek} Sekunden greifen {n} Jäger an – verteidigt das Schiff!",
+      "panne": "{name} treibt mit Maschinenschaden. Längsseits flicken! In {sek} Sekunden kommen Jäger."
     },
     "hilfe_erscheint": "{name} meldet sich über Funk: „Wir kommen! Haltet durch.“",
     "hilfe_eingesetzt": "{name} greift mit {schiff} in die Schlacht ein.",
@@ -32,13 +39,23 @@
       "raumschlacht": "Die Gegner sind abgezogen oder vernichtet. Der Sektor ist frei.",
       "befreiung": "Die Wachen sind vertrieben. {name} ist frei.",
       "verfolgung": "{name} ist gestellt oder vernichtet.",
-      "spontanhilfe": "Die Schlacht ist vorbei. {name} hat mitgekämpft."
+      "spontanhilfe": "Die Schlacht ist vorbei. {name} hat mitgekämpft.",
+      "konvoi": "Alle Transporter sind zerstört. Dieser Konvoi kommt nirgends mehr an.",
+      "konvoi_pluendern": "Die Beute ist an Bord. Der Konvoi ist erledigt – nichts wie weg.",
+      "geleit": "Das Geleit ist am Ziel. {name} ist durch und bedankt sich.",
+      "havarist": "Die Jäger sind weg. {name} treibt noch, aber ist gerettet.",
+      "panne": "Der Antrieb läuft wieder. {name} bedankt sich und fährt weiter."
     },
     "gescheitert": {
       "raumschlacht": "Die Schlacht ist verloren oder abgebrochen. Die Lage bleibt offen.",
       "befreiung": "Die Befreiung ist gescheitert. {name} bleibt in der Gewalt der Wachen.",
       "verfolgung": "{name} ist entkommen.",
-      "spontanhilfe": "Die Schlacht ist vorbei, ohne dass {name} eingegriffen hat."
+      "spontanhilfe": "Die Schlacht ist vorbei, ohne dass {name} eingegriffen hat.",
+      "konvoi": "Der Konvoi ist durch. Er ist gesprungen oder uns entkommen.",
+      "konvoi_pluendern": "Der Konvoi ist durch, die Beute ist weg.",
+      "geleit": "Das Geleit ist gescheitert. {name} ist kampfunfähig oder wir waren zu langsam.",
+      "havarist": "{name} ist kampfunfähig. Die Jäger drehen ab, die Besatzung lebt.",
+      "panne": "Die Reparatur ist gescheitert. {name} treibt weiter."
     },
     "fracht": {
       "laden": "Ware an Bord: {ware} für {hafen}. Bei der Ankunft im Hafen andocken.",

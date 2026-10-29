@@ -4,7 +4,8 @@
 // laeuft in der Freien Fahrt nicht (Labor-Start speichert m1–m3, Prüfer lehnt 21 von 27 Orten ab), und eine Faden-Szene ist nicht speicherbar.
 //
 //   starten(game, { art, fadenId, beatId, nsc?, parameter? }) -> { ok, grund? }
-//       art verfolgung | raumschlacht | befreiung (Vorlauf, dann Kampf in der Warteschlange: nie zwei Szenen übereinander, nie bei laufender Sim-Szene)
+//       art verfolgung | raumschlacht | befreiung | konvoi | geleit (Vorlauf, dann Kampf in der Warteschlange: nie zwei Szenen übereinander, nie bei laufender Sim-Szene)
+//       SUND-04b B2: konvoi (Konvoi.an, ohne Mission) und geleit (Escort.spawn: Geleit, Havarist, Panne) in faden-szene-b2.js; die Wahl des Beats (Parameter sieg, modus) steht in parameter.beat
 //       art spontanhilfe: der Beat wartet auf das nächste Gefecht (Sim-Szene oder Raumschlacht); einmal je Gefecht gewürfelt
 //   update(game, dt)   Takt (aus game.step, nur wenn eine Faden-Szene, eine Warteschlange oder ein Beat „spontanhilfe“ da ist)
 //   andocken(game)     Andocken = Szenenwechsel (Hook: game.js, missionEvent docked): die Szene endet gescheitert, die Warteschlange steht wieder aus
@@ -13,7 +14,7 @@
 //   Zufall: eigener Strom (reise-ereignis.strom mit Salz aus den Daten), nie game.rng, nie der Strom der Sim.
 //   Verbündeter (spontanhilfe): Flotte.aufstellen (EK4, Verbündete); Crew-Geschosse treffen nur space.enemies, Verbündete sind unverwundbar (SUND-02b E). Er verschwindet am Ende.
 //
-// Zustand (nur Laufzeit, nicht gespeichert): game.fadenSzene { id, fadenId, beatId, art, nsc, phase: vorlauf | kampf, ab, start, szene, tag, sek },
+// Zustand (nur Laufzeit, nicht gespeichert): game.fadenSzene { id, fadenId, beatId, art, nsc, phase: vorlauf | kampf, ab, start, szene, tag, sek, n, textKey, plan },
 //   game.fadenWarte [ { fadenId, beatId, art, nsc, parameter, szene } ], game.fadenHilfe { fadenId, beatId, nsc, schiff, name, versucht, n, ally: { tag, kampf } | null }.
 // Abweichung (Auftrag, Entscheidung): geiseln_befreien am Boden entfaellt; befreiung ist eine Raumszene mit Wachschiffen (Boden-Szenen laufen in der Freien Fahrt nicht).
 const Faden = require('./faden.js');
@@ -21,6 +22,7 @@ const D = require('./faden-daten.js');
 const Bausteine = require('./faden-bausteine.js');
 const Fracht = require('./faden-fracht.js');
 const Hinweis = require('./faden-hinweis.js');
+const SZB2 = require('./faden-szene-b2.js');   // SUND-04b B2: Szenenarten konvoi und geleit
 const Sektoren = require('../../shared/sektoren.js');
 const Verfolgung = require('./verfolgung.js');
 const Zielsysteme = require('./zielsysteme.js');
@@ -86,12 +88,13 @@ function naechsteStarten(game) {
 function beginnen(game, it) {
   game.fadenSzeneN = (game.fadenSzeneN || 0) + 1;
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
-  const n = (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
-  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n };   // n: die angekündigte Zahl (K2)
+  const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
+  const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
+  const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
   game.fadenSzene = fs;
   const klasse = (it.art === 'raumschlacht' || it.art === 'befreiung') ? W[it.art].klasse : '';
   const vars = { name: it.nsc ? it.nsc.name : '', schiff: it.nsc ? it.nsc.schiff : '', klasse, n, sek: Math.round(sek) };
-  funk(game, fmt(T.vorwarnung[it.art], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
+  funk(game, fmt(T.vorwarnung[fs.textKey], vars));   // Fairness: die Gefahr wird vorher angekündigt, nie abgefragt
   return fs;
 }
 
@@ -106,6 +109,7 @@ function kampfBeginn(game, fs) {
     if (!z) return enden(game, fs, 'gescheitert', null);
     return null;
   }
+  if (SZB2.istArt(fs.art)) return SZB2.beginn(game, fs) ? null : enden(game, fs, 'gescheitert', null);   // SUND-04b B2
   const C = W[fs.art]; const n = fs.n;   // K2: genau die Zahl, die im Funk stand (die Crewgröße beim Ankündigen), nie mehr
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;
@@ -119,6 +123,7 @@ function kampfBeginn(game, fs) {
 function aufraeumen(game, fs) {
   const sp = game.space;
   const vf = fs.art === 'verfolgung' ? sp.verfolgung : null;   // nur die Verfolgung dieser Szene, nie eine fremde
+  if (SZB2.istArt(fs.art)) SZB2.aufraeumen(game, fs);   // SUND-04b B2: Konvoi bzw. Schützling (die Angreifer tragen den Tag der Szene und gehen unten)
   const weg = sp.enemies.filter((e) => e.tag === fs.tag || (vf && e.id === vf.ziel));
   if (weg.length) sp.enemies = sp.enemies.filter((e) => !weg.includes(e));
   if (weg.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
@@ -128,7 +133,7 @@ function aufraeumen(game, fs) {
 // Ende der Szene mit Ausgang (gelungen, gescheitert) oder ohne (Unterbrechung, siehe unterbrechen). textKey: Funk-Text (null = keiner)
 function enden(game, fs, ausgang, textKey) {
   const name = fs.nsc ? fs.nsc.name : '';
-  const txt = textKey ? T[textKey] : (ausgang === 'gelungen' ? T.gelungen[fs.art] : T.gescheitert[fs.art]);
+  const txt = textKey ? T[textKey] : (ausgang === 'gelungen' ? T.gelungen[fs.textKey || fs.art] : T.gescheitert[fs.textKey || fs.art]);
   aufraeumen(game, fs);
   funk(game, fmt(txt, { name }));
   if (laeuft(game, fs.fadenId, fs.beatId)) Faden.beatAusgang(game, fs.fadenId, ausgang);
@@ -155,6 +160,7 @@ function kampfTakt(game, fs) {
     if (a === 'entkommen' || !Verfolgung.aktiv(game)) return enden(game, fs, 'gescheitert', null);
     return null;
   }
+  if (SZB2.istArt(fs.art)) { const a = SZB2.ausgang(game, fs); return a ? enden(game, fs, a, null) : null; }   // SUND-04b B2: Ausgang aus Konvoi-Ausgang bzw. Zustand des Schützlings
   if (!game.space.enemies.some((e) => e.tag === fs.tag)) return enden(game, fs, 'gelungen', null);   // alle zerstört oder abgezogen
   return null;
 }
@@ -245,6 +251,10 @@ function beatStarten(game, art, faden, ctx) {
   return r.ok ? { laeuft: true } : { ausgang: 'gescheitert' };
 }
 for (const art of ARTEN) Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, ctx); } });
+// SUND-04b B2: konvoi und geleit lesen die Wahl des Beats (Parameter sieg, modus) aus beat.parameter; sie liegt als parameter.beat in der Warteschlange
+for (const art of SZB2.ARTEN) {
+  Bausteine.registriere(art, { starten(game, faden, ctx) { return beatStarten(game, art, faden, Object.assign({}, ctx, { parameter: Object.assign({}, ctx.parameter, { beat: Object.assign({}, ctx.beat.parameter) }) })); } });
+}
 
 // Welle 3: die Befreiung findet am ORT DES NSC statt (faden.parameter.ort), nirgends sonst. Ist das Schiff schon dort, beginnt sie wie jede Szene (Vorwarnung, Vorlauf, Wachschiffe).
 // Sonst sagt der Funk, wo er festsitzt, der Beat laeuft und wartet auf die Ankunft (befreiungAnkunft, Takt aus faden-p3.update, wie der Notruf): der Faden SELBST ist der Zustand, nichts davon wird
