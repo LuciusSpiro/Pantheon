@@ -67,6 +67,10 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
     T.check('LLM_ROUTER=1 → Standardzuordnung mit Eskalation', r1 && r1.arten.szene.anbieter === 'ollama' && r1.arten.grobplan.anbieter === 'claude' && r1.eskalationFuer('szene') === 'claude', '');
     const r2 = Router.routerAusEnv({ LLM_ANBIETER_SZENE: 'claude', LLM_MODELL_SZENE: 'opus', LLM_ESKALATION: 'aus' }, { transports: { claude, ollama } });
     T.check('LLM_ANBIETER_SZENE=claude, LLM_MODELL_SZENE, LLM_ESKALATION=aus', r2 && r2.arten.szene.anbieter === 'claude' && r2.arten.szene.modell === 'opus' && r2.arten.text.anbieter === 'ollama' && r2.eskalationFuer('text') === null, JSON.stringify(r2 && r2.arten));
+    // SUND-04b A2: weicht nur eine Stufe ab, entsteht der Router nur fuer die Stufen; grobplan, szene, text und lage bleiben wie in main bei Claude
+    const rs = Router.routerAusEnv({ LLM_MODELL_FIGUREN_NEBEN: 'haiku' }, { transports: { claude, ollama } });
+    T.check('nur eine Stufe weicht ab → szene, text, lage, grobplan bleiben bei Claude, keine Eskalation', rs && ['szene', 'text', 'lage', 'grobplan'].every((k) => rs.anbieterFuer(k) === 'claude' && rs.eskalationFuer(k) === null), JSON.stringify(rs && rs.arten));
+    T.check('mit LLM_ROUTER=1 gilt die Standardzuordnung auch bei abweichender Stufe', Router.routerAusEnv({ LLM_ROUTER: '1', LLM_MODELL_FIGUREN_NEBEN: 'haiku' }, { transports: { claude, ollama } }).anbieterFuer('szene') === 'ollama', '');
     const r3 = Router.routerAusEnv({ LLM_ANBIETER_TEXT: 'ollama', LLM_MODELL_TEXT: 'x:1', LLM_ESKALATION_MODELL: 'haiku' }, { transports: { claude, ollama } });
     T.check('LLM_MODELL_TEXT, LLM_ESKALATION_MODELL', r3.arten.text.modell === 'x:1' && r3.eskalation.modell === 'haiku', JSON.stringify(r3.eskalation));
     const e1 = (() => { try { Router.routeTransport({ szene: { anbieter: 'gpt' } }, { transports: { claude, ollama } }); return null; } catch (e) { return e; } })();

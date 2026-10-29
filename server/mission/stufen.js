@@ -54,16 +54,23 @@ function lade(env, o) {
     const roh = (opt.lesen || ((p) => fs.readFileSync(p, 'utf8')))(datei);
     doc = JSON.parse(roh);
   } catch (err) { fehler.push(`stufen.json: nicht lesbar (${String(err && err.message).slice(0, 100)}), sichere Standardwerte gelten`); }
+  const objekt = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+  if (doc !== null && !objekt(doc)) { fehler.push('stufen.json: kein Objekt, sichere Standardwerte gelten'); doc = null; }
   if (doc) {
     let formFehler = [];
     try {
-      const schema = JSON.parse(fs.readFileSync(SCHEMA, 'utf8'));
+      const schema = JSON.parse(fs.readFileSync(opt.schemaDatei || SCHEMA, 'utf8'));
       formFehler = require('../weltstand.js').fallbackValidate(doc, schema);
     } catch (err) { formFehler = []; }   // ohne Schema (Datei fehlt) prueft der Rest unten jeden Eintrag einzeln
     if (formFehler.length) fehler.push('stufen.json: Form ungueltig (' + formFehler.slice(0, 3).join('; ') + '), sichere Standardwerte gelten');
     else {
-      for (const [name, x] of Object.entries(doc.stufen || {})) {
+      // Jeder Eintrag wird einzeln geprueft, auch wenn das Schema fehlt oder nicht lesbar ist (Typen und erlaubte Anbieter): ein Eintrag wie null oder {"anbieter":"gpt"} wirft nie
+      if (doc.stufen !== undefined && !objekt(doc.stufen)) fehler.push('stufen.json: stufen ist kein Objekt, Standardwerte gelten');
+      for (const [name, x] of Object.entries(objekt(doc.stufen) ? doc.stufen : {})) {
         if (!STUFEN.includes(name)) { fehler.push(`stufen.json: unbekannte Stufe ${String(name).slice(0, 30)} ignoriert`); continue; }
+        if (!objekt(x)) { fehler.push(`stufen.json: ${name}: kein Objekt, Standard gilt`); continue; }
+        if (typeof x.anbieter !== 'string' || !ANBIETER.includes(x.anbieter)) { fehler.push(`stufen.json: ${name}: unbekannter Anbieter ${String(x.anbieter).slice(0, 30)} (erlaubt: ${ANBIETER.join(', ')}), Standard gilt`); continue; }
+        if (x.modell !== undefined && x.modell !== null && typeof x.modell !== 'string') { fehler.push(`stufen.json: ${name}: Modellname ist kein Text, Standard gilt`); continue; }
         const mod = x.modell === undefined || x.modell === null ? standardModell(x.anbieter) : x.modell;
         if (mod !== null && !MODELL_FORM.test(String(mod))) { fehler.push(`stufen.json: ${name}: Modellname unbrauchbar, Standard gilt`); continue; }
         stufen[name] = { anbieter: x.anbieter, modell: mod, eskalation: x.eskalation === true, quelle: 'datei' };
@@ -97,7 +104,9 @@ function lade(env, o) {
     cur.anbieter = anbieter; cur.modell = modell;
   }
   // Eskalation an Claude gibt es nur fuer Stufen, die nicht selbst bei Claude liegen
-  for (const name of STUFEN) if (stufen[name].anbieter === 'claude' && stufen[name].eskalation) stufen[name].eskalation = false;
+  for (const name of STUFEN) {
+    if (stufen[name].anbieter === 'claude' && stufen[name].eskalation) { stufen[name].eskalation = false; fehler.push(`${name}: eskalation gilt nur fuer eine Stufe bei Ollama (Claude eskaliert nicht an sich selbst), aus`); }
+  }
   return { stufen, slots, fehler, datei };
 }
 

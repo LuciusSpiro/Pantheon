@@ -265,7 +265,7 @@ function abenteuerAnbieten(game, bauplan, o) {
   if (!aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet' };
   const F = zustandVon(game);
   o = istObjekt(o) ? o : {};
-  const abgelehnt = (grund, fehler) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_anbieten', plan: { titel: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.slice(0, 60) : null }, fehler: (fehler || [grund]).slice(0, 6) }); return { ok: false, grund, fehler: fehler || [grund] }; };
+  const abgelehnt = (grund, fehler) => { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_anbieten', plan: { titel_zeichen: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.length : null }, fehler: (fehler || [grund]).slice(0, 6) }); return { ok: false, grund, fehler: fehler || [grund] }; };
   const g = P.pruefeAbenteuerAnbieten(F, o);
   if (g) return abgelehnt(g);
   const r = Bauplan().pruefe(bauplan);

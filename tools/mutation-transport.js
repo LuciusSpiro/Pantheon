@@ -31,7 +31,8 @@ const MUTATIONEN = [
   [R, "    if (!eskCfg || !c || c.anbieter !== 'ollama') return null;\n", "    return null;\n", 'Router: keine Eskalation'],
   [R, "    if (!eskCfg || !c || c.anbieter !== 'ollama') return null;\n", "    if (!eskCfg || !c) return null;\n", 'Router: auch Claude-Arten eskalieren'],
   [R, "return Object.assign({}, r, { anbieter, modell: r.modelId || modell || null });", "return Object.assign({}, r, { modell: r.modelId || modell || null });", 'Router: Antwort ohne Anbieter'],
-  [R, "const gewaehlt = e.LLM_ROUTER === '1' || ARTEN_ALT.some(", "const gewaehlt = true || ARTEN_ALT.some(", 'Router: immer aktiv (Standardverhalten ändert sich)'],
+  [R, "  if (nurStufen && Stufen.abweichend(geladen).length === 0) return null;\n", "", 'Router: immer aktiv (Standardverhalten ändert sich)'],
+  [R, "  if (nurStufen) for (const a of ARTEN_ALT) arten[a] = { anbieter: 'claude', modell: 'sonnet' };\n", "", 'Router: nur wegen der Stufen gehen szene und text an Ollama'],
   [R, "if (eskCfg && eskCfg.anbieter !== 'claude') throw", "if (false) throw", 'Router: Eskalation an Ollama erlaubt'],
   // ----- llm.js -----
   [L, "if (r.anbieter !== 'ollama') { used += n; addUsage(n); }", "{ used += n; addUsage(n); }", 'llm: Token-Zähler zählt Ollama mit'],

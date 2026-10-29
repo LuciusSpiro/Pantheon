@@ -54,7 +54,8 @@ function mitAbenteuer(t, llmOpts, werte, extra) {
   const ask0 = llm.ask.bind(llm), esk0 = llm.eskaliere.bind(llm);
   llm.ask = (k, i, o) => { llm.asks.push({ kind: k, prompt: i && i.prompt, system: i && i.system, stufe: o && o.stufe }); return ask0(k, i, o); };
   llm.eskaliere = (k, i, o) => { llm.asks.push({ kind: k, eskaliert: true, prompt: i && i.prompt, stufe: o && o.stufe }); return esk0(k, i, o); };
-  const sl = LS.create(t.g, { llm, werte: {}, abenteuerWerte: werte || {} });
+  // der Lage-Plan startet an derselben Grenze (und die Komposition wartet dann auf ihn): ohne extra.lage bleibt er aus (Deckel 0), damit diese Tests nur die Komposition pruefen
+  const sl = LS.create(t.g, { llm, werte: Object.assign({ deckel_je_sitzung: 0 }, (extra && extra.lageWerte) || {}), abenteuerWerte: werte || {} });
   t.g.lageSpielleiter = sl; t.g.lageSchalter = true;
   return { sl, ab: sl.abenteuer, llm, asks: () => llm.asks.filter((a) => a.kind === 'abenteuer') };
 }
@@ -313,7 +314,7 @@ section('Ausfall-Matrix: Fehler, Frist, Muell, zu gross, spaet, dispose', async 
     await lauf(t.g); await lauf(t.g);
     ok(abLog(t.g, 'gueltig').length === 1 && abLog(t.g, 'abgelehnt').length === 1 && abLog(t.g, 'abgelehnt')[0].grund === 'ANTWORT_ZU_GROSS' && m.ab.zaehler.gueltig === 1, `Antwort mit genau ${AW.antwort_max_zeichen} Zeichen gilt, eine mehr ist zu gross`); }
   // Ausnahmen in den Haken des Lage-Spielleiters erreichen das Spiel nie
-  { const t = spiel(), m = mitAbenteuer(t, {});
+  { const t = spiel(), m = mitAbenteuer(t, {}, {}, { lageWerte: { deckel_je_sitzung: LW.deckel_je_sitzung } });
     m.ab.beiGrenze = () => { throw new Error('Haken kaputt'); }; m.ab.update = () => { throw new Error('Haken kaputt'); };
     let wirft = false, r;
     try { r = m.sl.beiGrenze('andocken'); m.sl.update(0.1); } catch (e) { wirft = true; }
@@ -380,7 +381,7 @@ section('ohne Spielleiter und ohne Schalter: Faeden und Abenteuer bleiben stehen
   ok(!g.lageSpielleiter && logbuch(g).filter((e) => e.art === 'abenteuer_bauplan').length === 0, 'kein Lage-Spielleiter, kein Abenteuer-Eintrag');
   ok(Weltstand.validate(Weltstand.capture(g), g).length === 0, 'der Stand bleibt schemagueltig');
   // Lage-Spielleiter an, aber FAEDEN aus: kein Abenteuer-Aufruf, keine Eintraege, byte-gleich zum Bestand (Golden Trace deckt den Rest)
-  const t2 = X.spiel({ aus: true, env: Object.assign({}, AN) }), m2 = mitAbenteuer(t2, {});
+  const t2 = X.spiel({ aus: true, env: Object.assign({}, AN) }), m2 = mitAbenteuer(t2, {}, {}, { lageWerte: { deckel_je_sitzung: LW.deckel_je_sitzung } });
   for (let k = 0; k < 8; k++) await lauf(t2.g);
   ok(m2.asks().length === 0 && abLog(t2.g).length === 0 && m2.llm.asks.some((a) => a.kind === 'lage'), 'ohne FAEDEN=1 plant die Lage wie bisher, die Komposition tut nichts');
   const t3 = X.spiel({ aus: true, env: Object.assign({}, AN) }), m3 = mitAbenteuer(t3, {});
@@ -486,7 +487,7 @@ section('Stufen: Standardwerte, Datei, Umgebung, kaputte Datei, unbekannter Anbi
   // unbekannter Anbieter / Modell in der Umgebung
   const SE = Stufen.lade({ LLM_ANBIETER_BAUPLAN: 'gpt', LLM_MODELL_BAUPLAN: '$(rm -rf)', LLM_ESKALATION_BAUPLAN: 'vielleicht', LLM_ANBIETER_FIGUREN_HAUPT: '' });
   ok(SE.fehler.length === 3 && SE.stufen.bauplan.anbieter === 'claude' && SE.stufen.bauplan.modell === 'sonnet' && SE.stufen.bauplan.eskalation === false && SE.stufen.figuren_haupt.anbieter === 'claude', 'Umgebung: unbekannter Anbieter, unbrauchbarer Modellname, unklarer Schalter: je eine Meldung, sichere Werte');
-  ok(!Stufen.lade({ STUFEN_DATEI: datei('[1,2]') }).stufen.bauplan.anbieter !== 'claude', 'ein Array als Datei stuerzt nicht ab');
+  ok(Stufen.lade({ STUFEN_DATEI: datei('[1,2]') }).stufen.bauplan.anbieter === 'claude', 'ein Array als Datei stuerzt nicht ab, die Standardwerte gelten');
   gespeicherteDateien.push(d1);
 });
 
@@ -495,7 +496,7 @@ section('Stufen im Router: Anbieter und Modell je Stufe, Rueckfall bei Ausfall, 
   const fake = (name, antworten) => ({ name, async call(text, co) { if (co.kind === 'lage') return { text: '{"befehle": [], "begruendung": "Lage ruhig, Rate frei, nichts zu tun"}', usage: { input: 10, output: 5 }, sec: 0.1 }; log[name].push({ kind: co.kind, stufe: co.stufe, model: co.model, schema: !!co.schema, timeoutMs: co.timeoutMs, signal: !!co.signal }); const a = antworten.shift(); if (a instanceof Error) throw a; return Object.assign({ text: '{}', usage: { input: 1000, output: 500 }, sec: 2.5, modelId: name + '-modell', cost: name === 'claude' ? 0.0123 : 0 }, a || {}); } });
   const offline = () => Object.assign(new Error('Ollama nicht erreichbar'), { code: 'OFFLINE' });
   // Router aus der Umgebung
-  const R1 = Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'ollama', LLM_MODELL_BAUPLAN: 'qwen3:32b' }, { transports: { claude: fake('claude', []), ollama: fake('ollama', [{}, {}, {}, {}]) } });
+  const R1 = Router.routerAusEnv({ LLM_ROUTER: '1', LLM_ANBIETER_BAUPLAN: 'ollama', LLM_MODELL_BAUPLAN: 'qwen3:32b' }, { transports: { claude: fake('claude', []), ollama: fake('ollama', [{}, {}, {}, {}]) } });
   ok(R1 && R1.arten.bauplan.anbieter === 'ollama' && R1.arten.bauplan.modell === 'qwen3:32b' && R1.arten.figuren_haupt.anbieter === 'claude' && R1.anbieterFuer('abenteuer') === 'ollama' && R1.anbieterFuer('abenteuer', 'figuren_haupt') === 'claude', 'LLM_ANBIETER_BAUPLAN=ollama: kind abenteuer geht an Ollama, die Stufe der Anfrage geht vor der Art');
   await R1.call('x', { kind: 'abenteuer', model: 'sonnet', system: 'y' });
   await R1.call('x', { kind: 'text', stufe: 'figuren_neben', system: 'y' });
@@ -512,7 +513,7 @@ section('Stufen im Router: Anbieter und Modell je Stufe, Rueckfall bei Ausfall, 
     const llm = LLM.create({ mode: 'live', transport: rt });
     ok(llm.anbieterFuer('text', 'figuren_neben') === 'claude' && llm.anbieterFuer('text') === 'ollama' && llm.anbieterFuer('abenteuer') === 'claude' && LLM.create({ mode: 'mock' }).anbieterFuer('text', 'figuren_neben') === 'claude', 'llm.anbieterFuer(kind, stufe): die Stufe geht vor der Art (nur im Modus live)'); }
   // Eskalation aus der Umgebung und ueber llm.eskaliere: nur die Stufe mit eskalation: true geht an Claude
-  const R3 = Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'ollama', LLM_ESKALATION_BAUPLAN: '1' }), R4 = Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'ollama' });
+  const R3 = Router.routerAusEnv({ LLM_ROUTER: '1', LLM_ANBIETER_BAUPLAN: 'ollama', LLM_ESKALATION_BAUPLAN: '1' }), R4 = Router.routerAusEnv({ LLM_ROUTER: '1', LLM_ANBIETER_BAUPLAN: 'ollama' });
   ok(R3.eskalationFuer('abenteuer') === 'claude' && R4.eskalationFuer('abenteuer') === null && R4.eskalationFuer('text') === 'claude', 'LLM_ESKALATION_BAUPLAN=1: die Stufe eskaliert, ohne den Schalter nicht');
   await mitLive(async () => {
     log.claude.length = 0; log.ollama.length = 0;
@@ -695,6 +696,122 @@ section('Speichern und Laden mit offenem Angebot und laufendem Abenteuer', async
   await lauf(t2.g);
   ok(m2.asks().length === 1 && t2.g.errors === 0 && F(t2.g).abenteuerAngebote.length <= 1, 'der Spielleiter komponiert in der neuen Sitzung weiter (Aufrufe der Sitzung zaehlen neu)');
   void m;
+});
+
+// ======================================================================
+section('Nacharbeit A2: Router nur wegen der Stufen, Takt neben dem Lage-Plan, Eskalation nur bei Modellfehlern, ENOENT, veraltete Jobs, Text-Pool-Umgebung, Stufen-Datei', async () => {
+  const mkFake = (name, antworten, log) => ({ name, async call(text, co) { log.push(co.kind); const a = antworten.shift(); if (a instanceof Error) throw a; return Object.assign({ text: '{}', usage: { input: 1000, output: 500 }, sec: 1, modelId: name + '-m', cost: 0 }, a || {}); } });
+  // ---- (1) Stufen-Abweichung allein macht aus grobplan/szene/text/lage keinen Ollama-Weg
+  for (const [name, env] of [['LLM_MODELL_FIGUREN_NEBEN', { LLM_MODELL_FIGUREN_NEBEN: 'haiku' }], ['Eintrag in stufen.json', { STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: { figuren_neben: { anbieter: 'claude', modell: 'haiku' } } }) }], ['LLM_ANBIETER_BAUPLAN', { LLM_ANBIETER_BAUPLAN: 'ollama' }]]) {
+    const R = Router.routerAusEnv(env);
+    ok(R && ['grobplan', 'szene', 'text', 'lage'].every((k) => R.anbieterFuer(k) === 'claude' && R.eskalationFuer(k) === null), `${name}: grobplan, szene, text und lage bleiben bei Claude (Verhalten von main), keine neue Eskalation`);
+  }
+  { const R = Router.routerAusEnv({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: { figuren_neben: { anbieter: 'claude', modell: 'haiku' }, bauplan: { anbieter: 'ollama' } } }) });
+    ok(R.anbieterFuer('text', 'figuren_neben') === 'claude' && R.anbieterFuer('abenteuer') === 'ollama' && R.anbieterFuer('text', 'geruechte_funk') === 'ollama' && R.anbieterFuer('text') === 'claude', 'die Stufen selbst nutzen den Router (bauplan bei Ollama, figuren_neben bei Claude, geruechte_funk wie im Standard bei Ollama), die Art text bleibt bei Claude'); }
+  { const R = Router.routerAusEnv({ LLM_ROUTER: '1', LLM_MODELL_FIGUREN_NEBEN: 'haiku' });
+    ok(R.anbieterFuer('szene') === 'ollama' && R.anbieterFuer('text') === 'ollama' && R.anbieterFuer('lage') === 'claude', 'LLM_ROUTER=1 gewaehlt: die Standardzuordnung (szene, text bei Ollama) gilt weiter'); }
+  ok(Router.routerAusEnv({}) === null && Router.routerAusEnv({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: {} }) }) === null, 'ohne jede Abweichung: kein Router');
+
+  // ---- (4) Lage-Plan und Komposition starten an derselben Grenze nie zwei Prozesse
+  { const t = spiel(), m = mitAbenteuer(t, { mode: 'mock' }, {}, { lageWerte: { deckel_je_sitzung: LW.deckel_je_sitzung } });
+    grenze(t.g);
+    ok(m.sl.zustand === 'angefragt' && m.ab.zustand === 'idle' && m.ab.aufrufe === 0 && m.ab.zaehler.uebersprungen.lage_beschaeftigt === 1, 'der Lage-Plan startet an der Grenze: die Komposition wartet (lage_beschaeftigt), kein Aufruf, kein Deckel-Verbrauch');
+    ok(abLog(t.g, 'uebersprungen').length === 1 && abLog(t.g, 'uebersprungen')[0].grund === 'lage_beschaeftigt', 'der Grund steht im Logbuch');
+    await pumpen(t.g, 4);
+    ok(m.sl.zustand === 'idle' && m.asks().length === 0, 'der Lage-Plan ist durch, die Komposition hat nicht nachgeholt');
+    await lauf(t.g);
+    ok(m.asks().length === 1 && m.ab.aufrufe === 1 && m.ab.zaehler.uebersprungen.cooldown === undefined, 'an der naechsten Grenze startet die Komposition (der Sprung zaehlte weder als Aufruf noch als Cooldown)'); }
+
+  await mitLive(async () => {
+    const rig = (ollamaA, claudeA, werte) => {
+      const lo = [], lc = [];
+      const rt = Router.routeTransport({ bauplan: { anbieter: 'ollama', eskalation: true } }, { transports: { claude: mkFake('claude', claudeA || [], lc), ollama: mkFake('ollama', ollamaA, lo) } });
+      const t = spiel(), m = mitAbenteuer(t, null, Object.assign({ cooldown_grenzen: 1, deckel_je_sitzung: 99 }, werte || {}), { llm: LLM.create({ mode: 'live', transport: rt }) });
+      return { t, m, lo, lc };
+    };
+    const P = planN(9);
+    // ---- (5) Eskalation nur bei Fehlern, die am Modell liegen
+    { const r = rig([{ text: JSON.stringify(P) }]);
+      grenze(r.t.g); r.t.g.step();
+      Faden.abenteuerAnbieten(r.t.g, P, { hex: '0305' });   // dasselbe Abenteuer liegt schon aus, waehrend die Antwort unterwegs ist
+      await frei(); r.t.g.step(); await pumpen(r.t.g, 2);
+      ok(abLog(r.t.g, 'abgelehnt').length === 1 && abLog(r.t.g, 'abgelehnt')[0].grund === 'ABENTEUER_DOPPELT' && abLog(r.t.g, 'eskaliert').length === 0 && r.lc.length === 0, 'ABENTEUER_DOPPELT: abgelehnt, nicht an Claude eskaliert'); }
+    { const r = rig([{ text: JSON.stringify(P) }]);
+      grenze(r.t.g); r.t.g.step();
+      [['0202', 1], ['0203', 2], ['0204', 3]].forEach(([h, i]) => Faden.abenteuerAnbieten(r.t.g, planN(i), { hex: h }));
+      await frei(); r.t.g.step(); await pumpen(r.t.g, 2);
+      ok(abLog(r.t.g, 'abgelehnt').length === 1 && abLog(r.t.g, 'abgelehnt')[0].grund === 'ABENTEUER_ANGEBOTE' && abLog(r.t.g, 'eskaliert').length === 0 && r.lc.length === 0, 'ABENTEUER_ANGEBOTE: abgelehnt, nicht an Claude eskaliert'); }
+    { const r = rig([{ text: 'kein json' }], [{ text: JSON.stringify(P) }]);
+      await lauf(r.t.g); await pumpen(r.t.g, 3);
+      ok(r.lc.length === 1 && abLog(r.t.g, 'eskaliert').length === 1 && F(r.t.g).abenteuerAngebote.length === 1, 'Gegenprobe: eine unlesbare Antwort (liegt am Modell) geht weiter einmal an Claude'); }
+    // ---- (6) fehlende Claude-CLI bei der Eskalation schaltet nicht die ganze Komposition ab, wenn die Stufe bei Ollama liegt
+    { const enoent = Object.assign(new Error('spawn claude ENOENT'), { code: 'ENOENT' });
+      const r = rig([{ text: 'kein json' }, { text: 'kein json' }], [enoent]);
+      await lauf(r.t.g); await pumpen(r.t.g, 4);
+      ok(r.m.ab.aus === null && !!r.m.ab.eskalationAus && abLog(r.t.g, 'ausfall').length === 1 && abLog(r.t.g, 'ausfall')[0].grund === 'ENOENT', 'ENOENT bei der Eskalation: nur die Eskalation ist aus, die Komposition (Ollama) bleibt an');
+      await lauf(r.t.g); await pumpen(r.t.g, 3);
+      ok(r.lo.length === 2 && r.lc.length === 1 && !r.m.ab.zaehler.uebersprungen.transport_aus && abLog(r.t.g, 'abgelehnt').length === 1, 'der naechste Aufruf geht wieder an Ollama, Claude wird nicht noch einmal gefragt'); }
+    // ---- (7) veralteter Job: weder Ausfall noch Eskalation noch Ablehnung fassen den Zustand an
+    { const r = rig([{ text: '{}' }], [{ text: '{}' }]);
+      grenze(r.t.g); r.t.g.step();
+      const alt = r.m.ab.job, neu = Object.assign({}, alt, { token: alt.token + 100, nr: 99 });
+      r.m.ab.job = neu;
+      const vorher = JSON.stringify(r.m.ab.zaehler), eintraege = abLog(r.t.g).length, claude = r.lc.length;
+      r.m.ab.ausfall(alt, Object.assign(new Error('weg'), { code: 'OFFLINE' }), null);
+      r.m.ab.abgelehnt(alt, 'ANTWORT_UNLESBAR', ['x'], null);
+      ok(r.m.ab.eskalieren(alt, 'OFFLINE') === false && r.m.ab.job === neu && r.m.ab.zustand === 'laeuft' && JSON.stringify(r.m.ab.zaehler) === vorher && abLog(r.t.g).length === eintraege && r.lc.length === claude, 'veralteter Job: ausfall, abgelehnt und eskalieren aendern nichts (neuer Job, Zaehler, Logbuch, Claude)'); }
+  });
+
+  // ---- (8) Text-Pool: Eskalations-Umgebung und Umgebung des Spiels
+  await mitLive(async () => {
+    const echt = Router.routeTransport; let erfasst = null;
+    Router.routeTransport = (arten, o) => { erfasst = o; return echt(arten, o); };
+    try {
+      const basis = { REISE_EREIGNISSE: '1', TEXTE_POOL: '1', LLM_LIVE: '1', LLM_ANBIETER_FIGUREN_NEBEN: 'ollama', LLM_ESKALATION_FIGUREN_NEBEN: '1' };
+      for (const [name, zusatz, soll] of [['LLM_ESKALATION=aus', { LLM_ESKALATION: 'aus' }, null], ['LLM_ESKALATION_MODELL=haiku', { LLM_ESKALATION_MODELL: 'haiku' }, { anbieter: 'claude', modell: 'haiku' }], ['ohne Angabe', {}, { anbieter: 'claude', modell: 'sonnet' }]]) {
+        Pool.zuruecksetzen(); erfasst = null;
+        const llm = Pool.getLlm(ohneLage({ env: Object.assign({}, basis, zusatz) }).g);
+        ok(erfasst && JSON.stringify(erfasst.eskalation) === JSON.stringify(soll) && llm.eskalationMoeglich('text', 'figuren_neben') === (soll !== null), `Text-Pool ${name}: Eskalation des Routers ${JSON.stringify(soll)}`);
+      }
+    } finally { Router.routeTransport = echt; Pool.zuruecksetzen(); }
+    // stufeVon liest die Umgebung des Spiels: alle Slots auf figuren_haupt (der Standard waere geruechte_funk bzw. figuren_neben)
+    const slots = ['ankuendigung', 'eintreffen', 'soeldner', 'verlust', 'dank', 'reaktion', 'antwort'];
+    const d = datei({ format: 'spielleiter-stufen/1', stufen: {}, slots: Object.fromEntries(slots.map((s) => [s, 'figuren_haupt'])) });
+    Pool.zuruecksetzen();
+    const g = ohneLage({ env: { REISE_EREIGNISSE: '1', TEXTE_POOL: '1', LLM_LIVE: '1', STUFEN_DATEI: d } }).g;
+    const stufen = [];
+    const l = { mode: 'live', ask: async (k, i, o) => { stufen.push(o.stufe); return { text: JSON.stringify({ text: 'Fahrt weiter nach Nord, die Strasse ist frei.' }), tokens: 1, sec: 0.1 }; }, eskaliere: async () => { throw new Error('nie'); }, eskalationMoeglich: () => false };
+    Pool.setLlm(l);
+    Pool.beiGrenze(g); Pool.update(g, 0.1); await Pool.jobFertig();
+    ok(stufen.length >= 1 && stufen.every((s) => s === 'figuren_haupt'), 'Text-Pool: die Stufe des Slots kommt aus der Umgebung des Spiels (STUFEN_DATEI), nicht aus process.env');
+    Pool.zuruecksetzen();
+  });
+
+  // ---- (9) Eskalation bei einer Claude-Stufe: nicht still verworfen
+  { const S1 = Stufen.lade({ LLM_ESKALATION_BAUPLAN: '1' });
+    ok(S1.stufen.bauplan.eskalation === false && S1.fehler.some((f) => /bauplan.*eskalation/.test(f)), 'LLM_ESKALATION_BAUPLAN=1 bei einer Claude-Stufe: aus, mit Meldung');
+    const S2 = Stufen.lade({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: { geruechte_funk: { anbieter: 'claude', eskalation: true } } }) });
+    ok(S2.stufen.geruechte_funk.eskalation === false && S2.fehler.some((f) => /geruechte_funk.*eskalation/.test(f)), 'stufen.json: eskalation bei einer Claude-Stufe: aus, mit Meldung');
+    const S3 = Stufen.lade({ LLM_ANBIETER_BAUPLAN: 'ollama', LLM_ESKALATION_BAUPLAN: '1' });
+    ok(S3.stufen.bauplan.eskalation === true && S3.fehler.length === 0, 'bei einer Ollama-Stufe bleibt die Eskalation und es gibt keine Meldung'); }
+
+  // ---- (10) jeder Eintrag wird einzeln geprueft, auch ohne Schema: kein TypeError, kein Abschalten der Lage-KI
+  { const roh = { format: 'spielleiter-stufen/1', stufen: { bauplan: { anbieter: 'gpt' }, figuren_haupt: null, figuren_neben: 5, geruechte_funk: { anbieter: 'ollama', modell: 'a:1b' } }, slots: null };
+    const ohneSchema = path.join(tmp, 'gibt-es-nicht.schema.json'), kaputtSchema = datei('{ kein schema');
+    for (const [name, opt] of [['mit Schema', {}], ['Schema fehlt', { schemaDatei: ohneSchema }], ['Schema unlesbar', { schemaDatei: kaputtSchema }]]) {
+      let S = null, wirft = null;
+      try { S = Stufen.lade({ STUFEN_DATEI: datei(roh) }, opt); } catch (e) { wirft = e; }
+      ok(!wirft && S && S.fehler.length >= 1 && S.stufen.bauplan.anbieter === 'claude' && S.stufen.figuren_haupt.anbieter === 'claude' && S.stufen.figuren_neben.quelle === 'standard', `Eintraege {"anbieter":"gpt"}, null und 5 (${name}): kein Wurf, Meldung, Standard fuer diese Stufen`);
+      if (name !== 'mit Schema') ok(S.stufen.geruechte_funk.anbieter === 'ollama' && S.stufen.geruechte_funk.modell === 'a:1b', `(${name}) der gueltige Eintrag daneben gilt, die Pruefung je Eintrag entfaellt nicht`);
+    }
+    const textStufen = Stufen.lade({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: 'abc' }) }, { schemaDatei: ohneSchema });
+    ok(textStufen.fehler.length === 1 && Stufen.abweichend(textStufen).length === 0, 'ohne Schema: ein Text statt eines Objekts bei stufen wird einmal gemeldet und nicht zeichenweise gelesen');
+    const arrayDoc = Stufen.lade({ STUFEN_DATEI: datei('[1,2]') }, { schemaDatei: ohneSchema });
+    ok(arrayDoc.fehler.length === 1 && Stufen.abweichend(arrayDoc).length === 0, 'ohne Schema: ein Array als Datei wird gemeldet, die Standardwerte gelten');
+    const modellZahl = Stufen.lade({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: { geruechte_funk: { anbieter: 'ollama', modell: 7 } } }) }, { schemaDatei: ohneSchema });
+    ok(modellZahl.fehler.length === 1 && modellZahl.stufen.geruechte_funk.modell === null && modellZahl.stufen.geruechte_funk.quelle === 'standard', 'ohne Schema: ein Modellname, der kein Text ist, wird gemeldet, der Standard gilt');
+    let routerWirft = false; try { Router.routerAusEnv({ STUFEN_DATEI: datei(roh) }); } catch (e) { routerWirft = true; }
+    ok(!routerWirft, 'der Router wirft bei diesen Eintraegen nicht'); }
 });
 
 section('Messwerkzeug tools/messe-abenteuer.js (Mock, ohne Netz)', () => {

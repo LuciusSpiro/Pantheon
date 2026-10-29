@@ -167,7 +167,7 @@ function getLlm(game) {
     const arten = { text: { anbieter: 'ollama', modell } };
     for (const s of Stufen.STUFEN) arten[s] = { anbieter: St.stufen[s].anbieter, modell: St.stufen[s].modell || (St.stufen[s].anbieter === 'ollama' ? modell : undefined), eskalation: St.stufen[s].eskalation };
     const eskAn = Stufen.STUFEN.some((s) => St.stufen[s].eskalation);
-    const transport = Router.routeTransport(arten, { eskalation: eskAn ? undefined : null, env });   // Standard: nur Ollama, nie Claude, keine Eskalation
+    const transport = Router.routeTransport(arten, { eskalation: eskAn ? Router.eskalationAusEnv(env) : null, env });   // Standard: nur Ollama, nie Claude, keine Eskalation; sonst wie der Router der Umgebung (LLM_ESKALATION=aus, LLM_ESKALATION_MODELL)
     if (St.fehler.length) logge(game, { ausgang: 'fehler', key: 'stufen', fehler: St.fehler.slice(0, 6) });
     S.llm = LLM.create({ mode: 'live', transport });
   } catch (e) { S.llmFehler = e.message; if (game.countError) game.countError('texte-llm', e); return null; }
@@ -179,13 +179,13 @@ function logge(game, eintrag) {
 
 // EIN Versuch: Prompt bauen, bei llm anfragen, Antwort lesen und prüfen. o { vorhanden[], vorher { antwort, fehler[] }, namen[] }. Wirft bei einem Ausfall des Transports (err.code). Auch das Messwerkzeug nutzt ihn.
 // -> { r (Antwort des LLM), p (Prüfung { ok, text, fehler }), prompt }
-function stufeVon(slot) { if (!S.stufen) S.stufen = Stufen.lade(process.env); return Stufen.stufeFuerSlot(S.stufen, slot); }
+function stufeVon(slot, env) { if (!S.stufen) S.stufen = Stufen.lade(env || process.env); return Stufen.stufeFuerSlot(S.stufen, slot); }
 async function versuch(llm, spec, o) {
   const opt = o || {};
   const sp = Object.assign({}, spec, { namen: opt.namen || [] });
   const prompt = Pruefer.promptBauen(sp, { vorhanden: opt.vorhanden, vorher: opt.vorher });
   const input = { system: Pruefer.SYSTEM_DATEI, prompt, art: spec.art, id: spec.id, slot: spec.slot };
-  const stufe = stufeVon(spec.slot);   // SUND-04b A2: Anbieter und Modell nach der Stufe des Slots (ohne Zuordnung wie bisher nach der Art text)
+  const stufe = stufeVon(spec.slot, opt.env);   // SUND-04b A2: Anbieter und Modell nach der Stufe des Slots (ohne Zuordnung wie bisher nach der Art text)
   const ao = Object.assign({ timeoutMs: W.job_timeout_s * 1000, schema: Pruefer.schemaFuer(spec.slot) }, stufe ? { stufe } : {});
   const esk = () => !!(stufe && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe));
   let r;
@@ -204,7 +204,7 @@ async function erzeuge(sp, key, llm, game) {
   for (let v = 1; v <= Math.max(1, W.versuche); v++) {
     const vorhanden = (S.pool.get(key) || []).slice();
     let r, p;
-    try { ({ r, p } = await versuch(llm, sp, { vorhanden, vorher, namen })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
+    try { ({ r, p } = await versuch(llm, sp, { vorhanden, vorher, namen, env: game && game.env })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
     const mess = Object.assign({ versuch: v, dauer_s: r.sec == null ? null : r.sec, tokens: r.tokens || 0, anbieter: r.anbieter || null, modell: r.modell || r.modelId || null }, r.eskaliert ? { eskaliert: true } : {});
     if (p.ok) {
       if (!S.pool.has(key)) S.pool.set(key, []);
@@ -214,10 +214,10 @@ async function erzeuge(sp, key, llm, game) {
     vorher = { antwort: r.text, fehler: p.fehler };
     if (v >= W.versuche) {
       // SUND-04b A2: eine Stufe bei Ollama mit eskalation: true schickt die letzte ungueltige Antwort einmal an Claude (Standard aus: der Katalogtext bleibt)
-      const stufe = stufeVon(sp.slot);
+      const stufe = stufeVon(sp.slot, game && game.env);
       if (stufe && !r.eskaliert && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe)) {
         let r2, p2;
-        try { ({ r: r2, p: p2 } = await versuch(llm, sp, { vorhanden, vorher, namen, eskalieren: true })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
+        try { ({ r: r2, p: p2 } = await versuch(llm, sp, { vorhanden, vorher, namen, eskalieren: true, env: game && game.env })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
         if (p2.ok) {
           if (!S.pool.has(key)) S.pool.set(key, []);
           S.pool.get(key).push(p2.text);

@@ -141,6 +141,7 @@ const MUTATIONEN = [
   [FA, "  for (const a of F.abenteuerAngebote) a.alter++;", "", 'Faden: Abenteuer-Angebote altern nicht'],
   [FA, "  F.abenteuerAngebote = F.abenteuerAngebote.filter((a) => a.alter <= W.abenteuer.angebot_gilt_taetigkeiten);", "", 'Faden: Abenteuer-Angebote verfallen nie'],
   [FA, "if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt(", "if (false) return abgelehnt(", 'Faden: dasselbe Abenteuer doppelt als Angebot'],
+  [FA, "plan: { titel_zeichen: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.length : null }", "plan: { titel: istObjekt(bauplan) && typeof bauplan.titel === 'string' ? bauplan.titel.slice(0, 60) : null }", 'Faden: der Titel der Modellantwort steht im Regie-Logbuch'],
   [FA, "  if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);", "", 'Faden: ungueltiger Plan wird angeboten'],
   [FA, "  const g = P.pruefeAbenteuerAnbieten(F, o);\n  if (g) return abgelehnt(g);", "", 'Faden: Angebots-Grenzen werden beim Anbieten nicht geprueft'],
   [FA, "  const g = P.pruefeAbenteuerOeffnen(F, nr, p);\n  if (g) return abgelehnt(g);", "", 'Faden: Oeffnen ohne Pruefung (Grenzen, Parameter)'],

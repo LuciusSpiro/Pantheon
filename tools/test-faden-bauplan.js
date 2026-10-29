@@ -484,6 +484,17 @@ section('(g) Obergrenzen: 3 aktive Faeden, 1 laufendes Abenteuer, 3 offene Abent
   ok(!Faden.abenteuerAnbieten(g, P1, { hex: '0305' }).ok, 'dasselbe Abenteuer am selben Ort doppelt: abgelehnt (hier greift schon die Obergrenze der Angebote)');
   const logs = (g.lageRegie ? g.lageRegie.log.entries : []).filter((e) => e.art === 'faden_pruefung');
   ok(logs.some((e) => e.key === 'abenteuer_anbieten'), 'die Ablehnung steht im Regie-Logbuch');
+  // Titel und Anlass stammen aus der Modellantwort und koennen einen Spielernamen tragen: nie ins Regie-Logbuch (kein Eintrag, kein Feld)
+  const gz = spiel();
+  const zebra = Faden.abenteuerAnbieten(gz, { format: 'faden-bauplan/1', titel: 'ZEBRAKAI rettet alle', anlass: 'ZEBRAKAI ruft um Hilfe', beats: [{ typ: 'gibt_es_nicht' }] }, { hex: '0305' });
+  ok(!zebra.ok, 'ein abgelehnter Plan mit Spielername im Titel: abgelehnt');
+  const voll = spiel();
+  for (const [i, h] of ['0305', '0202', '0203'].entries()) Faden.abenteuerAnbieten(voll, plan([b(['spontanhilfe', 'notruf', 'fracht'][i]), b('abschluss')], { titel: 'Probe ' + i }), { hex: h });
+  const zebra2 = Faden.abenteuerAnbieten(voll, plan([b('raumschlacht'), b('abschluss')], { titel: 'ZEBRAKAI im Titel' }), { hex: '0204' });
+  ok(!zebra2.ok && /^ABENTEUER_ANGEBOTE/.test(zebra2.grund), 'ein Plan mit Spielername im Titel bei vollen Angeboten: abgelehnt (ABENTEUER_ANGEBOTE)');
+  const alle = (x) => JSON.stringify(x.lageRegie.log.entries);
+  ok(gz.lageRegie.log.entries.some((e) => e.key === 'abenteuer_anbieten') && voll.lageRegie.log.entries.some((e) => e.key === 'abenteuer_anbieten'), 'beide Ablehnungen stehen im Regie-Logbuch');
+  ok(!/ZEBRAKAI/i.test(alle(gz)) && !/ZEBRAKAI/i.test(alle(voll)), 'Titel und Anlass der Modellantwort (hier ein Spielername) tauchen in keinem Logbuch-Eintrag auf');
   const o1 = Faden.abenteuerOeffnen(g, a1.angebot.nr);
   ok(o1.ok && o1.faden.plan && g.weltsim.faeden.abenteuerAngebote.length === 2, 'das erste Abenteuer geht auf, ein Platz im Angebot wird frei');
   const o2 = Faden.abenteuerOeffnen(g, a2.angebot.nr);

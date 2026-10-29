@@ -113,21 +113,28 @@ function routeTransport(arten, o) {
 }
 
 function ist(v) { return v !== undefined && v !== ''; }
+// Eskalations-Anbieter aus der Umgebung (LLM_ESKALATION=claude|aus, LLM_ESKALATION_MODELL); null = keine Eskalation
+function eskalationAusEnv(env) {
+  const e = env || process.env;
+  const esk = String(e.LLM_ESKALATION || 'claude').toLowerCase();
+  return esk === 'aus' || esk === 'nein' || esk === '0' ? null : { anbieter: esk, modell: ist(e.LLM_ESKALATION_MODELL) ? e.LLM_ESKALATION_MODELL : 'sonnet' };
+}
 // Router nur, wenn die Umgebung ihn verlangt (LLM_ROUTER=1 oder eine LLM_ANBIETER_*); sonst null = bisheriges Verhalten.
 function routerAusEnv(env, opts) {
   const e = env || process.env;
   // SUND-04b A2: die Stufen (Datei stufen.json, dann Umgebung); ein Router entsteht auch, wenn eine Stufe vom Standard abweicht. Ohne Abweichung und ohne Variablen bleibt es beim Verhalten von main (kein Router).
   const geladen = Stufen.lade(e, opts && opts.stufen ? opts.stufen : undefined);
-  const gewaehlt = e.LLM_ROUTER === '1' || ARTEN_ALT.some((a) => ist(e['LLM_ANBIETER_' + a.toUpperCase()])) || Stufen.abweichend(geladen).length > 0;
-  if (!gewaehlt) return null;
+  const ausVariablen = e.LLM_ROUTER === '1' || ARTEN_ALT.some((a) => ist(e['LLM_ANBIETER_' + a.toUpperCase()]));
+  const nurStufen = !ausVariablen;   // der Router entsteht allein wegen der Stufen: grobplan, szene, text und lage behalten das Verhalten von main (Claude)
+  if (nurStufen && Stufen.abweichend(geladen).length === 0) return null;
   const arten = {}; const warnungen = geladen.fehler.slice();
   for (const a of ARTEN_ALT) arten[a] = { anbieter: ist(e['LLM_ANBIETER_' + a.toUpperCase()]) ? e['LLM_ANBIETER_' + a.toUpperCase()] : undefined, modell: ist(e['LLM_MODELL_' + a.toUpperCase()]) ? e['LLM_MODELL_' + a.toUpperCase()] : undefined };
+  if (nurStufen) for (const a of ARTEN_ALT) arten[a] = { anbieter: 'claude', modell: 'sonnet' };
   if (String(arten.grobplan.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_GROBPLAN=ollama ignoriert: der Grobplan bleibt bei Claude'); arten.grobplan = {}; }
   if (String(arten.lage.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_LAGE=ollama ignoriert: der Grobplan der Lage bleibt bei Claude'); arten.lage = {}; }
   for (const s of STUFEN) arten[s] = { anbieter: geladen.stufen[s].anbieter, modell: geladen.stufen[s].modell || undefined, eskalation: geladen.stufen[s].eskalation };
-  const esk = String(e.LLM_ESKALATION || 'claude').toLowerCase();
-  const eskalation = esk === 'aus' || esk === 'nein' || esk === '0' ? null : { anbieter: esk, modell: ist(e.LLM_ESKALATION_MODELL) ? e.LLM_ESKALATION_MODELL : 'sonnet' };
+  const eskalation = eskalationAusEnv(e);
   return routeTransport(arten, Object.assign({ eskalation, env: e, warnungen }, opts || {}));
 }
 
-module.exports = { routeTransport, routerAusEnv, ARTEN, ANBIETER, STANDARD, STUFEN };
+module.exports = { routeTransport, routerAusEnv, eskalationAusEnv, ARTEN, ANBIETER, STANDARD, STUFEN };

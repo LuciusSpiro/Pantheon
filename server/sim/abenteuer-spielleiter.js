@@ -19,6 +19,8 @@ const { WERTE } = require('./abenteuer-daten.js');
 const faden = () => require('./faden.js');   // lazy: faden.js laedt das Regie-Modul
 const STUFE = 'bauplan';
 const codeVon = (t) => String(t).split(':')[0];
+// Ablehnungen, die nicht am Modell liegen (Zustand des Fadens, Ort): eine Eskalation an Claude wuerde nur einen zweiten Aufruf bezahlen, ohne dass sich etwas aendert
+const NICHT_MODELL = ['ABENTEUER_DOPPELT', 'ABENTEUER_ANGEBOTE', 'INAKTIV', 'PARAMETER'];
 
 class AbenteuerSpielleiter {
   constructor(lage, opts) {
@@ -35,6 +37,7 @@ class AbenteuerSpielleiter {
     this.letzte = [];            // { nr, typen } der zuletzt angebotenen Abenteuer (Kontext des naechsten Aufrufs)
     this.zaehler = { gueltig: 0, abgelehnt: {}, ausfall: 0, verspaetet: 0, uebersprungen: {}, eskaliert: 0 };
     this.aus = null;             // Grund, wenn der Transport fuer diese Sitzung aus ist (CLI fehlt)
+    this.eskalationAus = null;   // Grund, wenn nur die Eskalation an Claude aus ist (CLI fehlt, der eigentliche Anbieter ist Ollama)
     this.letzterSprung = null;
     this.disposed = false;
   }
@@ -74,6 +77,8 @@ class AbenteuerSpielleiter {
   taktErlaubt(art) {
     if (this.aus) return this.ueberspringen('transport_aus', art);
     if (this.zustand !== 'idle') return this.ueberspringen('beschaeftigt', art);
+    // Der Lage-Plan startet an derselben Grenze (vor uns): nie zwei Prozesse zugleich. Zaehlt weder als Aufruf (Deckel) noch setzt es den Cooldown zurueck.
+    if (this.lage.zustand !== 'idle') return this.ueberspringen('lage_beschaeftigt', art);
     if (this.aufrufe >= this.W.deckel_je_sitzung) return this.ueberspringen('deckel', art);
     if (this.offeneAngebote() >= angeboteMax()) return this.ueberspringen('angebote_voll', art);
     if (this.aufrufe > 0 && this.grenzenSeit < this.W.cooldown_grenzen) return this.ueberspringen('cooldown', art);
@@ -169,7 +174,7 @@ class AbenteuerSpielleiter {
   // Eskalation: nur wenn der Router sie fuer diese Stufe erlaubt (Stufe bei Ollama, eskalation: true), nie fuer einen eigenen Abbruch, nur einmal je Aufruf
   eskalieren(job, grund) {
     const llm = this.lage.llm;
-    if (job.eskaliert || !job.input || !llm || typeof llm.eskalationMoeglich !== 'function' || !llm.eskalationMoeglich('abenteuer', STUFE)) return false;
+    if (this.job !== job || this.eskalationAus || job.eskaliert || !job.input || !llm || typeof llm.eskalationMoeglich !== 'function' || !llm.eskalationMoeglich('abenteuer', STUFE)) return false;
     this.zaehler.eskaliert++;
     this.schreibe(Object.assign({ ausgang: 'eskaliert', grund, begruendung: 'Anfrage geht einmal an Claude (Stufe bauplan, eskalation: true)', plan: this.planInfo(job) }));
     this.losschicken(job, true);
@@ -177,15 +182,22 @@ class AbenteuerSpielleiter {
   }
   // Ausfall des Anbieters (Fehler, Frist, Prompt): kein Angebot, Eintrag, nichts blockiert. Kein Rueckfall der Standard-KI (das betrifft nur den Plan der Lage).
   ausfall(job, e, r) {
+    if (this.job !== job) return;   // veralteter Job (Frist, Neustart, dispose): nichts mehr anfassen
     const code = e && e.code ? e.code : 'EXIT';
     if (code !== 'ABORTED' && this.eskalieren(job, code)) return;   // ein Abbruch eskaliert nie
     this.job = null; this.zustand = 'idle';
     this.zaehler.ausfall++;
-    if (code === 'ENOENT') this.aus = 'CLI fehlt (' + String((e && e.message) || '').slice(0, 80) + ')';
+    if (code === 'ENOENT') {
+      // fehlt die Claude-CLI erst bei der Eskalation und liegt die Stufe bei Ollama, ist nur die Eskalation aus, nicht die ganze Komposition
+      const grund = 'CLI fehlt (' + String((e && e.message) || '').slice(0, 80) + ')';
+      const llm = this.lage.llm;
+      if (job.eskaliert && llm && typeof llm.anbieterFuer === 'function' && llm.anbieterFuer('abenteuer', STUFE) === 'ollama') this.eskalationAus = grund; else this.aus = grund;
+    }
     this.schreibe(Object.assign({ ausgang: 'ausfall', grund: code, fehler: [code + ': ' + String((e && e.message) || e).slice(0, 250)], begruendung: `Grenze ${job.art}: kein Abenteuer (Anbieter ausgefallen), das Spiel laeuft weiter`, plan: this.planInfo(job) }, this.messung(job, r, e)));
   }
   abgelehnt(job, code, fehler, r) {
-    if (this.eskalieren(job, code)) return;
+    if (this.job !== job) return;
+    if (!NICHT_MODELL.includes(code) && this.eskalieren(job, code)) return;
     this.job = null; this.zustand = 'idle';
     this.zaehler.abgelehnt[code] = (this.zaehler.abgelehnt[code] || 0) + 1;
     this.schreibe(Object.assign({ ausgang: 'abgelehnt', grund: code, fehler: (fehler || [code]).slice(0, 6).map((f) => String(f).slice(0, 200)), begruendung: `Grenze ${job.art}: Bauplan abgelehnt (${code}), kein Abenteuer`, plan: this.planInfo(job, { antwort_zeichen: r && typeof r.text === 'string' ? r.text.length : null }) }, this.messung(job, r)));
@@ -216,7 +228,7 @@ class AbenteuerSpielleiter {
   }
   status() {
     const z = this.zaehler;
-    return `Abenteuer-Komposition: Zustand ${this.zustand}, Aufrufe ${this.aufrufe}/${this.W.deckel_je_sitzung}, Grenzen seit Start ${this.grenzenSeit === Infinity ? '–' : this.grenzenSeit} (Cooldown ${this.W.cooldown_grenzen}), gueltig ${z.gueltig}, abgelehnt ${JSON.stringify(z.abgelehnt)}, Ausfall ${z.ausfall}, eskaliert ${z.eskaliert}, verspaetet ${z.verspaetet}, uebersprungen ${JSON.stringify(z.uebersprungen)}${this.aus ? ', Transport aus: ' + this.aus : ''}`;
+    return `Abenteuer-Komposition: Zustand ${this.zustand}, Aufrufe ${this.aufrufe}/${this.W.deckel_je_sitzung}, Grenzen seit Start ${this.grenzenSeit === Infinity ? '–' : this.grenzenSeit} (Cooldown ${this.W.cooldown_grenzen}), gueltig ${z.gueltig}, abgelehnt ${JSON.stringify(z.abgelehnt)}, Ausfall ${z.ausfall}, eskaliert ${z.eskaliert}, verspaetet ${z.verspaetet}, uebersprungen ${JSON.stringify(z.uebersprungen)}${this.aus ? ', Transport aus: ' + this.aus : ''}${this.eskalationAus ? ', Eskalation aus: ' + this.eskalationAus : ''}`;
   }
 }
 const angeboteMax = () => require('./faden-daten.js').WERTE.abenteuer.angebote_max;
