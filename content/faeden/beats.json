@@ -95,7 +95,7 @@
       "optionen": "keine",
       "braucht": {"nsc_status": ["aktiv", "verbuendet"]},
       "parameter": {"pflicht": [], "optional": ["spur"]},
-      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"spur":{"standard":"altrost","erlaubt":["altrost","fundort"]}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
+      "bauplan": {"start_status":"aktiv","hinweis_traeger":true,"parameter":{"spur":{"standard":"kantenpfad","erlaubt":["kantenpfad","fundort"]}},"aus":{"gelungen":{"status":["verbuendet","aktiv"],"folge":[{"typ":"haltung_aenderung","grund":"geholfen"}]},"gescheitert":{"status":["aktiv","geflohen"],"folge":[]}}}
     },
     "wiedersehen": {
       "zweck": "Ein NSC aus einem frueheren, abgeschlossenen Abenteuer meldet sich und erinnert an eine konkrete Tat der Crew; Treffpunkt in der Naehe (keine Gefahr). Nur als erster Beat; ohne einen solchen NSC gibt es kein Angebot.",

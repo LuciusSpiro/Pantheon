@@ -5,6 +5,7 @@
 // SUND-04b B1: danach spielt dieselbe Crew die drei neuen Beats OHNE Kampfszene, jeweils als Abenteuer (Mock-Plan des Komponisten aus server/sim/abenteuer-mock.js, durch die echte Kette Anbieten > Pruefer > Oeffnen):
 // Gerücht (der Hafenfunk nennt einen Sektor, die Crew fliegt hin), Rätsel-Spur fundort (die Ops liest ueber die Verbindung weapons.spur.lesen und entschluesselt die Teilung, die verborgene Kante wird offen) und Wiedersehen
 // (der NSC aus dem ersten Faden meldet sich und erinnert an eine konkrete Tat). Der Ort der Crew (ship.scene) und der Platz der Ops werden gesetzt, wie in den Tests: die Mechanik der Beats ist in test-faden-katalog-b1.js geprueft.
+// Das Geruecht erreicht die Crew ueber ECHTE Spruenge (Weitscan weapons.widescan, helm.jump, Antrieb 8 s); Spur und Wiedersehen setzen den Ort per Space.enterScene (Luecke, siehe README B1 Nacharbeit H3).
 // Aufruf: node tools/spiel-faden.js [--out datei.txt]   (npm run spiel:faden)
 const fs = require('fs');
 const os = require('os');
@@ -19,6 +20,7 @@ const Kriegslage = require('../server/sim/kriegslage.js');
 const Sektoren = require('../shared/sektoren.js');
 const Space = require('../server/sim/space.js');
 const Spur = require('../server/sim/spur.js');
+const Sprung = require('../server/sim/sprung.js');
 const AM = require('../server/sim/abenteuer-mock.js');
 const Physics = require('../shared/physics.js');
 const World = require('../server/world.js');
@@ -95,9 +97,47 @@ function client(port, hello, name) {
   zeile(`Funk bei Ada (Auswahl): ${cl[0].funk.slice(-6).join(' || ').slice(0, 600)}`);
   zeile(`Bitten-Antworten bei allen drei: ${cl.map((x) => x.antw).join(', ')}`);
   // ---------------------------------------------------------------- SUND-04b B1: Gerücht, Rätsel-Spur, Wiedersehen
+  // TEST-ARTEFAKT: der Deckel von 6 Anfragen je Sitzung (lageSpielleiter.aufrufe) gilt dem ECHTEN Claude (Kosten). Der Bot spielt mit dem Mock und setzt den Zaehler zurueck, sonst stuende die Geschichte nach einigen Runden still; im Spiel mit Claude gilt der Deckel unveraendert.
   const runde = async () => { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) g.lageSpielleiter.aufrufe = 0; await sleep(100); };   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
   const hierHex = () => Sektoren.hexVonOrt(g.ship.scene);
   const flieg = (hex) => { const o = Sektoren.ortVonHex(hex) || ('leer-' + hex); Space.enterScene(g, o, {}); g.explore.location = o; const s = g.ship; s.docked = false; s.dockedAt = null; s.vx = 0; s.vy = 0; s.speed = 0; };
+  // Die Crew sitzt an einer Konsole (Platz und Taste Benutzen, wie die Ops bei der Spur): der Sprung geht ueber die echten Befehle weapons.widescan und helm.jump
+  const konsole = async (name) => {
+    let platz = null;
+    for (const t of [].concat(World.CONSOLE_TILES[name])) for (const [dx, dy, dir] of [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']]) { const q = { x: t.x + dx, y: t.y + dy, dir }; if (!platz && !World.ship.solid(q.x, q.y)) platz = q; }
+    const mitte = Physics.tileCenter(platz.x, platz.y), me = g.players[0];
+    const station = () => require('../server/sim/station.js').stationOf(me);
+    if (!me.console) { me.x = mitte.x; me.y = mitte.y; me.dir = platz.dir; cl[0].send({ t: 'act', down: true }); cl[0].send({ t: 'act', down: false }); await sleep(250); }
+    for (let i = 0; i < 4 && station() !== name; i++) { cl[0].send({ t: 'cmd', c: 'station.tab', dir: 1 }); await sleep(150); }   // schon an einer Konsole: Tab schaltet das Interface (Steuer, Ops, ...)
+  };
+  // Weg ueber offene Kanten (kuerzester, Breitensuche) -> [Hex ...] ohne den Start
+  const wegNach = (ziel) => {
+    const von = hierHex(), vor = new Map([[von, null]]); let rand = [von];
+    while (rand.length && !vor.has(ziel)) { const next = []; for (const h of rand) for (const e of Sektoren.kantenVon(h)) { const n = Sektoren.anderes(e, h); if (!vor.has(n) && Sektoren.spielbar(n) && g.explore.kanteOffen(Sektoren.kanteId(e.a, e.b))) { vor.set(n, h); next.push(n); } } rand = next; }
+    if (!vor.has(ziel)) return null;
+    const weg = []; for (let h = ziel; h !== von; h = vor.get(h)) weg.unshift(h);
+    return weg;
+  };
+  // ECHTE Spruenge statt Space.enterScene: Ops macht den Weitscan am Sprungpunkt (findet die Boje), Helm springt (Antrieb laedt, Sprungpunkt-Automatik waehlt das Ziel). Der Bot setzt das Schiff an den Sprungpunkt
+  // (das Anfliegen ist in test-flight geprueft) und kuerzt nichts am Antrieb. -> true, wenn die Crew im Zielsektor ist
+  const springe = async (ziel) => {
+    const weg = wegNach(ziel);
+    if (!weg) { zeile('Sprung: kein Weg ueber offene Sprungpunkte nach ' + ziel); return false; }
+    for (const h of weg) {
+      const p = Sprung.sprungpunkt(g, h), s = g.ship;
+      s.docked = false; s.dockedAt = null; s.x = p.x - 80; s.y = p.y; s.vx = 0; s.vy = 0; s.speed = 0;
+      await konsole('weapons'); cl[0].send({ t: 'cmd', c: 'weapons.widescan' }); await sleep(400);
+      await konsole('helm');
+      for (let i = 0; i < 300 && !s.jump.ready; i++) await sleep(100);
+      if (!s.jump.ready) { zeile('Sprung nach ' + h + ' nicht bereit: ' + (s.jump.blockedReason || 'unbekannt')); return false; }
+      const vorher = hierHex(), ziel0 = s.jump.dest; cl[0].send({ t: 'cmd', c: 'helm.jump' });
+      for (let i = 0; i < 50 && hierHex() === vorher; i++) await sleep(100);
+      zeile('Sprung ' + Sektoren.hexName(vorher) + ' > ' + Sektoren.hexName(hierHex()) + ' (Weitscan, Antrieb, helm.jump; Ziel vor dem Sprung ' + ziel0 + ', Station ' + require('../server/sim/station.js').stationOf(g.players[0]) + ', Antrieb bereit ' + s.jump.ready + ', Ort ' + g.ship.scene + ')');
+      if (hierHex() !== h) return false;
+      s.vx = 0; s.vy = 0; s.speed = 0;
+    }
+    return true;
+  };
   const ergebnisse = [];
   async function abenteuer(name, plan, parameter) {
     let a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() });
@@ -130,8 +170,9 @@ function client(port, hello, name) {
     if (f && await bisBeat(f, 'geruecht')) {
       zeile('Gerücht: der Hafenfunk nennt ' + Sektoren.hexName(f.parameter.ort) + ' (' + f.parameter.ort + '); Funk: ' + funkSeit(n0));
       await sleep(300);
-      zeile('Die Crew fliegt nach ' + Sektoren.hexName(f.parameter.ort));
-      flieg(f.parameter.ort); await sleep(400);
+      zeile('Die Crew springt nach ' + Sektoren.hexName(f.parameter.ort) + ' (echte Spruenge)');
+      const angekommen = await springe(f.parameter.ort); await sleep(400);
+      ergebnisse.push(['Gerücht über echte Sprünge', angekommen]);
       zeile('Gerücht nach der Ankunft: Phase ' + f.phase + ', Beat ' + f.beat + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'geruecht'));
       ergebnisse.push(['Gerücht', f.nsc.gedaechtnis.some((x) => x.ereignis === 'geruecht_gelungen')]);
       ergebnisse.push(['Gerücht-Faden zu Ende', await ende(f)]);
@@ -146,11 +187,7 @@ function client(port, hello, name) {
     const f = await abenteuer('Rätsel-Spur', p);
     if (f && await bisBeat(f, 'spur')) {
       zeile('Spur ' + g.spur.id + ' läuft, Marke im Sektorplan; Funk: ' + funkSeit(n0));
-      const stand = [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']];
-      let platz = null;
-      for (const t of [].concat(World.CONSOLE_TILES.weapons)) for (const [dx, dy, dir] of stand) { const q = { x: t.x + dx, y: t.y + dy, dir }; if (!platz && !World.ship.solid(q.x, q.y)) platz = q; }
-      const mitte = Physics.tileCenter(platz.x, platz.y), me = g.players[0]; me.x = mitte.x; me.y = mitte.y; me.dir = platz.dir;
-      cl[0].send({ t: 'act', down: true }); cl[0].send({ t: 'act', down: false }); await sleep(300);
+      await konsole('weapons');   // die Ops sitzt an ihrer Konsole (nach dem Sprung des Geruechts war die Crew am Steuer)
       const lese = async () => {
         const k = Spur.kern(g.spur.id, hierHex()); g.ship.x = k.x + 40; g.ship.y = k.y;
         cl[0].send({ t: 'cmd', c: 'weapons.spur.lesen', on: true });

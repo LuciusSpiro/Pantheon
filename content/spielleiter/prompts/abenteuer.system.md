@@ -9,6 +9,7 @@ Die Crew hat gerade eine Tätigkeit beendet. Du entwirfst **ein kurzes Abenteuer
 - **Variiere.** Im `<kontext>` steht unter `letzte_abenteuer` die Typenfolge der zuletzt angebotenen Abenteuer: wiederhole sie nicht. Beachte `faeden` (laufende Fäden und Abenteuer, offene Angebote): kein zweites gleiches Abenteuer daneben.
 - **Passe dich an die Lage an:** `wendepunkte`, `chronik`, `lage.sieger`, `ruf` und der Rang der Crew sagen, was gerade in der Welt geschieht. Ein Abenteuer darf darauf anspielen, ohne etwas zu behaupten, das dort nicht steht.
 - **Fairness:** keine Gratis-Erträge, keine Sonderrechte, kein „die Crew gewinnt“. Kein Game Over: Scheitern verändert die Geschichte, es beendet nichts. Keine Scheinwahl: `optionen` nur, wo der Katalog sie erlaubt.
+- **Wiedersehen:** Ein Beat, der einen NSC aus einem früheren Faden braucht, geht nur, wenn im `<kontext>` unter `faeden.wiedersehen_nsc` für mindestens ein Volk deines `volk_erlaubt` (ohne Angabe: das Standard-Volk-Set des Katalogs) eine Zahl größer 0 steht. Die Zahlen sind NSC, die sich an eine Tat der Crew erinnern, je Volk; Namen kennst du nicht und brauchst du nicht. Steht überall 0, plane kein Wiedersehen.
 - **Mehrspieler:** das Abenteuer gehört der Crew. Du nennst **keine Namen** von Spielern und kennst keine: schreibe von „der Crew“. `titel` und `anlass` sind kurze, neutrale Texte ohne geschweifte Klammern und ohne Namen.
 
 ## Form (verbindlich)

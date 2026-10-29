@@ -69,6 +69,8 @@ const KORRUPTION = {
   format_falsch: (p) => { p.format = 'faden-bauplan/2'; return p; },
 };
 
+// Kontext faeden.wiedersehen_nsc ist eine Zahl je Volk: der Mock-Plan hat das Standard-Volk-Set, ein Wiedersehen braucht dort mindestens einen NSC
+const wiedersehenDa = (z) => !!z && typeof z === 'object' && D.BAUPLAN.werte.volk_erlaubt_standard.some((v) => Number(z[v]) > 0);
 function erzeuge(input) {
   const prompt = input && input.prompt;
   const k = lesen(tag(prompt, 'kontext'), {});
@@ -76,7 +78,7 @@ function erzeuge(input) {
   const rng = rngVon(['abenteuer', a.nr, a.art, a.hex, k.tick, (k.ruf && JSON.stringify(k.ruf)) || '', (k.chronik || []).length].join('|'));
   const kaputt = rng() < M.ungueltig_anteil;
   const name = kaputt ? wahl(rng, M.korruptionen.filter((n) => KORRUPTION[n])) : null;
-  let plan = gueltigerPlan(rng, { min: name ? 3 : 2, wiedersehen: Number(k.faeden && k.faeden.wiedersehen_nsc) > 0 });
+  let plan = gueltigerPlan(rng, { min: name ? 3 : 2, wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc) });
   let text;
   if (name) { const r = KORRUPTION[name](plan); text = typeof r === 'string' ? r : JSON.stringify(r); }
   else text = JSON.stringify(plan);

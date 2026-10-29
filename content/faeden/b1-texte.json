@@ -42,7 +42,7 @@
     "wiedersehen_dank": "Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
   },
   "spuren": {
-    "altrost": {
+    "kantenpfad": {
       "start": "Eine Ionenspur beginnt bei {ort}. Sie führt zu einer verborgenen Boje. Folgt ihr.",
       "gelungen": "Die Spur war echt. Die verborgene Boje steht jetzt auf eurer Karte.",
       "verloren": "Die Spur ist kalt geworden. Von der Boje werden wir nichts mehr erfahren.",

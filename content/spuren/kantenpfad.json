@@ -1,0 +1,14 @@
+{
+  "id": "kantenpfad",
+  "name": "Spur von Kantenstein",
+  "_kommentar": "SUND-04b B1 (Rätsel-Spur der Fäden, Beat spur), Nacharbeit: Freie Fahrt Sund (content/welt/sund_frei.json). Beginnt in Kantenstein (0603), führt über Concordia nach Pulverhorn (0605); dort enthüllt das Lesen die verborgene Kante zum Bojenfeld (boje-fundort, 0605-0706). Teilung in Kantenstein: Gasfeld (0503) ist der falsche Ast. Regel der Fäden: keine Spur berührt einen Sektor mit Sperrtext der Region und keine enthüllt eine Kante in einen solchen Sektor (die frühere Spur nach Altrost fiel deshalb weg); nur Sektoren der Regionen route und konkordat_hafen, jede Kante zwischen zwei Hexen der Spur und jeder falsche Ast ist offen. Die einzige verborgene Kante der Karte ohne Sperrtext-Ziel ist boje-fundort: ist sie offen, beendet der Baustein einen weiteren Spur-Beat sauber (gescheitert, ohne Belohnung). weg/alter/teilungen/ende: Schema wie bote.json (server/sim/spur.js).",
+  "weg": ["0603", "0604", "0605"],
+  "alter": [2100, 1500, 900],
+  "teilungen": [
+    { "ab": "0603", "aeste": [
+      { "nach": "0604", "echt": true, "indiz": "Masse 55 t, Antriebssignatur wie ein schwerer Schlepper, der Kurs hält." },
+      { "nach": "0503", "echt": false, "indiz": "Masse 3 t, die Signatur reißt nach wenigen Sekunden ab: eine Drohne." }
+    ] }
+  ],
+  "ende": { "kante": "boje-fundort" }
+}

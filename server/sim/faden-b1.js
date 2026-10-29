@@ -9,7 +9,8 @@
 //   spur         (Beat „spur“) Eine Ionenspur ueber mehrere Sektoren (spur.js, SL5; Daten content/spuren/<id>.json, Parameter spur): Navigation fliegt die Spurkerne an, die Ops liest sie, die Spur enthuellt am Ende
 //                eine verborgene Sprungboje. Gelungen, wenn die Spur zu Ende gelesen ist (spur.fertig), gescheitert, wenn die Frist ablaeuft oder die Spur ersetzt wurde. Ein falscher Ast (spur.falsch) ist KEIN
 //                Ausgang: die Spur-Logik sagt „zurueck“, die Zeit laeuft; wer die Frist darauf verbringt, scheitert (anderer Text). Beim Scheitern wird die offene Spur samt Marke abgeraeumt. Nie Game Over, nie eine Szene.
-//                Es laeuft hoechstens EINE Spur zugleich (game.spur): laeuft schon eine, ist der Beat gescheitert (Logbuch).
+//                Es laeuft hoechstens EINE Spur zugleich (game.spur): laeuft schon eine, ist der Beat gescheitert (Logbuch). Eine Spur, deren Kante schon offen ist, bringt keine zweite Belohnung (Beat gescheitert, Logbuch). Eine verwaiste Spur
+//                unserer Daten (kein laufender Spur-Beat mehr, z. B. Faden beim Laden verworfen) raeumt der Takt samt Marke ab; fremde Spuren (Kampagne) nie.
 //   wiedersehen  (Beat „wiedersehen“, braucht.nsc_alt) Ein NSC aus einem frueheren, abgeschlossenen Faden (Abenteuer geoeffnet mit parameter nsc_von, faden-pruefer.js) meldet sich und erinnert an eine konkrete Tat der Crew
 //                (Daten werte.wiedersehen_erinnert: Gedaechtnis-Ereignis -> Text, der letzte passende Eintrag gewinnt) und nennt einen Treffpunkt (wie geruecht). Gelungen bei Ankunft, gescheitert bei Fristablauf.
 //
@@ -37,6 +38,9 @@ const sagen = (game, nsc, text) => (text && nsc ? Bitte().funkVon(game, nsc, tex
 const baustLog = (game, faden, beat, ausgang, begruendung, plan) => logbuch(game, 'faden_baustein', { ausgang, key: beat.baustein || (D.BEATS[beat.typ] || {}).baustein, begruendung, plan: Object.assign({ faden: faden.id, beat: beat.id }, plan || {}) });
 
 // ---------- Wege der Karte: Spruenge ueber OFFENE Sprungpunkte (Explore: kanteOffen), nur spielbare Sektoren. -> Map Sektor -> Sprungzahl (hoechstens tiefe)
+// Abgleich mit den echten Sprungregeln (sprung.js hexGrund): eine geschlossene Kante (verborgen, verschlossen, Sperrtext) zaehlt hier nie als Weg, genau wie dort. Eine OFFENE Kante, deren Boje die Crew noch nicht kennt
+// (hexGrund: „Boje suchen (Weitscan)“), zaehlt als Weg: der Sektor darf genannt werden, die Boje findet die Crew beim Anflug (Weitscan, Sprungpunkt-Automatik markiert sie); die Zielwahl der Sprungregeln verlangt
+// die Boje erst beim Springen, nicht beim Planen. Bewusst nicht an bojeBekannt gebunden: sonst waere ein Gerücht in unerkundeten Sektoren nie moeglich.
 function erreichbar(game, von, tiefe) {
   const out = new Map();
   const ex = game && game.explore;
@@ -64,11 +68,12 @@ function zielWaehlen(game, faden, salz) {
   const z = Faden().strom(game, Faden().idNr(faden.id), salz)();
   return k[Math.floor(z * k.length) % k.length];
 }
-// Ort des Beats: parameter hex der Vorlage (muss erreichbar sein), sonst ein vom Code gewaehlter Sektor (wird parameter.ort des Fadens). -> Hex | null
+// Ort des Beats: parameter hex der Vorlage (muss erreichbar sein, mindestens einen Sprung weit: der Sektor der Crew selbst ist kein Ziel, sonst gelaenge der Beat ohne Flug), sonst ein vom Code gewaehlter Sektor
+// (wird parameter.ort des Fadens). -> Hex | null
 function ortFuer(game, faden, beat, salz) {
   const p = beat.parameter || {};
   if (has(p, 'hex')) {
-    return typeof p.hex === 'string' && HEX.test(p.hex) && erreichbar(game, hierHex(game), W.ziel.erreichbar_max).has(p.hex) ? p.hex : null;
+    return typeof p.hex === 'string' && HEX.test(p.hex) && erreichbar(game, hierHex(game), W.ziel.erreichbar_max).get(p.hex) >= 1 ? p.hex : null;
   }
   const z = zielWaehlen(game, faden, salz);
   if (z) faden.parameter.ort = z;
@@ -116,6 +121,18 @@ const wiedersehen = {
 };
 
 // ---------- spur
+// Die Kante(n), die die Spur am Ende enthuellt (Schluessel d.ende.kante der Karte), sind schon offen: die Spur ist abgeschlossen (eine zweite Spur zur selben Boje, oder dieselbe noch einmal)
+function spurAbgeschlossen(game, d) {
+  const ex = game && game.explore;
+  const kanten = ((Sektoren.KARTE && Sektoren.KARTE.kanten) || []).filter((e) => e.key === d.ende.kante);
+  return !!ex && kanten.length > 0 && kanten.every((e) => ex.kanteOffen(Sektoren.kanteId(e.a, e.b)));
+}
+// Eine Spur unserer Daten (b1-texte.json spuren), die kein laufender Spur-Beat mehr traegt (Faden beim Laden verworfen, Beat geendet): verwaist. Fremde Spuren (Kampagne: bote) nie. ausser = der Faden, der gerade startet.
+function spurVerwaist(game, F, ausser) {
+  const s = game && game.spur;
+  return !!(s && !s.fertig && has(S, s.id) && !F.liste.some((x) => x !== ausser && spurLaeuft(x) === s.id));
+}
+function spurAbraeumen(game, id) { SpurMod().reset(game); require('./marken.js').entferne(game, 'spur:' + id); }
 const spur = {
   id: 'spur',
   starten(game, faden, ctx) {
@@ -126,11 +143,13 @@ const spur = {
     if (!id || !has(S, id)) return ab('unbekannte Spur');
     const d = SpurMod().datei(id);
     if (!d) return ab('die Spur gibt es nicht (content/spuren)');
+    if (spurAbgeschlossen(game, d)) return ab('die Spur ist schon abgeschlossen: ihre Kante ist offen, es gibt nichts mehr zu enthüllen');
+    if (spurVerwaist(game, Faden().zustandVon(game), faden)) spurAbraeumen(game, game.spur.id);   // eine liegen gebliebene Spur von uns (Faden beim Laden verworfen) blockiert keinen neuen Beat
     if (game.spur && !game.spur.fertig) return ab('es läuft schon eine andere Spur');
     if (!erreichbar(game, hierHex(game), W.ziel.erreichbar_max).has(d.weg[0])) return ab('der Anfang der Spur ist nicht erreichbar');
     const err = SpurMod().starten(game, id);
     if (err) return ab(err.slice(0, 80));
-    if (!sagen(game, nsc, fmt(S[id].start, { name: nsc.name, ort: hexName(d.weg[0]) }))) return { ausgang: 'gescheitert' };
+    if (!sagen(game, nsc, fmt(S[id].start, { name: nsc.name, ort: hexName(d.weg[0]) }))) { spurAbraeumen(game, id); return { ausgang: 'gescheitert' }; }   // ohne Funk kein Beat: die gestartete Spur bleibt nicht ohne Beat liegen
     for (const h of ctx.beat.hinweise || []) Hinweis().senden(game, faden.id, h);
     baustLog(game, faden, ctx.beat, 'spur', `Spur ${id} beginnt in ${hexName(d.weg[0])}`, { spur: id });
     return { laeuft: true };
@@ -179,9 +198,9 @@ function spurTakt(game, F) {
     const s = game.spur;
     if (!s || s.id !== id || s.fertig) continue;
     if (f) { const nsc = nscVon(game, f.nsc.id) || f.nsc; sagen(game, nsc, fmt(s.falsch ? S[id].verloren_falsch : S[id].verloren, { name: nsc.name })); }
-    SpurMod().reset(game);
-    require('./marken.js').entferne(game, 'spur:' + id);
+    spurAbraeumen(game, id);
   }
+  if (spurVerwaist(game, F, null)) spurAbraeumen(game, game.spur.id);   // nach dem Laden ohne zugehoerigen Faden (verworfen): nur eine Spur unserer Daten, nie eine fremde
 }
 function update(game) {
   if (!game || !game.ship || !Faden().aktiv(game)) return;

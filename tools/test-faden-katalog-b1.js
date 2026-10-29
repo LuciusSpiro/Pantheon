@@ -104,6 +104,7 @@ function lese(t) {   // an den Spurkern fliegen, K, warten; eine Teilung wird mi
     t.run(0.2);
   }
 }
+const kontextVon = (prompt) => JSON.parse(/<kontext>\n([\s\S]*?)\n<\/kontext>/.exec(prompt)[1]);
 const kanteOffen = (g, a, c) => g.explore.kanteOffen(Sektoren.kanteId(a, c));
 const beatTypen = (v) => v.beats.map((x) => x.typ);
 
@@ -131,7 +132,7 @@ section('(a) Katalog: zwoelf Beat-Typen, drei neue ohne Gefahr, ohne Szene, ohne
   // weitere Daten, die katalogFehler sehen muss (Daten werden kurz veraendert und zurueckgesetzt)
   const zielOrig = klon(TX_LIVE.werte.ziel);
   const stellen = [
-    ['Spur mit Texten, aber ohne Datei', () => { TX_LIVE.spuren.nur_text = klon(TX.spuren.altrost); spurErl.push('nur_text'); }, () => { delete TX_LIVE.spuren.nur_text; spurErl.pop(); }, /nur_text.*fehlt oder ist ung/],
+    ['Spur mit Texten, aber ohne Datei', () => { TX_LIVE.spuren.nur_text = klon(TX.spuren.kantenpfad); spurErl.push('nur_text'); }, () => { delete TX_LIVE.spuren.nur_text; spurErl.pop(); }, /nur_text.*fehlt oder ist ung/],
     ['ziel.max groesser als erreichbar_max', () => { TX_LIVE.werte.ziel.max = 99; }, () => { TX_LIVE.werte.ziel.max = zielOrig.max; }, /werte.ziel/],
     ['ziel.min unter 1', () => { TX_LIVE.werte.ziel.min = 0; }, () => { TX_LIVE.werte.ziel.min = zielOrig.min; }, /werte.ziel/],
     ['erinnerte Tat ohne Text', () => { TX_LIVE.werte.wiedersehen_erinnert.zzz_gelungen = 'kein_text'; }, () => { delete TX_LIVE.werte.wiedersehen_erinnert.zzz_gelungen; }, /kein_text/],
@@ -183,12 +184,13 @@ section('(a4) Prompt-Katalog der Komposition (A2) leitet die neuen Typen aus den
   const t = neu(3); AP.katalogNeuLesen();
   const k = AP.katalogText();
   for (const typ of NEU) ok(new RegExp('- ' + typ + ': ').test(k) && k.includes(D.BEATS[typ].zweck), `${typ} steht im Katalog mit seinem Zweck`);
-  ok(/spur \(Standard altrost; erlaubt altrost \| fundort\)/.test(k), 'Parameter spur mit Standard und erlaubten Spuren');
+  ok(/spur \(Standard kantenpfad; erlaubt kantenpfad \| fundort\)/.test(k), 'Parameter spur mit Standard und erlaubten Spuren');
   ok(/geruecht_standard \| geruecht_handel/.test(k), 'Parameter text_key des Geruechts');
   ok(!/\bhex \(Standard/.test(k), 'der Sektor des Geruechts ist kein Parameter des Plans (kommt vom Code)');
   const r = AP.baue(t.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   ok(!r.fehler && r.zeichen <= lies('content/welt/abenteuer-werte.json').werte.prompt_max_zeichen.wert, 'der Prompt passt unter die Obergrenze (' + r.zeichen + ' Zeichen)');
-  ok(JSON.parse(/<kontext>\n([\s\S]*?)\n<\/kontext>/.exec(r.prompt)[1]).faeden.wiedersehen_nsc === 0, 'Kontext: wiedersehen_nsc 0 ohne abgeschlossenen Faden');
+  const ktx0 = kontextVon(r.prompt).faeden.wiedersehen_nsc;
+  ok(Object.keys(ktx0).sort().join() === 'ger,kon,rom' && Object.values(ktx0).every((v) => v === 0), 'Kontext: wiedersehen_nsc je Volk 0 ohne abgeschlossenen Faden');
   ok(!NAMEN.some((x) => r.prompt.includes(x)), 'keine Spielernamen im Prompt');
   AP.katalogNeuLesen();
 });
@@ -201,7 +203,7 @@ section('(b) Expander: Plaene mit den neuen Typen, Zustaende von Hand abgeleitet
   ok(JSON.stringify(r1.vorlage.beats[0].aus.gelungen.folge) === JSON.stringify([{ typ: 'haltung_aenderung', grund: 'gedankt' }]) && !r1.vorlage.beats[0].aus.gescheitert.folge, 'Folgen aus den Daten: gelungen gedankt, gescheitert keine (der Zustand aendert sich)');
   const r2 = BP.expandiere(plan([b('spur', { parameter: { spur: 'fundort' } }), b('abschluss')]));
   ok(r2.ok && r2.vorlage.beats[0].parameter.spur === 'fundort' && r2.vorlage.beats[1].erfolg.ereignis[0] === 'spur_gelungen', 'Spur: Parameter aus dem Plan, Erfolg des Abschlusses spur_gelungen');
-  ok(BP.expandiere(plan([b('spur'), b('abschluss')])).vorlage.beats[0].parameter.spur === 'altrost', 'Spur ohne Parameter: Standard altrost');
+  ok(BP.expandiere(plan([b('spur'), b('abschluss')])).vorlage.beats[0].parameter.spur === 'kantenpfad', 'Spur ohne Parameter: Standard kantenpfad');
   const r3 = BP.expandiere(plan([b('wiedersehen'), b('abschluss')]));
   ok(r3.ok && r3.vorlage.nsc.status === 'aktiv' && r3.vorlage.beats[0].aus.gelungen.status === 'verbuendet' && r3.vorlage.beats[0].aus.gescheitert.status === 'aktiv' && !r3.vorlage.beats[0].parameter, 'Wiedersehen am Anfang');
   ok(JSON.stringify(r3.vorlage.beats[0].aus.gescheitert.folge) === JSON.stringify([{ typ: 'haltung_aenderung', grund: 'bitte_abgelehnt' }]), 'Wiedersehen: Scheitern kostet Haltung (bitte_abgelehnt), der NSC bleibt');
@@ -364,12 +366,15 @@ section('(d) Spur fundort: Start, Lesen bis zum Ende (Teilung, Qualitaet 3), die
   ok(f.phase === 'laeuft' && g.spur && g.spur.id === 'fundort' && Marken.da(g, 'spur:fundort') && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0705'), 'Spur laeuft, Marke in Saatfeld (0705)');
   ok(t.funk.some((x) => x.from === f.nsc.name && x.text.includes('Saatfeld') && x.text === TX.spuren.fundort.start.replace('{ort}', 'Saatfeld')), 'der NSC nennt den Anfang der Spur');
   ok(!kanteVorher, 'die verborgene Kante 0605-0706 ist vorher zu');
+  const offenVorher = new Set(g.explore.kantenOffen());
   flieg(t, '0705'); lese(t);
-  ok(g.spur.idx === 0 && g.spur.gelesen && f.phase === 'laeuft', 'Saatfeld gelesen (Teilung geloest), der Beat laeuft weiter');
+  ok(g.spur.idx === 0 && g.spur.gelesen && !g.spur.wartet && f.phase === 'laeuft', 'Saatfeld gelesen (ohne Teilung), der Beat laeuft weiter');
   flieg(t, '0605');
   ok(g.spur.idx === 1 && f.phase === 'laeuft', 'Pulverhorn: letzter Hex');
   lese(t); t.run(0.2);
   ok(g.spur.fertig && kanteOffen(g, '0605', '0706'), 'Spur zu Ende gelesen: die verborgene Kante zum Bojenfeld ist offen');
+  const neuOffen = g.explore.kantenOffen().filter((id) => !offenVorher.has(id));
+  ok(neuOffen.length === 1 && neuOffen[0] === '0605-0706' && neuOffen.every((id) => id.split('-').every((h) => !gesperrt(h))), 'die Enthuellung oeffnet genau eine Kante (' + neuOffen.join(', ') + '), kein Ende in einem Sektor mit Sperrtext');
   ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gelungen'), 'Beat gelungen (NSC verbuendet, Gedaechtnis spur_gelungen)');
   ok(f.nsc.haltung === HW.quellen.wert.geholfen.delta, 'Haltung steigt um geholfen');
   ok(t.funk.some((x) => x.from === f.nsc.name && x.text === TX.spuren.fundort.gelungen), 'der NSC meldet den Erfolg');
@@ -378,25 +383,24 @@ section('(d) Spur fundort: Start, Lesen bis zum Ende (Teilung, Qualitaet 3), die
   ok(g.errors === 0, 'keine Serverfehler');
 });
 
-section('(d2) Spur altrost: ein falscher Ast ist kein Ausgang; die Frist scheitert den Beat verandernd, die Spur wird abgeraeumt, nie Game Over', () => {
+section('(d2) Spur kantenpfad: ein falscher Ast ist kein Ausgang; die Frist scheitert den Beat verandernd, die Spur wird abgeraeumt, nie Game Over', () => {
   const t = neu(32), g = t.g;
   opsSetzen(t);
   const { f } = oeffne(g, plan([b('spur'), b('abschluss')]));
   startBeat(g, f);
-  ok(g.spur && g.spur.id === 'altrost' && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0505'), 'Spur altrost beginnt im Brachland (0505)');
-  flieg(t, '0505'); lese(t);
-  flieg(t, '0605');
-  ok(g.spur.idx === 1, 'Pulverhorn: zweiter Hex der Spur');
-  flieg(t, '0705');
-  ok(g.spur.falsch === true && f.phase === 'laeuft', 'falscher Ast (Saatfeld): die Spur-Logik sagt zurueck, der Beat laeuft weiter (kein Ausgang)');
+  ok(g.spur && g.spur.id === 'kantenpfad' && Marken.liste(g).some((m) => m.t === 'spur' && m.h === '0603'), 'Spur kantenpfad beginnt in Kantenstein (0603)');
+  flieg(t, '0603'); lese(t);
+  ok(g.spur.idx === 0 && g.spur.gelesen && f.phase === 'laeuft', 'Kantenstein gelesen (Teilung geloest)');
+  flieg(t, '0503');
+  ok(g.spur.falsch === true && f.phase === 'laeuft', 'falscher Ast (Gasfeld): die Spur-Logik sagt zurueck, der Beat laeuft weiter (kein Ausgang)');
   t.run(0.2);
   ok(f.phase === 'laeuft', 'der falsche Ast beendet den Faden nicht');
   grenzen(g, FRIST, 'andocken');
   ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'aktiv' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gescheitert'), 'Frist: Beat gescheitert, der NSC bleibt aktiv (anders als verbuendet), der Faden geht weiter');
   t.run(0.1);
-  ok(g.spur === null && !Marken.da(g, 'spur:altrost'), 'die liegen gebliebene Spur samt Marke ist abgeraeumt');
-  ok(t.funk.some((x) => x.from === f.nsc.name && x.text === TX.spuren.altrost.verloren_falsch), 'der NSC sagt, dass der falsche Ast die Spur gekostet hat');
-  ok(!kanteOffen(g, '0602', '0603'), 'die verborgene Kante bleibt zu');
+  ok(g.spur === null && !Marken.da(g, 'spur:kantenpfad'), 'die liegen gebliebene Spur samt Marke ist abgeraeumt');
+  ok(t.funk.some((x) => x.from === f.nsc.name && x.text === TX.spuren.kantenpfad.verloren_falsch), 'der NSC sagt, dass der falsche Ast die Spur gekostet hat');
+  ok(!kanteOffen(g, '0605', '0706'), 'die verborgene Kante bleibt zu');
   startBeat(g, f);
   ok(f.phase === 'abgeschlossen' && f.ausgang.art === 'gescheitert' && g.phase !== 'over', 'Abschluss ohne Belohnung, kein Game Over');
   ok(g.errors === 0, 'keine Serverfehler');
@@ -417,9 +421,9 @@ section('(d3) Spur: eine andere Spur laeuft schon / Anfang nicht erreichbar / Sp
   const t3 = neu(35), g3 = t3.g;
   const { f: f3 } = oeffne(g3, plan([b('spur'), b('abschluss')]));
   startBeat(g3, f3);
-  Spur.starten(g3, 'fundort');   // eine andere Quelle ersetzt die Spur des Fadens
+  Spur.starten(g3, 'bote');   // eine andere Quelle (Kampagne) ersetzt die Spur des Fadens
   t3.run(0.2);
-  ok(f3.phase === 'wartet' && f3.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gescheitert') && g3.spur.id === 'fundort', 'ersetzte Spur: Beat gescheitert, die neue Spur bleibt unberuehrt');
+  ok(f3.phase === 'wartet' && f3.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gescheitert') && g3.spur.id === 'bote', 'ersetzte Spur: Beat gescheitert, die fremde Spur bleibt unberuehrt (auch nach dem Takt)');
   ok(g.errors === 0 && g2.errors === 0 && g3.errors === 0, 'keine Serverfehler');
 });
 
@@ -428,20 +432,20 @@ section('(d4) Spur: Speichern und Laden mitten im Beat (Faden und welt.spur), da
   opsSetzen(t);
   const { f } = oeffne(g, plan([b('spur'), b('abschluss')]));
   startBeat(g, f);
-  flieg(t, '0505'); lese(t);
-  ok(g.spur.gelesen && g.spur.idx === 0 && f.phase === 'laeuft', 'Brachland gelesen, die Spur zeigt nach Pulverhorn');
+  flieg(t, '0603'); lese(t); flieg(t, '0604'); lese(t);
+  ok(g.spur.gelesen && g.spur.idx === 1 && f.phase === 'laeuft', 'Concordia gelesen (zweiter Hex, ohne Teilung), die Spur zeigt nach Pulverhorn');
   const data = Weltstand.capture(g);
   ok(Weltstand.validate(data, g).filter((x) => /faeden|spur/.test(String(x))).length === 0, 'der Stand ist schemagueltig (Faden und welt.spur)');
   const bl = data.welt.sim.faeden.liste[0];
-  ok(bl.phase === 'laeuft' && bl.laufend.beat === 'b1_spur' && data.welt.spur.id === 'altrost' && data.welt.spur.idx === 0 && data.welt.spur.gelesen === true, 'gespeichert: laufender Beat, Spur altrost, Index 0, gelesen');
+  ok(bl.phase === 'laeuft' && bl.laufend.beat === 'b1_spur' && data.welt.spur.id === 'kantenpfad' && data.welt.spur.idx === 1 && data.welt.spur.gelesen === true, 'gespeichert: laufender Beat, Spur kantenpfad, Index 1, gelesen');
   const t2 = neu(37), g2 = t2.g;
   Kriegslage.restore(g2, JSON.parse(JSON.stringify(data.welt.sim)));
   Spur.restore(g2, JSON.parse(JSON.stringify(data.welt.spur)));
   const f2 = liste(g2)[0];
-  ok(f2.phase === 'laeuft' && f2.laufend.beat === 'b1_spur' && g2.spur && g2.spur.id === 'altrost' && g2.spur.idx === 0 && g2.spur.gelesen, 'nach dem Laden: derselbe Beat, dieselbe Spur');
+  ok(f2.phase === 'laeuft' && f2.laufend.beat === 'b1_spur' && g2.spur && g2.spur.id === 'kantenpfad' && g2.spur.idx === 1 && g2.spur.gelesen, 'nach dem Laden: derselbe Beat, dieselbe Spur');
   opsSetzen(t2);
-  flieg(t2, '0605'); lese(t2); flieg(t2, '0604'); lese(t2); flieg(t2, '0603'); lese(t2); t2.run(0.2);
-  ok(g2.spur.fertig && kanteOffen(g2, '0602', '0603'), 'im geladenen Spiel zu Ende gelesen: Kante nach Altrost offen');
+  flieg(t2, '0605'); lese(t2); t2.run(0.2);
+  ok(g2.spur.fertig && kanteOffen(g2, '0605', '0706'), 'im geladenen Spiel zu Ende gelesen: Kante zum Bojenfeld offen');
   ok(f2.phase === 'wartet' && f2.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gelungen'), 'der geladene Beat ist gelungen');
   ok(g2.errors === 0, 'keine Serverfehler');
 });
@@ -600,7 +604,7 @@ section('(f) Mock-Komponist (A2) kennt die neuen Typen: Plaene mit jedem neuen T
   ok(typenMock(t2.g).has('wiedersehen'), 'Mock ueber den echten Prompt (Kontext wiedersehen_nsc 1): auch ein Wiedersehen kommt vor');
   const p2 = AP.baue(t2.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   const kt = JSON.parse(/<kontext>\n([\s\S]*?)\n<\/kontext>/.exec(p2.prompt)[1]);
-  ok(kt.faeden.wiedersehen_nsc === 1, 'Kontext: ein NSC taugt fuer ein Wiedersehen (nur die Zahl)');
+  ok(Object.values(kt.faeden.wiedersehen_nsc).reduce((x, y) => x + y, 0) === 1 && kt.faeden.wiedersehen_nsc[liste(t2.g)[0].nsc.fraktion] === 1, 'Kontext: ein NSC taugt fuer ein Wiedersehen (nur Zahlen je Volk, das Volk des NSC: 1)');
   ok(!p2.prompt.includes(liste(t2.g)[0].nsc.name), 'der Name des NSC steht nie im Prompt');
 });
 
@@ -619,6 +623,283 @@ section('(f2) Logbuch: nie Spielernamen, nie Titel oder Anlass', () => {
   ok(logbuch(g).length > 10, logbuch(g).length + ' Logbuch-Eintraege');
   ok(!NAMEN.some((x) => text.includes(x)) && !/ZEBRAKAI/.test(text), 'kein Spielername, kein Titel, kein Anlass im Logbuch');
   ok(['geruecht', 'spur', 'wiedersehen'].every((k) => logbuch(g).some((e) => e.art === 'faden_baustein' && e.ausgang === k)), 'alle drei Bausteine schreiben ins Logbuch');
+});
+
+// ---------------------------------------------------------------- (h) Nacharbeit B1: Zustand des alten NSC, Reihenfolge, Spuren, Ort, Karte, Prompt
+const NICHT_KANDIDAT = ['gefangen', 'geflohen', 'feindlich', 'schuldet_nichts', 'tot'], KANDIDAT = ['aktiv', 'verbuendet'];
+section('(h1) Wiedersehen: der Zustand des alten NSC muss zum ersten Beat passen (braucht.nsc_status der Daten): gefangen, geflohen, feindlich, schuldet_nichts, tot sind kein Kandidat', () => {
+  ok(D.WERTE.status.every((s) => NICHT_KANDIDAT.includes(s) || KANDIDAT.includes(s)) && NICHT_KANDIDAT.concat(KANDIDAT).every((s) => D.WERTE.status.includes(s)), 'jeder Zustand der Daten ist hier eingeordnet: ' + D.WERTE.status.join(', '));
+  const p = plan([b('wiedersehen'), b('abschluss')]);
+  const vorlage = () => BP.expandiere(p).vorlage;
+  let n = 0;
+  for (const st of NICHT_KANDIDAT) {
+    const t = neu(100 + n++), g = t.g;
+    const alt = altNsc(t);
+    alt.nsc.status = st;
+    ok(Faden.wiedersehenKandidaten(g, vorlage()).length === 0, `${st}: wiedersehenKandidaten liefert den NSC nicht`);
+    const a = Faden.abenteuerAnbieten(g, p, { hex: '0305' });
+    ok(!a.ok && /^WIEDERSEHEN_KEIN_NSC/.test(a.grund) && Faden.zustandVon(g).abenteuerAngebote.length === 0, `${st}: abenteuerAnbieten lehnt ab (WIEDERSEHEN_KEIN_NSC), kein Angebot`);
+    const r = Pruefer.pruefeNscVon(Faden.zustandVon(g), vorlage(), { nsc_von: alt.nsc.id });
+    ok(r && /^NSC_VON:/.test(r), `${st}: der Pruefer lehnt nsc_von ab (NSC_VON)`);
+    ok(AP.baue(g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt.includes('"wiedersehen_nsc"') && Object.values(kontextVon(AP.baue(g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt).faeden.wiedersehen_nsc).every((x) => x === 0), `${st}: der Kontext zaehlt ihn nicht`);
+  }
+  for (const st of KANDIDAT) {
+    const t = neu(110 + n++), g = t.g;
+    const alt = altNsc(t);
+    alt.nsc.status = st;
+    ok(JSON.stringify(Faden.wiedersehenKandidaten(g, vorlage())) === JSON.stringify([alt.nsc.id]), `${st}: Kandidat`);
+    const a = Faden.abenteuerAnbieten(g, p, { hex: '0305' });
+    ok(a.ok && Faden.abenteuerOeffnen(g, a.angebot.nr, { nsc_von: alt.nsc.id }).ok, `${st}: Angebot und Oeffnen gelingen`);
+  }
+  // die Liste kommt aus den Daten (braucht.nsc_status des ersten Beats), nicht aus dem Code: erlaubt der Katalog gefangen, ist ein gefangener NSC ein Kandidat
+  const t = neu(120), g = t.g;
+  const alt = altNsc(t); alt.nsc.status = 'gefangen';
+  const st = D.BEATS.wiedersehen.braucht.nsc_status;
+  st.push('gefangen');
+  try { ok(Faden.wiedersehenKandidaten(g, vorlage()).length === 1, 'der Katalog (nsc_status um gefangen erweitert) macht den gefangenen NSC zum Kandidaten: die Regel steht in den Daten'); } finally { st.pop(); }
+  ok(Faden.wiedersehenKandidaten(g, vorlage()).length === 0, 'nach dem Zuruecksetzen wieder kein Kandidat');
+});
+
+section('(h2) Wiedersehen: der Kandidat kann zwischen Anbieten und Oeffnen verschwinden: das Oeffnen scheitert sauber mit NSC_VON, das Angebot bleibt liegen, nichts aendert sich', () => {
+  const t = neu(121), g = t.g;
+  const alt = altNsc(t);
+  const F0 = Faden.zustandVon(g);
+  const a = Faden.abenteuerAnbieten(g, plan([b('wiedersehen'), b('abschluss')]), { hex: '0305' });
+  ok(a.ok, 'Angebot da');
+  const zaehler = () => JSON.stringify([F0.nsc, F0.nr, F0.liste.length, F0.abenteuerAngebote.map((x) => x.nr)]);
+  const vorher = zaehler();
+  alt.nsc.status = 'gefangen';   // der NSC taugt nicht mehr (andere Gruende: Verdraengung aus der Liste, schon aktiv in einem anderen Wiedersehen)
+  const r = Faden.abenteuerOeffnen(g, a.angebot.nr, { nsc_von: alt.nsc.id });
+  ok(!r.ok && /^NSC_VON/.test(r.grund), 'Oeffnen scheitert mit NSC_VON: ' + r.grund.slice(0, 40));
+  ok(zaehler() === vorher && F0.abenteuerAngebote.length === 1 && F0.abenteuerAngebote[0].nr === a.angebot.nr, 'kein Faden, keine NSC-Nummer verbraucht, das Angebot liegt unveraendert da');
+  ok(logbuch(g).some((e) => e.art === 'faden_pruefung' && e.key === 'abenteuer_oeffnen' && e.ausgang === 'abgelehnt'), 'Logbuch: abenteuer_oeffnen abgelehnt');
+  alt.nsc.status = 'verbuendet';
+  ok(Faden.abenteuerOeffnen(g, a.angebot.nr, { nsc_von: alt.nsc.id }).ok, 'ist der NSC wieder tauglich, gilt dasselbe Angebot (bis zum Verfall)');
+  // Verdraengung: ist der alte Faden aus der Liste gefallen, scheitert das Oeffnen genauso
+  const t2 = neu(122), g2 = t2.g;
+  const alt2 = altNsc(t2);
+  const a2 = Faden.abenteuerAnbieten(g2, plan([b('wiedersehen'), b('abschluss')]), { hex: '0305' });
+  Faden.zustandVon(g2).liste.splice(0, 1);
+  const r2 = Faden.abenteuerOeffnen(g2, a2.angebot.nr, { nsc_von: alt2.nsc.id });
+  ok(!r2.ok && /^NSC_VON/.test(r2.grund) && Faden.zustandVon(g2).abenteuerAngebote.length === 1, 'alter Faden verdraengt: NSC_VON, das Angebot bleibt');
+  ok(g.errors === 0 && g2.errors === 0, 'keine Serverfehler');
+});
+
+section('(h3) Wiedersehen: wiedersehenKandidaten liefert den juengsten Faden zuerst (hoechster Faden-Zaehler), deterministisch', () => {
+  const t = neu(123), g = t.g;
+  const A = altNsc(t);
+  const B = altNsc(t);
+  const vorlage = () => BP.expandiere(plan([b('wiedersehen'), b('abschluss')])).vorlage;
+  const ids = () => Faden.wiedersehenKandidaten(g, vorlage());
+  ok(Number(B.id.slice(1)) > Number(A.id.slice(1)) && A.nsc.name !== B.nsc.name, 'zwei abgeschlossene Faeden, B ist juenger');
+  ok(JSON.stringify(ids()) === JSON.stringify([B.nsc.id, A.nsc.id]), 'juengster zuerst: ' + ids().join(', '));
+  ok(JSON.stringify(ids()) === JSON.stringify(ids()), 'deterministisch');
+  // Wiedersehen mit A: der neue Faden von A ist der juengste, der alte Faden von A zaehlt nicht mehr
+  const { f } = oeffne(g, plan([b('wiedersehen'), b('abschluss')]), { nsc_von: A.nsc.id });
+  startBeat(g, f); flieg(t, f.parameter.ort); startBeat(g, f);
+  ok(f.phase === 'abgeschlossen', 'Wiedersehen mit A abgeschlossen');
+  ok(JSON.stringify(ids()) === JSON.stringify([f.nsc.id, B.nsc.id]), 'A im juengsten Faden vorn, der alte Faden von A fehlt: ' + ids().join(', '));
+  ok(Faden.zustandVon(g).liste.map((x) => x.id).join() === ['f1', 'f2', 'f3'].join(), 'die Liste selbst bleibt in der Reihenfolge der Faeden (Sortierung nur im Ergebnis)');
+});
+
+section('(h4) Spuren: kein Hex und kein Ast einer Spur liegt in einem Sektor mit Sperrtext, die Enthuellung oeffnet nie eine Kante dorthin; nur die vorgesehene Kante ist verborgen', () => {
+  neu(130);
+  const erlaubt = D.BEATS.spur.bauplan.parameter.spur.erlaubt;
+  ok(erlaubt.length >= 2, 'mindestens zwei Spuren: ' + erlaubt.join(', '));
+  const hexe = (h) => KARTE.hexe[h];
+  const kante = (a, c) => KARTE.kanten.find((e) => (e.a === a && e.b === c) || (e.a === c && e.b === a));
+  for (const id of erlaubt) {
+    const d = lies('content/spuren/' + id + '.json');
+    const alle = d.weg.slice(); const aeste = [];
+    for (const tl of d.teilungen || []) for (const a of tl.aeste) { alle.push(a.nach); aeste.push([tl.ab, a.nach]); }
+    ok(alle.every((h) => hexe(h) && hexe(h).spielbar === true && !gesperrt(h) && Sektoren.spielbar(h) && !Sektoren.sperrtext(h)), `${id}: alle Hexe und Aeste existieren, sind spielbar und ohne Sperrtext (${Array.from(new Set(alle)).join(', ')})`);
+    ok(aeste.every(([von, nach]) => { const e = kante(von, nach); return e && e.art === 'open'; }), `${id}: die Kante zu jedem Ast ist offen`);
+    const pfad = []; for (let i = 0; i + 1 < d.weg.length; i++) pfad.push(kante(d.weg[i], d.weg[i + 1]));
+    ok(pfad.every((e) => e && e.art === 'open'), `${id}: jede Kante des Weges ist offen`);
+    const verborgen = KARTE.kanten.filter((e) => e.key === d.ende.kante);
+    const letzter = d.weg[d.weg.length - 1];
+    ok(verborgen.length === 1 && verborgen[0].art === 'hidden' && [verborgen[0].a, verborgen[0].b].includes(letzter), `${id}: genau eine verborgene Kante (${d.ende.kante}) am letzten Hex: die vorgesehene`);
+    const ziel = verborgen[0].a === letzter ? verborgen[0].b : verborgen[0].a;
+    ok(hexe(ziel) && hexe(ziel).spielbar === true && !gesperrt(ziel) && !Sektoren.sperrtext(ziel), `${id}: die enthuellte Kante fuehrt nach ${ziel} (${hexe(ziel).name}), ohne Sperrtext`);
+    ok(!(d.weg.concat(aeste.map((x) => x[1]))).some((h) => hexe(h).verborgen), `${id}: kein verborgener Sektor auf dem Weg`);
+  }
+  ok(gesperrt('0602') && gesperrt('0704'), 'Gegenprobe der Hilfsfunktion: Altrost (0602) und Raffinerie Lumen (0704) tragen einen Sperrtext');
+});
+
+section('(h5) Spur: eine bereits abgeschlossene Spur (Kante schon offen) bringt keine zweite Belohnung, der Beat endet sauber ohne Spur', () => {
+  const t = neu(131), g = t.g;
+  opsSetzen(t);
+  const { f } = oeffne(g, plan([b('spur', { parameter: { spur: 'fundort' } }), b('abschluss')]));
+  startBeat(g, f); flieg(t, '0705'); lese(t); flieg(t, '0605'); lese(t); t.run(0.2);
+  ok(g.spur.fertig && kanteOffen(g, '0605', '0706') && f.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gelungen'), 'die erste Spur ist abgeschlossen, die Kante offen');
+  startBeat(g, f);
+  flieg(t, '0305');
+  const haltung0 = f.nsc.haltung;
+  for (const spurId of ['kantenpfad', 'fundort']) {
+    const { f: f2 } = oeffne(g, plan([b('spur', { parameter: { spur: spurId } }), b('abschluss')]));
+    const funk0 = t.funk.length, h0 = f2.nsc.haltung;
+    startBeat(g, f2);
+    ok(f2.phase === 'wartet' && f2.beat === 1 && f2.nsc.status === 'aktiv' && f2.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gescheitert') && !f2.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gelungen'), `${spurId}: Beat gescheitert, nicht gelungen`);
+    ok(f2.nsc.haltung === h0 && !Marken.da(g, 'spur:' + spurId) && g.spur.id === 'fundort' && g.spur.fertig, `${spurId}: keine Belohnung (Haltung unveraendert), keine neue Spur, keine Marke`);
+    ok(logbuch(g).some((e) => e.art === 'faden_baustein' && e.ausgang === 'abgelehnt' && /schon abgeschlossen/.test(e.begruendung) && e.plan && e.plan.spur === spurId), `${spurId}: Logbuch: die Spur ist schon abgeschlossen`);
+    ok(!t.funk.slice(funk0).some((x) => x.text === TX.spuren[spurId].start.replace('{ort}', Sektoren.hexName(spurId === 'fundort' ? '0705' : '0603'))), `${spurId}: der NSC kuendigt keine Spur an`);
+    startBeat(g, f2);
+    ok(f2.phase === 'abgeschlossen' && f2.ausgang.art === 'gescheitert' && g.phase !== 'over', `${spurId}: der Faden endet ohne Belohnung, nie Game Over`);
+  }
+  ok(haltung0 === f.nsc.haltung && g.errors === 0, 'keine Serverfehler');
+});
+
+section('(h6) Spur: eine verwaiste Spur (Faden beim Laden verworfen) blockiert keinen neuen Beat und wird mit der Marke abgeraeumt; eine fremde Spur nie', () => {
+  const t = neu(132), g = t.g;
+  opsSetzen(t);
+  const { f } = oeffne(g, plan([b('spur'), b('abschluss')]));
+  startBeat(g, f);
+  ok(g.spur && g.spur.id === 'kantenpfad' && Marken.da(g, 'spur:kantenpfad'), 'Spur laeuft');
+  const data = Weltstand.capture(g);
+  const sim = JSON.parse(JSON.stringify(data.welt.sim)); sim.faeden.liste[0].nsc.fraktion = 'zzz';   // der Faden besteht den Pruefer beim Laden nicht
+  const laden = (seed) => {
+    const t2 = neu(seed), g2 = t2.g;
+    Kriegslage.restore(g2, JSON.parse(JSON.stringify(sim)));
+    Spur.restore(g2, JSON.parse(JSON.stringify(data.welt.spur)));
+    return { t2, g2 };
+  };
+  const { t2, g2 } = laden(133);
+  ok(liste(g2).length === 0 && Faden.zustandVon(g2).ladeFehler.length === 1, 'der Faden ist beim Laden verworfen (ladeFehler)');
+  ok(g2.spur && g2.spur.id === 'kantenpfad' && Marken.da(g2, 'spur:kantenpfad'), 'die Spur und ihre Marke sind wiederhergestellt');
+  t2.run(0.2);
+  ok(g2.spur === null && !Marken.da(g2, 'spur:kantenpfad'), 'der naechste Takt raeumt die verwaiste Spur samt Marke ab');
+  const { f: fn } = oeffne(g2, plan([b('spur'), b('abschluss')]));
+  startBeat(g2, fn);
+  ok(fn.phase === 'laeuft' && g2.spur && g2.spur.id === 'kantenpfad', 'ein neuer Spur-Beat laeuft (nicht „es laeuft schon eine andere Spur“)');
+  // ohne Takt dazwischen: der Beginn eines Spur-Beats raeumt die verwaiste Spur selbst ab
+  const { g2: g3 } = laden(134);
+  ok(g3.spur && g3.spur.id === 'kantenpfad', 'wieder geladen, noch kein Takt');
+  const { f: f3 } = oeffne(g3, plan([b('spur', { parameter: { spur: 'fundort' } }), b('abschluss')]));
+  startBeat(g3, f3);
+  ok(f3.phase === 'laeuft' && g3.spur && g3.spur.id === 'fundort' && !Marken.da(g3, 'spur:kantenpfad') && Marken.da(g3, 'spur:fundort'), 'der Beginn eines Spur-Beats raeumt die verwaiste Spur selbst ab (neue Spur, alte Marke weg)');
+  // eine fremde Spur (Kampagne) bleibt in jedem Fall
+  const t4 = neu(135), g4 = t4.g;
+  Spur.starten(g4, 'bote');
+  t4.run(0.5);
+  ok(g4.spur && g4.spur.id === 'bote' && Marken.da(g4, 'spur:bote'), 'die Spur der Kampagne (bote) bleibt nach dem Takt');
+  ok(g.errors === 0 && g2.errors === 0 && g3.errors === 0 && g4.errors === 0, 'keine Serverfehler');
+});
+
+section('(h7) Spur: liefert der Funk des Beginns nichts (sagen null), bleibt die gestartete Spur nicht ohne Beat liegen', () => {
+  const t = neu(136), g = t.g;
+  const { f } = oeffne(g, plan([b('spur'), b('abschluss')]));
+  const alt = TX_LIVE.spuren.kantenpfad.start;
+  TX_LIVE.spuren.kantenpfad.start = '';
+  try { startBeat(g, f); } finally { TX_LIVE.spuren.kantenpfad.start = alt; }
+  ok(f.phase === 'wartet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gescheitert'), 'der Beat ist gescheitert');
+  ok(g.spur === null && !Marken.da(g, 'spur:kantenpfad'), 'keine Spur, keine Marke liegen geblieben');
+  ok(g.errors === 0, 'keine Serverfehler');
+});
+
+section('(h8) Ort: der Sektor der Crew selbst ist kein Ziel (hex der Vorlage in 0 Spruengen scheitert den Beat, ohne Flug kein Gelingen)', () => {
+  for (const typ of ['geruecht', 'wiedersehen']) {
+    const t = neu(typ === 'geruecht' ? 140 : 141), g = t.g;
+    let nr = null;
+    if (typ === 'wiedersehen') nr = altNsc(t).nsc.id;
+    const v = klon(BP.expandiere(plan([b(typ), b('abschluss')])).vorlage);
+    v.beats[0].parameter = { hex: '0305' }; v.id = D.abenteuerId(v);
+    ok(D.registriereAbenteuer(v).ok, `${typ}: die Vorlage mit hex 0305 (Sektor der Crew) besteht den Pruefer`);
+    const { f } = oeffne(g, plan([b(typ), b('abschluss')]), nr ? { nsc_von: nr } : undefined);
+    f.plan = klon(v); f.vorlage = v.id;
+    ok(hier(g) === '0305', 'die Crew steht in 0305');
+    const funk0 = t.funk.length;
+    startBeat(g, f);
+    ok(f.phase === 'wartet' && f.nsc.gedaechtnis.some((x) => x.ereignis === typ + '_gescheitert') && !f.nsc.gedaechtnis.some((x) => x.ereignis === typ + '_gelungen'), `${typ}: der Beat ist gescheitert, nicht gelungen`);
+    ok(t.funk.length === funk0, `${typ}: kein Funk (kein Treffpunkt genannt)`);
+    ok(logbuch(g).some((e) => e.art === 'faden_baustein' && e.ausgang === 'abgelehnt'), `${typ}: Logbuch: abgelehnt`);
+  }
+  // der Zufallsort ist nie der Sektor der Crew (auch nicht, wenn die Crew woanders steht)
+  for (const start of ['0305', '0505', '0605']) {
+    const t = neu(142), g = t.g; flieg(t, start);
+    const { f } = oeffne(g, plan([b('geruecht'), b('abschluss')]), undefined, start);
+    startBeat(g, f);
+    ok(f.phase === 'laeuft' && f.parameter.ort !== start, `Crew in ${start}: Ziel ${f.parameter.ort} ist ein anderer Sektor`);
+  }
+});
+
+section('(h9) Pruefer: hex, ort und Angebots-Hex gelten fuer die Karte der Freien Fahrt (sund_frei), nicht fuer den gerade global geladenen Kartenstand', () => {
+  const Welt = require('../server/sim/welt.js');
+  const vorlage = (hex) => { const v = klon(BP.expandiere(plan([b('geruecht'), b('abschluss')])).vorlage); v.beats[0].parameter.hex = hex; return v; };
+  const vorher = Sektoren.kartenId();
+  try {
+    Welt.waehle(null, 'limes');
+    ok(Sektoren.kartenId() === 'limes' && !Sektoren.spielbar('1105') && Sektoren.spielbar('0108'), 'Vorbereitung: Limes ist geladen (1105 gibt es dort nicht, 0108 ist dort Leerraum)');
+    ok(Pruefer.pruefeVorlage(vorlage('1105')).ok, 'hex 1105 (Ymirs Zahn, nur auf der Sund-Karte): gueltig, auch wenn Limes geladen ist');
+    ok(hat(Pruefer.pruefeVorlage(vorlage('0108')), 'PARAMETER'), 'hex 0108 (nur auf Limes im Raster): PARAMETER');
+    const F0 = { abenteuerAngebote: [] };
+    ok(Pruefer.pruefeAbenteuerAnbieten(F0, { hex: '1105' }) === null && /^PARAMETER/.test(Pruefer.pruefeAbenteuerAnbieten(F0, { hex: '0108' })), 'Abenteuer anbieten: Ort 1105 gueltig, 0108 PARAMETER');
+  } finally { Welt.waehle(null, vorher); }
+  ok(Sektoren.kartenId() === vorher, 'Karte zurueckgesetzt (' + vorher + ')');
+  ok(Pruefer.sundSpielbar('1105') && !Pruefer.sundSpielbar('0108') && !Pruefer.sundSpielbar('9999') && !Pruefer.sundSpielbar('abcd') && !Pruefer.sundSpielbar(1105), 'sundSpielbar: Sund-Hexe ja, ausserhalb des Rasters und Unsinn nein');
+});
+
+section('(h10) Zielwahl und Sprungregeln: Geruecht und Wiedersehen nennen nie einen Sektor ueber eine geschlossene Kante; eine unbekannte Boje (Weitscan) ist erlaubt', () => {
+  const Sprung = require('../server/sim/sprung.js');
+  const ziele = new Set();
+  for (let seed = 150; seed < 162; seed++) {
+    const t = neu(seed), g = t.g;
+    const { f } = oeffne(g, plan([b('geruecht'), b('abschluss')]));
+    startBeat(g, f);
+    const z = f.parameter.ort, d0 = abstaende('0305'); ziele.add(z);
+    const ersteSprunge = Sektoren.nachbarn('0305').filter((n) => kanteOffen(g, '0305', n) && abstaende(n)[z] === d0[z] - 1);
+    ok(ersteSprunge.length >= 1 && ersteSprunge.every((n) => { const gr = Sprung.hexGrund(g, '0305', n); return gr === null || /Boje suchen/.test(gr); }), `Seed ${seed}: Ziel ${z}, der erste Sprung (${ersteSprunge.join(', ')}) ist nach den Sprungregeln nutzbar oder nur die Boje fehlt`);
+  }
+  ok(!ziele.has('0706') && !ziele.has('0602') && !ziele.has('0606'), 'nie ein Sektor hinter einer verborgenen Kante (' + Array.from(ziele).sort().join(', ') + ')');
+  // die Boje der ersten Kante ist der Crew unbekannt: das Geruecht nennt den Sektor trotzdem (Weitscan findet sie), geschlossene Kanten nie
+  const t = neu(163), g = t.g; flieg(t, '0505');
+  const id = Sektoren.kanteId('0505', '0605');
+  g.explore.erkundet.delete('0605'); g.explore.bojenGefunden.delete(id);
+  ok(!g.explore.bojeBekannt(id) && /Boje suchen/.test(Sprung.hexGrund(g, '0505', '0605')), 'Vorbereitung: die Boje 0505-0605 ist unbekannt (hexGrund: Boje suchen)');
+  const gz = B1.erreichbar(g, '0505', 3);
+  ok(gz.get('0605') === 1 && gz.get('0706') === undefined, 'erreichbar() nennt 0605 trotz unbekannter Boje, 0706 (verborgene Kante) nie');
+  g.explore.markBoje(id);
+  ok(Sprung.hexGrund(g, '0505', '0605') === null, 'nach dem Weitscan (markBoje) ist der Sprung frei');
+});
+
+section('(h11) Prompt: wiedersehen_nsc ist eine Zahl je Volk (der Plan darf volk_erlaubt setzen); Katalog und Systemprompt erklaeren sie; keine Namen; Katalog unter 12 000 Zeichen', () => {
+  const t = neu(170), g = t.g;
+  AP.katalogNeuLesen();
+  const k = AP.katalogText();
+  ok(k.length < 12000, 'Katalog ' + k.length + ' Zeichen (unter 12 000)');
+  ok(/faeden\.wiedersehen_nsc: Zahl je Volk \(rom \| ger \| kon\)/.test(k) && /Standard rom \| kon/.test(k) && /nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert die Zahl: je Volk, mit dem Standard-Volk-Set, ohne Namen');
+  const sys = fs.readFileSync('content/spielleiter/prompts/abenteuer.system.md', 'utf8');
+  ok(/faeden\.wiedersehen_nsc/.test(sys) && /je Volk/.test(sys) && /volk_erlaubt/.test(sys), 'der Systemprompt erklaert, was die Zahl bedeutet');
+  const alt = altNsc(t);
+  const volk = alt.nsc.fraktion;
+  const zahlen = () => kontextVon(AP.baue(g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt).faeden.wiedersehen_nsc;
+  const z1 = zahlen();
+  ok(z1[volk] === 1 && Object.entries(z1).every(([v, n]) => v === volk || n === 0), 'Kontext: genau ein NSC, nur bei seinem Volk (' + volk + '): ' + JSON.stringify(z1));
+  ok(!NAMEN.some((x) => JSON.stringify(z1).includes(x)) && !AP.baue(g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt.includes(alt.nsc.name), 'kein Name im Prompt');
+  // ein NSC eines Volkes ausserhalb des Standard-Sets (ger): ein Plan mit volk_erlaubt [ger] bekommt ein Angebot, ein Plan mit dem Standard-Set nicht
+  alt.nsc.fraktion = 'ger';
+  ok(zahlen().ger === 1 && zahlen().rom === 0 && zahlen().kon === 0, 'Kontext: der NSC zaehlt beim Volk ger');
+  const typen = () => { const s = new Set(); for (let i = 1; i <= 120; i++) { const e = AM.erzeuge({ prompt: AP.baue(g, { nr: i, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt }); if (e.korruption) continue; for (const bt of JSON.parse(e.text.slice(e.text.indexOf('{'), e.text.lastIndexOf('}') + 1)).beats) s.add(bt.typ); } return s; };
+  ok(!typen().has('wiedersehen'), 'der Mock-Komponist plant kein Wiedersehen, wenn nur ein Volk ausserhalb seines Standard-Sets einen NSC hat');
+  const std = Faden.abenteuerAnbieten(g, plan([b('wiedersehen'), b('abschluss')]), { hex: '0305' });
+  ok(!std.ok && /^WIEDERSEHEN_KEIN_NSC/.test(std.grund), 'ein Plan mit dem Standard-Volk-Set: kein Angebot (WIEDERSEHEN_KEIN_NSC)');
+  const ger = Faden.abenteuerAnbieten(g, plan([b('wiedersehen'), b('abschluss')], { volk_erlaubt: ['ger'] }), { hex: '0305' });
+  ok(ger.ok && Faden.abenteuerOeffnen(g, ger.angebot.nr, { nsc_von: alt.nsc.id }).ok, 'ein Plan mit volk_erlaubt [ger]: Angebot und Oeffnen gelingen');
+  alt.nsc.fraktion = 'kon';
+  ok(zahlen().kon === 0, 'Gegenprobe: der NSC steckt jetzt in einem aktiven Faden, die Zahl ist 0');
+});
+
+section('(h12) Pruefer: ort von faden_oeffnen gilt fuer die Karte der Freien Fahrt (sund_frei), auch wenn global Limes geladen ist', () => {
+  const Welt = require('../server/sim/welt.js');
+  const t = neu(171), g = t.g;
+  const an = Faden.ausgangMitPerson(g, { art: 'notruf', id: 'notruf_pirat_frachter', hex: '0305', sprecher: 'S', ausgang: 'gelungen' });
+  const bef = (ortHex) => Faden.befehlPruefen(g, { typ: 'faden_oeffnen', vorlage: 'dankbarer_captain', parameter: { angebot: an.nr, ort: ortHex } });
+  const vorher = Sektoren.kartenId();
+  try {
+    Welt.waehle(null, 'limes');
+    ok(bef('1105') === null, 'ort 1105 (nur auf der Sund-Karte): gueltig, auch wenn Limes geladen ist');
+    ok(/^PARAMETER/.test(bef('0108') || ''), 'ort 0108 (auf Limes im Raster, auf der Sund-Karte nicht): PARAMETER');
+  } finally { Welt.waehle(null, vorher); }
+  ok(Sektoren.kartenId() === vorher, 'Karte zurueckgesetzt');
 });
 
 // ---------------------------------------------------------------- (g) ohne Schalter nichts

@@ -51,6 +51,7 @@ function katalogText() {
     L.push(`- ${typ}${flags.length ? ' [' + flags.join(', ') + ']' : ''}: ${c.zweck} ${opt}. Parameter: ${parameterText(bp)}. ${bp.hinweis_traeger ? 'Hinweis-Traeger. ' : ''}${braucht.length ? braucht.join('; ') + '. ' : ''}Start-Zustand ${bp.start_status}. ${nach}.`);
   }
   L.push(`Wahrheiten (nur mit einem Beat, der eine Wahrheit braucht): ${Object.entries(BP.wahrheiten).map(([k, w]) => `${k} (${w.fraktion ? 'der NSC ist in Wahrheit ' + w.fraktion : 'verborgen'})`).join('; ')}. Ohne Angabe gilt ${BW.wahrheit_standard}. Die Hinweise streut der Code an alle Hinweis-Traeger vor der Enthuellung.`);
+  if (Object.values(B).some((c) => c.braucht && c.braucht.nsc_alt === true)) L.push(`Kontext faeden.wiedersehen_nsc: Zahl je Volk (${liste(W.voelker)}) der NSC aus abgeschlossenen Faeden, die fuer einen Beat mit NSC aus einem frueheren Faden taugen (nur Zahlen, keine Namen). Ein solcher Beat steht nur am Anfang und nur, wenn die Zahl in mindestens einem Volk deines volk_erlaubt (Standard ${BW.volk_erlaubt_standard.join(' | ')}) groesser 0 ist; sonst kein Angebot. Setzt du volk_erlaubt, nimm ein Volk mit einer Zahl groesser 0.`);
   L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen.`);
   katalogCache = L.join('\n');
   return katalogCache;
@@ -72,8 +73,8 @@ function fadenKontext(game) {
     if (f.plan) { e.typen = typenVon(f.plan); abenteuer++; }
     aktiv.push(e);
   }
-  // SUND-04b B1: wie viele NSC aus abgeschlossenen Faeden fuer ein Wiedersehen taugen (nur die Zahl, nie ein Name): ohne einen gibt es fuer einen Plan mit Wiedersehen kein Angebot
-  const wiedersehen = require('./faden-pruefer.js').wiedersehenNsc(F, { volk_erlaubt: BW.volk_erlaubt_standard }).length;
+  // SUND-04b B1: wie viele NSC aus abgeschlossenen Faeden fuer ein Wiedersehen taugen, JE VOLK (nur Zahlen, nie ein Name): ein Plan mit Wiedersehen braucht einen in einem Volk seines volk_erlaubt, sonst gibt es kein Angebot
+  const wiedersehen = require('./faden-pruefer.js').wiedersehenZahlen(F);
   return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen };
 }
 // Der verdichtete Kontext: nur was der Ausschnitt der Lage schon gefiltert liefert (Chronik ohne Namen, Crew ohne Namen) und der Faden-Zustand ohne NSC-Namen.

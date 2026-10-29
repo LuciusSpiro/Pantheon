@@ -1,14 +1,9 @@
 {
   "id": "fundort",
   "name": "Spur zum Fundort",
-  "_kommentar": "SUND-04b B1 (Rätsel-Spur der Fäden, Beat spur): Freie Fahrt Sund (content/welt/sund_frei.json). Beginnt im Saatfeld (0705), endet in Pulverhorn (0605); dort enthüllt das Lesen die verborgene Kante zum Bojenfeld (boje-fundort, 0605-0706). Teilung im Saatfeld: Raffinerie Lumen (0704) ist der falsche Ast. Nur Sektoren, die die Crew anfliegen darf (route, konkordat_hafen), Kanten offen. Schema wie bote.json (server/sim/spur.js).",
+  "_kommentar": "SUND-04b B1 (Rätsel-Spur der Fäden, Beat spur), Nacharbeit: Freie Fahrt Sund (content/welt/sund_frei.json). Beginnt im Saatfeld (0705), endet in Pulverhorn (0605); dort enthüllt das Lesen die verborgene Kante zum Bojenfeld (boje-fundort, 0605-0706). Kurze Spur ohne Teilung: vom Saatfeld gibt es keinen zweiten Ast, der offen und ohne Sperrtext wäre (0704 Konkordat-Kernland, 0805 germanisches Gebiet). Nur Sektoren der Regionen route und konkordat_hafen, Kante offen. Schema wie bote.json (server/sim/spur.js).",
   "weg": ["0705", "0605"],
   "alter": [1500, 1000],
-  "teilungen": [
-    { "ab": "0705", "aeste": [
-      { "nach": "0605", "echt": true, "indiz": "Masse 30 t, ein Frachter mit Schlagseite, der Kurs führt nach Norden." },
-      { "nach": "0704", "echt": false, "indiz": "Masse 1 t, die Signatur flackert gleichmäßig: ein Täuschkörper." }
-    ] }
-  ],
+  "teilungen": [],
   "ende": { "kante": "boje-fundort" }
 }

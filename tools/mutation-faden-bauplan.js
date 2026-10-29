@@ -121,7 +121,7 @@ const MUTATIONEN = [
   [PR, "const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);", "const gleicheFolge = !namenlos;", 'Pruefer: namenlos darf folgenlos scheitern'],
   [PR, "const gleicheFolge = !namenlos || folgeProfil(aus.gescheitert.folge) === folgeProfil(aus.gelungen.folge);", "const gleicheFolge = false;", 'Pruefer: Scheitern ohne Zustandsunterschied nie folgenlos (04a-Regel geschwaecht)'],
   [PR, "if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl(", "if (false) return fehl(", 'Pruefer: beliebig viele Abenteuer-Angebote'],
-  [PR, "if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && require('../../shared/sektoren.js').spielbar(o.hex))) return fehl(", "if (false) return fehl(", 'Pruefer: Abenteuer ohne spielbaren Ort'],
+  [PR, "if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && sundSpielbar(o.hex))) return fehl(", "if (false) return fehl(", 'Pruefer: Abenteuer ohne spielbaren Ort'],
   [PR, "const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;", "const abenteuerLaufend = (F) => aktive(F).filter((f) => !f.plan).length;", 'Pruefer: laufende Abenteuer falsch gezaehlt'],
   [PR, "if (!['volk', 'name', 'nsc_von'].includes(k)) return fehl('PARAMETER'", "if (false) return fehl('PARAMETER'", 'Pruefer: Abenteuer oeffnen mit unbekanntem Parameter'],
   [PR, "if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", "if (false) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", 'Pruefer: Abenteuer oeffnen ohne Angebot'],
