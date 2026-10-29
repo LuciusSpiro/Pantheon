@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantheon – Auftragsbrett</title>
+<style>
+  /* Seite um die Vorschau (wie terminal-preview.html); das Brett selbst zeichnet nur aus PultAuftrag.TOKENS */
+  :root { --bg: #0B0E1A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; --mint: #7FE0C2; --red: #FF6B5E; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 ui-monospace, Consolas, monospace; }
+  header { position: sticky; top: 0; z-index: 5; background: #121725; border-bottom: 2px solid var(--brass); padding: 8px 16px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+  header h1 { font-size: 16px; margin: 0; color: var(--brass); letter-spacing: .5px; }
+  header a { color: var(--muted); text-decoration: none; } header a:hover { color: var(--ink); }
+  section { padding: 12px 16px 20px; border-bottom: 1px solid #222a3a; }
+  section h2 { font-size: 14px; color: var(--brass); margin: 0 0 8px; text-transform: uppercase; letter-spacing: 1px; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges; display: block; width: 1280px; max-width: 100%; height: auto; background: #0B0E1A; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 1280px; }
+  table { border-collapse: collapse; font-size: 12px; } td, th { padding: 2px 10px 2px 0; text-align: left; } th { color: var(--muted); font-weight: normal; }
+  .ok { color: var(--mint); } .bad { color: var(--red); } .sw { display: inline-block; width: 12px; height: 12px; vertical-align: -2px; margin-right: 4px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Pantheon · Auftragsbrett (SUND-04b D)</h1>
+  <a href="#drei">3 Angebote</a><a href="#ger">Germanen</a><a href="#rom">Rom</a><a href="#eins">1 Angebot</a><a href="#leer">leer</a><a href="#laeuft">läuft</a><a href="#gesperrt">gesperrt</a><a href="#hud">Flug</a><a href="#kontrast">Kontrast</a>
+  <span id="status">lade …</span>
+</header>
+<section id="drei"><h2>1 · Drei Angebote · Anlass Konkordat (aus Gerücht)</h2><canvas id="c-drei" width="640" height="360"></canvas>
+  <p class="note">Karte 1 gewählt (volle Messingfläche). Gestrichelter Balken = Angebot stammt aus einem Gerücht; die Gerüchte stehen unten und verweisen mit → auf ihr Angebot. Folgen, Schritte und Gefahr stehen vor der Annahme da.</p></section>
+<section id="ger"><h2>2 · Anlass Germanen (Wiedersehen, verfällt bald)</h2><canvas id="c-ger" width="640" height="360"></canvas>
+  <p class="note">Folgen in beide Richtungen: Haltung der Germanen ▲▲, Ruf bei Rom ▼. „verfällt bald“ in Gelb mit „!“.</p></section>
+<section id="rom"><h2>3 · Anlass Rom (Sabotage)</h2><canvas id="c-rom" width="640" height="360"></canvas></section>
+<section id="eins"><h2>4 · Ein Angebot, ohne Gefahr</h2><canvas id="c-eins" width="640" height="360"></canvas>
+  <p class="note">Ohne Gefahr steht ausdrücklich „kein Kampf angekündigt“. ↑↓ ist gesperrt (nur ein Angebot).</p></section>
+<section id="leer"><h2>5 · Kein Angebot</h2><canvas id="c-leer" width="640" height="360"></canvas></section>
+<section id="laeuft"><h2>6 · Abenteuer läuft (eben angenommen)</h2><canvas id="c-laeuft" width="640" height="360"></canvas>
+  <p class="note">Laufend-Streifen oben (Mint), Karten kompakt. Infozeile: „Angenommen“ für alle an diesem Gerät und alle Zuschauer, ohne Namen. Annehmen gesperrt (gepunkteter Rand), Grund in Gelb.</p></section>
+<section id="gesperrt"><h2>7 · Annehmen gesperrt · zweite Antwort abgewiesen</h2><canvas id="c-gesperrt" width="640" height="360"></canvas>
+  <p class="note">Maus über „Annehmen“: der Grund als Tooltip. Infozeile oben: Absage des Servers (die erste Antwort der Crew gilt). Frist des laufenden Abenteuers läuft ab.</p></section>
+<section id="hud"><h2>8 · Flug: schmaler Status unter dem Ziele-Kasten</h2><canvas id="c-hud" width="640" height="360"></canvas>
+  <p class="note">Vier Fälle untereinander (im Spiel steht nur einer): normal · Schritt mit Gefahr · Frist läuft ab · eben angenommen. Der Ziele-Kasten darüber ist nur angedeutet.</p></section>
+<section id="kontrast"><h2>Kontrast (WCAG 2.1, aus den Tokens gemessen)</h2><div id="kTab"></div></section>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/protocol.js"></script>
+<script src="../shared/maps.js"></script>
+<script src="../shared/schiffskatalog.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tasten.js"></script>
+<script src="js/schiffswaffen-ui.js"></script>
+<script src="js/pult.js"></script>
+<script src="js/karte-tokens.js"></script>
+<script src="js/pult-terminal-tokens.js"></script>
+<script src="js/pult-auftrag-tokens.js"></script>
+<script src="auftrag-referenz.js"></script>
+<script src="auftrag-preview.js"></script>
+</body>
+</html>

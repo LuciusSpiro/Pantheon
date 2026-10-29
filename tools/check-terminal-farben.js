@@ -31,8 +31,8 @@ if (process.argv.includes('--selftest')) {
   const ok = fehler.length === 4 && fehler.map((f) => f.zeile).join() === '4,5,6,8';
   console.log(ok ? 'Selbsttest ok' : 'Selbsttest FEHLER ' + JSON.stringify(fehler)); process.exit(ok ? 0 : 1);
 }
-// SYS-01 (Designer): die Tokens der Systemanzeige unterliegen derselben Regel (Farbwerte nur im Token-Block)
-const dateien = fs.readdirSync(DIR).filter((f) => (/terminal/i.test(f) || f === 'pult-systeme-tokens.js') && f.endsWith('.js'));
+// SYS-01 (Designer): die Tokens der Systemanzeige unterliegen derselben Regel (Farbwerte nur im Token-Block); SUND-04b D: ebenso die des Auftragsbretts
+const dateien = fs.readdirSync(DIR).filter((f) => (/terminal/i.test(f) || f === 'pult-systeme-tokens.js' || f === 'pult-auftrag-tokens.js') && f.endsWith('.js'));
 const treffer = dateien.flatMap((f) => pruefe(f, fs.readFileSync(path.join(DIR, f), 'utf8')));
 console.log(`${dateien.length} Terminal-Datei(en) geprüft: ${dateien.join(', ') || '–'}`);
 for (const t of treffer) console.log(`  ${t.regel.padEnd(20)} public/js/${t.datei}:${t.zeile}  ${t.text}  → Token aus PultTerminal.TOKENS nehmen`);
