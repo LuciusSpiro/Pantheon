@@ -5,7 +5,7 @@
 // (Anker genau einmal im Quelltext der Kopie), sonst bricht die Probe mit Exit 2 ab.
 //   node tools/mutation-abenteuer-e.js [begriff ...] [--trocken]      (npm run test:abenteuer-kanon-mutation)
 // Bewusst nicht in der Liste (aequivalente Mutanten): die Zahlen der Daten (kanon_max, wiederholung): der Test liest sie aus derselben Datei (nur das Verhaeltnis kanon_max zur Liste hat eine zweite Erwartung); NICHT_MODELL in
-// abenteuer-spielleiter.js (braucht einen Router mit Eskalation: die Eskalation hat test-abenteuer.js); das Weglassen des Titelschnitts (titelMax) im Kanon (der Plan ist schon auf 60 Zeichen geprueft); die Namen der Faeden der Liste in namenVergeben
+// abenteuer-spielleiter.js (braucht einen Router mit Eskalation: die Eskalation hat test-abenteuer.js); das Weglassen des Titelschnitts (titelMax) im Kanon; die Bedingung "kein frueherer Eintrag desselben Namens" beim Nachziehen der Wiedersehen-Kette in kuerzen (ohne sie sucht find() den fruehesten Eintrag des Namens, und der ist bei stimmiger Kette ohnehin ohne wieder: das delete ist dann wirkungslos) (der Plan ist schon auf 60 Zeichen geprueft); die Namen der Faeden der Liste in namenVergeben
 // (der Kanon enthaelt jeden Faden der Liste ohnehin); der Schutz "ohne Ort" in sperreBeginn (ohne Ort gibt es auch ohne ihn keinen Treffer); die Bedingung "nur der Kanon" in Faden.toSave (die Liste ist nie leer, solange der Kanon nicht leer ist); die Kandidatenpruefung in passt (abenteuer-brett.js) ersetzt durch die rohe Liste (pruefeGelockert prueft dieselbe Hauptfigur schon auf den Stufen 0 bis 2, ab Stufe 3 sind beide Listen gleich); ihr Entfernen ist dagegen eine Mutation (Stufe 3 ohne Kandidat).
 const fs = require('fs');
 const os = require('os');
@@ -72,6 +72,10 @@ const MUTATIONEN = [
   ["server/sim/abenteuer-kanon.js","    } else { delete e.ausgang; delete e.ort_ende; delete e.status; }","    }","Abgleich: ein Ausgang ohne abgeschlossenen Faden bleibt stehen"],
   ["server/sim/abenteuer-kanon.js","      e.ausgang = f.ausgang.art;\n      if (e.ort_ende","      if (e.ort_ende","Abgleich: der Ausgang des Fadens wird nicht uebernommen (Altstand)"],
   ["server/sim/abenteuer-kanon.js","if (!e) { e = neuerEintrag(f); if (fruehere(f)) e.wieder = true; L.push(e); }","if (!e) { e = neuerEintrag(f); L.push(e); }","Abgleich: ein abgeleiteter Eintrag kennt das Wiedersehen nicht"],
+  ["server/sim/abenteuer-kanon.js","if (n) delete n.wieder; }","if (n) n.wieder = n.wieder; }","Kuerzen: der naechste Eintrag desselben NSC behaelt wieder (Wiedersehen ohne Vorgaenger)"],
+  ["server/sim/abenteuer-kanon.js","if (!L.slice(0, i).some((e) => e.name === weg.name)) {","if (false) {","Kuerzen: die Wiedersehen-Kette wird nie nachgezogen"],
+  ["server/sim/abenteuer-kanon.js","b.slice(-BW.kanon_max)","b.slice(0, BW.kanon_max)","Laden: die aeltesten statt der neuesten Eintraege bleiben"],
+  ["server/sim/abenteuer-brett.js","  b.pruefung = game.time;\n  return anschluss(game);","  b.pruefung = game.time;\n  return null;","Brett: nach einem veralteten Angebot kommt vom Takt kein neues"],
   ["server/sim/abenteuer-kanon.js","L.sort((a, b) => nr(a.f) - nr(b.f));","","Abgleich: die Eintraege stehen nicht in der Reihenfolge der Faeden"],
   ["server/sim/faden.js","    require('./abenteuer-kanon.js').beendet(game, f, ausgang);   // SUND-04b E1: der Ausgang steht im Kanon (genau einmal)\n","","Haken: der Abschluss traegt den Ausgang nicht in den Kanon ein"],
   ["server/sim/faden.js","  if (alt) require('./abenteuer-kanon.js').wiedersehenBeginnen(F, f); else require('./abenteuer-kanon.js').beginnen(F, f);   // SUND-04b E1: Name, Volk, Titel, Ort stehen ab jetzt im Kanon\n","","Haken: ein Abenteuer traegt sich beim Oeffnen nicht in den Kanon ein"],

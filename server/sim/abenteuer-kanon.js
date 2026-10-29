@@ -128,7 +128,9 @@ function kuerzen(F) {
   while (L.length > BW.kanon_max) {
     const i = L.findIndex((e) => e.ausgang !== undefined && !(F.liste || []).some((f) => f.id === e.f));
     if (i < 0) break;   // was noch in der Liste steht oder laeuft, faellt nie weg (die Liste fasst hoechstens faeden_gesamt_max, kanon_max ist groesser)
-    L.splice(i, 1);
+    const weg = L.splice(i, 1)[0];
+    // die Wiedersehen-Kette bleibt stimmig: war der Entwurf der erste Eintrag seines Namens, wird der naechste Eintrag desselben Namens der erste (kein wieder mehr); der Name bleibt vergeben
+    if (!L.slice(0, i).some((e) => e.name === weg.name)) { const n = L.find((e) => e.name === weg.name); if (n) delete n.wieder; }
   }
 }
 
@@ -156,7 +158,7 @@ function lesen(b, F) {
   F.kanon = [];
   if (b !== undefined && !Array.isArray(b)) F.ladeFehler.push('kanon: verworfen');
   const ids = new Set(), namen = new Map();
-  for (const x of Array.isArray(b) ? b.slice(0, BW.kanon_max) : []) {
+  for (const x of Array.isArray(b) ? b.slice(-BW.kanon_max) : []) {
     const g = eintragFehler(x);
     if (g) { F.ladeFehler.push('kanon: Eintrag verworfen (' + g + ')'); continue; }
     if (ids.has(x.f)) { F.ladeFehler.push('kanon: Eintrag doppelt verworfen'); continue; }

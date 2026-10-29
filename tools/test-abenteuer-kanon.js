@@ -71,6 +71,7 @@ const spiele = (g, p, ausgang, hex, parameter) => { const r = beginne(g, p, hex,
 function rng(seed) { let a = (seed * 2654435761) >>> 0; return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
 const speichern = (g) => klon(Weltstand.capture(g).welt.sim);
 function laden(sim, seed) { D.zuruecksetzen(); const t = neu(seed); Kriegslage.restore(t.g, klon(sim)); return t; }
+const nrVon = (id) => Number(String(id).slice(1));
 const kanonJson = (g) => JSON.stringify(Kanon.liste(zust(g)));
 
 // ======================================================================
@@ -678,6 +679,81 @@ section('E4 Messwerkzeug: Gueltigkeit, Wiederholung, Typverteilung, Kosten; geme
   const tok = (x) => Number(/= ([\d.]+) Token je Aufruf/.exec(x)[1].replace(/\./g, ''));
   ok(tok(a2) < tok(t) * 0.6, 'die Annahme zeichen-je-token steuert die Schaetzung (' + tok(t) + ' gegen ' + tok(a2) + ' Token)');
   ok(lauf(['--n', '0']).status === 2 && lauf(['--preis-je-mtok', 'x']).status === 2, 'falscher Aufruf: Exit 2');
+});
+
+// ======================================================================
+section('E1 Kuerzen ueber kanon_max: die Wiedersehen-Kette bleibt stimmig, neueste bleiben, Speichern/Laden gleich', () => {
+  const eintrag = (f, name, o) => Object.assign({ f, name, volk: 'rom', ort: '0305', folge: ['notruf'] }, o || {});
+  const vw = (i) => require('../server/sim/faden-bauplan.js').expandiere(einzel('wiedersehen', i)).vorlage;
+  const t = neu(61), g = t.g, buch = [];   // Hauptbuch: { f, name, wieder }
+  let wiedersehen = 0, ohneFehler = true, probleme = [];
+  const N = 120;
+  for (let i = 1; i <= N; i++) {
+    let r;
+    const kand = i > 30 && i % 4 === 0 ? Wdh.kandidatenFrisch(g, vw(i)) : [];
+    if (kand.length) { r = spiele(g, einzel('wiedersehen', i), 'gelungen', '0305', { nsc_von: kand[kand.length - 1] }); wiedersehen++; }   // der AELTESTE frische Kandidat: sein Ursprung steht am Rand des Kanons
+    else r = spiele(g, einzel(i % 2 ? 'notruf' : 'spontanhilfe', i), i % 3 ? 'gelungen' : 'gescheitert', i % 2 ? '0305' : '0306');
+    if (!r.f) { probleme.push('Nr ' + i + ': nicht geoeffnet'); continue; }
+    buch.push({ f: r.f.id, name: r.f.nsc.name, wieder: !!(kand.length) });
+    const p = Kanon.pruefe(zust(g));
+    if (p.length) { ohneFehler = false; if (probleme.length < 3) probleme.push('Nr ' + i + ': ' + p[0]); }
+    if (Kanon.liste(zust(g)).length > KANON_MAX) { ohneFehler = false; probleme.push('Nr ' + i + ': mehr als kanon_max'); }
+  }
+  ok(wiedersehen >= 15 && buch.length === N, wiedersehen + ' Wiedersehen in ' + N + ' Abenteuern, alle geoeffnet ' + (probleme[0] || ''));
+  ok(ohneFehler, 'nach jedem Ende: pruefe leer, nie mehr als kanon_max Eintraege (' + (probleme.join('; ') || 'ok') + ')');
+  const L = Kanon.liste(zust(g));
+  ok(L.length === KANON_MAX && L.every((e, i) => i === 0 || nrVon(L[i - 1].f) < nrVon(e.f)), 'der Kanon ist voll (' + L.length + ') und geordnet');
+  const ids = new Set(L.map((e) => e.f));
+  ok(buch.slice(-KANON_MAX).every((x) => ids.has(x.f)), 'es bleiben die NEUESTEN ' + KANON_MAX + ' Abenteuer');
+  const abgeloest = L.filter((e) => !e.wieder && buch.find((x) => x.f === e.f).wieder);
+  ok(abgeloest.length >= 1, 'mindestens ein Wiedersehen ist durch das Kuerzen zum ersten Eintrag seines Namens geworden (' + abgeloest.length + '): der Fall des Reviewers kam vor');
+  ok(L.every((e) => Kanon.nameFrei(zust(g), e.name) === false), 'der Name bleibt vergeben');
+  const sim = speichern(g), vorher = kanonJson(g);
+  const t2 = laden(sim, 62), g2 = t2.g;
+  ok(kanonJson(g2) === vorher && zust(g2).ladeFehler.length === 0 && Kanon.pruefe(zust(g2)).length === 0, 'nach Speichern und Laden: derselbe Kanon (' + Kanon.liste(zust(g2)).length + '), kein Ladefehler, pruefe leer');
+  ok(JSON.stringify(Faden.toSave(g2.weltsim)) === JSON.stringify(sim.faeden), 'Speichern nach dem Laden ergibt denselben Block');
+  // der Fall des Reviewers genau: 41 Eintraege, f1 = A, f2 = A (wieder); nach kuerzen 40, stimmig, ohne Ladefehler
+  const F = { liste: [], kanon: [], ladeFehler: [] };
+  F.kanon.push(eintrag('f1', 'A B', { ausgang: 'gelungen', ort_ende: '0305' }), eintrag('f2', 'A B', { wieder: true, ausgang: 'gelungen', ort_ende: '0305' }));
+  for (let i = 3; i <= KANON_MAX + 1; i++) F.kanon.push(eintrag('f' + i, 'N' + i, { ausgang: 'gelungen', ort_ende: '0305' }));
+  Kanon.kuerzen(F);
+  ok(F.kanon.length === KANON_MAX && F.kanon[0].f === 'f2' && !F.kanon[0].wieder && Kanon.pruefe(F).length === 0 && !Kanon.nameFrei(F, 'A B'), 'Reviewer-Fall: f1 faellt, f2 verliert wieder, pruefe leer, Name vergeben');
+  const F2 = { liste: [], ladeFehler: [] }; Kanon.lesen(JSON.parse(JSON.stringify(F.kanon)), F2);
+  ok(F2.kanon.length === KANON_MAX && F2.ladeFehler.length === 0 && Kanon.pruefe(F2).length === 0, 'Reviewer-Fall: Laden verliert nichts und meldet nichts');
+  // faellt ein Eintrag, dessen Name noch einen frueheren Eintrag hat (der Faden laeuft, steht in der Liste), bleibt das wieder der Spaeteren
+  const F4 = { liste: [{ id: 'f1', nsc: { name: 'A B', fraktion: 'rom' }, phase: 'laeuft' }], kanon: [], ladeFehler: [] };
+  F4.kanon.push(eintrag('f1', 'A B'), eintrag('f2', 'A B', { wieder: true, ausgang: 'gelungen', ort_ende: '0305' }), eintrag('f3', 'A B', { wieder: true, ausgang: 'gelungen', ort_ende: '0305' }));
+  for (let i = 4; i <= KANON_MAX + 1; i++) F4.kanon.push(eintrag('f' + i, 'N' + i, { ausgang: 'gelungen', ort_ende: '0305' }));
+  Kanon.kuerzen(F4);
+  ok(F4.kanon.length === KANON_MAX && !F4.kanon.some((e) => e.f === 'f2') && F4.kanon.find((e) => e.f === 'f3').wieder === true && Kanon.pruefe(F4).filter((x) => !/KANON_LISTE/.test(x)).length === 0, 'faellt ein Wiedersehen, dessen NSC einen frueheren Eintrag behaelt, behaelt der naechste sein wieder');
+  // lesen behaelt die neuesten
+  const viele = Array.from({ length: KANON_MAX + 5 }, (_, i) => eintrag('f' + (i + 1), 'M' + (i + 1), { ausgang: 'gelungen', ort_ende: '0305' }));
+  const F3 = { liste: [], ladeFehler: [] }; Kanon.lesen(viele, F3);
+  ok(F3.kanon.length === KANON_MAX && F3.kanon[0].f === 'f6' && F3.kanon[KANON_MAX - 1].f === 'f' + (KANON_MAX + 5), 'lesen behaelt die neuesten kanon_max Eintraege (wie kuerzen), nicht die aeltesten');
+});
+
+section('E3 Ablehnung beim Annehmen (veraltet) zieht ein neues Angebot nach sich', () => {
+  let gefunden = null;
+  for (let seed = 1; seed <= 80 && !gefunden; seed++) {
+    const t = neu(7400 + seed, { env: { ABENTEUER_ANSCHLUSS: '1' } }), g = t.g; zust(g).angNr = seed;
+    spiele(g, einzel('notruf', 1), 'gelungen', '0305'); spiele(g, einzel('spontanhilfe', 2), 'gelungen', '0305');
+    zust(g).abenteuerAngebote.length = 0;
+    const a = Brett.anschluss(g);
+    if (a && a.vorlage.beats[0].typ === 'wiedersehen') gefunden = { t, g, a };
+  }
+  ok(!!gefunden, 'ein Wiedersehen-Angebot des Rueckfalls (strenge Stufe) liegt aus');
+  if (!gefunden) return;
+  const { t, g, a } = gefunden;
+  const letzter = Kanon.liste(zust(g)).filter((e) => e.titel).pop(), erster = Kanon.liste(zust(g)).find((e) => e.titel && e.f !== letzter.f);
+  letzter.name = erster.name; letzter.volk = erster.volk; letzter.wieder = true;
+  for (const f of liste(g)) if (f.nsc.name !== erster.name) f.nsc.status = 'tot';
+  g.handleMessage(t.cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a.nr });
+  const ant = t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'abenteuerAntwort').pop();
+  ok(ant && ant.ok === false && ant.code === 'veraltet' && zust(g).abenteuerAngebote.length === 0, 'die Annahme sagt veraltet, das Brett ist leer');
+  for (const f of liste(g)) f.nsc.status = 'aktiv';
+  g.time = 1e6; Brett.beiUpdate(g);
+  const neuA = zust(g).abenteuerAngebote;
+  ok(neuA.length === 1 && neuA[0].nr !== a.nr, 'der naechste Takt bietet etwas Neues an (Angebot ' + (neuA[0] && neuA[0].nr) + ' statt ' + a.nr + ')');
 });
 
 // ======================================================================

@@ -132,6 +132,7 @@ function bericht(m) {
   p('2. Wiederholung (Kriterium 5; Regeln aus content/faeden/abenteuer-brett.json: ' + JSON.stringify(WD) + ')');
   p(`  ohne die Regeln (gueltige Plaene der Mock-Komposition): ${m.rohWiederholt} von ${m.rohGueltig} (${pct(m.rohWiederholt, m.rohGueltig)}) haetten die Typenfolge eines der letzten ${WD.folge_zuletzt} begonnenen Abenteuer`);
   p(`  durch das Brett: ${wdhAbg} Plaene wegen Wiederholung abgelehnt (${pct(wdhAbg, lesbar)} der lesbaren); in den ${Z.geoeffnet} begonnenen Abenteuern: gleiche Folge unter den letzten ${WD.folge_zuletzt} ${m.wiederholungImVerlauf}, gleicher Ort mit gleichem ersten Beat unter den letzten ${WD.ort_typ_zuletzt} ${m.ortTypImVerlauf}, Wiedersehen mit der Hauptfigur der letzten ${WD.nsc_zuletzt}: ${m.hauptfigurImVerlauf} (je soll 0 sein; eigene Rechnung, nicht der Pruefer)`);
+  p('  NICHT GEMESSEN: "Folge gleich einem offenen Angebot" (die Angebote werden vor jedem Plan geleert, siehe messen(); die Regel hat ihren Test in test-abenteuer-kanon.js, nicht diese Messung)');
   p(`  ${m.folgen.size} verschiedene Typenfolgen in ${Z.gueltig} angebotenen Plaenen; die haeufigste: ${Array.from(m.folgen).sort((a, b) => b[1] - a[1]).slice(0, 1).map(([k, v]) => `${k} ${v} (${pct(v, Z.gueltig)})`)[0] || '–'}`);
   p('');
   p('3. Typverteilung der Beats in den angebotenen Plaenen (ohne Abschluss)');
