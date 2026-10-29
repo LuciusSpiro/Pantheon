@@ -4,7 +4,9 @@
 // Slots der heutige Text). Alles hinter einem Schalter, Standard AUS: ohne ihn geschieht hier nichts und der Bestand ist byte-gleich zu 03a.
 //
 // Schalter: TEXTE_POOL=1 (oder on; 0/off = aus; ohne Variable gilt standard_an aus content/texte/texte-werte.json, heute false). Erzeugt wird zusätzlich nur mit LLM_LIVE=1 (wie jeder Live-Aufruf),
-// über den Router NUR auf Ollama (OLLAMA_URL, OLLAMA_MODEL, LLM_MODELL_TEXT): nie Claude, keine Eskalation, der Token-Zähler (CLAUDE_TOKEN_BUDGET) wird nicht belastet.
+// SUND-04b A2 (Stufen, content/spielleiter/stufen.json, server/mission/stufen.js): jeder Slot gehoert einer Stufe (geruechte_funk: ankuendigung, eintreffen, soeldner, verlust; figuren_neben: dank, reaktion, antwort); Anbieter und
+// Modell je Stufe sind einstellbar, Standard beide Ollama (wie in 03b, ohne Eintrag byte-gleich), eine Eskalation an Claude nur mit eskalation: true der Stufe. Der Katalogtext bleibt immer der Rueckfall.
+// über den Router NUR auf Ollama (OLLAMA_URL, OLLAMA_MODEL, LLM_MODELL_TEXT), solange die Stufen nicht anders stehen: nie Claude, keine Eskalation, der Token-Zähler (CLAUDE_TOKEN_BUDGET) wird nicht belastet.
 //
 // SCHNITTSTELLE (auch für Paket A, Funk-Antworten):
 //   poolEntnehmen(art, id, slot, optionId?) -> string | null
@@ -28,6 +30,7 @@
 // Der Pool liegt im Prozessspeicher (Laufzeit): er steht NICHT im Weltstand. Wer ihn füllt, ist ein einziger Job-Schalter für den ganzen Prozess (Sleipnir wird mit Kara geteilt).
 const LLM = require('../mission/llm.js');
 const Pruefer = require('./texte-pruefer.js');
+const Stufen = require('../mission/stufen.js');   // SUND-04b A2
 const Ausschnitt = { spielerNamen: (...a) => require('./lage-ausschnitt.js').spielerNamen(...a), ohneNamen: (...a) => require('./lage-ausschnitt.js').ohneNamen(...a) };   // lazy: kein Ladezyklus mit regie-befehle.js
 
 const W = Pruefer.WERTE;
@@ -82,7 +85,7 @@ function katalogSpecs() {
 
 // ---------- Zustand (Laufzeit, nicht im Weltstand)
 function neuerZustand() {
-  return { freigabe: false, pool: new Map(), angefordert: new Map(), job: null, jobPromise: null, zeit: 0, leer: 0, angestossen: false, pauseBis: 0, fehlerFolge: 0, schluesselPause: new Map(), game: null, llm: null, llmFehler: null,
+  return { freigabe: false, pool: new Map(), angefordert: new Map(), job: null, jobPromise: null, zeit: 0, leer: 0, angestossen: false, pauseBis: 0, fehlerFolge: 0, schluesselPause: new Map(), game: null, llm: null, llmFehler: null, stufen: null,
     zaehler: { jobs: 0, gueltig_1: 0, gueltig_2: 0, ungueltig: 0, fehler: 0, verbraucht: 0, leer_gelesen: 0 } };
 }
 let S = neuerZustand();
@@ -158,7 +161,14 @@ function getLlm(game) {
   try {
     const Router = require('../mission/transport-router.js');
     const modell = String(env.LLM_MODELL_TEXT || '') || undefined;
-    const transport = Router.routeTransport({ text: { anbieter: 'ollama', modell } }, { eskalation: null, env });   // nur Ollama, nie Claude, keine Eskalation
+    // SUND-04b A2: die Stufen (Datei, Umgebung); ein Ollama-Eintrag ohne eigenes Modell nimmt wie bisher LLM_MODELL_TEXT
+    const St = Stufen.lade(env);
+    S.stufen = St;
+    const arten = { text: { anbieter: 'ollama', modell } };
+    for (const s of Stufen.STUFEN) arten[s] = { anbieter: St.stufen[s].anbieter, modell: St.stufen[s].modell || (St.stufen[s].anbieter === 'ollama' ? modell : undefined), eskalation: St.stufen[s].eskalation };
+    const eskAn = Stufen.STUFEN.some((s) => St.stufen[s].eskalation);
+    const transport = Router.routeTransport(arten, { eskalation: eskAn ? undefined : null, env });   // Standard: nur Ollama, nie Claude, keine Eskalation
+    if (St.fehler.length) logge(game, { ausgang: 'fehler', key: 'stufen', fehler: St.fehler.slice(0, 6) });
     S.llm = LLM.create({ mode: 'live', transport });
   } catch (e) { S.llmFehler = e.message; if (game.countError) game.countError('texte-llm', e); return null; }
   return S.llm;
@@ -169,11 +179,20 @@ function logge(game, eintrag) {
 
 // EIN Versuch: Prompt bauen, bei llm anfragen, Antwort lesen und prüfen. o { vorhanden[], vorher { antwort, fehler[] }, namen[] }. Wirft bei einem Ausfall des Transports (err.code). Auch das Messwerkzeug nutzt ihn.
 // -> { r (Antwort des LLM), p (Prüfung { ok, text, fehler }), prompt }
+function stufeVon(slot) { if (!S.stufen) S.stufen = Stufen.lade(process.env); return Stufen.stufeFuerSlot(S.stufen, slot); }
 async function versuch(llm, spec, o) {
   const opt = o || {};
   const sp = Object.assign({}, spec, { namen: opt.namen || [] });
   const prompt = Pruefer.promptBauen(sp, { vorhanden: opt.vorhanden, vorher: opt.vorher });
-  const r = await llm.ask('text', { system: Pruefer.SYSTEM_DATEI, prompt, art: spec.art, id: spec.id, slot: spec.slot }, { timeoutMs: W.job_timeout_s * 1000, schema: Pruefer.schemaFuer(spec.slot) });
+  const input = { system: Pruefer.SYSTEM_DATEI, prompt, art: spec.art, id: spec.id, slot: spec.slot };
+  const stufe = stufeVon(spec.slot);   // SUND-04b A2: Anbieter und Modell nach der Stufe des Slots (ohne Zuordnung wie bisher nach der Art text)
+  const ao = Object.assign({ timeoutMs: W.job_timeout_s * 1000, schema: Pruefer.schemaFuer(spec.slot) }, stufe ? { stufe } : {});
+  const esk = () => !!(stufe && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe));
+  let r;
+  if (opt.eskalieren) r = await llm.eskaliere('text', input, ao);   // Eskalation nach einer ungueltigen Antwort (nur Stufen mit eskalation: true)
+  else {
+    try { r = await llm.ask('text', input, ao); } catch (e) { if (e && e.code !== 'ABORTED' && esk()) r = await llm.eskaliere('text', input, ao); else throw e; }   // Ausfall: einmal an Claude, wenn die Stufe es erlaubt
+  }
   // Duplikate: nicht nur der Pool, auch die Stilvorlagen (der Katalogtext darf nicht abgeschrieben werden)
   const p = Pruefer.pruefe(Pruefer.textAusAntwort(r.text), { slot: spec.slot, platzhalter: spec.platzhalter, pflicht: spec.pflicht, stimme: spec.stimme, namen: opt.namen, vorhanden: (opt.vorhanden || []).concat(spec.beispiele || []), muss: spec.muss, nicht: spec.nicht });
   return { r, p, prompt };
@@ -186,14 +205,27 @@ async function erzeuge(sp, key, llm, game) {
     const vorhanden = (S.pool.get(key) || []).slice();
     let r, p;
     try { ({ r, p } = await versuch(llm, sp, { vorhanden, vorher, namen })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
-    const mess = { versuch: v, dauer_s: r.sec == null ? null : r.sec, tokens: r.tokens || 0, anbieter: r.anbieter || null, modell: r.modell || r.modelId || null };
+    const mess = Object.assign({ versuch: v, dauer_s: r.sec == null ? null : r.sec, tokens: r.tokens || 0, anbieter: r.anbieter || null, modell: r.modell || r.modelId || null }, r.eskaliert ? { eskaliert: true } : {});
     if (p.ok) {
       if (!S.pool.has(key)) S.pool.set(key, []);
       S.pool.get(key).push(p.text);
       return Object.assign({ ausgang: 'gueltig', text: p.text }, mess);
     }
     vorher = { antwort: r.text, fehler: p.fehler };
-    if (v >= W.versuche) return Object.assign({ ausgang: 'ungueltig', fehler: p.fehler, antwort: String(r.text).slice(0, 200) }, mess);
+    if (v >= W.versuche) {
+      // SUND-04b A2: eine Stufe bei Ollama mit eskalation: true schickt die letzte ungueltige Antwort einmal an Claude (Standard aus: der Katalogtext bleibt)
+      const stufe = stufeVon(sp.slot);
+      if (stufe && !r.eskaliert && typeof llm.eskalationMoeglich === 'function' && llm.eskalationMoeglich('text', stufe)) {
+        let r2, p2;
+        try { ({ r: r2, p: p2 } = await versuch(llm, sp, { vorhanden, vorher, namen, eskalieren: true })); } catch (e) { return { ausgang: 'fehler', versuch: v, fehler: e }; }
+        if (p2.ok) {
+          if (!S.pool.has(key)) S.pool.set(key, []);
+          S.pool.get(key).push(p2.text);
+          return { ausgang: 'gueltig', text: p2.text, versuch: v, dauer_s: r2.sec == null ? null : r2.sec, tokens: r2.tokens || 0, anbieter: r2.anbieter || null, modell: r2.modell || r2.modelId || null, eskaliert: true };
+        }
+      }
+      return Object.assign({ ausgang: 'ungueltig', fehler: p.fehler, antwort: String(r.text).slice(0, 200) }, mess);
+    }
   }
   return { ausgang: 'ungueltig', versuch: 0, fehler: ['keine Versuche'] };
 }
@@ -211,8 +243,8 @@ function jobEnde(game, key, ergebnis) {
     }
   }
   const e = ergebnis.fehler;
-  logge(game, { ausgang: ergebnis.ausgang, key, versuch: ergebnis.versuch, dauer_s: ergebnis.dauer_s, tokens: ergebnis.tokens, anbieter: ergebnis.anbieter, modell: ergebnis.modell,
-    fehler: e ? [].concat(ergebnis.ausgang === 'fehler' ? [((e.code || 'EXIT') + ': ' + String(e.message || e)).slice(0, 200)] : e).slice(0, 6) : undefined });
+  logge(game, Object.assign({ ausgang: ergebnis.ausgang, key, versuch: ergebnis.versuch, dauer_s: ergebnis.dauer_s, tokens: ergebnis.tokens, anbieter: ergebnis.anbieter, modell: ergebnis.modell,
+    fehler: e ? [].concat(ergebnis.ausgang === 'fehler' ? [((e.code || 'EXIT') + ': ' + String(e.message || e)).slice(0, 200)] : e).slice(0, 6) : undefined }, ergebnis.eskaliert ? { eskaliert: true } : {}));
 }
 function starten(game) {
   const llm = getLlm(game);

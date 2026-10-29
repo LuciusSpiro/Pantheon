@@ -20,14 +20,22 @@
 //   LLM_ANBIETER_GROBPLAN|SZENE|TEXT = claude|ollama,  LLM_MODELL_GROBPLAN|SZENE|TEXT = Modellname des Anbieters,
 //   LLM_ESKALATION = claude|aus (Standard claude), LLM_ESKALATION_MODELL (Standard sonnet).
 // Standard: grobplan -> claude (sonnet), szene -> ollama, text -> ollama. Ohne diese Variablen ist kein Router aktiv.
+//
+// SUND-04b A2, Stufen (server/mission/stufen.js, content/spielleiter/stufen.json): bauplan | figuren_haupt | figuren_neben | geruechte_funk sind weitere Arten dieses Routers, mit denselben Variablen
+// (LLM_ANBIETER_BAUPLAN, LLM_MODELL_BAUPLAN, ...; dazu LLM_ESKALATION_<STUFE>). Anders als grobplan und lage duerfen sie bei Claude ODER Ollama liegen. Eine Anfrage nennt ihre Stufe (opts.stufe) oder ihre
+// Art ordnet sie zu (abenteuer -> bauplan); die Eskalation an Claude gibt es fuer eine Stufe nur mit eskalation: true (Standard aus).
 
 const LLM = require('./llm.js');
 const Ollama = require('./transport-ollama.js');
 const Prompts = require('./prompts-ollama.js');
 
-const ARTEN = ['grobplan', 'szene', 'text', 'lage'];   // lage (SUND-03 A2): Grobplan des Lage-Spielleiters, wie der Grobplan immer Claude
+const Stufen = require('./stufen.js');
+const ARTEN_ALT = ['grobplan', 'szene', 'text', 'lage'];   // lage (SUND-03 A2): Grobplan des Lage-Spielleiters, wie der Grobplan immer Claude
+const STUFEN = Stufen.STUFEN;   // SUND-04b A2
+const ARTEN = ARTEN_ALT.concat(STUFEN);
 const ANBIETER = ['claude', 'ollama'];
 const STANDARD = { grobplan: { anbieter: 'claude', modell: 'sonnet' }, szene: { anbieter: 'ollama' }, text: { anbieter: 'ollama' }, lage: { anbieter: 'claude', modell: 'sonnet' } };
+for (const s of STUFEN) STANDARD[s] = { anbieter: Stufen.STANDARD[s].anbieter, modell: Stufen.STANDARD[s].modell || undefined };
 const STANDARD_ESKALATION = { anbieter: 'claude', modell: 'sonnet' };
 
 function norm(eintrag, art) {
@@ -40,6 +48,7 @@ function norm(eintrag, art) {
   if (!ANBIETER.includes(anbieter)) throw new Error(`Unbekannter Anbieter '${anbieter}' für '${art}' (erlaubt: ${ANBIETER.join(', ')})`);
   // Modell: eigene Angabe, sonst Standard nur bei unverändertem Anbieter (Claude: sonnet; Ollama: Standard des Transports)
   const modell = e.modell || (anbieter === std.anbieter ? std.modell : (anbieter === 'claude' ? 'sonnet' : undefined));
+  if (STUFEN.includes(art)) return { anbieter, modell, eskalation: e.eskalation === true && anbieter === 'ollama' };   // SUND-04b A2: Eskalation je Stufe, nur fuer Stufen bei Ollama
   return { anbieter, modell };
 }
 
@@ -53,9 +62,20 @@ function routeTransport(arten, o) {
   const T = Object.assign({ claude: LLM.TRANSPORTS.cli, ollama: Ollama.create({ env: opts.env }) }, opts.transports || {});
   const transportOf = (anbieter, eintrag) => (eintrag && eintrag.transport) || T[anbieter];
 
-  const anbieterFuer = (kind) => (cfg[kind] || { anbieter: 'claude' }).anbieter;
-  // Eskalation gibt es nur für Arten, die an Ollama gehen (Claude eskaliert nicht an sich selbst)
-  const eskalationFuer = (kind) => (eskCfg && cfg[kind] && cfg[kind].anbieter === 'ollama' ? eskCfg.anbieter : null);
+  // SUND-04b A2: der Schluessel der Konfiguration einer Anfrage: ihre Stufe (opts.stufe), sonst die Stufe ihrer Art (abenteuer -> bauplan), sonst die Art selbst
+  const schluessel = (kind, stufe) => {
+    if (stufe && cfg[stufe] && STUFEN.includes(stufe)) return stufe;
+    const s = Stufen.stufeFuerKind(kind);
+    return s && cfg[s] ? s : kind;
+  };
+  const anbieterFuer = (kind, stufe) => (cfg[schluessel(kind, stufe)] || { anbieter: 'claude' }).anbieter;
+  // Eskalation gibt es nur für Arten, die an Ollama gehen (Claude eskaliert nicht an sich selbst); eine Stufe eskaliert nur mit ihrem eigenen Schalter
+  const eskalationFuer = (kind, stufe) => {
+    const k = schluessel(kind, stufe), c = cfg[k];
+    if (!eskCfg || !c || c.anbieter !== 'ollama') return null;
+    if (STUFEN.includes(k) && c.eskalation !== true) return null;
+    return eskCfg.anbieter;
+  };
 
   // Ein Aufruf bei einem Anbieter. Fehler tragen anbieter/modell (für das Regie-Logbuch), nichts wird verschluckt.
   async function einzeln(text, c, anbieter, modell, eintrag) {
@@ -79,7 +99,7 @@ function routeTransport(arten, o) {
     // allein der Spielleiter (callEskalation über llm.eskaliere, mit Budgetprüfung) – es gibt nur diesen einen Eskalationsweg.
     async call(text, c) {
       const co = c || {};
-      const eintrag = cfg[co.kind];
+      const eintrag = cfg[schluessel(co.kind, co.stufe)];
       if (!eintrag) return einzeln(text, co, 'claude', co.model, null);   // Art ohne Eintrag (direkter Aufruf): wie bisher Claude
       return einzeln(text, co, eintrag.anbieter, eintrag.modell, eintrag);
     },
@@ -96,15 +116,18 @@ function ist(v) { return v !== undefined && v !== ''; }
 // Router nur, wenn die Umgebung ihn verlangt (LLM_ROUTER=1 oder eine LLM_ANBIETER_*); sonst null = bisheriges Verhalten.
 function routerAusEnv(env, opts) {
   const e = env || process.env;
-  const gewaehlt = e.LLM_ROUTER === '1' || ARTEN.some((a) => ist(e['LLM_ANBIETER_' + a.toUpperCase()]));
+  // SUND-04b A2: die Stufen (Datei stufen.json, dann Umgebung); ein Router entsteht auch, wenn eine Stufe vom Standard abweicht. Ohne Abweichung und ohne Variablen bleibt es beim Verhalten von main (kein Router).
+  const geladen = Stufen.lade(e, opts && opts.stufen ? opts.stufen : undefined);
+  const gewaehlt = e.LLM_ROUTER === '1' || ARTEN_ALT.some((a) => ist(e['LLM_ANBIETER_' + a.toUpperCase()])) || Stufen.abweichend(geladen).length > 0;
   if (!gewaehlt) return null;
-  const arten = {}; const warnungen = [];
-  for (const a of ARTEN) arten[a] = { anbieter: ist(e['LLM_ANBIETER_' + a.toUpperCase()]) ? e['LLM_ANBIETER_' + a.toUpperCase()] : undefined, modell: ist(e['LLM_MODELL_' + a.toUpperCase()]) ? e['LLM_MODELL_' + a.toUpperCase()] : undefined };
+  const arten = {}; const warnungen = geladen.fehler.slice();
+  for (const a of ARTEN_ALT) arten[a] = { anbieter: ist(e['LLM_ANBIETER_' + a.toUpperCase()]) ? e['LLM_ANBIETER_' + a.toUpperCase()] : undefined, modell: ist(e['LLM_MODELL_' + a.toUpperCase()]) ? e['LLM_MODELL_' + a.toUpperCase()] : undefined };
   if (String(arten.grobplan.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_GROBPLAN=ollama ignoriert: der Grobplan bleibt bei Claude'); arten.grobplan = {}; }
   if (String(arten.lage.anbieter || '').toLowerCase() === 'ollama') { warnungen.push('LLM_ANBIETER_LAGE=ollama ignoriert: der Grobplan der Lage bleibt bei Claude'); arten.lage = {}; }
+  for (const s of STUFEN) arten[s] = { anbieter: geladen.stufen[s].anbieter, modell: geladen.stufen[s].modell || undefined, eskalation: geladen.stufen[s].eskalation };
   const esk = String(e.LLM_ESKALATION || 'claude').toLowerCase();
   const eskalation = esk === 'aus' || esk === 'nein' || esk === '0' ? null : { anbieter: esk, modell: ist(e.LLM_ESKALATION_MODELL) ? e.LLM_ESKALATION_MODELL : 'sonnet' };
   return routeTransport(arten, Object.assign({ eskalation, env: e, warnungen }, opts || {}));
 }
 
-module.exports = { routeTransport, routerAusEnv, ARTEN, ANBIETER, STANDARD };
+module.exports = { routeTransport, routerAusEnv, ARTEN, ANBIETER, STANDARD, STUFEN };

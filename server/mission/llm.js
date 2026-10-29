@@ -27,6 +27,8 @@
 // (Dateipfad), ist das der Systemprompt.
 //
 // 'lage' (SUND-03 A2): Grobplan des Lage-Spielleiters, Systemprompt lage.system.md, Router: immer Claude (Ollama wird abgewiesen).
+// 'abenteuer' (SUND-04b A2): Komposition eines Abenteuer-Plans (Bauplan faden-bauplan/1), Systemprompt abenteuer.system.md, Stufe bauplan (server/mission/stufen.js: Claude oder lokal, einstellbar).
+// ask/eskaliere nehmen opts.stufe (figuren_haupt | figuren_neben | geruechte_funk | bauplan): der Router waehlt Anbieter und Modell nach der Stufe, nicht nach der Art.
 //
 // Prompt-Reihenfolge für Caching (buildPrompt): statischer Teil (Katalog) → Grobplan der Mission → variabler Teil.
 
@@ -35,7 +37,7 @@ const path = require('path');
 const crypto = require('crypto');
 
 const ROOT = path.join(__dirname, '..', '..');
-const KINDS = ['grobplan', 'szene', 'text', 'lage'];   // lage: SUND-03 A2, Grobplan des Lage-Spielleiters (Freie Fahrt Sund), geht an Claude
+const KINDS = ['grobplan', 'szene', 'text', 'lage', 'abenteuer'];   // lage: SUND-03 A2, Grobplan des Lage-Spielleiters (Freie Fahrt Sund), geht an Claude
 const MODES = ['off', 'mock', 'replay', 'script', 'live'];
 const TRANSPORT_NAMES = ['cli', 'api'];
 const DEFAULT_FIXTURES = path.join(ROOT, 'tools', 'fixtures', 'llm');
@@ -50,7 +52,7 @@ function systemPromptFile(kind) {
   const f = path.join(PROMPT_DIR, `${kind}.system.md`);
   return fs.existsSync(f) ? f : LEGACY_PROMPTS[kind];
 }
-const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); }, get lage() { return systemPromptFile('lage'); } };
+const SYSTEM_PROMPTS = { get grobplan() { return systemPromptFile('grobplan'); }, get szene() { return systemPromptFile('szene'); }, get lage() { return systemPromptFile('lage'); }, get abenteuer() { return systemPromptFile('abenteuer'); } };
 
 // ---------- EIN Token-Zähler je Prozess (CONTRACT-S2 Entscheidung 13; Cache-Treffer zählen voll) ----------
 const BUDGET = { used: 0, calls: 0, limit: null };
@@ -95,7 +97,7 @@ function renderPrompt(kind, input) {
   if (input && typeof input.prompt === 'string') return input.prompt;
   const rest = Object.assign({}, input); delete rest.auftrag;
   const auftrag = input && input.auftrag ? (typeof input.auftrag === 'string' ? input.auftrag : JSON.stringify(input.auftrag)) : '';
-  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'lage' ? 'Gib jetzt den Plan aus. Nur das JSON-Objekt.' : kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
+  const tail = kind === 'grobplan' ? 'Gib jetzt den Grobplan aus. Nur das JSON-Objekt.' : (kind === 'lage' ? 'Gib jetzt den Plan aus. Nur das JSON-Objekt.' : kind === 'abenteuer' ? 'Gib jetzt den Bauplan aus. Nur das JSON-Objekt.' : kind === 'text' ? 'Schreibe jetzt den Text.' : 'Arbeite jetzt die Szene aus. Nur das JSON-Objekt.');
   return `<eingabe>\n${JSON.stringify(canonicalize(rest), null, 1)}\n</eingabe>\n\n<auftrag>\n${auftrag}\n</auftrag>\n\n${tail}`;
 }
 
@@ -245,6 +247,8 @@ function mockSzene(input, kat) {
 
 // 'lage' (SUND-03 A2): der Mock-Regisseur liest Ausschnitt und Grenze aus dem Prompt (server/sim/lage-mock.js)
 function mockLage(input) { return require('../sim/lage-mock.js').planText(input); }
+// 'abenteuer' (SUND-04b A2): der Mock liest Kontext und Aufruf aus dem Prompt (server/sim/abenteuer-mock.js), manchmal absichtlich ungueltig
+function mockAbenteuer(input) { return require('../sim/abenteuer-mock.js').planText(input); }
 
 // 'text' (Paket C/03b) hat noch keine eigene Erzeugung: mock/script liefern ein Platzhalter-Ergebnis
 const MOCK_TEXT = 'Platzhalter (mock)';
@@ -407,7 +411,7 @@ function create(opts) {
       let text;
       if (e && typeof e.text === 'string') text = e.text;
       else if (e && e.json !== undefined) text = JSON.stringify(e.json);
-      else text = kind === 'text' ? MOCK_TEXT : kind === 'lage' ? mockLage(input) : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
+      else text = kind === 'text' ? MOCK_TEXT : kind === 'lage' ? mockLage(input) : kind === 'abenteuer' ? mockAbenteuer(input) : JSON.stringify(kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog()));
       return answerObj(kind, input, text, 'script', e && e.tokens);
     };
     if (e && e.hold) return new Promise((resolve, reject) => { held.push({ run: () => { try { resolve(settle()); } catch (err) { reject(err); } } }); });
@@ -422,6 +426,7 @@ function create(opts) {
     if (mode === 'mock') {
       if (kind === 'text') return { text: MOCK_TEXT, tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
       if (kind === 'lage') return { text: mockLage(input), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
+      if (kind === 'abenteuer') return { text: mockAbenteuer(input), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
       const obj = kind === 'grobplan' ? mockGrobplan(input, katalog()) : mockSzene(input, katalog());
       return { text: JSON.stringify(obj, null, 2), tokens: 0, usage: { input: 0, output: 0 }, source: 'mock', key: k };
     }
@@ -442,13 +447,14 @@ function create(opts) {
   async function live(kind, input, ao, forced) {
     const k = key(kind, input);
     if (process.env.LLM_LIVE !== '1') throw llmError('REFUSED', 'Live-Aufruf verweigert: mode \'live\' braucht zusätzlich LLM_LIVE=1 (nur von Hand, nie in npm test).');
-    const vorab = forced || (typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude');
+    const vorab = forced || (typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind, ao.stufe) : 'claude');
     const b = budget();
     if (vorab !== 'ollama' && b.used >= b.limit) throw llmError('BUDGET', `Token-Deckel erreicht (${b.used} von ${b.limit}, CLAUDE_TOKEN_BUDGET)`);
     const sys = (input && typeof input.system === 'string' && input.system) || (opts.systemPrompts && opts.systemPrompts[kind]) || systemPromptFile(kind);
     const co = { system: sys, model, timeoutMs: ao.timeoutMs, kind };
     if (ao.signal) co.signal = ao.signal;   // SUND-03 A2: AbortSignal des Aufrufers bis in den Transport
     if (ao.schema) co.schema = ao.schema;
+    if (ao.stufe) co.stufe = ao.stufe;   // SUND-04b A2: Stufe der Anfrage bis in den Router
     const r = forced ? await transport.callEskalation(renderPrompt(kind, input), co) : await transport.call(renderPrompt(kind, input), co);
     const n = r.usage.input + r.usage.output;
     if (r.anbieter !== 'ollama') { used += n; addUsage(n); }
@@ -466,7 +472,7 @@ function create(opts) {
   async function eskaliere(kind, input, askOpts) {
     if (!KINDS.includes(kind)) throw new Error(`Unbekannte Anfrage '${kind}' (erlaubt: ${KINDS.join(', ')})`);
     const ao = askOpts || {};
-    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' && typeof transport.callEskalation === 'function' ? transport.eskalationFuer(kind) : null;
+    const ziel = mode === 'live' && typeof transport.eskalationFuer === 'function' && typeof transport.callEskalation === 'function' ? transport.eskalationFuer(kind, ao.stufe) : null;
     if (!ziel) return ask(kind, input, ao);
     return live(kind, input, ao, ziel);
   }
@@ -476,8 +482,8 @@ function create(opts) {
     get budget() { return budget().limit; },
     ask, eskaliere, used: () => used, remaining: () => budget().remaining,
     // Router: welcher Anbieter bekommt diese Art, und gibt es dafür eine Eskalation? (ohne Router: Claude, keine)
-    anbieterFuer: (kind) => (mode === 'live' && typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind) : 'claude'),
-    eskalationMoeglich: (kind) => mode === 'live' && typeof transport.eskalationFuer === 'function' && !!transport.eskalationFuer(kind),
+    anbieterFuer: (kind, stufe) => (mode === 'live' && typeof transport.anbieterFuer === 'function' ? transport.anbieterFuer(kind, stufe) : 'claude'),
+    eskalationMoeglich: (kind, stufe) => mode === 'live' && typeof transport.eskalationFuer === 'function' && !!transport.eskalationFuer(kind, stufe),
     // script: offene (hold) Antworten freigeben; n = Anzahl (Standard alle)
     release(n) { const list = held.splice(0, n == null ? held.length : n); list.forEach((h) => h.run()); return list.length; },
     pending: () => held.length,

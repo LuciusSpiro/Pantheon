@@ -1,0 +1,20 @@
+{
+  "format": "spielleiter-stufen/1",
+  "_hinweis": "SUND-04b A2: Stufen des Spielleiters, schwer nach leicht. Je Stufe stehen Anbieter (claude | ollama) und Modell (Name des Anbieters; null = Standard des Anbieters, bei Claude sonnet, bei Ollama OLLAMA_MODEL bzw. LLM_MODELL_TEXT) und der Rueckfall bei Ausfall. Der Katalog- bzw. Daten-Rueckfall ist IMMER da (kein Angebot, der Katalogtext bleibt); `eskalation: true` schickt zusaetzlich eine ausgefallene oder abgelehnte Anfrage EINMAL an Claude (nur Stufen, die bei Ollama liegen). Umgebungsvariablen ueberschreiben diese Datei: LLM_ANBIETER_<STUFE>, LLM_MODELL_<STUFE>, LLM_ESKALATION_<STUFE> (STUFE gross, z. B. LLM_ANBIETER_BAUPLAN=ollama LLM_MODELL_BAUPLAN=qwen3:32b). Die Datei steht fuer den Standard: ohne Aenderung ist das Verhalten das von main. Ist die Datei kaputt, gelten sichere Standardwerte (server/mission/stufen.js STANDARD) und ein Eintrag im Regie-Logbuch.",
+  "stufen": {
+    "bauplan": {"anbieter": "claude", "modell": "sonnet", "eskalation": false, "_hinweis": "Komposition der Abenteuer-Plaene (kind abenteuer, server/sim/abenteuer-spielleiter.js). Die schwerste Stufe: Dramaturgie und strenge Form."},
+    "figuren_haupt": {"anbieter": "claude", "modell": "sonnet", "eskalation": false, "_hinweis": "Texte der Hauptfiguren eines Abenteuers. Wird erst in SUND-04b B/C genutzt, ist aber schon konfigurierbar und im Router angelegt."},
+    "figuren_neben": {"anbieter": "ollama", "modell": null, "eskalation": false, "_hinweis": "Texte sprechender Nebenfiguren (Text-Pool, server/sim/texte-pool.js): Dank, Reaktion auf eine Antwort, Beschriftung einer Antwort. Lokal (Gemma auf Sleipnir), wie in SUND-03b."},
+    "geruechte_funk": {"anbieter": "ollama", "modell": null, "eskalation": false, "_hinweis": "Funk, Lagemeldungen und Geruechte (Text-Pool): Ankuendigung, Eintreffen, Soeldner, Verlust. Lokal (Gemma auf Sleipnir), wie in SUND-03b."}
+  },
+  "slots": {
+    "ankuendigung": "geruechte_funk",
+    "eintreffen": "geruechte_funk",
+    "soeldner": "geruechte_funk",
+    "verlust": "geruechte_funk",
+    "dank": "figuren_neben",
+    "reaktion": "figuren_neben",
+    "antwort": "figuren_neben"
+  },
+  "_slots_hinweis": "Zuordnung der Slots des Text-Pools (content/texte/texte-werte.json slots) zu den Stufen. Ein Slot ohne Eintrag (oder eine kaputte Datei) behaelt die Standardzuordnung aus server/mission/stufen.js (STANDARD_SLOTS, gleich dieser Liste)."
+}

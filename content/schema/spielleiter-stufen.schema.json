@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Stufen des Spielleiters (SUND-04b A2)",
+  "description": "Form von content/spielleiter/stufen.json (spielleiter-stufen/1). Geprueft wird nur die FORM; ob ein Anbieter oder Modell wirklich laeuft, zeigt erst der Aufruf (Ausfall = Rueckfall, Eintrag im Regie-Logbuch).",
+  "type": "object",
+  "required": ["format", "stufen"],
+  "properties": {
+    "format": {"const": "spielleiter-stufen/1"},
+    "stufen": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["anbieter"],
+        "properties": {
+          "anbieter": {"type": "string", "enum": ["claude", "ollama"]},
+          "modell": {"type": ["string", "null"], "maxLength": 80},
+          "eskalation": {"type": "boolean"}
+        }
+      }
+    },
+    "slots": {"type": "object", "additionalProperties": {"type": "string", "maxLength": 32}}
+  }
+}
