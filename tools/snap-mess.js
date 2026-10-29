@@ -583,7 +583,7 @@ function fadenLauf(S, seed) {
   return { fehler, szenen, verbuendete };
 }
 
-// ---------- Aufbau 13 (SUND-04b C): Auftragsbrett – 3 Spieler, FAEDEN=1, drei offene Angebote mit den laengsten Plaenen (8 Beats, Gefahr, Wahl, Geruechte, Titel 26 und Anlass 110 Zeichen) UND ein laufendes Abenteuer. Gemessen wird jeder
+// ---------- Aufbau 13 (SUND-04b C): Auftragsbrett – 3 Spieler, FAEDEN=1, drei offene Angebote mit den laengsten Plaenen (8 Beats, Gefahr, Wahl, Geruechte, Titel 40 und Anlass 110 Zeichen, je 4 Typen) UND ein laufendes Abenteuer. Gemessen wird jeder
 // Snapshot ueber 400 Ticks mit Taetigkeiten (der Block kommt bei jeder Aenderung neu), dazu die Groesse des Blocks selbst. ----------
 function brettLauf(S, seed) {
   const fs = require('fs'), os = require('os'), path = require('path');
@@ -595,7 +595,7 @@ function brettLauf(S, seed) {
   g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'freie_fahrt' });
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   for (let k = 0; k < 15; k++) g.step();
-  const lang = (i) => ({ format: 'faden-bauplan/1', titel: 'Langer Titel Nummer ' + i + ' im Hafen', anlass: 'Ein langer Anlass, der die Grenze von hundertzehn Zeichen deutlich ueberschreitet und deshalb im Server gekuerzt wird (' + i + ').', beats: [{ typ: 'bitte', verzweigung: { gescheitert: 'e' } }, { typ: 'notruf' }, { typ: 'geruecht' }, { typ: 'spur' }, { typ: 'enthuellung', verzweigung: { gescheitert: 'e' } }, { typ: 'geleit' }, { typ: 'konvoi' }, { typ: 'abschluss', id: 'e' }] });
+  const lang = (i) => ({ format: 'faden-bauplan/1', titel: 'Ein sehr langer Titel Nummer ' + i + ' im Hafen von Ostia Nova', anlass: 'Ein langer Anlass, der die Grenze von hundertzehn Zeichen deutlich ueberschreitet und deshalb im Server gekuerzt wird (' + i + ').', beats: [{ typ: 'bitte', verzweigung: { gescheitert: 'e' } }, { typ: 'notruf' }, { typ: 'geruecht' }, { typ: 'spur' }, { typ: 'enthuellung', verzweigung: { gescheitert: 'e' } }, { typ: 'geleit' }, { typ: 'konvoi' }, { typ: 'abschluss', id: 'e' }] });
   let fehler = 0, blockMax = 0, mitBlock = 0;
   const a0 = Faden.abenteuerAnbieten(g, lang(0), { hex: '0305' });
   const r0 = a0.ok ? g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr }) : null;

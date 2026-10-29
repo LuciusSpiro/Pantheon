@@ -193,6 +193,7 @@
     const A = { x: 62, y: 6, w: 572, h: S - 12 };
     const RX = RASTER.rechtsX, RW = RASTER.rechtsW;
     const py = S + 22;                                  // Pult-Oberkante (wie Pult.rahmen)
+    const KB = window.PultAuftrag ? window.PultAuftrag.TOKENS.MASS.knopf : null;   // SUND-04b D: Knopf „Brett“ und Linie MODULRAUM kommen aus PultAuftrag (eine Quelle); ohne Brett-Tokens (Tests anderer Bereiche) gilt die Breite von vor dem Brett
     const L = {
       S, anzeige: A,
       plan: { x: A.x, y: A.y, w: RASTER.trennerX - A.x, h: A.h },
@@ -207,14 +208,13 @@
       handelInfo: { x: 70, y: 198, w: 558, h: 30 },
       pult: { x: 62, y: py, w: 572, h: 346 - py },
       kreuzTitel: { x: 62, y: py - 4, w: 192 },
-      modulTitel: { x: 266, y: py - 4, w: 104 },   // SUND-04b D: die Linie endet vor dem Knopf „Brett“ (= PultAuftrag MASS.knopf.modulTitelW, Test)
+      modulTitel: { x: 266, y: py - 4, w: KB ? KB.modulTitelW : 154 },   // SUND-04b D: die Linie endet vor dem Knopf „Brett“ (PultAuftrag MASS.knopf.modulTitelW)
       kreuz: {}, module: {},
       energie: { x: 266, y: py + 54, w: 154, h: 9 },
       status: { x: 62, y: py + 76, w: 400, h: 9 },
       start: { x: 266, y: py + 64, w: 154, h: 12 },   // Szene starten (Rüstphase der Testumgebung), unter der Energiezeile
       aktionen: {
         // Bereichsknöpfe: alle vier in 424..628 (rechts von der Spalte Modulraum, die bis 420 reicht); fehlt Info oder Kurs, bleibt die Lücke links
-        brett: { x: 374, y: py - 4, w: 48, h: KNOPF.h },   // SUND-04b D: nur mit Brett-Modell gezeichnet (world.abenteuer), links neben Info (= PultAuftrag MASS.knopf.brett, Test)
         info: { x: 424, y: py - 4, w: 40, h: KNOPF.h },   // SUND-03b I: nur mit Info-Modell gezeichnet (Konkordat-Hafen), links neben Kurs
         lage: { x: 466, y: py - 4, w: 46, h: KNOPF.h },   // SUND-02b D: nur mit Lage-Modell gezeichnet (Freie Fahrt Sund), links neben Handel
         handel: { x: 514, y: py - 4, w: 56, h: KNOPF.h }, werft: { x: 572, y: py - 4, w: 56, h: KNOPF.h },
@@ -222,6 +222,7 @@
         ausbau: { x: 474, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH }, teil: { x: 474 + KNOPF.halbW + KNOPF.luft, y: py + 64, w: KNOPF.halbW, h: KNOPF.kleinH },
       },
     };
+    if (KB) L.aktionen.brett = { x: KB.brett.x, y: py - 4, w: KB.brett.w, h: KNOPF.h };   // SUND-04b D: nur mit Brett-Modell gezeichnet (world.abenteuer), links neben Info (PultAuftrag MASS.knopf.brett: x 374)
     // Waffenkreuz: Ziffernblock 7 8 9 / 4 5 6 / 1 2 3
     for (let p = 1; p <= 9; p++) { const ix = (p - 1) % 3, iy = 2 - Math.floor((p - 1) / 3); L.kreuz[p] = { x: 62 + ix * (ZELLE.kreuzW + ZELLE.luft), y: py + 10 + iy * (ZELLE.h + 2), w: ZELLE.kreuzW, h: ZELLE.h }; }
     for (let m = 1; m <= 4; m++) { const ix = (m - 1) % 2, iy = Math.floor((m - 1) / 2); L.module[m] = { x: 266 + ix * (ZELLE.modulW + 2), y: py + 10 + iy * (ZELLE.h + 2), w: ZELLE.modulW, h: ZELLE.h }; }
@@ -618,11 +619,11 @@
   }
   // b: { bereich: 'handel'|'werft', werftZu: bool (Nicht-Werft-Hafen), onBereich(b) }
   function zeichneBereich(c, A, b) {
-    P.knopf(c, A.handel.x, A.handel.y, A.handel.w, A.handel.h, 'Handel', { hotkey: kappe('terminal.handel', 'H'), fn: 'nav', active: b.bereich === 'handel', onClick: b.onBereich ? () => b.onBereich('handel') : null });
-    P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', gedimmt: !!b.werftZu, reason: b.werftZu ? b.werftGrund : null, active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
     if (b.brett) P.knopf(c, A.brett.x, A.brett.y, A.brett.w, A.brett.h, b.brett.label || 'Brett', { hotkey: kappe('terminal.brett', 'O'), fn: 'nav', active: b.bereich === 'brett', onClick: b.onBereich ? () => b.onBereich('brett') : null });   // SUND-04b D: Auftragsbrett (Freie Fahrt Sund mit FAEDEN=1)
     if (b.info) P.knopf(c, A.info.x, A.info.y, A.info.w, A.info.h, b.info.label || 'Info', { hotkey: kappe('terminal.info', 'I'), fn: 'nav', active: b.bereich === 'info', onClick: b.onBereich ? () => b.onBereich('info') : null });   // SUND-03b I: nur an Häfen des Konkordats
     if (b.lage) P.knopf(c, A.lage.x, A.lage.y, A.lage.w, A.lage.h, b.lage.label || 'Kurs', { hotkey: kappe('terminal.lage', 'K'), fn: b.lage.gesperrt ? 'neutral' : 'nav', gedimmt: !!b.lage.gesperrt, active: b.bereich === 'lage', reason: b.lage.grund, onClick: b.onBereich ? () => b.onBereich('lage') : null });   // SUND-02b D: vor Tribun gedimmt, der Grund steht im Tooltip
+    P.knopf(c, A.handel.x, A.handel.y, A.handel.w, A.handel.h, 'Handel', { hotkey: kappe('terminal.handel', 'H'), fn: 'nav', active: b.bereich === 'handel', onClick: b.onBereich ? () => b.onBereich('handel') : null });   // Reihenfolge der Hilfe (R.ui.buttons) wie auf dem Pult von links: O Brett, I Info, K Kurs, H Handel, W Werft
+    P.knopf(c, A.werft.x, A.werft.y, A.werft.w, A.werft.h, 'Werft', { hotkey: kappe('terminal.werft', 'W'), fn: b.werftZu ? 'neutral' : 'nav', gedimmt: !!b.werftZu, reason: b.werftZu ? b.werftGrund : null, active: b.bereich === 'werft', onClick: b.onBereich ? () => b.onBereich('werft') : null });
   }
   // a: { haupt: { art: 'umbau'|'freischalten'|'stufe'|'kaufen'|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, onClick }, teil: { disabled, onClick } }
   const HAUPT = {
@@ -662,7 +663,7 @@
     const neu = m.ansicht === 'stufe';
     const g = P.rahmen(c, view, { titel: m.titel || 'TERMINAL', S, station: 'shop', anzeige: (cc) => {
       if (m.bereich === 'handel') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneHandel(cc, L.handel, L.handelInfo, m.handel || {}); return; }
-      if (m.bereich === 'brett') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); if (window.PultTerminal && window.PultTerminal.zeichneBrett) window.PultTerminal.zeichneBrett(cc, L.handel, L.handelInfo, m.brett || {}); return; }   // SUND-04b D: Baustein in pult-terminal-brett.js
+      if (m.bereich === 'brett') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); if (window.PultTerminal && window.PultTerminal.zeichneBrett) window.PultTerminal.zeichneBrett(cc, m.brett || {}); return; }   // SUND-04b D: Baustein in pult-terminal-brett.js
       if (m.bereich === 'lage') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneLage(cc, L.handel, L.handelInfo, m.lage || {}); return; }
       if (m.bereich === 'info') { zeichneKopf(cc, { x: 70, y: 10, w: 558, h: 14 }, m.kopf); zeichneInfo(cc, L.handel, L.handelInfo, m.info || {}); return; }
       zeichneSchnitt(cc, L, m.schnitt || {});

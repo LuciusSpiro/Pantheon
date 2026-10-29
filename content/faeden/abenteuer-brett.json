@@ -28,9 +28,14 @@
       "_hinweis": "Laenge des Ortsnamens im Block."
     },
     "titel_max": {
-      "wert": 26,
+      "wert": 40,
       "einheit": "Zeichen",
-      "_hinweis": "Titel im Block (Wunsch des Designs: Terminal 640 x 360). Laenger wird mit … gekuerzt, im Server."
+      "_hinweis": "Titel im Block (= Brett.GRENZE.titel der Anzeige; die Karte kuerzt auf ihre Breite selbst, das Detail zeigt den vollen Titel). Laenger wird mit … gekuerzt, im Server."
+    },
+    "typen_max": {
+      "wert": 4,
+      "einheit": "Typen",
+      "_hinweis": "Wie viele verschiedene Beat-Typen (ohne abschluss) ein Angebot im Block nennt (angebote[].typen, in der Reihenfolge der Beats); die Karte zeigt sie als Typ-Zeile."
     },
     "anlass_max": {
       "wert": 110,

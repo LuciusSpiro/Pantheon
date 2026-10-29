@@ -39,7 +39,7 @@ async function lauf(b, vw, vh, port) {
     const page = await (await b.newContext({ viewport: { width: vw, height: vh } })).newPage();
     page.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
     page.on('console', (m) => { if (m.type() === 'error') fehler.push('console: ' + m.text().slice(0, 200)); });
-    await page.goto(`http://127.0.0.1:${port}/?debug=1&render=2d`);
+    await page.goto(`http://127.0.0.1:${port}/?render=2d`);   // ohne ?debug=1: kein Debug-Overlay im Bild (der Server läuft trotzdem mit debug, für den Befehl „sitz“)
     await page.waitForFunction(() => window.__game && __game.send && __game.state, null, { timeout: 30000 });
     await page.evaluate(() => { __game.send({ t: 'lobbyOpt', startMission: 'freie_fahrt' }); __game.send({ t: 'ready', ready: true }); });
     await page.waitForFunction(() => __game.state && __game.state.phase !== 'lobby', null, { timeout: 30000 });
@@ -76,14 +76,18 @@ async function lauf(b, vw, vh, port) {
     if (z.antwort !== 'schon_beantwortet') fehler.push('zweite Antwort: Code ' + z.antwort + ' statt schon_beantwortet');
     await shot('04-laeuft-und-zweite-antwort', 400);
     await taste('KeyW'); await taste('KeyO'); await sleep(2200); await shot('05-laeuft-angenommen', 300);
-    // Ablehnen (leise): X lehnt das gewählte Angebot ab
+    // Ablehnen (leise): X lehnt das gewählte Angebot ab (06: ein Angebot und das laufende Abenteuer, 07: nur das laufende, 08: dazu wieder Angebote mit Gerüchtzeilen)
     const vor = (await zust()).modell.angebote.length;
     await taste('KeyX'); await sleep(900);
     z = await zust();
     if (z.modell.angebote.length !== vor - 1) fehler.push('Ablehnen: ' + vor + ' -> ' + z.modell.angebote.length);
-    await shot('06-abgelehnt-leise', 300);
-    await taste('KeyX'); await sleep(900); await shot('07-nur-laufendes-und-ein-angebot', 300);
-    await taste('KeyX'); await sleep(900); await shot('08-nur-laufendes', 300);
+    await shot('06-ein-angebot-nach-ablehnen', 300);
+    await taste('KeyX'); await sleep(900); await shot('07-nur-laufendes', 300);
+    // Gerüchtzeilen: zwei Pläne mit Gerücht-Beat und Hinweistext kommen als neue Angebote, der Server schickt die Gerüchte mit
+    for (const i of [1, 2]) Faden.abenteuerAnbieten(g, { format: 'faden-bauplan/1', titel: 'Der Transponder Nummer ' + i, anlass: 'Ein Scan passt nicht zu den Papieren, jemand sollte nachsehen.', beats: [{ typ: 'notruf' }, { typ: 'geruecht' }, { typ: 'spur' }, { typ: 'enthuellung' }, { typ: 'abschluss' }] }, { hex: '0305' });
+    await sleep(900); z = await zust();
+    if (!z.modell || !z.modell.geruechte || !z.modell.geruechte.length) fehler.push('Gerüchtzeilen: der Block trägt keine Gerüchte');
+    await shot('08-geruechtzeilen', 300);
     // Flug-HUD: das Terminal verlassen (Esc), der Streifen steht unter den Zielen
     await taste('Escape'); await sleep(900); await shot('09-hud-streifen', 400);
     // Tastenhilfe im Terminal

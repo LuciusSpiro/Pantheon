@@ -13,7 +13,7 @@
   'use strict';
   const store = { abenteuer: null };
   // Grenzen der Anzeige (der Server kürzt schon enger: Titel 26, Anlass 110, Schritt 28; hier nur die Abwehr gegen Müll)
-  const GRENZE = { angebote: 3, geruechte: 3, schritte: 12, folgen: 8, titel: 40, anlass: 160, text: 90, ort: 40, id: 12 };
+  const GRENZE = { angebote: 3, geruechte: 3, schritte: 12, folgen: 8, titel: 40, anlass: 160, text: 90, ort: 40, id: 12, typen: 4, typ: 16, wahl: 4, wahlText: 44 };
   const ID_FORM = /^a\d{1,6}$/;   // wie der Server (Form der Angebots-Id)
   // Kurztexte je Antwortcode (README SUND-04b C); fehlt einer, gilt der Klartext des Servers (ev.text), sonst ALLGEMEIN
   const CODE_KURZ = {
@@ -39,6 +39,8 @@
   }
   const isNum = (v) => typeof v === 'number' && isFinite(v);
   const str = (v, max) => (typeof v === 'string' ? v.replace(/[\u0000-\u001f]+/g, ' ').slice(0, max || GRENZE.text) : '');
+  // Titel: zu lang heißt mit „…“ gekürzt (nie still abgeschnitten)
+  const kurz = (v, max) => { const t = str(v, 100000); return t.length > max ? t.slice(0, Math.max(0, max - 1)).replace(/\s+$/, '') + '…' : t; };
   const zahl = (v) => (isNum(v) ? Math.max(0, Math.floor(v)) : 0);
   const liste = (v, max) => (Array.isArray(v) ? v.slice(0, max) : []);
   // Folge: Satz (Zeichenkette) oder Marke { f, art, d }; alles andere fällt weg
@@ -47,10 +49,15 @@
     if (!e || typeof e !== 'object' || !isNum(e.d) || typeof e.f !== 'string' || !e.f) return null;
     return { f: str(e.f, 12), art: e.art === 'haltung' ? 'haltung' : 'ruf', d: e.d };
   }
+  // Wahl einer Bitte (Server: schritte[].wahl = [{ text, folgen: [Marke] }]): typgeprüft, längenbegrenzt; Müll fällt weg
+  function wahlAus(w) {
+    const out = liste(w, GRENZE.wahl * 4).filter((o) => o && typeof o === 'object' && str(o.text, GRENZE.wahlText)).slice(0, GRENZE.wahl).map((o) => ({ text: str(o.text, GRENZE.wahlText), folgen: liste(o.folgen, GRENZE.folgen).map(folgeAus).filter((f) => f !== null && typeof f === 'object') }));
+    return out.length ? out : null;
+  }
   function schrittAus(s) {
-    if (typeof s === 'string') return { text: str(s, 60), gefahr: false };
+    if (typeof s === 'string') return { text: str(s, 60), gefahr: false, wahl: null };
     if (!s || typeof s !== 'object') return null;
-    return { text: str(s.text, 60), gefahr: s.gefahr === true || s.gefahr === 1 };
+    return { text: str(s.text, 60), gefahr: s.gefahr === true || s.gefahr === 1, wahl: wahlAus(s.wahl) };
   }
   function vorschauAus(v) {
     v = v && typeof v === 'object' ? v : {};
@@ -67,9 +74,9 @@
   function angebotAus(a) {
     if (!a || typeof a !== 'object' || typeof a.id !== 'string' || !ID_FORM.test(a.id) || !str(a.titel, GRENZE.titel)) return null;
     return {
-      id: a.id, titel: str(a.titel, GRENZE.titel), anlass: str(a.anlass, GRENZE.anlass), ort: str(a.ort, GRENZE.ort), ortname: str(a.ortname, GRENZE.ort), rest: zahl(a.rest),
+      id: a.id, titel: kurz(a.titel, GRENZE.titel), anlass: str(a.anlass, GRENZE.anlass), ort: str(a.ort, GRENZE.ort), ortname: str(a.ortname, GRENZE.ort), rest: zahl(a.rest),
       von: str(a.von, 8), aus_geruecht: a.aus_geruecht === true || a.aus_geruecht === 1,
-      typen: [],   // der Server schickt keine Typen (README SUND-04b C): nur der Ortsname steht in der Karte
+      typen: liste(a.typen, GRENZE.typen * 4).filter((t) => typeof t === 'string' && t.trim()).slice(0, GRENZE.typen).map((t) => str(t.trim(), GRENZE.typ)),   // Beat-Typen ohne Abschluss (Server, höchstens 4)
       vorschau: vorschauAus(a.vorschau),
     };
   }
@@ -77,7 +84,7 @@
     if (!l || typeof l !== 'object' || !str(l.titel, GRENZE.titel)) return null;
     const gesamt = Math.max(1, Math.min(12, zahl(l.schritte_gesamt) || 1));
     return {
-      id: str(l.id, GRENZE.id), titel: str(l.titel, GRENZE.titel), anlass: str(l.anlass, GRENZE.anlass), ort: str(l.ort, GRENZE.ort),
+      id: str(l.id, GRENZE.id), titel: kurz(l.titel, GRENZE.titel), anlass: str(l.anlass, GRENZE.anlass), ort: str(l.ort, GRENZE.ort),
       schritt: Math.max(1, Math.min(gesamt, zahl(l.schritt) || 1)), schritte_gesamt: gesamt, schritt_text: str(l.schritt_text, 60), gefahr: l.gefahr === true || l.gefahr === 1,
       ph: l.ph === 'laeuft' ? 'laeuft' : 'wartet', rest: zahl(l.rest),
     };

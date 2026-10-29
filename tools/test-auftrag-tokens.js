@@ -51,6 +51,7 @@ const paare = [
   [FARBE.plaketteText, fr('rom'), TXT, 'Plakette R'], [FARBE.plaketteText, fr('ger'), TXT, 'Plakette G'], [FARBE.plaketteText, fr('kon'), TXT, 'Plakette K'],
   [fr('rom'), 'kachel', GRAFIK, 'Plakette R auf Kachel'], [fr('ger'), 'kachel', GRAFIK, 'Plakette G auf Kachel'], [fr('kon'), 'kachel', GRAFIK, 'Plakette K auf Kachel'],
   ['gefahrRot', 'gefahrHell', GRAFIK, 'Bake: Streifen'], ['gefahrRot', 'kachel', GRAFIK, 'Bake: Rand auf Kachel'], ['beatOffen', 'kachel', GRAFIK, 'Beat offen (Rand)'], ['laeuft', 'kachel', GRAFIK, 'Beat fertig'],
+  ['text', 'kappeGew', TXT, 'Nummernkappe auf der gewählten Karte'],
   ['hudTitel', 'ink', TXT, 'HUD Titel (Tisch, schlechtester Fall)'], ['hudText', 'ink', TXT, 'HUD Schritt'], ['hudDim', 'ink', TXT, 'HUD Frist'],
 ];
 console.log('Kontrast (WCAG 2.1):');

@@ -119,6 +119,14 @@ const MUTATIONEN = [
   ["content/faeden/anschluss.json", "\"beats\": [{\"typ\": \"sabotage\"}, {\"typ\": \"abschluss\"}]", "\"beats\": [{\"typ\": \"geruecht\"}, {\"typ\": \"abschluss\"}]", "Daten: kein Anschluss-Plan fuer Sabotage"],
   ["content/faeden/abenteuer-brett.json", "\"gelungen\": \"Auftrag bei {ort} erfüllt\",", "\"gelungen\": \"Auftrag bei {ort} erfüllt ({name})\",", "Daten: die Chronik-Zeile nennt den NSC"],
   ["content/faeden/abenteuer-brett.json", "\"kein_spielleiter\": \"Der Spielleiter ist gerade nicht erreichbar. Das Angebot bleibt.\",", "", "Daten: die Weigerung kein_spielleiter hat keinen Text"],
+  // SUND-04b D Nacharbeit: Titel bis 40 (titel_max) und die Typ-Zeile der Karte (typen)
+  ["content/faeden/abenteuer-brett.json", "\"titel_max\": {\n      \"wert\": 40,", "\"titel_max\": {\n      \"wert\": 26,", "Daten: der Titel im Block wird schon auf 26 gekuerzt"],
+  ["content/faeden/abenteuer-brett.json", "\"typen_max\": {\n      \"wert\": 4,", "\"typen_max\": {\n      \"wert\": 1,", "Daten: nur ein Typ je Angebot"],
+  ["server/sim/abenteuer-brett.js", "vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };", "vorschau: vorschau(a.vorlage, von) };", "Snapshot: das Angebot nennt keine Typen"],
+  ["server/sim/abenteuer-brett.js", "    if (cat && cat.abschluss) continue;\n", "", "typen: der Abschluss steht in der Typ-Liste"],
+  ["server/sim/abenteuer-brett.js", "if (!out.includes(b.typ)) out.push(b.typ);", "out.push(b.typ);", "typen: derselbe Typ steht mehrfach in der Liste"],
+  ["server/sim/abenteuer-brett.js", "return out.slice(0, BW.typen_max);", "return out;", "typen: die Liste ist nicht begrenzt"],
+  ["server/sim/abenteuer-brett.js", "const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max),", "const e = { id: 'a' + a.nr, titel: String(a.vorlage.titel),", "Snapshot: der Titel des Angebots wird nicht gekuerzt"],
 ];
 
 {

@@ -15,7 +15,8 @@
 //   PultAuftrag.typText(typen)    -> 'Gerücht · Konvoi'
 //   PultAuftrag.verfall(rest)     -> { kurz: 'noch 7', lang: 'verfällt nach 7 Tätigkeiten', bald: bool }
 //   PultAuftrag.beats(schritt, gesamt) -> ['fertig', 'jetzt', 'offen', …]   (schritt 1-basiert)
-//   PultAuftrag.schritt(s)        -> { text, gefahr }   (Zeichenkette oder { text, gefahr })
+//   PultAuftrag.schritt(s)        -> { text, gefahr, wahl: [{ text, folgen: [Marke] }] | null }   (Zeichenkette oder { text, gefahr, wahl? })
+//   PultAuftrag.markeText(m)      -> 'Ruf Konkordat +2'; wahlText(wahl) -> 'Wahl: Helfen (Haltung Rom +1) · …'; beginnt(rest, kurz) -> 'beginnt in 3 Tätigkeiten' / 'in 3'; hudBeatW(n)
 //   PultAuftrag.text(vorlage, werte), PultAuftrag.kontrast(a, b)
 //
 // Regeln (kurz, ausführlich in der Notiz):
@@ -71,6 +72,7 @@
     gefahrText: '#FF6B5E',        // GEFAHR als Text (= PultSysteme zerText, = Notruf-Marke): 5,9:1 Kachel · 7,1:1 Grund
     tagRand: ROM.offLine,         // 1-px-Rand der Typ-Marke (Ordnung, keine Information)
     kappe: ROM.offLine,           // Fläche der Nummernkappe 1–3 (Text darauf in `text`)
+    kappeGew: '#443728',          // Nummernkappe auf der gewählten (Messing-)Karte: ink zu 70 %, Messing zu 30 % gemischt (Pult.mix(ink, angebot, 0.3)); Text darauf in `text` 9,9:1
     plaketteText: PU.tisch,       // Buchstabe in der Plakette (wie auf der Karte: dunkel auf Haltungsfarbe)
     // Flug-HUD (render.js PAL, Stil von Hud.drawObjectives)
     hudTitel: PU.gold,            // Titel des Abenteuers wie der Missionstitel (PAL.amber)
@@ -85,34 +87,40 @@
     bereich: { x: 70, y: 42, w: 558, h: 152 },   // = PultTerminal.layout().handel (Handel, Kurs, Information nutzen dasselbe Rechteck)
     info: { x: 70, y: 198, w: 558, h: 30 },      // = PultTerminal.layout().handelInfo: Infozeile, 3 Zeilen im Raster 10
     titelY: 29,                                  // Bereichstitel AUFTRAGSBRETT und Hilfe-Zeile (wie Handel: r.y − 13)
-    liste: { w: 214, luft: 4, karteH: 46, karteHKompakt: 36, balken: 2, innen: 6 },
+    liste: { w: 214, luft: 4, karteH: 46, karteHKompakt: 36, balken: 2, innen: 6, titelLuft: 6, kappeLuft: 5, rechtsLuft: 8,
+      zeilen: { normal: [5, 18, 31], kompakt: [4, 15, 26] }, max: 3, markenMax: 3, cham: 4 },   // y der drei Textzeilen (Titel, Typ · Ort, Marken) in der Karte; Luft: Titel zur Plakette, Kappe zum Titel, Verfall zum Ort
     spalte: 10,                                  // Abstand Liste → Detail
-    laeuft: { h: 30, luft: 4, balken: 3, beatW: 22, beatH: 6, beatLuft: 2, beatsMaxW: 200 },
+    laeuft: { h: 30, luft: 4, balken: 3, beatW: 22, beatH: 6, beatLuft: 2, beatsMaxW: 200, x: 10, y1: 5, y2: 18, rand: 8, titelLuft: 8, fristLuft: 12, beatsLuft: 6, schrittLuft: 4 },   // x/y1/y2: Textspalte und -zeilen im Streifen
     // Detail: Titel + Auftraggeber · Anlass · Typ-Marken + Ort + Verfall · Trenner · GEFAHR · Schritte (links) | Gelingt / Scheitert (rechts)
     // Läuft ein Abenteuer, ist Annehmen gesperrt: Anlass und Folgen kürzen auf eine Zeile (voller Text als Tooltip).
-    detail: { schritteW: 178, folgenX: 186, schritteMax: 4, folgeZeilen: 3, folgeZeilenKompakt: 2, anlassZeilen: 2, anlassZeilenKompakt: 1, schritteZeichen: 28 },
+    detail: { schritteW: 178, folgenX: 186, schritteMax: 4, folgeZeilen: 3, folgeZeilenKompakt: 2, anlassZeilen: 2, anlassZeilenKompakt: 1, schritteZeichen: 28,
+      kopfH: 11, folgeLuft: 3, folgeMax: 4, schrittX: 9, nach: 8, typLuft: 4, vonPlak: 4, vonText: 8, titelLuft: 10, gefahrX: 5, gefahrText: 8, tagMin: 72 },   // kopfH: Überschrift + 2 px bis zur ersten Zeile; typLuft: Abstand der Typ-Marken zum Ort; tagMin: so viel Platz bleibt dem Ort neben den Typ-Marken
     zeile: 9, zeileLuft: 10,
-    kappe: { w: 11, h: 9 },                      // Nummernkappe 1–3 (Taste)
+    kappe: { w: 11, h: 9, pad: 5 },                      // Nummernkappe 1–3 (Taste)
     plakette: 9,                                 // Fraktionsbuchstabe 9×9 (wie die Kartenplakette, kleiner)
-    marke: { h: 9, luft: 4 },                    // Plakette + Pfeil(e) + Wort
-    tag: { h: 11, innen: 3, luft: 3 },           // Typ-Marke: 1-px-Rand, Versalien
+    marke: { h: 9, luft: 4, pfeil: 2, karte: 6 },                    // Plakette + Pfeil(e) + Wort
+    tag: { h: 11, innen: 3, luft: 3, textY: 2 },           // Typ-Marke: 1-px-Rand, Versalien
     bake: { w: 13, h: 9, schritt: 3 },           // Gefahr-Bake (Streifen 45°, 3 px)
-    bakeKlein: { w: 7, h: 7, schritt: 3 },       // Bake vor einem gefährlichen Schritt
+    bakeKlein: { w: 7, h: 7, schritt: 2, luft: 3 },       // Bake vor einem gefährlichen Schritt
     geruecht: { strich: 2, luecke: 2, balken: 2 },   // gestrichelter Balken links (wie zeichneInfo „Gerücht · unbestätigt“)
+    leer: { h: 58, cham: 6, balken: 3, x: 14, titelY: 10, textY: 25, zeilen: 3 },   // leerer Zustand: Kachel, Balken, Titel, Satz (Rand links und rechts je x)
+    infoText: { y: 2, trenner: 3, nach: 8, luft: 6, pfeil: 4, kappeLuft: 2, plaketteLuft: 5, balken: 6 },                 // erste Zeile der Infozeile unter dem Trenner; nach: Abstand ANGENOMMEN zum Satz
     // Pult unten: Knopf „Brett“ links neben Info/Kurs/Handel/Werft (die Zeile 424..628 ist voll). Die Linie des Titels MODULRAUM wird dafür kürzer.
     knopf: { brett: { x: 374, w: 48 }, modulTitelW: 104 },
     // Flug-HUD: Streifen unter dem Ziele-Kasten (Hud.drawObjectives, x 4, Breite 192, Hintergrund wie dort)
-    hud: { x: 4, w: 192, h: 23, alpha: 0.62, balken: 2, beatW: 6, beatH: 5, beatLuft: 1, innen: 6 },
+    hud: { x: 4, w: 192, h: 23, alpha: 0.62, balken: 2, beatW: 6, beatWSchmal: 4, schmalAb: 9, beatH: 5, beatLuft: 1, innen: 6, titelLuft: 10, y1: 3, y2: 13, schrittLuft: 4 },   // titelLuft: Titel zur Frist/ANGENOMMEN (bei 1024×600 liest sich 6 zu eng); ab schmalAb Beats sind sie schmal
   };
   // </tokens>
 
   // Texte (Vorlagen mit {name}); der Server liefert die Inhalte, hier stehen nur die festen Beschriftungen des Bretts
   const TEXT = {
     bereich: 'Auftragsbrett', knopf: 'Brett',
-    hilfe: '{wahl} wählen · {an} annehmen · {ab} ablehnen',
+    hilfe: '{wahl} wählen · {an} annehmen · {ab} ablehnen', hilfeGesperrt: '{wahl} wählen · {ab} ablehnen kostet nichts',
     gelingt: 'Gelingt', scheitert: 'Scheitert', schritte: 'Schritte', gefahr: 'Gefahr', keineGefahr: 'kein Kampf angekündigt',
     ort: 'Ort', von: 'Auftrag von',
     laeuft: 'Läuft', schritt: 'Schritt {i} von {n}', frist: 'Frist noch {n}', fristBald: 'Frist läuft ab',
+    beginnt: 'beginnt in {n} Tätigkeiten', beginntEins: 'beginnt in 1 Tätigkeit', beginntGleich: 'beginnt gleich', hudBeginnt: 'in {n}',
+    ruf: 'Ruf', haltung: 'Haltung', wahl: 'Wahl', wahlTip: 'Wahl: {optionen}',
     verfallLang: 'verfällt nach {n} Tätigkeiten', verfallEins: 'verfällt nach der nächsten Tätigkeit', verfallKurz: 'noch {n}', verfallBald: 'verfällt bald',
     annehmen: 'Annehmen', ablehnen: 'Ablehnen', kostetNichts: 'Ablehnen kostet nichts',
     gesperrt: 'Ein Abenteuer läuft schon', gesperrtGrund: 'Erst „{titel}“ abschließen',
@@ -122,7 +130,7 @@
     hudAbenteuer: 'Abenteuer', hudFrist: 'Frist {n}',
   };
   // Typ-Marken (Beat-Typen aus content/faeden/beats.json)
-  const TYP = { konvoi: 'Konvoi', sabotage: 'Sabotage', geruecht: 'Gerücht', spur: 'Spur', geleit: 'Geleit', wiedersehen: 'Wiedersehen', bitte: 'Bitte', notruf: 'Notruf' };
+  const TYP = { konvoi: 'Konvoi', sabotage: 'Sabotage', geruecht: 'Gerücht', spur: 'Spur', geleit: 'Geleit', wiedersehen: 'Wiedersehen', bitte: 'Bitte', notruf: 'Notruf', enthuellung: 'Enthüllung', spontanhilfe: 'Hilfe', verfolgung: 'Verfolgung', raumschlacht: 'Raumschlacht', befreiung: 'Befreiung', fracht: 'Fracht' };
   const TOKENS = { FARBE, FRAKTION, MASS, TEXT, TYP, FN };
 
   // ================================================================= Hilfen (rein)
@@ -149,7 +157,7 @@
     const folgeH = z + 2 + fz * z;
     const schritte = { x: dx, y, w: D.schritteW, h: z + 2 + D.schritteMax * z };
     const gelingt = { x: fx, y, w: fw, h: folgeH, zeilen: fz };
-    const scheitert = { x: fx, y: y + folgeH + 3, w: fw, h: folgeH, zeilen: fz };
+    const scheitert = { x: fx, y: y + folgeH + D.folgeLuft, w: fw, h: folgeH, zeilen: fz };
     const detail = { x: dx, y: y0, w: dw, h: h0, unten: Math.max(schritte.y + schritte.h, scheitert.y + scheitert.h), titel, anlass, ort, trenner, gefahr, schritte, gelingt, scheitert };
     return {
       bereich: B, titel: { x: B.x, y: MASS.titelY, w: B.w, h: z }, liste, karteH: kh, detail,
@@ -190,10 +198,26 @@
     const n = Math.max(1, Math.min(12, isNum(gesamt) ? Math.floor(gesamt) : 1)), i = Math.max(1, Math.min(n, isNum(schritt) ? Math.floor(schritt) : 1));
     const out = []; for (let k = 1; k <= n; k++) out.push(k < i ? 'fertig' : k === i ? 'jetzt' : 'offen'); return out;
   }
-  function schritt(s) { return s && typeof s === 'object' ? { text: String(s.text || ''), gefahr: !!s.gefahr } : { text: String(s == null ? '' : s), gefahr: false }; }
+  // Schritt: Text, Gefahr und (bei einer Bitte) die Wahl [{ text, folgen: [Marke] }] mit ihren Folgen im Voraus
+  function schritt(s) {
+    if (!(s && typeof s === 'object')) return { text: String(s == null ? '' : s), gefahr: false, wahl: null };
+    const wahl = Array.isArray(s.wahl) && s.wahl.length ? s.wahl.filter((o) => o && typeof o === 'object').map((o) => ({ text: String(o.text || ''), folgen: (Array.isArray(o.folgen) ? o.folgen : []).map(folge).filter((f) => f.marke).map((f) => f.marke) })) : null;
+    return { text: String(s.text || ''), gefahr: !!s.gefahr, wahl };
+  }
+  // „Ruf Konkordat +2“ / „Haltung Germanen −1“: die Marke im Wortlaut (Tooltip der Fläche, die Plakette trägt nur den Buchstaben)
+  const vorzeichen = (d) => (d > 0 ? '+' : '−') + Math.abs(d);
+  function markeText(m) { return m && m.f ? text(m.art === 'haltung' ? 'haltung' : 'ruf') + ' ' + fraktion(m.f).name + ' ' + vorzeichen(m.d) : ''; }
+  // Tooltip der Wahl einer Bitte: „Wahl: Helfen (Haltung Rom +1) · Ablehnen (Haltung Rom −1)“
+  function wahlText(wahl) { return text('wahlTip', { optionen: (wahl || []).map((o) => o.text + (o.folgen && o.folgen.length ? ' (' + o.folgen.map(markeText).join(', ') + ')' : '')).join(' · ') }); }
+  // Zustand „wartet“: rest ist dort die Zahl der Tätigkeiten bis zum nächsten Schritt (Server restLaufend), keine Frist
+  function beginnt(rest, kurz) {
+    const n = isNum(rest) ? Math.max(0, Math.floor(rest)) : 0;
+    return kurz ? text('hudBeginnt', { n }) : n === 0 ? text('beginntGleich') : n === 1 ? text('beginntEins') : text('beginnt', { n });
+  }
+  const hudBeatW = (n) => (n >= MASS.hud.schmalAb ? MASS.hud.beatWSchmal : MASS.hud.beatW);
 
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(FARBE[a] || a), B = lum(FARBE[b] || b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, layout, fraktion, folge, pfeile, typText, verfall, beats, schritt, text, kontrast };
+  return { TOKENS, layout, fraktion, folge, pfeile, typText, verfall, beats, schritt, markeText, wahlText, beginnt, hudBeatW, text, kontrast };
 });

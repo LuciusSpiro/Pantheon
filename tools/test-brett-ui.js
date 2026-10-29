@@ -67,7 +67,7 @@ section('brett.js: Storage, Löschsignal, Müll, Grenzen');
   ok(m.angebote[0].titel.length <= B.GRENZE.titel && m.angebote[0].anlass.length <= B.GRENZE.anlass && m.angebote[0].ortname.length <= B.GRENZE.ort && m.angebote[0].vorschau.schritte[0].text.length <= 60 && m.angebote[0].vorschau.gelingt[0].length <= B.GRENZE.text && m.geruechte[0].text.length <= B.GRENZE.text, 'lange Texte werden begrenzt');
   const html = '<img src=x onerror=alert(1)>&amp;<b>Titel</b>';
   B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: html, anlass: html }] } } });
-  ok(B.modell().angebote[0].titel === html.slice(0, B.GRENZE.titel) && typeof B.modell().angebote[0].anlass === 'string', 'HTML im Titel bleibt Text (unverändert, nicht ausgewertet)');
+  ok(B.modell().angebote[0].titel === html.slice(0, B.GRENZE.titel - 1) + '…' && typeof B.modell().angebote[0].anlass === 'string', 'HTML im Titel bleibt Text (nicht ausgewertet); zu lang heißt mit „…“ gekürzt, nie still abgeschnitten');
   B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: 'A\u0000B\nC' }] } } });
   ok(B.modell().angebote[0].titel === 'A B C', 'Steuerzeichen werden zu Leerzeichen');
   B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a12', titel: 'X' }], laufend: { id: 'a3', titel: 'L', schritt: 9, schritte_gesamt: 4, ph: 'laeuft', rest: 3.9 } } } });
@@ -95,9 +95,12 @@ section('Layout: Knopf Brett, Titellinie, keine Überlappung (echte pult-termina
 const rec = { texte: [], rects: [], knoepfe: [], cham: [], klicks: [] };
 let fill = null;
 const ctx = new Proxy({}, { get: (t, k) => (k === 'fillRect' ? (x, y, w, h) => rec.rects.push({ x, y, w, h, col: fill }) : () => {}), set: (t, k, v) => { if (k === 'fillStyle') fill = v; return true; } });
+// Die Zeilenumbrüche kommen aus der ECHTEN R.wrap (render.js, per Quelltext geladen), nicht aus einem Nachbau: sie bricht nur an Leerzeichen, ein langes Wort bleibt eine überbreite Zeile (R1)
+const wrapQuelle = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'render.js'), 'utf8').match(/function wrap\(str, maxW, scale\) \{[\s\S]*?\r?\n  \}\r?\n/)[0];
+const messen6 = (s) => String(s).length * 6;
 const R2 = {
-  measure: (s) => String(s).length * 6,
-  wrap: (s, w) => { const out = []; let z = ''; for (const wort of String(s).split(/\s+/)) { const t = z ? z + ' ' + wort : wort; if (t.length * 6 > w && z) { out.push(z); z = wort; } else z = t; } if (z) out.push(z); return out; },
+  measure: messen6,
+  wrap: new Function('measure', wrapQuelle + '\nreturn wrap;')(messen6),
   text() {}, backdrop(c, x, y, w, h) { rec.cham.push({ x, y, w, h, col: 'backdrop' }); }, ui: { buttons: [], mouse: { x: -1, y: -1 } },
 };
 const P2 = {
@@ -151,9 +154,9 @@ const LAUFEND = { id: 'a9', titel: 'Der Bernsteinkonvoi', schritt: 3, schritte_g
 const GER = [{ von: 'kon', text: 'Germanische Frachter meiden die Bojen.', angebot: 'a1' }, { von: 'kon', text: 'Eine Germanin fragt nach der Lerche.', angebot: 'a2' }];
 const modellAus = (blk) => { BrettClient.lesen({ t: 'snap', world: { abenteuer: Object.assign({ ok: 1, kopf: 'Auftragsbrett', ablehnen: 'Ablehnen kostet nichts.', scheitern: 'Scheitern blockiert nichts.', angebote: [] }, klon(blk)) } }); return BrettClient.modell(); };
 // Modell wie terminal-ui.js es dem Baustein gibt
-const baustein = (m, gew, info) => ({ titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, leerText: '', info: info || null,
+const baustein = (m, gew, info) => ({ titel: m.kopf, hilfe: m.angebote.length ? '↑↓ wählen · Ent annehmen · X ablehnen' : '', laufend: m.laufend, gewaehlt: gew || (m.angebote[0] && m.angebote[0].id), geruechte: m.geruechte, scheitern: m.scheitern, leerText: '', info: info || null,
   angebote: m.angebote.map((a, i) => Object.assign({}, a, { nr: i + 1, kappe: String(i + 1), onClick: () => {} })) });
-function zeichne(b) { rec.texte.length = 0; rec.rects.length = 0; rec.knoepfe.length = 0; rec.cham.length = 0; R2.ui.buttons.length = 0; try { PT.zeichneBrett(ctx, L.handel, L.handelInfo, b); } catch (e) { ok(false, 'Zeichnen des Bretts wirft: ' + e.message); } return rec.texte.map((t) => t.s); }
+function zeichne(b) { rec.texte.length = 0; rec.rects.length = 0; rec.knoepfe.length = 0; rec.cham.length = 0; R2.ui.buttons.length = 0; try { PT.zeichneBrett(ctx, b); } catch (e) { ok(false, 'Zeichnen des Bretts wirft: ' + e.message); } return rec.texte.map((t) => t.s); }
 const hat = (s) => rec.texte.some((t) => t.s === s);
 const hatTeil = (re) => rec.texte.some((t) => re.test(t.s));
 // Geometrie: alle Texte im Bereich, keine zwei Texte überlappen, Detail endet über der Infozeile
@@ -195,7 +198,8 @@ section('Zeichnen: drei Angebote, Gefahr nie nur über Farbe, Zahlen und Texte')
   ok(rec.texte.filter((t) => t.s === '→').length === 2 && ['1', '2'].every((k) => rec.texte.some((t) => t.s === k && t.y >= L.handelInfo.y)), 'Gerüchte verweisen mit → [n] auf das Angebot (1 und 2)');
   ok(!rec.texte.some((t) => /angenommen/i.test(t.s)) && !hat('Kein Angebot'), 'ohne Info keine Meldung ANGENOMMEN, kein leerer Zustand');
   ok(hat('AUFTRAGSBRETT'), 'Titel des Bereichs aus dem Snapshot (kopf)');
-  ok(R2.ui.buttons.length === 3 && R2.ui.buttons.every((b) => typeof b.onClick === 'function' && b.h === MASS.liste.karteH && b.w === MASS.liste.w), 'drei Klickflächen 214 × 46 (Karten)');
+  const karten = R2.ui.buttons.filter((b) => b.onClick);
+  ok(karten.length === 3 && karten.every((b) => typeof b.onClick === 'function' && b.h === MASS.liste.karteH && b.w === MASS.liste.w), 'drei Klickflächen 214 × 46 (Karten); die Flächen der Marken tragen nur einen Tooltip, keinen Klick');
 }
 
 section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Angebot, laufend');
@@ -223,7 +227,7 @@ section('Zeichnen: gewähltes Angebot wechselt das Detail, ein Angebot, kein Ang
   geometrie('laeuft');
   ok(rec.texte.some((t) => /^LÄUFT$/i.test(t.s)) && hat('Frist noch 5 Tätigkeiten') && hat('Schritt 3 von 4 ·') && hat('Konvoi stellen und aufhalten'), 'Laufend-Streifen: LÄUFT, Frist noch 5 Tätigkeiten, Schritt 3 von 4, Schrittname');
   ok(rec.texte.filter((t) => t.s === 'Der Bernsteinkonvoi').length === 1, 'der Streifen nennt den Titel des laufenden Abenteuers');
-  ok(R2.ui.buttons.every((b) => b.h === MASS.liste.karteHKompakt), 'bei laufendem Abenteuer sind die Karten kompakt (36)');
+  ok(R2.ui.buttons.filter((b) => b.onClick).every((b) => b.h === MASS.liste.karteHKompakt), 'bei laufendem Abenteuer sind die Karten kompakt (36)');
   ok(rec.rects.filter((r) => r.col === FARBE.text && r.h === 1 && r.w === MASS.laeuft.beatW + 2).length === 2, 'der aktuelle Beat trägt einen Rahmen (oben und unten), Form statt nur Farbe');
   ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === MASS.laeuft.beatH).length === 3, 'Beats: 3 volle (zwei fertig, einer jetzt), der vierte hohl');
   const wartet = klon(LAUFEND); wartet.ph = 'wartet'; wartet.rest = 3;
@@ -316,6 +320,219 @@ section('Zeichnen: ganzes Terminal (Knopf Brett, Bereich Brett nur mit Modell)')
   ok(mg.geruechte[0].angebot === '', 'Gerücht mit unbekannter Angebots-Id verweist auf nichts');
   zeichne(baustein(mg));
   ok(hat('Ein Gerücht ohne Angebot') && !hat('→'), 'Gerücht ohne Verweis: nur der Text, kein →');
+}
+
+// ================================================================ Nacharbeit SUND-04b D: R1, D1 bis D4, H1 bis H9
+const D0 = PA.layout(false).detail, Z = MASS.detail;
+// ein Wurf im Client bei Müll zählt als Fehler des Tests (nicht als Absturz des Laufs)
+const sicher = (fn, was) => { try { return fn(); } catch (e) { ok(false, was + ' wirft: ' + e.message); return null; } };
+const wortW = (n) => 'W'.repeat(n);
+section('R1: lange Wörter ohne Leerzeichen laufen nie über die Spalte (R.wrap bricht nur an Leerzeichen)');
+{
+  for (const n of [40, 100]) {
+    const W = wortW(n);
+    const lang = { id: 'a1', titel: W, ortname: W, rest: 5, von: 'rom', anlass: W, vorschau: { gefahr: true, schritte: [SCH(W, true), SCH(W)], gelingt: [W, W, { f: 'rom', art: 'ruf', d: 1 }], scheitert: [W, W] } };
+    const m = modellAus({ angebote: [lang, Object.assign(klon(lang), { id: 'a2' })], geruechte: [{ von: 'rom', text: W, angebot: 'a1' }, { von: 'rom', text: W, angebot: 'a2' }] });
+    const b = baustein(m); b.scheitern = W; b.info = { grund: W };
+    zeichne(b);
+    const T = rec.texte.filter((t) => /^W{3}/.test(t.s) || /^w{3}/i.test(t.s));
+    const rechts = (t) => (t.y < L.handelInfo.y - 3 && t.x < L.handel.x + MASS.liste.w ? L.handel.x + MASS.liste.w : L.handel.x + L.handel.w);
+    ok(T.length >= 6 && T.every((t) => t.x + t.w <= rechts(t)), n + ' Zeichen ohne Leerzeichen in Titel, Ort, Anlass, Schritt, Gelingt, Scheitert, Scheitern-Satz, Gerücht, Absage: jede Zeile bleibt in ihrer Spalte (' + T.length + ' Zeilen, größte Überschreitung ' + Math.max(0, ...T.map((t) => t.x + t.w - rechts(t))) + ' px)');
+    const fol = rec.texte.filter((t) => t.x === D0.gelingt.x && /^W{2}/.test(t.s));
+    ok(fol.length >= 2 && fol.every((t) => t.w <= D0.gelingt.w), n + ' Zeichen: Gelingt und Scheitert höchstens ' + D0.gelingt.w + ' px breit (' + fol.length + ' Zeilen)');
+    geometrie('Langwort ' + n);
+    const bl = baustein(modellAus({ angebote: [], laufend: LAUFEND })); bl.leerText = wortW(120); zeichne(bl);
+    const lt = rec.texte.filter((t) => /^W{3}/.test(t.s));
+    ok(lt.length >= 1 && lt.every((t) => t.x + t.w <= L.handel.x + L.handel.w - MASS.leer.x), 'leerText mit einem Wort von 120 Zeichen: höchstens ' + (L.handel.w - 2 * MASS.leer.x) + ' px breit');
+  }
+  const Rw = R2.wrap(wortW(40), 100, 1);
+  ok(Rw.length === 1 && Rw[0].length * 6 > 100, 'Kontrolle: die echte R.wrap lässt ein 40-Zeichen-Wort überbreit stehen (der Fehler ist hier real, der Baustein kappt)');
+}
+
+section('D1: Titel in Versalien mit Sperrung, passt er nicht in normaler Schreibweise, erst dann gekürzt; Server und Anzeige kürzen auf 40');
+{
+  let versal = 0, normal = 0, punkt = 0; const fehlerD1 = [];
+  for (let n = 10; n <= 40; n++) {
+    const titel = ('Titel ' + 'm'.repeat(n)).slice(0, n);
+    zeichne(baustein(modellAus({ angebote: [Object.assign(klon(BOJE), { titel, von: 'kon' })] })));
+    const von = rec.texte.find((t) => t.s === 'Auftrag von'), tt = rec.texte.find((t) => t.y === D0.titel.y && t.x === D0.titel.x);
+    const avail = von.x - Z.titelLuft - D0.titel.x;
+    const sollVersal = PT.tw(titel.toUpperCase(), 1, 1) <= avail, sollNormal = !sollVersal && PT.tw(titel) <= avail;
+    if (sollVersal) { versal++; if (!(tt.s === titel.toUpperCase() && tt.o && tt.o.versal && tt.w <= avail)) fehlerD1.push(n + ' versal'); }
+    else if (sollNormal) { normal++; if (!(tt.s === titel && !(tt.o && tt.o.versal) && tt.w <= avail)) fehlerD1.push(n + ' normal'); }
+    else { punkt++; if (!(tt.s.endsWith('…') && tt.w <= avail)) fehlerD1.push(n + ' …'); }
+  }
+  ok(fehlerD1.length === 0 && versal > 5 && normal >= 1, 'Titel von 10 bis 40 Zeichen: Versalien mit Sperrung (' + versal + ' Längen), dann normal ohne Sperrung (' + normal + '), dann mit „…“ (' + punkt + '); nie überbreit' + (fehlerD1.length ? ' (' + fehlerD1.join(', ') + ')' : ''));
+  ok(DATEN.werte.titel_max.wert === BrettClient.GRENZE.titel && BrettClient.GRENZE.titel === 40, 'Server (titel_max in den Daten) und Anzeige (Brett.GRENZE.titel) kürzen beide auf 40');
+  const lang = 'Ein Titel der deutlich länger als vierzig Zeichen ist und gekürzt wird';
+  BrettClient.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: lang }], laufend: { id: 'a2', titel: lang, schritt: 1, schritte_gesamt: 2 } } } });
+  const mm = BrettClient.modell();
+  ok(mm.angebote[0].titel.length === 40 && mm.angebote[0].titel.endsWith('…') && lang.startsWith(mm.angebote[0].titel.slice(0, -1)) && mm.laufend.titel === mm.angebote[0].titel, 'brett.js kürzt Titel (Angebot und laufend) mit „…“ statt still abzuschneiden');
+}
+
+section('D2: Zustand „wartet“ sieht nicht aus wie „läuft“ (Streifen und HUD), H5');
+{
+  const flaechen = (b) => ({ voll: rec.rects.filter((r) => r.col === FARBE.laeuft && r.h === b.h && r.w === b.w).length, rahmen: rec.rects.filter((r) => r.col === FARBE.text && r.h === 1 && r.w === b.w + 2).length });
+  const wartet = klon(LAUFEND); wartet.ph = 'wartet'; wartet.rest = 3;
+  let m = modellAus({ angebote: [BOJE], laufend: wartet }); zeichne(baustein(m));
+  const bt = rec.texte.find((t) => t.s === 'beginnt in 3 Tätigkeiten');
+  ok(!!bt && bt.col === FARBE.dim && bt.o && bt.o.align === 'right' && !hatTeil(/Frist/), 'Streifen: rechts „beginnt in 3 Tätigkeiten“ in dim, keine Frist');
+  const bw = { w: MASS.laeuft.beatW, h: MASS.laeuft.beatH };
+  ok(flaechen(bw).voll === 2 && flaechen(bw).rahmen === 2, 'Streifen: der Beat „jetzt“ ist hohl (nur die 2 fertigen sind voll), trägt aber den Creme-Rahmen; bei „läuft“ sind es 3 volle');
+  m = modellAus({ angebote: [BOJE], laufend: Object.assign(klon(wartet), { rest: 1 }) }); zeichne(baustein(m));
+  ok(hat('beginnt in 1 Tätigkeit') && rec.texte.find((t) => t.s === 'beginnt in 1 Tätigkeit').col === FARBE.dim, 'rest 1: „beginnt in 1 Tätigkeit“ in dim (nicht gelb)');
+  m = modellAus({ angebote: [BOJE], laufend: Object.assign(klon(wartet), { rest: 0 }) }); zeichne(baustein(m));
+  ok(hat('beginnt gleich'), 'rest 0: „beginnt gleich“');
+  m = modellAus({ angebote: [BOJE], laufend: LAUFEND }); zeichne(baustein(m));
+  ok(!hatTeil(/beginnt/) && flaechen(bw).voll === 3, 'läuft: keine „beginnt“-Zeile, der Beat „jetzt“ ist voll');
+  const hud = (o) => { rec.texte.length = 0; rec.rects.length = 0; rec.cham.length = 0; PT.zeichneAbenteuerHud(ctx, 40, Object.assign(klon(LAUFEND), o)); };
+  const Hm = MASS.hud, hb = { w: Hm.beatW, h: Hm.beatH };
+  hud({ ph: 'wartet', rest: 3, schritt: 2 });
+  ok(rec.texte.some((t) => t.s === 'in 3' && t.col === FARBE.hudDim) && !hatTeil(/Frist/), 'HUD wartet: rechts „in 3“ in dim, keine Frist');
+  hud({ ph: 'wartet', rest: 1, schritt: 2 });
+  ok(rec.texte.some((t) => t.s === 'in 1' && t.col === FARBE.hudDim), 'HUD wartet mit rest 1: „in 1“ bleibt dim (keine gelbe Frist, auch wenn es gleich losgeht)');
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.w === hb.w && r.h === hb.h).length === 1 && rec.rects.filter((r) => r.col === FARBE.hudText && r.w === hb.w && r.h === 1).length === 3, 'HUD wartet: „jetzt“ hohl mit Creme-Rahmen und Strich darunter (nur 1 voller Beat, der fertige)');
+  hud({ ph: 'laeuft', rest: 3, schritt: 2 });
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.w === hb.w && r.h === hb.h).length === 2 && rec.rects.filter((r) => r.col === FARBE.hudText && r.w === hb.w && r.h === 1).length === 1, 'HUD läuft: „jetzt“ voll mit Strich darunter');
+  hud({ ph: 'wartet', schritt: 1, neu: true });
+  ok(rec.texte.some((t) => t.s === 'ANGENOMMEN' && t.col === FARBE.laeuft) && !hatTeil(/^in \d/), 'HUD frisch angenommen: ANGENOMMEN bleibt');
+  hud({ ph: 'wartet', schritt: 1, neu: true, titel: 'Ein ganz ungewöhnlich langer Titel eines Abenteuers' });
+  const ti = rec.texte.find((t) => t.col === FARBE.hudTitel), an = rec.texte.find((t) => t.s === 'ANGENOMMEN');
+  ok(Hm.titelLuft === 10 && ti.x + ti.w + Hm.titelLuft <= an.x, 'H5: zwischen Titel und ANGENOMMEN bleiben mindestens 10 px (' + (an.x - ti.x - ti.w) + ')');
+  hud({ schritte_gesamt: 8, schritt: 3 });
+  ok(rec.rects.filter((r) => r.col === FARBE.laeuft && r.w === Hm.beatW && r.h === hb.h).length === 3, 'H5: bis 8 Beats 6 breit');
+  hud({ schritte_gesamt: 9, schritt: 3 });
+  ok(Hm.beatWSchmal === 4 && Hm.schmalAb === 9 && rec.rects.filter((r) => r.col === FARBE.laeuft && r.w === Hm.beatWSchmal && r.h === hb.h).length === 3 && !rec.rects.some((r) => r.col === FARBE.laeuft && r.w === Hm.beatW && r.h === hb.h), 'H5: ab 9 Beats 4 breit (wie im Terminal schmaler)');
+}
+
+section('D3: Ruf und Haltung sind unterscheidbar (Wort in dim vor der Plakette, Tooltip „Ruf Konkordat +2“)');
+{
+  const m = modellAus({ angebote: [HEIMWEG, BOJE, KONVOI] });
+  zeichne(baustein(m, 'a2'));
+  const G = D0.gelingt, zeile1 = G.y + Z.kopfH;
+  const hw = rec.texte.find((t) => t.s === 'Haltung' && t.y === zeile1), rw = rec.texte.find((t) => t.s === 'Ruf' && t.y === zeile1);
+  ok(!!hw && !!rw && hw.col === FARBE.dim && rw.col === FARBE.dim && hw.x === G.x && rw.x > hw.x, 'Gelingt: erste Textzeile „Haltung [G]▲▲ · Ruf [R]▼“, die Wörter in dim');
+  ok(rec.texte.some((t) => /▲▲/.test(t.s) && t.y === zeile1) && rec.texte.some((t) => /▼/.test(t.s) && t.y === zeile1), 'Pfeile in derselben Zeile (die Richtung trägt der Pfeil)');
+  ok(rec.texte.some((t) => /^Sigrid erinnert/.test(t.s) && t.y === zeile1 + MASS.zeile), 'der Satz steht unter der Markenzeile');
+  const labels = R2.ui.buttons.map((b) => b.label);
+  ok(['Haltung Germanen +2', 'Ruf Rom −1', 'Haltung Germanen −1'].every((l) => labels.includes(l)), 'je Marke eine Fläche in R.ui.buttons mit dem Wortlaut („Ruf Rom −1“): ' + labels.filter((l) => /^(Ruf|Haltung) /.test(l)).join(' | '));
+  ok(R2.ui.buttons.filter((b) => /^(Ruf|Haltung) /.test(b.label)).every((b) => !b.onClick && b.w >= MASS.plakette && b.h === MASS.marke.h), 'die Flächen sind reine Tooltips (kein Klick), mindestens so breit wie die Plakette');
+  const fl = R2.ui.buttons.find((b) => b.label === 'Ruf Rom −1'); R2.ui.mouse = { x: fl.x + 1, y: fl.y + 1 }; R2.ui.tooltip = null; zeichne(baustein(m, 'a2'));
+  ok(R2.ui.tooltip && R2.ui.tooltip.text === 'Ruf Rom −1', 'mit der Maus darüber erscheint der Tooltip „Ruf Rom −1“'); R2.ui.mouse = { x: -1, y: -1 }; R2.ui.tooltip = null;
+  zeichne(baustein(m, 'a1'));
+  ok(PA.markeText({ f: 'kon', art: 'ruf', d: 2 }) === 'Ruf Konkordat +2' && rec.texte.some((t) => t.s === 'Haltung' && t.y === zeile1) && R2.ui.buttons.some((b) => b.label === 'Haltung Konkordat +1'), 'Konvoi: „Haltung Konkordat +1“ (Marke der Fraktion des Auftraggebers); markeText(Ruf Konkordat +2)');
+  const viel = { id: 'a1', titel: 'Viel', ortname: 'Ort', rest: 5, von: 'rom', anlass: 'a', vorschau: { gefahr: false, schritte: [SCH('x')], gelingt: [{ f: 'rom', art: 'ruf', d: 2 }, { f: 'kon', art: 'ruf', d: 1 }, { f: 'ger', art: 'haltung', d: -2 }, { f: 'rom', art: 'haltung', d: 1 }, 'Satz eins.', 'Satz zwei.', 'Satz drei.'], scheitert: [{ f: 'rom', art: 'haltung', d: -1 }, 'Scheitern eins.', 'Scheitern zwei.', 'Scheitern drei.'] } };
+  zeichne(baustein(modellAus({ angebote: [viel] })));
+  geometrie('viele Marken');
+  ok(hat('Ruf') && hat('Haltung') && hat('Satz eins.') && !hat('Satz drei.'), 'Platzmangel: die Markenzeile verdrängt einen Satz (der letzte entfällt, mit „…“), nichts läuft über');
+}
+
+section('D4: die Wahl einer Bitte (vorschau.schritte[].wahl) wird durchgereicht, gekennzeichnet und im Tooltip gezeigt');
+{
+  const B = BrettClient;
+  const wahl = [{ text: 'Helfen', folgen: [{ f: 'rom', art: 'haltung', d: 1 }] }, { text: 'Ablehnen', folgen: [{ f: 'rom', art: 'haltung', d: -1 }] }];
+  B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: 'Bitte', anlass: 'x', vorschau: { schritte: [{ text: 'Bitte um Hilfe', gefahr: false, wahl }, { text: 'Ohne Wahl' }] } }] } } });
+  let st = B.modell().angebote[0].vorschau.schritte;
+  ok(JSON.stringify(st[0].wahl) === JSON.stringify(wahl) && st[1].wahl === null, 'brett.js: die Wahl kommt durch (Optionen und ihre Marken), ein Schritt ohne Wahl hat keine');
+  const muell = [5, null, 'x', { text: 5 }, { text: 'ok', folgen: 'x' }, { text: 'y', folgen: [null, 5, { f: 3 }, { f: 'rom', art: 'haltung', d: 'x' }, { f: 'rom', art: 'ruf', d: 1 }] }, { text: 'z'.repeat(300) }, { text: 'vier' }, { text: 'fünf' }];
+  st = sicher(() => { B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: 'Bitte', vorschau: { schritte: [{ text: 'S', wahl: muell }, { text: 'T', wahl: 'x' }, { text: 'U', wahl: [] }, { text: 'V', wahl: {} }] } }] } } }); return B.modell().angebote[0].vorschau.schritte; }, 'wahl') || [{ wahl: [] }, {}, {}, {}];
+  ok(st[0].wahl.length === 4 && st[0].wahl[0].text === 'ok' && st[0].wahl[0].folgen.length === 0 && st[0].wahl[1].folgen.length === 1 && st[0].wahl.every((o) => o.text.length <= B.GRENZE.wahlText) && st[1].wahl === null && st[2].wahl === null && st[3].wahl === null, 'Müll in der Wahl (Typ, Länge, Anzahl) fällt weg oder wird begrenzt, kein Absturz');
+  const m = modellAus({ angebote: [Object.assign(klon(BOJE), { vorschau: Object.assign(klon(BOJE.vorschau), { schritte: [{ text: 'Im Bojenfeld scannen', gefahr: false, wahl }, SCH('Der Spur folgen')] }) })] });
+  zeichne(baustein(m));
+  const y0 = D0.schritte.y + Z.kopfH;
+  const wz = rec.texte.find((t) => t.s === ' · Wahl' && t.y === y0);
+  ok(!!wz && wz.col === FARBE.dim && !rec.texte.some((t) => t.s === ' · Wahl' && t.y !== y0), 'der Schritt mit Wahl trägt „· Wahl“ in dim hinter dem Text, der andere nicht');
+  const tf = R2.ui.buttons.find((b) => /^Wahl: /.test(b.label || ''));
+  ok(!!tf && tf.label === 'Wahl: Helfen (Haltung Rom +1) · Ablehnen (Haltung Rom −1)' && !tf.onClick && tf.y === y0, 'Tooltip-Fläche des Schritts nennt die Optionen mit ihren Marken: ' + (tf && tf.label));
+  R2.ui.mouse = { x: tf.x + 5, y: tf.y + 2 }; R2.ui.tooltip = null; zeichne(baustein(m));
+  ok(R2.ui.tooltip && R2.ui.tooltip.text === tf.label, 'mit der Maus über dem Schritt erscheint der Tooltip'); R2.ui.mouse = { x: -1, y: -1 }; R2.ui.tooltip = null;
+  geometrie('Wahl');
+}
+
+section('H2: Scheitern-Satz als letzte Zeile unter SCHEITERT, Gelingt bis 4 Zeilen');
+{
+  const eins = { id: 'a1', titel: 'Vier', ortname: 'Ort', rest: 9, von: 'rom', anlass: 'a', vorschau: { gefahr: false, schritte: [SCH('x')], gelingt: [{ f: 'rom', art: 'ruf', d: 1 }, { f: 'ger', art: 'haltung', d: 1 }, 'Gelingt eins.', 'Gelingt zwei.', 'Gelingt drei.'], scheitert: ['Scheitert eins.'] } };
+  zeichne(baustein(modellAus({ angebote: [eins] })));
+  geometrie('Scheitern-Satz');
+  const G = D0.gelingt, gz = (i) => G.y + Z.kopfH + i * MASS.zeile;
+  ok(rec.texte.some((t) => t.s === 'Gelingt eins.' && t.y === gz(1)) && rec.texte.some((t) => t.s === 'Gelingt zwei.' && t.y === gz(2)) && rec.texte.some((t) => t.s === 'Gelingt drei.' && t.y === gz(3)), 'Scheitert braucht höchstens 2 Zeilen: Gelingt bekommt 4 (Markenzeile und 3 Sätze)');
+  const sy = gz(4) + Z.folgeLuft - 0, sk = rec.texte.find((t) => t.s === 'SCHEITERT');
+  ok(!!sk && sk.y === sy, 'SCHEITERT beginnt unter der vierten Gelingt-Zeile (' + (sk && sk.y) + ' = ' + sy + ')');
+  const satz = rec.texte.find((t) => /^Scheitern bl/.test(t.s) && t.x === D0.scheitert.x);
+  ok(!!satz && satz.col === FARBE.dim && satz.y === sy + Z.kopfH + MASS.zeile && rec.texte.some((t) => t.s === 'Scheitert eins.' && t.y === sy + Z.kopfH), 'der Scheitern-Satz des Servers steht in dim als letzte Zeile unter SCHEITERT (nach dem eigenen Satz)');
+  ok(R2.ui.buttons.some((b) => b.label === 'Scheitern blockiert nichts.'), 'der volle Satz ist auch als Tooltip da');
+  const drei = Object.assign(klon(eins), { vorschau: Object.assign(klon(eins.vorschau), { scheitert: ['Eins.', 'Zwei.', 'Drei.'] }) });
+  zeichne(baustein(modellAus({ angebote: [drei] })));
+  ok(!rec.texte.some((t) => t.s === 'Gelingt drei.') && hatTeil(/^Gelingt zwei/) && hatTeil(/^Scheitern bl/) && hat('Eins.') && hatTeil(/^Zwei./), 'braucht Scheitert mehr als 2, bleiben Gelingt 3 Zeilen (Markenzeile, 2 Sätze), Scheitert zeigt 2 eigene Zeilen plus den Satz');
+  geometrie('Scheitern-Satz 3');
+  zeichne(baustein(modellAus({ angebote: [eins, BOJE], laufend: LAUFEND })));
+  ok(!hatTeil(/^Scheitern bl/), 'mit laufendem Abenteuer (kompaktes Detail) entfällt der Scheitern-Satz');
+  geometrie('Scheitern-Satz laufend');
+}
+
+section('H3: Typen aus dem Server auf der Karte (Zeile 2) und im Detail');
+{
+  const B = BrettClient;
+  const mm = sicher(() => { B.lesen({ t: 'snap', world: { abenteuer: { angebote: [{ id: 'a1', titel: 'T', typen: ['bitte', 5, null, {}, 'x'.repeat(100), '', 'spur', 'konvoi', 'geleit'] }, { id: 'a2', titel: 'U', typen: 'x' }] } } }); return B.modell(); }, 'typen') || { angebote: [{ typen: [] }, { typen: [] }] };
+  ok(mm.angebote[0].typen.join() === 'bitte,' + 'x'.repeat(16) + ',spur,konvoi' && mm.angebote[1].typen.length === 0, 'brett.js: typen typgeprüft, begrenzt (4 Stück, 16 Zeichen), Müll fällt weg');
+  const k = klon(KONVOI); k.typen = ['geruecht', 'konvoi'];
+  const m = modellAus({ angebote: [k, Object.assign(klon(HEIMWEG), { typen: ['geleit'] }), Object.assign(klon(BOJE), { typen: ['spur', 'bitte', 'konvoi', 'geleit'] })] });
+  zeichne(baustein(m));
+  ok(hat('Gerücht · Kantenstein') || hat('Gerücht · Konvoi · Kantenstein'), 'Karte, Zeile 2: Typ und Ort („Gerücht · …Kantenstein“)');
+  ok(hat('Geleit · Gullfjord'), 'zweite Karte: „Geleit · Gullfjord“');
+  ok(rec.texte.some((t) => /Bojenfeld$/.test(t.s)), 'dritte Karte: vier Typen passen nicht neben den Ort, die hinteren entfallen, der Ort bleibt');
+  ok(rec.texte.some((t) => t.s === 'GERÜCHT' && t.x >= D0.ort.x && t.y === D0.ort.y + MASS.tag.textY), 'Detail: die Typen als Marken mit Rand vor dem Ort (so viele, wie neben Ort und Verfall passen)');
+  geometrie('Typen');
+}
+
+section('H1, H4 bis H9: Ersetzungsmuster, Hilfe, Aufrufer, Tokens');
+{
+  ok(PA.text('gesperrtGrund', { titel: "a$'b" }) === "Erst „a$'b“ abschließen" && PA.text('gesperrtGrund', { titel: '$& $1 $$' }) === 'Erst „$& $1 $$“ abschließen', 'H1: Titel mit $-Mustern bleiben unverändert im Grund (kein String.replace-Muster)');
+  ok(PT.zeichneBrett.length === 2, 'H8: zeichneBrett(c, b) ohne ungenutzte Parameter');
+  const src = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
+  const tb = src('public/js/pult-terminal-brett.js');
+  ok(!/P\.mix\(/.test(tb) && FARBE.kappeGew === '#443728', 'H6: die gemischte Kappenfarbe ist ein Token (kappeGew), kein P.mix im Baustein');
+  const mixhex = (a, b, t) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slice(i, i + 2), 16) + (parseInt(b.slice(i, i + 2), 16) - parseInt(a.slice(i, i + 2), 16)) * t).toString(16).padStart(2, '0')).join('');
+  ok(mixhex(FARBE.ink, FARBE.angebot, 0.3) === FARBE.kappeGew, 'H6: kappeGew = ink zu 70 % mit Messing zu 30 % gemischt');
+  ok(!/y1 = r\.y \+ \d|y2 = r\.y \+ \d|const h = 58|B\.x \+ 14|B\.y \+ 25/.test(tb), 'H6: die Maße der Karte, des Streifens und des leeren Zustands stehen in MASS');
+  const pt = src('public/js/pult-terminal-tokens.js');
+  ok(!/brett: \{ x: 374/.test(pt) && !/modulTitel: \{ x: 266, y: py - 4, w: 104/.test(pt) && /KB\.brett\.x/.test(pt) && /KB \? KB\.modulTitelW/.test(pt), 'H7: Knopf und Titellinie stehen nur noch in PultAuftrag (MASS.knopf), pult-terminal-tokens liest sie');
+  ok(L.aktionen.brett.x === 374 && L.aktionen.brett.x === MASS.knopf.brett.x, 'H7: der Knopf liegt weiter auf x 374');
+  const w3 = { Render: R2, Pult: P2, Shared_Protocol: {}, performance, KarteTokens: KT }; w3.window = w3; vm.createContext(w3);
+  vm.runInContext(J('pult-terminal-tokens.js'), w3, { filename: 'pult-terminal-tokens.js' });
+  const L3 = w3.PultTerminal.layout(640, 360);
+  ok(L3.modulTitel.w === 154 && !('brett' in L3.aktionen), 'ohne PultAuftrag: Linie MODULRAUM 154 breit, kein Brett-Knopf (Stand vor dem Brett)');
+  rec.knoepfe.length = 0; R2.ui.buttons.length = 0;
+  PT.zeichneTerminal(ctx, {}, { bereich: 'brett', brett: baustein(modellAus({ angebote: [BOJE] })), status: {}, kopf: { ort: 'Ostia Nova', art: 'hafen', marken: 1 }, kreuz: {}, module: {}, bereichUmschalter: { bereich: 'brett', brett: { label: 'Brett' }, info: { label: 'Info' }, lage: { label: 'Kurs' }, onBereich: () => {} }, aktionen: {} });
+  const rr = R2.ui.buttons.filter((b) => b.y === L.aktionen.brett.y && b.hotkey).map((b) => b.hotkey + ' ' + b.label).join(', ');
+  ok(rr === 'O Brett, I Info, K Kurs, H Handel, W Werft', 'H9: Hilfe-Reihenfolge wie auf dem Pult von links: ' + rr);
+}
+
+section('brett.js: Typprüfungen (Folgen, Schritte, laufend, Listen) und Zeichnen der Kappen und Typ-Marken');
+{
+  const B = BrettClient, blk = (a) => sicher(() => { B.lesen({ t: 'snap', world: { abenteuer: a } }); return B.modell(); }, 'brett.js bei Müll');
+  let m = blk({ angebote: [{ id: 'a1', titel: 'T', vorschau: { gelingt: [null, 5, { f: 3, d: 1 }, { f: 'rom' }, { f: 'rom', d: 'x' }, { f: '', d: 1 }, { f: 'rom', art: 'haltung', d: 2 }, 'Satz', ''], scheitert: [{ f: 'kon', d: NaN }, { f: 'kon', d: Infinity }, { f: 'kon', d: -1 }] } }] });
+  ok(JSON.stringify(m.angebote[0].vorschau.gelingt) === JSON.stringify([{ f: 'rom', art: 'haltung', d: 2 }, 'Satz']), 'Folgen: nur Zeichenketten und Marken mit Fraktion (Text) und Delta (Zahl); sonst fällt es weg: ' + JSON.stringify(m.angebote[0].vorschau.gelingt));
+  ok(JSON.stringify(m.angebote[0].vorschau.scheitert) === JSON.stringify([{ f: 'kon', art: 'ruf', d: -1 }]), 'Delta NaN und Infinity gelten nicht (nur endliche Zahlen)');
+  m = blk({ angebote: [{ id: 'a1', titel: 'T', vorschau: { schritte: ['Als Text', { text: 'Objekt', gefahr: true }, 5, null, { text: '' }, {}, { text: 7 }] } }] });
+  ok(JSON.stringify(m.angebote[0].vorschau.schritte.map((s) => [s.text, s.gefahr])) === JSON.stringify([['Als Text', false], ['Objekt', true]]) && m.angebote[0].vorschau.gefahr === true, 'Schritte: Zeichenketten und Objekte mit Text; leere und fremde fallen weg');
+  m = blk({ angebote: [{ id: 'a1', titel: 'T' }], laufend: { id: 'a2', schritt: 1, schritte_gesamt: 3 } });
+  ok(m.laufend === null && m.angebote.length === 1, 'laufend ohne Titel gilt nicht');
+  m = blk({ laufend: { id: 'a2', schritt: 1 } });
+  ok(m === null, 'nur ein laufendes Abenteuer ohne Titel: kein Modell');
+  m = blk({ angebote: 'x', geruechte: 'y' });
+  ok(m === null, 'Listen, die keine sind (Zeichenkette), zählen als leer');
+  m = blk({ angebote: { length: 2, slice: () => [{ id: 'a1', titel: 'T' }] } });
+  ok(m === null, 'ein Objekt mit slice ist keine Liste');
+  // Kappe auf der gewählten Karte: eigene Farbe (Token), nicht die der anderen Karten
+  zeichne(baustein(modellAus({ angebote: [KONVOI, HEIMWEG] }), 'a2'));
+  ok(rec.rects.some((r) => r.col === FARBE.kappeGew && r.h === MASS.kappe.h) && rec.rects.filter((r) => r.col === FARBE.kappe && r.h === MASS.kappe.h).length === 1, 'Nummernkappe: auf der gewählten Karte kappeGew, auf der anderen kappe');
+  // vier Typen im Detail: nur so viele Marken, wie neben den Verfall passen (keine Überlappung)
+  const k4 = klon(KONVOI); k4.typen = ['geruecht', 'konvoi', 'sabotage', 'wiedersehen'];
+  zeichne(baustein(modellAus({ angebote: [k4] })));
+  geometrie('vier Typen');
+  const tags = rec.texte.filter((t) => t.y === D0.ort.y + MASS.tag.textY && t.o && t.o.versal && t.x >= D0.ort.x);
+  ok(tags.length >= 1 && tags.length < 4 && hat('Kantenstein'), 'Typ-Marken: ' + tags.length + ' von 4 passen neben den Verfall, der Ort bleibt sichtbar');
 }
 
 section('Quellen: Anschluss in hud.js, consoles.js, client.js und werft.js (nicht im Node-Test ausführbar, Sicht: tools/sicht-brett.js)');
@@ -594,6 +811,21 @@ section('Tasten: O frei, keine Kollision, Namen');
   // die Belegung wirkt: die Tastenkanon-Logik (Consoles) ist bereichsgebunden; Terminal-Bereich Brett nimmt O nicht in der Werft
   ok(Ta.passt({ code: 'KeyO' }, 'terminal.brett') && !Ta.passt({ code: 'KeyP' }, 'terminal.brett'), 'passt: O trifft terminal.brett');
   ok(Ta.kappe('terminal.brett') === 'O' && Ta.kappe('terminal.brettAnnehmen') === 'Ent' && Ta.kappe('terminal.brettAblehnen') === 'X', 'Kappen: O, Ent, X');
+}
+
+section('H1, H4: terminal-ui (Sperrgrund ohne Ersetzungsmuster, Tastenzeile bei gesperrter Annahme)');
+{
+  const t = partie({ angebote: 0 });
+  const a1 = X.Faden.abenteuerAnbieten(t.g, plan([{ typ: 'notruf' }, { typ: 'abschluss' }], { titel: "A$'B $& x", anlass: 'Probeanlass ohne Namen im Test' }), { hex: '0305' });
+  const a2 = X.Faden.abenteuerAnbieten(t.g, notrufplan(2), { hex: '0305' });
+  ok(a1.ok && a2.ok, 'zwei Angebote');
+  t.oeffnen(); t.key('KeyO');
+  let m = t.m();
+  ok(/annehmen/.test(m.brett.hilfe) && /ablehnen/.test(m.brett.hilfe) && m.brett.scheitern === DATEN.werte.scheitern_text.wert, 'ohne Sperre: „wählen · annehmen · ablehnen“, der Scheitern-Satz des Servers geht ins Modell');
+  t.key('Enter'); m = t.m();
+  ok(m.aktionen.haupt.disabled === true && m.aktionen.haupt.grund === "Erst „A$'B $& x“ abschließen", 'H1: Sperrgrund mit dem Titel „A$\'B $& x“ unverändert: ' + m.aktionen.haupt.grund);
+  ok(!/annehmen/.test(m.brett.hilfe) && /ablehnen/.test(m.brett.hilfe) && /kostet nichts/.test(m.brett.hilfe), 'H4: bei gesperrter Annahme entfällt „Ent annehmen“ in der Tastenzeile, „ablehnen kostet nichts“ bleibt sichtbar: ' + m.brett.hilfe);
+  ok(m.aktionen.hinweis.text === TEXT.gesperrt && m.aktionen.hinweis.fn === 'warn', 'H4: der Sperrgrund steht sichtbar unter dem Knopf');
 }
 
 console.log('\n' + (fails ? fails + ' FEHLER von ' + n : 'alle ' + n + ' Prüfungen ok'));

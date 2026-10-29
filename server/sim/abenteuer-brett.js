@@ -108,6 +108,16 @@ function vorschau(v, von) {
 }
 
 // ---------- Anzeige
+// Beat-Typen der Vorlage ohne den Abschluss (jeder Typ einmal, in der Reihenfolge der Beats, hoechstens typen_max): die Typ-Zeile der Karte
+function typenVon(v) {
+  const out = [];
+  for (const b of v && Array.isArray(v.beats) ? v.beats : []) {
+    const cat = has(B, b.typ) ? B[b.typ] : null;
+    if (cat && cat.abschluss) continue;
+    if (!out.includes(b.typ)) out.push(b.typ);
+  }
+  return out.slice(0, BW.typen_max);
+}
 const laufendVon = (F) => F.liste.find((f) => f.plan && f.phase !== 'abgeschlossen') || null;
 const restAngebot = (a) => Math.max(0, W.abenteuer.angebot_gilt_taetigkeiten - a.alter);
 function restLaufend(f) {
@@ -149,7 +159,7 @@ function snapshot(game) {
   const alle = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max);
   for (const a of alle) {
     const von = vonAngebot(game, a);
-    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: a.hex, ortname: hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von) };
+    const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max), ort: a.hex, ortname: hexName(a.hex).slice(0, BW.ort_max), rest: restAngebot(a), von, aus_geruecht: a.vorlage.beats.some((b) => b.typ === 'geruecht'), vorschau: vorschau(a.vorlage, von), typen: typenVon(a.vorlage) };
     if (typeof a.vorlage.anlass === 'string') e.anlass = text(a.vorlage.anlass, BW.anlass_max);
     s.angebote.push(e);
   }

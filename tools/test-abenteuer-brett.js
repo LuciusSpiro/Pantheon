@@ -31,6 +31,7 @@ const section = (name, fn) => abschnitte.push([name, fn]);
 const lies = (rel) => JSON.parse(fs.readFileSync(path.join(__dirname, '..', rel), 'utf8'));
 const BRETT = lies('content/faeden/abenteuer-brett.json'), ANS = lies('content/faeden/anschluss.json'), WERTE = lies('content/faeden/werte.json').werte, HW = lies('content/faeden/haltung-werte.json').werte;
 const BEATS = lies('content/faeden/beats.json').beats;
+const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 const NAMEN = ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'];
 const GILT = WERTE.abenteuer.wert.angebot_gilt_taetigkeiten, MAXA = WERTE.abenteuer.wert.angebote_max;
 const CODES = ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'kein_spielleiter', 'laeuft_schon', 'kein_platz', 'veraltet', 'fehler', 'am_boden'];
@@ -145,6 +146,7 @@ section('Snapshot world.abenteuer: Block, Vorschau aus den Daten, Loeschsignal, 
   ok(JSON.stringify(V(e1).scheitert) === JSON.stringify([BRETT.status_scheitern.aktiv, BRETT.werte.weg_text.wert]) && V(e2).scheitert.every((x) => typeof x === 'string'), 'scheitert: nur Saetze (bleibt unverbuendet, anderer Weg), keine erfundene Marke');
   ok(JSON.stringify(V(e3).gelingt.filter((x) => typeof x === 'object')) === JSON.stringify([{ f: 'rom', art: 'haltung', d: 4 }]) && JSON.stringify(V(e3).scheitert.filter((x) => typeof x === 'object')) === JSON.stringify([{ f: 'rom', art: 'haltung', d: -2 }]), 'Konvoi, Geleit, Abschluss: gelingt Haltung +4 (1 + 2 + 1, von Hand), scheitert die staerkste Einzelfolge -2 (Geleit)');
   ok(V(e3).schritte[1].text === BRETT.schritte.geleit.varianten['geleit:modus:havarist'], 'Variante des Parameters (Havarist) im Klartext');
+  ok(JSON.stringify(e1.typen) === '["bitte","geruecht"]' && JSON.stringify(e2.typen) === '["geruecht","spur"]' && JSON.stringify(e3.typen) === '["konvoi","geleit"]', 'typen: die Beat-Typen ohne den Abschluss, in der Reihenfolge der Beats (die Typ-Zeile der Karte)');
   ok(JSON.stringify(s).length < 4500, 'Block mit drei Angeboten klein (' + JSON.stringify(s).length + ' Zeichen)');
   ok(!s.geruechte, 'ohne Hinweis ohne Namen in den Plaenen: keine Geruechte');
   ok(keinBlock(g), 'ein zweiter Snapshot ohne Aenderung traegt den Block nicht noch einmal (nur bei Aenderung)');
@@ -180,12 +182,23 @@ section('Snapshot: ein Spielername im Freitext wird ersetzt, nie ein Feld mit Na
   ok(g.errors === 0 && inboxen.length === 3, 'drei Clients, keine Serverfehler');
 });
 
-section('Snapshot: Kuerzung im Server (Titel 26, Anlass 110), Geruechte aus den Hinweis-Daten, laufendes Abenteuer', () => {
+section('Snapshot: typen je Angebot (Beat-Typen ohne Abschluss, jeder einmal, hoechstens typen_max)', () => {
+  const t = neu(33, { env: { ABENTEUER_ANSCHLUSS: '0' } }), g = t.g;
+  const p = anbieten(g, plan([b('geruecht'), b('spur'), b('geruecht'), b('spur'), b('konvoi'), b('geleit'), b('notruf'), b('abschluss')], { titel: 'Viele Typen im Plan', anlass: 'Viele verschiedene Typen in einem Plan ohne Namen' }));
+  ok(p.ok, 'Plan mit wiederholten Typen und mehr als vier Typen angeboten');
+  const e = (block(g) || { angebote: [] }).angebote[0] || { typen: [] };
+  ok(BRETT.werte.typen_max.wert === 4 && JSON.stringify(e.typen) === '["geruecht","spur","konvoi","geleit"]', 'typen: jeder Typ einmal in der Reihenfolge der Beats, ohne abschluss, hoechstens 4: ' + JSON.stringify(e.typen));
+  ok(e.typen.every((x) => has(BEATS, x) && !BEATS[x].abschluss) && JSON.stringify(e).length < 1500, 'jeder Typ ist ein Beat-Typ des Katalogs; das Angebot bleibt klein (' + JSON.stringify(e).length + ' Zeichen)');
+  ok(g.errors === 0, 'keine Serverfehler');
+});
+
+section('Snapshot: Kuerzung im Server (Titel 40, Anlass 110), Geruechte aus den Hinweis-Daten, laufendes Abenteuer', () => {
   const t = neu(23, { env: { ABENTEUER_ANSCHLUSS: '0' } }), g = t.g;
-  const lang = 'Ein sehr langer Titel mit vielen Woertern';
+  const lang = 'Ein sehr langer Titel mit vielen Woertern und noch mehr';
   anbieten(g, plan([b('notruf'), b('geruecht'), b('spur'), b('enthuellung'), b('abschluss')], { titel: lang, anlass: 'x'.repeat(30) + ' ' + 'y'.repeat(120) }));
   const s = block(g), e = s.angebote[0];
-  ok(e.titel.length === 26 && e.titel.endsWith('…') && lang.startsWith(e.titel.slice(0, -1).trimEnd()) && e.anlass.length <= 110 && e.anlass.endsWith('…'), 'Titel auf 26, Anlass auf 110 Zeichen gekuerzt (mit …): ' + JSON.stringify(e.titel));
+  const TM = BRETT.werte.titel_max.wert;
+  ok(TM === 40 && e.titel.length <= TM && e.titel.length >= TM - 1 && e.titel.endsWith('…') && lang.startsWith(e.titel.slice(0, -1).trimEnd()) && e.anlass.length <= 110 && e.anlass.endsWith('…'), 'Titel auf 40 (Daten titel_max, = Brett.GRENZE.titel der Anzeige), Anlass auf 110 Zeichen gekuerzt (mit …): ' + JSON.stringify(e.titel));
   ok(s.geruechte && s.geruechte.length === 1 && s.geruechte[0].angebot === e.id && s.geruechte[0].von === 'Sensoren Lerche' && s.geruechte[0].text === 'Scan bei ' + hexname('0305') + ': Der Transponder des Schiffs passt nicht zu seinen Papieren.', 'Geruecht: Hinweistext der Vorlage ohne Namen, {ort} eingesetzt, Sprecher des Kanals, Verweis auf das Angebot');
   ok(!/[{}]|Lieferung gesehen|Siegel/.test(s.geruechte.map((x) => x.text).join(' ')), 'kein Hinweis mit {name} (der NSC steht erst nach der Annahme fest)');
   const g2 = neu(24, { env: { ABENTEUER_ANSCHLUSS: '0' } }).g;

@@ -348,13 +348,14 @@
     m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
     m.brett = {
       titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '',
-      hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.brettAnnehmen', 'Ent') + ' annehmen · ' + T.kappe('terminal.brettAblehnen', 'X') + ' ablehnen' : '',
+      hilfe: bedienbar && gew ? window.PultAuftrag.text(lauf || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Ent'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
+      scheitern: BR.scheitern,
       angebote: BR.angebote.map((k, i) => Object.assign({}, k, { nr: i + 1, kappe: T.kappe('terminal.brett' + (i + 1), String(i + 1)), onClick: bedienbar ? () => { s.brettId = k.id; s.antwort = null; } : null })),
       info: ant && !ant.ok ? { grund: ant.text } : Brett.frisch(lauf) ? { angenommen: lauf.titel } : null,
     };
     m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };
     m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
-    const grundAnnehmen = !bedienbar || wartet ? null : lauf ? TX.gesperrtGrund.replace('{titel}', lauf.titel) : !BR.ok ? Brett.antwortText('kein_spielleiter') : !gew ? Brett.antwortText('kein_angebot') : null;
+    const grundAnnehmen = !bedienbar || wartet ? null : lauf ? window.PultAuftrag.text('gesperrtGrund', { titel: lauf.titel }) : !BR.ok ? Brett.antwortText('kein_spielleiter') : !gew ? Brett.antwortText('kein_angebot') : null;
     const kann = frei && !!gew && !lauf && BR.ok;
     m.aktionen = {
       haupt: { art: 'brettAnnehmen', text: TX.annehmen, disabled: !kann, grund: grundAnnehmen, onClick: () => brettAnnehmen(view, BR, gew && gew.id) },
