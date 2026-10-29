@@ -56,8 +56,8 @@ const MUTATIONEN = [
   [TP, "  const namen = Ausschnitt.spielerNamen(game);\n  let vorher = null;", "  const namen = [];\n  let vorher = null;", 'Namen: der Prompt filtert keine Spielernamen'],
   [TP, "  const prompt = Pruefer.promptBauen(sp, { vorhanden: opt.vorhanden, vorher: opt.vorher });", "  const prompt = Pruefer.promptBauen(sp, { vorher: opt.vorher });", 'Prompt: die schon vorhandenen Texte fehlen'],
   // ---- Transport nur Ollama, nie Claude
-  [TP, "{ eskalation: null, env });   // nur Ollama", "{ env });   // nur Ollama", 'Claude: der Router eskaliert an Claude'],
-  [TP, "Router.routeTransport({ text: { anbieter: 'ollama', modell } }", "Router.routeTransport({ text: { anbieter: 'claude', modell } }", 'Claude: Texte gehen an Claude'],
+  [TP, "{ eskalation: eskAn ? undefined : null, env });   // Standard: nur Ollama", "{ env });   // Standard: nur Ollama", 'Claude: der Router eskaliert an Claude'],
+  [TP, "for (const s of Stufen.STUFEN) arten[s] = { anbieter: St.stufen[s].anbieter,", "for (const s of Stufen.STUFEN) arten[s] = { anbieter: 'claude',", 'Claude: Texte gehen an Claude'],
   [TP, "const modus = (env) => (String(((env || process.env) || {}).LLM_LIVE || '') === '1' ? 'live' : 'off');", "const modus = (env) => 'live';", 'Modus: auch ohne LLM_LIVE=1 wird erzeugt'],
   [TP, "  if (modus(env) !== 'live') return null;\n", "", 'Modus: getLlm prüft den Modus nicht'],
   // ---- Schalter

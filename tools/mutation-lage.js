@@ -72,7 +72,7 @@ const MUTATIONEN = [
   [G, "    try { return l.beiGrenze(art); } catch (e) { this.countError('lage-grenze', e); return null; }", "    return l.beiGrenze(art);", 'Hook ohne try/catch (N11)'],
   [S, "    if (this.letzterSprung !== schluessel) {", "    if (true) {", 'Logbuch: übersprungene Grenzen fluten (K1)'],
   [BR, "e.grund || (e.plan && e.plan.grund) || '?'", "'?'", 'Bericht: Grund der übersprungenen Grenze nicht gelesen (S3)'],
-  ['server/mission/regielog.js', "'eskaliert', 'grund']", "'eskaliert']", 'Logbuch: Feld grund wird verworfen'],
+  ['server/mission/regielog.js', "'eskaliert', 'grund', 'geld']", "'eskaliert', 'geld']", 'Logbuch: Feld grund wird verworfen'],
   [S, "    this.letzterStartTick = ws.tickZahl;\n    this.zustand = 'angefragt';", "    this.zustand = 'angefragt';", 'Mindestabstand: Start wird nicht gemerkt'],
   [S, "    this.aufrufe++;\n", "", 'Deckel: Aufrufe werden nicht gezählt'],
   [S, "    if (this.zustand !== 'idle') return this.ueberspringen('beschaeftigt', art);\n", "", 'ein Job zugleich: zweite Anfrage während der ersten'],
@@ -105,17 +105,17 @@ const MUTATIONEN = [
   [M, "  const nr = Number.isInteger(g.nr) && g.nr > 0 ? g.nr : 1;", "  const nr = 1;", 'Mock: immer derselbe Plan'],
   [M, "const sw = sieger === 'rom' ? 'ger' : 'rom';", "const sw = 'zzz';", 'Mock: Befehle an eine unbekannte Fraktion'],
   // ---- llm.js und Router
-  [LL, "const KINDS = ['grobplan', 'szene', 'text', 'lage'];", "const KINDS = ['grobplan', 'szene', 'text'];", 'llm: kind lage fehlt'],
+  [LL, "const KINDS = ['grobplan', 'szene', 'text', 'lage', 'abenteuer'];", "const KINDS = ['grobplan', 'szene', 'text', 'abenteuer'];", 'llm: kind lage fehlt'],
   [LL, "      if (kind === 'lage') return { text: mockLage(input),", "      if (false) return { text: mockLage(input),", 'llm: mock bedient lage nicht'],
   [RT, "  if (art === 'lage' && anbieter === 'ollama') throw", "  if (false) throw", 'Router: lage darf an Ollama'],
-  [RT, "lage: { anbieter: 'claude', modell: 'sonnet' } };\nconst STANDARD_ESKALATION", "lage: { anbieter: 'ollama' } };\nconst STANDARD_ESKALATION", 'Router: lage geht standardmäßig an Ollama'],
+  [RT, "lage: { anbieter: 'claude', modell: 'sonnet' } };\nfor (const s of STUFEN)", "lage: { anbieter: 'ollama' } };\nfor (const s of STUFEN)", 'Router: lage geht standardmäßig an Ollama'],
   // ---- Daten
   [D, '"deckel_je_sitzung": {"wert": 6', '"deckel_je_sitzung": {"wert": 60', 'Daten: Deckel 60 statt 6'],
   [D, '"grenzen": {"wert": ["szene_ende", "andocken", "absicht"]', '"grenzen": {"wert": ["szene_ende", "andocken"]', 'Daten: Grenze absicht fehlt'],
   // ---- Bericht
   [BR, "Rückfälle: ${lageRueck.length}", "Rückfälle: 0", 'Bericht: Rückfälle der Lage'],
   [BR, "const aufrufe = lage.filter((e) => ['angewandt', 'plan_wirkungslos', 'fehler', 'veraltet'].includes(e.ausgang)", "const aufrufe = lage.filter((e) => ['angewandt'].includes(e.ausgang)", 'Bericht: Fehler zählen nicht als Aufruf'],
-  [BR, "const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan']);", "const CALLS = new Set(['grobplan', 'szene', 'verspaetet']);", 'Bericht: Tokens der Lage fehlen in der Summe'],
+  [BR, "const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan', 'abenteuer_bauplan']);", "const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'abenteuer_bauplan']);", 'Bericht: Tokens der Lage fehlen in der Summe'],
   // ---- SUND-03 F: Rate, plan_wirkungslos, letzte_plaene, befehle_frei
   [RB, "    const gratis = k.fokusPlan && fokusPlatz;", "    const gratis = false;", 'Rate: der Plan-Fokus kostet je Fraktion einen Platz'],
   [RB, "    if (a._rate !== false) s.rate.push(n0);", "    s.rate.push(n0);", 'Rate: der zweite Fokus-Befehl bucht doch einen Platz'],
