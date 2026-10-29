@@ -178,8 +178,7 @@ class AbenteuerSpielleiter {
   // Ausfall des Anbieters (Fehler, Frist, Prompt): kein Angebot, Eintrag, nichts blockiert. Kein Rueckfall der Standard-KI (das betrifft nur den Plan der Lage).
   ausfall(job, e, r) {
     const code = e && e.code ? e.code : 'EXIT';
-    if (code === 'ABORTED') { this.job = null; this.zustand = 'idle'; return; }
-    if (this.eskalieren(job, code)) return;
+    if (code !== 'ABORTED' && this.eskalieren(job, code)) return;   // ein Abbruch eskaliert nie
     this.job = null; this.zustand = 'idle';
     this.zaehler.ausfall++;
     if (code === 'ENOENT') this.aus = 'CLI fehlt (' + String((e && e.message) || '').slice(0, 80) + ')';
