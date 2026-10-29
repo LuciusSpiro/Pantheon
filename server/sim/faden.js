@@ -24,6 +24,7 @@
 //   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc)
 //   ausschnittBlock(game) / promptText()   kleiner Faden-Block fuer den Lage-Spielleiter (hoechstens 3 Faeden, nie Spielernamen, die verborgene Wahrheit nur als Kennung)
 //   SUND-04b B1: wiedersehenKandidaten(game, vorlage) -> [NSC-Kennung] (NSC abgeschlossener Faeden, die zu einem Wiedersehen taugen); abenteuerOeffnen und faden_oeffnen nehmen parameter nsc_von; strom(game, n, salz), idNr(id) fuer faden-b1.js
+//   SUND-04b E1/E3: Kanon (abenteuer-kanon.js: Name, Volk, Titel, Ort, Ausgang jedes Fadens, Weltstand welt.sim.faeden.kanon), abenteuerNeuAnbieten(game, bauplan, { hex }) = abenteuerAnbieten plus die Wiederholungsregeln (abenteuer-wiederholung.js)
 //   neu() / toSave(ws) / lesen(block)     Weltstand welt.sim.faeden
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
@@ -53,7 +54,7 @@ function aktiv(game) {
   const v = String((env && env.FAEDEN) || '').toLowerCase();
   return v === '1' || v === 'on';
 }
-const neu = () => ({ t: 0, nr: 0, nsc: 0, liste: [], angebote: [], abenteuerAngebote: [], angNr: 0, ladeFehler: [], gemeldet: false, bitte: null, bitteNr: 0, bitteLog: [], bitteZuletzt: null });   // SUND-04a-2 P2: bitte = offene Bitte (faden-bitte.js), Laufzeit-Zähler des Bitten-Deckels
+const neu = () => ({ t: 0, nr: 0, nsc: 0, kanon: [], liste: [], angebote: [], abenteuerAngebote: [], angNr: 0, ladeFehler: [], gemeldet: false, bitte: null, bitteNr: 0, bitteLog: [], bitteZuletzt: null });   // SUND-04a-2 P2: bitte = offene Bitte (faden-bitte.js), Laufzeit-Zähler des Bitten-Deckels
 function zustandVon(game) {
   const ws = game && game.weltsim;
   if (!ws) return null;
@@ -92,7 +93,7 @@ function nscErzeugen(game, v, volk, name, nscNr) {
   const F = game.weltsim.faeden;
   const rng = strom(game, nscNr, 'nsc');
   const pick = (arr) => arr[Math.floor(rng() * arr.length) % arr.length];
-  const vergeben = new Set(F.liste.map((f) => f.nsc.name));
+  const vergeben = require('./abenteuer-kanon.js').namenVergeben(F);   // SUND-04b E1: auch die Namen des Kanons (ein Faden kann schon aus der Liste gefallen sein)
   let n = name;
   if (!n) {
     for (let i = 0; i < 40 && !n; i++) { const t = pick(L.vornamen) + ' ' + pick(L.nachnamen); if (!vergeben.has(t)) n = t; }
@@ -276,7 +277,11 @@ function ausgangMitPerson(game, o) {
 //   abenteuerOeffnen(game, nr, { volk?, name? }) -> { ok, faden } | { ok: false, grund }          macht aus einem Angebot einen Faden (aktiv_max, laufend_max, Abstand wie bei jedem Faden); der Plan steht im Faden (f.plan)
 // Ohne Schalter FAEDEN=1 tun beide nichts. Die Angebote sind Laufzeit (nicht im Weltstand), der Plan eines laufenden Abenteuers steht im Weltstand (welt.sim.faeden.liste[].plan).
 const Bauplan = () => require('./faden-bauplan.js');
-function abenteuerAnbieten(game, bauplan, o) {
+// SUND-04b E3: abenteuerAnbieten prueft nur, ob der Plan GUELTIG ist; abenteuerNeuAnbieten ist die Angebotspolitik des Bretts (dieselben Pruefungen, dazu die Wiederholungsregeln, abenteuer-wiederholung.js). Der Spielleiter bietet ueber das zweite an,
+// der Anschluss-Rueckfall prueft die (gelockerten) Wiederholungsregeln selbst, bevor er das erste ruft.
+const abenteuerAnbieten = (game, bauplan, o) => anbietenMit(game, bauplan, o, false);
+const abenteuerNeuAnbieten = (game, bauplan, o) => anbietenMit(game, bauplan, o, true);
+function anbietenMit(game, bauplan, o, wiederholung) {
   if (!aktiv(game)) return { ok: false, grund: 'INAKTIV: Faeden sind nicht eingeschaltet' };
   const F = zustandVon(game);
   o = istObjekt(o) ? o : {};
@@ -289,6 +294,7 @@ function abenteuerAnbieten(game, bauplan, o) {
   const lg = P.pruefeLage(game, r.vorlage);   // SUND-04b B2: ein Beat, der von der Lage abhaengt (Sabotage: ein Ziel muss stehen), wird nie ohne sie angeboten
   if (lg) return abgelehnt(lg);
   if (P.nscAlt(r.vorlage) && !wiedersehenKandidaten(game, r.vorlage).length) return abgelehnt('WIEDERSEHEN_KEIN_NSC: es gibt keinen NSC aus einem abgeschlossenen Faden, der sich an eine Tat der Crew erinnert');   // SUND-04b B1
+  if (wiederholung) { const wd = require('./abenteuer-wiederholung.js').pruefe(game, r.vorlage, o.hex); if (wd) return abgelehnt(wd); }   // SUND-04b E3
   const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
   F.abenteuerAngebote.push(a);
   melde(game, 'abenteuer_angeboten', r.vorlage.id, `Abenteuer ${r.vorlage.id} als Angebot ${a.nr} bei ${o.hex}`, { vorlage: r.vorlage.id, angebot: a.nr });
@@ -323,6 +329,7 @@ function abenteuerOeffnen(game, nr, p) {
     if (i < 0) break;
     F.liste.splice(i, 1);
   }
+  if (alt) require('./abenteuer-kanon.js').wiedersehenBeginnen(F, f); else require('./abenteuer-kanon.js').beginnen(F, f);   // SUND-04b E1: Name, Volk, Titel, Ort stehen ab jetzt im Kanon
   melde(game, 'geoeffnet', f.id, `Abenteuer ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}${alt ? ' (Wiedersehen mit ' + alt.id + ')' : ''}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
   abenteuerRegisterAufraeumen(game);
   return { ok: true, faden: f };
@@ -376,6 +383,7 @@ function oeffnen(game, b) {
     if (i < 0) break;
     F.liste.splice(i, 1);
   }
+  if (alt) require('./abenteuer-kanon.js').wiedersehenBeginnen(F, f); else require('./abenteuer-kanon.js').beginnen(F, f);   // SUND-04b E1
   melde(game, 'geoeffnet', f.id, `Faden ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}${alt ? ' (Wiedersehen mit ' + alt.id + ')' : ''}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
   return { ok: true, faden: f };
 }
@@ -426,6 +434,7 @@ function beatAusgang(game, fadenId, ausgang) {
   if (cat.abschluss) {
     f.phase = 'abgeschlossen';
     f.ausgang = { art: ausgang, status: f.nsc.status, tick: ws.tickZahl };
+    require('./abenteuer-kanon.js').beendet(game, f, ausgang);   // SUND-04b E1: der Ausgang steht im Kanon (genau einmal)
   } else {
     const ziel = o.weiter !== undefined ? v.beats.findIndex((x) => x.id === o.weiter) : f.beat + 1;
     f.beat = ziel > f.beat && ziel < v.beats.length ? ziel : v.beats.length - 1;   // nur nach vorn; ein kaputtes Ziel springt zum Abschluss (der Pruefer laesst es nie zu)
@@ -529,6 +538,8 @@ function toSave(ws) {
   if (sb) b.sabotage = sb;
   const dk = require('./faden-bitte.js').toSaveDeckel(F);   // Nacharbeit L10: Zähler des Bitten-Deckels (optional, wie der Reise-Deckel welt.sim.reise.r)
   if (dk) b.deckel = dk;
+  const kn = require('./abenteuer-kanon.js').toSave(F);   // SUND-04b E1: Kanon (optional, additiv, Altstand = abgeleitet aus der Liste)
+  if (kn) b.kanon = kn;
   const ab = require('./abenteuer-brett.js').toSave(F);   // SUND-04b C: offene Abenteuer-Angebote und der zuletzt gespielte Plan (optional, additiv, Altstand = keine)
   if (ab) b.abenteuer = ab;
   return b;
@@ -615,6 +626,7 @@ function lesen(b) {
   // SUND-04a-2 P1: ein Szenen-Beat, der beim Speichern noch lief, steht nach dem Laden wieder aus (die Szene ist nicht speicherbar)
   for (const f of F.liste) if (f.phase === 'laeuft' && D.BEATS[D.vorlage(f.vorlage).beats[f.beat].typ].szene) { f.phase = 'wartet'; f.laufend = null; f.zaehler = f.abstand; delete f.fracht; }
   F.nr = nr; F.nsc = nscNr;
+  require('./abenteuer-kanon.js').lesen(b.kanon, F);   // SUND-04b E1: muellfest, gleicht sich mit der Liste ab (Altstand ohne Kanon: aus der Liste abgeleitet)
   const sb = require('./faden-b2.js').lesen(b.sabotage);   // SUND-04b B2: muellfest, fehlt = keine Pause
   if (sb) F.sabotage = sb; else if (b.sabotage !== undefined) F.ladeFehler.push('sabotage: verworfen');
   const bt = require('./faden-bitte.js').lesenBitte(b.bitte, F);   // SUND-04a-2 P2: offene Bitte (müllfest; Folgen aus der Vorlage)
@@ -623,4 +635,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerNeuAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };

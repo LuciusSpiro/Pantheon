@@ -328,10 +328,10 @@ section('Annahme: kein Platz, Lage veraltet (Sabotage ohne Ziel), Wiedersehen (j
     ok(logbuch(g).filter((x) => x.art === 'faden_pruefung').length === fp0, 'veraltet ist eine eigene, saubere Meldung (kein Eintrag faden_pruefung)');
     ok(r.ok === false && r.code === 'veraltet' && r.text === BRETT.weigerungen.veraltet && offen(g).length === 0 && liste(g).length === 0, 'Annahme: veraltet, das Angebot wird mit klarer Meldung vom Brett genommen, kein Faden');
     ok(logbuch(g).some((e) => e.ausgang === 'abenteuer_veraltet') && t.an('a' + a.angebot.nr).code === 'schon_beantwortet', 'Logbuch: veraltet; eine weitere Antwort: schon_beantwortet'); }
-  // Wiedersehen: zwei Kandidaten, der juengste zuerst
+  // Wiedersehen: zwei Kandidaten, der juengste zuerst (SUND-04b E3: die Hauptfigur des letzten Abenteuers zaehlt nicht, deshalb ein drittes Abenteuer davor)
   { const t = neu(29, { env: { ABENTEUER_ANSCHLUSS: '0' } }), g = t.g;
-    const e1 = annehmenUndSpielen(t, notrufplan(1), 'gelungen'), e2 = annehmenUndSpielen(t, notrufplan(2), 'gelungen');
-    ok(e1.fertig && e2.fertig && e1.f.nsc.name !== e2.f.nsc.name, 'zwei abgeschlossene Abenteuer mit verschiedenen NSC');
+    const e1 = annehmenUndSpielen(t, notrufplan(1), 'gelungen'), e2 = annehmenUndSpielen(t, notrufplan(2), 'gelungen'), e3 = annehmenUndSpielen(t, notrufplan(3), 'gelungen');
+    ok(e1.fertig && e2.fertig && e3.fertig && new Set([e1.f.nsc.name, e2.f.nsc.name, e3.f.nsc.name]).size === 3, 'drei abgeschlossene Abenteuer mit verschiedenen NSC');
     const w = anbieten(g, plan([b('wiedersehen'), b('abschluss')], { titel: 'Wiedersehen', anlass: 'Jemand meldet sich wieder, mit Dank' }));
     ok(w.ok, 'Wiedersehen angeboten (es gibt Kandidaten)');
     const r = t.an('a' + w.angebot.nr);
@@ -340,7 +340,7 @@ section('Annahme: kein Platz, Lage veraltet (Sabotage ohne Ziel), Wiedersehen (j
     ok(liste(g).filter((x) => x.nsc.name === e2.f.nsc.name).length === 2, 'der alte Faden bleibt als Geschichte stehen'); }
   // Wiedersehen: der Kandidat taugt nicht mehr (NSC_VON): zweiter Kandidat, sonst veraltet
   { const t = neu(30, { env: { ABENTEUER_ANSCHLUSS: '0' } }), g = t.g;
-    const e1 = annehmenUndSpielen(t, notrufplan(1), 'gelungen'), e2 = annehmenUndSpielen(t, notrufplan(2), 'gelungen');
+    const e1 = annehmenUndSpielen(t, notrufplan(1), 'gelungen'), e2 = annehmenUndSpielen(t, notrufplan(2), 'gelungen'); annehmenUndSpielen(t, notrufplan(3), 'gelungen');
     const w = anbieten(g, plan([b('wiedersehen'), b('abschluss')], { titel: 'Wiedersehen', anlass: 'Jemand meldet sich wieder, mit Dank' }));
     e2.f.nsc.status = 'tot';   // der juengste ist tot: er taugt nicht
     const r = t.an('a' + w.angebot.nr);
@@ -477,6 +477,11 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
     try { const tt = neu(413, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = ids[0]; F0.brett = { antworten: [], abgelehnt: [ids[0]], pruefung: -1e9 }; wipe(gg);
       const r = Brett.anschluss(gg); ok(r && r.ref === ids[0] && gg.errors === 0, 'der einzige passende Plan ist zuletzt gespielt und abgelehnt: er wird trotzdem angeboten (zuletzt wird als Letztes freigegeben)'); }
     finally { D.ANSCHLUSS.plaene = orig; } }
+  // SUND-04b E3: drei Ablehnungen (die Obergrenze) und der einzige passende Plan ist zuletzt gespielt: erst die vierte Stufe gibt ihn frei, auch wenn die Wiederholungsregeln schon auf Stufe 3 ganz gelockert sind
+  { const orig = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = [orig[0]];
+    try { const tt = neu(414, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = ids[0]; F0.brett = { antworten: [], abgelehnt: [ids[0], 'abenteuer_aaaaaaaaaaaa', 'abenteuer_bbbbbbbbbbbb'], pruefung: -1e9 }; wipe(gg);
+      const r = Brett.anschluss(gg); ok(r && r.ref === ids[0] && gg.errors === 0, 'drei Ablehnungen und zuletzt gespielt, nur dieser Plan passt: er wird trotzdem angeboten (Stufe 4)'); }
+    finally { D.ANSCHLUSS.plaene = orig; } }
   // deterministisch aus Seed und Zustand
   const folge = (seed) => { const tt = neu(seed), gg = tt.g; const out = []; for (let i = 0; i < 6; i++) { for (let k = 0; k < 100; k++) gg.step(); const o = offen(gg)[0]; out.push(o ? o.ref : null); if (o) tt.ab('a' + o.nr); } return out.join(); };
   ok(folge(41) === folge(41) && folge(41).split(',').every((x) => x !== 'null'), 'gleicher Seed, gleiche Folge von Anschluss-Angeboten');
@@ -504,6 +509,7 @@ section('Anschluss-Garantie nach Lage: Sabotage nur mit Ziel, Wiedersehen nur mi
   for (let seed = 300; seed < 360; seed++) {
     const t = neu(seed), g = t.g; zust(g).angNr = seed;
     const e = annehmenUndSpielen(t, notrufplan(1), 'gelungen'); if (!e.fertig) continue;
+    const e2 = annehmenUndSpielen(t, notrufplan(2), 'gelungen'); if (!e2.fertig) continue;   // SUND-04b E3: die Hauptfigur des letzten Abenteuers kehrt nicht sofort wieder, der des vorletzten schon
     wipe(g); const r = Brett.anschluss(g); if (r) typenWied.add(r.vorlage.beats[0].typ);
   }
   ok(typenWied.has('wiedersehen'), 'mit einem Kandidaten (ein NSC, der sich erinnert): Wiedersehen kommt vor (' + [...typenWied].join(', ') + ')');

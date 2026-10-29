@@ -66,6 +66,8 @@ async function lauf(g, art) { grenze(g, art); await pumpen(g, 3); }
 const b = (typ, o) => Object.assign({ typ }, o || {});
 const plan = (beats, o) => Object.assign({ format: 'faden-bauplan/1', titel: 'Probe Abenteuer', beats }, o || {});
 const planN = (i) => plan([b('spontanhilfe'), b('abschluss')], { titel: 'Probe ' + i, anlass: 'Probeanlass Nummer ' + i + ' ohne Namen.' });
+// SUND-04b E3: das Brett lehnt dieselbe Typenfolge zweimal auf dem Brett ab (WIEDERHOLUNG_FOLGE): wo mehrere Angebote zugleich offen sein sollen, haben die Plaene verschiedene Typen
+const planV = (i) => plan([b(['spontanhilfe', 'notruf', 'geruecht', 'geleit', 'spur', 'konvoi'][i % 6]), b('abschluss')], { titel: 'Probe ' + i, anlass: 'Probeanlass Nummer ' + i + ' ohne Namen.' });
 const PLAN_VOLL = plan([b('bitte', { verzweigung: { gescheitert: 'e' } }), b('fracht'), b('enthuellung', { id: 'e' }), b('raumschlacht'), b('abschluss')], { anlass: 'Eine Frachtbitte, hinter der mehr steckt.' });
 const scriptJson = (liste) => LLM.create({ mode: 'script', script: { abenteuer: liste } });
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-abenteuer-'));
@@ -162,7 +164,7 @@ section('Prompt: echter Bau, keine Spielernamen, nie Titel oder Anlass', async (
   ok(klein.prompt && klein.zeichen <= voll.zeichen - 80 && klein.zeichen < voll.zeichen, `Obergrenze des Prompts: der Kontext wird gekuerzt (${voll.zeichen} -> ${klein.zeichen} Zeichen)`);
   ok(AP.baue(g, { nr: 1, grenze: 'andocken', hex: '0305', letzte: [], werte: Object.assign({}, AW, { prompt_max_zeichen: AP.katalogText().length }) }).fehler, 'passt auch der gekuerzte Kontext nicht, gibt es einen Fehler statt eines Prompts');
   const lw = ['a', 'b', 'c', 'd'].map((x, i) => ({ nr: i, typen: [x] }));
-  ok(JSON.stringify(kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: '0305', letzte: lw, werte: Object.assign({}, AW, { letzte_abenteuer: 2 }) }).prompt).letzte_abenteuer) === '[["c"],["d"]]', 'letzte_abenteuer (Daten): nur die letzten Typenfolgen');
+  ok(JSON.stringify(kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: '0305', letzte: lw, werte: Object.assign({}, AW, { letzte_abenteuer: 2 }) }).prompt).letzte_abenteuer) === '[["spontanhilfe"],["c"],["d"]]', 'letzte_abenteuer (Daten): die Typenfolge des begonnenen Abenteuers (Kanon, SUND-04b E3) und nur die letzten zwei angebotenen');
   // Antwort lesen: das Objekt mit Bauplan-Schluesseln gilt, ein Objekt davor stoert nicht
   const js = JSON.stringify(planN(3));
   ok(AP.bauplanAusText('Notiz {"a": 1} dazu: ' + js).plan.titel === 'Probe 3' && AP.bauplanAusText('x').fehler && AP.bauplanAusText(null).fehler, 'bauplanAusText: erkennt das Bauplan-Objekt nach einem anderen Objekt, Muell ergibt einen Fehler');
@@ -190,7 +192,7 @@ section('Takt: Cooldown, Deckel, 3 Angebote, 1 laufendes, 3 Faeden', async () =>
   for (let k = 0; k < 10; k++) await lauf(t2.g);
   ok(m2.asks().length === 3 && m2.ab.aufrufe === 3 && m2.ab.zaehler.uebersprungen.deckel === 7, 'Deckel 3: genau drei Aufrufe in zehn Grenzen, sieben als deckel uebersprungen');
   // Obergrenze 3 offene Angebote
-  const t3 = spiel(), m3 = mitAbenteuer(t3, { mode: 'script', script: { abenteuer: [1, 2, 3, 4, 5, 6].map((i) => ({ json: planN(i) })) } }, { deckel_je_sitzung: 99, cooldown_grenzen: 1 });
+  const t3 = spiel(), m3 = mitAbenteuer(t3, { mode: 'script', script: { abenteuer: [1, 2, 3, 4, 5, 6].map((i) => ({ json: planV(i) })) } }, { deckel_je_sitzung: 99, cooldown_grenzen: 1 });
   for (let k = 0; k < 9; k++) await lauf(t3.g);
   ok(F(t3.g).abenteuerAngebote.every((a) => a.hex === '0305'), 'das Angebot liegt am Ort der Crew (Hex 0305)');
   ok(F(t3.g).abenteuerAngebote.length === FW.abenteuer.angebote_max && m3.asks().length === FW.abenteuer.angebote_max, `hoechstens ${FW.abenteuer.angebote_max} offene Angebote: drei Aufrufe, danach keiner mehr (${m3.asks().length})`);

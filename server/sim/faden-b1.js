@@ -231,6 +231,14 @@ function katalogFehler() {
     if (!/^[a-z_]{1,40}$/.test(ev)) g(`wiedersehen_erinnert: Ereignis ${ev} passt nicht zum Gedächtnis`);
     if (!has(T, k)) g(`wiedersehen_erinnert: Text ${k} fehlt in texte`);
   }
+  // SUND-04b E2: jede Tat gibt es mit BEIDEN Ausgaengen und verschiedenem Text (der NSC spricht nach einem Scheitern nie von einem Erfolg)
+  for (const [ev, k] of Object.entries(W.wiedersehen_erinnert)) {
+    const m = /^(.+)_(gelungen|gescheitert)$/.exec(ev);
+    if (!m) { g(`WIEDERSEHEN_PAAR: Ereignis ${ev} endet nicht auf _gelungen oder _gescheitert`); continue; }
+    const gegen = m[1] + '_' + (m[2] === 'gelungen' ? 'gescheitert' : 'gelungen');
+    if (!has(W.wiedersehen_erinnert, gegen)) g(`WIEDERSEHEN_PAAR: ${ev} hat keinen Gegenpart ${gegen}`);
+    else if (W.wiedersehen_erinnert[gegen] === k || (has(T, k) && T[k] === T[W.wiedersehen_erinnert[gegen]])) g(`WIEDERSEHEN_PAAR: ${ev} und ${gegen} brauchen verschiedene Texte`);
+  }
   for (const [typ, cat] of Object.entries(D.BEATS)) {
     const erl = (cat.bauplan && cat.bauplan.parameter) || {};
     if (cat.baustein === 'geruecht' && erl.text_key && Array.isArray(erl.text_key.erlaubt)) for (const k of erl.text_key.erlaubt) if (!has(T, k)) g(`Beat ${typ}: text_key ${k} steht nicht in b1-texte.json texte`);
