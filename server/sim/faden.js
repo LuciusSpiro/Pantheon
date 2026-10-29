@@ -223,6 +223,7 @@ function taetigkeit(game, art) {
     }
   }
   try { require('./faden-bitte.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }   // SUND-04a-2 P2: Verfall und Wiederholung der Bitten (nach dem Frist-Takt)
+  abenteuerRegisterAufraeumen(game);   // SUND-04b A2
   return { t: F.t, faellig: F.liste.filter(faellig).map((f) => f.id) };
 }
 
@@ -283,7 +284,7 @@ function abenteuerOeffnen(game, nr, p) {
   const g = P.pruefeAbenteuerOeffnen(F, nr, p);
   if (g) return abgelehnt(g);
   const a = F.abenteuerAngebote.find((x) => x.nr === nr);
-  const reg = D.registriereAbenteuer(a.vorlage);
+  const reg = D.registriereAbenteuer(a.vorlage, F);
   if (!reg.ok) return abgelehnt(reg.fehler[0]);
   const v = D.vorlage(a.vorlage.id);
   const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
@@ -302,7 +303,20 @@ function abenteuerOeffnen(game, nr, p) {
     F.liste.splice(i, 1);
   }
   melde(game, 'geoeffnet', f.id, `Abenteuer ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
+  abenteuerRegisterAufraeumen(game);
   return { ok: true, faden: f };
+}
+// SUND-04b A2: das Register der Abenteuer (faden-daten.js) waechst sonst mit jedem verschiedenen Plan. Dieser Zustand nennt, was er noch braucht (jeder Faden mit Plan, auch ein abgeschlossener, und jedes offene Angebot);
+// alles andere, was nur er hielt, faellt weg. Ein laufender Faden und ein offenes Angebot brechen nie (fehlt ihr Plan im Register, wird er erneut eingetragen). Aufruf: beim Oeffnen (verdraengt aeltere Faeden) und bei jeder Taetigkeit (Angebote verfallen).
+function abenteuerRegisterAufraeumen(game) {
+  try {
+    const F = zustandVon(game);
+    if (!F) return null;
+    const plaene = F.liste.filter((f) => f.plan).map((f) => f.plan).concat(F.abenteuerAngebote.map((a) => a.vorlage));
+    const r = D.raeumeAbenteuerAuf(F, plaene);
+    if (r.fehler.length) logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'abenteuer_register', fehler: r.fehler.slice(0, 6), begruendung: 'Register: Plan nicht eintragbar' });
+    return r;
+  } catch (e) { fehlerZaehlen(game, 'faden-register', e); return null; }
 }
 
 // ---------- Befehle des Lage-Spielleiters
@@ -504,13 +518,13 @@ function leseNsc(x, v) {
   }
   return nsc;
 }
-function leseFaden(x) {
+function leseFaden(x, F) {
   if (!istObjekt(x) || typeof x.id !== 'string' || !/^f\d{1,6}$/.test(x.id)) return { fehler: 'Faden-Kennung ungültig' };
   // SUND-04b A1: ein Abenteuer bringt seinen Plan mit (x.plan); er wird erneut vom Pruefer geprueft, ein ungueltiger Plan beendet den Faden ohne Fehler (er faellt weg, mit Meldung). Ein Faden mit der Id
   // eines Abenteuers, aber ohne Plan, faellt ebenfalls weg (sonst ginge der Plan beim naechsten Speichern verloren)
   let plan = null;
   if (x.plan !== undefined) {
-    const reg = istObjekt(x.plan) && x.plan.id === x.vorlage ? D.registriereAbenteuer(x.plan) : { ok: false, fehler: ['ABENTEUER_ID: der Plan gehoert nicht zu diesem Faden'] };
+    const reg = istObjekt(x.plan) && x.plan.id === x.vorlage ? D.registriereAbenteuer(x.plan, F) : { ok: false, fehler: ['ABENTEUER_ID: der Plan gehoert nicht zu diesem Faden'] };
     if (!reg.ok) return { fehler: `${x.id}: Plan ungültig (${String(reg.fehler[0]).slice(0, 80)})` };
     plan = klon(D.vorlage(x.vorlage));
   } else if (D.istAbenteuer(x.vorlage)) return { fehler: `${x.id}: Abenteuer ohne Plan` };
@@ -557,7 +571,7 @@ function lesen(b) {
   let nr = nat(b.nr, 999999), nscNr = nat(b.nsc, 999999);   // B-K2: Kennungen f<n>/n<n> haben höchstens 6 Ziffern (Schema, Leser)
   const ids = new Set();
   for (const x of Array.isArray(b.liste) ? b.liste : []) {
-    const r = leseFaden(x);
+    const r = leseFaden(x, F);
     if (!r.faden) { F.ladeFehler.push(r.fehler); continue; }
     if (ids.has(r.faden.id) || F.liste.some((y) => y.nsc.id === r.faden.nsc.id)) { F.ladeFehler.push(`${r.faden.id}: Kennung doppelt`); continue; }
     if (r.faden.phase !== 'abgeschlossen' && aktive(F).length >= W.aktiv_max) { F.ladeFehler.push(`${r.faden.id}: mehr als ${W.aktiv_max} aktive Fäden, verworfen`); continue; }
@@ -575,4 +589,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };

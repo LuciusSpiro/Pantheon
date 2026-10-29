@@ -6,6 +6,9 @@
 //   ladeVerzeichnis(dir) -> { geladen: [id], fehler: [{ datei, fehler: [Text] }] }   alle *.json eines Verzeichnisses; Fehler landen auch in ladefehler() und (sobald ein Spiel laeuft) im Regie-Logbuch
 //   SUND-04b A1 Abenteuer: registriereAbenteuer(v) -> { ok, fehler, id } traegt eine expandierte Vorlage (Bauplan, faden-bauplan.js) in ein EIGENES Register ein (vorlage(id) findet sie, vorlagenIds() nie:
 //   ein Abenteuer wird nie ueber einen Ausloeser angeboten); abenteuerId(v) = Praefix + Hash des Inhalts; istAbenteuer(id)
+//   SUND-04b A2 Register-Aufraeumen: registriereAbenteuer(v, besitzer?) merkt, WER einen Eintrag braucht (ein Weltstand-Zustand der Faeden, schwach gehalten: ein beendetes Spiel haelt nichts fest); raeumeAbenteuerAuf(besitzer, plaene) stellt
+//   sicher, dass alle genannten Plaene (laufende Faeden und offene Angebote dieses Besitzers) eingetragen sind, und gibt jeden Eintrag frei, den dieser Besitzer nicht mehr nennt; ein Eintrag faellt erst weg, wenn KEIN Besitzer ihn mehr braucht
+//   (das Register gilt fuer den ganzen Prozess, mehrere Spiele teilen es). Eintraege ohne Besitzer (Tests, Werkstatt) bleiben bis zuruecksetzen().
 //   Beim ersten Zugriff werden content/faeden/vorlagen/ und die Verzeichnisse aus FADEN_VORLAGEN_ZUSATZ (Pfade, getrennt mit path.delimiter) geladen. Eine neue Vorlage ist eine neue Datei: kein Code.
 const fs = require('fs');
 const path = require('path');
@@ -27,6 +30,7 @@ const VORLAGEN_DIR = path.join(DIR, 'vorlagen');
 
 const registry = new Map();   // id -> Vorlage (eingefroren)
 const abenteuer = new Map();  // SUND-04b A1: id -> expandierte Vorlage eines Abenteuers (eingefroren)
+const abenteuerBesitzer = new Map();   // SUND-04b A2: id -> { dauer: bool, refs: [WeakRef(Besitzer)] }
 let fehlerListe = [];         // Ladefehler { datei, fehler }
 let geladen = false;
 
@@ -60,7 +64,18 @@ function protoSchluessel(x, tiefe) {
   for (const k of Object.keys(x)) if (PROTO_SCHLUESSEL.includes(k) || protoSchluessel(x[k], tiefe + 1)) return true;
   return false;
 }
-function registriereAbenteuer(v) {
+function besitzerMerken(id, besitzer) {
+  let b = abenteuerBesitzer.get(id);
+  if (!b) abenteuerBesitzer.set(id, b = { dauer: false, refs: [] });
+  if (!besitzer || typeof besitzer !== 'object') { b.dauer = true; return; }
+  if (!b.refs.some((r) => r.deref() === besitzer)) b.refs.push(new WeakRef(besitzer));
+}
+function registriereAbenteuer(v, besitzer) {
+  const r = registriereAbenteuerOhneBesitzer(v);
+  if (r.ok) besitzerMerken(r.id, besitzer);
+  return r;
+}
+function registriereAbenteuerOhneBesitzer(v) {
   const P = require('./faden-pruefer.js');
   init();
   // vor Hash und Pruefer: Prototyp-Schluessel (ABENTEUER_FORM) und Groesse (ABENTEUER_GROESSE)
@@ -78,6 +93,28 @@ function registriereAbenteuer(v) {
   abenteuer.set(v.id, tief(JSON.parse(JSON.stringify(v))));
   return { ok: true, fehler: [], id: v.id };
 }
+// Register aufraeumen (SUND-04b A2). plaene = die Plaene, die dieser Besitzer noch braucht (laufende Faeden, offene Angebote). Jeder davon ist danach eingetragen (ein Plan, der fehlte, wird erneut geprueft und
+// eingetragen: ein laufender Faden bricht nie). Jeder Eintrag, den dieser Besitzer frueher hielt und nicht mehr nennt, wird freigegeben; ohne weiteren Besitzer faellt er weg. Tote Besitzer (beendete Spiele) zaehlen nicht.
+// -> { entfernt: n, behalten: n, fehler: [Text] }
+function raeumeAbenteuerAuf(besitzer, plaene) {
+  init();
+  const fehler = [];
+  const noetig = new Set();
+  for (const p of Array.isArray(plaene) ? plaene : []) {
+    if (!istObjekt(p) || typeof p.id !== 'string') continue;
+    const r = registriereAbenteuer(p, besitzer);
+    if (!r.ok) fehler.push(String(p.id).slice(0, 32) + ': ' + String(r.fehler[0]).slice(0, 80));
+    else noetig.add(p.id);
+  }
+  let entfernt = 0;
+  for (const id of Array.from(abenteuer.keys())) {
+    const b = abenteuerBesitzer.get(id) || { dauer: true, refs: [] };
+    b.refs = b.refs.filter((r) => { const o = r.deref(); return o !== undefined && !(o === besitzer && !noetig.has(id)); });
+    if (!b.dauer && b.refs.length === 0) { abenteuer.delete(id); abenteuerBesitzer.delete(id); entfernt++; }
+  }
+  return { entfernt, behalten: abenteuer.size, fehler };
+}
+const abenteuerAnzahl = () => { init(); return abenteuer.size; };
 function ladeVerzeichnis(dir) {
   const out = { geladen: [], fehler: [] };
   let dateien = [];
@@ -104,6 +141,6 @@ const vorlage = (id) => { init(); return registry.get(id) || abenteuer.get(id) |
 const vorlagenIds = () => { init(); return Array.from(registry.keys()).sort(); };
 const entferne = (id) => { init(); registry.delete(id); };
 const ladefehler = () => { init(); return fehlerListe.slice(); };
-function zuruecksetzen() { registry.clear(); abenteuer.clear(); fehlerListe = []; geladen = false; }
+function zuruecksetzen() { registry.clear(); abenteuer.clear(); abenteuerBesitzer.clear(); fehlerListe = []; geladen = false; }
 
-module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, DIR, registriereAbenteuer, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
