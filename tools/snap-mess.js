@@ -601,6 +601,8 @@ function brettLauf(S, seed) {
   const r0 = a0.ok ? g.handleMessage(cs[0], { t: 'cmd', c: 'abenteuer.annehmen', id: 'a' + a0.angebot.nr }) : null;
   void r0;
   for (let i = 1; i <= 3; i++) if (!Faden.abenteuerAnbieten(g, lang(i), { hex: '0305' }).ok) fehler++;
+  const bm = require('../server/sim/faden-daten.js').WERTE.beats_max;   // der ungünstigste Fall: jedes Angebot mit beats_max Beats (Daten werte.json)
+  if (!Faden.zustandVon(g).abenteuerAngebote.every((x) => x.vorlage.beats.length === bm)) fehler++;
   if (!(Faden.zustandVon(g).abenteuerAngebote.length === 3 && Faden.zustandVon(g).liste.some((f) => f.plan && f.phase !== 'abgeschlossen'))) fehler++;
   for (let k = 0; k < 400; k++) {
     if (k % 40 === 39) g.lageGrenze('andocken');

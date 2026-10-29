@@ -1122,7 +1122,7 @@ class Game {
       const op = c === 'abenteuer.annehmen' ? 'annehmen' : 'ablehnen';
       let r;
       if (p.downed) r = AbenteuerBrett.weigerung('am_boden');
-      else { try { r = AbenteuerBrett[op](this, typeof msg.id === 'string' ? msg.id : null); } catch (e) { this.countError('abenteuer-brett-' + op, e); r = AbenteuerBrett.weigerung('veraltet'); } }
+      else { try { r = AbenteuerBrett[op](this, typeof msg.id === 'string' ? msg.id : null); } catch (e) { this.countError('abenteuer-brett-' + op, e); r = AbenteuerBrett.weigerung('fehler'); } }
       if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'abenteuerAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
       return;
     }

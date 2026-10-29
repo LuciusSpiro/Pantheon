@@ -33,7 +33,7 @@ const BRETT = lies('content/faeden/abenteuer-brett.json'), ANS = lies('content/f
 const BEATS = lies('content/faeden/beats.json').beats;
 const NAMEN = ['Mireille_Kas', 'Ouzo_Brandt', 'Tzvi_Lund'];
 const GILT = WERTE.abenteuer.wert.angebot_gilt_taetigkeiten, MAXA = WERTE.abenteuer.wert.angebote_max;
-const CODES = ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'kein_spielleiter', 'laeuft_schon', 'kein_platz', 'veraltet', 'am_boden'];
+const CODES = ['modus', 'kein_angebot', 'schon_beantwortet', 'unbekannt', 'kein_spielleiter', 'laeuft_schon', 'kein_platz', 'veraltet', 'fehler', 'am_boden'];
 
 // ---------------------------------------------------------------- Hilfen
 // Spiel mit Lage-Spielleiter (Mock). o.ab = abenteuerWerte (Standard: der Komponist ist still, deckel 0: nur der Rueckfall), o.env ergaenzt, o.ohne: ohne Rueckfall
@@ -93,6 +93,7 @@ function annehmenUndSpielen(t, p, wahl, hex) {
   if (!r || !r.ok || !f) return { a, r };
   return { a, r, f, fertig: spiele(t, f, wahl) };
 }
+const frei = () => new Promise((r) => setImmediate(r));
 const wipe = (g) => { zust(g).abenteuerAngebote.length = 0; };
 const hexname = (hex) => Sektoren.hexName(hex);
 const rangAb = (id) => lies('content/welt/ruf-werte.json').werte.raenge.wert.find((r) => r.id === id).ab;
@@ -204,6 +205,11 @@ section('Snapshot: Kuerzung im Server (Titel 26, Anlass 110), Geruechte aus den 
   // Scheitern = staerkste Einzelfolge, nie die Summe
   const vw = Brett.vorschau(BP.pruefe(plan([b('wiedersehen'), b('notruf'), b('abschluss')])).vorlage, 'rom');
   ok(JSON.stringify(vw.scheitert.filter((x) => typeof x === 'object')) === JSON.stringify([{ f: 'rom', art: 'haltung', d: HW.quellen.wert.im_stich_gelassen.delta }]), 'scheitert: die staerkste Einzelfolge (Notruf: im Stich gelassen), nicht die Summe und nicht die schwaechere (Wiedersehen -1)');
+  // die staerkste Folge ist die mit dem groessten Betrag, auch bei positiven Folgen (kleinstes d waere hier -1 statt +2); Daten: gedankt +1, gerettet +2, hingehalten -1
+  { const fo = (grund) => ({ aus: { gescheitert: { folge: [{ typ: 'haltung_aenderung', grund }] } } });
+    const m = (bt) => Brett.vorschau({ beats: bt }, 'rom').scheitert;
+    ok(JSON.stringify(m([fo('gedankt'), fo('gerettet'), fo('hingehalten')])) === JSON.stringify([{ f: 'rom', art: 'haltung', d: HW.quellen.wert.gerettet.delta }]), 'scheitert: +1, +2, -1 zeigt +2 (groesster Betrag, Vorzeichen bleibt), nicht das kleinste d');
+    ok(JSON.stringify(m([fo('gedankt'), fo('gerettet')])) === JSON.stringify([{ f: 'rom', art: 'haltung', d: HW.quellen.wert.gerettet.delta }]) && JSON.stringify(m([fo('hingehalten'), fo('im_stich_gelassen')])) === JSON.stringify([{ f: 'rom', art: 'haltung', d: HW.quellen.wert.im_stich_gelassen.delta }]), 'scheitert: nur positive Folgen +2, nur negative -2 (Vorzeichen bleibt)'); }
 });
 
 section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Eingabe, Prototype-Keys', () => {
@@ -234,6 +240,13 @@ section('Befehle: annehmen (Crew entscheidet, die ERSTE Antwort gilt), Codes, Ei
   // erste Antwort gilt
   const s2 = t.an(id2, t.cs[0]);
   ok(s2.ok === false && s2.code === 'schon_beantwortet' && s2.text === BRETT.weigerungen.schon_beantwortet, 'zweite Antwort auf dasselbe Angebot: schon_beantwortet (Text aus den Daten)');
+  { // eine Ausnahme im Modul: Code fehler (nicht veraltet), das Angebot bleibt, die Antwort kommt, ein Serverfehler wird gezaehlt
+    const tx = neu(231, { env: { ABENTEUER_ANSCHLUSS: '0' } }), p = anbieten(tx.g, bitteplan(9)), orig = { an: Brett.annehmen, ab: Brett.ablehnen };
+    Brett.annehmen = () => { throw new Error('Probe'); }; Brett.ablehnen = () => { throw new Error('Probe'); };
+    let ra, rb; try { ra = tx.an('a' + p.angebot.nr); rb = tx.ab('a' + p.angebot.nr); } finally { Brett.annehmen = orig.an; Brett.ablehnen = orig.ab; }
+    ok(ra && ra.ok === false && ra.code === 'fehler' && ra.text === BRETT.weigerungen.fehler && rb && rb.code === 'fehler' && offen(tx.g).length === 1 && tx.g.errors === 2, 'Ausnahme beim Annehmen/Ablehnen: Code fehler mit Text aus den Daten, das Angebot bleibt auf dem Brett, zwei gezaehlte Fehler');
+    tx.g.errors = 0;
+    ok(tx.an('a' + p.angebot.nr).ok === true, 'danach laesst sich das Angebot normal annehmen'); }
   ok(t.ab(id2, t.cs[1]).code === 'schon_beantwortet', 'auch Ablehnen nach der Annahme: schon_beantwortet');
   // hoechstens ein laufendes Abenteuer
   const fp0 = logbuch(g).filter((x) => x.art === 'faden_pruefung').length;
@@ -426,13 +439,38 @@ section('Anschluss-Garantie: nach dem Ende ein Angebot ohne Modell, nie der letz
     const folgeRefs = []; let gleich = 0;
     for (let k = 0; k < 20; k++) { const o = offen(gg)[0]; if (!o) { folgeRefs.push(null); break; } if (folgeRefs.length && folgeRefs[folgeRefs.length - 1] === o.ref) gleich++; folgeRefs.push(o.ref); tt.ab('a' + o.nr); Brett.beiTaetigkeit(gg); }
     ok(folgeRefs.length === 20 && !folgeRefs.includes(null) && gleich === 0 && new Set(folgeRefs).size >= 4, 'zwanzigmal abgelehnt: jedes Mal ein neues Angebot, nie zweimal derselbe Plan hintereinander (' + new Set(folgeRefs).size + ' verschiedene)'); }
+  // die Sperren (zuletzt, letzte drei Ablehnungen) duerfen den Rueckfall nie leeren, solange ein Plan passt: ohne Ziel und Kandidat gibt es nur vier passende Plaene (Geruecht, Spur, Konvoi, Geleit)
+  { const idv = (typ) => ids[ANS.plaene.findIndex((p) => p.beats[0].typ === typ)];
+    const vier = ['geruecht', 'spur', 'konvoi', 'geleit'].map(idv);
+    let leer = 0, falsch = 0, n2 = 0;
+    for (const zuletzt of vier) for (let k = 0; k < 6; k++) {
+      const abg = vier.filter((x) => x !== zuletzt);   // die drei uebrigen gerade abgelehnt: ohne Lockerung bliebe nichts
+      const tt = neu(400 + k, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = zuletzt; F0.brett = { antworten: [], abgelehnt: abg.slice(), pruefung: -1e9 }; F0.angNr = k;
+      wipe(gg); const r = Brett.anschluss(gg); n2++;
+      if (!r) leer++; else if (!vier.includes(r.ref) || r.ref === zuletzt) falsch++;   // erst die aelteste Ablehnung, dann zuletzt: hier ist die aelteste Ablehnung frei, zuletzt bleibt gesperrt
+    }
+    ok(n2 === 24 && leer === 0 && falsch === 0, 'zuletzt = ein Plan des Rueckfalls, die drei anderen abgelehnt, ohne Ziel und Kandidat: immer ein Angebot (' + n2 + ' Faelle, ' + leer + ' leer), zuerst wird die aelteste Ablehnung freigegeben, nicht zuletzt');
+    const tt = neu(410, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = vier[0]; F0.brett = { antworten: [], abgelehnt: [vier[1], vier[2], vier[3]], pruefung: -1e9 }; wipe(gg);
+    const r = Brett.anschluss(gg); ok(r && r.ref === vier[1], 'die AELTESTE der drei Ablehnungen wird zuerst freigegeben (Spur)');
+    // wie im Betrieb: zuletzt = Geruecht, danach hintereinander abgelehnt, ohne Ziel und Kandidat: das Brett bleibt nie leer
+    const t9 = neu(411, { env: {} }), g9 = t9.g; zust(g9).abenteuerZuletzt = vier[0]; let leer9 = 0; const gesehen = new Set();
+    for (let k = 0; k < 12; k++) { wipe(g9); const o = Brett.anschluss(g9); if (!o) { leer9++; break; } gesehen.add(o.ref); t9.ab('a' + o.nr); }
+    ok(leer9 === 0 && gesehen.size >= 3, 'zwoelf Ablehnungen hintereinander (zuletzt = Geruecht): jedes Mal ein Angebot (' + gesehen.size + ' verschiedene)');
+    // nur zuletzt und drei Ablehnungen waeren uebrig: es bleibt trotzdem ein Plan
+    const t10 = neu(412, { env: {} }), g10 = t10.g; const F10 = zust(g10); F10.abenteuerZuletzt = vier[2]; F10.brett = { antworten: [], abgelehnt: [vier[0], vier[1], vier[3]], pruefung: -1e9 }; wipe(g10);
+    ok(!!Brett.anschluss(g10) && g10.errors === 0, 'auch dann ein Angebot, wenn zuletzt und die drei Ablehnungen alle vier passenden Plaene sperren'); }
+  // passt nur ein einziger Plan und das ist der zuletzt gespielte, bleibt das Brett trotzdem nicht leer (zuletzt wird als Letztes freigegeben)
+  { const orig = D.ANSCHLUSS.plaene; D.ANSCHLUSS.plaene = [orig[0]];
+    try { const tt = neu(413, { env: {} }), gg = tt.g; const F0 = zust(gg); F0.abenteuerZuletzt = ids[0]; F0.brett = { antworten: [], abgelehnt: [ids[0]], pruefung: -1e9 }; wipe(gg);
+      const r = Brett.anschluss(gg); ok(r && r.ref === ids[0] && gg.errors === 0, 'der einzige passende Plan ist zuletzt gespielt und abgelehnt: er wird trotzdem angeboten (zuletzt wird als Letztes freigegeben)'); }
+    finally { D.ANSCHLUSS.plaene = orig; } }
   // deterministisch aus Seed und Zustand
   const folge = (seed) => { const tt = neu(seed), gg = tt.g; const out = []; for (let i = 0; i < 6; i++) { for (let k = 0; k < 100; k++) gg.step(); const o = offen(gg)[0]; out.push(o ? o.ref : null); if (o) tt.ab('a' + o.nr); } return out.join(); };
   ok(folge(41) === folge(41) && folge(41).split(',').every((x) => x !== 'null'), 'gleicher Seed, gleiche Folge von Anschluss-Angeboten');
   ok(g.errors === 0 && g2.errors === 0, 'keine Serverfehler');
 });
 
-section('Anschluss-Garantie nach Lage: Sabotage nur mit Ziel, Wiedersehen nur mit Kandidat; Komponist ausgefallen', () => {
+section('Anschluss-Garantie nach Lage: Sabotage nur mit Ziel, Wiedersehen nur mit Kandidat; Komponist ausgefallen', async () => {
   const typenOhne = new Set(), typenMit = new Set();
   for (let seed = 200; seed < 230; seed++) {
     const t = neu(seed), g = t.g; zust(g).angNr = seed;
@@ -464,8 +502,10 @@ section('Anschluss-Garantie nach Lage: Sabotage nur mit Ziel, Wiedersehen nur mi
   ok(offen(g).length >= 1 && g.errors === 0, 'Komponist ausgefallen oder im Cooldown: trotzdem ein Angebot (' + offen(g).length + '), kein Fehler');
   // Komponist liefert: Angebote kommen zusaetzlich (hoechstens 3)
   const t7 = neu(62, { ab: { deckel_je_sitzung: 8, cooldown_grenzen: 1 } }), g7 = t7.g;
-  for (let i = 0; i < 12; i++) { g7.lageGrenze('andocken'); for (let k = 0; k < 10; k++) g7.step(); }
+  for (let i = 0; i < 12; i++) { g7.lageGrenze('andocken'); for (let k = 0; k < 10; k++) { g7.step(); await frei(); } }   // der Komponist antwortet asynchron: zwischen den Schritten die Promises laufen lassen
+  const anschlussIds = ANS.plaene.map((p) => BP.pruefe(p).vorlage.id);
   ok(offen(g7).length >= 1 && offen(g7).length <= MAXA && g7.errors === 0, 'Komponist (Mock) und Rueckfall nebeneinander: 1 bis ' + MAXA + ' Angebote (' + offen(g7).length + ')');
+  ok(offen(g7).some((a) => !anschlussIds.includes(a.ref)), 'mindestens ein Angebot stammt vom Komponisten, nicht aus anschluss.json (' + offen(g7).map((a) => a.ref.slice(-4) + (anschlussIds.includes(a.ref) ? ' Rueckfall' : ' Komponist')).join(', ') + ')');
 });
 
 section('Ohne Spielleiter laeuft die Welt weiter: begonnene Abenteuer stehen, speicherbar, Angebote bis zum Verfall', () => {
@@ -504,6 +544,25 @@ section('Weltstand: Version 3, Altstand laedt, Angebote und zuletzt ueberstehen 
   ok(offen(t2.g).length === 2 && offen(t2.g).map((a) => a.ref).sort().join() === [p1.angebot.ref, p2.angebot.ref].sort().join() && D.vorlage(offen(t2.g)[0].ref), 'nach dem Laden: die Angebote sind da, ihre Plaene stehen im Register');
   ok(zust(t2.g).abenteuerZuletzt === blk.zuletzt && zust(t2.g).ladeFehler.length === 0, 'zuletzt gelesen, keine Ladefehler');
   ok(JSON.stringify(Faden.toSave(t2.g.weltsim)) === JSON.stringify(sim.faeden), 'Speichern nach dem Laden ergibt denselben Block');
+  { // das Volk des Ortes geht beim Speichern und Laden nicht verloren: von, Marken und Volk des Angebots vor und nach dem Laden gleich
+    const tg = neu(272, { env: { ABENTEUER_ANSCHLUSS: '0' } }), gg = tg.g;
+    postenSetzen(gg, '0703', 'ger');
+    const ag = anbieten(gg, plan([b('geruecht'), b('abschluss')], { titel: 'Germanen Gerucht', anlass: 'Ein Gerucht im germanischen Raum', volk_erlaubt: ['rom', 'ger'] }), '0703');
+    const vor = block(gg), simg = JSON.parse(JSON.stringify(Weltstand.capture(gg).welt.sim));
+    D.zuruecksetzen();
+    const tl = laden(simg, 273), nach = block(tl.g);
+    ok(ag.ok && ag.angebot.volk === 'ger' && vor.angebote[0].von === 'ger' && nach && nach.angebote[0].von === 'ger' && offen(tl.g)[0].volk === 'ger' && JSON.stringify(nach.angebote[0].vorschau) === JSON.stringify(vor.angebote[0].vorschau) && JSON.stringify(Faden.toSave(tl.g.weltsim)) === JSON.stringify(simg.faeden), 'Angebot an germanischem Hex: Volk, von und Marken vor und nach Speichern/Laden gleich (ger)');
+    const sx = JSON.parse(JSON.stringify(simg)); sx.faeden.abenteuer.angebote[0].volk = 'kon'; const tx = laden(sx, 274);
+    ok(offen(tx.g)[0].volk === '' && block(tx.g).angebote[0].von === 'rom', 'ein Volk, das die Vorlage nicht erlaubt, wird beim Laden verworfen (Rueckfall: erstes erlaubtes Volk)');
+    sx.faeden.abenteuer.angebote[0].volk = 5; const ty = laden(sx, 275); ok(offen(ty.g)[0].volk === '' && ty.g.errors === 0, 'Volk kein Text: verworfen, kein Fehler');
+    // die Geltungsdauer steht in den Daten: das Schema kennt keine eigene feste Obergrenze, das Laden prueft gegen den Datenwert
+    const gilt = D.WERTE.abenteuer.angebot_gilt_taetigkeiten; D.WERTE.abenteuer.angebot_gilt_taetigkeiten = gilt + 8;
+    try { const sl = JSON.parse(JSON.stringify(simg)); sl.faeden.abenteuer.angebote[0].alter = gilt + 6; const tz = laden(sl, 276), dz = Weltstand.capture(tz.g);
+      ok(offen(tz.g)[0].alter === gilt + 6 && Weltstand.validate(dz, tz.g).filter((x) => /abenteuer|alter/.test(String(x))).length === 0, 'Geltungsdauer aus den Daten ' + (gilt + 8) + ': Alter ' + (gilt + 6) + ' laedt unveraendert und ist schemagueltig (kein festes Maximum im Schema)'); }
+    finally { D.WERTE.abenteuer.angebot_gilt_taetigkeiten = gilt; }
+    { const tr = neu(277, { env: { ABENTEUER_ANSCHLUSS: '0' } }); anbieten(tr.g, plan([b('geruecht'), b('abschluss')], { titel: 'Zwei Voelker', anlass: 'Ein Gerucht fuer zwei Voelker', volk_erlaubt: ['kon', 'rom'] }));
+      const k1 = Brett.schluessel(tr.g); offen(tr.g)[0].volk = 'kon'; const k2 = Brett.schluessel(tr.g);
+      ok(k1 && k2 && k1 !== k2, 'Schluessel: aendert sich die Fraktion des Auftraggebers (von), wird der Block neu gesendet'); } }
   const s2 = block(t2.g);
   ok(s2 && s2.angebote.length === 2 && s2.angebote[0].rest === GILT - blk.angebote[0].alter && s2.angebote[0].titel, 'der Block der neuen Sitzung zeigt die Angebote mit ihrem Verfall');
   ok(t2.an(s2.angebote[0].id).ok === true, 'ein geladenes Angebot laesst sich annehmen');

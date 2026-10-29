@@ -82,6 +82,7 @@
     "laeuft_schon": "Die Crew hat schon einen Auftrag. Das Angebot bleibt.",
     "kein_platz": "Die Crew hat gerade keinen Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.",
     "veraltet": "Der Auftrag hat sich erledigt. Er wurde vom Brett genommen.",
+    "fehler": "Das Brett konnte die Antwort nicht verarbeiten. Das Angebot bleibt.",
     "am_boden": "Wer am Boden liegt, kann nicht entscheiden."
   },
   "schritte": {

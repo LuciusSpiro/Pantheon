@@ -10,7 +10,7 @@
 //   vorschau(vorlage) -> [Schritt]      die Vorschau aus den Daten der Vorlage (Test, Snapshot)
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
-//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+//   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk? }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
 // Ohne Schalter FAEDEN=1 oder ohne aktiven Lage-Spielleiter tut der Rueckfall nichts (die Angebote bleiben bis zum Verfall, begonnene Abenteuer stehen).
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
@@ -77,12 +77,12 @@ function schrittText(b) {
   return e.text;
 }
 const kuerzen = (t, max) => { t = String(t); return t.length <= max ? t : t.slice(0, Math.max(0, max - 1)).trimEnd() + '…'; };
-// Summe der Marken je (art, f); bei summe = false der staerkste Einzelwert (kleinstes d): Scheitern ist ein einzelner Schritt, nie die Summe aller
+// Summe der Marken je (art, f); bei summe = false der staerkste Einzelwert (groesster Betrag, Vorzeichen bleibt): Scheitern ist ein einzelner Schritt, nie die Summe aller
 function sammeln(listen, summe) {
   const m = new Map();
   for (const l of listen) for (const x of l) {
     const k = x.art + ':' + x.f, alt = m.get(k);
-    if (!alt) m.set(k, Object.assign({}, x)); else m.set(k, Object.assign({}, alt, { d: summe ? Math.round((alt.d + x.d) * 100) / 100 : Math.min(alt.d, x.d) }));
+    if (!alt) m.set(k, Object.assign({}, x)); else m.set(k, Object.assign({}, alt, { d: summe ? Math.round((alt.d + x.d) * 100) / 100 : Math.abs(x.d) > Math.abs(alt.d) ? x.d : alt.d }));
   }
   return Array.from(m.values()).filter((x) => x.d !== 0);
 }
@@ -119,7 +119,7 @@ function schluessel(game) {
   if (!F || !Faden().aktiv(game)) return null;
   const l = laufendVon(F);
   if (!F.abenteuerAngebote.length && !l) return null;
-  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a)).join(','), l ? [l.id, l.beat, l.phase, restLaufend(l)].join(':') : ''].join('|');
+  return [Faden().spielleiterAktiv(game) ? 1 : 0, F.abenteuerAngebote.map((a) => a.nr + ':' + restAngebot(a) + ':' + vonAngebot(game, a)).join(','), l ? [l.id, l.beat, l.phase, restLaufend(l)].join(':') : ''].join('|');
 }
 // Fraktion des Auftraggebers: das Volk des Angebots, sonst das erste erlaubte Volk der Vorlage; ein Wiedersehen: das Volk des juengsten Kandidaten
 function vonAngebot(game, a) {
@@ -230,11 +230,13 @@ function beiEnde(game, f, ausgang) {
 
 // ---------- Anschluss-Garantie: nach dem Ende ist mindestens ein neues Angebot da. Der Komponist (A2) kann ausfallen, im Cooldown sein oder zu spaet antworten: dann bietet ein deterministischer Rueckfall
 // einen Standard-Bauplan an (anschluss.json), durch denselben Expander und denselben Pruefer, ohne Modell.
-function passt(game, F, bp) {
+// stufe k: die k aeltesten Ablehnungen sind freigegeben; stufe > Zahl der Ablehnungen: auch zuletzt (siehe anschluss: es bleibt immer ein passender Plan, solange einer passt)
+function passt(game, F, bp, stufe) {
   const r = Bauplan().pruefe(bp);
   if (!r.ok) return null;
-  const v = r.vorlage;
-  if (v.id === F.abenteuerZuletzt || brett(F).abgelehnt.includes(v.id)) return null;
+  const v = r.vorlage, abg = brett(F).abgelehnt;
+  if (v.id === F.abenteuerZuletzt && stufe <= abg.length) return null;
+  if (abg.indexOf(v.id) >= stufe) return null;
   if (P.pruefeLage(game, v)) return null;   // Sabotage nur bei einem Ziel
   if (P.nscAlt(v) && !Faden().wiedersehenKandidaten(game, v).length) return null;   // Wiedersehen nur mit Kandidat
   return v;
@@ -245,7 +247,8 @@ function anschluss(game) {
   if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
-  const plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp));
+  let plaene = [];
+  for (let stufe = 0; !plaene.length && stufe <= brett(F).abgelehnt.length + 1; stufe++) plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, stufe));   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
   if (!plaene.length) return null;
   const n = F.angNr + 1;
   const start = Math.floor(Faden().strom(game, n, 'anschluss')() * plaene.length) % plaene.length;
@@ -273,7 +276,7 @@ function toSave(F) {
   if (!F) return null;
   const b = {};
   if (typeof F.abenteuerZuletzt === 'string' && VORLAGE_ID.test(F.abenteuerZuletzt)) b.zuletzt = F.abenteuerZuletzt;
-  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => ({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }));
+  if (F.abenteuerAngebote && F.abenteuerAngebote.length) b.angebote = F.abenteuerAngebote.slice(0, W.abenteuer.angebote_max).map((a) => Object.assign({ hex: a.hex, alter: a.alter, plan: klon(a.vorlage) }, a.volk ? { volk: a.volk } : {}));
   return Object.keys(b).length ? b : null;
 }
 function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.ladeFehler), Prototyp-Schluessel und ungueltige Plaene weist registriereAbenteuer ab
@@ -287,7 +290,7 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
     const v = klon(D.vorlage(reg.id));
     if (F.abenteuerAngebote.some((a) => a.ref === v.id && a.hex === x.hex)) continue;
     const alter = Number.isInteger(x.alter) && x.alter >= 0 ? Math.min(x.alter, W.abenteuer.angebot_gilt_taetigkeiten) : 0;
-    F.abenteuerAngebote.push({ nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: '', vorlage: v, alter });
+    F.abenteuerAngebote.push({ nr: ++F.angNr, art: 'abenteuer', ref: v.id, hex: x.hex, volk: typeof x.volk === 'string' && v.volk_erlaubt.includes(x.volk) ? x.volk : '', vorlage: v, alter });
   }
   return F;
 }
