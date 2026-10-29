@@ -72,7 +72,9 @@ function fadenKontext(game) {
     if (f.plan) { e.typen = typenVon(f.plan); abenteuer++; }
     aktiv.push(e);
   }
-  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length };
+  // SUND-04b B1: wie viele NSC aus abgeschlossenen Faeden fuer ein Wiedersehen taugen (nur die Zahl, nie ein Name): ohne einen gibt es fuer einen Plan mit Wiedersehen kein Angebot
+  const wiedersehen = require('./faden-pruefer.js').wiedersehenNsc(F, { volk_erlaubt: BW.volk_erlaubt_standard }).length;
+  return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen };
 }
 // Der verdichtete Kontext: nur was der Ausschnitt der Lage schon gefiltert liefert (Chronik ohne Namen, Crew ohne Namen) und der Faden-Zustand ohne NSC-Namen.
 function kontextVon(game, werte, letzte, stufe) {

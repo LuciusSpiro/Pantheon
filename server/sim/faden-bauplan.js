@@ -11,7 +11,7 @@
 //
 // Regeln des Expanders (Code): FORM · BAUPLAN_TEXT · VOLK · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUPLAN_TYP_NICHT_PLANBAR · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT ·
 //   OPTION_BEI_GEFAHR · OPTIONEN_NICHT_ERLAUBT · BAUPLAN_OPTIONEN_PFLICHT · OPTIONEN_GLEICHER_WEG · WEITER_UNGUELTIG · AUSGANG_UNGUELTIG (Verzweigung am Abschluss) · ERFOLG_UNGUELTIG · BAUPLAN_NAMENLOS_TYP ·
-//   BAUPLAN_WAHRHEIT_UNBEKANNT · WAHRHEIT_OHNE_ENTHUELLUNG · HINWEIS_FEHLT · UNERREICHBAR · STATUS_PASST_NICHT · SCHEITERN_FOLGENLOS · BAUPLAN_KATALOG. Gleiche Codes wie der Pruefer, wo es dieselbe Regel ist.
+//   BAUPLAN_WAHRHEIT_UNBEKANNT · NSC_ALT_NICHT_ERSTER (SUND-04b B1: Wiedersehen nur als erster Beat, nie namenlos) · WAHRHEIT_OHNE_ENTHUELLUNG · HINWEIS_FEHLT · UNERREICHBAR · STATUS_PASST_NICHT · SCHEITERN_FOLGENLOS · BAUPLAN_KATALOG. Gleiche Codes wie der Pruefer, wo es dieselbe Regel ist.
 const fs = require('fs');
 const path = require('path');
 const D = require('./faden-daten.js');
@@ -99,6 +99,7 @@ function katalogFehler() {
       for (const x of o.folge || []) { const r = P.folgeWirkung(x, 'n1'); if (r.fehler) g(`aus.${ag}: ${r.fehler}`); }
       if (!cat.abschluss && !(Array.isArray(o.status) && o.status.length && o.status.every((s) => W.status.includes(s)))) g(`aus.${ag}.status ist leer oder enthaelt einen unbekannten Zustand`);
     }
+    if (cat.braucht && cat.braucht.nsc_alt !== undefined && cat.braucht.nsc_alt !== true) g('braucht.nsc_alt ist true oder fehlt');
     if (bp.optionen_pflicht && cat.optionen !== 'erlaubt') g('optionen_pflicht, aber der Beat-Typ erlaubt keine Optionen');
     if (bp.optionen !== undefined) {
       if (cat.optionen !== 'erlaubt' || cat.gefahr) g('optionen nur bei einem Typ mit optionen erlaubt und ohne Gefahr');
@@ -107,6 +108,7 @@ function katalogFehler() {
       if (e.length) g('Standard-Optionen ungueltig: ' + e[0]);
     } else if (bp.optionen_pflicht) g('optionen_pflicht ohne optionen');
   }
+  out.push(...require('./faden-b1.js').katalogFehler().map((t) => fehl('BAUPLAN_KATALOG', t)));   // SUND-04b B1: Texte, Spuren und Parameter der Bausteine geruecht, spur, wiedersehen
   return out;
 }
 
@@ -150,6 +152,10 @@ function expandiere(plan) {
     const cat = cats[i], bp = cat.bauplan, id = ids[i];
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) add('ABSCHLUSS_NICHT_LETZT', `Beat ${id} (${b.typ}) darf nur der letzte sein`);
     if (namenlos && !((cat.braucht && cat.braucht.nsc_status) || []).includes('aktiv')) add('BAUPLAN_NAMENLOS_TYP', `Beat ${id} (${b.typ}) laeuft nur mit einem NSC in einem anderen Zustand als aktiv: in einem namenlosen Abenteuer bleibt der NSC aktiv`);
+    if (cat.braucht && cat.braucht.nsc_alt === true) {   // SUND-04b B1: ein NSC aus einem frueheren Faden kommt mit dem Oeffnen (parameter nsc_von), also nur am Anfang und nie namenlos
+      if (i !== 0) add('NSC_ALT_NICHT_ERSTER', `Beat ${id} (${b.typ}): ein Beat mit einem NSC aus einem fruheren Faden steht nur am Anfang des Plans`);
+      if (namenlos) add('BAUPLAN_NAMENLOS_TYP', `Beat ${id} (${b.typ}): ein namenloses Abenteuer hat keinen NSC aus einem fruheren Faden`);
+    }
     // Parameter: Standards der Daten, der Plan darf nur nennen, was die Daten erlauben
     const p = {};
     for (const [k, s] of Object.entries(bp.parameter || {})) p[k] = s.standard;

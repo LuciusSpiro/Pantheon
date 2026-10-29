@@ -12,6 +12,7 @@
 // Regeln der Vorlage (Code): FORM · BEATS_ANZAHL · ID_DOPPELT · TYP_UNBEKANNT · BAUSTEIN_FEHLT · PARAMETER · FLUCHTZIEL_FEHLT · ABSCHLUSS_NICHT_LETZT · ABSCHLUSS_FEHLT · WAHRHEIT_OHNE_ENTHUELLUNG ·
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
+//   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
@@ -112,6 +113,7 @@ function parameterFehler(beat, cat) {
     else if (!(typeof p[k] === 'boolean' || (typeof p[k] === 'number' && Number.isFinite(p[k])) || (typeof p[k] === 'string' && p[k].length > 0 && p[k].length <= 40))) out.push(fehl('PARAMETER', `Beat ${beat.id}: Parameter "${k}" muss ein kurzer Text, eine Zahl oder ein Wahrheitswert sein`));
     else if (k === 'text_key' && !(typeof p[k] === 'string' && TEXT_KEY.test(p[k]))) out.push(fehl('TEXT_KEY', `Beat ${beat.id}: parameter text_key "${String(p[k]).slice(0, 40)}" ist ungültig (nur a-z, 0-9, _, 1 bis 40 Zeichen; der Weltstand verlangt es)`));
   }
+  if (erlaubt.includes('hex') && has(p, 'hex') && !(typeof p.hex === 'string' && HEX.test(p.hex) && require('../../shared/sektoren.js').spielbar(p.hex))) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): der Parameter hex ist kein spielbarer Sektor der Karte`));   // SUND-04b B1: Ankunftsort der Beats geruecht, wiedersehen, notruf
   const braucht = cat.braucht || {};
   for (const k of spec.pflicht || []) if (!(k in p) && !(k === 'fluchtziel' && braucht.fluchtziel)) out.push(fehl('PARAMETER', `Beat ${beat.id} (${beat.typ}): Pflichtparameter "${k}" fehlt`));
   if (braucht.fluchtziel && !fluchtzielOk(p.fluchtziel)) out.push(fehl('FLUCHTZIEL_FEHLT', `Beat ${beat.id} (${beat.typ}): ohne gültiges Fluchtziel (Hex-Code oder ${W.fluchtziele.join(', ')}) gibt es keine Verfolgung`));
@@ -284,6 +286,10 @@ function pruefeVorlage(v) {
     if (!Bausteine.vonId(cat.baustein)) fehler.push(fehl('BAUSTEIN_FEHLT', `Beat ${b.id}: der Baustein ${cat.baustein} ist nicht registriert`));
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(fehl('ABSCHLUSS_NICHT_LETZT', `Beat ${b.id} (${b.typ}) darf nur der letzte sein`));
     if (b.variante && namenlos) fehler.push(fehl('NAMENLOS', `Beat ${b.id}: ein namenloses Abenteuer hat keine feindliche Variante (kein fester NSC, der wiederkehrt)`));
+    if (cat.braucht && cat.braucht.nsc_alt === true) {   // SUND-04b B1: Wiedersehen
+      if (i !== 0) fehler.push(fehl('NSC_ALT_NICHT_ERSTER', `Beat ${b.id} (${b.typ}): ein Beat mit einem NSC aus einem früheren Faden steht nur am Anfang (der NSC kommt mit dem Öffnen)`));
+      if (namenlos) fehler.push(fehl('NAMENLOS', `Beat ${b.id}: ein namenloses Abenteuer hat keinen NSC aus einem früheren Faden`));
+    }
     if (b.variante) fehler.push(...varianteFehler(b, cat, v, i, idx));
     if (cat.braucht && cat.braucht.wahrheit) { wahrheitBeat = true; if (!v.wahrheit) fehler.push(fehl('ENTHUELLUNG_OHNE_WAHRHEIT', `Beat ${b.id}: ohne verborgene Wahrheit gibt es nichts zu enthüllen`)); }
     if (b.gefahr === false && cat.gefahr) fehler.push(fehl('GEFAHR_ABGESCHWAECHT', `Beat ${b.id}: ein Beat ${b.typ} bringt immer Gefahr, die Vorlage darf das nicht abschwächen`));
@@ -392,7 +398,7 @@ function pruefeFaden(f) {
 const neuerKontext = () => ({ n: 0, oeffnen: 0, benutzt: new Set(), weiter: new Set() });
 const aktive = (F) => F.liste.filter((f) => f.phase !== 'abgeschlossen');
 const BEFEHL_FELDER = { faden_oeffnen: ['typ', 'vorlage', 'parameter'], faden_weiter: ['typ', 'faden', 'beat'] };
-const PARAM_FELDER = ['volk', 'ort', 'name', 'angebot'];
+const PARAM_FELDER = ['volk', 'ort', 'name', 'angebot', 'nsc_von'];   // SUND-04b B1: nsc_von = Kennung eines NSC aus einem frueheren, abgeschlossenen Faden (Wiedersehen)
 const nameOk = (name, volk) => {
   const L = N[volk];
   if (!L || typeof name !== 'string') return false;
@@ -401,6 +407,27 @@ const nameOk = (name, volk) => {
 };
 function felderFehler(b) {
   for (const k of Object.keys(b)) if (!BEFEHL_FELDER[b.typ].includes(k)) return fehl('BEFEHL_FELD', `${b.typ}: unbekanntes Feld "${k}"`);
+  return null;
+}
+
+// ---------- Wiedersehen (SUND-04b B1): ein neuer Faden mit einem alten NSC. Der NSC gehoert einem ABGESCHLOSSENEN Faden (ein NSC in einem aktiven Faden ist noch in seiner Geschichte), lebt, gehoert zu einem Volk der
+// Vorlage und hat eine konkrete Tat der Crew im Gedaechtnis (Daten b1-texte.json wiedersehen_erinnert). Mehrere Faeden desselben NSC (Wiedersehen mit dem Wiedersehen): der juengste gilt.
+const nscAlt = (v) => !!(v && Array.isArray(v.beats) && v.beats[0] && has(B, v.beats[0].typ) && B[v.beats[0].typ].braucht && B[v.beats[0].typ].braucht.nsc_alt === true);
+const erinnertTat = (n) => (Array.isArray(n.gedaechtnis) ? n.gedaechtnis : []).some((g) => istObjekt(g) && typeof g.ereignis === 'string' && has(D.B1.werte.wiedersehen_erinnert, g.ereignis));
+function wiedersehenNsc(F, v) {
+  const juengster = new Map();
+  for (const f of F.liste) juengster.set(f.nsc.name, f);
+  return Array.from(juengster.values()).filter((f) => f.phase === 'abgeschlossen' && f.nsc.status !== 'tot' && v.volk_erlaubt.includes(f.nsc.fraktion) && Number.isFinite(f.nsc.haltung) && erinnertTat(f.nsc)).map((f) => f.nsc);
+}
+function pruefeNscVon(F, v, p) {
+  if (!has(p, 'nsc_von')) return nscAlt(v) ? fehl('NSC_VON_FEHLT', 'ein Abenteuer mit einem Wiedersehen braucht nsc_von (einen NSC aus einem früheren, abgeschlossenen Faden)') : null;
+  if (!nscAlt(v)) return fehl('NSC_VON', 'nsc_von gibt es nur für ein Abenteuer, das mit einem Wiedersehen beginnt');
+  const id = p.nsc_von;
+  if (typeof id !== 'string' || !/^n[0-9]{1,6}$/.test(id)) return fehl('NSC_VON', 'nsc_von ist keine NSC-Kennung (n und Ziffern)');
+  if (has(p, 'name')) return fehl('NSC_VON', 'name und nsc_von schließen sich aus: der Name ist der des NSC');
+  const n = wiedersehenNsc(F, v).find((x) => x.id === id);
+  if (!n) return fehl('NSC_VON', `der NSC ${id} ist kein NSC eines abgeschlossenen Fadens, der lebt, zu den Völkern dieser Vorlage gehört und sich an eine Tat der Crew erinnert`);
+  if (p.volk !== undefined && p.volk !== n.fraktion) return fehl('PARAMETER', `volk "${String(p.volk).slice(0, 8)}" passt nicht zum NSC ${id} (${n.fraktion})`);
   return null;
 }
 
@@ -428,6 +455,8 @@ function pruefeOeffnen(F, b, ctx) {
   if (p.volk !== undefined && !v.volk_erlaubt.includes(p.volk)) return fehl('PARAMETER', `volk "${p.volk}" ist für ${v.id} nicht erlaubt (${v.volk_erlaubt.join(', ')})`);
   const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
   if (p.ort !== undefined && !(typeof p.ort === 'string' && HEX.test(p.ort) && require('../../shared/sektoren.js').spielbar(p.ort))) return fehl('PARAMETER', 'ort ist kein spielbarer Sektor');
+  const nv = pruefeNscVon(F, v, p);
+  if (nv) return nv;
   if (p.name !== undefined) {
     if (!nameOk(p.name, volk)) return fehl('NAME', `name muss aus Vor- und Nachname der Liste des Volkes ${volk} bestehen (NSC entstehen nur aus Datenlisten)`);
     if (F.liste.some((f) => f.nsc.name === p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);
@@ -473,7 +502,7 @@ function pruefeAbenteuerAnbieten(F, o) {
 function pruefeAbenteuerOeffnen(F, nr, p) {
   p = p === undefined ? {} : p;
   if (!istObjekt(p)) return fehl('PARAMETER', 'parameter ist kein Objekt');
-  for (const k of Object.keys(p)) if (!['volk', 'name'].includes(k)) return fehl('PARAMETER', `unbekannter Parameter "${k}" (erlaubt: volk, name)`);
+  for (const k of Object.keys(p)) if (!['volk', 'name', 'nsc_von'].includes(k)) return fehl('PARAMETER', `unbekannter Parameter "${k}" (erlaubt: volk, name, nsc_von)`);
   const a = Number.isInteger(nr) ? (F.abenteuerAngebote || []).find((x) => x.nr === nr) : null;
   if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot ${String(nr).slice(0, 12)} gibt es nicht (mehr)`);
   if (aktive(F).length >= W.aktiv_max) return fehl('OBERGRENZE', `hoechstens ${W.aktiv_max} aktive Faeden`);
@@ -481,6 +510,8 @@ function pruefeAbenteuerOeffnen(F, nr, p) {
   const v = a.vorlage;
   if (p.volk !== undefined && !v.volk_erlaubt.includes(p.volk)) return fehl('PARAMETER', `volk "${p.volk}" ist fuer dieses Abenteuer nicht erlaubt (${v.volk_erlaubt.join(', ')})`);
   const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
+  const nv = pruefeNscVon(F, v, p);
+  if (nv) return nv;
   if (p.name !== undefined) {
     if (!nameOk(p.name, volk)) return fehl('NAME', `name muss aus Vor- und Nachname der Liste des Volkes ${volk} bestehen (NSC entstehen nur aus Datenlisten)`);
     if (F.liste.some((f) => f.nsc.name === p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);
@@ -497,4 +528,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { nscAlt, wiedersehenNsc, pruefeNscVon, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

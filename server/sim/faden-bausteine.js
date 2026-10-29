@@ -49,4 +49,8 @@ const P3 = require('./faden-p3.js');   // SUND-04a-2 P3: Notruf, Enthüllung (Sp
 registriere('notruf', P3.notruf);
 registriere('enthuellung', P3.enthuellung);
 registriere('abschluss', P3.abschluss);
+const B1 = require('./faden-b1.js');   // SUND-04b B1: Gerücht, Rätsel-Spur, Wiedersehen (Beats ohne Kampfszene)
+registriere('geruecht', B1.geruecht);
+registriere('spur', B1.spur);
+registriere('wiedersehen', B1.wiedersehen);
 module.exports = { registriere, vonId, idVon, platzhalter, istPlatzhalter };

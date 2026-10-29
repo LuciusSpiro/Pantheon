@@ -23,6 +23,7 @@
 //   oeffnen / weiterSetzen / beatAusgang(game, fadenId, 'gelungen'|'gescheitert') / optionWaehlen(game, fadenId, optionId)   die Schritte; Ausgang und Optionen melden die Bausteine
 //   haltungPruefen / haltungBuchen / anwenden   Wirkung haltung_aenderung (Aufsatz-Wirkung, Katalog server/weltsim/wirkungen.js); haltungVon(npc), chanceSpontanhilfe(npc), tonVon(npc)
 //   ausschnittBlock(game) / promptText()   kleiner Faden-Block fuer den Lage-Spielleiter (hoechstens 3 Faeden, nie Spielernamen, die verborgene Wahrheit nur als Kennung)
+//   SUND-04b B1: wiedersehenKandidaten(game, vorlage) -> [NSC-Kennung] (NSC abgeschlossener Faeden, die zu einem Wiedersehen taugen); abenteuerOeffnen und faden_oeffnen nehmen parameter nsc_von; strom(game, n, salz), idNr(id) fuer faden-b1.js
 //   neu() / toSave(ws) / lesen(block)     Weltstand welt.sim.faeden
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
@@ -106,6 +107,17 @@ function nscErzeugen(game, v, volk, name, nscNr) {
   if (v.wahrheit) { nsc.wahrheit = { id: v.wahrheit.id, offenbart: false }; if (v.wahrheit.fraktion) nsc.wahrheit.fraktion = v.wahrheit.fraktion; }
   return nsc;
 }
+// SUND-04b B1 Wiedersehen: der NSC eines frueheren, abgeschlossenen Fadens kehrt in einem NEUEN Faden wieder (parameter nsc_von, geprueft in faden-pruefer.js pruefeNscVon). Er bekommt eine neue Kennung (der alte Faden bleibt
+// als Geschichte stehen: Abspann, Gedaechtnis), behaelt aber Name, Schiff, Porträt, Haltung und Gedaechtnis; Zustand und Wahrheit gehoeren der neuen Vorlage.
+function nscUebernehmen(alt, v, nscNr) {
+  const n = klon(alt);
+  n.id = 'n' + nscNr;
+  n.status = (v.nsc && v.nsc.status) || 'aktiv';
+  n.wahrheit = null;
+  if (v.wahrheit) { n.wahrheit = { id: v.wahrheit.id, offenbart: false }; if (v.wahrheit.fraktion) n.wahrheit.fraktion = v.wahrheit.fraktion; }
+  return n;
+}
+const wiedersehenKandidaten = (game, v) => (v && P.nscAlt(v) ? P.wiedersehenNsc(zustandVon(game), v).map((n) => n.id) : []);
 const portraetVon = (npc) => (npc && Number.isFinite(npc.portrait) ? npc.portrait % W.portrait.varianten : 0);   // V1: eine von wenigen Varianten, der Baukasten folgt
 function gedaechtnisEintragen(nsc, tick, ereignis, textKey) {
   nsc.gedaechtnis.push({ tick, ereignis, text_key: textKey });
@@ -271,6 +283,7 @@ function abenteuerAnbieten(game, bauplan, o) {
   const r = Bauplan().pruefe(bauplan);
   if (!r.ok) return abgelehnt(r.fehler[0], r.fehler);
   if (F.abenteuerAngebote.some((a) => a.ref === r.vorlage.id && a.hex === o.hex)) return abgelehnt('ABENTEUER_DOPPELT: dieses Abenteuer liegt an diesem Ort schon als Angebot vor');
+  if (P.nscAlt(r.vorlage) && !wiedersehenKandidaten(game, r.vorlage).length) return abgelehnt('WIEDERSEHEN_KEIN_NSC: es gibt keinen NSC aus einem abgeschlossenen Faden, der sich an eine Tat der Crew erinnert');   // SUND-04b B1
   const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
   F.abenteuerAngebote.push(a);
   melde(game, 'abenteuer_angeboten', r.vorlage.id, `Abenteuer ${r.vorlage.id} als Angebot ${a.nr} bei ${o.hex}`, { vorlage: r.vorlage.id, angebot: a.nr });
@@ -287,10 +300,11 @@ function abenteuerOeffnen(game, nr, p) {
   const reg = D.registriereAbenteuer(a.vorlage, F);
   if (!reg.ok) return abgelehnt(reg.fehler[0]);
   const v = D.vorlage(a.vorlage.id);
-  const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
+  const alt = has(p, 'nsc_von') ? P.wiedersehenNsc(F, v).find((x) => x.id === p.nsc_von) : null;   // geprueft (pruefeNscVon): SUND-04b B1
+  const volk = alt ? alt.fraktion : p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
   const nscNr = F.nsc + 1;
   if (nscNr > 999999) return abgelehnt('NSC_ZAHL: der Zähler der NSC ist voll');
-  const nsc = nscErzeugen(game, v, volk, p.name, nscNr);
+  const nsc = alt ? nscUebernehmen(alt, v, nscNr) : nscErzeugen(game, v, volk, p.name, nscNr);
   if (!nsc) return abgelehnt('NAME: kein freier Name');
   F.abenteuerAngebote.splice(F.abenteuerAngebote.indexOf(a), 1);
   F.nsc = nscNr; F.nr++;
@@ -302,7 +316,7 @@ function abenteuerOeffnen(game, nr, p) {
     if (i < 0) break;
     F.liste.splice(i, 1);
   }
-  melde(game, 'geoeffnet', f.id, `Abenteuer ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
+  melde(game, 'geoeffnet', f.id, `Abenteuer ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}${alt ? ' (Wiedersehen mit ' + alt.id + ')' : ''}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
   abenteuerRegisterAufraeumen(game);
   return { ok: true, faden: f };
 }
@@ -335,10 +349,11 @@ function oeffnen(game, b) {
   const v = D.vorlage(b.vorlage), p = b.parameter || {};
   const a = p.angebot !== undefined ? F.angebote.find((x) => x.nr === p.angebot) : F.angebote.find((x) => x.vorlagen.includes(v.id));
   if (!a) return { ok: false, grund: 'KEIN_ANGEBOT: Angebot nicht mehr da' };
-  const volk = p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
+  const alt = has(p, 'nsc_von') ? P.wiedersehenNsc(F, v).find((x) => x.id === p.nsc_von) : null;   // geprueft (pruefeNscVon): SUND-04b B1
+  const volk = alt ? alt.fraktion : p.volk || (v.volk_erlaubt.includes(a.volk) ? a.volk : v.volk_erlaubt[0]);
   const nscNr = F.nsc + 1;
   if (nscNr > 999999) return { ok: false, grund: 'NSC_ZAHL: der Zähler der NSC ist voll' };   // B-K2
-  const nsc = nscErzeugen(game, v, volk, p.name, nscNr);
+  const nsc = alt ? nscUebernehmen(alt, v, nscNr) : nscErzeugen(game, v, volk, p.name, nscNr);
   if (!nsc) { logbuch(game, 'faden_pruefung', { ausgang: 'abgelehnt', key: 'faden_oeffnen', plan: b, fehler: ['NAME: kein freier Name'] }); return { ok: false, grund: 'NAME: kein freier Name' }; }
   F.angebote.splice(F.angebote.indexOf(a), 1);
   F.nsc = nscNr; F.nr++;
@@ -350,7 +365,7 @@ function oeffnen(game, b) {
     if (i < 0) break;
     F.liste.splice(i, 1);
   }
-  melde(game, 'geoeffnet', f.id, `Faden ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
+  melde(game, 'geoeffnet', f.id, `Faden ${f.id} (${v.id}) geöffnet: NSC ${nsc.id}${alt ? ' (Wiedersehen mit ' + alt.id + ')' : ''}, Abstand ${f.abstand}`, { faden: f.id, vorlage: v.id, volk, angebot: a.nr });
   return { ok: true, faden: f };
 }
 
@@ -589,4 +604,4 @@ function lesen(b) {
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten };

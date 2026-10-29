@@ -123,7 +123,7 @@ const MUTATIONEN = [
   [PR, "if ((F.abenteuerAngebote || []).length >= W.abenteuer.angebote_max) return fehl(", "if (false) return fehl(", 'Pruefer: beliebig viele Abenteuer-Angebote'],
   [PR, "if (!(istObjekt(o) && typeof o.hex === 'string' && HEX.test(o.hex) && require('../../shared/sektoren.js').spielbar(o.hex))) return fehl(", "if (false) return fehl(", 'Pruefer: Abenteuer ohne spielbaren Ort'],
   [PR, "const abenteuerLaufend = (F) => aktive(F).filter((f) => f.plan).length;", "const abenteuerLaufend = (F) => aktive(F).filter((f) => !f.plan).length;", 'Pruefer: laufende Abenteuer falsch gezaehlt'],
-  [PR, "if (!['volk', 'name'].includes(k)) return fehl('PARAMETER'", "if (false) return fehl('PARAMETER'", 'Pruefer: Abenteuer oeffnen mit unbekanntem Parameter'],
+  [PR, "if (!['volk', 'name', 'nsc_von'].includes(k)) return fehl('PARAMETER'", "if (false) return fehl('PARAMETER'", 'Pruefer: Abenteuer oeffnen mit unbekanntem Parameter'],
   [PR, "if (!a) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", "if (false) return fehl('KEIN_ANGEBOT', `ein Abenteuer-Angebot", 'Pruefer: Abenteuer oeffnen ohne Angebot'],
   [PR, "if (aktive(F).length >= W.aktiv_max) return fehl('OBERGRENZE'", "if (false) return fehl('OBERGRENZE'", 'Pruefer: Abenteuer ueber der Obergrenze aktiver Faeden'],
   [PR, "if (abenteuerLaufend(F) >= W.abenteuer.laufend_max) return fehl(", "if (false) return fehl(", 'Pruefer: mehr als ein laufendes Abenteuer'],

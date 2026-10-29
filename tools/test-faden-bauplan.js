@@ -286,7 +286,9 @@ const spiel = (o) => X.spiel(o).g;
 function abenteuer(g, p, hex, o) {
   const a = Faden.abenteuerAnbieten(g, p, { hex: hex || '0305' });
   if (!a.ok) return { a };
-  const r = Faden.abenteuerOeffnen(g, a.angebot.nr, o);
+  // SUND-04b B1: ein Plan mit Wiedersehen wird mit einem NSC aus einem abgeschlossenen Faden geoeffnet (parameter nsc_von); den Anbieten schon zugesichert hat
+  const nv = Faden.wiedersehenKandidaten(g, a.angebot.vorlage)[0];
+  const r = Faden.abenteuerOeffnen(g, a.angebot.nr, nv ? Object.assign({ nsc_von: nv }, o) : o);
   return { a, r, f: r.ok ? r.faden : null };
 }
 const PLAN_VOLL = plan([b('bitte', { verzweigung: { gescheitert: 'e' } }), b('fracht'), b('enthuellung', { id: 'e' }), b('raumschlacht'), b('abschluss')], { anlass: 'Eine Frachtbitte, hinter der mehr steckt.' });
@@ -323,7 +325,9 @@ section('Zufallsplaene im Spiel: jeder angenommene Plan laeuft bis zum Abschluss
     let je = 0;
     while (je < 14 && k++ < 600) {
       const p = ids(zufallsPlan(r));
-      if (!BP.pruefe(p).ok) continue;
+      const pr0 = BP.pruefe(p);
+      if (!pr0.ok) continue;
+      if (Pruefer.nscAlt(pr0.vorlage) && !Faden.wiedersehenKandidaten(g, pr0.vorlage).length) continue;   // SUND-04b B1: ohne einen NSC aus einem abgeschlossenen Faden gibt es fuer ein Wiedersehen kein Angebot
       const o = abenteuer(g, p, hexe[k % hexe.length]);
       if (!o.f) { probleme++; console.log('    Oeffnen scheitert: ' + JSON.stringify(o.r || o.a).slice(0, 160)); continue; }
       gespielt++; je++;

@@ -2,6 +2,9 @@
 // SUND-04a-2 P3 (Spieltest): echter Server (wie npm run debug) mit FAEDEN=1, Lage-Spielleiter (Mock), drei WebSocket-Clients. Der Notruf bewaeltigt
 // oeffnet den dankbaren Captain; die Crew (drei Clients) beantwortet die Bitte, die Tätigkeiten laufen ueber die Grenzen des Spielleiters, bis der Faden
 // abgeschlossen ist. Ausgabe: ein Protokoll (Zeile je Ereignis) auf der Konsole und in der Datei --out (Standard: Scratchpad-Ordner des Laufs).
+// SUND-04b B1: danach spielt dieselbe Crew die drei neuen Beats OHNE Kampfszene, jeweils als Abenteuer (Mock-Plan des Komponisten aus server/sim/abenteuer-mock.js, durch die echte Kette Anbieten > Pruefer > Oeffnen):
+// Gerücht (der Hafenfunk nennt einen Sektor, die Crew fliegt hin), Rätsel-Spur fundort (die Ops liest ueber die Verbindung weapons.spur.lesen und entschluesselt die Teilung, die verborgene Kante wird offen) und Wiedersehen
+// (der NSC aus dem ersten Faden meldet sich und erinnert an eine konkrete Tat). Der Ort der Crew (ship.scene) und der Platz der Ops werden gesetzt, wie in den Tests: die Mechanik der Beats ist in test-faden-katalog-b1.js geprueft.
 // Aufruf: node tools/spiel-faden.js [--out datei.txt]   (npm run spiel:faden)
 const fs = require('fs');
 const os = require('os');
@@ -13,6 +16,12 @@ const { startServer } = require('../server/index.js');
 const Faden = require('../server/sim/faden.js');
 const Bitte = require('../server/sim/faden-bitte.js');
 const Kriegslage = require('../server/sim/kriegslage.js');
+const Sektoren = require('../shared/sektoren.js');
+const Space = require('../server/sim/space.js');
+const Spur = require('../server/sim/spur.js');
+const AM = require('../server/sim/abenteuer-mock.js');
+const Physics = require('../shared/physics.js');
+const World = require('../server/world.js');
 
 const CODE = 'SPFD';
 const NAMEN = ['Ada', 'Bo', 'Cem'];
@@ -85,8 +94,102 @@ function client(port, hello, name) {
   zeile(fertig ? `Faden abgeschlossen: Ausgang ${faden.ausgang.art}, NSC ${faden.nsc.status}, Gedaechtnis ${faden.nsc.gedaechtnis.map((x) => x.ereignis).join(', ')}` : `Faden NICHT abgeschlossen (Phase ${faden && faden.phase}, Beat ${faden && faden.beat})`);
   zeile(`Funk bei Ada (Auswahl): ${cl[0].funk.slice(-6).join(' || ').slice(0, 600)}`);
   zeile(`Bitten-Antworten bei allen drei: ${cl.map((x) => x.antw).join(', ')}`);
+  // ---------------------------------------------------------------- SUND-04b B1: Gerücht, Rätsel-Spur, Wiedersehen
+  const runde = async () => { Kriegslage.tick(g, 'spiel'); g.lageGrenze('szene_ende'); if (g.lageSpielleiter && g.lageSpielleiter.aufrufe > 4) g.lageSpielleiter.aufrufe = 0; await sleep(100); };   // der Deckel von 6 Anfragen je Sitzung gilt dem echten Claude: im Bot-Lauf mit dem Mock wird er zurueckgesetzt, sonst stuende die Geschichte still
+  const hierHex = () => Sektoren.hexVonOrt(g.ship.scene);
+  const flieg = (hex) => { const o = Sektoren.ortVonHex(hex) || ('leer-' + hex); Space.enterScene(g, o, {}); g.explore.location = o; const s = g.ship; s.docked = false; s.dockedAt = null; s.vx = 0; s.vy = 0; s.speed = 0; };
+  const ergebnisse = [];
+  async function abenteuer(name, plan, parameter) {
+    let a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() });
+    for (let i = 0; i < 30 && !a.ok && /ABENTEUER_ANGEBOTE/.test(a.grund); i++) { await runde(); a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() }); }   // offene Angebote des Komponisten verfallen
+    if (!a.ok) { zeile(name + ': kein Angebot (' + a.grund + ')'); return null; }
+    const r = Faden.abenteuerOeffnen(g, a.angebot.nr, parameter);
+    if (!r.ok) { zeile(name + ': Öffnen abgelehnt (' + r.grund + ')'); return null; }
+    zeile(name + ': Abenteuer ' + r.faden.id + ' geöffnet (Beats ' + a.angebot.vorlage.beats.map((b) => b.typ).join(' > ') + '), NSC ' + r.faden.nsc.name);
+    return r.faden;
+  }
+  const beatTyp = (f) => require('../server/sim/faden-daten.js').vorlage(f.vorlage).beats[f.beat].typ;
+  async function bisBeat(f, typ) {   // der Spielleiter (Mock) bringt den Faden an der Grenze weiter, bis der Beat laeuft
+    for (let i = 0; i < 200 && !(f.phase === 'laeuft' && beatTyp(f) === typ); i++) { await runde(); if (f.phase === 'abgeschlossen') break; }
+    return f.phase === 'laeuft' && beatTyp(f) === typ;
+  }
+  const funkSeit = (n) => cl[0].funk.slice(n).map((x) => '„' + x + '“').join(' | ').slice(0, 500);
+  // der Mock-Komponist baut einen gueltigen Plan mit dem Typ am Anfang; fuer den Bot auf Beat und Abschluss gekuerzt (die Szenen-Beats der Zufallsplaene braeuchten einen Kaempfer), der Pruefer prueft ihn trotzdem
+  const plan = (typ) => { const p = AM.gueltigerPlan(AM.rngVon('b1-' + typ), { mit: typ, min: 2 }); p.beats = [{ typ }, { typ: p.beats[p.beats.length - 1].typ }]; return p; };
+  const beatEnde = (f, typ) => f.nsc.gedaechtnis.filter((x) => x.ereignis.startsWith(typ + '_')).map((x) => x.ereignis).join(',');
+  const ende = async (f) => {
+    for (let i = 0; i < 200 && f.phase !== 'abgeschlossen'; i++) await runde();
+    if (f.phase !== 'abgeschlossen') { const l = (g.lageRegie && g.lageRegie.log ? g.lageRegie.log.entries : []).filter((e) => e.art === 'faden_pruefung' || (e.art === 'lage_befehl' && e.ausgang === 'abgelehnt')).slice(-3); zeile('Faden ' + f.id + ' steht bei Beat ' + f.beat + ' (' + f.phase + '), Zähler ' + f.zaehler + '/' + f.abstand + '; letzte Ablehnungen: ' + JSON.stringify(l).slice(0, 400)); }
+    return f.phase === 'abgeschlossen';
+  };
+
+  // 1. Gerücht
+  {
+    const n0 = cl[0].funk.length;
+    const f = await abenteuer('Gerücht', plan('geruecht'));
+    if (f && await bisBeat(f, 'geruecht')) {
+      zeile('Gerücht: der Hafenfunk nennt ' + Sektoren.hexName(f.parameter.ort) + ' (' + f.parameter.ort + '); Funk: ' + funkSeit(n0));
+      await sleep(300);
+      zeile('Die Crew fliegt nach ' + Sektoren.hexName(f.parameter.ort));
+      flieg(f.parameter.ort); await sleep(400);
+      zeile('Gerücht nach der Ankunft: Phase ' + f.phase + ', Beat ' + f.beat + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'geruecht'));
+      ergebnisse.push(['Gerücht', f.nsc.gedaechtnis.some((x) => x.ereignis === 'geruecht_gelungen')]);
+      ergebnisse.push(['Gerücht-Faden zu Ende', await ende(f)]);
+    } else ergebnisse.push(['Gerücht', false]);
+  }
+  flieg('0305'); await sleep(200);
+
+  // 2. Rätsel-Spur (die Ops liest ueber die Verbindung)
+  {
+    const n0 = cl[0].funk.length;
+    const p = plan('spur'); p.beats[0].parameter = { spur: 'fundort' };
+    const f = await abenteuer('Rätsel-Spur', p);
+    if (f && await bisBeat(f, 'spur')) {
+      zeile('Spur ' + g.spur.id + ' läuft, Marke im Sektorplan; Funk: ' + funkSeit(n0));
+      const stand = [[0, 1, 'up'], [0, -1, 'down'], [-1, 0, 'right'], [1, 0, 'left']];
+      let platz = null;
+      for (const t of [].concat(World.CONSOLE_TILES.weapons)) for (const [dx, dy, dir] of stand) { const q = { x: t.x + dx, y: t.y + dy, dir }; if (!platz && !World.ship.solid(q.x, q.y)) platz = q; }
+      const mitte = Physics.tileCenter(platz.x, platz.y), me = g.players[0]; me.x = mitte.x; me.y = mitte.y; me.dir = platz.dir;
+      cl[0].send({ t: 'act', down: true }); cl[0].send({ t: 'act', down: false }); await sleep(300);
+      const lese = async () => {
+        const k = Spur.kern(g.spur.id, hierHex()); g.ship.x = k.x + 40; g.ship.y = k.y;
+        cl[0].send({ t: 'cmd', c: 'weapons.spur.lesen', on: true });
+        for (let i = 0; i < 200 && !(g.spur.gelesen || g.spur.fertig || g.spur.wartet); i++) await sleep(100);
+        if (g.spur.wartet) {   // Teilung: die Ops stimmt das Signal ab (Qualität 3)
+          cl[0].send({ t: 'cmd', c: 'weapons.entschl.start' });
+          for (let i = 0; i < 1200 && g.entschl && g.entschl.z === 1; i++) { const e = g.entschl, d = Math.abs(e.f - e.ziel) < 0.02 ? 0 : (e.ziel > e.f ? 1 : -1); if (d !== e.dir) cl[0].send({ t: 'cmd', c: 'weapons.entschl.stimme', dir: d }); await sleep(100); }
+          await sleep(500);
+        }
+      };
+      for (const hex of ['0705', '0605']) { flieg(hex); await sleep(300); zeile('Spur: Crew in ' + Sektoren.hexName(hex) + ', Ops liest'); await lese(); }
+      await sleep(600);
+      const offen = g.explore.kanteOffen(Sektoren.kanteId('0605', '0706'));
+      zeile('Spur nach dem Lesen: fertig ' + !!(g.spur && g.spur.fertig) + ', Kante nach Bojenfeld offen ' + offen + '; Beat: Phase ' + f.phase + ', Gedächtnis ' + beatEnde(f, 'spur') + '; Funk: ' + funkSeit(n0));
+      ergebnisse.push(['Rätsel-Spur', f.nsc.gedaechtnis.some((x) => x.ereignis === 'spur_gelungen') && offen]);
+      ergebnisse.push(['Spur-Faden zu Ende', await ende(f)]);
+    } else ergebnisse.push(['Rätsel-Spur', false]);
+  }
+  flieg('0305'); await sleep(200);
+
+  // 3. Wiedersehen: der NSC aus dem ersten Faden erinnert sich an eine konkrete Tat der Crew
+  {
+    const n0 = cl[0].funk.length;
+    const wp = plan('wiedersehen');
+    const kand = Faden.wiedersehenKandidaten(g, require('../server/sim/faden-bauplan.js').expandiere(wp).vorlage);
+    zeile('Wiedersehen: Kandidaten (NSC aus abgeschlossenen Fäden): ' + (kand.join(', ') || 'keine'));
+    const f = kand.length ? await abenteuer('Wiedersehen', wp, { nsc_von: kand[0] }) : null;
+    if (f && await bisBeat(f, 'wiedersehen')) {
+      zeile('Wiedersehen: ' + f.nsc.name + ' meldet sich (Gedächtnis: ' + f.nsc.gedaechtnis.map((x) => x.ereignis).join(', ') + '); Funk: ' + funkSeit(n0));
+      flieg(f.parameter.ort); await sleep(400);
+      zeile('Wiedersehen nach der Ankunft in ' + Sektoren.hexName(f.parameter.ort) + ': Phase ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'wiedersehen'));
+      ergebnisse.push(['Wiedersehen', f.nsc.gedaechtnis.some((x) => x.ereignis === 'wiedersehen_gelungen')]);
+      ergebnisse.push(['Wiedersehen-Faden zu Ende', await ende(f)]);
+    } else ergebnisse.push(['Wiedersehen', false]);
+  }
+  const alleB1 = ergebnisse.every(([, ok]) => ok);
+  zeile('SUND-04b B1: ' + ergebnisse.map(([k, ok]) => k + ' ' + (ok ? 'ok' : 'FEHLT')).join(', ') + '; Serverfehler ' + g.errors);
   fs.writeFileSync(outDatei, protokoll.join('\n') + '\n');
   zeile(`Protokoll geschrieben: ${outDatei}`);
   for (const x of cl) x.ws.close();
-  process.exit(fertig ? 0 : 1);
+  process.exit(fertig && alleB1 && g.errors === 0 ? 0 : 1);
 })().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); process.exit(1); });

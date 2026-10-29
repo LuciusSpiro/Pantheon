@@ -1,0 +1,58 @@
+{
+  "format": "faden-b1-texte/1",
+  "_hinweis": "SUND-04b B1: Zahlen und Texte der Bausteine geruecht, spur und wiedersehen (server/sim/faden-b1.js). Schluessel texte = text_key des Beats oder fester Schluessel des Bausteins; spuren = je Spur-Id (content/spuren/<id>.json, Parameter spur des Beats) die Funktexte des NSC; werte.wiedersehen_erinnert = Ereignis des Gedaechtnisses -> text_key: eine konkrete Tat der Crew, an die sich der NSC erinnert (letzter passender Eintrag gewinnt; ohne ein solches Ereignis gibt es kein Wiedersehen). Platzhalter: {name} (NSC), {ort} (Name des Sektors). Keine Spielernamen, keine Zahlen im Text. Jeder Funktext hoechstens werte.json funk_text_max Zeichen mit eingesetzten Platzhaltern (Test).",
+  "werte": {
+    "ziel": {
+      "wert": {"min": 1, "max": 3, "erreichbar_max": 8},
+      "einheit": "Spruenge (Wege ueber offene Sprungpunkte)",
+      "_hinweis": "Gerucht und Wiedersehen: der Sektor, den der Baustein nennt, liegt min bis max Spruenge vom Sektor der Crew entfernt (kuerzester Weg ueber offene Sprungpunkte der Karte, nie ueber eine verborgene oder verschlossene Kante, nie in einem Sektor mit Sperrtext der Region). Nennt eine Vorlage den Sektor selbst (parameter hex), muss er hoechstens erreichbar_max Spruenge weit liegen, sonst gilt der Beat als gescheitert (Funk entfaellt, Logbuch). Der Zufall kommt aus dem eigenen Strom der Faeden."
+    },
+    "wiedersehen_erinnert": {
+      "wert": {
+        "bitte_gelungen": "wiedersehen_bitte_gelungen",
+        "bitte_gescheitert": "wiedersehen_bitte_gescheitert",
+        "fracht_gelungen": "wiedersehen_fracht_gelungen",
+        "fracht_gescheitert": "wiedersehen_fracht_gescheitert",
+        "notruf_gelungen": "wiedersehen_notruf_gelungen",
+        "notruf_gescheitert": "wiedersehen_notruf_gescheitert",
+        "befreiung_gelungen": "wiedersehen_befreiung_gelungen",
+        "spontanhilfe_gelungen": "wiedersehen_spontanhilfe_gelungen",
+        "raumschlacht_gelungen": "wiedersehen_raumschlacht_gelungen",
+        "verfolgung_gelungen": "wiedersehen_verfolgung_gelungen"
+      },
+      "einheit": "Ereignis -> text_key",
+      "_hinweis": "Schluessel = Beat-Typ + _ + Ausgang (wie im Gedaechtnis des NSC, faden.js beatAusgang). Nur diese Ereignisse sind konkrete Taten der Crew, an die ein NSC erinnern kann; ein NSC ohne eines davon taugt nicht fuer ein Wiedersehen (Pruefer NSC_VON)."
+    }
+  },
+  "texte": {
+    "geruecht_standard": "{name} soll bei {ort} gesehen worden sein. Wer es wissen will, fliegt hin.",
+    "geruecht_handel": "Im Hafen heißt es: {name} wartet bei {ort} auf eine Crew.",
+    "geruecht_gefunden": "Ihr habt dem Gerücht getraut und seid gekommen. Das merke ich mir.",
+    "wiedersehen_standard": "Ich habe euch nicht vergessen. Kommt nach {ort}.",
+    "wiedersehen_bitte_gelungen": "Ihr habt damals meine Bitte erfüllt. Ich warte bei {ort} auf euch.",
+    "wiedersehen_bitte_gescheitert": "Ihr habt mich damals abgewiesen. Bei {ort} können wir das klären.",
+    "wiedersehen_fracht_gelungen": "Meine Ladung kam durch euch an. Bei {ort} habe ich etwas für euch.",
+    "wiedersehen_fracht_gescheitert": "Ihr habt meine Ladung nicht abgeliefert. Reden wir bei {ort}.",
+    "wiedersehen_notruf_gelungen": "Ihr habt mich aus der Not geholt. Bei {ort} will ich mich bedanken.",
+    "wiedersehen_notruf_gescheitert": "Auf meinen Notruf kam keiner von euch. Wir sprechen bei {ort}.",
+    "wiedersehen_befreiung_gelungen": "Ihr habt die Wachschiffe vertrieben und mich befreit. Kommt nach {ort}.",
+    "wiedersehen_spontanhilfe_gelungen": "Ihr standet in der Schlacht an meiner Seite. Wir treffen uns bei {ort}.",
+    "wiedersehen_raumschlacht_gelungen": "Ihr habt mein Geschwader zerschlagen. Ich will reden, bei {ort}.",
+    "wiedersehen_verfolgung_gelungen": "Ihr habt mich durch den Sektor gejagt. Bei {ort} sprechen wir in Ruhe.",
+    "wiedersehen_dank": "Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
+  },
+  "spuren": {
+    "altrost": {
+      "start": "Eine Ionenspur beginnt bei {ort}. Sie führt zu einer verborgenen Boje. Folgt ihr.",
+      "gelungen": "Die Spur war echt. Die verborgene Boje steht jetzt auf eurer Karte.",
+      "verloren": "Die Spur ist kalt geworden. Von der Boje werden wir nichts mehr erfahren.",
+      "verloren_falsch": "Ihr seid auf dem falschen Ast hängen geblieben. Die Spur ist kalt."
+    },
+    "fundort": {
+      "start": "Ein Antrieb hat bei {ort} eine Spur hinterlassen. Sie endet an einem Fundort.",
+      "gelungen": "Ihr habt den Fundort gefunden. Die Boje dort steht auf eurer Karte.",
+      "verloren": "Die Spur ist verweht. Den Fundort finden wir so nicht mehr.",
+      "verloren_falsch": "Der falsche Ast hat euch zu lange aufgehalten. Die Spur ist verweht."
+    }
+  }
+}
