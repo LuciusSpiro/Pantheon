@@ -75,6 +75,7 @@ const mitLive = async (fn) => { const alt = process.env.LLM_LIVE; process.env.LL
 // ======================================================================
 section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   ok(AW.grenzen.every((g) => LW.grenzen.includes(g)) && AW.grenzen.length >= 1, 'Grenzen: eine Teilmenge der Grenzen der Lage (' + AW.grenzen.join(', ') + ')');
+  ok(AW.timeout_s >= 30 && AW.timeout_s <= 300, 'Timeout: 30 bis 300 Sekunden Spielzeit (' + AW.timeout_s + ')');
   ok(AW.deckel_je_sitzung >= 1 && AW.deckel_je_sitzung <= 6 && AW.cooldown_grenzen >= 1 && AW.timeout_s > 0 && AW.min_budget > 0, 'Deckel, Cooldown, Timeout, Budget: sinnvolle Zahlen aus den Daten');
   ok(AW.antwort_max_zeichen <= FW.abenteuer.plan_max_zeichen && AW.prompt_max_zeichen > AW.antwort_max_zeichen, 'Antwortgrenze liegt unter der Plangroesse des Registers, der Prompt ueber der Antwort');
   ok(AW.mock.ungueltig_anteil > 0 && AW.mock.ungueltig_anteil < 1 && AW.mock.korruptionen.every((k) => typeof AM.KORRUPTION[k] === 'function') && Object.keys(AM.KORRUPTION).every((k) => AW.mock.korruptionen.includes(k)), 'Mock: jede Korruption der Daten hat eine Umsetzung und umgekehrt');
@@ -102,6 +103,11 @@ section('Daten: Takt, Stufen-Datei, Katalog aus den Daten abgeleitet', () => {
   }
   ok(Object.keys(bauplan.wahrheiten).every((k) => text.includes(k)) && werte.fluchtziele.wert.every((f) => text.includes(f)) && Object.keys(szenen.waren.wert).every((w) => text.includes(w)), 'Wahrheiten, Fluchtziele und Waren der Daten stehen im Katalog');
   ok(text.includes(`2 bis ${werte.beats_max.wert} Beats`) && text.includes(`${bauplan.werte.titel.wert.min} bis ${bauplan.werte.titel.wert.max} Zeichen`) && text.includes(`${bauplan.werte.anlass.wert.min} bis ${bauplan.werte.anlass.wert.max} Zeichen`) && text.includes(`hoechstens ${bauplan.werte.erfolg_max.wert} Typen`), 'Zahlen aus den Daten: Beats, Titel, Anlass, Erfolg');
+  D.BEATS.nur_test_ohne_standards = { zweck: 'Probe ohne bauplan', baustein: 'x' };
+  AP.katalogNeuLesen();
+  const mitProbe = AP.katalogText();
+  delete D.BEATS.nur_test_ohne_standards; AP.katalogNeuLesen();
+  ok(!mitProbe.includes('nur_test_ohne_standards') && AP.katalogText() === text, 'ein Beat-Typ ohne Standards (bauplan) steht nie im Katalog');
   ok(AP.katalogText() === text && text.length < 9000, `der Katalog ist statisch und kurz (${text.length} Zeichen)`);
 });
 
@@ -139,6 +145,10 @@ section('Prompt: echter Bau, keine Spielernamen, nie Titel oder Anlass', async (
   const kontextVon = (p) => JSON.parse(p.split('<kontext>\n')[1].split('\n</kontext>')[0]);
   const k3 = kontextVon(prompt3);
   ok(k3.faeden.laufende_abenteuer === 1 && k3.faeden.aktiv.length === 1 && k3.faeden.aktiv[0].v === 'abenteuer' && JSON.stringify(k3.faeden.aktiv[0].typen) === '["spontanhilfe"]' && k3.faeden.aktiv[0].ph === 'wartet', 'der Kontext nennt das laufende Abenteuer (nur Typenfolge und Phase, keine Id, keinen Titel)');
+  r.faden.phase = 'abgeschlossen';
+  const k4 = kontextVon(AP.baue(g, { nr: 4, grenze: 'andocken', hex: '0305', letzte: [], werte: AW }).prompt);
+  ok(k4.faeden.aktiv.length === 0 && k4.faeden.laufende_abenteuer === 0, 'ein abgeschlossener Faden steht nicht als aktiv im Kontext');
+  r.faden.phase = 'wartet';
   // Kuerzung: Chronik, Wendepunkte und Gesamtgroesse stehen unter den Zahlen der Daten
   for (let i = 0; i < 20; i++) g.weltsim.chronik.push({ t: 2 + i, art: 'szene', ref: 'x' + i, kurz: 'Ereignis Nummer ' + i });
   const kc = kontextVon(AP.baue(g, { nr: 1, grenze: 'andocken', hex: '0305', letzte: [], werte: Object.assign({}, AW, { chronik_zeilen: 3 }) }).prompt);
@@ -155,6 +165,8 @@ section('Prompt: echter Bau, keine Spielernamen, nie Titel oder Anlass', async (
   // Antwort lesen: das Objekt mit Bauplan-Schluesseln gilt, ein Objekt davor stoert nicht
   const js = JSON.stringify(planN(3));
   ok(AP.bauplanAusText('Notiz {"a": 1} dazu: ' + js).plan.titel === 'Probe 3' && AP.bauplanAusText('x').fehler && AP.bauplanAusText(null).fehler, 'bauplanAusText: erkennt das Bauplan-Objekt nach einem anderen Objekt, Muell ergibt einen Fehler');
+  const LP = require('../server/sim/lage-prompt.js');
+  ok(JSON.stringify(LP.planAusText('Notiz {"a": 1} dazu: {"befehle": [], "begruendung": "ruhig"}').plan) === '{"befehle":[],"begruendung":"ruhig"}' && LP.planAusText('{"a": 1}').plan.a === 1, 'planAusText (Lage, gemeinsame Lesart): das Objekt mit Plan-Schluesseln gilt, sonst das erste lesbare');
   // llm.js: Mock und Script kennen kind abenteuer
   const inp = { prompt: voll.prompt };
   const rm = await LLM.create({ mode: 'mock' }).ask('abenteuer', inp), rs = await LLM.create({ mode: 'script' }).ask('abenteuer', inp);
@@ -384,6 +396,9 @@ section('Register aufraeumen: bricht keinen laufenden Faden und kein Angebot', a
   ok(r1.ok && D.vorlage(idA) && D.abenteuerAnzahl() === 1, 'ein geoeffnetes Abenteuer steht im Register');
   Faden.abenteuerRegisterAufraeumen(g1);
   ok(D.vorlage(idA) && D.abenteuerAnzahl() === 1, 'es wird referenziert (laufender Faden): das Aufraeumen laesst es stehen');
+  r1.faden.phase = 'abgeschlossen'; Faden.abenteuerRegisterAufraeumen(g1);
+  ok(D.vorlage(idA) !== null && Weltstand.validate(Weltstand.capture(g1), g1).length === 0, 'auch ein abgeschlossener Faden (noch in der Liste) behaelt seinen Eintrag: der Stand bleibt pruefbar');
+  r1.faden.phase = 'wartet';
   // ein zweites Spiel im selben Prozess teilt das Register: was nur Spiel 1 hielt, bleibt, solange Spiel 2 es braucht
   const t2 = ohneLage(), g2 = t2.g, r2 = oeffne(g2, planN(1));
   ok(r2.ok && r2.faden.vorlage === idA && D.abenteuerAnzahl() === 1, 'derselbe Plan in einem zweiten Spiel: ein Eintrag');
@@ -456,6 +471,9 @@ section('Stufen: Standardwerte, Datei, Umgebung, kaputte Datei, unbekannter Anbi
   const S4 = Stufen.lade({ LLM_ANBIETER_BAUPLAN: 'ollama', LLM_MODELL_BAUPLAN: 'gemma4:26b-a4b-it-q4_K_M', LLM_ESKALATION_BAUPLAN: '1' });
   ok(S4.stufen.bauplan.modell === 'gemma4:26b-a4b-it-q4_K_M' && S4.stufen.bauplan.eskalation === true, 'Umgebung: Modell mit Doppelpunkt und Punkten, Eskalation an');
   ok(Stufen.lade({ LLM_ANBIETER_BAUPLAN: 'claude', LLM_ESKALATION_BAUPLAN: '1' }).stufen.bauplan.eskalation === false, 'Eskalation gibt es nur fuer Stufen bei Ollama (Claude eskaliert nicht an sich selbst)');
+  ok(Stufen.abweichend(Stufen.lade({ LLM_MODELL_BAUPLAN: 'opus' })).join() === 'bauplan' && Router.routerAusEnv({ LLM_MODELL_BAUPLAN: 'opus' }).arten.bauplan.modell === 'opus', 'ein anderes Modell derselben Stufe zaehlt als Abweichung: der Router entsteht und nutzt es');
+  const SD = Stufen.lade({ STUFEN_DATEI: datei({ format: 'spielleiter-stufen/1', stufen: { bauplan: { anbieter: 'claude' }, figuren_neben: { anbieter: 'ollama' }, geruechte_funk: { anbieter: 'claude', modell: null } } }) });
+  ok(SD.stufen.bauplan.modell === 'sonnet' && SD.stufen.figuren_neben.modell === null && SD.stufen.geruechte_funk.modell === 'sonnet', 'Datei ohne Modell: der Standard des Anbieters (Claude sonnet, Ollama der Standard des Transports)');
   // kaputte Datei: sichere Standardwerte, Fehlermeldung, kein Absturz
   for (const [name, inhalt] of [['kein JSON', '{ nope'], ['leere Datei', ''], ['falsches Format', { format: 'x/1', stufen: {} }], ['unbekannter Anbieter in der Datei', { format: 'spielleiter-stufen/1', stufen: { bauplan: { anbieter: 'openai', modell: 'gpt' } } }], ['Stufen kein Objekt', { format: 'spielleiter-stufen/1', stufen: 5 }]]) {
     const S = Stufen.lade({ STUFEN_DATEI: datei(inhalt) });
@@ -490,6 +508,9 @@ section('Stufen im Router: Anbieter und Modell je Stufe, Rueckfall bei Ausfall, 
   ok(Router.routerAusEnv({ STUFEN_DATEI: datei('{ kaputt') }) === null && Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'gpt' }) === null, 'kaputte Datei und unbekannter Anbieter: sichere Standardwerte, kein Router, kein Absturz');
   ok(Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'gpt' }) === null && (Router.routerAusEnv({ LLM_ROUTER: '1', LLM_ANBIETER_BAUPLAN: 'gpt' }).warnungen || []).some((w) => /LLM_ANBIETER_BAUPLAN/.test(w)), 'die Meldung steht in den Warnungen des Routers');
 
+  { const rt = Router.routeTransport({ figuren_neben: { anbieter: 'claude', modell: 'haiku' } }, { transports: { claude: fake('claude', []), ollama: fake('ollama', []) } });
+    const llm = LLM.create({ mode: 'live', transport: rt });
+    ok(llm.anbieterFuer('text', 'figuren_neben') === 'claude' && llm.anbieterFuer('text') === 'ollama' && llm.anbieterFuer('abenteuer') === 'claude' && LLM.create({ mode: 'mock' }).anbieterFuer('text', 'figuren_neben') === 'claude', 'llm.anbieterFuer(kind, stufe): die Stufe geht vor der Art (nur im Modus live)'); }
   // Eskalation aus der Umgebung und ueber llm.eskaliere: nur die Stufe mit eskalation: true geht an Claude
   const R3 = Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'ollama', LLM_ESKALATION_BAUPLAN: '1' }), R4 = Router.routerAusEnv({ LLM_ANBIETER_BAUPLAN: 'ollama' });
   ok(R3.eskalationFuer('abenteuer') === 'claude' && R4.eskalationFuer('abenteuer') === null && R4.eskalationFuer('text') === 'claude', 'LLM_ESKALATION_BAUPLAN=1: die Stufe eskaliert, ohne den Schalter nicht');
@@ -631,6 +652,9 @@ section('Logbuch und Bericht: abenteuer_bauplan mit Anbieter, Modell, Tokens, Da
   const md2 = Bericht.report(dir, 'abenteuer-geld');
   ok(/Geld: 0,0246 USD/.test(md2) && Regielog.read(dir, 'abenteuer-geld').entries[0].geld === 0.0123, 'Bericht: Geld summiert (0,0246 USD), das Feld geld ueberlebt das Logbuch');
   ok(/Dauer je Aufruf: Median 2,5 s, p90 2,5 s/.test(md2) && /Übersprungene Grenzen: cooldown 1/.test(md2) && /eskaliert: 1,/.test(md2) && /Aufrufe: \*\*2\*\*/.test(md2), 'Bericht: Dauer (Median, p90), uebersprungene Grenzen und Eskalationen; Uebersprungenes und Eskalations-Marker zaehlen nicht als Aufruf');
+  const log3 = Regielog.create({ dir, weltId: 'abenteuer-dauer' });
+  for (const s of [1, 2, 3, 4, 10]) log3.write({ art: 'abenteuer_bauplan', ausgang: 'gueltig', anbieter: 'claude', modell: 'x', tokens: 1, dauer_s: s, geld: 0, plan: { sitzung: 's' } });
+  ok(/Dauer je Aufruf: Median 3 s, p90 10 s/.test(Bericht.report(dir, 'abenteuer-dauer')), 'Bericht: Median 3 s und p90 10 s bei den Dauern 1, 2, 3, 4, 10');
   // kaputte Stufendatei: ein Eintrag je Sitzung
   const t2 = spiel({ env: { STUFEN_DATEI: datei('{ kaputt') } });
   const sl = LS.create(t2.g, { mode: 'mock' });
@@ -686,6 +710,7 @@ section('Messwerkzeug tools/messe-abenteuer.js (Mock, ohne Netz)', () => {
   ok(oll.status === 0 && /nicht gemessen/.test(oll.stdout) && /Ollama/.test(oll.stdout), '--anbieter ollama ohne erreichbaren Dienst: uebersprungen und gemeldet');
   const M = require('./messe-abenteuer.js');
   ok(M.wiederholungen(['a', 'a', 'b', 'b', 'b', 'c']) === 3 && M.wiederholungen(['a', 'b', 'a']) === 0 && M.wiederholungen([]) === 0 && M.prozent(1, 4) === '25 %' && M.prozent(1, 0) === '–' && M.prozent(1, 3) === '33,3 %', 'Werkzeug: Wiederholungen (gleiche Typenfolge hintereinander) und Prozent von Hand gerechnet');
+  ok(M.aufrufZahl('claude', 500) === 10 && M.aufrufZahl('claude') === 10 && M.aufrufZahl('ollama', 500) === 50 && M.aufrufZahl('ollama') === 10 && M.aufrufZahl('mock') === 200 && M.aufrufZahl('mock', 7) === 7, 'Werkzeug: hoechstens 10 echte Claude-Aufrufe, 50 bei Ollama, Mock Standard 200');
   const r2 = lauf3(['--n', '40']);
   const norm = (s) => s.replace(/Laufzeit [\d,.]+ s/, '').replace(/Median [\d,.]+ s, max [\d,.]+ s/, '');
   ok(norm(r2.stdout) === norm(r.stdout), 'der Mock-Lauf ist deterministisch (zwei Laeufe, gleiche Zahlen)');

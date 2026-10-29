@@ -19,8 +19,8 @@ fs.mkdirSync(path.join(TMP, 'public', 'js'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'public', 'js'), path.join(TMP, 'public', 'js'), { recursive: true });
 fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
 fs.cpSync(path.join(ROOT, 'tools', 'fixtures'), path.join(TMP, 'tools', 'fixtures'), { recursive: true });
-const TESTS = [['tools/test-abenteuer.js'], ['tools/test-transport-router.js'], ['tools/test-texte-pool.js'], ['tools/test-faden-bauplan.js']];
-for (const f of ['test-abenteuer.js', 'messe-abenteuer.js', 'regie-fixture.js', 'faden-fixture.js', 'transport-testhilfe.js', 'regie-bericht.js', 'test-transport-router.js', 'test-texte-pool.js', 'test-faden-bauplan.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
+const TESTS = [['tools/test-abenteuer.js'], ['tools/test-transport-router.js'], ['tools/test-texte-pool.js'], ['tools/test-faden-bauplan.js'], ['tools/test-lage-spielleiter.js']];
+for (const f of ['test-abenteuer.js', 'messe-abenteuer.js', 'regie-fixture.js', 'faden-fixture.js', 'transport-testhilfe.js', 'regie-bericht.js', 'test-transport-router.js', 'test-texte-pool.js', 'test-faden-bauplan.js', 'test-lage-spielleiter.js']) fs.copyFileSync(path.join(ROOT, 'tools', f), path.join(TMP, 'tools', f));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 if (fs.existsSync(path.join(ROOT, 'node_modules'))) { try { fs.symlinkSync(path.join(ROOT, 'node_modules'), path.join(TMP, 'node_modules'), 'junction'); } catch (e) { /* kein Modul noetig */ } }
 
@@ -106,11 +106,10 @@ const MUTATIONEN = [
   [AS, "    if (code !== 'ABORTED' && this.eskalieren(job, code)) return;   // ein Abbruch eskaliert nie\n", "", 'Eskalation: ein Ausfall wird nie eskaliert'],
   [AS, "    if (this.eskalieren(job, code)) return;\n    this.job = null; this.zustand = 'idle';\n    this.zaehler.abgelehnt", "    this.job = null; this.zustand = 'idle';\n    this.zaehler.abgelehnt", 'Eskalation: eine abgelehnte Antwort wird nie eskaliert'],
   // ---- Prompt
-  [AP, "  const a = JSON.parse(Ausschnitt.ausschnitt(game, { stufe }).text);", "  const a = JSON.parse(Ausschnitt.ausschnitt(game, { stufe }).text); a.crew = Object.assign({}, a.crew, { anzahl: 1 });", 'Prompt: die Crew-Anzahl steht im Kontext'],
+  [AP, "    crew: { rang: crew.rang, stufe: crew.stufe, ort: crew.ort, hex: crew.hex },", "    crew: Object.assign({}, crew),", 'Prompt: die Crew-Anzahl steht im Kontext'],
   [AP, "    chronik: (a.chronik || []).slice(-werte.chronik_zeilen),", "    chronik: (a.chronik || []),", 'Prompt: die Chronik wird nicht auf die Zeilen der Daten gekuerzt'],
   [AP, "slice(-werte.wendepunkte_max);", "slice(-6);", 'Prompt: wendepunkte_max der Daten wird ignoriert'],
   [AP, "    letzte_abenteuer: (letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.typen),", "    letzte_abenteuer: (letzte || []).map((x) => x.typen),", 'Prompt: letzte_abenteuer der Daten wird ignoriert'],
-  [AP, "    letzte_abenteuer: (letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.typen),", "    letzte_abenteuer: (letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.titel || x.typen),", 'Prompt: Titel fruehere Abenteuer im Kontext'],
   [AP, "    if (prompt.length <= w.prompt_max_zeichen) return", "    if (true) return", 'Prompt: die Obergrenze wird nicht eingehalten'],
   [AP, "  return { fehler: `Prompt zu gross", "  return { prompt: '', zeichen: 0, fehler: null, x: `Prompt zu gross", 'Prompt: zu grosser Prompt gibt keinen Fehler'],
   [AP, "    if (f.phase === 'abgeschlossen') continue;\n    const v = D.vorlage(f.vorlage);", "    const v = D.vorlage(f.vorlage);", 'Kontext: abgeschlossene Faeden stehen als aktiv'],
@@ -220,7 +219,8 @@ const MUTATIONEN = [
   [ME, "    if (process.env.LLM_LIVE !== '1') {", "    if (false) {", 'Werkzeug: --live laeuft ohne LLM_LIVE=1'],
   [ME, "    if (!g0.ok) { console.log(`Messung Ollama: nicht gemessen", "    if (false) { console.log(`Messung Ollama: nicht gemessen", 'Werkzeug: --anbieter ollama prueft die Erreichbarkeit nicht'],
   [ME, "  if (anbieter !== undefined && !['claude', 'ollama'].includes(anbieter)) {", "  if (false) {", 'Werkzeug: ein unbekannter Anbieter wird angenommen'],
-  [ME, "    N = Math.min(nArg || 10, 10);\n    const cli = LLM.claudeFinden();", "    N = nArg || 10;\n    const cli = LLM.claudeFinden();", 'Werkzeug: mehr als 10 echte Claude-Aufrufe'],
+  [ME, "function aufrufZahl(modus, n) { return modus === 'claude' ? Math.min(n || 10, 10) :", "function aufrufZahl(modus, n) { return modus === 'claude' ? Math.min(n || 10, 100) :", 'Werkzeug: mehr als 10 echte Claude-Aufrufe'],
+  [ME, "modus === 'ollama' ? Math.min(n || 10, 50) :", "modus === 'ollama' ? Math.min(n || 10, 500) :", 'Werkzeug: mehr als 50 Ollama-Aufrufe'],
   [LP, "function planAusText(text) { return objektAusText(text, PLAN_KEYS); }", "function planAusText(text) { return objektAusText(text, []); }", 'Lage-Prompt: planAusText erkennt den Plan nicht mehr an seinen Schluesseln'],
 ];
 

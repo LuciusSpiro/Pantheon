@@ -32,6 +32,8 @@ function aufrufPruefen() {
   if (nArg !== null && !(Number.isInteger(nArg) && nArg >= 1 && nArg <= 5000)) { console.error('--n: ganze Zahl 1 bis 5000'); process.exit(2); }
 }
 
+// Anzahl der Aufrufe: Mock beliebig (Standard 200), Claude hoechstens 10 (kostet Geld), Ollama hoechstens 50
+function aufrufZahl(modus, n) { return modus === 'claude' ? Math.min(n || 10, 10) : modus === 'ollama' ? Math.min(n || 10, 50) : (n || 200); }
 // gleiche Typenfolge wie die vorige: Anzahl der Wiederholungen hintereinander
 function wiederholungen(folgen) { let n = 0; for (let i = 1; i < folgen.length; i++) if (folgen[i] === folgen[i - 1]) n++; return n; }
 
@@ -40,7 +42,7 @@ async function main() {
   let modus = 'mock', llm = null, N = nArg || 200, bezeichnung = 'Mock (deterministisch, ohne Netz)';
   const alteLive = process.env.LLM_LIVE;
   if (live || anbieter === 'claude') {
-    N = Math.min(nArg || 10, 10);
+    N = aufrufZahl('claude', nArg);
     const cli = LLM.claudeFinden();
     if (process.env.LLM_LIVE !== '1') { console.log('Messung Claude: nicht gemessen (LLM_LIVE=1 ist nicht gesetzt; echte Aufrufe kosten Geld und laufen nur von Hand).'); return; }
     if (!cli.cmd) { console.log(`Messung Claude: nicht gemessen (Claude-CLI nicht gefunden; versucht: ${cli.versucht.join(', ') || 'nichts'}; CLAUDE_CLI setzen).`); return; }
@@ -49,7 +51,7 @@ async function main() {
     llm = LLM.create({ mode: 'live', transport: router });
     bezeichnung = `Claude (${modell || 'sonnet'}), echte Aufrufe, hoechstens 10`;
   } else if (anbieter === 'ollama') {
-    N = Math.min(nArg || 10, 50);
+    N = aufrufZahl('ollama', nArg);
     const g0 = await Ollama.gesund({});
     if (!g0.ok) { console.log(`Messung Ollama: nicht gemessen (Dienst nicht erreichbar: ${g0.url}, ${g0.fehler}; der ssh-Tunnel auf Sleipnir muss stehen, OLLAMA_URL setzen).`); return; }
     process.env.LLM_LIVE = '1';   // lokal und kostenlos: der Schutz gilt den bezahlten Aufrufen
@@ -111,4 +113,4 @@ async function main() {
   sl.dispose();
 }
 if (require.main === module) main().then(() => process.exit(0), (e) => { console.error('Abbruch: ' + (e && e.stack)); process.exit(1); });
-module.exports = { wiederholungen, prozent };
+module.exports = { wiederholungen, prozent, aufrufZahl };
