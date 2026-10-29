@@ -14,7 +14,7 @@ function report(dir, weltId) {
   const L = [`# Regie-Bericht ${weltId}`, ''];
   if (!entries.length) { L.push(`Keine Einträge in ${path.join(dir, Regielog.safeId(weltId) + '.jsonl')}.`); return L.join('\n') + '\n'; }
   // QA-Abnahme S2: nur echte LLM-Aufrufe zählen – 'angebot' und 'abschluss' wiederholen die Summe der Mission
-  const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan']);   // SUND-03 A2: auch die Anfragen des Lage-Spielleiters
+  const CALLS = new Set(['grobplan', 'szene', 'verspaetet', 'lage_grobplan', 'abenteuer_bauplan']);   // SUND-03 A2: auch die Anfragen des Lage-Spielleiters; SUND-04b A2: und die Komposition der Abenteuer
   const callTokens = (list) => list.filter((e) => CALLS.has(e.art)).reduce((a, e) => a + (Number(e.tokens) || 0), 0);
   const tokens = callTokens(entries);
   const by = (art) => entries.filter((e) => e.art === art);
@@ -44,6 +44,25 @@ function report(dir, weltId) {
       `- Dauer je Aufruf: Median ${fmt(zahl(dauern, 0.5), 10)} s, p90 ${fmt(zahl(dauern, 0.9), 10)} s`,
       `- Tokens: ${fmt(callTokens(lage))}, je Aufruf im Mittel ${aufrufe.length ? fmt(callTokens(lage) / aufrufe.length) : '–'}`,
       `- Fehler: ${lage.filter((e) => e.ausgang === 'fehler').length}, Rückfälle: ${lageRueck.length} (ein Rückfall räumt Fokus und Regler früherer Pläne mit ab: die Sim läuft danach wie ohne Spielleiter)`,
+      `- Übersprungene Grenzen: ${Object.keys(uebersprungen).length ? Object.entries(uebersprungen).map(([g, c]) => `${g} ${c}`).join(', ') : 'keine'}`, '');
+  }
+  // SUND-04b A2: Komposition der Abenteuer (Stufe bauplan): Aufrufe, Ausgang (gueltig | abgelehnt mit Code | Ausfall), Anbieter, Modell, Tokens, Dauer, Geld
+  const ab = by('abenteuer_bauplan');
+  if (ab.length) {
+    const zahl = (a, p) => { const s = a.filter(Number.isFinite).sort((x, y) => x - y); return s.length ? s[Math.min(s.length - 1, Math.ceil(p * s.length) - 1)] : null; };
+    const aufrufe = ab.filter((e) => ['gueltig', 'abgelehnt', 'ausfall'].includes(e.ausgang));
+    const je = (liste, f) => { const c = {}; for (const e of liste) { const k = f(e); c[k] = (c[k] || 0) + 1; } return Object.entries(c).sort((x, y) => y[1] - x[1]).map(([k, n]) => `${k} ${n}`).join(', ') || 'keine'; };
+    const abgelehnt = aufrufe.filter((e) => e.ausgang === 'abgelehnt');
+    const geld = aufrufe.map((e) => e.geld).filter(Number.isFinite).reduce((s, x) => s + x, 0);
+    const uebersprungen = {};
+    for (const e of ab.filter((x) => x.ausgang === 'uebersprungen')) { const g = e.grund || '?'; uebersprungen[g] = (uebersprungen[g] || 0) + 1; }
+    L.push('## Abenteuer-Komposition (Stufe bauplan)', '',
+      `- Aufrufe: **${aufrufe.length}** (gültig ${aufrufe.filter((e) => e.ausgang === 'gueltig').length}, abgelehnt ${abgelehnt.length}, Ausfall ${aufrufe.filter((e) => e.ausgang === 'ausfall').length}), eskaliert: ${ab.filter((e) => e.eskaliert || e.ausgang === 'eskaliert').length}, späte Antworten: ${ab.filter((e) => e.ausgang === 'verspaetet').length}`,
+      `- Ablehnungen je Code: ${je(abgelehnt, (e) => e.grund || '?')}`,
+      `- Ausfälle je Code: ${je(aufrufe.filter((e) => e.ausgang === 'ausfall'), (e) => e.grund || '?')}`,
+      `- Anbieter/Modell: ${je(aufrufe, (e) => (e.anbieter || '–') + '/' + (e.modell || '–'))}`,
+      `- Tokens: ${fmt(callTokens(ab))}, je Aufruf im Mittel ${aufrufe.length ? fmt(callTokens(ab) / aufrufe.length) : '–'}; Geld: ${(Math.round(geld * 10000) / 10000).toLocaleString('de-DE', { maximumFractionDigits: 4 })} USD`,
+      `- Dauer je Aufruf: Median ${fmt(zahl(aufrufe.map((e) => e.dauer_s), 0.5), 10)} s, p90 ${fmt(zahl(aufrufe.map((e) => e.dauer_s), 0.9), 10)} s`,
       `- Übersprungene Grenzen: ${Object.keys(uebersprungen).length ? Object.entries(uebersprungen).map(([g, c]) => `${g} ${c}`).join(', ') : 'keine'}`, '');
   }
   // je Mission

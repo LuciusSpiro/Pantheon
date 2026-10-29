@@ -21,6 +21,8 @@ const Regie = require('./regie-befehle.js');
 const Prompt = require('./lage-prompt.js');
 const Wiederholung = require('./lage-wiederholung.js');   // SUND-03 D: Wiederholungsregeln der Pläne
 const Chronik = require('./chronik.js');   // SUND-03 D: angewandte Pläne stehen in der Chronik
+const Abenteuer = require('./abenteuer-spielleiter.js');   // SUND-04b A2: Komposition von Abenteuern (eigener Aufruf, nur mit FAEDEN=1)
+const Stufen = require('../mission/stufen.js');   // SUND-04b A2
 
 const DATEN = require('../../content/welt/lage-spielleiter-werte.json').werte;
 const WERTE = Object.fromEntries(Object.entries(DATEN).map(([k, v]) => [k, v.wert]));
@@ -88,6 +90,7 @@ class LageSpielleiter {
     this.ausGemeldet = false;
     this.disposed = false;
     this.sitzung = (game.runId || ('lage-' + Date.now())) + '';
+    this.abenteuer = Abenteuer.create(this, o.abenteuerWerte ? { werte: o.abenteuerWerte } : undefined);   // SUND-04b A2: tut ohne FAEDEN=1 nichts
   }
 
   // SUND-03 D-Fix2: Identitätsschlüssel der angenommenen Befehle je angewandtem Plan (Wiederholungsregeln, nicht im Prompt); steht im Weltstand (welt.sim.regie.verlauf), damit Laden und Neustart die Regel nicht aushebeln
@@ -106,9 +109,17 @@ class LageSpielleiter {
         if (!router && this.mode === 'live') router = require('../mission/transport-router.js').routerAusEnv(this.env);
         if (router) create.transport = router;
         this.llm = LLM.create(create);
+        this.stufenMelden();
       } catch (e) { this.fehlerZaehlen('lage-llm', e); this.llm = LLM.create({ mode: 'off' }); }
     }
     return this.llm;
+  }
+  // SUND-04b A2: eine kaputte Stufendatei oder ein unbrauchbarer Wert der Umgebung (content/spielleiter/stufen.json): sichere Standardwerte gelten, EIN Eintrag je Sitzung im Regie-Logbuch. Ohne Fehler geschieht nichts.
+  stufenMelden() {
+    try {
+      const fehler = Stufen.lade(this.env).fehler;
+      if (fehler.length) Regie.schreibe(this.game, { art: 'stufen_konfig', quelle: 'regie', ausgang: 'fehler', fehler: fehler.slice(0, 6), begruendung: 'Stufen-Konfiguration fehlerhaft: sichere Standardwerte gelten' });
+    } catch (e) { this.fehlerZaehlen('stufen-konfig', e); }
   }
   fehlerZaehlen(wo, e) { if (this.game.countError) this.game.countError(wo, e); }
   schreibe(eintrag) { Regie.schreibe(this.game, Object.assign({ art: 'lage_grobplan', quelle: this.mode === 'mock' || this.mode === 'script' ? 'mock' : 'llm' }, eintrag)); }
@@ -127,6 +138,11 @@ class LageSpielleiter {
 
   // ---------- Grenze: nur prüfen und vormerken, nichts Schweres (der Aufruf kommt aus Hooks mitten im Spiel)
   beiGrenze(art) {
+    const r = this.planGrenze(art);
+    try { this.abenteuer.beiGrenze(art); } catch (e) { this.fehlerZaehlen('abenteuer-grenze', e); }   // SUND-04b A2: eigener Takt, unabhaengig vom Plan der Lage; wirft nie in den Hook
+    return r;
+  }
+  planGrenze(art) {
     if (!this.bereit()) return { gestartet: false, grund: 'dispose' };
     if (!this.W.grenzen.includes(art)) return { gestartet: false, grund: 'keine_grenze' };
     const takt = this.taktErlaubt(art);
@@ -178,6 +194,7 @@ class LageSpielleiter {
     this.abholen();
     this.fristPruefen();
     if (this.zustand === 'angefragt') this.starten();
+    try { this.abenteuer.update(dt); } catch (e) { this.fehlerZaehlen('abenteuer-update', e); }   // SUND-04b A2
   }
   starten() {
     const job = this.job;
@@ -291,6 +308,7 @@ class LageSpielleiter {
     if (this.disposed) return;
     const inDerLuft = !!this.job;
     this.anfrageAbbrechen(this.job);
+    try { this.abenteuer.dispose(); } catch (e) { this.fehlerZaehlen('abenteuer-dispose', e); }
     this.disposed = true;
     this.job = null; this.zustand = 'idle'; this.inbox = [];
     if (inDerLuft && this.game.weltsim) { try { Regie.rueckfall(this.game, 'dispose mit Anfrage in der Luft'); } catch (e) { this.fehlerZaehlen('lage-dispose', e); } }
@@ -308,7 +326,8 @@ class LageSpielleiter {
     if (sub === 'status') return this.status();
     if (sub === 'plan') { const r = this.planErzwingen(); return r.gestartet ? 'lage: Plan angefragt.' : 'lage: kein Plan (' + r.grund + ').'; }
     if (sub === 'fail') { this.failNext = true; return 'lage: die nächste Anfrage scheitert (Rückfall).'; }
-    return 'lage: status | plan | fail';
+    if (sub === 'abenteuer') { const r = String(args[1] || 'status'); if (r === 'plan') { const x = this.abenteuer.erzwingen(); return x.gestartet ? 'lage: Abenteuer-Aufruf angefragt.' : 'lage: kein Abenteuer-Aufruf (' + x.grund + ').'; } return this.abenteuer.status(); }   // SUND-04b A2
+    return 'lage: status | plan | fail | abenteuer [status | plan]';
   }
 }
 

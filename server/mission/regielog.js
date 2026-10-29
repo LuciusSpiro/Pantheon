@@ -54,7 +54,7 @@ function create(opts) {
     // QA S2b: automatische Reparaturen der Szenen-Antwort (spielleiter.js) mitschreiben
     if (Array.isArray(x.reparaturen) && x.reparaturen.length) out.reparaturen = x.reparaturen.map((r) => String(r).slice(0, 200)).slice(0, 10);
     // SUND-03 B: Anbieter/Modell des Laufs (Claude | Ollama) und ob die Anfrage eskaliert wurde (additiv)
-    for (const k of ['origin', 'titel', 'auftraggeber', 'ausgang', 'versuch', 'budget', 'key', 'plan', 'anbieter', 'modell', 'eskaliert', 'grund']) if (x[k] !== undefined) out[k] = x[k];
+    for (const k of ['origin', 'titel', 'auftraggeber', 'ausgang', 'versuch', 'budget', 'key', 'plan', 'anbieter', 'modell', 'eskaliert', 'grund', 'geld']) if (x[k] !== undefined) out[k] = x[k];   // geld: SUND-04b A2, Kosten des Aufrufs in USD (Claude: total_cost_usd der CLI; Ollama und Mock 0)
     return out;
   }
   function rotate() {

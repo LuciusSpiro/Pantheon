@@ -135,7 +135,9 @@ function objektLesen(roh) {
   }
   return null;
 }
-function planAusText(text) {
+function planAusText(text) { return objektAusText(text, PLAN_KEYS); }
+// SUND-04b A2: dieselbe Lesart fuer jede Antwort, die EIN JSON-Objekt ist (der Bauplan der Abenteuer): keys = Schluessel, an denen das richtige Objekt erkannt wird
+function objektAusText(text, keys) {
   if (typeof text !== 'string' || !text.trim()) return { fehler: 'leere Antwort' };
   let t = text.replace(/^﻿/, '');
   const zaun = t.match(/```(?:json)?\s*([\s\S]*?)```/i);
@@ -149,11 +151,11 @@ function planAusText(text) {
     geschlossen = true;
     const o = objektLesen(t.slice(i, ende + 1));
     if (!o) continue;
-    if (PLAN_KEYS.some((k) => k in o)) return { plan: o };
+    if (keys.some((k) => k in o)) return { plan: o };
     if (!erstes) erstes = o;
   }
   if (erstes) return { plan: erstes };
   return { fehler: geschlossen ? 'JSON nicht lesbar' : 'JSON-Objekt nicht abgeschlossen' };
 }
 
-module.exports = { plaeneKuerzen, grundKuerzen, katalogText, statischerTeil, baue, planAusText, namenFiltern, spielerNamen, SYSTEM_DATEI, KAT };
+module.exports = { objektAusText, plaeneKuerzen, grundKuerzen, katalogText, statischerTeil, baue, planAusText, namenFiltern, spielerNamen, SYSTEM_DATEI, KAT };

@@ -1,0 +1,27 @@
+{
+  "format": "abenteuer-werte/1",
+  "_hinweis": "SUND-04b A2: Takt und Grenzen der Komposition von Abenteuern durch den Spielleiter (server/sim/abenteuer-spielleiter.js, Freie Fahrt Sund, nur mit FAEDEN=1 und LAGE_SPIELLEITER=1). Er komponiert an Taetigkeitsgrenzen in einem EIGENEN Aufruf (kind abenteuer, Stufe bauplan) einen Bauplan (faden-bauplan/1); Code expandiert ihn, derselbe Pruefer wie fuer die Fadendateien prueft ihn, faden.abenteuerAnbieten bietet ihn an. Die Zahl der Angebote, der laufenden Abenteuer und der Faeden steht in content/faeden/werte.json (abenteuer.angebote_max, abenteuer.laufend_max, aktiv_max). Das Spiel wartet nie auf ihn.",
+  "werte": {
+    "grenzen": {"wert": ["szene_ende", "andocken", "absicht"], "einheit": "Grenzen", "_hinweis": "Nur diese Taetigkeitsgrenzen koennen einen Aufruf ausloesen (game.lageGrenze). Jede zaehlt fuer den Cooldown."},
+    "cooldown_grenzen": {"wert": 4, "einheit": "Grenzen", "_hinweis": "Mindestabstand in Taetigkeitsgrenzen zwischen den Starts zweier Aufrufe (der naechste darf erst die cooldown_grenzen-te Grenze nach dem Start starten). Angebote verfallen nach 12 Taetigkeiten (faeden/werte.json), so entsteht hoechstens ein Angebot je Zeitfenster und kein Strom."},
+    "deckel_je_sitzung": {"wert": 4, "einheit": "Aufrufe", "_hinweis": "Hoechstens so viele Aufrufe je Sitzung (je Spiel/Raum), gleich wie sie ausgehen. Eskalierte Wiederholungen zaehlen nicht extra."},
+    "timeout_s": {"wert": 120, "einheit": "Sekunden Spielzeit", "_hinweis": "Danach gilt der Aufruf als ausgefallen (kein Angebot, Eintrag im Logbuch). Der Transport bricht nach derselben Frist ab."},
+    "min_budget": {"wert": 30000, "einheit": "Tokens", "_hinweis": "Unter diesem Rest im Claude-Zaehler (CLAUDE_TOKEN_BUDGET) wird bei einer Stufe bei Claude nicht mehr angefragt."},
+    "antwort_max_zeichen": {"wert": 6000, "einheit": "Zeichen", "_hinweis": "Laenger darf die Rohantwort nicht sein (ein Bauplan mit 8 Beats hat gemessen unter 1500 Zeichen); eine laengere wird abgelehnt (ANTWORT_ZU_GROSS), bevor sie gelesen wird."},
+    "prompt_max_zeichen": {"wert": 12000, "einheit": "Zeichen", "_hinweis": "Obergrenze des Prompts (Katalog, Kontext, Aufruf). Der Kontext wird gekuerzt (Chronik, Wendepunkte), bevor die Obergrenze reisst."},
+    "chronik_zeilen": {"wert": 8, "einheit": "Zeilen", "_hinweis": "So viele der letzten Chronik-Eintraege der Freien Fahrt gehen in den Kontext (ohne Spielernamen)."},
+    "wendepunkte_max": {"wert": 6, "einheit": "Eintraege", "_hinweis": "So viele Wendepunkte der Sim (gefallene Orte, Belagerungen, Aufmaersche) gehen in den Kontext."},
+    "letzte_abenteuer": {"wert": 3, "einheit": "Abenteuer", "_hinweis": "So viele zuletzt angebotene Abenteuer (nur Typenfolge, nie Titel oder Anlass: freier Text des Modells) stehen im Kontext, damit sich der Spielleiter nicht wiederholt."},
+    "mock": {
+      "wert": {
+        "ungueltig_anteil": 0.2,
+        "beats": {"min": 2, "max": 5},
+        "titel": ["Die stille Fracht", "Ein Funkspruch im Nebel", "Schatten am Sprungpunkt", "Das Versprechen der Haendlerin", "Rauch ueber dem Hafen", "Der letzte Konvoi", "Unter falscher Flagge", "Ein Gefallen fuer den Saum", "Nacht auf dem Frachtdeck", "Die Spur des Kapitaens"],
+        "anlass": ["Ein Haendler braucht Hilfe, die er nicht offen erbitten kann.", "Im Sektor haeufen sich Geruechte ueber ein fremdes Schiff.", "Eine Lieferung ist verschwunden und niemand will es gewesen sein.", "Ein Funkspruch kam, aber der Absender gibt es nicht zu."],
+        "korruptionen": ["typ_unbekannt", "abschluss_fehlt", "abschluss_nicht_letzt", "parameter_verboten", "verzweigung_rueckwaerts", "optionen_bei_gefahr", "enthuellung_ohne_hinweis", "proto_schluessel", "zu_gross", "kein_json", "abgeschnitten", "anlass_platzhalter", "titel_zu_kurz", "format_falsch"]
+      },
+      "einheit": "Mock-Einstellungen",
+      "_hinweis": "Deterministischer Mock (server/sim/abenteuer-mock.js, kind abenteuer in llm.js): erzeugt aus Seed und Kontext gueltige Plaene und mit dem Anteil ungueltig_anteil absichtlich ungueltige (je eine der benannten Korruptionen), fuer Tests und das Messwerkzeug tools/messe-abenteuer.js."
+    }
+  }
+}
