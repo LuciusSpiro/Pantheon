@@ -13,7 +13,7 @@
 //   ENTHUELLUNG_OHNE_WAHRHEIT · HINWEIS_UNBEKANNT · HINWEIS_FEHLT (auf JEDEM Weg vor der Enthuellung mindestens ein Hinweis) · AUSGANG_FEHLT · AUSGANG_UNGUELTIG · WEITER_UNGUELTIG (nur nach vorn) ·
 //   SCHEITERN_FOLGENLOS (Scheitern veraendert den Faden: anderer Zustand oder anderer Weg als Gelingen, beide Ausgaenge fuehren zu einem Beat oder zum Abschluss) · STATUS_PASST_NICHT · TOT_BLEIBT_TOT ·
 //   NSC_ALT_NICHT_ERSTER / NSC_VON_FEHLT / NSC_VON (SUND-04b B1: ein Beat mit braucht.nsc_alt, das Wiedersehen, gehoert einem NSC aus einem frueheren, abgeschlossenen Faden: nur als erster Beat, geoeffnet mit parameter nsc_von) ·
-//   LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
+//   SABOTAGE_NUR_EINMAL (SUND-04b B2: ein Beat mit nur_einmal steht höchstens einmal im Plan) · LAGE_ZIEL_FEHLT / SABOTAGE_PAUSE / LAGE_UNBEKANNT (SUND-04b B2, pruefeLage: ein Beat mit braucht.lage haengt von der Welt ab; beim Anbieten und Oeffnen, nicht in pruefeVorlage) ·
 //   NAMENLOS (SUND-04b A1: vorlage.nsc.rolle namenlos: der NSC bleibt aktiv, die Ausgaenge brauchen keinen status; die Statuspruefung bleibt, nur der Status faellt weg; Scheitern veraendert dann ueber Weg oder Folge) ·
 //   ERFOLG_FEHLT / ERFOLG_UNGUELTIG (Abschluss: wann gilt der Faden als gelungen, Nacharbeit Welle 3) · VARIANTE_UNERREICHBAR / TON_UNERREICHBAR (Haltung: gibt es in der Vorlage einen Weg dorthin) ·
 //   UNERREICHBAR · OPTION_BEI_GEFAHR · GEFAHR_ABGESCHWAECHT · OPTIONEN_NICHT_ERLAUBT · OPTIONEN_ANZAHL · OPTION_UNGUELTIG · SCHEINWAHL · FOLGE_UNGUELTIG · ABSTAND · VOLK · AUSLOESER · NSC.
@@ -298,6 +298,7 @@ function pruefeVorlage(v) {
     if (!cat) { typenOk = false; fehler.push(fehl('TYP_UNBEKANNT', `Beat ${b.id}: Typ "${b.typ}" steht nicht im Beat-Katalog (nur Katalogbausteine)`)); return; }
     if (!Bausteine.vonId(cat.baustein)) fehler.push(fehl('BAUSTEIN_FEHLT', `Beat ${b.id}: der Baustein ${cat.baustein} ist nicht registriert`));
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) fehler.push(fehl('ABSCHLUSS_NICHT_LETZT', `Beat ${b.id} (${b.typ}) darf nur der letzte sein`));
+    if (cat.nur_einmal === true && v.beats.slice(0, i).some((x) => x.typ === b.typ)) fehler.push(fehl('SABOTAGE_NUR_EINMAL', `Beat ${b.id} (${b.typ}): ein Beat ${b.typ} steht höchstens einmal in einem Plan (eine Pause zwischen zwei Aufträgen: der zweite scheiterte garantiert)`));   // SUND-04b B2 Nacharbeit H1 (Daten: beats.json nur_einmal)
     if (b.variante && namenlos) fehler.push(fehl('NAMENLOS', `Beat ${b.id}: ein namenloses Abenteuer hat keine feindliche Variante (kein fester NSC, der wiederkehrt)`));
     if (cat.braucht && cat.braucht.nsc_alt === true) {   // SUND-04b B1: Wiedersehen
       if (i !== 0) fehler.push(fehl('NSC_ALT_NICHT_ERSTER', `Beat ${b.id} (${b.typ}): ein Beat mit einem NSC aus einem früheren Faden steht nur am Anfang (der NSC kommt mit dem Öffnen)`));

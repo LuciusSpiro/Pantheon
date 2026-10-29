@@ -88,7 +88,7 @@ function naechsteStarten(game) {
 function beginnen(game, it) {
   game.fadenSzeneN = (game.fadenSzeneN || 0) + 1;
   const sek = Math.max(W.vorlauf_min_s, W.vorlauf_s);   // nie unter der Untergrenze der Vorwarnung
-  const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
+  const b2 = SZB2.istArt(it.art) ? SZB2.plan(it, crewN(game), nachCrew, game) : null;   // SUND-04b B2: die Wahl des Beats und die angekündigte Zahl
   const n = b2 ? b2.n : (it.art === 'raumschlacht' || it.art === 'befreiung') ? nachCrew(W[it.art].anzahl, crewN(game)) : 1;
   const fs = { id: game.fadenSzeneN, fadenId: it.fadenId, beatId: it.beatId, art: it.art, nsc: it.nsc, phase: 'vorlauf', ab: game.time + sek, start: null, szene: game.ship.scene, tag: 'fs' + game.fadenSzeneN, sek, n, textKey: b2 ? b2.textKey : it.art, plan: b2 };   // n: die angekündigte Zahl (K2)
   game.fadenSzene = fs;
@@ -109,7 +109,10 @@ function kampfBeginn(game, fs) {
     if (!z) return enden(game, fs, 'gescheitert', null);
     return null;
   }
-  if (SZB2.istArt(fs.art)) return SZB2.beginn(game, fs) ? null : enden(game, fs, 'gescheitert', null);   // SUND-04b B2
+  if (SZB2.istArt(fs.art)) {   // SUND-04b B2: kein Platz fuer den Schuetzling ist keine Niederlage der Crew: unterbrechen (der Beat steht wieder aus), sonst scheitert die Szene
+    const r = SZB2.beginn(game, fs);
+    return r === true ? null : r === 'kein_platz' ? unterbrechen(game, fs) : enden(game, fs, 'gescheitert', null);
+  }
   const C = W[fs.art]; const n = fs.n;   // K2: genau die Zahl, die im Funk stand (die Crewgröße beim Ankündigen), nie mehr
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2 + W.ring_winkel_start;

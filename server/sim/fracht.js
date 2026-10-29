@@ -247,7 +247,15 @@ function snapshot(game) {
   { const vk = require('./ladung.js').verkaufOrt(game); if (vk.ok) out.vk = 1; }   // SL6: Händler in Reichweite (Verkaufen möglich)
   return Object.keys(out).length ? out : null;
 }
-function toSave(game) { const P = require('./personen-bord.js'); return state(game).lager.map((l) => (l.art === 'person' ? P.toSaveEntry(l) : l.art)); }   // SL0: Personen als { p, n, b }
+// SUND-04b B2 (Nacharbeit M1): die Beute einer laufenden Faden-Szene Konvoi (state.szenenBeute { art, vor }, nur Laufzeit) gehoert nicht in den Stand: die Szene ist nicht speicherbar, nach dem Laden gaebe es sie nicht mehr abzuliefern
+function lagerOhneSzenenBeute(game) {
+  const s = state(game), b = s.szenenBeute, lager = s.lager.slice();
+  if (!b) return lager;
+  let zuviel = Math.max(0, lager.filter((l) => l.art === b.art).length - b.vor);
+  for (let i = lager.length - 1; i >= 0 && zuviel > 0; i--) if (lager[i].art === b.art) { lager.splice(i, 1); zuviel--; }
+  return lager;
+}
+function toSave(game) { const P = require('./personen-bord.js'); return lagerOhneSzenenBeute(game).map((l) => (l.art === 'person' ? P.toSaveEntry(l) : l.art)); }   // SL0: Personen als { p, n, b }
 function restore(game, arten) {
   const s = state(game);
   const P = require('./personen-bord.js');

@@ -4,7 +4,7 @@
 // den Regeln der Module), nie aus dem Produktivcode abgeleitet. Der Test laeuft durch die ECHTEN Hooks: Abenteuer anbieten und oeffnen, faden_weiter, Taetigkeitsgrenzen (game.lageGrenze), Game.step, die Crew sprengt
 // einen Posten ueber Posten.angreifenStart und die Sim-Szene. Nie Faden.beatAusgang.
 // Geprueft wird: Katalog und Daten · Expander, Pruefer und Lage (Ziel, Rang, Ruf-Sperre je Hex, Pause) · Konvoi (aufhalten, pluendern, entkommen, Szenenwechsel, Andocken, Sim-Szene, Speichern/Laden, Mehrspieler) ·
-// Geleit (drei Modi, Scheitern, Aufraeumen) · Sabotage (Ziel, Ereignis, Ziel weg, Frist, Fallback, Speichern/Laden, Weltstand) · Prompt und Mock · ohne Schalter nichts.
+// Geleit (drei Modi, Scheitern, Aufraeumen) · Sabotage (Ziel, Sprengung der Crew, Ziel weg, Frist, Fallback, Speichern/Laden, Weltstand) · Prompt und Mock · ohne Schalter nichts.
 // Aufruf: node tools/test-faden-katalog-b2.js        (npm run test:faden-katalog-b2)
 const fs = require('fs');
 const path = require('path');
@@ -79,6 +79,13 @@ function startBeat(g, f) {   // wie der Spielleiter: nach dem Abstand der Befehl
   return { ok: false };
 }
 const liste = (g) => g.weltsim.faeden.liste;
+// ein zweiter Faden mit einem Sabotage-Beat neben einem Abenteuer: nur eine Datei-Vorlage (faden_oeffnen) geht an der Grenze laufend_max und an nur_einmal vorbei
+function dateiFaden(g, id) {
+  const v = klon(BP.expandiere(plan([b('sabotage'), b('abschluss')], { titel: 'ZEBRAKAI Datei' })).vorlage); v.id = id;
+  if (!D.registriere(v).ok) return null;
+  const r = Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: id, parameter: { angebot: X.angebot(g).nr } });
+  return r.ok ? r.faden : null;
+}
 const logbuch = (g) => (g.lageRegie && g.lageRegie.log && g.lageRegie.log.entries) || [];
 const kontextVon = (prompt) => JSON.parse(/<kontext>\n([\s\S]*?)\n<\/kontext>/.exec(prompt)[1]);
 const eigene = (g) => (g.fadenSzene ? g.space.enemies.filter((e) => e.tag === g.fadenSzene.tag) : []);
@@ -203,7 +210,18 @@ section('(b) Expander: Plaene mit den neuen Typen, Standards aus den Daten, Zust
     [plan([b('geleit', { optionen: true }), b('abschluss')]), 'OPTION_BEI_GEFAHR', 'Optionen bei Gefahr (Geleit)'],
     [plan([b('sabotage', { optionen: true }), b('abschluss')]), 'OPTIONEN_NICHT_ERLAUBT', 'Optionen beim Sabotage-Auftrag'],
     [plan([b('sabotage', { id: 'a', verzweigung: { gelungen: 'a' } }), b('abschluss')]), 'WEITER_UNGUELTIG', 'Verzweigung auf sich selbst'],
+    [plan([b('sabotage'), b('sabotage'), b('abschluss')]), 'SABOTAGE_NUR_EINMAL', 'zwei Sabotage-Beats hintereinander (die Pause laesst den zweiten garantiert scheitern)'],
+    [plan([b('sabotage'), b('konvoi'), b('sabotage'), b('abschluss')]), 'SABOTAGE_NUR_EINMAL', 'zwei Sabotage-Beats mit einem Beat dazwischen'],
   ]) ok(hat(BP.expandiere(p), code), `Ablehnung ${code}: ${was}`);
+  ok(D.BEATS.sabotage.nur_einmal === true && !D.BEATS.konvoi.nur_einmal && !D.BEATS.geleit.nur_einmal && BP.expandiere(plan([b('konvoi'), b('konvoi'), b('geleit'), b('geleit'), b('abschluss')])).ok, 'die Regel steht in den Daten (beats.json nur_einmal) und gilt nur fuer sabotage: konvoi und geleit duerfen mehrfach stehen');
+  { // der Pruefer der Vorlage (das Netz unter dem Expander): eine Vorlage mit zwei Sabotage-Beats wird abgelehnt, mit einem angenommen
+    const v = klon(BP.expandiere(plan([b('sabotage'), b('konvoi'), b('abschluss')])).vorlage);
+    const zwei = klon(v); zwei.beats[1] = Object.assign(klon(zwei.beats[0]), { id: 'b_zweite_sabotage' });
+    const pr = Pruefer.pruefeVorlage(zwei);
+    ok(Pruefer.pruefeVorlage(v).ok && !pr.ok && pr.fehler.some((x) => x.startsWith('SABOTAGE_NUR_EINMAL:')), 'Pruefer: SABOTAGE_NUR_EINMAL bei zwei Sabotage-Beats in einer Vorlage'); }
+  { const t = neu(7, 1), g = t.g; flieg(t, '0305'); postenSetzen(g, '0703', 'ger'); rang(g, 'miles');
+    const a = Faden.abenteuerAnbieten(g, plan([b('sabotage'), b('sabotage'), b('abschluss')]), { hex: '0305' });
+    ok(!a.ok && /SABOTAGE_NUR_EINMAL/.test(a.grund), 'Faden.abenteuerAnbieten lehnt den Plan mit zwei Sabotage-Beats ab (auch mit Ziel und ohne Pause): ' + String(a.grund).slice(0, 60)); }
   ok(BP.expandiere(plan([b('sabotage', { verzweigung: { gescheitert: 'z' } }), b('konvoi'), b('geleit', { id: 'z' }), b('abschluss')])).ok, 'Verzweigung: das Scheitern der Sabotage springt zu einem spaeteren Beat');
   const nl = BP.expandiere(plan([b('konvoi'), b('abschluss')], { namenlos: true }));
   ok(nl.ok && nl.vorlage.nsc.rolle === 'namenlos', 'namenlos geht mit konvoi (NSC bleibt aktiv)');
@@ -221,6 +239,7 @@ section('(b2) Prompt-Katalog der Komposition (A2) leitet die neuen Typen aus den
   ok(/sieg \(Standard aufhalten; erlaubt aufhalten \| pluendern\)/.test(k) && /modus \(Standard geleit; erlaubt geleit \| havarist \| panne\)/.test(k), 'Parameter sieg und modus mit Standard und erlaubten Werten');
   ok(/konvoi \[Gefahr, Szene\]/.test(k) && /geleit \[Gefahr, Szene\]/.test(k) && /braucht die Lage sabotage_ziel \(Kontext faeden\.lage\.sabotage_ziel groesser 0\)/.test(k), 'Gefahr und Szene sind gekennzeichnet, die Lage des Sabotage-Auftrags steht im Katalog');
   ok(/Kontext faeden\.lage: Zahl je Lage \(sabotage_ziel\), nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert faeden.lage (nur Zahlen, keine Namen)');
+  ok(/sabotage[^\n]*hoechstens einmal je Plan/.test(k), 'der Katalog nennt: ein Sabotage-Beat steht hoechstens einmal je Plan (aus den Daten nur_einmal)');
   ok(k.length < 12000, 'Prompt-Katalog unter 12 000 Zeichen (' + k.length + ')');
   const r = AP.baue(t.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   ok(!r.fehler && r.prompt.length < 16000 && !NAMEN.some((x) => r.prompt.includes(x)), 'der Prompt ist im Budget und ohne Spielernamen (' + r.zeichen + ' Zeichen)');
@@ -237,6 +256,8 @@ section('(b3) Mock: Plaene mit den neuen Typen; Sabotage nur, wenn der Kontext e
   const typenMock = (lage) => { const s = new Set(); for (let i = 0; i < 400; i++) { const p = AM.gueltigerPlan(AM.rngVon('b2:' + i), { lage }); for (const x of p.beats) s.add(x.typ); if (!BP.expandiere(p).ok) return null; } return s; };
   const ohne = typenMock({ sabotage_ziel: 0 }), mit = typenMock({ sabotage_ziel: 1 });
   ok(ohne && mit, 'jeder Mock-Plan wird vom Expander angenommen');
+  { let zwei = 0; for (let i = 0; i < 400; i++) { const p = AM.gueltigerPlan(AM.rngVon('b2e:' + i), { lage: { sabotage_ziel: 1 } }); if (p.beats.filter((x) => x.typ === 'sabotage').length > 1) zwei++; }
+    ok(zwei === 0, 'der Mock plant in 400 Plaenen nie zwei Sabotage-Beats (hoechstens einmal je Plan)'); }
   ok(ohne.has('konvoi') && ohne.has('geleit') && !ohne.has('sabotage'), 'ohne Ziel (Kontext 0): Konvoi und Geleit kommen vor, nie eine Sabotage');
   ok(mit.has('sabotage') && mit.has('konvoi') && mit.has('geleit'), 'mit einem Ziel (Kontext 1): auch Sabotage');
   { let mitSabotage = 0; for (let i = 1; i <= 60; i++) { const text = AM.planText({ prompt: AP.baue(g, { nr: 500 + i, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt }); if (/"typ": ?"sabotage"/.test(text)) mitSabotage++; }
@@ -323,7 +344,8 @@ section('(c4) Konvoi pluendern: Transporter zerstoeren, die Fracht beamen; gelun
   g.players[0].console = 'weapons'; g.players[0].station = null;
   for (let i = 0; i < 12 && szene(g); i++) { const d = Fracht.draussen(g)[0]; if (d) { g.ship.x = d.x - 80; g.ship.y = d.y; } Fracht.beamStart(g, g.players[0], null); t.run(4); }
   t.run(1);
-  ok(!szene(g) && f.phase === 'wartet' && f.nsc.status === 'verbuendet' && Fracht.anBord(g, 'fracht') >= 1, 'Beute an Bord: gelungen (Konvoi-Ausgang gepluendert), der NSC ist verbuendet');
+  ok(!szene(g) && f.phase === 'wartet' && f.nsc.status === 'verbuendet' && Fracht.anBord(g, 'fracht') === 0 && Fracht.frei(g) === Fracht.capacity(g), 'Beute war an Bord: gelungen (Konvoi-Ausgang gepluendert), der NSC ist verbuendet; der Auftraggeber hat die Beute uebernommen (Frachtraum wieder leer)');
+  ok(t.funk.includes(SZ.texte.beute_uebernommen), 'Funk: die Beute wird uebernommen (Text aus den Daten)');
   ok(t.funk.includes(SZ.texte.gelungen.konvoi_pluendern) && g.errors === 0, 'Ergebnis per Funk, keine Serverfehler');
   // Beute liegt am Boden, niemand holt sie, der Beat endet (Szenenwechsel): sie ist weg
   const t2 = neu(25, 1), g2 = t2.g;
@@ -334,6 +356,95 @@ section('(c4) Konvoi pluendern: Transporter zerstoeren, die Fracht beamen; gelun
   ok(Fracht.draussen(g2).length >= 1, 'Beute liegt');
   g2.simSzene = { id: 3, phase: 'kampf' }; FS.update(g2, 1 / HZ); g2.simSzene = null;
   ok(!szene(g2) && Fracht.draussen(g2).length === 0 && Fracht.state(g2).draussen.filter((d) => d.szene === g2.ship.scene).length === 0 && !g2.space.konvoi && f2.phase === 'wartet' && f2.beat === 0, 'Unterbrechung: die Szene ist weg, keine Beute am Boden (der Beat steht wieder aus)');
+});
+
+// Beute der Plünderung (Nacharbeit M1): zu voller oder fehlender Frachtraum macht aus pluendern ein aufhalten; die Beute verlaesst den Frachtraum mit dem Ende der Szene, nie fremde Fracht
+const pluendernPlan = (k) => plan(Array.from({ length: k }, () => b('konvoi', { parameter: { sieg: 'pluendern' } })).concat([b('abschluss')]));
+const zweiRaeume = (g) => { g.ship.module = [{ id: 'frachtraum', raum: 1, an: true, lauf: true }, { id: 'frachtraum', raum: 2, an: true, lauf: true }]; };
+const fern = (g) => { g.ship.x = 300; g.ship.y = 300; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; };
+function pluendernStart(t, k, vor) {   // Szene mit Sieg pluendern bis zum Kampf; vor(g) bereitet den Frachtraum vor
+  const g = t.g; flieg(t, '0305'); fern(g); if (vor) vor(g);
+  const f = oeffne(g, pluendernPlan(k || 1)).f; startBeat(g, f); vorlauf(t); return f;
+}
+function beuteBeamen(t, nur) {   // die ersten nur Transporter zerstoeren (alle ohne nur), dann die Beute beamen, solange die Szene laeuft
+  const g = t.g;
+  for (const e of Konvoi.transporter(g).slice(0, nur || 99)) Testhilfe.toeten(g, e);
+  t.run(0.5);
+  g.players[0].console = 'weapons'; g.players[0].station = null;
+  for (let i = 0; i < 12 && szene(g) && Fracht.draussen(g).length; i++) { const d = Fracht.draussen(g)[0]; g.ship.x = d.x - 80; g.ship.y = d.y; g.ship.vx = 0; g.ship.vy = 0; g.ship.speed = 0; Fracht.beamStart(g, g.players[0], null); t.run(4); }
+}
+section('(c4b) Konvoi pluendern: ohne Platz fuer die Beute gilt aufhalten (gewinnbar); die Beute verlaesst den Frachtraum mit jedem Ende der Szene, fremde Fracht bleibt', () => {
+  // voller Frachtraum (fremde Ladung): die Vorwarnung nennt aufhalten, kein Fehler, die Szene ist zu gewinnen
+  { const t = neu(60, 3), g = t.g; let cap = 0;
+    const f = pluendernStart(t, 1, (gg) => { cap = Fracht.capacity(gg); for (let i = 0; i < cap; i++) Fracht.anBordLegen(gg, 'sprengstoff'); });
+    ok(cap === 2 && Fracht.frei(g) === 0, 'Ausgangslage: Frachtraum voll (fremder Sprengstoff)');
+    ok(szene(g).plan.sieg === 'aufhalten' && szene(g).textKey === 'konvoi' && g.space.konvoi.sieg === 'aufhalten' && !t.funk.some((x) => x.includes('Beute beamen')), 'voller Frachtraum: Plan und Konvoi gelten als aufhalten, die Vorwarnung kuendigt keine Beute an');
+    for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
+    t.run(1.5);
+    ok(!szene(g) && f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && t.funk.includes(SZ.texte.gelungen.konvoi), 'die Szene ist gewinnbar: Transporter zerstoert, gelungen, der NSC ist verbuendet');
+    ok(Fracht.anBord(g, 'sprengstoff') === cap && Fracht.anBord(g) === cap && Fracht.draussen(g).length === 0 && !t.funk.includes(SZ.texte.beute_uebernommen) && g.errors === 0, 'fremde Fracht unangetastet, keine Beute am Boden, kein Uebernahme-Funk ohne Beute'); }
+  // teilweise voll: ein freier Platz, aber zwei Transporter (Crew 3) verlangen zwei: aufhalten; mit zwei freien Plaetzen bleibt es pluendern
+  { const t = neu(61, 3), g = t.g; pluendernStart(t, 1, (gg) => { Fracht.anBordLegen(gg, 'sprengstoff'); });
+    ok(Fracht.frei(g) === 1 && szene(g).plan.sieg === 'aufhalten', 'ein Platz frei, zwei Transporter: aufhalten');
+    const t2 = neu(62, 3), g2 = t2.g; pluendernStart(t2, 1);
+    ok(Fracht.frei(g2) === 2 && szene(g2).plan.sieg === 'pluendern' && szene(g2).textKey === 'konvoi_pluendern' && g2.space.konvoi.sieg === 'pluendern', 'zwei Plaetze frei: es bleibt pluendern'); }
+  // Kapazitaet 0 (kein Frachtraum eingebaut), eine Crew: aufhalten, gewinnbar
+  { const t = neu(63, 1), g = t.g;
+    const f = pluendernStart(t, 1, (gg) => { gg.ship.module = []; });
+    ok(Fracht.capacity(g) === 0 && szene(g).plan.sieg === 'aufhalten' && g.space.konvoi.sieg === 'aufhalten', 'ohne Frachtraum: aufhalten');
+    for (const e of Konvoi.transporter(g)) Testhilfe.toeten(g, e);
+    t.run(1.5);
+    ok(!szene(g) && f.phase === 'wartet' && f.nsc.status === 'verbuendet' && Fracht.anBord(g) === 0 && g.errors === 0, 'ohne Frachtraum gewinnbar (gelungen, verbuendet)'); }
+  // mehrere Pluenderungen nacheinander bei einer Crew: die Beute ist nach jeder weg, jede bleibt pluendern und ist zu gewinnen
+  { const t = neu(64, 1), g = t.g;
+    const f = pluendernStart(t, 3);
+    for (let r = 1; r <= 3; r++) {
+      ok(!!szene(g) && szene(g).plan.sieg === 'pluendern' && Fracht.frei(g) === Fracht.capacity(g), 'Pluenderung ' + r + ': Frachtraum frei, Sieg pluendern');
+      beuteBeamen(t); t.run(1.5);
+      ok(!szene(g) && f.nsc.status === 'verbuendet' && f.beat === r && Fracht.anBord(g) === 0 && Fracht.draussen(g).length === 0, 'Pluenderung ' + r + ': gelungen, Beute uebernommen (Frachtraum leer), Faden bei Beat ' + f.beat);
+      if (r < 3) { fern(g); ok(startBeat(g, f).ok, 'naechster Konvoi beginnt'); vorlauf(t); }
+    }
+    ok(g.errors === 0, 'keine Serverfehler'); }
+  // jede Endart nimmt die eigene Beute mit, die fremde Fracht bleibt: Misserfolg (max_s), Sprung, Andocken, Sim-Szene
+  const enden = {
+    'Hoechstdauer (Misserfolg)': (t, g) => { g.fadenSzene.start -= SW.konvoi.max_s + 5; t.run(0.3); },
+    'Sprung': (t, g) => { flieg(t, '0205'); t.run(0.5); },
+    'Andocken': (t, g) => { g.ship.docked = true; g.ship.dockedAt = g.ship.scene; g.missionEvent('docked', {}); },
+    'Sim-Szene': (t, g) => { g.simSzene = { id: 7, phase: 'kampf' }; FS.update(g, 1 / HZ); g.simSzene = null; },
+  };
+  let nr = 70;
+  for (const [name, ende] of Object.entries(enden)) {
+    const t = neu(nr++, 3), g = t.g;
+    pluendernStart(t, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'sprengstoff'); });   // fremd: ein Sprengstoff
+    ok(szene(g).plan.sieg === 'pluendern' && Fracht.capacity(g) === 4, name + ': Ausgangslage (vier Plaetze, ein fremder Sprengstoff, Sieg pluendern)');
+    beuteBeamen(t, 1);   // nur EIN Transporter faellt: eine Beute an Bord, der Konvoi ist noch nicht durch
+    ok(!!szene(g) && Fracht.anBord(g, 'fracht') === 1 && Fracht.anBord(g) === 2, name + ': eine Beute ist an Bord, die Szene laeuft');
+    Fracht.anBordLegen(g, 'sprengstoff');   // nach der Beute zugestiegen: liegt hinter ihr im Frachtraum und darf nicht statt ihrer gehen
+    ende(t, g);
+    ok(!szene(g) && Fracht.anBord(g, 'fracht') === 0 && Fracht.anBord(g, 'sprengstoff') === 2 && Fracht.anBord(g) === 2 && Fracht.draussen(g).length === 0, name + ': die Beute ist aus dem Frachtraum, die fremde Fracht (Sprengstoff) bleibt');
+    ok(g.errors === 0, name + ': keine Serverfehler'); }
+  // Gewinn mit fremder Fracht derselben Art: nur die Beute geht
+  { const t = neu(80, 3), g = t.g;
+    const f = pluendernStart(t, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'fracht'); });
+    beuteBeamen(t); t.run(1.5);
+    ok(!szene(g) && f.nsc.status === 'verbuendet' && Fracht.anBord(g, 'fracht') === 1 && g.errors === 0, 'gelungen mit einer fremden Fracht derselben Art an Bord: nur die eigene Beute geht (eine bleibt)');
+    Fracht.anBordLegen(g, 'fracht');   // nach der Szene geladene Fracht ist keine Beute mehr: sie steht im Stand
+    ok(Fracht.anBord(g, 'fracht') === 2 && JSON.stringify(Weltstand.capture(g).schiff.fracht) === JSON.stringify(['fracht', 'fracht']), 'nach der Szene wird nichts mehr aus dem Speicherstand genommen: ' + JSON.stringify(Weltstand.capture(g).schiff.fracht)); }
+  // Speicherstand mitten in der Szene (Aufhalten: zwei Transporter, eine fremde Fracht derselben Art an Bord, danach noch ein Sprengstoff): nur die Beute fehlt im Stand
+  { const t = neu(82, 3), g = t.g; flieg(t, '0305'); fern(g); zweiRaeume(g); Fracht.anBordLegen(g, 'fracht');
+    const f = oeffne(g, plan([b('konvoi'), b('abschluss')])).f; startBeat(g, f); vorlauf(t);
+    beuteBeamen(t, 1); Fracht.anBordLegen(g, 'sprengstoff');
+    ok(!!szene(g) && Fracht.anBord(g, 'fracht') === 2 && Fracht.anBord(g) === 3, 'Aufhalten: fremde Fracht, Beute und ein Sprengstoff an Bord, die Szene laeuft');
+    const d = Weltstand.capture(g).schiff.fracht;
+    ok(JSON.stringify(d) === JSON.stringify(['fracht', 'sprengstoff']), 'im Stand fehlt nur die Beute (die fremde Fracht derselben Art und der Sprengstoff stehen drin): ' + JSON.stringify(d)); }
+  // Laden mitten in der Szene: die Beute steht nicht im Stand (die Szene ist nicht speicherbar)
+  { const t = neu(81, 3), g = t.g;
+    pluendernStart(t, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'sprengstoff'); });
+    beuteBeamen(t, 1);
+    ok(!!szene(g) && Fracht.anBord(g, 'fracht') === 1, 'Beute an Bord, Szene laeuft');
+    const data = Weltstand.capture(g);
+    ok(JSON.stringify(data.schiff.fracht) === JSON.stringify(['sprengstoff']), 'im Stand steht nur die fremde Fracht, nicht die Beute: ' + JSON.stringify(data.schiff.fracht));
+    ok(Fracht.anBord(g, 'fracht') === 1, 'Speichern aendert den Frachtraum der laufenden Partie nicht'); }
 });
 
 section('(c5) Konvoi: Szenenwechsel, Andocken und Sim-Szene loesen die Szene auf; der Beat steht dann (wieder) aus, nichts bleibt haengen', () => {
@@ -468,12 +579,13 @@ section('(d4) Geleit, Modus panne (laengsseits flicken): die Reparatur gelingt, 
 });
 
 section('(d5a) Geleit: ein Schuetzling fehlt oder die Engine hat keinen Platz mehr; Havarist beim Sprung; fehlerhafte Wahl in einer Datei-Vorlage', () => {
-  // die Engine kennt hoechstens zwei Schuetzlinge: ist kein Platz, scheitert die Szene beim Beginn, es kommen keine Angreifer
+  // die Engine kennt hoechstens zwei Schuetzlinge: ist kein Platz, beginnt die Szene nicht (kein Scheitern der Crew, keine Folge fuer den NSC): der Beat steht wieder aus, es kommen keine Angreifer
   { const t = neu(51, 1), g = t.g; flieg(t, '0305'); g.ship.x = 300; g.ship.y = 300;
     Escort.spawn(g, { tag: 'fremd1', kind: 'frachter', verhalten: 'treibt', von: 'lerche' }); Escort.spawn(g, { tag: 'fremd2', kind: 'frachter', verhalten: 'treibt', von: 'lerche' });
     let gespawnt = 0; const mo = g.missionEvent.bind(g); g.missionEvent = (name, d) => { if (name === 'enemySpawn') gespawnt++; return mo(name, d); };
     const f = oeffne(g, plan([b('geleit'), b('abschluss')])).f; startBeat(g, f); vorlauf(t); t.run(0.5);
-    ok(!szene(g) && f.phase === 'wartet' && f.beat === 1 && f.nsc.status !== 'verbuendet' && g.space.enemies.length === 0 && (g.space.escorts || []).length === 2 && gespawnt === 0, 'kein Platz fuer einen Schuetzling: gescheitert, es wurde kein Angreifer gespawnt, die fremden Schuetzlinge bleiben'); }
+    ok(!szene(g) && f.phase === 'wartet' && f.beat === 0 && f.laufend === null && f.zaehler === f.abstand && g.space.enemies.length === 0 && (g.space.escorts || []).length === 2 && gespawnt === 0, 'kein Platz fuer einen Schuetzling: die Szene beginnt nicht, der Beat steht wieder aus (beat 0, sofort faellig), es wurde kein Angreifer gespawnt, die fremden Schuetzlinge bleiben');
+    ok(f.nsc.status === 'aktiv' && !f.nsc.gedaechtnis.some((x) => x.ereignis === 'geleit_gescheitert') && !t.funk.includes(SZ.texte.gescheitert.geleit) && t.funk.includes(SZ.texte.unterbrochen), 'kein Scheitern: keine Folge fuer den NSC (kein im_stich_gelassen, kein Gedaechtnis), kein falscher Funktext vom Scheitern, der Funk nennt die Unterbrechung'); }
   // der Schuetzling verschwindet (Zustand): gescheitert
   { const t = neu(52, 1), g = t.g; const f = szeneStart(t, b('geleit'), { fern: true }); vorlauf(t);
     g.space.escorts = []; t.run(0.2);
@@ -575,7 +687,7 @@ section('(e2) Sabotage: das Angebot veraltet (Ziel weg beim Oeffnen): Ablehnung 
   ok(g.errors === 0, 'keine Serverfehler');
 });
 
-section('(e3) Sabotage spielen: der Beat nennt das Ziel; die Crew SPRENGT den Posten wirklich (Posten angreifen); gelungen, Ereignis posten_verloren, die Sim wird nicht angefasst', () => {
+section('(e3) Sabotage spielen: der Beat nennt das Ziel; die Crew SPRENGT den Posten wirklich (Posten angreifen); gelungen durch die Sprengung der Crew, die Sim wird nicht angefasst', () => {
   const t = neu(62, 1), g = t.g; flieg(t, '0305');
   postenSetzen(g, '0703', 'ger'); rang(g, 'miles');
   const { f } = oeffne(g, plan([b('sabotage'), b('abschluss')]));
@@ -589,7 +701,7 @@ section('(e3) Sabotage spielen: der Beat nennt das Ziel; die Crew SPRENGT den Po
   const fehler = sprengen(t, '0703');
   ok(!fehler, 'die Crew hat den Posten gesprengt (Sim-Szene Posten angreifen bis zum Sieg)' + (fehler ? ': ' + fehler : ''));
   ok(g.weltsim.zustand.hexe['0703'].posten === false && g.weltsim.tickZahl === tz + 1 && g.weltsim.zustand.tick === g.weltsim.tickZahl, 'der Posten ist weg, genau ein Tick (tickZahl und Sim-Tick sind gleich)');
-  ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen'), 'der Beat ist gelungen (Ereignis posten_verloren durch rom am Ziel), der NSC ist verbuendet');
+  ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen'), 'der Beat ist gelungen (Sprengung der Crew am Ziel), der NSC ist verbuendet');
   ok(t.funk.includes(TX.texte.sabotage_gelungen.replace('{ort}', Sektoren.hexName('0703'))), 'Funk: der Posten ist gefallen');
   ok(g.weltsim.faeden.sabotage.n === 1 && JSON.stringify(g.weltsim.zustand.hexe['0505']) === vorSim, 'der Beat hat keinen zusaetzlichen Angriff der Sim gebaut (ein anderer Hex bleibt unveraendert)');
   ok(g.errors === 0, 'keine Serverfehler');
@@ -615,15 +727,17 @@ section('(e4) Sabotage: Ziel weg ohne die Crew: gescheitert; Frist (12 Taetigkei
     const r = startBeat(g, f);
     ok(r.ok && f.phase === 'wartet' && f.beat === 1 && f.nsc.status !== 'verbuendet' && !g.weltsim.faeden.sabotage && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gescheitert'), 'Ziel fehlt beim Beginn: der Beat scheitert SOFORT (der Faden aendert sich, die Pause beginnt nicht)');
     ok(t.funk.includes(TX.texte.sabotage_kein_ziel) && logbuch(g).some((e) => e.art === 'faden_baustein' && /Sabotage: kein Ziel/.test(e.begruendung || '')), 'Funk und Logbuch nennen den Grund'); }
-  // Pause beim Beginn: zwei Sabotage-Beats in einem Plan; der zweite beginnt in der Pause des ersten und scheitert sofort (die Pause haelt nach dem Stand der Sim, nicht nach dem Plan)
+  // Pause beim Beginn: zwei Abenteuer mit je einem Sabotage-Beat (in EINEM Plan ist das nicht erlaubt, H1); das zweite beginnt in der Pause des ersten und scheitert sofort (die Pause haelt nach dem Stand der Sim, nicht nach dem Plan)
   { const t = neu(66, 1), g = t.g; flieg(t, '0305'); postenSetzen(g, '0703', 'ger'); postenSetzen(g, '0505', 'ger'); rang(g, 'miles');
-    const f = oeffne(g, plan([b('sabotage'), b('sabotage'), b('abschluss')])).f; startBeat(g, f);
+    const f2 = dateiFaden(g, 'b2_datei_pause'), f = oeffne(g, plan([b('sabotage'), b('abschluss')], { titel: 'ZEBRAKAI Eins' })).f;
+    ok(!!f && !!f2 && f.id !== f2.id, 'zwei Faeden mit je einem Sabotage-Beat sind geoeffnet (ein Abenteuer, ein Faden aus einer Datei-Vorlage; beide vor der Pause)');
+    startBeat(g, f);
     ok(f.phase === 'laeuft' && g.weltsim.faeden.sabotage.n === 1, 'der erste Auftrag laeuft, die Pause beginnt (n 1)');
     g.weltsim.zustand.hexe[f.parameter.ort].posten = false; g.weltsim.zustand.hexe[f.parameter.ort].besitzer = null; t.run(0.2);
-    ok(f.phase === 'wartet' && f.beat === 1, 'der erste Auftrag endet (Ziel weg), der zweite steht an');
-    const r2 = startBeat(g, f);
-    ok(r2.ok && f.phase === 'wartet' && f.beat === 2 && g.weltsim.faeden.sabotage.n === 1 && t.funk.includes(TX.texte.sabotage_pause), 'der zweite Beat beginnt in der Pause und scheitert sofort (Text sabotage_pause), n bleibt 1: nie zwei Sprengungen je Pause');
-    ok(f.nsc.gedaechtnis.filter((x) => x.ereignis === 'sabotage_gescheitert').length === 2 && f.nsc.status !== 'tot' && !g.gameOver && g.errors === 0, 'beide gescheitert, der Faden lebt weiter, kein Game Over'); }
+    ok(f.phase === 'wartet' && f.beat === 1, 'der erste Auftrag endet (Ziel weg)');
+    const r2 = startBeat(g, f2);
+    ok(r2.ok && f2.phase === 'wartet' && f2.beat === 1 && g.weltsim.faeden.sabotage.n === 1 && t.funk.includes(TX.texte.sabotage_pause), 'der zweite Beat beginnt in der Pause und scheitert sofort (Text sabotage_pause), n bleibt 1: nie zwei Sprengungen je Pause');
+    ok(f.nsc.gedaechtnis.filter((x) => x.ereignis === 'sabotage_gescheitert').length === 1 && f2.nsc.gedaechtnis.filter((x) => x.ereignis === 'sabotage_gescheitert').length === 1 && f2.nsc.status !== 'tot' && !g.gameOver && g.errors === 0, 'beide gescheitert, die Faeden leben weiter, kein Game Over'); D.entferne('b2_datei_pause'); }
 });
 
 section('(e5) Sabotage: Speichern und Laden mitten im Beat (der Beat ist speicherbar, kein Szenen-Beat); der Block sabotage im Weltstand; Altstand und Muell', () => {
@@ -666,17 +780,32 @@ section('(e5) Sabotage: Speichern und Laden mitten im Beat (der Beat ist speiche
   ok(Weltstand.capture(g).version === 3, 'Weltstand-Version 3');
 });
 
-section('(e6) Sabotage: die Grenzen des Ereignisses (Tick, Hex, Besitzer, Art); ein uebernommener Posten ist weg; faden_oeffnen einer Datei-Vorlage fragt die Lage', () => {
+section('(e6) Sabotage: die Grenzen der Sprengung (Tick, Hex, Zeitpunkt), roemische Eroberung, verworfener Sim-Zustand; ein uebernommener Posten ist weg; faden_oeffnen einer Datei-Vorlage fragt die Lage', () => {
   const start = () => { const t = neu(90, 1), g = t.g; flieg(t, '0305'); postenSetzen(g, '0703', 'ger'); rang(g, 'miles'); const f = oeffne(g, plan([b('sabotage'), b('abschluss')])).f; startBeat(g, f); return { t, g, f }; };
   const ev = (g, o) => g.weltsim.ereignisse.push(Object.assign({ n: 0, typ: 'posten_verloren', tick: 0, fraktion: 'ger', ort: '0703', ortName: 'Eisfeld', besitzer: 'ger', durch: 'rom' }, o));
+  { const { t, g, f } = start(); const seit = f.laufend.seit, z = g.weltsim.zustand;
+    for (const o of [{}, { ort: '0505' }, { durch: 'pirat' }, { typ: 'hafen_gefallen' }]) ev(g, Object.assign({ n: seit + 1 }, o));
+    t.run(0.1); ok(f.phase === 'laeuft', 'kein Ereignis zaehlt (auch nicht posten_verloren durch rom am Ziel): gelungen ist nur die Sprengung der Crew');
+    g.weltsim.tickZahl++; z.tick++;   // ein Tick der Sim ist vergangen
+    g.weltsim.sprengungen['0505'] = z.tick; t.run(0.1); ok(f.phase === 'laeuft', 'eine Sprengung an einem anderen Hex zaehlt nicht');
+    g.weltsim.sprengungen['0703'] = seit; t.run(0.1); ok(f.phase === 'laeuft', 'eine Sprengung aus dem Tick des Beginns zaehlt nicht (sie war vorher)');
+    g.weltsim.sprengungen['0703'] = z.tick + 3; t.run(0.1); ok(f.phase === 'laeuft', 'eine Sprengung aus der Zukunft des Sim-Zustands zaehlt nicht');
+    g.weltsim.sprengungen['0703'] = z.tick; t.run(0.1); ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen'), 'die Sprengung der Crew am Ziel nach dem Beginn: gelungen'); }
+  // Rom erobert das Ziel (die Sim meldet posten_verloren durch rom, wie bei jeder Eroberung): NICHT die Tat der Crew, der Beat scheitert (Ziel weg), der Faden aendert sich, kein Game Over
   { const { t, g, f } = start(); const seit = f.laufend.seit;
-    ev(g, { n: seit }); t.run(0.1); ok(f.phase === 'laeuft', 'ein Ereignis aus dem Tick des Beginns zaehlt nicht (es war vorher)');
-    ev(g, { n: seit + 1, ort: '0505' }); t.run(0.1); ok(f.phase === 'laeuft', 'ein Verlust an einem anderen Hex zaehlt nicht');
-    ev(g, { n: seit + 1, durch: 'pirat' }); t.run(0.1); ok(f.phase === 'laeuft', 'ein Verlust an Piraten zaehlt nicht (nur durch rom)');
-    ev(g, { n: seit + 1, typ: 'hafen_gefallen' }); t.run(0.1); ok(f.phase === 'laeuft', 'ein anderes Ereignis zaehlt nicht');
-    g.weltsim.sprengungen['0703'] = seit; t.run(0.1); ok(f.phase === 'laeuft', 'eine Sprengung aus dem Tick des Beginns zaehlt nicht (Stand der Sim)');
-    ev(g, { n: seit + 1 }); t.run(0.1); ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet', 'der Verlust an Rom am Ziel nach dem Beginn: gelungen'); }
-  { const { t, g, f } = start(); g.weltsim.sprengungen['0703'] = f.laufend.seit + 1; t.run(0.1); ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet', 'ohne Ereignis (nach dem Laden) genuegt die Sprengung der Crew im Stand'); }
+    g.weltsim.tickZahl++; g.weltsim.zustand.tick++;
+    Object.assign(g.weltsim.zustand.hexe['0703'], { besitzer: 'rom' }); ev(g, { n: seit + 1 }); t.run(0.1);
+    ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status !== 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gescheitert') && !f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen') && t.funk.includes(TX.texte.sabotage_ziel_weg.replace('{ort}', Sektoren.hexName('0703'))) && !t.funk.includes(TX.texte.sabotage_gelungen.replace('{ort}', Sektoren.hexName('0703'))) && !g.gameOver, 'roemische Eroberung des Ziels (Ereignis posten_verloren durch rom): gescheitert (Ziel weg), kein Erfolg, kein Game Over'); }
+  // der Sim-Zustand war unbrauchbar (kriegslage.restore baut eine neue Welt, Sim-Tick 0, tickZahl bleibt): die Sprengung der Crew zaehlt trotzdem (verglichen wird das Alter, nie die Rohwerte beider Zaehler)
+  { const t = neu(92, 1), g = t.g; flieg(t, '0305'); postenSetzen(g, '0703', 'ger'); rang(g, 'miles');
+    const f = oeffne(g, plan([b('sabotage'), b('abschluss')])).f; g.weltsim.tickZahl = 500; g.weltsim.zustand.tick = 500; startBeat(g, f);
+    const data = JSON.parse(JSON.stringify(Weltstand.capture(g).welt.sim)); data.zustand = { kaputt: 1 };
+    const t2 = neu(93, 1), g2 = t2.g; Kriegslage.restore(g2, data);
+    const f2 = liste(g2)[0];
+    ok(f2 && f2.phase === 'laeuft' && g2.weltsim.tickZahl === 500 && g2.weltsim.zustand.tick === 0 && f2.laufend.seit === 500, 'Ausgangslage: der Beat laeuft, tickZahl 500, der Sim-Tick der neuen Welt ist 0');
+    postenSetzen(g2, '0703', 'ger'); rang(g2, 'miles'); flieg(t2, '0305');   // die neue Welt hat den Posten nicht: Fixture VOR dem ersten Takt
+    const fehler = sprengen(t2, '0703');
+    ok(!fehler && f2.phase === 'wartet' && f2.beat === 1 && f2.nsc.status === 'verbuendet', 'die Crew sprengt nach dem Laden mit verworfenem Sim-Zustand: gelungen' + (fehler ? ' (' + fehler + ')' : '')); }
   for (const neuer of ['pirat', 'kon', 'rom']) { const { t, g, f } = start(); g.weltsim.zustand.hexe['0703'].besitzer = neuer; t.run(0.1); ok(f.phase === 'wartet' && f.nsc.status !== 'verbuendet' && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gescheitert'), 'der Posten gehoert nun ' + neuer + ' (nicht mehr germanisch): das Ziel ist weg, gescheitert'); }
   { const { t, g, f } = start(); ok(f.parameter.ort === '0703' && D.vorlage(f.vorlage).beats[0].parameter === undefined, 'der Plan nennt das Ziel nicht, es steht im Faden'); g.weltsim.zustand.hexe['0703'].garnison = 0; t.run(0.1); ok(f.phase === 'laeuft', 'eine schwache Garnison aendert nichts: der Beat wartet auf die Sprengung'); }
   // ein Faden aus einer Datei-Vorlage mit sabotage: faden_oeffnen fragt die Lage wie das Abenteuer
@@ -723,11 +852,11 @@ section('(e7) Sabotage: Ziele im Einzelnen (Hex ohne Posten, Hafen, Hex ohne Que
     ok(f.phase === 'wartet' && f.beat === 1 && !g3.weltsim.faeden.sabotage && f.parameter.ort !== '0703', 'ohne Funk kein Beat: gescheitert, keine Pause, das Ziel steht nicht im Faden'); }
   // die Zahl der Sabotage-Beats und der Tick des Beginns im Stand
   { const t3 = neu(98, 1), g3 = t3.g; flieg(t3, '0305'); rang(g3, 'miles'); postenSetzen(g3, '0703', 'ger'); postenSetzen(g3, '0505', 'ger'); g3.weltsim.tickZahl = 7;
-    const f = oeffne(g3, plan([b('sabotage'), b('sabotage'), b('abschluss')])).f; startBeat(g3, f);
+    const f2 = dateiFaden(g3, 'b2_datei_zahl'), f = oeffne(g3, plan([b('sabotage'), b('abschluss')], { titel: 'ZEBRAKAI Eins' })).f; startBeat(g3, f);
     ok(JSON.stringify(g3.weltsim.faeden.sabotage) === '{"t":7,"n":1}', 'der Stand haelt den Tick des Beginns und n 1: ' + JSON.stringify(g3.weltsim.faeden.sabotage));
     const ort1 = f.parameter.ort; g3.weltsim.zustand.hexe[ort1].posten = false; g3.weltsim.zustand.hexe[ort1].besitzer = null; t3.run(0.2);
-    g3.weltsim.tickZahl = 7 + 80; postenSetzen(g3, ort1 === '0703' ? '0505' : '0703', 'ger'); startBeat(g3, f);
-    ok(f.phase === 'laeuft' && JSON.stringify(g3.weltsim.faeden.sabotage) === '{"t":87,"n":2}', 'nach der Pause beginnt der naechste Auftrag: n 2, neuer Tick: ' + JSON.stringify(g3.weltsim.faeden.sabotage)); }
+    g3.weltsim.tickZahl = 7 + 80; postenSetzen(g3, ort1 === '0703' ? '0505' : '0703', 'ger'); startBeat(g3, f2);
+    ok(f2.phase === 'laeuft' && JSON.stringify(g3.weltsim.faeden.sabotage) === '{"t":87,"n":2}', 'nach der Pause beginnt der naechste Auftrag: n 2, neuer Tick: ' + JSON.stringify(g3.weltsim.faeden.sabotage)); }
   ok(g.errors === 0, 'keine Serverfehler');
 });
 
@@ -744,7 +873,11 @@ section('(g) Katalog (Moleküle): fuenf Weltraum-Umsetzungen sind auf sund_frei 
   // der Querverweis lehnt ab, was nicht spielbar ist
   const bad = (o) => MK.sundFreiFehler(Object.assign({ schauplatz: 'weltraum', sund_frei: { beat: 'konvoi', parameter: { sieg: 'aufhalten' }, belegt: 'x' } }, o));
   ok(bad({}).length === 0 && bad({ schauplatz: 'aussen' }).some((x) => /Weltraum/.test(x)), 'Boden-Umsetzungen sind nicht spielbar (Weltraum verlangt)');
-  ok(bad({ sund_frei: { beat: 'teleport', belegt: 'x' } }).some((x) => /teleport/.test(x)) && bad({ sund_frei: { beat: 'abschluss', belegt: 'x' } }).length === 0, 'ein unbekannter Beat wird abgelehnt (ein planbarer Beat nicht)');
+  ok(bad({ sund_frei: { beat: 'teleport', belegt: 'x' } }).some((x) => /teleport/.test(x)) && bad({ sund_frei: { beat: 'konvoi', belegt: 'x' } }).length === 0, 'ein unbekannter Beat wird abgelehnt (ein erlaubter Beat nicht)');
+  { const dat = Object.entries(D.BEATS).filter(([, c]) => c.sund_frei_erlaubt === true).map(([k]) => k).sort().join();
+    ok(dat === 'befreiung,geleit,konvoi,raumschlacht,sabotage,verfolgung', 'die Daten (beats.json sund_frei_erlaubt) nennen die zuordenbaren Beats: die Szenen-Beats und sabotage (keine Szene, aber ein Beat mit eigener Mechanik): ' + dat);
+    for (const k of ['abschluss', 'bitte', 'notruf', 'enthuellung', 'fracht', 'geruecht', 'spur', 'wiedersehen', 'spontanhilfe']) ok(bad({ sund_frei: { beat: k, belegt: 'x' } }).some((x) => /darf keiner Umsetzung zugeordnet werden/.test(x)), 'der Beat ' + k + ' darf keiner Umsetzung zugeordnet werden (kein sund_frei_erlaubt)');
+    ok(bad({ sund_frei: { beat: 'sabotage', belegt: 'x' } }).length === 0 && bad({ sund_frei: { beat: 'verfolgung', belegt: 'x' } }).length === 0, 'sabotage (keine Szene) und eine Szene wie verfolgung sind zuordenbar'); }
   ok(bad({ sund_frei: { beat: 'konvoi', parameter: { sieg: 'rammen' }, belegt: 'x' } }).some((x) => /nicht erlaubt/.test(x)) && bad({ sund_frei: { beat: 'konvoi', parameter: { gibt: 'es nicht' }, belegt: 'x' } }).some((x) => /gehoert nicht/.test(x)) && bad({ sund_frei: { beat: 'konvoi', parameter: { constructor: 'x' }, belegt: 'x' } }).some((x) => /gehoert nicht/.test(x)), 'ein Wert ausserhalb der Liste, ein fremder Parameter und ein Prototyp-Name werden abgelehnt');
   ok(MK.sundFreiFehler({ schauplatz: 'weltraum', sund_frei: { beat: '__proto__', belegt: 'x' } }).some((x) => /__proto__/.test(x)) && MK.sundFreiFehler({ schauplatz: 'weltraum', sund_frei: { beat: 'constructor', belegt: 'x' } }).length > 0, 'ein Beat mit Prototyp-Namen gibt es nicht');
   // jede Umsetzung wird gespielt: der Beat aus dem Katalog, die Wahl aus dem Katalog, der Ausgang gelungen ueber die Mittel der Szene
@@ -785,6 +918,7 @@ section('(g2) Katalog: eine Umsetzung (Mod) mit falschem sund_frei wird beim Lad
   ok(lade(null, 'ohne_feld').length === 0, 'eine Mod-Umsetzung ohne sund_frei laedt ohne Fehler');
   ok(lade({ beat: 'konvoi', parameter: { sieg: 'aufhalten' }, belegt: 'ein Beleg im Test' }, 'gut').length === 0, 'mit gueltigem sund_frei laedt sie ohne Fehler');
   ok(lade({ beat: 'teleport', belegt: 'ein Beleg im Test' }, 'beat').some((m) => /sund_frei: der Beat 'teleport'/.test(m)), 'unbekannter Beat: Fehler beim Laden');
+  ok(lade({ beat: 'abschluss', belegt: 'ein Beleg im Test' }, 'abschluss').some((m) => /sund_frei: der Beat 'abschluss' darf keiner Umsetzung zugeordnet werden/.test(m)), 'ein Beat ohne sund_frei_erlaubt (abschluss): Fehler beim Laden');
   ok(lade({ beat: 'konvoi', parameter: { sieg: 'rammen' }, belegt: 'ein Beleg im Test' }, 'wert').some((m) => /sund_frei: der Wert 'rammen'/.test(m)), 'Wert ausserhalb der Liste: Fehler beim Laden');
   ok(lade({ beat: 'konvoi', belegt: 'ein Beleg im Test', extra: 1 }, 'extra').length > 0, 'ein unbekanntes Feld in sund_frei: Schemafehler');
   ok(lade({ beat: 'konvoi' }, 'beleg').length > 0, 'ohne Beleg: Schemafehler');

@@ -503,7 +503,9 @@ function finaleOrbit(S, seed) {
 }
 
 // ---------- Aufbau 12 (SUND-04b B2): Faden-Szenen Konvoi (2 Transporter, Jaeger und Korvette) und Geleit (Schuetzling, 3 Angreifer) in der Freien Fahrt Sund – 3 Spieler, FAEDEN=1, je Szene 20 s gelaufen
-// (alle Gegner gescannt, einer faellt, beim Konvoi faehrt ein Transporter schon im Sprung); die Szenen entstehen ueber den echten Weg (Abenteuer anbieten und oeffnen, faden_weiter, Vorwarnung). ----------
+// (alle Gegner gescannt, einer faellt, beim Konvoi faehrt ein Transporter schon im Sprung); die Szenen entstehen ueber den echten Weg (Abenteuer anbieten und oeffnen, faden_weiter, Vorwarnung). Dazu Nacharbeit H4: das Geleit im
+// Modus panne, und der groesste Fall: das Geleit (Schuetzling, 3 Angreifer, 3 Spieler) MIT einem Verbuendeten der Spontanhilfe im selben Gefecht (zweiter Faden aus einer Datei-Vorlage; die Chance der Haltung wird fuer die
+// Messung auf 1 gesetzt, damit er sicher erscheint). ----------
 function fadenLauf(S, seed) {
   const fs = require('fs'), os = require('os'), path = require('path');
   const space = require('../server/sim/space.js');
@@ -518,39 +520,67 @@ function fadenLauf(S, seed) {
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
   for (let k = 0; k < 15; k++) g.step();
   let szenen = 0, fehlerSzene = 0;
-  for (const [typ, parameter] of [['konvoi'], ['geleit', { modus: 'geleit' }], ['geleit', { modus: 'havarist' }]]) {
+  const Daten = require('../server/sim/faden-daten.js'), Bauplan = require('../server/sim/faden-bauplan.js');
+  let verbuendete = 0;
+  for (const [typ, parameter, mit] of [['konvoi'], ['geleit', { modus: 'geleit' }], ['geleit', { modus: 'havarist' }], ['geleit', { modus: 'panne' }], ['geleit', { modus: 'geleit' }, 'hilfe']]) {
     space.enterScene(g, Sektoren.ortVonHex('0305'), {}); g.explore.location = Sektoren.ortVonHex('0305');
     const s = g.ship; s.docked = false; s.dockedAt = null; s.helm.stage = 1; s.vx = 0; s.vy = 0; s.speed = 0; s.x = 300; s.y = 300;
     const plan = { format: 'faden-bauplan/1', titel: 'Messung ' + typ + (parameter ? ' ' + parameter.modus : ''), anlass: 'Messung des Snapshots der Faden-Szenen', beats: [parameter ? { typ, parameter } : { typ }, { typ: 'abschluss' }] };
+    let hilfe = null;   // der zweite Faden mit dem Beat spontanhilfe (nur im Fall mit Verbuendetem)
+    if (mit === 'hilfe') {
+      const v = Bauplan.expandiere({ format: 'faden-bauplan/1', titel: 'Messung Hilfe', anlass: 'Messung der Spontanhilfe im Snapshot', beats: [{ typ: 'spontanhilfe' }, { typ: 'abschluss' }] }).vorlage;
+      if (v) { v.id = 'mess_hilfe'; Daten.registriere(v); }
+      const ang = v ? Faden.ausgangMitPerson(g, { art: 'notruf', id: 'notruf_mess', hex: '0305', sprecher: 'Sprecher', ausgang: 'gelungen' }) : null;
+      const o = ang ? Faden.befehlAnwenden(g, { typ: 'faden_oeffnen', vorlage: 'mess_hilfe', parameter: { angebot: ang.nr } }) : { ok: false };
+      hilfe = o.ok ? o.faden : null;
+      if (!hilfe) { fehlerSzene++; continue; }
+    }
     const a = Faden.abenteuerAnbieten(g, plan, { hex: '0305' });
     const r = a.ok ? Faden.abenteuerOeffnen(g, a.angebot.nr) : { ok: false };
     if (!r.ok) { fehlerSzene++; continue; }
     for (let i = 0; i < 8; i++) g.lageGrenze('andocken');
     const b = { typ: 'faden_weiter', faden: r.faden.id, beat: r.faden.plan.beats[0].id };
     if (Faden.befehlPruefen(g, b) !== null || !Faden.befehlAnwenden(g, b).ok) { fehlerSzene++; continue; }
-    let kampf = false;
+    const chanceAlt = Faden.chanceSpontanhilfe;
+    if (hilfe) {
+      Faden.chanceSpontanhilfe = () => 1;
+      const bh = { typ: 'faden_weiter', faden: hilfe.id, beat: Daten.vorlage(hilfe.vorlage).beats[0].id };
+      if (Faden.befehlPruefen(g, bh) !== null || !Faden.befehlAnwenden(g, bh).ok) fehlerSzene++;
+    }
+    let kampf = false, mitVerbuendetem = false;
     for (let k = 0; k < 20 * 30 + 15 * 30; k++) {
       g.step();
+      if (hilfe && g.fadenHilfe && g.fadenHilfe.ally && g.space.escorts && g.space.escorts.some((q) => q.ally)) mitVerbuendetem = true;
       if (g.fadenSzene && g.fadenSzene.phase === 'kampf') { kampf = true; for (const e of g.space.enemies) e.scanned = true; }
       if (kampf && k % 150 === 100) { const e = g.space.enemies.find((x) => x.kv !== 'e' || typ !== 'konvoi'); if (e) Testhilfe.toeten(g, e, { von: [e.x - 50, e.y] }); }
       messen(S, g.snapshot());
       if (!g.fadenSzene && kampf) break;
     }
     if (kampf) szenen++;
+    if (hilfe) { Faden.chanceSpontanhilfe = chanceAlt; if (mitVerbuendetem) verbuendete++; else fehlerSzene++; }
     // die Szene zu Ende bringen (Gegner fallen, der Schuetzling kommt an) und den Faden schliessen: es laeuft hoechstens ein Abenteuer
     if (g.fadenSzene) {
       for (const e of g.space.enemies.slice()) Testhilfe.toeten(g, e);
       const es = (g.space.escorts || []).find((q) => !q.ally); if (es && es.ziel) { es.x = es.ziel.x; es.y = es.ziel.y; es.vx = 0; es.vy = 0; }
+      if (es) es.repaired = true;   // die Panne: der Schuetzling ist geflickt (Erfolg repariert)
       for (let k = 0; k < 90 && g.fadenSzene; k++) g.step();
     }
     for (let i = 0; i < 8; i++) g.lageGrenze('andocken');
     const ende = { typ: 'faden_weiter', faden: r.faden.id, beat: r.faden.plan.beats[r.faden.beat].id };
     if (r.faden.phase === 'wartet' && Faden.befehlPruefen(g, ende) === null) Faden.befehlAnwenden(g, ende);
     if (r.faden.phase !== 'abgeschlossen') fehlerSzene++;
+    if (hilfe) {   // der Verbuendete hat mitgekaempft: sein Faden steht beim Abschluss und wird geschlossen
+      for (let k = 0; k < 90 && g.fadenHilfe; k++) g.step();
+      for (let i = 0; i < 8; i++) g.lageGrenze('andocken');
+      const eh = { typ: 'faden_weiter', faden: hilfe.id, beat: Daten.vorlage(hilfe.vorlage).beats[hilfe.beat].id };
+      if (hilfe.phase === 'wartet' && Faden.befehlPruefen(g, eh) === null) Faden.befehlAnwenden(g, eh);
+      if (hilfe.phase !== 'abgeschlossen') fehlerSzene++;
+      Daten.entferne('mess_hilfe');
+    }
   }
   const fehler = g.errors + fehlerSzene;
   g.releaseWorldLock && g.releaseWorldLock();
-  return { fehler, szenen };
+  return { fehler, szenen, verbuendete };
 }
 
 // ---------- Lauf ----------
@@ -607,10 +637,10 @@ console.log('  Läufe: ' + laeufe.verfolgung.map((l) => `s${l.seed} Ausgang ${l.
 zeigen(res.finaleOrbit);
 console.log('  Läufe: ' + laeufe.finaleOrbit.map((l) => `s${l.seed} Schiffe max ${l.schiffeMax}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.faden);
-console.log('  Läufe: ' + laeufe.faden.map((l) => `s${l.seed} ${l.szenen} Szenen${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+console.log('  Läufe: ' + laeufe.faden.map((l) => `s${l.seed} ${l.szenen} Szenen (${l.verbuendete} mit Verbündetem)${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 3) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
+const alleOk = phasenOk && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, 3 Spieler) max ${res.faden.max} B, Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);

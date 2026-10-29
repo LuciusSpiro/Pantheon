@@ -36,7 +36,7 @@ function vertragsBausteine() {
   } catch (e) { return new Set(); }
 }
 
-// SUND-04b B2: Umsetzungen mit "sund_frei" sind in der Freien Fahrt Sund spielbar, als Beat der Geschichtsfaeden (content/faeden/beats.json). Querverweis: der Beat gibt es und ist planbar (bauplan), die Wahl (parameter) steht in
+// SUND-04b B2: Umsetzungen mit "sund_frei" sind in der Freien Fahrt Sund spielbar, als Beat der Geschichtsfaeden (content/faeden/beats.json). Querverweis: der Beat gibt es, darf einer Umsetzung zugeordnet werden (beats.json sund_frei_erlaubt: die Beats mit eigener Mechanik, Szenen und der Sabotage-Auftrag, der keine Szene ist) und ist planbar (bauplan), die Wahl (parameter) steht in
 // den erlaubten Werten des Beats, die Umsetzung spielt im Weltraum (Boden und Regiebuch gibt es dort nicht). Die Daten der Faeden werden hier nur gelesen (kein Code der Sim). -> [Text]
 let faedenBeats = null;
 function sundFreiFehler(u) {
@@ -45,6 +45,7 @@ function sundFreiFehler(u) {
   const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
   if (u.schauplatz !== 'weltraum') out.push('nur Weltraum-Umsetzungen sind in der Freien Fahrt spielbar (kein Boden, kein Regiebuch)');
   if (!has(faedenBeats, s.beat)) { out.push(`der Beat '${s.beat}' steht nicht in content/faeden/beats.json`); return out; }
+  if (faedenBeats[s.beat].sund_frei_erlaubt !== true) { out.push(`der Beat '${s.beat}' darf keiner Umsetzung zugeordnet werden (beats.json sund_frei_erlaubt fehlt: nur Beats mit eigener Mechanik wie Szenen und der Sabotage-Auftrag, nie Abschluss, Bitte oder Hinweise)`); return out; }
   const bp = faedenBeats[s.beat].bauplan;
   if (!bp || typeof bp !== 'object') { out.push(`der Beat '${s.beat}' hat keine Standards (bauplan) und steht in keinem Plan`); return out; }
   for (const [k, v] of Object.entries(s.parameter || {})) {

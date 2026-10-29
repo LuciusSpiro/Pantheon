@@ -5,7 +5,7 @@
 //
 //   istArt(art)                               konvoi | geleit
 //   plan(it, crew, nachCrew) -> { textKey, n, sieg?, eskorte?, modus? }     vor der Vorwarnung: die angekündigte Zahl (Transporter bzw. Angreifer) und die Wahl des Beats (Parameter sieg bzw. modus, ungültig = Standard der Daten)
-//   beginn(game, fs) -> bool                  Kampf beginnt: Konvoi bzw. Schützling und Angreifer; false = nicht möglich (Szene scheitert)
+//   beginn(game, fs) -> true | false | 'kein_platz'     Kampf beginnt: Konvoi bzw. Schützling und Angreifer; false = nicht möglich (Szene scheitert); 'kein_platz' = die Escort-Engine hat keinen Platz für den Schützling (keine Szene, kein Scheitern: der Beat steht wieder aus)
 //   ausgang(game, fs) -> 'gelungen' | 'gescheitert' | null                  Ausgang aus dem Konvoi-Ausgang bzw. dem Zustand des Schützlings, oder die Höchstdauer
 //   aufraeumen(game, fs)                      Konvoi, Eskorte, Beute am Boden bzw. Schützling und Angreifer gehen (jedes Ende: Ausgang, Unterbrechung, Sprung, Andocken)
 const DATEN = require('../../content/faeden/szenen-werte.json');
@@ -23,11 +23,14 @@ const istArt = (art) => ARTEN.includes(art);
 // der Beat nennt seine Wahl als Parameter (sieg, modus): nur was in den Daten steht, sonst der Standard
 const wahl = (it, schluessel, liste, standard) => { const b = it && it.parameter && it.parameter.beat; const v = b && has(b, schluessel) ? b[schluessel] : null; return typeof v === 'string' && liste.includes(v) ? v : standard; };
 
-function plan(it, crew, nachCrew) {
+function plan(it, crew, nachCrew, game) {
   if (it.art === 'konvoi') {
-    const K = W.konvoi, sieg = wahl(it, 'sieg', K.siegen, K.sieg_standard);
-    const k = String(Math.min(3, Math.max(1, crew)));
-    return { textKey: sieg === 'pluendern' ? 'konvoi_pluendern' : 'konvoi', n: nachCrew(K.anzahl, crew), sieg, eskorte: has(K.eskorte, k) ? K.eskorte[k] : 'voll' };
+    const K = W.konvoi, k = String(Math.min(3, Math.max(1, crew))), n = nachCrew(K.anzahl, crew);
+    let sieg = wahl(it, 'sieg', K.siegen, K.sieg_standard);
+    // Plündern braucht Platz für die Beute (Konvoi.an: beuteMin = Zahl der Transporter, höchstens die Kapazität): ist der Frachtraum zu voll oder fehlt er, wäre die Szene nicht zu gewinnen (beamStart lehnt ab),
+    // also gilt der Beat als aufhalten. Kein Fehler, kein Funktext darüber: die Szene bleibt gewinnbar.
+    if (sieg === 'pluendern' && game && Fracht.frei(game) < Math.min(n, Math.max(1, Fracht.capacity(game)))) sieg = 'aufhalten';
+    return { textKey: sieg === 'pluendern' ? 'konvoi_pluendern' : 'konvoi', n, sieg, eskorte: has(K.eskorte, k) ? K.eskorte[k] : 'voll' };
   }
   const G = W.geleit, modus = wahl(it, 'modus', Object.keys(G.modi), G.modus_standard);
   return { textKey: modus, n: nachCrew(G.modi[modus].angreifer, crew), modus };
@@ -38,6 +41,7 @@ function beginn(game, fs) {
   if (fs.art === 'konvoi') {
     const K = W.konvoi, p = fs.plan;
     const k = Konvoi.an(game, { n: fs.n, eskorte: p.eskorte, sieg: p.sieg, ladung: K.ladung, wiederholung: false, volk: K.volk });
+    if (k) Fracht.state(game).szenenBeute = { art: K.ladung, vor: Fracht.anBord(game, K.ladung) };   // was schon an Bord liegt, gehoert nicht zur Beute dieser Szene (fracht.js nimmt die Beute auch aus dem Speicherstand)
     if (k) for (const e of game.space.enemies) if (e.kv) e.tag = fs.tag;   // Transporter und Eskorte tragen den Tag der Szene: auch ohne Konvoi-Zustand raeumt faden-szene.js sie ab
     return !!k;
   }
@@ -45,7 +49,7 @@ function beginn(game, fs) {
   const nach = M.verhalten === 'folgt_kurs' ? ferneSeite(game, G.ziele) : null;
   const name = fs.nsc && fs.nsc.schiff ? fs.nsc.schiff : undefined;
   const es = Escort.spawn(game, { tag: fs.tag, kind: M.kind, name, verhalten: M.verhalten, von: 'lerche', nach, huelle: M.huelle, reparatur_s: M.reparatur_s });
-  if (!es) return false;
+  if (!es) return 'kein_platz';   // die Engine kennt hoechstens zwei Schuetzlinge: das ist kein Scheitern der Crew, die Szene beginnt spaeter (faden-szene.js unterbrechen), es kommen keine Angreifer
   const A = G.angreifer;
   for (let i = 0; i < fs.n; i++) {
     const a = (i / Math.max(1, fs.n)) * Math.PI * 2 + W.ring_winkel_start;
@@ -80,6 +84,16 @@ function ausgang(game, fs) {
 }
 
 // ---------- Aufräumen
+// Die Beute dieser Szene (Ladung K.ladung, die seit dem Beginn an Bord kam) übernimmt der Auftraggeber: jedes Ende der Szene nimmt sie aus dem Frachtraum. Nur die eigene Beute (Zugang seit dem Beginn), nie fremde Fracht.
+function beuteUebergeben(game) {
+  const st = Fracht.state(game), b = st.szenenBeute;
+  if (!b) return;
+  st.szenenBeute = null;
+  const lager = st.lager;
+  let zuviel = Math.max(0, Fracht.anBord(game, b.art) - b.vor), weg = 0;
+  for (let i = lager.length - 1; i >= 0 && zuviel > 0; i--) if (lager[i].art === b.art) { lager.splice(i, 1); zuviel--; weg++; }
+  if (weg && DATEN.texte.beute_uebernommen) game.emit('radio', { from: DATEN.texte.sprecher, text: DATEN.texte.beute_uebernommen, lage: 1 });
+}
 function aufraeumen(game, fs) {
   const sp = game.space;
   if (fs.art === 'konvoi') {
@@ -90,6 +104,7 @@ function aufraeumen(game, fs) {
     if (weg.some((e) => e.id === game.ship.target)) Zielsysteme.zielLoeschen(game);
     if (k && k.pods && k.pods.length) { const s = Fracht.state(game); s.draussen = s.draussen.filter((d) => !k.pods.includes(d.id)); }   // Beute am Boden, die niemand geholt hat, bleibt nicht liegen
     sp.konvoi = null;
+    beuteUebergeben(game);
     return;
   }
   if (sp.escorts) sp.escorts = sp.escorts.filter((q) => q.tag !== fs.tag);

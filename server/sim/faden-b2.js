@@ -5,8 +5,8 @@
 //
 //   sabotage  (Beat „sabotage“) Der Beat nennt ein Ziel: einen germanischen Posten auf einem Quell-Hex der Sim (Hex mit Quelle, Besitzer aus werte.sabotage.quell_besitzer, der die Versorgung liefert), erreichbar ueber offene Sprungpunkte,
 //             nicht in der Ruf-Sperre der Sim (Posten.sprengungGesperrt), und die Crew darf angreifen (Rang posten-werte.json mindestrang.angreifen). Dann WARTET der Beat: die Sprengung macht die Crew in der Sim-Szene „Posten
-//             angreifen“ (SUND-02b A2, kriegslage-szene.js, Wirkung posten_gesprengt); werte.json folge_typen bleibt unveraendert. Gelungen, wenn die Sim das Ereignis posten_verloren (durch rom) am Ziel meldet; gescheitert, wenn der
-//             Posten ohne die Crew verschwindet (Ziel weg) oder die Frist des Beats ablaeuft (beats.json frist, Taetigkeiten; Faden-Takt). Fehlt das Ziel schon beim Beginn (oder liegt die Pause noch), scheitert der Beat SOFORT und
+//             angreifen“ (SUND-02b A2, kriegslage-szene.js, Wirkung posten_gesprengt); werte.json folge_typen bleibt unveraendert. Gelungen NUR, wenn die Crew das Ziel sprengt (ws.sprengungen[hex] nach dem Beginn, Wirkung posten_gesprengt); gescheitert, wenn das
+//             Ziel den germanischen Besitzer anders verliert (Rom erobert es, neutral, verschwunden: Ziel weg) oder die Frist des Beats ablaeuft (beats.json frist, Taetigkeiten; Faden-Takt). Fehlt das Ziel schon beim Beginn (oder liegt die Pause noch), scheitert der Beat SOFORT und
 //             aendert den Faden (der Weg des Plans), nie ein Spiel-Ende. Der Beat baut keinen zusaetzlichen Angriff der Sim: die Weltfolge (der Hex wird haeufiger neu besetzt) kommt von der Sim selbst.
 //   lage      Lagen-Bedingungen der Beats (beats.json braucht.lage): sabotage_ziel. Der Pruefer (faden-pruefer.js pruefeLage) fragt sie beim Anbieten und Oeffnen eines Abenteuers; der Kontext der Komposition nennt nur die Zahl.
 //
@@ -100,11 +100,14 @@ function laufend(f) {   // der laufende Beat eines Fadens, wenn er ein echter sa
   if (!beat || beat.id !== f.laufend.beat || !has(D.BEATS, beat.typ) || D.BEATS[beat.typ].baustein !== 'sabotage') return null;
   return Bausteine().vonId('sabotage') === sabotage ? beat : null;
 }
-// Hat die Sim den Posten am Ziel an Rom verloren, seit der Beat laeuft? Ereignis posten_verloren (durch rom) im Ring, nach dem Laden (der Ring ist nicht gespeichert) die Sprengung der Crew im Stand
-function verloren(ws, hex, seit) {
-  if ((ws.ereignisse || []).some((e) => e && e.typ === 'posten_verloren' && e.ort === hex && e.durch === 'rom' && e.n > seit)) return true;
+// Hat die CREW den Posten am Ziel gesprengt, seit der Beat laeuft? Nur ihre Sprengung zaehlt (ws.sprengungen[hex], von der Wirkung posten_gesprengt, posten.js nachTick); jeder andere Verlust des Ziels
+// (Rom erobert es, es wird neutral, es verschwindet) ist kein Werk der Crew. Die Sprengung steht in Ticks des Sim-Zustands, der Beginn (laufend.seit) in tickZahl: beide Zaehler laufen gleich schnell, aber nach einem
+// verworfenen Sim-Zustand (kriegslage.restore) mit verschiedenem Nullpunkt; verglichen wird deshalb das ALTER beider Zeitpunkte (Ticks seit der Sprengung gegen Ticks seit dem Beginn), nie die Rohwerte.
+function gesprengt(ws, hex, seit) {
   const sp = ws.sprengungen && ws.sprengungen[hex];
-  return Number.isFinite(sp) && sp > seit;
+  if (!Number.isFinite(sp)) return false;
+  const alter = ws.zustand.tick - sp;
+  return alter >= 0 && alter < ws.tickZahl - seit;
 }
 function update(game) {
   if (!game || !game.ship || !Faden().aktiv(game)) return;
@@ -116,9 +119,9 @@ function update(game) {
     const hex = f.parameter && f.parameter.ort;
     if (!hex || !HEX.test(hex)) { Faden().beatAusgang(game, f.id, 'gescheitert'); continue; }
     const nsc = nscVon(game, f.nsc.id) || f.nsc;
-    if (verloren(ws, hex, f.laufend.seit)) { sagen(game, nsc, fmt(T.sabotage_gelungen, { name: nsc.name, ort: hexName(hex) })); Faden().beatAusgang(game, f.id, 'gelungen'); continue; }
+    if (gesprengt(ws, hex, f.laufend.seit)) { sagen(game, nsc, fmt(T.sabotage_gelungen, { name: nsc.name, ort: hexName(hex) })); Faden().beatAusgang(game, f.id, 'gelungen'); continue; }
     const nd = ws.zustand.hexe[hex];
-    if (!(nd && nd.posten && W.quell_besitzer.includes(nd.besitzer))) { sagen(game, nsc, fmt(T.sabotage_ziel_weg, { name: nsc.name, ort: hexName(hex) })); Faden().beatAusgang(game, f.id, 'gescheitert'); }   // der Posten ist ohne die Crew verschwunden (Piraten, Konkordat)
+    if (!(nd && nd.posten && W.quell_besitzer.includes(nd.besitzer))) { sagen(game, nsc, fmt(T.sabotage_ziel_weg, { name: nsc.name, ort: hexName(hex) })); Faden().beatAusgang(game, f.id, 'gescheitert'); }   // das Ziel ist nicht mehr germanisch ohne die Sprengung der Crew (Rom hat es erobert, Piraten, Konkordat, es ist verschwunden)
   }
 }
 
@@ -142,6 +145,8 @@ function katalogFehler() {
   for (const [typ, cat] of Object.entries(D.BEATS)) {
     const br = cat.braucht || {};
     if (br.lage !== undefined && !(typeof br.lage === 'string' && has(LAGEN, br.lage))) g(`Beat ${typ}: braucht.lage "${String(br.lage).slice(0, 30)}" ist keine Lagen-Bedingung (${Object.keys(LAGEN).join(', ')})`);
+    if (cat.sund_frei_erlaubt !== undefined && cat.sund_frei_erlaubt !== true) g(`Beat ${typ}: sund_frei_erlaubt ist true oder fehlt`);
+    if (cat.nur_einmal !== undefined && cat.nur_einmal !== true) g(`Beat ${typ}: nur_einmal ist true oder fehlt`);
     if (cat.frist !== undefined && !(Number.isInteger(cat.frist) && cat.frist >= 1 && cat.frist <= 60)) g(`Beat ${typ}: frist ist keine ganze Zahl von 1 bis 60`);
   }
   const sz = require('../../content/faeden/szenen-werte.json').werte;

@@ -152,6 +152,7 @@ function expandiere(plan) {
   bs.forEach((b, i) => {
     const cat = cats[i], bp = cat.bauplan, id = ids[i];
     if ((cat.abschluss || (cat.braucht && cat.braucht.letzter)) && i !== last) add('ABSCHLUSS_NICHT_LETZT', `Beat ${id} (${b.typ}) darf nur der letzte sein`);
+    if (cat.nur_einmal === true && bs.slice(0, i).some((x) => x.typ === b.typ)) add('SABOTAGE_NUR_EINMAL', `Beat ${id} (${b.typ}): ein Beat ${b.typ} steht hoechstens einmal in einem Plan (zwischen zwei Auftraegen liegt eine Pause: der zweite scheiterte garantiert)`);
     if (namenlos && !((cat.braucht && cat.braucht.nsc_status) || []).includes('aktiv')) add('BAUPLAN_NAMENLOS_TYP', `Beat ${id} (${b.typ}) laeuft nur mit einem NSC in einem anderen Zustand als aktiv: in einem namenlosen Abenteuer bleibt der NSC aktiv`);
     if (cat.braucht && cat.braucht.nsc_alt === true) {   // SUND-04b B1: ein NSC aus einem frueheren Faden kommt mit dem Oeffnen (parameter nsc_von), also nur am Anfang und nie namenlos
       if (i !== 0) add('NSC_ALT_NICHT_ERSTER', `Beat ${id} (${b.typ}): ein Beat mit einem NSC aus einem fruheren Faden steht nur am Anfang des Plans`);
