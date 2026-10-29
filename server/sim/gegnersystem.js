@@ -183,6 +183,28 @@ function schildPflege(game, e, caps) {
   for (let i = 0; i < e.shields.length; i++) if (e.shields[i] > C[i]) e.shields[i] = C[i];
 }
 
+// SYS-02b: Schildsegmente der Klasse für ein Schiff ohne Spawn über space.spawnEnemy (Verbündete, escort.js): e.shields, e.shieldsMax, e.regenT. Ohne Eintrag der Klasse keine Schilde.
+function schildAnlegen(game, e) {
+  const lay = Schilde.layout(game.C, e.kind);
+  e.shieldsMax = lay ? lay.max.slice() : [0, 0, 0, 0];
+  e.shields = e.shieldsMax.slice();
+  e.regenT = 0;
+  return e;
+}
+// SYS-02b: Schild-Pflege und Regeneration je Tick – eine Regel für Gegner (space.updateEnemies) und Verbündete (escort.allySysTick): die Obergrenze je Segment kommt aus
+// Emittern und Schildgenerator, 1 Punkt alle enemyShieldRegen × regenFaktor s, der Sturm (e.regenHold) unterdrückt die Regeneration.
+function schildTick(game, e, dt) {
+  if (!e.shields) return;
+  const caps = schildGrenzen(game, e);
+  schildPflege(game, e, caps);
+  e.regenT = (e.regenT || 0) + dt;
+  if (game.time < (e.regenHold || 0)) e.regenT = 0;
+  if (e.regenT >= game.C.enemyShieldRegen * regenFaktor(game, e)) {
+    e.regenT = 0;
+    for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1);
+  }
+}
+
 // Snapshot für das anvisierte Ziel (ship.zielSys): flach [Zustand, Integrität %] je System in der Reihenfolge der Daten; Zustand 0 ok, 1 beschädigt, 2 zerstört.
 const ZUST_CODE = { ok: 0, damaged: 1, broken: 2 };
 function snapshotZiel(e) {
@@ -221,5 +243,5 @@ function zoneVonSegment(game, e, sec) {
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
   treffenAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
-  waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
+  waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, schildAnlegen, schildTick, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

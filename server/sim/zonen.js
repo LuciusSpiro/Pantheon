@@ -210,7 +210,7 @@ function update(game, dt) {
         S.akk[k] = (S.akk[k] || 0) + w.schaden * dt;
         if (tackt && S.akk[k] >= 1) {
           const pts = Math.floor(S.akk[k]); S.akk[k] -= pts;
-          try { escort().hit(game, es, pts, { light: true }); } catch (err) { if (game.countError) game.countError('zonen-escort', err); }
+          try { escort().hit(game, es, pts, es.ally ? { light: true, von: { x: w.mx, y: w.my } } : { light: true }); } catch (err) { if (game.countError) game.countError('zonen-escort', err); }
         }
       }
     }

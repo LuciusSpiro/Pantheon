@@ -19,6 +19,7 @@
 const fs = require('fs');
 const path = require('path');
 const Physics = require('../../shared/physics.js');
+const Gsys = require('./gegnersystem.js');   // SYS-02b: Zustand der Waffenplätze (zerstört, beschädigt)
 
 let escortMod = null; const escort = () => escortMod || (escortMod = require('./escort.js'));
 let spaceMod = null; const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -526,6 +527,8 @@ function kiFlug(game, es, dt) {
   return pilot().update(game, es, dt);
 }
 // Feuer: je Waffenplatz der Klasse ein Geschoss in Takt, wenn das Ziel im Bogen und in Reichweite liegt. Nur Gegner nehmen Schaden.
+// SYS-02b: Systemzustand wie bei Gegnern: das Waffensystem des Platzes zerstört = kein Schuss, beschädigt = Intervall × systemModell.gegner.taktBeschaedigt (je Platz, Gsys.taktFaktor).
+// Schaden, Grundintervall und Bögen bleiben; ohne Schaden ist die Gesamtfeuerkraft unverändert.
 function kiFeuer(game, es, dt) {
   const K = kcfg(game); const st = state(game);
   es.kiT = (es.kiT || 0) - dt;
@@ -537,11 +540,12 @@ function kiFeuer(game, es, dt) {
   const speed = game.C.combat.enemyShotSpeed * (K.schussTempo / 210);
   es.wT = es.wT || [];
   W.forEach((w, i) => {
+    if (Gsys.zerstoertPlatz(es, w)) return;   // SYS-02b: zerstörte Waffe schießt nicht (der Zähler ruht bis zur Reparatur)
     if (es.wT[i] == null) es.wT[i] = game.rng.range(0, iv);
     es.wT[i] -= dt;
     if (es.wT[i] > 0) return;
     if (!Physics.inArc(es.x, es.y, es.angle, w.facing, w.arc, w.range, T.x, T.y)) { es.wT[i] = 0; return; }
-    es.wT[i] = iv * game.rng.range(0.85, 1.15);
+    es.wT[i] = iv * Gsys.taktFaktor(game, es, [w]) * game.rng.range(0.85, 1.15);
     const ang = space().leadAngle(es.x, es.y, T, speed, 1);
     game.space.projectiles.push({ id: game.nextId('pr'), kind: 'ally', x: es.x, y: es.y, angle: ang, speed, ttl: game.C.combat.enemyShotTtl, dmg, owner: es.id });
     st.stats.schuesse++;
@@ -560,7 +564,7 @@ function minenPruefen(game) {
 function mineSchaden(game, m, R) {
   if (m.besitzer === 'lerche') return;
   const dmg = kcfg(game).minenSchaden;
-  for (const es of alliesActive(game)) if (hyp(m.x - es.x, m.y - es.y) <= R) { escort().hit(game, es, dmg, { mine: true, von: { x: m.x, y: m.y } }); }
+  for (const es of alliesActive(game)) if (hyp(m.x - es.x, m.y - es.y) <= R) { escort().hit(game, es, dmg, { mine: true, pierce: 99, von: { x: m.x, y: m.y } }); }   // SYS-02b: Minen gehen am Schild vorbei wie bei Gegnern (alarm.explodiere: pierce 99)
 }
 // Sprung innerhalb der Szene (Notfallsprung am selben Ort): die Flotte springt mit und steht wieder hinter der Lerche
 function sprungFolgen(game) {

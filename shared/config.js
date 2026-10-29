@@ -336,6 +336,8 @@
     // EK4 Flotte (server/sim/flotte.js, CONTRACT-EK4): Verbündete (scripted in EK4a, eigene KI in EK4b), Befehle des Legaten, Wellen.
     // hull = Hülle je Klasse (wie escorts.hull, Schaden × escorts.hullPerDamage × crewDamage); hilferuf = Hüllenanteile für Hilferuf und
     // kritischen Ruf (je Schiff einmal); befehl.* = Standardwerte der fünf Befehlsarten (Radius px, Frist s, Leine px).
+    // SYS-02b: Verbündete = Gegner auf der anderen Seite: dieselben Schildsegmente (enemyShields/enemySchildSegmente), Regeneration (enemyShieldRegen), Trefferweg und Systemwirkungen
+    // (systemModell.gegner, systemModell.sturm/torpedo). hull bleibt das Systembudget; hullPerDamage × crewDamage rechnen den Schaden nur noch GEGEN DIE SYSTEME um (Schilde: Rohschaden).
     flotte: {
       max: 12, hull: { korvette: 220, fregatte: 380, kreuzer: 520, raider: 90 },
       hilferuf: { schwer: 0.4, kritisch: 0.15 },

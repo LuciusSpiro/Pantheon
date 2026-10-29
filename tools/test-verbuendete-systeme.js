@@ -82,12 +82,13 @@ section('Verbündete: keine Crew-Skalierung', () => {
   ok(Object.keys(ea.sys).every((id) => Math.abs(ea.sys[id].i - eb.sys[id].i) < 1e-9), 'Integrität je System bei 1 und 3 Spielern gleich');
 });
 
-section('Verbündete: Trefferweg (Zone der Quelle, Mitte nur bei leerer Zone, kein Schild)', () => {
+section('Verbündete: Trefferweg (Zone der Quelle, Mitte nur bei leerer Zone, Schild auf 0 gesetzt; Schildfall: test-verbuendete-wie-gegner)', () => {
   const { g } = raum(1);
   const es = Flotte.aufstellen(g, { tag: 'tw', kind: 'kreuzer' });
   const vor = {}; for (const id of Object.keys(es.sys)) vor[id] = es.sys[id].i;
   const vx = es.x + Math.cos(es.angle) * 300, vy = es.y + Math.sin(es.angle) * 300;   // Quelle vorn
   const zone = zoneVonQuelle(g, es, vx, vy);
+  Testhilfe.schildNull(es);   // SYS-02b: Verbündete haben Schildsegmente; dieser Test prüft den Systemtreffer (Schild 0), der Schildfall steht in test-verbuendete-wie-gegner.js
   Escort.hit(g, es, 10, { von: { x: vx, y: vy } });
   const ge = Object.keys(es.sys).filter((id) => es.sys[id].i < vor[id] - 1e-9);
   ok(ge.length === 1 && Gsys.defOf('kreuzer', ge[0]).zone === zone, `Treffer aus Richtung ${zone} trifft genau ein System dieser Zone (${ge.join(',')})`);

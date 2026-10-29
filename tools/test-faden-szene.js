@@ -524,7 +524,10 @@ section('L6: derselbe NSC kann nach einem verlorenen Verbuendeten wieder helfen;
   FS.update(g, DT);
   for (let i = 0; i < 12; i++) g.space.projectiles.push({ id: 'pz' + i, kind: 'enemy', x: es.x, y: es.y, angle: 0, speed: 0, ttl: 5, dmg: 500, tgt: es.id });   // SYS-01 C2b: Gegner-Geschosse auf ihn (ein Großtreffer zerstört nur ein System des Trefferwegs, alle Systeme fallen erst mit mehreren)
   laufe(g, 0.5);
-  ok(es.state === 'zerstoert', 'der Verbuendete wird im Gefecht zerstoert');
+  // SYS-02b: Schild und Zone fangen die ersten Treffer ab; erst die Mitte mit dem Reaktor löst den Countdown aus, der Tod kommt wie bei Gegnern nach seinem Ablauf (vorher: ein leerer Trefferweg zerstörte sofort)
+  ok(es.sys.reaktor.z === 'broken' && es.rt && es.rt.rest > 0 && es.state !== 'zerstoert', 'die Treffer zerstören den Reaktor des Verbuendeten: Countdown laeuft, er kaempft noch');
+  laufe(g, es.rt.rest + 1);
+  ok(es.state === 'zerstoert', 'der Verbuendete wird im Gefecht zerstoert (nach dem Countdown)');
   g.simSzene = null; FS.update(g, DT);
   ok(f.phase === 'wartet' && f.beat === 1 && f.nsc.status === 'verbuendet', 'Entscheidung: die Hilfe gilt als gelungen, auch wenn der Verbuendete fiel (dokumentiert)');
   grenzen(g, 5); weiter(g, f);
