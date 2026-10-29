@@ -40,6 +40,7 @@
     'terminal.handel': { name: 'Bereich Handel' },
     'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
     'terminal.info': { name: 'Bereich Information (Konkordat)' },
+    'terminal.brett': { name: 'Bereich Brett (Auftragsbrett)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -193,6 +194,7 @@
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
     A('terminal.lage', 'terminal', 'Bereich Kurs (Absichten, Freie Fahrt)', ['KeyK']),
     A('terminal.info', 'terminal', 'Bereich Information (Konkordat, Freie Fahrt)', ['KeyI']),
+    A('terminal.brett', 'terminal', 'Bereich Brett (Auftragsbrett, Freie Fahrt)', ['KeyO']),   // SUND-04b D: B ist Beleg (Information), A Ausbau (Werft)
     A('terminal.start', 'terminal', 'Szene starten (Testumgebung, Rüstphase)', ['KeyG']),
     A('terminal.teilHoch', 'terminal', 'Teil / Artikel davor', ['ArrowUp']),
     A('terminal.teilRunter', 'terminal', 'Teil / Artikel danach', ['ArrowDown']),
@@ -219,6 +221,11 @@
     A('terminal.finaleAblehnen', 'terminal', 'Entscheidungsschlacht ablehnen (kostet nichts)', ['KeyN'], 'terminal.lage'),
     A('terminal.gerucht', 'terminal', 'Gerücht kaufen (billig, unbestätigt)', ['Enter', 'NumpadEnter'], 'terminal.info'),
     A('terminal.beleg', 'terminal', 'Beleg kaufen (teuer, exakt)', ['KeyB'], 'terminal.info'),
+    A('terminal.brettAnnehmen', 'terminal', 'Abenteuer annehmen (die Crew entscheidet)', ['Enter', 'NumpadEnter'], 'terminal.brett'),
+    A('terminal.brettAblehnen', 'terminal', 'Angebot ablehnen (kostet nichts)', ['KeyX'], 'terminal.brett'),
+    A('terminal.brett1', 'terminal', 'Angebot 1 wählen', NUM(1), 'terminal.brett'),
+    A('terminal.brett2', 'terminal', 'Angebot 2 wählen', NUM(2), 'terminal.brett'),
+    A('terminal.brett3', 'terminal', 'Angebot 3 wählen', NUM(3), 'terminal.brett'),
   ];
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;

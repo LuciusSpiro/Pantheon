@@ -281,9 +281,9 @@ function aufstehen(game) {
   for (const p of game.players) if (p.console === 'shop') require('./interior.js').leaveConsole(game, p);
 }
 function nutzer(game) { return game.players.find((o) => o.connected && o.console === 'shop') || null; }
-// Ansicht des Nutzers am Terminal (Bereich, Platz/Raum/Stufe, gewähltes Teil), damit Zuschauer dasselbe Bild sehen: { b: 'h'|'w'|'l', a: 'p'|'m'|'s', n, i (Teil-Id; bei b 'l' die gewählte Absicht, SUND-02b D), von }
+// Ansicht des Nutzers am Terminal (Bereich, Platz/Raum/Stufe, gewähltes Teil), damit Zuschauer dasselbe Bild sehen: { b: 'h'|'w'|'l'|'i'|'b', a: 'p'|'m'|'s', n, i (Teil-Id; bei b 'l' die gewählte Absicht, SUND-02b D), von }
 function ansichtSetzen(game, p, msg) {
-  const b = msg.b === 'h' ? 'h' : msg.b === 'l' ? 'l' : msg.b === 'i' ? 'i' : 'w';   // SUND-03b I: i = Bereich Information
+  const b = msg.b === 'h' ? 'h' : msg.b === 'l' ? 'l' : msg.b === 'i' ? 'i' : msg.b === 'b' ? 'b' : 'w';   // SUND-03b I: i = Bereich Information; SUND-04b D: b = Bereich Brett (i = gewähltes Angebot)
   const a = msg.a === 'm' ? 'm' : msg.a === 's' ? 's' : 'p';
   const n = Math.max(0, Math.min(a === 'p' ? 9 : a === 'm' ? 4 : 3, Math.round(Number(msg.n)) || 0));
   const i = typeof msg.i === 'string' && /^[a-z_0-9]{1,24}$/.test(msg.i) ? msg.i : null;

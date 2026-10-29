@@ -285,7 +285,9 @@
       if (!inConsole) {
         if (view.self.zone === 'away') this.drawAwayHud(ctx, view); else this.drawShipHud(ctx, view);
         const objBottom = this.drawObjectives(ctx, view);
-        Net.guard('Hud.planningLine', () => this.drawPlanningLine(ctx, view, (objBottom || 30) + 2));   // S2
+        let planY = (objBottom || 30) + 2;
+        Net.guard('Hud.abenteuerStreifen', () => { planY = this.drawAbenteuerStreifen(ctx, planY); });   // SUND-04b D: laufendes Abenteuer direkt unter den Zielen, davor die Planungszeile verschiebt sich
+        Net.guard('Hud.planningLine', () => this.drawPlanningLine(ctx, view, planY));   // S2
         this.drawInteraction(ctx, view);
         this.drawCarry(ctx, view);
         const radioBottom = this.drawRadio(ctx, view, false);
@@ -1788,6 +1790,12 @@
     },
     planningText(p) { return 'Funk: ' + String(p.von || 'Hafenmeisterei') + ' ' + (this.PLANNING_WORDS[Math.max(0, Math.min(2, +p.stage || 0))]) + ' …'; },
     // HUD-Zeile (dezent, kein Countdown) unter der Auftragsliste
+    // SUND-04b D: schmaler Status des laufenden Abenteuers (nur mit world.abenteuer.laufend, also Freie Fahrt Sund mit FAEDEN=1); gibt die neue Oberkante für die Planungszeile zurück
+    drawAbenteuerStreifen(ctx, y) {
+      const BR = window.Brett && Brett.modell ? Brett.modell() : null, T = window.PultTerminal;
+      if (!BR || !BR.laufend || !T || !T.zeichneAbenteuerHud) return y;
+      return T.zeichneAbenteuerHud(ctx, y, Object.assign({}, BR.laufend, { neu: Brett.frisch(BR.laufend) })) + 2;
+    },
     drawPlanningLine(ctx, view, y) {
       const p = this.planningOf(view.state);
       if (!p) return y;

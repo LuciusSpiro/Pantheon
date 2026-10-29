@@ -5,6 +5,8 @@
 // kaufen; Befehl info.kaufen, der Server entscheidet und antwortet infoAntwort; die Marken sind geteilt, alle sehen das Ergebnis (Funk, Karte).
 // Schichten: Storage = Snapshot (state.werft, ship.st/mounts/mod, inventory.marks, shopContext) und die Ansichtswahl dieser Datei (s);
 // Action = Modell aufbauen und Befehle senden (werft.freischalten / umbau / modul / vorschau / ansicht / zusehen, shop.buy); Frontend = PultTerminal.zeichneTerminal.
+// SUND-04b D: fünfter Bereich „Brett“ (Auftragsbrett, Freie Fahrt Sund mit FAEDEN=1, world.abenteuer über public/js/brett.js): Angebote annehmen oder ablehnen (abenteuer.annehmen / abenteuer.ablehnen, Antwort abenteuerAntwort);
+// die Crew entscheidet, die erste Antwort gilt, alle sehen das Ergebnis aus dem Snapshot (lokal nur Auswahl und Fokus).
 // Der Server entscheidet alles: nichts wird lokal vorweggenommen, Antworten kommen als Ereignisse werftAntwort / werftVorschau / werft.
 // Keine Farben, keine Schrift hier (tools/check-terminal-farben.js): nur Token-Namen und PultTerminal-Bausteine.
 // Mehrspieler: ein Nutzer am Gerät (Snapshot werft.nutzer), die anderen können zusehen (Taste E am besetzten Terminal): sie sehen die Ansicht des Nutzers
@@ -34,11 +36,12 @@
     zusehen: false, geoeffnet: false, letzterKauf: null,
     lageId: null,                                                                        // SUND-02b D: gewählte Karte im Bereich Lage (Id der Absicht)
     infoId: null,                                                                        // SUND-03b I: gewähltes Thema im Bereich Information (Id im Angebot)
+    brettId: null,   // SUND-04b D: gewähltes Angebot im Bereich Brett (Id aus world.abenteuer)
     finaleT: 0,                                                                          // SUND-04a-3: Zeitpunkt der eigenen Anfrage zur Entscheidungsschlacht (Entprellen des Bestätigens)
   };
   function zuruecksetzen() {
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = 8; s.raum = 1; s.teil = null; s.handel = null; s.antwort = null; s.wartet = null; s.kauf = null;
-    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null; s.infoId = null; s.finaleT = 0;
+    s.vorschau = { cache: {}, sent: null, wechsel: 0, key: null }; s.gesendet = null; s.gesendetT = 0; s.geoeffnet = false; s.lageId = null; s.infoId = null; s.brettId = null; s.finaleT = 0;
   }
 
   // ---------------------------------------------------------------- Lesen aus dem Snapshot
@@ -65,10 +68,12 @@
   // Ansicht, die gerade gilt: der Nutzer = lokal gewählt, Zuschauer = die Ansicht des Nutzers aus dem Snapshot
   function ansicht(L) {
     if (s.bereich === 'info' && !info()) s.bereich = 'werft';   // SUND-03b I: kein Konkordat-Hafen mehr (abgelegt) oder Modus zu Ende: den Bereich gibt es nicht mehr
+    if (s.bereich === 'brett' && !brett()) s.bereich = 'werft';   // SUND-04b D: kein Angebot und kein laufendes Abenteuer mehr (oder kein FAEDEN=1): den Bereich gibt es nicht
     if (s.bereich === 'lage' && !absicht()) s.bereich = 'werft';   // der Modus ist zu Ende (Kampagne, Lobby): der Bereich Kurs gibt es nicht mehr, sonst schluckte er die Tasten
     if (!L.geladen) return { bereich: 'handel', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: s.handel };   // Block kommt erst nach dem Hinsetzen: bis dahin der Handel
-    if (!s.zusehen) return { bereich: s.bereich, auswahl: s.auswahl, platz: s.platz, raum: s.raum, teil: s.teil, handel: s.handel, lage: s.lageId, info: s.infoId };
+    if (!s.zusehen) return { bereich: s.bereich, auswahl: s.auswahl, platz: s.platz, raum: s.raum, teil: s.teil, handel: s.handel, lage: s.lageId, info: s.infoId, brett: s.brettId };
     const u = (L.w && L.w.ui) || { b: 'w', a: 'p', n: 8, i: null };
+    if (u.b === 'b') return { bereich: 'brett', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: null, brett: u.i };   // SUND-04b D: Zuschauer sehen das Brett mit dem gewählten Angebot des Nutzers
     if (u.b === 'i') return { bereich: 'info', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: null, info: u.i };   // SUND-03b I: Zuschauer sehen das gewählte Thema des Nutzers
     if (u.b === 'l') return { bereich: 'lage', auswahl: 'platz', platz: 8, raum: 1, teil: null, handel: null, lage: u.i };   // SUND-02b D: Zuschauer sehen den Bereich Lage mit der Karte des Nutzers
     return { bereich: u.b === 'h' ? 'handel' : 'werft', auswahl: u.a === 'm' ? 'modul' : u.a === 's' ? 'stufe' : 'platz', platz: u.a === 'p' ? u.n || 8 : 8, raum: u.a === 'm' ? u.n || 1 : 1, teil: u.i, handel: u.i };
@@ -140,7 +145,7 @@
     s.bereich = 'werft'; s.auswahl = 'platz'; s.platz = p; s.teil = null; s.antwort = null;
   }
   function waehleRaum(view, r) { if (s.zusehen) return; s.bereich = 'werft'; s.auswahl = 'modul'; s.raum = r; s.teil = null; s.antwort = null; }
-  function bereichWechseln(b) { if (s.zusehen) return; if (b === 'lage' && !absicht()) return; if (b === 'info' && !info()) return; s.bereich = b; s.antwort = null; }
+  function bereichWechseln(b) { if (s.zusehen) return; if (b === 'brett' && !brett()) return; if (b === 'lage' && !absicht()) return; if (b === 'info' && !info()) return; s.bereich = b; s.antwort = null; }
   function teilWeiter(view, d) {
     if (s.zusehen) return;
     const L = lage(view), a = ansicht(L);
@@ -198,8 +203,8 @@
   // ---------------------------------------------------------------- Ansicht an den Server (damit Zuschauer dasselbe sehen)
   function ansichtSenden(view, L) {
     if (s.zusehen || !L.geladen) return;
-    const a = ansicht(L), teil = a.bereich === 'handel' ? a.handel : a.bereich === 'info' ? ((infoThema(info(), a.info) || {}).id || null) : a.bereich === 'lage' ? ((lageKarte(absicht(), a.lage) || {}).id || null) : (gewaehltesTeil(L, a) || {}).id;
-    const m = { b: a.bereich === 'handel' ? 'h' : a.bereich === 'lage' ? 'l' : a.bereich === 'info' ? 'i' : 'w', a: a.auswahl === 'modul' ? 'm' : a.auswahl === 'stufe' ? 's' : 'p', n: a.auswahl === 'modul' ? a.raum : a.auswahl === 'stufe' ? stufenZiel(L) : a.platz, i: teil || null };
+    const a = ansicht(L), teil = a.bereich === 'handel' ? a.handel : a.bereich === 'info' ? ((infoThema(info(), a.info) || {}).id || null) : a.bereich === 'brett' ? ((brettKarte(brett(), a.brett) || {}).id || null) : a.bereich === 'lage' ? ((lageKarte(absicht(), a.lage) || {}).id || null) : (gewaehltesTeil(L, a) || {}).id;
+    const m = { b: a.bereich === 'handel' ? 'h' : a.bereich === 'brett' ? 'b' : a.bereich === 'lage' ? 'l' : a.bereich === 'info' ? 'i' : 'w', a: a.auswahl === 'modul' ? 'm' : a.auswahl === 'stufe' ? 's' : 'p', n: a.auswahl === 'modul' ? a.raum : a.auswahl === 'stufe' ? stufenZiel(L) : a.platz, i: teil || null };
     const key = JSON.stringify(m);
     if (key === s.gesendet || now() - s.gesendetT < 120) return;
     s.gesendet = key; s.gesendetT = now();
@@ -312,6 +317,50 @@
       hinweis: hinweis(hat && gew ? gew.name : AB.laufend ? AB.laufend.name : '', 'dim'),
       ausbau: { label: AT('ablehnen'), aktion: 'terminal.ablehnen', taste: 'X', disabled: !hat || !bedienbar, grund: hat ? null : AT('kein_angebot'), onClick: () => ablehnen(view, AB) },
       teil: { label: AT('option'), disabled: !hat || AB.angebot.length < 2 || !bedienbar, onClick: () => lageWeiter(view, 1) },
+    };
+    return m;
+  }
+
+  // ---------------------------------------------------------------- Brett (SUND-04b D): Auftragsbrett, Anzeige aus world.abenteuer (Brett.modell), Befehle abenteuer.annehmen / abenteuer.ablehnen, Antwort abenteuerAntwort
+  // Die Crew entscheidet: jeder darf antworten, die erste Antwort gilt (der Server sagt schon_beantwortet). Ablehnen kostet nichts. Angenommen sehen es alle aus dem Snapshot (laufend), nicht aus einem lokalen Zustand.
+  const brett = () => (window.Brett && Brett.modell ? Brett.modell() : null);   // null: kein Block (kein FAEDEN=1, Kampagne, Lobby, nichts am Brett): dann gibt es den Bereich nicht
+  const BT = () => (window.PultAuftrag && PultAuftrag.TOKENS ? PultAuftrag.TOKENS.TEXT : {});
+  const brettKarte = (BR, id) => (BR && (BR.angebote.find((k) => k.id === id) || BR.angebote[0])) || null;   // gewähltes Angebot, sonst das erste
+  const brettKannAntworten = (BR) => !s.zusehen && !!BR && BR.angebote.length > 0 && !wartetJetzt();
+  function brettAnnehmen(view, BR, id) {
+    if (!brettKannAntworten(BR) || !BR.ok || BR.laufend || !id) return;
+    if (Brett.annehmen((m) => view.send(m), id)) warten();
+  }
+  function brettAblehnen(view, BR, id) {
+    if (!brettKannAntworten(BR) || !id) return;
+    if (Brett.ablehnen((m) => view.send(m), id)) warten();
+  }
+  function brettWeiter(view, d) {
+    const BR = brett(); if (s.zusehen || !BR || BR.angebote.length < 2) return;
+    const i = Math.max(0, BR.angebote.findIndex((k) => k.id === s.brettId));
+    s.brettId = BR.angebote[(i + BR.angebote.length + d) % BR.angebote.length].id; s.antwort = null;
+  }
+  function brettNummer(BR, nr) { if (s.zusehen || !BR || !BR.angebote[nr - 1]) return; s.brettId = BR.angebote[nr - 1].id; s.antwort = null; }
+  // Modell des Bereichs für T.zeichneBrett; a.brett = gewählte Id (bei Zuschauern die des Nutzers). Zeile 1 der Infozeile: Absage des Servers (gelb) vor ANGENOMMEN (mint, aus dem Snapshot)
+  function brettBauen(view, m, L, a, bedienbar, wartet, ant) {
+    const BR = brett(), TX = BT(), gew = brettKarte(BR, a.brett), lauf = BR.laufend, frei = bedienbar && !wartet;
+    m.bereich = 'brett';
+    m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
+    m.brett = {
+      titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '',
+      hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.brettAnnehmen', 'Ent') + ' annehmen · ' + T.kappe('terminal.brettAblehnen', 'X') + ' ablehnen' : '',
+      angebote: BR.angebote.map((k, i) => Object.assign({}, k, { nr: i + 1, kappe: T.kappe('terminal.brett' + (i + 1), String(i + 1)), onClick: bedienbar ? () => { s.brettId = k.id; s.antwort = null; } : null })),
+      info: ant && !ant.ok ? { grund: ant.text } : Brett.frisch(lauf) ? { angenommen: lauf.titel } : null,
+    };
+    m.schnitt = null; m.kreuz = { plaetze: plaetzeModell(L), gesperrt: true, grund: 'Zur Werft: ' + T.kappe('terminal.werft', 'W'), onPlatz: bedienbar ? (p) => waehlePlatz(view, p) : null };
+    m.module = { module: moduleModell(L), gesperrt: true, energie: energieText(L), onModul: bedienbar ? (r) => waehleRaum(view, r) : null };
+    const grundAnnehmen = !bedienbar || wartet ? null : lauf ? TX.gesperrtGrund.replace('{titel}', lauf.titel) : !BR.ok ? Brett.antwortText('kein_spielleiter') : !gew ? Brett.antwortText('kein_angebot') : null;
+    const kann = frei && !!gew && !lauf && BR.ok;
+    m.aktionen = {
+      haupt: { art: 'brettAnnehmen', text: TX.annehmen, disabled: !kann, grund: grundAnnehmen, onClick: () => brettAnnehmen(view, BR, gew && gew.id) },
+      hinweis: s.zusehen ? { text: 'Du siehst zu · Esc zurück', fn: 'dim' } : lauf ? { text: TX.gesperrt, fn: 'warn' } : !BR.ok ? { text: Brett.antwortText('kein_spielleiter'), fn: 'warn' } : gew ? { text: BR.ablehnen ? BR.ablehnen.replace(/\.$/, '') : TX.kostetNichts, fn: 'modul' } : { text: '', fn: 'dim' },
+      ausbau: { label: TX.ablehnen, aktion: 'terminal.brettAblehnen', taste: 'X', kontur: true, disabled: !(frei && !!gew), grund: gew ? null : Brett.antwortText('kein_angebot'), onClick: () => brettAblehnen(view, BR, gew && gew.id) },
+      teil: { label: 'Angebot', disabled: BR.angebote.length < 2 || !bedienbar, onClick: () => brettWeiter(view, 1) },
     };
     return m;
   }
@@ -448,9 +497,10 @@
       return { text: kurz(t, 156), fn: ant.ok ? 'modul' : 'warn' };
     };
     m.kopf = { ort: L.test ? 'Lerche' : L.ort, art: L.test ? 'test' : L.aktiv && L.w && L.w.hs ? 'stuetzpunkt' : L.aktiv ? 'werft' : 'hafen', marken: L.marks, gesperrt: !L.aktiv && a.bereich === 'werft' };   // SUND-02b UI: Stützpunkt der Crew (Werft ja, Handel nein: werft.hs) heißt so
+    const BR0 = brett();   // SUND-04b D: Knopf „Brett“ nur mit world.abenteuer (Freie Fahrt Sund mit FAEDEN=1)
     const IN0 = info();   // SUND-03b I: Knopf „Info“ nur an einem Konkordat-Hafen
     const AB0 = absicht();   // SUND-02b D: Knopf „Kurs“ nur im Modus (vor Tribun gedimmt, Grund im Tooltip; eine laufende Absicht hält ihn offen)
-    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, werftGrund: (L.w && L.w.grund) || 'Werft nicht verfügbar', onBereich: bedienbar ? (b) => bereichWechseln(b) : null, info: IN0 ? { label: IT('bereich_kurz') || 'Info' } : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null };
+    m.bereichUmschalter = { bereich: a.bereich, werftZu: !L.aktiv, werftGrund: (L.w && L.w.grund) || 'Werft nicht verfügbar', onBereich: bedienbar ? (b) => bereichWechseln(b) : null, info: IN0 ? { label: IT('bereich_kurz') || 'Info' } : null, lage: AB0 ? { gesperrt: !AB0.frei && !AB0.laufend, grund: AB0.frei || AB0.laufend ? null : AT('ab_rang', { ab: AB0.ab }), label: AT('bereich') } : null, brett: BR0 ? { label: BT().knopf } : null };
     const ausbauAktiv = a.auswahl === 'stufe';
     const ausbauKnopf = { active: ausbauAktiv, disabled: !L.aktiv || !bedienbar, grund: !L.aktiv ? (L.w && L.w.grund) || 'Werft nicht verfügbar' : null, onClick: () => ausbauTaste(view) };
 
@@ -474,6 +524,7 @@
       return m;
     }
 
+    if (a.bereich === 'brett' && brett()) return brettBauen(view, m, L, a, bedienbar, wartet, ant);
     if (a.bereich === 'info' && info()) return infoBauen(view, m, L, a, bedienbar, hinweis, wartet, ant);
     if (a.bereich === 'lage' && absicht()) return lageBauen(view, m, L, a, bedienbar, hinweis, wartet, ant);
 
@@ -579,6 +630,16 @@
     if (code === 'KeyW') { bereichWechseln('werft'); return true; }
     if (code === 'KeyK') { bereichWechseln('lage'); return true; }
     if (code === 'KeyI') { bereichWechseln('info'); return true; }
+    if (code === 'KeyO') { bereichWechseln('brett'); return true; }   // SUND-04b D: B ist „Beleg kaufen“ (Information), A „Ausbau“ (Werft): das Brett liegt auf O
+    if (a.bereich === 'brett') {   // SUND-04b D: Bereich Brett: Pfeile und 1–3 wählen, Enter nimmt an, X lehnt ab (nichts anderes tut hier etwas)
+      const BR = brett(), k = brettKarte(BR, a.brett), nr = /^(?:Digit|Numpad)([1-3])$/.exec(code);
+      if (code === 'ArrowUp' || code === 'ArrowLeft') brettWeiter(view, -1);
+      else if (code === 'ArrowDown' || code === 'ArrowRight') brettWeiter(view, 1);
+      else if (nr) brettNummer(BR, +nr[1]);
+      else if ((code === 'Enter' || code === 'NumpadEnter') && k) brettAnnehmen(view, BR, k.id);
+      else if (code === 'KeyX' && k) brettAblehnen(view, BR, k.id);
+      return true;
+    }
     if (a.bereich === 'info') {   // SUND-03b I: Bereich Information: Pfeile wählen, Enter kauft das Gerücht, B den Beleg (nichts anderes tut hier etwas)
       const IN = info(), k = infoThema(IN, a.info);
       if (code === 'ArrowUp' || code === 'ArrowLeft') infoWeiter(view, -1);
@@ -622,6 +683,10 @@
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
       meldung(!!ev.ok, ev.ok ? AT(ev.op === 'waehlen' ? 'gewaehlt' : 'abgelehnt') : (ev.text || AT('nicht_moeglich')), ev.ok ? null : ev.code);
+    } else if (ev.kind === 'abenteuerAntwort') {   // SUND-04b D: Antwort des Servers nur an den Absender; ok = leise (das Ergebnis steht im Snapshot), sonst der Grund in der Infozeile
+      if (ev.pid && window.Client && ev.pid !== Client.pid) return;
+      s.wartet = null;
+      if (ev.ok) s.antwort = null; else meldung(false, window.Brett ? Brett.antwortText(ev.code, ev.text) : (ev.text || ''), ev.code);
     } else if (ev.kind === 'finaleAntwort') {   // SUND-04a-3: Antwort des Servers an den Absender (ok, oder der Grund, z. B. „Die Entscheidungsschlacht läuft schon“)
       if (ev.pid && window.Client && ev.pid !== Client.pid) return;
       s.wartet = null;
@@ -658,7 +723,7 @@
   window.TerminalUI = {
     draw, keyDown, onEvent, zusehen, drawZusehen, zuruecksetzen, modell, lage, bereit,
     get zusehend() { return s.zusehen; },
-    get bereichJetzt() { return s.bereich === 'info' && !info() ? 'werft' : s.bereich === 'lage' && !absicht() ? 'werft' : s.bereich; },   // wirksamer Bereich (nach Modus-Ende nie 'lage'), für die Tastenbelegung
+    get bereichJetzt() { return s.bereich === 'brett' && !brett() ? 'werft' : s.bereich === 'info' && !info() ? 'werft' : s.bereich === 'lage' && !absicht() ? 'werft' : s.bereich; },   // wirksamer Bereich (nach Modus-Ende nie 'lage'), für die Tastenbelegung
     get zustand() { return s; },
   };
 })();
