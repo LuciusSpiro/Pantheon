@@ -232,10 +232,10 @@ section('Scheitern: Frist, Schiff verloren, Notfallprotokoll; eigenmächtig und 
   ok(g.space.enemies.length > n0 && t.ev('flotteDruck').length >= 2, `Welle um Welle: nach der Frist Überdruck, Verstärkung kommt (${n0} -> ${g.space.enemies.length} Gegner)`);
   // Neustart: Gegner weg, Befehl von vorn, Wellen von vorn; lebende Verbündete repariert, tote bleiben tot
   const al = Flotte.aufstellen(g, { tag: 'audax' });
-  Escort.hit(g, al, 4 * 8, {}); const hp0 = al.hp;
+  al.shields.fill(0); Escort.hit(g, al, 4 * 8, {}); const hp0 = al.hp;   // SYS-02b: Verbündete haben Schilde – Schild 0 setzen, sonst fängt er den Treffer ab
   Flotte.neustart(g);
   ok(g.space.enemies.filter((e) => e.kind !== 'relay').length === 0 || g.space.enemies.every((e) => e.wv), 'Neustart: alte Gegner entfernt');
-  ok(Flotte.befehlStatus(g).st === 0 && Flotte.befehlStatus(g).idx === 0 && al.hp === al.hpMax && hp0 < al.hpMax, 'Neustart: Befehl läuft von vorn, lebender Verbündeter repariert');
+  ok(Flotte.befehlStatus(g).st === 0 && Flotte.befehlStatus(g).idx === 0 && al.hp === al.hpMax && hp0 < al.hpMax && al.shields.every((v, i) => v === al.shieldsMax[i]), 'Neustart: Befehl läuft von vorn, lebender Verbündeter repariert');
   // Schiff verloren -> gescheitert (schiff)
   const t2 = raum(); const g2 = t2.g;
   const s2 = Flotte.aufstellen(g2, { tag: 'fulminata' });
@@ -451,7 +451,7 @@ section('EK4b: Einblenden, Sprung der Flotte (auch Notfallsprung), Minen', () =>
   ok(t.ev('allyEintritt').length === 1 && g.snapshot().space.escorts[0].ein === 1 && t.radios().some((r) => /Rom fährt die Sperrflotte nieder/.test(r.text)), 'Auftauchen: Sprungblitz (allyEintritt), Snapshot ein, Funk des Legaten');
   const hp0 = a.hp; Escort.hit(g, a, 500, {});
   ok(a.hp === hp0, 'beim Einblenden unverwundbar');
-  ticks(g, CONFIG.flotte.einblenden.dauer + 0.5); Escort.hit(g, a, 5, {});
+  ticks(g, CONFIG.flotte.einblenden.dauer + 0.5); a.shields.fill(0); Escort.hit(g, a, 5, {});   // SYS-02b: Schild 0, sonst fängt er den Treffer ab
   ok(a.hp < hp0 && !('ein' in g.snapshot().space.escorts[0]), 'danach verwundbar, Anzeige endet');
   // Notfallsprung am selben Ort: die Flotte springt mit
   const t2 = raum(); const g2 = t2.g;
