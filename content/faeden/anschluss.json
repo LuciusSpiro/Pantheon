@@ -1,0 +1,15 @@
+{
+  "format": "faden-anschluss/1",
+  "_hinweis": "SUND-04b C: Standard-Bauplaene fuer die Anschluss-Garantie (server/sim/abenteuer-brett.js). Hat die Crew kein Angebot und kein laufendes Abenteuer (nach dem Ende eines Abenteuers, beim Spielstart, nach dem Laden), und hat der Komponist (A2, LLM) keines geliefert, bietet der Rueckfall EINEN dieser Plaene an, ohne Modell. Jeder Plan ist ein Bauplan im Format faden-bauplan/1 und laeuft durch denselben Expander und denselben Pruefer wie jeder Plan des Spielleiters (nie daran vorbei); ein Plan, der zur Lage nicht passt (Sabotage ohne Ziel, Wiedersehen ohne Kandidaten), wird nicht gewaehlt. Die Wahl ist deterministisch (Strom des Fadenzustands, Zaehler der Angebote), der zuletzt gespielte Plan wird uebersprungen. Titel und Anlass: Crew-neutral, keine Spielernamen, keine Platzhalter.",
+  "werte": {
+    "ausloeser": {"wert": "anschluss", "einheit": "Text", "_hinweis": "Kennung im Regie-Logbuch (art abenteuer_anschluss, key)."}
+  },
+  "plaene": [
+    {"format": "faden-bauplan/1", "titel": "Ein Gerücht am Hafen", "anlass": "Im Hafen wird über ein fremdes Schiff getuschelt; jemand zahlt für Hinweise.", "beats": [{"typ": "geruecht"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Spuren im Sektor", "anlass": "Ein Funkprotokoll und eine Kartenmarke ergeben zusammen eine Spur.", "beats": [{"typ": "spur"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Der Nachzügler-Konvoi", "anlass": "Germanische Transporter nutzen den Sektor als Abkürzung; die Eskorte ist dünn.", "beats": [{"typ": "konvoi"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Geleit durch die Dunkelzone", "anlass": "Ein Schiff will durch einen unsicheren Sektor und sucht Begleitschutz.", "beats": [{"typ": "geleit"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Ein stiller Auftrag", "anlass": "Ein Auftraggeber will, dass ein germanischer Posten verschwindet.", "beats": [{"typ": "sabotage"}, {"typ": "abschluss"}]},
+    {"format": "faden-bauplan/1", "titel": "Ein altes Gesicht", "anlass": "Jemand aus einem früheren Auftrag meldet sich und braucht noch einmal Hilfe.", "beats": [{"typ": "wiedersehen"}, {"typ": "abschluss"}]}
+  ]
+}

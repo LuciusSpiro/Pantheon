@@ -112,6 +112,7 @@ class AbenteuerSpielleiter {
     this.abholen();
     this.fristPruefen();
     if (this.zustand === 'angefragt') this.starten();
+    if (this.bereit()) { try { require('./abenteuer-brett.js').beiUpdate(this.game); } catch (e) { this.fehlerZaehlen('abenteuer-brett-update', e); } }   // SUND-04b C: Anschluss-Garantie im Takt (Spielstart, Laden; ohne Angebot und ohne laufendes Abenteuer)
   }
   starten() {
     const job = this.job;

@@ -38,7 +38,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const AW = Object.fromEntries(Object.entries(require('../content/welt/abenteuer-werte.json').werte).map(([k, v]) => [k, v.wert]));
 const LW = Object.fromEntries(Object.entries(require('../content/welt/lage-spielleiter-werte.json').werte).map(([k, v]) => [k, v.wert]));
 const FW = D.WERTE;
-const AN = { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' };
+const AN = { LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', ABENTEUER_ANSCHLUSS: '0' };   // SUND-04b C: der Rueckfall der Anschluss-Garantie bleibt hier aus: diese Tests pruefen nur die Komposition (der Rueckfall hat test-abenteuer-brett.js)
 const NAME = 'ZEBRAKAI';
 
 const spiel = (o) => X.spiel(Object.assign({ names: [NAME] }, o || {}, { env: Object.assign({}, AN, (o && o.env) || {}) }));
@@ -679,12 +679,12 @@ section('Speichern und Laden mit offenem Angebot und laufendem Abenteuer', async
   ok(F(t.g).abenteuerAngebote.length === 1, 'ein zweites Angebot liegt neben dem laufenden Abenteuer aus');
   const data = Weltstand.capture(t.g);
   const sim = JSON.parse(JSON.stringify(data.welt.sim));
-  ok(data.version === 3 && Weltstand.validate(data, t.g).length === 0 && sim.faeden.liste[0].plan && !('abenteuerAngebote' in sim.faeden), 'Weltstand-Version 3, schemagueltig, der Plan steht im Stand, die Angebote nicht');
+  ok(data.version === 3 && Weltstand.validate(data, t.g).length === 0 && sim.faeden.liste[0].plan && !('abenteuerAngebote' in sim.faeden) && sim.faeden.abenteuer.angebote.length === 1, 'Weltstand-Version 3, schemagueltig, der Plan steht im Stand, das Angebot im Block abenteuer (SUND-04b C)');
   D.zuruecksetzen();   // wie ein neuer Prozess
   const t2 = spiel(), m2 = mitAbenteuer(t2, {});
   Kriegslage.restore(t2.g, sim);
   const f2 = F(t2.g).liste[0];
-  ok(f2 && f2.plan && D.vorlage(f2.vorlage) && F(t2.g).abenteuerAngebote.length === 0 && F(t2.g).ladeFehler.length === 0, 'nach dem Laden: das Abenteuer ist da (Plan, Register), die Angebote sind Laufzeit und weg, keine Ladefehler');
+  ok(f2 && f2.plan && D.vorlage(f2.vorlage) && F(t2.g).abenteuerAngebote.length === 1 && D.vorlage(F(t2.g).abenteuerAngebote[0].ref) && F(t2.g).ladeFehler.length === 0, 'nach dem Laden: das Abenteuer ist da (Plan, Register) und das offene Angebot (SUND-04b C: steht im Stand, der Plan laeuft erneut durch den Pruefer), keine Ladefehler');
   ok(JSON.stringify(Faden.toSave(t2.g.weltsim)) === JSON.stringify(sim.faeden), 'Speichern nach dem Laden ergibt denselben Block');
   Faden.abenteuerRegisterAufraeumen(t2.g);
   ok(D.vorlage(f2.vorlage) !== null, 'Aufraeumen nach dem Laden laesst den laufenden Faden stehen');
@@ -694,7 +694,7 @@ section('Speichern und Laden mit offenem Angebot und laufendem Abenteuer', async
   F(t2.g).liste.push(...liste2); Faden.abenteuerRegisterAufraeumen(t2.g);   // der Eintrag kommt aus dem Plan des Fadens zurueck
   ok(D.vorlage(idGeladen) !== null, '(und kommt mit dem Faden zurueck)');
   await lauf(t2.g);
-  ok(m2.asks().length === 1 && t2.g.errors === 0 && F(t2.g).abenteuerAngebote.length <= 1, 'der Spielleiter komponiert in der neuen Sitzung weiter (Aufrufe der Sitzung zaehlen neu)');
+  ok(m2.asks().length === 1 && t2.g.errors === 0 && F(t2.g).abenteuerAngebote.length <= 2, 'der Spielleiter komponiert in der neuen Sitzung weiter (Aufrufe der Sitzung zaehlen neu)');
   void m;
 });
 

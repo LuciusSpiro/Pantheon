@@ -30,6 +30,10 @@ const B1_DATEI = lies('b1-texte.json');   // SUND-04b B1: Zahlen und Texte der B
 const B1 = { werte: werteVon(B1_DATEI), texte: B1_DATEI.texte, spuren: B1_DATEI.spuren };
 const B2_DATEI = lies('b2-texte.json');   // SUND-04b B2: Zahlen und Texte des Beats sabotage (faden-b2.js)
 const B2 = { werte: werteVon(B2_DATEI), texte: B2_DATEI.texte };
+const BRETT_DATEI = lies('abenteuer-brett.json');   // SUND-04b C: Auftragsbrett (Vorschau-Texte, Weigerungen, Chronik-Zeilen; abenteuer-brett.js)
+const BRETT = Object.assign({ werte: werteVon(BRETT_DATEI) }, { weigerungen: BRETT_DATEI.weigerungen, schritte: BRETT_DATEI.schritte, status_gelingen: BRETT_DATEI.status_gelingen, status_scheitern: BRETT_DATEI.status_scheitern, folgen: BRETT_DATEI.folgen, chronik: BRETT_DATEI.chronik });
+const ANSCHLUSS_DATEI = lies('anschluss.json');   // SUND-04b C: Standard-Bauplaene der Anschluss-Garantie
+const ANSCHLUSS = { werte: werteVon(ANSCHLUSS_DATEI), plaene: ANSCHLUSS_DATEI.plaene };
 const VORLAGEN_DIR = path.join(DIR, 'vorlagen');
 
 const registry = new Map();   // id -> Vorlage (eingefroren)
@@ -147,4 +151,4 @@ const entferne = (id) => { init(); registry.delete(id); };
 const ladefehler = () => { init(); return fehlerListe.slice(); };
 function zuruecksetzen() { registry.clear(); abenteuer.clear(); abenteuerBesitzer.clear(); fehlerListe = []; geladen = false; }
 
-module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };
+module.exports = { WERTE, BEATS, NAMEN, HALTUNG, HALTUNG_DATEI, BITTE, BAUPLAN, B1, B2, BRETT, ANSCHLUSS, DIR, registriereAbenteuer, raeumeAbenteuerAuf, abenteuerAnzahl, abenteuerId, istAbenteuer, vorlage, vorlagenIds, registriere, entferne, ladeVerzeichnis, ladefehler, zuruecksetzen };

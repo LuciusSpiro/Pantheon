@@ -48,7 +48,7 @@ const hat = (r, code) => !r.ok && r.fehler.some((t) => t.startsWith(code + ':'))
 
 // ---------------------------------------------------------------- Hilfen
 function neu(seed, crew) {
-  const t = F.neuesSpiel({ crew: crew || 3, seed: seed || 11, names: NAMEN.slice(0, crew || 3), env: { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock' } });
+  const t = F.neuesSpiel({ crew: crew || 3, seed: seed || 11, names: NAMEN.slice(0, crew || 3), env: { FAEDEN: '1', LAGE_SPIELLEITER: '1', SPIELLEITER_LLM: 'mock', ABENTEUER_ANSCHLUSS: '0' } });
   const llm = LLM.create({ mode: 'mock' });
   t.g.lageSpielleiter = LS.create(t.g, { llm, werte: { min_abstand_ticks: 1, deckel_je_sitzung: 9999 } }); t.g.lageSchalter = true;
   t.c = t.cs[0];

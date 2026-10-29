@@ -238,6 +238,7 @@ function taetigkeit(game, art) {
   }
   try { require('./faden-bitte.js').nachTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'faden-bitte', e); }   // SUND-04a-2 P2: Verfall und Wiederholung der Bitten (nach dem Frist-Takt)
   abenteuerRegisterAufraeumen(game);   // SUND-04b A2
+  try { require('./abenteuer-brett.js').beiTaetigkeit(game); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett', e); }   // SUND-04b C: Anschluss-Garantie (ohne Spielleiter nichts)
   return { t: F.t, faellig: F.liste.filter(faellig).map((f) => f.id) };
 }
 
@@ -432,6 +433,7 @@ function beatAusgang(game, fadenId, ausgang) {
     f.abstand = abstandZiehen(game, f);
   }
   melde(game, f.phase === 'abgeschlossen' ? 'abgeschlossen' : 'beat_ende', f.id, `Beat ${beat.id} ${ausgang}${f.phase === 'abgeschlossen' ? ', Faden abgeschlossen' : ', NSC ' + f.nsc.status + ', weiter ' + v.beats[f.beat].id}`, { faden: f.id, beat: beat.id, ausgang, status: f.nsc.status });
+  if (f.plan && f.phase === 'abgeschlossen') { try { require('./abenteuer-brett.js').beiEnde(game, f, ausgang); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-ende', e); } }   // SUND-04b C: Chronik, Logbuch, Anschluss-Garantie
   return { ok: true, faden: f };
 }
 
@@ -518,7 +520,7 @@ function speicherFaden(f) {
 }
 function toSave(ws) {
   const F = ws && ws.faeden;
-  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc && !F.sabotage)) return null;
+  if (!F || (!F.liste.length && !F.t && !F.nr && !F.nsc && !F.sabotage && !(F.abenteuerAngebote && F.abenteuerAngebote.length) && !F.abenteuerZuletzt)) return null;
   const b = { t: F.t, nr: F.nr, nsc: F.nsc };
   if (F.liste.length) b.liste = F.liste.map(speicherFaden);
   const bt = require('./faden-bitte.js').toSaveBitte(F);   // SUND-04a-2 P2: offene Bitte (optional, Altstand = keine)
@@ -527,6 +529,8 @@ function toSave(ws) {
   if (sb) b.sabotage = sb;
   const dk = require('./faden-bitte.js').toSaveDeckel(F);   // Nacharbeit L10: Zähler des Bitten-Deckels (optional, wie der Reise-Deckel welt.sim.reise.r)
   if (dk) b.deckel = dk;
+  const ab = require('./abenteuer-brett.js').toSave(F);   // SUND-04b C: offene Abenteuer-Angebote und der zuletzt gespielte Plan (optional, additiv, Altstand = keine)
+  if (ab) b.abenteuer = ab;
   return b;
 }
 function leseNsc(x, v) {
@@ -615,7 +619,8 @@ function lesen(b) {
   if (sb) F.sabotage = sb; else if (b.sabotage !== undefined) F.ladeFehler.push('sabotage: verworfen');
   const bt = require('./faden-bitte.js').lesenBitte(b.bitte, F);   // SUND-04a-2 P2: offene Bitte (müllfest; Folgen aus der Vorlage)
   if (bt) { F.bitte = bt; F.bitteNr = bt.nr; } else if (istObjekt(b.bitte)) F.ladeFehler.push('bitte: verworfen');
+  if (b.abenteuer !== undefined) { if (istObjekt(b.abenteuer)) require('./abenteuer-brett.js').lesen(b.abenteuer, F); else F.ladeFehler.push('abenteuer: verworfen'); }   // SUND-04b C: Angebote (die Plaene laufen erneut durch den Pruefer) und zuletzt
   return F;
 }
 
-module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten };
+module.exports = { aktiv, neu, zustandVon, taetigkeit, abenteuerRegisterAufraeumen, ausgangMitPerson, abenteuerAnbieten, abenteuerOeffnen, istBefehl, befehlPruefen, befehlAnwenden, oeffnen, weiterSetzen, beatAusgang, beatZurueck, optionWaehlen, hinweisGezeigt, spielleiterAktiv, haltungPruefen, haltungSortieren, haltungBuchen, anwenden, haltungVon, chanceSpontanhilfe, tonVon, portraetVon, nscVon, ausschnittBlock, promptText, toSave, lesen, aktive, faellig, folgenAnwenden, strom, idNr, wiedersehenKandidaten, fristVon };

@@ -198,7 +198,7 @@ const MUTATIONEN = [
   [SC, '"required": ["format", "titel", "beats"]', '"required": ["format", "titel"]', 'Schema Bauplan: beats nicht Pflicht'],
   [SC, '"format": {"const": "faden-bauplan/1"}', '"format": {"type": "string"}', 'Schema Bauplan: beliebiges Format'],
   [SC, '"additionalProperties": false,\n  "required": ["format", "titel", "beats"]', '"required": ["format", "titel", "beats"]', 'Schema Bauplan: unbekannte Felder im Plan erlaubt'],
-  [SW, '"plan":{"type":"object"', '"plan":{"type":"string"', 'Schema Weltstand: plan darf kein Objekt sein'],
+  [SW, '"plan":{"type":"object","description":"SUND-04b A1', '"plan":{"type":"string","description":"SUND-04b A1', 'Schema Weltstand: plan darf kein Objekt sein'],
   [SV, '"rolle": {\n          "type": "string",\n          "maxLength": 12,', '"rolle": {\n          "type": "number",\n          "maxLength": 12,', 'Schema Vorlage: nsc.rolle ist keine Zeichenkette'],
 ];
 

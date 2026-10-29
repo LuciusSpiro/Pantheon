@@ -42,6 +42,7 @@ const Notrufe = require('./sim/notrufe.js');   // SL8: Notrufe (game.notrufe, Sn
 const Abspann = require('./sim/abspann.js');   // SUND-04a-3: Abspänne der Freien Fahrt Sund (Debug abspann)
 const Ruf = require('./sim/ruf.js');   // SUND-02b B: Ruf je Fraktion und Dienstgrade von Rom (nur Freie Fahrt Sund)
 const FunkAntwort = require('./sim/funk-antwort.js');   // SUND-03b A: Funk-Antworten mit Folgen (nur Freie Fahrt Sund, folgt dem Reise-Ereignis-Schalter)
+const AbenteuerBrett = require('./sim/abenteuer-brett.js');   // SUND-04b C: Auftragsbrett (nur mit FAEDEN=1, Freie Fahrt Sund)
 const FadenBitte = require('./sim/faden-bitte.js');   // SUND-04a-2 P2: Bitten der Geschichtsfäden (nur mit FAEDEN=1, Freie Fahrt Sund)
 const Info = require('./sim/handel-info.js');   // SUND-03b I: Informationshandel des Konkordats (Gerücht, Beleg; nur Freie Fahrt Sund, nur an Konkordat-Häfen)
 const FinaleBoden = require('./sim/finale-boden.js');   // SUND-04a-3 Boden: Treiber des Boden-Teils (Schrein von Asgard)
@@ -538,7 +539,7 @@ class Game {
     this.bots = [];
     bots.ensureBotCount(this);
     this.asteroidsDirty = true;
-    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
     this.runId = null;
     for (const p of this.players) this.resetPlayer(p, this.players.indexOf(p));
     this.refreshWorldList();
@@ -757,7 +758,7 @@ class Game {
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
       this.sendTo(conn, this.welcomeMsg(p.id));
-      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -768,7 +769,7 @@ class Game {
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+      this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       return;
     }
     const used = new Set(this.players.map((o) => o.id));
@@ -783,7 +784,7 @@ class Game {
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
-    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentInfoKey = null;
+    this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1114,6 +1115,15 @@ class Game {
     if (c === Protocol.CMD_FADEN_BITTE) {
       const r = p.downed ? FadenBitte.weigerung('am_boden') : FadenBitte.beantworten(this, String(msg.id), msg.nr == null ? null : Number(msg.nr));
       if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'fadenBitteAntwort', pid: p.id, ok: !r }, r ? { code: r.code, text: r.text } : {}));
+      return;
+    }
+    // SUND-04b C: Auftragsbrett annehmen oder ablehnen (jeder Spieler, keine Konsole; die Crew entscheidet, die ERSTE Antwort gilt). Antwort an den Absender: abenteuerAntwort { pid, op, ok, code?, text? }
+    if (Protocol.CMD_ABENTEUER.includes(c)) {
+      const op = c === 'abenteuer.annehmen' ? 'annehmen' : 'ablehnen';
+      let r;
+      if (p.downed) r = AbenteuerBrett.weigerung('am_boden');
+      else { try { r = AbenteuerBrett[op](this, typeof msg.id === 'string' ? msg.id : null); } catch (e) { this.countError('abenteuer-brett-' + op, e); r = AbenteuerBrett.weigerung('veraltet'); } }
+      if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'abenteuerAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
       return;
     }
     const [prefix] = c.split('.');
@@ -2104,6 +2114,12 @@ class Game {
       if (bk && bk !== this.sentBittenKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.bitte = FadenBitte.snapshot(this); this.sentBittenKey = bk; }
       else if (!bk && this.sentBittenKey) { world.bitte = null; this.sentBittenKey = null; }
     } catch (e) { this.countError('snapshot-bitte', e); }
+    // SUND-04b C: world.abenteuer (Auftragsbrett: offene Abenteuer-Angebote mit Vorschau und das laufende Abenteuer, nur Freie Fahrt Sund mit FAEDEN=1) nur bei Änderung, für alle gleich; null = Löschsignal
+    try {
+      const ak = AbenteuerBrett.schluessel(this);
+      if (ak && ak !== this.sentAbenteuerKey && !includeAsteroids && !includeWorld && !includeLog && !includeBook) { world.abenteuer = AbenteuerBrett.snapshot(this); this.sentAbenteuerKey = ak; }
+      else if (!ak && this.sentAbenteuerKey) { world.abenteuer = null; this.sentAbenteuerKey = null; }
+    } catch (e) { this.countError('snapshot-abenteuer', e); }
     // SUND-03b I: world.info (Angebot des Konkordats; nur an einem Konkordat-Hafen und solange jemand am Terminal sitzt) nur bei Änderung, für alle gleich, nie mit den großen seltenen Teilen; Löschsignal null wie world.absicht
     try {
       const ik = Info.schluessel(this);

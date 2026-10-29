@@ -1,0 +1,180 @@
+{
+  "format": "abenteuer-brett/1",
+  "_hinweis": "SUND-04b C: Daten des Auftragsbretts der Freien Fahrt Sund (server/sim/abenteuer-brett.js). Die Vorschau eines Angebots (Schritte, Folgen, Scheitern) wird aus den DATEN der expandierten Vorlage abgeleitet (Beat-Typ, Zustand und Folgen je Ausgang, Optionen) und hier in Klartext uebersetzt: kein Text und keine Folge kommt je aus dem Modell. Titel und Anlass sind der einzige freie Text des Spielleiters (unveraendert angezeigt, ohne Spielernamen). Das Gleiche gilt fuer die Chronik-Zeile am Ende eines Abenteuers (Platzhalter {ort}, nie der Titel und nie der Name des NSC: die Chronik geht in den Prompt des Spielleiters) und die Weigerungen der Befehle. Platzhalter nur {ort} {fraktion} {delta}.",
+  "werte": {
+    "kopf": {
+      "wert": "Auftragsbrett",
+      "einheit": "Text",
+      "_hinweis": "Titel der Anzeige (Paket D)."
+    },
+    "ablehnen_text": {
+      "wert": "Ablehnen kostet nichts.",
+      "einheit": "Text",
+      "_hinweis": "Steht im Block, damit die Oberflaeche es nicht erfinden muss."
+    },
+    "scheitern_text": {
+      "wert": "Scheitern verändert den Verlauf, blockiert aber nichts.",
+      "einheit": "Text",
+      "_hinweis": "Allgemeine Zeile zum Scheitern (jedes Scheitern in diesem Katalog veraendert den Faden und beendet nichts, Pruefer SCHEITERN_FOLGENLOS)."
+    },
+    "weg_text": {
+      "wert": "Der Weg weiter hängt vom Ausgang ab.",
+      "einheit": "Text",
+      "_hinweis": "Eine Zeile an einem Schritt, dessen Ausgaenge in verschiedene Beats fuehren (verzweigung)."
+    },
+    "ort_max": {
+      "wert": 40,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge des Ortsnamens im Block."
+    },
+    "titel_max": {
+      "wert": 26,
+      "einheit": "Zeichen",
+      "_hinweis": "Titel im Block (Wunsch des Designs: Terminal 640 x 360). Laenger wird mit … gekuerzt, im Server."
+    },
+    "anlass_max": {
+      "wert": 110,
+      "einheit": "Zeichen",
+      "_hinweis": "Anlass im Block (gekuerzt mit …)."
+    },
+    "chronik_kurz_max": {
+      "wert": 80,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge der Chronik-Zeile (chronik-werte.json kurz_max)."
+    },
+    "antworten_gemerkt": {
+      "wert": 8,
+      "einheit": "Nummern",
+      "_hinweis": "Wie viele zuletzt beantwortete Angebotsnummern der Server merkt, um „schon beantwortet“ von „kein Angebot“ zu trennen (Laufzeit)."
+    },
+    "pruefung_s": {
+      "wert": 5,
+      "einheit": "Sekunden Spielzeit",
+      "_hinweis": "Abstand der Rueckfall-Pruefung im Takt (neben jeder Taetigkeit und dem Ende eines Abenteuers): hat die Crew kein Angebot und kein laufendes Abenteuer, entsteht eines (auch beim Spielstart und nach dem Laden)."
+    },
+    "schritt_max": {
+      "wert": 28,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge der Schritt-Texte (schritte.*.text und varianten): Test."
+    },
+    "geruechte_max": {
+      "wert": 3,
+      "einheit": "Zeilen",
+      "_hinweis": "Hoechstens so viele Geruechte im Block (Hinweistexte der Vorlagen ohne {name})."
+    },
+    "geruecht_text_max": {
+      "wert": 100,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge einer Geruechtzeile (wie hinweis_text_max)."
+    },
+    "geruecht_sprecher": {
+      "wert": "Hafenfunk",
+      "einheit": "Text",
+      "_hinweis": "Sprecher, wenn der Kanal des Hinweises keinen hat (null in hinweis_sprecher)."
+    }
+  },
+  "weigerungen": {
+    "modus": "Das Auftragsbrett gibt es nur in der Freien Fahrt.",
+    "kein_angebot": "Dieses Angebot gibt es nicht mehr.",
+    "schon_beantwortet": "Darüber hat die Crew schon entschieden.",
+    "unbekannt": "Diesen Auftrag kennt das Brett nicht.",
+    "kein_spielleiter": "Der Spielleiter ist gerade nicht erreichbar. Das Angebot bleibt.",
+    "laeuft_schon": "Die Crew hat schon einen Auftrag. Das Angebot bleibt.",
+    "kein_platz": "Die Crew hat gerade keinen Platz für einen weiteren Handlungsstrang. Das Angebot bleibt.",
+    "veraltet": "Der Auftrag hat sich erledigt. Er wurde vom Brett genommen.",
+    "am_boden": "Wer am Boden liegt, kann nicht entscheiden."
+  },
+  "schritte": {
+    "bitte": {
+      "text": "Bitte um Hilfe",
+      "varianten": {
+        "bitte:text_key:hilfe_kon": "Bitte eines Händlers"
+      }
+    },
+    "spontanhilfe": {
+      "text": "Schlacht mit Beistand"
+    },
+    "notruf": {
+      "text": "Notruf beantworten",
+      "varianten": {
+        "notruf:text_key:notruf_entfuehrt": "Entführung melden"
+      }
+    },
+    "enthuellung": {
+      "text": "Enthüllung"
+    },
+    "verfolgung": {
+      "text": "Verfolgungsjagd"
+    },
+    "raumschlacht": {
+      "text": "Gefecht im All"
+    },
+    "befreiung": {
+      "text": "Gefangene befreien"
+    },
+    "fracht": {
+      "text": "Fracht liefern"
+    },
+    "geruecht": {
+      "text": "Gerücht verfolgen",
+      "varianten": {
+        "geruecht:text_key:geruecht_handel": "Händlergerücht verfolgen"
+      }
+    },
+    "spur": {
+      "text": "Spur folgen",
+      "varianten": {
+        "spur:spur:fundort": "Fundort untersuchen"
+      }
+    },
+    "wiedersehen": {
+      "text": "Wiedersehen"
+    },
+    "konvoi": {
+      "text": "Konvoi aufhalten",
+      "varianten": {
+        "konvoi:sieg:pluendern": "Konvoi plündern"
+      }
+    },
+    "geleit": {
+      "text": "Schützling geleiten",
+      "varianten": {
+        "geleit:modus:havarist": "Havariertem helfen",
+        "geleit:modus:panne": "Panne beheben"
+      }
+    },
+    "sabotage": {
+      "text": "Posten sprengen"
+    },
+    "abschluss": {
+      "text": "Abschluss"
+    }
+  },
+  "status_gelingen": {
+    "verbuendet": "Der Auftraggeber wird zum Verbündeten.",
+    "aktiv": null
+  },
+  "status_scheitern": {
+    "aktiv": "Der Auftraggeber bleibt unverbündet.",
+    "geflohen": "Der Auftraggeber entkommt und taucht später wieder auf.",
+    "gefangen": "Der Auftraggeber gerät in Gefangenschaft.",
+    "tot": "Der Auftraggeber kommt ums Leben.",
+    "feindlich": "Der Auftraggeber wird zum Feind.",
+    "schuldet_nichts": "Der Auftraggeber schuldet der Crew nichts mehr.",
+    "verbuendet": null
+  },
+  "folgen": {
+    "ruf": "Ruf {fraktion}: {delta}",
+    "haltung_plus": "Haltung des Auftraggebers: {delta}",
+    "haltung_minus": "Haltung des Auftraggebers: {delta}",
+    "fraktionen": {
+      "rom": "Rom",
+      "ger": "Germanen",
+      "kon": "Konkordat"
+    }
+  },
+  "chronik": {
+    "gelungen": "Auftrag bei {ort} erfüllt",
+    "gescheitert": "Auftrag bei {ort} gescheitert"
+  }
+}

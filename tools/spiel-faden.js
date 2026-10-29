@@ -7,6 +7,9 @@
 // (der NSC aus dem ersten Faden meldet sich und erinnert an eine konkrete Tat). Der Ort der Crew (ship.scene) und der Platz der Ops werden gesetzt, wie in den Tests: die Mechanik der Beats ist in test-faden-katalog-b1.js geprueft.
 // Das Geruecht erreicht die Crew ueber ECHTE Spruenge (Weitscan weapons.widescan, helm.jump, Antrieb 8 s); Spur und Wiedersehen setzen den Ort per Space.enterScene (Luecke, siehe README B1 Nacharbeit H3).
 // SUND-04b B2: danach Konvoi abfangen, Schützling geleiten (Geleit, Havarist, Panne) und der Sabotage-Auftrag (echte Sprünge, der Posten wird wirklich gesprengt); das Zerstören der Gegner ist ein Testhelfer (der Bot hat keine Bordkanone).
+// SUND-04b C: Abenteuer werden nicht mehr direkt geoeffnet, sondern wie von der Crew: das Angebot (Komponist, hier der Mock-Plan) steht im Snapshot world.abenteuer aller drei Clients, ein Client sendet abenteuer.annehmen (ein zweiter
+// gleichzeitig: nur die erste Antwort gilt), das Abenteuer laeuft bis zum Ende (Gerücht, Konvoi, Sabotage und die uebrigen), danach ist ein Anschluss-Angebot da (Rueckfall ohne Modell). Dazu: Ablehnen kostet nichts (Ruf und Haltung vorher/nachher
+// gleich), alle drei Clients sehen denselben Block, Titel und Anlass ohne Spielernamen.
 // Aufruf: node tools/spiel-faden.js [--out datei.txt]   (npm run spiel:faden)
 const fs = require('fs');
 const os = require('os');
@@ -37,12 +40,13 @@ const outDatei = outIdx > 0 ? process.argv[outIdx + 1] : path.join(os.tmpdir(), 
 function client(port, hello, name) {
   return new Promise((resolve) => {
     const ws = new WebSocket(`ws://127.0.0.1:${port}/ws`);
-    const c = { ws, name, funk: [], antw: 0, bitte: null };
+    const c = { ws, name, funk: [], antw: 0, bitte: null, abenteuer: undefined, abAntw: [] };
     ws.on('message', (data) => {
       const m = JSON.parse(data.toString());
-      if (m.t === 'snap') { if (m.world && 'bitte' in m.world) c.bitte = m.world.bitte; return; }
+      if (m.t === 'snap') { if (m.world && 'bitte' in m.world) c.bitte = m.world.bitte; if (m.world && 'abenteuer' in m.world) c.abenteuer = m.world.abenteuer; return; }
       if (m.t === 'event' && m.kind === 'radio' && name === NAMEN[0]) c.funk.push(`${m.from}: ${m.text}`);
       if (m.t === 'event' && m.kind === 'fadenBitteAntwort') c.antw++;
+      if (m.t === 'event' && m.kind === 'abenteuerAntwort') c.abAntw.push({ op: m.op, ok: m.ok, code: m.code });
     });
     c.send = (o) => ws.send(JSON.stringify(o));
     ws.on('open', () => { c.send(Object.assign({ t: 'hello', code: CODE }, hello)); resolve(c); });
@@ -140,14 +144,37 @@ function client(port, hello, name) {
     return true;
   };
   const ergebnisse = [];
+  // SUND-04b C: das Angebot kommt vom Komponisten (hier der Mock-Plan, durch Expander und Pruefer), die CREW nimmt es an: Block im Snapshot aller drei Clients, Befehl abenteuer.annehmen von zwei Clients zugleich
+  const ergC = [];
+  const wartenAuf = async (fn, ms) => { for (let i = 0; i < (ms || 40); i++) { if (fn()) return true; await sleep(100); } return !!fn(); };
+  const angebote = (c) => (c.abenteuer && c.abenteuer.angebote) || [];
+  const NAMENSFILTER = new RegExp('\\b(' + NAMEN.join('|') + ')\\b');
+  let angenommen = 0;
   async function abenteuer(name, plan, parameter) {
+    void parameter;   // das Wiedersehen waehlt der Server selbst (juengster Kandidat)
     let a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() });
-    for (let i = 0; i < 30 && !a.ok && /ABENTEUER_ANGEBOTE/.test(a.grund); i++) { await runde(); a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() }); }   // offene Angebote des Komponisten verfallen
+    for (let i = 0; i < 4 && !a.ok && /ABENTEUER_ANGEBOTE/.test(a.grund); i++) {   // das Brett ist voll (Komponist, Rueckfall): die Crew lehnt ein Angebot ab (kostet nichts)
+      const alt = angebote(cl[1])[0]; if (!alt) break;
+      cl[1].send({ t: 'cmd', c: 'abenteuer.ablehnen', id: alt.id }); await wartenAuf(() => !angebote(cl[0]).some((x) => x.id === alt.id));
+      a = Faden.abenteuerAnbieten(g, plan, { hex: hierHex() });
+    }
     if (!a.ok) { zeile(name + ': kein Angebot (' + a.grund + ')'); return null; }
-    const r = Faden.abenteuerOeffnen(g, a.angebot.nr, parameter);
-    if (!r.ok) { zeile(name + ': Öffnen abgelehnt (' + r.grund + ')'); return null; }
-    zeile(name + ': Abenteuer ' + r.faden.id + ' geöffnet (Beats ' + a.angebot.vorlage.beats.map((b) => b.typ).join(' > ') + '), NSC ' + r.faden.nsc.name);
-    return r.faden;
+    const id = 'a' + a.angebot.nr;
+    const sichtbar = await wartenAuf(() => cl.every((c) => angebote(c).some((x) => x.id === id)));
+    const e = angebote(cl[0]).find((x) => x.id === id);
+    const gleich = cl.every((c) => JSON.stringify(c.abenteuer) === JSON.stringify(cl[0].abenteuer));
+    const form = !!e && ['rom', 'ger', 'kon'].includes(e.von) && typeof e.vorschau.gefahr === 'boolean' && e.vorschau.schritte.length === a.angebot.vorlage.beats.length && e.vorschau.schritte.every((s) => typeof s.text === 'string' && s.text.length <= 28 && typeof s.gefahr === 'boolean') && e.titel.length <= 26 && !NAMENSFILTER.test(JSON.stringify(cl[0].abenteuer));
+    zeile(name + ': Angebot ' + id + ' im Snapshot aller drei: ' + sichtbar + ', gleich bei allen ' + gleich + ', Vorschau ' + (e ? e.vorschau.schritte.map((s) => s.text + (s.gefahr ? '!' : '')).join(' > ') + ' | gelingt ' + JSON.stringify(e.vorschau.gelingt).slice(0, 90) + ' | scheitert ' + JSON.stringify(e.vorschau.scheitert).slice(0, 90) : '-') + ', von ' + (e && e.von) + ', Gefahr ' + (e && e.vorschau.gefahr));
+    ergC.push([name + ': Angebot im Block, gleich bei drei Clients, Form, keine Spielernamen', sichtbar && gleich && form]);
+    const a1 = cl[angenommen % 3], a2 = cl[(angenommen + 1) % 3]; angenommen++;
+    const n1 = a1.abAntw.length, n2 = a2.abAntw.length;
+    a1.send({ t: 'cmd', c: 'abenteuer.annehmen', id }); a2.send({ t: 'cmd', c: 'abenteuer.annehmen', id });   // zwei Spieler gleichzeitig: die ERSTE Antwort gilt
+    await wartenAuf(() => a1.abAntw.length > n1 && a2.abAntw.length > n2);
+    const r = [a1.abAntw[n1], a2.abAntw[n2]].filter(Boolean);
+    const f = g.weltsim.faeden.liste.find((x) => x.plan && x.vorlage === a.angebot.ref) || null;
+    zeile(name + ': ' + a1.name + ' und ' + a2.name + ' nehmen zugleich an: ' + r.map((x) => x.ok ? 'ok' : x.code).join(' / ') + (f ? ', Abenteuer ' + f.id + ' (Beats ' + a.angebot.vorlage.beats.map((b) => b.typ).join(' > ') + '), NSC ' + f.nsc.name : ', KEIN Abenteuer'));
+    ergC.push([name + ': genau eine Annahme gilt (die zweite: schon_beantwortet)', r.length === 2 && r.filter((x) => x.ok).length === 1 && r.some((x) => x.code === 'schon_beantwortet') && !!f]);
+    return f;
   }
   const beatTyp = (f) => require('../server/sim/faden-daten.js').vorlage(f.vorlage).beats[f.beat].typ;
   async function bisBeat(f, typ) {   // der Spielleiter (Mock) bringt den Faden an der Grenze weiter, bis der Beat laeuft
@@ -160,6 +187,12 @@ function client(port, hello, name) {
   const beatEnde = (f, typ) => f.nsc.gedaechtnis.filter((x) => x.ereignis.startsWith(typ + '_')).map((x) => x.ereignis).join(',');
   const ende = async (f) => {
     for (let i = 0; i < 200 && f.phase !== 'abgeschlossen'; i++) await runde();
+    if (f.phase === 'abgeschlossen') {   // SUND-04b C: nach dem Ende ist ein neues Angebot da (Komponist oder Rueckfall), im Snapshot aller drei Clients
+      const da = await wartenAuf(() => g.weltsim.faeden.abenteuerAngebote.length >= 1 && cl.every((c) => angebote(c).length >= 1), 60);
+      const wk = g.weltsim.chronik.find((c) => c.ref === f.id && c.param && c.param.art === 'abenteuer');
+      zeile('Ende von ' + f.id + ' (' + f.ausgang.art + '): Anschluss-Angebot ' + (da ? angebote(cl[0]).map((x) => x.id + ' ' + x.titel).join(', ') : 'FEHLT') + '; Chronik: ' + (wk ? wk.kurz : '-'));
+      ergC.push(['Ende ' + f.id + ': Anschluss-Angebot da, Chronik-Zeile', da && !!wk && /^Auftrag bei .* (erfüllt|gescheitert)$/.test(wk.kurz)]);
+    }
     if (f.phase !== 'abgeschlossen') { const l = (g.lageRegie && g.lageRegie.log ? g.lageRegie.log.entries : []).filter((e) => e.art === 'faden_pruefung' || (e.art === 'lage_befehl' && e.ausgang === 'abgelehnt')).slice(-3); zeile('Faden ' + f.id + ' steht bei Beat ' + f.beat + ' (' + f.phase + '), Zähler ' + f.zaehler + '/' + f.abstand + '; letzte Ablehnungen: ' + JSON.stringify(l).slice(0, 400)); }
     return f.phase === 'abgeschlossen';
   };
@@ -321,9 +354,25 @@ function client(port, hello, name) {
     ergB2.push(['Sabotage ohne Ziel wird nicht angeboten', !ohne.ok && /LAGE_ZIEL_FEHLT|SABOTAGE_PAUSE/.test(ohne.grund)]);
   }
   const alleB2 = ergB2.every(([, ok]) => ok);
+  // SUND-04b C: Ablehnen kostet nichts (Ruf und Haltung aller NSC vorher/nachher gleich), die Crew entscheidet ueber den Befehl
+  {
+    await wartenAuf(() => angebote(cl[0]).length >= 1, 60);
+    if (!angebote(cl[0]).length) Faden.abenteuerAnbieten(g, plan('geruecht'), { hex: hierHex() });
+    await wartenAuf(() => angebote(cl[0]).length >= 1, 40);
+    const alt = angebote(cl[0])[0];
+    const stand = () => JSON.stringify({ ruf: g.weltsim.ruf, nsc: g.weltsim.faeden.liste.map((x) => [x.id, x.nsc.haltung, x.nsc.status]), deckel: g.weltsim.faeden.bitteLog });
+    const vorher = stand(), n = cl[2].abAntw.length;
+    if (alt) cl[2].send({ t: 'cmd', c: 'abenteuer.ablehnen', id: alt.id });
+    await wartenAuf(() => cl[2].abAntw.length > n);
+    const weg = await wartenAuf(() => !angebote(cl[0]).some((x) => x.id === alt.id), 40);
+    zeile('Ablehnen: ' + (alt ? alt.id : '-') + ' durch ' + cl[2].name + ': Antwort ' + JSON.stringify(cl[2].abAntw[n]) + ', vom Brett ' + weg + ', Ruf/Haltung/Deckel vorher = nachher ' + (vorher === stand()));
+    ergC.push(['Ablehnen kostet nichts (Ruf, Haltung, Deckel gleich), das Angebot ist weg', !!alt && !!(cl[2].abAntw[n] || {}).ok && weg && vorher === stand()]);
+  }
+  const alleC = ergC.every(([, ok]) => ok) && ergC.length >= 10;
+  zeile('SUND-04b C: ' + ergC.map(([k, ok]) => k + ' ' + (ok ? 'ok' : 'FEHLT')).join('; ') + '; Serverfehler ' + g.errors);
   zeile('SUND-04b B2: ' + ergB2.map(([k, ok]) => k + ' ' + (ok ? 'ok' : 'FEHLT')).join(', ') + '; Serverfehler ' + g.errors);
   fs.writeFileSync(outDatei, protokoll.join('\n') + '\n');
   zeile(`Protokoll geschrieben: ${outDatei}`);
   for (const x of cl) x.ws.close();
-  process.exit(fertig && alleB1 && alleB2 && g.errors === 0 ? 0 : 1);
+  process.exit(fertig && alleB1 && alleB2 && alleC && g.errors === 0 ? 0 : 1);
 })().catch((e) => { console.log('FEHLER: ' + (e && e.stack)); process.exit(1); });
