@@ -136,7 +136,7 @@ section('(a) Katalog: 15 Beat-Typen (SUND-04b B2: konvoi, geleit, sabotage kamen
     ['ziel.max groesser als erreichbar_max', () => { TX_LIVE.werte.ziel.max = 99; }, () => { TX_LIVE.werte.ziel.max = zielOrig.max; }, /werte.ziel/],
     ['ziel.min unter 1', () => { TX_LIVE.werte.ziel.min = 0; }, () => { TX_LIVE.werte.ziel.min = zielOrig.min; }, /werte.ziel/],
     ['erinnerte Tat ohne Text', () => { TX_LIVE.werte.wiedersehen_erinnert.zzz_gelungen = 'kein_text'; }, () => { delete TX_LIVE.werte.wiedersehen_erinnert.zzz_gelungen; }, /kein_text/],
-    ['Ereignis passt nicht zum Gedaechtnis', () => { TX_LIVE.werte.wiedersehen_erinnert.Gross1 = 'wiedersehen_dank'; }, () => { delete TX_LIVE.werte.wiedersehen_erinnert.Gross1; }, /Gross1/],
+    ['Ereignis passt nicht zum Gedaechtnis', () => { TX_LIVE.werte.wiedersehen_erinnert.Gross1 = 'wiedersehen_dank'; }, () => { delete TX_LIVE.werte.wiedersehen_erinnert.Gross1; }, /Gross1 passt nicht zum/],
     ['Text mit fremdem Platzhalter', () => { TX_LIVE.texte.zusatz = 'Hallo {spieler}, schoen dich zu sehen.'; }, () => { delete TX_LIVE.texte.zusatz; }, /zusatz/],
     ['Spur-Text fehlt', () => { delete TX_LIVE.spuren.fundort.verloren; }, () => { TX_LIVE.spuren.fundort.verloren = TX.spuren.fundort.verloren; }, /fundort.verloren/],
     ['Pflichttext fehlt', () => { delete TX_LIVE.texte.geruecht_gefunden; }, () => { TX_LIVE.texte.geruecht_gefunden = TX.texte.geruecht_gefunden; }, /geruecht_gefunden/],
@@ -459,6 +459,13 @@ function altNsc(t, hex) {   // ein abgeschlossener Faden: der NSC wurde aus der 
   startBeat(g, f);
   return f;
 }
+// SUND-04b E3: die Hauptfigur des LETZTEN Abenteuers kehrt nicht sofort wieder (abenteuer-wiederholung.js); ein Puffer-Abenteuer mit einem toten NSC (kein Kandidat) rueckt sie aus der Sperre
+function puffer(t) {
+  const g = t.g, { f } = oeffne(g, plan([b('notruf'), b('abschluss')], { titel: 'Puffer', anlass: 'Ein Puffer-Abenteuer fuer den Test' }), undefined, '0305');
+  startBeat(g, f); g.step(); g.step(); startBeat(g, f);
+  f.nsc.status = 'tot';
+  return f;
+}
 section('(e) Wiedersehen: ein NEUER Faden mit dem alten NSC; der NSC erinnert sich an eine konkrete Tat der Crew (Abnahme)', () => {
   const t = neu(41), g = t.g;
   const alt = altNsc(t);
@@ -600,7 +607,7 @@ section('(f) Mock-Komponist (A2) kennt die neuen Typen: Plaene mit jedem neuen T
   const typenMock = (g) => { const s = new Set(); for (let i = 1; i <= 120; i++) { const pr = AP.baue(g, { nr: i, grenze: 'szene_ende', hex: '0305', letzte: [] }); const e = AM.erzeuge({ prompt: pr.prompt }); if (e.korruption) continue; const pl = JSON.parse(e.text.slice(e.text.indexOf('{'), e.text.lastIndexOf('}') + 1)); for (const bt of pl.beats) s.add(bt.typ); } return s; };
   const ohneNsc = typenMock(t.g);
   ok(!ohneNsc.has('wiedersehen') && ohneNsc.has('geruecht') && ohneNsc.has('spur'), 'Mock ueber den echten Prompt (Kontext wiedersehen_nsc 0): nie ein Wiedersehen, aber Geruecht und Spur');
-  const t2 = neu(52); altNsc(t2);
+  const t2 = neu(52); altNsc(t2); puffer(t2);
   ok(typenMock(t2.g).has('wiedersehen'), 'Mock ueber den echten Prompt (Kontext wiedersehen_nsc 1): auch ein Wiedersehen kommt vor');
   const p2 = AP.baue(t2.g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] });
   const kt = JSON.parse(/<kontext>\n([\s\S]*?)\n<\/kontext>/.exec(p2.prompt)[1]);
@@ -869,7 +876,7 @@ section('(h11) Prompt: wiedersehen_nsc ist eine Zahl je Volk (der Plan darf volk
   ok(/faeden\.wiedersehen_nsc: Zahl je Volk \(rom \| ger \| kon\)/.test(k) && /Standard rom \| kon/.test(k) && /nur Zahlen, keine Namen/.test(k), 'der Katalog erklaert die Zahl: je Volk, mit dem Standard-Volk-Set, ohne Namen');
   const sys = fs.readFileSync('content/spielleiter/prompts/abenteuer.system.md', 'utf8');
   ok(/faeden\.wiedersehen_nsc/.test(sys) && /je Volk/.test(sys) && /volk_erlaubt/.test(sys), 'der Systemprompt erklaert, was die Zahl bedeutet');
-  const alt = altNsc(t);
+  const alt = altNsc(t); puffer(t);
   const volk = alt.nsc.fraktion;
   const zahlen = () => kontextVon(AP.baue(g, { nr: 1, grenze: 'szene_ende', hex: '0305', letzte: [] }).prompt).faeden.wiedersehen_nsc;
   const z1 = zahlen();

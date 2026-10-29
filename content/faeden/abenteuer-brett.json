@@ -71,6 +71,20 @@
       "wert": "Hafenfunk",
       "einheit": "Text",
       "_hinweis": "Sprecher, wenn der Kanal des Hinweises keinen hat (null in hinweis_sprecher)."
+    },
+    "kanon_max": {
+      "wert": 40,
+      "einheit": "Eintraege",
+      "_hinweis": "SUND-04b E1: so viele Faeden (Abenteuer und Vorlagen) stehen im Kanon des Weltstands (welt.sim.faeden.kanon, server/sim/abenteuer-kanon.js): Name und Volk des NSC, Titel, Ort, Ausgang. Der Kanon ueberlebt die Verdraengung eines abgeschlossenen Fadens aus der Liste (faeden_gesamt_max 9); die aeltesten abgeschlossenen Eintraege ohne Faden in der Liste fallen zuerst heraus (ein laufender nie). Der Kanon geht nie in einen Prompt (er traegt NSC-Namen)."
+    },
+    "wiederholung": {
+      "wert": {
+        "folge_zuletzt": 3,
+        "ort_typ_zuletzt": 2,
+        "nsc_zuletzt": 1
+      },
+      "einheit": "Abenteuer",
+      "_hinweis": "SUND-04b E3: Wiederholungsregeln. Verglichen wird mit den zuletzt BEGONNENEN Abenteuern (Kanon, neueste zuerst) und den offenen Angeboten. folge_zuletzt: dieselbe Typenfolge (ohne Abschluss) wie eines der letzten n Abenteuer oder eines offenen Angebots ist eine Wiederholung (WIEDERHOLUNG_FOLGE). ort_typ_zuletzt: derselbe Ort UND derselbe erste Beat-Typ wie eines der letzten n Abenteuer (WIEDERHOLUNG_ORT). nsc_zuletzt: ein Wiedersehen nimmt keinen NSC, der in einem der letzten n Abenteuer die Hauptfigur war (WIEDERHOLUNG_NSC), solange es einen anderen Kandidaten gibt; gibt es keinen, ist das Wiedersehen noch nicht moeglich (der Rueckfall nimmt einen anderen Plan). Der Anschluss-Rueckfall lockert diese Sperren stufenweise (zuerst der Ort, dann die Folge, dann der NSC), das Brett bleibt nie leer, solange ein Plan zur Lage passt."
     }
   },
   "weigerungen": {

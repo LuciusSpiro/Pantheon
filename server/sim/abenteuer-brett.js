@@ -11,6 +11,7 @@
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
 //   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk? }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
+// SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
 // Ohne Schalter FAEDEN=1 oder ohne aktiven Lage-Spielleiter tut der Rueckfall nichts (die Angebote bleiben bis zum Verfall, begonnene Abenteuer stehen).
 const D = require('./faden-daten.js');
 const P = require('./faden-pruefer.js');
@@ -20,6 +21,7 @@ const BR = D.BRETT, BW = BR.werte, W = D.WERTE, B = D.BEATS;
 const Faden = () => require('./faden.js');
 const regie = () => require('./regie-befehle.js');
 const Bauplan = () => require('./faden-bauplan.js');
+const Wdh = () => require('./abenteuer-wiederholung.js');
 const Chronik = () => require('./chronik.js');
 const Ausschnitt = () => require('./lage-ausschnitt.js');
 const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
@@ -192,8 +194,9 @@ function annehmen(game, id) {
   if (lg) return veraltet(game, F, a, lg);
   let r;
   if (P.nscAlt(a.vorlage)) {   // Wiedersehen: der juengste Kandidat (wiedersehenKandidaten liefert ihn zuerst; nur NSC, die der Pruefer als nsc_von annimmt); kein Kandidat mehr (verdraengt, Zustand): das Angebot ist veraltet
-    const kand = Faden().wiedersehenKandidaten(game, a.vorlage);
-    if (!kand.length) return veraltet(game, F, a, 'WIEDERSEHEN_KEIN_NSC');
+    const alle = Faden().wiedersehenKandidaten(game, a.vorlage), frisch = Wdh().kandidatenFrisch(game, a.vorlage);   // SUND-04b E3: bevorzugt ein NSC, der nicht die Hauptfigur der letzten Abenteuer war
+    const kand = frisch.length ? frisch : a.locker ? alle : [];
+    if (!kand.length) return veraltet(game, F, a, alle.length ? 'WIEDERHOLUNG_NSC' : 'WIEDERSEHEN_KEIN_NSC');
     r = Faden().abenteuerOeffnen(game, a.nr, { nsc_von: kand[0] });
   } else r = Faden().abenteuerOeffnen(game, a.nr, {});
   if (!r.ok) {
@@ -231,14 +234,15 @@ function beiEnde(game, f, ausgang) {
 // ---------- Anschluss-Garantie: nach dem Ende ist mindestens ein neues Angebot da. Der Komponist (A2) kann ausfallen, im Cooldown sein oder zu spaet antworten: dann bietet ein deterministischer Rueckfall
 // einen Standard-Bauplan an (anschluss.json), durch denselben Expander und denselben Pruefer, ohne Modell.
 // stufe k: die k aeltesten Ablehnungen sind freigegeben; stufe > Zahl der Ablehnungen: auch zuletzt (siehe anschluss: es bleibt immer ein passender Plan, solange einer passt)
-function passt(game, F, bp, stufe) {
+function passt(game, F, bp, stufe, hex) {
   const r = Bauplan().pruefe(bp);
   if (!r.ok) return null;
   const v = r.vorlage, abg = brett(F).abgelehnt;
   if (v.id === F.abenteuerZuletzt && stufe <= abg.length) return null;
   if (abg.indexOf(v.id) >= stufe) return null;
   if (P.pruefeLage(game, v)) return null;   // Sabotage nur bei einem Ziel
-  if (P.nscAlt(v) && !Faden().wiedersehenKandidaten(game, v).length) return null;   // Wiedersehen nur mit Kandidat
+  if (P.nscAlt(v) && !Wdh().kandidatenGelockert(game, v, stufe).length) return null;   // Wiedersehen nur mit Kandidat (SUND-04b E3: erst die letzte Stufe nimmt auch die Hauptfigur des letzten Abenteuers)
+  if (Wdh().pruefeGelockert(game, v, hex, stufe)) return null;   // SUND-04b E3: Wiederholungsregeln, stufenweise gelockert (Ort, Folge, NSC)
   return v;
 }
 function anschluss(game) {
@@ -247,14 +251,15 @@ function anschluss(game) {
   if (F.abenteuerAngebote.length || P.abenteuerLaufend(F)) return null;
   const hex = crewHex(game);
   if (!hex) return null;
-  let plaene = [];
-  for (let stufe = 0; !plaene.length && stufe <= brett(F).abgelehnt.length + 1; stufe++) plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, stufe));   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
+  let plaene = [], stufe = 0;
+  for (; !plaene.length && stufe <= Math.max(brett(F).abgelehnt.length + 1, Wdh().STUFEN_MAX); stufe++) plaene = D.ANSCHLUSS.plaene.filter((bp) => passt(game, F, bp, stufe, hex));   // Sperren stufenweise lockern: zuerst die aelteste Ablehnung, zuletzt der zuletzt gespielte Plan
   if (!plaene.length) return null;
   const n = F.angNr + 1;
   const start = Math.floor(Faden().strom(game, n, 'anschluss')() * plaene.length) % plaene.length;
   for (let k = 0; k < plaene.length; k++) {
     const res = Faden().abenteuerAnbieten(game, klon(plaene[(start + k) % plaene.length]), { hex });
     if (res.ok) {
+      res.angebot.locker = stufe - 1 >= Wdh().STUFEN_MAX;   // der NSC-Sperre entkommen: das Wiedersehen darf auch die Hauptfigur des letzten Abenteuers nehmen
       logbuch(game, 'abenteuer_anschluss', { ausgang: 'angeboten', key: res.angebot.ref, begruendung: `Anschluss-Garantie: Standardplan ${res.angebot.ref} als Angebot ${res.angebot.nr} bei ${hex}`, plan: { angebot: res.angebot.nr, vorlage: res.angebot.ref, hex, wahl: (start + k) % plaene.length } });
       return res.angebot;
     }

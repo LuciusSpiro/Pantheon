@@ -20,7 +20,7 @@ const faden = () => require('./faden.js');   // lazy: faden.js laedt das Regie-M
 const STUFE = 'bauplan';
 const codeVon = (t) => String(t).split(':')[0];
 // Ablehnungen, die nicht am Modell liegen (Zustand des Fadens, Ort): eine Eskalation an Claude wuerde nur einen zweiten Aufruf bezahlen, ohne dass sich etwas aendert
-const NICHT_MODELL = ['ABENTEUER_DOPPELT', 'ABENTEUER_ANGEBOTE', 'INAKTIV', 'PARAMETER'];
+const NICHT_MODELL = ['ABENTEUER_DOPPELT', 'ABENTEUER_ANGEBOTE', 'INAKTIV', 'PARAMETER', 'WIEDERHOLUNG_ORT', 'WIEDERHOLUNG_NSC'];   // SUND-04b E3: Ort und Hauptfigur wählt nicht das Modell
 
 class AbenteuerSpielleiter {
   constructor(lage, opts) {
@@ -210,7 +210,7 @@ class AbenteuerSpielleiter {
     if (text.length > this.W.antwort_max_zeichen) return this.abgelehnt(job, 'ANTWORT_ZU_GROSS', [`Antwort mit ${text.length} Zeichen (hoechstens ${this.W.antwort_max_zeichen})`], r);
     const gelesen = Prompt.bauplanAusText(text);
     if (gelesen.fehler) return this.abgelehnt(job, 'ANTWORT_UNLESBAR', [gelesen.fehler], r);
-    const res = faden().abenteuerAnbieten(this.game, gelesen.plan, { hex: job.hex });
+    const res = faden().abenteuerNeuAnbieten(this.game, gelesen.plan, { hex: job.hex });   // SUND-04b E3: mit den Wiederholungsregeln des Bretts
     if (!res.ok) return this.abgelehnt(job, codeVon(res.grund), res.fehler, r);
     this.job = null; this.zustand = 'idle';
     const typen = Prompt.typenVon(res.angebot.vorlage);

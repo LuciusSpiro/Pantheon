@@ -21,10 +21,17 @@
         "verfolgung_gelungen": "wiedersehen_verfolgung_gelungen",
         "konvoi_gelungen": "wiedersehen_konvoi_gelungen",
         "geleit_gelungen": "wiedersehen_geleit_gelungen",
-        "sabotage_gelungen": "wiedersehen_sabotage_gelungen"
+        "sabotage_gelungen": "wiedersehen_sabotage_gelungen",
+        "befreiung_gescheitert": "wiedersehen_befreiung_gescheitert",
+        "spontanhilfe_gescheitert": "wiedersehen_spontanhilfe_gescheitert",
+        "raumschlacht_gescheitert": "wiedersehen_raumschlacht_gescheitert",
+        "verfolgung_gescheitert": "wiedersehen_verfolgung_gescheitert",
+        "konvoi_gescheitert": "wiedersehen_konvoi_gescheitert",
+        "geleit_gescheitert": "wiedersehen_geleit_gescheitert",
+        "sabotage_gescheitert": "wiedersehen_sabotage_gescheitert"
       },
       "einheit": "Ereignis -> text_key",
-      "_hinweis": "Schluessel = Beat-Typ + _ + Ausgang (wie im Gedaechtnis des NSC, faden.js beatAusgang). Nur diese Ereignisse sind konkrete Taten der Crew, an die ein NSC erinnern kann; ein NSC ohne eines davon taugt nicht fuer ein Wiedersehen (Pruefer NSC_VON)."
+      "_hinweis": "Schluessel = Beat-Typ + _ + Ausgang (wie im Gedaechtnis des NSC, faden.js beatAusgang). Nur diese Ereignisse sind konkrete Taten der Crew, an die ein NSC erinnern kann; ein NSC ohne eines davon taugt nicht fuer ein Wiedersehen (Pruefer NSC_VON). SUND-04b E2: jede Tat hat BEIDE Ausgaenge mit verschiedenem Text (Pruefregel WIEDERSEHEN_PAAR in faden-b1.js katalogFehler), damit der NSC nach einem Scheitern nicht von einem Erfolg spricht; Geruecht und Spur sind keine Taten, an die ein NSC erinnert. Bei einer Bitte ist die Wahl der Crew der Ausgang (annehmen = gelungen, ablehnen = gescheitert). Der letzte passende Eintrag im Gedaechtnis gewinnt."
     }
   },
   "texte": {
@@ -45,6 +52,13 @@
     "wiedersehen_konvoi_gelungen": "Ihr habt den Konvoi aufgehalten. Bei {ort} habe ich einen neuen Auftrag.",
     "wiedersehen_geleit_gelungen": "Ihr habt mich durchgebracht. Das vergesse ich nicht. Bei {ort} können wir reden.",
     "wiedersehen_sabotage_gelungen": "Der Posten ist gefallen, dank euch. Bei {ort} habe ich neue Arbeit für euch.",
+    "wiedersehen_befreiung_gescheitert": "Ihr habt mich nicht befreien können. Wir sprechen bei {ort}.",
+    "wiedersehen_spontanhilfe_gescheitert": "In der Schlacht habt ihr mich allein gelassen. Wir treffen uns bei {ort}.",
+    "wiedersehen_raumschlacht_gescheitert": "Mein Geschwader hat euch standgehalten. Ich will reden, bei {ort}.",
+    "wiedersehen_verfolgung_gescheitert": "Ihr habt mich nicht eingeholt. Bei {ort} sprechen wir trotzdem.",
+    "wiedersehen_konvoi_gescheitert": "Der Konvoi ist euch entkommen. Bei {ort} habe ich einen neuen Auftrag.",
+    "wiedersehen_geleit_gescheitert": "Ihr habt mich nicht durchgebracht. Bei {ort} können wir reden.",
+    "wiedersehen_sabotage_gescheitert": "Ihr habt den Posten nicht gesprengt. Bei {ort} geht es trotzdem weiter.",
     "wiedersehen_dank": "Schön, euch wiederzusehen. Damit hatte ich kaum gerechnet."
   },
   "spuren": {

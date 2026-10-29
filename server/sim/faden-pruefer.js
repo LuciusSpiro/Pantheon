@@ -438,13 +438,7 @@ function wiedersehenNsc(F, v) {
   return Array.from(juengster.values()).filter((f) => f.phase === 'abgeschlossen' && wiedersehenStatusOk(v, f.nsc.status) && v.volk_erlaubt.includes(f.nsc.fraktion) && Number.isFinite(f.nsc.haltung) && erinnertTat(f.nsc))
     .sort((a, b) => fadenNr(b) - fadenNr(a)).map((f) => f.nsc);
 }
-// Zahl der NSC, die fuer ein Wiedersehen taugen, je Volk (Kontext der Komposition: nur Zahlen, nie ein Name). Ein Plan mit Wiedersehen braucht mindestens einen in einem Volk seines volk_erlaubt.
-function wiedersehenZahlen(F) {
-  const typ = Object.keys(B).find((t) => B[t].braucht && B[t].braucht.nsc_alt === true);
-  const out = {};
-  for (const volk of W.voelker) out[volk] = typ ? wiedersehenNsc(F, { beats: [{ typ }], volk_erlaubt: [volk] }).length : 0;
-  return out;
-}
+// (die Zahl der NSC je Volk fuer den Kontext der Komposition steht seit SUND-04b E3 in abenteuer-wiederholung.js zahlenFrisch: ohne die Hauptfiguren der letzten Abenteuer)
 function pruefeNscVon(F, v, p) {
   if (!has(p, 'nsc_von')) return nscAlt(v) ? fehl('NSC_VON_FEHLT', 'ein Abenteuer mit einem Wiedersehen braucht nsc_von (einen NSC aus einem früheren, abgeschlossenen Faden)') : null;
   if (!nscAlt(v)) return fehl('NSC_VON', 'nsc_von gibt es nur für ein Abenteuer, das mit einem Wiedersehen beginnt');
@@ -485,7 +479,7 @@ function pruefeOeffnen(F, b, ctx) {
   if (nv) return nv;
   if (p.name !== undefined) {
     if (!nameOk(p.name, volk)) return fehl('NAME', `name muss aus Vor- und Nachname der Liste des Volkes ${volk} bestehen (NSC entstehen nur aus Datenlisten)`);
-    if (F.liste.some((f) => f.nsc.name === p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);
+    if (!require('./abenteuer-kanon.js').nameFrei(F, p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);   // SUND-04b E1: auch ein Name aus dem Kanon (der Faden kann schon aus der Liste gefallen sein)
   }
   ctx.benutzt.add(a.nr);
   ctx.oeffnen++;
@@ -559,7 +553,7 @@ function pruefeAbenteuerOeffnen(F, nr, p) {
   if (nv) return nv;
   if (p.name !== undefined) {
     if (!nameOk(p.name, volk)) return fehl('NAME', `name muss aus Vor- und Nachname der Liste des Volkes ${volk} bestehen (NSC entstehen nur aus Datenlisten)`);
-    if (F.liste.some((f) => f.nsc.name === p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);
+    if (!require('./abenteuer-kanon.js').nameFrei(F, p.name)) return fehl('NAME', `der Name ${p.name} ist schon vergeben`);   // SUND-04b E1: auch ein Name aus dem Kanon (der Faden kann schon aus der Liste gefallen sein)
   }
   return null;
 }
@@ -573,4 +567,4 @@ function befehlPruefen(F, b, ctx) {
 }
 const istBefehl = (b) => istObjekt(b) && has(BEFEHL_FELDER, b.typ);
 
-module.exports = { sundSpielbar, nscAlt, wiedersehenNsc, wiedersehenZahlen, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };
+module.exports = { sundSpielbar, nscAlt, wiedersehenNsc, pruefeNscVon, pruefeLage, pruefeAbenteuerAnbieten, pruefeAbenteuerOeffnen, abenteuerLaufend, abschlussGelungen, haltungsWege, tonFuer, effektiv, katalogFehler, TEXT_KEY, pruefeVorlage, pruefeFaden, pruefeOeffnen, pruefeWeiter, befehlPruefen, istBefehl, neuerKontext, folgeWirkung, folgeProfil, optionenFehler, fluchtzielOk, aktive, nameOk, BEFEHL_FELDER, PARAM_FELDER };

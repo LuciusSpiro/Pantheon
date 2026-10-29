@@ -139,7 +139,7 @@ const MUTATIONEN = [
   [PR, "fadenNr(f) >= fadenNr(alt)", "fadenNr(f) < fadenNr(alt)", "Pruefer: von mehreren Faeden desselben NSC gilt der aelteste"],
   [PR, "    .sort((a, b) => fadenNr(b) - fadenNr(a)).map(", "    .map(", "Pruefer: die Kandidaten kommen nicht juengster zuerst (Reihenfolge der Liste)"],
   [PR, ".sort((a, b) => fadenNr(b) - fadenNr(a))", ".sort((a, b) => fadenNr(a) - fadenNr(b))", "Pruefer: die Kandidaten kommen aeltester zuerst"],
-  [PR, "volk_erlaubt: [volk] }).length : 0;", "volk_erlaubt: W.voelker }).length : 0;", "Kontext: wiedersehen_nsc zaehlt jeden NSC fuer jedes Volk"],
+  ["server/sim/abenteuer-wiederholung.js", "volk_erlaubt: [volk] }).length : 0;", "volk_erlaubt: W.voelker }).length : 0;", "Kontext: wiedersehen_nsc zaehlt jeden NSC fuer jedes Volk"],
   [PR, "sundSpielbar(o.hex))) return", "require('../../shared/sektoren.js').spielbar(o.hex))) return", "Pruefer: der Ort des Abenteuers gilt fuer den global geladenen Kartenstand"],
   [PR, "sundSpielbar(p.ort))) return", "require('../../shared/sektoren.js').spielbar(p.ort))) return", "Pruefer: ort von faden_oeffnen gilt fuer den global geladenen Kartenstand"],
   [AM, "wiedersehen: wiedersehenDa(k.faeden && k.faeden.wiedersehen_nsc), lage:", "wiedersehen: true, lage:", "Mock: der Kontext (wiedersehen_nsc) wird nicht gelesen"],

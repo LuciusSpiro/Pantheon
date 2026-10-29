@@ -16,7 +16,7 @@ const LagePrompt = require('./lage-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
 
 const SYSTEM_DATEI = path.join(LLM.PROMPT_DIR, 'abenteuer.system.md');
-const W = D.WERTE, B = D.BEATS, BP = D.BAUPLAN, BW = BP.werte;
+const W = D.WERTE, B = D.BEATS, BP = D.BAUPLAN, BW = BP.werte, RW = D.BRETT.werte.wiederholung;
 const waren = () => Object.keys(require('../../content/faeden/szenen-werte.json').werte.waren.wert);
 const liste = (a) => a.join(' | ');
 
@@ -54,7 +54,7 @@ function katalogText() {
   if (Object.values(B).some((c) => c.braucht && c.braucht.nsc_alt === true)) L.push(`Kontext faeden.wiedersehen_nsc: Zahl je Volk (${liste(W.voelker)}) der NSC aus abgeschlossenen Faeden, die fuer einen Beat mit NSC aus einem frueheren Faden taugen (nur Zahlen, keine Namen). Ein solcher Beat steht nur am Anfang und nur, wenn die Zahl in mindestens einem Volk deines volk_erlaubt (Standard ${BW.volk_erlaubt_standard.join(' | ')}) groesser 0 ist; sonst kein Angebot. Setzt du volk_erlaubt, nimm ein Volk mit einer Zahl groesser 0.`);
   const lagen = Array.from(new Set(Object.values(B).map((c) => c.braucht && c.braucht.lage).filter(Boolean)));
   if (lagen.length) L.push(`Kontext faeden.lage: Zahl je Lage (${lagen.join(' | ')}), nur Zahlen, keine Namen. Ein Beat, der eine Lage braucht, steht nur im Plan, wenn seine Zahl groesser 0 ist (sonst lehnt der Pruefer den Plan ab); sie haengt von der Welt ab und aendert sich, die Zahl im Kontext gilt jetzt.`);
-  L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen.`);
+  L.push(`Regeln, die der Pruefer erzwingt: bei Gefahr nie Optionen; Scheitern muss etwas veraendern (anderer Weg oder anderer Zustand); Annehmen und Ablehnen einer Bitte muessen in verschiedene Beats fuehren (verzweigung); jeder Beat muss erreichbar sein; "namenlos": true nur mit Typen, die einen NSC im Zustand aktiv zulassen. Ein erfolg-Eintrag nennt hoechstens ${BW.erfolg_max} Typen, die im Plan vorkommen. Wiederholung (Daten abenteuer-brett.json werte.wiederholung): nie dieselbe Typenfolge wie eines der letzten ${RW.folge_zuletzt} Abenteuer (Kontext letzte_abenteuer) oder wie ein offenes Angebot; nie derselbe erste Beat wie eines der letzten ${RW.ort_typ_zuletzt} Abenteuer an diesem Ort (Kontext sperre_beginn: erste Beat-Typen, die hier gesperrt sind); ein Wiedersehen nie mit der Hauptfigur der letzten ${RW.nsc_zuletzt} Abenteuer (die Zahl in faeden.wiedersehen_nsc zaehlt sie nicht).`);
   katalogCache = L.join('\n');
   return katalogCache;
 }
@@ -76,14 +76,24 @@ function fadenKontext(game) {
     aktiv.push(e);
   }
   // SUND-04b B1: wie viele NSC aus abgeschlossenen Faeden fuer ein Wiedersehen taugen, JE VOLK (nur Zahlen, nie ein Name): ein Plan mit Wiedersehen braucht einen in einem Volk seines volk_erlaubt, sonst gibt es kein Angebot
-  const wiedersehen = require('./faden-pruefer.js').wiedersehenZahlen(F);
+  const wiedersehen = require('./abenteuer-wiederholung.js').zahlenFrisch(game);   // SUND-04b E3: ohne die Hauptfiguren der letzten Abenteuer (sonst lehnte das Brett den Plan ab)
   // SUND-04b B2: Lagen-Bedingungen der Beats (Sabotage: wie viele Ziele stehen, 0 in der Pause): nur Zahlen
   const lage = {};
   for (const c of Object.values(B)) { const k = c.braucht && c.braucht.lage; const l = typeof k === 'string' ? require('./faden-b2.js').lage(k) : null; if (l) lage[k] = l.zahl(game); }
   return { aktiv, laufende_abenteuer: abenteuer, abenteuer_angebote: F.abenteuerAngebote.map((a) => typenVon(a.vorlage)), notruf_angebote: F.angebote.length, wiedersehen_nsc: wiedersehen, lage };
 }
+// SUND-04b E3: die Typenfolgen, gegen die das Brett prueft (die zuletzt BEGONNENEN Abenteuer aus dem Kanon) und die zuletzt angebotenen dieses Spielleiters, ohne Doppelte, aelteste zuerst; nie Titel, Anlass oder Namen
+function letzteAbenteuer(game, letzte, werte) {
+  const alle = require('./abenteuer-wiederholung.js').letzteFolgen(game).concat((letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.typen));
+  return alle.filter((t, i) => alle.findIndex((u) => JSON.stringify(u) === JSON.stringify(t)) === i);
+}
+// erste Beat-Typen, die an diesem Ort gesperrt sind (derselbe Ort UND derselbe erste Beat wie eines der letzten Abenteuer, WIEDERHOLUNG_ORT)
+function sperreBeginn(game, hex) {
+  const typen = require('./abenteuer-wiederholung.js').verlauf(game).slice(0, RW.ort_typ_zuletzt).filter((e) => e.ort === hex).map((e) => e.folge[0]);
+  return typen.filter((t, i) => typen.indexOf(t) === i);
+}
 // Der verdichtete Kontext: nur was der Ausschnitt der Lage schon gefiltert liefert (Chronik ohne Namen, Crew ohne Namen) und der Faden-Zustand ohne NSC-Namen.
-function kontextVon(game, werte, letzte, stufe) {
+function kontextVon(game, werte, letzte, stufe, hex) {
   const a = JSON.parse(Ausschnitt.ausschnitt(game, { stufe }).text);
   const f = a.flotten || {};
   const wende = [].concat((f.gefallen || []).map((x) => Object.assign({ art: 'gefallen' }, x)), (f.belagert || []).map((x) => Object.assign({ art: 'belagert' }, x)), (f.unterwegs || []).map((x) => Object.assign({ art: 'marsch' }, x))).slice(-werte.wendepunkte_max);
@@ -95,7 +105,8 @@ function kontextVon(game, werte, letzte, stufe) {
     wendepunkte: wende,
     chronik: (a.chronik || []).slice(-werte.chronik_zeilen),
     faeden: fadenKontext(game),
-    letzte_abenteuer: (letzte || []).slice(-werte.letzte_abenteuer).map((x) => x.typen),
+    letzte_abenteuer: letzteAbenteuer(game, letzte, werte),
+    sperre_beginn: sperreBeginn(game, hex),
   };
 }
 const sortiert = (x) => require('../mission/context.js').sortKeys(x);
@@ -109,7 +120,7 @@ function baue(game, { nr, grenze, hex, letzte, werte }) {
   for (let s = 0; s < stufen + 2; s++) {
     const ww = Object.assign({}, w);
     if (s >= stufen) { ww.chronik_zeilen = Math.max(1, Math.floor(w.chronik_zeilen / (s - stufen + 2))); ww.wendepunkte_max = Math.max(1, Math.floor(w.wendepunkte_max / (s - stufen + 2))); }
-    const kontext = JSON.stringify(sortiert(kontextVon(game, ww, letzte, Math.min(s, stufen - 1))));
+    const kontext = JSON.stringify(sortiert(kontextVon(game, ww, letzte, Math.min(s, stufen - 1), hex)));
     const prompt = LLM.buildPrompt({ katalog: katalogText(), variabel: [['kontext', kontext], ['aufruf', JSON.stringify(aufruf)]], schluss });
     if (prompt.length <= w.prompt_max_zeichen) return { prompt, zeichen: prompt.length, kontextZeichen: kontext.length };
   }
