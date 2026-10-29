@@ -1799,7 +1799,7 @@ function update(game, dt) {
         const im = es.brockenImmun || (es.brockenImmun = {});
         if ((im[a.id] || 0) > game.time) return;
         im[a.id] = game.time + game.C.flight.asteroidImmunity;
-        try { Escort.hit(game, es, game.C.asteroid.damage, { light: true }); } catch (err) { if (game.countError) game.countError('escort-brocken', err); }
+        try { Escort.hit(game, es, game.C.asteroid.damage, { light: true, von: { x: a.x, y: a.y } }); } catch (err) { if (game.countError) game.countError('escort-brocken', err); }   // SYS-02b Review: Brocken als Quelle (Seite aus der Geometrie wie bei Gegnern), nicht zufällige Seite
       });
     }
   }

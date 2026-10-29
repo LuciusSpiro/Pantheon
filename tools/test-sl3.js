@@ -1,7 +1,7 @@
 'use strict';
 // SL3 (CONCEPT-SL3): Überfahrt, Falle, Gestrandet (Regiebücher k2_ueberfahrt, k3_falle, k4_gestrandet auf der Karte Sund).
 //   Überfahrt: Evert an Bord (Selbstlösung), Sprünge, Abgabe am Handelsposten, Erfolg
-//   Falle: Zeit bis zum Verlust ohne Gegenwehr (gemessen Median 451 s, Fenster 120–1200 s), Verlust -> Ausgang verloren + Szene von vorn, Notfallsprung -> Erfolg, Sprungpunkt -> Erfolg
+//   Falle: Zeit bis zum Verlust ohne Gegenwehr (Jäger reparieren nicht, SYS-02a; gemessen Median etwa 800 s, Fenster 120–3000 s), Verlust -> Ausgang verloren + Szene von vorn, Notfallsprung -> Erfolg, Sprungpunkt -> Erfolg
 //   Gestrandet: Reaktor neu starten, Concordia erreichen; Notfallsprung landet nur in Concordia oder im Leerraum, nie in Schrottkante/Helix
 //   node tools/test-sl3.js
 const fs = require('fs');
@@ -9,7 +9,6 @@ const os = require('os');
 const path = require('path');
 const CONFIG = require('../shared/config.js');
 const Sektoren = require('../shared/sektoren.js');
-require('../server/sim/gegnersystem.js').DATEN.klassen.raider.repariert = true;   // SYS-02c: die Eichung dieses Tests stammt aus der Zeit mit Jäger-Reparatur; das Klassen-Flag raider.repariert steht jetzt auf false (Regelpaket SYS-02a). Der Test misst keine Reparatur: Eichbedingung festhalten, Neumessung gehört zu SYS-02a
 const { Game } = require('../server/game.js');
 const Fracht = require('../server/sim/fracht.js');
 const PB = require('../server/sim/personen-bord.js');
