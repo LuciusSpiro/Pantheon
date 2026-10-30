@@ -277,6 +277,33 @@
       "sperrtSicht": true,
       "kante": "begehbar",
       "hinweis": "Schleichweg (EK5): Rohr unter der Mauer, begehbar, sperrt Sicht und Schuss; der Prüfer behandelt es als einzigen Weg über die Mauer (K-MAUER-DICHT, K-ROHR)"
+    },
+    "Y": {
+      "kind": "baum",
+      "solid": true,
+      "cover": 2,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "fest",
+      "hinweis": "VOX-01: Baum; Regeln wie F (fels), Modelle folgen"
+    },
+    "H": {
+      "kind": "brustwehr",
+      "solid": true,
+      "cover": 1,
+      "low": true,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "VOX-01: Brustwehr; Regeln wie o (deckung_halb), Modelle folgen"
+    },
+    ";": {
+      "kind": "grabensohle",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "begehbar",
+      "hinweis": "VOX-01: Grabensohle; Regeln wie , (boden2), Modelle folgen"
     }
   }
 }

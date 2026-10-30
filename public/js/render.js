@@ -374,6 +374,7 @@
     '|': ['fenster', true], 'F': ['fels', true, 2, false, true], '~': ['abgrund', true], '_': ['leere', true, 2, false, true],
     'o': ['deckung_halb', true, 1, true], 'O': ['deckung_voll', true, 2, false, true], 'I': ['pfeiler', true, 2, false, true],
     'x': ['truemmer', true, 1, true], 'X': ['schutt', true, 2, false, true],
+    'Y': ['baum', true, 2, false, true], 'H': ['brustwehr', true, 1, true], ';': ['grabensohle'],   // VOX-01: Regeln wie F / o / ,
     'D': ['tuer', 'zustand', 0, false, false, ['offen', 'zu', 'verschlossen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
     'S': ['schott', 'zustand', 0, false, false, ['zu', 'offen', 'gehackt', 'verschlossen'], ['offen', 'gehackt'], 'tuer'],
     'G': ['tor', 'zustand', 2, false, false, ['zu', 'offen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
@@ -509,7 +510,7 @@
   // 2D-Rückfall (E35): nur Flachraster nach Kachelart, ohne Art, ohne neue Figuren
   const BUEHNE_FARBE = { boden: '#3A4250', boden2: '#465060', gelaende: '#4A4436', plateau: '#5E6448', rampe: '#565A40', pad: '#2F5E58',
     kante: '#8A8262', wand: '#1C222D', zaun: '#3E3224', gitter: '#5C6472', fenster: '#5E8AA6', fels: '#2A2622', leere: '#0B0E1A',
-    deckung_halb: '#7A6340', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
+    deckung_halb: '#7A6340', brustwehr: '#7A6340', baum: '#2A2622', grabensohle: '#465060', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
     tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530', rohr: '#2B3340' };
   function buehneKachelFarbe(map, st, tx, ty) {
     const info = map.info(tx, ty);

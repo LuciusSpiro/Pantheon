@@ -298,7 +298,7 @@
     }
     return null;
   }
-  const leitAufDeckung = (i) => !!i && i.cover > 0 && !['wand', 'fels', 'leere', 'zaun'].includes(i.kind);
+  const leitAufDeckung = (i) => !!i && i.cover > 0 && !['wand', 'fels', 'baum', 'leere', 'zaun'].includes(i.kind);
 
   // ---------------- Modulprüfung (Werkstatt live, tools/buehne.js modul) ----------------
   function lPad(pass, x, y) {

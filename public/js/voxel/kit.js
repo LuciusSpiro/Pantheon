@@ -44,6 +44,7 @@ const G = typeof window !== 'undefined' ? window : globalThis;
 const KACHELN_FB = {
   '.': ['boden'], ',': ['boden2'], ':': ['gelaende'], '^': ['plateau'], '/': ['rampe'], k: ['kante'], '#': ['wand'], '=': ['zaun'],
   z: ['gitter'], '|': ['fenster'], F: ['fels'], '~': ['abgrund'], _: ['leere'], o: ['deckung_halb'], O: ['deckung_voll'], I: ['pfeiler'],
+  Y: ['baum'], H: ['brustwehr'], ';': ['grabensohle'],
   x: ['truemmer'], X: ['schutt'], D: ['tuer', ['offen', 'zu', 'verschlossen', 'gesprengt']], S: ['schott', ['zu', 'offen', 'gehackt', 'verschlossen']],
   G: ['tor', ['zu', 'offen', 'gesprengt']], L: ['luke', ['zu', 'offen']], w: ['wand_schwach', ['intakt', 'offen']], P: ['pad'],
 };
@@ -55,6 +56,9 @@ const ANKER_FB = {
   versteck: [null, ['zu', 'offen']], lift: ['lift', []], leiter: ['leiter', []],
   flagge: ['flagge', ['unten', 'gehisst']],   // EK6: Feldzeichen in der Platzmitte
 };
+// VOX-01: neue Kachelarten ohne eigenes Modell (kommt mit Paket 5) zeichnen wie die Art mit gleichen Regeln.
+// Einziger Ort der Ersetzung: kindAt/info liefern die Rückfall-Art, damit conn, Höhen, Ringe und Deko gleich bleiben.
+const RUECKFALL_KIND = { baum: 'fels', brustwehr: 'deckung_halb', grabensohle: 'boden2' };
 const ZUSTAND_KIT = { intakt: 0, verfallen: 1, umkaempft: 2 };
 const TUER_KINDS = { tuer: 1, schott: 1, tor: 1, luke: 1, wand_schwach: 1 };
 const BODEN_KINDS = { boden: 1, boden2: 1, pad: 1, plateau: 1, rampe: 1 };
@@ -158,7 +162,7 @@ export function normKarte(src, D) {
     let i = infoCache.get(ch);
     if (i) return i;
     const z = (legende && legende[ch]) || (zeichen && zeichen[ch]);
-    if (z && z.kind) i = { kind: z.kind, zustaende: z.zustaende || [] };
+    if (z && z.kind) i = { kind: RUECKFALL_KIND[z.kind] || z.kind, zustaende: z.zustaende || [] };
     else if (KACHELN_FB[ch]) i = { kind: KACHELN_FB[ch][0], zustaende: KACHELN_FB[ch][1] || [] };
     else i = { kind: 'boden', zustaende: [], unbekannt: true };
     infoCache.set(ch, i);
