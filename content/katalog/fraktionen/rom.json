@@ -37,6 +37,20 @@
         "rolle": "grundtyp",
         "n": 1
       }
+    ],
+    "graben": [
+      {
+        "rolle": "grundtyp",
+        "n": 2
+      },
+      {
+        "rolle": "grenadier",
+        "n": 1
+      },
+      {
+        "rolle": "schuetze",
+        "n": 1
+      }
     ]
   },
   "staerke": {
@@ -54,6 +68,9 @@
     "sturmtrupp": [
       "station",
       "aussenposten"
+    ],
+    "graben": [
+      "graben"
     ]
   },
   "funkstil": "knapp und befehlend, Rang und Pflicht; Latein nur als Losung, nie als Schnörkel"

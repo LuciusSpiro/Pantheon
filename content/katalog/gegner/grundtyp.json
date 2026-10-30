@@ -6,7 +6,27 @@
   "profil": "grundtyp",
   "namen": {
     "germanen": "Karl",
-    "rostmeute": "Plünderer"
+    "rostmeute": "Plünderer",
+    "rom": "Legionär"
+  },
+  "vornamen": {
+    "rom": [
+      "Gaius",
+      "Titus",
+      "Marcus",
+      "Lucius",
+      "Quintus",
+      "Aulus",
+      "Publius",
+      "Gnaeus",
+      "Sextus",
+      "Decimus",
+      "Servius",
+      "Manius",
+      "Numerius",
+      "Spurius",
+      "Tiberius"
+    ]
   },
   "beschreibung": "Sucht Deckung, duckt sich, zieht sich bei schwachem Schild zurück. Rückgrat jedes Trupps.",
   "funk": {
@@ -30,5 +50,29 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Bewegung vor uns, Kontubernium!",
+        "Linie halten, keinen Schritt zurück!",
+        "Niemand kommt durch, Männer!",
+        "Wer feuert da? Meldung!",
+        "Rückzug auf die Linie!"
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }
