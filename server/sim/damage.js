@@ -12,6 +12,7 @@ const W = require('../world.js');
 const interior = require('./interior.js');
 const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
+const Integ = require('./integritaet.js');
 const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre und Systemfaktor des Sturms
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
@@ -113,7 +114,7 @@ function torpedoTreffer(game, sector, s0, o) {
   const anteil = Number((M.torpedo || {}).reaktorAnteil) || 0;
   if (r != null && r !== 'broken' && anteil > 0) {
     // SYS-03 B1: Durchschlag in Stufen (kein Fenster): eine Stufe = 1 − reparatur.damaged des Maximums (50 %), also 0,5 = eine Stufe, 1 = zerstört; zwei Torpedos zerstören den Reaktor
-    const stufen = Math.max(1, Math.floor(anteil / (1 - (Number((M.reparatur || {}).damaged) > 0 ? Number(M.reparatur.damaged) : 0.5)) + 1e-9));
+    const stufen = Integ.stufenAusAnteil(game, anteil);
     let w = null;
     for (let i = 0; i < stufen; i++) w = interior.stufeAb(game, 'reactor') || w;
     const tr = { system: 'reactor', state: game.ship.systems.reactor, wechsel: !!w };

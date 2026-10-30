@@ -90,7 +90,7 @@ function wcfg(game, w) {
   if (w.art === 'lanze') {
     const L = M.lance || {}; const B = M.mounts.bow; const K = w.lanze;
     Object.assign(c, { aufladen: L.chargeTime != null ? L.chargeTime : K.aufladen, min: L.minDamage != null ? L.minDamage : K.min, max: L.maxDamage != null ? L.maxDamage : K.max,
-      breite: L.width != null ? L.width : K.breite, autoPower: L.autoPower != null ? L.autoPower : 0.5, kaputtZeit: L.damagedTimeFactor || 1, kaputtMax: L.damagedMaxFactor || 1,
+      breite: L.width != null ? L.width : K.breite, vollAb: L.vollAb > 0 ? L.vollAb : 1, autoPower: L.autoPower != null ? L.autoPower : 0.5, kaputtZeit: L.damagedTimeFactor || 1, kaputtMax: L.damagedMaxFactor || 1,
       strahlen: K.strahlen, abstand: K.abstand, pierce: w.id === 'lanze' && B.pierce != null ? B.pierce : K.pierce });
     c.kaputtFaktor = B.damagedFactor || 1.5;   // jede Lanze: beschädigt lädt 1,5× so langsam (wie die Bug-Lanze)
     if (w.id === 'lanze') Object.assign(c, { bogen: B.arc, reichweite: B.range, ladekosten: B.secPerPoint });
@@ -477,8 +477,10 @@ function fireLance(game, id, power, auto) {
   game.emit('sfx', { name: 'lance_fire', power: r2(p), mount: id });
   if (tr.hit) {
     game.stats.lanceHits = (game.stats.lanceHits || 0) + 1;
-    // SYS-01 B1 (Entwicklungsleiter-Entscheidung, Kai prüft): Vollladung durchschlägt den Schild ganz (Durchschlag 'zone' = bis in die Mitte, hier die Hülle); sonst schwächt der Treffer den Schild um pierce
-    schade(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce, durchschlag: p >= 1 - EPS ? 'zone' : undefined }, w.id);
+    // SYS-01 B1: Vollladung durchschlägt den Schild ganz (Durchschlag 'zone' = bis in die Mitte); sonst schwächt der Treffer den Schild um pierce.
+    // SYS-03 B2: die Vollladung (Ladung ≥ spaceM3.lance.vollAb) ZERSTÖRT das getroffene System (opts.vollladung), die Teilladung macht eine Stufe.
+    const voll = p >= c.vollAb - EPS;
+    schade(game, tr.hit, lanceDamage(game, p, id), tr.o.x, tr.o.y, { pierce: c.pierce, durchschlag: voll ? 'zone' : undefined, vollladung: voll || undefined }, w.id);
   }
   if (tr.mine) Alarm.abschuss(game, tr.mine);   // EK2: Mine abgeschossen
   game.missionEvent('lanceFire', { power: p, hit: tr.hit ? tr.hit.id : null, auto: !!auto });

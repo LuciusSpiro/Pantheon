@@ -2,8 +2,12 @@
 // SYS-01 C1a-1 „Das Schiff in Zonen“: Systemmodell der Gegner (gleicher Aufbau wie die Lerche, Konzept „Systemmodell Zonen“).
 // Daten: content/kampf/gegner-systeme.json (je Klasse fünf Zonen mit Systemen und Gewicht). Zustand je Gegner: e.sys[id] = { z, i }
 // (z ok | damaged | broken, i = Integrität in Punkten). Maximum je System = gewicht / Σ gewicht × e.hpMax; e.hpMax ist das Klassenbudget
-// (die frühere Hülle: enemies.hp × crewScale.enemyHp × spaceM3.enemyHpFactor). e.hp ist die Summe der Integrität (abgeleitet, wird nie direkt
+// (die frühere Hülle: enemies.hp × budgetFaktor; SYS-03 B2: keine Crew-Skalierung mehr). e.hp ist die Summe der Integrität (abgeleitet, wird nie direkt
 // abgezogen). Ohne Modell (Störrelais `relay`) bleibt e.hp die alte Hülle.
+// SYS-03 B2: Stufenregel statt Punktabzug (gleiche Regel wie die Lerche, interior.js stufeAb/trefferweg). Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört),
+// unabhängig von der Schadenszahl. i ist nur noch der aus der Stufe abgeleitete Wert (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0), e.hp = Σ i bleibt die abgeleitete Summe.
+// Treffer-Fenster: ein System, das gerade eine Stufe verloren hat (st.tf, nicht im Snapshot), verliert innerhalb von systemModell.trefferFenster_s keine weitere (Integ.imFenster, dieselbe Config-Zahl wie die Lerche);
+// der Trefferweg wählt dann ein anderes nicht zerstörtes System der Zone, gibt es keins, verfällt der Treffer. Der Antrieb behält die Sperre (st.sp) und die Immunität (st.imm): i trägt die vorgemerkte Stufe, z holt sie später nach (nachholen).
 // Trefferweg: ein zufälliges, nicht zerstörtes System der Zone (game.rng); ist die Zone leer, geht der Treffer in die Mitte.
 // SYS-01 C1b-1 (Zielsysteme im Zonenmodell): gezielter Treffer = Wahl statt Zufall. Ist das Systemziel (gez = { id, zugewandt }) in der Zone des Treffers
 // und erreichbar (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone) und nicht zerstört, trifft der Treffer dieses System sicher.
@@ -33,7 +37,7 @@ function summeGewicht(kind) {
   if (!summenCache.has(kind)) summenCache.set(kind, (systemeVon(kind) || []).reduce((a, d) => a + d.gewicht, 0));
   return summenCache.get(kind);
 }
-// SYS-01 D: Klassenfaktor auf das Klassenbudget (Daten: klassen.<klasse>.budgetFaktor, Standard 1). Budget = enemies.<klasse>.hp × crewScaling.gegnerIntegritaet × budgetFaktor.
+// SYS-01 D: Klassenfaktor auf das Klassenbudget (Daten: klassen.<klasse>.budgetFaktor, Standard 1). Budget = enemies.<klasse>.hp × budgetFaktor (SYS-03 B2: ohne Crew-Skalierung).
 function budgetFaktor(kind) { const k = DATEN.klassen[kind]; return k && typeof k.budgetFaktor === 'number' ? k.budgetFaktor : 1; }
 // Hat die Gegnerklasse ein Systemmodell? (relay nicht)
 function hat(e) { return !!(e && e.sys); }
@@ -100,39 +104,70 @@ function tot(e) {
   return summe(e) <= EPS;
 }
 
-// Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher } oder null.
-// SYS-02a opts (Torpedo): zerstoeren = Schaden mindestens das Maximum des Systems (zerstört sicher, auch gegen Sperre/Immunität); keinUeberlauf = eine leere Zone läuft nicht in die Mitte.
-function treffen(game, e, zone, schaden, gez, opts) {
+// Stufe, die ein System durch die Treffer schon hat (aus i; kann vor st.z liegen, solange Sperre oder Immunität den Zustandswechsel halten)
+function stufeVon(game, e, id) { return Integ.zustandVon(e.sys[id].i, maxOf(e, id), schwelle(game)); }
+function imFenster(game, e, id) { return Integ.imFenster(game, e.sys[id].tf); }
+// Eine Stufe tiefer (Kern ohne Fenster): i = Grundwert der neuen Stufe, Fenster-Stempel; der Zustand z folgt, außer Sperre/Immunität halten ihn (erzwingen: Torpedo, Vollladung).
+function stufeSetzen(game, e, id, ziel, erzwingen) {
+  const st = e.sys[id];
+  st.i = Integ.grundwertVon(ziel, maxOf(e, id), Integ.damagedAnteil(game));
+  st.tf = game.time;
+  if (RANG[ziel] > RANG[st.z] && (erzwingen || !gesperrt(game, st, id))) { st.z = ziel; st.sp = game.time; }
+  e.hp = summe(e);
+}
+// Rückgabe true = die Stufe hat gewechselt (zerstört bleibt zerstört)
+function stufeAb(game, e, id) {
+  const jetzt = stufeVon(game, e, id);
+  if (jetzt === 'broken') return false;
+  stufeSetzen(game, e, id, Integ.naechsteStufe(jetzt), false);
+  return true;
+}
+// Torpedo und Vollladung: das getroffene System ist sicher zerstört (auch im Fenster, auch gegen Sperre/Immunität)
+function zerstoeren(game, e, id) {
+  if (e.sys[id].z === 'broken') return false;
+  stufeSetzen(game, e, id, 'broken', true);
+  return true;
+}
+// Trefferweg ohne Schild: ein zufälliges nicht zerstörtes System der Zone (game.rng), das nicht im Treffer-Fenster steht. Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher, gezielt } oder null
+// (kein Ziel, oder alle freien Systeme der Zone stehen im Fenster: der Treffer verfällt, kein Überlauf deswegen). gez = Systemziel der Ops (C1b-1: trifft sicher, wenn in der Zone des Treffers und erreichbar).
+// opts: zerstoeren = das getroffene System ist sicher zerstört (Torpedo, Vollladung, kein Fenster); keinUeberlauf = eine leere Zone läuft nicht in die Mitte.
+function treffen(game, e, zone, gez, opts) {
+  const zerst = !!(opts && opts.zerstoeren);
+  const treffbar = (id) => zerst || !imFenster(game, e, id);
   let zielZone = zone;
   let kand = frei(e, zone);
   if (!kand.length && zone !== 'mitte') { if (opts && opts.keinUeberlauf) return null; zielZone = 'mitte'; kand = frei(e, 'mitte'); }
   if (!kand.length) return null;
   let id = null;
-  if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;
+  if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && treffbar(gez.id) && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;
   const gezielt = id !== null;
-  if (!gezielt) id = game.rng.pick(kand);
-  return treffenAuf(game, e, id, zielZone, schaden, gezielt, opts);
+  if (!gezielt) { kand = kand.filter(treffbar); if (!kand.length) return null; id = game.rng.pick(kand); }
+  return treffenAuf(game, e, id, zielZone, gezielt, opts);
 }
-// Integritätsabzug auf ein bestimmtes System (Trefferweg und Torpedo-Durchschlag auf den Reaktor). Rückgabe { id, zone, state, vorher, gezielt }.
-function treffenAuf(game, e, id, zielZone, schaden, gezielt, opts) {
+// Stufe auf ein bestimmtes System (Trefferweg). Rückgabe { id, zone, state, vorher, gezielt }.
+function treffenAuf(game, e, id, zielZone, gezielt, opts) {
   const st = e.sys[id];
-  const zerstoeren = !!(opts && opts.zerstoeren);
-  st.i = Math.max(0, st.i - Math.max(zerstoeren ? maxOf(e, id) : 0, Number(schaden) || 0));
   e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
-  const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
   const vorher = st.z;
-  if (RANG[z] > RANG[st.z] && (zerstoeren || !gesperrt(game, st, id))) { st.z = z; st.sp = game.time; }
-  e.hp = summe(e);
+  if (opts && opts.zerstoeren) zerstoeren(game, e, id); else stufeAb(game, e, id);
   return { id, zone: zielZone, state: st.z, vorher, gezielt: !!gezielt };
 }
-// Verzögerte Zustandswechsel: der Zustand folgt der Integrität, sobald Sperre und Immunität frei sind (Zielsysteme.update, jeden Tick)
+// Torpedo-Durchschlag auf das Hauptsystem (Reaktor): n Stufen ohne Fenster (Integ.stufenAusAnteil aus systemModell.torpedo.reaktorAnteil, dieselbe Umrechnung wie die Lerche). Rückgabe wie treffenAuf.
+function durchschlagAuf(game, e, id, stufen) {
+  const st = e.sys[id];
+  e.sysTreffer = (e.sysTreffer || 0) + 1;
+  const vorher = st.z;
+  for (let i = 0; i < stufen; i++) if (!stufeAb(game, e, id)) break;
+  return { id, zone: 'mitte', state: st.z, vorher, gezielt: false };
+}
+// Verzögerte Zustandswechsel: der Zustand folgt der Stufe in i, sobald Sperre und Immunität frei sind (Zielsysteme.update, jeden Tick) – eine Stufe je Wechsel (danach gilt die Sperre wieder)
 function nachholen(game, e) {
   if (!hat(e)) return;
   for (const id of ids(e)) {
     if (!regelVon(id)) continue;
     const st = e.sys[id];
-    const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
-    if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = z; st.sp = game.time; }
+    const z = stufeVon(game, e, id);
+    if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = Integ.naechsteStufe(st.z); st.sp = game.time; }
   }
 }
 // Reparatur aus dem Zustand zerstört (C2 ruft das): danach gilt die Immunität, in der ein Treffer den Zustand nicht wieder verschlechtert
@@ -242,6 +277,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  treffenAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
+  treffenAuf, durchschlagAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, schildAnlegen, schildTick, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

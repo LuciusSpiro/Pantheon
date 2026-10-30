@@ -24,7 +24,7 @@ const DATEN = require('../../content/kampf/gegner-systeme.json');
 const PRIO = DATEN.reparatur.prioritaet;
 
 function cfgR(game) { return (game.C.systemModell && game.C.systemModell.gegner && game.C.systemModell.gegner.reparatur) || {}; }
-function anteil(game) { const r = Number((game.C.systemModell.reparatur || {}).damaged); return r > 0 ? r : 0.5; }   // wie interior.integAusZustand
+function anteil(game) { return Integ.damagedAnteil(game); }   // eine Quelle mit interior.integAusZustand und gegnersystem (integritaet.js)
 
 // Werkstatt-Modul des Gegners (Art modul, Modul werkstatt); ohne Reaktor-Strom laufen die Module nicht
 function werkstattId(e) { return Gsys.ids(e).find((id) => { const d = Gsys.defOf(e.kind, id); return d.art === 'modul' && d.modul === 'werkstatt'; }) || null; }

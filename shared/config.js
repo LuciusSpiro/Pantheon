@@ -91,8 +91,8 @@
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
     },
     enemies: {
-      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp wird noch mit crewScaling.gegnerIntegritaet (C2a)
-      // (solo 0,5 / zu zweit, zu dritt 0,7) (vorher zusätzlich spaceM3.enemyHpFactor 0,8, in den Faktoren enthalten) – mit 36 hatte ein Jäger zu dritt
+      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp ist seit SYS-03 B2 das Klassenbudget (× budgetFaktor) der Systeme, ohne Crew-Skalierung.
+      // (Historie: früher solo 0,5 / zu zweit, zu dritt 0,7, vorher zusätzlich spaceM3.enemyHpFactor 0,8) – mit 36 hatte ein Jäger zu dritt
       // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
       // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
       raider: { hp: 44, speed: 120, fireInterval: 1.9, damage: 1, range: 400, salvage: 20 },
@@ -208,9 +208,9 @@
     // M1: mit Gegner-Schildsektoren solo milder (QA-Ziel: höchstens 1–2 Notfallprotokolle pro Abend)
     // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
     // Notfallprotokolle je Lauf; im Browser dauerten Korvetten-Wellen 80–150 s)
-    // SYS-01 C2a: gegnerIntegritaet = Faktor auf die Integrität aller Gegnersysteme (Klassenbudget = enemies.<klasse>.hp × Faktor; Zonen bleiben gleich).
-    // Solo 0,4 (0,5 × 0,8), zu zweit und zu dritt 0,56 (0,7 × 0,8): der frühere Faktor spaceM3.enemyHpFactor ist darin enthalten. Die Lerche wird nicht skaliert.
-    crewScaling: { 1: { enemyFireInterval: 2.2, gegnerIntegritaet: 0.4 }, 2: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 }, 3: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 } },
+    // SYS-03 B2 (Kai): nur das Feuerintervall der Gegner skaliert mit der Crewgröße. Die Integrität der Gegnersysteme skaliert nicht mehr (Stufenregel: ein Treffer = eine Stufe, die Zahl der Systeme
+    // je Klasse bestimmt die Zähigkeit; Klassenbudget = enemies.<klasse>.hp × budgetFaktor). Die Lerche wird nicht skaliert.
+    crewScaling: { 1: { enemyFireInterval: 2.2 }, 2: { enemyFireInterval: 1.7 }, 3: { enemyFireInterval: 1.7 } },
     emergency: { marksCost: 50 },   // SYS-01 A1a: Hülle entfällt; das Notfallprotokoll wird über Space.verlustAusloesen ausgelöst
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
@@ -576,7 +576,8 @@
       // ---- §20 Nachrunde (Kais Test) ----
       dodgeWindow: 0.8,   // s: endet eine Ladung so kurz nach einem Ausweichen, verfehlt der schwere Treffer
       // Lanze als Ladewaffe (ersetzt Zielphase; mounts.bow.damage und aim* sind nur noch Altnamen)
-      lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
+      lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75,
+        vollAb: 1 },   // SYS-03 B2: Anteil der Ladung (0..1), ab dem der Schuss eine Vollladung ist: durchschlägt den Schild, trifft die Mitte und ZERSTÖRT das getroffene System (darunter: Teilladung, eine Stufe)
       batteryBeamTtl: 0.4,   // s: Lebensdauer eines Batterie-Strahls (vorher beamTtl × 0,6 = 0,15 s – im Client unsichtbar, §20.1)
       // ---- §21.1 Allstopp (cmd helm.stop): Bremsleistung in px/s², Standard = ship.accel (50). Kein Wert -> ship.accel.
       fullStop: { brake: 50 },
@@ -676,10 +677,9 @@
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
       torpedo: { reaktorAnteil: 0.5 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
-      sturmSchaden: 1,            // NUR GEGNER-SEITE (space.js, B2 stellt um): Lerche liest ihn seit SYS-03 B1 nicht mehr; Sturm bei niedrigem Schild = eine Stufe (Chance ST.systemChance, Katalog)
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
-      // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). systemFaktor: bei Schild ≤ niedrig oder 0 wirkt der Sturm-Schaden × Faktor gegen das System.
-      sturm: { reparaturSperre_s: 6, systemFaktor: 1.5 },
+      // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). SYS-03 B2: Sturm bei Schild 0 = Direkttreffer (eine Stufe, Treffer-Fenster), bei 0 < Schild ≤ niedrig Chance systemChance (Katalog) auf eine Stufe; keine Punktfaktoren mehr.
+      sturm: { reparaturSperre_s: 6 },
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5

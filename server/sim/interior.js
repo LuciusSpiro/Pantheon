@@ -1152,13 +1152,7 @@ function syncInteg(game, sys) {
 // unabhängig von der Schadenszahl. Die Integrität (ship.integ) ist nur noch der aus der Stufe abgeleitete Wert (syncInteg in damageSystem).
 // Geflicktes (ok, fragil) bricht beim Treffer direkt. Treffer-Fenster: ein System, das gerade eine Stufe verloren hat, verliert innerhalb von
 // systemModell.trefferFenster_s keine weitere (ship.trefferT[sys] = Zeitpunkt des letzten Stufenverlusts, nicht im Snapshot).
-function trefferFenster(game) { const v = Number(sysModell(game).trefferFenster_s); return v > 0 ? v : 0; }
-function imFenster(game, sys) {
-  const t = game.ship.trefferT && game.ship.trefferT[sys];
-  if (t == null) return false;
-  const d = game.time - t;
-  return d >= 0 && d < trefferFenster(game);
-}
+function imFenster(game, sys) { return Integ.imFenster(game, game.ship.trefferT && game.ship.trefferT[sys]); }   // SYS-03 B2: dieselbe Fensterregel wie die Gegner (integritaet.js)
 function fensterStempeln(game, sys) { (game.ship.trefferT || (game.ship.trefferT = {}))[sys] = game.time; }
 // Eine Stufe tiefer (Kern ohne Fenster: Torpedo-Durchschlag auf den Reaktor nutzt ihn direkt). opts.dauer: Dauerdruck bricht das Fracht-Beamen nicht ab.
 // Rückgabe: { system, state } bei Zustandswechsel, sonst null.

@@ -146,13 +146,13 @@ function debug(game, args) {
     }
     return null;
   }
-  if (a[0] === 'treffer') {   // n Treffer (je halbe Integrität des Systems) auf das gewählte System; ohne Sperre, Sichtprüfung und Tests
+  if (a[0] === 'treffer') {   // n Treffer (je eine Stufe) auf das gewählte System; ohne Sperre und Fenster, Sichtprüfung und Tests
     const e = enemyOf(game); const id = a[2] && e && e.sys && e.sys[a[2]] ? a[2] : Object.keys(SYSTEME)[0];   // Standard: das erste Zielsystem der Daten
     if (!e || !Gsys.hat(e) || !e.sys[id]) return 'Erst ein Ziel wählen.';
     const zone = Gsys.defOf(e.kind, id).zone;
     for (let i = 0; i < Math.max(1, Math.min(4, Number(a[1]) || 1)); i++) {
-      e.sys[id].sp = null;
-      const t = Gsys.treffen(game, e, zone, Gsys.maxOf(e, id) / 2, { id, zugewandt: zone });
+      e.sys[id].sp = null; e.sys[id].tf = null;
+      const t = Gsys.treffen(game, e, zone, { id, zugewandt: zone });
       if (t && t.gezielt && t.state !== t.vorher) gegnerGetroffen(game, e, t);
     }
     return null;
