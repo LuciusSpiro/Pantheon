@@ -1,0 +1,40 @@
+Grabenangriff (feste Karte, Rom), 3 Spieler (laufen auf x~22 vor, dann stehend, unverwundbar), 120 s, Seeds 1..8
+Gefecht entstanden in 8 von 8 Seeds, 1880 von 1920 Samples im Gefecht; Spieler-x am Ende (Seed 1): 22,22,22
+HAUPTKENNZAHLEN (Gefecht): Anteil Gegner mit Kamerad <= 2 Kacheln 0.93   mittlerer Abstand zum naechsten Kameraden 1.17 Kacheln
+[gesamt] Samples 1920: Gegner 12  mittl. Paarabstand 7.54  mittl. Abstand zum naechsten Kameraden 1.24  Anteil <=2 Kacheln 0.92  max Gegner je Deckungsinsel (Mittel 4.27, Maximum 5)  Inseln mit >=2 Gegnern 1.84  Median Abstand zum naechsten Spieler 6.5
+[Gefecht (>=3 Gegner sehen Spieler)] Samples 1880: Gegner 12  mittl. Paarabstand 7.19  mittl. Abstand zum naechsten Kameraden 1.17  Anteil <=2 Kacheln 0.93  max Gegner je Deckungsinsel (Mittel 4.36, Maximum 5)  Inseln mit >=2 Gegnern 1.88  Median Abstand zum naechsten Spieler 5.9
+stehende pin-Gegner (>=2) im Gefecht: Samples 1823, mittl. Abstand zum naechsten pin-Kameraden 1.53, mittl. Anzahl pin 8.64
+Samples mit Flankierer (Anteil, alle Samples): 0.23
+seed 1: Gefechtssamples 235, Paarabstand 7.21, nn 1.19, <=2 0.94, maxInsel 5, Tickfehler 0
+seed 2: Gefechtssamples 235, Paarabstand 7.17, nn 1.17, <=2 0.93, maxInsel 5, Tickfehler 0
+seed 3: Gefechtssamples 235, Paarabstand 7.16, nn 1.18, <=2 0.93, maxInsel 5, Tickfehler 0
+seed 4: Gefechtssamples 235, Paarabstand 7.2, nn 1.16, <=2 0.93, maxInsel 5, Tickfehler 0
+seed 5: Gefechtssamples 235, Paarabstand 7.15, nn 1.18, <=2 0.93, maxInsel 5, Tickfehler 0
+seed 6: Gefechtssamples 235, Paarabstand 7.15, nn 1.18, <=2 0.93, maxInsel 5, Tickfehler 0
+seed 7: Gefechtssamples 235, Paarabstand 7.28, nn 1.15, <=2 0.94, maxInsel 5, Tickfehler 0
+seed 8: Gefechtssamples 235, Paarabstand 7.18, nn 1.16, <=2 0.93, maxInsel 5, Tickfehler 0
+Verlauf seed 1:
+t0.5: n12 mpd24.56 nn4.88 sieht0 maxInsel0 spD38.54 {"advance":12}
+t5.5: n12 mpd19.15 nn2.96 sieht5 maxInsel1 spD15.81 {"pin":6,"advance":6}
+t10.5: n12 mpd13.29 nn2.1 sieht7 maxInsel2 spD8.88 {"pin":7,"advance":5}
+t15.5: n12 mpd9.16 nn1.72 sieht9 maxInsel4 spD7 {"pin":11,"advance":1}
+t20.5: n12 mpd7.92 nn1.44 sieht10 maxInsel3 spD5.16 {"pin":12}
+t25.5: n12 mpd7.4 nn1.38 sieht10 maxInsel5 spD5.24 {"pin":12}
+t30.5: n12 mpd6.57 nn1.12 sieht11 maxInsel4 spD5.22 {"pin":12}
+t35.5: n12 mpd5.74 nn1.08 sieht12 maxInsel5 spD5.39 {"pin":12}
+t40.5: n12 mpd5.68 nn0.75 sieht12 maxInsel4 spD5.11 {"pin":12}
+t45.5: n12 mpd5.63 nn1.19 sieht12 maxInsel5 spD5.11 {"pin":12}
+t50.5: n12 mpd5.96 nn0.7 sieht12 maxInsel4 spD5.11 {"pin":12}
+t55.5: n12 mpd6.07 nn1.12 sieht12 maxInsel5 spD5.11 {"pin":12}
+t60.5: n12 mpd6.09 nn0.87 sieht12 maxInsel4 spD5.1 {"pin":12}
+t65.5: n12 mpd6.06 nn1.12 sieht12 maxInsel5 spD5.11 {"pin":12}
+t70.5: n12 mpd5.87 nn0.83 sieht12 maxInsel4 spD5.11 {"pin":12}
+t75.5: n12 mpd6.14 nn0.95 sieht12 maxInsel5 spD5.11 {"pin":12}
+t80.5: n12 mpd5.87 nn0.83 sieht12 maxInsel4 spD5.1 {"pin":12}
+t85.5: n12 mpd5.97 nn1.12 sieht12 maxInsel5 spD5.11 {"pin":12}
+t90.5: n12 mpd5.97 nn0.83 sieht12 maxInsel4 spD5.11 {"pin":12}
+t95.5: n12 mpd6.06 nn1.12 sieht12 maxInsel5 spD5.11 {"pin":12}
+t100.5: n12 mpd6.05 nn0.67 sieht12 maxInsel4 spD5.1 {"pin":12}
+t105.5: n12 mpd5.9 nn1.22 sieht12 maxInsel5 spD5.1 {"pin":12}
+t110.5: n12 mpd5.98 nn0.83 sieht12 maxInsel4 spD5.11 {"pin":12}
+t115.5: n12 mpd6.06 nn1.12 sieht12 maxInsel5 spD5.11 {"pin":12}
