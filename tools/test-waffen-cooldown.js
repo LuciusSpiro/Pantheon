@@ -72,10 +72,10 @@ const IST = {
   standardbatterie: [0.63, 1.20, 2.20], sturmbatterie: [0.56, 1.03, 1.87], standardkanone: [0.60, 1.25, 2.27], abwehrturm: [0.32, 0.64, 1.26],
 };
 // Messung am Pool: Ops feuert bei Bereitschaft, Schüsse nach t = 10 s zählen. Liefert Schaden je Sekunde (Fenster 10 … sek), Zeitpunkte der Schüsse.
-function messe(id, punkte, sek) {
+function messe(id, punkte, sek, schild) {   // SYS-02a: schild = Schildstand je Segment des Ziels (Standard 0)
   const T = arena(); const g = T.g; const z = SCHUSS_ZIELE[id];
   bestueck(g, z.platz, id); poolVier(g);
-  ziel(g, z.ziel[0], z.ziel[1], z.ziel[2], 0);
+  const zl = ziel(g, z.ziel[0], z.ziel[1], z.ziel[2], schild || 0); if (schild) Testhilfe.setzeSchilde(zl, [schild, schild, schild, schild]);
   const mid = Katalog.mountId(z.platz);
   g.ship.wAllocIntent = { [mid]: punkte };
   const zeiten = []; let dmg0 = null;
@@ -151,10 +151,23 @@ section('Dauerleistung am Pool <= Ist + 3 % (Erkundung 1d)', () => {
       const r = messe(id, p, 150);
       const ist = IST[id][i];
       zeile.push(`${p} Pkt ${r.rate.toFixed(2)} (Ist ${ist.toFixed(2)})`);
-      ok(r.rate <= ist * 1.03 + 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≤ Ist ${ist.toFixed(2)} + 3 % (${(ist * 1.03).toFixed(2)})`);
+      // SYS-02a (Kai): der Sturm wirkt bei Schild 0 mit Faktor systemFaktor gegen das System (Dauerleistung gegen Systeme steigt mit ihm); gegen Schild gilt der alte Grenzwert
+      const fak = id === 'sturmbatterie' ? require('../server/sim/sturm.js').systemFaktor({ C: CONFIG }) : 1;
+      ok(r.rate <= ist * fak * 1.03 + 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≤ Ist ${ist.toFixed(2)}${fak !== 1 ? ' × systemFaktor ' + fak : ''} + 3 % (${(ist * fak * 1.03).toFixed(2)})`);
+      // Nacharbeit SYS-02a: Untergrenze gegen den festen Beschlusswert 1,5 (nicht gegen die Config: mit systemFaktor 1 bliebe sonst die Obergrenze allein grün). Toleranz nach unten 8 %: bei 1 Punkt liegt die Messung 5 % unter Ist × Faktor (Gesamtschaden zählt gekappten Systemschaden nicht ganz)
+      if (id === 'sturmbatterie') { const soll = 1.5; ok(r.rate >= ist * soll * 0.92 - 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≥ Ist ${ist.toFixed(2)} × Beschlusswert systemFaktor ${soll} − 8 % (${(ist * soll * 0.92).toFixed(2)}), Schild 0`); }
     });
     info(id + ': ' + zeile.join(' · '));
   }
+});
+
+section('SYS-02a: Sturm gegen stehenden Schild: Dauerleistung in Schaden gegen den Schild nicht über Ist (nur schildFaktor, kein Systemfaktor)', () => {
+  const sf = Katalog.waffe('sturmbatterie').sturm.schildFaktor;
+  [1, 2, 4].forEach((p, i) => {
+    const r = messe('sturmbatterie', p, 60, 40);
+    const grenze = IST.sturmbatterie[i] * sf * 1.03;
+    ok(r.rate <= grenze + 1e-9, `sturmbatterie ${p} Punkt(e) gegen Schild 40: ${r.rate.toFixed(3)} Schildschaden/s ≤ Ist ${IST.sturmbatterie[i].toFixed(2)} × schildFaktor ${sf} + 3 % (${grenze.toFixed(3)})`);
+  });
 });
 
 section('Start-Lerche (Lanze + 2 Standardbatterien, Pool 4) wie vor B1, innerhalb ±2 %', () => {

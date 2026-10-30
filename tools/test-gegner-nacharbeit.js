@@ -178,6 +178,15 @@ section('Befund 5: das Systemziel geht mit dem Ziel', () => {
   Testhilfe.toeten(m, t, { von: [t.x - 30, t.y] });
   ticks(m, 12);
   ok(m.ship.target === null && m.ship.zielsystem === undefined, 'Konvoi: Ziel weg (Abschuss, Neustart) -> Systemziel gelöscht');
+  // SYS-02c: Neustart allein (Konvoi.neu räumt die Reste ab): das Ziel ist ein Konvoi-Schiff, das NICHT abgeschossen wurde; ohne Zielsysteme.zielLoeschen im Neustart bliebe das Systemziel hängen
+  const { g: nn } = raum();
+  Konvoi.an(nn, { n: 1, sieg: 'aufhalten', eskorte: 'keine', wiederholung: true });
+  const t2 = Konvoi.transporter(nn)[0];
+  nn.ship.target = t2.id; nn.ship.zielsystem = 'antrieb';
+  ok(nn.space.enemies.includes(t2), 'Vorbedingung: das Ziel lebt und gehört zum Konvoi (kv)');
+  Konvoi.neu(nn);
+  ok(!nn.space.enemies.includes(t2), 'Konvoi.neu räumt das alte Konvoi-Schiff ab');
+  ok(nn.ship.target === null && nn.ship.zielsystem === undefined, 'Konvoi-Neustart (ohne Abschuss): Ziel und Systemziel gelöscht');
 });
 
 section('Befund 7: keine toten Exporte', () => {

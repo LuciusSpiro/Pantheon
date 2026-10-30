@@ -336,6 +336,8 @@
     // EK4 Flotte (server/sim/flotte.js, CONTRACT-EK4): Verbündete (scripted in EK4a, eigene KI in EK4b), Befehle des Legaten, Wellen.
     // hull = Hülle je Klasse (wie escorts.hull, Schaden × escorts.hullPerDamage × crewDamage); hilferuf = Hüllenanteile für Hilferuf und
     // kritischen Ruf (je Schiff einmal); befehl.* = Standardwerte der fünf Befehlsarten (Radius px, Frist s, Leine px).
+    // SYS-02b: Verbündete = Gegner auf der anderen Seite: dieselben Schildsegmente (enemyShields/enemySchildSegmente), Regeneration (enemyShieldRegen), Trefferweg und Systemwirkungen
+    // (systemModell.gegner, systemModell.sturm/torpedo). hull bleibt das Systembudget; hullPerDamage × crewDamage rechnen den Schaden nur noch GEGEN DIE SYSTEME um (Schilde: Rohschaden).
     flotte: {
       max: 12, hull: { korvette: 220, fregatte: 380, kreuzer: 520, raider: 90 },
       hilferuf: { schwer: 0.4, kritisch: 0.15 },
@@ -670,9 +672,15 @@
       schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
       schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
-      torpedoLerche: 10,          // SYS-01 A1b: Gegner-Torpedo gegen die Lerche bei Schild 0: Integritätsabzug in einem System der Zone (ein Standardsystem, 10 = sicher zerstört)
+      // SYS-02a (Kai 2026-10-28): Torpedo tut weh, gleiche Regel gegen Lerche und Gegner (Verbündete wie Gegner). Er wirkt nur auf ein Segment mit Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher
+      // (Schaden = mindestens dessen Maximum, keine Zahl hier) und schlägt auf die Mitte durch: reaktorAnteil × Reaktor-Maximum Integritätsschaden am REAKTOR (0,5: zwei Treffer zerstören ihn, der erste lässt ihn beschädigt).
+      // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
+      torpedo: { reaktorAnteil: 0.5 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
       sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
+      // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
+      // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). systemFaktor: bei Schild ≤ niedrig oder 0 wirkt der Sturm-Schaden × Faktor gegen das System.
+      sturm: { reparaturSperre_s: 6, systemFaktor: 1.5 },
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5

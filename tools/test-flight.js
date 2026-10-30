@@ -13,6 +13,7 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const Zielsysteme = require('../server/sim/zielsysteme.js');
+const Gsys = require('../server/sim/gegnersystem.js');
 let Flight = null;
 try { Flight = require('../shared/flight.js'); } catch (e) { Flight = null; }
 
@@ -335,6 +336,9 @@ function raidRun(opts) {
     if (o.recentre !== false) recentre(g);
     const sh = g.ship;
     const live = g.space.enemies;
+    // antriebHeil ist eine bewusste MESSHILFE für den Überflug-Anteil, kein Verhalten des Spiels: im Spiel repariert ein Jäger nicht (SYS-02a). Das reale Verhalten prüft der Abschnitt
+    // „Jäger mit zerstörtem/beschädigtem Antrieb“ unten ohne Eingriff.
+    if (o.antriebHeil) for (const e of live) if (e.sys && e.sys.antrieb && e.sys.antrieb.z !== 'ok') { e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.hp = Gsys.summe(e); }
     for (const e of live) {
       const s = st(e);
       stateCount[s] = (stateCount[s] || 0) + 1;
@@ -377,11 +381,14 @@ function raidRun(opts) {
 
 section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
   const runs = [21, 22, 23].map((seed, i) => raidRun({ seed, stage: [3, 4, 1][i], sec: 120 }));
-  const all = runs.flatMap((r) => r.done);
+  // SYS-02a: Jäger reparieren nicht mehr; mit beschädigtem/zerstörtem Antrieb (Treffer der Lerche) fliegt er langsamer und überfliegt nicht. Das Überflugverhalten gilt für einen Jäger mit
+  // Antrieb: die Anflüge werden in Läufen gezählt, in denen der Antrieb heil gehalten wird (antriebHeil, wie vorher die Reparatur); die Trace-Prüfungen unten laufen weiter mit den Läufen ohne Eingriff.
+  const heil = [21, 22, 23].map((seed, i) => raidRun({ seed, stage: [3, 4, 1][i], sec: 120, antriebHeil: true }));
+  const all = heil.flatMap((r) => r.done);
   const pass = all.filter((ep) => ep.minD < 150 && ep.maxAfter > 300);
   const share = all.length ? pass.length / all.length : 0;
   info('Zustände (Ticks): ' + runs.map((r) => Object.entries(r.stateCount).map(([k, v]) => k + ' ' + v).join(', ')).join(' | '));
-  info('Anflüge je Lauf (½ / ¾ / Stopp): ' + runs.map((r) => `${r.done.filter((ep) => ep.minD < 150 && ep.maxAfter > 300).length}/${r.done.length}`).join(' · ') +
+  info('Anflüge je Lauf (½ / ¾ / Stopp): ' + heil.map((r) => `${r.done.filter((ep) => ep.minD < 150 && ep.maxAfter > 300).length}/${r.done.length}`).join(' · ') +
     ' · nächster Abstand Ø ' + f1(all.reduce((a, ep) => a + ep.minD, 0) / Math.max(1, all.length)) + ' px');
   ok(all.length >= 6, `genug Anflüge gemessen (${all.length} in 3 × 120 s)`);
   ok(share >= 0.8, `Überflüge: ${pass.length}/${all.length} = ${f1(share * 100)} % mit Abstand < 150 und danach > 300 (Soll ≥ 80 %)`);
@@ -391,6 +398,54 @@ section('Jäger: Überflüge statt Kreisen (§3, §6)', () => {
   ok(minI >= CLS.raider.minSpeed - 1, `Jäger mit intaktem Antrieb im Spiel nie unter minSpeed ${CLS.raider.minSpeed} (min ${f1(minI)} px/s)`);
   ok(minRel >= CLS.raider.minSpeed - 1, `Jäger im Spiel nie unter minSpeed × Antriebsfaktor (beschädigt: ${CLS.raider.minSpeed} × 0,5; min Tempo/Faktor ${f1(minRel)}, beschädigt min ${f1(Math.min(...runs.map((r) => r.minBeschaedigt)))} px/s)`);
   ok(runs.every((r) => r.g.errors === 0), 'keine Server-Fehler');
+});
+
+section('Jäger mit zerstörtem/beschädigtem Antrieb: parkt bzw. halbes Tempo, kein Eingriff (SYS-02a)', () => {
+  const Testhilfe = require('./gegner-testhilfe.js');
+  const Gegnertod = require('../server/sim/gegnertod.js');
+  // Kein keepShip, kein antriebHeil, keine Reparatur: der Jäger verhält sich wie im Spiel (Lerche unverwundbar, eigene Waffen leer)
+  const ruhig = (g) => { g.god = true; for (const k of ['bow', 'port', 'stbd']) if (g.ship.mount && g.ship.mount[k]) g.ship.mount[k].charge = 0; };
+  // a) zerstörter Antrieb (Faktor 0, repariert nicht): der Jäger steht still
+  {
+    const { g, run } = arena(1, { seed: 41 }); const sh = g.ship;
+    const j = spawn(g, 'raider', 0, 800);
+    Testhilfe.setzeIntegritaet(j, 'antrieb', 0);
+    run(15, () => ruhig(g));
+    const x0 = j.x, y0 = j.y; run(5, () => ruhig(g));
+    ok(Zielsysteme.tempoFaktor(j) === 0 && j.sys.antrieb.z === 'broken', 'zerstörter Antrieb bleibt zerstört (Jäger repariert nicht), Tempofaktor 0');
+    ok(Math.hypot(j.vx || 0, j.vy || 0) < 1 && dist(x0, y0, j.x, j.y) < 2, `Jäger parkt: Tempo ${f2(Math.hypot(j.vx || 0, j.vy || 0))} px/s, in 5 s ${f2(dist(x0, y0, j.x, j.y))} px bewegt`);
+    // b) die Lerche fliegt hin (Kurs 0 = zum Jäger), der Jäger bleibt stehen, Reaktor zerstört -> Countdown -> tot
+    const { g: g2, run: run2, enter, cmd } = arena(1, { seed: 42 });
+    const j2 = spawn(g2, 'raider', 0, 800); Testhilfe.setzeIntegritaet(j2, 'antrieb', 0);
+    ok(enter(0, 'helm'), 'Steuer besetzt'); cmd(0, 'helm.throttle', { set: 3 });
+    run2(15, () => ruhig(g2));   // Anfangstempo des Spawns läuft aus
+    const px = j2.x, py = j2.y;
+    run2(90, () => { ruhig(g2); if (dist(g2.ship.x, g2.ship.y, j2.x, j2.y) < 400 && g2.ship.helm.stage !== stopIdx()) cmd(0, 'helm.throttle', { set: stopIdx() }); });
+    const d = dist(g2.ship.x, g2.ship.y, j2.x, j2.y);
+    ok(d < 500 && dist(px, py, j2.x, j2.y) < 2, `Lerche fliegt den parkenden Jäger an (Abstand ${f1(d)} px), der Jäger hat sich nicht bewegt`);
+    Testhilfe.schildNull(j2); const k0 = g2.stats.kills || 0;
+    const rid = Gsys.idVon(j2, 'reaktor'); let hits = 0;
+    while (j2.sys[rid].z !== 'broken' && hits < 100) { space.damageEnemy(g2, j2, 3, g2.ship.x, g2.ship.y, { angriff: true, durchschlag: 'zone' }); hits++; }
+    ok(j2.sys[rid].z === 'broken', `Lerche zerstört den Reaktor des Jägers (${hits} Treffer)`);
+    run2(Gegnertod.countdownDauer ? Gegnertod.countdownDauer(g2, j2) + 3 : 40, () => ruhig(g2));
+    ok(!g2.space.enemies.includes(j2) && (g2.stats.kills || 0) === k0 + 1, 'Countdown abgelaufen: Jäger tot und gezählt');
+    ok(g.errors === 0 && g2.errors === 0, 'keine Server-Fehler');
+  }
+  // c) beschädigter Antrieb (Faktor 0,5, repariert nicht): halbes Tempo gegenüber dem intakten Jäger (gleicher Aufbau, gleicher Seed)
+  const fliegen = (faktorAntrieb) => {
+    const { g, run } = arena(1, { seed: 43 });
+    const j = spawn(g, 'raider', 0.6, 800);
+    if (faktorAntrieb != null) Testhilfe.setzeIntegritaet(j, 'antrieb', Gsys.maxOf(j, 'antrieb') * faktorAntrieb);
+    run(15, () => { ruhig(g); recentre(g); });   // Anfangstempo des Spawns läuft aus; gemessen wird danach
+    let vmax = 0, vsum = 0, n2 = 0;
+    run(30, () => { ruhig(g); recentre(g); const v = Math.hypot(j.vx || 0, j.vy || 0); vmax = Math.max(vmax, v); vsum += v; n2++; });
+    return { j, vmax, mittel: vsum / n2 };
+  };
+  const intakt = fliegen(null), besch = fliegen(0.3);
+  ok(besch.j.sys.antrieb.z === 'damaged' && Zielsysteme.tempoFaktor(besch.j) === 0.5, 'Antrieb beschädigt, Tempofaktor 0,5, nach 45 s noch beschädigt (keine Reparatur)');
+  // Kurze Spitzen beim Wenden (Überschwingen bis ca. 8 %) zählen nicht: maßgeblich ist das Mittel und eine Obergrenze mit 15 % Luft
+  ok(besch.mittel <= CLS.raider.maxSpeed * 0.5 && besch.vmax <= CLS.raider.maxSpeed * 0.5 * 1.15 && besch.mittel > 20, `beschädigt: Mittel ${f1(besch.mittel)} px/s ≤ ${f1(CLS.raider.maxSpeed * 0.5)} (halbes Maximum), Spitze ${f1(besch.vmax)}`);
+  ok(besch.mittel < intakt.mittel * 0.7, `Gegenprobe intakt: Mittel ${f1(intakt.mittel)} px/s, beschädigt ${f1(besch.mittel)} px/s`);
 });
 
 section('Abstand und Randstreifen (§3, §6)', () => {

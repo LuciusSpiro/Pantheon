@@ -360,6 +360,7 @@ function update(game, dt) {
       bot.moving = false;
       if (t.kind === 'switch') { bot.progress = Math.min(1, rc.restartProgress / game.C.reactorM1.restartTime); continue; }
       if (t.kind === 'repair' && t.mode === 'part' && bot.carry !== 'ersatzteil') { bot.task = null; continue; }
+      if (t.kind === 'repair' && interior.reparaturGesperrt(game, t.system)) { bot.progress = 0; continue; }   // SYS-02a: Sturm-Sperre der Zone
       bot.progress += (dt * (t.kind === 'repair' ? interior.sonderRate(game, t.system) : 1)) / t.dur;   // SYS-01 A2a: Sonderreparatur am Reaktor nach Zahl der Arbeiter
       if (bot.progress >= 1) {
         bot.progress = 0;

@@ -101,23 +101,29 @@ function tot(e) {
 }
 
 // Trefferweg: ein zufälliges nicht zerstörtes System der Zone (game.rng). Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher } oder null.
-function treffen(game, e, zone, schaden, gez) {
+// SYS-02a opts (Torpedo): zerstoeren = Schaden mindestens das Maximum des Systems (zerstört sicher, auch gegen Sperre/Immunität); keinUeberlauf = eine leere Zone läuft nicht in die Mitte.
+function treffen(game, e, zone, schaden, gez, opts) {
   let zielZone = zone;
   let kand = frei(e, zone);
-  if (!kand.length && zone !== 'mitte') { zielZone = 'mitte'; kand = frei(e, 'mitte'); }
+  if (!kand.length && zone !== 'mitte') { if (opts && opts.keinUeberlauf) return null; zielZone = 'mitte'; kand = frei(e, 'mitte'); }
   if (!kand.length) return null;
   let id = null;
   if (gez && e.sys[gez.id] && e.sys[gez.id].z !== 'broken' && defOf(e.kind, gez.id).zone === zielZone && erreichbar(e, gez.id, gez.zugewandt)) id = gez.id;
   const gezielt = id !== null;
   if (!gezielt) id = game.rng.pick(kand);
+  return treffenAuf(game, e, id, zielZone, schaden, gezielt, opts);
+}
+// Integritätsabzug auf ein bestimmtes System (Trefferweg und Torpedo-Durchschlag auf den Reaktor). Rückgabe { id, zone, state, vorher, gezielt }.
+function treffenAuf(game, e, id, zielZone, schaden, gezielt, opts) {
   const st = e.sys[id];
-  st.i = Math.max(0, st.i - Math.max(0, Number(schaden) || 0));
+  const zerstoeren = !!(opts && opts.zerstoeren);
+  st.i = Math.max(0, st.i - Math.max(zerstoeren ? maxOf(e, id) : 0, Number(schaden) || 0));
   e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
   const z = Integ.zustandVon(st.i, maxOf(e, id), schwelle(game));
   const vorher = st.z;
-  if (RANG[z] > RANG[st.z] && !gesperrt(game, st, id)) { st.z = z; st.sp = game.time; }
+  if (RANG[z] > RANG[st.z] && (zerstoeren || !gesperrt(game, st, id))) { st.z = z; st.sp = game.time; }
   e.hp = summe(e);
-  return { id, zone: zielZone, state: st.z, vorher, gezielt };
+  return { id, zone: zielZone, state: st.z, vorher, gezielt: !!gezielt };
 }
 // Verzögerte Zustandswechsel: der Zustand folgt der Integrität, sobald Sperre und Immunität frei sind (Zielsysteme.update, jeden Tick)
 function nachholen(game, e) {
@@ -177,6 +183,28 @@ function schildPflege(game, e, caps) {
   for (let i = 0; i < e.shields.length; i++) if (e.shields[i] > C[i]) e.shields[i] = C[i];
 }
 
+// SYS-02b: Schildsegmente der Klasse für ein Schiff ohne Spawn über space.spawnEnemy (Verbündete, escort.js): e.shields, e.shieldsMax, e.regenT. Ohne Eintrag der Klasse keine Schilde.
+function schildAnlegen(game, e) {
+  const lay = Schilde.layout(game.C, e.kind);
+  e.shieldsMax = lay ? lay.max.slice() : [0, 0, 0, 0];
+  e.shields = e.shieldsMax.slice();
+  e.regenT = 0;
+  return e;
+}
+// SYS-02b: Schild-Pflege und Regeneration je Tick – eine Regel für Gegner (space.updateEnemies) und Verbündete (escort.allySysTick): die Obergrenze je Segment kommt aus
+// Emittern und Schildgenerator, 1 Punkt alle enemyShieldRegen × regenFaktor s, der Sturm (e.regenHold) unterdrückt die Regeneration.
+function schildTick(game, e, dt) {
+  if (!e.shields) return;
+  const caps = schildGrenzen(game, e);
+  schildPflege(game, e, caps);
+  e.regenT = (e.regenT || 0) + dt;
+  if (game.time < (e.regenHold || 0)) e.regenT = 0;
+  if (e.regenT >= game.C.enemyShieldRegen * regenFaktor(game, e)) {
+    e.regenT = 0;
+    for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1);
+  }
+}
+
 // Snapshot für das anvisierte Ziel (ship.zielSys): flach [Zustand, Integrität %] je System in der Reihenfolge der Daten; Zustand 0 ok, 1 beschädigt, 2 zerstört.
 const ZUST_CODE = { ok: 0, damaged: 1, broken: 2 };
 function snapshotZiel(e) {
@@ -214,6 +242,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
-  waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
+  treffenAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
+  waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, schildAnlegen, schildTick, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

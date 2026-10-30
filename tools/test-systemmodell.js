@@ -373,13 +373,14 @@ section('SYS-01 A1b: Mine trifft die nächste Zone, Schilde gelten nicht (Punkt 
   }
 });
 
-section('SYS-01 A1b: Gegner-Torpedo gegen die Lerche = ein System der Zone (Punkt 5)', () => {
+section('SYS-02a: Gegner-Torpedo gegen die Lerche = System der Zone zerstört + Durchschlag auf den Reaktor (alt: SYS-01 A1b, ein System −10)', () => {
   const g = newGame(33); g.ship.shields.current = [0, 0, 0, 0];
-  ok(CONFIG.systemModell.torpedoLerche === 10, 'Startwert torpedoLerche 10 (ein Standardsystem wird sicher zerstört)');
+  ok(CONFIG.systemModell.torpedoLerche === undefined && CONFIG.systemModell.torpedo.reaktorAnteil === 0.5, 'Startwert torpedo.reaktorAnteil 0,5, torpedoLerche entfällt (eine Wahrheit)');
   const s0 = snapShot(g);
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
   const ch = changed(g, s0);
-  ok(ch.length === 1 && I.systemSector(ch[0]) === 0 && g.ship.systems[ch[0]] === 'broken', `Torpedo bei Schild 0: genau ein System der Bugzone zerstört (${ch.join(',')})`);
+  const zerst = ch.filter((k) => g.ship.systems[k] === 'broken');
+  ok(zerst.length === 1 && zerst[0] !== 'reactor' && I.systemSector(zerst[0]) === 0 && ch.includes('reactor') && g.ship.systems.reactor === 'damaged', `Torpedo bei Schild 0: genau ein System der Bugzone zerstört (${zerst.join(',')}), Reaktor beschädigt (${ch.join(',')})`);
 });
 
 section('SYS-01 A1b: Frachtraum-Verlust nur bei Treffer auf das Modul (Punkt 3)', () => {

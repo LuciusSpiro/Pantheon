@@ -10,11 +10,18 @@
 //   Liegt die Lerche dazwischen und hält ihr Schild zur Schussseite ≥ 1, fängt sie die Ladung (Breitseite als Schild).
 //   Hülle 0 -> kampfunfähig (treibt, Wrack), nie gelöscht. Kein Eigenbeschuss, nur ein Funk-Rüffel.
 //
-// SYS-01 C2b: VERBÜNDETE (ally) haben das Systemmodell ihrer Klasse (Budget flotte.hull, hp = Σ der Integrität) und denselben Trefferweg wie Gegner (allyTreffer).
-//   Verbündete haben (heute) KEINE Schildsegmente: Treffer gehen unmittelbar auf Systeme (bei Gegnern fangen Schildsegmente einen Teil ab). Das verschiebt die Kampfstärke
-//   gegenüber der alten Hülle: ein Großtreffer zerstört nur EIN System, der Überlauf verfällt (er geht nicht auf weitere Systeme über), und ein zerstörter Reaktor tötet
-//   nach dem Countdown (wie bei Gegnern). Die Zahlen (crewDamage, hullPerDamage, Systemverteilung) sind in Paket D zu kalibrieren. crewDamage bleibt der Schadensfaktor;
-//   "keine Crew-Skalierung" betrifft nur das Budget. Schützlinge (npc) bleiben bei der einfachen Hülle (hp/hpMax).
+// SYS-01 C2b: VERBÜNDETE (ally) haben das Systemmodell ihrer Klasse (Budget flotte.hull, hp = Σ der Integrität). crewDamage bleibt der Schadensfaktor;
+//   "keine Crew-Skalierung" betrifft nur das Budget.
+// SYS-02b (Kai 2026-10-28: Verbündete sollen genauso sein wie Gegner, nur als Verbündete): Verbündete = Gegner auf der anderen Seite.
+//   - SCHILDE: die Schildsegmente ihrer Klasse (Schilde.layout, es.shields/shieldsMax), Regeneration und Obergrenzen über Emitter/Schildgenerator wie bei Gegnern
+//     (Gsys.schildTick in allySysTick), der Sturm unterdrückt sie (es.regenHold). Treffer laufen über space.damageEnemy (allyTreffer): dasselbe Segment (Schilde.segmentOf), derselbe
+//     Schildweg ohne Überlauf, dieselbe Zone, derselbe Systemtreffer. Treffer ohne Quelle (Brocken, Zone ohne Quelle) treffen eine zufällige Seite (game.rng).
+//   - Der Schaden gegen die SYSTEME ist die alte Hüllen-Umrechnung (Schaden × escorts.hullPerDamage × flotte.crewDamage, opts.skala); die Schilde rechnen in Rohschaden wie bei Gegnern.
+//   - Sturm (Nadeln und Schüsse der Gegner), Torpedo (Lesart B), Sperre/Immunität (nachholen), Reparatursperre, Antrieb (tempoFaktor in stepEscort) und Gegner-Sperrfeuer
+//     (projectileHit) gelten wie bei Gegnern. Waffen: flotte.kiFeuer je Platz (zerstört = kein Schuss, beschädigt = Intervall × taktBeschaedigt).
+//   - Abweichung bewusst: ein Treffer, dessen Zone und Mitte leer sind, tut nichts (wie bei Gegnern; vorher: sofort zerstört). Die Mitte ist leer = Reaktor zerstört = der Countdown läuft.
+//   - SCHÜTZLINGE (npc, frachter, karawane, bergungsboot) BLEIBEN VEREINFACHT: nur die Hülle hp/hpMax (escorts.hull, hullPerDamage), keine Schilde, keine Systeme; Sturm und
+//     Torpedo gegen sie behalten ihr bisheriges Verhalten (gewöhnlicher Hüllenschaden, kein Sperr-/Systemeffekt).
 //
 // Aufrufer: space.js (update, Angriffe, Treffer, Szenenwechsel, Lanze), game.js/ENGINE (snapshot, enemyTgt, command,
 // debug, hpPct), server/mission/bausteine/escort.js (Bausteine). Ohne Schützlinge ändert nichts am bisherigen Ablauf.
@@ -24,6 +31,8 @@ const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
 const Besitz = require('./besitz.js');   // SUND-02b A1: dockLage
 const Pilot = require('./pilot.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-02b: Schildsegmente der Verbündeten
+const Katalog = require('../../shared/schiffskatalog.js');   // SYS-02b: Sturmwerte, Torpedo-Lesart
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> escort)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Gegner-Lebensanzeige (integPct)
@@ -196,7 +205,7 @@ function spawn(game, opts) {
     docked: false, spawnT: game.time, ausgang: null,
   };
   if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
-  if (ally) { Gsys.anlegen(es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität)
+  if (ally) { Gsys.anlegen(es); Gsys.schildAnlegen(game, es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität); SYS-02b: Schildsegmente der Klasse
   if (ally) {   // Kennung auf den Karten: ausdrücklich (flotte_aufstellen volk), sonst CONFIG.kennung.verbuendet (Rom). Snapshot vk nur abweichend
     const K = game.C.kennung || {};
     es.volk = (K.voelker || []).includes(o.volk) ? o.volk : (K.verbuendet || 'rom');
@@ -423,8 +432,9 @@ function hit(game, es, dmg, opts) {
     game.emit('sfx', { name: 'emp' });
   } else {
     const cd = ((es.ally ? (game.C.flotte || {}).crewDamage : null) || C.crewDamage || {})[crewN(game)];   // QA-INTEGRATION S2: Härte skaliert mit der Crewgröße (EK4: Verbündete eigene Tafel)
-    hull = r1((Number(dmg) || 0) * C.hullPerDamage * (Number(cd) > 0 ? Number(cd) : 1));
-    if (es.ally && Gsys.hat(es) && Gsys.systemeVon(es.kind)) allyTreffer(game, es, hull, o);
+    const skala = C.hullPerDamage * (Number(cd) > 0 ? Number(cd) : 1);
+    hull = r1((Number(dmg) || 0) * skala);
+    if (es.ally && Gsys.hat(es) && Gsys.systemeVon(es.kind)) { const v0 = Gsys.summe(es); allyTreffer(game, es, dmg, skala, o); hull = r1(v0 - Gsys.summe(es)); }   // SYS-02b: hullLost = verlorene Integrität (Schilde zählen nicht)
     else es.hp = Math.max(0, r1(es.hp - hull));
   }
   st.hits++; st.hullLost = r1(st.hullLost + hull);
@@ -449,27 +459,37 @@ function hit(game, es, dmg, opts) {
   es.distress = f1 < distressLimit(game, es);
   return { hull };
 }
-// SYS-01 C2b: Treffer auf einen Verbündeten mit Systemmodell – derselbe Trefferweg wie bei Gegnern: Zone der Seite zur Quelle (o.von; ohne Quelle eine
-// zufällige Seite), Schild gibt es bei Verbündeten nicht (Schild 0), Reaktor zerstört = Countdown (gegnertod). es.hp bleibt die Summe der Integrität.
-function zoneVon(game, es, von) {
-  if (!von || !Number.isFinite(von.x) || !Number.isFinite(von.y)) return game.rng.pick(Gsys.SEITE_ZONE);
-  return Gsys.SEITE_ZONE[zielsys().seiteGetroffen(game, es, von.x, von.y)] || 'bug';
+// SYS-02b: Quelle eines Treffers ohne Herkunft (Brocken, Zone): eine zufällige Seite (game.rng); hat die Längsseite mehrere Segmente, ein zufälliges davon. Rückgabe: Punkt 100 px vom Schiff.
+function quellenlos(game, es) {
+  const lay = Schilde.layout(game.C, es.kind);
+  const seite = game.rng.int(4);
+  let rel = [0, Math.PI / 2, Math.PI, -Math.PI / 2][seite];
+  const n = lay ? lay.seiten[seite].length : 1;
+  if ((seite === 1 || seite === 3) && n > 1) rel = Schilde.winkelBei(seite, (game.rng.int(n) + 0.5) / n);
+  return { x: es.x + Math.cos(es.angle + rel) * 100, y: es.y + Math.sin(es.angle + rel) * 100 };
 }
-function allyTreffer(game, es, rest, o) {
-  const t = Gsys.treffen(game, es, zoneVon(game, es, o && o.von), rest, null);
-  if (!t) { es.hp = 0; return; }
-  greparatur().rueckschlag(game, es, t.zone);
-  if (t.state === 'broken' && t.vorher !== 'broken' && Gsys.artVon(es, t.id) === 'reaktor') gtod().systemZerstoert(game, es, t.id);   // Countdown (kein Kapern bei Verbündeten)
+// SYS-01 C2b, SYS-02b: Treffer auf einen Verbündeten mit Systemmodell – DERSELBE Trefferweg wie bei Gegnern (space.damageEnemy): Schildsegment der Seite zur Quelle (o.von), der Schild fängt
+// ab ohne Überlauf, danach Zone und Systemtreffer; Sturm, Torpedo und Minen (pierce) wie dort; Reaktor zerstört = Countdown (gegnertod). dmg = Rohschaden, skala = Umrechnung in Integrität
+// gegen die Systeme. es.hp bleibt die Summe der Integrität.
+function allyTreffer(game, es, dmg, skala, o) {
+  const von = o && o.von && Number.isFinite(o.von.x) && Number.isFinite(o.von.y) ? o.von : quellenlos(game, es);
+  const d = { skala };
+  if (o && o.pierce != null) d.pierce = o.pierce;
+  if (o && o.sturm) d.sturm = Katalog.waffe('sturmbatterie').sturm;
+  if (o && o.torpedo) { d.torpedo = true; d.huelle = true; d.nurOhneSchild = Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }
+  space().damageEnemy(game, es, Number(dmg) || 0, von.x, von.y, d);
   es.hp = Gsys.summe(es);
 }
-// SYS-01 C2b: Reparatur und Reaktor-Countdown eines Verbündeten mit Systemmodell (je Tick); abgelaufener Countdown = zerstört (wie hp ≤ 0)
+// SYS-01 C2b, SYS-02b: Schild-Regeneration, Sperre/Immunität, Reparatur und Reaktor-Countdown eines Verbündeten mit Systemmodell (je Tick); abgelaufener Countdown = zerstört (wie hp ≤ 0)
 function allySysTick(game, es, dt) {
+  Gsys.schildTick(game, es, dt);
+  Gsys.nachholen(game, es);
   greparatur().tick(game, es, dt);
   if (gtod().tick(game, es, dt)) disable(game, es);
 }
 // SYS-01 C2b: Neustart der Szene (flotte.neustart): Verbündeter voll, Systeme auf dem Maximum, Countdown aus
 function heile(game, es) {
-  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); } else es.hp = es.hpMax;
+  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); if (es.shieldsMax) es.shields = es.shieldsMax.slice(); es.regenHold = 0; es.repSperre = null; } else es.hp = es.hpMax;   // SYS-02b: auch die Schilde voll
 }
 function disable(game, es) {
   if (es.ally) { if (Gsys.hat(es)) gtod().sofort(es); es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht
@@ -523,7 +543,7 @@ function projectileHit(game, p) {
     if (game.stats.sperrfeuer) game.stats.sperrfeuer.escortHits++;
     return true;
   }
-  hit(game, es, p.dmg, { emp: p.kind === 'emp', von: { x: p.x, y: p.y } });
+  hit(game, es, p.dmg, { emp: p.kind === 'emp', sturm: p.kind === 'sturm', torpedo: p.kind === 'etorpedo', von: { x: p.x, y: p.y } });   // SYS-02b: sturm/torpedo wirken nur bei Verbündeten (Schützlinge: gewöhnlicher Hüllenschaden)
   return true;
 }
 
@@ -636,7 +656,7 @@ function stepEscort(game, es, dt) {
       input = Pilot.escort(game, es, c, g);
     }
   }
-  Flight.stepBody(es, input, c, { speedFactor: es.empT > 0 ? 0 : 1 }, dt);
+  Flight.stepBody(es, input, c, { speedFactor: (es.empT > 0 ? 0 : 1) * zielsys().tempoFaktor(es) }, dt);   // SYS-02b: Antrieb eines Verbündeten (beschädigt ×0,5, zerstört 0 wie bei Gegnern; Schützlinge ohne Systeme: 1)
   // Rand und Abstand zur Lerche
   const m = 40;
   if (es.x < m) { es.x = m; es.vx = Math.max(0, es.vx); }

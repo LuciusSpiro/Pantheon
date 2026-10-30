@@ -27,6 +27,14 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
 const info = (t) => console.log('  info ' + t);
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 const near2 = (a, b) => Math.abs(a - b) < 0.01;
+const Gsys = require('../server/sim/gegnersystem.js');
+// SYS-02a: Torpedo-Wirkung gegen einen Gegner (ein Treffer, Schild 0): genau ein System (nicht der Reaktor) zerstört, der Reaktor um reaktorAnteil × Maximum getroffen (beschädigt)
+const tpAnteil = () => CONFIG.systemModell.torpedo.reaktorAnteil;
+function tpEinTreffer(k) {
+  const rid = Gsys.idVon(k, 'reaktor'); const bk = Gsys.ids(k).filter((id) => k.sys[id].z === 'broken');
+  const erwartet = bk.length === 1 ? Gsys.maxOf(k, bk[0]) + tpAnteil() * Gsys.maxOf(k, rid) : -1;
+  return { ok: bk.length === 1 && bk[0] !== rid && k.sys[rid].z === 'damaged' && near(k.sys[rid].i, (1 - tpAnteil()) * Gsys.maxOf(k, rid), 1e-6), erwartet, bk };
+}
 const f2 = (v) => String(Math.round(v * 100) / 100);
 // SYS-01 A1a: Integrität (Summe über die aktiven Systeme) statt Hülle
 const isum = (g) => { const IN = require('../server/sim/interior.js'); return IN.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] !== undefined && IN.systemAktiv(g, k) ? IN.integOf(g, k) : 0), 0); };
@@ -285,7 +293,8 @@ section('Torpedowerfer: Regeln', () => {
   lauf(T, Katalog.TORPEDO.cooldown + 0.5);
   k.shields = [0, 0, 0, 0]; T.cmd(0, 'weapons.fire', { mount: 'bolzen' });
   t = 0; while (g.stats.torpedoTreffer < 2 && t < 4) { pin(g); T.run(DT); t += DT; }
-  ok(g.space.enemies.includes(k) && Math.abs(k.hp - (220 - Katalog.torpedoSchaden('korvette'))) < 1e-6, `Korvette ohne Schild (Integrität 220): ein Treffer −${Katalog.torpedoSchaden('korvette')}, angeschlagen (${k.hp})`);
+  const tk = tpEinTreffer(k);   // SYS-02a: alte Regel „ein Treffer −9, angeschlagen“ -> neue: System der Zone zerstört + Durchschlag auf den Reaktor (beschädigt)
+  ok(g.space.enemies.includes(k) && tk.ok && Math.abs(k.hp - (220 - tk.erwartet)) < 1e-6, `Korvette ohne Schild (Integrität 220): ein Treffer zerstört ${tk.bk.join(',')} und trifft den Reaktor (−${(220 - k.hp).toFixed(1)}), angeschlagen (${k.hp.toFixed(1)})`);
   ok(Katalog.torpedoSchaden('fregatte') < 22 && Katalog.torpedoSchaden('kreuzer') < 22, 'Fregatte und Kreuzer: derselbe Schaden, also mehrere Treffer');
   // SYS-01 C2a: die Obergrenze bleibt wie bisher hp × 0,8 (vorher spaceM3.enemyHpFactor), die Crew-Faktoren liegen darunter
   ok(Katalog.torpedoSchaden('raider') >= Math.round(CONFIG.enemies.raider.hp * 1 * 0.8) && Katalog.torpedoSchaden('raider') >= 25, 'Jäger-Schaden über jeder Jäger-Hülle (auch bei voller Crew-Skalierung)');
@@ -318,14 +327,17 @@ section('Torpedowerfer: Regeln', () => {
   g.god = false; for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 4;
   const i0 = isum(g);
   const ab0 = g.stats.torpedoAbgeprallt || 0;
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
   ok(isum(g) === i0 && g.ship.shields.current.every((v) => v === 4) && g.stats.torpedoAbgeprallt === ab0 + 1, 'Gegner-Torpedo am stehenden Schild: abgeprallt (Integrität unberührt, Schilde unberührt)');
   for (let i = 0; i < 4; i++) g.ship.shields.current[i] = 0;
   const i1 = isum(g);
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
-  ok(near2(i1 - isum(g), CONFIG.systemModell.torpedoLerche), `Gegner-Torpedo bei Schild 0: ein Treffer −${f2(i1 - isum(g))} Integrität (Torpedo ${CONFIG.systemModell.torpedoLerche})`);
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
+  {   // SYS-02a: alte Regel „ein System −10“ -> neue: System der Zone zerstört (Maximum) + reaktorAnteil × Reaktor-Maximum am Reaktor
+    const zerst = interior.SYSTEM_ORDER.filter((k) => g.ship.systems[k] === 'broken' && k !== 'reactor');
+    ok(zerst.length === 1 && g.ship.systems.reactor === 'damaged' && near2(i1 - isum(g), interior.integMax(g, zerst[0]) + tpAnteil() * interior.integMax(g, 'reactor')), `Gegner-Torpedo bei Schild 0: ein Treffer zerstört ${zerst.join(',')} und trifft den Reaktor: −${f2(i1 - isum(g))} Integrität (Reaktor beschädigt)`);
+  }
   const i2 = isum(g); g.ship.lastDodgeT = g.time;
-  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y, dmg: CONFIG.systemModell.torpedoLerche });
+  space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
   ok(isum(g) === i2, 'Gegner-Torpedo direkt nach der Ausweichrolle: verfehlt');
 });
 
@@ -354,7 +366,7 @@ section('Torpedo: Gegner tragen ihn nur gezielt', () => {
     g.step();
     if (sah && isum(g) < h0) break;
   }
-  ok(sah && g.stats.torpedoLerche === 1 && near2(h0 - isum(g), CONFIG.systemModell.torpedoLerche), 'Gegner-Torpedo fliegt auf die Lerche und trifft: Integrität −' + f2(h0 - isum(g)) + ' (Torpedo ' + CONFIG.systemModell.torpedoLerche + ', ein System der Zone)');
+  ok(sah && g.stats.torpedoLerche === 1 && h0 - isum(g) > tpAnteil() * interior.integMax(g, 'reactor') && g.ship.systems.reactor === 'damaged', 'Gegner-Torpedo fliegt auf die Lerche und trifft: Integrität −' + f2(h0 - isum(g)) + ' (System der Zone zerstört, Reaktor beschädigt)');   // SYS-02a
   // Abwehrturm schießt ihn ab
   const T2 = arena(); const g2 = T2.g; T2.debug('ausbau', '2'); T2.debug('bestueck', '2 abwehrturm'); g2.ship.mount.p2.charge = 1;
   g2.space.projectiles.push({ id: 'prx1', kind: 'etorpedo', x: g2.ship.x - 140, y: g2.ship.y, angle: 0, speed: 100, ttl: 5, dmg: 6, owner: 'e0' });
@@ -388,8 +400,9 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   e.shields[sec] = 0; e.fireT = 5; const hp1 = e.hp;
   g.ship.mount.port.charge = 1; T.cmd(0, 'weapons.fire', { mount: 'port' });
   lauf(T, 1.5, () => { e.fireT = Math.max(e.fireT, 5); });
-  const nHuelle = Math.round((hp1 - e.hp) / w.schaden);
-  ok(e.hp < hp1 && nHuelle >= Math.ceil(w.rohre * 0.6) && nHuelle <= w.rohre && near(hp1 - e.hp, nHuelle * w.schaden, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (${nHuelle} von ${w.rohre} Nadeln treffen, je ${w.schaden})`);
+  const sf = CONFIG.systemModell.sturm.systemFaktor;   // SYS-02a: bei Schild 0 wirkt der Sturm-Schaden × systemFaktor gegen das System
+  const nHuelle = Math.round((hp1 - e.hp) / (w.schaden * sf));
+  ok(e.hp < hp1 && nHuelle >= Math.ceil(w.rohre * 0.6) && nHuelle <= w.rohre && near(hp1 - e.hp, nHuelle * w.schaden * sf, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (${nHuelle} von ${w.rohre} Nadeln treffen, je ${w.schaden} × systemFaktor ${sf})`);
   // Lerche als Ziel (Gegner-Sturm)
   g.god = false; g.ship.shields.current = [4, 4, 4, 4];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
@@ -679,16 +692,18 @@ section('Review-Fixes: Zustandsfaktor, Magazin im einseitigen Gefecht, Abwehrtur
   py.shields[sec] = 4; const hp0 = py.hp; feuer();
   ok(py.hp === hp0 && py.shields[sec] === 4, 'Pylon mit Schild: der Torpedo prallt ab (Schaden 0), Schild unberührt');
   py.shields[sec] = 0; feuer();
-  ok(Math.abs(py.hp - (hp0 - Katalog.torpedoSchaden('pylon'))) < 1e-6, 'Pylon mit ausgefallenem Schildsegment: Torpedo trifft ein System (−' + Katalog.torpedoSchaden('pylon') + ')');
+  const tp = tpEinTreffer(py);   // SYS-02a
+  ok(tp.ok && Math.abs(py.hp - (hp0 - tp.erwartet)) < 1e-6, 'Pylon mit ausgefallenem Schildsegment: Torpedo zerstört ' + tp.bk.join(',') + ' und trifft den Reaktor (−' + (hp0 - py.hp).toFixed(1) + ')');
   q.space.enemies = q.space.enemies.filter((e) => e !== py);
   const kj = gegner(Q, 'korvette', -300, 0, { schild: true, hp: 220 }); kj.shieldsMax = [3, 3, 3, 3]; kj.angle = 0; kj.pin.angle = 0; q.ship.target = kj.id;
   const sk = Physics.sectorOf(kj.x, kj.y, kj.angle, q.ship.x, q.ship.y); kj.shields[sk] = 3; const kh = kj.hp; feuer();
   ok(kj.hp === kh, 'Lesart B gilt für alle Ziele (kein Sonderfall Pylon/Wächter): Korvette mit stehendem Schild -> Schaden 0');
   kj.shields[sk] = 0; const kh2 = kj.hp; feuer();
-  ok(Math.abs(kj.hp - (kh2 - 9)) < 1e-6, 'Lesart B: ausgefallenes Schildsegment -> Treffer (−9)');
+  const tj = tpEinTreffer(kj);   // SYS-02a: alte Regel „−9“ -> System zerstört + Reaktor-Durchschlag
+  ok(tj.ok && Math.abs(kj.hp - (kh2 - tj.erwartet)) < 1e-6, 'Lesart B: ausgefallenes Schildsegment -> Treffer (System zerstört, Reaktor getroffen −' + (kh2 - kj.hp).toFixed(1) + ')');
   Katalog.TORPEDO.schildUmgehung = 'immer';   // nur noch Testschalter (Lesart A)
   kj.shields[sk] = 3; q.ship.target = kj.id; const kh3 = kj.hp; feuer();
-  ok(Math.abs(kj.hp - (kh3 - 9)) < 1e-6, 'Testschalter Lesart A (immer): Korvette mit Schild wird getroffen (−9)');
+  ok(kj.hp < kh3 - 1e-6 && Gsys.ids(kj).filter((id) => kj.sys[id].z === 'broken').length >= 2 && kj.sys[Gsys.idVon(kj, 'reaktor')].z === 'broken', 'Testschalter Lesart A (immer): Korvette mit Schild wird getroffen (zweites System zerstört, zweiter Treffer zerstört den Reaktor; −' + (kh3 - kj.hp).toFixed(1) + ')');
   Katalog.TORPEDO.schildUmgehung = 'nur-ohne-schild';
 
   // M3: Torpedo-Lager hart 12 auch bei Funden; Überhang wird zu Marken

@@ -878,11 +878,13 @@ function updateHold(game, p, dt) {
   const h = p.hold;
   if (h.kind === 'minigame') {   // M3a §8.1: kein E nötig, kein automatisches Ende; Bewegung/Konsole brechen ab
     if (p.moving || p.console || p.downed || p.zone !== 'ship' || !holdValid(game, p, h)) { p.hold = null; return; }
+    if (reparaturGesperrt(game, h.system)) { h.t = 0; return; }   // SYS-02a: Sturm-Sperre der Zone
     h.t += dt;
     return;
   }
   if (!p.actDown || p.moving || p.console) { p.hold = null; return; }
   if (!holdValid(game, p, h)) { p.hold = null; return; }
+  if (REPAIR_KINDS.includes(h.kind) && reparaturGesperrt(game, h.system)) { h.t = 0; return; }   // SYS-02a: Sturm-Sperre der Zone: kein Fortschritt
   h.t += dt * (REPAIR_KINDS.includes(h.kind) ? sonderRate(game, h.system) : 1);   // SYS-01 A2a: am zerstörten Reaktor zählt die Zahl der Arbeiter
   if ((h.kind === 'flick' || h.kind === 'swap' || h.kind === 'reboot' || h.kind === 'salvage' || h.kind === 'hollow' || h.kind === 'jammer' || h.kind === 'archkey' || h.kind === 'tablet') && Math.floor((h.t - dt) / 0.5) !== Math.floor(h.t / 0.5)) game.emit('sfx', { name: 'repair_tick', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   if (h.t < h.dur) return;
@@ -1152,7 +1154,8 @@ function syncInteg(game, sys) {
 function systemTreffer(game, sys, schaden, opts) {
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
-  const dmg = Number(schaden) || 0;
+  let dmg = Number(schaden) || 0;
+  if (opts && opts.zerstoeren && s[sys]) dmg = Math.max(dmg, integMax(game, sys));   // SYS-02a: Torpedo – Schaden mindestens das Maximum des Systems (zerstört sicher)
   if (!s[sys] || !(dmg > 0)) return null;
   const v = Math.max(0, integOf(game, sys) - dmg);
   setInteg(game, sys, v);
@@ -1195,6 +1198,34 @@ function trefferweg(game, zone, schaden, opts) {
   const pick = game.rng.pick(kand);
   const r = systemTreffer(game, pick, schaden, opts);
   return { system: pick, state: s[pick], wechsel: !!r };
+}
+// Hat die Zone (0–3, -1 = Mitte) noch ein aktives, nicht zerstörtes System? (Trefferweg, Torpedo: eine leere Zone hat kein System zum Zerstören)
+function zoneFrei(game, zone) {
+  const s = game.ship.systems;
+  return SYSTEM_ORDER.some((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] !== 'broken');
+}
+// SYS-02a (Kai 2026-10-28): Reparatursperre durch Sturm-Treffer. Die Zone (0–3, -1 = Mitte) ist s Sekunden gesperrt: der Fortschritt laufender Reparaturen dort
+// (Spieler am Halten, Schrauber-Bots) steigt nicht und wird bei Beginn auf 0 gesetzt (voller Rückschlag, stärker als repairHitLoss). Die Sonderreparatur des Reaktors
+// gilt wie jede Reparatur; der Reaktor-Countdown läuft unabhängig weiter. Die Sperre verlängert sich nur durch weitere Sturm-Treffer.
+function reparaturSperren(game, zone, s) {
+  if (!(s > 0)) return;
+  const ship = game.ship;
+  const S = ship.repSperre || (ship.repSperre = {});
+  S[zone] = Math.max(S[zone] || 0, game.time + s);
+  for (const p of game.players) {
+    const h = p.hold;
+    if (!h || !REPAIR_KINDS.includes(h.kind) || systemSector(h.system) !== zone || !(h.t > 0)) continue;
+    h.t = 0;
+  }
+  for (const b of game.bots) {
+    const t = b.task;
+    if (!t || t.kind !== 'repair' || t.phase !== 'work' || systemSector(t.system) !== zone || !(b.progress > 0)) continue;
+    b.progress = 0;
+  }
+}
+function reparaturGesperrt(game, sys) {
+  const S = game.ship.repSperre;
+  return !!S && game.time < (S[systemSector(sys)] || 0);
 }
 // Schwächste Seite (Zonen 0–3): Anteil der Integrität der aktiven Systeme am Maximum (ODA-Warnung unter 40 %)
 function schwaechsteZone(game) {
@@ -1458,7 +1489,8 @@ function updateHazards(game, dt) {
     }
   }
   for (const b of ship.breachList) b.t += dt;   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (sie entfällt)
-  // Softlock-Schutz: Notreparatur, wenn kein Teil mehr verfügbar ist
+  // Softlock-Schutz: Notreparatur, wenn kein Teil mehr verfügbar ist. SYS-02a (Kai, Nacharbeit): beachtet die Sturm-Reparatursperre bewusst NICHT (reparaturGesperrt) – ohne Ersatzteile
+  // und ohne Arbeitenden greift sie nach brokenDelay (45 s) auch in einer gesperrten Zone, damit der Sturm keinen Softlock erzeugt (die Sperre dauert nur 6 s, kein Dauerlock, aber der Schutz bleibt dicht).
   const carried = (kind) => game.players.some((p) => p.carry === kind) || game.bots.some((b) => b.carry === kind) ||
     ship.groundItems.some((i) => i.kind === kind);
   const noParts = game.inventory.ersatzteil <= 0 && !carried('ersatzteil');
@@ -1523,7 +1555,7 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
-  integMax, integOf, setInteg, grundwert, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
+  integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,
