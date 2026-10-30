@@ -1148,37 +1148,65 @@ function syncInteg(game, sys) {
     if (v <= 0 || v >= schwelleOf(game) * max) setInteg(game, sys, grundwert(game, sys, 'damaged'));
   }
 }
-// Integritätsschaden auf ein System (Trefferweg, Sturm, Streu). Punkte ab, Zustand aus den Schwellen.
-// Geflicktes (ok, fragil) bricht beim Treffer direkt. Rückgabe: { system, state } bei Zustandswechsel, sonst null.
-function systemTreffer(game, sys, schaden, opts) {
+// SYS-03 B1: Stufenregel statt Punktabzug. Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört),
+// unabhängig von der Schadenszahl. Die Integrität (ship.integ) ist nur noch der aus der Stufe abgeleitete Wert (syncInteg in damageSystem).
+// Geflicktes (ok, fragil) bricht beim Treffer direkt. Treffer-Fenster: ein System, das gerade eine Stufe verloren hat, verliert innerhalb von
+// systemModell.trefferFenster_s keine weitere (ship.trefferT[sys] = Zeitpunkt des letzten Stufenverlusts, nicht im Snapshot).
+function trefferFenster(game) { const v = Number(sysModell(game).trefferFenster_s); return v > 0 ? v : 0; }
+function imFenster(game, sys) {
+  const t = game.ship.trefferT && game.ship.trefferT[sys];
+  if (t == null) return false;
+  const d = game.time - t;
+  return d >= 0 && d < trefferFenster(game);
+}
+function fensterStempeln(game, sys) { (game.ship.trefferT || (game.ship.trefferT = {}))[sys] = game.time; }
+// Eine Stufe tiefer (Kern ohne Fenster: Torpedo-Durchschlag auf den Reaktor nutzt ihn direkt). opts.dauer: Dauerdruck bricht das Fracht-Beamen nicht ab.
+// Rückgabe: { system, state } bei Zustandswechsel, sonst null.
+function stufeAb(game, sys, opts) {
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
-  let dmg = Number(schaden) || 0;
-  if (opts && opts.zerstoeren && s[sys]) dmg = Math.max(dmg, integMax(game, sys));   // SYS-02a: Torpedo – Schaden mindestens das Maximum des Systems (zerstört sicher)
-  if (!s[sys] || !(dmg > 0)) return null;
-  const v = Math.max(0, integOf(game, sys) - dmg);
-  setInteg(game, sys, v);
+  if (!s[sys]) return null;
   if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
-  const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe: der Treffer mindert die Integrität und merkt sich den Schaden
-  let ziel = null;
-  const zl = Integ.zustandVon(v, integMax(game, sys), schwelleOf(game));
-  if (zl === 'broken') ziel = 'broken';
-  else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
-  else if (zl === 'damaged') ziel = 'damaged';
-  if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
+  const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe
+  if (before === 'broken') return null;
+  const ziel = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
   damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
-  return effZustand(game, sys) !== before ? { system: sys, state: s[sys] } : null;
+  if (effZustand(game, sys) === before) return null;
+  fensterStempeln(game, sys);
+  return { system: sys, state: s[sys] };
 }
-// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives System der Zone (Offline/EMP bleibt im Topf).
-// Leer heißt: alle aktiven Systeme der Zone sind zerstört. Dann geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
-// Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer).
-function trefferweg(game, zone, schaden, opts) {
+// Direkttreffer (Schild 0): eine Stufe, außer das System steht im Treffer-Fenster (dann null, der Trefferweg wählt vorher ein anderes).
+function direktTreffer(game, sys, opts) {
+  if (imFenster(game, resolveSystem(game, sys, false))) return null;
+  return stufeAb(game, sys, opts);
+}
+// Torpedo: zerstört das getroffene System sicher (auch im Fenster).
+function zerstoerenTreffer(game, sys) {
+  const s = game.ship.systems;
+  sys = resolveSystem(game, sys, false);
+  if (!s[sys]) return null;
+  Fracht.systemTreffer(game, sys);
+  const before = effZustand(game, sys);
+  if (before === 'broken') return null;
+  damageSystem(game, sys, 'broken');
+  if (effZustand(game, sys) === before) return null;
+  fensterStempeln(game, sys);
+  return { system: sys, state: s[sys] };
+}
+// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives System der Zone (Offline/EMP bleibt im Topf), das nicht im Treffer-Fenster steht.
+// Leer heißt: alle aktiven Systeme der Zone sind zerstört. Dann geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). Stehen alle freien Systeme
+// der Zone im Fenster, verfällt der Treffer (kein Überlauf deswegen). zone: 0–3 oder -1 (Mitte). opts: { ziel, zugewandt, dauer, zerstoeren }.
+// Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer, oder alles im Fenster).
+function trefferweg(game, zone, opts) {
   const s = game.ship.systems;
   const frei = (k) => systemAktiv(game, k) && s[k] !== 'broken';
+  const zerst = !!(opts && opts.zerstoeren);
+  const treffbar = (k) => frei(k) && (zerst || !imFenster(game, k));
+  const treffen = (k) => (zerst ? zerstoerenTreffer(game, k) : direktTreffer(game, k, opts));
   // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
   const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k));
   if (frag.length) {
-    for (const k of frag) damageSystem(game, k, 'broken');
+    for (const k of frag) { damageSystem(game, k, 'broken'); fensterStempeln(game, k); }
     return { system: frag[0], state: s[frag[0]], wechsel: true };
   }
   // SYS-01 C1b-1 (Zielsystem der Ops, nur Gegner-Angriffe mit Schalter und Lerche-Angriffe): das Ziel trifft sicher, wenn es in der Zone des Treffers liegt
@@ -1187,15 +1215,16 @@ function trefferweg(game, zone, schaden, opts) {
   const erreichbarZone = (sz, zug) => sz === zug || (sz === -1 && zug != null && !zoneFrei(zug));
   const ziel = opts && opts.ziel;
   const zielZone = zone !== -1 && !zoneFrei(zone) ? -1 : zone;   // Überlauf wie Gsys.treffen: eine leere Zone läuft in die Mitte, ein Ziel der Mitte gilt dann
-  if (ziel && frei(ziel) && systemSector(ziel) === zielZone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
-    const r = systemTreffer(game, ziel, schaden, opts);
+  if (ziel && treffbar(ziel) && systemSector(ziel) === zielZone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
+    const r = treffen(ziel);
     return { system: ziel, state: s[ziel], wechsel: !!r, gezielt: true };
   }
   let kand = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && frei(k));
   if (!kand.length) kand = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && frei(k));
+  kand = kand.filter(treffbar);
   if (!kand.length) return null;
   const pick = game.rng.pick(kand);
-  const r = systemTreffer(game, pick, schaden, opts);
+  const r = treffen(pick);
   return { system: pick, state: s[pick], wechsel: !!r };
 }
 // Hat die Zone (0–3, -1 = Mitte) noch ein aktives, nicht zerstörtes System? (Trefferweg, Torpedo: eine leere Zone hat kein System zum Zerstören)
@@ -1554,7 +1583,7 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
-  integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
+  integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,

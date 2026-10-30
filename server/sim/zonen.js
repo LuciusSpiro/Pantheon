@@ -225,8 +225,12 @@ function druck(game, sector, pts) {
   const absorb = Math.min(cur, rest);
   if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
   if (rest > 0) {
-    const D = require('./damage.js'); const M = game.C.systemModell || {};
-    D.systemSchaden(game, { systems: [] }, sector, rest * (Number(M.schadenFaktor) || 1), { dauer: true });   // Dauerdruck bricht kein Schöpfen/Beamen ab (wie bisher)
+    // SYS-03 B1: Stufenregel. Die Punkte ohne Schild sammeln sich (zonen.druckPunkte je Stufe), höchstens eine Stufe je Takt auf ein System der Sektor-Zone (Treffer-Fenster gilt).
+    const D = require('./damage.js');
+    const K = Math.max(1, Number((game.C.zonen || {}).druckPunkte) || 12);
+    const A = state(game).akk;
+    A.sys = Math.min(K, (A.sys || 0) + rest);
+    if (A.sys >= K) { A.sys -= K; D.systemSchaden(game, { systems: [] }, sector, { dauer: true }); }   // Dauerdruck bricht kein Schöpfen/Beamen ab (wie bisher)
   }
   game.stats.hits++;
   game.emit('hit', rest > 0 ? { sector, shield: false, dmg: Math.round(rest * 10) / 10, heavy: false, absorbed: absorb } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });

@@ -121,7 +121,7 @@
       preise: { deuterium: 40 }, gewicht: { deuterium: 0.15 }, abwurfAbstand: 70 },
     // SL6: Zonen mit Wirkung (shared/zonen.js, server/sim/zonen.js). takt = Sekunden, nach denen angesammelter Zonenschaden als Treffer ankommt
     // (ganze Punkte, kein Dauerfeuer von Treffer-Ereignissen). hitzeSysteme = Energiesysteme, die die Zonenhitze aufnehmen (nur ab hitzeMinEnergie).
-    zonen: { takt: 1, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
+    zonen: { takt: 1, druckPunkte: 12, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
     // EK3 Teil B: Konvoi-Szene (server/sim/konvoi.js, CONTRACT-EK3B). Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus
     // Wegpunkten (Anteile der Szene, Länge × Breite) und springen am Ende. Eskorte (Jäger, Korvette) fährt mit, bis die Lerche näher als wachRadius
     // kommt oder ein Konvoi-Schiff getroffen wird (dann Klassen-KI wie jeder Gegner). tempo = Anteil der Höchstfahrt (die nächste Stufe wird gewählt),
@@ -325,7 +325,7 @@
       // Minen: zünd = Annäherung der Lerche (nicht bei ihrem Besitzer), spreng = Reichweite der Explosion (Lerche und Schiffe darin),
       // treffer = Trefferradius für Strahl und Geschosse, sicht = Mine ist in dieser Nähe auch ohne Weitscan zu sehen.
       // punkte = Systemschaden (je Schritt ein Zustand tiefer: ok → beschädigt = 1, → zerstört = 2), gegner = Schaden an Schiffen im Radius (ohne Schilde).
-      mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, punkte: 6, gegner: 20, abstand: 90 },
+      mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, gegner: 20, abstand: 90 },
       // Signatur 0..1: ruhe + (1 − ruhe) × (Tempo/tempoRef)^exponent, × schildeUnten, × asteroid.faktor (Brocken näher als asteroid.abstand),
       // × nebel.faktor (nur mit nebel.schalter; E4: in der Kampagne aus), Weitscan setzt pingDauer s lang auf pingSig.
       signatur: { ruhe: 0.15, tempoRef: 130, exponent: 1, schildeUnten: 0.5, min: 0.04, asteroid: { abstand: 110, faktor: 0.6 },
@@ -663,19 +663,20 @@
       pilotFire: { raider: { fireInterval: 1.9, lead: 1 } },
     },
     // ================= SYS-01 A1a „Das Schiff in Zonen“ (Konzept: Vault Pantheon/Mechanik/Systemmodell Zonen) – alles per `tune systemModell.<pfad>` =================
-    // Integrität je System (Punkte). Ein Treffer ohne Schild zieht Punkte ab (Rest × schadenFaktor). Zustände werden daraus getrieben:
-    // Integrität ≤ 0 -> zerstört; unter schwelle × Maximum -> beschädigt; sonst ok. Reparatur setzt den Grundwert der Stufe.
+    // SYS-03 B1: Stufenregel. Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört), egal wie hoch der Schaden ist.
+    // Die Integrität (Punkte) ist nur der aus der Stufe abgeleitete Wert (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0; Snapshot ship.integ in Prozent).
+    // trefferFenster_s: ein System, das gerade eine Stufe verloren hat, verliert innerhalb dieser Zeit keine weitere (Salven im selben Moment brauchen nicht zwei Stufen auf).
     systemModell: {
       integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, Zustandsschwellen)
       schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
-      schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
+      trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone
       // SYS-02a (Kai 2026-10-28): Torpedo tut weh, gleiche Regel gegen Lerche und Gegner (Verbündete wie Gegner). Er wirkt nur auf ein Segment mit Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher
       // (Schaden = mindestens dessen Maximum, keine Zahl hier) und schlägt auf die Mitte durch: reaktorAnteil × Reaktor-Maximum Integritätsschaden am REAKTOR (0,5: zwei Treffer zerstören ihn, der erste lässt ihn beschädigt).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
       torpedo: { reaktorAnteil: 0.5 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
-      sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
+      sturmSchaden: 1,            // NUR GEGNER-SEITE (space.js, B2 stellt um): Lerche liest ihn seit SYS-03 B1 nicht mehr; Sturm bei niedrigem Schild = eine Stufe (Chance ST.systemChance, Katalog)
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
       // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). systemFaktor: bei Schild ≤ niedrig oder 0 wirkt der Sturm-Schaden × Faktor gegen das System.
       sturm: { reparaturSperre_s: 6, systemFaktor: 1.5 },
