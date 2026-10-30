@@ -10,6 +10,7 @@
 //   vorschau(vorlage) -> [Schritt]      die Vorschau aus den Daten der Vorlage (Test, Snapshot)
 //   beiEnde(game, faden, ausgang)       (Aufrufer: faden.beatAusgang) Ende eines Abenteuers: Chronik-Zeile aus Daten, Logbuch ohne Titel, Anschluss-Garantie
 //   beiTaetigkeit(game) / beiUpdate(game) / anschluss(game) -> Angebot | null   Anschluss-Garantie: kein Angebot und kein laufendes Abenteuer -> ein deterministischer Rueckfall aus anschluss.json (ohne Modell)
+//   hinweisAnbieten(game, angebot)      SUND-04b F: Funkzeile "Neuer Auftrag am Brett" (Text aus den Daten, Titel gekuerzt ohne Spielernamen), einmal je Angebot-Id, hoechstens eine je Taetigkeitszaehler F.t; nie beim Laden (lesen) und ohne Spielleiter nicht
 //   toSave(F) / lesen(block, F)         Weltstand welt.sim.faeden.abenteuer { zuletzt?, angebote?: [{ hex, alter, plan, volk? }] } (additiv, muellfest; die Plaene laufen erneut durch den Pruefer)
 // SUND-04b E1/E3: der Kanon (abenteuer-kanon.js) haelt fest, was ein Abenteuer erfindet; die Wiederholungsregeln (abenteuer-wiederholung.js) gelten fuer jeden Plan des Spielleiters (faden.js abenteuerNeuAnbieten) und fuer den Rueckfall (passt: stufenweise gelockert, Ort, Folge, NSC).
 // Ohne Schalter FAEDEN=1 oder ohne aktiven Lage-Spielleiter tut der Rueckfall nichts (die Angebote bleiben bis zum Verfall, begonnene Abenteuer stehen).
@@ -241,6 +242,20 @@ function beiEnde(game, f, ausgang) {
   anschluss(game);
 }
 
+// ---------- Funk-Hinweis (SUND-04b F): ein neues Angebot kommt auf das Brett -> eine Funkzeile an alle Clients (kein Annehmen per Funk). Aufrufer: faden.js anbietenMit (Komposition und Rueckfall), nie lesen (Laden)
+function hinweisAnbieten(game, angebot) {
+  const F = game && game.weltsim && game.weltsim.faeden;
+  if (!F || !angebot || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
+  const b = brett(F);
+  if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; }
+  if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;   // einmal je Id, hoechstens einer je Taetigkeitszaehler (Grenze)
+  gemerkt(b.hinweise, angebot.nr, BW.antworten_gemerkt);
+  b.hinweisT = F.t;
+  const titel = kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max);
+  try { game.emit('radio', { from: BW.hinweis_funk_sprecher, text: fmt(BW.hinweis_text, { titel }), lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); return false; }
+  return true;
+}
+
 // ---------- Anschluss-Garantie: nach dem Ende ist mindestens ein neues Angebot da. Der Komponist (A2) kann ausfallen, im Cooldown sein oder zu spaet antworten: dann bietet ein deterministischer Rueckfall
 // einen Standard-Bauplan an (anschluss.json), durch denselben Expander und denselben Pruefer, ohne Modell.
 // stufe k: die k aeltesten Ablehnungen sind freigegeben; stufe > Zahl der Ablehnungen: auch zuletzt (siehe anschluss: es bleibt immer ein passender Plan, solange einer passt)
@@ -310,4 +325,4 @@ function lesen(b, F) {   // muellfest: Unbrauchbares faellt weg (Meldung in F.la
   return F;
 }
 
-module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, beiTaetigkeit, beiUpdate, anschluss, toSave, lesen, weigerung, schrittText };
+module.exports = { snapshot, schluessel, annehmen, ablehnen, vorschau, marken, kuerzen, beiEnde, hinweisAnbieten, beiTaetigkeit, beiUpdate, anschluss, toSave, lesen, weigerung, schrittText };

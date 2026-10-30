@@ -298,6 +298,7 @@ function anbietenMit(game, bauplan, o, wiederholung) {
   const a = { nr: ++F.angNr, art: 'abenteuer', ref: r.vorlage.id, hex: o.hex, volk: volkVonHex(game, o.hex) || '', vorlage: r.vorlage, alter: 0 };
   F.abenteuerAngebote.push(a);
   melde(game, 'abenteuer_angeboten', r.vorlage.id, `Abenteuer ${r.vorlage.id} als Angebot ${a.nr} bei ${o.hex}`, { vorlage: r.vorlage.id, angebot: a.nr });
+  try { require('./abenteuer-brett.js').hinweisAnbieten(game, a); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); }   // SUND-04b F: Funk-Hinweis (nicht beim Laden: lesen legt Angebote selbst an)
   return { ok: true, angebot: a };
 }
 function abenteuerOeffnen(game, nr, p) {

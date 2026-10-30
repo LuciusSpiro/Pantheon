@@ -126,6 +126,18 @@ const MUTATIONEN = [
   ["server/sim/abenteuer-brett.js", "if (!out.includes(b.typ)) out.push(b.typ);", "out.push(b.typ);", "typen: derselbe Typ steht mehrfach in der Liste"],
   ["server/sim/abenteuer-brett.js", "return out.slice(0, BW.typen_max);", "return out;", "typen: die Liste ist nicht begrenzt"],
   ["server/sim/abenteuer-brett.js", "const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max),", "const e = { id: 'a' + a.nr, titel: String(a.vorlage.titel),", "Snapshot: der Titel des Angebots wird nicht gekuerzt"],
+  // SUND-04b F: Funk-Hinweis fuer neue Angebote
+  ["server/sim/abenteuer-brett.js", "if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;", "if (b.hinweisT === F.t) return false;", "Hinweis: dieselbe Angebot-Id meldet sich mehrfach"],
+  ["server/sim/abenteuer-brett.js", "if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;", "if (b.hinweise.includes(angebot.nr)) return false;", "Hinweis: mehrere Hinweise in derselben Taetigkeitsgrenze"],
+  ["server/sim/abenteuer-brett.js", "  b.hinweisT = F.t;\n", "", "Hinweis: die Taetigkeitsgrenze wird nicht gemerkt"],
+  ["server/sim/abenteuer-brett.js", "  gemerkt(b.hinweise, angebot.nr, BW.antworten_gemerkt);\n", "", "Hinweis: die Angebot-Id wird nicht gemerkt"],
+  ["server/sim/abenteuer-brett.js", "kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max)", "ohneNamen(game, String(angebot.vorlage.titel))", "Hinweis: der Titel wird nicht gekuerzt"],
+  ["server/sim/abenteuer-brett.js", "kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max)", "kuerzen(String(angebot.vorlage.titel), BW.hinweis_titel_max)", "Hinweis: ein Spielername im Titel bleibt im Funk"],
+  ["server/sim/abenteuer-brett.js", "|| !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;\n  const b = brett(F);", "|| !Faden().aktiv(game)) return false;\n  const b = brett(F);", "Hinweis: auch ohne Spielleiter"],
+  ["server/sim/abenteuer-brett.js", "lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk'", "lage: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk'", "Hinweis: kein Funk eines Fadens (fd) fuer den Client-Ton"],
+  ["server/sim/faden.js", "try { require('./abenteuer-brett.js').hinweisAnbieten(game, a); }", "try { /* kein Hinweis */ }", "Hinweis: ein neues Angebot meldet sich nicht"],
+  ["content/faeden/abenteuer-brett.json", "\"wert\": \"Neuer Auftrag am Brett: {titel}\"", "\"wert\": \"Neuer Auftrag am Brett: {titel} ({name})\"", "Daten: der Hinweis nennt einen Namen"],
+  ["content/faeden/abenteuer-brett.json", "\"hinweis_titel_max\": {\n      \"wert\": 36,", "\"hinweis_titel_max\": {\n      \"wert\": 90,", "Daten: der Titel im Hinweis wird nicht gekuerzt"],
 ];
 
 {

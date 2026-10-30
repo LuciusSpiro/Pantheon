@@ -77,6 +77,21 @@
       "einheit": "Text",
       "_hinweis": "Sprecher, wenn der Kanal des Hinweises keinen hat (null in hinweis_sprecher)."
     },
+    "hinweis_text": {
+      "wert": "Neuer Auftrag am Brett: {titel}",
+      "einheit": "Text",
+      "_hinweis": "SUND-04b F: Funkzeile, wenn ein neues Abenteuer-Angebot auf das Brett kommt (Komposition oder Anschluss-Rueckfall; nur ein Hinweis, kein Annehmen per Funk). Platzhalter nur {titel} (Modelltext, ohne Spielernamen, auf hinweis_titel_max gekuerzt); nie ein NSC-Name."
+    },
+    "hinweis_titel_max": {
+      "wert": 36,
+      "einheit": "Zeichen",
+      "_hinweis": "Laenge des Titels in der Funkzeile (gekuerzt mit …)."
+    },
+    "hinweis_funk_sprecher": {
+      "wert": "Auftragsbrett",
+      "einheit": "Text",
+      "_hinweis": "Sprecher der Funkzeile des Bretts."
+    },
     "kanon_max": {
       "wert": 40,
       "einheit": "Eintraege",

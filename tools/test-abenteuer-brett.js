@@ -635,6 +635,61 @@ section('Drei Spieler, ein Raum: dieselbe Anzeige fuer alle, die Crew entscheide
   ok(g.errors === 0, 'keine Serverfehler');
 });
 
+section('Funk-Hinweis (SUND-04b F): ein neues Angebot meldet sich einmal im Funk, nie beim Laden, Text aus den Daten', () => {
+  const HW_ = BRETT.werte, PRE = HW_.hinweis_text.wert.split('{titel}')[0], TMAX = HW_.hinweis_titel_max.wert;
+  const hinweise = (t) => t.cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'radio' && typeof m.text === 'string' && m.text.startsWith(PRE));
+  ok(PRE === 'Neuer Auftrag am Brett: ' && TMAX > 0 && typeof HW_.hinweis_funk_sprecher.wert === 'string' && TMAX === 36, 'Daten: Text, Titelgrenze und Sprecher stehen in abenteuer-brett.json');
+  // Spielstart: der Rueckfall legt ein Angebot an, ein Hinweis (nicht bei jedem Snapshot)
+  const t = neu(33), g = t.g;
+  for (let i = 0; i < 250; i++) g.step();
+  for (let i = 0; i < 20; i++) g.snapshot();
+  const h0 = hinweise(t);
+  ok(offen(g).length === 1 && h0.length === 1, 'Spielstart: genau ein Angebot, genau ein Hinweis (auch nach vielen Snapshots und Takten: ' + h0.length + ')');
+  ok(h0[0].from === HW_.hinweis_funk_sprecher.wert && h0[0].fd === 1 && h0[0].lage === 1 && h0[0].r === 1, 'Funkzeile: Sprecher aus den Daten, Funk eines Fadens (fd 1, Lagefunk, Funk-Reiter)');
+  const titelZ = offen(g)[0].vorlage.titel;
+  ok(h0[0].text === PRE + Brett.kuerzen(titelZ, TMAX), 'Text = Satz aus den Daten + Titel des Angebots');
+  ok(!Brett.hinweisAnbieten(g, offen(g)[0]) && hinweise(t).length === 1, 'dieselbe Angebot-Id meldet sich nie ein zweites Mal');
+  grenzen(g, 1);
+  ok(!Brett.hinweisAnbieten(g, offen(g)[0]) && hinweise(t).length === 1, 'auch nach einer Taetigkeit meldet sich dieselbe Angebot-Id nicht erneut');
+  // nach Ablehnen: ein neues Angebot (neue Id) meldet sich einmal
+  const id1 = 'a' + offen(g)[0].nr;
+  t.ab(id1);
+  grenzen(g, 1);
+  for (let i = 0; i < 250; i++) g.step();
+  ok(offen(g).length === 1 && 'a' + offen(g)[0].nr !== id1 && hinweise(t).length === 2, 'nach Ablehnen: das Ersatz-Angebot meldet sich genau einmal (' + hinweise(t).length + ')');
+  for (let i = 0; i < 300; i++) g.step();
+  ok(hinweise(t).length === 2, 'weitere Takte ohne neues Angebot: kein weiterer Hinweis');
+  // Komposition (direkter Weg) mit langem Titel und Spielername: gekuerzt, ohne Namen
+  const t2 = neu(51, { env: { ABENTEUER_ANSCHLUSS: '0' } }), g2 = t2.g;
+  const lang = bitteplan(1, { titel: 'Probe ' + NAMEN[0] + ' ' + 'langer Titel '.repeat(3) });
+  const r = anbieten(g2, lang);
+  const h = hinweise(t2);
+  ok(r.ok && h.length === 1 && h[0].text.length <= PRE.length + TMAX, 'langer Titel: Funkzeile hoechstens Satz + ' + TMAX + ' Zeichen (' + (h[0] && h[0].text.length) + ')');
+  ok(h[0] && h[0].text.endsWith('…') && !NAMEN.some((nm) => h[0].text.includes(nm) || h[0].text.includes(nm.replace('_', ' '))), 'gekuerzt mit …, kein Spielername');
+  // hoechstens ein Hinweis je Taetigkeitsgrenze
+  const r2 = anbieten(g2, bitteplan(2), '0305');
+  ok(r2.ok && hinweise(t2).length === 1, 'zweites Angebot in derselben Taetigkeitsgrenze: kein zweiter Hinweis');
+  grenzen(g2, 1);
+  const r3 = anbieten(g2, bitteplan(3), '0305');
+  ok(r3.ok && hinweise(t2).length === 2, 'nach der naechsten Taetigkeit meldet sich ein neues Angebot wieder');
+  // kein Hinweis beim Laden
+  wipe(g2); grenzen(g2, 1);
+  anbieten(g2, bitteplan(4), '0305'); grenzen(g2, 1);
+  const sim = JSON.parse(JSON.stringify(Weltstand.capture(g2).welt.sim));
+  D.zuruecksetzen();
+  const t3 = neu(52, { env: { ABENTEUER_ANSCHLUSS: '0' } });
+  const vor = hinweise(t3).length;
+  Kriegslage.restore(t3.g, sim);
+  for (let i = 0; i < 100; i++) t3.g.step();
+  ok(offen(t3.g).length >= 1 && hinweise(t3).length === vor, 'nach dem Laden: Angebote da, kein Hinweis');
+  // ohne Spielleiter und ohne Schalter: kein Hinweis
+  const t4 = neu(53, { env: { ABENTEUER_ANSCHLUSS: '0' } }); t4.g.lageSpielleiter.dispose(); anbieten(t4.g, bitteplan(5));
+  ok(hinweise(t4).length === 0, 'ohne Spielleiter: kein Hinweis');
+  const t5 = neu(54, { env: { FAEDEN: '' } }); grenzen(t5.g, 2); for (let i = 0; i < 300; i++) t5.g.step();
+  ok(hinweise(t5).length === 0 && t5.g.errors === 0, 'ohne FAEDEN: kein Hinweis');
+  ok(g.errors === 0 && g2.errors === 0, 'keine Serverfehler');
+});
+
 section('Ohne Schalter nichts: kein Feld, kein Logbuch, kein Zustand', () => {
   const t = neu(91, { env: { FAEDEN: '' } }), g = t.g;
   for (let i = 0; i < 300; i++) g.step();

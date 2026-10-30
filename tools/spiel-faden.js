@@ -318,8 +318,9 @@ function client(port, hello, name) {
   // 6. Sabotage-Auftrag: Ziel nennen, ECHTE Sprünge, den Posten sprengen
   {
     flieg('0305'); await sleep(300);
-    const z = g.weltsim.zustand, ziel = '0505';
-    const pflanze = () => { Object.assign(z.hexe[ziel], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); if (g.weltBesitz && g.weltBesitz.hexe[ziel]) g.weltBesitz.hexe[ziel] = { besitzer: 'ger', posten: true }; z.flotten = z.flotten.filter((x) => x.ort !== ziel); g.weltsim.ruf.rom = Math.max(g.weltsim.ruf.rom, 1); };
+    const z = g.weltsim.zustand, pflanzOrt = '0505';   // 0505 ist nur die Garantie, dass es ein Ziel gibt; WELCHES Ziel der Beat waehlt (ziele(game), z. B. 0703 mit 6 Spruengen), entscheidet er: danach gilt f.parameter.ort
+    let ziel = pflanzOrt;
+    const pflanze = () => { Object.assign(z.hexe[pflanzOrt], { besitzer: 'ger', posten: true, garnison: 4, anspruch: {} }); if (g.weltBesitz && g.weltBesitz.hexe[pflanzOrt]) g.weltBesitz.hexe[pflanzOrt] = { besitzer: 'ger', posten: true }; z.flotten = z.flotten.filter((x) => x.ort !== pflanzOrt); g.weltsim.ruf.rom = Math.max(g.weltsim.ruf.rom, 1); };
     pflanze();
     const B2 = require('../server/sim/faden-b2.js');
     zeile('Sabotage: Lage vor dem Plan: Ziele ' + JSON.stringify(B2.ziele(g)) + ', Kontext faeden.lage.sabotage_ziel ' + B2.lage('sabotage_ziel').zahl(g));
@@ -330,25 +331,37 @@ function client(port, hello, name) {
     if (f && gestartet) {
       zeile('Sabotage: Beat läuft, Ziel ' + Sektoren.hexName(f.parameter.ort) + ' (' + f.parameter.ort + '), Pause im Stand ' + JSON.stringify(g.weltsim.faeden.sabotage) + '; Funk: ' + funkSeit(n0).slice(0, 200));
       pflanze();
-      const da = await springe(f.parameter.ort); await sleep(300);
+      ziel = f.parameter.ort;   // das Ziel des Beats: Springen, Schiffsposition (Posten-Koordinaten) und Pruefung gelten diesem Hex
+      const da = await springe(ziel); await sleep(300);
       zeile('Sabotage: Crew bei ' + Sektoren.hexName(hierHex()) + ' (echte Sprünge ' + da + '), Posten steht ' + z.hexe[ziel].posten + ', Beat ' + f.phase);
       let gesprengt = false;
       if (da && f.phase === 'laeuft') {
         await konsole('weapons');
-        const p = Besitz.postenLage(Locations.get(Sektoren.ortVonHex(ziel)).scene); Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 });
-        cl[0].send({ t: 'cmd', c: 'weapons.posten.angreifen' });
-        for (let i = 0; i < 300 && !g.simSzene; i++) { Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 }); await sleep(100); }
-        zeile('Sabotage: Sim-Szene Posten angreifen läuft: ' + !!g.simSzene);
-        for (let i = 0; i < 1800 && g.simSzene; i++) { alleGegner(); await sleep(100); }
-        await sleep(600);
-        gesprengt = !z.hexe[ziel].posten;
+        const p = Besitz.postenLage(Locations.get(Sektoren.ortVonHex(ziel)).scene);
+        const halte = () => Object.assign(g.ship, { x: p.x, y: p.y, vx: 0, vy: 0, speed: 0 });
+        // Liegt am Ziel eine germanische Flotte, startet die Sim bei der Ankunft selbst eine Szene (phase vorwarnung): sie ist NICHT die Angriffsszene. Erst abwarten (Gegner per Testhelfer), dann angreifen.
+        const szeneAbwarten = async () => { for (let i = 0; i < 1800 && g.simSzene; i++) { alleGegner(); await sleep(100); } await sleep(300); };
+        const ankunftsSzene = g.simSzene ? g.simSzene.modus : null;
+        await szeneAbwarten();
+        zeile('Sabotage: Ankunftsszene am Ziel ' + ziel + ': ' + (ankunftsSzene || 'keine') + ', abgewartet: ' + !g.simSzene);
+        for (let versuch = 1; versuch <= 3 && !gesprengt && f.phase === 'laeuft'; versuch++) {   // der erneute Angriff nach Szenenende startet normal (Wiederholungstest des Pruefers)
+          halte();
+          cl[0].send({ t: 'cmd', c: 'weapons.posten.angreifen' });
+          let angriff = false;
+          for (let i = 0; i < 300 && !angriff; i++) { halte(); angriff = !!(g.simSzene && g.simSzene.modus === 'angriff'); if (!angriff) await sleep(100); }
+          zeile('Sabotage: Versuch ' + versuch + ', Angriffsszene (modus angriff) laeuft: ' + angriff + (g.simSzene && !angriff ? ' (andere Szene: ' + g.simSzene.modus + ')' : ''));
+          for (let i = 0; i < 1800 && g.simSzene; i++) { alleGegner(); await sleep(100); }
+          await sleep(600);
+          gesprengt = !z.hexe[ziel].posten;
+          if (!gesprengt) await szeneAbwarten();
+        }
       }
       zeile('Sabotage am Ende: Posten gesprengt ' + gesprengt + ', Beat ' + f.phase + ', NSC ' + f.nsc.status + ', Gedächtnis ' + beatEnde(f, 'sabotage') + ', Pause ' + JSON.stringify(g.weltsim.faeden.sabotage) + '; Funk: ' + funkSeit(n0).slice(-170));
       ergB2.push(['Sabotage (echte Sprünge, Posten gesprengt)', da && gesprengt && f.nsc.gedaechtnis.some((x) => x.ereignis === 'sabotage_gelungen')]);
       ergB2.push(['Sabotage-Faden zu Ende', await ende(f)]);
     } else ergB2.push(['Sabotage (echte Sprünge, Posten gesprengt)', false]);
     // ohne Ziel: kein Angebot (Lage), der Abenteuer-Weg lehnt es ab
-    z.hexe[ziel].posten = false; z.hexe[ziel].besitzer = null;
+    z.hexe[ziel].posten = false; z.hexe[ziel].besitzer = null; z.hexe[pflanzOrt].posten = false; z.hexe[pflanzOrt].besitzer = null;
     const ohne = Faden.abenteuerAnbieten(g, plan('sabotage'), { hex: hierHex() });
     zeile('Sabotage ohne Ziel: ' + (ohne.ok ? 'ANGEBOTEN (falsch)' : 'abgelehnt: ' + String(ohne.grund).slice(0, 90)));
     ergB2.push(['Sabotage ohne Ziel wird nicht angeboten', !ohne.ok && /LAGE_ZIEL_FEHLT|SABOTAGE_PAUSE/.test(ohne.grund)]);
