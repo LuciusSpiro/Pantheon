@@ -1,0 +1,447 @@
+{
+ "format": "festkarte/1",
+ "id": "grabenangriff",
+ "name": "Grabenangriff",
+ "hinweis": "Handgebaute feste Karte aus Abschnitten (links nach rechts). Quelle der Wahrheit ist diese Datei; Erzeuger shared/gen-fest.js, Einhängestelle server/sim/landepunkte.js (gen.fest). Rasterzeichen = Kacheln aus content/buehnen/kacheln.json, dazu die Platzhalter aus \"zeichen\". Koordinaten der Anker und Bereiche sind abschnittslokal (x ab linker Kante des Abschnitts, y absolut), der Erzeuger setzt sie um.",
+ "hoehe": 36,
+ "rand": "F",
+ "boden": "gras",
+ "zeichen": {
+  "T": {
+   "kachel": "F",
+   "platzhalter": "baum",
+   "hinweis": "Baumgruppe. Platzhalter F (Fels, fest, volle Deckung, sperrt Sicht). VOX-01 liefert die Baum-Kachel: hier nur kachel tauschen."
+  },
+  "P": {
+   "kachel": "=",
+   "platzhalter": "palisade",
+   "hinweis": "Palisade. Heute Zaun =; bei einer eigenen Palisaden-Kachel nur kachel tauschen."
+  },
+  "b": {
+   "kachel": "o",
+   "platzhalter": "brustwehr",
+   "hinweis": "Brustwehr des Grabens (Halbdeckung o). Bei einer eigenen Kachel nur kachel tauschen."
+  }
+ },
+ "pflicht": {
+  "abholpunkt": 1,
+  "aussicht": 2,
+  "eingang": 2,
+  "ziel": 1,
+  "wache": 15
+ },
+ "wellen": {
+  "1": [
+   "w1.graben",
+   "w1.posten"
+  ],
+  "2": [
+   "w2.wald",
+   "w2.eingang"
+  ]
+ },
+ "ziel": "bunker.ziel",
+ "decks": [
+  {
+   "id": "oberflaeche",
+   "hinweis": "Deck 0. BOD-03 ergänzt hier ein zweites Deck (id bunker, stride, eigene abschnitte, Lift/Leiter-Anker); der Erzeuger baut heute nur das erste Deck und weist weitere ab.",
+   "reihenfolge": [
+    "landung",
+    "wiese",
+    "wald",
+    "eingang"
+   ],
+   "abschnitte": {
+    "landung": {
+     "name": "Landung",
+     "waehlbar": false,
+     "standard": "standard",
+     "varianten": {
+      "standard": {
+       "name": "Landefeld",
+       "breite": 8,
+       "rows": [
+        "FFFFFFFF",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::,,,:::",
+        "::,,,:::",
+        "::,,,:::",
+        "::,,,:::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "::::::::",
+        "FFFFFFFF"
+       ],
+       "anker": [
+        {
+         "id": "landung.abholpunkt",
+         "rolle": "abholpunkt",
+         "x": 3,
+         "y": 17,
+         "ankunft": true
+        }
+       ]
+      }
+     }
+    },
+    "wiese": {
+     "name": "Wiese",
+     "standard": "graben",
+     "varianten": {
+      "graben": {
+       "name": "mit Graben",
+       "breite": 30,
+       "rows": [
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::,,,,,::::::",
+        "::::::::::::::b,,,b,,,,,::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,bkkkkk::::::",
+        "::::::::::::::,,,,bk^^^/::::::",
+        "::::::::::::::,,,,bkkkkk::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,bP,,,,OO::::",
+        "::::::::::::::b,,,bP,,,,OO::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::,,,,,,,,,,::::::",
+        "::::::::::::::,,,,,,,,,,::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,bP,,,,OO::::",
+        "::::::::::::::b,,,bP,,,,OO::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::,,,,bkkkkk::::::",
+        "::::::::::::::,,,,bk^^^/::::::",
+        "::::::::::::::b,,,bkkkkk::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,bP,,,,::::::",
+        "::::::::::::::b,,,b,,,,,::::::",
+        ":::::::::::::::::::,,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        ":::::::::::::::::::P,,,,::::::",
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+       ],
+       "anker": [
+        {
+         "id": "w1.graben.1",
+         "rolle": "wache",
+         "x": 16,
+         "y": 9,
+         "gruppe": "w1.graben"
+        },
+        {
+         "id": "w1.graben.2",
+         "rolle": "wache",
+         "x": 16,
+         "y": 13,
+         "gruppe": "w1.graben"
+        },
+        {
+         "id": "w1.graben.3",
+         "rolle": "wache",
+         "x": 16,
+         "y": 19,
+         "gruppe": "w1.graben"
+        },
+        {
+         "id": "w1.graben.4",
+         "rolle": "wache",
+         "x": 16,
+         "y": 23,
+         "gruppe": "w1.graben"
+        },
+        {
+         "id": "w1.graben.5",
+         "rolle": "wache",
+         "x": 16,
+         "y": 27,
+         "gruppe": "w1.graben"
+        },
+        {
+         "id": "w1.posten.1",
+         "rolle": "aussicht",
+         "x": 21,
+         "y": 11,
+         "gruppe": "w1.posten"
+        },
+        {
+         "id": "w1.posten.2",
+         "rolle": "aussicht",
+         "x": 21,
+         "y": 24,
+         "gruppe": "w1.posten"
+        }
+       ],
+       "bereiche": {
+        "graben": {
+         "name": "Graben und Wall",
+         "rects": [
+          [
+           14,
+           1,
+           10,
+           34
+          ]
+         ],
+         "gefecht": true
+        }
+       }
+      }
+     }
+    },
+    "wald": {
+     "name": "Wald",
+     "standard": "weg",
+     "varianten": {
+      "weg": {
+       "name": "Weg durch den Wald",
+       "breite": 38,
+       "rows": [
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        "::::::::::::::::::::::::::::::::::::::",
+        "::::::TT:::TT:::TT:::TT:::TT::::::::::",
+        "::::::TT:::TT:::TT:::TT:::TT::::::::::",
+        "::::::TT:::TT:::TT::::::::TT::::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        ":TTT::TTT::TTT:::::::TTT::TTT::TTT::::",
+        ":TTT::TTT::TTT:::::::TTT::TTT::TTT::::",
+        ":TTT::TTT::::::::::::TTT::TTT:::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        ":::::::::::::::::::::::::,,,,,,,,:::::",
+        "::::::TTT::TTT:::::::::,,,,,,,,,,,,:::",
+        "::::::TTT::TTT::::::::,,,,,,,,,,,,,,::",
+        "::::::TTT::TTT::::::,,,,,,,::::,,,,,,,",
+        ":::::::::::::::::::,,,,,,::::::::,,,,,",
+        ",,::::::::::::::::,,,,,,::::::::::,,,,",
+        ",,,::::::::TT::::,,,,,::::TT:::TT:::,,",
+        ",,,,,::::::TT::,,,,,,:::::TT:::TT:::::",
+        ",,,,,,::::::::,,,,,,::::::TT::::::::::",
+        ":,,,,,,,::::,,,,,,,:::::::::::::::::::",
+        ":::,,,,,,,,,,,,,,:::::::::::::::::::::",
+        "::::,,,,,,,,,,,,:::::TTT::TTT:::::::::",
+        "::::::,,,,,,,,:::::::TTT::TTT:::::::::",
+        "::::::::::::::::::::::::::TTT:::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        ":TTT::TTT::TTT:::::::TTT::TTT::TTT::::",
+        ":TTT::TTT::TTT:::::::TTT::TTT::TTT::::",
+        ":TTT::TTT::::::::::::TTT::TTT:::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        "::::::::::::::::::::::::::::::::::::::",
+        "::::::TT:::TT:::TT:::TT:::TT::::::::::",
+        "::::::TT:::TT:::TT:::TT:::TT::::::::::",
+        "::::::TT:::TT:::TT::::::::TT::::::::::",
+        "FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF"
+       ],
+       "anker": [
+        {
+         "id": "w2.wald.1",
+         "rolle": "wache",
+         "x": 6,
+         "y": 20,
+         "gruppe": "w2.wald"
+        },
+        {
+         "id": "w2.wald.2",
+         "rolle": "wache",
+         "x": 12,
+         "y": 23,
+         "gruppe": "w2.wald"
+        },
+        {
+         "id": "w2.wald.3",
+         "rolle": "wache",
+         "x": 19,
+         "y": 16,
+         "gruppe": "w2.wald"
+        },
+        {
+         "id": "w2.wald.4",
+         "rolle": "wache",
+         "x": 26,
+         "y": 13,
+         "gruppe": "w2.wald"
+        },
+        {
+         "id": "w2.wald.5",
+         "rolle": "wache",
+         "x": 31,
+         "y": 11,
+         "gruppe": "w2.wald"
+        },
+        {
+         "id": "w2.wald.6",
+         "rolle": "wache",
+         "x": 35,
+         "y": 16,
+         "gruppe": "w2.wald"
+        }
+       ],
+       "bereiche": {
+        "wald": {
+         "name": "Wald",
+         "rects": [
+          [
+           0,
+           1,
+           38,
+           34
+          ]
+         ],
+         "gefecht": true
+        }
+       }
+      }
+     }
+    },
+    "eingang": {
+     "name": "Eingangsbereich",
+     "standard": "bunker",
+     "varianten": {
+      "bunker": {
+       "name": "Bunkereingang (Platzhalter)",
+       "breite": 22,
+       "rows": [
+        "FFFFFFFFFFFFFFFFFFFFFF",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::TTT:TTT:TTT:::",
+        "::::::::TTT:TTT:TTT:::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::################",
+        "::::::#,,,,,,,,,,,,,,#",
+        "::::::#,,,,,,,,,,,,,,#",
+        "::::::#,,OO,,,,,######",
+        "::::::#,,OO,,,,,######",
+        "::::::#,,,,,bb,,######",
+        "::::::,,,,,,bb,,######",
+        "::::::,,,,,,,,,,,,####",
+        "::::::,,,,,,,,,,,,####",
+        "::::::,,,,,,bb,,######",
+        "::::::#,,,,,bb,,######",
+        "::::::#,,OO,,,,,######",
+        "::::::#,,OO,,,,,######",
+        "::::::#,,,,,,,,,,,,,,#",
+        "::::::#,,,,,,,,,,,,,,#",
+        "::::::################",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::TTT:TTT:TTT:::",
+        "::::::::TTT:TTT:TTT:::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "::::::::::::::::::::::",
+        "FFFFFFFFFFFFFFFFFFFFFF"
+       ],
+       "anker": [
+        {
+         "id": "eingang.tor.1",
+         "rolle": "eingang",
+         "x": 6,
+         "y": 17,
+         "art": "laut"
+        },
+        {
+         "id": "eingang.tor.2",
+         "rolle": "eingang",
+         "x": 6,
+         "y": 18,
+         "art": "laut"
+        },
+        {
+         "id": "bunker.ziel",
+         "rolle": "ziel",
+         "x": 17,
+         "y": 17
+        },
+        {
+         "id": "w2.eingang.1",
+         "rolle": "wache",
+         "x": 9,
+         "y": 17,
+         "gruppe": "w2.eingang"
+        },
+        {
+         "id": "w2.eingang.2",
+         "rolle": "wache",
+         "x": 12,
+         "y": 17,
+         "gruppe": "w2.eingang"
+        },
+        {
+         "id": "w2.eingang.3",
+         "rolle": "wache",
+         "x": 12,
+         "y": 12,
+         "gruppe": "w2.eingang"
+        },
+        {
+         "id": "w2.eingang.4",
+         "rolle": "wache",
+         "x": 12,
+         "y": 23,
+         "gruppe": "w2.eingang"
+        }
+       ],
+       "bereiche": {
+        "eingang": {
+         "name": "Eingangsbereich",
+         "rects": [
+          [
+           0,
+           1,
+           22,
+           34
+          ]
+         ],
+         "gefecht": true
+        }
+       }
+      }
+     }
+    }
+   }
+  }
+ ]
+}
