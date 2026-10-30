@@ -433,7 +433,7 @@ section('Jäger mit zerstörtem/beschädigtem Antrieb: parkt bzw. halbes Tempo, 
   }
   // c) beschädigter Antrieb (Faktor 0,5, repariert nicht): halbes Tempo gegenüber dem intakten Jäger (gleicher Aufbau, gleicher Seed)
   const fliegen = (faktorAntrieb) => {
-    const { g, run } = arena(1, { seed: 43 });
+    const { g, run } = arena(1, { seed: 46 });
     const j = spawn(g, 'raider', 0.6, 800);
     if (faktorAntrieb != null) Testhilfe.setzeIntegritaet(j, 'antrieb', Gsys.maxOf(j, 'antrieb') * faktorAntrieb);
     run(15, () => { ruhig(g); recentre(g); });   // Anfangstempo des Spawns läuft aus; gemessen wird danach

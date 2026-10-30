@@ -57,6 +57,8 @@ const erholen = (g) => {
   g.ship.shields.current = g.ship.shields.alloc.slice();
   for (const k of interior.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   interior.integritaetVoll(g); g.ship.fireList.length = 0; g.ship.breachList.length = 0;
+  // SYS-03 B1: die Lerche kann im Orbit-Kampf jetzt über den Reaktor-Countdown fallen, obwohl die Szene gewonnen wird; die Erholung nimmt auch das zurück (Balance folgt in SYS-03 D)
+  g.ship.reaktorCountdown = null; g.ship.reaktorAusfaelle = 0; g.ship.schiffZerstoert = false; g.zerstoertOffen = null;
 };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
@@ -172,6 +174,7 @@ function main() {
   ok(ausgang === 'sieg' && Finale.phase(g) === 'boden', 'echter Kampf: Orbit-Sieg, Phase boden (' + ausgang + '/' + Finale.phase(g) + ')');
   ok(g.ship.scene === ort && g.finaleBoden && g.finaleBoden.ort === g.ship.scene, 'das Schiff bleibt am Ort, der Boden baut den Landepunkt dort (' + g.ship.scene + ')');
   ok(g.transferZiel && g.transferZiel.lp === ID && g.transferZiel.scene === g.ship.scene, 'Transferziel = Schrein am Ort des Schiffs');
+  erholen(g);   // SYS-03 B1: Direkttreffer machen im Orbit-Kampf eher den Transfer kaputt; die Crew repariert ihn vor dem Hinunterbeamen (wie zwischen den Versuchen)
   hinunter(t);
   ok(unten(t).length === players(t).length && g.away && g.away.map === ID, 'die Crew ist unten auf dem Schrein');
   ok(g.finaleBoden.gelandet && (g.away.drones || []).some((d) => d.alive), 'Wachen sind erschienen (echte Gegner)');
@@ -186,6 +189,7 @@ function main() {
   console.log('\nVersuch 3: Orbit-Sieg, Boden-Sieg, Abspann');
   ausgang = orbitBisSieg(t, 'Versuch 3');
   ok(ausgang === 'sieg' && Finale.phase(g) === 'boden', 'echter Kampf: Orbit-Sieg (' + ausgang + ')');
+  erholen(g);   // SYS-03 B1: wie oben
   hinunter(t);
   ok(unten(t).length === players(t).length, 'die Crew ist unten');
   // Abspann beobachten: der Fakt muss beim Aufruf schon stehen

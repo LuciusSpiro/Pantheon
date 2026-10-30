@@ -142,8 +142,9 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
   // (Seeds 2/4/6: 605/206/662 s). Fenster 120–1200 s. Die Szenenabsicht „in der Falle fällt die Lerche zügig“ ist mit dieser Gegnerzahl nicht erfüllt (Szenenentscheidung, siehe Bericht).
   // SYS-02a (Kai: Jäger reparieren nicht): die Auto-Waffen der Lerche zerstören Jäger-Waffen, sie bleiben zerstört; die wehrlose Lerche fällt später. Neu gemessen (20 Seeds, 4000 s Grenze):
   // 545, 631, 1309, 190, 616, 1365, 1202, 947, 834, 167, 368, 1032, 607, 2742, 837, 2679, 514, 557, 684, >4000 s (Seeds 2/4/6: 631/190/1365 s). Fenster 120–3000 s (vorher 120–1200 s, Median 451 s).
-  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster 120–3000 s)');
-  ok(zeiten.every((z) => z >= 120 && z <= 3000), 'Zeiten bis zum Verlust im gemessenen Fenster 120–3000 s (' + zeiten.join(', ') + ' s)');
+  // SYS-03 B1: Direkttreffer = eine Stufe je Treffer ohne Schild: die wehrlose Lerche fällt deutlich früher. Neu gemessen (Seeds 2/4/6): 66,6/91/165,3 s. Fenster 30–3000 s (Schilde und Balance folgen in SYS-03 C/D).
+  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster 30–3000 s)');
+  ok(zeiten.every((z) => z >= 30 && z <= 3000), 'Zeiten bis zum Verlust im gemessenen Fenster 30–3000 s (' + zeiten.join(', ') + ' s)');
 });
 
 section('Kapitel 3 Falle: Verlust durch den Reaktor-Countdown (on.emergency)', () => {

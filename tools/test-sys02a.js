@@ -116,19 +116,21 @@ section('2b Sturm gegen die Lerche: voller Schild – kaum Schildschaden, kein S
   ok(g.ship.shields.regenHold > g.time, 'Regeneration gesperrt');
 });
 
-section('2c Sturm gegen die Lerche: bei Schild 0 wirkt der Schaden × systemFaktor gegen das System (tunebar)', () => {
+section('2c Sturm gegen die Lerche: bei Schild 0 ist jeder Treffer ein Direkttreffer (SYS-03 B1: eine Stufe, egal wie klein), Treffer-Fenster', () => {
   const { g } = lerche(1, 12);
   g.ship.shields.current = [0, 6, 6, 6];
-  let v0 = isum(g); sturmHit(g, 0, 1.08);
-  ok(near(v0 - isum(g), 1.08 * SM.sturm.systemFaktor, 0.06), `ein Treffer 1,08 bei Schild 0: −${(v0 - isum(g)).toFixed(3)} Integrität (1,08 × ${SM.sturm.systemFaktor})`);
-  const f0 = SM.sturm.systemFaktor; SM.sturm.systemFaktor = 2;
-  try { v0 = isum(g); sturmHit(g, 0, 1.08); ok(near(v0 - isum(g), 2.16, 0.06), `live per tune systemModell.sturm.systemFaktor 2: −${(v0 - isum(g)).toFixed(3)} (1,08 × 2)`); } finally { SM.sturm.systemFaktor = f0; }
-  // Anzahl Nadeln bis zur Zerstörung eines Systems (nur noch ein System in der Zone): ceil(Maximum / (Schaden × Faktor))
+  const stufen = () => zone0().filter((k) => g.ship.systems[k] !== 'ok');
+  sturmHit(g, 0, 1.08);
+  ok(stufen().length === 1 && g.ship.systems[stufen()[0]] === 'damaged', `ein Treffer 1,08 bei Schild 0: genau ein System beschädigt (${stufen().join()})`);
+  const g1 = lerche(1, 14).g; g1.ship.shields.current = [0, 6, 6, 6];
+  sturmHit(g1, 0, 0.15);
+  ok(zone0().filter((k) => g1.ship.systems[k] === 'damaged').length === 1, 'auch eine Nadel 0,15 macht eine Stufe (unabhängig vom Schaden)');
+  // Anzahl Nadeln bis zur Zerstörung eines Systems (nur noch ein System in der Zone): zwei Stufen, dazwischen das Treffer-Fenster
   const g2 = lerche(1, 13).g; g2.ship.shields.current = [0, 6, 6, 6];
   for (const k of zone0().slice(1)) { g2.ship.systems[k] = 'broken'; I.setInteg(g2, k, 0); }
-  const einziges = zone0()[0]; const max = I.integMax(g2, einziges); let nadeln = 0;
-  while (g2.ship.systems[einziges] !== 'broken' && nadeln < 100) { sturmHit(g2, 0, 1.08); nadeln++; }
-  ok(nadeln === Math.ceil(max / (1.08 * 1.5)), `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (Maximum ${max}; ohne Faktor wären es ${Math.ceil(max / 1.08)})`);
+  const einziges = zone0()[0]; let nadeln = 0;
+  while (g2.ship.systems[einziges] !== 'broken' && nadeln < 100) { sturmHit(g2, 0, 1.08); nadeln++; if (nadeln % 3 === 0) g2.time += SM.trefferFenster_s + 0.01; }
+  ok(g2.ship.systems[einziges] === 'broken' && nadeln >= 4, `Nadeln im Fenster verfallen (das einzige System verliert nicht zwei Stufen auf einmal): zerstört nach ${nadeln} Nadeln`);
 });
 
 section('2d Sturm gegen die Lerche: Reparatursperre der Zone (Spieler am Halten), andere Zonen ungestört', () => {
@@ -252,9 +254,10 @@ section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein S
     // G: Zone Bug nur mit waffe_bug (Maximum > Schaden), damit der Abzug nicht an 0 klemmt
     const G = (s) => { const { g } = arena(92); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeIntegritaet(e, 'emitter_bug', 0); Testhilfe.setzeSchilde(e, [s, 6, 6, 6]); const v0 = Gsys.summe(e); treffer(g, e, 0, 1.08, sturmOpts()); return v0 - Gsys.summe(e); };
     const soll = SM.sturmSchaden * SM.sturm.systemFaktor;
-    ok(near(L(0.5), soll, 0.06), 'Lerche, Schild 0,5: Integrität −' + L(0.5).toFixed(2) + ' (sturmSchaden × systemFaktor ' + soll + ')');
-    ok(near(G(0.5), soll, 0.06), 'Gegner, Schild 0,5: Integrität −' + G(0.5).toFixed(2) + ' (gleich)');
-    ok(near(G(ST.niedrig), soll, 0.06) && near(L(ST.niedrig), soll, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
+    const stufeL = I.integMax({ C: CONFIG }, 'emitter_bow') * (1 - SM.reparatur.damaged);   // SYS-03 B1: die Lerche verliert eine Stufe (Gegner folgen in B2: Punkte)
+    ok(near(L(0.5), stufeL, 0.06), 'Lerche, Schild 0,5: eine Stufe (Integrität −' + L(0.5).toFixed(2) + ')');
+    ok(near(G(0.5), soll, 0.06), 'Gegner, Schild 0,5: Integrität −' + G(0.5).toFixed(2) + ' (Punktregel bis B2)');
+    ok(near(G(ST.niedrig), soll, 0.06) && near(L(ST.niedrig), stufeL, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
     ok(L(ST.niedrig + 0.5) === 0 && G(ST.niedrig + 0.5) === 0, 'Schild über niedrig: kein Systemschaden (beide)');
     ok(L(6) === 0 && G(6) === 0, 'voller Schild: kein Systemschaden (beide)');
   });

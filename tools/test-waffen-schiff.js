@@ -168,15 +168,15 @@ section('Plätze, Stufen, Systeme (lafette_N)', () => {
   ok(['lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'].every((k) => sys[k] === 'ok'), 'alle sechs Lafetten-Systeme aktiv im Snapshot');
   // trefferbar nur offen UND bestückt
   const wird = new Set();
-  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird.add(r.system); }
+  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); g.ship.trefferT = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4); if (r) wird.add(r.system); }
   ok(['lafette_5', 'lafette_7', 'lafette_9', 'lafette_1', 'lafette_3', 'lafette_2'].every((k) => wird.has(k)), 'bestückte Lafetten sind Trefferziele (' + [...wird].filter((k) => /^lafette/.test(k)).join(',') + ')');
   T.debug('bestueck', '7 leer'); T.debug('bestueck', '3 leer');
   const wird2 = new Set();
-  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird2.add(r.system); }
+  for (let i = 0; i < 1500; i++) { interior.integritaetVoll(g); g.ship.trefferT = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4); if (r) wird2.add(r.system); }
   ok(!wird2.has('lafette_7') && !wird2.has('lafette_3') && wird2.has('lafette_9') && !interior.systemAktiv(g, 'lafette_7') && !Object.keys(snapShip(T).systems).includes('lafette_7'), 'unbestückt: kein Trefferziel, nicht im Snapshot');
   T.debug('ausbau', '0');
   const wird3 = new Set();
-  for (let i = 0; i < 800; i++) { interior.integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4, 1); if (r) wird3.add(r.system); }
+  for (let i = 0; i < 800; i++) { interior.integritaetVoll(g); g.ship.trefferT = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; const r = interior.trefferweg(g, i % 4); if (r) wird3.add(r.system); }
   ok(![...wird3].some((k) => /^lafette_/.test(k)) && JSON.stringify(Waffen.mountIds(g)) === '["bow","port","stbd"]', 'verschlossener Platz (Stufe 0): kein Trefferziel, kein Mount, auch wenn die Bestückung gespeichert bleibt');
   ok(g.ship.waffen[9] === 'standardbatterie', 'Bestückung bleibt beim Zurückstufen erhalten (Platz wieder offen: sofort aktiv)');
   // Station und Reparatur
@@ -409,7 +409,7 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   ok(g.ship.shields.regenHold > g.time && g.ship.shields.current[0] > 3.8, 'Gegner-Sturm gegen die Lerche: hoher Schild fast unberührt, Regeneration gesperrt');
   // SYS-01 A1a: niedriger Schild = 1 Punkt (ST.niedrig); ohne Schild trifft jeder Treffer ein System, das ist eine andere Regel
   let sys = 0;
-  for (let i = 0; i < 400; i++) { require('../server/sim/interior.js').integritaetVoll(g); for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; g.ship.shields.current[1] = 1; const i0 = isum(g); space.shipHit(g, 1, 0.15, { sperrfeuer: true, sturm: true }); if (isum(g) < i0) sys++; }
+  for (let i = 0; i < 400; i++) { require('../server/sim/interior.js').integritaetVoll(g); g.ship.trefferT = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; g.ship.shields.current[1] = 1; const i0 = isum(g); space.shipHit(g, 1, 0.15, { sperrfeuer: true, sturm: true }); if (isum(g) < i0) sys++; }
   ok(Math.abs(sys / 400 - w.sturm.systemChance) < 0.04, `niedriger Schild: Sturm trifft Systeme (${sys} von 400 Nadeln, ${(100 * sys / 400).toFixed(1)} %, Soll ${(100 * w.sturm.systemChance).toFixed(0)} % ± 4)`);
 });
 

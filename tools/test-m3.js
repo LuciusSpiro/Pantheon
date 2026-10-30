@@ -332,17 +332,17 @@ section('Reparatur: Flicken, Fragil, Werkzeuggürtel (§8.1, §4.3)', () => {
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port') && g.stats.flicks === 2, 'nochmal flicken: beschädigt -> ok, bleibt fragil');
   // Fragil bricht beim nächsten Treffer im Sektor, Treffer im anderen Sektor nicht
   g.time += 20;
-  I.trefferweg(g, 1, 1);
+  I.trefferweg(g, 1);
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port'), 'Treffer in Sektor 1: fragile Bb-Batterie bleibt');
   g.time += 20;
-  I.trefferweg(g, 3, 1);
+  I.trefferweg(g, 3);
   ok(g.ship.systems.battery_port === 'broken' && !I.isFragile(g, 'battery_port'), 'fragil + Treffer in Sektor 3: sofort zerstört, Flag weg');
   // mehrere fragile im Sektor brechen alle, sonst kein weiterer Schaden
   resetSystems(g);
   g.ship.fragile.battery_port = true; g.ship.fragile.emitter_port = true;
   g.time += 20;
   const before = JSON.stringify(g.ship.systems);
-  I.trefferweg(g, 3, 1);
+  I.trefferweg(g, 3);
   const changed = SYS14.filter((s) => g.ship.systems[s] !== 'ok');
   ok(changed.sort().join() === 'battery_port,emitter_port' && !I.isFragile(g, 'emitter_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
   ok(before !== JSON.stringify(g.ship.systems), 'Systeme verändert');

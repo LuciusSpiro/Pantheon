@@ -159,7 +159,7 @@ section('Gleiche Regeln gegen die Lerche: Zielsystem der Gegner, Zone, Mitte nur
   // gezielt auf das Triebwerk (Heck, Sektor 2): engines sicher getroffen
   const i0 = ship.integ.engines;
   space.shipHit(g, 2, 4, { angriff: true, zielt: 'engines' });
-  ok(ship.integ.engines === i0 - 4 * (CONFIG.systemModell.schadenFaktor || 1), 'Gegner mit Systemziel Triebwerk, Heck, Schild 0: das Triebwerk verliert den Schaden sicher');
+  ok(ship.systems.engines === 'damaged' && ship.integ.engines === i0 * CONFIG.systemModell.reparatur.damaged, 'Gegner mit Systemziel Triebwerk, Heck, Schild 0: das Triebwerk verliert sicher eine Stufe (SYS-03 B1)');
   // gezielt auf ein Lerchensystem in einer anderen Zone (Bug): wirkt nicht gezielt, der Zufall in der Zone (Bug) bestimmt
   const z0 = g.stats.zielsysteme.lerche;
   interior.integritaetVoll(g); ship.shields.current = [0, 0, 0, 0];
@@ -188,7 +188,7 @@ section('SYS-01 C Nacharbeit: Ziel der Mitte, Lerche und Gegner im gleichen Fall
   const lerche = (heckLeer) => {
     let gez = 0;
     for (let i = 0; i < mal; i++) {
-      interior.integritaetVoll(g); ship.shields.current = [0, 0, 0, 0];
+      interior.integritaetVoll(g); ship.shields.current = [0, 0, 0, 0]; ship.trefferT = {}; for (const k of interior.SYSTEM_ORDER) ship.systems[k] = 'ok';
       if (heckLeer) for (const k of ['engines', 'emitter_aft', 'lafette_2']) { ship.integ[k] = 0; if (ship.systems) ship.systems[k] = 'broken'; }
       const zl = () => ((g.stats.zielsysteme || {}).lerche || 0); const z0 = zl();
       space.shipHit(g, 2, 2, { angriff: true, zielt: 'reactor' });

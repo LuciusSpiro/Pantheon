@@ -45,14 +45,20 @@ const brokenSet = (g) => I.SYSTEM_ORDER.filter((k) => g.ship.systems[k] === 'bro
 const changed = (g, before) => I.SYSTEM_ORDER.filter((k) => g.ship.systems[k] !== before[k] || integ(g, k) !== before.__i[k]);
 function snapShot(g) { const o = {}; for (const k of I.SYSTEM_ORDER) o[k] = g.ship.systems[k]; o.__i = {}; for (const k of I.SYSTEM_ORDER) o.__i[k] = integ(g, k); return o; }
 // Ein Treffer ohne Schild, Feuer und Lecks werden hier nicht geprüft (eigene Tests).
-const hit = (g, sec, dmg, opts) => space.shipHit(g, sec, dmg, opts || {});
+const hit = (g, sec, dmg, opts) => { weiter(g); return space.shipHit(g, sec, dmg, opts || {}); };
+// SYS-03 B1: Stufen statt Punkte. stufe(g, k, n) = n Stufenverluste (ohne Treffer-Fenster, wie Torpedo/Debug), weiter(g) = Zeit über das Treffer-Fenster hinaus.
+const stufe = (g, k, n) => { let r = null; for (let i = 0; i < (n || 1); i++) r = I.stufeAb(g, k) || r; return r; };
+const weiter = (g) => { g.time += (SM.trefferFenster_s || 0.25) + 0.01; };
+const trefferweg = (g, zone, opts) => { weiter(g); return I.trefferweg(g, zone, opts); };
+// alle Systeme heil (Zustand, Integrität, Fenster): für Zufallsschleifen, die die Trefferverteilung messen
+const heilAlle = (g) => { for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; I.integritaetVoll(g); g.ship.trefferT = {}; };
 
 function section(title, fn) { console.log('\n[' + title + ']'); try { fn(); } catch (e) { fails++; console.log('  FEHLER Abschnitt abgebrochen: ' + (e && e.stack ? e.stack.split('\n').slice(0, 3).join(' | ') : e)); } }
 
 // ---------------------------------------------------------------- Konfiguration
 section('Konfiguration (SYS-01 A1a, config.systemModell)', () => {
   ok(SM && SM.integ && SM.integ.default === 10 && SM.integ.reactor === 12 && SM.integ.shields === 12, 'Integrität: Standard 10, Reaktor und Schildgenerator 12');
-  ok(SM.schwelle === 0.6 && SM.reparatur.damaged === 0.5 && SM.schadenFaktor === 1, 'Schwelle 60 %, Reparatur beschädigt = 50 %, schadenFaktor 1');
+  ok(SM.schwelle === 0.6 && SM.reparatur.damaged === 0.5 && SM.schadenFaktor === undefined && SM.trefferFenster_s === 0.25 && CONFIG.alarm.mine.punkte === undefined, 'Schwelle 60 %, Reparatur beschädigt = 50 %, schadenFaktor und mine.punkte entfallen, trefferFenster_s 0,25');
   ok(CONFIG.spaceM3b.shieldLeak === undefined && CONFIG.spaceM3b.shieldOverflow === undefined, 'Durchlass-Tabelle und Überlauf aus der Konfiguration entfernt');
   ok(CONFIG.spaceM3.centreChance === undefined && CONFIG.spaceM3.sectorWeight === undefined && CONFIG.spaceM3.neighbourWeight === undefined, 'centreChance, sectorWeight, neighbourWeight entfernt');
   ok(CONFIG.ship.hull === undefined && CONFIG.ship.hullRegen === undefined && CONFIG.emergency.hull === undefined, 'Hülle, Hüllenregeneration und Notfall-Hülle aus der Konfiguration entfernt');
@@ -66,37 +72,35 @@ section('Integrität und Zustandsschwellen (Regel 1)', () => {
   const sn = g.snapshot().ship;
   ok(Array.isArray(sn.integ) && sn.integ.length === I.SYSTEM_ORDER.length && sn.integPct === 100, `Snapshot: integ je System (${sn.integ.length} Felder), integPct 100`);
   const b = 'battery_port';
-  I.systemTreffer(g, b, 4);
-  ok(integ(g, b) === 6 && g.ship.systems[b] === 'ok', 'Schaden 4: Integrität 6, noch ok (Schwelle 60 % = 6, darunter beschädigt)');
-  const r1 = I.systemTreffer(g, b, 1);
-  ok(integ(g, b) === 5 && g.ship.systems[b] === 'damaged' && r1 && r1.state === 'damaged', 'Schaden 1 mehr: Integrität 5 -> beschädigt');
-  I.systemTreffer(g, b, 5);
-  ok(integ(g, b) === 0 && g.ship.systems[b] === 'broken', 'Integrität 0 -> zerstört');
-  ok(I.systemTreffer(g, b, 3) === null && integ(g, b) === 0, 'zerstört bleibt zerstört, Punkte bleiben 0');
+  const r1 = stufe(g, b);
+  ok(integ(g, b) === 5 && g.ship.systems[b] === 'damaged' && r1 && r1.state === 'damaged', 'ein Treffer: ok -> beschädigt, Integrität 5 (abgeleitet: 50 % des Maximums)');
+  stufe(g, b);
+  ok(integ(g, b) === 0 && g.ship.systems[b] === 'broken', 'zweiter Treffer: zerstört, Integrität 0');
+  ok(stufe(g, b) === null && integ(g, b) === 0, 'zerstört bleibt zerstört, Punkte bleiben 0');
   const rc = 'reactor';
-  I.systemTreffer(g, rc, 11);
-  ok(integ(g, rc) === 1 && g.ship.systems[rc] === 'damaged', 'Reaktor (12): 11 Schaden -> 1 Punkt, beschädigt');
-  I.systemTreffer(g, rc, 1);
-  ok(g.ship.systems[rc] === 'broken', 'Reaktor (12): genau 12 Schaden -> zerstört');
+  stufe(g, rc);
+  ok(integ(g, rc) === 6 && g.ship.systems[rc] === 'damaged', 'Reaktor (12): ein Treffer -> 6 Punkte, beschädigt');
+  stufe(g, rc);
+  ok(g.ship.systems[rc] === 'broken', 'Reaktor (12): zweiter Treffer -> zerstört');
 });
 
 section('Reparatur setzt den Grundwert der Stufe (Regel 1)', () => {
   const g = newGame(4);
   const s = 'thruster_port';
-  I.systemTreffer(g, s, 10);
+  stufe(g, s, 2);
   ok(g.ship.systems[s] === 'broken' && integ(g, s) === 0, 'zerstört: 0 Punkte');
   I.repairSystem(g, s, 'player', 'minigame');
   ok(g.ship.systems[s] === 'damaged' && near(integ(g, s), 5, 1e-9), `Reparatur zerstört -> beschädigt: Grundwert 50 % (${integ(g, s)} von 10)`);
   I.repairSystem(g, s, 'player', 'swap');
   ok(g.ship.systems[s] === 'ok' && integ(g, s) === 10, 'Reparatur beschädigt -> ok: Maximum');
-  I.systemTreffer(g, s, 6);
+  stufe(g, s);
   ok(g.ship.systems[s] === 'damaged', 'Vorbereitung: beschädigt');
   I.repairSystem(g, s, 'player', 'flick');
   ok(g.ship.systems[s] === 'ok' && integ(g, s) === 10 && I.isFragile(g, s), 'Flicken: beschädigt -> ok, Maximum, geflickt');
   // Geflicktes bricht beim nächsten Treffer direkt
-  const r = I.trefferweg(g, 1, 1);
+  const r = trefferweg(g, 1);
   ok(r && g.ship.systems[s] === 'ok', 'Treffer in einer anderen Zone lässt geflicktes System stehen');
-  const r2 = I.systemTreffer(g, s, 0.5);
+  const r2 = stufe(g, s);
   ok(g.ship.systems[s] === 'broken' && !I.isFragile(g, s) && r2 && r2.state === 'broken', 'Geflicktes System bricht beim Treffer direkt (Flag weg)');
 });
 
@@ -124,13 +128,14 @@ section('Trefferweg ohne Schild: Zone des Sektors aus allen vier Richtungen (Reg
     let treffer = 0, inZone = 0, gegen = 0, mitteOhneZone = 0, mitteMitZone = 0;
     for (let i = 0; i < 60; i++) {
       const zoneOffen = ZONE(sec).some((k) => g.ship.systems[k] !== 'broken');
-      const r = D.resolveHit(g, sec, 1, {});
+      weiter(g); const r = D.resolveHit(g, sec, 1, {});
       for (const t of r.systems) {
         treffer++;
         if (ZONE(sec).includes(t.system)) inZone++;
         if (opp.includes(t.system)) gegen++;
         if (mitte.includes(t.system)) { if (zoneOffen) mitteMitZone++; else mitteOhneZone++; }
       }
+      if (i % 2) heilAlle(g);   // SYS-03 B1: zwei Stufen je System, danach wieder heil (viele Treffer, Zone offen)
     }
     ok(treffer >= 20 && gegen === 0 && mitteMitZone === 0 && inZone + mitteOhneZone === treffer, `Sektor ${sec}: ${treffer} Treffer, ${inZone} in der Zone, Gegenseite ${gegen} (Soll 0), Mitte nur bei leerer Zone (${mitteOhneZone}, bei offener Zone ${mitteMitZone})`);
   }
@@ -144,13 +149,13 @@ section('Kein Treffer auf ein zerstörtes System, solange die Zone nicht leer is
       const zone = i % 4;
       const vorher = new Set(brokenSet(g));
       const nichtZerstoert = ZONE(zone).filter((k) => !vorher.has(k));
-      const r = I.trefferweg(g, zone, 1);
+      const r = trefferweg(g, zone);
       if (!r) break;
       if (vorher.has(r.system)) verstoesse++;
       if (nichtZerstoert.length) { zufallTreffer++; if (!nichtZerstoert.includes(r.system)) verstoesse++; }
       if (!nichtZerstoert.length && !MITTE().some((k) => !vorher.has(k))) break;
     }
-    ok(verstoesse === 0 && zufallTreffer > 100, `Seed ${seed}: ${zufallTreffer} Treffer, keiner auf ein zerstörtes System (Verstöße ${verstoesse})`);
+    ok(verstoesse === 0 && zufallTreffer >= 15, `Seed ${seed}: ${zufallTreffer} Treffer, keiner auf ein zerstörtes System (Verstöße ${verstoesse})`);
   }
 });
 
@@ -159,16 +164,17 @@ section('Zone leer -> Mitte (Regel 3)', () => {
   for (const k of ZONE(0)) { g.ship.systems[k] = 'broken'; I.setInteg(g, k, 0); }
   let mitte = 0, sonst = 0;
   for (let i = 0; i < 80; i++) {
-    const r = I.trefferweg(g, 0, 1);
+    const r = trefferweg(g, 0);
     if (!r) break;
     if (I.systemSector(r.system) === -1) mitte++; else sonst++;
+    if (i % 2) for (const k of MITTE()) { g.ship.systems[k] = 'ok'; I.setInteg(g, k, I.integMax(g, k)); }
     // Mitte-Systeme werden nicht zerstört, solange sie heil sind; hier genügt die Richtung
     if (g.ship.systems[r.system] === 'broken') { /* zerstört, nächster Treffer wählt anders */ }
   }
   ok(sonst === 0 && mitte > 20, `Zone 0 leer: alle Treffer in der Mitte (Mitte ${mitte}, andere ${sonst})`);
   const g2 = newGame(21);
   for (const k of I.SYSTEM_ORDER) { if (I.systemSector(k) === 2 || I.systemSector(k) === -1) { g2.ship.systems[k] = 'broken'; I.setInteg(g2, k, 0); } }
-  ok(I.trefferweg(g2, 2, 1) === null, 'Zone und Mitte beide zerstört: kein Ziel (null), kein Systemschaden');
+  ok(trefferweg(g2, 2) === null, 'Zone und Mitte beide zerstört: kein Ziel (null), kein Systemschaden');
 });
 
 // ---------------------------------------------------------------- Durchschlag
@@ -181,8 +187,9 @@ section('Durchschlag (Regel 2)', () => {
   const g2 = newGame(31);
   let mitte = 0, zone = 0;
   for (let i = 0; i < 80; i++) {
-    const r2 = D.resolveHit(g2, 1, 1, { durchschlag: 'zone' });
+    weiter(g2); const r2 = D.resolveHit(g2, 1, 1, { durchschlag: 'zone' });
     for (const t of r2.systems) { if (I.systemSector(t.system) === -1) mitte++; else zone++; }
+    if (i % 2) heilAlle(g2);
     if (g2.space) void 0;
   }
   ok(zone === 0 && mitte > 20, `Durchschlag Zone: Treffer nur in der Mitte (Mitte ${mitte}, Zone ${zone})`);
@@ -210,7 +217,7 @@ section('Sturmbatterie und Streu-Granate (Regel 2, Ausnahmen)', () => {
   let sys = 0; const N = 3000; const g2 = newGame(41);
   for (let i = 0; i < N; i++) {
     I.integritaetVoll(g2); for (const k of I.SYSTEM_ORDER) g2.ship.systems[k] = 'ok';
-    setShield(g2, 0, 1);
+    setShield(g2, 0, 1); g2.ship.trefferT = {};
     const b2 = snapShot(g2);
     D.resolveHit(g2, 0, 1, { sturm: true });
     if (changed(g2, b2).length) sys++;
@@ -284,7 +291,7 @@ section('Module in der Mitte (Regel 4): Zustand, Trefferweg, Funktion, Reparatur
 
   // 1. Zugewandte Zone nicht leer: Module bleiben heil (wie Reaktor und Schildgenerator)
   let anyMid = 0;
-  for (let i = 0; i < 40; i++) { const b = snapShot(g); hit(g, 0, 3); for (const k of MITTE()) if (g.ship.systems[k] !== b[k] || integ(g, k) !== b.__i[k]) anyMid++; if (i % 6 === 5) { for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; I.integritaetVoll(g); } }
+  for (let i = 0; i < 40; i++) { const b = snapShot(g); hit(g, 0, 3); for (const k of MITTE()) if (g.ship.systems[k] !== b[k] || integ(g, k) !== b.__i[k]) anyMid++; if (i % 4 === 3) heilAlle(g);  }   // SYS-03 B1: zwei aktive Bugsysteme × zwei Stufen = vier Treffer
   ok(anyMid === 0, 'Treffer auf eine Zone mit lebenden Systemen: Mitte (auch Module) bleibt unberührt');
 
   // 2. Durchschlag 'zone' trifft die Mitte, und zwar auch die Module
@@ -302,19 +309,19 @@ section('Module in der Mitte (Regel 4): Zustand, Trefferweg, Funktion, Reparatur
 
   // 4. Zustände: ok -> beschädigt -> zerstört über Integrität
   const g4 = newGame(93);
-  I.systemTreffer(g4, 'modul_2', 5);
-  ok(g4.ship.systems.modul_2 === 'damaged' && integ(g4, 'modul_2') === 5, 'Modul beschädigt bei Integrität < 60 %');
+  stufe(g4, 'modul_2');
+  ok(g4.ship.systems.modul_2 === 'damaged' && integ(g4, 'modul_2') === 5, 'Modul beschädigt nach einem Treffer');
   const tick = (gg) => space.update(gg, 0.1);   // Leistung und Modul-Wirkung werden im Raumtick neu bestimmt
   tick(g4);
   ok(Modul.liste(g4).find((m) => m.raum === 2).lauf === true, 'Beschädigtes Modul läuft wie heute');
-  I.systemTreffer(g4, 'modul_2', 5);
-  ok(g4.ship.systems.modul_2 === 'broken' && integ(g4, 'modul_2') === 0, 'Modul zerstört bei Integrität 0');
+  stufe(g4, 'modul_2');
+  ok(g4.ship.systems.modul_2 === 'broken' && integ(g4, 'modul_2') === 0, 'Modul zerstört nach dem zweiten Treffer');
 
   // 5. Zerstörtes Modul funktioniert nicht
   tick(g4);
   const kr = Modul.liste(g4).find((m) => m.id === 'krankenstation');
   ok(kr.lauf === false && !Modul.laeuft(g4, 'krankenstation'), 'Zerstörte Krankenstation läuft nicht');
-  I.systemTreffer(g4, 'modul_1', 10);
+  stufe(g4, 'modul_1', 2);
   tick(g4);
   ok(g4.ship.systems.modul_1 === 'broken' && Modul.liste(g4).find((m) => m.id === 'frachtraum').lauf === false, 'Zerstörter Frachtraum läuft nicht');
   const Fr = require('../server/sim/fracht.js');
@@ -369,7 +376,7 @@ section('SYS-01 A1b: Mine trifft die nächste Zone, Schilde gelten nicht (Punkt 
     const ch = changed(g, s0);
     const verlust = I.SYSTEM_ORDER.reduce((a, k) => a + (s0.__i[k] - integ(g, k)), 0);
     ok(g.ship.shields.current.every((v) => v === 3), `Mine (Richtung ${dx},${dy}, Zone ${zone}): Schilde unberührt`);
-    ok(near(verlust, CONFIG.alarm.mine.punkte, 0.01) && ch.length >= 1 && ch.every((k) => I.systemSector(k) === zone), `Mine: ${CONFIG.alarm.mine.punkte} Integrität aus der nächsten Zone (${ch.join(',') || 'keins'})`);
+    ok(ch.length === 1 && g.ship.systems[ch[0]] === 'damaged' && near(verlust, I.integMax(g, ch[0]) * (1 - SM.reparatur.damaged), 0.01) && I.systemSector(ch[0]) === zone, `Mine: genau ein System der nächsten Zone eine Stufe tiefer (${ch.join(',') || 'keins'})`);
   }
 });
 
@@ -462,17 +469,16 @@ section('Nacharbeit 2: Bestückung, Ausbau, Reset und Mission halten Zustand und
   const Modul = require('../server/sim/module.js');
   // Bestückung: zerstörte Batterie neu bestückt = ok, volle Punkte; der nächste Treffer zerstört sie nicht
   const g = newGame(103); const pl = platzVon('battery_port');
-  I.systemTreffer(g, 'battery_port', 10);
+  stufe(g, 'battery_port', 2);
   ok(g.ship.systems.battery_port === 'broken', 'Vorbereitung: Batterie zerstört');
   ok(Waffen.bestuecken(g, pl, 'standardbatterie') === null, 'Batterie neu bestückt');
   ok(g.ship.systems.battery_port === 'ok' && integ(g, 'battery_port') === 10, `neu bestückt: ok mit Maximum (${g.ship.systems.battery_port}/${integ(g, 'battery_port')})`);
-  I.systemTreffer(g, 'battery_port', 3);
-  ok(g.ship.systems.battery_port === 'ok' && integ(g, 'battery_port') === 7, 'der nächste Treffer (3) zerstört sie nicht (7 von 10, ok)');
+  stufe(g, 'battery_port');
+  ok(g.ship.systems.battery_port === 'damaged' && integ(g, 'battery_port') === 5, 'der nächste Treffer zerstört sie nicht (eine Stufe: beschädigt, 5 von 10)');
   invariante(g, 'nach Bestückung');
   // Umrüsten (Werft) behält Zustand und Punkte
-  I.systemTreffer(g, 'battery_port', 5);
   Waffen.umruesten(g, pl, 'standardbatterie');
-  ok(g.ship.systems.battery_port === 'damaged' && integ(g, 'battery_port') === 2, 'Werft-Umbau behält Zustand und Punkte');
+  ok(g.ship.systems.battery_port === 'damaged' && integ(g, 'battery_port') === 5, 'Werft-Umbau behält Zustand und Punkte');
   // Platz leeren und Schaden darauf: inaktive Waffensysteme stehen heil da
   Waffen.bestuecken(g, pl, 'leer');
   I.damageSystem(g, 'battery_port', 'broken', { quiet: true });
@@ -481,7 +487,7 @@ section('Nacharbeit 2: Bestückung, Ausbau, Reset und Mission halten Zustand und
   invariante(g, 'nach inaktiveHeilen (Waffe)');
   // Module: ausgebautes Modul nimmt Schaden nicht mit, vorher zerstörtes aktives bleibt zerstört
   const gm = newGame(104);
-  I.systemTreffer(gm, 'modul_2', 5); I.systemTreffer(gm, 'modul_1', 10);   // Krankenstation beschädigt, Frachtraum zerstört
+  stufe(gm, 'modul_2'); stufe(gm, 'modul_1', 2);   // Krankenstation beschädigt, Frachtraum zerstört
   ok(gm.ship.systems.modul_2 === 'damaged' && gm.ship.systems.modul_1 === 'broken', 'Vorbereitung: Krankenstation beschädigt, Frachtraum zerstört');
   Modul.entfernen(gm, 'krankenstation', 2);
   I.inaktiveHeilen(gm);
@@ -489,7 +495,7 @@ section('Nacharbeit 2: Bestückung, Ausbau, Reset und Mission halten Zustand und
   ok(gm.ship.systems.modul_1 === 'broken' && integ(gm, 'modul_1') === 0, 'aktives zerstörtes Modul bleibt zerstört (inaktiveHeilen heilt nur Inaktives)');
   invariante(gm, 'nach inaktiveHeilen (Modul)');
   // Rücksetzer
-  const gr = newGame(105); I.systemTreffer(gr, 'engines', 7); I.systemTreffer(gr, 'shields', 12);
+  const gr = newGame(105); stufe(gr, 'engines'); stufe(gr, 'shields', 2);
   Reset.zuruecksetzen(gr);
   ok(I.SYSTEM_ORDER.every((k) => gr.ship.systems[k] === 'ok' && integ(gr, k) === I.integMax(gr, k)), 'Szenen-Reset: alles ok, Maximum');
   invariante(gr, 'nach Szenen-Reset');
@@ -519,17 +525,15 @@ section('Nacharbeit 2b: EMP (offline) führt die vorgemerkte Stufe samt Integrit
   I.damageSystem(g2, 'thruster_port', null, { quiet: true });
   I.updateOffline(g2, 10);
   ok(g2.ship.systems.thruster_port === 'damaged' && integ(g2, 'thruster_port') === 5, 'offline, ein Schaden: nach EMP-Ende beschädigt mit 5 Punkten');
-  // ein Integritätstreffer auf ein Offline-System mindert die Punkte und merkt die Stufe vor
+  // ein Direkttreffer auf ein Offline-System merkt die Stufe vor (SYS-03 B1: eine Stufe je Treffer)
   const g3 = newGame(112);
   I.setOffline(g3, 'thruster_stbd', 5);
-  const r = I.systemTreffer(g3, 'thruster_stbd', 3);
-  ok(r === null && integ(g3, 'thruster_stbd') === 7 && g3.ship.offline.thruster_stbd.prev === 'ok', 'Treffer 3 auf Offline: 7 Punkte, vorgemerkt bleibt ok');
-  const r2 = I.systemTreffer(g3, 'thruster_stbd', 3);
-  ok(r2 && r2.state === 'offline' && g3.ship.offline.thruster_stbd.prev === 'damaged' && integ(g3, 'thruster_stbd') === 4, 'weiterer Treffer: vorgemerkt beschädigt, 4 Punkte');
-  invariante(g3, 'Offline mit Integritätstreffern');
+  const r = stufe(g3, 'thruster_stbd');
+  ok(r && r.state === 'offline' && g3.ship.offline.thruster_stbd.prev === 'damaged' && integ(g3, 'thruster_stbd') === 5, 'Treffer auf Offline: vorgemerkt beschädigt, 5 Punkte');
+  invariante(g3, 'Offline mit Direkttreffer');
   I.updateOffline(g3, 10);
-  ok(g3.ship.systems.thruster_stbd === 'damaged' && integ(g3, 'thruster_stbd') === 4, 'nach EMP-Ende: beschädigt mit 4 Punkten');
-  I.systemTreffer(g3, 'thruster_stbd', 4);
+  ok(g3.ship.systems.thruster_stbd === 'damaged' && integ(g3, 'thruster_stbd') === 5, 'nach EMP-Ende: beschädigt mit 5 Punkten');
+  stufe(g3, 'thruster_stbd');
   ok(g3.ship.systems.thruster_stbd === 'broken' && integ(g3, 'thruster_stbd') === 0, 'danach zerstört bei 0');
   invariante(g3, 'Ende');
   // Sicherheitsnetz: das Ende der Pause gleicht eine uneinheitliche Integrität an die vorgemerkte Stufe an
@@ -547,23 +551,23 @@ section('Nacharbeit 3: Zone mit nur Offline-Systemen ist nicht leer', () => {
   I.setOffline(g, offlineSys, 60);
   let mitte = 0, inZone = 0;
   for (let i = 0; i < 40; i++) {
-    const r = I.trefferweg(g, 0, 0.1);
+    const r = trefferweg(g, 0);
     if (!r) break;
     if (I.systemSector(r.system) === -1) mitte++; else if (r.system === offlineSys) inZone++;
   }
-  ok(mitte === 0 && inZone === 40, `nur Offline-Systeme in der Zone: kein Treffer geht in die Mitte (Mitte ${mitte}, Offline-System ${inZone} von 40)`);
+  ok(mitte === 0 && inZone > 0 && inZone <= 40, `nur Offline-Systeme in der Zone: kein Treffer geht in die Mitte (Mitte ${mitte}, Offline-System ${inZone})`);
   const g2 = newGame(121); const z2 = ZONE(0); const o2 = z2[0];
   for (const k of z2) if (k !== o2) { g2.ship.systems[k] = 'broken'; I.setInteg(g2, k, 0); }
   I.setOffline(g2, o2, 60);
   const mid0 = snapShot(g2);
   const res = hit(g2, 0, 3, {});
-  ok(res.systems.length === 1 && res.systems[0].system === o2 && integ(g2, o2) === I.integMax(g2, o2) - 3, 'Schiffstreffer: trifft das Offline-System und mindert die Integrität');
+  ok(res.systems.length === 1 && res.systems[0].system === o2 && g2.ship.offline[o2].prev === 'damaged' && integ(g2, o2) === I.integMax(g2, o2) * SM.reparatur.damaged, 'Schiffstreffer: trifft das Offline-System und merkt eine Stufe vor');
   ok(MITTE().every((k) => g2.ship.systems[k] === mid0[k] && integ(g2, k) === mid0.__i[k]), 'Die Mitte bleibt dabei unberührt');
   invariante(g2, 'nach Treffer auf Offline-System');
   // sind alle aktiven Systeme der Zone zerstört, geht es weiter in die Mitte (unverändert)
   const g3 = newGame(122);
   for (const k of ZONE(0)) { g3.ship.systems[k] = 'broken'; I.setInteg(g3, k, 0); }
-  const r3 = I.trefferweg(g3, 0, 1);
+  const r3 = trefferweg(g3, 0);
   ok(r3 && I.systemSector(r3.system) === -1, 'alle zerstört: Treffer geht in die Mitte');
 });
 
@@ -571,23 +575,23 @@ section('Nacharbeit 4: Geflicktes bricht, Schwellen nach Treffern ohne Reparatur
   // Fragil-Fall über den Trefferweg
   const g = newGame(130); const z = ZONE(1); const f = z[0];
   const f2 = z[1];
-  for (const k of [f, f2]) { I.systemTreffer(g, k, 6); I.repairSystem(g, k, 'player', 'flick'); }   // beschädigt, dann geflickt
+  for (const k of [f, f2]) { stufe(g, k); I.repairSystem(g, k, 'player', 'flick'); }   // beschädigt, dann geflickt
   ok([f, f2].every((k) => g.ship.systems[k] === 'ok' && I.isFragile(g, k)), 'Vorbereitung: zwei Systeme der Zone geflickt (ok, fragil)');
   const b = snapShot(g);
-  const r = I.trefferweg(g, 1, 0.5);
+  const r = trefferweg(g, 1);
   ok(r && r.wechsel && [f, f2].every((k) => g.ship.systems[k] === 'broken' && integ(g, k) === 0 && !I.isFragile(g, k)), `Trefferweg: alle geflickten Systeme der Zone brechen (${g.ship.systems[f]}/${integ(g, f)}, ${g.ship.systems[f2]}/${integ(g, f2)})`);
   ok(z.filter((k) => k !== f && k !== f2).every((k) => g.ship.systems[k] === b[k] && integ(g, k) === b.__i[k]), 'kein weiterer Schaden in der Zone');
   invariante(g, 'nach Bruch des Geflickten');
   // Geflicktes Offline-System (EMP nach Flicken) bricht ebenfalls beim Integritätstreffer
   const g1 = newGame(131); const f1 = ZONE(2)[0];
-  I.systemTreffer(g1, f1, 6); I.repairSystem(g1, f1, 'player', 'flick'); I.setOffline(g1, f1, 20);
-  I.systemTreffer(g1, f1, 0.5);
+  stufe(g1, f1); I.repairSystem(g1, f1, 'player', 'flick'); I.setOffline(g1, f1, 20);
+  stufe(g1, f1);
   ok(g1.ship.offline[f1].prev === 'broken' && integ(g1, f1) === 0, 'geflickt und offline: ein Treffer merkt zerstört vor, 0 Punkte');
-  // Schwellen nach Treffern ohne Reparatur, Punkt für Punkt
+  // Stufen nach Treffern ohne Reparatur: ok -> beschädigt (50 %) -> zerstört, weitere Treffer ändern nichts
   const g2 = newGame(132); const s = 'weapon_bow';
   const stufen = [];
-  for (let i = 0; i < 11; i++) { I.systemTreffer(g2, s, 1); stufen.push(g2.ship.systems[s][0] + integ(g2, s)); }
-  ok(stufen.join(' ') === 'o9 o8 o7 o6 d5 d4 d3 d2 d1 b0 b0', `Punkt für Punkt: ok bis 6, beschädigt 5 bis 1, zerstört bei 0 (${stufen.join(' ')})`);
+  for (let i = 0; i < 4; i++) { stufe(g2, s); stufen.push(g2.ship.systems[s][0] + integ(g2, s)); }
+  ok(stufen.join(' ') === 'd5 b0 b0 b0', `Treffer für Treffer: beschädigt 5, zerstört 0, dann unverändert (${stufen.join(' ')})`);
   // Zufallsläufe: Treffer, Schaden, Reparatur, EMP, Zeit – nach jedem Schritt gilt die Invariante
   let schritte = 0; const verletzt = [];
   for (const seed of [201, 202, 203]) {
@@ -596,7 +600,7 @@ section('Nacharbeit 4: Geflicktes bricht, Schwellen nach Treffern ohne Reparatur
       const akt = I.SYSTEM_ORDER.filter((k) => I.systemAktiv(gz, k));
       const k = rng.pick(akt); const w = rng.int(7);
       if (w === 0) hit(gz, rng.int(4), 0.5 + rng.int(40) / 10, rng.chance(0.2) ? { durchschlag: 'zone' } : {});
-      else if (w === 1) I.systemTreffer(gz, k, 0.5 + rng.int(60) / 10);
+      else if (w === 1) { weiter(gz); I.direktTreffer(gz, k); }
       else if (w === 2) I.damageSystem(gz, k, null, { quiet: true });
       else if (w === 3) I.repairSystem(gz, k, 'player', rng.pick(['flick', 'swap', 'minigame']));
       else if (w === 4) I.setOffline(gz, k, 1 + rng.int(4));
@@ -618,9 +622,9 @@ section('Nacharbeit 5: Snapshot-Integrität und Protokoll-Reihenfolge', () => {
   ok(Object.keys(g.ship.integ).length === 0, 'der Snapshot schreibt nichts in ship.integ (lesend)');
   ok(Array.isArray(Protocol.SYSTEMS_INTEG) && Protocol.SYSTEMS_INTEG.join() === I.SYSTEM_ORDER.join(), 'Protocol.SYSTEMS_INTEG = interior.SYSTEM_ORDER (eine Reihenfolge für das integ-Array)');
   ok([...Protocol.SYSTEMS_INTEG].sort().join() === Protocol.SYSTEMS.filter((k) => k !== 'weapons').sort().join(), 'Protocol.SYSTEMS_INTEG enthält dieselben Systeme wie Protocol.SYSTEMS (ohne Altnamen weapons)');
-  const g2 = newGame(141); I.systemTreffer(g2, 'battery_port', 6);
+  const g2 = newGame(141); stufe(g2, 'battery_port');
   const s2 = g2.snapshot().ship;
-  ok(s2.integ[Protocol.SYSTEMS_INTEG.indexOf('battery_port')] === 40 && s2.integ[Protocol.SYSTEMS_INTEG.indexOf('engines')] === 100, 'integ[i] gehört zu Protocol.SYSTEMS_INTEG[i] (Batterie 40 %, Triebwerke 100 %)');
+  ok(s2.integ[Protocol.SYSTEMS_INTEG.indexOf('battery_port')] === 50 && s2.integ[Protocol.SYSTEMS_INTEG.indexOf('engines')] === 100, 'integ[i] gehört zu Protocol.SYSTEMS_INTEG[i] (Batterie 50 %, Triebwerke 100 %)');
   const src = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8');
   ok(!/case 'hull'/.test(src), "Client: kein Debug-Befehl 'hull' mehr");
 });

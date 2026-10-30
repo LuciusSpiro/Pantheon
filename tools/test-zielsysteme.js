@@ -306,16 +306,18 @@ section('Gegenseite: Gegner treffen die Lerche mit derselben Regel', () => {
   const T = setup(); const g = T.g; const ship = g.ship;
   const eng = () => ship.systems.engines;
   const chance = g.rng.chance.bind(g.rng);
-  const hit = (sector, opts, dmg) => { ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, sector, dmg == null ? 2 : dmg, Object.assign({ angriff: true }, opts || {})); };
+  const hit = (sector, opts, dmg) => { g.time += 0.3; ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, sector, dmg == null ? 2 : dmg, Object.assign({ angriff: true }, opts || {})); };
   g.rng.chance = () => false;
-  hit(2, { zielt: 'engines' });
-  ok(eng() === 'ok', 'ohne Szenenschalter: Heck-Treffer ohne Angriffs-Regel, Triebwerk heil');
+  const gz = () => (g.stats.zielsysteme && g.stats.zielsysteme.lerche) || 0;
+  hit(2, {});   // SYS-03 B1: ein Treffer ist eine Stufe, der Zufall in der Zone kann das Triebwerk treffen: geprüft wird, dass nicht gezielt wurde (ohne Schalter reichen die Aufrufer kein Ziel durch)
+  ok(gz() === 0, 'ohne Szenenschalter: Heck-Treffer ohne Angriffs-Regel, kein gezielter Treffer');
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {};
   Zs.szeneAn(g, true);
   hit(0, { zielt: 'engines' }); hit(1, { zielt: 'engines' }); hit(3, { zielt: 'engines' });
   ok(eng() === 'ok', 'Bug, Steuerbord, Backbord: Triebwerk heil (nur das Heck zählt, Sektor 2)');
   ship.shields.current = [0, 0, 5, 0]; space.shipHit(g, 2, 2, { angriff: true, zielt: 'engines' });
   ok(eng() === 'ok', 'Heck-Treffer, den der Schild fängt: Triebwerk heil');
-  ship.systems.engines = 'ok'; interior.integritaetVoll(g);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {};
   hit(2, { zielt: 'engines' }, 8);
   ok(eng() === 'damaged', 'gezielt, Schild durchschlagen, Heck: Triebwerk beschädigt (ship.systems.engines)');
   hit(2, { zielt: 'engines' }, 12);
@@ -323,16 +325,16 @@ section('Gegenseite: Gegner treffen die Lerche mit derselben Regel', () => {
   ok(T.me('zielsystemGetroffen').filter((e) => e.seite === 'lerche').length >= 2, 'missionEvent zielsystemGetroffen (seite lerche) je gezieltem Treffer');
   ok(space.engineSpeedFactor(g) === 0, 'engineSpeedFactor der Lerche = 0 (bestehendes Systemmodell, nichts Paralleles)');
   // ungezielt: Zufall in der Zone, kein gezielter Treffer gezählt
-  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {}; T.run(0.1);
   const z0 = g.stats.zielsysteme.lerche;
   hit(2, {}, 3);
   ok(g.stats.zielsysteme.lerche === z0, 'ungezielt: kein gezielter Systemtreffer gezählt (Zufall in der Zone)');
   // kein Angriff (Mine, Brocken): nichts
-  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {}; T.run(0.1);
   g.rng.chance = () => false; ship.shields.current = [0, 0, 0, 0]; space.shipHit(g, 2, 2, { pierce: true }); g.rng.chance = chance;
-  ok(eng() === 'ok', 'Treffer ohne opts.angriff (Mine, Brocken): Triebwerk heil');
+  ok(gz() === z0, 'Treffer ohne opts.angriff (Mine, Brocken): kein gezielter Treffer (Zufall in der Zone)');
   // ein Treffer schädigt das Triebwerk nicht doppelt
-  ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {}; T.run(0.1);
   const d0 = interior.damageSystem; let n = 0; interior.damageSystem = function (...a) { if (a[1] === 'engines') n++; return d0.apply(this, a); };
   ship.shields.current = [0, 0, 0, 0];
   space.shipHit(g, 2, 2, { angriff: true, zielt: 'engines' });
@@ -353,7 +355,7 @@ section('Gegenseite: Gegner-Geschosse und Ladungen tragen die Regel', () => {
   T.run(0.5);
   ok(ship.systems.engines === 'damaged', 'Geschoss eines Gegners mit Systemziel trifft das Heck: Triebwerk beschädigt');
   // ohne Szenenschalter: dasselbe Geschoss lässt das Triebwerk heil (Gegner zielen nur mit Schalter)
-  Zs.szeneAn(g, false); ship.systems.engines = 'ok'; interior.integritaetVoll(g); T.run(0.1);
+  Zs.szeneAn(g, false); ship.systems.engines = 'ok'; interior.integritaetVoll(g); ship.trefferT = {}; T.run(0.1);
   const z0 = g.stats.zielsysteme.lerche;
   ship.shields.current = [0, 0, 0, 0];
   g.space.projectiles.push({ id: 'pr3', kind: 'enemy', x: 1470, y: 1100, angle: 0, speed: 100, ttl: 3, dmg: 8, owner: e.id });
@@ -397,7 +399,7 @@ section('Gegenseite: Ladung der Gegner (Lanze) und Geschosse der Verbündeten tr
   e2.zielsystem = 'engines'; e2.vx = 0; e2.vy = 0; h.ship.shields.current = [0, 0, 0, 0];
   e2.tele = { kind: 'shot', left: 0.02, dur: 2.2, sector: 2, delayed: 0 };
   U.run(0.2);
-  ok(h.stats.heavyHits >= 1 && h.ship.systems.engines === 'ok', 'ohne Szenenschalter: dieselbe Ladung lässt das Triebwerk heil');
+  ok(h.stats.heavyHits >= 1 && ((h.stats.zielsysteme && h.stats.zielsysteme.lerche) || 0) === 0, 'ohne Szenenschalter: dieselbe Ladung trifft nicht gezielt (SYS-03 B1: der Zufall in der Zone kann das Triebwerk treffen)');
   // Geschoss eines Verbündeten am Heck eines Gegners: nur mit Szenenschalter eine Tempo-Wirkung
   const V = setup(); const w = V.g; w.god = true;
   platz(w, 300, 300, 0);

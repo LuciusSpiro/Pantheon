@@ -26,7 +26,7 @@ function frachtraumTreffer(g, n) {
   const alt = {};
   for (const k of I.SYSTEM_ORDER) if (I.systemSector(k) === -1 && k !== sys) { alt[k] = g.ship.systems[k]; g.ship.systems[k] = 'broken'; }
   g.ship.systems[sys] = 'ok'; I.setInteg(g, sys, I.integMax(g, sys));
-  const r = D.systemSchaden(g, { systems: [] }, -1, n);
+  const r = D.systemSchaden(g, { systems: [] }, -1);
   for (const k of Object.keys(alt)) g.ship.systems[k] = alt[k];   // die übrigen Mitte-Systeme bleiben, wie sie waren
   return r;
 }
@@ -152,7 +152,7 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   T.run(5);
   ok(!('o2' in T.g.ship) && !('o2' in T.g.snapshot().ship), 'SYS-03 E: weder Schiff noch Snapshot führen Sauerstoff');
   let getroffen = 0;
-  for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); const r = interior.trefferweg(T.g, i % 4, 1); if (r && r.system === 'life') getroffen++; }   // SYS-01 A1a: Trefferweg statt hitSystems
+  for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); const r = interior.trefferweg(T.g, i % 4); if (r && r.system === 'life') getroffen++; }   // SYS-01 A1a: Trefferweg statt hitSystems
   ok(getroffen === 0, 'in 400 Treffern kommt kein System life vor');
 });
 
