@@ -2,14 +2,15 @@
 // Messwerkzeug "Klumpen der Gegner am Boden" (BOD-01 P3, Ausgangswert fuer BOD-02 Trupp-Taktik).
 // Ursprung: Erkundung Boden-KI (2026-10-30, klumpen.js), hier als wiederholbares Werkzeug im Repo. Nur lesend, aendert kein Spiel.
 //
-// Aufruf: node tools/mess-klumpen.js <modus> [--seeds N=6] [--spieler N=3] [--sek S=60] [--lauf [X=22]] [--staerke klein|mittel|gross] [--verlauf]
+// Aufruf: node tools/mess-klumpen.js <modus> [--seeds N=6] [--spieler N=3] [--sek S=60] [--lauf [X=22]] [--alarm] [--staerke klein|mittel|gross] [--verlauf]
 //         node tools/mess-klumpen.js --selbsttest
 //   Modi:
 //     endkampf   Eisenwald-Endkampf (splitter.eisenwald, Flagge gehisst, Labor stellung_nehmen/flagge_hissen), wie im Original-Skript.
 //     besetzen   Eisenwald mit regulaeren Trupps (combat.besetzen, Fraktion raubzug, Staerke --staerke, Standard gross), wie im Original.
-//     graben     Szenario Grabenangriff: feste Karte (gen.fest = grabenangriff), Rom-Verteidiger je Crewgroesse 6/9/12.
+//     graben     Szenario Grabenangriff, echter Start ueber den Lobby-Modus arena_graben (server/sim/graben.js): Rom-Verteidiger 6/9/12 je Crew 1/2/3.
 //   Spieler: standardmaessig stehend und unverwundbar (Schild voll, sofort wiederbelebt) am Landepunkt (graben: Abholpunkt x~4).
-//     --ruhig     graben: Verteidiger starten nicht alarmiert (Standard: alarmiert, wie haltung wach bei besetzen). Ohne Alarm bleiben sie auf den Posten.
+//     --alarm     graben: alle Verteidiger ab Tick 0 alarmiert und wach (Standard = echtes Verhalten: ruhig auf den Posten; --alarm nur zum
+//                Vergleich mit den fruehen Fixtures).
 //     --lauf [X]  Spieler laufen nach rechts bis Kachel X (Standard 22) und bleiben dort stehen (nur graben, endkampf/besetzen: dort
 //                 ohne Wirkung, die Spieler stehen im Gelaende). Grund: Sicht ist 10 Kacheln, vom Abholpunkt (x~4) aus entsteht auf
 //                 der Grabenkarte nie ein Gefecht; die Stellung beginnt bei x~30.
@@ -18,10 +19,6 @@
 //     weitere: mittlerer Paarabstand, Gegner je Deckungsinsel (Maximum), Inseln mit >= 2 Gegnern, Abstand stehender pin-Gegner,
 //     Anteil Samples mit Flankierer.
 //
-// HINWEIS zum Modus graben: Das echte Szenario (BOD-01 P4: Lobby, Ablauf, Wellen) liegt in diesem Stand noch nicht vor. Die Postierung
-// laeuft deshalb ueber die kleine Funktion grabenPostieren() unten (Rom, Gruppen w1.graben/w1.posten/w2.wald/w2.eingang aus
-// karte.meta.wellen, Rezept "graben" aus content/katalog/fraktionen/rom.json, 6/9/12 Gegner je Crewgroesse 1/2/3). Nach dem Merge von
-// P4 wird sie auf den echten Szenariostart umgestellt (spiel() baut dann ueber die Lobby statt ueber testgelaende).
 const path = require('path');
 const R = path.join(__dirname, '..') + path.sep;
 const CONFIG = require(R + 'shared/config.js');
@@ -34,7 +31,6 @@ const squad = require(R + 'server/sim/squad.js');
 const away = require(R + 'server/sim/away.js');
 const interior = require(R + 'server/sim/interior.js');
 const W = require(R + 'server/world.js');
-const Katalog = require(R + 'server/mission/katalog.js');
 const TILE = Physics.TILE;
 
 const ENV = { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' };
@@ -65,48 +61,22 @@ function eisenwaldSpiel(np, seed) {
   runterbeamen(g, EISENWALD);
   return { g, cs, lp: EISENWALD };
 }
-// Grabenangriff: feste Karte ueber testgelaende (Vorbild tools/test-grabenangriff-karte.js).
+// Grabenangriff: echter Szenariostart (Lobby-Modus arena_graben, server/sim/graben.js, Vorbild tools/test-grabenangriff-szenario.js).
+// Ohne Ruestphase beamt die Crew beim Start gleich an den Abholpunkt; die Gegner stehen ruhig (schleich, Posten) in den Gruppen.
 function grabenSpiel(np, seed) {
   const { g, cs } = neuesSpiel(np, seed);
+  g.lobbyOpts.startMission = 'arena_graben';
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
-  const lp = L.testgelaende(g, { ort: g.ship.scene || 'kesh', id: 'test.mess.graben' + seed, art: 'aussenposten', seed, besitz: 'rom', gen: { fest: 'grabenangriff', abschnitte: { wiese: 'graben', wald: 'weg' } } });
-  runterbeamen(g, lp);
-  return { g, cs, lp };
+  const S = g.arena && g.arena.wellen;
+  if (!S) throw new Error('Grabenangriff nicht gestartet (seed ' + seed + ')');
+  ticks(g, 0.5);
+  return { g, cs, lp: S.lp };
 }
-
-// Postierung der Verteidiger des Grabenangriffs. Wird nach dem Merge von P4 durch den echten Szenariostart ersetzt.
-// Gegner je Crewgroesse 1/2/3: 6/9/12, je zur Haelfte Welle 1 (Graben + Posten) und Welle 2 (Wald + Eingang); Rollen reihum aus dem
-// Rezept "graben" (Rom). Platz: die Anker der Gruppe, reichen sie nicht, die freien Nachbarkacheln. welle: 1, 2 oder 'alle'.
-const GEGNER_JE_CREW = { 1: 6, 2: 9, 3: 12 };
-function grabenPostieren(g, lp, welle, ruhig) {
-  const k = W.AWAY_MAPS[lp].karte, aw = g.aways[lp];
-  const rezept = Katalog.load().fraktionen.rom.rezepte.graben;
-  const rollen = []; for (const t of rezept) for (let i = 0; i < (t.n || 1); i++) rollen.push(t.rolle);
-  const crew = Math.max(1, Math.min(3, g.players.length));
-  const gesamt = GEGNER_JE_CREW[crew], jeWelle = { 1: Math.ceil(gesamt / 2), 2: Math.floor(gesamt / 2) };
-  const ankerVon = (id) => k.anker.find((a) => a.id === id);
-  const frei = (x, y) => { const c = (k.rows[y] || '')[x]; return c != null && !(k.legende[c] && k.legende[c].solid); };
-  let gesetzt = 0, rolleIdx = 0;
-  for (const w of [1, 2]) {
-    if (welle !== 'alle' && +welle !== w) continue;
-    const gruppen = k.meta.wellen[String(w)];
-    let plaetze = [].concat(...gruppen.map((gr) => k.meta.gruppen[gr].map(ankerVon)));   // Reihenfolge der Gruppen: graben vor posten, wald vor eingang
-    plaetze = plaetze.map((a) => ({ x: a.x, y: a.y }));
-    for (let i = 0; plaetze.length < jeWelle[w] && i < plaetze.length; i++) {   // zu wenige Anker: freie Nachbarkachel dazu
-      const a = plaetze[i];
-      const n = [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([dx, dy]) => ({ x: a.x + dx, y: a.y + dy })).find((q) => frei(q.x, q.y) && !plaetze.some((p) => p.x === q.x && p.y === q.y));
-      if (n) plaetze.push(n);
-    }
-    plaetze = plaetze.slice(0, jeWelle[w]);
-    const besetzung = {}; for (let i = 0; i < plaetze.length; i++) { const r = rollen[rolleIdx++ % rollen.length]; besetzung[r] = (besetzung[r] || 0) + 1; }
-    const name = 'w' + w;
-    // Plaetze und Besetzung stimmen in der Zahl ueberein (festeZahl); die Plaetze nimmt spawnAnKarte der Reihe nach
-    const n = squad.spawnSquad(g, name, { map: lp, besetzung: Object.keys(besetzung).sort().map((typ) => ({ typ, anzahl: besetzung[typ] })), plaetze, festeZahl: true, force: true, alert: !ruhig });
-    for (const e of aw.drones) if (e.squad === name) { e.tag = name; e.fraktion = 'rom'; e.palette = 'rom'; combat.kaempfer(g, e); }
-    if (aw.squads[name]) { aw.squads[name].tag = name; aw.squads[name].fraktion = 'rom'; }
-    gesetzt += n;
-  }
-  return gesetzt;
+// Variante --alarm: alle Truppen von Beginn an alarmiert und wach (Vergleich mit den fruehen Fixtures, wo die Gegner alarmiert starteten)
+function alleAlarmieren(g, lp) {
+  const aw = g.aways[lp];
+  for (const s of Object.values(aw.squads)) { s.schleich = false; squad.alertSquad(g, aw, s); }
+  for (const e of aw.drones) e.patrouilliert = false;
 }
 
 function inseln(map) {   // Deckungsinseln: 8er-zusammenhaengende solide Kacheln mit cover>0
@@ -128,9 +98,7 @@ function messLauf(modus, o, seed) {
     Anker.setzen(g, lp, fl.id, 'gehisst', g.players[0].id);
   } else if (modus === 'besetzen') {
     combat.besetzen(g, { map: lp, fraktion: 'raubzug', staerke: o.staerke || 'gross', haltung: 'wach', tag: 'erk', neue_rolle: null });
-  } else {
-    o.gesetzt = grabenPostieren(g, lp, o.welle || 'alle', o.ruhig);
-  }
+  } else if (o.alarm) alleAlarmieren(g, lp);
   ticks(g, 0.2);
   const aw = g.aways[lp], ins = inseln(interior.awayInfoOf(lp).map);
   const laufX = modus === 'graben' && o.lauf ? o.laufX : null;
@@ -165,7 +133,7 @@ function messLauf(modus, o, seed) {
 
 function auswerten(modus, o, rows) {
   const out = [];
-  const spielerTxt = modus === 'graben' ? ((o.ruhig ? 'Gegner ruhig, ' : '') + (o.lauf ? `laufen auf x~${o.laufX} vor, dann stehend` : 'stehend am Abholpunkt (x~4)')) : 'stehend';
+  const spielerTxt = modus === 'graben' ? ((o.alarm ? 'Gegner von Beginn an alarmiert, ' : 'Gegner ruhig, ') + (o.lauf ? `laufen auf x~${o.laufX} vor, dann stehend` : 'stehend am Abholpunkt (x~4)')) : 'stehend';
   out.push(`${TITEL[modus]}, ${o.spieler} Spieler (${spielerTxt}, unverwundbar), ${o.sek} s, Seeds 1..${o.seeds}`);
   const all = rows.flatMap((r) => r.samples), gef = all.filter((s) => s.sieht >= 3);
   out.push(`Gefecht entstanden in ${rows.filter((r) => r.samples.some((s) => s.sieht >= 3)).length} von ${rows.length} Seeds, ${gef.length} von ${all.length} Samples im Gefecht` + (modus === 'graben' ? `; Spieler-x am Ende (Seed 1): ${rows[0].spielerX.join(',')}` : ''));
@@ -184,12 +152,12 @@ function auswerten(modus, o, rows) {
 }
 
 function argumente(argv) {
-  const o = { modus: null, seeds: 6, spieler: 3, sek: 60, lauf: false, laufX: 22, staerke: 'gross', verlauf: false, selbsttest: false, welle: 'alle', ruhig: false };
+  const o = { modus: null, seeds: 6, spieler: 3, sek: 60, lauf: false, laufX: 22, staerke: 'gross', verlauf: false, selbsttest: false, alarm: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], nxt = () => argv[++i];
     if (a === '--seeds') o.seeds = +nxt(); else if (a === '--spieler') o.spieler = +nxt(); else if (a === '--sek') o.sek = +nxt();
     else if (a === '--lauf') { o.lauf = true; if (argv[i + 1] && /^\d+$/.test(argv[i + 1])) o.laufX = +nxt(); }
-    else if (a === '--staerke') o.staerke = nxt(); else if (a === '--welle') o.welle = nxt(); else if (a === '--ruhig') o.ruhig = true; else if (a === '--verlauf') o.verlauf = true; else if (a === '--selbsttest') o.selbsttest = true;
+    else if (a === '--staerke') o.staerke = nxt(); else if (a === '--alarm') o.alarm = true; else if (a === '--verlauf') o.verlauf = true; else if (a === '--selbsttest') o.selbsttest = true;
     else if (!a.startsWith('--') && !o.modus) o.modus = a;
     else { console.error('unbekanntes Argument: ' + a); process.exit(2); }
   }
@@ -199,15 +167,15 @@ function argumente(argv) {
 function selbsttest() {
   let fails = 0;
   const ok = (c, m) => { if (!c) { fails++; console.log('  FEHLER ' + m); } else console.log('  ok ' + m); };
-  const lauf = (modus, extra) => { const o = Object.assign({ modus, seeds: 2, spieler: 3, sek: 20, lauf: false, laufX: 22, staerke: 'gross', welle: 'alle' }, extra || {}); const rows = []; for (let s = 1; s <= o.seeds; s++) rows.push(messLauf(modus, o, s)); return { o, rows, txt: auswerten(modus, o, rows) }; };
-  for (const [modus, extra, name] of [['endkampf', null, 'endkampf'], ['besetzen', { sek: 10, seeds: 1 }, 'besetzen'], ['graben', { lauf: true }, 'graben --lauf']]) {
+  const lauf = (modus, extra) => { const o = Object.assign({ modus, seeds: 2, spieler: 3, sek: 20, lauf: false, laufX: 22, staerke: 'gross' }, extra || {}); const rows = []; for (let s = 1; s <= o.seeds; s++) rows.push(messLauf(modus, o, s)); return { o, rows, txt: auswerten(modus, o, rows) }; };
+  for (const [modus, extra, name] of [['endkampf', null, 'endkampf'], ['besetzen', { sek: 10, seeds: 1 }, 'besetzen'], ['graben', { lauf: true }, 'graben --lauf'], ['graben', { lauf: true, alarm: true }, 'graben --lauf --alarm']]) {
     const { rows, txt } = lauf(modus, extra);
     const gef = rows.flatMap((r) => r.samples).filter((s) => s.sieht >= 3);
     ok(rows.every((r) => r.samples.length > 0 && r.fehler === 0), `${name}: Samples vorhanden, keine Tickfehler`);
     ok(gef.length > 0 && Number.isFinite(mean(gef.map((s) => s.klumpFrac))) && Number.isFinite(mean(gef.map((s) => s.nn))), `${name}: Hauptkennzahlen endlich (${gef.length} Gefechtssamples)`);
     ok(/Eisenwald|Grabenangriff/.test(txt.split('\n')[0]) && (modus !== 'besetzen' || /besetzen/.test(txt.split('\n')[0])) && (modus !== 'endkampf' || /Endkampf/.test(txt.split('\n')[0])), `${name}: Ueberschrift passt zum Modus`);
   }
-  { const { o, rows } = lauf('graben', { seeds: 1, sek: 4 }); ok(rows[0].samples[0].n === GEGNER_JE_CREW[3], `graben: 12 Gegner bei Crew 3 (${rows[0].samples[0].n})`); ok(o.spieler === 3 && rows[0].spielerX.every((x) => x <= 8), 'graben ohne --lauf: Spieler stehen am Abholpunkt'); }
+  { const { o, rows } = lauf('graben', { seeds: 1, sek: 4 }); ok(rows[0].samples[0].n === 12, `graben: 12 Gegner bei Crew 3 (${rows[0].samples[0].n})`); ok(o.spieler === 3 && rows[0].spielerX.every((x) => x <= 8), 'graben ohne --lauf: Spieler stehen am Abholpunkt'); }
   { const { rows } = lauf('graben', { seeds: 1, sek: 4, spieler: 1 }); ok(rows[0].samples[0].n === 6, `graben: 6 Gegner bei Crew 1 (${rows[0].samples[0].n})`); }
   console.log(fails ? 'VERFEHLT: ' + fails : 'ok');
   process.exit(fails ? 1 : 0);

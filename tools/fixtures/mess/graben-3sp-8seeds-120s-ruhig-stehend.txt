@@ -1,7 +1,7 @@
 Grabenangriff (feste Karte, Rom), 3 Spieler (Gegner ruhig, stehend am Abholpunkt (x~4), unverwundbar), 120 s, Seeds 1..8
 Gefecht entstanden in 0 von 8 Seeds, 0 von 1920 Samples im Gefecht; Spieler-x am Ende (Seed 1): 4,5,4
 HAUPTKENNZAHLEN (Gefecht): keine Gefechtssamples, keine Werte
-[gesamt] Samples 1920: Gegner 12  mittl. Paarabstand 25.04  mittl. Abstand zum naechsten Kameraden 5.24  Anteil <=2 Kacheln 0.01  max Gegner je Deckungsinsel (Mittel 1.55, Maximum 3)  Inseln mit >=2 Gegnern 0.53  Median Abstand zum naechsten Spieler 40.13
+[gesamt] Samples 1920: Gegner 12  mittl. Paarabstand 34.11  mittl. Abstand zum naechsten Kameraden 6.75  Anteil <=2 Kacheln 0  max Gegner je Deckungsinsel (Mittel 1, Maximum 1)  Inseln mit >=2 Gegnern 0  Median Abstand zum naechsten Spieler 46.39
 [Gefecht (>=3 Gegner sehen Spieler)] Samples 0: Gegner NaN  mittl. Paarabstand NaN  mittl. Abstand zum naechsten Kameraden NaN  Anteil <=2 Kacheln NaN  max Gegner je Deckungsinsel (Mittel NaN, Maximum NaN)  Inseln mit >=2 Gegnern NaN  Median Abstand zum naechsten Spieler NaN
 stehende pin-Gegner (>=2) im Gefecht: Samples 0, mittl. Abstand zum naechsten pin-Kameraden NaN, mittl. Anzahl pin NaN
 Samples mit Flankierer (Anteil, alle Samples): 0
