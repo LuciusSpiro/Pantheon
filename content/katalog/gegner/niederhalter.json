@@ -6,7 +6,27 @@
   "profil": "niederhalter",
   "namen": {
     "germanen": "Bolzer",
-    "rostmeute": "Bolzer"
+    "rostmeute": "Bolzer",
+    "rom": "Ballistarius"
+  },
+  "vornamen": {
+    "rom": [
+      "Cassius",
+      "Flavius",
+      "Rufus",
+      "Crispus",
+      "Varro",
+      "Cato",
+      "Brutus",
+      "Naso",
+      "Pollio",
+      "Gallus",
+      "Felix",
+      "Verres",
+      "Lentulus",
+      "Scaevola",
+      "Piso"
+    ]
   },
   "beschreibung": "Bleibt stehen und hält eine Deckung mit langen Stößen fest, damit ein Kamerad flankieren kann. Feuert auch auf die letzte bekannte Position.",
   "funk": {
@@ -34,5 +54,33 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Ich halte sie fest, Kohorte!",
+        "Aus der Deckung kommt keiner!",
+        "Köpfe unten, ihr dort!",
+        "Ich fessle sie mit Feuer, geht außen herum!",
+        "Salve frei, Dauerfeuer!",
+        "Weiter feuern, nicht nachlassen!"
+      ],
+      "ueberhitzt": [
+        "Rohr glüht, ich kühle kurz!"
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }

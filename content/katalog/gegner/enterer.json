@@ -6,7 +6,27 @@
   "profil": "enterer",
   "namen": {
     "germanen": "Berserker",
-    "rostmeute": "Berserker"
+    "rostmeute": "Berserker",
+    "rom": "Triarius"
+  },
+  "vornamen": {
+    "rom": [
+      "Aurelius",
+      "Burrus",
+      "Caecilius",
+      "Drusus",
+      "Fronto",
+      "Gracchus",
+      "Horatius",
+      "Largus",
+      "Marius",
+      "Nerva",
+      "Otho",
+      "Regulus",
+      "Sulla",
+      "Taurus",
+      "Vitellius"
+    ]
   },
   "beschreibung": "Läuft ohne Deckung direkt auf den nächsten Spieler zu und schlägt im Nahkampf zu, oft zu zweit. Hält zwei Wunden aus.",
   "funk": {
@@ -36,5 +56,35 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Triarii, vor!",
+        "Nahkampf, Schild an Schild!",
+        "Für Rom!",
+        "Halt still, Barbar!",
+        "Mir nach, ins Gedränge!"
+      ],
+      "erste_wunde": [
+        "Ein Kratzer. Weiter!"
+      ],
+      "liegend": [
+        "Hol mich einer hier raus!"
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }

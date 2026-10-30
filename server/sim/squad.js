@@ -210,14 +210,25 @@ function wakeWarden(game, map) {
 // B2: Funk aus den Funksätzen der Rolle (KATALOG gegner/<rolle>.json, Schlüssel allgemein, ueberhitzt, kamerad_liegt,
 // spieler_gefesselt, alarm_laerm, friendly_fire); sonst die alten Plünderer-Sätze (CONFIG.awayCombat.barks).
 const FUNK_ART = { contact: 'allgemein', flankLeft: 'allgemein', flankRight: 'allgemein', playerDown: 'allgemein' };
+// Anzeigename „<Rolle> <Vorname>“: Vornamen der Fraktion der Reihe nach je Rolle auf der Karte (Reihenfolge der Gegnerliste, Gefallene zählen mit), ohne Dopplung bis zur Listenlänge
+function eigenerName(game, e, g, rolle) {
+  const vn = g.vornamen && g.vornamen[e.fraktion];
+  const drones = (game.away && game.away.drones) || [];
+  if (!vn || !vn.length || !drones.length) return rolle;
+  const i = drones.filter((d) => d.rolle === e.rolle && d.fraktion === e.fraktion).indexOf(e);
+  return i < 0 ? rolle : rolle + ' ' + vn[i % vn.length];
+}
 function funkVon(game, e, kind) {
   const r = e.rolle;
   if (!r || !combat().waffenAktiv()) return null;
   const g = (combat().katalogDaten(game).gegner || {})[r];
   if (!g || !g.funk) return null;
-  const list = g.funk[kind] || g.funk[FUNK_ART[kind]] || null;
+  const eigen = g.funk_nach_fraktion && g.funk_nach_fraktion[e.fraktion];   // BOD-01 P2: Fraktion mit eigenen Funksätzen (rom), kein Rückfall auf die germanischen
+  const funk = eigen || g.funk;
+  const list = funk[kind] || funk[FUNK_ART[kind]] || null;
   if (!list || !list.length) return null;
   const namen = g.namen || {};
+  if (eigen && namen[e.fraktion]) return { list, from: eigenerName(game, e, g, namen[e.fraktion]) };
   return { list, from: namen[e.fraktion] || namen.germanen || Object.values(namen)[0] || 'Gegner' };
 }
 function bark(game, s, e, kind) {
