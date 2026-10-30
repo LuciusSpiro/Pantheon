@@ -128,8 +128,7 @@ section('Boje wecken: Adresse, Energie, Feld, Kante', () => {
     halten(); T.run(10, () => { halten(); return false; });
     const z10 = z();
     ok(z10 > 14 && z10 < 20, 'Fortschritt läuft (100 in 60 s): ' + z10.toFixed(1) + ' nach 10 s');
-    const o2 = g.ship.o2;
-    ok(o2 >= CONFIG.o2.max - 0.01, 'Lebenserhaltung ist kein Energieposten mehr: der O2-Vorrat sinkt nicht (AP10 ruht), ' + Math.round(o2) + '/' + CONFIG.o2.max);
+    ok(!('life' in g.ship.power) && !('o2' in g.ship), 'Lebenserhaltung ist kein Energieposten mehr, und es gibt keinen Sauerstoffvorrat (SYS-03 E)');
     // Feld verlassen: Fortschritt fällt langsam
     g.ship.x = 100; g.ship.y = 100; g.ship.vx = 0; g.ship.vy = 0; T.run(4, () => { g.ship.x = 100; g.ship.y = 100; return false; });
     ok(z() < z10 - 1 && z() > 0, 'Schiff außerhalb des Felds: Fortschritt fällt (' + z().toFixed(1) + ')');

@@ -383,8 +383,8 @@ section('Schiffssysteme ohne Lebenserhaltung', () => {
   ok(!Maps.SHIP_ROWS.join('').includes('O') && !('O' in Maps.SHIP_LEGEND), 'Legende und Karte ohne die Lebenserhaltung');
   const snap = g.snapshot().ship;
   ok(!('life' in snap.systems) && !('life' in snap.power) && !('life' in snap.heat), 'Snapshot ohne life');
-  g.ship.o2 = 100; g.ship.breachList = []; T.run(10);
-  ok(g.ship.o2 >= 99.9, 'ohne Lecks: O2 voll');
+  g.ship.breachList = []; const hp0 = g.players[0].hp; T.run(10);
+  ok(!('o2' in g.ship) && !('o2' in g.snapshot().ship) && g.players[0].hp >= hp0, 'SYS-03 E: kein Sauerstoff im Schiff und im Snapshot, kein Erstickungsschaden');
 });
 
 section('Snapshot und Protokoll', () => {

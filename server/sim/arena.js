@@ -73,7 +73,6 @@ function repairShip(game) {
   if (Array.isArray(ship.repairQueue)) ship.repairQueue = [];
   ship.fireList = []; ship.breachList = [];
   require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Hülle entfällt, Rücksetzer = Integrität aller Systeme auf Maximum
-  ship.o2 = C.o2.max;
   for (const k of Object.keys(ship.heat)) ship.heat[k] = 0;
   if (ship.reactorCtl.state === 'offline') space.reactorOnline(game, 'Testgelände: Reaktor läuft.');
   ship.shields.current = ship.shields.alloc.slice();

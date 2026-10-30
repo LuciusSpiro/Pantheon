@@ -25,9 +25,7 @@
 
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
-    breach: { o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (Hülle entfällt)
-    // PAN-01 B: Die Lebenserhaltung ist als Station gestrichen (AP10 ruht); O2 sinkt nur durch Lecks.
-    o2: { max: 100, regen: 2, suffocateDps: 2 },
+    breach: { pullRadius: 4, pullSpeed: 20, patchTime: 3 },   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (Hülle entfällt)
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
     hitEffects: { fireChance: 0.3, spill: 0.4 },   // SYS-01 A1a: Systemtreffer kommen aus dem Trefferweg (systemModell), Lecks aus Treffern entfallen
