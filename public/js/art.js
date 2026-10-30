@@ -486,8 +486,6 @@
     transfer: ['.#......#.', '#+#....#+#', '.#......#.', '...#..#...', '..#+##+#..', '..#+##+#..', '...#..#...', '.#......#.', '#+#....#+#', '.#......#.'],
     fire: ['....#.....', '...##.....', '...#+#..#.', '..#++#.##.', '.#++++##..', '.#+ww++#..', '#+wwww+#..', '#+wwww++#.', '.#+ww++#..', '..####....'],
     breach: ['#.......#.', '.#..#..#..', '..#.#.#...', '...ooo....', '#.ooooo.##', '..ooooo...', '...ooo....', '..#.#.#...', '.#..#..#..', '#.......#.'],
-    o2: ['..####....', '.#....#...', '#..##..#..', '#.#..#.#..', '#.#..#.#..', '#..##..#..', '.#....#.##', '..####...#', '........#.', '.......###'],
-    hull: ['##########', '#++++#+++#', '#+##+#+#+#', '##########', '#+#+++#++#', '#+#+##++##', '##########', '#++++#+++#', '#+##+#+#+#', '##########'],
     marks: ['..######..', '.#++++++#.', '#++####++#', '#+#+##+#+#', '#+#+##+#+#', '#+#+##+#+#', '#+#+##+#+#', '#++####++#', '.#++++++#.', '..######..'],
     circle: ['...####...', '.########.', '.########.', '##########', '##########', '##########', '##########', '.########.', '.########.', '...####...'],
     triangle: ['....##....', '....##....', '...####...', '...####...', '..######..', '..######..', '.########.', '.########.', '##########', '##########'],
@@ -512,7 +510,7 @@
   };
   var ICON_COLORS = {
     reactor: PAL.mint, engines: PAL.bernstein, shields: PAL.eisblau, weapons: PAL.alarmrot,
-    transfer: PAL.mint, fire: '#F08A3C', breach: PAL.eisblau, o2: PAL.eisblau, hull: PAL.paneelHell, marks: PAL.messing,
+    transfer: PAL.mint, fire: '#F08A3C', breach: PAL.eisblau, marks: PAL.messing,
     circle: PLAYER[0], triangle: PLAYER[1], diamond: PLAYER[2], kreis: PAL.sternweiss, dreieck: PAL.sternweiss,
     raute: PAL.sternweiss, stern: PAL.sternweiss, welle: PAL.sternweiss, kreuz: PAL.sternweiss, lock: PAL.messing,
     arrow: PAL.bernstein, ersatzteil: PAL.messing, warn: PAL.warngelb, check: PAL.mint, oda: PAL.mint, radio: PAL.bernstein,

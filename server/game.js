@@ -490,7 +490,7 @@ class Game {
       leakHits: 0, escalations: 0, repairSetbacks: 0, reactorAutoStarts: 0 };
     this.ship = {
       scene: Welt.startOrt(), docked: true, dockedAt: Welt.startOrt(), dockArmed: false, x: 0, y: 0, angle: 0, vx: 0, vy: 0, speed: 0,
-      integ: {}, o2: C.o2.max, alert: 'normal',   // SYS-01 A1a: keine Hülle; Integrität je System (interior.integOf, Start = Maximum)
+      integ: {}, alert: 'normal',   // SYS-01 A1a: keine Hülle; Integrität je System (interior.integOf, Start = Maximum)
       helm: { turn: 0, thrust: 0, manned: false, autoStop: false },   // §21.1 autoStop = Allstopp aktiv
       power: Object.assign({}, C.power.default), reactor: { state: 'online', output: C.power.reactor, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
       reactorCtl: { state: 'online', overloadLeft: 0, warned: false, switches: { A: false, B: false }, restartProgress: 0, aloneT: 0, offlineT: 0, needBot: null },
@@ -1812,9 +1812,9 @@ class Game {
     let level = 'normal';
     const downSys = Object.values(s.systems).some((v) => v === 'broken' || v === 'offline');
     if (s.fireList.length || s.breachList.length || downSys || s.reactorCtl.state === 'offline') level = 'yellow';
-    // SYS-01 A1a: Alarm Rot bei Gefecht, Reaktor oder Schildgenerator zerstört (Verlust in der Mitte), wenig Sauerstoff
+    // SYS-01 A1a: Alarm Rot bei Gefecht, Reaktor oder Schildgenerator zerstört (Verlust in der Mitte)
     const mitteVerlust = s.systems.reactor === 'broken' || s.systems.shields === 'broken';
-    if (this.space.enemies.some((e) => e.kind !== 'relay') || mitteVerlust || s.o2 < 50) level = 'red';
+    if (this.space.enemies.some((e) => e.kind !== 'relay') || mitteVerlust) level = 'red';
     // SUND-02a Client-Runde S2: Alarm Rot für die Dauer einer Sim-Szene, auch in der Vorwarnung. Die Stufe ist reine Darstellung (Sirene, Raumlicht, Pult); sie kommt vor jedem
     // Tick neu aus dem Zustand, endet also mit der Szene von selbst. Nicht zu verwechseln mit dem Raum-Alarm (server/sim/alarm.js: Gegner-KI, Minen), der hier unberührt bleibt.
     if (this.simSzene && this.simSzene.phase !== 'ende') level = 'red';
@@ -2186,7 +2186,7 @@ class Game {
       }),
       ship: {
         scene: ship.scene, docked: ship.docked, dockedAt: ship.dockedAt, x: r1(ship.x), y: r1(ship.y), angle: r3(ship.angle), vx: r1(ship.vx), vy: r1(ship.vy), speed: r1(ship.speed),
-        integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), zielAufKl: Zielsysteme.zielAufKlasse(this), o2: r1(ship.o2), alert: ship.alert,
+        integ: integSnap.pct, integPct: integSnap.gesamt, zonen: interior.zonenSnapshot(this), zielAuf: Zielsysteme.zielAuf(this), zielAufKl: Zielsysteme.zielAufKlasse(this), alert: ship.alert,
         helm: this.helmSnap(),
         power: ship.power, reactor: this.reactorSnap(), ...(Reaktortod.snapshotKompakt(this) ? { reaktorTod: Reaktortod.snapshotKompakt(this) } : {}),   // SYS-01 A2a: { rest (Zehntelsekunden, -1 kein Countdown), n, tot, wartet }; im Ruhezustand fehlt das Feld
         heat: { engines: Math.round(ship.heat.engines), shields: Math.round(ship.heat.shields), weapons: Math.round(ship.heat.weapons) },

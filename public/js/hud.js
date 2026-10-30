@@ -18,6 +18,8 @@
     R.text(ctx, txt, x + bw + 3, y, { color: col });
   }
   const TILE = 32, VW = 640, VH = 360;
+  // SYS-03 E: Anker des Schiffs-HUD oben rechts (Kopfzeile Marken + Schildmini, darunter Raumname, Sprungzeile, Reaktorhinweis); eine Lücke von 2 px zwischen den Blöcken
+  const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
 
@@ -545,31 +547,25 @@
       pips(cur[1] || 0, x + 3, y + 13, false, 1);  // Steuerbord unten
     },
 
-    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon,
+    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
       const x0 = VW - 7 * 16 - 4;
-      // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
-      R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
-      const yo = -18;
-      R.icon(ctx, 'hull', x0 + 6, 31 + yo);
-      zonenAnzeige(ctx, x0 + 14, 26 + yo, 98, ship);   // SYS-01 A1c: Lage der Zonen statt Gesamtintegrität
-      const o2 = ship.o2 == null ? 100 : ship.o2;
-      R.icon(ctx, 'o2', x0 + 6, 45 + yo);
-      R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
-      R.text(ctx, String(Math.round(o2)), x0 + 65, 40 + yo, { color: PAL.star });
-      this.drawShieldMini(ctx, view, x0 + 90, 34 + yo);
+      // SYS-03 E (Kai: „brauchen wir nicht“): Hüllen-Symbol, Zonenbalken und Sauerstoff entfallen; es bleiben Marken links und Schildmini rechts in einer Kopfzeile
+      const L = HUD_LAYOUT;
+      R.backdrop(ctx, x0 - 4, L.top, 7 * 16 + 6, L.kopfH, 0.62);
+      this.drawShieldMini(ctx, view, x0 + 90, L.shieldY);
       const inv = st.inventory || {};
-      R.icon(ctx, 'marks', x0 + 6, 58 + yo);
-      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55 + yo, { color: PAL.brass });
+      R.icon(ctx, 'marks', x0 + 6, L.marksY + 3);
+      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, L.marksY, { color: PAL.brass });
       // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
       const rn = roomOf(tx, ty, view.state);
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
-      R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
-      R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
-      this.drawJumpLine(ctx, view, 63);
+      R.backdrop(ctx, VW - 2 - rw, L.roomY, rw, 11, 0.62);
+      R.text(ctx, rn, VW - 6, L.roomY + 2, { color: PAL.star, align: 'right' });
+      this.drawJumpLine(ctx, view, L.jumpY);
       // PAN-01 B (Feedback 1): der Mini-Schiffsplan unten rechts im Schiffsinnern entfällt (Decksplan nur noch in den Konsolen Captain/Technik)
       this.drawEdgeArrows(ctx, view);
     },
@@ -607,7 +603,7 @@
       const st = view.state;
       const r = (st.ship && st.ship.reactor) || {};
       const onShip = view.self.zone === 'ship';
-      const x = VW - 232, y = (onShip ? 66 : 50) + (onShip ? this.jumpLineH : 0), w = 228;
+      const x = VW - 232, y = (onShip ? HUD_LAYOUT.hintY + this.jumpLineH : 50), w = 228;
       if (r.state === 'overload') {
         const left = +r.overloadLeft || 0;
         const warn = left <= 30;

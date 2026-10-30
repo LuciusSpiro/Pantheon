@@ -209,7 +209,6 @@ function updatePlayers(game, dt) {
     if (p.zone === 'ship') {
       const t = Physics.toTile(p.x, p.y);
       if (game.ship.fireList.some((f) => f.tx === t.x && f.ty === t.y)) damagePlayer(game, p, C.fire.playerDps * dt, 'fire');
-      if (game.ship.o2 <= 0) damagePlayer(game, p, C.o2.suffocateDps * dt, 'o2');
     }
     if (p.carry === 'medipack' && p.hp < 50 && !p.downed) { p.carry = null; healPlayer(game, p, C.support.supply.heal); }
   }

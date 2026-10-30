@@ -539,11 +539,6 @@ function updateSystems(game, dt) {
       game.oda(`${cap(interior.sysNameNom(k))} ist überhitzt! Stufe 4 nur kurz fahren, sonst wird's warm.`, 'heat_' + k);
     }
   }
-  // O₂ (PAN-01 B: die Lebenserhaltung ist als Station gestrichen; O₂ sinkt nur durch Lecks)
-  ship.o2 += C.o2.regen * dt;
-  const drill = game.mission && game.mission.isDrill();
-  if (!drill) ship.o2 -= C.breach.o2PerSec * ship.breachList.length * dt;
-  ship.o2 = clamp(ship.o2, 0, C.o2.max);
   // Schilde
   enforceShields(game);
   const sh = ship.shields;

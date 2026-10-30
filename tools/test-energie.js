@@ -95,7 +95,7 @@ section('Konfiguration: Reaktor 8, Hauptsysteme, Module als Daten', () => {
   ok(Protocol.CMD_TECHNIK.includes('technik.module') && Protocol.DEBUG_CMDS.includes('modul'), 'Protokoll: technik.module, Debug modul');
   ok(!CONFIG.shop.some((s) => s.id === 'schildpool' || s.id === 'bot2'), 'Shop: schildpool entfällt, bot2 ist das Modul Werkstatt');
   ok(!CONFIG.shop.some((s) => s.id === 'bolzenwerfer' || s.id === 'seitenturm'), 'bolzenwerfer und seitenturm gehen im Waffenkatalog auf (PAN-01 C)');
-  ok(!('drainLifeBroken' in CONFIG.o2) && CONFIG.o2.max === 100, 'PAN-01 B: Lebenserhaltung als Station gestrichen, kein O2-Verlust durch sie (nur Lecks)');
+  ok(!('o2' in CONFIG) && !('o2PerSec' in CONFIG.breach), 'PAN-01 B, SYS-03 E: Lebenserhaltung als Station gestrichen, kein Sauerstoff in der Config');
   const t = CONFIG.module.standard;
   ok(JSON.stringify(t[6]) === '[2,2,2]' && JSON.stringify(t[4]) === '[1,2,1]', 'Standard: 6 frei = 2/2/2, 4 frei = 1/2/1');
   ok(Object.values(t).every((v) => v.length === 3 && v.every((x) => x >= 1 && x <= CONFIG.power.maxPerSystem)), 'jede Standardverteilung: mindestens 1 je Hauptsystem, höchstens 4');
@@ -146,11 +146,11 @@ section('Transporter, Lager, Sensoren: kein Energieposten', () => {
   T.g.ship.systems.reactor = 'broken'; T.run(0.2);
   ok(space.powerUsed(T.g) <= 2, 'Reaktor zerstört: Notstrom 2, alles gekürzt (' + space.powerUsed(T.g) + ')');
   ok(T.g.ship.systems.transfer === 'ok' && !away.recall(T.g, 'x').includes('Energie'), 'Transfer hat keinen Energieposten (Zustand unabhängig vom Reaktor)');
-  // Lebenserhaltung: als Station und System gestrichen (PAN-01 B); O2 sinkt nur durch Lecks
+  // Lebenserhaltung: als Station und System gestrichen (PAN-01 B); kein Sauerstoff (SYS-03 E)
   const interior = require('../server/sim/interior.js');
   ok(!('life' in T.g.ship.systems) && !interior.SYSTEM_ORDER.includes('life') && !Protocol.SYSTEMS.includes('life') && interior.SYSTEM_ORDER.filter((s) => !/^lafette_/.test(s) && !/^modul_/.test(s)).length === 13, 'kein System life mehr (13 Systeme + Lafetten 5 7 9 1 3 2)');
-  T.g.ship.o2 = 100; T.run(5);
-  ok(T.g.ship.o2 >= 99.9, 'ohne Lecks sinkt O2 nicht');
+  T.run(5);
+  ok(!('o2' in T.g.ship) && !('o2' in T.g.snapshot().ship), 'SYS-03 E: weder Schiff noch Snapshot führen Sauerstoff');
   let getroffen = 0;
   for (let i = 0; i < 400; i++) { T.g.ship.systems = interior.makeSystems(); const r = interior.trefferweg(T.g, i % 4, 1); if (r && r.system === 'life') getroffen++; }   // SYS-01 A1a: Trefferweg statt hitSystems
   ok(getroffen === 0, 'in 400 Treffern kommt kein System life vor');
