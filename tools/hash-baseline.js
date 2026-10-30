@@ -4,6 +4,8 @@
 //
 //   node tools/hash-baseline.js --compare    vergleicht mit tools/fixtures/ort01-hash-baseline.json (Exit 1 bei Abweichung)
 //   node tools/hash-baseline.js --compare --karten   nur die Karten-Hashes (schnell, ohne Browser; hängt in npm test)
+//   node tools/hash-baseline.js --compare [--karten] --ohne-zeichen "Y,H,;"   entfernt die genannten Legendenzeichen vor dem Hashen (VOX-01: neue Kachelarten;
+//     jede Karte trägt die ganze Legende, neue Zeichen ändern daher jeden Kartenhash). Gleich zur Basis = die Karten sind bis auf diese Legendeneinträge unverändert.
 //   node tools/hash-baseline.js --write      schreibt die Baseline neu (nur auf einem Stand, der als Referenz gelten soll!)
 //
 // karten: sha1 über JSON.stringify(Karte) für alle festen Generator-Landepunkte (Außenposten, Station) und je 10 Seeds
@@ -24,6 +26,19 @@ const ROOT = path.join(__dirname, '..');
 const DATEI = path.join(ROOT, 'tools', 'fixtures', 'ort01-hash-baseline.json');
 const sha = (s) => crypto.createHash('sha1').update(s).digest('hex');
 const json = (p) => JSON.parse(fs.readFileSync(p, 'utf8'));
+// --ohne-zeichen "Y,H,;": Liste (Komma getrennt) oder einfach die Zeichen hintereinander; nur Legendeneinträge dieser Zeichen werden vor dem Hashen entfernt
+const OHNE = (() => {
+  const i = process.argv.indexOf('--ohne-zeichen');
+  if (i < 0 || !process.argv[i + 1]) return [];
+  const a = process.argv[i + 1];
+  return a.includes(',') && a.split(',').every((z) => z.length === 1) ? a.split(',') : Array.from(a);
+})();
+const kartenHash = (k) => {
+  if (!OHNE.length || !k || !k.legende) return sha(JSON.stringify(k));
+  const c = JSON.parse(JSON.stringify(k));   // nie die Karte des Generators verändern (Cache)
+  for (const z of OHNE) delete c.legende[z];
+  return sha(JSON.stringify(c));
+};
 
 async function berechne(nurKarten) {
   process.chdir(ROOT);
@@ -39,12 +54,12 @@ async function berechne(nurKarten) {
   const g = { seed: 7 };
   for (const list of Object.values(LP.defs().orte)) for (const d of list) {
     if (!['aussenposten', 'station'].includes(d.art)) continue;
-    karten[d.id] = sha(JSON.stringify(LP.karte(g, d.id)));
+    karten[d.id] = kartenHash(LP.karte(g, d.id));
   }
   for (const art of ['aussenposten', 'station']) for (const besitz of ['rostmeute', 'kontor', 'konkordat']) for (let s = 1; s <= 10; s++) {
     const gg = { seed: 7 };
     const id = LP.neu(gg, 'kesh', { art, besitz, bauweise: 'germanen', seed: s * 977 });
-    karten[`${art}/germanen/${besitz}/${s * 977}`] = sha(JSON.stringify(LP.karte(gg, id)));
+    karten[`${art}/germanen/${besitz}/${s * 977}`] = kartenHash(LP.karte(gg, id));
   }
 
   const deko = {}, dekoZellen = {}, layout = {};
@@ -109,6 +124,7 @@ async function berechne(nurKarten) {
 
 (async () => {
   const modus = process.argv.includes('--write') ? 'write' : 'compare';
+  if (modus === 'write' && OHNE.length) { console.error('--ohne-zeichen gilt nur mit --compare (die Basis darf nicht ohne Zeichen geschrieben werden)'); process.exit(1); }
   const nurKarten = process.argv.includes('--karten') && modus === 'compare';
   const ist = await berechne(nurKarten);
   if (modus === 'write') {
@@ -117,6 +133,7 @@ async function berechne(nurKarten) {
     return;
   }
   const soll = json(DATEI);
+  if (OHNE.length) console.log(`Legendeneinträge vor dem Hashen entfernt: ${OHNE.map((z) => JSON.stringify(z)).join(' ')} (Karten-Hashes; Deko/Layout hängen nicht an der Legende)`);
   let fehler = 0;
   for (const teil of nurKarten ? ['karten'] : ['karten', 'deko_zellen', 'deko', 'layout', 'schiff_ruine']) {
     const ab = [];
