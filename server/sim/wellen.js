@@ -538,7 +538,8 @@ const ALL = {
   endeTick() {},
   endeText: (S) => `Notfallprotokoll – die Runde ist vorbei. Erreicht: Welle ${S.n}.`,
 };
-const BUEHNEN = { boden: BODEN, all: ALL };
+// BOD-01: Grabenangriff hat einen eigenen Ablauf (graben.js, lazy wegen des Zirkelbezugs); die Bühne liefert dort update und vorbereitungEnde selbst
+const BUEHNEN = { boden: BODEN, all: ALL, get graben() { return require('./graben.js').BUEHNE; } };
 function buehne(S) { return BUEHNEN[S.buehne] || BODEN; }
 
 // start All (arena.js): Szene steht, Schiff abgelegt, Crew an Bord. o = { szene, karte, seed, name }
@@ -598,6 +599,7 @@ function ende(game, S) {
 function vorbereitungEnde(game) {
   const S = st(game);
   if (!S || S.ph !== 'vorbereitung') return false;
+  if (buehne(S).vorbereitungEnde) return buehne(S).vorbereitungEnde(game, S);   // eigener Ablauf (Grabenangriff)
   if (S.buehne === 'boden') {
     const t = team(game);
     for (const p of t) { if (p.console) M().interior.leaveConsole(game, p); if (p.downed) M().interior.revivePlayer(game, p); }
@@ -614,6 +616,7 @@ function update(game, dt) {
   if (!S || game.phase !== 'play') return;
   const C = cfg(game); const B = buehne(S);
   if (!B.bereit(game, S)) return;
+  if (B.update) { B.update(game, S, dt); return; }   // eigener Ablauf (Grabenangriff)
   if (S.ph === 'vorbereitung') return;   // Rüstphase: nichts läuft, bis am Terminal gestartet wird
   if (S.ph === 'ende') {
     B.endeTick(game, S);
@@ -649,6 +652,7 @@ function snap(game) {
 function debugWelle(game, n) {
   const S = st(game);
   if (!S) return 'welle: nur im Wellenmodus (Wellen Boden / Wellen All).';
+  if (S.buehne === 'graben') return 'welle: der Grabenangriff hat keine Wellenfolge (Debug graben).';
   const k = Math.max(1, Math.min(999, Math.round(Number(n)) || 1));
   if (S.ph === 'ende') return 'welle: die Runde ist vorbei.';
   buehne(S).wegraeumen(game, S);
@@ -657,4 +661,4 @@ function debugWelle(game, n) {
   return null;
 }
 
-module.exports = { TAG, plan, planAll, anzahl, haeuptlinge, start, startAll, vorbereitungEnde, update, snap, debugWelle, kandidaten, spawnPlatz, BUEHNEN, _st: st };
+module.exports = { TAG, plan, planAll, anzahl, haeuptlinge, start, startAll, vorbereitungEnde, update, snap, debugWelle, kandidaten, spawnPlatz, zaehleAbschuesse, BUEHNEN, _st: st };

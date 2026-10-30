@@ -542,7 +542,7 @@
     // AP3a: eigene Waffe für Wellen Boden und Labor (Taste W) – gesetzt beim Start, vor dem Beamen
     lobbyWaffe() {
       const st = Client.state, lob = st && st.lobby, m = me();
-      if (!lob || !m || (lob.startMission !== 'arena_away' && lob.startMission !== 'labor')) return;
+      if (!lob || !m || (lob.startMission !== 'arena_away' && lob.startMission !== 'arena_graben' && lob.startMission !== 'labor')) return;
       const list = P.WAFFEN_WAHL || ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'];
       const cur = lob.waffen && lob.waffen[m.id];
       const next = cur ? list[(list.indexOf(cur) + 1) % list.length] : list[0];
@@ -554,8 +554,18 @@
     // SYS-01 A2b: OK in der Einblendung „Schiff zerstört“ (Server: erst wenn alle verbundenen Spieler OK haben, zurück in die Lobby)
     zerstoertOk() { Client.zerstoertOkGesendet = true; send({ t: (P.C && P.C.MENU) || 'menu', op: 'zerstoertOk' }); audio.play('ui_click'); },
     // Bodenkampf: Wellen – Karte reihum (Taste K / Klick); jeder darf umschalten, alle sehen die Wahl
+    // BOD-01: Grabenangriff – Variante des i-ten wählbaren Abschnitts (Reihenfolge lobby.grabenListe) reihum; jeder darf umschalten
+    toggleGraben(i) {
+      const lob = Client.state && Client.state.lobby;
+      const a = lob && lob.startMission === 'arena_graben' && Array.isArray(lob.grabenListe) ? lob.grabenListe[i] : null;
+      if (!a || !(a.varianten || []).length) return;
+      const ids = a.varianten.map(v => v.id), cur = lob.graben && lob.graben[a.abschnitt];
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', graben: { [a.abschnitt]: ids[(Math.max(0, ids.indexOf(cur)) + 1) % ids.length] } });
+      audio.play('ui_click');
+    },
     toggleWellenKarte() {
       const st = Client.state;
+      if (st && st.lobby && st.lobby.startMission === 'arena_graben') { actions.toggleGraben(0); return; }   // BOD-01: K = erster Abschnitt (Wiese)
       if (st && st.lobby && st.lobby.startMission === 'arena_space') {   // W2 AP3b: Wellen All – Szene reihum (K)
         const list = allSzenen().map((z) => z.id);
         if (!list.length) return;
@@ -709,12 +719,25 @@
       return a;
     } catch (e) { return null; }
   })();
+  const GRABEN_URL = (function () {
+    try {
+      const q = new URLSearchParams(location.search);
+      if (q.get('arena') !== 'graben') return null;
+      const auswahl = {};
+      for (const kv of String(q.get('auswahl') || '').split(',')) { const [k, v] = kv.split(':'); if (k && v) auswahl[k] = v; }
+      return { auswahl };
+    } catch (e) { return null; }
+  })();
   function onSnapB(prev, s) {
     { const m = me(); if (m && m.wf) K.myWaffe = m.wf; }   // B2: zuletzt bekannte eigene Waffe (an Bord fehlt wf im Snapshot)
     if (s.phase === 'lobby' && ARENA_URL && !Client.arenaSent) {
       Client.arenaSent = true;
       // F16: Testgelände startet nie einen gemerkten Weltstand (Server stellt nach „Partie beenden“ den vorigen wieder ein)
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: 'arena_away', arena: ARENA_URL, world: null, wellen: ARENA_URL.wellen });
+    }
+    if (s.phase === 'lobby' && GRABEN_URL && !Client.arenaSent) {   // BOD-01: ?arena=graben[&auswahl=wiese:graben,wald:weg] – Grabenangriff direkt wählen (Bots, Tests)
+      Client.arenaSent = true;
+      send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: 'arena_graben', world: null, ...(Object.keys(GRABEN_URL.auswahl).length ? { graben: GRABEN_URL.auswahl } : {}) });
     }
     // Karte fehlt oder kv passt nicht -> awayMap.get (höchstens alle 2 s je Karte)
     const aw = s.away;
@@ -1090,7 +1113,7 @@
       case 'wellenEnde':
         H.wellenErgebnis = Object.assign({ rekordNeu: wellenRekord(ev) }, ev);
         H.wellenRekorde = wellenRekorde();
-        audio.play('error');
+        audio.play(ev.sieg ? 'repair_done' : 'error');
         return true;
       case 'enternFrei':
         H.pushOda('Feindschiff treibt manövrierunfähig. Nah heranfliegen, dann kann das Außenteam über die Transfer-Konsole entern.');
@@ -1107,7 +1130,7 @@
   }
   // -> true, wenn neuer Rekord (mehr Wellen geschafft bzw. gleich viele schneller)
   function wellenRekord(ev) {
-    if (!ev || !ev.karte || ev.debug) return false;   // Debug-Sprung (welle <n>) zählt nicht
+    if (!ev || !ev.karte || ev.debug || ev.sieg) return false;   // Debug-Sprung (welle <n>) und Sieg des Grabenangriffs zählen nicht
     const all = wellenRekorde();
     const alt = all[ev.karte];
     const neu = !alt || ev.welle > alt.welle || (ev.welle === alt.welle && ev.zeit > alt.zeit);
@@ -1986,6 +2009,7 @@
       if (code === 'KeyU' && m) actions.toggleSkipDrill();
       if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
       if (code === 'KeyK' && m && !e.repeat) actions.toggleWellenKarte();   // Bodenkampf: Wellen – Karte
+      { const gi = H.GRABEN_TASTEN ? H.GRABEN_TASTEN.indexOf(code) : -1; if (gi > 0 && m && !e.repeat) actions.toggleGraben(gi); }   // BOD-01: N/B = weitere Abschnitte des Grabenangriffs (K: toggleWellenKarte)
       if (code === 'KeyW' && m && !e.repeat) actions.lobbyWaffe();   // AP3a: Waffe für Wellen Boden / Labor
       if (m && st && st.lobby && st.lobby.startMission === 'labor') {   // AP3a: Szenario-Labor
         if (code === 'ArrowUp') actions.laborWahl(-1);

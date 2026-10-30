@@ -369,11 +369,11 @@
     // lobbyOpt { startMission }: Kampagne, Direktstart Planetenmission, Testgelände Raumkampf / Außenteam (Reihenfolge = Umschalter M)
     // S1: 'free' = Kampagne ohne Tutorial. Weltstand nur für m1/free; m3 und arena_* legen nie einen an.
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
-    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', schuld_der_lerche: 'Die Schuld der Lerche', freie_fahrt: 'Freie Fahrt Sund', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', labor: 'Szenario-Labor' },
-    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', schuld_der_lerche: 'Karte Sund, Start am Boden von Kantenstein', freie_fahrt: 'Sund: Rom gegen Germanen, die Welt tickt mit', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
+    START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', schuld_der_lerche: 'Die Schuld der Lerche', freie_fahrt: 'Freie Fahrt Sund', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', arena_graben: 'Grabenangriff', labor: 'Szenario-Labor' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', schuld_der_lerche: 'Karte Sund, Start am Boden von Kantenstein', freie_fahrt: 'Sund: Rom gegen Germanen, die Welt tickt mit', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', arena_graben: 'Römische Stellung angreifen: Graben, Wald, Bunker', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
     // ---- AP3a Lobby (CONTRACT-W2 §1): Reihenfolge der Taste M. START_MISSIONS bleibt die alte Liste (Tests, Weltstand);
     // gültig als startMission ist jeder Eintrag aus LOBBY_MODI. 'labor' nur bei CONFIG.lobby.labor (Snapshot lobby.laborAn).
-    LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt', 'm3', 'arena_away', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial
+    LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt', 'm3', 'arena_away', 'arena_graben', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial
     // lobbyOpt { labor: { id?, seed?, staerke?, god? } } – Szenario-Labor (server/mission/labor.js), Felder werden zusammengeführt;
     //   id = 'molekuel/umsetzung' aus lobby.laborListe, seed = Partie-Seed, staerke = LABOR_STAERKEN, god = bool.
     //   Snapshot (nur Lobby): lobby.laborAn, lobby.labor { id, seed, staerke, god }, lobby.laborListe [{ id, name, schauplatz,
@@ -393,7 +393,18 @@
     //   Nach wellenEnde + CONFIG.wellen.ergebnisZeit s: sessionEnded { by: null, grund: 'wellen' } und zurück in die Lobby.
     // Debug (nur --debug): welle <n> – sofort Welle n (aktuelle Gegner weg).
     WELLEN_KARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'],
-    WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)' },
+    WELLEN_KARTEN_NAMEN: { aussenposten: 'Außenposten', station: 'Station', ruine: 'Ruine', schiff: 'Schiff', kesh: 'Kesh-Hof (klassisch)', grabenangriff: 'Grabenangriff' },   // grabenangriff: nur Anzeigename des Szenarios (kein Eintrag in WELLEN_KARTEN)
+    // ---- BOD-01 Grabenangriff (server/sim/graben.js, CONFIG.graben): Szenario unter Bodenkampf, Lobby-Modus 'arena_graben' (Taste M, neben Wellen Boden) ----
+    // lobbyOpt { startMission: 'arena_graben', graben: { <abschnitt>: <variante> } } – Variantenwahl je Abschnitt der festen Karte (content/buehnen/festkarten/grabenangriff.json,
+    //   shared/gen-fest.js varianten()); fehlende Abschnitte behalten ihren Stand bzw. den Standard, eine ungültige Wahl wird abgelehnt. Jeder darf umschalten.
+    //   Snapshot (nur Lobby, nur im Modus arena_graben): lobby.graben { <abschnitt>: <variante> } (Wahl der wählbaren Abschnitte),
+    //   lobby.grabenListe [{ abschnitt, name, varianten: [{ id, name }] }] (wählbare Abschnitte in Kartenreihenfolge, aus den Kartendaten).
+    //   URL ?arena=graben[&auswahl=wiese:graben,wald:weg] wählt den Modus und die Varianten direkt (Bots, Tests; Abschnitt:Variante, Abschnitts-IDs der Karte); gestartet wird wie sonst mit „Bereit“.
+    //   Rüstphase, Beamen am Abholpunkt (links), Sieg per Hochbeamen nach erreichtem Ziel; Neubeginn nach der Notrückholung der ganzen Crew.
+    // Snapshot wellen (wie Wellen Boden, Bühne graben): { k: 'grabenangriff', s: seed, n: 1|2 (Welle, die gerade zu räumen ist), ph: 'vorbereitung'|'kampf'|'ende',
+    //   t: 0, r: lebende Verteidiger, l: lebende Verteidiger }; kein Countdown, keine Pause, kein Nachschub. Ziel- und Hinweiszeile über mission.objectives (arena.wellenText).
+    // Ereignisse: wellenEnde { …, sieg: true, versuche } beim Sieg (Siegbild, kein Wellenrekord), szeneZurueck { map, versuch } beim Neubeginn nach der Niederlage.
+    // Debug (nur --debug): graben <welle2|reset|status>.
     WELLEN_PHASEN: ['vorbereitung', 'countdown', 'kampf', 'pause', 'ende'],   // vorbereitung = Rüstphase der Testumgebung (Crew rüstet am Terminal aus, werft.start beginnt)
     CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt'],   // Weltstand gibt es für diese Modi
     // EK8: Modi mit fester Kampagnenkette (content/kampagne/<id>.json, server/mission/kampagne.js): { kampagne, tutorial }. Kein Spielleiter.

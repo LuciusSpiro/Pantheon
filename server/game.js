@@ -182,6 +182,7 @@ class Game {
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
     this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
+      graben: null,   // BOD-01: Variantenwahl Grabenangriff { abschnitt: variante } (null = Standard der Karte)
       labor: { id: null, seed: null, staerke: null, god: false } };   // AP3a: Szenario-Labor (Auswahl und Parameter)
     this.reset();
   }
@@ -687,6 +688,12 @@ class Game {
               this.lobbyOpts.szene = z;
             }
           }
+          // BOD-01: Grabenangriff – Variantenwahl je Abschnitt der festen Karte (jeder darf umschalten)
+          if (this.phase === 'lobby' && msg.graben && typeof msg.graben === 'object' && !Array.isArray(msg.graben)) {
+            const r = require('./sim/graben.js').auswahlSetzen(this, this.lobbyOpts.graben, msg.graben);
+            if (r.fehler) this.notice(p, r.fehler);
+            else { if (JSON.stringify(r.auswahl) !== JSON.stringify(this.lobbyOpts.graben)) this.log(`${p.name}: Grabenangriff ${JSON.stringify(r.auswahl)}.`); this.lobbyOpts.graben = r.auswahl; }
+          }
           // S1 §6: Weltstand zum Fortsetzen wählen (null = neu)
           if (this.phase === 'lobby' && 'world' in msg) {
             const id = msg.world == null || msg.world === '' ? null : String(msg.world);
@@ -962,6 +969,11 @@ class Game {
     if (Object.keys(wf).length) o.waffen = wf;
     return o;
   }
+  // BOD-01: Lobby-Block Grabenangriff (nur im Modus arena_graben): gewählte Varianten und die wählbaren Abschnitte aus den Kartendaten
+  lobbyGrabenSnap() {
+    if (this.lobbyOpts.startMission !== 'arena_graben') return {};
+    try { const G = require('./sim/graben.js'); return { graben: G.auswahl(this, this.lobbyOpts.graben), grabenListe: G.liste(this) }; } catch (e) { this.countError('lobby-graben', e); return {}; }
+  }
   // AP3a: Lobby-Waffe beim Start setzen (Wellen Boden, Labor), bevor jemand hinunterbeamt
   lobbyWaffenSetzen() {
     const fn = fnOf(waffenMod(), 'waffeSetzen');
@@ -1026,12 +1038,12 @@ class Game {
       const wr = fnOf(waffenMod(), 'restore');
       if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
     }
-    if (sm === 'arena_away' || sm === 'labor') this.lobbyWaffenSetzen();   // AP3a: Waffe aus der Lobby vor dem Beamen
+    if (sm === 'arena_away' || sm === 'arena_graben' || sm === 'labor') this.lobbyWaffenSetzen();   // AP3a: Waffe aus der Lobby vor dem Beamen
     if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Welt.startOrt());   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
     if (campaign && Welt.bodenStart()) Welt.bodenStarten(this);   // SL1: Gruppe startet auf dem Planeten, Lerche im Orbit (vor dem ersten Kapitel)
     if (sm === 'labor') { if (!this.startLabor()) return; }   // AP3a: Szenario-Labor (server/mission/labor.js); Fehler -> Lobby
     else if (sm === 'm3') this.mission.startDirect('m3');
-    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene)
+    else if (arena.isArena(sm)) arena.start(this, sm, this.lobbyOpts.arena || null, { wellen: this.lobbyOpts.wellen || null, szene: this.lobbyOpts.szene || null, graben: this.lobbyOpts.graben || null });   // Testgelände Raumkampf / Bodenkampf: Wellen (B1: Karte) / W2: Wellen All (Szene) / BOD-01: Grabenangriff (Variantenwahl)
     else if (freieFahrt) Kriegslage.starten(this);   // SUND-01 B: keine Mission, Crew angedockt am Start der Karte (reset), die Welt tickt ab dem ersten Sprung
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
@@ -1492,6 +1504,7 @@ class Game {
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
+      case 'graben': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/graben.js').debug(this, argList(msg)[0]); break;   // BOD-01: graben [welle2|reset|status]
       default: err = 'Unbekannter Debug-Befehl.';
     }
     if (err) this.notice(p, err);
@@ -2153,6 +2166,7 @@ class Game {
           ...(this.lobbyOpts.arena ? { arena: this.lobbyOpts.arena } : {}),   // B1 §4: gewählte Testgelände-Karte
           ...(this.lobbyOpts.wellen ? { wellen: this.lobbyOpts.wellen } : {}),   // Bodenkampf: Wellen – Kartenwahl
           ...(this.lobbyOpts.szene ? { szene: this.lobbyOpts.szene } : {}),   // W2 AP3b: Wellen All – Szenenwahl
+          ...this.lobbyGrabenSnap(),   // BOD-01: Grabenangriff – Variantenwahl und Liste
           ...this.lobbyLaborSnap() }   // AP3a: Labor, Lobby-Waffen
         : { skipDrill: this.lobbyOpts.skipDrill, startMission: this.lobbyOpts.startMission },
       paused: !!this.paused,
