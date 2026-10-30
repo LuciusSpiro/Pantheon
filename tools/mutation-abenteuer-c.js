@@ -127,9 +127,10 @@ const MUTATIONEN = [
   ["server/sim/abenteuer-brett.js", "return out.slice(0, BW.typen_max);", "return out;", "typen: die Liste ist nicht begrenzt"],
   ["server/sim/abenteuer-brett.js", "const e = { id: 'a' + a.nr, titel: text(a.vorlage.titel, BW.titel_max),", "const e = { id: 'a' + a.nr, titel: String(a.vorlage.titel),", "Snapshot: der Titel des Angebots wird nicht gekuerzt"],
   // SUND-04b F: Funk-Hinweis fuer neue Angebote
-  ["server/sim/abenteuer-brett.js", "if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;", "if (b.hinweisT === F.t) return false;", "Hinweis: dieselbe Angebot-Id meldet sich mehrfach"],
-  ["server/sim/abenteuer-brett.js", "if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;", "if (b.hinweise.includes(angebot.nr)) return false;", "Hinweis: mehrere Hinweise in derselben Taetigkeitsgrenze"],
-  ["server/sim/abenteuer-brett.js", "  b.hinweisT = F.t;\n", "", "Hinweis: die Taetigkeitsgrenze wird nicht gemerkt"],
+  ["server/sim/abenteuer-brett.js", "if (b.hinweise.includes(angebot.nr)) return false;", "/* keine Id-Sperre */", "Hinweis: dieselbe Angebot-Id meldet sich mehrfach"],
+  ["server/sim/abenteuer-brett.js", "if (b.hinweisT === F.t && F.abenteuerAngebote.some((x) => x.nr === b.hinweisNr)) return false;", "/* keine Grenzsperre */", "Hinweis: mehrere Hinweise in derselben Taetigkeitsgrenze"],
+  ["server/sim/abenteuer-brett.js", "  b.hinweisT = F.t; b.hinweisNr = angebot.nr;\n", "", "Hinweis: die Taetigkeitsgrenze wird nicht gemerkt"],
+  ["server/sim/abenteuer-brett.js", "if (b.hinweisT === F.t && F.abenteuerAngebote.some((x) => x.nr === b.hinweisNr)) return false;", "if (b.hinweisT === F.t) return false;", "Hinweis: die Grenzsperre gilt auch, wenn das gemeldete Angebot schon beantwortet ist"],
   ["server/sim/abenteuer-brett.js", "  gemerkt(b.hinweise, angebot.nr, BW.antworten_gemerkt);\n", "", "Hinweis: die Angebot-Id wird nicht gemerkt"],
   ["server/sim/abenteuer-brett.js", "kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max)", "ohneNamen(game, String(angebot.vorlage.titel))", "Hinweis: der Titel wird nicht gekuerzt"],
   ["server/sim/abenteuer-brett.js", "kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max)", "kuerzen(String(angebot.vorlage.titel), BW.hinweis_titel_max)", "Hinweis: ein Spielername im Titel bleibt im Funk"],

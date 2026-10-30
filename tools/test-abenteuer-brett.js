@@ -657,6 +657,11 @@ section('Funk-Hinweis (SUND-04b F): ein neues Angebot meldet sich einmal im Funk
   grenzen(g, 1);
   for (let i = 0; i < 250; i++) g.step();
   ok(offen(g).length === 1 && 'a' + offen(g)[0].nr !== id1 && hinweise(t).length === 2, 'nach Ablehnen: das Ersatz-Angebot meldet sich genau einmal (' + hinweise(t).length + ')');
+  // Ablehnen OHNE dazwischenliegende Taetigkeit (F.t unveraendert): das Ersatz-Angebot meldet sich trotzdem genau einmal
+  { const tr = neu(33), gr = tr.g; for (let i = 0; i < 250; i++) gr.step();
+    const tr0 = zust(gr).t, id0 = 'a' + offen(gr)[0].nr; tr.ab(id0);
+    for (let i = 0; i < 300; i++) gr.step();
+    ok(zust(gr).t === tr0 && offen(gr).length === 1 && 'a' + offen(gr)[0].nr !== id0 && hinweise(tr).length === 2, 'Ablehnen ohne Taetigkeit: Ersatz-Angebot (neue Id) meldet sich genau einmal (' + hinweise(tr).length + ', F.t ' + tr0 + ' > ' + zust(gr).t + ')'); }
   for (let i = 0; i < 300; i++) g.step();
   ok(hinweise(t).length === 2, 'weitere Takte ohne neues Angebot: kein weiterer Hinweis');
   // Komposition (direkter Weg) mit langem Titel und Spielername: gekuerzt, ohne Namen
@@ -686,7 +691,7 @@ section('Funk-Hinweis (SUND-04b F): ein neues Angebot meldet sich einmal im Funk
   const t4 = neu(53, { env: { ABENTEUER_ANSCHLUSS: '0' } }); t4.g.lageSpielleiter.dispose(); anbieten(t4.g, bitteplan(5));
   ok(hinweise(t4).length === 0, 'ohne Spielleiter: kein Hinweis');
   const t5 = neu(54, { env: { FAEDEN: '' } }); grenzen(t5.g, 2); for (let i = 0; i < 300; i++) t5.g.step();
-  ok(hinweise(t5).length === 0 && t5.g.errors === 0, 'ohne FAEDEN: kein Hinweis');
+  ok(hinweise(t5).length === 0 && t5.g.errors === 0, 'ohne FAEDEN: kein Angebot, also kein Hinweis (nur diese Folge belegt, nicht der Aufrufweg)');
   ok(g.errors === 0 && g2.errors === 0, 'keine Serverfehler');
 });
 

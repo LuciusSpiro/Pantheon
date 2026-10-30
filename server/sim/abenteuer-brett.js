@@ -247,10 +247,11 @@ function hinweisAnbieten(game, angebot) {
   const F = game && game.weltsim && game.weltsim.faeden;
   if (!F || !angebot || !Faden().aktiv(game) || !Faden().spielleiterAktiv(game)) return false;
   const b = brett(F);
-  if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; }
-  if (b.hinweise.includes(angebot.nr) || b.hinweisT === F.t) return false;   // einmal je Id, hoechstens einer je Taetigkeitszaehler (Grenze)
+  if (!Array.isArray(b.hinweise)) { b.hinweise = []; b.hinweisT = -1; b.hinweisNr = -1; }
+  if (b.hinweise.includes(angebot.nr)) return false;   // einmal je Id
+  if (b.hinweisT === F.t && F.abenteuerAngebote.some((x) => x.nr === b.hinweisNr)) return false;   // hoechstens einer je Taetigkeitszaehler (Grenze), solange das gemeldete Angebot noch am Brett steht; ist es beantwortet oder verfallen, darf das naechste melden
   gemerkt(b.hinweise, angebot.nr, BW.antworten_gemerkt);
-  b.hinweisT = F.t;
+  b.hinweisT = F.t; b.hinweisNr = angebot.nr;
   const titel = kuerzen(ohneNamen(game, String(angebot.vorlage.titel)), BW.hinweis_titel_max);
   try { game.emit('radio', { from: BW.hinweis_funk_sprecher, text: fmt(BW.hinweis_text, { titel }), lage: 1, fd: 1, r: 1 }); } catch (e) { fehlerZaehlen(game, 'abenteuer-brett-funk', e); return false; }
   return true;
