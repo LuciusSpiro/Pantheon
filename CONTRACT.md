@@ -147,7 +147,7 @@ JSON über WebSocket `/ws`. Jede Nachricht `{ t: <typ>, ... }`.
 ### 5.1 Client → Server
 | t | Felder | Bedeutung |
 |---|---|---|
-| `hello` | `clientId, name, color` (0–2 oder null) | Beitritt/Reconnect. Farbe belegt? Server vergibt freie. |
+| `hello` | `clientId, name, color` (0–3 oder null), `code` (Raumcode, nur wenn der Server einen verlangt), `karte?` | Beitritt/Reconnect. Farbe belegt? Server vergibt freie (4 Farben, höchstens 4 Spieler). Falscher/fehlender `code` → `error { code: 'badcode' }`. `karte` (CHA-01 B1) = optionale Charakterkarte, siehe unten; ohne `karte` bleibt alles wie bisher. |
 | `ready` | `ready: bool` | Lobby: bereit. Start, sobald alle verbundenen Spieler bereit sind. |
 | `input` | `seq, mx, my` (−1…1) | Laufen (Schiff/Plattform), ~30 Hz solange ≠ 0, plus einmal 0 beim Loslassen. Ignoriert, solange in Konsole. |
 | `act` | `down: bool` | Interaktionstaste E gedrückt/losgelassen. |
@@ -184,20 +184,24 @@ JSON über WebSocket `/ws`. Jede Nachricht `{ t: <typ>, ... }`.
 | transfer | `transfer.supply` | – | Medipack zur Markierung beamen (−1 medipack) |
 | shop | `shop.buy` | `item` | kaufen (gear gilt für den Käufer) |
 | quartier | `deco.place` | `slot, item` | Deko aus Inventar in eigenen Slot setzen (`item: null` = entfernen, zurück ins Inventar) |
-| sonde | `sonde.input` | `color` | Codefarbe eingeben |
+| quartier | `quartier.style` | `part, value` | Stil des eigenen Quartiers (Wand, Boden, …) wählen |
+| – (nur außerhalb der Lobby, ohne Konsole) | `karte.outfit` | `outfit` | CHA-01 B1: nur das Outfit der eigenen Charakterkarte ändern (Prüfung wie beim `hello`); ohne Karte wirkungslos; Antwort: Ereignis `karte` an alle |
+| kustodenpult (früher `sonde`) | `kustodenpult.input` | `color` | Codefarbe eingeben (seit SL0; vorher `sonde.input`) |
 
 Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit Grund (z. B.
 „Nicht genug Marken“, „Ziel außerhalb des Feuerbogens“).
 
 ### 5.3 Server → Client
-- `welcome { pid, serverVersion, debug: bool }`
+- `welcome { pid, serverVersion, debug: bool, roomCode, sektorkarte?, karten? }` – `roomCode` = vom Server bestätigter Raumcode (null ohne Code); `sektorkarte` = Sektorkarte (B3 §6, nur hier und beim Kartenwechsel als eigene Nachricht `sektorkarte`, nie im Snapshot); `karten` = `{ pid: Charakterkarte }` der verbundenen Spieler (CHA-01 B1; fehlt, solange niemand eine Karte hat)
+- `error { code, text }` – z. B. `badcode` (Raumcode falsch/fehlt), `worldbusy`
 - `full { text }` – Server voll (4 Spieler).
 - `pong { ts }`
 - `event { kind, ... }` mit `kind`:
   `oda {text}` (Bordintelligenz, Tutorial/Hinweise) · `radio {from, text}` · `notice {pid, text}` ·
   `sfx {name, zone?, x?, y?}` · `hit {sector, shield: bool, dmg}` · `explosion {x, y}` ·
   `beam {pids, dir: 'down'|'up'}` · `jump {scene}` · `repairDone {system}` · `alarm {level}` ·
-  `stage {stage}` · `emergency {}` · `strike {x, y}` · `codeResult {ok}`
+  `stage {stage}` · `emergency {}` · `strike {x, y}` · `codeResult {ok}` ·
+  `karte {pid, k}` (CHA-01 B1: geprüfte Charakterkarte `k` eines Spielers, bei `hello` und nach `karte.outfit`; `k: null` = Platz hat keine Karte mehr)
 - `snap` – vollständiger Zustand, 15 Hz, an alle gleich:
 
 ```js
@@ -256,6 +260,15 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
 ```
 Snapshotgröße im Blick behalten (Ziel < 12 KB). Asteroiden sind statisch: Server darf sie nur in
 jedem 15. Snapshot und beim Szenenwechsel mitsenden (sonst `asteroids` weglassen → Client behält die letzte Liste).
+
+### 5.4 Charakterkarte (CHA-01 B1, `shared/charakter.js`, Protokollversion 8)
+```js
+{ v: 1, name, koerper: 'standard', gesicht, frisur, bart, haut: Index, haar: Index,
+  outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }     // je Platz nur der Teilename aus content/katalog/charakter.json
+```
+- Im `hello` optional (`karte`). Der Server prüft jedes Feld gegen den Katalog (unbekanntes Teil, Teil eines anderen Platzes oder einer anderen Gruppe, Farbindex außerhalb, falscher Typ, fehlendes Feld → Standard dieses Feldes; Zusatzfelder fallen weg; nie Abbruch).
+- Name: Kartenname (`pruefeName`: Buchstaben, Ziffern, Leerzeichen, Bindestrich, 2–12 Zeichen) wird `p.name`; bei Kollision (Groß/klein egal) hängt der Server ` 2`, ` 3`, … an. Ungültiger Kartenname → bisherige Namenslogik. Ohne Karte bleibt der Name, wie ihn `hello.name` liefert (keine Eindeutigkeit erzwungen).
+- Verteilung: `welcome.karten` und Ereignis `karte { pid, k }` (§5.3). Die Karte steht **nicht** im Snapshot und nicht im Weltstand; sie bleibt beim Wiederverbinden mit gleicher `clientId` erhalten. Spielernamen gehen nie an ein LLM.
 
 ## 6. Regeln (Server setzt um, Werte in `CONFIG`)
 

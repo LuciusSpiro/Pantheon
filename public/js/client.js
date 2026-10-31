@@ -43,6 +43,8 @@
     audioOn: false,
     lobby: { name: lsGet('sternenschicht.name', 'Crew-' + Math.floor(100 + Math.random() * 900)).slice(0, 12), color: storedColor == null || storedColor === '' ? null : +storedColor },
     endDismissed: false,
+    karte: null,    // CHA-01 B1: eigene Charakterkarte fürs hello (Quelle kommt mit Paket C); null = ohne Karte wie bisher
+    karten: {},     // CHA-01 B1: pid -> geprüfte Charakterkarte (welcome.karten, Ereignis karte); keine Darstellung hier
     beamFx: {}, enemyHit: {}, enemyShield: {}, enemyHull: {}, shipHit: null, flashT: -9,   // SL0: enemyShield/enemyHull = Zeit des letzten Schild- bzw. Hüllentreffers je Gegner
     shieldHit: {},   // M2: pid -> performance.now() des letzten Schildtreffers
     teleSeen: {},   // M3a
@@ -622,7 +624,14 @@
     clearTimeout(helloTimer);
     helloTimer = setTimeout(() => { if (Client.lobby.name.trim()) Net.sendHello(); }, 500);
   });
-  Net.getHello = () => ({ name: (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color });
+  Net.getHello = () => {
+    const h = { name: (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color };
+    if (Client.karte) h.karte = Client.karte;   // CHA-01 B1
+    return h;
+  };
+  // CHA-01 B1: Karten der Crew. Ereignis karte { pid, k }: k = null löscht den Eintrag. Nur Outfit ändern: Client.sendeOutfit({ kopf, … }) (der Server prüft).
+  Net.onEvent('karte', (ev) => { if (ev.pid == null) return; if (ev.k) Client.karten[ev.pid] = ev.k; else delete Client.karten[ev.pid]; });
+  Client.sendeOutfit = (outfit) => Net.send({ t: 'cmd', c: (P.CMD_KARTE_OUTFIT || 'karte.outfit'), outfit });
   if (codeInput) {
     codeInput.value = Net.roomCode || '';
     codeInput.addEventListener('input', () => { const v = Net.normCode(codeInput.value); if (v !== codeInput.value) codeInput.value = v; });
@@ -641,6 +650,7 @@
         // CONFIG.debug.snapKiRolle – mit ?debug=1 am Debug-Server schaltet der Client ihn ein (gilt für den Serverprozess).
         if (DEBUG && Client.serverDebug) send({ t: 'debug', cmd: 'tune', path: 'debug.snapKiRolle', value: 'on' });
         Client.self.init = false;
+        Client.karten = Object.assign({}, msg.karten || {});   // CHA-01 B1: leeren und aus welcome füllen
         Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
         Client.arenaSent = false; Client.awayMapAsk = {};
         break;

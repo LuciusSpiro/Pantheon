@@ -28,6 +28,9 @@ const Ausbau = require('./sim/ausbau.js');   // PAN-01 B: Ausbaustufe der Lerche
 const Waffen = require('./sim/schiffswaffen.js');   // PAN-01 C: Waffenkatalog, neun Plätze, Ladepool, Torpedowerfer
 const Werft = require('./sim/werft.js');   // PAN-01 D: Werft der Flottenbasen (Freischalten, Umbauen, Vorschau)
 const Katalog = require('../shared/schiffskatalog.js');   // PAN-01 C
+const Charakter = require('../shared/charakter.js');   // CHA-01 B1: Charakterkarte (Prüfung, Namen)
+let charakterKatalog = null;   // CHA-01 B1: content/katalog/charakter.json (A4 überschreibt die Datei); fehlt sie, werden Karten ignoriert
+try { charakterKatalog = require('../content/katalog/charakter.json'); } catch (e) { charakterKatalog = null; }
 const Verrat = require('./sim/verrat.js');   // SUND-02b E: Beschuss auf römische Verbündete (Ops-Halteprozess, Umschaltung der Sim-Szene)
 const Posten = require('./sim/posten.js');   // SUND-02b A1: Posten der Crew gründen/ausbauen
 const Ladung = require('./sim/ladung.js');   // SL6: Deuterium schöpfen/abwerfen/verkaufen
@@ -764,7 +767,9 @@ class Game {
       p.conn = conn; p.connected = true; conn.player = p;
       if (name) p.name = name;
       this.applyColorWish(p, msg.color);
+      this.helloKarte(p, msg);
       this.sendTo(conn, this.welcomeMsg(p.id));
+      this.sendeKarte(p);
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
@@ -775,7 +780,10 @@ class Game {
       free.clientId = clientId; free.conn = conn; free.connected = true; conn.player = free;
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
+      free.karte = null;   // CHA-01 B1: die Karte gehörte dem früheren Besitzer des Platzes
+      this.helloKarte(free, msg);
       this.sendTo(conn, this.welcomeMsg(free.id));
+      this.sendeKarte(free, true);
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       return;
     }
@@ -786,13 +794,36 @@ class Game {
     this.players.push(p);
     conn.player = p;
     this.applyColorWish(p, msg.color);
+    this.helloKarte(p, msg);
     if (this.phase !== 'lobby') {
       p.ready = true;
       this.oda(`${p.name} ist an Bord gekommen. Willkommen in der Schicht!`, null);
     }
     this.sendTo(conn, this.welcomeMsg(p.id));
+    this.sendeKarte(p);
     this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
+  }
+
+  // ---------- CHA-01 B1: Charakterkarte ----------
+  // Aus dem hello: Karte prüfen und speichern, Name aus der Karte (eindeutig in der Crew). Ohne Karte (oder ohne Katalog) passiert nichts – der Name bleibt, wie ihn die bisherige Logik gesetzt hat.
+  helloKarte(p, msg) {
+    if (!charakterKatalog || msg.karte == null) return;
+    const roh = msg.karte;
+    p.karte = Charakter.pruefeKarte(roh, charakterKatalog);
+    const wunsch = Charakter.pruefeName(typeof roh === 'object' ? roh.name : null);
+    const andere = this.players.filter((o) => o !== p).map((o) => o.name);
+    p.name = p.karte.name = Charakter.eindeutigerName(wunsch || p.name, andere);
+  }
+  // Ereignis karte an alle (nur mit Karte; nach Übernahme eines Platzes durch einen Spieler ohne Karte k = null)
+  sendeKarte(p, auchLeer) {
+    if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: p.karte });
+    else if (auchLeer) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });
+  }
+  karteOutfit(p, msg) {
+    if (!charakterKatalog || !p.karte) return;
+    p.karte.outfit = Charakter.pruefeOutfit(msg.outfit, charakterKatalog);
+    this.sendeKarte(p);
   }
 
   // ---------- B1 §9: gebaute Außenkarten an die Clients (Ereignis awayMap) ----------
@@ -922,6 +953,9 @@ class Game {
     const pl = this.playerById(pid); if (pl) pl.awayKv = null;   // B1: gebaute Karte nach (Neu-)Verbindung erneut senden
     const k = sektorkarte();
     if (k) m[Protocol.WELCOME_SEKTORKARTE || 'sektorkarte'] = k;
+    const karten = {};   // CHA-01 B1: Karten der verbundenen Spieler; ohne Karten fehlt das Feld (Nachricht wie bisher)
+    for (const o of this.players) if (o.karte && o.connected) karten[o.id] = o.karte;
+    if (Object.keys(karten).length) m.karten = karten;
     return m;
   }
 
@@ -1090,6 +1124,7 @@ class Game {
   // ---------- Befehle ----------
   onCmd(p, msg) {
     const c = typeof msg.c === 'string' ? msg.c : (typeof msg.cmd === 'string' ? msg.cmd : '');   // M2: auch { cmd: '…' }
+    if (c === Protocol.CMD_KARTE_OUTFIT) { this.karteOutfit(p, msg); return; }   // CHA-01 B1: nur Outfit, nur mit Karte
     // M2 §15: Ducken (Taste C) – ohne Konsole, nur Außenzone auf v2-Karten
     if (c === 'crouch') { const e = combat.setCrouch(this, p, !!msg.on); if (e) this.notice(p, e); return; }
     // M3a §8.1: Minispiel-Reparatur – ohne Konsole, nur Zone ship

@@ -1,0 +1,226 @@
+{
+  "version": 1,
+  "figur": "cha/spieler",
+  "koerper": [
+    {
+      "id": "standard",
+      "name": "Standard"
+    }
+  ],
+  "plaetze": [
+    {
+      "id": "gesicht",
+      "name": "Gesicht",
+      "gruppe": "charakter",
+      "standard": "lerche"
+    },
+    {
+      "id": "frisur",
+      "name": "Frisur",
+      "gruppe": "charakter",
+      "standard": "dutt"
+    },
+    {
+      "id": "bart",
+      "name": "Bart",
+      "gruppe": "charakter",
+      "standard": "keiner"
+    },
+    {
+      "id": "kopf",
+      "name": "Kopfbedeckung",
+      "gruppe": "outfit",
+      "standard": "keine"
+    },
+    {
+      "id": "oberteil",
+      "name": "Oberteil",
+      "gruppe": "outfit",
+      "standard": "bordtunika"
+    },
+    {
+      "id": "hose",
+      "name": "Hose",
+      "gruppe": "outfit",
+      "standard": "bordhose"
+    },
+    {
+      "id": "schuhe",
+      "name": "Schuhe",
+      "gruppe": "outfit",
+      "standard": "bordstiefel"
+    },
+    {
+      "id": "haende",
+      "name": "Hände",
+      "gruppe": "outfit",
+      "standard": "keine"
+    },
+    {
+      "id": "umhang",
+      "name": "Umhang",
+      "gruppe": "outfit",
+      "standard": "keiner"
+    }
+  ],
+  "teile": [
+    {
+      "id": "gesicht/lerche",
+      "platz": "gesicht",
+      "name": "Lerche",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "gesicht/narbe",
+      "platz": "gesicht",
+      "name": "Narbe",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "frisur/dutt",
+      "platz": "frisur",
+      "name": "Dutt",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "frisur/zoepfe",
+      "platz": "frisur",
+      "name": "Zöpfe",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "bart/keiner",
+      "platz": "bart",
+      "name": "Kein Bart",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "bart/vollbart",
+      "platz": "bart",
+      "name": "Vollbart",
+      "gruppe": "charakter"
+    },
+    {
+      "id": "kopf/keine",
+      "platz": "kopf",
+      "name": "Keine",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "kopf/bordhelm",
+      "platz": "kopf",
+      "name": "Bordhelm",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "oberteil/bordtunika",
+      "platz": "oberteil",
+      "name": "Bordtunika",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "oberteil/plankenweste",
+      "platz": "oberteil",
+      "name": "Plankenweste",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen"
+    },
+    {
+      "id": "hose/bordhose",
+      "platz": "hose",
+      "name": "Bordhose",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "hose/germanenhose",
+      "platz": "hose",
+      "name": "Germanenhose",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen"
+    },
+    {
+      "id": "schuhe/bordstiefel",
+      "platz": "schuhe",
+      "name": "Bordstiefel",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "schuhe/germanenstiefel",
+      "platz": "schuhe",
+      "name": "Germanenstiefel",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen"
+    },
+    {
+      "id": "haende/keine",
+      "platz": "haende",
+      "name": "Keine",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "haende/armschiene",
+      "platz": "haende",
+      "name": "Armschiene",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen"
+    },
+    {
+      "id": "umhang/keiner",
+      "platz": "umhang",
+      "name": "Kein Umhang",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew"
+    },
+    {
+      "id": "umhang/fellumhang",
+      "platz": "umhang",
+      "name": "Fellumhang",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen"
+    }
+  ],
+  "farben": {
+    "haut": [
+      {
+        "skin": "#e8c4a0",
+        "skin_shadow": "#c49a74"
+      },
+      {
+        "skin": "#d9a982",
+        "skin_shadow": "#b5835d"
+      },
+      {
+        "skin": "#b98560",
+        "skin_shadow": "#926443"
+      },
+      {
+        "skin": "#8a5a3c",
+        "skin_shadow": "#6a4129"
+      }
+    ],
+    "haar": [
+      "#3a2a1e",
+      "#6b4a2b",
+      "#b5873a",
+      "#a8a8a8"
+    ]
+  }
+}

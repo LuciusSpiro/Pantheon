@@ -207,7 +207,9 @@
 
     sendHello() {
       const h = (this.getHello && guard('Net.getHello', () => this.getHello(), null)) || {};
-      this.send({ t: P.C.HELLO || 'hello', clientId: this.clientId, name: h.name || 'Crew', color: h.color == null ? null : h.color, code: this.roomCode || '' });
+      const hello = { t: P.C.HELLO || 'hello', clientId: this.clientId, name: h.name || 'Crew', color: h.color == null ? null : h.color, code: this.roomCode || '' };
+      if (h.karte) hello.karte = h.karte;   // CHA-01 B1: optionale Charakterkarte (Server prüft)
+      this.send(hello);
     },
 
     // M0: Raumcode setzen (Eingabefeld) und merken; optional ohne neuen hello
