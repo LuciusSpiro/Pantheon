@@ -1,14 +1,15 @@
 'use strict';
 // SYS-03 C2: Streufeuer-Messung auf der GEGNER-Seite (Abnahme 5, Gegenstück zu sys03-streufeuer.js der Lerche). Ein stehender Gegner (Klasse, Standardschild), die Treffer kommen in festem Takt
-// direkt über space.damageEnemy (Rohschaden 1 je Treffer, normale Treffer), im vollen Spielablauf (g.step: Pause, Regeneration, Gegner-Reparatur). Jeder Lauf ein frischer Game-Seed.
+// direkt über space.damageEnemy (je Treffer der ECHTE Schaden einer Waffe, Standard: Standardbatterie 2,66; mit --roh Rohschaden 1; normale Treffer), im vollen Spielablauf (g.step: Pause, Regeneration, Gegner-Reparatur). Jeder Lauf ein frischer Game-Seed.
 // konzentriert = alle Treffer auf das Segment mit dem meisten Schild (erstes seiner Klasse), streu = reihum über alle Segmente mit Schild (Standardverteilung der Klasse).
-//   node tools/sys03-streufeuer-gegner.js [--kinds raider,korvette,fregatte,kreuzer] [--rate 0.5] [--seeds 10] [--sek 120] [--seed0 1] [--verteilung konzentriert,streu]
+//   node tools/sys03-streufeuer-gegner.js [--kinds raider,korvette,fregatte,kreuzer] [--rate 0.5] [--seeds 10] [--sek 120] [--seed0 1] [--verteilung konzentriert,streu] [--waffe standardbatterie] [--roh]
 // Gemessen ab erstem Treffer: Zeit bis das erste Schildsegment (das beim ersten Treffer > 0 war) auf 0 fällt, bis zum ersten Systemschaden, bis Reaktor zerstört. TUNE: wie bei den anderen Werkzeugen.
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const CONFIG = require('../shared/config.js');
 const Schilde = require('../shared/schilde.js');
+const Katalog = require('../shared/schiffskatalog.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
 const Gsys = require('../server/sim/gegnersystem.js');
@@ -16,6 +17,8 @@ const a = process.argv.slice(2);
 const arg = (k, d) => (a.indexOf(k) >= 0 ? a[a.indexOf(k) + 1] : d);
 const kinds = arg('--kinds', 'raider,korvette,fregatte,kreuzer').split(','), verteilungen = arg('--verteilung', 'konzentriert,streu').split(',');
 const RATE = Number(arg('--rate', 0.5)), SEEDS = Number(arg('--seeds', 10)), SEK = Number(arg('--sek', 120)), SEED0 = Number(arg('--seed0', 1));
+const WAFFE = arg('--waffe', 'standardbatterie'), ROH = a.includes('--roh');
+const SCHADEN = ROH ? 1 : Katalog.waffe(WAFFE).schaden;   // Schaden je Treffer (Rohschaden 1 nur mit --roh: misst dann nicht, was die Lerche anrichtet)
 const DT = 1 / CONFIG.tickHz;
 const f = (x) => (x == null ? '—' : (Math.round(x * 10) / 10).toString());
 const stat = (v) => { v = v.filter((x) => x != null).sort((x, y) => x - y); const n = v.length; if (!n) return { n: 0 }; return { n, med: v[Math.floor((n - 1) / 2 + 0.5)], min: v[0], max: v[n - 1] }; };
@@ -54,7 +57,7 @@ function messe(kind, verteilung, seed) {
     while (t >= nextHit - 1e-9) {
       const seg = verteilung === 'streu' ? mit[k % mit.length] : ziel;
       if (tHit == null) { tHit = t; shHit = e.shields.map((v) => v > 0.05); }
-      space.damageEnemy(g, e, 1, quelleVon(seg).x, quelleVon(seg).y, {}); hits++; k++; nextHit += 1 / RATE;
+      space.damageEnemy(g, e, SCHADEN, quelleVon(seg).x, quelleVon(seg).y, {}); hits++; k++; nextHit += 1 / RATE;
     }
     g.step(); t += DT;
     e.x = festX; e.y = festY;
@@ -66,7 +69,7 @@ function messe(kind, verteilung, seed) {
   }
   return { tSh0, tSys, tRt, hits };
 }
-console.log(`Befehl: node tools/sys03-streufeuer-gegner.js --kinds ${kinds} --rate ${RATE} --seeds ${SEEDS} --seed0 ${SEED0} --sek ${SEK} --verteilung ${verteilungen}${process.env.TUNE ? '   (TUNE=' + process.env.TUNE + ')' : ''}`);
+console.log(`Befehl: node tools/sys03-streufeuer-gegner.js --kinds ${kinds} --rate ${RATE} --seeds ${SEEDS} --seed0 ${SEED0} --sek ${SEK} --verteilung ${verteilungen} --waffe ${WAFFE}${ROH ? ' --roh' : ''}   (Schaden je Treffer ${SCHADEN})${process.env.TUNE ? '   (TUNE=' + process.env.TUNE + ')' : ''}`);
 console.log('| Klasse | Verteilung | Rate/s | n | Treffer/Lauf | 1. Treffer→1. Segment 0 Median (min–max, n/N) | 1. Treffer→1. Systemschaden Median (min–max, n/N) | 1. Treffer→Reaktor zerstört Median (min–max, n/N) |');
 console.log('|---|---|---|---|---|---|---|---|');
 for (const kind of kinds) {

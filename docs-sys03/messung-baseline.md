@@ -293,25 +293,37 @@ Aufruf: `node tools/sys01-lauf.js --kinds raider,korvette,fregatte,kreuzer --cre
 | fregatte | 65,3 → 47,7 | 85 → 67,7 | 58,6 → 40,8 | 0 → 0 | 1,2 → 1,2 | 56/70 → 59/72 |
 | kreuzer | 31,7 → 45,8 | 51,7 → 65,8 | 25,8 → 38,3 | 0 → 0 | 1,2 → 1,2 | 36/54 → 54/68 |
 
-Befund: „Segment 0“ und „1. Systemschaden“ sind hier nicht aussagefähig (Median 0 bis 2,6 s): der Bot trifft zuerst ein 1-Punkt-Segment (Jäger Heck/Seite, Korvette Bug) bzw. das Schild-0-Segment, der erste Schuss leert es. Die Wirkung der Pause zeigt sich in `tRt`, aber nur bei Fregatte (65 → 48 s) und Kreuzer (32 → 46 s, die Richtung ist schwankend: n = 36 → 54 Gegner, die Lerche fällt in den Läufen früher, der Lauf bricht anders ab); Jäger und Korvette bleiben gleich. Die Läufe sind chaotisch (Mediane bewegen sich ohne Regeländerung um 10–30 %); eine klare Beschleunigung der Zerstörung durch die Pause ist nicht belegbar, ein Rückschritt auch nicht.
+Korrektur (SYS-03 C-Nacharbeit): Die frühere Erklärung „1-Punkt-Segmente dominieren“ war falsch. Die Standardbatterie macht **2,66 Schaden je Treffer** (`Katalog.waffe('standardbatterie').schaden`), die Lanze 12, die Sturmbatterie 1,08. Die Schildsegmente der Gegner tragen Jäger `[2,1,0,1]`, Korvette `[1,2,0,2]`, Fregatte `[2,2,2,1,2,2]`, Kreuzer `[2,3,3,3,1,3,3,3]` (Bug 2): schon der erste Standardtreffer leert jedes 1- und 2-Punkt-Segment; nur die 3-Punkt-Segmente des Kreuzers brauchen zwei Treffer. Darum sind „Schaden → Segment 0“ (Median 0 bis 2,6 s) und „Schaden → 1. Systemschaden“ (0 bis 1,2 s) hier nicht aussagefähig: der erste Schuss öffnet ein Segment, der zweite trifft schon das System. `tools/sys01-lauf.js` misst dabei mit den echten Waffen der Bots (echter Schaden je Treffer); die Tabelle oben ist also unverändert gültig, die Neumessung (Crew 2, Seeds 1–20, Stand dieses Commits) ergibt dieselben Mediane. Rohschaden 1 steckte nur in `tools/sys03-streufeuer-gegner.js` (siehe unten, jetzt mit echtem Schaden). Die Wirkung der Pause zeigt sich in `tRt`, aber nur bei Fregatte (65 → 48 s) und Kreuzer (32 → 46 s, die Richtung ist schwankend: n = 36 → 54 Gegner, die Lerche fällt in den Läufen früher, der Lauf bricht anders ab); Jäger und Korvette bleiben gleich. Die Läufe sind chaotisch (Mediane bewegen sich ohne Regeländerung um 10–30 %); eine klare Beschleunigung der Zerstörung durch die Pause ist nicht belegbar, ein Rückschritt auch nicht.
+
+### Zuordnung: zwei verschiedene Messungen (nicht verwechseln, wichtig für Paket D)
+
+| | Gegner-Seite | Lerche-Seite (Schild-Zielfenster) |
+|---|---|---|
+| Frage | Wie lange hält der Schild und die Systeme eines GEGNERS gegen die Lerche? | Wie lange hält der Schild der LERCHE (Sektor 0) unter Gegnerfeuer? |
+| Werkzeug | `tools/sys01-lauf.js` (Bot-Läufe, Arena, echte Waffen), `tools/sys03-streufeuer-gegner.js` (stehender Gegner, echter Schaden je Treffer) | `tools/sys01-gegnerfeuer.js` (Gegner feuert auf die Lerche, 120 s, Lerche-Schild Standard) |
+| Größe | Schaden → Segment 0 / 1. Systemschaden / Reaktor zerstört des Gegners; Spawn → Tod | Zeit bis Sektor 0 der Lerche (Schild des Sektors auf 0) |
+| Ziel | kein Zielfenster, nur Vorher/Nachher und Streu gegen konzentriert (Abnahme 5) | **Zielfenster Fregatte 30–45 s, Kreuzer 40–55 s** (Crew 2 und 3; Jäger und Korvette gemessen und berichtet) |
+| Abschnitte hier | „Gegner-Seite“ in den Abschnitten oben, dieser Abschnitt | „Lerche-Seite“ in den Abschnitten oben (Aufruf mit `sys01-gegnerfeuer`) |
+
+Das Schild-Zielfenster von Paket D gilt ausschließlich für die rechte Spalte. Die Gegner-Seite sagt nichts darüber, ob das Fenster erreicht ist.
 
 ### Abnahme 5 für Gegner: konzentriert gegen Streu (stehender Gegner, Standardschild der Klasse)
 
-Neues Werkzeug `tools/sys03-streufeuer-gegner.js` (stehender Gegner im vollen Spielablauf, Treffer in festem Takt über `space.damageEnemy`, Rohschaden 1; konzentriert = alles auf das stärkste Segment der Klasse, streu = reihum über alle Segmente mit Schild). Aufruf je Rate: `node tools/sys03-streufeuer-gegner.js --rate R --seeds 10 --sek 120`, R = 0,3 / 0,5 / 1. Quotient = Median streu / Median konzentriert; „∞“ = Streu bricht in 120 s nicht (nur konzentriert).
+Werkzeug `tools/sys03-streufeuer-gegner.js` (stehender Gegner im vollen Spielablauf, Treffer in festem Takt über `space.damageEnemy` mit dem **echten Schaden einer Waffe**, Standard Standardbatterie 2,66 (`--waffe <id>`; `--roh` = Rohschaden 1, nur für Vergleiche); konzentriert = alles auf das stärkste Segment der Klasse, streu = reihum über alle Segmente mit Schild). Die erste Fassung (SYS-03 C2) rechnete mit Rohschaden 1; die Tabelle unten ist neu gemessen und ersetzt sie. Aufruf je Rate: `node tools/sys03-streufeuer-gegner.js --rate R --seeds 10 --sek 120`, R = 0,3 / 0,5 / 1. „vorher“ = ohne Pause (`TUNE='{"shields.regenDelay": 0}' node -r ./tools/tune-preload.js …`, entspricht dem Verhalten vor C2 bis auf den Timer je Segment), „nachher“ = Stand dieses Commits. Quotient = Median streu / Median konzentriert (in Klammern); „∞“ = bricht in 120 s nicht. Die Spalte „Segment 0“ entfällt (immer 0 bis 3,4 s: der erste Treffer leert ein 1–2-Punkt-Segment).
 
-| Klasse | Rate | Segment 0 konz. / streu (Quotient) vorher → nachher | 1. Systemschaden konz. / streu (Quotient) vorher → nachher | Reaktor zerstört konz. / streu (Quotient) vorher → nachher |
-|---|---|---|---|---|
-| raider | 0,3 | 3,4 / 3,4 (1,0) → 3,4 / 3,4 (1,0) | 10 / ∞ (∞) → 6,7 / 13,4 (2,0) | 46,7 / ∞ → 26,7 / 66,7 (2,5) |
-| raider | 0,5 | 2 / 2 (1,0) → 2 / 2 (1,0) | 4 / ∞ (∞) → 4 / 8 (2,0) | 20 / ∞ → 16 / 26 (1,6) |
-| raider | 1 | 1 / 1 (1,0) → 1 / 1 (1,0) | 2 / 4 (2,0) → 2 / 4 (2,0) | 9 / 17 (1,9) → 9 / 13 (1,4) |
-| korvette | 0,3 | 3,4 / 0 → 3,4 / 0 | 10 / ∞ (∞) → 6,7 / 10 (1,5) | — / — → 40 / ∞ |
-| korvette | 0,5 | 2 / 0 → 2 / 0 | 4 / ∞ (∞) → 4 / 6 (1,5) | 22 / ∞ → 18 / 44 (2,4) |
-| korvette | 1 | 1 / 0 → 1 / 0 | 2 / 3 (1,5) → 2 / 3 (1,5) | 9 / 36 (4,0) → 9 / 20 (2,2) |
-| fregatte | 0,3 | 3,4 / 10 (3,0) → 3,4 / 10 (3,0) | 10 / ∞ (∞) → 6,7 / ∞ (∞) | — / — → 46,7 / ∞ |
-| fregatte | 0,5 | 2 / 6 (3,0) → 2 / 6 (3,0) | 4 / ∞ (∞) → 4 / ∞ (∞) | 26 / ∞ → 24 / ∞ |
-| fregatte | 1 | 1 / 3 (2,9) → 1 / 3 (2,9) | 2 / ∞ (∞) → 2 / 9 (4,4) | 10 / ∞ → 10 / 37 (3,7) |
-| kreuzer | 0,3 | 6,7 / 13,4 (2,0) → 6,7 / 13,4 (2,0) | 20 / ∞ (∞) → 10 / ∞ (∞) | — / — → 63,4 / ∞ |
-| kreuzer | 0,5 | 4 / 8 (2,0) → 4 / 8 (2,0) | 8 / ∞ (∞) → 6 / ∞ (∞) | 48 / ∞ → 38 / ∞ |
-| kreuzer | 1 | 2 / 4 (2,0) → 2 / 4 (2,0) | 3 / ∞ (∞) → 3 / 12 (4,0) | 19 / ∞ → 18 / 57 (3,2) |
+| Klasse | Rate | 1. Systemschaden konz. / streu (Quotient) vorher → nachher | Reaktor zerstört konz. / streu (Quotient) vorher → nachher |
+|---|---|---|---|
+| raider | 0,3 | 3,4 / ∞ → 3,4 / 10 (2,9) | 30 / ∞ → 23,4 / 60 (2,6) |
+| korvette | 0,3 | 3,4 / ∞ → 3,4 / 10 (2,9) | ∞ / ∞ → 36,7 / ∞ |
+| fregatte | 0,3 | 3,4 / ∞ → 3,4 / ∞ | ∞ / ∞ → 43,4 / ∞ |
+| kreuzer | 0,3 | 10 / ∞ → 6,7 / ∞ | ∞ / ∞ → 60 / ∞ |
+| raider | 0,5 | 2 / ∞ → 2 / 6 (3) | 16 / ∞ → 16 / 26 (1,6) |
+| korvette | 0,5 | 2 / ∞ → 2 / 6 (3) | 18 / ∞ → 16 / 44 (2,8) |
+| fregatte | 0,5 | 2 / ∞ → 2 / ∞ | 22 / ∞ → 22 / ∞ |
+| kreuzer | 0,5 | 4 / ∞ → 4 / ∞ | 42 / ∞ → 36 / ∞ |
+| raider | 1 | 1 / 3 (3) → 1 / 3 (3) | 8 / 17 (2,1) → 8 / 13 (1,6) |
+| korvette | 1 | 1 / 3 (3) → 1 / 3 (3) | 8 / 28 (3,5) → 8 / 19 (2,4) |
+| fregatte | 1 | 1 / ∞ → 1 / 6 (6) | 9 / ∞ → 9 / 31 (3,4) |
+| kreuzer | 1 | 2 / ∞ → 2 / 8 (4) | 18 / ∞ → 17 / 47 (2,8) |
 
-Befund: Die Pause wirkt auf Systemschaden und Reaktor, nicht auf „Segment 0“ (der erste Treffer trifft ein volles Segment, die Regeneration spielt erst danach; die Spalte bleibt gleich). Vorher (ohne Pause) füllte der Schild zwischen den Treffern alle Segmente nach: bei 0,3–0,5 Treffer/s brach Streu auf keiner Klasse einen Systemschaden in 120 s (∞), nur bei 1/s bei Jäger und Korvette. Nachher: Streu bricht bei Jäger und Korvette auf allen drei Raten (Systemschaden 1,5–2,0 mal später, Reaktor 1,4–2,5 mal später als konzentriert), bei Fregatte und Kreuzer bei 1/s (Systemschaden 4,0–4,4, Reaktor 3,2–3,7 mal später); bei 0,3–0,5/s bricht Streu dort weiter nichts in 120 s (je Segment kommt ein Treffer seltener als alle ~10 s, 1 Punkt Regeneration je 5 s nach der Pause gleicht aus). Konzentriertes Feuer wird durch die Pause schneller (Systemschaden bei 0,3/s 10 → 6,7 s Jäger bis Fregatte; Reaktor erreichbar, z. B. Fregatte 0,3/s: — → 46,7 s): die Abnahme-5-Aussage „Streuen ist deutlich schlechter als Konzentrieren“ gilt für Gegner wie für die Lerche, bei Jäger/Korvette nur um den Faktor 1,5–2,5, weil ihre Segmente nur 1–2 Punkte tragen. Messgröße „Segment 0“ bei Streu: ein 1-Punkt-Segment (Korvette Bug) fällt schon beim ersten Streu-Treffer, der Quotient ist dort < 1 und taugt nicht.
+Befund (echter Schaden 2,66): Die Pause wirkt auf Streufeuer, nicht auf das Zerstören der ersten Segmente. Vorher (ohne Pause) füllte der Schild zwischen den Treffern alle Segmente nach: bei 0,3 und 0,5 Treffer/s brach Streu auf keiner Klasse einen Systemschaden in 120 s (∞), bei 1/s nur Jäger und Korvette (3 s). Nachher bricht Streu den Systemschaden bei Jäger und Korvette auf allen Raten (3 s bei 1/s; 6 bis 10 s bei 0,5 bis 0,3/s, 2,9- bis 3-mal später als konzentriert), bei Fregatte und Kreuzer nur bei 1/s (6 bzw. 8 s, 4- bis 6-mal später als konzentriert); bei 0,3 bis 0,5/s bricht Streu dort nichts in 120 s. Reaktor zerstört: Streu 1,6- bis 2,8-mal später als konzentriert bei Jäger (alle Raten) und Korvette (0,5 und 1/s), bei Fregatte und Kreuzer bei 1/s (3,4 bzw. 2,8-mal). Konzentriertes Feuer wird kaum schneller (Jäger 0,3/s Reaktor 30 → 23,4 s, Kreuzer 0,3/s Systemschaden 10 → 6,7 s, sonst gleich); bei niedrigen Raten wird der Reaktor erst durch die Pause erreichbar (Fregatte, Kreuzer 0,3/s: ∞ → 43 / 60 s). Die Abnahme-5-Aussage „Streuen ist deutlich schlechter als Konzentrieren“ gilt damit für Gegner wie für die Lerche, bei kleinen Klassen und Raten ab 0,5/s; bei Fregatte und Kreuzer greift sie erst ab etwa 1 Treffer/s, darunter regeneriert jedes Segment zwischen zwei Treffern (Pause 5 s plus Takt 5 s je Punkt).
