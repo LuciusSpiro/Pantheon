@@ -21,6 +21,7 @@ const A = (game) => Object.assign({}, STANDARD, cfg(game).aufrichtenSicherung ||
 let wfMod = null; const waffen = () => wfMod || (wfMod = require('./waffen.js'));
 let combatMod = null; const combat = () => combatMod || (combatMod = require('./combat.js'));
 const Trupp = () => require('./trupp.js');
+const Vert = () => require('./verteidigung.js');
 const KEYS = ['aufrichten', 'aufgerichtet', 'abgebrochen', 'aufrichtenTod', 'aufrichtenTodBlind', 'todGesichert'];
 
 function stats(game) {
@@ -118,6 +119,7 @@ function liegende(game) {
 function geeignet(game, e) {
   const Wf = waffen();
   if (!e.alive || e.asleep || e.frozen || e.kind === 'warden' || e.rolle === 'enterer' || e.rolle === 'waechter') return false;
+  if (e.gegenstoss || e.aufgabe === 'gegenstoss' || Vert().imRueckzug(game, e)) return false;   // BOD-02 Nacharbeit W1: Gegenstoßler und Rückzügler helfen nicht
   if (e.role === 'aufrichten' || e.aufgabe === 'aufrichten' || e.role === 'fesseln' || e.role === 'retreat') return false;
   if (!Wf.handlungsfaehig(game, e) || Wf.niedergehalten(game, e)) return false;
   if (game.time < (e.aufrSperre || 0)) return false;
@@ -132,7 +134,9 @@ function waehleHelfer(game, E, s, d, kand) {
   const reich = (Number(A(game).reichweite) || 10) * TILE;
   const Tr = Trupp();
   const stuetzen = (m) => Tr.niederhaelt(m) || m.aufgabe === 'flanke' || m.aufgabe === 'scharf' || m.rolle === 'schuetze' ? 1 : 0;
-  const liste = kand.filter((m) => geeignet(game, m) && dist(m.x, m.y, d.x, d.y) <= reich)
+  const dk = Physics.toTile(d.x, d.y);
+  // BOD-02 Nacharbeit c (bewusst): Verteidiger mit Profil richten keinen Liegenden außerhalb der Haltelinie auf (er bleibt liegen, kein Hängen in der Rolle)
+  const liste = kand.filter((m) => geeignet(game, m) && dist(m.x, m.y, d.x, d.y) <= reich && Vert().erlaubt(game, m, dk))
     .sort((a, b) => (stuetzen(a) - stuetzen(b)) || (dist(a.x, a.y, d.x, d.y) - dist(b.x, b.y, d.x, d.y)));
   for (const m of liste) { const r = pruefe(game, E, d, s, m); if (r.erlaubt) return { m, r }; }
   return null;

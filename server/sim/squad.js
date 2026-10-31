@@ -1050,15 +1050,16 @@ function planRuhig(game, E, e, s) {
 }
 
 // ---------- BOD-02 P10: Aufrichten als Trupp-Aufgabe mit Sicherung (Regeln: server/sim/aufrichten.js, Zuteilung: trupp.js) ----------
-// Beendet das Aufrichten (grund: 'fertig' | 'ende' (Liegender weg/aus/kein Weg) | 'unterFeuer' | 'keineSicherung'): Aufgabe zurück, Helfer frei, bei Abbruch
+// Beendet das Aufrichten (grund: 'fertig' | 'ende' (Liegender weg/aus/kein Weg) | 'unterFeuer' | 'keineSicherung' | 'rueckzug' | 'gegenstoss'): Aufgabe zurück, Helfer frei, bei Abbruch
 // Sperre (Helfer und – bei Beschuss – Liegender) und Deckung (Rolle pin, neue Platzwahl).
 function aufrichtenEnde(game, e, grund) {
   const d = game.away.drones.find((q) => q.id === e.hilft);
   const war = e.role === 'aufrichten';
   if (d && d.helfer === e.id) d.helfer = null;
   e.hilft = null; e.aufrichtenStart = null;
-  if (e.aufgabe === 'aufrichten') e.aufgabe = e.aufgabeVor || null;
+  if (e.aufgabe === 'aufrichten') e.aufgabe = e.aufgabeVor && (e.aufgabeVor !== 'gegenstoss' || e.gegenstoss) ? e.aufgabeVor : null;   // W1: kein 'gegenstoss'-Rest ohne e.gegenstoss
   e.aufgabeVor = null;
+  if (grund === 'rueckzug' || grund === 'gegenstoss') Aufr.stat(game, 'abgebrochen');   // Abbruch durch den Trupp (ohne Sperre)
   if (grund === 'unterFeuer' || grund === 'keineSicherung') {
     const sp = Number(Aufr.cfg(game).sperreSek) || 0;
     Aufr.stat(game, 'abgebrochen');
@@ -1351,5 +1352,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
-  freshestKnown, setGoal, setRole, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
+  freshestKnown, setGoal, setRole, aufrichtenEnde, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };

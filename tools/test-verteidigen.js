@@ -243,6 +243,104 @@ section('P9 Gegenstoß: höchstens ein Verteidiger je Spieler im Graben, die üb
   ok(w1(s2).every((q) => !q.gegenstoss && q.aufgabe !== 'gegenstoss'), 'Spieler liegt (downed): Gegenstoß beendet, die Linie hält');
 });
 
+section('W1/c Gegenstoß und Aufrichten (P9 + P10) vereint', () => {
+  const lege = (r, x, y) => {   // ein Verteidiger wird (verwundet) auf (x, y) gelegt
+    const l = w1(r); const d = l.slice().sort((a, b) => b.y - a.y)[0];
+    platz(d, x, y);
+    for (let i = 0; i < 12 && d.alive; i++) combat.hitEnemy(r.g, d, 1, { x: d.x - 300, y: d.y });
+    return d;
+  };
+  const mischung = (r) => r.aw.drones.filter((x) => x.alive && ((x.gegenstoss && (x.aufgabe === 'aufrichten' || x.role === 'aufrichten' || x.hilft)) || (x.aufgabe === 'gegenstoss' && !x.gegenstoss) || (x.aufgabeVor === 'gegenstoss' && !x.gegenstoss)));
+  // (1) Gegenstoßler läuft, dann liegt ein Kamerad: der Gegenstoßler wird nie sein Helfer
+  const r = spiel(2, 18);
+  raus(r); alarm(r); lauf(r, 4);
+  platz(r.g.players[0], 25, 8); platz(r.g.players[1], 6, 17);
+  lauf(r, 2.5);
+  const e = w1(r).find((q) => q.gegenstoss);
+  ok(!!e, 'Gegenstoßler läuft');
+  const d = lege(r, 25, 27);
+  let schlecht = 0, helfer = null, dist0 = Infinity;
+  lauf(r, 25, (q) => { if (mischung(q).length) schlecht++; const h = d.helfer && q.aw.drones.find((x) => x.id === d.helfer); if (h) helfer = h; });
+  ok(schlecht === 0, 'Gegenstoßler und Aufricht-Auftrag nie gleichzeitig (' + schlecht + ' Abtastungen)');
+  ok(!helfer || !helfer.gegenstoss, 'der Helfer des Liegenden ist kein Gegenstoßler');
+  // (2) Helfer läuft schon, dann tritt ein Spieler in den Graben: der Helfer wird nicht Gegenstoßler, der Liegende bleibt nicht blockiert
+  const q2 = spiel(2, 18);
+  raus(q2); alarm(q2); lauf(q2, 4);
+  platz(q2.g.players[1], 6, 17);
+  const d2 = lege(q2, 25, 27);
+  let h2 = null;
+  lauf(q2, 8, (q) => { const h = d2.helfer && q.aw.drones.find((x) => x.id === d2.helfer); if (h && !h2) h2 = h; });
+  platz(q2.g.players[0], 25, 8);
+  let schlecht2 = 0;
+  lauf(q2, 25, (q) => { if (mischung(q).length) schlecht2++; });
+  ok(schlecht2 === 0, 'Helfer zuerst, dann Gegenstoß: nie beides zugleich (' + schlecht2 + ')');
+  ok(!d2.helfer || !(q2.aw.drones.find((x) => x.id === d2.helfer) || {}).gegenstoss, 'der Liegende hat keinen Gegenstoßler als Helfer');
+  ok(w1(q2).filter((x) => x.gegenstoss).length <= 1 && w1(q2).every((x) => !x.gegenstoss || x.aufgabe === 'gegenstoss'), 'je Spieler höchstens ein Gegenstoßler, Aufgabe konsistent');
+  // (3) Rückzug mitten im Aufrichten: Helfer wird sauber freigegeben (Zähler abgebrochen, Liegender frei, keine Aufgabenreste)
+  const q3 = spiel(3, 21);
+  raus(q3); alarm(q3); lauf(q3, 4);
+  const d3 = lege(q3, 25, 27);
+  let h3 = null;
+  for (let i = 0; i < 15 * CONFIG.tickHz && !h3; i++) { lauf(q3, 1 / CONFIG.tickHz); const h = d3.helfer && q3.aw.drones.find((x) => x.id === d3.helfer); if (h && h.role === 'aufrichten') h3 = h; }
+  ok(!!h3, 'ein Helfer ist im Aufrichten unterwegs');
+  if (h3) {
+    const ab0 = (q3.aw.truppStats && q3.aw.truppStats.abgebrochen) || 0;
+    Vert.ausloesen(q3.g, combat.env(q3.g), V(q3), 'test');
+    ok(!h3.hilft && h3.role !== 'aufrichten' && d3.helfer == null && h3.aufgabe !== 'aufrichten' && !h3.aufgabeVor, 'Rückzug während des Aufrichtens: Helfer frei, Liegender nicht blockiert');
+    ok(q3.aw.truppStats.abgebrochen === ab0 + 1, 'Zähler abgebrochen +1');
+  }
+  // (4) c: Liegender außerhalb der Haltelinie bleibt liegen (kein Hängen in der Rolle aufrichten)
+  const q4 = spiel(3, 22);
+  raus(q4); alarm(q4); lauf(q4, 4);
+  const d4 = lege(q4, 18, 17);   // auf der Wiese vor dem Graben, nicht auf einem Stellungsplatz
+  let rolle = 0;
+  lauf(q4, 25, (q) => { if (q.aw.drones.some((x) => x.alive && (x.hilft === d4.id || (x.role === 'aufrichten' && x.hilft)))) rolle++; });
+  ok(rolle === 0 && !d4.helfer && !d4.alive, 'Liegender außerhalb der Haltelinie: kein Helfer, bleibt liegen');
+  ok(w1(q4).every((x) => x.role !== 'aufrichten'), 'keiner hängt in der Rolle aufrichten');
+});
+
+section('c waehleHelfer: Liegende außerhalb der Haltelinie werden bei Verteidigern mit Profil übersprungen (Einheit)', () => {
+  const Aufr = require('../server/sim/aufrichten.js');
+  const r = spiel(3, 21); raus(r); alarm(r); lauf(r, 3);
+  for (const p of r.g.players) platz(p, 90, 30);   // niemand sieht den Liegenden: nur die Haltelinie entscheidet
+  const E = combat.env(r.g); const s = r.aw.squads['graben.w1.graben']; const ms = w1(r);
+  const lege = (x, y) => { const d = ms.slice().sort((a, b) => b.y - a.y)[0]; platz(d, x, y); d.alive = false; d.liegt = true; d.zustand = 'verwundet'; d.helfer = null; d.aufrSperre = 0; return d; };
+  const kand = ms.filter((m) => m !== ms.slice().sort((a, b) => b.y - a.y)[0]);
+  const dIn = lege(25, 20);
+  const wIn = Aufr.waehleHelfer(r.g, E, s, dIn, kand);
+  ok(!!wIn, 'Kontrolle: Liegender in der Sohle bekommt einen Helfer');
+  const dAus = lege(18, 20);
+  ok(Aufr.waehleHelfer(r.g, E, s, dAus, kand) === null, 'Liegender auf der Wiese (außerhalb der Haltelinie): kein Helfer');
+  ok(Vert.erlaubt(r.g, { squad: 'ohne.profil' }, { x: 18, y: 20 }) === true, 'Trupps ohne Profil: unverändert erlaubt');
+});
+
+section('W1 geeignet/waehleHelfer: Gegenstoßler und Rückzügler sind keine Helfer (Einheit)', () => {
+  const Aufr = require('../server/sim/aufrichten.js');
+  const r = spiel(3, 21); raus(r); alarm(r); lauf(r, 3);
+  const e = w1(r).find((x) => Aufr.geeignet(r.g, x));
+  ok(!!e, 'es gibt einen geeigneten Verteidiger');
+  e.gegenstoss = 'p1';
+  ok(!Aufr.geeignet(r.g, e), 'Gegenstoßler: ungeeignet');
+  e.gegenstoss = null; e.aufgabe = 'gegenstoss';
+  ok(!Aufr.geeignet(r.g, e), 'Aufgabe gegenstoss: ungeeignet');
+  e.aufgabe = null;
+  ok(Aufr.geeignet(r.g, e), 'danach wieder geeignet');
+  V(r).modus = 'rueckzug';
+  ok(!Aufr.geeignet(r.g, e), 'im Rückzug: ungeeignet');
+});
+
+section('W2 Linie darf nicht leerlaufen; Aufrichter zählen nicht als frei (Einheit)', () => {
+  const mk = (id, rolle, x) => ({ id, rolle, x, y: 0, alive: true, aufgabe: null, gegenstoss: null });
+  const g = { away: {} }; const Trupp = require('../server/sim/trupp.js');
+  const ms = [mk('a', 'grundtyp', 0), mk('b', 'grundtyp', 100)];
+  Trupp.gegenstossVerteilen(g, ms, [{ id: 'P1', x: 10, y: 0 }, { id: 'P2', x: 20, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(ms.filter((e) => e.gegenstoss).length === 1, '2 Mitglieder, 2 Spieler im Graben: genau ein Gegenstoßler');
+  const m3 = [mk('a', 'grundtyp', 0), mk('b', 'grundtyp', 100), mk('c', 'grundtyp', 200)];
+  m3[0].aufgabe = 'aufrichten'; m3[0].role = 'aufrichten'; m3[0].hilft = 'x';
+  Trupp.gegenstossVerteilen(g, m3, [{ id: 'P1', x: 10, y: 0 }, { id: 'P2', x: 20, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(m3.filter((e) => e.gegenstoss).length === 1 && !m3[0].gegenstoss, '3 Mitglieder, einer im Aufrichten: nur ein Gegenstoßler, der Aufrichter nie');
+});
+
 section('P9 Gegenstoß: Stürmer bevorzugt, Trupp.gegenstossVerteilen (Einheit)', () => {
   const mk = (id, rolle, x) => ({ id, rolle, x, y: 0, alive: true, aufgabe: null, gegenstoss: null });
   const g = { away: {} };

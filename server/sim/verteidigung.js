@@ -119,7 +119,7 @@ function ausloesen(game, E, V, grund) {
   aw.truppStats = aw.truppStats || { umgangen: 0 };
   aw.truppStats.rueckzug = (aw.truppStats.rueckzug || 0) + 1;
   const ms = mitglieder(game, V);
-  for (const e of ms) { e.gegenstoss = null; if (e.aufgabe === 'gegenstoss') e.aufgabe = null; e.goal = null; e.path = null; e.aim = null; e.goalAt = -99; }
+  for (const e of ms) { if (e.hilft) sq.aufrichtenEnde(game, e, 'rueckzug'); e.gegenstoss = null; if (e.aufgabe === 'gegenstoss') e.aufgabe = null; e.aufgabeVor = null; e.goal = null; e.path = null; e.aim = null; e.goalAt = -99; }
   for (const nm of V.squads) { const s = aw.squads[nm]; if (s) s.halfBarked = true; }
   if (ms.length) {
     const s = aw.squads[ms[0].squad];
@@ -267,4 +267,4 @@ function entscheide(game, E, e, s) {
   return false;
 }
 
-module.exports = { STANDARD, zuweisen, aktiv, spots, erlaubt, imRueckzug, tick, entscheide, beiTod, pruefe, umgehung, mitglieder, profilVon, cfgVon, menge };
+module.exports = { STANDARD, zuweisen, aktiv, spots, erlaubt, imRueckzug, tick, entscheide, beiTod, ausloesen, pruefe, umgehung, mitglieder, profilVon, cfgVon, menge };

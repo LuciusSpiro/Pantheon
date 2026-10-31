@@ -192,10 +192,11 @@ function gegenstossVerteilen(game, ms, spieler, C) {
   const rangG = (e) => (rolleVon(e) === 'enterer' ? 0 : rolleVon(e) === 'grundtyp' ? 1 : 2);   // Stürmer, dann Allrounder, sonst Nächster
   for (const p of spieler) {
     if (ms.some((e) => e.gegenstoss === p.id)) continue;
-    const frei = ms.filter((e) => !e.gegenstoss);
+    const frei = ms.filter((e) => !e.gegenstoss && e.aufgabe !== 'aufrichten' && e.role !== 'aufrichten' && !e.hilft);   // W2: Aufrichter zählen nicht als frei
     if (ms.length < min || frei.length < 2) break;   // die Linie darf nicht leerlaufen: mindestens einer bleibt
     frei.sort((a, b) => (rangG(a) - rangG(b)) || (dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y)) || (idZahl(a) < idZahl(b) ? -1 : 1));
     const e = frei[0];
+    if (e.hilft) squadMod().aufrichtenEnde(game, e, 'gegenstoss');   // W1 (Absicherung; frei enthält keine Aufrichter): laufenden Auftrag sauber beenden
     e.gegenstoss = p.id; e.aufgabe = 'gegenstoss'; e.goal = null; e.path = null; e.goalAt = -99; e.aim = null;
     aw.truppStats = aw.truppStats || { umgangen: 0 };
     aw.truppStats.gegenstoss = (aw.truppStats.gegenstoss || 0) + 1;
