@@ -132,6 +132,19 @@
     ctx.fillRect(x, y, w, h);
   }
 
+  // CHA-01 B2: Namensmarke über jedem Spieler (Maße und Deckkraft aus Namensmarke-Tokens). Mitspieler: Form + Name, eigene Figur: nur die Form.
+  // Keine eigene Marke, solange die eigene Figur unsichtbar ist (UI-Sitz/Egoperspektive, actors.js blendet sie aus). sx = Kopfmitte, ny = Oberkante der Marke.
+  function namensmarke(ctx, p, view, sx, ny) {
+    const eigen = p.id === view.pid;
+    if (eigen && window.Sitz && window.Sitz.station && window.Sitz.versteckt != null && String(p.id) === window.Sitz.versteckt) return;
+    const NM = window.Namensmarke, ci = p.color || 0, col = PAL.players[ci];
+    const m = NM.marke(p.name, eigen, (n) => measure(n, 1)), rx = Math.round(sx);
+    backdrop(ctx, rx + m.x, ny, m.w, m.h, NM.TOKENS.MASS.grundDeckkraft);
+    shape(ctx, SHAPES[ci], rx + m.form.x, ny + m.form.y, m.form.groesse, col);
+    if (m.text) text(ctx, m.text.s, rx + m.text.x, ny + m.text.y, { color: col, shadow: false });
+    ctx.fillStyle = col; ctx.fillRect(rx + m.stiel.x, ny + m.stiel.y, m.stiel.w, m.stiel.h);
+  }
+
   function shape(ctx, kind, x, y, size, color, outline) {
     const s = size / 2;
     ctx.beginPath();
@@ -2181,15 +2194,7 @@
           const drawC = () => { if (!art('drawCharacter', null, [ctx, sx, sy, o])) fbCharacter(ctx, sx, sy, o); };
           if (o.crouch && !artHasCrouch('char')) squashed(ctx, sx, sy, CROUCH_FB, drawC); else drawC();
           if (psh && !p.downed && o.shieldHitT < 0.35 && !artHasShieldHit()) fbShieldBubble(ctx, sx, sy, o.shieldHitT);
-          if (p.id !== view.pid) {
-            const col = PAL.players[p.color || 0];
-            const nm = String(p.name || '').slice(0, 12);
-            const w = measure(nm, 1) + 14;
-            const ny = sy - (o.crouch ? 40 : 52);
-            backdrop(ctx, Math.round(sx - w / 2), ny, w, 10, 0.55);
-            shape(ctx, SHAPES[p.color || 0], sx - w / 2 + 6, ny + 5, 6, col);
-            text(ctx, nm, sx - w / 2 + 11, ny + 1, { color: col, shadow: false });
-          }
+          namensmarke(ctx, p, view, sx, sy - (o.crouch ? 40 : 52));
           if (p.downed && psh) {
             text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : ''), sx, sy - 24, { color: PAL.red, align: 'center' });
           } else if (p.downed) {
@@ -2507,15 +2512,7 @@
           ctx.strokeStyle = 'rgba(224,71,60,' + (0.55 + 0.35 * Math.sin(t * 6)) + ')'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.ellipse(feet.x, feet.y, 6 + 16 * frac, 3 + 7 * frac, 0, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
         }
-        if (p.id !== view.pid) {
-          const col = PAL.players[p.color || 0];
-          const nm = String(p.name || '').slice(0, 12);
-          const w = measure(nm, 1) + 14;
-          const s = P(p.x, p.y, crouch ? 40 : 52);
-          backdrop(ctx, Math.round(s.x - w / 2), Math.round(s.y), w, 10, 0.55);
-          shape(ctx, SHAPES[p.color || 0], s.x - w / 2 + 6, s.y + 5, 6, col);
-          text(ctx, nm, s.x - w / 2 + 11, s.y + 1, { color: col, shadow: false });
-        }
+        { const s = P(p.x, p.y, crouch ? 40 : 52); namensmarke(ctx, p, view, s.x, Math.round(s.y)); }
         if (p.downed) { const s = P(p.x, p.y, 24); text(ctx, Array.isArray(p.sh) ? 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : '') : 'AUSSER GEFECHT', s.x, s.y, { color: PAL.red, align: 'center' }); }
         if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) {
           const s = P(p.x, p.y, 50); s.y -= 26;   // QA M4: Balken ganz über den Kopf, sonst verdeckt „FLICKEN …“ das Gesicht

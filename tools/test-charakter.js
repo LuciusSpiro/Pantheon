@@ -39,6 +39,21 @@ function einheiten() {
   ok(KAT.plaetze.every((p) => [p.standard, ALTWERT(p)].every((n) => KAT.teile.some((t) => t.platz === p.id && t.id === p.id + '/' + n))), 'je Platz Standard und Prüfsatz-Alternative');
   ok(KAT.teile.every((t) => typeof t.name === 'string' && t.name && typeof t.vorschau === 'string'), 'jedes Teil mit Anzeigenamen und Vorschaubild');
 
+  section('figurAusKarte (B2): Parameter und Farben der Voxelfigur');
+  {
+    const fa = Ch.figurAusKarte(ALT, KAT), fs = Ch.figurAusKarte(STD, KAT);
+    const plaetze = KAT.plaetze.map((p) => p.id).concat('koerper').sort();
+    ok(fa && eq(Object.keys(fa.params).sort(), plaetze), 'params = alle Plätze der Karte (Charakter + Outfit) und koerper');
+    ok(fa.params.kopf === 'bordhelm' && fa.params.umhang === 'fellumhang' && fa.params.gesicht === 'narbe' && fa.params.koerper === 'standard', 'Werte aus Karte und Outfit');
+    ok(eq(fa.colors, { skin: KAT.farben.haut[3].skin, skin_shadow: KAT.farben.haut[3].skin_shadow, hair: KAT.farben.haar[2] }), 'colors = skin, skin_shadow, hair aus dem Katalog (haut 3, haar 2)');
+    ok(eq(Object.keys(fa.colors).sort(), ['hair', 'skin', 'skin_shadow']), 'keine weitere Farbrolle, keine Spielerfarbe');
+    ok(fs.colors.skin === KAT.farben.haut[0].skin && fs.colors.hair === KAT.farben.haar[0], 'Standardkarte: erste Haut- und Haarfarbe');
+    const kaputt = klon(ALT); kaputt.haut = 99; kaputt.outfit.kopf = 'gibtsnicht';
+    const fk = Ch.figurAusKarte(kaputt, KAT);
+    ok(fk.params.kopf === 'keine' && fk.colors.skin === KAT.farben.haut[0].skin, 'ungültige Karte wird vorher geprüft (Standard je Feld)');
+    ok(Ch.figurAusKarte(ALT, null) === null && Ch.figurAusKarte(ALT, {}) === null && Ch.figurAusKarte(null, KAT) !== null, 'ohne Katalog null, ohne Karte Standardfigur');
+  }
+
   section('Standardkarte');
   ok(eq(STD, { v: 1, name: 'Aurelia', koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 0, haar: 0, outfit: OUTFIT_STD }), 'standardKarte(name, katalog) wie die Schnittstelle');
   ok(Ch.standardKarte('x', KAT).name === 'Crew' && Ch.standardKarte(null, KAT).name === 'Crew', 'ungültiger Name → Crew');

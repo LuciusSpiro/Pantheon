@@ -45,6 +45,19 @@ const io = {
 export const lib = new Library(io);
 export { MATS };
 
+// CHA-01 B2: Charakter-Katalog (Plätze, Teile, Haut-/Haarfarben) einmal laden. Bis er da ist, liefert charakterKatalog() null → die Spieler behalten die heutige Figur.
+let katalogDaten = null, katalogLaedt = null;
+export function charakterKatalogLaden() {
+  if (!katalogLaedt) {
+    katalogLaedt = fetch(BASE + 'assets/katalog/charakter.json', { cache: 'no-cache' })
+      .then((r) => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then((j) => { katalogDaten = j; return j; })
+      .catch((e) => { console.warn('[voxel/loader] Charakter-Katalog fehlt', e && e.message); return null; });
+  }
+  return katalogLaedt;
+}
+export function charakterKatalog() { if (!katalogLaedt) charakterKatalogLaden(); return katalogDaten; }
+
 // ------------------------------------------------------------------------------------------------ Material + Netz-Hilfen
 /** Ein Material für Voxel-Netze: beleuchtet; Vertices mit aEmit = 1 leuchten (Farbe = Emission).
  *  lit + emit eines Modells werden zu einem Netz zusammengelegt → ein Draw Call je Objekt statt zwei. */
@@ -170,6 +183,7 @@ export const ready = (async () => {
   await Promise.all([
     lib.load('palettes', 'lerche_rom').catch(() => null),
     lib.load('rigs', 'human').catch(() => null),
+    charakterKatalogLaden(),
   ]);
   return true;
 })();
@@ -181,7 +195,11 @@ export function manifestIds() { return [...manifestById.keys()]; }
 export function load(id0, kind = 'models') {
   const id = src(id0);
   const k = kind + ':' + id;
-  if (lib.get(kind, id)) return Promise.resolve(true);
+  if (lib.get(kind, id)) {
+    // Die Bibliothek legt ein Asset vor seinen Abhängigkeiten ab (lib.load): solange es noch lädt, auf den Abschluss warten statt „fertig“ zu melden (sonst baut ein zweiter Akteur mit derselben Figur zu früh: „Teilmodell … nicht geladen“)
+    const pend = lib.pending.get(k);
+    return pend ? pend.then(() => true, () => false) : Promise.resolve(true);
+  }
   if (missing.has(k)) return Promise.resolve(false);
   let p = loading.get(k);
   if (p) return p;
@@ -206,6 +224,16 @@ function trimLibCache() {
   const bc = lib.buildCache;
   while (bc.size > LRU_MAX) { const k = bc.keys().next().value; bc.delete(k); }
 }
+// Abgeleitete Figurdefinitionen (figure(id, { params })) liegen im Bibliotheksspeicher; Spieler ziehen sich ständig um (CHA-01),
+// also nur die letzten DERIVED_MAX behalten (Reihenfolge = letzte Benutzung). Gebaute Figuren halten ihre Teile selbst.
+const DERIVED_MAX = 32;
+const derivedUsed = [];
+function derivedTouch(did) {
+  const i = derivedUsed.indexOf(did);
+  if (i >= 0) derivedUsed.splice(i, 1);
+  derivedUsed.push(did);
+  while (derivedUsed.length > DERIVED_MAX) lib.store.figures.delete(derivedUsed.shift());
+}
 
 /**
  * Geometrien eines Modells in Metern (Anker im Ursprung), gecacht (LRU 256).
@@ -214,7 +242,7 @@ function trimLibCache() {
 export function geometries(id0, params, opts = {}) {
   const id = src(id0);
   const model = lib.get('models', id);
-  if (!model) { load(id); return null; }
+  if (!model || lib.pending.has('models:' + id)) { load(id); return null; }   // noch in Arbeit (Bibliothek legt Modelle vor ihren Abhängigkeiten ab): erst nach dem Laden bauen
   // nur deklarierte Parameter weitergeben (der Kern wirft sonst „unbekannter Parameter“)
   if (params) {
     const decl = model.params || {}, out = {};
@@ -318,6 +346,7 @@ export function figure(id, opts = {}) {
       const fig = lib.get('figures', base);
       lib.store.figures.set(did, Object.assign({}, fig, { id: did, params: Object.assign({}, fig.params || {}, p) }));
     }
+    derivedTouch(did);
     return did;
   };
   const build = () => {
@@ -330,10 +359,11 @@ export function figure(id, opts = {}) {
       f.inner = fo; f.joints = fo.joints; f.ready = true;
       root.clear(); root.add(fo.root);
       applyPose(fo, 'stand', 0);
+      trimLibCache();   // Figurenpfad: die Teile-Builds sonst nie gekürzt (CHA-01 Erkundung)
       return true;
     } catch (e) { counters.errors++; onError('loader.figure:' + id, e); return false; }
   };
-  if (lib.get('figures', src(id)) && build()) { f.loaded = Promise.resolve(true); return f; }
+  if (lib.get('figures', src(id)) && !lib.pending.has('figures:' + src(id)) && build()) { f.loaded = Promise.resolve(true); return f; }
   root.add(placeholder([0.5, 1.8, 0.4], opts.color || '#C9974A'));
   f.loaded = load(id, 'figures').then((ok) => ok && build());
   return f;

@@ -2509,6 +2509,8 @@
     G.debugCmd = (cmd, extra) => send(Object.assign({ t: 'debug', cmd }, extra || {}));
     // M2: Debug-Zeile parsen und senden (tune/kesh/squad/wake/shield/wound + alle bisherigen Befehle)
     G.dbg = (line) => { const msg = parseDebugLine(line); if (msg) send(msg); return msg; };
+    // CHA-01 B2: Prüf-Hilfe bis die Erstellung (Paket C) die Karte setzt – nur mit ?debug=1: __game.setzeKarte(karte) → Client.karte und neues hello
+    if (DEBUG) G.setzeKarte = (k) => { Client.karte = k || null; Net.sendHello(); return Client.karte; };
     G.tune = (path, value) => G.dbg('tune' + (path ? ' ' + path : '') + (value != null ? ' ' + value : ''));
     G.parseDebugLine = parseDebugLine;
     Net.connect();

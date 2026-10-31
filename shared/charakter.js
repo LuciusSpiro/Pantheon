@@ -105,5 +105,19 @@
     return s ? outfitVon(s, roh) : {};
   }
 
-  return { VERSION, NAME_MIN, NAME_MAX, STANDARD_NAME, standardKarte, pruefeKarte, pruefeOutfit, pruefeName, eindeutigerName };
+  // CHA-01 B2: Figur-Parameter und Farben der Voxelfigur aus einer Karte. params = Teil je Platz (Charakter + Outfit) und koerper, colors = skin/skin_shadow/hair
+  // aus katalog.farben (nie eine Spielerfarbe). Die Karte wird vorher geprüft; ohne brauchbaren Katalog null (Aufrufer nimmt dann die heutige Figur).
+  function figurAusKarte(karte, katalog) {
+    const s = sicht(katalog);
+    if (!s || !s.nHaut || !s.nHaar) return null;
+    const k = pruefeKarte(karte, katalog);
+    const params = { koerper: k.koerper };
+    for (const p of s.charakter) params[p.id] = k[p.id];
+    for (const p of s.outfit) params[p.id] = k.outfit[p.id];
+    const haut = katalog.farben.haut[k.haut], haar = katalog.farben.haar[k.haar];
+    if (!istObjekt(haut) || typeof haut.skin !== 'string' || typeof haut.skin_shadow !== 'string' || typeof haar !== 'string') return null;
+    return { params, colors: { skin: haut.skin, skin_shadow: haut.skin_shadow, hair: haar } };
+  }
+
+  return { VERSION, NAME_MIN, NAME_MAX, STANDARD_NAME, standardKarte, pruefeKarte, pruefeOutfit, pruefeName, eindeutigerName, figurAusKarte };
 });
