@@ -3,6 +3,7 @@
 //   P8  Halten: nach dem Alarm stehen >= 80 % der lebenden Welle 1 in Stellungen am Graben (Stellung.istIn), solange kein Rückzug ausgelöst ist
 //       Rückzug: Hälfte der Linie gefallen ODER Linie umgangen; Funkspruch 'half' löst echtes Verhalten aus; Überlebende landen auf Plätzen der Linie 2
 //       (Wald, Welle 2), kämpfen dort mit, endgültig (keine Rückkehr), höchstens rueckzugMax s; Trupps OHNE Profil unverändert (nur Text wie bisher)
+//   P9  Gegenstoß: höchstens ein Verteidiger je Spieler im Graben geht gegen ihn vor, die übrigen halten; beendet beim Verlassen/Tod
 //   node tools/test-verteidigen.js
 const CONFIG = require('../shared/config.js');
 const Physics = require('../shared/physics.js');
@@ -161,6 +162,70 @@ section('P8 Funkspruch ohne Profil bleibt Text (Trupps ohne Verteidigungsprofil 
   ok(barks(r, 'half').length >= 1 || r.aw.squads['graben.w1.graben'].halfBarked || r.aw.squads['graben.w1.posten'].halfBarked, 'Hälfte des Trupps gefallen: Funkspruch wie bisher');
   lauf(r, 3);
   ok(!r.ereignisse.length && !(r.aw.truppStats && r.aw.truppStats.rueckzug), 'ohne Profil kein Rückzug (nur Text)');
+});
+
+section('P9 Gegenstoß: höchstens ein Verteidiger je Spieler im Graben, die übrigen halten', () => {
+  const r = spiel(2, 18);   // Crew 2: Welle 1 = 5 Mann, Graben-Trupp 3 (kein Flankenschutz, der den Rückzug auslöst)
+  raus(r); alarm(r); lauf(r, 4);
+  const p = r.g.players[0];
+  platz(p, 25, 17);
+  lauf(r, 2.5);
+  const gs = w1(r).filter((e) => e.gegenstoss);
+  ok(gs.length === 1 && gs[0].gegenstoss === p.id && gs[0].aufgabe === 'gegenstoss', 'ein Spieler im Graben: genau ein Gegenstoßler (Aufgabe gegenstoss)');
+  ok(w1(r).filter((e) => e !== gs[0]).every((e) => !e.gegenstoss && e.aufgabe !== 'gegenstoss'), 'die übrigen halten die Linie');
+  ok(V(r).modus === 'halten', 'Linie hält weiter (kein Rückzug)');
+  const e = gs[0]; const d0 = Math.hypot(e.x - p.x, e.y - p.y);
+  lauf(r, 6);
+  const d1 = Math.hypot(e.x - p.x, e.y - p.y);
+  ok(e.alive && d1 <= (AC.verteidigung.gegenstossAbstand + 1.5) * TILE && d1 <= d0, `Gegenstoßler geht in den Nahbereich (${(d0 / TILE).toFixed(1)} -> ${(d1 / TILE).toFixed(1)} Kacheln)`);
+  ok(inSt(r, e), 'Gegenstoßler bleibt im Graben (zählt als in Stellung)');
+  ok(w1(r).filter((q) => q !== e).every((q) => inSt(r, q)), 'Halter stehen weiter in Stellungen');
+  ok(r.aw.truppStats.gegenstoss === 1, 'Zähler gegenstoss = 1 (kein Flackern)');
+  // beendet, wenn der Spieler den Graben verlässt
+  platz(p, 21, 17);
+  lauf(r, 2);
+  ok(w1(r).every((q) => !q.gegenstoss && q.aufgabe !== 'gegenstoss'), 'Spieler verlässt den Graben: Gegenstoß beendet');
+  lauf(r, 12);
+  ok(w1(r).every((q) => inSt(r, q)), 'alle wieder in Stellung');
+  // zwei Spieler im Graben: zwei verschiedene Gegenstoßler
+  platz(r.g.players[0], 25, 15); platz(r.g.players[1], 25, 21);
+  lauf(r, 2.5);
+  const g2 = w1(r).filter((q) => q.gegenstoss);
+  ok(g2.length === 2 && g2[0].gegenstoss !== g2[1].gegenstoss, 'zwei Spieler im Graben: zwei Gegenstoßler, je einer');
+  // Gegenstoßler fällt: der Nächste übernimmt
+  const erster = g2.find((q) => q.gegenstoss === r.g.players[0].id);
+  toeten(r, [erster]);
+  lauf(r, 2.5);
+  const g3 = w1(r).filter((q) => q.gegenstoss);
+  ok(g3.length >= 1 && g3.filter((q) => q.gegenstoss === r.g.players[0].id).length <= 1 && g3.every((q) => q.alive), 'Gegenstoßler gefallen: höchstens ein neuer je Spieler');
+  // Spieler fällt (downed) im Graben: Gegenstoß beendet
+  const s2 = spiel(2, 19);
+  raus(s2); alarm(s2); lauf(s2, 3);
+  platz(s2.g.players[0], 25, 17); lauf(s2, 2.5);
+  ok(w1(s2).filter((q) => q.gegenstoss).length === 1, 'zweiter Lauf: Gegenstoßler unterwegs');
+  s2.lassLiegen = true; s2.g.players[0].downed = true;
+  lauf(s2, 2);
+  ok(w1(s2).every((q) => !q.gegenstoss && q.aufgabe !== 'gegenstoss'), 'Spieler liegt (downed): Gegenstoß beendet, die Linie hält');
+});
+
+section('P9 Gegenstoß: Stürmer bevorzugt, Trupp.gegenstossVerteilen (Einheit)', () => {
+  const mk = (id, rolle, x) => ({ id, rolle, x, y: 0, alive: true, aufgabe: null, gegenstoss: null });
+  const g = { away: {} };
+  const ms = [mk('a', 'grundtyp', 0), mk('b', 'enterer', 500), mk('c', 'schuetze', 40)];
+  const Trupp = require('../server/sim/trupp.js');
+  Trupp.gegenstossVerteilen(g, ms, [{ id: 'P', x: 10, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(ms.filter((e) => e.gegenstoss).length === 1 && ms[1].gegenstoss === 'P', 'Stürmer (Enterer) wird bevorzugt, obwohl weiter weg');
+  ms[1].gegenstoss = null;
+  const ms2 = [mk('a', 'schuetze', 0), mk('b', 'grundtyp', 500)];
+  Trupp.gegenstossVerteilen(g, ms2, [{ id: 'P', x: 10, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(ms2[1].gegenstoss === 'P', 'sonst Allrounder vor Schütze');
+  const ms3 = [mk('a', 'schuetze', 0), mk('b', 'schuetze', 500)];
+  Trupp.gegenstossVerteilen(g, ms3, [{ id: 'P', x: 10, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(ms3[0].gegenstoss === 'P' && !ms3[1].gegenstoss, 'gleicher Rang: der Nächste');
+  const ms4 = [mk('a', 'grundtyp', 0)];
+  Trupp.gegenstossVerteilen(g, ms4, [{ id: 'P', x: 10, y: 0 }], { gegenstossMinLinie: 2 });
+  ok(!ms4[0].gegenstoss, 'der letzte Verteidiger hält die Linie');
+  ok(Trupp.AUFGABEN.includes('gegenstoss'), 'Aufgabe gegenstoss in Trupp.AUFGABEN');
 });
 
 console.log('\n' + (fails ? 'VERFEHLT: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen grün'));

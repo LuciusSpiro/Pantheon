@@ -9,6 +9,8 @@
 //   flanke          Flankenschutz: bleibt in Deckung an der Seite, überwacht die Flanken, meldet Umgehung (Funk) und schwenkt den Trupp um
 //   sturm           Stürmer (Nahkampf: Enterer)
 //   allround        Rest (Blaster/Grundtyp, Häscher, Trupps mit < 2 Lebenden)
+//   gegenstoss      BOD-02 P9 (nur Trupps mit Verteidigungsprofil): geht in den Graben auf einen Spieler zu, der in der Stellung steht; höchstens einer je Spieler
+//                   (gegenstossVerteilen, Aufruf aus verteidigung.tick); liegt außerhalb der Verteilung unten (e.gegenstoss = Spieler-id)
 // Nur für alarmierte Trupps mit >= 2 Lebenden; Wächter (kind warden) zählen nicht. Ab 4 Lebenden hält mindestens einer nieder und
 // einer sichert die Flanke (lückenfüllend, Allrounder zuerst). Die Verteilung hängt nur von den lebenden Mitgliedern ab: sie ändert sich
 // bei Tod (sofort, mit Beharrung: wer seine Aufgabe behalten kann, behält sie) bzw. Zugang (frühestens nach haltezeit s), sonst nie (kein Flackern).
@@ -19,7 +21,7 @@ const TILE = Physics.TILE;
 const squadMod = () => require('./squad.js');
 const cfg = (game) => game.C.awayCombat;
 
-const AUFGABEN = ['niederhalten', 'scharf', 'unterstuetzung', 'flanke', 'sturm', 'allround'];
+const AUFGABEN = ['niederhalten', 'scharf', 'unterstuetzung', 'flanke', 'sturm', 'allround', 'gegenstoss'];
 // Standardwerte (überschreibbar über CONFIG.awayCombat.truppGehirn, tune awayCombat.truppGehirn.<name>)
 //   hz: Takt des Gehirns (Verteilung + Flankenüberwachung); haltezeit: s bis Zugang zu einer Neuverteilung führt
 //   flankeWinkel/flankeKacheln: Spieler im Flankensektor = mehr als Winkel Grad von der Trupp-Achse bei höchstens so vielen Kacheln Abstand
@@ -45,7 +47,8 @@ function mitglieder(game, s) {
 function niederhaelt(e) { return e.rolle === 'niederhalter' || (e.aufgabe === 'niederhalten' && rolleVon(e) === 'grundtyp'); }
 
 // Aufgabenverteilung: Rolle -> Basisaufgabe, ab 4 Lebenden lückenfüllend (niederhalten, flanke)
-function verteile(ms) {
+function verteile(ms0) {
+  const ms = ms0.filter((e) => !e.gegenstoss);   // P9: der Gegenstoßler behält seine Aufgabe
   const neu = new Map();
   for (const e of ms) neu.set(e, BASIS[rolleVon(e)] || 'allround');
   if (ms.length < 4) return neu;
@@ -146,7 +149,7 @@ function truppGehirn(game, E, s) {
   const ms = mitglieder(game, s);
   if (!s.alert || s.noBark || s.name === 'warden' || ms.length < 2) {
     const alle = game.away.drones.filter((e) => e.squad === s.name && e.kind !== 'warden');
-    if (s.alert && ms.length >= 1) { s.aufgaben = null; s.gehirnIds = null; s.achse = null; s.bedrohung = null; for (const e of alle) e.aufgabe = e.alive ? 'allround' : null; }
+    if (s.alert && ms.length >= 1) { s.aufgaben = null; s.gehirnIds = null; s.achse = null; s.bedrohung = null; for (const e of alle) e.aufgabe = e.alive ? (e.gegenstoss ? 'gegenstoss' : 'allround') : null; }
     else leeren(s, alle);
     return;
   }
@@ -157,7 +160,8 @@ function truppGehirn(game, E, s) {
     if (!s.gehirnIds || tod || game.time - (s.aufgabeAt || -99) >= T.haltezeit) {
       const neu = verteile(ms);
       s.aufgaben = {};
-      for (const e of ms) { if (e.aufgabe !== neu.get(e)) e.aufgabeAt = game.time; e.aufgabe = neu.get(e); s.aufgaben[e.id] = e.aufgabe; }
+      for (const e of ms) {
+        if (e.gegenstoss) { e.aufgabe = 'gegenstoss'; s.aufgaben[e.id] = e.aufgabe; continue; } if (e.aufgabe !== neu.get(e)) e.aufgabeAt = game.time; e.aufgabe = neu.get(e); s.aufgaben[e.id] = e.aufgabe; }
       s.gehirnIds = ids; s.aufgabeAt = game.time;
       seiteWaehlen(s, ms, schwerpunkt(ms));
     }
@@ -166,6 +170,30 @@ function truppGehirn(game, E, s) {
   const sp = achseSetzen(game, s, ms, T, bk);
   s.schwerpunkt = sp;
   beobachteFlanke(game, s, ms, T, bk, sp);
+}
+
+// P9 Gegenstoß: steht ein Spieler in der Stellung, geht höchstens EIN Verteidiger je Spieler gegen ihn vor (Stürmer zuerst, dann Allrounder, sonst der
+// Nächste); die übrigen halten. Beendet (Aufgabe zurück), wenn der Spieler die Stellung verlässt, stirbt/fällt oder der Gegenstoßler fällt (dann der Nächste).
+// ms: lebende Mitglieder der Linie, spieler: Spieler in der Stellung (mit Verweildauer gegenstossSek). C = Config awayCombat.verteidigung.
+function gegenstossVerteilen(game, ms, spieler, C) {
+  const aw = game.away;
+  const ids = new Set(spieler.map((p) => p.id));
+  for (const e of ms) {
+    if (!e.gegenstoss || ids.has(e.gegenstoss)) continue;
+    e.gegenstoss = null; e.aufgabe = null; e.goal = null; e.path = null; e.goalAt = -99; e.stopNear = 0; e.stopTarget = null; e.shootTarget = null;
+  }
+  const min = Math.max(2, Number(C.gegenstossMinLinie) || 2);
+  const rangG = (e) => (rolleVon(e) === 'enterer' ? 0 : rolleVon(e) === 'grundtyp' ? 1 : 2);   // Stürmer, dann Allrounder, sonst Nächster
+  for (const p of spieler) {
+    if (ms.some((e) => e.gegenstoss === p.id)) continue;
+    const frei = ms.filter((e) => !e.gegenstoss);
+    if (ms.length < min || frei.length < 2) break;   // die Linie darf nicht leerlaufen: mindestens einer bleibt
+    frei.sort((a, b) => (rangG(a) - rangG(b)) || (dist(a.x, a.y, p.x, p.y) - dist(b.x, b.y, p.x, p.y)) || (idZahl(a) < idZahl(b) ? -1 : 1));
+    const e = frei[0];
+    e.gegenstoss = p.id; e.aufgabe = 'gegenstoss'; e.goal = null; e.path = null; e.goalAt = -99; e.aim = null;
+    aw.truppStats = aw.truppStats || { umgangen: 0 };
+    aw.truppStats.gegenstoss = (aw.truppStats.gegenstoss || 0) + 1;
+  }
 }
 
 // Alle Trupps (aufgerufen aus squad.update im KI-Takt, selbst gedrosselt auf hz)
@@ -185,4 +213,4 @@ function bedrohung(game, s) {
   return b && game.time <= b.bis ? b : null;
 }
 
-module.exports = { AUFGABEN, STANDARD, cfg: truppCfg, update, truppGehirn, verteile, bedrohung, niederhaelt, mitglieder };
+module.exports = { AUFGABEN, STANDARD, cfg: truppCfg, update, truppGehirn, verteile, bedrohung, niederhaelt, mitglieder, gegenstossVerteilen };

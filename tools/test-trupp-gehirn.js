@@ -99,7 +99,7 @@ console.log('\n[Config]');
 {
   const T = AC.truppGehirn;
   ok(T && T.hz > 0 && T.haltezeit >= 4 && T.flankeWinkel === 50 && T.flankeKacheln === 14 && T.scharfAbstand >= 7, 'awayCombat.truppGehirn vorhanden (hz, haltezeit, flankeWinkel 50, flankeKacheln 14, scharfAbstand >= 7)');
-  ok(Trupp.AUFGABEN.join() === 'niederhalten,scharf,unterstuetzung,flanke,sturm,allround', 'fester Aufgabensatz');
+  ok(Trupp.AUFGABEN.join() === 'niederhalten,scharf,unterstuetzung,flanke,sturm,allround,gegenstoss', 'fester Aufgabensatz (BOD-02 P9: gegenstoss ergänzt, wird nur für Trupps mit Verteidigungsprofil vergeben)');
 }
 
 console.log('\n[Verteilung: Rollenmix 5 (Lanze, Granatwerfer, Sturmgewehr, 2 Blaster)]');

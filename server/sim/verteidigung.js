@@ -1,5 +1,5 @@
 'use strict';
-// BOD-02 P8: Verteidigungsprofil (Halten, Rückzug). Nur Trupps, denen das Szenario ein Profil zuweist (graben.js aufstellen ->
+// BOD-02 P8/P9: Verteidigungsprofil (Halten, Rückzug, Gegenstoß). Nur Trupps, denen das Szenario ein Profil zuweist (graben.js aufstellen ->
 // zuweisen); alle anderen Trupps (Tutorial, Siedlung, Wellen Boden, ...) laufen unverändert, jede Funktion hier kehrt ohne Profil sofort zurück.
 //
 // Datenmodell (nur serverintern, nicht im Snapshot): s.verteidigung = V, EIN Objekt, das sich alle Trupps einer Linie teilen:
@@ -13,6 +13,7 @@
 // Auslöser des Rückzugs (alarmierte Linie): höchstens rueckzugAnteil der Linie lebt (Hälfte gefallen) ODER die Linie ist umgangen (ein Spieler steht
 // seit umgehungSek östlich der Grabenlinie, oder der Flankenschutz aus P7 meldet die Umgehung und der Spieler steht in der Stellung).
 // Der Funkspruch 'half' („Rückzug zur zweiten Linie!“) gehört zu diesem Rückzug (squad.onEnemyDown: Trupps mit Profil funken ihn nur hier).
+// Gegenstoß (P9): trupp.gegenstossVerteilen; hier die Wirkung (entscheide): Weg zum Spieler im Graben, Nahbereich.
 const Physics = require('../../shared/physics.js');
 const Stellung = require('../../shared/stellung.js');
 const { dist } = require('../util.js');
@@ -21,7 +22,8 @@ const TILE = Physics.TILE;
 const squadMod = () => require('./squad.js');
 const truppMod = () => require('./trupp.js');
 const tileOf = (x, y) => Physics.toTile(x, y);
-const STANDARD = { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, rueckzugAnker: 3, rueckzugRadius: 4 };
+const STANDARD = { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, rueckzugAnker: 3, rueckzugRadius: 4,
+  gegenstossSek: 1, gegenstossAbstand: 2, gegenstossMinLinie: 2 };
 const cfgVon = (game) => Object.assign({}, STANDARD, game.C.awayCombat.verteidigung || {});
 
 const SETS = new WeakMap();   // Plätze-Array -> Set "x,y" (inkl. Toleranz reichweite)
@@ -116,7 +118,7 @@ function ausloesen(game, E, V, grund) {
   aw.truppStats = aw.truppStats || { umgangen: 0 };
   aw.truppStats.rueckzug = (aw.truppStats.rueckzug || 0) + 1;
   const ms = mitglieder(game, V);
-  for (const e of ms) { e.goal = null; e.path = null; e.aim = null; e.goalAt = -99; }
+  for (const e of ms) { e.gegenstoss = null; if (e.aufgabe === 'gegenstoss') e.aufgabe = null; e.goal = null; e.path = null; e.aim = null; e.goalAt = -99; }
   for (const nm of V.squads) { const s = aw.squads[nm]; if (s) s.halfBarked = true; }
   if (ms.length) {
     const s = aw.squads[ms[0].squad];
@@ -163,9 +165,18 @@ function tick(game, E) {
   }
 }
 function tickLinie(game, E, V) {
-  const C = cfgVon(game);
+  const C = cfgVon(game); const T = truppMod();
   if (V.modus === 'halten') {
     pruefe(game, E, V);
+    if (V.modus !== 'halten') return;
+    if (alarmiert(game, V)) {
+      const k = require('./stellung.js').karteVon(game);
+      const drin = game.players.filter((p) => p.zone === 'away' && p.connected && !p.downed && k && Stellung.istIn(k, Math.floor(p.x / TILE), Math.floor(p.y / TILE)));
+      const bereit = [];
+      for (const p of drin) { if (V.drin[p.id] == null) V.drin[p.id] = game.time; if (game.time - V.drin[p.id] >= C.gegenstossSek) bereit.push(p); }
+      for (const id of Object.keys(V.drin)) if (!drin.some((p) => p.id === id)) delete V.drin[id];
+      T.gegenstossVerteilen(game, mitglieder(game, V), bereit, C);
+    }
     return;
   }
   if (V.modus === 'rueckzug' || V.modus === 'linie2') {
@@ -217,6 +228,16 @@ function entscheide(game, E, e, s) {
     const lauft = !!(e.path && e.path.length);
     e.shootTarget = t && (!lauft || game.time % 3 < 1) ? t.id : null; e.target = t ? t.id : e.target;
     return true;   // Weg setzt tickLinie; Schießen übernimmt act (Sichtlinie, Schussfenster)
+  }
+  if (V.modus === 'halten' && e.gegenstoss) {
+    const C = cfgVon(game);
+    const p = game.playerById(e.gegenstoss);
+    if (!p || p.zone !== 'away' || p.downed) { e.gegenstoss = null; e.goal = null; e.path = null; return false; }
+    sq.setRole(game, e, 'push');
+    e.target = p.id;
+    e.shootTarget = sq.sichtbareZiele(game, E, e, s).includes(p) ? p.id : null;
+    if (!e.goal || game.time - e.goalAt > 1) sq.setGoal(game, E, e, tileOf(p.x, p.y), C.gegenstossAbstand * TILE, p);
+    return true;
   }
   return false;
 }
