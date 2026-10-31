@@ -271,16 +271,15 @@ section('Sturm: Sperre, Faktor, Schaden gegen Schild', () => {
   ok(b.sys.waffe_stbd1.z === 'broken', 'während der Sperre keine Reparatur');
   ticks(g, 1.5 + CONFIG.systemModell.gegner.reparatur.zerstoertZuBeschaedigt);
   ok(b.sys.waffe_stbd1.z !== 'broken', 'nach der Sperre läuft die Reparatur');
-  // Schild 0: Systemschaden × systemFaktor
+  // Schild 0: Sturm und Standardtreffer sind gleich ein Direkttreffer (SYS-03 B2: eine Stufe, keine Punktfaktoren)
   const c1 = still(g, 'st3', 'korvette', 800, 450), c2 = still(g, 'st4', 'korvette', 1000, 450);
   for (const c of [c1, c2]) { c.shields.fill(0); c.sys.waffe_stbd.i = Gsys.maxOf(c, 'waffe_stbd'); Testhilfe.setzeIntegritaet(c, 'bug', 0); Testhilfe.setzeIntegritaet(c, 'bb', 0); Testhilfe.setzeIntegritaet(c, 'heck', 0); }
   const dd = 0.4;
-  const w0 = (c) => c.sys.waffe_stbd.i + c.sys.emitter_stb.i;
-  const v1 = w0(c1), v2 = w0(c2);
+  const beschaedigt = (c) => Object.keys(c.sys).filter((id) => c.sys[id].z === 'damaged');
   Escort.hit(g, c1, dd, { von: quelle(c1, Math.PI / 2, 200) });
   Escort.hit(g, c2, dd, { sturm: true, von: quelle(c2, Math.PI / 2, 200) });
-  const l1 = v1 - w0(c1), l2 = v2 - w0(c2);
-  ok(near(l1, dd * sk, 1e-6) && near(l2, dd * sk * CONFIG.systemModell.sturm.systemFaktor, 1e-6), `Schild 0: Sturm wirkt gegen das System × systemFaktor ${CONFIG.systemModell.sturm.systemFaktor} (${l2.toFixed(3)} statt ${l1.toFixed(3)})`);
+  const b1 = beschaedigt(c1), b2 = beschaedigt(c2);
+  ok(b1.length === 1 && b2.length === 1 && Gsys.defOf('korvette', b1[0]).zone === 'stb' && Gsys.defOf('korvette', b2[0]).zone === 'stb', `Schild 0: Standardtreffer und Sturm-Treffer machen je EINE Stufe in der Zone Steuerbord (${b1.join()} / ${b2.join()}), unabhängig von der Schadenszahl`);
 });
 
 section('Torpedo: Lesart B, zwei Treffer, Jäger sofort', () => {
@@ -316,9 +315,9 @@ section('Sperre und Immunität (nachholen) gelten für Verbündete', () => {
   const st = es.sys.antrieb; const m = Gsys.maxOf(es, 'antrieb');
   es.shields.fill(0);
   // erster Treffer auf den Antrieb: beschädigt; zweiter innerhalb der Sperre: Integrität sinkt, der Zustand holt erst nach der Sperre nach
-  Gsys.treffenAuf(g, es, 'antrieb', 'heck', m * 0.5, false);
+  Gsys.treffenAuf(g, es, 'antrieb', 'heck', false);   // SYS-03 B2: eine Stufe je Treffer
   ok(st.z === 'damaged', 'Antrieb beschädigt');
-  Gsys.treffenAuf(g, es, 'antrieb', 'heck', m, false);
+  Gsys.treffenAuf(g, es, 'antrieb', 'heck', false);
   ok(st.i === 0 && st.z === 'damaged', `zweiter Treffer innerhalb ${SP} s: Integrität 0, der Zustand bleibt beschädigt (Sperre)`);
   ticks(g, SP + 1);
   ok(st.z === 'broken', `nach der Sperre holt der Zustand nach (${st.z}, allySysTick -> nachholen)`);
@@ -339,7 +338,9 @@ section('Gegner-Sperrfeuer und Sturm auf Verbündete über den Trefferweg', () =
   g.space.projectiles.push(proj('sperrfeuer', 0.5));
   g.step();
   const verl = sys0 - summe(es);
-  ok(near(verl, 0.5 * EF * sk, 1e-6), `bei Schild 0 geht es in ein System der Zone: −${verl.toFixed(3)} (Schaden × escortFactor × Hüllen-Umrechnung ${sk}), nicht mehr als Direktschaden auf die Hülle`);
+  const zoneTreffer = Gsys.zoneVonSegment(g, es, sec);
+  const gewechselt = Object.keys(es.sys).filter((id) => es.sys[id].z !== 'ok');
+  ok(verl > 0 && gewechselt.length === 1 && Gsys.defOf('kreuzer', gewechselt[0]).zone === zoneTreffer && es.sys[gewechselt[0]].z === 'damaged', `bei Schild 0 geht es in ein System der Zone ${zoneTreffer}: eine Stufe (${gewechselt.join()}, −${verl.toFixed(3)}), Sperrfeuer × escortFactor ${EF} wirkt nur auf die Schilde`);
   // Sturm-Nadel des Gegners: gleiche Regel wie gegen die Lerche (Schildfaktor, Sperre)
   es.shields.fill(3);
   const sv = es.shields[sec];

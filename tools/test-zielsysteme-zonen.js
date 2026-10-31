@@ -45,7 +45,8 @@ function vorn(g, e) { platz(g, e.x + Math.cos(e.angle) * 300, e.y + Math.sin(e.a
 const qx = (e, rel) => [e.x + Math.cos(e.angle + rel) * 60, e.y + Math.sin(e.angle + rel) * 60];
 const HECK = Math.PI, BUG = 0;
 // Treffer direkt auf das Gegner-Modell (Trefferweg wie in damageEnemy: Zone, gezielt, Schild schon durch), mit dem Systemziel der Ops
-function trefferZone(g, e, zone, dmg, gez) { return Gsys.treffen(g, e, zone, dmg, gez); }
+// SYS-03 B2: ein Treffer = eine Stufe (ohne Schadenszahl); vor jedem Treffer läuft das Treffer-Fenster ab (dmg bleibt als Parameter nur für die Lesbarkeit der Aufrufe)
+function trefferZone(g, e, zone, dmg, gez) { g.time += CONFIG.systemModell.trefferFenster_s + 0.01; return Gsys.treffen(g, e, zone, gez); }
 // Zustand setzen (Integrität je System, Zustand folgt den Schwellen)
 const setze = (e, id, i) => { e.sys[id].i = i; e.sys[id].z = Gsys.hat(e) && i <= 0 ? 'broken' : (i < 0.6 * Gsys.maxOf(e, id) ? 'damaged' : 'ok'); e.hp = Gsys.summe(e); };
 
@@ -115,8 +116,11 @@ section('Sperre: nur Systeme mit Regel (Antrieb) holen den Zustand verzögert na
   ok(e.sys.antrieb.z === 'broken', 'nach der Sperre: der Zustand holt nach (ausgefallen)');
   // ein System ohne Regel (Waffe am Bug) wechselt sofort
   const w = leer(g, 'korvette', 1700, 1300); w.angle = 0;
+  for (const id of Gsys.ids(w)) if (id !== 'waffe_bug' && Gsys.defOf(w.kind, id).zone === 'bug') setze(w, id, 0);   // die Waffe ist das einzige System der Zone
   trefferZone(g, w, 'bug', Gsys.maxOf(w, 'waffe_bug') * 2, null);
-  ok(w.sys.waffe_bug.z === 'broken', 'System ohne Sperre (Waffe): sofort zerstört in einem Treffer');
+  ok(w.sys.waffe_bug.z === 'damaged', 'System ohne Sperre (Waffe): der erste Treffer wirkt sofort (beschädigt)');
+  trefferZone(g, w, 'bug', 0.1, null);
+  ok(w.sys.waffe_bug.z === 'broken', 'System ohne Sperre (Waffe): der zweite Treffer (nach dem Fenster) zerstört sofort, ohne Nachholen');
 });
 
 section('Immunität nach einer Reparatur (C2-Hook): ein Treffer verschlechtert den Zustand nicht', () => {

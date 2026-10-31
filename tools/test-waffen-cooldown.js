@@ -13,7 +13,8 @@ const Katalog = require('../shared/schiffskatalog.js');
 const Maps = require('../shared/maps.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
-const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Schilde samt Obergrenze)
+const Testhilfe = require('./gegner-testhilfe.js');
+const Gsys = require('../server/sim/gegnersystem.js');   // SYS-03 B2: Stufen der Gegnersysteme   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Schilde samt Obergrenze)
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
 const { execFileSync } = require('child_process');
@@ -54,11 +55,12 @@ function bestueck(g, platz, id) {
 function ziel(g, kind, dx, dy, schild) {
   const sh = g.ship; const e = space.spawnEnemy(g, kind, { x: sh.x + dx, y: sh.y + dy, facing: Math.PI });
   Testhilfe.setzeSchilde(e, e.shields.map(() => (schild == null ? 0 : schild))); Testhilfe.setzeBudget(e, 1e9); e.pin = { x: e.x, y: e.y, angle: e.angle };
+  e.puffer = true;   // SYS-03 B2: gegen Systeme zählt die Stufe, eine Attrappe hat keine "fast unendliche Hülle" mehr: pin() stellt sie jeden Tick wieder voll her
   return e;
 }
 function pin(g) {
   g.ship.vx = 0; g.ship.vy = 0;
-  for (const e of g.space.enemies) if (e.pin) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; e.streuG = -999; e.torpG = -999; }
+  for (const e of g.space.enemies) if (e.pin) { e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; e.fireT = -999; e.boltT = -999; if (e.sf) e.sf.t = -999; e.tele = null; e.streuG = -999; e.torpG = -999; if (e.puffer && !e.keinPuffer) Testhilfe.setzeGesamt(e, e.hpMax); }
 }
 // Ziel je Waffe: Platz, Gegnerklasse und Position (Bogen und Reichweite passen)
 const SCHUSS_ZIELE = {
@@ -151,11 +153,9 @@ section('Dauerleistung am Pool <= Ist + 3 % (Erkundung 1d)', () => {
       const r = messe(id, p, 150);
       const ist = IST[id][i];
       zeile.push(`${p} Pkt ${r.rate.toFixed(2)} (Ist ${ist.toFixed(2)})`);
-      // SYS-02a (Kai): der Sturm wirkt bei Schild 0 mit Faktor systemFaktor gegen das System (Dauerleistung gegen Systeme steigt mit ihm); gegen Schild gilt der alte Grenzwert
-      const fak = id === 'sturmbatterie' ? require('../server/sim/sturm.js').systemFaktor({ C: CONFIG }) : 1;
-      ok(r.rate <= ist * fak * 1.03 + 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≤ Ist ${ist.toFixed(2)}${fak !== 1 ? ' × systemFaktor ' + fak : ''} + 3 % (${(ist * fak * 1.03).toFixed(2)})`);
-      // Nacharbeit SYS-02a: Untergrenze gegen den festen Beschlusswert 1,5 (nicht gegen die Config: mit systemFaktor 1 bliebe sonst die Obergrenze allein grün). Toleranz nach unten 8 %: bei 1 Punkt liegt die Messung 5 % unter Ist × Faktor (Gesamtschaden zählt gekappten Systemschaden nicht ganz)
-      if (id === 'sturmbatterie') { const soll = 1.5; ok(r.rate >= ist * soll * 0.92 - 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≥ Ist ${ist.toFixed(2)} × Beschlusswert systemFaktor ${soll} − 8 % (${(ist * soll * 0.92).toFixed(2)}), Schild 0`); }
+      // SYS-03 B2: keine Punktfaktoren gegen Systeme mehr (Stufenregel); die Statistik zählt den Rohschaden, der Schild oder System getroffen hat (Treffer-Fenster verwerfen Treffer, daher nie über Ist)
+      ok(r.rate <= ist * 1.03 + 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≤ Ist ${ist.toFixed(2)} + 3 % (${(ist * 1.03).toFixed(2)})`);
+      ok(r.rate >= ist * 0.85 - 1e-9, `${id} ${p} Punkt(e): gemessen ${r.rate.toFixed(2)} Schaden/s ≥ Ist ${ist.toFixed(2)} − 15 % (${(ist * 0.85).toFixed(2)})`);
     });
     info(id + ': ' + zeile.join(' · '));
   }
@@ -243,21 +243,22 @@ section('Gegnerfeuer (Standardbatterie-Verhalten) auf die Lerche: Zonensysteme z
 section('Lanze: Schildpierce 2, bei Vollladung Durchschlag bis in die Mitte', () => {
   const T = arena(); const g = T.g; bestueck(g, 8, 'lanze'); poolVier(g);
   const e = ziel(g, 'korvette', 250, 0, 4); Testhilfe.setzeSchilde(e, [4, 4, 4, 4]); pin(g);
-  const sh0 = e.shields.slice(); const hp0 = e.hp;
+  // SYS-03 B2: Stufenregel. Vollladung (Durchschlag 'zone', zerstört) = ein System der Mitte zerstört, Schild unberührt; Teilladung = eine Stufe, bei stehendem Schild (nach dem Durchschlag über 0) nur Schildschwächung.
+  const rang = (q) => Gsys.ids(q).reduce((acc, id) => acc + ({ ok: 0, damaged: 1, broken: 2 })[q.sys[id].z], 0);
+  const sh0 = e.shields.slice(); const r0 = rang(e);
   Waffen.fireLance(g, 'bow', 1, false);
-  ok(near(hp0 - e.hp, 12, 0.01) && e.shields.every((v, i) => v === sh0[i]), `Vollladung: Hülle −${(hp0 - e.hp).toFixed(2)} = 12, Schild unberührt (durchschlägt die Zone)`);
-  Testhilfe.setzeSchilde(e, [4, 4, 4, 4]); const hp1 = e.hp; Waffen.fireLance(g, 'bow', 0.5, false);
-  const teil = 3 + 9 * 0.5;
+  const zerst = Gsys.ids(e).filter((id) => e.sys[id].z === 'broken');
+  ok(zerst.length === 1 && Gsys.defOf(e.kind, zerst[0]).zone === 'mitte' && rang(e) === r0 + 2 && e.shields.every((v, i) => v === sh0[i]), `Vollladung: ein System der Mitte zerstört (${zerst.join()}, zwei Stufen), Schild unberührt (durchschlägt die Zone)`);
+  Testhilfe.setzeSchilde(e, [4, 4, 4, 4]); const r1 = rang(e); Waffen.fireLance(g, 'bow', 0.5, false);
   const sekt = e.shields.findIndex((v) => v < 4);
-  // alte Regel: Schild 4 zählt 2, der Rest (7,5 − 2) trifft die Hülle. Neue Regel (SYS-01 C1a-1, wie die Lerche in damage.resolveHit): bleibt der Schild nach dem Durchschlag über 0,
-  // fängt er den Treffer ohne Überlauf ab (Schild um 2 gesenkt, kein Systemschaden); erst bei wirksamem Schild 0 trifft der volle Schaden ein System.
-  ok(sekt >= 0 && near(e.shields[sekt], 2, 0.01) && near(hp1 - e.hp, 0, 1e-6), `Teilladung 0,5: Schild um 2 (pierce) gesenkt (${e.shields[sekt]}), kein Überlauf: Integrität −${(hp1 - e.hp).toFixed(2)} (Soll 0)`);
-  const hp1b = e.hp; Testhilfe.setzeSchilde(e, [2, 2, 2, 2]); Waffen.fireLance(g, 'bow', 0.5, false);
-  ok(near(hp1b - e.hp, teil, 0.01) && e.shields.every((v) => near(v, 2, 1e-9)), `Teilladung 0,5 gegen Schild 2: wirksamer Schild 0, der volle Schaden trifft ein System (Integrität −${(hp1b - e.hp).toFixed(2)} = ${teil}), Schild unberührt`);
+  // Schild 4: nach dem Durchschlag (pierce 2) bleibt er über 0, fängt ohne Überlauf ab (Schild um 2 gesenkt, kein Systemschaden); erst bei wirksamem Schild 0 trifft der Schuss ein System (eine Stufe).
+  ok(sekt >= 0 && near(e.shields[sekt], 2, 0.01) && rang(e) === r1, `Teilladung 0,5: Schild um 2 (pierce) gesenkt (${e.shields[sekt]}), kein Überlauf: keine Stufe`);
+  const r1b = rang(e); Testhilfe.setzeSchilde(e, [2, 2, 2, 2]); g.time += 0.5; Waffen.fireLance(g, 'bow', 0.5, false);
+  ok(rang(e) === r1b + 1 && e.shields.every((v) => near(v, 2, 1e-9)), `Teilladung 0,5 gegen Schild 2: wirksamer Schild 0, der Schuss trifft ein System: genau eine Stufe, Schild unberührt`);
   g.space.enemies = g.space.enemies.filter((q) => q !== e);   // der erste Gegner auf der Linie hätte den Schuss sonst abgefangen
-  const e2 = ziel(g, 'korvette', 250, 0, 4); e2.shields = [0, 0, 0, 0]; const hp2 = e2.hp;
+  const e2 = ziel(g, 'korvette', 250, 0, 4); e2.shields = [0, 0, 0, 0]; const q0 = rang(e2);
   Waffen.fireLance(g, 'bow', 1, false);
-  ok(near(hp2 - e2.hp, 12, 0.01), 'Vollladung ohne Schild: Hülle −12 (Mitte getroffen)');
+  ok(rang(e2) === q0 + 2 && Gsys.ids(e2).filter((id) => e2.sys[id].z === 'broken').every((id) => Gsys.defOf(e2.kind, id).zone === 'mitte'), 'Vollladung ohne Schild: ein System der Mitte zerstört (Mitte getroffen)');
 });
 
 section('Sturmbatterie gegen vollen Schild: Schild fällt, Regeneration gesperrt, kein Systemschaden', () => {
@@ -275,12 +276,12 @@ section('Sturmbatterie gegen vollen Schild: Schild fällt, Regeneration gesperrt
 
 section('Standardbatterie gegen Schild 0: Hülle getroffen (Lücke: geleerte Gegnerzone folgt mit Paket C)', () => {
   const T = arena(); const g = T.g; bestueck(g, 4, 'standardbatterie'); poolVier(g);
-  const e = ziel(g, 'korvette', 0, -250, 0); pin(g); const hp0 = e.hp;
+  const e = ziel(g, 'korvette', 0, -250, 0); pin(g);
   g.ship.wAllocIntent = { port: 1 };
   g.ship.mount.port.charge = 1; Waffen.weaponsFire(g, 'port');
   T.run(8, () => pin(g));
-  const schaden = hp0 - e.hp;
-  ok(schaden > 0 && near(schaden / 2.66, Math.round(schaden / 2.66), 1e-6), `ohne Schild trifft jeder Schuss die Hülle: −${schaden.toFixed(2)} (ganzzahlig × 2,66)`);
+  const gezaehlt = (g.stats.waffenSchaden || {}).standardbatterie || 0;   // SYS-03 B2: Rohschaden der Treffer, die ein System erreicht haben
+  ok(e.sysTreffer > 0 && near(gezaehlt / 2.66, e.sysTreffer, 1e-6), `ohne Schild trifft jeder Schuss ein System (eine Stufe): ${e.sysTreffer} Treffer, Rohschaden ${gezaehlt.toFixed(2)} (= Treffer × 2,66)`);
 });
 
 section('Torpedo umgeht den stehenden Schild nicht (Lesart B)', () => {

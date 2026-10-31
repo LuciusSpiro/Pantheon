@@ -14,6 +14,8 @@ const Weltstand = require('../server/weltstand.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
+Testhilfe.rohZaehlen();   // SYS-03 B2: Waffenschaden als Rohschaden zählen (gegen Systeme gilt die Stufe)
+const roh = Testhilfe.roh;
 const interior = require('../server/sim/interior.js');
 const Waffen = require('../server/sim/schiffswaffen.js');
 const Ausbau = require('../server/sim/ausbau.js');
@@ -400,9 +402,9 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   e.shields[sec] = 0; e.fireT = 5; const hp1 = e.hp;
   g.ship.mount.port.charge = 1; T.cmd(0, 'weapons.fire', { mount: 'port' });
   lauf(T, 1.5, () => { e.fireT = Math.max(e.fireT, 5); });
-  const sf = CONFIG.systemModell.sturm.systemFaktor;   // SYS-02a: bei Schild 0 wirkt der Sturm-Schaden × systemFaktor gegen das System
-  const nHuelle = Math.round((hp1 - e.hp) / (w.schaden * sf));
-  ok(e.hp < hp1 && nHuelle >= Math.ceil(w.rohre * 0.6) && nHuelle <= w.rohre && near(hp1 - e.hp, nHuelle * w.schaden * sf, 1e-6), `niedriger Schild: Hülle −${(hp1 - e.hp).toFixed(1)} (${nHuelle} von ${w.rohre} Nadeln treffen, je ${w.schaden} × systemFaktor ${sf})`);
+  // SYS-03 B2: bei Schild 0 ist jeder Sturm-Treffer ein Direkttreffer (eine Stufe, Treffer-Fenster 0,25 s): Nadeln im selben Moment treffen ein anderes System oder verfallen
+  const nTreffer = e.sysTreffer || 0;
+  ok(e.hp < hp1 && nTreffer >= 1 && nTreffer <= w.rohre && Gsys.ids(e).filter((id) => e.sys[id].z !== 'ok').length >= 1, `niedriger Schild: Integrität ${hp1.toFixed(1)} -> ${e.hp.toFixed(1)} (${nTreffer} von ${w.rohre} Nadeln treffen ein System, je eine Stufe)`);
   // Lerche als Ziel (Gegner-Sturm)
   g.god = false; g.ship.shields.current = [4, 4, 4, 4];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
@@ -423,7 +425,7 @@ section('Streubatterie: eine = Schildschaden, zwei = sicherer Systemschaden', ()
   T.run(0.5);
   e.fireT = 3; const h1 = e.hp;
   boom();
-  ok(e.hp === h1 - S.durchschlag && e.fireT < 3, `zweite Granate im Fenster (${S.fenster} s): sicherer Systemschaden – Hülle −${S.durchschlag} am Schild vorbei, Ziel gestört`);
+  ok(e.hp < h1 && e.sysTreffer === 1 && e.fireT < 3, `zweite Granate im Fenster (${S.fenster} s): sicherer Systemschaden – eine Stufe (Integrität ${h1.toFixed(1)} -> ${e.hp.toFixed(1)}) am Schild vorbei, Ziel gestört`);
   T.run(S.fenster + 0.5);
   const h2 = e.hp; boom();
   ok(e.hp === h2, 'nach dem Fenster zählt eine Granate wieder als erste (nur Schild)');
@@ -471,7 +473,7 @@ section('Lanzenbatterie: wie die Lanze, zwei Strahlen, Schaden einmal', () => {
   beams = g.space.beams.filter((b) => b.kind === 'lance' && b.mount === 'p7');
   pin(g); T.run(DT);
   ok(beams.length === 2 && near(Math.hypot(beams[0].x1 - beams[1].x1, beams[0].y1 - beams[1].y1), 2 * Katalog.waffe('lanzenbatterie').lanze.abstand, 0.5), 'optisch zwei parallele Lanzenstrahlen (Beams mit mount p7)');
-  ok(near(hp0 - e.hp, CONFIG.spaceM3.lance.maxDamage, 0.01), `Schaden einmal: ${f1x(hp0 - e.hp)} (Lanze bei voller Ladung ${CONFIG.spaceM3.lance.maxDamage}, nicht doppelt)`);
+  ok(near(roh(e), CONFIG.spaceM3.lance.maxDamage, 0.01) && e.sysTreffer === 1, `Schaden einmal: ${f1x(roh(e))} (Lanze bei voller Ladung ${CONFIG.spaceM3.lance.maxDamage}, nicht doppelt; ein Systemtreffer)`);
   ok(T.ev('lance').some((x) => x.state === 'fire' && x.mount === 'p7'), 'Ereignis lance trägt die Halterung');
 });
 
@@ -739,8 +741,8 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
     pin(g); schiess(T, e, 'port'); T.run(0.1); pin(g);   // vor dem ersten Schuss fixieren: ein frisch gespawntes Ziel trägt noch seine Anfangsgeschwindigkeit (der Vorhalt rechnet damit; das gäbe 75 %)
     ok(g.space.projectiles.some((q) => q.kind === 'pbatterie') && g.space.beams.length === 0, 'Batterie: Projektile (pbatterie) in der Luft, kein Strahl');
     lauf(T, 1.5);
-    const n = g.stats.schussTreffer || 0; const verl = hp0 - e.hp;
-    ok(n >= 1 && n <= w.rohre && near(verl, n * w.schaden, 1e-6), `Treffer ${n}/${w.rohre}: Hülle −${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer, ein Projektil je Zyklus)`);
+    const n = g.stats.schussTreffer || 0; const verl = roh(e);
+    ok(n >= 1 && n <= w.rohre && near(verl, n * w.schaden, 1e-6) && e.sysTreffer === n, `Treffer ${n}/${w.rohre}: Rohschaden ${verl} = ${n} × ${w.schaden} (Katalogwert je Treffer, ein Projektil je Zyklus), je Treffer eine Stufe`);
     ok(n / (g.stats.schuesse || 1) > 0.5, 'ruhendes Ziel: Trefferquote ' + Math.round(100 * n / (g.stats.schuesse || 1)) + ' %');
   }
   // Trefferquote auf ein ruhendes Ziel (Korvette, 250 px): je Klasse gemessen, im Contract §9 genannt
@@ -795,7 +797,7 @@ section('Projektile statt Sofortstrahl (Kai 2026-10-18): treffen, verfehlen, aus
     ok(g.space.projectiles.some((q) => q.kind === 'pkanone') && g.space.beams.length === 0, 'Kanone: Projektile (pkanone), kein Strahl');
     lauf(T, 1.5);
     const n = g.stats.schussTreffer || 0;
-    ok(n >= 1 && near(hp0 - e.hp, n * w.schaden, 1e-6), `Kanone: ${n} Treffer × ${w.schaden} = −${hp0 - e.hp} Hülle`);
+    ok(n >= 1 && near(roh(e), n * w.schaden, 1e-6) && e.hp < hp0, `Kanone: ${n} Treffer × ${w.schaden} = Rohschaden ${roh(e)}, Integrität ${hp0.toFixed(1)} -> ${e.hp.toFixed(1)}`);
   }
   // Lanze bleibt Strahl
   {

@@ -397,7 +397,7 @@ section('Spiegeltest: Lerche, Gegner und Verbündeter reagieren auf dieselbe Tre
   }
 });
 
-// ---------------------------------------------------------------- Schiebereglerwerte, keine Reste der Punktregel
+// ---------------------------------------------------------------- Config und Code: keine Reste der Punktregel
 section('Keine Reste der Punktregel: sturmSchaden, systemFaktor, gegnerIntegritaet und Punktabzug sind weg', () => {
   const src = (f) => fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', f), 'utf8');
   const alle = ['space.js', 'sturm.js', 'gegnersystem.js', 'escort.js', 'zonen.js', 'alarm.js', 'flotte.js', 'schiffswaffen.js', 'damage.js'].map(src).join('\n');

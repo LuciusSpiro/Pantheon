@@ -261,11 +261,15 @@ function chargeTime(game, id) {
 // Treffer der Lerche auf einen Gegner (Schild + Hülle) mit Zähler game.stats.waffenSchaden { gesamt, <waffe-id>: Summe } für die Bot-Messung (Feuerkraft je Waffenzahl)
 function schade(game, e, dmg, x, y, opts, typ) {
   const sp = S();
-  // SYS-01 C1a-1: Gegner mit Modell: Σ der Systemintegrität (e.hp wird beim Tod auf 0 gesetzt, das zählte sonst die Restintegrität als Schaden); ohne Modell die Hülle
-  const sum = () => (Gsys.hat(e) ? Gsys.summe(e) : (e.hp > 0 ? e.hp : 0)) + (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
-  const vor = sum();
+  const modell = Gsys.hat(e);
+  const schildSumme = () => (e.shields ? e.shields.reduce((a, v) => a + v, 0) : 0);
+  // Ohne Modell (Störrelais) die Hülle: verlorene Punkte. SYS-03 B2: mit Modell zählt gegen die Systeme die Stufe, nicht die Schadenszahl: die Statistik zählt dann den Rohschaden, der Schild
+  // oder System wirklich getroffen hat (Schildverlust + der Rest, wenn der Treffer ein System erreicht hat: e.sysTreffer gestiegen oder Sofort-Tod). Das Format der Statistik bleibt.
+  const hVor = e.hp > 0 ? e.hp : 0; const sVor = schildSumme(); const tVor = e.sysTreffer || 0;
   sp.damageEnemy(game, e, dmg, x, y, opts ? Object.assign({ angriff: true }, opts) : { angriff: true });   // SUND-04a-1 A: Waffen der Lerche sind Angriffe (gezielter Systemtreffer)
-  const d = Math.max(0, vor - sum());
+  const schildVerlust = Math.max(0, sVor - schildSumme());
+  const system = (e.sysTreffer || 0) > tVor || (hVor > 0 && !(e.hp > 0));   // ein Systemtreffer oder der Sofort-Tod (Torpedo gegen einen Jäger: hp 0 ohne Systemtreffer)
+  const d = modell ? schildVerlust + (system ? Math.max(0, (Number(dmg) || 0) - schildVerlust) : 0) : Math.max(0, hVor + sVor - (e.hp > 0 ? e.hp : 0) - schildSumme());
   const st = game.stats.waffenSchaden || (game.stats.waffenSchaden = { gesamt: 0 });
   st.gesamt += d; st[typ] = (st[typ] || 0) + d;
   return d;

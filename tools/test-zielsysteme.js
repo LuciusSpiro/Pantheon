@@ -167,10 +167,11 @@ section('Trefferregel Lerche -> Gegner: Schild durchschlagen, Zone des Ziels, Wa
   ok(e.sys.antrieb.i < a0, 'Heck-Treffer, der den Schild durchschlägt (Schild 0): Antrieb wird getroffen (Heck hat nur den Antrieb; gezielt in test-zielsysteme-zonen)');
   // beschädigt: Integrität unter 60 %
   const ziel = anteil(e, 'antrieb', 0.45);
-  e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.sys.antrieb.sp = null;
+  e.sys.antrieb.i = Gsys.maxOf(e, 'antrieb'); e.sys.antrieb.z = 'ok'; e.sys.antrieb.sp = null; e.sys.antrieb.tf = null;   // SYS-03 B2: auch das Treffer-Fenster zurücksetzen
   treffer(g, e, HECK, ziel);
   ok(antriebZ(e) === 'damaged' && Math.abs(Zs.tempoFaktor(e) - DATEN.systeme.wert.antrieb.stufen[1].faktor) < 1e-9, 'Stufe beschädigt, Tempofaktor = ' + Zs.tempoFaktor(e));
-  // zweiter Treffer binnen der Sperre (sperre_s): der Zustand bleibt beschädigt, auch wenn die Integrität ausreicht
+  // zweiter Treffer binnen der Sperre (sperre_s), aber nach dem Treffer-Fenster: der Zustand bleibt beschädigt, die zweite Stufe ist vorgemerkt (SYS-03 B2: Stufenregel, kein Punktabzug)
+  g.time += CONFIG.systemModell.trefferFenster_s + 0.05;
   treffer(g, e, HECK, anteil(e, 'antrieb', 0.6));
   ok(antriebZ(e) === 'damaged', 'zweiter Treffer binnen der Sperre (' + DATEN.treffer.wert.sperre_s + ' s): bleibt beschädigt (eine Salve schaltet nicht alles auf einmal aus)');
   T.run(DATEN.treffer.wert.sperre_s + 0.1);

@@ -81,7 +81,7 @@ function anlegen(e) {
 function setzeAnteil(game, e, anteil) {
   const a = Math.max(0, Math.min(1, Number(anteil) || 0));
   if (!hat(e)) { e.hp = Math.max(1, Math.round(e.hpMax * a)); return e; }
-  for (const id of ids(e)) { const m = maxOf(e, id); e.sys[id].i = m * a; e.sys[id].z = Integ.zustandVon(e.sys[id].i, m, schwelle(game)); }
+  for (const id of ids(e)) { const m = maxOf(e, id); e.sys[id].i = m * a; e.sys[id].z = Integ.zustandVon(e.sys[id].i, m, schwelle(game)); delete e.sys[id].tf; }
   e.hp = summe(e);
   return e;
 }

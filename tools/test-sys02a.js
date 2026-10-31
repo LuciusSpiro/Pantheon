@@ -2,7 +2,7 @@
 // SYS-02a „Nachbesserungen aus Kais Antworten zum SYS-01-Bericht“ (Kai 2026-10-28):
 //   1  Jäger reparieren nicht (gegner-systeme.json raider.repariert false).
 //   2  Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche): Regeneration gesperrt (wie bisher), Reparatursperre der getroffenen Zone
-//      (sturm.reparaturSperre_s, Fortschritt sofort 0), bei Schild ≤ niedrig oder 0 Schaden gegen das System × sturm.systemFaktor, gegen den vollen Schild kaum Schildschaden
+//      (sturm.reparaturSperre_s, Fortschritt sofort 0), bei Schild 0 ein Direkttreffer, bei 0 < Schild ≤ niedrig mit Chance eine Stufe (SYS-03 B2: keine Punktfaktoren), gegen den vollen Schild kaum Schildschaden
 //      und kein Systemschaden (der Sturm nutzt volle Schilde nicht ab; die alte Abnahme „bricht den Schild in 15 s“ entfällt).
 //   3  Torpedo tut weh (Lerche wie Gegner): nur bei Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher und schlägt mit reaktorAnteil × Reaktor-Maximum auf den Reaktor
 //      durch (zwei Treffer zerstören ihn, Countdown wie jede Reaktorzerstörung); Jäger sofort tot; leere Zone: nur der Reaktor wird getroffen; Zufall nur game.rng.
@@ -104,7 +104,7 @@ section('1 Jäger reparieren nicht (Daten gegner-systeme.json)', () => {
 // =============================================================== 2 Sturm
 section('2a Sturm: Werte als Daten (Katalog) und tunebar (Config), eine Zahl', () => {
   ok(typeof SM.sturm.reparaturSperre_s === 'number' && SM.sturm.reparaturSperre_s === 6 && ST.reparaturSperre_s === 6, 'reparaturSperre_s 6 (Config und Katalog)');
-  ok(typeof SM.sturm.systemFaktor === 'number' && SM.sturm.systemFaktor === 1.5 && ST.systemFaktor === 1.5, 'systemFaktor 1,5 (Config und Katalog)');
+  ok(SM.sturm.systemFaktor === undefined && ST.systemFaktor === undefined && SM.sturmSchaden === undefined, 'SYS-03 B2: keine Punktfaktoren (sturmSchaden, systemFaktor) mehr in Config und Katalog');
   ok(ST.regenSperre === 6 && ST.niedrig === 1 && ST.schildFaktor === 0.25, 'regenSperre 6, niedrig 1, schildFaktor 0,25 unverändert');
 });
 
@@ -210,7 +210,7 @@ section('2g Sturm gegen Gegner: Reparatursperre der Zone (Fortschritt 0, andere 
   ok(zustand(e, 'antrieb') !== 'broken', `danach läuft die Reparatur wieder (${(g.time - t0).toFixed(1)} s nach dem Treffer)`);
 });
 
-section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein Systemschaden; bei Schild 0 × systemFaktor, Zeit bis Systemzerstörung', () => {
+section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein Systemschaden; bei Schild 0 ein Direkttreffer je Nadel (Fenster), zwei Stufen bis zur Zerstörung', () => {
   const { g } = arena(83);
   const e = gegner(g, 'korvette'); e.gestellt = true;
   Testhilfe.setzeSchilde(e, [6, 6, 6, 6]);
@@ -220,9 +220,12 @@ section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein System
   // genau ein Ziel in der Zone Bug: waffe_bug (emitter_bug ist zerstört); Schild 0
   const h = gegner(g, 'korvette'); h.gestellt = true; nullSchild(h);
   Testhilfe.setzeIntegritaet(h, 'emitter_bug', 0);
-  const max = Gsys.maxOf(h, 'waffe_bug'); let nadeln = 0;
-  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; }
-  ok(nadeln === Math.ceil(max / (1.08 * SM.sturm.systemFaktor)), `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (Maximum ${max.toFixed(1)}; ohne Faktor ${Math.ceil(max / 1.08)})`);
+  let nadeln = 0;
+  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; if (nadeln === 1) ok(zustand(h, 'waffe_bug') === 'damaged', 'erste Nadel bei Schild 0: beschädigt (eine Stufe)'); g.time += SM.trefferFenster_s + 0.01; }
+  ok(nadeln === 2, `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (eine Stufe je Nadel, Schadenszahl ohne Wirkung)`);
+  const h2 = gegner(g, 'korvette'); h2.gestellt = true; nullSchild(h2); Testhilfe.setzeIntegritaet(h2, 'emitter_bug', 0);
+  for (let i = 0; i < 5; i++) treffer(g, h2, 0, 1.08, sturmOpts());
+  ok(zustand(h2, 'waffe_bug') === 'damaged', 'fünf Nadeln im selben Tick: das Treffer-Fenster lässt nur eine Stufe zu, die übrigen verfallen');
 });
 
 // ---- Nacharbeit (Review): Sturm bei niedrigem Schild (0 < Schild <= niedrig) und leerer Zone, Lerche und Gegner gleiche Regel (Spiegeltests)
@@ -248,16 +251,16 @@ section('2i Nacharbeit 1: Sturm bei niedrigem Schild und leerer Zone sperrt auch
   });
 });
 
-section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein System der Zone × systemFaktor (Lerche = Gegner), darüber nicht', () => {
+section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein System der Zone, eine Stufe (Lerche = Gegner), darüber nicht', () => {
   mitMitte(() => {
     const L = (s) => { const { g } = lerche(1, 32); g.ship.shields.current = [s, 6, 6, 6]; const v0 = isum(g); sturmHit(g, 0, 1.08); return v0 - isum(g); };
     // G: Zone Bug nur mit waffe_bug (Maximum > Schaden), damit der Abzug nicht an 0 klemmt
     const G = (s) => { const { g } = arena(92); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeIntegritaet(e, 'emitter_bug', 0); Testhilfe.setzeSchilde(e, [s, 6, 6, 6]); const v0 = Gsys.summe(e); treffer(g, e, 0, 1.08, sturmOpts()); return v0 - Gsys.summe(e); };
-    const soll = SM.sturmSchaden * SM.sturm.systemFaktor;
-    const stufeL = I.integMax({ C: CONFIG }, 'emitter_bow') * (1 - SM.reparatur.damaged);   // SYS-03 B1: die Lerche verliert eine Stufe (Gegner folgen in B2: Punkte)
+    const stufeG = (() => { const { g } = arena(92); const e = gegner(g, 'korvette'); return Gsys.maxOf(e, 'waffe_bug') * (1 - SM.reparatur.damaged); })();   // SYS-03 B2: der Gegner verliert eine Stufe
+    const stufeL = I.integMax({ C: CONFIG }, 'emitter_bow') * (1 - SM.reparatur.damaged);   // SYS-03 B1: die Lerche verliert eine Stufe
     ok(near(L(0.5), stufeL, 0.06), 'Lerche, Schild 0,5: eine Stufe (Integrität −' + L(0.5).toFixed(2) + ')');
-    ok(near(G(0.5), soll, 0.06), 'Gegner, Schild 0,5: Integrität −' + G(0.5).toFixed(2) + ' (Punktregel bis B2)');
-    ok(near(G(ST.niedrig), soll, 0.06) && near(L(ST.niedrig), stufeL, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
+    ok(near(G(0.5), stufeG, 0.06), 'Gegner, Schild 0,5: eine Stufe (Integrität −' + G(0.5).toFixed(2) + ')');
+    ok(near(G(ST.niedrig), stufeG, 0.06) && near(L(ST.niedrig), stufeL, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
     ok(L(ST.niedrig + 0.5) === 0 && G(ST.niedrig + 0.5) === 0, 'Schild über niedrig: kein Systemschaden (beide)');
     ok(L(6) === 0 && G(6) === 0, 'voller Schild: kein Systemschaden (beide)');
   });

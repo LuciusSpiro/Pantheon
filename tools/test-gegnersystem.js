@@ -48,9 +48,9 @@ const RICHTUNG = { bug: 'bug', stb: 'stb', heck: 'heck', bb: 'bb' };
 // --- Trefferweg aufzeichnen: die Zone jedes Treffers (Gsys.treffen) mitschreiben, ohne das Verhalten zu ändern
 function aufzeichnen(fn) {
   const orig = Gsys.treffen; const rec = [];
-  Gsys.treffen = (g, e, zone, schaden) => {
+  Gsys.treffen = (g, e, zone, ...rest) => {
     const vorher = Object.fromEntries(Object.keys(e.sys).map((k) => [k, e.sys[k].z]));   // Zustand vor dem Treffer (zerstört darf nie gewählt werden)
-    const r = orig(g, e, zone, schaden);
+    const r = orig(g, e, zone, ...rest);
     rec.push({ zone, r, vorher });
     return r;
   };
@@ -120,13 +120,13 @@ section('Schildseiten: ein Emitter je Seite mit Schild (vier Klassen mit vollem 
   }
 });
 
-section('Klassenbudget = alte Hülle (Σ Integrität = hp × Crew-Integritätsfaktor, SYS-01 C2a)', () => {
+section('Klassenbudget = alte Hülle (Σ Integrität = hp × budgetFaktor, SYS-01 C2a; SYS-03 B2: ohne Crew-Skalierung)', () => {
   const g = newGame(3);
   for (const kind of KLASSEN) {
     const e = gegner(g, kind);
-    const erwartet = Math.max(1, Math.round(CONFIG.enemies[kind].hp * space.crewScale(g).gegnerIntegritaet * Gsys.budgetFaktor(kind)));   // SYS-01 D: Klassenfaktor budgetFaktor (Daten)
+    const erwartet = Math.max(1, Math.round(CONFIG.enemies[kind].hp * Gsys.budgetFaktor(kind)));   // SYS-01 D: Klassenfaktor budgetFaktor (Daten)
     const summe = Object.values(e.sys).reduce((a, s) => a + s.i, 0);
-    ok(e.hpMax === erwartet, kind + ': hpMax = hp × crewScale.gegnerIntegritaet × budgetFaktor (' + e.hpMax + ' = ' + erwartet + ')');
+    ok(e.hpMax === erwartet, kind + ': hpMax = hp × budgetFaktor (' + e.hpMax + ' = ' + erwartet + ')');
     ok(Math.abs(summe - e.hpMax) < 1e-6, kind + ': Σ Integrität = Klassenbudget (' + summe.toFixed(4) + ')');
     ok(Math.abs(e.hp - summe) < 1e-6, kind + ': e.hp ist die Summe der Integrität');
     for (const id of Object.keys(e.sys)) if (e.sys[id].z !== 'ok') { ok(false, kind + ' ' + id + ' startet nicht ok'); break; }
@@ -175,18 +175,21 @@ section('Zufall wählt nur nicht zerstörte Systeme; leere Zone -> Mitte', () =>
   e.sys.emitter_bug.z = 'broken'; e.sys.emitter_bug.i = 0;
   const mitteSumme = () => ['reaktor', 'schildgenerator'].reduce((a, k) => a + e.sys[k].i, 0);
   const mitteVor = mitteSumme();
-  const rec = aufzeichnen(() => { for (let i = 0; i < 40; i++) space.damageEnemy(g, e, 0.01, e.x + 300, e.y, {}); });
+  const mitteIds = Object.keys(e.sys).filter((id) => Gsys.defOf(e.kind, id).zone === 'mitte');
+  // SYS-03 B2: eine Stufe je Treffer (Treffer-Fenster zwischen den Treffern abwarten); sind alle Systeme der Mitte zerstört, verfällt der Treffer
+  const rec = aufzeichnen(() => { for (let i = 0; i < 40; i++) { g.time += 0.3; space.damageEnemy(g, e, 0.01, e.x + 300, e.y, {}); } });
   // rec.zone = angeforderte Zone (Seite), r.r.zone = tatsächlich getroffene Zone
-  const trefferBug = rec.filter((r) => r.r && r.r.zone === 'bug');
+  const treffer = rec.filter((r) => r.r);
+  const trefferBug = treffer.filter((r) => r.r.zone === 'bug');
   ok(trefferBug.length === 0, 'Bug-Zone leer: kein Treffer landet dort (' + trefferBug.length + ')');
-  ok(rec.length === 40 && rec.every((r) => r.zone === 'bug' && r.r && r.r.zone === 'mitte'), 'Zone leer: alle 40 Treffer gehen in die Mitte');
-  ok(rec.every((r) => r.r && r.vorher[r.r.id] !== 'broken'), 'nie ein zerstörtes System gewählt');
+  ok(rec.length === 40 && treffer.length === 2 * mitteIds.length && treffer.every((r) => r.zone === 'bug' && r.r.zone === 'mitte'), 'Zone leer: alle Treffer gehen in die Mitte, zwei Stufen je System (' + treffer.length + ' = 2 × ' + mitteIds.length + '), danach verfallen sie');
+  ok(treffer.every((r) => r.vorher[r.r.id] !== 'broken'), 'nie ein zerstörtes System gewählt');
   ok(mitteSumme() < mitteVor, 'die Mitte nimmt die Integrität (' + mitteVor.toFixed(3) + ' -> ' + mitteSumme().toFixed(3) + ')');
   // Bei nicht leerer Zone wird nie ein zerstörtes System gewählt
   const g2 = newGame(14); const e2 = gegner(g2, 'fregatte'); e2.shields.fill(0);
   e2.sys.waffe_stbd1.z = 'broken'; e2.sys.waffe_stbd1.i = 0;
-  const rec2 = aufzeichnen(() => { for (let i = 0; i < 60; i++) space.damageEnemy(g2, e2, 0.01, e2.x, e2.y + 300, {}); });
-  ok(rec2.every((r) => r.r && r.vorher[r.r.id] !== 'broken'), 'nicht leere Zone: 60 Treffer, nie das zerstörte Waffensystem');
+  const rec2 = aufzeichnen(() => { for (let i = 0; i < 60; i++) { g2.time += 0.3; space.damageEnemy(g2, e2, 0.01, e2.x, e2.y + 300, {}); } });
+  ok(rec2.filter((r) => r.r).every((r) => r.vorher[r.r.id] !== 'broken'), 'nicht leere Zone: 60 Treffer, nie das zerstörte Waffensystem');
   ok(rec2.every((r) => r.zone === 'stb'), 'Steuerbord-Treffer bleiben in Steuerbord, solange die Zone Systeme hat');
 });
 
@@ -311,11 +314,12 @@ section('Zustand und Schwelle gemeinsam mit der Lerche (integritaet.js)', () => 
   const e = gegner(g, 'raider');
   e.sys.emitter_bug.z = 'broken'; e.sys.emitter_bug.i = 0;
   const maxW = Gsys.maxOf(e, 'waffe_bug');
-  e.sys.waffe_bug.i = 0.6 * maxW + 0.01;
-  Gsys.treffen(g, e, 'bug', 0.02);
-  ok(e.sys.waffe_bug.z === 'damaged', 'unter 60 % des Maximums: beschädigt');
-  Gsys.treffen(g, e, 'bug', e.sys.waffe_bug.i + 1);
-  ok(e.sys.waffe_bug.z === 'broken' && e.sys.waffe_bug.i === 0, 'Integrität 0: zerstört');
+  // SYS-03 B2: Stufenregel – i ist der abgeleitete Wert der Stufe (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0)
+  Gsys.treffen(g, e, 'bug', null);
+  ok(e.sys.waffe_bug.z === 'damaged' && Math.abs(e.sys.waffe_bug.i - CONFIG.systemModell.reparatur.damaged * maxW) < 1e-9, 'ein Treffer: beschädigt, i = reparatur.damaged × Maximum');
+  g.time += CONFIG.systemModell.trefferFenster_s + 0.01;
+  Gsys.treffen(g, e, 'bug', null);
+  ok(e.sys.waffe_bug.z === 'broken' && e.sys.waffe_bug.i === 0, 'zweiter Treffer: zerstört, Integrität 0');
 });
 
 section('Snapshot: zielSys nur für das anvisierte Ziel, flach, Zustand 0/1/2', () => {

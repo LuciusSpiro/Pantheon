@@ -12,6 +12,7 @@ const interior = require('../server/sim/interior.js');
 const Schilde = require('../shared/schilde.js');
 const CONFIG_F = require('../shared/config.js');
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
+Testhilfe.rohZaehlen();   // SYS-03 B2: Waffenschaden als Rohschaden zählen
 
 const W = require('../server/world.js');
 
@@ -308,7 +309,7 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   sh.mount.port.charge = 1;
   cmd(0, 'weapons.fire', { mount: 'phase_l' });   // Altname phase_l -> port
   runPinned(1.2, () => { pinE(); e.shields = [0, 0, 0, 0]; });
-  ok(Math.abs(e.hp - (400 - M3.mounts.port.damage)) < 1e-9, 'Altname phase_l -> Bb-Batterie, Schild weg -> Systemschaden (Gesamtintegrität ' + e.hp + ')');
+  ok(Testhilfe.roh(e) > 0 && Math.abs(Testhilfe.roh(e) - M3.mounts.port.damage) < 1e-9 && e.hp < 400 && e.sysTreffer === 1, 'Altname phase_l -> Bb-Batterie, Schild weg -> Systemschaden: ein Treffer, eine Stufe (SYS-03 B2; Rohschaden ' + Testhilfe.roh(e) + ', Gesamtintegrität ' + e.hp.toFixed(1) + ')');
   // Ziel außerhalb des Bogens: Ziel auf Steuerbord, Bb feuern
   e.x = 1000; e.y = 1850;
   sh.mount.port.charge = 1;
@@ -342,8 +343,8 @@ console.log('\n[M3a §5: Halterungen (Altnamen phase_l/both), Gegner-Schilde, Zi
   const r = space.spawnEnemy(g, 'raider', { x: 1000, y: 1150, facing: Math.PI / 2 });
   r.shields = [0, 0, 0, 0]; Testhilfe.setzeBudget(r, 100); sh.mount.port.charge = 1; sh.mount.stbd.charge = 0; sh.mount.bow.charge = 0;
   runPinned(2.5, () => { r.x = 1000; r.y = 1150; r.vx = 0; r.vy = 0; r.fireT = -999; r.shields = [0, 0, 0, 0]; sh.mount.bow.charge = 0; sh.mount.stbd.charge = 0; g.space.projectiles = g.space.projectiles.filter((q) => q.waffe); });
-  // Toleranz: space.damageEnemy rundet HP je Treffer auf 0,1 (0,75 -> 0,7)
-  ok(Math.abs(r.hp - (100 - M3.mounts.port.damage)) <= 0.05, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden je Projektil ' + M3.mounts.port.damage + ', SYS-01 B1) – Gesamtintegrität ' + r.hp);
+  // SYS-03 B2: Rohschaden je Projektil (gegen das System zählt die Stufe)
+  ok(Math.abs(Testhilfe.roh(r) - M3.mounts.port.damage) <= 0.05 && r.hp < 100, 'unbesetzt: Bb-Batterie feuert automatisch (M3a: halbe Ladegeschwindigkeit, voller Schaden je Projektil ' + M3.mounts.port.damage + ', SYS-01 B1) – Rohschaden ' + Testhilfe.roh(r) + ', Gesamtintegrität ' + r.hp.toFixed(1));
   // EMP des Wächters
   g.space.enemies = [];
   sh.shields.current = [0, 0, 0, 0]; sh.shields.alloc = [0, 0, 0, 0]; sh.shields.allocIntent = [0, 0, 0, 0];

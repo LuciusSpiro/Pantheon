@@ -12,7 +12,7 @@
 //   J  Zerstörtes System ist nicht anwählbar (Wahl und Erreichbarkeit).
 //   K  Schützlinge (Review H1): zerstörte Waffen laden keinen Angriff, beschädigte Waffe lädt ×1,5 langsamer.
 //   L  Rückzug mit laufendem Countdown (Review M1): der Gegner zieht nicht ab, stirbt dort; nach einer Reparatur darf er abziehen.
-//   M  Crew-Skalierung: gleiche Systeme und Zonen bei 1, 2, 3 Spielern; nur die Integrität skaliert (crewScaling.gegnerIntegritaet).
+//   M  Crew-Skalierung: gleiche Systeme und Zonen bei 1, 2, 3 Spielern; die Integrität skaliert nicht mehr (SYS-03 B2), nur das Feuerintervall.
 //   N  Entscheidungen der Nacharbeit: Reaktor-Schalter (Standard aus: Todesurteil; an: Sonderreparatur rettet), Klassen-Flag repariert, Schützling außerhalb der Erfassung (Nebel).
 //   node tools/test-gegner-reparatur.js
 const CONFIG = require('../shared/config.js');
@@ -126,7 +126,10 @@ section('D Rückschlag: ein Systemtreffer in der Zone des Vorgangs halbiert den 
   ok(vor > 3.5 && vor < 4.5, 'Fortschritt nach 4 s ca. 4 s (' + vor.toFixed(2) + ')');
   Testhilfe.schildNull(k);
   // Treffer aus der Richtung des Bugs (Zone Bug): der Schild ist 0, also trifft er ein System der Zone
-  space.damageEnemy(g, k, 0.01, k.x + Math.cos(k.angle) * 60, k.y + Math.sin(k.angle) * 60, {});
+  // SYS-03 B2: jeder Treffer ist eine Stufe; der Treffer soll ein ANDERES System der Zone (Waffe Bug) treffen, nicht das, das gerade repariert wird (das wechselt den Zustand: Reset, siehe unten)
+  const pick0 = g.rng.pick; g.rng.pick = (a) => a.find((id) => id !== 'emitter_bug') || a[0];
+  try { space.damageEnemy(g, k, 0.01, k.x + Math.cos(k.angle) * 60, k.y + Math.sin(k.angle) * 60, {}); } finally { g.rng.pick = pick0; }
+  ok(k.sys.waffe_bug.z === 'damaged', 'der Treffer hat die Waffe Bug eine Stufe getroffen');
   ok(Math.abs(rp(k, 'emitter_bug') - vor / 2) < 1e-9, 'Systemtreffer in der Zone Bug: Fortschritt halbiert (' + rp(k, 'emitter_bug').toFixed(2) + ' von ' + vor.toFixed(2) + ')');
   const ant = gegner(g, 'korvette'); Testhilfe.setzeIntegritaet(ant, 'antrieb', 0);
   run(3);
@@ -134,6 +137,7 @@ section('D Rückschlag: ein Systemtreffer in der Zone des Vorgangs halbiert den 
   Gegnerreparatur.rueckschlag(g, ant, 'bug');
   ok(Math.abs(rp(ant, 'antrieb') - v2) < 1e-9, 'Zone Heck (Antrieb) bleibt bei einem Treffer in der Zone Bug unberührt');
   // Ein Treffer, der den Zustand ändert, setzt den Fortschritt dieses Systems zurück (kein Rest aus dem alten Zustand)
+  Testhilfe.setzeIntegritaet(k, 'waffe_bug', Gsys.maxOf(k, 'waffe_bug'));   // die getroffene Waffe wieder ok: der Emitter bleibt der einzige Vorgang
   Testhilfe.setzeIntegritaet(k, 'emitter_bug', 0);
   run(0.1);
   ok(zust(k, 'emitter_bug') === 'broken' && rp(k, 'emitter_bug') < 0.2, 'Zustandswechsel: der alte Fortschritt gilt nicht mehr (Reset)');
@@ -273,7 +277,7 @@ section('L Rückzug mit laufendem Countdown (Review M1): der Gegner zieht nicht 
   ok(!h.space.enemies.includes(j) && h.stats.kills === 0, 'danach zieht er ab (kein Tod, kein Abschuss)');
 });
 
-section('M Crew-Skalierung: gleiche Systeme und Zonen bei 1, 2, 3 Spielern; nur die Integrität skaliert', () => {
+section('M Crew-Skalierung: gleiche Systeme, Zonen und Budget bei 1, 2, 3 Spielern; nur das Feuerintervall skaliert', () => {
   const { g } = arena(74);
   const aufbau = [];
   for (const k of [1, 2, 3]) {
@@ -284,8 +288,8 @@ section('M Crew-Skalierung: gleiche Systeme und Zonen bei 1, 2, 3 Spielern; nur 
   }
   ok(aufbau.every((a) => a.ids === aufbau[0].ids && a.zonen === aufbau[0].zonen), 'gleiche Systeme und Zonen bei 1, 2 und 3 Spielern');
   ok(aufbau.every((a) => Math.abs(a.sum - a.hpMax) < 1e-6), 'Σ Integrität = Klassenbudget bei jeder Crewgröße');
-  ok(aufbau[0].hpMax === Math.round(CONFIG.enemies.fregatte.hp * CONFIG.crewScaling[1].gegnerIntegritaet), 'solo: Budget = Hülle × 0,4 (' + aufbau[0].hpMax + ')');
-  ok(aufbau[1].hpMax === Math.round(CONFIG.enemies.fregatte.hp * CONFIG.crewScaling[2].gegnerIntegritaet) && aufbau[2].hpMax === aufbau[1].hpMax, 'zu zweit und zu dritt: Budget = Hülle × 0,56');
+  const budget = Math.round(CONFIG.enemies.fregatte.hp * Gsys.budgetFaktor('fregatte'));
+  ok(aufbau.every((a) => a.hpMax === budget), 'Budget = Hülle × budgetFaktor bei jeder Crewgröße (SYS-03 B2: keine Crew-Skalierung der Integrität, ' + aufbau.map((a) => a.hpMax).join('/') + ')');
   ok(CONFIG.crewScaling[1].enemyFireInterval === 2.2 && CONFIG.crewScaling[3].enemyFireInterval === 1.7, 'das Feuerintervall der Gegner bleibt (2,2 / 1,7)');
 });
 
