@@ -245,3 +245,5 @@ section('Abnahme 5: Streufeuer bricht den ersten Sektor mit der Standardverteilu
 });
 
 
+console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen grün') + ' (test-schild-pause)');
+process.exit(fails ? 1 : 0);
