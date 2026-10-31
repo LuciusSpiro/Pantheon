@@ -1,0 +1,280 @@
+'use strict';
+// CHA-01 C: Test der Charakter-Actions (public/js/charaktere.js) mit einem localStorage-Ersatz in Node.
+// Anlegen bis 4, fünfter abgelehnt, wählen, löschen (gewählter, letzter), umbenennen, Altname-Migration, Erststart, kaputter Speicher, Persistenz über „Neuladen“, Erstellung (Entwurf).
+// Aufruf: node tools/test-charaktere.js   (Exit 1 bei Fehlern; npm run test:charaktere)   Mutationsprobe: tools/mutation-charaktere.js
+const path = require('path');
+const fs = require('fs');
+const ROOT = process.env.CHARAKTERE_ROOT || path.join(__dirname, '..');
+const Ch = require(path.join(ROOT, 'shared', 'charakter.js'));
+const Modul = require(path.join(ROOT, 'public', 'js', 'charaktere.js'));
+const KAT = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'katalog', 'charakter.json'), 'utf8'));
+
+let fehler = 0, n = 0;
+const ok = (b, t) => { n++; if (!b) { fehler++; console.log('FEHLER: ' + t); } };
+const gleich = (a, b, t) => ok(JSON.stringify(a) === JSON.stringify(b), t + ' (' + JSON.stringify(a) + ' ≠ ' + JSON.stringify(b) + ')');
+
+// localStorage-Ersatz: Text im Speicher; modus 'ok' | 'kein-lesen' | 'kein-schreiben' (wirft wie ein gesperrter Browser-Speicher)
+function speicherErsatz(start) {
+  const s = { text: start === undefined ? null : start, modus: 'ok', schreibzaehler: 0 };
+  s.lesen = () => { if (s.modus === 'kein-lesen') return null; return s.text; };
+  s.schreiben = (t) => { if (s.modus === 'kein-schreiben') return false; s.text = t; s.schreibzaehler++; return true; };
+  return s;
+}
+const neu = (sp) => { const m = Modul.erzeuge({ speicher: sp, Charakter: Ch }); m.setzeKatalog(KAT); return m; };
+const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
+
+// ---- Erststart ohne Alles / mit Altname
+{
+  const sp = speicherErsatz(), m = neu(sp);
+  ok(m.lies().bereit && m.lies().liste.length === 0 && m.aktiveKarte() === null, 'leerer Speicher: bereit, keine Liste, keine aktive Karte');
+  const r = m.erststart({ altName: null, zufallsName: 'Crew-417' });
+  ok(r.ok && r.quelle === 'zufall' && m.aktiverName() === 'Crew-417', 'Erststart ohne alles: Standard-Charakter mit dem Zufallsnamen (Crew-417)');
+  gleich(m.aktiveKarte(), Ch.standardKarte('Crew-417', KAT), 'Erststart: Standardaussehen und Standard-Outfit');
+  ok(JSON.parse(sp.text).liste.length === 1 && JSON.parse(sp.text).gewaehlt === m.lies().gewaehlt, 'Erststart wird gespeichert und ist gewählt');
+  ok(m.erststart({ zufallsName: 'Anders' }).quelle === 'vorhanden' && m.lies().liste.length === 1, 'zweiter Erststart legt nichts an');
+}
+{
+  const m = neu(speicherErsatz());
+  const r = m.erststart({ altName: '  Ragnar  ', zufallsName: 'Crew-123' });
+  ok(r.ok && r.quelle === 'alt' && m.aktiverName() === 'Ragnar', 'Altname gültig: Charakter mit diesem Namen (getrimmt)');
+}
+{
+  const m = neu(speicherErsatz());
+  m.erststart({ altName: 'A<b>', zufallsName: 'Crew-123' });   // „Ab“ nach dem Bereinigen = 2 Zeichen → gültig
+  ok(m.aktiverName() === 'Ab', 'Altname mit Sonderzeichen wird bereinigt (<> fliegt raus)');
+  const m2 = neu(speicherErsatz());
+  m2.erststart({ altName: 'ZuLangerNameHier!', zufallsName: 'Crew-123' });
+  ok(m2.aktiverName() === Ch.STANDARD_NAME, 'Altname ungültig (zu lang): STANDARD_NAME, nicht gekürzt');
+  const m3 = neu(speicherErsatz());
+  m3.erststart({ altName: 'X', zufallsName: 'Crew-123' });
+  ok(m3.aktiverName() === Ch.STANDARD_NAME, 'Altname ungültig (1 Zeichen): STANDARD_NAME');
+  const m4 = neu(speicherErsatz());
+  m4.erststart({ altName: '   ', zufallsName: 'Crew-999' });
+  ok(m4.aktiverName() === 'Crew-999', 'Altname leer: wie „gar nichts“ (Zufallsname)');
+  const m5 = neu(speicherErsatz());
+  m5.erststart({ altName: null, zufallsName: '###' });
+  ok(m5.aktiverName() === Ch.STANDARD_NAME, 'Zufallsname verletzt die Regel: STANDARD_NAME');
+  const m6 = neu(speicherErsatz());
+  ok(m6.uebernimmAltenNamen('Ragnar').ok && !m6.uebernimmAltenNamen('Zweiter').ok && m6.lies().liste.length === 1, 'Altnamen übernehmen nur, solange die Liste leer ist');
+}
+
+// ---- Name vor dem Katalog (erstes hello)
+{
+  const leer = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch });
+  ok(leer.vorabName({ altName: null, zufallsName: 'Crew-417' }) === 'Crew-417', 'vorabName ohne alles: Zufallsname');
+  ok(leer.vorabName({ altName: 'Ragnar', zufallsName: 'Crew-417' }) === 'Ragnar', 'vorabName mit Altname: der Altname');
+  ok(leer.vorabName({ altName: 'ZuLangerNameHier!', zufallsName: 'Crew-417' }) === Ch.STANDARD_NAME, 'vorabName mit ungültigem Altnamen: STANDARD_NAME');
+  const sp = speicherErsatz(), m = neu(sp);
+  m.legeAn({ name: 'Aurelia' }); const b = m.legeAn({ name: 'Brennus' }).id; m.legeAn({ name: 'Kaeso' }); m.waehle(b);
+  const vor = Modul.erzeuge({ speicher: sp, Charakter: Ch });   // Katalog noch nicht geladen
+  ok(vor.vorabName({ altName: 'Ragnar', zufallsName: 'Crew-1' }) === 'Brennus', 'vorabName: der gewählte Charakter aus dem Speicher geht vor dem Altnamen');
+  vor.setzeKatalog(KAT);
+  ok(vor.aktiverName() === 'Brennus', 'derselbe Name nach dem Laden (kein Namenswechsel beim zweiten hello)');
+  ok(Modul.erzeuge({ speicher: speicherErsatz('{{müll'), Charakter: Ch }).vorabName({ altName: 'Ragnar' }) === 'Ragnar', 'vorabName bei kaputtem Speicher: wie ohne');
+}
+
+// ---- Anlegen bis 4, Auswahl, Löschen
+{
+  const sp = speicherErsatz(), m = neu(sp);
+  const ids = [];
+  for (let i = 0; i < 4; i++) {
+    const r = m.legeAn({ name: NAMEN[i], frisur: i % 2 ? 'zoepfe' : 'dutt', gesicht: i > 1 ? 'narbe' : 'lerche', bart: i === 3 ? 'vollbart' : 'keiner', haut: i, haar: 3 - i });
+    ok(r.ok && typeof r.id === 'string', 'anlegen ' + (i + 1));
+    ids.push(r.id);
+    ok(m.lies().gewaehlt === r.id, 'neuer Charakter ist gewählt (' + (i + 1) + ')');
+  }
+  const f = m.legeAn({ name: 'Fuenfter' });
+  ok(!f.ok && f.grund === 'voll' && m.lies().liste.length === 4, 'fünfter wird abgelehnt (Rückgabe, kein Wurf), Liste bleibt bei 4');
+  ok(!m.beginneNeu().ok && m.beginneNeu().grund === 'voll', 'auch die Erstellung öffnet bei 4 nicht');
+  const k = m.lies().liste[3].karte;
+  ok(k.bart === 'vollbart' && k.haut === 3 && k.haar === 0 && k.gesicht === 'narbe' && k.frisur === 'zoepfe', 'Aussehen aus den sechs Feldern übernommen');
+  gleich(k.outfit, Ch.standardKarte('x', KAT).outfit, 'Standard-Outfit bei jedem neuen Charakter');
+  ok(m.waehle(ids[1]).ok && m.lies().gewaehlt === ids[1] && m.aktiverName() === NAMEN[1], 'wählen');
+  ok(!m.waehle('gibtsnicht').ok && m.lies().gewaehlt === ids[1], 'unbekannte id wählen: abgelehnt, Auswahl bleibt');
+  // Neuladen: neues Modul, gleicher Speicher
+  const m2 = neu(sp);
+  gleich(m2.lies().liste.map((c) => c.karte.name), NAMEN.slice(0, 4), 'Neuladen: alle vier da, gleiche Reihenfolge');
+  ok(m2.lies().gewaehlt === ids[1], 'Neuladen: Auswahl bleibt');
+  gleich(m2.lies().liste.map((c) => c.karte), m.lies().liste.map((c) => c.karte), 'Neuladen: Karten unverändert');
+  // Löschen des gewählten wählt einen anderen
+  ok(m2.loesche(ids[1]).ok && m2.lies().liste.length === 3 && m2.lies().gewaehlt && m2.lies().gewaehlt !== ids[1] && m2.aktiverName(), 'gewählten löschen: ein anderer wird gewählt');
+  const noch = m2.lies().liste.map((c) => c.id);
+  ok(!noch.includes(ids[1]) && noch.includes(m2.lies().gewaehlt), 'der gewählte nach dem Löschen steht in der Liste');
+  ok(m2.loesche(ids[3]).ok && m2.lies().gewaehlt !== ids[3], 'nicht gewählten löschen lässt die Auswahl');
+  ok(!m2.loesche('gibtsnicht').ok && m2.lies().liste.length === 2, 'unbekannte id löschen: abgelehnt');
+  // nach dem Löschen ist wieder Platz
+  ok(m2.legeAn({ name: 'Neuer' }).ok && m2.lies().liste.length === 3, 'nach dem Löschen wieder anlegen');
+  // letzten löschen
+  const rest = m2.lies().liste.map((c) => c.id);
+  for (const id of rest) m2.loesche(id);
+  ok(m2.lies().liste.length === 0 && m2.lies().gewaehlt === null && m2.aktiveKarte() === null, 'letzten löschen ist erlaubt: keine Liste, nichts gewählt');
+  ok(JSON.parse(sp.text).liste.length === 0, 'leere Liste wird gespeichert');
+  // danach gilt der Erststart wieder
+  ok(neu(sp).erststart({ altName: 'Ragnar' }).quelle === 'alt', 'nach dem Löschen aller: Erststart-Regel gilt wieder');
+}
+
+// ---- Umbenennen
+{
+  const sp = speicherErsatz(), m = neu(sp);
+  const id = m.legeAn({ name: 'Aurelia', haut: 2 }).id;
+  ok(m.benenneUm(id, 'Livia').ok && m.aktiverName() === 'Livia', 'umbenennen gültig');
+  ok(m.lies().liste[0].karte.haut === 2, 'Umbenennen ändert das Aussehen nicht');
+  for (const schlecht of ['', 'A', 'DreizehnZeichen', '<>', null, 42, {}]) {
+    const r = m.benenneUm(id, schlecht);
+    ok(!r.ok && r.grund === 'name' && m.aktiverName() === 'Livia', 'umbenennen ungültig (' + JSON.stringify(schlecht) + ') abgelehnt, Name bleibt');
+  }
+  ok(m.benenneUm(id, 'Zwölf Zeichen').ok === false && m.benenneUm(id, 'Zwoelf Zeich').ok, '12 Zeichen gehen, 13 nicht');
+  ok(!m.benenneUm('gibtsnicht', 'Livia').ok, 'unbekannte id umbenennen: abgelehnt');
+  ok(neu(sp).aktiverName() === 'Zwoelf Zeich', 'Umbenennen bleibt über Neuladen');
+  ok(!m.legeAn({ name: 'X' }).ok && m.legeAn({ name: 'X' }).grund === 'name' && m.lies().liste.length === 1, 'anlegen mit ungültigem Namen abgelehnt');
+}
+
+// ---- kaputter Speicher
+{
+  const kaputt = [
+    ['JSON-Müll', '{{{ nicht json'], ['null', 'null'], ['Zahl', '42'], ['Array', '[1,2,3]'], ['String', '"hallo"'], ['liste kein Array', JSON.stringify({ v: 1, liste: 'x' })],
+    ['liste Objekt', JSON.stringify({ v: 1, liste: { a: 1 } })], ['Einträge falsche Typen', JSON.stringify({ v: 1, gewaehlt: 5, liste: [1, null, 'x', [], { id: 7, karte: {} }, { id: '', karte: {} }, { id: 'a b', karte: {} }, { karte: {} }] })],
+  ];
+  for (const [t, text] of kaputt) {
+    const m = neu(speicherErsatz(text));
+    ok(m.lies().bereit && m.lies().liste.length === 0 && m.lies().gewaehlt === null, 'kaputter Speicher (' + t + '): leere Liste, bereit');
+    ok(m.erststart({ altName: 'Ragnar' }).ok && m.aktiverName() === 'Ragnar', 'kaputter Speicher (' + t + '): Erststart läuft');
+  }
+  // zehn Einträge: höchstens vier
+  const zehn = { v: 1, gewaehlt: 'e9', liste: Array.from({ length: 10 }, (_, i) => ({ id: 'e' + i, karte: Ch.standardKarte('Spieler' + i, KAT) })) };
+  const m10 = neu(speicherErsatz(JSON.stringify(zehn)));
+  ok(m10.lies().liste.length === 4 && m10.lies().liste.map((c) => c.id).join() === 'e0,e1,e2,e3', '10 Einträge: nur die ersten vier');
+  ok(m10.lies().gewaehlt === 'e0', 'gewählt außerhalb der ersten vier: erste Karte wird gewählt');
+  // doppelte ids
+  const dop = neu(speicherErsatz(JSON.stringify({ v: 1, gewaehlt: 'a', liste: [{ id: 'a', karte: Ch.standardKarte('Eins', KAT) }, { id: 'a', karte: Ch.standardKarte('Zwei', KAT) }] })));
+  ok(dop.lies().liste.length === 1 && dop.aktiverName() === 'Eins', 'doppelte id: nur die erste zählt');
+  // gewaehlt unbekannt
+  const unb = neu(speicherErsatz(JSON.stringify({ v: 1, gewaehlt: 'zzz', liste: [{ id: 'a', karte: Ch.standardKarte('Eins', KAT) }, { id: 'b', karte: Ch.standardKarte('Zwei', KAT) }] })));
+  ok(unb.lies().gewaehlt === 'a', 'gewählt unbekannt: erste Karte');
+  // manipulierte Karte wird geprüft
+  const boese = { v: 1, gewaehlt: 'a', liste: [{ id: 'a', karte: { name: '<script>alert(1)</script>', gesicht: '../../x', frisur: 5, bart: { x: 1 }, haut: 99, haar: -1, koerper: 'riese', outfit: { kopf: 'gibtsnicht', umhang: 7 }, __proto__: { x: 1 }, extra: 'x' } }] };
+  const mb = neu(speicherErsatz(JSON.stringify(boese)));
+  const kb = mb.lies().liste[0].karte;
+  gleich(kb, Ch.pruefeKarte(boese.liste[0].karte, KAT), 'manipulierte Karte: durch pruefeKarte geprüft');
+  ok(kb.gesicht === 'lerche' && kb.frisur === 'dutt' && kb.bart === 'keiner' && kb.haut === 0 && kb.haar === 0 && kb.koerper === 'standard' && kb.extra === undefined, 'manipulierte Karte: Felder zum Standard, Fremdfelder weg');
+  ok(/^[\p{L}\p{N} -]{2,12}$/u.test(kb.name), 'manipulierter Name bereinigt: ' + kb.name);
+  // Speicher nicht lesbar / nicht schreibbar
+  const sl = speicherErsatz(JSON.stringify({ v: 1, gewaehlt: 'a', liste: [{ id: 'a', karte: Ch.standardKarte('Eins', KAT) }] })); sl.modus = 'kein-lesen';
+  ok(neu(sl).lies().liste.length === 0, 'Speicher nicht lesbar: leere Liste');
+  const ss = speicherErsatz(); ss.modus = 'kein-schreiben';
+  const ms = neu(ss);
+  const r = ms.legeAn({ name: 'Ragnar' });
+  ok(r.ok && ms.aktiverName() === 'Ragnar' && ms.lies().speicherOk === false, 'Speicher nicht schreibbar: Charakter gilt für diese Sitzung, speicherOk false, kein Wurf');
+  const fake = { localStorage: { getItem() { throw new Error('SecurityError'); }, setItem() { throw new Error('SecurityError'); } } };
+  const bs = Modul.browserSpeicher(fake);
+  ok(bs.lesen() === null && bs.schreiben('x') === false, 'browserSpeicher fängt Zugriffsfehler ab');
+  // ohne Katalog
+  const mk = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch });
+  ok(!mk.lies().bereit && !mk.legeAn({ name: 'Ragnar' }).ok && mk.aktiveKarte() === null && !mk.setzeKatalog(null).ok, 'ohne Katalog: nicht bereit, nichts wird angelegt');
+  const sp0 = speicherErsatz('ALT'), mk2 = Modul.erzeuge({ speicher: sp0, Charakter: Ch }); mk2.legeAn({ name: 'Ragnar' });
+  ok(sp0.text === 'ALT', 'ohne Katalog wird der Speicher nie überschrieben');
+}
+
+// ---- Abonnenten: Wechsel der aktiven Karte (Client setzt Client.karte und sendet hello)
+{
+  const m = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch });
+  const gesehen = [];
+  m.abonniere((k) => gesehen.push(k && k.name));
+  m.setzeKatalog(KAT);
+  ok(gesehen.length === 0, 'leerer Speicher: kein Wechsel gemeldet');
+  const a = m.legeAn({ name: 'Aurelia' }).id, b = m.legeAn({ name: 'Brennus' }).id;
+  m.waehle(a); m.waehle(a); m.benenneUm(a, 'Livia'); m.loesche(b);
+  gleich(gesehen, ['Aurelia', 'Brennus', 'Aurelia', 'Livia'], 'Wechsel und Umbenennen melden, Wiederholung und Löschen eines anderen nicht');
+  m.loesche(a);
+  ok(gesehen[gesehen.length - 1] === null, 'letzter gelöscht: Wechsel auf „keiner“ gemeldet');
+}
+
+// ---- Liste: Cursor, Übernehmen, Löschen mit Rückfrage
+{
+  const m = neu(speicherErsatz());
+  const ids = ['Aurelia', 'Brennus'].map((nm) => m.legeAn({ name: nm }).id);
+  ok(m.oeffneListe().ok && m.lies().sitzung.seite === 'liste' && m.lies().sitzung.cursor === 1, 'Liste öffnet mit dem Cursor auf dem gewählten');
+  m.setzeCursor(0);
+  ok(m.uebernimm().ok && m.lies().gewaehlt === ids[0], 'Enter übernimmt den Charakter unter dem Cursor');
+  m.setzeCursor(3);
+  ok(!m.uebernimm().ok && m.uebernimm().grund === 'frei' && m.lies().gewaehlt === ids[0], 'Enter auf freiem Platz wählt nichts');
+  gleich([m.bewegeCursor(1), m.bewegeCursor(1)].map((r) => r.cursor), [0, 1], 'Cursor läuft ringförmig über vier Plätze');
+  m.setzeCursor(0);
+  const r1 = m.loeschenAnfrage();
+  ok(!r1.ok && r1.grund === 'gefragt' && m.lies().liste.length === 2 && m.lies().sitzung.loeschFrage === ids[0], 'Löschen: erster Druck fragt nur');
+  m.setzeCursor(1);
+  ok(m.lies().sitzung.loeschFrage === null, 'Cursor weg: Rückfrage verfällt');
+  m.setzeCursor(0); m.loeschenAnfrage();
+  ok(m.loeschenAnfrage().ok && m.lies().liste.length === 1 && m.lies().gewaehlt === ids[1], 'Löschen: zweiter Druck löscht, Auswahl wechselt');
+  m.setzeCursor(0); m.loeschenAnfrage(); m.loeschenAbbrechen();
+  ok(m.loeschenAnfrage().grund === 'gefragt' && m.lies().liste.length === 1, 'Rückfrage abgebrochen: wieder erst fragen');
+  m.setzeCursor(2); ok(!m.loeschenAnfrage().ok && m.lies().liste.length === 1, 'Löschen auf freiem Platz: nichts');
+}
+
+// ---- Erstellung (Entwurf) und Umbenennen über die Oberfläche
+{
+  const sp = speicherErsatz(), m = neu(sp);
+  ok(m.beginneNeu().ok && m.lies().sitzung.seite === 'erstellung', 'Erstellung öffnet');
+  let e = m.lies().sitzung.entwurf;
+  ok(e.modus === 'neu' && e.nameEdit && e.platz === 'frisur' && e.name === '', 'Entwurf: Namensfeld aktiv, Platz Frisur, leerer Name');
+  ok(!m.speichereEntwurf().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.lies().sitzung.entwurf.nameEdit && m.lies().liste.length === 0, 'Speichern ohne Namen: Hinweis, Namensfeld offen, nichts angelegt');
+  for (const z of 'Ha<n>s 7!') m.nameZeichen(z);
+  ok(e.name === 'Hans 7', 'Namenszeichen gefiltert (<>! fliegen raus): ' + e.name);
+  for (const z of 'abcdefghijklmnop') m.nameZeichen(z);
+  ok(Array.from(e.name).length === Ch.NAME_MAX, 'Name höchstens ' + Ch.NAME_MAX + ' Zeichen');
+  while (e.name.length) m.nameLoeschen();
+  for (const z of 'Hrolf') m.nameZeichen(z);
+  ok(m.nameFertig().ok && !e.nameEdit, 'Enter im Namensfeld beendet das Schreiben');
+  m.nameBearbeiten(true); m.nameLoeschen(); ok(e.name === 'Hrol', 'F2 schaltet das Schreiben wieder an'); m.nameZeichen('f'); m.nameFertig();
+  ok(m.waehlePlatz('bart').ok && e.platz === 'bart' && !m.waehlePlatz('kopf').ok && e.platz === 'bart', 'Plätze: nur die fünf der Erstellung');
+  m.blaettere(1); ok(e.karte.bart === 'vollbart', 'Bart blättern');
+  m.blaettere(1); ok(e.karte.bart === 'keiner', 'blättern ist ringförmig');
+  m.blaettere(-1); ok(e.karte.bart === 'vollbart', 'zurückblättern');
+  m.naechsterPlatz(1); ok(e.platz === 'haar', 'nächster Platz nach Bart: Haarfarbe');
+  m.setzeWahl('haar', 2); m.waehlePlatz('haut'); m.blaettere(-1); m.blaettere(-1);
+  ok(e.karte.haar === 2 && e.karte.haut === 2, 'Farben: Haar 2, Haut 0 → zweimal zurück = 2');
+  m.waehlePlatz('frisur'); m.blaettere(1); m.waehlePlatz('gesicht'); m.blaettere(1);
+  ok(e.karte.frisur === 'zoepfe' && e.karte.gesicht === 'narbe', 'Frisur und Gesicht blättern');
+  m.dreheFigur(1); m.dreheFigur(1); ok(e.yaw === 90, 'Figur drehen');
+  const vorSpeichern = m.entwurfKarte();
+  ok(vorSpeichern.name === 'Hrolf' && vorSpeichern.outfit.oberteil === 'bordtunika', 'Karte der Figur im Fenster: Entwurf mit Standard-Outfit');
+  m.zuruecksetzen();
+  e = m.lies().sitzung.entwurf;
+  ok(e.name === '' && e.karte.haar === 0 && e.karte.frisur === 'dutt' && e.platz === 'frisur' && e.nameEdit, 'R setzt den Entwurf auf Standard zurück');
+  for (const z of 'Hrolf') m.nameZeichen(z);
+  m.nameFertig(); m.waehlePlatz('bart'); m.blaettere(1); m.waehlePlatz('haut'); m.setzeWahl('haut', 3);
+  ok(m.speichereEntwurf().ok && m.lies().liste.length === 1 && m.lies().sitzung.seite === 'liste', 'Enter speichert und geht zurück in die Liste');
+  const k = m.lies().liste[0].karte;
+  ok(k.name === 'Hrolf' && k.bart === 'vollbart' && k.haut === 3 && m.lies().gewaehlt === m.lies().liste[0].id, 'neuer Charakter gespeichert und gewählt');
+  // Umbenennen
+  m.setzeCursor(0);
+  ok(m.beginneUmbenennen().ok && m.lies().sitzung.entwurf.modus === 'umbenennen' && m.lies().sitzung.entwurf.name === 'Hrolf', 'F2 öffnet das Umbenennen mit dem Namen');
+  ok(!m.waehlePlatz('bart').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
+  m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen();
+  ok(!m.speichereEntwurf().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.lies().liste[0].karte.name === 'Hrolf', 'Umbenennen mit leerem Namen: Hinweis, Name bleibt');
+  for (const z of 'Ragnar') m.nameZeichen(z);
+  ok(m.speichereEntwurf().ok && m.aktiverName() === 'Ragnar' && m.lies().liste[0].karte.bart === 'vollbart', 'Umbenennen speichert nur den Namen');
+  m.beginneUmbenennen(); m.nameZeichen('x'); m.verwirfEntwurf();
+  ok(m.aktiverName() === 'Ragnar' && m.lies().sitzung.seite === 'liste', 'Esc verwirft');
+  m.setzeCursor(2); ok(!m.beginneUmbenennen().ok, 'Umbenennen auf freiem Platz: nichts');
+  ok(neu(sp).aktiverName() === 'Ragnar', 'alles bleibt über Neuladen');
+}
+
+// ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)
+{
+  const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8').replace(/\r\n/g, '\n');
+  const von = ui.indexOf('const TEXT = {'), bis = ui.indexOf('\n  };', von);
+  const TEXT = Function('return ' + ui.slice(von + 'const TEXT = '.length, bis + 4))();
+  const art = fs.readFileSync(path.join(ROOT, 'public', 'js', 'art.js'), 'utf8').replace(/\r\n/g, '\n');
+  const gBlock = art.slice(art.indexOf('var GLYPHS = {') + 'var GLYPHS = '.length);
+  const GLYPHEN = Function('return ' + gBlock.slice(0, gBlock.indexOf('\n  };') + 4))();
+  const texte = [];
+  const sammle = (o) => { if (typeof o === 'string') texte.push(o); else if (o && typeof o === 'object') Object.values(o).forEach(sammle); };
+  sammle(TEXT);
+  const fehlend = new Set();
+  for (const t of texte) for (const ch of t.replace(/\{\w+\}/g, '')) if (ch !== ' ' && GLYPHEN[ch] === undefined && GLYPHEN[ch.toUpperCase()] === undefined) fehlend.add(ch);
+  ok(texte.length > 20 && !fehlend.size, 'Zeichen ohne Glyphe in art.js (kammer-ui.js, ' + texte.length + ' Texte): ' + [...fehlend].join(' '));
+}
+
+console.log(fehler ? `${fehler} von ${n} Prüfungen fehlgeschlagen` : `Alle ${n} Prüfungen bestanden`);
+process.exit(fehler ? 1 : 0);

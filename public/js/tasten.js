@@ -19,6 +19,7 @@
     { id: 'technik', name: 'Technik' },
     { id: 'captain', name: 'Captain' },
     { id: 'terminal', name: 'Terminal' },
+    { id: 'charakter', name: 'Charakter' },
     { id: 'allgemein', name: 'Allgemein' },
   ];
 
@@ -41,6 +42,8 @@
     'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
     'terminal.info': { name: 'Bereich Information (Konkordat)' },
     'terminal.brett': { name: 'Bereich Brett (Auftragsbrett)' },
+    'charakter.liste': { name: 'Charakterliste' },
+    'charakter.erstellung': { name: 'Charaktererstellung (Name nicht im Schreibmodus)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -188,6 +191,21 @@
     A('captain.notruf.frage2', 'captain', 'Notruf: Frage 2', ['KeyE'], 'captain.notruf'),
     A('captain.notruf.frage3', 'captain', 'Notruf: Frage 3', ['KeyR'], 'captain.notruf'),
     A('captain.notruf.frage4', 'captain', 'Notruf: Frage 4', ['KeyF'], 'captain.notruf'),
+
+    // ------------------------------------------------------------ Charakter (CHA-01 C: Liste und Erstellung in der Lobby; Esc = allgemein.verlassen, ? = allgemein.hilfe)
+    A('charakter.oeffnen', 'charakter', 'Charakterliste öffnen (Lobby)', ['KeyC']),
+    A('charakter.uebernehmen', 'charakter', 'Liste: in die Lobby · Erstellung: speichern', ['Enter', 'NumpadEnter']),
+    A('charakter.umbenennen', 'charakter', 'Umbenennen (Liste) · Namen schreiben (Erstellung)', ['F2']),
+    A('charakter.neu', 'charakter', 'Neuen Charakter anlegen', ['KeyN'], 'charakter.liste'),
+    A('charakter.loeschen', 'charakter', 'Charakter löschen (zweimal drücken)', ['Delete'], 'charakter.liste'),
+    A('charakter.zuruecksetzen', 'charakter', 'Erstellung zurücksetzen', ['KeyR'], 'charakter.erstellung'),
+    A('charakter.drehenLinks', 'charakter', 'Figur nach links drehen', ['KeyQ'], 'charakter.erstellung'),
+    A('charakter.drehenRechts', 'charakter', 'Figur nach rechts drehen', ['KeyE'], 'charakter.erstellung'),
+    A('charakter.erstellung.frisur', 'charakter', 'Platz Frisur (Ziffernblock 8)', NUM(8), 'charakter.erstellung'),
+    A('charakter.erstellung.gesicht', 'charakter', 'Platz Gesicht (Ziffernblock 5)', NUM(5), 'charakter.erstellung'),
+    A('charakter.erstellung.bart', 'charakter', 'Platz Bart (Ziffernblock 2)', NUM(2), 'charakter.erstellung'),
+    A('charakter.erstellung.haar', 'charakter', 'Platz Haarfarbe (Ziffernblock 9)', NUM(9), 'charakter.erstellung'),
+    A('charakter.erstellung.haut', 'charakter', 'Platz Hautton (Ziffernblock 6)', NUM(6), 'charakter.erstellung'),
 
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
