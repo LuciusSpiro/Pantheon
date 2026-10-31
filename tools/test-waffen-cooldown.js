@@ -9,6 +9,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const CONFIG = require('../shared/config.js');
+const Schilde = require('../shared/schilde.js');   // SYS-03 C2: Regenerationspause je Segment
 const Katalog = require('../shared/schiffskatalog.js');
 const Maps = require('../shared/maps.js');
 const { Game } = require('../server/game.js');
@@ -191,9 +192,10 @@ section('Sturmbatterie unter anhaltendem Feuer: der Schild fällt auf 0, bis dah
     pin(g);
     const m = g.ship.mount.port;
     if (m.charge >= 1 && !(m.salvo > 0)) Waffen.weaponsFire(g, 'port');
+    const vorher = e.shields.slice();
     g.step();
     const sum = e.shields.reduce((a, b) => a + b, 0);
-    if (sum < 24 - 1e-6 && !(e.regenHold != null && e.regenHold > g.time - regenSperre - 1e-6)) regenOk = false;   // Schild unter Voll ohne laufende Sperre = regeneriert
+    if (e.shields.some((v, i) => v > vorher[i] + 1e-9 && Schilde.pause.bis(e, i) > g.time + 1e-9)) regenOk = false;   // SYS-03 C2: ein Segment, das trotz laufender Pause stieg, hat regeneriert
     if (e.shields.some((v) => v <= 1e-9)) { schildNull = t; fruehstens = Math.min(fruehstens, t); }
     else { hpBisNull += hp0 - e.hp; if (e.zs) zsBisNull = true; }
   }
@@ -271,7 +273,7 @@ section('Sturmbatterie gegen vollen Schild: Schild fällt, Regeneration gesperrt
   const sum1 = e.shields.reduce((a, b) => a + b, 0);
   ok(sum1 < sum0 - 1e-6, `Sturm gegen vollen Schild: Schild fällt (${sum0} → ${sum1.toFixed(2)})`);
   ok(e.hp === hp0 && !e.zs, 'kein Systemschaden: Hülle unberührt, keine Zielsystem-Stufe');
-  ok(e.regenHold != null && e.regenHold > g.time, `Regeneration gesperrt (regenHold ${e.regenHold != null ? e.regenHold.toFixed(2) : '–'} s, Zeit ${g.time.toFixed(2)} s)`);
+  ok([0, 1, 2, 3].some((i) => !Schilde.pause.darfRegenerieren(e, i, g.time)), `Regeneration des getroffenen Segments gesperrt (Pause bis ${[0, 1, 2, 3].map((i) => Schilde.pause.bis(e, i).toFixed(2)).join('/')} s, Zeit ${g.time.toFixed(2)} s)`);
 });
 
 section('Standardbatterie gegen Schild 0: Hülle getroffen (Lücke: geleerte Gegnerzone folgt mit Paket C)', () => {

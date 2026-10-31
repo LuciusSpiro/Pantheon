@@ -14,7 +14,7 @@
 //   ohne Schadenszahl; hullPerDamage × crewDamage gilt nur noch für Schützlinge ohne Modell.
 // SYS-02b (Kai 2026-10-28: Verbündete sollen genauso sein wie Gegner, nur als Verbündete): Verbündete = Gegner auf der anderen Seite.
 //   - SCHILDE: die Schildsegmente ihrer Klasse (Schilde.layout, es.shields/shieldsMax), Regeneration und Obergrenzen über Emitter/Schildgenerator wie bei Gegnern
-//     (Gsys.schildTick in allySysTick), der Sturm unterdrückt sie (es.regenHold). Treffer laufen über space.damageEnemy (allyTreffer): dasselbe Segment (Schilde.segmentOf), derselbe
+//     (Gsys.schildTick in allySysTick), Regenerationspause je Segment nach jedem Treffer, Sturm länger (SYS-03 C2, Schilde.pause). Treffer laufen über space.damageEnemy (allyTreffer): dasselbe Segment (Schilde.segmentOf), derselbe
 //     Schildweg ohne Überlauf, dieselbe Zone, derselbe Systemtreffer. Treffer ohne Quelle (Brocken, Zone ohne Quelle) treffen eine zufällige Seite (game.rng).
 //   - Gegen die SYSTEME gilt seit SYS-03 B2 die Stufenregel wie bei Gegnern (ein Treffer ohne Schildschutz = eine Stufe, keine Schadenszahl, keine Skalierung mit hullPerDamage/crewDamage); die Schilde rechnen in Rohschaden.
 //   - Sturm (Nadeln und Schüsse der Gegner), Torpedo (Lesart B), Sperre/Immunität (nachholen), Reparatursperre, Antrieb (tempoFaktor in stepEscort) und Gegner-Sperrfeuer
@@ -491,7 +491,7 @@ function allySysTick(game, es, dt) {
 }
 // SYS-01 C2b: Neustart der Szene (flotte.neustart): Verbündeter voll, Systeme auf dem Maximum, Countdown aus
 function heile(game, es) {
-  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); if (es.shieldsMax) es.shields = es.shieldsMax.slice(); es.regenHold = 0; es.repSperre = null; } else es.hp = es.hpMax;   // SYS-02b: auch die Schilde voll
+  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); if (es.shieldsMax) es.shields = es.shieldsMax.slice(); Schilde.pause.loeschen(es); es.regenT = es.shields ? es.shields.map(() => 0) : 0; es.repSperre = null; } else es.hp = es.hpMax;   // SYS-02b: auch die Schilde voll
 }
 function disable(game, es) {
   if (es.ally) { if (Gsys.hat(es)) gtod().sofort(es); es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht

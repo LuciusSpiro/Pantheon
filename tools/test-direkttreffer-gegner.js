@@ -57,7 +57,7 @@ function verbuendeter(g, kind) {
 // Alles auf Anfang: Systeme ok mit Maximum, Fenster/Sperre/Immunität/Zähler weg, Schilde 0
 function frisch(g, e) {
   for (const id of Gsys.ids(e)) { const st = e.sys[id]; st.i = Gsys.maxOf(e, id); st.z = 'ok'; delete st.sp; delete st.imm; delete st.tf; delete st.rp; }
-  e.hp = Gsys.summe(e); e.rt = null; delete e.druckZ; e.repSperre = null; e.sysTreffer = 0; e.regenHold = 0;
+  e.hp = Gsys.summe(e); e.rt = null; delete e.druckZ; e.repSperre = null; e.sysTreffer = 0; Schilde.pause.loeschen(e);
   Th.schildNull(e);
   e.shieldsMax = e.shieldsMax.map(() => 0);
   return e;

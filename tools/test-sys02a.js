@@ -217,7 +217,7 @@ section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein System
   Testhilfe.setzeSchilde(e, [6, 6, 6, 6]);
   const hp0 = e.hp; const s0 = e.shields.slice();
   for (let i = 0; i < 10; i++) treffer(g, e, 0, 1.08, sturmOpts());
-  ok(e.hp === hp0 && e.shields[0] > ST.niedrig && e.shields[0] < s0[0] && e.regenHold > g.time, `10 Nadeln gegen den vollen Schild: kein Systemschaden, Schild ${s0[0]} → ${e.shields[0].toFixed(2)} (steht), Regeneration gesperrt`);
+  ok(e.hp === hp0 && e.shields[0] > ST.niedrig && e.shields[0] < s0[0] && !Schilde.pause.darfRegenerieren(e, 0, g.time), `10 Nadeln gegen den vollen Schild: kein Systemschaden, Schild ${s0[0]} → ${e.shields[0].toFixed(2)} (steht), Regeneration gesperrt`);
   // genau ein Ziel in der Zone Bug: waffe_bug (emitter_bug ist zerstört); Schild 0
   const h = gegner(g, 'korvette'); h.gestellt = true; nullSchild(h);
   Testhilfe.setzeIntegritaet(h, 'emitter_bug', 0);
@@ -274,7 +274,7 @@ section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein S
   // der Schild nimmt den Treffer weiter ab (Schild 0,5 -> 0), Regeneration gesperrt
   const { g } = arena(94); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeSchilde(e, [0.5, 6, 6, 6]);
   treffer(g, e, 0, 1.08, sturmOpts());
-  ok(e.shields[0] === 0 && e.regenHold > g.time, 'Gegner: Schild 0,5 verbraucht, Regeneration gesperrt');
+  ok(e.shields[0] === 0 && !Schilde.pause.darfRegenerieren(e, 0, g.time), 'Gegner: Schild 0,5 verbraucht, Regeneration des Segments gesperrt');
 });
 
 // =============================================================== 3 Torpedo

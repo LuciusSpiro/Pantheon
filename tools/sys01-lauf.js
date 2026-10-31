@@ -49,6 +49,15 @@ const f = (x) => (x == null ? '—' : (Math.round(x * 10) / 10).toString());
     const sr = stat(rs.map((r) => r.tRt)), st = stat(rs.filter((r) => r.tKill != null).map((r) => r.tKill));
     console.log(`| ${k} | ${c} | ${rs.length} | ${sr.n || 0} | ${f(sr.med)} | ${f(sr.p10)}–${f(sr.p90)} | ${f(sr.sd)} | ${st.n || 0} | ${f(st.med)} | ${f(st.p10)}–${f(st.p90)} | ${rs.length - (st.n || 0)} |`);
   }
+  // SYS-03 C2 (Gegner-Seite): ab dem ersten Schaden am Gegner bis Schildsegment 0 / erster Systemschaden / Reaktor zerstört
+  console.log('\nGegner-Seite: erster Schaden am Gegner → Schildsegment 0 / erster Systemschaden / Reaktor zerstört (Median, n):');
+  console.log('| Klasse | Crew | Gegner | Schaden → Segment 0 | Schaden → 1. Systemschaden | Schaden → Reaktor zerstört |');
+  console.log('|---|---|---|---|---|---|');
+  for (const k of kinds) for (const c of crews) {
+    const rs = results[k + '|' + c] || [];
+    const a1 = stat(rs.map((r) => r.tSh0G)), a2 = stat(rs.map((r) => r.tSysG)), a3 = stat(rs.filter((r) => r.tRt != null && r.tDmg != null).map((r) => r.tRt - r.tDmg));
+    console.log(`| ${k} | ${c} | ${rs.length} | ${f(a1.med)} (${a1.n || 0}) | ${f(a2.med)} (${a2.n || 0}) | ${f(a3.med)} (${a3.n || 0}) |`);
+  }
   // SYS-01 D (Task 5): Reaktor-Countdown, Zonenöffnung, Notsprung im Gefecht
   console.log(''); console.log('Countdown, Zonenöffnung, Notsprung (Bot-Läufe):');
   console.log('| Klasse | Crew | Läufe | Gegner | davon Tod über Reaktor (Countdown) | Tod ohne Reaktor (Sofort-Tod u. a.) | Zone offen (Anteil Gegner) | Spawn→Zone offen Median | Reaktor→Tod Median | Lerche Reaktorausfälle je Lauf | Notsprünge je Lauf | Notfälle je Lauf |');

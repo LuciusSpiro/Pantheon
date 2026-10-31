@@ -105,8 +105,9 @@ console.log('\n[EK1b: Segmentzuordnung eines Treffers entlang der Schiffslänge]
   const hp1 = e.hp;
   space.damageEnemy(g, e, 1, e.x + Math.cos(120 * DEG) * 100, e.y + Math.sin(120 * DEG) * 100);
   ok(e.shields[2] === 1 && e.hp === hp1, 'hinterer Seitenbereich fängt weiter ab');
-  // Regeneration je Segment
-  e.regenT = g.C.enemyShieldRegen; g.space.enemies.push(e);
+  // Regeneration je Segment (SYS-03 C2: die getroffenen Segmente 1 und 2 pausieren shields.regenDelay s; erst nach der Pause regeneriert der Takt)
+  g.time += g.C.shields.regenDelay + 1;
+  e.regenT = e.shields.map(() => g.C.enemyShieldRegen); g.space.enemies.push(e);
   const s0 = e.shields.slice();
   space.updateEnemies(g, 0.001);
   ok(e.shields[1] === s0[1] + 1 && e.shields[2] === s0[2] + 1 && e.shields[5] === 2, 'Regeneration: je Segment ein Punkt');

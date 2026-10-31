@@ -6,6 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const CONFIG = require('../shared/config.js');
+const Schilde = require('../shared/schilde.js');   // SYS-03 C2: Regenerationspause je Segment
 const Protocol = require('../shared/protocol.js');
 const Physics = require('../shared/physics.js');
 const Katalog = require('../shared/schiffskatalog.js');
@@ -393,7 +394,7 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   const nSchild = Math.round((s0 - e.shields[sec]) / (w.schaden * w.sturm.schildFaktor));   // Projektile: nicht jede Nadel trifft, jede Trefferzahl ist ein Vielfaches
   ok(e.hp === hp0 && nSchild >= Math.ceil(w.rohre * 0.6) && nSchild <= w.rohre && near(s0 - e.shields[sec], nSchild * w.schaden * w.sturm.schildFaktor, 1e-6), `hoher Schild (${s0}): ${nSchild} von ${w.rohre} Nadeln treffen, nehmen nur ${(s0 - e.shields[sec]).toFixed(2)} Schild und nichts von der Hülle`);
   const nach = e.shields[sec];
-  ok(e.regenHold > g.time - 2 && e.regenHold > 0, 'Sturm setzt die Regenerationssperre (' + CONFIG.systemModell.sturm.regenSperre_s + ' s)');
+  ok(e.shields.some((v, i) => Schilde.pause.bis(e, i) > g.time - 2 && Schilde.pause.bis(e, i) > 0), 'Sturm setzt die Regenerationssperre (' + CONFIG.systemModell.sturm.regenSperre_s + ' s)');
   lauf(T, 5.2);
   ok(e.shields[sec] <= nach + 1e-9, 'Schild regeneriert nicht, solange gehalten wird (' + nach.toFixed(2) + ' -> ' + e.shields[sec].toFixed(2) + ')');
   lauf(T, CONFIG.systemModell.sturm.regenSperre_s + 5.5);

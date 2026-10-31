@@ -171,7 +171,7 @@ section('Trefferweg: Spiegeltest Verbündeter <-> Gegner gleicher Klasse', () =>
         if (es.hp <= 1e-9 || en.hp <= 1e-9) { same = es.hp <= 1e-9 && en.hp <= 1e-9; wo = same ? '' : 'Tod nicht gleichzeitig'; break; }   // Tod: beide zugleich (der Ablauf danach ist je Seite verschieden: allyLost, enemyDown)
         const keys = Object.keys(es.sys);
         same = JSON.stringify(es.shields) === JSON.stringify(en.shields) && keys.every((id) => near(es.sys[id].i, en.sys[id].i, 1e-9) && es.sys[id].z === en.sys[id].z)
-          && near(es.hp, en.hp, 1e-9) && (es.regenHold || 0) === (en.regenHold || 0) && JSON.stringify(es.repSperre || {}) === JSON.stringify(en.repSperre || {})
+          && near(es.hp, en.hp, 1e-9) && es.shields.every((_, i) => Schilde.pause.bis(es, i) === Schilde.pause.bis(en, i)) && JSON.stringify(es.repSperre || {}) === JSON.stringify(en.repSperre || {})
           && JSON.stringify(es.rt || null) === JSON.stringify(en.rt || null);
         if (!same) wo = `Treffer ${k}: Schilde ${JSON.stringify(es.shields)} / ${JSON.stringify(en.shields)}, hp ${es.hp} / ${en.hp}`;
       }
@@ -259,7 +259,7 @@ section('Sturm: Sperre, Faktor, Schaden gegen Schild', () => {
   const sys0 = summe(a);
   for (let i = 0; i < 6; i++) Escort.hit(g, a, 1, { sturm: true, von: q });
   ok(near(a.shields[sec], 3 - 6 * STURM.schildFaktor, 1e-6) && near(summe(a), sys0), `hoher Schild (> ${STURM.niedrig}): 6 Nadeln nehmen je ${STURM.schildFaktor} (Schild ${a.shields[sec]}), kein Systemschaden`);
-  ok(a.regenHold > g.time, 'Sturm setzt die Regenerationssperre');
+  ok(!Schilde.pause.darfRegenerieren(a, sec, g.time), 'Sturm setzt die Regenerationssperre (Segment)');
   // Reparatursperre der Zone
   const zone = Gsys.SEITE_ZONE[1];
   const b = still(g, 'st2', 'kreuzer', 1100, 450); b.gestellt = false;
@@ -346,7 +346,7 @@ section('Gegner-Sperrfeuer und Sturm auf Verbündete über den Trefferweg', () =
   const sv = es.shields[sec];
   g.space.projectiles.push(proj('sturm', 1));
   g.step();
-  ok(near(es.shields[sec], sv - STURM.schildFaktor, 1e-6) && es.regenHold > g.time, `Sturm-Nadel auf den Verbündeten: Schild −${STURM.schildFaktor}, Regeneration gesperrt`);
+  ok(near(es.shields[sec], sv - STURM.schildFaktor, 1e-6) && !Schilde.pause.darfRegenerieren(es, sec, g.time), `Sturm-Nadel auf den Verbündeten: Schild −${STURM.schildFaktor}, Regeneration gesperrt`);
   // schwere Ladung (Strahl, escort.updateAttack -> hit): läuft über den Schild
   es.shields.fill(2); const s1 = es.shields[sec];
   Escort.hit(g, es, 3, { heavy: true, von: { x: es.x + Math.cos(es.angle + Math.PI / 2 + 0.5) * 300, y: es.y + Math.sin(es.angle + Math.PI / 2 + 0.5) * 300 } });

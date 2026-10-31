@@ -288,7 +288,7 @@ section('Emitter und Schildgenerator wirken auf die Schilde', () => {
   k.sys.schildgenerator.z = 'broken';
   caps = Gsys.schildGrenzen(g, k);
   ok(caps.every((c) => c === 0), 'Schildgenerator zerstört: alle Schilde 0');
-  const sv = k.shields.slice(); k.regenT = 99;
+  const sv = k.shields.slice(); k.regenT = k.shields.map(() => 99);
   space.updateEnemies(g, 0.01);
   ok(k.shields.every((v) => v === 0), 'zerstörter Generator: keine Regeneration (' + sv.join(',') + ' -> ' + k.shields.join(',') + ')');
 });

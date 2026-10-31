@@ -408,6 +408,8 @@ section('EK4b: Rollen und Klassen-KI (Fregatte: Breitseite und Abstand)', () => 
   z.retreatUntil = 0;
   ticks(g, 45);
   ok(f.kind === 'fregatte' && (f.pstate === 'station' || f.pstate === 'cross'), `Fregatte fliegt die Breitseiten-KI (pstate ${f.pstate})`);
+  // SYS-03 C2: der erste Gegner z lebt nach 45 s oft noch (die Fregatte trifft auf Abstand selten, die Wahl des Ziels schwankt je Lauf zwischen z und z2); er wird hier entfernt, damit die Breitseiten-KI sicher z2 als Ziel hat (Abstand ist der Prüfgegenstand)
+  g.space.enemies = g.space.enemies.filter((q) => q !== z);
   const ds = []; const z2 = gegnerNah(g, 'korvette', 1700, 800, { ziel: 'verbuendet' }); z2.hp = z2.hpMax = 4000;
   ticks(g, 30, (tt) => { if (Math.round(tt * 10) % 10 === 0 && g.space.enemies.includes(z2) && f.kiZielObj === z2) ds.push(dist(f, z2)); });
   ds.sort((a, b) => a - b); const d = ds.length ? ds[Math.floor(ds.length / 2)] : null;

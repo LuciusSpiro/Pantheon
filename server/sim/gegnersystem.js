@@ -253,25 +253,28 @@ function schildPflege(game, e, caps) {
   for (let i = 0; i < e.shields.length; i++) if (e.shields[i] > C[i]) e.shields[i] = C[i];
 }
 
-// SYS-02b: Schildsegmente der Klasse für ein Schiff ohne Spawn über space.spawnEnemy (Verbündete, escort.js): e.shields, e.shieldsMax, e.regenT. Ohne Eintrag der Klasse keine Schilde.
+// SYS-02b: Schildsegmente der Klasse für ein Schiff ohne Spawn über space.spawnEnemy (Verbündete, escort.js): e.shields, e.shieldsMax, e.regenT (je Segment). Ohne Eintrag der Klasse keine Schilde.
 function schildAnlegen(game, e) {
   const lay = Schilde.layout(game.C, e.kind);
   e.shieldsMax = lay ? lay.max.slice() : [0, 0, 0, 0];
   e.shields = e.shieldsMax.slice();
-  e.regenT = 0;
+  e.regenT = e.shields.map(() => 0);   // SYS-03 C2: Takt-Timer je Segment (wie sh.regenT[i] der Lerche)
+  Schilde.pause.loeschen(e);
   return e;
 }
 // SYS-02b: Schild-Pflege und Regeneration je Tick – eine Regel für Gegner (space.updateEnemies) und Verbündete (escort.allySysTick): die Obergrenze je Segment kommt aus
-// Emittern und Schildgenerator, 1 Punkt alle enemyShieldRegen × regenFaktor s, der Sturm (e.regenHold) unterdrückt die Regeneration.
+// Emittern und Schildgenerator, 1 Punkt je Segment alle enemyShieldRegen × regenFaktor s. SYS-03 C2: Regeneration JE SEGMENT wie bei der Lerche je Sektor: erst `shields.regenDelay` s (Sturm: länger)
+// nach dem letzten Treffer auf genau dieses Segment (Schilde.pause, gestempelt in space.damageEnemy), Timer je Segment (e.regenT[i]), der erst nach der Pause läuft.
 function schildTick(game, e, dt) {
   if (!e.shields) return;
   const caps = schildGrenzen(game, e);
   schildPflege(game, e, caps);
-  e.regenT = (e.regenT || 0) + dt;
-  if (game.time < (e.regenHold || 0)) e.regenT = 0;
-  if (e.regenT >= game.C.enemyShieldRegen * regenFaktor(game, e)) {
-    e.regenT = 0;
-    for (let i = 0; i < e.shields.length; i++) if (e.shields[i] < caps[i]) e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1);
+  if (!Array.isArray(e.regenT)) e.regenT = e.shields.map(() => 0);
+  const takt = game.C.enemyShieldRegen * regenFaktor(game, e);
+  for (let i = 0; i < e.shields.length; i++) {
+    if (!(e.shields[i] < caps[i]) || !Schilde.pause.darfRegenerieren(e, i, game.time)) { e.regenT[i] = 0; continue; }   // voll oder in der Pause: der Takt startet erst danach
+    e.regenT[i] = (e.regenT[i] || 0) + dt;
+    if (e.regenT[i] >= takt) { e.regenT[i] = 0; e.shields[i] = Math.min(caps[i], Math.floor(e.shields[i]) + 1); }
   }
 }
 

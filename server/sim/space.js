@@ -1015,7 +1015,7 @@ function spawnEnemy(game, kind, opts) {
   const lay = Schilde.layout(C, kind);   // EK1b: Segmente je Seite (Korvette: ein Segment je Seite = [Bug, Steuerbord, Heck, Backbord])
   const shields = lay ? lay.max.slice() : [0, 0, 0, 0];
   const e = { id: game.nextId('e'), kind, x, y, angle: o.facing != null ? o.facing : Math.atan2(ship.y - y, ship.x - x), hp, hpMax: hp,
-    shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
+    shields, shieldsMax: shields.slice(), regenT: shields.map(() => 0), scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
   Gsys.anlegen(e);   // SYS-01 C1a-1: Systeme mit Integrität je Klassenbudget (e.hp = Summe); ohne Modell (relay) bleibt e.hp
@@ -1087,13 +1087,16 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
     if (modell) zone = Gsys.zoneVonSegment(game, e, sec);
+    // SYS-03 C2: JEDER Treffer auf das Segment stempelt dessen Regenerationspause (wie die Lerche in damage.resolveHit): auch bei Schild 0, am Schild vorbei, Torpedo-Abpraller, Streu, Lanze, Mine,
+    // Dauerdruck, Sturm (länger). Hier ist die einzige Stelle: alle Wege auf Gegner und Verbündete laufen durch damageEnemy. Nie Zeitstempel von Hand setzen.
+    if (opts && opts.sturm) Schilde.pause.trefferSturm(e, sec, game.time, game.C); else Schilde.pause.treffer(e, sec, game.time, game.C);
     if (!(opts && opts.huelle && !opts.nurOhneSchild)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei (nurOhneSchild: wirkt nur auf ein ausgefallenes Segment)
       // SYS-01 B1: Durchschlag 'zone' (Vollladung der Lanze) umgeht den Schild ganz; die Mitte des Gegners ist hier die Hülle
       const pierce = opts && opts.durchschlag === 'zone' ? Infinity : (opts && opts.pierce) || 0;
       const sv = e.shields[sec];
       if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); schildEreignis(sec); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
       if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
-        const T = opts.sturm; e.regenHold = game.time + Sturm.regenSperre(game);   // SYS-03 C1: Wert aus systemModell.sturm.regenSperre_s; die Gegner-Regeneration (je Segment) folgt in C2
+        const T = opts.sturm;   // SYS-03 C2: die Sturm-Sperre (systemModell.sturm.regenSperre_s) steckt im Stempel oben (trefferSturm, je Segment)
         if (modell) Gegnerreparatur.sperren(game, e, zone, Sturm.reparaturSperre(game));   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (Fortschritt 0)
         if (sv > T.niedrig) {
           const take = Math.min(sv, dmg * T.schildFaktor);
@@ -1244,7 +1247,7 @@ function updateEnemies(game, dt) {
   for (const e of sp.enemies) {
     const cfg = C.enemies[e.kind];
     // Schild-Regeneration je Sektor. SYS-01 C1a-1: die Obergrenze je Segment kommt aus den Emittern und dem Schildgenerator (ohne Modell: das Maximum)
-    Gsys.schildTick(game, e, dt);   // SYS-02b: eine Regel für Gegner und Verbündete (Pflege, Regeneration, Sturm-Sperre e.regenHold)
+    Gsys.schildTick(game, e, dt);   // SYS-02b: eine Regel für Gegner und Verbündete (Pflege, Regeneration je Segment mit Pause, Sturm-Sperre)
     if (Gegnertod.tick(game, e, dt)) { enemyDown(game, e); continue; }   // SYS-01 C1a-2: Reaktor-Countdown abgelaufen (der Gegner kämpft bis dahin weiter, auch gestellt oder fliehend); SYS-01 C Nacharbeit: tickt auch während der Sprungladung
     if (Gegnersprung.schritt(game, e, dt)) continue;   // SYS-01 C2b: Notfallsprung (nur mit Baustein): lädt und hält Stellung, danach entkommen (ohne enemyDown)
     const retreating = e.retreatUntil > game.time;
