@@ -59,10 +59,8 @@ for (const spieler of [1, 3]) for (const teile of [4, 0]) {
   console.log('  Ablauf: ' + ablauf(log) + (t1 != null ? ` (ok nach ${(t1 - t0).toFixed(0)} s)` : ''));
   ok(t1 != null && t1 - t0 <= 45, `Triebwerk wieder ok innerhalb von 45 s (${t1 != null ? (t1 - t0).toFixed(0) + ' s' : 'nie'})`);
   const nachOk = log.filter((x) => t1 != null && x.t >= t1);
-  // SYS-03 C1: Schilde regenerieren unter Beschuss nicht mehr (Pause), im weiterlaufenden Gefecht werden öfter weitere Systeme getroffen und kurz in die Liste gestellt: gefordert ist, dass KEIN Eintrag hängt
-  // (jeder Eintrag nach dem Triebwerk verschwindet binnen 30 s wieder) und die Liste am Ende leer ist; vorher musste sie ab dem ersten ok durchgehend leer sein.
-  let haengt = 0; for (let i = 0; i < nachOk.length; i++) { if (nachOk[i].q > 0) { let j = i; while (j + 1 < nachOk.length && nachOk[j + 1].q > 0) j++; const bis = j + 1 < nachOk.length ? nachOk[j + 1].t : nachOk[j].t; haengt = Math.max(haengt, bis - nachOk[i].t); i = j; } }
-  ok(nachOk.length > 0 && nachOk[nachOk.length - 1].q === 0 && haengt <= 30, 'Reparaturliste nach der Reparatur leer (am Ende leer, kein Eintrag hängt länger als 30 s: ' + haengt.toFixed(1) + ' s)');
+  // SYS-03 D: wieder die strenge Fassung (ab dem ersten ok durchgehend leer); mit Pool 12 steht in allen vier Läufen kein Eintrag mehr in der Liste (C1 hatte sie auf „kein Eintrag hängt länger als 30 s“ gelockert, gemessen 0,0 s)
+  ok(nachOk.length > 0 && nachOk.every((x) => x.q === 0 || x.q === undefined), 'Reparaturliste nach der Reparatur leer');
   const minTeile = Math.min(...log.filter((x) => x.teile !== undefined).map((x) => x.teile));
   ok(teile === 0 ? minTeile === 0 : minTeile >= teile - 1, `höchstens ein Ersatzteil verbraucht (Bestand + Getragenes min. ${minTeile} von ${teile})`);
   if (spieler === 1) ok(log.every((x) => x.ort !== 'ship' && x.ort !== null), 'solo: der Spieler-Bot bleibt im Gefecht an der Konsole (Orte: ' + [...new Set(log.map((x) => x.ort))].join(',') + ')');

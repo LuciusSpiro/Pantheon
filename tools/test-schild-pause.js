@@ -211,33 +211,37 @@ section('Zerstörter Generator: Schild 0 (current = 0 bleibt); beschädigt: lang
 });
 
 // ---------------------------------------------------------------- Abnahme 5: Streufeuer vs. konzentriertes Feuer
-// Gleiche Gesamttrefferrate (Treffer/s, je 1 Schildpunkt), Start alloc [3,3,0,2] voll, Zeit ab dem ersten Treffer bis der erste Sektor 0 erreicht.
-function bisBruch(rate, verteilung, maxSek) {
-  const g = arena(21, [3, 3, 0, 2]); frisch(g, [3, 3, 0, 2]);
-  const folge = verteilung === 'konzentriert' ? [0] : [0, 1, 3];
+// SYS-03 D: mit der STANDARDVERTEILUNG (CONFIG.shields.default, [4,4,0,4]) und realistischen Gegnerraten (0,3 bis 1 Treffer/s, je Treffer ein Standardschuss mit Schaden 2). Zeit ab dem ersten Treffer, bis der erste
+// Sektor (der beim ersten Treffer Schild hatte) 0 erreicht. Gemessen (Seeds 1–10, tools/sys03-streufeuer.js --dmg 2): 0,5/s konzentriert 2 s, Streu 6 s (Quotient 3,0); 1/s 1 s gegen 3 s (3,0); 0,3/s Streu bricht nie.
+// Mit der früheren Verteilung [4,2,0,2] war der Quotient 1,0 (der dünne Seitensektor fällt beim Streufeuer genauso früh wie der Bugsektor beim konzentrierten): darum ist die Standardverteilung gleichmäßig.
+const STANDARD = CONFIG.shields.default.slice();
+function bisBruch(rate, verteilung, maxSek, dmg) {
+  const g = arena(21, STANDARD); frisch(g, STANDARD);
+  const mitSchild = [0, 1, 2, 3].filter((i) => STANDARD[i] > 0);
+  const folge = verteilung === 'konzentriert' ? [0] : mitSchild;
   const takt = 1 / rate; let t0 = g.time, nextHit = g.time, k = 0;
   while (g.time - t0 < maxSek) {
     if (g.time >= nextHit - 1e-9) {
       const sek = folge[k++ % folge.length];
-      if (cur(g, sek) > 0 || true) { space.shipHit(g, sek, 1, {}); }
+      space.shipHit(g, sek, dmg, {});
       nextHit += takt;
-      if ([0, 1, 3].some((i) => cur(g, i) <= 1e-9 && g.ship.shields.alloc[i] > 0)) return g.time - t0;
+      if (mitSchild.some((i) => cur(g, i) <= 1e-9)) return g.time - t0;
     }
     lauf(g, 1 / CONFIG.tickHz);
   }
   return null;
 }
-section('Abnahme 5: Streufeuer bricht den ersten Sektor deutlich später als konzentriertes Feuer', () => {
-  for (const rate of [2, 3, 4]) {
-    const kz = bisBruch(rate, 'konzentriert', 60), st = bisBruch(rate, 'streu', 60);
+section('Abnahme 5: Streufeuer bricht den ersten Sektor mit der Standardverteilung deutlich später als konzentriertes Feuer', () => {
+  ok(STANDARD.filter((v) => v > 0).length === 3 && new Set(STANDARD.filter((v) => v > 0)).size === 1, `Standardverteilung [${STANDARD}]: die drei Seiten mit Schild gleich stark`);
+  for (const rate of [0.5, 1, 2]) {
+    const kz = bisBruch(rate, 'konzentriert', 120, 2), st = bisBruch(rate, 'streu', 120, 2);
     const q = kz != null && st != null ? st / Math.max(kz, 1 / CONFIG.tickHz) : (st == null ? Infinity : 0);
-    info(`Rate ${rate}/s: konzentriert ${kz == null ? '–' : kz.toFixed(2)} s, streu ${st == null ? '> 60' : st.toFixed(2)} s, Quotient ${q === Infinity ? '∞' : q.toFixed(2)}`);
-    ok(kz != null && q >= 2, `Rate ${rate}/s: Streufeuer ≥ 2× später (Quotient ${q === Infinity ? '∞' : q.toFixed(2)})`);
+    info(`Rate ${rate}/s: konzentriert ${kz == null ? '–' : kz.toFixed(2)} s, streu ${st == null ? '> 120' : st.toFixed(2)} s, Quotient ${q === Infinity ? '∞' : q.toFixed(2)}`);
+    ok(kz != null && q >= 2.5, `Rate ${rate}/s: Streufeuer ≥ 2,5× später (Quotient ${q === Infinity ? '∞' : q.toFixed(2)})`);
   }
   // Niedrige Rate: je Sektor kommt seltener ein Treffer als die Pause dauert, der Schild lädt zwischen den Treffern nach, Streufeuer bricht nie
-  const kzL = bisBruch(0.3, 'konzentriert', 120), stL = bisBruch(0.3, 'streu', 120);
+  const kzL = bisBruch(0.3, 'konzentriert', 120, 2), stL = bisBruch(0.3, 'streu', 120, 2);
   ok(kzL != null && stL == null, `Rate 0,3/s: konzentriert bricht nach ${kzL == null ? '–' : kzL.toFixed(1)} s, Streufeuer bricht in 120 s nie (Pause ${DELAY} s, je Sektor ein Treffer alle ${(3 / 0.3).toFixed(0)} s)`);
 });
 
-console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen grün') + ' (test-schild-pause)');
-process.exit(fails ? 1 : 0);
+

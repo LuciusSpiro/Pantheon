@@ -39,6 +39,8 @@ function newGame(seed) {
 const zone = (g, z) => I.SYSTEM_ORDER.filter((k) => I.systemSector(k) === z && I.systemAktiv(g, k));
 const stand = (g) => { const o = {}; for (const k of I.SYSTEM_ORDER) o[k] = g.ship.systems[k]; return o; };
 const geaendert = (g, vor) => I.SYSTEM_ORDER.filter((k) => g.ship.systems[k] !== vor[k]);
+const REAKTOR_FENSTER = CONFIG.systemModell.reaktorFenster_s;   // SYS-03 D: eigenes, längeres Fenster des Reaktors
+const weiterReaktor = (g) => { g.time += REAKTOR_FENSTER + 0.01; };
 const weiter = (g, art) => { g.time += (art === 'sturm' ? FENSTER_STURM : FENSTER) + 0.01; };   // das Treffer-Fenster abwarten (art 'sturm': das längere Sturm-Fenster)
 // Zone 0 (Bug) hat genau ein lebendes System: das erste, der Rest zerstört. Rückgabe: dessen Name.
 function einziges(g, z) {
@@ -129,7 +131,11 @@ section('Reaktor als Ziel: Direkttreffer ok -> beschädigt -> zerstört, Countdo
   space.shipHit(g, 0, 3, { durchschlag: 'zone' }); space.shipHit(g, 0, 3, { durchschlag: 'zone' });
   ok(g.ship.systems.reactor === 'damaged', 'zwei Treffer im selben Tick: Reaktor beschädigt (Fenster), nicht zerstört');
   weiter(g); space.shipHit(g, 0, 3, { durchschlag: 'zone' });
-  ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown && g.ship.reaktorAusfaelle === 1, 'Treffer nach dem Fenster: zerstört, Countdown gestartet');
+  ok(g.ship.systems.reactor === 'damaged', `Treffer nach dem Standard-Fenster (${FENSTER} s): der Reaktor steht im eigenen Fenster (${REAKTOR_FENSTER} s), bleibt beschädigt (Binär-Prüfung)`);
+  g.time += REAKTOR_FENSTER - FENSTER - 0.5; space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+  ok(g.ship.systems.reactor === 'damaged', 'kurz vor Ende des Reaktor-Fensters: noch beschädigt');
+  weiterReaktor(g); space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+  ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown && g.ship.reaktorAusfaelle === 1, 'Treffer nach dem Reaktor-Fenster: zerstört, Countdown gestartet');
   weiter(g); space.shipHit(g, 0, 3, { durchschlag: 'zone' }); weiter(g); space.shipHit(g, 0, 3, { durchschlag: 'zone' });
   ok(g.ship.reaktorAusfaelle === 1, 'mehrere Treffer danach: Countdown nur einmal ausgelöst');
 });
@@ -357,6 +363,31 @@ section('Konfiguration: keine Punktregel mehr im Lerche-Treffer-Kern', () => {
   const src = (f) => fs.readFileSync(path.join(__dirname, '..', 'server', 'sim', f), 'utf8');
   ok(!/schadenFaktor/.test(src('interior.js')) && !/schadenFaktor/.test(src('damage.js')) && !/schadenFaktor/.test(src('zonen.js')) && !/sturmSchaden/.test(src('damage.js')), 'kein schadenFaktor/sturmSchaden im Lerche-Pfad (interior, damage, zonen)');
   void Physics;
+});
+
+// ---------------------------------------------------------------- SYS-03 D: Reaktor-Fenster per tune
+section('tune systemModell.reaktorFenster_s: ein anderes Fenster, nur am Reaktor', () => {
+  const Combat = require('../server/sim/combat.js');
+  const alt = SM.reaktorFenster_s;
+  try {
+    for (const f of [2, 12]) {
+      const g = newGame(73);
+      const r = Combat.tune(g, 'systemModell.reaktorFenster_s', String(f)); if (!r.ok) throw new Error(r.text);
+      for (const k of zone(g, -1)) if (k !== 'reactor') { g.ship.systems[k] = 'broken'; I.setInteg(g, k, 0); }
+      space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+      ok(g.ship.systems.reactor === 'damaged', `reaktorFenster_s ${f}: erster Treffer, Reaktor beschädigt`);
+      g.time += f - 0.2; space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+      ok(g.ship.systems.reactor === 'damaged', `reaktorFenster_s ${f}: 0,2 s vor Ende des Fensters noch beschädigt`);
+      g.time += 0.3; space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+      ok(g.ship.systems.reactor === 'broken', `reaktorFenster_s ${f}: nach dem Fenster zerstört`);
+    }
+    // andere Systeme der Mitte behalten das Standard-Fenster
+    const g = newGame(74); Combat.tune(g, 'systemModell.reaktorFenster_s', '12');
+    for (const k of zone(g, -1)) if (k !== 'shields') { g.ship.systems[k] = 'broken'; I.setInteg(g, k, 0); }
+    space.shipHit(g, 0, 3, { durchschlag: 'zone' }); g.time += FENSTER + 0.01; space.shipHit(g, 0, 3, { durchschlag: 'zone' });
+    ok(g.ship.systems.shields === 'broken', 'Schildgenerator (Mitte) bleibt beim Standard-Fenster: zwei Stufen im Abstand von ' + FENSTER + ' s');
+  } finally { SM.reaktorFenster_s = alt; }
+  ok(SM.reaktorFenster_s === alt, 'Wert zurückgestellt');
 });
 
 console.log('\n' + (fails ? `${fails} FEHLER von ${n}` : `${n}/${n} ok`) + ' (SYS-03 B1 Direkttreffer)');

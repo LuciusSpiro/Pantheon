@@ -1,5 +1,5 @@
 'use strict';
-// SYS-01 B2 Teil 1 (SYS-03 C1: Kapazität 8, Pool 8, Regenerationspause je Sektor; die Pause selbst prüft test-schild-pause.js): Schild der Lerche. Kapazität je Sektor 8 (B2: 6), schnellere Regeneration (regenInterval 2 s statt 4 s),
+// SYS-01 B2 Teil 1 (SYS-03 C1: Kapazität 8, Pool 12 (D; C1: 8), Regenerationspause je Sektor; die Pause selbst prüft test-schild-pause.js): Schild der Lerche. Kapazität je Sektor 8 (B2: 6), schnellere Regeneration (regenInterval 2 s statt 4 s),
 // Regeneration unter Sturm gesperrt, Sturm-Nadel nimmt den Schild um schildFaktor × Schaden (Rundung im Sturm-Zweig behoben).
 // Befund (info, kein Fehler): Die Abnahme „Sturm bricht vollen Schild in ≤ 15 s“ wird mit den heutigen Sturm-Werten NICHT erreicht
 // (Gegner-Sturm: 0,0375 Schild je Nadel). Das ist eine Balance-Entscheidung, siehe Rückmeldung B2.
@@ -37,7 +37,7 @@ const lauf = (g, sek, cb) => { const t1 = g.time + sek; while (g.time < t1) { co
 
 console.log('\n[Konfiguration]');
 ok(CONFIG.shields.maxPerSector === 8, 'maxPerSector 8 (SYS-03 C1; B2: 6, vorher 4)');
-ok(CONFIG.shields.pointsPerPower === 4 && CONFIG.shields.default.join(',') === '4,2,0,2' && CONFIG.shields.default.reduce((a, b) => a + b, 0) === 2 * CONFIG.shields.pointsPerPower, 'Pool 8 (pointsPerPower 4 × Energie 2), Start-Verteilung [4,2,0,2] nutzt den ganzen Pool');
+ok(CONFIG.shields.pointsPerPower === 6 && CONFIG.shields.default.join(',') === '4,4,0,4' && CONFIG.shields.default.reduce((a, b) => a + b, 0) === 2 * CONFIG.shields.pointsPerPower, 'Pool 12 (pointsPerPower 6 × Energie 2, SYS-03 D), Start-Verteilung [4,4,0,4] nutzt den ganzen Pool');
 ok(CONFIG.shields.regenInterval === 2, `regenInterval 2 s (vorher 4 s), Ist ${CONFIG.shields.regenInterval}`);
 
 console.log('\n[Kapazität je Sektor]');
@@ -45,7 +45,7 @@ console.log('\n[Kapazität je Sektor]');
   const g = arena(1); const sh = g.ship;
   const MAX = CONFIG.shields.maxPerSector;
   sh.shields.alloc = [2, 2, 0, 2]; sh.shields.allocIntent = [2, 2, 0, 2];
-  // Sektor 1 und 3 leeren, Sektor 0 auf die Obergrenze füllen (Pool 8)
+  // Sektor 1 und 3 leeren, Sektor 0 auf die Obergrenze füllen (Pool 12 seit SYS-03 D)
   for (let k = 0; k < 2; k++) { space.technikShield(g, 1, 0); space.technikShield(g, 3, 0); }
   let fehl = null; while (sh.shields.alloc[0] < MAX) { const e = space.technikShield(g, 0, 1); if (e) { fehl = e; break; } }
   ok(sh.shields.alloc[0] === MAX && fehl === null, `Sektor 0 nimmt ${MAX} Punkte auf (Pool ${sh.shields.pool}, Zuteilung ${sh.shields.alloc.join('/')})`);

@@ -781,9 +781,10 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       // SYS-03 B2: Stufenregel – jeder Treffer ist eine Stufe (kein Schadenspunktabzug), keine Crew-Skalierung der Integrität. Die Salven kommen im Abstand 0,5 s (Treffer-Fenster);
       // der Reaktor liegt in der Mitte und fällt erst, wenn die Seitenzonen leer sind (Überlauf): gemessen wird, nach wie vielen Salven.
       let hitsReaktor = 0;
-      for (let s = 1; s <= 14 && alive(); s++) { g.time += 0.5; e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!dead && e.rt && e.rt.rest != null) { dead = s; hitsReaktor = e.sysTreffer; } }
+      // SYS-03 D: der Reaktor hat ein eigenes Treffer-Fenster (systemModell.reaktorFenster_s, zwei Stufen brauchen mindestens so lange): bis zu 40 Salven (20 s)
+      for (let s = 1; s <= 40 && alive(); s++) { g.time += 0.5; e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!dead && e.rt && e.rt.rest != null) { dead = s; hitsReaktor = e.sysTreffer; } }
       ok(hp[1] > 0 && hp[1] < hp[0], `${crew} Spieler: Jäger (${e.hpMax} HP) übersteht eine volle Salve (${full} Schaden roh), verliert aber Integrität – Rest ${hp[1]} HP`);
-      ok(dead >= 2 && dead <= 14, `${crew} Spieler: Reaktor nach spätestens 14 Salven zerstört (nach ${dead}; ${hitsReaktor} Systemtreffer; HP ${hp.join(' -> ')})`);
+      ok(dead >= 2 + CONFIG.systemModell.reaktorFenster_s / 0.5 && dead <= 40, `${crew} Spieler: Reaktor nach spätestens 40 Salven zerstört, frühestens nach dem Reaktor-Fenster (nach ${dead}; ${hitsReaktor} Systemtreffer; HP ${hp.slice(0, 16).join(' -> ')} ...)`);
       for (let t = 0; t < 400 && alive() && e.rt && e.rt.rest != null; t++) { if (Gegnertod.tick(g, e, 0.1)) space.enemyDown(g, e); }   // Countdown ablaufen lassen
       ok(!alive(), `${crew} Spieler: Countdown abgelaufen, der Jäger ist zerstört`);
     }
@@ -921,8 +922,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(res.steht.rate >= 0.7, `stehende Lerche wird getroffen (${Math.round(res.steht.rate * 100)} %, Soll ≥ 70 %)`);
     ok(res.kurs.rate >= 0.6, `Lerche hält Kurs (½): wird getroffen (${Math.round(res.kurs.rate * 100)} %, Soll ≥ 60 %; war 70 vor den 30 % höheren Feuerraten)`);
     ok(res.weicht.rate <= res.kurs.rate * 0.7, `ausweichende Lerche deutlich seltener getroffen (${Math.round(res.weicht.rate * 100)} % ≤ 0,7 × ${Math.round(res.kurs.rate * 100)} %)`);
-    // SYS-03 C1: mit Pool 8 und Regenerationspause fängt der Schild fast alles bei Kurs ab (Hülle Kurs ~14 von steht ~100): das Verhältnis zu 'Kurs' ist nur noch Rauschen, maßgeblich ist der Abstand zur stehenden Lerche
-    ok(res.weicht.hull <= res.kurs.hull && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Integrität (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
+    // SYS-03 D: wieder die strenge Fassung (C1 hatte sie auf weicht <= kurs gelockert). Gemessen mit Pool 12 (Seeds 101–106): steht 64, Kurs 10, weicht 2,5 (weicht/Kurs 0,25)
+    ok(res.weicht.hull < res.kurs.hull * 0.6 && res.weicht.hull < res.steht.hull * 0.6, `Ausweichen spart Integrität (${f2(res.weicht.hull)} vs. Kurs ${f2(res.kurs.hull)} / steht ${f2(res.steht.hull)})`);
   }
 
   console.log('\n[S2b: Sperrfeuer – leichter Treffer, kein Systemschaden durch den Schild]');

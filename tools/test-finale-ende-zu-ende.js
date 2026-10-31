@@ -57,7 +57,7 @@ const erholen = (g) => {
   g.ship.shields.current = g.ship.shields.alloc.slice();
   for (const k of interior.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   interior.integritaetVoll(g); g.ship.fireList.length = 0; g.ship.breachList.length = 0;
-  // SYS-03 B1: die Lerche kann im Orbit-Kampf jetzt über den Reaktor-Countdown fallen, obwohl die Szene gewonnen wird; die Erholung nimmt auch das zurück (Balance folgt in SYS-03 D)
+  // SYS-03 B1: die Lerche kann im Orbit-Kampf jetzt über den Reaktor-Countdown fallen, obwohl die Szene gewonnen wird; die Erholung nimmt auch das zurück. SYS-03 D: geprüft, bleibt: ohne die Zeile scheitert der Test (der Countdown des vorigen Versuchs läuft in den nächsten hinein); Ursache nicht weiter untersucht, im Bericht als offener Punkt
   g.ship.reaktorCountdown = null; g.ship.reaktorAusfaelle = 0; g.ship.schiffZerstoert = false; g.zerstoertOffen = null;
 };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };

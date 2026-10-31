@@ -320,10 +320,12 @@ const toete = (g, e) => Testhilfe.toeten(g, e);
   await section('Bot-Läufe (echter Kampf)', async () => {
     zurueck();
     // SYS-03 C-Nacharbeit: Zusage als Quote über feste, vorab festgelegte Seeds 21–28 je Crewgröße (der Ausgang einer Einzelschlacht ist chaotisch, die Quote nicht).
-    // Gemessen (max 600 s wie tools/sim-finale-orbit.js): Crew 1 5/8, Crew 2 6/8, Crew 3 7/8. Mindestquote 5/8 je Crew; Abbruch, sobald sie erreicht (oder nicht mehr erreichbar) ist.
+    // Gemessen (max 600 s wie tools/sim-finale-orbit.js): SYS-03 C-Nacharbeit (Pool 8) Crew 1 5/8, Crew 2 6/8, Crew 3 7/8; SYS-03 D (Pool 12, Reaktor-Fenster): Crew 1 6/8 (Seed 25 Zeitlimit, Seed 27 Niederlage), Crew 2 7/8 (Seed 27), Crew 3 7/8 (Seed 27).
+    // Mindestquote je Crew mit einem Seed Reserve: Crew 1 5/8, Crew 2 und 3 je 6/8; Abbruch, sobald sie erreicht (oder nicht mehr erreichbar) ist.
     // Das Zeitlimit ist dasselbe wie in der Sim (600 s): bei 400 s kippte z. B. Seed 22 Crew 2 (Sieg nach 405 s) – kein Zufall, die Läufe sind deterministisch.
-    const SEEDS = [21, 22, 23, 24, 25, 26, 27, 28]; const MINDEST = 5;
+    const SEEDS = [21, 22, 23, 24, 25, 26, 27, 28]; const MINDEST_JE_CREW = { 1: 5, 2: 6, 3: 6 };
     for (const crew of [1, 2, 3]) {
+      const MINDEST = MINDEST_JE_CREW[crew];
       let siege = 0; let gelaufen = 0; const alle = [];
       for (const seed of SEEDS) {
         if (siege >= MINDEST || siege + (SEEDS.length - gelaufen) < MINDEST) break;

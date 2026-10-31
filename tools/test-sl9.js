@@ -18,8 +18,8 @@ const Flotte = require('../server/sim/flotte.js');
 
 const tick = async (k) => { for (let i = 0; i < (k || 12); i++) await new Promise((r) => setImmediate(r)); };   // Landepunkte baut der Vorbau außerhalb des Ticks (setImmediate)
 const DT = 1 / CONFIG.tickHz;
-const LERCHE_MIN_PCT = 0;   // Untergrenze der kleinsten Lerche-Integrität (%) in der Schlacht der Seeds 4 und 6. SYS-03 D: nach Kalibrierung anheben (Messwerte je Seed stehen im Testprotokoll)
-const SOELDNER_LEBEN_MIN = { 1: 1, 4: 1 };   // Söldnerschiffe, die je Seed mindestens leben müssen (Standard 2). Seed 4 verliert seit der Nacharbeit B1/B2 ein Söldnerschiff (die Schlacht ist chaotisch: kleine Regeländerungen verschieben den Verlauf). SYS-03 D: auf 2 anheben
+const LERCHE_MIN_PCT = 10;   // Untergrenze der kleinsten Lerche-Integrität (%) in der Schlacht der Seeds 1, 4 und 6 (SYS-03 D: Pool 12; Messung Seeds 1–11: kleinste Integrität 19–97 %, Seed 12: 10 %)
+const SCHLACHT_MAX_S = 700;   // Fenster der Schlacht (s). SYS-03 D: gemessen Seeds 1–11 Sieg nach 272–490 s (Seeds 1, 4, 6: 319, 333, 318 s), Fenster = Maximum + 40 %
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const info = (t) => console.log('  info ' + t);
@@ -158,29 +158,16 @@ for (const seed of [1, 4, 6]) {
     ok(start === 5 && T.g.space.escorts.filter((e) => e.ally).length === 2, '5 Verteidiger gegen 2 Söldnerschiffe');
     const hullPct = (g) => require('../server/sim/interior.js').integritaetSnapshot(g).gesamt;   // SYS-01 A1a: Integrität in %
     let minHull = hullPct(T.g), tEnde = null;
-    const gewonnen = T.run(1200, (t) => { minHull = Math.min(minHull, hullPct(T.g)); if (T.step() === 'lager') { tEnde = t; return true; } return false; });
+    const gewonnen = T.run(SCHLACHT_MAX_S, (t) => { minHull = Math.min(minHull, hullPct(T.g)); if (T.step() === 'lager') { tEnde = t; return true; } return false; });
     const nochDa = T.g.space.enemies.filter((e) => e.tag === 'verteidiger').length;
-    // Seit „nur EIN Bot als Standard“ (Kai) geht die passive Lerche in Seed 1 unter (vorher 22 % Hülle mit 2 Bots, Seed 4 knapp 2 %):
-    // Seed 1 bleibt als Beobachtung stehen (info), die Zusagen gelten für Seeds 4 und 6. Aktive Crew: sim-sund --kapitel k9b_soeldner.
-    // SYS-03 C1: Schild Pool 8 mit Regenerationspause je Sektor (die passive Lerche lädt unter Beschuss nicht nach): Seed 4 räumt die Verteidiger nicht mehr in 1200 s (auch nicht in 3000 s: 1 Verteidiger übrig, Lerche am Ende 0 %),
-    // Seed 1 verliert ein Söldnerschiff. Die Schlacht ist chaotisch (kleine Regeländerungen verschieben den Verlauf); beide Seeds laufen als Beobachtung (info) mit, die Zusagen gelten für Seed 6. Balance in SYS-03 D.
-    const schlechtfall = seed === 1 || seed === 4;
-    if (schlechtfall) info('Schlechtfall (Seed ' + seed + ') mit 1 Bot: Flotte ' + (gewonnen && nochDa === 0 ? 'siegt' : 'verliert') + ', Lerche ' + (hullPct(T.g) > 0 ? 'überlebt' : 'geht unter'));
-    else {
-      // SYS-01 D: Fenster neu geeicht (vorher 240 s, Basis vor dem Umbau Seed 4: 157 s, Seed 6: 172 s). Gegner reparieren jetzt (10 s zerstört, 6 s beschädigt je System),
-      // die Söldner-Verbündeten treffen die Zonen ungezielt. Gemessen (tools/test-sl9.js-Aufbau, Seeds 2–22 ohne den Schlechtfall-Seed 1, 21 Läufe, nach der D-Kalibrierung der
-      // Klassenbudgets): Sieg nach Median 240 s (min 163, max 393), Seed 4 192 s, Seed 6 232 s, jeder Lauf mit allen Verteidigern erledigt. Fenster = Median + 50 % = 360 s;
-      // 2 von 21 Seeds (16, 17: 387/393 s) liegen darüber, die Seeds 4 und 6 mit Marge darunter.
-      // SYS-03 B2: Stufenregel – jeder Treffer ist eine Stufe, die Söldnerschiffe schießen mit ihrer Rohschadenszahl keine Systeme mehr "durch": die Schlacht dauert deutlich länger
-      // (Stand 24bae96: Seed 4: 745 s, Seed 6: 411 s statt 192/232 s; nach der Nacharbeit B1/B2: Seed 4 1014 s, Seed 6 411 s, Seed 1 824 s). Fenster 1200 s; die Balance der Schlachtdauer folgt in SYS-03 D.
-      ok(gewonnen && nochDa === 0, 'Flotte schlägt alle Verteidiger (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in 1200 s') + ', übrig ' + nochDa + ')');
-      // Messwert je Seed im Protokoll (Stand nach der Nacharbeit B1/B2: Seed 1 39 %, Seed 4 36 %, Seed 6 74 %; Stand 24bae96: Seed 4 0 %). Die Untergrenze stellt der Entwicklungsleiter in Paket D fein (LERCHE_MIN_PCT oben).
-      info('Seed ' + seed + ': Lerche-Minimum ' + minHull.toFixed(1) + ' % Integrität (Untergrenze LERCHE_MIN_PCT ' + LERCHE_MIN_PCT + ' %)');
-      ok(minHull >= LERCHE_MIN_PCT, 'Lerche überlebt (kleinste Integrität ' + minHull.toFixed(0) + ' %, Ende ' + hullPct(T.g).toFixed(0) + ' %, Untergrenze ' + LERCHE_MIN_PCT + ' %)');
-    }
+    // SYS-03 D: Pool 12 und das Reaktor-Fenster haben die Schlacht der passiven Lerche (nur EIN Bot als Standard, keine Eingabe) wieder gewinnbar gemacht. Alle drei Seeds (1, 4, 6) tragen dieselben Zusagen:
+    // Flotte schlägt alle Verteidiger, beide Söldnerschiffe leben, die Lerche bleibt über LERCHE_MIN_PCT. Messwerte je Seed (Seeds 1–11, kleinste Integrität / Dauer): 19 % 319 s, 29 % 357 s, 74 % 342 s,
+    // 32 % 333 s, 53 % 462 s, 81 % 318 s, 97 % 272 s, 77 % 452 s, 39 % 486 s, 74 % 490 s, 26 % 446 s; Seed 12 verliert beide Söldnerschiffe (chaotisch, nicht Prüfseed). Aktive Crew: sim-sund --kapitel k9b_soeldner.
+    ok(gewonnen && nochDa === 0, 'Flotte schlägt alle Verteidiger (' + (tEnde != null ? tEnde.toFixed(0) + ' s' : 'nicht in ' + SCHLACHT_MAX_S + ' s') + ', übrig ' + nochDa + ')');
+    info('Seed ' + seed + ': Lerche-Minimum ' + minHull.toFixed(1) + ' % Integrität (Untergrenze LERCHE_MIN_PCT ' + LERCHE_MIN_PCT + ' %)');
+    ok(minHull >= LERCHE_MIN_PCT, 'Lerche überlebt (kleinste Integrität ' + minHull.toFixed(0) + ' %, Ende ' + hullPct(T.g).toFixed(0) + ' %, Untergrenze ' + LERCHE_MIN_PCT + ' %)');
     const verb = T.g.space.escorts.filter((e) => e.ally);
-    const minLeben = SOELDNER_LEBEN_MIN[seed] || 2;
-    ok(verb.length >= minLeben, (minLeben === 2 ? 'beide' : 'mindestens ' + minLeben) + ' Söldnerschiffe leben (' + verb.map((e) => e.tag + ':' + Math.round(e.hp)).join(', ') + ')' + (minLeben < 2 ? ' – Seed ' + seed + ': ein Söldnerschiff fällt (SYS-03 D: nach Kalibrierung auf 2 anheben)' : ''));
+    ok(verb.length >= 2, 'beide Söldnerschiffe leben (' + verb.map((e) => e.tag + ':' + Math.round(e.hp)).join(', ') + ')');
     ok(!T.fakt('soeldner_verloren'), 'kein Söldnerverlust gemeldet');
     info('Seed ' + seed + ': Sieg nach ' + (tEnde != null ? tEnde.toFixed(0) : '?') + ' s, Lerche minimal ' + minHull.toFixed(0) + ' % Hülle');
   });

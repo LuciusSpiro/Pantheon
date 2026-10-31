@@ -72,6 +72,7 @@ function einziges(e, zone, wahl) {
 }
 const stand = (e) => Object.fromEntries(Gsys.ids(e).map((id) => [id, e.sys[id].z]));
 const geaendert = (e, vor) => Gsys.ids(e).filter((id) => e.sys[id].z !== vor[id]);
+const REAKTOR_FENSTER = CONFIG.systemModell.reaktorFenster_s;   // SYS-03 D: eigenes, längeres Fenster des Reaktors (Lerche, Gegner, Verbündete gleich)
 const weiter = (g, s) => { g.time += (s == null ? FENSTER + 0.01 : s === 'sturm' ? FENSTER_STURM + 0.01 : s); };   // 'sturm': das längere Sturm-Fenster abwarten
 const quelleBug = (e) => ({ x: e.x + 300, y: e.y });
 const pctIn = (e, id) => { const z = Gsys.snapshotZiel(e); return z[2 * Gsys.ids(e).indexOf(id) + 1]; };
@@ -596,6 +597,9 @@ section('Reaktor: mehrere Stufen in kurzer Folge lösen den Countdown nur einmal
   const q = quelleBug(e);
   space.damageEnemy(g, e, 5, q.x, q.y, { durchschlag: 'zone' });
   weiter(g);
+  space.damageEnemy(g, e, 5, q.x, q.y, { durchschlag: 'zone' });
+  ok(!Gsys.reaktorZerstoert(e) && e.sys[Gsys.idVon(e, 'reaktor')].z === 'damaged', `Treffer nach dem Standard-Fenster: der Reaktor steht im eigenen Fenster (${REAKTOR_FENSTER} s), bleibt beschädigt (Binär-Prüfung)`);
+  weiter(g, REAKTOR_FENSTER + 0.01);
   space.damageEnemy(g, e, 5, q.x, q.y, { durchschlag: 'zone' });
   ok(Gsys.reaktorZerstoert(e) && e.rt && e.rt.n === 1, 'Reaktor beschädigt, dann zerstört: Countdown n = 1');
   weiter(g); space.damageEnemy(g, e, 5, q.x, q.y, { durchschlag: 'zone' });

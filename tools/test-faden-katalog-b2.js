@@ -415,9 +415,6 @@ section('(c4b) Konvoi pluendern: ohne Platz fuer die Beute gilt aufhalten (gewin
   let nr = 70;
   for (const [name, ende] of Object.entries(enden)) {
     const t = neu(nr++, 3), g = t.g;
-    // SYS-03 C1: der Schild lädt unter Beschuss nicht mehr nach (Regenerationspause); Prüfgegenstand ist hier die Beute beim Ende der Szene, nicht das Überleben der Lerche gegen die Eskorte:
-    // Schilde je Tick voll, damit kein Treffer das Frachtraum-Modul trifft und die Beute vor dem Ende löst (Seed 72 verlor sonst die Ladung nach 60 s Beschuss)
-    { const st = g.step.bind(g); g.step = (...a) => { g.ship.shields.current = g.ship.shields.alloc.slice(); return st(...a); }; }
     pluendernStart(t, 1, (gg) => { zweiRaeume(gg); Fracht.anBordLegen(gg, 'sprengstoff'); });   // fremd: ein Sprengstoff
     ok(szene(g).plan.sieg === 'pluendern' && Fracht.capacity(g) === 4, name + ': Ausgangslage (vier Plaetze, ein fremder Sprengstoff, Sieg pluendern)');
     beuteBeamen(t, 1);   // nur EIN Transporter faellt: eine Beute an Bord, der Konvoi ist noch nicht durch

@@ -148,8 +148,8 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   const shd = sh.shields || {};
   ok(['pool', 'alloc', 'current', 'cap', 'burst', 'burstCd'].every((k) => k in shd), 'ship.shields: pool, alloc, current, cap, burst, burstCd');
   ok(JSON.stringify(shd.cap) === JSON.stringify([0, 1, 2, 3].map(() => CONFIG.shields.maxPerSector)) && shd.burst == null && shd.burstCd === 0, `Schild-cap [${shd.cap}] (je maxPerSector ${CONFIG.shields.maxPerSector}), kein Stoß, keine Abklingzeit`);
-  // M3b §4 (SYS-03 C1: Pool 8 bei Energie 2, pointsPerPower 4), neue Zähler und Eskalations-Feld
-  ok(CONFIG.shields.pointsPerPower === 4 && g.ship.power.shields === 2 && shd.pool === 8 && CONFIG.shields.maxPerSector >= 1, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 4, maxPerSector ${CONFIG.shields.maxPerSector})`);
+  // M3b §4 (SYS-03 D: Pool 12 bei Energie 2, pointsPerPower 6), neue Zähler und Eskalations-Feld
+  ok(CONFIG.shields.pointsPerPower === 6 && g.ship.power.shields === 2 && shd.pool === 12 && CONFIG.shields.maxPerSector >= 1, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 6, maxPerSector ${CONFIG.shields.maxPerSector})`);
   ok(['leakHits', 'escalations', 'repairSetbacks'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks = 0 (overflowHull entfällt)');
   ok(sh.escalate && typeof sh.escalate === 'object' && Object.keys(sh.escalate).length === 0, 'M3b: Snapshot ship.escalate {} ohne Kampf');
   ok(sh.chargePoints === g.ship.power.weapons + 2 && sh.chargePoints === 4, 'chargePoints = Energie Waffen + 2 = 4');
@@ -488,22 +488,22 @@ section('M3b: Schildstoß entfernt (§4)', () => {
   ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
 });
 
-section('M3b: Schildpool 8 (§4, SYS-03 C1)', () => {
+section('M3b: Schildpool 12 (§4, SYS-03 D)', () => {
   const { g, run, enter, cmd } = arena(1);
   enter(0, 'technik');
   run(0.1, () => { pin(g); noFire(g); });
   const pool = g.snapshot().ship.shields.pool;
-  ok(pool === 8, `Pool bei Energie 2: ${pool} (Soll 8)`);
+  ok(pool === 12, `Pool bei Energie 2: ${pool} (Soll 12)`);
   // alles auf Sektor 0: höchstens maxPerSector, Rest verteilt sich
   // (QA M3b: Startverteilung nutzt jetzt den ganzen Pool [2,2,0,2] – erst leeren, sonst ist nichts frei)
   g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.alloc = [0, 0, 0, 0];
   for (let i = 0; i < 9; i++) cmd(0, 'technik.shield', { sector: 0, delta: 1 });
   run(0.1, () => { pin(g); noFire(g); });
   const al = g.ship.shields.alloc;
-  ok(al[0] === Math.min(CONFIG.shields.maxPerSector, pool) && al.reduce((a, b) => a + b, 0) <= 8, `Sektor 0 höchstens ${CONFIG.shields.maxPerSector} (alloc ${al.join('/')}, Summe ≤ 8)`);
+  ok(al[0] === Math.min(CONFIG.shields.maxPerSector, pool) && al.reduce((a, b) => a + b, 0) <= 12, `Sektor 0 höchstens ${CONFIG.shields.maxPerSector} (alloc ${al.join('/')}, Summe ≤ 12)`);
   setPower(g, { shields: 3, weapons: 1 });
   run(0.1, () => { pin(g); noFire(g); });
-  ok(g.snapshot().ship.shields.pool === 12, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 12)`);
+  ok(g.snapshot().ship.shields.pool === 18, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 18)`);
 });
 
 // SYS-01 A1a: Abschnitt entfernt (Durchlass-Tabelle, Überlauf, Trefferauswahl über hitSystems); neu in tools/test-systemmodell.js
@@ -1244,7 +1244,8 @@ section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   // SYS-01 C1a-1: alte Regel „Hülle 3 HP, Teiltreffer summieren sich bis 0“ -> neue Regel: Teiltreffer summieren sich auf dem getroffenen System (Reaktor in der Mitte,
   // Durchschlag 'zone'); der Gegner stirbt, wenn dessen Integrität 0 erreicht (Gleitkomma-Reste zählen nicht).
   // SYS-03 B2: Stufenregel – Teiltreffer summieren sich nicht mehr, jeder Treffer ist eine Stufe (Treffer-Fenster zwischen den Treffern abwarten)
-  const hitMitte = (e) => { g.time += 0.3; S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' }); };
+  const hitMitte = (e) => { g.time += CONFIG.systemModell.reaktorFenster_s + 0.1;   // SYS-03 D: der Reaktor hat ein eigenes, längeres Treffer-Fenster
+    S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' }); };
   const e = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y, Math.PI, { hp: 300 });
   Testhilfe.mitteNurReaktor(e); Testhilfe.setzeIntegritaet(e, 'reaktor', Gsys.maxOf(e, 'reaktor'));
   // SYS-01 C1a-2: der zerstörte Reaktor startet den Countdown, der Gegner stirbt erst, wenn er abläuft (ablaufen: Gegnertod.tick bis 0)
@@ -1257,7 +1258,7 @@ section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   Testhilfe.mitteNurReaktor(e2); Testhilfe.setzeIntegritaet(e2, 'reaktor', Gsys.maxOf(e2, 'reaktor'));
   S.damageEnemy(g, e2, 0.3, e2.x - 100, e2.y, { durchschlag: 'zone' });
   ok(g.space.enemies.includes(e2) && e2.sys.reaktor.z === 'damaged' && !e2.rt, `ein Treffer (0,3): der Reaktor ist beschädigt (Integrität ${e2.sys.reaktor.i.toFixed(2)}), kein Countdown`);
-  g.time += 0.3; S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
+  g.time += CONFIG.systemModell.reaktorFenster_s + 0.1; S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
   ok(g.space.enemies.includes(e2) && !!e2.rt && e2.rt.rest != null, 'zweiter Treffer (0,1): der Reaktor ist zerstört, Countdown läuft (die Schadenszahl spielt keine Rolle)');
   ablaufen(e2);
   ok(!g.space.enemies.includes(e2), 'Countdown abgelaufen: der Gegner stirbt');

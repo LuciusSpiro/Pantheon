@@ -110,7 +110,7 @@ section('Start-Lerche: 2 Module, Standardverteilung 2/2/2', () => {
   ok(!('life' in sh.heat) && Object.keys(sh.heat).join() === 'engines,shields,weapons', 'Snapshot heat ohne life');
   ok(JSON.stringify(sh.mod) === '[["f",1,1,1],["k",2,1,1]]', 'Snapshot mod: Frachtraum (Raum 1) + Krankenstation (Raum 2) an und laufend ' + JSON.stringify(sh.mod));
   ok(sh.reactor.output === 8 && sh.reactor.used === 8, 'Reaktor 8, verbraucht 8 (6 Hauptsysteme + 2 Module)');
-  ok(T.g.ship.shields.pool === 8 && sh.chargePoints === 4, 'Pool 8 (E×4, SYS-03 C1), 4 Ladepunkte (E+2) wie bisher');
+  ok(T.g.ship.shields.pool === 12 && sh.chargePoints === 4, 'Pool 12 (E×6, SYS-03 D), 4 Ladepunkte (E+2) wie bisher');
   ok(T.g.bots.length === 1, 'ein Schrauber (Werkstatt nicht eingebaut)');
   ok(Fracht.gesichert(T.g), 'Frachtraum läuft: gesichert');
   ok(JSON.stringify(sh.mod).length < 40, 'ship.mod kompakt (' + JSON.stringify(sh.mod).length + ' B)');
@@ -123,7 +123,7 @@ section('Voll ausgebaut (Debug): vier Module, Standardverteilung 1/2/1', () => {
   const sh = snapShip(T);
   ok(sh.mod.length === 4 && sh.mod.every((m) => m[3] === 1), 'vier Module laufen: ' + JSON.stringify(sh.mod));
   ok(JSON.stringify(sh.power) === '{"engines":1,"shields":2,"weapons":1}' && sh.reactor.used === 8, 'Verteilung 1/2/1, verbraucht 8: ' + JSON.stringify(sh.power));
-  ok(T.g.ship.shields.pool === 8 && sh.chargePoints === 3, 'Pool 8, 3 Ladepunkte');
+  ok(T.g.ship.shields.pool === 12 && sh.chargePoints === 3, 'Pool 12, 3 Ladepunkte');
   ok(T.g.bots.length === 2, 'Werkstatt läuft: zweiter Schrauber (' + T.g.bots.length + ')');
   ok(sh.mod.filter((m) => m[0] === 'f').length === 2, 'gleiche Module dürfen mehrfach stehen (zwei Frachträume)');
   T.debug('modul', 'start'); T.run(0.2);
