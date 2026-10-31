@@ -13,6 +13,7 @@
   //   decks[]            Deck 0 = Oberfläche; weitere Decks (Bunker, BOD-03) sind vorgesehen, werden heute abgewiesen
   //   decks[0].reihenfolge   Abschnitts-IDs links nach rechts
   //   decks[0].abschnitte    { id: { name, waehlbar?, standard, varianten: { id: { name, breite, rows[], anker[], bereiche{} } } } }
+  //   bauweise           (optional) Bauweise der Karte (z. B. rom_feld, VOX-01 5a); fehlt sie, gilt die des Landepunkts (server/sim/landepunkte.js festBauen)
   //   zeichen            Platzhalter-Zeichen im Raster -> echte Kachel ({ kachel, platzhalter }); Tausch eines Platzhalters = kachel ändern
   //   pflicht, wellen, ziel  -> meta.pflicht, meta.wellen, meta.ziel
   // Koordinaten der Anker und Bereiche sind abschnittslokal (x ab linker Kante, y absolut) und werden hier umgesetzt.

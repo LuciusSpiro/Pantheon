@@ -68,7 +68,7 @@ section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
   fehler = null; try { GenFest.karteRoh(d3); } catch (e) { fehler = e.message; }
   ok(Array.isArray(DEF.decks) && DEF.decks[0].id === 'oberflaeche' && fehler && /Decks/.test(fehler), 'decks[] ist ein Array (Deck 0 Oberflaeche); ein zweites Deck wird heute ausdruecklich abgewiesen');
   // Platzhalter: Tausch ueber die Daten
-  ok(DEF.zeichen.T.platzhalter === 'baum' && DEF.zeichen.T.kachel === 'F' && K.meta.platzhalter.baum > 0 && K.meta.platzhalter.palisade > 0 && K.meta.platzhalter.brustwehr > 0, `Platzhalter in den Daten markiert (baum ${K.meta.platzhalter.baum}, palisade ${K.meta.platzhalter.palisade}, brustwehr ${K.meta.platzhalter.brustwehr} Kacheln)`);
+  ok(DEF.zeichen.T.platzhalter === 'baum' && DEF.zeichen.T.kachel === 'Y' && DEF.zeichen.b.kachel === 'H' && DEF.zeichen.P.kachel === '=' && DEF.bauweise === 'rom_feld' && K.meta.platzhalter.baum > 0 && K.meta.platzhalter.palisade > 0 && K.meta.platzhalter.brustwehr > 0, `Platzhalter in den Daten markiert (baum ${K.meta.platzhalter.baum}, palisade ${K.meta.platzhalter.palisade}, brustwehr ${K.meta.platzhalter.brustwehr} Kacheln)`);
   const d4 = clone(DEF); d4.zeichen.T.kachel = 'O';
   const k4 = bauen(d4).karte;
   ok(k4.rows.join('') !== K.rows.join('') && k4.rows.join('').split('O').length > K.rows.join('').split('O').length + 20, 'Tausch zeigt Wirkung: Baum-Kacheln wechseln auf die neue Kachelart');
@@ -87,8 +87,8 @@ section('Karte: Prueferlauf, Groesse, Payload, Reihenfolge', () => {
   ok(xs.every((x, i) => i === 0 || x > xs[i - 1]), 'Abschnitte links nach rechts: Abholpunkt ' + xs.map((x) => Math.round(x)).join(' < '));
   // Zeichenreihenfolge in der Mittellinie: Wiese (:) vor Graben (o), Palisade (=) vor Wald (F-Gruppen) vor Bunker (#)
   const erst = (c) => K.rows.reduce((m, r) => { const i = r.indexOf(c, 1); return i > 0 ? Math.min(m, i) : m; }, 999);
-  const oMin = erst('o'), eqMin = erst('='), bMin = erst('#');
-  const treeMin = K.rows.slice(1, K.h - 1).reduce((m, r) => { const i = r.slice(1, -1).indexOf('F') + 1; return i > 0 ? Math.min(m, i) : m; }, 999);
+  const oMin = erst('H'), eqMin = erst('='), bMin = erst('#');
+  const treeMin = K.rows.slice(1, K.h - 1).reduce((m, r) => { const i = r.slice(1, -1).indexOf('Y') + 1; return i > 0 ? Math.min(m, i) : m; }, 999);
   ok(oMin < eqMin && eqMin < treeMin && treeMin < bMin, `Reihenfolge der ersten Spalten: Brustwehr ${oMin} < Palisade ${eqMin} < Baum ${treeMin} < Bunkerwand ${bMin}`);
   ok(K.meta.fest === 'grabenangriff' && K.art === 'aussenposten' && K.erzeuger === 'gen-fest/1', 'Kennung meta.fest = grabenangriff, Kartenart bleibt aussenposten');
 });
@@ -96,7 +96,7 @@ section('Karte: Prueferlauf, Groesse, Payload, Reihenfolge', () => {
 section('Wiese: keine Deckung ausser dem Graben', () => {
   const g0 = Math.min(...K.meta.gruppen['w1.graben'].map((id) => anker(id).x)), w1x = anker('landung.abholpunkt').x;
   // Wiese = Spalten vom Landefeld bis zur Brustwehr (erste o-Spalte)
-  const oSpalte = K.rows.reduce((m, r) => { const i = r.indexOf('o', 1); return i > 0 ? Math.min(m, i) : m; }, 999);
+  const oSpalte = K.rows.reduce((m, r) => { const i = r.indexOf('H', 1); return i > 0 ? Math.min(m, i) : m; }, 999);
   let deck = 0;
   for (let y = 1; y < K.h - 1; y++) for (let x = 1; x < oSpalte; x++) { const c = K.legende[ch(x, y)]; if (c && (c.cover > 0 || c.solid)) deck++; }
   ok(deck === 0, `zwischen Landung und Brustwehr (x 1..${oSpalte - 1}) keine Deckung und kein Hindernis`);
@@ -104,33 +104,33 @@ section('Wiese: keine Deckung ausser dem Graben', () => {
   ok(breite >= 12 && breite <= 22, `Wiesenbreite Abholpunkt bis Brustwehr ${breite} Kacheln (Sicht ${CONFIG.awayCombat.sightTiles || 10}, Schussbox +-9,4 x +-5,2: Verteidiger wirken ab ca. 10 Kacheln)`);
 });
 
-section('Graben: Sohle, Brustwehr o, Luecken und Enden', () => {
+section('Graben: Sohle (;), Brustwehr H, Luecken und Enden', () => {
   const bgr = K.bereiche.graben.rects[0];   // [x, y, w, h]
   const gx = Math.min(...K.meta.gruppen['w1.graben'].map((id) => anker(id).x));
   let sohleMin = 99, oBeidseitig = 0, zeilen = 0, luecken = [], westSpalte = -1, ostSpalte = -1;
   const ys = K.meta.gruppen['w1.graben'].map((id) => anker(id).y);
   for (let y = Math.min(...ys); y <= Math.max(...ys); y++) {
-    let a = gx; while (walk(a - 1, y) && ch(a - 1, y) !== 'o') a--;
+    let a = gx; while (walk(a - 1, y) && ch(a - 1, y) !== 'H') a--;
     // links der Sohle die naechste feste Kachel, rechts ebenso
     let l = gx; while (!solid(l, y) && l > bgr[0] - 1) l--;
     let r = gx; while (!solid(r, y) && r < bgr[0] + bgr[2]) r++;
     zeilen++;
-    if (ch(l, y) === 'o' && ch(r, y) === 'o') { oBeidseitig++; sohleMin = Math.min(sohleMin, r - l - 1); westSpalte = l; ostSpalte = r; }
+    if (ch(l, y) === 'H' && ch(r, y) === 'H') { oBeidseitig++; sohleMin = Math.min(sohleMin, r - l - 1); westSpalte = l; ostSpalte = r; }
   }
-  ok(oBeidseitig >= 8, `auf ${oBeidseitig} von ${zeilen} Zeilen steht links und rechts der Sohle eine Reihe o (Halbdeckung als Brustwehr)`);
+  ok(oBeidseitig >= 8, `auf ${oBeidseitig} von ${zeilen} Zeilen steht links und rechts der Sohle eine Reihe H (Halbdeckung als Brustwehr)`);
   ok(sohleMin >= 2, `Sohle mindestens 2 Kacheln breit (kleinste Breite ${sohleMin})`);
   const ymin = bgr[1], ymax = bgr[1] + bgr[3] - 1;
   // Brustwehr-Spalten bestimmen: Spalten mit den meisten o im Grabenbereich
-  const zaehl = {}; for (let y = ymin; y <= ymax; y++) for (let x = bgr[0]; x < bgr[0] + bgr[2]; x++) if (ch(x, y) === 'o') zaehl[x] = (zaehl[x] || 0) + 1;
+  const zaehl = {}; for (let y = ymin; y <= ymax; y++) for (let x = bgr[0]; x < bgr[0] + bgr[2]; x++) if (ch(x, y) === 'H') zaehl[x] = (zaehl[x] || 0) + 1;
   const spalten = Object.keys(zaehl).map(Number).filter((x) => zaehl[x] >= 8).sort((a, b) => a - b);
   const xa = spalten[0], xb = spalten[spalten.length - 1];
-  const oZeilen = []; for (let y = ymin; y <= ymax; y++) if (ch(xa, y) === 'o' || ch(xb, y) === 'o') oZeilen.push(y);
+  const oZeilen = []; for (let y = ymin; y <= ymax; y++) if (ch(xa, y) === 'H' || ch(xb, y) === 'H') oZeilen.push(y);
   const y0 = Math.min(...oZeilen), y1 = Math.max(...oZeilen);
   for (let y = y0; y <= y1; y++) if (walk(xa, y)) luecken.push(y);
   ok(spalten.length === 2 && luecken.length >= 4, `zwei Brustwehr-Spalten (x ${xa} und ${xb}), Luecken (Uebergaenge) auf der Wiesenseite an ${luecken.length} Zeilen`);
   // Luecken sind 2 Kacheln hoch (keine 1er-Stuecke) und Brustwehr-Stuecke mindestens 2 lang
   const kurz = []; let lauf = 0, typ = null;
-  for (let y = y0; y <= y1 + 1; y++) { const t = y <= y1 && ch(xa, y) === 'o' ? 'o' : '.'; if (t === typ) lauf++; else { if (typ && lauf < 2) kurz.push(typ + lauf); typ = t; lauf = 1; } }
+  for (let y = y0; y <= y1 + 1; y++) { const t = y <= y1 && ch(xa, y) === 'H' ? 'o' : '.'; if (t === typ) lauf++; else { if (typ && lauf < 2) kurz.push(typ + lauf); typ = t; lauf = 1; } }
   ok(kurz.length === 0, 'Brustwehr-Stuecke und Luecken nie kuerzer als 2 Kacheln' + (kurz.length ? ' (' + kurz.join(',') + ')' : ''));
   const endeN = walk(xa + 1, y0 - 1), endeS = walk(xa + 1, y1 + 1);
   ok(endeN && endeS, 'beide Enden des Grabens offen (Sohle von Norden und Sueden betretbar)');
@@ -147,7 +147,7 @@ section('Graben: Sohle, Brustwehr o, Luecken und Enden', () => {
   const keine = bfs([[ab.x, ab.y]], (x, y) => sperr(new Set([...endeS_, ...luckS]))(x, y) && x < xb + 1);
   ok(ziele.every((a) => !hat(keine, a.x, a.y)), 'Gegenprobe: ohne Luecken und Enden kommt man nicht in den Graben (Brustwehr ist fest, kein Hineinspringen)');
   // Halbdeckung o: low, keine Sichtsperre
-  ok(K.legende.o.low && !K.legende.o.sperrtSicht && K.legende.o.cover === 1, 'o = Halbdeckung (low, sperrt keine Sicht): Ducken moeglich');
+  ok(K.legende.H.low && !K.legende.H.sperrtSicht && K.legende.H.cover === 1, 'H (Brustwehr) = Halbdeckung (low, sperrt keine Sicht): Ducken moeglich');
 });
 
 section('Wall, Palisade und erhoehte Posten', () => {
@@ -201,8 +201,9 @@ section('Wald: Weg und Durchkommen abseits des Wegs (BFS)', () => {
   let nicht2 = 0; for (let y = 1; y < wd.length - 1; y++) for (let x = 0; x < wd[0].length; x++) if (f(x, y)) { const q = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => f(x + dx, y + dy) && f(x + dx + 1, y + dy) && f(x + dx, y + dy + 1) && f(x + dx + 1, y + dy + 1)); if (!q) nicht2++; }
   ok(nicht2 === 0, 'jede Baumkachel liegt in einem 2x2-Quadrat (Muster nie kleiner als 2x2)');
   // Boden ruhig: Wegkacheln und Wiesen-Boden2 (,) in Flecken >= 2x2
-  let fl1 = 0; for (let y = 1; y < K.h - 1; y++) for (let x = 1; x < K.w - 1; x++) if (ch(x, y) === ',') { const q = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => ch(x + dx, y + dy) === ',' && ch(x + dx + 1, y + dy) === ',' && ch(x + dx, y + dy + 1) === ',' && ch(x + dx + 1, y + dy + 1) === ','); if (!q) fl1++; }
-  ok(fl1 === 0, `Boden ruhig: jede Kachel ',' liegt in einem 2x2-Fleck (${fl1} Ausnahmen)`);
+  // (VOX-01 5a: die Grabensohle ; ist ein eigener Belag und gilt für sich, ebenso ,)
+  let fl1 = 0; for (const c of [',', ';']) for (let y = 1; y < K.h - 1; y++) for (let x = 1; x < K.w - 1; x++) if (ch(x, y) === c) { const q = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => ch(x + dx, y + dy) === c && ch(x + dx + 1, y + dy) === c && ch(x + dx, y + dy + 1) === c && ch(x + dx + 1, y + dy + 1) === c); if (!q) fl1++; }
+  ok(fl1 === 0, `Boden ruhig: jede Kachel , und ; liegt in einem 2x2-Fleck gleicher Art (${fl1} Ausnahmen)`);
 });
 
 section('Eingangsbereich, Ziel und Gruppen fuer die Wellen', () => {

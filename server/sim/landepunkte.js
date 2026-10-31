@@ -98,7 +98,8 @@ function siedlungWelt() {
 }
 // Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch
 function festBauen(lpId, e, gv) {
-  const roh = GenFest.karteRoh(festkarte(gv.fest), { id: lpId, bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', seed: e.seed | 0, abschnitte: gv.abschnitte });
+  const def = festkarte(gv.fest);
+  const roh = GenFest.karteRoh(def, { id: lpId, bauweise: def.bauweise || e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', seed: e.seed | 0, abschnitte: gv.abschnitte });
   const r = Buehne.ausRaster(roh, { spiel: true });
   if (!r.pruefung.ok) {
     const err = new Error(`Feste Karte ${gv.fest} (${lpId}): Prüfer ${r.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')}`);

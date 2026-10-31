@@ -220,6 +220,26 @@
     },
     "abgrund": {
       "leer": true
+    },
+    "baum": {
+      "id": "natur/nadelbaum",
+      "nadel": "natur/nadelbaum",
+      "laub": "natur/laubbaum",
+      "nadelAnteil": 0.6,
+      "seeds": 12,
+      "hinweis": "VOX-01 5a: Baum volksneutral (Nadel 60 %, Laub 40 %, 12 Gestalten); Stamm und Krone setzt kit.js getrennt (Kronen-Zellen 3x3).",
+      "palette": "sommer_wald"
+    },
+    "brustwehr": {
+      "id": "kit/rom_feld/brustwehr",
+      "hinweis": "VOX-01 5a: Feldteil mit eigener Palette (Brustwehr kommt in dieser Bauweise bisher auf keiner Karte vor)",
+      "palette": "sommer_wald"
+    },
+    "grabensohle": {
+      "id": "kit/rom_feld/boden",
+      "belag": 0,
+      "hinweis": "VOX-01 5a: Feldteil mit eigener Palette",
+      "palette": "sommer_wald"
     }
   },
   "anker": {

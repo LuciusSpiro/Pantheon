@@ -40,11 +40,8 @@ ok(Object.keys(kj.zeichen).length === new Set(Object.keys(kj.zeichen)).size && !
 console.log('\n[Rückfalldarstellung: Voxel (kit.js) und 2D (render.js)]');
 {
   const kit = fs.readFileSync(path.join(ROOT, 'public/js/voxel/kit.js'), 'utf8');
-  const m = /const RUECKFALL_KIND = \{([^}]*)\}/.exec(kit);
-  const tab = {};
-  if (m) for (const e of m[1].split(',')) { const q = /(\w+):\s*'(\w+)'/.exec(e); if (q) tab[q[1]] = q[2]; }
-  ok(tab.baum === 'fels' && tab.brustwehr === 'deckung_halb' && tab.grabensohle === 'boden2' && Object.keys(tab).length === 3, 'kit.js RUECKFALL_KIND: baum->fels, brustwehr->deckung_halb, grabensohle->boden2');
-  ok(/const info = |const kd = |kind: RUECKFALL_KIND\[z\.kind\] \|\| z\.kind/.test(kit) && kit.includes('kind: RUECKFALL_KIND[z.kind] || z.kind'), 'kit.js: info() wendet die Ersetzung an (einzige Stelle, alle kindAt-Aufrufer sehen die Rückfall-Art)');
+  // 5a: die Rückfalltabelle RUECKFALL_KIND ist weg, baum/brustwehr/grabensohle haben eigene Kit-Teile (Zuordnung: tools/test-vox01-kit.js)
+  ok(!kit.includes('RUECKFALL_KIND'), 'kit.js: keine Rückfall-Ersetzung der Kachelart mehr (baum, brustwehr, grabensohle bleiben eigene Arten)');
   ok(/Y: \['baum'\], H: \['brustwehr'\], ';': \['grabensohle'\]/.test(kit), 'kit.js KACHELN_FB kennt Y, H, ;');
   const rd = fs.readFileSync(path.join(ROOT, 'public/js/render.js'), 'utf8');
   const fb = (ch) => { const q = new RegExp("'" + ch.replace(/[;]/g, '\\$&') + "': \\[([^\\]]*)\\]").exec(rd.slice(rd.indexOf('const KACHELN_FB'))); return q ? q[1].split(',').map((s) => s.trim()) : null; };

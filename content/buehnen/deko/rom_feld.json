@@ -1,0 +1,6 @@
+{
+  "format": "deko/1",
+  "id": "rom_feld",
+  "hinweis": "VOX-01 5a: noch keine Streuung (die Grabenkarte hat keine Plätze). Datei vorhanden, damit der Client keinen 404 erzeugt.",
+  "regeln": {}
+}

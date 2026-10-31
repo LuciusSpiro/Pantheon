@@ -8,6 +8,10 @@
     "rom": {
       "status": "aktiv"
     },
+    "rom_feld": {
+      "status": "aktiv",
+      "hinweis": "VOX-01 5a: Rom im Feld (Grabenangriff); Variante von rom, bauweisen/rom_feld.json"
+    },
     "vorlaeufer": {
       "status": "spaeter"
     },

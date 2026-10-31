@@ -49,9 +49,9 @@ const boden2Erlaubt = (art, platzId) => art === 'aussenposten' && RAUMTYPEN.auss
 const ZELLE = 8;
 // begehbare Untergründe, auf denen Deko liegen darf (Weg ',' / Pad / Rampe / Plateau-Kante nie)
 const DEKO_BODEN = { boden: 1, gelaende: 1, plateau: 1 };
-const WEG = { boden2: 1, pad: 1, rampe: 1 };
+const WEG = { boden2: 1, pad: 1, rampe: 1, grabensohle: 1 };   // VOX-01: grabensohle wie boden2 (Weg)
 const TUER = { tuer: 1, schott: 1, tor: 1, luke: 1, wand_schwach: 1 };
-const WANDNAH = { wand: 1, zaun: 1, fels: 1, gitter: 1, fenster: 1, pfeiler: 1, kante: 1 };
+const WANDNAH = { wand: 1, zaun: 1, fels: 1, baum: 1, gitter: 1, fenster: 1, pfeiler: 1, kante: 1 };   // VOX-01: baum wie fels
 
 function fnv(str, h) {
   h = h == null ? 0x811c9dc5 : h;

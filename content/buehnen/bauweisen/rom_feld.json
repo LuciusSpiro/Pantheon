@@ -1,0 +1,328 @@
+{
+  "format": "bauweise/1",
+  "id": "rom_feld",
+  "hinweis": "VOX-01 5a. Rom im Feld (Grabenangriff, Wald, Wall): Kopie von rom.json, abweichend nur plateau (Wall-Rasen), kante (Wallkante), rampe (bringt die Steigung selbst mit), baum, brustwehr, grabensohle, Palette sommer_wald und Stimmung. Pflege: Änderungen an rom.json hier nachziehen (Kopie, wie germanen_halle_holz). Teile kit/rom_feld/* kommen aus dem Voxelwerk (assets/manifest/vox01.json).",
+  "kits": {
+    "boden": {
+      "id": "kit/rom/boden",
+      "belag": 0,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "boden2": {
+      "id": "kit/rom/boden",
+      "belag": 2,
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "plateau": {
+      "id": "kit/rom_feld/boden",
+      "belag": 1,
+      "hoehe": 0.53,
+      "sockel_inset": 0.01,
+      "hinweis": "Wall-Rasen; Plateau-Sockel legt kit.js selbst an (FB.sockel), Anheben 0,53 statt 0,5 gegen Z-Flimmern mit dem Sockel (Modellbauer)"
+    },
+    "rampe": {
+      "id": "kit/rom_feld/rampe",
+      "eigene_hoehe": true,
+      "hoch_zu": [
+        "plateau",
+        "kante"
+      ],
+      "hinweis": "bringt die Steigung (0 bis 0,5 m, hoch = Norden) selbst mit: ohne Anheben, ohne Boden darunter; dreht zum Plateau hin"
+    },
+    "pad": {
+      "id": "kit/rom/boden",
+      "belag": 1
+    },
+    "kante": {
+      "id": "kit/rom_feld/kante",
+      "hinweis": "Wallkante 0,75 m, rundum symmetrisch"
+    },
+    "wand": {
+      "id": "kit/rom/wand",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "wand_schwach": {
+      "id": "kit/rom/wand_schwach",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "zaun": {
+      "id": "kit/rom/zaun",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "gitter": {
+      "id": "kit/rom/gitter",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "tuer": {
+      "id": "kit/rom/tuer",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "tor": {
+      "id": "kit/rom/tor",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "schott": "kit/rom/schott",
+    "luke": {
+      "id": "kit/rom/luke",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "deckung_halb": "kit/rom/deckung_halb",
+    "deckung_voll": "kit/rom/deckung_voll",
+    "pfeiler": {
+      "id": "kit/rom/pfeiler",
+      "je_art": {
+        "aussenposten": {
+          "zustand": 0
+        }
+      }
+    },
+    "dach": "kit/rom/dach",
+    "truemmer": "kit/rom/truemmer",
+    "schutt": {
+      "id": "kit/rom/deckung_voll",
+      "zustand": 2
+    },
+    "gelaende": {
+      "terrain": true,
+      "hinweis": "Außenposten: Gelände außerhalb der Mauer in warmem Travertin (ORT-01, 6D: top stone, Sprenkel steinDichte 0,05 statt 0,1); Ruine und übrige Arten unverändert (Rückfall soil)",
+      "je_art": {
+        "aussenposten": {
+          "top": "stone",
+          "fill": "soil_dark",
+          "steinDichte": 0.05
+        }
+      }
+    },
+    "grabensohle": {
+      "id": "kit/rom_feld/boden",
+      "belag": 0,
+      "hinweis": "Grabensohle zwischen den Brustwehr-Reihen"
+    },
+    "brustwehr": {
+      "id": "kit/rom_feld/brustwehr",
+      "hinweis": "conn absolut (N1 O2 S4 W8), nicht drehen"
+    },
+    "baum": {
+      "id": "natur/nadelbaum",
+      "nadel": "natur/nadelbaum",
+      "laub": "natur/laubbaum",
+      "nadelAnteil": 0.6,
+      "seeds": 12,
+      "hinweis": "VOX-01 5a: Baum volksneutral (Nadel 60 %, Laub 40 %, 12 Gestalten); Stamm und Krone setzt kit.js getrennt (Kronen-Zellen 3x3)."
+    }
+  },
+  "anker": {
+    "terminal": {
+      "station": "ort/rom/gemein/terminal",
+      "aussenposten": "ort/rom/gemein/terminal",
+      "*": "prop/rom/ruine/offiziersschloss"
+    },
+    "raetsel": {
+      "*": "prop/rom/ruine/aquaedukt_verteiler",
+      "innerstes": "prop/rom/ruine/offiziersschloss"
+    },
+    "sprengpunkt": {
+      "station": "ort/rom/station/sprengreaktor",
+      "aussenposten": "ort/rom/aussenposten/zellenbatterie",
+      "*": "prop/rom/ruine/munitionskammer"
+    },
+    "beute": {
+      "station": "ort/rom/gemein/kassenkapsel",
+      "aussenposten": "ort/rom/gemein/kassenkapsel",
+      "*": "prop/rom/ruine/legionskasse"
+    },
+    "fund": {
+      "station": "ort/rom/gemein/kassenkapsel",
+      "aussenposten": "ort/rom/gemein/kassenkapsel",
+      "*": "prop/rom/ruine/legionskasse"
+    },
+    "tor": {
+      "*": "prop/rom/ruine/kassengewoelbe_tor"
+    },
+    "ziel": {
+      "station": "ort/rom/gemein/feldstandarte",
+      "aussenposten": "ort/rom/gemein/feldstandarte",
+      "*": "leit/rom/ruine/fahnenheiligtum"
+    },
+    "abholpunkt": {
+      "station": "ort/rom/gemein/abholbake",
+      "aussenposten": "ort/rom/gemein/abholbake",
+      "*": "prop/germanen/gemein/bake_abholpunkt"
+    },
+    "zelle": {
+      "station": "ort/rom/gemein/zelle",
+      "aussenposten": "ort/rom/gemein/zelle",
+      "*": "prop/rom/ruine/carcer"
+    }
+  },
+  "leit": {
+    "innerstes": {
+      "ruine": "leit/rom/ruine/fahnenheiligtum"
+    },
+    "dorfplatz": {
+      "aussenposten": "leit/rom/aussenposten/statue_platz"
+    },
+    "landeplatz": {
+      "aussenposten": "ort/rom/aussenposten/landeplatz"
+    },
+    "wachturm": {
+      "aussenposten": "ort/rom/aussenposten/sensorturm"
+    }
+  },
+  "leit_fuss": {
+    "ort/rom/aussenposten/landeplatz": [
+      4,
+      4
+    ],
+    "ort/rom/aussenposten/sensorturm": [
+      1,
+      1
+    ],
+    "ort/rom/station/kartentisch": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/leitung": [
+      2,
+      1
+    ],
+    "ort/rom/gemein/zellenarkade": [
+      2,
+      1
+    ],
+    "ort/rom/station/ladebank": [
+      2,
+      1
+    ],
+    "ort/rom/station/koje": [
+      2,
+      1
+    ],
+    "ort/rom/station/messetafel": [
+      3,
+      1
+    ],
+    "ort/rom/station/bank": [
+      2,
+      1
+    ],
+    "ort/rom/station/werkbank": [
+      2,
+      1
+    ],
+    "ort/rom/station/medliege": [
+      2,
+      1
+    ],
+    "ort/rom/station/feldzelle": [
+      1,
+      1
+    ],
+    "leit/rom/ruine/fahnenheiligtum": [
+      2,
+      2
+    ],
+    "leit/rom/aussenposten/statue_platz": [
+      3,
+      3
+    ]
+  },
+  "paletten": {
+    "basis": "sommer_wald",
+    "art": {
+      "aussenposten": "sommer_wald"
+    }
+  },
+  "stimmung": {
+    "aussenposten": "planet_day"
+  },
+  "deckung_props": {
+    "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
+    "aussenposten": {
+      "deckung_halb": [
+        "ort/rom/aussenposten/deckung_kapsel",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
+      ],
+      "deckung_voll": [
+        "ort/rom/aussenposten/deckung_heizer",
+        "ort/rom/aussenposten/deckung_pumpe",
+        "ort/rom/aussenposten/deckung_kapsel"
+      ]
+    }
+  },
+  "weg_boden": {
+    "hinweis": "Außenposten-Siedlung: Wege, Platz und Landefeld (Geländeboden im Sandton)",
+    "top": "sand",
+    "f": 0.92
+  },
+  "boden_varianten": {
+    "hinweis": "TA (Kai 2026-10-14): Bodenton der Siedlung, vom Generator je Welt/Planet nach Seed gewählt (Welt-Datei siedlung.boden bzw. Landepunkt gen.boden; ohne Angabe bleibt alles wie bisher). gelaende = Gelände und Höfe, weg = Straßen, Platz, Landefeld. Rollen sandton/wiese/wald (je mit _hell) stehen in voxel/kit.js (FARB_FB).",
+    "sand": {
+      "gelaende": {
+        "top": "sandton",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "sandton_hell",
+        "f": 1
+      }
+    },
+    "gras": {
+      "gelaende": {
+        "top": "wiese",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "wiese_hell",
+        "f": 1
+      }
+    },
+    "wald": {
+      "gelaende": {
+        "top": "wald",
+        "fill": "soil_dark"
+      },
+      "weg": {
+        "top": "wald_hell",
+        "f": 1
+      }
+    }
+  }
+}
