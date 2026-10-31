@@ -95,7 +95,8 @@ function huellenTreffer(game) {
     n++;
     game.emit('frachtVerloren', { art: l.art });
     if (!sh.docked) { const pod = fracht_abwerfen(game, sh.x - Math.cos(sh.angle) * cfg(game).abwurfAbstand, sh.y - Math.sin(sh.angle) * cfg(game).abwurfAbstand, l.art); if (pod) pod.eigene = true; }
-    game.oda(`${artName(l.art)} hat sich gelöst – der Frachtraum ist ungesichert!`, null);
+    const ortName = (Locations.get(sh.scene) || {}).name;
+    game.oda(`${artName(l.art)} hat sich gelöst – der Frachtraum ist ungesichert!${!sh.docked && ortName ? ` Sie treibt in ${ortName}, dort wieder an Bord beamen.` : ''}`, null);
     game.missionEvent('frachtVerloren', { art: l.art, n: s.lager.length });
   }
   return n;
@@ -278,6 +279,18 @@ function skriptAbliefern(game, art, n) {
   if (k) game.missionEvent('frachtAbgeliefert', { n: k, arten: art ? [art] : [], ort: game.ship.scene, name: null, skript: true });
   return k;
 }
+// SYS-03 C-Nacharbeit: Softlock-Ausweg der Abgabe. Liefert alles ab, was an Bord ist, und schreibt die fehlende Ladung bis `min` gut
+// (die Ladung ist unterwegs verloren gegangen, z. B. Frachtraum zerstört; sonst bliebe die Abgabe unlösbar). Gibt die Anzahl der gutgeschriebenen Ladungen zurück.
+function skriptAbliefernBis(game, art, min) {
+  const s = state(game);
+  skriptAbliefern(game, art, null);
+  const fehlt = Math.max(0, min - abgeliefert(game, art));
+  if (fehlt) {
+    s.abgeliefert[art] = (s.abgeliefert[art] || 0) + fehlt;
+    game.missionEvent('frachtAbgeliefert', { n: fehlt, arten: [art], ort: game.ship.scene, name: null, skript: true });
+  }
+  return fehlt;
+}
 // Ladung direkt an Bord legen (Debug, Tests, Skript); false = Frachtraum voll bzw. unbekannte Art
 function anBordLegen(game, art) {
   const s = state(game); const a = art == null ? cfg(game).artDefault : String(art);
@@ -312,5 +325,5 @@ module.exports = {
   fracht_abwerfen, abwerfen: fracht_abwerfen,
   beamStart, abliefernStart, beamStop, systemTreffer, ablieferOrt, stationOrt,
   anBord, frei, capacity, gesichert, setGesichert, gefaehrdet, huellenTreffer, frachtraumTreffer, lagerArten, draussen, abgeliefert,
-  setAbnehmer, skriptAbliefern, anBordLegen, artOk,
+  setAbnehmer, skriptAbliefern, skriptAbliefernBis, anBordLegen, artOk,
 };

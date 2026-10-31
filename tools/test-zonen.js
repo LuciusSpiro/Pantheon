@@ -217,7 +217,8 @@ section('Gasriese: Druckschaden (Schilde, dann Hülle)', () => {
   const lauf = (r, sek) => {
     const T = setup({ god: false }); const g = T.g; const s = g.ship;
     const pool = () => s.shields.current.reduce((a, b) => a + b, 0);
-    T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.shields.current = s.shields.current.map(() => 2);
+    T.energie({ engines: 2, shields: 2, weapons: 1 }); g.players[0].console = 'weapons'; s.shields.allocIntent = [2, 2, 2, 2]; s.shields.alloc = [2, 2, 2, 2]; s.shields.current = [2, 2, 2, 2];   // SYS-03 C1: Standardschilde 2 je Sektor (Pool 8 = 4 × 2, das Heck trägt den Druck: die Zone liegt hinter dem Schiff), Regeneration eingefroren: gemessen wird nur, was der Zonendruck dem Schild nimmt
+    require('../shared/schilde.js').pause.alleBis(s.shields, 1e9);
     const eng0 = s.systems.engines; let minH = 100; const p0 = pool(); const fire0 = (s.fires || []).length; const hits0 = g.stats.hits;
     const integ = () => { const I = require('../server/sim/interior.js'); return I.SYSTEM_ORDER.reduce((a, k) => a + (I.systemAktiv(g, k) ? I.integOf(g, k) : 0), 0); };
     const i0 = integ();

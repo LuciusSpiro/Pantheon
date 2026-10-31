@@ -360,7 +360,7 @@ section('Lifts und Lafetten: nicht beschädigbar, Auskunft am Waffenplatz', () =
     if (kind === 'lift' || kind === 'ladder' || Maps.ship.solid(t.x, t.y) || Maps.deckOf(t.y) === 1) bad++;
   }
   ok(bad === 0, 'Stufe 3: 24000 Treffer-Orte nie auf Lift, Leiter, Wand oder dem Oberdeck');
-  for (let i = 0; i < 300; i++) { interior.trefferweg(g, i % 4, 1); }   // SYS-01 A1a: Trefferweg statt hitSystems
+  for (let i = 0; i < 300; i++) { interior.trefferweg(g, i % 4); }   // SYS-01 A1a: Trefferweg statt hitSystems
   ok(Object.keys(g.ship.systems).every((s) => interior.SYSTEM_ORDER.includes(s)) && !Object.keys(g.ship.systems).some((s) => /lift|ladder|leiter/.test(s)), 'Lifts und Leiter sind keine Systeme (kein Schaden, keine Reparatur)');
   ok(W.STATIONS.every((s) => !['lift', 'ladder'].includes(Maps.ship.info(s.x, s.y).kind)), 'keine Station auf Lift oder Leiter');
   // E an einer Lafette: Auskunft
@@ -383,8 +383,8 @@ section('Schiffssysteme ohne Lebenserhaltung', () => {
   ok(!Maps.SHIP_ROWS.join('').includes('O') && !('O' in Maps.SHIP_LEGEND), 'Legende und Karte ohne die Lebenserhaltung');
   const snap = g.snapshot().ship;
   ok(!('life' in snap.systems) && !('life' in snap.power) && !('life' in snap.heat), 'Snapshot ohne life');
-  g.ship.o2 = 100; g.ship.breachList = []; T.run(10);
-  ok(g.ship.o2 >= 99.9, 'ohne Lecks: O2 voll');
+  g.ship.breachList = []; const hp0 = g.players[0].hp; T.run(10);
+  ok(!('o2' in g.ship) && !('o2' in g.snapshot().ship) && g.players[0].hp >= hp0, 'SYS-03 E: kein Sauerstoff im Schiff und im Snapshot, kein Erstickungsschaden');
 });
 
 section('Snapshot und Protokoll', () => {

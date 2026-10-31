@@ -155,13 +155,13 @@
       world: { location: 'hafen', locations: LOCS.map(l => Object.assign({}, l, { known: ['hafen', 'splitter', 'b7', 'vaelen', 'wrack', 'nebel', 'kesh'].indexOf(l.id) >= 0, visited: ['hafen', 'splitter', 'b7'].indexOf(l.id) >= 0, unknown: false, map: l.id === 'b7' ? 'platform' : l.id === 'wrack' ? 'wreck' : l.id === 'kesh' ? 'kesh' : null, discoveries: { found: 0, total: (SCENES[l.id].hidden || []).length + 1 } })) },
       ship: {
         scene: 'hafen', docked: true, dockedAt: 'hafen', x: 700, y: 700, angle: 0, vx: 0, vy: 0, speed: 0,
-        integPct: 100, o2: 100, alert: 'normal',   // SYS-01 A1a: keine Hülle mehr
+        integPct: 100, alert: 'normal',   // SYS-01 A1a: keine Hülle mehr
         helm: { turn: 0, thrust: 0, manned: false, stage: 1, autoStop: false },   // M3b: stage = Index in shipClasses.lerche.stages
         power: Object.assign({}, CFG.power.default),
         reactor: { state: 'online', output: 8, used: 8, overloadLeft: 0, switches: { A: false, B: false }, restartProgress: 0 },
         heat: { engines: 0, shields: 0, weapons: 0 },
         mod: [['f', 1, 1, 1], ['k', 2, 1, 1]],   // PAN-01 A: Bordmodule [code, raum, an, läuft]
-        shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 3), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector], burst: null, burstCd: 0 },
+        shields: { pool: 2 * ((CFG.shields && CFG.shields.pointsPerPower) || 4), alloc: CFG.shields.default.slice(), current: CFG.shields.default.slice(), cap: [CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector, CFG.shields.maxPerSector], burst: null, burstCd: 0 },
         escalate: {},   // M3b §4: { [sys]: Restsekunden }
         systems: Object.fromEntries(((window.Shared_Protocol && Shared_Protocol.SYSTEMS) || ['reactor', 'engines', 'shields', 'weapons', 'transfer']).map(s => [s, 'ok'])),
         // M3a (CONTRACT-M3 §9.3)
@@ -729,6 +729,7 @@
   function m3Hit(sector, dmg, heavy) {
     const s = W.ship, sh = s.shields;
     const S = sh.current[sector];
+    Shared_Schilde.pause.treffer(sh, sector, W.time, CFG);
     const take = Math.min(S, dmg); sh.current[sector] -= take; const rest = dmg - take;
     if (rest > 0) { setbackSector(sector); hitSystems(sector, 'damaged'); }
     ev('hit', { sector, shield: take > 0 && rest <= 0, dmg: rest > 0 ? rest : dmg, absorbed: take, heavy: !!heavy });
@@ -786,7 +787,7 @@
     s.turnCap = { port: capOf('thruster_port'), stbd: capOf('thruster_stbd') };
     // (M3b: Drehen + Fahrt laufen im Schiffs-Tick über Flight.stepBody)
     // Schild-Kappung über Emitter (M3b: kein Schildstoß mehr)
-    sh.cap = EMITTERS.map(e => sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 2 : 4);
+    sh.cap = EMITTERS.map(e => Math.floor(CFG.shields.maxPerSector * (sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 0.5 : 1)));   // wie server/sim/space.js shieldCaps (emitterCap), Kappe aus der Config (SYS-03 C1: 8)
     for (let i = 0; i < 4; i++) sh.current[i] = Math.min(sh.current[i], sh.cap[i]);
     sh.burst = null; sh.burstCd = 0;
     // M3b §4: Eskalation – beschädigt/zerstört im Kampf, niemand arbeitet daran -> nach 20 s Feuer neben der Station
@@ -1023,7 +1024,7 @@
         const v = s.power[m.sys] + m.delta;
         if (v < 0 || v > 4) return notice('Grenze erreicht');
         if (m.delta > 0 && used >= s.reactor.output) return notice('Reaktor ausgelastet');
-        s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 3);
+        s.power[m.sys] = v; s.shields.pool = s.power.shields * ((CFG.shields && CFG.shields.pointsPerPower) || 4);
         break;
       }
       case 'technik.shield': {
@@ -1279,8 +1280,13 @@
     }
     r.used = Object.values(s.power).reduce((x, y) => x + y, 0) + (s.mod || []).filter((q) => q[3]).length;
     // Schilde
-    W._shieldT += dt;
-    if (W._shieldT >= 4) { W._shieldT = 0; for (let i = 0; i < 4; i++) s.shields.current[i] += Math.sign(s.shields.alloc[i] - s.shields.current[i]); }
+    // SYS-03 C1: Regeneration je Sektor mit Pause nach einem Treffer auf diesen Sektor (Shared_Schilde.pause, wie der Server)
+    if (!Array.isArray(W._shieldT)) W._shieldT = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      if (s.shields.current[i] === s.shields.alloc[i] || !Shared_Schilde.pause.darfRegenerieren(s.shields, i, W.time)) { W._shieldT[i] = 0; continue; }
+      W._shieldT[i] += dt;
+      if (W._shieldT[i] >= CFG.shields.regenInterval) { W._shieldT[i] = 0; s.shields.current[i] += Math.sign(s.shields.alloc[i] - s.shields.current[i]); }
+    }
     // Gegner
     for (const e of sp.enemies) {
       e._regen += dt;
@@ -1328,6 +1334,7 @@
       if (Math.hypot(pr.x - s.x, pr.y - s.y) < 40) {
         const sec = Phys.sectorOf(s.x, s.y, s.angle, pr.x, pr.y);
         const shield = s.shields.current[sec] > 0;
+        Shared_Schilde.pause.treffer(s.shields, sec, W.time, CFG);
         if (shield) s.shields.current[sec]--; else s.integPct = Math.max(0, (s.integPct != null ? s.integPct : 100) - 5);
         ev('hit', { sector: sec, shield, dmg: 1 });
         sp.projectiles.splice(sp.projectiles.indexOf(pr), 1);

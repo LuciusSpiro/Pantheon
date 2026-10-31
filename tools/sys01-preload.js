@@ -5,6 +5,7 @@
 //   kind, t0 (Spawn, Spielzeit), tDmg (erster Schaden am Gegner, s nach Spawn), tKill (Tod, s nach Spawn; null = nicht zerstört/Zeitlimit),
 //   tHitL (erster Treffer auf die Lerche), tSh0 (s NACH dem ersten Treffer, bis ein Lerche-Schildsegment, das beim ersten Treffer > 0 war, 0 erreicht), tSys (s nach dem ersten Treffer bis zum ersten Systemschaden),
 //   crew (verbundene Spieler), integL (Integritätsverlust der Lerche im Fenster Spawn..Tod).
+require('./tune-preload.js');   // SYS-03 D: TUNE='{"pfad": wert}' wirkt auch in den Kindprozessen von sys01-lauf.js (Balancing-Läufe ohne Dateiänderung)
 const { Game } = require('../server/game.js');
 // SYS-01 B1: Hüllenzähler gibt es nicht mehr. Lerche = Summe der Systemintegrität (aktive Systeme, interior.integOf).
 const INT = require('../server/sim/interior.js');
@@ -38,6 +39,9 @@ Game.prototype.step = function (...a) {
         if (rec.tZone == null && zoneOffen(e)) rec.tZone = t - rec.t0;   // erste Zone ohne lebendes System: Mitte offen
         if (rec.tRt == null && e.rt && e.rt.n > 0) rec.tRt = t - rec.t0;   // Reaktor zerstört (Todesurteil, Countdown startet); Abnahme 13 misst Spawn → hier
         if (rec.tDmg == null && (e.hp < e.hpMax - 1e-6 || (e.shields || []).some((v, i) => v < (e.shieldsMax || [])[i] - 1e-6))) rec.tDmg = t - rec.t0;
+        // SYS-03 C2 (Gegner-Seite): ab dem ersten Schaden am Gegner: s bis ein Schildsegment (das zu Beginn > 0 war) auf 0 fällt (tSh0G), bis zum ersten Systemschaden des Gegners (tSysG)
+        if (rec.tDmg != null && rec.tSh0G == null && (e.shields || []).some((v, i) => (e.shieldsMax || [])[i] > 0 && v < 0.05)) rec.tSh0G = t - rec.t0 - rec.tDmg;
+        if (rec.tDmg != null && rec.tSysG == null && e.sys && Object.keys(e.sys).some((id) => e.sys[id].z !== 'ok')) rec.tSysG = t - rec.t0 - rec.tDmg;
         if (rec.tHitL != null && rec.shHit == null) rec.shHit = (ship.shields.current || []).map((v) => v > 0.05);   // Schild-Stand beim ersten Treffer (Bot-Umverteilung vorher zählt nicht)
         if (rec.shHit && rec.tSh0 == null && (ship.shields.current || []).some((v, i) => rec.shHit[i] && v < 0.05)) rec.tSh0 = t - rec.t0 - rec.tHitL;   // s NACH dem ersten Treffer
         if (rec.tHitL != null && rec.tSys == null && Object.keys(ship.systems).some((k) => rec.sys0[k] === 'ok' && ship.systems[k] !== 'ok')) rec.tSys = t - rec.t0 - rec.tHitL;   // s nach dem ersten Treffer
@@ -66,7 +70,7 @@ process.on('exit', () => {
   const r1 = (v) => (v == null ? null : Math.round(v * 10) / 10);
   for (const rec of track.values()) {
     console.log('SYS01 ' + JSON.stringify({ kind: rec.kind, crew: rec.crew, hpMax: rec.hpMax, sh: rec.shMax, t0: r1(rec.t0), tDmg: r1(rec.tDmg), tKill: r1(rec.tKill), tRt: r1(rec.tRt), tZone: r1(rec.tZone), tEnd: r1(rec.tEnd),
-      gefecht: rec.tKill != null && rec.tDmg != null ? r1(rec.tKill - rec.tDmg) : null, tHitL: r1(rec.tHitL), tSh0: r1(rec.tSh0), tSys: r1(rec.tSys), integL: r1(rec.hull0 - (rec.hullEnd != null ? rec.hullEnd : rec.hull0)) }));
+      gefecht: rec.tKill != null && rec.tDmg != null ? r1(rec.tKill - rec.tDmg) : null, tHitL: r1(rec.tHitL), tSh0: r1(rec.tSh0), tSys: r1(rec.tSys), tSh0G: r1(rec.tSh0G), tSysG: r1(rec.tSysG), integL: r1(rec.hull0 - (rec.hullEnd != null ? rec.hullEnd : rec.hull0)) }));
   }
   for (const g of spiele) console.log('SYS01L ' + JSON.stringify({ crew: g.players.filter((p) => p.connected).length, reaktorAusfaelle: ausfall.get(g) || 0, notsprung: (g.simStats && g.simStats.reaktorNotsprung) || 0, notfaelle: (g.stats && g.stats.emergencies) || 0 }));
 });

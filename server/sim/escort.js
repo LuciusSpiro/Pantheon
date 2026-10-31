@@ -10,13 +10,13 @@
 //   Liegt die Lerche dazwischen und hält ihr Schild zur Schussseite ≥ 1, fängt sie die Ladung (Breitseite als Schild).
 //   Hülle 0 -> kampfunfähig (treibt, Wrack), nie gelöscht. Kein Eigenbeschuss, nur ein Funk-Rüffel.
 //
-// SYS-01 C2b: VERBÜNDETE (ally) haben das Systemmodell ihrer Klasse (Budget flotte.hull, hp = Σ der Integrität). crewDamage bleibt der Schadensfaktor;
-//   "keine Crew-Skalierung" betrifft nur das Budget.
+// SYS-01 C2b: VERBÜNDETE (ally) haben das Systemmodell ihrer Klasse (Budget flotte.hull, hp = Σ der Integrität). SYS-03 B2: der Systemtreffer ist eine Stufe
+//   ohne Schadenszahl; hullPerDamage × crewDamage gilt nur noch für Schützlinge ohne Modell.
 // SYS-02b (Kai 2026-10-28: Verbündete sollen genauso sein wie Gegner, nur als Verbündete): Verbündete = Gegner auf der anderen Seite.
 //   - SCHILDE: die Schildsegmente ihrer Klasse (Schilde.layout, es.shields/shieldsMax), Regeneration und Obergrenzen über Emitter/Schildgenerator wie bei Gegnern
-//     (Gsys.schildTick in allySysTick), der Sturm unterdrückt sie (es.regenHold). Treffer laufen über space.damageEnemy (allyTreffer): dasselbe Segment (Schilde.segmentOf), derselbe
+//     (Gsys.schildTick in allySysTick), Regenerationspause je Segment nach jedem Treffer, Sturm länger (SYS-03 C2, Schilde.pause). Treffer laufen über space.damageEnemy (allyTreffer): dasselbe Segment (Schilde.segmentOf), derselbe
 //     Schildweg ohne Überlauf, dieselbe Zone, derselbe Systemtreffer. Treffer ohne Quelle (Brocken, Zone ohne Quelle) treffen eine zufällige Seite (game.rng).
-//   - Der Schaden gegen die SYSTEME ist die alte Hüllen-Umrechnung (Schaden × escorts.hullPerDamage × flotte.crewDamage, opts.skala); die Schilde rechnen in Rohschaden wie bei Gegnern.
+//   - Gegen die SYSTEME gilt seit SYS-03 B2 die Stufenregel wie bei Gegnern (ein Treffer ohne Schildschutz = eine Stufe, keine Schadenszahl, keine Skalierung mit hullPerDamage/crewDamage); die Schilde rechnen in Rohschaden.
 //   - Sturm (Nadeln und Schüsse der Gegner), Torpedo (Lesart B), Sperre/Immunität (nachholen), Reparatursperre, Antrieb (tempoFaktor in stepEscort) und Gegner-Sperrfeuer
 //     (projectileHit) gelten wie bei Gegnern. Waffen: flotte.kiFeuer je Platz (zerstört = kein Schuss, beschädigt = Intervall × taktBeschaedigt).
 //   - Abweichung bewusst: ein Treffer, dessen Zone und Mitte leer sind, tut nichts (wie bei Gegnern; vorher: sofort zerstört). Die Mitte ist leer = Reaktor zerstört = der Countdown läuft.
@@ -205,7 +205,7 @@ function spawn(game, opts) {
     docked: false, spawnT: game.time, ausgang: null,
   };
   if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
-  if (ally) { Gsys.anlegen(es); Gsys.schildAnlegen(game, es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität); SYS-02b: Schildsegmente der Klasse
+  if (ally) { Gsys.anlegen(es); Gsys.schildAnlegen(game, es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität); SYS-02b: Schildsegmente der Klasse; SYS-03 B-Nacharbeit: ein verletzter Verbündeter (huelle < 100) startet mit Stufen statt anteiliger Integrität (setzeAnteil: von hinten nach vorn erst beschädigt, dann zerstört, der Reaktor nur beschädigt; deterministisch)
   if (ally) {   // Kennung auf den Karten: ausdrücklich (flotte_aufstellen volk), sonst CONFIG.kennung.verbuendet (Rom). Snapshot vk nur abweichend
     const K = game.C.kennung || {};
     es.volk = (K.voelker || []).includes(o.volk) ? o.volk : (K.verbuendet || 'rom');
@@ -434,7 +434,7 @@ function hit(game, es, dmg, opts) {
     const cd = ((es.ally ? (game.C.flotte || {}).crewDamage : null) || C.crewDamage || {})[crewN(game)];   // QA-INTEGRATION S2: Härte skaliert mit der Crewgröße (EK4: Verbündete eigene Tafel)
     const skala = C.hullPerDamage * (Number(cd) > 0 ? Number(cd) : 1);
     hull = r1((Number(dmg) || 0) * skala);
-    if (es.ally && Gsys.hat(es) && Gsys.systemeVon(es.kind)) { const v0 = Gsys.summe(es); allyTreffer(game, es, dmg, skala, o); hull = r1(v0 - Gsys.summe(es)); }   // SYS-02b: hullLost = verlorene Integrität (Schilde zählen nicht)
+    if (es.ally && Gsys.hat(es) && Gsys.systemeVon(es.kind)) { const v0 = Gsys.summe(es); allyTreffer(game, es, dmg, o); hull = r1(v0 - Gsys.summe(es)); }   // SYS-02b: hullLost = verlorene Integrität (Schilde zählen nicht)
     else es.hp = Math.max(0, r1(es.hp - hull));
   }
   st.hits++; st.hullLost = r1(st.hullLost + hull);
@@ -469,11 +469,13 @@ function quellenlos(game, es) {
   return { x: es.x + Math.cos(es.angle + rel) * 100, y: es.y + Math.sin(es.angle + rel) * 100 };
 }
 // SYS-01 C2b, SYS-02b: Treffer auf einen Verbündeten mit Systemmodell – DERSELBE Trefferweg wie bei Gegnern (space.damageEnemy): Schildsegment der Seite zur Quelle (o.von), der Schild fängt
-// ab ohne Überlauf, danach Zone und Systemtreffer; Sturm, Torpedo und Minen (pierce) wie dort; Reaktor zerstört = Countdown (gegnertod). dmg = Rohschaden, skala = Umrechnung in Integrität
+// ab ohne Überlauf, danach Zone und Systemtreffer; Sturm, Torpedo und Minen (pierce) wie dort; Reaktor zerstört = Countdown (gegnertod). dmg = Rohschaden (nur für die Schilde)
 // gegen die Systeme. es.hp bleibt die Summe der Integrität.
-function allyTreffer(game, es, dmg, skala, o) {
+// SYS-03 B2: Stufenregel (ein Treffer ohne Schildschutz = eine Stufe, keine Schadenszahl): die Punkt-Skalierung hullPerDamage × crewDamage entfällt für den Systemtreffer. o.druck = Dauerdruck der Zone.
+function allyTreffer(game, es, dmg, o) {
   const von = o && o.von && Number.isFinite(o.von.x) && Number.isFinite(o.von.y) ? o.von : quellenlos(game, es);
-  const d = { skala };
+  const d = {};
+  if (o && o.druck) d.druck = true;
   if (o && o.pierce != null) d.pierce = o.pierce;
   if (o && o.sturm) d.sturm = Katalog.waffe('sturmbatterie').sturm;
   if (o && o.torpedo) { d.torpedo = true; d.huelle = true; d.nurOhneSchild = Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }
@@ -489,7 +491,7 @@ function allySysTick(game, es, dt) {
 }
 // SYS-01 C2b: Neustart der Szene (flotte.neustart): Verbündeter voll, Systeme auf dem Maximum, Countdown aus
 function heile(game, es) {
-  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); if (es.shieldsMax) es.shields = es.shieldsMax.slice(); es.regenHold = 0; es.repSperre = null; } else es.hp = es.hpMax;   // SYS-02b: auch die Schilde voll
+  if (Gsys.hat(es)) { gtod().abbrechen(es); Gsys.setzeAnteil(game, es, 1); if (es.shieldsMax) es.shields = es.shieldsMax.slice(); Schilde.pause.loeschen(es); es.regenT = es.shields ? es.shields.map(() => 0) : 0; es.repSperre = null; } else es.hp = es.hpMax;   // SYS-02b: auch die Schilde voll
 }
 function disable(game, es) {
   if (es.ally) { if (Gsys.hat(es)) gtod().sofort(es); es.hp = 0; flotte().allyLost(game, es); return; }   // EK4: ein Verbündeter wird zerstört (Funkspruch, Kapsel, Weltstand), er treibt nicht

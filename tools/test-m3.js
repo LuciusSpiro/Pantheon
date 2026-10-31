@@ -14,6 +14,9 @@ const { Game } = require('../server/game.js');
 const W = require('../server/world.js');
 const space = require('../server/sim/space.js');
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Budget, Gesamtintegrität)
+const Gsys = require('../server/sim/gegnersystem.js');   // SYS-03 B2: Stufen der Gegnersysteme
+Testhilfe.rohZaehlen();   // SYS-03 B2: Waffenschaden als Rohschaden zählen (gegen Systeme gilt die Stufe)
+const roh = Testhilfe.roh;
 const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Reaktor-Countdown der Gegner
 const interior = require('../server/sim/interior.js');
 const Flight = require('../shared/flight.js');
@@ -145,8 +148,8 @@ section('Snapshot und Startwerte (§9.3, §10, §5.2)', () => {
   const shd = sh.shields || {};
   ok(['pool', 'alloc', 'current', 'cap', 'burst', 'burstCd'].every((k) => k in shd), 'ship.shields: pool, alloc, current, cap, burst, burstCd');
   ok(JSON.stringify(shd.cap) === JSON.stringify([0, 1, 2, 3].map(() => CONFIG.shields.maxPerSector)) && shd.burst == null && shd.burstCd === 0, `Schild-cap [${shd.cap}] (je maxPerSector ${CONFIG.shields.maxPerSector}), kein Stoß, keine Abklingzeit`);
-  // M3b §4: Schildpool 6 bei Energie 2 (pointsPerPower 3), neue Zähler und Eskalations-Feld
-  ok(CONFIG.shields.pointsPerPower === 3 && g.ship.power.shields === 2 && shd.pool === 6 && CONFIG.shields.maxPerSector >= 1, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 3, maxPerSector ${CONFIG.shields.maxPerSector})`);
+  // M3b §4 (SYS-03 D: Pool 12 bei Energie 2, pointsPerPower 6), neue Zähler und Eskalations-Feld
+  ok(CONFIG.shields.pointsPerPower === 6 && g.ship.power.shields === 2 && shd.pool === 12 && CONFIG.shields.maxPerSector >= 1, `M3b: Schildpool ${shd.pool} bei Energie 2 (pointsPerPower 6, maxPerSector ${CONFIG.shields.maxPerSector})`);
   ok(['leakHits', 'escalations', 'repairSetbacks'].every((k) => g.stats[k] === 0), 'M3b: stats leakHits, escalations, repairSetbacks = 0 (overflowHull entfällt)');
   ok(sh.escalate && typeof sh.escalate === 'object' && Object.keys(sh.escalate).length === 0, 'M3b: Snapshot ship.escalate {} ohne Kampf');
   ok(sh.chargePoints === g.ship.power.weapons + 2 && sh.chargePoints === 4, 'chargePoints = Energie Waffen + 2 = 4');
@@ -244,7 +247,7 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
   // Regeneration halb so schnell: Sektor 0 leer, Zeit bis +1 messen
   const regenTime = (st) => {
     // Sektor 1 (alloc 1 bleibt auch beim kleineren Pool erhalten)
-    set('shields', st); g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenT = 0;
+    set('shields', st); g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenT = [0, 0, 0, 0];
     let t = 0; while (g.ship.shields.current[1] === 0 && t < 30) { run(0.1, () => { pin(g); noFire(g); }); t += 0.1; }
     return t;
   };
@@ -294,7 +297,8 @@ section('Wirkung der 12 Kampfsysteme (§4.2)', () => {
     const hp0 = t.hp;
     cmd(0, 'weapons.fire', { mount });
     run(1.2, () => pin(g));
-    ok(near(hp0 - t.hp, M3.mounts[mount].tubesDamaged * M3.mounts[mount].damage, 0.01), `${sys} beschädigt: Salve 2 × 1,5 = ${hp0 - t.hp}`);
+    // SYS-03 B2: ein Treffer ohne Schild = eine Stufe (keine Schadenssumme mehr): gezählt werden die Systemtreffer, einer je Rohr
+    ok((t.sysTreffer || 0) === M3.mounts[mount].tubesDamaged && t.hp < hp0, `${sys} beschädigt: Salve mit ${M3.mounts[mount].tubesDamaged} Rohr(en) = ${t.sysTreffer || 0} Systemtreffer(n), Integrität ${hp0.toFixed(1)} -> ${t.hp.toFixed(1)}`);
     set(sys, 'broken');
     const rBat = rate(mount);
     setCharge(g, mount, 1);
@@ -332,17 +336,17 @@ section('Reparatur: Flicken, Fragil, Werkzeuggürtel (§8.1, §4.3)', () => {
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port') && g.stats.flicks === 2, 'nochmal flicken: beschädigt -> ok, bleibt fragil');
   // Fragil bricht beim nächsten Treffer im Sektor, Treffer im anderen Sektor nicht
   g.time += 20;
-  I.trefferweg(g, 1, 1);
+  I.trefferweg(g, 1);
   ok(g.ship.systems.battery_port === 'ok' && I.isFragile(g, 'battery_port'), 'Treffer in Sektor 1: fragile Bb-Batterie bleibt');
   g.time += 20;
-  I.trefferweg(g, 3, 1);
+  I.trefferweg(g, 3);
   ok(g.ship.systems.battery_port === 'broken' && !I.isFragile(g, 'battery_port'), 'fragil + Treffer in Sektor 3: sofort zerstört, Flag weg');
   // mehrere fragile im Sektor brechen alle, sonst kein weiterer Schaden
   resetSystems(g);
   g.ship.fragile.battery_port = true; g.ship.fragile.emitter_port = true;
   g.time += 20;
   const before = JSON.stringify(g.ship.systems);
-  I.trefferweg(g, 3, 1);
+  I.trefferweg(g, 3);
   const changed = SYS14.filter((s) => g.ship.systems[s] !== 'ok');
   ok(changed.sort().join() === 'battery_port,emitter_port' && !I.isFragile(g, 'emitter_port'), 'alle fragilen Systeme des Sektors brechen, kein weiterer Schaden (' + changed.join() + ')');
   ok(before !== JSON.stringify(g.ship.systems), 'Systeme verändert');
@@ -484,22 +488,22 @@ section('M3b: Schildstoß entfernt (§4)', () => {
   ok(g.errors === 0, 'keine Server-Fehler (' + g.errors + ')');
 });
 
-section('M3b: Schildpool 6 (§4)', () => {
+section('M3b: Schildpool 12 (§4, SYS-03 D)', () => {
   const { g, run, enter, cmd } = arena(1);
   enter(0, 'technik');
   run(0.1, () => { pin(g); noFire(g); });
   const pool = g.snapshot().ship.shields.pool;
-  ok(pool === 6, `Pool bei Energie 2: ${pool} (Soll 6)`);
+  ok(pool === 12, `Pool bei Energie 2: ${pool} (Soll 12)`);
   // alles auf Sektor 0: höchstens maxPerSector, Rest verteilt sich
   // (QA M3b: Startverteilung nutzt jetzt den ganzen Pool [2,2,0,2] – erst leeren, sonst ist nichts frei)
   g.ship.shields.allocIntent = [0, 0, 0, 0]; g.ship.shields.alloc = [0, 0, 0, 0];
-  for (let i = 0; i < 6; i++) cmd(0, 'technik.shield', { sector: 0, delta: 1 });
+  for (let i = 0; i < 9; i++) cmd(0, 'technik.shield', { sector: 0, delta: 1 });
   run(0.1, () => { pin(g); noFire(g); });
   const al = g.ship.shields.alloc;
-  ok(al[0] === Math.min(CONFIG.shields.maxPerSector, pool) && al.reduce((a, b) => a + b, 0) <= 6, `Sektor 0 höchstens ${CONFIG.shields.maxPerSector} (alloc ${al.join('/')}, Summe ≤ 6)`);
+  ok(al[0] === Math.min(CONFIG.shields.maxPerSector, pool) && al.reduce((a, b) => a + b, 0) <= 12, `Sektor 0 höchstens ${CONFIG.shields.maxPerSector} (alloc ${al.join('/')}, Summe ≤ 12)`);
   setPower(g, { shields: 3, weapons: 1 });
   run(0.1, () => { pin(g); noFire(g); });
-  ok(g.snapshot().ship.shields.pool === 9, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 9)`);
+  ok(g.snapshot().ship.shields.pool === 18, `Energie 3: Pool ${g.snapshot().ship.shields.pool} (Soll 18)`);
 });
 
 // SYS-01 A1a: Abschnitt entfernt (Durchlass-Tabelle, Überlauf, Trefferauswahl über hitSystems); neu in tools/test-systemmodell.js
@@ -759,7 +763,9 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   let lanceBeam = null;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
   lanceBeam = g.space.beams.find((b) => b.kind === 'lance');
-  ok(near(999 - e.hp, L.maxDamage, 0.01) && !mountOf(g, 'bow').charging && mountOf(g, 'bow').charge < 0.05, `loslassen: Treffer ${999 - e.hp} (Soll ${L.maxDamage}), Bereitschaft 0`);
+  // SYS-03 B2: die Vollladung zerstört das getroffene System der Mitte (eine Stufe je Treffer gilt für die Teilladung); SYS-03 N1: der Reaktor kostet nur eine Stufe (beschädigt)
+  const zerstoert = Gsys.ids(e).filter((id) => e.sys[id].z !== 'ok');
+  ok(e.sysTreffer === 1 && zerstoert.length === 1 && Gsys.defOf(e.kind, zerstoert[0]).zone === 'mitte' && e.sys[zerstoert[0]].z === (Gsys.artVon(e, zerstoert[0]) === 'reaktor' ? 'damaged' : 'broken') && !mountOf(g, 'bow').charging && mountOf(g, 'bow').charge < 0.05, `loslassen: Vollladung zerstört ein System der Mitte, der Reaktor nur eine Stufe (${zerstoert.join()}), Bereitschaft 0`);
   const ev = events('lance').find((x) => x.state === 'fire');
   ok(ev && ev.power === 1 && ev.hit === e.id && events('sfx').some((x) => x.name === 'lance_fire' && x.power === 1), 'Ereignis lance { fire, power 1, hit id }, sfx lance_fire { power }');
   ok(lanceBeam && !lanceBeam.miss && near(Math.hypot(lanceBeam.x2 - lanceBeam.x1, lanceBeam.y2 - lanceBeam.y1), 400 - 34, 25), 'Strahl lance bis zum Gegner');
@@ -770,13 +776,14 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   run(L.chargeTime / 2 - 1 / 30, tick);   // ein Tick im Befehl schon mitgezählt? nein -> power genau ½
   const pw = mountOf(g, 'bow').power;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
-  ok(near(999 - e.hp, L.minDamage + (L.maxDamage - L.minDamage) * pw, 0.01) && near(pw, 0.5, 0.05), `power ${pw.toFixed(2)}: Schaden ${(999 - e.hp).toFixed(2)} = min + (max − min) × power`);
+  ok(near(roh(e), L.minDamage + (L.maxDamage - L.minDamage) * pw, 0.01) && near(pw, 0.5, 0.05) && e.sysTreffer === 2 && e.hp < 999, `power ${pw.toFixed(2)}: Schaden ${roh(e).toFixed(2)} = min + (max − min) × power (Rohschaden, gegen das System eine Stufe)`);
   // aus dem Stand: weapons.fire bow = power 0 -> Mindestschaden
   Testhilfe.setzeGesamt(e, 999); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.fire', { mount: 'bow' });
-  ok(near(999 - e.hp, L.minDamage, 0.01), `weapons.fire bow aus dem Stand: Mindestschaden ${999 - e.hp}`);
+  ok(near(roh(e), L.minDamage, 0.01) && e.hp < 999, `weapons.fire bow aus dem Stand: Mindestschaden ${roh(e)}`);
   // Treffer = erster Gegner nahe der Linie (seitlich versetzt innerhalb hitRadius + width), ohne Ziel
   Testhilfe.setzeGesamt(e, 999);
+  g.time += 0.5;   // Treffer-Fenster der Systeme abwarten
   const e2 = pinnedEnemy(g, 'raider', sh.x + 250, sh.y + (CONFIG.combat.hitRadius.raider + L.width - 3), Math.PI, { hp: 999 });
   setCharge(g, 'bow', 1);
   cmd(0, 'weapons.target', { id: e.id });   // gewähltes Ziel spielt keine Rolle
@@ -802,7 +809,7 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   ok(pTeil < 1 && dmgTeil > M3.mounts.bow.pierce && Testhilfe.gesamtIntegritaet(e) === 999 && near(16 - schildSumme(), M3.mounts.bow.pierce, 1e-6), `durchschlagend 2 (Teilladung ${pTeil.toFixed(2)}): Schild 4 zählt 2, fängt ${(16 - schildSumme()).toFixed(2)} ab (Schaden ${dmgTeil.toFixed(2)}), kein Überlauf: Integrität ${Testhilfe.gesamtIntegritaet(e)}`);
   e.shields = [2, 2, 2, 2];
   S.damageEnemy(g, e, dmgTeil, e.x + 100, e.y, { pierce: M3.mounts.bow.pierce });
-  ok(near(999 - e.hp, dmgTeil, 1e-6) && schildSumme() === 8, `durchschlagend 2: Schild 2 zählt 0 -> der volle Schaden ${dmgTeil.toFixed(2)} trifft ein System (Integrität −${(999 - e.hp).toFixed(2)}), Schild unberührt`);
+  ok(e.sysTreffer >= 1 && Gsys.ids(e).filter((id) => e.sys[id].z !== 'ok').length === 1 && e.hp < 999 && schildSumme() === 8, `durchschlagend 2: Schild 2 zählt 0 -> der Treffer (Schaden ${dmgTeil.toFixed(2)}) trifft ein System: eine Stufe (Integrität ${e.hp.toFixed(1)}), Schild unberührt`);
   e.keepShields = false;
   // Fehlschuss ins Leere: Strahl bis range, kind lance, miss
   e.pin.y = sh.y + 300; run(0.05, tick);
@@ -839,7 +846,7 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   const pD = mountOf(g, 'bow').power;
   run(L.chargeTime * 0.6, tick);
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
-  ok(near(pD, 1 / L.damagedTimeFactor, 0.04) && near(999 - e.hp, L.maxDamage * L.damagedMaxFactor, 0.01), `beschädigt: nach 3 s power ${pD.toFixed(2)} (≈ 0,67), voll ${999 - e.hp} (Soll 9)`);
+  ok(near(pD, 1 / L.damagedTimeFactor, 0.04) && near(roh(e), L.maxDamage * L.damagedMaxFactor, 0.01), `beschädigt: nach 3 s power ${pD.toFixed(2)} (≈ 0,67), voll ${roh(e)} (Soll 9)`);
   g.ship.systems.weapon_bow = 'ok';
   // Unbesetzt: Lanze feuert automatisch mit autoPower, wenn ein Gegner in der Linie liegt
   leave(0);
@@ -847,7 +854,7 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   e.pin.y = sh.y + 300; run(0.5, tick);
   ok(e.hp === 999 && mountOf(g, 'bow').charge >= 1, 'unbesetzt, kein Gegner in der Linie: kein Schuss');
   e.pin.y = sh.y; run(0.2, tick);
-  ok(near(999 - e.hp, L.minDamage + (L.maxDamage - L.minDamage) * L.autoPower, 0.01), `unbesetzt: automatisch mit power 0,5 -> ${999 - e.hp}`);
+  ok(near(roh(e), L.minDamage + (L.maxDamage - L.minDamage) * L.autoPower, 0.01), `unbesetzt: automatisch mit power 0,5 -> ${roh(e)}`);
   // Snapshot-Auszug (für den Bericht)
   enter(0, 'weapons'); setCharge(g, 'bow', 1);
   cmd(0, 'weapons.charge', { mount: 'bow', on: true }); run(1, tick);
@@ -954,7 +961,7 @@ section('Ladepunkte (§5.2, §5.5)', () => {
   const hp0 = t.hp;
   run(1.5, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); });
   // Abweichung (Studioleitung genehmigt): unbesetzte Taktik = halbe LADEgeschwindigkeit, voller Schaden je Treffer
-  ok(near(hp0 - t.hp, M3.mounts.port.tubes * M3.mounts.port.damage, 0.05), `unbesetzt: Bb-Salve mit vollem Schaden (${(hp0 - t.hp).toFixed(1)} von ${M3.mounts.port.tubes * 1.5})`);
+  ok(near(roh(t), M3.mounts.port.tubes * M3.mounts.port.damage, 0.05), `unbesetzt: Bb-Salve mit vollem Schaden (Rohschaden ${roh(t).toFixed(1)} von ${M3.mounts.port.tubes * 1.5})`);
   setCharge(g, 'port', 0); run(4, () => { pin(g); setCharge(g, 'bow', 0); setCharge(g, 'stbd', 0); Testhilfe.setzeGesamt(t, 999); });
   const rUn = mountOf(g, 'port').charge / 4;
   const zyk = M3.mounts.port.secPerPoint + (require('../shared/schiffskatalog.js').waffe('standardbatterie').nachlauf || 0);   // SYS-01 B1 Nacharbeit: Zyklus = Ladekosten + Nachlauf
@@ -965,7 +972,7 @@ section('Ladepunkte (§5.2, §5.5)', () => {
   const hp1 = f.hp;
   run(0.5, () => { pin(g); setCharge(g, 'port', 0); setCharge(g, 'stbd', 0); });
   const autoDmg = M3.lance.minDamage + (M3.lance.maxDamage - M3.lance.minDamage) * M3.lance.autoPower;
-  ok(near(hp1 - f.hp, autoDmg, 0.01), `unbesetzt: Lanze feuert automatisch mit power 0,5 (${hp1 - f.hp}, Soll ${autoDmg}) – §20.3`);
+  ok(near(roh(f), autoDmg, 0.01), `unbesetzt: Lanze feuert automatisch mit power 0,5 (Rohschaden ${roh(f)}, Soll ${autoDmg}) – §20.3`);
   ok(g.errors === 0, 'keine Server-Fehler');
 });
 
@@ -1004,7 +1011,7 @@ section('Batterien nur auf Befehl, Salve, Sichtbarkeit (§5.4, §20.1, §20.4)',
       if (sb && !(Number.isFinite(sb.x) && Number.isFinite(sb.angle))) inSnaps.set('badfields', 1);
     }
   }
-  ok(near(hp0 - t.hp, M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Schuss auf den nächsten Gegner im Bogen (1 Projektil × ${M3.mounts.stbd.damage} = ${hp0 - t.hp})`);
+  ok(near(roh(t), M3.mounts.stbd.damage, 0.01) && other.hp === 999, `weapons.fire stbd: Schuss auf den nächsten Gegner im Bogen (1 Projektil × ${M3.mounts.stbd.damage} = Rohschaden ${roh(t)})`);
   ok(midSalvo === null && beams === 1, `Schuss sofort im Flug (kein ausstehender Rest, SYS-01 B1; 1 Projektil pbatterie, Rest ${midSalvo})`);
   const counts = [...inSnaps.entries()].filter(([k]) => k !== 'badfields').map(([, v]) => v);
   ok(counts.length === 1 && counts.every((v) => v >= 2) && !inSnaps.has('badfields'), `§20.1: jedes Schussprojektil in ≥ 2 Snapshots (${counts.join('/')}), mit Lage und Winkel`);
@@ -1097,7 +1104,7 @@ section('Flugmodell (§6, M3b §2)', () => {
   // Gegner-HP × 0,8
   const e = S.spawnEnemy(g, 'korvette', {});
   const r = S.spawnEnemy(g, 'relay', {});
-  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.korvette.hp * CONFIG.crewScaling[1].gegnerIntegritaet * require('../server/sim/gegnersystem.js').budgetFaktor('korvette'))) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-Integrität = Hülle × crewScaling.gegnerIntegritaet × budgetFaktor (Korvette solo ${e.hpMax}), Relais unverändert`);
+  ok(e.hpMax === Math.max(1, Math.round(CONFIG.enemies.korvette.hp * Gsys.budgetFaktor('korvette'))) && r.hpMax === CONFIG.enemies.relay.hp, `Gegner-Integrität = Hülle × budgetFaktor, keine Crew-Skalierung (Korvette solo ${e.hpMax}), Relais unverändert`);
 });
 
 // ======================================================================
@@ -1236,21 +1243,23 @@ section('QA: Teiltreffer gehen nicht verloren (damageEnemy)', () => {
   const { g } = arena(1);
   // SYS-01 C1a-1: alte Regel „Hülle 3 HP, Teiltreffer summieren sich bis 0“ -> neue Regel: Teiltreffer summieren sich auf dem getroffenen System (Reaktor in der Mitte,
   // Durchschlag 'zone'); der Gegner stirbt, wenn dessen Integrität 0 erreicht (Gleitkomma-Reste zählen nicht).
-  const hitMitte = (e) => S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' });
+  // SYS-03 B2: Stufenregel – Teiltreffer summieren sich nicht mehr, jeder Treffer ist eine Stufe (Treffer-Fenster zwischen den Treffern abwarten)
+  const hitMitte = (e) => { g.time += CONFIG.systemModell.reaktorFenster_s + 0.1;   // SYS-03 D: der Reaktor hat ein eigenes, längeres Treffer-Fenster
+    S.damageEnemy(g, e, 0.75, e.x - 100, e.y, { durchschlag: 'zone' }); };
   const e = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y, Math.PI, { hp: 300 });
-  Testhilfe.mitteNurReaktor(e); Testhilfe.setzeIntegritaet(e, 'reaktor', 3);
+  Testhilfe.mitteNurReaktor(e); Testhilfe.setzeIntegritaet(e, 'reaktor', Gsys.maxOf(e, 'reaktor'));
   // SYS-01 C1a-2: der zerstörte Reaktor startet den Countdown, der Gegner stirbt erst, wenn er abläuft (ablaufen: Gegnertod.tick bis 0)
   const ablaufen = (e2) => { if (e2.rt && e2.rt.rest != null && Gegnertod.tick(g, e2, e2.rt.rest)) space.enemyDown(g, e2); };
-  for (let i = 0; i < 4; i++) hitMitte(e);   // 4 × 0,75 = 3 (vorher: 0,8 je Treffer gerundet -> 3,2, aber 0,05er-Fehler je Treffer)
-  ok(g.space.enemies.includes(e) && !!e.rt && e.rt.rest != null, '4 × 0,75 Schaden zerstören den Reaktor mit 3 Punkten Integrität: Countdown läuft, der Gegner lebt');
+  for (let i = 0; i < 2; i++) hitMitte(e);   // zwei Stufen, unabhängig von der Schadenszahl
+  ok(g.space.enemies.includes(e) && !!e.rt && e.rt.rest != null, 'zwei Treffer zerstören den Reaktor (Stufenregel): Countdown läuft, der Gegner lebt');
   ablaufen(e);
   ok(!g.space.enemies.includes(e), 'Countdown abgelaufen: der Gegner stirbt');
   const e2 = pinnedEnemy(g, 'raider', g.ship.x + 300, g.ship.y + 50, Math.PI, { hp: 300 });
-  Testhilfe.mitteNurReaktor(e2); Testhilfe.setzeIntegritaet(e2, 'reaktor', 1);
-  for (let i = 0; i < 3; i++) S.damageEnemy(g, e2, 0.3, e2.x - 100, e2.y, { durchschlag: 'zone' });
-  ok(g.space.enemies.includes(e2) && Math.abs(e2.sys.reaktor.i - 0.1) < 1e-6, `3 × 0,3 Schaden lassen 0,1 Integrität am Reaktor übrig (${e2.sys.reaktor.i.toFixed(3)})`);
-  S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
-  ok(g.space.enemies.includes(e2) && !!e2.rt && e2.rt.rest != null, 'Gleitkomma-Rest: letzter Teiltreffer 0,1 zerstört den Reaktor, Countdown läuft');
+  Testhilfe.mitteNurReaktor(e2); Testhilfe.setzeIntegritaet(e2, 'reaktor', Gsys.maxOf(e2, 'reaktor'));
+  S.damageEnemy(g, e2, 0.3, e2.x - 100, e2.y, { durchschlag: 'zone' });
+  ok(g.space.enemies.includes(e2) && e2.sys.reaktor.z === 'damaged' && !e2.rt, `ein Treffer (0,3): der Reaktor ist beschädigt (Integrität ${e2.sys.reaktor.i.toFixed(2)}), kein Countdown`);
+  g.time += CONFIG.systemModell.reaktorFenster_s + 0.1; S.damageEnemy(g, e2, 0.1, e2.x - 100, e2.y, { durchschlag: 'zone' });
+  ok(g.space.enemies.includes(e2) && !!e2.rt && e2.rt.rest != null, 'zweiter Treffer (0,1): der Reaktor ist zerstört, Countdown läuft (die Schadenszahl spielt keine Rolle)');
   ablaufen(e2);
   ok(!g.space.enemies.includes(e2), 'Countdown abgelaufen: der Gegner stirbt');
 });

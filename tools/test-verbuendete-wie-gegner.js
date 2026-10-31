@@ -137,8 +137,8 @@ section('Schilde: Regeneration wie bei Gegnern', () => {
   e.shields[1] = 1.5; e.regenT = 0;
   Escort.hit(g, e, 0.2, { sturm: true, von: quelle(e, Math.PI / 2, 200) });
   const sv = e.shields[1];
-  ticks(g, STURM.regenSperre - 0.5);
-  ok(e.shields[1] === sv && sv < 1.5, `Sturm-Treffer sperrt die Regeneration für ${STURM.regenSperre} s (Schild bleibt ${sv})`);
+  ticks(g, CONFIG.systemModell.sturm.regenSperre_s - 0.5);
+  ok(e.shields[1] === sv && sv < 1.5, `Sturm-Treffer sperrt die Regeneration für ${CONFIG.systemModell.sturm.regenSperre_s} s (Schild bleibt ${sv})`);
   ticks(g, R + 1.5);
   ok(e.shields[1] > sv, 'danach regeneriert er wieder');
 });
@@ -171,7 +171,7 @@ section('Trefferweg: Spiegeltest Verbündeter <-> Gegner gleicher Klasse', () =>
         if (es.hp <= 1e-9 || en.hp <= 1e-9) { same = es.hp <= 1e-9 && en.hp <= 1e-9; wo = same ? '' : 'Tod nicht gleichzeitig'; break; }   // Tod: beide zugleich (der Ablauf danach ist je Seite verschieden: allyLost, enemyDown)
         const keys = Object.keys(es.sys);
         same = JSON.stringify(es.shields) === JSON.stringify(en.shields) && keys.every((id) => near(es.sys[id].i, en.sys[id].i, 1e-9) && es.sys[id].z === en.sys[id].z)
-          && near(es.hp, en.hp, 1e-9) && (es.regenHold || 0) === (en.regenHold || 0) && JSON.stringify(es.repSperre || {}) === JSON.stringify(en.repSperre || {})
+          && near(es.hp, en.hp, 1e-9) && es.shields.every((_, i) => Schilde.pause.bis(es, i) === Schilde.pause.bis(en, i)) && JSON.stringify(es.repSperre || {}) === JSON.stringify(en.repSperre || {})
           && JSON.stringify(es.rt || null) === JSON.stringify(en.rt || null);
         if (!same) wo = `Treffer ${k}: Schilde ${JSON.stringify(es.shields)} / ${JSON.stringify(en.shields)}, hp ${es.hp} / ${en.hp}`;
       }
@@ -259,7 +259,7 @@ section('Sturm: Sperre, Faktor, Schaden gegen Schild', () => {
   const sys0 = summe(a);
   for (let i = 0; i < 6; i++) Escort.hit(g, a, 1, { sturm: true, von: q });
   ok(near(a.shields[sec], 3 - 6 * STURM.schildFaktor, 1e-6) && near(summe(a), sys0), `hoher Schild (> ${STURM.niedrig}): 6 Nadeln nehmen je ${STURM.schildFaktor} (Schild ${a.shields[sec]}), kein Systemschaden`);
-  ok(a.regenHold > g.time, 'Sturm setzt die Regenerationssperre');
+  ok(!Schilde.pause.darfRegenerieren(a, sec, g.time), 'Sturm setzt die Regenerationssperre (Segment)');
   // Reparatursperre der Zone
   const zone = Gsys.SEITE_ZONE[1];
   const b = still(g, 'st2', 'kreuzer', 1100, 450); b.gestellt = false;
@@ -271,16 +271,15 @@ section('Sturm: Sperre, Faktor, Schaden gegen Schild', () => {
   ok(b.sys.waffe_stbd1.z === 'broken', 'während der Sperre keine Reparatur');
   ticks(g, 1.5 + CONFIG.systemModell.gegner.reparatur.zerstoertZuBeschaedigt);
   ok(b.sys.waffe_stbd1.z !== 'broken', 'nach der Sperre läuft die Reparatur');
-  // Schild 0: Systemschaden × systemFaktor
+  // Schild 0: Sturm und Standardtreffer sind gleich ein Direkttreffer (SYS-03 B2: eine Stufe, keine Punktfaktoren)
   const c1 = still(g, 'st3', 'korvette', 800, 450), c2 = still(g, 'st4', 'korvette', 1000, 450);
   for (const c of [c1, c2]) { c.shields.fill(0); c.sys.waffe_stbd.i = Gsys.maxOf(c, 'waffe_stbd'); Testhilfe.setzeIntegritaet(c, 'bug', 0); Testhilfe.setzeIntegritaet(c, 'bb', 0); Testhilfe.setzeIntegritaet(c, 'heck', 0); }
   const dd = 0.4;
-  const w0 = (c) => c.sys.waffe_stbd.i + c.sys.emitter_stb.i;
-  const v1 = w0(c1), v2 = w0(c2);
+  const beschaedigt = (c) => Object.keys(c.sys).filter((id) => c.sys[id].z === 'damaged');
   Escort.hit(g, c1, dd, { von: quelle(c1, Math.PI / 2, 200) });
   Escort.hit(g, c2, dd, { sturm: true, von: quelle(c2, Math.PI / 2, 200) });
-  const l1 = v1 - w0(c1), l2 = v2 - w0(c2);
-  ok(near(l1, dd * sk, 1e-6) && near(l2, dd * sk * CONFIG.systemModell.sturm.systemFaktor, 1e-6), `Schild 0: Sturm wirkt gegen das System × systemFaktor ${CONFIG.systemModell.sturm.systemFaktor} (${l2.toFixed(3)} statt ${l1.toFixed(3)})`);
+  const b1 = beschaedigt(c1), b2 = beschaedigt(c2);
+  ok(b1.length === 1 && b2.length === 1 && Gsys.defOf('korvette', b1[0]).zone === 'stb' && Gsys.defOf('korvette', b2[0]).zone === 'stb', `Schild 0: Standardtreffer und Sturm-Treffer machen je EINE Stufe in der Zone Steuerbord (${b1.join()} / ${b2.join()}), unabhängig von der Schadenszahl`);
 });
 
 section('Torpedo: Lesart B, zwei Treffer, Jäger sofort', () => {
@@ -295,7 +294,7 @@ section('Torpedo: Lesart B, zwei Treffer, Jäger sofort', () => {
   Escort.hit(g, es, 1, { torpedo: true, von: q });
   const broken1 = Object.keys(es.sys).filter((id) => es.sys[id].z === 'broken' && id !== 'reaktor');
   ok(broken1.length === 1 && Gsys.defOf('korvette', broken1[0]).zone === 'stb', `Schild 0: das getroffene Zonensystem ist zerstört (${broken1.join(',')})`);
-  ok(es.sys.reaktor.z === 'damaged' && near(es.sys.reaktor.i, re * (1 - CONFIG.systemModell.torpedo.reaktorAnteil)), `schlägt mit ${CONFIG.systemModell.torpedo.reaktorAnteil} × Reaktor auf die Mitte durch: Reaktor beschädigt (${es.sys.reaktor.i.toFixed(1)}/${re.toFixed(1)})`);
+  ok(es.sys.reaktor.z === 'damaged' && near(es.sys.reaktor.i, re * CONFIG.systemModell.reparatur.damaged), `schlägt mit ${CONFIG.systemModell.torpedo.reaktorStufen} Stufe auf die Mitte durch: Reaktor beschädigt (${es.sys.reaktor.i.toFixed(1)}/${re.toFixed(1)})`);
   ok(!es.rt || es.rt.rest == null, 'ein Treffer: noch kein Countdown');
   Escort.hit(g, es, 1, { torpedo: true, von: q });
   ok(es.sys.reaktor.z === 'broken' && es.rt && es.rt.rest > 0, `zweiter Treffer: Reaktor zerstört, Countdown läuft (${es.rt && es.rt.rest} s)`);
@@ -316,9 +315,9 @@ section('Sperre und Immunität (nachholen) gelten für Verbündete', () => {
   const st = es.sys.antrieb; const m = Gsys.maxOf(es, 'antrieb');
   es.shields.fill(0);
   // erster Treffer auf den Antrieb: beschädigt; zweiter innerhalb der Sperre: Integrität sinkt, der Zustand holt erst nach der Sperre nach
-  Gsys.treffenAuf(g, es, 'antrieb', 'heck', m * 0.5, false);
+  Gsys.treffenAuf(g, es, 'antrieb', 'heck', false);   // SYS-03 B2: eine Stufe je Treffer
   ok(st.z === 'damaged', 'Antrieb beschädigt');
-  Gsys.treffenAuf(g, es, 'antrieb', 'heck', m, false);
+  Gsys.treffenAuf(g, es, 'antrieb', 'heck', false);
   ok(st.i === 0 && st.z === 'damaged', `zweiter Treffer innerhalb ${SP} s: Integrität 0, der Zustand bleibt beschädigt (Sperre)`);
   ticks(g, SP + 1);
   ok(st.z === 'broken', `nach der Sperre holt der Zustand nach (${st.z}, allySysTick -> nachholen)`);
@@ -339,13 +338,15 @@ section('Gegner-Sperrfeuer und Sturm auf Verbündete über den Trefferweg', () =
   g.space.projectiles.push(proj('sperrfeuer', 0.5));
   g.step();
   const verl = sys0 - summe(es);
-  ok(near(verl, 0.5 * EF * sk, 1e-6), `bei Schild 0 geht es in ein System der Zone: −${verl.toFixed(3)} (Schaden × escortFactor × Hüllen-Umrechnung ${sk}), nicht mehr als Direktschaden auf die Hülle`);
+  const zoneTreffer = Gsys.zoneVonSegment(g, es, sec);
+  const gewechselt = Object.keys(es.sys).filter((id) => es.sys[id].z !== 'ok');
+  ok(verl > 0 && gewechselt.length === 1 && Gsys.defOf('kreuzer', gewechselt[0]).zone === zoneTreffer && es.sys[gewechselt[0]].z === 'damaged', `bei Schild 0 geht es in ein System der Zone ${zoneTreffer}: eine Stufe (${gewechselt.join()}, −${verl.toFixed(3)}), Sperrfeuer × escortFactor ${EF} wirkt nur auf die Schilde`);
   // Sturm-Nadel des Gegners: gleiche Regel wie gegen die Lerche (Schildfaktor, Sperre)
   es.shields.fill(3);
   const sv = es.shields[sec];
   g.space.projectiles.push(proj('sturm', 1));
   g.step();
-  ok(near(es.shields[sec], sv - STURM.schildFaktor, 1e-6) && es.regenHold > g.time, `Sturm-Nadel auf den Verbündeten: Schild −${STURM.schildFaktor}, Regeneration gesperrt`);
+  ok(near(es.shields[sec], sv - STURM.schildFaktor, 1e-6) && !Schilde.pause.darfRegenerieren(es, sec, g.time), `Sturm-Nadel auf den Verbündeten: Schild −${STURM.schildFaktor}, Regeneration gesperrt`);
   // schwere Ladung (Strahl, escort.updateAttack -> hit): läuft über den Schild
   es.shields.fill(2); const s1 = es.shields[sec];
   Escort.hit(g, es, 3, { heavy: true, von: { x: es.x + Math.cos(es.angle + Math.PI / 2 + 0.5) * 300, y: es.y + Math.sin(es.angle + Math.PI / 2 + 0.5) * 300 } });

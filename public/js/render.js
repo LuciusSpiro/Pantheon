@@ -151,7 +151,7 @@
   const ICON_FALLBACK = {
     reactor: ['R', PAL.amber], engines: ['A', PAL.rust], shields: ['S', PAL.ice], weapons: ['W', PAL.red],
     transfer: ['T', PAL.mint], fire: ['F', PAL.red], breach: ['B', PAL.ice],
-    o2: ['O', PAL.ice], hull: ['H', PAL.panelLight], marks: ['M', PAL.brass], lock: ['X', PAL.grey], arrow: ['>', PAL.warn],
+    marks: ['M', PAL.brass], lock: ['X', PAL.grey], arrow: ['>', PAL.warn],
     // M3a: neue Systeme (Fallback-Buchstaben: D Düse, E Emitter, W Bug-Waffe, B Batterie)
     thruster_port: ['D', PAL.rust], thruster_stbd: ['D', PAL.rust], emitter_bow: ['E', PAL.ice], emitter_stbd: ['E', PAL.ice],
     emitter_aft: ['E', PAL.ice], emitter_port: ['E', PAL.ice], weapon_bow: ['W', PAL.red], battery_port: ['B', PAL.brass], battery_stbd: ['B', PAL.brass],

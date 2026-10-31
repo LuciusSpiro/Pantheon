@@ -24,9 +24,8 @@ const Spielleiter = require('../server/mission/spielleiter.js');
 const Checker = require('../server/mission/checker.js');
 const V = require('../content/kampf/verfolgung-werte.json').werte;
 const Testhilfe = require('./gegner-testhilfe.js');   // SYS-01 C1a-1: Gegner ohne Hülle (Abschuss über den Reaktor, Schild unten)
-// SYS-01 C1a-1: Die Zielschiffe haben kein Hüllenkonto mehr; ein Treffer von 3 (früher ein Hüllenpunkt-Betrag) nähme ein ganzes System (Korvette solo: Antrieb 1,9 von 16). Diese Tests prüfen die
-// Verfolgungs- und Zielsystemregeln (Stufen, Stellen, Verzögerung), nicht die Kalibrierung der Integrität: das Klassenbudget ist hier ×50, damit kein Systemtreffer über die Zone in die Mitte läuft.
-for (const k of Object.keys(CONFIG.crewScaling)) CONFIG.crewScaling[k].gegnerIntegritaet *= 50;   // SYS-01 C2a: vorher spaceM3.enemyHpFactor × 50
+// SYS-01 C1a-1, SYS-03 B2: Die Zielschiffe haben kein Hüllenkonto mehr; ein Treffer ohne Schild ist eine Stufe (keine Schadenszahl, keine Skalierung des Budgets). Diese Tests prüfen die
+// Verfolgungs- und Zielsystemregeln (Stufen, Stellen, Verzögerung); Treffer verteilen sich auf mehrere Zonen und liegen mehr als das Treffer-Fenster auseinander, damit kein Treffer in die Mitte überläuft.
 
 const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
 const DT = 1 / CONFIG.tickHz;
@@ -178,10 +177,10 @@ section('Stellen: Antrieb ausschalten', () => {
   const v0 = vel(e);
   treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb'));
   T.run(0.2);
-  T.run(V.stellen.wert.zeit + 0.5);
-  ok(!Verfolgung.ausgang(g) && e.sys.antrieb.z === 'damaged', 'Antrieb nur beschädigt: noch nicht gestellt');
-  T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
-  ok(Zs.ausgefallen(e, 'antrieb'), 'zweiter Treffer: Antrieb ausgefallen');
+  // SYS-03 B-Nacharbeit: ein GEZIELTER Treffer auf den Antrieb nimmt zwei Stufen (Datenfeld gezielt = zerstoert): sofort beschädigt, nach der Sperre ausgefallen – ohne zweiten Treffer
+  ok(!Verfolgung.ausgang(g) && e.sys.antrieb.z === 'damaged' && Gsys.vorgemerkt(g, e, 'antrieb'), 'gezielter Treffer: der Antrieb ist sofort beschädigt (Tempo × 0,5), die Zerstörung ist vorgemerkt, noch nicht gestellt');
+  T.run(DATEN_SPERRE() + 0.2);
+  ok(Zs.ausgefallen(e, 'antrieb'), 'nach der Sperre (' + DATEN_SPERRE() + ' s): Antrieb ausgefallen (ein gezielter Treffer genügt)');
   platz(g, e.x - Math.cos(e.angle) * 250, e.y - Math.sin(e.angle) * 250, e.angle);
   T.run(3); const v1 = vel(e);
   info(`Tempo des Zielschiffs: ${v0.toFixed(1)} px/s vor dem Treffer, ${v1.toFixed(1)} nach dem Ausfall`);
@@ -225,7 +224,7 @@ section('Sprungladung stören', () => {
   space.damageEnemy(g, e, 4, e.x + Math.cos(e.angle + Math.PI / 2) * 60, e.y + Math.sin(e.angle + Math.PI / 2) * 60, { angriff: true });
   T.run(0.1);
   ok(Math.abs(k.verz - V.sprung.wert.verzoegerungJeTreffer) < 1e-9, `ein Hüllentreffer verzögert die Ladung um ${V.sprung.wert.verzoegerungJeTreffer} s`);
-  for (let i = 0; i < 12; i++) { space.damageEnemy(g, e, 0.5, e.x + Math.cos(e.angle + Math.PI / 2) * 60, e.y + Math.sin(e.angle + Math.PI / 2) * 60, { angriff: true }); T.run(0.1); }
+  for (let i = 0; i < 12; i++) { const w = [Math.PI / 2, -Math.PI / 2, 0][i % 3]; space.damageEnemy(g, e, 0.5, e.x + Math.cos(e.angle + w) * 60, e.y + Math.sin(e.angle + w) * 60, { angriff: true }); T.run(CONFIG.systemModell.trefferFenster_s + 0.05); }
   ok(k.verz === V.sprung.wert.verzoegerungMax, `die Verzögerung ist begrenzt (${V.sprung.wert.verzoegerungMax} s)`);
   const sj0 = e.sprung; const dauer = V.sprung.wert.dauer + k.verz;
   ok(e.sprungDauer === dauer, 'e.sprungDauer = Dauer + Verzögerung (' + dauer + ' s)');
@@ -274,7 +273,7 @@ section('Stellen: Haltezeit, Ausfall am Fluchtpunkt, Erholung nach dem Stellen',
   z.scanned = true; h.ship.target = z.id; Zs.waehle(h, 'antrieb');
   const fp = h.space.verfolgung.fluchtpunkt;
   z.x = fp.x - 60; z.y = fp.y + 60; z.angle = Math.atan2(fp.y - z.y, fp.x - z.x);
-  treffer(h, z, HECK, 0.45 * Gsys.maxOf(z, 'antrieb')); z.sys.antrieb.sp = null; treffer(h, z, HECK, 0.6 * Gsys.maxOf(z, 'antrieb'));   // beide Stufen im selben Tick, noch vor dem Ankunftstest (die Sperre ist hier aufgehoben)
+  treffer(h, z, HECK, 0.45 * Gsys.maxOf(z, 'antrieb')); z.sys.antrieb.sp = null; z.sys.antrieb.tf = null; treffer(h, z, HECK, 0.6 * Gsys.maxOf(z, 'antrieb'));   // beide Stufen im selben Tick, noch vor dem Ankunftstest (Sperre und Treffer-Fenster sind hier aufgehoben)
   platz(h, 300, 300, 0);
   U.run(2);
   ok(Zs.ausgefallen(z, 'antrieb') && z.sprung == null, 'ausgefallener Antrieb im Ankunftsradius: die Sprungladung beginnt nicht');

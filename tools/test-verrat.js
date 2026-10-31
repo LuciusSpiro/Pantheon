@@ -127,7 +127,7 @@ function springe(g, hex) {
 
 section('Daten und Texte', () => {
   neu();
-  ok(VW.anlauf.wert.dauer > 0 && Array.isArray(VW.phasen.wert) && VW.phasen.wert.every((p) => ['vorwarnung', 'kampf'].includes(p)) && VW.huelle_min.wert > 0 && VW.huelle_min.wert <= 1, 'Daten: Anlauf, Phasen, Mindest-Hülle');
+  ok(VW.anlauf.wert.dauer > 0 && Array.isArray(VW.phasen.wert) && VW.phasen.wert.every((p) => ['vorwarnung', 'kampf'].includes(p)) && VW.huelle_min === undefined, 'Daten: Anlauf, Phasen (huelle_min entfällt: der Verrat übernimmt die Stufen 1:1)');
   ok(Q_B && Q_B.fraktion === 'rom' && Q_B.delta < 0 && Math.abs(Q_B.delta) <= RUF.delta_max.wert, 'Ruf-Quelle verrat_beginn: Rom, negativ, unter delta_max (' + (Q_B && Q_B.delta) + ')');
   ok(Q_V && Q_V.fraktion === 'rom' && Q_V.delta < 0 && Math.abs(Q_V.delta) <= RUF.delta_max.wert, 'Ruf-Quelle verrat_flotte_vernichtet: Rom, negativ (' + (Q_V && Q_V.delta) + ')');
   ok(Q_B.folge && 'ger' in Q_B.folge && Q_B.folge.ger === 0 && Q_V.folge && Q_V.folge.ger === 0, 'Folge für andere Fraktionen vorbereitet (Eintrag ger: 0), baut nichts');
@@ -236,9 +236,13 @@ section('Anlauf: Warnung, kostenloser Abbruch', () => {
 
 section('Auslösung: Umschaltung der Szene', () => {
   const t = bereit({ kampf: true }); const g = t.g;
-  // ein Verbündeter angeschlagen: die Quote muss bleiben
-  const A = allies(g); A[0].hp = Math.round(A[0].hpMax * 0.5);
-  const vor = A.map((q) => ({ kind: q.kind, name: q.name, quote: q.hp / q.hpMax, pts: q.simPts, x: q.x, y: q.y }));
+  // SYS-03 B-Nacharbeit: ein Verbündeter angeschlagen (Stufen), ein weiterer mit drei zerstörten Systemen: die Stufen müssen 1:1 bleiben (nicht alle ok bei verminderter Integrität)
+  const G_ = require('../server/sim/gegnersystem.js');
+  const stand = new Map(); const orig = G_.stufenUebernehmen;   // die Stufen des Verbündeten im Augenblick der Umschaltung (er repariert während des Anlaufs weiter)
+  G_.stufenUebernehmen = (game, e, von) => { stand.set(von.name, G_.ids(von).map((id) => von.sys[id].z)); return orig(game, e, von); };
+  const A = allies(g); G_.setzeAnteil(g, A[0], 0.5);
+  if (A[1]) { const zs = G_.ids(A[1]).filter((id) => G_.artVon(A[1], id) !== 'reaktor').slice(0, 3); for (const id of zs) { A[1].sys[id].z = 'broken'; A[1].sys[id].i = 0; } A[1].hp = G_.summe(A[1]); }
+  const vor = A.map((q) => ({ kind: q.kind, name: q.name, pts: q.simPts, x: q.x, y: q.y }));
   const gegnerAlt = g.space.enemies.filter((e) => e.tag === Szene.SZENEN_TAG).length;
   const ruf0 = rom(g); const k0 = kernTicks; const tk0 = g.weltsim.tickZahl; const marks0 = g.inventory.marks;
   ok(gegnerAlt > 0, 'Vorbedingung: Gegner der Szene fliegen schon (' + gegnerAlt + ')');
@@ -251,10 +255,12 @@ section('Auslösung: Umschaltung der Szene', () => {
   for (const v of vor) {
     const e = neue.find((x) => x.name === v.name);
     ok(e && e.kind === v.kind, 'Klasse bleibt (' + v.name + ': ' + v.kind + ')');
-    const sollQuote = Math.min(1, Math.max(VW.huelle_min.wert, v.quote));
-    ok(e && Math.abs(e.hp / e.hpMax - sollQuote) < 0.02, 'Hüllen-Quote bleibt (' + v.name + ': ' + v.quote.toFixed(2) + ' -> ' + (e && (e.hp / e.hpMax).toFixed(2)) + ')');
+    const sv = stand.get(v.name);
+    ok(e && sv && JSON.stringify(G_.ids(e).map((id) => e.sys[id].z)) === JSON.stringify(sv) && Math.abs(e.hp - G_.summe(e)) < 1e-9, 'Systemstufen bleiben 1:1 (' + v.name + ': ' + (sv || []).filter((z) => z === 'broken').length + ' zerstört, ' + (sv || []).filter((z) => z === 'damaged').length + ' beschädigt)');
     ok(e && e.volk === 'rom' && e.ohneBeute === true && e.simPts === v.pts && e.tag === Szene.SZENEN_TAG, 'Kennung rom, ohne Beute, Punktwert bleibt');
   }
+  G_.stufenUebernehmen = orig;
+  ok([...stand.values()].some((s) => s.includes('broken')) && [...stand.values()].some((s) => s.includes('damaged')), 'Vorbedingung: zerstörte und beschädigte Systeme bei den Verbündeten');
   const w = g.flotte.welle;
   ok(w && w.liste.length === 1 && w.i === 0 && neue.every((e) => e.wv === w.id) && !w.fertig, 'eine Welle (1/1) trägt die neuen Gegner');
   const alt = g.space.enemies.filter((e) => e.tag === Szene.SZENEN_TAG && !e.verratS);
@@ -710,11 +716,10 @@ section('Review E: Lücken (Finale, Leser, Zähler, Namen, Beute, Hülle, Zählu
   const u = bereit({ kampf: true, rom: 1 }); const gu = u.g; ok(allies(gu).length === 1, 'Vorbedingung: genau ein Verbündeter');
   verrat(gu); durchspielen(gu, 600);
   ok(letzterTick.wirkungen.some((x) => x.typ === 'ruf_aenderung' && x.grund === 'verrat_flotte_vernichtet'), 'ein einziger Abschuss genügt für den Abzug „vernichtet“');
-  // Mindest-Hülle aus den Daten
-  const hm0 = VW.huelle_min.wert; VW.huelle_min.wert = 0.3;
-  const v = bereit({ kampf: true }); const gv = v.g; const q = allies(gv)[0]; q.hp = Math.max(1, Math.round(q.hpMax * 0.1)); verrat(gv);
-  const e = ex(gv).find((x) => x.name === q.name); VW.huelle_min.wert = hm0;
-  ok(e && Math.abs(e.hp / e.hpMax - 0.3) < 0.02, 'huelle_min kommt aus den Daten (Hülle 10 % -> ' + (e && (e.hp / e.hpMax).toFixed(2)) + ' bei 0,3)');
+  // Stufen 1:1 auch bei schwer angeschlagenem Verbündeten: nie ein Gegner mit lauter ok-Systemen bei verminderter Integrität
+  const v = bereit({ kampf: true }); const gv = v.g; const q = allies(gv)[0]; const G2 = require('../server/sim/gegnersystem.js'); G2.setzeAnteil(gv, q, 0.1); let stufen = null; const orig2 = G2.stufenUebernehmen; G2.stufenUebernehmen = (game, e2, von) => { if (von === q) stufen = G2.ids(von).map((id) => von.sys[id].z); return orig2(game, e2, von); }; verrat(gv); G2.stufenUebernehmen = orig2;
+  const e = ex(gv).find((x) => x.name === q.name);
+  ok(e && stufen && JSON.stringify(G2.ids(e).map((id) => e.sys[id].z)) === JSON.stringify(stufen) && stufen.filter((z) => z === 'broken').length >= 5, 'schwer angeschlagen (Anteil 10 %): dieselben Stufen als Gegner (viele zerstörte Systeme bleiben zerstört, nicht alle ok)');
 });
 
 section('Gleiche Regeln für Ex-Verbündete wie für Gegner', () => {
@@ -729,7 +734,9 @@ section('Gleiche Regeln für Ex-Verbündete wie für Gegner', () => {
   const e1 = ex(g)[0]; const cmp = Space.spawnEnemy(g, e1.kind, { tag: 'vergleich', x: e1.x + 400, y: e1.y + 400 }); Testhilfe.setzeGesamt(cmp, cmp.hpMax); Testhilfe.setzeGesamt(e1, e1.hpMax);
   e1.shields.fill(0); cmp.shields.fill(0);
   Space.damageEnemy(g, e1, 0.5, e1.x - 100, e1.y, {}); Space.damageEnemy(g, cmp, 0.5, cmp.x - 100, cmp.y, {});   // klein genug, dass kein System (zufällige Wahl) davon zerstört wird
-  ok(Math.abs((e1.hpMax - e1.hp) - (cmp.hpMax - cmp.hp)) < 1e-9 && e1.hp < e1.hpMax, 'gleicher Schaden bei gleichem Treffer (' + (e1.hpMax - e1.hp) + ')');
+  // SYS-03 B2: ein Treffer ohne Schild = eine Stufe auf ein zufälliges System der Zone (die Zahl der Integritätspunkte hängt vom gewürfelten System ab): gleich ist die Stufenfolge
+  const stufen = (q) => Object.keys(q.sys).filter((id) => q.sys[id].z !== 'ok').map((id) => q.sys[id].z);
+  ok(stufen(e1).join() === 'damaged' && stufen(cmp).join() === 'damaged' && e1.hp < e1.hpMax && cmp.hp < cmp.hpMax, 'gleicher Treffer: bei Ex-Verbündetem und Gegner genau ein System eine Stufe (beschädigt)');
 });
 
 section('Weiter: Germanen im Verrat, Marken, Lagefunk', () => {

@@ -15,6 +15,7 @@
 // Wellen All (Lobby-Start 'arena_space' mit Szene, arena.js): Raumgegner (space.spawnEnemy), Eskalation nur über Zahl und
 // Typ (planAll, CONFIG.wellen.all). Ende: Notfallprotokoll (Hülle 0). Pause: Gefallene stehen auf, Schilde voll.
 const Physics = require('../../shared/physics.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
 const Station = require('./station.js');   // R1 §4.4
@@ -527,7 +528,7 @@ const ALL = {
     const it = M().interior;
     for (const p of team(game)) if (p.downed && typeof it.revivePlayer === 'function') it.revivePlayer(game, p);
     const sh = game.ship.shields;
-    if (sh && Array.isArray(sh.alloc)) sh.current = sh.alloc.slice();
+    if (sh && Array.isArray(sh.alloc)) { sh.current = sh.alloc.slice(); Schilde.pause.loeschen(sh); }   // SYS-03 C1: voller Schild ohne Pause
   },
   geschafftText: (S, pause) => `Welle ${S.n} geräumt! Schilde geladen – nächste Welle in ${pause} s. Kurz reparieren.`,
   // Ende: Gegner drehen ab und schießen nicht mehr (Ergebnisanzeige ohne weitere Treffer)

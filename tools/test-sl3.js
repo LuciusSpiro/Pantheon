@@ -142,8 +142,16 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
   // (Seeds 2/4/6: 605/206/662 s). Fenster 120–1200 s. Die Szenenabsicht „in der Falle fällt die Lerche zügig“ ist mit dieser Gegnerzahl nicht erfüllt (Szenenentscheidung, siehe Bericht).
   // SYS-02a (Kai: Jäger reparieren nicht): die Auto-Waffen der Lerche zerstören Jäger-Waffen, sie bleiben zerstört; die wehrlose Lerche fällt später. Neu gemessen (20 Seeds, 4000 s Grenze):
   // 545, 631, 1309, 190, 616, 1365, 1202, 947, 834, 167, 368, 1032, 607, 2742, 837, 2679, 514, 557, 684, >4000 s (Seeds 2/4/6: 631/190/1365 s). Fenster 120–3000 s (vorher 120–1200 s, Median 451 s).
-  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster 120–3000 s)');
-  ok(zeiten.every((z) => z >= 120 && z <= 3000), 'Zeiten bis zum Verlust im gemessenen Fenster 120–3000 s (' + zeiten.join(', ') + ' s)');
+  // SYS-03 B1: Direkttreffer = eine Stufe je Treffer ohne Schild: die wehrlose Lerche fällt deutlich früher (B1: Seeds 2/4/6 66,6/91/165,3 s).
+  // SYS-03 B-Nacharbeit: enges Fenster aus 8 gemessenen Seeds (Stand nach der Nacharbeit B1/B2, Seeds 1–8): 90,9 / 64,5 / 68,7 / 104,9 / 120 / 181,8 / 110,1 / 105 s (Seeds 2/4/6: 64,5/104,9/181,8 s),
+  // Min 64,5 s, Max 181,8 s; Fenster = Min − 25 % bis Max + 25 % = 48–228 s. Schilde (Paket C) und Balance (Paket D) verschieben es, der Entwicklungsleiter stellt es dort neu.
+  // SYS-03 C1: Schild Pool 8 mit Regenerationspause je Sektor (kein Nachladen unter Beschuss): die wehrlose Lerche fällt früher. Neu gemessen (Seeds 1–8): 41,5 / 42,2 / 46,9 / 68,2 / 71,7 / 57,8 / 95,9 / 120,2 s
+  // (Seeds 2/4/6: 42,2/68,2/57,8 s), Min 41,5, Max 120,2; Fenster = Min − 25 % bis Max + 25 % = 31–150 s.
+  // SYS-03 D (Pool 12, Reaktor-Fenster 6 s): neu gemessen (Seeds 1–12): 44,6 / 50 / 57,9 / 61,5 / 60,1 / 57,8 / 134,5 / 80 / 80,5 / 41,9 / 60,8 / 107,8 s (Seeds 2/4/6: 50/61,5/57,8 s), Median 60,5, Min 41,9, Max 134,5.
+  // Das Fenster 31–150 s (Min − 25 % bis Max + 25 % der alten Messung) umfasst die neue Messung wieder mit denselben Rändern (41,9 − 25 % = 31, 134,5 + 11 %): die Balance dieser Szene (wehrlose Lerche gegen Kreuzer, 2 Korvetten, 3 Jäger fällt in rund einer Minute) ist durch D nicht verschoben worden, das Fenster bleibt.
+  const FENSTER_VON = 31, FENSTER_BIS = 150;
+  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s)');
+  ok(zeiten.every((z) => z >= FENSTER_VON && z <= FENSTER_BIS), 'Zeiten bis zum Verlust im gemessenen Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s (' + zeiten.join(', ') + ' s)');
 });
 
 section('Kapitel 3 Falle: Verlust durch den Reaktor-Countdown (on.emergency)', () => {

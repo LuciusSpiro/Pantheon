@@ -5,19 +5,20 @@
 //   zuruecksetzen(game, { x?, y?, winkel? })   -> { x, y }
 //   reaktorAus(game)                           Prüfung: Reaktor offline (Notfallsprung, Überlast) oder zerstört
 const Fracht = require('./fracht.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 
 function zuruecksetzen(game, o) {
   const opt = o || {};
   const ship = game.ship; const sp = game.space;
   require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Integrität aller Systeme auf Maximum (keine Hülle mehr)
   for (const k of Object.keys(ship.systems)) ship.systems[k] = 'ok';
-  ship.offline = {}; ship.fragile = {};
+  ship.offline = {}; ship.fragile = {}; ship.trefferT = {};   // SYS-03 D: auch die Treffer-Fenster (Reaktor-Fenster, 6 s) der Systeme
   ship.fireList = []; ship.breachList = [];
   require('./reaktortod.js').zuruecksetzen(game);   // SYS-01 A2a: neu aufgestellte Lerche = Ausfallzähler 0, kein Countdown, nicht zerstört
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'online'; rc.overloadLeft = 0; rc.warned = false; rc.switches = { A: false, B: false }; rc.restartProgress = 0; rc.aloneT = 0; rc.offlineT = 0; rc.needBot = null; }
   const sh = ship.shields;
-  if (sh && Array.isArray(sh.alloc)) sh.current = sh.alloc.slice();
+  if (sh && Array.isArray(sh.alloc)) { sh.current = sh.alloc.slice(); Schilde.pause.loeschen(sh); }   // SYS-03 C1: voller Schild ohne Pause
   sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind === 'ally');
   require('./gegnersprung.js').szeneVerlassen(game);   // SYS-01 C Nacharbeit: Szene von vorn = ohne die Notfallsprung-Regeln der alten Szene
   if (Fracht.state(game).halt) Fracht.beamStop(game, 'szene');

@@ -101,7 +101,7 @@
           ],
           "complete": "erfolg" }
       ],
-      "skip": [{ "do": "fracht_abliefern", "art": "sprengstoff" }]
+      "skip": [{ "do": "fracht_abliefern_bis", "art": "sprengstoff", "min": 2 }]
     }
   ],
 

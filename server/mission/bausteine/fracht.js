@@ -3,6 +3,7 @@
 //   fracht_abwerfen   { art?, x?, y? }      Aktion: Fracht im Raum ablegen (ohne Angabe 160 px vor der Lerche)
 //   fracht_abnehmer   { ort?, name? }       Aktion: Auftraggeber festlegen, bei dem die Ops abliefern darf (ohne ort: jede Station)
 //   fracht_abliefern  { art?, n? }          Aktion: Ladung aus dem Frachtraum sofort übergeben (Skript, z. B. nach einem Gespräch)
+//   fracht_abliefern_bis { art, min }       Aktion: wie abliefern, schreibt die fehlende Ladung bis min gut (Skip-Ausweg, nie unlösbar)
 //   fracht_an_bord    { art?, min? }        Prüfung: mindestens min (Standard 1) Ladungen (der Art) im Frachtraum
 //   fracht_abgeliefert{ art?, min? }        Prüfung: mindestens min (Standard 1) Ladungen (der Art) abgeliefert (seit Partiebeginn)
 // Ereignisse (missionEvent): frachtAbgeworfen { id, art, x, y }, frachtAnBord { art, n, id }, frachtAbgeliefert { n, arten, ort, name }.
@@ -28,6 +29,10 @@ module.exports = (Registry) => {
     beschreibung: 'Ladung aus dem Frachtraum sofort übergeben (Skript statt Ops-Beamen), art/n begrenzen die Auswahl',
     params: { art: { typ: 'string', werte: ARTEN }, n: { typ: 'number', min: 1, max: 4 } },
     run(m, a) { fracht().skriptAbliefern(m.game, a.art || null, a.n != null ? a.n : null); } });
+  Registry.define({ id: 'fracht_abliefern_bis', art: 'aktion', ereignisse: ['frachtAbgeliefert'],
+    beschreibung: 'Skip-Ausweg der Abgabe: Ladung aus dem Frachtraum übergeben und die fehlende Ladung bis min gutschreiben (unterwegs verloren), damit die Abgabe nie unlösbar ist',
+    params: { art: { typ: 'string', pflicht: true, werte: ARTEN }, min: { typ: 'number', pflicht: true, min: 1, max: 99 } },
+    run(m, a) { fracht().skriptAbliefernBis(m.game, a.art, a.min); } });
 
   Registry.define({ id: 'fracht_an_bord', art: 'pruefung', beschreibung: 'Mindestens min Ladungen (der Art) im Frachtraum der Lerche',
     params: { art: { typ: 'string', werte: ARTEN }, min: { typ: 'number', min: 1, max: 4 } },

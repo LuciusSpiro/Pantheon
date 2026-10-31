@@ -59,6 +59,7 @@ for (const spieler of [1, 3]) for (const teile of [4, 0]) {
   console.log('  Ablauf: ' + ablauf(log) + (t1 != null ? ` (ok nach ${(t1 - t0).toFixed(0)} s)` : ''));
   ok(t1 != null && t1 - t0 <= 45, `Triebwerk wieder ok innerhalb von 45 s (${t1 != null ? (t1 - t0).toFixed(0) + ' s' : 'nie'})`);
   const nachOk = log.filter((x) => t1 != null && x.t >= t1);
+  // SYS-03 D: wieder die strenge Fassung (ab dem ersten ok durchgehend leer); mit Pool 12 steht in allen vier Läufen kein Eintrag mehr in der Liste (C1 hatte sie auf „kein Eintrag hängt länger als 30 s“ gelockert, gemessen 0,0 s)
   ok(nachOk.length > 0 && nachOk.every((x) => x.q === 0 || x.q === undefined), 'Reparaturliste nach der Reparatur leer');
   const minTeile = Math.min(...log.filter((x) => x.teile !== undefined).map((x) => x.teile));
   ok(teile === 0 ? minTeile === 0 : minTeile >= teile - 1, `höchstens ein Ersatzteil verbraucht (Bestand + Getragenes min. ${minTeile} von ${teile})`);

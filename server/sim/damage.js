@@ -1,8 +1,10 @@
 'use strict';
 // M3b Schritt A (CONTRACT-M3B §4), SYS-01 A1a: Schild- und Schadenslogik der Lerche.
 //   resolveHit  – ein Treffer auf Sektor `sector`. Schild über 0 fängt ab (min(Schild, Schaden)), der Rest verfällt,
-//                 kein Systemschaden. Ohne Schild (oder durchschlagen) trifft der Rest ein System der Zone
-//                 (interior.trefferweg), Integritätsabzug = Rest × systemModell.schadenFaktor. Feuer nur bei Systemschaden.
+//                 kein Systemschaden. Ohne Schild (oder durchschlagen) trifft der Treffer ein System der Zone
+//                 (interior.trefferweg) und verliert genau EINE Stufe (SYS-03 B1, unabhängig von der Schadenszahl; Treffer-Fenster systemModell.trefferFenster_s,
+//                 Sturm-Treffer sturm.trefferFenster_s). Feuer nur bei Stufenverlust.
+//   direktTreffer – derselbe Systemtreffer ohne Schild für Quellen ohne Schildschutz (Mine, Dauerdruck-Pfad nutzt systemSchaden); stempelt wie resolveHit die Regenerationspause des Sektors (SYS-03 C1).
 //   systemSchaden – ein Systemtreffer in einer Zone (Trefferweg) mit Ereignis, Frachtraum-Verlust und genau einem Rückschlag je Zone.
 //   onSystemHit – Rückschlag für laufende Reparaturen im Bereich des getroffenen Systems (spaceM3b.repairHitLoss).
 //   update      – Eskalation (spaceM3b.escalation) und Reaktor-Autostart im Gefecht (spaceM3b.reactorAutoRestart).
@@ -11,7 +13,9 @@ const W = require('../world.js');
 const interior = require('./interior.js');
 const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
-const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre und Systemfaktor des Sturms
+const Integ = require('./integritaet.js');
+const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre des Sturms
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor (Schilde.pause)
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -31,9 +35,10 @@ function ensureStats(game) { for (const k of STAT_KEYS) if (game.stats[k] == nul
 // Rückgabe: { absorbed, rest, systems: [{system, state, wechsel}], shield: S vor dem Treffer, empThrough }
 function resolveHit(game, sector, dmg, opts) {
   const o = opts || {};
-  const C = game.C; const sh = game.ship.shields; const B = cfg(game); const M = C.systemModell || {};
+  const C = game.C; const sh = game.ship.shields;
   ensureStats(game);
   if (!Number.isInteger(sector) || sector < 0 || sector > 3) sector = 0;
+  if (o.sturm) Schilde.pause.trefferSturm(sh, sector, game.time, C); else Schilde.pause.treffer(sh, sector, game.time, C);   // SYS-03 C1: jeder Treffer auf den Sektor (auch Schild 0, Durchschlag, Torpedo, Sturm) stoppt die Regeneration DIESES Sektors
   dmg = Math.max(0, Number(dmg) || 0);
   // 1. Schild vor dem Treffer; wirksam ist er nach Durchschlag (Schild aus, oder um die Zahl schwächer)
   const s0 = Math.max(0, Number(sh.current[sector]) || 0);
@@ -42,7 +47,7 @@ function resolveHit(game, sector, dmg, opts) {
   else if (Number(o.pierce) > 0) s = Math.max(0, s0 - Number(o.pierce));
   // PAN-01 C: Sturmbatterie (hoher Schild: kaum Schildschaden, der Schild regeneriert nicht) und Streu-Granate (eine = Schildschaden)
   const ST = o.sturm ? Katalog.waffe('sturmbatterie').sturm : null;
-  if (ST) { sh.regenHold = game.time + ST.regenSperre; interior.reparaturSperren(game, sector, Sturm.reparaturSperre(game)); }   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (laufender Fortschritt 0)
+  if (ST) { interior.reparaturSperren(game, sector, Sturm.reparaturSperre(game)); }   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (laufender Fortschritt 0)
   // SYS-02a: Torpedo (Lerche wie Gegner gleiche Regel): bei Schild 0 zerstört er das getroffene System der Zone sicher und schlägt anteilig auf den Reaktor durch
   if (o.torpedo && s <= 0) return torpedoTreffer(game, sector, s0, o);
   if ((ST && s0 > ST.niedrig) || o.streu) {
@@ -57,9 +62,9 @@ function resolveHit(game, sector, dmg, opts) {
   let rest = r1(dmg - absorbed);
   if (rest < 0.05) rest = 0;
   const out = { absorbed, rest: s > 0 ? 0 : rest, systems: [], shield: s0, empThrough: false };   // Schild hält: der Rest verfällt (rest 0)
-  // 3. Sturmbatterie bei niedrigem Schild: Systemchance, kleiner Integritätsschaden (Schild bleibt oben)
+  // 3. Sturmbatterie bei niedrigem Schild: Systemchance, dann eine Stufe auf ein System der Zone (Schild bleibt oben)
   if (ST && s0 > 0 && s0 <= ST.niedrig && game.rng.chance(ST.systemChance)) {
-    const t3 = systemSchaden(game, out, sector, (Number(M.sturmSchaden) || 0) * Sturm.systemFaktor(game));   // SYS-02a: systemFaktor gilt bei niedrigem Schild
+    const t3 = systemSchaden(game, out, sector, { art: Integ.ART_STURM });   // SYS-03 B1: ein Zufallstreffer macht eine Stufe (Sturm-Fenster gilt)
     if (t3 && interior.systemSector(t3.system) !== sector) interior.reparaturSperren(game, interior.systemSector(t3.system), Sturm.reparaturSperre(game));   // SYS-02a Nacharbeit: läuft der Treffer bei leerer Zone in die Mitte über, ist auch sie gesperrt (wie bei den Gegnern, trefferSystem)
     if (out.systems.length) game.stats.leakHits++;
   }
@@ -71,32 +76,49 @@ function resolveHit(game, sector, dmg, opts) {
     if (cand.length) interior.setOffline(game, game.rng.pick(cand), C.emp.offlineTime);
     return out;
   }
-  // 5. Trefferweg: Zone des Sektors, Mitte bei Durchschlag 'zone' oder bei leerer Zone (Integritätsabzug = Rest × Faktor)
+  // 5. Trefferweg: Zone des Sektors, Mitte bei Durchschlag 'zone' oder bei leerer Zone (eine Stufe)
+  systemTrefferOhneSchild(game, out, sector, o);
+  return out;
+}
+// Systemtreffer ohne Schildschutz (SYS-03 B1): eine Stufe auf ein System der Zone (Durchschlag 'zone': Mitte), Feuer bei Stufenverlust.
+// t.wechsel: der Treffer hat den Zustand geändert; t.gezielt: Systemziel (C1b-1, nur mit Schalter). Sturm: Reparatursperre auch der Mitte bei Überlauf.
+function systemTrefferOhneSchild(game, out, sector, o) {
+  const C = game.C; const ST = o.sturm ? Katalog.waffe('sturmbatterie').sturm : null;
   const zone = o.durchschlag === 'zone' ? -1 : sector;
-  const t = systemSchaden(game, out, zone, rest * (Number(M.schadenFaktor) || 1) * (ST ? Sturm.systemFaktor(game) : 1), o.zielt ? { ziel: o.zielt, zugewandt: sector } : null);   // t.wechsel: der Treffer hat den Zustand geändert; t.gezielt: Systemziel (C1b-1, nur mit Schalter)
-  if (!t) return out;
+  const t = systemSchaden(game, out, zone, Object.assign({}, o.zielt ? { ziel: o.zielt, zugewandt: sector } : null, ST ? { art: Integ.ART_STURM } : null));   // art: Treffer-Art des Fensters (Sturm: länger)
+  if (!t) return null;
   const sysZone = interior.systemSector(t.system);
   if (ST && sysZone !== sector) interior.reparaturSperren(game, sysZone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Treffer in die Mitte über, ist auch sie gesperrt
   // 6. Feuer nur bei Systemschaden (Zustandswechsel) in der Zone des getroffenen Systems; Lecks entfallen. (systemDamaged meldet damageSystem selbst.)
   if (t.wechsel && sysZone >= 0 && game.rng.chance(C.hitEffects.fireChance)) { const f = interior.randomRegionFloor(game, sysZone, false); if (f) interior.addFire(game, f.x, f.y); }
+  return t;
+}
+// Mine und andere Quellen, die Schilde ignorieren: ein Systemtreffer auf die Zone des Sektors (Trefferweg wie jeder Direkttreffer).
+function direktTreffer(game, sector, opts) {
+  ensureStats(game);
+  if (!Number.isInteger(sector) || sector < 0 || sector > 3) sector = 0;
+  Schilde.pause.treffer(game.ship.shields, sector, game.time, game.C);   // SYS-03 C1: auch ein Treffer am Schild vorbei (Mine) stoppt die Regeneration des Sektors
+  const out = { absorbed: 0, rest: 0, systems: [], shield: 0, empThrough: false };
+  systemTrefferOhneSchild(game, out, sector, opts || {});
   return out;
 }
 
 // ---------- Torpedo gegen die Lerche (SYS-02a, Kai 2026-10-28: „ein Torpedo soll wirklich weh tun“) ----------
-// Nur bei Schild 0 im Sektor (Lesart B prüft der Aufrufer). Zerstört das getroffene System der Zone sicher (Schaden mindestens dessen Maximum, Trefferweg wie sonst:
-// Zufall oder Systemziel) und schlägt auf die Mitte durch: reaktorAnteil × Reaktor-Maximum Integritätsschaden am REAKTOR. Zwei Treffer zerstören ihn (Countdown
-// über interior.damageSystem), der erste lässt ihn beschädigt. Ist die Zone leer, trifft der Torpedo nur den Reaktor (kein Zufallssystem der Mitte).
+// Nur bei Schild 0 im Sektor (Lesart B prüft der Aufrufer). Zerstört das getroffene System der Zone sicher (kein Fenster, keine Schadenszahl, Trefferweg wie sonst:
+// Zufall oder Systemziel) und schlägt auf die Mitte durch: systemModell.torpedo.reaktorStufen Stufen am REAKTOR (1: zwei Treffer zerstören ihn, der erste lässt ihn beschädigt; Countdown
+// über interior.damageSystem). Ist die Zone leer, trifft der Torpedo nur den Reaktor (kein Zufallssystem der Mitte).
 function torpedoTreffer(game, sector, s0, o) {
-  const M = game.C.systemModell || {};
   const out = { absorbed: 0, rest: 0, systems: [], shield: s0, empThrough: false };
   const summe = () => interior.SYSTEM_ORDER.reduce((a, k) => a + interior.integOf(game, k), 0);
   const vor = summe();
   let t = null;
-  if (interior.zoneFrei(game, sector)) t = systemSchaden(game, out, sector, 1, { zerstoeren: true, ziel: o.zielt || null, zugewandt: sector });
+  if (interior.zoneFrei(game, sector)) t = systemSchaden(game, out, sector, { zerstoeren: true, ziel: o.zielt || null, zugewandt: sector });
   const r = game.ship.systems.reactor;
-  const anteil = Number((M.torpedo || {}).reaktorAnteil) || 0;
-  if (r != null && r !== 'broken' && anteil > 0) {
-    const w = interior.systemTreffer(game, 'reactor', anteil * interior.integMax(game, 'reactor'), null);
+  const stufen = Integ.torpedoStufen(game);
+  if (r != null && r !== 'broken' && stufen > 0) {
+    // SYS-03 B: Durchschlag in ganzen Stufen (kein Fenster, systemModell.torpedo.reaktorStufen, dieselbe Zahl wie bei den Gegnern): 1 = zwei Torpedos zerstören den Reaktor, 2 = einer
+    let w = null;
+    for (let i = 0; i < stufen; i++) w = interior.stufeAb(game, 'reactor') || w;
     const tr = { system: 'reactor', state: game.ship.systems.reactor, wechsel: !!w };
     out.systems.push(tr);
     game.missionEvent('systemHit', { system: 'reactor', state: tr.state, zone: -1 });
@@ -111,8 +133,8 @@ function torpedoTreffer(game, sector, s0, o) {
 // ---------- Systemtreffer je Zone (SYS-01 A1b) ----------
 // Ein Treffer auf eine Zone geht über den Trefferweg (interior.trefferweg). Trifft er das Frachtraum-Modul, prüft Fracht den Verlust.
 // out.zonen merkt sich, in welchen Zonen der Treffer den Rückschlag schon ausgelöst hat: je Treffer und Zone genau einmal.
-function systemSchaden(game, out, zone, schaden, opts) {
-  const t = interior.trefferweg(game, zone, schaden, opts);
+function systemSchaden(game, out, zone, opts) {
+  const t = interior.trefferweg(game, zone, opts);
   if (!t) return null;
   out.systems.push(t);
   if (t.gezielt) require('./zielsysteme.js').lercheGetroffen(game, t);   // C1b-1: Zähler und Ereignis des gezielten Systemtreffers
@@ -251,8 +273,9 @@ function reactorAutoLeft(game) {
 
 function update(game, dt) {
   ensureStats(game);
+  interior.nachStufenHolen(game);   // SYS-03 B: zweite Stufe eines gezielten Antrieb-Treffers nach der Sperre
   updateEscalation(game, dt);
   updateReactorAuto(game);
 }
 
-module.exports = { resolveHit, systemSchaden, rueckschlag, onSystemHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };
+module.exports = { resolveHit, direktTreffer, systemSchaden, rueckschlag, onSystemHit, update, escalateSnapshot, reactorAutoLeft, inCombat, busy, igniteNear, STAT_KEYS };

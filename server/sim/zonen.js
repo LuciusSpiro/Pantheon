@@ -14,6 +14,8 @@
 const Zonen = require('../../shared/zonen.js');
 const Locations = require('../../shared/locations.js');
 const Physics = require('../../shared/physics.js');
+const Integ = require('./integritaet.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 
 let spaceMod = null, escortMod = null;
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -197,7 +199,7 @@ function update(game, dt) {
       S.akk[k] = (S.akk[k] || 0) + w.schaden * dt;
       if (tackt && S.akk[k] >= 1) {
         const pts = Math.floor(S.akk[k]); S.akk[k] -= pts;
-        space().damageEnemy(game, e, pts, w.mx, w.my, {});
+        space().damageEnemy(game, e, pts, w.mx, w.my, { druck: true });   // SYS-03 B2: Dauerdruck = eine Stufe je zonen.druckPunkte (wie die Lerche)
       }
     }
   }
@@ -210,12 +212,15 @@ function update(game, dt) {
         S.akk[k] = (S.akk[k] || 0) + w.schaden * dt;
         if (tackt && S.akk[k] >= 1) {
           const pts = Math.floor(S.akk[k]); S.akk[k] -= pts;
-          try { escort().hit(game, es, pts, es.ally ? { light: true, von: { x: w.mx, y: w.my } } : { light: true }); } catch (err) { if (game.countError) game.countError('zonen-escort', err); }
+          try { escort().hit(game, es, pts, es.ally ? { light: true, druck: true, von: { x: w.mx, y: w.my } } : { light: true }); } catch (err) { if (game.countError) game.countError('zonen-escort', err); }
         }
       }
     }
   }
 }
+
+// Druck-Zähler der Lerche je Sektor (akk.sys[sektor], nicht im Snapshot; Szenenwechsel und Weltstand setzen akk zurück)
+function druckZaehler(game, sector) { const A = state(game).akk; return Integ.druckZaehler(A.sys || (A.sys = {}), sector); }
 
 // Dauerdruck der Zone auf die Lerche (SYS-01 A1b): erst der Schild des Sektors, bei Schild 0 trifft der Rest per Trefferweg ein System des Sektors.
 // Bewusst KEIN shipHit und KEIN Feuer: Dauerdruck ist kein Beschuss. Der Systemtreffer meldet sich wie jeder andere (systemSchaden, ein Rückschlag je Takt).
@@ -223,10 +228,13 @@ function druck(game, sector, pts) {
   const sh = game.ship.shields; let rest = pts;
   const cur = (sh.current && sh.current[sector]) || 0;
   const absorb = Math.min(cur, rest);
-  if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
+  if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; }
+  Schilde.pause.treffer(sh, sector, game.time, game.C);   // SYS-03 C1: Dauerdruck ist ein Treffer auf den Sektor (auch bei Schild 0): die Regeneration des Sektors pausiert
   if (rest > 0) {
-    const D = require('./damage.js'); const M = game.C.systemModell || {};
-    D.systemSchaden(game, { systems: [] }, sector, rest * (Number(M.schadenFaktor) || 1), { dauer: true });   // Dauerdruck bricht kein Schöpfen/Beamen ab (wie bisher)
+    // SYS-03 B1: Stufenregel. Die Punkte ohne Schild sammeln sich je Sektor (zonen.druckPunkte je Stufe; der Zähler verfällt, wenn zonen.druckAbkling_s lang keine Restpunkte mehr ankamen,
+    // auch bei Schild > 0 ohne Resttreffer; integritaet.js, derselbe Helfer wie bei Gegnern und Verbündeten), höchstens eine Stufe je Takt auf ein System der Sektor-Zone (Treffer-Fenster gilt).
+    const D = require('./damage.js');
+    if (Integ.druckSammeln(game, druckZaehler(game, sector), rest)) D.systemSchaden(game, { systems: [] }, sector, { dauer: true });   // Dauerdruck bricht kein Schöpfen/Beamen ab (wie bisher)
   }
   game.stats.hits++;
   game.emit('hit', rest > 0 ? { sector, shield: false, dmg: Math.round(rest * 10) / 10, heavy: false, absorbed: absorb } : { sector, shield: true, dmg: pts, heavy: false, absorbed: absorb });

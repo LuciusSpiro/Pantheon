@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-01 A1c „Zonenkreuz“: Snapshot ship.zonen (Integrität je Seite in %), Statusleiste = schwächste eigene Seite,
 // Modulsysteme modul_1..4 mit Namen nach dem Modul im Raum, Reparatur-Gate für modul_N.
 // Client-Hilfen (PultSysteme) laufen hier in Node; hud.js/consoles.js/pult.js brauchen den Browser (Sichtprüfung über tools/sicht-systeme.js).
@@ -22,7 +23,7 @@ function newGame(seed) {
   for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   g.ship.fragile = {}; g.ship.offline = {};
   g.ship.shields.current = [0, 0, 0, 0];
-  g.ship.shields.regenHold = 0;
+  Schilde.pause.loeschen(g.ship.shields);
   g.god = false;
   I.integritaetVoll(g);
   return g;
