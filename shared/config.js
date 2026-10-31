@@ -324,7 +324,8 @@
       einsprung: { verzoegerung: 5, n: 2, kind: 'raider', versatz: 45 },
       // Minen: zünd = Annäherung der Lerche (nicht bei ihrem Besitzer), spreng = Reichweite der Explosion (Lerche und Schiffe darin),
       // treffer = Trefferradius für Strahl und Geschosse, sicht = Mine ist in dieser Nähe auch ohne Weitscan zu sehen.
-      // punkte = Systemschaden (je Schritt ein Zustand tiefer: ok → beschädigt = 1, → zerstört = 2), gegner = Schaden an Schiffen im Radius (ohne Schilde).
+      // SYS-03: die Mine trifft Lerche, Gegner und Verbündete gleich: eine Stufe auf ein System der nächsten Zone (Treffer-Fenster), ohne Schilde. gegner = Rohschaden an Schiffen im Radius
+      // (nur ein Platzhalter für den Trefferweg, ohne Wirkung auf die Stufe; Schilde zählen nicht, pierce 99).
       mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, gegner: 20, abstand: 90 },
       // Signatur 0..1: ruhe + (1 − ruhe) × (Tempo/tempoRef)^exponent, × schildeUnten, × asteroid.faktor (Brocken näher als asteroid.abstand),
       // × nebel.faktor (nur mit nebel.schalter; E4: in der Kampagne aus), Weitscan setzt pingDauer s lang auf pingSig.

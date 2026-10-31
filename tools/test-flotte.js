@@ -59,7 +59,8 @@ const ticks = (g, sek, each) => { const k = Math.round(sek * CONFIG.tickHz); for
 function platz(g, x, y) { const s = g.ship; s.x = x; s.y = y; s.vx = 0; s.vy = 0; s.speed = 0; }
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Verbündeten so lange treffen, bis die Hülle unter den Anteil fällt (nach Hits à dmg)
-function treffen(g, es, bisFrac) { let i = 0; while (es.hp / es.hpMax >= bisFrac && es.state !== 'zerstoert' && i++ < 400) Escort.hit(g, es, 4, {}); }
+// SYS-03 B2: ein Treffer ohne Schild = eine Stufe (keine Schadenszahl); das Treffer-Fenster zwischen den Treffern abwarten. Die Schilde des Verbündeten stehen nicht (bis auf Weiteres Schild 0 setzen).
+function treffen(g, es, bisFrac) { let i = 0; while (es.hp / es.hpMax >= bisFrac && es.state !== 'zerstoert' && i++ < 400) { g.time += CONFIG.systemModell.trefferFenster_s + 0.01; if (es.shields) es.shields.fill(0); Escort.hit(g, es, 4, {}); } }
 const toeten = (g, e) => Testhilfe.toeten(g, e);
 const npcMem = (g, id) => (g.weltstand && g.weltstand.data && g.weltstand.data.npc[id] && g.weltstand.data.npc[id].gedaechtnis) || [];
 

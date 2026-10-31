@@ -778,12 +778,12 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
       // SYS-01 C1a-2: der Tod kommt über den Reaktor-Countdown. Gemessen wird, nach wie vielen Salven der Reaktor fällt (Countdown startet);
       // danach läuft der Countdown ab (unten), und der Jäger stirbt.
       let dead = 0;
-      for (let s = 1; s <= 3 && alive(); s++) { e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!dead && e.rt && e.rt.rest != null) dead = s; }
-      // Solo (crewScaling.enemyHp 0,5) hält der Jäger keine volle Salve aus – solo feuert die Taktik selten alle drei Waffen
-      // zugleich (Bericht); geprüft wird zu zweit und zu dritt
-      if (crew >= 2) ok(hp[1] > 0, `${crew} Spieler: Jäger (${e.hpMax} HP) übersteht eine volle Salve (${full} Schaden roh) – Rest ${hp[1]} HP`);
-      else info(`solo: Jäger ${e.hpMax} HP, nach einer vollen Salve ${hp[1]} HP`);
-      ok(dead >= 1 && dead <= 3 && (crew < 2 || dead >= 2), `${crew} Spieler: Reaktor nach spätestens drei Salven zerstört (nach ${dead}; HP ${hp.join(' -> ')})`);
+      // SYS-03 B2: Stufenregel – jeder Treffer ist eine Stufe (kein Schadenspunktabzug), keine Crew-Skalierung der Integrität. Die Salven kommen im Abstand 0,5 s (Treffer-Fenster);
+      // der Reaktor liegt in der Mitte und fällt erst, wenn die Seitenzonen leer sind (Überlauf): gemessen wird, nach wie vielen Salven.
+      let hitsReaktor = 0;
+      for (let s = 1; s <= 14 && alive(); s++) { g.time += 0.5; e.shields = e.shieldsMax.slice(); salvo(); hp.push(alive() ? Math.round(e.hp * 10) / 10 : 0); if (!dead && e.rt && e.rt.rest != null) { dead = s; hitsReaktor = e.sysTreffer; } }
+      ok(hp[1] > 0 && hp[1] < hp[0], `${crew} Spieler: Jäger (${e.hpMax} HP) übersteht eine volle Salve (${full} Schaden roh), verliert aber Integrität – Rest ${hp[1]} HP`);
+      ok(dead >= 2 && dead <= 14, `${crew} Spieler: Reaktor nach spätestens 14 Salven zerstört (nach ${dead}; ${hitsReaktor} Systemtreffer; HP ${hp.join(' -> ')})`);
       for (let t = 0; t < 400 && alive() && e.rt && e.rt.rest != null; t++) { if (Gegnertod.tick(g, e, 0.1)) space.enemyDown(g, e); }   // Countdown ablaufen lassen
       ok(!alive(), `${crew} Spieler: Countdown abgelaufen, der Jäger ist zerstört`);
     }

@@ -425,7 +425,7 @@ section('Jäger mit zerstörtem/beschädigtem Antrieb: parkt bzw. halbes Tempo, 
     ok(d < 500 && dist(px, py, j2.x, j2.y) < 2, `Lerche fliegt den parkenden Jäger an (Abstand ${f1(d)} px), der Jäger hat sich nicht bewegt`);
     Testhilfe.schildNull(j2); const k0 = g2.stats.kills || 0;
     const rid = Gsys.idVon(j2, 'reaktor'); let hits = 0;
-    while (j2.sys[rid].z !== 'broken' && hits < 100) { space.damageEnemy(g2, j2, 3, g2.ship.x, g2.ship.y, { angriff: true, durchschlag: 'zone' }); hits++; }
+    while (j2.sys[rid].z !== 'broken' && hits < 100) { g2.time += CONFIG.systemModell.trefferFenster_s + 0.01; space.damageEnemy(g2, j2, 3, g2.ship.x, g2.ship.y, { angriff: true, durchschlag: 'zone' }); hits++; }   // SYS-03 B2: eine Stufe je Treffer, Treffer-Fenster abwarten
     ok(j2.sys[rid].z === 'broken', `Lerche zerstört den Reaktor des Jägers (${hits} Treffer)`);
     run2(Gegnertod.countdownDauer ? Gegnertod.countdownDauer(g2, j2) + 3 : 40, () => ruhig(g2));
     ok(!g2.space.enemies.includes(j2) && (g2.stats.kills || 0) === k0 + 1, 'Countdown abgelaufen: Jäger tot und gezählt');
@@ -443,8 +443,9 @@ section('Jäger mit zerstörtem/beschädigtem Antrieb: parkt bzw. halbes Tempo, 
   };
   const intakt = fliegen(null), besch = fliegen(0.3);
   ok(besch.j.sys.antrieb.z === 'damaged' && Zielsysteme.tempoFaktor(besch.j) === 0.5, 'Antrieb beschädigt, Tempofaktor 0,5, nach 45 s noch beschädigt (keine Reparatur)');
-  // Kurze Spitzen beim Wenden (Überschwingen bis ca. 8 %) zählen nicht: maßgeblich ist das Mittel und eine Obergrenze mit 15 % Luft
-  ok(besch.mittel <= CLS.raider.maxSpeed * 0.5 && besch.vmax <= CLS.raider.maxSpeed * 0.5 * 1.15 && besch.mittel > 20, `beschädigt: Mittel ${f1(besch.mittel)} px/s ≤ ${f1(CLS.raider.maxSpeed * 0.5)} (halbes Maximum), Spitze ${f1(besch.vmax)}`);
+  // Kurze Spitzen beim Wenden zählen kaum: maßgeblich ist das Mittel (über alle Seeds 40–55 und alle Stände 94,6–95,4 px/s). Die Spitze schwankt je Seed zwischen +9 % und +23 % (Messung SYS-03 B2:
+  // Stand vor B1 überschritt +15 % bei 11 von 16 Seeds, Seed 43 war Glück), darum die Obergrenze mit 30 % Luft statt 15 %.
+  ok(besch.mittel <= CLS.raider.maxSpeed * 0.5 && besch.vmax <= CLS.raider.maxSpeed * 0.5 * 1.3 && besch.mittel > 20, `beschädigt: Mittel ${f1(besch.mittel)} px/s ≤ ${f1(CLS.raider.maxSpeed * 0.5)} (halbes Maximum), Spitze ${f1(besch.vmax)}`);
   ok(besch.mittel < intakt.mittel * 0.7, `Gegenprobe intakt: Mittel ${f1(intakt.mittel)} px/s, beschädigt ${f1(besch.mittel)} px/s`);
 });
 

@@ -729,7 +729,9 @@ section('Gleiche Regeln für Ex-Verbündete wie für Gegner', () => {
   const e1 = ex(g)[0]; const cmp = Space.spawnEnemy(g, e1.kind, { tag: 'vergleich', x: e1.x + 400, y: e1.y + 400 }); Testhilfe.setzeGesamt(cmp, cmp.hpMax); Testhilfe.setzeGesamt(e1, e1.hpMax);
   e1.shields.fill(0); cmp.shields.fill(0);
   Space.damageEnemy(g, e1, 0.5, e1.x - 100, e1.y, {}); Space.damageEnemy(g, cmp, 0.5, cmp.x - 100, cmp.y, {});   // klein genug, dass kein System (zufällige Wahl) davon zerstört wird
-  ok(Math.abs((e1.hpMax - e1.hp) - (cmp.hpMax - cmp.hp)) < 1e-9 && e1.hp < e1.hpMax, 'gleicher Schaden bei gleichem Treffer (' + (e1.hpMax - e1.hp) + ')');
+  // SYS-03 B2: ein Treffer ohne Schild = eine Stufe auf ein zufälliges System der Zone (die Zahl der Integritätspunkte hängt vom gewürfelten System ab): gleich ist die Stufenfolge
+  const stufen = (q) => Object.keys(q.sys).filter((id) => q.sys[id].z !== 'ok').map((id) => q.sys[id].z);
+  ok(stufen(e1).join() === 'damaged' && stufen(cmp).join() === 'damaged' && e1.hp < e1.hpMax && cmp.hp < cmp.hpMax, 'gleicher Treffer: bei Ex-Verbündetem und Gegner genau ein System eine Stufe (beschädigt)');
 });
 
 section('Weiter: Germanen im Verrat, Marken, Lagefunk', () => {

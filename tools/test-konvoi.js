@@ -119,8 +119,8 @@ section('Aufbau: Transporter, Eskorte, Klassen aus der Config', () => {
     ok(U.g.space.enemies.filter((e) => e.kind === 'raider').length === r && U.g.space.enemies.filter((e) => e.kind === 'korvette').length === kv, `Eskorte ${esk}: ${r} Jäger, ${kv} Korvette`);
   }
   const g = T.g; const e = g.space.enemies.find((q) => q.kind === 'frachter');
-  const hp = Math.max(1, Math.round(CONFIG.enemies.frachter.hp * space.crewScale(g).gegnerIntegritaet));
-  ok(e.hpMax === hp && e.hp === hp, `Hülle nach CONFIG.enemies.frachter und Crew-Skalierung (${e.hpMax})`);
+  const hp = Math.max(1, Math.round(CONFIG.enemies.frachter.hp * require('../server/sim/gegnersystem.js').budgetFaktor('frachter')));   // SYS-03 B2: keine Crew-Skalierung der Integrität
+  ok(e.hpMax === hp && e.hp === hp, `Hülle nach CONFIG.enemies.frachter × budgetFaktor (${e.hpMax})`);
   ok(JSON.stringify(e.shieldsMax) === JSON.stringify(CONFIG.enemyShields.frachter), 'Schilde nach CONFIG.enemyShields.frachter ' + JSON.stringify(e.shieldsMax));
   ok(!e.waffen && space.waffenPlaetze(g, e, null).length === 0, 'unbewaffnet: kein Waffenplatz');
   const s = g.snapshot().space.enemies.find((q) => q.id === e.id);
