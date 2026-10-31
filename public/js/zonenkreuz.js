@@ -135,9 +135,11 @@
     // SYS-01 C1b-2 Nacharbeit (Review): Zeilenform je Kachel. Breite Kachel (Technik): eine Zeile mit Balken rechts. Schmale Kachel (Ziel-Scan): Name, darunter der Balken
     // (zwei Zeilen, lh 18); passen darin keine zwei Zeilen untereinander, einzeilig mit kurzem Balken (bw 12). Passt die Liste nicht, wird eine Zeile weniger gezeichnet und
     // „+N“ steht in der frei gewordenen Zeile (nie auf einem Balken); das Systemziel bleibt immer sichtbar (es rückt an die letzte gezeichnete Stelle).
-    function inhalt(list, body, zn, zu) {
+    // leerWort: die Zone ist leer und bekommt das Wort LEER in die untere rechte Ecke (10 px): die Liste lässt diese Zeile frei, damit LEER nie ein Systemkürzel überdeckt.
+    function inhalt(list, body, zn, zu, leerWort) {
       const schmal = body.w < mass.zweiZeilig, ZW = mass.zeileZweiZeilig || 18, NEED2 = 13, NEED1 = 8;
-      const passt = (lh, need) => (body.h - 3 >= need ? Math.floor((body.h - 3 - need) / lh) + 1 : 0);
+      const frei = body.h - (leerWort ? 10 : 0);
+      const passt = (lh, need) => (frei - 3 >= need ? Math.floor((frei - 3 - need) / lh) + 1 : 0);
       const zwei = schmal && passt(ZW, NEED2) >= 2, kompakt = schmal && !zwei;
       const lh = zwei ? ZW : mass.zeile, bw = kompakt ? 12 : 30, cap = passt(lh, zwei ? NEED2 : NEED1);
       let show = list, weg = 0;
@@ -178,7 +180,6 @@
         y += lh;
       });
       if (weg) txt('+' + weg, body.x + MASS.innen, y, F.dim);
-      return y + (weg ? lh : 0);   // Unterkante der belegten Zeilen: das Wort LEER der leeren Zone zeichnet nur, wo es keine Zeile überdeckt
     }
 
     ZONEN.forEach((zn) => {
@@ -187,8 +188,9 @@
       rc(body.x, body.y, body.w, body.h, z.leer ? F.kachelLeer : F.kachel);
       if (z.leer) strich(body.x, body.y, body.w, body.h, F.zer, 2); else rand(body.x, body.y, body.w, body.h, F.kachelRand);
       if (o.seite === zn) rand(t.x - MASS.seiteRahmen, t.y - MASS.seiteRahmen, t.w + 2 * MASS.seiteRahmen, t.h + 2 * MASS.seiteRahmen, F.seiteZugewandt);
-      const belegtBis = inhalt(z.sys, body, zn, false);
-      if (z.leer && body.w >= (mass.leerMin || mass.zweiZeilig) && belegtBis <= body.y + body.h - 10) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
+      const leerWort = z.leer && body.w >= (mass.leerMin || mass.zweiZeilig);
+      inhalt(z.sys, body, zn, false, leerWort);
+      if (leerWort) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
     });
     // Mitte: zu (schraffiert), solange die zugewandte Zone nicht leer ist; sonst offen. Reaktor zerstört = Fläche kachelReaktor.
     const mt = L.mitte, zu = !!o.zugewandt && !m.zonen[o.zugewandt].leer;
