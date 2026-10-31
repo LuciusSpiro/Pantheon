@@ -231,6 +231,11 @@ function funkVon(game, e, kind) {
   if (eigen && namen[e.fraktion]) return { list, from: eigenerName(game, e, g, namen[e.fraktion]) };
   return { list, from: namen[e.fraktion] || namen.germanen || Object.values(namen)[0] || 'Gegner' };
 }
+// BOD-01 N1: Fraktion mit eigenen Funksätzen (rom): auch ohne passenden Satz (Rückfall auf die allgemeinen Plünderer-Sätze) spricht der Gegner unter dem Rollennamen seiner Fraktion
+function fraktionsSprecher(game, e) {
+  const g = e && e.rolle && combat().waffenAktiv() ? (combat().katalogDaten(game).gegner || {})[e.rolle] : null;
+  return g && g.funk_nach_fraktion && g.funk_nach_fraktion[e.fraktion] && g.namen && g.namen[e.fraktion] ? eigenerName(game, e, g, g.namen[e.fraktion]) : null;
+}
 function bark(game, s, e, kind) {
   const C = cfg(game); const aw = game.away;
   if (!C.barksOn || !s || s.noBark || !e || e.kind === 'warden') return false;
@@ -241,7 +246,7 @@ function bark(game, s, e, kind) {
   const text = list[Math.floor(aw.rng() * list.length)];
   s.barkAt = game.time;
   if (aw.stats) aw.stats.barks++;
-  game.emit('bark', { from: f ? f.from : 'Plünderer', id: e.id, text, x: Math.round(e.x), y: Math.round(e.y), cause: kind });
+  game.emit('bark', { from: f ? f.from : (fraktionsSprecher(game, e) || 'Plünderer'), id: e.id, text, x: Math.round(e.x), y: Math.round(e.y), cause: kind });
   const sfx = { name: 'bark', zone: 'away', x: Math.round(e.x), y: Math.round(e.y), text, n: text.length };
   if (/\?\s*$/.test(text)) sfx.q = true;
   game.emit('sfx', sfx);

@@ -1091,7 +1091,7 @@
         return true;
       }
       case 'rolleNeu':
-        H.pushNotice('Neuer Gegnertyp: ' + (ROLLE_NAME[ev.rolle] || ev.rolle) + ' – genau hinsehen', PAL.amber, 4);
+        H.pushNotice('Neuer Gegnertyp: ' + ((ev.fr && ((P.ROLLE_NAMEN_FR || {})[ev.fr] || {})[ev.rolle]) || ROLLE_NAME[ev.rolle] || ev.rolle) + ' – genau hinsehen', PAL.amber, 4);
         return true;
       // ---- Bodenkampf: Wellen
       case 'welle': {

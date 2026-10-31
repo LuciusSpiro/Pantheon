@@ -198,6 +198,7 @@ export function normKarte(src, D) {
     // boden = Bodenton der Siedlung ('sand' | 'gras' | 'wald', Bauweise.boden_varianten); beides nur, wenn der Generator es setzt
     moebel: Array.isArray(m.moebel) ? m.moebel : (m.meta && Array.isArray(m.meta.moebel) ? m.meta.moebel : []),
     boden: m.boden || (m.meta && m.meta.boden) || null,
+    boden2: m.boden2 || (m.meta && m.meta.boden2) || null,   // BOD-01 N2: optionaler Belag der Kachel ',' (boden2) in Hüllen-Karten (BODEN2_TON); fehlt er, bleibt alles wie bisher
     huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks,   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
     deckOf: (ty) => (decks ? Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) : 0),
     localY: (ty) => (decks ? ty - Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) * stride : ty),
@@ -952,7 +953,10 @@ async function bauKarte(parent, karteIn, opts) {
     if (!e || !e.id || !inManifest(e.id)) continue;   // Asset fehlt: die Kachel behält die übliche Deckungsoptik
     for (let j = 0; j < (mb[3] | 0); j++) for (let i = 0; i < (mb[2] | 0); i++) moebelDeckt.add((mb[0] + i) + ',' + (mb[1] + j));
   }
-  const bodenFarbe = (tx, ty) => (wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
+  // BOD-01 N2: Karte.boden2 (nur feste Karten, z. B. Grabenangriff): ',' trägt einen eigenen Belag statt des Geländetons (Graben, Wall, Waldweg); ohne das Feld unverändert
+  const BODEN2_TON = { erde: { top: 'soil', f: 1.3 }, kies: { top: 'stone', f: 0.85 }, bohlen: { top: 'wood', f: 1.1 } };
+  const b2Ton = (k.boden2 && BODEN2_TON[k.boden2]) || null;
+  const bodenFarbe = (tx, ty, kd) => (kd === 'pad' && b2Ton ? { top: 'paving', f: 1.1 } : kd === 'boden2' && b2Ton ? { top: b2Ton.top, f: b2Ton.f } : wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   for (let ty = 0; ty < k.h; ty++) {
     const d = k.deckOf(ty);
@@ -967,7 +971,7 @@ async function bauKarte(parent, karteIn, opts) {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
-          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+          placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty, kind)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
         if (kind === 'gelaende') { placeKit('gelaende', { seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }

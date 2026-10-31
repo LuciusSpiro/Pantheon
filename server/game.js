@@ -837,7 +837,7 @@ class Game {
     const ku = (KULISSE.karten || {})[k.id];   // SL2: Passanten und Gebäudeschilder (shared/kulisse.js); Seed der Karte kommt vom Client aus `kv`
     return { id: k.id, erzeuger: k.erzeuger, art: k.art, bauweise: k.bauweise, besitz: k.besitz, zustand: k.zustand,
       w: k.w, h: k.h, rows: k.rows, anker, bereiche, decks: k.decks || null, kanten, plaetze, kv: Game.kartenVersion(k), huelle: k.meta && k.meta.huelle ? true : undefined,
-      ...(k.meta && Array.isArray(k.meta.moebel) && k.meta.moebel.length ? { moebel: k.meta.moebel } : {}), ...(k.meta && k.meta.boden ? { boden: k.meta.boden } : {}),   // TA: Siedlungsausstattung + Bodenton (nur Generator mit ausstattung/boden)
+      ...(k.meta && Array.isArray(k.meta.moebel) && k.meta.moebel.length ? { moebel: k.meta.moebel } : {}), ...(k.meta && k.meta.boden ? { boden: k.meta.boden } : {}), ...(k.meta && k.meta.boden2 ? { boden2: k.meta.boden2 } : {}),   // TA: Siedlungsausstattung + Bodenton (nur Generator mit ausstattung/boden)
       ...(ku ? { ku, seed: k.seed != null ? k.seed : 0 } : {}) };
   }
   // an einen Spieler senden (cmd awayMap.get bzw. syncAwayMaps). -> Fehlertext | null

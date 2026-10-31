@@ -414,6 +414,7 @@
       const wahl = lob.graben || {};
       liste.slice(0, this.GRABEN_TASTEN.length).forEach((a, i) => {
         const v = (a.varianten || []).find(x => x.id === wahl[a.abschnitt]) || (a.varianten || [])[0];
+        if ((a.varianten || []).length < 2) { R.text(ctx, this.fit(a.name + ': ' + (v ? v.name : '–'), rw, 1), rx + 4, 165 + i * 13, { color: PAL.panelLight }); return; }   // N3: nur eine Variante – reine Textzeile ohne Taste/Rahmen
         R.button(ctx, rx, 163 + i * 13, rw, 12, this.fit(a.name + ': ' + (v ? v.name : '–'), rw - 22, 1), {
           hotkey: this.GRABEN_TASTEN[i].replace('Key', ''), active: true, disabled: !me, reason: 'Noch nicht verbunden',
           onClick: () => view.actions.toggleGraben && view.actions.toggleGraben(i),

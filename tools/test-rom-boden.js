@@ -97,5 +97,40 @@ section('Gegenrichtung: Germanen unverändert');
   ok(S.ev.length > 0 && S.ev.every((b) => ['Bolzer', 'Berserker', 'Karl'].includes(b.from)), 'ger sturmtrupp: Bolzer/Berserker/Karl (' + [...new Set(S.ev.map((b) => b.from))].join(', ') + ')');
 }
 
+section('BOD-01 N1: Banner, Namensschild und Barks römischer Gegner tragen römische Namen');
+{
+  const Protocol = require('../shared/protocol.js');
+  const fs = require('fs'), path = require('path');
+  const tab = Protocol.ROLLE_NAMEN_FR && Protocol.ROLLE_NAMEN_FR.rom;
+  ok(tab && ROLLEN.concat('waechter').every((r) => tab[r] === gegner(r).namen.rom), 'Protocol.ROLLE_NAMEN_FR.rom = namen.rom aller Gegner-Katalogdateien');
+  // Server: rolleNeu trägt die Fraktion
+  const g = new Game({ noStore: true, seed: 11, log: () => {} });
+  const evs = []; const emit = g.emit; g.emit = function (t, d) { if (t === 'rolleNeu') evs.push(d); return emit.apply(this, arguments); };
+  const combat = require('../server/sim/combat.js');
+  const id = LP.testgelaende(g, { ort: 'kesh', art: 'station', besitz: 'rom', seed: 3, zustand: 'umkaempft' });
+  LP.get(g, id); g.away = g.aways[id];
+  squad.spawnSquad(g, 'r0', { map: id, besetzung: [{ typ: 'grenadier', anzahl: 1 }], force: true, festeZahl: true });
+  squad.spawnSquad(g, 'r1', { map: id, besetzung: [{ typ: 'schuetze', anzahl: 1 }], force: true, festeZahl: true });
+  const eR = g.away.drones.find((e) => e.squad === 'r0'), eG = g.away.drones.find((e) => e.squad === 'r1');
+  eR.fraktion = 'rom'; eG.fraktion = 'germanen';
+  g.weltstand = { rolleGesehen: () => true };
+  combat.rolleGesehen(g, eR); combat.rolleGesehen(g, eG);
+  ok(evs.some((x) => x.rolle === 'grenadier' && x.fr === 'rom') && evs.some((x) => x.rolle === 'schuetze' && x.fr === 'germanen'), 'Ereignis rolleNeu trägt fr (rom / germanen): ' + JSON.stringify(evs));
+  // Bark ohne passenden Funksatz (Anlass 'retreat' gibt es im Funk nicht): Sprecher bleibt der römische Rollenname
+  const ev = []; g.emit = function (t, d) { if (t === 'bark') ev.push(d); return emit.apply(this, arguments); };
+  const s = squad.squadOf(g, eR); s.barkAt = -999; s.noBark = false;
+  squad.bark(g, s, eR, 'retreat');
+  ok(ev.length === 1 && /^Funditor /.test(ev[0].from), 'Bark ohne Funksatz: Sprecher römisch (' + (ev[0] && ev[0].from) + ')');
+  // Client-Quelltext: Banner und Schild nutzen die Fraktionstabelle
+  const cl = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'client.js'), 'utf8');
+  const rn = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'render.js'), 'utf8');
+  ok(/ev\.fr && \(\(P\.ROLLE_NAMEN_FR/.test(cl), 'client.js: Banner rolleNeu wählt den Fraktionsnamen');
+  const m = /function gegnerSchild\(e, geduckt\) \{[\s\S]*?\n  \}/.exec(rn);
+  ok(!!m, 'render.js: gegnerSchild vorhanden');
+  const schild = new Function('PROTO', m[0] + '; return gegnerSchild;')(Protocol);
+  ok(schild({ fr: 'rom', ro: 'grundtyp' }, false) === 'LEGIONÄR' && schild({ fr: 'rom', ro: 'grenadier' }, true) === 'FUNDITOR (geduckt)' && schild({ fr: 'rom' }, false) === 'LEGIONÄR', 'Schild Rom: Rollenname der Fraktion, ohne Rolle Legionär');
+  ok(schild({ fr: 'germanen', ro: 'grundtyp' }, false) === 'PLÜNDERER' && schild({}, true) === 'PLÜNDERER (geduckt)' && schild({ fr: 'rostmeute' }, false) === 'PLÜNDERER', 'Schild anderer Fraktionen unverändert (PLÜNDERER)');
+}
+
 console.log(`\n${n - fails}/${n} ok`);
 if (fails) { console.log(fails + ' FEHLER'); process.exit(1); }

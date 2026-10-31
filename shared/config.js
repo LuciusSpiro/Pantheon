@@ -567,8 +567,8 @@
       ergebnisZeit: 15,        // s Siegbild, dann zurück in die Lobby
       // Texte (ODA und Zielzeile); {0}, {1} = Platzhalter der Aufrufstelle
       texte: {
-        start: 'Grabenangriff: {0}. {1} Verteidiger halten Graben, Wald und Bunkereingang. Die Crew beamt am Abholpunkt hinunter.',
-        start_ruest: 'Grabenangriff: {0}. Rüstphase: am Terminal ausbauen, dann „Szene starten“ – die Crew beamt am Abholpunkt hinunter.',
+        start: '{0}: {1} Verteidiger halten Graben, Wald und Bunkereingang. Die Crew beamt am Abholpunkt hinunter.',
+        start_ruest: '{0} – Rüstphase: am Terminal ausbauen, dann „Szene starten“. Die Crew beamt am Abholpunkt hinunter.',
         los: 'Die Crew ist unten. Über die Wiese zum Graben, dann durch den Wald zum Bunkereingang.',
         sperre: 'Gesperrt – erst die Verteidiger im Wald und am Eingang besiegen.',
         ziel_offen: 'Der Weg zum Bunkereingang ist frei – einnehmen!',

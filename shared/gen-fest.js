@@ -101,7 +101,7 @@
       ankunft: (ab.find((q) => q.ankunft) || {}).id || null,
       patrouillen: [], coverSpots: [], decks: null, kanten: {}, zustaende: {}, gelaende: null,
       meta: { versuche: 1, kennzahlen: null, linear: false, pflicht: Object.assign({}, def.pflicht), zellen: null, schiffDecks: null, torStart: 'offen', huelle: true, typ: 'militaer', titel: {},
-        fest: def.id, abschnitte: wahl, gruppen, wellen, ziel: def.ziel || null, platzhalter, ...(def.boden ? { boden: def.boden } : {}) },
+        fest: def.id, abschnitte: wahl, gruppen, wellen, ziel: def.ziel || null, platzhalter, ...(def.boden ? { boden: def.boden } : {}), ...(def.boden2 ? { boden2: def.boden2 } : {}) },
     };
   }
   return { karteRoh, varianten, standardAuswahl, auswahlPruefen };
