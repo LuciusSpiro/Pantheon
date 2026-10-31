@@ -892,7 +892,7 @@ class Agent {
         else if (donor != null) { this.technikCmd(S, 'technik.shield', { sector: donor, delta: -1 }); this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 }); }
         this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1;
       } else if (sec != null) {
-        // SYS-03 C1 (Pool 8): die Bedrohungsseite ist voll; ungenutzte Punkte des Pools gehen an die schwächste der übrigen Seiten (erst Bug, Steuerbord, Backbord, zuletzt Heck), sonst lägen sie brach
+        // SYS-03 C1 (Pool 8): die Bedrohungsseite ist voll; ungenutzte Punkte des Pools gehen an die schwächste der übrigen Seiten (die mit dem wenigsten Zugeteilten; bei Gleichstand in der Reihenfolge Bug, Steuerbord, Backbord, Heck), sonst lägen sie brach
         const pool = sh.shields.pool != null ? sh.shields.pool : 8;
         const used = al.reduce((a, b) => a + b, 0);
         const ziel = [0, 1, 3, 2].filter((i) => i !== sec && al[i] < cap[i]).sort((a, b) => al[a] - al[b])[0];
@@ -4023,7 +4023,7 @@ async function umsetzungMain() {
   return samples;
 }
 // EK8: die feste Kampagnenkette per Bot. Ganze Kette ab Lichtkordon (ohne Tutorial) oder Labor-Einstiege je Kapitel.
-//   node tools/sim-headless.js kette [--seeds N] [--crew 1|3] [--seed S] [--kapitel k4_methalle|alle] [--von k4_methalle] [--tutorial]
+//   node tools/sim-headless.js kette [--seeds N] [--crew 1|3] [--seed S] [--kapitel k4_methalle|alle] [--von k4_methalle] [--tutorial] [--mindest N]
 async function ketteMain() {
   const Kampagne = require('../server/mission/kampagne.js');
   const doc = Kampagne.laden('eisenwald');
@@ -4048,6 +4048,21 @@ async function ketteMain() {
     if (args.includes('--marken')) log('Marken ' + x.j.label + ' Crew ' + x.crew + ' Seed ' + x.seed + ': ' + x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + (m.marken ? `${m.marken.start}->${m.marken.ende}` : '?')).join(' | '));
     const kapitel = x.r.missions.map((m) => m.id.replace(/^k(\d)_.*/, 'K$1') + ' ' + fmtMin(m.dur) + (m.ausgang && m.ausgang !== 'erfolg' ? ' ' + m.ausgang : '') + (m.skips ? ' skip×' + m.skips.length : '') + (m.success ? '' : ' offen')).join(', ');
     log(`| ${x.j.label} | ${x.crew} | ${x.seed} | ${x.gut ? 'ok' : 'FEHL' + (x.r.aborted ? ' (' + x.r.aborted + ')' : '')} | ${fmtMin(x.r.gameTime)} | ${kapitel} | ${x.r.errors} | ${x.r.snapMax} |`);
+  }
+  // SYS-03 C-Nacharbeit: --mindest N = Quote statt Einzellauf (die Bot-Kette ist am Zeitlimit flatterhaft): je Crew müssen mindestens N Läufe die Kette beenden. Softlock und Fehler zählen NIE in die Quote:
+  // jeder Lauf mit Softlock (Skip hilft nicht), Spiel-Fehler oder anderem Abbruch als dem Zeitlimit lässt den Test fehlschlagen.
+  const mindest = argVal('--mindest', null);
+  if (mindest != null) {
+    const hart = rows.filter((x) => !x.gut && (x.r.errors || !/^Spielzeit über/.test(x.r.aborted || '') || x.r.missions.some((m) => m.softlock)));
+    let fehl = hart.length;
+    for (const crew of crews) {
+      const xs = rows.filter((x) => x.crew === crew); const n = xs.filter((x) => x.gut).length;
+      log(`Quote Crew ${crew}: ${n}/${xs.length} (Mindestquote ${mindest})`);
+      if (n < Number(mindest)) fehl++;
+    }
+    for (const x of hart) log(`HART: Crew ${x.crew} Seed ${x.seed}: ${x.r.aborted || (x.r.errors + ' Fehler')}`);
+    log(fehl ? '\nSIM KETTE FEHLGESCHLAGEN (Quote/hart: ' + fehl + ')' : '\nSIM KETTE OK (Quote)');
+    return fehl;
   }
   log(bad ? '\nSIM KETTE FEHLGESCHLAGEN (' + bad + ')' : '\nSIM KETTE OK');
   return bad;

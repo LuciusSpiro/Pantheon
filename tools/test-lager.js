@@ -430,10 +430,22 @@ section('Bausteine (Regiebuch)', () => {
   ok(Fracht.anBord(T.g) === 1, 'fracht_abliefern mit anderer Art lässt die Ladung');
   run('fracht_abliefern', {});
   ok(Fracht.anBord(T.g) === 0 && test('fracht_abgeliefert') && test('fracht_abgeliefert', { art: 'sprengstoff' }) && !test('fracht_abgeliefert', { min: 2 }), 'fracht_abliefern übergibt, fracht_abgeliefert zählt');
+  // SYS-03 C-Nacharbeit: Softlock-Ausweg der Abgabe (k2_konvoi/abgabe): Ladung unterwegs verloren (Frachtraum zerstört), im Lager weniger als gefordert -> der Skip schreibt den Rest gut
+  run('fracht_abliefern_bis', { art: 'sprengstoff', min: 2 });
+  ok(test('fracht_abgeliefert', { art: 'sprengstoff', min: 2 }) && Fracht.abgeliefert(T.g, 'sprengstoff') === 2, 'fracht_abliefern_bis: fehlende Ladung (1 von 2 schon abgeliefert, nichts an Bord) wird bis min gutgeschrieben');
+  Fracht.anBordLegen(T.g, 'sprengstoff'); Fracht.anBordLegen(T.g, 'sprengstoff');
+  run('fracht_abliefern_bis', { art: 'sprengstoff', min: 2 });
+  ok(Fracht.anBord(T.g) === 0 && Fracht.abgeliefert(T.g, 'sprengstoff') === 4, 'fracht_abliefern_bis: was an Bord ist, wird übergeben, nichts doppelt gutgeschrieben (Zähler 4)');
+  { const T2 = arena(); const m2 = { game: T2.g, def: null, tpl: (t) => t }; Fracht.anBordLegen(T2.g, 'sprengstoff');
+    Registry.get('fracht_abliefern_bis').run(m2, { art: 'sprengstoff', min: 2 });
+    ok(Fracht.anBord(T2.g) === 0 && Fracht.abgeliefert(T2.g, 'sprengstoff') === 2, 'fracht_abliefern_bis: eine Ladung an Bord, eine verloren: Zähler 2 (genau bis min)'); }
+  { const buch = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuecher', 'k2_konvoi.regiebuch.json'), 'utf8'));
+    const abgabe = buch.steps.find((x) => x.id === 'abgabe');
+    ok(abgabe && abgabe.skip.some((a) => a.do === 'fracht_abliefern_bis' && a.art === 'sprengstoff' && a.min === 2) && !abgabe.skip.some((a) => a.do === 'fracht_abliefern'), 'k2_konvoi/abgabe: Skip liefert bis zur geforderten Zahl (min 2), nicht nur ab, was an Bord ist'); }
   // Vertrag und Prüfer
   const bs = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'content', 'regiebuch', 'bausteine.json'), 'utf8'));
   const all = Object.assign({}, bs.aktionen, bs.pruefungen);
-  ok(['fracht_abwerfen', 'fracht_abnehmer', 'fracht_abliefern', 'fracht_an_bord', 'fracht_abgeliefert'].every((id) => all[id] && all[id].status === 'registriert'), 'alle fünf stehen in content/regiebuch/bausteine.json');
+  ok(['fracht_abwerfen', 'fracht_abnehmer', 'fracht_abliefern', 'fracht_abliefern_bis', 'fracht_an_bord', 'fracht_abgeliefert'].every((id) => all[id] && all[id].status === 'registriert'), 'alle sechs stehen in content/regiebuch/bausteine.json');
   const Checker = require('../server/mission/checker.js');
   const doc = { format: 'regiebuch/1', id: 'lager_probe', kopf: { titel: 'Lager', art: 'intern', zielspieldauer_min: 3, feldzug: null, auftraggeber: 'tesk' },
     buch: {}, buehne: { orte: ['hafen'] }, besetzung: { npc: ['tesk'] }, erwartet: {},
