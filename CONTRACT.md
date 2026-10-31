@@ -192,7 +192,7 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
 „Nicht genug Marken“, „Ziel außerhalb des Feuerbogens“).
 
 ### 5.3 Server → Client
-- `welcome { pid, serverVersion, debug: bool, roomCode, sektorkarte?, karten? }` – `roomCode` = vom Server bestätigter Raumcode (null ohne Code); `sektorkarte` = Sektorkarte (B3 §6, nur hier und beim Kartenwechsel als eigene Nachricht `sektorkarte`, nie im Snapshot); `karten` = `{ pid: Charakterkarte }` der verbundenen Spieler (CHA-01 B1; fehlt, solange niemand eine Karte hat)
+- `welcome { pid, serverVersion, debug: bool, roomCode, sektorkarte?, karten? }` – `roomCode` = vom Server bestätigter Raumcode (null ohne Code); `sektorkarte` = Sektorkarte (B3 §6, nur hier und beim Kartenwechsel als eigene Nachricht `sektorkarte`, nie im Snapshot); `karten` = `{ pid: Charakterkarte }` aller Spieler mit Karte, auch getrennter (CHA-01 B1; fehlt, solange niemand eine Karte hat)
 - `error { code, text }` – z. B. `badcode` (Raumcode falsch/fehlt), `worldbusy`
 - `full { text }` – Server voll (4 Spieler).
 - `pong { ts }`
@@ -267,8 +267,8 @@ jedem 15. Snapshot und beim Szenenwechsel mitsenden (sonst `asteroids` weglassen
   outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }     // je Platz nur der Teilename aus content/katalog/charakter.json
 ```
 - Im `hello` optional (`karte`). Der Server prüft jedes Feld gegen den Katalog (unbekanntes Teil, Teil eines anderen Platzes oder einer anderen Gruppe, Farbindex außerhalb, falscher Typ, fehlendes Feld → Standard dieses Feldes; Zusatzfelder fallen weg; nie Abbruch).
-- Name: Kartenname (`pruefeName`: Buchstaben, Ziffern, Leerzeichen, Bindestrich, 2–12 Zeichen) wird `p.name`; bei Kollision (Groß/klein egal) hängt der Server ` 2`, ` 3`, … an. Ungültiger Kartenname → bisherige Namenslogik. Ohne Karte bleibt der Name, wie ihn `hello.name` liefert (keine Eindeutigkeit erzwungen).
-- Verteilung: `welcome.karten` und Ereignis `karte { pid, k }` (§5.3). Die Karte steht **nicht** im Snapshot und nicht im Weltstand; sie bleibt beim Wiederverbinden mit gleicher `clientId` erhalten. Spielernamen gehen nie an ein LLM.
+- Name: Kartenname (`pruefeName`: Buchstaben, Ziffern, Leerzeichen, Bindestrich, 2–12 Zeichen) wird `p.name`; bei Kollision (Groß/klein egal) hängt der Server ` 2`, ` 3`, … an. Ungültiger Kartenname → gültiger bisheriger Name, sonst `Crew`. Wer eine Karte hat, behält ihren Namen auch beim Wiederverbinden ohne `karte` (`hello.name` zählt dann nicht). Ohne Karte bleibt der Name, wie ihn `hello.name` liefert (keine Eindeutigkeit erzwungen).
+- Verteilung: `welcome.karten` (alle Spieler mit Karte, auch getrennte) und Ereignis `karte { pid, k }` (§5.3). Die Karte steht **nicht** im Snapshot und nicht im Weltstand; sie bleibt beim Wiederverbinden mit gleicher `clientId` erhalten. Spielernamen gehen nie an ein LLM.
 
 ## 6. Regeln (Server setzt um, Werte in `CONFIG`)
 

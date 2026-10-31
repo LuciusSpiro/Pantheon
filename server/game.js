@@ -780,10 +780,11 @@ class Game {
       free.clientId = clientId; free.conn = conn; free.connected = true; conn.player = free;
       if (name) free.name = name;
       this.applyColorWish(free, msg.color);
+      const hatteKarte = !!free.karte;
       free.karte = null;   // CHA-01 B1: die Karte gehörte dem früheren Besitzer des Platzes
       this.helloKarte(free, msg);
       this.sendTo(conn, this.welcomeMsg(free.id));
-      this.sendeKarte(free, true);
+      this.sendeKarte(free, hatteKarte);   // k = null nur, wenn die anderen eine alte Karte dieses Platzes räumen müssen
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       return;
     }
@@ -808,12 +809,17 @@ class Game {
   // ---------- CHA-01 B1: Charakterkarte ----------
   // Aus dem hello: Karte prüfen und speichern, Name aus der Karte (eindeutig in der Crew). Ohne Karte (oder ohne Katalog) passiert nichts – der Name bleibt, wie ihn die bisherige Logik gesetzt hat.
   helloKarte(p, msg) {
-    if (!charakterKatalog || msg.karte == null) return;
+    if (!charakterKatalog) return;
+    const andere = this.players.filter((o) => o !== p).map((o) => o.name);
+    if (msg.karte == null) {
+      // Wiederverbinden ohne Karte: die gespeicherte Karte bestimmt den Namen (nicht hello.name)
+      if (p.karte) p.name = p.karte.name = Charakter.eindeutigerName(p.karte.name, andere);
+      return;
+    }
     const roh = msg.karte;
     p.karte = Charakter.pruefeKarte(roh, charakterKatalog);
     const wunsch = Charakter.pruefeName(typeof roh === 'object' ? roh.name : null);
-    const andere = this.players.filter((o) => o !== p).map((o) => o.name);
-    p.name = p.karte.name = Charakter.eindeutigerName(wunsch || p.name, andere);
+    p.name = p.karte.name = Charakter.eindeutigerName(wunsch || Charakter.pruefeName(p.name) || Charakter.STANDARD_NAME, andere);
   }
   // Ereignis karte an alle (nur mit Karte; nach Übernahme eines Platzes durch einen Spieler ohne Karte k = null)
   sendeKarte(p, auchLeer) {
@@ -822,7 +828,9 @@ class Game {
   }
   karteOutfit(p, msg) {
     if (!charakterKatalog || !p.karte) return;
-    p.karte.outfit = Charakter.pruefeOutfit(msg.outfit, charakterKatalog);
+    const outfit = Charakter.pruefeOutfit(msg.outfit, charakterKatalog);
+    if (JSON.stringify(outfit) === JSON.stringify(p.karte.outfit)) return;   // unverändert: kein Ereignis
+    p.karte.outfit = outfit;
     this.sendeKarte(p);
   }
 
@@ -953,8 +961,8 @@ class Game {
     const pl = this.playerById(pid); if (pl) pl.awayKv = null;   // B1: gebaute Karte nach (Neu-)Verbindung erneut senden
     const k = sektorkarte();
     if (k) m[Protocol.WELCOME_SEKTORKARTE || 'sektorkarte'] = k;
-    const karten = {};   // CHA-01 B1: Karten der verbundenen Spieler; ohne Karten fehlt das Feld (Nachricht wie bisher)
-    for (const o of this.players) if (o.karte && o.connected) karten[o.id] = o.karte;
+    const karten = {};   // CHA-01 B1: Karten aller Spieler mit Karte (auch getrennter); ohne Karten fehlt das Feld (Nachricht wie bisher)
+    for (const o of this.players) if (o.karte) karten[o.id] = o.karte;
     if (Object.keys(karten).length) m.karten = karten;
     return m;
   }

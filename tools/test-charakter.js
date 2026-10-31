@@ -69,8 +69,10 @@ function einheiten() {
   ok(!('extra' in k) && !('admin' in k) && !('schwert' in k.outfit) && eq(Object.keys(k), Object.keys(STD)), 'zusätzliche Felder fallen weg');
   k = mit((x) => { x.name = 'Dieser Name ist viel zu lang'; });
   ok(k.name === 'Crew' && k.gesicht === 'narbe', 'zu langer Name → Standardname, Rest bleibt');
-  k = Ch.pruefeKarte(JSON.parse('{"__proto__":{"gesicht":"narbe"},"constructor":"x","gesicht":"gibtsnicht"}'), KAT);
-  ok(k.gesicht === 'lerche', 'Prototyp-Tricks ändern nichts');
+  k = Ch.pruefeKarte(JSON.parse('{"__proto__":{"gesicht":"narbe"},"constructor":"x"}'), KAT);
+  ok(k.gesicht === 'lerche', 'Prototyp-Trick ohne eigenes gesicht: Standard');
+  k = Ch.pruefeKarte(Object.create({ gesicht: 'narbe', name: 'Proto', koerper: 'standard', haut: 3, haar: 3, outfit: { kopf: 'bordhelm' } }), KAT);
+  ok(k.gesicht === 'lerche' && k.name === 'Crew' && k.haut === 0 && k.haar === 0 && k.outfit.kopf === 'keine', 'geerbte Eigenschaften (gesicht, name, haut, haar, outfit) zählen nicht');
   let wirft = false, gueltig = true;
   for (const roh of [null, undefined, 0, 7, 'text', [], [1, 2], true, 'x'.repeat(1e6), () => 1]) {
     try { const r = Ch.pruefeKarte(roh, KAT); if (!eq(Object.keys(r), Object.keys(STD)) || r.gesicht !== 'lerche') gueltig = false; } catch (e) { wirft = true; }
@@ -204,6 +206,12 @@ async function integration() {
     await bis(() => a.karten.some((e) => e.pid === 'p3') && b.karten.some((e) => e.pid === 'p3'));
     ok(a.karten.some((e) => e.pid === 'p3' && e.k.name === 'Cleo') && b.karten.some((e) => e.pid === 'p3'), 'Ereignis karte des Nachzüglers erreicht die Bestandsspieler');
 
+    section('Dasselbe hello mit derselben Karte erneut (Lobby): Name bleibt ohne Ziffer');
+    a.send({ t: 'hello', code: CODE, clientId: 'A', name: 'Narbo', color: 0, karte: ALT });
+    b.send({ t: 'hello', code: CODE, clientId: 'B', name: 'Bea', color: 1, karte: kb });
+    await sleep(250);
+    ok(pa.name === 'Narbo' && pa.karte.name === 'Narbo' && pb.name === 'Bea' && pb.karte.name === 'Bea' && g.players.length === 3, `Lobby: Namen unverändert (${pa.name}, ${pb.name})`);
+
     section('Spieler ohne Karte: wie heute');
     const d = await neu({ clientId: 'D', name: 'Dora', color: 3 });
     const pd = g.playerById('p4');
@@ -215,6 +223,10 @@ async function integration() {
     section('karte.outfit (läuft über das cmd-Muster, also nur außerhalb der Lobby)');
     for (const x of [a, b, cc, d]) x.send({ t: 'ready', ready: true });
     ok(await bis(() => g.phase === 'play', 5000), 'Runde läuft mit vier Spielern');
+    a.send({ t: 'hello', code: CODE, clientId: 'A', name: 'Narbo', color: 0, karte: ALT });
+    b.send({ t: 'hello', code: CODE, clientId: 'B', name: 'Bea', color: 1, karte: kb });
+    await sleep(250);
+    ok(pa.name === 'Narbo' && pb.name === 'Bea' && pb.karte.name === 'Bea' && g.players.length === 4, `Runde: dasselbe hello mit derselben Karte lässt die Namen ohne Ziffer (${pa.name}, ${pb.name})`);
     for (const x of [a, b, cc, d]) x.karten.length = 0;
     const neuesOutfit = { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'bordhose', schuhe: 'germanenstiefel', haende: 'keine', umhang: 'fellumhang' };
     b.send({ t: 'cmd', c: 'karte.outfit', outfit: neuesOutfit });
@@ -232,6 +244,9 @@ async function integration() {
     await sleep(200);
     ok(eq(pb.karte.outfit, OUTFIT_STD) && g.phase === 'play', 'fehlendes/kaputtes outfit → Standardoutfit, Server läuft weiter');
     for (const x of [a, b, cc, d]) x.karten.length = 0;
+    b.send({ t: 'cmd', c: 'karte.outfit', outfit: {} });   // ist schon Standardoutfit
+    await sleep(300);
+    ok(a.karten.length === 0 && b.karten.length === 0, 'unverändertes Outfit sendet kein Ereignis karte');
     d.send({ t: 'cmd', c: 'karte.outfit', outfit: neuesOutfit });
     await sleep(300);
     ok(!pd.karte && !a.karten.length && !d.karten.length, 'ohne Karte bewirkt karte.outfit nichts (kein Ereignis)');
@@ -247,8 +262,9 @@ async function integration() {
     section('Wiederverbinden behält die Karte');
     a.close();
     await bis(() => !pa.connected);
-    const a2 = await neu({ clientId: 'A', name: 'Narbo', color: 0 });   // gleiche clientId, diesmal ohne Karte im hello
-    ok(a2.welcome.pid === 'p1' && eq(pa.karte, ALT) && pa.name === 'Narbo', 'gleiche clientId: Platz, Karte und Name bleiben');
+    const a2 = await neu({ clientId: 'A', name: 'Bea', color: 0 });   // gleiche clientId, ohne Karte, hello.name weicht ab (und ist der Name eines anderen)
+    ok(a2.welcome.pid === 'p1' && eq(pa.karte, ALT) && pa.name === 'Narbo', `gleiche clientId: Platz, Karte und Name bleiben, hello.name zählt nicht (${pa.name})`);
+    ok(g.players.filter((p) => p.name === 'Bea').length === 1, 'kein zweiter Spieler Bea');
     ok(eq(a2.welcome.karten.p1, ALT) && eq(a2.welcome.karten.p2.outfit, OUTFIT_STD), 'neues welcome schickt die Karten wieder');
     await bis(() => b.karten.some((e) => e.pid === 'p1' && eq(e.k, ALT)));
     ok(b.karten.some((e) => e.pid === 'p1' && eq(e.k, ALT)), 'Ereignis karte beim Wiederverbinden an die anderen');
@@ -266,9 +282,11 @@ async function integration() {
     ok(pm.karte.v === 1 && pm.karte.gesicht === 'lerche' && pm.karte.frisur === 'dutt' && pm.karte.bart === 'keiner' && pm.karte.haut === 0 && pm.karte.haar === 0 && eq(pm.karte.outfit, OUTFIT_STD), 'manipulierte Karte → Standardwerte je Feld');
     ok(!('admin' in pm.karte) && !('wf' in pm.karte) && !('hp' in pm.karte) && pm.hp !== 9999 && pm.wf !== 'lanze', 'zusätzliche Felder wirken nicht');
     ok(pm.name === 'Mallory' && pm.karte.name === 'Mallory', `ungültiger Kartenname → bisherige Namenslogik (${pm.name})`);
+    ok(m.welcome.karten.p2 && m.welcome.karten.p2.name === 'Bea' && m.welcome.karten.p3 && m.welcome.karten.p3.name === 'Cleo', 'Nachzügler sieht die Karten getrennter Spieler (Bea, Cleo)');
     ok(m.welcome.karten && m.welcome.karten[pm.id] && m.welcome.karten[pm.id].gesicht === 'lerche', 'Standardkarte steht im welcome');
     const m2 = await neu({ clientId: 'M', karte: 'Zeichenkette' });   // Wiederverbinden mit Müll als Karte
     ok(m2.welcome.karten[pm.id].gesicht === 'lerche' && pm.connected && g.errors === fehlerVor, 'Karte als Zeichenkette → Standardkarte, kein Serverfehler');
+    ok(pm.name === 'Mallory' && pm.karte.name === 'Mallory', `Karte als Zeichenkette: Name bleibt (${pm.name})`);
     ok(Protocol.VERSION === 8, 'Protokollversion 8');
 
     section('Übernahme eines getrennten Platzes ohne Karte');
@@ -278,6 +296,11 @@ async function integration() {
     ok(!(e2.welcome.karten && e2.welcome.karten[pn.id]), 'und sie steht nicht in seinem welcome');
     await sleep(100);
     ok(m2.karten.some((e) => e.pid === pn.id && e.k === null), 'Ereignis karte { k: null } räumt den Eintrag der anderen');
+    await neu({ clientId: 'O', name: 'Otto', color: 3 });   // übernimmt p3 (hatte Karte)
+    const vor = m2.karten.length;
+    const e4 = await neu({ clientId: 'P', name: 'Paula', color: 0 });   // übernimmt p4 (hatte nie eine Karte)
+    await sleep(150);
+    ok(e4.welcome.pid === 'p4' && !m2.karten.slice(vor).some((e) => e.pid === 'p4'), 'Platz ohne frühere Karte: kein Ereignis k = null');
   });
 
   await mitServer(async (g, neu) => {
@@ -290,6 +313,14 @@ async function integration() {
     ok(a.welcome.karten.p1.name === 'Aurelia', 'erster behält den Namen');
     const d = await neu({ clientId: 'D', name: 'x', color: 3, karte: Object.assign(klon(STD), { name: 'Aurelia' }) });
     ok(g.players[3].name === 'Aurelia 4' && d.welcome.karten.p4.name === 'Aurelia 4', 'vierter: Aurelia 4');
+  });
+
+  await mitServer(async (g, neu) => {
+    section('Name ohne gültigen Kartennamen: Fallback folgt der Namensregel');
+    await neu({ clientId: 'A', name: 'Bob!', color: 0, karte: Object.assign(klon(STD), { name: 'x' }) });
+    await neu({ clientId: 'B', name: '\u{1F600}\u{1F600}', color: 1, karte: Object.assign(klon(STD), { name: '!' }) });
+    ok(g.players[0].name === 'Bob' && g.players[0].karte.name === 'Bob', `Name Bob! wird Bob (${g.players[0].name})`);
+    ok(g.players[1].name === 'Crew' && g.players[1].karte.name === 'Crew', `Emoji-Name wird Crew (${g.players[1].name})`);
   });
 
   await mitServer(async (g, neu) => {

@@ -88,13 +88,15 @@
   function pruefeKarte(roh, katalog) {
     const s = sicht(katalog);
     const r = istObjekt(roh) ? roh : {};
-    const k = standardKarte(pruefeName(r.name), katalog);
+    const eigen = (f) => (hat(r, f) ? r[f] : undefined);   // nur eigene Eigenschaften, nie über den Prototyp
+    const k = standardKarte(pruefeName(eigen('name')), katalog);
     if (!s) return k;
-    if (typeof r.koerper === 'string' && s.koerper.includes(r.koerper)) k.koerper = r.koerper;
+    const kb = eigen('koerper');
+    if (typeof kb === 'string' && s.koerper.includes(kb)) k.koerper = kb;
     for (const p of s.charakter) k[p.id] = teil(s, p, hat(r, p.id) ? r[p.id] : undefined);
-    k.haut = farbe(r.haut, s.nHaut);
-    k.haar = farbe(r.haar, s.nHaar);
-    k.outfit = outfitVon(s, r.outfit);
+    k.haut = farbe(eigen('haut'), s.nHaut);
+    k.haar = farbe(eigen('haar'), s.nHaar);
+    k.outfit = outfitVon(s, eigen('outfit'));
     return k;
   }
 

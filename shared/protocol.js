@@ -11,7 +11,7 @@
     // hello { …, karte? } – optionale Charakterkarte { v, name, koerper, gesicht, frisur, bart, haut, haar, outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }.
     //   Der Server prüft sie feldweise gegen den Katalog (Falsches → Standard dieses Feldes, nie Abbruch), übernimmt den Kartennamen (pruefeName, 2–12 Zeichen) als
     //   Spielernamen (bei Kollision mit einem anderen Spieler ' 2', ' 3', …); ist der Kartenname ungültig, gilt die bisherige Namenslogik. Ohne karte: alles wie vorher.
-    // welcome.karten { pid: karte } – geprüfte Karten der verbundenen Spieler (auch die eigene); fehlt, wenn keiner eine Karte hat.
+    // welcome.karten { pid: karte } – geprüfte Karten aller Spieler mit Karte, auch getrennter (auch die eigene); fehlt, wenn keiner eine Karte hat.
     // Ereignis karte { pid, k } – an alle bei hello (Beitritt/Wiederverbinden) und nach karte.outfit; k = null: der Platz hat keine Karte mehr (Übernahme durch Spieler ohne Karte).
     // cmd { c: 'karte.outfit', outfit } – ändert nur das Outfit (gleiche Prüfung); nur mit Karte, nur außerhalb der Lobby (cmd-Muster), noch ohne Ortsprüfung.
     // Die Karte steht nicht im Snapshot und nicht im Weltstand; sie geht beim Wiederverbinden mit gleicher clientId nicht verloren. Spielernamen gehen nie an ein LLM.
