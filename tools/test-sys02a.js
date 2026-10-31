@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-02a „Nachbesserungen aus Kais Antworten zum SYS-01-Bericht“ (Kai 2026-10-28):
 //   1  Jäger reparieren nicht (gegner-systeme.json raider.repariert false).
 //   2  Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche): Regeneration gesperrt (wie bisher), Reparatursperre der getroffenen Zone
@@ -51,7 +52,7 @@ function lerche(spieler, seed) {
   for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   g.ship.fragile = {}; g.ship.offline = {};
   I.integritaetVoll(g);
-  g.ship.shields.current = [6, 6, 6, 6]; g.ship.shields.regenHold = 0;
+  g.ship.shields.current = [6, 6, 6, 6]; Schilde.pause.loeschen(g.ship.shields);
   return { g, run };
 }
 const ankern = (g, p, sys) => { const st = W.STATIONS.find((s) => s.system === sys); const c = W.tileCenter(st.x, st.y); p.x = c.x; p.y = c.y; p.zone = 'ship'; p.console = null; p.hold = null; p.moving = false; p.input.mx = 0; p.input.my = 0; };
@@ -105,7 +106,7 @@ section('1 Jäger reparieren nicht (Daten gegner-systeme.json)', () => {
 section('2a Sturm: Werte als Daten (Katalog) und tunebar (Config), eine Zahl', () => {
   ok(typeof SM.sturm.reparaturSperre_s === 'number' && SM.sturm.reparaturSperre_s === 6 && ST.reparaturSperre_s === 6, 'reparaturSperre_s 6 (Config und Katalog)');
   ok(SM.sturm.systemFaktor === undefined && ST.systemFaktor === undefined && SM.sturmSchaden === undefined, 'SYS-03 B2: keine Punktfaktoren (sturmSchaden, systemFaktor) mehr in Config und Katalog');
-  ok(ST.regenSperre === 6 && ST.niedrig === 1 && ST.schildFaktor === 0.25, 'regenSperre 6, niedrig 1, schildFaktor 0,25 unverändert');
+  ok(ST.regenSperre === undefined && SM.sturm.regenSperre_s === 6 && ST.niedrig === 1 && ST.schildFaktor === 0.25, 'SYS-03 C1: regenSperre_s 6 nur in der Config (nicht mehr im Katalog), niedrig 1, schildFaktor 0,25 unverändert');
 });
 
 section('2b Sturm gegen die Lerche: voller Schild – kaum Schildschaden, kein Systemschaden, Regeneration gesperrt', () => {
@@ -113,7 +114,7 @@ section('2b Sturm gegen die Lerche: voller Schild – kaum Schildschaden, kein S
   const i0 = isum(g);
   for (let i = 0; i < 15; i++) sturmHit(g, 0);
   ok(isum(g) === i0 && g.ship.shields.current[0] > ST.niedrig && g.ship.shields.current[0] < 6, `15 Nadeln gegen Schild 6: Systeme unberührt (Integrität ${i0}), Schild nur ${(6 - g.ship.shields.current[0]).toFixed(2)} abgetragen (kaum Schildschaden, ${g.ship.shields.current[0].toFixed(2)} über „niedrig“)`);
-  ok(g.ship.shields.regenHold > g.time, 'Regeneration gesperrt');
+  ok(!Schilde.pause.darfRegenerieren(g.ship.shields, 0, g.time) && Schilde.pause.bis(g.ship.shields, 0) >= g.time + SM.sturm.regenSperre_s - 1e-6, 'Regeneration des getroffenen Sektors gesperrt (regenSperre_s)');
 });
 
 section('2c Sturm gegen die Lerche: bei Schild 0 ist jeder Treffer ein Direkttreffer (SYS-03 B1: eine Stufe, egal wie klein), Treffer-Fenster', () => {

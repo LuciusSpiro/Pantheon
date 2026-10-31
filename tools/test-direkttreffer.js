@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-03 B1 „Direkttreffer auf die Lerche“: Ein Treffer ohne Schildschutz schaltet ein Lerche-System genau EINE Stufe weiter
 // (ok -> beschädigt -> zerstört), unabhängig von der Schadenszahl. Treffer-Fenster (systemModell.trefferFenster_s), Torpedo unverändert,
 // Schild über 0 fängt ab, Fragiles bricht, leere Zone läuft in die Mitte, Reaktor-Countdown nur einmal, Snapshot zeigt den Treffer sofort.
@@ -29,7 +30,7 @@ function newGame(seed) {
   g.ship.fireList = []; g.ship.breachList = [];
   for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   g.ship.fragile = {}; g.ship.offline = {}; g.ship.trefferT = {};
-  g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 0;
+  g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.loeschen(g.ship.shields);
   g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0; g.ship.docked = false;
   g.god = false;
   I.integritaetVoll(g);
@@ -146,7 +147,7 @@ section('Dauerdruck: eine Stufe je zonen.druckPunkte, höchstens eine je Takt', 
     space.enterScene(g, 'rabenpass', {}); g.space.enemies = []; g.space.projectiles = [];
     for (let k = 0; k < 10; k++) g.step();
     for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; g.ship.fragile = {}; g.ship.trefferT = {}; I.integritaetVoll(g);
-    g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9; g.god = false; g.ship.x = 1500 + 200; g.ship.y = 800;
+    g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(g.ship.shields, 1e9); g.god = false; g.ship.x = 1500 + 200; g.ship.y = 800;
     const K = CONFIG.zonen.druckPunkte; const rate = 3;
     const stufen = () => I.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] === 'damaged' ? 1 : g.ship.systems[k] === 'broken' ? 2 : 0), 0);
     const lauf = (sek) => { for (let k = 0; k < Math.round(sek / DT); k++) { g.ship.x = 1700; g.ship.y = 800; g.step(); } };
@@ -264,7 +265,7 @@ function druckSzene(seed, schaden) {
   space.enterScene(g, 'rabenpass', {}); g.space.enemies = []; g.space.projectiles = [];
   for (let k = 0; k < 10; k++) g.step();
   for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; g.ship.fragile = {}; g.ship.trefferT = {}; I.integritaetVoll(g);
-  g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9; g.god = false; g.ship.x = 1700; g.ship.y = 800;
+  g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(g.ship.shields, 1e9); g.god = false; g.ship.x = 1700; g.ship.y = 800;
   const zone = SZENE.zonen[0];
   const verloren = () => I.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] === 'damaged' ? 1 : g.ship.systems[k] === 'broken' ? 2 : 0), 0);
   let schildHoch = 0;   // > 0: der Schild steht in jedem Tick auf diesem Wert (die Schildverteilung des Spiels deckelt ihn auf die Zuteilung); die Lerche zeigt mit dem Bug zur Zone (Sektor 0 hat Zuteilung, das Heck nicht)
@@ -311,7 +312,7 @@ section('Dauerdruck-Zähler: bleibt innerhalb der Frist, verfällt danach (auch 
 section('Projektil-Pfad: Gegner-Jäger schießt auf die Lerche (updateProjectiles) – Schild 0: der erste Treffer = genau eine Stufe, unabhängig von der Schadenszahl', () => {
   const d = druckSzene(95, 0);
   try {
-    const g = d.g; g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9; g.god = false; g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0;
+    const g = d.g; g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(g.ship.shields, 1e9); g.god = false; g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0;
     const e = space.spawnEnemy(g, 'raider', { x: 1500 + 300, y: 800, facing: Math.PI }); e.hitT = -99;
     g.space.enemies = [e];
     let t = 0; const lerche = () => I.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] === 'damaged' ? 1 : g.ship.systems[k] === 'broken' ? 2 : 0), 0);
@@ -329,7 +330,7 @@ section('Telegraphierte Ladung (schwerer Treffer) und Asteroid: je genau eine St
   const Station = require('../server/sim/station.js'); const autoAlt = Station.waffenAutomatikAktiv;
   Station.waffenAutomatikAktiv = () => false;   // keine Auto-Waffen der Lerche: sonst schießt sie die Korvette an und die Ladung bricht ab
   try {
-    const g = d.g; g.god = false; g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9; g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0;
+    const g = d.g; g.god = false; g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(g.ship.shields, 1e9); g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0;
     const lerche = () => I.SYSTEM_ORDER.reduce((a, k) => a + (g.ship.systems[k] === 'damaged' ? 1 : g.ship.systems[k] === 'broken' ? 2 : 0), 0);
     // schwere Ladung einer Korvette: die Ladung läuft ab (e.tele), der Strahl trifft die Lerche mit tele.damage (heavy) – eine Stufe
     const e = space.spawnEnemy(g, 'korvette', { x: 1500 + 250, y: 800, facing: Math.PI }); g.space.enemies = [e];
@@ -338,7 +339,7 @@ section('Telegraphierte Ladung (schwerer Treffer) und Asteroid: je genau eine St
     ok((g.stats.heavyHits || 0) >= 1 && lerche() === 1, `Ladung ausgelöst (heavyHits ${g.stats.heavyHits}): genau eine Stufe (${lerche()}), nicht mehrere trotz hohem Schaden`);
     // Asteroid: die Lerche berührt einen Brocken
     const g2 = druckSzene(97, 0); try {
-      const h = g2.g; h.god = false; h.ship.shields.current = [0, 0, 0, 0]; h.ship.shields.regenHold = 1e9; h.ship.x = 1500; h.ship.y = 800; h.space.enemies = [];
+      const h = g2.g; h.god = false; h.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(h.ship.shields, 1e9); h.ship.x = 1500; h.ship.y = 800; h.space.enemies = [];
       h.space.asteroids = [{ id: 'ast_t', x: 1500 + 30, y: 800, r: 80 }];
       const l2 = () => I.SYSTEM_ORDER.reduce((a, k) => a + (h.ship.systems[k] === 'damaged' ? 1 : h.ship.systems[k] === 'broken' ? 2 : 0), 0);
       h.step(); h.step();

@@ -137,8 +137,8 @@ section('Schilde: Regeneration wie bei Gegnern', () => {
   e.shields[1] = 1.5; e.regenT = 0;
   Escort.hit(g, e, 0.2, { sturm: true, von: quelle(e, Math.PI / 2, 200) });
   const sv = e.shields[1];
-  ticks(g, STURM.regenSperre - 0.5);
-  ok(e.shields[1] === sv && sv < 1.5, `Sturm-Treffer sperrt die Regeneration für ${STURM.regenSperre} s (Schild bleibt ${sv})`);
+  ticks(g, CONFIG.systemModell.sturm.regenSperre_s - 0.5);
+  ok(e.shields[1] === sv && sv < 1.5, `Sturm-Treffer sperrt die Regeneration für ${CONFIG.systemModell.sturm.regenSperre_s} s (Schild bleibt ${sv})`);
   ticks(g, R + 1.5);
   ok(e.shields[1] > sv, 'danach regeneriert er wieder');
 });

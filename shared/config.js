@@ -81,7 +81,9 @@
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
-    shields: { pointsPerPower: 3,   /* M3b: 2 -> 3 (Pool 6 bei Energie 2, Kai) */ maxPerSector: 6, regenInterval: 2, default: [2, 2, 0, 2] },   // QA M3b: default [2,1,0,1] -> [2,2,0,2] (Pool 6 war zu Spielbeginn nur zu 4 verteilt, 2 Punkte lagen brach)
+    // SYS-03 C1 (Kai: Ein Schild ist schwer zu knacken): Pool 8 bei Energie 2 (pointsPerPower 4), Kappe 8 je Sektor, Start [4,2,0,2] (Bug stark, Seiten symmetrisch; Startwerte, Paket D kalibriert).
+    // regenDelay: s ohne Schildregeneration eines Sektors nach JEDEM Treffer auf genau diesen Sektor (auch bei Schild 0 und bei Treffern am Schild vorbei); danach 1 Punkt je regenInterval s (shared/schilde.js, Regenerationspause).
+    shields: { pointsPerPower: 4, maxPerSector: 8, regenInterval: 2, regenDelay: 5, default: [4, 2, 0, 2] },
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
@@ -684,7 +686,7 @@
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
       // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). SYS-03 B2: Sturm bei Schild 0 = Direkttreffer (eine Stufe, Treffer-Fenster), bei 0 < Schild ≤ niedrig Chance systemChance (Katalog) auf eine Stufe; keine Punktfaktoren mehr.
       // trefferFenster_s: Treffer-Fenster eines Systems nach einem Sturm-Treffer (länger als das Standard-Fenster: eine Salve aus 8 Nadeln über ~0,5 s kostet ein System nur eine Stufe, nicht die ganze Zone).
-      sturm: { reparaturSperre_s: 6, trefferFenster_s: 1.5 },
+      sturm: { reparaturSperre_s: 6, trefferFenster_s: 1.5, regenSperre_s: 6 },   // regenSperre_s (SYS-03 C1): ein Schildsektor regeneriert nach einem Sturm-Treffer mindestens so lange nicht (zusätzlich zu shields.regenDelay, es gilt das Längere), je getroffenem Sektor/Segment
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5

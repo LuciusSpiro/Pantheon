@@ -1,5 +1,5 @@
 'use strict';
-// SYS-01 B2 Teil 1: Schild der Lerche. Kapazität je Sektor 6, schnellere Regeneration (regenInterval 2 s statt 4 s),
+// SYS-01 B2 Teil 1 (SYS-03 C1: Kapazität 8, Pool 8, Regenerationspause je Sektor; die Pause selbst prüft test-schild-pause.js): Schild der Lerche. Kapazität je Sektor 8 (B2: 6), schnellere Regeneration (regenInterval 2 s statt 4 s),
 // Regeneration unter Sturm gesperrt, Sturm-Nadel nimmt den Schild um schildFaktor × Schaden (Rundung im Sturm-Zweig behoben).
 // Befund (info, kein Fehler): Die Abnahme „Sturm bricht vollen Schild in ≤ 15 s“ wird mit den heutigen Sturm-Werten NICHT erreicht
 // (Gegner-Sturm: 0,0375 Schild je Nadel). Das ist eine Balance-Entscheidung, siehe Rückmeldung B2.
@@ -12,6 +12,7 @@ const CONFIG = require('../shared/config.js');
 const Katalog = require('../shared/schiffskatalog.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
+const Schilde = require('../shared/schilde.js');
 
 const DT = 1 / CONFIG.tickHz;
 let fails = 0, n = 0;
@@ -29,44 +30,45 @@ function arena(seed) {
   g.god = false;
   const sh = g.ship; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; sh.vx = sh.vy = 0;
   g.space.enemies = []; g.space.projectiles = [];
-  for (let i = 0; i < 10; i++) g.step();   // Pool wird erst nach einigen Ticks auf Energie 2 × 3 gesetzt
+  for (let i = 0; i < 10; i++) g.step();   // Pool wird erst nach einigen Ticks auf Energie 2 × pointsPerPower gesetzt
   return g;
 }
 const lauf = (g, sek, cb) => { const t1 = g.time + sek; while (g.time < t1) { const sh = g.ship; sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; g.step(); if (cb) cb(); } };
 
 console.log('\n[Konfiguration]');
-ok(CONFIG.shields.maxPerSector === 6, 'maxPerSector 6 (vorher 4)');
-ok(CONFIG.shields.pointsPerPower === 3 && CONFIG.shields.default.join(',') === '2,2,0,2', 'Pool-Größe (pointsPerPower 3) und Start-Verteilung [2,2,0,2] unverändert');
+ok(CONFIG.shields.maxPerSector === 8, 'maxPerSector 8 (SYS-03 C1; B2: 6, vorher 4)');
+ok(CONFIG.shields.pointsPerPower === 4 && CONFIG.shields.default.join(',') === '4,2,0,2' && CONFIG.shields.default.reduce((a, b) => a + b, 0) === 2 * CONFIG.shields.pointsPerPower, 'Pool 8 (pointsPerPower 4 × Energie 2), Start-Verteilung [4,2,0,2] nutzt den ganzen Pool');
 ok(CONFIG.shields.regenInterval === 2, `regenInterval 2 s (vorher 4 s), Ist ${CONFIG.shields.regenInterval}`);
 
 console.log('\n[Kapazität je Sektor]');
 {
   const g = arena(1); const sh = g.ship;
+  const MAX = CONFIG.shields.maxPerSector;
   sh.shields.alloc = [2, 2, 0, 2]; sh.shields.allocIntent = [2, 2, 0, 2];
-  // Sektor 1 und 3 leeren, Sektor 0 auf die Obergrenze füllen (Pool 6)
+  // Sektor 1 und 3 leeren, Sektor 0 auf die Obergrenze füllen (Pool 8)
   for (let k = 0; k < 2; k++) { space.technikShield(g, 1, 0); space.technikShield(g, 3, 0); }
-  let fehl = null; while (sh.shields.alloc[0] < 6) { const e = space.technikShield(g, 0, 1); if (e) { fehl = e; break; } }
-  ok(sh.shields.alloc[0] === 6 && fehl === null, `Sektor 0 nimmt 6 Punkte auf (Pool ${sh.shields.pool}, Zuteilung ${sh.shields.alloc.join('/')})`);
-  const siebte = space.technikShield(g, 0, 1);
-  ok(!!siebte && sh.shields.alloc[0] === 6, `siebter Punkt wird abgelehnt (${siebte || 'keine Meldung'})`);
+  let fehl = null; while (sh.shields.alloc[0] < MAX) { const e = space.technikShield(g, 0, 1); if (e) { fehl = e; break; } }
+  ok(sh.shields.alloc[0] === MAX && fehl === null, `Sektor 0 nimmt ${MAX} Punkte auf (Pool ${sh.shields.pool}, Zuteilung ${sh.shields.alloc.join('/')})`);
+  const neunte = space.technikShield(g, 0, 1);
+  ok(!!neunte && sh.shields.alloc[0] === MAX, `neunter Punkt wird abgelehnt (${neunte || 'keine Meldung'})`);
 }
 
 console.log('\n[Regeneration]');
 {
   const g = arena(2); const sh = g.ship;
-  sh.shields.regenHold = 0; sh.shields.current = [0, 0, 0, 0]; sh.shields.regenT = 0;
+  Schilde.pause.loeschen(sh.shields); sh.shields.current = [0, 0, 0, 0]; sh.shields.regenT = [0, 0, 0, 0];
   const alloc = sh.shields.alloc.slice();
   let t0 = null, tVoll = null; const gestartet = g.time;
-  lauf(g, 12, () => { if (tVoll == null && sh.shields.current[0] >= alloc[0] - 1e-9 && alloc[0] > 0) tVoll = g.time - gestartet; });
-  // Sektor 0 steht bei alloc 2: je Punkt ein Intervall (2 s) → 4 s bis voll (vor B2: 8 s)
-  ok(tVoll != null && tVoll <= 2 * CONFIG.shields.regenInterval + 0.5, `Sektor 0 (Zuteilung ${alloc[0]}) ist nach ${tVoll != null ? tVoll.toFixed(1) : '–'} s voll, Soll ${2 * CONFIG.shields.regenInterval} s (vorher 8 s)`);
+  lauf(g, 14, () => { if (tVoll == null && sh.shields.current[0] >= alloc[0] - 1e-9 && alloc[0] > 0) tVoll = g.time - gestartet; });
+  // Sektor 0 steht bei alloc 4: je Punkt ein Intervall (2 s) → 8 s bis voll (vor B2: 16 s)
+  ok(tVoll != null && tVoll <= alloc[0] * CONFIG.shields.regenInterval + 0.5, `Sektor 0 (Zuteilung ${alloc[0]}) ist nach ${tVoll != null ? tVoll.toFixed(1) : '–'} s voll, Soll ${alloc[0] * CONFIG.shields.regenInterval} s (ohne Treffer keine Pause)`);
 }
 
-console.log('\n[Regeneration auf Kappe 6]');
+console.log('\n[Regeneration auf Kappe 8]');
 {
   const g = arena(4); const sh = g.ship; const MAX = CONFIG.shields.maxPerSector;
   sh.shields.alloc = [MAX, 0, 0, 0]; sh.shields.allocIntent = [MAX, 0, 0, 0]; sh.shields.current = [MAX - 3, 0, 0, 0];
-  sh.shields.regenHold = 0; sh.shields.regenT = 0;
+  Schilde.pause.loeschen(sh.shields); sh.shields.regenT = [0, 0, 0, 0];
   const s0 = sh.shields.current[0]; const verlauf = [];
   lauf(g, 3 * CONFIG.shields.regenInterval + 0.5, () => { const v = sh.shields.current[0]; if (verlauf[verlauf.length - 1] !== v) verlauf.push(v); });
   ok(sh.shields.cap[0] === MAX, `Kappe des Sektors ${sh.shields.cap[0]} = maxPerSector`);
@@ -79,16 +81,17 @@ console.log('\n[Sturm: Regeneration gesperrt, Schildschaden je Nadel]');
 {
   const g = arena(3); const sh = g.ship; const ST = Katalog.waffe('sturmbatterie').sturm;
   sh.shields.alloc = [6, 0, 0, 0]; sh.shields.allocIntent = [6, 0, 0, 0]; sh.shields.current = [6, 0, 0, 0];
-  sh.shields.regenHold = 0;
+  Schilde.pause.loeschen(sh.shields);
   const s0 = sh.shields.current[0];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
   const nach = sh.shields.current[0];
   ok(near(s0 - nach, 0.15 * ST.schildFaktor, 1e-9), `eine Sturm-Nadel nimmt ${(s0 - nach).toFixed(4)} Schild (0,15 × ${ST.schildFaktor}, vorher auf 0 gerundet)`);
-  ok(sh.shields.regenHold > g.time && sh.shields.regenHold <= g.time + ST.regenSperre + 1e-6, 'Sturm setzt die Regenerationssperre');
+  const SPERRE = CONFIG.systemModell.sturm.regenSperre_s;
+  ok(!Schilde.pause.darfRegenerieren(sh.shields, 0, g.time) && Schilde.pause.bis(sh.shields, 0) <= g.time + SPERRE + 1e-6 && Schilde.pause.darfRegenerieren(sh.shields, 1, g.time), 'Sturm setzt die Regenerationssperre (Sektor 0, nicht Sektor 1)');
   lauf(g, 3);
   ok(sh.shields.current[0] <= nach + 1e-9 + 0.0, `unter Sturm-Sperre regeneriert der Schild nicht (${nach.toFixed(4)} -> ${sh.shields.current[0].toFixed(4)})`);
   // Sperre läuft ab, dann regeneriert er wieder
-  lauf(g, ST.regenSperre + 2.5);
+  lauf(g, SPERRE + CONFIG.shields.regenInterval + 1);
   ok(sh.shields.current[0] > nach + 1e-9, 'nach Ablauf der Sperre regeneriert er wieder');
 }
 

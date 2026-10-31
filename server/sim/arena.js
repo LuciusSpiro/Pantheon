@@ -10,6 +10,7 @@
 //  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
 //    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
 const W = require('../world.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
 const space = require('./space.js');
@@ -75,7 +76,7 @@ function repairShip(game) {
   require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Hülle entfällt, Rücksetzer = Integrität aller Systeme auf Maximum
   for (const k of Object.keys(ship.heat)) ship.heat[k] = 0;
   if (ship.reactorCtl.state === 'offline') space.reactorOnline(game, 'Testgelände: Reaktor läuft.');
-  ship.shields.current = ship.shields.alloc.slice();
+  ship.shields.current = ship.shields.alloc.slice(); Schilde.pause.loeschen(ship.shields);   // SYS-03 C1
   ship.sysHitAt = {};
 }
 

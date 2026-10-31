@@ -4,7 +4,7 @@
 //                 kein Systemschaden. Ohne Schild (oder durchschlagen) trifft der Treffer ein System der Zone
 //                 (interior.trefferweg) und verliert genau EINE Stufe (SYS-03 B1, unabhängig von der Schadenszahl; Treffer-Fenster systemModell.trefferFenster_s,
 //                 Sturm-Treffer sturm.trefferFenster_s). Feuer nur bei Stufenverlust.
-//   direktTreffer – derselbe Systemtreffer ohne Schild für Quellen ohne Schildschutz (Mine, Dauerdruck-Pfad nutzt systemSchaden).
+//   direktTreffer – derselbe Systemtreffer ohne Schild für Quellen ohne Schildschutz (Mine, Dauerdruck-Pfad nutzt systemSchaden); stempelt wie resolveHit die Regenerationspause des Sektors (SYS-03 C1).
 //   systemSchaden – ein Systemtreffer in einer Zone (Trefferweg) mit Ereignis, Frachtraum-Verlust und genau einem Rückschlag je Zone.
 //   onSystemHit – Rückschlag für laufende Reparaturen im Bereich des getroffenen Systems (spaceM3b.repairHitLoss).
 //   update      – Eskalation (spaceM3b.escalation) und Reaktor-Autostart im Gefecht (spaceM3b.reactorAutoRestart).
@@ -14,7 +14,8 @@ const interior = require('./interior.js');
 const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
 const Integ = require('./integritaet.js');
-const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre des Sturms
+const Sturm = require('./sturm.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor (Schilde.pause)   // SYS-02a: Reparatursperre des Sturms
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -37,6 +38,7 @@ function resolveHit(game, sector, dmg, opts) {
   const C = game.C; const sh = game.ship.shields;
   ensureStats(game);
   if (!Number.isInteger(sector) || sector < 0 || sector > 3) sector = 0;
+  if (o.sturm) Schilde.pause.trefferSturm(sh, sector, game.time, C); else Schilde.pause.treffer(sh, sector, game.time, C);   // SYS-03 C1: jeder Treffer auf den Sektor (auch Schild 0, Durchschlag, Torpedo, Sturm) stoppt die Regeneration DIESES Sektors
   dmg = Math.max(0, Number(dmg) || 0);
   // 1. Schild vor dem Treffer; wirksam ist er nach Durchschlag (Schild aus, oder um die Zahl schwächer)
   const s0 = Math.max(0, Number(sh.current[sector]) || 0);
@@ -45,7 +47,7 @@ function resolveHit(game, sector, dmg, opts) {
   else if (Number(o.pierce) > 0) s = Math.max(0, s0 - Number(o.pierce));
   // PAN-01 C: Sturmbatterie (hoher Schild: kaum Schildschaden, der Schild regeneriert nicht) und Streu-Granate (eine = Schildschaden)
   const ST = o.sturm ? Katalog.waffe('sturmbatterie').sturm : null;
-  if (ST) { sh.regenHold = game.time + ST.regenSperre; interior.reparaturSperren(game, sector, Sturm.reparaturSperre(game)); }   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (laufender Fortschritt 0)
+  if (ST) { interior.reparaturSperren(game, sector, Sturm.reparaturSperre(game)); }   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (laufender Fortschritt 0)
   // SYS-02a: Torpedo (Lerche wie Gegner gleiche Regel): bei Schild 0 zerstört er das getroffene System der Zone sicher und schlägt anteilig auf den Reaktor durch
   if (o.torpedo && s <= 0) return torpedoTreffer(game, sector, s0, o);
   if ((ST && s0 > ST.niedrig) || o.streu) {
@@ -95,6 +97,7 @@ function systemTrefferOhneSchild(game, out, sector, o) {
 function direktTreffer(game, sector, opts) {
   ensureStats(game);
   if (!Number.isInteger(sector) || sector < 0 || sector > 3) sector = 0;
+  Schilde.pause.treffer(game.ship.shields, sector, game.time, game.C);   // SYS-03 C1: auch ein Treffer am Schild vorbei (Mine) stoppt die Regeneration des Sektors
   const out = { absorbed: 0, rest: 0, systems: [], shield: 0, empThrough: false };
   systemTrefferOhneSchild(game, out, sector, opts || {});
   return out;

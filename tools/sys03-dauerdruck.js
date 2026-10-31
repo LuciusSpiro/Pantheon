@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-03 B-Nacharbeit: Messung des Dauerdrucks (Zonenschaden ohne Schild) in Stufen. Eine Zone mit `schaden` Punkten je Sekunde liegt auf der Lerche (Schild 0, ohne Regeneration);
 // gemessen werden die verlorenen Stufen (beschädigt = 1, zerstört = 2, Summe über alle Systeme) nach `sek` Sekunden und die Zeit bis zur 1. / 3. Stufe.
 // Läuft gegen jeden Stand (auch den vor SYS-03, 2bd7137): nutzt nur die öffentliche Sim.
@@ -28,7 +29,7 @@ function lauf(seed) {
     space.enterScene(g, 'rabenpass', {}); g.space.enemies = []; g.space.projectiles = [];
     for (let k = 0; k < 10; k++) g.step();
     for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; g.ship.fragile = {}; g.ship.trefferT = {}; I.integritaetVoll(g);
-    g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9; g.god = ZIEL === 'gegner'; g.ship.x = 1700; g.ship.y = 800;
+    g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.alleBis(g.ship.shields, 1e9); g.god = ZIEL === 'gegner'; g.ship.x = 1700; g.ship.y = 800;
     let e = null;
     if (ZIEL === 'gegner') {
       g.ship.x = 100; g.ship.y = 100;   // Lerche weit weg (außerhalb der Zone ist nichts: Radius 40000 überdeckt alles, aber der Gegner ist das Ziel)

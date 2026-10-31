@@ -498,7 +498,7 @@ class Game {
       module: Modul.neu(C),   // PAN-01 A: Bestückung der Start-Lerche (Frachtraum, Krankenstation), je ein Modulraum
       stufe: 0,   // PAN-01 B: Ausbaustufe (0 Start, 3 voll ausgebaut), öffnet Plätze und Räume (sim/ausbau.js)
       freigeschaltet: Werft.startFrei(this),   // PAN-01 D: höchste gekaufte Stufe, freigeschaltete Waffen und Module (sim/werft.js)
-      shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: 0 },
+      shields: { pool: 4, alloc: C.shields.default.slice(), current: C.shields.default.slice(), regenT: [0, 0, 0, 0] },
       // M3a: alle 14 Systeme; systems.weapons ist ein berechneter Altname (interior.makeSystems)
       systems: interior.makeSystems(),
       reaktorAusfaelle: 0, reaktorCountdown: null, schiffZerstoert: false,   // SYS-01 A2a: Reaktor-Countdown (sim/reaktortod.js); nicht im Weltstand

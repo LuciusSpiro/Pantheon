@@ -9,6 +9,7 @@
 const fs = require('fs');
 const path = require('path');
 const CONFIG = require('../shared/config.js');
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 const Katalog = require('../shared/schiffskatalog.js');
 const { Game } = require('../server/game.js');
 const space = require('../server/sim/space.js');
@@ -547,7 +548,7 @@ section('Spiegeltest: Lerche, Gegner und Verbündeter reagieren auf dieselbe Tre
     const g = new Game({ noStore: true, seed: 71, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
     g.space.enemies = []; g.space.projectiles = []; g.ship.fireList = []; g.ship.breachList = [];
     for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
-    g.ship.fragile = {}; g.ship.offline = {}; g.ship.trefferT = {}; g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 0;
+    g.ship.fragile = {}; g.ship.offline = {}; g.ship.trefferT = {}; g.ship.shields.current = [0, 0, 0, 0]; Schilde.pause.loeschen(g.ship.shields);
     g.ship.x = 1500; g.ship.y = 800; g.ship.angle = 0; g.ship.docked = false; g.god = false;
     I.integritaetVoll(g);
     const ks = I.SYSTEM_ORDER.filter((k) => I.systemSector(k) === 0 && I.systemAktiv(g, k));

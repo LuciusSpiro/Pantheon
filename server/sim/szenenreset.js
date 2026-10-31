@@ -5,6 +5,7 @@
 //   zuruecksetzen(game, { x?, y?, winkel? })   -> { x, y }
 //   reaktorAus(game)                           Prüfung: Reaktor offline (Notfallsprung, Überlast) oder zerstört
 const Fracht = require('./fracht.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 
 function zuruecksetzen(game, o) {
   const opt = o || {};
@@ -17,7 +18,7 @@ function zuruecksetzen(game, o) {
   const rc = ship.reactorCtl;
   if (rc) { rc.state = 'online'; rc.overloadLeft = 0; rc.warned = false; rc.switches = { A: false, B: false }; rc.restartProgress = 0; rc.aloneT = 0; rc.offlineT = 0; rc.needBot = null; }
   const sh = ship.shields;
-  if (sh && Array.isArray(sh.alloc)) sh.current = sh.alloc.slice();
+  if (sh && Array.isArray(sh.alloc)) { sh.current = sh.alloc.slice(); Schilde.pause.loeschen(sh); }   // SYS-03 C1: voller Schild ohne Pause
   sp.enemies = []; sp.projectiles = sp.projectiles.filter((p) => p.kind === 'ally');
   require('./gegnersprung.js').szeneVerlassen(game);   // SYS-01 C Nacharbeit: Szene von vorn = ohne die Notfallsprung-Regeln der alten Szene
   if (Fracht.state(game).halt) Fracht.beamStop(game, 'szene');

@@ -175,7 +175,7 @@ console.log('\n[Konsolen, Koje, Shop, Deko, Energie]');
   ok(notices(0).some((t) => /Reaktor ausgelastet/.test(t)), 'Energie: Reaktorgrenze');
   cmd(0, 'technik.power', { sys: 'weapons', delta: -1 }); cmd(0, 'technik.power', { sys: 'shields', delta: 1 });
   run(0.1);
-  ok(g.ship.power.shields === 3 && g.ship.shields.pool === 3 * g.C.shields.pointsPerPower, 'Energie verschoben, Schildpool ' + g.ship.shields.pool + ' (M3b: 3 je Energie)');
+  ok(g.ship.power.shields === 3 && g.ship.shields.pool === 3 * g.C.shields.pointsPerPower, 'Energie verschoben, Schildpool ' + g.ship.shields.pool + ' (SYS-03 C1: 4 je Energie)');
   g.ship.systems.reactor = 'broken'; run(0.1);
   // PAN-01 A: Kürzung 1. Hauptsysteme von oben bis 1, 2. Module aus, 3. Hauptsysteme unter 1 (Waffen zuerst); Modul-Wunsch bleibt erhalten
   const SP = require('../server/sim/space.js');

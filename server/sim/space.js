@@ -546,18 +546,19 @@ function updateSystems(game, dt) {
   // M3b §4: Schildstoß entfällt (burst/burstCd bleiben eine Version lang null/0)
   sh.burst = null; sh.burstCd = 0;
   if (isDown(ship.systems.shields) || game.transfer.isBeaming(game)) {
-    sh.current = [0, 0, 0, 0]; sh.regenT = 0;
+    sh.current = [0, 0, 0, 0]; sh.regenT = [0, 0, 0, 0];
   } else {
     for (let i = 0; i < 4; i++) {
       const max = Math.min(sh.cap ? sh.cap[i] : 4, sh.alloc[i]);
       if (sh.current[i] > max) sh.current[i] = max;
     }
     const interval = ship.systems.shields === 'damaged' ? C.shieldsDamagedInterval : C.shields.regenInterval;
-    sh.regenT += dt;
-    if (game.time < (sh.regenHold || 0)) sh.regenT = 0;   // PAN-01 C: Gegner-Sturmbatterie unterdrückt die Regeneration
-    if (sh.regenT >= interval) {
-      sh.regenT = 0;
-      for (let i = 0; i < 4; i++) if (sh.current[i] < sh.alloc[i]) sh.current[i]++;
+    // SYS-03 C1: Regeneration JE SEKTOR. Erst `shields.regenDelay` s (Sturm: länger) nach dem letzten Treffer auf genau diesen Sektor, dann 1 Punkt je Intervall (Timer je Sektor).
+    if (!Array.isArray(sh.regenT)) sh.regenT = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      if (sh.current[i] >= sh.alloc[i] || !Schilde.pause.darfRegenerieren(sh, i, game.time)) { sh.regenT[i] = 0; continue; }
+      sh.regenT[i] += dt;
+      if (sh.regenT[i] >= interval) { sh.regenT[i] = 0; sh.current[i]++; }
     }
   }
 }
@@ -1092,7 +1093,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
       const sv = e.shields[sec];
       if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); schildEreignis(sec); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
       if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
-        const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
+        const T = opts.sturm; e.regenHold = game.time + Sturm.regenSperre(game);   // SYS-03 C1: Wert aus systemModell.sturm.regenSperre_s; die Gegner-Regeneration (je Segment) folgt in C2
         if (modell) Gegnerreparatur.sperren(game, e, zone, Sturm.reparaturSperre(game));   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (Fortschritt 0)
         if (sv > T.niedrig) {
           const take = Math.min(sv, dmg * T.schildFaktor);
@@ -1679,6 +1680,7 @@ function etorpedoTreffer(game, p) {
   // Lesart B (Kai): bei stehendem Schildsektor prallt der Torpedo ab (kein Schaden, kein Schildabzug); ist der Sektor leer (Schild 0, Generator aus, Schilde unten), trifft er die Hülle
   if (Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild' && (ship.shields.current[sec] || 0) > 0 && Alarm.trefferOpts(game, {}).pierce !== true) {
     game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;
+    Schilde.pause.treffer(ship.shields, sec, game.time, game.C);   // SYS-03 C1: auch der abgeprallte Torpedo ist ein Treffer auf den Sektor
     game.emit('hit', { sector: sec, shield: true, dmg: 0, heavy: true, absorbed: 0 });
     game.emit('sfx', { name: 'shield_hit' });
     return;

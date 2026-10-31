@@ -393,10 +393,10 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   const nSchild = Math.round((s0 - e.shields[sec]) / (w.schaden * w.sturm.schildFaktor));   // Projektile: nicht jede Nadel trifft, jede Trefferzahl ist ein Vielfaches
   ok(e.hp === hp0 && nSchild >= Math.ceil(w.rohre * 0.6) && nSchild <= w.rohre && near(s0 - e.shields[sec], nSchild * w.schaden * w.sturm.schildFaktor, 1e-6), `hoher Schild (${s0}): ${nSchild} von ${w.rohre} Nadeln treffen, nehmen nur ${(s0 - e.shields[sec]).toFixed(2)} Schild und nichts von der Hülle`);
   const nach = e.shields[sec];
-  ok(e.regenHold > g.time - 2 && e.regenHold > 0, 'Sturm setzt die Regenerationssperre (' + w.sturm.regenSperre + ' s)');
+  ok(e.regenHold > g.time - 2 && e.regenHold > 0, 'Sturm setzt die Regenerationssperre (' + CONFIG.systemModell.sturm.regenSperre_s + ' s)');
   lauf(T, 5.2);
   ok(e.shields[sec] <= nach + 1e-9, 'Schild regeneriert nicht, solange gehalten wird (' + nach.toFixed(2) + ' -> ' + e.shields[sec].toFixed(2) + ')');
-  lauf(T, w.sturm.regenSperre + 5.5);
+  lauf(T, CONFIG.systemModell.sturm.regenSperre_s + 5.5);
   ok(e.shields[sec] > nach, 'danach regeneriert er wieder');
   // niedriger Schild: Treffer gehen in die Hülle, das Ziel wird gestört
   e.shields[sec] = 0; e.fireT = 5; const hp1 = e.hp;
@@ -408,7 +408,7 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   // Lerche als Ziel (Gegner-Sturm)
   g.god = false; g.ship.shields.current = [4, 4, 4, 4];
   space.shipHit(g, 0, 0.15, { sperrfeuer: true, sturm: true });
-  ok(g.ship.shields.regenHold > g.time && g.ship.shields.current[0] > 3.8, 'Gegner-Sturm gegen die Lerche: hoher Schild fast unberührt, Regeneration gesperrt');
+  ok(!require('../shared/schilde.js').pause.darfRegenerieren(g.ship.shields, 0, g.time) && g.ship.shields.current[0] > 3.8, 'Gegner-Sturm gegen die Lerche: hoher Schild fast unberührt, Regeneration gesperrt');
   // SYS-01 A1a: niedriger Schild = 1 Punkt (ST.niedrig); ohne Schild trifft jeder Treffer ein System, das ist eine andere Regel
   let sys = 0;
   for (let i = 0; i < 400; i++) { require('../server/sim/interior.js').integritaetVoll(g); g.ship.trefferT = {}; for (const k of Object.keys(g.ship.systems)) g.ship.systems[k] = 'ok'; g.ship.shields.current[1] = 1; const i0 = isum(g); space.shipHit(g, 1, 0.15, { sperrfeuer: true, sturm: true }); if (isum(g) < i0) sys++; }

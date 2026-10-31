@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-01 D (Abnahme 9/10, Entscheidung 2): Sturm-Messung, deterministisch, ohne Bot.
 //   node tools/sys01-sturm.js [--seeds 20] [--sek 120] [--faktor 0.25]
 // A) Lerche-Sturm gegen den vollen Gegner-Schild: ruhende Attrappe (Klasse mit Schild 3 je Segment = Kreuzer, Segment zur Lerche), 100 % Treffer, Pool 4 auf einer Sturmbatterie.
@@ -73,7 +74,7 @@ function messeA(waffe, seed) {
 // B) Gegner (Sturm) -> Lerche
 function messeB(seed) {
   const g = neu(seed); const sh = g.ship;
-  sh.shields.alloc = [6, 0, 0, 0]; sh.shields.allocIntent = [6, 0, 0, 0]; sh.shields.current = [6, 0, 0, 0]; sh.shields.regenHold = 0;   // Pool 6 ganz auf den Bug, die Korvette steht vor dem Bug
+  sh.shields.alloc = [6, 0, 0, 0]; sh.shields.allocIntent = [6, 0, 0, 0]; sh.shields.current = [6, 0, 0, 0]; Schilde.pause.loeschen(sh.shields);   // Pool 6 ganz auf den Bug, die Korvette steht vor dem Bug
   const e = space.spawnEnemy(g, 'korvette', { x: sh.x + 300, y: sh.y, facing: Math.PI });
   for (const k of Object.keys(e.waffen || {})) e.waffen[k] = 'sturmbatterie';
   Testhilfe.setzeBudget(e, 1e9); e.pin = { x: e.x, y: e.y, angle: e.angle };
@@ -121,7 +122,7 @@ function messeD(seed) {
     let t = 0, t1 = null;
     while (t < SEK && t1 == null) {
       sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; Testhilfe.setzeGesamt(e, 1e9);
-      sh.shields.current[0] = 0; sh.shields.regenHold = g.time + 99;
+      sh.shields.current[0] = 0; Schilde.pause.alleBis(sh.shields, g.time + 99);
       g.step(); t += DT;
       if (I.SYSTEM_ORDER.some((k) => I.systemSector(k) === 0 && g.ship.systems[k] === 'broken')) t1 = t;
     }

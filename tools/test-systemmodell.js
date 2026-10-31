@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-01 A1a „Das Schiff in Zonen“ (Paket A, Teil 1): Systemmodell der Lerche.
 // SYS-01 A1b (Paket A, Teil 2): Minen über die nächste Zone, Dauerdruck als Systemtreffer, Frachtraum-Verlust nur am Modul,
 // Notfallsprung-Kosten, Torpedo als ein System der Zone, Rückschlag je Treffer und Zone genau einmal.
@@ -34,7 +35,7 @@ function newGame(seed) {
   for (const k of I.SYSTEM_ORDER) { g.ship.systems[k] = 'ok'; }
   g.ship.fragile = {}; g.ship.offline = {};
   g.ship.shields.current = [0, 0, 0, 0];
-  g.ship.shields.regenHold = 0;
+  Schilde.pause.loeschen(g.ship.shields);
   g.god = false;
   I.integritaetVoll(g);
   return g;
@@ -211,7 +212,7 @@ section('Sturmbatterie und Streu-Granate (Regel 2, Ausnahmen)', () => {
   setShield(g, 2, 4);
   const b = snapShot(g);
   const r = D.resolveHit(g, 2, 2, { sturm: true });
-  ok(r.systems.length === 0 && g.ship.shields.regenHold > g.time && g.ship.shields.current[2] > 3, `Sturm gegen vollen Schild: kein Systemschaden, Regeneration gesperrt (Schild ${g.ship.shields.current[2]})`);
+  ok(r.systems.length === 0 && !Schilde.pause.darfRegenerieren(g.ship.shields, 2, g.time) && g.ship.shields.current[2] > 3, `Sturm gegen vollen Schild: kein Systemschaden, Regeneration gesperrt (Schild ${g.ship.shields.current[2]})`);
   void b;
   // niedriger Schild: Systemchance ST.systemChance, kleiner Integritätsschaden
   let sys = 0; const N = 3000; const g2 = newGame(41);

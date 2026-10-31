@@ -185,7 +185,7 @@ section('Sturmbatterie unter anhaltendem Feuer: der Schild fällt auf 0, bis dah
   const T = arena(); const g = T.g; bestueck(g, 4, 'sturmbatterie'); poolVier(g);
   const e = ziel(g, 'korvette', 0, -250, 6); Testhilfe.setzeSchilde(e, [6, 6, 6, 6]); pin(g);
   g.ship.wAllocIntent = { port: 4 };
-  const regenSperre = Katalog.waffe('sturmbatterie').sturm.regenSperre;
+  const regenSperre = CONFIG.systemModell.sturm.regenSperre_s;
   const hp0 = e.hp; let schildNull = null, hpBisNull = 0, zsBisNull = false, regenOk = true, fruehstens = Infinity;
   for (let t = 0; t < 200 && schildNull == null; t += DT) {
     pin(g);
@@ -206,7 +206,7 @@ section('Gegnerfeuer (Standardbatterie-Verhalten) auf die Lerche: Zonensysteme z
   const I = require('../server/sim/interior.js');
   const lauf = (vorLeeren) => {
     const T = arena(); const g = T.g; g.god = false;
-    g.ship.shields.current = [0, 0, 0, 0]; g.ship.shields.regenHold = 1e9;
+    g.ship.shields.current = [0, 0, 0, 0]; require('../shared/schilde.js').pause.alleBis(g.ship.shields, 1e9);
     for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
     I.integritaetVoll(g);
     const zone = (k) => I.systemSector(k) === 3;   // Backbord: der Gegner steht bei (0, -300)

@@ -15,6 +15,7 @@ const Zonen = require('../../shared/zonen.js');
 const Locations = require('../../shared/locations.js');
 const Physics = require('../../shared/physics.js');
 const Integ = require('./integritaet.js');
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 
 let spaceMod = null, escortMod = null;
 const space = () => spaceMod || (spaceMod = require('./space.js'));
@@ -227,7 +228,8 @@ function druck(game, sector, pts) {
   const sh = game.ship.shields; let rest = pts;
   const cur = (sh.current && sh.current[sector]) || 0;
   const absorb = Math.min(cur, rest);
-  if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; if (sh.regenT != null) sh.regenT = 0; }
+  if (absorb > 0) { sh.current[sector] = cur - absorb; rest -= absorb; }
+  Schilde.pause.treffer(sh, sector, game.time, game.C);   // SYS-03 C1: Dauerdruck ist ein Treffer auf den Sektor (auch bei Schild 0): die Regeneration des Sektors pausiert
   if (rest > 0) {
     // SYS-03 B1: Stufenregel. Die Punkte ohne Schild sammeln sich je Sektor (zonen.druckPunkte je Stufe; der Zähler verfällt, wenn zonen.druckAbkling_s lang keine Restpunkte mehr ankamen,
     // auch bei Schild > 0 ohne Resttreffer; integritaet.js, derselbe Helfer wie bei Gegnern und Verbündeten), höchstens eine Stufe je Takt auf ein System der Sektor-Zone (Treffer-Fenster gilt).
