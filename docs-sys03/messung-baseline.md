@@ -114,3 +114,40 @@ Befehl: node tools/sys03-streufeuer.js --rate 4 --dmg 1 --verteilung konzentrier
 | streu | 3 | 2/2/0/2 | 10 | 241 | 0.8 (0.8–0.8, 10/10) | 9.8 (8.8–11.3, 10/10) | 42.8 (39.5–45, 10/10) |
 
 Befund: Bei gleicher Rate bricht konzentriert der Sektor nach 0,3–0,5 s, verteilt nach 0,8–1,5 s; der erste Systemschaden kommt konzentriert nach 2,5–5,5 s, verteilt 2–10 mal später (bei 2 Treffer/s 50 s, weil die Regeneration den verteilten Sektoren fast alles zurückgibt: 2/3 Treffer/s je Sektor gegen 0,5/s Regeneration). Der Reaktor bricht verteilt in 60 s nur bei 4 Treffer/s. Crew 1 und 3 unterscheiden sich nur über Reaktor/Energie (Crew 1: Reaktor-Zeit länger).
+
+
+## Nach B2 (Direkttreffer auf Gegner und Verbündete = eine Stufe)
+
+Stand: Branch `sys03` nach SYS-03 B2 (B1 + B2; Schilde unverändert, Paket C folgt). Die Baseline-Abschnitte oben bleiben unverändert. Änderungen gegenüber der Baseline: Gegner und Verbündete verlieren je Treffer ohne Schildschutz genau eine Stufe je System (Treffer-Fenster 0,25 s), `crewScaling.gegnerIntegritaet` entfällt (Budget = `enemies.<klasse>.hp × budgetFaktor`, z. B. Fregatte 90 statt 36/50, Kreuzer 120 statt 48/67), die Lerche arbeitet seit B1 nach derselben Regel.
+
+### Gegner-Seite (Bot-Läufe, Arena): Spawn → Tod und `tRt` (Spawn → Reaktor zerstört), vorher → nachher
+
+Aufruf: `node tools/sys01-lauf.js --kinds raider,korvette,fregatte,kreuzer --crews 1,2,3 --seeds 10 --jobs 4` (Seeds 1–10, 5 Wellen à 1 Gegner, Pilot maneuver, Läufe enden, wenn die Lerche fällt)
+
+| Klasse | Crew | Spawn→Tod Median vorher | Spawn→Tod Median nachher | `tRt` Median vorher | `tRt` Median nachher | zerstört nachher (n/N) | nicht beendet nachher |
+|---|---|---|---|---|---|---|---|
+| raider | 1 | 61.2 | 84.9 | 41.2 | 64.9 | 50/50 | 0 |
+| raider | 2 | 50.8 | 67.1 | 30.8 | 47.1 | 48/49 | 1 |
+| raider | 3 | 50.8 | 64.7 | 30.8 | 44.7 | 50/50 | 0 |
+| korvette | 1 | 55.3 | 82.9 | 35.3 | 62.9 | 50/50 | 0 |
+| korvette | 2 | 36.2 | 37 | 16.2 | 17 | 50/50 | 0 |
+| korvette | 3 | 35.6 | 37.2 | 15.6 | 17.2 | 50/50 | 0 |
+| fregatte | 1 | 79.5 | 116.2 | 59.5 | 96.2 | 37/42 | 5 |
+| fregatte | 2 | 65.3 | 84.5 | 45.3 | 64.5 | 30/37 | 7 |
+| fregatte | 3 | 71.5 | 79.6 | 51.5 | 59.6 | 39/42 | 3 |
+| kreuzer | 1 | 109.9 | 144.4 | 89.9 | 124.4 | 20/29 | 9 |
+| kreuzer | 2 | 65.7 | 62.4 | 45.7 | 42.4 | 22/30 | 8 |
+| kreuzer | 3 | 73.3 | 95.1 | 53.3 | 75.1 | 46/48 | 2 |
+
+Weitere Kennzahlen nachher (Median): Spawn→Zone offen raider 52,3/33,4/33,1 s, korvette 51,7/14,4/14,8 s, fregatte 93,7/20,2/27,3 s, kreuzer 121/25,4/57 s (Crew 1/2/3); Reaktor→Tod 20 s (Countdown, unverändert). Die Zahl der Gegner je Lauf ist bei Fregatte und Kreuzer kleiner als 50, weil die Lerche (nach B1 mit Stufenregel, Schilde unverändert) in diesen Läufen fällt (Lerche-Reaktorausfälle je Lauf fregatte 0,9/1,7/0,6, kreuzer 2,4/2,0/0,2; vorher 0).
+
+### Gegner feuert auf stehende Lerche (Schild Standard), Crew 2, vorher → nachher
+
+Aufruf: `node tools/sys01-gegnerfeuer.js --kinds fregatte,kreuzer --crews 2 --seeds 20` (Seeds 1–20, 120 s)
+
+| Klasse | Gegner Hülle vorher → nachher | Treffer bis Ende (Mittel) vorher → nachher | 1. Treffer→1. Systemschaden Median (n) vorher → nachher | 1. Treffer→Reaktor zerstört Median (n von N) vorher → nachher |
+|---|---|---|---|---|
+| fregatte | 50 → 90 | 23.1 → 27.2 | 80.6 (6) → 10.2 (16) | — (0/20) → 101.1 (2/20) |
+| kreuzer | 67 → 120 | 32.8 → 35.3 | 60.6 (9) → 4.3 (18) | — (0/20) → 78 (9/20) |
+
+Befund: Die Lerche-Seite (B1) macht den ersten Systemschaden um den Faktor 6 bis 14 früher, der Reaktor der stehenden Lerche fällt gegen den Kreuzer jetzt in 9 von 20 Läufen. Auf der Gegner-Seite ist `tRt` trotz des größeren Budgets (kein Faktor 0,4/0,56 mehr) bei Jäger, Korvette solo und Fregatte/Kreuzer solo länger (Treffer ohne Schild kosten eine Stufe, die Seitenzonen müssen erst leer sein, bevor die Mitte mit dem Reaktor getroffen wird, und die Gegner reparieren 6 s je Stufe); Korvette Crew 2/3 ändert sich kaum (Vollladung der Lanze zerstört die Mitte direkt). Die Abnahme-Zielwerte für die Tötungszeit stellt Paket D ein.
