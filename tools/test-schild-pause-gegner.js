@@ -135,6 +135,24 @@ section('Takt je Segment (Jäger, Korvette, Fregatte, Kreuzer)', () => {
   }
 });
 
+section('Treffer bei laufendem Takt: der Takt startet nach der Pause bei 0 (nicht eingefroren)', () => {
+  // Das Segment regeneriert (Takt läuft, 3 von 5 s), dann trifft es ein Schuss: Pause 5 s, der Takt wird auf 0 gesetzt. Nach der Pause kommt der erste Punkt nach einem vollen Takt (nicht schon 2 s später).
+  for (const kind of ['korvette', 'kreuzer']) {
+    const g = raum(); const e = gegner(g, kind);
+    const q = quelle(e, 0, 300); const s = seg(e, q);
+    e.shields[s] = Math.max(0, e.shieldsMax[s] - 3);
+    tickSek(g, e, TAKT - 2);
+    ok(e.shields[s] === Math.max(0, e.shieldsMax[s] - 3) && e.regenT[s] > TAKT - 2.2, `${kind}: Takt läuft (${e.regenT[s].toFixed(2)} s von ${TAKT} s), noch kein Punkt`);
+    treffer(g, e, q, 0.5, {}); const v1 = e.shields[s];
+    tickSek(g, e, DELAY - 0.2);
+    ok(e.regenT[s] === 0 && e.shields[s] === v1, `${kind}: in der Pause Takt 0 (${e.regenT[s]}), kein Punkt`);
+    tickSek(g, e, 0.2 + TAKT - 0.5);
+    ok(e.shields[s] === v1, `${kind}: nach der Pause erst nach einem vollen Takt (${TAKT} s) ein Punkt, nicht früher (${e.shields[s]})`);
+    tickSek(g, e, 1);
+    ok(e.shields[s] === v1 + 1, `${kind}: danach +1 (${e.shields[s]})`);
+  }
+});
+
 section('Segment gegen Segment: der Rest regeneriert, das getroffene steht', () => {
   const g = raum(); const e = gegner(g, 'kreuzer');
   const lay = Schilde.layout(CONFIG, 'kreuzer');

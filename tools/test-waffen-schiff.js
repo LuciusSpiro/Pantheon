@@ -390,11 +390,14 @@ section('Sturmbatterie: Schild regeneriert nicht, Systemschaden bei niedrigem Sc
   const s0 = e.shields[sec], hp0 = e.hp;
   g.ship.mount.port.charge = 1;
   T.cmd(0, 'weapons.fire', { mount: 'port' });
-  lauf(T, 1.5);
+  const letzteAenderung = [0, 0, 0, 0]; let bisVor = [0, 0, 0, 0].map((_, i) => Schilde.pause.bis(e, i));   // Zeit der letzten Änderung der Pause je Segment (= Zeit des letzten Treffers)
+  lauf(T, 1.5, () => { for (let i = 0; i < 4; i++) { const b = Schilde.pause.bis(e, i); if (b !== bisVor[i]) { bisVor[i] = b; letzteAenderung[i] = g.time; } } });
   const nSchild = Math.round((s0 - e.shields[sec]) / (w.schaden * w.sturm.schildFaktor));   // Projektile: nicht jede Nadel trifft, jede Trefferzahl ist ein Vielfaches
   ok(e.hp === hp0 && nSchild >= Math.ceil(w.rohre * 0.6) && nSchild <= w.rohre && near(s0 - e.shields[sec], nSchild * w.schaden * w.sturm.schildFaktor, 1e-6), `hoher Schild (${s0}): ${nSchild} von ${w.rohre} Nadeln treffen, nehmen nur ${(s0 - e.shields[sec]).toFixed(2)} Schild und nichts von der Hülle`);
   const nach = e.shields[sec];
-  ok(e.shields.some((v, i) => Schilde.pause.bis(e, i) > g.time - 2 && Schilde.pause.bis(e, i) > 0), 'Sturm setzt die Regenerationssperre (' + CONFIG.systemModell.sturm.regenSperre_s + ' s)');
+  { const sperre = CONFIG.systemModell.sturm.regenSperre_s; const dt = 2 / CONFIG.tickHz;   // das getroffene Segment, nicht irgendeines: Pause = Zeit des letzten Treffers + Sturm-Länge (länger als regenDelay)
+    ok(letzteAenderung[sec] > 0 && Math.abs(Schilde.pause.bis(e, sec) - (letzteAenderung[sec] + sperre)) < dt && sperre > CONFIG.shields.regenDelay, `Sturm sperrt die Regeneration des getroffenen Segments ${sec}: Pause bis ${Schilde.pause.bis(e, sec).toFixed(2)} s = letzter Treffer ${letzteAenderung[sec].toFixed(2)} s + ${sperre} s`);
+    ok([0, 1, 2, 3].filter((i) => i !== sec).every((i) => letzteAenderung[i] === 0), 'kein anderes Segment bekommt eine Pause'); }
   lauf(T, 5.2);
   ok(e.shields[sec] <= nach + 1e-9, 'Schild regeneriert nicht, solange gehalten wird (' + nach.toFixed(2) + ' -> ' + e.shields[sec].toFixed(2) + ')');
   lauf(T, CONFIG.systemModell.sturm.regenSperre_s + 5.5);

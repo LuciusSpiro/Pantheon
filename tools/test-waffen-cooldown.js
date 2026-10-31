@@ -269,11 +269,14 @@ section('Sturmbatterie gegen vollen Schild: Schild fällt, Regeneration gesperrt
   const sum0 = e.shields.reduce((a, b) => a + b, 0); const hp0 = e.hp;
   g.ship.wAllocIntent = { port: 1 };
   g.ship.mount.port.charge = 1; Waffen.weaponsFire(g, 'port');
-  T.run(1.0, () => pin(g));
+  const vor = e.shields.slice(); const letzte = [0, 0, 0, 0]; const bisVor = [0, 1, 2, 3].map((i) => Schilde.pause.bis(e, i));
+  T.run(1.0, () => { pin(g); for (let i = 0; i < 4; i++) { const b = Schilde.pause.bis(e, i); if (b !== bisVor[i]) { bisVor[i] = b; letzte[i] = g.time; } } });
   const sum1 = e.shields.reduce((a, b) => a + b, 0);
   ok(sum1 < sum0 - 1e-6, `Sturm gegen vollen Schild: Schild fällt (${sum0} → ${sum1.toFixed(2)})`);
   ok(e.hp === hp0 && !e.zs, 'kein Systemschaden: Hülle unberührt, keine Zielsystem-Stufe');
-  ok([0, 1, 2, 3].some((i) => !Schilde.pause.darfRegenerieren(e, i, g.time)), `Regeneration des getroffenen Segments gesperrt (Pause bis ${[0, 1, 2, 3].map((i) => Schilde.pause.bis(e, i).toFixed(2)).join('/')} s, Zeit ${g.time.toFixed(2)} s)`);
+  { const getroffen = [0, 1, 2, 3].filter((i) => e.shields[i] < vor[i] - 1e-9); const sperre = CONFIG.systemModell.sturm.regenSperre_s; const dt = 2 / CONFIG.tickHz;   // jedes getroffene Segment (Schild gefallen) trägt die Sturm-Pause, kein ungetroffenes
+    ok(getroffen.length >= 1 && getroffen.every((i) => letzte[i] > 0 && Math.abs(Schilde.pause.bis(e, i) - (letzte[i] + sperre)) < dt && !Schilde.pause.darfRegenerieren(e, i, g.time)), `Regeneration jedes getroffenen Segments (${getroffen.join(',')}) gesperrt: Sturm-Länge ${sperre} s ab dem letzten Treffer (Pause bis ${[0, 1, 2, 3].map((i) => Schilde.pause.bis(e, i).toFixed(2)).join('/')} s, Zeit ${g.time.toFixed(2)} s)`);
+    ok([0, 1, 2, 3].filter((i) => !getroffen.includes(i)).every((i) => letzte[i] === 0), 'ungetroffene Segmente ohne Pause'); }
 });
 
 section('Standardbatterie gegen Schild 0: Hülle getroffen (Lücke: geleerte Gegnerzone folgt mit Paket C)', () => {
