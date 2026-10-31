@@ -213,7 +213,7 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
   bots: [{ id, variant, x, y, dir, moving, carry, task: null | { kind, x, y }, progress }],
   ship: {
     scene: 'port'|'route'|'buoy', docked, x, y, angle, vx, vy, speed,
-    hull, hullMax, alert: 'normal'|'yellow'|'red',
+    alert: 'normal'|'yellow'|'red',
     helm: { turn, thrust, manned },
     power: { engines, shields, weapons, life }, reactor: { output, used },
     heat: { engines, shields, weapons, life },

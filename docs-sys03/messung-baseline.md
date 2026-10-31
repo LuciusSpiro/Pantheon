@@ -344,7 +344,7 @@ Stand: Branch `sys03` nach Paket D. „vorher“ = 7c31ff2 (Stand nach C-Nacharb
 | Gegnerwerte (`enemies.*.fireInterval`, `.damage`, `spaceM3.tele`, `spaceS2b.sperrfeuer`) | – | unverändert | Kein Hebel, der das Ziel bewegt (siehe unten); jeder wäre eine Abschwächung der Gegner, keine Stärkung des Schilds. |
 | Testkette: `sim-headless kette --seed 1 --seeds 3 --mindest` | 1 | **2** | Kette Crew 3 hat jetzt 3/3 (vorher 1/3), Crew 1 3/3. |
 
-### 1. Zielfenster Zeit bis Sektor 0 (Abnahme 6): NICHT erreicht, und mit den vorgesehenen Hebeln nicht erreichbar
+### 1. Zielfenster Zeit bis Sektor 0 (Abnahme 6): nicht erreicht; die alte Größe misst überwiegend den KI-Seitenwechsel, die ehrliche Größe ist mit Pool 12 unter 1 s
 
 `node tools/sys01-gegnerfeuer.js --kinds raider,korvette,fregatte,kreuzer --crews 2,3 --seeds 20` (Seeds 1–20, 120 s, Lerche steht, Schild Standard). Zeit vom 1. Treffer bis ein Schildsektor, der beim 1. Treffer > 0 war, auf 0 fällt (Median s, min–max, n von 20). Ziel: Fregatte 30–45 s, Kreuzer 40–55 s.
 
@@ -359,10 +359,10 @@ Stand: Branch `sys03` nach Paket D. „vorher“ = 7c31ff2 (Stand nach C-Nacharb
 | **kreuzer** | 2 | 28,5 (15,6–36,6, 19/20) | **21,6** (0,3–36,6, 19/20) | 40–55 |
 | **kreuzer** | 3 | 31,9 (13,3–95,1, 18/20) | **16** (0,3–95,1, 18/20) | 40–55 |
 
-Das Fenster wird verfehlt, und die Zahl wurde mit Pool 12 für Fregatte und Kreuzer sogar kleiner. Ursache (gemessen, kein Bot-Rauschen, die Lerche steht):
+Das Fenster wird verfehlt, und die Zahl wurde mit Pool 12 für Fregatte und Kreuzer sogar kleiner. Ursache (gemessen, kein Bot-Rauschen, die Lerche steht). **Korrektur der ersten Fassung:** Die Größe „1. Treffer → Segment 0“ (`tSh0`) ist keine reine Schildgröße und die frühere Aussage „nicht erreichbar, kein Hebel bewegt sie monoton“ war falsch gefolgert (siehe Unterabschnitt „Ehrliche Größe `tSh0All`“ unten):
 
-1. **Die Größe misst nicht die Schildstärke.** Die Fregatte feuert je Salve zwei Bolzen mit Schaden 2 (der Kreuzer bis zu acht Plätze), dazu Ladeschuss (Schaden 4 bis 6) und Sperrfeuer (3 Nadeln à 0,5). Ein Schildsektor mit 2 bis 4 Punkten fällt in der ersten Salve; der Seitensektor bleibt danach tot. „Zeit bis Segment 0“ zählt aber nur Sektoren, die beim ersten Treffer noch > 0 waren, schließt den Sektor des ersten Treffers also aus, **wenn er schon beim ersten Treffer auf 0 fällt**. Gemessen wird damit die Zeit, bis die KI die **andere** Seite beschießt (Seitenwechsel `spaceM3b.pilotKlasse.fregatte.switchCd` 16 s, Kreuzer 20 s, plus Anflug), nicht der Schild. Mit stärkerem Seitenschild (4 statt 2 Punkte) überlebt der Sektor des ersten Treffers die erste Kugel, zählt mit und fällt nach 0,1 bis 5 s: der Median kippt auf 5 s, ohne dass die Lerche schwächer wäre (Zweitmessung unten: „Sektor 0 inklusive Treffersektor“ ist immer 0 s). Dasselbe steht schon in der SYS-01-Erkundung (Befund 5: „Zeit bis Sektor 0 taugt nicht als Zielgröße“, bimodal).
-2. **Keiner der Hebel bewegt die Größe monoton** (Seeds 1–40, Crew 2/3, Fregatte/Kreuzer, Median Segment 0 in s):
+1. **Die Größe schließt den Sektor des ersten Treffers aus und misst überwiegend den KI-Seitenwechsel.** Die Fregatte feuert je Salve zwei Bolzen mit Schaden 2 (der Kreuzer bis zu acht Plätze), dazu Ladeschuss (Schaden 4 bis 6) und Sperrfeuer (3 Nadeln à 0,5). Ein Schildsektor mit 2 bis 4 Punkten fällt in der ersten Salve. `tSh0` zählt nur Sektoren, die **beim ersten Treffer noch > 0 waren**: Die Maske (`shHit`) wird erst nach dem Tick des ersten Treffers gebildet (`tools/sys01-gegnerfeuer.js:63`), der Treffersektor, der in dieser Salve auf 0 fällt, ist also nie dabei. Gemessen wird damit vor allem die Zeit, bis die KI die **andere** Seite beschießt (Seitenwechsel `spaceM3b.pilotKlasse.fregatte.switchCd` 16 s, Kreuzer 20 s, plus Anflug). Mit stärkerem Seitenschild (4 statt 2 Punkte) überlebt der Treffersektor die erste Salve, zählt mit und fällt nach 0,1 bis 5 s: der Median kippt auf 5 s, ohne dass die Lerche schwächer wäre. Dasselbe steht in der SYS-01-Erkundung (Befund 5: „Zeit bis Sektor 0 taugt nicht als Zielgröße“, bimodal).
+2. **Hebel in der alten, verzerrten Größe `tSh0`** (Seeds 1–40, Crew 2/3, Fregatte/Kreuzer, Median Segment 0 in s). Diese Tabelle zeigt nur, wie die verzerrte Größe reagiert; sie sagt nichts über die Schildstärke:
 
 | Variante (`TUNE`) | Fregatte c2 / c3 | Kreuzer c2 / c3 |
 |---|---|---|
@@ -376,9 +376,24 @@ Das Fenster wird verfehlt, und die Zahl wurde mit Pool 12 für Fregatte und Kreu
 | `spaceS2b.sperrfeuer.burst` 1 | 22,6 / 38,9 | 29,6 / 37,4 |
 | `shields.regenDelay` 0 (Verstoß gegen Abnahme 4) | 22,2 / 53,1 | 29,1 / 41,3 |
 
-Nur der Wegfall der Pause (nicht erlaubt) und ein auf einen Schuss gekürztes Sperrfeuer (Waffe verstümmelt) bringen Crew 3 in die Nähe des Fensters, und beides nur für Crew 3. Crew 2 bleibt bei 22 / 29, weil dort die KI-Seitenwechselzeit die Größe bestimmt. Die Seitenwechselzeit (`pilotKlasse.*.switchCd` auf 24 bis 30 s zu stellen) würde die Größe ins Fenster schieben, aber die Lerche **schwächer** machen (die Breitseite bleibt länger auf derselben Seite). Das habe ich nicht getan: Eine Zahl, die durch eine KI-Einstellung in ein Fenster fällt und dabei die Spielstärke verschlechtert, ist keine Kalibrierung.
+In der verzerrten Größe bringen nur der Wegfall der Pause (nicht erlaubt) und ein auf einen Schuss gekürztes Sperrfeuer (Waffe verstümmelt) Crew 3 in die Nähe des Fensters, und beides nur für Crew 3. Crew 2 bleibt bei 22 / 29, weil dort die KI-Seitenwechselzeit die Größe bestimmt. Die Seitenwechselzeit (`pilotKlasse.*.switchCd` auf 24 bis 30 s zu stellen) würde die Größe ins Fenster schieben, aber die Lerche **schwächer** machen (die Breitseite bleibt länger auf derselben Seite). Das habe ich nicht getan: Eine Zahl, die durch eine KI-Einstellung in ein Fenster fällt und dabei die Spielstärke verschlechtert, ist keine Kalibrierung.
 
-**Empfehlung für Kai/Entwicklungsleiter:** Die Abnahme „Zeit bis Sektor 0“ ersetzen durch die robusten Größen der Zweitmessung und der Bot-Läufe (Tabellen unten): Zeit bis eine Seite komplett zerstört ist (Zone leer), Zeit bis Reaktor zerstört, Zeit von Zone leer bis Reaktor zerstört (mindestens 6 s durch das Fenster) und die Überlebensquote der Lerche in `sys01-lauf` (Crew 2: Fregatte 72 → 87 von 100 gespawnten Gegnern, Kreuzer 68 → 76). Ein Zielfenster für die Zeit bis Sektor 0 ist nur sinnvoll, wenn die Messung den Sektor des ersten Treffers einschließt; dann ist sie aber immer < 1 s (Fregatte/Kreuzer: eine Salve leert den Sektor).
+**Empfehlung für Kai/Entwicklungsleiter:** Die Abnahme „Zeit bis Sektor 0“ ersetzen durch die robusten Größen der Zweitmessung und der Bot-Läufe (Tabellen unten): Zeit bis eine Seite komplett zerstört ist (Zone leer), Zeit bis Reaktor zerstört, Zeit von Zone leer bis Reaktor zerstört (mindestens 6 s durch das Fenster) und die Überlebensquote der Lerche in `sys01-lauf` (Crew 2: Fregatte 72 → 87 von 100 gespawnten Gegnern, Kreuzer 68 → 76). Ein Zielfenster für die Zeit bis Sektor 0 ist nur mit der ehrlichen Größe `tSh0All` (siehe unten) sinnvoll; mit Pool 12 liegt sie bei Fregatte/Kreuzer im Median unter 1 s.
+
+#### Ehrliche Größe `tSh0All` (Sektor 0 inklusive Treffersektor)
+
+`tSh0All` = Zeit vom 1. Treffer, bis ein Sektor, der **vor** dem ersten Treffer Schild hatte (einschließlich des Treffersektors), auf 0 fällt (Zweitmessung von `sys01-gegnerfeuer`, Spalte „Sektor 0 inkl. Treffersektor“). Median s, Seeds 1–20, 120 s, Lerche steht. Nachgemessen in der D-Nacharbeit; `TUNE` über `-r ./tools/tune-preload.js`, `--schild` setzt Zuteilung und Stand.
+
+| Pool (Energie 2) | Verteilung | Fregatte c2 / c3 | Kreuzer c2 / c3 | Aufruf |
+|---|---|---|---|---|
+| 12 (Stand) | [4,4,0,4] | 0,8 / 0,2 | 0 / 0 | ohne `TUNE` |
+| 24 | [8,8,0,8] | 9,7 / 8,9 | 7,5 / 7,3 | `TUNE='{"shields.pointsPerPower":12}' ... --schild 8,8,0,8` |
+| 36, Kappe 16 | [12,12,0,12] | 34,6 / 12,9 | 15,6 / 9,4 | `TUNE='{"shields.pointsPerPower":18,"shields.maxPerSector":16}' ... --schild 12,12,0,12` |
+
+Hinweis zur Stichprobe: Bei Crew 2 ist n teils klein (Pool 24 Fregatte 10/20, Pool 36 Fregatte 5/20, Kreuzer 14/20); die übrigen Zellen haben 17 bis 19 von 20.
+
+**Klartext:** Gegen Fregatte und Kreuzer leert eine Salve einen vollen Lerche-Sektor im Median in unter 1 s (Pool 12). Das Ziel 30–45 s (Fregatte) bzw. 40–55 s (Kreuzer) bräuchte mehr als die dreifache Schildkapazität (Pool 36 liefert 34,6 / 12,9 bzw. 15,6 / 9,4) mit Binär-Gefahr (Sektor ist entweder voll oder in einer Salve leer, kein glatter Abbau). Das ist keine Kalibrier-, sondern eine **Designfrage für Kai**; die Hebel von Abnahme 6 wurden nicht angefasst.
+
 
 ### 2. Binär-Prüfung (Abnahme 7)
 
@@ -408,7 +423,7 @@ Die Beobachtung „Reaktor fällt in ca. 4 s, sobald die Bug-Zone leer ist“ is
 | kreuzer | 2 | 38,3 → 56,3 | 2,8 (2,3–125,2) → **27,6 (7,4**–184,7) | 65,8 → 82 |
 | kreuzer | 3 | 37,6 → 48,1 | 2,5 (2,1–204,6) → **17,6 (7,3**–172,5) | 66,6 → 73,8 |
 
-Kein Gegner fällt in einem einzigen Zug nach dem Schildbruch: erster Systemschaden am Gegner 1,2 s nach dem ersten Schaden (Jäger sofort, ein System je Zone), Reaktor zerstört frühestens 6,7 s nach „Zone offen“ (vorher 1,4 s). Ausnahmen, die Regel sind: Torpedo-Durchschlag ohne Fenster (zwei Torpedos zerstören den Reaktor sofort) und `torpedoSofortTod` beim Jäger (ein Torpedo, Kai 2026-10-26). Der Jäger hat so kleine Zonen, dass sein Reaktor oft vor „Zone offen“ fällt (negative Mindestwerte bei Zone offen → Reaktor); sein Schaden → Reaktor zerstört liegt bei 46 bis 48 s. Korvette Crew 3 Spawn → Reaktor zerstört steigt von 16,6 auf 21,8 s (das alte SYS-01-Fenster nannte 13,4 bis 20,2 s Spawn → Tod für Korvette zu dritt; die Zeit liegt jetzt knapp darüber, Spawn → Tod 41,8 s mit 20 s Countdown).
+Kein Gegner fällt in einem einzigen Zug nach dem Schildbruch: erster Systemschaden am Gegner 1,2 s nach dem ersten Schaden (Jäger sofort, ein System je Zone), Reaktor zerstört frühestens 6,7 s nach „Zone offen“ (vorher 1,4 s). Ausnahmen, die Regel sind: Torpedo-Durchschlag ohne Fenster (zwei Torpedos zerstören den Reaktor sofort) `torpedoSofortTod` beim Jäger (ein Torpedo, Kai 2026-10-26) und die **Lanze-Vollladung**: Sie ignoriert das Fenster und zerstört den Reaktor mit einem Schuss (Messung auf frischem Gegner mit vollem Schild: Jäger 95/200, Korvette 71/200, Fregatte 41/200, Kreuzer 42/200 Reaktor zerstört nach einer Vollladung). Die Regel steht unverändert (Kai-Entscheidung offen). Der Jäger hat so kleine Zonen, dass sein Reaktor oft vor „Zone offen“ fällt (negative Mindestwerte bei Zone offen → Reaktor); sein Schaden → Reaktor zerstört liegt bei 46 bis 48 s. Korvette Crew 3 Spawn → Reaktor zerstört steigt von 16,6 auf 21,8 s (das alte SYS-01-Fenster nannte 13,4 bis 20,2 s Spawn → Tod für Korvette zu dritt; die Zeit liegt jetzt knapp darüber, Spawn → Tod 41,8 s mit 20 s Countdown).
 
 ### 3. Abnahme 5: Streufeuer gegen konzentriertes Feuer mit der Standardverteilung
 
@@ -474,7 +489,7 @@ Pool 12 verschiebt die Überlebensquote von Crew 2 deutlich (Fregatte 69 → 87 
 | `test-bot-reparatur` | Eintrag hängt höchstens 30 s | **wieder: Liste nach dem ersten ok durchgehend leer** | In allen vier Läufen hing kein Eintrag (0,0 s). |
 | `test-combat` Ausweichen | `weicht <= kurs` | **wieder `weicht < kurs × 0,6`** | Seeds 101–106: steht 64, Kurs 10, weicht 2,5 (Verhältnis 0,25). |
 | `test-finale-orbit` Crew 1 5/8 exakt | Mindest 5/8 für alle (Crew 1 gemessen 5/8) | **Crew 1: 5, Crew 2: 6, Crew 3: 6 von 8** (je 1 Seed Reserve) | Gemessen jetzt Crew 1 6/8 (Seed 25 Zeitlimit, 27 Niederlage), Crew 2 7/8, Crew 3 7/8 (jeweils Seed 27 verloren). |
-| `test-finale-ende-zu-ende` `erholen` (Countdown-Reset) | Reset, „Balance folgt in D“ | **bleibt** | Geprüft: ohne die Zeile scheitert der Test (der Countdown des vorigen Versuchs läuft in den nächsten hinein); Ursache nicht weiter untersucht, offener Punkt, keine Balance-Lockerung. |
+| `test-finale-ende-zu-ende` `erholen` (Countdown-Reset) | Reset, „Balance folgt in D“ | **angepasst (D-Nacharbeit)** | Die erste Begründung („der Countdown läuft in den nächsten Versuch“) war falsch: Die passive Lerche starb in Versuch 1 bei t≈84,7 s über den Reaktor (Partie-Ende nach SYS-01), bevor der Test bei 90 s das Notfallprotokoll auslöste. Jetzt löst der Test bei 70 s aus; ein echter Reaktortod ist ein Testfehler, `erholen` setzt ihn nicht mehr weg (nur ein laufender Countdown endet mit der Reparatur). |
 | `test-schild-pause` Abnahme 5 | Start [3,3,0,2], Raten 2 bis 4/s, Rohschaden 1 | **Standardverteilung (CONFIG), Schaden 2, Raten 0,5 / 1 / 2 (Quotient ≥ 2,5) und 0,3 (Streu bricht nie)** | siehe Abschnitt 3. |
 
 Neu: `test-direkttreffer` und `test-direkttreffer-gegner` prüfen das Reaktor-Fenster (Lerche, Gegner, Verbündete), `test-direkttreffer` zusätzlich `tune systemModell.reaktorFenster_s` (2 und 12 s, andere Mitte-Systeme bleiben beim Standard-Fenster). Angepasst an Pool 12 und das Fenster: `test-m3` (Pool 12 / 18), `test-schild-b2`, `test-energie` (Pool 12), `test-combat` (Jäger-Salven 40 statt 14, Reaktor frühestens nach dem Fenster).
@@ -513,8 +528,8 @@ Abweichungen: (1) **m3 identisch** (kein Raumkampf). (2) m1 und m2 spielen sich 
 
 ### Offen (aus Paket D)
 
-- Zielfenster „Zeit bis Sektor 0“ (Abnahme 6) ist nicht erreicht und mit den Hebeln des Auftrags nicht erreichbar (Abschnitt 1); die Abnahme sollte durch die robusten Größen ersetzt werden.
-- `test-finale-ende-zu-ende` braucht den Countdown-Reset zwischen den Versuchen (Ursache nicht untersucht).
+- Zielfenster „Zeit bis Sektor 0“ (Abnahme 6): mit der ehrlichen Größe `tSh0All` liegt Pool 12 bei Fregatte/Kreuzer im Median unter 1 s; 30–45 s bräuchten mehr als die dreifache Kapazität mit Binär-Gefahr. Designfrage für Kai (Abschnitt 1), die Abnahme sollte durch die robusten Größen ersetzt werden.
+- `test-finale-ende-zu-ende`: erledigt in der D-Nacharbeit (Neubeginn wird geprüft, Reaktortod ist Fehler).
 - Crew 2 und 3 unterscheiden sich in `sys01-gegnerfeuer` stark (Reaktor der stehenden Lerche in 120 s: Fregatte 5/20 gegen 17/20, Kreuzer 10/20 gegen 18/20): gleiche Gegnerbestückung, aber ein Spieler mehr; Ursache nicht untersucht.
 - `sim-szene-sund` bleibt rot (Befunde unverändert, nicht Teil des Auftrags).
 - Die Gegnerbewaffnung (Sperrfeuer: 3 Nadeln je Stoß, jede kostet auf einem leeren Sektor eine Stufe auf ein anderes System der Zone) ist der größte Einzelposten der Systemschäden an der stehenden Lerche (rund 60 % der Direkttreffer bei Fregatte/Kreuzer, 89 von 142 Direkttreffern bei Fregatte Crew 3, 84 von 142 beim Kreuzer, je 6 Seeds à 60 s). Ein Salven-Fenster je Zone statt je System würde das glätten; das wäre eine Regeländerung (Salve = eine Stufe) und nicht Teil von D.
