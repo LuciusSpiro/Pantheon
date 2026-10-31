@@ -177,10 +177,10 @@ section('Stellen: Antrieb ausschalten', () => {
   const v0 = vel(e);
   treffer(g, e, HECK, 0.45 * Gsys.maxOf(e, 'antrieb'));
   T.run(0.2);
-  T.run(V.stellen.wert.zeit + 0.5);
-  ok(!Verfolgung.ausgang(g) && e.sys.antrieb.z === 'damaged', 'Antrieb nur beschädigt: noch nicht gestellt');
-  T.run(DATEN_SPERRE() + 0.2); treffer(g, e, HECK, 0.6 * Gsys.maxOf(e, 'antrieb'));
-  ok(Zs.ausgefallen(e, 'antrieb'), 'zweiter Treffer: Antrieb ausgefallen');
+  // SYS-03 B-Nacharbeit: ein GEZIELTER Treffer auf den Antrieb nimmt zwei Stufen (Datenfeld gezielt = zerstoert): sofort beschädigt, nach der Sperre ausgefallen – ohne zweiten Treffer
+  ok(!Verfolgung.ausgang(g) && e.sys.antrieb.z === 'damaged' && Gsys.vorgemerkt(g, e, 'antrieb'), 'gezielter Treffer: der Antrieb ist sofort beschädigt (Tempo × 0,5), die Zerstörung ist vorgemerkt, noch nicht gestellt');
+  T.run(DATEN_SPERRE() + 0.2);
+  ok(Zs.ausgefallen(e, 'antrieb'), 'nach der Sperre (' + DATEN_SPERRE() + ' s): Antrieb ausgefallen (ein gezielter Treffer genügt)');
   platz(g, e.x - Math.cos(e.angle) * 250, e.y - Math.sin(e.angle) * 250, e.angle);
   T.run(3); const v1 = vel(e);
   info(`Tempo des Zielschiffs: ${v0.toFixed(1)} px/s vor dem Treffer, ${v1.toFixed(1)} nach dem Ausfall`);

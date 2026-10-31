@@ -1,7 +1,8 @@
 'use strict';
 // SYS-03 B2 „Direkttreffer auf Gegner und Verbündete“: Ein Treffer ohne Schildschutz schaltet ein Gegner-/Verbündeten-System genau EINE Stufe weiter
 // (ok -> beschädigt -> zerstört), unabhängig von der Schadenszahl (Stufenregel, gleiche Regel wie die Lerche, test-direkttreffer.js).
-// Abgedeckt: alle Gegnerklassen (Jäger, Korvette, Fregatte, Kreuzer) und Verbündete, bei Crew 1/2/3, je Quelle (Standard, gezielt, Sturm bei Schild 0 und niedrigem Schild,
+// SYS-03 B-Nacharbeit: Sturm-Fenster, Dauerdruck-Zähler mit Verfall, Robustheit gegen reparatur.damaged, Verrat (Stufen 1:1), Antrieb gezielt = zwei Stufen, integPct, Torpedo reaktorStufen.
+// Abgedeckt: alle Gegnerklassen (Jäger, Korvette, Fregatte, Kreuzer) und Verbündete, bei Crew 1 und 3 (die Crewgröße wirkt hier nur auf das Feuerintervall, nicht auf Stufen), je Quelle (Standard, gezielt, Sturm bei Schild 0 und niedrigem Schild,
 // Streu-zwei, Mine, Lanze Teil-/Vollladung, Torpedo, Dauerdruck); Treffer-Fenster, Spiegeltest Lerche <-> Gegner <-> Verbündeter, Antrieb-Sperre als Ausnahme,
 // Schild über 0 fängt ab, e.hp/integPct/snapshotZiel nach dem ersten Treffer, Reaktor-Countdown nur einmal, keine Reste der Punktregel.
 //   node tools/test-direkttreffer-gegner.js
@@ -26,6 +27,7 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
 function section(title, fn) { console.log('\n[' + title + ']'); try { fn(); } catch (e) { fails++; console.log('  FEHLER Abschnitt abgebrochen: ' + (e && e.stack ? e.stack.split('\n').slice(0, 4).join(' | ') : e)); } }
 const SM = CONFIG.systemModell;
 const FENSTER = SM.trefferFenster_s;
+const FENSTER_STURM = SM.sturm.trefferFenster_s;
 const STURM = Katalog.waffe('sturmbatterie').sturm;
 const KLASSEN = ['raider', 'korvette', 'fregatte', 'kreuzer'];
 const RANG = { ok: 0, damaged: 1, broken: 2 };
@@ -54,7 +56,7 @@ function verbuendeter(g, kind) {
 // Alles auf Anfang: Systeme ok mit Maximum, Fenster/Sperre/Immunität/Zähler weg, Schilde 0
 function frisch(g, e) {
   for (const id of Gsys.ids(e)) { const st = e.sys[id]; st.i = Gsys.maxOf(e, id); st.z = 'ok'; delete st.sp; delete st.imm; delete st.tf; delete st.rp; }
-  e.hp = Gsys.summe(e); e.rt = null; e.druckAkk = 0; e.repSperre = null; e.sysTreffer = 0; e.regenHold = 0;
+  e.hp = Gsys.summe(e); e.rt = null; delete e.druckZ; e.repSperre = null; e.sysTreffer = 0; e.regenHold = 0;
   Th.schildNull(e);
   e.shieldsMax = e.shieldsMax.map(() => 0);
   return e;
@@ -69,7 +71,7 @@ function einziges(e, zone, wahl) {
 }
 const stand = (e) => Object.fromEntries(Gsys.ids(e).map((id) => [id, e.sys[id].z]));
 const geaendert = (e, vor) => Gsys.ids(e).filter((id) => e.sys[id].z !== vor[id]);
-const weiter = (g, s) => { g.time += (s == null ? FENSTER + 0.01 : s); };
+const weiter = (g, s) => { g.time += (s == null ? FENSTER + 0.01 : s === 'sturm' ? FENSTER_STURM + 0.01 : s); };   // 'sturm': das längere Sturm-Fenster abwarten
 const quelleBug = (e) => ({ x: e.x + 300, y: e.y });
 const pctIn = (e, id) => { const z = Gsys.snapshotZiel(e); return z[2 * Gsys.ids(e).indexOf(id) + 1]; };
 const zustandIn = (e, id) => { const z = Gsys.snapshotZiel(e); return z[2 * Gsys.ids(e).indexOf(id)]; };
@@ -78,7 +80,7 @@ const zustandIn = (e, id) => { const z = Gsys.snapshotZiel(e); return z[2 * Gsys
 const STERNE = (g, e) => (e.ally ? { hit: (d, o) => Escort.hit(g, e, d, Object.assign({ von: quelleBug(e) }, o || {})) } : { hit: (d, o) => { const q = quelleBug(e); space.damageEnemy(g, e, d, q.x, q.y, o || {}); } });
 const QUELLEN = {
   'Standard-Schuss': { dmgs: [0.1, 50], seiten: ['gegner', 'verbuendet'], treffer: (g, e, d) => STERNE(g, e).hit(d, {}) },
-  'Sturm bei Schild 0': { dmgs: [0.1, 50], seiten: ['gegner', 'verbuendet'], treffer: (g, e, d) => STERNE(g, e).hit(d, { sturm: STURM }) },
+  'Sturm bei Schild 0': { dmgs: [0.1, 50], art: 'sturm', seiten: ['gegner', 'verbuendet'], treffer: (g, e, d) => STERNE(g, e).hit(d, { sturm: STURM }) },
   'Streu-zwei (Durchschlag)': { dmgs: [0.1, 50], seiten: ['gegner'], treffer: (g, e, d) => STERNE(g, e).hit(d, { huelle: true }) },
   'Lanze Teilladung': { dmgs: [3, 7.5], seiten: ['gegner'], treffer: (g, e, d) => STERNE(g, e).hit(d, { pierce: 2, angriff: true }) },
   'Mine': {
@@ -100,8 +102,8 @@ function aufZiele(crew, fn) {
   }
 }
 
-// ---------------------------------------------------------------- Quellen: je zwei Treffer, eine Stufe je Treffer, bei Crew 1/2/3
-for (const crew of [1, 2, 3]) {
+// ---------------------------------------------------------------- Quellen: je zwei Treffer, eine Stufe je Treffer, bei Crew 1 und 3
+for (const crew of [1, 3]) {
   for (const [name, q] of Object.entries(QUELLEN)) {
     section(`Crew ${crew}, Quelle ${name}: ok -> beschädigt -> zerstört, unabhängig vom Schaden`, () => {
       aufZiele(crew, (g, e, kind, seite) => {
@@ -114,9 +116,9 @@ for (const crew of [1, 2, 3]) {
           ok(e.hp < hp0 && Gsys.integPct(e) < pct0 && Math.abs(e.hp - Gsys.summe(e)) < 1e-9, `${tag}: e.hp ${hp0.toFixed(1)} -> ${e.hp.toFixed(1)} (= Σ i), integPct ${pct0.toFixed(0)} -> ${Gsys.integPct(e).toFixed(1)}`);
           ok(Math.abs(e.sys[s].i - Gsys.maxOf(e, s) * SM.reparatur.damaged) < 1e-9, `${tag}: i = abgeleiteter Wert der Stufe (${SM.reparatur.damaged} × Maximum)`);
           ok(zustandIn(e, s) === 1 && pctIn(e, s) === Math.round(100 * SM.reparatur.damaged), `${tag}: snapshotZiel [1, ${pctIn(e, s)}] sofort sichtbar`);
-          weiter(g); q.treffer(g, e, d);
+          weiter(g, q.art); q.treffer(g, e, d);
           ok(e.sys[s].z === 'broken' && e.sys[s].i === 0 && zustandIn(e, s) === 2 && pctIn(e, s) === 0, `${tag}: zweiter Treffer beschädigt -> zerstört, Snapshot [2, 0]`);
-          weiter(g); const v2 = stand(e); q.treffer(g, e, d);
+          weiter(g, q.art); const v2 = stand(e); q.treffer(g, e, d);
           ok(geaendert(e, v2).every((id) => Gsys.defOf(e.kind, id).zone === 'mitte'), `${tag}: dritter Treffer: Zone leer, geht in die Mitte (nie zurück auf das zerstörte System)`);
           if (e.rt) e.rt = null;
         }
@@ -246,7 +248,7 @@ section('Sturm: Schild 0 = Direkttreffer, 0 < Schild ≤ niedrig mit Chance eine
     g.rng.chance = () => true; setzeBug(1); hit(3); const mit = e.sys[s].z;
     g.rng.chance = chance0;
     ok(ohne === 'ok' && mit === 'damaged', `${seite}: Sturm bei Schild 1 (≤ niedrig): ohne Chance nichts, mit Chance (${STURM.systemChance}) genau eine Stufe`);
-    weiter(g); setzeBug(0); hit(0.1);
+    weiter(g, 'sturm'); setzeBug(0); hit(0.1);
     ok(e.sys[s].z === 'broken', `${seite}: Sturm bei Schild 0: Direkttreffer, eine Stufe (beschädigt -> zerstört)`);
     ok(segBug >= 0, `${seite}: Layout hat ein Bug-Segment`);
     if (seite === 'gegner') {
@@ -321,9 +323,24 @@ section('Streubatterie der Lerche: erste Granate nur Schild, zweite im Fenster =
 });
 
 // ---------------------------------------------------------------- Torpedo
-section('Torpedo: zerstört das getroffene System sicher, Durchschlag auf den Reaktor = eine Stufe (reaktorAnteil 0,5), Jäger sofort tot', () => {
+section('Torpedo: zerstört das getroffene System sicher, Durchschlag auf den Reaktor = reaktorStufen (1: eine Stufe), Jäger sofort tot', () => {
   const g = raum(1);
-  ok(Integ.stufenAusAnteil(g, SM.torpedo.reaktorAnteil) === 1 && Integ.stufenAusAnteil(g, 1) === 2, 'Umrechnung Anteil -> Stufen (integritaet.js, auch die Lerche): 0,5 = 1, 1 = 2');
+  ok(SM.torpedo.reaktorStufen === 1 && SM.torpedo.reaktorAnteil === undefined && Integ.torpedoStufen(g) === 1 && !('stufenAusAnteil' in Integ), 'systemModell.torpedo.reaktorStufen 1 (Ganzzahl, integritaet.js torpedoStufen, auch die Lerche); reaktorAnteil/stufenAusAnteil entfallen');
+  {   // reaktorStufen 0 / 2: wirkt wirklich (Tune-Wert), Gegner und Verbündete
+    const r0 = SM.torpedo.reaktorStufen;
+    try {
+      for (const [st, soll] of [[0, 'ok'], [1, 'damaged'], [2, 'broken']]) {
+        SM.torpedo.reaktorStufen = st;
+        for (const seite of ['gegner', 'verbuendet']) {
+          const e = frisch(g, seite === 'gegner' ? gegner(g, 'kreuzer') : verbuendeter(g, 'kreuzer'));
+          STERNE(g, e).hit(9, { torpedo: true, huelle: true, nurOhneSchild: true });
+          ok(e.sys[Gsys.idVon(e, 'reaktor')].z === soll, `reaktorStufen ${st} ${seite}: ein Torpedo -> Reaktor ${soll}`);
+          if (e.rt) e.rt = null;
+          if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== e);
+        }
+      }
+    } finally { SM.torpedo.reaktorStufen = r0; }
+  }
   for (const kind of ['korvette', 'fregatte', 'kreuzer']) for (const seite of ['gegner', 'verbuendet']) {
     const e = frisch(g, seite === 'gegner' ? gegner(g, kind) : verbuendeter(g, kind));
     const vor = stand(e);
@@ -362,6 +379,164 @@ section('Dauerdruck auf Gegner/Verbündete: eine Stufe je zonen.druckPunkte (wie
     if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== e);
   }
   ok(CONFIG.zonen.druckPunkte === K && K > 0, 'dieselbe Schwelle zonen.druckPunkte wie die Lerche (eine Quelle)');
+});
+
+// ---------------------------------------------------------------- Sturm-Fenster (SYS-03 B-Nacharbeit)
+section('Sturm-Fenster: 8 Nadeln in 0,5 s auf eine Zone mit 2 Systemen (Schild 0) = je System eine Stufe, nichts in der Mitte; nach dem Fenster eine weitere', () => {
+  const g = raum(1);
+  for (const kind of ['korvette', 'kreuzer']) for (const seite of ['gegner', 'verbuendet']) {
+    const e = frisch(g, seite === 'gegner' ? gegner(g, kind) : verbuendeter(g, kind));
+    const zs = Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone === 'bug');
+    for (const id of zs.slice(2)) { e.sys[id].i = 0; e.sys[id].z = 'broken'; }
+    e.hp = Gsys.summe(e);
+    const zwei = zs.slice(0, 2); const mitte = Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone === 'mitte');
+    const stufen = () => zwei.reduce((a, id) => a + RANG[e.sys[id].z], 0);
+    const nadel = () => STERNE(g, e).hit(0.5, { sturm: STURM });
+    for (let i = 0; i < 8; i++) { nadel(); g.time += 0.5 / 8; }
+    ok(zwei.every((id) => e.sys[id].z === 'damaged'), `${seite} ${kind}: 8 Nadeln in 0,5 s: je System eine Stufe (${zwei.map((id) => e.sys[id].z).join()}), keins zerstört`);
+    ok(mitte.every((id) => e.sys[id].z === 'ok'), `${seite} ${kind}: nichts in der Mitte (Treffer im Fenster verfallen, kein Überlauf)`);
+    g.time += 0.4; nadel();
+    ok(stufen() === 2, `${seite} ${kind}: Nadel 0,9 s nach der ersten Stufe (Sturm-Fenster ${SM.sturm.trefferFenster_s} s): keine weitere Stufe`);
+    STERNE(g, e).hit(3, {}); ok(stufen() === 2, `${seite} ${kind}: auch ein Standard-Treffer im Sturm-Fenster verfällt`);
+    g.time += SM.sturm.trefferFenster_s; nadel();
+    ok(stufen() === 3 && mitte.every((id) => e.sys[id].z === 'ok'), `${seite} ${kind}: nach Ablauf des Fensters eine weitere Stufe (${zwei.map((id) => e.sys[id].z).join()})`);
+    if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== e);
+  }
+  ok(Integ.fensterDauer({ C: CONFIG }, 'sturm') === SM.sturm.trefferFenster_s && SM.sturm.trefferFenster_s > FENSTER, 'ein Wert: systemModell.sturm.trefferFenster_s, gelesen von Integ.fensterDauer (Lerche und Gegner gleich)');
+  // Sturm gegen vollen Schild: kein Systemschaden (unverändert)
+  const e2 = frisch(g, gegner(g, 'korvette')); const lay = require('../shared/schilde.js').layout(CONFIG, e2.kind);
+  const hoch = lay.max.map(() => 5);   // über sturm.niedrig: der Sturm nutzt den Schild kaum ab und trifft keine Systeme
+  e2.shields = hoch.slice(); e2.shieldsMax = hoch.slice(); const v2 = stand(e2);
+  for (let i = 0; i < 20; i++) { e2.shields = hoch.slice(); STERNE(g, e2).hit(0.5, { sturm: STURM }); g.time += 0.1; }
+  ok(geaendert(e2, v2).length === 0, 'Sturm gegen vollen Schild: kein Systemschaden');
+  g.space.enemies = g.space.enemies.filter((x) => x !== e2);
+});
+
+// ---------------------------------------------------------------- Dauerdruck-Zähler
+section('Dauerdruck-Zähler (Gegner, Verbündete): bleibt innerhalb der Frist, verfällt danach, auch bei Schild > 0 ohne Resttreffer', () => {
+  const g = raum(1); const K = CONFIG.zonen.druckPunkte; const A = CONFIG.zonen.druckAbkling_s;
+  for (const seite of ['gegner', 'verbuendet']) {
+    const neu = () => { const e = frisch(g, seite === 'gegner' ? gegner(g, 'kreuzer') : verbuendeter(g, 'kreuzer')); const s = einziges(e, 'bug'); return { e, s, druck: (p) => STERNE(g, e).hit(p, { druck: true }), n: () => Integ.druckStand(g, Integ.druckZaehler(e, 'druckZ')) }; };
+    let z = neu();
+    z.druck(K - 2); ok(z.n() === K - 2, `${seite}: ${K - 2} Punkte im Zähler (${z.n()})`);
+    g.time += A - 0.5; ok(z.n() === K - 2, `${seite}: nach ${A - 0.5} s ohne Druck (innerhalb der Frist ${A} s) unverändert`);
+    z.druck(2); ok(z.e.sys[z.s].z === 'damaged', `${seite}: der Rest kommt dazu: die Stufe fällt (der Zähler blieb)`);
+    if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== z.e);
+    z = neu();
+    z.druck(K - 2); g.time += A + 0.5;
+    ok(z.n() === 0, `${seite}: nach ${A + 0.5} s ohne Druck (Frist ${A} s): Zähler 0`);
+    z.druck(2); ok(z.e.sys[z.s].z === 'ok', `${seite}: dieselben 2 Punkte danach kosten keine Stufe`);
+    z.druck(K - 2); ok(z.e.sys[z.s].z === 'damaged', `${seite}: erst ein voller Zähler (${K} Punkte) kostet eine Stufe`);
+    if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== z.e);
+    // Schild > 0 ohne Resttreffer: der Schild fängt den Druck, kein Rest erreicht ein System -> auch dann läuft die Frist ab
+    z = neu(); const lay = require('../shared/schilde.js').layout(CONFIG, z.e.kind);
+    z.druck(K - 2);
+    for (let i = 0; i < A + 2; i++) { z.e.shields = lay.max.slice(); z.e.shieldsMax = lay.max.slice(); z.druck(1); g.time += 1; }
+    z.e.shields = z.e.shields.map(() => 0);
+    ok(z.n() === 0 && z.e.sys[z.s].z === 'ok', `${seite}: Schild fängt den Druck ${A + 2} s lang (kein Resttreffer): Zähler verfällt (${z.n()}), keine Stufe`);
+    z.druck(2); ok(z.e.sys[z.s].z === 'ok', `${seite}: danach 2 Punkte ohne Stufe (Zähler war verfallen)`);
+    if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== z.e);
+  }
+  ok(K === 6 && A === 3 && typeof Integ.druckSammeln === 'function', 'Startwerte zonen.druckPunkte 6 / druckAbkling_s 3; derselbe Helfer wie die Lerche (integritaet.js)');
+});
+
+// ---------------------------------------------------------------- Robustheit gegen systemModell.reparatur.damaged
+section('Robustheit: tune systemModell.reparatur.damaged 0,6 / 0,7 / 0,9 – fünf Treffer auf ein System: ok -> beschädigt -> zerstört (kein hängendes System)', () => {
+  const g = raum(1); const d0 = SM.reparatur.damaged;
+  try {
+    for (const dm of [0.6, 0.7, 0.9]) {
+      SM.reparatur.damaged = dm;
+      for (const seite of ['gegner', 'verbuendet']) for (const kind of ['fregatte', 'kreuzer']) {
+        const e = frisch(g, seite === 'gegner' ? gegner(g, kind) : verbuendeter(g, kind)); const s = einziges(e, 'bug'); const folge = [];
+        for (let i = 0; i < 5; i++) { weiter(g); STERNE(g, e).hit(1, {}); folge.push(e.sys[s].z); if (i === 0) ok(Math.abs(e.sys[s].i - Gsys.maxOf(e, s) * dm) < 1e-9 && pctIn(e, s) === Math.round(100 * dm), `damaged ${dm} ${seite} ${kind}: beschädigt = ${Math.round(100 * dm)} % (i = ${dm} × Maximum)`); }
+        ok(folge.slice(0, 2).join() === 'damaged,broken' && folge.slice(2).every((x) => x === 'broken'), `damaged ${dm} ${seite} ${kind}: Folge ${folge.join(' > ')}`);
+        if (e.rt) e.rt = null;
+        if (seite === 'gegner') g.space.enemies = g.space.enemies.filter((x) => x !== e);
+      }
+    }
+    // die Stufe liest sich aus i robust: zerstört nur bei i <= 0, ok nur ab Maximum
+    SM.reparatur.damaged = 0.7;
+    const e = frisch(g, gegner(g, 'fregatte')); const id = Gsys.ids(e).find((x) => Gsys.defOf(e.kind, x).zone === 'bug');
+    const max = Gsys.maxOf(e, id);
+    e.sys[id].i = 0.8 * max;
+    const r = Gsys.treffen(g, e, 'bug', { id, zugewandt: 'bug' });
+    ok(r && r.id === id && e.sys[id].z === 'broken', 'i = 80 % des Maximums (Zustand ok durch einen Stand von Hand): wird als beschädigt gelesen, der Treffer zerstört (nicht hängen)');
+  } finally { SM.reparatur.damaged = d0; }
+});
+
+// ---------------------------------------------------------------- Verrat: Stufen 1:1
+section('Verrat (Gsys.stufenUebernehmen): der Ex-Verbündete wird Gegner mit denselben Stufen, Integrität abgeleitet, Fenster/Sperre/Immunität weg', () => {
+  const g = raum(1);
+  for (const kind of ['korvette', 'fregatte', 'kreuzer']) {
+    const es = verbuendeter(g, kind);
+    const ids = Gsys.ids(es);
+    const bug = ids.filter((id) => Gsys.defOf(kind, id).zone === 'bug'); const stb = ids.filter((id) => Gsys.defOf(kind, id).zone === 'stb');
+    for (const id of bug) { es.sys[id].z = 'broken'; es.sys[id].i = 0; }   // drei zerstörte Systeme (Bug) …
+    for (const id of stb) { es.sys[id].z = 'damaged'; es.sys[id].i = Gsys.maxOf(es, id) * SM.reparatur.damaged; }   // … und beschädigte
+    es.sys.antrieb.z = 'damaged'; es.sys.antrieb.i = 0; es.sys.antrieb.sp = g.time; es.sys.antrieb.imm = g.time + 10; es.sys[bug[0]].tf = g.time + 5;   // eine vorgemerkte Stufe, Sperre, Immunität, Fenster
+    es.hp = Gsys.summe(es);
+    const e = gegner(g, kind);
+    Gsys.stufenUebernehmen(g, e, es);
+    const gleich = ids.every((id) => e.sys[id].z === (id === 'antrieb' ? 'broken' : es.sys[id].z));
+    ok(gleich, `${kind}: alle Stufen übernommen (${bug.length} zerstört, ${stb.length} beschädigt, der Antrieb mit der vorgemerkten Stufe zerstört)`);
+    ok(ids.every((id) => Math.abs(e.sys[id].i - Integ.grundwertVon(e.sys[id].z, Gsys.maxOf(e, id), Integ.damagedAnteil(g))) < 1e-9) && Math.abs(e.hp - Gsys.summe(e)) < 1e-9, `${kind}: i aus der Stufe abgeleitet, e.hp = Σ i (${e.hp.toFixed(1)} von ${e.hpMax})`);
+    ok(ids.every((id) => !('tf' in e.sys[id]) && !('sp' in e.sys[id]) && !('imm' in e.sys[id])) && ids.every((id) => !Gsys.vorgemerkt(g, e, id)), `${kind}: Fenster, Sperre, Immunität und vorgemerkte Stufen gelöscht`);
+    ok(ids.filter((id) => e.sys[id].z === 'ok').length === ids.filter((id) => es.sys[id].z === 'ok').length, `${kind}: keine ok-Systeme bei verminderter Integrität (alte Regel: alle ok mit i × Anteil)`);
+    g.space.enemies = g.space.enemies.filter((x) => x !== e);
+  }
+  // Spawn eines verletzten Verbündeten über den Anteil (escort.js): Stufen von hinten nach vorn, deterministisch
+  const a1 = Flotte.aufstellen(g, { tag: 'verl1', kind: 'kreuzer', huelle: 50 }); const a2 = Flotte.aufstellen(g, { tag: 'verl2', kind: 'kreuzer', huelle: 50 });
+  ok(JSON.stringify(Gsys.ids(a1).map((id) => a1.sys[id].z)) === JSON.stringify(Gsys.ids(a2).map((id) => a2.sys[id].z)) && Object.values(a1.sys).some((s) => s.z !== 'ok') && a1.sys.reaktor.z !== 'broken', 'verletzter Verbündeter (Hülle 50 %): Stufen deterministisch, der Reaktor nicht zerstört');
+});
+
+// ---------------------------------------------------------------- Antrieb: gezielt = zwei Stufen, ungezielt = eine (Datenfeld gezielt = zerstoert)
+section('Antrieb: gezielter Treffer = sofort beschädigt, nach der Sperre zerstört; ungezielt eine Stufe; die Reparatur wartet auf die vorgemerkte Stufe', () => {
+  const ZW = require('../content/kampf/zielsysteme-werte.json').werte; const SPERRE = ZW.treffer.wert.sperre_s;
+  const Rep = require('../server/sim/gegnerreparatur.js'); const Zs = require('../server/sim/zielsysteme.js');
+  ok(ZW.systeme.wert.antrieb.gezielt === 'zerstoert' && Gsys.gezieltZerstoert('antrieb') && !Gsys.gezieltZerstoert('reaktor') && Zs.lercheGezieltZerstoert('engines'), 'Datenfeld systeme.antrieb.gezielt = zerstoert (eine Quelle für Gegner und Lerche)');
+  const g = raum(1);
+  for (const kind of ['korvette', 'fregatte']) {
+    const e = frisch(g, gegner(g, kind)); const zone = Gsys.defOf(e.kind, 'antrieb').zone;
+    const gez = () => Gsys.treffen(g, e, zone, { id: 'antrieb', zugewandt: zone });
+    const t0 = g.time; const r1 = gez();
+    ok(r1 && r1.gezielt && e.sys.antrieb.z === 'damaged' && Gsys.vorgemerkt(g, e, 'antrieb') && e.sys.antrieb.i === 0, `${kind}: gezielter Treffer: sofort beschädigt, die Zerstörung ist vorgemerkt (i = 0)`);
+    ok(Rep.vorgaenge(g, e).indexOf('antrieb') < 0, `${kind}: die Reparatur nimmt den Antrieb nicht (vorgemerkte Stufe geht nicht verloren)`);
+    g.time = t0 + SPERRE - 0.05; Gsys.nachholen(g, e); ok(e.sys.antrieb.z === 'damaged', `${kind}: vor Ablauf der Sperre noch beschädigt`);
+    g.time = t0 + SPERRE + 0.1; Gsys.nachholen(g, e);
+    ok(e.sys.antrieb.z === 'broken' && !Gsys.vorgemerkt(g, e, 'antrieb') && Rep.vorgaenge(g, e).indexOf('antrieb') >= 0, `${kind}: nach der Sperre (${SPERRE} s) zerstört, danach reparierbar`);
+    g.time += FENSTER + 0.1; gez();
+    ok(e.sys.antrieb.z === 'broken' && e.sys.antrieb.i === 0, `${kind}: gezielter Treffer auf den zerstörten Antrieb: nichts weiter (zerstört bleibt zerstört)`);
+    g.space.enemies = g.space.enemies.filter((x) => x !== e);
+  }
+  // ungezielt (ohne Systemziel): die Heck-Zone der Korvette besteht nur aus dem Antrieb, der Treffer trifft ihn sicher – genau eine Stufe, nichts vorgemerkt
+  const e2 = frisch(g, gegner(g, 'korvette')); const zone2 = Gsys.defOf(e2.kind, 'antrieb').zone; const t1 = g.time;
+  const r2 = Gsys.treffen(g, e2, zone2, null, null);
+  ok(r2 && r2.id === 'antrieb' && !r2.gezielt && e2.sys.antrieb.z === 'damaged' && !Gsys.vorgemerkt(g, e2, 'antrieb') && e2.sys.antrieb.i > 0, 'ungezielter Treffer auf den Antrieb: genau eine Stufe (beschädigt), nichts vorgemerkt');
+  g.time = t1 + SPERRE + 0.5; Gsys.nachholen(g, e2); ok(e2.sys.antrieb.z === 'damaged', 'ungezielt: bleibt beschädigt (auch nach der Sperre)');
+  g.space.enemies = g.space.enemies.filter((x) => x !== e2);
+  // Ende zu Ende über den Waffenweg der Lerche: Systemziel Antrieb, Treffer von hinten (damageEnemy mit angriff)
+  const e3 = frisch(g, gegner(g, 'korvette')); e3.angle = 0; e3.scanned = true; g.ship.target = e3.id; g.ship.zielsystem = 'antrieb';
+  const qx = e3.x - 300, qy = e3.y; g.ship.x = qx; g.ship.y = qy;
+  space.damageEnemy(g, e3, 3, qx, qy, { angriff: true });
+  ok(e3.sys.antrieb.z === 'damaged', 'Waffenweg (damageEnemy, Systemziel Antrieb, Treffer von hinten): sofort beschädigt');
+  g.time += SPERRE + 0.1; Gsys.nachholen(g, e3);
+  ok(e3.sys.antrieb.z === 'broken' && Zs.ausgefallen(e3, 'antrieb'), 'nach der Sperre ausgefallen (die Verfolgung kann stellen)');
+  delete g.ship.zielsystem; g.ship.target = null; g.space.enemies = g.space.enemies.filter((x) => x !== e3);
+});
+
+// ---------------------------------------------------------------- integPct und die Prozent-Auslöser
+section('integPct: „alle Systeme beschädigt“ ist bei jeder Klasse genau 50 (Auslöser integritaet_unter < 50 und enemyHpBelow <= 50 entscheiden gleich)', () => {
+  const g = raum(1);
+  for (const kind of ['raider', 'korvette', 'fregatte', 'kreuzer', 'sentinel', 'pylon', 'frachter']) {
+    const e = gegner(g, kind);
+    for (const id of Gsys.ids(e)) { e.sys[id].z = 'damaged'; e.sys[id].i = Gsys.maxOf(e, id) * SM.reparatur.damaged; }
+    e.hp = Gsys.summe(e);
+    const p = Gsys.integPct(e);
+    ok(p === 50 && !(p < 50) && p <= 50, `${kind}: integPct ${p} (genau 50: kein Rundungsrest, Auslöser < 50 aus, <= 50 an)`);
+    ok(Number.isInteger(p * 1e6) || Math.abs(p * 1e6 - Math.round(p * 1e6)) < 1e-6, `${kind}: auf 6 Nachkommastellen gerundet`);
+    g.space.enemies = g.space.enemies.filter((x) => x !== e);
+  }
+  ok(Gsys.integPct(gegner(g, 'raider')) === 100, 'voll: 100');
 });
 
 // ---------------------------------------------------------------- Spiegeltest Lerche <-> Gegner <-> Verbündeter

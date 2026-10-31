@@ -142,9 +142,12 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
   // (Seeds 2/4/6: 605/206/662 s). Fenster 120–1200 s. Die Szenenabsicht „in der Falle fällt die Lerche zügig“ ist mit dieser Gegnerzahl nicht erfüllt (Szenenentscheidung, siehe Bericht).
   // SYS-02a (Kai: Jäger reparieren nicht): die Auto-Waffen der Lerche zerstören Jäger-Waffen, sie bleiben zerstört; die wehrlose Lerche fällt später. Neu gemessen (20 Seeds, 4000 s Grenze):
   // 545, 631, 1309, 190, 616, 1365, 1202, 947, 834, 167, 368, 1032, 607, 2742, 837, 2679, 514, 557, 684, >4000 s (Seeds 2/4/6: 631/190/1365 s). Fenster 120–3000 s (vorher 120–1200 s, Median 451 s).
-  // SYS-03 B1: Direkttreffer = eine Stufe je Treffer ohne Schild: die wehrlose Lerche fällt deutlich früher. Neu gemessen (Seeds 2/4/6): 66,6/91/165,3 s. Fenster 30–3000 s (Schilde und Balance folgen in SYS-03 C/D).
-  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster 30–3000 s)');
-  ok(zeiten.every((z) => z >= 30 && z <= 3000), 'Zeiten bis zum Verlust im gemessenen Fenster 30–3000 s (' + zeiten.join(', ') + ' s)');
+  // SYS-03 B1: Direkttreffer = eine Stufe je Treffer ohne Schild: die wehrlose Lerche fällt deutlich früher (B1: Seeds 2/4/6 66,6/91/165,3 s).
+  // SYS-03 B-Nacharbeit: enges Fenster aus 8 gemessenen Seeds (Stand nach der Nacharbeit B1/B2, Seeds 1–8): 90,9 / 64,5 / 68,7 / 104,9 / 120 / 181,8 / 110,1 / 105 s (Seeds 2/4/6: 64,5/104,9/181,8 s),
+  // Min 64,5 s, Max 181,8 s; Fenster = Min − 25 % bis Max + 25 % = 48–228 s. Schilde (Paket C) und Balance (Paket D) verschieben es, der Entwicklungsleiter stellt es dort neu.
+  const FENSTER_VON = 48, FENSTER_BIS = 228;
+  info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s)');
+  ok(zeiten.every((z) => z >= FENSTER_VON && z <= FENSTER_BIS), 'Zeiten bis zum Verlust im gemessenen Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s (' + zeiten.join(', ') + ' s)');
 });
 
 section('Kapitel 3 Falle: Verlust durch den Reaktor-Countdown (on.emergency)', () => {

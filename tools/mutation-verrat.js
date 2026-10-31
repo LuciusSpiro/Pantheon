@@ -79,8 +79,8 @@ const MUTATIONEN = [
   [S, "  if (S.modus === 'verrat') return verratSieg(game, S);\n", "", 'Sieg im Verrat: normaler Szenen-Sieg'],
   [S, "  if (S.modus === 'verrat') return verratNiederlage(game, S, grund);\n", "", 'Niederlage im Verrat: normale Szenen-Niederlage'],
   [S, "    S.vor = S.modus || 'normal'; S.modus = 'verrat';", "    S.vor = S.modus || 'normal';", 'Szene wird nicht auf den Modus verrat umgeschaltet'],
-  [S, "      Gsys.setzeAnteil(game, e, Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1))));", "      Gsys.setzeAnteil(game, e, 1);", 'Gegner starten mit voller Hülle statt der Quote'],
-  [S, "      Gsys.setzeAnteil(game, e, Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1))));", "      Gsys.setzeAnteil(game, e, Math.min(1, q.hp / (q.hpMax || 1)) * 0.5);", 'Hüllen-Quote halbiert'],
+  [S, "      Gsys.stufenUebernehmen(game, e, q);", "      Gsys.setzeAnteil(game, e, 1);", 'Gegner starten mit voller Hülle statt den Stufen des Verbündeten'],
+  [S, "      Gsys.stufenUebernehmen(game, e, q);", "      Gsys.setzeAnteil(game, e, 0.5);", 'Stufen durch einen festen Anteil ersetzt'],
   [S, "tag: SZENEN_TAG + '_verrat', ziel: 'lerche', volk: 'rom' });", "tag: SZENEN_TAG + '_verrat', ziel: 'lerche', volk: 'ger' });", 'Kennung der Gegner nicht rom'],
   [S, "ohneBeute: true, verratS: S.id,", "ohneBeute: false, verratS: S.id,", 'Gegner geben Beute'],
   [S, "    Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;\n", "    delete sp.retreatRule;\n", 'die alten Gegner der Szene bleiben im Kampf'],
@@ -130,7 +130,6 @@ const MUTATIONEN = [
   [S, "  endeAufraeumen(game);\n  if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);\n  funk(game, Verrat.text('sieg')", "  if (!r.ok) return gescheitert(game, S, 'sieg', wirk, r);\n  funk(game, Verrat.text('sieg')", 'verratSieg räumt die Szenen-ODA nicht weg'],
   [S, "  funk(game, (T.niederlage || {})[grund]);\n  funk(game, Verrat.text('niederlage')", "  funk(game, Verrat.text('niederlage')", 'Niederlage im Verrat nennt den Grund nicht'],
   [S, "S.verrat.tot > 0 ? Ruf.verratVernichtet()", "S.verrat.tot > 1 ? Ruf.verratVernichtet()", 'Abzug „vernichtet“ erst ab zwei Abschüssen'],
-  [S, "const hmin = Number(Verrat.W.huelle_min.wert);", "const hmin = 0.5;", 'Mindest-Hülle fest statt aus den Daten'],
   ['content/welt/verrat-werte.json', '"hexe": ["0204"]', '"hexe": []', 'Daten: Hauptwelt nicht gesperrt'],
 ];
 

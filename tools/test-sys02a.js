@@ -4,7 +4,7 @@
 //   2  Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche): Regeneration gesperrt (wie bisher), Reparatursperre der getroffenen Zone
 //      (sturm.reparaturSperre_s, Fortschritt sofort 0), bei Schild 0 ein Direkttreffer, bei 0 < Schild ≤ niedrig mit Chance eine Stufe (SYS-03 B2: keine Punktfaktoren), gegen den vollen Schild kaum Schildschaden
 //      und kein Systemschaden (der Sturm nutzt volle Schilde nicht ab; die alte Abnahme „bricht den Schild in 15 s“ entfällt).
-//   3  Torpedo tut weh (Lerche wie Gegner): nur bei Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher und schlägt mit reaktorAnteil × Reaktor-Maximum auf den Reaktor
+//   3  Torpedo tut weh (Lerche wie Gegner): nur bei Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher und schlägt mit systemModell.torpedo.reaktorStufen Stufen auf den Reaktor
 //      durch (zwei Treffer zerstören ihn, Countdown wie jede Reaktorzerstörung); Jäger sofort tot; leere Zone: nur der Reaktor wird getroffen; Zufall nur game.rng.
 //   node tools/test-sys02a.js   (npm run test:sys02a)
 const fs = require('fs');
@@ -221,7 +221,7 @@ section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein System
   const h = gegner(g, 'korvette'); h.gestellt = true; nullSchild(h);
   Testhilfe.setzeIntegritaet(h, 'emitter_bug', 0);
   let nadeln = 0;
-  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; if (nadeln === 1) ok(zustand(h, 'waffe_bug') === 'damaged', 'erste Nadel bei Schild 0: beschädigt (eine Stufe)'); g.time += SM.trefferFenster_s + 0.01; }
+  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; if (nadeln === 1) ok(zustand(h, 'waffe_bug') === 'damaged', 'erste Nadel bei Schild 0: beschädigt (eine Stufe)'); g.time += SM.sturm.trefferFenster_s + 0.01; }   // Sturm-Treffer haben das längere Fenster (SYS-03 B-Nacharbeit)
   ok(nadeln === 2, `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (eine Stufe je Nadel, Schadenszahl ohne Wirkung)`);
   const h2 = gegner(g, 'korvette'); h2.gestellt = true; nullSchild(h2); Testhilfe.setzeIntegritaet(h2, 'emitter_bug', 0);
   for (let i = 0; i < 5; i++) treffer(g, h2, 0, 1.08, sturmOpts());
@@ -278,7 +278,7 @@ section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein S
 
 // =============================================================== 3 Torpedo
 section('3a Torpedo gegen die Lerche: zwei Treffer zerstören den Reaktor (Countdown), ein Treffer System zerstört und Reaktor beschädigt', () => {
-  ok(SM.torpedoLerche === undefined && SM.torpedo.reaktorAnteil === 0.5, 'torpedo.reaktorAnteil 0,5; torpedoLerche entfällt (eine Wahrheit)');
+  ok(SM.torpedoLerche === undefined && SM.torpedo.reaktorStufen === 1, 'torpedo.reaktorStufen 1 (ersetzt reaktorAnteil); torpedoLerche entfällt (eine Wahrheit)');
   const { g } = lerche(1, 21); g.ship.shields.current = [0, 0, 0, 0];
   const rmax = I.integMax(g, 'reactor');
   Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
@@ -305,9 +305,9 @@ section('3b Torpedo gegen die Lerche: stehender Schild prallt ab (Lesart B), lee
   ok(brokenSet(g).join() === vorher.join() && near(sum0 - isum(g), 0.5 * rmax) && g.ship.systems.reactor === 'damaged', `Zone 0 leer: kein weiteres System zerstört, Reaktor direkt getroffen (−${(sum0 - isum(g)).toFixed(1)})`);
 });
 
-section('3c Torpedo: tunebar (torpedo.reaktorAnteil 1 = ein Treffer zerstört den Reaktor), Determinismus über game.rng', () => {
-  const a0 = SM.torpedo.reaktorAnteil; SM.torpedo.reaktorAnteil = 1;
-  try { const { g } = lerche(1, 23); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown, 'reaktorAnteil 1: ein Treffer zerstört den Reaktor, Countdown'); } finally { SM.torpedo.reaktorAnteil = a0; }
+section('3c Torpedo: tunebar (torpedo.reaktorStufen 2 = ein Treffer zerstört den Reaktor), Determinismus über game.rng', () => {
+  const a0 = SM.torpedo.reaktorStufen; SM.torpedo.reaktorStufen = 2;
+  try { const { g } = lerche(1, 23); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown, 'reaktorStufen 2: ein Treffer zerstört den Reaktor, Countdown'); } finally { SM.torpedo.reaktorStufen = a0; }
   const lauf = (seed) => { const { g } = lerche(1, seed); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); return brokenSet(g).join(); };
   ok(lauf(31) === lauf(31), 'gleicher Seed, gleiches getroffenes System (Zufall nur game.rng)');
   const seen = new Set(); for (let s = 1; s <= 30; s++) seen.add(lauf(s));

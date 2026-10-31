@@ -21,25 +21,19 @@ const ID = 'verfolgen/fliehenden_stellen';
     // C1b-1 (Seed 3 war bis C1b offen): der Bot wählt das Systemziel Antrieb erst, wenn er aus dem Heck steht (Lanze und Batterien halten bis dahin), und
     // die Vollladung der Lanze (Durchschlag bis in die Mitte) feuert er nicht mehr mit gesetztem Systemziel. Alte Regel: zwei Stufen voll→beschädigt→ausgefallen.
     // Neue Regel: der Antrieb wechselt gezielt mindestens einmal (eine schwere Lanzensalve bringt eine Korvette, deren Heck nur aus dem Antrieb besteht, sofort auf ausgefallen).
-    // SYS-03 B2: der gezielte Treffer ist eine Stufe (kein Punktabzug): ein Treffer macht den Antrieb nur beschädigt (die Reparatur holt ihn nach 6 s zurück), erst der zweite binnen kurzer Zeit
-    // stellt das Ziel. Die Jagd dauert deshalb länger (vorher 17 s, jetzt ~70 s) und das Ziel kann einmal entkommen; Balance folgt in SYS-03 D. Verlangt wird: es wird gestellt.
-    ok(v.gestellt === 1 && (v.entkommen || 0) <= 2, `Seed ${seed}: gestellt, höchstens zweimal entkommen (Ausgänge ${JSON.stringify(v)})`);
+    ok(v.gestellt === 1 && !v.entkommen, `Seed ${seed}: gestellt, nicht entkommen (Ausgänge ${JSON.stringify(v)})`);
     ok(r.sim.systemziel >= 1 && z.gegner >= 1, `Seed ${seed}: der Bot hat das Systemziel Antrieb gewählt und ihn gezielt getroffen (${z.gegner} gezielte Zustandswechsel)`);
     ok(!r.errors, `Seed ${seed}: keine Server-Fehler`);
     zeiten.push(m.dur);
   }
   info(`Zeit bis zum Stellen: ${zeiten.join(', ')} s (Sprungladung 15 s nach der Ankunft, Flucht ~30 s)`);
   console.log('\n[Bot solo (Steuer und Ops in einer Person)]');
-  let gestellt = 0; let solo_systemziel = 0; let solo_erfolg = 0;
+  let gestellt = 0; let solo_systemziel = 0;
   for (const seed of [1, 2, 3, 4]) {
     const r = await runGeneric({ seed, crew: 1, mode: 'labor', labor: ID, pilot: 'maneuver', maxSec: 900, funk: 'a' });
     const m = r.missions[0]; const v = r.sim.verfolgung || {}; const z = r.sim.zielsysteme || {};
     info(`Seed ${seed}: ${m ? m.dur : '–'} s, Ausgänge ${JSON.stringify(v)}, Systemstufen Gegner ${z.gegner}`);
-    // SYS-03 B2: die Stufenregel macht das Stellen solo deutlich schwerer (zwei Antriebstreffer binnen der Reparaturzeit, der Bot trifft solo selten zweimal): Läufe können in die
-    // Zeitgrenze der Mission laufen (Überspringen). Pro Lauf zählen nur Abbruch und Fehler; im Aggregat verlangt unten mindestens ein Lauf Erfolg ohne Überspringen.
-    ok(!r.aborted && m && !r.errors, `Seed ${seed}: kein Abbruch, keine Server-Fehler`);
-    if (m && m.success && !m.skips) solo_erfolg++;
-    else info(`Seed ${seed}: Mission lief in die Zeitgrenze (success ${m && m.success}, skips ${m && m.skips}) – Balance SYS-03 D`);
+    ok(!r.aborted && m && m.success && !m.skips && !r.errors, `Seed ${seed}: Mission erfolgreich ohne Überspringen und ohne Fehler`);
     // C1b-1: die unbesetzte Ops feuert die Lanze automatisch (autoPower) auf jedes Ziel in der Linie. Steht die Lerche hinter dem Ziel, trifft dieser Auto-Schuss das Heck,
     // bevor das Systemziel gewählt ist; der Antrieb ist dann ausgefallen, das Ziel gestellt. Deshalb nur info je Lauf, die Prüfung zählt im Aggregat.
     if (r.sim.systemziel >= 1) solo_systemziel++;
@@ -47,7 +41,6 @@ const ID = 'verfolgen/fliehenden_stellen';
     if (v.gestellt) gestellt++;
   }
   ok(gestellt >= 1, `solo: mindestens ein Lauf stellt das Zielschiff über den Antrieb (${gestellt}/4)`);
-  ok(solo_erfolg >= 1, `solo: mindestens ein Lauf bringt die Mission ohne Überspringen zu Ende (${solo_erfolg}/4)`);
   ok(solo_systemziel >= 1, `solo: mindestens ein Lauf wählt das Systemziel Antrieb vor dem Stellen (${solo_systemziel}/4)`);
   console.log(`\ntest-verfolgung-bot: ${n - fails}/${n} ok`);
   process.exit(fails ? 1 : 0);

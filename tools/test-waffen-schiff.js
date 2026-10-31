@@ -30,8 +30,8 @@ const info = (t) => console.log('  info ' + t);
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 const near2 = (a, b) => Math.abs(a - b) < 0.01;
 const Gsys = require('../server/sim/gegnersystem.js');
-// SYS-02a: Torpedo-Wirkung gegen einen Gegner (ein Treffer, Schild 0): genau ein System (nicht der Reaktor) zerstört, der Reaktor um reaktorAnteil × Maximum getroffen (beschädigt)
-const tpAnteil = () => CONFIG.systemModell.torpedo.reaktorAnteil;
+// SYS-02a: Torpedo-Wirkung gegen einen Gegner (ein Treffer, Schild 0): genau ein System (nicht der Reaktor) zerstört, der Reaktor um reaktorStufen Stufen getroffen (beschädigt)
+const tpAnteil = () => CONFIG.systemModell.torpedo.reaktorStufen * (1 - CONFIG.systemModell.reparatur.damaged);   // SYS-03 B-Nacharbeit: eine Reaktor-Stufe (reaktorStufen 1) = (1 − reparatur.damaged) × Maximum Integrität
 function tpEinTreffer(k) {
   const rid = Gsys.idVon(k, 'reaktor'); const bk = Gsys.ids(k).filter((id) => k.sys[id].z === 'broken');
   const erwartet = bk.length === 1 ? Gsys.maxOf(k, bk[0]) + tpAnteil() * Gsys.maxOf(k, rid) : -1;

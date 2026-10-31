@@ -303,11 +303,12 @@ section('Antrieb und Module tragen nur den Zustand (C1a-1)', () => {
   ok(e.sys.antrieb.z === 'broken' && Gsys.zerstoertPlatz(e, { platz: undefined }) === false, 'Antrieb zerstört: nur der Zustand, keine Waffe betroffen');
 });
 
-section('Zustand und Schwelle gemeinsam mit der Lerche (integritaet.js)', () => {
+section('Stufe aus der Integrität gemeinsam mit der Lerche (integritaet.js, robust ohne Schwelle)', () => {
   const max = 10;
-  ok(Integ.zustandVon(0, max, 0.6) === 'broken' && Integ.zustandVon(-1, max, 0.6) === 'broken', 'Integrität ≤ 0 -> zerstört');
-  ok(Integ.zustandVon(5.9, max, 0.6) === 'damaged', 'unter 60 % -> beschädigt');
-  ok(Integ.zustandVon(6, max, 0.6) === 'ok', 'ab 60 % -> ok');
+  ok(Integ.stufeVon(0, max) === 'broken' && Integ.stufeVon(-1, max) === 'broken', 'Integrität ≤ 0 -> zerstört');
+  ok(Integ.stufeVon(5.9, max) === 'damaged' && Integ.stufeVon(6, max) === 'damaged' && Integ.stufeVon(9.9, max) === 'damaged', 'zwischen 0 und dem Maximum -> beschädigt (keine Schwelle: auch 70 % und 90 % sind beschädigt)');
+  ok(Integ.stufeVon(10, max) === 'ok' && Integ.stufeVon(10 - 1e-9, max) === 'ok', 'ab Maximum − EPS -> ok');
+  ok(Integ.stufeVon(9.97, max, 0.05) === 'ok' && Integ.stufeVon(9.9, max, 0.05) === 'damaged', 'mit Rundungsspielraum (Lerche rundet auf 0,1) 9,97 = ok');
   ok(Integ.grundwertVon('damaged', 12, 0.5) === 6 && Integ.grundwertVon('ok', 12, 0.5) === 12 && Integ.grundwertVon('broken', 12, 0.5) === 0, 'Grundwert: beschädigt 50 %, ok voll, zerstört 0');
   // Systemtreffer: unter 60 % -> beschädigt (nur die Waffe ist in der Bug-Zone frei)
   const g = newGame(37);
@@ -349,7 +350,7 @@ section('integPct: Gesamtintegrität in Prozent, Verbraucher-Lesart', () => {
   e.sys.waffe_bug.i = 0; e.sys.waffe_bug.z = 'broken';
   e.hp = Object.values(e.sys).reduce((a, s) => a + s.i, 0);
   ok(Gsys.integPct(e) < 100, 'nach Schaden unter 100 %');
-  ok(Math.abs(Gsys.integPct(e) - e.hp / e.hpMax * 100) < 1e-9, 'integPct = hp / hpMax × 100');
+  ok(Math.abs(Gsys.integPct(e) - e.hp / e.hpMax * 100) < 1e-6, 'integPct = hp / hpMax × 100 (auf 6 Nachkommastellen gerundet)');
 });
 
 section('Determinismus: gleicher Seed, gleiche Trefferfolge', () => {
@@ -369,9 +370,19 @@ section('Wirkungswerte stehen in der Config, nicht im Code; Verrat-Quote und Tes
   const g = newGame(53);
   const e = gegner(g, 'korvette');
   Gsys.setzeAnteil(g, e, 0.5);
-  ok(Math.abs(Gsys.summe(e) - e.hpMax * 0.5) < 1e-9 && e.hp === Gsys.summe(e) && Object.values(e.sys).every((s) => s.z === 'damaged'), 'setzeAnteil 0,5: Σ = halbes Budget, alle Systeme beschädigt (unter der Schwelle)');
+  ok(Math.abs(Gsys.summe(e) - e.hpMax * 0.5) < 1e-9 && e.hp === Gsys.summe(e) && Object.values(e.sys).every((s) => s.z === 'damaged'), 'setzeAnteil 0,5: Σ = halbes Budget, alle Systeme beschädigt');
+  // SYS-03 B-Nacharbeit: Stufen statt anteiliger Integrität: fehlen round((1 − Anteil) × 2 × Systeme) Stufen, zuerst die letzten Systeme der Reihenfolge beschädigt, dann zerstört (nie der Reaktor)
+  const ids = Gsys.ids(e);
   Gsys.setzeAnteil(g, e, 0.8);
-  ok(Math.abs(e.hp / e.hpMax - 0.8) < 1e-9 && Object.values(e.sys).every((s) => s.z === 'ok'), 'setzeAnteil 0,8: alle Systeme ok');
+  const fehlt08 = Math.round(0.2 * 2 * ids.length);
+  ok(ids.slice(-fehlt08).every((id) => e.sys[id].z === 'damaged') && ids.slice(0, ids.length - fehlt08).every((id) => e.sys[id].z === 'ok'), `setzeAnteil 0,8: die letzten ${fehlt08} Systeme der Reihenfolge beschädigt, die übrigen ok`);
+  const z1 = JSON.stringify(Gsys.ids(e).map((id) => e.sys[id].z)); Gsys.setzeAnteil(g, e, 0.8);
+  ok(JSON.stringify(Gsys.ids(e).map((id) => e.sys[id].z)) === z1 && e.hp === Gsys.summe(e) && Object.values(e.sys).every((s) => !('tf' in s) && Math.abs(s.i - Gsys.maxOf(e, Object.keys(e.sys).find((k) => e.sys[k] === s)) * (s.z === 'ok' ? 1 : 0.5)) < 1e-9), 'setzeAnteil: deterministisch (kein Zufall), i aus der Stufe abgeleitet, e.hp = Σ i');
+  Gsys.setzeAnteil(g, e, 0.25);
+  const gebrochen = ids.filter((id) => e.sys[id].z === 'broken');
+  ok(gebrochen.join() === ['waffe_bb', 'antrieb', 'emitter_bb', 'schildgenerator', 'modul_werkstatt'].sort((a, b) => ids.indexOf(a) - ids.indexOf(b)).join() && e.sys.reaktor.z === 'damaged', `setzeAnteil 0,25: von hinten zerstört (${gebrochen.join(', ')}), der Reaktor bleibt beschädigt (kein Countdown ohne Treffer)`);
+  Gsys.setzeAnteil(g, e, 1);
+  ok(e.hp === e.hpMax && Object.values(e.sys).every((s) => s.z === 'ok'), 'setzeAnteil 1: alle Systeme ok, hp = hpMax');
   const k = gegner(g, 'kreuzer');
   Testhilfe.toeten(g, k);
   ok(!g.space.enemies.includes(k) && k.sys.reaktor.z === 'broken', 'Testhilfe.toeten: Schild 0, Durchschlag in die Mitte, der Reaktor fällt, der Gegner stirbt (echter Modellpfad)');

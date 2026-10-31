@@ -58,7 +58,7 @@ function section(title, fn) { console.log('\n[' + title + ']'); try { fn(); } ca
 // ---------------------------------------------------------------- Konfiguration
 section('Konfiguration (SYS-01 A1a, config.systemModell)', () => {
   ok(SM && SM.integ && SM.integ.default === 10 && SM.integ.reactor === 12 && SM.integ.shields === 12, 'Integrität: Standard 10, Reaktor und Schildgenerator 12');
-  ok(SM.schwelle === 0.6 && SM.reparatur.damaged === 0.5 && SM.schadenFaktor === undefined && SM.trefferFenster_s === 0.25 && CONFIG.alarm.mine.punkte === undefined, 'Schwelle 60 %, Reparatur beschädigt = 50 %, schadenFaktor und mine.punkte entfallen, trefferFenster_s 0,25');
+  ok(SM.schwelle === undefined && SM.reparatur.damaged === 0.5 && SM.schadenFaktor === undefined && SM.trefferFenster_s === 0.25 && CONFIG.alarm.mine.punkte === undefined, 'keine Schwelle mehr (Stufe robust aus i), Reparatur beschädigt = 50 %, schadenFaktor und mine.punkte entfallen, trefferFenster_s 0,25');
   ok(CONFIG.spaceM3b.shieldLeak === undefined && CONFIG.spaceM3b.shieldOverflow === undefined, 'Durchlass-Tabelle und Überlauf aus der Konfiguration entfernt');
   ok(CONFIG.spaceM3.centreChance === undefined && CONFIG.spaceM3.sectorWeight === undefined && CONFIG.spaceM3.neighbourWeight === undefined, 'centreChance, sectorWeight, neighbourWeight entfernt');
   ok(CONFIG.ship.hull === undefined && CONFIG.ship.hullRegen === undefined && CONFIG.emergency.hull === undefined, 'Hülle, Hüllenregeneration und Notfall-Hülle aus der Konfiguration entfernt');
@@ -382,7 +382,7 @@ section('SYS-01 A1b: Mine trifft die nächste Zone, Schilde gelten nicht (Punkt 
 
 section('SYS-02a: Gegner-Torpedo gegen die Lerche = System der Zone zerstört + Durchschlag auf den Reaktor (alt: SYS-01 A1b, ein System −10)', () => {
   const g = newGame(33); g.ship.shields.current = [0, 0, 0, 0];
-  ok(CONFIG.systemModell.torpedoLerche === undefined && CONFIG.systemModell.torpedo.reaktorAnteil === 0.5, 'Startwert torpedo.reaktorAnteil 0,5, torpedoLerche entfällt (eine Wahrheit)');
+  ok(CONFIG.systemModell.torpedoLerche === undefined && CONFIG.systemModell.torpedo.reaktorStufen === 1 && CONFIG.systemModell.torpedo.reaktorAnteil === undefined, 'Startwert torpedo.reaktorStufen 1 (reaktorAnteil entfällt), torpedoLerche entfällt (eine Wahrheit)');
   const s0 = snapShot(g);
   space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
   const ch = changed(g, s0);
@@ -428,14 +428,14 @@ section('SYS-01 A1b: Rückschlag der Reparatur genau einmal je Treffer und Zone 
 });
 
 // ---------------------------------------------------------------- SYS-01 A1 Nacharbeit: Zustand und Integrität gehen nie auseinander
-// Invariante: ok => Integrität >= Schwelle, beschädigt => > 0 und < Schwelle, zerstört => 0. Offline (EMP) zählt als die vorgemerkte Stufe (prev).
+// Invariante: ok => Integrität = Maximum, beschädigt => > 0 und < Maximum, zerstört => 0 (Integ.stufeVon, SYS-03 B-Nacharbeit: keine Schwelle). Offline (EMP) zählt als die vorgemerkte Stufe (prev).
 function inkonsistent(g) {
   const bad = [];
   for (const k of I.SYSTEM_ORDER) {
     let st = g.ship.systems[k];
     if (st === 'offline') { const o = g.ship.offline[k]; st = (o && o.prev) || 'ok'; }
-    const v = integ(g, k); const max = I.integMax(g, k); const sw = SM.schwelle * max;
-    const passt = st === 'ok' ? v >= sw : st === 'damaged' ? (v > 0 && v < sw) : st === 'broken' ? v === 0 : false;
+    const v = integ(g, k); const max = I.integMax(g, k);
+    const passt = (st === 'ok' || st === 'damaged' || st === 'broken') && require('../server/sim/integritaet.js').stufeVon(v, max, 0.05) === st;
     if (!passt) bad.push(`${k} ${st}/${v}`);
   }
   return bad;

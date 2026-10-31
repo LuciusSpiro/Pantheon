@@ -10,8 +10,7 @@ const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Coun
 const Integ = require('../server/sim/integritaet.js');
 const Escort = require('../server/sim/escort.js');   // SYS-01 C2b: Verbündete (Escort-Einträge mit ally)
 
-const schwelle = () => Number(CONFIG.systemModell && CONFIG.systemModell.schwelle) || 0.6;
-const zustand = (e, id) => Integ.zustandVon(e.sys[id].i, Gsys.maxOf(e, id), schwelle());
+const zustand = (e, id) => Integ.stufeVon(e.sys[id].i, Gsys.maxOf(e, id));   // SYS-03 B-Nacharbeit: robuste Stufe aus i (keine Schwelle), dieselbe Funktion wie im Spiel
 
 // Gesamtintegrität (Σ der Systeme), ohne Modell die alte Hülle
 function gesamtIntegritaet(e) { return Gsys.hat(e) ? Gsys.summe(e) : e.hp; }

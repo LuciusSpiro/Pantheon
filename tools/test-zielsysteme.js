@@ -251,7 +251,7 @@ function fahrtMessung(kind, modus) {
     const pilot = require('../server/sim/pilot.js');
     const r = { flies: pilot.flies(g, e) };
     T.run(14); r.voll = vel(e);
-    e.scanned = true; g.ship.target = e.id; hinten(g, e, 200); Zs.waehle(g, 'antrieb');
+    e.scanned = true; g.ship.target = e.id; hinten(g, e, 200);   // ohne Systemziel: UNGEZIELT trifft die Korvette im Heck nur den Antrieb, eine Stufe (SYS-03 B: ein gezielter Treffer auf den Antrieb nimmt zwei Stufen und zerstört ihn nach der Sperre)
     Testhilfe.schildNull(e); treffer(g, e, HECK, anteil(e, 'antrieb', 0.45));   // ein stehender Schild fängt ohne Überlauf, das Heck-Segment muss unten sein
     platz(g, 200, 200, 0);   // die Lerche wieder weit weg (wie vor der Wahl): nah am Ziel steht es im Flugmodell
     T.run(8); r.beschaedigt = vel(e);

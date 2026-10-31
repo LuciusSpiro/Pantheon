@@ -294,7 +294,7 @@ section('Torpedo: Lesart B, zwei Treffer, Jäger sofort', () => {
   Escort.hit(g, es, 1, { torpedo: true, von: q });
   const broken1 = Object.keys(es.sys).filter((id) => es.sys[id].z === 'broken' && id !== 'reaktor');
   ok(broken1.length === 1 && Gsys.defOf('korvette', broken1[0]).zone === 'stb', `Schild 0: das getroffene Zonensystem ist zerstört (${broken1.join(',')})`);
-  ok(es.sys.reaktor.z === 'damaged' && near(es.sys.reaktor.i, re * (1 - CONFIG.systemModell.torpedo.reaktorAnteil)), `schlägt mit ${CONFIG.systemModell.torpedo.reaktorAnteil} × Reaktor auf die Mitte durch: Reaktor beschädigt (${es.sys.reaktor.i.toFixed(1)}/${re.toFixed(1)})`);
+  ok(es.sys.reaktor.z === 'damaged' && near(es.sys.reaktor.i, re * CONFIG.systemModell.reparatur.damaged), `schlägt mit ${CONFIG.systemModell.torpedo.reaktorStufen} Stufe auf die Mitte durch: Reaktor beschädigt (${es.sys.reaktor.i.toFixed(1)}/${re.toFixed(1)})`);
   ok(!es.rt || es.rt.rest == null, 'ein Treffer: noch kein Countdown');
   Escort.hit(g, es, 1, { torpedo: true, von: q });
   ok(es.sys.reaktor.z === 'broken' && es.rt && es.rt.rest > 0, `zweiter Treffer: Reaktor zerstört, Countdown läuft (${es.rt && es.rt.rest} s)`);
