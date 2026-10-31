@@ -1059,6 +1059,16 @@
   function liveFx(now) { for (let i = fx.length - 1; i >= 0; i--) if (now - fx[i].t0 > fx[i].dur) fx.splice(i, 1); return fx; }
 
   function drawFx(ctx, kind, x, y, t, opts) {
+    if (kind === 'knapp_dust') {   // BOD-02 P3: Staubfahne und Splitter am Boden, wo ein knapper Fehlschuss vorbeizieht
+      const p = clamp01(opts && opts.p != null ? opts.p : (t % 1));
+      ctx.fillStyle = 'rgba(200,190,170,' + (0.8 * (1 - p)).toFixed(3) + ')';
+      for (let i = 0; i < 7; i++) {
+        const a = -Math.PI / 2 + (i - 3) * 0.5;
+        ctx.fillRect(Math.round(x + Math.cos(a) * p * 18), Math.round(y + Math.sin(a) * p * 12 + p * p * 10), 3 - (i % 2), 3 - (i % 2));
+      }
+      ctx.fillStyle = 'rgba(255,241,184,' + (1 - p) + ')'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+      return;
+    }
     if (FX_M2[kind]) {
       // M2: neue Effekte nur über art.js, wenn es sie wirklich kennt (sonst Magenta-Platzhalter) – sonst eigener Fallback
       if (artK('drawFx', kind, [ctx, kind, x, y, t, opts || {}], (g) => window.Art.drawFx(g, kind, 48, 48, 0, Object.assign({ p: 0.5 }, opts || {})))) return;
@@ -1500,6 +1510,100 @@
     ctx.fillStyle = 'rgba(255,198,107,0.75)'; ctx.fillRect(Math.round(c.x) - 1, Math.round(c.y) - 1, 3, 3);
     ctx.restore();
   }
+  // ---- BOD-02 P2: Lanze als Laserkanone mit Zielfenster (Server: server/sim/waffen.js, Snapshot ch, Ereignisse ladungLanze/lanzeBereit/lanzeSchuss)
+  // Ziellinie = Zielrichtung bis awayCombat.waffen.lanze.reichweite, an Volldeckung gekürzt (Karte des Clients, Sichtsperre wie Los.sightFn).
+  // Dieselben Regeln für Spieler und Gegner: ein Gegner-Lanzenträger zeigt seine Linie jedem, der ihn sieht (e.vis) – auch im Nebel.
+  // Zielrichtung: eigene Figur = Mauswinkel (view.zielWinkel), andere Spieler players[].fa (Grad), Gegner drones[].facing (der Server setzt es beim Zielen
+  // auf die Zielrichtung), sonst der Winkel des Ereignisses ladungLanze.
+  const lanzeAng = {};   // id -> { a, t } aus dem Ereignis
+  const lanzenStrahlen = [];   // 2D: { x0, y0, x1, y1, t0 }
+  const LANZE_STRAHL_DAUER = 0.45;
+  function lanzeCfg() { return (acfg().waffen || {}).lanze || {}; }
+  function lanzeFenster() { const z = lanzeCfg().zielfenster || {}; return { min: +z.min || 0.5, max: +z.max || 1.0 }; }
+  // ch (0–100 über das Zielfenster) im Bereit-Bereich? (Schuss beim Loslassen)
+  function lanzeBereit(ch) { const z = lanzeFenster(); return +ch >= z.min / z.max * 100 - 0.5; }
+  function lanzeWinkel(view, e) {
+    if (view && view.me && e.id === view.me.id && view.zielWinkel != null) return view.zielWinkel;
+    if (e.fa != null && isFinite(+e.fa)) return +e.fa * Math.PI / 180;
+    if (e.facing != null && isFinite(+e.facing)) return +e.facing;
+    const m = lanzeAng[e.id];
+    return m ? m.a : null;
+  }
+  function lanzeEnde(view, x, y, a) {
+    const reich = (+lanzeCfg().reichweite || 22) * TILE;
+    const cs = Math.cos(a), sn = Math.sin(a);
+    let ex = x + cs * reich, ey = y + sn * reich;
+    const st = view.state; const map = st ? mapFor('away', st) : null;
+    if (Los && map) {
+      const blocked = Los.sightFn(map, solidFn(map, st));
+      Los.walk(x, y, ex, ey, (tx, ty) => {
+        if (!blocked(tx, ty)) return false;
+        const t = Math.max(0, ((tx + 0.5) * TILE - x) * cs + ((ty + 0.5) * TILE - y) * sn - TILE / 2);
+        ex = x + cs * t; ey = y + sn * t;
+        return true;
+      });
+    }
+    return { x: ex, y: ey };
+  }
+  // Alle sichtbaren zielenden Lanzenträger: { id, x, y, a, ex, ey, k 0..1, bereit, feind }
+  function lanzeZiele(view) {
+    const out = [];
+    if (!view || !view.state || !view.me || view.me.zone !== 'away') return out;
+    const add = (e, feind) => {
+      if (!(+e.ch > 0) || e.wf !== 'lanze') return;
+      const a = lanzeWinkel(view, e);
+      if (a == null) return;
+      const own = e.id === view.me.id && view.self;
+      const x = own ? view.self.x : e.x, y = own ? view.self.y : e.y;
+      const en = lanzeEnde(view, x, y, a);
+      out.push({ id: e.id, x, y, a, ex: en.x, ey: en.y, k: clamp01(+e.ch / 100), bereit: lanzeBereit(e.ch), feind });
+    };
+    for (const p of view.players || []) if (p.zone === 'away' && p.connected !== false && !p.downed && p.zs !== 'bewusstlos') add(p, false);
+    for (const e of view.drones || []) if (e.alive !== false && e.vis && e.zs !== 'aus') add(e, true);
+    return out;
+  }
+  // Ereignisse (client.js onEvent): ladungLanze merkt den Anfangswinkel, lanzeSchuss startet den 2D-Strahl
+  function lanzeEreignis(ev) {
+    if (!ev || ev.id == null) return;
+    if (ev.kind === 'ladungLanze' && ev.tx != null) lanzeAng[ev.id] = { a: Math.atan2(ev.ty - ev.y, ev.tx - ev.x), t: performance.now() };
+    if (ev.kind === 'lanzeSchuss') {
+      delete lanzeAng[ev.id];
+      if (ev.tx != null) { lanzenStrahlen.push({ x0: +ev.x, y0: +ev.y, x1: +ev.tx, y1: +ev.ty, t0: performance.now() / 1000 }); if (lanzenStrahlen.length > 12) lanzenStrahlen.shift(); }
+    }
+  }
+  // 2D: Ziellinie (dünn, gestrichelt, dezent; bereit = hell und durchgezogen; Gegner rot = Warnung) und Strahl des Schusses
+  function drawLanzenLinien(ctx, view, P, t) {
+    for (const l of lanzeZiele(view)) {
+      const a = P(l.x, l.y - 14), b = P(l.ex, l.ey - 14);
+      ctx.save();
+      if (l.bereit) {
+        const pulse = 0.8 + 0.2 * Math.sin(t * 24);
+        ctx.strokeStyle = l.feind ? 'rgba(255,90,74,' + (0.35 * pulse).toFixed(2) + ')' : 'rgba(255,198,107,' + (0.35 * pulse).toFixed(2) + ')'; ctx.lineWidth = 5;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.strokeStyle = l.feind ? '#FF8A7A' : '#FFF1B8'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+      } else {
+        ctx.setLineDash([5, 5]); ctx.lineDashOffset = -t * 30;
+        ctx.strokeStyle = l.feind ? 'rgba(224,71,60,' + (0.4 + 0.25 * l.k).toFixed(2) + ')' : 'rgba(255,198,107,' + (0.3 + 0.25 * l.k).toFixed(2) + ')'; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // Endmarke an Wand bzw. Strahlende
+      ctx.fillStyle = l.bereit ? '#FFFFFF' : l.feind ? 'rgba(224,71,60,0.7)' : 'rgba(255,198,107,0.6)';
+      ctx.fillRect(Math.round(b.x) - 1, Math.round(b.y) - 1, 3, 3);
+      ctx.restore();
+    }
+    const now = performance.now() / 1000;
+    for (let i = lanzenStrahlen.length - 1; i >= 0; i--) {
+      const s = lanzenStrahlen[i], frac = 1 - (now - s.t0) / LANZE_STRAHL_DAUER;
+      if (frac <= 0) { lanzenStrahlen.splice(i, 1); continue; }
+      const a = P(s.x0, s.y0 - 14), b = P(s.x1, s.y1 - 14);
+      const ok = window.Art && window.Art.drawBeam && (() => { try { window.Art.drawBeam(ctx, a.x, a.y, b.x, b.y, 'lanze', 0.25 * frac); return true; } catch (e) { return false; } })();
+      if (!ok) { ctx.strokeStyle = 'rgba(255,241,184,' + frac.toFixed(2) + ')'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+    }
+  }
   function drawGhost(ctx, x, y, kind, age, ttl) {
     const a = 0.15 + 0.6 * clamp01(1 - age / Math.max(0.5, ttl));
     const w = kind === 'warden' ? 44 : 14, h = kind === 'warden' ? 30 : 24;
@@ -1528,6 +1632,22 @@
     ctx.restore();
   }
 
+  // BOD-02 P2: Sichtkegel eines zielenden Lanzenschützen (awayCombat.sicht.lanzeZielen) oder null
+  function lanzeSichtKegel(view, p) {
+    if (!(+p.ch > 0) || p.wf !== 'lanze') return null;
+    const K = (acfg().sicht || {}).lanzeZielen;
+    const a = lanzeWinkel(view, p);
+    if (!K || a == null) return null;
+    return { kacheln: +K.kacheln || 0, halb: (+K.halbwinkel || 0) * Math.PI / 180, a };
+  }
+  // BOD-02 P4: Sichtradius (Kacheln) eines Spielers: 10, in einer Stellung 16, auf dem Posten 22 (shared/stellung.js, wie server stellung.sichtKacheln);
+  // nur auf gebauten Karten mit Waffen-Regeln (v2), sonst sightTiles
+  function sichtVon(map, p) {
+    const normal = cfgNum('sightTiles', 10);
+    const SS = window.Shared_Stellung;
+    if (!SS || !map || !map.buehne || !p) return normal;
+    return SS.sichtKacheln(map, p.x, p.y, { normal, stellung: cfgNum('sicht.stellung', 16), aussicht: cfgNum('sicht.aussicht', 22) });
+  }
   // Teamsicht (Fog of War): Vereinigung der sichtbaren Kacheln aller Außenteam-Spieler, höchstens 5× pro Sekunde neu
   const fogCache = { t: -1e9, mapId: null, set: null, gate: null, crouch: '' };
   function teamVision(view, map, st) {
@@ -1536,17 +1656,19 @@
     const gate = !!(st.away && st.away.vault && st.away.vault.open);
     // §15: Wer geduckt ist, sieht nicht über die niedrige Deckung neben sich (Wechsel sofort neu rechnen)
     const crouchKey = (view.players || []).filter(p => p.zone === 'away' && p.cr && !p.downed).map(p => p.id).sort().join(',');
-    if (fogCache.set && fogCache.mapId === map.id && fogCache.gate === gate && fogCache.crouch === crouchKey && now - fogCache.t < 200) return fogCache.set;
+    const zielKey = (view.players || []).filter(p => p.zone === 'away' && +p.ch > 0 && p.wf === 'lanze').map(p => p.id + ':' + Math.round((lanzeWinkel(view, p) || 0) * 20)).join(',');
+    if (fogCache.set && fogCache.mapId === map.id && fogCache.gate === gate && fogCache.crouch === crouchKey && fogCache.ziel === zielKey && now - fogCache.t < 200) return fogCache.set;
     const solid = solidFn(map, st);
     const blocked = Los.sightFn(map, solid);
-    const r = cfgNum('sightTiles', 10);
     const set = new Set();
     for (const p of view.players || []) {
       if (p.zone !== 'away' || p.connected === false) continue;
       const b = p.cr && !p.downed && Los.crouchSight ? Los.crouchSight(map, solid, blocked, [{ x: p.x, y: p.y }]) : blocked;
-      for (const k of Los.visibleTiles(b, p.x, p.y - 4, r, map.w, map.h)) set.add(k);
+      for (const k of Los.visibleTiles(b, p.x, p.y - 4, sichtVon(map, p), map.w, map.h)) set.add(k);
+      const kegel = lanzeSichtKegel(view, p);   // BOD-02 P2: Weitsicht beim Zielen (wie server combat.lanzeKegel)
+      if (kegel && Los.visibleCone) for (const k of Los.visibleCone(b, p.x, p.y - 4, kegel.kacheln, kegel.a, kegel.halb, map.w, map.h)) set.add(k);
     }
-    fogCache.t = now; fogCache.mapId = map.id; fogCache.set = set; fogCache.gate = gate; fogCache.crouch = crouchKey;
+    fogCache.t = now; fogCache.mapId = map.id; fogCache.set = set; fogCache.gate = gate; fogCache.crouch = crouchKey; fogCache.ziel = zielKey;
     return set;
   }
   function drawFog(ctx, set, tx0, ty0, tx1, ty1, camX, camY) {
@@ -2114,6 +2236,7 @@
       try {
         if (fogSet) drawFog(ctx, fogSet, tx0, ty0, tx1, ty1, camX, camY);
         try { drawWurfZiel(ctx, view, (x, y) => ({ x: x - camX, y: y - camY })); } catch (e) { report('Render.wurfZiel', e); }   // B2-NACH
+        try { drawLanzenLinien(ctx, view, (x, y) => ({ x: x - camX, y: y - camY }), t); } catch (e) { report('Render.lanzenLinien', e); }   // BOD-02 P2
         const ghostTtl = cfgNum('ghostTime', 3);
         for (const e of view.drones || []) {
           if (e.alive === false || e.vis || !e.ghost) continue;
@@ -4833,14 +4956,14 @@
     text, measure, wrap, panel, backdrop, shape, icon, bar, ring, edgeArrow,
     personLabel, personenListe, drawPersonenListe,   // W2 AP6
     beginUi, button, clickUi, drawTooltip, ui,
-    camera, mapFor, floorFor, bedAt, sysState, itemFallback, drawFx,
+    camera, mapFor, sichtVon, floorFor, bedAt, sysState, itemFallback, drawFx,
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,
     addFx, drawWorld, drawTactical, drawMiniPlan, miniPlanSize, updateCamera,
     // M1
     OBJ_WRECK, mapById, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
     // M2
     OBJ_KESH, SHIELD_COL, AIM_COL, KESH_VIOLET, ORDER_KINDS, ORDER_NAMES, ORDER_COL, ROLE_NAMES,
-    isV2, cfgNum, solidFn, keshObjState, teamVision, activeOrders, orderPos, drawShieldPips, drawShieldRing, drawMediCross, drawAwayCommandMap, awayMapById,
+    isV2, cfgNum, solidFn, keshObjState, teamVision, lanzeEnde, lanzeZiele, lanzeEreignis, lanzeBereit, lanzeFenster, lanzeWinkel, activeOrders, orderPos, drawShieldPips, drawShieldRing, drawMediCross, drawAwayCommandMap, awayMapById,
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,

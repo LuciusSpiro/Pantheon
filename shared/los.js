@@ -108,6 +108,25 @@
     return out;
   }
 
-  return { TILE: TILE, sightFn: sightFn, walk: walk, lineOfSight: lineOfSight, coverAgainst: coverAgainst, visibleTiles: visibleTiles,
+  // BOD-02 P2: sichtbare Kacheln im schmalen Kegel (Mittelrichtung angle in rad, halbe Öffnung halfRad) bis radiusTiles – Weitsicht beim Zielen
+  // mit der Lanze. Gleiche Kachelwahl wie visibleTiles (Kachelmitte, Sichtlinie); wird mit visibleTiles vereinigt.
+  function visibleCone(blocked, x, y, radiusTiles, angle, halfRad, w, h) {
+    var out = new Set();
+    var cx = Math.floor(x / TILE), cy = Math.floor(y / TILE), r = Math.ceil(radiusTiles);
+    for (var ty = Math.max(0, cy - r); ty <= Math.min(h - 1, cy + r); ty++) {
+      for (var tx = Math.max(0, cx - r); tx <= Math.min(w - 1, cx + r); tx++) {
+        var px = tx * TILE + TILE / 2, py = ty * TILE + TILE / 2;
+        var dx = px - x, dy = py - y;
+        if (dx * dx + dy * dy > radiusTiles * radiusTiles * TILE * TILE) continue;
+        var d = Math.atan2(dy, dx) - angle;
+        d = Math.atan2(Math.sin(d), Math.cos(d));
+        if (Math.abs(d) > halfRad && !(tx === cx && ty === cy)) continue;
+        if (lineOfSight(blocked, x, y, px, py)) out.add(tx + ',' + ty);
+      }
+    }
+    return out;
+  }
+
+  return { TILE: TILE, sightFn: sightFn, walk: walk, lineOfSight: lineOfSight, coverAgainst: coverAgainst, visibleTiles: visibleTiles, visibleCone: visibleCone,
     lowGuard: lowGuard, nextToLow: nextToLow, crouchSight: crouchSight, sightFnFor: sightFnFor };
 });

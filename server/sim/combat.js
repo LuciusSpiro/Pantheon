@@ -256,6 +256,24 @@ function waffenWelt(game) {
         return out;
       },
       wand(x0, y0, x1, y1) { const E = env(game); return !Los.lineOfSight(E.shotBlocked, x0, y0, x1, y1); },
+      // Lanzenstrahl: Endpunkt der Linie (x0,y0)->(x1,y1) an der ersten Schuss-Sperre (Kachelrand), sonst (x1,y1)
+      strahlEnde(x0, y0, x1, y1) {
+        const E = env(game); const a = Math.atan2(y1 - y0, x1 - x0);
+        let ex = x1, ey = y1;
+        Los.walk(x0, y0, x1, y1, (tx, ty) => {
+          if (!E.shotBlocked(tx, ty)) return false;
+          const t = Math.max(0, (((tx + 0.5) * TILE - x0) * Math.cos(a) + ((ty + 0.5) * TILE - y0) * Math.sin(a)) - TILE / 2);
+          ex = x0 + Math.cos(a) * t; ey = y0 + Math.sin(a) * t;
+          return true;
+        });
+        return { x: ex, y: ey };
+      },
+      // Lanzenstrahl: schützt Halbdeckung (low) das geduckte Ziel z? Eine low-Kachel neben z liegt auf der Linie vom Schützen (wie crouchGuardsTarget)
+      halbdeckung(z, x0, y0) {
+        const E = env(game); let guard = false;
+        Los.walk(x0, y0, z.x, z.y, (tx, ty) => { if (Los.lowGuard(E.map, E.solid, z.x, z.y, tx, ty)) { guard = true; return true; } return false; });
+        return guard;
+      },
       // B2-NACH: Treffer, die waffen.js selbst verteilt (Granate, Lanze, Schlag) -> dieselben Ereignisse wie Projektiltreffer
       getroffen(k, r, w, q) { trefferGemeldet(game, k, r, w || {}, q || {}); },
     };
@@ -669,6 +687,7 @@ function shoot(game, p, angle, opts) {
   const Wf = waffen();
   // B2: shoot { los: true } = Loslassen -> Lanze feuert (zusätzlich bleibt der Weg über die Pause im shoot-Strom)
   if (opts && opts.los) {
+    p.lanzeSperre = false;   // Abzug losgelassen: nach einem Auto-Schuss darf wieder neu gezielt werden
     if (Wf && p.ladung && typeof Wf.loslassen === 'function') {
       if (Number.isFinite(angle)) Wf.feuern(game, p, { angle });
       p.losGemeldet = true;
@@ -680,6 +699,7 @@ function shoot(game, p, angle, opts) {
   if (Wf && !p.downed) {   // B2 §3.3 (Pistole der Verwundeten bleibt)
     kaempfer(game, p);
     p.schussInputAt = game.time;
+    p.losGemeldet = false;   // neuer Abzugsstrom: das Loslassen kommt wieder per shoot { los } oder als Stromabriss
     const dist = opts && Number.isFinite(opts.dist) ? opts.dist : null;   // B2-NACH: Zielabstand (Kacheln) für die Wurfweite
     return Wf.feuern(game, p, dist != null ? { angle, dist } : { angle });
   }
@@ -706,6 +726,7 @@ function fireEnemy(game, e, target) {
   if (Wf && kaempfer(game, e).waffe) {   // B2 §3.3: Gegner mit Waffe (Rolle) feuern nach denselben Regeln wie Spieler
     if (aw.stats) aw.stats.enemyShots++;
     const n0 = aw.projectiles.length;
+    e.lanzeSperre = false;   // Gegner halten den Abzug nicht: jeder Feuerbefehl darf neu zielen
     const r = Wf.feuern(game, e, { x: target.x, y: target.y, ziel: target.id });
     // E16: Schuss mit Aussicht bzw. Trupp-Funk darf außerhalb der engageBox treffen (Zähler offBoxHitsHilfe statt offBoxHits)
     if (aw.projectiles.length > n0 && sichtHilfe(game, e, target)) for (let i = n0; i < aw.projectiles.length; i++) aw.projectiles[i].hilfe = true;
@@ -735,7 +756,8 @@ function sichtHilfe(game, e, t) {
 // Invariante „kein Treffer aus dem Off“ (Sim): Gegnertreffer auf Spieler weiter als engageBox (+48 px) vom Schützen.
 // Mit Sichthilfe (E16) zählt er als offBoxHitsHilfe, sonst als offBoxHits.
 function offBoxZaehlen(game, p, sx, sy, hilfe) {
-  const aw = game.away; const box = cfg(game).engageBox;
+  const aw = game.away; const Wf = waffen();
+  const box = Wf ? Wf.engageBox(game, { x: sx, y: sy }) : cfg(game).engageBox;   // BOD-02 P4: Schussfenster wächst in Stellungen mit
   if (!aw.stats || !box) return;
   if (Math.abs(p.x - sx) <= box.w / 2 + 48 && Math.abs(p.y - sy) <= box.h / 2 + 48) return;
   if (hilfe) aw.stats.offBoxHitsHilfe = (aw.stats.offBoxHitsHilfe || 0) + 1; else aw.stats.offBoxHits++;
@@ -775,9 +797,37 @@ function segDist(px, py, ax, ay, bx, by) {
   return Math.hypot(ax + dx * t - px, ay + dy * t - py);
 }
 
+// BOD-02 P3 Niederhalten: knapper Fehlschuss. Je Geschoss und Ziel der Gegenseite wird die geringste Entfernung der Flugbahn gemerkt
+// (q.nah[id] = { d, x, y, z }); unter niederhalten.knapp px und ohne Treffer löst waffen.knapp aus, sobald sich das Geschoss wieder
+// entfernt bzw. endet (so zählt ein Schuss, der noch trifft, nie als knapp). null = erledigt (getroffen oder schon ausgelöst).
+function knappVerfolgen(game, q, ziele, x0, y0, x1, y1, N) {
+  const nah = q.nah || (q.nah = {});
+  const R = Number(N.knapp) || 0;
+  for (const z of ziele) {
+    if (z.alive === false || z.downed || z.asleep || (z.zone && z.zone !== 'away')) continue;
+    const rec = nah[z.id];
+    if (rec === null) continue;
+    const d = segDist(z.x, z.y, x0, y0, x1, y1);
+    if (rec === undefined) { if (d < R) nah[z.id] = { d, x: x1, y: y1, z }; continue; }
+    if (d < rec.d) { rec.d = d; rec.x = x1; rec.y = y1; }
+    else if (d > rec.d + 0.5) knappAusloesen(game, q, z.id);
+  }
+}
+function knappAusloesen(game, q, id) {
+  const rec = q.nah && q.nah[id]; if (!rec) return;
+  q.nah[id] = null;
+  const Wf = waffen();
+  if (Wf && Wf.knapp) Wf.knapp(game, rec.z, q, rec.x, rec.y);
+}
+function knappAbschluss(game, q) {
+  if (!q.nah) return;
+  for (const id of Object.keys(q.nah)) if (q.nah[id]) knappAusloesen(game, q, id);
+}
+
 function updateProjectiles(game, dt) {
   const C = cfg(game); const aw = game.away; const E = env(game);
   const keep = [];
+  const WfK = waffen(); const NK = WfK && typeof WfK.knapp === 'function' ? C.niederhalten : null;
   for (const q of aw.projectiles) {
     if (q.kind === 'granate') {   // B2 §3.2: kein Treffer im Flug, Flächenwirkung am Ziel
       const Wg = waffen();
@@ -831,22 +881,24 @@ function updateProjectiles(game, dt) {
           const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
+            dead = true; if (q.nah) q.nah[e.id] = null; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
         }
       } else {
         for (const p of game.players) {
           if (p.zone !== 'away' || p.downed) continue;
           if (segDist(p.x, p.y, x0, y0, x1, y1) < ((C.hitRadius && C.hitRadius.player) || 12)) {
             if (p.crouch && dodged(game, q, p.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true;
+            dead = true; if (q.nah) q.nah[p.id] = null;
             if (aw.stats) { aw.stats.playerHits++; offBoxZaehlen(game, p, q.sx, q.sy, !!q.hilfe); }
             hitPlayer(game, p, q.dmg || 1, q.kind, wirkungAus(q));
             break;
           }
         }
       }
+      if (NK && !dead && q.wirkung && !q.wirkung.flaeche) knappVerfolgen(game, q, (q.team === 'player' || q.team === 'crew') ? aw.drones : game.players, x0, y0, x1, y1, NK);
       q.x = x1; q.y = y1;
     }
+    if (NK && q.nah && (dead || q.ttl <= 0)) knappAbschluss(game, q);
     if (!dead && q.ttl > 0) keep.push(q);
   }
   aw.projectiles = keep;
@@ -921,6 +973,7 @@ function knockOut(game, e) {
     game.emit('wardenDown', { id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
     game.missionEvent('wardenKilled', {});
   }
+  require('./aufrichten.js').heldFaellt(game, e);   // BOD-02 P10: Messung (Helfer fällt beim Aufrichten)
   squad.onEnemyDown(game, e);
 }
 // Orbitalschlag: strikeSegments Treffer, unabhängig von der Wächter-Front (schlafender Wächter bleibt unverwundbar)
@@ -942,12 +995,21 @@ function updateEnemyShields(game, dt) {
   }
 }
 
-// E16: Sichtradius eines Spielers – vom aussicht-Anker (gebaute Karte, Waffen aktiv) sicht.aussicht Kacheln, sonst R
+// E16: Sichtradius eines Spielers – vom aussicht-Anker (gebaute Karte, Waffen aktiv) sicht.aussicht Kacheln, BOD-02 P4: in einer Stellung sicht.stellung, sonst R
 function sichtRadius(game, E, p, R) {
   if (!waffen() || !E.info || !E.info.karte) return R;
-  const t = Physics.toTile(p.x, p.y);
-  const auf = E.info.karte.anker.some((a) => a.rolle === 'aussicht' && Math.abs(a.x - t.x) <= 1 && Math.abs(a.y - t.y) <= 1);
-  return auf ? (Number(cfg(game).sicht && cfg(game).sicht.aussicht) || 22) * TILE : R;
+  return waffen().sichtKacheln(game, p) * TILE;
+}
+
+// BOD-02 P2: Zielt ein Spieler mit der Lanze, sieht er in Zielrichtung in einem schmalen Kegel bis zur Strahlweite (awayCombat.sicht.lanzeZielen
+// { kacheln, halbwinkel° }) statt nur sightTiles. Der Client rechnet denselben Kegel (Render.teamVision, Shared_Los.visibleCone).
+function lanzeKegel(game, p, e) {
+  const L = p.ladung; const K = cfg(game).sicht && cfg(game).sicht.lanzeZielen;
+  if (!L || !K || !Number.isFinite(L.tx)) return false;
+  const d = dist(p.x, p.y, e.x, e.y);
+  if (d > (Number(K.kacheln) || 0) * TILE) return false;
+  const a = Math.atan2(L.ty - p.y, L.tx - p.x);
+  return Math.abs(Physics.normAngle(Math.atan2(e.y - p.y, e.x - p.x) - a)) <= (Number(K.halbwinkel) || 0) * Math.PI / 180;
 }
 
 // ---------- Fog of War, Deckung der Spieler (CONTRACT-M2 §6, §7 cv/fl) ----------
@@ -961,6 +1023,7 @@ function updateVisibility(game) {
     let seen = false;
     for (const p of team) {
       if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) { seen = true; break; }   // §15: Ducken sperrt beidseitig
+      if (lanzeKegel(game, p, e) && losBetween(E, p, e)) { seen = true; break; }   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
     }
     if (seen) { e.seenAt = game.time; e.seenX = e.x; e.seenY = e.y; rolleGesehen(game, e); }
     e.vis = seen || sensor || game.time < (e.focusUntil || 0);
@@ -1216,19 +1279,22 @@ function b2SnapGegner(game, e, base) {
   if (e.wunden && (e.wunden.max > 1 || e.wunden.n < e.wunden.max)) { base.wn = e.wunden.n; base.wm = e.wunden.max; }
   if (e.granatZiel && game.time - e.granatZiel.t < 2) base.gr = { x: Math.round(e.granatZiel.x), y: Math.round(e.granatZiel.y), t: r2(e.granatZiel.t) };
   if (base.facing == null && Number.isFinite(e.facing)) base.facing = Math.round(e.facing * 100) / 100;
+  // BOD-02 P2: Zielt der Gegner mit der Lanze, ist die Blickrichtung die Zielrichtung der Ziellinie (der Client zeichnet sie aus facing + ch)
+  if (e.ladung && Number.isFinite(e.ladung.tx)) base.facing = Math.round(Math.atan2(e.ladung.ty - e.y, e.ladung.tx - e.x) * 100) / 100;
 }
 
 // Lanze der Spieler: Schuss beim Loslassen. Der Client schickt `shoot` beim Halten im Takt (≈ 0,3 s); bleibt der Strom
-// länger als 0,45 s aus oder ist die höchste Stufe erreicht, löst der Schuss aus.
+// länger als 0,45 s aus, gilt das als Loslassen (vor dem Zielfenster: Abbruch). Den Auto-Schuss am Fensterende löst waffen.update aus.
 function lanzeLoslassen(game) {
   const Wf = waffen();
   if (!Wf || typeof Wf.loslassen !== 'function') return;
   for (const p of game.players) {
+    if (p.lanzeSperre && game.time - (p.schussInputAt || 0) > 0.45) p.lanzeSperre = false;   // Strom abgerissen = Abzug los (auch ohne los-Paket)
     if (p.zone !== 'away' || !p.ladung) continue;
     const d = Wf.def(game, p.waffe);
-    if (!d || !Array.isArray(d.laden)) continue;
+    if (!d || !d.zielfenster) continue;
     if (p.losGemeldet) continue;   // Client meldet das Loslassen selbst (shoot { los: true })
-    if (p.ladung.stufe >= d.laden.length || game.time - (p.schussInputAt || 0) > 0.45) Wf.loslassen(game, p);
+    if (game.time - (p.schussInputAt || 0) > 0.45) Wf.loslassen(game, p);
   }
 }
 

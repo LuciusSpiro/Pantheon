@@ -1065,8 +1065,30 @@
       case 'loadout':
         if (ev.pid === Client.pid) { K.myWaffe = ev.waffe; H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
         return true;
+      // BOD-02 P3 Niederhalten: knapper Fehlschuss – Rückmeldung nur für den Beschossenen (Zischen, Staub am Einschlagpunkt, Vignette); Gegner-Reaktion ist rein serverseitig
+      case 'knapp':
+        if (ev.id === Client.pid) {
+          Client.knappT = performance.now();
+          audio.play('bullet_whiz', { volume: 0.7, pan: audio.panFor(ev.x, 'away') });
+          if (ev.x != null && ev.y != null) R.addFx('knapp_dust', 'away', ev.x, ev.y, 0.5);
+        }
+        return true;
       case 'ueberhitzt':
         if (ev.id === Client.pid) H.pushNotice('Überhitzt – kurz abkühlen lassen', PAL.warn, 2);
+        return true;
+      // BOD-02 P2: Lanze (Laserkanone mit Zielfenster). Linie und Strahl zeichnet render.js (2D) bzw. voxel/fx.js (3D), hier Ton und Eingabe
+      case 'ladungLanze': R.lanzeEreignis(ev); return true;
+      case 'lanzeBereit': {
+        const eigen = ev.id === Client.pid;
+        const feind = !eigen && (((Client.state && Client.state.away && Client.state.away.drones) || []).find(d => d.id === ev.id) || {}).vis;   // nur sichtbare Gegner verraten sich per Klick
+        if (eigen) audio.play('lance_ready');
+        else if (feind) audio.play('lance_ready', { volume: 0.4 });
+        return true;
+      }
+      case 'lanzeSchuss':
+        R.lanzeEreignis(ev);
+        audio.play('lance_fire', { volume: ev.id === Client.pid ? 0.8 : 0.6, pan: audio.panFor(ev.x, 'away') });
+        if (ev.id === Client.pid && ev.auto) Client.lanzeSperre = true;   // Auto-Schuss: erst Loslassen und neu Drücken zielt wieder (der Server hält dieselbe Regel)
         return true;
       case 'gefesselt': {
         const pl = playerName(ev.id);
@@ -1812,9 +1834,10 @@
   function feuerLos() {
     if (Client.fireHeld.mouse || Client.fireHeld.key) return;
     const m = me();
-    if (!m || m.zone !== 'away' || m.console || m.wf !== 'lanze' || m.downed) return;
+    if (!m || m.zone !== 'away' || m.console || m.wf !== 'lanze' || m.downed) { Client.lanzeSperre = false; return; }
     const w = mouseWorld();
     const angle = Client.mouse.x >= 0 ? Math.atan2(w.y - (Client.self.y - 14), w.x - Client.self.x) : (function () { const d = DIRV[Client.self.dir] || DIRV.down; return Math.atan2(d[1], d[0]); })();
+    Client.lanzeSperre = false;
     send({ t: P.C.SHOOT || 'shoot', angle, los: true });
   }
   // B2-NACH: Wurf-Zielvorschau – derselbe Landepunkt wie auf dem Server (Winkel wie shoot, Abstand Füße → Zeiger,
@@ -1858,7 +1881,7 @@
     else if (WD) Client.shootCd = m.wf === 'lanze' ? 0.2 : (+WD.kadenz || ((+WD.ausholen || 0) + (+WD.erholung || 0)) || 0.3);
     else if (Array.isArray(m.sh)) Client.shootCd = (AC.blaster && AC.blaster.cooldown) || 0.3;
     else Client.shootCd = ((CFG.away && CFG.away.blaster && CFG.away.blaster.cooldown) || 0.35);
-    audio.play(pistol ? 'pistol' : 'blaster');
+    if (m.wf !== 'lanze') audio.play(pistol ? 'pistol' : 'blaster');   // die Lanze klingt über lanzeBereit und lanzeSchuss
   }
   // M2 §15: Ducken (Taste C). Lokale Vorhersage, bis der Snapshot (players[].cr) nachzieht.
   function crouchActive(m) {
@@ -2061,7 +2084,7 @@
       }
       case 'KeyG': if (m.carry) send({ t: P.C.DROP || 'drop' }); break;
       case 'KeyV': if (m.zone === 'ship' && !m.downed && !m.stun) send({ t: P.C.SCHUBS || 'schubs' }); break;   // Schubs: Mitspieler betäuben bzw. von der Konsole holen
-      case 'Space': shoot(); Client.fireHeld.key = true; break;
+      case 'Space': Client.lanzeSperre = false; shoot(); Client.fireHeld.key = true; break;
       case 'KeyC': toggleCrouch(); break;   // M2 §15: ducken (nur Außenzone auf v2-Karten)
       case 'KeyQ':
         if (m.zone === 'away') {
@@ -2124,7 +2147,7 @@
       if (KA && KA.druecken(p.x, p.y, () => Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)))) return;
       Net.guard('Consoles.mouseDown', () => K.mouseDown(p.x, p.y, Client.view)); return;
     }
-    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') { shoot(); Client.fireHeld.mouse = true; }
+    if (m && m.zone === 'away' && Client.state && Client.state.phase !== 'lobby') { Client.lanzeSperre = false; shoot(); Client.fireHeld.mouse = true; }
   });
   // TB1: Kartenansicht – Ziehen (Pan) auch außerhalb des Canvas, Mausrad = Zoom um den Mauszeiger, Fokusverlust bricht ab
   window.addEventListener('mousemove', (e) => {
@@ -2166,7 +2189,7 @@
     Net.guard('Hud.update', () => H.update(dt));
     if (Client.shootCd > 0) Client.shootCd -= dt;
     // B2: Feuer halten (Waffen mit Hitze: Dauerfeuer im Takt der Waffe; Lanze: laden, Loslassen feuert)
-    if ((Client.fireHeld.mouse || Client.fireHeld.key) && Client.shootCd <= 0) { const fm = me(); if (fm && fm.wf && fm.zone === 'away' && !fm.console && !uiTop()) shoot(); else if (!fm || fm.zone !== 'away') Client.fireHeld = { mouse: false, key: false }; }
+    if ((Client.fireHeld.mouse || Client.fireHeld.key) && Client.shootCd <= 0 && !Client.lanzeSperre) { const fm = me(); if (fm && fm.wf && fm.zone === 'away' && !fm.console && !uiTop()) shoot(); else if (!fm || fm.zone !== 'away') Client.fireHeld = { mouse: false, key: false }; }
     updateHold(dt);   // S1: Entf halten löscht einen Weltstand
     const st = Client.state, m = me(), self = Client.self;
     self.offX *= 0.85; self.offY *= 0.85;
@@ -2238,6 +2261,8 @@
     }
     if (!st || st.phase === 'lobby') return v;
     v.wurfZiel = wurfZiel(m);   // B2-NACH: Landepunkt-Vorschau der Wurfwaffe
+    v.zielWinkel = null;   // BOD-02 P2: Zielrichtung der Lanze (rad, wie shoot) für Ziellinie und Weitsicht der eigenen Figur
+    if (m && m.zone === 'away' && m.wf === 'lanze' && Client.mouse.x >= 0 && !uiTop()) { const zw = mouseWorld(); if (zw && Number.isFinite(zw.x)) v.zielWinkel = Math.atan2(zw.y - (Client.self.y - 14), zw.x - Client.self.x); }
     const pair = snapPair(nowMs - INTERP_DELAY) || { a: st, b: st, f: 0 };
     const A = pair.a, B = pair.b, f = pair.f;
     v.players = lerpList(A.players, B.players, f).map(p => p.id === Client.pid ? p : p);
@@ -2350,6 +2375,12 @@
       if (Client.chapter) Net.guard('Hud.drawChapter', () => H.drawChapter(ctx, v, Client.chapter));   // S2
       const fl = (performance.now() - Client.flashT) / 400;
       if (fl >= 0 && fl < 1) { ctx.fillStyle = 'rgba(244,238,220,' + (1 - fl) * 0.85 + ')'; ctx.fillRect(0, 0, VW, VH); }
+      const kn = Client.knappT ? (performance.now() - Client.knappT) / 500 : 2;   // BOD-02 P3: dunkelrote Randvignette, blendet in 0,5 s aus
+      if (kn >= 0 && kn < 1 && v.self && v.self.zone === 'away') {
+        const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.34, VW / 2, VH / 2, VW * 0.6);
+        gr.addColorStop(0, 'rgba(110,8,8,0)'); gr.addColorStop(1, 'rgba(110,8,8,' + ((1 - kn) * 0.42).toFixed(3) + ')');
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
+      }
       if (!v.me.console) R.drawTooltip(ctx);
     }
     // S1: Pause-Hinweis, Siegel „Weltstand gesichert“, Menüseiten obenauf

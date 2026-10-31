@@ -19,7 +19,7 @@ const GenFest = require('../../shared/gen-fest.js');
 
 let mods = null;
 function M() {
-  if (!mods) mods = { combat: require('./combat.js'), interior: require('./interior.js'), away: require('./away.js'), squad: require('./squad.js'), anker: require('./anker.js'), wellen: require('./wellen.js') };
+  if (!mods) mods = { combat: require('./combat.js'), interior: require('./interior.js'), away: require('./away.js'), squad: require('./squad.js'), anker: require('./anker.js'), wellen: require('./wellen.js'), verteidigung: require('./verteidigung.js') };
   return mods;
 }
 const cfg = (game) => game.C.graben;
@@ -100,6 +100,7 @@ function aufstellen(game, S) {
   const F = fraktionDaten(game, S.fraktion);
   const plan = besetzungFuer(game, crewGroesse(game));
   S.ids = {}; let gesamt = 0;
+  const linie1 = [];   // BOD-02 P8: Trupps der ersten Welle bekommen ein Verteidigungsprofil (halten, Rückzug auf Linie 2, Gegenstoß)
   for (const wn of wellenNummern(k)) {
     S.ids[wn] = [];
     for (const gruppe of k.meta.wellen[wn]) {
@@ -115,10 +116,13 @@ function aufstellen(game, S) {
         S.ids[wn].push(e.id); S.lebt.add(e.id);
       }
       const s = aw.squads[name];
+      if (s && wn === wellenNummern(k)[0] && n) linie1.push(name);
       if (s) { s.schleich = true; s.posten = true; s.tag = TAG(); s.fraktion = S.fraktion; s.gruppe = gruppe; }
       gesamt += n;
     }
   }
+  const nr = wellenNummern(k);
+  if (linie1.length && nr.length > 1) M().verteidigung.zuweisen(game, aw, info, linie1, k.meta.wellen[nr[1]]);
   S.gesamt = gesamt;
   return gesamt;
 }

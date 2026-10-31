@@ -420,16 +420,24 @@
         playerDown: ['Einer liegt! Drauf!', 'Der ist am Boden – nachsetzen!'],
         lost: ['Wo sind die hin?', 'Hab sie verloren …', 'Augen auf, die sind irgendwo!'],
         half: ['Rückzug zur zweiten Linie!', 'Wir sind nur noch die Hälfte – zurück!'],
+        flanke_umgangen: ['Sie kommen uns in die Flanke!', 'Flanke! Die gehen außen rum!'],   // BOD-02 P7
       },
       // ================= B2 „Bodenkampf“ (CONTRACT-B2 §1.1, Startwerte aus INHALT §10; Welle 0, noch ohne Wirkung) =================
       // Gelesen erst, wenn server/sim/waffen.js aktiv ist (Team WAFFEN/BODENKAMPF). Alles per `tune awayCombat.<pfad>`.
       // schuss = Schüsse bis 100 % Hitze · kadenz s · pause = Kühlbeginn nach s · kalt = s von 100 % auf 0 · sperre = Zwangspause s
       // reichweite in Kacheln · tempo px/s · streuung Grad
+      // BOD-02 P3 Niederhalten: Geschoss, das ein Ziel der Gegenseite knapp verfehlt (Abstand < knapp px, kein Treffer), setzt dessen Schildladen
+      // zurück (ohne Schaden) und hält es dauer s „nieder“ (erneuert sich mit jedem knappen Schuss). Schützen streuen dann ×streuFaktor,
+      // KI-Schützen feuern mit ×intervallFaktor Abstand und bleiben in Deckung. eventPause: höchstens ein Ereignis knapp je Ziel in s.
+      niederhalten: { knapp: 24, dauer: 1.5, streuFaktor: 2.0, intervallFaktor: 1.5, eventPause: 0.25 },
       waffen: {
         blaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 380, streuung: 2, schaden: 1, laerm: 'mittel' },
         sturmgewehr: { schuss: 12, kadenz: 0.15, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 9, tempo: 420, streuung: [6, 14], schaden: 0.5, schildReset: true, laerm: 'laut' },
         granatwerfer: { schuss: 2, kadenz: 1.2, pause: 0.6, kalt: 3.0, sperre: 4.0, min: 4, max: 12, flug: 0.8, streuung: 0.5, radius: 1.5, schaden: 1, betaeubt: 1.5, flaeche: true, laerm: 'laut' },
-        lanze: { schuss: 1, laden: [1.0, 2.0], pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 22, schaden: [1, 2], durchschlagFront: true, stehen: true, laerm: 'leise' },
+        // Lanze = Laserkanone mit Zielfenster (BOD-02): Taste halten, vor zielfenster.min nur Ziellinie (Loslassen = Abbruch ohne Schuss, ohne Hitze),
+        // ab min löst Loslassen den Strahl aus, ab zielfenster.max automatisch; die KI löst zufällig zwischen zielfenster.ki.min und .max aus (Vorwarnung >= ki.min). Strahl trifft sofort, reicht immer `reichweite`, durchschlägt Körper
+        // (friendlyFire: auch eigene), Volldeckung stoppt ihn; Halbdeckung schützt nur Geduckte. schaden fest.
+        lanze: { schuss: 1, zielfenster: { min: 0.5, max: 1.0, ki: { min: 0.8, max: 1.0 } }, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 22, schaden: 2, friendlyFire: true, durchschlagFront: true, stehen: true, laerm: 'leise' },
         nahkampf: { schuss: 3, ausholen: 0.5, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.3, wunde: true, laerm: 'nah' },
         betaeuber: { schuss: 4, kadenz: 0.45, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 9, tempo: 380, streuung: 2, schaden: 1, nichttoedlich: true, laerm: 'leise' },
         schrottblaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 230, streuung: 3, schaden: 1, laerm: 'mittel' },   // Plünderer/Rostmeute: Blaster-Regeln, langsamere Geschosse (Entscheidung Studioleitung, B2-Balancing m3)
@@ -437,7 +445,8 @@
         faust: { schuss: 4, ausholen: 0.6, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.2, schaden: 1, laerm: 'nah' },
       },
       laerm: { laut: 18, mittel: 10, leise: 4, nah: 3 },   // Kacheln
-      sicht: { aussicht: 22, geteiltTtl: 6 },              // normal bleibt sightTiles (10)
+      sicht: { aussicht: 22, stellung: 16, geteiltTtl: 6,   // normal bleibt sightTiles (10); BOD-02 P4: in einer Stellung (Bereich rolle 'stellung') 16, auf dem Posten (aussicht) 22
+        lanzeZielen: { kacheln: 22, halbwinkel: 12 } },    // BOD-02 P2: Spieler zielt mit der Lanze: Weitsicht im Kegel ±halbwinkel° in Zielrichtung
       koerper: { bewusstlos: 30, fesseln: 3, befreien: 3, aufrichten: 4, gegnerBleedout: 45, ankuendigung: 0.5, ausbruchTuer: 8 },
       // seg, wunden, speed px/s, aim s, hitRadius px; regenDelay 4 / regenStep 1.5 (Wächter 6 / 2) wie enemy.*
       gegner: {
@@ -454,7 +463,29 @@
       // schaden: Faktor auf die Wirkung jeder Waffe des Trägers, groesse: Darstellung (Snapshot: ein Bit gs).
       modifikatoren: { anfuehrer: { leben: 1.5, schaden: 1.5, groesse: 1.25 } },
       // EK6: Endkampf der Siedlung (server/sim/endkampf.js): Angreifer erscheinen einmal verteilt um den Platz (Abstand in Kacheln)
-      endkampf: { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter' },
+      endkampf: { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter', truppMax: 4 },   // truppMax (BOD-02 P6): Angreifer bilden Trupps aus bis zu so vielen Mitgliedern benachbarter Ringplätze, Anführer im ersten
+      // BOD-02 P5: Abstand und Reservierung (server/sim/squad.js platzStrafe): Plätze näher als mindestAbstand Kacheln an Standort/Ziel eines
+      // Kameraden und an einer freistehenden Deckungsinsel mit schon inselMax Kameraden bekommen `strafe` Punkte Abzug (weich, kein Ausschluss).
+      // inselKachelnMax: größere Inseln und Wand/Zaun gelten als Mauer, nicht als Insel. entstapelnSek: Pause zwischen zwei Ausweichschritten.
+      trupp: { mindestAbstand: 3, inselMax: 2, inselKachelnMax: 12, strafe: 50, entstapelnSek: 4 },
+      // BOD-02 P7: Trupp-Gehirn (server/sim/trupp.js): Aufgaben niederhalten/scharf/unterstuetzung/flanke/sturm/allround je alarmiertem Trupp (>= 2 Lebende),
+      // Flankenschutz mit Funk 'flanke_umgangen' und Umschwenken (Trupp-Zustand bedrohung). hz = Takt; haltezeit s bis Zugang neu verteilt;
+      // flankeWinkel (Grad von der Trupp-Achse) / flankeKacheln = Flankensektor; bedrohungSek/sperreSek = Dauer/Pause; scharfAbstand Kacheln;
+      // niederhaltenSek/unterstuetzungSek = Feuer auf die letzte Position so lange nach letzter Sicht; stossBlaster = Schüsse je Blaster-Stoß; achseNeuKacheln.
+      // BOD-02 P8/P9 Verteidigungsprofil (server/sim/verteidigung.js; nur Trupps, denen das Szenario es zuweist, z. B. Grabenangriff Welle 1; tune awayCombat.verteidigung.<name>)
+      //   haltenAnteil: Messziel (>= 80 % der lebenden Linie stehen nach dem Alarm in Stellungen; tools/mess-klumpen.js, test-verteidigen.js)
+      //   rueckzugAnteil: Rückzug, wenn höchstens so viel der Linie lebt (0,5 = Hälfte gefallen); umgehungSek/umgehungDx/umgehungFlanke: ein dem Trupp bekannter Spieler hinter der Sohle (östlich + Dx Kacheln, nicht auf den Posten-Plateaus) bzw. jenseits der Sohlenenden (+ Flanke Kacheln) seit Sek = umgangen
+      //   reichweite: Kacheln Toleranz um die Plätze der Haltelinie, in denen Verteidiger Ziele wählen dürfen (0 = nur Stellungsplätze; kein Verfolgen über die Wiese)
+      //   rueckzugMax: s bis zur Ankunft, dann gilt Linie 2 endgültig; rueckzugAnker/rueckzugRadius: Linie 2 = die nächsten Anker der Welle 2 + Deckungsplätze im Umkreis (Kacheln)
+      //   gegenstossSek: so lange steht ein Spieler im Graben, bevor ein Verteidiger gegen ihn vorgeht (höchstens einer je Spieler); gegenstossAbstand: Nahbereich (Kacheln);
+      //   gegenstossMinLinie: so viele Lebende braucht die Linie, damit einer ausscheren darf
+      verteidigung: { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, umgehungFlanke: 1, rueckzugAnker: 3, rueckzugRadius: 4, gegenstossSek: 1, gegenstossAbstand: 2, gegenstossMinLinie: 2 },
+      truppGehirn: { hz: 1.5, haltezeit: 4, flankeWinkel: 50, flankeKacheln: 14, bedrohungSek: 8, sperreSek: 12, scharfAbstand: 7, niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6 },
+      // BOD-02 P10: Aufrichten mit Sicherung (server/sim/aufrichten.js). sichtPruefen: nur helfen, wenn der Liegende für keinen bekannten Spieler sichtbar ist
+      // (Sichtlinie, Waffen-/Sichtreichweite + sichtPuffer Kacheln, kein Sichtschutz) oder ein Niederhalter in den letzten sicherungSek s gefeuert hat; false = früheres Verhalten.
+      // abbruchTreffer: Treffer oder knapp vorbei (niedergehalten) bricht das Aufrichten sofort ab. sperreSek: danach so lange kein neuer Versuch (Helfer, bei Beschuss auch
+      // für den Liegenden). reichweite: Kacheln, aus denen ein Kamerad hilft.
+      aufrichtenSicherung: { sichtPruefen: true, sicherungSek: 3, abbruchTreffer: true, sichtPuffer: 1, sperreSek: 8, reichweite: 10 },
       ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)

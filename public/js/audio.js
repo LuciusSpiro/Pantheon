@@ -29,11 +29,13 @@
     'warden_wake', 'warden_aim', 'warden_shot', 'warden_deflect', 'cover_hit', 'jammer_off', 'archkey',
     'vault_open', 'tablet', 'bark', 'order', 'squad_recall',
     // M3a „Breitseite & Schaden“
-    'lance_charge', 'lance_aim', 'lance_fire', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
+    'lance_charge', 'lance_aim', 'lance_fire', 'lance_ready', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
     'burst', 'burst_perfect', 'flick', 'swap', 'minigame_tick', 'minigame_hit', 'minigame_miss', 'minigame_done',
     'system_break',
     // Nachrunde §20.2
     'dodge_evade',
+    // BOD-02 P3 „Niederhalten“
+    'bullet_whiz',
     // M4 „Zwei Decks“
     'lift',
     // S1 „Regiebuch & Weltstand“
@@ -70,10 +72,11 @@
     enemy_aim: 90, enemy_shot: 60, warden_wake: 2000, warden_aim: 400, warden_shot: 200, warden_deflect: 90,
     cover_hit: 70, jammer_off: 400, archkey: 300, vault_open: 2000, tablet: 800, bark: 250, order: 150, squad_recall: 1500,
     // M3a (tele_charge kurz, damit zwei Gegner fast gleichzeitig laden können)
-    lance_charge: 300, lance_aim: 300, lance_fire: 150, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
+    lance_charge: 300, lance_aim: 300, lance_fire: 150, lance_ready: 120, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
     heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
     minigame_miss: 80, minigame_done: 300, system_break: 150,
     dodge_evade: 250,
+    bullet_whiz: 90,
     // M4
     lift: 600,
     // S1 (Speichern ist entprellt, trotzdem nie als Teppich)
@@ -1106,6 +1109,12 @@
       fm({ f: 330, ratio: 2.41, index: 3, index2: 0.1, t: t, dur: 0.5, vol: 0.08, out: o });
       return 0.7;
     },
+    lance_ready: function (t, o) {
+      // BOD-02 P2: Zielfenster der Bodenlanze offen – kurzer, trockener Einrast-Klick mit hellem Nachtick (Loslassen schießt jetzt)
+      click(t, o, 0.55, 2200);
+      tone({ type: 'triangle', f: 1568, t: t + 0.03, dur: 0.05, a: 0.002, vol: 0.09, out: o });
+      return 0.1;
+    },
     aim_abort: function (t, o) {
       // Absacken: Ton und Filter fallen weg, kleiner Klick am Anfang
       click(t, o, 0.3, 1600);
@@ -1258,6 +1267,13 @@
       fm({ f: 1760, ratio: 2, index: 0.8, index2: 0.02, t: t + 0.14, dur: 0.6, a: 0.002, vol: 0.12, out: o });
       tone({ f: 2637, t: t + 0.2, dur: 0.4, a: 0.003, vol: 0.05, out: o });
       return 0.8;
+    },
+    bullet_whiz: function (t, o) {
+      // BOD-02 P3 Vorbeipfeifen: knapper Fehlschuss am eigenen Kopf – kurzes, helles Zischen, das nach unten wegkippt (Geschoss zieht vorbei)
+      var v = 0.92 + Math.random() * 0.16;
+      noise({ t: t, dur: 0.14, a: 0.01, vol: 0.38, out: o, filter: 'bandpass', ff: 4200 * v, ff2: 1600 * v, fglide: 0.12, q: 3 });
+      tone({ f: 2900 * v, f2: 1200 * v, t: t, dur: 0.1, a: 0.004, vol: 0.05, out: o });
+      return 0.18;
     },
     flick: function (t, o) {
       // Flicken: Klebeband abziehen (Stick-Slip-Knistern), Abriss, Andrücken

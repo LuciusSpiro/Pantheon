@@ -158,19 +158,19 @@ console.log('\n[Wächter 4 + 2, Frontschild, Nahkampf, Lanze]');
   combat.tune(g2, 'waffen.faust.ausholen', 0.1);
   const pf = spieler(g2, 'pf', 22, 22, 'faust'); Waffen.feuern(g2, pf, { angle: 0 });
   ok(near(pf.ausholen.dauer, 0.1), 'Faust (1 Seg, kein Schildbruch) darf kürzer sein');
-  // Lanze: Laden, Stufen, Strahl, Durchschlag
+  // Lanze: Zielfenster, Strahl, Durchschlag (Laserkanone, BOD-02; Einzelheiten tools/test-lanze-zielfenster.js)
   const g3 = welt(); const s = spieler(g3, 's', 2, 5, 'lanze'); const w3 = gegner(g3, 'w3', 'waechter', 20, 5); w3.facing = Math.PI;
   const vor = gegner(g3, 'v', 'grundtyp', 12, 9);
-  ok(Waffen.feuern(g3, s, w3) === null && s.ladung && ev(g3, 'ladungLanze').length === 1, 'Lanze: Laden beginnt, Leuchten + Zielstrahl (ladungLanze)');
-  lauf(g3, [s], 1.05); ok(s.ladung.stufe === 1, 'nach 1,0 s Stufe 1');
-  lauf(g3, [s], 1.0); ok(s.ladung.stufe === 2 && Waffen.snapFelder(g3, s).ch === 100, 'nach 2,0 s Stufe 2 (ch 100)');
-  ok(Waffen.loslassen(g3, s) === null && w3.schild.seg === 2 && ev(g3, 'lanzeSchuss')[0].stufe === 2, 'Strahl: 2 Seg durch die Front des Wächters');
+  ok(Waffen.feuern(g3, s, w3) === null && s.ladung && ev(g3, 'ladungLanze').length === 1, 'Lanze: Zielen beginnt, Zielstrahl (ladungLanze)');
+  lauf(g3, [s], 0.3); ok(!s.ladung.bereit && Waffen.snapFelder(g3, s).ch === 30, 'nach 0,3 s noch nicht bereit (ch 30)');
+  lauf(g3, [s], 0.3); ok(s.ladung.bereit && ev(g3, 'lanzeBereit').length === 1, 'nach 0,6 s bereit (Ereignis lanzeBereit)');
+  ok(Waffen.loslassen(g3, s) === null && w3.schild.seg === 2 && ev(g3, 'lanzeSchuss').length === 1, 'Strahl: 2 Seg durch die Front des Wächters');
   ok(vor.schild.seg === 3, 'Strahl trifft nur auf der Linie');
-  ok(Waffen.ueberhitzt(g3, s), 'volle Ladung = 100 % Hitze → Sperre');
+  ok(Waffen.ueberhitzt(g3, s), 'ein Schuss = 100 % Hitze → Sperre');
   // Wand sperrt den Strahl
   const g4 = welt(); const s4 = spieler(g4, 's', 2, 5, 'lanze'); const z4 = gegner(g4, 'z', 'grundtyp', 12, 5);
   g4.wand = () => true;
-  Waffen.feuern(g4, s4, z4); lauf(g4, [s4], 1.05); Waffen.loslassen(g4, s4);
+  Waffen.feuern(g4, s4, z4); lauf(g4, [s4], 0.6); Waffen.loslassen(g4, s4);
   ok(z4.schild.seg === 3, 'Wand stoppt den Lanzenstrahl');
   ok(Waffen.loslassen(g4, s4) === 'keine_ladung', 'loslassen ohne Ladung: Grund');
 }
@@ -272,8 +272,8 @@ console.log('\n[Unterbrechen (E13), für Spieler und Gegner]');
   ok(s.hitze === 0 && Waffen.loslassen(g, s) === 'keine_ladung', 'abgebrochene Ladung: kein Schuss, keine Hitze');
   Waffen.feuern(g, s, j); lauf(g, [s], 0.3); s.x += 10; lauf(g, [s], DT);
   ok(!s.ladung && s.unterbrochen.grund === 'bewegt', 'Bewegen bricht das Laden ab');
-  Waffen.feuern(g, s, j); lauf(g, [s], 0.5); Waffen.loslassen(g, s);
-  ok(ev(g, 'lanzeSchuss').length === 0, 'Loslassen unter Stufe 1: kein Schuss');
+  Waffen.feuern(g, s, j); lauf(g, [s], 0.3); Waffen.loslassen(g, s);
+  ok(ev(g, 'lanzeSchuss').length === 0, 'Loslassen vor dem Zielfenster: kein Schuss');
   const b = gegner(g, 'b', 'enterer', 30, 5); const p = spieler(g, 'p', 31, 5, 'nahkampf'); g.kaempfer = [b, p];
   Waffen.feuern(g, b, p); Waffen.feuern(g, p, b); lauf(g, [b, p], 0.3);
   Waffen.treffer(g, b, { waffe: 'blaster', schaden: 1 }, { team: 'crew', x: p.x, y: p.y });

@@ -1570,7 +1570,7 @@ class KeshAgent extends Agent {
   }
   fire(S, p, d) {
     const m = this.memo;
-    // Lanze lädt schon: den Halte-Strom nicht abreißen lassen (sonst löst der Server nach 0,45 s ohne Stufe aus)
+    // Lanze lädt schon: den Halte-Strom nicht abreißen lassen (sonst gilt es nach 0,45 s als Loslassen, vor dem Zielfenster als Abbruch)
     if (!p.downed && p.wf === 'lanze' && p.ch != null) { m.foeId = d.id; if ((m.shotAt || 0) <= S.time) this.fireLanze(S, p, d); return; }
     // menschennäher: Reaktionszeit 0,5 s auf ein neues Ziel, ~1,6 Schuss/s, Streuung ±7°
     if (m.foeId !== d.id) { m.foeId = d.id; m.shotAt = Math.max(m.shotAt || 0, S.time + 0.5); }
@@ -1607,8 +1607,8 @@ class KeshAgent extends Agent {
     const jitter = (simRng() - 0.5) * 0.25;
     this.send({ t: 'shoot', angle: Math.atan2(d.y - p.y, d.x - p.x) + jitter });
   }
-  // Lanze (B2 §2 „Laden“): stehen, halten (shoot-Strom ≤ 0,45 s), loslassen mit shoot { los: true }. Volle Stufe (2 Segmente,
-  // durch den Frontschild), außer der Bot steht unter Druck oder das Ziel ist fast leer -> Stufe 1.
+  // Lanze (Laserkanone, BOD-02): stehen, halten (shoot-Strom ≤ 0,45 s), ab Zielfenster-Beginn (ch ≥ min/max·100, mit Rundungsrand)
+  // loslassen mit shoot { los: true }; ein Schuss, fester Schaden, durchschlägt Körper.
   fireLanze(S, p, d) {
     const m = this.memo;
     const a = Math.atan2(d.y - p.y, d.x - p.x) + (simRng() - 0.5) * 0.1;
@@ -1616,8 +1616,8 @@ class KeshAgent extends Agent {
       if (p.ov) return;
       this.send({ t: 'shoot', angle: a }); m.shotAt = S.time + 0.25; return;
     }
-    const seg = p.sh ? p.sh[0] : 3;
-    const want = seg <= 1 || dist(d.x, d.y, p.x, p.y) < 4 * TILE || (d.sh && d.sh[0] <= 1) ? 50 : 100;
+    const zf = CONFIG.awayCombat.waffen.lanze.zielfenster;
+    const want = Math.round(zf.min / zf.max * 100) + 5;
     if (p.ch >= want) { this.send({ t: 'shoot', angle: a, los: true }); m.shotAt = S.time + 0.4; return; }
     this.send({ t: 'shoot', angle: a }); m.shotAt = S.time + 0.25;
   }

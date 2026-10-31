@@ -52,6 +52,10 @@
     ],
     "friendly_fire": [
       "Pass doch auf, du Narr!"
+    ],
+    "flanke_umgangen": [
+      "Bewegung auf der Flanke, die umgehen uns!",
+      "Flanke! Ich seh einen seitlich vorrücken!"
     ]
   },
   "funk_nach_fraktion": {
@@ -78,6 +82,10 @@
       ],
       "friendly_fire": [
         "Eigene Linie, Idiot! Augen auf!"
+      ],
+      "flanke_umgangen": [
+        "Seitlich im Anmarsch, Umgehung erkannt!",
+        "Flanke gefährdet, Linie schwenkt!"
       ]
     }
   }

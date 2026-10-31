@@ -1,0 +1,20 @@
+Eisenwald Endkampf, 3 Spieler (stehend, unverwundbar), 90 s, Seeds 1..12
+Gefecht entstanden in 12 von 12 Seeds, 1762 von 2160 Samples im Gefecht
+HAUPTKENNZAHLEN (Gefecht): Anteil Gegner mit Kamerad <= 2 Kacheln 0.29   mittlerer Abstand zum naechsten Kameraden 3.35 Kacheln
+[gesamt] Samples 2160: Gegner 10.99  mittl. Paarabstand 13.41  mittl. Abstand zum naechsten Kameraden 4.5  Anteil <=2 Kacheln 0.24  max Gegner je Deckungsinsel (Mittel 1.14, Maximum 3)  Inseln mit >=2 Gegnern 0.59  Median Abstand zum naechsten Spieler 13.62
+[Gefecht (>=3 Gegner sehen Spieler)] Samples 1762: Gegner 10.99  mittl. Paarabstand 10.12  mittl. Abstand zum naechsten Kameraden 3.35  Anteil <=2 Kacheln 0.29  max Gegner je Deckungsinsel (Mittel 1.33, Maximum 3)  Inseln mit >=2 Gegnern 0.72  Median Abstand zum naechsten Spieler 7.96
+freistehende Inseln (ohne Mauern) im Gefecht: Gegner je Insel Maximum 3 (Mittel 1.33), Inseln mit >=2 Gegnern 0.72, Anteil Samples mit >2 Gegnern an einer freistehenden Insel 0.01
+stehende pin-Gegner (>=2) im Gefecht: Samples 1332, mittl. Abstand zum naechsten pin-Kameraden 5.54, mittl. Anzahl pin 4.34
+Samples mit Flankierer (Anteil, alle Samples): 0
+seed 1: Gefechtssamples 150, Paarabstand 11.03, nn 3.71, <=2 0.27, maxInsel 3, Tickfehler 0
+seed 2: Gefechtssamples 152, Paarabstand 9.93, nn 3.49, <=2 0.32, maxInsel 3, Tickfehler 0
+seed 3: Gefechtssamples 146, Paarabstand 10.51, nn 3.19, <=2 0.3, maxInsel 2, Tickfehler 0
+seed 4: Gefechtssamples 155, Paarabstand 12.69, nn 4.19, <=2 0.25, maxInsel 2, Tickfehler 0
+seed 5: Gefechtssamples 151, Paarabstand 9.72, nn 3.4, <=2 0.25, maxInsel 2, Tickfehler 0
+seed 6: Gefechtssamples 141, Paarabstand 9.62, nn 3.27, <=2 0.27, maxInsel 2, Tickfehler 0
+seed 7: Gefechtssamples 150, Paarabstand 10.62, nn 3.41, <=2 0.29, maxInsel 3, Tickfehler 0
+seed 8: Gefechtssamples 140, Paarabstand 9.18, nn 3.17, <=2 0.3, maxInsel 3, Tickfehler 0
+seed 9: Gefechtssamples 139, Paarabstand 8.71, nn 2.81, <=2 0.33, maxInsel 2, Tickfehler 0
+seed 10: Gefechtssamples 138, Paarabstand 9.34, nn 3.18, <=2 0.28, maxInsel 3, Tickfehler 0
+seed 11: Gefechtssamples 147, Paarabstand 9.24, nn 3.11, <=2 0.3, maxInsel 3, Tickfehler 0
+seed 12: Gefechtssamples 153, Paarabstand 10.47, nn 3.17, <=2 0.31, maxInsel 2, Tickfehler 0

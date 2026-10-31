@@ -1537,7 +1537,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(events('truppAlarm').length >= 1 && aw().squads[e0.squad].alert && aw().alarm, 'lauter Schuss im Radius: truppAlarm, Trupp wach, Landepunkt im Alarm');
     run(C.alarm.funkVerzoegerung + 1);
     ok(trupps.every((s) => s.alert), 'Funk: nach funkVerzoegerung s alle Trupps im Umkreis wach');
-    place(0, 3, 2);
+    place(0, 2, 1);
     for (const s of trupps) s.contactAt = g.time - C.alarm.ruheNach - 1;
     run(1);
     ok(trupps.every((s) => !s.alert) && aw().alarm, 'ohne Kontakt nach ruheNach s wieder ruhig, Landepunkt bleibt im Alarm');
@@ -1602,8 +1602,8 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     place(0, 12, 2);
     const t = Physics.tileCenter(5, 2);
     const ang = Math.atan2(t.y - P(0).y, t.x - P(0).x);
-    for (let i = 0; i < 40; i++) { if (i % 9 === 0) away.shoot(g, P(0), ang); g.step(); }
-    ok(P(0).ladung && P(0).ladung.stufe >= 1, 'Lanze lädt, solange shoot kommt');
+    for (let i = 0; i < 22; i++) { if (i % 9 === 0) away.shoot(g, P(0), ang); g.step(); }
+    ok(P(0).ladung && P(0).ladung.bereit, 'Lanze zielt, solange shoot kommt, und ist nach dem Zielfenster-Beginn bereit');
     away.shoot(g, P(0), ang, { los: true });
     ok(!P(0).ladung && events('lanzeSchuss').some((x) => x.id === P(0).id), 'shoot { los: true }: Lanze feuert');
     ok(events('enemyShieldHit').some((x) => x.id === e.id && x.waffe === 'lanze'), 'Lanzentreffer: enemyShieldHit mit waffe lanze');

@@ -100,8 +100,8 @@
     PLAYER_SNAP_B2: ['wf', 'ht', 'ov', 'ch', 'wu', 'zs', 'bt'],
     DRONE_SNAP_B2: ['ro', 'fr', 'pa', 'wf', 'ch', 'wu', 'zs', 'bt', 'wn', 'wm', 'gr'],
     AWAY_SNAP_B2: ['tr'],
-    B2_EVENTS: ['ueberhitzt', 'ladungLanze', 'lanzeSchuss', 'ausholen', 'schlag', 'granate', 'granateEinschlag', 'betaeubt', 'bewusstlos',
-      'gefesselt', 'befreit', 'aufgerichtet', 'abgelenkt', 'truppAlarm', 'gefangen', 'rolleNeu', 'loadout'],
+    B2_EVENTS: ['ueberhitzt', 'ladungLanze', 'lanzeBereit', 'lanzeSchuss', 'ausholen', 'schlag', 'granate', 'granateEinschlag', 'betaeubt', 'bewusstlos',
+      'gefesselt', 'befreit', 'aufgerichtet', 'abgelenkt', 'truppAlarm', 'gefangen', 'rolleNeu', 'loadout', 'knapp'],
     B2_DEBUG: ['waffe', 'gegner', 'alarm', 'fang'],
     // ---- B3 (CONTRACT-B3 §6): Sektorkarte (Hexfeld) ----
     // welcome.sektorkarte: Inhalt von content/welt/limes.json ohne praesenz (≈ 6 KB), nur im welcome, nie im Snapshot.
@@ -228,7 +228,7 @@
     DECK_FIELDS: ['deck', 'lift', 'ladder'],
     LIFT_PHASES: ['start', 'arrive'],
     WS_PATH: '/ws',
-    // Client -> Server   (B2: shoot { angle, los?: true } – los = Abzug losgelassen: Lanze feuert mit der erreichten Stufe.
+    // Client -> Server   (B2: shoot { angle, los?: true } – los = Abzug losgelassen: Lanze schießt im Zielfenster (vorher: Abbruch ohne Schuss).
     //   Der Server reicht msg.los an away.shoot weiter (Auswertung BODENKAMPF); ohne los gilt shoot wie bisher als Halten/Schuss.
     //   B2-NACH: shoot { angle, dist? } – dist = Abstand Spieler → Mauszeiger in Kacheln. Wurfwaffen landen dort, begrenzt auf
     //   [min, max] der Waffe; ohne dist volle Weite wie bisher. Direkte Waffen nutzen nur den Winkel.)
