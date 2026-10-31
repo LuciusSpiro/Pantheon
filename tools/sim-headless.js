@@ -1,5 +1,5 @@
 'use strict';
-const BOT_SCHILD_SEKTOR_MAX = 6;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector. SYS-03 C1 (Pool 8, Kappe 8): 6 statt 4 – die Bedrohungsseite bekommt mehr Punkte (konzentriertes Feuer bricht Schilde; Probelauf Arena maneuver, Crew 3, 3 Seeds: Max 4 → 4,7 Wellen/68 Hülle, Max 6 → 5,3 Wellen/46 Hülle, Max 8 → 2,3 Wellen/245 Hülle, weil die anderen Seiten leer stehen)
+const BOT_SCHILD_SEKTOR_MAX = 4;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector. SYS-03 C1 (Pool 8, Kappe 8): bleibt bei 4 (Pool 8 = zwei volle Sektoren, die Bedrohungsseite bekommt trotzdem bis 4). Probelauf Arena maneuver, Crew 3, 3 Seeds: Max 4 → 4,7 Wellen/68 Hülle, Max 6 → 5,3/46, Max 8 → 2,3/245 (die anderen Seiten stehen leer). Die Solo-Kette (sim-headless kette, Crew 1, Seed 1, K6 Orbit) gelang ohne Auffüllen nur mit Max 4 (95 min; Max 5, 6, 8: Spielzeit über 14000 s, K6 endet jedes Mal im Rückzug); K6 ist solo ein Glücksspiel (Einstieg k6_orbit Crew 1, Seeds 1–6: 4/6 ok mit Max 6, vor C1 3/6). Mit dem Auffüllen (schildVerteilung: übrige Poolpunkte an die schwächste Nebenseite) laufen beide Kettenläufe (Crew 1: 142 min, Crew 3: 111 min)
 // Headless-Simulation (M1): startet das Spiel im selben Prozess und lässt 1 bzw. 3 skriptgesteuerte Spieler-Bots
 // Mission 1 „Die stumme Boje“ UND Mission 2 „Echo im Nebel“ mit echten Befehlen spielen (keine Debug-Befehle).
 // Beschleunigt (Ticks ohne Echtzeit). Ausgabe: Erfolg, Dauer je Mission/Schritt/Ort (Spielsekunden), Fehler, Softlocks, Snapshot-Größe.
@@ -891,6 +891,12 @@ class Agent {
         if (used < pool) this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 });
         else if (donor != null) { this.technikCmd(S, 'technik.shield', { sector: donor, delta: -1 }); this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 }); }
         this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1;
+      } else if (sec != null) {
+        // SYS-03 C1 (Pool 8): die Bedrohungsseite ist voll; ungenutzte Punkte des Pools gehen an die schwächste der übrigen Seiten (erst Bug, Steuerbord, Backbord, zuletzt Heck), sonst lägen sie brach
+        const pool = sh.shields.pool != null ? sh.shields.pool : 8;
+        const used = al.reduce((a, b) => a + b, 0);
+        const ziel = [0, 1, 3, 2].filter((i) => i !== sec && al[i] < cap[i]).sort((a, b) => al[a] - al[b])[0];
+        if (used < pool && ziel != null) { this.technikCmd(S, 'technik.shield', { sector: ziel, delta: 1 }); this.game.simStats.shieldMoves = (this.game.simStats.shieldMoves || 0) + 1; }
       }
     }
   }
