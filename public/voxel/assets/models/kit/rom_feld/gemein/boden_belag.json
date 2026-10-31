@@ -13,7 +13,7 @@
     "belag": {"default":0,"min":0,"max":3,"step":1,"label":"0 Grabensohle · 1 Wall-Rasen · 2 Platten dunkel · 3 Platten hell"}
   },
   "ops": [
-    {"name":"Grabensohle (Lehm, ruhig)","op":"box","if":"belag == 0","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"soil","f":"1.0 + hash(seed, 1) * 0.06"}},
+    {"name":"Grabensohle (Lehm, ruhig)","op":"box","if":"belag == 0","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"soil_graben","f":"1.0 + hash(seed, 1) * 0.05"}},
     {"name":"Wall-Rasen","op":"box","if":"belag == 1","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"grass","f":"0.97 + hash(seed, 2) * 0.06"}},
     {"name":"Platten dunkel","op":"box","if":"belag == 2","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"paving_dark","f":"1.05 + hash(seed, 3) * 0.04"}},
     {"name":"Platten hell","op":"box","if":"belag == 3","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"paving","f":"1.0 + hash(seed, 4) * 0.05"}}

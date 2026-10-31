@@ -24,10 +24,10 @@
     },
     "plateau": {
       "id": "kit/rom_feld/boden",
-      "belag": 1,
+      "belag": 2,
       "hoehe": 0.53,
       "sockel_inset": 0.01,
-      "hinweis": "Wall-Rasen; Plateau-Sockel legt kit.js selbst an (FB.sockel), Anheben 0,53 statt 0,5 gegen Z-Flimmern mit dem Sockel (Modellbauer)"
+      "hinweis": "Platten dunkel (Design-Review VOX-01: Rasen im Travertin-Rahmen las sich wie ein Loch); Plateau-Sockel legt kit.js selbst an (FB.sockel), Anheben 0,53 statt 0,5 gegen Z-Flimmern mit dem Sockel (Modellbauer)"
     },
     "rampe": {
       "id": "kit/rom_feld/rampe",

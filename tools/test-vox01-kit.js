@@ -36,7 +36,7 @@ async function main() {
   ok(tab.rom_feld.paletten.art.aussenposten === 'sommer_wald' && man.has('kit/rom_feld/boden') && fs.existsSync(path.join(ROOT, 'public/voxel/assets/palettes/sommer_wald.json')), 'Palette sommer_wald (synchronisiert)');
   const E = (bw, kind, art = 'aussenposten') => R.eintragVon(tab[bw].kits[kind], art);
   const pl = E('rom_feld', 'plateau'), ra = E('rom_feld', 'rampe'), ka = E('rom_feld', 'kante'), gs = E('rom_feld', 'grabensohle'), bw = E('rom_feld', 'brustwehr'), ba = E('rom_feld', 'baum');
-  ok(pl.id === 'kit/rom_feld/boden' && pl.fest.belag === 1 && +pl.hoehe === 0.53 && !pl.eigeneHoehe && pl.sockelInset === 0.01, 'plateau: Rasen (belag 1), Anheben 0,53, Sockel 1 cm eingezogen (kein Z-Flimmern mit den Seitenflächen), Teil bringt keine eigene Höhe mit');
+  ok(pl.id === 'kit/rom_feld/boden' && pl.fest.belag === 2 && +pl.hoehe === 0.53 && !pl.eigeneHoehe && pl.sockelInset === 0.01, 'plateau: Platten dunkel (belag 2, Design-Review), Anheben 0,53, Sockel 1 cm eingezogen (kein Z-Flimmern mit den Seitenflächen), Teil bringt keine eigene Höhe mit');
   ok(ra.id === 'kit/rom_feld/rampe' && ra.eigeneHoehe && ra.hochZu.join() === 'plateau,kante' && Object.keys(ra.fest).length === 0, 'rampe: eigene Höhe (ohne Anheben, ohne Boden), dreht zum Plateau/zur Kante');
   ok(ka.id === 'kit/rom_feld/kante' && gs.id === 'kit/rom_feld/boden' && gs.fest.belag === 0 && bw.id === 'kit/rom_feld/brustwehr' && Object.keys(bw.fest).length === 0, 'kante, grabensohle (belag 0), brustwehr (keine festen Parameter)');
   ok(ba.nadel === 'natur/nadelbaum' && ba.laub === 'natur/laubbaum' && ba.nadelAnteil === 0.6 && Object.keys(ba.fest).join() === '', 'baum: Nadel/Laub und Anteil aus der Bauweise, nichts davon wird als Modellparameter weitergegeben');
