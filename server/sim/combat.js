@@ -687,6 +687,7 @@ function shoot(game, p, angle, opts) {
   const Wf = waffen();
   // B2: shoot { los: true } = Loslassen -> Lanze feuert (zusätzlich bleibt der Weg über die Pause im shoot-Strom)
   if (opts && opts.los) {
+    p.lanzeSperre = false;   // Abzug losgelassen: nach einem Auto-Schuss darf wieder neu gezielt werden
     if (Wf && p.ladung && typeof Wf.loslassen === 'function') {
       if (Number.isFinite(angle)) Wf.feuern(game, p, { angle });
       p.losGemeldet = true;
@@ -698,6 +699,7 @@ function shoot(game, p, angle, opts) {
   if (Wf && !p.downed) {   // B2 §3.3 (Pistole der Verwundeten bleibt)
     kaempfer(game, p);
     p.schussInputAt = game.time;
+    p.losGemeldet = false;   // neuer Abzugsstrom: das Loslassen kommt wieder per shoot { los } oder als Stromabriss
     const dist = opts && Number.isFinite(opts.dist) ? opts.dist : null;   // B2-NACH: Zielabstand (Kacheln) für die Wurfweite
     return Wf.feuern(game, p, dist != null ? { angle, dist } : { angle });
   }
@@ -724,6 +726,7 @@ function fireEnemy(game, e, target) {
   if (Wf && kaempfer(game, e).waffe) {   // B2 §3.3: Gegner mit Waffe (Rolle) feuern nach denselben Regeln wie Spieler
     if (aw.stats) aw.stats.enemyShots++;
     const n0 = aw.projectiles.length;
+    e.lanzeSperre = false;   // Gegner halten den Abzug nicht: jeder Feuerbefehl darf neu zielen
     const r = Wf.feuern(game, e, { x: target.x, y: target.y, ziel: target.id });
     // E16: Schuss mit Aussicht bzw. Trupp-Funk darf außerhalb der engageBox treffen (Zähler offBoxHitsHilfe statt offBoxHits)
     if (aw.projectiles.length > n0 && sichtHilfe(game, e, target)) for (let i = n0; i < aw.projectiles.length; i++) aw.projectiles[i].hilfe = true;
@@ -968,6 +971,17 @@ function sichtRadius(game, E, p, R) {
   return auf ? (Number(cfg(game).sicht && cfg(game).sicht.aussicht) || 22) * TILE : R;
 }
 
+// BOD-02 P2: Zielt ein Spieler mit der Lanze, sieht er in Zielrichtung in einem schmalen Kegel bis zur Strahlweite (awayCombat.sicht.lanzeZielen
+// { kacheln, halbwinkel° }) statt nur sightTiles. Der Client rechnet denselben Kegel (Render.teamVision, Shared_Los.visibleCone).
+function lanzeKegel(game, p, e) {
+  const L = p.ladung; const K = cfg(game).sicht && cfg(game).sicht.lanzeZielen;
+  if (!L || !K || !Number.isFinite(L.tx)) return false;
+  const d = dist(p.x, p.y, e.x, e.y);
+  if (d > (Number(K.kacheln) || 0) * TILE) return false;
+  const a = Math.atan2(L.ty - p.y, L.tx - p.x);
+  return Math.abs(Physics.normAngle(Math.atan2(e.y - p.y, e.x - p.x) - a)) <= (Number(K.halbwinkel) || 0) * Math.PI / 180;
+}
+
 // ---------- Fog of War, Deckung der Spieler (CONTRACT-M2 §6, §7 cv/fl) ----------
 function updateVisibility(game) {
   const C = cfg(game); const aw = game.away; const E = env(game);
@@ -979,6 +993,7 @@ function updateVisibility(game) {
     let seen = false;
     for (const p of team) {
       if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) { seen = true; break; }   // §15: Ducken sperrt beidseitig
+      if (lanzeKegel(game, p, e) && losBetween(E, p, e)) { seen = true; break; }   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
     }
     if (seen) { e.seenAt = game.time; e.seenX = e.x; e.seenY = e.y; rolleGesehen(game, e); }
     e.vis = seen || sensor || game.time < (e.focusUntil || 0);
@@ -1234,6 +1249,8 @@ function b2SnapGegner(game, e, base) {
   if (e.wunden && (e.wunden.max > 1 || e.wunden.n < e.wunden.max)) { base.wn = e.wunden.n; base.wm = e.wunden.max; }
   if (e.granatZiel && game.time - e.granatZiel.t < 2) base.gr = { x: Math.round(e.granatZiel.x), y: Math.round(e.granatZiel.y), t: r2(e.granatZiel.t) };
   if (base.facing == null && Number.isFinite(e.facing)) base.facing = Math.round(e.facing * 100) / 100;
+  // BOD-02 P2: Zielt der Gegner mit der Lanze, ist die Blickrichtung die Zielrichtung der Ziellinie (der Client zeichnet sie aus facing + ch)
+  if (e.ladung && Number.isFinite(e.ladung.tx)) base.facing = Math.round(Math.atan2(e.ladung.ty - e.y, e.ladung.tx - e.x) * 100) / 100;
 }
 
 // Lanze der Spieler: Schuss beim Loslassen. Der Client schickt `shoot` beim Halten im Takt (≈ 0,3 s); bleibt der Strom
@@ -1242,6 +1259,7 @@ function lanzeLoslassen(game) {
   const Wf = waffen();
   if (!Wf || typeof Wf.loslassen !== 'function') return;
   for (const p of game.players) {
+    if (p.lanzeSperre && game.time - (p.schussInputAt || 0) > 0.45) p.lanzeSperre = false;   // Strom abgerissen = Abzug los (auch ohne los-Paket)
     if (p.zone !== 'away' || !p.ladung) continue;
     const d = Wf.def(game, p.waffe);
     if (!d || !d.zielfenster) continue;

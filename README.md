@@ -1169,6 +1169,17 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   Fällt die ganze Crew, beginnt das Szenario von vorn. Werte und Texte: `CONFIG.graben`. `?arena=graben[&auswahl=wiese:graben,wald:weg]`
   wählt den Modus direkt. Bots: `node tools/sim-headless.js graben [--players 1|3|beide] [--seeds n] [--god]`, Test
   `node tools/test-grabenangriff-szenario.js`.
+- **BOD-02 Bodenlanze (Laserkanone mit Zielfenster, P1 Server, P2 Client):** Taste halten = zielen, vor `zielfenster.min` (0,5 s) nur Ziellinie
+  (Loslassen = Abbruch ohne Schuss), ab min schießt Loslassen den Strahl (volle Reichweite 22 Kacheln, durch alle Körper, Volldeckung stoppt), bei `max` (1,0 s)
+  von selbst. **Nach dem Auto-Schuss startet kein neues Zielen, solange der Abzug gehalten wird** (`lanzeSperre`: fällt bei `shoot { los }` oder wenn der
+  Strom 0,45 s ausbleibt; Gegner geben den Abzug mit jedem Feuerbefehl frei). Client: dünne gestrichelte Ziellinie (Spieler gold, Gegner rot = Vorwarnung),
+  ab Fensterbeginn hell und durchgezogen mit Klick (`lance_ready`, Ereignis `lanzeBereit`), Strahl wie die Lanzenbatterie des Schiffs
+  (voxel/fx.js `lanceBeam`, 2D art.js `drawBeam` 'lanze'), HUD-Balken am Fadenkreuz mit Marke bei 50 % und „BEREIT“. **Gegner-Ziellinie:** der Server
+  sendet beim Zielen eines Gegners `drones[].facing` = Zielrichtung (0,01 rad; kostet höchstens ≈ 15 B je zielendem Gegner, nur solange er zielt, kein neues Feld),
+  `ch` kommt ohnehin; der Client rechnet die Linie bis Strahlweite/Volldeckung aus der Karte (`Render.lanzeEnde`) und zeigt sie jedem, der den Träger sieht
+  (auch im Nebel). **Weitsicht:** zielt ein Spieler mit der Lanze, sieht er in einem Kegel ±12° bis 22 Kacheln (`awayCombat.sicht.lanzeZielen`
+  { kacheln, halbwinkel }; Server `combat.lanzeKegel`, Client `Render.teamVision` + `Shared_Los.visibleCone`). Tests: `tools/test-lanze-zielfenster.js`;
+  Browser-Prüfung mit Screenshots: `PLAYWRIGHT_CORE=<pfad>/playwright-core node tools/bod02-p2-shots.js --out <ordner> [--render voxel|2d] [--port 3391]`.
 - **Debug** (`npm run debug`): `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (neben die eigene Figur),
   `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `graben welle2|reset|status` (Grabenangriff), `tune waffen.<waffe>.<wert>`.
   `WAFFEN=aus` schaltet das Waffenmodul ab (alter Kampf, für Golden-Vergleiche).

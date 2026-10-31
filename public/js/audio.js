@@ -29,7 +29,7 @@
     'warden_wake', 'warden_aim', 'warden_shot', 'warden_deflect', 'cover_hit', 'jammer_off', 'archkey',
     'vault_open', 'tablet', 'bark', 'order', 'squad_recall',
     // M3a „Breitseite & Schaden“
-    'lance_charge', 'lance_aim', 'lance_fire', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
+    'lance_charge', 'lance_aim', 'lance_fire', 'lance_ready', 'aim_abort', 'battery_salvo', 'tele_charge', 'heavy_hit',
     'burst', 'burst_perfect', 'flick', 'swap', 'minigame_tick', 'minigame_hit', 'minigame_miss', 'minigame_done',
     'system_break',
     // Nachrunde §20.2
@@ -70,7 +70,7 @@
     enemy_aim: 90, enemy_shot: 60, warden_wake: 2000, warden_aim: 400, warden_shot: 200, warden_deflect: 90,
     cover_hit: 70, jammer_off: 400, archkey: 300, vault_open: 2000, tablet: 800, bark: 250, order: 150, squad_recall: 1500,
     // M3a (tele_charge kurz, damit zwei Gegner fast gleichzeitig laden können)
-    lance_charge: 300, lance_aim: 300, lance_fire: 150, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
+    lance_charge: 300, lance_aim: 300, lance_fire: 150, lance_ready: 120, aim_abort: 200, battery_salvo: 200, tele_charge: 60,
     heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
     minigame_miss: 80, minigame_done: 300, system_break: 150,
     dodge_evade: 250,
@@ -1105,6 +1105,12 @@
       noise({ t: t + 0.02, dur: 0.6, a: 0.01, hold: 0.15, vol: 0.25, out: o, filter: 'bandpass', ff: 5500, ff2: 2000, q: 3 });
       fm({ f: 330, ratio: 2.41, index: 3, index2: 0.1, t: t, dur: 0.5, vol: 0.08, out: o });
       return 0.7;
+    },
+    lance_ready: function (t, o) {
+      // BOD-02 P2: Zielfenster der Bodenlanze offen – kurzer, trockener Einrast-Klick mit hellem Nachtick (Loslassen schießt jetzt)
+      click(t, o, 0.55, 2200);
+      tone({ type: 'triangle', f: 1568, t: t + 0.03, dur: 0.05, a: 0.002, vol: 0.09, out: o });
+      return 0.1;
     },
     aim_abort: function (t, o) {
       // Absacken: Ton und Filter fallen weg, kleiner Klick am Anfang

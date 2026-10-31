@@ -608,43 +608,43 @@ function arcPoint(from, to, u, peak) {
 }
 
 const FX2 = {
-  // Lanze laden: Glühen an der Waffe + Ziellinie dünn → dick → hell, Zielmarke AM ZIEL zieht sich zusammen
-  lanceCharge(from, to, k, t, dt) {
-    const kk = k * k;
-    put('glow', from[0], from[1], from[2], 0.14 + 0.3 * k, TEL.gold);
-    put('emit', from[0], from[1], from[2], 0.04 + 0.07 * k, k > 0.9 && (t * 24 | 0) % 2 ? TEL.goldHot : TEL.gold);
-    if (Math.random() < dt * (8 + 40 * k)) {
-      const a = Math.random() * Math.PI * 2, r = rnd(0.35, 0.6);
-      spawn({ mesh: 'emit', p: [from[0] + Math.cos(a) * r, from[1] + rnd(-0.25, 0.25), from[2] + Math.sin(a) * r], v: [-Math.cos(a) * r / 0.22, 0, -Math.sin(a) * r / 0.22], life: 0.22, s0: 0.03, s1: 0.05, c0: TEL.goldDim, c1: TEL.goldHot });
-    }
+  // BOD-02 P2: Lanze zielen = Ziellinie in Zielrichtung (dünn, gestrichelt, dezent) bis zur Strahlweite bzw. Volldeckung. Ab Fensterbeginn (bereit) hell,
+  // durchgezogen und mit Glühen an der Mündung. Gegner-Lanzen zeigen dieselbe Linie rot (Vorwarnung). k = Fortschritt im Zielfenster 0–1.
+  lanceCharge(from, to, k, bereit, feind, t, dt) {
+    const hot = feind ? TEL.glutHot : TEL.goldHot, mid = feind ? TEL.glut : TEL.gold, dim = feind ? TEL.glutDeep : TEL.goldDim;
+    put('glow', from[0], from[1], from[2], 0.1 + 0.2 * k, mid);
     if (to) {
-      const w = 0.014 + 0.075 * kk;
-      line('emit', from, to, w, k < 0.35 ? TEL.goldDim : k < 0.8 ? TEL.gold : TEL.goldHot, 0);
-      if (k > 0.45) line('glow', from, to, w * 3.2, TEL.gold, 1);
-      // Wanderpuls entlang der Linie (zum Ziel hin, wird schneller)
-      const u = (t * (0.8 + 2.2 * k)) % 1;
-      put('emit', from[0] + (to[0] - from[0]) * u, from[1] + (to[1] - from[1]) * u, from[2] + (to[2] - from[2]) * u, w * 2.2 + 0.03, TEL.goldHot);
-      // Zielmarke am Ziel: Ring am Boden schrumpft, Kreuz auf Brusthöhe
-      const r = 0.95 - 0.6 * k;
-      ring('emit', to, r, 12, 0.05 + 0.03 * k, k > 0.85 ? TEL.goldHot : TEL.gold, 0.05, t * 2, true);
-      ring('glow', to, r, 12, 0.12, TEL.gold, 0.05, t * 2, true);
-      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) put('emit', to[0] + dx * (0.16 + 0.2 * (1 - k)), to[1], to[2] + dz * (0.16 + 0.2 * (1 - k)), 0.045, TEL.goldHot, dx ? 3 : 1, 1, dz ? 3 : 1);
-      lightReq(to[0], 0.6, to[2], TEL.gold, 0.4 + 1.6 * k, 3);
+      if (bereit) {
+        const fl = (t * 30 | 0) % 2;
+        line('emit', from, to, 0.05, fl ? hot : TEL.hell, 0);
+        line('glow', from, to, 0.17, mid, 1);
+        put('emit', from[0], from[1], from[2], 0.12, TEL.hell);
+        ring('emit', to, 0.32, 10, 0.05, hot, 0.05, t * 3, true);
+        put('emit', to[0], to[1], to[2], 0.1, TEL.hell);
+        lightReq(from[0], from[1], from[2], mid, 1.6, 3);
+      } else {
+        line('emit', from, to, 0.018, k > 0.3 ? mid : dim, 1);
+        put('emit', to[0], to[1], to[2], 0.06, dim);
+        lightReq(from[0], from[1], from[2], mid, 0.4 + 0.8 * k, 3);
+      }
     }
-    lightReq(from[0], from[1], from[2], TEL.gold, 0.5 + 2 * k, 3);
   },
-  lanceBeam(from, to, stufe, q, fresh) {
-    const s = Math.max(1, +stufe || 1);
-    const w = (0.06 + 0.035 * s) * (1 - q * 0.75);
-    line('emit', from, to, w, q < 0.5 ? TEL.goldHot : TEL.gold, 0);
-    line('glow', from, to, w * 3.5 * (1 - q), TEL.gold, 0);
+  // Lanzenstrahl wie die Lanzenbatterie des Schiffs: ein langer, gerader Strahl in voller Länge, greller Kern mit Glühmantel, kurzes Aufleuchten
+  // und Ausklingen (q = Alter 0–1). Mündungsfeuer kommt aus muzzle('lanze').
+  lanceBeam(from, to, q, fresh) {
+    const w = 0.1 * (1 - q * 0.75);
+    line('glow', from, to, w * 4 * (1 - q * 0.6), TEL.gold, 0);
+    line('emit', from, to, w, q < 0.4 ? TEL.goldHot : TEL.gold, 0);
+    line('emit', from, to, w * 0.4, TEL.hell, 0);
     if (fresh) {
       const dx = to[0] - from[0], dy = to[1] - from[1], dz = to[2] - from[2];
       for (let i = 0; i < 26; i++) { const u = Math.random(); spawn({ mesh: 'glow', p: [from[0] + dx * u, from[1] + dy * u, from[2] + dz * u], v: [rnd(-0.2, 0.2), rnd(0.2, 0.6), rnd(-0.2, 0.2)], life: rnd(0.4, 0.8), s0: 0.06, s1: 0, c0: TEL.goldHot, c1: TEL.gold }); }
-      FX.sparks(to, 10 + 6 * s, { speed: 1.3, c0: TEL.goldHot, c1: TEL.gold });
+      FX.sparks(to, 14, { speed: 1.3, c0: TEL.goldHot, c1: TEL.gold });
       for (let i = 0; i < 8; i++) spawn({ mesh: 'emit', p: from.slice(), v: [rnd(-1, 1), rnd(-0.4, 1), rnd(-1, 1)], life: 0.14, s0: 0.1, s1: 0, c0: TEL.goldHot, c1: TEL.gold });
-      FX._flash.push({ p: to.slice(), t: 0, T: 0.3, hex: TEL.gold, i: 4 + 2 * s });
+      FX._flash.push({ p: to.slice(), t: 0, T: 0.3, hex: TEL.gold, i: 5 });
+      FX._flash.push({ p: from.slice(), t: 0, T: 0.25, hex: TEL.goldHot, i: 4 });
     }
+    lightReq(from[0], from[1], from[2], TEL.gold, 2.2 * (1 - q), 3);
   },
   // Granate: gestrichelter Bogen (Rest der Flugbahn) + Kugel + Aufschlagring, der sich füllt
   grenadeArc(from, to, k, R, t, dt) {
@@ -917,8 +917,23 @@ function drawDauer(d, dt, t) {
   const a = o.winkel != null ? +o.winkel : tp ? Math.atan2(tp.y - ent.y, tp.x - ent.x) : angleOf(ent);
   const base = W(ent.x, ent.y, 0);
   switch (d.type) {
-    case 'lance_charge': FX2.lanceCharge(sockAt(ent, 'charge', a), tp ? W(tp.x, tp.y, 1.0) : null, d.k != null && d.snap >= 0 ? d.k : (o.k != null ? clamp01(o.k) : k), t, dt); break;
-    case 'lance_beam': if (tp) FX2.lanceBeam(o.from || sockAt(ent, 'charge', a), W(tp.x, tp.y, 1.0), o.stufe, k, d.fresh); break;
+    case 'lance_charge': {
+      // Ziellinie folgt der Zielrichtung des Trägers (Spieler fa/Mauswinkel, Gegner facing) bis Strahlweite bzw. Volldeckung (render.js lanzeEnde)
+      const RR = window.Render; const v = F.view;
+      const own = v && v.me && ent.id === v.me.id && v.self ? v.self : null;
+      const ox = own ? own.x : ent.x, oy = own ? own.y : ent.y;
+      let la = RR && RR.lanzeWinkel ? RR.lanzeWinkel(v, ent) : null;
+      if (la == null) la = tp ? Math.atan2(tp.y - oy, tp.x - ox) : angleOf(ent);
+      const from = sockAt(ent, 'charge', la);
+      const en = RR && RR.lanzeEnde ? RR.lanzeEnde(v, ox, oy, la) : tp;
+      const to = en ? W(en.x, en.y, 0) : null;
+      if (to) to[1] = from[1];   // waagerecht auf Mündungshöhe
+      const kk = d.k != null && d.snap >= 0 ? d.k : (o.k != null ? clamp01(o.k) : k);
+      const bereit = d.snap >= 0 && ent.ch != null && RR && RR.lanzeBereit ? RR.lanzeBereit(ent.ch) : !!o.bereit;
+      FX2.lanceCharge(from, to, kk, bereit, !isPlayer(ent), t, dt);
+      break;
+    }
+    case 'lance_beam': if (tp) { const fr = o.from || sockAt(ent, 'charge', a); const to = W(tp.x, tp.y, 0); to[1] = fr[1]; FX2.lanceBeam(fr, to, k, d.fresh); } break;
     case 'grenade_arc': {
       if (!tp) break;
       if (!o.from) o.from = W(ent.x, ent.y, 1.3);
@@ -1345,7 +1360,7 @@ function b2Event(ev, pos) {
     case 'ueberhitzt': if (xy) dauer('overheat', { id: ev.id, x: xy.x, y: xy.y }, wcfg((e && e.wf) || 'blaster', 'sperre', 3)); return true;
     case 'ladungLanze': {
       if (ev.tx != null && ev.x != null) setAng(ev.id, Math.atan2(ev.ty - ev.y, ev.tx - ev.x));
-      dauer('lance_charge', { id: ev.id, x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty }, wcfg('lanze', 'laden', 1.5));
+      dauer('lance_charge', { id: ev.id, x: ev.x, y: ev.y, tx: ev.tx, ty: ev.ty }, wcfg('lanze', 'zielfenster', 1) + 0.5);   // der Snapshot (ch) hält die Linie, das Ereignis nur als Rückfall
       return true;
     }
     case 'lanzeSchuss': {
@@ -1357,7 +1372,7 @@ function b2Event(ev, pos) {
       if (sx == null) return true;
       const a = Math.atan2(ty - sy, tx - sx); setAng(ev.id, a);
       const src = e || { id: null, x: sx, y: sy };
-      dauer('lance_beam', { key: 'b' + (++F.b2.seq), x: sx, y: sy, tx, ty, stufe: ev.stufe, from: sockAt(src, 'charge', a) }, 0.35);
+      dauer('lance_beam', { key: 'b' + (++F.b2.seq), x: sx, y: sy, tx, ty, from: sockAt(src, 'charge', a) }, 0.45);
       FX2.muzzle('lanze', sockAt(src, 'charge', a), a);
       return true;
     }

@@ -440,7 +440,8 @@
         faust: { schuss: 4, ausholen: 0.6, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.2, schaden: 1, laerm: 'nah' },
       },
       laerm: { laut: 18, mittel: 10, leise: 4, nah: 3 },   // Kacheln
-      sicht: { aussicht: 22, geteiltTtl: 6 },              // normal bleibt sightTiles (10)
+      sicht: { aussicht: 22, geteiltTtl: 6,                // normal bleibt sightTiles (10)
+        lanzeZielen: { kacheln: 22, halbwinkel: 12 } },    // BOD-02 P2: Spieler zielt mit der Lanze: Weitsicht im Kegel ±halbwinkel° in Zielrichtung
       koerper: { bewusstlos: 30, fesseln: 3, befreien: 3, aufrichten: 4, gegnerBleedout: 45, ankuendigung: 0.5, ausbruchTuer: 8 },
       // seg, wunden, speed px/s, aim s, hitRadius px; regenDelay 4 / regenStep 1.5 (Wächter 6 / 2) wie enemy.*
       gegner: {

@@ -169,7 +169,7 @@ console.log('\n[Strahl: volle Reichweite, durchschlägt Körper, eigene Leute ge
   // Strahl reicht immer: Zielpunkt dicht vor dem Schützen ändert die Länge nicht
   p.hitze = 0; p.gesperrtBis = 0; S.P(1).shield.seg = 3;
   S.run(0.2);
-  away.shoot(S.g, p, ang, { dist: 2 }); S.run(0.6); S.los(p, ang); S.run(0.1);
+  away.shoot(S.g, p, ang, { dist: 2 }); S.run(0.6, () => { if (Math.round(S.g.time * 30) % 8 === 0) away.shoot(S.g, p, ang, { dist: 2 }); }); S.los(p, ang); S.run(0.1);
   const sch2 = S.ev('lanzeSchuss')[1];
   ok(sch2 && Math.abs((sch2.m.tx - sch2.m.x) - LAN.reichweite * TILE) < 2, 'auch mit kurzem Zielabstand (dist) volle Länge');
   ende();
@@ -293,6 +293,100 @@ console.log('\n[Gegner zwei in einer Linie und Kamerad: Gegner-Strahl durchschl�
   Wf.feuern(S.g, e1, { angle: Math.PI });
   S.run(1.3);
   ok(segE(e2) === 1 || e2.alive === false, 'eigener Kamerad des Schützen auf der Linie wird getroffen (Friendly Fire gilt für alle)');
+  ende();
+}
+
+console.log('\n[BOD-02 P2: Auto-Schuss startet kein neues Zielen, solange der Abzug gehalten wird]');
+{
+  // Spieler hält den Abzug (Strom im Takt wie der Client, alle 0,2 s): ein Zielen, ein Auto-Schuss, dann Ruhe – auch nach Ende der Überhitzung
+  const S = szene(1); const p = S.lanze(0); S.place(0, 3, ZEILE);
+  const e = S.gegner('grundtyp', 12, ZEILE);
+  const ang = S.winkel(p, 12, ZEILE);
+  const halten = (sek) => S.run(sek, () => { if (Math.round(S.g.time * 30) % 6 === 0) away.shoot(S.g, p, ang); });
+  away.shoot(S.g, p, ang); halten(5);
+  ok(S.ev('ladungLanze').length === 1 && S.ev('lanzeSchuss').length === 1 && S.ev('lanzeSchuss')[0].m.auto === 1, 'Abzug 5 s gehalten: genau ein Zielen und ein (Auto-)Schuss, kein Neustart');
+  ok(!p.ladung && p.lanzeSperre === true && segE(e) === 1, 'danach kein Zielen (lanzeSperre), Schild des Gegners nur einmal getroffen');
+  ok(!Wf.ueberhitzt(S.g, p), 'Überhitzung ist vorbei – nur die Sperre hält das Zielen zurück');
+  // Loslassen (shoot { los }) gibt den Abzug frei, neu Drücken zielt wieder
+  S.los(p, ang); S.run(0.05);
+  ok(p.lanzeSperre === false && !p.ladung, 'Loslassen: Sperre fällt, kein Schuss nebenbei');
+  away.shoot(S.g, p, ang); S.run(0.1);
+  ok(p.ladung && S.ev('ladungLanze').length === 2, 'neu Drücken: neues Zielen beginnt');
+  ende();
+}
+{
+  // Strom reißt ab (Paket-Verlust, Fenster-Fokus): nach 0,45 s Stille gilt das als Loslassen
+  const S = szene(1); const p = S.lanze(0); S.place(0, 3, ZEILE);
+  S.gegner('grundtyp', 12, ZEILE);
+  const ang = 0;
+  S.zielen(p, ang, 1.1);   // Strom bis über das Fensterende, dann Stille
+  ok(S.ev('lanzeSchuss').length === 1 && S.ev('lanzeSchuss')[0].m.auto === 1 && p.lanzeSperre === true, 'Auto-Schuss, Strom hört auf: Sperre bleibt zunächst (Strom war eben noch da)');
+  S.run(0.6);
+  ok(p.lanzeSperre === false, 'Strom abgerissen (0,45 s ohne shoot): Sperre fällt von selbst');
+  p.hitze = 0; p.gesperrtBis = 0;
+  away.shoot(S.g, p, ang); S.run(0.1);
+  ok(p.ladung, 'neuer Strom zielt wieder');
+  // Gegner geben den Abzug mit jedem Feuerbefehl frei (Sperre gilt nur für gehaltene Spielertasten)
+  const E = szene(1); E.place(0, 6, ZEILE);
+  const e2 = E.gegner('schuetze', 18, ZEILE);
+  e2.lanzeSperre = true;
+  combat.fireEnemy(E.g, e2, E.P(0));
+  ok(e2.lanzeSperre === false && e2.ladung, 'fireEnemy: Gegner zielt trotz Sperrflag (KI hält keinen Abzug)');
+  ende();
+}
+
+console.log('\n[BOD-02 P2: Weitsicht beim Zielen – Kegel ±12° bis 22 Kacheln]');
+{
+  const K = AC.sicht.lanzeZielen;
+  ok(K && K.kacheln === 22 && K.halbwinkel === 12, 'Konfig awayCombat.sicht.lanzeZielen { kacheln 22, halbwinkel 12 }');
+  const S = szene(1); const p = S.lanze(0); S.place(0, 3, ZEILE);
+  const gerade = S.gegner('grundtyp', 21, ZEILE), schraeg = S.gegner('grundtyp', 21, ZEILE + 3), weit = S.gegner('grundtyp', 21, ZEILE + 6);
+  const naeher = S.gegner('grundtyp', 11, ZEILE + 4);   // 9 Kacheln: normale Sicht (10), auch ausserhalb des Kegels
+  S.run(0.5);   // Sichtberechnung läuft mit aiHz
+  ok(!gerade.vis && !schraeg.vis && !weit.vis, 'ohne Zielen: Gegner in 18 Kacheln unsichtbar (Sicht 10)');
+  ok(naeher.vis, 'Gegner in 9 Kacheln sichtbar (normale Sicht)');
+  S.zielen(p, 0, 0.45);
+  ok(p.ladung && gerade.vis, 'zielt: Gegner genau in Blickrichtung in 18 Kacheln sichtbar');
+  ok(schraeg.vis, 'Gegner 9,5° neben der Blickrichtung sichtbar (innerhalb ±12°)');
+  ok(!weit.vis, 'Gegner 18° neben der Blickrichtung bleibt unsichtbar (Kegel, nicht rundum)');
+  ok(naeher.vis, 'Nahsicht bleibt erhalten');
+  S.los(p, 0); S.run(0.5);
+  ok(!gerade.vis && !schraeg.vis, 'nach dem Schuss/Loslassen: Weitsicht weg');
+  // Auch der Kegel braucht Sichtlinie: Volldeckung im Strahl
+  const W = szene(1, [[10, ZEILE, '#']]); const q = W.lanze(0); W.place(0, 3, ZEILE);
+  const dahinter = W.gegner('grundtyp', 18, ZEILE);
+  W.zielen(q, 0, 0.45);
+  ok(q.ladung && !dahinter.vis, 'Wand im Weg: auch mit Kegel keine Sicht dahinter');
+  // Mehrspieler: der Kegel eines Spielers gilt für das Team (geteilte Teamsicht)
+  const M = szene(2); const a = M.lanze(0); M.place(0, 3, ZEILE); M.place(1, 3, ZEILE + 5);
+  const g2 = M.gegner('grundtyp', 21, ZEILE);
+  M.run(0.5); const vorher = g2.vis;
+  M.zielen(a, 0, 0.45);
+  ok(!vorher && g2.vis, 'zwei Spieler: der zielende Spieler macht den Gegner für das Team sichtbar');
+  ende();
+}
+
+console.log('\n[BOD-02 P2: Ziellinie des Gegners kommt über den Snapshot (ch + facing = Zielrichtung)]');
+{
+  const S = szene(1); const p = S.P(0); S.place(0, 6, ZEILE);
+  const e = S.gegner('schuetze', 18, ZEILE + 3);
+  e.vis = true;
+  Wf.feuern(S.g, e, { x: p.x, y: p.y });
+  S.run(0.3);
+  const want = Math.round(Math.atan2(p.y - e.y, p.x - e.x) * 100) / 100;
+  const snap = S.g.snapshot();
+  const d = (snap.away.drones || []).find((x) => x.id === e.id);
+  ok(d && d.wf === 'lanze' && d.ch > 0 && d.ch < 50, 'Snapshot: Gegner zielt (wf lanze, ch ' + (d && d.ch) + ' im Zielfenster)');
+  ok(d && Math.abs(d.facing - want) < 0.011, 'Snapshot: facing = Zielrichtung zum Spieler (' + (d && d.facing) + ' / Soll ' + want + ')');
+  // Zielrichtung wandert mit dem Ziel
+  const c = Physics.tileCenter(6, ZEILE + 6); p.x = c.x; p.y = c.y;
+  Wf.feuern(S.g, e, { x: p.x, y: p.y });
+  const d2 = S.g.snapshot().away.drones.find((x) => x.id === e.id);
+  const want2 = Math.round(Math.atan2(p.y - e.y, p.x - e.x) * 100) / 100;
+  ok(d2 && Math.abs(d2.facing - want2) < 0.011 && Math.abs(d2.facing - d.facing) > 0.05, 'Zielrichtung folgt dem Ziel (Server aktualisiert tx,ty in feuern)');
+  e.ladung = null;
+  const d3 = S.g.snapshot().away.drones.find((x) => x.id === e.id);
+  ok(d3 && d3.ch == null, 'ohne Zielen kein ch');
   ende();
 }
 

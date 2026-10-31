@@ -752,6 +752,16 @@
         const mx = Math.round(view.mouse.x), my = Math.round(view.mouse.y);
         ctx.fillStyle = PAL.mint;
         ctx.fillRect(mx - 5, my, 3, 1); ctx.fillRect(mx + 3, my, 3, 1); ctx.fillRect(mx, my - 5, 1, 3); ctx.fillRect(mx, my + 3, 1, 3);
+        // BOD-02 P2: Zielfenster der Lanze – Balken 0–100 % mit Marke bei Fensterbeginn, ab dort BEREIT (Loslassen schießt, bei Fensterende von selbst)
+        const lm = view.me;
+        if (lm && lm.zone === 'away' && lm.wf === 'lanze' && +lm.ch > 0 && R.lanzeFenster) {
+          const z = R.lanzeFenster(), bereit = R.lanzeBereit(lm.ch), frac = Math.max(0, Math.min(1, +lm.ch / 100));
+          const bw = 30, bx = mx - bw / 2, by = my + 12;
+          ctx.fillStyle = 'rgba(11,14,26,0.8)'; ctx.fillRect(bx - 1, by - 1, bw + 2, 6);
+          ctx.fillStyle = bereit ? '#FF5A4A' : '#8A2F26'; ctx.fillRect(bx, by, Math.round(bw * frac), 4);
+          ctx.fillStyle = '#FFFFFF'; ctx.fillRect(bx + Math.round(bw * z.min / z.max), by - 2, 1, 8);
+          if (bereit) R.text(ctx, 'BEREIT', mx, by + 8, { color: Math.floor(view.time * 12) % 2 ? '#FFFFFF' : PAL.red, align: 'center' });
+        }
       }
     },
 
@@ -853,7 +863,7 @@
       // Zustand rechts neben dem Balken (kurz): überhitzt, Lanze lädt, Ausholen
       const tx = bx + bw + (ibOk && ov ? 12 : 4);   // IconsB setzt beim Überhitzen eine Flamme rechts an den Balken
       if (ov) R.text(ctx, 'HEISS', tx, y, { color: Math.floor(view.time * 4) % 2 ? PAL.red : PAL.star });
-      else if (+me.ch > 0) R.text(ctx, Math.round(+me.ch) + '%', tx, y, { color: '#FFF1B8' });
+      else if (+me.ch > 0) R.text(ctx, R.lanzeBereit && R.lanzeBereit(me.ch) ? 'BEREIT' : 'ZIELT', tx, y, { color: R.lanzeBereit && R.lanzeBereit(me.ch) ? PAL.red : '#FFF1B8' });
       else if (+me.wu > 0) R.text(ctx, 'HOLT', tx, y, { color: '#FFF1B8' });
     },
     drawDownedBanner(ctx, view) {

@@ -191,6 +191,9 @@ function geteiltBis(game) { return now(game) + (Number(ac(game).sicht && ac(game
 // Schuss mit `loslassen`. Nahkampf/Faust: beginnt das Ausholen, der Schlag folgt in `update`. Granate: Bogen zum Ziel.
 function feuern(game, k, ziel) {
   const d = def(game, k.waffe);
+  // Nach dem Auto-Schuss am Fensterende beginnt kein neues Zielen, solange der Schütze den Abzug hält (Spieler: shoot { los: true } bzw.
+  // abreißender Strom hebt lanzeSperre in combat.js auf; Gegner geben den Abzug mit jedem Feuerbefehl frei, combat.fireEnemy)
+  if (d && !k.ladung && k.lanzeSperre && art(d) === 'lanze') return 'abzug_halten';
   if (k.ladung && d && art(d) === 'lanze') {
     if ((k.zustand || 'ok') !== 'ok' || betaeubt(game, k)) return 'zustand';
     const p = zielPunkt(k, ziel, (Number(d.reichweite) || 0) * TILE);
@@ -307,6 +310,7 @@ function loslassen(game, k, auto) {
   const d = def(game, k.waffe); const L = k.ladung;
   if (!L || art(d) !== 'lanze') return 'keine_ladung';
   k.ladung = null;
+  k.lanzeSperre = !!auto;   // Auto-Schuss: erst Loslassen und neu Drücken startet ein neues Zielen
   if (!L.bereit) return 'zu_kurz';
   const max = (Number(d.reichweite) || 0) * TILE;
   let dx = L.tx - k.x, dy = L.ty - k.y; const len = Math.hypot(dx, dy) || 1;
