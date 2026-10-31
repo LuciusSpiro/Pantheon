@@ -423,7 +423,7 @@ class Actor {
     refreshSlot(this.extra);
     return this.extra;
   }
-  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) this.fig.skinned.geometry.dispose(); }
+  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
 }
 
 function actor(key) {
@@ -801,7 +801,7 @@ function schlaegerFx(a, on) {
   }
   a.schlaeger.visible = true;
 }
-// CHA-01 B2: Figur aus der Charakterkarte (Client.karten[pid]) → { figId, opts } oder null (keine Karte, Katalog noch nicht geladen, kein Client: heutiger Pfad).
+// CHA-01 B2: Figur aus der Charakterkarte (Client.karten[pid]) → { figId, opts } oder null (keine Karte, Katalog noch nicht geladen, Figur nicht ladbar, kein Client: heutiger Pfad).
 // Gleiche Figur an Bord und im Einsatz, keine Spielerfarbe in colors. Ergebnis je Kartenobjekt gemerkt (Karten werden nur per Ereignis ersetzt).
 const KARTEN_FIGUR = new WeakMap();
 const CHA_FIGUR = 'cha/spieler';
@@ -809,6 +809,7 @@ function kartenFigur(pid) {
   const C = window.Client, Ch = window.Shared_Charakter, ld = L.ctx && L.ctx.loader;
   const k = C && C.karten && C.karten[pid];
   if (!k || !Ch || !Ch.figurAusKarte || !ld || !ld.charakterKatalog) return null;
+  if (typeof ld.isMissing === 'function' && ld.isMissing(CHA_FIGUR, 'figures')) return null;   // Figur nicht ladbar: heutige Figur statt dauerhaftem Platzhalter
   const kat = ld.charakterKatalog();
   if (!kat) return null;
   let r = KARTEN_FIGUR.get(k);

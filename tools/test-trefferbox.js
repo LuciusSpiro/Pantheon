@@ -37,16 +37,38 @@ function leser(dateiListe) {
   }
   return treffer;
 }
+// game.js ist kein Freibrief: nur die Verteilung der Karte darf sie lesen. Jede Fundstelle wird der umschließenden Methode zugeordnet (Zeile `  name(...) {` mit zwei Leerzeichen Einzug).
+// Erlaubt: onHello (Platzübernahme), helloKarte, sendeKarte, karteOutfit, welcomeMsg; dazu die Kopfzeilen (Import, Katalog). Empfänger reg/sektorkarteCache sind Sim-Daten (Landepunkt-Registry, Sektorkarte).   Ebenso W.AWAY_MAPS[..].karte (Landepunkt-Karten).
+const GAME_ERLAUBT = new Set(['onHello', 'helloKarte', 'sendeKarte', 'karteOutfit', 'welcomeMsg']);
+const GAME_KOPF = /^(?:const Charakter = require\('\.\.\/shared\/charakter\.js'\)|let charakterKatalog|try \{ charakterKatalog)/;
+const GAME_LESER = /(?<!\breg|\bsektorkarteCache|\bAWAY_MAPS\[[^\]]*\])\.karte\b|\bCharakter\.|\bcharakterKatalog\b/;
+function gameLeser(text) {
+  const treffer = []; let methode = null;
+  text.split('\n').forEach((z, i) => {
+    const m = /^  (?:static |async )?([A-Za-z_]\w*)\(.*\) \{/.exec(z);
+    if (m) methode = m[1]; else if (/^\S/.test(z)) methode = null;
+    const code = z.replace(/\/\/.*$/, '');
+    if (!GAME_LESER.test(code)) return;
+    if (methode === null ? (GAME_KOPF.test(code) && !code.includes(".karte")) : GAME_ERLAUBT.has(methode)) return;
+    treffer.push('server/game.js:' + (i + 1) + ' (' + (methode || 'Kopf') + ')');
+  });
+  return treffer;
+}
 section('Statisch: wer liest die Karte eines Spielers?');
 {
   ok(SPIELER_KARTE.test('const x = p.karte.outfit;') && SPIELER_KARTE.test('if (pl.karte) {') && SPIELER_KARTE.test("require('../shared/charakter.js')") && !SPIELER_KARTE.test('const K = info.karte; K.karte.anker'),
     'Selbsttest der Suche: findet p.karte und den Import, ignoriert die Landkarte der Außenmission');
   const alle = dateien('server', []);
   const t = leser(alle);
-  const fremd = t.filter((x) => !x.startsWith('server/game.js:'));
+  const gameText = fs.readFileSync('server/game.js', 'utf8');
+  const fremd = t.filter((x) => !x.startsWith('server/game.js:')).concat(gameLeser(gameText));
   const norm = alle.map((f) => f.replace(/\\/g, '/'));
   ok(['server/sim/combat.js', 'server/sim/away.js', 'server/sim/interior.js'].every((f) => norm.includes(f)), 'durchsucht werden unter anderem combat.js, away.js und interior.js (alles unter server/)');
   ok(t.some((x) => x.startsWith('server/game.js:')), 'game.js liest die Karte (Verteilung, Namen): die Suche wirkt');
+  const einschleusen = (zeile) => gameText.replace('  karteOutfit(p, msg) {', '  tickSpieler(p) {\n    ' + zeile + '\n  }\n  karteOutfit(p, msg) {');
+  ok(gameLeser(einschleusen('const x = p.karte.outfit;')).length === 1 && gameLeser(einschleusen('const y = other.karte;')).length === 1 && gameLeser(einschleusen('const z = Charakter.pruefeName(p.name);')).length === 1 && gameLeser(einschleusen('const w = this.katalogKarte;')).length === 0,
+    'Selbsttest game.js: ein Lesen von .karte / Charakter. in einer anderen Methode wird rot, harmlose Zeile nicht');
+  ok(gameLeser(gameText.replace('const Charakter = require', 'const Charakter2 = require').replace("charakterKatalog = null;   // CHA", "charakterKatalog = null; let q = p.karte; // CHA")).length >= 1, 'Selbsttest game.js: zusätzliche Karte-Nutzung in der Kopfzeile wird rot');
   ok(fremd.length === 0, 'kein anderer Servercode liest die Spielerkarte' + (fremd.length ? ' (' + fremd.join(', ') + ')' : ''));
 }
 
@@ -95,7 +117,7 @@ function lauf(karten) {
   zaehler.an = false;
   const aw = g.arena && g.arena.wellen && g.aways[g.arena.wellen.lp];
   const gegner = aw ? aw.drones.filter((e) => e.tag === Wellen.TAG) : [];
-  return { g, spuren, lesen: zaehler.lesen, gegner, aw };
+  return { g, spuren, lesen: zaehler.lesen, gegner, aw, zaehler };
 }
 const erstesAbweichen = (a, b) => { for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return i; return -1; };
 // Namen stehen in den Karten; alle Läufe benutzen dieselben Namen G0/G1, damit der Snapshot (players[].name) vergleichbar bleibt.
@@ -116,6 +138,8 @@ section('Dynamisch: Grabenangriff, drei Besetzungen, gleiche Eingaben');
   ok(erstesAbweichen(a.spuren, b.spuren) === -1, 'Snapshot je Sekunde: ohne Karten = Voll/Leer (Positionen, Treffer, Schilde, Gegnerzustände gleich)');
   ok(erstesAbweichen(a.spuren, c.spuren) === -1, 'Snapshot je Sekunde: ohne Karten = Leer/Voll (vertauscht)');
   ok(erstesAbweichen(b.spuren, c.spuren) === -1, 'Voll/Leer = Leer/Voll');
+  { const z = b.zaehler; const vor = z.lesen; z.an = true; void b.g.players[0].karte; void b.g.players[1].karte; z.an = false;
+    ok(z.lesen === vor + 2, 'Positivkontrolle: ein absichtliches Lesen von p.karte wird vom Zugriffszähler gezählt (+2)'); }
   ok(b.lesen === 0 && c.lesen === 0, `Server liest p.karte in ${SEKUNDEN} s Spielzeit kein einziges Mal (Zugriffe: ${b.lesen}, ${c.lesen})`);
 }
 

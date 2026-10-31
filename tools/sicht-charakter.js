@@ -4,6 +4,8 @@
 //                  und Bilder bei den anderen ohne Neuladen; dann ein Nachzügler (vierter Kontext) und dessen Sicht
 //   Phase boden    (Grabenangriff, arena_graben): dieselben Karten im Einsatz mit Gegnern im Bild, Zoom 0 und 1
 //   Phase heap     (--heap): 100 × Outfit wechseln, Heap und Cache-Größen im Browser messen
+//   Phase fehlt    (Nacharbeit K1): Datei figures/cha/spieler.json wird vom Server verweigert (404) → Spieler muss die heutige Figur (lerche/crew_N) tragen, kein Dauer-Platzhalter
+//   Phase akteure  (Nacharbeit S2): Akteure (Spielerfigur, Skelett mit Knochentextur) 40 × erzeugen und mit layer.dispose() wegräumen, Texturzahl des Renderers muss konstant bleiben
 // Umgebung: HEAP_N=400 (Anzahl Outfit-Wechsel, Standard 100), HEAP_ZWEI=1 (nur zwei Outfits im Wechsel), OHNE_KARTEN=1 (Kontrolle ohne Karten), NUR_ERSTE=1
 // Aufruf: node tools/sicht-charakter.js [--phase schiff,boden,heap] [--shots shots/charakter] [--port 3531] [--w 1920 --h 1080]   (Bilder nicht im Repo, shots/ ist ignoriert)
 'use strict';
@@ -307,6 +309,66 @@ async function phaseHeap(browser) {
   } finally { await srv.close(); }
 }
 
+async function phaseAkteure(browser) {
+  log('\n== Phase akteure (40 x Akteure erzeugen und wegräumen) ==');
+  const srv = await startServer({ port: PORT + 3, debug: true, ruestphase: false, roomCode: 'off', quiet: true, worlds: true, worldDir: path.join(TMP, 'worlds-akteure') });
+  const g = srv.game;
+  try {
+    const c = await neuerKontext(browser, PORT + 3, KARTEN[0], 'A1');
+    await warteBis(() => g.players.length === 1 && g.players[0].karte, 20000, 'Karte am Server');
+    await c.page.evaluate(() => { __game.send({ t: 'lobbyOpt', startMission: 'freie_fahrt' }); __game.send({ t: 'ready', ready: true }); });
+    await warteBis(() => c.page.evaluate(() => __game.state && __game.state.phase && __game.state.phase !== 'lobby'), 30000, 'Runde läuft');
+    await sleep(2500);
+    const N = +process.env.AKTEURE_N || 40;
+    const r = await c.page.evaluate(async (n) => {
+      const frames = (k) => new Promise((res) => { let i = 0; const f = () => (++i >= k ? res() : requestAnimationFrame(f)); requestAnimationFrame(f); });
+      const tex = () => VoxelRender.info().textures, geo = () => VoxelRender.info().geometries;
+      await frames(30);
+      for (let i = 0; i < 2; i++) { VoxelActors.layer.dispose(); await frames(12); }   // Anlauf: Zustand nach dem ersten Wegräumen ist die Basis (vorher zählen Texturen der ersten Figuren mit)
+      const vor = { texturen: tex(), geometries: geo(), figuren: VoxelActors.stats().figures };
+      const serie = [];
+      for (let i = 1; i <= n; i++) {
+        VoxelActors.layer.dispose();   // wie beim Zonenwechsel: alle Akteure freigeben, der nächste Frame baut sie neu
+        await frames(12);
+        if (i % 10 === 0) serie.push([i, tex(), geo()]);
+      }
+      const nach = { texturen: tex(), geometries: geo(), figuren: VoxelActors.stats().figures };
+      return { vor, serie, nach };
+    }, N);
+    log(JSON.stringify(r));
+    fs.mkdirSync(SHOTS, { recursive: true });
+    fs.writeFileSync(path.join(SHOTS, 'akteure.json'), JSON.stringify(r, null, 1));
+    if (!(r.vor.figuren > 0)) { fehler.push('akteure: keine Figur im Bild, Messung leer'); }
+    const wachsen = r.nach.texturen > r.vor.texturen || r.serie[r.serie.length - 1][1] > r.serie[0][1];   // Zahl darf fallen (Aufräumen des Ladens), aber nie wachsen
+    if (wachsen) { fehler.push(`akteure: Texturzahl ${r.vor.texturen} -> ${r.nach.texturen}, Reihe ${r.serie.map((x) => x[1]).join('/')} nach ${N} Runden (Leck)`); process.exitCode = 1; }
+    await c.ctx.close();
+  } finally { await srv.close(); }
+}
+
+async function phaseFehlt(browser) {
+  log('\n== Phase fehlt (cha/spieler nicht ladbar) ==');
+  const srv = await startServer({ port: PORT + 4, debug: true, ruestphase: false, roomCode: 'off', quiet: true, worlds: true, worldDir: path.join(TMP, 'worlds-fehlt') });
+  const g = srv.game;
+  try {
+    const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+    await ctx.route('**/figures/cha/spieler.json', (route) => route.fulfill({ status: 404, body: 'nicht da' }));
+    const page = await ctx.newPage();
+    page.on('pageerror', (e) => fehler.push('F1 pageerror: ' + e.message));
+    await page.goto(`http://127.0.0.1:${PORT + 4}/?render=voxel&debug=1`);
+    await page.waitForFunction(() => window.__game && __game.send && __game.state && window.VoxelRender, null, { timeout: 180000 });
+    await page.evaluate((k) => __game.setzeKarte(k), KARTEN[0]);
+    await warteBis(() => g.players.length === 1 && g.players[0].karte, 20000, 'Karte am Server');
+    await page.evaluate(() => { __game.send({ t: 'lobbyOpt', startMission: 'freie_fahrt' }); __game.send({ t: 'ready', ready: true }); });
+    await warteBis(() => page.evaluate(() => __game.state && __game.state.phase && __game.state.phase !== 'lobby'), 30000, 'Runde läuft');
+    await sleep(6000);
+    const r = await page.evaluate(() => ({ info: VoxelActors.figurInfo('p1'), fehlt: VoxelRender.loader.isMissing('cha/spieler', 'figures'), platzhalter: VoxelActors.stats().placeholders }));
+    log(JSON.stringify(r));
+    if (!r.fehlt) { fehler.push('fehlt: Figur gilt nicht als fehlend, Messung leer'); process.exitCode = 1; }
+    if (!r.info || r.info.figId === 'cha/spieler' || !/^lerche\/crew_/.test(r.info.figId)) { fehler.push('fehlt: Spieler trägt nicht die heutige Figur: ' + JSON.stringify(r.info)); process.exitCode = 1; }
+    await ctx.close();
+  } finally { await srv.close(); }
+}
+
 async function main() {
   fs.mkdirSync(SHOTS, { recursive: true });
   const browser = await chromium.launch({ args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--enable-precise-memory-info', '--js-flags=--expose-gc'] });
@@ -316,10 +378,12 @@ async function main() {
     if (PHASEN.includes('boden')) await phaseBoden(browser);
     if (PHASEN.includes('posen')) await phasePosen(browser);
     if (PHASEN.includes('heap')) await phaseHeap(browser);
+    if (PHASEN.includes('akteure')) await phaseAkteure(browser);
+    if (PHASEN.includes('fehlt')) await phaseFehlt(browser);
   } catch (e) { console.error(e); code = 1; }
   const uniq = [...new Set(fehler)];
   log('\nBrowser-Meldungen: ' + (uniq.length ? '\n  ' + uniq.slice(0, 30).join('\n  ') : 'keine'));
   await browser.close();
-  process.exit(code);
+  process.exit(code || process.exitCode || 0);
 }
 main();

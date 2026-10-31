@@ -1980,7 +1980,7 @@ Gemessen mit einem Fenster, Chromium headed mit echter GPU (`ANGLE (Intel UHD Gr
 Ziel laut Vertrag: ≥ 30 fps normal, ≥ 45 fps im Sparmodus. Beides ist erreicht.
 
 ### Für Entwickler
-- **`npm run assets`** kopiert die Modelle aus Voxelwerk (`../voxelwerk`) nach `public/voxel/`. Nach jeder Änderung an einem Voxelwerk-Rezept ausführen und die Seite neu laden. `npm run assets:watch` macht das laufend.
+- **`npm run assets`** kopiert die Modelle aus Voxelwerk (`../voxelwerk`) nach `public/voxel/`. Nach jeder Änderung an einem Voxelwerk-Rezept ausführen und die Seite neu laden. `npm run assets:watch` macht das laufend. Quelle ist `VOXELWERK_PATH` (Standard `../voxelwerk`). Für die Charakterkarte (CHA-01) muss sie den Stand mit `assets/katalog/charakter.json` führen (Branch `cha01`), sonst bricht der Lauf mit Exit 1 ab, ohne etwas zu schreiben oder zu löschen. Auch bei Fehlern im Lauf wird nichts aufgeräumt.
 - **`npm run check:assets`** prüft Manifeste (`assets/manifest/art-*.json`) gegen die Modelle: Stufe, Dreiecksbudget, Maße und fehlende IDs. Ziel ist 0 Fehler. Warnungen sind erlaubt (Stand QA: 0 Fehler, 18 Warnungen).
 - **Galerie:** `http://localhost:<PORT>/voxel-gallery.html` zeigt alle Assets mit ihren Zuständen.
 - **Code:** `public/js/voxel/` mit `boot.js` (Einstieg, F8, `window.VoxelRender`), `renderer.js` (Szene, Kamera, Licht, Liftfahrt, FPS-Wächter), `loader.js` (Asset-Cache), `ship.js` (Schiff), `actors.js` (Figuren), `fx.js` (Effekte) und `away.js` (Außenmissionen).

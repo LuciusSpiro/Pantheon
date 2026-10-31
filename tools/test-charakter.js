@@ -38,6 +38,19 @@ function einheiten() {
   const ALTWERT = (p) => (p.gruppe === 'outfit' ? ALT.outfit[p.id] : ALT[p.id]);
   ok(KAT.plaetze.every((p) => [p.standard, ALTWERT(p)].every((n) => KAT.teile.some((t) => t.platz === p.id && t.id === p.id + '/' + n))), 'je Platz Standard und Prüfsatz-Alternative');
   ok(KAT.teile.every((t) => typeof t.name === 'string' && t.name && typeof t.vorschau === 'string'), 'jedes Teil mit Anzeigenamen und Vorschaubild');
+  // Nacharbeit K6: Vorschaubilder liegen wirklich da (public/voxel/sprites/<vorschau>), sind PNG, und Server- und Browser-Katalog sind byte-gleich
+  const SPRITES = path.join(__dirname, '..', 'public', 'voxel', 'sprites');
+  const PNG = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const vorschauFehler = KAT.teile.map((t) => t.vorschau).filter((v) => {
+    const f = path.join(SPRITES, v);
+    if (!f.startsWith(SPRITES) || !fs.existsSync(f)) return true;
+    const b = fs.readFileSync(f);
+    return b.length < 100 || !b.subarray(0, 8).equals(PNG);
+  });
+  ok(vorschauFehler.length === 0, `jede Vorschau des Katalogs ist eine PNG-Datei unter public/voxel/sprites/ (${KAT.teile.length} Teile)` + (vorschauFehler.length ? ': ' + vorschauFehler.slice(0, 5).join(', ') : ''));
+  // Zeilenenden normalisiert: ein Windows-Checkout (autocrlf) macht aus content/katalog/charakter.json CRLF, sync-assets schreibt beide Dateien aus denselben Quell-Bytes
+  const lf = (f) => fs.readFileSync(path.join(__dirname, '..', f)).toString('utf8').replace(/\r\n/g, '\n');
+  ok(lf('content/katalog/charakter.json') === lf('public/voxel/assets/katalog/charakter.json'), 'Katalog für Server (content/katalog) und Browser (public/voxel/assets/katalog) inhaltsgleich (Bytes bis auf Zeilenenden)');
 
   section('figurAusKarte (B2): Parameter und Farben der Voxelfigur');
   {

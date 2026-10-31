@@ -196,5 +196,9 @@ const kb = fs.statSync(path.join(ROOT, 'public', ME.TOKENS.BILD.datei)).size / 1
 console.log(`Key-Art ${ME.TOKENS.BILD.datei}: ${Math.round(kb)} KB`);
 ok(kb <= 350, 'Key-Art größer als 350 KB');
 
+// Nacharbeit S3: render.js setzt die Marke nicht mit festen Zahlen, sondern aus den Tokens (MASS.ueberKopf / MASS.geduckt)
+const renderSrc = fs.readFileSync(path.join(ROOT, 'public', 'js', 'render.js'), 'utf8');
+ok(!/crouch\s*\?\s*\d+\s*:\s*\d+/.test(renderSrc), 'render.js: Namensmarken-Höhe mit festen Zahlen (crouch ? n : m)');
+ok(/Namensmarke\.TOKENS\.MASS/.test(renderSrc) && /M\.geduckt/.test(renderSrc) && /M\.ueberKopf/.test(renderSrc) &&(renderSrc.match(/markeHoehe\(/g) || []).length >= 2, 'render.js: Namensmarken-Höhe liest MASS.geduckt / MASS.ueberKopf');
 console.log(fehler ? `${fehler} Fehler.` : 'Tokens Kleiderkammer, Startmenü, Namensmarke ok.');
 process.exit(fehler ? 1 : 0);
