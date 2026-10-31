@@ -57,12 +57,12 @@ const erholen = (g) => {
   g.ship.shields.current = g.ship.shields.alloc.slice();
   for (const k of interior.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   interior.integritaetVoll(g); g.ship.fireList.length = 0; g.ship.breachList.length = 0;
-  // SYS-03 B1: die Lerche kann im Orbit-Kampf jetzt über den Reaktor-Countdown fallen, obwohl die Szene gewonnen wird; die Erholung nimmt auch das zurück. SYS-03 D: geprüft, bleibt: ohne die Zeile scheitert der Test (der Countdown des vorigen Versuchs läuft in den nächsten hinein); Ursache nicht weiter untersucht, im Bericht als offener Punkt
-  g.ship.reaktorCountdown = null; g.ship.reaktorAusfaelle = 0; g.ship.schiffZerstoert = false; g.zerstoertOffen = null;
+  // Die Crew repariert zwischen den Versuchen auch den Reaktor (ein laufender Countdown endet mit der Reparatur). Ein echter Reaktortod (schiffZerstoert/zerstoertOffen) wird NICHT weggesetzt: er ist nach SYS-01 Partie-Ende und im Test ein Fehler (neuBereit, orbit).
+  g.ship.reaktorCountdown = null; g.ship.reaktorAusfaelle = 0;
 };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
-const PASSIV_VERLUST_NACH = 90;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus
+const PASSIV_VERLUST_NACH = 70;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus (gemessen: die passive Lerche stirbt über den Reaktor bei t≈84,7 s; das ist Partie-Ende, nicht der zu prüfende Neubeginn, also deutlich davor auslösen)
 // Orbit: die Bots kämpfen, bis die Szene endet. -> Ausgang der Szene
 function orbit(t, maxSek) {
   const g = t.g; let snap = g.snapshot(); const t0 = g.time;
@@ -73,6 +73,7 @@ function orbit(t, maxSek) {
     for (const a of t.agents) a.update(snap);
     // SYS-01 A1a: Die Hülle entfällt, die Lerche stirbt nicht mehr von selbst (der Auslöser kommt mit A2). Die passive Crew
     // verliert nach einer Kampfzeit über die Naht des Notfallprotokolls, den Kampf davor spielt die echte Szene.
+    if (g.zerstoertOffen || g.ship.schiffZerstoert) { ok(false, 'Reaktortod im Orbit-Kampf bei t+' + (g.time - t0).toFixed(1) + ' s (Partie-Ende nach SYS-01, kein Neubeginn)'); break; }
     if (t.opts.passiv && !verlust && g.time - t0 >= PASSIV_VERLUST_NACH) { verlust = true; Space.verlustAusloesen(g, 'test'); }
   }
   const L = g.simSzeneLetzte;
@@ -145,6 +146,7 @@ function neuBereit(t, titel) {   // nach einem Scheitern: kein Game Over, Phase 
   const g = t.g;
   for (let i = 0; i < 3 * HZ; i++) g.step();
   const s = Finale.snapshot(g);
+  ok(!g.zerstoertOffen && !g.ship.schiffZerstoert, titel + ': kein Reaktortod (kein Game Over durch die Lerche)');
   ok(g.phase !== 'end' && Finale.phase(g) === null, titel + ': kein Game Over, Phase null');
   ok(s && s.angebot === 1 && !s.phase, titel + ': das Angebot steht wieder (Neubeginn)');
   ok(!g.simSzene || g.simSzene.phase === 'ende', titel + ': keine laufende Szene');
