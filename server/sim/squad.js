@@ -510,6 +510,61 @@ function reserved(game, e, spot) {
   return false;
 }
 
+// ---------- BOD-02 P5: Abstand und Reservierung (CONFIG.awayCombat.trupp) ----------
+// Plätze, die weniger als mindestAbstand Kacheln (Chebyshev) von Standort ODER Ziel eines lebenden Kameraden (auch anderer Trupps) liegen, und
+// Plätze an einer freistehenden Deckungsinsel, an der schon inselMax Kameraden stehen oder hinwollen, bekommen eine Strafe (kein harter
+// Ausschluss: gibt es keinen freien Platz, gewinnt der am wenigsten belegte – lieber klumpen als stehen bleiben). Gleiche Regel für alle Gegner.
+const TRUPP_STANDARD = { mindestAbstand: 3, inselMax: 2, inselKachelnMax: 12, strafe: 50, entstapelnSek: 4 };
+const truppCfg = (game) => Object.assign({}, TRUPP_STANDARD, cfg(game).trupp || {});
+const INSEL_CACHE = new WeakMap();
+// Freistehende Deckungsinseln der Karte: 8er-zusammenhängende feste Kacheln mit cover > 0 (Definition wie tools/mess-klumpen.js);
+// Mauern (Wand/Zaun '#' '=' oder mehr als inselKachelnMax Kacheln) zählen nicht. Rückgabe: Map "x,y" -> Inselnummer (nur freistehende).
+function inselnVon(E, maxKacheln) {
+  const map = E.map; const key = maxKacheln;
+  let c = INSEL_CACHE.get(map);
+  if (c && c.key === key) return c.id;
+  const id = new Map(); const roh = new Map(); let n = 0;
+  const isC = (x, y) => { if (x < 0 || y < 0 || x >= map.w || y >= map.h) return false; const i = map.info(x, y); return !!(i.cover && map.solid(x, y) && i.solid !== 'zustand'); };
+  for (let y = 0; y < map.h; y++) for (let x = 0; x < map.w; x++) {
+    if (!isC(x, y) || roh.has(x + ',' + y)) continue;
+    n++; const st = [[x, y]]; const liste = [[x, y]]; roh.set(x + ',' + y, n); let wand = false;
+    while (st.length) {
+      const [a, b] = st.pop(); const ch = map.at ? map.at(a, b) : ''; if (ch === '#' || ch === '=') wand = true;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const k = (a + dx) + ',' + (b + dy);
+        if (roh.has(k) || !isC(a + dx, b + dy)) continue;
+        roh.set(k, n); st.push([a + dx, b + dy]); liste.push([a + dx, b + dy]);
+      }
+    }
+    if (!wand && liste.length <= maxKacheln) for (const [a, b] of liste) id.set(a + ',' + b, n);
+  }
+  INSEL_CACHE.set(map, { key, id });
+  return id;
+}
+function inselnAn(ins, t) {
+  const out = new Set();
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const i = ins.get((t.x + dx) + ',' + (t.y + dy)); if (i) out.add(i); }
+  return out;
+}
+// Strafe für Platz `spot` aus Sicht von e: 0 = frei, sonst T.strafe je zu naher Kamerad (+ T.strafe bei voller Insel)
+function platzStrafe(game, E, e, spot) {
+  const T = truppCfg(game);
+  const ins = inselnVon(E, T.inselKachelnMax);
+  const meine = inselnAn(ins, spot);
+  const ordnung = {};
+  let nah = 0;
+  for (const d of game.away.drones) {
+    if (d === e || !d.alive) continue;
+    const t = tileOf(d.x, d.y);
+    const pts = d.goal && d.path && d.path.length ? [t, d.goal] : [t];
+    if (pts.some((q) => cheb(q, spot) < T.mindestAbstand)) nah++;
+    if (meine.size) for (const q of pts) for (const i of inselnAn(ins, q)) if (meine.has(i)) { (ordnung[i] = ordnung[i] || new Set()).add(d.id); }
+  }
+  let strafe = nah * T.strafe;
+  if (Object.values(ordnung).some((set) => set.size >= T.inselMax)) strafe += T.strafe;
+  return strafe;
+}
+
 // Deckungsplatz mit Sicht auf das Ziel halten (pin)
 function planPin(game, E, e, t) {
   const C = cfg(game);
@@ -519,8 +574,9 @@ function planPin(game, E, e, t) {
     const gc = W.tileCenter(e.goal.x, e.goal.y);
     if (los(E, gc, t)) return;
   }
-  if ((!e.path || !e.path.length) && curCover >= 1 && inBox(C, e.x, e.y, t.x, t.y)) { e.goal = null; return; }
-  let best = null, bs = -Infinity;
+  const bleibt = (!e.path || !e.path.length) && curCover >= 1 && inBox(C, e.x, e.y, t.x, t.y);
+  if (bleibt && platzStrafe(game, E, e, here) === 0) { e.goal = null; return; }
+  let best = null, bs = -Infinity, bStrafe = 0;
   const tt = tileOf(t.x, t.y);
   for (const sp of E.coverSpots || []) {
     if (cheb(sp, here) > 7 || E.solid(sp.x, sp.y)) continue;
@@ -530,9 +586,11 @@ function planPin(game, E, e, t) {
     if (reserved(game, e, sp)) continue;
     if (!los(E, c, t)) continue;
     const cov = Los.coverAgainst(E.map, E.solid, t.x, t.y, c.x, c.y);
-    const score = cov * 4 - manh(sp, here) * 0.5 - Math.abs(d / TILE - (IDEAL[e.rolle] || 6)) * 0.3 - (manh(sp, tt) < 3 ? 2 : 0);
-    if (score > bs) { bs = score; best = sp; }
+    const strafe = platzStrafe(game, E, e, sp);
+    const score = cov * 4 - manh(sp, here) * 0.5 - Math.abs(d / TILE - (IDEAL[e.rolle] || 6)) * 0.3 - (manh(sp, tt) < 3 ? 2 : 0) - strafe;
+    if (score > bs) { bs = score; best = sp; bStrafe = strafe; }
   }
+  if (bleibt && !(bStrafe === 0 && best)) { e.goal = null; return; }   // kein freierer Platz: lieber stehen bleiben (weicher Rückfall)
   if (best && (best.x !== here.x || best.y !== here.y) && setGoal(game, E, e, best)) return;
   if (!inBox(C, e.x, e.y, t.x, t.y)) setGoal(game, E, e, tt, 5 * TILE, t);
 }
@@ -551,7 +609,7 @@ function findFlankSpot(game, E, e, t) {
     if (reserved(game, e, sp)) continue;
     if (!los(E, c, t)) continue;
     if (Los.coverAgainst(E.map, E.solid, c.x, c.y, t.x, t.y, !!t.crouch) !== 0) continue;
-    cands.push({ sp, score: -manh(sp, here) - Math.abs(d / TILE - 5) * 0.5 + Los.coverAgainst(E.map, E.solid, t.x, t.y, c.x, c.y) * 2 });
+    cands.push({ sp, score: -manh(sp, here) - Math.abs(d / TILE - 5) * 0.5 + Los.coverAgainst(E.map, E.solid, t.x, t.y, c.x, c.y) * 2 - platzStrafe(game, E, e, sp) });
   }
   cands.sort((a, b) => b.score - a.score);
   for (const c of cands.slice(0, 4)) {
@@ -576,7 +634,7 @@ function planRetreat(game, E, e, s) {
     const c = W.tileCenter(sp.x, sp.y);
     if (!hidden(c.x, c.y)) continue;
     const md = known.length ? Math.min(...known.map((k) => dist(k.x, k.y, c.x, c.y))) : 0;
-    cands.push({ sp, score: -manh(sp, here) * 0.6 + md / TILE * 0.3 });
+    cands.push({ sp, score: -manh(sp, here) * 0.6 + md / TILE * 0.3 - platzStrafe(game, E, e, sp) });
   }
   cands.sort((a, b) => b.score - a.score);
   for (const c of cands.slice(0, 4)) if (setGoal(game, E, e, c.sp)) return;
@@ -592,10 +650,11 @@ function planPush(game, E, e, t) {
 // Vorrücken über Deckungsplätze Richtung lastKnown
 function planAdvance(game, E, e, lk) {
   const here = tileOf(e.x, e.y); const lt = tileOf(lk.x, lk.y);
+  if ((!e.path || !e.path.length) && cheb(here, lt) <= 2 && platzStrafe(game, E, e, here) === 0) { e.goal = null; return; }   // P5: schon am Punkt, im Abstand: nicht umherspringen
   let best = null, bs = -Infinity;
   for (const sp of E.coverSpots || []) {
     if (cheb(sp, lt) > 4 || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
-    const score = -manh(sp, lt) - manh(sp, here) * 0.2;
+    const score = -manh(sp, lt) - manh(sp, here) * 0.2 - platzStrafe(game, E, e, sp);
     if (score > bs) { bs = score; best = sp; }
   }
   if (best && setGoal(game, E, e, best)) return;
@@ -611,10 +670,42 @@ function teiltKachel(game, e) {
   const i = list.indexOf(e);
   return list.some((d, j) => d !== e && d.alive && (j < i || !d.path || !d.path.length) && (() => { const t = tileOf(d.x, d.y); return t.x === h.x && t.y === h.y; })());
 }
-// Stehend auf einer geteilten Kachel: zur nächsten freien Kachel ausweichen (der früher eingetragene bleibt)
+// Stehend auf einer geteilten Kachel ODER (BOD-02 P5) näher als trupp.mindestAbstand an einem früher eingetragenen Kameraden: zu einem freien
+// Platz ausweichen (der früher eingetragene bleibt). Der neue Platz hält den Mindestabstand ein, ist begehbar und – falls e ein Ziel hat –
+// mit Sicht darauf (Deckungsplätze bevorzugt); gibt es keinen, bleibt e stehen (weicher Rückfall, nur die Kachelregel gilt hart).
+function zuNah(game, e, abstand) {
+  const h = tileOf(e.x, e.y);
+  const list = game.away.drones; const i = list.indexOf(e);
+  return list.some((d, j) => j < i && d.alive && cheb(tileOf(d.x, d.y), h) < abstand);
+}
+function abstandsKachel(game, E, e, here) {
+  const T = truppCfg(game);
+  const cover = new Set((E.coverSpots || []).map((c) => c.x + ',' + c.y));
+  const tg = e.target ? game.playerById(e.target) : null;
+  let best = null, bs = Infinity;
+  for (let dy = -T.mindestAbstand; dy <= T.mindestAbstand; dy++) for (let dx = -T.mindestAbstand; dx <= T.mindestAbstand; dx++) {
+    const t = { x: here.x + dx, y: here.y + dy };
+    if ((!dx && !dy) || t.x < 0 || t.y < 0 || t.x >= E.map.w || t.y >= E.map.h || E.solid(t.x, t.y) || reserved(game, e, t)) continue;
+    if (platzStrafe(game, E, e, t) > 0) continue;
+    if (tg && tg.zone === 'away' && !los(E, W.tileCenter(t.x, t.y), tg)) continue;
+    const sc = Math.hypot(dx, dy) - (cover.has(t.x + ',' + t.y) ? 1.5 : 0);
+    if (sc < bs) { bs = sc; best = t; }
+  }
+  return best;
+}
 function entstapeln(game, E, e) {
-  if ((e.path && e.path.length) || e.aim || e.ausholen || e.ladung || !teiltKachel(game, e)) return false;
+  if ((e.path && e.path.length) || e.aim || e.ausholen || e.ladung) return false;
   const here = tileOf(e.x, e.y);
+  const T = truppCfg(game);
+  if (!teiltKachel(game, e)) {
+    const sq = squadOf(game, e);
+    if (!sq || !sq.alert || game.time < (e.entstapelBis || 0) || !zuNah(game, e, T.mindestAbstand)) return false;   // ruhige Posten behalten das Layout der Karte
+    const f = abstandsKachel(game, E, e, here);
+    if (!f || !setGoal(game, E, e, f)) return false;
+    e.entstapelBis = game.time + T.entstapelnSek;
+    if (e.goal && e.role !== 'idle') e.goalAt = game.time;   // die Planung lässt den neuen Platz zunächst gelten
+    return true;
+  }
   const f = freieKachel(game, E, e, here);
   if (f.x === here.x && f.y === here.y) return false;
   const g0 = e.goal ? { x: e.goal.x, y: e.goal.y } : null;
@@ -985,7 +1076,7 @@ function decideB2(game, E, e, s, prof) {
         if (cheb(sp, here) > 8 || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
         const c = W.tileCenter(sp.x, sp.y); const d = dist(c.x, c.y, t.x, t.y);
         if (d < ((g.abstand || 5) + 2) * TILE || !los(E, c, t)) continue;
-        const sc = d / TILE - manh(sp, here) * 0.3;
+        const sc = d / TILE - manh(sp, here) * 0.3 - platzStrafe(game, E, e, sp);
         if (sc > bs) { bs = sc; best = sp; }
       }
       if (best && setGoal(game, E, e, best)) { setRole(game, e, 'pin'); e.target = t.id; e.shootTarget = t.id; return true; }
@@ -1158,4 +1249,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
+  _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };

@@ -1537,7 +1537,7 @@ console.log('\n[Testgelände (Lobby-Start arena_space / arena_away)]');
     ok(events('truppAlarm').length >= 1 && aw().squads[e0.squad].alert && aw().alarm, 'lauter Schuss im Radius: truppAlarm, Trupp wach, Landepunkt im Alarm');
     run(C.alarm.funkVerzoegerung + 1);
     ok(trupps.every((s) => s.alert), 'Funk: nach funkVerzoegerung s alle Trupps im Umkreis wach');
-    place(0, 3, 2);
+    place(0, 2, 1);
     for (const s of trupps) s.contactAt = g.time - C.alarm.ruheNach - 1;
     run(1);
     ok(trupps.every((s) => !s.alert) && aw().alarm, 'ohne Kontakt nach ruheNach s wieder ruhig, Landepunkt bleibt im Alarm');

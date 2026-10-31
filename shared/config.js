@@ -458,6 +458,10 @@
       modifikatoren: { anfuehrer: { leben: 1.5, schaden: 1.5, groesse: 1.25 } },
       // EK6: Endkampf der Siedlung (server/sim/endkampf.js): Angreifer erscheinen einmal verteilt um den Platz (Abstand in Kacheln)
       endkampf: { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter' },
+      // BOD-02 P5: Abstand und Reservierung (server/sim/squad.js platzStrafe): Plätze näher als mindestAbstand Kacheln an Standort/Ziel eines
+      // Kameraden und an einer freistehenden Deckungsinsel mit schon inselMax Kameraden bekommen `strafe` Punkte Abzug (weich, kein Ausschluss).
+      // inselKachelnMax: größere Inseln und Wand/Zaun gelten als Mauer, nicht als Insel. entstapelnSek: Pause zwischen zwei Ausweichschritten.
+      trupp: { mindestAbstand: 3, inselMax: 2, inselKachelnMax: 12, strafe: 50, entstapelnSek: 4 },
       ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)
