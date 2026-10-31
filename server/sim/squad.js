@@ -11,6 +11,7 @@ const W = require('../world.js');
 const { bfs, dist } = require('../util.js');
 const Trupp = require('./trupp.js');   // BOD-02 P7: Trupp-Gehirn (Aufgaben, Flankenschutz)
 const Vert = require('./verteidigung.js');   // BOD-02 P8/P9: Verteidigungsprofil (Halten, Rückzug, Gegenstoß); ohne Profil ohne Wirkung
+const Aufr = require('./aufrichten.js');   // BOD-02 P10: Aufrichten mit Sicherung
 
 const TILE = Physics.TILE;
 const HITBOX = { w: 14, h: 10 };
@@ -1048,29 +1049,66 @@ function planRuhig(game, E, e, s) {
   if ((h.x !== here.x || h.y !== here.y) && (!e.path || !e.path.length)) setGoal(game, E, e, h);
 }
 
+// ---------- BOD-02 P10: Aufrichten als Trupp-Aufgabe mit Sicherung (Regeln: server/sim/aufrichten.js, Zuteilung: trupp.js) ----------
+// Beendet das Aufrichten (grund: 'fertig' | 'ende' (Liegender weg/aus/kein Weg) | 'unterFeuer' | 'keineSicherung'): Aufgabe zurück, Helfer frei, bei Abbruch
+// Sperre (Helfer und – bei Beschuss – Liegender) und Deckung (Rolle pin, neue Platzwahl).
+function aufrichtenEnde(game, e, grund) {
+  const d = game.away.drones.find((q) => q.id === e.hilft);
+  const war = e.role === 'aufrichten';
+  if (d && d.helfer === e.id) d.helfer = null;
+  e.hilft = null; e.aufrichtenStart = null;
+  if (e.aufgabe === 'aufrichten') e.aufgabe = e.aufgabeVor || null;
+  e.aufgabeVor = null;
+  if (grund === 'unterFeuer' || grund === 'keineSicherung') {
+    const sp = Number(Aufr.cfg(game).sperreSek) || 0;
+    Aufr.stat(game, 'abgebrochen');
+    e.aufrSperre = game.time + sp;
+    if (d && grund === 'unterFeuer') d.aufrSperre = game.time + sp;
+  }
+  if (war) { setRole(game, e, 'pin'); e.goal = null; e.path = null; e.goalAt = -99; e.haltT = 0; }
+}
+function aufrichtenBeginn(game, E, e, s, d) {
+  if (!setGoal(game, E, e, tileOf(d.x, d.y))) return false;
+  setRole(game, e, 'aufrichten'); e.hilft = d.id; d.helfer = e.id; e.haltT = 0; e.shootTarget = null; e.aufrichtenStart = game.time;
+  Aufr.stat(game, 'aufrichten');
+  bark(game, s, e, 'kamerad_liegt');
+  return true;
+}
+// true = entschieden (Helfer läuft/hilft). Läuft das Trupp-Gehirn, beginnt nur, wer die Aufgabe aufrichten bekam; sonst (ruhig, 1 Mitglied, noBark) entscheidet der Einzelne.
+function aufrichtenSchritt(game, E, e, s) {
+  const aw = game.away;
+  if (e.role === 'aufrichten' || e.aufgabe === 'aufrichten') {
+    const d = aw.drones.find((q) => q.id === e.hilft);
+    if (!d || d.alive || d.zustand !== 'verwundet') aufrichtenEnde(game, e, 'ende');
+    else {
+      const r = Aufr.pruefe(game, E, d, s, e);
+      e.aufrSicher = r.sicher; e.aufrWahr = r.wahr;
+      const grund = Aufr.unterFeuer(game, e) ? 'unterFeuer' : (!r.erlaubt ? 'keineSicherung' : null);
+      if (grund) aufrichtenEnde(game, e, grund);
+      else if (e.role === 'aufrichten') return true;
+      else if (aufrichtenBeginn(game, E, e, s, d)) return true;
+      else { aufrichtenEnde(game, e, 'ende'); e.aufrSperre = game.time + 2; }
+    }
+    return false;
+  }
+  if (Trupp.laeuft(game, s) && Aufr.cfg(game).sichtPruefen) return false;
+  const reich = (Number(Aufr.cfg(game).reichweite) || 10) * TILE;
+  const kand = Aufr.liegende(game).filter((q) => dist(q.x, q.y, e.x, e.y) <= reich).sort((a, b) => dist(a.x, a.y, e.x, e.y) - dist(b.x, b.y, e.x, e.y));
+  for (const d of kand) {
+    const w = Aufr.waehleHelfer(game, E, s, d, [e]);
+    if (!w) continue;
+    e.aufrSicher = w.r.sicher; e.aufrWahr = w.r.wahr;
+    if (aufrichtenBeginn(game, E, e, s, d)) return true;
+  }
+  return false;
+}
+
 // ---------- Profile (decide) ----------
 // true = entschieden (Rest von decide entfällt)
 function decideB2(game, E, e, s, prof) {
   const aw = game.away; const K = cfg(game).koerper || {};
-  // Aufrichten: liegender Kamerad (verwundet, noch nicht ausgeblutet), selbst nicht unter Feuer, kein Spieler sehr nah
-  if (prof !== 'enterer' && prof !== 'waechter') {
-    if (e.role === 'aufrichten') {
-      const d = aw.drones.find((q) => q.id === e.hilft);
-      if (d && !d.alive && d.zustand === 'verwundet') return true;
-      setRole(game, e, 'pin'); e.hilft = null;
-    }
-    const unterFeuer = game.time - (e.lastHitAt || -99) < 3;
-    const nah = e.sees.some((p) => !p.downed && dist(p.x, p.y, e.x, e.y) < 5 * TILE);
-    if (!unterFeuer && !nah) {
-      const d = aw.drones.filter((q) => !q.alive && q.liegt && q.zustand === 'verwundet' && (!q.helfer || q.helfer === e.id || !aw.drones.some((h) => h.id === q.helfer && h.alive && h.role === 'aufrichten')) &&
-        dist(q.x, q.y, e.x, e.y) <= 10 * TILE).sort((a, b) => dist(a.x, a.y, e.x, e.y) - dist(b.x, b.y, e.x, e.y))[0];
-      if (d && setGoal(game, E, e, tileOf(d.x, d.y))) {
-        setRole(game, e, 'aufrichten'); e.hilft = d.id; d.helfer = e.id; e.haltT = 0; e.shootTarget = null;
-        bark(game, s, e, 'kamerad_liegt');
-        return true;
-      }
-    }
-  }
+  // BOD-02 P10: Aufrichten nur mit Sicherung (kein bekannter Spieler sieht den Liegenden oder ein Kamerad hält nieder), sonst bleibt er liegen
+  if (prof !== 'enterer' && prof !== 'waechter' && aufrichtenSchritt(game, E, e, s)) return true;
   // Häscher: bewusstlose Spieler fesseln
   if (prof === 'haescher') {
     if (e.role === 'fesseln') {
@@ -1241,6 +1279,7 @@ function actB2(game, E, e, dt, Wf, g) {
     trackStuck(game, e, dt, false);
     return true;
   }
+  if (e.role === 'aufrichten' && Aufr.unterFeuer(game, e)) { aufrichtenEnde(game, e, 'unterFeuer'); return false; }   // P10: unter Feuer sofort abbrechen (nicht erst im Entscheidungstakt)
   if (e.role === 'aufrichten' || e.role === 'fesseln') {
     const ziel = e.role === 'aufrichten' ? game.away.drones.find((q) => q.id === e.hilft) : game.playerById(e.fesselt);
     if (!ziel) { setRole(game, e, 'pin'); return false; }
@@ -1249,9 +1288,10 @@ function actB2(game, E, e, dt, Wf, g) {
       const dauer = Number(e.role === 'aufrichten' ? K.aufrichten : K.fesseln) || 3;
       if (e.haltT >= dauer) {
         e.haltT = 0;
-        if (e.role === 'aufrichten') { if (!Wf.aufrichten(game, ziel, e)) { ziel.helfer = null; combat().folgenAbgleich(game); } }
+        if (e.role === 'aufrichten') { if (!Wf.aufrichten(game, ziel, e)) { ziel.helfer = null; Aufr.stat(game, 'aufgerichtet'); combat().folgenAbgleich(game); } }
         else if (!Wf.fesseln(game, ziel, e)) { bark(game, squadOf(game, e), e, 'spieler_gefesselt'); combat().folgenAbgleich(game); game.missionEvent('spielerGefesselt', { pid: ziel.id }); }
-        setRole(game, e, 'pin'); e.hilft = null; e.fesselt = null;
+        if (e.role === 'aufrichten') aufrichtenEnde(game, e, 'fertig'); else setRole(game, e, 'pin');
+        e.hilft = null; e.fesselt = null;
       }
       trackStuck(game, e, dt, false);
       return true;
