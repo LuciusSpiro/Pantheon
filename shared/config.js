@@ -684,7 +684,7 @@
       // (keine Schadenszahl) und schlägt auf die Mitte durch: reaktorStufen Stufen am REAKTOR (1: zwei Torpedos zerstören ihn, der erste lässt ihn beschädigt; 2: ein Torpedo zerstört ihn; 0: kein Durchschlag).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
       torpedo: { reaktorStufen: 1 },
-      // SYS-03 N1 (Kai 2026-10-31): Lanze-Vollladung gegen Gegner/Verbündete zerstört jedes System der Mitte, den REAKTOR aber nur um reaktorStufen Stufen (1 = eine Stufe, 2 = zerstört wie bisher, 0 = die Vollladung trifft den Reaktor nicht);
+      // SYS-03 N1 (Kai 2026-10-31): Lanze-Vollladung gegen Gegner/Verbündete zerstört jedes System der Mitte, den REAKTOR aber nur um reaktorStufen Stufen (1 = eine Stufe, 2 = ein Schuss zerstört einen unbeschädigten Reaktor, das Fenster gilt weiter; 0 = die Vollladung trifft den Reaktor nicht);
       // im Reaktor-Fenster (reaktorFenster_s) ist der Reaktor kein Ziel, die Vollladung zerstört dann ein anderes System der Mitte. Per `tune systemModell.lanze.reaktorStufen`.
       lanze: { reaktorStufen: 1 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)

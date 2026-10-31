@@ -54,7 +54,7 @@ function torpedoStufen(game) {
   return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
 }
 
-// SYS-03 N1: Lanze-Vollladung auf den Reaktor in ganzen Stufen (systemModell.lanze.reaktorStufen: 1 = eine Stufe, 2 = zerstoert wie jedes andere System, 0 = der Reaktor wird von der Vollladung nicht getroffen). Nur Gegner und Verbuendete (die Lerche wird nicht von einer Lanze getroffen).
+// SYS-03 N1: Lanze-Vollladung auf den Reaktor in ganzen Stufen (systemModell.lanze.reaktorStufen: 1 = eine Stufe, 2 = ein Schuss zerstoert einen unbeschaedigten Reaktor, das Reaktor-Fenster gilt weiter; 0 = der Reaktor wird von der Vollladung nicht getroffen). Nur Gegner und Verbuendete (die Lerche wird nicht von einer Lanze getroffen).
 function lanzeReaktorStufen(game) {
   const v = Number((sysModell(game).lanze || {}).reaktorStufen);
   return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
