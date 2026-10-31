@@ -138,7 +138,8 @@ function update(game) {
 }
 function landung(game, S, aw, n) {
   let k = 0;
-  try { k = Endkampf().angriffStarten(game, { map: S.lp, fraktion: G.fraktion, tag: S.tag, gegner: wachenFuer(n), boss: G.boss }); } catch (e) { fehler(game, 'finale-boden-gegner', e); }
+  // BOD-02 P6: das Finale behält Einzel-Trupps (truppMax 1; Kampfgefüge des Bodenfinales unverändert, Entscheidung offen)
+  try { k = Endkampf().angriffStarten(game, { map: S.lp, fraktion: G.fraktion, tag: S.tag, gegner: wachenFuer(n), boss: G.boss, truppMax: 1 }); } catch (e) { fehler(game, 'finale-boden-gegner', e); }
   if (!k) { fehler(game, 'finale-boden-gegner', new Error('keine Gegner erschienen')); ende(game, S, 'crew_gefallen', 'ohne_gegner'); return; }
   funkGefahr(game, 'landung');
 }

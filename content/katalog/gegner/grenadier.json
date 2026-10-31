@@ -52,6 +52,10 @@
     ],
     "friendly_fire": [
       "Pass doch auf, du Narr!"
+    ],
+    "flanke_umgangen": [
+      "Die Flanke ist offen, die gehen außen rum!",
+      "Flanke! Ich dreh die Werfer rum!"
     ]
   },
   "funk_nach_fraktion": {
@@ -78,6 +82,10 @@
       ],
       "friendly_fire": [
         "Eigene Linie, Idiot! Augen auf!"
+      ],
+      "flanke_umgangen": [
+        "Umgehung auf der Seite, Granaten nach außen!",
+        "Flanke bedroht, schwenkt die Linie!"
       ]
     }
   }

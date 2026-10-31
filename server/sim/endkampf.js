@@ -1,7 +1,7 @@
 'use strict';
 // EK6 (CONTRACT-EK5-6.md §8): Endkampf der Siedlung Eisenwald. Action-Layer des Bodenkampfs für diese Szene; die Szene selbst steht im
 // Regiebuch (Umsetzung stellung_nehmen/flagge_hissen), die Haltemechanik des Feldzeichens in anker.js (Rolle flagge).
-//   angriffStarten(game, { map, fraktion, tag, gegner?, boss? })  einmalig: `gegner` Angreifer und ein Anführer erscheinen verteilt um den
+//   angriffStarten(game, { map, fraktion, tag, gegner?, boss?, truppMax? })  einmalig: `gegner` Angreifer und ein Anführer erscheinen verteilt um den
 //                                  Flaggenpunkt (Angriff von allen Seiten), alle wach; sonst gibt es keinen dynamischen Spawn
 //   bossBesiegt(game, map, tag)    Prüfung: der Anführer liegt (nicht mehr stehend) bzw. ist entfernt
 //   gegnerAbziehen(game, map, tag?)  Sieg: alle Gegner (dieses tag bzw. alle) beamen raus, sie verschwinden aus der Karte
@@ -17,7 +17,7 @@ const combat = () => combatMod || (combatMod = require('./combat.js'));
 const interior = () => interiorMod || (interiorMod = require('./interior.js'));
 const TILE = Physics.TILE;
 
-function cfg(game) { return (game.C && game.C.awayCombat && game.C.awayCombat.endkampf) || { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter' }; }
+function cfg(game) { return (game.C && game.C.awayCombat && game.C.awayCombat.endkampf) || { gegner: 10, boss: 1, abstandMin: 12, abstandMax: 32, rolle: 'niederhalter', truppMax: 4 }; }
 function awVon(game, map) { return (game.aways && game.aways[map]) || null; }
 const tileOf = (e) => Physics.toTile(e.x, e.y);
 
@@ -106,19 +106,35 @@ function angriffStarten(game, opts) {
   const plaetze = verteilteKacheln(game, aw, info, anzahl + bosse, c0);
   const tag = String(o.tag || 'endkampf');
   const rollen = rollenFuer(game, anzahl);
-  const bossAt = bosse ? Math.floor(aw.rng() * plaetze.length) : -1;   // der Anführer steht an einer zufälligen Stelle des Rings
-  let gesamt = 0, bossId = null, k = 0;
-  plaetze.forEach((t, i) => {
-    const istBoss = i === bossAt;
-    const rolle = istBoss ? C.rolle : (rollen[k++] || 'grundtyp');
-    const name = tag + (istBoss ? '.boss' : '.' + (i + 1));
-    const m = squad.spawnSquad(game, name, { map, besetzung: [{ typ: rolle, anzahl: 1 }], force: true, alert: true, plaetze: [t], festeZahl: true });
-    gesamt += m ? 1 : 0;
+  // BOD-02 P6: Trupps aus benachbarten Ringplätzen (Winkelsektoren in Reihenfolge), höchstens truppMax Mitglieder; der Anführer steht im ersten
+  // Trupp (tag.1) an einem zufälligen seiner Plätze; die Rollen verteilen sich reihum auf die Trupps (jeder Trupp bekommt einen Rollenmix).
+  const truppMax = Math.max(1, Math.round(o.truppMax != null ? o.truppMax : (C.truppMax || 4)));
+  const nT = Math.max(1, Math.ceil(plaetze.length / truppMax));
+  const gruppen = [];   // Platzindizes je Trupp, Größen gleichmäßig (z. B. 11 -> 4, 4, 3)
+  for (let i = 0, rest = plaetze.length; i < nT; i++) { const sz = Math.ceil(rest / (nT - i)); gruppen.push(Array.from({ length: sz }, (_, j) => plaetze.length - rest + j)); rest -= sz; }
+  // truppMax 1 = Einzel-Trupps wie vor BOD-02 (Finale am Boden): Anführer an einer zufälligen Stelle des Rings, Trupp tag.boss
+  const einzeln = truppMax === 1;
+  const bossAt = bosse && gruppen[0].length ? (einzeln ? Math.floor(aw.rng() * plaetze.length) : gruppen[0][Math.floor(aw.rng() * gruppen[0].length)]) : -1;
+  const rolleAn = new Array(plaetze.length).fill(null);
+  if (bossAt >= 0) rolleAn[bossAt] = C.rolle;
+  { let k = 0, g = 0, leer = 0;
+    while (leer < nT && k < rollen.length) {
+      const frei = gruppen[g % nT].find((i) => rolleAn[i] == null);
+      if (frei != null) { rolleAn[frei] = rollen[k++]; leer = 0; } else leer++;
+      g++;
+    }
+    for (let i = 0; i < rolleAn.length; i++) if (rolleAn[i] == null) rolleAn[i] = 'grundtyp'; }
+  let gesamt = 0, bossId = null;
+  gruppen.forEach((idx, gi) => {
+    const name = tag + (einzeln && idx[0] === bossAt ? '.boss' : '.' + (gi + 1));
+    const m = squad.spawnSquad(game, name, { map, besetzung: idx.map((i) => ({ typ: rolleAn[i], anzahl: 1 })), force: true, alert: true, plaetze: idx.map((i) => plaetze[i]), festeZahl: true });
+    gesamt += m || 0;
     const s = aw.squads[name];
     if (s) { s.tag = tag; s.fraktion = f.id; s.endkampf = true; }
     for (const e of aw.drones) if (e.squad === name) {
       e.tag = tag; e.fraktion = f.id; if (f.palette) e.palette = f.palette; cb.kaempfer(game, e);
-      if (istBoss) { e.boss = true; bossId = e.id; cb.modifikatorSetzen(game, e, 'anfuehrer'); }
+      const t = tileOf(e);
+      if (bossAt >= 0 && bossId == null && t.x === plaetze[bossAt].x && t.y === plaetze[bossAt].y) { e.boss = true; bossId = e.id; cb.modifikatorSetzen(game, e, 'anfuehrer'); }
     }
   });
   aw.endkampf = { tag, phase: 'angriff', boss: bossId, t0: game.time, n: gesamt, verloren: false };
