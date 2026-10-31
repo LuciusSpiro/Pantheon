@@ -135,22 +135,57 @@ section('P8 Rückzug: Linie umgangen (Spieler östlich der Linie / Flankenschutz
   ok(barks(r, 'half').length === 1 && w1(r).length === 6, 'Funkspruch, alle 6 leben');
   lauf(r, 40);
   ok(V(r).modus === 'linie2' && w1(r).every((e) => !inSt(r, e)), 'alle 6 auf Linie 2, keiner im Graben');
-  // Flankenschutz meldet Umgehung + Spieler in der Stellung -> Rückzug
-  const q = spiel(3, 15);
-  raus(q); alarm(q); lauf(q, 3);
-  const s = q.aw.squads['graben.w1.graben'];
-  s.bedrohung = { pid: q.g.players[0].id, x: 0, y: 0, t: q.g.time, bis: q.g.time + 30 };
-  platz(q.g.players[0], 25, 17);   // Spieler im Graben
-  lauf(q, 0.4);
-  ok(V(q).modus === 'halten', 'Flankenmeldung + Spieler in der Stellung: erst nach umgehungSek');
-  s.bedrohung.bis = q.g.time + 30; lauf(q, 2.5);
-  ok(V(q).modus === 'rueckzug' && V(q).grund === 'umgangen', 'Flankenschutz meldet Umgehung und der Spieler steht in der Stellung: Rückzug');
+  // K1: Umgehung wird an der LINIE bemessen (hinter der Sohle / jenseits der Sohlenenden), nicht am Schwerpunkt; bekannte Spieler, Posten-Plateaus zählen nicht
   const u = spiel(3, 16);
-  raus(u); alarm(u); lauf(u, 2);
-  const su = u.aw.squads['graben.w1.graben'];
-  su.bedrohung = { pid: u.g.players[0].id, x: 0, y: 0, t: u.g.time, bis: u.g.time + 30 };
+  raus(u); alarm(u); lauf(u, 3);
+  platz(u.g.players[0], 30, 24);   // Posten-Plateau Süd: gehört zur Linie, kein Durchbruch
   lauf(u, 5);
-  ok(V(u).modus === 'halten', 'Flankenmeldung ohne Spieler in der Stellung: kein Rückzug');
+  ok(V(u).modus === 'halten', 'Spieler auf einem Posten-Plateau der Linie 1: kein Rückzug');
+  const f = spiel(3, 16);
+  raus(f); alarm(f); lauf(f, 3);
+  platz(f.g.players[0], 25, 3);   // jenseits des Nordendes der Sohle (y 7..28), auf Höhe der Westkante
+  lauf(f, 5);
+  ok(V(f).modus === 'rueckzug' && V(f).grund === 'umgangen', 'Spieler auf der Flanke jenseits des Sohlenendes: Rückzug (umgangen)');
+  const a = spiel(3, 16);
+  raus(a); alarm(a); lauf(a, 3);
+  const Aufr = require('../server/sim/aufrichten.js'); const bk0 = Aufr.bekannteSpieler;
+  platz(a.g.players[0], 34, 17);
+  Aufr.bekannteSpieler = () => [];   // der Trupp kennt keinen Spieler (nicht gesehen, nicht geteilt, kein lastKnown)
+  try { lauf(a, 4); } finally { Aufr.bekannteSpieler = bk0; }
+  ok(V(a).modus === 'halten', 'Spieler hinter der Linie, den der Trupp nicht kennt: kein Rückzug (kein Allwissen)');
+});
+
+section('K1 Crew 3 (Linie 4+2, Flankenwache aktiv): Spieler frontal/in der Sohle -> Gegenstoß, kein Rückzug; hinter der Linie -> Rückzug', () => {
+  for (const seed of [21, 22, 23]) {
+    const r = spiel(3, seed);
+    raus(r); alarm(r); lauf(r, 3);
+    ok(w1(r).some((e) => e.aufgabe === 'flanke'), 'Seed ' + seed + ': Flankenwache aktiv (Linie 4+2)');
+    platz(r.g.players[0], 22, 10); platz(r.g.players[1], 21, 24);   // frontal vor dem Graben, weit nach Nord/Süd versetzt
+    lauf(r, 6);
+    ok(V(r).modus === 'halten', 'Seed ' + seed + ': Spieler frontal vor dem Graben: kein Rückzug');
+    platz(r.g.players[0], 25, 17);   // in die Sohle
+    lauf(r, 6);
+    ok(V(r).modus === 'halten' && !(r.aw.truppStats && r.aw.truppStats.rueckzug), 'Seed ' + seed + ': Spieler in der Sohle: kein Rückzug');
+    ok(w1(r).filter((e) => e.gegenstoss === r.g.players[0].id).length === 1, 'Seed ' + seed + ': Gegenstoß läuft (genau ein Gegenstoßler)');
+    platz(r.g.players[0], 26, 17);   // Ostrand der Sohle
+    lauf(r, 4);
+    ok(V(r).modus === 'halten', 'Seed ' + seed + ': Spieler am Ostrand der Sohle: kein Rückzug');
+    platz(r.g.players[1], 33, 17);   // wirklich hinter der Linie
+    lauf(r, 4);
+    ok(V(r).modus === 'rueckzug' && V(r).grund === 'umgangen', 'Seed ' + seed + ': Spieler hinter der Linie: Rückzug');
+  }
+  // zwei Spieler: bleibt grün
+  const r2 = spiel(2, 18);
+  raus(r2); alarm(r2); lauf(r2, 4); platz(r2.g.players[0], 25, 17); lauf(r2, 5);
+  ok(V(r2).modus === 'halten' && w1(r2).filter((e) => e.gegenstoss).length === 1, 'Crew 2: Gegenstoß ohne Rückzug');
+});
+
+section('K1/e zuweisen ohne Stellungsbereich: kein Profil', () => {
+  const r = spiel(3, 17);
+  const ohne = JSON.parse(JSON.stringify({ karte: { meta: { gruppen: {} }, anker: [], bereiche: {}, w: 10, h: 10 } }));
+  const info = { karte: Object.assign({}, r.K, { bereiche: {} }), map: { solid: () => false } };
+  const aw = { squads: { x: {} }, drones: [] };
+  ok(Vert.zuweisen(r.g, aw, info, ['x'], []) === null && !aw.squads.x.verteidigung, 'ohne Stellungen kein Profil (halten=[] würde jedes Ziel sperren)');
 });
 
 section('P8 Funkspruch ohne Profil bleibt Text (Trupps ohne Verteidigungsprofil unverändert)', () => {

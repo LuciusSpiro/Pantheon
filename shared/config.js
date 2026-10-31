@@ -474,12 +474,12 @@
       // niederhaltenSek/unterstuetzungSek = Feuer auf die letzte Position so lange nach letzter Sicht; stossBlaster = Schüsse je Blaster-Stoß; achseNeuKacheln.
       // BOD-02 P8/P9 Verteidigungsprofil (server/sim/verteidigung.js; nur Trupps, denen das Szenario es zuweist, z. B. Grabenangriff Welle 1; tune awayCombat.verteidigung.<name>)
       //   haltenAnteil: Messziel (>= 80 % der lebenden Linie stehen nach dem Alarm in Stellungen; tools/mess-klumpen.js, test-verteidigen.js)
-      //   rueckzugAnteil: Rückzug, wenn höchstens so viel der Linie lebt (0,5 = Hälfte gefallen); umgehungSek/umgehungDx: Spieler östlich der Grabensohle (+ Dx Kacheln) seit Sek = umgangen
+      //   rueckzugAnteil: Rückzug, wenn höchstens so viel der Linie lebt (0,5 = Hälfte gefallen); umgehungSek/umgehungDx/umgehungFlanke: ein dem Trupp bekannter Spieler hinter der Sohle (östlich + Dx Kacheln, nicht auf den Posten-Plateaus) bzw. jenseits der Sohlenenden (+ Flanke Kacheln) seit Sek = umgangen
       //   reichweite: Kacheln Toleranz um die Plätze der Haltelinie, in denen Verteidiger Ziele wählen dürfen (0 = nur Stellungsplätze; kein Verfolgen über die Wiese)
       //   rueckzugMax: s bis zur Ankunft, dann gilt Linie 2 endgültig; rueckzugAnker/rueckzugRadius: Linie 2 = die nächsten Anker der Welle 2 + Deckungsplätze im Umkreis (Kacheln)
       //   gegenstossSek: so lange steht ein Spieler im Graben, bevor ein Verteidiger gegen ihn vorgeht (höchstens einer je Spieler); gegenstossAbstand: Nahbereich (Kacheln);
       //   gegenstossMinLinie: so viele Lebende braucht die Linie, damit einer ausscheren darf
-      verteidigung: { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, rueckzugAnker: 3, rueckzugRadius: 4, gegenstossSek: 1, gegenstossAbstand: 2, gegenstossMinLinie: 2 },
+      verteidigung: { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, umgehungFlanke: 1, rueckzugAnker: 3, rueckzugRadius: 4, gegenstossSek: 1, gegenstossAbstand: 2, gegenstossMinLinie: 2 },
       truppGehirn: { hz: 1.5, haltezeit: 4, flankeWinkel: 50, flankeKacheln: 14, bedrohungSek: 8, sperreSek: 12, scharfAbstand: 7, niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6 },
       // BOD-02 P10: Aufrichten mit Sicherung (server/sim/aufrichten.js). sichtPruefen: nur helfen, wenn der Liegende für keinen bekannten Spieler sichtbar ist
       // (Sichtlinie, Waffen-/Sichtreichweite + sichtPuffer Kacheln, kein Sichtschutz) oder ein Niederhalter in den letzten sicherungSek s gefeuert hat; false = früheres Verhalten.

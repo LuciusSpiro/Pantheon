@@ -102,7 +102,8 @@ function beobachteFlanke(game, s, ms, T, bk, sp) {
   const wache = ms.find((e) => e.aufgabe === 'flanke');
   if (!wache || s.achse == null) return;
   const lim = T.flankeWinkel * Math.PI / 180;
-  const imSektor = (k) => k.gesehen && dist(k.x, k.y, sp.x, sp.y) <= T.flankeKacheln * TILE && winkelDiff(Math.atan2(k.y - sp.y, k.x - sp.x), s.achse) > lim;
+  const V = s.verteidigung;   // K1: Trupps mit Verteidigungsprofil bemessen die Umgehung an der Linie (Hinterland/Flanke der Sohle), nicht am Schwerpunkt
+  const imSektor = V ? (k) => k.gesehen && require('./verteidigung.js').umgehung(game, V, k.x, k.y) : (k) => k.gesehen && dist(k.x, k.y, sp.x, sp.y) <= T.flankeKacheln * TILE && winkelDiff(Math.atan2(k.y - sp.y, k.x - sp.x), s.achse) > lim;
   if (s.bedrohung) {
     const b = s.bedrohung;
     const k = bk.find((q) => q.p.id === b.pid);

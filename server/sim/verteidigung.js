@@ -10,8 +10,8 @@
 //                'linie2'   endgültig: halten die Plätze der Linie 2 (keine Rückkehr zu Linie 1)
 //   squads       Trupp-Namen der Linie; halten: [{x,y,posten}] alle Stellungsplätze (stellung.plaetze), sohle/posten: die Teilmengen (Schützen halten ihr Posten-Plateau); ostkante: östlichste Kachel der Grabensohle
 //   linie2Anker  [{x,y}] die nächsten Anker der Welle 2 (Karte meta.wellen/meta.gruppen); rueckzug: [{x,y}] Anker + Deckungsplätze im Umkreis (beim Rückzug berechnet)
-// Auslöser des Rückzugs (alarmierte Linie): höchstens rueckzugAnteil der Linie lebt (Hälfte gefallen) ODER die Linie ist umgangen (ein Spieler steht
-// seit umgehungSek östlich der Grabenlinie, oder der Flankenschutz aus P7 meldet die Umgehung und der Spieler steht in der Stellung).
+// Auslöser des Rückzugs (alarmierte Linie): höchstens rueckzugAnteil der Linie lebt (Hälfte gefallen) ODER die Linie ist umgangen (ein dem Trupp BEKANNTER Spieler steht
+// seit umgehungSek hinter der Linie (östlich der Sohle, nicht auf den Posten-Plateaus) oder auf der Flanke jenseits der Sohlenenden, siehe umgehung()).
 // Der Funkspruch 'half' („Rückzug zur zweiten Linie!“) gehört zu diesem Rückzug (squad.onEnemyDown: Trupps mit Profil funken ihn nur hier).
 // Gegenstoß (P9): trupp.gegenstossVerteilen; hier die Wirkung (entscheide): Weg zum Spieler im Graben, Nahbereich.
 const Physics = require('../../shared/physics.js');
@@ -22,7 +22,7 @@ const TILE = Physics.TILE;
 const squadMod = () => require('./squad.js');
 const truppMod = () => require('./trupp.js');
 const tileOf = (x, y) => Physics.toTile(x, y);
-const STANDARD = { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, rueckzugAnker: 3, rueckzugRadius: 4,
+const STANDARD = { haltenAnteil: 0.8, rueckzugAnteil: 0.5, reichweite: 0, rueckzugMax: 15, umgehungSek: 2, umgehungDx: 1, umgehungFlanke: 1, rueckzugAnker: 3, rueckzugRadius: 4,
   gegenstossSek: 1, gegenstossAbstand: 2, gegenstossMinLinie: 2 };
 const cfgVon = (game) => Object.assign({}, STANDARD, game.C.awayCombat.verteidigung || {});
 
@@ -50,7 +50,8 @@ function zuweisen(game, aw, info, names, linie2Gruppen) {
   const halten = Stellung.plaetze(k, (x, y) => info.map.solid(x, y)).map((p) => ({ x: p.x, y: p.y, posten: !!p.posten }));
   const rects = Stellung.rects(k).slice().sort((a, b) => b[2] * b[3] - a[2] * a[3]);
   const sohle = rects[0];
-  const V = { linie: 1, modus: 'halten', squads: names.slice(), halten, sohle: halten.filter((t) => !t.posten), posten: halten.filter((t) => t.posten), ostkante: sohle ? sohle[0] + sohle[2] - 1 : 0, linie2Anker: [], rueckzug: null, initial: 0, rueckzugAt: null, drin: {}, umgehungAb: {}, grund: null };
+  if (!sohle || !halten.length) return null;   // ohne Stellungsbereich kein Profil (sonst ostkante 0 und halten=[]: jeder Spieler löste den Rückzug aus, setGoal sperrte jedes Ziel)
+  const V = { linie: 1, modus: 'halten', squads: names.slice(), halten, sohle: halten.filter((t) => !t.posten), posten: halten.filter((t) => t.posten), ostkante: sohle[0] + sohle[2] - 1, sohleRect: { x0: sohle[0], y0: sohle[1], x1: sohle[0] + sohle[2] - 1, y1: sohle[1] + sohle[3] - 1 }, linie2Anker: [], rueckzug: null, initial: 0, rueckzugAt: null, drin: {}, umgehungAb: {}, grund: null };
   // nächste Linie: die Gruppe der Welle 2, deren Anker der Haltelinie am nächsten liegen; davon die nächsten rueckzugAnker Anker
   const C = cfgVon(game);
   const mx = halten.length ? halten.reduce((a, t) => a + t.x, 0) / halten.length : 0, my = halten.length ? halten.reduce((a, t) => a + t.y, 0) / halten.length : 0;
@@ -127,6 +128,32 @@ function ausloesen(game, E, V, grund) {
   }
   game.emit('verteidigungRueckzug', { map: aw.map, grund, lebend: ms.length });
 }
+// Umgehung (K1): an der LINIE bemessen, nicht am Trupp-Schwerpunkt. Ein Spieler in der Sohle oder davor ist keine Umgehung (Gegenstoß-Anlass).
+// Umgangen heißt: (a) HINTER der Linie, östlich der Ostkante der Sohle (+ umgehungDx), die Posten-Plateaus (Stellung/Posten ±1) zählen nicht
+// (ein Spieler auf einem Posten der Linie 1 steht an der Linie, nicht dahinter), oder (b) auf der Flanke: jenseits des Nord- bzw. Südendes der
+// Sohle (mehr als umgehungFlanke Kacheln) und mindestens auf Höhe der Westkante der Sohle (er ist an der Linie vorbei).
+function umgehung(game, V, px, py) {
+  const k = require('./stellung.js').karteVon(game);
+  const C = cfgVon(game);
+  const tx = Math.floor(px / TILE), ty = Math.floor(py / TILE);
+  if (k && (Stellung.istIn(k, tx, ty) || Stellung.amPosten(k, px, py))) return false;
+  const R = V.sohleRect;
+  if (!R) return false;
+  if (tx > V.ostkante + C.umgehungDx) return true;
+  return tx >= R.x0 && (ty < R.y0 - C.umgehungFlanke || ty > R.y1 + C.umgehungFlanke);
+}
+// Spieler, die die Linie kennt (gesehen, geteilt oder letzte bekannte Position; nur alarmierte Trupps): [{ p, x, y }] (a: kein Allwissen)
+function bekannte(game, V) {
+  const Aufr = require('./aufrichten.js');
+  const out = new Map();
+  for (const n of V.squads) {
+    const s = game.away.squads[n];
+    if (!s || !s.alert) continue;
+    const ms = game.away.drones.filter((e) => e.alive && !e.asleep && e.squad === n);
+    for (const k of Aufr.bekannteSpieler(game, s, ms)) { const alt = out.get(k.p.id); if (!alt || (!alt.gesehen && k.gesehen)) out.set(k.p.id, k); }
+  }
+  return Array.from(out.values());
+}
 // Auslöser prüfen (halten): Hälfte gefallen oder umgangen
 function pruefe(game, E, V) {
   if (V.modus !== 'halten' || !alarmiert(game, V)) return;
@@ -134,13 +161,11 @@ function pruefe(game, E, V) {
   const lebend = mitglieder(game, V).length;
   if (V.initial >= 2 && lebend > 0 && lebend <= V.initial * C.rueckzugAnteil) return ausloesen(game, E, V, 'verluste');
   if (!lebend) return;
-  const k = require('./stellung.js').karteVon(game);
+  const bk = bekannte(game, V);
   for (const p of game.players) {
     if (p.zone !== 'away' || !p.connected || p.downed) continue;
-    const tx = Math.floor(p.x / TILE), ty = Math.floor(p.y / TILE);
-    const hinten = tx > V.ostkante + C.umgehungDx;
-    const flanke = !!k && V.squads.some((n) => { const s = game.away.squads[n]; const b = s && s.bedrohung; return b && b.pid === p.id && game.time <= b.bis; }) && (Stellung.istIn(k, tx, ty) || Stellung.amPosten(k, p.x, p.y));
-    if (!hinten && !flanke) { delete V.umgehungAb[p.id]; continue; }
+    const k = bk.find((q) => q.p === p);
+    if (!k || !umgehung(game, V, k.x, k.y)) { delete V.umgehungAb[p.id]; continue; }
     if (V.umgehungAb[p.id] == null) V.umgehungAb[p.id] = game.time;
     if (game.time - V.umgehungAb[p.id] >= C.umgehungSek) return ausloesen(game, E, V, 'umgangen');
   }
@@ -242,4 +267,4 @@ function entscheide(game, E, e, s) {
   return false;
 }
 
-module.exports = { STANDARD, zuweisen, aktiv, spots, erlaubt, imRueckzug, tick, entscheide, beiTod, pruefe, mitglieder, profilVon, cfgVon, menge };
+module.exports = { STANDARD, zuweisen, aktiv, spots, erlaubt, imRueckzug, tick, entscheide, beiTod, pruefe, umgehung, mitglieder, profilVon, cfgVon, menge };
