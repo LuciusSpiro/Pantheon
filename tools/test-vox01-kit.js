@@ -132,6 +132,20 @@ async function main() {
     }
     ok(okAlle && maxT <= 1100, `${id}: 12 Gestalten bauen, Stamm und Krone getrennt (Krone höher als Stamm), höchstens ${maxT} Dreiecke`);
     ok(gleich, `${id}: Stamm + Krone ergeben den ganzen Baum (Voxelzahl)`);
+    // Nacharbeit Runde 1 (Befund 3): teil 3 = Stumpf (Stamm bis 1,25 m), teil 4 = Krone mit oberem Stamm; zusammen exakt der ganze Baum (Position und Farbe)
+    let exakt = true, stumpfOk = true, obenOk = true, nStumpf = 0;
+    for (let seed = 0; seed < 12; seed++) {
+      const ganz = build(id, { teil: 0, seed }), sp = build(id, { teil: 3, seed }), ob = build(id, { teil: 4, seed });
+      const alle = new Map(ganz.grid.map);
+      const verein = new Map(sp.grid.map); for (const [kk, v] of ob.grid.map) { if (verein.has(kk)) exakt = false; verein.set(kk, v); }
+      if (verein.size !== alle.size || [...alle].some(([kk, v]) => !verein.has(kk) || verein.get(kk).c !== v.c)) exakt = false;
+      const bs = bb(sp), qo = ob.grid.bounds();
+      if (!vox(sp) || bs.y1 !== 5) stumpfOk = false;   // 5 Voxel = 1,25 m, nicht niedriger (Kollisionsanzeige)
+      if (qo.min[1] - ob.anchor[1] < 5) obenOk = false;
+      nStumpf += vox(sp);
+    }
+    ok(exakt, `${id}: Stumpf (teil 3) + Krone mit oberem Stamm (teil 4) = ganzer Baum, Voxel für Voxel gleich (12 Gestalten)`);
+    ok(stumpfOk && obenOk, `${id}: Stumpf genau 1,25 m hoch (nicht leer), teil 4 beginnt erst darüber (Stamm über 1,25 m verschwindet mit der Krone)`);
   }
 
   console.log('\n[Grabenkarte]');
@@ -154,7 +168,7 @@ async function main() {
   console.log('\n[5c: Wachposten und Bunkereingang als Leitstücke (Anker-Einträge, Platzierung aus den Daten)]');
   const AE = (bwId, rolle, art) => R.ankerEintragVon(tab[bwId], rolle, art, null);
   const wp = AE('rom_feld', 'aussicht', 'aussenposten'), be = AE('rom_feld', 'ziel', 'aussenposten');
-  ok(wp && wp.id === 'leit/rom/feld/wachposten' && wp.dreh === 0 && wp.versatz.join() === '0,0' && Object.keys(wp.fest).length === 0, 'rom_feld, aussicht: Wachposten, Drehung 0 (Front nach Süden zur Kamera), Versatz 0; dreh/versatz sind META, keine Modellparameter');
+  ok(wp && wp.id === 'leit/rom/feld/wachposten' && wp.dreh === 0 && wp.versatz.join() === '0,-1' && Object.keys(wp.fest).length === 0, 'rom_feld, aussicht: Wachposten, Drehung 0 (Front nach Süden zur Kamera), Versatz eine Kachel nach Norden (auf die Kante k); dreh/versatz sind META, keine Modellparameter');
   ok(be && be.id === 'leit/rom/feld/bunkereingang' && be.dreh === -90 && be.versatz.length === 2 && Object.keys(be.fest).length === 0, 'rom_feld, ziel (Kartenart aussenposten): Bunkereingang mit Drehung -90 (Front nach Westen) und Versatz');
   ok(['station', 'ruine', 'schiff'].every((art) => AE('rom_feld', 'aussicht', art).id === wp.id), 'rom_feld, aussicht: für jede Kartenart derselbe Wachposten (Schlüssel *)');
   ok(AE('rom_feld', 'ziel', 'station').id === 'ort/rom/gemein/feldstandarte' && AE('rom_feld', 'ziel', 'ruine').id === 'leit/rom/ruine/fahnenheiligtum', 'rom_feld, ziel: Station und Ruine wie rom.json');
@@ -177,11 +191,51 @@ async function main() {
   const wpb = build('leit/rom/feld/wachposten', { seed: 5 }), bub = build('leit/rom/feld/bunkereingang', { seed: 5 });
   const wz = zellenVon(wpb), bz = zellenVon(bub), wm = bb(wpb), bm = bb(bub);
   ok(wm.x0 === -6 && wm.x1 === 6 && wm.z0 === -2 && wm.z1 === 2 && wm.y1 <= 12 && wm.y1 >= 8 && tris(wpb) <= 600, `wachposten: Grundfläche 3 x 1 m (x ${wm.x0}..${wm.x1}, z ${wm.z0}..${wm.z1} Voxel), Höhe ${wm.y1 / 4} m (höchstens 3 m), ${tris(wpb)} Dreiecke`);
-  ok(wz.length > 50 && wz.filter(([x, y, z]) => x >= -1 && x <= 1 && z >= -1 && y >= 1 && y < 9).length === 0, 'wachposten: Standfläche frei (x -0,25..+0,5 m, ab z -0,25 m nach vorn, bis 2,25 m Höhe): nichts steht neben oder über der Figur');
-  ok(wz.filter(([x, y, z]) => y >= 9 && x >= -1 && x <= 1).length === 0, 'wachposten: über der Figur (x -0,25..+0,5 m) nichts ab 2,25 m, Sonnendach und Wimpel stehen seitlich');
-  ok(wz.filter(([x, y, z]) => y >= 1 && z > 0).every(([x, y]) => x <= -3 && y >= 7), 'wachposten: vor der Mittellinie (nach Süden) liegt nur der Clipeus (links, ab 1,75 m), alles andere in der hinteren Hälfte');
-  ok(bm.x0 === -4 && bm.x1 === 4 && bm.z0 === -2 && bm.z1 === 2 && bm.y1 >= 12 && bm.y1 <= 14 && tris(bub) <= 600, `bunkereingang: 2 m breit, 0,5 m hinter und 0,5 m vor der Wandfläche (z ${bm.z0}..${bm.z1} Voxel), Höhe ${bm.y1 / 4} m, ${tris(bub)} Dreiecke`);
-  ok(bz.filter(([x, y, z]) => z >= 1 && y < 12).every(([x, y, z]) => z === 1 || (z === 2 && (x < -3 || x > 2 || y >= 10))), 'bunkereingang: vor der Wandfläche (z > 0) höchstens Relief 0,25 m (Torfeld), 0,5 m nur an den Pilastern und am Gesims (über dem Kopf)');
+  ok(wz.length > 50, 'wachposten: baut');
+  ok(bm.x0 === -4 && bm.x1 === 4 && bm.z1 <= 0 && bm.y1 >= 12 && bm.y1 <= 14 && tris(bub) <= 600, `bunkereingang: 2 m breit, nichts vor der Wandfläche (z ${bm.z0}..${bm.z1} Voxel, z1 <= 0), Höhe ${bm.y1 / 4} m, ${tris(bub)} Dreiecke`);
+  // Kollision (Kais Grundregel: alles Gegenständliche braucht Kollision, nur flache Optik darf über begehbarem Boden liegen):
+  // jedes Voxel beider Leitstücke wird in seiner Platzierung auf der Grabenkarte (Anker, versatz, dreh, Anheben) in Weltkoordinaten gelegt; über einer
+  // begehbaren Kachel darf kein Voxel höher als 0,1 m über deren Boden enden. Boden: plateau 0,53, sonst 0.
+  const VS = 0.25, BODEN = { plateau: 0.53 };
+  const ueberBegehbar = (id, b, a, eintrag) => {
+    const kd = kindAt(a.x, a.y), lift = BODEN[kd] || 0, rot = eintrag.dreh * Math.PI / 180, c = Math.cos(rot), sn = Math.sin(rot);
+    const bad = []; let ueber = 0;
+    for (const [x, y, z] of zellenVon(b)) {
+      const lx = (x + 0.5) * VS, lz = (z + 0.5) * VS;   // Voxelmitte relativ zum Anker (Voxel x,y,z liegen relativ zum Anker, siehe zellenVon)
+      const wx = a.x + 0.5 + eintrag.versatz[0] + lx * c + lz * sn, wz2 = a.y + 0.5 + eintrag.versatz[1] - lx * sn + lz * c;
+      const tx = Math.floor(wx), ty = Math.floor(wz2), tk = kindAt(tx, ty), info = kacheln.zeichen[roh.rows[ty] && roh.rows[ty][tx]];
+      const top = lift + (y + 1) * VS;
+      if (info && info.solid === false) { ueber++; if (top > (BODEN[tk] || 0) + 0.1 + 1e-9) bad.push(tx + ',' + ty); }
+    }
+    return { bad: [...new Set(bad)], ueber };
+  };
+  for (const [id, b, a, e] of [['wachposten', wpb, aus[0], wp], ['wachposten', wpb, aus[1], wp], ['bunkereingang', bub, zi[0], be]]) {
+    const r = ueberBegehbar(id, b, a, e);
+    ok(r.bad.length === 0, `${id} bei Anker ${a.x}|${a.y}: kein Voxel über 0,1 m über einer begehbaren Kachel (${r.ueber} Voxel über begehbarem Boden, Verstöße: ${r.bad.join(' ') || 'keine'})`);
+  }
+  {
+    // Gegenprobe: ohne den Versatz nach Norden stünde der Wachposten-Aufbau über dem Plateau (der Test findet Verstöße)
+    const ohne = ueberBegehbar('wachposten', wpb, aus[0], Object.assign({}, wp, { versatz: [0, 0] }));
+    ok(ohne.bad.length > 0, `Gegenprobe: Wachposten ohne Versatz stünde über begehbaren Kacheln (${ohne.bad.length} Kacheln)`);
+    const ohneB = ueberBegehbar('bunkereingang', bub, zi[0], Object.assign({}, be, { versatz: [0.2, 0.5] }));
+    ok(ohneB.bad.length > 0, `Gegenprobe: Bunkereingang 0,27 m weiter vor der Wand ragt in die Tasche (${ohneB.bad.length} Kacheln)`);
+    // Bunkereingang: Vorderseite höchstens 5 cm vor der Wandfläche (dreh -90: Front nach Westen, Wandfläche = Westkante der ersten # östlich des Ankers)
+    const front = zi[0].x + 0.5 + be.versatz[0] - bm.z1 * VS, wand = zi[0].x + 1, vor = wand - front;
+    ok(be.dreh === -90 && zch(zi[0].x + 1, zi[0].y) === '#' && vor > 0 && vor <= 0.05, `bunkereingang: Vorderseite ${(vor * 100).toFixed(0)} cm vor der Wandfläche (nur gegen Z-Flimmern, höchstens 5 cm)`);
+    // Lesbarkeit: Wachposten auf den Kanten k (Plateau-Zeile frei), Figur auf dem Plateau bleibt sichtbar (nichts südlich der Mitte, nichts über der Standfläche)
+    ok(wz.every(([x, y, z]) => z <= 1), 'wachposten: alle Voxel in der Nordhälfte des Modells (nach dem Versatz ganz auf der Kantenzeile k)');
+  }
+  // Volk der Bauweise (Befund 6): Daten, nicht Name. Figuren und Automaten (actors.js) fragen volkVon(karte.bauweise); rom_feld ist römisch, ohne Sonderfall
+  {
+    const dirB = path.join(ROOT, 'content/buehnen/bauweisen');
+    const alle = fs.readdirSync(dirB).filter((n) => n.endsWith('.json')).map((n) => JSON.parse(fs.readFileSync(path.join(dirB, n), 'utf8')));
+    alle.forEach((b) => R.bauweiseMerken(b));
+    const erwartet = { rom: 'rom', rom_feld: 'rom', germanen: 'germanen', germanen_halle_holz: 'germanen', germanen_halle_stein: 'germanen' };
+    ok(alle.length === 5 && alle.every((b) => R.volkVon(b.id) === erwartet[b.id] && b.volk === erwartet[b.id]), 'volk je Bauweise aus der Datei: ' + alle.map((b) => b.id + '=' + R.volkVon(b.id)).join(', '));
+    ok(R.volkVon('unbekannt') === null && R.volkVon(null) === null, 'volkVon: unbekannte Bauweise und null ergeben null');
+    const act = fs.readFileSync(path.join(ROOT, 'public/js/voxel/actors.js'), 'utf8').split(String.fromCharCode(10)).filter((z) => !z.trim().startsWith('//')).join(String.fromCharCode(10));
+    ok(act.includes("volkVon(mk.bauweise) === 'rom'") && !act.includes("bauweise === 'rom'") && !act.includes("bauweise === 'germanen'"), 'actors.js: Kastell-Automat nach volkVon(bauweise), kein Namensvergleich');
+  }
   const kitSrc = fs.readFileSync(path.join(ROOT, 'public/js/voxel/kit.js'), 'utf8');
   ok(kitSrc.includes('ankerEintragVon(BW, rolle') && /pe\.dreh != null/.test(kitSrc) && /pe\.versatz/.test(kitSrc) && !/leit\/rom\/feld|bunkereingang|wachposten|grabenangriff/.test(kitSrc.replace(/\/\/.*$/gm, '')), 'kit.js: Platzierung nur über die Bauweisen-Tabelle (ankerEintragVon, dreh, versatz), keine Karten- oder Modellnamen im Code');
 

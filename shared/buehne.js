@@ -990,7 +990,7 @@
         let flaeche = 0;
         for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) if (BOEDEN[rows[y][x]] || BELEG_ZEICHEN[rows[y][x]] || (zeichenInfo(D, rows[y][x]) || {}).kante === 'begehbar') flaeche++;   // Boden + Deckung, keine Wände
         const maxKacheln = T.max_anteil != null ? Math.floor(flaeche * T.max_anteil) : Infinity;
-        const WANDKIND = { wand: 1, zaun: 1, fels: 1, pfeiler: 1, deckung_voll: 1, leere: 1 };
+        const WANDKIND = { wand: 1, zaun: 1, fels: 1, baum: 1, pfeiler: 1, deckung_voll: 1, leere: 1 };
         const wandnah = (q) => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => { const c = rows[q[1] + dy] && rows[q[1] + dy][q[0] + dx]; const i = c && zeichenInfo(D, c); return !!i && !!WANDKIND[i.kind]; });
         const kset = new Set(kand.map((q) => q[1] * W + q[0]));
         const nah = T.wandnah ? kand.filter(wandnah) : [];
@@ -1672,7 +1672,7 @@
   // Ausnahmen mit Grund (Manifest-Höhe gilt für die höchste Variante, die Deko-Streuung nutzt sie nicht):
   const SILHOUETTE_AUSNAHMEN = {
     'prop/germanen/gemein/kette': 'Deko streut Form 0 (liegend, < 0,2 m); 2 m nur hängend',
-    'leit/rom/feld/wachposten': 'VOX-01 5c: Aufbau auf dem flachen Posten-Plateau aus zwei schmalen Masten (0,25 m) und einem Schirm in der Nordhälfte, Standfläche in der Mitte frei (tools/test-vox01-kit.js prüft das); Posten bleibt flach, Aufbau macht ihn erkennbar (Entscheidung Kai)',
+    'leit/rom/feld/wachposten': 'VOX-01 5c: Aufbau (3 m) steht über der Kante k nördlich des Posten-Plateaus (versatz [0, -1] in rom_feld.json), also nur über festen Kacheln; die Prüfung kennt nur Höhe und Grundfläche, nicht die Platzierung. Beleg: tools/test-vox01-kit.js legt jedes Voxel auf die Grabenkarte und verlangt: nichts über begehbarem Boden',
   };
   // Türrollen sitzen auf Tür-/Wandkacheln (Kit), lift/leiter sind Kabinen, in die man bewusst hineingeht.
   const SILHOUETTE_ROLLEN_FREI = { tor: 1, eingang: 1, versteck: 1, lift: 1, leiter: 1 };

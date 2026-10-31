@@ -99,6 +99,14 @@ ok(nz(B.karte.rows, 'F') === 0 && nz(B.karte.rows, 'o') === 0 && nz(B.karte.rows
 ok(A.pruefung.ok === B.pruefung.ok && JSON.stringify(A.fehler) === JSON.stringify(B.fehler), `Prüfer: ok ${A.pruefung.ok} = ${B.pruefung.ok}, Fehler gleich (${A.fehler.length})`);
 ok(JSON.stringify(A.karte.coverSpots) === JSON.stringify(B.karte.coverSpots) && A.karte.coverSpots.length > 20, `coverSpots gleich (${A.karte.coverSpots.length})`);
 ok(JSON.stringify(A.karte.kanten) === JSON.stringify(B.karte.kanten) && JSON.stringify(A.karte.patrouillen) === JSON.stringify(B.karte.patrouillen), 'Kanten und Patrouillen gleich');
+{
+  // Befund 1: ohne `spiel` laufen Kennzahlen/Prüferwarnungen über andere Namenslisten; original und ersetzt müssen gleich sein
+  const ohne = (r) => Buehne.ausRaster(JSON.parse(JSON.stringify(r)), {});
+  const oa = ohne(ROH), ob = ohne(ersetzt(ROH, NEU));
+  const codes = (r) => JSON.stringify(((r.pruefung && r.pruefung.warnungen) || r.warnungen || []).map((w) => w.code).sort());
+  ok(!!oa.karte.meta.kennzahlen && JSON.stringify(oa.karte.meta.kennzahlen) === JSON.stringify(ob.karte.meta.kennzahlen), 'ohne spiel: meta.kennzahlen gleich (' + JSON.stringify(ob.karte.meta.kennzahlen && ob.karte.meta.kennzahlen.deckung) + ')');
+  ok(codes(oa) === codes(ob) && JSON.stringify(oa.fehler.map((f) => f.code)) === JSON.stringify(ob.fehler.map((f) => f.code)), 'ohne spiel: Warnungs- und Fehlercodes gleich ' + codes(ob));
+}
 const ohneRL = (k) => { const c = Object.assign({}, k); delete c.rows; delete c.legende; return JSON.stringify(c); };
 ok(ohneRL(A.karte) === ohneRL(B.karte), 'ganze Karte bis auf rows und legende byte-gleich');
 ok(JSON.stringify(zurueck(B.karte.rows)) === JSON.stringify(A.karte.rows), 'rows: Rückersetzung Y/H/; -> F/o/, ergibt das Original');

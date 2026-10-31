@@ -1,13 +1,13 @@
 {
   "id": "natur/nadelbaum",
-  "name": "Nadelbaum (Fichte, Grobvoxel 25 cm) – seed wählt Typ: 0 hoch/schlank, 1 mittel, 2 niedrig/breit",
+  "name": "Nadelbaum (Fichte, Grobvoxel 25 cm) – seed wählt Typ: 0 hoch/schlank, 1 mittel, 2 niedrig/breit; teil 3 + 4 = ganz (Stumpf bis 1,25 m bleibt, Krone mit oberem Stamm wird ausgeblendet)",
   "tier": "architecture",
   "palette": "sommer_wald",
   "jitter": 0,
   "tags": ["natur", "baum", "nadelbaum"],
   "footprint": [1, 1],
   "params": {
-    "teil": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 ganz · 1 nur Stamm · 2 nur Krone" }
+    "teil": { "default": 0, "min": 0, "max": 4, "step": 1, "label": "0 ganz · 1 nur Stamm · 2 nur Krone · 3 Stumpf (Stamm bis 1,25 m) · 4 Krone mit oberem Stamm (ab 1,25 m)" }
   },
   "let": {
     "typ": "floor(seed) % 3",
@@ -23,11 +23,13 @@
   },
   "variants": {
     "stamm": { "teil": 1 },
-    "krone": { "teil": 2 }
+    "krone": { "teil": 2 },
+    "stumpf": { "teil": 3 },
+    "krone_oben": { "teil": 4 }
   },
   "ops": [
-    { "op": "box", "name": "Stamm", "if": "teil != 2", "at": [-1, 0, -1], "size": [2, "yb + dy * 2", 2], "color": { "noise": ["wood", "wood_dark"], "weights": [2, 1], "cell": 1 } },
-    { "op": "group", "name": "Etage", "if": "teil != 1",
+    { "op": "box", "name": "Stamm", "if": "teil != 2", "at": [-1, "teil == 4 ? 5 : 0", -1], "size": [2, "teil == 3 ? 5 : (teil == 4 ? yb + dy * 2 - 5 : yb + dy * 2)", 2], "color": { "noise": ["wood", "wood_dark"], "weights": [2, 1], "cell": 1 } },
+    { "op": "group", "name": "Etage", "if": "teil != 1 && teil != 3",
       "repeat": { "count": "n", "step": [0, 0, 0], "var": "i" },
       "let": {
         "y0": "yb + i * dy",
@@ -41,7 +43,7 @@
         { "op": "ellipsoid", "name": "Etage Licht", "half": "+y", "at": ["ox", "y0 + 1", "oz"], "r": ["rr * 0.7", "dy * 0.85", "rr * 0.7"],
           "color": { "shade": { "noise": ["nadel_light", "nadel"], "weights": [2, 1], "cell": 1 }, "f": "fh" } }
       ] },
-    { "op": "ellipsoid", "name": "Wipfel", "if": "teil != 1", "half": "+y", "at": [0, "yb + n * dy - 1", 0], "r": [2.0, 3.8, 2.0], "color": { "shade": "nadel_light", "f": "fh" } }
+    { "op": "ellipsoid", "name": "Wipfel", "if": "teil != 1 && teil != 3", "half": "+y", "at": [0, "yb + n * dy - 1", 0], "r": [2.0, 3.8, 2.0], "color": { "shade": "nadel_light", "f": "fh" } }
   ],
   "anchor": [0, 0, 0]
 }

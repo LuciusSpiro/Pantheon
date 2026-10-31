@@ -1,7 +1,8 @@
 {
   "format": "bauweise/1",
   "id": "rom_feld",
-  "hinweis": "VOX-01 5a. Rom im Feld (Grabenangriff, Wald, Wall): Kopie von rom.json, abweichend nur plateau (Wall-Rasen), kante (Wallkante), rampe (bringt die Steigung selbst mit), baum, brustwehr, grabensohle, Palette sommer_wald und Stimmung. Pflege: Änderungen an rom.json hier nachziehen (Kopie, wie germanen_halle_holz). VOX-01 5c: anker.aussicht (Wachposten-Aufbau auf dem Posten-Plateau) und anker.ziel für die Kartenart aussenposten (Bunkereingang als Fassade am Mauerblock) sind eigene Einträge; dreh/versatz sind feste Platzierung. Teile kit/rom_feld/* kommen aus dem Voxelwerk (assets/manifest/vox01.json).",
+  "volk": "rom",
+  "hinweis": "VOX-01 5a/5c. Rom im Feld (Grabenangriff, Wald, Wall). Kopie von rom.json (Pflege: Änderungen an rom.json hier nachziehen, wie bei germanen_halle_holz), volk rom (Figuren und Automaten erscheinen römisch). Bewusste Abweichungen von rom.json: (1) kits.plateau, rampe, kante: Wall-Rasen, Rampe mit eigener Steigung, Wallkante 0,75 m (Teile kit/rom_feld/*, Plateauhöhe 0,53 statt 0,5 gegen Z-Flimmern mit dem Sockel); (2) kits.baum, brustwehr, grabensohle: neue Kachelarten Y, H, ; (Baum natur/nadelbaum und natur/laubbaum, Brustwehr und Grabensohle kit/rom_feld/*); (3) anker.aussicht (neu): Wachposten-Aufbau leit/rom/feld/wachposten auf dem Posten-Plateau, anker.ziel für aussenposten: Bunkereingang leit/rom/feld/bunkereingang als Fassade am Mauerblock, beide mit fester Platzierung (dreh, versatz); (4) paletten: sommer_wald statt rom_kastell/rom_*, stimmung: planet_day (Tageslicht) statt rom_aussen, nur für aussenposten, weil die Karte im Freien liegt und Station/Ruine mit dieser Bauweise nicht vorkommen; (5) boden_varianten (neu, rom.json hat keine): die Grabenkarte setzt boden gras, das Gelände soll Wiese zeigen statt Sandton (Varianten sand, gras, wald wie bei den Siedlungen, Gelände und Wege). Teile kit/rom_feld/* und natur/* kommen aus dem Voxelwerk (assets/manifest/vox01.json).",
   "kits": {
     "boden": {
       "id": "kit/rom/boden",
@@ -181,10 +182,10 @@
         "id": "leit/rom/feld/bunkereingang",
         "dreh": -90,
         "versatz": [
-          0.51,
+          0.47,
           0.5
         ],
-        "hinweis": "Fassade vor dem Mauerblock am Ziel, Front nach Westen (zu den Angreifern). Anker-Kachel = Tasche vor der Nische, Versatz zur Wandfläche des Blocks (Grabenkarte, Abschnitt eingang: Anker x 17 | y 17, Block ab x 18)."
+        "hinweis": "Fassade bündig am Mauerblock des Ziels, Front nach Westen (zu den Angreifern). Anker-Kachel = Tasche vor der Nische. Versatz: 0,47 m ostwärts, die Vorderseite des Modells liegt 3 cm vor der Wandfläche des Blocks (gegen Z-Flimmern), nichts ragt in die begehbare Tasche (Grabenkarte, Abschnitt eingang: Anker x 17 | y 17, Block ab x 18)."
       },
       "*": "leit/rom/ruine/fahnenheiligtum"
     },
@@ -204,9 +205,9 @@
         "dreh": 0,
         "versatz": [
           0,
-          0
+          -1
         ],
-        "hinweis": "Aufbau auf dem flachen Posten-Plateau (3 x 1 Kacheln, Anker in der Mitte), Front nach Süden zur Kamera; keine Standhöhe, die Figur steht auf dem Plateau."
+        "hinweis": "Aufbau auf den festen Kanten-Kacheln k nördlich des Posten-Plateaus (3 x 1 Kacheln, Anker in der Mitte): Versatz eine Kachel nach Norden, damit nichts Gegenständliches über begehbarem Boden steht. Front nach Süden zur Kamera; die Figur steht frei auf dem Plateau."
       }
     }
   },

@@ -56,6 +56,34 @@ async function main() {
   ok(mk(frei, kam(31.5, 20.5), 400, zust).has('10,3'), 'Nachlauf beginnt nach erneutem Eintritt neu');
   ok(R.mitNachlauf({ tief: false, seit: 0 }, false, 10) === false, 'mitNachlauf: nie betreten bleibt aus');
 
+  console.log('\n[segmentBox: Vorfilter und Slab-Test ohne Zwischenfelder = Referenz (Slab-Test mit Feldern)]');
+  {
+    // Referenz: der ursprüngliche Slab-Test (vier Felder je Aufruf)
+    const ref = (x0, y0, z0, x1, y1, z1, bx0, by0, bz0, bx1, by1, bz1) => {
+      let tmin = 0, tmax = 1; const d = [x1 - x0, y1 - y0, z1 - z0], o = [x0, y0, z0], lo = [bx0, by0, bz0], hi = [bx1, by1, bz1];
+      for (let i = 0; i < 3; i++) {
+        if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
+        let p = (lo[i] - o[i]) / d[i], q = (hi[i] - o[i]) / d[i]; if (p > q) { const t = p; p = q; q = t; }
+        if (p > tmin) tmin = p; if (q < tmax) tmax = q; if (tmin > tmax) return false;
+      }
+      return true;
+    };
+    let seed = 99, abw = 0, treffer = 0; const rnd = () => { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; };
+    for (let i = 0; i < 200000; i++) {
+      const g = (m) => Math.round(rnd() * m * 4) / 4;   // Raster, damit achsenparallele und Randfälle vorkommen
+      const A = [g(8), g(8), g(8), g(8), g(8), g(8)], bx = g(6), by = g(6), bz = g(6), B = [bx, by, bz, bx + g(3), by + g(3), bz + g(3)];
+      const r1 = ref(...A, ...B), r2 = R.segmentBox(...A, ...B);
+      if (r1 !== r2) abw++; if (r1) treffer++;
+    }
+    ok(abw === 0 && treffer > 5000 && treffer < 195000, `200000 Zufallsstrecken (inkl. Rand- und achsenparallele Fälle): ${abw} Abweichungen, ${treffer} Treffer`);
+    // Wiederverwendete Ergebnismenge und Zielzahl (Kit reicht beides je Frame durch)
+    const aus = new Set(), opt = { aus, n: 1 };
+    const r1 = R.kronenAus(new Map(), kam(31.5, 11.5), Z, [{ x: 31.5, y: 0.9, z: 11.5 }, { x: 36.5, y: 0.9, z: 11.5 }], 0, opt);
+    ok(r1 === aus && aus.has('10,3') && !aus.has('12,3'), 'opt.aus: dieselbe Menge wird wiederverwendet, opt.n: nur das erste Ziel zählt');
+    const r2 = R.kronenAus(new Map(), kam(31.5, 20.5), Z, [{ x: 31.5, y: 0.9, z: 20.5 }], 0, opt);
+    ok(r2 === aus && aus.size === 0, 'opt.aus wird je Aufruf geleert');
+  }
+
   console.log(fails ? `\n${fails} FEHLER` : '\nalle ok');
   process.exit(fails ? 1 : 0);
 }

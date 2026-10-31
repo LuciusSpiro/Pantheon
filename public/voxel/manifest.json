@@ -11219,7 +11219,7 @@
       "params": {
         "teil": [
           0,
-          2
+          4
         ],
         "seed": [
           0,
@@ -11232,6 +11232,12 @@
         },
         "krone": {
           "teil": 2
+        },
+        "stumpf": {
+          "teil": 3
+        },
+        "krone_oben": {
+          "teil": 4
         }
       },
       "sockets": {},
@@ -11259,7 +11265,7 @@
       "params": {
         "teil": [
           0,
-          2
+          4
         ],
         "seed": [
           0,
@@ -11272,6 +11278,12 @@
         },
         "krone": {
           "teil": 2
+        },
+        "stumpf": {
+          "teil": 3
+        },
+        "krone_oben": {
+          "teil": 4
         }
       },
       "sockets": {},

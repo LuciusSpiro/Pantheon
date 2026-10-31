@@ -285,7 +285,7 @@
       "low": false,
       "sperrtSicht": true,
       "kante": "fest",
-      "hinweis": "VOX-01: Baum; Regeln wie F (fels), Modelle folgen"
+      "hinweis": "VOX-01: Baum; Regeln wie F (fels); Voxel-Modelle natur/nadelbaum und natur/laubbaum (Stamm im Chunk, Krone je Zelle ausblendbar), Auswahl in der Bauweise"
     },
     "H": {
       "kind": "brustwehr",
@@ -294,7 +294,7 @@
       "low": true,
       "sperrtSicht": false,
       "kante": "fest",
-      "hinweis": "VOX-01: Brustwehr; Regeln wie o (deckung_halb), Modelle folgen"
+      "hinweis": "VOX-01: Brustwehr; Regeln wie o (deckung_halb); Voxel-Modell kit/rom_feld/brustwehr (Reihen, Ecken, T, Kreuz)"
     },
     ";": {
       "kind": "grabensohle",
@@ -303,7 +303,7 @@
       "low": false,
       "sperrtSicht": false,
       "kante": "begehbar",
-      "hinweis": "VOX-01: Grabensohle; Regeln wie , (boden2), Modelle folgen"
+      "hinweis": "VOX-01: Grabensohle; Regeln wie , (boden2); Voxel-Modell kit/rom_feld/boden (Grabensohle)"
     }
   }
 }

@@ -60,9 +60,9 @@
 
   // ---------------- Farben ----------------
   const KIND_FARBE = {
-    boden: '#3b4252', boden2: '#4b5163', gelaende: '#3c4a3b', plateau: '#776f45', rampe: '#9a8550', kante: '#b59a5c',
-    wand: '#1a1d25', zaun: '#5d4630', gitter: '#5b6b7c', fenster: '#3f8fbf', fels: '#2b2925', abgrund: '#0b1532', leere: '#050608',
-    deckung_halb: '#8a7740', deckung_voll: '#a5602e', pfeiler: '#8b8f99', truemmer: '#6e5d49', schutt: '#4c3d2d',
+    boden: '#3b4252', boden2: '#4b5163', grabensohle: '#4b5163', gelaende: '#3c4a3b', plateau: '#776f45', rampe: '#9a8550', kante: '#b59a5c',
+    wand: '#1a1d25', zaun: '#5d4630', gitter: '#5b6b7c', fenster: '#3f8fbf', fels: '#2b2925', baum: '#2b2925', abgrund: '#0b1532', leere: '#050608',
+    deckung_halb: '#8a7740', brustwehr: '#8a7740', deckung_voll: '#a5602e', pfeiler: '#8b8f99', truemmer: '#6e5d49', schutt: '#4c3d2d',
     tuer: '#d08a3c', schott: '#4fb0d0', tor: '#e0b030', luke: '#6fbf6f', wand_schwach: '#7a5368', pad: '#3f74ad',
   };
   const KANTE_FARBE = { offen: '#5fd38d', tuer: '#f2994a', wand: '#6b7383', frei: '#56ccf2' };
@@ -101,13 +101,13 @@
           if (info.kante === 'tuer') {   // Türen: Querbalken
             ctx.fillStyle = 'rgba(0,0,0,.45)';
             ctx.fillRect(ox + x * px + px * 0.15, oy + y * px + px * 0.42, px * 0.7, px * 0.16);
-          } else if (info.kind === 'deckung_halb' || info.kind === 'deckung_voll' || info.kind === 'pfeiler') {
+          } else if (info.kind === 'deckung_halb' || info.kind === 'brustwehr' || info.kind === 'deckung_voll' || info.kind === 'pfeiler') {
             ctx.strokeStyle = 'rgba(0,0,0,.5)'; ctx.lineWidth = Math.max(1, px / 10);
             ctx.strokeRect(ox + x * px + px * 0.18, oy + y * px + px * 0.18, px * 0.64, px * 0.64);
           } else if (info.kind === 'gitter' || info.kind === 'fenster') {
             ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(ox + x * px + px / 2, oy + y * px); ctx.lineTo(ox + x * px + px / 2, oy + (y + 1) * px); ctx.stroke();
-          } else if (info.kind === 'wand' || info.kind === 'fels') {
+          } else if (info.kind === 'wand' || info.kind === 'fels' || info.kind === 'baum') {
             ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.fillRect(ox + x * px, oy + y * px, px, Math.max(1, px * 0.12));
           }
         }

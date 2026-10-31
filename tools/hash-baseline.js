@@ -128,7 +128,7 @@ async function berechne(nurKarten) {
   const nurKarten = process.argv.includes('--karten') && modus === 'compare';
   const ist = await berechne(nurKarten);
   if (modus === 'write') {
-    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/2', stand: 'karten: main 6d912b4 (unverändert); deko_zellen, deko, layout: ORT-01 Paket 9 (Altstücke ersetzt, Besitz-Streu der Orte gefiltert, Rom-Deko für Außenposten und Station-Gänge)', karten: ist.karten, deko_zellen: ist.deko_zellen, deko: ist.deko, layout: ist.layout, schiff_ruine: fs.existsSync(DATEI) && json(DATEI).schiff_ruine ? json(DATEI).schiff_ruine : ist.schiff_ruine }, null, 1) + '\n');
+    fs.writeFileSync(DATEI, JSON.stringify({ format: 'ort01-hash-baseline/2', stand: 'karten: VOX-01 (neue Kachelarten Y, H, ; in den Legenden der Karten; Raster, Regeln und Anker unverändert gegenüber main 6d912b4); deko_zellen, deko, layout: ORT-01 Paket 9 (Altstücke ersetzt, Besitz-Streu der Orte gefiltert, Rom-Deko für Außenposten und Station-Gänge)', karten: ist.karten, deko_zellen: ist.deko_zellen, deko: ist.deko, layout: ist.layout, schiff_ruine: fs.existsSync(DATEI) && json(DATEI).schiff_ruine ? json(DATEI).schiff_ruine : ist.schiff_ruine }, null, 1) + '\n');
     console.log(`Baseline geschrieben: ${Object.keys(ist.karten).length} Karten-Hashes, ${Object.keys(ist.deko_zellen).length} Zellen-Deko-Hashes, ${Object.keys(ist.deko).length} Deko-Hashes (beide Bauweisen), ${Object.keys(ist.layout).length} Layout-Hashes -> ${path.relative(ROOT, DATEI)}`);
     return;
   }

@@ -30,7 +30,7 @@ import * as DefaultLoader from './loader.js';
 import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
-import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus } from './kit-regeln.js';
+import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus, bauweiseMerken } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
 // ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
@@ -134,6 +134,7 @@ async function ladeDaten(k, opts) {
     d.rollen !== undefined ? d.rollen : ROLLEN_ARTEN.includes(k.art) ? getJson(base + 'rollen/' + k.art + '.json') : null,
     d.leitFuss ? null : sharedBuehne(),
   ]);
+  bauweiseMerken(bauweise);
   const leitFuss = d.leitFuss || (SB && typeof SB.leitFuss === 'function' ? SB.leitFuss : null);
   return { kacheln, anker, bauweise: bauweise || { kits: {}, anker: {}, leit: {}, paletten: {}, stimmung: {} }, besitz, deko, rollen, leitFuss };
 }
@@ -942,12 +943,13 @@ async function bauKarte(parent, karteIn, opts) {
   const b2Ton = (k.boden2 && BODEN2_TON[k.boden2]) || null;
   const bodenFarbe = (tx, ty, kd) => (kd === 'pad' && b2Ton ? { top: 'paving', f: 1.1 } : kd === 'boden2' && b2Ton ? { top: b2Ton.top, f: b2Ton.f } : wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
-  // VOX-01 5a: Bäume. Stamm backt in den normalen Chunk, die Krone je Zelle von 3×3 Kacheln in einen eigenen Bucket (eigenes Mesh, schaltbar: handle.kronenSchalten).
+  // VOX-01 5a: Bäume. Stumpf (Stamm bis 1,25 m, teil 3) backt in den normalen Chunk und bleibt immer stehen (Kollisionsanzeige, wie die geschnittene Wand);
+  // die Krone samt oberem Stamm (teil 4) liegt je Zelle von 3×3 Kacheln in einem eigenen Bucket (eigenes Mesh, schaltbar: handle.kronenSchalten).
   // Nadel/Laub und Seed je Kachel aus der Kachelposition (kit-regeln.js baumWahl); fehlt ein Modell, steht der Platzhalter FB.baum (Stamm und Krone zusammen).
   const kronen = new Map();   // 'cx,cz' → { d, bucket, x0, x1, z0, z1, n }
   const baumSetzen = (tx, ty, d) => {
     const e = kitId('baum'), w = baumWahl(tx, ty, e), pal = e && e.palette;
-    const stamm = w && assetGeo(w.id, { teil: 1, seed: w.seed }, pal), krone = w && assetGeo(w.id, { teil: 2, seed: w.seed }, pal);
+    const stamm = w && assetGeo(w.id, { teil: 3, seed: w.seed }, pal), krone = w && assetGeo(w.id, { teil: 4, seed: w.seed }, pal);
     if (!stamm || !krone) { pen.to(bucketAt(d, tx, k.localY(ty)), tileMatrix(tx, ty)); FB.baum(pen, { x: tx, y: ty }, F); noteFb('baum'); return; }
     const mm = tileMatrix(tx, ty, w.rot, w.dx, w.dz);
     tmpN.getNormalMatrix(mm);
@@ -1183,6 +1185,7 @@ async function bauKarte(parent, karteIn, opts) {
     kronenObjs.push({ key, mesh, box: { key, bx0: bb.min.x, bx1: bb.max.x, bz0: bb.min.z, bz1: bb.max.z, by0: bb.min.y, by1: bb.max.y }, tief: { tief: false, seit: 0 }, x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, yMax: g.boundingBox.max.y, n: c.n });
   }
   stats.kronen = kronenObjs.length;
+  const kronenZustand = new Map(kronenObjs.map((o) => [o.key, o.tief])), kronenBoxen = kronenObjs.map((o) => o.box), kronenZiele = [], kronenOpt = { aus: new Set(), n: 0 };
   const huellObjs = [];
   for (const c of huellZellen.values()) {
     const gh = c.hoch.toGeometry(), gn = c.niedrig.toGeometry();
@@ -1279,7 +1282,7 @@ async function bauKarte(parent, karteIn, opts) {
         t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
       }
       if (pe && pe.versatz) t.off = pe.versatz;   // fester Versatz (Meter, Weltrichtung) gewinnt gegen den automatischen
-      t.lift = BODEN_HOEHE[k.kindAt(a.x, a.y)] || 0;
+      t.lift = hoeheOf(k.kindAt(a.x, a.y));
       o.params = () => {
         const nm = ankerName(a);
         const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (pe || { fest: {} }).fest);
@@ -1391,9 +1394,14 @@ async function bauKarte(parent, karteIn, opts) {
     kronenUpdate(camera, ziele, jetztMs) {
       if (!kronenObjs.length || !camera) return 0;
       const t = jetztMs != null ? jetztMs : now();
-      const lz = (ziele || []).map((z) => ({ x: z.x, y: z.y, z: k.localY(Math.floor(z.z)) + (z.z - Math.floor(z.z)) }));
-      const zustand = new Map(kronenObjs.map((o) => [o.key, o.tief]));
-      const aus = kronenAus(zustand, camera.position, kronenObjs.map((o) => o.box), lz, t);
+      // Zustand, Boxliste, Zielpunkte und Ergebnismenge liegen einmal vor (kein Anlegen je Frame, Befund K1)
+      let n = 0;
+      for (const z of ziele || []) {
+        let q = kronenZiele[n]; if (!q) q = kronenZiele[n] = { x: 0, y: 0, z: 0 };
+        q.x = z.x; q.y = z.y; q.z = k.localY(Math.floor(z.z)) + (z.z - Math.floor(z.z)); n++;
+      }
+      kronenOpt.n = n;
+      const aus = kronenAus(kronenZustand, camera.position, kronenBoxen, kronenZiele, t, kronenOpt);
       for (const o of kronenObjs) { const v = !aus.has(o.key); if (o.mesh.visible !== v) o.mesh.visible = v; }
       return aus.size;
     },

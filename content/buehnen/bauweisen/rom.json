@@ -1,6 +1,7 @@
 {
   "format": "bauweise/1",
   "id": "rom",
+  "volk": "rom",
   "hinweis": "ART-RUINE. Rom = verfallenes Grenzkastell (Kartenart ruine). Kit-Teile kit/rom/<kind> = Hülle um kit/geruest/<kind> mit bauweise rom; Steckplätze kit/rom/gemein/* (Kastell intakt) und kit/rom/ruine/* (verfallen, Moos, tote Energiefugen). gelaende/fels = Terrain (VOXEL), abgrund/leere = nichts.",
   "kits": {
     "boden": {

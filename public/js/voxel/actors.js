@@ -3,6 +3,7 @@
 // Pose und Gegenstand kommen aus dem Snapshot – dieselbe Ableitung wie die 2D-Figur (render.js charOpts/drawWorld).
 // Robust: fehlende Figuren/Posen/Modelle → eigener Würfel-Ersatz bzw. Ersatzpose; jeder Fehler wird gezählt (ctx.countError).
 import { registerLayer } from './renderer.js';
+import { volkVon } from './kit-regeln.js';
 
 const TILE = 32;
 const D2R = Math.PI / 180;
@@ -1128,7 +1129,7 @@ function updateEnemy(e, view, st, dt, t) {
     const state = !alive ? 2 : hitAge < 0.15 ? 1 : 0;
     // Kastell-Automat (Rom, herrenlose Kastelle) statt Kustoden-Wächter: Fraktion bzw. Bauweise der Bühne
     const mk = L.ctx.map && (L.ctx.map.karte || L.ctx.map);
-    const rom = e.fr === 'herrenlos' || e.fr === 'rom' || (!e.fr && mk && mk.bauweise === 'rom');
+    const rom = e.fr === 'herrenlos' || e.fr === 'rom' || (!e.fr && mk && volkVon(mk.bauweise) === 'rom');
     a.setModel(rom ? 'actor/rom/waechter' : 'lerche/actor/warden', { state, front: e.asleep || !alive ? 0 : 1 }, 'warden');
     a.labelH = rom ? 2.3 : null;
     const pos = place(a, e.x, e.y, 0);

@@ -1,6 +1,7 @@
 {
   "format": "bauweise/1",
   "id": "germanen_halle_holz",
+  "volk": "germanen",
   "quelle": "CONTRACT-B1.md §10.2, ART-PLAN §4 (Art pflegt: ART-GK-BAU)",
   "hinweis": "kits: kind → Kit-Teil; Objekt = { id, <feste Parameter> }, optional je_art: { <art>: { id?, <Parameter> } } überschreibt für eine Kartenart. Terrain-Kinds (gelaende, fels) und leere/abgrund haben kein Kit-Teil (terrain/leer). Der Kit-Renderer setzt conn, cut, zustand, art, seed und state selbst; art wird an die Instanz kit/germanen/<kind> durchgereicht, die die Steckplätze kit/germanen/<art>/… vor kit/germanen/gemein/… wählt. anker: rolle → { <art>|'*': Prop-ID oder { id, <feste Parameter> } }, Zustand = state-Index der Rolle (anker.json). leit: platztyp → art → Leitstück. · Station-Farbvariante (Kai, 2026-10-10): muster 2 = Variante je 2×2-Block, Stimmung hall_warm.",
   "kits": {

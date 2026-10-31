@@ -101,16 +101,33 @@ export function hochRichtung(kindAt, x, y, hochZu) {
 // ---------------------------------------------------------------------------------------------------------------------------
 // Sichtlinien-Umschaltung (Hüllen hoch/niedrig, VOX-01 5b: Baumkronen). Rein, ohne three.js; kit.js und tools/test-vox01-kronen.js nutzen sie.
 
-/** Schneidet die Strecke (x0,y0,z0)→(x1,y1,z1) die Box (bx0..bx1, by0..by1, bz0..bz1)? (Slab-Test) */
+/** Schneidet die Strecke (x0,y0,z0)→(x1,y1,z1) die Box (bx0..bx1, by0..by1, bz0..bz1)? Erst ein Vorfilter (AABB der Strecke gegen die Box, billig,
+ *  weist fast alle Zellen ab), dann der Slab-Test ohne Zwischenfelder (läuft je Frame viele tausend Mal). */
 export function segmentBox(x0, y0, z0, x1, y1, z1, bx0, by0, bz0, bx1, by1, bz1) {
+  if ((x0 < bx0 && x1 < bx0) || (x0 > bx1 && x1 > bx1) || (z0 < bz0 && z1 < bz0) || (z0 > bz1 && z1 > bz1) || (y0 < by0 && y1 < by0) || (y0 > by1 && y1 > by1)) return false;
   let tmin = 0, tmax = 1;
-  const d = [x1 - x0, y1 - y0, z1 - z0], o = [x0, y0, z0], lo = [bx0, by0, bz0], hi = [bx1, by1, bz1];
-  for (let i = 0; i < 3; i++) {
-    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
-    let a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
-    if (a > b) { const t = a; a = b; b = t; }
-    if (a > tmin) tmin = a;
-    if (b < tmax) tmax = b;
+  let d = x1 - x0;
+  if (Math.abs(d) < 1e-9) { if (x0 < bx0 || x0 > bx1) return false; } else {
+    let p = (bx0 - x0) / d, q = (bx1 - x0) / d;
+    if (p > q) { const t = p; p = q; q = t; }
+    if (p > tmin) tmin = p;
+    if (q < tmax) tmax = q;
+    if (tmin > tmax) return false;
+  }
+  d = y1 - y0;
+  if (Math.abs(d) < 1e-9) { if (y0 < by0 || y0 > by1) return false; } else {
+    let p = (by0 - y0) / d, q = (by1 - y0) / d;
+    if (p > q) { const t = p; p = q; q = t; }
+    if (p > tmin) tmin = p;
+    if (q < tmax) tmax = q;
+    if (tmin > tmax) return false;
+  }
+  d = z1 - z0;
+  if (Math.abs(d) < 1e-9) { if (z0 < bz0 || z0 > bz1) return false; } else {
+    let p = (bz0 - z0) / d, q = (bz1 - z0) / d;
+    if (p > q) { const t = p; p = q; q = t; }
+    if (p > tmin) tmin = p;
+    if (q < tmax) tmax = q;
     if (tmin > tmax) return false;
   }
   return true;
@@ -129,13 +146,17 @@ export function mitNachlauf(o, im, t, ms) {
  * ziele = [{ x, y?, z }] (Punkte aller sichtbaren Figuren: eigene, Mitspieler, Gegner), kamera = { x, y, z }.
  * zustand = Map key → { tief, seit } (vom Aufrufer gehalten, bleibt zwischen Aufrufen). → Set der Schlüssel, die ausgeblendet sind.
  * Eine Zelle geht aus, wenn eine Strecke Kamera → Figurenpunkt ihre Box (um `einzug` verkleinert, damit ein Streifen am Rand nicht reicht) kreuzt.
+ * opt (alles optional): einzug, nachlaufMs, aus = Set, der geleert und wiederverwendet wird (kein neues Set je Aufruf), n = nur die ersten n Einträge von ziele.
  */
 export function kronenAus(zustand, kamera, zellen, ziele, jetztMs, opt) {
   const einzug = opt && opt.einzug != null ? opt.einzug : 0.3;
-  const aus = new Set();
+  let aus;
+  if (opt && opt.aus) { aus = opt.aus; aus.clear(); } else aus = new Set();
+  const n = ziele ? (opt && opt.n != null ? Math.min(opt.n, ziele.length) : ziele.length) : 0;
   for (const c of zellen) {
     let im = false;
-    for (const z of ziele || []) {
+    for (let i = 0; i < n; i++) {
+      const z = ziele[i];
       if (segmentBox(kamera.x, kamera.y, kamera.z, z.x, z.y == null ? 0.9 : z.y, z.z, c.bx0 + einzug, c.by0, c.bz0 + einzug, c.bx1 - einzug, c.by1, c.bz1 - einzug)) { im = true; break; }
     }
     let s = zustand.get(c.key);
@@ -144,3 +165,9 @@ export function kronenAus(zustand, kamera, zellen, ziele, jetztMs, opt) {
   }
   return aus;
 }
+
+// ---- Volk der Bauweise (VOX-01 Nacharbeit): datengetrieben aus bauweisen/<id>.json (Feld `volk`), nicht aus dem Namen der Bauweise.
+// kit.js trägt jede geladene Bauweise ein (bauweiseMerken); Figuren (actors.js) fragen volkVon(karte.bauweise). Unbekannt oder ohne Feld: null.
+const VOELKER = {};
+export function bauweiseMerken(bw) { if (bw && bw.id) VOELKER[bw.id] = bw.volk || null; }
+export function volkVon(bauweiseId) { return (bauweiseId && VOELKER[bauweiseId]) || null; }

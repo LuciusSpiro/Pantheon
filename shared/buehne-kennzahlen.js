@@ -7,9 +7,9 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
 
-  const DECKUNG_KINDS = { deckung_halb: 1, deckung_voll: 1, pfeiler: 1, kante: 1, truemmer: 1, schutt: 1,
+  const DECKUNG_KINDS = { deckung_halb: 1, deckung_voll: 1, pfeiler: 1, kante: 1, truemmer: 1, schutt: 1, brustwehr: 1,
     cover_low: 1, pillar: 1, archive_key: 1, tablet_pedestal: 1 };   // + Handkarten-Kinds (Kesh)
-  const WAND_KINDS = { wand: 1, zaun: 1, fels: 1, leere: 1, wall: 1, wall_ruin: 1, rock: 1 };
+  const WAND_KINDS = { wand: 1, zaun: 1, fels: 1, baum: 1, leere: 1, wall: 1, wall_ruin: 1, rock: 1 };
   const ZIEL_ROLLEN = ['ziel', 'terminal', 'fund', 'sprengpunkt', 'zelle', 'beute', 'raetsel', 'tor'];
 
   // ---- Raster: Kachelinfo, Begehbarkeit (jetzt) und Durchgang (für Prüfungen: Türen zählen als passierbar) ----
@@ -248,7 +248,7 @@
     if (j) Object.assign(c, j);
     return c;
   }
-  const DECKUNG_KACHEL = { deckung_halb: 1, deckung_voll: 1, pfeiler: 1, truemmer: 1, schutt: 1, cover_low: 1, pillar: 1 };
+  const DECKUNG_KACHEL = { deckung_halb: 1, deckung_voll: 1, pfeiler: 1, truemmer: 1, schutt: 1, brustwehr: 1, cover_low: 1, pillar: 1 };
   function kennzahlen(karte, cfg) {
     cfg = cfgFuer(cfg, karte.art);
     const R = cfg.deckungRadius != null ? cfg.deckungRadius : 2;
