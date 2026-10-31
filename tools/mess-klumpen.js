@@ -18,6 +18,8 @@
 //     Hauptkennzahlen: Anteil Gegner mit Kamerad <= 2 Kacheln, mittlerer Abstand zum naechsten Kameraden.
 //     weitere: mittlerer Paarabstand, Gegner je Deckungsinsel (Maximum), Inseln mit >= 2 Gegnern, Abstand stehender pin-Gegner,
 //     Anteil Samples mit Flankierer.
+//     BOD-02 P7 (Trupp-Gehirn, e.aufgabe): Anteil Gefechts-Samples, in denen jeder Trupp ab 4 Lebenden >= 1 niederhalten und >= 1 flanke hat
+//     (nur Samples mit mindestens einem solchen Trupp), Verteilung der Aufgaben (Anteil je Aufgabe an allen Gegnern im Gefecht).
 //
 const path = require('path');
 const R = path.join(__dirname, '..') + path.sep;
@@ -127,7 +129,11 @@ function messLauf(modus, o, seed) {
     const pins = al.filter((e) => e.role === 'pin' && !(e.path && e.path.length)).map(t2);
     const pnn = pins.length >= 2 ? mean(pins.map((a, i) => Math.min(...pins.filter((_, j) => j !== i).map((b) => Math.hypot(a.x - b.x, a.y - b.y))))) : NaN;
     const roll = {}; for (const e of al) roll[e.role] = (roll[e.role] || 0) + 1;
-    samples.push({ t: (s + 1) * 0.5, n: al.length, mpd: sum / cnt, nn: nn / T.length, klumpFrac: klumpen / T.length, sieht, maxInsel, geteilt, maxFrei, geteiltFrei, pnn, npin: pins.length, flanker: al.some((e) => e.role === 'flank') ? 1 : 0, medSp: minSp.sort((x, y) => x - y)[Math.floor(minSp.length / 2)], roll });
+    const aufg = {}; for (const e of al) { const a = e.aufgabe || 'keine'; aufg[a] = (aufg[a] || 0) + 1; }
+    const proTrupp = {}; for (const e of al) (proTrupp[e.squad] = proTrupp[e.squad] || []).push(e);
+    const gross = Object.values(proTrupp).filter((l) => l.length >= 4);
+    const gueltig = gross.length ? (gross.every((l) => l.some((e) => e.aufgabe === 'niederhalten') && l.some((e) => e.aufgabe === 'flanke')) ? 1 : 0) : null;
+    samples.push({ t: (s + 1) * 0.5, n: al.length, mpd: sum / cnt, nn: nn / T.length, klumpFrac: klumpen / T.length, sieht, maxInsel, geteilt, maxFrei, geteiltFrei, pnn, npin: pins.length, flanker: al.some((e) => e.role === 'flank') ? 1 : 0, aufg, gueltig, medSp: minSp.sort((x, y) => x - y)[Math.floor(minSp.length / 2)], roll });
   }
   const sx = g.players.map((p) => Physics.toTile(p.x, p.y).x);
   const fehler = Array.isArray(g.errors) ? g.errors.length : g.errors | 0;
@@ -150,6 +156,11 @@ function auswerten(modus, o, rows) {
   const P = gef.filter((s) => s.npin >= 2);
   out.push(`stehende pin-Gegner (>=2) im Gefecht: Samples ${P.length}, mittl. Abstand zum naechsten pin-Kameraden ${f2(mean(P.map((s) => s.pnn)))}, mittl. Anzahl pin ${f2(mean(P.map((s) => s.npin)))}`);
   out.push(`Samples mit Flankierer (Anteil, alle Samples): ${f2(mean(all.map((s) => s.flanker)))}`);
+  const mitGross = gef.filter((s) => s.gueltig != null);
+  out.push(`TRUPP-GEHIRN: Anteil Gefechts-Samples mit gueltiger Verteilung (jeder Trupp ab 4 Lebenden >=1 niederhalten und >=1 flanke) ${mitGross.length ? f2(mean(mitGross.map((s) => s.gueltig))) : 'n/a'} (Gefechts-Samples mit Trupp ab 4: ${mitGross.length} von ${gef.length})`);
+  const verteil = {}; let summe = 0;
+  for (const s of gef) for (const [a, k] of Object.entries(s.aufg)) { verteil[a] = (verteil[a] || 0) + k; summe += k; }
+  out.push('Verteilung der Aufgaben (Gefecht, Anteil an Gegner-Samples): ' + (summe ? Object.entries(verteil).sort((a, b) => b[1] - a[1]).map(([a, k]) => a + ' ' + f2(k / summe)).join(', ') : 'keine Gefechtssamples'));
   for (const r of rows) { const g2 = r.samples.filter((s) => s.sieht >= 3); out.push(`seed ${r.seed}: Gefechtssamples ${g2.length}, Paarabstand ${f2(mean(g2.map((s) => s.mpd)))}, nn ${f2(mean(g2.map((s) => s.nn)))}, <=2 ${f2(mean(g2.map((s) => s.klumpFrac)))}, maxInsel ${g2.length ? Math.max(...g2.map((s) => s.maxInsel)) : 0}, Tickfehler ${r.fehler}`); }
   if (o.verlauf && rows[0]) out.push('Verlauf seed 1:\n' + rows[0].samples.filter((s, i) => i % 10 === 0).map((s) => `t${s.t}: n${s.n} mpd${f2(s.mpd)} nn${f2(s.nn)} sieht${s.sieht} maxInsel${s.maxInsel} spD${f2(s.medSp)} ${JSON.stringify(s.roll)}`).join('\n'));
   return out.join('\n');

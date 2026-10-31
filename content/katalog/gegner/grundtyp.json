@@ -49,6 +49,10 @@
     ],
     "friendly_fire": [
       "Pass doch auf, du Narr!"
+    ],
+    "flanke_umgangen": [
+      "Flanke! Die gehen außen rum!",
+      "Von der Seite, die kommen von der Seite!"
     ]
   },
   "funk_nach_fraktion": {
@@ -72,6 +76,10 @@
       ],
       "friendly_fire": [
         "Eigene Linie, Idiot! Augen auf!"
+      ],
+      "flanke_umgangen": [
+        "Flanke! Sie umgehen die Linie!",
+        "Seitenschutz, Männer! Sie kommen um die Ecke!"
       ]
     }
   }

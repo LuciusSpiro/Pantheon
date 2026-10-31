@@ -420,6 +420,7 @@
         playerDown: ['Einer liegt! Drauf!', 'Der ist am Boden – nachsetzen!'],
         lost: ['Wo sind die hin?', 'Hab sie verloren …', 'Augen auf, die sind irgendwo!'],
         half: ['Rückzug zur zweiten Linie!', 'Wir sind nur noch die Hälfte – zurück!'],
+        flanke_umgangen: ['Sie kommen uns in die Flanke!', 'Flanke! Die gehen außen rum!'],   // BOD-02 P7
       },
       // ================= B2 „Bodenkampf“ (CONTRACT-B2 §1.1, Startwerte aus INHALT §10; Welle 0, noch ohne Wirkung) =================
       // Gelesen erst, wenn server/sim/waffen.js aktiv ist (Team WAFFEN/BODENKAMPF). Alles per `tune awayCombat.<pfad>`.
@@ -462,6 +463,11 @@
       // Kameraden und an einer freistehenden Deckungsinsel mit schon inselMax Kameraden bekommen `strafe` Punkte Abzug (weich, kein Ausschluss).
       // inselKachelnMax: größere Inseln und Wand/Zaun gelten als Mauer, nicht als Insel. entstapelnSek: Pause zwischen zwei Ausweichschritten.
       trupp: { mindestAbstand: 3, inselMax: 2, inselKachelnMax: 12, strafe: 50, entstapelnSek: 4 },
+      // BOD-02 P7: Trupp-Gehirn (server/sim/trupp.js): Aufgaben niederhalten/scharf/unterstuetzung/flanke/sturm/allround je alarmiertem Trupp (>= 2 Lebende),
+      // Flankenschutz mit Funk 'flanke_umgangen' und Umschwenken (Trupp-Zustand bedrohung). hz = Takt; haltezeit s bis Zugang neu verteilt;
+      // flankeWinkel (Grad von der Trupp-Achse) / flankeKacheln = Flankensektor; bedrohungSek/sperreSek = Dauer/Pause; scharfAbstand Kacheln;
+      // niederhaltenSek/unterstuetzungSek = Feuer auf die letzte Position so lange nach letzter Sicht; stossBlaster = Schüsse je Blaster-Stoß; achseNeuKacheln.
+      truppGehirn: { hz: 1.5, haltezeit: 4, flankeWinkel: 50, flankeKacheln: 14, bedrohungSek: 8, sperreSek: 12, scharfAbstand: 7, niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6 },
       ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)

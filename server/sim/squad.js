@@ -9,6 +9,7 @@ const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
 const { bfs, dist } = require('../util.js');
+const Trupp = require('./trupp.js');   // BOD-02 P7: Trupp-Gehirn (Aufgaben, Flankenschutz)
 
 const TILE = Physics.TILE;
 const HITBOX = { w: 14, h: 10 };
@@ -209,7 +210,7 @@ function wakeWarden(game, map) {
 // ---------- Funksprüche (CONTRACT-M2 §5) ----------
 // B2: Funk aus den Funksätzen der Rolle (KATALOG gegner/<rolle>.json, Schlüssel allgemein, ueberhitzt, kamerad_liegt,
 // spieler_gefesselt, alarm_laerm, friendly_fire); sonst die alten Plünderer-Sätze (CONFIG.awayCombat.barks).
-const FUNK_ART = { contact: 'allgemein', flankLeft: 'allgemein', flankRight: 'allgemein', playerDown: 'allgemein' };
+const FUNK_ART = { contact: 'allgemein', flankLeft: 'allgemein', flankRight: 'allgemein', playerDown: 'allgemein', flanke_umgangen: 'allgemein' };
 // Anzeigename „<Rolle> <Vorname>“: Vornamen der Fraktion der Reihe nach je Rolle auf der Karte (Reihenfolge der Gegnerliste, Gefallene zählen mit), ohne Dopplung bis zur Listenlänge
 function eigenerName(game, e, g, rolle) {
   const vn = g.vornamen && g.vornamen[e.fraktion];
@@ -314,6 +315,7 @@ function update(game, dt) {
   if (think) {
     aw.aiT = 0;
     perceive(game, E);
+    if (waffenMod()) Trupp.update(game, E);   // BOD-02 P7: Aufgaben je Trupp (niederfrequent), vor den Einzelentscheidungen
     for (const e of aw.drones) if (e.alive && !e.asleep && !e.frozen) { try { decide(game, E, e); } catch (err) { game.countError('squad-decide', err); } }
   }
   const Wf = waffenMod();
@@ -413,12 +415,13 @@ function decide(game, E, e) {
   }
   const targets = vis.filter((p) => !p.downed);
   if (targets.length) {
-    const t = pickTarget(e, targets, C);
+    const bedr = Trupp.bedrohung(game, s);
+    const t = pickTarget(e, targets, C, bedr && bedr.pid);
     e.target = t.id;
     const alive = game.away.drones.filter((d) => d.alive && d.squad === e.squad).length;
     const flankerBusy = s.flanker && game.away.drones.some((d) => d.alive && d.id === s.flanker && d.role === 'flank');
     const flankCd = prof && game.away.drones.some((d) => d.alive && d.squad === e.squad && d.rolle === 'niederhalter' && d.role === 'pin') ? 5 : 10;
-    if (e.role !== 'flank' && !flankerBusy && alive >= 2 && game.time - s.flankAt > flankCd && !(prof && KEINE_FLANKE[prof]) &&
+    if (e.role !== 'flank' && !flankerBusy && alive >= 2 && game.time - s.flankAt > flankCd && !(prof && KEINE_FLANKE[prof]) && e.aufgabe !== 'flanke' &&
         Los.coverAgainst(E.map, E.solid, e.x, e.y, t.x, t.y, !!t.crouch) > 0) {
       const spot = findFlankSpot(game, E, e, t);
       if (spot) {
@@ -452,8 +455,10 @@ function decide(game, E, e) {
   e.shootTarget = null;
 }
 
-function pickTarget(e, list, C) {
+function pickTarget(e, list, C, bevorzugt) {
   const inb = list.filter((p) => inBox(C, e.x, e.y, p.x, p.y));
+  const pref = bevorzugt && inb.find((p) => p.id === bevorzugt);   // BOD-02 P7: der Umgehende zuerst
+  if (pref) return pref;
   const pool = inb.length ? inb : list;
   return pool.slice().sort((a, b) => dist(a.x, a.y, e.x, e.y) - dist(b.x, b.y, e.x, e.y))[0];
 }
@@ -566,15 +571,22 @@ function platzStrafe(game, E, e, spot) {
 }
 
 // Deckungsplatz mit Sicht auf das Ziel halten (pin)
+// BOD-02 P7: bei einer gemeldeten Umgehung (Trupp.bedrohung) bewertet jedes Mitglied seine Deckung einmal neu, auch gegen die umgehende Position;
+// die Flankenwache (aufgabe flanke) bleibt in Deckung an der Seite des Trupps (flankSeite, quer zur Achse), nicht vorn.
 function planPin(game, E, e, t) {
   const C = cfg(game);
+  const s = squadOf(game, e);
+  const bedr = Trupp.bedrohung(game, s);
+  const neu = !!bedr && e.bedrohungT !== bedr.t;
+  if (neu) e.bedrohungT = bedr.t;
+  const wache = e.aufgabe === 'flanke' && s.achse != null && s.schwerpunkt;
   const here = tileOf(e.x, e.y);
   const curCover = Los.coverAgainst(E.map, E.solid, t.x, t.y, e.x, e.y);
-  if (e.goal && game.time - e.goalAt < 3) {
+  if (!neu && e.goal && game.time - e.goalAt < 3) {
     const gc = W.tileCenter(e.goal.x, e.goal.y);
     if (los(E, gc, t)) return;
   }
-  const bleibt = (!e.path || !e.path.length) && curCover >= 1 && inBox(C, e.x, e.y, t.x, t.y);
+  const bleibt = !neu && (!e.path || !e.path.length) && curCover >= 1 && inBox(C, e.x, e.y, t.x, t.y);
   if (bleibt && platzStrafe(game, E, e, here) === 0) { e.goal = null; return; }
   let best = null, bs = -Infinity, bStrafe = 0;
   const tt = tileOf(t.x, t.y);
@@ -587,7 +599,13 @@ function planPin(game, E, e, t) {
     if (!los(E, c, t)) continue;
     const cov = Los.coverAgainst(E.map, E.solid, t.x, t.y, c.x, c.y);
     const strafe = platzStrafe(game, E, e, sp);
-    const score = cov * 4 - manh(sp, here) * 0.5 - Math.abs(d / TILE - (IDEAL[e.rolle] || 6)) * 0.3 - (manh(sp, tt) < 3 ? 2 : 0) - strafe;
+    let score = cov * 4 - manh(sp, here) * 0.5 - Math.abs(d / TILE - (IDEAL[e.rolle] || 6)) * 0.3 - (manh(sp, tt) < 3 ? 2 : 0) - strafe;
+    if (bedr && bedr.pid !== t.id) score += Los.coverAgainst(E.map, E.solid, bedr.x, bedr.y, c.x, c.y) * 3;   // P7: Deckung auch gegen den Umgehenden
+    if (wache) {   // P7: Flankenwache seitlich vom Schwerpunkt, nicht vor dem Trupp
+      const ax = Math.cos(s.achse), ay = Math.sin(s.achse); const vx = (c.x - s.schwerpunkt.x) / TILE, vy = (c.y - s.schwerpunkt.y) / TILE;
+      const quer = (ax * vy - ay * vx) * (s.flankSeite || 1), vor = ax * vx + ay * vy;
+      score += Math.max(-2, Math.min(5, quer)) * 1.5 - Math.max(0, vor - 1) * 0.7;
+    }
     if (score > bs) { bs = score; best = sp; bStrafe = strafe; }
   }
   if (bleibt && !(bStrafe === 0 && best)) { e.goal = null; return; }   // kein freierer Platz: lieber stehen bleiben (weicher Rückfall)
@@ -1060,23 +1078,37 @@ function decideB2(game, E, e, s, prof) {
     return true;
   }
   // Niederhalter: ohne Sicht auf die letzte bekannte Position halten (Unterdrückung)
-  if (prof === 'niederhalter' && !targets.length) {
+  // BOD-02 P7: auch ein Blaster-Träger mit Aufgabe niederhalten (Fenster niederhaltenSek statt 4 s)
+  if (Trupp.niederhaelt(e) && !targets.length) {
     const lk = freshestKnown(s);
-    if (lk && game.time - lk.t < 4) { setRole(game, e, 'pin'); e.unterdrueck = { x: lk.x, y: lk.y }; e.shootTarget = null; return true; }
+    const fenster = e.rolle === 'niederhalter' ? 4 : Trupp.cfg(game).niederhaltenSek;   // Aufgabe: nur nach echter Sicht auf den Spieler (contactAt), nicht bei bloßem Suchen
+    if (lk && game.time - lk.t < fenster && (e.rolle === 'niederhalter' || game.time - s.contactAt < fenster)) { setRole(game, e, 'pin'); e.unterdrueck = { x: lk.x, y: lk.y }; e.shootTarget = null; return true; }
     e.unterdrueck = null;
   }
-  // Schütze: Abstand halten, Aussicht bevorzugen
+  // BOD-02 P7: Granatwerfer mit Aufgabe unterstuetzung: ohne Sicht Granaten auf die letzte bekannte Position (Reichweite des Werfers)
+  if (prof === 'grenadier' && e.aufgabe === 'unterstuetzung' && !targets.length) {
+    const lk = freshestKnown(s);
+    const gw = ((cfg(game).waffen || {}).granatwerfer) || {};
+    if (lk && game.time - lk.t < Trupp.cfg(game).unterstuetzungSek && game.time - s.contactAt < Trupp.cfg(game).unterstuetzungSek && dist(lk.x, lk.y, e.x, e.y) <= (Number(gw.max) || 12) * TILE) {
+      setRole(game, e, 'pin'); e.unterdrueck = { x: lk.x, y: lk.y }; e.shootTarget = null; return true;
+    }
+    e.unterdrueck = null;
+  }
+  // Schütze: Abstand halten, Aussicht bevorzugen (Aufgabe scharf: mindestens truppGehirn.scharfAbstand Kacheln)
   if (prof === 'schuetze' && targets.length) {
     const g = cfg(game).gegner.schuetze || {};
+    const scharf = e.aufgabe === 'scharf';
+    const mind = scharf ? Math.max(g.abstand || 5, Trupp.cfg(game).scharfAbstand) : (g.abstand || 5);
+    const candMin = scharf ? mind + 0.5 : (g.abstand || 5) + 2;   // scharf: Zielplatz knapp jenseits der Schwelle (Hysterese, kein Hin und Her)
     const t = targets.slice().sort((a, b) => dist(a.x, a.y, e.x, e.y) - dist(b.x, b.y, e.x, e.y))[0];
-    if (dist(t.x, t.y, e.x, e.y) < (g.abstand || 5) * TILE) {
+    if (dist(t.x, t.y, e.x, e.y) < mind * TILE) {
       const here = tileOf(e.x, e.y);
       let best = null, bs = -Infinity;
       for (const sp of E.coverSpots || []) {
         if (cheb(sp, here) > 8 || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
         const c = W.tileCenter(sp.x, sp.y); const d = dist(c.x, c.y, t.x, t.y);
-        if (d < ((g.abstand || 5) + 2) * TILE || !los(E, c, t)) continue;
-        const sc = d / TILE - manh(sp, here) * 0.3 - platzStrafe(game, E, e, sp);
+        if (d < candMin * TILE || !los(E, c, t)) continue;
+        const sc = (scharf ? -Math.abs(d / TILE - (mind + 1)) : d / TILE) - manh(sp, here) * 0.3 - platzStrafe(game, E, e, sp);   // scharf: nächster Platz im Wunschabstand statt weitester
         if (sc > bs) { bs = sc; best = sp; }
       }
       if (best && setGoal(game, E, e, best)) { setRole(game, e, 'pin'); e.target = t.id; e.shootTarget = t.id; return true; }
@@ -1223,9 +1255,16 @@ function actB2(game, E, e, dt, Wf, g) {
     return true;
   }
   // Niederhalter ohne Sicht: Stoß auf die letzte bekannte Position (ohne Ankündigung durch Zielen – Lärm/Leuchtspur reicht)
-  if (e.rolle === 'niederhalter' && e.unterdrueck && !e.shootTarget) {
+  if (Trupp.niederhaelt(e) && e.unterdrueck && !e.shootTarget) {
     e.fireT -= dt;
-    if (e.fireT <= 0) e.stoss = (g && g.stoss) || 8;
+    if (e.fireT <= 0) e.stoss = e.rolle === 'niederhalter' ? ((g && g.stoss) || 8) : Trupp.cfg(game).stossBlaster;   // P7: Blaster-Stoß kürzer
+    trackStuck(game, e, dt, false);
+    return true;
+  }
+  // BOD-02 P7: Unterstützungsfeuer: Granate auf die letzte bekannte Position (Rhythmus wie beim Zielen)
+  if (e.rolle === 'grenadier' && e.aufgabe === 'unterstuetzung' && e.unterdrueck && !e.shootTarget) {
+    e.fireT -= dt;
+    if (e.fireT <= 0 && !Wf.kannFeuern(game, e)) { feuerB2(game, E, e, e.unterdrueck, g); e.fireT = (g && g.rhythmus) || 3; }
     trackStuck(game, e, dt, false);
     return true;
   }
@@ -1249,5 +1288,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
-  _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
+  freshestKnown, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };
