@@ -491,15 +491,17 @@
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(x, y - 12); ctx.lineTo(x + 7, y + 9); ctx.lineTo(x, y + 6); ctx.lineTo(x - 7, y + 9); ctx.closePath(); ctx.fill();
       const pos = [[0, -1], [1, 0], [0, 1], [-1, 0]];   // Bug oben, Steuerbord rechts
-      const cap = Array.isArray(sh.cap) ? sh.cap : [4, 4, 4, 4];
+      const maxS = (CFG.shields && CFG.shields.maxPerSector) || 4;   // SYS-03 C1: Kappe aus der Config (8): sonst zeigte die Anzeige nur 4 Punkte
+      const st = maxS > 4 ? 3 : 6, sz = maxS > 4 ? 2 : 4, a0 = Math.round(((maxS - 1) * st + sz) / 2);   // Schritt/Länge je Pip, Leiste mittig zum Schiff (bei 4: 11 wie bisher)
+      const cap = Array.isArray(sh.cap) ? sh.cap : [maxS, maxS, maxS, maxS];
       for (let i = 0; i < 4; i++) {
         const [dx, dy] = pos[i];
-        for (let k = 0; k < 4; k++) {
+        for (let k = 0; k < maxS; k++) {
           // M3a: über cap = gedimmt (½), cap 0 = rot
-          const over = k >= n(cap[i], 4);
-          ctx.fillStyle = hit === i ? (cur[i] ? PAL.star : PAL.red) : k < (cur[i] || 0) ? PAL.mint : over ? (n(cap[i], 4) <= 0 ? '#7A2420' : '#5A4A1A') : '#2E3A4A';
-          if (dy) ctx.fillRect(x - 11 + k * 6, y + dy * (20 + 0) - 1, 4, 3);
-          else ctx.fillRect(x + dx * 22 - 1, y - 11 + k * 6, 3, 4);
+          const over = k >= n(cap[i], maxS);
+          ctx.fillStyle = hit === i ? (cur[i] ? PAL.star : PAL.red) : k < (cur[i] || 0) ? PAL.mint : over ? (n(cap[i], maxS) <= 0 ? '#7A2420' : '#5A4A1A') : '#2E3A4A';
+          if (dy) ctx.fillRect(x - a0 + k * st, y + dy * (20 + 0) - 1, sz, 3);
+          else ctx.fillRect(x + dx * 22 - 1, y - a0 + k * st, 3, sz);
         }
       }
     },
@@ -707,10 +709,11 @@
     shieldStrip(ctx, view, x, y) {
       const ship = view.state.ship || {}, sh = ship.shields || {};
       if (!sh.current) return;
-      const cur = sh.current || [0, 0, 0, 0], cap = sh.cap || [4, 4, 4, 4];
+      const maxS = (CFG.shields && CFG.shields.maxPerSector) || 4;   // SYS-03 C1: Kappe aus der Config (8)
+      const cur = sh.current || [0, 0, 0, 0], cap = sh.cap || [maxS, maxS, maxS, maxS];
       const tele = this.teleLate(view);
       const order = [3, 0, 1, 2];   // Bb, Bug, Stb, Heck (Lesereihenfolge)
-      const bw = 22;
+      const bw = maxS > 4 ? 30 : 22, pst = maxS > 4 ? 3 : 4, pwd = maxS > 4 ? 2 : 3;   // bei Kappe 8 breitere Felder, damit 8 Punkte (Schritt 3, Breite 2) hineinpassen
       const SHORT = ['Bug', 'Stb', 'Hck', 'Bb'];
       R.text(ctx, 'SCHILD', x, y + 3, { color: PAL.brass });
       x += R.measure('SCHILD', 1) + 4;
@@ -718,11 +721,11 @@
         const i = order[j];
         const bx = x + j * (bw + 1);
         ctx.fillStyle = '#26313F'; ctx.fillRect(bx, y, bw, 15);
-        if (n(cap[i], 4) <= 0) R.crossX(ctx, bx, y, bw, 15, 'rgba(224,71,60,0.6)', 1);
-        else if (n(cap[i], 4) < 4) R.hatch(ctx, bx, y, bw, 15, 'rgba(242,201,76,0.25)', 4);
+        if (n(cap[i], maxS) <= 0) R.crossX(ctx, bx, y, bw, 15, 'rgba(224,71,60,0.6)', 1);
+        else if (n(cap[i], maxS) < maxS) R.hatch(ctx, bx, y, bw, 15, 'rgba(242,201,76,0.25)', 4);
         const tl = tele[i];
         if (!tl) R.text(ctx, SHORT[i], bx + 2, y + 1, { color: PAL.star });
-        for (let k = 0; k < 4; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], 4) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 2 + k * 4, y + 11, 3, 2); }
+        for (let k = 0; k < maxS; k++) { ctx.fillStyle = k < n(cur[i]) ? PAL.mint : k >= n(cap[i], maxS) ? '#5A2A26' : '#2E3A4A'; ctx.fillRect(bx + 2 + k * pst, y + 11, pwd, 2); }
         if (tl) {
           ctx.strokeStyle = PAL.red; ctx.setLineDash([3, 2]); ctx.lineWidth = 1; ctx.strokeRect(bx + 0.5, y + 0.5, bw - 1, 14); ctx.setLineDash([]);
           R.text(ctx, f1(tl.left), bx + bw / 2, y + 1, { color: PAL.red, align: 'center' });
@@ -1239,7 +1242,7 @@
       const cx = a.x + 455, cy = a.y + 130;
       R.text(ctx, 'SCHILDE', a.x + 330, a.y + 4, { color: PAL.brass });
       R.text(ctx, 'Pool ' + allocSum + ' / ' + pool, a.x + 390, a.y + 4, { color: allocSum >= pool ? PAL.amber : PAL.mint });
-      R.text(ctx, '(' + ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie, max ' + maxS + ' je Sektor)', a.x + 450, a.y + 4, { color: PAL.panelLight });
+      R.text(ctx, '(' + ((CFG.shields && CFG.shields.pointsPerPower) || 4) + ' je Energie, max ' + maxS + ' je Sektor)', a.x + 450, a.y + 4, { color: PAL.panelLight });
       if (sysDown(ship, 'shields')) R.text(ctx, 'Schildgenerator zerstört!', a.x + 470, a.y + 31, { color: PAL.red, align: 'center' });
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(cx + 26, cy); ctx.lineTo(cx - 18, cy - 12); ctx.lineTo(cx - 24, cy); ctx.lineTo(cx - 18, cy + 12); ctx.closePath(); ctx.fill();
@@ -2463,8 +2466,8 @@
       if (r) {
         const desc = {
           werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
-          ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt einen Hüllenbruch.',
-          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, trifft die Hülle. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
+          ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt ein Leck.',
+          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, prallt am stehenden Schild ab und trifft sonst ein System. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
           ladung: 'Sprengstoff für das Außenteam: am Sprengziel platzieren (E halten). Keine Explosion, die Folge kommt nach dem Hochbeamen.',
           kristalllampe: 'Vaelen-Handwerk: leuchtet in Mint. Nur hier zu haben.',
         }[r.id] || (r.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : r.kind === 'upgrade' ? 'Umbau für die Lerche.' : '');

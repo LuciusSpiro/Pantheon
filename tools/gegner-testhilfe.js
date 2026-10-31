@@ -10,8 +10,7 @@ const Gegnertod = require('../server/sim/gegnertod.js');   // SYS-01 C1a-2: Coun
 const Integ = require('../server/sim/integritaet.js');
 const Escort = require('../server/sim/escort.js');   // SYS-01 C2b: Verbündete (Escort-Einträge mit ally)
 
-const schwelle = () => Number(CONFIG.systemModell && CONFIG.systemModell.schwelle) || 0.6;
-const zustand = (e, id) => Integ.zustandVon(e.sys[id].i, Gsys.maxOf(e, id), schwelle());
+const zustand = (e, id) => Integ.stufeVon(e.sys[id].i, Gsys.maxOf(e, id));   // SYS-03 B-Nacharbeit: robuste Stufe aus i (keine Schwelle), dieselbe Funktion wie im Spiel
 
 // Gesamtintegrität (Σ der Systeme), ohne Modell die alte Hülle
 function gesamtIntegritaet(e) { return Gsys.hat(e) ? Gsys.summe(e) : e.hp; }
@@ -22,23 +21,37 @@ function setzeIntegritaet(e, ziel, wert) {
   if (!Gsys.hat(e)) { e.hp = wert; return; }
   const idsZiel = e.sys[ziel] ? [ziel] : Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone === ziel);
   if (!idsZiel.length) throw new Error('setzeIntegritaet: kein System/keine Zone ' + ziel + ' bei ' + e.kind);
-  for (const id of idsZiel) { e.sys[id].i = Math.max(0, wert); e.sys[id].z = zustand(e, id); }
+  for (const id of idsZiel) { e.sys[id].i = Math.max(0, wert); e.sys[id].z = zustand(e, id); delete e.sys[id].tf; }   // SYS-03 B2: kein altes Treffer-Fenster
   e.hp = Gsys.summe(e);
 }
 
 // Gesamtintegrität auf wert bringen (Anteil an hpMax auf alle Systeme gleich verteilt; wert = hpMax füllt alles auf ok).
 function setzeGesamt(e, wert) {
+  rohNull(e);
   if (!Gsys.hat(e)) { e.hp = wert; return; }
   const f = Math.max(0, wert) / (e.hpMax || 1);
   for (const id of Gsys.ids(e)) { e.sys[id].i = Gsys.maxOf(e, id) * f; e.sys[id].z = zustand(e, id); }
   e.hp = wert >= e.hpMax ? e.hpMax : Gsys.summe(e);   // voll = exakt hpMax (keine Gleitkomma-Reste)
+  if (wert >= e.hpMax) for (const id of Gsys.ids(e)) { delete e.sys[id].tf; delete e.sys[id].sp; }   // SYS-03 B2: voll = auch die Treffer-Fenster und Sperren weg
 }
 
 // Klassenbudget setzen (statt e.hp = e.hpMax = n): alle Systeme voll, Maxima neu aus dem Budget
 function setzeBudget(e, budget) {
-  e.hpMax = budget;
+  e.hpMax = budget; rohNull(e);
   if (Gsys.hat(e)) setzeGesamt(e, budget); else e.hp = budget;
 }
+
+// SYS-03 B2: Seit der Stufenregel sinkt e.hp nicht mehr proportional zum Schaden (ein Treffer ohne Schild = eine Stufe). Tests, die die Schadenszahl einer WAFFE prüfen
+// (Lanze 3..12, Salve 2 × 1,5 …), zählen deshalb den Rohschaden, der bei einem Ziel ankommt: rohZaehlen() hängt einmal in space.damageEnemy ein, roh(e) liefert die Summe seit
+// rohNull(e) (setzeGesamt/setzeBudget setzen sie zurück). Der Rohschaden wirkt nur noch auf die Schilde; gegen Systeme zählt die Stufe.
+const ROH = new WeakMap(); let rohAn = false;
+function rohZaehlen() {
+  if (rohAn) return; rohAn = true;
+  const orig = space.damageEnemy;
+  space.damageEnemy = function (game, e, dmg, ...rest) { ROH.set(e, (ROH.get(e) || 0) + (Number(dmg) || 0)); return orig.call(this, game, e, dmg, ...rest); };
+}
+const roh = (e) => ROH.get(e) || 0;
+const rohNull = (e) => { ROH.set(e, 0); };
 
 // Schild einer Seite auf 0 (seite 0 Bug, 1 Steuerbord, 2 Heck, 3 Backbord wie shared/schilde.js; ohne seite alle Seiten).
 // Mit game werden die Segmente der Klasse (mehrere je Seite) aus dem Layout bestimmt, ohne game gilt der Index als Segment.
@@ -92,4 +105,4 @@ function toetenVerbuendeten(game, es) {
   Gegnertod.sofort(es); Escort.disable(game, es);
 }
 
-module.exports = { toetenVerbuendeten, setzeSchilde, toeten, toetenSofort, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };
+module.exports = { rohZaehlen, roh, rohNull, toetenVerbuendeten, setzeSchilde, toeten, toetenSofort, mitteNurReaktor, setzeIntegritaet, setzeGesamt, setzeBudget, gesamtIntegritaet, schildNull };

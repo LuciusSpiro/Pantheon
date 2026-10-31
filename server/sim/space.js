@@ -16,7 +16,8 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als r
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
 const Gegnertod = require('./gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Reaktor-Countdown, Sofort-Tod, Kapern über den Schildgenerator)
-const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre und Systemfaktor des Sturms
+const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre des Sturms
+const Integ = require('./integritaet.js');   // SYS-03 B2: Stufenregel (Durchschlag in Stufen)
 const Gegnerreparatur = require('./gegnerreparatur.js');   // SYS-01 C2a: Reparatur der Gegner (Vorgänge, Rückschlag)
 const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C2b: Notfallsprung der Gegner (Szenenbaustein gegner_notfallsprung)
 const Zielsysteme = require('./zielsysteme.js');   // SUND-04a-1 A: gezielter Systemtreffer (Antrieb), gleiche Regeln für beide Seiten – ohne e.zs und Schalter ohne Wirkung
@@ -539,29 +540,25 @@ function updateSystems(game, dt) {
       game.oda(`${cap(interior.sysNameNom(k))} ist überhitzt! Stufe 4 nur kurz fahren, sonst wird's warm.`, 'heat_' + k);
     }
   }
-  // O₂ (PAN-01 B: die Lebenserhaltung ist als Station gestrichen; O₂ sinkt nur durch Lecks)
-  ship.o2 += C.o2.regen * dt;
-  const drill = game.mission && game.mission.isDrill();
-  if (!drill) ship.o2 -= C.breach.o2PerSec * ship.breachList.length * dt;
-  ship.o2 = clamp(ship.o2, 0, C.o2.max);
   // Schilde
   enforceShields(game);
   const sh = ship.shields;
   // M3b §4: Schildstoß entfällt (burst/burstCd bleiben eine Version lang null/0)
   sh.burst = null; sh.burstCd = 0;
   if (isDown(ship.systems.shields) || game.transfer.isBeaming(game)) {
-    sh.current = [0, 0, 0, 0]; sh.regenT = 0;
+    sh.current = [0, 0, 0, 0]; sh.regenT = [0, 0, 0, 0];
   } else {
     for (let i = 0; i < 4; i++) {
       const max = Math.min(sh.cap ? sh.cap[i] : 4, sh.alloc[i]);
       if (sh.current[i] > max) sh.current[i] = max;
     }
     const interval = ship.systems.shields === 'damaged' ? C.shieldsDamagedInterval : C.shields.regenInterval;
-    sh.regenT += dt;
-    if (game.time < (sh.regenHold || 0)) sh.regenT = 0;   // PAN-01 C: Gegner-Sturmbatterie unterdrückt die Regeneration
-    if (sh.regenT >= interval) {
-      sh.regenT = 0;
-      for (let i = 0; i < 4; i++) if (sh.current[i] < sh.alloc[i]) sh.current[i]++;
+    // SYS-03 C1: Regeneration JE SEKTOR. Erst `shields.regenDelay` s (Sturm: länger) nach dem letzten Treffer auf genau diesen Sektor, dann 1 Punkt je Intervall (Timer je Sektor).
+    if (!Array.isArray(sh.regenT)) sh.regenT = [0, 0, 0, 0];
+    for (let i = 0; i < 4; i++) {
+      if (sh.current[i] >= sh.alloc[i] || !Schilde.pause.darfRegenerieren(sh, i, game.time)) { sh.regenT[i] = 0; continue; }
+      sh.regenT[i] += dt;
+      if (sh.regenT[i] >= interval) { sh.regenT[i] = 0; sh.current[i]++; }
     }
   }
 }
@@ -1008,8 +1005,8 @@ function spawnEnemy(game, kind, opts) {
   const C = game.C; const ship = game.ship; const sp = game.space;
   const o = opts || {};
   const cfg = C.enemies[kind];
-  // SYS-01 C2a: Klassenbudget = Hülle × crewScaling.gegnerIntegritaet × Klassenfaktor budgetFaktor (SYS-01 D, Daten gegner-systeme.json; nicht beim Störrelais)
-  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : crewScale(game).gegnerIntegritaet * Gsys.budgetFaktor(kind))));
+  // SYS-01 C2a, SYS-03 B2: Klassenbudget = Hülle × Klassenfaktor budgetFaktor (SYS-01 D, keine Crew-Skalierung mehr; Daten gegner-systeme.json; nicht beim Störrelais)
+  const hp = Math.max(1, Math.round(cfg.hp * (kind === 'relay' ? 1 : Gsys.budgetFaktor(kind))));
   const a = o.angle != null ? o.angle : game.rng.range(-Math.PI, Math.PI);
   let x = o.x != null ? o.x : ship.x + Math.cos(a) * C.combat.spawnDist;
   let y = o.y != null ? o.y : ship.y + Math.sin(a) * C.combat.spawnDist;
@@ -1018,7 +1015,7 @@ function spawnEnemy(game, kind, opts) {
   const lay = Schilde.layout(C, kind);   // EK1b: Segmente je Seite (Korvette: ein Segment je Seite = [Bug, Steuerbord, Heck, Backbord])
   const shields = lay ? lay.max.slice() : [0, 0, 0, 0];
   const e = { id: game.nextId('e'), kind, x, y, angle: o.facing != null ? o.facing : Math.atan2(ship.y - y, ship.x - x), hp, hpMax: hp,
-    shields, shieldsMax: shields.slice(), regenT: 0, scanned: false,
+    shields, shieldsMax: shields.slice(), regenT: shields.map(() => 0), scanned: false,
     fireT: cfg.fireInterval * 0.5, orbitDir: game.rng.chance(0.5) ? 1 : -1, retreatUntil: 0, tag: o.tag || null, hitT: 0,
     phase: 'broadside', phaseT: 0, side: 1, orbitA: o.orbitA, home: { x, y }, vx: 0, vy: 0 };
   Gsys.anlegen(e);   // SYS-01 C1a-1: Systeme mit Integrität je Klassenbudget (e.hp = Summe); ohne Modell (relay) bleibt e.hp
@@ -1056,7 +1053,7 @@ function volkFuer(game, kind, explizit) {
 
 function crewScale(game) {
   const n = Math.max(1, Math.min(3, game.players.filter((p) => p.connected).length));
-  return game.C.crewScaling[n] || { enemyFireInterval: 1, gegnerIntegritaet: 1 };
+  return game.C.crewScaling[n] || { enemyFireInterval: 1 };
 }
 
 // Schaden aus Richtung (srcX, srcY): erst Schildsektor des Gegners, dann Hülle.
@@ -1066,10 +1063,9 @@ function crewScale(game) {
 // Gegner ohne Modell (Störrelais) behalten die alte Hülle e.hp.
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   // SYS-02b: derselbe Trefferweg gilt für Verbündete (e.ally, escort.hit): Schildsegmente, Zone, Sturm, Torpedo, Systemtreffer. Sie haben keine Patrouille, keine Ladung (tele), kein Systemziel,
-  // lösen keine Missionsereignisse der Gegner aus (enemyDamaged, enemyShieldHit), und ihr Tod geht über escort.hit (disable). opts.skala = Faktor auf den Schaden gegen die SYSTEME (Verbündete:
-  // Schaden × escorts.hullPerDamage × crewDamage, die Hüllen-Umrechnung von escort.hit; die Schilde rechnen in Rohschaden wie bei Gegnern).
+  // lösen keine Missionsereignisse der Gegner aus (enemyDamaged, enemyShieldHit), und ihr Tod geht über escort.hit (disable). SYS-03 B2: gegen die SYSTEME gilt die Stufenregel (ein Treffer ohne Schildschutz = genau eine Stufe, keine Schadenszahl, keine Skalierung); die Schilde rechnen in Rohschaden.
+  // opts: sturm, streu, torpedo/huelle/nurOhneSchild, pierce, durchschlag 'zone' (Lanze Vollladung: Schild ganz aus, Mitte), vollladung (das getroffene System der Mitte ist sicher zerstört; der Reaktor nur lanze.reaktorStufen Stufen und nicht im Reaktor-Fenster, SYS-03 N1), druck (Dauerdruck der Zone: Punkte sammeln sich je Stufe, zonen.druckPunkte).
   const ally = !!e.ally;
-  const sk = opts && Number(opts.skala) > 0 ? Number(opts.skala) : 1;
   if (!ally) {
     e.hitT = game.time;
     if (e.pat) Alarm.ausloeser(game, 'entdeckt');   // EK2: ein Treffer auf eine Patrouille verrät uns
@@ -1091,13 +1087,16 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     let sec = lay ? Schilde.segmentOf(lay, e.x, e.y, e.angle, srcX, srcY) : -1;
     if (sec < 0 || sec >= e.shields.length) sec = Physics.sectorOf(e.x, e.y, e.angle, srcX, srcY);
     if (modell) zone = Gsys.zoneVonSegment(game, e, sec);
+    // SYS-03 C2: JEDER Treffer auf das Segment stempelt dessen Regenerationspause (wie die Lerche in damage.resolveHit): auch bei Schild 0, am Schild vorbei, Torpedo-Abpraller, Streu, Lanze, Mine,
+    // Dauerdruck, Sturm (länger). Hier ist die einzige Stelle: alle Wege auf Gegner und Verbündete laufen durch damageEnemy. Nie Zeitstempel von Hand setzen.
+    if (opts && opts.sturm) Schilde.pause.trefferSturm(e, sec, game.time, game.C); else Schilde.pause.treffer(e, sec, game.time, game.C);
     if (!(opts && opts.huelle && !opts.nurOhneSchild)) {   // PAN-01 C: huelle = Torpedo, geht an Schildsegmenten vorbei (nurOhneSchild: wirkt nur auf ein ausgefallenes Segment)
       // SYS-01 B1: Durchschlag 'zone' (Vollladung der Lanze) umgeht den Schild ganz; die Mitte des Gegners ist hier die Hülle
       const pierce = opts && opts.durchschlag === 'zone' ? Infinity : (opts && opts.pierce) || 0;
       const sv = e.shields[sec];
       if (opts && opts.nurOhneSchild && sv > EPS) { game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); schildEreignis(sec); return; }   // Schild steht: der Torpedo prallt ab, Schaden 0
       if (opts && opts.sturm) {   // PAN-01 C: Sturmbatterie – hoher Schild: kaum Schildschaden und keine Regeneration; niedriger Schild: Treffer gehen durch, das Ziel wird gestört
-        const T = opts.sturm; e.regenHold = game.time + T.regenSperre;
+        const T = opts.sturm;   // SYS-03 C2: die Sturm-Sperre (systemModell.sturm.regenSperre_s) steckt im Stempel oben (trefferSturm, je Segment)
         if (modell) Gegnerreparatur.sperren(game, e, zone, Sturm.reparaturSperre(game));   // SYS-02a: jeder Sturm-Treffer sperrt die Reparatur der Zone (Fortschritt 0)
         if (sv > T.niedrig) {
           const take = Math.min(sv, dmg * T.schildFaktor);
@@ -1107,11 +1106,11 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
           return;
         }
         stoereGegner(e, T.stoerung);   // niedriger Schild: der Schild nimmt den Treffer (wie die Lerche in damage.resolveHit)
-        if (sv > EPS && modell) {   // SYS-02a Nacharbeit: wie die Lerche (damage.resolveHit Schritt 3): bei 0 < Schild ≤ niedrig mit sturm.systemChance ein System der Zone, sturmSchaden × systemFaktor; Zone leer: Mitte (gesperrt in trefferSystem)
+        if (sv > EPS && modell) {   // SYS-02a Nacharbeit: wie die Lerche (damage.resolveHit Schritt 3): bei 0 < Schild ≤ niedrig mit sturm.systemChance eine Stufe auf ein System der Zone (Treffer-Fenster gilt); Zone leer: Mitte (gesperrt in trefferSystem)
           const absorbiert = Math.min(sv, rest);
           e.shields[sec] = Math.max(0, sv - absorbiert); if (e.shields[sec] < EPS) e.shields[sec] = 0;
           if (absorbiert > 0) { e.shieldHitT = game.time; e.shieldHitSector = sec; }
-          if (game.rng.chance(T.systemChance)) return trefferSystem(game, e, (Number(game.C.systemModell.sturmSchaden) || 0) * Sturm.systemFaktor(game) * sk, zone || 'bug', srcX, srcY, opts);
+          if (game.rng.chance(T.systemChance)) return trefferSystem(game, e, zone || 'bug', srcX, srcY, opts);
           game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); schildEreignis(sec); return;
         }
       } else if (opts && opts.streu) {   // PAN-01 C: eine Streu-Granate = Schildschaden (Schildbrecher), nie Hülle
@@ -1136,7 +1135,8 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     if (opts && opts.torpedo && (game.C.systemModell.torpedoSofortTod || {})[e.kind] === true) { Gegnertod.sofort(e); return ally ? undefined : enemyDown(game, e); }   // Verbündeter: hp 0, escort.hit zerstört ihn (disable)
     if (opts && opts.torpedo) return torpedoSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-02a: System der Zone zerstört, Durchschlag auf den Reaktor
     if (opts && opts.durchschlag === 'zone') zone = 'mitte';
-    return trefferSystem(game, e, (opts && opts.sturm ? rest * Sturm.systemFaktor(game) : rest) * sk, zone || 'bug', srcX, srcY, opts);   // SYS-02a: Sturm bei niedrigem/leerem Schild × systemFaktor gegen das System
+    if (opts && opts.druck && !druckStufe(game, e, rest)) return;   // Dauerdruck: erst ab zonen.druckPunkte eine Stufe
+    return trefferSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-03 B2: eine Stufe (Sturm bei leerem Schild: Direkttreffer)
   }
   e.hp -= rest;
   if (e.hp < EPS) e.hp = 0;
@@ -1145,13 +1145,16 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   enemyDown(game, e);   // Gegner ohne Systemmodell (Störrelais): kein Schildgenerator, also kein Kapern
 }
 
+// SYS-03 B2: Dauerdruck der Zone auf Gegner/Verbündete (wie zonen.druck der Lerche): die Punkte ohne Schild sammeln sich je Körper (e.druckZ, nicht im Snapshot), eine Stufe je zonen.druckPunkte;
+// der Zähler verfällt, wenn zonen.druckAbkling_s lang kein Druck mehr wirkt (derselbe Helfer wie die Lerche: integritaet.js druckSammeln, zonen.js vermerkt den Druck je Takt).
+function druckStufe(game, e, rest) { return Integ.druckSammeln(game, Integ.druckZaehler(e, 'druckZ'), rest); }
 // SYS-01 C1a-1: Treffer, der den Schild durchschlägt, auf das Systemmodell eines Gegners: Trefferweg in der Zone (Mitte bei leerer Zone),
-// Integrität -= Rest. SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
+// SYS-03 B2: eine Stufe (Vollladung: zerstört das getroffene System; SYS-03 N1: den Reaktor nur eine Stufe, und nicht im Reaktor-Fenster). SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
 // zerstörter Schildgenerator bei einem Enterziel = Prise (sim/gegnertod.js). Gegner ohne Tod kämpfen weiter.
-function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
+function trefferSystem(game, e, zone, srcX, srcY, opts) {
   // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
-  const t = Gsys.treffen(game, e, zone, rest, gez);
+  const t = Gsys.treffen(game, e, zone, gez, { vollladung: opts && opts.vollladung ? true : undefined, art: opts && opts.sturm ? Integ.ART_STURM : undefined });   // Treffer-Art: Sturm-Treffer haben ein längeres Fenster
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
   if (t && opts && opts.sturm) Gegnerreparatur.sperren(game, e, t.zone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Sturm in die Mitte über, ist auch sie gesperrt
@@ -1161,15 +1164,15 @@ function trefferSystem(game, e, rest, zone, srcX, srcY, opts) {
 // SYS-02b: Wirkung eines zerstörten Systems im Tod: Gegner Reaktor (Countdown) und Schildgenerator (Kapern); Verbündete nur der Reaktor (kein Kapern bei Verbündeten)
 function zerstoertWirkt(e, id) { return !e.ally || Gsys.artVon(e, id) === 'reaktor'; }
 // SYS-02a (Kai 2026-10-28): Torpedo gegen einen Gegner mit Systemmodell (Schild 0 im Segment, Lesart B; Jäger sind vorher sofort tot). Zerstört das getroffene System der Zone sicher
-// (Schaden mindestens dessen Maximum; Zufall game.rng oder Systemziel) und schlägt auf den Reaktor durch: systemModell.torpedo.reaktorAnteil × Reaktor-Maximum. Eine leere Zone
+// (zerstört, kein Fenster; Zufall game.rng oder Systemziel) und schlägt auf den Reaktor durch: systemModell.torpedo.reaktorStufen Stufen (1 = eine Stufe, SYS-03 B). Eine leere Zone
 // läuft nicht in die Mitte: dann trifft der Torpedo nur den Reaktor. Zerstörter Reaktor = Countdown (gegnertod.js), wie jede Reaktorzerstörung.
 function torpedoSystem(game, e, zone, srcX, srcY, opts) {
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
   const ts = [];
-  const t = Gsys.treffen(game, e, zone, Katalog.torpedoSchaden(e.kind), gez, { zerstoeren: true, keinUeberlauf: true });
+  const t = Gsys.treffen(game, e, zone, gez, { zerstoeren: true, keinUeberlauf: true });
   if (t) ts.push(t);
-  const rid = Gsys.idVon(e, 'reaktor'); const anteil = Number((game.C.systemModell.torpedo || {}).reaktorAnteil) || 0;
-  if (rid && e.sys[rid].z !== 'broken' && anteil > 0) ts.push(Gsys.treffenAuf(game, e, rid, 'mitte', anteil * Gsys.maxOf(e, rid), false));
+  const rid = Gsys.idVon(e, 'reaktor'); const stufen = Integ.torpedoStufen(game);
+  if (rid && e.sys[rid].z !== 'broken' && stufen > 0) ts.push(Gsys.durchschlagAuf(game, e, rid, stufen));   // SYS-03 B: Durchschlag in ganzen Stufen (systemModell.torpedo.reaktorStufen), dieselbe Zahl wie die Lerche
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   for (const x of ts) {
     Gegnerreparatur.rueckschlag(game, e, x.zone);
@@ -1244,7 +1247,7 @@ function updateEnemies(game, dt) {
   for (const e of sp.enemies) {
     const cfg = C.enemies[e.kind];
     // Schild-Regeneration je Sektor. SYS-01 C1a-1: die Obergrenze je Segment kommt aus den Emittern und dem Schildgenerator (ohne Modell: das Maximum)
-    Gsys.schildTick(game, e, dt);   // SYS-02b: eine Regel für Gegner und Verbündete (Pflege, Regeneration, Sturm-Sperre e.regenHold)
+    Gsys.schildTick(game, e, dt);   // SYS-02b: eine Regel für Gegner und Verbündete (Pflege, Regeneration je Segment mit Pause, Sturm-Sperre)
     if (Gegnertod.tick(game, e, dt)) { enemyDown(game, e); continue; }   // SYS-01 C1a-2: Reaktor-Countdown abgelaufen (der Gegner kämpft bis dahin weiter, auch gestellt oder fliehend); SYS-01 C Nacharbeit: tickt auch während der Sprungladung
     if (Gegnersprung.schritt(game, e, dt)) continue;   // SYS-01 C2b: Notfallsprung (nur mit Baustein): lädt und hält Stellung, danach entkommen (ohne enemyDown)
     const retreating = e.retreatUntil > game.time;
@@ -1680,6 +1683,7 @@ function etorpedoTreffer(game, p) {
   // Lesart B (Kai): bei stehendem Schildsektor prallt der Torpedo ab (kein Schaden, kein Schildabzug); ist der Sektor leer (Schild 0, Generator aus, Schilde unten), trifft er die Hülle
   if (Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild' && (ship.shields.current[sec] || 0) > 0 && Alarm.trefferOpts(game, {}).pierce !== true) {
     game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;
+    Schilde.pause.treffer(ship.shields, sec, game.time, game.C);   // SYS-03 C1: auch der abgeprallte Torpedo ist ein Treffer auf den Sektor
     game.emit('hit', { sector: sec, shield: true, dmg: 0, heavy: true, absorbed: 0 });
     game.emit('sfx', { name: 'shield_hit' });
     return;

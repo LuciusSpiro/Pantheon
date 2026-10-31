@@ -143,10 +143,11 @@ section('Szene-Kopplung: Budget und Anteil halten Systeme und Σ konsistent', ()
   Gsys.setzeBudget(g, es, F.hull.kreuzer * 1.2);
   ok(es.hpMax === Math.round(F.hull.kreuzer * 1.2) && Math.abs(summe(es) - es.hpMax) < 1e-6 && Math.abs(es.hp - es.hpMax) < 1e-6, `Eichung (Budget ×1,2): Maximum neu, Systeme voll, Σ = hp = ${es.hpMax}`);
   Gsys.setzeAnteil(g, es, 0.3);
-  ok(Math.abs(es.hp - 0.3 * es.hpMax) < 1e-6 && Math.abs(summe(es) - es.hp) < 1e-6, 'Verteidiger-Anteil 30 %: Σ = 30 % des Budgets');
-  ok(Math.abs(Gsys.integPct(es) - 30) < 1e-6, `Gesamtintegrität in Prozent = ${Math.round(Gsys.integPct(es))} % (Lesepfad der Szene)`);
+  // SYS-03 B-Nacharbeit: der Anteil wird in STUFEN umgesetzt (setzeAnteil: von hinten nach vorn beschädigt, dann zerstört), nicht anteilig je System: Σ liegt nahe am Anteil (Körnung der Stufen), nie darunter ein toter Reaktor
+  ok(Math.abs(summe(es) - es.hp) < 1e-6 && Math.abs(es.hp / es.hpMax - 0.3) < 0.15 && es.sys.reaktor.z !== 'broken', `Verteidiger-Anteil 30 %: Σ = ${(100 * es.hp / es.hpMax).toFixed(0)} % des Budgets (Stufen, Reaktor nicht zerstört)`);
+  ok(Math.abs(Gsys.integPct(es) - 100 * es.hp / es.hpMax) < 1e-6 && Math.abs(Gsys.integPct(es) - 30) < 15, `Gesamtintegrität in Prozent = ${Math.round(Gsys.integPct(es))} % (Lesepfad der Szene)`);
   Gsys.setzeAnteil(g, es, 0.6);
-  ok(Math.abs(Gsys.integPct(es) - 60) < 1e-6, 'Verrat: Quote 60 % bleibt nach dem Setzen erhalten');
+  ok(Math.abs(Gsys.integPct(es) - 60) < 15, `Anteil 60 %: ${Math.round(Gsys.integPct(es))} % nach dem Setzen (Stufen)`);
   const r = space.spawnEnemy(g, 'relay', { tag: 'rl' });
   Gsys.setzeBudget(g, r, 333);
   ok(r.hp === 333 && r.hpMax === 333, 'Gegner ohne Modell (Störrelais): hp = Budget');

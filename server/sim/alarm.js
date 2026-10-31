@@ -342,12 +342,11 @@ function minenSnap(game) {
   return out.length ? out : null;
 }
 // SYS-01 A1b: Die Mine trifft die nächstgelegene Zone (der Sektor der Richtung, wie der Schildsektor eines Treffers) als Systemtreffer
-// mit Durchschlag 'schild' über den Trefferweg (Schilde gelten nicht). Integritätsabzug = mine.punkte × schadenFaktor.
+// über den Trefferweg (Schilde gelten nicht). SYS-03 B1: eine Stufe auf ein System der Zone (Treffer-Fenster gilt).
 // -> [{ system, state }] (Endzustand je betroffenem System)
 function minenTreffer(game, m) {
-  const M = C(game).mine || {};
   const sector = Physics.sectorOf(game.ship.x, game.ship.y, game.ship.angle, m.x, m.y);
-  const r = require('./damage.js').resolveHit(game, sector, M.punkte != null ? M.punkte : 6, { durchschlag: 'schild', mine: true });
+  const r = require('./damage.js').direktTreffer(game, sector, { mine: true });
   const list = (r.systems || []).map((t) => ({ system: t.system, state: t.state }));
   game.emit('hit', { sector, shield: false, dmg: 3, heavy: true, mine: true });
   game.emit('sfx', { name: 'hull_hit' });

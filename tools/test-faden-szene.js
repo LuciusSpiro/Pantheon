@@ -522,8 +522,9 @@ section('L6: derselbe NSC kann nach einem verlorenen Verbuendeten wieder helfen;
   ok(!!h1.ally, 'der Verbuendete erscheint');
   const es = g.space.escorts.find((q) => q.tag === h1.ally.tag);
   FS.update(g, DT);
-  for (let i = 0; i < 12; i++) g.space.projectiles.push({ id: 'pz' + i, kind: 'enemy', x: es.x, y: es.y, angle: 0, speed: 0, ttl: 5, dmg: 500, tgt: es.id });   // SYS-01 C2b: Gegner-Geschosse auf ihn (ein Großtreffer zerstört nur ein System des Trefferwegs, alle Systeme fallen erst mit mehreren)
-  laufe(g, 0.5);
+  // SYS-01 C2b, SYS-03 B2: Gegner-Geschosse auf ihn (ein Treffer ist eine Stufe, unabhängig vom Schaden; Treffer-Fenster: ein Geschoss je 0,3 s), bis die Zonen leer sind und der Reaktor in der Mitte fällt
+  for (let i = 0; i < 45; i++) { g.space.projectiles.push({ id: 'pz' + i, kind: 'enemy', x: es.x, y: es.y, angle: 0, speed: 0, ttl: 5, dmg: 500, tgt: es.id }); laufe(g, 0.3); if (es.rt && es.rt.rest != null) break; }
+  laufe(g, 0.3);
   // SYS-02b: Schild und Zone fangen die ersten Treffer ab; erst die Mitte mit dem Reaktor löst den Countdown aus, der Tod kommt wie bei Gegnern nach seinem Ablauf (vorher: ein leerer Trefferweg zerstörte sofort)
   ok(es.sys.reaktor.z === 'broken' && es.rt && es.rt.rest > 0 && es.state !== 'zerstoert', 'die Treffer zerstören den Reaktor des Verbuendeten: Countdown laeuft, er kaempft noch');
   laufe(g, es.rt.rest + 1);

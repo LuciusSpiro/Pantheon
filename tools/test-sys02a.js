@@ -1,10 +1,11 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-02a „Nachbesserungen aus Kais Antworten zum SYS-01-Bericht“ (Kai 2026-10-28):
 //   1  Jäger reparieren nicht (gegner-systeme.json raider.repariert false).
 //   2  Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche): Regeneration gesperrt (wie bisher), Reparatursperre der getroffenen Zone
-//      (sturm.reparaturSperre_s, Fortschritt sofort 0), bei Schild ≤ niedrig oder 0 Schaden gegen das System × sturm.systemFaktor, gegen den vollen Schild kaum Schildschaden
+//      (sturm.reparaturSperre_s, Fortschritt sofort 0), bei Schild 0 ein Direkttreffer, bei 0 < Schild ≤ niedrig mit Chance eine Stufe (SYS-03 B2: keine Punktfaktoren), gegen den vollen Schild kaum Schildschaden
 //      und kein Systemschaden (der Sturm nutzt volle Schilde nicht ab; die alte Abnahme „bricht den Schild in 15 s“ entfällt).
-//   3  Torpedo tut weh (Lerche wie Gegner): nur bei Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher und schlägt mit reaktorAnteil × Reaktor-Maximum auf den Reaktor
+//   3  Torpedo tut weh (Lerche wie Gegner): nur bei Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher und schlägt mit systemModell.torpedo.reaktorStufen Stufen auf den Reaktor
 //      durch (zwei Treffer zerstören ihn, Countdown wie jede Reaktorzerstörung); Jäger sofort tot; leere Zone: nur der Reaktor wird getroffen; Zufall nur game.rng.
 //   node tools/test-sys02a.js   (npm run test:sys02a)
 const fs = require('fs');
@@ -51,7 +52,7 @@ function lerche(spieler, seed) {
   for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   g.ship.fragile = {}; g.ship.offline = {};
   I.integritaetVoll(g);
-  g.ship.shields.current = [6, 6, 6, 6]; g.ship.shields.regenHold = 0;
+  g.ship.shields.current = [6, 6, 6, 6]; Schilde.pause.loeschen(g.ship.shields);
   return { g, run };
 }
 const ankern = (g, p, sys) => { const st = W.STATIONS.find((s) => s.system === sys); const c = W.tileCenter(st.x, st.y); p.x = c.x; p.y = c.y; p.zone = 'ship'; p.console = null; p.hold = null; p.moving = false; p.input.mx = 0; p.input.my = 0; };
@@ -104,8 +105,8 @@ section('1 Jäger reparieren nicht (Daten gegner-systeme.json)', () => {
 // =============================================================== 2 Sturm
 section('2a Sturm: Werte als Daten (Katalog) und tunebar (Config), eine Zahl', () => {
   ok(typeof SM.sturm.reparaturSperre_s === 'number' && SM.sturm.reparaturSperre_s === 6 && ST.reparaturSperre_s === 6, 'reparaturSperre_s 6 (Config und Katalog)');
-  ok(typeof SM.sturm.systemFaktor === 'number' && SM.sturm.systemFaktor === 1.5 && ST.systemFaktor === 1.5, 'systemFaktor 1,5 (Config und Katalog)');
-  ok(ST.regenSperre === 6 && ST.niedrig === 1 && ST.schildFaktor === 0.25, 'regenSperre 6, niedrig 1, schildFaktor 0,25 unverändert');
+  ok(SM.sturm.systemFaktor === undefined && ST.systemFaktor === undefined && SM.sturmSchaden === undefined, 'SYS-03 B2: keine Punktfaktoren (sturmSchaden, systemFaktor) mehr in Config und Katalog');
+  ok(ST.regenSperre === undefined && SM.sturm.regenSperre_s === 6 && ST.niedrig === 1 && ST.schildFaktor === 0.25, 'SYS-03 C1: regenSperre_s 6 nur in der Config (nicht mehr im Katalog), niedrig 1, schildFaktor 0,25 unverändert');
 });
 
 section('2b Sturm gegen die Lerche: voller Schild – kaum Schildschaden, kein Systemschaden, Regeneration gesperrt', () => {
@@ -113,22 +114,24 @@ section('2b Sturm gegen die Lerche: voller Schild – kaum Schildschaden, kein S
   const i0 = isum(g);
   for (let i = 0; i < 15; i++) sturmHit(g, 0);
   ok(isum(g) === i0 && g.ship.shields.current[0] > ST.niedrig && g.ship.shields.current[0] < 6, `15 Nadeln gegen Schild 6: Systeme unberührt (Integrität ${i0}), Schild nur ${(6 - g.ship.shields.current[0]).toFixed(2)} abgetragen (kaum Schildschaden, ${g.ship.shields.current[0].toFixed(2)} über „niedrig“)`);
-  ok(g.ship.shields.regenHold > g.time, 'Regeneration gesperrt');
+  ok(!Schilde.pause.darfRegenerieren(g.ship.shields, 0, g.time) && Schilde.pause.bis(g.ship.shields, 0) >= g.time + SM.sturm.regenSperre_s - 1e-6, 'Regeneration des getroffenen Sektors gesperrt (regenSperre_s)');
 });
 
-section('2c Sturm gegen die Lerche: bei Schild 0 wirkt der Schaden × systemFaktor gegen das System (tunebar)', () => {
+section('2c Sturm gegen die Lerche: bei Schild 0 ist jeder Treffer ein Direkttreffer (SYS-03 B1: eine Stufe, egal wie klein), Treffer-Fenster', () => {
   const { g } = lerche(1, 12);
   g.ship.shields.current = [0, 6, 6, 6];
-  let v0 = isum(g); sturmHit(g, 0, 1.08);
-  ok(near(v0 - isum(g), 1.08 * SM.sturm.systemFaktor, 0.06), `ein Treffer 1,08 bei Schild 0: −${(v0 - isum(g)).toFixed(3)} Integrität (1,08 × ${SM.sturm.systemFaktor})`);
-  const f0 = SM.sturm.systemFaktor; SM.sturm.systemFaktor = 2;
-  try { v0 = isum(g); sturmHit(g, 0, 1.08); ok(near(v0 - isum(g), 2.16, 0.06), `live per tune systemModell.sturm.systemFaktor 2: −${(v0 - isum(g)).toFixed(3)} (1,08 × 2)`); } finally { SM.sturm.systemFaktor = f0; }
-  // Anzahl Nadeln bis zur Zerstörung eines Systems (nur noch ein System in der Zone): ceil(Maximum / (Schaden × Faktor))
+  const stufen = () => zone0().filter((k) => g.ship.systems[k] !== 'ok');
+  sturmHit(g, 0, 1.08);
+  ok(stufen().length === 1 && g.ship.systems[stufen()[0]] === 'damaged', `ein Treffer 1,08 bei Schild 0: genau ein System beschädigt (${stufen().join()})`);
+  const g1 = lerche(1, 14).g; g1.ship.shields.current = [0, 6, 6, 6];
+  sturmHit(g1, 0, 0.15);
+  ok(zone0().filter((k) => g1.ship.systems[k] === 'damaged').length === 1, 'auch eine Nadel 0,15 macht eine Stufe (unabhängig vom Schaden)');
+  // Anzahl Nadeln bis zur Zerstörung eines Systems (nur noch ein System in der Zone): zwei Stufen, dazwischen das Treffer-Fenster
   const g2 = lerche(1, 13).g; g2.ship.shields.current = [0, 6, 6, 6];
   for (const k of zone0().slice(1)) { g2.ship.systems[k] = 'broken'; I.setInteg(g2, k, 0); }
-  const einziges = zone0()[0]; const max = I.integMax(g2, einziges); let nadeln = 0;
-  while (g2.ship.systems[einziges] !== 'broken' && nadeln < 100) { sturmHit(g2, 0, 1.08); nadeln++; }
-  ok(nadeln === Math.ceil(max / (1.08 * 1.5)), `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (Maximum ${max}; ohne Faktor wären es ${Math.ceil(max / 1.08)})`);
+  const einziges = zone0()[0]; let nadeln = 0;
+  while (g2.ship.systems[einziges] !== 'broken' && nadeln < 100) { sturmHit(g2, 0, 1.08); nadeln++; if (nadeln % 3 === 0) g2.time += SM.trefferFenster_s + 0.01; }
+  ok(g2.ship.systems[einziges] === 'broken' && nadeln >= 4, `Nadeln im Fenster verfallen (das einzige System verliert nicht zwei Stufen auf einmal): zerstört nach ${nadeln} Nadeln`);
 });
 
 section('2d Sturm gegen die Lerche: Reparatursperre der Zone (Spieler am Halten), andere Zonen ungestört', () => {
@@ -208,19 +211,22 @@ section('2g Sturm gegen Gegner: Reparatursperre der Zone (Fortschritt 0, andere 
   ok(zustand(e, 'antrieb') !== 'broken', `danach läuft die Reparatur wieder (${(g.time - t0).toFixed(1)} s nach dem Treffer)`);
 });
 
-section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein Systemschaden; bei Schild 0 × systemFaktor, Zeit bis Systemzerstörung', () => {
+section('2h Sturm gegen Gegner: voller Schild kaum Schildschaden und kein Systemschaden; bei Schild 0 ein Direkttreffer je Nadel (Fenster), zwei Stufen bis zur Zerstörung', () => {
   const { g } = arena(83);
   const e = gegner(g, 'korvette'); e.gestellt = true;
   Testhilfe.setzeSchilde(e, [6, 6, 6, 6]);
   const hp0 = e.hp; const s0 = e.shields.slice();
   for (let i = 0; i < 10; i++) treffer(g, e, 0, 1.08, sturmOpts());
-  ok(e.hp === hp0 && e.shields[0] > ST.niedrig && e.shields[0] < s0[0] && e.regenHold > g.time, `10 Nadeln gegen den vollen Schild: kein Systemschaden, Schild ${s0[0]} → ${e.shields[0].toFixed(2)} (steht), Regeneration gesperrt`);
+  ok(e.hp === hp0 && e.shields[0] > ST.niedrig && e.shields[0] < s0[0] && !Schilde.pause.darfRegenerieren(e, 0, g.time), `10 Nadeln gegen den vollen Schild: kein Systemschaden, Schild ${s0[0]} → ${e.shields[0].toFixed(2)} (steht), Regeneration gesperrt`);
   // genau ein Ziel in der Zone Bug: waffe_bug (emitter_bug ist zerstört); Schild 0
   const h = gegner(g, 'korvette'); h.gestellt = true; nullSchild(h);
   Testhilfe.setzeIntegritaet(h, 'emitter_bug', 0);
-  const max = Gsys.maxOf(h, 'waffe_bug'); let nadeln = 0;
-  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; }
-  ok(nadeln === Math.ceil(max / (1.08 * SM.sturm.systemFaktor)), `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (Maximum ${max.toFixed(1)}; ohne Faktor ${Math.ceil(max / 1.08)})`);
+  let nadeln = 0;
+  while (zustand(h, 'waffe_bug') !== 'broken' && nadeln < 200) { treffer(g, h, 0, 1.08, sturmOpts()); nadeln++; if (nadeln === 1) ok(zustand(h, 'waffe_bug') === 'damaged', 'erste Nadel bei Schild 0: beschädigt (eine Stufe)'); g.time += SM.sturm.trefferFenster_s + 0.01; }   // Sturm-Treffer haben das längere Fenster (SYS-03 B-Nacharbeit)
+  ok(nadeln === 2, `Zeit bis Systemzerstörung bei Schild 0: ${nadeln} Nadeln (eine Stufe je Nadel, Schadenszahl ohne Wirkung)`);
+  const h2 = gegner(g, 'korvette'); h2.gestellt = true; nullSchild(h2); Testhilfe.setzeIntegritaet(h2, 'emitter_bug', 0);
+  for (let i = 0; i < 5; i++) treffer(g, h2, 0, 1.08, sturmOpts());
+  ok(zustand(h2, 'waffe_bug') === 'damaged', 'fünf Nadeln im selben Tick: das Treffer-Fenster lässt nur eine Stufe zu, die übrigen verfallen');
 });
 
 // ---- Nacharbeit (Review): Sturm bei niedrigem Schild (0 < Schild <= niedrig) und leerer Zone, Lerche und Gegner gleiche Regel (Spiegeltests)
@@ -246,15 +252,16 @@ section('2i Nacharbeit 1: Sturm bei niedrigem Schild und leerer Zone sperrt auch
   });
 });
 
-section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein System der Zone × systemFaktor (Lerche = Gegner), darüber nicht', () => {
+section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein System der Zone, eine Stufe (Lerche = Gegner), darüber nicht', () => {
   mitMitte(() => {
     const L = (s) => { const { g } = lerche(1, 32); g.ship.shields.current = [s, 6, 6, 6]; const v0 = isum(g); sturmHit(g, 0, 1.08); return v0 - isum(g); };
     // G: Zone Bug nur mit waffe_bug (Maximum > Schaden), damit der Abzug nicht an 0 klemmt
     const G = (s) => { const { g } = arena(92); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeIntegritaet(e, 'emitter_bug', 0); Testhilfe.setzeSchilde(e, [s, 6, 6, 6]); const v0 = Gsys.summe(e); treffer(g, e, 0, 1.08, sturmOpts()); return v0 - Gsys.summe(e); };
-    const soll = SM.sturmSchaden * SM.sturm.systemFaktor;
-    ok(near(L(0.5), soll, 0.06), 'Lerche, Schild 0,5: Integrität −' + L(0.5).toFixed(2) + ' (sturmSchaden × systemFaktor ' + soll + ')');
-    ok(near(G(0.5), soll, 0.06), 'Gegner, Schild 0,5: Integrität −' + G(0.5).toFixed(2) + ' (gleich)');
-    ok(near(G(ST.niedrig), soll, 0.06) && near(L(ST.niedrig), soll, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
+    const stufeG = (() => { const { g } = arena(92); const e = gegner(g, 'korvette'); return Gsys.maxOf(e, 'waffe_bug') * (1 - SM.reparatur.damaged); })();   // SYS-03 B2: der Gegner verliert eine Stufe
+    const stufeL = I.integMax({ C: CONFIG }, 'emitter_bow') * (1 - SM.reparatur.damaged);   // SYS-03 B1: die Lerche verliert eine Stufe
+    ok(near(L(0.5), stufeL, 0.06), 'Lerche, Schild 0,5: eine Stufe (Integrität −' + L(0.5).toFixed(2) + ')');
+    ok(near(G(0.5), stufeG, 0.06), 'Gegner, Schild 0,5: eine Stufe (Integrität −' + G(0.5).toFixed(2) + ')');
+    ok(near(G(ST.niedrig), stufeG, 0.06) && near(L(ST.niedrig), stufeL, 0.06), 'Schild genau niedrig (' + ST.niedrig + '): beide wirken');
     ok(L(ST.niedrig + 0.5) === 0 && G(ST.niedrig + 0.5) === 0, 'Schild über niedrig: kein Systemschaden (beide)');
     ok(L(6) === 0 && G(6) === 0, 'voller Schild: kein Systemschaden (beide)');
   });
@@ -267,12 +274,12 @@ section('2j Nacharbeit 2: Sturm-Treffer auf Schild 0 < s <= niedrig trifft ein S
   // der Schild nimmt den Treffer weiter ab (Schild 0,5 -> 0), Regeneration gesperrt
   const { g } = arena(94); const e = gegner(g, 'korvette'); e.gestellt = true; Testhilfe.setzeSchilde(e, [0.5, 6, 6, 6]);
   treffer(g, e, 0, 1.08, sturmOpts());
-  ok(e.shields[0] === 0 && e.regenHold > g.time, 'Gegner: Schild 0,5 verbraucht, Regeneration gesperrt');
+  ok(e.shields[0] === 0 && !Schilde.pause.darfRegenerieren(e, 0, g.time), 'Gegner: Schild 0,5 verbraucht, Regeneration des Segments gesperrt');
 });
 
 // =============================================================== 3 Torpedo
 section('3a Torpedo gegen die Lerche: zwei Treffer zerstören den Reaktor (Countdown), ein Treffer System zerstört und Reaktor beschädigt', () => {
-  ok(SM.torpedoLerche === undefined && SM.torpedo.reaktorAnteil === 0.5, 'torpedo.reaktorAnteil 0,5; torpedoLerche entfällt (eine Wahrheit)');
+  ok(SM.torpedoLerche === undefined && SM.torpedo.reaktorStufen === 1, 'torpedo.reaktorStufen 1 (ersetzt reaktorAnteil); torpedoLerche entfällt (eine Wahrheit)');
   const { g } = lerche(1, 21); g.ship.shields.current = [0, 0, 0, 0];
   const rmax = I.integMax(g, 'reactor');
   Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y });
@@ -299,9 +306,9 @@ section('3b Torpedo gegen die Lerche: stehender Schild prallt ab (Lesart B), lee
   ok(brokenSet(g).join() === vorher.join() && near(sum0 - isum(g), 0.5 * rmax) && g.ship.systems.reactor === 'damaged', `Zone 0 leer: kein weiteres System zerstört, Reaktor direkt getroffen (−${(sum0 - isum(g)).toFixed(1)})`);
 });
 
-section('3c Torpedo: tunebar (torpedo.reaktorAnteil 1 = ein Treffer zerstört den Reaktor), Determinismus über game.rng', () => {
-  const a0 = SM.torpedo.reaktorAnteil; SM.torpedo.reaktorAnteil = 1;
-  try { const { g } = lerche(1, 23); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown, 'reaktorAnteil 1: ein Treffer zerstört den Reaktor, Countdown'); } finally { SM.torpedo.reaktorAnteil = a0; }
+section('3c Torpedo: tunebar (torpedo.reaktorStufen 2 = ein Treffer zerstört den Reaktor), Determinismus über game.rng', () => {
+  const a0 = SM.torpedo.reaktorStufen; SM.torpedo.reaktorStufen = 2;
+  try { const { g } = lerche(1, 23); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); ok(g.ship.systems.reactor === 'broken' && !!g.ship.reaktorCountdown, 'reaktorStufen 2: ein Treffer zerstört den Reaktor, Countdown'); } finally { SM.torpedo.reaktorStufen = a0; }
   const lauf = (seed) => { const { g } = lerche(1, seed); g.ship.shields.current = [0, 0, 0, 0]; Space.etorpedoTreffer(g, { x: g.ship.x + 30, y: g.ship.y }); return brokenSet(g).join(); };
   ok(lauf(31) === lauf(31), 'gleicher Seed, gleiches getroffenes System (Zufall nur game.rng)');
   const seen = new Set(); for (let s = 1; s <= 30; s++) seen.add(lauf(s));

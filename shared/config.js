@@ -25,9 +25,7 @@
 
     repair: { damagedToOk: 4, brokenToDamaged: 5, werkzeuggurtFactor: 0.7 },
     fire: { spreadInterval: 6, spreadChance: 0.35, max: 12, damageInterval: 10, playerDps: 5, extinguishTime: 1.5, gelCharges: 5 },
-    breach: { o2PerSec: 0.5, pullRadius: 4, pullSpeed: 20, patchTime: 3 },   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (Hülle entfällt)
-    // PAN-01 B: Die Lebenserhaltung ist als Station gestrichen (AP10 ruht); O2 sinkt nur durch Lecks.
-    o2: { max: 100, regen: 2, suffocateDps: 2 },
+    breach: { pullRadius: 4, pullSpeed: 20, patchTime: 3 },   // SYS-01 A1a: Lecks ziehen keine Hülle mehr (Hülle entfällt)
     // QA-Balance: systemChance 0.6 -> 0.35; systemCooldown: dasselbe System frühestens nach x s erneut per Treffer beschädigt;
     // spill: Anteil der Systemschäden, die auf ein System eines Nachbarsektors überspringen (Bug hat sonst nur die Waffenbank)
     hitEffects: { fireChance: 0.3, spill: 0.4 },   // SYS-01 A1a: Systemtreffer kommen aus dem Trefferweg (systemModell), Lecks aus Treffern entfallen
@@ -83,7 +81,10 @@
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
-    shields: { pointsPerPower: 3,   /* M3b: 2 -> 3 (Pool 6 bei Energie 2, Kai) */ maxPerSector: 6, regenInterval: 2, default: [2, 2, 0, 2] },   // QA M3b: default [2,1,0,1] -> [2,2,0,2] (Pool 6 war zu Spielbeginn nur zu 4 verteilt, 2 Punkte lagen brach)
+    // SYS-03 C1/D (Kai: Ein Schild ist schwer zu knacken): Pool 12 bei Energie 2 (pointsPerPower 6; C1: 4 = Pool 8), Kappe 8 je Sektor, Start [4,4,0,4] (gleichmäßig auf die drei Seiten mit Schild: Streufeuer über mehrere Sektoren
+    // bricht den ersten Systemschaden 3× später als konzentriertes Feuer, bei [4,2,0,2] nur 2×; die Lerche überlebt Fregatte/Kreuzer in den Bot-Läufen (Crew 2) deutlich öfter: docs-sys03/messung-baseline.md „Nach D“).
+    // regenDelay: s ohne Schildregeneration eines Sektors nach JEDEM Treffer auf genau diesen Sektor (auch bei Schild 0 und bei Treffern am Schild vorbei); danach 1 Punkt je regenInterval s (shared/schilde.js, Regenerationspause).
+    shields: { pointsPerPower: 6, maxPerSector: 8, regenInterval: 2, regenDelay: 5, default: [4, 4, 0, 4] },
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
@@ -93,8 +94,8 @@
       phase_r: { arc: 60, facing: 20, range: 560, damage: 2, charge: 2.0, autoFactor: 0.5 },
     },
     enemies: {
-      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp wird noch mit crewScaling.gegnerIntegritaet (C2a)
-      // (solo 0,5 / zu zweit, zu dritt 0,7) (vorher zusätzlich spaceM3.enemyHpFactor 0,8, in den Faktoren enthalten) – mit 36 hatte ein Jäger zu dritt
+      // S2b (Kai): 3× so zäh wie vorher (hp 12). Studioleitung 36, KAMPF 36 -> 44: hp ist seit SYS-03 B2 das Klassenbudget (× budgetFaktor) der Systeme, ohne Crew-Skalierung.
+      // (Historie: früher solo 0,5 / zu zweit, zu dritt 0,7, vorher zusätzlich spaceM3.enemyHpFactor 0,8) – mit 36 hatte ein Jäger zu dritt
       // 20 HP und starb an einer vollen Salve (Lanze 12 + 2 × 4 × 1,5, Seitenschilde fangen 2). Mit 44: zu zweit/dritt 25 HP
       // (vorher 7 = 3,6×), solo 18 (vorher 5). 64 getestet: Arena-Wellen 3–5× so lang, jede zweite Welle im Zeitlimit.
       raider: { hp: 44, speed: 120, fireInterval: 1.9, damage: 1, range: 400, salvage: 20 },
@@ -123,7 +124,10 @@
       preise: { deuterium: 40 }, gewicht: { deuterium: 0.15 }, abwurfAbstand: 70 },
     // SL6: Zonen mit Wirkung (shared/zonen.js, server/sim/zonen.js). takt = Sekunden, nach denen angesammelter Zonenschaden als Treffer ankommt
     // (ganze Punkte, kein Dauerfeuer von Treffer-Ereignissen). hitzeSysteme = Energiesysteme, die die Zonenhitze aufnehmen (nur ab hitzeMinEnergie).
-    zonen: { takt: 1, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
+    // SYS-03 Dauerdruck (Stufenregel): die Punkte, die der Schild nicht fängt, sammeln sich je Ziel (Lerche je Sektor, Gegner und Verbündete je Schiff) im Zähler; je druckPunkte Punkte
+    // eine Stufe auf ein System der getroffenen Zone (6 Punkte ≈ die frühere Punkteregel: eine Stufe kostete dort 5–6 Punkte). druckAbkling_s: kommen so lange keine Restpunkte mehr
+    // an ein System (außerhalb der Zone, oder der Schild fängt den Druck: Schild > 0 ohne Resttreffer), verfällt der Zähler auf 0 (gleicher Helfer für Lerche, Gegner, Verbündete: sim/integritaet.js).
+    zonen: { takt: 1, druckPunkte: 6, druckAbkling_s: 3, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
     // EK3 Teil B: Konvoi-Szene (server/sim/konvoi.js, CONTRACT-EK3B). Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus
     // Wegpunkten (Anteile der Szene, Länge × Breite) und springen am Ende. Eskorte (Jäger, Korvette) fährt mit, bis die Lerche näher als wachRadius
     // kommt oder ein Konvoi-Schiff getroffen wird (dann Klassen-KI wie jeder Gegner). tempo = Anteil der Höchstfahrt (die nächste Stufe wird gewählt),
@@ -210,9 +214,9 @@
     // M1: mit Gegner-Schildsektoren solo milder (QA-Ziel: höchstens 1–2 Notfallprotokolle pro Abend)
     // QA M3a: zu dritt enemyFireInterval 1.5 -> 1.7 und enemyHp 0.85 -> 0.7 (Testgelände zu dritt hatte 5–6
     // Notfallprotokolle je Lauf; im Browser dauerten Korvetten-Wellen 80–150 s)
-    // SYS-01 C2a: gegnerIntegritaet = Faktor auf die Integrität aller Gegnersysteme (Klassenbudget = enemies.<klasse>.hp × Faktor; Zonen bleiben gleich).
-    // Solo 0,4 (0,5 × 0,8), zu zweit und zu dritt 0,56 (0,7 × 0,8): der frühere Faktor spaceM3.enemyHpFactor ist darin enthalten. Die Lerche wird nicht skaliert.
-    crewScaling: { 1: { enemyFireInterval: 2.2, gegnerIntegritaet: 0.4 }, 2: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 }, 3: { enemyFireInterval: 1.7, gegnerIntegritaet: 0.56 } },
+    // SYS-03 B2 (Kai): nur das Feuerintervall der Gegner skaliert mit der Crewgröße. Die Integrität der Gegnersysteme skaliert nicht mehr (Stufenregel: ein Treffer = eine Stufe, die Zahl der Systeme
+    // je Klasse bestimmt die Zähigkeit; Klassenbudget = enemies.<klasse>.hp × budgetFaktor). Die Lerche wird nicht skaliert.
+    crewScaling: { 1: { enemyFireInterval: 2.2 }, 2: { enemyFireInterval: 1.7 }, 3: { enemyFireInterval: 1.7 } },
     emergency: { marksCost: 50 },   // SYS-01 A1a: Hülle entfällt; das Notfallprotokoll wird über Space.verlustAusloesen ausgelöst
     // Softlock-Schutz: ein System bleibt nie dauerhaft broken / ein Leck nie dauerhaft offen.
     // Liegt kein passendes Teil mehr im Lager (und trägt keiner eins), repariert ODA nach dieser Zeit notdürftig.
@@ -326,8 +330,9 @@
       einsprung: { verzoegerung: 5, n: 2, kind: 'raider', versatz: 45 },
       // Minen: zünd = Annäherung der Lerche (nicht bei ihrem Besitzer), spreng = Reichweite der Explosion (Lerche und Schiffe darin),
       // treffer = Trefferradius für Strahl und Geschosse, sicht = Mine ist in dieser Nähe auch ohne Weitscan zu sehen.
-      // punkte = Systemschaden (je Schritt ein Zustand tiefer: ok → beschädigt = 1, → zerstört = 2), gegner = Schaden an Schiffen im Radius (ohne Schilde).
-      mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, punkte: 6, gegner: 20, abstand: 90 },
+      // SYS-03: die Mine trifft Lerche, Gegner und Verbündete gleich: eine Stufe auf ein System der nächsten Zone (Treffer-Fenster), ohne Schilde. gegner = Rohschaden an Schiffen im Radius
+      // (nur ein Platzhalter für den Trefferweg, ohne Wirkung auf die Stufe; Schilde zählen nicht, pierce 99).
+      mine: { zuend: 70, spreng: 160, treffer: 22, sicht: 180, gegner: 20, abstand: 90 },
       // Signatur 0..1: ruhe + (1 − ruhe) × (Tempo/tempoRef)^exponent, × schildeUnten, × asteroid.faktor (Brocken näher als asteroid.abstand),
       // × nebel.faktor (nur mit nebel.schalter; E4: in der Kampagne aus), Weitscan setzt pingDauer s lang auf pingSig.
       signatur: { ruhe: 0.15, tempoRef: 130, exponent: 1, schildeUnten: 0.5, min: 0.04, asteroid: { abstand: 110, faktor: 0.6 },
@@ -643,7 +648,8 @@
       // ---- §20 Nachrunde (Kais Test) ----
       dodgeWindow: 0.8,   // s: endet eine Ladung so kurz nach einem Ausweichen, verfehlt der schwere Treffer
       // Lanze als Ladewaffe (ersetzt Zielphase; mounts.bow.damage und aim* sind nur noch Altnamen)
-      lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75 },
+      lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75,
+        vollAb: 1 },   // SYS-03 B2: Anteil der Ladung (0..1), ab dem der Schuss eine Vollladung ist: durchschlägt den Schild, trifft die Mitte und ZERSTÖRT das getroffene System, der Reaktor ausgenommen: er kostet systemModell.lanze.reaktorStufen Stufen und beachtet das Reaktor-Fenster (SYS-03 N1) (darunter: Teilladung, eine Stufe)
       batteryBeamTtl: 0.4,   // s: Lebensdauer eines Batterie-Strahls (vorher beamTtl × 0,6 = 0,15 s – im Client unsichtbar, §20.1)
       // ---- §21.1 Allstopp (cmd helm.stop): Bremsleistung in px/s², Standard = ship.accel (50). Kein Wert -> ship.accel.
       fullStop: { brake: 50 },
@@ -684,7 +690,8 @@
       boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 } },
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
     // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
-    // escortFactor = Schaden auf Schützlinge (× escorts.hullPerDamage × crewDamage). interval gilt für eine Dreier-Crew,
+    // escortFactor = Schaden auf Schützlinge OHNE Systemmodell (× escorts.hullPerDamage × crewDamage); bei Verbündeten mit Modell wirkt er seit SYS-03 B nur noch auf den Schild
+    // (gegen die Systeme zählt jede Sperrfeuer-Nadel ohne Schildschutz eine Stufe, ohne Schadenszahl). interval gilt für eine Dreier-Crew,
     // kleinere Crews × crewScaling-Verhältnis (solo ~3,9 s).
     // Zielen (Abweichung vom Vertragswortlaut „Vorhalt ≤ 0,5 s“): lead = Anteil der Kurs-Vorhersage (Abfangpunkt bei
     // gehaltenem Kurs und Tempo), maxLead = höchstens so viele s voraus. Mit 0,5 s traf das Sperrfeuer eine fahrende Lerche
@@ -730,22 +737,26 @@
       pilotFire: { raider: { fireInterval: 1.9, lead: 1 } },
     },
     // ================= SYS-01 A1a „Das Schiff in Zonen“ (Konzept: Vault Pantheon/Mechanik/Systemmodell Zonen) – alles per `tune systemModell.<pfad>` =================
-    // Integrität je System (Punkte). Ein Treffer ohne Schild zieht Punkte ab (Rest × schadenFaktor). Zustände werden daraus getrieben:
-    // Integrität ≤ 0 -> zerstört; unter schwelle × Maximum -> beschädigt; sonst ok. Reparatur setzt den Grundwert der Stufe.
+    // SYS-03 B1: Stufenregel. Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört), egal wie hoch der Schaden ist.
+    // Die Integrität (Punkte) ist nur der aus der Stufe abgeleitete Wert (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0; Snapshot ship.integ in Prozent).
+    // trefferFenster_s: ein System, das gerade eine Stufe verloren hat, verliert innerhalb dieser Zeit keine weitere (Salven im selben Moment brauchen nicht zwei Stufen auf).
     systemModell: {
-      integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, Zustandsschwellen)
-      schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
+      integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, abgeleiteter Wert je Stufe)
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
-      schadenFaktor: 1,           // Integritätsabzug je Punkt Rest (nach Schild)
+      trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone. Sturm-Treffer haben ein eigenes, längeres Fenster (sturm.trefferFenster_s)
+      reaktorFenster_s: 6,        // s: eigenes Treffer-Fenster des Reaktors (SYS-03 D, Binär-Prüfung): zwei Stufen am Reaktor brauchen mindestens so lange (Lerche, Gegner, Verbündete gleich); ein Treffer im Fenster sucht ein anderes System der Mitte
       // SYS-02a (Kai 2026-10-28): Torpedo tut weh, gleiche Regel gegen Lerche und Gegner (Verbündete wie Gegner). Er wirkt nur auf ein Segment mit Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher
-      // (Schaden = mindestens dessen Maximum, keine Zahl hier) und schlägt auf die Mitte durch: reaktorAnteil × Reaktor-Maximum Integritätsschaden am REAKTOR (0,5: zwei Treffer zerstören ihn, der erste lässt ihn beschädigt).
+      // (keine Schadenszahl) und schlägt auf die Mitte durch: reaktorStufen Stufen am REAKTOR (1: zwei Torpedos zerstören ihn, der erste lässt ihn beschädigt; 2: ein Torpedo zerstört ihn; 0: kein Durchschlag).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
-      torpedo: { reaktorAnteil: 0.5 },
+      torpedo: { reaktorStufen: 1 },
+      // SYS-03 N1 (Kai 2026-10-31): Lanze-Vollladung gegen Gegner/Verbündete zerstört jedes System der Mitte, den REAKTOR aber nur um reaktorStufen Stufen (1 = eine Stufe, 2 = ein Schuss zerstört einen unbeschädigten Reaktor, das Fenster gilt weiter; 0 = die Vollladung trifft den Reaktor nicht);
+      // im Reaktor-Fenster (reaktorFenster_s) ist der Reaktor kein Ziel, die Vollladung zerstört dann ein anderes System der Mitte. Per `tune systemModell.lanze.reaktorStufen`.
+      lanze: { reaktorStufen: 1 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
-      sturmSchaden: 1,            // Sturmbatterie bei niedrigem Schild: kleiner Integritätsabzug (Chance ST.systemChance, Katalog)
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
-      // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). systemFaktor: bei Schild ≤ niedrig oder 0 wirkt der Sturm-Schaden × Faktor gegen das System.
-      sturm: { reparaturSperre_s: 6, systemFaktor: 1.5 },
+      // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). SYS-03 B2: Sturm bei Schild 0 = Direkttreffer (eine Stufe, Treffer-Fenster), bei 0 < Schild ≤ niedrig Chance systemChance (Katalog) auf eine Stufe; keine Punktfaktoren mehr.
+      // trefferFenster_s: Treffer-Fenster eines Systems nach einem Sturm-Treffer (länger als das Standard-Fenster: eine Salve aus 8 Nadeln über ~0,5 s kostet ein System nur eine Stufe, nicht die ganze Zone).
+      sturm: { reparaturSperre_s: 6, trefferFenster_s: 1.5, regenSperre_s: 6 },   // regenSperre_s (SYS-03 C1): ein Schildsektor regeneriert nach einem Sturm-Treffer mindestens so lange nicht (zusätzlich zu shields.regenDelay, es gilt das Längere), je getroffenem Sektor/Segment
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5

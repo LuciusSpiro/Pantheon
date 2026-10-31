@@ -1,4 +1,5 @@
 'use strict';
+const Schilde = require('../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor
 // SYS-01 D (Abnahme 9/10, Entscheidung 2): Sturm-Messung, deterministisch, ohne Bot.
 //   node tools/sys01-sturm.js [--seeds 20] [--sek 120] [--faktor 0.25]
 // A) Lerche-Sturm gegen den vollen Gegner-Schild: ruhende Attrappe (Klasse mit Schild 3 je Segment = Kreuzer, Segment zur Lerche), 100 % Treffer, Pool 4 auf einer Sturmbatterie.
@@ -8,9 +9,8 @@
 //    Segments nach 30/60/120 s, Zeit bis "niedrig" (Schild ≤ sturm.niedrig).
 // SYS-02a (Kai 2026-10-28): Der Sturm ist eine Unterdrückungswaffe, er soll volle Schilde NICHT abnutzen. Die Abnahme „Sturm bricht den vollen Schild in etwa 15 s“ entfällt;
 // A) und B) dokumentieren den Ist-Zustand (kaum Schildschaden, Regeneration gesperrt) und sind kein Ziel mehr. Neu gemessen:
-// C) Lerche-Sturm gegen einen Gegner bei Schild 0 (Schild gehalten): Zeit bis zum ersten zerstörten System, mit systemFaktor (Config systemModell.sturm) und zum Vergleich ohne (Faktor 1);
-//    (Dauerleistung gegen Systeme steigt mit systemFaktor, gegen den Schild nicht: gemessen in tools/test-waffen-cooldown.js.)
-// D) Gegner-Sturm (Korvette) gegen die Lerche bei Schild 0 im Bug: Zeit bis zum ersten zerstörten Bug-System (mit/ohne Faktor).
+// C) Lerche-Sturm gegen einen Gegner bei Schild 0 (Schild gehalten): Zeit bis zum ersten zerstörten System (SYS-03 B2: jeder Treffer eine Stufe, kein Punktfaktor mehr).
+// D) Gegner-Sturm (Korvette) gegen die Lerche bei Schild 0 im Bug: Zeit bis zum ersten zerstörten Bug-System.
 // E) Reparatursperre: ein Gegner (Korvette, Antrieb zerstört, Reparatur 10 s) bekommt nach 3 s einen Sturm-Treffer auf die Heckzone: Zeit bis der Antrieb repariert ist
 //    (ohne Treffer 10 s; Sperre 0 = aus: gegen den vollen Schild ohne Wirkung; Sperre 6 s: Fortschritt 0 und 6 s Pause).
 // `--faktor` setzt Katalog.WAFFEN sturmbatterie.sturm.schildFaktor für den Lauf (zum Abtasten, ohne die Datei zu ändern).
@@ -74,7 +74,7 @@ function messeA(waffe, seed) {
 // B) Gegner (Sturm) -> Lerche
 function messeB(seed) {
   const g = neu(seed); const sh = g.ship;
-  sh.shields.alloc = [6, 0, 0, 0]; sh.shields.allocIntent = [6, 0, 0, 0]; sh.shields.current = [6, 0, 0, 0]; sh.shields.regenHold = 0;   // Pool 6 ganz auf den Bug, die Korvette steht vor dem Bug
+  sh.shields.alloc = [6, 0, 0, 0]; sh.shields.allocIntent = [6, 0, 0, 0]; sh.shields.current = [6, 0, 0, 0]; Schilde.pause.loeschen(sh.shields);   // Pool 6 ganz auf den Bug, die Korvette steht vor dem Bug
   const e = space.spawnEnemy(g, 'korvette', { x: sh.x + 300, y: sh.y, facing: Math.PI });
   for (const k of Object.keys(e.waffen || {})) e.waffen[k] = 'sturmbatterie';
   Testhilfe.setzeBudget(e, 1e9); e.pin = { x: e.x, y: e.y, angle: e.angle };
@@ -91,9 +91,8 @@ function messeB(seed) {
   return { nadeln, tNiedrig, at, verh: Object.values(e.waffen || {}).join(',') };
 }
 // C) Lerche -> Gegner bei Schild 0: Zeit bis zum ersten zerstörten System (Gegner ruht, Schilde auf 0 gehalten, keine Reparatur)
-function messeC(waffe, seed, faktor) {
-  const f0 = CONFIG.systemModell.sturm.systemFaktor; CONFIG.systemModell.sturm.systemFaktor = faktor;
-  try {
+function messeC(waffe, seed) {
+  {
     const g = neu(seed); const sh = g.ship; const platz = 4; const stufe = Maps.waffenplatz(platz).stufe;
     Ausbau.setStufe(g, stufe);
     for (const p of Maps.WAFFENPLAETZE) if (stufe >= p.stufe) Waffen.bestuecken(g, p.platz, p.platz === platz ? waffe : 'leer');
@@ -110,12 +109,11 @@ function messeC(waffe, seed, faktor) {
       if (Gsys.ids(e).some((id) => e.sys[id].z === 'broken')) t1 = t;
     }
     return { t1, rate: (sum0 - Gsys.summe(e)) / Math.max(DT, t) };
-  } finally { CONFIG.systemModell.sturm.systemFaktor = f0; }
+  }
 }
 // D) Gegner-Sturm -> Lerche bei Schild 0 im Bug: Zeit bis zum ersten zerstörten System der Bugzone
-function messeD(seed, faktor) {
-  const f0 = CONFIG.systemModell.sturm.systemFaktor; CONFIG.systemModell.sturm.systemFaktor = faktor;
-  try {
+function messeD(seed) {
+  {
     const g = neu(seed); const sh = g.ship; g.god = false; Bots.setBotAuto(g, false);
     for (const k of I.SYSTEM_ORDER) g.ship.systems[k] = 'ok'; I.integritaetVoll(g);
     const e = space.spawnEnemy(g, 'korvette', { x: sh.x + 300, y: sh.y, facing: Math.PI });
@@ -124,12 +122,12 @@ function messeD(seed, faktor) {
     let t = 0, t1 = null;
     while (t < SEK && t1 == null) {
       sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0; e.x = e.pin.x; e.y = e.pin.y; e.angle = e.pin.angle; e.vx = 0; e.vy = 0; Testhilfe.setzeGesamt(e, 1e9);
-      sh.shields.current[0] = 0; sh.shields.regenHold = g.time + 99;
+      sh.shields.current[0] = 0; Schilde.pause.alleBis(sh.shields, g.time + 99);
       g.step(); t += DT;
       if (I.SYSTEM_ORDER.some((k) => I.systemSector(k) === 0 && g.ship.systems[k] === 'broken')) t1 = t;
     }
     return { t1 };
-  } finally { CONFIG.systemModell.sturm.systemFaktor = f0; }
+  }
 }
 // E1) Gegner-Reparatursperre: ein Sturm-Treffer auf die Heckzone nach 3 s; sperre = Sekunden der Sperre (0 = Sperre aus), sturm false = ohne Treffer
 function messeE1(sperre, sturm) {
@@ -157,14 +155,13 @@ const rb = []; for (let i = 0; i < SEEDS; i++) rb.push(messeB(1 + i));
 console.log(`B) Gegner-Sturm (Korvette, Waffen ${rb[0].verh}) gegen vollen Lerchen-Schild (Bug 6): Treffer in ${SEK} s Median ${f1(med(rb.map((r) => r.nadeln)))}, Bug-Schild nach 30 s ${f1(med(rb.map((r) => r.at[30])))}, 60 s ${f1(med(rb.map((r) => r.at[60])))}, ${SEK} s ${f1(med(rb.map((r) => r.at[SEK] != null ? r.at[SEK] : r.at[120])))}; Zeit bis niedrig Median ${f1(med(rb.map((r) => r.tNiedrig)))} s (n ${rb.filter((r) => r.tNiedrig != null).length}/${rb.length})`);
 // SYS-02a: neue Größen
 console.log('--- SYS-02a (Sturm = Unterdrückung): Systemschaden bei niedrigem Schild, Reparatursperre ---');
-const SF = CONFIG.systemModell.sturm.systemFaktor;
-for (const [w, fak] of [['sturmbatterie', SF], ['sturmbatterie', 1], ['standardbatterie', 1]]) {
-  const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messeC(w, 1 + i, fak));
-  console.log(`C) Lerche ${w} (Pool 4) gegen Kreuzer bei Schild 0${w === 'sturmbatterie' ? ' mit systemFaktor ' + fak : ''}: Zeit bis zum ersten zerstörten System Median ${f1(med(rs.map((r) => r.t1)))} s (n ${rs.filter((r) => r.t1 != null).length}/${rs.length})`);   // Dauerleistung gegen Systeme: tools/test-waffen-cooldown.js (Abschnitt Dauerleistung)
+for (const w of ['sturmbatterie', 'standardbatterie']) {
+  const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messeC(w, 1 + i));
+  console.log(`C) Lerche ${w} (Pool 4) gegen Kreuzer bei Schild 0: Zeit bis zum ersten zerstörten System Median ${f1(med(rs.map((r) => r.t1)))} s (n ${rs.filter((r) => r.t1 != null).length}/${rs.length})`);   // Dauerleistung gegen Systeme: tools/test-waffen-cooldown.js (Abschnitt Dauerleistung)
 }
-for (const fak of [SF, 1]) {
-  const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messeD(1 + i, fak));
-  console.log(`D) Gegner-Sturm (Korvette) gegen Lerche bei Schild 0 im Bug, systemFaktor ${fak}: Zeit bis zum ersten zerstörten Bug-System Median ${f1(med(rs.map((r) => r.t1)))} s (n ${rs.filter((r) => r.t1 != null).length}/${rs.length})`);
+{
+  const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messeD(1 + i));
+  console.log(`D) Gegner-Sturm (Korvette) gegen Lerche bei Schild 0 im Bug: Zeit bis zum ersten zerstörten Bug-System Median ${f1(med(rs.map((r) => r.t1)))} s (n ${rs.filter((r) => r.t1 != null).length}/${rs.length})`);
 }
 for (const [s, st] of [[ST.reparaturSperre_s, false], [ST.reparaturSperre_s, true], [0, true]]) {
   const r = messeE1(s, st);

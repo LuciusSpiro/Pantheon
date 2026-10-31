@@ -209,7 +209,6 @@ function updatePlayers(game, dt) {
     if (p.zone === 'ship') {
       const t = Physics.toTile(p.x, p.y);
       if (game.ship.fireList.some((f) => f.tx === t.x && f.ty === t.y)) damagePlayer(game, p, C.fire.playerDps * dt, 'fire');
-      if (game.ship.o2 <= 0) damagePlayer(game, p, C.o2.suffocateDps * dt, 'o2');
     }
     if (p.carry === 'medipack' && p.hp < 50 && !p.downed) { p.carry = null; healPlayer(game, p, C.support.supply.heal); }
   }
@@ -1089,7 +1088,7 @@ function heatDamage(game, powerSys) {
 
 // ---------- Systemmodell (SYS-01 A1a, Konzept „Systemmodell Zonen“) ----------
 // Integrität je System in ship.integ (Punkte, Maximum je System in config.systemModell.integ). Die Zustände
-// ok/beschädigt/zerstört folgen daraus: ≤ 0 zerstört, unter schwelle × Maximum beschädigt, sonst ok.
+// ok/beschädigt/zerstört sind die Wahrheit, die Integrität ist daraus abgeleitet (Integ.stufeVon: ≤ 0 zerstört, ab Maximum ok, sonst beschädigt; keine Schwelle).
 // Reparatur setzt den Grundwert der erreichten Stufe (grundwert). Offline (EMP) bleibt Sache von damageSystem.
 function sysModell(game) { return game.C.systemModell || {}; }
 function integMax(game, sys) {
@@ -1098,7 +1097,6 @@ function integMax(game, sys) {
   if (v > 0) return v;
   return Number(I.default) > 0 ? Number(I.default) : 10;
 }
-function schwelleOf(game) { const v = Number(sysModell(game).schwelle); return v > 0 ? v : 0.6; }
 function integOf(game, sys) {   // lesend: ein fehlender Eintrag zählt als Maximum, wird aber nicht geschrieben
   const v = game.ship.integ && game.ship.integ[sys];
   return v == null ? integMax(game, sys) : v;
@@ -1133,9 +1131,10 @@ function setzeZustand(game, sys, state) {
   }
 }
 // Passt die Integrität nicht zum (effektiven) Zustand, wird sie auf dessen Grundwert gesetzt; sonst bleibt sie.
+const INTEG_RUNDUNG = 0.05;   // setInteg rundet auf 0,1
 function integKonsistent(game, sys) {
-  const st = effZustand(game, sys); const max = integMax(game, sys); const v = integOf(game, sys); const sw = schwelleOf(game) * max;
-  const passt = st === 'ok' ? v >= sw : st === 'damaged' ? (v > 0 && v < sw) : st === 'broken' ? v <= 0 : true;
+  const st = effZustand(game, sys);
+  const passt = st === 'ok' || st === 'damaged' || st === 'broken' ? Integ.stufeVon(integOf(game, sys), integMax(game, sys), INTEG_RUNDUNG) === st : true;
   if (!passt) setInteg(game, sys, integAusZustand(game, sys, st));
 }
 // Integrität folgt einem Zustandswechsel (damageSystem): heil = Maximum, zerstört = 0; beschädigt nur, wenn die Punkte
@@ -1145,41 +1144,75 @@ function syncInteg(game, sys) {
   if (st === 'ok') setInteg(game, sys, integMax(game, sys));
   else if (st === 'broken') setInteg(game, sys, 0);
   else if (st === 'damaged') {
-    const max = integMax(game, sys); const v = integOf(game, sys);
-    if (v <= 0 || v >= schwelleOf(game) * max) setInteg(game, sys, grundwert(game, sys, 'damaged'));
+    if (Integ.stufeVon(integOf(game, sys), integMax(game, sys), INTEG_RUNDUNG) !== 'damaged') setInteg(game, sys, grundwert(game, sys, 'damaged'));
   }
 }
-// Integritätsschaden auf ein System (Trefferweg, Sturm, Streu). Punkte ab, Zustand aus den Schwellen.
-// Geflicktes (ok, fragil) bricht beim Treffer direkt. Rückgabe: { system, state } bei Zustandswechsel, sonst null.
-function systemTreffer(game, sys, schaden, opts) {
+// SYS-03 B1: Stufenregel statt Punktabzug. Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört),
+// unabhängig von der Schadenszahl. Die Integrität (ship.integ) ist nur noch der aus der Stufe abgeleitete Wert (syncInteg in damageSystem).
+// Geflicktes (ok, fragil) bricht beim Treffer direkt. Treffer-Fenster: ein System, das gerade eine Stufe verloren hat, verliert innerhalb von
+// systemModell.trefferFenster_s keine weitere (ship.trefferT[sys] = Ende des Fensters, nicht im Snapshot; Sturm-Treffer haben ein längeres Fenster, integritaet.js ART_STURM).
+function imFenster(game, sys) { return Integ.imFenster(game, game.ship.trefferT && game.ship.trefferT[sys]); }   // SYS-03 B2: dieselbe Fensterregel wie die Gegner (integritaet.js)
+function fensterStempeln(game, sys, art) { const T = game.ship.trefferT || (game.ship.trefferT = {}); T[sys] = Integ.fensterStempeln(game, T[sys], art, sys); }
+// Eine Stufe tiefer (Kern ohne Fenster: Torpedo-Durchschlag auf den Reaktor nutzt ihn direkt). opts.dauer: Dauerdruck bricht das Fracht-Beamen nicht ab. opts.art: Treffer-Art des Fensters (Integ.ART_STURM).
+// Rückgabe: { system, state } bei Zustandswechsel, sonst null.
+function stufeAb(game, sys, opts) {
   const s = game.ship.systems;
   sys = resolveSystem(game, sys, false);
-  let dmg = Number(schaden) || 0;
-  if (opts && opts.zerstoeren && s[sys]) dmg = Math.max(dmg, integMax(game, sys));   // SYS-02a: Torpedo – Schaden mindestens das Maximum des Systems (zerstört sicher)
-  if (!s[sys] || !(dmg > 0)) return null;
-  const v = Math.max(0, integOf(game, sys) - dmg);
-  setInteg(game, sys, v);
+  if (!s[sys]) return null;
   if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: jeder Systemtreffer bricht das Fracht-Beamen ab (auch ohne Zustandswechsel); Dauerdruck nicht (SYS-01 A1b)
-  const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe: der Treffer mindert die Integrität und merkt sich den Schaden
-  let ziel = null;
-  const zl = Integ.zustandVon(v, integMax(game, sys), schwelleOf(game));
-  if (zl === 'broken') ziel = 'broken';
-  else if (before === 'ok' && isFragile(game, sys)) ziel = 'broken';
-  else if (zl === 'damaged') ziel = 'damaged';
-  if (!ziel || (ziel === 'damaged' && before !== 'ok') || (ziel === 'broken' && before === 'broken')) return null;
+  const before = effZustand(game, sys);   // offline (EMP) zählt als vorgemerkte Stufe
+  if (before === 'broken') return null;
+  const ziel = before === 'ok' && !isFragile(game, sys) ? 'damaged' : 'broken';
   damageSystem(game, sys, ziel, opts && opts.dauer ? { dauer: true } : null);
-  return effZustand(game, sys) !== before ? { system: sys, state: s[sys] } : null;
+  if (effZustand(game, sys) === before) return null;
+  fensterStempeln(game, sys, opts && opts.art);
+  return { system: sys, state: s[sys] };
 }
-// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives System der Zone (Offline/EMP bleibt im Topf).
-// Leer heißt: alle aktiven Systeme der Zone sind zerstört. Dann geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). zone: 0–3 oder -1 (Mitte).
-// Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer).
-function trefferweg(game, zone, schaden, opts) {
+// Gezielter Treffer auf ein System mit Datenfeld "gezielt": "zerstoert" (Antrieb, zielsysteme-werte.json; dieselbe Regel wie bei den Gegnern): die erste Stufe wirkt sofort, die zweite folgt nach
+// treffer.sperre_s (ship.nachStufe[sys] = Zeitpunkt, nicht im Snapshot; nachStufenHolen im Tick). Bis dahin wartet eine Reparatur dieses Systems (repairSystem).
+function nachStufeVormerken(game, sys) { (game.ship.nachStufe || (game.ship.nachStufe = {}))[sys] = game.time + require('./zielsysteme.js').SPERRE_S; }
+function nachStufenHolen(game) {
+  const N = game.ship.nachStufe;
+  if (!N) return;
+  for (const sys of Object.keys(N)) {
+    if (game.time < N[sys]) continue;
+    delete N[sys];
+    if (effZustand(game, sys) === 'damaged') stufeAb(game, sys);   // das Fenster gilt hier nicht: die Stufe war schon beim Treffer eingerechnet
+  }
+}
+// Direkttreffer (Schild 0): eine Stufe, außer das System steht im Treffer-Fenster (dann null, der Trefferweg wählt vorher ein anderes).
+function direktTreffer(game, sys, opts) {
+  if (imFenster(game, resolveSystem(game, sys, false))) return null;
+  return stufeAb(game, sys, opts);
+}
+// Torpedo: zerstört das getroffene System sicher (auch im Fenster).
+function zerstoerenTreffer(game, sys) {
+  const s = game.ship.systems;
+  sys = resolveSystem(game, sys, false);
+  if (!s[sys]) return null;
+  Fracht.systemTreffer(game, sys);
+  const before = effZustand(game, sys);
+  if (before === 'broken') return null;
+  damageSystem(game, sys, 'broken');
+  if (effZustand(game, sys) === before) return null;
+  fensterStempeln(game, sys);
+  return { system: sys, state: s[sys] };
+}
+// Trefferweg ohne Schild (Konzept): ein zufälliges, nicht zerstörtes, aktives System der Zone (Offline/EMP bleibt im Topf), das nicht im Treffer-Fenster steht.
+// Leer heißt: alle aktiven Systeme der Zone sind zerstört. Dann geht der Treffer in die Mitte (Reaktor, Schildgenerator, Module). Stehen alle freien Systeme
+// der Zone im Fenster, verfällt der Treffer (kein Überlauf deswegen). zone: 0–3 oder -1 (Mitte). opts: { ziel, zugewandt, dauer, zerstoeren }.
+// Rückgabe: { system, state, wechsel } oder null (kein Ziel mehr, auch die Mitte ist leer, oder alles im Fenster).
+function trefferweg(game, zone, opts) {
   const s = game.ship.systems;
   const frei = (k) => systemAktiv(game, k) && s[k] !== 'broken';
+  const zerst = !!(opts && opts.zerstoeren);
+  const treffbar = (k) => frei(k) && (zerst || !imFenster(game, k));
+  const treffen = (k) => (zerst ? zerstoerenTreffer(game, k) : direktTreffer(game, k, opts));
+  const Zs = () => require('./zielsysteme.js');
   // Geflicktes in der Zone bricht beim Treffer direkt (wie bisher), kein weiterer Schaden in dieser Zone
   const frag = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && systemAktiv(game, k) && s[k] === 'ok' && isFragile(game, k));
   if (frag.length) {
-    for (const k of frag) damageSystem(game, k, 'broken');
+    for (const k of frag) { damageSystem(game, k, 'broken'); fensterStempeln(game, k, opts && opts.art); }
     return { system: frag[0], state: s[frag[0]], wechsel: true };
   }
   // SYS-01 C1b-1 (Zielsystem der Ops, nur Gegner-Angriffe mit Schalter und Lerche-Angriffe): das Ziel trifft sicher, wenn es in der Zone des Treffers liegt
@@ -1188,15 +1221,17 @@ function trefferweg(game, zone, schaden, opts) {
   const erreichbarZone = (sz, zug) => sz === zug || (sz === -1 && zug != null && !zoneFrei(zug));
   const ziel = opts && opts.ziel;
   const zielZone = zone !== -1 && !zoneFrei(zone) ? -1 : zone;   // Überlauf wie Gsys.treffen: eine leere Zone läuft in die Mitte, ein Ziel der Mitte gilt dann
-  if (ziel && frei(ziel) && systemSector(ziel) === zielZone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
-    const r = systemTreffer(game, ziel, schaden, opts);
+  if (ziel && treffbar(ziel) && systemSector(ziel) === zielZone && erreichbarZone(systemSector(ziel), opts.zugewandt)) {
+    const r = treffen(ziel);
+    if (r && !zerst && s[ziel] === 'damaged' && Zs().lercheGezieltZerstoert(ziel)) nachStufeVormerken(game, ziel);   // zweite Stufe nach der Sperre (Antrieb)
     return { system: ziel, state: s[ziel], wechsel: !!r, gezielt: true };
   }
   let kand = SYSTEM_ORDER.filter((k) => systemSector(k) === zone && frei(k));
   if (!kand.length) kand = SYSTEM_ORDER.filter((k) => systemSector(k) === -1 && frei(k));
+  kand = kand.filter(treffbar);
   if (!kand.length) return null;
   const pick = game.rng.pick(kand);
-  const r = systemTreffer(game, pick, schaden, opts);
+  const r = treffen(pick);
   return { system: pick, state: s[pick], wechsel: !!r };
 }
 // Hat die Zone (0–3, -1 = Mitte) noch ein aktives, nicht zerstörtes System? (Trefferweg, Torpedo: eine leere Zone hat kein System zum Zerstören)
@@ -1321,6 +1356,7 @@ function repairSystem(game, sys, by, how, opts) {
   const ship = game.ship; const s = ship.systems;
   sys = resolveSystem(game, sys, true);
   if (!s[sys] || s[sys] === 'offline') return false;
+  if (ship.nachStufe && ship.nachStufe[sys] != null) return false;   // eine vorgemerkte zweite Stufe (gezielter Treffer) kommt zuerst: sonst ginge sie verloren
   how = how || (by === 'oda' ? 'oda' : 'bot');
   if (sonderReparatur(game, sys) && how !== 'flick') return false;   // SYS-01 A2a: am zerstörten Reaktor nur die Sonderreparatur (kein Ersatzteil, keine Notreparatur)
   if (sys === 'reactor' && opts && opts.von && opts.von !== s[sys]) return false;   // SYS-01 A2a: der Partner hat die Stufe schon geschafft; A2 Nacharbeit: der Zustand hat sich seit Arbeitsbeginn geändert (kein Schnellweg)
@@ -1555,7 +1591,7 @@ module.exports = {
   placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
-  integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, systemTreffer, trefferweg, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
+  integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, nachStufenHolen, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
   sysName, sysNameNom, itemName, SYSTEM_ORDER, systemAktiv, inaktiveHeilen, isDown,
   // M4 Stufe 1 (CONTRACT-M4 §2.4)
   startRide, openLiftSel, finishLift, liftTime, ladderTime, lowPower, arrivalTile, deckSnap,

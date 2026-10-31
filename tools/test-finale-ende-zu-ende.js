@@ -57,10 +57,12 @@ const erholen = (g) => {
   g.ship.shields.current = g.ship.shields.alloc.slice();
   for (const k of interior.SYSTEM_ORDER) g.ship.systems[k] = 'ok';
   interior.integritaetVoll(g); g.ship.fireList.length = 0; g.ship.breachList.length = 0;
+  // Die Crew repariert zwischen den Versuchen auch den Reaktor (ein laufender Countdown endet mit der Reparatur). Ein echter Reaktortod (schiffZerstoert/zerstoertOffen) wird NICHT weggesetzt: er ist nach SYS-01 Partie-Ende und im Test ein Fehler (neuBereit, orbit).
+  g.ship.reaktorCountdown = null; g.ship.reaktorAusfaelle = 0;
 };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
-const PASSIV_VERLUST_NACH = 90;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus
+const PASSIV_VERLUST_NACH = 70;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus (gemessen: die passive Lerche stirbt über den Reaktor bei t≈84,7 s; das ist Partie-Ende, nicht der zu prüfende Neubeginn, also deutlich davor auslösen)
 // Orbit: die Bots kämpfen, bis die Szene endet. -> Ausgang der Szene
 function orbit(t, maxSek) {
   const g = t.g; let snap = g.snapshot(); const t0 = g.time;
@@ -71,6 +73,7 @@ function orbit(t, maxSek) {
     for (const a of t.agents) a.update(snap);
     // SYS-01 A1a: Die Hülle entfällt, die Lerche stirbt nicht mehr von selbst (der Auslöser kommt mit A2). Die passive Crew
     // verliert nach einer Kampfzeit über die Naht des Notfallprotokolls, den Kampf davor spielt die echte Szene.
+    if (g.zerstoertOffen || g.ship.schiffZerstoert) { ok(false, 'Reaktortod im Orbit-Kampf bei t+' + (g.time - t0).toFixed(1) + ' s (Partie-Ende nach SYS-01, kein Neubeginn)'); break; }
     if (t.opts.passiv && !verlust && g.time - t0 >= PASSIV_VERLUST_NACH) { verlust = true; Space.verlustAusloesen(g, 'test'); }
   }
   const L = g.simSzeneLetzte;
@@ -143,6 +146,7 @@ function neuBereit(t, titel) {   // nach einem Scheitern: kein Game Over, Phase 
   const g = t.g;
   for (let i = 0; i < 3 * HZ; i++) g.step();
   const s = Finale.snapshot(g);
+  ok(!g.zerstoertOffen && !g.ship.schiffZerstoert, titel + ': kein Reaktortod (kein Game Over durch die Lerche)');
   ok(g.phase !== 'end' && Finale.phase(g) === null, titel + ': kein Game Over, Phase null');
   ok(s && s.angebot === 1 && !s.phase, titel + ': das Angebot steht wieder (Neubeginn)');
   ok(!g.simSzene || g.simSzene.phase === 'ende', titel + ': keine laufende Szene');
@@ -172,6 +176,7 @@ function main() {
   ok(ausgang === 'sieg' && Finale.phase(g) === 'boden', 'echter Kampf: Orbit-Sieg, Phase boden (' + ausgang + '/' + Finale.phase(g) + ')');
   ok(g.ship.scene === ort && g.finaleBoden && g.finaleBoden.ort === g.ship.scene, 'das Schiff bleibt am Ort, der Boden baut den Landepunkt dort (' + g.ship.scene + ')');
   ok(g.transferZiel && g.transferZiel.lp === ID && g.transferZiel.scene === g.ship.scene, 'Transferziel = Schrein am Ort des Schiffs');
+  erholen(g);   // SYS-03 B1: Direkttreffer machen im Orbit-Kampf eher den Transfer kaputt; die Crew repariert ihn vor dem Hinunterbeamen (wie zwischen den Versuchen)
   hinunter(t);
   ok(unten(t).length === players(t).length && g.away && g.away.map === ID, 'die Crew ist unten auf dem Schrein');
   ok(g.finaleBoden.gelandet && (g.away.drones || []).some((d) => d.alive), 'Wachen sind erschienen (echte Gegner)');
@@ -186,6 +191,7 @@ function main() {
   console.log('\nVersuch 3: Orbit-Sieg, Boden-Sieg, Abspann');
   ausgang = orbitBisSieg(t, 'Versuch 3');
   ok(ausgang === 'sieg' && Finale.phase(g) === 'boden', 'echter Kampf: Orbit-Sieg (' + ausgang + ')');
+  erholen(g);   // SYS-03 B1: wie oben
   hinunter(t);
   ok(unten(t).length === players(t).length, 'die Crew ist unten');
   // Abspann beobachten: der Fakt muss beim Aufruf schon stehen

@@ -83,5 +83,34 @@
     return e;
   }
 
-  return { SEITEN, layout, seiteUndLaenge, segmentAt, segmentOf, winkelBei, seitenMax, seitenSumme, fuellen };
+  // ---------- Regenerationspause (SYS-03 C1) ----------
+  // Ein Schild regeneriert erst, wenn auf DEN Sektor (Lerche) bzw. das Segment/die Seite (Gegner, Verbündete: C2) `shields.regenDelay` s lang kein Treffer ankam.
+  // Je Index ein Zeitstempel „Pause bis“ am Körper (Lerche: ship.shields, Gegner: das Schiffsobjekt), nicht aufzählbar: weder im Snapshot noch im Weltstand.
+  // idx = Sektorindex der Lerche (0–3) oder Segmentindex des Gegners (flach wie e.shields); idx darf auch eine Liste sein (z. B. layout().seiten[seite]: die Pause gilt dann für die ganze Seite).
+  // Jeder Treffer auf den Sektor stempelt (auch bei Schild 0, Durchschlag, Torpedo, Mine, Sturm, Streu, Dauerdruck): nur `treffer`/`trefferSturm` aufrufen, nie Zeitstempel von Hand setzen.
+  const PAUSE_FELD = 'schildPause';
+  function pauseFeld(k) {
+    if (!Array.isArray(k[PAUSE_FELD])) Object.defineProperty(k, PAUSE_FELD, { value: [], writable: true, enumerable: false, configurable: true });
+    return k[PAUSE_FELD];
+  }
+  function zahl(v, d) { return typeof v === 'number' && Number.isFinite(v) ? v : d; }
+  function pauseDelay(C) { return Math.max(0, zahl(C && C.shields && C.shields.regenDelay, 0)); }
+  function pauseSturm(C) { return Math.max(0, zahl(C && C.systemModell && C.systemModell.sturm && C.systemModell.sturm.regenSperre_s, 0)); }
+  function stempeln(k, idx, bis) {
+    const f = pauseFeld(k);
+    for (const i of Array.isArray(idx) ? idx : [idx]) if (Number.isInteger(i) && i >= 0 && !(zahl(f[i], 0) >= bis)) f[i] = bis;
+  }
+  // Normaler Treffer: Pause bis jetzt + shields.regenDelay (verlängert, verkürzt nie)
+  function treffer(k, idx, jetzt, C) { stempeln(k, idx, jetzt + pauseDelay(C)); }
+  // Sturm-Treffer: zusätzlich systemModell.sturm.regenSperre_s; es gilt das Längere von beiden
+  function trefferSturm(k, idx, jetzt, C) { stempeln(k, idx, jetzt + Math.max(pauseDelay(C), pauseSturm(C))); }
+  function pauseBis(k, idx) { const f = k && k[PAUSE_FELD]; return f ? zahl(f[idx], 0) : 0; }
+  function darfRegenerieren(k, idx, jetzt) { return jetzt >= pauseBis(k, idx); }
+  // Alle Pausen löschen (Szenenneustart, Wellenpause, Arena, Heilen eines Verbündeten, Neuaufbau eines Gegners: der Schild ist wieder voll bzw. leer, ohne Vorgeschichte)
+  function pauseLoeschen(k) { if (k) pauseFeld(k).length = 0; }
+  // Alle n Indizes bis `bis` sperren (Test-/Messwerkzeug: eingefrorener Schild)
+  function pauseAlleBis(k, bis, n) { const f = pauseFeld(k); f.length = 0; for (let i = 0; i < (n == null ? 4 : n); i++) f[i] = bis; }
+  const pause = { treffer, trefferSturm, darfRegenerieren, bis: pauseBis, loeschen: pauseLoeschen, alleBis: pauseAlleBis };
+
+  return { pause, SEITEN, layout, seiteUndLaenge, segmentAt, segmentOf, winkelBei, seitenMax, seitenSumme, fuellen };
 });

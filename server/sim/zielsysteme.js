@@ -107,6 +107,10 @@ function update(game) {
 
 // ---------- Gegnerziel gegen die Lerche (Snapshot ship.zielAuf) ----------
 // e.zielsystem ist die Id des Zielsystems (Daten: systeme.<id>.lerche = System der Lerche); ohne Eintrag gilt die Id selbst (ein Lerchensystem)
+// Gezielter Treffer eines Gegners auf dieses LERCHE-System zerstört es (Datenfeld "gezielt": "zerstoert" am Zielsystem, dessen lerche = sys, heute engines): zwei Stufen, die zweite nach treffer.sperre_s.
+// Eine Quelle mit den Gegnern (Gsys.gezieltZerstoert); Aufrufer: interior.trefferweg.
+function lercheGezieltZerstoert(sys) { return Object.keys(SYSTEME).some((id) => SYSTEME[id].lerche === sys && Gsys.gezieltZerstoert(id)); }
+const SPERRE_S = W.treffer.wert.sperre_s;
 function lercheZiel(id) { const s = id ? SYSTEME[id] : null; return s && s.lerche ? s.lerche : (id || null); }
 // Der Gegner, der auf die Lerche zielt (der zuletzt erschienene, wie ship.zielAuf). Ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also null.
 function anvisierer(game) {
@@ -146,13 +150,13 @@ function debug(game, args) {
     }
     return null;
   }
-  if (a[0] === 'treffer') {   // n Treffer (je halbe Integrität des Systems) auf das gewählte System; ohne Sperre, Sichtprüfung und Tests
+  if (a[0] === 'treffer') {   // n Treffer (je eine Stufe) auf das gewählte System; ohne Sperre und Fenster, Sichtprüfung und Tests
     const e = enemyOf(game); const id = a[2] && e && e.sys && e.sys[a[2]] ? a[2] : Object.keys(SYSTEME)[0];   // Standard: das erste Zielsystem der Daten
     if (!e || !Gsys.hat(e) || !e.sys[id]) return 'Erst ein Ziel wählen.';
     const zone = Gsys.defOf(e.kind, id).zone;
     for (let i = 0; i < Math.max(1, Math.min(4, Number(a[1]) || 1)); i++) {
-      e.sys[id].sp = null;
-      const t = Gsys.treffen(game, e, zone, Gsys.maxOf(e, id) / 2, { id, zugewandt: zone });
+      e.sys[id].sp = null; e.sys[id].tf = null;
+      const t = Gsys.treffen(game, e, zone, { id, zugewandt: zone });
       if (t && t.gezielt && t.state !== t.vorher) gegnerGetroffen(game, e, t);
     }
     return null;
@@ -161,5 +165,5 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { SYSTEME, zielLoeschen, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
+module.exports = { SYSTEME, zielLoeschen, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel, lercheGezieltZerstoert, SPERRE_S,
   waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, zielAufKlasse, snapExtra, debug };

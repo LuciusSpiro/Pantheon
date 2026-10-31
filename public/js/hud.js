@@ -18,6 +18,8 @@
     R.text(ctx, txt, x + bw + 3, y, { color: col });
   }
   const TILE = 32, VW = 640, VH = 360;
+  // SYS-03 E: Anker des Schiffs-HUD oben rechts (Kopfzeile Marken + Schildmini, darunter Raumname, Sprungzeile, Reaktorhinweis); eine Lücke von 2 px zwischen den Blöcken
+  const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
 
@@ -342,7 +344,7 @@
       const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
       if (w.ph === 'vorbereitung') { big = 'RÜSTPHASE'; sub = 'Am Terminal im Meetingraum ausbauen, dann dort „Szene starten“'; }
       else if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Ops, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
-      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
+      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Systeme reparieren' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
       if (big && w.ph !== 'ende' && !(w.ph === 'vorbereitung' && inConsole)) {   // Rüstphase an der Konsole: das Terminal hat den Startknopf, der Banner würde die Liste verdecken
         const scale = R.measure(big, 2) > VW - 40 ? 1 : 2;
@@ -548,7 +550,7 @@
       // Schiffssymbol (Bug rechts) mit 4 Sektor-Balken; M3a: über cap = dunkelrot (½), cap 0 = rot
       ctx.fillStyle = PAL.panelLight;
       ctx.beginPath(); ctx.moveTo(x + 14, y + 6); ctx.lineTo(x + 4, y + 2); ctx.lineTo(x + 4, y + 10); ctx.closePath(); ctx.fill();
-      const maxS = (CFG.shields && CFG.shields.maxPerSector) || 4, ps = maxS > 4 ? 2 : 3, pl = maxS > 4 ? 1 : 2;   // SYS-01 B2: Segmente aus der Config; bei 6 enger (Schritt 2, Länge 1), damit das Mini gleich hoch bleibt
+      const maxS = (CFG.shields && CFG.shields.maxPerSector) || 4, ps = maxS > 4 ? 2 : 3, pl = maxS > 4 ? 1 : 2;   // SYS-01 B2: Segmente aus der Config; ab Kappe 5 (Pool 8: Kappe 8) enger (Schritt 2, Länge 1), damit das Mini gleich hoch bleibt
       let capNow = maxS;
       const pips = (n, px, py, vertical, sec) => {
         capNow = capA ? +capA[sec] : maxS;
@@ -557,37 +559,33 @@
           if (vertical) ctx.fillRect(px, py + k * ps, 2, pl); else ctx.fillRect(px + k * ps, py, pl, 2);
         }
       };
-      pips(cur[0] || 0, x + 17, y + 1, true, 0);   // Bug rechts
-      pips(cur[2] || 0, x, y + 1, true, 2);        // Heck links
-      pips(cur[3] || 0, x + 3, y - 3, false, 3);   // Backbord oben
-      pips(cur[1] || 0, x + 3, y + 13, false, 1);  // Steuerbord unten
+      // SYS-03 C1: bei Kappe 8 sind die Leisten 16 px lang (bei 6: 12): Bug/Heck rücken um ex nach außen, die Seiten-Leisten bleiben mittig über dem Schiff, Leisten mittig zur Schiffsachse
+      const ex = Math.max(0, (maxS * ps - 12) / 2), vy = maxS > 4 ? y + 7 - maxS * ps / 2 : y + 1;
+      pips(cur[0] || 0, x + 17 + ex, vy, true, 0);   // Bug rechts
+      pips(cur[2] || 0, x - ex, vy, true, 2);        // Heck links
+      pips(cur[3] || 0, x + 3 - ex, y - 3, false, 3);   // Backbord oben
+      pips(cur[1] || 0, x + 3 - ex, y + 13, false, 1);  // Steuerbord unten
     },
 
-    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon,
+    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
       const x0 = VW - 7 * 16 - 4;
-      // Nachrunde M4 (Kai): Kürzel-Raster der Systeme (drawSystems) entfernt – Balken, Marken und Raumname rutschen nach oben
-      R.backdrop(ctx, x0 - 4, 2, 7 * 16 + 6, 46, 0.62);
-      const yo = -18;
-      R.icon(ctx, 'hull', x0 + 6, 31 + yo);
-      zonenAnzeige(ctx, x0 + 14, 26 + yo, 98, ship);   // SYS-01 A1c: Lage der Zonen statt Gesamtintegrität
-      const o2 = ship.o2 == null ? 100 : ship.o2;
-      R.icon(ctx, 'o2', x0 + 6, 45 + yo);
-      R.bar(ctx, x0 + 14, 42 + yo, 48, 5, o2 / 100, o2 < 50 ? PAL.red : PAL.ice);
-      R.text(ctx, String(Math.round(o2)), x0 + 65, 40 + yo, { color: PAL.star });
-      this.drawShieldMini(ctx, view, x0 + 90, 34 + yo);
+      // SYS-03 E (Kai: „brauchen wir nicht“): Hüllen-Symbol, Zonenbalken und Sauerstoff entfallen; es bleiben Marken links und Schildmini rechts in einer Kopfzeile
+      const L = HUD_LAYOUT;
+      R.backdrop(ctx, x0 - 4, L.top, 7 * 16 + 6, L.kopfH, 0.62);
+      this.drawShieldMini(ctx, view, x0 + 90, L.shieldY);
       const inv = st.inventory || {};
-      R.icon(ctx, 'marks', x0 + 6, 58 + yo);
-      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, 55 + yo, { color: PAL.brass });
+      R.icon(ctx, 'marks', x0 + 6, L.marksY + 3);
+      R.text(ctx, (inv.marks || 0) + ' Marken', x0 + 14, L.marksY, { color: PAL.brass });
       // M3a: Raumname über Maps.roomAt (oben links unter den Aufträgen wäre zu voll -> unter dem Systemraster)
       const tx = Math.floor(view.self.x / TILE), ty = Math.floor(view.self.y / TILE);
       const rn = roomOf(tx, ty, view.state);
       const rw = Math.max(7 * 16 + 6, R.measure(rn, 1) + 8);
-      R.backdrop(ctx, VW - 2 - rw, 50, rw, 11, 0.62);
-      R.text(ctx, rn, VW - 6, 52, { color: PAL.star, align: 'right' });
-      this.drawJumpLine(ctx, view, 63);
+      R.backdrop(ctx, VW - 2 - rw, L.roomY, rw, 11, 0.62);
+      R.text(ctx, rn, VW - 6, L.roomY + 2, { color: PAL.star, align: 'right' });
+      this.drawJumpLine(ctx, view, L.jumpY);
       // PAN-01 B (Feedback 1): der Mini-Schiffsplan unten rechts im Schiffsinnern entfällt (Decksplan nur noch in den Konsolen Captain/Technik)
       this.drawEdgeArrows(ctx, view);
     },
@@ -625,7 +623,7 @@
       const st = view.state;
       const r = (st.ship && st.ship.reactor) || {};
       const onShip = view.self.zone === 'ship';
-      const x = VW - 232, y = (onShip ? 66 : 50) + (onShip ? this.jumpLineH : 0), w = 228;
+      const x = VW - 232, y = (onShip ? HUD_LAYOUT.hintY + this.jumpLineH : 50), w = 228;
       if (r.state === 'overload') {
         const left = +r.overloadLeft || 0;
         const warn = left <= 30;

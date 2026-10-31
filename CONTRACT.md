@@ -217,7 +217,7 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
   bots: [{ id, variant, x, y, dir, moving, carry, task: null | { kind, x, y }, progress }],
   ship: {
     scene: 'port'|'route'|'buoy', docked, x, y, angle, vx, vy, speed,
-    hull, hullMax, o2, alert: 'normal'|'yellow'|'red',
+    alert: 'normal'|'yellow'|'red',
     helm: { turn, thrust, manned },
     power: { engines, shields, weapons, life }, reactor: { output, used },
     heat: { engines, shields, weapons, life },
@@ -468,7 +468,7 @@ Art.drawStarfield(ctx, camX, camY, w, h, t) // Parallax-Sterne
 Art.drawText(ctx, text, x, y, opts)         // Pixelfont 5×7 mit ÄÖÜäöüß, Ziffern, Satzzeichen. opts: { color, scale 1|2, align 'left'|'center'|'right', shadow }
 Art.measureText(text, scale)                // Breite in px
 Art.drawPanel(ctx, x, y, w, h, opts)        // Konsolen-Rahmen „Instrumententafel“. opts: { style: 'screen'|'brass'|'plain', title }
-Art.drawIcon(ctx, name, x, y, opts)         // 12×12 zentriert: reactor|engines|shields|weapons|life|transfer|fire|breach|o2|hull|marks|
+Art.drawIcon(ctx, name, x, y, opts)         // 12×12 zentriert: reactor|engines|shields|weapons|life|transfer|fire|breach|marks|
                                             //   circle|triangle|diamond|kreis|dreieck|raute|stern|welle|kreuz|lock|arrow. opts: { color }
 Art.drawOverlay(ctx, w, h, opts)            // Lichtstimmung: { alert: 'normal'|'yellow'|'red', time, dim }
 ```
