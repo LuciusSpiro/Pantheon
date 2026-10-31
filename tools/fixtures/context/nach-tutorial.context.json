@@ -136,13 +136,11 @@
       "id": "rom",
       "name": "Rom",
       "rezepte": [
-        "graben",
         "sturmtrupp",
         "wache"
       ],
       "rollen": [
         "enterer",
-        "grenadier",
         "grundtyp",
         "niederhalter",
         "schuetze"

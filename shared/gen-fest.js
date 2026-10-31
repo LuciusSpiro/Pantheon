@@ -41,9 +41,10 @@
     pruefeDef(def);
     const d = def.decks[0];
     for (const k of Object.keys(auswahl || {})) {
-      const a = d.abschnitte[k];
+      const eigen = (o, key) => Object.prototype.hasOwnProperty.call(o, key);   // kein Treffer auf Object.prototype (constructor, __proto__)
+      const a = eigen(d.abschnitte, k) ? d.abschnitte[k] : null;
       if (!a) return `Abschnitt ${k} unbekannt`;
-      if (!a.varianten[auswahl[k]]) return `Abschnitt ${k}: Variante ${auswahl[k]} unbekannt`;
+      if (!eigen(a.varianten, auswahl[k]) || !a.varianten[auswahl[k]]) return `Abschnitt ${k}: Variante ${auswahl[k]} unbekannt`;
     }
     return null;
   }

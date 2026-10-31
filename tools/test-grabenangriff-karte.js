@@ -60,6 +60,7 @@ section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
   wv.leer.anker = wv.leer.anker.filter((a) => a.rolle === 'aussicht').map((a) => Object.assign({}, a, { rolle: 'wache' }));
   ok(GenFest.varianten(d2).find((a) => a.abschnitt === 'wiese').varianten.length === 2, 'weitere Variante allein durch Daten in der Liste');
   ok(GenFest.auswahlPruefen(d2, { wiese: 'leer' }) === null && /unbekannt/.test(GenFest.auswahlPruefen(DEF, { wiese: 'leer' })) && /unbekannt/.test(GenFest.auswahlPruefen(DEF, { himmel: 'x' })), 'Auswahl wird gegen die Daten geprueft');
+  ok(['constructor', '__proto__', 'toString', 'hasOwnProperty'].every((k) => /unbekannt/.test(GenFest.auswahlPruefen(DEF, { [k]: 'graben' }) || '') && /unbekannt/.test(GenFest.auswahlPruefen(DEF, { wiese: k }) || '')), 'Schluessel aus dem Object-Prototyp sind keine gueltige Abschnitts-/Variantenwahl');
   let fehler = null; try { GenFest.karteRoh(d2, { abschnitte: { wiese: 'leer' } }); } catch (e) { fehler = e.message; }
   ok(fehler && /Welle 1 nennt Gruppe/.test(fehler), 'Variante ohne die Gruppen der Wellen wird beim Bau abgewiesen (' + (fehler || '').slice(0, 50) + ')');
   // zweites Deck (BOD-03): Struktur da, Bau weist heute ab

@@ -213,7 +213,7 @@ section('Hochbeamen ohne Ziel: kein Sieg, der Stand bleibt stehen', () => {
   ok(g.players.every((p) => p.zone === 'away') && S.ph === 'kampf', 'die Crew kann wieder hinunter');
 });
 
-section('Niederlage: ganze Crew gefallen -> Notrückholung -> das ganze Szenario beginnt neu', () => {
+section('Niederlage: ganze Crew gefallen (alle unten, niemand an Bord) -> Notrückholung -> das ganze Szenario beginnt neu, auch nach erreichtem Ziel', () => {
   for (const ruest of [false, true]) {
     const { g, cs, S, aw, K } = start(3, { ruest });
     if (ruest) Werft.szeneStarten(g, g.players[0]);
@@ -223,7 +223,7 @@ section('Niederlage: ganze Crew gefallen -> Notrückholung -> das ganze Szenario
     faellen(g, S.ids[1]); faellen(g, S.ids[2]);
     ticks(g, 1);
     ziel3s(g, cs, K);
-    ok(S.ziel === 'erreicht' && lebend(aw).length === 0, `[${ruest ? 'mit' : 'ohne'} Rüstphase] Ausgangslage: alle besiegt, Ziel erreicht`);
+    ok(S.ziel === 'erreicht' && lebend(aw).length === 0, `[${ruest ? 'mit' : 'ohne'} Rüstphase] Ausgangslage: alle besiegt, Ziel erreicht, die ganze Crew noch unten (Vollausfall = Niederlage, bleibt auch nach dem Ziel Neubeginn)`);
     const vorher = (aw.stats && aw.stats.squadRecalls) || 0;
     for (const p of g.players) { combat.woundPlayer ? combat.woundPlayer(g, p, { quiet: true }) : (p.downed = true); p.downed = true; }
     ticks(g, CONFIG.awayCombat.wounded.squadRecallDelay + 3);
@@ -247,6 +247,35 @@ section('Niederlage: ganze Crew gefallen -> Notrückholung -> das ganze Szenario
   }
 });
 
+section('Teil-Crew: einer gesund an Bord, der untere fällt -> keine Niederlage (nur ein Vollausfall setzt zurück)', () => {
+  const wund = (g, p) => { combat.woundPlayer ? combat.woundPlayer(g, p, { quiet: true }) : (p.downed = true); p.downed = true; };
+  for (const vorZiel of [true, false]) {
+    for (const np of [2, 3]) {
+      const tag = `[${vorZiel ? 'vor' : 'nach'} dem Ziel, ${np} Spieler]`;
+      const { g, cs, S, aw, K } = start(np);
+      ticks(g, 1);
+      let lebt;
+      if (vorZiel) { faellen(g, S.ids[2].slice(0, 1)); lebt = lebend(aw).length; }
+      else { faellen(g, S.ids[1]); faellen(g, S.ids[2]); ticks(g, 1); ziel3s(g, cs, K); lebt = 0; ok(S.ziel === 'erreicht', tag + ' Ausgangslage: Ziel erreicht'); }
+      const vorher = (aw.stats && aw.stats.squadRecalls) || 0;
+      away.executeBeam(g, [g.players[0].id], 'up'); ticks(g, 1);
+      ok(g.players[0].zone === 'ship' && g.players.slice(1).every((p) => p.zone === 'away'), tag + ' Spieler 0 gesund hochgebeamt, die anderen unten');
+      for (const p of g.players.slice(1)) wund(g, p);
+      ticks(g, CONFIG.awayCombat.wounded.squadRecallDelay + 3);
+      ok(((aw.stats && aw.stats.squadRecalls) || 0) === vorher + 1, tag + ' Notrückholung der unten Gefallenen hat gegriffen');
+      if (vorZiel) {
+        ok(S.versuch === 1 && S.ph === 'kampf' && g.phase === 'play', tag + ' KEIN Neubeginn: Versuch 1, Szenario läuft weiter');
+        ok(lebend(aw).length === lebt && S.ziel === 'gesperrt', tag + ' Gegner und Ziel-Stand unverändert (' + lebend(aw).length + ')');
+        ok(g.players.every((p) => p.zone === 'ship' && !p.downed), tag + ' alle an Bord, keiner liegt');
+      } else {
+        ok(S.versuch === 1 && S.ph === 'ende' && g.snapshot().wellen.ph === 'ende', tag + ' Ziel erreicht + alle an Bord nach der Rückholung = Sieg (kein Neubeginn)');
+        ok(S.ziel === 'erreicht', tag + ' Ziel bleibt erreicht');
+      }
+      ok(fehlerZahl(g) === 0, tag + ' keine Fehler');
+    }
+  }
+});
+
 section('Debug: graben welle2 / reset / status', () => {
   const { g, S, aw } = start(2);
   ok(Graben.debug(g, 'status').startsWith('graben: Versuch 1'), 'status: ' + Graben.debug(g, 'status'));
@@ -263,7 +292,6 @@ section('Snapshot mit 3 Spielern, volles Szenario im Gefecht (Ziel <= 18944 B, G
   for (const seed of [11, 12, 13]) {
     const { g, cs, S, aw } = start(3, { seed });
     // alle Gegner kämpfen von Tick 0 an (Alarm), die Spieler marschieren über Wiese und Graben, wieder auf, wenn gefallen (kein Notruf)
-    aw.alert = true;
     for (const nm of Object.keys(aw.squads)) aw.squads[nm].alert = true;
     const T = Math.round(60 * CONFIG.tickHz);
     for (let k = 0; k < T; k++) {

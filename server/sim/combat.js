@@ -601,6 +601,7 @@ function squadRecall(game) {
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
+  aw.letzteRueckholung = { pids, t: game.time };   // BOD-01: Szenarien (graben.js) prüfen, ob die Rückholung die ganze verbundene Crew betraf
   game.emit('squadRecall', { pids });
   game.emit('sfx', { name: 'squad_recall' });
   game.emit('beam', { pids, dir: 'up', map });

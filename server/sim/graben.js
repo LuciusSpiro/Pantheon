@@ -11,7 +11,7 @@
 //    combat.besetzen würde ungesehene Rollen durch Grundtyp ersetzen.
 //  - Ziel (Anker meta.ziel, Rolle ziel): gesperrt (anker.js ankerSperre, Hinweistext), bis Welle 2 besiegt ist; dann offen; Halten (CONFIG.anker.halten.ziel)
 //    setzt es auf aktiviert = erreicht. Danach gewinnt das Hochbeamen: niemand der verbundenen Spieler mehr unten.
-//  - Niederlage: Notrückholung der ganzen Crew (combat.squadRecall, bestehend) -> das GANZE Szenario beginnt neu (neuBeginnen): alle Gegner zurück auf die
+//  - Niederlage: Notrückholung, die die GANZE verbundene Crew betrifft (combat.squadRecall, bestehend; ist ein Spieler gesund an Bord, läuft es weiter) -> das GANZE Szenario beginnt neu (neuBeginnen): alle Gegner zurück auf die
 //    Anfangsplätze, Ziel wieder gesperrt, Zähler zurück, Transfer wieder heil. Die Karte wird nicht neu gebaut, nur Zustände und Gegner (Vorbild map_reset, Siedlung Eisenwald).
 //  - Hochbeamen vor dem Ziel: kein Sieg, wie in Wellen Boden bleibt der Stand stehen (Gegner bleiben, die Crew kann ausrüsten und wieder hinunter).
 //  - Alle Texte und Zahlen: CONFIG.graben. Die KI bleibt unberührt (BOD-02).
@@ -217,8 +217,15 @@ function update(game, S) {
   const aw = game.aways[S.lp];
   if (!aw) return;
   M().wellen.zaehleAbschuesse(game, S, aw);
-  // Niederlage: die Notrückholung der ganzen Crew (combat.squadRecall) zählt aw.stats.squadRecalls hoch
-  if (((aw.stats && aw.stats.squadRecalls) || 0) > S.recalls) { neuBeginnen(game, S); return; }
+  // Niederlage: die Notrückholung (combat.squadRecall) zählt aw.stats.squadRecalls hoch. Sie holt nur die Spieler UNTEN zurück: Ein Neubeginn ist es nur,
+  // wenn sie die ganze verbundene Crew betraf (kein Spieler war gesund an Bord). Sonst sind die Zurückgeholten schlicht an Bord, das Szenario läuft weiter
+  // (und ist das Ziel erreicht, entscheidet gleich unten die Siegprüfung: alle an Bord = Sieg).
+  const rz = (aw.stats && aw.stats.squadRecalls) || 0;
+  if (rz > S.recalls) {
+    S.recalls = rz;
+    const pids = (aw.letzteRueckholung && aw.letzteRueckholung.pids) || null;
+    if (!pids || team(game).every((p) => pids.includes(p.id))) { neuBeginnen(game, S); return; }
+  }
   S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
   S.n = welleLebt(aw, S, 1) > 0 ? 1 : 2;
   if (S.ziel === 'gesperrt' && welleLebt(aw, S, 2) === 0) {

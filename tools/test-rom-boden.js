@@ -1,6 +1,6 @@
 'use strict';
 // BOD-01 P2: Rom am Boden. Römische Namen und Funksprüche aus den Katalogdaten (content/katalog/gegner/*.json:
-// namen.rom, vornamen.rom, funk_nach_fraktion.rom), Rezept `graben` (Grenadier und Schütze), kein Rückfall auf germanische Namen.
+// namen.rom, vornamen.rom, funk_nach_fraktion.rom), direkt gespawnte römische Trupps aller Rollen (Grenadier, Schütze), kein Rückfall auf germanische Namen.
 //   node tools/test-rom-boden.js
 const Katalog = require('../server/mission/katalog.js');
 const squad = require('../server/sim/squad.js');
@@ -35,28 +35,16 @@ section('Katalog: römische Namen und Funk je Rolle');
   ok(new Set(alle).size === alle.length, `Vornamen über alle Rollen verschieden (${alle.length})`);
 }
 
-section('Rezept graben');
-{
-  const f = K.fraktionen.rom;
-  const rz = f.rezepte.graben || [];
-  const rollen = new Set(rz.map((t) => t.rolle));
-  ok(rollen.has('grenadier') && rollen.has('schuetze'), 'graben: Grenadier und Schütze');
-  ok(rz.reduce((s, t) => s + t.n, 0) <= 4 && rollen.size <= 3, 'graben: höchstens 4 Mann und 3 Typen (besetzen verdichtet sonst)');
-  ok(JSON.stringify(f.einsatz.graben) === '["graben"]', 'graben: einsatz nur Kartenart graben');
-  ok(f.rezepte.wache && f.rezepte.sturmtrupp && f.einsatz.wache.includes('station') && f.einsatz.sturmtrupp.includes('station'), 'wache/sturmtrupp unverändert vorhanden');
-  const r = Katalog.pruefeBesetzung([{ fraktion: 'rom', staerke: 'gross', haltung: 'wach' }], { katalog: K, kartenart: 'graben', spieler: 3 });
-  ok(!r.fehler.length, 'pruefeBesetzung(rom, gross) auf graben: keine Fehler');
-}
-
 // Headless: Trupps einer Fraktion nach Rezept setzen, jeden Gegner alle Funkanlässe sprechen lassen
-function lauf(fraktion, trupps, rezeptName) {
+// rezept: Rezeptname der Fraktion oder direkt eine Besetzung [{ typ, anzahl }]
+function lauf(fraktion, trupps, rezept) {
   const g = new Game({ noStore: true, seed: 11, log: () => {} });
   const fe = []; g.countError = (w, e) => { fe.push(w + ': ' + (e && e.message)); };
   const id = LP.testgelaende(g, { ort: 'kesh', art: 'station', besitz: fraktion, seed: 3, zustand: 'umkaempft' });
   LP.get(g, id);
   const aw = g.aways[id];
   g.away = aw;
-  const besetzung = K.fraktionen[fraktion].rezepte[rezeptName].map((t) => ({ typ: t.rolle, anzahl: t.n }));
+  const besetzung = Array.isArray(rezept) ? rezept : K.fraktionen[fraktion].rezepte[rezept].map((t) => ({ typ: t.rolle, anzahl: t.n }));
   for (let i = 0; i < trupps; i++) {
     const name = 'g' + i;
     squad.spawnSquad(g, name, { map: id, besetzung, force: true, festeZahl: true });
@@ -73,9 +61,10 @@ function lauf(fraktion, trupps, rezeptName) {
   return { aw, ev, fe };
 }
 
-section('Headless: römischer Trupp (graben) – nur römische Namen und Texte');
+section('Headless: römische Trupps aller Rollen – nur römische Namen und Texte');
 {
-  const R = lauf('rom', 4, 'graben');
+  const ALLE = [{ typ: 'grundtyp', anzahl: 2 }, { typ: 'grenadier', anzahl: 1 }, { typ: 'schuetze', anzahl: 1 }];
+  const R = lauf('rom', 4, ALLE);
   const germNamen = new Set(), germTexte = new Set();
   for (const r of ROLLEN) {
     const g = gegner(r);
