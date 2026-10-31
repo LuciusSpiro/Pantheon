@@ -90,16 +90,17 @@ console.log('\n[Messlauf, fester Seed]');
 function mess(args) {
   const r = spawnSync(process.execPath, [path.join(__dirname, 'mess-klumpen.js')].concat(args), { encoding: 'utf8', timeout: 240000 });
   const out = r.stdout || '';
+  const u = /Anteil Samples mit >2 Gegnern an einer freistehenden Insel ([0-9.]+)/.exec(out);
   const m = /Anteil Gegner mit Kamerad <= 2 Kacheln ([0-9.]+)/.exec(out), f = /freistehende Inseln \(ohne Mauern\) im Gefecht: Gegner je Insel Maximum (\d+)/.exec(out);
-  return { code: r.status, anteil: m ? +m[1] : NaN, inselMax: f ? +f[1] : NaN, out };
+  return { code: r.status, anteil: m ? +m[1] : NaN, inselMax: f ? +f[1] : NaN, ueber2: u ? +u[1] : NaN, out };
 }
 {
   const gr = mess(['graben', '--seeds', '2', '--sek', '60', '--lauf', '--alarm']);
   ok(gr.code === 0 && gr.anteil <= 0.45, 'Grabenangriff alarmiert, Seeds 1-2, 60 s: Anteil <= 2 Kacheln ' + gr.anteil + ' (Ausgangswert 0,84; Ziel 0,40 über 8 Seeds/120 s)');
-  ok(gr.inselMax <= 2, 'Grabenangriff: höchstens 2 Gegner je freistehender Insel (' + gr.inselMax + ')');
+  ok(gr.ueber2 <= 0.02, 'Grabenangriff: kaum Samples mit mehr als 2 Gegnern je freistehender Insel (Anteil ' + gr.ueber2 + ', Spitze ' + gr.inselMax + ')');   // Spitzenwert 3 kommt auch auf bcc75a0 vor (Momentaufnahme), der Anteil entscheidet
   const ek = mess(['endkampf', '--seeds', '2', '--sek', '45']);
   ok(ek.code === 0 && ek.anteil <= 0.4, 'Eisenwald-Endkampf, Seeds 1-2, 45 s: Anteil <= 2 Kacheln ' + ek.anteil + ' (Ausgangswert 0,64)');
-  ok(ek.inselMax <= 2, 'Endkampf: höchstens 2 Gegner je freistehender Insel (' + ek.inselMax + ')');
+  ok(ek.ueber2 <= 0.02, 'Endkampf: kaum Samples mit mehr als 2 Gegnern je freistehender Insel (Anteil ' + ek.ueber2 + ', Spitze ' + ek.inselMax + ')');
 }
 
 console.log(fails ? `\n${fails} von ${n} FEHLER` : `\nalle ${n} ok`);

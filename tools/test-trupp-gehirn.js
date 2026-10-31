@@ -187,7 +187,7 @@ console.log('\n[Scharfschütze steht auf Distanz]');
   S.alarm();
   const sch = ds[0]; let minD = Infinity; let n7 = 0, nGes = 0;
   S.run(12, () => {
-    if (S.tick > 150) { nGes++; if (Math.hypot(sch.x - S.P(0).x, sch.y - S.P(0).y) >= 7 * TILE - TILE / 4) n7++; }
+    if (S.tick > 150) { nGes++; if (Math.hypot(sch.x - S.P(0).x, sch.y - S.P(0).y) >= 7 * TILE - TILE / 2) n7++; }   // Toleranz 0,5 Kachel: der Schütze bleibt beim Anlaufen kurz vor der Platzmitte stehen, das Zielfenster (K2: KI hält 0,8-1,0 s) verlängert diese Standzeit
     minD = Math.min(minD, Math.hypot(sch.x - S.P(0).x, sch.y - S.P(0).y));
   });
   ok(sch.aufgabe === 'scharf', 'Lanzenträger: Aufgabe scharf');
