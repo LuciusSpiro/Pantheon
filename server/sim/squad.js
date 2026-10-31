@@ -1082,14 +1082,12 @@ function entererEngstelle(game, E, e, s, t, sichtbar) {
 // true = Tick erledigt
 function actB2(game, E, e, dt, Wf, g) {
   const K = cfg(game).koerper || {};
-  if (e.ladung) {   // Schütze lädt die Lanze: stehen, Ziel nachführen, bei Stufe 2 (bzw. Ziel weg) lösen
+  if (e.ladung) {   // Schütze zielt mit der Lanze (Zielfenster wie beim Spieler): stehen, Ziellinie nachführen, im Fenster lösen
     const t = game.playerById(e.shootTarget || e.target);
     const sicht = t && t.zone === 'away' && !t.downed && los(E, e, t);
     if (sicht) Wf.feuern(game, e, { x: t.x, y: t.y });
-    const d = Wf.def(game, e.waffe);
-    const max = d && Array.isArray(d.laden) ? d.laden.length : 1;
-    if (e.ladung && (e.ladung.stufe >= max || (!sicht && e.ladung.stufe >= 1))) Wf.loslassen(game, e);
-    else if (e.ladung && !sicht && !e.ladung.stufe && e.ladung.t > 1.5) Wf.unterbrechen(game, e, 'ziel');
+    if (e.ladung && Wf.bereit(e) && sicht) Wf.loslassen(game, e);   // ab Fensterbeginn schießt die KI; sonst bricht waffen.update bei max von selbst ab/schießt
+    else if (e.ladung && !sicht) Wf.unterbrechen(game, e, 'ziel');   // Ziel weg: Abbruch ohne Schuss, ohne Hitze
     trackStuck(game, e, dt, false);
     return true;
   }

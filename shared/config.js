@@ -429,7 +429,10 @@
         blaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 380, streuung: 2, schaden: 1, laerm: 'mittel' },
         sturmgewehr: { schuss: 12, kadenz: 0.15, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 9, tempo: 420, streuung: [6, 14], schaden: 0.5, schildReset: true, laerm: 'laut' },
         granatwerfer: { schuss: 2, kadenz: 1.2, pause: 0.6, kalt: 3.0, sperre: 4.0, min: 4, max: 12, flug: 0.8, streuung: 0.5, radius: 1.5, schaden: 1, betaeubt: 1.5, flaeche: true, laerm: 'laut' },
-        lanze: { schuss: 1, laden: [1.0, 2.0], pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 22, schaden: [1, 2], durchschlagFront: true, stehen: true, laerm: 'leise' },
+        // Lanze = Laserkanone mit Zielfenster (BOD-02): Taste halten, vor zielfenster.min nur Ziellinie (Loslassen = Abbruch ohne Schuss, ohne Hitze),
+        // ab min löst Loslassen den Strahl aus, ab zielfenster.max automatisch. Strahl trifft sofort, reicht immer `reichweite`, durchschlägt Körper
+        // (friendlyFire: auch eigene), Volldeckung stoppt ihn; Halbdeckung schützt nur Geduckte. schaden fest.
+        lanze: { schuss: 1, zielfenster: { min: 0.5, max: 1.0 }, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 22, schaden: 2, friendlyFire: true, durchschlagFront: true, stehen: true, laerm: 'leise' },
         nahkampf: { schuss: 3, ausholen: 0.5, erholung: 0.6, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 1.3, wunde: true, laerm: 'nah' },
         betaeuber: { schuss: 4, kadenz: 0.45, pause: 0.6, kalt: 2.0, sperre: 3.0, reichweite: 9, tempo: 380, streuung: 2, schaden: 1, nichttoedlich: true, laerm: 'leise' },
         schrottblaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 230, streuung: 3, schaden: 1, laerm: 'mittel' },   // Plünderer/Rostmeute: Blaster-Regeln, langsamere Geschosse (Entscheidung Studioleitung, B2-Balancing m3)

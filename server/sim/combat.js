@@ -256,6 +256,24 @@ function waffenWelt(game) {
         return out;
       },
       wand(x0, y0, x1, y1) { const E = env(game); return !Los.lineOfSight(E.shotBlocked, x0, y0, x1, y1); },
+      // Lanzenstrahl: Endpunkt der Linie (x0,y0)->(x1,y1) an der ersten Schuss-Sperre (Kachelrand), sonst (x1,y1)
+      strahlEnde(x0, y0, x1, y1) {
+        const E = env(game); const a = Math.atan2(y1 - y0, x1 - x0);
+        let ex = x1, ey = y1;
+        Los.walk(x0, y0, x1, y1, (tx, ty) => {
+          if (!E.shotBlocked(tx, ty)) return false;
+          const t = Math.max(0, (((tx + 0.5) * TILE - x0) * Math.cos(a) + ((ty + 0.5) * TILE - y0) * Math.sin(a)) - TILE / 2);
+          ex = x0 + Math.cos(a) * t; ey = y0 + Math.sin(a) * t;
+          return true;
+        });
+        return { x: ex, y: ey };
+      },
+      // Lanzenstrahl: schützt Halbdeckung (low) das geduckte Ziel z? Eine low-Kachel neben z liegt auf der Linie vom Schützen (wie crouchGuardsTarget)
+      halbdeckung(z, x0, y0) {
+        const E = env(game); let guard = false;
+        Los.walk(x0, y0, z.x, z.y, (tx, ty) => { if (Los.lowGuard(E.map, E.solid, z.x, z.y, tx, ty)) { guard = true; return true; } return false; });
+        return guard;
+      },
       // B2-NACH: Treffer, die waffen.js selbst verteilt (Granate, Lanze, Schlag) -> dieselben Ereignisse wie Projektiltreffer
       getroffen(k, r, w, q) { trefferGemeldet(game, k, r, w || {}, q || {}); },
     };
@@ -1219,16 +1237,16 @@ function b2SnapGegner(game, e, base) {
 }
 
 // Lanze der Spieler: Schuss beim Loslassen. Der Client schickt `shoot` beim Halten im Takt (≈ 0,3 s); bleibt der Strom
-// länger als 0,45 s aus oder ist die höchste Stufe erreicht, löst der Schuss aus.
+// länger als 0,45 s aus, gilt das als Loslassen (vor dem Zielfenster: Abbruch). Den Auto-Schuss am Fensterende löst waffen.update aus.
 function lanzeLoslassen(game) {
   const Wf = waffen();
   if (!Wf || typeof Wf.loslassen !== 'function') return;
   for (const p of game.players) {
     if (p.zone !== 'away' || !p.ladung) continue;
     const d = Wf.def(game, p.waffe);
-    if (!d || !Array.isArray(d.laden)) continue;
+    if (!d || !d.zielfenster) continue;
     if (p.losGemeldet) continue;   // Client meldet das Loslassen selbst (shoot { los: true })
-    if (p.ladung.stufe >= d.laden.length || game.time - (p.schussInputAt || 0) > 0.45) Wf.loslassen(game, p);
+    if (game.time - (p.schussInputAt || 0) > 0.45) Wf.loslassen(game, p);
   }
 }
 

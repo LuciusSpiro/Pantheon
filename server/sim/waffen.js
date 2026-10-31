@@ -5,7 +5,7 @@
 //
 // Kämpfer (BODENKAMPF legt die Felder an, `ausstatten` füllt sie):
 //   { id, team: 'crew'|'feind', x, y, crouch, facing?, frontArc?, hitRadius?,
-//     waffe, hitze 0..1, gesperrtBis, ladung { t, stufe, x, y, tx, ty } | null, ausholen { t, dauer, winkel } | null,
+//     waffe, hitze 0..1, gesperrtBis, ladung { t, bereit, x, y, tx, ty } | null, ausholen { t, dauer, winkel } | null,
 //     schild { seg, max, lastHitAt, regenT }, wunden { n, max },
 //     zustand 'ok'|'verwundet'|'bewusstlos'|'gefesselt'|'gefangen'|'aus', betaeubtBis, bewusstBis }
 //   Zusätzlich (intern, von waffen.js gepflegt): schussAt (letzter Schuss, für `pause`), bereitAt (Kadenz/Erholung),
@@ -77,7 +77,7 @@ function def(game, waffe) {
 function art(d) {
   if (!d) return null;
   if (d.flaeche) return 'granate';
-  if (Array.isArray(d.laden)) return 'lanze';
+  if (d.zielfenster) return 'lanze';
   if (d.ausholen != null) return 'schlag';
   return 'geschoss';
 }
@@ -216,7 +216,7 @@ function projektil(game, o) {
 // k (optional): Schütze; sein Schadensmodifikator (k.modSchaden, EK6 Anführer: ×1,5) gilt für alle Wirkungen dieser Waffe
 function wirkungAus(waffe, d, extra, k) {
   const w = Object.assign({ waffe, schaden: Number(d.schaden) || 1, schildReset: !!d.schildReset, nichttoedlich: !!d.nichttoedlich,
-    wunde: !!d.wunde, flaeche: !!d.flaeche, durchschlagFront: !!d.durchschlagFront }, extra || {});
+    wunde: !!d.wunde, flaeche: !!d.flaeche, durchschlagFront: !!d.durchschlagFront, friendlyFire: !!d.friendlyFire }, extra || {});
   if (k && k.modSchaden && k.modSchaden !== 1) w.schaden = Math.round(w.schaden * k.modSchaden * 1000) / 1000;
   return w;
 }
@@ -285,38 +285,44 @@ function explosion(game, x, y, wirkung, quelle) {
 }
 
 // ---------- Lanze ----------
+// Zielfenster (d.zielfenster { min, max } s): vor `min` nur Ziellinie, ab `min` ist die Lanze bereit (Ereignis lanzeBereit),
+// bei `max` schießt sie von selbst (update).
 function ladenBeginnen(game, k, d, ziel) {
   const p = zielPunkt(k, ziel, (Number(d.reichweite) || 0) * TILE);
-  k.ladung = { t: 0, stufe: 0, x: k.x, y: k.y, tx: p.x, ty: p.y };
+  k.ladung = { t: 0, bereit: false, x: k.x, y: k.y, tx: p.x, ty: p.y };
   emit(game, 'ladungLanze', { id: k.id, x: r(k.x), y: r(k.y), tx: r(p.x), ty: r(p.y) });
   return null;
 }
-// Lanze abfeuern (Spieler lässt los, KI bei gewünschter Stufe). Unter Stufe 1: Abbruch ohne Schuss.
-// Strahl sofort, trifft den ersten Kämpfer der Gegenseite auf der Linie (Wand stoppt). Rückgabe null | Grund.
-function loslassen(game, k) {
+// true, sobald die Lanze im Zielfenster ist (Loslassen schießt)
+function bereit(k) { return !!(k && k.ladung && k.ladung.bereit); }
+// Ist das geduckte Ziel z gegen einen Strahl von (x0,y0) durch Halbdeckung geschützt? (Welt-Adapter; ohne: nein)
+function geschuetzt(game, z, x0, y0) {
+  const w = welt(game);
+  return !!(z.crouch && w && typeof w.halbdeckung === 'function' && w.halbdeckung(z, x0, y0));
+}
+// Lanze abfeuern (Spieler lässt los, KI im Zielfenster, Auto-Schuss bei max). Vor `min`: Abbruch ohne Schuss, ohne Hitze und Pause.
+// Strahl sofort, volle Reichweite, trifft ALLE Kämpfer auf der Linie (auch die eigene Seite, nie den Schützen); Wand stoppt ihn,
+// geduckte Ziele hinter Halbdeckung (low) sind sicher. Rückgabe null | Grund.
+function loslassen(game, k, auto) {
   const d = def(game, k.waffe); const L = k.ladung;
   if (!L || art(d) !== 'lanze') return 'keine_ladung';
   k.ladung = null;
-  if (!L.stufe) return 'zu_kurz';
+  if (!L.bereit) return 'zu_kurz';
   const max = (Number(d.reichweite) || 0) * TILE;
   let dx = L.tx - k.x, dy = L.ty - k.y; const len = Math.hypot(dx, dy) || 1;
   dx = dx / len * max; dy = dy / len * max;
-  const ex = k.x + dx, ey = k.y + dy;
+  let ex = k.x + dx, ey = k.y + dy;
+  const W = welt(game);
+  if (W && typeof W.strahlEnde === 'function') { const e = W.strahlEnde(k.x, k.y, ex, ey); ex = e.x; ey = e.y; }   // Volldeckung/Wand
   const kand = alleKaempfer(game)
-    .filter((z) => z !== k && z.team !== k.team && (z.zustand || 'ok') === 'ok' && segDist(z.x, z.y, k.x, k.y, ex, ey) < hitR(z))
-    .map((z) => ({ z, s: (z.x - k.x) * dx + (z.y - k.y) * dy }))
-    .filter((o) => o.s > 0)
-    .sort((a, b) => a.s - b.s);
-  const schaden = Array.isArray(d.schaden) ? d.schaden[Math.min(L.stufe, d.schaden.length) - 1] : (Number(d.schaden) || 1);
-  let tx = ex, ty = ey; let getroffen = null;
-  for (const o of kand) {
-    if (wand(game, k.x, k.y, o.z.x, o.z.y)) break;
-    getroffen = o.z; tx = o.z.x; ty = o.z.y; break;
-  }
-  emit(game, 'lanzeSchuss', { id: k.id, x: r(k.x), y: r(k.y), tx: r(tx), ty: r(ty), stufe: L.stufe });
-  heizen(game, k, d, L.stufe / d.laden.length);
+    .filter((z) => z !== k && (z.zustand || 'ok') === 'ok' && segDist(z.x, z.y, k.x, k.y, ex, ey) < hitR(z))
+    .filter((z) => (z.x - k.x) * dx + (z.y - k.y) * dy > 0 && !geschuetzt(game, z, k.x, k.y))
+    .filter((z) => W && typeof W.strahlEnde === 'function' ? true : !wand(game, k.x, k.y, z.x, z.y))
+    .sort((a, b) => ((a.x - k.x) * dx + (a.y - k.y) * dy) - ((b.x - k.x) * dx + (b.y - k.y) * dy));
+  emit(game, 'lanzeSchuss', Object.assign({ id: k.id, x: r(k.x), y: r(k.y), tx: r(ex), ty: r(ey) }, auto ? { auto: 1 } : {}));
+  heizen(game, k, d);
   laerm(game, k.x, k.y, d.laerm);
-  if (getroffen) wirken(game, getroffen, wirkungAus(k.waffe, d, { schaden }, k), { id: k.id, team: k.team, x: k.x, y: k.y });
+  for (const z of kand) wirken(game, z, wirkungAus(k.waffe, d, null, k), { id: k.id, team: k.team, x: k.x, y: k.y });
   return null;
 }
 
@@ -366,8 +372,8 @@ function treffer(game, ziel, wirkung, quelle) {
   const w = wirkung || {}; const q = quelle || {}; const C = ac(game); const t = now(game);
   const zs = ziel.zustand || 'ok';
   if (zs !== 'ok') return 'ignoriert';
-  // Friendly Fire nur über Fläche (E17)
-  if (!w.flaeche && q.team && q.team === ziel.team) return 'ignoriert';
+  // Friendly Fire nur über Fläche (E17) und Waffen mit friendlyFire (Lanzenstrahl)
+  if (!w.flaeche && !w.friendlyFire && q.team && q.team === ziel.team) return 'ignoriert';
   // Schildkuppel des Außenteams (heute in hitPlayer)
   const aw = game.away;
   if (ziel.team === 'crew' && aw && aw.kuppelHp > 0 && t < (aw.kuppelUntil || 0)) {
@@ -460,9 +466,13 @@ function update(game, k, dt) {
   if (k.ladung && d) {
     if (d.stehen && Math.hypot(k.x - k.ladung.x, k.y - k.ladung.y) > 2) unterbrechen(game, k, 'bewegt');
     else {
+      const zf = d.zielfenster || {};
       k.ladung.t += dt;
-      let st = 0; for (const s of d.laden || []) if (k.ladung.t >= s - EPS) st++;
-      k.ladung.stufe = st;
+      if (!k.ladung.bereit && k.ladung.t >= (Number(zf.min) || 0) - EPS) {
+        k.ladung.bereit = true;
+        emit(game, 'lanzeBereit', { id: k.id });
+      }
+      if (k.ladung.t >= (Number(zf.max) || 0) - EPS) loslassen(game, k, true);   // Auto-Schuss am Ende des Zielfensters
     }
   }
   if (k.ausholen && d) {
@@ -486,7 +496,7 @@ function schildUpdate(game, k, dt, werte) {
 function snapFelder(game, k) {
   const d = def(game, k.waffe) || {};
   const out = { wf: k.waffe, ht: Math.round((k.hitze || 0) * 100), ov: ueberhitzt(game, k) ? 1 : 0, zs: k.zustand || 'ok', bt: betaeubt(game, k) ? 1 : 0 };
-  if (k.ladung && Array.isArray(d.laden)) out.ch = Math.min(100, Math.round(k.ladung.t / d.laden[d.laden.length - 1] * 100));
+  if (k.ladung && d.zielfenster) out.ch = Math.min(100, Math.round(k.ladung.t / Math.max(EPS, d.zielfenster.max) * 100));   // 0–100 über das Zielfenster; bereit ab zielfenster.min/max (Ereignis lanzeBereit)
   if (k.ausholen) out.wu = Math.min(100, Math.round(k.ausholen.t / Math.max(EPS, k.ausholen.dauer) * 100));
   return out;
 }
@@ -518,7 +528,7 @@ function restore(obj, game) {
 module.exports = {
   aktiv: process.env.WAFFEN !== 'aus',
   WAHL, ZUSTAENDE,
-  def, art, ausstatten, kannFeuern, feuern, loslassen, update, treffer, explosion, granateFlug, laerm, hoert,
+  def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
   sichtPruefen, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
   schildUpdate, snapFelder, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };
