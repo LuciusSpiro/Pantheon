@@ -1265,7 +1265,12 @@ function actB2(game, E, e, dt, Wf, g) {
     const t = game.playerById(e.shootTarget || e.target);
     const sicht = t && t.zone === 'away' && !t.downed && los(E, e, t);
     if (sicht) Wf.feuern(game, e, { x: t.x, y: t.y });
-    if (e.ladung && Wf.bereit(e) && sicht) Wf.loslassen(game, e);   // ab Fensterbeginn schießt die KI; sonst bricht waffen.update bei max von selbst ab/schießt
+    if (e.ladung && e.ladung.kiAb == null) {   // K2: die KI hält die Ziellinie eine zufällige Zeit im hinteren Teil des Fensters (zielfenster.ki), mindestens zielfenster.min: Vorwarnung für den Spieler
+      const zf = (Wf.def(game, e.waffe) || {}).zielfenster || {}; const ki = zf.ki || {};
+      const lo = Number(ki.min != null ? ki.min : zf.min) || 0, hi = Math.max(lo, Number(ki.max != null ? ki.max : zf.max) || lo);
+      e.ladung.kiAb = Math.max(Number(zf.min) || 0, lo + game.away.rng() * (hi - lo));
+    }
+    if (e.ladung && Wf.bereit(e) && sicht && e.ladung.t >= e.ladung.kiAb - 1e-6) Wf.loslassen(game, e);   // sonst bricht waffen.update bei max von selbst ab/schießt
     else if (e.ladung && !sicht) Wf.unterbrechen(game, e, 'ziel');   // Ziel weg: Abbruch ohne Schuss, ohne Hitze
     trackStuck(game, e, dt, false);
     return true;

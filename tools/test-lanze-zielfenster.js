@@ -275,6 +275,18 @@ console.log('\n[KI-Schütze: dieselbe Regel (hält die Ziellinie, löst im Zielf
   ok(sch[0].t - lad[0].t >= LAN.zielfenster.min - 0.05 && sch[0].t - lad[0].t <= LAN.zielfenster.max + 0.1, 'Schuss ' + (Math.round((sch[0].t - lad[0].t) * 100) / 100) + ' s nach Zielbeginn (Fenster ' + LAN.zielfenster.min + '–' + LAN.zielfenster.max + ')');
   ok(Math.abs(sch[0].m.tx - sch[0].m.x) > LAN.reichweite * TILE - 5 || Math.abs(sch[0].m.ty - sch[0].m.y) > 1, 'KI-Strahl: volle Länge');
   ok(gezielt && drift < 3, 'Schütze bleibt beim Zielen stehen');
+  // BOD-02 Nacharbeit K2: die KI löst nicht bei Fensterbeginn, sondern zufällig in zielfenster.ki (>= ki.min Vorwarnung), Fenster bleibt für beide 0,5–1,0
+  ok(LAN.zielfenster.ki && LAN.zielfenster.ki.min >= 0.8 && LAN.zielfenster.ki.max <= LAN.zielfenster.max, 'Config zielfenster.ki { min 0,8, max 1,0 }');
+  ok(sch[0].t - lad[0].t >= LAN.zielfenster.ki.min - 0.06, 'KI-Schuss erst nach ki.min (' + (Math.round((sch[0].t - lad[0].t) * 100) / 100) + ' s)');
+  {
+    const S3 = szene(1); const p3 = S3.P(0); S3.place(0, 6, ZEILE);
+    const z3 = S3.gegner('schuetze', 15, ZEILE, { trupp: 's', frei: true }); S3.aw.squads.s.alert = true; z3.shootTarget = p3.id;
+    S3.run(40, () => { p3.shield.seg = 3; if (p3.downed) combat.revive(S3.g, p3, 3, { quiet: true }); });
+    const l3 = S3.ev('ladungLanze').filter((q) => q.m.id === z3.id), s3 = S3.ev('lanzeSchuss').filter((q) => q.m.id === z3.id);
+    const dts = []; for (const sc of s3) { const l = l3.filter((q) => q.t <= sc.t).pop(); if (l) dts.push(sc.t - l.t); }
+    ok(dts.length >= 4 && dts.every((d) => d >= LAN.zielfenster.ki.min - 0.06 && d <= LAN.zielfenster.max + 0.1), 'KI: ' + dts.length + ' Schüsse, Vorwarnung immer ' + LAN.zielfenster.ki.min + '–' + LAN.zielfenster.max + ' s (' + dts.map((d) => d.toFixed(2)).join(' ') + ')');
+    ok(Math.max(...dts) - Math.min(...dts) > 0.02, 'KI: zufällige Haltezeit (nicht immer gleich)');
+  }
   // Auto-Schuss des Gegners: festgehaltene Ziellinie ohne Auslöser schießt bei max von selbst
   const S2 = szene(1); S2.place(0, 6, ZEILE);
   const e2 = S2.gegner('schuetze', 18, ZEILE);
