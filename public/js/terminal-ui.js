@@ -215,8 +215,8 @@
   const K = () => window.Consoles;
   const HANDEL_ART = { item: 'Vorrat', gear: 'Ausrüstung', deko: 'Deko', upgrade: 'Umbau' };
   const HANDEL_TEXT = {
-    werkzeuggurt: 'Du reparierst 30 % schneller (nur du).', ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt einen Hüllenbruch.',
-    bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, trifft die Hülle. Das Lager fasst höchstens ' + KAT.TORPEDO.lagerMax + '.',
+    werkzeuggurt: 'Du reparierst 30 % schneller (nur du).', ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt ein Leck.',
+    bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, prallt am stehenden Schild ab und trifft sonst ein System. Das Lager fasst höchstens ' + KAT.TORPEDO.lagerMax + '.',
     medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).', sonde: 'Sonde für die Ops: erkundet Nachbarsektoren.',
     ladung: 'Sprengstoff für das Außenteam: am Sprengziel platzieren (E halten). Keine Explosion, die Folge kommt nach dem Hochbeamen.',
     kristalllampe: 'Vaelen-Handwerk: leuchtet in Mint. Nur hier zu haben.',

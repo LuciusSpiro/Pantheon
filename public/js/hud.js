@@ -344,7 +344,7 @@
       const all = /^all:/.test(w.k || '');   // W2 AP3b: Wellen All
       if (w.ph === 'vorbereitung') { big = 'RÜSTPHASE'; sub = 'Am Terminal im Meetingraum ausbauen, dann dort „Szene starten“'; }
       else if (w.ph === 'countdown') { big = 'WELLE 1 IN ' + w.t; sub = all ? 'Steuer, Ops, Captain, Technik auf Station' : 'Deckung suchen – sie kommen von den Eingängen'; }
-      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Hülle und Systeme flicken' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
+      else if (w.ph === 'pause') { big = 'Welle ' + w.n + ' überstanden – nächste in ' + w.t + ' s'; sub = all ? 'Schilde geladen – Systeme reparieren' : 'Alle wieder auf den Beinen, Wunden versorgt'; bc = PAL.mint; }
       else if (w.ph === 'kampf' && this.wellenBanner && t - this.wellenBanner.t0 < 2600) { big = this.wellenBanner.text; sub = this.wellenBanner.sub; }
       if (big && w.ph !== 'ende' && !(w.ph === 'vorbereitung' && inConsole)) {   // Rüstphase an der Konsole: das Terminal hat den Startknopf, der Banner würde die Liste verdecken
         const scale = R.measure(big, 2) > VW - 40 ? 1 : 2;

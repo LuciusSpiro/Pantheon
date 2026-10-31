@@ -178,6 +178,7 @@
         y += lh;
       });
       if (weg) txt('+' + weg, body.x + MASS.innen, y, F.dim);
+      return y + (weg ? lh : 0);   // Unterkante der belegten Zeilen: das Wort LEER der leeren Zone zeichnet nur, wo es keine Zeile überdeckt
     }
 
     ZONEN.forEach((zn) => {
@@ -186,8 +187,8 @@
       rc(body.x, body.y, body.w, body.h, z.leer ? F.kachelLeer : F.kachel);
       if (z.leer) strich(body.x, body.y, body.w, body.h, F.zer, 2); else rand(body.x, body.y, body.w, body.h, F.kachelRand);
       if (o.seite === zn) rand(t.x - MASS.seiteRahmen, t.y - MASS.seiteRahmen, t.w + 2 * MASS.seiteRahmen, t.h + 2 * MASS.seiteRahmen, F.seiteZugewandt);
-      inhalt(z.sys, body, zn, false);
-      if (z.leer && body.w >= (mass.leerMin || mass.zweiZeilig)) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
+      const belegtBis = inhalt(z.sys, body, zn, false);
+      if (z.leer && body.w >= (mass.leerMin || mass.zweiZeilig) && belegtBis <= body.y + body.h - 10) txt(ZEICHEN.leer, body.x + body.w - MASS.innen, body.y + body.h - 10, F.zerText, 'right');
     });
     // Mitte: zu (schraffiert), solange die zugewandte Zone nicht leer ist; sonst offen. Reaktor zerstört = Fläche kachelReaktor.
     const mt = L.mitte, zu = !!o.zugewandt && !m.zonen[o.zugewandt].leer;

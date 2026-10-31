@@ -2466,8 +2466,8 @@
       if (r) {
         const desc = {
           werkzeuggurt: 'Du reparierst 30 % schneller (nur du).',
-          ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt einen Hüllenbruch.',
-          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, trifft die Hülle. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
+          ersatzteil: 'Repariert ausgefallene Systeme.', loeschgel: 'Fünf Löschladungen.', flickblech: 'Flickt ein Leck.',
+          bolzen: 'Torpedo für den Torpedowerfer (Heck, Platz 2): zielsuchend, prallt am stehenden Schild ab und trifft sonst ein System. Das Lager fasst höchstens ' + (SCH ? SCH.TORPEDO.lagerMax : 12) + '.', medipack: 'Heilt 50 HP (Nachschub fürs Außenteam).',
           ladung: 'Sprengstoff für das Außenteam: am Sprengziel platzieren (E halten). Keine Explosion, die Folge kommt nach dem Hochbeamen.',
           kristalllampe: 'Vaelen-Handwerk: leuchtet in Mint. Nur hier zu haben.',
         }[r.id] || (r.kind === 'deko' ? 'Für dein Quartier (an der eigenen Koje platzieren).' : r.kind === 'upgrade' ? 'Umbau für die Lerche.' : '');

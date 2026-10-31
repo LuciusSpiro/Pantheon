@@ -910,7 +910,7 @@
         Client.escortHit[ev.id] = performance.now();
         return true;
       case 'escortDistress':
-        H.pushNotice('NOTRUF: ' + escortLabel(ev.id) + ' – Hülle ' + pct(ev.hpFrac), PAL.red, 4);
+        H.pushNotice('NOTRUF: ' + escortLabel(ev.id) + ' – Systeme ' + pct(ev.hpFrac), PAL.red, 4);
         return true;
       case 'escortDisabled':
         H.pushNotice(escortLabel(ev.id) + ' ist kampfunfähig', PAL.red, 5);

@@ -12,7 +12,7 @@ function zuruecksetzen(game, o) {
   const ship = game.ship; const sp = game.space;
   require('./interior.js').integritaetVoll(game);   // SYS-01 A1a: Integrität aller Systeme auf Maximum (keine Hülle mehr)
   for (const k of Object.keys(ship.systems)) ship.systems[k] = 'ok';
-  ship.offline = {}; ship.fragile = {};
+  ship.offline = {}; ship.fragile = {}; ship.trefferT = {};   // SYS-03 D: auch die Treffer-Fenster (Reaktor-Fenster, 6 s) der Systeme
   ship.fireList = []; ship.breachList = [];
   require('./reaktortod.js').zuruecksetzen(game);   // SYS-01 A2a: neu aufgestellte Lerche = Ausfallzähler 0, kein Countdown, nicht zerstört
   const rc = ship.reactorCtl;
