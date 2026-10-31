@@ -485,7 +485,7 @@
       y = P.titel(ctx, x, y0, cw, 'ANSICHT', 'sensor');
       y = this.pultTechnikReiter(ctx, view, x, y, cw);
       T(ctx, 'Schild je Treffer:', x, y + 4, K.dim);
-      T(ctx, '0 offen · 1 Kratzer · 3–4 dicht', x, y + 14, K.dim);
+      T(ctx, '0 offen · 1 Kratzer · ab 3 dicht', x, y + 14, K.dim);
     },
     pultTechnikReiter(ctx, view, x, y, cw) {
       const names = ['Energie & Schilde', 'Schadensplan'];

@@ -787,7 +787,7 @@
     s.turnCap = { port: capOf('thruster_port'), stbd: capOf('thruster_stbd') };
     // (M3b: Drehen + Fahrt laufen im Schiffs-Tick über Flight.stepBody)
     // Schild-Kappung über Emitter (M3b: kein Schildstoß mehr)
-    sh.cap = EMITTERS.map(e => sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 2 : 4);
+    sh.cap = EMITTERS.map(e => Math.floor(CFG.shields.maxPerSector * (sys[e] === 'broken' || sys[e] === 'offline' ? 0 : sys[e] === 'damaged' ? 0.5 : 1)));   // wie server/sim/space.js shieldCaps (emitterCap), Kappe aus der Config (SYS-03 C1: 8)
     for (let i = 0; i < 4; i++) sh.current[i] = Math.min(sh.current[i], sh.cap[i]);
     sh.burst = null; sh.burstCd = 0;
     // M3b §4: Eskalation – beschädigt/zerstört im Kampf, niemand arbeitet daran -> nach 20 s Feuer neben der Station

@@ -106,7 +106,7 @@
   function trefferSturm(k, idx, jetzt, C) { stempeln(k, idx, jetzt + Math.max(pauseDelay(C), pauseSturm(C))); }
   function pauseBis(k, idx) { const f = k && k[PAUSE_FELD]; return f ? zahl(f[idx], 0) : 0; }
   function darfRegenerieren(k, idx, jetzt) { return jetzt >= pauseBis(k, idx); }
-  // Alle Pausen löschen (Szenenwechsel, Wellenpause, Arena, Beamen: der Schild ist wieder voll bzw. leer, ohne Vorgeschichte)
+  // Alle Pausen löschen (Szenenneustart, Wellenpause, Arena, Heilen eines Verbündeten, Neuaufbau eines Gegners: der Schild ist wieder voll bzw. leer, ohne Vorgeschichte)
   function pauseLoeschen(k) { if (k) pauseFeld(k).length = 0; }
   // Alle n Indizes bis `bis` sperren (Test-/Messwerkzeug: eingefrorener Schild)
   function pauseAlleBis(k, bis, n) { const f = pauseFeld(k); f.length = 0; for (let i = 0; i < (n == null ? 4 : n); i++) f[i] = bis; }

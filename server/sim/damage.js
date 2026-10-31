@@ -14,8 +14,8 @@ const interior = require('./interior.js');
 const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
 const Integ = require('./integritaet.js');
-const Sturm = require('./sturm.js');
-const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor (Schilde.pause)   // SYS-02a: Reparatursperre des Sturms
+const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre des Sturms
+const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause je Sektor (Schilde.pause)
 
 let spaceMod = null;   // lazy wegen Zirkelbezug space -> damage
 const space = () => spaceMod || (spaceMod = require('./space.js'));
