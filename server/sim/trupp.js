@@ -157,7 +157,11 @@ function truppGehirn(game, E, s) {
     if (!s.gehirnIds || tod || game.time - (s.aufgabeAt || -99) >= T.haltezeit) {
       const neu = verteile(ms);
       s.aufgaben = {};
-      for (const e of ms) { if (e.aufgabe !== neu.get(e)) e.aufgabeAt = game.time; e.aufgabe = neu.get(e); s.aufgaben[e.id] = e.aufgabe; }
+      for (const e of ms) {
+        if (e.aufgabe === 'aufrichten') { e.aufgabeVor = neu.get(e); s.aufgaben[e.id] = neu.get(e); continue; }   // P10: Helfer behält die Aufgabe aufrichten, danach gilt die Verteilung
+        if (e.aufgabe !== neu.get(e)) e.aufgabeAt = game.time;
+        e.aufgabe = neu.get(e); s.aufgaben[e.id] = e.aufgabe;
+      }
       s.gehirnIds = ids; s.aufgabeAt = game.time;
       seiteWaehlen(s, ms, schwerpunkt(ms));
     }
@@ -166,7 +170,25 @@ function truppGehirn(game, E, s) {
   const sp = achseSetzen(game, s, ms, T, bk);
   s.schwerpunkt = sp;
   beobachteFlanke(game, s, ms, T, bk, sp);
+  aufrichtenVerteilen(game, E, s, ms);
 }
+
+// BOD-02 P10: Aufrichten als Aufgabe. Für jeden Liegenden gibt der Trupp genau einem geeigneten Helfer (nächster; Niederhalter/Flanke/Scharfschütze nur ohne
+// Alternative) die Aufgabe `aufrichten`, wenn eine Sicherung besteht (server/sim/aufrichten.js pruefe). Ohne Sicherung bleibt der Liegende liegen (kein Köder).
+// Das Gehirn sieht nur Trupps mit Aufgabenverteilung; Beginn und Abbruch macht squad.js aufrichtenSchritt.
+function aufrichtenVerteilen(game, E, s, ms) {
+  const Aufr = require('./aufrichten.js');
+  if (!Aufr.cfg(game).sichtPruefen) return;
+  for (const d of Aufr.liegende(game)) {
+    const w = Aufr.waehleHelfer(game, E, s, d, ms);
+    if (!w) continue;
+    const m = w.m;
+    m.aufgabeVor = m.aufgabe; m.aufgabe = 'aufrichten'; m.hilft = d.id; d.helfer = m.id;
+  }
+}
+
+// Läuft das Gehirn für diesen Trupp (alarmiert, >= 2 Lebende, nicht noBark, kein Wächter)?
+function laeuft(game, s) { return !!s && s.alert && !s.noBark && s.name !== 'warden' && mitglieder(game, s).length >= 2; }
 
 // Alle Trupps (aufgerufen aus squad.update im KI-Takt, selbst gedrosselt auf hz)
 function update(game, E) {
@@ -185,4 +207,4 @@ function bedrohung(game, s) {
   return b && game.time <= b.bis ? b : null;
 }
 
-module.exports = { AUFGABEN, STANDARD, cfg: truppCfg, update, truppGehirn, verteile, bedrohung, niederhaelt, mitglieder };
+module.exports = { AUFGABEN, STANDARD, cfg: truppCfg, update, truppGehirn, verteile, bedrohung, niederhaelt, mitglieder, laeuft };

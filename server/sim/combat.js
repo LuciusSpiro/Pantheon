@@ -973,6 +973,7 @@ function knockOut(game, e) {
     game.emit('wardenDown', { id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
     game.missionEvent('wardenKilled', {});
   }
+  require('./aufrichten.js').heldFaellt(game, e);   // BOD-02 P10: Messung (Helfer fällt beim Aufrichten)
   squad.onEnemyDown(game, e);
 }
 // Orbitalschlag: strikeSegments Treffer, unabhängig von der Wächter-Front (schlafender Wächter bleibt unverwundbar)

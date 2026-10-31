@@ -473,6 +473,11 @@
       // flankeWinkel (Grad von der Trupp-Achse) / flankeKacheln = Flankensektor; bedrohungSek/sperreSek = Dauer/Pause; scharfAbstand Kacheln;
       // niederhaltenSek/unterstuetzungSek = Feuer auf die letzte Position so lange nach letzter Sicht; stossBlaster = Schüsse je Blaster-Stoß; achseNeuKacheln.
       truppGehirn: { hz: 1.5, haltezeit: 4, flankeWinkel: 50, flankeKacheln: 14, bedrohungSek: 8, sperreSek: 12, scharfAbstand: 7, niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6 },
+      // BOD-02 P10: Aufrichten mit Sicherung (server/sim/aufrichten.js). sichtPruefen: nur helfen, wenn der Liegende für keinen bekannten Spieler sichtbar ist
+      // (Sichtlinie, Waffen-/Sichtreichweite + sichtPuffer Kacheln, kein Sichtschutz) oder ein Niederhalter in den letzten sicherungSek s gefeuert hat; false = früheres Verhalten.
+      // abbruchTreffer: Treffer oder knapp vorbei (niedergehalten) bricht das Aufrichten sofort ab. sperreSek: danach so lange kein neuer Versuch (Helfer, bei Beschuss auch
+      // für den Liegenden). reichweite: Kacheln, aus denen ein Kamerad hilft.
+      aufrichtenSicherung: { sichtPruefen: true, sicherungSek: 3, abbruchTreffer: true, sichtPuffer: 1, sperreSek: 8, reichweite: 10 },
       ausbruch: { aktiv: true },
     },
     // Mission 3 „Die Tafel von Kesh“ (Zeiten in s)
