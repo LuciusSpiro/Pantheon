@@ -756,7 +756,8 @@ function sichtHilfe(game, e, t) {
 // Invariante „kein Treffer aus dem Off“ (Sim): Gegnertreffer auf Spieler weiter als engageBox (+48 px) vom Schützen.
 // Mit Sichthilfe (E16) zählt er als offBoxHitsHilfe, sonst als offBoxHits.
 function offBoxZaehlen(game, p, sx, sy, hilfe) {
-  const aw = game.away; const box = cfg(game).engageBox;
+  const aw = game.away; const Wf = waffen();
+  const box = Wf ? Wf.engageBox(game, { x: sx, y: sy }) : cfg(game).engageBox;   // BOD-02 P4: Schussfenster wächst in Stellungen mit
   if (!aw.stats || !box) return;
   if (Math.abs(p.x - sx) <= box.w / 2 + 48 && Math.abs(p.y - sy) <= box.h / 2 + 48) return;
   if (hilfe) aw.stats.offBoxHitsHilfe = (aw.stats.offBoxHitsHilfe || 0) + 1; else aw.stats.offBoxHits++;
@@ -993,12 +994,10 @@ function updateEnemyShields(game, dt) {
   }
 }
 
-// E16: Sichtradius eines Spielers – vom aussicht-Anker (gebaute Karte, Waffen aktiv) sicht.aussicht Kacheln, sonst R
+// E16: Sichtradius eines Spielers – vom aussicht-Anker (gebaute Karte, Waffen aktiv) sicht.aussicht Kacheln, BOD-02 P4: in einer Stellung sicht.stellung, sonst R
 function sichtRadius(game, E, p, R) {
   if (!waffen() || !E.info || !E.info.karte) return R;
-  const t = Physics.toTile(p.x, p.y);
-  const auf = E.info.karte.anker.some((a) => a.rolle === 'aussicht' && Math.abs(a.x - t.x) <= 1 && Math.abs(a.y - t.y) <= 1);
-  return auf ? (Number(cfg(game).sicht && cfg(game).sicht.aussicht) || 22) * TILE : R;
+  return waffen().sichtKacheln(game, p) * TILE;
 }
 
 // BOD-02 P2: Zielt ein Spieler mit der Lanze, sieht er in Zielrichtung in einem schmalen Kegel bis zur Strahlweite (awayCombat.sicht.lanzeZielen

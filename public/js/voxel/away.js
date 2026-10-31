@@ -1077,11 +1077,10 @@ function makeLayer(zone) {
     fc.hard = hard;
     const solid = solidFn(map, st);
     const blocked = Los.sightFn(map, solid);
-    const r = cfgNum('sightTiles', 10);
     const set = new Set();
     for (const p of players) {
       const b = p.cr && !p.downed && Los.crouchSight ? Los.crouchSight(map, solid, blocked, [{ x: p.x, y: p.y }]) : blocked;
-      for (const k of Los.visibleTiles(b, p.x, p.y - 4, r, map.w, map.h)) set.add(k);
+      for (const k of Los.visibleTiles(b, p.x, p.y - 4, G.Render && G.Render.sichtVon ? G.Render.sichtVon(map, p) : cfgNum('sightTiles', 10), map.w, map.h)) set.add(k);   // BOD-02 P4: Stellung 16, Posten 22
     }
     fc.t = now; fc.key = key; fc.set = set;
     return set;

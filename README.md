@@ -1190,6 +1190,21 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   höchstens alle `eventPause` = 0,25 s; in `B2_EVENTS`), Client nur beim Betroffenen: Zischen (`bullet_whiz`), Staub am Vorbeiflug (voxel/fx.js `coverHit`,
   2D render.js `knapp_dust`), dunkelrote Randvignette (0,5 s, client.js). Kein neues Snapshot-Feld. Test `node tools/test-niederhalten.js` (inkl. Trefferzahlen
   ohne/mit Niederhalten), Screenshots `PLAYWRIGHT_CORE=<pfad>/playwright-core node tools/bod02-p3-shots.js --out <ordner> [--render voxel|2d]`.
+- **BOD-02 Stellungen und Sichtbonus (P4):** Eine **Stellung** ist ein markierter Platz (Grabensohle, erhöhter Posten, später Bunkerscharte). Wer darin steht,
+  sieht und schießt `awayCombat.sicht.stellung` = **16** Kacheln statt `sightTiles` 10; auf einem Anker `aussicht` (±1 Kachel) gilt `sicht.aussicht` = 22 (vorher
+  nur Server, jetzt auch Fog im Client); sonst 10. Gleiche Regel für Spieler und Gegner: Sicht (`combat.updateVisibility`/`sichtRadius`), Wahrnehmung der KI
+  (`squad.perceive`), Zielprüfung (`waffen.sichtPruefen`) und **Schussfenster** (`waffen.engageBox(game, k)` = `engageBox` × Sicht/10: 16 → ×1,6 = 960×528 px,
+  22 → ×2,2; ohne Stellung dasselbe Objekt wie bisher; `squad.zielbar` und `combat.offBoxZaehlen` lesen es). **Markierung:** ein Bereich mit `rolle: 'stellung'` im
+  Kartenformat festkarte/1 (additiv, nicht über `zeichen`), z. B. in `content/buehnen/festkarten/grabenangriff.json`, Abschnitt wiese/graben:
+  `"bereiche": { "stellung": { "name": "Stellung", "rolle": "stellung", "rects": [[15,7,3,22],[20,11,3,1],[20,24,3,1]] } }` (abschnittslokale x/y wie alle
+  Bereiche: Grabensohle x 15–17 / y 7–28 und die zwei Posten-Plateaus; Wald, Eingang, Landung sind keine Stellungen). Der Bereich geht ohnehin im awayMap-Payload
+  mit (`bereiche` trägt `rolle`): +96 B (5041 von 5120). Karten ohne solchen Bereich bleiben unverändert (Karten-Hashes grün). **Module:** `shared/stellung.js`
+  (`Shared_Stellung`, Server und Client rechnen gleich: `istIn(karte, tx, ty)`, `plaetze(karte[, solid])` → `[{ x, y, posten }]`, `rects`, `amPosten`, `sichtKacheln`,
+  `faktor`) und `server/sim/stellung.js` (Anbindung an die laufende Karte: `karteVon(game)`, `sichtKacheln(game, k)`, `engageBox(game, k)`, `inStellung(game, k)`,
+  reicht `istIn`/`plaetze` durch; Grundlage für Halten/Rückzug und BOD-03). **Client:** Fog in render.js (`Render.sichtVon(map, p)`) und voxel/away.js rechnet
+  16/22 Kacheln; HUD-Zeile „STELLUNG · Sicht 16“ bzw. „POSTEN · Sicht 22“ im Kampf-HUD (2D und Voxel), aus Karte + eigener Position abgeleitet, kein Snapshot-Feld.
+  Test `node tools/test-stellungen.js` (Sicht 10/16/22 für Spieler und Gegner, Schussfenster, Fog, Treffer auf 14 Kacheln nur aus der Stellung, Karte ohne Eintrag,
+  Payload) und Abschnitt „Stellungen“ in `tools/test-grabenangriff-karte.js`.
 - **Debug** (`npm run debug`): `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (neben die eigene Figur),
   `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `graben welle2|reset|status` (Grabenangriff), `tune waffen.<waffe>.<wert>`.
   `WAFFEN=aus` schaltet das Waffenmodul ab (alter Kampf, für Golden-Vergleiche).

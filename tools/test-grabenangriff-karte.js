@@ -16,6 +16,7 @@ const { Game } = require('../server/game.js');
 const L = require('../server/sim/landepunkte.js');
 const combat = require('../server/sim/combat.js');
 const squad = require('../server/sim/squad.js');
+const Stellung = require('../server/sim/stellung.js');
 const away = require('../server/sim/away.js');
 const W = require('../server/world.js');
 
@@ -167,6 +168,30 @@ section('Wall, Palisade und erhoehte Posten', () => {
   ok(tore >= 4, `in der Palisadenspalte x=${palX} ${tore} Kacheln Durchgang (Tore)`);
   // Spieler-sicht: Posten auf aussicht-Anker sehen 22 statt 10 (Konfig, nicht geaendert)
   ok(CONFIG.awayCombat.sicht && CONFIG.awayCombat.sicht.aussicht === 22 && (CONFIG.awayCombat.sightTiles === 10), 'Konfigwerte unveraendert: Sicht 10, aussicht 22');
+});
+
+// BOD-02 P4: Stellungen (Bereich rolle 'stellung'): Grabensohle komplett, die zwei Posten, Wald/Eingang/Wiese nicht
+section('Stellungen: Markierung der Grabensohle und der Posten', () => {
+  const st = K.bereiche.stellung;
+  ok(st && st.rolle === 'stellung' && st.rects.length === 3 && !st.gefecht, 'Bereich "stellung" mit rolle stellung und 3 Rechtecken (Sohle, 2 Posten)');
+  const pl = Stellung.plaetze(K);
+  ok(pl.length === 66 + 6, `${pl.length} Stellungsplaetze (Sohle 3x22 + 2 Posten a 3 Kacheln)`);
+  // Sohle komplett: von der ersten bis zur letzten Zeile mit Brustwehr o links und rechts jede Kachel zwischen den Reihen o
+  const ox = [...K.rows[7]].findIndex((c) => c === 'o');
+  const zeilen = []; for (let y = 1; y < K.h - 1; y++) if (ch(ox, y) === 'o' && ch(ox + 4, y) === 'o') zeilen.push(y);
+  let sohle = 0; const fehlt = [];
+  for (let y = Math.min(...zeilen); y <= Math.max(...zeilen); y++) for (let x = ox + 1; x <= ox + 3; x++) { if (walk(x, y)) { sohle++; if (!Stellung.istIn(K, x, y)) fehlt.push(x + ',' + y); } }
+  ok(sohle === 66 && fehlt.length === 0 && zeilen.length >= 12, `Grabensohle komplett (${sohle} Kacheln x ${ox + 1}..${ox + 3}, y ${Math.min(...zeilen)}..${Math.max(...zeilen)}), ${fehlt.length} ohne Stellung ${fehlt.slice(0, 3)}`);
+  ok(!Stellung.istIn(K, ox, Math.min(...zeilen)) && !Stellung.istIn(K, ox + 4, Math.min(...zeilen)), 'die Brustwehr selbst und der Wall dahinter gehoeren nicht dazu');
+  ok(K.anker.filter((a) => a.rolle === 'aussicht').every((a) => Stellung.istIn(K, a.x, a.y)), 'beide Posten (aussicht-Anker) liegen in der Stellung');
+  ok(pl.filter((q) => q.posten).length === 6, 'plaetze() kennzeichnet die 6 Postenkacheln (posten: true)');
+  const aus = (rolleOrt) => K.anker.filter((a) => rolleOrt(a)).some((a) => Stellung.istIn(K, a.x, a.y));
+  ok(!aus((a) => /^w2\./.test(a.id)) && !Stellung.istIn(K, anker('landung.abholpunkt').x, anker('landung.abholpunkt').y) && !Stellung.istIn(K, anker('bunker.ziel').x, anker('bunker.ziel').y), 'Wald, Eingang, Landung und Ziel sind keine Stellungen');
+  ok(Stellung.plaetze(K, solid).length === pl.length, 'alle Stellungsplaetze sind begehbar');
+  // Karte ohne Eintrag: keine Stellung, kein Bereich
+  const d5 = clone(DEF); delete d5.decks[0].abschnitte.wiese.varianten.graben.bereiche.stellung;
+  const k5 = bauen(d5).karte;
+  ok(!k5.bereiche.stellung && Stellung.plaetze(k5).length === 0 && !Stellung.istIn(k5, 25, 10), 'ohne Eintrag: keine Stellung (Karte unveraendert, Sicht bleibt 10)');
 });
 
 section('Wald: Weg und Durchkommen abseits des Wegs (BFS)', () => {

@@ -225,6 +225,31 @@
           ]
          ],
          "gefecht": true
+        },
+        "stellung": {
+         "name": "Stellung",
+         "rolle": "stellung",
+         "hinweis": "BOD-02 P4: Stellungen (Sicht 16 statt 10, Posten 22). Grabensohle x 15-17, y 7-28 (zwischen den Brustwehren) und die beiden Posten-Plateaus (aussicht-Anker, Sicht 22). Wald und Eingang sind keine Stellungen (Bunkerscharten: BOD-03).",
+         "rects": [
+          [
+           15,
+           7,
+           3,
+           22
+          ],
+          [
+           20,
+           11,
+           3,
+           1
+          ],
+          [
+           20,
+           24,
+           3,
+           1
+          ]
+         ]
         }
        }
       }

@@ -774,7 +774,10 @@
       const crouched = !!me.cr && !me.downed;   // §15
       const waffeZeile = me.wf != null;   // B2: Waffe mit Hitze (Snapshot wf/ht/ov/ch/wu)
       const zsZeile = !!(me.bt || (me.zs && me.zs !== 'ok' && me.zs !== 'verwundet'));
-      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (zsZeile ? 11 : 0);
+      // BOD-02 P4: in einer Stellung (Sicht 16) bzw. auf dem Posten (22) steht eine dezente Zeile; abgeleitet aus Karte + eigener Position (kein Snapshot-Feld)
+      const sichtN = R.sichtVon && !me.downed ? R.sichtVon(R.mapFor('away', st), me) : 0;
+      const stelleZeile = sichtN > (+(CFG.awayCombat && CFG.awayCombat.sightTiles) || 10);
+      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
       const y0 = VH - h - 4;
       R.backdrop(ctx, 4, y0, 170, h, 0.68);   // schmal genug, dass die ODA-Box (unten mittig) nichts verdeckt
       // Schild
@@ -805,6 +808,10 @@
         const id = me.bt ? 'betaeubt' : me.zs;
         R.statusIcon(ctx, id, 14, y + 3);
         R.text(ctx, ZS_TEXT[id] || id, 24, y, { color: PAL.warn });
+        y += 11;
+      }
+      if (stelleZeile) {
+        R.text(ctx, (sichtN >= 22 ? 'POSTEN' : 'STELLUNG') + ' · Sicht ' + sichtN, 8, y, { color: PAL.mint });
         y += 11;
       }
       if (me.downed) {

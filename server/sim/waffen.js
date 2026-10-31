@@ -194,12 +194,16 @@ function sichtPruefen(game, k, ziel, opts) {
   const maxW = Number(d.max != null ? d.max : d.reichweite) || 0;
   if (kach > maxW + EPS) return 'reichweite';
   if (d.min != null && kach < Number(d.min) - EPS) return 'zu_nah';
-  const normal = Number(C.sightTiles) || 10;
+  const normal = sichtKacheln(game, k);   // BOD-02 P4: in einer Stellung 16 statt 10 (Posten über `aussicht`)
   if (o.geteilt) return null;
   if (kach <= normal + EPS) return o.sichtlinie ? null : 'keine_sicht';
   if (o.aussicht && o.sichtlinie && kach <= (Number(C.sicht && C.sicht.aussicht) || normal) + EPS) return null;
   return o.aussicht && !o.sichtlinie ? 'keine_sicht' : 'zu_weit';
 }
+// BOD-02 P4: Sichtradius (Kacheln) und Schussfenster eines Kämpfers: 10 normal, in einer Stellung 16, auf dem Posten 22 (server/sim/stellung.js).
+// Das Schussfenster (engageBox) wächst mit sicht/10 mit, das Seitenverhältnis bleibt.
+function sichtKacheln(game, k) { return require('./stellung.js').sichtKacheln(game, k); }
+function engageBox(game, k) { return require('./stellung.js').engageBox(game, k); }
 // Ablauf einer geteilten Sicht (Captain-Markierung) ab jetzt
 function geteiltBis(game) { return now(game) + (Number(ac(game).sicht && ac(game).sicht.geteiltTtl) || 0); }
 
@@ -552,6 +556,6 @@ module.exports = {
   aktiv: process.env.WAFFEN !== 'aus',
   WAHL, ZUSTAENDE,
   def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
-  sichtPruefen, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
+  sichtPruefen, sichtKacheln, engageBox, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
   niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };

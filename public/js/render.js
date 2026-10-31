@@ -1639,6 +1639,14 @@
     if (!K || a == null) return null;
     return { kacheln: +K.kacheln || 0, halb: (+K.halbwinkel || 0) * Math.PI / 180, a };
   }
+  // BOD-02 P4: Sichtradius (Kacheln) eines Spielers: 10, in einer Stellung 16, auf dem Posten 22 (shared/stellung.js, wie server stellung.sichtKacheln);
+  // nur auf gebauten Karten mit Waffen-Regeln (v2), sonst sightTiles
+  function sichtVon(map, p) {
+    const normal = cfgNum('sightTiles', 10);
+    const SS = window.Shared_Stellung;
+    if (!SS || !map || !map.buehne || !p) return normal;
+    return SS.sichtKacheln(map, p.x, p.y, { normal, stellung: cfgNum('sicht.stellung', 16), aussicht: cfgNum('sicht.aussicht', 22) });
+  }
   // Teamsicht (Fog of War): Vereinigung der sichtbaren Kacheln aller Außenteam-Spieler, höchstens 5× pro Sekunde neu
   const fogCache = { t: -1e9, mapId: null, set: null, gate: null, crouch: '' };
   function teamVision(view, map, st) {
@@ -1651,12 +1659,11 @@
     if (fogCache.set && fogCache.mapId === map.id && fogCache.gate === gate && fogCache.crouch === crouchKey && fogCache.ziel === zielKey && now - fogCache.t < 200) return fogCache.set;
     const solid = solidFn(map, st);
     const blocked = Los.sightFn(map, solid);
-    const r = cfgNum('sightTiles', 10);
     const set = new Set();
     for (const p of view.players || []) {
       if (p.zone !== 'away' || p.connected === false) continue;
       const b = p.cr && !p.downed && Los.crouchSight ? Los.crouchSight(map, solid, blocked, [{ x: p.x, y: p.y }]) : blocked;
-      for (const k of Los.visibleTiles(b, p.x, p.y - 4, r, map.w, map.h)) set.add(k);
+      for (const k of Los.visibleTiles(b, p.x, p.y - 4, sichtVon(map, p), map.w, map.h)) set.add(k);
       const kegel = lanzeSichtKegel(view, p);   // BOD-02 P2: Weitsicht beim Zielen (wie server combat.lanzeKegel)
       if (kegel && Los.visibleCone) for (const k of Los.visibleCone(b, p.x, p.y - 4, kegel.kacheln, kegel.a, kegel.halb, map.w, map.h)) set.add(k);
     }
@@ -4948,7 +4955,7 @@
     text, measure, wrap, panel, backdrop, shape, icon, bar, ring, edgeArrow,
     personLabel, personenListe, drawPersonenListe,   // W2 AP6
     beginUi, button, clickUi, drawTooltip, ui,
-    camera, mapFor, floorFor, bedAt, sysState, itemFallback, drawFx,
+    camera, mapFor, sichtVon, floorFor, bedAt, sysState, itemFallback, drawFx,
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,
     addFx, drawWorld, drawTactical, drawMiniPlan, miniPlanSize, updateCamera,
     // M1

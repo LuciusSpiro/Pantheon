@@ -330,7 +330,7 @@ function perceive(game, E) {
   for (const e of aw.drones) {
     e.sees = [];
     if (!e.alive || e.asleep) continue;
-    const R = waffenMod() && amAussicht(game, E, e) ? (Number(cfg(game).sicht && cfg(game).sicht.aussicht) || 22) * TILE : E.R;   // E16
+    const R = waffenMod() ? waffenMod().sichtKacheln(game, e) * TILE : E.R;   // E16 Aussicht 22, BOD-02 P4 Stellung 16 (server/sim/stellung.js)
     for (const p of E.team) {
       if (dist(e.x, e.y, p.x, p.y) > R) continue;
       if (!los(E, e, p)) continue;   // §15: geduckt hinter low-Deckung unsichtbar
@@ -498,7 +498,7 @@ function zielbar(game, E, e, t) {
   if (!Wf) return inBox(C, e.x, e.y, t.x, t.y);
   const aussicht = amAussicht(game, E, e); const geteilt = geteiltSicht(game, squadOf(game, e), t) && dist(e.x, e.y, t.x, t.y) > (E.R || C.sightTiles * TILE);
   if (Wf.sichtPruefen(game, e, t, { sichtlinie: true, aussicht, geteilt })) return false;
-  return inBox(C, e.x, e.y, t.x, t.y) || aussicht || geteilt;
+  return inBox({ engageBox: Wf.engageBox(game, e) }, e.x, e.y, t.x, t.y) || aussicht || geteilt;   // BOD-02 P4: Schussfenster wächst in Stellungen mit
 }
 function freshestKnown(s) {
   let best = null;
