@@ -393,7 +393,7 @@
       const g = P.rahmen(ctx, view, { titel: 'TECHNIK', S: 152, station: 'technik', anzeige: (c, r) => {
         const K = P.skin, cx = r.x + r.w / 2, cy = r.y + r.h / 2 + 2;
         T(c, 'SCHILDPOOL ' + allocSum + ' / ' + pool, r.x + 8, r.y + 6, allocSum >= pool ? P.FN.drive : P.FN.shield);
-        T(c, ((CFG.shields && CFG.shields.pointsPerPower) || 3) + ' je Energie · max ' + maxS + ' je Sektor', r.x + r.w - 8, r.y + 6, K.dim, 'right');
+        T(c, ((CFG.shields && CFG.shields.pointsPerPower) || 4) + ' je Energie · max ' + maxS + ' je Sektor', r.x + r.w - 8, r.y + 6, K.dim, 'right');
         if (sysDown(ship, 'shields')) T(c, 'Schildgenerator zerstört!', cx, r.y + 18, P.FN.weapon, 'center');
         c.fillStyle = K.dim; c.beginPath(); c.moveTo(cx + 26, cy); c.lineTo(cx - 18, cy - 11); c.lineTo(cx - 24, cy); c.lineTo(cx - 18, cy + 11); c.closePath(); c.fill();
         const pos = [[cx + 150, cy], [cx, cy + 38], [cx - 150, cy], [cx, cy - 38]];

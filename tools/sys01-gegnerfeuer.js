@@ -3,7 +3,7 @@
 // Aufbau wie tools/pan01-feuerkraft-messung.js: Arena-Szene, die Lerche steht still (Kurs und Schildverteilung unverändert, keine Gegenwehr, keine Reparatur),
 // EIN Gegner der Klasse fliegt mit seiner normalen KI an und schießt. Gemessen ab Spawn: erster Treffer, erstes Schildsegment (das beim ersten Treffer > 0 war) auf 0,
 // erster Systemschaden, Hüllenverlust nach 60 s. Jeder Lauf ein frischer Game-Seed.
-//   node tools/sys01-gegnerfeuer.js [--kinds raider,korvette,fregatte,kreuzer] [--crews 1,3] [--seeds 20] [--sek 120] [--seed0 1] [--schild 2,2,0,2] [--lang]
+//   node tools/sys01-gegnerfeuer.js [--kinds raider,korvette,fregatte,kreuzer] [--crews 1,3] [--seeds 20] [--sek 120] [--seed0 1] [--schild 4,2,0,2] [--lang]
 // SYS-03 A: zusätzlich 1. Treffer → Reaktor der Lerche 'broken' und Segment 0 → Reaktor 'broken' (nicht erreicht: nicht in n, aber in N). --schild setzt Zuteilung und Stand wirklich.
 // Config-Tuning: TUNE='{"shields.regenInterval": 4}' node -r ./tools/tune-preload.js tools/sys01-gegnerfeuer.js ...
 const path = require('path');

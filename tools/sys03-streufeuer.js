@@ -1,7 +1,9 @@
 'use strict';
 // SYS-03 A: Streufeuer-Messung. Wie schnell bricht der Lerche-Schild, wenn dieselbe Trefferrate auf EINEN Sektor konzentriert oder reihum über alle Sektoren MIT Schild verteilt wird?
 // Deterministisch, ohne Gegner: Arena-Szene, Lerche steht still, Treffer kommen direkt über space.shipHit in festem Takt (Rate Treffer/s), jeder Lauf ein frischer Game-Seed.
-//   node tools/sys03-streufeuer.js [--rate 1] [--dmg 1] [--verteilung konzentriert,streu] [--crews 1,3] [--seeds 20] [--sek 60] [--seed0 1] [--schild 2,2,0,2] [--ziel 0] [--heavy]
+// SYS-03 C1: Schild mit Regenerationspause je Sektor (shields.regenDelay s ohne Treffer auf DEN Sektor, danach 1 Punkt je regenInterval s): jeder Treffer stempelt seinen Sektor (space.shipHit -> damage.resolveHit).
+// Streufeuer verteilt die Trefferrate auf mehrere Sektoren; je Sektor kommt ein Treffer seltener als alle regenDelay s, erst dann lädt er zwischen den Treffern nach. Am Ende steht der Quotient streu/konzentriert (Median 1. Treffer -> 1. Sektor 0).
+//   node tools/sys03-streufeuer.js [--rate 1] [--dmg 1] [--verteilung konzentriert,streu] [--crews 1,3] [--seeds 20] [--sek 60] [--seed0 1] [--schild 4,2,0,2] [--ziel 0] [--heavy]
 // Gemessen ab erstem Treffer: Zeit bis der erste Schildsektor (der beim ersten Treffer > 0 war) auf 0 fällt, Zeit bis zum ersten Systemschaden (ein System 'ok' -> anderer Zustand), Zeit bis Reaktor zerstört.
 // Nicht erreicht = nicht in n, aber in N. Config-Tuning: TUNE='{"shields.regenInterval": 4}' node -r ./tools/tune-preload.js tools/sys03-streufeuer.js ...
 const path = require('path');
@@ -58,9 +60,15 @@ function messe(verteilung, crew, seed) {
 console.log(`Befehl: node tools/sys03-streufeuer.js --rate ${RATE} --dmg ${DMG} --verteilung ${verteilungen} --crews ${crews} --seeds ${SEEDS} --seed0 ${SEED0} --sek ${SEK} --ziel ${ZIEL}${SCHILD ? ' --schild ' + SCHILD : ''}${HEAVY ? ' --heavy' : ''}${process.env.TUNE ? '   (TUNE=' + process.env.TUNE + ')' : ''}`);
 console.log('| Verteilung | Crew | Schild Start | n | Treffer/Lauf | 1. Treffer→1. Sektor 0 Median (min–max, n/N) | 1. Treffer→1. Systemschaden Median (min–max, n/N) | 1. Treffer→Reaktor zerstört Median (min–max, n/N) |');
 console.log('|---|---|---|---|---|---|---|---|');
+const med = {};
 for (const v of verteilungen) for (const c of crews) {
   const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messe(v, c, SEED0 + i));
   const s1 = stat(rs.map((r) => r.tSh0)), s2 = stat(rs.map((r) => r.tSys)), s3 = stat(rs.map((r) => r.tRt));
   const fm = (s) => `${f(s.med)} (${f(s.min)}–${f(s.max)}, ${s.n}/${rs.length})`;
+  med[v + '|' + c] = s1;
   console.log(`| ${v} | ${c} | ${rs[0].start.join('/')} | ${rs.length} | ${f(rs.reduce((s, r) => s + r.hits, 0) / rs.length)} | ${fm(s1)} | ${fm(s2)} | ${fm(s3)} |`);
+}
+for (const c of crews) {
+  const k = med['konzentriert|' + c], s = med['streu|' + c];
+  if (k && s) console.log(`Quotient streu/konzentriert (Crew ${c}, Rate ${RATE}/s, Pause ${CONFIG.shields.regenDelay} s): ${k.n && s.n ? (s.med / Math.max(k.med, 1e-9)).toFixed(2) : s.n ? '–' : '∞ (Streufeuer bricht in ' + SEK + ' s keinen Sektor)'}`);
 }

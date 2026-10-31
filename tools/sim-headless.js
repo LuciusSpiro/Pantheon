@@ -1,5 +1,5 @@
 'use strict';
-const BOT_SCHILD_SEKTOR_MAX = 4;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector
+const BOT_SCHILD_SEKTOR_MAX = 6;   // SYS-01 B2: Bot-Heuristik (Schildverteilung), unabhängig von CONFIG.shields.maxPerSector. SYS-03 C1 (Pool 8, Kappe 8): 6 statt 4 – die Bedrohungsseite bekommt mehr Punkte (konzentriertes Feuer bricht Schilde; Probelauf Arena maneuver, Crew 3, 3 Seeds: Max 4 → 4,7 Wellen/68 Hülle, Max 6 → 5,3 Wellen/46 Hülle, Max 8 → 2,3 Wellen/245 Hülle, weil die anderen Seiten leer stehen)
 // Headless-Simulation (M1): startet das Spiel im selben Prozess und lässt 1 bzw. 3 skriptgesteuerte Spieler-Bots
 // Mission 1 „Die stumme Boje“ UND Mission 2 „Echo im Nebel“ mit echten Befehlen spielen (keine Debug-Befehle).
 // Beschleunigt (Ticks ohne Echtzeit). Ausgabe: Erfolg, Dauer je Mission/Schritt/Ort (Spielsekunden), Fehler, Softlocks, Snapshot-Größe.
@@ -823,7 +823,7 @@ class Agent {
     const bearing = Math.atan2(e.y - sh.y, e.x - sh.x);
     const sideScore = (side) => {
       const sec = SECTOR_OF_SIDE[side];
-      const cur = sh.shields.current[sec] || 0; const cap = sh.shields.cap ? sh.shields.cap[sec] : 4;
+      const cur = sh.shields.current[sec] || 0; const cap = sh.shields.cap ? sh.shields.cap[sec] : 8;
       const bat = sh.systems['battery_' + side];
       return cur + cap * 0.5 + (bat === 'ok' ? 2 : bat === 'damaged' ? 1 : -2);
     };
@@ -882,11 +882,11 @@ class Agent {
     if ((m.shieldAt || 0) < S.time && S.space.enemies.length) {
       m.shieldAt = S.time + 1;
       const sec = this.threatSector(S);
-      const al = sh.shields.alloc; const cap = (sh.shields.cap || [4, 4, 4, 4]).map((x) => Math.min(x, BOT_SCHILD_SEKTOR_MAX));   // SYS-01 B2: der Bot streut seine Punkte weiter (höchstens 4 je Sektor), obwohl die Kappe jetzt 6 ist; ein Spieler darf auf 6 bündeln
+      const al = sh.shields.alloc; const cap = (sh.shields.cap || [8, 8, 8, 8]).map((x) => Math.min(x, BOT_SCHILD_SEKTOR_MAX));   // SYS-03 C1: der Bot bündelt höchstens BOT_SCHILD_SEKTOR_MAX je Sektor (Pool 8, Kappe 8); ein Spieler darf auf 8 bündeln
       if (sec != null && al[sec] < cap[sec]) {
         const opp = (sec + 2) % 4;
         const donor = [0, 1, 2, 3].filter((i) => i !== sec && al[i] > 0).sort((a, b) => (b === opp ? 1 : 0) - (a === opp ? 1 : 0) || al[b] - al[a])[0];
-        const pool = sh.shields.pool != null ? sh.shields.pool : 6;
+        const pool = sh.shields.pool != null ? sh.shields.pool : 8;
         const used = al.reduce((a, b) => a + b, 0);
         if (used < pool) this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 });
         else if (donor != null) { this.technikCmd(S, 'technik.shield', { sector: donor, delta: -1 }); this.technikCmd(S, 'technik.shield', { sector: sec, delta: 1 }); }

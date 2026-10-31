@@ -541,10 +541,12 @@
           if (vertical) ctx.fillRect(px, py + k * ps, 2, pl); else ctx.fillRect(px + k * ps, py, pl, 2);
         }
       };
-      pips(cur[0] || 0, x + 17, y + 1, true, 0);   // Bug rechts
-      pips(cur[2] || 0, x, y + 1, true, 2);        // Heck links
-      pips(cur[3] || 0, x + 3, y - 3, false, 3);   // Backbord oben
-      pips(cur[1] || 0, x + 3, y + 13, false, 1);  // Steuerbord unten
+      // SYS-03 C1: bei Kappe 8 sind die Leisten 16 px lang (bei 6: 12): Bug/Heck rücken um ex nach außen, die Seiten-Leisten bleiben mittig über dem Schiff, Leisten mittig zur Schiffsachse
+      const ex = Math.max(0, (maxS * ps - 12) / 2), vy = maxS > 4 ? y + 7 - maxS * ps / 2 : y + 1;
+      pips(cur[0] || 0, x + 17 + ex, vy, true, 0);   // Bug rechts
+      pips(cur[2] || 0, x - ex, vy, true, 2);        // Heck links
+      pips(cur[3] || 0, x + 3 - ex, y - 3, false, 3);   // Backbord oben
+      pips(cur[1] || 0, x + 3 - ex, y + 13, false, 1);  // Steuerbord unten
     },
 
     WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT,
