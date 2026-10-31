@@ -176,9 +176,9 @@ section('Stellungen: Markierung der Grabensohle und der Posten', () => {
   ok(st && st.rolle === 'stellung' && st.rects.length === 3 && !st.gefecht, 'Bereich "stellung" mit rolle stellung und 3 Rechtecken (Sohle, 2 Posten)');
   const pl = Stellung.plaetze(K);
   ok(pl.length === 66 + 6, `${pl.length} Stellungsplaetze (Sohle 3x22 + 2 Posten a 3 Kacheln)`);
-  // Sohle komplett: von der ersten bis zur letzten Zeile mit Brustwehr o links und rechts jede Kachel zwischen den Reihen o
-  const ox = [...K.rows[7]].findIndex((c) => c === 'o');
-  const zeilen = []; for (let y = 1; y < K.h - 1; y++) if (ch(ox, y) === 'o' && ch(ox + 4, y) === 'o') zeilen.push(y);
+  // Sohle komplett: von der ersten bis zur letzten Zeile mit Brustwehr H links und rechts jede Kachel zwischen den Reihen H
+  const ox = [...K.rows[7]].findIndex((c) => c === 'H');
+  const zeilen = []; for (let y = 1; y < K.h - 1; y++) if (ch(ox, y) === 'H' && ch(ox + 4, y) === 'H') zeilen.push(y);
   let sohle = 0; const fehlt = [];
   for (let y = Math.min(...zeilen); y <= Math.max(...zeilen); y++) for (let x = ox + 1; x <= ox + 3; x++) { if (walk(x, y)) { sohle++; if (!Stellung.istIn(K, x, y)) fehlt.push(x + ',' + y); } }
   ok(sohle === 66 && fehlt.length === 0 && zeilen.length >= 12, `Grabensohle komplett (${sohle} Kacheln x ${ox + 1}..${ox + 3}, y ${Math.min(...zeilen)}..${Math.max(...zeilen)}), ${fehlt.length} ohne Stellung ${fehlt.slice(0, 3)}`);
