@@ -4,6 +4,7 @@
 //   2) Headless-Szene: Verteilung im laufenden Gefecht stabil (kein Flackern), Neuverteilung bei Tod, Scharfschütze auf Distanz,
 //      kein Gehirn für ruhige Trupps/Einzelne, Wächter unberührt
 //   3) Flankenschutz: Spieler geht in den Flankensektor -> Funkspruch flanke_umgangen, Trupp-bedrohung, Mitglieder wählen neu, Ziel = Umgehender
+//   3b) Umgehung im Endkampf Eisenwald (ohne Verteidigungsprofil, 6 Fälle: seitlich und hinten je Seeds 1-3; Achse stabil, alle Mitglieder schwenken um, Gegenprobe frontal)
 //   4) Funktexte aller Fraktionen (Katalog gegner/*.json inkl. funk_nach_fraktion.rom)
 //   5) Messlauf (tools/mess-klumpen.js): Anteil Gefechts-Samples mit gültiger Verteilung, Klumpen nicht schlechter als P5
 //   node tools/test-trupp-gehirn.js
@@ -282,6 +283,83 @@ function umgehungsszene() {
   ok(bewegt.length >= 3 && nach.filter((q) => q.n >= q.v).length >= 3 && nach.some((q) => q.n > q.v || q.n >= 1), 'Deckung gegen die Umgehung nicht schlechter, mindestens ein Mitglied steht jetzt dahinter (vorher ' + nach.map((q) => q.v).join('') + ', nachher ' + nach.map((q) => q.n).join('') + ')');
   ende();
 }
+console.log('\n[Umgehung im Endkampf Eisenwald (ohne Verteidigungsprofil): Achse stabil, alle erkannt]');
+{   // K12 des Prüfers: Spieler 1/2 per Debug-Teleport 7 Kacheln seitlich oder hinter den Trupp; Achse darf nicht auf den Umgeher springen
+  const L = require('../server/sim/landepunkte.js');
+  const Anker = require('../server/sim/anker.js');
+  const interior = require('../server/sim/interior.js');
+  const EW = 'splitter.eisenwald';
+  const FALL = [['seite', 1], ['seite', 2], ['seite', 3], ['hinten', 1], ['hinten', 2], ['hinten', 3]];
+  const wd = (a) => { let d = a % (2 * Math.PI); if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; return Math.abs(d); };
+  function endkampf(seed) {
+    Object.assign(AC.truppGehirn, JSON.parse(JSON.stringify(ORIG)));
+    const g = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
+    const cs = [];
+    for (let i = 0; i < 3; i++) { const c = { inbox: [], send(m) { if (this.inbox.length < 50) this.inbox.push(m); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'E' + i, name: 'E' + i, color: i }); cs.push(c); }
+    const st = (sek, each) => { for (let i = 0; i < Math.round(sek * CONFIG.tickHz); i++) { g.step(); for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); } if (each) each(); } };
+    g.handleMessage(cs[0], { t: 'lobbyOpt', startMission: 'labor', labor: { id: 'stellung_nehmen/flagge_hissen', seed } });
+    for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
+    st(1);
+    g.weltstand.data.rollen_gesehen = ['niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher'];
+    L.get(g, EW); g.transferZiel = { lp: EW, scene: g.ship.scene }; g.setAwayMap(EW);
+    away.executeBeam(g, g.players.map((p) => p.id), 'down'); st(0.5);
+    const fl = W.AWAY_MAPS[EW].karte.anker.find((q) => q.rolle === 'flagge'); Anker.setzen(g, EW, fl.id, 'gehisst', g.players[0].id);
+    const aw = g.aways[EW];
+    const barks = []; const emit = g.emit; g.emit = function (t, d) { if (t === 'bark') barks.push(Object.assign({ t: g.time }, d)); return emit.apply(this, arguments); };
+    st(14);
+    const per = {}; for (const e of aw.drones) if (e.alive) (per[e.squad] = per[e.squad] || []).push(e);
+    const name = Object.keys(per).sort((a, b) => per[b].length - per[a].length)[0];
+    return { g, aw, st, barks, ms: per[name], s: aw.squads[name], map: interior.awayInfoOf(EW).map };
+  }
+  // Zielpunkt 7-11 Kacheln um den Schwerpunkt, Winkel zur Achse: seitlich 80-120 Grad, hinten 150-180 Grad, oder frontal (< 20 Grad)
+  function punkt(sp, achse, map, art) {
+    const lo = art === 'hinten' ? 150 : art === 'front' ? 0 : 80, hi = art === 'hinten' ? 181 : art === 'front' ? 20 : 120;
+    for (let r = 7; r <= 11; r++) for (let a = 0; a < 360; a += 10) {
+      const ang = a * Math.PI / 180; const x = sp.x + Math.cos(ang) * r * TILE, y = sp.y + Math.sin(ang) * r * TILE; const t = Physics.toTile(x, y);
+      const d = wd(ang - achse) * 180 / Math.PI;
+      if (d < lo || d > hi || map.solid(t.x, t.y)) continue;
+      return { x: Math.round(t.x) * TILE + TILE / 2, y: Math.round(t.y) * TILE + TILE / 2 };
+    }
+    return null;
+  }
+  const mitte = (ms) => ({ x: ms.reduce((a, e) => a + e.x, 0) / ms.length, y: ms.reduce((a, e) => a + e.y, 0) / ms.length });
+  let erkannt = 0, alleUm = 0, gesamt = 0; const zeilen = [];
+  for (const [art, seed] of FALL) {
+    const R = endkampf(seed); const { g, aw, ms, s } = R;
+    const wache = ms.find((e) => e.aufgabe === 'flanke');
+    const z = punkt(mitte(ms), s.achse, R.map, art);
+    gesamt++;
+    if (!z || !wache) { zeilen.push(art + '/' + seed + ': kein Zielpunkt oder keine Wache'); continue; }
+    const t0 = g.time;
+    g.players[1].x = z.x; g.players[1].y = z.y; g.players[2].x = z.x + 16; g.players[2].y = z.y;
+    R.st(7);
+    const fk = R.barks.filter((b) => b.cause === 'flanke_umgangen' && b.t >= t0);
+    const lebend = ms.filter((e) => e.alive);
+    const reagiert = lebend.every((e) => e.umschwenkT >= t0);   // alle lebenden Mitglieder haben Platz/Weg verworfen
+    const mitBed = lebend.filter((e) => e.bedrohungT).length;
+    if (fk.length >= 1 && s.bedrohung) erkannt++;
+    if (reagiert && lebend.length >= 2) alleUm++;
+    zeilen.push(`${art}/seed${seed}: Funk ${fk.length}, bedrohung ${s.bedrohung ? 'ja' : 'nein'}, Achse ${Math.round(s.achse * 180 / Math.PI)} Grad, alle ${lebend.length} Mitglieder umgeschwenkt ${reagiert}, davon mit neuer Deckungswahl ${mitBed}`);
+    delete W.AWAY_MAPS[EW];
+  }
+  for (const z of zeilen) console.log('  ' + z);
+  ok(erkannt === 6 && gesamt === 6, `Umgehung erkannt (Funk flanke_umgangen + s.bedrohung): ${erkannt} von ${gesamt} Fällen (seitlich und hinten je Seeds 1-3, Seed 2 inbegriffen)`);
+  ok(alleUm === 6, `beim Umschwenken verwerfen alle lebenden Mitglieder Platz und Weg: ${alleUm} von 6 Fällen`);
+  // Gegenprobe: ein frontaler Spieler (Teleport vor den Trupp) löst nichts aus
+  let still = 0;
+  for (const seed of [1, 2, 3]) {
+    const R = endkampf(seed); const { g, aw, ms, s } = R;
+    const z = punkt(mitte(ms), s.achse, R.map, 'front');
+    if (!z) continue;
+    const t0 = g.time; g.players[1].x = z.x; g.players[1].y = z.y; g.players[2].x = z.x + 16; g.players[2].y = z.y;
+    R.st(7);
+    const fk = R.barks.filter((b) => b.cause === 'flanke_umgangen' && b.t >= t0);
+    if (!fk.length && !s.bedrohung) still++;
+    delete W.AWAY_MAPS[EW];
+  }
+  ok(still === 3, `Gegenprobe: ein frontaler Spieler löst weder Funk noch Bedrohung aus (${still} von 3 Seeds ruhig)`);
+}
+
 {   // Funktexte
   const K = ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher'].map((r) => require('../content/katalog/gegner/' + r + '.json'));
   ok(K.every((g) => g.funk.flanke_umgangen && g.funk.flanke_umgangen.length >= 1), 'alle 6 Rollen: funk.flanke_umgangen');

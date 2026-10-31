@@ -28,9 +28,10 @@ const AUFGABEN = ['niederhalten', 'scharf', 'unterstuetzung', 'flanke', 'sturm',
 //   bedrohungSek: so lange gilt die Umgehung als Bedrohung (verlängert sich, solange der Spieler dort gesehen wird); sperreSek: Pause bis zur nächsten Meldung desselben Spielers
 //   scharfAbstand: Kacheln Mindestabstand des Scharfschützen; niederhaltenSek/unterstuetzungSek: so lange nach letzter Sicht wird auf die letzte Position gefeuert
 //   stossBlaster: Schüsse je Deckungsfeuer-Stoß eines Blaster-Trägers mit Aufgabe niederhalten (Sturmgewehr: gegner.niederhalter.stoss)
+//   umgehungSek: so lange muss ein Spieler (gesehen) im Flankensektor stehen, bevor er als umgangen gilt (Hysterese; nur Trupps ohne Verteidigungsprofil)
 //   achseNeuKacheln: wandert der Trupp-Schwerpunkt weiter als so viele Kacheln vom Achsen-Ursprung, wird die Achse neu gesetzt
 const STANDARD = { hz: 1.5, haltezeit: 4, flankeWinkel: 50, flankeKacheln: 14, bedrohungSek: 8, sperreSek: 12, scharfAbstand: 7,
-  niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6 };
+  niederhaltenSek: 8, unterstuetzungSek: 8, stossBlaster: 4, achseNeuKacheln: 6, umgehungSek: 1 };
 const truppCfg = (game) => Object.assign({}, STANDARD, cfg(game).truppGehirn || {});
 
 const BASIS = { schuetze: 'scharf', grenadier: 'unterstuetzung', niederhalter: 'niederhalten', enterer: 'sturm' };
@@ -84,11 +85,19 @@ function bekannte(game, s, ms) {
   }
   return out;
 }
-// Trupp-Achse: mittlere Richtung Schwerpunkt -> bekannte Spieler; bleibt fest, bis der Trupp weit gewandert ist
+// Trupp-Achse: mittlere Richtung Schwerpunkt -> bekannte Spieler VOR dem Trupp; bleibt fest, bis der Trupp weit gewandert ist.
+// Spieler mehr als flankeWinkel von der bisherigen Achse (Umgeher) fließen nicht in die Neuberechnung ein, die Achse enthält so nie den Spieler, dessen
+// Umgehung geprüft wird (und mit nur einem bekannten Spieler bleibt sie die bisherige feste Achse). Steht niemand mehr vor dem Trupp, zählen alle
+// bekannten Spieler (sonst bliebe die Achse für immer veraltet).
 function achseSetzen(game, s, ms, T, bk) {
   const sp = schwerpunkt(ms);
   if (s.achse != null && s.achseOrt && dist(sp.x, sp.y, s.achseOrt.x, s.achseOrt.y) <= T.achseNeuKacheln * TILE) return sp;
   if (!bk.length) return sp;
+  if (s.achse != null) {
+    const lim = T.flankeWinkel * Math.PI / 180;
+    const vorn = bk.filter((k) => winkelDiff(Math.atan2(k.y - sp.y, k.x - sp.x), s.achse) <= lim);
+    if (vorn.length) bk = vorn;
+  }
   let ux = 0, uy = 0;
   for (const k of bk) { const d = dist(k.x, k.y, sp.x, sp.y) || 1; ux += (k.x - sp.x) / d; uy += (k.y - sp.y) / d; }
   if (Math.hypot(ux, uy) < 0.2) { const n = bk.slice().sort((a, b) => dist(a.x, a.y, sp.x, sp.y) - dist(b.x, b.y, sp.x, sp.y))[0]; ux = n.x - sp.x; uy = n.y - sp.y; }
@@ -112,8 +121,12 @@ function beobachteFlanke(game, s, ms, T, bk, sp) {
   }
   if (s.bedrohung) return;
   if (!s.umgangen) s.umgangen = {};
+  if (!s.imSektorAb) s.imSektorAb = {};
   for (const k of bk) {
-    if (!imSektor(k) || (s.umgangen[k.p.id] || 0) > game.time) continue;
+    // ohne Verteidigungsprofil: der Spieler muss umgehungSek am Stück im Sektor stehen (Vert.umgehung hat ihre eigene Dauer)
+    if (!imSektor(k)) { delete s.imSektorAb[k.p.id]; continue; }
+    if (!V) { if (s.imSektorAb[k.p.id] == null) s.imSektorAb[k.p.id] = game.time; if (game.time - s.imSektorAb[k.p.id] < T.umgehungSek - 1e-6) continue; }
+    if ((s.umgangen[k.p.id] || 0) > game.time) continue;
     const ang = Math.atan2(k.y - sp.y, k.x - sp.x);
     s.umgangen[k.p.id] = game.time + T.sperreSek;
     s.bedrohung = { pid: k.p.id, x: k.x, y: k.y, t: game.time, bis: game.time + T.bedrohungSek, winkel: ang };
@@ -126,7 +139,7 @@ function beobachteFlanke(game, s, ms, T, bk, sp) {
     s.barkAt = Math.min(s.barkAt, game.time - cfg(game).barkCooldown);   // diese Meldung geht immer raus
     sq.bark(game, s, wache, 'flanke_umgangen');
     if (s.geteilt) s.geteilt[k.p.id] = game.time + (Number(cfg(game).sicht && cfg(game).sicht.geteiltTtl) || 6);   // Trupp-Funk: alle kennen ihn
-    for (const e of ms) { e.goal = null; e.goalAt = -99; e.bedrohungT = null; }   // alle wählen ihre Deckung neu (planPin gegen die neue Richtung)
+    for (const e of ms) { e.goal = null; e.path = null; e.goalAt = -99; e.bedrohungT = null; e.umschwenkT = game.time; }   // ALLE lebenden Mitglieder verwerfen Platz und Weg und wählen neu (planPin/planPush/planAdvance gegen die neue Richtung)
     return;
   }
 }
@@ -140,7 +153,7 @@ function seiteWaehlen(s, ms, sp) {
 }
 
 function leeren(s, ms) {
-  s.aufgaben = null; s.gehirnIds = null; s.achse = null; s.achseOrt = null; s.bedrohung = null; s.flankSeite = 0;
+  s.aufgaben = null; s.gehirnIds = null; s.achse = null; s.achseOrt = null; s.bedrohung = null; s.imSektorAb = null; s.flankSeite = 0;
   for (const e of ms) e.aufgabe = null;
 }
 
