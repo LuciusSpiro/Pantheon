@@ -319,16 +319,22 @@ const toete = (g, e) => Testhilfe.toeten(g, e);
 
   await section('Bot-Läufe (echter Kampf)', async () => {
     zurueck();
-    for (const [crew, seed] of [[1, 21], [2, 22], [3, 23]]) {
-      const r = await Bot.lauf(seed, crew, { max: 400, tmp: TMP });
-      console.log('       ' + Bot.zeile(r).trim());
-      // SYS-03 C2: Gegner und Verbündete regenerieren ihre Schilde mit Pause je Segment (wie die Lerche). Der Ausgang der Bot-Schlacht ist chaotisch (Seeds 21–28, vorher 171b19b/nachher: Crew 1 6/8 -> 5/8 Siege, Crew 2 7/8 -> 6/8,
-      // einzelne Seeds kippen in beide Richtungen); Seeds 21 und 22 (Crew 1 und 2) laufen darum als Beobachtung (info) mit, die Zusage "sieg" gilt für Crew 3 (Seed 23). Balance und Bot-Wahl: SYS-03 D.
-      const zusage = crew === 3;
-      const txt = `Crew ${crew}: der Bot besiegt das Flaggschiff (${r.dauer} s, Hülle ${r.huelle}, Verbündete verloren ${r.verbuendeteVerloren}/${r.verbuendete0})`;
-      if (zusage) ok(r.ok && r.ausgang === 'sieg', txt); else console.log(`  info ${txt}: ${r.ok && r.ausgang === 'sieg' ? 'Sieg' : 'KEIN Sieg (' + r.ausgang + ')'} – Beobachtung, SYS-03 D kalibriert`);
-      ok(r.ersterGegner >= 8 && r.tickDelta === 0 && r.maxSchiffe <= CONFIG.flotte.max, `Crew ${crew}: Vorwarnung ${r.ersterGegner} s, kein Sim-Tick, größte Last ${r.maxSchiffe}`);
-      ok(r.snapMax <= CONFIG.net.snapMax - CONFIG.net.snapLuft, `Crew ${crew}: Snapshot max ${r.snapMax} B im Budget`);
+    // SYS-03 C-Nacharbeit: Zusage als Quote über feste, vorab festgelegte Seeds 21–28 je Crewgröße (der Ausgang einer Einzelschlacht ist chaotisch, die Quote nicht).
+    // Gemessen (max 600 s wie tools/sim-finale-orbit.js): Crew 1 5/8, Crew 2 6/8, Crew 3 7/8. Mindestquote 5/8 je Crew; Abbruch, sobald sie erreicht (oder nicht mehr erreichbar) ist.
+    // Das Zeitlimit ist dasselbe wie in der Sim (600 s): bei 400 s kippte z. B. Seed 22 Crew 2 (Sieg nach 405 s) – kein Zufall, die Läufe sind deterministisch.
+    const SEEDS = [21, 22, 23, 24, 25, 26, 27, 28]; const MINDEST = 5;
+    for (const crew of [1, 2, 3]) {
+      let siege = 0; let gelaufen = 0; const alle = [];
+      for (const seed of SEEDS) {
+        if (siege >= MINDEST || siege + (SEEDS.length - gelaufen) < MINDEST) break;
+        const r = await Bot.lauf(seed, crew, { max: 600, tmp: TMP });
+        gelaufen++; alle.push(r);
+        if (r.ok && r.ausgang === 'sieg') siege++;
+        console.log('       ' + Bot.zeile(r).trim());
+      }
+      ok(siege >= MINDEST, `Crew ${crew}: der Bot besiegt das Flaggschiff in mindestens ${MINDEST} von ${SEEDS.length} Läufen (Seeds ${SEEDS[0]}–${SEEDS[SEEDS.length - 1]}; ${siege} Siege in ${gelaufen} Läufen)`);
+      ok(alle.every((r) => r.ersterGegner >= 8 && r.tickDelta === 0 && r.maxSchiffe <= CONFIG.flotte.max), `Crew ${crew}: Vorwarnung ≥ 8 s, kein Sim-Tick, größte Last ≤ ${CONFIG.flotte.max} in allen Läufen`);
+      ok(alle.every((r) => r.snapMax <= CONFIG.net.snapMax - CONFIG.net.snapLuft), `Crew ${crew}: Snapshot max ${Math.max(...alle.map((r) => r.snapMax))} B im Budget`);
     }
   });
 
