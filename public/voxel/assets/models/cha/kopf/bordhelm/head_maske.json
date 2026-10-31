@@ -1,0 +1,79 @@
+{
+  "id": "cha/kopf/bordhelm/head_maske",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Haarmaske (schneidet das Haar-Gitter)",
+  "tags": [
+    "cha",
+    "maske"
+  ],
+  "notes": "Zusatzmodell zu cha/kopf/bordhelm/head, schneidet per use mode carve.",
+  "ops": [
+    {
+      "name": "Schalenvolumen",
+      "op": "box",
+      "at": [
+        -3,
+        26,
+        -4
+      ],
+      "size": [
+        6,
+        6,
+        6
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar hinter der Schale (Dutt)",
+      "op": "box",
+      "at": [
+        -3,
+        26,
+        -8
+      ],
+      "size": [
+        6,
+        10,
+        4
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar über der Schale",
+      "op": "box",
+      "at": [
+        -3,
+        32,
+        -4
+      ],
+      "size": [
+        6,
+        4,
+        6
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar unter der Schale (Zöpfe)",
+      "op": "box",
+      "at": [
+        -3,
+        20,
+        -8
+      ],
+      "size": [
+        6,
+        6,
+        10
+      ],
+      "color": "#808080"
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "cha/frisur/dutt/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur dutt (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus fig/lerche/head, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/dutt/head_ops",
+      "colors": {
+        "cloth2": "haarband_dutt",
+        "trim": "schmuck_dutt"
+      }
+    }
+  ]
+}

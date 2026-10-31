@@ -1,0 +1,28 @@
+{
+  "id": "cha/frisur/zoepfe/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur zoepfe (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus fig/basis/kopf, fig/germanen/kopf, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/zoepfe/head_ops",
+      "colors": {
+        "primary": "haarband_zoepfe",
+        "metal_light": "metall_hell_zoepfe"
+      }
+    }
+  ]
+}

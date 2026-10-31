@@ -1,0 +1,48 @@
+{
+  "id": "cha/hose/bordhose/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose bordhose (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/lerche/leg_lower, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/leg_lower",
+      "params": {
+        "style": 0
+      },
+      "colors": {
+        "secondary": "hose_bordhose",
+        "leather": "schuh_bordhose",
+        "metal_dark": "schuh_2_bordhose",
+        "trim": "schuh_zier_bordhose"
+      }
+    },
+    {
+      "name": "Stiefel abschneiden (y 0..5)",
+      "op": "box",
+      "at": [
+        1,
+        0,
+        -1
+      ],
+      "size": [
+        3,
+        6,
+        5
+      ],
+      "mode": "carve"
+    }
+  ]
+}

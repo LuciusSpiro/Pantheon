@@ -1,0 +1,166 @@
+{
+  "id": "cha/frisur/dutt/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur dutt (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/lerche/head, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "0 Haarkranz",
+      "op": "box",
+      "at": [
+        -3,
+        30,
+        -2
+      ],
+      "size": [
+        6,
+        1,
+        5
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "0 Haar oben",
+      "op": "box",
+      "at": [
+        -2,
+        31,
+        -2
+      ],
+      "size": [
+        4,
+        1,
+        4
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.12
+      }
+    },
+    {
+      "name": "0 Scheitel",
+      "op": "box",
+      "at": [
+        0,
+        31,
+        -2
+      ],
+      "size": [
+        1,
+        1,
+        4
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.78
+      },
+      "mode": "paint"
+    },
+    {
+      "name": "0 Haar hinten",
+      "op": "box",
+      "at": [
+        -3,
+        27,
+        -3
+      ],
+      "size": [
+        6,
+        4,
+        1
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "0 Haar Seiten",
+      "op": "box",
+      "at": [
+        2,
+        28,
+        -2
+      ],
+      "size": [
+        1,
+        2,
+        2
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "0 Strähne",
+      "op": "box",
+      "at": [
+        -3,
+        29,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "0 Haarband",
+      "op": "box",
+      "at": [
+        -1,
+        31,
+        -3
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": "cloth2"
+    },
+    {
+      "name": "0 Dutt",
+      "op": "box",
+      "at": [
+        -1,
+        31,
+        -5
+      ],
+      "size": [
+        2,
+        2,
+        2
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.06
+      }
+    },
+    {
+      "name": "0 Dutt Spitze",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        -5
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": "hair"
+    }
+  ]
+}

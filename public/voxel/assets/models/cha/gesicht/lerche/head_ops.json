@@ -1,0 +1,55 @@
+{
+  "id": "cha/gesicht/lerche/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "gesicht lerche (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/lerche/head, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "0 Brauen",
+      "op": "box",
+      "at": [
+        1,
+        29,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.2
+      },
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "0 Ohrring",
+      "op": "box",
+      "at": [
+        3,
+        26,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "trim",
+      "jitter": false
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "id": "cha/joint/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell upperArm (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "oberteil": {
+      "default": "bordtunika",
+      "options": [
+        "bordtunika",
+        "plankenweste",
+        "keine"
+      ],
+      "label": "Oberteil"
+    },
+    "plate": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Schulterplatte (1 links, 0 rechts)"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/upperArm",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Oberteil",
+      "op": "use",
+      "model": "cha/oberteil/{oberteil}/upperArm",
+      "fallback": [
+        "cha/leer"
+      ],
+      "params": {
+        "plate": "plate"
+      }
+    }
+  ]
+}

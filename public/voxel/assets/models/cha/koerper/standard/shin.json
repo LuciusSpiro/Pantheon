@@ -1,0 +1,32 @@
+{
+  "id": "cha/koerper/standard/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/unterschenkel, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/unterschenkel",
+      "params": {
+        "bootH": 2
+      },
+      "colors": {
+        "cloth": "unter_standard",
+        "metal_dark": "skin_shadow",
+        "rubber": "skin_shadow"
+      }
+    }
+  ]
+}

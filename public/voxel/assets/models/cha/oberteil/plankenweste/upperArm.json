@@ -1,0 +1,30 @@
+{
+  "id": "cha/oberteil/plankenweste/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil plankenweste (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/germanen/oberarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/oberarm",
+      "colors": {
+        "leather": "top_leder_plankenweste",
+        "metal_light": "metall_hell_plankenweste",
+        "primary": "top_plankenweste",
+        "trim": "top_zier_plankenweste"
+      }
+    }
+  ]
+}

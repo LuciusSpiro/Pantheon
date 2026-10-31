@@ -31,11 +31,13 @@ const ALT = { v: 1, name: 'Narbo', koerper: 'standard', gesicht: 'narbe', frisur
   outfit: { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'fellumhang' } };
 
 function einheiten() {
-  section('Katalog-Stub');
+  section('Katalog (echt, aus dem Voxelwerk)');
   ok(KAT.plaetze.length === 9 && eq(KAT.plaetze.map((p) => p.id), ['gesicht', 'frisur', 'bart', 'kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang']), '9 Plätze in fester Reihenfolge');
   ok(KAT.farben.haut.length === 4 && KAT.farben.haar.length === 4, 'je 4 Haut- und Haarfarben');
   ok(KAT.plaetze.every((p) => KAT.teile.some((t) => t.id === p.id + '/' + p.standard)), 'jeder Standard ist ein Teil des Katalogs');
-  ok(KAT.plaetze.every((p) => KAT.teile.filter((t) => t.platz === p.id).length === 2), 'je Platz Standard und Prüfsatz-Alternative');
+  const ALTWERT = (p) => (p.gruppe === 'outfit' ? ALT.outfit[p.id] : ALT[p.id]);
+  ok(KAT.plaetze.every((p) => [p.standard, ALTWERT(p)].every((n) => KAT.teile.some((t) => t.platz === p.id && t.id === p.id + '/' + n))), 'je Platz Standard und Prüfsatz-Alternative');
+  ok(KAT.teile.every((t) => typeof t.name === 'string' && t.name && typeof t.vorschau === 'string'), 'jedes Teil mit Anzeigenamen und Vorschaubild');
 
   section('Standardkarte');
   ok(eq(STD, { v: 1, name: 'Aurelia', koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 0, haar: 0, outfit: OUTFIT_STD }), 'standardKarte(name, katalog) wie die Schnittstelle');

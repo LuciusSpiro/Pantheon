@@ -1,0 +1,70 @@
+{
+  "id": "cha/joint/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell shin (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "hose": {
+      "default": "bordhose",
+      "options": [
+        "bordhose",
+        "germanenhose",
+        "keine"
+      ],
+      "label": "Hose"
+    },
+    "schuhe": {
+      "default": "bordstiefel",
+      "options": [
+        "bordstiefel",
+        "germanenstiefel",
+        "keine"
+      ],
+      "label": "Schuhe"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/shin",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Hose",
+      "op": "use",
+      "model": "cha/hose/{hose}/shin",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Schuhe",
+      "op": "use",
+      "model": "cha/schuhe/{schuhe}/shin",
+      "fallback": [
+        "cha/leer"
+      ]
+    }
+  ]
+}

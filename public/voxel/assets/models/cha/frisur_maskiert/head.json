@@ -1,0 +1,52 @@
+{
+  "id": "cha/frisur_maskiert/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Frisur unter der Kopfbedeckung (Maske schneidet nur das Haar-Gitter)",
+  "tags": [
+    "cha",
+    "schicht"
+  ],
+  "params": {
+    "frisur": {
+      "default": "dutt",
+      "options": [
+        "dutt",
+        "zoepfe",
+        "keine"
+      ]
+    },
+    "kopf": {
+      "default": "keine",
+      "options": [
+        "keine",
+        "bordhelm"
+      ]
+    }
+  },
+  "ops": [
+    {
+      "name": "Frisur",
+      "op": "use",
+      "model": "cha/frisur/{frisur}/head",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Haarmaske (carve)",
+      "op": "use",
+      "model": "cha/kopf/{kopf}/head_maske",
+      "fallback": [
+        "cha/leer"
+      ],
+      "mode": "carve"
+    }
+  ]
+}

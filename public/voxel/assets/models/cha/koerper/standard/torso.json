@@ -1,0 +1,27 @@
+{
+  "id": "cha/koerper/standard/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/rumpf, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/rumpf",
+      "colors": {
+        "cloth": "unter_standard"
+      }
+    }
+  ]
+}

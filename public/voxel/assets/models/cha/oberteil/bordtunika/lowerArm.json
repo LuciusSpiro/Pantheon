@@ -1,0 +1,29 @@
+{
+  "id": "cha/oberteil/bordtunika/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil bordtunika (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/sleeve_lower, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/sleeve_lower",
+      "colors": {
+        "leather": "top_leder_bordtunika",
+        "secondary": "top_unter_bordtunika",
+        "trim": "top_zier_bordtunika"
+      }
+    }
+  ]
+}

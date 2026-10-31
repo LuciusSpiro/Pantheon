@@ -1,0 +1,31 @@
+{
+  "id": "cha/hose/bordhose/thigh",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose bordhose (thigh)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/lerche/leg_upper, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/leg_upper",
+      "params": {
+        "style": 0
+      },
+      "colors": {
+        "cloth2": "hose_zier_bordhose",
+        "secondary": "hose_bordhose"
+      }
+    }
+  ]
+}

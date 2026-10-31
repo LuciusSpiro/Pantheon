@@ -9,6 +9,7 @@
 //   public/voxel/core/*.js    DOM-freier Kern (ES-Module)
 //   public/voxel/render/voxel-three.js
 //   public/voxel/assets/…     alle Paletten, Rigs, Posen, Moods + alle Modelle/Figuren aus den Manifesten samt Abhängigkeiten
+//   public/voxel/assets/katalog/charakter.json   Charakter-Katalog für den Browser (CHA-01 B2), dazu content/katalog/charakter.json für den Server
 //   public/voxel/manifest.json  zusammengeführte Manifeste (Format: assets/manifest/_schema.md); `sockets` = Rezept-Sockets
 //                               + Manifest-Sockets (Manifest hat Vorrang, CONTRACT-B1 §10.1), `socketsFromRecipe` nennt die übernommenen
 //   public/voxel/VERSION.json   { voxelwerkCommit, dirty, date, three, counts }
@@ -246,6 +247,15 @@ async function syncOnce() {
     if (f.endsWith('.png')) spriteCount++;
   }
   counts.sprites = spriteCount;
+
+  // 3c) Charakter-Katalog (CHA-01): Voxelwerk assets/katalog/charakter.json → content/katalog/ (Server) und public/voxel/assets/katalog/ (Browser).
+  //     Fehlt er (älterer Voxelwerk-Stand), bleibt content/katalog/charakter.json unberührt.
+  const katSrc = path.join(VW, 'assets', 'katalog', 'charakter.json');
+  if (fs.existsSync(katSrc)) {
+    const kat = await fsp.readFile(katSrc);
+    await w.put(path.join(OUT, 'assets', 'katalog', 'charakter.json'), kat);
+    await w.put(path.join(ROOT, 'content', 'katalog', 'charakter.json'), kat);
+  }
 
   // 4) manifest.json + VERSION.json
   const gitDirty = await gitStatus;

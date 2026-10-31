@@ -1,0 +1,41 @@
+{
+  "id": "cha/oberteil/bordtunika/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil bordtunika (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "params": {
+    "plate": {
+      "default": 1,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "Schulterplatte (1 links, 0 rechts)"
+    }
+  },
+  "notes": "Schicht aus fig/lerche/sleeve_upper, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/sleeve_upper",
+      "params": {
+        "plate": "plate"
+      },
+      "colors": {
+        "cloth2": "top_bordtunika",
+        "secondary": "top_unter_bordtunika",
+        "trim": "top_zier_bordtunika"
+      }
+    }
+  ]
+}

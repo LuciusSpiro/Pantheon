@@ -1,0 +1,30 @@
+{
+  "id": "cha/hose/germanenhose/thigh",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose germanenhose (thigh)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/germanen/oberschenkel, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/oberschenkel",
+      "colors": {
+        "leather": "hose_leder_germanenhose",
+        "metal_light": "metall_hell_germanenhose",
+        "primary": "hose_zier_germanenhose",
+        "secondary": "hose_germanenhose"
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "id": "cha/joint/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell hips (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "oberteil": {
+      "default": "bordtunika",
+      "options": [
+        "bordtunika",
+        "plankenweste",
+        "keine"
+      ],
+      "label": "Oberteil"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/hips",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Oberteil",
+      "op": "use",
+      "model": "cha/oberteil/{oberteil}/hips",
+      "fallback": [
+        "cha/leer"
+      ]
+    }
+  ]
+}

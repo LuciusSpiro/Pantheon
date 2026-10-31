@@ -1,0 +1,27 @@
+{
+  "id": "cha/koerper/standard/thigh",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (thigh)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/oberschenkel, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/oberschenkel",
+      "colors": {
+        "cloth": "unter_standard"
+      }
+    }
+  ]
+}

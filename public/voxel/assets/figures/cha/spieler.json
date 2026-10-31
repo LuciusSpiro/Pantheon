@@ -1,0 +1,74 @@
+{
+  "id": "cha/spieler",
+  "name": "Spielerfigur aus Schichten",
+  "rig": "human",
+  "palette": "cha",
+  "generated": true,
+  "tags": [
+    "figur",
+    "cha"
+  ],
+  "notes": "params = Teil je Platz (siehe tools/gen-cha.mjs, PLAETZE). colors: nur Haut und Haar; keine Spielerfarbe in der Kleidung.",
+  "colors": {
+    "skin": "#C68E68",
+    "skin_shadow": "#A06E4E",
+    "hair": "#3B2416"
+  },
+  "params": {
+    "koerper": "standard",
+    "gesicht": "lerche",
+    "frisur": "dutt",
+    "bart": "keiner",
+    "kopf": "keine",
+    "oberteil": "bordtunika",
+    "hose": "bordhose",
+    "schuhe": "bordstiefel",
+    "haende": "keine",
+    "umhang": "keiner"
+  },
+  "parts": {
+    "head": {
+      "model": "cha/joint/head"
+    },
+    "torso": {
+      "model": "cha/joint/torso"
+    },
+    "hips": {
+      "model": "cha/joint/hips"
+    },
+    "upperArmL": {
+      "model": "cha/joint/upperArm",
+      "params": {
+        "plate": 1
+      }
+    },
+    "upperArmR": {
+      "model": "cha/joint/upperArm",
+      "mirror": true,
+      "params": {
+        "plate": 0
+      }
+    },
+    "lowerArmL": {
+      "model": "cha/joint/lowerArm"
+    },
+    "lowerArmR": {
+      "model": "cha/joint/lowerArm",
+      "mirror": true
+    },
+    "thighL": {
+      "model": "cha/joint/thigh"
+    },
+    "thighR": {
+      "model": "cha/joint/thigh",
+      "mirror": true
+    },
+    "shinL": {
+      "model": "cha/joint/shin"
+    },
+    "shinR": {
+      "model": "cha/joint/shin",
+      "mirror": true
+    }
+  }
+}

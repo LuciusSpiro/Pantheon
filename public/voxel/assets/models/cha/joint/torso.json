@@ -1,0 +1,69 @@
+{
+  "id": "cha/joint/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell torso (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "oberteil": {
+      "default": "bordtunika",
+      "options": [
+        "bordtunika",
+        "plankenweste",
+        "keine"
+      ],
+      "label": "Oberteil"
+    },
+    "umhang": {
+      "default": "keiner",
+      "options": [
+        "keiner",
+        "fellumhang"
+      ],
+      "label": "Umhang"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/torso",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Oberteil",
+      "op": "use",
+      "model": "cha/oberteil/{oberteil}/torso",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Umhang",
+      "op": "use",
+      "model": "cha/umhang/{umhang}/torso",
+      "fallback": [
+        "cha/leer"
+      ]
+    }
+  ]
+}

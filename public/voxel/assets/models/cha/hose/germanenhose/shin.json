@@ -1,0 +1,44 @@
+{
+  "id": "cha/hose/germanenhose/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose germanenhose (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/germanen/unterschenkel, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/unterschenkel",
+      "colors": {
+        "leather": "hose_leder_germanenhose",
+        "primary": "hose_zier_germanenhose",
+        "metal_light": "metall_hell_germanenhose"
+      }
+    },
+    {
+      "name": "Stiefel abschneiden (y 0..2)",
+      "op": "box",
+      "at": [
+        1,
+        0,
+        -2
+      ],
+      "size": [
+        3,
+        3,
+        6
+      ],
+      "mode": "carve"
+    }
+  ]
+}

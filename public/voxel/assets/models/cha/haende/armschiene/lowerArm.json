@@ -1,0 +1,31 @@
+{
+  "id": "cha/haende/armschiene/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "haende armschiene (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "haende"
+  ],
+  "notes": "Schicht aus fig/rom/armschiene, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/rom/armschiene",
+      "colors": {
+        "cloth": "unter_armschiene",
+        "metal_dark": "handschuh_armschiene",
+        "metal": "metall_armschiene",
+        "secondary": "handschuh_2_armschiene",
+        "glow": "licht_armschiene"
+      }
+    }
+  ]
+}

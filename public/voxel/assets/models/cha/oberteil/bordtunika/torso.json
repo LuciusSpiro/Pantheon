@@ -1,0 +1,28 @@
+{
+  "id": "cha/oberteil/bordtunika/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil bordtunika (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/tunic_torso, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/tunic_torso",
+      "colors": {
+        "cloth2": "top_bordtunika",
+        "trim": "top_zier_bordtunika"
+      }
+    }
+  ]
+}
