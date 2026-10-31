@@ -60,12 +60,12 @@ const f = (x) => (x == null ? '—' : (Math.round(x * 10) / 10).toString());
   }
   // SYS-01 D (Task 5): Reaktor-Countdown, Zonenöffnung, Notsprung im Gefecht
   console.log(''); console.log('Countdown, Zonenöffnung, Notsprung (Bot-Läufe):');
-  console.log('| Klasse | Crew | Läufe | Gegner | davon Tod über Reaktor (Countdown) | Tod ohne Reaktor (Sofort-Tod u. a.) | Zone offen (Anteil Gegner) | Spawn→Zone offen Median | Reaktor→Tod Median | Lerche Reaktorausfälle je Lauf | Notsprünge je Lauf | Notfälle je Lauf |');
-  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|');
+  console.log('| Klasse | Crew | Läufe | Gegner | davon Tod über Reaktor (Countdown) | Tod ohne Reaktor (Sofort-Tod u. a.) | Zone offen (Anteil Gegner) | Spawn→Zone offen Median | Zone offen→Reaktor zerstört Median (min–max, n) | Reaktor→Tod Median | Lerche Reaktorausfälle je Lauf | Notsprünge je Lauf | Notfälle je Lauf |');
+  console.log('|---|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const k of kinds) for (const c of crews) {
     const rs = results[k + '|' + c] || []; const ls = lerche[k + '|' + c] || []; const kill = rs.filter((r) => r.tKill != null);
     const mR = kill.filter((r) => r.tRt != null), oR = kill.length - mR.length, zo = rs.filter((r) => r.tZone != null);
-    const sz = stat(zo.map((r) => r.tZone)), sd = stat(mR.map((r) => r.tKill - r.tRt)); const n = Math.max(1, ls.length);
-    console.log(`| ${k} | ${c} | ${ls.length} | ${rs.length} | ${mR.length} | ${oR} | ${rs.length ? Math.round(zo.length / rs.length * 100) : 0} % | ${f(sz.med)} | ${f(sd.med)} | ${f(ls.reduce((a, r) => a + r.reaktorAusfaelle, 0) / n)} | ${f(ls.reduce((a, r) => a + r.notsprung, 0) / n)} | ${f(ls.reduce((a, r) => a + r.notfaelle, 0) / n)} |`);
+    const sz = stat(zo.map((r) => r.tZone)), zr = stat(rs.filter((r) => r.tZone != null && r.tRt != null).map((r) => r.tRt - r.tZone)), sd = stat(mR.map((r) => r.tKill - r.tRt)); const n = Math.max(1, ls.length);
+    console.log(`| ${k} | ${c} | ${ls.length} | ${rs.length} | ${mR.length} | ${oR} | ${rs.length ? Math.round(zo.length / rs.length * 100) : 0} % | ${f(sz.med)} | ${f(zr.med)} (${f(zr.min)}–${f(zr.max)}, ${zr.n || 0}) | ${f(sd.med)} | ${f(ls.reduce((a, r) => a + r.reaktorAusfaelle, 0) / n)} | ${f(ls.reduce((a, r) => a + r.notsprung, 0) / n)} | ${f(ls.reduce((a, r) => a + r.notfaelle, 0) / n)} |`);
   }
 })();

@@ -5,6 +5,7 @@
 //   kind, t0 (Spawn, Spielzeit), tDmg (erster Schaden am Gegner, s nach Spawn), tKill (Tod, s nach Spawn; null = nicht zerstört/Zeitlimit),
 //   tHitL (erster Treffer auf die Lerche), tSh0 (s NACH dem ersten Treffer, bis ein Lerche-Schildsegment, das beim ersten Treffer > 0 war, 0 erreicht), tSys (s nach dem ersten Treffer bis zum ersten Systemschaden),
 //   crew (verbundene Spieler), integL (Integritätsverlust der Lerche im Fenster Spawn..Tod).
+require('./tune-preload.js');   // SYS-03 D: TUNE='{"pfad": wert}' wirkt auch in den Kindprozessen von sys01-lauf.js (Balancing-Läufe ohne Dateiänderung)
 const { Game } = require('../server/game.js');
 // SYS-01 B1: Hüllenzähler gibt es nicht mehr. Lerche = Summe der Systemintegrität (aktive Systeme, interior.integOf).
 const INT = require('../server/sim/interior.js');

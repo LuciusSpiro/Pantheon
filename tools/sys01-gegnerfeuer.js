@@ -49,29 +49,39 @@ function messe(kind, crew, seed) {
   const e = space.spawnEnemy(g, kind, {});
   const e0 = { hp: e.hpMax, sh: e.shieldsMax.join('/') };
   const hull0 = integ(g); const sys0 = Object.assign({}, sh.systems);
-  let tHit = null, tSh0 = null, tSys = null, tRt = null, shHit = null, hull60 = null, hits = 0, t = 0; const sektorHits = [0, 0, 0, 0];
+  let tHit = null, tSh0 = null, tSys = null, tRt = null, tSh0All = null, tZone = null, tRtDmg = null, shHit = null, hull60 = null, hits = 0, t = 0; const sektorHits = [0, 0, 0, 0];
   const orig = g.emit.bind(g);
   g.emit = function (k, d) { if (k === 'hit' && !(d && d.evaded)) { hits++; if (tHit == null) tHit = t; if (d && Number.isInteger(d.sector)) sektorHits[d.sector]++; } return orig(k, d); };
   while (t < SEK) {
     sh.vx = sh.vy = 0; sh.x = g.space.w / 2; sh.y = g.space.h / 2; sh.angle = 0;   // Lerche bleibt stehen (Kurs fest)
     g.step(); t += DT;
     if (tHit != null && tRt == null && sh.systems.reactor === 'broken') tRt = t - tHit;
+    // SYS-03 D: Zweitmessung. tSh0All = erster Sektor mit Schild VOR dem ersten Treffer, der auf 0 fällt (zählt auch den Sektor des ersten Treffers); tZone = erste Seite, deren aktive Systeme alle
+    // zerstört sind (jeder weitere Treffer läuft dann in die Mitte); tRtDmg = Reaktor nicht mehr ok.
+    if (tHit != null && tSh0All == null && sh.shields.current.some((v, i) => sh0[i] > 0.05 && v < 0.05)) tSh0All = t - tHit;
+    if (tHit != null && tZone == null) for (let z = 0; z < 4; z++) { const ks = INT.SYSTEM_ORDER.filter((k) => INT.systemSector(k) === z && INT.systemAktiv(g, k)); if (ks.length && ks.every((k) => sh.systems[k] === 'broken')) { tZone = t - tHit; break; } }
+    if (tHit != null && tRtDmg == null && sh.systems.reactor !== 'ok') tRtDmg = t - tHit;
     if (tHit != null && shHit == null) shHit = sh.shields.current.map((v) => v > 0.05);
     if (shHit && tSh0 == null && sh.shields.current.some((v, i) => shHit[i] && v < 0.05)) tSh0 = t - tHit;
     if (tHit != null && tSys == null && Object.keys(sh.systems).some((k) => sys0[k] === 'ok' && sh.systems[k] !== 'ok')) tSys = t - tHit;
     if (hull60 == null && t >= 60) hull60 = hull0 - integ(g);
   }
-  return { tHit, tSh0, tSys, tRt, tRtSh0: tRt != null && tSh0 != null ? tRt - tSh0 : null, schildInfo, hull60, hits, sh0, e0, hullEnd: hull0 - integ(g) };
+  return { tHit, tSh0, tSys, tRt, tSh0All, tZone, tRtDmg, tZoneRt: tRt != null && tZone != null ? tRt - tZone : null, tRtSh0: tRt != null && tSh0 != null ? tRt - tSh0 : null, schildInfo, hull60, hits, sh0, e0, hullEnd: hull0 - integ(g) };
 }
 console.log(`Befehl: node tools/sys01-gegnerfeuer.js --kinds ${kinds} --crews ${crews} --seeds ${SEEDS} --seed0 ${SEED0} --sek ${SEK}${SCHILD ? ' --schild ' + SCHILD : ''}${process.env.TUNE ? '   (TUNE=' + process.env.TUNE + ')' : ''}`);
 console.log('| Klasse | Crew | Gegner Hülle / Schild | n | Treffer bis Ende (Mittel) | Spawn→1. Treffer Median | 1. Treffer→Segment 0 Median (min–max, n von N) | 1. Treffer→1. Systemschaden Median (n) | Hülle Lerche nach 60 s (Mittel) | 1. Treffer→Reaktor zerstört Median (min–max, n von N) | Segment 0→Reaktor zerstört Median (min–max, n von N) |');
 console.log('|---|---|---|---|---|---|---|---|---|---|---|');
-let schildGemeldet = false;
+let schildGemeldet = false; const zweit = [];
 for (const k of kinds) for (const c of crews) {
   const rs = []; for (let i = 0; i < SEEDS; i++) rs.push(messe(k, c, SEED0 + i));
   const s1 = stat(rs.map((r) => r.tHit)), s2 = stat(rs.map((r) => r.tSh0)), s3 = stat(rs.map((r) => r.tSys));
   const s4 = stat(rs.map((r) => r.tRt)), s5 = stat(rs.map((r) => r.tRtSh0));
   if (SCHILD && !schildGemeldet) { schildGemeldet = true; const si = rs[0].schildInfo; console.log('Schild: Wunsch ' + si.wunsch + ' -> alloc ' + si.alloc + ', current ' + si.current + ' (Pool ' + si.pool + ', Emitter-Kappe ' + si.cap + ')'); if (si.gekappt) console.log('WARNUNG: Schildwunsch ' + si.wunsch + ' wird gekappt (Summe ' + si.wunsch.reduce((x, y) => x + y, 0) + ' bei Pool ' + si.pool + ') -> wirksam ' + si.current); }
+  { const q = stat(rs.map((r) => r.tSh0All)), z = stat(rs.map((r) => r.tZone)), rd = stat(rs.map((r) => r.tRtDmg)), zr = stat(rs.map((r) => r.tZoneRt)); const x = (st) => `${f(st.med)} (${f(st.min)}–${f(st.max)}, ${st.n}/${rs.length})`; zweit.push(`| ${k} | ${c} | ${x(q)} | ${x(z)} | ${x(rd)} | ${x(s4)} | ${x(zr)} |`); }
   const hm = rs.reduce((s, r) => s + (r.hull60 || 0), 0) / rs.length, hits = rs.reduce((s, r) => s + r.hits, 0) / rs.length;
   console.log(`| ${k} | ${c} | ${rs[0].e0.hp} / ${rs[0].e0.sh} | ${rs.length} | ${f(hits)} | ${f(s1.med)} | ${f(s2.med)} (${f(s2.min)}–${f(s2.max)}, ${s2.n}/${rs.length}) | ${f(s3.med)} (${s3.n}) | ${f(hm)} | ${f(s4.med)} (${f(s4.min)}–${f(s4.max)}, ${s4.n}/${rs.length}) | ${f(s5.med)} (${f(s5.min)}–${f(s5.max)}, ${s5.n}/${rs.length}) |`);
 }
+console.log('\nZweitmessung (SYS-03 D, Median in s ab 1. Treffer; min–max, n/N): Sektor-0 inkl. Sektor des 1. Treffers | 1. Seite komplett zerstört (Zone leer) | Reaktor beschädigt | Reaktor zerstört | Zone leer → Reaktor zerstört');
+console.log('| Klasse | Crew | Sektor 0 inkl. Treffersektor | Zone leer | Reaktor beschädigt | Reaktor zerstört | Zone leer→Reaktor zerstört |');
+console.log('|---|---|---|---|---|---|---|');
+for (const r of zweit) console.log(r);
