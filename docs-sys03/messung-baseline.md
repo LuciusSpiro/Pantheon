@@ -241,3 +241,39 @@ Seed 4 weicht ab: Die Schlacht ist chaotisch (acht weitere Seeds 2–11 messen v
 
 - `test-sl3` (Falle, wehrlose Lerche, Zeit bis zum Verlust, Seeds 1–8): 90,9 / 64,5 / 68,7 / 104,9 / 120 / 181,8 / 110,1 / 105 s; Fenster im Test 48–228 s (Min/Max mit 25 % Rand).
 - `test-flight` (Spitzengeschwindigkeit des Jägers mit beschädigtem Antrieb, Seeds 40–55): 108,9–122,7 px/s (+9 % bis +23 % über 100), 10 von 16 Seeds über +15 %; Seed 46 (108,9 px/s) bleibt Prüfseed, Grenze wieder +15 %.
+
+## Nach C1 (Schild der Lerche: Pool 8, Kappe 8, Regenerationspause je Sektor, Sturm-Sperre je Sektor)
+
+Stand: Branch `sys03` nach Paket C1. Startwerte (Paket D kalibriert): `shields.pointsPerPower` 4 (Pool 8 bei Energie 2), `maxPerSector` 8, `default` [4,2,0,2], `regenInterval` 2 s, **neu** `shields.regenDelay` 5 s (Pause je Sektor nach jedem Treffer auf diesen Sektor), **neu** `systemModell.sturm.regenSperre_s` 6 s (Sturm-Treffer: Pause = Längeres von regenDelay und regenSperre_s). `generatorDamagedPool` −2 und Kuppel-`shieldCost` 2 unverändert (bei Pool 8 verhältnismäßig schwächer).
+
+### Streufeuer (Lerche, Schild Standard 4/2/0/2), Crew 3, Seeds 1–10, 60 s
+
+Aufruf: `node tools/sys03-streufeuer.js --rate R --seeds 10 --crews 3 --sek 60` für R = 2, 3, 4. Je Treffer 1 Punkt; `konzentriert` = alle auf Sektor 0 (4 Punkte), `streu` = reihum über 0, 1, 3. Vorher = Schild 2/2/0/2 ohne Pause (Rate 3: Stand nach Nacharbeit B1/B2; Rate 2 und 4: Baseline Abschnitt 3, dort nur die Spalte „Sektor 0“ vergleichbar, weil die Stufenregel B1 erst später kam).
+
+| Rate | Verteilung | 1. Treffer→1. Sektor 0 vorher → nachher | 1. Treffer→1. Systemschaden vorher → nachher | 1. Treffer→Reaktor zerstört vorher → nachher | Quotient streu/konz. (Sektor 0 / Reaktor) vorher → nachher |
+|---|---|---|---|---|---|
+| 2/s | konzentriert | 0,5 → 1,5 s | (5,5 → 2 s, Regel B1 fehlte) | 35 → 6,5 s (4,5–7,5, 10/10) | 3,0 / — → 1,33 / 2,5 |
+| 2/s | streu | 1,5 → 2 s | 49,5 → 3,5 s | — (0/10) → 16 s (13,5–16,5, 10/10) | |
+| 3/s | konzentriert | 0,4 → 1 s | 0,7 → 1,4 s | 3,7 → 4,4 s (3–5, 10/10) | 2,5 / 3,5 → 1,4 / 2,4 |
+| 3/s | streu | 1 → 1,4 s | 3 → 2,4 s | 13 → 10,4 s (9–11, 10/10) | |
+| 4/s | konzentriert | 0,3 → 0,8 s | (2,5 → 1 s, Regel B1 fehlte) | 16,5 → 3,3 s (2,3–3,8, 10/10) | 2,7 / — → 1,25 / 2,4 |
+| 4/s | streu | 0,8 → 1 s | 9,8 → 1,8 s | 42,8 → 7,8 s (6,5–8,3, 10/10) | |
+
+Befund: Konzentriertes Feuer bricht den stärksten Sektor (4 Punkte) etwa 2–3 mal später als vorher (Kapazität), Streufeuer bricht den ersten Sektor aber nur 1,25–1,33 mal später als konzentriertes Feuer, weil die Startverteilung ungleich ist: bei [4,2,0,2] entscheidet der schwächste Sektor (2 Punkte) beim Streufeuer. Bis zum zerstörten Reaktor ist Streufeuer 2,4–2,5 mal langsamer als konzentriert (vorher bis 3,5 mal, weil die Regeneration den Streu-Sektoren damals fast alles zurückgab). Mit der Pause regeneriert bei 2 bis 4 Treffern/s KEIN Sektor mehr (je Sektor kommt ein Treffer seltener als alle 1,5 s, die Pause dauert 5 s): der Streufeuer-Vorteil ist jetzt reine Verteilung, keine Regeneration mehr. Das Gesamtbild ist gegenüber „vorher“ härter für den Schild unter Dauerfeuer (Reaktor bei Streufeuer Rate 3: 13 → 10,4 s, trotz Pool 8). Der Test `test-schild-pause.js` misst Abnahme 5 mit Start [3,3,0,2] (Quotient 2,5 bei 2, 3 und 4/s) und bei 0,3 Treffern/s (Streufeuer bricht nie, weil je Sektor nur alle 10 s ein Treffer kommt und der Schild nach der Pause nachlädt).
+
+### Gegner feuert auf stehende Lerche (Schild Standard 4/2/0/2), Crew 2, Seeds 1–20, 120 s
+
+Aufruf: `node tools/sys01-gegnerfeuer.js --kinds raider,korvette,fregatte,kreuzer --crews 2 --seeds 20`. Zeit bis ein Schildsektor der Lerche (der beim ersten Treffer > 0 war) auf 0 fällt („Segment 0“). Vorher = Baseline Abschnitt 1 (Schild 2/2/0/2, vor SYS-03; Fregatte/Kreuzer Systemschaden und Reaktor: Stand nach B1/B2).
+
+| Klasse | Gegner Hülle / Schild | Segment 0 vorher → nachher (Median, n von N) | 1. Systemschaden vorher → nachher (Median, n) | Reaktor zerstört vorher → nachher (Median, n von N) |
+|---|---|---|---|---|
+| raider | 13 / 2/1/0/1 | — (0/20) → 59,3 s (21–96,7, 7/20) | — (0) → 24,2 s (16) | — (0/20) → 108,1 s (1/20) |
+| korvette | 48 / 1/2/0/2 | 16,8 s (14/20) → 16,8 s (3–31,4, 16/20) | 86,8 s (1) → 4,9 s (13) | — (0/20) → 53,7 s (24,2–75, 3/20) |
+| fregatte | 90 / 2/2/2/1/2/2 | 21,9 s (20/20) → 22 s (0,8–30,4, 20/20) | 10,2 s (16) → 2,6 s (18) | 101,1 s (2/20) → 74,1 s (12,4–102,9, 9/20) |
+| kreuzer | 120 / 2/3/3/3/1/3/3/3 | 28,4 s (19/20) → 28,5 s (15,6–36,6, 19/20) | 4,3 s (18) → 2 s (18) | 78 s (9/20) → 40,1 s (13,1–107,8, 12/20) |
+
+Befund: Die Zeit bis zum ersten leeren Schildsektor bleibt bei Korvette, Fregatte, Kreuzer fast gleich (der Gegner trifft zuerst den Sektor mit 1–2 Punkten bzw. verteilt; Pool 8 ändert das nicht, weil die ersten Treffer auf die dünnen Sektoren 1 und 3 gehen, [4,2,0,2]). Spürbar ist die Pause: Der Schild lädt unter Beschuss nicht mehr nach, der erste Systemschaden kommt etwa 2 mal früher, der Reaktor fällt häufiger (Fregatte 2/20 → 9/20, Kreuzer 9/20 → 12/20). Gegenprobe ohne Pause (`TUNE='{"shields.regenDelay":0}' node -r ./tools/tune-preload.js tools/sys01-gegnerfeuer.js …`, sonst gleiche Werte, Pool 8): Reaktor zerstört raider 0/20, korvette 2/20 (99,6 s), fregatte 1/20 (52,7 s), kreuzer 9/20 (72,7 s); Integritätsverlust der Lerche nach 60 s (Mittel) raider 2,8 / korvette 4,1 / fregatte 16,7 / kreuzer 28,7 gegenüber 5,3 / 15,4 / 28,7 / 56,7 mit Pause. Die Pause ist also der Teil des Befunds, der die Lerche unter Dauerbeschuss verwundbarer macht (Pool 8 allein hebt die Werte nicht über den Stand nach B1/B2). Paket D kalibriert Startverteilung, Kapazität und `regenDelay` gegen diese Werte.
+
+### Bot-Probelauf (Arena maneuver, Crew 3, 3 Seeds; `node tools/sim-headless.js arena --pilot maneuver --seeds 3 --players 3`)
+
+Schildverteilung des Bots (`BOT_SCHILD_SEKTOR_MAX`), Pool 8: Max 4 → 4,7 Wellen, Hülle −68; Max 6 → 5,3 Wellen, Hülle −46; Max 8 → 2,3 Wellen, Hülle −245 (der Bot bündelt alles auf die Bedrohung, die anderen Seiten stehen leer). Gewählt: 6. Nur Probelauf (Seeds 1–3), die Messung folgt in Paket D.

@@ -145,7 +145,9 @@ section('Kapitel 3 Falle: Zeit bis zum Verlust ohne Gegenwehr', () => {
   // SYS-03 B1: Direkttreffer = eine Stufe je Treffer ohne Schild: die wehrlose Lerche fällt deutlich früher (B1: Seeds 2/4/6 66,6/91/165,3 s).
   // SYS-03 B-Nacharbeit: enges Fenster aus 8 gemessenen Seeds (Stand nach der Nacharbeit B1/B2, Seeds 1–8): 90,9 / 64,5 / 68,7 / 104,9 / 120 / 181,8 / 110,1 / 105 s (Seeds 2/4/6: 64,5/104,9/181,8 s),
   // Min 64,5 s, Max 181,8 s; Fenster = Min − 25 % bis Max + 25 % = 48–228 s. Schilde (Paket C) und Balance (Paket D) verschieben es, der Entwicklungsleiter stellt es dort neu.
-  const FENSTER_VON = 48, FENSTER_BIS = 228;
+  // SYS-03 C1: Schild Pool 8 mit Regenerationspause je Sektor (kein Nachladen unter Beschuss): die wehrlose Lerche fällt früher. Neu gemessen (Seeds 1–8): 41,5 / 42,2 / 46,9 / 68,2 / 71,7 / 57,8 / 95,9 / 120,2 s
+  // (Seeds 2/4/6: 42,2/68,2/57,8 s), Min 41,5, Max 120,2; Fenster = Min − 25 % bis Max + 25 % = 31–150 s. Paket D (Balance) stellt es neu.
+  const FENSTER_VON = 31, FENSTER_BIS = 150;
   info('Zeiten bis zum Verlust: ' + zeiten.join(', ') + ' s (Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s)');
   ok(zeiten.every((z) => z >= FENSTER_VON && z <= FENSTER_BIS), 'Zeiten bis zum Verlust im gemessenen Fenster ' + FENSTER_VON + '–' + FENSTER_BIS + ' s (' + zeiten.join(', ') + ' s)');
 });
