@@ -32,15 +32,18 @@ function damagedAnteil(game) { const v = Number((sysModell(game).reparatur || {}
 // Sekunde soll ein System nur eine Stufe kosten), sonst die Standard-Art (systemModell.trefferFenster_s). Das Fenster stempelt nur Treffer (Stufenverlust durch Schuss, Mine, Dauerdruck, Torpedo),
 // bewusst nicht Hitze, Feuer, EMP, Notrueckholung oder Debug-Setzer (Hinweis K6: die setzen den Zustand ohne Trefferweg).
 const ART_STURM = 'sturm';
-function fensterDauer(game, art) {
+function fensterDauer(game, art, sys) {
   const M = sysModell(game);
   const sturm = art === ART_STURM && M.sturm && M.sturm.trefferFenster_s != null ? Number(M.sturm.trefferFenster_s) : NaN;   // fehlt der Sturm-Wert, gilt das Standard-Fenster
   const v = Number.isFinite(sturm) ? sturm : Number(M.trefferFenster_s);
-  return v > 0 ? v : 0;
+  // SYS-03 D (Binär-Prüfung): der Reaktor hat ein eigenes, längeres Fenster (systemModell.reaktorFenster_s): zwei Stufen brauchen mindestens so viele Sekunden, gleich für Lerche ('reactor'), Gegner und Verbündete ('reaktor').
+  const rf = sys === 'reactor' || sys === 'reaktor' ? Number(M.reaktorFenster_s) : NaN;
+  const w = Number.isFinite(rf) && rf > v ? rf : v;
+  return w > 0 ? w : 0;
 }
 // Stempel nach einem Stufenverlust: Ende des Fensters (nie kuerzer als ein laufendes laengeres Fenster, z. B. nach einem Sturm-Treffer). alt = bisheriger Stempel (oder null).
-function fensterStempeln(game, alt, art) {
-  const bis = game.time + fensterDauer(game, art);
+function fensterStempeln(game, alt, art, sys) {
+  const bis = game.time + fensterDauer(game, art, sys);
   return alt != null && alt > bis ? alt : bis;
 }
 function imFenster(game, bis) { return bis != null && game.time < bis; }

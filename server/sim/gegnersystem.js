@@ -143,7 +143,7 @@ function imFenster(game, e, id) { return Integ.imFenster(game, e.sys[id].tf); }
 function stufeSetzen(game, e, id, ziel, erzwingen, art) {
   const st = e.sys[id];
   st.i = Integ.grundwertVon(ziel, maxOf(e, id), Integ.damagedAnteil(game));
-  st.tf = Integ.fensterStempeln(game, st.tf, art);
+  st.tf = Integ.fensterStempeln(game, st.tf, art, id);
   if (RANG[ziel] > RANG[st.z] && (erzwingen || !gesperrt(game, st, id))) { st.z = ziel; st.sp = game.time; }
   e.hp = summe(e);
 }

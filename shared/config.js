@@ -81,9 +81,10 @@
     // Schnellsprung (server/sim/reise.js): hopZeit in s je Sektor; Abfangen nach Region (fraktionArt: sicher | neutral | feind)
     reise: { hopZeit: 4, feindChance: 0.5, neutralChance: 0.08, neutralPlus: 0.08, neutralMax: 0.6, jaegerMin: 2, jaegerMax: 4, abstand: 650,
       fraktionArt: { rom: 'sicher', ger: 'feind', pirat: 'feind', saum: 'neutral', frei: 'neutral', neutral: 'neutral', vorl: 'neutral', offen: 'neutral' } },
-    // SYS-03 C1 (Kai: Ein Schild ist schwer zu knacken): Pool 8 bei Energie 2 (pointsPerPower 4), Kappe 8 je Sektor, Start [4,2,0,2] (Bug stark, Seiten symmetrisch; Startwerte, Paket D kalibriert).
+    // SYS-03 C1/D (Kai: Ein Schild ist schwer zu knacken): Pool 12 bei Energie 2 (pointsPerPower 6; C1: 4 = Pool 8), Kappe 8 je Sektor, Start [4,4,0,4] (gleichmäßig auf die drei Seiten mit Schild: Streufeuer über mehrere Sektoren
+    // bricht den ersten Systemschaden 3× später als konzentriertes Feuer, bei [4,2,0,2] nur 2×; die Lerche überlebt Fregatte/Kreuzer in den Bot-Läufen (Crew 2) deutlich öfter: docs-sys03/messung-baseline.md „Nach D“).
     // regenDelay: s ohne Schildregeneration eines Sektors nach JEDEM Treffer auf genau diesen Sektor (auch bei Schild 0 und bei Treffern am Schild vorbei); danach 1 Punkt je regenInterval s (shared/schilde.js, Regenerationspause).
-    shields: { pointsPerPower: 4, maxPerSector: 8, regenInterval: 2, regenDelay: 5, default: [4, 2, 0, 2] },
+    shields: { pointsPerPower: 6, maxPerSector: 8, regenInterval: 2, regenDelay: 5, default: [4, 4, 0, 4] },
 
     weapons: {
       lanze: { arc: 90, facing: 0, range: 520, damage: 2, charge: 3, autoFactor: 0.5 },
@@ -678,6 +679,7 @@
       integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, abgeleiteter Wert je Stufe)
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
       trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone. Sturm-Treffer haben ein eigenes, längeres Fenster (sturm.trefferFenster_s)
+      reaktorFenster_s: 6,        // s: eigenes Treffer-Fenster des Reaktors (SYS-03 D, Binär-Prüfung): zwei Stufen am Reaktor brauchen mindestens so lange (Lerche, Gegner, Verbündete gleich); ein Treffer im Fenster sucht ein anderes System der Mitte
       // SYS-02a (Kai 2026-10-28): Torpedo tut weh, gleiche Regel gegen Lerche und Gegner (Verbündete wie Gegner). Er wirkt nur auf ein Segment mit Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher
       // (keine Schadenszahl) und schlägt auf die Mitte durch: reaktorStufen Stufen am REAKTOR (1: zwei Torpedos zerstören ihn, der erste lässt ihn beschädigt; 2: ein Torpedo zerstört ihn; 0: kein Durchschlag).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).

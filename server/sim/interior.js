@@ -1152,7 +1152,7 @@ function syncInteg(game, sys) {
 // Geflicktes (ok, fragil) bricht beim Treffer direkt. Treffer-Fenster: ein System, das gerade eine Stufe verloren hat, verliert innerhalb von
 // systemModell.trefferFenster_s keine weitere (ship.trefferT[sys] = Ende des Fensters, nicht im Snapshot; Sturm-Treffer haben ein längeres Fenster, integritaet.js ART_STURM).
 function imFenster(game, sys) { return Integ.imFenster(game, game.ship.trefferT && game.ship.trefferT[sys]); }   // SYS-03 B2: dieselbe Fensterregel wie die Gegner (integritaet.js)
-function fensterStempeln(game, sys, art) { const T = game.ship.trefferT || (game.ship.trefferT = {}); T[sys] = Integ.fensterStempeln(game, T[sys], art); }
+function fensterStempeln(game, sys, art) { const T = game.ship.trefferT || (game.ship.trefferT = {}); T[sys] = Integ.fensterStempeln(game, T[sys], art, sys); }
 // Eine Stufe tiefer (Kern ohne Fenster: Torpedo-Durchschlag auf den Reaktor nutzt ihn direkt). opts.dauer: Dauerdruck bricht das Fracht-Beamen nicht ab. opts.art: Treffer-Art des Fensters (Integ.ART_STURM).
 // Rückgabe: { system, state } bei Zustandswechsel, sonst null.
 function stufeAb(game, sys, opts) {
