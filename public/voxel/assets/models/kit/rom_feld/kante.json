@@ -1,0 +1,20 @@
+{
+  "id": "kit/rom_feld/kante",
+  "name": "Rom-Feld – kante: Wallkante (Travertinfront, helle Oberkante mit Amberlinie, 0,75 m)",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": ["kit", "rom_feld", "kante"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "variants": {"frei": {"conn": 0}, "ende": {"conn": 2}, "ecke": {"conn": 6}, "t": {"conn": 7}, "kreuz": {"conn": 15}},
+  "params": {
+    "conn": {"default": 10, "min": 0, "max": 15, "step": 1, "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m)"},
+    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default": "aussenposten", "options": ["aussenposten", "station", "ruine", "schiff"], "label": "Kartenart"}
+  },
+  "ops": [
+    {"name": "Gerüst (Bauweise rom_feld) kante", "op": "use", "model": "kit/geruest/kante", "at": [2, 0, 2], "params": {"conn": "conn", "cut": "cut", "zustand": "zustand", "art": "{art}", "bauweise": "rom_feld", "seed": "seed"}}
+  ],
+  "anchor": [2, 0, 2]
+}

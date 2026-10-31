@@ -1,0 +1,20 @@
+{
+  "id": "kit/rom_feld/gemein/boden_fuge",
+  "name": "Rom-Feld-Steckplatz boden_fuge: belag 2 und 3, Fugen im 2-m-Raster (par = Lage im 2x2-Block)",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": ["rom_feld","slot","gemein","vox01"],
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "belag": {"default":3,"min":0,"max":3,"step":1,"label":"0 Grabensohle · 1 Wall-Rasen · 2 Platten dunkel · 3 Platten hell"},
+    "par": {"default":-1,"min":-1,"max":3,"step":1,"label":"Kachellage im 2x2-Block, -1 = unbekannt"}
+  },
+  "ops": [
+    {"name":"Fuge N (obere Kachelreihe des 2x2-Blocks)","op":"box","if":"belag >= 2 && (par < 0 || par < 2)","at":[0,0,0],"size":["w","h",1],"color":{"shade":"paving","f":0.9}},
+    {"name":"Fuge W (linke Kachelspalte des 2x2-Blocks)","op":"box","if":"belag >= 2 && (par < 0 || par % 2 == 0)","at":[0,0,0],"size":[1,"h","d"],"color":{"shade":"paving","f":0.9}}
+  ],
+  "anchor": [0,0,0]
+}

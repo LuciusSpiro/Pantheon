@@ -12,7 +12,7 @@
     "cut": {"default":0,"min":0,"max":1,"step":1,"label":"Geschnitten (1,25 m)"},
     "zustand": {"default":0,"min":0,"max":2,"step":1,"label":"0 intakt · 1 verfallen · 2 umkämpft"},
     "art": {"default":"station","options":["aussenposten","station","ruine","schiff"],"label":"Kartenart"},
-    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"}
+    "bauweise": {"default":"neutral","options":["neutral","test","germanen","rom","rom_feld","vorlaeufer","konkordat"],"label":"Bauweise (füllt die Steckplätze)"}
   },
   "variants": {
     "frei": {"conn":0},

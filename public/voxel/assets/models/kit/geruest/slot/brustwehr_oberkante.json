@@ -1,0 +1,134 @@
+{
+  "id": "kit/geruest/slot/brustwehr_oberkante",
+  "name": "Gerüst-Steckplatz brustwehr_oberkante (neutral): helle Klotzreihe",
+  "tier": "detail",
+  "palette": "base",
+  "tags": [
+    "geruest",
+    "slot",
+    "vox01"
+  ],
+  "jitter": 0,
+  "params": {
+    "w": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 6,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    }
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    {
+      "name": "Mitte",
+      "op": "box",
+      "at": [
+        6,
+        0,
+        6
+      ],
+      "size": [
+        4,
+        "h",
+        4
+      ],
+      "color": "stone_light"
+    },
+    {
+      "name": "Arm N",
+      "op": "box",
+      "if": "cn",
+      "at": [
+        6,
+        0,
+        0
+      ],
+      "size": [
+        4,
+        "h",
+        6
+      ],
+      "color": "stone_light"
+    },
+    {
+      "name": "Arm S",
+      "op": "box",
+      "if": "cs",
+      "at": [
+        6,
+        0,
+        10
+      ],
+      "size": [
+        4,
+        "h",
+        6
+      ],
+      "color": "stone_light"
+    },
+    {
+      "name": "Arm O",
+      "op": "box",
+      "if": "ce",
+      "at": [
+        10,
+        0,
+        6
+      ],
+      "size": [
+        6,
+        "h",
+        4
+      ],
+      "color": "stone_light"
+    },
+    {
+      "name": "Arm W",
+      "op": "box",
+      "if": "cw",
+      "at": [
+        0,
+        0,
+        6
+      ],
+      "size": [
+        6,
+        "h",
+        4
+      ],
+      "color": "stone_light"
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "sommer_wald",
+  "name": "Sommerwald (VOX-01 Entwurf): frisches Laubgrün, bläuliches Nadelgrün, Holz, Erde – erbt Rom-Technik",
+  "extends": "rom",
+  "roles": {
+    "grass": "#74A445",
+    "grass_dark": "#5E8C37",
+    "grass_light": "#93BE57",
+    "plant": "#56933C",
+    "plant_dark": "#3A6E2E",
+    "plant_light": "#86BE4E",
+    "nadel": "#58985C",
+    "nadel_dark": "#418052",
+    "nadel_light": "#7FBC6C",
+    "wood": "#9A6B42",
+    "wood_dark": "#6E4A2E",
+    "wood_light": "#C49A66",
+    "soil": "#9A7550",
+    "soil_dark": "#76573B",
+    "sand": "#D6C094",
+    "flower": "#EDD86A",
+    "flower2": "#E6E1F0"
+  }
+}

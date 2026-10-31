@@ -1,0 +1,48 @@
+{
+  "id": "natur/laubbaum",
+  "name": "Laubbaum (Sommer, Grobvoxel 25 cm) – seed wählt Typ: 0 hoch/eiförmig, 1 breit/rund, 2 schief/zweiteilig",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "jitter": 0,
+  "tags": ["natur", "baum", "laubbaum"],
+  "footprint": [1, 1],
+  "params": {
+    "teil": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 ganz · 1 nur Stamm · 2 nur Krone" }
+  },
+  "let": {
+    "typ": "floor(seed) % 3",
+    "rx": "typ == 0 ? 3.9 : (typ == 1 ? 5.1 : 3.9)",
+    "ry": "typ == 0 ? 6 : (typ == 1 ? 3.8 : 4.4)",
+    "yb": "typ == 2 ? 9 : 8",
+    "cy": "yb + ry",
+    "ox": "(hash(seed, 2) - 0.5) * 1.0",
+    "oz": "(hash(seed, 3) - 0.5) * 1.0",
+    "a": "hash(seed, 4) * 6.283",
+    "wd": "1.5 + hash(seed, 6) * 2.5",
+    "fh": "0.92 + hash(seed, 7) * 0.16",
+    "kx": "typ == 2 ? -1.2 : 0",
+    "kz": "typ == 2 ? 0.8 : 0"
+  },
+  "variants": {
+    "stamm": { "teil": 1 },
+    "krone": { "teil": 2 }
+  },
+  "ops": [
+    { "op": "box", "name": "Stammfuß", "if": "teil != 2", "at": [-1, 0, -1], "size": [2, 4, 2], "color": { "noise": ["wood", "wood_dark"], "weights": [2, 1], "cell": 1 } },
+    { "op": "line", "name": "Stamm", "if": "teil != 2", "from": [0, 3, 0], "to": ["kx + ox", "cy - 1", "kz + oz"], "r": 1, "color": { "noise": ["wood", "wood_dark"], "weights": [2, 1], "cell": 1 } },
+    { "op": "group", "name": "Krone", "if": "teil != 1", "ops": [
+      { "op": "ellipsoid", "name": "Kronenkörper", "at": ["kx + ox", "cy", "kz + oz"], "r": ["rx", "ry", "rx"],
+        "color": { "shade": { "noise": ["plant", "plant_dark"], "weights": ["wd", 1], "cell": 1 }, "f": "fh" } },
+      { "op": "ellipsoid", "name": "Lappen A", "at": ["kx + ox + cos(a) * rx * 0.5", "cy + ry * 0.15", "kz + oz + sin(a) * rx * 0.5"], "r": ["rx * 0.55", "ry * 0.7", "rx * 0.55"],
+        "color": { "shade": { "noise": ["plant", "plant_light", "plant_dark"], "weights": [3, 1, 1], "cell": 1 }, "f": "fh" } },
+      { "op": "ellipsoid", "name": "Lappen B", "at": ["kx + ox + cos(a + 3.3) * rx * 0.5", "cy - ry * 0.1", "kz + oz + sin(a + 3.3) * rx * 0.5"], "r": ["rx * 0.5", "ry * 0.65", "rx * 0.5"],
+        "color": { "shade": { "noise": ["plant", "plant_dark"], "weights": [2, 1], "cell": 1 }, "f": "fh" } },
+      { "op": "ellipsoid", "name": "Oberlappen", "if": "typ == 2", "at": ["kx + ox + 2.6", "cy + ry * 0.9", "kz + oz - 1.8"], "r": [3.1, 3.2, 3.1],
+        "color": { "shade": { "noise": ["plant", "plant_light"], "weights": [2, 1], "cell": 1 }, "f": "fh" } },
+      { "op": "ellipsoid", "name": "Licht oben", "half": "+y", "at": ["kx + ox + (typ == 2 ? 2.6 : 0)", "cy + ry * (typ == 2 ? 0.9 : 0.35)", "kz + oz - (typ == 2 ? 1.8 : 0)"], "r": ["rx * 0.62", "ry * (typ == 2 ? 0.8 : 0.65)", "rx * 0.62"],
+        "color": { "shade": { "noise": ["plant_light", "plant"], "weights": [2, 1], "cell": 1 }, "f": "fh" } },
+      { "op": "box", "name": "Schatten unten", "mode": "paint", "at": [-7, "cy - ry", -7], "size": [14, 2, 14], "color": { "shade": "plant_dark", "f": 0.95 } }
+    ] }
+  ],
+  "anchor": [0, 0, 0]
+}

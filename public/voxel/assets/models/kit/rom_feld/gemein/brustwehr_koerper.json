@@ -1,0 +1,593 @@
+{
+  "id": "kit/rom_feld/gemein/brustwehr_koerper",
+  "name": "Rom-Feld-Steckplatz brustwehr_koerper: Erdfuß, Holzpfähle, Messingband mit Amber-Nieten, Endpfosten",
+  "tier": "detail",
+  "palette": "sommer_wald",
+  "tags": [
+    "rom_feld",
+    "slot",
+    "gemein",
+    "vox01"
+  ],
+  "jitter": 0,
+  "notes": "VOX-01 Paket 3, Entwurf A (Pfahlreihe). Kasten 16 x 10 x 16 Voxel. Erzeugt von tools/gen-vox01-feld.mjs.",
+  "params": {
+    "w": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 10,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    }
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "hr": "max(ce, cw)",
+    "vr": "max(cn, cs)",
+    "both": "hr * vr",
+    "hs": "(both == 0 && (hr == 1 || conn == 0)) ? 1 : 0",
+    "vs": "(both == 0 && hr == 0 && vr == 1) ? 1 : 0"
+  },
+  "variants": {
+    "einzeln": {
+      "conn": 0
+    },
+    "ende_o": {
+      "conn": 2
+    },
+    "ende_w": {
+      "conn": 8
+    },
+    "gerade_ns": {
+      "conn": 5
+    },
+    "ecke_no": {
+      "conn": 3
+    },
+    "t": {
+      "conn": 7
+    },
+    "kreuz": {
+      "conn": 15
+    }
+  },
+  "ops": [
+    {
+      "name": "Fuß O-W gerade",
+      "op": "box",
+      "if": "hs",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        0,
+        0,
+        "k + 2"
+      ],
+      "size": [
+        16,
+        1,
+        "12 - 2 * k"
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß N-S gerade",
+      "op": "box",
+      "if": "vs",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        "k + 2",
+        0,
+        0
+      ],
+      "size": [
+        "12 - 2 * k",
+        1,
+        16
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß Knoten",
+      "op": "box",
+      "if": "both",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        "k + 2",
+        0,
+        "k + 2"
+      ],
+      "size": [
+        "12 - 2 * k",
+        1,
+        "12 - 2 * k"
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß Arm O",
+      "op": "box",
+      "if": "both && ce",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        8,
+        0,
+        "k + 2"
+      ],
+      "size": [
+        8,
+        1,
+        "12 - 2 * k"
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß Arm W",
+      "op": "box",
+      "if": "both && cw",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        0,
+        0,
+        "k + 2"
+      ],
+      "size": [
+        8,
+        1,
+        "12 - 2 * k"
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß Arm N",
+      "op": "box",
+      "if": "both && cn",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        "k + 2",
+        0,
+        0
+      ],
+      "size": [
+        "12 - 2 * k",
+        1,
+        8
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Fuß Arm S",
+      "op": "box",
+      "if": "both && cs",
+      "repeat": {
+        "count": 3,
+        "step": [
+          0,
+          1,
+          0
+        ],
+        "var": "k"
+      },
+      "at": [
+        "k + 2",
+        0,
+        8
+      ],
+      "size": [
+        "12 - 2 * k",
+        1,
+        8
+      ],
+      "color": {
+        "shade": "soil",
+        "f": "0.8 + k * 0.1"
+      }
+    },
+    {
+      "name": "Pfahl O-W",
+      "op": "box",
+      "if": "(i == 0 && (hs || both) && cw) || (i == 1 && (hs || (both && cw))) || (i == 2 && hs) || (i == 3 && (hs || (both && ce))) || (i == 4 && (hs || both) && ce)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        "max(4 * i - 1, 0)",
+        3,
+        6
+      ],
+      "size": [
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (ce ? 3 : 2) : 1)))",
+        7,
+        4
+      ],
+      "color": {
+        "gradient": [
+          "wood_dark",
+          "wood"
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Pfahl N-S",
+      "op": "box",
+      "if": "(i == 0 && (vs || both) && cn) || (i == 1 && (vs || (both && cn))) || (i == 2 && vs) || (i == 3 && (vs || (both && cs))) || (i == 4 && (vs || both) && cs)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        6,
+        3,
+        "max(4 * i - 1, 0)"
+      ],
+      "size": [
+        4,
+        7,
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (cs ? 3 : 2) : 1)))"
+      ],
+      "color": {
+        "gradient": [
+          "wood_dark",
+          "wood"
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Eckpfosten",
+      "op": "box",
+      "if": "both",
+      "at": [
+        6,
+        3,
+        6
+      ],
+      "size": [
+        4,
+        7,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten W",
+      "op": "box",
+      "if": "hs && cw == 0",
+      "at": [
+        0,
+        3,
+        6
+      ],
+      "size": [
+        2,
+        7,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten O",
+      "op": "box",
+      "if": "hs && ce == 0",
+      "at": [
+        14,
+        3,
+        6
+      ],
+      "size": [
+        2,
+        7,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten N",
+      "op": "box",
+      "if": "vs && cn == 0",
+      "at": [
+        6,
+        3,
+        0
+      ],
+      "size": [
+        4,
+        7,
+        2
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten S",
+      "op": "box",
+      "if": "vs && cs == 0",
+      "at": [
+        6,
+        3,
+        14
+      ],
+      "size": [
+        4,
+        7,
+        2
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Band O-W gerade",
+      "op": "box",
+      "if": "hs",
+      "at": [
+        0,
+        6,
+        10
+      ],
+      "size": [
+        16,
+        2,
+        1
+      ],
+      "color": "trim",
+      "mirror": "z",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Band O-W Arm W",
+      "op": "box",
+      "if": "both && cw",
+      "at": [
+        0,
+        6,
+        10
+      ],
+      "size": [
+        6,
+        2,
+        1
+      ],
+      "color": "trim",
+      "mirror": "z",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Band O-W Arm O",
+      "op": "box",
+      "if": "both && ce",
+      "at": [
+        10,
+        6,
+        10
+      ],
+      "size": [
+        6,
+        2,
+        1
+      ],
+      "color": "trim",
+      "mirror": "z",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Band N-S gerade",
+      "op": "box",
+      "if": "vs",
+      "at": [
+        10,
+        6,
+        0
+      ],
+      "size": [
+        1,
+        2,
+        16
+      ],
+      "color": "trim",
+      "mirror": "x",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Band N-S Arm N",
+      "op": "box",
+      "if": "both && cn",
+      "at": [
+        10,
+        6,
+        0
+      ],
+      "size": [
+        1,
+        2,
+        6
+      ],
+      "color": "trim",
+      "mirror": "x",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Band N-S Arm S",
+      "op": "box",
+      "if": "both && cs",
+      "at": [
+        10,
+        6,
+        10
+      ],
+      "size": [
+        1,
+        2,
+        6
+      ],
+      "color": "trim",
+      "mirror": "x",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Niete O-W",
+      "op": "box",
+      "repeat": {
+        "count": 4,
+        "step": [
+          4,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "if": "hs || (both && ((cw && i < 2) || (ce && i == 3)))",
+      "at": [
+        0,
+        7,
+        10
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false,
+      "mirror": "z",
+      "mirrorAt": 8
+    },
+    {
+      "name": "Niete N-S",
+      "op": "box",
+      "repeat": {
+        "count": 4,
+        "step": [
+          0,
+          0,
+          4
+        ],
+        "var": "i"
+      },
+      "if": "vs || (both && ((cn && i < 2) || (cs && i == 3)))",
+      "at": [
+        10,
+        7,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 8
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

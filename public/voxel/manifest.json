@@ -125,6 +125,11 @@
       "team": "ort-anker",
       "file": "ort-anker.json",
       "count": 13
+    },
+    {
+      "team": "vox01",
+      "file": "vox01.json",
+      "count": 6
     }
   ],
   "assets": {
@@ -4850,6 +4855,220 @@
       ],
       "source": "kit/rom/zaun",
       "team": "art-ru"
+    },
+    "kit/rom_feld/boden": {
+      "id": "kit/rom_feld/boden",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "belag": [
+          0,
+          3
+        ],
+        "par": [
+          -1,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "sohle": {
+          "belag": 0
+        },
+        "rasen": {
+          "belag": 1
+        },
+        "platten_dunkel": {
+          "belag": 2
+        },
+        "platten_hell": {
+          "belag": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom_feld",
+        "kit",
+        "boden"
+      ],
+      "source": "kit/rom_feld/boden",
+      "team": "vox01"
+    },
+    "kit/rom_feld/brustwehr": {
+      "id": "kit/rom_feld/brustwehr",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "sommer_wald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ende_w": {
+          "conn": 8
+        },
+        "gerade_ns": {
+          "conn": 5
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "ecke_no": {
+          "conn": 3
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 2200,
+      "tags": [
+        "rom_feld",
+        "kit",
+        "brustwehr",
+        "cover_low"
+      ],
+      "source": "kit/rom_feld/brustwehr",
+      "team": "vox01"
+    },
+    "kit/rom_feld/kante": {
+      "id": "kit/rom_feld/kante",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.75,
+      "facing": "+z",
+      "params": {
+        "conn": [
+          0,
+          15
+        ],
+        "cut": [
+          0,
+          1
+        ],
+        "zustand": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "frei": {
+          "conn": 0
+        },
+        "ende": {
+          "conn": 2
+        },
+        "ecke": {
+          "conn": 6
+        },
+        "t": {
+          "conn": 7
+        },
+        "kreuz": {
+          "conn": 15
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom_feld",
+        "kit",
+        "kante"
+      ],
+      "source": "kit/rom_feld/kante",
+      "team": "vox01"
+    },
+    "kit/rom_feld/rampe": {
+      "id": "kit/rom_feld/rampe",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "sommer_wald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.5,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "rom_feld",
+        "kit",
+        "rampe"
+      ],
+      "source": "kit/rom_feld/rampe",
+      "team": "vox01"
     },
     "leit/germanen/aussenposten/kraehenwacht_turm": {
       "id": "leit/germanen/aussenposten/kraehenwacht_turm",
@@ -10937,6 +11156,86 @@
       ],
       "source": "lerche/station/transfer",
       "team": "art-c"
+    },
+    "natur/laubbaum": {
+      "id": "natur/laubbaum",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        3,
+        3
+      ],
+      "height": 8,
+      "facing": "+z",
+      "params": {
+        "teil": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          4095
+        ]
+      },
+      "states": {
+        "stamm": {
+          "teil": 1
+        },
+        "krone": {
+          "teil": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1100,
+      "tags": [
+        "natur",
+        "baum",
+        "laubbaum"
+      ],
+      "source": "natur/laubbaum",
+      "team": "vox01"
+    },
+    "natur/nadelbaum": {
+      "id": "natur/nadelbaum",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        3,
+        3
+      ],
+      "height": 8,
+      "facing": "+z",
+      "params": {
+        "teil": [
+          0,
+          2
+        ],
+        "seed": [
+          0,
+          4095
+        ]
+      },
+      "states": {
+        "stamm": {
+          "teil": 1
+        },
+        "krone": {
+          "teil": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 1100,
+      "tags": [
+        "natur",
+        "baum",
+        "nadelbaum"
+      ],
+      "source": "natur/nadelbaum",
+      "team": "vox01"
     },
     "ort/germanen/aussenposten/deckung_blasebalg": {
       "id": "ort/germanen/aussenposten/deckung_blasebalg",

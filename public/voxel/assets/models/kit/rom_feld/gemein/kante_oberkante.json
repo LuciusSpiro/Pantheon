@@ -1,0 +1,19 @@
+{
+  "id": "kit/rom_feld/gemein/kante_oberkante",
+  "name": "Rom-Feld-Steckplatz kante_oberkante: helle Travertinplatte",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": ["rom_feld","slot","gemein","vox01"],
+  "notes": "VOX-01 Paket 3. Helle Oberkante (Pflicht), einfarbig; die Amberlinie sitzt in der obersten Körperreihe (kante_koerper).",
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":1,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "conn": {"default":0,"min":0,"max":15,"step":1}
+  },
+  "ops": [
+    {"name":"Oberkante hell","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"stone_light","f":1.05}}
+  ],
+  "anchor": [0,0,0]
+}

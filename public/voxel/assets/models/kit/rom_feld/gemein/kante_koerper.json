@@ -1,0 +1,27 @@
+{
+  "id": "kit/rom_feld/gemein/kante_koerper",
+  "name": "Rom-Feld-Steckplatz kante_koerper: Travertinfront mit dunklerer Sockelreihe und Amberlinie auf jeder freien Seite",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": ["rom_feld","slot","gemein","vox01"],
+  "notes": "VOX-01 Paket 3, Entwurf B (Wall). Keine Schauseite: Die Amberlinie (oberste Körperreihe) läuft auf jeder Seite ohne conn-Bit, also vorn und hinten an einer Reihe und an den Enden, nie quer durch Anschlüsse. Der Körper füllt den Kasten bis zur Kachelkante (Naht).",
+  "jitter": 0,
+  "params": {
+    "w": {"default":4,"min":1,"max":16,"step":1,"label":"Breite (Voxel)"},
+    "h": {"default":2,"min":1,"max":16,"step":1,"label":"Höhe (Voxel)"},
+    "d": {"default":4,"min":1,"max":4,"step":1,"label":"Tiefe (Voxel)"},
+    "conn": {"default":0,"min":0,"max":15,"step":1}
+  },
+  "let": {
+    "cn": "floor(conn) % 2", "ce": "floor(conn / 2) % 2", "cs": "floor(conn / 4) % 2", "cw": "floor(conn / 8) % 2"
+  },
+  "ops": [
+    {"name":"Travertin","op":"box","at":[0,0,0],"size":["w","h","d"],"color":{"shade":"stone","f":0.98}},
+    {"name":"Sockelreihe","op":"box","if":"h >= 2","at":[0,0,0],"size":["w",1,"d"],"color":{"shade":"stone_dark","f":1.05}},
+    {"name":"Amberlinie N","op":"box","if":"cn == 0 && h >= 2","at":[0,"h - 1",0],"size":["w",1,1],"color":{"role":"glow2","emit":0.9},"jitter":false},
+    {"name":"Amberlinie S","op":"box","if":"cs == 0 && h >= 2","at":[0,"h - 1","d - 1"],"size":["w",1,1],"color":{"role":"glow2","emit":0.9},"jitter":false},
+    {"name":"Amberlinie W","op":"box","if":"cw == 0 && h >= 2","at":[0,"h - 1",0],"size":[1,1,"d"],"color":{"role":"glow2","emit":0.9},"jitter":false},
+    {"name":"Amberlinie O","op":"box","if":"ce == 0 && h >= 2","at":["w - 1","h - 1",0],"size":[1,1,"d"],"color":{"role":"glow2","emit":0.9},"jitter":false}
+  ],
+  "anchor": [0,0,0]
+}

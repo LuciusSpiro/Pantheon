@@ -1,0 +1,501 @@
+{
+  "id": "kit/rom_feld/gemein/brustwehr_oberkante",
+  "name": "Rom-Feld-Steckplatz brustwehr_oberkante: helle Pfahlspitzen, Kappen der Endpfosten mit Amberlampe",
+  "tier": "detail",
+  "palette": "sommer_wald",
+  "tags": [
+    "rom_feld",
+    "slot",
+    "gemein",
+    "vox01"
+  ],
+  "jitter": 0,
+  "notes": "VOX-01 Paket 3. Kasten 16 x 6 x 16 Voxel ab y 10: Pfähle enden bei y 14 oder 16 (Höhe 0,875 bzw. 1,0 m), Endpfosten bei 1,0 m.",
+  "params": {
+    "w": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Breite (Voxel)"
+    },
+    "h": {
+      "default": 6,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Höhe (Voxel)"
+    },
+    "d": {
+      "default": 16,
+      "min": 1,
+      "max": 16,
+      "step": 1,
+      "label": "Tiefe (Voxel)"
+    },
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    }
+  },
+  "let": {
+    "cn": "floor(conn) % 2",
+    "ce": "floor(conn / 2) % 2",
+    "cs": "floor(conn / 4) % 2",
+    "cw": "floor(conn / 8) % 2",
+    "hr": "max(ce, cw)",
+    "vr": "max(cn, cs)",
+    "both": "hr * vr",
+    "hs": "(both == 0 && (hr == 1 || conn == 0)) ? 1 : 0",
+    "vs": "(both == 0 && hr == 0 && vr == 1) ? 1 : 0"
+  },
+  "variants": {
+    "einzeln": {
+      "conn": 0
+    },
+    "ende_o": {
+      "conn": 2
+    },
+    "gerade_ns": {
+      "conn": 5
+    },
+    "ecke_no": {
+      "conn": 3
+    },
+    "kreuz": {
+      "conn": 15
+    }
+  },
+  "ops": [
+    {
+      "name": "Schaftende O-W",
+      "op": "box",
+      "if": "(i == 0 && (hs || both) && cw) || (i == 1 && (hs || (both && cw))) || (i == 2 && hs) || (i == 3 && (hs || (both && ce))) || (i == 4 && (hs || both) && ce)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        "max(4 * i - 1, 0)",
+        0,
+        6
+      ],
+      "size": [
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (ce ? 3 : 2) : 1)))",
+        "2 * ((i + 1) % 2)",
+        4
+      ],
+      "color": {
+        "gradient": [
+          "wood_dark",
+          "wood"
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Spitze unten O-W",
+      "op": "box",
+      "if": "(i == 0 && (hs || both) && cw) || (i == 1 && (hs || (both && cw))) || (i == 2 && hs) || (i == 3 && (hs || (both && ce))) || (i == 4 && (hs || both) && ce)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        "max(4 * i - 1, 0)",
+        "2 * ((i + 1) % 2)",
+        6
+      ],
+      "size": [
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (ce ? 3 : 2) : 1)))",
+        2,
+        4
+      ],
+      "color": "wood_light"
+    },
+    {
+      "name": "Spitze oben O-W",
+      "op": "box",
+      "if": "(i == 0 && (hs || both) && cw) || (i == 1 && (hs || (both && cw))) || (i == 2 && hs) || (i == 3 && (hs || (both && ce))) || (i == 4 && (hs || both) && ce)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        "i == 4 ? 15 : 4 * i",
+        "2 * ((i + 1) % 2) + 2",
+        7
+      ],
+      "size": [
+        1,
+        2,
+        2
+      ],
+      "color": "wood_light"
+    },
+    {
+      "name": "Schaftende N-S",
+      "op": "box",
+      "if": "(i == 0 && (vs || both) && cn) || (i == 1 && (vs || (both && cn))) || (i == 2 && vs) || (i == 3 && (vs || (both && cs))) || (i == 4 && (vs || both) && cs)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        6,
+        0,
+        "max(4 * i - 1, 0)"
+      ],
+      "size": [
+        4,
+        "2 * ((i + 1) % 2)",
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (cs ? 3 : 2) : 1)))"
+      ],
+      "color": {
+        "gradient": [
+          "wood_dark",
+          "wood"
+        ],
+        "axis": "y"
+      }
+    },
+    {
+      "name": "Spitze unten N-S",
+      "op": "box",
+      "if": "(i == 0 && (vs || both) && cn) || (i == 1 && (vs || (both && cn))) || (i == 2 && vs) || (i == 3 && (vs || (both && cs))) || (i == 4 && (vs || both) && cs)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        6,
+        "2 * ((i + 1) % 2)",
+        "max(4 * i - 1, 0)"
+      ],
+      "size": [
+        4,
+        2,
+        "i == 0 ? 2 : (i == 1 ? (both ? 2 : 3) : (i == 2 ? 3 : (i == 3 ? (cs ? 3 : 2) : 1)))"
+      ],
+      "color": "wood_light"
+    },
+    {
+      "name": "Spitze oben N-S",
+      "op": "box",
+      "if": "(i == 0 && (vs || both) && cn) || (i == 1 && (vs || (both && cn))) || (i == 2 && vs) || (i == 3 && (vs || (both && cs))) || (i == 4 && (vs || both) && cs)",
+      "repeat": {
+        "count": 5,
+        "step": [
+          0,
+          0,
+          0
+        ],
+        "var": "i"
+      },
+      "at": [
+        7,
+        "2 * ((i + 1) % 2) + 2",
+        "i == 4 ? 15 : 4 * i"
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": "wood_light"
+    },
+    {
+      "name": "Eckpfosten Schaft",
+      "op": "box",
+      "if": "both",
+      "at": [
+        6,
+        0,
+        6
+      ],
+      "size": [
+        4,
+        5,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Eckpfosten Kappe",
+      "op": "box",
+      "if": "both",
+      "at": [
+        6,
+        5,
+        6
+      ],
+      "size": [
+        4,
+        1,
+        4
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Eckpfosten Lampe",
+      "op": "box",
+      "if": "both",
+      "at": [
+        7,
+        2,
+        9
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Endpfosten W Schaft",
+      "op": "box",
+      "if": "hs && cw == 0",
+      "at": [
+        0,
+        0,
+        6
+      ],
+      "size": [
+        2,
+        5,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten W Kappe",
+      "op": "box",
+      "if": "hs && cw == 0",
+      "at": [
+        0,
+        5,
+        6
+      ],
+      "size": [
+        2,
+        1,
+        4
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Endpfosten W Lampe",
+      "op": "box",
+      "if": "hs && cw == 0",
+      "at": [
+        0,
+        2,
+        9
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Endpfosten O Schaft",
+      "op": "box",
+      "if": "hs && ce == 0",
+      "at": [
+        14,
+        0,
+        6
+      ],
+      "size": [
+        2,
+        5,
+        4
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten O Kappe",
+      "op": "box",
+      "if": "hs && ce == 0",
+      "at": [
+        14,
+        5,
+        6
+      ],
+      "size": [
+        2,
+        1,
+        4
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Endpfosten O Lampe",
+      "op": "box",
+      "if": "hs && ce == 0",
+      "at": [
+        14,
+        2,
+        9
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Endpfosten N Schaft",
+      "op": "box",
+      "if": "vs && cn == 0",
+      "at": [
+        6,
+        0,
+        0
+      ],
+      "size": [
+        4,
+        5,
+        2
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten N Kappe",
+      "op": "box",
+      "if": "vs && cn == 0",
+      "at": [
+        6,
+        5,
+        0
+      ],
+      "size": [
+        4,
+        1,
+        2
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Endpfosten N Lampe",
+      "op": "box",
+      "if": "vs && cn == 0",
+      "at": [
+        7,
+        2,
+        1
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Endpfosten S Schaft",
+      "op": "box",
+      "if": "vs && cs == 0",
+      "at": [
+        6,
+        0,
+        14
+      ],
+      "size": [
+        4,
+        5,
+        2
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Endpfosten S Kappe",
+      "op": "box",
+      "if": "vs && cs == 0",
+      "at": [
+        6,
+        5,
+        14
+      ],
+      "size": [
+        4,
+        1,
+        2
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Endpfosten S Lampe",
+      "op": "box",
+      "if": "vs && cs == 0",
+      "at": [
+        7,
+        2,
+        15
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 1
+      },
+      "jitter": false
+    }
+  ],
+  "anchor": [
+    0,
+    0,
+    0
+  ]
+}

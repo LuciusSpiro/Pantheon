@@ -1,0 +1,47 @@
+{
+  "id": "natur/nadelbaum",
+  "name": "Nadelbaum (Fichte, Grobvoxel 25 cm) – seed wählt Typ: 0 hoch/schlank, 1 mittel, 2 niedrig/breit",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "jitter": 0,
+  "tags": ["natur", "baum", "nadelbaum"],
+  "footprint": [1, 1],
+  "params": {
+    "teil": { "default": 0, "min": 0, "max": 2, "step": 1, "label": "0 ganz · 1 nur Stamm · 2 nur Krone" }
+  },
+  "let": {
+    "typ": "floor(seed) % 3",
+    "n": "typ == 0 ? 5 : (typ == 1 ? 4 : 3)",
+    "hh": "(typ == 0 ? 30 : (typ == 1 ? 24 : 20)) + floor(hash(seed, 1) * 3) - 1",
+    "rmax": "typ == 0 ? 4.2 : (typ == 1 ? 5.2 : 5.8)",
+    "yb": 8,
+    "dy": "floor((hh - yb - 4) / n)",
+    "lx": 0,
+    "lz": 0,
+    "wl": "3.5 + hash(seed, 6) * 3",
+    "fh": "0.9 + hash(seed, 7) * 0.2"
+  },
+  "variants": {
+    "stamm": { "teil": 1 },
+    "krone": { "teil": 2 }
+  },
+  "ops": [
+    { "op": "box", "name": "Stamm", "if": "teil != 2", "at": [-1, 0, -1], "size": [2, "yb + dy * 2", 2], "color": { "noise": ["wood", "wood_dark"], "weights": [2, 1], "cell": 1 } },
+    { "op": "group", "name": "Etage", "if": "teil != 1",
+      "repeat": { "count": "n", "step": [0, 0, 0], "var": "i" },
+      "let": {
+        "y0": "yb + i * dy",
+        "rr": "2.2 + (rmax - 2.2) * (1 - i / (n - 1))",
+        "ox": "(hash(seed, i, 4) - 0.5) * 0.8",
+        "oz": "(hash(seed, i, 5) - 0.5) * 0.8"
+      },
+      "ops": [
+        { "op": "ellipsoid", "name": "Etage Kuppel", "half": "+y", "at": ["ox", "y0", "oz"], "r": ["rr", "dy * 0.85 + 1", "rr"],
+          "color": { "shade": { "noise": ["nadel", "nadel_dark"], "weights": ["wl", 1], "cell": 1 }, "f": "fh" } },
+        { "op": "ellipsoid", "name": "Etage Licht", "half": "+y", "at": ["ox", "y0 + 1", "oz"], "r": ["rr * 0.7", "dy * 0.85", "rr * 0.7"],
+          "color": { "shade": { "noise": ["nadel_light", "nadel"], "weights": [2, 1], "cell": 1 }, "f": "fh" } }
+      ] },
+    { "op": "ellipsoid", "name": "Wipfel", "if": "teil != 1", "half": "+y", "at": [0, "yb + n * dy - 1", 0], "r": [2.0, 3.8, 2.0], "color": { "shade": "nadel_light", "f": "fh" } }
+  ],
+  "anchor": [0, 0, 0]
+}

@@ -1,0 +1,23 @@
+{
+  "id": "kit/rom_feld/boden",
+  "name": "Rom-Feld – boden: Grabensohle (belag 0), Wall-Rasen (1), Platten dunkel (2), Platten hell (3)",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": ["kit", "rom_feld", "boden"],
+  "footprint": [1, 1],
+  "jitter": 0,
+  "notes": "VOX-01 Paket 3. Hülle um kit/geruest/boden mit bauweise rom_feld. Grabensohle = belag 0, Wall-Plateau = belag 1 (Rasen), Weg hinter der Wallkante = belag 3 (Platten hell) oder 2 (dunkel).",
+  "variants": {"sohle": {"belag": 0}, "rasen": {"belag": 1}, "platten_dunkel": {"belag": 2}, "platten_hell": {"belag": 3}},
+  "params": {
+    "conn": {"default": 10, "min": 0, "max": 15, "step": 1, "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"},
+    "cut": {"default": 0, "min": 0, "max": 1, "step": 1, "label": "Geschnitten (1,25 m)"},
+    "zustand": {"default": 0, "min": 0, "max": 2, "step": 1, "label": "0 intakt · 1 verfallen · 2 umkämpft"},
+    "art": {"default": "aussenposten", "options": ["aussenposten", "station", "ruine", "schiff"], "label": "Kartenart"},
+    "belag": {"default": 0, "min": 0, "max": 3, "step": 1, "label": "0 Grabensohle · 1 Wall-Rasen · 2 Platten dunkel · 3 Platten hell"},
+    "par": {"default": -1, "min": -1, "max": 3, "step": 1, "label": "Kachellage im 2x2-Block: x mod 2 + 2 * (y mod 2), -1 = unbekannt"}
+  },
+  "ops": [
+    {"name": "Gerüst (Bauweise rom_feld) boden", "op": "use", "model": "kit/geruest/boden", "at": [2, 1, 2], "params": {"conn": "conn", "cut": "cut", "zustand": "zustand", "art": "{art}", "belag": "belag", "bauweise": "rom_feld", "seed": "seed", "par": "par"}}
+  ],
+  "anchor": [2, 1, 2]
+}

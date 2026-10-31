@@ -1,0 +1,149 @@
+{
+  "id": "kit/geruest/brustwehr",
+  "name": "Bausatz-Gerüst – Brustwehr/Palisade (≤ 1,0 m, Stufe detail, helle Oberkante)",
+  "tier": "detail",
+  "palette": "base",
+  "tags": [
+    "kit",
+    "geruest",
+    "brustwehr"
+  ],
+  "footprint": [
+    1,
+    1
+  ],
+  "jitter": 0,
+  "slots": [
+    "brustwehr_koerper",
+    "brustwehr_oberkante"
+  ],
+  "notes": "VOX-01 Paket 3. Neues Gerüst-kind brustwehr nach dem Muster deckung_halb, aber Stufe detail (16 Voxel je Kachel). cut und zustand sind ohne Wirkung (nur für gleiche Aufrufer-Parameter).",
+  "params": {
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    },
+    "cut": {
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "ohne Wirkung"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "ohne Wirkung"
+    },
+    "art": {
+      "default": "aussenposten",
+      "options": [
+        "aussenposten",
+        "station",
+        "ruine",
+        "schiff"
+      ],
+      "label": "Kartenart"
+    },
+    "bauweise": {
+      "default": "neutral",
+      "options": [
+        "neutral",
+        "test",
+        "germanen",
+        "rom",
+        "rom_feld",
+        "vorlaeufer",
+        "konkordat"
+      ],
+      "label": "Bauweise (füllt die Steckplätze)"
+    }
+  },
+  "variants": {
+    "frei": {
+      "conn": 0
+    },
+    "ende": {
+      "conn": 2
+    },
+    "ende_w": {
+      "conn": 8
+    },
+    "gerade_ns": {
+      "conn": 5
+    },
+    "ecke": {
+      "conn": 6
+    },
+    "ecke_no": {
+      "conn": 3
+    },
+    "t": {
+      "conn": 7
+    },
+    "kreuz": {
+      "conn": 15
+    },
+    "probe": {
+      "bauweise": "neutral"
+    },
+    "probe_ecke": {
+      "bauweise": "neutral",
+      "conn": 6
+    }
+  },
+  "ops": [
+    {
+      "name": "Steckplatz brustwehr_koerper",
+      "op": "use",
+      "model": "kit/{bauweise}/{art}/brustwehr_koerper",
+      "fallback": [
+        "kit/{bauweise}/gemein/brustwehr_koerper",
+        "kit/geruest/slot/brustwehr_koerper"
+      ],
+      "at": [
+        0,
+        0,
+        0
+      ],
+      "params": {
+        "conn": "conn",
+        "seed": "seed",
+        "w": 16,
+        "h": 10,
+        "d": 16
+      }
+    },
+    {
+      "name": "Steckplatz brustwehr_oberkante",
+      "op": "use",
+      "model": "kit/{bauweise}/{art}/brustwehr_oberkante",
+      "fallback": [
+        "kit/{bauweise}/gemein/brustwehr_oberkante",
+        "kit/geruest/slot/brustwehr_oberkante"
+      ],
+      "at": [
+        0,
+        10,
+        0
+      ],
+      "params": {
+        "conn": "conn",
+        "seed": "seed",
+        "w": 16,
+        "h": 6,
+        "d": 16
+      }
+    }
+  ],
+  "anchor": [
+    8,
+    0,
+    8
+  ]
+}

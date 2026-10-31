@@ -1,0 +1,18 @@
+{
+  "id": "kit/rom_feld/rampe",
+  "name": "Rom-Feld – rampe: Wallrampe 0 bis 0,5 m, Platten mit Fugen und Randstein",
+  "tier": "detail",
+  "palette": "sommer_wald",
+  "tags": ["kit", "rom_feld", "rampe"],
+  "notes": "VOX-01 Paket 3. Das Teil bringt die Steigung selbst mit (0 am +z-Rand, 0,5 m am -z-Rand), steht also auf Bodenhöhe: im Spiel ohne zusätzliches Anheben und ohne Boden-Teil darunter setzen. Oben (hoch) liegt bei -z (Norden); Drehung über die Kachel-Ausrichtung des Spiels.",
+  "footprint": [1, 1],
+  "jitter": 0,
+  "variants": {},
+  "ops": [
+    {"name": "Rampe", "op": "wedge", "at": [0, 0, 0], "size": [16, 8, 16], "slope": "+z", "color": {"shade": "paving", "f": 1.0}},
+    {"name": "Fuge quer", "op": "box", "mode": "paint", "repeat": {"count": 3, "step": [0, 0, 4], "var": "i"}, "at": [1, 0, 4], "size": [14, 8, 1], "color": {"shade": "paving", "f": 0.88}},
+    {"name": "Randstein W", "op": "box", "mode": "paint", "at": [0, 0, 0], "size": [1, 8, 16], "color": {"shade": "stone_light", "f": 1.0}},
+    {"name": "Randstein O", "op": "box", "mode": "paint", "at": [15, 0, 0], "size": [1, 8, 16], "color": {"shade": "stone_light", "f": 1.0}}
+  ],
+  "anchor": [8, 0, 8]
+}

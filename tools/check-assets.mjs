@@ -102,7 +102,7 @@ const isLight = (id, e) => id === 'lerche/kit/light' || (e.tags || []).includes(
 const footprintExempt = (id) => /^lerche\/kit\/(light|window|plaque)$/.test(id) || isDach(id);
 // Handgehaltene Gegenstände (Pivot = Griff, Anker handR): keine Boden-/Grundflächen-/Höhenprüfung
 const isHeld = (id, e) => /^lerche\/item\//.test(id) || (e.tags || []).includes('held');
-const heightExempt = (id, e) => isDach(id) || /(^|\/)(wall\w*|window|door|door_sealed|shaft|shaft3|lift_portal|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock'].includes(t));
+const heightExempt = (id, e) => isDach(id) || /(^|\/)(wall\w*|window|door|door_sealed|shaft|shaft3|lift_portal|rock\w*|fels\w*|pillar|vault_gate)$/.test(id) || (e.tags || []).some((t) => ['wall', 'terrain', 'rock', 'baum'].includes(t));
 // Wand-/Türklasse der Bühnen (M4 §5 „außer Wände, Türen, Fenster, Säulen“, deutsche Kit-Namen aus CONTRACT-B1 §10.1):
 // statt 2,2 m gilt die Wandhöhe 3 m.
 const WALL_H = 3.0;

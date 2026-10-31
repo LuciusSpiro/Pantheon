@@ -1,0 +1,101 @@
+{
+  "id": "kit/rom_feld/brustwehr",
+  "name": "Rom-Feld – brustwehr: Palisade/Brustwehr (Holzpfähle auf Erdfuß, Messingband, Amber-Nieten, 1,0 m)",
+  "tier": "detail",
+  "palette": "sommer_wald",
+  "tags": [
+    "kit",
+    "rom_feld",
+    "brustwehr"
+  ],
+  "footprint": [
+    1,
+    1
+  ],
+  "jitter": 0,
+  "notes": "VOX-01 Paket 3, Entwurf A. conn absolut (N1 O2 S4 W8, N = -z), Kachel nicht drehen: Reihen in alle Richtungen, Ecken, T und Kreuz sind im Teil gebaut.",
+  "params": {
+    "conn": {
+      "default": 10,
+      "min": 0,
+      "max": 15,
+      "step": 1,
+      "label": "Nachbarn gleicher Klasse (N1 O2 S4 W8)"
+    },
+    "cut": {
+      "default": 0,
+      "min": 0,
+      "max": 1,
+      "step": 1,
+      "label": "ohne Wirkung"
+    },
+    "zustand": {
+      "default": 0,
+      "min": 0,
+      "max": 2,
+      "step": 1,
+      "label": "ohne Wirkung"
+    },
+    "art": {
+      "default": "aussenposten",
+      "options": [
+        "aussenposten",
+        "station",
+        "ruine",
+        "schiff"
+      ],
+      "label": "Kartenart"
+    }
+  },
+  "variants": {
+    "frei": {
+      "conn": 0
+    },
+    "ende": {
+      "conn": 2
+    },
+    "ende_w": {
+      "conn": 8
+    },
+    "gerade_ns": {
+      "conn": 5
+    },
+    "ecke": {
+      "conn": 6
+    },
+    "ecke_no": {
+      "conn": 3
+    },
+    "t": {
+      "conn": 7
+    },
+    "kreuz": {
+      "conn": 15
+    }
+  },
+  "ops": [
+    {
+      "name": "Gerüst (Bauweise rom_feld) brustwehr",
+      "op": "use",
+      "model": "kit/geruest/brustwehr",
+      "at": [
+        8,
+        0,
+        8
+      ],
+      "params": {
+        "conn": "conn",
+        "cut": "cut",
+        "zustand": "zustand",
+        "art": "{art}",
+        "bauweise": "rom_feld",
+        "seed": "seed"
+      }
+    }
+  ],
+  "anchor": [
+    8,
+    0,
+    8
+  ]
+}
