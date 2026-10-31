@@ -1,7 +1,7 @@
 {
   "format": "bauweise/1",
   "id": "rom_feld",
-  "hinweis": "VOX-01 5a. Rom im Feld (Grabenangriff, Wald, Wall): Kopie von rom.json, abweichend nur plateau (Wall-Rasen), kante (Wallkante), rampe (bringt die Steigung selbst mit), baum, brustwehr, grabensohle, Palette sommer_wald und Stimmung. Pflege: Änderungen an rom.json hier nachziehen (Kopie, wie germanen_halle_holz). Teile kit/rom_feld/* kommen aus dem Voxelwerk (assets/manifest/vox01.json).",
+  "hinweis": "VOX-01 5a. Rom im Feld (Grabenangriff, Wald, Wall): Kopie von rom.json, abweichend nur plateau (Wall-Rasen), kante (Wallkante), rampe (bringt die Steigung selbst mit), baum, brustwehr, grabensohle, Palette sommer_wald und Stimmung. Pflege: Änderungen an rom.json hier nachziehen (Kopie, wie germanen_halle_holz). VOX-01 5c: anker.aussicht (Wachposten-Aufbau auf dem Posten-Plateau) und anker.ziel für die Kartenart aussenposten (Bunkereingang als Fassade am Mauerblock) sind eigene Einträge; dreh/versatz sind feste Platzierung. Teile kit/rom_feld/* kommen aus dem Voxelwerk (assets/manifest/vox01.json).",
   "kits": {
     "boden": {
       "id": "kit/rom/boden",
@@ -177,7 +177,15 @@
     },
     "ziel": {
       "station": "ort/rom/gemein/feldstandarte",
-      "aussenposten": "ort/rom/gemein/feldstandarte",
+      "aussenposten": {
+        "id": "leit/rom/feld/bunkereingang",
+        "dreh": -90,
+        "versatz": [
+          0.51,
+          0.5
+        ],
+        "hinweis": "Fassade vor dem Mauerblock am Ziel, Front nach Westen (zu den Angreifern). Anker-Kachel = Tasche vor der Nische, Versatz zur Wandfläche des Blocks (Grabenkarte, Abschnitt eingang: Anker x 17 | y 17, Block ab x 18)."
+      },
       "*": "leit/rom/ruine/fahnenheiligtum"
     },
     "abholpunkt": {
@@ -189,6 +197,17 @@
       "station": "ort/rom/gemein/zelle",
       "aussenposten": "ort/rom/gemein/zelle",
       "*": "prop/rom/ruine/carcer"
+    },
+    "aussicht": {
+      "*": {
+        "id": "leit/rom/feld/wachposten",
+        "dreh": 0,
+        "versatz": [
+          0,
+          0
+        ],
+        "hinweis": "Aufbau auf dem flachen Posten-Plateau (3 x 1 Kacheln, Anker in der Mitte), Front nach Süden zur Kamera; keine Standhöhe, die Figur steht auf dem Plateau."
+      }
     }
   },
   "leit": {

@@ -5,6 +5,8 @@
 //   wall      Wall mit Kante, Plateau-Rasen und Rampe (wallplateau: Figur auf dem Plateau)
 //   wald      Wald mit Wegen
 //   wald2     Wald, dichte Stelle
+//   posten    (5c) Figur auf dem Wachposten-Plateau (Anker w1.posten.1, Aufbau mit Mast, Schirm, Standarte)
+//   bunker    (5c) Figur vor dem Bunkereingang (Portal vor dem Mauerblock am Ziel)
 //   krone-figur   (5b) eigene Figur unter dem Kronendach: Krone ausgeblendet, Figur sichtbar
 //   krone-gegner  (5b) Gegner unter einer Krone, Spieler daneben: Gegner sichtbar
 //   krone-leer    (5b) Wald ohne Figur darunter: Kronen da, Boden nicht düster (Spieler am Waldrand, Kronen im Bild)
@@ -22,7 +24,7 @@ const PORT = +arg('port', '3475');
 const SHOTS = arg('shots', path.join(os.tmpdir(), 'vox01-sicht'));
 const W = +arg('w', '1280'), H = +arg('h', '720');
 const STELLEN = {
-  landung: [6, 18], graben: [22, 16], wall: [31, 14], wallplateau: [30, 11], wald: [52, 17], wald2: [46, 7], eingang: [76, 18],
+  landung: [6, 18], graben: [22, 16], wall: [31, 14], wallplateau: [30, 11], wald: [52, 17], wald2: [46, 7], eingang: [76, 18], posten: [30, 11], posten2: [30, 24], bunker: [93, 17],
 };
 const KRONEN = ['krone-figur', 'krone-gegner', 'krone-leer'];
 const NUR = arg('stellen', null) ? arg('stellen', '').split(',') : Object.keys(STELLEN).concat(KRONEN);

@@ -1672,6 +1672,7 @@
   // Ausnahmen mit Grund (Manifest-Höhe gilt für die höchste Variante, die Deko-Streuung nutzt sie nicht):
   const SILHOUETTE_AUSNAHMEN = {
     'prop/germanen/gemein/kette': 'Deko streut Form 0 (liegend, < 0,2 m); 2 m nur hängend',
+    'leit/rom/feld/wachposten': 'VOX-01 5c: Aufbau auf dem flachen Posten-Plateau aus zwei schmalen Masten (0,25 m) und einem Schirm in der Nordhälfte, Standfläche in der Mitte frei (tools/test-vox01-kit.js prüft das); Posten bleibt flach, Aufbau macht ihn erkennbar (Entscheidung Kai)',
   };
   // Türrollen sitzen auf Tür-/Wandkacheln (Kit), lift/leiter sind Kabinen, in die man bewusst hineingeht.
   const SILHOUETTE_ROLLEN_FREI = { tor: 1, eingang: 1, versteck: 1, lift: 1, leiter: 1 };

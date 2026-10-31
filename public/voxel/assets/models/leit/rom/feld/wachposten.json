@@ -1,0 +1,245 @@
+{
+  "id": "leit/rom/feld/wachposten",
+  "name": "Rom-Feld – Wachposten: Aufbau für ein flaches 3 x 1-Plateau (Sensormast mit Clipeus, Sonnendach, Standarte)",
+  "tier": "architecture",
+  "palette": "sommer_wald",
+  "tags": [
+    "leit",
+    "rom_feld",
+    "posten",
+    "aussicht"
+  ],
+  "notes": "VOX-01 Paket 5c. Aufbau auf dem flachen Posten-Plateau der Grabenkarte (3 x 1 Kacheln, Plateauhöhe 0,5 m): y = 0 ist die Plateau-Oberkante, der Anker liegt in der Mitte der Grundfläche 3 x 1. Die Standfläche in der Mitte (x 5..7, frei von -0,25 m bis +0,5 m um den Anker bis 2,25 m Höhe) bleibt frei: links Sensormast mit Clipeus (Rundschild als Sensorspiegel, Weißlicht), rechts Standarte-Mast mit Sonnendach (Schirm 2,25 m hoch, ab 0,5 m rechts der Mitte, nur nach hinten/Norden, 2 Voxel tief) und Wimpel. Alles steht in der hinteren (Nord-)Hälfte (z 0..1 von 4), bis höchstens 3 m, so dass die Figur aus der Spielkamera (Blick von Süden, 57°) nicht verdeckt wird. Vorderseite +z. Kein Parameter: die Höhe der Figur bleibt Sache des Spiels (Plateau, keine Standhöhe).",
+  "footprint": [
+    3,
+    1
+  ],
+  "jitter": 0,
+  "variants": {},
+  "ops": [
+    {
+      "name": "Fuß Sensormast",
+      "op": "box",
+      "at": [
+        1,
+        0,
+        0
+      ],
+      "size": [
+        3,
+        1,
+        2
+      ],
+      "color": {
+        "shade": "stone_light",
+        "f": 1.05
+      }
+    },
+    {
+      "name": "Fußkante Sensormast",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        1,
+        0,
+        1
+      ],
+      "size": [
+        3,
+        1,
+        1
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Sensormast",
+      "op": "box",
+      "at": [
+        2,
+        1,
+        0
+      ],
+      "size": [
+        1,
+        9,
+        1
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Clipeus Rand",
+      "op": "cyl",
+      "at": [
+        2.5,
+        9.5,
+        1.5
+      ],
+      "r": 2.5,
+      "h": 1,
+      "axis": "z",
+      "color": "trim"
+    },
+    {
+      "name": "Clipeus Spiegel",
+      "op": "cyl",
+      "at": [
+        2.5,
+        9.5,
+        2.5
+      ],
+      "r": 1.7,
+      "h": 1,
+      "axis": "z",
+      "color": {
+        "shade": "metal_light",
+        "f": 1.1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Sensorauge",
+      "op": "box",
+      "at": [
+        2,
+        9,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow",
+        "emit": 0.7
+      },
+      "jitter": false
+    },
+    {
+      "name": "Fuß Standarte",
+      "op": "box",
+      "at": [
+        9,
+        0,
+        0
+      ],
+      "size": [
+        3,
+        1,
+        2
+      ],
+      "color": {
+        "shade": "stone_light",
+        "f": 1.05
+      }
+    },
+    {
+      "name": "Fußkante Standarte",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        9,
+        0,
+        1
+      ],
+      "size": [
+        3,
+        1,
+        1
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Standartenmast",
+      "op": "box",
+      "at": [
+        10,
+        1,
+        0
+      ],
+      "size": [
+        1,
+        10,
+        1
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Mastknauf",
+      "op": "box",
+      "at": [
+        10,
+        11,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow2",
+        "emit": 0.8
+      },
+      "jitter": false
+    },
+    {
+      "name": "Sonnendach",
+      "op": "box",
+      "at": [
+        8,
+        9,
+        0
+      ],
+      "size": [
+        4,
+        1,
+        2
+      ],
+      "color": {
+        "stripes": [
+          "primary",
+          "secondary"
+        ],
+        "axis": "x",
+        "period": 1
+      }
+    },
+    {
+      "name": "Sonnendach Kante",
+      "op": "box",
+      "mode": "paint",
+      "at": [
+        8,
+        9,
+        1
+      ],
+      "size": [
+        4,
+        1,
+        1
+      ],
+      "color": "trim"
+    },
+    {
+      "name": "Wimpel",
+      "op": "box",
+      "at": [
+        8,
+        10,
+        0
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": "primary"
+    }
+  ],
+  "anchor": [
+    6,
+    0,
+    2
+  ]
+}

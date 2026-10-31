@@ -41,6 +41,18 @@
       "params": { "teil": [0, 2], "seed": [0, 4095] },
       "states": { "stamm": { "teil": 1 }, "krone": { "teil": 2 } },
       "sockets": {}, "tint": [], "budgetTris": 1100, "tags": ["natur", "baum", "laubbaum"]
+    },
+    {
+      "id": "leit/rom/feld/wachposten", "kind": "model", "tier": "architecture", "palette": "sommer_wald",
+      "footprint": [3, 1], "height": 3, "facing": "+z",
+      "params": {},
+      "sockets": {}, "tint": [], "budgetTris": 600, "tags": ["rom_feld", "leit", "posten", "aussicht"]
+    },
+    {
+      "id": "leit/rom/feld/bunkereingang", "kind": "model", "tier": "architecture", "palette": "sommer_wald",
+      "footprint": [2, 1], "height": 3.5, "facing": "+z",
+      "params": {},
+      "sockets": {}, "tint": [], "budgetTris": 600, "tags": ["rom_feld", "leit", "bunker", "eingang"]
     }
   ]
 }

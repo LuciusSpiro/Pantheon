@@ -30,7 +30,7 @@ import * as DefaultLoader from './loader.js';
 import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
-import { KLASSE, connVon, hash2, eintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus } from './kit-regeln.js';
+import { KLASSE, connVon, hash2, eintragVon, ankerEintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
 // ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
@@ -657,16 +657,7 @@ async function bauKarte(parent, karteIn, opts) {
   };
   // anker[rolle][art|'*'] = ID | { id, <feste Parameter> } | { '*': ID, <platztyp>: ID } (Prop je Platztyp, Nachtrag)
   const platzTyp = new Map((k.plaetze || []).map((p) => [p.id, p.typ]));
-  const propEintrag = (rolle, platz) => {
-    const e = BW.anker && BW.anker[rolle];
-    if (!e) return null;
-    let v = typeof e === 'string' ? e : e[k.art] || e['*'] || null;
-    if (v && typeof v === 'object' && !v.id) {
-      const typ = platz ? platzTyp.get(platz) || String(platz).replace(/_\d+$/, '') : null;
-      v = (typ && v[typ]) || v['*'] || null;
-    }
-    return eintrag(v);
-  };
+  const propEintrag = (rolle, platz) => ankerEintragVon(BW, rolle, k.art, platz ? platzTyp.get(platz) || String(platz).replace(/_\d+$/, '') : null);
   const propId = (rolle, platz) => { const e = propEintrag(rolle, platz); return e ? e.id : null; };
   const kindsDa = new Set();
   for (let y = 0; y < k.h; y++) for (let x = 0; x < k.w; x++) kindsDa.add(k.kindAt(x, y));
@@ -1274,7 +1265,8 @@ async function bauKarte(parent, karteIn, opts) {
       };
     } else {
       const a = t.anker, zst = t.zustaende;
-      t.rot = facing(a.x, a.y);
+      const pe = propEintrag(a.rolle, a.platz);
+      t.rot = pe && pe.dreh != null ? pe.dreh * Math.PI / 180 : facing(a.x, a.y);   // fester Eintrag (dreh, Grad) gewinnt gegen die Drehung zur freien Nachbarkachel
       const fp = t.id && loader.manifest && loader.manifest(t.id) ? loader.manifest(t.id).footprint : null;
       t.off = [0, 0];
       if (fp && (fp[0] > 1 || fp[1] > 1)) {
@@ -1286,10 +1278,11 @@ async function bauKarte(parent, karteIn, opts) {
         const sz = walk(a.x, a.y + 1) && walk(a.x, a.y - 1) ? (a.y + 0.5 < cy ? 0.5 : -0.5) : walk(a.x, a.y + 1) || !walk(a.x, a.y - 1) ? 0.5 : -0.5;
         t.off = [fp[0] > 1 ? sx : 0, fp[1] > 1 ? sz : 0];
       }
+      if (pe && pe.versatz) t.off = pe.versatz;   // fester Versatz (Meter, Weltrichtung) gewinnt gegen den automatischen
       t.lift = BODEN_HOEHE[k.kindAt(a.x, a.y)] || 0;
       o.params = () => {
         const nm = ankerName(a);
-        const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (propEintrag(a.rolle, a.platz) || { fest: {} }).fest);
+        const p = Object.assign({ state: Math.max(0, zst.indexOf(nm)), zustand: zKit, art: k.art, seed: seedOf(a.x, a.y) }, (pe || { fest: {} }).fest);
         return p;
       };
     }

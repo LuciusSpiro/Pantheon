@@ -30,7 +30,9 @@ async function main() {
   ok(tab.rom_feld.format === 'bauweise/1' && tab.rom_feld.id === 'rom_feld', 'rom_feld.json: format, id');
   const sameKits = Object.keys(tab.rom.kits).filter((k) => !['plateau', 'kante', 'rampe', 'baum', 'brustwehr', 'grabensohle'].includes(k));
   ok(sameKits.length > 15 && sameKits.every((k) => JSON.stringify(tab.rom_feld.kits[k]) === JSON.stringify(tab.rom.kits[k])), `alles andere wie rom.json (${sameKits.length} Kit-Einträge gleich)`);
-  ok(['anker', 'leit', 'leit_fuss', 'deckung_props', 'weg_boden'].every((k) => JSON.stringify(tab.rom_feld[k]) === JSON.stringify(tab.rom[k])), 'anker, leit, leit_fuss, deckung_props, weg_boden wie rom.json');
+  ok(['leit', 'leit_fuss', 'deckung_props', 'weg_boden'].every((k) => JSON.stringify(tab.rom_feld[k]) === JSON.stringify(tab.rom[k])), 'leit, leit_fuss, deckung_props, weg_boden wie rom.json');
+  const ankerOhne5c = JSON.parse(JSON.stringify(tab.rom_feld.anker)); delete ankerOhne5c.aussicht; ankerOhne5c.ziel.aussenposten = tab.rom.anker.ziel.aussenposten;
+  ok(JSON.stringify(ankerOhne5c) === JSON.stringify(tab.rom.anker), 'anker wie rom.json, abweichend nur aussicht (neu) und ziel.aussenposten (VOX-01 5c)');
   ok(tab.rom_feld.paletten.art.aussenposten === 'sommer_wald' && man.has('kit/rom_feld/boden') && fs.existsSync(path.join(ROOT, 'public/voxel/assets/palettes/sommer_wald.json')), 'Palette sommer_wald (synchronisiert)');
   const E = (bw, kind, art = 'aussenposten') => R.eintragVon(tab[bw].kits[kind], art);
   const pl = E('rom_feld', 'plateau'), ra = E('rom_feld', 'rampe'), ka = E('rom_feld', 'kante'), gs = E('rom_feld', 'grabensohle'), bw = E('rom_feld', 'brustwehr'), ba = E('rom_feld', 'baum');
@@ -148,6 +150,40 @@ async function main() {
   const kit = fs.readFileSync(path.join(ROOT, 'public/js/voxel/kit.js'), 'utf8');
   ok(/from '\.\/kit-regeln\.js'/.test(kit) && !kit.includes('RUECKFALL_KIND') && kit.includes("'kit:krone:'") && kit.includes('kronenSchalten') && kit.includes('baumSetzen'), 'kit.js: nutzt kit-regeln.js, Kronen als eigene Meshes kit:krone:<zelle>, kronenSchalten, keine Rückfalltabelle');
   ok(/eigeneHoehe[\s\S]{0,700}floor: !eigen, lift: eigen \? 0 : hoeheOf\(kind\)/.test(kit), 'kit.js: Rampe mit eigener Höhe ohne floor und ohne lift');
+
+  console.log('\n[5c: Wachposten und Bunkereingang als Leitstücke (Anker-Einträge, Platzierung aus den Daten)]');
+  const AE = (bwId, rolle, art) => R.ankerEintragVon(tab[bwId], rolle, art, null);
+  const wp = AE('rom_feld', 'aussicht', 'aussenposten'), be = AE('rom_feld', 'ziel', 'aussenposten');
+  ok(wp && wp.id === 'leit/rom/feld/wachposten' && wp.dreh === 0 && wp.versatz.join() === '0,0' && Object.keys(wp.fest).length === 0, 'rom_feld, aussicht: Wachposten, Drehung 0 (Front nach Süden zur Kamera), Versatz 0; dreh/versatz sind META, keine Modellparameter');
+  ok(be && be.id === 'leit/rom/feld/bunkereingang' && be.dreh === -90 && be.versatz.length === 2 && Object.keys(be.fest).length === 0, 'rom_feld, ziel (Kartenart aussenposten): Bunkereingang mit Drehung -90 (Front nach Westen) und Versatz');
+  ok(['station', 'ruine', 'schiff'].every((art) => AE('rom_feld', 'aussicht', art).id === wp.id), 'rom_feld, aussicht: für jede Kartenart derselbe Wachposten (Schlüssel *)');
+  ok(AE('rom_feld', 'ziel', 'station').id === 'ort/rom/gemein/feldstandarte' && AE('rom_feld', 'ziel', 'ruine').id === 'leit/rom/ruine/fahnenheiligtum', 'rom_feld, ziel: Station und Ruine wie rom.json');
+  for (const b of ['rom', 'germanen']) for (const art of ['aussenposten', 'station', 'ruine', 'schiff']) {
+    const a = AE(b, 'aussicht', art), z = AE(b, 'ziel', art);
+    ok(!a && !(z && /leit\/rom\/feld/.test(z.id || '')), b + ', ' + art + ': weder Wachposten an aussicht noch Bunkereingang am ziel');
+  }
+  ok(R.ankerEintragVon(tab.rom_feld, 'gibtesnicht', 'aussenposten', null) === null && R.ankerEintragVon(null, 'ziel', 'aussenposten', null) === null, 'ankerEintragVon: unbekannte Rolle oder keine Tabelle gibt null');
+  const kaputt = R.eintragVon({ id: 'x', dreh: 'a', versatz: [1] }, 'aussenposten');
+  ok(kaputt.dreh === null && kaputt.versatz === null && R.eintragVon('x', 'aussenposten').dreh == null, 'eintragVon: dreh/versatz nur gültig als Zahl bzw. Zahlenpaar, sonst null');
+  ok(man.has('leit/rom/feld/wachposten') && man.get('leit/rom/feld/wachposten').footprint.join() === '3,1' && man.has('leit/rom/feld/bunkereingang') && man.get('leit/rom/feld/bunkereingang').footprint.join() === '2,1', 'Manifest: wachposten 3 x 1, bunkereingang 2 x 1');
+  // Platzierung in der Grabenkarte: Posten mittig auf dem 3 x 1-Plateau, Ziel vor einem festen Mauerblock
+  const zch = (x, y) => roh.rows[y] && roh.rows[y][x];
+  const aus = roh.anker.filter((a) => a.rolle === 'aussicht'), zi = roh.anker.filter((a) => a.rolle === 'ziel');
+  ok(aus.length === 2 && aus.every((a) => [-1, 0, 1].every((d) => zch(a.x + d, a.y) === '^' && zch(a.x + d, a.y - 1) === 'k' && zch(a.x + d, a.y + 1) === 'k') && zch(a.x - 2, a.y) !== '^' && zch(a.x + 2, a.y) !== '^'), 'beide aussicht-Anker in der Mitte eines Plateaus 3 x 1, Kante k darüber und darunter');
+  ok(zi.length === 1 && [1, 2, 3, 4].every((d) => zch(zi[0].x + d, zi[0].y) === '#' && zch(zi[0].x + d, zi[0].y + 1) === '#') && zch(zi[0].x, zi[0].y - 1) === '#' && zch(zi[0].x, zi[0].y + 2) === '#' && zch(zi[0].x - 1, zi[0].y) !== '#', 'ziel-Anker: davor offene Tasche, östlich feste Wandkacheln # (4 x 2), Wand darüber und darunter');
+  // Modelle im Voxelwerk-Kern vermessen (Voxel 25 cm, Koordinaten relativ zum Anker)
+  for (const id of ['leit/rom/feld/wachposten', 'leit/rom/feld/bunkereingang']) await lib.load('models', id);
+  const zellenVon = (b) => { const out = [], qq = b.grid.bounds(); for (let x = qq.min[0]; x <= qq.max[0]; x++) for (let y = qq.min[1]; y <= qq.max[1]; y++) for (let z = qq.min[2]; z <= qq.max[2]; z++) if (b.grid.has(x, y, z)) out.push([x - b.anchor[0], y - b.anchor[1], z - b.anchor[2]]); return out; };
+  const wpb = build('leit/rom/feld/wachposten', { seed: 5 }), bub = build('leit/rom/feld/bunkereingang', { seed: 5 });
+  const wz = zellenVon(wpb), bz = zellenVon(bub), wm = bb(wpb), bm = bb(bub);
+  ok(wm.x0 === -6 && wm.x1 === 6 && wm.z0 === -2 && wm.z1 === 2 && wm.y1 <= 12 && wm.y1 >= 8 && tris(wpb) <= 600, `wachposten: Grundfläche 3 x 1 m (x ${wm.x0}..${wm.x1}, z ${wm.z0}..${wm.z1} Voxel), Höhe ${wm.y1 / 4} m (höchstens 3 m), ${tris(wpb)} Dreiecke`);
+  ok(wz.length > 50 && wz.filter(([x, y, z]) => x >= -1 && x <= 1 && z >= -1 && y >= 1 && y < 9).length === 0, 'wachposten: Standfläche frei (x -0,25..+0,5 m, ab z -0,25 m nach vorn, bis 2,25 m Höhe): nichts steht neben oder über der Figur');
+  ok(wz.filter(([x, y, z]) => y >= 9 && x >= -1 && x <= 1).length === 0, 'wachposten: über der Figur (x -0,25..+0,5 m) nichts ab 2,25 m, Sonnendach und Wimpel stehen seitlich');
+  ok(wz.filter(([x, y, z]) => y >= 1 && z > 0).every(([x, y]) => x <= -3 && y >= 7), 'wachposten: vor der Mittellinie (nach Süden) liegt nur der Clipeus (links, ab 1,75 m), alles andere in der hinteren Hälfte');
+  ok(bm.x0 === -4 && bm.x1 === 4 && bm.z0 === -2 && bm.z1 === 2 && bm.y1 >= 12 && bm.y1 <= 14 && tris(bub) <= 600, `bunkereingang: 2 m breit, 0,5 m hinter und 0,5 m vor der Wandfläche (z ${bm.z0}..${bm.z1} Voxel), Höhe ${bm.y1 / 4} m, ${tris(bub)} Dreiecke`);
+  ok(bz.filter(([x, y, z]) => z >= 1 && y < 12).every(([x, y, z]) => z === 1 || (z === 2 && (x < -3 || x > 2 || y >= 10))), 'bunkereingang: vor der Wandfläche (z > 0) höchstens Relief 0,25 m (Torfeld), 0,5 m nur an den Pilastern und am Gesims (über dem Kopf)');
+  const kitSrc = fs.readFileSync(path.join(ROOT, 'public/js/voxel/kit.js'), 'utf8');
+  ok(kitSrc.includes('ankerEintragVon(BW, rolle') && /pe\.dreh != null/.test(kitSrc) && /pe\.versatz/.test(kitSrc) && !/leit\/rom\/feld|bunkereingang|wachposten|grabenangriff/.test(kitSrc.replace(/\/\/.*$/gm, '')), 'kit.js: Platzierung nur über die Bauweisen-Tabelle (ankerEintragVon, dreh, versatz), keine Karten- oder Modellnamen im Code');
 
   console.log(`\n${n - fails}/${n} ok`);
   if (fails) { console.log('VERFEHLT: ' + fails); process.exit(1); }

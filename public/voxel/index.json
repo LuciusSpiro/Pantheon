@@ -402,6 +402,8 @@
   "leit/germanen/station/hochsitz_halle",
   "leit/germanen/station/schmiedeherd",
   "leit/rom/aussenposten/statue_platz",
+  "leit/rom/feld/bunkereingang",
+  "leit/rom/feld/wachposten",
   "leit/rom/ruine/fahnenheiligtum",
   "leit/rom/ruine/wachturm_ruine",
   "lerche/actor/bot",

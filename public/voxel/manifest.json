@@ -129,7 +129,7 @@
     {
       "team": "vox01",
       "file": "vox01.json",
-      "count": 6
+      "count": 8
     }
   ],
   "assets": {
@@ -5061,7 +5061,7 @@
       },
       "sockets": {},
       "tint": [],
-      "budgetTris": 300,
+      "budgetTris": 600,
       "tags": [
         "rom_feld",
         "kit",
@@ -5540,6 +5540,54 @@
       "notes": "Statue für die Platzmitte der Siedlung (3×3, ≈3,06 m): zwei Marmorstufen, Pfeiler mit Goldband und rotem Tuchfeld je Seite, Marmorfigur in Toga mit erhobenem Arm, Lorbeerreif und Plinthe Gold (trim), Schultertuch rot (cloth). Höhe > 2,2 m: Leitstück-Ausnahme.",
       "source": "leit/rom/aussenposten/statue_platz",
       "team": "art-ap"
+    },
+    "leit/rom/feld/bunkereingang": {
+      "id": "leit/rom/feld/bunkereingang",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        2,
+        1
+      ],
+      "height": 3.5,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom_feld",
+        "leit",
+        "bunker",
+        "eingang"
+      ],
+      "source": "leit/rom/feld/bunkereingang",
+      "team": "vox01"
+    },
+    "leit/rom/feld/wachposten": {
+      "id": "leit/rom/feld/wachposten",
+      "kind": "model",
+      "tier": "architecture",
+      "palette": "sommer_wald",
+      "footprint": [
+        3,
+        1
+      ],
+      "height": 3,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "rom_feld",
+        "leit",
+        "posten",
+        "aussicht"
+      ],
+      "source": "leit/rom/feld/wachposten",
+      "team": "vox01"
     },
     "leit/rom/ruine/fahnenheiligtum": {
       "id": "leit/rom/ruine/fahnenheiligtum",
@@ -11163,10 +11211,10 @@
       "tier": "architecture",
       "palette": "sommer_wald",
       "footprint": [
-        3,
-        3
+        2,
+        2
       ],
-      "height": 8,
+      "height": 5,
       "facing": "+z",
       "params": {
         "teil": [
@@ -11203,10 +11251,10 @@
       "tier": "architecture",
       "palette": "sommer_wald",
       "footprint": [
-        3,
-        3
+        2,
+        2
       ],
-      "height": 8,
+      "height": 6.5,
       "facing": "+z",
       "params": {
         "teil": [

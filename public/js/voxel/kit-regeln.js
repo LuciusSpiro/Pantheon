@@ -26,9 +26,11 @@ export function hash2(x, y, s) {
 // META-Felder sind keine Modellparameter. palette = Palette für dieses Teil (statt der Karten-Palette, z. B. Bäume in rom/germanen),
 // nadel/laub/nadelAnteil/seeds = Baumwahl, eigene_hoehe = das Teil bringt seine Höhe selbst mit (kein Absenken, kein Anheben),
 // sockel_inset = Einzug des Plateau-Unterbaus (m) gegen Z-Flimmern mit den Seitenflächen des Teils, hoch_zu = Kachelarten, zu denen hin ein Teil mit eigener Steigung dreht (Rampe).
+// Nur für Anker-Props (VOX-01 5c): dreh = feste Drehung in Grad (Front +z; +90 = Front nach Osten, -90 = nach Westen, 0 = nach Süden), statt der Drehung zur freien Nachbarkachel;
+// versatz = [dx, dz] in Metern, Weltrichtung (x Ost, z Süd), vom Kachelmittelpunkt des Ankers aus, statt des automatischen Versatzes für Props über 1 x 1.
 export const META = {
   id: 1, je_art: 1, terrain: 1, leer: 1, hoehe: 1, top: 1, fill: 1, steinDichte: 1, hinweis: 1,
-  sockel_inset: 1, palette: 1, nadel: 1, laub: 1, nadelAnteil: 1, seeds: 1, eigene_hoehe: 1, hoch_zu: 1,
+  sockel_inset: 1, palette: 1, nadel: 1, laub: 1, nadelAnteil: 1, seeds: 1, eigene_hoehe: 1, hoch_zu: 1, dreh: 1, versatz: 1,
 };
 export function eintragVon(e, art) {
   if (!e) return null;
@@ -40,7 +42,20 @@ export function eintragVon(e, art) {
     id: m.id || null, fest, terrain: !!m.terrain, leer: !!m.leer, hoehe: m.hoehe, top: m.top, fill: m.fill, steinDichte: m.steinDichte,
     palette: m.palette || null, nadel: m.nadel || null, laub: m.laub || null, nadelAnteil: m.nadelAnteil, seeds: m.seeds,
     sockelInset: m.sockel_inset == null ? 0 : +m.sockel_inset, eigeneHoehe: !!m.eigene_hoehe, hochZu: Array.isArray(m.hoch_zu) ? m.hoch_zu : null,
+    dreh: Number.isFinite(m.dreh) ? m.dreh : null, versatz: Array.isArray(m.versatz) && m.versatz.length === 2 && m.versatz.every(Number.isFinite) ? m.versatz : null,
   };
+}
+
+/**
+ * Eintrag der Bauweisen-Tabelle für eine Anker-Rolle (anker.<rolle>): String, Objekt { id, <feste Parameter>, dreh?, versatz? } oder Tabelle je Kartenart
+ * ({ <art>: …, '*': … }) bzw. je Platztyp ({ '*': ID, <platztyp>: ID }). → eintragVon(…) oder null. platzTyp = Platztyp des Ankers (oder null).
+ */
+export function ankerEintragVon(bw, rolle, art, platzTyp) {
+  const e = bw && bw.anker && bw.anker[rolle];
+  if (!e) return null;
+  let v = typeof e === 'string' ? e : e[art] || e['*'] || null;
+  if (v && typeof v === 'object' && !v.id) v = (platzTyp && v[platzTyp]) || v['*'] || null;
+  return eintragVon(v, art);
 }
 
 /** Alle Modell-IDs, die ein Eintrag braucht (Vorladen): id, bei Bäumen auch nadel und laub. */
