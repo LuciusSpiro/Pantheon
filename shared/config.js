@@ -584,7 +584,7 @@
       dodgeWindow: 0.8,   // s: endet eine Ladung so kurz nach einem Ausweichen, verfehlt der schwere Treffer
       // Lanze als Ladewaffe (ersetzt Zielphase; mounts.bow.damage und aim* sind nur noch Altnamen)
       lance: { chargeTime: 2.3, minDamage: 3, maxDamage: 12, width: 10, autoPower: 0.5, damagedTimeFactor: 1.5, damagedMaxFactor: 0.75,
-        vollAb: 1 },   // SYS-03 B2: Anteil der Ladung (0..1), ab dem der Schuss eine Vollladung ist: durchschlägt den Schild, trifft die Mitte und ZERSTÖRT das getroffene System (darunter: Teilladung, eine Stufe)
+        vollAb: 1 },   // SYS-03 B2: Anteil der Ladung (0..1), ab dem der Schuss eine Vollladung ist: durchschlägt den Schild, trifft die Mitte und ZERSTÖRT das getroffene System, der Reaktor ausgenommen: er kostet systemModell.lanze.reaktorStufen Stufen und beachtet das Reaktor-Fenster (SYS-03 N1) (darunter: Teilladung, eine Stufe)
       batteryBeamTtl: 0.4,   // s: Lebensdauer eines Batterie-Strahls (vorher beamTtl × 0,6 = 0,15 s – im Client unsichtbar, §20.1)
       // ---- §21.1 Allstopp (cmd helm.stop): Bremsleistung in px/s², Standard = ship.accel (50). Kein Wert -> ship.accel.
       fullStop: { brake: 50 },
@@ -684,6 +684,9 @@
       // (keine Schadenszahl) und schlägt auf die Mitte durch: reaktorStufen Stufen am REAKTOR (1: zwei Torpedos zerstören ihn, der erste lässt ihn beschädigt; 2: ein Torpedo zerstört ihn; 0: kein Durchschlag).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
       torpedo: { reaktorStufen: 1 },
+      // SYS-03 N1 (Kai 2026-10-31): Lanze-Vollladung gegen Gegner/Verbündete zerstört jedes System der Mitte, den REAKTOR aber nur um reaktorStufen Stufen (1 = eine Stufe, 2 = zerstört wie bisher, 0 = die Vollladung trifft den Reaktor nicht);
+      // im Reaktor-Fenster (reaktorFenster_s) ist der Reaktor kein Ziel, die Vollladung zerstört dann ein anderes System der Mitte. Per `tune systemModell.lanze.reaktorStufen`.
+      lanze: { reaktorStufen: 1 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
       // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). SYS-03 B2: Sturm bei Schild 0 = Direkttreffer (eine Stufe, Treffer-Fenster), bei 0 < Schild ≤ niedrig Chance systemChance (Katalog) auf eine Stufe; keine Punktfaktoren mehr.

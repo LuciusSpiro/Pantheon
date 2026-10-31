@@ -1,6 +1,6 @@
 'use strict';
 // SYS-03 D-Nacharbeit: Regressionstest Reaktor-Fenster (systemModell.reaktorFenster_s, Binär-Prüfung) für Lerche, ALLE Gegnerklassen und Verbündete (Korvette, Fregatte):
-// beschädigt -> zerstört dauert beim Reaktor mindestens das Reaktor-Fenster (6,0 s), egal wie dicht die Treffer kommen; Torpedo und Lanze-Vollladung ignorieren das Fenster.
+// beschädigt -> zerstört dauert beim Reaktor mindestens das Reaktor-Fenster (6,0 s), egal wie dicht die Treffer kommen; Der Torpedo ignoriert das Fenster, die Lanze-Vollladung beachtet es am Reaktor (SYS-03 N1: eine Stufe, im Fenster ein anderes System der Mitte).
 // Ein Fenster, das nur für die Lerche (oder nur für Gegner) gilt, macht den Test rot (Mutationsbeleg im Bericht).
 //   node tools/test-reaktor-fenster.js
 const CONFIG = require('../shared/config.js');
@@ -107,12 +107,16 @@ console.log('\n[Torpedo und Vollladung ignorieren das Fenster]');
   space.damageEnemy(g, e, 5, e.x + 300, e.y, { torpedo: true, huelle: true, nurOhneSchild: true });
   ok(a === 'damaged' && e.sys[rid].z === 'broken', 'Fregatte: zwei Torpedos im Abstand 0,1 s: ' + a + ' -> ' + e.sys[rid].z);
 }
-{
-  const g = raum(); const e = space.spawnEnemy(g, 'fregatte', { x: 1500, y: 500, facing: 0 });
+console.log('\n[Lanze-Vollladung beachtet das Reaktor-Fenster (SYS-03 N1)]');
+for (const kind of ['raider', 'korvette', 'fregatte', 'kreuzer']) {
+  const g = raum(); const e = space.spawnEnemy(g, kind, { x: 1500, y: 500, facing: 0 });
   frisch(e); const rid = Gsys.idVon(e, 'reaktor');
   space.damageEnemy(g, e, 5, e.x + 300, e.y, { durchschlag: 'zone' }); const a = e.sys[rid].z; g.time += 0.5;
   space.damageEnemy(g, e, 5, e.x + 300, e.y, { durchschlag: 'zone', vollladung: true });
-  ok(a === 'damaged' && e.sys[rid].z === 'broken', 'Fregatte: Lanze-Vollladung 0,5 s nach dem ersten Treffer: ' + a + ' -> ' + e.sys[rid].z);
+  ok(a === 'damaged' && e.sys[rid].z === 'damaged', kind + ': Lanze-Vollladung 0,5 s nach dem ersten Treffer: Reaktor bleibt beschädigt (' + a + ' -> ' + e.sys[rid].z + ')');
+  g.time += RF;
+  space.damageEnemy(g, e, 5, e.x + 300, e.y, { durchschlag: 'zone', vollladung: true });
+  ok(e.sys[rid].z === 'broken', kind + ': Lanze-Vollladung nach Ablauf des Fensters: Reaktor zerstört (' + e.sys[rid].z + ')');
 }
 
 console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'alle ' + n + ' Prüfungen grün') + ' (test-reaktor-fenster)');

@@ -763,9 +763,9 @@ section('Lanze als Ladewaffe (§20.3)', () => {
   let lanceBeam = null;
   cmd(0, 'weapons.charge', { mount: 'bow', on: false });
   lanceBeam = g.space.beams.find((b) => b.kind === 'lance');
-  // SYS-03 B2: die Vollladung zerstört das getroffene System der Mitte (eine Stufe je Treffer gilt für die Teilladung)
-  const zerstoert = Gsys.ids(e).filter((id) => e.sys[id].z === 'broken');
-  ok(e.sysTreffer === 1 && zerstoert.length === 1 && Gsys.defOf(e.kind, zerstoert[0]).zone === 'mitte' && !mountOf(g, 'bow').charging && mountOf(g, 'bow').charge < 0.05, `loslassen: Vollladung zerstört ein System der Mitte (${zerstoert.join()}), Bereitschaft 0`);
+  // SYS-03 B2: die Vollladung zerstört das getroffene System der Mitte (eine Stufe je Treffer gilt für die Teilladung); SYS-03 N1: der Reaktor kostet nur eine Stufe (beschädigt)
+  const zerstoert = Gsys.ids(e).filter((id) => e.sys[id].z !== 'ok');
+  ok(e.sysTreffer === 1 && zerstoert.length === 1 && Gsys.defOf(e.kind, zerstoert[0]).zone === 'mitte' && e.sys[zerstoert[0]].z === (Gsys.artVon(e, zerstoert[0]) === 'reaktor' ? 'damaged' : 'broken') && !mountOf(g, 'bow').charging && mountOf(g, 'bow').charge < 0.05, `loslassen: Vollladung zerstört ein System der Mitte, der Reaktor nur eine Stufe (${zerstoert.join()}), Bereitschaft 0`);
   const ev = events('lance').find((x) => x.state === 'fire');
   ok(ev && ev.power === 1 && ev.hit === e.id && events('sfx').some((x) => x.name === 'lance_fire' && x.power === 1), 'Ereignis lance { fire, power 1, hit id }, sfx lance_fire { power }');
   ok(lanceBeam && !lanceBeam.miss && near(Math.hypot(lanceBeam.x2 - lanceBeam.x1, lanceBeam.y2 - lanceBeam.y1), 400 - 34, 25), 'Strahl lance bis zum Gegner');

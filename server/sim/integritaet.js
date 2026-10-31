@@ -54,6 +54,12 @@ function torpedoStufen(game) {
   return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
 }
 
+// SYS-03 N1: Lanze-Vollladung auf den Reaktor in ganzen Stufen (systemModell.lanze.reaktorStufen: 1 = eine Stufe, 2 = zerstoert wie jedes andere System, 0 = der Reaktor wird von der Vollladung nicht getroffen). Nur Gegner und Verbuendete (die Lerche wird nicht von einer Lanze getroffen).
+function lanzeReaktorStufen(game) {
+  const v = Number((sysModell(game).lanze || {}).reaktorStufen);
+  return Number.isFinite(v) ? Math.max(0, Math.floor(v)) : 1;
+}
+
 // Dauerdruck der Zonen (zonen.js, Lerche je Sektor; Gegner und Verbuendete je Koerper): Punkte ohne Schild sammeln sich im Zaehler z = { n, t }, eine Stufe je zonen.druckPunkte.
 // Der Zaehler verfaellt (n = 0), sobald zonen.druckAbkling_s lang kein Druck mehr auf das Ziel wirkte. "Druck wirkt" heisst: Restpunkte ohne Schild erreichen ein System (druckSammeln). Haelt der Schild
 // (Schild > 0, kein Resttreffer), wirkt kein Druck: auch dann laeuft die Frist ab. Der Verfall gilt ab dem naechsten Zugriff (druckStand liefert den Wert mit Verfall).
@@ -77,4 +83,4 @@ function druckSammeln(game, z, punkte) {
   return true;
 }
 
-module.exports = { stufeVon, grundwertVon, naechsteStufe, ART_STURM, fensterDauer, fensterStempeln, imFenster, damagedAnteil, torpedoStufen, druckNeu, druckZaehler, druckStand, druckSammeln };
+module.exports = { stufeVon, grundwertVon, naechsteStufe, ART_STURM, fensterDauer, fensterStempeln, imFenster, damagedAnteil, torpedoStufen, lanzeReaktorStufen, druckNeu, druckZaehler, druckStand, druckSammeln };

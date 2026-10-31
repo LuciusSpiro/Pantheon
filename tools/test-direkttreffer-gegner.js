@@ -5,6 +5,7 @@
 // Abgedeckt: alle Gegnerklassen (Jäger, Korvette, Fregatte, Kreuzer) und Verbündete, bei Crew 1 und 3 (die Crewgröße wirkt hier nur auf das Feuerintervall, nicht auf Stufen), je Quelle (Standard, gezielt, Sturm bei Schild 0 und niedrigem Schild,
 // Streu-zwei, Mine, Lanze Teil-/Vollladung, Torpedo, Dauerdruck); Treffer-Fenster, Spiegeltest Lerche <-> Gegner <-> Verbündeter, Antrieb-Sperre als Ausnahme,
 // Schild über 0 fängt ab, e.hp/integPct/snapshotZiel nach dem ersten Treffer, Reaktor-Countdown nur einmal, keine Reste der Punktregel.
+// SYS-03 N1: Lanze-Vollladung am Reaktor = systemModell.lanze.reaktorStufen Stufen (1) und Reaktor-Fenster; jedes andere System der Mitte wird zerstört (Abschnitte "Lanze").
 //   node tools/test-direkttreffer-gegner.js
 const fs = require('fs');
 const path = require('path');
@@ -261,23 +262,35 @@ section('Sturm: Schild 0 = Direkttreffer, 0 < Schild ≤ niedrig mit Chance eine
 });
 
 // ---------------------------------------------------------------- Lanze
-section('Lanze: Vollladung zerstört das getroffene System (Mitte), Teilladung eine Stufe; Teilladung schwächt den Schild um 2', () => {
+section('Lanze: Vollladung zerstört ein System der Mitte (der Reaktor nur eine Stufe, mit Reaktor-Fenster), Teilladung eine Stufe; Teilladung schwächt den Schild um 2', () => {
   const c = Waffen.wcfg(raum(1), Katalog.waffe('lanze'));
   ok(c.vollAb === CONFIG.spaceM3.lance.vollAb && c.vollAb > 0, `Schwelle der Vollladung aus der Config (spaceM3.lance.vollAb = ${c.vollAb})`);
+  ok(SM.lanze.reaktorStufen === 1 && Integ.lanzeReaktorStufen(raum(1)) === 1, 'systemModell.lanze.reaktorStufen 1 (integritaet.js lanzeReaktorStufen)');
   const g = raum(1);
-  for (const kind of KLASSEN) {
-    const e = frisch(g, gegner(g, kind));
+  const voll = (e, p) => space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
+  for (const seite of ['gegner', 'verbuendeter']) for (const kind of KLASSEN) {
+    if (seite === 'verbuendeter' && kind !== 'korvette' && kind !== 'fregatte') continue;
+    const e = frisch(g, seite === 'gegner' ? gegner(g, kind) : verbuendeter(g, kind));
     const p = quelleBug(e);
     const mitte = Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone === 'mitte');
-    space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
+    const rid = Gsys.idVon(e, 'reaktor'); const andere = mitte.filter((id) => id !== rid);
+    const T = `${seite} ${kind}`;
+    voll(e, p);
     const zerst = mitte.filter((id) => e.sys[id].z === 'broken');
-    ok(zerst.length === 1 && Gsys.ids(e).filter((id) => e.sys[id].z !== 'ok').length >= 1 && Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone !== 'mitte').every((id) => e.sys[id].z === 'ok'),
-      `${kind}: Vollladung: genau ein System der Mitte zerstört (${zerst.join()}), nichts anderes`);
-    if (e.rt) e.rt = null;
-    frisch(g, e);
-    space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
-    weiter(g, 0); space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
-    ok(mitte.filter((id) => e.sys[id].z === 'broken').length === 2 || mitte.length < 2, `${kind}: zwei Vollladungen im selben Tick zerstören zwei Systeme (das Fenster gilt nicht gegen das Zerstören)`);
+    const rg = e.sys[rid].z === 'damaged';
+    ok(((zerst.length === 1 && e.sys[rid].z === 'ok') || (zerst.length === 0 && rg)) && Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone !== 'mitte').every((id) => e.sys[id].z === 'ok'),
+      `${T}: Vollladung: ein System der Mitte zerstört (${zerst.join()}) oder der Reaktor beschädigt (${e.sys[rid].z}), nichts anderes, Reaktor nie zerstört`);
+    // nur der Reaktor steht zur Wahl: ok -> beschädigt (eine Stufe), kein Countdown
+    frisch(g, e); for (const id of andere) { e.sys[id].i = 0; e.sys[id].z = 'broken'; } e.hp = Gsys.summe(e);
+    voll(e, p);
+    ok(e.sys[rid].z === 'damaged' && !e.rt, `${T}: Vollladung auf den Reaktor: ok -> beschädigt (${e.sys[rid].z}), kein Countdown`);
+    // zwei Vollladungen im selben Tick: der Reaktor steht im Fenster, die zweite findet kein Ziel und verfällt; Reaktor NICHT zerstört
+    voll(e, p);
+    ok(e.sys[rid].z === 'damaged' && !e.rt, `${T}: zweite Vollladung im selben Tick zerstört den Reaktor nicht (Reaktor-Fenster; ${e.sys[rid].z})`);
+    // Reaktor im Fenster (beschädigt), andere Systeme frei: die Vollladung zerstört ein anderes System der Mitte
+    frisch(g, e); e.sys[rid].z = 'damaged'; e.sys[rid].i = Gsys.maxOf(e, rid) * SM.reparatur.damaged; e.sys[rid].tf = g.time + REAKTOR_FENSTER;
+    voll(e, p);
+    ok(e.sys[rid].z === 'damaged' && andere.filter((id) => e.sys[id].z === 'broken').length === 1 && !e.rt, `${T}: Reaktor im Fenster: die Vollladung zerstört ein anderes System der Mitte (${andere.filter((id) => e.sys[id].z === 'broken').join()})`);
     if (e.rt) e.rt = null;
     frisch(g, e); const s = einziges(e, 'bug');
     space.damageEnemy(g, e, 7.5, p.x, p.y, { pierce: c.pierce, angriff: true });
@@ -301,13 +314,66 @@ section('Lanze: Vollladung zerstört das getroffene System (Mitte), Teilladung e
     const vor = stand(ge);
     Waffen.fireLance(g2, 'bow', 1, false);
     const nach = geaendert(ge, vor);
-    ok(nach.length === 1 && ge.sys[nach[0]].z === 'broken' && Gsys.defOf(ge.kind, nach[0]).zone === 'mitte', `fireLance Ladung 1: Vollladung zerstört ein System der Mitte (${nach.join()})`);
+    ok(nach.length === 1 && Gsys.defOf(ge.kind, nach[0]).zone === 'mitte' && (Gsys.artVon(ge, nach[0]) === 'reaktor' ? ge.sys[nach[0]].z === 'damaged' : ge.sys[nach[0]].z === 'broken'), `fireLance Ladung 1: Vollladung zerstört ein System der Mitte, der Reaktor nur eine Stufe (${nach.join()}: ${ge.sys[nach[0]] && ge.sys[nach[0]].z})`);
     if (ge.rt) ge.rt = null;
     frisch(g2, ge); const v2 = stand(ge);
     Waffen.fireLance(g2, 'bow', 0.5, false);
     const n2 = geaendert(ge, v2);
     ok(n2.length === 1 && ge.sys[n2[0]].z === 'damaged', `fireLance Ladung 0,5: Teilladung eine Stufe (${n2.join()})`);
   } catch (err) { fails++; console.log('  FEHLER fireLance: ' + (err && err.stack)); }
+});
+
+// ---------------------------------------------------------------- Lanze am Reaktor (SYS-03 N1)
+section('Lanze N1: Ops-Systemziel Reaktor (Fenster, Stufenzahl per tune), Statistik 200 Vollladungen je Klasse ohne zerstörten Reaktor', () => {
+  const r0 = SM.lanze.reaktorStufen;
+  const c = Waffen.wcfg(raum(1), Katalog.waffe('lanze'));
+  try {
+    for (const seite of ['gegner', 'verbuendeter']) for (const kind of ['korvette', 'fregatte', 'kreuzer']) {
+      if (seite === 'verbuendeter' && kind === 'kreuzer') continue;
+      const g = raum(2);
+      const e = frisch(g, seite === 'gegner' ? gegner(g, kind) : verbuendeter(g, kind));
+      const rid = Gsys.idVon(e, 'reaktor');
+      const p = quelleBug(e);
+      // Mitte ist als Ops-Ziel erst erreichbar, wenn die zugewandte Zone (Bug) leer ist
+      const bugLeer = () => { for (const id of Gsys.ids(e)) if (Gsys.defOf(e.kind, id).zone === 'bug') { e.sys[id].i = 0; e.sys[id].z = 'broken'; } e.hp = Gsys.summe(e); };
+      bugLeer();
+      const voll = () => space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
+      const T = `${seite} ${kind}`;
+      g.ship.target = e.id; g.ship.zielsystem = rid; e.scanned = true; g.ship.x = e.x + 300; g.ship.y = e.y;
+      voll();
+      ok(e.sys[rid].z === 'damaged' && !e.rt, `${T}: Vollladung auf das Ops-Ziel Reaktor: beschädigt, kein Countdown (${e.sys[rid].z})`);
+      g.time += REAKTOR_FENSTER / 2; voll();
+      const anderes = Gsys.ids(e).filter((id) => Gsys.defOf(e.kind, id).zone === 'mitte' && id !== rid && e.sys[id].z === 'broken');
+      ok(e.sys[rid].z === 'damaged' && anderes.length === 1 && !e.rt, `${T}: zweite Vollladung innerhalb des Reaktor-Fensters: Reaktor bleibt beschädigt, ${anderes.join()} zerstört`);
+      g.time += REAKTOR_FENSTER; voll();
+      ok(e.sys[rid].z === 'broken' && !!e.rt, `${T}: nach Ablauf des Fensters zerstört die Vollladung den Reaktor, Countdown läuft`);
+      // tune lanze.reaktorStufen 2: eine Vollladung zerstört den Reaktor; 0: der Reaktor bleibt ok (die Vollladung nimmt ein anderes System)
+      for (const [st, soll] of [[2, 'broken'], [0, 'ok']]) {
+        SM.lanze.reaktorStufen = st;
+        frisch(g, e); bugLeer(); g.ship.zielsystem = rid;
+        voll();
+        ok(e.sys[rid].z === soll, `${T}: lanze.reaktorStufen ${st}: eine Vollladung auf das Ops-Ziel Reaktor -> Reaktor ${soll} (${e.sys[rid].z})`);
+        if (st === 0) ok(Gsys.ids(e).some((id) => id !== rid && e.sys[id].z === 'broken'), `${T}: lanze.reaktorStufen 0: ein anderes System der Mitte zerstört`);
+        e.rt = null;
+      }
+      SM.lanze.reaktorStufen = r0;
+    }
+    // Statistik: 200 Vollladungen je Klasse, frischer Gegner je Schuss (Seeds fest: raum() zählt hoch), nie ein zerstörter Reaktor
+    for (const kind of KLASSEN) {
+      const g = raum(1);
+      const e = frisch(g, gegner(g, kind));
+      const p = quelleBug(e);
+      const rid = Gsys.idVon(e, 'reaktor');
+      let reaktorZerst = 0, reaktorBeschaedigt = 0, andereZerst = 0;
+      for (let i = 0; i < 200; i++) {
+        frisch(g, e); g.time += REAKTOR_FENSTER + 1;
+        space.damageEnemy(g, e, 12, p.x, p.y, { pierce: c.pierce, durchschlag: 'zone', vollladung: true, angriff: true });
+        if (e.sys[rid].z === 'broken') reaktorZerst++; else if (e.sys[rid].z === 'damaged') reaktorBeschaedigt++; else andereZerst++;
+        e.rt = null;
+      }
+      ok(reaktorZerst === 0 && reaktorBeschaedigt > 0 && andereZerst > 0, `${kind}: 200 Vollladungen: ${reaktorZerst} Reaktoren zerstört (soll 0), ${reaktorBeschaedigt} beschädigt, ${andereZerst} andere Systeme zerstört`);
+    }
+  } finally { SM.lanze.reaktorStufen = r0; }
 });
 
 // ---------------------------------------------------------------- Streu-zwei über die Waffe

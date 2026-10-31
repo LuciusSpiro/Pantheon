@@ -239,7 +239,7 @@ PHASEN.waffen = async () => {
   const clip = { x: 940, y: 4, width: 340, height: 380 };
   frischE(e); let a = zustandE(e);
   Waffen.fireLance(g, 'bow', 1, false); await sleep(450);
-  let b = zustandE(e); console.log('LANZE Vollladung (power 1):', J(difE(a, b)), ' Reaktor-Countdown e.rt=', J(e.rt)); await P.shot('waffen-lanze-voll', { clip });
+  let b = zustandE(e); console.log('LANZE Vollladung (power 1; SYS-03 N1: Reaktor nur eine Stufe, sonst ein System der Mitte zerstört):', J(difE(a, b)), ' Reaktor-Countdown e.rt=', J(e.rt)); await P.shot('waffen-lanze-voll', { clip });
   if (e.rt) e.rt = null; frischE(e); await sleep(300); a = zustandE(e); g.time += 1;
   Waffen.fireLance(g, 'bow', 0.5, false); await sleep(450);
   b = zustandE(e); console.log('LANZE Teilladung (power 0.5):', J(difE(a, b))); await P.shot('waffen-lanze-teil', { clip });

@@ -154,7 +154,7 @@ function stufeAb(game, e, id, art) {
   stufeSetzen(game, e, id, Integ.naechsteStufe(jetzt), false, art);
   return true;
 }
-// Torpedo und Vollladung: das getroffene System ist sicher zerstört (auch im Fenster, auch gegen Sperre/Immunität)
+// Torpedo und Vollladung (außer am Reaktor, SYS-03 N1: treffenAuf): das getroffene System ist sicher zerstört (auch im Fenster, auch gegen Sperre/Immunität)
 function zerstoeren(game, e, id) {
   if (e.sys[id].z === 'broken') return false;
   stufeSetzen(game, e, id, 'broken', true);
@@ -162,10 +162,15 @@ function zerstoeren(game, e, id) {
 }
 // Trefferweg ohne Schild: ein zufälliges nicht zerstörtes System der Zone (game.rng), das nicht im Treffer-Fenster steht. Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher, gezielt } oder null
 // (kein Ziel, oder alle freien Systeme der Zone stehen im Fenster: der Treffer verfällt, kein Überlauf deswegen). gez = Systemziel der Ops (C1b-1: trifft sicher, wenn in der Zone des Treffers und erreichbar).
-// opts: zerstoeren = das getroffene System ist sicher zerstört (Torpedo, Vollladung, kein Fenster); keinUeberlauf = eine leere Zone läuft nicht in die Mitte; art = Treffer-Art des Fensters (Integ.ART_STURM).
+// SYS-03 N1: vollladung (Lanze-Vollladung) zerstört jedes System der Mitte sicher (auch im Fenster), nur der REAKTOR ist die Ausnahme: er kostet systemModell.lanze.reaktorStufen Stufen
+// (Integ.lanzeReaktorStufen, Standard 1) und steht im Reaktor-Fenster (reaktorFenster_s) nicht zur Wahl (auch nicht als Ops-Systemziel: dann ein anderes System der Mitte, sonst verfällt der Treffer).
+// opts: zerstoeren = das getroffene System ist sicher zerstört (Torpedo, kein Fenster); vollladung = Lanze-Vollladung (siehe oben); keinUeberlauf = eine leere Zone läuft nicht in die Mitte; art = Treffer-Art des Fensters (Integ.ART_STURM).
 function treffen(game, e, zone, gez, opts) {
   const zerst = !!(opts && opts.zerstoeren);
-  const treffbar = (id) => zerst || !imFenster(game, e, id);
+  const voll = !!(opts && opts.vollladung);
+  const reaktorStufen = voll ? Integ.lanzeReaktorStufen(game) : 0;
+  // Vollladung: nur der Reaktor ist an Fenster (und Stufenzahl 0) gebunden, jedes andere System ist immer treffbar
+  const treffbar = voll ? (id) => artVon(e, id) !== 'reaktor' || (reaktorStufen > 0 && !imFenster(game, e, id)) : (id) => zerst || !imFenster(game, e, id);
   let zielZone = zone;
   let kand = frei(e, zone);
   if (!kand.length && zone !== 'mitte') { if (opts && opts.keinUeberlauf) return null; zielZone = 'mitte'; kand = frei(e, 'mitte'); }
@@ -183,7 +188,10 @@ function treffenAuf(game, e, id, zielZone, gezielt, opts) {
   e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
   const vorher = st.z;
   const art = opts && opts.art;
-  if (opts && opts.zerstoeren) zerstoeren(game, e, id);
+  if (opts && opts.vollladung) {   // SYS-03 N1: Reaktor = reaktorStufen Stufen (stempelt das Reaktor-Fenster wie ein Treffer), jedes andere System zerstört
+    if (artVon(e, id) === 'reaktor') { const n = Integ.lanzeReaktorStufen(game); for (let i = 0; i < n; i++) if (!stufeAb(game, e, id, art)) break; }
+    else zerstoeren(game, e, id);
+  } else if (opts && opts.zerstoeren) zerstoeren(game, e, id);
   else { stufeAb(game, e, id, art); if (gezielt && gezieltZerstoert(id)) stufeAb(game, e, id, art); }
   return { id, zone: zielZone, state: st.z, vorher, gezielt: !!gezielt };
 }

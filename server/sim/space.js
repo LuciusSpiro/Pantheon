@@ -1064,7 +1064,7 @@ function crewScale(game) {
 function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   // SYS-02b: derselbe Trefferweg gilt für Verbündete (e.ally, escort.hit): Schildsegmente, Zone, Sturm, Torpedo, Systemtreffer. Sie haben keine Patrouille, keine Ladung (tele), kein Systemziel,
   // lösen keine Missionsereignisse der Gegner aus (enemyDamaged, enemyShieldHit), und ihr Tod geht über escort.hit (disable). SYS-03 B2: gegen die SYSTEME gilt die Stufenregel (ein Treffer ohne Schildschutz = genau eine Stufe, keine Schadenszahl, keine Skalierung); die Schilde rechnen in Rohschaden.
-  // opts: sturm, streu, torpedo/huelle/nurOhneSchild, pierce, durchschlag 'zone' (Lanze Vollladung: Schild ganz aus, Mitte), vollladung (das getroffene System ist sicher zerstört), druck (Dauerdruck der Zone: Punkte sammeln sich je Stufe, zonen.druckPunkte).
+  // opts: sturm, streu, torpedo/huelle/nurOhneSchild, pierce, durchschlag 'zone' (Lanze Vollladung: Schild ganz aus, Mitte), vollladung (das getroffene System der Mitte ist sicher zerstört; der Reaktor nur lanze.reaktorStufen Stufen und nicht im Reaktor-Fenster, SYS-03 N1), druck (Dauerdruck der Zone: Punkte sammeln sich je Stufe, zonen.druckPunkte).
   const ally = !!e.ally;
   if (!ally) {
     e.hitT = game.time;
@@ -1149,12 +1149,12 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
 // der Zähler verfällt, wenn zonen.druckAbkling_s lang kein Druck mehr wirkt (derselbe Helfer wie die Lerche: integritaet.js druckSammeln, zonen.js vermerkt den Druck je Takt).
 function druckStufe(game, e, rest) { return Integ.druckSammeln(game, Integ.druckZaehler(e, 'druckZ'), rest); }
 // SYS-01 C1a-1: Treffer, der den Schild durchschlägt, auf das Systemmodell eines Gegners: Trefferweg in der Zone (Mitte bei leerer Zone),
-// SYS-03 B2: eine Stufe (Vollladung: zerstört das getroffene System). SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
+// SYS-03 B2: eine Stufe (Vollladung: zerstört das getroffene System; SYS-03 N1: den Reaktor nur eine Stufe, und nicht im Reaktor-Fenster). SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
 // zerstörter Schildgenerator bei einem Enterziel = Prise (sim/gegnertod.js). Gegner ohne Tod kämpfen weiter.
 function trefferSystem(game, e, zone, srcX, srcY, opts) {
   // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
-  const t = Gsys.treffen(game, e, zone, gez, { zerstoeren: opts && opts.vollladung ? true : undefined, art: opts && opts.sturm ? Integ.ART_STURM : undefined });   // Treffer-Art: Sturm-Treffer haben ein längeres Fenster
+  const t = Gsys.treffen(game, e, zone, gez, { vollladung: opts && opts.vollladung ? true : undefined, art: opts && opts.sturm ? Integ.ART_STURM : undefined });   // Treffer-Art: Sturm-Treffer haben ein längeres Fenster
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
   if (t && opts && opts.sturm) Gegnerreparatur.sperren(game, e, t.zone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Sturm in die Mitte über, ist auch sie gesperrt
