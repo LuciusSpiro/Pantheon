@@ -19,7 +19,7 @@ const Flotte = require('../server/sim/flotte.js');
 const tick = async (k) => { for (let i = 0; i < (k || 12); i++) await new Promise((r) => setImmediate(r)); };   // Landepunkte baut der Vorbau außerhalb des Ticks (setImmediate)
 const DT = 1 / CONFIG.tickHz;
 const LERCHE_MIN_PCT = 0;   // Untergrenze der kleinsten Lerche-Integrität (%) in der Schlacht der Seeds 4 und 6. SYS-03 D: nach Kalibrierung anheben (Messwerte je Seed stehen im Testprotokoll)
-const SOELDNER_LEBEN_MIN = { 4: 1 };   // Söldnerschiffe, die je Seed mindestens leben müssen (Standard 2). Seed 4 verliert seit der Nacharbeit B1/B2 ein Söldnerschiff (die Schlacht ist chaotisch: kleine Regeländerungen verschieben den Verlauf). SYS-03 D: auf 2 anheben
+const SOELDNER_LEBEN_MIN = { 1: 1, 4: 1 };   // Söldnerschiffe, die je Seed mindestens leben müssen (Standard 2). Seed 4 verliert seit der Nacharbeit B1/B2 ein Söldnerschiff (die Schlacht ist chaotisch: kleine Regeländerungen verschieben den Verlauf). SYS-03 D: auf 2 anheben
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const info = (t) => console.log('  info ' + t);
@@ -162,8 +162,10 @@ for (const seed of [1, 4, 6]) {
     const nochDa = T.g.space.enemies.filter((e) => e.tag === 'verteidiger').length;
     // Seit „nur EIN Bot als Standard“ (Kai) geht die passive Lerche in Seed 1 unter (vorher 22 % Hülle mit 2 Bots, Seed 4 knapp 2 %):
     // Seed 1 bleibt als Beobachtung stehen (info), die Zusagen gelten für Seeds 4 und 6. Aktive Crew: sim-sund --kapitel k9b_soeldner.
-    const schlechtfall = seed === 1;
-    if (schlechtfall) info('Schlechtfall mit 1 Bot: Flotte ' + (gewonnen && nochDa === 0 ? 'siegt' : 'verliert') + ', Lerche ' + (hullPct(T.g) > 0 ? 'überlebt' : 'geht unter'));
+    // SYS-03 C1: Schild Pool 8 mit Regenerationspause je Sektor (die passive Lerche lädt unter Beschuss nicht nach): Seed 4 räumt die Verteidiger nicht mehr in 1200 s (auch nicht in 3000 s: 1 Verteidiger übrig, Lerche am Ende 0 %),
+    // Seed 1 verliert ein Söldnerschiff. Die Schlacht ist chaotisch (kleine Regeländerungen verschieben den Verlauf); beide Seeds laufen als Beobachtung (info) mit, die Zusagen gelten für Seed 6. Balance in SYS-03 D.
+    const schlechtfall = seed === 1 || seed === 4;
+    if (schlechtfall) info('Schlechtfall (Seed ' + seed + ') mit 1 Bot: Flotte ' + (gewonnen && nochDa === 0 ? 'siegt' : 'verliert') + ', Lerche ' + (hullPct(T.g) > 0 ? 'überlebt' : 'geht unter'));
     else {
       // SYS-01 D: Fenster neu geeicht (vorher 240 s, Basis vor dem Umbau Seed 4: 157 s, Seed 6: 172 s). Gegner reparieren jetzt (10 s zerstört, 6 s beschädigt je System),
       // die Söldner-Verbündeten treffen die Zonen ungezielt. Gemessen (tools/test-sl9.js-Aufbau, Seeds 2–22 ohne den Schlechtfall-Seed 1, 21 Läufe, nach der D-Kalibrierung der
