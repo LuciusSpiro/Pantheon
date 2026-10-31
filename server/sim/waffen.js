@@ -88,6 +88,24 @@ function ausholDauer(game, d) {
   const mehr = d.wunde || (Number(d.schaden) || 1) > 1;
   return mehr ? Math.max(a, Number(ac(game).koerper.ankuendigung) || 0) : a;
 }
+// BOD-02 P3 Niederhalten: knapper Fehlschuss eines Geschosses (combat.updateProjectiles) setzt das Schildladen zurück und hält den
+// Beschossenen für niederhalten.dauer s „nieder“ (k.nieder = Zeitstempel). Gleiche Regel für Spieler und Gegner; Streuung ×streuFaktor
+// für alle Schützen, Feuerintervall ×intervallFaktor nur für KI (der Spieler bekommt dafür Rückmeldung am Client).
+function niederCfg(game) { return ac(game).niederhalten || null; }
+function niedergehalten(game, k) { return !!k && now(game) < (k.nieder || 0); }
+function knapp(game, ziel, q, px, py) {
+  const N = niederCfg(game); if (!N || !ziel) return false;
+  if ((ziel.zustand || 'ok') !== 'ok') return false;
+  const t = now(game);
+  const sh = ziel.schild;
+  if (sh) { sh.lastHitAt = t; sh.regenT = 0; }
+  ziel.nieder = t + (Number(N.dauer) || 0);
+  if (ziel.team === 'crew' && t - (ziel.knappEvAt == null ? -99 : ziel.knappEvAt) >= (Number(N.eventPause) || 0)) {   // Ereignis nur für Spieler, je Ziel rate-limitiert
+    ziel.knappEvAt = t;
+    emit(game, 'knapp', { id: ziel.id, x: r(px), y: r(py), von: q && q.owner != null ? q.owner : null });
+  }
+  return true;
+}
 function streuungGrad(d, hitze) {
   const s = d.streuung;
   if (Array.isArray(s)) return s[0] + (s[1] - s[0]) * Math.max(0, Math.min(1, hitze || 0));
@@ -227,13 +245,14 @@ function wirkungAus(waffe, d, extra, k) {
 function geschoss(game, k, d, ziel) {
   const t = now(game);
   const p = zielPunkt(k, ziel, (Number(d.reichweite) || 0) * TILE);
-  const s = streuungGrad(d, k.hitze) * Math.PI / 180;
+  const nh = niedergehalten(game, k) ? niederCfg(game) : null;
+  const s = streuungGrad(d, k.hitze) * (nh ? Number(nh.streuFaktor) || 1 : 1) * Math.PI / 180;
   const angle = Math.atan2(p.y - k.y, p.x - k.x) + s * (rng(game)() * 2 - 1);
   const tempo = Number(d.tempo) || 380;
   const q = projektil(game, { kind: k.waffe, waffe: k.waffe, x: k.x, y: k.y, angle, speed: tempo,
     ttl: (Number(d.reichweite) || 13) * TILE / tempo, dmg: (Number(d.schaden) || 1) * (k.modSchaden || 1), owner: k.id,
     team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team, crouch: !!k.crouch, wirkung: wirkungAus(k.waffe, d, null, k) });
-  k.bereitAt = t + (Number(d.kadenz) || 0);
+  k.bereitAt = t + (Number(d.kadenz) || 0) * (nh && k.team !== 'crew' ? Number(nh.intervallFaktor) || 1 : 1);
   heizen(game, k, d);
   laerm(game, k.x, k.y, d.laerm);
   return q ? null : 'projektil';
@@ -534,5 +553,5 @@ module.exports = {
   WAHL, ZUSTAENDE,
   def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
   sichtPruefen, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
-  schildUpdate, snapFelder, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
+  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };

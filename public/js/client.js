@@ -1065,6 +1065,14 @@
       case 'loadout':
         if (ev.pid === Client.pid) { K.myWaffe = ev.waffe; H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
         return true;
+      // BOD-02 P3 Niederhalten: knapper Fehlschuss – Rückmeldung nur für den Beschossenen (Zischen, Staub am Einschlagpunkt, Vignette); Gegner-Reaktion ist rein serverseitig
+      case 'knapp':
+        if (ev.id === Client.pid) {
+          Client.knappT = performance.now();
+          audio.play('bullet_whiz', { volume: 0.7, pan: audio.panFor(ev.x, 'away') });
+          if (ev.x != null && ev.y != null) R.addFx('knapp_dust', 'away', ev.x, ev.y, 0.5);
+        }
+        return true;
       case 'ueberhitzt':
         if (ev.id === Client.pid) H.pushNotice('Überhitzt – kurz abkühlen lassen', PAL.warn, 2);
         return true;
@@ -2367,6 +2375,12 @@
       if (Client.chapter) Net.guard('Hud.drawChapter', () => H.drawChapter(ctx, v, Client.chapter));   // S2
       const fl = (performance.now() - Client.flashT) / 400;
       if (fl >= 0 && fl < 1) { ctx.fillStyle = 'rgba(244,238,220,' + (1 - fl) * 0.85 + ')'; ctx.fillRect(0, 0, VW, VH); }
+      const kn = Client.knappT ? (performance.now() - Client.knappT) / 500 : 2;   // BOD-02 P3: dunkelrote Randvignette, blendet in 0,5 s aus
+      if (kn >= 0 && kn < 1 && v.self && v.self.zone === 'away') {
+        const gr = ctx.createRadialGradient(VW / 2, VH / 2, VH * 0.34, VW / 2, VH / 2, VW * 0.6);
+        gr.addColorStop(0, 'rgba(110,8,8,0)'); gr.addColorStop(1, 'rgba(110,8,8,' + ((1 - kn) * 0.42).toFixed(3) + ')');
+        ctx.fillStyle = gr; ctx.fillRect(0, 0, VW, VH);
+      }
       if (!v.me.console) R.drawTooltip(ctx);
     }
     // S1: Pause-Hinweis, Siegel „Weltstand gesichert“, Menüseiten obenauf

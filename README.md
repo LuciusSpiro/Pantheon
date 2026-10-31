@@ -1180,6 +1180,16 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   (auch im Nebel). **Weitsicht:** zielt ein Spieler mit der Lanze, sieht er in einem Kegel ±12° bis 22 Kacheln (`awayCombat.sicht.lanzeZielen`
   { kacheln, halbwinkel }; Server `combat.lanzeKegel`, Client `Render.teamVision` + `Shared_Los.visibleCone`). Tests: `tools/test-lanze-zielfenster.js`;
   Browser-Prüfung mit Screenshots: `PLAYWRIGHT_CORE=<pfad>/playwright-core node tools/bod02-p2-shots.js --out <ordner> [--render voxel|2d] [--port 3391]`.
+- **BOD-02 Niederhalten (P3, Rolle des Sturmgewehrs):** Geht ein Geschoss (jede Waffe mit Projektil, nicht Strahl/Nahkampf/Raumschiff) an einem Kämpfer der
+  Gegenseite knapp vorbei (`awayCombat.niederhalten.knapp` = 24 px Abstand zur Flugbahn, kein Treffer; Auswertung am Ende der Annäherung bzw. wenn das Geschoss
+  endet, höchstens einmal je Geschoss und Ziel, `combat.updateProjectiles` → `waffen.knapp`), setzt **das Schildladen des Beinahe-Getroffenen zurück** (wie ein
+  Treffer, ohne Schaden) und hält ihn `dauer` = 1,5 s **niedergehalten** (`k.nieder` = Zeitstempel, jeder knappe Schuss erneuert). Gleiche Regel für Spieler und
+  Gegner als Ziel. Wirkung: Schützen streuen ×`streuFaktor` (2,0, Spieler wie Gegner); KI zusätzlich Feuerintervall ×`intervallFaktor` (1,5, `waffen.geschoss` und
+  `squad.act`), bleibt in Deckung (kein Vorstoß, keine Platzwahl, kein Flankieren: `squad.niedergehaltenHalten`; Rückzug, Helfen und Nahkämpfer unberührt) und
+  darf weiter feuern. Der Spieler bekommt keine KI-Einschränkung, sondern Rückmeldung: Ereignis `knapp { id, x, y, von }` (nur für Spieler als Ziel, je Ziel
+  höchstens alle `eventPause` = 0,25 s; in `B2_EVENTS`), Client nur beim Betroffenen: Zischen (`bullet_whiz`), Staub am Vorbeiflug (voxel/fx.js `coverHit`,
+  2D render.js `knapp_dust`), dunkelrote Randvignette (0,5 s, client.js). Kein neues Snapshot-Feld. Test `node tools/test-niederhalten.js` (inkl. Trefferzahlen
+  ohne/mit Niederhalten), Screenshots `PLAYWRIGHT_CORE=<pfad>/playwright-core node tools/bod02-p3-shots.js --out <ordner> [--render voxel|2d]`.
 - **Debug** (`npm run debug`): `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (neben die eigene Figur),
   `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `graben welle2|reset|status` (Grabenangriff), `tune waffen.<waffe>.<wert>`.
   `WAFFEN=aus` schaltet das Waffenmodul ab (alter Kampf, für Golden-Vergleiche).

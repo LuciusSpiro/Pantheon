@@ -370,10 +370,22 @@ function perceive(game, E) {
 
 function inBox(C, ax, ay, bx, by) { return Math.abs(bx - ax) <= C.engageBox.w / 2 && Math.abs(by - ay) <= C.engageBox.h / 2; }
 
+// BOD-02 P3: niedergehalten (waffen.knapp): keine neue Platzwahl, kein Vorstoß, kein Flankieren – der Gegner bleibt, wo er ist (Rückzug, Helfen und
+// Nahkämpfer bleiben unberührt). Feuern darf er weiter (act: seltener, waffen.geschoss: ungenauer). Mit Ablauf von nieder plant decide normal weiter.
+function niedergehaltenHalten(game, e) {
+  const Wf = waffenMod();
+  if (!Wf || !Wf.niedergehalten(game, e) || e.rolle === 'enterer') return false;
+  if (e.role !== 'pin' && e.role !== 'push' && e.role !== 'advance' && e.role !== 'flank') return false;
+  e.path = null; e.goal = null;
+  if (e.role !== 'pin' && e.role !== 'push') setRole(game, e, 'pin');
+  return true;
+}
+
 function decide(game, E, e) {
   const C = cfg(game); const s = squadOf(game, e);
   if (e.kind === 'warden') return decideWarden(game, E, e, s);
   const prof = waffenMod() ? (e.rolle || 'grundtyp') : null;
+  if (prof && niedergehaltenHalten(game, e)) return;
   if (prof && decideB2(game, E, e, s, prof)) return;
   if (!s.alert) { setRole(game, e, 'idle'); if (s.schleich) planRuhig(game, E, e, s); return; }
   const vis = sichtbareZiele(game, E, e, s);
@@ -689,6 +701,7 @@ function act(game, E, e, dt) {
   const g = gegnerCfg(game, e);
   updateEnemyCrouch(game, E, e);
   const Wf = waffenMod();
+  if (Wf) niedergehaltenHalten(game, e);   // BOD-02 P3: Weg verwerfen, sobald niedergehalten (decide läuft nur mit aiHz)
   if ((!e.path || !e.path.length) && entstapeln(game, E, e)) { moveAlong(game, E, e, dt); return; }
   if (Wf && actB2(game, E, e, dt, Wf, g)) return;
   // Wächter dreht sich mit turnRate zum Ziel (sichtbar) bzw. zur letzten bekannten Position
@@ -717,7 +730,7 @@ function act(game, E, e, dt) {
     trackStuck(game, e, dt, false);
     return;
   }
-  e.fireT -= dt;
+  e.fireT -= dt / (Wf && Wf.niedergehalten(game, e) ? Number(Wf.niederCfg(game).intervallFaktor) || 1 : 1);   // BOD-02 P3: niedergehalten feuert seltener
   if (e.fireT <= 0 && e.shootTarget && e.role !== 'retreat' && !(e.role === 'flank' && e.path && e.path.length)) {
     const t = game.playerById(e.shootTarget);
     // Kein Treffer aus dem Off: nur mit Sichtlinie UND Ziel im engageBox (CONTRACT-M2 §4.3)

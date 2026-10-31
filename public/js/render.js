@@ -1058,6 +1058,16 @@
   function liveFx(now) { for (let i = fx.length - 1; i >= 0; i--) if (now - fx[i].t0 > fx[i].dur) fx.splice(i, 1); return fx; }
 
   function drawFx(ctx, kind, x, y, t, opts) {
+    if (kind === 'knapp_dust') {   // BOD-02 P3: Staubfahne und Splitter am Boden, wo ein knapper Fehlschuss vorbeizieht
+      const p = clamp01(opts && opts.p != null ? opts.p : (t % 1));
+      ctx.fillStyle = 'rgba(200,190,170,' + (0.8 * (1 - p)).toFixed(3) + ')';
+      for (let i = 0; i < 7; i++) {
+        const a = -Math.PI / 2 + (i - 3) * 0.5;
+        ctx.fillRect(Math.round(x + Math.cos(a) * p * 18), Math.round(y + Math.sin(a) * p * 12 + p * p * 10), 3 - (i % 2), 3 - (i % 2));
+      }
+      ctx.fillStyle = 'rgba(255,241,184,' + (1 - p) + ')'; ctx.fillRect(Math.round(x) - 1, Math.round(y) - 1, 3, 3);
+      return;
+    }
     if (FX_M2[kind]) {
       // M2: neue Effekte nur über art.js, wenn es sie wirklich kennt (sonst Magenta-Platzhalter) – sonst eigener Fallback
       if (artK('drawFx', kind, [ctx, kind, x, y, t, opts || {}], (g) => window.Art.drawFx(g, kind, 48, 48, 0, Object.assign({ p: 0.5 }, opts || {})))) return;

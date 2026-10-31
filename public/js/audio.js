@@ -34,6 +34,8 @@
     'system_break',
     // Nachrunde §20.2
     'dodge_evade',
+    // BOD-02 P3 „Niederhalten“
+    'bullet_whiz',
     // M4 „Zwei Decks“
     'lift',
     // S1 „Regiebuch & Weltstand“
@@ -74,6 +76,7 @@
     heavy_hit: 120, burst: 200, burst_perfect: 200, flick: 250, swap: 300, minigame_tick: 30, minigame_hit: 60,
     minigame_miss: 80, minigame_done: 300, system_break: 150,
     dodge_evade: 250,
+    bullet_whiz: 90,
     // M4
     lift: 600,
     // S1 (Speichern ist entprellt, trotzdem nie als Teppich)
@@ -1264,6 +1267,13 @@
       fm({ f: 1760, ratio: 2, index: 0.8, index2: 0.02, t: t + 0.14, dur: 0.6, a: 0.002, vol: 0.12, out: o });
       tone({ f: 2637, t: t + 0.2, dur: 0.4, a: 0.003, vol: 0.05, out: o });
       return 0.8;
+    },
+    bullet_whiz: function (t, o) {
+      // BOD-02 P3 Vorbeipfeifen: knapper Fehlschuss am eigenen Kopf – kurzes, helles Zischen, das nach unten wegkippt (Geschoss zieht vorbei)
+      var v = 0.92 + Math.random() * 0.16;
+      noise({ t: t, dur: 0.14, a: 0.01, vol: 0.38, out: o, filter: 'bandpass', ff: 4200 * v, ff2: 1600 * v, fglide: 0.12, q: 3 });
+      tone({ f: 2900 * v, f2: 1200 * v, t: t, dur: 0.1, a: 0.004, vol: 0.05, out: o });
+      return 0.18;
     },
     flick: function (t, o) {
       // Flicken: Klebeband abziehen (Stick-Slip-Knistern), Abriss, Andrücken

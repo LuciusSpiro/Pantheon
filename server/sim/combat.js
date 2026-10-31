@@ -796,9 +796,37 @@ function segDist(px, py, ax, ay, bx, by) {
   return Math.hypot(ax + dx * t - px, ay + dy * t - py);
 }
 
+// BOD-02 P3 Niederhalten: knapper Fehlschuss. Je Geschoss und Ziel der Gegenseite wird die geringste Entfernung der Flugbahn gemerkt
+// (q.nah[id] = { d, x, y, z }); unter niederhalten.knapp px und ohne Treffer löst waffen.knapp aus, sobald sich das Geschoss wieder
+// entfernt bzw. endet (so zählt ein Schuss, der noch trifft, nie als knapp). null = erledigt (getroffen oder schon ausgelöst).
+function knappVerfolgen(game, q, ziele, x0, y0, x1, y1, N) {
+  const nah = q.nah || (q.nah = {});
+  const R = Number(N.knapp) || 0;
+  for (const z of ziele) {
+    if (z.alive === false || z.downed || z.asleep || (z.zone && z.zone !== 'away')) continue;
+    const rec = nah[z.id];
+    if (rec === null) continue;
+    const d = segDist(z.x, z.y, x0, y0, x1, y1);
+    if (rec === undefined) { if (d < R) nah[z.id] = { d, x: x1, y: y1, z }; continue; }
+    if (d < rec.d) { rec.d = d; rec.x = x1; rec.y = y1; }
+    else if (d > rec.d + 0.5) knappAusloesen(game, q, z.id);
+  }
+}
+function knappAusloesen(game, q, id) {
+  const rec = q.nah && q.nah[id]; if (!rec) return;
+  q.nah[id] = null;
+  const Wf = waffen();
+  if (Wf && Wf.knapp) Wf.knapp(game, rec.z, q, rec.x, rec.y);
+}
+function knappAbschluss(game, q) {
+  if (!q.nah) return;
+  for (const id of Object.keys(q.nah)) if (q.nah[id]) knappAusloesen(game, q, id);
+}
+
 function updateProjectiles(game, dt) {
   const C = cfg(game); const aw = game.away; const E = env(game);
   const keep = [];
+  const WfK = waffen(); const NK = WfK && typeof WfK.knapp === 'function' ? C.niederhalten : null;
   for (const q of aw.projectiles) {
     if (q.kind === 'granate') {   // B2 §3.2: kein Treffer im Flug, Flächenwirkung am Ziel
       const Wg = waffen();
@@ -852,22 +880,24 @@ function updateProjectiles(game, dt) {
           const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
+            dead = true; if (q.nah) q.nah[e.id] = null; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
         }
       } else {
         for (const p of game.players) {
           if (p.zone !== 'away' || p.downed) continue;
           if (segDist(p.x, p.y, x0, y0, x1, y1) < ((C.hitRadius && C.hitRadius.player) || 12)) {
             if (p.crouch && dodged(game, q, p.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true;
+            dead = true; if (q.nah) q.nah[p.id] = null;
             if (aw.stats) { aw.stats.playerHits++; offBoxZaehlen(game, p, q.sx, q.sy, !!q.hilfe); }
             hitPlayer(game, p, q.dmg || 1, q.kind, wirkungAus(q));
             break;
           }
         }
       }
+      if (NK && !dead && q.wirkung && !q.wirkung.flaeche) knappVerfolgen(game, q, (q.team === 'player' || q.team === 'crew') ? aw.drones : game.players, x0, y0, x1, y1, NK);
       q.x = x1; q.y = y1;
     }
+    if (NK && q.nah && (dead || q.ttl <= 0)) knappAbschluss(game, q);
     if (!dead && q.ttl > 0) keep.push(q);
   }
   aw.projectiles = keep;

@@ -101,7 +101,7 @@
     DRONE_SNAP_B2: ['ro', 'fr', 'pa', 'wf', 'ch', 'wu', 'zs', 'bt', 'wn', 'wm', 'gr'],
     AWAY_SNAP_B2: ['tr'],
     B2_EVENTS: ['ueberhitzt', 'ladungLanze', 'lanzeBereit', 'lanzeSchuss', 'ausholen', 'schlag', 'granate', 'granateEinschlag', 'betaeubt', 'bewusstlos',
-      'gefesselt', 'befreit', 'aufgerichtet', 'abgelenkt', 'truppAlarm', 'gefangen', 'rolleNeu', 'loadout'],
+      'gefesselt', 'befreit', 'aufgerichtet', 'abgelenkt', 'truppAlarm', 'gefangen', 'rolleNeu', 'loadout', 'knapp'],
     B2_DEBUG: ['waffe', 'gegner', 'alarm', 'fang'],
     // ---- B3 (CONTRACT-B3 §6): Sektorkarte (Hexfeld) ----
     // welcome.sektorkarte: Inhalt von content/welt/limes.json ohne praesenz (≈ 6 KB), nur im welcome, nie im Snapshot.

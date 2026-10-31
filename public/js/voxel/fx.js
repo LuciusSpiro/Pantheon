@@ -1357,6 +1357,11 @@ function b2Event(ev, pos) {
   const e = ev.id != null ? entity(ev.id) : null;
   const xy = e ? { x: e.x, y: e.y } : pos;
   switch (ev.kind) {
+    case 'knapp': {   // BOD-02 P3: Einschlag/Staub nur beim Beschossenen (der Client spielt Ton und Vignette)
+      const me = F.view && F.view.me;
+      if (me && ev.id === me.id && ev.x != null) FX.coverHit(W(+ev.x, +ev.y, 0.1));
+      return true;
+    }
     case 'ueberhitzt': if (xy) dauer('overheat', { id: ev.id, x: xy.x, y: xy.y }, wcfg((e && e.wf) || 'blaster', 'sperre', 3)); return true;
     case 'ladungLanze': {
       if (ev.tx != null && ev.x != null) setAng(ev.id, Math.atan2(ev.ty - ev.y, ev.tx - ev.x));
