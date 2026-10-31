@@ -205,7 +205,7 @@ function spawn(game, opts) {
     docked: false, spawnT: game.time, ausgang: null,
   };
   if (ally) { es.ally = true; es.skript = { modus: 'folgen' }; }   // EK4: Verbündeter – scripted (Regiebuch, flotte.js), kein Befehl des Captains
-  if (ally) { Gsys.anlegen(es); Gsys.schildAnlegen(game, es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität); SYS-02b: Schildsegmente der Klasse
+  if (ally) { Gsys.anlegen(es); Gsys.schildAnlegen(game, es); if (hp < hpMax) Gsys.setzeAnteil(game, es, hp / hpMax); }   // SYS-01 C2b: Systemmodell der Klasse, Budget = flotte.hull (hp = Σ der Integrität); SYS-02b: Schildsegmente der Klasse; SYS-03 B-Nacharbeit: ein verletzter Verbündeter (huelle < 100) startet mit Stufen statt anteiliger Integrität (setzeAnteil: von hinten nach vorn erst beschädigt, dann zerstört, der Reaktor nur beschädigt; deterministisch)
   if (ally) {   // Kennung auf den Karten: ausdrücklich (flotte_aufstellen volk), sonst CONFIG.kennung.verbuendet (Rom). Snapshot vk nur abweichend
     const K = game.C.kennung || {};
     es.volk = (K.voelker || []).includes(o.volk) ? o.volk : (K.verbuendet || 'rom');

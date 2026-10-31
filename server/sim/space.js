@@ -1141,21 +1141,16 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   enemyDown(game, e);   // Gegner ohne Systemmodell (Störrelais): kein Schildgenerator, also kein Kapern
 }
 
-// SYS-03 B2: Dauerdruck der Zone auf Gegner/Verbündete (wie zonen.druck der Lerche): die Punkte ohne Schild sammeln sich je Körper (e.druckAkk, nicht im Snapshot), eine Stufe je zonen.druckPunkte.
-function druckStufe(game, e, rest) {
-  const K = Math.max(1, Number((game.C.zonen || {}).druckPunkte) || 12);
-  e.druckAkk = Math.min(K, (e.druckAkk || 0) + rest);
-  if (e.druckAkk < K) return false;
-  e.druckAkk -= K;
-  return true;
-}
+// SYS-03 B2: Dauerdruck der Zone auf Gegner/Verbündete (wie zonen.druck der Lerche): die Punkte ohne Schild sammeln sich je Körper (e.druckZ, nicht im Snapshot), eine Stufe je zonen.druckPunkte;
+// der Zähler verfällt, wenn zonen.druckAbkling_s lang kein Druck mehr wirkt (derselbe Helfer wie die Lerche: integritaet.js druckSammeln, zonen.js vermerkt den Druck je Takt).
+function druckStufe(game, e, rest) { return Integ.druckSammeln(game, Integ.druckZaehler(e, 'druckZ'), rest); }
 // SYS-01 C1a-1: Treffer, der den Schild durchschlägt, auf das Systemmodell eines Gegners: Trefferweg in der Zone (Mitte bei leerer Zone),
 // SYS-03 B2: eine Stufe (Vollladung: zerstört das getroffene System). SYS-01 C1a-2: der Tod kommt nicht mehr aus der Integrität, sondern aus dem System: zerstörter Reaktor = Countdown,
 // zerstörter Schildgenerator bei einem Enterziel = Prise (sim/gegnertod.js). Gegner ohne Tod kämpfen weiter.
 function trefferSystem(game, e, zone, srcX, srcY, opts) {
   // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
-  const t = Gsys.treffen(game, e, zone, gez, opts && opts.vollladung ? { zerstoeren: true } : null);
+  const t = Gsys.treffen(game, e, zone, gez, { zerstoeren: opts && opts.vollladung ? true : undefined, art: opts && opts.sturm ? Integ.ART_STURM : undefined });   // Treffer-Art: Sturm-Treffer haben ein längeres Fenster
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
   if (t && opts && opts.sturm) Gegnerreparatur.sperren(game, e, t.zone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Sturm in die Mitte über, ist auch sie gesperrt
@@ -1165,15 +1160,15 @@ function trefferSystem(game, e, zone, srcX, srcY, opts) {
 // SYS-02b: Wirkung eines zerstörten Systems im Tod: Gegner Reaktor (Countdown) und Schildgenerator (Kapern); Verbündete nur der Reaktor (kein Kapern bei Verbündeten)
 function zerstoertWirkt(e, id) { return !e.ally || Gsys.artVon(e, id) === 'reaktor'; }
 // SYS-02a (Kai 2026-10-28): Torpedo gegen einen Gegner mit Systemmodell (Schild 0 im Segment, Lesart B; Jäger sind vorher sofort tot). Zerstört das getroffene System der Zone sicher
-// (zerstört, kein Fenster; Zufall game.rng oder Systemziel) und schlägt auf den Reaktor durch: systemModell.torpedo.reaktorAnteil in Stufen (0,5 = eine Stufe, SYS-03 B2). Eine leere Zone
+// (zerstört, kein Fenster; Zufall game.rng oder Systemziel) und schlägt auf den Reaktor durch: systemModell.torpedo.reaktorStufen Stufen (1 = eine Stufe, SYS-03 B). Eine leere Zone
 // läuft nicht in die Mitte: dann trifft der Torpedo nur den Reaktor. Zerstörter Reaktor = Countdown (gegnertod.js), wie jede Reaktorzerstörung.
 function torpedoSystem(game, e, zone, srcX, srcY, opts) {
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
   const ts = [];
   const t = Gsys.treffen(game, e, zone, gez, { zerstoeren: true, keinUeberlauf: true });
   if (t) ts.push(t);
-  const rid = Gsys.idVon(e, 'reaktor'); const anteil = Number((game.C.systemModell.torpedo || {}).reaktorAnteil) || 0;
-  if (rid && e.sys[rid].z !== 'broken' && anteil > 0) ts.push(Gsys.durchschlagAuf(game, e, rid, Integ.stufenAusAnteil(game, anteil)));   // SYS-03 B2: Durchschlag in Stufen (0,5 = eine Stufe), dieselbe Umrechnung wie die Lerche
+  const rid = Gsys.idVon(e, 'reaktor'); const stufen = Integ.torpedoStufen(game);
+  if (rid && e.sys[rid].z !== 'broken' && stufen > 0) ts.push(Gsys.durchschlagAuf(game, e, rid, stufen));   // SYS-03 B: Durchschlag in ganzen Stufen (systemModell.torpedo.reaktorStufen), dieselbe Zahl wie die Lerche
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   for (const x of ts) {
     Gegnerreparatur.rueckschlag(game, e, x.zone);

@@ -6,8 +6,11 @@
 // abgezogen). Ohne Modell (Störrelais `relay`) bleibt e.hp die alte Hülle.
 // SYS-03 B2: Stufenregel statt Punktabzug (gleiche Regel wie die Lerche, interior.js stufeAb/trefferweg). Ein Treffer ohne Schildschutz schaltet ein System genau EINE Stufe weiter (ok -> beschädigt -> zerstört),
 // unabhängig von der Schadenszahl. i ist nur noch der aus der Stufe abgeleitete Wert (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0), e.hp = Σ i bleibt die abgeleitete Summe.
-// Treffer-Fenster: ein System, das gerade eine Stufe verloren hat (st.tf, nicht im Snapshot), verliert innerhalb von systemModell.trefferFenster_s keine weitere (Integ.imFenster, dieselbe Config-Zahl wie die Lerche);
-// der Trefferweg wählt dann ein anderes nicht zerstörtes System der Zone, gibt es keins, verfällt der Treffer. Der Antrieb behält die Sperre (st.sp) und die Immunität (st.imm): i trägt die vorgemerkte Stufe, z holt sie später nach (nachholen).
+// Treffer-Fenster: ein System, das gerade eine Stufe verloren hat, verliert bis zum Ende seines Fensters (st.tf = Fensterende, nicht im Snapshot; Länge je Treffer-Art in integritaet.js:
+// systemModell.trefferFenster_s, für Sturm-Treffer sturm.trefferFenster_s, dieselbe Regel wie die Lerche) keine weitere; der Trefferweg wählt dann ein anderes nicht zerstörtes System der Zone,
+// gibt es keins, verfällt der Treffer. Der Antrieb behält die Sperre (st.sp) und die Immunität (st.imm): i trägt die vorgemerkte Stufe, z holt sie später nach (nachholen).
+// Gezielter Treffer auf ein System, dessen Regel in zielsysteme-werte.json "gezielt": "zerstoert" trägt (heute der Antrieb): zwei Stufen, sofort beschädigt, nach der Sperre zerstört (nachholen).
+// Die Stufe liest sich aus i robust ab (Integ.stufeVon: ≤ 0 zerstört, ab Maximum ok, sonst beschädigt), unabhängig von systemModell.reparatur.damaged.
 // Trefferweg: ein zufälliges, nicht zerstörtes System der Zone (game.rng); ist die Zone leer, geht der Treffer in die Mitte.
 // SYS-01 C1b-1 (Zielsysteme im Zonenmodell): gezielter Treffer = Wahl statt Zufall. Ist das Systemziel (gez = { id, zugewandt }) in der Zone des Treffers
 // und erreichbar (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone) und nicht zerstört, trifft der Treffer dieses System sicher.
@@ -44,7 +47,6 @@ function hat(e) { return !!(e && e.sys); }
 // Maximum eines Systems: Anteil am Klassenbudget (e.hpMax)
 function maxOf(e, id) { const d = defOf(e.kind, id); return d ? d.gewicht / summeGewicht(e.kind) * e.hpMax : 0; }
 function wirkung(game) { return (game && game.C && game.C.systemModell && game.C.systemModell.gegner) || {}; }   // Wirkungswerte aus der Config (keine Zahlen im Code)
-function schwelle(game) { const v = Number(game && game.C && game.C.systemModell && game.C.systemModell.schwelle); return v > 0 ? v : 0.6; }
 function ids(e) { return Object.keys(e.sys); }
 function artVon(e, id) { const d = defOf(e.kind, id); return d ? d.art : null; }
 function idVon(e, art) { return ids(e).find((id) => artVon(e, id) === art) || null; }
@@ -59,6 +61,8 @@ function erreichbar(e, id, zugewandt) {
 }
 // Sperre und Immunität eines Systems (nur Systeme mit Regel in den Zielsysteme-Daten); gesperrt = Zustand darf sich jetzt nicht verschlechtern
 function regelVon(id) { return ZW.systeme.wert[id] || null; }
+// Ein gezielter Treffer auf dieses System zerstört es (Datenfeld "gezielt": "zerstoert" am System, heute der Antrieb): zwei Stufen statt einer. Eine Quelle für Gegner und Lerche (zielsysteme.js).
+function gezieltZerstoert(id) { const r = regelVon(id); return !!r && r.gezielt === 'zerstoert'; }
 function gesperrt(game, st, id) {
   const now = game.time;
   const reg = regelVon(id);
@@ -76,12 +80,37 @@ function anlegen(e) {
   return e;
 }
 
-// Gesamtintegrität auf einen Anteil des Klassenbudgets setzen (Verrat: ehemalige Verbündete behalten ihre Hüllen-Quote): jedes System auf anteil × Maximum,
-// der Zustand folgt der Schwelle. Ohne Modell die alte Hülle.
+// Stufe eines Systems hart setzen (ohne Treffer): Zustand und abgeleitete Integrität, Fenster, Sperre und Immunität weg.
+function stufeAnwenden(game, e, id, stufe) {
+  const st = e.sys[id];
+  st.z = stufe; st.i = Integ.grundwertVon(stufe, maxOf(e, id), Integ.damagedAnteil(game));
+  delete st.tf; delete st.sp; delete st.imm;
+}
+// Schiff auf einen Anteil des Klassenbudgets bringen (Spawn eines verletzten Verbündeten, Reparatur auf 1 über setzeBudget): deterministisch aus den Stufen, ohne Zufall. Jedes System hat zwei Stufen
+// (ok -> beschädigt -> zerstört), fehlen sollen round((1 - Anteil) × 2 × Zahl der Systeme) Stufen: zuerst werden die LETZTEN Systeme der Reihenfolge der Daten beschädigt (von hinten nach vorn),
+// bleiben Stufen übrig, werden dieselben von hinten nach vorn zerstört. Der Reaktor wird dabei nie zerstört (ohne Treffer gäbe es sonst keinen Countdown): er bleibt höchstens beschädigt.
+// Ohne Modell die alte Hülle.
 function setzeAnteil(game, e, anteil) {
   const a = Math.max(0, Math.min(1, Number(anteil) || 0));
   if (!hat(e)) { e.hp = Math.max(1, Math.round(e.hpMax * a)); return e; }
-  for (const id of ids(e)) { const m = maxOf(e, id); e.sys[id].i = m * a; e.sys[id].z = Integ.zustandVon(e.sys[id].i, m, schwelle(game)); delete e.sys[id].tf; }
+  const rueck = ids(e).slice().reverse();
+  const stufe = {}; for (const id of rueck) stufe[id] = 'ok';
+  let fehlt = Math.round((1 - a) * 2 * rueck.length);
+  for (const id of rueck) { if (fehlt <= 0) break; stufe[id] = 'damaged'; fehlt--; }
+  for (const id of rueck) { if (fehlt <= 0) break; if (artVon(e, id) === 'reaktor') continue; stufe[id] = 'broken'; fehlt--; }
+  for (const id of rueck) stufeAnwenden(game, e, id, stufe[id]);
+  e.hp = a >= 1 ? e.hpMax : summe(e);   // voll = exakt hpMax (keine Gleitkomma-Reste)
+  return e;
+}
+// Verrat: ein Ex-Verbündeter wird zum Gegner derselben Klasse und behält seine Stufen 1:1 (Stufe = die tiefere aus Zustand und vorgemerkter Stufe in i; Integrität daraus abgeleitet, Fenster/Sperre/Immunität weg).
+function stufenUebernehmen(game, e, von) {
+  if (!hat(e) || !hat(von)) return e;
+  for (const id of ids(e)) {
+    if (!von.sys[id]) continue;
+    const s = stufeVon(game, von, id);
+    stufeAnwenden(game, e, id, RANG[s] > RANG[von.sys[id].z] ? s : von.sys[id].z);
+  }
+  if (von.rt && reaktorZerstoert(e)) e.rt = Object.assign({}, von.rt);   // ein laufender Reaktor-Countdown geht mit (sonst hätte ein zerstörter Reaktor keine Folge)
   e.hp = summe(e);
   return e;
 }
@@ -95,7 +124,8 @@ function setzeBudget(game, e, budget) {
 }
 
 // Lebensanzeige: Gesamtintegrität in Prozent der Klasse (früher Hülle in %). Verbraucher: escort (unter_pct), mission (enemyHpBelow).
-function integPct(e) { return e.hp / (e.hpMax || 1) * 100; }
+// Auf 6 Nachkommastellen gerundet: "alle Systeme beschädigt" ist beim Jäger 49,99999999999999 und bei anderen Klassen genau 50; die Grenzen der Verbraucher (gegnersprung "< prozent", mission "<=") entscheiden so für alle Klassen gleich.
+function integPct(e) { return Math.round(e.hp / (e.hpMax || 1) * 100 * 1e6) / 1e6; }
 
 // Keine Integrität mehr (mit Modell: alle Systeme zerstört; ohne Modell e.hp ≤ 0). SYS-01 C1a-2: der zerstörte Reaktor ist kein Tod mehr,
 // er startet den Countdown (sim/gegnertod.js), der Gegner kämpft weiter.
@@ -105,21 +135,23 @@ function tot(e) {
 }
 
 // Stufe, die ein System durch die Treffer schon hat (aus i; kann vor st.z liegen, solange Sperre oder Immunität den Zustandswechsel halten)
-function stufeVon(game, e, id) { return Integ.zustandVon(e.sys[id].i, maxOf(e, id), schwelle(game)); }
+function stufeVon(game, e, id) { return Integ.stufeVon(e.sys[id].i, maxOf(e, id)); }
+// Eine vorgemerkte Stufe: i steht schon tiefer als der Zustand z (Sperre oder Immunität halten ihn, nachholen holt sie nach). Eine Reparatur wartet darauf (gegnerreparatur.kandidaten).
+function vorgemerkt(game, e, id) { return RANG[stufeVon(game, e, id)] > RANG[e.sys[id].z]; }
 function imFenster(game, e, id) { return Integ.imFenster(game, e.sys[id].tf); }
-// Eine Stufe tiefer (Kern ohne Fenster): i = Grundwert der neuen Stufe, Fenster-Stempel; der Zustand z folgt, außer Sperre/Immunität halten ihn (erzwingen: Torpedo, Vollladung).
-function stufeSetzen(game, e, id, ziel, erzwingen) {
+// Eine Stufe tiefer (Kern ohne Fenster): i = Grundwert der neuen Stufe, Fenster-Stempel (Länge je Treffer-Art, Integ.fensterStempeln); der Zustand z folgt, außer Sperre/Immunität halten ihn (erzwingen: Torpedo, Vollladung).
+function stufeSetzen(game, e, id, ziel, erzwingen, art) {
   const st = e.sys[id];
   st.i = Integ.grundwertVon(ziel, maxOf(e, id), Integ.damagedAnteil(game));
-  st.tf = game.time;
+  st.tf = Integ.fensterStempeln(game, st.tf, art);
   if (RANG[ziel] > RANG[st.z] && (erzwingen || !gesperrt(game, st, id))) { st.z = ziel; st.sp = game.time; }
   e.hp = summe(e);
 }
 // Rückgabe true = die Stufe hat gewechselt (zerstört bleibt zerstört)
-function stufeAb(game, e, id) {
+function stufeAb(game, e, id, art) {
   const jetzt = stufeVon(game, e, id);
   if (jetzt === 'broken') return false;
-  stufeSetzen(game, e, id, Integ.naechsteStufe(jetzt), false);
+  stufeSetzen(game, e, id, Integ.naechsteStufe(jetzt), false, art);
   return true;
 }
 // Torpedo und Vollladung: das getroffene System ist sicher zerstört (auch im Fenster, auch gegen Sperre/Immunität)
@@ -130,7 +162,7 @@ function zerstoeren(game, e, id) {
 }
 // Trefferweg ohne Schild: ein zufälliges nicht zerstörtes System der Zone (game.rng), das nicht im Treffer-Fenster steht. Leere Zone -> Mitte. Rückgabe { id, zone, state, vorher, gezielt } oder null
 // (kein Ziel, oder alle freien Systeme der Zone stehen im Fenster: der Treffer verfällt, kein Überlauf deswegen). gez = Systemziel der Ops (C1b-1: trifft sicher, wenn in der Zone des Treffers und erreichbar).
-// opts: zerstoeren = das getroffene System ist sicher zerstört (Torpedo, Vollladung, kein Fenster); keinUeberlauf = eine leere Zone läuft nicht in die Mitte.
+// opts: zerstoeren = das getroffene System ist sicher zerstört (Torpedo, Vollladung, kein Fenster); keinUeberlauf = eine leere Zone läuft nicht in die Mitte; art = Treffer-Art des Fensters (Integ.ART_STURM).
 function treffen(game, e, zone, gez, opts) {
   const zerst = !!(opts && opts.zerstoeren);
   const treffbar = (id) => zerst || !imFenster(game, e, id);
@@ -144,15 +176,18 @@ function treffen(game, e, zone, gez, opts) {
   if (!gezielt) { kand = kand.filter(treffbar); if (!kand.length) return null; id = game.rng.pick(kand); }
   return treffenAuf(game, e, id, zielZone, gezielt, opts);
 }
-// Stufe auf ein bestimmtes System (Trefferweg). Rückgabe { id, zone, state, vorher, gezielt }.
+// Stufe auf ein bestimmtes System (Trefferweg). Ein gezielter Treffer auf ein System mit "gezielt": "zerstoert" (Antrieb) nimmt zwei Stufen: i steht sofort auf zerstört, der Zustand zieht
+// über Sperre und Immunität nach (nachholen: erst beschädigt, nach der Sperre zerstört). Steht das System schon auf zerstört, passiert nichts weiter. Rückgabe { id, zone, state, vorher, gezielt }.
 function treffenAuf(game, e, id, zielZone, gezielt, opts) {
   const st = e.sys[id];
   e.sysTreffer = (e.sysTreffer || 0) + 1;   // Zähler der Systemtreffer (Verfolgung: Sprungverzögerung)
   const vorher = st.z;
-  if (opts && opts.zerstoeren) zerstoeren(game, e, id); else stufeAb(game, e, id);
+  const art = opts && opts.art;
+  if (opts && opts.zerstoeren) zerstoeren(game, e, id);
+  else { stufeAb(game, e, id, art); if (gezielt && gezieltZerstoert(id)) stufeAb(game, e, id, art); }
   return { id, zone: zielZone, state: st.z, vorher, gezielt: !!gezielt };
 }
-// Torpedo-Durchschlag auf das Hauptsystem (Reaktor): n Stufen ohne Fenster (Integ.stufenAusAnteil aus systemModell.torpedo.reaktorAnteil, dieselbe Umrechnung wie die Lerche). Rückgabe wie treffenAuf.
+// Torpedo-Durchschlag auf das Hauptsystem (Reaktor): n Stufen ohne Fenster (Integ.torpedoStufen aus systemModell.torpedo.reaktorStufen, dieselbe Zahl wie die Lerche). Rückgabe wie treffenAuf.
 function durchschlagAuf(game, e, id, stufen) {
   const st = e.sys[id];
   e.sysTreffer = (e.sysTreffer || 0) + 1;
@@ -277,6 +312,6 @@ function zoneVonSegment(game, e, sec) {
 
 module.exports = {
   ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
-  treffenAuf, durchschlagAuf, summe, setzeAnteil, setzeBudget, zonenWerte, klasseIndex,
+  treffenAuf, durchschlagAuf, summe, setzeAnteil, stufenUebernehmen, vorgemerkt, gezieltZerstoert, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, schildAnlegen, schildTick, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

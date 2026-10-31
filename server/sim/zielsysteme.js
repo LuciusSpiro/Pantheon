@@ -107,6 +107,10 @@ function update(game) {
 
 // ---------- Gegnerziel gegen die Lerche (Snapshot ship.zielAuf) ----------
 // e.zielsystem ist die Id des Zielsystems (Daten: systeme.<id>.lerche = System der Lerche); ohne Eintrag gilt die Id selbst (ein Lerchensystem)
+// Gezielter Treffer eines Gegners auf dieses LERCHE-System zerstört es (Datenfeld "gezielt": "zerstoert" am Zielsystem, dessen lerche = sys, heute engines): zwei Stufen, die zweite nach treffer.sperre_s.
+// Eine Quelle mit den Gegnern (Gsys.gezieltZerstoert); Aufrufer: interior.trefferweg.
+function lercheGezieltZerstoert(sys) { return Object.keys(SYSTEME).some((id) => SYSTEME[id].lerche === sys && Gsys.gezieltZerstoert(id)); }
+const SPERRE_S = W.treffer.wert.sperre_s;
 function lercheZiel(id) { const s = id ? SYSTEME[id] : null; return s && s.lerche ? s.lerche : (id || null); }
 // Der Gegner, der auf die Lerche zielt (der zuletzt erschienene, wie ship.zielAuf). Ohne Szenenschalter wirkt e.zielsystem nicht (space.shipHit), also null.
 function anvisierer(game) {
@@ -161,5 +165,5 @@ function debug(game, args) {
   return null;
 }
 
-module.exports = { SYSTEME, zielLoeschen, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel,
+module.exports = { SYSTEME, zielLoeschen, szeneAn, szeneAktiv, tempoFaktor, ausgefallen, halte, reparaturErlaubt, seiteGetroffen, zugewandteZone, gezielt, lercheZiel, lercheGezieltZerstoert, SPERRE_S,
   waehle, waehlbar, gegnerGetroffen, lercheGetroffen, update, zielAuf, zielAufKlasse, snapExtra, debug };

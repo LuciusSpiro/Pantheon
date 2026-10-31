@@ -39,10 +39,11 @@ function zeit(game, e, id) {
   if (st.z === 'broken') return Gsys.artVon(e, id) === 'reaktor' ? game.C.reaktorTod.sonderreparatur.zeiten[0] : Number(cfgR(game).zerstoertZuBeschaedigt);
   return Number(cfgR(game).beschaedigtZuOk);
 }
-// Reparaturbedürftige Systeme (nicht ok), nach Priorität der Arten sortiert; bei Gleichstand bleibt die Reihenfolge der Daten
+// Reparaturbedürftige Systeme (nicht ok), nach Priorität der Arten sortiert; bei Gleichstand bleibt die Reihenfolge der Daten. Ein System mit vorgemerkter Stufe (i steht schon tiefer als z:
+// Sperre oder Immunität halten den Zustand, nachholen holt die Stufe nach, z. B. nach einem gezielten Antrieb-Treffer) wird nicht repariert: sonst ginge die vorgemerkte Zerstörung verloren.
 function kandidaten(game, e) {
   const rang = (id) => { const i = PRIO.indexOf(Gsys.artVon(e, id)); return i < 0 ? PRIO.length : i; };
-  return Gsys.ids(e).map((id, i) => ({ id, i, r: rang(id) })).filter((k) => e.sys[k.id].z !== 'ok' && (Gsys.artVon(e, k.id) !== 'reaktor' || reaktorRepariert(game)) && !gesperrt(game, e, k.id)).sort((a, b) => a.r - b.r || a.i - b.i).map((k) => k.id);
+  return Gsys.ids(e).map((id, i) => ({ id, i, r: rang(id) })).filter((k) => e.sys[k.id].z !== 'ok' && !Gsys.vorgemerkt(game, e, k.id) && (Gsys.artVon(e, k.id) !== 'reaktor' || reaktorRepariert(game)) && !gesperrt(game, e, k.id)).sort((a, b) => a.r - b.r || a.i - b.i).map((k) => k.id);
 }
 function vorgaenge(game, e) { return kandidaten(game, e).slice(0, plaetze(game, e)); }
 

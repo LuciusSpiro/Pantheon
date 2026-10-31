@@ -500,7 +500,7 @@ function angriffStarten(game, hex) {
 }
 
 // SUND-02b E: Umschaltung der Szene (Aufrufer: Verrat.haltFertig nach bewusster Bestätigung; Phase und Ruf hat der Aufrufer geprüft/bucht er). Die Verbündeten der Szene verlassen die Liste und kommen als Gegner
-// derselben Klasse mit derselben Hüllen-Quote zurück (Name bleibt, Kennung rom, keine Beute); die Gegner der Szene drehen ab; eine neue Ein-Wellen-Liste trägt die neuen Gegner (Sieg = Welle fertig).
+// derselben Klasse mit denselben Systemstufen zurück (SYS-03 B-Nacharbeit: Gsys.stufenUebernehmen, 1:1; Name bleibt, Kennung rom, keine Beute); die Gegner der Szene drehen ab; eine neue Ein-Wellen-Liste trägt die neuen Gegner (Sieg = Welle fertig).
 // Mit eigenem Rollback: wirft etwas, steht die Szene wie vorher. -> Szene | null (keine Verbündeten der Szene, Klasse unbekannt, Fehler)
 function verratStarten(game) {
   const S = game.simSzene;
@@ -508,7 +508,7 @@ function verratStarten(game) {
   const sp = game.space; const st = Flotte.state(game); const C = game.C;
   const ex = Verrat.verbuendete(game, S);
   if (!ex.length || ex.some((q) => !C.enemies[q.kind])) return null;
-  const P = C.wellenplan.punkte; const hmin = Number(Verrat.W.huelle_min.wert);   // Daten, kein Rückfall im Code
+  const P = C.wellenplan.punkte;
   const sicher = { escorts: sp.escorts.slice(), gone: sp.escortsGone ? sp.escortsGone.slice() : null, enemies: sp.enemies.slice(), retreat: sp.retreatRule, welle: st.welle, nachschub: st.nachschub.slice(),
     S: { modus: S.modus, phase: S.phase, finale: S.finale, flaggGefallen: S.flaggGefallen, start: S.start, vert: Object.assign({}, S.vert), emBasis: S.emBasis, verrat: S.verrat, erinnern: S.erinnern } };
   try {
@@ -518,14 +518,14 @@ function verratStarten(game) {
     const w = Flotte.wellenStart(game, { wellen: [Object.keys(zaehl).map((kind) => ({ kind, n: zaehl[kind], volk: 'rom' }))], takt: 0, rest: 0, ziel: 'lerche', richtung: 'alle', ueberdruck: false, tag: SZENEN_TAG, volk: 'rom' });
     if (!w) throw new Error('keine Welle');
     w.ohneSkala = true; w.restJe = [0]; w.i = 0; w.n = 1; w.t = game.time;
-    // 2. die Gegner: gleiche Klasse, gleiche Hüllen-Quote (Hülle / Hüllenmaximum des Verbündeten), Name und Ort bleiben. Vorläufiger Tag, damit der Rückzug der alten Gegner (Schritt 3) sie nicht erfasst.
+    // 2. die Gegner: gleiche Klasse, dieselben Systemstufen wie der Verbündete (1:1, Gsys.stufenUebernehmen), Name und Ort bleiben. Vorläufiger Tag, damit der Rückzug der alten Gegner (Schritt 3) sie nicht erfasst.
     const neue = [];
     for (const q of ex) {
       const e = require('./space.js').spawnEnemy(game, q.kind, { x: q.x, y: q.y, facing: q.angle, tag: SZENEN_TAG + '_verrat', ziel: 'lerche', volk: 'rom' });
       if (!e) throw new Error('Gegner nicht erzeugt');
       neue.push(e);
       Object.assign(e, { wv: w.id, wvN: 1, ohneBeute: true, verratS: S.id, simPts: q.simPts || P[q.kind] || 0, name: q.name });
-      Gsys.setzeAnteil(game, e, Math.min(1, Math.max(hmin, q.hp / (q.hpMax || 1))));   // SYS-01 C1a-1: Quote auf die Systemintegrität (e.hp ist abgeleitet)
+      Gsys.stufenUebernehmen(game, e, q);   // SYS-03 B-Nacharbeit: die Stufen des Verbündeten 1:1 (Integrität abgeleitet, Fenster/Sperre/Immunität weg; e.hp ist abgeleitet)
     }
     // 3. ab hier wirft nichts mehr: die Gegner der Szene drehen ab (sofort; die Regel wird gleich wieder gelöscht), die neuen tragen den Szenen-Tag (das Szenenende lässt sie abziehen)
     Escort.retreat(game, { tag: SZENEN_TAG }); delete sp.retreatRule;

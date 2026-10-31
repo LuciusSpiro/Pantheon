@@ -121,7 +121,10 @@
       preise: { deuterium: 40 }, gewicht: { deuterium: 0.15 }, abwurfAbstand: 70 },
     // SL6: Zonen mit Wirkung (shared/zonen.js, server/sim/zonen.js). takt = Sekunden, nach denen angesammelter Zonenschaden als Treffer ankommt
     // (ganze Punkte, kein Dauerfeuer von Treffer-Ereignissen). hitzeSysteme = Energiesysteme, die die Zonenhitze aufnehmen (nur ab hitzeMinEnergie).
-    zonen: { takt: 1, druckPunkte: 12, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
+    // SYS-03 Dauerdruck (Stufenregel): die Punkte, die der Schild nicht fängt, sammeln sich je Ziel (Lerche je Sektor, Gegner und Verbündete je Schiff) im Zähler; je druckPunkte Punkte
+    // eine Stufe auf ein System der getroffenen Zone (6 Punkte ≈ die frühere Punkteregel: eine Stufe kostete dort 5–6 Punkte). druckAbkling_s: kommen so lange keine Restpunkte mehr
+    // an ein System (außerhalb der Zone, oder der Schild fängt den Druck: Schild > 0 ohne Resttreffer), verfällt der Zähler auf 0 (gleicher Helfer für Lerche, Gegner, Verbündete: sim/integritaet.js).
+    zonen: { takt: 1, druckPunkte: 6, druckAbkling_s: 3, hitzeSysteme: ['engines', 'shields'], hitzeMinEnergie: 3 },
     // EK3 Teil B: Konvoi-Szene (server/sim/konvoi.js, CONTRACT-EK3B). Transporter (Klasse frachter, Gegnerseite, unbewaffnet) fahren eine Route aus
     // Wegpunkten (Anteile der Szene, Länge × Breite) und springen am Ende. Eskorte (Jäger, Korvette) fährt mit, bis die Lerche näher als wachRadius
     // kommt oder ein Konvoi-Schiff getroffen wird (dann Klassen-KI wie jeder Gegner). tempo = Anteil der Höchstfahrt (die nächste Stufe wird gewählt),
@@ -619,7 +622,8 @@
       boden: { langAbMin: 25, langMaxMin: 35, langeJeRunde: 1, wiederholtFenster: 3 } },
     // ---- S2b (CONTRACT-S2B §2): Sperrfeuer der Korvette – oft, langsam, ausweichbar. Startwerte, KAMPF stimmt ab ----
     // KAMPF: maxProjectiles = Obergrenze gleichzeitiger Sperrfeuer-Geschosse (Snapshot-Budget, ältestes fällt weg);
-    // escortFactor = Schaden auf Schützlinge (× escorts.hullPerDamage × crewDamage). interval gilt für eine Dreier-Crew,
+    // escortFactor = Schaden auf Schützlinge OHNE Systemmodell (× escorts.hullPerDamage × crewDamage); bei Verbündeten mit Modell wirkt er seit SYS-03 B nur noch auf den Schild
+    // (gegen die Systeme zählt jede Sperrfeuer-Nadel ohne Schildschutz eine Stufe, ohne Schadenszahl). interval gilt für eine Dreier-Crew,
     // kleinere Crews × crewScaling-Verhältnis (solo ~3,9 s).
     // Zielen (Abweichung vom Vertragswortlaut „Vorhalt ≤ 0,5 s“): lead = Anteil der Kurs-Vorhersage (Abfangpunkt bei
     // gehaltenem Kurs und Tempo), maxLead = höchstens so viele s voraus. Mit 0,5 s traf das Sperrfeuer eine fahrende Lerche
@@ -669,18 +673,18 @@
     // Die Integrität (Punkte) ist nur der aus der Stufe abgeleitete Wert (ok = Maximum, beschädigt = reparatur.damaged × Maximum, zerstört = 0; Snapshot ship.integ in Prozent).
     // trefferFenster_s: ein System, das gerade eine Stufe verloren hat, verliert innerhalb dieser Zeit keine weitere (Salven im selben Moment brauchen nicht zwei Stufen auf).
     systemModell: {
-      integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, Zustandsschwellen)
-      schwelle: 0.6,              // Anteil des Maximums: darunter beschädigt
+      integ: { default: 10, reactor: 12, shields: 12 },   // Maximum je System (Start, Reparatur voll, abgeleiteter Wert je Stufe)
       reparatur: { damaged: 0.5 },   // Grundwert nach Reparatur auf beschädigt (Anteil des Maximums); ok = Maximum
-      trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone
+      trefferFenster_s: 0.25,     // s: Treffer-Fenster je System (SYS-03 B1); ein Treffer im Fenster sucht ein anderes System der Zone. Sturm-Treffer haben ein eigenes, längeres Fenster (sturm.trefferFenster_s)
       // SYS-02a (Kai 2026-10-28): Torpedo tut weh, gleiche Regel gegen Lerche und Gegner (Verbündete wie Gegner). Er wirkt nur auf ein Segment mit Schild 0 (Lesart B), zerstört das getroffene System der Zone sicher
-      // (Schaden = mindestens dessen Maximum, keine Zahl hier) und schlägt auf die Mitte durch: reaktorAnteil × Reaktor-Maximum Integritätsschaden am REAKTOR (0,5: zwei Treffer zerstören ihn, der erste lässt ihn beschädigt).
+      // (keine Schadenszahl) und schlägt auf die Mitte durch: reaktorStufen Stufen am REAKTOR (1: zwei Torpedos zerstören ihn, der erste lässt ihn beschädigt; 2: ein Torpedo zerstört ihn; 0: kein Durchschlag).
       // Ist die Zone leer, trifft der Torpedo nur den Reaktor (Durchschlag). Zerstörung löst den Countdown aus (Lerche: reaktortod.js, Gegner: gegnertod.js). Ersetzt torpedoLerche (eine Wahrheit).
-      torpedo: { reaktorAnteil: 0.5 },
+      torpedo: { reaktorStufen: 1 },
       torpedoSofortTod: { raider: true, korvette: false, fregatte: false, kreuzer: false, sentinel: false, pylon: false, frachter: false, relay: false },   // SYS-01 C1a-2 (Kai 2026-10-26): true = ein Torpedo zerstoert diese Klasse bei Schild 0 sofort (kein Reaktor-Countdown, kein Kapern), bei jeder Crewgroesse. Als Wahrheitswerte je Klasse, damit `tune systemModell.torpedoSofortTod.<klasse> on|off` wirkt (tune kennt nur Zahlen und Wahrheitswerte)
       // SYS-02a (Kai 2026-10-28): Sturm = Unterdrückungswaffe (Lerche gegen Gegner und Gegner gegen Lerche, Verbündete wie Gegner). Die Startwerte stehen auch im Katalog (sturmbatterie.sturm); zur Laufzeit gilt dieser Wert (live per `tune systemModell.sturm.<wert>`), sim/sturm.js liest ihn.
       // reparaturSperre_s: ein Sturm-Treffer sperrt die Reparatur aller Systeme der Zone so lange (laufender Fortschritt sofort 0). SYS-03 B2: Sturm bei Schild 0 = Direkttreffer (eine Stufe, Treffer-Fenster), bei 0 < Schild ≤ niedrig Chance systemChance (Katalog) auf eine Stufe; keine Punktfaktoren mehr.
-      sturm: { reparaturSperre_s: 6 },
+      // trefferFenster_s: Treffer-Fenster eines Systems nach einem Sturm-Treffer (länger als das Standard-Fenster: eine Salve aus 8 Nadeln über ~0,5 s kostet ein System nur eine Stufe, nicht die ganze Zone).
+      sturm: { reparaturSperre_s: 6, trefferFenster_s: 1.5 },
       // SYS-01 C1a-1: Wirkung beschädigter Gegnersysteme (server/sim/gegnersystem.js; Gewichte und Zonen: content/kampf/gegner-systeme.json)
       gegner: {
         taktBeschaedigt: 1.5,             // beschädigte Waffe: Feuerintervall der Waffenart × 1,5

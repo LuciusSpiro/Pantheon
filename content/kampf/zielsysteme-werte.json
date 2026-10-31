@@ -1,6 +1,6 @@
 {
   "format": "zielsysteme-werte/2",
-  "_hinweis": "SYS-01 C1b-1 „Zielsysteme im Zonenmodell“ (server/sim/zielsysteme.js, server/sim/gegnersystem.js). Die Ops wählen am gescannten Gegner ein System seines Systemmodells (Befehl weapons.systemziel, jede System-Id von e.sys: content/kampf/gegner-systeme.json). Ein Treffer, der den Schild durchschlägt und in der Zone liegt, die das Ziel enthält, und das Ziel erreichbar ist (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone), trifft dieses System sicher. Sonst gilt der Zufall in der Zone. GLEICHE REGELN FÜR BEIDE SEITEN: Gegner gegen Lerche (e.zielsystem = Id eines Lerchensystems, SYSTEMS_INTEG) und Lerche gegen Gegner. Der Zustand eines Systems folgt seiner Integrität (Schwellen in shared/config.js). Alle Zahlen stehen hier, keine im Code.",
+  "_hinweis": "SYS-01 C1b-1 „Zielsysteme im Zonenmodell“ (server/sim/zielsysteme.js, server/sim/gegnersystem.js). Die Ops wählen am gescannten Gegner ein System seines Systemmodells (Befehl weapons.systemziel, jede System-Id von e.sys: content/kampf/gegner-systeme.json). Ein Treffer, der den Schild durchschlägt und in der Zone liegt, die das Ziel enthält, und das Ziel erreichbar ist (Zone der zugewandten Seite immer, Mitte nur bei leerer zugewandter Zone), trifft dieses System sicher. Sonst gilt der Zufall in der Zone. GLEICHE REGELN FÜR BEIDE SEITEN: Gegner gegen Lerche (e.zielsystem = Id eines Lerchensystems, SYSTEMS_INTEG) und Lerche gegen Gegner. Ein Treffer ohne Schildschutz ist eine Stufe (SYS-03): der Zustand eines Systems ist die Stufe, die Integrität daraus abgeleitet. Alle Zahlen stehen hier, keine im Code.",
   "werte": {
     "systeme": {
       "wert": {
@@ -14,6 +14,7 @@
           "klassen": ["raider", "korvette", "fregatte", "kreuzer", "sentinel", "frachter"],
           "lerche": "engines",
           "sperre": true,
+          "gezielt": "zerstoert",
           "stufen": [
             {"id": "ok", "name": "voll", "faktor": 1},
             {"id": "damaged", "name": "beschädigt", "faktor": 0.5},
@@ -21,7 +22,7 @@
           ]
         }
       },
-      "einheit": "Eintrag je System mit Regel: wirkung (tempo = Faktor auf die Fahrt), seite (Zone Heck), lerche (Id des Lerchensystems, auf das ein Gegner mit diesem Systemziel zielt), sperre (true = zwischen zwei Zustandswechseln liegt treffer.sperre_s), stufen[] (Reihenfolge ok, damaged, broken; faktor = Anteil der Fahrt)",
+      "einheit": "Eintrag je System mit Regel: wirkung (tempo = Faktor auf die Fahrt), seite (Zone Heck), lerche (Id des Lerchensystems, auf das ein Gegner mit diesem Systemziel zielt), sperre (true = zwischen zwei Zustandswechseln liegt treffer.sperre_s), gezielt (zerstoert = ein GEZIELTER Treffer auf dieses System nimmt zwei Stufen: sofort beschädigt, nach der Sperre zerstört; ungezielt bleibt es eine Stufe; gilt für Gegner und Lerche, eine Quelle), stufen[] (Reihenfolge ok, damaged, broken; faktor = Anteil der Fahrt)",
       "_hinweis": "Der Antrieb ist das einzige System mit Tempo-Wirkung. Beschädigt halbe Fahrt, ausgefallen Stillstand (Jäger ohne Mindestfahrt, Sprung der Verfolgung ruht). Gilt in jeder Szene, ohne Schalter (SYS-01 C2a: Gegner funktionieren wie das Schiff der Crew). Ein Gegner repariert seinen Antrieb wie die übrigen Systeme (server/sim/gegnerreparatur.js)."
     },
     "treffer": {
