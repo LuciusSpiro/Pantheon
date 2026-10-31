@@ -327,3 +327,194 @@ Werkzeug `tools/sys03-streufeuer-gegner.js` (stehender Gegner im vollen Spielabl
 | kreuzer | 1 | 2 / ∞ → 2 / 8 (4) | 18 / ∞ → 17 / 47 (2,8) |
 
 Befund (echter Schaden 2,66): Die Pause wirkt auf Streufeuer, nicht auf das Zerstören der ersten Segmente. Vorher (ohne Pause) füllte der Schild zwischen den Treffern alle Segmente nach: bei 0,3 und 0,5 Treffer/s brach Streu auf keiner Klasse einen Systemschaden in 120 s (∞), bei 1/s nur Jäger und Korvette (3 s). Nachher bricht Streu den Systemschaden bei Jäger und Korvette auf allen Raten (3 s bei 1/s; 6 bis 10 s bei 0,5 bis 0,3/s, 2,9- bis 3-mal später als konzentriert), bei Fregatte und Kreuzer nur bei 1/s (6 bzw. 8 s, 4- bis 6-mal später als konzentriert); bei 0,3 bis 0,5/s bricht Streu dort nichts in 120 s. Reaktor zerstört: Streu 1,6- bis 2,8-mal später als konzentriert bei Jäger (alle Raten) und Korvette (0,5 und 1/s), bei Fregatte und Kreuzer bei 1/s (3,4 bzw. 2,8-mal). Konzentriertes Feuer wird kaum schneller (Jäger 0,3/s Reaktor 30 → 23,4 s, Kreuzer 0,3/s Systemschaden 10 → 6,7 s, sonst gleich); bei niedrigen Raten wird der Reaktor erst durch die Pause erreichbar (Fregatte, Kreuzer 0,3/s: ∞ → 43 / 60 s). Die Abnahme-5-Aussage „Streuen ist deutlich schlechter als Konzentrieren“ gilt damit für Gegner wie für die Lerche, bei kleinen Klassen und Raten ab 0,5/s; bei Fregatte und Kreuzer greift sie erst ab etwa 1 Treffer/s, darunter regeneriert jedes Segment zwischen zwei Treffern (Pause 5 s plus Takt 5 s je Punkt).
+
+
+## Nach D (Kalibrierung: Pool 12 mit gleichmäßiger Startverteilung, Reaktor-Fenster 6 s)
+
+Stand: Branch `sys03` nach Paket D. „vorher“ = 7c31ff2 (Stand nach C-Nacharbeit), frisch mit denselben Werkzeugen und Seeds in einem eigenen Worktree gemessen (`Pantheon-sys03-mess`, nichts am Stand verändert). Neue Werkzeugfelder: `tools/sys01-gegnerfeuer.js` Zweitmessung (Sektor 0 inklusive Sektor des 1. Treffers, Zone leer, Reaktor beschädigt, Zone leer → Reaktor zerstört), `tools/sys01-lauf.js` Spalte „Zone offen → Reaktor zerstört“, `tools/sys01-preload.js` liest `TUNE` (wirkt jetzt auch in den Kindprozessen von `sys01-lauf.js`; vorher blieb `TUNE` dort wirkungslos).
+
+### Endgültige Werte (alt → neu, jeweils eine Quelle `shared/config.js`, live per `tune`)
+
+| Wert | alt | neu | Grund |
+|---|---|---|---|
+| `shields.pointsPerPower` | 4 (Pool 8 bei Energie 2) | **6** (Pool 12) | Bot-Läufe Crew 2: Die Lerche überlebt Fregatte/Kreuzer deutlich öfter (siehe unten); Streufeuer-Quotient (Abnahme 5) von 1,0 auf 3,0. Pool 16 bringt in den Bot-Läufen nichts mehr (Fregatte 0,8, Kreuzer 1,0 Reaktorausfälle je Lauf gegen 0,9 / 1,2 bei Pool 12). |
+| `shields.default` | [4,2,0,2] | **[4,4,0,4]** | gleichmäßig auf die drei Seiten mit Schild; nutzt den ganzen Pool. Bei [4,2,0,2] entscheidet der dünne Seitensektor: Streufeuer brach den ersten Sektor genauso früh wie konzentriertes Feuer (Quotient 1,0). |
+| `systemModell.reaktorFenster_s` | – (Standard-Fenster `trefferFenster_s` 0,25 s) | **6** (neu) | Binär-Prüfung (Abnahme 7): Der Reaktor verliert innerhalb von 6 s nach einer Stufe keine weitere (Lerche, Gegner, Verbündete gleich: `integritaet.js fensterDauer`, Systeme `reactor`/`reaktor`). Ein Treffer im Fenster sucht ein anderes System der Mitte. Der Torpedo-Durchschlag ignoriert das Fenster wie bisher (zwei Torpedos zerstören den Reaktor weiter sofort: gewollt, SYS-02a). |
+| `shields.regenDelay`, `regenInterval`, `maxPerSector` | 5 s, 2 s, 8 | unverändert | Eine kürzere Pause (3 s, 2 s) oder Regeneration 1 s zeigt in den Läufen keinen eindeutigen Gewinn (Tabelle „Gewählte Hebel“); ohne Pause (0 s) wäre die Lerche deutlich robuster, das verletzt aber Abnahme 4. `maxPerSector` 8 wird bei Pool 12 nicht erreicht (Bug und Seiten je 4). |
+| Gegnerwerte (`enemies.*.fireInterval`, `.damage`, `spaceM3.tele`, `spaceS2b.sperrfeuer`) | – | unverändert | Kein Hebel, der das Ziel bewegt (siehe unten); jeder wäre eine Abschwächung der Gegner, keine Stärkung des Schilds. |
+| Testkette: `sim-headless kette --seed 1 --seeds 3 --mindest` | 1 | **2** | Kette Crew 3 hat jetzt 3/3 (vorher 1/3), Crew 1 3/3. |
+
+### 1. Zielfenster Zeit bis Sektor 0 (Abnahme 6): NICHT erreicht, und mit den vorgesehenen Hebeln nicht erreichbar
+
+`node tools/sys01-gegnerfeuer.js --kinds raider,korvette,fregatte,kreuzer --crews 2,3 --seeds 20` (Seeds 1–20, 120 s, Lerche steht, Schild Standard). Zeit vom 1. Treffer bis ein Schildsektor, der beim 1. Treffer > 0 war, auf 0 fällt (Median s, min–max, n von 20). Ziel: Fregatte 30–45 s, Kreuzer 40–55 s.
+
+| Klasse | Crew | vorher | nachher | Ziel |
+|---|---|---|---|---|
+| raider | 2 | 51,4 (21–70,9, 6/20) | 60,3 (27,4–80,6, 6/20) | Bericht |
+| raider | 3 | — (0/20) | — (0/20) | Bericht |
+| korvette | 2 | 16,8 (3–31,4, 16/20) | 17,6 (4,5–42,9, 16/20) | Bericht |
+| korvette | 3 | 5 (3–68,8, 8/20) | 6,8 (4,8–10,3, 9/20) | Bericht |
+| **fregatte** | 2 | 22 (0,8–30,4, 20/20) | **4,9** (0,1–31,2, 18/20) | 30–45 |
+| **fregatte** | 3 | 31,5 (0,1–68,8, 17/20) | **5** (0,1–55, 17/20) | 30–45 |
+| **kreuzer** | 2 | 28,5 (15,6–36,6, 19/20) | **21,6** (0,3–36,6, 19/20) | 40–55 |
+| **kreuzer** | 3 | 31,9 (13,3–95,1, 18/20) | **16** (0,3–95,1, 18/20) | 40–55 |
+
+Das Fenster wird verfehlt, und die Zahl wurde mit Pool 12 für Fregatte und Kreuzer sogar kleiner. Ursache (gemessen, kein Bot-Rauschen, die Lerche steht):
+
+1. **Die Größe misst nicht die Schildstärke.** Die Fregatte feuert je Salve zwei Bolzen mit Schaden 2 (der Kreuzer bis zu acht Plätze), dazu Ladeschuss (Schaden 4 bis 6) und Sperrfeuer (3 Nadeln à 0,5). Ein Schildsektor mit 2 bis 4 Punkten fällt in der ersten Salve; der Seitensektor bleibt danach tot. „Zeit bis Segment 0“ zählt aber nur Sektoren, die beim ersten Treffer noch > 0 waren, schließt den Sektor des ersten Treffers also aus, **wenn er schon beim ersten Treffer auf 0 fällt**. Gemessen wird damit die Zeit, bis die KI die **andere** Seite beschießt (Seitenwechsel `spaceM3b.pilotKlasse.fregatte.switchCd` 16 s, Kreuzer 20 s, plus Anflug), nicht der Schild. Mit stärkerem Seitenschild (4 statt 2 Punkte) überlebt der Sektor des ersten Treffers die erste Kugel, zählt mit und fällt nach 0,1 bis 5 s: der Median kippt auf 5 s, ohne dass die Lerche schwächer wäre (Zweitmessung unten: „Sektor 0 inklusive Treffersektor“ ist immer 0 s). Dasselbe steht schon in der SYS-01-Erkundung (Befund 5: „Zeit bis Sektor 0 taugt nicht als Zielgröße“, bimodal).
+2. **Keiner der Hebel bewegt die Größe monoton** (Seeds 1–40, Crew 2/3, Fregatte/Kreuzer, Median Segment 0 in s):
+
+| Variante (`TUNE`) | Fregatte c2 / c3 | Kreuzer c2 / c3 |
+|---|---|---|
+| Stand 7c31ff2 | 22 / 31,5 | 28,5 / 31,9 |
+| `enemies.fregatte/kreuzer.fireInterval` 4,65 | 21,9 / 26,6 | 27,7 / 24 |
+| `enemies.fregatte/kreuzer.fireInterval` 6 | 21,7 / 10,1 | 28,1 / 18,2 |
+| `enemies.fregatte/kreuzer.damage` 1,5 | 9 / 5,2 | 16,7 / 13,3 |
+| Pool 12, [6,3,0,3] | 4,6 / 5 | 21,6 / 16,6 |
+| `shields.regenDelay` 3 | 22,6 / 17,7 | 28,6 / 17,1 |
+| `spaceS2b.sperrfeuer.interval` 5 | 22,6 / 31,5 | 29,6 / 31,4 |
+| `spaceS2b.sperrfeuer.burst` 1 | 22,6 / 38,9 | 29,6 / 37,4 |
+| `shields.regenDelay` 0 (Verstoß gegen Abnahme 4) | 22,2 / 53,1 | 29,1 / 41,3 |
+
+Nur der Wegfall der Pause (nicht erlaubt) und ein auf einen Schuss gekürztes Sperrfeuer (Waffe verstümmelt) bringen Crew 3 in die Nähe des Fensters, und beides nur für Crew 3. Crew 2 bleibt bei 22 / 29, weil dort die KI-Seitenwechselzeit die Größe bestimmt. Die Seitenwechselzeit (`pilotKlasse.*.switchCd` auf 24 bis 30 s zu stellen) würde die Größe ins Fenster schieben, aber die Lerche **schwächer** machen (die Breitseite bleibt länger auf derselben Seite). Das habe ich nicht getan: Eine Zahl, die durch eine KI-Einstellung in ein Fenster fällt und dabei die Spielstärke verschlechtert, ist keine Kalibrierung.
+
+**Empfehlung für Kai/Entwicklungsleiter:** Die Abnahme „Zeit bis Sektor 0“ ersetzen durch die robusten Größen der Zweitmessung und der Bot-Läufe (Tabellen unten): Zeit bis eine Seite komplett zerstört ist (Zone leer), Zeit bis Reaktor zerstört, Zeit von Zone leer bis Reaktor zerstört (mindestens 6 s durch das Fenster) und die Überlebensquote der Lerche in `sys01-lauf` (Crew 2: Fregatte 72 → 87 von 100 gespawnten Gegnern, Kreuzer 68 → 76). Ein Zielfenster für die Zeit bis Sektor 0 ist nur sinnvoll, wenn die Messung den Sektor des ersten Treffers einschließt; dann ist sie aber immer < 1 s (Fregatte/Kreuzer: eine Salve leert den Sektor).
+
+### 2. Binär-Prüfung (Abnahme 7)
+
+**Lerche-Seite** (`sys01-gegnerfeuer`, Zweitmessung, Median s ab 1. Treffer, (min–max, n von 20); Reaktor in 120 s):
+
+| Klasse | Crew | Zone leer vorher → nachher | Reaktor zerstört vorher → nachher | **Zone leer → Reaktor zerstört vorher → nachher** |
+|---|---|---|---|---|
+| korvette | 2 | 90,7 (9/20) → 51,4 (5/20) | 53,7 (3/20) → 74 (2/20) | 7,2 (**4,8**–22,8, 3/20) → 51,1 (**42,8**–51,1, 2/20) |
+| korvette | 3 | 31,5 (9/20) → 37 (9/20) | 63,1 (9/20) → 68,4 (9/20) | 21,2 (**4,1**–42,4, 9/20) → 21,2 (**10,5**–47,7, 9/20) |
+| fregatte | 2 | 51,3 (15/20) → 60,4 (12/20) | 74,1 (9/20) → 77 (5/20) | 26 (**4,4**–66, 9/20) → 47 (**27**–77,2, 5/20) |
+| fregatte | 3 | 20,8 (17/20) → 26,5 (17/20) | 44,2 (17/20) → 44,2 (17/20) | 17,7 (**4**–42,4, 17/20) → 21,2 (**8,3**–42,4, 17/20) |
+| kreuzer | 2 | 34,7 (17/20) → 30 (15/20) | 40,1 (12/20) → 43,2 (10/20) | 25,2 (**5,2**–63,7, 12/20) → 30,1 (**6,1**–67,7, 10/20) |
+| kreuzer | 3 | 18,7 (18/20) → 18,7 (18/20) | 37,2 (18/20) → 39,3 (18/20) | 9,6 (**2,9**–42,4, 18/20) → 15,9 (**8,8**–47,7, 18/20) |
+
+Die Beobachtung „Reaktor fällt in ca. 4 s, sobald die Bug-Zone leer ist“ ist bestätigt (kleinster Wert vorher 2,9 s Kreuzer Crew 3, 4 s Fregatte, 4,1 bis 4,8 s Korvette) und mit dem Fenster auf mindestens 6,1 s angehoben (alle Klassen, Crew 2 und 3); die Mediane steigen bei Fregatte Crew 2 von 26 auf 47 s, bei Kreuzer Crew 3 von 9,6 auf 15,9 s. Der Reaktor der stehenden, wehrlosen Lerche fällt gegen Fregatte/Kreuzer weiter in 2 bis 18 von 20 Läufen (kein Reparieren, keine Gegenwehr: ein Worst Case; für das Spiel zählen die Bot-Läufe unten). Ob „mehrere Sekunden bis Dutzende“ für Kai passt, entscheidet der Spieltest.
+
+**Gegner-Seite** (Bot-Läufe `sys01-lauf`, Arena, Seeds 1–20, 5 Wellen à 1 Gegner, Median s; „Zone offen“ = erste Seitenzone ohne lebendes System):
+
+| Klasse | Crew | Schaden → Reaktor zerstört vorher → nachher | **Zone offen → Reaktor zerstört vorher → nachher** (min–max) | Spawn → Tod vorher → nachher |
+|---|---|---|---|---|
+| raider | 2 | 46,2 → 47,6 | (Reaktor oft vor „Zone offen“) 14 → 20 | 67,9 → 69,9 |
+| raider | 3 | 42 → 46,6 | 13,8 → 17,6 | 63,6 → 69,1 |
+| korvette | 2 | 11,4 → 18,8 | 2,5 (1,6–86,9) → **7,8 (6,7**–128,9) | 36,4 → 44,1 |
+| korvette | 3 | 11,3 → 16,4 | 2,5 (1,4–78,1) → **7,8 (7,2**–93,7) | 36,6 → 41,8 |
+| fregatte | 2 | 40,8 → 47,6 | 6,9 (2,2–170,2) → **29,1 (7,3**–91,4) | 67,7 → 74 |
+| fregatte | 3 | 46,3 → 41,9 | 17,2 (2,2–157,2) → **19,8 (7,2**–107,7) | 72,9 → 70,1 |
+| kreuzer | 2 | 38,3 → 56,3 | 2,8 (2,3–125,2) → **27,6 (7,4**–184,7) | 65,8 → 82 |
+| kreuzer | 3 | 37,6 → 48,1 | 2,5 (2,1–204,6) → **17,6 (7,3**–172,5) | 66,6 → 73,8 |
+
+Kein Gegner fällt in einem einzigen Zug nach dem Schildbruch: erster Systemschaden am Gegner 1,2 s nach dem ersten Schaden (Jäger sofort, ein System je Zone), Reaktor zerstört frühestens 6,7 s nach „Zone offen“ (vorher 1,4 s). Ausnahmen, die Regel sind: Torpedo-Durchschlag ohne Fenster (zwei Torpedos zerstören den Reaktor sofort) und `torpedoSofortTod` beim Jäger (ein Torpedo, Kai 2026-10-26). Der Jäger hat so kleine Zonen, dass sein Reaktor oft vor „Zone offen“ fällt (negative Mindestwerte bei Zone offen → Reaktor); sein Schaden → Reaktor zerstört liegt bei 46 bis 48 s. Korvette Crew 3 Spawn → Reaktor zerstört steigt von 16,6 auf 21,8 s (das alte SYS-01-Fenster nannte 13,4 bis 20,2 s Spawn → Tod für Korvette zu dritt; die Zeit liegt jetzt knapp darüber, Spawn → Tod 41,8 s mit 20 s Countdown).
+
+### 3. Abnahme 5: Streufeuer gegen konzentriertes Feuer mit der Standardverteilung
+
+`node tools/sys03-streufeuer.js --rate R --dmg 2 --crews 3 --seeds 10 --sek 120 [--schild 4,2,0,2]` (Standardschuss Schaden 2, Rate 0,3 / 0,5 / 1 Treffer/s; Seeds 1–10, Median s ab 1. Treffer; Streu = reihum über die Seiten mit Schild, konzentriert = alles auf Sektor 0). „∞“ = bricht in 120 s nie.
+
+| Rate | Verteilung | 1. Sektor leer konz. / streu (Quotient) | 1. Systemschaden konz. / streu (Quotient) | Reaktor zerstört konz. / streu (Quotient) |
+|---|---|---|---|---|
+| 0,3/s | **[4,2,0,2]** (alt) | 3,4 / 3,4 (1,0) | 6,7 / ∞ (∞) | 36,7 / ∞ (∞) |
+| 0,3/s | **[4,4,0,4]** (neu) | 3,4 / ∞ (∞) | 6,7 / ∞ (∞) | 36,7 / ∞ (∞) |
+| 0,5/s | [4,2,0,2] (alt) | 2 / 2 (1,0) | 4 / 8 (2,0) | 22 / 56 (2,5) |
+| 0,5/s | **[4,4,0,4]** (neu) | 2 / 6 (**3,0**) | 4 / 12 (**3,0**) | 22 / 58 (2,6) |
+| 1/s | [4,2,0,2] (alt) | 1 / 1 (1,0) | 2 / 4 (2,0) | 14 / 30 (2,1) |
+| 1/s | **[4,4,0,4]** (neu) | 1 / 3 (**3,0**) | 2 / 6 (**3,0**) | 14 / 31 (2,2) |
+
+Aussage: Mit der bisherigen Standardverteilung [4,2,0,2] machte Streufeuer den ersten leeren Sektor **nicht** langsamer (Quotient 1,0: der Seitensektor mit 2 Punkten fällt bei Streufeuer beim zweiten Schuss, der Bugsektor bei konzentriertem Feuer ebenfalls), den ersten Systemschaden nur 2-mal. Mit [4,4,0,4] (und Pool 12) sind es 3,0 für den ersten Sektor und den ersten Systemschaden; bei 0,3/s bricht Streufeuer in 120 s keinen Sektor (je Sektor ein Treffer alle 10 s, Pause 5 s, Regeneration danach). Der Reaktor zerstört sich bei Streufeuer 2,2- bis 2,6-mal später. `tools/test-schild-pause.js` prüft Abnahme 5 jetzt mit der Standardverteilung (CONFIG), Schaden 2 und den Raten 0,5 / 1 / 2 (Quotient ≥ 2,5) und 0,3 (Streu bricht nie); vorher mit [3,3,0,2] und 2 bis 4/s.
+
+### Gewählte Hebel: Messungen (Entscheidungsgrundlage)
+
+Passive Lerche (`sys01-gegnerfeuer`, Seeds 1–40, Crew 2/3, Reaktor zerstört in 120 s, n von 40; Basis = Stand mit `reaktorFenster_s` 6):
+
+| Variante | Fregatte c2 / c3 | Kreuzer c2 / c3 |
+|---|---|---|
+| Basis (Fenster 6) | 17 / 34 | 24 / 37 |
+| Pool 12, [4,4,0,4] | 12 / 34 | 22 / 37 |
+| `regenDelay` 3 | 17 / 27 | 23 / 29 |
+| `regenDelay` 3, `regenInterval` 1 | 16 / 27 | 22 / 28 |
+| `regenDelay` 2, `regenInterval` 1 | 11 / 27 | 22 / 28 |
+| `regenDelay` 0 (nicht erlaubt) | 7 / 22 | 16 / 26 |
+| `enemies.*.damage` 1,5 | 13 / 34 | 22 / 37 |
+| `sperrfeuer.burst` 2 / 1 | 9 / 34, 4 / 34 | 22 / 37, 19 / 37 |
+| `sperrfeuer.interval` 5 | 14 / 34 | 23 / 37 |
+
+Die passive Lerche stirbt irgendwann an jedem Gegner (kein Reparieren); nur die Bot-Läufe zeigen, was die Crew daraus macht. `sys01-lauf` (Seeds 1–30, 5 Wellen à 1 Gegner; „Gegner“ = von höchstens 150 gespawnten Gegnern, weniger heißt: die Lerche fiel vorher; Reaktorausfälle der Lerche je Lauf):
+
+| Variante | Fregatte c2 | Kreuzer c2 | Fregatte c3 | Kreuzer c3 |
+|---|---|---|---|---|
+| Basis (Pool 8, Fenster 6) | 103 / 1,5 | 86 / 1,0 | 141 / 0,5 | 130 / 0,3 |
+| **Pool 12, [4,4,0,4] (gewählt)** | **130 / 0,9** | **117 / 1,2** | **145 / 0,1** | **133 / 0,4** |
+| Pool 16, [5,6,0,5] | 119 / 0,8 | 127 / 1,0 | – | – |
+| Pool 12, `regenDelay` 3 | 125 / 1,0 | 115 / 0,9 | – | – |
+| Pool 12, Fenster 10 | 127 / 0,8 | 119 / 1,0 | – | – |
+
+Pool 12 verschiebt die Überlebensquote von Crew 2 deutlich (Fregatte 69 → 87 %, Kreuzer 57 → 78 %); alle weiteren Schritte bleiben im Rauschen. Die Reaktorausfälle je Lauf bleiben bei Crew 2 um 1 (zwei Bots, kein Spieler). Die Messung am eingecheckten Stand (20 Seeds, Crew 2/3, vorher → nachher): Fregatte c2 72 → 87 Gegner / 1,4 → 0,9 Ausfälle, c3 92 → 95 / 0,4 → 0,2; Kreuzer c2 68 → 76 / 1,6 → 0,9, c3 91 → 84 / 0,8 → 0,3 (die Gegnerzahl bei Kreuzer Crew 3 liegt im Rauschen, die Ausfälle sinken); Korvette 0,4 → 0,2 / 0; Jäger 0.
+
+### 4. Bots (Abnahme 9)
+
+**Arena `maneuver`, Crew 3** (`node tools/sim-headless.js arena --pilot maneuver --seeds 8 --players 3`, 6 Wellen, Seeds 1–8; vorher = 7c31ff2): Wellen geschafft 4,4 → **4,8**, Hüllenverlust (Integrität) 89,5 → **43,3**, Notfallprotokolle je Lauf 0,5 → 0,3, Eskalationen 3,1 → 2,1, Dauer 871 → 877 s; Ausgang `SIM ARENA OK`, Exit 0, **0 Softlocks** (kein Lauf bricht ab; Seed 5 bleibt mit 2/6 Wellen und vier Wellen über 180 s der schwächste Lauf, vorher Seeds 3 und 5 mit 2/6 und 1/6). Je Seed nachher: 5, 6, 6, 5, 2, 5, 4, 5 von 6 Wellen.
+
+**Solo-Kreuzer** (Crew 1, `sys01-lauf --kinds fregatte,kreuzer --crews 1 --seeds 20`, Seeds 1–20, 5 Wellen à 1 Gegner; kein Maßstab, berichtet): Kreuzer 47 gespawnte Gegner → 52 (von 100), davon zerstört 27 → 34, Lerche-Reaktorausfälle je Lauf 3,5 → 2,9; Fregatte 69 → 76 gespawnt, zerstört 54 → 64, Ausfälle 2,2 → 1,9. Solo ist gegen Fregatte und Kreuzer weiter knapp bis schwer (der Bot-Solo spielt zwei Konsolen nacheinander); schaffbar ist ein einzelner Kreuzer (Spawn → Tod Median 110 s, 34 von 52 Gegnern fallen), die Folge von fünf Wellen meist nicht.
+
+**Kette, Kapitel 6 (Orbit), Crew 3.** Befund vorher: Die Testkette (`sim-headless kette --seed 1 --seeds 3`) hatte für Crew 3 nur 1/3 (Seeds 1 und 2 brechen bei Spielzeit 14000 s ab, Kapitel 6 endet mit „Rückzug“ immer wieder). Einstieg `--kapitel k6_orbit --crew 3 --seeds 6` auf 7c31ff2: 4/6 (Seeds 2 und 5 hängen bis 5000 s im Rückzug-Kreis, Seed 3 mit einem Rückzug), nachher **6/6 im ersten Anlauf, ohne Rückzug** (Dauer 6,9 bis 10,5 min; Crew 1: 5/6, Seed 1 braucht drei Rückzüge). **Ursache:** „Rückzug“ ist hier der Ausgang des Notfallsprungs: Die Lerche der Bots verliert in der Orbit-Schlacht den Reaktor (Fregatte, Kreuzer und Flaggschiff treffen Systeme direkt; Pool 8 reichte nicht, der Reaktor fiel nach dem Bug in 3 bis 4 s, siehe Abschnitt 2; im Kapitel selbst nicht weiter aufgeschlüsselt), springt, das Kapitel beginnt von vorn und endet wieder so, bis das Zeitlimit greift. Die Bot-Balance selbst (Zielwahl, Schildverteilung) ist nicht die Ursache; der Bot ist unverändert (`BOT_SCHILD_SEKTOR_MAX` 4, siehe C1: mit Pool 12 und Standardverteilung [4,4,0,4] wird die Bedrohungsseite auf 4 gefüllt, die übrigen Seiten bleiben auf ihrer Zuteilung). **Behoben** mit Pool 12 und dem Reaktor-Fenster. Ganze Kette (6 Kettenläufe): `node tools/sim-headless.js kette --seed 1 --seeds 3 --mindest 2` Crew 1 **3/3** (Spielzeit 118 / 143 / 59 min, alle ok), Crew 3 **3/3** (79 / 55 / 29 min), vorher Crew 1 3/3, Crew 3 1/3; `SIM KETTE OK (Quote)`, Exit 0, Laufzeit 5 min 5 s (Wand). Die Testkette verlangt jetzt `--mindest 2` je Crew (Reserve ein Lauf).
+
+**Laufzeit `npm test`** (echter Exit-Code): vorher 7c31ff2 **22 min 4 s** (Wand, mit paralleler Last aus meinen Messläufen), nachher **14 min 15 s** (Exit 0, 187 von 187 Prüfungen im letzten Abschnitt; während der letzten Minuten lief eine einzelne Messung nebenher). Größte Posten (einzeln gemessen): Kette mit 6 Kettenläufen rund 5 min (vorher länger: Crew 3 lief zweimal bis 14000 s Spielzeit), `sim-sund --weg beide --crew 3` 30 s, `--kapitel alle --crew 3` 16 s, `test-finale-orbit` 30 s, `test-sl9` 9 s; die übrigen rund 180 Testdateien teilen sich den Rest. Das ist vertretbar; wer sie weiter kürzen will, nimmt `--seeds 2 --mindest 2` in der Kette (spart etwa 1,7 min, verliert die Reserve).
+
+### 5. Tests wieder angezogen (Abnahme 10 vorbereitet)
+
+| Prüfung | vorher (gelockert) | nachher | Messwert / Begründung |
+|---|---|---|---|
+| `test-sl9` `LERCHE_MIN_PCT` | 0 | **10** (Seeds 1, 4, 6 alle als Zusage) | Seeds 1–11 kleinste Integrität 19 bis 97 % (Seeds 1, 4, 6: 19, 32, 81 %); Seed 12 10 %. Fenster der Schlacht 1200 → **700 s** (gemessen 272 bis 490 s, Seeds 1/4/6: 319/333/318 s). |
+| `test-sl9` `SOELDNER_LEBEN_MIN` | Seed 1: 1, Seed 4: 1 (Info) | **2 für alle Seeds**, Schlechtfall-Zweig (nur Info) entfernt | In Seeds 1–11 leben beide Söldnerschiffe; nur Seed 12 (kein Prüfseed) verliert beide. |
+| `test-sl3` Fenster | 31–150 s | **bleibt 31–150 s** | Neu gemessen (Seeds 1–12): 41,9 bis 134,5 s, Median 60,5 (Seeds 2/4/6: 50/61,5/57,8 s). Das Fenster ist die Messung ± Rand, durch D nicht verschoben: kein Spielraum zum Anziehen ohne Brüchigkeit. |
+| `test-faden-katalog-b2` Vollschild je Tick | Schild je Tick voll | **entfernt** | Mit Pool 12 verliert Seed 72 die Beute nicht mehr; Test läuft ohne Eingriff. |
+| `test-bot-reparatur` | Eintrag hängt höchstens 30 s | **wieder: Liste nach dem ersten ok durchgehend leer** | In allen vier Läufen hing kein Eintrag (0,0 s). |
+| `test-combat` Ausweichen | `weicht <= kurs` | **wieder `weicht < kurs × 0,6`** | Seeds 101–106: steht 64, Kurs 10, weicht 2,5 (Verhältnis 0,25). |
+| `test-finale-orbit` Crew 1 5/8 exakt | Mindest 5/8 für alle (Crew 1 gemessen 5/8) | **Crew 1: 5, Crew 2: 6, Crew 3: 6 von 8** (je 1 Seed Reserve) | Gemessen jetzt Crew 1 6/8 (Seed 25 Zeitlimit, 27 Niederlage), Crew 2 7/8, Crew 3 7/8 (jeweils Seed 27 verloren). |
+| `test-finale-ende-zu-ende` `erholen` (Countdown-Reset) | Reset, „Balance folgt in D“ | **bleibt** | Geprüft: ohne die Zeile scheitert der Test (der Countdown des vorigen Versuchs läuft in den nächsten hinein); Ursache nicht weiter untersucht, offener Punkt, keine Balance-Lockerung. |
+| `test-schild-pause` Abnahme 5 | Start [3,3,0,2], Raten 2 bis 4/s, Rohschaden 1 | **Standardverteilung (CONFIG), Schaden 2, Raten 0,5 / 1 / 2 (Quotient ≥ 2,5) und 0,3 (Streu bricht nie)** | siehe Abschnitt 3. |
+
+Neu: `test-direkttreffer` und `test-direkttreffer-gegner` prüfen das Reaktor-Fenster (Lerche, Gegner, Verbündete), `test-direkttreffer` zusätzlich `tune systemModell.reaktorFenster_s` (2 und 12 s, andere Mitte-Systeme bleiben beim Standard-Fenster). Angepasst an Pool 12 und das Fenster: `test-m3` (Pool 12 / 18), `test-schild-b2`, `test-energie` (Pool 12), `test-combat` (Jäger-Salven 40 statt 14, Reaktor frühestens nach dem Fenster).
+
+### 6. Sund-Läufe (Abnahme 10)
+
+- `node tools/sim-sund.js --kapitel alle --crew 3`: `SIM SUND OK`, **Exit 0**, 16 s (elf Einstiege k1 bis k10 alle ok).
+- `node tools/sim-sund.js --weg beide --crew 3`: `SIM SUND OK`, **Exit 0**, 29 s (beide Wege Lösegeld/Söldner bis k10 ok).
+- `node tools/sim-szene-sund.js` (nur gemessen, nicht in der Testkette, war schon vorher rot): vorher 5 Befunde, nachher 5 Befunde (Exit 1 beide). Stärke 8: Zeitlimit 900 s in Seed 11 (vorher) bzw. beiden Seeds (nachher; die Lerche des Bots kommt gegen Korvette/Fregatte nicht zum Abschluss); Stärke 17 und 40: Niederlage der Lerche in der ersten Welle in beiden Ständen (Hülle 45/62 % und 19/6 % am Ende, Notfall 1); Hafen Misserfolg (Crew passiv, Germanen 40): Zeitlimit in beiden Seeds, beide Stände; Posten Misserfolg (Crew passiv, Germanen 20): Zeitlimit in 2/2 Seeds vorher, in 1/2 nachher (Seed 12 verliert nach 817 s wie vorgesehen); Erfolgsfälle (Hafen, Posten, freie Schlacht) bleiben ok, Hafen Erfolg schneller (353/407 → 313/328 s). Keine Kalibrierung, wie beauftragt.
+- `k3_falle` (nur gemessen): Zeit bis Verlust der wehrlosen Lerche in der Falle (6 Piraten) nach D 50 / 61,5 / 57,8 s (Seeds 2/4/6), Median über Seeds 1–12 60,5 s (vorher C1: 42 / 68 / 58 s, Median der 8 Seeds etwa 63 s); `sim-sund --kapitel alle` Einstieg k3_falle ok (0,2 min).
+
+### 7. Golden (Abnahme 10)
+
+`node tools/golden-trace.js --all --seeds 20 --jobs 4 --dir <neuer Ordner>` (immer `--dir`, die eingecheckten Basen sind unverändert): Läufe `golden-sys03-d` (Stand D), `golden-main` (frischer Lauf von `main` im Worktree `Pantheon-main`, 977a8de) und `golden-sys03-c2` (7c31ff2), alle außerhalb des Repos (`%TEMP%`).
+
+| Vergleich | byte-identisch | Median Spieldauer m1/1 · m1/3 · m2/1 · m2/3 · m3 | Befunde |
+|---|---|---|---|
+| D gegen frisches `main` | 40/120 | +7,3 % · **+16,8 %** · **+15,4 %** · **+17 %** · 0 % | 151 |
+| D gegen `base-pan01c3` (`allow-pan01c3.json`) | 41/120 | +7,2 % · +13,5 % · **+33,4 %** · **+30,7 %** · 0 % | 174 |
+| frisches `main` gegen `base-pan01c3` (Maßstab) | – | −0,2 % · −2,8 % · +15,6 % · +11,7 % · 0 % | 161 |
+| D gegen C2 (7c31ff2) | 43/120 | +4,6 % · +1,3 % · +10,8 % · +5 % · 0 % | 147 |
+| C2 gegen frisches `main` | 40/120 | +2,7 % · **+15,3 %** · +4,2 % · +11,4 % · 0 % | 167 |
+
+Abweichungen: (1) **m3 identisch** (kein Raumkampf). (2) m1 und m2 spielen sich länger: Gegner (Jäger, Korvette) fallen später (Stufenregel, Reaktor-Countdown, Gegner reparieren, bei D zusätzlich das Reaktor-Fenster von 6 s für Gegner), die Lerche verliert Systeme statt Hülle; der Anteil von D allein ist klein (+1,3 bis +10,8 % gegen C2), der Rest steckt in SYS-01 bis SYS-03 C. Gegenüber `main` liegen drei Mediane knapp über der ±15-%-Grenze (m1/3 +16,8 %, m2/1 +15,4 %, m2/3 +17 %), gegenüber der alten PAN-01-Basis mehr (m2 +31 bis +33 %, schon `main` selbst liegt dort +15,6 % bzw. +11,7 %). (3) Texte: neue Meldungen des Systemmodells („Bug-Waffe beschädigt“, „emitter_bb des Ziels beschädigt“, „Korvette lädt – Backbord!“, „Ein System ist beschädigt – E halten: flicken …“), fehlende alte („Schildsektor leer! Technik: …“, „Breitseite … Hüllenbruch!“, „Transfer beschädigt“ je nach Seed). (4) Inventar: Ersatzteile, Flickblech und Marken weichen je Seed um 1 bis 2 ab (anderer Kampfverlauf), keine neuen Schlüssel. (5) Flags: `mNDirect` undefined ↔ false, `rostmeuteGone`/`vaelenHelped` in einzelnen Seeds (anderer Kampfausgang); kein Softlock. **Keine neue Basis eingecheckt:** Die Abweichungen sind erklärt, aber ein neuer Maßstab braucht eine `--allow`-Datei, die Kai freigibt (Texte, Inventar, Dauer m1/3, m2/1, m2/3); der Lauf `golden-sys03-d` liegt zum Einchecken bereit (`tools/fixtures/golden/base-sys03` + `allow-sys03.json`, etwa 1,4 MB). Der Maßstab bleibt ein frischer `main`-Lauf.
+
+### 8. Prüfstand (echte Exit-Codes, Stand dieses Commits)
+
+| Befehl | Ergebnis |
+|---|---|
+| `npm test; echo EXIT=$?` | **EXIT=0**, 14 min 15 s |
+| `npm run check` | **EXIT=0** |
+| `npm run snap:mess` | **EXIT=0**, Worst Case max 11 800 B (Budget eingehalten) |
+| `node tools/sim-sund.js --kapitel alle --crew 3` / `--weg beide --crew 3` | **EXIT=0** / **EXIT=0** |
+| `node tools/sim-headless.js arena --pilot maneuver --seeds 8 --players 3` | `SIM ARENA OK`, Exit 0 |
+| `node tools/sim-headless.js kette --seed 1 --seeds 3 --mindest 2` | `SIM KETTE OK (Quote)`, Exit 0 (Crew 1 3/3, Crew 3 3/3) |
+
+### Offen (aus Paket D)
+
+- Zielfenster „Zeit bis Sektor 0“ (Abnahme 6) ist nicht erreicht und mit den Hebeln des Auftrags nicht erreichbar (Abschnitt 1); die Abnahme sollte durch die robusten Größen ersetzt werden.
+- `test-finale-ende-zu-ende` braucht den Countdown-Reset zwischen den Versuchen (Ursache nicht untersucht).
+- Crew 2 und 3 unterscheiden sich in `sys01-gegnerfeuer` stark (Reaktor der stehenden Lerche in 120 s: Fregatte 5/20 gegen 17/20, Kreuzer 10/20 gegen 18/20): gleiche Gegnerbestückung, aber ein Spieler mehr; Ursache nicht untersucht.
+- `sim-szene-sund` bleibt rot (Befunde unverändert, nicht Teil des Auftrags).
+- Die Gegnerbewaffnung (Sperrfeuer: 3 Nadeln je Stoß, jede kostet auf einem leeren Sektor eine Stufe auf ein anderes System der Zone) ist der größte Einzelposten der Systemschäden an der stehenden Lerche (rund 60 % der Direkttreffer bei Fregatte/Kreuzer, 89 von 142 Direkttreffern bei Fregatte Crew 3, 84 von 142 beim Kreuzer, je 6 Seeds à 60 s). Ein Salven-Fenster je Zone statt je System würde das glätten; das wäre eine Regeländerung (Salve = eine Stufe) und nicht Teil von D.
