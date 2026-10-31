@@ -82,3 +82,50 @@ export function hochRichtung(kindAt, x, y, hochZu) {
   for (const art of hochZu || []) for (const [dx, dy, rot] of DIR) if (kindAt(x + dx, y + dy) === art) return rot;
   return 0;
 }
+
+// ---------------------------------------------------------------------------------------------------------------------------
+// Sichtlinien-Umschaltung (Hüllen hoch/niedrig, VOX-01 5b: Baumkronen). Rein, ohne three.js; kit.js und tools/test-vox01-kronen.js nutzen sie.
+
+/** Schneidet die Strecke (x0,y0,z0)→(x1,y1,z1) die Box (bx0..bx1, by0..by1, bz0..bz1)? (Slab-Test) */
+export function segmentBox(x0, y0, z0, x1, y1, z1, bx0, by0, bz0, bx1, by1, bz1) {
+  let tmin = 0, tmax = 1;
+  const d = [x1 - x0, y1 - y0, z1 - z0], o = [x0, y0, z0], lo = [bx0, by0, bz0], hi = [bx1, by1, bz1];
+  for (let i = 0; i < 3; i++) {
+    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
+    let a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
+    if (a > b) { const t = a; a = b; b = t; }
+    if (a > tmin) tmin = a;
+    if (b < tmax) tmax = b;
+    if (tmin > tmax) return false;
+  }
+  return true;
+}
+
+/** Nachlauf gegen Flackern: `o` = { tief, seit }. `im` = Sichtlinie jetzt gekreuzt. Setzt o.seit, gibt den neuen Zustand zurück (o.tief wird gesetzt). */
+export const NACHLAUF_MS = 250;
+export function mitNachlauf(o, im, t, ms) {
+  if (im) o.seit = t;
+  o.tief = !!(im || (o.tief && t - o.seit < (ms == null ? NACHLAUF_MS : ms)));
+  return o.tief;
+}
+
+/**
+ * Welche Kronen-Zellen sind ausgeblendet? zellen = [{ key, bx0, bx1, bz0, bz1, by0, by1 }] (Box der Krone in Weltmetern),
+ * ziele = [{ x, y?, z }] (Punkte aller sichtbaren Figuren: eigene, Mitspieler, Gegner), kamera = { x, y, z }.
+ * zustand = Map key → { tief, seit } (vom Aufrufer gehalten, bleibt zwischen Aufrufen). → Set der Schlüssel, die ausgeblendet sind.
+ * Eine Zelle geht aus, wenn eine Strecke Kamera → Figurenpunkt ihre Box (um `einzug` verkleinert, damit ein Streifen am Rand nicht reicht) kreuzt.
+ */
+export function kronenAus(zustand, kamera, zellen, ziele, jetztMs, opt) {
+  const einzug = opt && opt.einzug != null ? opt.einzug : 0.3;
+  const aus = new Set();
+  for (const c of zellen) {
+    let im = false;
+    for (const z of ziele || []) {
+      if (segmentBox(kamera.x, kamera.y, kamera.z, z.x, z.y == null ? 0.9 : z.y, z.z, c.bx0 + einzug, c.by0, c.bz0 + einzug, c.bx1 - einzug, c.by1, c.bz1 - einzug)) { im = true; break; }
+    }
+    let s = zustand.get(c.key);
+    if (!s) { s = { tief: false, seit: 0 }; zustand.set(c.key, s); }
+    if (mitNachlauf(s, im, jetztMs, opt && opt.nachlaufMs)) aus.add(c.key);
+  }
+  return aus;
+}

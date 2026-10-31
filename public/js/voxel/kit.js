@@ -30,7 +30,7 @@ import * as DefaultLoader from './loader.js';
 import { streuen, belegungVon, besitzStreuFuerOrt } from './deko.js';
 import { mitAkzent } from './stimmung.js';
 import { glutAusnahme } from './glut.js';
-import { KLASSE, connVon, hash2, eintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung } from './kit-regeln.js';
+import { KLASSE, connVon, hash2, eintragVon, eintragIds, baumWahl, kronenZelle, hochRichtung, segmentBox, mitNachlauf, kronenAus } from './kit-regeln.js';
 
 const BASE = '/content/buehnen/';
 // ORT-01: Rollen-Dateien (rollen/1) gibt es je Kartenart; für andere Kartenarten wird nicht gefragt (kein 404)
@@ -1185,10 +1185,11 @@ async function bauKarte(parent, karteIn, opts) {
     const g = c.bucket.toGeometry();
     if (!g) continue;
     const mesh = new THREE.Mesh(g, mat);
-    mesh.name = 'kit:krone:' + key; mesh.castShadow = true; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; mesh.updateMatrix();
+    mesh.name = 'kit:krone:' + key; mesh.castShadow = false; mesh.receiveShadow = true; mesh.matrixAutoUpdate = false; mesh.updateMatrix();
     deckGroups[c.d].add(mesh); geos.push(g);
     stats.tris += g.index.count / 3;
-    kronenObjs.push({ key, mesh, x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, yMax: g.boundingBox.max.y, n: c.n });
+    const bb = g.boundingBox;
+    kronenObjs.push({ key, mesh, box: { key, bx0: bb.min.x, bx1: bb.max.x, bz0: bb.min.z, bz1: bb.max.z, by0: bb.min.y, by1: bb.max.y }, tief: { tief: false, seit: 0 }, x0: c.x0, x1: c.x1 + 1, z0: c.z0, z1: c.z1 + 1, yMax: g.boundingBox.max.y, n: c.n });
   }
   stats.kronen = kronenObjs.length;
   const huellObjs = [];
@@ -1384,14 +1385,26 @@ async function bauKarte(parent, karteIn, opts) {
         for (const z of ziele || []) {
           if (segmentBox(cx, cy, cz, z.x, z.y == null ? 0.9 : z.y, z.z, o.x0 - R, YT, o.z0 - R, o.x1 + R, o.yh, o.z1 + R)) { im = true; break; }
         }
-        if (im) o.seit = t;
-        const tief = im || (o.tief && t - o.seit < 250);
-        if (tief !== o.tief) { o.tief = tief; if (o.hoch) o.hoch.visible = !tief; if (o.niedrig) o.niedrig.visible = tief; }
+        const vorher = !!o.tief;
+        const tief = mitNachlauf(o, im, t);
+        if (tief !== vorher) { if (o.hoch) o.hoch.visible = !tief; if (o.niedrig) o.niedrig.visible = tief; }
         if (o.tief) n++;
       }
       return n;
     },
     huelleAnzahl() { return huellObjs.length; },
+    /** Kronen (VOX-01 5b): blendet Zellen aus, deren Box eine Sichtlinie Kamera → Ziel kreuzt (gleiche Umschaltung und 250 ms Nachlauf wie huelleUpdate,
+     *  geteilt über kit-regeln.js). ziele in Kachelkoordinaten (z = Kachel-y der Karte, bei Decks wird localY angewandt). → Anzahl ausgeblendeter Zellen */
+    kronenUpdate(camera, ziele, jetztMs) {
+      if (!kronenObjs.length || !camera) return 0;
+      const t = jetztMs != null ? jetztMs : now();
+      const lz = (ziele || []).map((z) => ({ x: z.x, y: z.y, z: k.localY(Math.floor(z.z)) + (z.z - Math.floor(z.z)) }));
+      const zustand = new Map(kronenObjs.map((o) => [o.key, o.tief]));
+      const aus = kronenAus(zustand, camera.position, kronenObjs.map((o) => o.box), lz, t);
+      for (const o of kronenObjs) { const v = !aus.has(o.key); if (o.mesh.visible !== v) o.mesh.visible = v; }
+      return aus.size;
+    },
+    kronenAnzahl() { return kronenObjs.length; },
     /** Kronen-Zellen (VOX-01 5a): [{ key 'cx,cz', x0, x1, z0, z1 (Kacheln, x1/z1 exklusiv), yMax, n (Bäume), sichtbar }] */
     kronenZellen() { return kronenObjs.map((o) => ({ key: o.key, x0: o.x0, x1: o.x1, z0: o.z0, z1: o.z1, yMax: o.yMax, n: o.n, sichtbar: o.mesh.visible })); },
     /** Krone einer Zelle ein-/ausblenden (Stämme bleiben). → true, wenn es die Zelle gibt */
@@ -1410,20 +1423,6 @@ async function bauKarte(parent, karteIn, opts) {
 }
 
 // Strecke (x0,y0,z0)→(x1,y1,z1) gegen Quader (Slab-Verfahren); true, wenn sie ihn schneidet
-function segmentBox(x0, y0, z0, x1, y1, z1, bx0, by0, bz0, bx1, by1, bz1) {
-  let tmin = 0, tmax = 1;
-  const d = [x1 - x0, y1 - y0, z1 - z0], o = [x0, y0, z0], lo = [bx0, by0, bz0], hi = [bx1, by1, bz1];
-  for (let i = 0; i < 3; i++) {
-    if (Math.abs(d[i]) < 1e-9) { if (o[i] < lo[i] || o[i] > hi[i]) return false; continue; }
-    let a = (lo[i] - o[i]) / d[i], b = (hi[i] - o[i]) / d[i];
-    if (a > b) { const t = a; a = b; b = t; }
-    if (a > tmin) tmin = a;
-    if (b < tmax) tmax = b;
-    if (tmin > tmax) return false;
-  }
-  return true;
-}
-
 function sterne(k) {
   const n = 900, pos = new Float32Array(n * 3), col = new Float32Array(n * 3);
   const cx = k.w / 2, cz = (k.decks ? k.stride : k.h) / 2;
@@ -1602,7 +1601,7 @@ export const layer = {
     LZ.h.update({ ao: aw.ao || [], ko: aw.ko || [] });
     LZ.h.setDeck(ctx.deck || 0);
     teamFog(LZ.h, view, ctx, dt);
-    if (LZ.h.huelleAnzahl && LZ.h.huelleAnzahl() && ctx.camera) {
+    if (ctx.camera && ((LZ.h.huelleAnzahl && LZ.h.huelleAnzahl()) || (LZ.h.kronenAnzahl && LZ.h.kronenAnzahl()))) {
       // Ziele: alle Spieler im Außeneinsatz plus Gegner und Personen, die das Team nach der Sichtlogik sieht (keine versteckten)
       const st = (view && view.state) || {};
       const R = G.Render;
@@ -1614,6 +1613,7 @@ export const layer = {
       for (const d of (st.away && st.away.drones) || []) if (d && d.alive !== false && sicht(d.x, d.y)) add(d.x, d.y);
       for (const n of (view && view.npcs) || []) if (n && sicht(n.x, n.y)) add(n.x, n.y);
       LZ.h.huelleUpdate(ctx.camera, ziele);
+      LZ.h.kronenUpdate(ctx.camera, ziele);
     }
   },
   dispose() { if (LZ.h) { try { LZ.h.dispose(); } catch (e) { /* egal */ } } LZ.h = null; LZ.building = false; LZ.mapRef = null; },
