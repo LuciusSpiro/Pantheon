@@ -10,6 +10,7 @@ const Los = require('../../shared/los.js');
 const W = require('../world.js');
 const { bfs, dist } = require('../util.js');
 const Trupp = require('./trupp.js');   // BOD-02 P7: Trupp-Gehirn (Aufgaben, Flankenschutz)
+const Vert = require('./verteidigung.js');   // BOD-02 P8/P9: Verteidigungsprofil (Halten, Rückzug, Gegenstoß); ohne Profil ohne Wirkung
 
 const TILE = Physics.TILE;
 const HITBOX = { w: 14, h: 10 };
@@ -274,6 +275,7 @@ function onEnemyDown(game, e) {
   const aw = game.away; const s = squadOf(game, e);
   if (s.flanker === e.id) s.flanker = null;
   const alive = aw.drones.filter((d) => d.alive && d.squad === e.squad);
+  if (s.verteidigung) { Vert.beiTod(game, s, e); return; }   // BOD-02 P8: mit Verteidigungsprofil gehört der Funkspruch „Rückzug zur zweiten Linie“ zum echten Rückzug (verteidigung.ausloesen)
   if (!s.halfBarked && s.initial >= 2 && alive.length > 0 && alive.length <= s.initial / 2) {
     s.halfBarked = true;
     s.barkAt = -99;   // dieser Funkspruch geht immer raus
@@ -315,7 +317,7 @@ function update(game, dt) {
   if (think) {
     aw.aiT = 0;
     perceive(game, E);
-    if (waffenMod()) Trupp.update(game, E);   // BOD-02 P7: Aufgaben je Trupp (niederfrequent), vor den Einzelentscheidungen
+    if (waffenMod()) { Trupp.update(game, E); Vert.tick(game, E); }   // BOD-02 P7: Aufgaben je Trupp (niederfrequent), vor den Einzelentscheidungen; P8/P9: Verteidigungsprofil (Rückzug, Gegenstoß)
     for (const e of aw.drones) if (e.alive && !e.asleep && !e.frozen) { try { decide(game, E, e); } catch (err) { game.countError('squad-decide', err); } }
   }
   const Wf = waffenMod();
@@ -376,7 +378,7 @@ function inBox(C, ax, ay, bx, by) { return Math.abs(bx - ax) <= C.engageBox.w / 
 // Nahkämpfer bleiben unberührt). Feuern darf er weiter (act: seltener, waffen.geschoss: ungenauer). Mit Ablauf von nieder plant decide normal weiter.
 function niedergehaltenHalten(game, e) {
   const Wf = waffenMod();
-  if (!Wf || !Wf.niedergehalten(game, e) || e.rolle === 'enterer') return false;
+  if (!Wf || !Wf.niedergehalten(game, e) || e.rolle === 'enterer' || Vert.imRueckzug(game, e)) return false;
   if (e.role !== 'pin' && e.role !== 'push' && e.role !== 'advance' && e.role !== 'flank') return false;
   e.path = null; e.goal = null;
   if (e.role !== 'pin' && e.role !== 'push') setRole(game, e, 'pin');
@@ -388,6 +390,7 @@ function decide(game, E, e) {
   if (e.kind === 'warden') return decideWarden(game, E, e, s);
   const prof = waffenMod() ? (e.rolle || 'grundtyp') : null;
   if (prof && niedergehaltenHalten(game, e)) return;
+  if (prof && Vert.entscheide(game, E, e, s)) return;   // BOD-02 P8/P9: Rückzug und Gegenstoß (nur Trupps mit Verteidigungsprofil)
   if (prof && decideB2(game, E, e, s, prof)) return;
   if (!s.alert) { setRole(game, e, 'idle'); if (s.schleich) planRuhig(game, E, e, s); return; }
   const vis = sichtbareZiele(game, E, e, s);
@@ -602,7 +605,7 @@ function planPin(game, E, e, t) {
   if (bleibt && platzStrafe(game, E, e, here) === 0) { e.goal = null; return; }
   let best = null, bs = -Infinity, bStrafe = 0;
   const tt = tileOf(t.x, t.y);
-  for (const sp of E.coverSpots || []) {
+  for (const sp of Vert.spots(game, e, E.coverSpots || [])) {
     if (cheb(sp, here) > 7 || E.solid(sp.x, sp.y)) continue;
     const c = W.tileCenter(sp.x, sp.y);
     const d = dist(c.x, c.y, t.x, t.y);
@@ -622,7 +625,7 @@ function planPin(game, E, e, t) {
   }
   if (bleibt && !(bStrafe === 0 && best)) { e.goal = null; return; }   // kein freierer Platz: lieber stehen bleiben (weicher Rückfall)
   if (best && (best.x !== here.x || best.y !== here.y) && setGoal(game, E, e, best)) return;
-  if (!inBox(C, e.x, e.y, t.x, t.y)) setGoal(game, E, e, tt, 5 * TILE, t);
+  if (!inBox(C, e.x, e.y, t.x, t.y)) setGoal(game, E, e, tt, 5 * TILE, t);   // P8: Verteidiger verfolgen nicht (setGoal lehnt Ziele außerhalb der Haltelinie ab)
 }
 
 // Flankenplatz: Sicht auf das Ziel, Ziel hat dort keine Deckung (coverAgainst == 0)
@@ -682,13 +685,14 @@ function planAdvance(game, E, e, lk) {
   const here = tileOf(e.x, e.y); const lt = tileOf(lk.x, lk.y);
   if ((!e.path || !e.path.length) && cheb(here, lt) <= 2 && platzStrafe(game, E, e, here) === 0) { e.goal = null; return; }   // P5: schon am Punkt, im Abstand: nicht umherspringen
   let best = null, bs = -Infinity;
-  for (const sp of E.coverSpots || []) {
-    if (cheb(sp, lt) > 4 || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
+  const halt = Vert.aktiv(game, e);   // P8: Verteidiger rücken nur innerhalb der Haltelinie vor (nächster Platz zur letzten bekannten Position)
+  for (const sp of Vert.spots(game, e, E.coverSpots || [])) {
+    if ((!halt && cheb(sp, lt) > 4) || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
     const score = -manh(sp, lt) - manh(sp, here) * 0.2 - platzStrafe(game, E, e, sp);
     if (score > bs) { bs = score; best = sp; }
   }
   if (best && setGoal(game, E, e, best)) return;
-  if (!E.solid(lt.x, lt.y)) setGoal(game, E, e, lt);
+  if (!halt && !E.solid(lt.x, lt.y)) setGoal(game, E, e, lt);
 }
 
 // Zielkachel verteilen: ist die Kachel belegt oder schon Ziel eines anderen Gegners, die nächste freie begehbare Kachel
@@ -715,7 +719,7 @@ function abstandsKachel(game, E, e, here) {
   let best = null, bs = Infinity;
   for (let dy = -T.mindestAbstand; dy <= T.mindestAbstand; dy++) for (let dx = -T.mindestAbstand; dx <= T.mindestAbstand; dx++) {
     const t = { x: here.x + dx, y: here.y + dy };
-    if ((!dx && !dy) || t.x < 0 || t.y < 0 || t.x >= E.map.w || t.y >= E.map.h || E.solid(t.x, t.y) || reserved(game, e, t)) continue;
+    if ((!dx && !dy) || t.x < 0 || t.y < 0 || t.x >= E.map.w || t.y >= E.map.h || E.solid(t.x, t.y) || reserved(game, e, t) || !Vert.erlaubt(game, e, t)) continue;
     if (platzStrafe(game, E, e, t) > 0) continue;
     if (tg && tg.zone === 'away' && !los(E, W.tileCenter(t.x, t.y), tg)) continue;
     const sc = Math.hypot(dx, dy) - (cover.has(t.x + ',' + t.y) ? 1.5 : 0);
@@ -751,7 +755,7 @@ function freieKachel(game, E, e, tile) {
     for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
       if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
       const t = { x: tile.x + dx, y: tile.y + dy };
-      if (t.x < 0 || t.y < 0 || t.x >= E.map.w || t.y >= E.map.h || E.solid(t.x, t.y) || reserved(game, e, t)) continue;
+      if (t.x < 0 || t.y < 0 || t.x >= E.map.w || t.y >= E.map.h || E.solid(t.x, t.y) || reserved(game, e, t) || !Vert.erlaubt(game, e, t)) continue;
       const sc = Math.hypot(dx, dy) - (cover.has(t.x + ',' + t.y) ? 0.75 : 0);
       if (sc < bs) { bs = sc; best = t; }
     }
@@ -760,6 +764,7 @@ function freieKachel(game, E, e, tile) {
 }
 function setGoal(game, E, e, tile, stopNear, stopTarget) {
   tile = freieKachel(game, E, e, tile);
+  if (!Vert.erlaubt(game, e, tile)) return false;   // BOD-02 P8: Verteidiger planen nur Ziele auf ihrer Linie (Halten bzw. Linie 2)
   const here = tileOf(e.x, e.y);
   const path = bfs(E.walk, here, (x, y) => x === tile.x && y === tile.y, E.map.w, E.map.h, undefined, E.links || undefined);   // B1 §6.2: Deck-Links
   if (!path) return false;
@@ -1117,7 +1122,7 @@ function decideB2(game, E, e, s, prof) {
     if (dist(t.x, t.y, e.x, e.y) < mind * TILE) {
       const here = tileOf(e.x, e.y);
       let best = null, bs = -Infinity;
-      for (const sp of E.coverSpots || []) {
+      for (const sp of Vert.spots(game, e, E.coverSpots || [])) {
         if (cheb(sp, here) > 8 || E.solid(sp.x, sp.y) || reserved(game, e, sp)) continue;
         const c = W.tileCenter(sp.x, sp.y); const d = dist(c.x, c.y, t.x, t.y);
         if (d < candMin * TILE || !los(E, c, t)) continue;
@@ -1301,5 +1306,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
-  freshestKnown, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
+  freshestKnown, setGoal, setRole, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };

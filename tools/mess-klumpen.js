@@ -20,6 +20,9 @@
 //     Anteil Samples mit Flankierer.
 //     BOD-02 P7 (Trupp-Gehirn, e.aufgabe): Anteil Gefechts-Samples, in denen jeder Trupp ab 4 Lebenden >= 1 niederhalten und >= 1 flanke hat
 //     (nur Samples mit mindestens einem solchen Trupp), Verteilung der Aufgaben (Anteil je Aufgabe an allen Gegnern im Gefecht).
+//     BOD-02 P8/P9 (graben, Verteidigungsprofil): HALTEN = Anteil der lebenden Welle 1 in Stellungen (Stellung.inStellung) in Samples ab Alarm (aw.alarm), solange kein
+//     Rueckzug ausgeloest ist (Ziel >= 0,80); Rueckzug-Zaehler (aw.truppStats.rueckzug), Gegenstoesse (aw.truppStats.gegenstoss).
+//     Echter Alarm durch Entdeckung: ruhige Gegner (kein --alarm), --lauf 22: node tools/mess-klumpen.js graben --lauf 22 --seeds 8 --sek 120 --spieler 3
 //
 const path = require('path');
 const R = path.join(__dirname, '..') + path.sep;
@@ -28,6 +31,7 @@ const Physics = require(R + 'shared/physics.js');
 const { Game } = require(R + 'server/game.js');
 const L = require(R + 'server/sim/landepunkte.js');
 const Anker = require(R + 'server/sim/anker.js');
+const Stellung = require(R + 'server/sim/stellung.js');
 const combat = require(R + 'server/sim/combat.js');
 const squad = require(R + 'server/sim/squad.js');
 const away = require(R + 'server/sim/away.js');
@@ -133,7 +137,15 @@ function messLauf(modus, o, seed) {
     const proTrupp = {}; for (const e of al) (proTrupp[e.squad] = proTrupp[e.squad] || []).push(e);
     const gross = Object.values(proTrupp).filter((l) => l.length >= 4);
     const gueltig = gross.length ? (gross.every((l) => l.some((e) => e.aufgabe === 'niederhalten') && l.some((e) => e.aufgabe === 'flanke')) ? 1 : 0) : null;
-    samples.push({ t: (s + 1) * 0.5, n: al.length, mpd: sum / cnt, nn: nn / T.length, klumpFrac: klumpen / T.length, sieht, maxInsel, geteilt, maxFrei, geteiltFrei, pnn, npin: pins.length, flanker: al.some((e) => e.role === 'flank') ? 1 : 0, aufg, gueltig, medSp: minSp.sort((x, y) => x - y)[Math.floor(minSp.length / 2)], roll });
+    // BOD-02 P8/P9: Welle 1 in Stellungen (ab Alarm, solange kein Rueckzug ausgeloest ist)
+    let halten = null, rz = false;
+    const Vs = Object.values(aw.squads).map((q) => q && q.verteidigung).filter(Boolean);
+    if (modus === 'graben' && Vs.some((V) => V.squads.some((n) => aw.squads[n] && aw.squads[n].alert))) {   // Alarm = ein Trupp der Linie ist alarmiert (aw.alarm gilt bei --alarm nicht)
+      rz = Vs.some((V) => V.modus !== 'halten');
+      const w1 = al.filter((e) => Vs.some((V) => V.squads.includes(e.squad)));
+      if (!rz && w1.length) halten = { n: w1.length, drin: w1.filter((e) => Stellung.inStellung(g, e)).length };
+    }
+    samples.push({ halten, rz, gst: (aw.truppStats && aw.truppStats.gegenstoss) || 0, rzz: (aw.truppStats && aw.truppStats.rueckzug) || 0, t: (s + 1) * 0.5, n: al.length, mpd: sum / cnt, nn: nn / T.length, klumpFrac: klumpen / T.length, sieht, maxInsel, geteilt, maxFrei, geteiltFrei, pnn, npin: pins.length, flanker: al.some((e) => e.role === 'flank') ? 1 : 0, aufg, gueltig, medSp: minSp.sort((x, y) => x - y)[Math.floor(minSp.length / 2)], roll });
   }
   const sx = g.players.map((p) => Physics.toTile(p.x, p.y).x);
   const fehler = Array.isArray(g.errors) ? g.errors.length : g.errors | 0;
@@ -161,6 +173,13 @@ function auswerten(modus, o, rows) {
   const verteil = {}; let summe = 0;
   for (const s of gef) for (const [a, k] of Object.entries(s.aufg)) { verteil[a] = (verteil[a] || 0) + k; summe += k; }
   out.push('Verteilung der Aufgaben (Gefecht, Anteil an Gegner-Samples): ' + (summe ? Object.entries(verteil).sort((a, b) => b[1] - a[1]).map(([a, k]) => a + ' ' + f2(k / summe)).join(', ') : 'keine Gefechtssamples'));
+  if (modus === 'graben') {
+    const H = all.filter((s) => s.halten), Hg = H.filter((s) => s.sieht >= 3);
+    const rate = (S) => (S.length ? f2(S.reduce((a, s) => a + s.halten.drin, 0) / S.reduce((a, s) => a + s.halten.n, 0)) : 'n/a');
+    const minF = (S) => (S.length ? f2(Math.min(...S.map((s) => s.halten.drin / s.halten.n))) : 'n/a');
+    out.push(`HALTEN (Ziel >= 0,80): Anteil der lebenden Welle 1 in Stellungen ab Alarm, solange kein Rueckzug: ${rate(H)} (Samples ${H.length}, schlechtestes Sample ${minF(H)}); nur Gefechts-Samples: ${rate(Hg)} (${Hg.length})`);
+    out.push(`RUECKZUG/GEGENSTOSS: Seeds mit Rueckzug ${rows.filter((r) => r.samples.some((s) => s.rzz > 0)).length} von ${rows.length} (Summe Ausloesungen ${rows.reduce((a, r) => a + Math.max(0, ...r.samples.map((s) => s.rzz)), 0)}), Gegenstoesse gesamt ${rows.reduce((a, r) => a + Math.max(0, ...r.samples.map((s) => s.gst)), 0)}, Seeds mit Alarm ${rows.filter((r) => r.samples.some((s) => s.halten || s.rz)).length}`);
+  }
   for (const r of rows) { const g2 = r.samples.filter((s) => s.sieht >= 3); out.push(`seed ${r.seed}: Gefechtssamples ${g2.length}, Paarabstand ${f2(mean(g2.map((s) => s.mpd)))}, nn ${f2(mean(g2.map((s) => s.nn)))}, <=2 ${f2(mean(g2.map((s) => s.klumpFrac)))}, maxInsel ${g2.length ? Math.max(...g2.map((s) => s.maxInsel)) : 0}, Tickfehler ${r.fehler}`); }
   if (o.verlauf && rows[0]) out.push('Verlauf seed 1:\n' + rows[0].samples.filter((s, i) => i % 10 === 0).map((s) => `t${s.t}: n${s.n} mpd${f2(s.mpd)} nn${f2(s.nn)} sieht${s.sieht} maxInsel${s.maxInsel} spD${f2(s.medSp)} ${JSON.stringify(s.roll)}`).join('\n'));
   return out.join('\n');
