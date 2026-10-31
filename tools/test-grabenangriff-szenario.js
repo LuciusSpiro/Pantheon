@@ -137,7 +137,7 @@ section('Aufstellung: Welle 1 Graben und Posten, Welle 2 Wald und Eingang, alle 
     ok(S.ph === 'kampf' && fehlerZahl(g) === 0, `${np} Spieler: Phase kampf, keine Fehler`);
   }
   const dichte = start(3);
-  ok(Graben.besetzungFuer(dichte.g, 4)[Object.keys(Graben.besetzungFuer(dichte.g, 3))[0]] === Graben.besetzungFuer(dichte.g, 3)[Object.keys(Graben.besetzungFuer(dichte.g, 3))[0]], 'Crew über dem größten Eintrag nimmt den größten');
+  ok(Graben.besetzungFuer(dichte.g, 5)[Object.keys(Graben.besetzungFuer(dichte.g, 4))[0]] === Graben.besetzungFuer(dichte.g, 4)[Object.keys(Graben.besetzungFuer(dichte.g, 4))[0]], 'Crew über dem größten Eintrag nimmt den größten');
 });
 
 section('Rom: Fraktion, Palette, Namen und Funk römisch', () => {

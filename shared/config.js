@@ -616,6 +616,8 @@
         1: { 'w1.graben': ['grundtyp', 'grenadier'], 'w1.posten': ['schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['schuetze'] },
         2: { 'w1.graben': ['grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['grenadier', 'schuetze'] },
         3: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze'] },
+        // 4 Spieler (maxPlayers 4; Kai 2026-10-31: bei 3/4 zu leicht): 16 statt 12, dazu je Linie ein Niederhalter (Ballistarius)
+        4: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grundtyp', 'grenadier', 'niederhalter'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp', 'niederhalter'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze', 'schuetze'] },
       },
     },
 
