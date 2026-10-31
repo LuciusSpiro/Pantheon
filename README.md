@@ -1162,8 +1162,15 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   - Werte stehen unter `CONFIG.wellen`.
   - `?arena=away&art=…&seed=…` spielt Wellen auf genau dieser Karte. Mit `&fraktion=…` oder `&wellen=0` startet die
     statische Karte (Karten-QA).
+- **Grabenangriff** (BOD-01, Lobby-Modus „Grabenangriff“ neben Wellen Boden, Taste M): die Crew greift eine römische Stellung auf der
+  festen Karte `content/buehnen/festkarten/grabenangriff.json` an (Wiese mit Graben, Wald, Bunkereingang). Variante je Abschnitt in der Lobby
+  (K, N, B; Liste aus den Kartendaten). Beide Wellen stehen von Beginn an postiert (Welle 1 Graben und Posten, Welle 2 Wald und Eingang,
+  6 / 9 / 12 Gegner für 1 / 2 / 3 Spieler), das Ziel am Bunkereingang gilt erst nach Welle 2, Sieg = danach Hochbeamen am Abholpunkt.
+  Fällt die ganze Crew, beginnt das Szenario von vorn. Werte und Texte: `CONFIG.graben`. `?arena=graben[&auswahl=wiese:graben,wald:weg]`
+  wählt den Modus direkt. Bots: `node tools/sim-headless.js graben [--players 1|3|beide] [--seeds n] [--god]`, Test
+  `node tools/test-grabenangriff-szenario.js`.
 - **Debug** (`npm run debug`): `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (neben die eigene Figur),
-  `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `tune waffen.<waffe>.<wert>`.
+  `alarm on|off`, `fang` (Gefangennahme auslösen), `welle <n>` (Wellen-Modus), `graben welle2|reset|status` (Grabenangriff), `tune waffen.<waffe>.<wert>`.
   `WAFFEN=aus` schaltet das Waffenmodul ab (alter Kampf, für Golden-Vergleiche).
 - **Messwerte (DOKU 2026-10-10, Details in `concept/buehnen/ABNAHME-B2.md`):** `test-waffen` 132/132, `test-combat`
   352/352, `test-wellen` 54/54. Snapshot im Worst Case max 11 246 B. Bots schleichen in

@@ -556,6 +556,38 @@
       },
     },
 
+    // BOD-01 Grabenangriff (Lobby-Start 'arena_graben', server/sim/graben.js): die Crew greift eine römische Stellung an. Beide Wellen stehen von Beginn
+    // an postiert (kein Nachrücken, kein Nachspawn). Besetzung je Crewgröße (der höchste Eintrag ≤ Crewgröße gilt): Gruppe (meta.gruppen der Festkarte) ->
+    // Rollen, ein Gegner je Eintrag, gleichmäßig auf die Anker der Gruppe verteilt. Welle 1 = Graben und Posten, Welle 2 = Wald und Eingang (meta.wellen der Karte);
+    // gesamt 6 / 9 / 12 für 1 / 2 / 3 Spieler. Das Ziel (Anker meta.ziel) gilt erst, wenn Welle 2 besiegt ist; halten: CONFIG.anker.halten.ziel.
+    graben: {
+      fest: 'grabenangriff',   // content/buehnen/festkarten/<fest>.json
+      fraktion: 'rom',
+      besitz: 'rom',
+      ergebnisZeit: 15,        // s Siegbild, dann zurück in die Lobby
+      // Texte (ODA und Zielzeile); {0}, {1} = Platzhalter der Aufrufstelle
+      texte: {
+        start: '{0}: {1} Verteidiger halten Graben, Wald und Bunkereingang. Die Crew beamt am Abholpunkt hinunter.',
+        start_ruest: '{0} – Rüstphase: am Terminal ausbauen, dann „Szene starten“. Die Crew beamt am Abholpunkt hinunter.',
+        los: 'Die Crew ist unten. Über die Wiese zum Graben, dann durch den Wald zum Bunkereingang.',
+        sperre: 'Gesperrt – erst die Verteidiger im Wald und am Eingang besiegen.',
+        ziel_offen: 'Der Weg zum Bunkereingang ist frei – einnehmen!',
+        ziel_erreicht: 'Bunkereingang genommen! Zum Abholpunkt, dann hochbeamen.',
+        sieg: 'Grabenangriff gewonnen – die Stellung ist genommen.',
+        neustart: 'Die Crew ist gefallen – Notrückholung. Die Stellung beginnt von vorn: alle Verteidiger stehen wieder, das Ziel ist gesperrt.',
+        zeile_ruest: 'Rüstphase – am Terminal ausbauen, dann Szene starten',
+        zeile_kampf: 'Rom besiegen: Graben {0} · Wald und Eingang {1}',
+        zeile_ziel: 'Bunkereingang einnehmen',
+        zeile_hoch: 'Zum Abholpunkt – hochbeamen',
+        zeile_sieg: 'Grabenangriff gewonnen',
+      },
+      besetzung: {
+        1: { 'w1.graben': ['grundtyp', 'grenadier'], 'w1.posten': ['schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['schuetze'] },
+        2: { 'w1.graben': ['grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['grenadier', 'schuetze'] },
+        3: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze'] },
+      },
+    },
+
     // ================= M3a „Breitseite & Schaden“ (Studioleitung, CONTRACT-M3 §10) – alles per `tune spaceM3.<pfad>` =================
     spaceM3: {
       reactorBrokenOutput: 2,

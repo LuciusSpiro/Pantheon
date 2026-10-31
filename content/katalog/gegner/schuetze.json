@@ -6,7 +6,27 @@
   "profil": "schuetze",
   "namen": {
     "germanen": "Jäger",
-    "rostmeute": "Jäger"
+    "rostmeute": "Jäger",
+    "rom": "Speculator"
+  },
+  "vornamen": {
+    "rom": [
+      "Appius",
+      "Caelius",
+      "Clodius",
+      "Fulvius",
+      "Helvius",
+      "Junius",
+      "Lollius",
+      "Mamercus",
+      "Nonius",
+      "Opimius",
+      "Plautius",
+      "Rutilius",
+      "Statius",
+      "Terentius",
+      "Vibius"
+    ]
   },
   "beschreibung": "Sucht die Aussicht oder lange Sichtlinien, lädt still und trifft auf Distanz. Weicht zurück, wenn man ihm nahe kommt.",
   "funk": {
@@ -33,5 +53,32 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Ziel erfasst.",
+        "Posten bezogen.",
+        "Ich lade … gleich.",
+        "Der am Rand gehört mir.",
+        "Zu nah, ich wechsle den Posten!"
+      ],
+      "geteilte_sicht": [
+        "Ich sehe sie von der Palisade aus."
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }

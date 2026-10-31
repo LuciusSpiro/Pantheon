@@ -15,6 +15,8 @@
     "profil": { "type": "string", "description": "KI-Profil in squad.js (BODENKAMPF)" },
     "namen": { "type": "object", "description": "Bauweise bzw. Fraktion -> Anzeigename (z. B. germanen: Bolzer)", "additionalProperties": { "type": "string", "maxLength": 40 } },
     "beschreibung": { "type": "string", "maxLength": 300, "description": "Für den Spielleiter: was die Rolle sichtbar tut" },
-    "funk": { "type": "object", "description": "Anlass -> Funksätze (INHALT §7.4)", "additionalProperties": { "type": "array", "items": { "type": "string", "maxLength": 120 } } }
+    "funk": { "type": "object", "description": "Anlass -> Funksätze (INHALT §7.4)", "additionalProperties": { "type": "array", "items": { "type": "string", "maxLength": 120 } } },
+    "vornamen": { "type": "object", "description": "Fraktion -> Einzelnamen der Individuen (rom: Gaius, Titus …); je Rolle verteilt der Funk sie der Reihe nach, ohne Dopplung auf einer Karte", "additionalProperties": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "maxLength": 30 } } },
+    "funk_nach_fraktion": { "type": "object", "description": "Fraktion -> Anlass -> Funksätze; ersetzt für diese Fraktion `funk` ganz (kein Rückfall auf die germanischen Sätze)", "additionalProperties": { "type": "object", "additionalProperties": { "type": "array", "items": { "type": "string", "maxLength": 120 } } } }
   }
 }

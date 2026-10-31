@@ -11,6 +11,7 @@ const path = require('path');
 const Buehne = require('../../shared/buehne.js');
 const GenSiedlung = require('../../shared/gen-siedlung.js');
 const GenStation = require('../../shared/gen-station.js');
+const GenFest = require('../../shared/gen-fest.js');
 const Locations = require('../../shared/locations.js');
 const W = require('../world.js');
 
@@ -74,7 +75,18 @@ function bauOpts(lpId, e) {
 // den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
 // Gleicher Seed = gleiche Karte; die Karten erfüllen den Pflichtsatz der Kartenart (Missionsplanung nimmt ihn an).
 const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 } };
+// BOD-01: feste Karten (shared/gen-fest.js, content/buehnen/festkarten/<name>.json). Eintrag (Definition oder Debug-Landepunkt) mit
+// gen: { fest: '<name>', abschnitte: { <abschnitt>: '<variante>' } } (Kartenart bleibt aussenposten): die Karte ist handgebaut, der Seed ohne Wirkung.
+const FEST_DIR = path.join(__dirname, '..', '..', 'content', 'buehnen', 'festkarten');
+const FEST = new Map();
+function festkarte(name) {   // Definition einer festen Karte (gelesen und gemerkt; neuLaden/cacheLeeren vergessen sie)
+  if (!/^[a-z0-9_-]+$/.test(String(name))) throw new Error(`Feste Karte ${name}: ungültiger Name`);
+  if (!FEST.has(name)) FEST.set(name, JSON.parse(fs.readFileSync(path.join(FEST_DIR, name + '.json'), 'utf8')));
+  return FEST.get(name);
+}
+function genVorgaben(lpId, e) { return (e && e.gen) || (defs().byId[lpId] || {}).gen || {}; }
 function nutztGenerator(lpId, e) {
+  if (genVorgaben(lpId, e).fest) return true;   // feste Karte: immer der Erzeuger (auch bei PANTHEON_GEN=0)
   if (!GEN_GROESSE[e.art] || process.env.PANTHEON_GEN === '0' || (e.schablone && !/^gen-/.test(e.schablone))) return false;   // gen-… = vom Generator gesetzt (uebernehmen)
   const d = defs().byId[lpId] || {};   // Aus-Schalter steht in der Definition, nicht im (gespeicherten) Eintrag
   return d.erzeuger !== 'modul';
@@ -84,9 +96,20 @@ function nutztGenerator(lpId, e) {
 function siedlungWelt() {
   try { const W = require('./welt.js'); const k = W.karte(W.kartenId()); return (k && k.siedlung) || null; } catch (x) { return null; }
 }
+// Feste Karte: ein Bau, kein Seed-Wechsel (das Raster ist handgebaut); scheitert der Prüfer, ist die Karte falsch
+function festBauen(lpId, e, gv) {
+  const roh = GenFest.karteRoh(festkarte(gv.fest), { id: lpId, bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', seed: e.seed | 0, abschnitte: gv.abschnitte });
+  const r = Buehne.ausRaster(roh, { spiel: true });
+  if (!r.pruefung.ok) {
+    const err = new Error(`Feste Karte ${gv.fest} (${lpId}): Prüfer ${r.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')}`);
+    err.fehler = r.fehler; throw err;
+  }
+  return r.karte;
+}
 function genBauen(lpId, e) {
   const o = { bauweise: e.bauweise || 'germanen', besitz: e.besitz || null, zustand: e.zustand || 'intakt', id: lpId };
-  const gv = e.gen || (defs().byId[lpId] || {}).gen || {};   // EK5/EK6: Vorgaben der Definition bzw. des Debug-Landepunkts (variante methalle/eisenwald, typ, haeuser)
+  const gv = genVorgaben(lpId, e);   // EK5/EK6: Vorgaben der Definition bzw. des Debug-Landepunkts (variante methalle/eisenwald, typ, haeuser)
+  if (gv.fest) return festBauen(lpId, e, gv);
   const typ = gv.typ || (e.besitz === 'rostmeute' || e.zustand === 'umkaempft' ? 'militaer' : 'handel');
   const sw = e.art === 'aussenposten' ? siedlungWelt() : null;
   const ausstattung = gv.ausstattung != null ? !!gv.ausstattung : !!(sw && sw.ausstattung && typ === 'handel' && !gv.variante);
@@ -282,10 +305,10 @@ const CACHE_MAX = 64;
 // Frischer Eintrag (bauversion null): die aktuelle Modul-Bauversion der Kartenart steht im Schlüssel, damit neu geladene
 // Module/Schablonen nicht die alte Karte treffen (F9b); cacheLeeren(art) ist zusätzlich die Absicherung der Werkstatt.
 function aktBauversion(art) { if (!art || art === 'hand') return 'hand'; try { return '~' + Buehne.bauversion(art); } catch (x) { return '~'; } }
-function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].join('|'); }
+function cacheKey(lpId, e) { return [lpId, e.seed, e.art, e.schablone, e.bauweise, e.besitz, e.zustand, e.bauversion != null ? e.bauversion : aktBauversion(e.art), nutztGenerator(lpId, e) ? 'gen' : 'modul'].concat(genVorgaben(lpId, e).fest ? [JSON.stringify([genVorgaben(lpId, e).fest, genVorgaben(lpId, e).abschnitte || null])] : []).join('|'); }
 // cacheLeeren(art?): Karten-Cache dieser Kartenart (ohne art: ganz) leeren (Werkstatt nach dem Speichern eines Moduls). -> Zahl
 function cacheLeeren(art) {
-  let n = 0;
+  let n = 0; FEST.clear();   // BOD-01: Definitionen fester Karten neu lesen
   for (const k of Array.from(KARTEN_CACHE.keys())) if (!art || k.split('|')[2] === art) { KARTEN_CACHE.delete(k); n++; }
   return n;
 }
@@ -629,6 +652,6 @@ function debug(game, cmd, args, p) {
 
 module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
-  toSave, restore, ankerZahlen, debug, sichern, eintrag,
+  toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
   bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren,   // F1, F6, F9b
 };

@@ -6,7 +6,27 @@
   "profil": "grenadier",
   "namen": {
     "germanen": "Donnerwerfer",
-    "rostmeute": "Donnerwerfer"
+    "rostmeute": "Donnerwerfer",
+    "rom": "Funditor"
+  },
+  "vornamen": {
+    "rom": [
+      "Aelius",
+      "Antonius",
+      "Cornelius",
+      "Domitius",
+      "Fabius",
+      "Hostilius",
+      "Iulius",
+      "Livius",
+      "Mucius",
+      "Ovidius",
+      "Pompeius",
+      "Quinctius",
+      "Sempronius",
+      "Tullius",
+      "Valerius"
+    ]
   },
   "beschreibung": "Hält Abstand hinter den anderen und wirft Granaten auf Ziele in Deckung. Treibt die Crew aus festen Stellungen.",
   "funk": {
@@ -33,5 +53,32 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Wurf frei!",
+        "Raus aus der Deckung, sofort!",
+        "Der Wurf ist unterwegs!",
+        "Hinter dem Wall sitzen sie, gleich nicht mehr!",
+        "Abstand halten, ich werfe!"
+      ],
+      "ueberhitzt": [
+        "Werfer kühlt, deckt mich!"
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }

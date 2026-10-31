@@ -6,7 +6,27 @@
   "profil": "haescher",
   "namen": {
     "germanen": "Wergeld-Fänger",
-    "rostmeute": "Wergeld-Fänger"
+    "rostmeute": "Wergeld-Fänger",
+    "rom": "Fugitivarius"
+  },
+  "vornamen": {
+    "rom": [
+      "Ambrosius",
+      "Cinna",
+      "Dolabella",
+      "Eutropius",
+      "Faustus",
+      "Glabrio",
+      "Hortensius",
+      "Julianus",
+      "Kaeso",
+      "Laenas",
+      "Maximus",
+      "Nepos",
+      "Orestes",
+      "Pudens",
+      "Quadratus"
+    ]
   },
   "beschreibung": "Folgt dem Niederhalter, betäubt und fesselt einzelne oder liegende Spieler. Wer gefangen wird, muss ausbrechen.",
   "funk": {
@@ -35,5 +55,34 @@
     "friendly_fire": [
       "Pass doch auf, du Narr!"
     ]
+  },
+  "funk_nach_fraktion": {
+    "rom": {
+      "allgemein": [
+        "Den nehme ich in Gewahrsam.",
+        "Lebend, so lautet der Befehl!",
+        "Auf dem Markt bringt er gutes Geld.",
+        "Deckt mich, ich lege die Fessel an!"
+      ],
+      "fesselt": [
+        "Er schläft, ich lege die Fesseln an!"
+      ],
+      "gefesselt": [
+        "Ein Mann in Fesseln!"
+      ],
+      "kamerad_liegt": [
+        "Aufstehen, Soldat!",
+        "Ich hole dich raus!"
+      ],
+      "spieler_gefesselt": [
+        "Einer ist gefasst. Weiter!"
+      ],
+      "alarm_laerm": [
+        "Schuss gefallen! Kohorte, Alarm!"
+      ],
+      "friendly_fire": [
+        "Eigene Linie, Idiot! Augen auf!"
+      ]
+    }
   }
 }

@@ -1,0 +1,15 @@
+Grabenangriff (feste Karte, Rom), 3 Spieler (Gegner ruhig, laufen auf x~22 vor, dann stehend, unverwundbar), 120 s, Seeds 1..8
+Gefecht entstanden in 8 von 8 Seeds, 1864 von 1920 Samples im Gefecht; Spieler-x am Ende (Seed 1): 22,22,22
+HAUPTKENNZAHLEN (Gefecht): Anteil Gegner mit Kamerad <= 2 Kacheln 0.47   mittlerer Abstand zum naechsten Kameraden 5.17 Kacheln
+[gesamt] Samples 1920: Gegner 12  mittl. Paarabstand 33.84  mittl. Abstand zum naechsten Kameraden 5.21  Anteil <=2 Kacheln 0.46  max Gegner je Deckungsinsel (Mittel 1.91, Maximum 2)  Inseln mit >=2 Gegnern 1.48  Median Abstand zum naechsten Spieler 29.8
+[Gefecht (>=3 Gegner sehen Spieler)] Samples 1864: Gegner 12  mittl. Paarabstand 33.83  mittl. Abstand zum naechsten Kameraden 5.17  Anteil <=2 Kacheln 0.47  max Gegner je Deckungsinsel (Mittel 1.96, Maximum 2)  Inseln mit >=2 Gegnern 1.53  Median Abstand zum naechsten Spieler 29.48
+stehende pin-Gegner (>=2) im Gefecht: Samples 1832, mittl. Abstand zum naechsten pin-Kameraden 2.39, mittl. Anzahl pin 4.29
+Samples mit Flankierer (Anteil, alle Samples): 0.18
+seed 1: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 2: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 3: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 4: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 5: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 6: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 7: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0
+seed 8: Gefechtssamples 233, Paarabstand 33.83, nn 5.17, <=2 0.47, maxInsel 2, Tickfehler 0

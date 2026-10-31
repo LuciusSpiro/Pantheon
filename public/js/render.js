@@ -9,6 +9,12 @@
   const Phys = window.Shared_Physics;
   const CFG = window.Shared_Config || {};
   const PROTO = window.Shared_Protocol || {};
+  // BOD-01 N1: Namensschild der Bodengegner (Gattung scavenger): Fraktionen mit eigenen Rollennamen (rom) tragen deren Rollennamen, alle anderen weiter „PLÜNDERER“
+  function gegnerSchild(e, geduckt) {
+    const tab = e.fr && PROTO.ROLLE_NAMEN_FR && PROTO.ROLLE_NAMEN_FR[e.fr];
+    const n = tab ? String(tab[e.ro] || tab.grundtyp).toUpperCase() : 'PLÜNDERER';
+    return geduckt ? n + ' (geduckt)' : n;
+  }
   const TILE = 32, VW = 640, VH = 360;
 
   // W2 AP3b: bewegte Brocken – dieselbe Funktion wie der Server (shared/drift.js). index.html lädt sie (noch) nicht:
@@ -427,7 +433,7 @@
     legend['#'] = legend['#'] || { kind: 'wand', solid: true, cover: 2, sperrtSicht: true };
     const m = Maps.makeMap(ev.id, ev.rows, legend);
     const karte = {};
-    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle', 'ku', 'moebel', 'boden']) if (ev[k] !== undefined) karte[k] = ev[k];   // ku: Passanten und Schilder (SL2, shared/kulisse.js); moebel/boden: Siedlungsausstattung und Bodenton (TA, voxel/kit.js)
+    for (const k of ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'seed', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv', 'huelle', 'ku', 'moebel', 'boden', 'boden2']) if (ev[k] !== undefined) karte[k] = ev[k];   // ku: Passanten und Schilder (SL2, shared/kulisse.js); moebel/boden: Siedlungsausstattung und Bodenton (TA, voxel/kit.js)
     Object.assign(m, karte, { karte, buehne: true, legende: legend });
     m.w = ev.rows[0].length; m.h = ev.rows.length;
     // Kachel -> Kantenindex (Zustand aus ko), Kachel -> Ankerindex (tor/eingang/versteck steuern Kacheln)
@@ -2027,7 +2033,7 @@
               }
             };
             if (ecr && !artHasCrouch('drone')) squashed(ctx, ex, ey, CROUCH_FB, drawE); else drawE();
-            if (dk === 'scavenger' && e.alive !== false) text(ctx, ecr ? 'PLÜNDERER (geduckt)' : 'PLÜNDERER', ex, ey - (ecr ? 28 : 36), { color: PAL.rust, align: 'center' });
+            if (dk === 'scavenger' && e.alive !== false) text(ctx, gegnerSchild(e, ecr), ex, ey - (ecr ? 28 : 36), { color: PAL.rust, align: 'center' });
           }
         } else if (d.type === 'proj') {
           const pr = d.e;
@@ -2343,7 +2349,7 @@
         if (v2 && !enemyShown(e, fogSet)) continue;
         const dk = e.kind || (map.id === 'wreck' ? 'scavenger' : undefined);
         if (dk === 'warden') { const s = P(e.x, e.y, 62); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
-        else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); text(ctx, cr ? 'PLÜNDERER (geduckt)' : 'PLÜNDERER', s.x, s.y, { color: PAL.rust, align: 'center' }); }
+        else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); text(ctx, gegnerSchild(e, cr), s.x, s.y, { color: PAL.rust, align: 'center' }); }
       }
     });
 

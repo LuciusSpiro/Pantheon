@@ -601,6 +601,7 @@ function squadRecall(game) {
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
+  aw.letzteRueckholung = { pids, t: game.time };   // BOD-01: Szenarien (graben.js) prüfen, ob die Rückholung die ganze verbundene Crew betraf
   game.emit('squadRecall', { pids });
   game.emit('sfx', { name: 'squad_recall' });
   game.emit('beam', { pids, dir: 'up', map });
@@ -1176,7 +1177,7 @@ function rolleGesehen(game, e) {
   const ws = game.weltstand;
   let neu = false;
   try { neu = !!(ws && typeof ws.rolleGesehen === 'function' && ws.rolleGesehen(r)); } catch (x) { if (game.countError) game.countError('rolleGesehen', x); }
-  if (neu) game.emit('rolleNeu', { rolle: r });
+  if (neu) game.emit('rolleNeu', e.fraktion ? { rolle: r, fr: e.fraktion } : { rolle: r });   // BOD-01 N1: fr = Fraktion (der Client wählt den Rollennamen der Fraktion)
 }
 function rollenGesehen(game) {
   const ws = game.weltstand;
@@ -1780,7 +1781,7 @@ function awaySnap(game, aw) {
 }
 
 module.exports = {
-  makeKesh, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
+  makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, scanQuality, tune, tuneList,
   playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,

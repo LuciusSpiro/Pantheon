@@ -1,0 +1,19 @@
+Eisenwald Endkampf, 3 Spieler (stehend, unverwundbar), 90 s, Seeds 1..12
+Gefecht entstanden in 12 von 12 Seeds, 1750 von 2160 Samples im Gefecht
+HAUPTKENNZAHLEN (Gefecht): Anteil Gegner mit Kamerad <= 2 Kacheln 0.64   mittlerer Abstand zum naechsten Kameraden 2.7 Kacheln
+[gesamt] Samples 2160: Gegner 11  mittl. Paarabstand 12.37  mittl. Abstand zum naechsten Kameraden 3.96  Anteil <=2 Kacheln 0.52  max Gegner je Deckungsinsel (Mittel 2.18, Maximum 6)  Inseln mit >=2 Gegnern 1.36  Median Abstand zum naechsten Spieler 13.69
+[Gefecht (>=3 Gegner sehen Spieler)] Samples 1750: Gegner 11  mittl. Paarabstand 8.75  mittl. Abstand zum naechsten Kameraden 2.7  Anteil <=2 Kacheln 0.64  max Gegner je Deckungsinsel (Mittel 2.63, Maximum 6)  Inseln mit >=2 Gegnern 1.67  Median Abstand zum naechsten Spieler 7.85
+stehende pin-Gegner (>=2) im Gefecht: Samples 1407, mittl. Abstand zum naechsten pin-Kameraden 2.48, mittl. Anzahl pin 6.98
+Samples mit Flankierer (Anteil, alle Samples): 0
+seed 1: Gefechtssamples 144, Paarabstand 8.8, nn 2.63, <=2 0.63, maxInsel 4, Tickfehler 0
+seed 2: Gefechtssamples 150, Paarabstand 8.81, nn 2.7, <=2 0.7, maxInsel 4, Tickfehler 0
+seed 3: Gefechtssamples 143, Paarabstand 8.67, nn 3.01, <=2 0.56, maxInsel 5, Tickfehler 0
+seed 4: Gefechtssamples 158, Paarabstand 12.12, nn 3.91, <=2 0.51, maxInsel 5, Tickfehler 0
+seed 5: Gefechtssamples 151, Paarabstand 9.35, nn 2.81, <=2 0.59, maxInsel 4, Tickfehler 0
+seed 6: Gefechtssamples 142, Paarabstand 8.41, nn 2.65, <=2 0.64, maxInsel 5, Tickfehler 0
+seed 7: Gefechtssamples 152, Paarabstand 9.59, nn 2.67, <=2 0.63, maxInsel 6, Tickfehler 0
+seed 8: Gefechtssamples 140, Paarabstand 7.55, nn 2.61, <=2 0.64, maxInsel 5, Tickfehler 0
+seed 9: Gefechtssamples 139, Paarabstand 7.74, nn 2.16, <=2 0.71, maxInsel 5, Tickfehler 0
+seed 10: Gefechtssamples 139, Paarabstand 7.81, nn 2.63, <=2 0.62, maxInsel 5, Tickfehler 0
+seed 11: Gefechtssamples 147, Paarabstand 8.1, nn 2.37, <=2 0.7, maxInsel 4, Tickfehler 0
+seed 12: Gefechtssamples 145, Paarabstand 7.6, nn 2.13, <=2 0.74, maxInsel 5, Tickfehler 0

@@ -7,6 +7,7 @@
 //  - arena_space mit Szenenwahl (lobbyOpts.szene, W2 AP3b): „Wellen All“ – frei / nebel / asteroiden / asteroiden_bewegt
 //    (CONFIG.arena.szenen), Ablauf aus wellen.js (Bühne all). Ohne Szene der Altweg oben (Tests).
 //  - arena_away mit Kartenwahl (lobbyOpts.wellen): Bodenkampf: Wellen (wellen.js) auf Außenposten/Station/Ruine/Schiff/Kesh-Hof.
+//  - arena_graben (BOD-01, lobbyOpts.graben = Variantenwahl): Szenario Grabenangriff auf der festen Karte, Ablauf in graben.js (Bühne graben in wellen.js).
 //  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
 //    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
 const W = require('../world.js');
@@ -16,7 +17,7 @@ const space = require('./space.js');
 const away = require('./away.js');
 
 const TAG = 'arena';
-const KINDS = ['arena_space', 'arena_away'];
+const KINDS = ['arena_space', 'arena_away', 'arena_graben'];
 const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 
 function isArena(kind) { return KINDS.includes(kind); }
@@ -25,6 +26,7 @@ function cfg(game) { return game.C.arena; }
 // opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
 // opts.szene = Szenenwahl Wellen All (CONFIG.arena.szenen) -> Wellen im Raum; ohne: Altweg (feste Wellen zyklisch)
 function start(game, kind, params, opts) {
+  if (kind === 'arena_graben') return startGraben(game, opts && opts.graben);
   const wk = opts && opts.wellen;
   if (kind === 'arena_away' && wk) return startWellen(game, wk, params);
   if (kind === 'arena_away') return params && params.art ? startAwayBuehne(game, params) : startAway(game);
@@ -277,6 +279,31 @@ function wellenSeed(game) { return 1 + ((Math.imul((game.seed >>> 0) ^ 0x9E3779B
 function wellenFraktion(game, id) {
   try { return id && (require('./combat.js').katalogDaten(game).fraktionen || {})[id] ? id : null; } catch (e) { return null; }
 }
+// Schiff abgelegt am Kesh, Karte lp als Transferziel und aktive Außenkarte (Wellen Boden, Grabenangriff)
+function bodenSzene(game, lp) {
+  space.enterScene(game, ARENA_ORT, { docked: false });
+  const ship = game.ship; const st = Locations.get(ARENA_ORT).scene.station || { x: 1200, y: 900 };
+  ship.x = st.x - cfg(game).keshShipOffset; ship.y = st.y; ship.angle = 0; ship.vx = 0; ship.vy = 0; ship.speed = 0;
+  repairShip(game);
+  game.transferZiel = { lp, scene: ship.scene };
+  game.setAwayMap(lp);
+  worldFirst(game);
+}
+// BOD-01: Grabenangriff. wahl = Variantenwahl je Abschnitt (lobbyOpts.graben, null = Standard). Die Karte ist handgebaut (fester Bau), der Seed nur eine Kennung.
+function startGraben(game, wahl) {
+  const G = require('./graben.js'); const C = game.C.graben;
+  const auswahl = G.auswahl(game, wahl);
+  const seed = wellenSeed(game);
+  const ex = game.explore;
+  if (!ex.known.has(ARENA_ORT)) { ex.known.add(ARENA_ORT); ex.version++; }
+  if (!ex.visited.has(ARENA_ORT)) { ex.visited.add(ARENA_ORT); ex.version++; }
+  const lp = karteBauen(game, { art: 'aussenposten', seed, besitz: C.besitz, gen: { fest: C.fest, abschnitte: auswahl } });
+  if (!lp) { game.oda('Der Grabenangriff ließ sich nicht bauen – zurück nach Kesh.', null); return startAway(game); }
+  bodenSzene(game, lp);
+  game.arena = { kind: 'arena_away', lp, wellen: null, params: null };
+  G.start(game, { karte: C.fest, seed, lp, auswahl, name: 'Grabenangriff' });
+}
+
 function startWellen(game, karte, params) {
   const Wellen = require('./wellen.js');
   const url = params && params.art ? params : null;
@@ -293,13 +320,7 @@ function startWellen(game, karte, params) {
     lp = karteBauen(game, p);
     if (!lp) { game.oda('Diese Karte ließ sich nicht bauen – die Wellen kommen auf dem Kesh-Hof.', null); lp = 'kesh'; }
   }
-  space.enterScene(game, ARENA_ORT, { docked: false });
-  const ship = game.ship; const st = Locations.get(ARENA_ORT).scene.station || { x: 1200, y: 900 };
-  ship.x = st.x - cfg(game).keshShipOffset; ship.y = st.y; ship.angle = 0; ship.vx = 0; ship.vy = 0; ship.speed = 0;
-  repairShip(game);
-  game.transferZiel = { lp, scene: ship.scene };
-  game.setAwayMap(lp);
-  worldFirst(game);
+  bodenSzene(game, lp);
   const team = game.players.filter((p) => p.connected);
   // Rüstphase (Testumgebung, game.ruestphase): die Crew bleibt an Bord und beamt erst hinunter, wenn am Terminal „Szene starten“ gedrückt wird (wellen.vorbereitungEnde)
   if (!game.ruestphase) {
@@ -320,6 +341,7 @@ function update(game, dt) {
 function wellenText(game) {
   const s = require('./wellen.js').snap(game);
   if (!s) return null;
+  if (game.arena.wellen.buehne === 'graben') return require('./graben.js').zeile(game, game.arena.wellen);   // BOD-01: Ziel- und Hinweiszeile des Grabenangriffs
   const all = game.arena && game.arena.kind === 'arena_space';
   return s.ph === 'vorbereitung' ? 'Rüstphase – am Terminal ausbauen, dann Szene starten'
     : s.ph === 'countdown' ? `Welle 1 in ${s.t} s – ${all ? 'auf Station' : 'Deckung suchen'}`

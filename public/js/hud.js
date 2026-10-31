@@ -334,7 +334,7 @@
         else if (w.ph === 'vorbereitung') { line = 'Rüstphase: Terminal'; col = PAL.amber; }
         else if (w.ph === 'countdown') { line = 'Welle 1 in ' + w.t + ' s'; col = PAL.amber; }
         else if (w.ph === 'pause') { line = 'Nächste Welle in ' + w.t + ' s'; col = PAL.mint; }
-        else line = 'Runde vorbei';
+        else line = this.wellenErgebnis && this.wellenErgebnis.sieg ? 'Sieg!' : 'Runde vorbei';
         R.text(ctx, line, bx + 6, by + 17, { color: col });
       }
       // Banner Mitte oben: Countdown/Pause dauerhaft, Wellenbeginn kurz
@@ -358,10 +358,11 @@
       const x = 170, y = 60, bw = 300, bh = 220;
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
       R.panel(ctx, x, y, bw, bh, { style: 'brass' });
-      R.text(ctx, 'RUNDE VORBEI', VW / 2, y + 12, { color: PAL.amber, scale: 2, align: 'center' });
-      R.text(ctx, this.wellenKarteName(w.k) + ' · Seed ' + w.s, VW / 2, y + 32, { color: PAL.mint, align: 'center' });
+      R.text(ctx, e && e.sieg ? 'SIEG' : 'RUNDE VORBEI', VW / 2, y + 12, { color: e && e.sieg ? PAL.mint : PAL.amber, scale: 2, align: 'center' });
+      R.text(ctx, this.wellenKarteName(w.k) + (e && e.sieg ? '' : ' · Seed ' + w.s), VW / 2, y + 32, { color: PAL.mint, align: 'center' });
       const welle = e ? e.welle : w.n;
-      const rows = [['Erreicht', 'Welle ' + welle + (welle > 1 ? ' (' + (welle - 1) + ' überstanden)' : '')], ['Zeit', e ? fmtTime(e.zeit) : '–']];
+      const rows = e && e.sieg ? [['Ergebnis', 'Stellung genommen'], ['Zeit', fmtTime(e.zeit)], ['Versuche', String(e.versuche || 1)]]   // BOD-01: Siegbild des Grabenangriffs
+        : [['Erreicht', 'Welle ' + welle + (welle > 1 ? ' (' + (welle - 1) + ' überstanden)' : '')], ['Zeit', e ? fmtTime(e.zeit) : '–']];
       let ly = y + 50;
       for (const [k, v] of rows) { R.text(ctx, k, x + 30, ly, { color: PAL.panelLight }); R.text(ctx, String(v), x + bw - 30, ly, { color: PAL.star, align: 'right' }); ly += 12; }
       ly += 4;
@@ -381,7 +382,7 @@
       }
       ly += 6;
       const rek = (this.wellenRekorde || {})[w.k];
-      if (e && e.debug) R.text(ctx, 'Debug-Sprung – zählt nicht als Rekord', VW / 2, ly, { color: PAL.panelLight, align: 'center' });
+      if (e && e.sieg) { /* kein Wellenrekord */ } else if (e && e.debug) R.text(ctx, 'Debug-Sprung – zählt nicht als Rekord', VW / 2, ly, { color: PAL.panelLight, align: 'center' });
       else if (e && e.rekordNeu) R.text(ctx, 'NEUER REKORD auf dieser Karte!', VW / 2, ly, { color: PAL.amber, align: 'center' });
       else if (rek) R.text(ctx, 'Rekord hier: Welle ' + rek.welle + ' · ' + fmtTime(rek.zeit), VW / 2, ly, { color: PAL.panelLight, align: 'center' });
       R.text(ctx, 'Zurück in die Lobby in ' + w.t + ' s', VW / 2, y + bh - 40, { color: PAL.panelLight, align: 'center' });
@@ -403,6 +404,23 @@
       let info = rek ? 'Rekord: Welle ' + rek.welle + ' · ' + fmtTime(rek.zeit) : k ? 'Noch kein Rekord' : 'K: Karte wählen';
       if (last && k && last.karte === (url ? url.art : k)) info += ' · zuletzt W' + last.welle;
       R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
+    },
+
+    // BOD-01: Lobby-Block Grabenangriff – eine Zeile je wählbarem Abschnitt (Liste vom Server, lobby.grabenListe), Taste je Zeile (GRABEN_TASTEN), Klick/Taste schaltet die Variante weiter
+    GRABEN_TASTEN: ['KeyK', 'KeyN', 'KeyB'],
+    drawLobbyGraben(ctx, view, rx, rw, me) {
+      const lob = (view.state && view.state.lobby) || {};
+      const liste = Array.isArray(lob.grabenListe) ? lob.grabenListe : [];
+      const wahl = lob.graben || {};
+      liste.slice(0, this.GRABEN_TASTEN.length).forEach((a, i) => {
+        const v = (a.varianten || []).find(x => x.id === wahl[a.abschnitt]) || (a.varianten || [])[0];
+        if ((a.varianten || []).length < 2) { R.text(ctx, this.fit(a.name + ': ' + (v ? v.name : '–'), rw, 1), rx + 4, 165 + i * 13, { color: PAL.panelLight }); return; }   // N3: nur eine Variante – reine Textzeile ohne Taste/Rahmen
+        R.button(ctx, rx, 163 + i * 13, rw, 12, this.fit(a.name + ': ' + (v ? v.name : '–'), rw - 22, 1), {
+          hotkey: this.GRABEN_TASTEN[i].replace('Key', ''), active: true, disabled: !me, reason: 'Noch nicht verbunden',
+          onClick: () => view.actions.toggleGraben && view.actions.toggleGraben(i),
+        });
+      });
+      if (!liste.length) R.text(ctx, 'Karte wird geladen …', rx, 168, { color: PAL.panelLight });
     },
 
     // W2 AP3b: Lobby-Block Wellen All – Szenenwahl (K), Rekord je Szene; ersetzt dort den Block HAFEN-ÜBUNG
@@ -1295,7 +1313,7 @@
       }
       // AP3a: Wellen Boden und Labor – Waffe je Spieler (W wählt die eigene; ohne Wahl gilt die gespeicherte bzw. der Blaster)
       const lobSm = st.lobby && st.lobby.startMission;
-      const mitWaffe = (lobSm === 'arena_away' || lobSm === 'labor') && !(st.lobby.world && this.lobbyWorld(st));
+      const mitWaffe = (lobSm === 'arena_away' || lobSm === 'arena_graben' || lobSm === 'labor') && !(st.lobby.world && this.lobbyWorld(st));
       const lwf = (st.lobby && st.lobby.waffen) || {};
       R.text(ctx, mitWaffe ? 'An Bord · W: eigene Waffe' : 'An Bord', lx, 164, { color: mitWaffe ? PAL.amber : PAL.panelLight });
       let y = 175;
@@ -1339,13 +1357,14 @@
       const startId = (st.lobby && st.lobby.startMission) || 'm1';
       const resume = !!(st.lobby && st.lobby.world && this.lobbyWorld(st));   // S1: Weltstand gewählt -> Startauswahl entfällt
       const direct = (startId !== 'm1' && startId !== 'eisenwald') || resume;
-      const isArena = startId === 'arena_space' || startId === 'arena_away';
+      const isArena = startId === 'arena_space' || startId === 'arena_away' || startId === 'arena_graben';
       const P = window.Shared_Protocol || {};
       const starts = this.startList(st);
       const startLabel = (P.START_LABELS && P.START_LABELS[startId]) || { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission' }[startId] || startId;
       const startHint = (P.START_HINTS && P.START_HINTS[startId]) || { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
       const skip = !!(st.lobby && st.lobby.skipDrill);
       if (startId === 'arena_away' && !resume) this.drawLobbyWellen(ctx, view, rx, rw, me);   // Bodenkampf: Wellen – Kartenwahl statt Übung
+      else if (startId === 'arena_graben' && !resume) this.drawLobbyGraben(ctx, view, rx, rw, me);   // BOD-01: Grabenangriff – Variantenwahl je Abschnitt
       else if (startId === 'arena_space' && !resume) this.drawLobbyAll(ctx, view, rx, rw, me);   // W2 AP3b: Wellen All – Szenenwahl
       else if (startId === 'labor' && !resume) this.drawLobbyLabor(ctx, view, rx, rw, me);   // AP3a: Szenario-Labor
       else {
