@@ -1,0 +1,28 @@
+{
+  "id": "cha/koerper/standard/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/lerche/head, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/koerper/standard/head_ops",
+      "colors": {
+        "cloth2": "haarband_standard",
+        "trim": "schmuck_standard"
+      }
+    }
+  ]
+}

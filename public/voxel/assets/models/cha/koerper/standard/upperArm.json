@@ -1,0 +1,27 @@
+{
+  "id": "cha/koerper/standard/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/oberarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/oberarm",
+      "colors": {
+        "cloth": "unter_standard"
+      }
+    }
+  ]
+}

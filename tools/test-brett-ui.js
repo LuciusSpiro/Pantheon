@@ -303,7 +303,7 @@ section('Zeichnen: ganzes Terminal (Knopf Brett, Bereich Brett nur mit Modell)')
   const kn = rec.knoepfe.find((b) => b.label === 'Ablehnen');
   ok(kn && kn.kontur === true && kn.hotkey === 'X', 'Ablehnen: Kontur-Knopf mit Taste X (leise)');
   const ha = rec.knoepfe.find((b) => b.label === 'Annehmen');
-  ok(ha && ha.hotkey === 'Ent' && ha.fn === 'nav', 'Annehmen: Hauptknopf mit Taste Ent');
+  ok(ha && ha.hotkey === 'Enter' && ha.fn === 'nav', 'Annehmen: Hauptknopf mit Taste Ent');
   ganz({ bereich: 'werft', bereichUmschalter: { bereich: 'werft', brett: null }, aktionen: {} });
   ok(!rec.knoepfe.some((b) => b.label === TEXT.knopf) && !hat('AUFTRAGSBRETT'), 'ohne Brett-Modell: kein Knopf, kein Brett (bestehendes Verhalten)');
   ganz({ bereich: 'werft', bereichUmschalter: { bereich: 'werft', brett: { label: TEXT.knopf } }, aktionen: {} });
@@ -555,7 +555,7 @@ win.window = win;
 win.Render = { PAL: {}, text() {}, drawTooltip() {}, ui: { buttons: [], mouse: { x: 0, y: 0 } } };
 win.Pult = {};
 let letztesModell = null;
-win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal(c, v, m) { letztesModell = m; } };
+win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal(c, v, m) { letztesModell = m; } };
 win.Consoles = { shopRows() { return []; }, denied() {} };
 win.PultAuftrag = PA;
 vm.createContext(win);
@@ -810,7 +810,7 @@ section('Tasten: O frei, keine Kollision, Namen');
   ok(['KeyB', 'KeyA', 'KeyK', 'KeyI', 'KeyH', 'KeyW', 'KeyE', 'KeyN', 'KeyF', 'KeyG'].every((k) => brettBelegt.indexOf(k) < 0), 'im Bereich Brett ist keine der Bereichs- und Werfttasten belegt (nur Enter, X, 1–3)');
   // die Belegung wirkt: die Tastenkanon-Logik (Consoles) ist bereichsgebunden; Terminal-Bereich Brett nimmt O nicht in der Werft
   ok(Ta.passt({ code: 'KeyO' }, 'terminal.brett') && !Ta.passt({ code: 'KeyP' }, 'terminal.brett'), 'passt: O trifft terminal.brett');
-  ok(Ta.kappe('terminal.brett') === 'O' && Ta.kappe('terminal.brettAnnehmen') === 'Ent' && Ta.kappe('terminal.brettAblehnen') === 'X', 'Kappen: O, Ent, X');
+  ok(Ta.kappe('terminal.brett') === 'O' && Ta.kappe('terminal.brettAnnehmen') === 'Enter' && Ta.kappe('terminal.brettAblehnen') === 'X', 'Kappen: O, Ent, X');
 }
 
 section('H1, H4: terminal-ui (Sperrgrund ohne Ersetzungsmuster, Tastenzeile bei gesperrter Annahme)');

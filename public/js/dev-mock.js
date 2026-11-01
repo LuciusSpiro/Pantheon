@@ -650,6 +650,7 @@
           if (!p.carry && W.inventory[item] > 0) { p.carry = item; W.inventory[item]--; return; }
           notice(p.carry ? 'Du trägst schon etwas' : 'Regal leer'); return;
         }
+        if (info.kind === 'locker' && p.karte) { const rr = Maps.roomAt(tx, ty); if (rr && rr.id === 'q' + p.color) { p.console = 'spind'; return; } }   // CHA-01 D
         if (info.interact === 'bed') { const bed = Maps.BEDS.find(b => b.x === tx && b.y === ty); if (bed && bed.color === p.color) { p.console = 'quartier'; return; } }
         if (dx === 0 && dy === 0 && info.kind === 'pad') { p.action = { kind: 'beam', progress: 0, dur: 3 }; return; }
       } else {

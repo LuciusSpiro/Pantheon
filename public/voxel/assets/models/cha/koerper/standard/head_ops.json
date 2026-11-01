@@ -1,0 +1,191 @@
+{
+  "id": "cha/koerper/standard/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/lerche/head (ohne Bedingung), Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Hals",
+      "op": "box",
+      "at": [
+        -1,
+        25,
+        -1
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": "skin_shadow"
+    },
+    {
+      "name": "Kinn",
+      "op": "box",
+      "at": [
+        -1,
+        25,
+        1
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": "skin"
+    },
+    {
+      "name": "Kiefer",
+      "op": "box",
+      "at": [
+        -2,
+        26,
+        -2
+      ],
+      "size": [
+        4,
+        1,
+        5
+      ],
+      "color": "skin"
+    },
+    {
+      "name": "Schädel",
+      "op": "box",
+      "at": [
+        -3,
+        27,
+        -2
+      ],
+      "size": [
+        6,
+        4,
+        5
+      ],
+      "color": "skin"
+    },
+    {
+      "name": "Lippen",
+      "op": "box",
+      "at": [
+        -1,
+        26,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 0.74
+      },
+      "mode": "paint"
+    },
+    {
+      "name": "Nase",
+      "op": "box",
+      "at": [
+        -1,
+        27,
+        3
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 0.93
+      }
+    },
+    {
+      "name": "Nasenrücken",
+      "op": "box",
+      "at": [
+        -1,
+        28,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 1.06
+      },
+      "mode": "paint"
+    },
+    {
+      "name": "Augen",
+      "op": "box",
+      "at": [
+        1,
+        28,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "#1A120E",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Wangen",
+      "op": "box",
+      "at": [
+        2,
+        27,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 0.95
+      },
+      "mode": "paint",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ohren",
+      "op": "box",
+      "at": [
+        3,
+        27,
+        0
+      ],
+      "size": [
+        1,
+        2,
+        1
+      ],
+      "color": "skin_shadow",
+      "mirror": "x",
+      "mirrorAt": 0
+    }
+  ]
+}

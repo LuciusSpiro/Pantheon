@@ -24,7 +24,7 @@
 //     zeichneModulraeume(ctx, rects, z)     vier Modulräume als Pult-Zellen, Kappe F1–F4
 //     zeichneInfo(ctx, rect, infoRect, l)   SUND-03b I: Bereich Information (Informationshandel des Konkordats): Themen, Stufen Gerücht und Beleg, letzte Käufe; Rechtecke wie Handel
 //     zeichneBereich(ctx, rects, b)         Umschalter Handel / Werft (H / W), mit b.lage ({ gesperrt, grund }) auch Lage (L), nur Freie Fahrt Sund
-//     zeichneAktionen(ctx, rects, a)        Hauptknopf (Ent Umbau bestätigen | F Freischalten | H Zum Handel), Hinweis, A Ausbau, ↑↓ Teil
+//     zeichneAktionen(ctx, rects, a)        Hauptknopf (Enter Umbau bestätigen | F Freischalten | H Zum Handel), Hinweis, A Ausbau, ↑↓ Teil
 //     zeichneStatus(ctx, rect, s)           Am Gerät: Spielerfarbe · Zusehen: Farben
 //     symbolModul(ctx, id, x, y, o)         Pixel-Symbol frachtraum | krankenstation | werkstatt (10×10, Format wie SYMBOLE im Katalog)
 //     symbolTeil(ctx, teil, x, y, o)        Waffe (Katalogsymbol über SchiffsUI) oder Modul
@@ -428,7 +428,7 @@
   // h: { artikel: [{ id, name, art ('Vorrat'|'Ausrüstung'|'Deko'), preis, besitz, grund, guenstiger, teurer, onClick }], gewaehlt: id, info: { hinweis: { pfeil, text } | null, text, grund } }
   function zeichneHandel(c, r, info, h) {
     const cols = 3, luft = 4, cw = Math.floor((r.w - (cols - 1) * luft) / cols), ch = 22;
-    txtRolle(c, 'HANDEL', r.x, r.y - 13, 'preis', 'titel'); txt(c, kappe('terminal.teil', '↑↓') + ' wählen · ' + kappe('terminal.kaufen', 'Ent') + ' kaufen', r.x + r.w, r.y - 13, 'dim', { align: 'right' });
+    txtRolle(c, 'HANDEL', r.x, r.y - 13, 'preis', 'titel'); txt(c, kappe('terminal.teil', '↑↓') + ' wählen · ' + kappe('terminal.kaufen', 'Enter') + ' kaufen', r.x + r.w, r.y - 13, 'dim', { align: 'right' });
     (h.artikel || []).forEach((a, i) => {
       const x = r.x + (i % cols) * (cw + luft), y = r.y + Math.floor(i / cols) * (ch + 3); if (y + ch > r.y + r.h) return;
       const gew = a.id === h.gewaehlt, zu = !!a.grund, b = { x, y, w: cw, h: ch, label: a.name, onClick: a.onClick, disabled: false };   // wählbar auch ohne Kauf (der Grund steht in der Infozeile)
@@ -627,13 +627,16 @@
   }
   // a: { haupt: { art: 'umbau'|'freischalten'|'stufe'|'kaufen'|'handel', text, disabled, grund, onClick }, hinweis: { text, fn }, ausbau: { active, disabled, onClick }, teil: { disabled, onClick } }
   const HAUPT = {
-    umbau: { aktion: 'terminal.bestaetigen', taste: 'Ent', fn: 'weapon' }, modul: { aktion: 'terminal.bestaetigen', taste: 'Ent', fn: 'shield' },
-    freischalten: { aktion: 'terminal.freischalten', taste: 'F', fn: 'nav' }, kaufen: { aktion: 'terminal.kaufen', taste: 'Ent', fn: 'nav' },
+    umbau: { aktion: 'terminal.bestaetigen', taste: 'Enter', fn: 'weapon' }, modul: { aktion: 'terminal.bestaetigen', taste: 'Enter', fn: 'shield' },
+    freischalten: { aktion: 'terminal.freischalten', taste: 'F', fn: 'nav' }, kaufen: { aktion: 'terminal.kaufen', taste: 'Enter', fn: 'nav' },
     handel: { aktion: 'terminal.handel', taste: 'H', fn: 'nav' },
-    annehmen: { aktion: 'terminal.annehmen', taste: 'Ent', fn: 'nav' },   // SUND-02b D: Bereich Lage
-    brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Ent', fn: 'nav' },   // SUND-04b D: Bereich Brett
-    gerucht: { aktion: 'terminal.gerucht', taste: 'Ent', fn: 'nav' },   // SUND-03b I: Bereich Information
+    annehmen: { aktion: 'terminal.annehmen', taste: 'Enter', fn: 'nav' },   // SUND-02b D: Bereich Lage
+    brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Enter', fn: 'nav' },   // SUND-04b D: Bereich Brett
+    gerucht: { aktion: 'terminal.gerucht', taste: 'Enter', fn: 'nav' },   // SUND-03b I: Bereich Information
   };
+  // CHA-01 F: Platz für den Text im Hauptknopf einer Art. Aus der echten Kappe abgeleitet (Skin-Regel in pult.js: Kappe = max(13, Kappenbreite + 7), dazu 8 px Einzug und Rand),
+  // damit eine breitere Kappe („Enter“ statt „Ent“) den Textplatz nicht überfährt.
+  function hauptTextBreite(art) { const d = HAUPT[art] || HAUPT.umbau; return KNOPF.w - Math.max(13, tw(kappe(d.aktion, d.taste)) + 7) - 8; }
   function zeichneAktionen(c, A, a) {
     const h = a.haupt || {}, d = HAUPT[h.art] || HAUPT.umbau;
     P.knopf(c, A.haupt.x, A.haupt.y, A.haupt.w, A.haupt.h, h.label || h.text, { hotkey: kappe(d.aktion, d.taste), fn: d.fn, text: h.text, disabled: !!h.disabled, reason: h.grund, onClick: h.onClick });
@@ -691,6 +694,6 @@
     TOKENS, SYMBOLE_MODUL, layout, zeichneTerminal,
     zeichneSchnitt, zeichneLegende, zeichneKopf, zeichnePlatzKopf, zeichneTeilliste, zeichneVorschau, zeichneStufen, zeichneGesperrt, zeichneHandel, zeichneLage, zeichneFinale, finaleLayout, zeichneInfo,
     zeichneKreuz, zeichneModulraeume, zeichneBereich, zeichneAktionen, zeichneStart, zeichneStatus, symbolModul, symbolTeil,
-    txt, tw, umbruch, kappe, kontrast,
+    txt, tw, umbruch, kappe, kontrast, hauptTextBreite,
   };
 })();

@@ -1,0 +1,32 @@
+{
+  "id": "cha/kopf/bordhelm/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf bordhelm (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "kopf"
+  ],
+  "notes": "Schicht aus fig/crew/helm_offen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/kopf/bordhelm/head_ops",
+      "colors": {
+        "secondary": "hut_bordhelm",
+        "metal": "metall_bordhelm",
+        "metal_dark": "metall_dunkel_bordhelm",
+        "metal_light": "metall_hell_bordhelm",
+        "primary": "hut_zier_bordhelm",
+        "glow": "licht_bordhelm"
+      }
+    }
+  ]
+}

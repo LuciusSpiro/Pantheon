@@ -59,7 +59,7 @@
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
-  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
+  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
@@ -389,85 +389,6 @@
       else if (rek) R.text(ctx, 'Rekord hier: Welle ' + rek.welle + ' · ' + fmtTime(rek.zeit), VW / 2, ly, { color: PAL.panelLight, align: 'center' });
       R.text(ctx, 'Zurück in die Lobby in ' + w.t + ' s', VW / 2, y + bh - 40, { color: PAL.panelLight, align: 'center' });
       R.button(ctx, VW / 2 - 70, y + bh - 26, 140, 18, 'Zur Lobby', { hotkey: 'Enter', onClick: () => view.actions.wellenLobby && view.actions.wellenLobby() });
-    },
-    // Lobby: Kartenwahl (K), Seed-Hinweis, Rekord – ersetzt dort den Block HAFEN-ÜBUNG
-    drawLobbyWellen(ctx, view, rx, rw, me) {
-      const lob = (view.state && view.state.lobby) || {};
-      const k = lob.wellen || null;
-      const url = lob.arena && lob.arena.art ? lob.arena : null;
-      R.text(ctx, 'KARTE', rx, 164, { color: PAL.brass });
-      R.text(ctx, url && k ? 'Seed ' + url.seed + ' (fest)' : k ? 'neuer Seed je Start' : '', rx + rw, 164, { color: PAL.panelLight, align: 'right' });
-      R.button(ctx, rx, 174, rw, 16, k ? this.wellenKarteName(url ? url.art : k) : 'Kesh/m3 (ohne Wellen)', {
-        hotkey: 'K', active: !!k, disabled: !me, reason: 'Noch nicht verbunden',
-        onClick: () => view.actions.toggleWellenKarte && view.actions.toggleWellenKarte(),
-      });
-      const rek = k ? (this.wellenRekorde || {})[url ? url.art : k] : null;
-      const last = this.wellenErgebnis;
-      let info = rek ? 'Rekord: Welle ' + rek.welle + ' · ' + fmtTime(rek.zeit) : k ? 'Noch kein Rekord' : 'K: Karte wählen';
-      if (last && k && last.karte === (url ? url.art : k)) info += ' · zuletzt W' + last.welle;
-      R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
-    },
-
-    // BOD-01: Lobby-Block Grabenangriff – eine Zeile je wählbarem Abschnitt (Liste vom Server, lobby.grabenListe), Taste je Zeile (GRABEN_TASTEN), Klick/Taste schaltet die Variante weiter
-    GRABEN_TASTEN: ['KeyK', 'KeyN', 'KeyB'],
-    drawLobbyGraben(ctx, view, rx, rw, me) {
-      const lob = (view.state && view.state.lobby) || {};
-      const liste = Array.isArray(lob.grabenListe) ? lob.grabenListe : [];
-      const wahl = lob.graben || {};
-      liste.slice(0, this.GRABEN_TASTEN.length).forEach((a, i) => {
-        const v = (a.varianten || []).find(x => x.id === wahl[a.abschnitt]) || (a.varianten || [])[0];
-        if ((a.varianten || []).length < 2) { R.text(ctx, this.fit(a.name + ': ' + (v ? v.name : '–'), rw, 1), rx + 4, 165 + i * 13, { color: PAL.panelLight }); return; }   // N3: nur eine Variante – reine Textzeile ohne Taste/Rahmen
-        R.button(ctx, rx, 163 + i * 13, rw, 12, this.fit(a.name + ': ' + (v ? v.name : '–'), rw - 22, 1), {
-          hotkey: this.GRABEN_TASTEN[i].replace('Key', ''), active: true, disabled: !me, reason: 'Noch nicht verbunden',
-          onClick: () => view.actions.toggleGraben && view.actions.toggleGraben(i),
-        });
-      });
-      if (!liste.length) R.text(ctx, 'Karte wird geladen …', rx, 168, { color: PAL.panelLight });
-    },
-
-    // W2 AP3b: Lobby-Block Wellen All – Szenenwahl (K), Rekord je Szene; ersetzt dort den Block HAFEN-ÜBUNG
-    drawLobbyAll(ctx, view, rx, rw, me) {
-      const lob = (view.state && view.state.lobby) || {};
-      const z = lob.szene ? this.allSzene(lob.szene) : null;
-      const list = (CFG.arena && CFG.arena.szenen) || [];
-      const i = z ? list.indexOf(z) + 1 : 0;
-      R.text(ctx, 'SZENE', rx, 164, { color: PAL.brass });
-      R.text(ctx, z ? i + '/' + list.length + ' · K' : '', rx + rw, 164, { color: PAL.panelLight, align: 'right' });
-      R.button(ctx, rx, 174, rw, 16, z ? z.name : 'Altweg (ohne Wellen)', {
-        hotkey: 'K', active: !!z, disabled: !me, reason: 'Noch nicht verbunden',
-        onClick: () => view.actions.toggleWellenKarte && view.actions.toggleWellenKarte(),
-      });
-      const key = z ? 'all:' + z.id : null;
-      const rek = key ? (this.wellenRekorde || {})[key] : null;
-      const last = this.wellenErgebnis;
-      const art = !z ? 'K: Szene wählen' : z.brocken === false ? 'ohne Brocken' : z.brocken === 'bewegt' ? 'Brocken treiben' : z.ort === 'nebel' ? 'Nebel: halbe Reichweite' : 'Brocken stehen';
-      let info = (rek ? 'Rekord W' + rek.welle + ' · ' + fmtTime(rek.zeit) : art);
-      if (last && key && last.karte === key) info += ' · zuletzt W' + last.welle;
-      R.text(ctx, this.fit(info, rw, 1), rx, 193, { color: rek ? PAL.amber : PAL.panelLight });
-    },
-
-    // AP3a: Lobby-Block Szenario-Labor (rechte Spalte, y 106–200): Liste (↑/↓), Ort und Kartenarten, Seed (R), Stärke (←/→), god (G)
-    LABOR_ZEILEN: 5,
-    drawLobbyLabor(ctx, view, rx, rw, me) {
-      const lob = (view.state && view.state.lobby) || {};
-      const liste = Array.isArray(lob.laborListe) ? lob.laborListe : [];
-      const L = lob.labor || {};
-      const i = Math.max(0, liste.findIndex(e => e.id === L.id));
-      R.text(ctx, 'SZENARIO-LABOR', rx, 106, { color: PAL.brass });
-      R.text(ctx, liste.length ? (i + 1) + '/' + liste.length + ' · ↑/↓' : 'leer', rx + rw, 106, { color: PAL.panelLight, align: 'right' });
-      const n = this.LABOR_ZEILEN;
-      const start = Math.max(0, Math.min(liste.length - n, i - Math.floor(n / 2)));
-      for (let k = 0; k < n && start + k < liste.length; k++) {
-        const e = liste[start + k], y = 117 + k * 10, sel = start + k === i;
-        if (sel) { ctx.fillStyle = 'rgba(255,198,107,0.18)'; ctx.fillRect(rx - 2, y - 1, rw + 4, 10); }
-        R.text(ctx, this.fit((e.schauplatz === 'aussen' ? 'B ' : 'R ') + e.name, rw, 1), rx, y, { color: sel ? PAL.amber : PAL.star });
-      }
-      const e = liste[i];
-      const ort = e ? (e.schauplatz === 'aussen' ? 'Boden' : 'Raum') + (e.kartenarten && e.kartenarten.length ? ' · ' + e.kartenarten.join('/') : '') + (e.landepunkt ? ' · ' + e.landepunkt : e.ort ? ' · ' + this.locLabel(e.ort) : '') : '';
-      R.text(ctx, this.fit(ort, rw, 1), rx, 168, { color: PAL.panelLight });
-      const st8 = e && !e.staerke ? '–' : (L.staerke || 'Standard');
-      R.text(ctx, this.fit('R Seed ' + (L.seed != null ? L.seed : 'zufällig') + ' · ←/→ Stärke ' + st8, rw, 1), rx, 179, { color: PAL.mint });
-      R.text(ctx, this.fit('G god ' + (L.god ? 'AN' : 'aus') + (e && e.startzustand ? ' · Start: ' + e.startzustand : ''), rw, 1), rx, 190, { color: L.god ? PAL.amber : PAL.mint });
     },
 
     drawObjectives(ctx, view) {
@@ -1296,150 +1217,34 @@
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
 
-    // ---------------------------------------------------------------- Lobby (Canvas; Name per DOM-Input)
-    LOBBY_NAME_RECT: { x: 130, y: 104, w: 170, h: 16 },
+    // ---------------------------------------------------------------- Lobby-Rückfall (Canvas): nur noch der Hintergrund hinter der Kleiderkammer. CHA-01 E/G: Titel, Hauptmenü, Lobby, Einladung und Raumcode-Eingang → public/js/menue-ui.js
     drawLobby(ctx, view) {
       const st = view.state || {};
       const t = view.time;
       if (!R.art('drawStarfield', null, [ctx, t * 20, 0, VW, VH, t])) { ctx.fillStyle = PAL.space; ctx.fillRect(0, 0, VW, VH); }
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
-      R.text(ctx, 'PANTHEON', VW / 2, 30, { color: PAL.amber, scale: 2, align: 'center' });
-      R.text(ctx, 'Eine Crew, ein Schiff · Koop für 1–4 Spieler', VW / 2, 54, { color: PAL.mint, align: 'center' });
-      const players = st.players || [];
-      const me = players.find(p => p.id === view.pid);
-      if (Net.badCode && !me) { this.drawCodeEntry(ctx, view); this.drawNotices(ctx, view, 4); return; }
-      R.panel(ctx, 110, 72, 420, 240, { style: 'brass', title: 'CREW-LISTE' });
-      const lob = view.lobby;
-      const lx = this.LOBBY_NAME_RECT.x;
-      R.text(ctx, 'Name', lx, 94, { color: PAL.panelLight });
-      const nr = this.LOBBY_NAME_RECT;
-      ctx.strokeStyle = PAL.brass; ctx.strokeRect(nr.x - 0.5, nr.y - 0.5, nr.w + 1, nr.h + 1);
-      R.text(ctx, 'Farbe (1–4)', lx, 128, { color: PAL.panelLight });
-      const taken = players.filter(p => p.id !== view.pid && p.connected !== false).map(p => p.color);
-      for (let c = 0; c < 4; c++) {
-        const isTaken = taken.indexOf(c) >= 0;
-        const mine = me ? me.color === c : lob.color === c;
-        const bx = lx + c * 52, by = 139;
-        R.button(ctx, bx, by, 48, 18, 'S' + (c + 1), {
-          disabled: isTaken, reason: 'Farbe bereits vergeben', active: mine,
-          onClick: () => view.actions.setColor(c),
-        });
-        R.shape(ctx, R.SHAPES[c], bx + 40, by + 9, 8, isTaken ? '#4A5260' : PAL.players[c], PAL.space);
-      }
-      // AP3a: Wellen Boden und Labor – Waffe je Spieler (W wählt die eigene; ohne Wahl gilt die gespeicherte bzw. der Blaster)
-      const lobSm = st.lobby && st.lobby.startMission;
-      const mitWaffe = (lobSm === 'arena_away' || lobSm === 'arena_graben' || lobSm === 'labor') && !(st.lobby.world && this.lobbyWorld(st));
-      const lwf = (st.lobby && st.lobby.waffen) || {};
-      R.text(ctx, mitWaffe ? 'An Bord · W: eigene Waffe' : 'An Bord', lx, 164, { color: mitWaffe ? PAL.amber : PAL.panelLight });
-      let y = 175;
-      for (const p of players.slice(0, 3)) {
-        const col = PAL.players[p.color || 0];
-        R.shape(ctx, R.SHAPES[p.color || 0], lx + 6, y + 4, 8, col);
-        R.text(ctx, String(p.name || '?').slice(0, 12) + (p.id === view.pid ? ' (du)' : ''), lx + 16, y, { color: col });
-        if (mitWaffe) R.text(ctx, lwf[p.id] ? (WAFFE_NAME[lwf[p.id]] || lwf[p.id]) : 'Standard', lx + 150, y, { color: lwf[p.id] ? PAL.amber : PAL.panelLight, align: 'right' });
-        R.text(ctx, p.connected === false ? 'getrennt' : p.ready ? 'BEREIT' : 'wartet', lx + 196, y, { color: p.ready ? PAL.mint : PAL.panelLight, align: 'right' });
-        y += 11;
-      }
-      if (!players.length) R.text(ctx, Net.status === 'open' ? 'warte auf Server …' : 'verbinde …', lx + 16, y, { color: PAL.panelLight });
-      // S1: Block WELTSTAND (über dem Bereit-Knopf, y ≤ 250)
-      this.drawLobbyWorld(ctx, view, lx, 211, 200);
-
-      // rechte Spalte: Raumcode + Einladung, Hafen-Übung (M0)
-      const rx = 350, rw = 160;
-      ctx.fillStyle = 'rgba(43,29,26,0.35)'; ctx.fillRect(rx - 10, 88, 1, 150);
-      const code = Net.serverRoomCode;
-      const laborSeite = !!(st.lobby && st.lobby.startMission === 'labor' && !(st.lobby.world && this.lobbyWorld(st)));
-      if (laborSeite) {   // AP3a: Labor braucht die Spalte – Raumcode als eine Zeile (L kopiert den Link weiter)
-        R.text(ctx, 'RAUMCODE', rx, 94, { color: PAL.brass });
-        R.text(ctx, code ? code + ' · L: Link' : 'aus', rx + rw, 94, { color: code ? PAL.amber : PAL.panelLight, align: 'right' });
-      } else R.text(ctx, 'RAUMCODE', rx, 94, { color: PAL.brass });
-      if (laborSeite) { /* Labor-Block zeichnet drawLobbyLabor */ } else if (code) {
-        R.backdrop(ctx, rx, 105, rw, 22, 0.75);
-        ctx.strokeStyle = PAL.brass; ctx.strokeRect(rx + 0.5, 105.5, rw - 1, 21);
-        R.text(ctx, code.split('').join(' '), rx + rw / 2, 109, { color: PAL.amber, scale: 2, align: 'center' });
-        const copied = view.state && window.Client && Client.inviteCopiedT && performance.now() - Client.inviteCopiedT < 2500;
-        R.button(ctx, rx, 131, rw, 16, copied ? 'Link kopiert!' : 'Einladungslink kopieren', {
-          hotkey: 'L', active: !!copied, disabled: !me, reason: 'Noch nicht verbunden',
-          onClick: () => view.actions.copyInvite(),
-        });
-        R.text(ctx, 'Mitspielern Link oder Code geben.', rx, 151, { color: PAL.panelLight });
-      } else {
-        R.text(ctx, me ? 'aus – jeder mit der Adresse' : '…', rx, 109, { color: PAL.panelLight });
-        if (me) R.text(ctx, 'kommt rein (ROOM_CODE=off).', rx, 120, { color: PAL.panelLight });
-      }
-      // M2: Start – Kampagne oder direkt zur Planetenmission (m3); die Hafen-Übung entfällt beim Direktstart
-      // Testgelände (arena_space/arena_away): wie Direktstart ohne Übung, Anzeige in Bernstein
-      const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const resume = !!(st.lobby && st.lobby.world && this.lobbyWorld(st));   // S1: Weltstand gewählt -> Startauswahl entfällt
-      const direct = (startId !== 'm1' && startId !== 'eisenwald') || resume;
-      const isArena = startId === 'arena_space' || startId === 'arena_away' || startId === 'arena_graben';
-      const P = window.Shared_Protocol || {};
-      const starts = this.startList(st);
-      const startLabel = (P.START_LABELS && P.START_LABELS[startId]) || { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', m3: 'Direkt zur Planetenmission' }[startId] || startId;
-      const startHint = (P.START_HINTS && P.START_HINTS[startId]) || { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Sofort auf Kesh, Kampf im Hof' }[startId] || '';
-      const skip = !!(st.lobby && st.lobby.skipDrill);
-      if (startId === 'arena_away' && !resume) this.drawLobbyWellen(ctx, view, rx, rw, me);   // Bodenkampf: Wellen – Kartenwahl statt Übung
-      else if (startId === 'arena_graben' && !resume) this.drawLobbyGraben(ctx, view, rx, rw, me);   // BOD-01: Grabenangriff – Variantenwahl je Abschnitt
-      else if (startId === 'arena_space' && !resume) this.drawLobbyAll(ctx, view, rx, rw, me);   // W2 AP3b: Wellen All – Szenenwahl
-      else if (startId === 'labor' && !resume) this.drawLobbyLabor(ctx, view, rx, rw, me);   // AP3a: Szenario-Labor
-      else {
-        R.text(ctx, 'HAFEN-ÜBUNG', rx, 164, { color: PAL.brass });
-        R.button(ctx, rx, 174, rw, 16, direct ? '[–] Übung entfällt' : skip ? '[x] Übung überspringen' : '[ ] Übung überspringen', {
-          hotkey: 'U', active: skip && !direct, disabled: !me || direct,
-          reason: !me ? 'Noch nicht verbunden' : resume ? 'Entfällt beim Fortsetzen' : isArena ? 'Entfällt im Testgelände' : (startId === 'free' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche' || startId === 'freie_fahrt') ? 'Entfällt ohne Tutorial' : 'Entfällt beim Direktstart der Planetenmission',
-          onClick: () => view.actions.toggleSkipDrill(),
-        });
-        R.text(ctx, resume ? 'Fortsetzen: keine Übung.' : isArena ? 'Testgelände: keine Übung.' : (startId === 'free' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche' || startId === 'freie_fahrt') ? 'Ohne Tutorial: keine Übung.' : direct ? 'Direktstart: keine Übung.' : skip ? 'Direkt zum Funkspruch.' : 'Tutorial: löschen, flicken.', rx, 193, { color: skip && !direct ? PAL.amber : PAL.panelLight });
-      }
-      const idx = Math.max(0, starts.indexOf(startId)) + 1;
-      R.text(ctx, 'START (' + idx + '/' + starts.length + ', Taste M)', rx, 207, { color: resume ? '#6B7380' : isArena ? PAL.amber : PAL.brass });
-      R.button(ctx, rx, 217, rw, 16, startId === 'm1' ? 'Start: Kampagne' : startLabel, {
-        hotkey: 'M', active: direct && !resume, disabled: !me || !view.actions.toggleStartMission || resume, reason: resume ? 'Entfällt beim Fortsetzen' : 'Noch nicht verbunden',
-        onClick: () => view.actions.toggleStartMission(),
-      });
-      R.text(ctx, resume ? 'Entfällt beim Fortsetzen' : startHint, rx, 236, { color: resume ? '#6B7380' : direct ? PAL.amber : PAL.panelLight });
-
-      const ready = !!(me && me.ready);
-      R.button(ctx, VW / 2 - 84, 252, 168, 20, ready ? 'Bereit! (Enter: zurück)' : 'Bereit melden', {
-        hotkey: 'Enter', active: ready, disabled: !me, reason: 'Noch nicht verbunden',
-        onClick: () => view.actions.toggleReady(),
-      });
-      R.text(ctx, 'Das Spiel startet, sobald alle Verbundenen bereit sind.', VW / 2, 282, { color: PAL.panelLight, align: 'center' });
-      R.text(ctx, view.audioOn ? 'Ton aktiv' : 'Klick oder Taste aktiviert den Ton', VW / 2, 322, { color: view.audioOn ? PAL.moss : PAL.amber, align: 'center' });
-      R.text(ctx, this.LOBBY_HINT, VW / 2, 336, { color: PAL.panelLight, align: 'center' });
-      R.button(ctx, VW - 92, VH - 22, 86, 16, 'Optionen', { hotkey: 'O', onClick: () => view.actions.openOptions && view.actions.openOptions() });
-      // QA-Abnahme S1: bei offenem Overlay zeichnet drawUi den neuesten Hinweis – sonst lägen zwei Hinweise übereinander
-      if (!(view.ui && view.ui.stack && view.ui.stack.length)) this.drawNotices(ctx, view, 4);
+      this.drawNotices(ctx, view, 4);
     },
 
     // ================================================================ S1: Weltstand, Hauptmenü, Spielmenü
-    LOBBY_HINT: 'F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
     MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh',
       // EK8: Kapitel der Kampagne Eisenwald (ohne Schrittnamen, die sind intern)
       k1_anwerbung: 'Eisenwald 1: Anwerbung', k2_konvoi: 'Eisenwald 2: Konvoi', k3_nebelheim: 'Eisenwald 3: Nebelheim', k4_methalle: 'Eisenwald 4: Methalle',
       k5_legat: 'Eisenwald 5: Castra Martis', k6_orbit: 'Eisenwald 6: Orbitschlacht', k7_siedlung: 'Eisenwald 7: Siedlung', k8_sieg: 'Eisenwald 8: Sieg' },
     WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
-    // Startauswahl (Taste M): aus dem Protokoll; ab VERSION 5 ist 'free' Pflicht – fehlt es, ergänzt der Client es hinter m1
-    // AP3a: Reihenfolge LOBBY_MODI (Kampagne, ohne Tutorial, m3, Wellen Boden, Wellen All, Labor); Labor nur mit lobby.laborAn
-    startList(st) {
-      const P = window.Shared_Protocol || {};
-      const src = (P.LOBBY_MODI && P.LOBBY_MODI.length) ? P.LOBBY_MODI : P.START_MISSIONS;
-      const list = (src && src.length) ? src.slice() : ['m1', 'm3'];
-      if ((+P.VERSION || 0) >= 5 && list.indexOf('free') < 0) list.splice(Math.max(0, list.indexOf('m1')) + 1, 0, 'free');
-      const lob = st && st.lobby;
-      return lob && lob.laborAn ? list : list.filter(m => m !== 'labor');
-    },
     lobbyWorlds(st) { const l = st && st.lobby; return l && Array.isArray(l.worlds) ? l.worlds.filter(w => w && w.id != null) : []; },
-    lobbyWorld(st) { const id = st && st.lobby && st.lobby.world; return id == null ? null : this.lobbyWorlds(st).find(w => w.id === id) || null; },
     worldsMax() { return (CFG.weltstand && CFG.weltstand.max) || 5; },
     locLabel(id) {
       if (!id) return '—';
       const SL = window.Shared_Locations;
       const l = SL && Array.isArray(SL.LOCATIONS) ? SL.LOCATIONS.find(q => q.id === id) : null;
-      return l ? l.name : String(id);
+      if (l) return l.name;
+      const SS = window.Shared_Sektoren;   // Orte der Sektorkarte (Sund)
+      try { const hx = SS && SS.hexVonOrt && SS.hexVonOrt(id); if (hx) return SS.hexName(hx); } catch (e) { /* Name bleibt lesbar gemacht */ }
+      return String(id).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');   // kantenstein → Kantenstein (nie die rohe Kennung)
     },
     missionLabel(mission, step) {
-      if (!mission) return 'freier Flug';
+      if (!mission) return 'Freie Fahrt Sund';
       const t = this.MISSION_TITLES[mission] || String(mission);
       return t + (step && !/^kd_/.test(String(mission)) ? ' · Schritt ' + step : '');
     },
@@ -1485,33 +1290,6 @@
       ctx.beginPath(); ctx.moveTo(x, y - 5); ctx.lineTo(x + 6, y + 5); ctx.lineTo(x - 6, y + 5); ctx.closePath();
       ctx.fillStyle = PAL.warn; ctx.fill();
       ctx.fillStyle = PAL.space; ctx.fillRect(x - 0.5, y - 2, 1.5, 4); ctx.fillRect(x - 0.5, y + 3, 1.5, 1);
-    },
-    // Lobby-Block „WELTSTAND“: Neu: Kampagne / Fortsetzen … (F)
-    drawLobbyWorld(ctx, view, x, y, w) {
-      const st = view.state || {};
-      const me = (st.players || []).find(p => p.id === view.pid);
-      const worlds = this.lobbyWorlds(st);
-      const chosen = this.lobbyWorld(st);
-      const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const campaign = startId === 'm1' || startId === 'free' || startId === 'eisenwald' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche' || startId === 'freie_fahrt';
-      const full = !!(st.lobby && st.lobby.worldsFull);
-      R.text(ctx, 'WELTSTAND', x, y, { color: PAL.brass });
-      R.text(ctx, worlds.length + '/' + this.worldsMax(), x + w, y, { color: full ? PAL.warn : PAL.panelLight, align: 'right' });
-      let label;
-      if (chosen) label = 'Fortsetzen: ' + chosen.name;
-      else if (!campaign) label = 'Kein Weltstand (Testlauf)';
-      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : startId === 'eisenwald' ? 'Neu: Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? 'Neu: Eisenwald ohne Tutorial' : startId === 'schuld_der_lerche' ? 'Neu: Die Schuld der Lerche' : startId === 'freie_fahrt' ? 'Neu: Freie Fahrt Sund' : 'Neu: Kampagne';
-      R.button(ctx, x, y + 10, w, 16, this.fit(label, w - 24, 1), {
-        hotkey: 'F', active: !!chosen, disabled: !me, reason: 'Noch nicht verbunden',
-        onClick: () => view.actions.openWorlds && view.actions.openWorlds('list'),
-      });
-      let info, col = PAL.panelLight;
-      if (chosen) { info = this.playLabel(chosen.playTime) + ' · ' + this.locLabel(chosen.loc) + ' · ' + this.missionLabel(chosen.mission); col = PAL.mint; }
-      else if (campaign && full) { info = 'Alle ' + this.worldsMax() + ' Plätze belegt – erst einen löschen (F)'; col = PAL.warn; }
-      else if (!campaign) info = 'Test-Start legt keinen Weltstand an.';
-      else if (worlds.length) info = worlds.length + (worlds.length === 1 ? ' Weltstand' : ' Weltstände') + ' – F: fortsetzen';
-      else info = 'Noch kein Weltstand gespeichert.';
-      R.text(ctx, this.fit(info, w, 1), x, y + 29, { color: col });
     },
 
     // ---------------------------------------------------------------- Overlays (Menü, Optionen, Steuerung, Weltstände)
@@ -1619,7 +1397,7 @@
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
       ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],
       ['Ansicht', 'F8 Voxel/2D · +/− oder Mausrad Zoom (Voxel) · Esc: erst Konsole/Minispiel verlassen, dann Menü'],
-      ['Hauptmenü', 'Enter bereit · 1–3 Farbe · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
+      ['Hauptmenü', 'Enter bereit · 1–4 Farbe · C Charakter · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
     ],
     // Reiter der Steuerungsseite: die Gruppen aus Tasten plus „Sonstiges“ (Text oben)
     tastenReiter() {
@@ -2174,19 +1952,6 @@
       const w = R.measure(label, 1) + 16;
       R.backdrop(ctx, VW / 2 - w / 2, VH / 2 - 40, w, 13, 0.8);
       R.text(ctx, label, VW / 2, VH / 2 - 37, { color: PAL.ice, align: 'center' });
-    },
-
-    // M0: Raumcode-Eingabe nach badcode (Eingabefeld ist ein DOM-Input wie das Namensfeld)
-    LOBBY_CODE_RECT: { x: 260, y: 168, w: 120, h: 24 },
-    drawCodeEntry(ctx, view) {
-      R.panel(ctx, 150, 92, 340, 180, { style: 'brass', title: 'RAUMCODE' });
-      R.text(ctx, 'Dieses Schiff ist abgeschlossen.', VW / 2, 114, { color: PAL.amber, align: 'center' });
-      R.text(ctx, Net.badCodeText || 'Bitte den Raumcode eingeben.', VW / 2, 128, { color: Net.roomCode ? PAL.red : PAL.panelLight, align: 'center' });
-      R.text(ctx, 'Den Code (4 Zeichen) bekommst du vom Gastgeber.', VW / 2, 146, { color: PAL.panelLight, align: 'center' });
-      const q = this.LOBBY_CODE_RECT;
-      ctx.strokeStyle = PAL.brass; ctx.strokeRect(q.x - 0.5, q.y - 0.5, q.w + 1, q.h + 1);
-      R.button(ctx, VW / 2 - 60, 204, 120, 18, 'An Bord gehen', { hotkey: 'Enter', onClick: () => view.actions.submitCode() });
-      R.text(ctx, 'Tipp: Der Einladungslink enthält den Code schon (?code=…).', VW / 2, 240, { color: PAL.panelLight, align: 'center' });
     },
 
     // ---------------------------------------------------------------- Ende

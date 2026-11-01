@@ -364,7 +364,8 @@ export async function checkSprites(dir) {
   const pngs = [];
   const walk = async (d) => { for (const e of await fsp.readdir(d, { withFileTypes: true }).catch(() => [])) { const f = path.join(d, e.name); if (e.isDirectory()) await walk(f); else if (e.name.endsWith('.png')) pngs.push(path.relative(dir, f).replace(/\\/g, '/')); } };
   await walk(dir);
-  for (const p of pngs) if (!seen.has(p)) err(`${p}: PNG ohne Manifest-Eintrag`);
+  // cha/vorschau/**: Vorschaubilder des Charakter-Katalogs (CHA-01), keine Drehsprites, stehen nicht im Sprite-Manifest
+  for (const p of pngs) if (!seen.has(p) && !p.startsWith('cha/vorschau/')) err(`${p}: PNG ohne Manifest-Eintrag`);
   info(`${entries.length} Sprites, ${pngs.length} PNG, ${SPRITE_STEPS} Stufen`);
   return out;
 }

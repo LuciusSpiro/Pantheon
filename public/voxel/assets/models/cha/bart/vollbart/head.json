@@ -1,0 +1,35 @@
+{
+  "id": "cha/bart/vollbart/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "bart vollbart (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "bart"
+  ],
+  "notes": "Schicht aus fig/basis/kopf, fig/germanen/kopf, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/bart/vollbart/head_deck",
+      "mode": "paint",
+      "colors": {
+        "metal_light": "metall_hell_vollbart"
+      }
+    },
+    {
+      "op": "use",
+      "model": "cha/bart/vollbart/head_zopf",
+      "colors": {
+        "metal_light": "metall_hell_vollbart"
+      }
+    }
+  ]
+}

@@ -1,0 +1,36 @@
+{
+  "id": "cha/kopf/bordhelm/head_ohren",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Ohrschablone (schneidet Ohren und Ohrring, die Schale deckt sie ab)",
+  "tags": [
+    "cha",
+    "ohren"
+  ],
+  "notes": "Zusatzmodell zu cha/kopf/bordhelm/head, schneidet per use mode carve.",
+  "ops": [
+    {
+      "name": "Ohr und Ohrring",
+      "op": "box",
+      "at": [
+        3,
+        26,
+        0
+      ],
+      "size": [
+        1,
+        3,
+        1
+      ],
+      "color": "#808080",
+      "mirror": "x",
+      "mirrorAt": 0
+    }
+  ]
+}

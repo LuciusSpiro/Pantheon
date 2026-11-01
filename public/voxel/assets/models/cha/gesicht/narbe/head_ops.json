@@ -1,0 +1,89 @@
+{
+  "id": "cha/gesicht/narbe/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "gesicht narbe (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/lerche/head, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "1 Lippen",
+      "op": "box",
+      "at": [
+        -1,
+        26,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 0.7
+      }
+    },
+    {
+      "name": "1 Brauen",
+      "op": "box",
+      "at": [
+        1,
+        29,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "1 Brauenwulst",
+      "op": "box",
+      "at": [
+        1,
+        29,
+        3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "1 Narbe",
+      "op": "box",
+      "at": [
+        2,
+        28,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "skin",
+        "f": 1.25
+      }
+    }
+  ]
+}

@@ -1,0 +1,53 @@
+{
+  "id": "cha/joint/thigh",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell thigh (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "hose": {
+      "default": "bordhose",
+      "options": [
+        "bordhose",
+        "germanenhose",
+        "keine"
+      ],
+      "label": "Hose"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/thigh",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Hose",
+      "op": "use",
+      "model": "cha/hose/{hose}/thigh",
+      "fallback": [
+        "cha/leer"
+      ]
+    }
+  ]
+}

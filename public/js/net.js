@@ -207,7 +207,9 @@
 
     sendHello() {
       const h = (this.getHello && guard('Net.getHello', () => this.getHello(), null)) || {};
-      this.send({ t: P.C.HELLO || 'hello', clientId: this.clientId, name: h.name || 'Crew', color: h.color == null ? null : h.color, code: this.roomCode || '' });
+      const hello = { t: P.C.HELLO || 'hello', clientId: this.clientId, name: h.name || 'Crew', color: h.color == null ? null : h.color, code: this.roomCode || '' };
+      if (h.karte) hello.karte = h.karte;   // CHA-01 B1: optionale Charakterkarte (Server prüft)
+      this.send(hello);
     },
 
     // M0: Raumcode setzen (Eingabefeld) und merken; optional ohne neuen hello
@@ -215,6 +217,14 @@
       this.roomCode = normCode(code);
       try { localStorage.setItem(CODE_KEY, this.roomCode); } catch (e) { /* egal */ }
       if (!silent && this.isOpen()) this.sendHello();
+    },
+    // CHA-01 E: den Raum verlassen (Einladung abgelehnt): Code vergessen (Speicher und Adresszeile, sonst käme man sofort wieder hinein), Verbindung trennen;
+    // der automatische Neuaufbau meldet sich ohne Code und bekommt badcode (Raumcode-Eingang). Der Server führt den Spieler als getrennt.
+    verlasseRaum() {
+      this.roomCode = ''; this.serverRoomCode = null; this.badCode = false;
+      try { localStorage.removeItem(CODE_KEY); } catch (e) { /* egal */ }
+      try { const u = new URL(location.href); u.searchParams.delete('code'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* egal */ }
+      try { if (this.sock) this.sock.close(); } catch (e) { /* egal */ }
     },
     // Einladungslink: aktuelle Origin + Pfad + ?code=
     inviteLink() {

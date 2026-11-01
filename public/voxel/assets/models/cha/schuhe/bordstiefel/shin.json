@@ -1,0 +1,48 @@
+{
+  "id": "cha/schuhe/bordstiefel/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "schuhe bordstiefel (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "schuhe"
+  ],
+  "notes": "Schicht aus fig/lerche/leg_lower, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/leg_lower",
+      "params": {
+        "style": 0
+      },
+      "colors": {
+        "secondary": "hose_bordstiefel",
+        "leather": "schuh_bordstiefel",
+        "metal_dark": "schuh_2_bordstiefel",
+        "trim": "schuh_zier_bordstiefel"
+      }
+    },
+    {
+      "name": "Hosenrest abschneiden (y 6..7)",
+      "op": "box",
+      "at": [
+        1,
+        6,
+        -1
+      ],
+      "size": [
+        3,
+        2,
+        3
+      ],
+      "mode": "carve"
+    }
+  ]
+}

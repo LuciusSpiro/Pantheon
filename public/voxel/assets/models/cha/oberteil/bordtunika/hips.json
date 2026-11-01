@@ -1,0 +1,29 @@
+{
+  "id": "cha/oberteil/bordtunika/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil bordtunika (hips)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/tunic_hips, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/tunic_hips",
+      "colors": {
+        "cloth2": "top_bordtunika",
+        "leather": "top_leder_bordtunika",
+        "trim": "top_zier_bordtunika"
+      }
+    }
+  ]
+}

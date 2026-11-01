@@ -1446,15 +1446,23 @@ steht im Dateinamen unter `data/worlds/`).
 Spielerisch ändert sich nichts. Neu ist: Die Kampagne lässt sich **beenden und später fortsetzen**, es gibt ein
 **Spielmenü** (Esc) mit Optionen, und das Tutorial (m1–m3) läuft aus **Regiebüchern** (reines JSON, siehe Entwickler-Abschnitt).
 
-### Lobby = Hauptmenü
-- **M** schaltet den Start reihum (jeder darf, alle sehen es): **Kampagne** (mit Tutorial, Hafen-Übung) → **Kampagne ohne
-  Tutorial** (frei ab Hafen Lichtkordon, m1–m3 gelten als erledigt, Tesk funkt nach ein paar Sekunden das Gerücht über die
-  Tafel; Startmarken = `CONFIG.campaign.skipTutorialMarks`, zurzeit 150) → **Direkt zur Planetenmission** → **Testgelände:
-  Raumkampf** → **Bodenkampf: Wellen** (bis B1 „Testgelände: Außenteam“). Dann alle **Enter** = bereit.
-- Block **WELTSTAND** links: „Neu: Kampagne“ oder „Fortsetzen: Lerche · 08.10.“ mit Spielzeit, Ort und Mission darunter.
+### Startmenü und Lobby (CHA-01 E, MEN-01 Richtung A „Rampe“)
+- Ablauf: **Titelbild** (Enter) → **Hauptmenü** (Gruppen *Spielen*: 1 Die Schuld der Lerche, 2 Freie Fahrt Sund, 3 Kampagne Eisenwald; *Fortsetzen*: F, der neueste
+  Weltstand, F öffnet die Liste; *Übungsplatz*: 4 Grabenangriff, 5 Wellen Boden, 6 Wellen All, 7 Szenario-Labor; ↑↓ oder Ziffer wählt, **Enter** öffnet den Raum) →
+  **Crew-Lobby**. Per Einladungslink (`?code=…`) geht es direkt: **Einladung** → Charakter wählen (1–4, N neu, Enter) → Lobby. Die Menüs sind reiner Client-Zustand
+  (`public/js/menue.js` Zustand und Regeln, `public/js/menue-ui.js` Darstellung, Tokens `menue-tokens.js`); die Verbindung steht wie früher schon beim Laden, wer im
+  Titel oder Hauptmenü steht, ist in der Lobby „nicht bereit“.
+- Lobby: **Enter** bereit, **1–4** Farbe, **C** Charakter, **M** öffnet die Moduswahl als Überlagerung (jeder darf, nicht mehr reihum), **L** kopiert den Einladungslink,
+  **Esc** zurück ins Hauptmenü (nimmt „bereit“ zurück), **O** Optionen, **H** Hilfe (Steuerung), **F** Weltstand-Liste. Zusatzoptionen des Modus bleiben auf den alten
+  Tasten und stehen als Kappen unter dem Modus: K Karte (Wellen Boden/All), N/B weitere Abschnitte und W Waffe (Grabenangriff), ↑↓ ←→ R G W (Labor), U Tutorial (Eisenwald; ohne
+  Tutorial = `eisenwald_ohne`). Gastgeber = der erste verbundene Spieler der Liste.
+- Sternenschicht-Modi (Kampagne Boje/Nebel/Kesh, ohne Tutorial Lichtkordon, Direkt Kesh) stehen nur mit `?debug=1` im Hauptmenü (Gruppe STERNENSCHICHT, Tasten 8/9/0). `LOBBY_MODI` ist unverändert.
+- Ferngesteuerte Browser (`navigator.webdriver`, Playwright) und `?arena=` beginnen in der Lobby, damit `tools/sicht-*.js` und `tools/pw-*.js` unverändert laufen;
+  `?menue=1` erzwingt den Ablauf Titel → Hauptmenü, `?menue=0` die Lobby. Sichtbeleg: `npm run sicht:menue` (Bilder in `shots/menue/`), Test: `npm run test:menue`.
+- Weltstände: im Hauptmenü die Gruppe *Fortsetzen*, in der Lobby der Modus-Titel „Fortsetzen · <Mission>“ mit Spielzeit und Ort.
   **F** öffnet die Liste: je Stand Name, wann gespeichert, Ort, Mission/Schritt, Crew, Spielzeit. **W/S** wählen, **Enter**
   übernehmen („+ Neue Kampagne“ steht oben), **Entf 1 s halten** löscht (kurz tippen löscht nicht). Ist ein Stand gewählt,
-  ist die Startauswahl (M) ausgegraut („Entfällt beim Fortsetzen“) – für einen anderen Start erst in der Liste „Neue Kampagne“ wählen.
+  entfällt die Startauswahl (Zusatzoptionen), für einen anderen Start in der Moduswahl (M) einen Modus setzen: das wählt automatisch „neuer Weltstand“.
 - Nach **Partie beenden** ist der gerade gespielte Stand schon vorausgewählt; Enter (alle) setzt ihn fort.
 - **O** öffnet die Optionen auch in der Lobby.
 
@@ -1612,6 +1620,14 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 | Reaktor offline | beide Schalter im Maschinenraum (A oben, B unten) **gleichzeitig E halten**, 3 s. Allein: einen halten, nach 3 s kommt ein Schrauber an den anderen. |
 
 Jede Konsole zeigt ihre Tasten unten in einer Zeile. Ton startet mit der ersten Taste/dem ersten Klick.
+
+### Charakter, Spind und Namensmarke (CHA-01)
+
+- **Charakterliste:** in der Lobby **C** (oder „Charakter wechseln“ im Startmenü). Bis zu vier Charaktere liegen im Browser (localStorage), **Enter** wählt einen, **F2** benennt um, **Entf** zweimal löscht, **N** legt einen neuen an. Der Charaktername ist dein Spielername; gleiche Namen in einem Raum bekommen automatisch ein „ 2“, „ 3“ …
+- **Erstellung:** Name, dann Frisur, Gesicht, Bart, Haar- und Hautfarbe (Ziffernblock 8/5/2/9/6 wählt den Platz, ←→↑↓ das Teil, **Q/E** dreht die Figur, **R** setzt zurück, **Enter** speichert). Die Figur zeigt jede Wahl sofort; ohne WebGL gibt es Vorschaubilder.
+- **Spind:** in deinem Quartier an Bord **E** am eigenen Spind (nur mit Charakter, fremde Spinde reagieren nicht). Dort wechselst du das Outfit (Kopf, Oberteil, Hose, Schuhe, Hände, Umhang; Ziffernblock wählt den Platz, **Enter** zieht an, **R** zurück auf das Getragene, **Esc** verlässt). Händler- und Fundstücke sind gesperrt, bis du sie hast. Das Aussehen selbst ändert sich nur in der Erstellung.
+- **Namensmarke:** über jedem Spieler steht seine Form in der Spielerfarbe, bei Mitspielern mit Namen, bei der eigenen Figur nur die Form. Stehen Figuren dicht beieinander, stapeln sich die Marken (ab der dritten Zeile nur noch die Form).
+- Wer ohne Charakter beitritt (zum Beispiel Testskripte), spielt wie bisher mit Standardfigur. Für die Bilder muss `../voxelwerk` den Stand mit `assets/katalog/charakter.json` führen (Branch `cha01`), siehe `npm run assets` unten.
 
 ## Die Orte: 8 Hexe des Saumraums, 15 der Eisenwald-Kette und der Leerraum
 
@@ -1980,7 +1996,7 @@ Gemessen mit einem Fenster, Chromium headed mit echter GPU (`ANGLE (Intel UHD Gr
 Ziel laut Vertrag: ≥ 30 fps normal, ≥ 45 fps im Sparmodus. Beides ist erreicht.
 
 ### Für Entwickler
-- **`npm run assets`** kopiert die Modelle aus Voxelwerk (`../voxelwerk`) nach `public/voxel/`. Nach jeder Änderung an einem Voxelwerk-Rezept ausführen und die Seite neu laden. `npm run assets:watch` macht das laufend.
+- **`npm run assets`** kopiert die Modelle aus Voxelwerk (`../voxelwerk`) nach `public/voxel/`. Nach jeder Änderung an einem Voxelwerk-Rezept ausführen und die Seite neu laden. `npm run assets:watch` macht das laufend. Quelle ist `VOXELWERK_PATH` (Standard `../voxelwerk`). Für die Charakterkarte (CHA-01) muss sie den Stand mit `assets/katalog/charakter.json` führen (Branch `cha01`), sonst bricht der Lauf mit Exit 1 ab, ohne etwas zu schreiben oder zu löschen. Auch bei Fehlern im Lauf wird nichts aufgeräumt.
 - **`npm run check:assets`** prüft Manifeste (`assets/manifest/art-*.json`) gegen die Modelle: Stufe, Dreiecksbudget, Maße und fehlende IDs. Ziel ist 0 Fehler. Warnungen sind erlaubt (Stand QA: 0 Fehler, 18 Warnungen).
 - **Galerie:** `http://localhost:<PORT>/voxel-gallery.html` zeigt alle Assets mit ihren Zuständen.
 - **Code:** `public/js/voxel/` mit `boot.js` (Einstieg, F8, `window.VoxelRender`), `renderer.js` (Szene, Kamera, Licht, Liftfahrt, FPS-Wächter), `loader.js` (Asset-Cache), `ship.js` (Schiff), `actors.js` (Figuren), `fx.js` (Effekte) und `away.js` (Außenmissionen).

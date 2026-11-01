@@ -1,0 +1,53 @@
+{
+  "id": "cha/umhang/fellumhang/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "umhang fellumhang (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "umhang"
+  ],
+  "notes": "Schicht aus fig/germanen/fellumhang, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/fellumhang",
+      "at": [
+        0,
+        20,
+        -3
+      ],
+      "colors": {
+        "leather": "umhang_fellumhang",
+        "hair": "umhang_2_fellumhang",
+        "metal": "metall_fellumhang",
+        "metal_dark": "metall_dunkel_fellumhang",
+        "metal_light": "metall_hell_fellumhang"
+      }
+    },
+    {
+      "name": "Kettenhalter (Kette am Kragen)",
+      "op": "box",
+      "at": [
+        3,
+        24,
+        3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "metall_fellumhang",
+      "mirror": "x",
+      "mirrorAt": 0
+    }
+  ]
+}

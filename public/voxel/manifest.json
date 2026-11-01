@@ -97,6 +97,11 @@
       "count": 9
     },
     {
+      "team": "cha",
+      "file": "cha.json",
+      "count": 1
+    },
+    {
       "team": "ort-2a",
       "file": "ort-2a.json",
       "count": 20
@@ -1397,6 +1402,29 @@
       "usage": "Flickwand liegt in der Wandreihe (Ost-West), Platten quer über x, rot 0. cut Standard 1 (Default im Rezept).",
       "source": "away/wreck/wall_weak",
       "team": "art-h"
+    },
+    "cha/spieler": {
+      "id": "cha/spieler",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "cha",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.12,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 12000,
+      "tags": [
+        "cha",
+        "figur",
+        "spieler"
+      ],
+      "source": "cha/spieler",
+      "team": "cha"
     },
     "crew/juno": {
       "id": "crew/juno",

@@ -1,0 +1,33 @@
+{
+  "id": "cha/oberteil/plankenweste/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil plankenweste (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/germanen/rumpf, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/rumpf",
+      "colors": {
+        "cloth": "unter_plankenweste",
+        "primary": "top_plankenweste",
+        "trim": "top_zier_plankenweste",
+        "leather": "top_leder_plankenweste",
+        "metal_dark": "metall_dunkel_plankenweste",
+        "metal_light": "metall_hell_plankenweste",
+        "glow": "licht_plankenweste"
+      }
+    }
+  ]
+}

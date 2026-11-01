@@ -6,7 +6,17 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   return {
-    VERSION: 7,   // B1–B3 „Bühnen & Bodenkampf“ (6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
+    VERSION: 8,   // CHA-01 B1 „Charakterkarte“ (7 = B1–B3 „Bühnen & Bodenkampf“, 6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
+    // ---- CHA-01 B1: Charakterkarte (shared/charakter.js, Katalog content/katalog/charakter.json) ----
+    // hello { …, karte? } – optionale Charakterkarte { v, name, koerper, gesicht, frisur, bart, haut, haar, outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }.
+    //   Der Server prüft sie feldweise gegen den Katalog (Falsches → Standard dieses Feldes, nie Abbruch), übernimmt den Kartennamen (pruefeName, 2–12 Zeichen) als
+    //   Spielernamen (bei Kollision mit einem anderen Spieler ' 2', ' 3', …); ist der Kartenname ungültig, gilt die bisherige Namenslogik. Ohne karte: alles wie vorher.
+    // welcome.karten { pid: karte } – geprüfte Karten aller Spieler mit Karte, auch getrennter (auch die eigene); fehlt, wenn keiner eine Karte hat.
+    // Ereignis karte { pid, k } – an alle bei hello (Beitritt/Wiederverbinden) und nach karte.outfit; k = null: der Platz hat keine Karte mehr (Übernahme durch Spieler ohne Karte).
+    // cmd { c: 'karte.outfit', outfit } – ändert nur das Outfit (gleiche Prüfung); nur mit Karte, nur außerhalb der Lobby (cmd-Muster), CHA-01 D: nur an der Konsole 'spind' (eigenes Quartier), sonst ignoriert.
+    // Die Karte steht nicht im Snapshot und nicht im Weltstand; sie geht beim Wiederverbinden mit gleicher clientId nicht verloren. Spielernamen gehen nie an ein LLM.
+    CMD_KARTE_OUTFIT: 'karte.outfit',
+    EVT_KARTE: 'karte',
     // ---- B1 (CONTRACT-B1 §9): Bühnen – gebaute Außenkarten, Landepunkte, Anker ----
     // Ereignis awayMap { id, erzeuger, art, bauweise, besitz, zustand, w, h, rows, anker: [[id, rolle, x, y, attr?]], bereiche,
     //   decks, kv } – kompilierte Karte (≤ 10 KB laut Nachtrag), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen
@@ -243,8 +253,8 @@
     S: { WELCOME: 'welcome', SNAP: 'snap', EVENT: 'event', PONG: 'pong', FULL: 'full', ERROR: 'error' },
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
-    // 'quartier' öffnet sich an der eigenen Koje, 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    // 'quartier' öffnet sich an der eigenen Koje, 'spind' am eigenen Spind (CHA-01 D), 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
     // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
@@ -371,7 +381,7 @@
     START_MISSIONS: ['m1', 'free', 'm3', 'arena_space', 'arena_away'],
     START_LABELS: { m1: 'Kampagne', free: 'Kampagne ohne Tutorial', eisenwald: 'Kampagne Eisenwald', eisenwald_ohne: 'Eisenwald ohne Tutorial', schuld_der_lerche: 'Die Schuld der Lerche', freie_fahrt: 'Freie Fahrt Sund', m3: 'Direkt zur Planetenmission', arena_space: 'Wellen All', arena_away: 'Wellen Boden', arena_graben: 'Grabenangriff', labor: 'Szenario-Labor' },
     ROLLE_NAMEN_FR: { rom: { grundtyp: 'Legionär', niederhalter: 'Ballistarius', grenadier: 'Funditor', schuetze: 'Speculator', enterer: 'Triarius', haescher: 'Fugitivarius', waechter: 'Kastell-Automat' } },   // BOD-01 N1: Rollennamen je Fraktion für Banner/Namensschilder (Quelle: content/katalog/gegner/*.json namen.rom, tools/test-rom-boden.js prüft die Gleichheit); andere Fraktionen: die alten Tabellen im Client
-    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', schuld_der_lerche: 'Karte Sund, Start am Boden von Kantenstein', freie_fahrt: 'Sund: Rom gegen Germanen, die Welt tickt mit', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Wellen von Jägern & Co. (solo ok)', arena_away: 'Endlos-Wellen, Karte: Taste K', arena_graben: 'Römische Stellung angreifen', labor: 'Umsetzung aus dem Katalog: ↑/↓' },
+    START_HINTS: { m1: 'Von vorn: Boje, Nebel, Kesh', free: 'Freier Flug ab Hafen Lichtkordon', eisenwald: 'Tutorial, dann die feste Kette', eisenwald_ohne: 'Direkt in die Kette, ohne Tutorial', schuld_der_lerche: 'Karte Sund, Start am Boden von Kantenstein', freie_fahrt: 'Rom gegen Germanen, die Welt tickt mit.', m3: 'Direkt: „Die Tafel von Kesh“', arena_space: 'Gegnerwellen im All, auch allein spielbar', arena_away: 'Endlose Gegnerwellen auf wählbarer Karte', arena_graben: 'Römische Stellung angreifen', labor: 'Jede Umsetzung aus dem Katalog einzeln starten' },
     // ---- AP3a Lobby (CONTRACT-W2 §1): Reihenfolge der Taste M. START_MISSIONS bleibt die alte Liste (Tests, Weltstand);
     // gültig als startMission ist jeder Eintrag aus LOBBY_MODI. 'labor' nur bei CONFIG.lobby.labor (Snapshot lobby.laborAn).
     LOBBY_MODI: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt', 'm3', 'arena_away', 'arena_graben', 'arena_space', 'labor'],   // EK8: Kampagne Eisenwald (Kette, ohne Spielleiter) mit bzw. ohne Tutorial

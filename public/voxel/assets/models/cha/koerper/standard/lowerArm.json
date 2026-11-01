@@ -1,0 +1,31 @@
+{
+  "id": "cha/koerper/standard/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/unterarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/unterarm",
+      "params": {
+        "glove": 0
+      },
+      "colors": {
+        "cloth": "unter_standard",
+        "metal_dark": "skin_shadow"
+      }
+    }
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "id": "cha/gesicht/lerche/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "gesicht lerche (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "gesicht"
+  ],
+  "notes": "Schicht aus fig/lerche/head, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/gesicht/lerche/head_ops",
+      "colors": {
+        "cloth2": "haarband_lerche",
+        "trim": "schmuck_lerche"
+      }
+    }
+  ]
+}

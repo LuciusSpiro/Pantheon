@@ -55,7 +55,7 @@
     });
     for (const a of (f.a || []).slice(-2)) { for (const t of R.wrap('„' + (f.q || [])[a[0]] + '“ – ' + a[1], pw, 1).slice(0, 2)) { R.text(ctx, t, px, py, { color: PAL.panelLight }); py += 10; } }
     const by = area.y + area.h - 18;
-    R.button(ctx, px, by, 120, 15, 'Hinfliegen', { hotkey: 'Ent', onClick: () => cmd('captain.notruf.hinfliegen', { id: sel.i }) });
+    R.button(ctx, px, by, 120, 15, 'Hinfliegen', { hotkey: 'Enter', onClick: () => cmd('captain.notruf.hinfliegen', { id: sel.i }) });
     R.button(ctx, px + 126, by, 120, 15, 'Ignorieren', { hotkey: 'X', disabled: sel.z === 2, onClick: () => cmd('captain.notruf.ablehnen', { id: sel.i }) });
     return 'W/S wählen · Q/E/R/F fragen · Enter hinfliegen · X ignorieren (kostet nichts)';
   }

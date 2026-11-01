@@ -646,7 +646,7 @@ section('Terminal (echte terminal-ui.js, handel-info.js)', () => {
   const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Physics: Physics, Shared_Config: CONFIG, Shared_Protocol: Protocol, Shared_Locations: Locations, performance, Net: { reportError(w, e) { throw e; } } };
   win.window = win;
   win.Render = { PAL: pal, text() {}, drawTooltip() {} }; win.Hud = {}; win.Pult = {};
-  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
   vm.createContext(win);
   for (const f of ['consoles.js', 'handel-info.js', 'terminal-ui.js']) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', f), 'utf8'), win, { filename: f });
   const TU = win.TerminalUI, HI = win.HandelInfo;

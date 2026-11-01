@@ -1,0 +1,19 @@
+{
+  "team": "cha",
+  "assets": [
+    {
+      "id": "cha/spieler",
+      "kind": "figure",
+      "tier": "detail",
+      "palette": "cha",
+      "footprint": [1, 1],
+      "height": 2.12,
+      "facing": "+z",
+      "params": {},
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 12000,
+      "tags": ["cha", "figur", "spieler"]
+    }
+  ]
+}

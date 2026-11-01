@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pantheon – Kammer- und Menü-Tokens</title>
+<style>
+  /* Seite um die Vorschau; die Canvas-Inhalte zeichnen nur aus PultKammer/Menue/Namensmarke.TOKENS, dem echten Pult-Rahmen (pult.js) und der Pixelschrift (art.js) */
+  :root { --bg: #0B0E1A; --ink: #F4EEDC; --muted: #8EA3B5; --brass: #C9974A; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 ui-monospace, Consolas, monospace; }
+  header { padding: 8px 16px; border-bottom: 2px solid var(--brass); display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  header h1 { font-size: 16px; margin: 0; color: var(--brass); }
+  header a { color: var(--muted); text-decoration: none; }
+  section { padding: 12px 16px 18px; }
+  section h2 { font-size: 13px; color: var(--brass); margin: 0 0 6px; text-transform: uppercase; letter-spacing: 1px; }
+  .scroll { overflow-x: auto; max-width: 100%; }
+  canvas { image-rendering: pixelated; display: block; width: 1280px; height: 720px; }
+  /* Startmenü: Bild als eigene Ebene unter dem durchsichtigen HUD-Canvas, wie im Spiel (#world3d unter #game) */
+  .ebene { position: relative; width: 1280px; height: 720px; background: #07070A; }
+  .ebene img { position: absolute; left: 0; top: 0; width: 1280px; height: 720px; object-fit: cover; }
+  .ebene canvas { position: absolute; left: 0; top: 0; }
+  .note { color: var(--muted); font-size: 12px; margin: 6px 0 0; max-width: 1280px; }
+</style>
+</head>
+<body>
+<header><h1>CHA-01 · Kleiderkammer, Startmenü, Namensmarke · Tokens</h1>
+  <a href="?pult=rom">Skin rom</a><a href="?pult=germanen">Skin germanen</a><span id="status">lade …</span></header>
+<section><h2>1 · Charakterliste (Pult, Säule CHARAKTER)</h2><div class="scroll"><canvas id="k1" width="640" height="360"></canvas></div></section>
+<section><h2>2 · Erstellung: Name, Gesicht, Frisur, Bart, Haut, Haar · Platz Frisur</h2><div class="scroll"><canvas id="k2" width="640" height="360"></canvas></div></section>
+<section><h2>3 · Spind im Quartier: sechs Outfit-Plätze · Platz Kopfbedeckung, Bordhelm in Anprobe</h2><div class="scroll"><canvas id="k3" width="640" height="360"></canvas></div></section>
+<section><h2>4 · Startmenü: Titel</h2><div class="scroll"><div class="ebene" id="m1"><img alt=""><canvas width="640" height="360"></canvas></div></div></section>
+<section><h2>5 · Startmenü: Hauptmenü, Gruppen</h2><div class="scroll"><div class="ebene" id="m2"><img alt=""><canvas width="640" height="360"></canvas></div></div></section>
+<section><h2>6 · Lobby (Gastgeberin Aurelia): Karten aus B, Stempel und Raumcode aus C, Statuszeile aus B</h2><div class="scroll"><div class="ebene" id="m3"><img alt=""><canvas width="640" height="360"></canvas></div></div></section>
+<section><h2>7 · Namensmarke über dem Kopf (Bodenkampf, Grund 0,85)</h2><div class="scroll"><canvas id="n1" width="640" height="360"></canvas></div>
+  <p class="note">Referenzzeichnung, kein Spielcode. Kammer-Bildschirme im echten Pult.rahmen (Statusleiste von Liste und Erstellung überzeichnet: Pult.rahmen braucht dafür eine Option). Figuren, Porträts und Kachelbilder sind die Renderings aus den Designrichtungen (tools/fixtures/kammer), im Spiel kommen sie aus der Anprobe bzw. den Vorschaubildern (CHA-01 A4). Haut- und Haarmuster: Beispielwerte, im Spiel aus dem Katalog.</p></section>
+
+<script src="../shared/config.js"></script>
+<script src="../shared/protocol.js"></script>
+<script src="js/art.js"></script>
+<script src="js/render.js"></script>
+<script src="js/tasten.js"></script>
+<script src="js/pult.js"></script>
+<script src="js/pult-systeme-tokens.js"></script>
+<script src="js/namensmarke-tokens.js"></script>
+<script src="js/pult-kammer-tokens.js"></script>
+<script src="js/menue-tokens.js"></script>
+<script>
+(function () {
+  'use strict';
+  const R = window.Render, P = window.Pult, PK = window.PultKammer, ME = window.Menue, NM = window.Namensmarke;
+  const KT = PK.TOKENS, KM = KT.MASS, KX = KT.TEXT, FN = KT.FN;
+  const MT = ME.TOKENS, MF = MT.FARBE, MM = MT.MASS, MX = MT.TEXT, MS = MT.SCHRIFT;
+  const skinId = P.skinId(null), F = PK.farben(skinId);
+  const FIX = '../tools/fixtures/kammer/';
+
+  // ---------------------------------------------------------------- Grundformen (nur Referenz)
+  const rect = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
+  const rand = (c, x, y, w, h, col) => { rect(c, x, y, w, 1, col); rect(c, x, y + h - 1, w, 1, col); rect(c, x, y, 1, h, col); rect(c, x + w - 1, y, 1, h, col); };
+  const rand2 = (c, x, y, w, h, col, d) => { for (let i = 0; i < d; i++) rand(c, x + i, y + i, w - 2 * i, h - 2 * i, col); };
+  const dash = (c, x, y, w, h, col, s) => { c.fillStyle = col; for (let i = 0; i < w; i += s) { c.fillRect(x + i, y, 1, 1); c.fillRect(x + i, y + h - 1, 1, 1); } for (let i = 0; i < h; i += s) { c.fillRect(x, y + i, 1, 1); c.fillRect(x + w - 1, y + i, 1, 1); } };
+  const hatch = (c, x, y, w, h, col, s) => { c.save(); c.beginPath(); c.rect(x, y, w, h); c.clip(); c.fillStyle = col; for (let d = -h; d < w; d += s) for (let r = 0; r < h; r++) c.fillRect(x + d + r, y + r, 1, 1); c.restore(); };
+  const txt = (c, s, x, y, col, align, scale) => { R.text(c, String(s), x, y, { color: col, align: align || 'left', scale: scale || 1, shadow: false }); return x + R.measure(String(s), scale || 1); };
+  // Pixelschrift mit Sperrung (Menue.sperrung: Zeichen einzeln)
+  function txtSp(c, s, x, y, col, sp, scale, align) {
+    const L = ME.sperrung(s, sp, scale || 1, (z, sk) => R.measure(z, sk));
+    const x0 = align === 'center' ? x - Math.round(L.w / 2) : align === 'right' ? x - L.w : x;
+    for (const z of L.zeichen) R.text(c, z.z, x0 + z.x, y, { color: col, scale: scale || 1, shadow: false });
+    return x0 + L.w;
+  }
+  function raster(c, zeilen, x, y, s, col, kern) { for (const r of ME.raster(zeilen, s)) rect(c, x + r.x, y + r.y, r.w, r.h, r.kern ? kern : col); }
+  const IMG = {};
+  function lade(liste) { return Promise.all(liste.map(([k, src]) => new Promise((ok) => { const im = new Image(); im.onload = () => { IMG[k] = im; ok(); }; im.onerror = () => { console.error('Bild fehlt ' + src); ok(); }; im.src = src; }))); }
+  function bild(c, k, r, o) {
+    const im = IMG[k]; if (!im) return; o = o || {};
+    c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
+    if (o.filter) c.filter = o.filter; if (o.alpha != null) c.globalAlpha = o.alpha;
+    const s = Math.min(r.w / im.width, r.h / im.height) * (o.cover ? 0 : 1) || Math.max(r.w / im.width, r.h / im.height);
+    const w = im.width * s, h = im.height * s;
+    c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip();
+    c.drawImage(im, Math.round(r.x + (r.w - w) / 2), Math.round(r.y + (o.oben ? 0 : (r.h - h) / 2)), Math.round(w), Math.round(h));
+    c.restore();
+  }
+  const kappeDunkel = (c, x, y, k, bg, ink) => { const w = Math.max(KM.liste.kappe, R.measure(k, 1) + 7); P.cham(c, x, y, w, 13, bg, 3, 0, 3, 0); txt(c, k, x + w / 2, y + 3, ink, 'center'); return x + w; };
+
+  // ---------------------------------------------------------------- Pult-Rahmen mit Statusleiste je Bildschirm
+  function pultRahmen(c, titel, station, ship, statusWerte, anzeige) {
+    const view = { state: { ship: ship || {} }, send() {}, actions: { leave() {} } };
+    R.ui.buttons = []; R.ui.mouse = { x: -1, y: -1 };
+    const g = P.rahmen(c, view, { titel, S: KM.S, station, anzeige });
+    if (statusWerte) {   // Pult.rahmen zeichnet die Schiffsleiste; Liste und Erstellung haben eine eigene (Option für die Entwicklung)
+      const L = statusWerte, S = KM.S, total = L.reduce((a, s) => a + s.w, 0), avail = 634 - 142 - (L.length - 1) * 3; let x = 142;
+      rect(c, 140, S, 496, 14, P.skin.bg);
+      L.forEach((s) => { const w = Math.round(avail * s.w / total); P.skin.status(c, x, S, w, 14, s.l, s.v, FN[s.fn]); x += w + 3; });
+    }
+    return g;
+  }
+  const status = (art, werte) => KT.STATUS[art].map((s, i) => Object.assign({}, s, { v: werte[i] }));
+
+  // Teile-Kachel: zust { cursor, getragen }, teil { name, herkunft, volk, preis, bild }
+  function kachel(c, k, teil, zust) {
+    const h = PK.herkunft(teil), T = KM.textZeile;
+    rect(c, k.x, k.y, k.w, k.h, F.kachel);
+    if (h.gesperrt) {
+      const G = KM.gesperrt;
+      rect(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtGrund); hatch(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtSchraffur, G.schraffur);
+      bild(c, teil.bild, k.bild, { filter: 'grayscale(' + G.bild.grau + ') brightness(' + G.bild.hell + ')', alpha: G.bild.deckkraft });
+      P.cham(c, k.x + G.kappe.x, k.y + G.kappe.y, G.kappe.w, G.kappe.h, F.gesperrtKappe, G.kappe.schraeg, 0, G.kappe.schraeg, 0);
+      txt(c, h.kappe, k.x + G.kappe.x + G.kappe.w / 2, k.y + G.kappe.y + 3, F.gesperrtKappeText, 'center');
+      txt(c, teil.name, k.x + 4, k.bild.y + k.bild.h + T.name, F.dim); txt(c, h.sub, k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
+      rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
+      return;
+    }
+    bild(c, teil.bild, k.bild);
+    if (zust.getragen) rect(c, k.x, k.y, k.w, KM.getragen, F.platz);
+    txt(c, teil.name, k.x + 4, k.bild.y + k.bild.h + T.name, zust.getragen ? F.platz : F.text);
+    txt(c, teil.sub != null ? teil.sub : h.sub, k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
+    if (zust.cursor) { const a = KM.cursor.innen, b = KM.cursor.aussen; rand(c, k.x - a, k.y - a, k.w + 2 * a, k.h + 2 * a, F.platz); rand(c, k.x - b, k.y - b, k.w + 2 * b, k.h + 2 * b, F.cursor); }
+    else rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
+  }
+  function figurFenster(c, a, name, rechts, bildKey, art) {
+    const f = PK.figur(a), M = KM.figur, b = KM.figurBild[art];
+    rect(c, f.x, f.y, f.w, f.h, F.figurGrund); rand(c, f.x, f.y, f.w, f.h, F.kachelRand);
+    txtSp(c, name.toUpperCase(), f.x + 6, f.y + 4, F.platz, 1); txt(c, rechts, f.x + f.w - 6, f.y + 4, F.dim, 'right');
+    bild(c, bildKey, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH, w: b.w, h: b.h }, { oben: true });
+    const ky = f.y + f.h - M.kappe - M.kappeAbstand;
+    kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
+    txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
+  }
+  function ziffernblock(c, art, aktiv, titel) {
+    const pr = PK.rahmen().pult, sp = KM.spalten.block;
+    P.titel(c, pr.x + sp.x, pr.y, sp.w, titel, 'nav');
+    for (const z of PK.ziffernblock(art, pr)) {
+      const r = z.rect;
+      if (z.leer) P.zelle(c, r.x, r.y, r.w, r.h, z.taste, '', '', 'nav', 'leer');
+      else P.knopf(c, r.x, r.y, r.w, r.h, KT.PLATZ[z.platz].kurz, { hotkey: z.taste, fn: KT.PLATZ[z.platz].gruppe === 'farbe' ? 'cmd' : 'nav', active: z.platz === aktiv });
+    }
+  }
+  function spalteAbschluss(c, titel, knoepfe) {
+    const pr = PK.rahmen().pult, sp = KM.spalten.abschluss, K = KM.knopf; let y = P.titel(c, pr.x + sp.x, pr.y, sp.w, titel, 'drive');
+    knoepfe.forEach(([k, t, haupt]) => { const h = haupt ? K.hauptH : K.h; if (haupt) y = pr.y + pr.h - h - 2; P.knopf(c, pr.x + sp.x, y, sp.w, h, t, { hotkey: k, fn: 'drive', active: !!haupt }); y += h + K.fuge; });
+  }
+
+  // ---------------------------------------------------------------- 1 Charakterliste
+  const CHARS = [
+    { id: 'aurelia', name: 'Aurelia', zeilen: ['Dutt · kein Bart', 'Bordtunika'] },
+    { id: 'brennus', name: 'Brennus', zeilen: ['Zöpfe · Vollbart', 'Plankenweste', 'Fellumhang'] },
+    { id: 'kaeso', name: 'Kaeso', zeilen: ['Dutt · kein Bart', 'Bordhelm', 'Bordtunika'] },
+    null,
+  ];
+  function liste(c) {
+    const g = pultRahmen(c, KX.saeule.liste, 'kammer', null, status('liste', ['AURELIA', '3/4', '9/9', '–']), (cc, a) => {
+      PK.karten(a).forEach((k, i) => {
+        const ch = CHARS[i], an = i === 0;
+        if (!ch) {
+          rect(cc, k.x, k.y, k.w, k.h, F.kachel); hatch(cc, k.x, k.y, k.w, k.h, F.freiSchraffur, 4); dash(cc, k.x, k.y, k.w, k.h, F.kachelRand, 3);
+          kappeDunkel(cc, k.x + 4, k.y + 4, String(i + 1), F.kachelRand, F.dim);
+          txtSp(cc, KX.frei, k.x + k.w / 2, k.y + 78, F.dim, 1, 2, 'center'); txt(cc, KX.freiHinweis, k.x + k.w / 2, k.y + 102, F.dim, 'center');
+          return;
+        }
+        rect(cc, k.x, k.y, k.w, k.h, F.kachel);
+        bild(cc, 'head-b-' + ch.id, k.bild);
+        kappeDunkel(cc, k.x + 4, k.y + 4, String(i + 1), an ? F.kappeWahl : F.kappe, an ? F.kappeWahlText : F.kappeText);
+        const ty = k.bild.y + k.bild.h + 4;
+        txtSp(cc, ch.name.toUpperCase(), k.x + 6, ty, an ? F.platz : F.text, 1);
+        ch.zeilen.forEach((z, j) => txt(cc, z, k.x + 6, ty + 13 + j * 10, j === 0 ? F.text : F.dim));
+        if (an) { const A = KM.cursor; rand(cc, k.x - A.innen, k.y - A.innen, k.w + 2 * A.innen, k.h + 2 * A.innen, F.platz); rand(cc, k.x - A.aussen, k.y - A.aussen, k.w + 2 * A.aussen, k.h + 2 * A.aussen, F.cursor); }
+        else rand(cc, k.x, k.y, k.w, k.h, F.kachelRand);
+      });
+    });
+    const p = g.pult, S = KM.spalten, K = KM.knopf;
+    let y = P.titel(c, p.x + S.block.x, p.y, S.block.w, KX.spalte.charakter, 'nav');
+    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.neu, { hotkey: 'N', fn: 'nav' }); y += K.h + K.fuge;
+    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.umbenennen, { hotkey: 'F2', fn: 'nav' }); y += K.h + K.fuge;
+    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.loeschen, { hotkey: 'Entf', fn: 'weapon' });
+    y = P.titel(c, p.x + S.mitte.x, p.y, S.mitte.w, KX.spalte.waehlen, 'cmd');
+    const hw = (S.mitte.w - 4) / 2;
+    P.knopf(c, p.x + S.mitte.x, y, hw, K.h, KX.knopf.platz, { hotkey: '1–4', fn: 'cmd' }); P.knopf(c, p.x + S.mitte.x + hw + 4, y, hw, K.h, KX.knopf.blaettern, { hotkey: '←→', fn: 'cmd' });
+    txt(c, KX.nameIstSpieler, p.x + S.mitte.x, y + K.h + 8, F.dim);
+    spalteAbschluss(c, KX.spalte.weiter, [['Enter', KX.knopf.lobby, true]]);
+  }
+
+  // ---------------------------------------------------------------- 2 Erstellung
+  const HAAR = ['#16110E', '#5A3420', '#A8552A', '#D9B56A'], HAUT = ['#F1CDB0', '#D9A07E', '#A86F4A', '#6A422B'];   // Beispiel, im Spiel aus dem Katalog
+  function musterZeile(c, x, y, label, farben, wahl) {
+    txt(c, label, x, y + 2, F.dim);
+    PK.muster(x, y, farben.length).forEach((m, i) => {
+      rect(c, m.x, m.y, m.w, m.h, farben[i]); rand(c, m.x, m.y, m.w, m.h, F.musterRand);
+      if (i === wahl) { const d = KM.muster.wahl; rand(c, m.x - d, m.y - d, m.w + 2 * d, m.h + 2 * d, F.musterWahl); }
+    });
+  }
+  function erstellung(c) {
+    pultRahmen(c, KX.saeule.erstellung, 'kammer', null, status('erstellung', ['AURELIA', 'Lerche', '3/4', '1/4']), (cc, a) => {
+      const k = KM.kachel;
+      P.titel(cc, a.x + k.x, a.y + k.y, KM.figur.x - k.x - 12, PK.text(KX.kachelTitel.erstellung, { platz: 'FRISUR', n: 2 }), 'nav');
+      const ks = PK.kacheln(a, 2);
+      kachel(cc, ks[0], { name: 'Dutt', sub: 'Standard', bild: 'tile-b-kopf-dutt' }, { cursor: true });
+      kachel(cc, ks[1], { name: 'Zöpfe', sub: '', bild: 'tile-b-kopf-zopf' }, {});
+      txt(cc, KX.hinweis.erstellung, a.x + k.x, a.y + a.h - k.hinweisUnten, F.dim);
+      figurFenster(cc, a, 'Aurelia', KX.neu, 'head-b-aurelia', 'nah');
+    });
+    ziffernblock(c, 'erstellung', 'frisur', KX.spalte.kopf);
+    const p = PK.rahmen().pult, S = KM.spalten.mitte;
+    const y = P.titel(c, p.x + S.x, p.y, S.w, KX.spalte.farbe, 'cmd');
+    musterZeile(c, p.x + S.x, y + 3, KX.muster.haar, HAAR, 2);
+    musterZeile(c, p.x + S.x, y + 3 + KM.muster.zeile, KX.muster.haut, HAUT, 0);
+    txt(c, KX.musterHinweis, p.x + S.x, y + 3 + 2 * KM.muster.zeile + 2, F.dim);
+    spalteAbschluss(c, KX.spalte.charakter, [['F2', KX.knopf.name], ['R', KX.knopf.zuruecksetzen], ['Enter', KX.knopf.speichern, true]]);
+  }
+
+  // ---------------------------------------------------------------- 3 Spind
+  function spind(c) {
+    const ship = { alert: 'normal', speed: 0, shields: { current: [3, 4, 2, 1] }, zonen: [100, 100, 100, 100] };
+    pultRahmen(c, KX.saeule.spind, 'spind', ship, null, (cc, a) => {
+      const k = KM.kachel, teile = [
+        { name: 'keine', herkunft: 'frei', volk: '–', bild: 'tile-b-kopf-locken', z: { getragen: true } },
+        { name: 'Bordhelm', herkunft: 'frei', volk: 'Crew', bild: 'tile-b-kopf-helmc', z: { cursor: true } },
+        { name: 'Adlerhelm', herkunft: 'haendler', preis: 180, bild: 'tile-b-kopf-helmr1', z: {} },
+        { name: 'Rabenhaube', herkunft: 'fund', bild: 'tile-b-kopf-helmb', z: {} },
+      ];
+      P.titel(cc, a.x + k.x, a.y + k.y, KM.figur.x - k.x - 12, PK.text(KX.kachelTitel.spind, { platz: 'KOPFBEDECKUNG', n: 2 }), 'nav');
+      PK.kacheln(a, teile.length).forEach((r, i) => kachel(cc, r, teile[i], teile[i].z));
+      txt(cc, KX.hinweis.spind, a.x + k.x, a.y + a.h - k.hinweisUnten, F.dim);
+      figurFenster(cc, a, 'Kaeso', KX.anprobe, 'big-b-kaeso', 'ganz');
+    });
+    ziffernblock(c, 'spind', 'kopf', KX.spalte.platz);
+    const p = PK.rahmen().pult, S = KM.spalten.mitte, G = KM.gesperrt.kappe;
+    let y = P.titel(c, p.x + S.x, p.y, S.w, KX.spalte.herkunft, 'cmd') + 2;
+    txt(c, KX.herkunftLegende.frei, p.x + S.x + G.w + 5, y + 2, F.text); y += 17;
+    [['H', KX.herkunftLegende.haendler], ['F', KX.herkunftLegende.fund]].forEach(([kz, t]) => {
+      P.cham(c, p.x + S.x, y, G.w, G.h, F.gesperrtKappe, G.schraeg, 0, G.schraeg, 0); txt(c, kz, p.x + S.x + G.w / 2, y + 3, F.gesperrtKappeText, 'center');
+      txt(c, t, p.x + S.x + G.w + 5, y + 2, F.dim); y += 17;
+    });
+    spalteAbschluss(c, KX.spalte.umziehen, [['R', KX.knopf.zuruecksetzen], ['Enter', KX.knopf.anziehen, true]]);
+  }
+
+  // ---------------------------------------------------------------- Startmenü: Bildebene + Abdunklung
+  function ebene(id, schirm) {
+    const el = document.getElementById(id), img = el.querySelector('img'), cv = el.querySelector('canvas');
+    img.src = MT.BILD.datei; img.style.filter = 'brightness(' + MT.BILD.hell[schirm] + ')';
+    const c = cv.getContext('2d'); c.imageSmoothingEnabled = false; c.clearRect(0, 0, 640, 360);
+    const v = MT.VERLAUF[schirm];
+    const gl = c.createLinearGradient(0, 0, 640, 0); v.links.forEach(([p, a]) => gl.addColorStop(p, P.rgba(MF.grund, a))); c.fillStyle = gl; c.fillRect(0, 0, 640, 360);
+    const gu = c.createLinearGradient(0, v.unten.ab, 0, 360); gu.addColorStop(0, P.rgba(MF.grund, 0)); gu.addColorStop(1, P.rgba(MF.grund, v.unten.bis)); c.fillStyle = gu; c.fillRect(0, v.unten.ab, 640, 360 - v.unten.ab);
+    return c;
+  }
+  const kachelM = (c, x, y, w, h) => { rect(c, x, y, w, h, P.rgba(MF.kachel, MM.kachelDeckkraft)); rand(c, x, y, w, h, MF.kachelRand); };
+  function kappeM(c, x, y, k, bg, ink) { const K = MM.kappe, w = Math.max(K.minW, R.measure(k, 1) + K.innen); P.cham(c, x, y, w, K.h, bg || MF.kappe, K.schraeg, 0, K.schraeg, 0); txt(c, k, x + w / 2, y + 3, ink || MF.kappeText, 'center'); return x + w; }
+  function hinweise(c, x, y, liste) { for (const [k, t] of liste) { x = kappeM(c, x, y, k) + 4; x = txt(c, t, x, y + 3, MF.dim) + 12; } }
+  function knopfGold(c, x, y, w, k, t) {
+    const K = MM.knopf; P.cham(c, x, y, w, K.h, MF.gold, K.schraeg, 0, K.schraeg, 0);
+    const kw = Math.max(15, R.measure(k, 1) + 8); P.cham(c, x + K.kappeInnen, y + K.kappeInnen, kw, K.kappeH, MF.tinte, 3, 0, 3, 0);
+    txt(c, k, x + K.kappeInnen + kw / 2, y + 6, MF.gold, 'center'); txt(c, t, x + kw + 9, y + 7, MF.tinte);
+  }
+  function lockup(c) { const L = MM.lockup; raster(c, MT.MARKE, L.x, L.y, L.marke, MF.messing, MF.gold); raster(c, MT.SCHRIFTZUG.raster, L.x + 16 * L.marke + L.abstand, L.y + L.schriftzugY, 1, MF.text); }
+  function charakterOben(c) {
+    const K = MM.charakter; kachelM(c, K.x, K.y, K.w, K.h);
+    bild(c, 'head-b-aurelia', { x: K.x + 1, y: K.y + 1, w: K.bild, h: K.bild });
+    txtSp(c, 'AURELIA', K.x + K.bild + 6, K.y + 5, MF.text, 1); txt(c, MX.charakterWechseln, K.x + K.bild + 6, K.y + 17, MF.dim);
+  }
+
+  function titel() {
+    const c = ebene('m1', 'titel'), T = MM.titel;
+    raster(c, MT.MARKE, T.x, T.marke.y, T.marke.s, MF.messing, MF.gold);
+    raster(c, MT.SCHRIFTZUG.raster, T.x, T.schriftzug.y, T.schriftzug.s, MF.text);
+    txtSp(c, MX.claim, T.x, T.claim, MF.gold, MS.claim.sp);
+    txt(c, MX.unterzeile, T.x, T.unterzeile, MF.dim);
+    knopfGold(c, T.x, T.knopf.y, T.knopf.w, 'Enter', MX.knopf.spielen);
+    hinweise(c, T.x, T.hinweise, [['C', 'Charakter'], ['O', 'Optionen']]);
+    txt(c, MX.fuss, T.x, T.fuss, MF.dim);
+    charakterOben(c);
+  }
+  function hauptmenue() {
+    const c = ebene('m2', 'menue'), M = MM.menue; lockup(c);
+    let y = M.y; const x = M.x, w = M.w;
+    function gruppe(t, rechts) {
+      rect(c, x, y + 3, 3, 3, MF.messing); const e = txtSp(c, t, x + 8, y, MF.messing, MS.gruppe.sp);
+      if (rechts) txt(c, rechts, x + w, y, MF.dim, 'right');
+      rect(c, e + 6, y + 3, x + w - (rechts ? R.measure(rechts, 1) + 6 : 0) - e - 6, 1, P.rgba(MF.messing, 0.35)); y += M.gruppe;
+    }
+    function zeile(k, t, an, sub) {
+      const h = sub ? M.zeileSub : M.zeile;
+      if (an) { rect(c, x, y - 1, w, h, P.rgba(MF.gold, MM.auswahl.deckkraft)); rect(c, x, y - 1, MM.auswahl.balken, h, MF.gold); }
+      const e = kappeM(c, x + 8, y, k, an ? MF.gold : MF.kappe, an ? MF.tinte : MF.kappeText);
+      txt(c, t, e + 6, y + 3, an ? MF.gold : MF.text); if (sub) txt(c, sub, x + 27, y + 13, MF.dim);
+      y += h + M.fuge;
+    }
+    gruppe(MX.gruppe.spielen); zeile('1', 'Die Schuld der Lerche'); zeile('2', 'Freie Fahrt Sund', true); zeile('3', 'Kampagne Eisenwald');
+    y += M.gruppenAbstand; gruppe(MX.gruppe.fortsetzen, '2/5'); zeile('F', 'Sund · Kantenstein', false, '3:42 h · Freie Fahrt Sund · gestern 21:14');
+    txt(c, '+ 1 weiterer Weltstand · F öffnet die Liste', x + 8, y, MF.dim); y += 14;
+    y += M.gruppenAbstand; gruppe(MX.gruppe.uebung, MX.uebungRechts); zeile('4', 'Grabenangriff'); zeile('5', 'Wellen Boden'); zeile('6', 'Wellen All');
+    hinweise(c, M.x, M.hinweise, [['↑↓', 'wählen'], ['C', 'Charakter'], ['O', 'Optionen']]);
+    const D = M.detail; kachelM(c, D.x, D.y, D.w, D.h); rect(c, D.x, D.y, D.w, 2, MF.gold);
+    txtSp(c, 'OFFENE WELT', D.x + 10, D.y + 10, MF.messing, MS.gruppe.sp);
+    txt(c, 'FREIE FAHRT SUND', D.x + 10, D.y + 24, MF.text, 'left', MS.detail.skala);
+    txt(c, 'Rom gegen Germanen, die Welt tickt mit.', D.x + 10, D.y + 46, MF.dim); txt(c, 'Ziel: Hrafnheim erobern.', D.x + 10, D.y + 57, MF.dim);
+    txt(c, '1–4 Spieler · neuer Weltstand 3/5', D.x + 10, D.y + 74, MF.text);
+    knopfGold(c, D.x + 10, D.y + 94, 150, 'Enter', MX.knopf.raum);
+    charakterOben(c);
+  }
+  // Stempel: Rand 2 px (durchgezogen bzw. gestrichelt) + Wort; voll = Fläche + Tinte. links = linke Kante statt Mitte
+  function stempel(c, art, x, y, links) {
+    const S = MT.STEMPEL, st = S[art], col = MF[st.farbe], tw = ME.sperrung(st.wort, 1, 1, (z, sk) => R.measure(z, sk)).w, w = tw + 2 * S.innen;
+    if (!links) x = Math.round(x - w / 2);
+    if (st.voll) { rect(c, x, y, w, S.h, col); txtSp(c, st.wort, x + S.innen, y + S.textY, MF.tinte, 1); return; }
+    rect(c, x, y, w, S.h, MF.karte);
+    if (st.gestrichelt) { c.fillStyle = col; for (let i = 0; i < w; i += S.strich) { c.fillRect(x + i, y, Math.min(2, w - i), S.rand); c.fillRect(x + i, y + S.h - S.rand, Math.min(2, w - i), S.rand); } for (let i = 0; i < S.h; i += S.strich) { c.fillRect(x, y + i, S.rand, Math.min(2, S.h - i)); c.fillRect(x + w - S.rand, y + i, S.rand, Math.min(2, S.h - i)); } }
+    else rand2(c, x, y, w, S.h, col, S.rand);
+    txtSp(c, st.wort, x + S.innen, y + S.textY, col, 1);
+  }
+  function lobby() {
+    const c = ebene('m3', 'lobby'), L = MM.lobby; lockup(c);
+    txtSp(c, 'OFFENE WELT · NEUER WELTSTAND 3/5', L.modus.x, L.modus.y, MF.messing, MS.gruppe.sp);
+    txt(c, 'FREIE FAHRT SUND', L.modus.x, L.modus.y + 13, MF.text, 'left', MS.modus.skala);
+    txt(c, 'Rom gegen Germanen, die Welt tickt mit.', L.modus.x, L.modus.y + 40, MF.dim);
+    const e = kappeM(c, L.modus.x, L.modus.y + 54, 'M'); txt(c, 'Modus ändern (alle)', e + 4, L.modus.y + 57, MF.dim);
+    const RC = L.raumcode; kachelM(c, RC.x, RC.y, RC.w, RC.h);
+    txtSp(c, MX.raumcode, RC.x + 10, RC.y + 9, MF.messing, MS.gruppe.sp);
+    txtSp(c, 'M4GM', RC.x + RC.w / 2, RC.y + 25, MF.gold, MS.raumcode.sp, MS.raumcode.skala, 'center');
+    rect(c, RC.x + 10, RC.y + 60, RC.w - 20, 1, MF.kachelRand);
+    const e2 = kappeM(c, RC.x + 10, RC.y + 66, 'L'); txt(c, MX.linkKopieren, e2 + 6, RC.y + 69, MF.text); txt(c, '…:3100/?code=M4GM', RC.x + 10, RC.y + 81, MF.dim);
+    const CR = L.crew, KK = MM.karte;
+    txtSp(c, ME.text(MX.crew, { n: 3 }), CR.x, CR.y - 12, MF.messing, MS.gruppe.sp);
+    const crew = [{ ch: CHARS[0], f: 0, bereit: true, gast: true, zeile: 'Bordtunika' }, { ch: CHARS[1], f: 1, bereit: true, zeile: 'Plankenweste' }, { ch: CHARS[2], f: 2, bereit: false, zeile: 'Bordhelm' }, null];
+    crew.forEach((m, i) => {
+      const x = CR.x + i * (CR.w + CR.fuge), y = CR.y;
+      if (!m) {
+        rect(c, x, y, CR.w, CR.h, MF.karte); hatch(c, x, y, CR.w, CR.h, MF.freiSchraffur, 4); dash(c, x, y, CR.w, CR.h, MF.karteRand, 3);
+        kappeM(c, x + 4, y + 4, String(i + 1), MF.karteRand, MF.dim);
+        txtSp(c, MX.frei, x + CR.w / 2, y + CR.h / 2 - 14, MF.dim, 1, MS.detail.skala, 'center'); txt(c, MX.laedtEin, x + CR.w / 2, y + CR.h / 2 + 6, MF.dim, 'center'); return;
+      }
+      const sp = ME.spieler(m.f);
+      rect(c, x, y, CR.w, CR.h, MF.karte);
+      bild(c, 'head-b-' + m.ch.id, { x: x + 1, y: y + 1, w: CR.w - 2, h: CR.bild }, { cover: true });
+      kappeM(c, x + 4, y + 4, String(i + 1));
+      rect(c, x + CR.w - KK.formPlatte - 4, y + 4, KK.formPlatte, KK.formPlatte, P.rgba(MF.formPlatte, KK.formDeckkraft));
+      R.shape(c, sp.form, x + CR.w - 4 - KK.formPlatte / 2, y + 4 + KK.formPlatte / 2, 2 * KK.form + 1, sp.farbe);
+      if (m.gast) stempel(c, 'gastgeber', x + 1, y + 1 + CR.bild - MT.STEMPEL.h, true);
+      const ty = y + CR.bild + 1 + KK.nameY;
+      txtSp(c, m.ch.name.toUpperCase(), x + 5, ty, sp.farbe, MS.name.sp); txt(c, m.zeile, x + 5, y + CR.bild + 1 + KK.zeileY, MF.text);
+      stempel(c, m.bereit ? 'anBord' : 'nichtBereit', x + CR.w / 2, y + CR.h - MT.STEMPEL.h - 7);
+      rand(c, x, y, CR.w, CR.h, MF.karteRand);
+    });
+    const ST = L.start; kachelM(c, ST.x, ST.y, ST.w, ST.h);
+    txtSp(c, MX.start, ST.x + 8, ST.y + 8, MF.messing, MS.gruppe.sp);
+    txt(c, MX.startSatz[0], ST.x + 8, ST.y + 22, MF.text); txt(c, MX.startSatz[1], ST.x + 8, ST.y + 32, MF.text);
+    txt(c, MX.wartetAuf, ST.x + 8, ST.y + 50, MF.nichtBereit); txt(c, 'Kaeso', ST.x + 8, ST.y + 60, ME.spieler(2).farbe);
+    P.cham(c, ST.x + 6, ST.y + 98, ST.w - 12, 24, MF.bereit, 4, 0, 4, 0);
+    txtSp(c, 'BEREIT', ST.x + ST.w / 2, ST.y + 103, MF.tinte, 1, 1, 'center'); txt(c, 'Enter: zurück', ST.x + ST.w / 2, ST.y + 113, MF.tinte, 'center');
+    txt(c, 'Esc verlässt', ST.x + 8, ST.y + 134, MF.dim); txt(c, 'den Raum', ST.x + 8, ST.y + 144, MF.dim);
+    hinweise(c, L.modus.x, L.hinweise, [['Enter', 'bereit'], ['1–4', 'Farbe'], ['C', 'Charakter'], ['M', 'Modus'], ['L', 'Link'], ['Esc', 'Hauptmenü']]);
+    // Statuszeile (aus B): Modus · Crew · Bereit · Raum
+    const SZ = MM.statuszeile; rect(c, 0, SZ.y, 640, SZ.h, MF.statuszeile); rect(c, 0, SZ.y, 640, 1, MF.kachelRand);
+    let x = SZ.innen; const ty = SZ.y + Math.floor((SZ.h - 7) / 2);
+    [[MX.status.modus, 'Freie Fahrt Sund', MF.text], [MX.status.crew, '3/4', MF.text], [MX.status.bereit, '2/3', MF.nichtBereit], [MX.status.raum, 'M4GM', MF.gold]].forEach(([l, v, col]) => {
+      x = txtSp(c, l, x, ty, MF.dim, 1) + 6; x = txt(c, v, x, ty, col) + SZ.feldAbstand;
+    });
+    const gx = 640 - SZ.innen - R.measure('Aurelia', 1); txt(c, 'Aurelia', gx, ty, ME.spieler(0).farbe); txtSp(c, MX.status.gastgeber, gx - 6, ty, MF.dim, 1, 1, 'right');
+  }
+
+  // ---------------------------------------------------------------- 7 Namensmarke
+  function namensmarke(c) {
+    const N = NM.TOKENS, NF = N.FARBE;
+    bild(c, 'kenn-heute-crop', { x: 0, y: 0, w: 640, h: 360 }, { cover: true });
+    function marke(cx, top, name, f, eigen) {
+      const m = NM.marke(name, eigen, (s) => R.measure(s, 1)), sp = NM.spieler(f);
+      rect(c, cx + m.x, top, m.w, m.h, P.rgba(NF.grund, N.MASS.grundDeckkraft));
+      R.shape(c, sp.form, cx + m.form.x, top + m.form.y, m.form.groesse, sp.farbe);
+      if (m.text) txt(c, m.text.s, cx + m.text.x, top + m.text.y, sp.farbe);
+      rect(c, cx + m.stiel.x, top + m.stiel.y, m.stiel.w, m.stiel.h, sp.farbe);
+    }
+    marke(186, 62, 'Brennus', 1, false);
+    marke(125, 164, 'Aurelia', 0, true);
+    const gegner = (x, y, n) => R.text(c, n, x, y, { color: NF.gegner, align: 'center', shadow: true });
+    gegner(458, 32, 'SCHÜTZE'); gegner(385, 106, 'ENTERER'); gegner(528, 154, 'KRIEGER');
+    rect(c, 0, 0, 640, 30, P.rgba(NF.grund, 0.88));
+    txt(c, 'du: nur die Form · Mitspieler: Form + Name · Gegner: Rollenname in Rost, keine Form', 12, 6, F.text);
+    txt(c, 'Grund ' + String(N.MASS.grundDeckkraft).replace('.', ',') + ' (vorher 0,55): jede Spielerfarbe mind. 4,5:1 auch auf hellem Boden', 12, 17, F.dim);
+  }
+
+  // ---------------------------------------------------------------- Laden und zeichnen
+  const bilder = ['head-b-aurelia', 'head-b-brennus', 'head-b-kaeso', 'big-b-kaeso', 'tile-b-kopf-helmc', 'tile-b-kopf-locken', 'tile-b-kopf-helmr1', 'tile-b-kopf-helmb', 'tile-b-kopf-dutt', 'tile-b-kopf-zopf', 'kenn-heute-crop'].map((k) => [k, FIX + k + '.png']);
+  const keyart = new Promise((ok) => { const im = new Image(); im.onload = ok; im.onerror = () => { console.error('Key-Art fehlt'); ok(); }; im.src = MT.BILD.datei; });
+  Promise.all([lade(bilder), keyart]).then(() => {
+    const ctx = (id) => { const c = document.getElementById(id).getContext('2d'); c.imageSmoothingEnabled = false; return c; };
+    liste(ctx('k1')); erstellung(ctx('k2')); spind(ctx('k3'));
+    titel(); hauptmenue(); lobby(); namensmarke(ctx('n1'));
+    return Promise.all([...document.querySelectorAll('.ebene img')].map((im) => (im.complete ? null : new Promise((ok) => { im.onload = ok; im.onerror = ok; }))));
+  }).then(() => {
+    document.getElementById('status').textContent = 'Skin ' + skinId + ' · fertig';
+    window.__fertig = true;
+  });
+})();
+</script>
+</body>
+</html>

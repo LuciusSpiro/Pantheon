@@ -1,0 +1,111 @@
+{
+  "id": "cha/joint/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Sammelmodell head (Schichten)",
+  "tags": [
+    "cha",
+    "joint"
+  ],
+  "notes": "Schichtfolge = Reihenfolge der use-Schritte.",
+  "params": {
+    "koerper": {
+      "default": "standard",
+      "options": [
+        "standard"
+      ],
+      "label": "Körper"
+    },
+    "bart": {
+      "default": "keiner",
+      "options": [
+        "keiner",
+        "vollbart"
+      ],
+      "label": "Bart"
+    },
+    "gesicht": {
+      "default": "lerche",
+      "options": [
+        "lerche",
+        "narbe"
+      ],
+      "label": "Gesicht"
+    },
+    "frisur": {
+      "default": "dutt",
+      "options": [
+        "dutt",
+        "zoepfe",
+        "keine"
+      ],
+      "label": "Frisur"
+    },
+    "kopf": {
+      "default": "keine",
+      "options": [
+        "keine",
+        "bordhelm"
+      ],
+      "label": "Kopfbedeckung"
+    }
+  },
+  "ops": [
+    {
+      "name": "Körper",
+      "op": "use",
+      "model": "cha/koerper/{koerper}/head",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Bart",
+      "op": "use",
+      "model": "cha/bart/{bart}/head",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Gesicht",
+      "op": "use",
+      "model": "cha/gesicht/{gesicht}/head",
+      "fallback": [
+        "cha/leer"
+      ]
+    },
+    {
+      "name": "Frisur (unter Hutmaske)",
+      "op": "use",
+      "model": "cha/frisur_maskiert/head",
+      "params": {
+        "frisur": "{frisur}",
+        "kopf": "{kopf}"
+      }
+    },
+    {
+      "name": "Ohren unter der Kopfbedeckung (carve)",
+      "op": "use",
+      "model": "cha/kopf/{kopf}/head_ohren",
+      "fallback": [
+        "cha/leer"
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Kopfbedeckung",
+      "op": "use",
+      "model": "cha/kopf/{kopf}/head",
+      "fallback": [
+        "cha/leer"
+      ]
+    }
+  ]
+}

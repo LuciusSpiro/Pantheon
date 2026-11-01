@@ -52,7 +52,7 @@ function makeCampaign(dir, startMission) {
 function main() {
   // ------------------------------------------------------------------------------------------------------------
   section('Protokoll');
-  ok(Protocol.VERSION === 7, 'Protocol.VERSION = 7 (B1–B3)');
+  ok(Protocol.VERSION === 8, 'Protocol.VERSION = 8 (CHA-01 B1; 7 = B1–B3)');
   ok(Protocol.CMD_TRANSFER_ZIEL === 'transfer.ziel' && Protocol.CMD_AWAY_MAP_GET === 'awayMap.get' && Protocol.EVT_AWAY_MAP === 'awayMap', 'B1: transfer.ziel, awayMap.get, awayMap');
   ok(['map', 'kv', 'ao', 'ko', 'al', 'cd'].every((k) => Protocol.AWAY_SNAP_B1.includes(k)) && Protocol.SPACE_ENEMY_ST.includes('treibt'), 'B1: Snapshot away + space.enemies[].st');
   ok(['ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei'].every((k) => Protocol.B1_EVENTS.includes(k)), 'B1: Ereignisse');

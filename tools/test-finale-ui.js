@@ -38,7 +38,7 @@ const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Config: 
 win.window = win;
 win.Render = { PAL: new Proxy({}, { get: () => '#000' }), text() {}, drawTooltip() {} };
 win.Pult = {};
-win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
 vm.createContext(win);
 for (const f of ['tasten.js', 'consoles.js', 'absicht.js', 'finale.js', 'terminal-ui.js']) vm.runInContext(J(f), win, { filename: f });
 const TU = win.TerminalUI, FI = win.Finale, AB = win.Absicht, TA = win.Tasten, CO = win.Consoles;

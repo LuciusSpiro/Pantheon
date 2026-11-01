@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pantheon</title>
-<link rel="icon" href="data:,">
+<link rel="icon" type="image/svg+xml" href="img/logo/marke-favicon.svg">
 <style>
   html, body { margin: 0; height: 100%; background: #0B0E1A; overflow: hidden; }
   body { font-family: monospace; color: #F4EEDC; }
@@ -15,19 +15,21 @@
   }
   /* M4: 3D-Welt unter dem HUD-Canvas, gleiche CSS-Box (client.js layout) */
   #world3d { position: absolute; left: 0; top: 0; display: none; background: #0B0E1A; }
-  #lobbyName, #lobbyCode {
+  /* CHA-01 E: Key-Art des Startmenüs als eigene Bildebene unter dem HUD-Canvas (gleiche CSS-Box wie #game, client.js layout); Helligkeit je Bildschirm aus Menue.TOKENS.BILD */
+  #keyart { position: absolute; left: 0; top: 0; display: none; object-fit: cover; background: #07070A; pointer-events: none; user-select: none; }
+  #lobbyCode {
     position: absolute; display: none; box-sizing: border-box;
     background: #0B0E1A; color: #7FE0C2; border: 2px solid #C9974A;
     font-family: monospace; padding: 0 6px; outline: none;
   }
-  #lobbyName:focus, #lobbyCode:focus { border-color: #FFC66B; }
+  #lobbyCode:focus { border-color: #FFC66B; }
   #lobbyCode { text-transform: uppercase; letter-spacing: 0.2em; text-align: center; }
 </style>
 </head>
 <body>
 <canvas id="world3d" width="640" height="360" aria-hidden="true"></canvas>
+<img id="keyart" src="img/keyart-rampe.jpg" alt="" aria-hidden="true" draggable="false">
 <canvas id="game" width="640" height="360" tabindex="0"></canvas>
-<input id="lobbyName" maxlength="12" autocomplete="off" spellcheck="false" aria-label="Name">
 <input id="lobbyCode" maxlength="16" autocomplete="off" spellcheck="false" aria-label="Raumcode">
 <script src="/shared/config.js"></script>
 <script src="/shared/maps.js"></script>
@@ -38,6 +40,8 @@
 <script src="/shared/sektorplan.js"></script>
 <script src="/shared/kulisse.js"></script>
 <script src="/shared/protocol.js"></script>
+<script src="/shared/charakter.js"></script>
+<script src="js/charaktere.js"></script>
 <script src="/shared/physics.js"></script>
 <script src="/shared/frachtliste.js"></script>
 <script src="/shared/schilde.js"></script>
@@ -52,6 +56,7 @@
 <script src="js/net.js"></script>
 <script src="js/kennung.js"></script>
 <script src="js/schiffswaffen-ui.js"></script>
+<script src="js/namensmarke-tokens.js"></script>
 <script src="js/render.js"></script>
 <script src="js/icons-b.js"></script>
 <script src="js/kartenzeichen.js"></script>
@@ -79,6 +84,12 @@
 <script src="js/consoles.js"></script>
 <script src="js/pult.js"></script>
 <script src="js/pult-systeme-tokens.js"></script>
+<script src="js/pult-kammer-tokens.js"></script>
+<script src="js/menue-tokens.js"></script>
+<script src="js/kammer-bausteine.js"></script>
+<script src="js/kammer-ui.js"></script>
+<script src="js/menue.js"></script>
+<script src="js/menue-ui.js"></script>
 <script src="js/zonenkreuz.js"></script>
 <script src="js/pult-stationen.js"></script>
 <script src="js/pult-terminal-tokens.js"></script>
@@ -90,5 +101,6 @@
 <script src="js/client.js"></script>
 <script type="importmap">{"imports": {"three": "/vendor/three/three.module.js", "three/addons/": "/vendor/three/addons/", "voxelwerk/": "/voxel/"}}</script>
 <script type="module" src="js/voxel/boot.js"></script>
+<script type="module" src="js/voxel/kammer.js"></script>
 </body>
 </html>

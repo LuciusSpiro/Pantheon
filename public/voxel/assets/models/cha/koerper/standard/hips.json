@@ -1,0 +1,28 @@
+{
+  "id": "cha/koerper/standard/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "koerper standard (hips)",
+  "tags": [
+    "cha",
+    "schicht",
+    "koerper"
+  ],
+  "notes": "Schicht aus fig/basis/huefte, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/huefte",
+      "colors": {
+        "cloth": "unter_standard",
+        "leather": "unter_2_standard"
+      }
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "cha/leer",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Leer (kein Teil)",
+  "tags": [
+    "cha",
+    "leer"
+  ],
+  "notes": "Fallback für keine/keiner. Darf als einziges Modell leer sein.",
+  "ops": []
+}

@@ -21,9 +21,9 @@
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const nameInput = document.getElementById('lobbyName');
   const codeInput = document.getElementById('lobbyCode');   // M0: Raumcode-Eingabe nach badcode
   const world3d = document.getElementById('world3d');      // M4: Voxel-Welt (voxel/boot.js)
+  const keyart = document.getElementById('keyart');        // CHA-01 E: Key-Art des Startmenüs (eigene Bildebene unter dem Canvas)
 
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* egal */ } }
@@ -32,6 +32,7 @@
   function lerpAngle(a, b, f) { return a + Phys.normAngle(b - a) * f; }
 
   const storedColor = lsGet('sternenschicht.color', null);
+  const ZUFALLSNAME = 'Crew-' + Math.floor(100 + Math.random() * 900);   // heutiger Zufallsname; Charaktere.erststart nimmt ihn nur, wenn es weder Charaktere noch einen alten Namen gibt
   const Client = {
     state: null, pid: null, serverDebug: false,
     snaps: [],
@@ -41,8 +42,11 @@
     mouse: { x: -1, y: -1 },
     time: 0, fps: 0, scale: 1,
     audioOn: false,
-    lobby: { name: lsGet('sternenschicht.name', 'Crew-' + Math.floor(100 + Math.random() * 900)).slice(0, 12), color: storedColor == null || storedColor === '' ? null : +storedColor },
+    // CHA-01 C: name = Spielername fürs hello, bis der gewählte Charakter da ist (Charaktere.vorabName); der Name im Spiel ist p.name vom Server. Der alte Schlüssel sternenschicht.name bleibt unberührt (Rückweg).
+    lobby: { name: window.Charaktere ? Charaktere.vorabName({ altName: lsGet('sternenschicht.name', null), zufallsName: ZUFALLSNAME }) : ZUFALLSNAME, color: storedColor == null || storedColor === '' ? null : +storedColor },
     endDismissed: false,
+    karte: null,    // CHA-01 B1: eigene Charakterkarte fürs hello (Quelle kommt mit Paket C); null = ohne Karte wie bisher
+    karten: {},     // CHA-01 B1: pid -> geprüfte Charakterkarte (welcome.karten, Ereignis karte); keine Darstellung hier
     beamFx: {}, enemyHit: {}, enemyShield: {}, enemyHull: {}, shipHit: null, flashT: -9,   // SL0: enemyShield/enemyHull = Zeit des letzten Schild- bzw. Hüllentreffers je Gegner
     shieldHit: {},   // M2: pid -> performance.now() des letzten Schildtreffers
     teleSeen: {},   // M3a
@@ -125,15 +129,10 @@
     canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     canvas.style.left = Math.floor((W - cw) / 2) + 'px'; canvas.style.top = Math.floor((Hh - ch) / 2) + 'px';
     if (world3d) { world3d.style.width = canvas.style.width; world3d.style.height = canvas.style.height; world3d.style.left = canvas.style.left; world3d.style.top = canvas.style.top; }   // M4: 3D-Welt in derselben CSS-Box
+    if (keyart) { keyart.style.width = canvas.style.width; keyart.style.height = canvas.style.height; keyart.style.left = canvas.style.left; keyart.style.top = canvas.style.top; }   // CHA-01 E: Key-Art ebenso
     Client.scale = scale;
-    const r = H.LOBBY_NAME_RECT;
-    nameInput.style.left = Math.floor((W - cw) / 2 + r.x * scale) + 'px';
-    nameInput.style.top = Math.floor((Hh - ch) / 2 + r.y * scale) + 'px';
-    nameInput.style.width = Math.floor(r.w * scale) + 'px';
-    nameInput.style.height = Math.floor(r.h * scale) + 'px';
-    nameInput.style.fontSize = Math.max(10, Math.floor(10 * scale)) + 'px';
-    if (codeInput && H.LOBBY_CODE_RECT) {
-      const q = H.LOBBY_CODE_RECT;
+    if (codeInput && window.Menue) {
+      const q = Menue.TOKENS.MASS.eingang.feld;   // CHA-01 G: Eingabefeld des Raumcode-Eingangs (menue-ui.js eingang)
       codeInput.style.left = Math.floor((W - cw) / 2 + q.x * scale) + 'px';
       codeInput.style.top = Math.floor((Hh - ch) / 2 + q.y * scale) + 'px';
       codeInput.style.width = Math.floor(q.w * scale) + 'px';
@@ -219,7 +218,7 @@
     const ui = Client.ui;
     if (!ui.stack.length) {
       releaseAll();
-      try { if (document.activeElement === nameInput || (codeInput && document.activeElement === codeInput)) document.activeElement.blur(); canvas.focus(); } catch (e) { /* egal */ }
+      try { if (codeInput && document.activeElement === codeInput) document.activeElement.blur(); canvas.focus(); } catch (e) { /* egal */ }
       // Kai: das Spielmenü hält das Spiel nur solo an
       if (page === 'menu' && inGame() && soloNow()) { sendPause(true); ui.pauseSent = true; }
     }
@@ -263,6 +262,7 @@
     if (row.neu) {
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: null });
       uiCloseAll(true); audio.play('ui_click');
+      if (window.MenueFluss) MenueFluss.neuerWeltstandGewaehlt(st.lobby);   // CHA-01 E: aus dem Hauptmenü gewählt → Lobby (mit sichtbarem Modus); aus der Moduswahl → Überlagerung schließt
       return;
     }
     const w = row.w || {};
@@ -274,6 +274,7 @@
     send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: row.id });
     if (st.lobby && st.lobby.worldsFull && Client.ui.worldsMode === 'full') H.pushNotice('Fortsetzen statt neu: ' + (w.name || row.id), R.PAL.mint);
     uiCloseAll(true); audio.play('ui_click');
+    if (window.MenueFluss) MenueFluss.weltstandGewaehlt();   // CHA-01 E: Weltstand im Hauptmenü gewählt → in die Lobby; in der Moduswahl → Überlagerung schließt
   }
   function startDelete(id, viaMouse) {
     const row = worldsItems().find(r => r.id === id && !r.neu);
@@ -446,7 +447,6 @@
   }
 
   // ------------------------------------------------------------------ Lobby-Aktionen
-  let helloTimer = null;
   const actions = {
     setColor(c) {
       Client.lobby.color = c; lsSet('sternenschicht.color', String(c));
@@ -467,9 +467,24 @@
       send({ t: P.C.READY || 'ready', ready: !m.ready });
       audio.play('ui_click');
     },
+    // CHA-01 C: Kleiderkammer (Charakterliste, Erstellung) als Menüseite über der Lobby; Zustand und Regeln liegen in Charaktere, Darstellung in KammerUi
+    openKammer() {
+      if (uiTop() === 'kammer') return;
+      if (!window.KammerUi || !Charaktere.oeffneListe().ok) { H.pushNotice('Charaktere noch nicht geladen', R.PAL.warn); return; }
+      uiPush('kammer'); audio.play('ui_click');
+    },
+    closeKammer() { if (window.Charaktere) Charaktere.schliesse(); if (uiTop() === 'kammer') { uiBack(); } },
     // S1: Overlays und Menü (Maus über Hud-Knöpfe)
     openWorlds(mode) { openWorlds(mode); },
     openOptions() { if (uiTop() !== 'options') { uiPush('options'); audio.play('ui_click'); } },
+    // CHA-01 E: Einladung abgelehnt – den Raum wirklich verlassen: Raumcode vergessen, Verbindung trennen, eigenen Spielzustand verwerfen (der neue hello ohne Code wird mit badcode beantwortet → Raumcode-Eingang)
+    verlasseRaum() {
+      Net.verlasseRaum();
+      Client.state = null; G.state = null; Client.pid = null; G.pid = null; Client.snaps = [];
+      if (codeInput) { codeInput.value = ''; Client.focusCode = true; }
+      return true;
+    },
+    openHilfe() { if (uiTop() !== 'controls') { uiPush('controls'); audio.play('ui_click'); } },   // CHA-01 E: Steuerung (Hilfe) auch aus Titel, Hauptmenü und Lobby
     uiActivate(page, id) { uiActivate(page, id); },
     uiSelect(page, i) { Client.ui.sel[page] = i; },
     uiOption(id, dir) { uiOption(id, dir); },
@@ -491,22 +506,6 @@
       const st = Client.state;
       const cur = !!(st && st.lobby && st.lobby.skipDrill);
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', skipDrill: !cur });
-      audio.play('ui_click');
-    },
-    // M2: Start „Kampagne“ (m1), „Direkt zur Planetenmission“ (m3) oder Testgelände (arena_space/arena_away) –
-    // jeder darf umschalten, M schaltet reihum weiter (AP3a: Reihenfolge Protocol.LOBBY_MODI, Labor nur mit lobby.laborAn)
-    toggleStartMission() {
-      const st = Client.state;
-      const cur = (st && st.lobby && st.lobby.startMission) || 'm1';
-      if (st && st.lobby && st.lobby.world != null && H.lobbyWorld(st)) { H.pushNotice('Startauswahl entfällt beim Fortsetzen (F: „Neue Kampagne“ wählen)', R.PAL.warn); audio.play('error'); return; }
-      const list = H.startList(st);   // S1: inkl. 'free' (Kampagne ohne Tutorial); AP3a: LOBBY_MODI
-      const next = list[(list.indexOf(cur) + 1) % list.length];
-      const msg = { t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next };
-      // Bodenkampf: Wellen – die Kartenwahl geht immer mit (ohne sie startet der Server den Altweg Kesh/m3)
-      if (next === 'arena_away') msg.wellen = (st && st.lobby && st.lobby.wellen) || (P.WELLEN_KARTEN || ['aussenposten'])[0];
-      // W2 AP3b: Wellen All – die Szenenwahl geht immer mit (ohne sie startet der Server den Altweg „Testgelände Raumkampf“)
-      if (next === 'arena_space') msg.szene = (st && st.lobby && st.lobby.szene) || (allSzenen()[0] || {}).id || null;
-      send(msg);
       audio.play('ui_click');
     },
     // AP3a: Szenario-Labor – Auswahl (↑/↓) und Parameter (R Seed, ←/→ Stärke, G god); jeder darf umschalten
@@ -614,15 +613,14 @@
     leave() { send({ t: P.C.LEAVE || 'leave' }); },
     sfx(name) { audio.play(name); },
   };
-  nameInput.value = Client.lobby.name;
-  lsSet('sternenschicht.name', Client.lobby.name);   // Standardname bleibt über Neuladen gleich
-  nameInput.addEventListener('input', () => {
-    Client.lobby.name = nameInput.value.slice(0, 12);
-    lsSet('sternenschicht.name', Client.lobby.name);
-    clearTimeout(helloTimer);
-    helloTimer = setTimeout(() => { if (Client.lobby.name.trim()) Net.sendHello(); }, 500);
-  });
-  Net.getHello = () => ({ name: (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color });
+  Net.getHello = () => {
+    const h = { name: (window.Charaktere && Charaktere.aktiverName()) || (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color };
+    if (Client.karte) h.karte = Client.karte;   // CHA-01 B1
+    return h;
+  };
+  // CHA-01 B1: Karten der Crew. Ereignis karte { pid, k }: k = null löscht den Eintrag. Nur Outfit ändern: Client.sendeOutfit({ kopf, … }) (der Server prüft).
+  Net.onEvent('karte', (ev) => { if (ev.pid == null) return; if (ev.k) Client.karten[ev.pid] = ev.k; else delete Client.karten[ev.pid]; });
+  Client.sendeOutfit = (outfit) => Net.send({ t: 'cmd', c: (P.CMD_KARTE_OUTFIT || 'karte.outfit'), outfit });
   if (codeInput) {
     codeInput.value = Net.roomCode || '';
     codeInput.addEventListener('input', () => { const v = Net.normCode(codeInput.value); if (v !== codeInput.value) codeInput.value = v; });
@@ -641,6 +639,7 @@
         // CONFIG.debug.snapKiRolle – mit ?debug=1 am Debug-Server schaltet der Client ihn ein (gilt für den Serverprozess).
         if (DEBUG && Client.serverDebug) send({ t: 'debug', cmd: 'tune', path: 'debug.snapKiRolle', value: 'on' });
         Client.self.init = false;
+        Client.karten = Object.assign({}, msg.karten || {});   // CHA-01 B1: leeren und aus welcome füllen
         Net.guard('Client.sektorkarte', () => setzeSektorkarte(msg.sektorkarte));   // B3 §6
         Client.arenaSent = false; Client.awayMapAsk = {};
         break;
@@ -690,6 +689,7 @@
     // S1 (Kann): Chronik kommt im Log-Slot – ebenfalls behalten
     if (s.mission && !s.mission.chronik && prev && prev.mission && prev.mission.chronik && prev.phase !== 'lobby') s.mission.chronik = prev.mission.chronik;
     Client.state = s; G.state = s; R.lastState = s;
+    if (window.MenueFluss) Net.guard('Client.menueSync', () => MenueFluss.snapshotEingang(s.lobby));   // CHA-01 Nacharbeit K2: Auswahl/Tutorial-Merker des Menüs folgen dem Snapshot, nicht dem Zeichnen
     Net.guard('Client.phaseS1', () => onPhaseS1(prev, s));
     Net.guard('Client.planningS2', () => onPlanningS2(prev, s));
     const now = performance.now();
@@ -783,6 +783,7 @@
     const wasLobby = !prev || prev.phase === 'lobby';
     const isLobby = s.phase === 'lobby';
     if (prev && wasLobby !== isLobby) { Client.ui.pauseSent = false; uiCloseAll(true); }
+    if (prev && !wasLobby && isLobby && window.MenueFluss) MenueFluss.imRaum();   // CHA-01 E: nach der Runde zurück in die Lobby (nicht in den Titel)
     const ui = Client.ui;
     if (isLobby && uiTop() === 'worlds') {
       const n = worldsItems().length;
@@ -1771,6 +1772,10 @@
       if (n <= 0) return { label: what + ': 0 – Regal leer (Nachschub im Hafen)', ok: false };
       return { label: 'Nehmen · ' + what + ': ' + n, ok: true };
     }
+    if (shipKind === 'locker') {   // CHA-01 D: nur der eigene Spind (Raum q<Farbe>) und nur mit Karte; fremde Spinde: kein Hinweis (wie der Server)
+      const raum = Maps.roomAt ? Maps.roomAt(tx, ty) : null;
+      return raum && raum.id === 'q' + m.color && Client.karten[m.id] ? { label: 'Spind öffnen', ok: true } : null;
+    }
     if (shipKind === 'bed') {
       const bed = R.bedAt(tx, ty);
       if (bed && bed.color === m.color) return { label: 'Quartier gestalten', ok: true };
@@ -1997,10 +2002,6 @@
 
   window.addEventListener('keydown', (e) => {
     initAudio();
-    if (document.activeElement === nameInput) {
-      if (e.key === 'Enter') { nameInput.blur(); Net.sendHello(); actions.toggleReady(); }
-      return;
-    }
     if (codeInput && document.activeElement === codeInput) {
       if (e.key === 'Enter') { e.preventDefault(); actions.submitCode(); }
       return;
@@ -2022,29 +2023,13 @@
       return;
     }
     // S1: offene Menüseite (Spielmenü, Optionen, Steuerung, Weltstände) bekommt alle Tasten
+    if (uiTop() === 'kammer') { Client.keys = {}; if (!Net.guard('KammerUi.taste', () => window.KammerUi && KammerUi.taste(e), false)) actions.closeKammer(); return; }   // CHA-01 C: modal, Eingaben gehören der Kammer
     if (uiTop()) { Client.keys = {}; Net.guard('Client.uiKey', () => uiKey(e)); return; }
     const st = Client.state, m = me();
     if (!st || st.phase === 'lobby' || !m) {
       if (Net.badCode && !m) { if (code === 'Enter') actions.submitCode(); return; }
-      if (code === 'KeyO' && !e.repeat) { actions.openOptions(); return; }   // S1: Optionen auch in der Lobby
-      if (code === 'KeyF' && m && !e.repeat) { openWorlds('list'); return; }   // S1: Weltstand-Liste
-      if (code === 'Enter') actions.toggleReady();
-      if (code === 'KeyU' && m) actions.toggleSkipDrill();
-      if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
-      if (code === 'KeyK' && m && !e.repeat) actions.toggleWellenKarte();   // Bodenkampf: Wellen – Karte
-      { const gi = H.GRABEN_TASTEN ? H.GRABEN_TASTEN.indexOf(code) : -1; if (gi > 0 && m && !e.repeat) actions.toggleGraben(gi); }   // BOD-01: N/B = weitere Abschnitte des Grabenangriffs (K: toggleWellenKarte)
-      if (code === 'KeyW' && m && !e.repeat) actions.lobbyWaffe();   // AP3a: Waffe für Wellen Boden / Labor
-      if (m && st && st.lobby && st.lobby.startMission === 'labor') {   // AP3a: Szenario-Labor
-        if (code === 'ArrowUp') actions.laborWahl(-1);
-        if (code === 'ArrowDown') actions.laborWahl(1);
-        if (code === 'ArrowLeft' && !e.repeat) actions.laborStaerke(-1);
-        if (code === 'ArrowRight' && !e.repeat) actions.laborStaerke(1);
-        if (code === 'KeyR' && !e.repeat) actions.laborSeed();
-        if (code === 'KeyG' && !e.repeat) actions.laborGod();
-      }
-      if (code === 'KeyL' && m && Net.serverRoomCode) actions.copyInvite();
-      const d = /^Digit([1-4])$/.exec(code);
-      if (d) actions.setColor(+d[1] - 1);
+      // CHA-01 E: Titelbild, Hauptmenü, Lobby und Einladung gehören MenueUi (Navigation: MenueFluss, Lobby-Optionen: actions); die Ansicht frisch bauen, nicht Client.view (das letzte gezeichnete Bild kann hinterherhinken)
+      if (window.MenueUi) { Net.guard('MenueUi.taste', () => MenueUi.taste(e, buildView()), false); return; }
       return;
     }
     // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
@@ -2125,7 +2110,6 @@
     initAudio();
     const p = toCanvas(e);
     Client.mouse.x = p.x; Client.mouse.y = p.y;
-    if (document.activeElement === nameInput) nameInput.blur();
     if (codeInput && document.activeElement === codeInput) codeInput.blur();
     canvas.focus();
     if (e.button === 2) {
@@ -2331,6 +2315,19 @@
   }
 
   // ------------------------------------------------------------------ Zeichnen
+  // CHA-01 E: Key-Art-Ebene des Startmenüs ein/aus, Helligkeit je Bildschirm (Menue.TOKENS.BILD.hell); der HUD-Canvas wird dabei durchsichtig (wie bei der 3D-Welt)
+  function syncKeyart(e) {
+    if (!keyart) return;
+    if (!e) {
+      if (keyart.style.display !== 'none') keyart.style.display = 'none';
+      if (Client.menueBg) { Client.menueBg = false; canvas.style.background = world3d && world3d.style.display === 'block' ? 'transparent' : ''; }
+      return;
+    }
+    if (keyart.style.display !== 'block') keyart.style.display = 'block';
+    const f = 'brightness(' + e.hell + ')';
+    if (keyart.style.filter !== f) keyart.style.filter = f;
+    if (!Client.menueBg) { Client.menueBg = true; canvas.style.background = 'transparent'; }
+  }
   function render() {
     const v = buildView();
     Client.view = v;
@@ -2340,18 +2337,24 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // M4: Voxel-Modus – 3D zeichnet die Welt, der HUD-Canvas wird transparent geleert, drawWorld nur als Overlay
     const use3d = drawVoxel(v);
-    if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
-    else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
-    nameInput.style.display = lobby && (Net.status === 'open') && !codeMode && !uiTop() ? 'block' : 'none';
+    const menue = lobby && !!window.MenueUi && uiTop() !== 'kammer';   // CHA-01 E: Startmenü (Key-Art unter dem durchsichtigen Canvas); G: auch der Raumcode-Eingang
+    if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
+    else if (menue) ctx.clearRect(0, 0, VW, VH);
+    else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
+    syncKeyart(menue ? MenueUi.ebene(v) : null);
+    if (uiTop() === 'kammer' && !lobby) actions.closeKammer();   // CHA-01 C: die Runde startet, die Kammer schließt
     if (codeInput) {
       codeInput.style.display = codeMode ? 'block' : 'none';
       if (codeMode && Client.focusCode) { Client.focusCode = false; setTimeout(() => { try { codeInput.focus(); codeInput.select(); } catch (e) { /* egal */ } }, 0); }
     }
     if (lobby) {
-      Net.guard('Hud.drawLobby', () => H.drawLobby(ctx, Object.assign({}, v, { state: st || {} })));
+      if (menue) {
+        Net.guard('MenueUi.zeichne', () => MenueUi.zeichne(ctx, Object.assign({}, v, { state: st || {} })));
+        if (!(v.ui && v.ui.stack && v.ui.stack.length)) Net.guard('Hud.drawNotices', () => H.drawNotices(ctx, v, 4));   // bei offenem Overlay zeichnet drawUi den neuesten Hinweis
+      } else Net.guard('Hud.drawLobby', () => H.drawLobby(ctx, Object.assign({}, v, { state: st || {} })));
       R.drawTooltip(ctx);
     } else {
       const shake = Client.shakeT && performance.now() - Client.shakeT < 250 && v.self.zone === 'ship' && !v.me.console;
@@ -2387,7 +2390,8 @@
     Net.guard('Hud.drawPause', () => H.drawPause(ctx, v, !!uiTop()));
     Net.guard('Hud.drawSaveSeal', () => H.drawSaveSeal(ctx, v));
     if (zerstoertOffen(Client.state)) Net.guard('Hud.drawSchiffZerstoert', () => H.drawSchiffZerstoert(ctx, v));   // SYS-01 A2b: über allen Stationen, unter den Menüseiten
-    if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
+    if (uiTop() === 'kammer') Net.guard('KammerUi.zeichne', () => KammerUi.zeichne(ctx, v));   // CHA-01 C: Charakterliste/Erstellung
+    else if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
     Net.guard('Hud.drawConnection', () => H.drawConnection(ctx, v));
     if (DEBUG) drawDebug(v);
     if (window.DevMock && DevMock.active) R.text(ctx, 'MOCK · Bild↑/↓ Ort · Pos1 Zone · Ende Reaktor · ' + (DevMock.stageName ? DevMock.stageName() : ''), VW / 2, v.me && v.me.console ? 1 : 1, { color: '#FF66CC', align: 'center' });
@@ -2429,10 +2433,12 @@
       R.text(ctx, line, 320, 2, { color: '#FF66CC', shadow: false, align: 'center' });
       return;
     }
-    R.backdrop(ctx, 2, 150, 260, lines.length * 10 + 4, 0.8);
-    lines.forEach((l, i) => R.text(ctx, l, 4, 152 + i * 10, { color: '#FF66CC', shadow: false }));
+    // CHA-01 G: in Titel, Hauptmenü und Lobby unten rechts (links verdeckte es die Liste und die erste Crew-Karte); im Spiel wie bisher links
+    const imMenue = !st.phase || st.phase === 'lobby' || !v.me, dx = imMenue ? 640 - 262 : 2, dy = imMenue ? 342 - lines.length * 10 - 8 : 150, tx = dx + 2;
+    R.backdrop(ctx, dx, dy, 260, lines.length * 10 + 4, 0.8);
+    lines.forEach((l, i) => R.text(ctx, l, tx, dy + 2 + i * 10, { color: '#FF66CC', shadow: false }));
     const failed = Object.keys(R.artFail);
-    if (failed.length) R.text(ctx, 'Art-Fallback: ' + failed.join(', ').slice(0, 90), 4, 154 + lines.length * 10, { color: R.PAL.warn });
+    if (failed.length) R.text(ctx, 'Art-Fallback: ' + failed.join(', ').slice(0, 90), tx, dy + 4 + lines.length * 10, { color: R.PAL.warn });
   }
 
   // M2: Debug-Befehlszeile -> { t: 'debug', cmd, args, …benannte Felder } (Felder wie die vorhandenen Befehle)
@@ -2489,6 +2495,34 @@
   }
 
   // ------------------------------------------------------------------ Start
+  // CHA-01 C: Der gewählte Charakter bestimmt Client.karte und den Namen im hello; jeder Wechsel (wählen, umbenennen, löschen, Erststart) sendet es neu.
+  // Der Katalog kommt per fetch (auch in 2D und ohne WebGL); ohne Katalog läuft das Spiel mit dem vorläufigen Namen weiter.
+  function startCharaktere() {
+    const Cx = window.Charaktere;
+    if (!Cx) return;
+    Cx.abonniere((karte) => {
+      if (!Client.debugKarte) Client.karte = karte;   // __game.setzeKarte (nur ?debug=1) hat Vorrang bis zum Neuladen
+      if (karte) Client.lobby.name = karte.name;
+      if (window.MenueFluss) MenueFluss.einladungAufGewaehlten();   // CHA-01 E: der Cursor der Einladung folgt dem gewählten Charakter
+      if (Net.isOpen()) Net.sendHello();
+    });
+    // Anziehen im Spind: nur Client.karte nachziehen (die Meldung `karte.outfit` schickt die Action selbst), kein hello
+    Cx.abonniereOutfit((karte) => { if (!Client.debugKarte) Client.karte = karte; });
+    fetch('/voxel/assets/katalog/charakter.json', { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((kat) => {
+        if (!kat) return;
+        Cx.setzeKatalog(kat);
+        Cx.erststart({ altName: lsGet('sternenschicht.name', null), zufallsName: ZUFALLSNAME });
+      })
+      .catch((e) => Net.reportError('Charaktere.katalog', e));
+  }
+  // CHA-01 E: womit das Startmenü beginnt. ?menue=1 erzwingt den Ablauf Titel → Hauptmenü → Lobby (bzw. Einladung bei ?code=), ?menue=0 die Lobby.
+  // Ohne Angabe: Direktstarts (?arena=) und ferngesteuerte Browser (navigator.webdriver: Playwright-Skripte tools/sicht-*.js, pw-*.js) beginnen in der Lobby,
+  // so wie diese Skripte sie seit jeher vorfinden; ein Einladungslink (?code=) beginnt mit der Einladung, sonst der Titel.
+  function menueStart() {   // die Regel steht in MenueFluss.startOptionen (rein, getestet)
+    return MenueFluss.startOptionen({ menue: params.get('menue'), arena: params.get('arena'), link: !!Net.normCode(params.get('code')), webdriver: !!navigator.webdriver });
+  }
   function boot() {
     layout();
     if (window.Art && typeof Art.init === 'function') Net.guard('Art.init', () => Art.init());
@@ -2499,8 +2533,12 @@
     G.debugCmd = (cmd, extra) => send(Object.assign({ t: 'debug', cmd }, extra || {}));
     // M2: Debug-Zeile parsen und senden (tune/kesh/squad/wake/shield/wound + alle bisherigen Befehle)
     G.dbg = (line) => { const msg = parseDebugLine(line); if (msg) send(msg); return msg; };
+    // CHA-01 B2: Prüf-Hilfe – nur mit ?debug=1: __game.setzeKarte(karte) → Client.karte und neues hello (überschreibt den gewählten Charakter bis zum nächsten Wechsel)
+    if (DEBUG) G.setzeKarte = (k) => { Client.debugKarte = true; Client.karte = k || null; Net.sendHello(); return Client.karte; };
     G.tune = (path, value) => G.dbg('tune' + (path ? ' ' + path : '') + (value != null ? ' ' + value : ''));
     G.parseDebugLine = parseDebugLine;
+    Net.guard('Client.charaktere', startCharaktere);
+    if (window.MenueFluss) MenueFluss.starte(menueStart());
     Net.connect();
     requestAnimationFrame(frame);
   }

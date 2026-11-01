@@ -108,7 +108,7 @@ section('Terminal-Modell: Statuszeile und Block „Stufe n öffnet“', () => {
   const Katalog = require('../shared/schiffskatalog.js'), Maps = require('../shared/maps.js'), Protocol = require('../shared/protocol.js'), Locations = require('../shared/locations.js');
   const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Config: CONFIG, Shared_Protocol: Protocol, Shared_Locations: Locations, performance, Net: { reportError(w, e) { throw e; } }, Rang };
   win.window = win; win.Render = { PAL: {}, text() {}, drawTooltip() {} }; win.Pult = {};
-  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
   win.Consoles = { shopRows() { return []; }, denied() {} };
   vm.createContext(win);
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'js', 'terminal-ui.js'), 'utf8'), win, { filename: 'terminal-ui.js' });

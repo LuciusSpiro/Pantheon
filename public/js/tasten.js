@@ -19,6 +19,7 @@
     { id: 'technik', name: 'Technik' },
     { id: 'captain', name: 'Captain' },
     { id: 'terminal', name: 'Terminal' },
+    { id: 'charakter', name: 'Charakter' },
     { id: 'allgemein', name: 'Allgemein' },
   ];
 
@@ -41,6 +42,9 @@
     'terminal.lage': { name: 'Bereich Kurs (Absichten)' },
     'terminal.info': { name: 'Bereich Information (Konkordat)' },
     'terminal.brett': { name: 'Bereich Brett (Auftragsbrett)' },
+    'charakter.liste': { name: 'Charakterliste' },
+    'charakter.erstellung': { name: 'Charaktererstellung (Name nicht im Schreibmodus)' },
+    'charakter.spind': { name: 'Spind im Quartier (Outfit wechseln)' },
   };
 
   const NUM = (n) => ['Numpad' + n, 'Digit' + n];
@@ -189,6 +193,31 @@
     A('captain.notruf.frage3', 'captain', 'Notruf: Frage 3', ['KeyR'], 'captain.notruf'),
     A('captain.notruf.frage4', 'captain', 'Notruf: Frage 4', ['KeyF'], 'captain.notruf'),
 
+    // ------------------------------------------------------------ Charakter (CHA-01 C: Liste und Erstellung in der Lobby; Esc = allgemein.verlassen, ? = allgemein.hilfe)
+    A('charakter.oeffnen', 'charakter', 'Charakterliste öffnen (Lobby)', ['KeyC']),
+    A('charakter.uebernehmen', 'charakter', 'Liste: in die Lobby · Erstellung: speichern · Spind: anziehen', ['Enter', 'NumpadEnter']),
+    A('charakter.umbenennen', 'charakter', 'Umbenennen (Liste) · Namen schreiben (Erstellung)', ['F2']),
+    A('charakter.neu', 'charakter', 'Neuen Charakter anlegen', ['KeyN'], 'charakter.liste'),
+    A('charakter.loeschen', 'charakter', 'Charakter löschen (zweimal drücken)', ['Delete'], 'charakter.liste'),
+    A('charakter.zuruecksetzen', 'charakter', 'Erstellung zurücksetzen', ['KeyR'], 'charakter.erstellung'),
+    A('charakter.drehenLinks', 'charakter', 'Figur nach links drehen', ['KeyQ'], 'charakter.erstellung'),
+    A('charakter.drehenRechts', 'charakter', 'Figur nach rechts drehen', ['KeyE'], 'charakter.erstellung'),
+    A('charakter.erstellung.frisur', 'charakter', 'Platz Frisur (Ziffernblock 8)', NUM(8), 'charakter.erstellung'),
+    A('charakter.erstellung.gesicht', 'charakter', 'Platz Gesicht (Ziffernblock 5)', NUM(5), 'charakter.erstellung'),
+    A('charakter.erstellung.bart', 'charakter', 'Platz Bart (Ziffernblock 2)', NUM(2), 'charakter.erstellung'),
+    A('charakter.erstellung.haar', 'charakter', 'Platz Haarfarbe (Ziffernblock 9)', NUM(9), 'charakter.erstellung'),
+    A('charakter.erstellung.haut', 'charakter', 'Platz Hautton (Ziffernblock 6)', NUM(6), 'charakter.erstellung'),
+    // CHA-01 D: Spind im eigenen Quartier (Konsole spind); ←→↑↓ wählen das Teil (fest wie in der Erstellung), Anziehen = charakter.uebernehmen, Esc = allgemein.verlassen, ? = allgemein.hilfe
+    A('charakter.spind.kopf', 'charakter', 'Spind: Kopfbedeckung (Ziffernblock 8)', NUM(8), 'charakter.spind'),
+    A('charakter.spind.haende', 'charakter', 'Spind: Handschuhe (Ziffernblock 4)', NUM(4), 'charakter.spind'),
+    A('charakter.spind.oberteil', 'charakter', 'Spind: Oberteil (Ziffernblock 5)', NUM(5), 'charakter.spind'),
+    A('charakter.spind.umhang', 'charakter', 'Spind: Umhang (Ziffernblock 6)', NUM(6), 'charakter.spind'),
+    A('charakter.spind.hose', 'charakter', 'Spind: Hose (Ziffernblock 2)', NUM(2), 'charakter.spind'),
+    A('charakter.spind.schuhe', 'charakter', 'Spind: Schuhe (Ziffernblock 0)', NUM(0), 'charakter.spind'),
+    A('charakter.spind.zuruecksetzen', 'charakter', 'Spind: zurück auf das getragene Outfit', ['KeyR'], 'charakter.spind'),
+    A('charakter.spind.drehenLinks', 'charakter', 'Spind: Figur nach links drehen', ['KeyQ'], 'charakter.spind'),
+    A('charakter.spind.drehenRechts', 'charakter', 'Spind: Figur nach rechts drehen', ['KeyE'], 'charakter.spind'),
+
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
@@ -292,9 +321,9 @@
   }
 
   // ---------------------------------------------------------------- Beschriftung
-  // Die Pixelschrift (Art GLYPHS) kennt Pfeile, aber kein ⇧ ␣ ↵ – daher 'Sh+A', 'Leer', 'Ent'.
+  // Die Pixelschrift (Art GLYPHS) kennt Pfeile, aber kein ⇧ ␣ ↵ – daher 'Sh+A', 'Leer'. „Enter“ ist ausgeschrieben (kein Symbol nötig, CHA-01 F: „Ent“ las sich als Abkürzung von Entf).
   const KAPPEN = {
-    Space: 'Leer', Enter: 'Ent', NumpadEnter: 'Ent', Tab: 'Tab', Escape: 'Esc', Backspace: 'Rück', Delete: 'Entf', Insert: 'Einfg',
+    Space: 'Leer', Enter: 'Enter', NumpadEnter: 'Enter', Tab: 'Tab', Escape: 'Esc', Backspace: 'Rück', Delete: 'Entf', Insert: 'Einfg',
     Home: 'Pos1', End: 'Ende', PageUp: 'BildA', PageDown: 'BildB',
     ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
     Equal: '=', Minus: '−', NumpadAdd: '+', NumpadSubtract: '−', NumpadMultiply: '*', NumpadDivide: '/', NumpadDecimal: ',',
@@ -336,7 +365,7 @@
     if (m) k = 'Num ' + m[1];
     else if (code === 'NumpadAdd') k = 'Num +';
     else if (code === 'NumpadSubtract') k = 'Num −';
-    else if (code === 'NumpadEnter') k = 'Num Ent';
+    else if (code === 'NumpadEnter') k = 'Num Enter';
     else if (code === 'Space') k = 'Leertaste';
     else if (code === 'Enter') k = 'Enter';
     else k = kappeVon(code);

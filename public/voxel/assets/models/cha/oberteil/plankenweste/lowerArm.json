@@ -1,0 +1,34 @@
+{
+  "id": "cha/oberteil/plankenweste/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil plankenweste (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/germanen/unterarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/germanen/unterarm",
+      "params": {
+        "glove": 0
+      },
+      "colors": {
+        "leather": "top_leder_plankenweste",
+        "metal": "metall_plankenweste",
+        "metal_dark": "metall_dunkel_plankenweste",
+        "metal_light": "metall_hell_plankenweste",
+        "primary": "top_plankenweste"
+      }
+    }
+  ]
+}

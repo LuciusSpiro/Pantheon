@@ -359,7 +359,8 @@ class Actor {
   setFigure(figId, opts, fbKind, color) {
     // Einmal je Figur-ID laden; die echte Figur ersetzt den Ersatz, sobald der Lader sie fertig hat (Promise).
     // Schlüssel inkl. Palette/Parameter (Besitz-Palette per palette-Override, CONTRACT-B2 §10)
-    const key = figId + '|' + ((opts && opts.palette) || '') + '|' + JSON.stringify((opts && opts.params) || {});
+    // CHA-01 B2: colors gehören dazu (Hautton/Haarfarbe der Karte, Spielerfarbe der Bestandsfiguren); unveränderte Eingaben bauen nicht neu
+    const key = figId + '|' + ((opts && opts.palette) || '') + '|' + JSON.stringify((opts && opts.params) || {}) + '|' + JSON.stringify((opts && opts.colors) || {});
     if (this.figKey === key && this.fig) return;
     this.figId = figId; this.figKey = key;
     const f = loadFigure(figId, opts, fbKind, color, (late) => { if (this.figKey === key) this.attachFigure(late); });
@@ -375,7 +376,8 @@ class Actor {
     if (!f.joints) f.joints = collectJoints(f.root);
     if (!f.poses) f.poses = posesFromLoader(L.ctx && L.ctx.loader, this.figId);
     for (const o of Object.values(f.joints)) if (!o.userData.rest) o.userData.rest = o.position.clone();
-    if (this.fig && this.fig.skinned && this.fig !== f) this.fig.skinned.geometry.dispose();
+    // CHA-01 B2: auch das Skelett freigeben (Knochentextur je Figur), sonst wächst der Speicher bei jedem Umziehen
+    if (this.fig && this.fig.skinned && this.fig !== f) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); }
     this.fig = f; this.cur = {};
     this.body.add(f.root);
     useActorMat(f.root);
@@ -421,7 +423,7 @@ class Actor {
     refreshSlot(this.extra);
     return this.extra;
   }
-  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) this.fig.skinned.geometry.dispose(); }
+  dispose() { if (this.container.parent) this.container.parent.remove(this.container); if (this.fig && this.fig.skinned) { this.fig.skinned.geometry.dispose(); if (this.fig.skinned.skeleton) this.fig.skinned.skeleton.dispose(); } }
 }
 
 function actor(key) {
@@ -799,16 +801,33 @@ function schlaegerFx(a, on) {
   }
   a.schlaeger.visible = true;
 }
+// CHA-01 B2: Figur aus der Charakterkarte (Client.karten[pid]) → { figId, opts } oder null (keine Karte, Katalog noch nicht geladen, Figur nicht ladbar, kein Client: heutiger Pfad).
+// Gleiche Figur an Bord und im Einsatz, keine Spielerfarbe in colors. Ergebnis je Kartenobjekt gemerkt (Karten werden nur per Ereignis ersetzt).
+const KARTEN_FIGUR = new WeakMap();
+const CHA_FIGUR = 'cha/spieler';
+function kartenFigur(pid) {
+  const C = window.Client, Ch = window.Shared_Charakter, ld = L.ctx && L.ctx.loader;
+  const k = C && C.karten && C.karten[pid];
+  if (!k || !Ch || !Ch.figurAusKarte || !ld || !ld.charakterKatalog) return null;
+  if (typeof ld.isMissing === 'function' && ld.isMissing(CHA_FIGUR, 'figures')) return null;   // Figur nicht ladbar: heutige Figur statt dauerhaftem Platzhalter
+  const kat = ld.charakterKatalog();
+  if (!kat) return null;
+  let r = KARTEN_FIGUR.get(k);
+  if (!r || r.kat !== kat) { r = { kat, f: Ch.figurAusKarte(k, kat) }; KARTEN_FIGUR.set(k, r); }
+  return r.f ? { figId: CHA_FIGUR, opts: { params: r.f.params, colors: r.f.colors } } : null;
+}
 function updatePlayer(p, view, st, dt, t) {
   const zone = zoneOfCtx();
   const inShip = zone === 'ship';
   const a = actor('p:' + p.id);
   a.entityId = String(p.id);
   a.body.position.set(0, 0, 0);
-  if (!inShip) { const c = carrierOf(p.id); if (c) { a.setFigure(AWAY_FIGURES[p.color || 0] || AWAY_FIGURES[0], { colors: { primary: PLAYER_COLORS[p.color || 0], cloth2: PLAYER_COLORS[p.color || 0] } }, 'away'); applyCarried(a, c, dt, t); return; } }
+  const kf = kartenFigur(p.id);
+  if (!inShip) { const c = carrierOf(p.id); if (c) { if (kf) a.setFigure(kf.figId, kf.opts, 'away'); else a.setFigure(AWAY_FIGURES[p.color || 0] || AWAY_FIGURES[0], { colors: { primary: PLAYER_COLORS[p.color || 0], cloth2: PLAYER_COLORS[p.color || 0] } }, 'away'); applyCarried(a, c, dt, t); return; } }
   const color = p.color || 0;
   const col = PLAYER_COLORS[color] || PLAYER_COLORS[0];
-  if (inShip) a.setFigure('lerche/crew_' + Math.min(2, color), { colors: { cloth2: col } }, 'crew', col);
+  if (kf) a.setFigure(kf.figId, kf.opts, inShip ? 'crew' : 'away', col);
+  else if (inShip) a.setFigure('lerche/crew_' + Math.min(2, color), { colors: { cloth2: col } }, 'crew', col);
   else a.setFigure(AWAY_FIGURES[color] || AWAY_FIGURES[0], { colors: { primary: col, cloth2: col } }, 'away', col);
 
   // Lift/Leiter (DECKS): Fahrt sichtbar machen, Ankunft auf dem neuen Deck von unten/oben einblenden
@@ -1392,6 +1411,15 @@ window.VoxelActors = { stats: () => Object.assign({}, L.stats), layer, poses: FA
   // QA: Höhe des Gegenstands in der Hand (min/max y in m, Welt) – Lanzenfuß auf dem Boden?
   // QA: Modell und Schlüssel (inkl. Parameter wie bauweise) des Gegenstands in der Hand
   itemInfo: (id) => { const a = actorOf(id); return a && a.item ? { id: a.item.userData.itemId, key: a.itemKey } : null; },
+  // QA (CHA-01 B2): Figur eines Akteurs – ID, Baukey, ob gebaut, Herkunft der Posen (Voxelwerk human.json oder Ersatzposen FALLBACK_POSES) und Größe
+  figurInfo: (id) => {
+    const a = actorOf(id); if (!a || !a.fig) return null;
+    const lib = L.ctx && L.ctx.loader && L.ctx.loader.lib, hp = lib && lib.get('poses', 'human');
+    const eigene = a.fig.poses || null;
+    const quelle = (name) => (eigene && eigene[name] ? (hp && eigene[name] === (hp.poses || hp)[name] ? 'human.json' : 'andere') : (FALLBACK_POSES[name] ? 'FALLBACK_POSES' : 'keine'));
+    const posen = {}; for (const n of ['stand', 'walk', 'sit', 'aim', 'crouch', 'wounded', 'operate', 'carry']) posen[n] = quelle(n);
+    return { figId: a.figId, key: a.figKey, gebaut: !!(a.fig.inner || a.fig.skinned), posenGeladen: !!eigene, posen, skinned: !!a.fig.skinned, gelenke: Object.keys(a.fig.joints || {}).length, sichtbar: a.container.visible };
+  },
   // QA: Deck und laufende Einblendung einer Figur
   deckInfo: (id) => { const a = actorOf(id); return a ? { deck: a.deck, arrive: a.arrive ? Object.assign({}, a.arrive) : null, visible: a.container.visible } : null; },
   itemBox: (id) => { const a = actorOf(id); if (!a || !a.item) return null; a.container.updateMatrixWorld(true); const b = new L.THREE.Box3().setFromObject(a.item); return [b.min.y, b.max.y]; },

@@ -132,6 +132,42 @@
     ctx.fillRect(x, y, w, h);
   }
 
+  // CHA-01 B2/F: Namensmarke über jedem Spieler (Maße und Deckkraft aus Namensmarke-Tokens). Mitspieler: Form + Name, eigene Figur: nur die Form.
+  // Keine eigene Marke, solange die eigene Figur unsichtbar ist (UI-Sitz/Egoperspektive, actors.js blendet sie aus). sx = Kopfmitte, ny = Oberkante der Marke.
+  // Stapeln (F): je Frame sammeln alle Spieler ihre Marke (markeMerken), Gegnernamen melden sich als feste Hindernisse (hindernisMerken); markenZeichnen lässt
+  // Namensmarke.ordne die Zeilen wählen (Regel liegt in den Tokens, nicht hier) und zeichnet erst alle Stiele, dann alle Marken.
+  const markeHoehe = (crouch) => { const M = window.Namensmarke.TOKENS.MASS; return crouch ? M.geduckt : M.ueberKopf; };   // Abstand Füße → Oberkante Marke (Tokens)
+  const markenFrame = { marken: [], hindernisse: [], vorher: null };
+  function markenBeginn() { markenFrame.marken.length = 0; markenFrame.hindernisse.length = 0; }
+  function hindernisMerken(label, cx, y) {   // Gegnername (Mitte cx, Oberkante y) liegt fest, Marken weichen aus
+    const w = measure(label, 1); markenFrame.hindernisse.push({ x: cx - w / 2, y, w, h: window.Namensmarke.TOKENS.MASS.h });
+  }
+  function markeMerken(p, view, sx, ny) {
+    const eigen = p.id === view.pid;
+    if (eigen && window.Sitz && window.Sitz.station && window.Sitz.versteckt != null && String(p.id) === window.Sitz.versteckt) return;
+    const NM = window.Namensmarke, ci = p.color || 0;
+    const m = NM.marke(p.name, eigen, (n) => measure(n, 1)), rx = Math.round(sx);
+    markenFrame.marken.push({ id: p.id, name: p.name, eigen, ci, m, rx, ny, x: rx + m.x, y: ny, w: m.w, h: m.h });
+  }
+  function markenZeichnen(ctx) {
+    const NM = window.Namensmarke, list = markenFrame.marken;
+    if (!list.length) { markenFrame.vorher = null; return; }
+    const erg = NM.ordne(list, markenFrame.hindernisse, markenFrame.vorher, (typeof performance !== 'undefined' ? performance.now() : Date.now()));
+    markenFrame.vorher = erg;
+    const art = list.map((k) => {
+      const z = erg[k.id], m = z.nurForm && !k.eigen ? NM.marke(k.name, true) : k.m;   // „nur Form“ wie die eigene Marke
+      return { k, z, m, y: k.ny + z.dy };
+    });
+    for (const a of art) { ctx.fillStyle = PAL.players[a.k.ci]; ctx.fillRect(a.k.rx + a.m.stiel.x, a.y + a.m.stiel.y, a.m.stiel.w, a.z.stielH); }   // Stiele zuerst, die Marken decken sie
+    for (const a of art) {
+      const col = PAL.players[a.k.ci];
+      backdrop(ctx, a.k.rx + a.m.x, a.y, a.m.w, a.m.h, NM.TOKENS.MASS.grundDeckkraft);
+      shape(ctx, SHAPES[a.k.ci], a.k.rx + a.m.form.x, a.y + a.m.form.y, a.m.form.groesse, col);
+      if (a.m.text) text(ctx, a.m.text.s, a.k.rx + a.m.text.x, a.y + a.m.text.y, { color: col, shadow: false });
+    }
+    markenBeginn();
+  }
+
   function shape(ctx, kind, x, y, size, color, outline) {
     const s = size / 2;
     ctx.beginPath();
@@ -2006,6 +2042,7 @@
     }
 
     drawables.sort((a, b) => a.key - b.key);
+    markenBeginn();   // CHA-01 F: Namensmarken dieses Frames sammeln, nach der Schleife gestapelt zeichnen
     const plates = [];   // M3a: Seitenmarken der Stationen (nach den Objekten zeichnen)
     const barRects = [];   // QA M3b: Fortschrittsbalken der Spieler (Eskalations-Label weicht aus)
     const sondeDisabled = !!(away.kustodenpult && away.kustodenpult.disabled);
@@ -2143,7 +2180,7 @@
               drawWardenFront(ctx, ex, ey, wo.facing, t, wo.asleep, artHasWarden());
             }
             if (!(artHasWarden() && art('drawDrone', 'drawDrone:warden', [ctx, ex, ey, wo]))) fbWarden(ctx, ex, ey, wo);
-            if (e.alive !== false) text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', ex, ey - 62, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' });
+            if (e.alive !== false) hindernisMerken(e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', ex, ey - 62), text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', ex, ey - 62, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' });
           } else {
             if (esh && e.alive !== false) drawShieldRing(ctx, ex, ey, esh[0], esh[1], 0, t, 11);
             let aimAngle = null;
@@ -2155,7 +2192,7 @@
               }
             };
             if (ecr && !artHasCrouch('drone')) squashed(ctx, ex, ey, CROUCH_FB, drawE); else drawE();
-            if (dk === 'scavenger' && e.alive !== false) text(ctx, gegnerSchild(e, ecr), ex, ey - (ecr ? 28 : 36), { color: PAL.rust, align: 'center' });
+            if (dk === 'scavenger' && e.alive !== false) { const gs = gegnerSchild(e, ecr); hindernisMerken(gs, ex, ey - (ecr ? 28 : 36)); text(ctx, gs, ex, ey - (ecr ? 28 : 36), { color: PAL.rust, align: 'center' }); }
           }
         } else if (d.type === 'proj') {
           const pr = d.e;
@@ -2181,15 +2218,7 @@
           const drawC = () => { if (!art('drawCharacter', null, [ctx, sx, sy, o])) fbCharacter(ctx, sx, sy, o); };
           if (o.crouch && !artHasCrouch('char')) squashed(ctx, sx, sy, CROUCH_FB, drawC); else drawC();
           if (psh && !p.downed && o.shieldHitT < 0.35 && !artHasShieldHit()) fbShieldBubble(ctx, sx, sy, o.shieldHitT);
-          if (p.id !== view.pid) {
-            const col = PAL.players[p.color || 0];
-            const nm = String(p.name || '').slice(0, 12);
-            const w = measure(nm, 1) + 14;
-            const ny = sy - (o.crouch ? 40 : 52);
-            backdrop(ctx, Math.round(sx - w / 2), ny, w, 10, 0.55);
-            shape(ctx, SHAPES[p.color || 0], sx - w / 2 + 6, ny + 5, 6, col);
-            text(ctx, nm, sx - w / 2 + 11, ny + 1, { color: col, shadow: false });
-          }
+          markeMerken(p, view, sx, sy - markeHoehe(o.crouch));
           if (p.downed && psh) {
             text(ctx, 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : ''), sx, sy - 24, { color: PAL.red, align: 'center' });
           } else if (p.downed) {
@@ -2207,6 +2236,7 @@
         }
       } catch (e) { report('Render.drawable:' + d.type, e); }
     }
+    try { markenZeichnen(ctx); } catch (e) { report('Render.namensmarken', e); }
 
     // M3a: Seitenmarke + Zustand über jeder Station (Ort vor Zahl)
     for (const pl of plates) {
@@ -2446,6 +2476,7 @@
       if (lm & 1) text(ctx, 'W', s.x, s.y - 98, { color: PAL.amber, align: 'center' });
       if (lm & 2) text(ctx, 'S', s.x, s.y + 17, { color: PAL.amber, align: 'center' });
     });
+    markenBeginn();   // CHA-01 F: Gegnernamen (npc-Schritt) und Spielermarken (players-Schritt) sammeln, dort gestapelt zeichnen
     if (zone === 'away') guard('npc', () => {
       const GP = window.Gespraech; const gp = st.gp; const me = view.self;
       for (const n of view.npcs || []) {   // W2 AP6: bis 3 Personen
@@ -2471,8 +2502,8 @@
         if (e.alive === false) continue;
         if (v2 && !enemyShown(e, fogSet)) continue;
         const dk = e.kind || (map.id === 'wreck' ? 'scavenger' : undefined);
-        if (dk === 'warden') { const s = P(e.x, e.y, 62); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
-        else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); text(ctx, gegnerSchild(e, cr), s.x, s.y, { color: PAL.rust, align: 'center' }); }
+        if (dk === 'warden') { const s = P(e.x, e.y, 62); hindernisMerken(e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y); text(ctx, e.asleep ? 'WÄCHTER (schläft)' : 'WÄCHTER', s.x, s.y, { color: e.asleep ? PAL.panelLight : KESH_VIOLET, align: 'center' }); }
+        else if (dk === 'scavenger') { const cr = v2 && !!e.cr; const s = P(e.x, e.y, cr ? 28 : 36); hindernisMerken(gegnerSchild(e, cr), s.x, s.y); text(ctx, gegnerSchild(e, cr), s.x, s.y, { color: PAL.rust, align: 'center' }); }
       }
     });
 
@@ -2507,15 +2538,7 @@
           ctx.strokeStyle = 'rgba(224,71,60,' + (0.55 + 0.35 * Math.sin(t * 6)) + ')'; ctx.lineWidth = 2;
           ctx.beginPath(); ctx.ellipse(feet.x, feet.y, 6 + 16 * frac, 3 + 7 * frac, 0, 0, Math.PI * 2); ctx.stroke(); ctx.lineWidth = 1;
         }
-        if (p.id !== view.pid) {
-          const col = PAL.players[p.color || 0];
-          const nm = String(p.name || '').slice(0, 12);
-          const w = measure(nm, 1) + 14;
-          const s = P(p.x, p.y, crouch ? 40 : 52);
-          backdrop(ctx, Math.round(s.x - w / 2), Math.round(s.y), w, 10, 0.55);
-          shape(ctx, SHAPES[p.color || 0], s.x - w / 2 + 6, s.y + 5, 6, col);
-          text(ctx, nm, s.x - w / 2 + 11, s.y + 1, { color: col, shadow: false });
-        }
+        { const s = P(p.x, p.y, markeHoehe(crouch)); markeMerken(p, view, s.x, Math.round(s.y)); }
         if (p.downed) { const s = P(p.x, p.y, 24); text(ctx, Array.isArray(p.sh) ? 'VERWUNDET' + (p.bleed != null ? ' ' + Math.max(0, Math.ceil(p.bleed)) + ' s' : '') : 'AUSSER GEFECHT', s.x, s.y, { color: PAL.red, align: 'center' }); }
         if (p.action && (p.action.kind === 'flick' || p.action.kind === 'swap' || p.action.kind === 'minigame')) {
           const s = P(p.x, p.y, 50); s.y -= 26;   // QA M4: Balken ganz über den Kopf, sonst verdeckt „FLICKEN …“ das Gesicht
@@ -2524,6 +2547,7 @@
         } else if (p.action && p.id !== view.pid) { const s = P(p.x, p.y, 44); ring(ctx, s.x, s.y, 6, p.action.progress || 0, PAL.mint); }
         if (p.lift && p.id !== view.pid) { const s = P(p.x, p.y, 30); text(ctx, 'LIFT', s.x, s.y, { color: PAL.ice, align: 'center' }); }
       }
+      markenZeichnen(ctx);
     });
 
     // Stationen: Seitenmarke + Zustand, Eskalations-Countdown

@@ -9,11 +9,14 @@
 //   public/voxel/core/*.js    DOM-freier Kern (ES-Module)
 //   public/voxel/render/voxel-three.js
 //   public/voxel/assets/…     alle Paletten, Rigs, Posen, Moods + alle Modelle/Figuren aus den Manifesten samt Abhängigkeiten
+//   public/voxel/assets/katalog/charakter.json   Charakter-Katalog für den Browser (CHA-01 B2), dazu content/katalog/charakter.json für den Server
 //   public/voxel/manifest.json  zusammengeführte Manifeste (Format: assets/manifest/_schema.md); `sockets` = Rezept-Sockets
 //                               + Manifest-Sockets (Manifest hat Vorrang, CONTRACT-B1 §10.1), `socketsFromRecipe` nennt die übernommenen
 //   public/voxel/VERSION.json   { voxelwerkCommit, dirty, date, three, counts }
 // Exit-Code 1 bei Fehlern (doppelte IDs, kaputte Manifeste, Assets, die sich nicht laden lassen).
 // Die Ausgabe wird trotzdem geschrieben (ohne die fehlerhaften Einträge), damit die anderen Teams weiterarbeiten können.
+// Bei Fehlern wird nichts gelöscht (kein Aufräumen). Fehlt der Charakter-Katalog in der Quelle, obwohl assets/manifest/cha.json existiert,
+// bricht der Lauf vor jedem Schreiben ab (VOXELWERK_PATH prüfen).
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -183,6 +186,13 @@ async function syncOnce() {
     console.error(`✗ Voxelwerk nicht gefunden unter ${VW} (VOXELWERK_PATH setzen)`);
     return { ok: false };
   }
+  // Hat Pantheon Charakter-Assets (Manifest cha.json), muss die Quelle den Katalog führen. Sonst Abbruch, bevor etwas geschrieben wird.
+  if (fs.existsSync(path.join(MANIFEST_DIR, 'cha.json')) && !fs.existsSync(path.join(VW, 'assets', 'katalog', 'charakter.json'))) {
+    console.error(`✗ Voxelwerk unter ${VW} hat keinen Charakter-Katalog (assets/katalog/charakter.json), assets/manifest/cha.json verlangt ihn.
+` +
+      `  VOXELWERK_PATH auf den Voxelwerk-Stand mit dem Charakter-Katalog setzen (Branch cha01). Nichts geschrieben, nichts gelöscht.`);
+    return { ok: false, errors: ['Charakter-Katalog fehlt in der Quelle'] };
+  }
   const w = makeWriter();
   const errors = [];
   const gitStatus = WATCH ? Promise.resolve(null) : gitStatusAsync(+process.env.SYNC_GIT_TIMEOUT || 4000);
@@ -247,6 +257,15 @@ async function syncOnce() {
   }
   counts.sprites = spriteCount;
 
+  // 3c) Charakter-Katalog (CHA-01): Voxelwerk assets/katalog/charakter.json → content/katalog/ (Server) und public/voxel/assets/katalog/ (Browser).
+  //     Fehlt er (älterer Voxelwerk-Stand), bleibt content/katalog/charakter.json unberührt.
+  const katSrc = path.join(VW, 'assets', 'katalog', 'charakter.json');
+  if (fs.existsSync(katSrc)) {
+    const kat = await fsp.readFile(katSrc);
+    await w.put(path.join(OUT, 'assets', 'katalog', 'charakter.json'), kat);
+    await w.put(path.join(ROOT, 'content', 'katalog', 'charakter.json'), kat);
+  }
+
   // 4) manifest.json + VERSION.json
   const gitDirty = await gitStatus;
   const git = { commit: readCommit(), dirty: gitDirty ?? (await mtimeDirty()), dirtySource: gitDirty === null ? 'mtime' : 'git' };
@@ -270,11 +289,12 @@ async function syncOnce() {
   await w.put(verPath, JSON.stringify(ver, null, 2) + '\n');
 
   // 5) Veraltetes entfernen
-  const removed = (await w.prune(OUT)) + (await w.prune(VENDOR_OUT));
+  //    Nur bei fehlerfreiem Lauf: Nach Fehlern fehlen Dateien in `written`, Aufräumen würde gültige Assets löschen.
+  const removed = errors.length ? 0 : (await w.prune(OUT)) + (await w.prune(VENDOR_OUT));
 
   const ms = Math.round(performance.now() - t0);
   log(`${errors.length ? '✗' : '✓'} Assets synchronisiert in ${ms} ms – ${man.teams.length} Manifeste, ${Object.keys(merged).length} Einträge · ` +
-    Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ') + ` · ${w.count} Dateien (${w.changed} geändert, ${removed} entfernt)`);
+    Object.entries(counts).map(([k, v]) => `${k} ${v}`).join(', ') + ` · ${w.count} Dateien (${w.changed} geändert, ${errors.length ? 'Aufräumen wegen Fehlern übersprungen' : removed + ' entfernt'})`);
   log(`  Voxelwerk ${git.commit ? git.commit.slice(0, 8) : '?'}${git.dirty ? ' (dirty)' : ''} · three r${rev} · Quelle ${VW}`);
   for (const e of errors) console.log('  ✗ ' + e);
   return { ok: errors.length === 0, ms, errors };

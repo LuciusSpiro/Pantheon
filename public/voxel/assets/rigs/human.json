@@ -30,5 +30,29 @@
     "head": "y 25–31, 6×6×6 (x -3..2, z -3..2), Gesicht bei z = 2",
     "upperArm": "y 17–23, 3 breit (x 4..6 links)",
     "lowerArm": "y 12–17 inkl. Hand"
+  },
+  "bereiche_hinweis": "Erlaubter Raum je Gelenk in Figur-Koordinaten (Ruhepose), Voxelindizes inklusive min..max. Linke Gelenke gemessen am Bestand (fig/basis/*), rechte gespiegelt (x -> -x-1). Wo das Freitext-layout abweicht, gilt der Bestand: head x -4..3 (Ohren) und z bis 3 (Nase), lowerArm y 10..16 (Hand reicht bis y 10).",
+  "bereiche": {
+    "hips": { "min": [-4, 13, -2], "max": [3, 15, 2] },
+    "torso": { "min": [-5, 16, -2], "max": [4, 24, 2] },
+    "head": { "min": [-4, 25, -3], "max": [3, 30, 3] },
+    "upperArmL": { "min": [4, 17, -2], "max": [6, 23, 2] },
+    "upperArmR": { "min": [-7, 17, -2], "max": [-5, 23, 2] },
+    "lowerArmL": { "min": [4, 10, -2], "max": [6, 16, 2] },
+    "lowerArmR": { "min": [-7, 10, -2], "max": [-5, 16, 2] },
+    "thighL": { "min": [0, 7, -2], "max": [3, 13, 2] },
+    "thighR": { "min": [-4, 7, -2], "max": [-1, 13, 2] },
+    "shinL": { "min": [1, 0, -1], "max": [3, 6, 3] },
+    "shinR": { "min": [-4, 0, -1], "max": [-2, 6, 3] }
+  },
+  "toleranzen_hinweis": "Erlaubte Überschreitung der Bereiche je Platz und Gattung (Voxel, nur positive Werte): min = so viel unter min, max = so viel über max. Bestandsteile verletzen die Bereiche (Dutt, Zöpfe, Saum, Armschiene x 7, Umhang); gemessen an den Prüfsatzteilen der Erkundung CHA-01. Platz ohne Eintrag: keine Toleranz.",
+  "toleranzen": {
+    "haende": { "lowerArm": { "min": [0, 0, 0], "max": [1, 0, 0] } },
+    "oberteil": { "hips": { "min": [1, 4, 3], "max": [1, 0, 1] }, "torso": { "min": [0, 0, 2], "max": [0, 0, 1] }, "upperArm": { "min": [0, 0, 0], "max": [1, 0, 0] } },
+    "schuhe": { "shin": { "min": [0, 0, 1], "max": [0, 1, 0] } },
+    "umhang": { "torso": { "min": [1, 6, 3], "max": [1, 2, 1] } },
+    "bart": { "head": { "min": [0, 1, 0], "max": [0, 0, 0] } },
+    "frisur": { "head": { "min": [0, 2, 2], "max": [0, 3, 0] } },
+    "kopf": { "head": { "min": [0, 0, 1], "max": [0, 2, 0] } }
   }
 }
