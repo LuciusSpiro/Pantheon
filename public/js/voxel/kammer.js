@@ -4,9 +4,9 @@
 //   KammerBild.moeglich()                        -> true, wenn Bilder gerendert werden können (Voxel-Modus gewählt, WebGL da, nicht ausgefallen)
 //   KammerBild.bild(karte, art, yaw?)            -> Canvas (2D) oder null (noch in Arbeit/nicht möglich; der Aufrufer zeichnet inzwischen den Ersatz). art 'portraet' | 'nah' | 'ganz' (CHA-01 D: ganze Figur, hochformatig, für den Spind)
 //   KammerBild.info()                            -> { gerendert, cache, fehler, kontext, versuche } (Tests); ein fehlgeschlagener Schlüssel wird nie neu versucht, fehlt die Figurdatei, ist moeglich() false
-// Kamera wie die Referenzbilder des Voxelwerks (tools/cha-ansicht.mjs): orthografisch, Kopf y 22–34 (Porträt), yaw 28°, pitch 6°; „nah“ zeigt Kopf und Schultern.
+// Kamera wie die Referenzbilder des Voxelwerks (tools/cha-ansicht.mjs): orthografisch, Kopf y 22–34 (Porträt), yaw 28°, pitch 6°; „nah“ zeigt Kopf und Schultern (CHA-01 F: y 20–35, Breite folgt dem Seitenverhältnis 150 × 176 der Erstellung, damit der Kopf das Fenster füllt).
 const params = new URLSearchParams(location.search);
-const GROESSE = { portraet: { px: 260, fenster: { x: [-5, 4], y: [22, 34], yaw: 28, pitch: 6 } }, nah: { px: 300, fenster: { x: [-8, 7], y: [16, 34], yaw: 28, pitch: 6 } },
+const GROESSE = { portraet: { px: 260, fenster: { x: [-5, 4], y: [22, 34], yaw: 28, pitch: 6 } }, nah: { px: { w: 300, h: 352 }, fenster: { x: [-8, 7], y: [20, 35], yaw: 28, pitch: 6 } },
   ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 36], yaw: 28, pitch: 6 } } };   // ganz: Breite folgt dem Seitenverhältnis des Bildes (Figurfenster des Spinds 120 × 184)
 const CACHE_MAX = 40;   // Bilder (Porträts der Liste + Drehungen des Figurfensters)
 

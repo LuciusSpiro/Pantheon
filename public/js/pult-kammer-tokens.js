@@ -96,7 +96,9 @@
     gesperrt: { kappe: { x: 3, y: 3, w: 13, h: 12, schraeg: 2 }, schraffur: 3, bild: { grau: 1, hell: 0.28, deckkraft: 0.9 } },
     textZeile: { name: 3, sub: 12 },           // y der zwei Textzeilen unter dem Bild
     figur: { x: 404, y: 6, rechts: 8, unten: 6, kappe: 13, kappeAbstand: 6, nameH: 12 },   // Figurfenster rechts in der Anzeige (Breite = Rest, 160 × 212); oben Namenszeile, unten Q/E
-    figurBild: { nah: { w: 150, h: 150 }, ganz: { w: 120, h: 184 } },             // Erstellung: Nahansicht (Kopf, Schultern), Spind: ganze Figur; zwischen Namenszeile und Q/E
+    // CHA-01 F: Blickwinkel der Livekacheln (Versatz zur Kamera 28°); Frisur schräg von hinten (28 + 122 = 150°), damit Zöpfe und Dutt erkennbar sind
+    kachelAnsicht: { frisur: { yaw: 122 }, kopf: { yaw: 0 } },
+    figurBild: { nah: { w: 150, h: 176 }, ganz: { w: 120, h: 184 } },             // Erstellung: Nahansicht (Kopf, Schultern; CHA-01 F: hochformatig, bündig unter der Namenszeile), Spind: ganze Figur; zwischen Namenszeile und Q/E
     liste: { y: 8, w: 132, fuge: 8, unten: 8, kappe: 13 },                         // 4 Karten, zentriert; Porträt quadratisch w − 2
     ziffernblock: { w: 82, h: 15, fuge: 3, titelH: 13 },
     spalten: { block: { x: 0, w: 252 }, mitte: { x: 268, w: 150 }, abschluss: { x: 436, w: 136 } },   // im Pult

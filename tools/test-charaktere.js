@@ -449,6 +449,19 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
     ok(!rg.ok && rg.grund === 'gesperrt' && m4.aktiveKarte().outfit.kopf === 'keine' && !gs.length && m4.lies().sitzung.entwurf.hinweis === 'gesperrt', 'Händlerteil: Anprobe ja, Anziehen abgelehnt, nichts gespeichert, nichts gesendet');
     m4.spindSetzeWahl('kopf', 0); m4.spindWaehlePlatz('umhang'); m4.spindSetzeWahl('umhang', 1);
     ok(m4.speichereOutfit().ok && m4.aktiveKarte().outfit.umhang === 'fellumhang', 'freie Teile lassen sich weiter anziehen');
+    // CHA-01 F: Kacheln mit eigenem Kopf (Spind: Platz kopf, Erstellung: Platz frisur), sonst feste Vorschau
+    {
+      const vorher = JSON.stringify(m4.aktiveKarte()), kk = m4.kachelKarte('spind', 'kopf', 'kopf/bordhelm');
+      ok(kk && kk.outfit.kopf === 'bordhelm' && kk.outfit.umhang === 'fellumhang' && kk.frisur === m4.aktiveKarte().frisur && kk.name === 'Cato', 'Spind-Kachel kopf: eigene Karte mit dem Teil auf dem Kopf');
+      ok(JSON.stringify(m4.aktiveKarte()) === vorher, 'Spind-Kachel ändert die getragene Karte nicht');
+      ok(m4.kachelKarte('spind', 'oberteil', 'oberteil/bordtunika') === null && m4.kachelKarte('spind', 'umhang', 'umhang/keiner') === null, 'Spind-Kacheln anderer Plätze bleiben feste Vorschau');
+      ok(m4.kachelKarte('spind', 'kopf', 'oberteil/bordtunika') === null && m4.kachelKarte('neu', 'kopf', 'kopf/bordhelm') === null, 'Kachel: Teil gehört nicht zum Platz / Platz hat in der Erstellung keine Livekachel');
+      const sp6 = speicherErsatz(), m6 = Modul.erzeuge({ speicher: sp6, Charakter: Ch, sende: () => {} }); m6.setzeKatalog(KAT); m6.legeAn({ name: 'Cato' }); m6.beginneNeu();
+      const ev = JSON.stringify(m6.entwurfKarte()), fr = m6.teileFuer('frisur'), kf = m6.kachelKarte('neu', 'frisur', fr[fr.length - 1].id);
+      ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.gesicht === m6.entwurfKarte().gesicht && kf.haar === m6.entwurfKarte().haar && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
+      ok(JSON.stringify(m6.entwurfKarte()) === ev, 'Erstellungs-Kachel ändert den Entwurf nicht');
+      ok(m6.kachelKarte('neu', 'bart', 'bart/vollbart') === null && m6.kachelKarte('neu', 'gesicht', 'gesicht/narbe') === null && m6.kachelKarte('spind', 'frisur', fr[0].id) === null, 'Erstellung: nur Frisur hat Livekacheln, im Spind nur Kopf');
+    }
   }
   // Anziehen ist kein Charakterwechsel (kein hello im Client), zieht aber den Client-Stand über den Outfit-Kanal nach
   {

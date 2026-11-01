@@ -60,6 +60,10 @@ const MUTATIONEN = [
   [C, "if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);", "if (t.herkunft && !h.includes(t.herkunft)) h.push(t.herkunft);", 'Spind-Legende zählt „frei“ als gesperrte Herkunft'],
   [C, "if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);", "if (t.herkunft && t.herkunft !== 'frei') h.push(t.herkunft);", 'Spind-Legende nennt eine Herkunft mehrfach'],
   [C, "for (const t of outfitTeileFuer(platz)) if (t.herkunft", "for (const t of (katalog && katalog.teile || []).filter((q) => q.gruppe === 'outfit')) if (t.herkunft", 'Spind-Legende schaut über alle Plätze statt den aktuellen'],
+  [C, "const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };", "const KACHEL_LIVE = { neu: ['frisur', 'bart'], spind: ['kopf'] };", 'Livekachel auch für den Bart'],
+  [C, "const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };", "const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf', 'oberteil'] };", 'Livekachel im Spind auch für das Oberteil'],
+  [C, "if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null; }", "if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { [platz]: wert }) : null; }", 'Spind-Kachel setzt das Teil nicht ins Outfit'],
+  [C, "const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;", "const k = aktiveKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;", 'Erstellungs-Kachel nimmt die getragene Karte statt des Entwurfs'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

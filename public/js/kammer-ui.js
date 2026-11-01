@@ -48,6 +48,12 @@
     if (!im) { im = BILDER[datei] = new Image(); im.src = '/voxel/sprites/' + datei; }
     return im.complete && im.naturalWidth ? im : null;
   }
+  // Kachelbild: das Teil am eigenen Kopf (live, wenn der Katalog dafür eine Karte liefert und 3D läuft), sonst die feste Vorschau
+  function kachelBild(c, r, t) {
+    const KB = window.KammerBild, lk = t.live && live3d() ? KB.bild(t.live.karte, 'portraet', t.live.yaw) : null;
+    if (lk) { rect(c, r.x, r.y, r.w, r.h, F.figurGrund); bildIn(c, lk, r); } else bildIn(c, vorschau(t.vorschau), r);
+  }
+  function liveFuer(modus, platz, teilId) { const k = C.kachelKarte(modus, platz, teilId); return k ? { karte: k, yaw: (KM.kachelAnsicht[platz] || {}).yaw || 0 } : null; }
   // Bild in das Rechteck einpassen (mittig, bei oben: oben bündig), geglättet (Quellbilder sind doppelt so groß wie das Fenster)
   function bildIn(c, im, r, oben) {
     if (!im) return;
@@ -168,7 +174,7 @@
     if (h.gesperrt) {   // Händler/Fund: Schraffur, Bild grau, Kappe H/F, Herkunft als Text (in CHA-01 ist alles frei, die Form steht)
       const G = KM.gesperrt;
       rect(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtGrund); hatch(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtSchraffur, G.schraffur);
-      c.save(); c.filter = 'grayscale(' + G.bild.grau + ') brightness(' + G.bild.hell + ')'; c.globalAlpha = G.bild.deckkraft; bildIn(c, vorschau(t.vorschau), k.bild); c.restore();
+      c.save(); c.filter = 'grayscale(' + G.bild.grau + ') brightness(' + G.bild.hell + ')'; c.globalAlpha = G.bild.deckkraft; kachelBild(c, k.bild, t); c.restore();
       P.cham(c, k.x + G.kappe.x, k.y + G.kappe.y, G.kappe.w, G.kappe.h, F.gesperrtKappe, G.kappe.schraeg, 0, G.kappe.schraeg, 0);
       txt(c, h.kappe, k.x + G.kappe.x + G.kappe.w / 2, k.y + G.kappe.y + 3, F.gesperrtKappeText, 'center');
       txt(c, passend(t.name, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.name, F.dim); txt(c, passend(h.sub, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
@@ -180,7 +186,7 @@
       rect(c, k.bild.x + 8, k.bild.y + 6, k.bild.w - 16, k.bild.h - 12, t.farbe);
       if (t.schatten) rect(c, k.bild.x + 8, k.bild.y + k.bild.h - 6 - 14, k.bild.w - 16, 14, t.schatten);
       rand(c, k.bild.x + 8, k.bild.y + 6, k.bild.w - 16, k.bild.h - 12, F.musterRand);
-    } else bildIn(c, vorschau(t.vorschau), k.bild);
+    } else kachelBild(c, k.bild, t);
     if (zust.getragen) rect(c, k.x, k.y, k.w, KM.getragen, F.platz);
     txt(c, passend(t.name, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.name, zust.getragen || zust.cursor ? F.platz : F.text);
     txt(c, passend(t.sub != null ? t.sub : h.sub, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
@@ -192,7 +198,7 @@
     txtSp(c, gross(name) || '…', f.x + 6, f.y + 4, F.platz, 1);
     txt(c, e.modus === 'neu' ? KX.neu : KX.knopf.umbenennen, f.x + f.w - 6, f.y + 4, F.dim, 'right');
     const ky = f.y + f.h - M.kappe - M.kappeAbstand;
-    portraet(c, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH + Math.max(0, Math.floor((ky - f.y - M.nameH - b.h) / 2)), w: b.w, h: b.h }, C.entwurfKarte(), 'nah', e.yaw, e.modus === 'neu' ? e.platz : null);
+    portraet(c, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH, w: b.w, h: b.h }, C.entwurfKarte(), 'nah', e.yaw, e.modus === 'neu' ? e.platz : null);
     kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
     txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
   }
@@ -232,7 +238,7 @@
         P.titel(cc, a.x + T.x, a.y + T.y, KM.figur.x - T.x - 12, PK.text(KX.kachelTitel.erstellung, { platz: gross(KT.PLATZ[platz].name), n }), 'nav');
         const eintraege = farbe
           ? C.farbenFuer(platz).map((f, i) => ({ name: PK.text(TEXT.erstellung.farbName, { platz: KT.PLATZ[platz].name === 'Haarfarbe' ? 'Haar' : 'Haut', n: i + 1 }), sub: i === 0 ? TEXT.erstellung.standard : '', farbe: typeof f === 'string' ? f : f.skin, schatten: typeof f === 'string' ? null : f.skin_shadow }))
-          : C.teileFuer(platz).map((t) => ({ name: t.name, sub: t.id === platz + '/' + std ? TEXT.erstellung.standard : TEXT.volk[t.volk] || '–', vorschau: t.vorschau, herkunft: 'frei' }));
+          : C.teileFuer(platz).map((t) => ({ name: t.name, sub: t.id === platz + '/' + std ? TEXT.erstellung.standard : TEXT.volk[t.volk] || '–', vorschau: t.vorschau, herkunft: 'frei', live: liveFuer('neu', platz, t.id) }));
         const ks = PK.kacheln(a, eintraege.length);
         ks.forEach((r, i) => { kachel(cc, r, eintraege[i], { cursor: i === wahl }); klickFlaeche(r, eintraege[i].name, () => C.setzeWahl(platz, i)); });
         unten = ks.length ? ks[ks.length - 1].y + ks[ks.length - 1].h : unten;
@@ -268,7 +274,7 @@
   // Kacheln des Platzes im Entwurf: getragen = das Teil, das der gewählte Charakter jetzt trägt; Cursor = Anprobe (Entwurf)
   function spindEintraege(e) {
     const getragen = (C.aktiveKarte() || { outfit: {} }).outfit[e.platz];
-    return C.outfitTeileFuer(e.platz).map((t) => ({ name: t.name, volk: t.volk ? (TEXT.volk[t.volk] || '–') : '–', herkunft: t.herkunft || 'frei', preis: t.preis, vorschau: t.vorschau, getragen: t.id === e.platz + '/' + getragen }));
+    return C.outfitTeileFuer(e.platz).map((t) => ({ name: t.name, volk: t.volk ? (TEXT.volk[t.volk] || '–') : '–', herkunft: t.herkunft || 'frei', preis: t.preis, vorschau: t.vorschau, getragen: t.id === e.platz + '/' + getragen, live: liveFuer('spind', e.platz, t.id) }));
   }
   // Ganze Figur der Anprobe (live) oder, solange sie fehlt / ohne 3D, die Vorschau des Teils unter dem Cursor
   function spindFigur(c, a, e, name) {

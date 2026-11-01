@@ -74,6 +74,15 @@
       if (!katalog || !OUTFIT_PLAETZE.includes(platz)) return [];
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
+    // CHA-01 F: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
+    // Liefert die Karte, an der das Teil sitzt (Erstellung: der Entwurf mit dem Teil; Spind: die getragene Karte mit dem Teil), sonst null (feste Vorschau).
+    const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };
+    function kachelKarte(modus, platz, teilId) {
+      if (!(KACHEL_LIVE[modus] || []).includes(platz) || String(teilId).indexOf(platz + '/') !== 0) return null;
+      const wert = teilId.slice(platz.length + 1);
+      if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null; }
+      const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;
+    }
     // CHA-01 F: welche gesperrten Herkünfte ('haendler', 'fund') hat der Platz im Spind überhaupt? Die Legende zeigt nur diese Zeilen.
     function spindGesperrteHerkuenfte(platz) {
       const h = []; for (const t of outfitTeileFuer(platz)) if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);
@@ -473,7 +482,7 @@
 
     return {
       SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
-      outfitTeileFuer, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
+      outfitTeileFuer, kachelKarte, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,
