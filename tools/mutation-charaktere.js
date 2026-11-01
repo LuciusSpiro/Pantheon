@@ -56,6 +56,10 @@ const MUTATIONEN = [
   [C, "if (OUTFIT_PLAETZE.every((pl) => outfit[pl] === c.karte.outfit[pl]))", "if (false)", 'unverändertes Outfit wird trotzdem gespeichert und gesendet'],
   [C, "if (store.sitzung.spindWartet) oeffneSpind();   // der Spind wurde geöffnet", "// der Spind wurde geöffnet", 'Spind vor dem Katalog wird nicht nachgezogen'],
   [C, "function schliesseSpind() { store.sitzung.spindWartet = false;", "function schliesseSpind() {", 'geschlossener Spind öffnet nach dem Katalog doch'],
+  // CHA-01 F: Legende im Spind
+  [C, "if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);", "if (t.herkunft && !h.includes(t.herkunft)) h.push(t.herkunft);", 'Spind-Legende zählt „frei“ als gesperrte Herkunft'],
+  [C, "if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);", "if (t.herkunft && t.herkunft !== 'frei') h.push(t.herkunft);", 'Spind-Legende nennt eine Herkunft mehrfach'],
+  [C, "for (const t of outfitTeileFuer(platz)) if (t.herkunft", "for (const t of (katalog && katalog.teile || []).filter((q) => q.gruppe === 'outfit')) if (t.herkunft", 'Spind-Legende schaut über alle Plätze statt den aktuellen'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

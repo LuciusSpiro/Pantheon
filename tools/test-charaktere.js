@@ -435,6 +435,15 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   {
     const kat2 = JSON.parse(JSON.stringify(KAT)); kat2.teile.find((t) => t.id === 'kopf/bordhelm').herkunft = 'haendler';
     const sp3 = speicherErsatz(), gs = [], m4 = Modul.erzeuge({ speicher: sp3, Charakter: Ch, sende: (o) => gs.push(o) }); m4.setzeKatalog(kat2); m4.legeAn({ name: 'Cato' }); m4.oeffneSpind();
+    ok(JSON.stringify(m4.spindGesperrteHerkuenfte('kopf')) === '["haendler"]' && m4.spindGesperrteHerkuenfte('umhang').length === 0 && m4.spindGesperrteHerkuenfte('gibtsnicht').length === 0, 'Legende: Platz kopf hat eine Händlerzeile, Umhang keine gesperrte, unbekannter Platz leer');
+    kat2.teile.find((t) => t.id === 'kopf/keine').herkunft = 'haendler';
+    ok(JSON.stringify(m4.spindGesperrteHerkuenfte('kopf')) === '["haendler"]', 'Legende: zwei Händlerteile im Platz, die Zeile steht nur einmal');
+    kat2.teile.find((t) => t.id === 'kopf/keine').herkunft = 'frei';
+    kat2.teile.find((t) => t.id === 'kopf/bordhelm').herkunft = 'frei';
+    ok(m4.spindGesperrteHerkuenfte('kopf').length === 0, 'Legende: alles frei, keine Zeile H oder F');
+    kat2.teile.find((t) => t.id === 'kopf/bordhelm').herkunft = 'haendler'; kat2.teile.find((t) => t.platz === 'oberteil').herkunft = 'fund';
+    ok(JSON.stringify(m4.spindGesperrteHerkuenfte('oberteil')) === '["fund"]', 'Legende: Platz oberteil hat nur eine Fundzeile');
+    kat2.teile.find((t) => t.platz === 'oberteil').herkunft = 'frei';
     m4.spindWaehlePlatz('kopf'); m4.spindSetzeWahl('kopf', 1);
     const rg = m4.speichereOutfit();
     ok(!rg.ok && rg.grund === 'gesperrt' && m4.aktiveKarte().outfit.kopf === 'keine' && !gs.length && m4.lies().sitzung.entwurf.hinweis === 'gesperrt', 'Händlerteil: Anprobe ja, Anziehen abgelehnt, nichts gespeichert, nichts gesendet');

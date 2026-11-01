@@ -145,7 +145,7 @@
     knopf: { neu: 'Neu anlegen', umbenennen: 'Umbenennen', loeschen: 'Löschen …', platz: 'Platz', blaettern: 'blättern', lobby: 'In die Lobby',
       name: 'Name ändern', zuruecksetzen: 'Zurücksetzen', speichern: 'Speichern', anziehen: 'Anziehen', ablegen: 'Ablegen' },
     nameIstSpieler: 'Name = Spielername', muster: { haar: 'Haar', haut: 'Haut' }, musterHinweis: '9 / 6 öffnen die Muster groß',
-    herkunftLegende: { frei: 'frei · alles in CHA-01', haendler: 'beim Händler', fund: 'als Fund' },
+    herkunftLegende: { frei: 'frei · im Spind', haendler: 'beim Händler', fund: 'als Fund' },
     keine: 'keine', keiner: 'keiner',
   };
   // </tokens>

@@ -74,6 +74,11 @@
       if (!katalog || !OUTFIT_PLAETZE.includes(platz)) return [];
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
+    // CHA-01 F: welche gesperrten Herkünfte ('haendler', 'fund') hat der Platz im Spind überhaupt? Die Legende zeigt nur diese Zeilen.
+    function spindGesperrteHerkuenfte(platz) {
+      const h = []; for (const t of outfitTeileFuer(platz)) if (t.herkunft && t.herkunft !== 'frei' && !h.includes(t.herkunft)) h.push(t.herkunft);
+      return h;
+    }
     function farbenFuer(platz) {
       const f = katalog && katalog.farben;
       return f && Array.isArray(f[platz === 'haut' ? 'haut' : 'haar']) ? f[platz === 'haut' ? 'haut' : 'haar'] : [];
@@ -468,7 +473,7 @@
 
     return {
       SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
-      outfitTeileFuer, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
+      outfitTeileFuer, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,

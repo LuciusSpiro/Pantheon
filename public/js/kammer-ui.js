@@ -302,9 +302,10 @@
     const p = PK.rahmen().pult, S = KM.spalten.mitte, G = KM.gesperrt.kappe;
     let y = P.titel(c, p.x + S.x, p.y, S.w, KX.spalte.herkunft, 'cmd') + 2;
     txt(c, KX.herkunftLegende.frei, p.x + S.x + G.w + 5, y + 2, F.text); y += 17;
-    [['H', KX.herkunftLegende.haendler], ['F', KX.herkunftLegende.fund]].forEach(([kz, t]) => {
-      P.cham(c, p.x + S.x, y, G.w, G.h, F.gesperrtKappe, G.schraeg, 0, G.schraeg, 0); txt(c, kz, p.x + S.x + G.w / 2, y + 3, F.gesperrtKappeText, 'center');
-      txt(c, t, p.x + S.x + G.w + 5, y + 2, F.dim); y += 17;
+    const gesperrt = spind ? C.spindGesperrteHerkuenfte(spind.platz) : [];   // Zeilen H / F nur, wenn der Platz so ein Teil hat (Regel in charaktere.js)
+    ['haendler', 'fund'].filter((h) => gesperrt.includes(h)).forEach((h) => {
+      P.cham(c, p.x + S.x, y, G.w, G.h, F.gesperrtKappe, G.schraeg, 0, G.schraeg, 0); txt(c, KT.HERKUNFT[h].kappe, p.x + S.x + G.w / 2, y + 3, F.gesperrtKappeText, 'center');
+      txt(c, KX.herkunftLegende[h], p.x + S.x + G.w + 5, y + 2, F.dim); y += 17;
     });
     spalteAbschluss(c, KX.spalte.umziehen, [
       { taste: 'R', aktion: 'charakter.spind.zuruecksetzen', text: KX.knopf.zuruecksetzen, klick: () => C.spindZuruecksetzen() },
