@@ -1621,6 +1621,14 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 
 Jede Konsole zeigt ihre Tasten unten in einer Zeile. Ton startet mit der ersten Taste/dem ersten Klick.
 
+### Charakter, Spind und Namensmarke (CHA-01)
+
+- **Charakterliste:** in der Lobby **C** (oder „Charakter wechseln“ im Startmenü). Bis zu vier Charaktere liegen im Browser (localStorage), **Enter** wählt einen, **F2** benennt um, **Entf** zweimal löscht, **N** legt einen neuen an. Der Charaktername ist dein Spielername; gleiche Namen in einem Raum bekommen automatisch ein „ 2“, „ 3“ …
+- **Erstellung:** Name, dann Frisur, Gesicht, Bart, Haar- und Hautfarbe (Ziffernblock 8/5/2/9/6 wählt den Platz, ←→↑↓ das Teil, **Q/E** dreht die Figur, **R** setzt zurück, **Enter** speichert). Die Figur zeigt jede Wahl sofort; ohne WebGL gibt es Vorschaubilder.
+- **Spind:** in deinem Quartier an Bord **E** am eigenen Spind (nur mit Charakter, fremde Spinde reagieren nicht). Dort wechselst du das Outfit (Kopf, Oberteil, Hose, Schuhe, Hände, Umhang; Ziffernblock wählt den Platz, **Enter** zieht an, **R** zurück auf das Getragene, **Esc** verlässt). Händler- und Fundstücke sind gesperrt, bis du sie hast. Das Aussehen selbst ändert sich nur in der Erstellung.
+- **Namensmarke:** über jedem Spieler steht seine Form in der Spielerfarbe, bei Mitspielern mit Namen, bei der eigenen Figur nur die Form. Stehen Figuren dicht beieinander, stapeln sich die Marken (ab der dritten Zeile nur noch die Form).
+- Wer ohne Charakter beitritt (zum Beispiel Testskripte), spielt wie bisher mit Standardfigur. Für die Bilder muss `../voxelwerk` den Stand mit `assets/katalog/charakter.json` führen (Branch `cha01`), siehe `npm run assets` unten.
+
 ## Die Orte: 8 Hexe des Saumraums, 15 der Eisenwald-Kette und der Leerraum
 
 Die Karte Limes hat 10×8 = 80 Hexe (`content/welt/limes.json`). **8 davon sind spielbare Orte des Saumraums** (Tutorial, Lichtkordon bis Kesh; dazu die 15 Hexe der Eisenwald-Kette, siehe unten), 42 sind Leerraum, die

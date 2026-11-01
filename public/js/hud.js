@@ -1238,7 +1238,6 @@
       k5_legat: 'Eisenwald 5: Castra Martis', k6_orbit: 'Eisenwald 6: Orbitschlacht', k7_siedlung: 'Eisenwald 7: Siedlung', k8_sieg: 'Eisenwald 8: Sieg' },
     WORLD_STATE_TEXT: { kaputt: 'Datei beschädigt', neuer: 'Aus einer neueren Version', belegt: 'In einer anderen Runde geöffnet' },
     lobbyWorlds(st) { const l = st && st.lobby; return l && Array.isArray(l.worlds) ? l.worlds.filter(w => w && w.id != null) : []; },
-    lobbyWorld(st) { const id = st && st.lobby && st.lobby.world; return id == null ? null : this.lobbyWorlds(st).find(w => w.id === id) || null; },
     worldsMax() { return (CFG.weltstand && CFG.weltstand.max) || 5; },
     locLabel(id) {
       if (!id) return '—';
