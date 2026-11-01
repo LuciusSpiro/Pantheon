@@ -39,12 +39,13 @@ function neu(api, o) {
   o = o || {};
   const gesendet = [];
   const wahl = { liste: [{ id: 'c1' }, { id: 'c2' }], gewaehlt: 'c1' };
-  const waehle = [], verlassen = { n: 0 };
+  const waehle = [], verlassen = { n: 0 }, kammer = { auf: 0, neu: 0, offen: true };
   const F = api.erzeuge({
     protokoll: Protocol, senden: (m) => { gesendet.push(m); return true; }, debug: !!o.debug, szenenIds: () => ['s_eins', 's_zwei'], weltstandMax: 5, verlasseRaum: () => { verlassen.n++; return true; },
-    charaktere: { MAX: 4, lies: () => wahl, waehle: (id) => { waehle.push(id); wahl.gewaehlt = id; return { ok: true, id }; } },
+    oeffneKammer: () => { if (kammer.offen) kammer.auf++; return kammer.offen; },
+    charaktere: { MAX: 4, neuAnlegen: () => { kammer.neu++; return { ok: true }; }, lies: () => wahl, waehle: (id) => { waehle.push(id); wahl.gewaehlt = id; return { ok: true, id }; } },
   });
-  return { F, gesendet, waehle, wahl, verlassen };
+  return { F, gesendet, waehle, wahl, verlassen, kammer };
 }
 
 // Alle Prüfungen gegen ein Modul; liefert die Anzahl der Fehlschläge (für die Mutationsproben mit stillem Lauf)
@@ -176,6 +177,14 @@ function pruefe(api, laut) {
     // Merker und Runde sind zwei Actions, keine Steuerparameter
     { const F = neu(api).F; p(F.schalteTutorialMerker.length === 0 && F.schalteTutorialDerRunde.length === 1 && F.schalteTutorial === undefined, 'S1: schalteTutorialMerker() und schalteTutorialDerRunde(lob) sind getrennte Actions'); } }
 
+  // ---- 9b Nacharbeit Gesamt K1/K2: eine Action für N in der Einladung, Snapshot-Eingang statt Zeichnen
+  { const t = neu(api), F = t.F; F.starte({ link: true });
+    const r = F.einladungNeuerCharakter(); p(r.ok && t.kammer.auf === 1 && t.kammer.neu === 1, 'K1: einladungNeuerCharakter öffnet die Kleiderkammer und legt neu an');
+    const t2 = neu(api); t2.F.starte({ link: true }); t2.kammer.offen = false; p(!t2.F.einladungNeuerCharakter().ok && t2.kammer.neu === 0, 'K1: ohne Kleiderkammer wird nichts angelegt');
+    const t3 = neu(api); t3.F.starte({}); p(!t3.F.einladungNeuerCharakter().ok && t3.kammer.auf === 0, 'K1: außerhalb der Einladung wirkungslos');
+    const t4 = neu(api), G = t4.F; G.starte({}); const vor = JSON.stringify(G.lies()); p(!G.snapshotEingang({ startMission: 'eisenwald', worlds: [] }).ok && JSON.stringify(G.lies()) === vor, 'K2: Snapshot im Titel ändert nichts');
+    G.weiter(); const sn = G.snapshotEingang({ startMission: 'eisenwald', worlds: [] }); p(sn.ok && G.lies().tutorial === true && G.lies().auswahl, 'K2: Snapshot im Hauptmenü führt Auswahl und Tutorial-Merker nach'); }
+
   // ---- 10 Einladung ablehnen (S2)
   { const t = neu(api), F = t.F; F.starte({ link: true });
     const r = F.einladungAblehnen(); p(r.ok && r.verlassen && t.verlassen.n === 1 && F.lies().schirm === 'menue', 'S2: Esc in der Einladung verlässt den Raum (verlasseRaum) und führt ins Hauptmenü');
@@ -244,8 +253,9 @@ function pruefe(api, laut) {
       // Einladung
       F.starte({ link: true }); d('ArrowRight'); d('Digit1'); d('Digit2'); const cur = F.lies().einladungCursor === 1; d('Enter');
       const angenommen = F.lies().schirm === 'lobby' && u.waehle.join() === 'c2';
+      F.starte({ link: true }); u.kammer.auf = 0; u.kammer.neu = 0; d('KeyN'); const neuer = u.kammer.auf === 1 && u.kammer.neu === 1;
       F.starte({ link: true }); d('Escape'); const abgelehnt = F.lies().schirm === 'menue' && u.verlassen.n === 1;
-      return { titel, menue, lobby, optionen, modus: modus && modusZu, esc: esc && escTitel, einladung: cur && angenommen && abgelehnt };
+      return { titel, menue, lobby, optionen, modus: modus && modusZu, esc: esc && escTitel, einladung: cur && angenommen && abgelehnt && neuer };
     };
     const r = ui(api);
     p(r.titel, 'Tasten Titel: O Optionen, H und ? Hilfe, Enter → Hauptmenü');
@@ -254,7 +264,9 @@ function pruefe(api, laut) {
     p(r.optionen, 'Tasten Lobby (Wellen Boden): K Karte, W Waffe');
     p(r.modus, 'Tasten Lobby: M öffnet die Moduswahl, Esc schließt sie');
     p(r.esc, 'Tasten Lobby: Esc → Hauptmenü und „bereit“ zurück, Esc → Titel');
-    p(r.einladung, 'Tasten Einladung: Ziffer/Pfeil wählt, Enter an Bord, Esc lehnt ab und verlässt den Raum'); }
+    p(r.einladung, 'Tasten Einladung: Ziffer/Pfeil wählt, N legt neu an (eine Action), Enter an Bord, Esc lehnt ab und verlässt den Raum');
+    p(!/synchronisiere/.test(quelleUi.replace(/\/\/.*$/gm, '')), 'K2: menue-ui.js ruft synchronisiere nicht (Zeichnen ohne Seiteneffekt)');
+    p(!/Charaktere\.neuAnlegen|openKammer\(\); *if/.test(quelleUi), 'K1: menue-ui.js verkettet keine Actions mehr für N'); }
 
   return schlecht;
 }
@@ -283,6 +295,8 @@ section('Mutationsproben (Regeln im Quelltext zerstören)', () => {
     ['kein sichtbarer Modus beim Eintritt (K2)', 'if (!s.length || (e && s.some((x) => x.id === e.id))) return', 'if (true) return'],
     ['Weltstand voll wird nicht erkannt', 'voll: !!(lob && lob.worldsFull) || n >= max,', 'voll: false,'],
     ["Moduswahl bleibt nach Weltstandwahl offen (K3)", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : schliesseModusWahl(); }", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : { ok: true }; }"],
+    ['Snapshot im Titel führt das Menü nach (K2)', "if (store.schirm !== 'menue' && store.schirm !== 'lobby') return { ok: false };", 'if (false) return { ok: false };'],
+    ['N in der Einladung öffnet die Kammer nicht (K1)', "if (!(opt.oeffneKammer && opt.oeffneKammer())) return { ok: false, grund: 'kammer' };", ''],
     ['Webdriver beginnt nicht in der Lobby', "|| p.webdriver) return", ") return"],
   ];
   for (const [name, von, nach] of muta) {

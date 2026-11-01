@@ -16,6 +16,7 @@
       szenenIds: () => { const c = root.Shared_Config; return ((c && c.arena && c.arena.szenen) || []).map((z) => z.id); },
       charaktere: () => root.Charaktere,
       weltstandMax: () => { const c = root.Shared_Config; return (c && c.weltstand && c.weltstand.max) || 5; },
+      oeffneKammer: () => { const c = root.Client; if (!(c && c.actions && c.actions.openKammer)) return false; c.actions.openKammer(); return true; },
       verlasseRaum: () => { const c = root.Client; return !!(c && c.actions && c.actions.verlasseRaum && c.actions.verlasseRaum()); },
     });
   }
@@ -141,6 +142,12 @@
       aenderung();
     }
 
+    // CHA-01 Nacharbeit K2: Snapshot eingegangen – Auswahl und Tutorial-Merker nachführen, nur solange Hauptmenü oder Lobby gezeigt werden (das Zeichnen ändert nichts mehr)
+    function snapshotEingang(lob) {
+      if (store.schirm !== 'menue' && store.schirm !== 'lobby') return { ok: false };
+      synchronisiere(lob || {}); return { ok: true };
+    }
+
     // ------------------------------------------------------------------ Navigation im Menü
     function bewege(d, lob) {
       const s = sichtbar(lob); if (!s.length) return { ok: false };
@@ -240,6 +247,13 @@
       store.schirm = 'menue'; store.modusOffen = false; aenderung();
       return { ok: true, schirm: 'menue', verlassen };
     }
+    // Einladung: N legt einen neuen Charakter an – Kleiderkammer öffnen (Charakterliste), dann die Erstellung; ohne Kammer/Charaktere nichts
+    function einladungNeuerCharakter() {
+      if (store.schirm !== 'einladung') return { ok: false, grund: 'keine-einladung' };
+      const C = charaktere(); if (!C) return { ok: false, grund: 'charaktere' };
+      if (!(opt.oeffneKammer && opt.oeffneKammer())) return { ok: false, grund: 'kammer' };
+      return C.neuAnlegen();
+    }
     // Die Runde endet und der Server holt alle zurück in die Lobby
     function imRaum() { store.schirm = 'lobby'; store.modusOffen = false; aenderung(); return { ok: true }; }
     function bewegeEinladung(d) { const n = (charaktere() && charaktere().MAX) || 4; store.einladungCursor = (store.einladungCursor + (d < 0 ? -1 : 1) + n) % n; aenderung(); return { ok: true, cursor: store.einladungCursor }; }
@@ -295,9 +309,9 @@
 
     return {
       TEXT, GRUPPEN, ALLE, lies, eintragMitId, eintragZuModus, zugeordneteModi,
-      sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, welten, neuesteWelt,
+      sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, snapshotEingang, welten, neuesteWelt,
       bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
-      starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
+      starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, einladungNeuerCharakter, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
       gastgeber, zaehlung, verbunden, optionenFuer, optionFuerTaste,
     };
   }

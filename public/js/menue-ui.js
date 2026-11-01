@@ -404,7 +404,6 @@
   // ---------------------------------------------------------------- zeichnen
   function zeichne(ctx, view) {
     const s = F.lies().schirm, sk = schirmVon(view);
-    if (s === 'menue' || s === 'lobby') F.synchronisiere(lobbyVon(view));
     verlauf(ctx, sk);
     if (s === 'titel') titel(ctx, view);
     else if (s === 'menue') hauptmenue(ctx, view);
@@ -448,7 +447,7 @@
       if (rep) return true;
       const d = /^(?:Digit|Numpad)([1-4])$/.exec(code);
       if (d) { F.setzeEinladungCursor(+d[1] - 1); ton('ui_click'); return true; }
-      if (code === 'KeyN') { if (a.openKammer) { a.openKammer(); if (window.Charaktere) Charaktere.neuAnlegen(); } return true; }
+      if (code === 'KeyN') { F.einladungNeuerCharakter(); return true; }
       if (code === 'Enter' || code === 'NumpadEnter') { const r = F.einladungAnnehmen(); ton(r.ok ? 'ui_click' : 'error'); return true; }
       if (code === 'Escape') { F.einladungAblehnen(); ton('ui_back'); return true; }
       return true;

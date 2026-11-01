@@ -689,6 +689,7 @@
     // S1 (Kann): Chronik kommt im Log-Slot – ebenfalls behalten
     if (s.mission && !s.mission.chronik && prev && prev.mission && prev.mission.chronik && prev.phase !== 'lobby') s.mission.chronik = prev.mission.chronik;
     Client.state = s; G.state = s; R.lastState = s;
+    if (window.MenueFluss) Net.guard('Client.menueSync', () => MenueFluss.snapshotEingang(s.lobby));   // CHA-01 Nacharbeit K2: Auswahl/Tutorial-Merker des Menüs folgen dem Snapshot, nicht dem Zeichnen
     Net.guard('Client.phaseS1', () => onPhaseS1(prev, s));
     Net.guard('Client.planningS2', () => onPlanningS2(prev, s));
     const now = performance.now();
