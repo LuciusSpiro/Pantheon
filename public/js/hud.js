@@ -1296,8 +1296,8 @@
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
 
-    // ---------------------------------------------------------------- Lobby (Canvas; Name per DOM-Input)
-    LOBBY_NAME_RECT: { x: 130, y: 104, w: 170, h: 16 },
+    // ---------------------------------------------------------------- Lobby (Canvas). CHA-01 C: kein Namensfeld mehr, der Name kommt vom gewählten Charakter (Taste C öffnet die Charakterliste)
+    LOBBY_X: 130,
     drawLobby(ctx, view) {
       const st = view.state || {};
       const t = view.time;
@@ -1310,16 +1310,17 @@
       if (Net.badCode && !me) { this.drawCodeEntry(ctx, view); this.drawNotices(ctx, view, 4); return; }
       R.panel(ctx, 110, 72, 420, 240, { style: 'brass', title: 'CREW-LISTE' });
       const lob = view.lobby;
-      const lx = this.LOBBY_NAME_RECT.x;
-      R.text(ctx, 'Name', lx, 94, { color: PAL.panelLight });
-      const nr = this.LOBBY_NAME_RECT;
-      ctx.strokeStyle = PAL.brass; ctx.strokeRect(nr.x - 0.5, nr.y - 0.5, nr.w + 1, nr.h + 1);
-      R.text(ctx, 'Farbe (1–4)', lx, 128, { color: PAL.panelLight });
+      const lx = this.LOBBY_X;
+      R.text(ctx, 'Charakter', lx, 94, { color: PAL.panelLight });
+      const spielerName = (me && me.name) || (window.Charaktere && Charaktere.aktiverName()) || (lob && lob.name) || '';   // im Spiel gilt p.name vom Server (kann eine Ziffer tragen)
+      R.text(ctx, String(spielerName).slice(0, 12), lx, 108, { color: PAL.amber });
+      R.button(ctx, lx + 118, 104, 76, 16, 'Charakter', { hotkey: window.Tasten ? Tasten.kappe('charakter.oeffnen') : 'C', onClick: () => view.actions.openKammer && view.actions.openKammer() });
+      R.text(ctx, 'Farbe (1–4)', lx, 124, { color: PAL.panelLight });
       const taken = players.filter(p => p.id !== view.pid && p.connected !== false).map(p => p.color);
       for (let c = 0; c < 4; c++) {
         const isTaken = taken.indexOf(c) >= 0;
         const mine = me ? me.color === c : lob.color === c;
-        const bx = lx + c * 52, by = 139;
+        const bx = lx + c * 52, by = 134;
         R.button(ctx, bx, by, 48, 18, 'S' + (c + 1), {
           disabled: isTaken, reason: 'Farbe bereits vergeben', active: mine,
           onClick: () => view.actions.setColor(c),
@@ -1330,9 +1331,9 @@
       const lobSm = st.lobby && st.lobby.startMission;
       const mitWaffe = (lobSm === 'arena_away' || lobSm === 'arena_graben' || lobSm === 'labor') && !(st.lobby.world && this.lobbyWorld(st));
       const lwf = (st.lobby && st.lobby.waffen) || {};
-      R.text(ctx, mitWaffe ? 'An Bord · W: eigene Waffe' : 'An Bord', lx, 164, { color: mitWaffe ? PAL.amber : PAL.panelLight });
-      let y = 175;
-      for (const p of players.slice(0, 3)) {
+      R.text(ctx, mitWaffe ? 'An Bord · W: eigene Waffe' : 'An Bord', lx, 157, { color: mitWaffe ? PAL.amber : PAL.panelLight });
+      let y = 167;
+      for (const p of players.slice(0, 4)) {
         const col = PAL.players[p.color || 0];
         R.shape(ctx, R.SHAPES[p.color || 0], lx + 6, y + 4, 8, col);
         R.text(ctx, String(p.name || '?').slice(0, 12) + (p.id === view.pid ? ' (du)' : ''), lx + 16, y, { color: col });
@@ -1413,7 +1414,7 @@
     },
 
     // ================================================================ S1: Weltstand, Hauptmenü, Spielmenü
-    LOBBY_HINT: 'F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
+    LOBBY_HINT: 'C Charakter · F Weltstand · O Optionen · Im Spiel: Esc Menü · Tab Crew',
     MISSION_TITLES: { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh',
       // EK8: Kapitel der Kampagne Eisenwald (ohne Schrittnamen, die sind intern)
       k1_anwerbung: 'Eisenwald 1: Anwerbung', k2_konvoi: 'Eisenwald 2: Konvoi', k3_nebelheim: 'Eisenwald 3: Nebelheim', k4_methalle: 'Eisenwald 4: Methalle',
@@ -1619,7 +1620,7 @@
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
       ['Reaktor offline', 'Schalter A und B im Maschinenraum gleichzeitig E halten (3 s)'],
       ['Ansicht', 'F8 Voxel/2D · +/− oder Mausrad Zoom (Voxel) · Esc: erst Konsole/Minispiel verlassen, dann Menü'],
-      ['Hauptmenü', 'Enter bereit · 1–3 Farbe · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
+      ['Hauptmenü', 'Enter bereit · 1–4 Farbe · C Charakter · F Weltstand · M Start · U Übung · L Einladung · O Optionen'],
     ],
     // Reiter der Steuerungsseite: die Gruppen aus Tasten plus „Sonstiges“ (Text oben)
     tastenReiter() {

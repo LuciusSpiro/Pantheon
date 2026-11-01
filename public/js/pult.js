@@ -243,13 +243,17 @@
       { l: sf ? sf.l : 'ZONEN', v: sf ? sf.v : '–', col: sfCol, w: 1 },
       { l: 'ALARM', v: alarm === 'red' ? 'ROT' : alarm === 'yellow' ? 'GELB' : 'GRÜN', fn: alarm === 'red' ? 'weapon' : alarm === 'yellow' ? 'warn' : 'shield', w: 0.8 },
     ];
+    statusFelder(c, S, L);
+    return alarm;
+  }
+  // CHA-01 C: Felder der Statusleiste { l, v, fn | col, w } zeichnen (Schiffsleiste oben; eigene Felder über def.status von rahmen)
+  function statusFelder(c, S, L) {
     let x = 142; const total = L.reduce((a, s) => a + s.w, 0), avail = 634 - x - (L.length - 1) * 3;
     L.forEach((s) => { const w = Math.round(avail * s.w / total); K.status(c, x, S, w, 14, s.l, s.v, s.col || FN[s.fn]); x += w + 3; });
-    return alarm;
   }
 
   // Rahmen eines Pults: Grund, Anzeige-Fläche, Säule mit Navigation, Statusleiste. -> { anzeige, pult, S }
-  // def: { titel, S, station, anzeige(ctx, rect) }
+  // def: { titel, S, station, anzeige(ctx, rect), status? (Felder { l, v, fn | col, w } statt der Schiffsleiste) }
   function rahmen(c, view, def) {
     K = SKINS[skinId(view)];
     const S = def.S;
@@ -266,7 +270,7 @@
     K.schirm(c, anzeige);
     const alarm = ((view.state && view.state.ship) || {}).alert === 'red';
     K.saeule(c, S, def.titel, alarm);
-    status(c, view, S);
+    if (Array.isArray(def.status)) statusFelder(c, S, def.status); else status(c, view, S);   // CHA-01 C: Option status = eigene Felder statt der Schiffsleiste (Charakterliste, Erstellung)
     // Navigation in der unteren Säule: Station wechseln, Verlassen, Hilfe (klickbar)
     const kreis = (window.Shared_Protocol && Shared_Protocol.STATION_KREIS) || ['helm', 'weapons', 'captain', 'technik'];
     const nav = [

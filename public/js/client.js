@@ -21,7 +21,6 @@
 
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  const nameInput = document.getElementById('lobbyName');
   const codeInput = document.getElementById('lobbyCode');   // M0: Raumcode-Eingabe nach badcode
   const world3d = document.getElementById('world3d');      // M4: Voxel-Welt (voxel/boot.js)
 
@@ -32,6 +31,7 @@
   function lerpAngle(a, b, f) { return a + Phys.normAngle(b - a) * f; }
 
   const storedColor = lsGet('sternenschicht.color', null);
+  const ZUFALLSNAME = 'Crew-' + Math.floor(100 + Math.random() * 900);   // heutiger Zufallsname; Charaktere.erststart nimmt ihn nur, wenn es weder Charaktere noch einen alten Namen gibt
   const Client = {
     state: null, pid: null, serverDebug: false,
     snaps: [],
@@ -41,7 +41,8 @@
     mouse: { x: -1, y: -1 },
     time: 0, fps: 0, scale: 1,
     audioOn: false,
-    lobby: { name: lsGet('sternenschicht.name', 'Crew-' + Math.floor(100 + Math.random() * 900)).slice(0, 12), color: storedColor == null || storedColor === '' ? null : +storedColor },
+    // CHA-01 C: name = Spielername fürs hello, bis der gewählte Charakter da ist (Charaktere.vorabName); der Name im Spiel ist p.name vom Server. Der alte Schlüssel sternenschicht.name bleibt unberührt (Rückweg).
+    lobby: { name: window.Charaktere ? Charaktere.vorabName({ altName: lsGet('sternenschicht.name', null), zufallsName: ZUFALLSNAME }) : ZUFALLSNAME, color: storedColor == null || storedColor === '' ? null : +storedColor },
     endDismissed: false,
     karte: null,    // CHA-01 B1: eigene Charakterkarte fürs hello (Quelle kommt mit Paket C); null = ohne Karte wie bisher
     karten: {},     // CHA-01 B1: pid -> geprüfte Charakterkarte (welcome.karten, Ereignis karte); keine Darstellung hier
@@ -128,12 +129,6 @@
     canvas.style.left = Math.floor((W - cw) / 2) + 'px'; canvas.style.top = Math.floor((Hh - ch) / 2) + 'px';
     if (world3d) { world3d.style.width = canvas.style.width; world3d.style.height = canvas.style.height; world3d.style.left = canvas.style.left; world3d.style.top = canvas.style.top; }   // M4: 3D-Welt in derselben CSS-Box
     Client.scale = scale;
-    const r = H.LOBBY_NAME_RECT;
-    nameInput.style.left = Math.floor((W - cw) / 2 + r.x * scale) + 'px';
-    nameInput.style.top = Math.floor((Hh - ch) / 2 + r.y * scale) + 'px';
-    nameInput.style.width = Math.floor(r.w * scale) + 'px';
-    nameInput.style.height = Math.floor(r.h * scale) + 'px';
-    nameInput.style.fontSize = Math.max(10, Math.floor(10 * scale)) + 'px';
     if (codeInput && H.LOBBY_CODE_RECT) {
       const q = H.LOBBY_CODE_RECT;
       codeInput.style.left = Math.floor((W - cw) / 2 + q.x * scale) + 'px';
@@ -221,7 +216,7 @@
     const ui = Client.ui;
     if (!ui.stack.length) {
       releaseAll();
-      try { if (document.activeElement === nameInput || (codeInput && document.activeElement === codeInput)) document.activeElement.blur(); canvas.focus(); } catch (e) { /* egal */ }
+      try { if (codeInput && document.activeElement === codeInput) document.activeElement.blur(); canvas.focus(); } catch (e) { /* egal */ }
       // Kai: das Spielmenü hält das Spiel nur solo an
       if (page === 'menu' && inGame() && soloNow()) { sendPause(true); ui.pauseSent = true; }
     }
@@ -448,7 +443,6 @@
   }
 
   // ------------------------------------------------------------------ Lobby-Aktionen
-  let helloTimer = null;
   const actions = {
     setColor(c) {
       Client.lobby.color = c; lsSet('sternenschicht.color', String(c));
@@ -469,6 +463,13 @@
       send({ t: P.C.READY || 'ready', ready: !m.ready });
       audio.play('ui_click');
     },
+    // CHA-01 C: Kleiderkammer (Charakterliste, Erstellung) als Menüseite über der Lobby; Zustand und Regeln liegen in Charaktere, Darstellung in KammerUi
+    openKammer() {
+      if (uiTop() === 'kammer') return;
+      if (!window.KammerUi || !Charaktere.oeffneListe().ok) { H.pushNotice('Charaktere noch nicht geladen', R.PAL.warn); return; }
+      uiPush('kammer'); audio.play('ui_click');
+    },
+    closeKammer() { if (window.Charaktere) Charaktere.schliesse(); if (uiTop() === 'kammer') { uiBack(); } },
     // S1: Overlays und Menü (Maus über Hud-Knöpfe)
     openWorlds(mode) { openWorlds(mode); },
     openOptions() { if (uiTop() !== 'options') { uiPush('options'); audio.play('ui_click'); } },
@@ -616,16 +617,8 @@
     leave() { send({ t: P.C.LEAVE || 'leave' }); },
     sfx(name) { audio.play(name); },
   };
-  nameInput.value = Client.lobby.name;
-  lsSet('sternenschicht.name', Client.lobby.name);   // Standardname bleibt über Neuladen gleich
-  nameInput.addEventListener('input', () => {
-    Client.lobby.name = nameInput.value.slice(0, 12);
-    lsSet('sternenschicht.name', Client.lobby.name);
-    clearTimeout(helloTimer);
-    helloTimer = setTimeout(() => { if (Client.lobby.name.trim()) Net.sendHello(); }, 500);
-  });
   Net.getHello = () => {
-    const h = { name: (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color };
+    const h = { name: (window.Charaktere && Charaktere.aktiverName()) || (Client.lobby.name || '').trim() || 'Crew', color: Client.lobby.color };
     if (Client.karte) h.karte = Client.karte;   // CHA-01 B1
     return h;
   };
@@ -2007,10 +2000,6 @@
 
   window.addEventListener('keydown', (e) => {
     initAudio();
-    if (document.activeElement === nameInput) {
-      if (e.key === 'Enter') { nameInput.blur(); Net.sendHello(); actions.toggleReady(); }
-      return;
-    }
     if (codeInput && document.activeElement === codeInput) {
       if (e.key === 'Enter') { e.preventDefault(); actions.submitCode(); }
       return;
@@ -2032,11 +2021,13 @@
       return;
     }
     // S1: offene Menüseite (Spielmenü, Optionen, Steuerung, Weltstände) bekommt alle Tasten
+    if (uiTop() === 'kammer') { Client.keys = {}; if (!Net.guard('KammerUi.taste', () => window.KammerUi && KammerUi.taste(e), false)) actions.closeKammer(); return; }   // CHA-01 C: modal, Eingaben gehören der Kammer
     if (uiTop()) { Client.keys = {}; Net.guard('Client.uiKey', () => uiKey(e)); return; }
     const st = Client.state, m = me();
     if (!st || st.phase === 'lobby' || !m) {
       if (Net.badCode && !m) { if (code === 'Enter') actions.submitCode(); return; }
       if (code === 'KeyO' && !e.repeat) { actions.openOptions(); return; }   // S1: Optionen auch in der Lobby
+      if (window.Tasten && Tasten.passt(e, 'charakter.oeffnen') && !e.repeat) { actions.openKammer(); return; }   // CHA-01 C: Charakterliste (Taste C)
       if (code === 'KeyF' && m && !e.repeat) { openWorlds('list'); return; }   // S1: Weltstand-Liste
       if (code === 'Enter') actions.toggleReady();
       if (code === 'KeyU' && m) actions.toggleSkipDrill();
@@ -2135,7 +2126,6 @@
     initAudio();
     const p = toCanvas(e);
     Client.mouse.x = p.x; Client.mouse.y = p.y;
-    if (document.activeElement === nameInput) nameInput.blur();
     if (codeInput && document.activeElement === codeInput) codeInput.blur();
     canvas.focus();
     if (e.button === 2) {
@@ -2355,7 +2345,7 @@
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
-    nameInput.style.display = lobby && (Net.status === 'open') && !codeMode && !uiTop() ? 'block' : 'none';
+    if (uiTop() === 'kammer' && !lobby) actions.closeKammer();   // CHA-01 C: die Runde startet, die Kammer schließt
     if (codeInput) {
       codeInput.style.display = codeMode ? 'block' : 'none';
       if (codeMode && Client.focusCode) { Client.focusCode = false; setTimeout(() => { try { codeInput.focus(); codeInput.select(); } catch (e) { /* egal */ } }, 0); }
@@ -2397,7 +2387,8 @@
     Net.guard('Hud.drawPause', () => H.drawPause(ctx, v, !!uiTop()));
     Net.guard('Hud.drawSaveSeal', () => H.drawSaveSeal(ctx, v));
     if (zerstoertOffen(Client.state)) Net.guard('Hud.drawSchiffZerstoert', () => H.drawSchiffZerstoert(ctx, v));   // SYS-01 A2b: über allen Stationen, unter den Menüseiten
-    if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
+    if (uiTop() === 'kammer') Net.guard('KammerUi.zeichne', () => KammerUi.zeichne(ctx, v));   // CHA-01 C: Charakterliste/Erstellung
+    else if (uiTop()) Net.guard('Hud.drawUi', () => H.drawUi(ctx, v, Client.ui));
     Net.guard('Hud.drawConnection', () => H.drawConnection(ctx, v));
     if (DEBUG) drawDebug(v);
     if (window.DevMock && DevMock.active) R.text(ctx, 'MOCK · Bild↑/↓ Ort · Pos1 Zone · Ende Reaktor · ' + (DevMock.stageName ? DevMock.stageName() : ''), VW / 2, v.me && v.me.console ? 1 : 1, { color: '#FF66CC', align: 'center' });
@@ -2499,6 +2490,25 @@
   }
 
   // ------------------------------------------------------------------ Start
+  // CHA-01 C: Der gewählte Charakter bestimmt Client.karte und den Namen im hello; jeder Wechsel (wählen, umbenennen, löschen, Erststart) sendet es neu.
+  // Der Katalog kommt per fetch (auch in 2D und ohne WebGL); ohne Katalog läuft das Spiel mit dem vorläufigen Namen weiter.
+  function startCharaktere() {
+    const Cx = window.Charaktere;
+    if (!Cx) return;
+    Cx.abonniere((karte) => {
+      if (!Client.debugKarte) Client.karte = karte;   // __game.setzeKarte (nur ?debug=1) hat Vorrang bis zum Neuladen
+      if (karte) Client.lobby.name = karte.name;
+      if (Net.isOpen()) Net.sendHello();
+    });
+    fetch('/voxel/assets/katalog/charakter.json', { cache: 'no-cache' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((kat) => {
+        if (!kat) return;
+        Cx.setzeKatalog(kat);
+        Cx.erststart({ altName: lsGet('sternenschicht.name', null), zufallsName: ZUFALLSNAME });
+      })
+      .catch((e) => Net.reportError('Charaktere.katalog', e));
+  }
   function boot() {
     layout();
     if (window.Art && typeof Art.init === 'function') Net.guard('Art.init', () => Art.init());
@@ -2509,10 +2519,11 @@
     G.debugCmd = (cmd, extra) => send(Object.assign({ t: 'debug', cmd }, extra || {}));
     // M2: Debug-Zeile parsen und senden (tune/kesh/squad/wake/shield/wound + alle bisherigen Befehle)
     G.dbg = (line) => { const msg = parseDebugLine(line); if (msg) send(msg); return msg; };
-    // CHA-01 B2: Prüf-Hilfe bis die Erstellung (Paket C) die Karte setzt – nur mit ?debug=1: __game.setzeKarte(karte) → Client.karte und neues hello
-    if (DEBUG) G.setzeKarte = (k) => { Client.karte = k || null; Net.sendHello(); return Client.karte; };
+    // CHA-01 B2: Prüf-Hilfe – nur mit ?debug=1: __game.setzeKarte(karte) → Client.karte und neues hello (überschreibt den gewählten Charakter bis zum nächsten Wechsel)
+    if (DEBUG) G.setzeKarte = (k) => { Client.debugKarte = true; Client.karte = k || null; Net.sendHello(); return Client.karte; };
     G.tune = (path, value) => G.dbg('tune' + (path ? ' ' + path : '') + (value != null ? ' ' + value : ''));
     G.parseDebugLine = parseDebugLine;
+    Net.guard('Client.charaktere', startCharaktere);
     Net.connect();
     requestAnimationFrame(frame);
   }
