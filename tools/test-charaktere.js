@@ -441,6 +441,41 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
     m4.spindSetzeWahl('kopf', 0); m4.spindWaehlePlatz('umhang'); m4.spindSetzeWahl('umhang', 1);
     ok(m4.speichereOutfit().ok && m4.aktiveKarte().outfit.umhang === 'fellumhang', 'freie Teile lassen sich weiter anziehen');
   }
+  // Anziehen ist kein Charakterwechsel (kein hello im Client), zieht aber den Client-Stand über den Outfit-Kanal nach
+  {
+    const sp5 = speicherErsatz(), gs5 = [], m5 = Modul.erzeuge({ speicher: sp5, Charakter: Ch, sende: (o) => gs5.push(o) });
+    const wechsel = [], outfits = [];
+    m5.abonniere((k) => wechsel.push(k && k.name)); m5.abonniereOutfit((k) => outfits.push(k));
+    m5.setzeKatalog(KAT); m5.legeAn({ name: 'Cato' });
+    const nachAnlegen = wechsel.length;
+    m5.oeffneSpind(); m5.spindWaehlePlatz('kopf'); m5.spindSetzeWahl('kopf', 1);
+    ok(m5.speichereOutfit().ok, 'Anziehen (Lauscher-Test) gelingt');
+    ok(wechsel.length === nachAnlegen, 'Anziehen meldet keinen Charakterwechsel (sonst ginge ein volles hello an den Server)');
+    ok(outfits.length === 1 && outfits[0].outfit.kopf === 'bordhelm' && outfits[0].name === 'Cato' && gs5.length === 1, 'Outfit-Lauscher kommt genau einmal mit der neuen Karte, der Server bekommt genau eine Meldung');
+    m5.waehle(m5.lies().gewaehlt);
+    ok(wechsel.length === nachAnlegen, 'ein späteres waehle derselben Karte meldet nichts (gemerkter Stand ist aktuell)');
+    m5.benenneUm(m5.lies().gewaehlt, 'Cato2');
+    ok(wechsel.length === nachAnlegen + 1 && wechsel[wechsel.length - 1] === 'Cato2', 'Umbenennen meldet weiter einen Wechsel');
+    // schon getragen: nichts speichern, nichts senden, nichts melden
+    const schreib5 = sp5.schreibzaehler;
+    const r5 = m5.speichereOutfit();
+    ok(r5.ok && r5.geaendert === false && sp5.schreibzaehler === schreib5 && gs5.length === 1 && outfits.length === 1 && m5.lies().sitzung.entwurf.hinweis === 'angezogen', 'unverändertes Outfit anziehen: kein Speichern, kein Senden, kein Melden');
+    m5.spindZuruecksetzen(); m5.spindWaehlePlatz('umhang'); m5.spindSetzeWahl('umhang', 1);
+    ok(m5.speichereOutfit().geaendert === true && gs5.length === 2 && outfits.length === 2, 'geändertes Outfit geht danach wieder durch');
+  }
+  // Spind vor dem Katalog geöffnet: Wunsch wird gemerkt und beim Eintreffen des Katalogs eingelöst (Zeichnen öffnet nichts)
+  {
+    const m6 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} });
+    ok(m6.oeffneSpind().ok === false && m6.lies().sitzung.entwurf === null, 'vor dem Katalog: Spind öffnet nicht');
+    m6.setzeKatalog(KAT);
+    ok(m6.lies().sitzung.seite === null, 'ohne Wunsch passiert beim Katalog nichts');
+    const m7 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} });
+    m7.oeffneSpind(); m7.setzeKatalog(KAT); ok(m7.lies().sitzung.seite === null, 'Katalog da, aber noch kein Charakter: Wunsch bleibt gemerkt'); m7.legeAn({ name: 'Cato' });
+    ok(m7.lies().sitzung.seite === 'spind' && m7.lies().sitzung.entwurf && m7.lies().sitzung.entwurf.modus === 'spind' && !m7.lies().sitzung.spindWartet, 'Wunsch vor dem Katalog: Spind öffnet, sobald der Katalog da ist');
+    const m8 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} });
+    m8.oeffneSpind(); m8.schliesseSpind(); m8.setzeKatalog(KAT); m8.legeAn({ name: 'Cato' });
+    ok(m8.lies().sitzung.seite === null, 'Spind zwischendurch geschlossen: kein Nachziehen mehr');
+  }
   // andere Wege schreiben das Outfit nicht: Entwurf der Erstellung ändert nichts am Outfit des Charakters
   const m3 = neu(speicherErsatz()); m3.legeAn({ name: 'Cato' }); m3.oeffneListe(); m3.beginneNeu(); m3.setzeWahl('frisur', 1);
   ok(!m3.spindSetzeWahl('kopf', 1).ok && !m3.spindBlaettere(1).ok && m3.aktiveKarte().outfit.kopf === 'keine', 'Spind-Actions greifen nicht in einen Erstellungs-Entwurf');

@@ -51,9 +51,18 @@
       if (j === letzteAktive) return;
       letzteAktive = j;
       for (const f of lauscher.slice()) { try { f(k); } catch (e) { /* ein Lauscher darf die Actions nicht stören */ } }
+      if (store.sitzung.spindWartet) oeffneSpind();   // der Spind wurde geöffnet, bevor Katalog und Charakter da waren: jetzt nachziehen
+    }
+    // Outfit-Wechsel (Anziehen im Spind) ist ein eigener Kanal: kein Charakterwechsel, also kein hello; die Lauscher ziehen nur ihren Stand der aktiven Karte nach.
+    const outfitLauscher = [];
+    function meldeOutfitWechsel() {
+      const k = aktiveKarte();
+      letzteAktive = JSON.stringify(k);   // der gemerkte Stand bleibt aktuell, ein späteres meldeWechsel() sieht kein „neues“ Outfit
+      for (const f of outfitLauscher.slice()) { try { f(k); } catch (e) { /* ein Lauscher darf die Actions nicht stören */ } }
     }
     const lies = () => store;
     const abonniere = (f) => { if (typeof f === 'function') lauscher.push(f); };
+    const abonniereOutfit = (f) => { if (typeof f === 'function') outfitLauscher.push(f); };
 
     // ------------------------------------------------------------------ Katalog-Sicht (rein lesend)
     function teileFuer(platz) {
@@ -380,15 +389,15 @@
     // ------------------------------------------------------------------ Actions: Spind (Outfit im Spiel wechseln)
     // Entwurf = das getragene Outfit des gewählten Charakters; der Cursor ist die Anprobe, erst `speichereOutfit` (Enter) zieht an.
     function oeffneSpind() {
-      const k = aktiveKarte();
-      if (!store.bereit || !k) return { ok: false, grund: 'katalog' };
-      const s = store.sitzung;
+      const k = aktiveKarte(), s = store.sitzung;
+      if (!store.bereit || !k) { s.spindWartet = true; aenderung(); return { ok: false, grund: 'katalog' }; }   // merkt sich den Wunsch; ladeListe() öffnet nach
+      s.spindWartet = false;
       s.seite = 'spind'; s.loeschFrage = null;
       s.entwurf = { modus: 'spind', id: store.gewaehlt, karte: k, platz: OUTFIT_PLAETZE[0], yaw: 0, hinweis: null };
       aenderung();
       return { ok: true };
     }
-    function schliesseSpind() { if (store.sitzung.seite === 'spind') schliesse(); return { ok: true }; }
+    function schliesseSpind() { store.sitzung.spindWartet = false; if (store.sitzung.seite === 'spind') schliesse(); return { ok: true }; }
     const spindEntwurf = () => { const e = entwurf(); return e && e.modus === 'spind' ? e : null; };
     function spindWahlIndex(platz) {
       const e = spindEntwurf();
@@ -438,7 +447,7 @@
     // Karte des Entwurfs für die Anprobe-Figur
     const spindKarte = () => { const e = spindEntwurf(); return e ? Ch.pruefeKarte(e.karte, katalog) : null; };
     // Enter: das Outfit des Entwurfs anziehen = EINZIGER Weg, der `outfit` einer gespeicherten Karte schreibt. Geprüft (Ch.pruefeOutfit), nur in den gewählten Charakter,
-    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello). Name, Gesicht, Frisur, Bart, Farben bleiben, wie sie sind.
+    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello: der Client-Stand zieht über abonniereOutfit nach). Name, Gesicht, Frisur, Bart, Farben bleiben, wie sie sind.
     function speichereOutfit() {
       const e = spindEntwurf();
       if (!e) return { ok: false, grund: 'kein-entwurf' };
@@ -446,20 +455,21 @@
       const c = store.liste.find((x) => x.id === store.gewaehlt);
       if (!c) return { ok: false, grund: 'unbekannt' };
       const outfit = Ch.pruefeOutfit(e.karte.outfit, katalog);
+      if (OUTFIT_PLAETZE.every((pl) => outfit[pl] === c.karte.outfit[pl])) { e.karte = klon(c.karte); e.hinweis = 'angezogen'; aenderung(); return { ok: true, geaendert: false, outfit: klon(outfit), gespeichert: store.speicherOk }; }   // schon getragen: nichts speichern, nichts senden
       // Teile, die nicht frei sind (Händler, Fund), lassen sich anprobieren, aber nicht anziehen (in CHA-01 ist alles frei)
       if (OUTFIT_PLAETZE.some((pl) => outfit[pl] !== c.karte.outfit[pl] && outfitTeileFuer(pl).some((t) => t.id === pl + '/' + outfit[pl] && t.herkunft && t.herkunft !== 'frei'))) { e.hinweis = 'gesperrt'; aenderung(); return { ok: false, grund: 'gesperrt' }; }
       c.karte.outfit = outfit;
       speichereListe();   // schlägt der Browser-Speicher fehl, gilt das Outfit trotzdem für die Sitzung (store.speicherOk false)
       e.karte = klon(c.karte); e.hinweis = 'angezogen'; aenderung();
-      meldeWechsel();
+      meldeOutfitWechsel();
       sende(klon(outfit));
-      return { ok: true, outfit: klon(outfit), gespeichert: store.speicherOk };
+      return { ok: true, geaendert: true, outfit: klon(outfit), gespeichert: store.speicherOk };
     }
 
     return {
       SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
       outfitTeileFuer, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
-      lies, abonniere, katalog: () => katalog, setzeKatalog, vorabName,
+      lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,
       legeAn, waehle, loesche, benenneUm, uebernimmAltenNamen, legeStandardAn, erststart, aktiveKarte, aktiverName,

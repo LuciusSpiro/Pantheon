@@ -259,6 +259,9 @@ async function integration() {
     ok(pa.name === 'Narbo' && pb.name === 'Bea' && pb.karte.name === 'Bea' && g.players.length === 4, `Runde: dasselbe hello mit derselben Karte lässt die Namen ohne Ziffer (${pa.name}, ${pb.name})`);
     for (const x of [a, b, cc, d]) x.karten.length = 0;
     const neuesOutfit = { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'bordhose', schuhe: 'germanenstiefel', haende: 'keine', umhang: 'fellumhang' };
+    b.send({ t: 'cmd', c: 'karte.outfit', outfit: neuesOutfit }); await sleep(200);
+    ok(a.karten.length === 0 && !eq(pb.karte.outfit, neuesOutfit), 'karte.outfit außerhalb des Spind-Pults wird ignoriert (CHA-01 D)');
+    pb.console = 'spind';   // am Spind-Pult (die Ortsregel selbst prüft tools/test-spind.js)
     b.send({ t: 'cmd', c: 'karte.outfit', outfit: neuesOutfit });
     await bis(() => a.karten.length && cc.karten.length && b.karten.length && d.karten.length);
     const ev = a.karten[0];

@@ -45,11 +45,14 @@ async function neuerKontext(browser, port, name, seed) {
   const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
   await ctx.addInitScript((s) => { try { if (s && !localStorage.getItem('pantheon.charaktere')) localStorage.setItem('pantheon.charaktere', s); } catch (e) { /* egal */ } }, seed);
   const page = await ctx.newPage();
+  const ws = [];   // WebSocket-Mitschnitt: { r: 'aus'|'ein', t: Nachrichtentyp, c?: cmd-Name }
+  const merke = (r) => ({ payload }) => { try { const m = JSON.parse(typeof payload === 'string' ? payload : payload.toString()); ws.push({ r, t: m.t, c: m.t === 'cmd' ? m.c : undefined }); } catch (e) { /* kein JSON */ } };
+  page.on('websocket', (w) => { w.on('framesent', merke('aus')); w.on('framereceived', merke('ein')); });
   page.on('pageerror', (e) => fehler.push(name + ' pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warning') fehler.push(name + ' ' + m.type() + ': ' + m.text().slice(0, 240)); });
   await page.goto(`http://127.0.0.1:${port}/?render=voxel&debug=1`);
   await page.waitForFunction(() => window.__game && __game.send && __game.state && window.VoxelRender && window.Charaktere && Charaktere.lies().bereit, null, { timeout: 180000 });
-  const c = { ctx, page, name };
+  const c = { ctx, page, name, ws };
   ALLE.push(c);
   return c;
 }
@@ -135,6 +138,12 @@ async function phaseSchiff(browser) {
     log('Spind offen: ' + JSON.stringify(await pultInfo(cs[0])));
     await sleep(2500);   // Figur und Vorschaubilder laden
     await bild(cs[0], 'spind-1920x1080-kopf-getragen');
+    // Hilfe im Spind: ? öffnet das Overlay, Esc schließt zuerst die Hilfe (nicht den Spind)
+    await cs[0].page.keyboard.down('Shift'); await taste(cs[0], 'Slash'); await cs[0].page.keyboard.up('Shift'); await sleep(800);
+    log('Hilfe offen: ' + await cs[0].page.evaluate(() => Pult.hilfe));
+    await bild(cs[0], 'spind-hilfe');
+    await taste(cs[0], 'Escape'); await sleep(400);
+    log('Esc mit Hilfe: Hilfe zu = ' + !(await cs[0].page.evaluate(() => Pult.hilfe)) + ', Spind noch offen = ' + (p1.console === 'spind'));
     await cs[0].page.setViewportSize({ width: 1280, height: 720 }); await sleep(1200);
     await bild(cs[0], 'spind-1280x720-kopf-getragen');
     await cs[0].page.setViewportSize({ width: W, height: H }); await sleep(1200);
@@ -156,10 +165,19 @@ async function phaseSchiff(browser) {
     await bild(cs[0], 'spind-platz-oberteil');
     await taste(cs[0], 'Digit8'); await sleep(800);
 
-    // 4) Anziehen
+    // 4) Anziehen: WebSocket-Mitschnitt (kein hello, kein zweites welcome, genau ein cmd karte.outfit), Spielerfarbe unverändert
+    const farbeVor = p1.color, wsVor = cs[0].ws.length, welcomeVor = cs[0].ws.filter((m) => m.r === 'ein' && m.t === 'welcome').length;
+    const logZeilen = []; g.logFn = (...a) => logZeilen.push(a.join(' '));
     await taste(cs[0], 'Enter');
     await warteBis(() => p1.karte.outfit.kopf === 'bordhelm' && p1.karte.outfit.umhang === 'fellumhang', 8000, 'Server hat das Outfit');
     await sleep(2500);
+    await sleep(1500);
+    const msgs = cs[0].ws.slice(wsVor), aus = msgs.filter((m) => m.r === 'aus'), ein = msgs.filter((m) => m.r === 'ein');
+    const zaehle = (l) => { const o = {}; l.forEach((m) => { const k = m.t + (m.c ? ':' + m.c : ''); o[k] = (o[k] || 0) + 1; }); return o; };
+    log('WS gesendet beim Anziehen: ' + JSON.stringify(zaehle(aus)));
+    log('WS empfangen beim Anziehen: ' + JSON.stringify(zaehle(ein)));
+    log('BELEG hello gesendet: ' + aus.filter((m) => m.t === 'hello').length + ', cmd karte.outfit: ' + aus.filter((m) => m.c === 'karte.outfit').length + ', welcome neu: ' + (cs[0].ws.filter((m) => m.r === 'ein' && m.t === 'welcome').length - welcomeVor));
+    log('BELEG Spielerfarbe vorher ' + farbeVor + ' nachher ' + p1.color + '; neue Server-Logzeilen mit "wieder verbunden": ' + logZeilen.filter((l) => /wieder verbunden/.test(l)).length);
     log('Nach Enter: Server-Outfit ' + JSON.stringify(p1.karte.outfit) + '; Entwurf ' + JSON.stringify((await pultInfo(cs[0])).entwurf));
     await bild(cs[0], 'spind-angezogen');
     // Esc verlässt

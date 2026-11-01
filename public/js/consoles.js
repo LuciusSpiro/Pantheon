@@ -153,6 +153,7 @@
       if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
       if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
       if (this.current === 'spind' && window.Charaktere) Charaktere.schliesseSpind();   // CHA-01 D: Esc/Verlassen ohne Anziehen verwirft die Anprobe
+      if (this.current === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten();   // CHA-01 D: eine offene Hilfe leuchtet nicht an der nächsten Station weiter (k.o., Schubs, Phasenwechsel)
     },
     denied(text) { R.uiDenied = { text, t: performance.now() }; if (this.view) this.view.actions.sfx('error'); },
 

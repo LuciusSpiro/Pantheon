@@ -2504,6 +2504,8 @@
       if (karte) Client.lobby.name = karte.name;
       if (Net.isOpen()) Net.sendHello();
     });
+    // Anziehen im Spind: nur Client.karte nachziehen (die Meldung `karte.outfit` schickt die Action selbst), kein hello
+    Cx.abonniereOutfit((karte) => { if (!Client.debugKarte) Client.karte = karte; });
     fetch('/voxel/assets/katalog/charakter.json', { cache: 'no-cache' })
       .then((r) => (r.ok ? r.json() : null))
       .then((kat) => {

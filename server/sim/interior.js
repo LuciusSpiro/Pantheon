@@ -590,7 +590,7 @@ function interactionsAt(game, p, tx, ty, own) {
       else if (bed) list.push({ kind: 'bed', blocked: 'Nicht deine Koje.' });
     }
     // CHA-01 D: Spind im eigenen Quartier (Raum q<Spielerfarbe>) öffnet das Spind-Pult; nur mit Charakterkarte (Bots haben keine), fremde Spinde bieten nichts an (kein Hinweis)
-    if (info.kind === 'locker' && p.karte) {
+    if (info.kind === 'locker' && game.hatCharakterkarte(p)) {
       const raum = W.Maps.roomAt(tx, ty);
       if (raum && raum.id === 'q' + p.color) list.push({ kind: 'locker' });
     }

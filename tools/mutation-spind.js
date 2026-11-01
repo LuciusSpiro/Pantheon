@@ -20,7 +20,7 @@ const IN = 'server/sim/interior.js', GA = 'server/game.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   [IN, "if (raum && raum.id === 'q' + p.color) list.push({ kind: 'locker' });", "if (raum) list.push({ kind: 'locker' });", 'Prüfung „eigenes Quartier“ entfernt (fremde Spinde öffnen)'],
-  [IN, "if (info.kind === 'locker' && p.karte) {", "if (info.kind === 'locker') {", 'Prüfung „hat eine Karte“ entfernt (Bots öffnen den Spind)'],
+  [IN, "if (info.kind === 'locker' && game.hatCharakterkarte(p)) {", "if (info.kind === 'locker') {", 'Prüfung „hat eine Karte“ entfernt (Bots öffnen den Spind)'],
   [IN, "case 'locker': return enterConsole(game, p, 'spind');", "case 'locker': return enterConsole(game, p, 'quartier');", 'Spind öffnet die Quartier-Konsole'],
   [GA, "if (p.console !== 'spind') return;", "", 'Ortsprüfung entfernt (karte.outfit überall)'],
   [GA, "if (p.console !== 'spind') return;", "if (!p.console) return;", 'Ortsprüfung nur „an irgendeiner Konsole“'],

@@ -286,8 +286,7 @@
   function spindZeichne(c, view) {
     aktuellView = view;
     F = PK.farben(P.skinId(view));
-    let e = C.lies().sitzung.entwurf;
-    if (!e || e.modus !== 'spind') { C.oeffneSpind(); e = C.lies().sitzung.entwurf; }
+    const e = C.lies().sitzung.entwurf;
     const spind = e && e.modus === 'spind' ? e : null;
     P.rahmen(c, view, { titel: KX.saeule.spind, S: KM.S, station: 'spind', anzeige: (cc, a) => {
       const T = KM.kachel;
@@ -311,6 +310,7 @@
       { taste: 'R', aktion: 'charakter.spind.zuruecksetzen', text: KX.knopf.zuruecksetzen, klick: () => C.spindZuruecksetzen() },
       { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.anziehen, haupt: true, gesperrt: !spind, klick: () => C.speichereOutfit() },
     ]);
+    P.zeichneHilfe(c);
     R.drawTooltip(c);
   }
   // true = Taste verbraucht. Esc und ? behandelt consoles.js (Pult-Station); hier nur Platz, Teil, Drehen, Zurücksetzen, Anziehen.
