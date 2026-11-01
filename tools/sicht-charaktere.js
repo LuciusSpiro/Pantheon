@@ -189,6 +189,9 @@ async function erstelle(page, name, plaetze) {
     const zweiter = await neuerKontext(browser, URL, () => { if (!sessionStorage.getItem('x')) { localStorage.setItem('sternenschicht.name', 'Brennus'); sessionStorage.setItem('x', '1'); } });
     await page.waitForFunction(() => (__game.state.players || []).length === 2, null, { timeout: 15000 });
     await zweiter.page.waitForFunction(() => (__game.state.players || []).length === 2, null, { timeout: 15000 });
+    // Wettlauf (CHA-01 F, Befund 8): der zweite Browser meldet sich zuerst ohne Karte (Charakterliste lädt noch), dann mit Karte; erst das zweite hello vergibt die Ziffer.
+    // Also auf den Endzustand warten, nicht auf „zwei Spieler“.
+    await page.waitForFunction(() => { const n = __game.state.players.map((p) => p.name); return n.includes('Brennus') && n.includes('Brennus 2'); }, null, { timeout: 15000 }).catch(() => null);
     const namen = await page.evaluate(() => __game.state.players.map((p) => p.name));
     ok(namen.includes('Brennus') && namen.includes('Brennus 2'), 'Doppelname: der Server hängt eine Ziffer an (' + namen.join(', ') + ')');
     await bild(page, '18-lobby-zwei-spieler');

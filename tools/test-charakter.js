@@ -348,6 +348,31 @@ async function integration() {
     ok(g.players[3].name === 'Aurelia 4' && d.welcome.karten.p4.name === 'Aurelia 4', 'vierter: Aurelia 4');
   });
 
+  // CHA-01 F (Befund 8): Der Browser sendet sein erstes hello oft noch ohne Karte (Charakterliste lädt asynchron) und danach dasselbe hello mit Karte. Zwischen beiden
+  // sieht man kurz zwei gleiche Namen (ohne Karte erzwingt der Server nichts, siehe unten); der Sichtlauf las genau in dieser Lücke. Der Endzustand muss eindeutig sein.
+  await mitServer(async (g, neu) => {
+    section('Doppelname: hello ohne Karte, dann dasselbe hello mit Karte');
+    await neu({ clientId: 'A', name: 'Brennus', color: 0, karte: Object.assign(klon(STD), { name: 'Brennus' }) });
+    const b = await neu({ clientId: 'B', name: 'Brennus', color: 1 });
+    ok(g.players.map((p) => p.name).join() === 'Brennus,Brennus', 'Zwischenzustand: ohne Karte noch zwei gleiche Namen (Lücke, die der Sichtlauf traf)');
+    b.send({ t: 'hello', code: CODE, clientId: 'B', name: 'Brennus', color: 1, karte: Object.assign(klon(STD), { name: 'Brennus' }) });
+    await bis(() => g.players[1].name === 'Brennus 2');
+    ok(g.players.map((p) => p.name).join() === 'Brennus,Brennus 2' && g.players[1].karte.name === 'Brennus 2', `nach dem hello mit Karte: Brennus, Brennus 2 (${g.players.map((p) => p.name).join(', ')})`);
+    b.send({ t: 'hello', code: CODE, clientId: 'B', name: 'Brennus', color: 1, karte: Object.assign(klon(STD), { name: 'Brennus 2' }) });
+    await sleep(150);
+    ok(g.players.map((p) => p.name).join() === 'Brennus,Brennus 2', 'erneutes hello mit dem vergebenen Namen: bleibt Brennus 2 (kein „Brennus 2 2“)');
+  });
+
+  // gleichzeitige hello mit derselben Karte: der Server verarbeitet nacheinander, es gibt nie zwei gleiche Namen mit Karte
+  await mitServer(async (g, neu) => {
+    section('Doppelname: vier hello mit Karte gleichzeitig');
+    const cs = await Promise.all(['A', 'B', 'C', 'D'].map((id, i) => neu({ clientId: id, name: 'Brennus', color: i, karte: Object.assign(klon(STD), { name: 'Brennus' }) })));
+    await bis(() => g.players.length === 4);
+    const namen = g.players.map((p) => p.name).sort();
+    ok(namen.join() === 'Brennus,Brennus 2,Brennus 3,Brennus 4' && new Set(namen.map((x) => x.toLowerCase())).size === 4, `vier gleichzeitige Spieler: vier verschiedene Namen (${namen.join(', ')})`);
+    ok(cs.every((c, i) => c.welcome.pid && c.welcome.karten[c.welcome.pid].name === g.players.find((p) => p.id === c.welcome.pid).name), 'jedes welcome trägt den vergebenen Namen');
+  });
+
   await mitServer(async (g, neu) => {
     section('Name ohne gültigen Kartennamen: Fallback folgt der Namensregel');
     await neu({ clientId: 'A', name: 'Bob!', color: 0, karte: Object.assign(klon(STD), { name: 'x' }) });
