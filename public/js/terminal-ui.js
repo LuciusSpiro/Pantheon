@@ -295,7 +295,7 @@
     if (!AB.angebot.length) return { zustand: 'leer', titel: AT('leer_titel'), text: AT('leer_text'), info: warnung ? { text: '', grund: warnung } : null };
     const gew = lageKarte(AB, a.lage), sperre = abgesagt();
     return {
-      zustand: 'angebot', hilfe: bedienbar && !sperre ? T.kappe('terminal.teil', '↑↓') + ' ' + AT('hilfe_waehlen') + ' · ' + T.kappe('terminal.annehmen', 'Ent') + ' ' + AT('hilfe_annehmen') + ' · ' + T.kappe('terminal.ablehnen', 'X') + ' ' + AT('hilfe_ablehnen') : '',
+      zustand: 'angebot', hilfe: bedienbar && !sperre ? T.kappe('terminal.teil', '↑↓') + ' ' + AT('hilfe_waehlen') + ' · ' + T.kappe('terminal.annehmen', 'Enter') + ' ' + AT('hilfe_annehmen') + ' · ' + T.kappe('terminal.ablehnen', 'X') + ' ' + AT('hilfe_ablehnen') : '',
       karten: AB.angebot.map((k) => Object.assign({}, k, { gewaehlt: !!gew && k.id === gew.id, onClick: bedienbar && !sperre ? () => { s.lageId = k.id; s.antwort = null; } : null })),
       info: { text: AT('angebot_info', { n: sprung(AB.rest) }), grund: warnung },
     };
@@ -348,7 +348,7 @@
     m.kopf = { ort: L.ort, art: 'hafen', marken: L.marks };
     m.brett = {
       titel: BR.kopf || TX.bereich, laufend: lauf, gewaehlt: gew ? gew.id : null, geruechte: BR.geruechte, leerText: '',
-      hilfe: bedienbar && gew ? window.PultAuftrag.text(lauf || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Ent'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
+      hilfe: bedienbar && gew ? window.PultAuftrag.text(lauf || !BR.ok ? 'hilfeGesperrt' : 'hilfe', { wahl: T.kappe('terminal.teil', '↑↓'), an: T.kappe('terminal.brettAnnehmen', 'Enter'), ab: T.kappe('terminal.brettAblehnen', 'X') }) : '',   // Annehmen gesperrt (läuft schon, kein Spielleiter): „Ent annehmen“ entfällt, „Ablehnen kostet nichts“ bleibt sichtbar
       scheitern: BR.scheitern,
       angebote: BR.angebote.map((k, i) => Object.assign({}, k, { nr: i + 1, kappe: T.kappe('terminal.brett' + (i + 1), String(i + 1)), onClick: bedienbar ? () => { s.brettId = k.id; s.antwort = null; } : null })),
       info: ant && !ant.ok ? { grund: ant.text } : Brett.frisch(lauf) ? { angenommen: lauf.titel } : null,
@@ -389,7 +389,7 @@
     const grundVon = (stufe) => !gew ? IT('kein_angebot') : bw(stufe) ? IT('gekauft') : L.marks < IN.preise[stufe] ? IT('zu_wenig_marken') : null;
     const nummer = (t, i) => (IN.themen.filter((q) => q.name === t.name).length > 1 ? ' ' + IN.themen.filter((q, j) => q.name === t.name && j <= i).length : '');   // zwei Themen derselben Art: 1, 2
     m.info = {
-      titel: IT('bereich'), hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.gerucht', 'Ent') + ' ' + IT('gerucht_name') + ' · ' + T.kappe('terminal.beleg', 'B') + ' ' + IT('beleg_name') : '',
+      titel: IT('bereich'), hilfe: bedienbar && gew ? T.kappe('terminal.teil', '↑↓') + ' wählen · ' + T.kappe('terminal.gerucht', 'Enter') + ' ' + IT('gerucht_name') + ' · ' + T.kappe('terminal.beleg', 'B') + ' ' + IT('beleg_name') : '',
       leer: IN.themen.length ? null : { titel: IT('angebot_kopf'), text: IT('kein_angebot') },   // keine Themen: das Terminal sagt es, es gibt nichts zu kaufen
       karten: IN.themen.map((t, i) => ({ id: t.id, name: t.name + nummer(t, i), sub: [t.gerucht ? IT('gerucht_name') + ' ' + IT('gekauft_kurz') : '', t.beleg ? IT('beleg_name') + ' ' + IT('gekauft_kurz') : ''].filter(Boolean).join(' · '), gewaehlt: !!gew && t.id === gew.id, onClick: bedienbar ? () => { s.infoId = t.id; s.antwort = null; } : null })),
       stufen: [{ name: IT('gerucht_name'), preis: IN.preise.gerucht, text: IT('gerucht_hinweis'), aktiv: false }, { name: IT('beleg_name'), preis: IN.preise.beleg, text: IT('beleg_hinweis'), aktiv: false }],
@@ -456,14 +456,13 @@
     return { preis, voll, stufen: { stufe: L.frei.stufe, ziel, stufen, sperre: voll ? null : L.sperre[ziel] || null, oeffnet: voll ? [] : opens, marken: [L.marks, voll || preis == null ? L.marks : L.marks - preis], voll,
       hinweis: voll ? 'Das Schiff ist voll ausgebaut.' : 'Die neuen Plätze sind danach leer. Bestücken kostet nichts, nur die Stufe kostet Marken.', energie: 'unverändert, bis bestückt' } };
   }
-  const KAUF_TEXT_W = 128;   // Platz für den Text im Hauptknopf (160 px minus Kappe „Ent“)
   const gross = (t) => String(t || '').replace(/^./, (c) => c.toUpperCase());   // der Server schickt „teurer: …“, angezeigt wird „Teurer: …“
-  // Text des Kaufknopfs (160 px, davon ~130 für den Text): mit Lagepreis „Torpedo kaufen · ↑15 M (sonst 10)“; passt das nicht, fällt erst „kaufen“, dann der Name weg (der Preis bleibt immer); gilt auch ohne Lagepreis (lange Namen liefen vorher über den Knopf)
+  // Text des Kaufknopfs (160 px, davon ~117 für den Text: Knopfbreite minus Kappe „Enter“, PultTerminal.hauptTextBreite): mit Lagepreis „Torpedo kaufen · ↑15 M (sonst 10)“; passt das nicht, fällt erst „kaufen“, dann der Name weg (der Preis bleibt immer); gilt auch ohne Lagepreis (lange Namen liefen vorher über den Knopf)
   function kaufText(sel) {
     const anders = sel.basis != null && sel.basis !== sel.price, pf = sel.teurer ? '↑' : sel.cheaper ? '↓' : '';
     const preis = anders ? pf + sel.price + ' M (sonst ' + sel.basis + ')' : sel.price + ' M', name = kurz(sel.name, 100);
     const vari = [name + ' kaufen · ' + preis, name + ' · ' + preis, name + ' ' + preis, name + ' ' + pf + sel.price + ' M (' + sel.basis + ')', preis];
-    return vari.slice(0, anders ? 5 : 2).find((v) => T.tw(v) <= KAUF_TEXT_W) || (anders ? preis : sel.price + ' M');
+    return vari.slice(0, anders ? 5 : 2).find((v) => T.tw(v) <= T.hauptTextBreite('kaufen')) || (anders ? preis : sel.price + ' M');
   }
   const fehlt = (preis, marks) => (preis != null && marks < preis ? 'Nicht genug Marken (fehlen ' + (preis - marks) + ')' : null);
 

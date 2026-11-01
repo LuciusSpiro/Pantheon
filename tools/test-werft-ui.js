@@ -24,7 +24,7 @@ win.window = win;
 win.Render = { PAL: {}, text() {}, drawTooltip() {} };
 win.Pult = {};
 const tokens = { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } };
-win.PultTerminal = { TOKENS: tokens, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+win.PultTerminal = { TOKENS: tokens, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
 // Handelszeilen wie Consoles.shopRows (nur die Felder, die das Terminal liest)
 win.Consoles = { shopRows(view) {
   const st = view.state, inv = st.inventory || {};
@@ -321,7 +321,7 @@ section('Tastenbelegung (tasten.js, Gruppe terminal)');
   const ids = ['terminal.platz1', 'terminal.platz9', 'terminal.modul1', 'terminal.modul4', 'terminal.teilHoch', 'terminal.teilRunter', 'terminal.bestaetigen', 'terminal.freischalten', 'terminal.ausbau', 'terminal.handel', 'terminal.werft', 'terminal.kaufen'];
   ok(ids.every((id) => Tasten.aktion(id) && Tasten.aktion(id).gruppe === 'terminal'), 'Aktionen der Gruppe terminal vorhanden');
   ok(Tasten.GRUPPEN.some((g) => g.id === 'terminal') && Tasten.konflikte('terminal').length === 0, 'Gruppe im Menü, keine Standardkonflikte');
-  ok(Tasten.kappe('terminal.bestaetigen') === 'Ent' && Tasten.kappe('terminal.modul4') === 'F4' && Tasten.kappe('terminal.freischalten') === 'F', 'Kappen: Ent, F4, F');
+  ok(Tasten.kappe('terminal.bestaetigen') === 'Enter' && Tasten.kappe('terminal.modul4') === 'F4' && Tasten.kappe('terminal.freischalten') === 'F', 'Kappen: Ent, F4, F');
   ok(Tasten.belegung('terminal.werft')[0] === 'KeyW' && Tasten.belegung('terminal.handel')[0] === 'KeyH', 'W = Werft, H = Handel');
   ok(Tasten.AKTIONEN.filter((a) => /^terminal\.platz/.test(a.id)).length === 9 && Tasten.AKTIONEN.filter((a) => /^terminal\.modul/.test(a.id)).length === 4, '9 Platz- und 4 Modultasten');
 }
@@ -349,8 +349,13 @@ section('Stufe am Rang: gesperrt mit Grund');
     const P2 = new Proxy({ FN: new Proxy({}, { get: (t, k) => 'fn:' + String(k) }), SKINS: { rom: new Proxy({}, { get: (t, k) => 'sk:' + String(k) }) }, mix: (a) => a, rgba: () => '#000' }, { get: (t, k) => (k in t ? t[k] : () => {}) });
     const w2 = { Render: R2, Pult: P2 }; w2.window = w2; vm.createContext(w2);
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'pult-terminal-tokens.js'), 'utf8'), w2, { filename: 'pult-terminal-tokens.js' });
-    w2.PultTerminal.zeichneStufen(ctx, { x: 0, y: 30, w: 260, h: 196 }, stufenModell); return rec; };
+    w2.PultTerminal.zeichneStufen(ctx, { x: 0, y: 30, w: 260, h: 196 }, stufenModell); zeichne.PT = w2.PultTerminal; return rec; };
   let rec = zeichne(m.stufen);
+  // CHA-01 F: Textplatz des Hauptknopfs kommt aus der echten Kappe (Skin-Regel: max(13, Kappe + 7), dazu 8 px), nicht aus einer festen Zahl; „Enter“ statt „Ent“ gibt 11 px weniger
+  { const PT = zeichne.PT, kw = (s) => Math.max(13, String(s).length * 6 + 7);
+    ok(PT.hauptTextBreite('kaufen') === 160 - kw('Enter') - 8, 'hauptTextBreite(kaufen) = Knopfbreite − Kappe „Enter“ − 8: ' + PT.hauptTextBreite('kaufen'));
+    ok(PT.hauptTextBreite('freischalten') === 160 - kw('F') - 8, 'hauptTextBreite(freischalten) mit Kappe F (kürzer, mehr Platz): ' + PT.hauptTextBreite('freischalten'));
+    ok(!/KAUF_TEXT_W\s*=\s*\d/.test(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'terminal-ui.js'), 'utf8')), 'terminal-ui.js: Textplatz des Kaufknopfs nicht mehr fest'); }
   ok(rec.some(([t, c]) => t === '! 180 M' && c === 'fn:warn') && rec.some(([t, c]) => t === '! 900 M' && c === 'fn:warn') && !rec.some(([t]) => t === '180 M'), 'Zeichnung: gesperrte Stufen 2 und 3 als "! Preis" in Warnfarbe');
   ok(rec.some(([t, c]) => t === 'Rang Centurio nötig' && c === 'fn:warn'), 'Zeichnung: Grundzeile "Rang Centurio nötig" in Warnfarbe im Block');
   g.rufErreicht = () => true; rec = zeichne(T.m().stufen);

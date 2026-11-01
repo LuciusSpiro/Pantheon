@@ -69,7 +69,7 @@ ok(T.kappe('captain.reiter1') === '1', "kappe Digit1 = '1'");
 ok(T.kappe('ops.waffe.beideSeiten') === 'Leer', "kappe Space = 'Leer'");
 ok(T.kappe('allgemein.verlassen') === 'Esc' && T.kappe('allgemein.station') === 'Tab', 'kappe Esc/Tab');
 ok(T.kappe('ops.glyphen.hoch') === '↑' && T.kappe('ops.glyphen.links') === '←', 'kappe Pfeile');
-ok(T.kappe('captain.funk.annehmen') === 'Ent', "kappe Enter = 'Ent'");
+ok(T.kappe('captain.funk.annehmen') === 'Enter', "kappe Enter = 'Enter'");
 ok(T.name('Numpad8') === 'Num 8' && T.name('Digit8') === '8' && T.name('Shift+KeyA') === 'Shift+A', 'name unterscheidet Ziffernblock');
 // Die Pixelschrift muss jede Kappe zeichnen können (Glyphentabelle in art.js)
 const art = fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'art.js'), 'utf8');

@@ -31,7 +31,7 @@ const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Config: 
 win.window = win;
 win.Render = { PAL: {}, text() {}, drawTooltip() {} };
 win.Pult = {};
-win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
 win.Consoles = { shopRows() { return []; }, denied() {} };
 vm.createContext(win);
 vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'absicht.js'), 'utf8'), win, { filename: 'absicht.js' });

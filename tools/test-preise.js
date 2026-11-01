@@ -318,7 +318,7 @@ section('Terminal (echte consoles.js und terminal-ui.js)', () => {
   const win = { Shared_Schiffskatalog: Katalog, Shared_Maps: Maps, Shared_Physics: Physics, Shared_Config: CONFIG, Shared_Protocol: Protocol, Shared_Locations: Locations, performance, Net: { reportError(w, e) { throw e; } } };
   win.window = win;
   win.Render = { PAL: pal, text() {}, drawTooltip() {} }; win.Hud = {}; win.Pult = {};
-  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, zeichneTerminal() {} };
+  win.PultTerminal = { TOKENS: { RASTER: { deckName: ['Mitteldeck', 'Oberdeck', 'Unterdeck'] } }, kappe: (a, e) => e, tw: (s) => String(s).length * 6, hauptTextBreite: () => 117, zeichneTerminal() {} };
   vm.createContext(win);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'consoles.js'), 'utf8'), win, { filename: 'consoles.js' });
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'js', 'terminal-ui.js'), 'utf8'), win, { filename: 'terminal-ui.js' });

@@ -89,7 +89,7 @@ const MUTATIONEN = [
   [PT, "hotkey: kappe('terminal.brett', 'O'), fn: 'nav', active: b.bereich === 'brett'", "hotkey: kappe('terminal.brett', 'B'), fn: 'nav', active: b.bereich === 'brett'", 'Knopf Brett zeigt die falsche Taste'],
   [PT, "kontur: !!au.kontur, active: !!au.active", "active: !!au.active", 'Kontur-Variante geht am Terminal verloren'],
   [PT, "if (m.bereich === 'brett') { zeichneKopf(", "if (m.bereich === 'brettX') { zeichneKopf(", 'zeichneTerminal zeichnet den Bereich Brett nicht'],
-  [PT, "brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Ent', fn: 'nav' },", "brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Ent', fn: 'weapon' },", 'Annehmen im Brett in der Waffenfarbe'],
+  [PT, "brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Enter', fn: 'nav' },", "brettAnnehmen: { aktion: 'terminal.brettAnnehmen', taste: 'Enter', fn: 'weapon' },", 'Annehmen im Brett in der Waffenfarbe'],
   // ---- pult-terminal-brett.js: Zeichnen
   [PB, "rect(c, x, y, w, h, FA.gefahrHell);", "", 'Bake ohne helle Streifen'],
   [PB, "if (a.vorschau && a.vorschau.gefahr) { const gx", "if (false) { const gx", 'Karte nennt die Gefahr nicht'],

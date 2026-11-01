@@ -170,7 +170,7 @@
   function brett(c, m) {
     const lauf = !!m.laufend, L = A.layout(lauf), B = L.bereich;
     txt(c, A.text('bereich'), B.x, L.titel.y, FA.angebot, titelO);
-    if ((m.angebote || []).length) txt(c, A.text('hilfe', { wahl: '↑↓', an: 'Ent', ab: 'X' }), B.x + B.w, L.titel.y, FA.dim, { align: 'right' });   // ohne Angebot keine Tastenzeile (im Spiel: echte Kappen über PultTerminal.kappe)
+    if ((m.angebote || []).length) txt(c, A.text('hilfe', { wahl: '↑↓', an: 'Enter', ab: 'X' }), B.x + B.w, L.titel.y, FA.dim, { align: 'right' });   // ohne Angebot keine Tastenzeile (im Spiel: echte Kappen über PultTerminal.kappe)
     if (lauf) laeuftStreifen(c, L.laeuft, m.laufend);
     const an = m.angebote || [];
     if (!an.length) leer(c, lauf ? { x: B.x, y: L.liste[0].y, w: B.w } : B, m);
@@ -189,7 +189,7 @@
     P.knopf(c, K.x, py, K.w, TA.handel.h, A.text('knopf'), { hotkey: 'O', fn: 'nav', active: true });
     const an = m.angebote || [], sel = an.find((a) => a.id === m.gewaehlt) || an[0];
     const gesperrt = !!m.laufend, kein = !sel;
-    P.knopf(c, TA.haupt.x, TA.haupt.y, TA.haupt.w, TA.haupt.h, A.text('annehmen'), { hotkey: 'Ent', fn: 'nav', disabled: gesperrt || kein, reason: gesperrt ? A.text('gesperrtGrund', { titel: m.laufend.titel }) : null });
+    P.knopf(c, TA.haupt.x, TA.haupt.y, TA.haupt.w, TA.haupt.h, A.text('annehmen'), { hotkey: 'Enter', fn: 'nav', disabled: gesperrt || kein, reason: gesperrt ? A.text('gesperrtGrund', { titel: m.laufend.titel }) : null });
     if (gesperrt) txt(c, A.text('gesperrt'), TA.hinweis.x, TA.hinweis.y, FA.bald);
     else if (!kein) txt(c, A.text('kostetNichts'), TA.hinweis.x, TA.hinweis.y, FA.laeuft);
     P.knopf(c, TA.ausbau.x, TA.ausbau.y, TA.ausbau.w, TA.ausbau.h, A.text('ablehnen'), { hotkey: 'X', fn: 'neutral', kontur: true, disabled: kein });

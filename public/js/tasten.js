@@ -321,9 +321,9 @@
   }
 
   // ---------------------------------------------------------------- Beschriftung
-  // Die Pixelschrift (Art GLYPHS) kennt Pfeile, aber kein ⇧ ␣ ↵ – daher 'Sh+A', 'Leer', 'Ent'.
+  // Die Pixelschrift (Art GLYPHS) kennt Pfeile, aber kein ⇧ ␣ ↵ – daher 'Sh+A', 'Leer'. „Enter“ ist ausgeschrieben (kein Symbol nötig, CHA-01 F: „Ent“ las sich als Abkürzung von Entf).
   const KAPPEN = {
-    Space: 'Leer', Enter: 'Ent', NumpadEnter: 'Ent', Tab: 'Tab', Escape: 'Esc', Backspace: 'Rück', Delete: 'Entf', Insert: 'Einfg',
+    Space: 'Leer', Enter: 'Enter', NumpadEnter: 'Enter', Tab: 'Tab', Escape: 'Esc', Backspace: 'Rück', Delete: 'Entf', Insert: 'Einfg',
     Home: 'Pos1', End: 'Ende', PageUp: 'BildA', PageDown: 'BildB',
     ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→',
     Equal: '=', Minus: '−', NumpadAdd: '+', NumpadSubtract: '−', NumpadMultiply: '*', NumpadDivide: '/', NumpadDecimal: ',',
@@ -365,7 +365,7 @@
     if (m) k = 'Num ' + m[1];
     else if (code === 'NumpadAdd') k = 'Num +';
     else if (code === 'NumpadSubtract') k = 'Num −';
-    else if (code === 'NumpadEnter') k = 'Num Ent';
+    else if (code === 'NumpadEnter') k = 'Num Enter';
     else if (code === 'Space') k = 'Leertaste';
     else if (code === 'Enter') k = 'Enter';
     else k = kappeVon(code);
