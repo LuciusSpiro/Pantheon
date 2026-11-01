@@ -623,7 +623,7 @@ class Game {
     p.input.mx = 0; p.input.my = 0; p.actDown = false; p.hold = null;
     if (p.console) interior.leaveConsole(this, p);
     if (this.phase === 'lobby') {
-      if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });   // CHA-01 Nacharbeit S1: die ID wird neu vergeben, die Mitspieler räumen die alte Karte
+      this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
       this.checkLobbyStart();
     } else if (p.zone === 'away') {
@@ -826,6 +826,10 @@ class Game {
   sendeKarte(p, auchLeer) {
     if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: p.karte });
     else if (auchLeer) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });
+  }
+  // Spieler verlässt die Lobby: Mitspieler vergessen seine Karte (k = null), sonst erbt der nächste mit derselben ID sie
+  raeumeKarte(p) {
+    if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });
   }
   hatCharakterkarte(p) { return !!p.karte; }   // Frage an game.js: die Karte selbst liest kein anderer Servercode (tools/test-trefferbox.js)
   karteOutfit(p, msg) {
