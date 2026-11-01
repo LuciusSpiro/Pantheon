@@ -9,13 +9,14 @@ const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-cha-'));
-for (const rel of ['shared/charakter.js', 'content/katalog/charakter.json', 'public/js/charaktere.js', 'public/js/kammer-ui.js', 'public/js/art.js', 'tools/test-charaktere.js']) {
+for (const rel of ['shared/charakter.js', 'content/katalog/charakter.json', 'public/js/charaktere.js', 'public/js/kammer-ui.js', 'public/js/menue-ui.js', 'public/js/art.js', 'tools/test-charaktere.js']) {
   fs.mkdirSync(path.dirname(path.join(TMP, rel)), { recursive: true });
   fs.copyFileSync(path.join(ROOT, rel), path.join(TMP, rel));
 }
 const C = 'public/js/charaktere.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
+  [C, "return t ? t.name : String(name || '');", "return String(name || '');", 'teilName liefert den Rohnamen statt des Katalognamens'],
   [C, "if (store.liste.length >= MAX) return { ok: false, grund: 'voll' };\n      const w = ", "if (store.liste.length >= MAX + 1) return { ok: false, grund: 'voll' };\n      const w = ", 'fünfter Charakter wird angenommen'],
   [C, "karte: Ch.pruefeKarte(e.karte, katalog) });", "karte: e.karte });", 'gelesene Karte wird nicht geprüft'],
   [C, "if (liste.length >= MAX) break;", "", 'Speicher mit zehn Einträgen wird ganz übernommen'],

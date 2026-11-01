@@ -80,8 +80,8 @@
   const kartenMap = () => (window.Client && Client.karten) || {};
   const aktiveKarte = () => (window.Charaktere ? Charaktere.aktiveKarte() : null);
   const spielerFarbe = (p) => ME.spieler(p && p.color != null ? p.color : 0);
-  function portraet(c, r, karte) { if (window.KammerUi && KammerUi.portraetIn) KammerUi.portraetIn(c, r, karte); else rect(c, r.x, r.y, r.w, r.h, MF.formPlatte); }
-  const oberteil = (karte) => (karte && karte.outfit && window.KammerUi && KammerUi.teilName ? KammerUi.teilName('oberteil', karte.outfit.oberteil) : '');
+  function portraet(c, r, karte) { if (window.KammerBausteine) KammerBausteine.portraetIn(c, r, karte, MF.formPlatte); else rect(c, r.x, r.y, r.w, r.h, MF.formPlatte); }
+  const oberteil = (karte) => (karte && karte.outfit && window.Charaktere ? Charaktere.teilName('oberteil', karte.outfit.oberteil) : '');
 
   // Modus der Lobby als Anzeigetext: { art, titel, satz }; mit gewähltem Weltstand der Weltstand
   function modusAnzeige(lob) {

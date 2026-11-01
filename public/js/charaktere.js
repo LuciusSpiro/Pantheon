@@ -92,6 +92,9 @@
       const f = katalog && katalog.farben;
       return f && Array.isArray(f[platz === 'haut' ? 'haut' : 'haar']) ? f[platz === 'haut' ? 'haut' : 'haar'] : [];
     }
+    // CHA-01 Nacharbeit Gesamt S3: Katalogteil und Anzeigename eines Teils (Platz + Teilname der Karte); unbekannt -> null bzw. der Rohname
+    const teil = (platz, name) => ((katalog && katalog.teile) || []).find((t) => t && t.id === platz + '/' + name) || null;
+    const teilName = (platz, name) => { const t = teil(platz, name); return t ? t.name : String(name || ''); };
     const anzahlOptionen = (platz) => (TEIL_PLAETZE.includes(platz) ? teileFuer(platz).length : farbenFuer(platz).length);
 
     // ------------------------------------------------------------------ Speicher (eine Stelle)
@@ -493,7 +496,7 @@
       SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
       outfitTeileFuer, kachelKarte, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
-      teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
+      teileFuer, farbenFuer, anzahlOptionen, teil, teilName, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,
       legeAn, waehle, loesche, benenneUm, uebernimmAltenNamen, legeStandardAn, erststart, aktiveKarte, aktiverName,
       oeffneListe, schliesse, setzeCursor, bewegeCursor, uebernimm, uebernimmOderNeu, neuAnlegen, loeschenAnfrage, loeschenAbbrechen,

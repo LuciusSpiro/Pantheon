@@ -6,7 +6,7 @@
 // CHA-01 D: der Spind an Bord ist eine Pult-Station (Konsole 'spind', consoles.js): spindZeichne(ctx, view) und spindTaste(e, view); Zustand im Store (sitzung.entwurf, modus 'spind'), Regeln in den spind*-Actions.
 (function () {
   'use strict';
-  const R = window.Render, P = window.Pult, PK = window.PultKammer, ME = window.Menue, C = window.Charaktere;
+  const KB_ = window.KammerBausteine, R = window.Render, P = window.Pult, PK = window.PultKammer, ME = window.Menue, C = window.Charaktere;
   const KT = PK.TOKENS, KM = KT.MASS, KX = KT.TEXT, FN = KT.FN;
 
   // Feste Texte dieser Oberfläche, die die Tokens nicht kennen (Test: jede Glyphe existiert in art.js)
@@ -40,33 +40,16 @@
   // Text, der in die Breite w passt (sonst mit Punkt gekürzt)
   function passend(s, w) { s = String(s); if (R.measure(s, 1) <= w) return s; while (s.length > 1 && R.measure(s + '.', 1) > w) s = s.slice(0, -1); return s + '.'; }
 
-  // ---------------------------------------------------------------- Bilder
-  const BILDER = {};   // Vorschaudatei -> Image
-  function vorschau(datei) {
-    if (!datei) return null;
-    let im = BILDER[datei];
-    if (!im) { im = BILDER[datei] = new Image(); im.src = '/voxel/sprites/' + datei; }
-    return im.complete && im.naturalWidth ? im : null;
-  }
+  // ---------------------------------------------------------------- Bilder (Bausteine: kammer-bausteine.js)
+  const vorschau = (datei) => KB_.vorschau(datei), bildIn = (c, im, r, oben) => KB_.bildIn(c, im, r, oben);
   // Kachelbild: das Teil am eigenen Kopf (live, wenn der Katalog dafür eine Karte liefert und 3D läuft), sonst die feste Vorschau
   function kachelBild(c, r, t) {
     const KB = window.KammerBild, lk = t.live && live3d() ? KB.bild(t.live.karte, 'portraet', t.live.yaw) : null;
     if (lk) { rect(c, r.x, r.y, r.w, r.h, F.figurGrund); bildIn(c, lk, r); } else bildIn(c, vorschau(t.vorschau), r);
   }
   function liveFuer(modus, platz, teilId) { const k = C.kachelKarte(modus, platz, teilId); return k ? { karte: k, yaw: (KM.kachelAnsicht[platz] || {}).yaw || 0 } : null; }
-  // Bild in das Rechteck einpassen (mittig, bei oben: oben bündig), geglättet (Quellbilder sind doppelt so groß wie das Fenster)
-  function bildIn(c, im, r, oben) {
-    if (!im) return;
-    const sw = im.width || im.naturalWidth, sh = im.height || im.naturalHeight;
-    const s = Math.min(r.w / sw, r.h / sh), w = sw * s, h = sh * s;
-    c.save(); c.imageSmoothingEnabled = true; c.imageSmoothingQuality = 'high';
-    c.beginPath(); c.rect(r.x, r.y, r.w, r.h); c.clip();
-    c.drawImage(im, Math.round(r.x + (r.w - w) / 2), Math.round(r.y + (oben ? 0 : (r.h - h) / 2)), Math.round(w), Math.round(h));
-    c.restore();
-  }
   const katalog = () => C.katalog();
-  const teil = (platz, name) => ((katalog() && katalog().teile) || []).find((t) => t.id === platz + '/' + name) || null;
-  const teilName = (platz, name) => { const t = teil(platz, name); return t ? t.name : String(name || ''); };
+  const teil = (platz, name) => C.teil(platz, name), teilName = (platz, name) => C.teilName(platz, name);
   const live3d = () => { const KB = window.KammerBild; return !!(KB && KB.moeglich()); };
   // Porträt (live) oder, solange es nicht da ist / ohne WebGL, der Ersatz: mit `platz` die Vorschau des Teils bzw. die Farbe der aktuellen Wahl dieses Platzes, sonst die Vorschau des Gesichts
   function portraet(c, r, karte, art, yaw, platz) {
@@ -417,6 +400,5 @@
   }
 
   // Für das Startmenü (menue-ui.js): Porträt einer Karte in ein Fenster (ohne Karte nur der Grund) und Teilname aus dem Katalog
-  function portraetIn(c, r, karte) { if (karte) portraet(c, r, karte, 'portraet'); else rect(c, r.x, r.y, r.w, r.h, F.figurGrund); }
-  window.KammerUi = { TEXT, zeichne, taste, spindZeichne, spindTaste, offen: () => !!C.lies().sitzung.seite, portraetIn, teilName };
+  window.KammerUi = { TEXT, zeichne, taste, spindZeichne, spindTaste, offen: () => !!C.lies().sitzung.seite };
 })();

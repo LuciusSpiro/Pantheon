@@ -508,6 +508,23 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(!m3.spindSetzeWahl('kopf', 1).ok && !m3.spindBlaettere(1).ok && m3.aktiveKarte().outfit.kopf === 'keine', 'Spind-Actions greifen nicht in einen Erstellungs-Entwurf');
 }
 
+// ---- Nacharbeit Gesamt S3: Teilname als Lesefunktion der Actions, keine Export-Brücke zwischen den Oberflächen
+{
+  const m = neu(speicherErsatz());
+  const t = KAT.teile.find((x) => x.platz === 'oberteil' && x.name !== x.id.split('/')[1]) || KAT.teile.find((x) => x.platz === 'oberteil');
+  const id = t.id.split('/')[1];
+  ok(m.teil('oberteil', id) && m.teil('oberteil', id).id === t.id, 'teil(platz, name) liefert das Katalogteil');
+  ok(m.teilName('oberteil', id) === t.name, 'teilName liefert den Anzeigenamen des Katalogs (' + t.name + ')');
+  ok(m.teil('oberteil', 'gibtsnicht') === null && m.teilName('oberteil', 'gibtsnicht') === 'gibtsnicht' && m.teilName('oberteil', null) === '', 'unbekanntes Teil: Rohname, null -> leer');
+  const ohneKat = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch });
+  ok(ohneKat.teil('oberteil', id) === null && ohneKat.teilName('oberteil', id) === id, 'ohne Katalog: kein Wurf, Rohname');
+  const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8');
+  const exp = ui.slice(ui.indexOf('window.KammerUi = {'));
+  ok(exp.indexOf('portraetIn') < 0 && exp.indexOf('teilName') < 0, 'KammerUi exportiert nur das Eigene (kein portraetIn, kein teilName)');
+  const menue = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menue-ui.js'), 'utf8');
+  ok(!/KammerUi/.test(menue.replace(/\/\/.*$/gm, '')), 'menue-ui.js greift nicht auf KammerUi zu');
+}
+
 // ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)
 {
   const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8').replace(/\r\n/g, '\n');
