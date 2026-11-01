@@ -1,6 +1,6 @@
 'use strict';
 // CHA-01 C: Test der Charakter-Actions (public/js/charaktere.js) mit einem localStorage-Ersatz in Node.
-// Anlegen bis 4, fünfter abgelehnt, wählen, löschen (gewählter, letzter), umbenennen, Altname-Migration, Erststart, kaputter Speicher, Persistenz über „Neuladen“, Erstellung (Entwurf).
+// Anlegen bis 4, fünfter abgelehnt, wählen, löschen (gewählter, letzter → Erststart-Charakter), umbenennen, Altname-Migration, Erststart, kaputter Speicher, Persistenz über „Neuladen“, Erstellung (Entwurf).
 // Aufruf: node tools/test-charaktere.js   (Exit 1 bei Fehlern; npm run test:charaktere)   Mutationsprobe: tools/mutation-charaktere.js
 const path = require('path');
 const fs = require('fs');
@@ -20,7 +20,7 @@ function speicherErsatz(start) {
   s.schreiben = (t) => { if (s.modus === 'kein-schreiben') return false; s.text = t; s.schreibzaehler++; return true; };
   return s;
 }
-const neu = (sp) => { const m = Modul.erzeuge({ speicher: sp, Charakter: Ch }); m.setzeKatalog(KAT); return m; };
+const neu = (sp, zufall) => { const m = Modul.erzeuge({ speicher: sp, Charakter: Ch, zufall }); m.setzeKatalog(KAT); return m; };
 const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
 
 // ---- Erststart ohne Alles / mit Altname
@@ -92,7 +92,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(m.waehle(ids[1]).ok && m.lies().gewaehlt === ids[1] && m.aktiverName() === NAMEN[1], 'wählen');
   ok(!m.waehle('gibtsnicht').ok && m.lies().gewaehlt === ids[1], 'unbekannte id wählen: abgelehnt, Auswahl bleibt');
   // Neuladen: neues Modul, gleicher Speicher
-  const m2 = neu(sp);
+  const m2 = neu(sp, () => 0.5);
   gleich(m2.lies().liste.map((c) => c.karte.name), NAMEN.slice(0, 4), 'Neuladen: alle vier da, gleiche Reihenfolge');
   ok(m2.lies().gewaehlt === ids[1], 'Neuladen: Auswahl bleibt');
   gleich(m2.lies().liste.map((c) => c.karte), m.lies().liste.map((c) => c.karte), 'Neuladen: Karten unverändert');
@@ -104,13 +104,21 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(!m2.loesche('gibtsnicht').ok && m2.lies().liste.length === 2, 'unbekannte id löschen: abgelehnt');
   // nach dem Löschen ist wieder Platz
   ok(m2.legeAn({ name: 'Neuer' }).ok && m2.lies().liste.length === 3, 'nach dem Löschen wieder anlegen');
-  // letzten löschen
+  // letzten löschen: es gilt der Erststart – ein Standard-Charakter mit Zufallsname ist gewählt und gespeichert
   const rest = m2.lies().liste.map((c) => c.id);
-  for (const id of rest) m2.loesche(id);
-  ok(m2.lies().liste.length === 0 && m2.lies().gewaehlt === null && m2.aktiveKarte() === null, 'letzten löschen ist erlaubt: keine Liste, nichts gewählt');
-  ok(JSON.parse(sp.text).liste.length === 0, 'leere Liste wird gespeichert');
-  // danach gilt der Erststart wieder
-  ok(neu(sp).erststart({ altName: 'Ragnar' }).quelle === 'alt', 'nach dem Löschen aller: Erststart-Regel gilt wieder');
+  let letzte;
+  for (const id of rest) letzte = m2.loesche(id);
+  ok(letzte.ok && typeof letzte.ersatz === 'string', 'letzten löschen: Rückgabe nennt den Ersatz-Charakter');
+  ok(m2.lies().liste.length === 1 && m2.lies().gewaehlt === letzte.ersatz && !rest.includes(letzte.ersatz), 'letzten löschen: genau ein neuer Charakter, gewählt');
+  gleich(m2.aktiveKarte(), Ch.standardKarte('Crew-550', KAT), 'Ersatz: Standardaussehen, Zufallsname nach der Namensregel (Crew-550 bei zufall 0.5)');
+  ok(Ch.pruefeName(m2.aktiverName()) === m2.aktiverName() && m2.lies().sitzung.cursor === 0, 'Ersatzname erfüllt die Namensregel, Cursor auf Platz 1');
+  ok(JSON.parse(sp.text).liste.length === 1 && JSON.parse(sp.text).gewaehlt === letzte.ersatz, 'Ersatz wird gespeichert');
+  // einen von mehreren löschen legt nichts an
+  m2.legeAn({ name: 'Zwei' }); const vorher = m2.lies().liste.length; m2.loesche(m2.lies().liste[0].id);
+  ok(m2.lies().liste.length === vorher - 1 && !m2.loesche('gibtsnicht').ersatz, 'nicht der letzte: kein Ersatz');
+  // ohne Zufallsquelle im Test: echter Zufall liefert trotzdem einen gültigen Namen
+  const mz = neu(speicherErsatz()); mz.legeAn({ name: 'Eins' }); mz.loesche(mz.lies().gewaehlt);
+  ok(/^Crew-\d{3}$/.test(mz.aktiverName()), 'Zufallsname hat die Form Crew-NNN: ' + mz.aktiverName());
 }
 
 // ---- Umbenennen
@@ -186,7 +194,8 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.waehle(a); m.waehle(a); m.benenneUm(a, 'Livia'); m.loesche(b);
   gleich(gesehen, ['Aurelia', 'Brennus', 'Aurelia', 'Livia'], 'Wechsel und Umbenennen melden, Wiederholung und Löschen eines anderen nicht');
   m.loesche(a);
-  ok(gesehen[gesehen.length - 1] === null, 'letzter gelöscht: Wechsel auf „keiner“ gemeldet');
+  ok(gesehen.length === 5 && /^Crew-\d{3}$/.test(gesehen[4]), 'letzter gelöscht: Wechsel auf den Ersatz-Charakter gemeldet, nie auf „keiner“ (der Server behielte sonst die alte Karte)');
+  ok(!gesehen.includes(null), 'Lauscher bekam nie null');
 }
 
 // ---- Liste: Cursor, Übernehmen, Löschen mit Rückfrage
@@ -258,6 +267,108 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(m.aktiverName() === 'Ragnar' && m.lies().sitzung.seite === 'liste', 'Esc verwirft');
   m.setzeCursor(2); ok(!m.beginneUmbenennen().ok, 'Umbenennen auf freiem Platz: nichts');
   ok(neu(sp).aktiverName() === 'Ragnar', 'alles bleibt über Neuladen');
+}
+
+// ---- Outfit bleibt erhalten (Spind in Paket D schreibt es; Liste, Umbenennen und Wählen dürfen es nie zurücksetzen)
+{
+  const OUTFIT = { kopf: 'bordhelm', umhang: 'fellumhang' };
+  const karte = Ch.pruefeKarte(Object.assign(Ch.standardKarte('Aurelia', KAT), { haut: 2, outfit: Object.assign({}, Ch.standardKarte('x', KAT).outfit, OUTFIT) }), KAT);
+  ok(karte.outfit.kopf === 'bordhelm' && karte.outfit.umhang === 'fellumhang', 'Vorbedingung: Nicht-Standard-Outfit übersteht pruefeKarte');
+  const standardOutfit = Ch.standardKarte('x', KAT).outfit;
+  ok(JSON.stringify(karte.outfit) !== JSON.stringify(standardOutfit), 'Vorbedingung: Outfit weicht vom Standard ab');
+  const stand = () => JSON.stringify({ v: 1, gewaehlt: 'a', liste: [{ id: 'a', karte }, { id: 'b', karte: Ch.standardKarte('Zweiter', KAT) }] });
+  const sp = speicherErsatz(stand()), m = neu(sp);
+  gleich(m.lies().liste[0].karte.outfit, karte.outfit, 'Laden: Outfit unverändert');
+  const ohneName = (k) => JSON.stringify(Object.assign({}, k, { name: '' }));
+  ok(m.benenneUm('a', 'Livia').ok, 'benenneUm');
+  gleich(m.lies().liste[0].karte.outfit, karte.outfit, 'benenneUm: Outfit bleibt');
+  ok(m.waehle('b').ok && m.waehle('a').ok, 'waehle (hin und zurück)');
+  gleich(m.lies().liste[0].karte.outfit, karte.outfit, 'waehle: Outfit bleibt');
+  gleich(m.aktiveKarte().outfit, karte.outfit, 'aktive Karte (geht ins hello) trägt das Outfit');
+  // Umbenennen über den Entwurf
+  m.oeffneListe(); m.setzeCursor(0);
+  ok(m.beginneUmbenennen().ok, 'F2'); m.nameLoeschen(); m.nameZeichen('a');
+  const vorEntwurf = JSON.stringify(m.lies().liste[0].karte);
+  ok(!m.setzeWahl('haut', 0).ok && !m.setzeWahl('frisur', 1).ok && !m.waehlePlatz('bart').ok && !m.naechsterPlatz(1).ok && !m.blaettere(1).ok, 'Umbenennen: setzeWahl/waehlePlatz/naechsterPlatz/blaettere lehnen ab');
+  ok(m.lies().sitzung.entwurf.karte.haut === 2 && m.lies().sitzung.entwurf.karte.frisur === karte.frisur, 'Umbenennen: Aussehen im Entwurf unverändert');
+  gleich(m.lies().sitzung.entwurf.karte.outfit, karte.outfit, 'Umbenennen: Outfit im Entwurf unverändert');
+  ok(m.speichereEntwurf().ok, 'Umbenennen speichert');
+  gleich(m.lies().liste[0].karte.outfit, karte.outfit, 'speichereEntwurf (umbenennen): Outfit bleibt');
+  ok(ohneName(m.lies().liste[0].karte) === ohneName(JSON.parse(vorEntwurf)), 'speichereEntwurf (umbenennen): nur der Name hat sich geändert');
+  // Neuladen
+  const m2 = neu(sp);
+  gleich(m2.lies().liste[0].karte.outfit, karte.outfit, 'Neuladen: Outfit bleibt');
+  gleich(m2.lies().liste[0].karte, m.lies().liste[0].karte, 'Neuladen: ganze Karte gleich');
+  // Neu-Erstellung bleibt Standard-Outfit (der Spind kommt später), ändert das Outfit anderer nicht
+  m2.beginneNeu(); for (const z of 'Neu') m2.nameZeichen(z); m2.nameFertig(); m2.setzeWahl('haut', 1);
+  ok(m2.speichereEntwurf().ok, 'neue Erstellung');
+  gleich(m2.lies().liste[2].karte.outfit, standardOutfit, 'Erstellung: neuer Charakter trägt das Standard-Outfit');
+  gleich(m2.lies().liste[0].karte.outfit, karte.outfit, 'Erstellung: Outfit des anderen bleibt');
+}
+
+// ---- Eingaben im Schreibmodus und Liste als Actions (die Oberfläche bildet nur Tasten darauf ab)
+{
+  const m = neu(speicherErsatz());
+  // Enter im Schreibmodus: Neu -> nur Schreiben beenden (Name gültig) / Hinweis (Name ungültig); Umbenennen -> speichern
+  m.beginneNeu();
+  ok(!m.nameBestaetigen().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.lies().sitzung.entwurf.nameEdit && m.lies().liste.length === 0, 'nameBestaetigen (neu, leer): Hinweis, Schreiben bleibt an, nichts gespeichert');
+  for (const z of 'Ragnar') m.nameZeichen(z);
+  ok(m.nameBestaetigen().ok && !m.lies().sitzung.entwurf.nameEdit && m.lies().liste.length === 0 && m.lies().sitzung.seite === 'erstellung', 'nameBestaetigen (neu, gültig): Schreiben aus, noch nicht gespeichert');
+  // Esc im Schreibmodus: Neu mit Name -> nur Schreiben beenden, Neu ohne Name -> verwerfen
+  m.nameBearbeiten(true);
+  ok(m.nameAbbrechen().ok && !m.lies().sitzung.entwurf.nameEdit && m.lies().sitzung.seite === 'erstellung' && m.lies().sitzung.entwurf.name === 'Ragnar', 'nameAbbrechen (neu, mit Namen): Schreiben aus, Entwurf bleibt');
+  m.nameBearbeiten(true); while (m.lies().sitzung.entwurf.name.length) m.nameLoeschen();
+  ok(m.nameAbbrechen().ok && m.lies().sitzung.seite === 'liste' && m.lies().sitzung.entwurf === null, 'nameAbbrechen (neu, ohne Namen): Entwurf verworfen, zurück in die Liste');
+  ok(m.nameAbbrechen().grund === 'kein-entwurf' && m.nameBestaetigen().grund === 'kein-entwurf', 'ohne Entwurf: abgelehnt, kein Wurf');
+  // Umbenennen
+  const id = m.legeAn({ name: 'Hrolf' }).id; m.oeffneListe(); m.setzeCursor(0);
+  m.beginneUmbenennen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen();
+  ok(!m.nameBestaetigen().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.aktiverName() === 'Hrolf' && m.lies().sitzung.seite === 'erstellung', 'nameBestaetigen (umbenennen, leer): Hinweis, Name bleibt');
+  for (const z of 'Sven') m.nameZeichen(z);
+  ok(m.nameBestaetigen().ok && m.aktiverName() === 'Sven' && m.lies().sitzung.seite === 'liste', 'nameBestaetigen (umbenennen, gültig): speichert und zurück in die Liste');
+  m.beginneUmbenennen(); m.nameZeichen('x');
+  ok(m.nameAbbrechen().ok && m.aktiverName() === 'Sven' && m.lies().sitzung.seite === 'liste' && m.lies().sitzung.entwurf === null, 'nameAbbrechen (umbenennen): verwirft, Name bleibt');
+  // Enter in der Liste: übernehmen oder (freier Platz) neu anlegen
+  m.legeAn({ name: 'Zwei' });
+  m.oeffneListe(); m.setzeCursor(0);
+  const r1 = m.uebernimmOderNeu();
+  ok(r1.ok && r1.aktion === 'uebernommen' && r1.id === id && m.lies().gewaehlt === id && m.lies().sitzung.seite === 'liste', 'uebernimmOderNeu (belegt): übernimmt');
+  m.setzeCursor(3);
+  const r2 = m.uebernimmOderNeu();
+  ok(r2.ok && r2.aktion === 'neu' && m.lies().sitzung.seite === 'erstellung' && m.lies().sitzung.entwurf.modus === 'neu' && m.lies().gewaehlt === id, 'uebernimmOderNeu (frei): öffnet die Erstellung, wählt nichts');
+  m.verwirfEntwurf();
+  // alle Plätze belegt: Meldung 'voll' im Store, keine Erstellung
+  m.legeAn({ name: 'Drei' }); m.legeAn({ name: 'Vier' });
+  m.oeffneListe(); m.setzeCursor(2);
+  ok(m.lies().sitzung.meldung === null, 'keine Meldung vorab');
+  const r3 = m.neuAnlegen();
+  ok(!r3.ok && r3.grund === 'voll' && m.lies().sitzung.seite === 'liste' && m.lies().sitzung.meldung && m.lies().sitzung.meldung.grund === 'voll' && typeof m.lies().sitzung.meldung.zeit === 'number', 'neuAnlegen bei vier Charakteren: Meldung voll im Store, Liste bleibt');
+  ok(m.neuAnlegen().grund === 'voll', 'wiederholt dasselbe');
+  m.loesche(m.lies().liste[3].id); m.oeffneListe();
+  ok(m.neuAnlegen().ok && m.lies().sitzung.seite === 'erstellung', 'mit freiem Platz öffnet die Erstellung');
+}
+
+// ---- Speicherfehler ist im Store sichtbar (Oberfläche zeigt die Meldung in der Charakterliste)
+{
+  const sp = speicherErsatz(), m = neu(sp);
+  ok(m.lies().speicherOk === true, 'Speicher ok: speicherOk true');
+  m.legeAn({ name: 'Eins' });
+  ok(m.lies().speicherOk === true && sp.schreibzaehler === 1, 'Schreiben gelingt: speicherOk bleibt true');
+  sp.modus = 'kein-schreiben';
+  const r = m.legeAn({ name: 'Zwei' });
+  ok(r.ok && m.lies().speicherOk === false && m.lies().liste.length === 2, 'Schreiben scheitert: speicherOk false, Charakter gilt für die Sitzung');
+  const rev = m.lies().rev;
+  m.benenneUm(m.lies().gewaehlt, 'Zwei B');
+  ok(m.lies().speicherOk === false && m.lies().rev > rev, 'bleibt false, solange es scheitert');
+  m.loesche(m.lies().liste[0].id);
+  ok(m.lies().speicherOk === false, 'auch nach Löschen noch false');
+  sp.modus = 'ok';
+  m.waehle(m.lies().gewaehlt);
+  ok(m.lies().speicherOk === true, 'Schreiben gelingt wieder: speicherOk true');
+  // Ersatz-Charakter im kaputten Speicher
+  const sp2 = speicherErsatz(); sp2.modus = 'kein-schreiben';
+  const m2 = neu(sp2); m2.legeAn({ name: 'Solo' }); m2.loesche(m2.lies().gewaehlt);
+  ok(m2.lies().liste.length === 1 && m2.lies().speicherOk === false, 'letzten löschen bei Speicherfehler: Ersatz da, speicherOk false');
 }
 
 // ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)

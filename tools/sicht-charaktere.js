@@ -96,12 +96,17 @@ async function erstelle(page, name, plaetze) {
     await taste(page, 'c');
     ok((await store(page)).seite === 'liste', 'Taste C öffnet die Charakterliste');
     await bild(page, '03-liste-ein-charakter');
-    // den automatischen Charakter löschen (zweimal Entf = Rückfrage, dann weg), danach ist die Liste leer
+    // den automatischen Charakter löschen (zweimal Entf = Rückfrage, dann weg): es gilt wieder der Erststart, ein neuer Standard-Charakter mit Zufallsnamen ist gewählt und gesendet
+    const alt = await store(page);
     await taste(page, 'Delete'); await bild(page, '04-liste-loeschfrage'); await taste(page, 'Delete');
     s = await store(page);
-    ok(s.n === 0 && s.gewaehlt === null, 'letzten Charakter löschen (Rückfrage, dann weg): leere Liste');
-    ok(await page.evaluate(() => Charaktere.aktiveKarte() === null && __game.client.karte === null), 'nichts gewählt: keine Karte im Client');
-    await bild(page, '05-liste-leer');
+    ok(s.n === 1 && s.gewaehlt && s.gewaehlt !== alt.gewaehlt && /^Crew-\d{3}$/.test(s.namen[0]), 'letzten Charakter löschen (Rückfrage, dann weg): neuer Standard-Charakter mit Zufallsnamen (' + s.namen[0] + ') ist gewählt');
+    ok(JSON.stringify(s.karten[0]) === JSON.stringify(Ch.standardKarte(s.namen[0], KAT)), 'Ersatz-Charakter: Standardaussehen und Standard-Outfit');
+    ok(await page.evaluate(() => __game.client.karte && __game.client.karte.name === Charaktere.aktiverName()), 'Client.karte trägt den Ersatz-Charakter (nicht null)');
+    await page.waitForFunction(() => (__game.state.players || []).some((p) => p.id === __game.pid && p.name === Charaktere.aktiverName()), null, { timeout: 10000 });
+    await page.waitForFunction(() => { const k = __game.client.karten[__game.pid]; return k && k.name === Charaktere.aktiverName(); }, null, { timeout: 10000 });
+    ok(g.players.length === 1 && g.players[0].name === s.namen[0] && g.players[0].karte && g.players[0].karte.name === s.namen[0], 'Server hat den Ersatz-Charakter (Spielername und Karte), nicht mehr den gelöschten (' + alt.namen[0] + ')');
+    await bild(page, '05-liste-ersatz');
     // Erstellung: erst nur ansehen
     await taste(page, 'n');
     await page.keyboard.type('Aurelia', { delay: 15 });
@@ -123,12 +128,16 @@ async function erstelle(page, name, plaetze) {
     await bild(page, '10-erstellung-name-ungueltig');
     ok(await page.evaluate(() => Charaktere.lies().sitzung.entwurf.hinweis === 'name'), 'ungültiger (leerer) Name: Hinweis');
     await taste(page, 'Escape');   // Schreibmodus ist an: Esc verwirft bei leerem Namen
-    ok((await store(page)).seite === 'liste' && (await store(page)).n === 0, 'Esc verwirft die Erstellung');
+    ok((await store(page)).seite === 'liste' && (await store(page)).n === 1, 'Esc verwirft die Erstellung');
 
     // vier Charaktere mit verschiedenem Aussehen
     await erstelle(page, 'Aurelia', [['9', 1], ['6', 1]]);
     await erstelle(page, 'Brennus', [['8', 1], ['2', 1], ['9', 2], ['6', 3]]);
     await erstelle(page, 'Kaeso', [['5', 1], ['8', 2], ['9', 3], ['6', 2]]);
+    // vier Plätze belegt (Zufalls-Charakter + drei): den Zufalls-Charakter auf Platz 1 löschen, dann Livia anlegen
+    ok((await store(page)).n === 4, 'Zufalls-Charakter und drei neue: vier');
+    await taste(page, '1'); await taste(page, 'Delete'); await taste(page, 'Delete');
+    ok((await store(page)).namen.join() === 'Aurelia,Brennus,Kaeso', 'Zufalls-Charakter gelöscht (Auswahl bleibt bei Kaeso)');
     await erstelle(page, 'Livia', [['5', 1], ['9', 1]]);
     s = await store(page);
     ok(s.n === 4 && s.namen.join() === 'Aurelia,Brennus,Kaeso,Livia' && s.gewaehlt === (await page.evaluate(() => Charaktere.lies().liste[3].id)), 'vier Charaktere angelegt, der letzte ist gewählt');
@@ -139,6 +148,7 @@ async function erstelle(page, name, plaetze) {
     await taste(page, 'n');
     s = await store(page);
     ok(s.n === 4 && s.seite === 'liste', 'fünfter Charakter: Erstellung öffnet nicht');
+    ok(await page.evaluate(() => { const m = Charaktere.lies().sitzung.meldung; return !!m && m.grund === 'voll'; }), 'Meldung „voll“ steht im Store (die Oberfläche zeigt den Text)');
     await bild(page, '12-fuenfter-abgelehnt');
     // Neuladen
     await lade();
@@ -208,8 +218,47 @@ async function erstelle(page, name, plaetze) {
     await taste(page, 'n'); await page.keyboard.type('Zwei', { delay: 15 }); await taste(page, 'Enter'); await taste(page, '8'); await taste(page, 'ArrowRight');
     await bild(page, '22-erstellung-2d');
     ok(await page.evaluate(() => window.KammerBild.info().kontext === 0), '2D: kein zusätzlicher WebGL-Kontext');
-    await taste(page, 'Escape');
+    // Befund 2: der Ersatz zeigt die Wahl des aktuellen Platzes – das Figurfenster ändert sich beim Blättern (Frisur, Bart, Farben), der Hinweis sagt „Vorschau ohne 3D“
+    const fenster = async () => { const f = await page.evaluate(() => { const r = PultKammer.figur(PultKammer.rahmen().anzeige); const cv = document.getElementById('game'); const k = cv.getBoundingClientRect().width / 640; return { x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k }; }); await page.waitForTimeout(250); return page.screenshot({ clip: { x: Math.round(f.x), y: Math.round(f.y), width: Math.round(f.w), height: Math.round(f.h) } }); };
+    const gleichBild = (a, b) => Buffer.compare(a, b) === 0;
+    for (const [ziffer, name] of [['8', 'Frisur'], ['2', 'Bart'], ['5', 'Gesicht'], ['9', 'Haarfarbe'], ['6', 'Hautton']]) {
+      await taste(page, ziffer); await page.waitForTimeout(300);
+      const a = await fenster(); await taste(page, 'ArrowRight'); const b = await fenster();
+      ok(!gleichBild(a, b), '2D: Figurfenster ändert sich beim Blättern (' + name + ')');
+      fs.writeFileSync(path.join(SHOTS, '22-2d-fenster-' + name.toLowerCase() + '.png'), b);
+    }
+    ok(await page.evaluate(() => KammerUi.TEXT.erstellung.hinweisOhne3d === '←→↑↓ wählen · Vorschau ohne 3D' && !KammerBild.moeglich()), '2D: Hinweis „Vorschau ohne 3D“ statt „die Figur zeigt es sofort“');
+    await taste(page, 'Escape');   // Namensfeld ist aus: Esc verwirft
+    ok((await store(page)).seite === 'liste', '2D: Esc zurück in die Liste');
+    // Befund 6: Speicherfehler (privater Modus, Speicher voll) ist in der Liste sichtbar
+    await page.evaluate(() => { Storage.prototype.setItem = function () { throw new Error('QuotaExceededError'); }; });
+    await page.evaluate(() => Charaktere.waehle(Charaktere.lies().gewaehlt));
+    ok(await page.evaluate(() => Charaktere.lies().speicherOk === false), 'Speicher scheitert: speicherOk false im Store');
+    await bild(page, '23-liste-speicherfehler');
     await ctx.close();
+    // ---------------------------------------------------------------- 5 Figurdatei fehlt (Befund 1)
+    log('\n== 5 figures/cha/spieler.json fehlt (404): keine Fehlerflut ==');
+    {
+      const c2 = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+      let angefragt = 0;
+      await c2.route('**/figures/cha/spieler.json', (route) => { angefragt++; route.fulfill({ status: 404, body: 'nicht da' }); });
+      const p2 = await c2.newPage();
+      p2.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
+      p2.on('console', (m) => { if (m.type() === 'error' && !/favicon|Failed to load resource/.test(m.text())) fehler.push('console: ' + m.text().slice(0, 200)); });
+      await p2.goto(URL);
+      await p2.waitForFunction(() => window.__game && __game.state && __game.pid && window.Charaktere && Charaktere.lies().bereit, null, { timeout: 60000 });
+      await p2.focus('#game'); await taste(p2, 'c');
+      await p2.waitForTimeout(5000);
+      const i1 = await p2.evaluate(() => Object.assign({ moeglich: KammerBild.moeglich(), fehlt: VoxelRender.loader.isMissing('cha/spieler', 'figures') }, KammerBild.info()));
+      await p2.waitForTimeout(4000);
+      const i2 = await p2.evaluate(() => KammerBild.info());
+      log('  KammerBild nach 5 s: ' + JSON.stringify(i1) + ', nach 9 s: versuche ' + i2.versuche + ', Dateianfragen ' + angefragt);
+      ok(i1.fehlt && i1.moeglich === false, 'Figur gilt als fehlend, KammerBild.moeglich() ist false (Ersatz greift)');
+      ok(i1.versuche <= 4 && i2.versuche === i1.versuche && i2.fehler === i1.fehler, 'Zahl der Versuche bleibt begrenzt (' + i1.versuche + '), keine weiteren in 4 s (' + i2.versuche + ')');
+      ok(angefragt <= 3, 'Figurdatei höchstens ' + angefragt + '× angefragt (nicht je Frame)');
+      await bild(p2, '24-liste-figur-fehlt');
+      await c2.close();
+    }
   } catch (e) {
     fehler.push('Abbruch: ' + (e && e.stack || e));
     console.error(e);

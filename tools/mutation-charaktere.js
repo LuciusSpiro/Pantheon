@@ -26,6 +26,18 @@ const MUTATIONEN = [
   [C, "Ch.pruefeName(altName) || Ch.STANDARD_NAME", "String(altName)", 'ungültiger Altname wird nicht ersetzt'],
   [C, "if (store.liste.length) return { ok: true, quelle: 'vorhanden' };", "", 'Erststart legt trotz vorhandener Charaktere an'],
   [C, "if (!store.bereit) return { ok: false, grund: 'katalog' };\n      if (store.liste.length >= MAX) return { ok: false, grund: 'voll' };\n      const s = store.sitzung;", "if (!store.bereit) return { ok: false, grund: 'katalog' };\n      const s = store.sitzung;", 'Erstellung öffnet bei vier Charakteren'],
+  [C, "c.karte.name = n;", "c.karte.name = n; c.karte.outfit = Ch.standardKarte(n, katalog).outfit;", 'benenneUm setzt das Outfit auf Standard'],
+  [C, "if (indexVon(id) < 0) return { ok: false, grund: 'unbekannt' };\n      store.gewaehlt = id;", "if (indexVon(id) < 0) return { ok: false, grund: 'unbekannt' };\n      store.liste[indexVon(id)].karte.outfit = Ch.standardKarte('x', katalog).outfit;\n      store.gewaehlt = id;", 'waehle setzt das Outfit auf Standard'],
+  [C, "if (!e || e.modus !== 'neu' || !PLAETZE.includes(platz) || !n)", "if (!e || !PLAETZE.includes(platz) || !n)", 'Schutz modus neu in setzeWahl entfernt (Umbenennen ändert das Aussehen)'],
+  [C, "return e.modus === 'umbenennen' ? speichereEntwurf() : nameFertig();", "return nameFertig();", 'Enter im Schreibmodus beim Umbenennen speichert nicht'],
+  [C, "return e.modus === 'umbenennen' ? speichereEntwurf() : nameFertig();", "return speichereEntwurf();", 'Enter im Schreibmodus beim Neuanlegen speichert sofort'],
+  [C, "if (e.modus === 'neu' && e.name) return nameBearbeiten(false);", "if (e.modus === 'neu') return nameBearbeiten(false);", 'Esc im Schreibmodus verwirft den leeren Neu-Entwurf nicht'],
+  [C, "if (e.modus === 'neu' && e.name) return nameBearbeiten(false);", "if (e.name) return nameBearbeiten(false);", 'Esc im Schreibmodus beim Umbenennen verwirft nicht'],
+  [C, "const r = neuAnlegen();\n      return r.ok ? { ok: true, aktion: 'neu' } : r;", "return { ok: false, grund: 'frei' };", 'freier Platz legt nicht neu an'],
+  [C, "if (!r.ok && r.grund === 'voll') { store.sitzung.meldung", "if (false) { store.sitzung.meldung", 'Meldung voll fehlt'],
+  [C, "if (!store.liste.length) { const r = legeStandardAn(zufallsName());", "if (false) { const r = legeStandardAn(zufallsName());", 'letzten löschen legt keinen Ersatz-Charakter an'],
+  [C, "'Crew-' + (100 + Math.floor(zufall() * 900))", "'Crew-' + (10 + Math.floor(zufall() * 90))", 'Ersatzname hat ein anderes Format'],
+  [C, "store.speicherOk = !!speicher.schreiben(JSON.stringify(daten));", "speicher.schreiben(JSON.stringify(daten));", 'Speicherfehler wird nicht gemerkt'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;
@@ -33,7 +45,7 @@ const basis = spawnSync(process.execPath, [path.join(TMP, 'tools/test-charaktere
 if (basis.status !== 0) { console.log('Ausgangslage ist schon rot:\n' + basis.stdout); process.exit(1); }
 for (const [datei, alt, neu, was] of MUTATIONEN) {
   if (filter.length && !filter.some((f) => was.includes(f))) continue;
-  const pfad = path.join(TMP, datei), orig = fs.readFileSync(path.join(ROOT, datei), 'utf8');
+  const pfad = path.join(TMP, datei), orig = fs.readFileSync(path.join(ROOT, datei), 'utf8').replace(/\r\n/g, '\n');   // Windows-Checkout mit CRLF: Muster mit \n sollen trotzdem treffen
   const teile = orig.split(alt);
   if (teile.length !== 2) { console.log('KEIN EINZIGER TREFFER: ' + was + ' (' + (teile.length - 1) + ')'); ueberlebt++; continue; }
   fs.writeFileSync(pfad, teile.join(neu));

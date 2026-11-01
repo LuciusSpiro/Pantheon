@@ -10,12 +10,12 @@
 
   // Feste Texte dieser Oberfläche, die die Tokens nicht kennen (Test: jede Glyphe existiert in art.js)
   const TEXT = {
-    liste: { voll: 'Alle 4 Plätze sind belegt. Erst einen Charakter löschen.', loeschFrage: 'LÖSCHEN? Entf bestätigt · Esc bricht ab', loeschKnopf: 'Sicher? Entf', frei: 'frei', bereitsGewaehlt: 'in der Lobby' },
+    liste: { voll: 'Alle 4 Plätze sind belegt. Erst einen Charakter löschen.', speicherFehler: 'NICHT GESPEICHERT: Charaktere gehen beim Schließen verloren', loeschFrage: 'LÖSCHEN? Entf bestätigt · Esc bricht ab', loeschKnopf: 'Sicher? Entf', frei: 'frei', bereitsGewaehlt: 'in der Lobby' },
     status: { keiner: '–', raum: '–' },
     erstellung: {
       name: 'NAME', namePlatz: 'Name eingeben', namenRegel: 'Name: 2–12 Zeichen, Buchstaben, Ziffern, Leerzeichen, Bindestrich', nameHinweis: 'F2 schreiben · Enter fertig', nameSpeichern: 'Enter speichert · Esc zurück',
       nameFertig: 'Enter speichert den Charakter', ohneName: 'Zuerst einen gültigen Namen eingeben', nurName: 'Umbenennen: nur der Name ändert sich', standard: 'Standard',
-      figurHinweis: 'Standard-Outfit · Spind folgt', farbeWahl: '←→ Farbe', haar: 'Haarfarbe', haut: 'Hautton', farbName: '{platz} {n}',
+      figurHinweis: 'Standard-Outfit · Spind folgt', hinweisOhne3d: '←→↑↓ wählen · Vorschau ohne 3D', farbeWahl: '←→ Farbe', haar: 'Haarfarbe', haut: 'Hautton', farbName: '{platz} {n}',
     },
     volk: { lerche: 'Lerche', germanen: 'Germanen', rom: 'Rom', crew: 'Crew' },
   };
@@ -58,20 +58,26 @@
   const katalog = () => C.katalog();
   const teil = (platz, name) => ((katalog() && katalog().teile) || []).find((t) => t.id === platz + '/' + name) || null;
   const teilName = (platz, name) => { const t = teil(platz, name); return t ? t.name : String(name || ''); };
-  // Porträt (live) oder, solange es nicht da ist / ohne WebGL, die Vorschau des Gesichts
-  function portraet(c, r, karte, art, yaw) {
+  const live3d = () => { const KB = window.KammerBild; return !!(KB && KB.moeglich()); };
+  // Porträt (live) oder, solange es nicht da ist / ohne WebGL, der Ersatz: mit `platz` die Vorschau des Teils bzw. die Farbe der aktuellen Wahl dieses Platzes, sonst die Vorschau des Gesichts
+  function portraet(c, r, karte, art, yaw, platz) {
     rect(c, r.x, r.y, r.w, r.h, F.figurGrund);
-    const KB = window.KammerBild, b = KB && KB.moeglich() ? KB.bild(karte, art, yaw) : null;
+    const KB = window.KammerBild, b = live3d() ? KB.bild(karte, art, yaw) : null;
     if (b) { bildIn(c, b, r, art === 'nah'); return; }
-    const t = teil('gesicht', karte.gesicht);
+    if (platz && C.FARB_PLAETZE.includes(platz)) {
+      const f = farbeVon(platz, karte[platz]), m = Math.round(Math.min(r.w, r.h) * 0.2);
+      rect(c, r.x + m, r.y + m, r.w - 2 * m, r.h - 2 * m, f); rand(c, r.x + m, r.y + m, r.w - 2 * m, r.h - 2 * m, F.musterRand);
+      return;
+    }
+    const tp = platz && C.TEIL_PLAETZE.includes(platz) ? platz : 'gesicht', t = teil(tp, karte[tp]);
     bildIn(c, t && vorschau(t.vorschau), r, art === 'nah');
   }
 
   // ---------------------------------------------------------------- Rahmen
-  let F = PK.farben('rom'), aktuellView = null, meldung = null;
+  let F = PK.farben('rom'), aktuellView = null;
   const MELDUNG_MS = 3500;
-  function melde(text) { meldung = { text, t: performance.now() }; }
-  const meldungText = () => (meldung && performance.now() - meldung.t < MELDUNG_MS ? meldung.text : null);
+  // Meldung aus dem Store (sitzung.meldung = { grund, zeit }): nur der Text und die Anzeigedauer sind Sache der Oberfläche
+  function meldungText() { const m = C.lies().sitzung.meldung; return m && Date.now() - m.zeit < MELDUNG_MS && TEXT.liste[m.grund] || null; }
   function zurueck() {
     const s = C.lies().sitzung;
     if (s.seite === 'erstellung') C.verwirfEntwurf();
@@ -134,7 +140,7 @@
     });
     const p = g.pult, S = KM.spalten, K = KM.knopf, voll = st.liste.length >= C.MAX, frei = !st.liste[s.cursor], fragt = !!s.loeschFrage;
     let y = P.titel(c, p.x + S.block.x, p.y, S.block.w, KX.spalte.charakter, 'nav');
-    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.neu, { hotkey: 'N', aktion: 'charakter.neu', fn: 'nav', disabled: voll, reason: TEXT.liste.voll, onClick: () => neuAnlegen() }); y += K.h + K.fuge;
+    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.neu, { hotkey: 'N', aktion: 'charakter.neu', fn: 'nav', disabled: voll, reason: TEXT.liste.voll, onClick: () => C.neuAnlegen() }); y += K.h + K.fuge;
     P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.umbenennen, { hotkey: 'F2', aktion: 'charakter.umbenennen', fn: 'nav', disabled: frei, onClick: () => C.beginneUmbenennen() }); y += K.h + K.fuge;
     P.knopf(c, p.x, y, S.block.w, K.h, fragt ? TEXT.liste.loeschKnopf : KX.knopf.loeschen, { hotkey: 'Entf', aktion: 'charakter.loeschen', fn: 'weapon', active: fragt, disabled: frei, onClick: () => C.loeschenAnfrage() });
     y = P.titel(c, p.x + S.mitte.x, p.y, S.mitte.w, KX.spalte.waehlen, 'cmd');
@@ -142,7 +148,9 @@
     P.knopf(c, p.x + S.mitte.x, y, hw, K.h, KX.knopf.platz, { hotkey: '1–4', fn: 'cmd' }); P.knopf(c, p.x + S.mitte.x + hw + 4, y, hw, K.h, KX.knopf.blaettern, { hotkey: '←→', fn: 'cmd' });
     txt(c, KX.nameIstSpieler, p.x + S.mitte.x, y + K.h + 8, F.dim);
     const meld = fragt ? { text: TEXT.liste.loeschFrage, farbe: F.loeschen } : (meldungText() ? { text: meldungText(), farbe: F.abschluss } : null);
-    if (meld) R.wrap(meld.text, S.mitte.w, 1).forEach((z, i) => txt(c, z, p.x + S.mitte.x, y + K.h + 22 + i * 10, meld.farbe));
+    let my = y + K.h + 22;
+    if (!st.speicherOk) { R.wrap(TEXT.liste.speicherFehler, S.mitte.w, 1).forEach((z, i) => txt(c, z, p.x + S.mitte.x, my + i * 10, FN.warn)); my += 10 * R.wrap(TEXT.liste.speicherFehler, S.mitte.w, 1).length + 4; }
+    if (meld) R.wrap(meld.text, S.mitte.w, 1).forEach((z, i) => txt(c, z, p.x + S.mitte.x, my + i * 10, meld.farbe));
     spalteAbschluss(c, KX.spalte.weiter, [{ taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.lobby, haupt: true, klick: () => uebernehmen() }]);
   }
 
@@ -171,7 +179,7 @@
     txtSp(c, gross(name) || '…', f.x + 6, f.y + 4, F.platz, 1);
     txt(c, e.modus === 'neu' ? KX.neu : KX.knopf.umbenennen, f.x + f.w - 6, f.y + 4, F.dim, 'right');
     const ky = f.y + f.h - M.kappe - M.kappeAbstand;
-    portraet(c, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH + Math.max(0, Math.floor((ky - f.y - M.nameH - b.h) / 2)), w: b.w, h: b.h }, C.entwurfKarte(), 'nah', e.yaw);
+    portraet(c, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH + Math.max(0, Math.floor((ky - f.y - M.nameH - b.h) / 2)), w: b.w, h: b.h }, C.entwurfKarte(), 'nah', e.yaw, e.modus === 'neu' ? e.platz : null);
     kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
     txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
   }
@@ -220,7 +228,7 @@
         unten = a.y + T.y + T.titelH + 2 + 20;
       }
       namensfeld(cc, a.x + T.x, unten + 14, KM.figur.x - T.x - 12, e);
-      txt(cc, platz ? KX.hinweis.erstellung : TEXT.erstellung.nurName, a.x + T.x, a.y + a.h - T.hinweisUnten, F.dim);
+      txt(cc, platz ? (live3d() ? KX.hinweis.erstellung : TEXT.erstellung.hinweisOhne3d) : TEXT.erstellung.nurName, a.x + T.x, a.y + a.h - T.hinweisUnten, F.dim);
       figurFenster(cc, a, e, e.name);
     });
     ziffernblock(c, 'erstellung', neu ? e.platz : null, KX.spalte.kopf, !neu);
@@ -232,21 +240,15 @@
     spalteAbschluss(c, KX.spalte.charakter, [
       { taste: 'F2', aktion: 'charakter.umbenennen', text: KX.knopf.name, fn: 'nav', klick: () => C.nameBearbeiten(true) },
       { taste: 'R', aktion: 'charakter.zuruecksetzen', text: KX.knopf.zuruecksetzen, fn: 'nav', klick: () => C.zuruecksetzen() },
-      { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.speichern, haupt: true, klick: () => speichern() },
+      { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.speichern, haupt: true, klick: () => C.speichereEntwurf() },
     ]);
   }
 
   // ---------------------------------------------------------------- Aktionen der Oberfläche (rufen nur Actions und melden)
-  function neuAnlegen() { const r = C.beginneNeu(); if (!r.ok && r.grund === 'voll') melde(TEXT.liste.voll); return r; }
   function uebernehmen() {
-    const r = C.uebernimm();
-    if (r.ok) { if (aktuellView && aktuellView.actions.closeKammer) aktuellView.actions.closeKammer(); }
-    else if (r.grund === 'frei') neuAnlegen();
+    const r = C.uebernimmOderNeu();
+    if (r.ok && r.aktion === 'uebernommen' && aktuellView && aktuellView.actions.closeKammer) aktuellView.actions.closeKammer();
     return r;
-  }
-  function speichern() {
-    const r = C.speichereEntwurf();
-    return r;   // bei ungültigem Namen öffnet die Action das Namensfeld mit Hinweis
   }
 
   // ---------------------------------------------------------------- Zeichnen und Tasten
@@ -269,7 +271,7 @@
     const d = /^(?:Digit|Numpad)([1-4])$/.exec(code);
     if (d) { C.setzeCursor(+d[1] - 1); return; }
     if (passt(e, 'charakter.uebernehmen')) { uebernehmen(); return; }
-    if (passt(e, 'charakter.neu')) { neuAnlegen(); return; }
+    if (passt(e, 'charakter.neu')) { C.neuAnlegen(); return; }
     if (passt(e, 'charakter.umbenennen')) { C.beginneUmbenennen(); return; }
     if (passt(e, 'charakter.loeschen')) { C.loeschenAnfrage(); return; }
   }
@@ -277,15 +279,15 @@
     const s = C.lies().sitzung, en = s.entwurf, code = e.code;
     if (!en) return;
     if (en.nameEdit) {   // Schreibmodus: alles, was ein Zeichen ist, geht ins Namensfeld (auch Ziffern und Q/E/R)
-      if (code === 'Enter' || code === 'NumpadEnter') { if (en.modus === 'umbenennen') speichern(); else C.nameFertig(); return; }
+      if (code === 'Enter' || code === 'NumpadEnter') { C.nameBestaetigen(); return; }
       if (passt(e, 'charakter.umbenennen')) { C.nameFertig(); return; }
-      if (code === 'Escape') { if (en.modus === 'neu' && en.name) C.nameBearbeiten(false); else C.verwirfEntwurf(); return; }
+      if (code === 'Escape') { C.nameAbbrechen(); return; }
       if (code === 'Backspace') { C.nameLoeschen(); return; }
       if (e.key && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) C.nameZeichen(e.key);
       return;
     }
     if (passt(e, 'allgemein.verlassen')) { C.verwirfEntwurf(); return; }
-    if (passt(e, 'charakter.uebernehmen')) { speichern(); return; }
+    if (passt(e, 'charakter.uebernehmen')) { C.speichereEntwurf(); return; }
     if (passt(e, 'charakter.umbenennen')) { C.nameBearbeiten(true); return; }
     if (passt(e, 'charakter.zuruecksetzen')) { C.zuruecksetzen(); return; }
     if (passt(e, 'charakter.drehenLinks')) { C.dreheFigur(-1); return; }

@@ -1,6 +1,6 @@
 // CHA-01 C: Charaktere des Spielers im Browser. Store + Actions in einem Modul (Kais 3-Layer-Regel für Datentool-Teile):
 //   Store    = dieses Objekt (Zustand an einer Stelle: `lies()`), die Oberfläche (public/js/kammer-ui.js) liest nur von dort
-//   Actions  = benannte Funktionen je Absicht (ladeListe, legeAn, waehle, loesche, benenneUm, erststart, …); jede Regel steht hier, nicht in der Oberfläche
+//   Actions  = benannte Funktionen je Absicht (ladeListe, legeAn, waehle, loesche, benenneUm, erststart, uebernimmOderNeu, nameBestaetigen, …); jede Regel steht hier, nicht in der Oberfläche
 //   Speicher = EINE Stelle: localStorage 'pantheon.charaktere' = { v: 1, gewaehlt: <id>, liste: [{ id, karte }] }, höchstens 4; über `speicher` austauschbar (Test).
 // Jede gelesene Karte geht durch Shared_Charakter.pruefeKarte (manipulierter Speicher bricht nichts). Kaputter/fehlender/gesperrter Speicher → leere Liste, Spiel läuft weiter.
 // Actions werfen nie: Rückgabe { ok: true, … } oder { ok: false, grund }. Ohne Katalog (noch nicht geladen / fehlt) ist `bereit` false und nichts wird gespeichert.
@@ -28,7 +28,7 @@
   }
 
   function erzeuge(opt) {
-    const speicher = opt.speicher, Ch = opt.Charakter;
+    const speicher = opt.speicher, Ch = opt.Charakter, zufall = typeof opt.zufall === 'function' ? opt.zufall : Math.random;
     const klon = (o) => JSON.parse(JSON.stringify(o));
     const lauscher = [];
     let katalog = null;
@@ -38,7 +38,7 @@
     const store = {
       bereit: false, speicherOk: true, rev: 0,
       gewaehlt: null, liste: [],
-      sitzung: { seite: null, cursor: 0, loeschFrage: null, entwurf: null },
+      sitzung: { seite: null, cursor: 0, loeschFrage: null, entwurf: null, meldung: null },   // meldung: { grund, zeit } (z. B. 'voll'); die Oberfläche übersetzt in Text
     };
     const aenderung = () => { store.rev++; };
     let letzteAktive = 'null';
@@ -154,7 +154,10 @@
       meldeWechsel();
       return { ok: true, id };
     }
-    // Löscht einen Charakter. Der gewählte wird durch den nächsten ersetzt (sonst der vorherige); der letzte darf gehen, dann ist gewaehlt null.
+    // Zufallsname nach der Namensregel (wie der Zufallsname des Clients: Crew-100 … Crew-999)
+    const zufallsName = () => 'Crew-' + (100 + Math.floor(zufall() * 900));
+    // Löscht einen Charakter. Der gewählte wird durch den nächsten ersetzt (sonst der vorherige). War es der letzte, gilt der Erststart: ein Standard-Charakter
+    // mit Zufallsname wird angelegt und gewählt (Rückgabe `ersatz` = id), damit Client und Server nie ohne Charakter dastehen.
     function loesche(id) {
       if (!store.bereit) return { ok: false, grund: 'katalog' };
       const i = indexVon(id);
@@ -164,6 +167,7 @@
       store.sitzung.loeschFrage = null;
       store.sitzung.cursor = Math.max(0, Math.min(store.sitzung.cursor, MAX - 1));
       speichereListe();
+      if (!store.liste.length) { const r = legeStandardAn(zufallsName()); if (r.ok) { store.sitzung.cursor = 0; return { ok: true, ersatz: r.id }; } }
       meldeWechsel();
       return { ok: true };
     }
@@ -225,6 +229,13 @@
       const c = cursorCharakter();
       return c ? waehle(c.id) : { ok: false, grund: 'frei' };
     }
+    // Enter in der Liste: Charakter unter dem Cursor übernehmen (aktion 'uebernommen'); auf einem freien Platz stattdessen neu anlegen (aktion 'neu')
+    function uebernimmOderNeu() {
+      const c = cursorCharakter();
+      if (c) { const r = waehle(c.id); return r.ok ? { ok: true, aktion: 'uebernommen', id: c.id } : r; }
+      const r = neuAnlegen();
+      return r.ok ? { ok: true, aktion: 'neu' } : r;
+    }
     // Löschen mit Rückfrage: der erste Aufruf fragt (grund 'gefragt', ok false), der zweite auf demselben Charakter löscht
     function loeschenAnfrage() {
       const c = cursorCharakter();
@@ -237,6 +248,12 @@
 
     // ------------------------------------------------------------------ Actions: Erstellung / Umbenennen (Entwurf)
     function standardEntwurfKarte() { return Ch.standardKarte(null, katalog); }
+    // „Neu“ aus der Liste: öffnet die Erstellung; sind alle Plätze belegt, steht eine Meldung 'voll' im Store
+    function neuAnlegen() {
+      const r = beginneNeu();
+      if (!r.ok && r.grund === 'voll') { store.sitzung.meldung = { grund: 'voll', zeit: Date.now() }; aenderung(); }
+      return r;
+    }
     function beginneNeu() {
       if (!store.bereit) return { ok: false, grund: 'katalog' };
       if (store.liste.length >= MAX) return { ok: false, grund: 'voll' };
@@ -313,6 +330,19 @@
       e.nameEdit = false; e.hinweis = null; aenderung();
       return { ok: true };
     }
+    // Enter im Schreibmodus: Umbenennen speichert sofort (Name gilt → zurück in die Liste), Neu beendet nur das Schreiben (der Charakter wird erst mit Enter außerhalb gespeichert)
+    function nameBestaetigen() {
+      const e = entwurf();
+      if (!e) return { ok: false, grund: 'kein-entwurf' };
+      return e.modus === 'umbenennen' ? speichereEntwurf() : nameFertig();
+    }
+    // Esc im Schreibmodus: Neu mit eingetipptem Namen → nur das Schreiben beenden; sonst (leerer Name, Umbenennen) den Entwurf verwerfen
+    function nameAbbrechen() {
+      const e = entwurf();
+      if (!e) return { ok: false, grund: 'kein-entwurf' };
+      if (e.modus === 'neu' && e.name) return nameBearbeiten(false);
+      return verwirfEntwurf();
+    }
     function zuruecksetzen() {
       const e = entwurf();
       if (!e) return { ok: false };
@@ -344,9 +374,9 @@
       teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,
       legeAn, waehle, loesche, benenneUm, uebernimmAltenNamen, legeStandardAn, erststart, aktiveKarte, aktiverName,
-      oeffneListe, schliesse, setzeCursor, bewegeCursor, uebernimm, loeschenAnfrage, loeschenAbbrechen,
+      oeffneListe, schliesse, setzeCursor, bewegeCursor, uebernimm, uebernimmOderNeu, neuAnlegen, loeschenAnfrage, loeschenAbbrechen,
       beginneNeu, beginneUmbenennen, waehlePlatz, naechsterPlatz, setzeWahl, blaettere, dreheFigur,
-      nameBearbeiten, nameZeichen, nameLoeschen, nameFertig, zuruecksetzen, speichereEntwurf, verwirfEntwurf, entwurfKarte,
+      nameBearbeiten, nameZeichen, nameLoeschen, nameFertig, nameBestaetigen, nameAbbrechen, zuruecksetzen, speichereEntwurf, verwirfEntwurf, entwurfKarte,
     };
   }
 
