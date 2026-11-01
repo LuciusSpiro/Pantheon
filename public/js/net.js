@@ -218,6 +218,14 @@
       try { localStorage.setItem(CODE_KEY, this.roomCode); } catch (e) { /* egal */ }
       if (!silent && this.isOpen()) this.sendHello();
     },
+    // CHA-01 E: den Raum verlassen (Einladung abgelehnt): Code vergessen (Speicher und Adresszeile, sonst käme man sofort wieder hinein), Verbindung trennen;
+    // der automatische Neuaufbau meldet sich ohne Code und bekommt badcode (Raumcode-Eingang). Der Server führt den Spieler als getrennt.
+    verlasseRaum() {
+      this.roomCode = ''; this.serverRoomCode = null; this.badCode = false;
+      try { localStorage.removeItem(CODE_KEY); } catch (e) { /* egal */ }
+      try { const u = new URL(location.href); u.searchParams.delete('code'); history.replaceState(null, '', u.pathname + u.search + u.hash); } catch (e) { /* egal */ }
+      try { if (this.sock) this.sock.close(); } catch (e) { /* egal */ }
+    },
     // Einladungslink: aktuelle Origin + Pfad + ?code=
     inviteLink() {
       const code = this.serverRoomCode || this.roomCode;

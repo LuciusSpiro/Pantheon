@@ -1446,15 +1446,23 @@ steht im Dateinamen unter `data/worlds/`).
 Spielerisch ändert sich nichts. Neu ist: Die Kampagne lässt sich **beenden und später fortsetzen**, es gibt ein
 **Spielmenü** (Esc) mit Optionen, und das Tutorial (m1–m3) läuft aus **Regiebüchern** (reines JSON, siehe Entwickler-Abschnitt).
 
-### Lobby = Hauptmenü
-- **M** schaltet den Start reihum (jeder darf, alle sehen es): **Kampagne** (mit Tutorial, Hafen-Übung) → **Kampagne ohne
-  Tutorial** (frei ab Hafen Lichtkordon, m1–m3 gelten als erledigt, Tesk funkt nach ein paar Sekunden das Gerücht über die
-  Tafel; Startmarken = `CONFIG.campaign.skipTutorialMarks`, zurzeit 150) → **Direkt zur Planetenmission** → **Testgelände:
-  Raumkampf** → **Bodenkampf: Wellen** (bis B1 „Testgelände: Außenteam“). Dann alle **Enter** = bereit.
-- Block **WELTSTAND** links: „Neu: Kampagne“ oder „Fortsetzen: Lerche · 08.10.“ mit Spielzeit, Ort und Mission darunter.
+### Startmenü und Lobby (CHA-01 E, MEN-01 Richtung A „Rampe“)
+- Ablauf: **Titelbild** (Enter) → **Hauptmenü** (Gruppen *Spielen*: 1 Die Schuld der Lerche, 2 Freie Fahrt Sund, 3 Kampagne Eisenwald; *Fortsetzen*: F, der neueste
+  Weltstand, F öffnet die Liste; *Übungsplatz*: 4 Grabenangriff, 5 Wellen Boden, 6 Wellen All, 7 Szenario-Labor; ↑↓ oder Ziffer wählt, **Enter** öffnet den Raum) →
+  **Crew-Lobby**. Per Einladungslink (`?code=…`) geht es direkt: **Einladung** → Charakter wählen (1–4, N neu, Enter) → Lobby. Die Menüs sind reiner Client-Zustand
+  (`public/js/menue.js` Zustand und Regeln, `public/js/menue-ui.js` Darstellung, Tokens `menue-tokens.js`); die Verbindung steht wie früher schon beim Laden, wer im
+  Titel oder Hauptmenü steht, ist in der Lobby „nicht bereit“.
+- Lobby: **Enter** bereit, **1–4** Farbe, **C** Charakter, **M** öffnet die Moduswahl als Überlagerung (jeder darf, nicht mehr reihum), **L** kopiert den Einladungslink,
+  **Esc** zurück ins Hauptmenü (nimmt „bereit“ zurück), **O** Optionen, **H** Hilfe (Steuerung), **F** Weltstand-Liste. Zusatzoptionen des Modus bleiben auf den alten
+  Tasten und stehen als Kappen unter dem Modus: K Karte (Wellen Boden/All), N/B weitere Abschnitte und W Waffe (Grabenangriff), ↑↓ ←→ R G W (Labor), U Tutorial (Eisenwald; ohne
+  Tutorial = `eisenwald_ohne`). Gastgeber = der erste verbundene Spieler der Liste.
+- Sternenschicht-Modi (Kampagne Boje/Nebel/Kesh, ohne Tutorial Lichtkordon, Direkt Kesh) stehen nur mit `?debug=1` im Hauptmenü (Gruppe STERNENSCHICHT, Tasten 8/9/0). `LOBBY_MODI` ist unverändert.
+- Ferngesteuerte Browser (`navigator.webdriver`, Playwright) und `?arena=` beginnen in der Lobby, damit `tools/sicht-*.js` und `tools/pw-*.js` unverändert laufen;
+  `?menue=1` erzwingt den Ablauf Titel → Hauptmenü, `?menue=0` die Lobby. Sichtbeleg: `npm run sicht:menue` (Bilder in `shots/menue/`), Test: `npm run test:menue`.
+- Weltstände: im Hauptmenü die Gruppe *Fortsetzen*, in der Lobby der Modus-Titel „Fortsetzen · <Mission>“ mit Spielzeit und Ort.
   **F** öffnet die Liste: je Stand Name, wann gespeichert, Ort, Mission/Schritt, Crew, Spielzeit. **W/S** wählen, **Enter**
   übernehmen („+ Neue Kampagne“ steht oben), **Entf 1 s halten** löscht (kurz tippen löscht nicht). Ist ein Stand gewählt,
-  ist die Startauswahl (M) ausgegraut („Entfällt beim Fortsetzen“) – für einen anderen Start erst in der Liste „Neue Kampagne“ wählen.
+  entfällt die Startauswahl (Zusatzoptionen), für einen anderen Start in der Moduswahl (M) einen Modus setzen: das wählt automatisch „neuer Weltstand“.
 - Nach **Partie beenden** ist der gerade gespielte Stand schon vorausgewählt; Enter (alle) setzt ihn fort.
 - **O** öffnet die Optionen auch in der Lobby.
 
