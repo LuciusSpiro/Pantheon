@@ -103,6 +103,12 @@ const figInfos = (page) => page.evaluate(() => {
   for (const p of st.players || []) out[p.id] = Object.assign({ name: p.name }, window.VoxelActors.figurInfo(p.id));
   return out;
 });
+// CHA-01 Nacharbeit Gesamt: karte.outfit gilt seit Paket D nur an der Konsole 'spind'. Prüf-Hilfe: Debug-sitz setzt den Spieler an die Konsole (der Server prüft den Befehl wie im Spiel), danach wieder frei.
+const amSpind = async (c) => {
+  await c.page.evaluate(() => __game.send({ t: 'debug', cmd: 'sitz', console: 'spind' }));
+  await warteBis(() => c.page.evaluate(() => { const p = (__game.state.players || []).find((q) => q.id === __game.pid); return !!p && p.console === 'spind'; }), 8000, 'Spieler sitzt an der Konsole spind');
+};
+const vomSpind = (c) => c.page.evaluate(() => __game.send({ t: 'leave' }));
 async function zoom(c, z) { await c.page.evaluate((zz) => VoxelRender.zoom(zz ? 1 : -1), z); await sleep(900); }
 async function bild(c, name) {
   const f = path.join(SHOTS, name + '.png');
@@ -167,8 +173,10 @@ async function phaseSchiff(browser) {
     await nur(cs[0]);
     const vorher = await cs[0].page.evaluate(() => JSON.stringify(window.VoxelActors.figurInfo('p2').key));
     await nur(cs[1]);
+    await amSpind(cs[1]);
     await cs[1].page.evaluate((o) => __game.client.sendeOutfit(o), NEUES_OUTFIT);
     await warteBis(() => g.players[1].karte.outfit.oberteil === 'plankenweste', 8000, 'Server hat das Outfit');
+    await vomSpind(cs[1]);
     await nur(cs[0]);
     await warteBis(() => cs[0].page.evaluate(() => { const k = __game.client.karten.p2; return k && k.outfit.oberteil === 'plankenweste'; }), 20000, 'Ereignis karte beim anderen');
     await warteBis(() => cs[0].page.evaluate((v) => JSON.stringify(window.VoxelActors.figurInfo('p2').key) !== v, vorher), 60000, 'Neubau der Figur von p2 bei Spieler 1');
@@ -178,8 +186,10 @@ async function phaseSchiff(browser) {
     await paar(cs[2], 'schiff-outfit-neu-bei-spieler3', () => setzeHaufen(g, MITTE, 2));
     // Gleiches Outfit erneut: kein Neubau
     await nur(cs[1]);
+    await amSpind(cs[1]);
     await cs[1].page.evaluate((o) => __game.client.sendeOutfit(o), NEUES_OUTFIT);
     await sleep(800);
+    await vomSpind(cs[1]);
     await nur(cs[0]);
     const bauten0 = await cs[0].page.evaluate(() => window.VoxelRender.info().loader.builds);
     await sleep(2500);
@@ -278,6 +288,7 @@ async function phaseHeap(browser) {
     await c.page.evaluate(() => { __game.send({ t: 'lobbyOpt', startMission: 'freie_fahrt' }); __game.send({ t: 'ready', ready: true }); });
     await warteBis(() => c.page.evaluate(() => __game.state && __game.state.phase && __game.state.phase !== 'lobby'), 30000, 'Runde läuft');
     await sleep(2500);
+    await amSpind(c);
     const messe = () => c.page.evaluate(async () => {
       if (window.gc) window.gc();
       await new Promise((r) => setTimeout(r, 300));

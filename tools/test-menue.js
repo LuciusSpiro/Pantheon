@@ -185,6 +185,16 @@ function pruefe(api, laut) {
     const t4 = neu(api), G = t4.F; G.starte({}); const vor = JSON.stringify(G.lies()); p(!G.snapshotEingang({ startMission: 'eisenwald', worlds: [] }).ok && JSON.stringify(G.lies()) === vor, 'K2: Snapshot im Titel ändert nichts');
     G.weiter(); const sn = G.snapshotEingang({ startMission: 'eisenwald', worlds: [] }); p(sn.ok && G.lies().tutorial === true && G.lies().auswahl, 'K2: Snapshot im Hauptmenü führt Auswahl und Tutorial-Merker nach'); }
 
+  // ---- 9c Nacharbeit Gesamt (Prüfer 10): Direkteintritt sichert den sichtbaren Modus, einmalig und nur dort
+  { const t = neu(api), F = t.F; F.starte({ direkt: true });
+    const r = F.snapshotEingang({ startMission: 'm1', worlds: [] });
+    p(r.ok && t.gesendet.length === 1 && t.gesendet[0].t === 'lobbyOpt' && t.gesendet[0].startMission !== 'm1', 'Direkteintritt ohne Debug: erster Lobby-Snapshot mit m1 setzt einen sichtbaren Modus');
+    F.snapshotEingang({ startMission: 'm1', worlds: [] }); p(t.gesendet.length === 1, 'Direkteintritt: nur einmal, spätere Snapshots überschreiben nichts');
+    const td = neu(api, { debug: true }); td.F.starte({ direkt: true }); td.F.snapshotEingang({ startMission: 'm1', worlds: [] }); p(!td.gesendet.length, 'Direkteintritt mit ?debug=1: m1 ist sichtbar, nichts wird gesendet');
+    const te = neu(api); te.F.starte({ direkt: true }); te.F.snapshotEingang({ startMission: 'eisenwald', worlds: [] }); p(!te.gesendet.length, 'Direkteintritt mit sichtbarem Modus: nichts wird gesendet');
+    const tt = neu(api); tt.F.starte({}); tt.F.weiter(); tt.F.snapshotEingang({ startMission: 'm1', worlds: [] }); p(!tt.gesendet.length, 'Titel → Hauptmenü: der Snapshot ändert den Server-Modus nicht (nur Direkteintritt)');
+    const tl = neu(api); tl.F.starte({ link: true }); tl.F.einladungAnnehmen(); tl.F.snapshotEingang({ startMission: 'm1', worlds: [] }); p(!tl.gesendet.length, 'Einladung angenommen: der Modus der Crew wird nicht überschrieben'); }
+
   // ---- 10 Einladung ablehnen (S2)
   { const t = neu(api), F = t.F; F.starte({ link: true });
     const r = F.einladungAblehnen(); p(r.ok && r.verlassen && t.verlassen.n === 1 && F.lies().schirm === 'menue', 'S2: Esc in der Einladung verlässt den Raum (verlasseRaum) und führt ins Hauptmenü');
@@ -297,6 +307,8 @@ section('Mutationsproben (Regeln im Quelltext zerstören)', () => {
     ["Moduswahl bleibt nach Weltstandwahl offen (K3)", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : schliesseModusWahl(); }", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : { ok: true }; }"],
     ['Snapshot im Titel führt das Menü nach (K2)', "if (store.schirm !== 'menue' && store.schirm !== 'lobby') return { ok: false };", 'if (false) return { ok: false };'],
     ['N in der Einladung öffnet die Kammer nicht (K1)', "if (!(opt.oeffneKammer && opt.oeffneKammer())) return { ok: false, grund: 'kammer' };", ''],
+    ['Direkteintritt sichert den Modus nicht (Prüfer 10)', "if (store.modusPruefen && store.schirm === 'lobby' && lob) {", 'if (false) {'],
+    ['Modus-Prüfung läuft bei jedem Snapshot (Prüfer 10)', 'store.modusPruefen = false; sichtbarenModusSichern(lob);', 'sichtbarenModusSichern(lob);'],
     ['Webdriver beginnt nicht in der Lobby', "|| p.webdriver) return", ") return"],
   ];
   for (const [name, von, nach] of muta) {

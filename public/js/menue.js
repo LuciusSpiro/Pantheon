@@ -92,7 +92,7 @@
     // ------------------------------------------------------------------ Store
     // schirm: 'titel' | 'menue' | 'lobby' | 'einladung'; auswahl = id des gewählten Eintrags (Hauptmenü und Moduswahl-Überlagerung teilen sie);
     // modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial (Merker für den nächsten Start); lobbyModus = zuletzt gesehener Modus der Lobby (nur dessen Wechsel setzt den Merker); einladungCursor = Platz in der Charakterliste der Einladung
-    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, einladungCursor: 0, rev: 0 };
+    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, modusPruefen: false, einladungCursor: 0, rev: 0 };
     const aenderung = () => { store.rev++; };
     const lies = () => store;
 
@@ -145,6 +145,8 @@
     // CHA-01 Nacharbeit K2: Snapshot eingegangen – Auswahl und Tutorial-Merker nachführen, nur solange Hauptmenü oder Lobby gezeigt werden (das Zeichnen ändert nichts mehr)
     function snapshotEingang(lob) {
       if (store.schirm !== 'menue' && store.schirm !== 'lobby') return { ok: false };
+      // CHA-01 Nacharbeit Gesamt (Prüfer-Befund 10): Direkteintritt (ferngesteuerter Browser, ?arena=) zeigt sonst den unsichtbaren Server-Standard m1 als „Kampagne“; einmal beim ersten Lobby-Snapshot sichern
+      if (store.modusPruefen && store.schirm === 'lobby' && lob) { store.modusPruefen = false; sichtbarenModusSichern(lob); }
       synchronisiere(lob || {}); return { ok: true };
     }
 
@@ -226,7 +228,7 @@
     function starte(o) {
       o = o || {};
       store.schirm = o.link ? 'einladung' : o.direkt ? 'lobby' : 'titel';
-      store.modusOffen = false; aenderung();
+      store.modusOffen = false; store.modusPruefen = !!o.direkt; aenderung();   // Direkteintritt in die Lobby: der erste Snapshot prüft, ob der Modus der Lobby sichtbar ist (snapshotEingang)
       return { ok: true, schirm: store.schirm };
     }
     function weiter() { if (store.schirm === 'titel') { store.schirm = 'menue'; aenderung(); return { ok: true }; } return { ok: false }; }
