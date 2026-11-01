@@ -3,7 +3,8 @@
 // Globales `KammerBausteine`:
 //   vorschau(datei)                       -> Image der Vorschaudatei (public/voxel/sprites/) oder null, solange es nicht geladen ist
 //   bildIn(ctx, bild, r, oben?)           -> Bild in das Rechteck einpassen (mittig, mit `oben` oben bündig), geglättet
-//   portraetIn(ctx, r, karte, grund, art?, yaw?) -> Hintergrund `grund`, darüber das Porträt (live über KammerBild, sonst die Gesichtsvorschau des Katalogs); ohne Karte nur der Hintergrund
+//   portraetIn(ctx, r, karte, grund, art?, yaw?) -> Hintergrund `grund`, darüber das Porträt dieser Karte: live über KammerBild; solange es dort noch nicht fertig ist, nur die Platte (nie ein Standardkopf als Platzhalter);
+//                                          erst wenn Live-Bilder gar nicht möglich sind (kein WebGL, ?render=2d), die Gesichtsvorschau des Katalogs; ohne Karte nur der Hintergrund
 (function () {
   'use strict';
   const BILDER = {};   // Vorschaudatei -> Image
@@ -26,8 +27,8 @@
   function portraetIn(c, r, karte, grund, art, yaw) {
     c.fillStyle = grund; c.fillRect(Math.round(r.x), Math.round(r.y), Math.round(r.w), Math.round(r.h));
     if (!karte) return;
-    const KB = window.KammerBild, b = KB && KB.moeglich() ? KB.bild(karte, art || 'portraet', yaw) : null;
-    if (b) { bildIn(c, b, r, art === 'nah'); return; }
+    const KB = window.KammerBild;
+    if (KB && KB.moeglich()) { const b = KB.bild(karte, art || 'portraet', yaw); if (b) bildIn(c, b, r, art === 'nah'); return; }   // noch in Arbeit: die Platte bleibt, jedes Frame fragt neu (der Cache-Schlüssel steckt im Karteninhalt)
     const t = window.Charaktere ? Charaktere.teil('gesicht', karte.gesicht) : null;
     bildIn(c, t && vorschau(t.vorschau), r, art === 'nah');
   }

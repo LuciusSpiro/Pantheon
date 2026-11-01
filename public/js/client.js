@@ -131,8 +131,8 @@
     if (world3d) { world3d.style.width = canvas.style.width; world3d.style.height = canvas.style.height; world3d.style.left = canvas.style.left; world3d.style.top = canvas.style.top; }   // M4: 3D-Welt in derselben CSS-Box
     if (keyart) { keyart.style.width = canvas.style.width; keyart.style.height = canvas.style.height; keyart.style.left = canvas.style.left; keyart.style.top = canvas.style.top; }   // CHA-01 E: Key-Art ebenso
     Client.scale = scale;
-    if (codeInput && H.LOBBY_CODE_RECT) {
-      const q = H.LOBBY_CODE_RECT;
+    if (codeInput && window.Menue) {
+      const q = Menue.TOKENS.MASS.eingang.feld;   // CHA-01 G: Eingabefeld des Raumcode-Eingangs (menue-ui.js eingang)
       codeInput.style.left = Math.floor((W - cw) / 2 + q.x * scale) + 'px';
       codeInput.style.top = Math.floor((Hh - ch) / 2 + q.y * scale) + 'px';
       codeInput.style.width = Math.floor(q.w * scale) + 'px';
@@ -2340,7 +2340,7 @@
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
-    const menue = lobby && !codeMode && !!window.MenueUi && uiTop() !== 'kammer';   // CHA-01 E: Startmenü (Key-Art unter dem durchsichtigen Canvas)
+    const menue = lobby && !!window.MenueUi && uiTop() !== 'kammer';   // CHA-01 E: Startmenü (Key-Art unter dem durchsichtigen Canvas); G: auch der Raumcode-Eingang
     if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
     else if (menue) ctx.clearRect(0, 0, VW, VH);
     else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
@@ -2433,10 +2433,12 @@
       R.text(ctx, line, 320, 2, { color: '#FF66CC', shadow: false, align: 'center' });
       return;
     }
-    R.backdrop(ctx, 2, 150, 260, lines.length * 10 + 4, 0.8);
-    lines.forEach((l, i) => R.text(ctx, l, 4, 152 + i * 10, { color: '#FF66CC', shadow: false }));
+    // CHA-01 G: in Titel, Hauptmenü und Lobby unten rechts (links verdeckte es die Liste und die erste Crew-Karte); im Spiel wie bisher links
+    const imMenue = !st.phase || st.phase === 'lobby' || !v.me, dx = imMenue ? 640 - 262 : 2, dy = imMenue ? 342 - lines.length * 10 - 8 : 150, tx = dx + 2;
+    R.backdrop(ctx, dx, dy, 260, lines.length * 10 + 4, 0.8);
+    lines.forEach((l, i) => R.text(ctx, l, tx, dy + 2 + i * 10, { color: '#FF66CC', shadow: false }));
     const failed = Object.keys(R.artFail);
-    if (failed.length) R.text(ctx, 'Art-Fallback: ' + failed.join(', ').slice(0, 90), 4, 154 + lines.length * 10, { color: R.PAL.warn });
+    if (failed.length) R.text(ctx, 'Art-Fallback: ' + failed.join(', ').slice(0, 90), tx, dy + 4 + lines.length * 10, { color: R.PAL.warn });
   }
 
   // M2: Debug-Befehlszeile -> { t: 'debug', cmd, args, …benannte Felder } (Felder wie die vorhandenen Befehle)

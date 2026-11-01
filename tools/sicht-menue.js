@@ -1,6 +1,6 @@
 'use strict';
 // CHA-01 E: Sichtbeleg des Startmenüs (Richtung A „Rampe“): Titelbild → Hauptmenü → Crew-Lobby, Beitritt per Link (Einladung → Charakter wählen → Lobby),
-// Moduswahl-Überlagerung (M), Zusatzoptionen je Modus, ohne und mit ?debug=1, Start einer Runde aus der neuen Lobby, Rückkehr in die Lobby.
+// Moduswahl-Überlagerung (M), Zusatzoptionen je Modus, CHA-01 G: Porträts der Einladung ohne vorherige Taste (Pixelvergleich), Bereit-Knopf je Zustand, Raumcode-Eingang (Stil A), ohne und mit ?debug=1, Start einer Runde aus der neuen Lobby, Rückkehr in die Lobby.
 // Echter Server im selben Prozess (kein Debug-Server nötig: ?debug=1 ist hier nur der Client-Schalter für die Sternenschicht-Modi), echte Browser-Clients (Playwright/Chromium).
 // Ohne ?menue=1 beginnen ferngesteuerte Browser (navigator.webdriver) in der Lobby, damit ältere Skripte unverändert laufen; dieses Skript zeigt den echten Ablauf mit ?menue=1.
 // Aufruf: node tools/sicht-menue.js [--port 3561] [--shots shots/menue] [--w 1280 --h 720]   (Bilder nicht im Repo, shots/ ist ignoriert)   Exit 1 bei Fehlern, 2 ohne Playwright.
@@ -59,6 +59,14 @@ async function bild(page, name) {
 const taste = async (page, k, n) => { for (let i = 0; i < (n || 1); i++) { await page.keyboard.press(k); await page.waitForTimeout(60); } };
 const schirm = (page) => page.evaluate(() => MenueFluss.lies().schirm);
 const lobbyOpts = (page) => page.evaluate(() => { const l = __game.state.lobby || {}; return { start: l.startMission, world: l.world, skipDrill: l.skipDrill }; });
+// Fläche des HUD-Canvas (Spielraster 640×360): Anzahl verschiedener Farben und ein Hash der Pixel (CHA-01 G: Porträts vergleichen, nie nur ansehen)
+const flaeche = (page, x, y, w, h) => page.evaluate(([x0, y0, w0, h0]) => {
+  const d = document.getElementById('game').getContext('2d').getImageData(x0, y0, w0, h0).data, s = new Set(); let hs = 2166136261;
+  for (let i = 0; i < d.length; i += 4) { const v = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2]; s.add(v); hs = Math.imul(hs ^ v, 16777619) >>> 0; }
+  return { farben: s.size, hash: hs };
+}, [x, y, w, h]);
+const PORTRAET_KARTE1 = [60, 196, 52, 56];   // Einladung: Porträt der ersten Charakterkarte ohne Kappe (Kappe wechselt mit dem Cursor)
+const PORTRAET_GAST = [32, 127, 20, 20];     // Einladung: kleines Porträt des ersten Gastes
 const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).map((p) => ({ n: p.name, ready: p.ready, color: p.color })));
 
 (async () => {
@@ -87,6 +95,7 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
     ok(await hp.evaluate(() => document.getElementById('keyart').style.filter === 'brightness(0.7)'), 'Helligkeit des Hauptmenüs 0,7');
     const sicht = await hp.evaluate(() => MenueFluss.sichtbar(__game.state.lobby).flatMap((e) => e.modi));
     ok(!['m1', 'free', 'm3'].some((m) => sicht.includes(m)) && sicht.includes('labor') && sicht.includes('eisenwald'), 'ohne ?debug=1: keine Sternenschicht-Modi, Labor und Eisenwald sichtbar (' + sicht.join(',') + ')');
+    await taste(hp, '1'); await bild(hp, '02a-menue-schuld-lerche-titel-zweizeilig');
     await taste(hp, '2'); await bild(hp, '02-menue-spielen');
     await taste(hp, '3'); await bild(hp, '03-menue-eisenwald');
     await taste(hp, 'u'); ok(await hp.evaluate(() => MenueFluss.lies().tutorial === false), 'U im Hauptmenü schaltet das Tutorial aus'); await bild(hp, '04-menue-eisenwald-ohne-tutorial'); await taste(hp, 'u');
@@ -114,7 +123,19 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
     await kp.waitForFunction(() => (__game.state.players || []).length === 3, null, { timeout: 10000 });
     ok(await schirm(kp) === 'einladung', 'Beitritt per Link: Einladung (Titel und Hauptmenü übersprungen)');
     await kp.waitForFunction(() => document.getElementById('keyart').style.filter === 'brightness(0.6)');
-    await kp.waitForTimeout(1500); await bild(kp, '08-einladung');
+    const frueh = await flaeche(kp, ...PORTRAET_KARTE1), fruehGast = await flaeche(kp, ...PORTRAET_GAST);   // so früh wie möglich, ohne Taste
+    await kp.waitForFunction(() => { const c = Charaktere.lies().liste[0]; const b = window.KammerBild && KammerBild.bild(c.karte, 'portraet'); return !!b; }, null, { timeout: 30000 });
+    await kp.waitForTimeout(400); await bild(kp, '08-einladung');   // ohne vorherige Taste
+    const ohneTaste = await flaeche(kp, ...PORTRAET_KARTE1), gastOhne = await flaeche(kp, ...PORTRAET_GAST);
+    ok(ohneTaste.farben > 12, 'Einladung ohne Taste: das Porträt der ersten Karte ist gezeichnet (' + ohneTaste.farben + ' Farben, keine leere Platte)');
+    ok(frueh.farben === 1 || frueh.hash === ohneTaste.hash, 'Einladung, erstes Bild: entweder die neutrale Platte oder schon das echte Porträt, nie ein Standardkopf (' + frueh.farben + ' Farben)');
+    ok(fruehGast.farben === 1 || fruehGast.hash === gastOhne.hash || gastOhne.farben > 6, 'Einladung, erstes Bild: das Porträt des Gastes ist Platte oder echt');
+    await taste(kp, 'ArrowRight'); await taste(kp, 'ArrowLeft'); await kp.waitForTimeout(300);
+    const nachTaste = await flaeche(kp, ...PORTRAET_KARTE1);
+    ok(nachTaste.hash === ohneTaste.hash && gastOhne.hash === (await flaeche(kp, ...PORTRAET_GAST)).hash, 'Porträts der Einladung ohne Taste = Porträts nach Eingabe (Pixelvergleich, gleiche Pixel)');
+    const bes = await kp.evaluate(() => MenueFluss.einladungBesatzung(__game.state.players, __game.pid));
+    ok(bes.n === 2 && bes.text === '2 an Bord + du', 'Einladung zählt ohne sich selbst: „' + bes.text + '“');
+    ok(await kp.evaluate(() => !/GEWÄHLT/i.test(JSON.stringify(Render.ui.buttons.map((b) => b.label)))), 'Einladung zeigt kein „GEWÄHLT“');
     await taste(kp, 'ArrowRight'); await bild(kp, '09-einladung-zweiter-charakter');
     ok(await kp.evaluate(() => MenueFluss.lies().einladungCursor === 1), 'Pfeil rechts: zweiter Charakter am Cursor');
     await taste(kp, '1');
@@ -122,15 +143,19 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
     ok(await schirm(kp) === 'lobby', 'Enter: an Bord, Lobby');
     await kp.waitForFunction(() => { const p = (__game.state.players || []).find((q) => q.id === __game.pid); return p && p.name === 'Kaeso'; }, null, { timeout: 5000 });
     // Aurelia und Brennus bereit, Kaeso nicht
+    ok(await hp.evaluate(() => { const me = __game.state.players.find((p) => p.id === __game.pid); return MenueFluss.bereitAnzeige(me).art === 'gold' && Render.ui.buttons.some((b) => b.label === 'Bereit melden'); }), 'nicht bereit: goldener Hauptknopf „Bereit melden“ in der START-Kachel');
+    await bild(hp, '10a-lobby-nicht-bereit');
     await taste(hp, 'Enter');
     await brennus.page.evaluate(() => __game.send({ t: 'ready', ready: true }));
     await hp.waitForFunction(() => (__game.state.players || []).filter((p) => p.ready).length === 2, null, { timeout: 5000 });
     const sl = await spielerListe(hp);
     ok(sl.length === 3 && sl.filter((p) => p.ready).length === 2 && !sl.find((p) => p.n === 'Kaeso').ready, 'Aurelia und Brennus bereit, Kaeso nicht');
+    ok(await hp.evaluate(() => { const me = __game.state.players.find((p) => p.id === __game.pid); return MenueFluss.bereitAnzeige(me).art === 'mint' && Render.ui.buttons.some((b) => b.label === 'Bereit'); }), 'bereit: mintfarbene Fläche „BEREIT“, Enter: zurück');
     await bild(hp, '10-lobby-gastgeberin');
     await bild(kp, '11-lobby-beitretender');
     await taste(hp, 'm'); ok(await hp.evaluate(() => MenueFluss.lies().modusOffen), 'M öffnet die Moduswahl als Überlagerung (reihum schaltet es nicht mehr)');
     ok((await lobbyOpts(hp)).start === 'freie_fahrt', 'M allein ändert den Modus nicht');
+    ok(await hp.evaluate(() => !Render.ui.buttons.some((b) => b.label === 'Bereit' || b.label === 'Bereit melden' || /^Farbe/.test(b.label) || b.label === 'Link kopieren')), 'Moduswahl offen: die Lobby darunter ist nicht gezeichnet (keine Bereit-, Farb- und Link-Flächen)');
     await taste(hp, 'ArrowDown'); await bild(hp, '12-lobby-modus-ueberlagerung');
     await taste(hp, 'Enter');
     await hp.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald', null, { timeout: 5000 });
@@ -246,8 +271,30 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
       ok(await ep.evaluate(() => { let ls = null; try { ls = localStorage.getItem('sternenschicht.roomCode'); } catch (e) { /* egal */ } return !ls && !/code=/.test(location.search); }), 'Raumcode ist vergessen (Speicher und Adresse), kein Wiedereintritt');
       await ep.waitForTimeout(2500);
       ok((await spielerListe(gast1.page)).length === 1, 'er kommt nicht von selbst zurück (nach 2,5 s weiter ein Spieler)');
+      ok(await ep.evaluate(() => document.getElementById('keyart').style.filter === 'brightness(0.6)'), 'Raumcode-Eingang: Key-Art mit hell.beitritt 0,6');
+      const eing = await ep.evaluate(() => MenueFluss.raumcodeEingang({ badCode: Net.badCode, verbunden: Net.status === 'open', hatSpieler: false, roomCode: Net.roomCode }));
+      ok(eing && eing.abgelehnt && eing.ueberschrift === 'EINLADUNG ABGELEHNT' && !eing.fehler, 'nach bewusster Ablehnung: „EINLADUNG ABGELEHNT“, kein Fehlerton');
+      ok(await ep.evaluate(() => { const i = document.getElementById('lobbyCode'), r = i.getBoundingClientRect(), c = document.getElementById('game').getBoundingClientRect(), f = Menue.TOKENS.MASS.eingang.feld, s = c.width / 640; return getComputedStyle(i).display === 'block' && Math.abs(r.left - (c.left + f.x * s)) < 2 && Math.abs(r.top - (c.top + f.y * s)) < 2; }), 'Eingabefeld sitzt in der Kachel (Maße aus MASS.eingang.feld)');
       await bild(ep, '30-einladung-abgelehnt');
       await bild(gast1.page, '31-lobby-nach-ablehnung');
+      for (const c of offen.splice(0)) await c.close();
+    }
+    log('\n== 6d2 Raumcode-Eingang ohne Ablehnung, falscher Code ==');
+    {
+      const ctx = await browser.newContext({ viewport: { width: W, height: H }, deviceScaleFactor: 1 }); offen.push(ctx);
+      await ctx.addInitScript(() => { try { localStorage.removeItem('sternenschicht.roomCode'); } catch (e) { /* egal */ } });
+      const rp = await ctx.newPage(); rp.on('pageerror', (e) => fehler.push('pageerror: ' + e.message));
+      await rp.goto(BASIS + '?menue=1');
+      await rp.waitForFunction(() => window.Net && Net.badCode === true && window.MenueFluss, null, { timeout: 30000 });
+      await rp.waitForTimeout(800);
+      const e1 = await rp.evaluate(() => MenueFluss.raumcodeEingang({ badCode: Net.badCode, verbunden: Net.status === 'open', hatSpieler: false, roomCode: Net.roomCode }));
+      ok(e1 && e1.ueberschrift === 'RAUMCODE' && !e1.abgelehnt && !e1.fehler, 'ohne Ablehnung: „RAUMCODE“, kein Fehlerton');
+      await bild(rp, '36-raumcode-eingang');
+      await rp.focus('#lobbyCode'); await rp.keyboard.type('zzzz'); await rp.keyboard.press('Enter');
+      await rp.waitForFunction(() => Net.roomCode === 'ZZZZ' && Net.badCode === true, null, { timeout: 10000 }); await rp.waitForTimeout(800);
+      const e2 = await rp.evaluate(() => MenueFluss.raumcodeEingang({ badCode: Net.badCode, verbunden: Net.status === 'open', hatSpieler: false, roomCode: Net.roomCode }));
+      ok(e2 && e2.fehler && e2.ueberschrift === 'RAUMCODE', 'falscher Code: Fehlerzeile unter dem Knopf');
+      await bild(rp, '37-raumcode-falsch');
       for (const c of offen.splice(0)) await c.close();
     }
     log('\n== 6e Hauptmenü Eisenwald nach einer Runde, Weltstand in der Moduswahl, sichtbarer Modus ==');
