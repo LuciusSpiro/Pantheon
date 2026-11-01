@@ -3,6 +3,7 @@
 // nur Darstellung und Tastenzuordnung. Gestaltung ausschließlich aus PultKammer.TOKENS (pult-kammer-tokens.js) und der Referenzzeichnung public/kammer-preview.html,
 // Rahmen = Pult.rahmen (mit eigener Statusleiste, Option `status`). Bilder: Vorschau der Teile (Katalog), Porträt und Figur live über KammerBild (voxel/kammer.js).
 // Globales `KammerUi`: zeichne(ctx, view) – eine Seite 'liste' | 'erstellung' je nach Store; taste(e) -> true, wenn die Taste verbraucht wurde (die Seite ist modal).
+// CHA-01 D: der Spind an Bord ist eine Pult-Station (Konsole 'spind', consoles.js): spindZeichne(ctx, view) und spindTaste(e, view); Zustand im Store (sitzung.entwurf, modus 'spind'), Regeln in den spind*-Actions.
 (function () {
   'use strict';
   const R = window.Render, P = window.Pult, PK = window.PultKammer, ME = window.Menue, C = window.Charaktere;
@@ -17,8 +18,10 @@
       nameFertig: 'Enter speichert den Charakter', ohneName: 'Zuerst einen gültigen Namen eingeben', nurName: 'Umbenennen: nur der Name ändert sich', standard: 'Standard',
       figurHinweis: 'Standard-Outfit · Spind folgt', hinweisOhne3d: '←→↑↓ wählen · Vorschau ohne 3D', farbeWahl: '←→ Farbe', haar: 'Haarfarbe', haut: 'Hautton', farbName: '{platz} {n}',
     },
+    spind: { angezogen: 'Angezogen', gesperrt: 'Gesperrt: nur anprobieren', ohne3d: '←→↑↓ Teil · Enter anziehen · Vorschau ohne 3D', nichtBereit: 'Charaktere noch nicht geladen' },
     volk: { lerche: 'Lerche', germanen: 'Germanen', rom: 'Rom', crew: 'Crew' },
   };
+  const AKTION_SPIND = { kopf: 'charakter.spind.kopf', haende: 'charakter.spind.haende', oberteil: 'charakter.spind.oberteil', umhang: 'charakter.spind.umhang', hose: 'charakter.spind.hose', schuhe: 'charakter.spind.schuhe' };
   const AKTION = { frisur: 'charakter.erstellung.frisur', gesicht: 'charakter.erstellung.gesicht', bart: 'charakter.erstellung.bart', haar: 'charakter.erstellung.haar', haut: 'charakter.erstellung.haut' };
 
   // ---------------------------------------------------------------- Grundformen (Referenz kammer-preview.html)
@@ -96,7 +99,7 @@
     for (const z of PK.ziffernblock(art, pr)) {
       const r = z.rect;
       if (z.leer) P.zelle(c, r.x, r.y, r.w, r.h, z.taste, '', '', 'nav', 'leer');
-      else P.knopf(c, r.x, r.y, r.w, r.h, KT.PLATZ[z.platz].kurz, { hotkey: z.taste, aktion: AKTION[z.platz], fn: KT.PLATZ[z.platz].gruppe === 'farbe' ? 'cmd' : 'nav', active: z.platz === aktiv, disabled: !!gesperrt, onClick: () => C.waehlePlatz(z.platz) });
+      else P.knopf(c, r.x, r.y, r.w, r.h, KT.PLATZ[z.platz].kurz, { hotkey: z.taste, aktion: (art === 'spind' ? AKTION_SPIND : AKTION)[z.platz], fn: KT.PLATZ[z.platz].gruppe === 'farbe' ? 'cmd' : 'nav', active: z.platz === aktiv, disabled: !!gesperrt, onClick: () => (art === 'spind' ? C.spindWaehlePlatz(z.platz) : C.waehlePlatz(z.platz)) });
     }
   }
   function spalteAbschluss(c, titel, knoepfe) {
@@ -162,6 +165,16 @@
   function kachel(c, k, t, zust) {
     const h = PK.herkunft(t), T = KM.textZeile;
     rect(c, k.x, k.y, k.w, k.h, F.kachel);
+    if (h.gesperrt) {   // Händler/Fund: Schraffur, Bild grau, Kappe H/F, Herkunft als Text (in CHA-01 ist alles frei, die Form steht)
+      const G = KM.gesperrt;
+      rect(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtGrund); hatch(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.gesperrtSchraffur, G.schraffur);
+      c.save(); c.filter = 'grayscale(' + G.bild.grau + ') brightness(' + G.bild.hell + ')'; c.globalAlpha = G.bild.deckkraft; bildIn(c, vorschau(t.vorschau), k.bild); c.restore();
+      P.cham(c, k.x + G.kappe.x, k.y + G.kappe.y, G.kappe.w, G.kappe.h, F.gesperrtKappe, G.kappe.schraeg, 0, G.kappe.schraeg, 0);
+      txt(c, h.kappe, k.x + G.kappe.x + G.kappe.w / 2, k.y + G.kappe.y + 3, F.gesperrtKappeText, 'center');
+      txt(c, passend(t.name, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.name, F.dim); txt(c, passend(h.sub, k.w - 6), k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
+      if (zust.cursor) cursorRahmen(c, k); else rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
+      return;
+    }
     if (t.farbe) {   // Farbmuster groß
       rect(c, k.bild.x, k.bild.y, k.bild.w, k.bild.h, F.figurGrund);
       rect(c, k.bild.x + 8, k.bild.y + 6, k.bild.w - 16, k.bild.h - 12, t.farbe);
@@ -251,6 +264,74 @@
     return r;
   }
 
+  // ---------------------------------------------------------------- Spind (Pult an Bord, CHA-01 D)
+  // Kacheln des Platzes im Entwurf: getragen = das Teil, das der gewählte Charakter jetzt trägt; Cursor = Anprobe (Entwurf)
+  function spindEintraege(e) {
+    const getragen = (C.aktiveKarte() || { outfit: {} }).outfit[e.platz];
+    return C.outfitTeileFuer(e.platz).map((t) => ({ name: t.name, volk: t.volk ? (TEXT.volk[t.volk] || '–') : '–', herkunft: t.herkunft || 'frei', preis: t.preis, vorschau: t.vorschau, getragen: t.id === e.platz + '/' + getragen }));
+  }
+  // Ganze Figur der Anprobe (live) oder, solange sie fehlt / ohne 3D, die Vorschau des Teils unter dem Cursor
+  function spindFigur(c, a, e, name) {
+    const f = PK.figur(a), M = KM.figur, b = KM.figurBild.ganz;
+    rect(c, f.x, f.y, f.w, f.h, F.figurGrund); rand(c, f.x, f.y, f.w, f.h, F.kachelRand);
+    txtSp(c, gross(name) || '…', f.x + 6, f.y + 4, F.platz, 1);
+    txt(c, KX.anprobe, f.x + f.w - 6, f.y + 4, F.dim, 'right');
+    const r = { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH, w: b.w, h: b.h }, KB = window.KammerBild, bi = live3d() ? KB.bild(C.spindKarte(), 'ganz', e.yaw) : null;
+    if (bi) bildIn(c, bi, r, true);
+    else { const t = ((katalog() && katalog().teile) || []).find((x) => x.id === e.platz + '/' + e.karte.outfit[e.platz]); bildIn(c, t && vorschau(t.vorschau), r); }
+    const ky = f.y + f.h - M.kappe - M.kappeAbstand;
+    kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
+    txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
+  }
+  function spindZeichne(c, view) {
+    aktuellView = view;
+    F = PK.farben(P.skinId(view));
+    const e = C.lies().sitzung.entwurf;
+    const spind = e && e.modus === 'spind' ? e : null;
+    P.rahmen(c, view, { titel: KX.saeule.spind, S: KM.S, station: 'spind', anzeige: (cc, a) => {
+      const T = KM.kachel;
+      if (!spind) { txt(cc, TEXT.spind.nichtBereit, a.x + T.x, a.y + T.y + 4, F.dim); return; }
+      const eintraege = spindEintraege(spind), wahl = C.spindWahlIndex(spind.platz), frei = eintraege.filter((t) => t.herkunft === 'frei').length;
+      P.titel(cc, a.x + T.x, a.y + T.y, KM.figur.x - T.x - 12, PK.text(KX.kachelTitel.spind, { platz: gross(KT.PLATZ[spind.platz].name), n: frei }), 'nav');
+      PK.kacheln(a, eintraege.length).forEach((r, i) => { kachel(cc, r, eintraege[i], { cursor: i === wahl, getragen: eintraege[i].getragen }); klickFlaeche(r, eintraege[i].name, () => C.spindSetzeWahl(spind.platz, i)); });
+      const hinweis = spind.hinweis === 'angezogen' ? { text: TEXT.spind.angezogen, farbe: F.abschluss } : spind.hinweis === 'gesperrt' ? { text: TEXT.spind.gesperrt, farbe: FN.warn } : { text: live3d() ? KX.hinweis.spind : TEXT.spind.ohne3d, farbe: F.dim };
+      txt(cc, hinweis.text, a.x + T.x, a.y + a.h - T.hinweisUnten, hinweis.farbe);
+      spindFigur(cc, a, spind, C.aktiverName());
+    } });
+    if (spind) ziffernblock(c, 'spind', spind.platz, KX.spalte.platz);
+    const p = PK.rahmen().pult, S = KM.spalten.mitte, G = KM.gesperrt.kappe;
+    let y = P.titel(c, p.x + S.x, p.y, S.w, KX.spalte.herkunft, 'cmd') + 2;
+    txt(c, KX.herkunftLegende.frei, p.x + S.x + G.w + 5, y + 2, F.text); y += 17;
+    [['H', KX.herkunftLegende.haendler], ['F', KX.herkunftLegende.fund]].forEach(([kz, t]) => {
+      P.cham(c, p.x + S.x, y, G.w, G.h, F.gesperrtKappe, G.schraeg, 0, G.schraeg, 0); txt(c, kz, p.x + S.x + G.w / 2, y + 3, F.gesperrtKappeText, 'center');
+      txt(c, t, p.x + S.x + G.w + 5, y + 2, F.dim); y += 17;
+    });
+    spalteAbschluss(c, KX.spalte.umziehen, [
+      { taste: 'R', aktion: 'charakter.spind.zuruecksetzen', text: KX.knopf.zuruecksetzen, klick: () => C.spindZuruecksetzen() },
+      { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.anziehen, haupt: true, gesperrt: !spind, klick: () => C.speichereOutfit() },
+    ]);
+    P.zeichneHilfe(c);
+    R.drawTooltip(c);
+  }
+  // true = Taste verbraucht. Esc und ? behandelt consoles.js (Pult-Station); hier nur Platz, Teil, Drehen, Zurücksetzen, Anziehen.
+  function spindTaste(e, view) {
+    const code = e.code, pfeil = code.indexOf('Arrow') === 0;
+    if (e.repeat && !pfeil) return true;
+    const en = C.lies().sitzung.entwurf;
+    if (!en || en.modus !== 'spind') return true;
+    const sp = KM.kachel.spalten;
+    if (code === 'ArrowLeft' || code === 'KeyA') { C.spindBlaettere(-1); return true; }
+    if (code === 'ArrowRight' || code === 'KeyD') { C.spindBlaettere(1); return true; }
+    if (code === 'ArrowUp' || code === 'KeyW') { C.spindZeile(-1, sp); return true; }
+    if (code === 'ArrowDown' || code === 'KeyS') { C.spindZeile(1, sp); return true; }
+    if (passt(e, 'charakter.uebernehmen')) { C.speichereOutfit(); return true; }
+    if (passt(e, 'charakter.spind.zuruecksetzen')) { C.spindZuruecksetzen(); return true; }
+    if (passt(e, 'charakter.spind.drehenLinks')) { C.dreheFigur(-1); return true; }
+    if (passt(e, 'charakter.spind.drehenRechts')) { C.dreheFigur(1); return true; }
+    for (const platz of C.OUTFIT_PLAETZE) if (passt(e, AKTION_SPIND[platz])) { C.spindWaehlePlatz(platz); return true; }
+    return true;
+  }
+
   // ---------------------------------------------------------------- Zeichnen und Tasten
   function zeichne(c, view) {
     const s = C.lies().sitzung;
@@ -312,5 +393,5 @@
     return true;
   }
 
-  window.KammerUi = { TEXT, zeichne, taste, offen: () => !!C.lies().sitzung.seite };
+  window.KammerUi = { TEXT, zeichne, taste, spindZeichne, spindTaste, offen: () => !!C.lies().sitzung.seite };
 })();

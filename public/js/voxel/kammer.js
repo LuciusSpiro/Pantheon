@@ -2,11 +2,12 @@
 // EIN kleiner Offscreen-Renderer (ein Canvas, ein WebGL-Kontext für alle Bilder, nie je Karte einer), das Ergebnis wird je Kartenaussehen als 2D-Bild gemerkt (nur bei Änderung neu).
 // Globales `KammerBild` (Modul, per <script type="module"> geladen; three und der Lader kommen erst beim ersten Bild – ohne WebGL oder mit ?render=2d bleibt alles aus).
 //   KammerBild.moeglich()                        -> true, wenn Bilder gerendert werden können (Voxel-Modus gewählt, WebGL da, nicht ausgefallen)
-//   KammerBild.bild(karte, art, yaw?)            -> Canvas (2D) oder null (noch in Arbeit/nicht möglich; der Aufrufer zeichnet inzwischen den Ersatz). art 'portraet' | 'nah'
+//   KammerBild.bild(karte, art, yaw?)            -> Canvas (2D) oder null (noch in Arbeit/nicht möglich; der Aufrufer zeichnet inzwischen den Ersatz). art 'portraet' | 'nah' | 'ganz' (CHA-01 D: ganze Figur, hochformatig, für den Spind)
 //   KammerBild.info()                            -> { gerendert, cache, fehler, kontext, versuche } (Tests); ein fehlgeschlagener Schlüssel wird nie neu versucht, fehlt die Figurdatei, ist moeglich() false
 // Kamera wie die Referenzbilder des Voxelwerks (tools/cha-ansicht.mjs): orthografisch, Kopf y 22–34 (Porträt), yaw 28°, pitch 6°; „nah“ zeigt Kopf und Schultern.
 const params = new URLSearchParams(location.search);
-const GROESSE = { portraet: { px: 260, fenster: { x: [-5, 4], y: [22, 34], yaw: 28, pitch: 6 } }, nah: { px: 300, fenster: { x: [-8, 7], y: [16, 34], yaw: 28, pitch: 6 } } };
+const GROESSE = { portraet: { px: 260, fenster: { x: [-5, 4], y: [22, 34], yaw: 28, pitch: 6 } }, nah: { px: 300, fenster: { x: [-8, 7], y: [16, 34], yaw: 28, pitch: 6 } },
+  ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 36], yaw: 28, pitch: 6 } } };   // ganz: Breite folgt dem Seitenverhältnis des Bildes (Figurfenster des Spinds 120 × 184)
 const CACHE_MAX = 40;   // Bilder (Porträts der Liste + Drehungen des Figurfensters)
 
 let T = null, L = null, voxelSize = null, Ch = null, werkzeug = null, startet = null, ausgefallen = false;
@@ -66,16 +67,18 @@ async function rendern(karte, art, yaw) {
   scene.add(f.root);
   try {
     const px = G.px;
-    renderer.setSize(px, px, false);
+    const pw = typeof px === 'object' ? px.w : px, ph = typeof px === 'object' ? px.h : px;
+    renderer.setSize(pw, ph, false);
     // Ausschnitt in Metern: Mitte des Fensters, halbe Höhe = halbe Fensterhöhe plus kleiner Rand (Referenz: 8 von 260 px)
     const cx = ((w.x[0] + w.x[1] + 1) / 2) * s, cy = ((w.y[0] + w.y[1] + 1) / 2) * s;
-    const halb = Math.max((w.y[1] + 1 - w.y[0]) * s, (w.x[1] + 1 - w.x[0]) * s) / 2 * 1.07;
-    cam.left = -halb; cam.right = halb; cam.top = halb; cam.bottom = -halb; cam.updateProjectionMatrix();
+    const halb = typeof px === 'object' ? (w.y[1] + 1 - w.y[0]) * s / 2 * 1.04 : Math.max((w.y[1] + 1 - w.y[0]) * s, (w.x[1] + 1 - w.x[0]) * s) / 2 * 1.07;
+    const halbB = halb * pw / ph;
+    cam.left = -halbB; cam.right = halbB; cam.top = halb; cam.bottom = -halb; cam.updateProjectionMatrix();
     const ya = (w.yaw + (yaw || 0)) * Math.PI / 180, pi = w.pitch * Math.PI / 180, d = 6;
     cam.position.set(cx + Math.sin(ya) * Math.cos(pi) * d, cy + Math.sin(pi) * d, Math.cos(ya) * Math.cos(pi) * d);
     cam.lookAt(cx, cy, 0);
     renderer.render(scene, cam);
-    const out = document.createElement('canvas'); out.width = px; out.height = px;
+    const out = document.createElement('canvas'); out.width = pw; out.height = ph;
     out.getContext('2d').drawImage(renderer.domElement, 0, 0);   // sofort nach render(): der Puffer wird nicht bewahrt
     zaehler.gerendert++;
     return out;

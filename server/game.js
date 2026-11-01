@@ -826,8 +826,10 @@ class Game {
     if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: p.karte });
     else if (auchLeer) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });
   }
+  hatCharakterkarte(p) { return !!p.karte; }   // Frage an game.js: die Karte selbst liest kein anderer Servercode (tools/test-trefferbox.js)
   karteOutfit(p, msg) {
     if (!charakterKatalog || !p.karte) return;
+    if (p.console !== 'spind') return;   // CHA-01 D: nur am eigenen Spind-Pult (Konsole spind wird nur im eigenen Quartier geöffnet); Alarm blockiert nicht
     const outfit = Charakter.pruefeOutfit(msg.outfit, charakterKatalog);
     if (JSON.stringify(outfit) === JSON.stringify(p.karte.outfit)) return;   // unverändert: kein Ereignis
     p.karte.outfit = outfit;

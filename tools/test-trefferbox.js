@@ -39,7 +39,7 @@ function leser(dateiListe) {
 }
 // game.js ist kein Freibrief: nur die Verteilung der Karte darf sie lesen. Jede Fundstelle wird der umschließenden Methode zugeordnet (Zeile `  name(...) {` mit zwei Leerzeichen Einzug).
 // Erlaubt: onHello (Platzübernahme), helloKarte, sendeKarte, karteOutfit, welcomeMsg; dazu die Kopfzeilen (Import, Katalog). Empfänger reg/sektorkarteCache sind Sim-Daten (Landepunkt-Registry, Sektorkarte).   Ebenso W.AWAY_MAPS[..].karte (Landepunkt-Karten).
-const GAME_ERLAUBT = new Set(['onHello', 'helloKarte', 'sendeKarte', 'karteOutfit', 'welcomeMsg']);
+const GAME_ERLAUBT = new Set(['onHello', 'helloKarte', 'sendeKarte', 'karteOutfit', 'hatCharakterkarte', 'welcomeMsg']);
 const GAME_KOPF = /^(?:const Charakter = require\('\.\.\/shared\/charakter\.js'\)|let charakterKatalog|try \{ charakterKatalog)/;
 const GAME_LESER = /(?<!\breg|\bsektorkarteCache|\bAWAY_MAPS\[[^\]]*\])\.karte\b|\bCharakter\.|\bcharakterKatalog\b/;
 function gameLeser(text) {
