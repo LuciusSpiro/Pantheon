@@ -623,6 +623,7 @@ class Game {
     p.input.mx = 0; p.input.my = 0; p.actDown = false; p.hold = null;
     if (p.console) interior.leaveConsole(this, p);
     if (this.phase === 'lobby') {
+      if (p.karte) this.emit(Protocol.EVT_KARTE, { pid: p.id, k: null });   // CHA-01 Nacharbeit S1: die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
       this.checkLobbyStart();
     } else if (p.zone === 'away') {

@@ -123,6 +123,7 @@ mehreren Möglichkeiten auf derselben Kachel: Wiederbeleben > Feuer löschen > L
 Reparieren > Konsole > Regal > Koje > Aufheben.
 - **Tippen** (wirkt bei `down`): Konsole betreten, Regal nehmen/zurücklegen, Koje, Aufheben
   (Datenkern, Bodengegenstand), Techniker „folgen/warten“.
+- **Spind** (CHA-01 D): Interaktion `locker` nur im eigenen Quartier `q<Farbe>` und nur mit Charakterkarte öffnet die Konsole `spind` (Outfit wechseln, `karte.outfit`); ein fremder Spind bietet nichts an, ohne Hinweis.
 - **Halten** (Fortschritt solange gedrückt und Spieler steht still): Reparieren, Löschen,
   Flicken, Wiederbeleben, Selbst-Transfer auf Pad. Loslassen bricht ab (Fortschritt verfällt).
 - Jeder trägt höchstens **einen** Gegenstand (`carry`). Tragend: Geschwindigkeit ×0,85.
@@ -185,7 +186,7 @@ JSON über WebSocket `/ws`. Jede Nachricht `{ t: <typ>, ... }`.
 | shop | `shop.buy` | `item` | kaufen (gear gilt für den Käufer) |
 | quartier | `deco.place` | `slot, item` | Deko aus Inventar in eigenen Slot setzen (`item: null` = entfernen, zurück ins Inventar) |
 | quartier | `quartier.style` | `part, value` | Stil des eigenen Quartiers (Wand, Boden, …) wählen |
-| – (nur außerhalb der Lobby, ohne Konsole) | `karte.outfit` | `outfit` | CHA-01 B1: nur das Outfit der eigenen Charakterkarte ändern (Prüfung wie beim `hello`); ohne Karte wirkungslos; Antwort: Ereignis `karte` an alle |
+| spind (nur außerhalb der Lobby) | `karte.outfit` | `outfit` | CHA-01 B1/D: nur das Outfit der eigenen Charakterkarte ändern (Prüfung wie beim `hello`); nur an der Konsole `spind` (eigenes Quartier `q<Farbe>`), sonst ignoriert; ohne Karte wirkungslos; Antwort: Ereignis `karte` an alle |
 | kustodenpult (früher `sonde`) | `kustodenpult.input` | `color` | Codefarbe eingeben (seit SL0; vorher `sonde.input`) |
 
 Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit Grund (z. B.
@@ -201,7 +202,7 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
   `sfx {name, zone?, x?, y?}` · `hit {sector, shield: bool, dmg}` · `explosion {x, y}` ·
   `beam {pids, dir: 'down'|'up'}` · `jump {scene}` · `repairDone {system}` · `alarm {level}` ·
   `stage {stage}` · `emergency {}` · `strike {x, y}` · `codeResult {ok}` ·
-  `karte {pid, k}` (CHA-01 B1: geprüfte Charakterkarte `k` eines Spielers, bei `hello` und nach `karte.outfit`; `k: null` = Platz hat keine Karte mehr)
+  `karte {pid, k}` (CHA-01 B1: geprüfte Charakterkarte `k` eines Spielers, bei `hello` und nach `karte.outfit`; `k: null` = Platz hat keine Karte mehr; auch beim Verlassen der Lobby, damit eine neu vergebene ID die alte Karte nicht erbt)
 - `snap` – vollständiger Zustand, 15 Hz, an alle gleich:
 
 ```js

@@ -382,6 +382,27 @@ async function integration() {
   });
 
   await mitServer(async (g, neu) => {
+    section('Nacharbeit S1: Lobby verlassen räumt die Karte, die neu vergebene ID erbt sie nicht');
+    const a = await neu({ clientId: 'A', name: 'Ignoriert', color: 0, karte: ALT });
+    const b = await neu({ clientId: 'B', name: 'Bobby', color: 1 });
+    await bis(() => b.welcome.karten && b.welcome.karten.p1);
+    b.karten.length = 0;
+    a.close();
+    ok(await bis(() => g.players.length === 1), 'Spieler hat die Lobby verlassen');
+    ok(await bis(() => b.karten.some((e) => e.pid === 'p1' && e.k === null)), 'Mitspieler bekommt karte { pid: p1, k: null }');
+    const c = await neu({ clientId: 'C', name: 'Cem', color: 2 });
+    ok(c.welcome.pid === 'p1', 'neuer Spieler ohne Karte bekommt dieselbe ID p1');
+    await sleep(150);
+    const letzte = b.karten.filter((e) => e.pid === 'p1').pop();
+    ok(letzte && letzte.k === null && !c.welcome.karten, 'Mitspieler führt für p1 keine Karte mehr, welcome des Neuen ohne karten');
+    b.karten.length = 0;
+    const d = await neu({ clientId: 'D', name: 'Dora', color: 3 });
+    d.close();
+    await sleep(250);
+    ok(!b.karten.some((e) => e.pid === 'p3'), 'Verlassen ohne Karte sendet nichts (byte-gleich wie bisher)');
+  });
+
+  await mitServer(async (g, neu) => {
     section('Ohne Karte erzwingt der Server keine Eindeutigkeit (wie heute)');
     const c1 = await neu({ clientId: 'X', name: 'Gleich', color: 0 });
     const c2 = await neu({ clientId: 'Y', name: 'Gleich', color: 1 });
