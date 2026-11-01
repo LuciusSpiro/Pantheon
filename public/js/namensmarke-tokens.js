@@ -7,6 +7,7 @@
 //   Namensmarke.TOKENS            { FARBE, MASS, SPIELER }
 //   Namensmarke.marke(name, eigen, measure) -> { w, h, form: { x, y, groesse }, text: { x, y, s } | null, stiel: { x, y, w, h } }
 //       Koordinaten relativ zur Mitte über dem Kopf (x = 0 ist die Kopfmitte, y = 0 Oberkante der Marke); measure(s) = R.measure(s, 1)
+//   Namensmarke.ordne(marken, hindernisse, vorher, jetztMs) -> { [id]: { dy, stielH, nurForm, zeile, tiefer } }   (Stapeln, siehe unten)
 //   Namensmarke.spieler(farbIndex) -> { farbe, form } aus shared/protocol.js (PLAYER_COLORS, PLAYER_SHAPES), keine Kopie
 //
 // Regeln:
@@ -15,6 +16,9 @@
 //   - Grund `grund` mit Deckkraft MASS.grundDeckkraft (0,85, nicht 0,55 wie bisher und nicht 0,72 wie im Mockup): erst ab 0,85 haben alle vier
 //     Spielerfarben ≥ 4,5:1 auf hellem Boden (Referenz FARBE.bodenHell, hellster Boden im echten Bodenkampf-Bild). Der Test misst das.
 //   - Ein Stiel (1 px, Spielerfarbe) verbindet die Marke mit dem Kopf, damit bei dicht stehenden Figuren klar ist, wem sie gehört.
+//   - Stapeln (ordne): eigene Marke zuerst in Zeile 0, übrige nach Bildschirm-y absteigend, dann x; jede nimmt die erste Zeile 0…max−1, in der sie weder gesetzte
+//     Marken noch Hindernisse (Gegnernamen) schneidet (Rechteck + luecke). Keine Zeile frei → nur Form (wie die eigene Marke). Flackerschutz: die zuletzt benutzte Zeile
+//     bleibt, solange sie frei ist; in eine tiefere Zeile (oder aus „nur Form“ in eine Zeile) wechselt die Marke erst, wenn diese haltenMs lang frei war.
 //   - Farbwerte stehen nur zwischen „// <tokens>“ und „// </tokens>“ (tools/check-terminal-farben.js prüft diese Datei mit).
 (function (root, factory) {
   const api = factory(root);
@@ -43,6 +47,8 @@
     stiel: { w: 1, h: 3 },        // Verbindung zum Kopf, unter der Marke
     ueberKopf: 52, geduckt: 40,   // Abstand Füße → Oberkante Marke (wie heute in render.js)
     nameMax: 12,                  // Zeichen
+    // Stapeln (CHA-01 F, Designer-Review „dicht“): stehen Figuren enger als eine Marke breit ist, rückt die Marke in eine höhere Zeile (Stiel wird länger).
+    stapel: { luecke: 2, zeile: 12, max: 3, haltenMs: 300 },   // luecke: Mindestabstand px; zeile: Zeilenabstand px; max: Zeilen 0…max−1, sonst nur Form; haltenMs: Flackerschutz
   };
   // </tokens>
 
@@ -61,5 +67,42 @@
       stiel: { x: 0, y: m.h, w: m.stiel.w, h: m.stiel.h },
     };
   }
-  return { TOKENS, marke, spieler };
+
+  // Rechtecke { x (links), y (oben), w, h } schneiden sich, wenn der Abstand kleiner als `luecke` ist.
+  function schneidet(a, b, luecke) {
+    return a.x < b.x + b.w + luecke && b.x < a.x + a.w + luecke && a.y < b.y + b.h + luecke && b.y < a.y + a.h + luecke;
+  }
+  // Zeilenwahl für alle Marken eines Frames. marken: [{ id, eigen, x, y, w, h }] (Rechteck der Marke in Zeile 0, Bildschirm-px); hindernisse: [{ x, y, w, h }] (Gegnernamen);
+  // vorher: Rückgabe des letzten Frames (oder null); jetztMs: Uhrzeit. Rein: ändert keine Eingabe.
+  function ordne(marken, hindernisse, vorher, jetztMs) {
+    const S = MASS.stapel, aus = {}, gesetzt = (hindernisse || []).slice();
+    vorher = vorher || {};
+    const zeileFrei = (mk, z) => { const r = { x: mk.x, y: mk.y - z * S.zeile, w: mk.w, h: mk.h }; return !gesetzt.some((g) => schneidet(r, g, S.luecke)); };
+    const eigene = marken.filter((mk) => mk.eigen), andere = marken.filter((mk) => !mk.eigen);
+    for (const mk of eigene) {   // eigene Marke: immer Zeile 0 (nur Form, klein), setzt ihr Rechteck
+      aus[mk.id] = { dy: 0, stielH: MASS.stiel.h, nurForm: true, zeile: 0, tiefer: null };
+      gesetzt.push({ x: mk.x, y: mk.y, w: mk.w, h: mk.h });
+    }
+    andere.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+    for (const mk of andere) {
+      let erste = -1;
+      for (let z = 0; z < S.max && erste < 0; z++) if (zeileFrei(mk, z)) erste = z;
+      const v = vorher[mk.id];
+      let z = erste, tiefer = null;
+      if (erste >= 0 && v) {
+        const vz = v.nurForm ? S.max : v.zeile;   // „nur Form“ zählt wie eine Zeile hinter der letzten
+        const vzFrei = vz >= S.max || zeileFrei(mk, vz);
+        if (vz > erste && vzFrei) {   // eine tiefere Zeile ist frei, die alte auch noch: erst nach haltenMs wechseln
+          tiefer = v.tiefer != null ? v.tiefer : jetztMs;
+          if (jetztMs - tiefer < S.haltenMs) z = vz;   // Halten
+          else tiefer = null;
+        }
+      }
+      if (z < 0 || z >= S.max) { aus[mk.id] = { dy: 0, stielH: MASS.stiel.h, nurForm: true, zeile: S.max, tiefer }; continue; }
+      aus[mk.id] = { dy: -z * S.zeile, stielH: MASS.stiel.h + z * S.zeile, nurForm: false, zeile: z, tiefer };
+      gesetzt.push({ x: mk.x, y: mk.y - z * S.zeile, w: mk.w, h: mk.h });
+    }
+    return aus;
+  }
+  return { TOKENS, marke, spieler, ordne };
 });
