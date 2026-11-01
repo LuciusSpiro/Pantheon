@@ -548,7 +548,7 @@
     // Lobby (CONTRACT-W2 §1, AP3a)
     lobby: {
       // Szenario-Labor in der Lobby (Taste M, server/mission/labor.js). Aus: Modus erscheint nicht, der Server lehnt den Start ab.
-      // MERKER: vor dem Weitergeben des Spiels ausschalten oder hinter Debug legen.
+      // Kai 2026-10-31 (MEN-01): Übungsplatz und Labor sind für alle sichtbar, der Schalter bleibt (aus = Modus erscheint nicht, tools/test-labor.js prüft den Pfad).
       labor: true,
     },
 

@@ -23,6 +23,7 @@
   const ctx = canvas.getContext('2d');
   const codeInput = document.getElementById('lobbyCode');   // M0: Raumcode-Eingabe nach badcode
   const world3d = document.getElementById('world3d');      // M4: Voxel-Welt (voxel/boot.js)
+  const keyart = document.getElementById('keyart');        // CHA-01 E: Key-Art des Startmenüs (eigene Bildebene unter dem Canvas)
 
   function lsGet(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }
   function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { /* egal */ } }
@@ -128,6 +129,7 @@
     canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
     canvas.style.left = Math.floor((W - cw) / 2) + 'px'; canvas.style.top = Math.floor((Hh - ch) / 2) + 'px';
     if (world3d) { world3d.style.width = canvas.style.width; world3d.style.height = canvas.style.height; world3d.style.left = canvas.style.left; world3d.style.top = canvas.style.top; }   // M4: 3D-Welt in derselben CSS-Box
+    if (keyart) { keyart.style.width = canvas.style.width; keyart.style.height = canvas.style.height; keyart.style.left = canvas.style.left; keyart.style.top = canvas.style.top; }   // CHA-01 E: Key-Art ebenso
     Client.scale = scale;
     if (codeInput && H.LOBBY_CODE_RECT) {
       const q = H.LOBBY_CODE_RECT;
@@ -260,6 +262,7 @@
     if (row.neu) {
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: null });
       uiCloseAll(true); audio.play('ui_click');
+      if (window.MenueFluss && MenueFluss.lies().schirm === 'menue') MenueFluss.imRaum();   // CHA-01 E: aus dem Hauptmenü gewählt → die Lobby zeigt das Ergebnis
       return;
     }
     const w = row.w || {};
@@ -271,6 +274,7 @@
     send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: row.id });
     if (st.lobby && st.lobby.worldsFull && Client.ui.worldsMode === 'full') H.pushNotice('Fortsetzen statt neu: ' + (w.name || row.id), R.PAL.mint);
     uiCloseAll(true); audio.play('ui_click');
+    if (window.MenueFluss && MenueFluss.lies().schirm === 'menue') MenueFluss.imRaum();   // CHA-01 E: Weltstand im Hauptmenü gewählt → in die Lobby
   }
   function startDelete(id, viaMouse) {
     const row = worldsItems().find(r => r.id === id && !r.neu);
@@ -473,6 +477,7 @@
     // S1: Overlays und Menü (Maus über Hud-Knöpfe)
     openWorlds(mode) { openWorlds(mode); },
     openOptions() { if (uiTop() !== 'options') { uiPush('options'); audio.play('ui_click'); } },
+    openHilfe() { if (uiTop() !== 'controls') { uiPush('controls'); audio.play('ui_click'); } },   // CHA-01 E: Steuerung (Hilfe) auch aus Titel, Hauptmenü und Lobby
     uiActivate(page, id) { uiActivate(page, id); },
     uiSelect(page, i) { Client.ui.sel[page] = i; },
     uiOption(id, dir) { uiOption(id, dir); },
@@ -494,22 +499,6 @@
       const st = Client.state;
       const cur = !!(st && st.lobby && st.lobby.skipDrill);
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', skipDrill: !cur });
-      audio.play('ui_click');
-    },
-    // M2: Start „Kampagne“ (m1), „Direkt zur Planetenmission“ (m3) oder Testgelände (arena_space/arena_away) –
-    // jeder darf umschalten, M schaltet reihum weiter (AP3a: Reihenfolge Protocol.LOBBY_MODI, Labor nur mit lobby.laborAn)
-    toggleStartMission() {
-      const st = Client.state;
-      const cur = (st && st.lobby && st.lobby.startMission) || 'm1';
-      if (st && st.lobby && st.lobby.world != null && H.lobbyWorld(st)) { H.pushNotice('Startauswahl entfällt beim Fortsetzen (F: „Neue Kampagne“ wählen)', R.PAL.warn); audio.play('error'); return; }
-      const list = H.startList(st);   // S1: inkl. 'free' (Kampagne ohne Tutorial); AP3a: LOBBY_MODI
-      const next = list[(list.indexOf(cur) + 1) % list.length];
-      const msg = { t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', startMission: next };
-      // Bodenkampf: Wellen – die Kartenwahl geht immer mit (ohne sie startet der Server den Altweg Kesh/m3)
-      if (next === 'arena_away') msg.wellen = (st && st.lobby && st.lobby.wellen) || (P.WELLEN_KARTEN || ['aussenposten'])[0];
-      // W2 AP3b: Wellen All – die Szenenwahl geht immer mit (ohne sie startet der Server den Altweg „Testgelände Raumkampf“)
-      if (next === 'arena_space') msg.szene = (st && st.lobby && st.lobby.szene) || (allSzenen()[0] || {}).id || null;
-      send(msg);
       audio.play('ui_click');
     },
     // AP3a: Szenario-Labor – Auswahl (↑/↓) und Parameter (R Seed, ←/→ Stärke, G god); jeder darf umschalten
@@ -786,6 +775,7 @@
     const wasLobby = !prev || prev.phase === 'lobby';
     const isLobby = s.phase === 'lobby';
     if (prev && wasLobby !== isLobby) { Client.ui.pauseSent = false; uiCloseAll(true); }
+    if (prev && !wasLobby && isLobby && window.MenueFluss) MenueFluss.imRaum();   // CHA-01 E: nach der Runde zurück in die Lobby (nicht in den Titel)
     const ui = Client.ui;
     if (isLobby && uiTop() === 'worlds') {
       const n = worldsItems().length;
@@ -2026,26 +2016,8 @@
     const st = Client.state, m = me();
     if (!st || st.phase === 'lobby' || !m) {
       if (Net.badCode && !m) { if (code === 'Enter') actions.submitCode(); return; }
-      if (code === 'KeyO' && !e.repeat) { actions.openOptions(); return; }   // S1: Optionen auch in der Lobby
-      if (window.Tasten && Tasten.passt(e, 'charakter.oeffnen') && !e.repeat) { actions.openKammer(); return; }   // CHA-01 C: Charakterliste (Taste C)
-      if (code === 'KeyF' && m && !e.repeat) { openWorlds('list'); return; }   // S1: Weltstand-Liste
-      if (code === 'Enter') actions.toggleReady();
-      if (code === 'KeyU' && m) actions.toggleSkipDrill();
-      if (code === 'KeyM' && m) actions.toggleStartMission();   // M2: Direktstart Planetenmission
-      if (code === 'KeyK' && m && !e.repeat) actions.toggleWellenKarte();   // Bodenkampf: Wellen – Karte
-      { const gi = H.GRABEN_TASTEN ? H.GRABEN_TASTEN.indexOf(code) : -1; if (gi > 0 && m && !e.repeat) actions.toggleGraben(gi); }   // BOD-01: N/B = weitere Abschnitte des Grabenangriffs (K: toggleWellenKarte)
-      if (code === 'KeyW' && m && !e.repeat) actions.lobbyWaffe();   // AP3a: Waffe für Wellen Boden / Labor
-      if (m && st && st.lobby && st.lobby.startMission === 'labor') {   // AP3a: Szenario-Labor
-        if (code === 'ArrowUp') actions.laborWahl(-1);
-        if (code === 'ArrowDown') actions.laborWahl(1);
-        if (code === 'ArrowLeft' && !e.repeat) actions.laborStaerke(-1);
-        if (code === 'ArrowRight' && !e.repeat) actions.laborStaerke(1);
-        if (code === 'KeyR' && !e.repeat) actions.laborSeed();
-        if (code === 'KeyG' && !e.repeat) actions.laborGod();
-      }
-      if (code === 'KeyL' && m && Net.serverRoomCode) actions.copyInvite();
-      const d = /^Digit([1-4])$/.exec(code);
-      if (d) actions.setColor(+d[1] - 1);
+      // CHA-01 E: Titelbild, Hauptmenü, Lobby und Einladung gehören MenueUi (Navigation: MenueFluss, Lobby-Optionen: actions); die Ansicht frisch bauen, nicht Client.view (das letzte gezeichnete Bild kann hinterherhinken)
+      if (window.MenueUi) { Net.guard('MenueUi.taste', () => MenueUi.taste(e, buildView()), false); return; }
       return;
     }
     // PAN-01 D2: Terminal – F1–F4 gehören dem Gerät (Browser-Hilfe und Suche nicht öffnen); als Zuschauer nur Esc (zurück), sonst steht die Figur still
@@ -2331,6 +2303,19 @@
   }
 
   // ------------------------------------------------------------------ Zeichnen
+  // CHA-01 E: Key-Art-Ebene des Startmenüs ein/aus, Helligkeit je Bildschirm (Menue.TOKENS.BILD.hell); der HUD-Canvas wird dabei durchsichtig (wie bei der 3D-Welt)
+  function syncKeyart(e) {
+    if (!keyart) return;
+    if (!e) {
+      if (keyart.style.display !== 'none') keyart.style.display = 'none';
+      if (Client.menueBg) { Client.menueBg = false; canvas.style.background = world3d && world3d.style.display === 'block' ? 'transparent' : ''; }
+      return;
+    }
+    if (keyart.style.display !== 'block') keyart.style.display = 'block';
+    const f = 'brightness(' + e.hell + ')';
+    if (keyart.style.filter !== f) keyart.style.filter = f;
+    if (!Client.menueBg) { Client.menueBg = true; canvas.style.background = 'transparent'; }
+  }
   function render() {
     const v = buildView();
     Client.view = v;
@@ -2340,18 +2325,24 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // M4: Voxel-Modus – 3D zeichnet die Welt, der HUD-Canvas wird transparent geleert, drawWorld nur als Overlay
     const use3d = drawVoxel(v);
-    if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
-    else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
     const st = v.state;
     const lobby = !st || st.phase === 'lobby' || !v.me;
     const codeMode = lobby && Net.status === 'open' && Net.badCode && !v.me;
+    const menue = lobby && !codeMode && !!window.MenueUi && uiTop() !== 'kammer';   // CHA-01 E: Startmenü (Key-Art unter dem durchsichtigen Canvas)
+    if (use3d) { v.voxel = true; ctx.clearRect(0, 0, VW, VH); }
+    else if (menue) ctx.clearRect(0, 0, VW, VH);
+    else { ctx.fillStyle = R.PAL.space; ctx.fillRect(0, 0, VW, VH); }
+    syncKeyart(menue ? MenueUi.ebene(v) : null);
     if (uiTop() === 'kammer' && !lobby) actions.closeKammer();   // CHA-01 C: die Runde startet, die Kammer schließt
     if (codeInput) {
       codeInput.style.display = codeMode ? 'block' : 'none';
       if (codeMode && Client.focusCode) { Client.focusCode = false; setTimeout(() => { try { codeInput.focus(); codeInput.select(); } catch (e) { /* egal */ } }, 0); }
     }
     if (lobby) {
-      Net.guard('Hud.drawLobby', () => H.drawLobby(ctx, Object.assign({}, v, { state: st || {} })));
+      if (menue) {
+        Net.guard('MenueUi.zeichne', () => MenueUi.zeichne(ctx, Object.assign({}, v, { state: st || {} })));
+        if (!(v.ui && v.ui.stack && v.ui.stack.length)) Net.guard('Hud.drawNotices', () => H.drawNotices(ctx, v, 4));   // bei offenem Overlay zeichnet drawUi den neuesten Hinweis
+      } else Net.guard('Hud.drawLobby', () => H.drawLobby(ctx, Object.assign({}, v, { state: st || {} })));
       R.drawTooltip(ctx);
     } else {
       const shake = Client.shakeT && performance.now() - Client.shakeT < 250 && v.self.zone === 'ship' && !v.me.console;
@@ -2498,6 +2489,7 @@
     Cx.abonniere((karte) => {
       if (!Client.debugKarte) Client.karte = karte;   // __game.setzeKarte (nur ?debug=1) hat Vorrang bis zum Neuladen
       if (karte) Client.lobby.name = karte.name;
+      if (window.MenueFluss) MenueFluss.einladungAufGewaehlten();   // CHA-01 E: der Cursor der Einladung folgt dem gewählten Charakter
       if (Net.isOpen()) Net.sendHello();
     });
     fetch('/voxel/assets/katalog/charakter.json', { cache: 'no-cache' })
@@ -2508,6 +2500,16 @@
         Cx.erststart({ altName: lsGet('sternenschicht.name', null), zufallsName: ZUFALLSNAME });
       })
       .catch((e) => Net.reportError('Charaktere.katalog', e));
+  }
+  // CHA-01 E: womit das Startmenü beginnt. ?menue=1 erzwingt den Ablauf Titel → Hauptmenü → Lobby (bzw. Einladung bei ?code=), ?menue=0 die Lobby.
+  // Ohne Angabe: Direktstarts (?arena=) und ferngesteuerte Browser (navigator.webdriver: Playwright-Skripte tools/sicht-*.js, pw-*.js) beginnen in der Lobby,
+  // so wie diese Skripte sie seit jeher vorfinden; ein Einladungslink (?code=) beginnt mit der Einladung, sonst der Titel.
+  function menueStart() {
+    const q = params, m = q.get('menue');
+    const link = !!Net.normCode(q.get('code'));
+    if (m === '1') return { link };
+    if (m === '0' || q.get('arena') != null || navigator.webdriver) return { direkt: true };
+    return { link };
   }
   function boot() {
     layout();
@@ -2524,6 +2526,7 @@
     G.tune = (path, value) => G.dbg('tune' + (path ? ' ' + path : '') + (value != null ? ' ' + value : ''));
     G.parseDebugLine = parseDebugLine;
     Net.guard('Client.charaktere', startCharaktere);
+    if (window.MenueFluss) MenueFluss.starte(menueStart());
     Net.connect();
     requestAnimationFrame(frame);
   }

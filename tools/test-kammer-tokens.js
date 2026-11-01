@@ -124,6 +124,8 @@ const GLYPHEN = Function('return ' + gBlock.slice(0, gBlock.indexOf('\n  };') + 
 const texte = [];
 const sammle = (o) => { if (typeof o === 'string') texte.push(o); else if (o && typeof o === 'object') Object.values(o).forEach(sammle); };
 sammle(PK.TOKENS.TEXT); sammle(PK.TOKENS.PLATZ); sammle(PK.TOKENS.HERKUNFT); sammle(ME.TOKENS.TEXT); sammle(ME.TOKENS.STEMPEL);
+// CHA-01 E: die festen Texte der Menü-Oberfläche (public/js/menue.js TEXT, Gruppen- und Eintragstexte) und die Modusnamen/-hinweise aus dem Protokoll, die das Menü anzeigt
+{ const MF = require('../public/js/menue.js'); sammle(MF.TEXT); sammle(PROTO.START_LABELS); sammle(PROTO.START_HINTS); sammle(MF.GRUPPEN.flatMap((g) => g.eintraege.map((e) => e.art))); }
 const fehlend = new Set();
 for (const t of texte) for (const ch of t.replace(/\{\w+\}/g, '')) if (ch !== ' ' && GLYPHEN[ch] === undefined && GLYPHEN[ch.toUpperCase()] === undefined) fehlend.add(ch);
 ok(!fehlend.size, 'Zeichen ohne Glyphe in art.js: ' + [...fehlend].join(' '));

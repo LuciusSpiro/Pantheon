@@ -312,5 +312,7 @@
     return true;
   }
 
-  window.KammerUi = { TEXT, zeichne, taste, offen: () => !!C.lies().sitzung.seite };
+  // Für das Startmenü (menue-ui.js): Porträt einer Karte in ein Fenster (ohne Karte nur der Grund) und Teilname aus dem Katalog
+  function portraetIn(c, r, karte) { if (karte) portraet(c, r, karte, 'portraet'); else rect(c, r.x, r.y, r.w, r.h, F.figurGrund); }
+  window.KammerUi = { TEXT, zeichne, taste, offen: () => !!C.lies().sitzung.seite, portraetIn, teilName };
 })();
