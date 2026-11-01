@@ -156,7 +156,7 @@
     let my = y + K.h + 22;
     if (!st.speicherOk) { R.wrap(TEXT.liste.speicherFehler, S.mitte.w, 1).forEach((z, i) => txt(c, z, p.x + S.mitte.x, my + i * 10, FN.warn)); my += 10 * R.wrap(TEXT.liste.speicherFehler, S.mitte.w, 1).length + 4; }
     if (meld) R.wrap(meld.text, S.mitte.w, 1).forEach((z, i) => txt(c, z, p.x + S.mitte.x, my + i * 10, meld.farbe));
-    spalteAbschluss(c, KX.spalte.weiter, [{ taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.lobby, haupt: true, klick: () => uebernehmen() }]);
+    spalteAbschluss(c, KX.spalte.weiter, [{ taste: 'Enter', aktion: 'charakter.uebernehmen', text: (window.MenueFluss && MenueFluss.kammerKnopfText()) || KX.knopf.lobby, haupt: true, klick: () => uebernehmen() }]);
   }
 
   // ---------------------------------------------------------------- Erstellung / Umbenennen

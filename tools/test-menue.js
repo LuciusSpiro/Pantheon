@@ -8,6 +8,8 @@
 //  6. Crew: Gastgeber = erster verbundener Spieler, Bereit-Zählung.
 //  7. Nacharbeit: Tutorial-Schalter (Merker im Menü, Modus der Runde in der Lobby), Einladung ablehnen verlässt den Raum, Weltstand-Belegung, sichtbarer Modus beim Eintritt,
 //     Weltstand gewählt (Hauptmenü / Moduswahl), Labor-Auswahl, Startlogik (?menue, ?arena, webdriver), Tastenzuordnung von menue-ui.js taste() je Schirm.
+//  7b. CHA-01 G (Designer-Review): Bereit-Knopf je Zustand, Titelumbruch, Chips „Name: Wert“ ohne verlorene Option (jeder Modus, schlimmster Wert), Grabenabschnitte und Laborsatz,
+//     Einladungszählung ohne sich selbst, aktiver Modus der Überlagerung, Raumcode-Eingang nach Ablehnung, Kammer-Hauptknopf je Herkunft, Titel Eisenwald, Texte, Porträt-Platte.
 //  8. Mutationsproben: Regeln werden im Quelltext verändert, der Test muss rot werden (Debug-Sichtbarkeit, Link überspringt Titel, Tutorial-Synchronisierung,
 //     Rücknahme von „bereit“, Raum verlassen, sichtbarer Modus, Weltstand voll, Startlogik).
 //   node tools/test-menue.js
@@ -20,6 +22,10 @@ const { Game } = require('../server/game.js');
 const QUELLE = path.join(__dirname, '..', 'public', 'js', 'menue.js');
 const QUELLE_UI = path.join(__dirname, '..', 'public', 'js', 'menue-ui.js');
 const TOKENS = require('../public/js/menue-tokens.js');
+const PKT = require('../public/js/pult-kammer-tokens.js');
+const QUELLE_BAUSTEINE = path.join(__dirname, '..', 'public', 'js', 'kammer-bausteine.js');
+const ART = require('../public/js/art.js').Art;   // echte Textbreiten der Pixelschrift
+const BR = (s, sk) => ART.measureText(String(s), sk || 1);
 
 let n = 0, fails = 0;
 function ok(c, msg) { n++; if (!c) { fails++; console.log('  FEHLER ' + msg); } else console.log('  ok ' + msg); }
@@ -278,6 +284,109 @@ function pruefe(api, laut) {
     p(!/synchronisiere/.test(quelleUi.replace(/\/\/.*$/gm, '')), 'K2: menue-ui.js ruft synchronisiere nicht (Zeichnen ohne Seiteneffekt)');
     p(!/Charaktere\.neuAnlegen|openKammer\(\); *if/.test(quelleUi), 'K1: menue-ui.js verkettet keine Actions mehr für N'); }
 
+  // ---- 13 CHA-01 G: Designer-Review des Startmenüs
+  { // 1 Bereit-Knopf: abgeleiteter Zustand
+    const F = neu(api).F, nicht = F.bereitAnzeige({ ready: false }), ja = F.bereitAnzeige({ ready: true });
+    p(nicht.art === 'gold' && nicht.kappe === 'Enter' && nicht.text === 'Bereit melden' && !nicht.bereit, 'G1: nicht bereit → goldener Hauptknopf, Kappe Enter, „Bereit melden“');
+    p(ja.art === 'mint' && ja.titel === 'BEREIT' && ja.zeile === 'Enter: zurück' && ja.bereit, 'G1: bereit → mintfarbene Fläche „BEREIT“ mit „Enter: zurück“');
+    p(F.bereitAnzeige(null).art === 'gold' && F.bereitAnzeige(undefined).art === 'gold', 'G1: ohne eigenen Spieler (noch nicht im Raum) gilt „nicht bereit“'); }
+  { // 4 Titel-Skala und Lobby-Kopf
+    const F = neu(api).F, lobbyT = (t) => F.titelUmbruch(t, BR, 400, [3, 2]), detailT = (t) => F.titelUmbruch(t, BR, 220, [2]);
+    p(lobbyT('SZENARIO-LABOR').skala === 3 && lobbyT('SZENARIO-LABOR').zeilen.length === 1, 'G4: „SZENARIO-LABOR“ steht in der Lobby in Skala 3 auf einer Zeile');
+    const lang = lobbyT('DIE SCHULD DER LERCHE UND NOCH EIN SEHR LANGER ZUSATZ'), mittel = lobbyT('DIE SCHULD DER LERCHE UND EIN ZUSATZ');
+    p(lang.skala === 2 && lang.zeilen.length === 2 && mittel.skala >= 2, 'G4: ein sehr langer Lobby-Titel fällt auf Skala 2 und bricht zweizeilig um, nie auf Skala 1 (Skala ' + lang.skala + ', ' + lang.zeilen.length + ' Zeilen)');
+    const d = detailT('DIE SCHULD DER LERCHE'), k = detailT('FREIE FAHRT SUND');
+    p(d.skala === 2 && d.zeilen.length === 2 && d.zeilen.join(' ') === 'DIE SCHULD DER LERCHE' && BR(d.zeilen[0], 2) <= 220, 'G4: „DIE SCHULD DER LERCHE“ bricht in der Detailkachel bei Skala 2 auf zwei Zeilen um (' + d.zeilen.join(' | ') + ')');
+    p(k.skala === 2 && k.zeilen.length === 1, 'G4: ein kurzer Titel bleibt einzeilig in Skala 2');
+    p(F.titelUmbruch('A B C D E F G H I J K L M N O P', (s) => s.length * 20, 100, [2]).zeilen.length === 2, 'G4: mehr als zwei Zeilen werden auf zwei begrenzt (der Rest hängt an der zweiten)');
+    p(F.lobbyKopf(1).satzY === 38 && F.lobbyKopf(1).chipY === 51 && F.lobbyKopf(2).satzY === null && F.lobbyKopf(2).chipY < F.lobbyKopf(1).chipY, 'G4: zwei Titelzeilen → keine Satzzeile, Chips rücken auf'); }
+  { // 5 Chips: jede Option jedes Modus sichtbar, „Name: Wert“, keine interne Bezeichner
+    const F = neu(api).F, mass = { kappe: (k) => Math.max(13, BR(k) + 7) + 4, text: (s) => BR(s), kuerze: (s, w) => { while (s.length > 1 && BR(s) > w) s = s.slice(0, -1); return s; } };
+    const graben = [{ abschnitt: 'a', name: 'Nordwall', varianten: [{ id: '1', name: 'Palisade' }, { id: '2', name: 'Graben' }] }, { abschnitt: 'b', name: 'Mittelstück', varianten: [{ id: '1', name: 'Tor' }, { id: '2', name: 'Turm' }] }, { abschnitt: 'c', name: 'Südflanke', varianten: [{ id: '1', name: 'Wall' }, { id: '2', name: 'Sumpf' }] }, { abschnitt: 'd', name: 'Hinterland', varianten: [{ id: '1', name: 'Wiese' }] }];
+    const worst = () => 'WWWWWWWWWWWWWWWWWWWWWWWW', gesehen = [];
+    for (const modus of Protocol.LOBBY_MODI) {
+      const lob = { startMission: modus, worlds: [], laborAn: true, grabenListe: graben, laborListe: [{ id: 'x' }], labor: { id: 'x' } };
+      const soll = F.optionenFuer(modus, lob, null).filter((o) => !o.versteckt), chips = F.lobbyChips(modus, lob, null, worst), lay = F.chipReihen(chips, mass, { maxB: 404, maxReihen: 2 });
+      const platziert = lay.reihen.flat();
+      const alle = soll.every((o) => platziert.some((c) => c.taste === o.taste && c.name === o.label)) && (platziert[0] || {}).taste === 'M';
+      p(alle && lay.anzahl === chips.length && chips.length === soll.length + 1, 'G5: ' + modus + ': „M“ und alle ' + soll.length + ' Zusatzoptionen stehen als Chip da, keine fehlt');
+      p(lay.reihen.length <= 2 && lay.ueberlauf === 0, 'G5: ' + modus + ': höchstens zwei Chip-Reihen bei längstem Wert (' + lay.reihen.length + ')');
+      p(platziert.every((c) => c.x + c.w <= 404 + 0.5), 'G5: ' + modus + ': kein Chip ragt über die Textzone hinaus');
+      gesehen.push(modus);
+    }
+    p(gesehen.length === Protocol.LOBBY_MODI.length, 'G5: alle ' + Protocol.LOBBY_MODI.length + ' Modi geprüft');
+    const labor = F.lobbyChips('labor', { laborListe: [] }, null, () => 'x'), namen = labor.map((c) => c.name);
+    p(namen.includes('Unverwundbar') && !namen.includes('god') && labor.every((c) => c.wert == null || !String(c.name).includes(':')), 'G5: Labor: „Unverwundbar“ statt „god“, Name und Wert getrennt („Name: Wert“)');
+    const lw = { startMission: 'labor', worlds: [], laborListe: [] }, tut = F.lobbyChips('eisenwald_ohne', lw, null, () => 'aus').find((c) => c.taste === 'U');
+    p(tut && tut.name === 'Tutorial' && tut.wert === 'aus', 'G5: Eisenwald: Chip „Tutorial: aus“ (Name Tutorial, Wert aus)');
+    const wb = F.lobbyChips('arena_away', {}, null, (o) => (o.aktion === 'lobbyWaffe' ? 'Blaster' : 'Station')); p(wb.find((c) => c.taste === 'K').name === 'Karte' && wb.find((c) => c.taste === 'W').wert === 'Blaster', 'G5: Wellen Boden: „Karte: Station“, „Waffe: Blaster“');
+    const kl = F.chipReihen([{ taste: 'M', name: 'Modus ändern (alle)', wert: null }].concat(Array.from({ length: 5 }, (_, i) => ({ taste: 'R', name: 'Option' + i, wert: 'WWWWWWWWWWWWWWWWWWWWWWWW' }))), mass, { maxB: 404, maxReihen: 2 });
+    p(kl.reihen.length <= 2 && kl.reihen.flat().length === 6 && kl.reihen.flat().every((c) => c.wert == null || BR(c.wert) < BR('WWWWWWWWWWWWWWWWWWWWWWWW')), 'G5: reicht der Platz nicht, werden Werte gekürzt statt Optionen verworfen');
+    // Abschnitte ohne Taste: Text, nichts geht verloren
+    const ga = F.grabenAbschnitte({ grabenListe: graben.concat([{ abschnitt: 'e', name: 'Ostrand', varianten: [{ id: '1', name: 'A' }, { id: '2', name: 'B' }] }]), graben: { b: '2' } });
+    p(ga.wahl.length === 3 && ga.wahl.map((w) => w.taste[0]).join('') === 'KNB' && ga.wahl.length + ga.texte.length === 5, 'G5: Grabenangriff: jeder Abschnitt hat eine Taste (K N B) oder steht als Text (' + ga.wahl.length + ' + ' + ga.texte.length + ' von 5)');
+    p(ga.texte.includes('Hinterland: Wiese') && ga.texte.some((t) => /^Ostrand: /.test(t)), 'G5: Grabenangriff: Abschnitte ohne Taste stehen als „Name: Variante“ im Satz');
+    // Satzzeile: der Stand bleibt, die Beschreibung entfällt zuerst, nie ein halbes Wort
+    const sz = F.satzZeile(['Wiese: mit Graben', 'Wald: Weg durch den Wald', 'Römische Stellung angreifen und halten, bis alle Gräben genommen sind'], BR, 260);
+    p(sz === 'Wiese: mit Graben · Wald: Weg durch den Wald' && F.satzZeile(['A sehr lang'.repeat(30), 'B'], BR, 100) === 'A sehr lang'.repeat(30) && F.satzZeile(['', 'x'], BR, 10) === 'x', 'G5: Satzzeile: Teile entfallen von hinten (' + sz + '), der erste bleibt immer');
+    // Laborsatz
+    const lesbar = { ort: (id) => ({ splitter: 'Splittergürtel' }[id] || id), karte: (k) => ({ aussenposten: 'Außenposten', station: 'Station', schiff: 'Schiff' }[k] || k) };
+    const le = { id: 'ausbruch/z', name: 'Aus der Zelle, raus (Start: gefangen)', ort: 'splitter', landepunkt: 'splitter.schuerflager', kartenarten: ['aussenposten', 'station', 'schiff'], startzustand: 'gefangen' };
+    const s1 = F.laborSatz(le, lesbar), s2 = F.laborSatz(Object.assign({}, le, { name: 'Aus der Zelle, raus' }), lesbar);
+    p((s1.match(/gefangen/g) || []).length === 1 && (s2.match(/gefangen/g) || []).length === 1, 'G5: Labor: „Start: gefangen“ steht nur einmal (im Namen oder angehängt)');
+    p(/Splittergürtel/.test(s1) && !/schuerflager|aussenposten|\./.test(s1.replace(/u\. a\./, '')), 'G5: Labor: Ort lesbar, keine internen Bezeichner (' + s1 + ')'); }
+  { // 6 Einladung: Zählung ohne sich selbst
+    const F = neu(api).F, sp = [{ id: 'a', connected: true }, { id: 'b', connected: true }, { id: 'c', connected: false }, { id: 'ich', connected: true }];
+    const b = F.einladungBesatzung(sp, 'ich'); p(b.n === 2 && b.text === '2 an Bord + du' && b.andere.every((x) => x.id !== 'ich'), 'G6: Einladung zählt ohne sich selbst und ohne Getrennte: „2 an Bord + du“');
+    p(F.einladungBesatzung([{ id: 'ich', connected: true }], 'ich').text === 'nur du', 'G6: allein: „nur du“'); }
+  { // 7 Moduswahl: aktiver Modus
+    const t = neu(api), F = t.F, lob = { startMission: 'eisenwald_ohne', worlds: [] }; F.starte({ direkt: true }); F.synchronisiere(lob);
+    const ew = F.eintragMitId('eisenwald'), fd = F.eintragMitId('freie_fahrt');
+    p(!F.eintragAktiv(ew, lob), 'G7: ohne offene Moduswahl trägt kein Eintrag „aktiv“');
+    F.oeffneModusWahl(lob); p(F.eintragAktiv(ew, lob) && !F.eintragAktiv(fd, lob), 'G7: Moduswahl offen: nur der Eintrag des Lobby-Modus (Eisenwald ohne Tutorial) ist aktiv');
+    const lw = { startMission: 'freie_fahrt', world: 'w2', worlds: WELTEN }; p(F.eintragAktiv(F.eintragMitId('fortsetzen'), lw) && !F.eintragAktiv(fd, lw), 'G7: bei gewähltem Weltstand ist „Fortsetzen“ aktiv'); }
+  { // 8 Titel Eisenwald
+    const F = neu(api).F;
+    p(F.modusTitel('eisenwald') === 'Kampagne Eisenwald' && F.modusTitel('eisenwald_ohne') === 'Kampagne Eisenwald' && F.eintragTitel(F.eintragMitId('eisenwald')) === 'Kampagne Eisenwald', 'G8: Eisenwald heißt immer „Kampagne Eisenwald“ (Tutorial-Zustand nur im Chip)');
+    p(F.modusTitel('m1') === 'Kampagne' && F.modusTitel('labor') === 'Szenario-Labor' && F.eintragTitel(F.eintragMitId('fortsetzen')) === '', 'G8: andere Titel unverändert, Fortsetzen hat keinen festen Titel'); }
+  { // 3 Raumcode-Eingang
+    const t = neu(api), F = t.F, voll = { badCode: true, verbunden: true, hatSpieler: false, roomCode: '' };
+    p(F.raumcodeEingang({ badCode: false, verbunden: true, hatSpieler: false }) === null && F.raumcodeEingang({ badCode: true, verbunden: true, hatSpieler: true }) === null && F.raumcodeEingang({ badCode: true, verbunden: false, hatSpieler: false }) === null, 'G3: Eingang nur bei badcode, Verbindung und ohne Spieler');
+    const e0 = F.raumcodeEingang(voll); p(e0.ueberschrift === 'RAUMCODE' && !e0.abgelehnt && e0.fehler === null && /Gastgeber/.test(e0.satz), 'G3: ohne Ablehnung: „RAUMCODE“, kein Fehlerton');
+    F.starte({ link: true }); F.einladungAblehnen();
+    const e1 = F.raumcodeEingang(voll); p(e1.ueberschrift === 'EINLADUNG ABGELEHNT' && e1.abgelehnt && e1.fehler === null, 'G3: nach „Einladung ablehnen“: „EINLADUNG ABGELEHNT“, kein „Dieses Schiff ist abgeschlossen“/Fehlerton');
+    const e2 = F.raumcodeEingang(Object.assign({}, voll, { roomCode: 'ABCD' })); p(e2.ueberschrift === 'RAUMCODE' && e2.fehler && /Falsch/.test(e2.fehler), 'G3: ein eingegebener, falscher Code zeigt wieder „RAUMCODE“ und den Fehler');
+    F.snapshotEingang({ startMission: 'eisenwald', worlds: [] }); p(F.raumcodeEingang(voll).ueberschrift === 'RAUMCODE', 'G3: wieder im Raum (Snapshot): die Ablehnung ist vergessen');
+    F.starte({ link: true }); F.einladungAblehnen(); F.starte({}); p(!F.raumcodeEingang(voll).abgelehnt, 'G3: ein Neustart des Menüs vergisst die Ablehnung'); }
+  { // 11 Kammer-Hauptknopf je Herkunft
+    const F = neu(api).F, text = (o) => { F.starte(o); return F.kammerKnopfText(); };
+    p(text({}) === 'Zum Titel', 'G11: aus dem Titel geöffnet: „Zum Titel“, nicht „In die Lobby“');
+    F.weiter(); p(F.kammerKnopfText() === 'Zum Hauptmenü', 'G11: aus dem Hauptmenü geöffnet: „Zum Hauptmenü“');
+    p(text({ direkt: true }) === 'In die Lobby' && text({ link: true }) === 'Zur Einladung', 'G11: aus der Lobby „In die Lobby“, aus der Einladung „Zur Einladung“'); }
+  { // 10 Texte und Stempel
+    const hinweise = Object.values(Protocol.START_HINTS);
+    p(Protocol.START_HINTS.freie_fahrt === 'Rom gegen Germanen, die Welt tickt mit.', 'G10: Freie Fahrt Sund: „Rom gegen Germanen, die Welt tickt mit.“ (ohne „Sund:“, mit Punkt)');
+    p(hinweise.every((h) => !/Taste|↑|↓|&|solo|\bok\b/i.test(h)), 'G10: keine Tasten-Klartexte, kein „&“, kein „solo ok“ in den Modushinweisen');
+    p(TOKENS.TOKENS.STEMPEL.anBord.wort === 'BEREIT', 'G9: Stempel anBord heißt „BEREIT“ (Schlüssel bleibt)');
+    p(PKT.TOKENS.TEXT.nameIstSpieler === 'Name = Charaktername' && api.TEXT.einladung.nameCharakter === 'Name = Charaktername', 'G11: einheitlich „Name = Charaktername“ in Kammer und Einladung'); }
+  { // 6 Quelltext der Oberfläche: kein „GEWÄHLT“, Eisenwald-Titel nur über die Action
+    const q = fs.readFileSync(QUELLE_UI, 'utf8').replace(/\/\/.*$/gm, '');
+    p(!/lobby.gewaehlt|GEWÄHLT/i.test(q), 'G6: die Einladung zeigt kein „GEWÄHLT“, nur der Cursor bestimmt');
+    p(/cursorRahmen/.test(q) && /MM\.cursor/.test(q), 'G6: der Einladungs-Cursor hat den Doppelrand der Kleiderkammer (MASS.cursor)'); }
+  { // 2 Porträt-Platte (kammer-bausteine.js): nie ein Standardkopf als Platzhalter
+    const quelleB = fs.readFileSync(QUELLE_BAUSTEINE, 'utf8');
+    const lauf = (moeglich, bild) => {
+      const z = { fill: 0, bild: 0, teil: 0 }, ctx = { fillStyle: '', fillRect() { z.fill++; }, save() {}, restore() {}, beginPath() {}, rect() {}, clip() {}, drawImage() { z.bild++; } };
+      const win = { KammerBild: { moeglich: () => moeglich, bild: () => bild }, Charaktere: { teil: () => { z.teil++; return { vorschau: 'v.png' }; } } };
+      function Bild() { this.complete = true; this.naturalWidth = 10; this.width = 10; this.height = 10; }
+      new Function('window', 'Image', 'Charaktere', quelleB)(win, Bild, win.Charaktere);
+      win.KammerBausteine.portraetIn(ctx, { x: 0, y: 0, w: 20, h: 20 }, { gesicht: 'x' }, '#000'); return z;
+    };
+    const wartet = lauf(true, null), fertig = lauf(true, { width: 10, height: 10 }), ohne3d = lauf(false, null);
+    p(wartet.fill === 1 && wartet.bild === 0 && wartet.teil === 0, 'G2: Live-Porträt noch nicht fertig: nur die neutrale Platte, kein Standardkopf (keine Gesichtsvorschau, kein Bild)');
+    p(fertig.bild === 1, 'G2: ist das Live-Porträt da, wird genau dieses gezeichnet');
+    p(ohne3d.teil === 1, 'G2: nur ohne WebGL (Live-Bilder unmöglich) greift die Gesichtsvorschau des Katalogs'); }
+
   return schlecht;
 }
 
@@ -310,6 +419,17 @@ section('Mutationsproben (Regeln im Quelltext zerstören)', () => {
     ['Direkteintritt sichert den Modus nicht (Prüfer 10)', "if (store.modusPruefen && store.schirm === 'lobby' && lob) {", 'if (false) {'],
     ['Modus-Prüfung läuft bei jedem Snapshot (Prüfer 10)', 'store.modusPruefen = false; sichtbarenModusSichern(lob);', 'sichtbarenModusSichern(lob);'],
     ['Webdriver beginnt nicht in der Lobby', "|| p.webdriver) return", ") return"],
+    ['G1 Bereit-Zustand wird nicht abgeleitet', 'if (ich && ich.ready) return { bereit: true', 'if (false) return { bereit: true'],
+    ['G4 Titel bricht nie um', 'if (mass(titel, sk) <= maxB) return', 'if (true) return'],
+    ['G5 Chips: die letzte Reihe geht verloren', 'if (r.length) reihen.push(r);', ''],
+    ['G5 Grabenabschnitte ohne Taste gehen verloren', "else texte.push((a.name || TEXT.opt.abschnitt) + ': ' + (v ? v.name : TEXT.opt.leer));", 'else { /* verloren */ }'],
+    ['G5 Labor „Start“ doppelt', "!String(le.name || '').toLowerCase().includes(String(le.startzustand).toLowerCase())", 'true'],
+    ['G5 Satzzeile kürzt nicht von hinten', "while (t.length > 1 && mass(t.join(' · ')) > maxB) t.pop();", 'while (false) t.pop();'],
+    ['G6 Einladung zählt sich selbst mit', 'verbunden(spieler).filter((p) => p.id !== pid)', 'verbunden(spieler)'],
+    ['G7 Überlagerung kennzeichnet auch ohne Moduswahl', 'return !!(store.modusOffen && e && a && a.id === e.id);', 'return !!(e && a && a.id === e.id);'],
+    ['G8 Eisenwald-Titel hängt am Tutorial', 'return e && e.modi.length ? eintragTitel(e) : START_LABEL(modus);', 'return START_LABEL(modus);'],
+    ['G3 Ablehnung ändert den Raumcode-Eingang nicht', 'const abgelehnt = store.abgelehnt && !p.roomCode;', 'const abgelehnt = false;'],
+    ['G11 Kammer-Hauptknopf kennt die Herkunft nicht', 'return TEXT.kammer[store.schirm] || TEXT.kammer.lobby;', 'return TEXT.kammer.lobby;'],
   ];
   for (const [name, von, nach] of muta) {
     ok(quelle.split(von).length === 2, 'Mutation anwendbar (Anker genau einmal): ' + name);

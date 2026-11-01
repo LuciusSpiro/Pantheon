@@ -1217,17 +1217,12 @@
       R.text(ctx, 'Steuerung: WASD laufen · E interagieren (halten) · G ablegen · V Schubs · C ducken · Esc Menü', x + 10, y + h - 14, { color: PAL.panelLight });
     },
 
-    // ---------------------------------------------------------------- Lobby-Rückfall (Canvas): Raumcode-Eingabe nach badcode, Hintergrund hinter der Kleiderkammer. CHA-01 E: Titel, Hauptmenü, Lobby, Einladung → public/js/menue-ui.js
+    // ---------------------------------------------------------------- Lobby-Rückfall (Canvas): nur noch der Hintergrund hinter der Kleiderkammer. CHA-01 E/G: Titel, Hauptmenü, Lobby, Einladung und Raumcode-Eingang → public/js/menue-ui.js
     drawLobby(ctx, view) {
       const st = view.state || {};
       const t = view.time;
       if (!R.art('drawStarfield', null, [ctx, t * 20, 0, VW, VH, t])) { ctx.fillStyle = PAL.space; ctx.fillRect(0, 0, VW, VH); }
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
-      R.text(ctx, 'PANTHEON', VW / 2, 30, { color: PAL.amber, scale: 2, align: 'center' });
-      const players = st.players || [];
-      const me = players.find(p => p.id === view.pid);
-      if (Net.badCode && !me) { this.drawCodeEntry(ctx, view); this.drawNotices(ctx, view, 4); return; }
-      // Die Lobby selbst zeichnet MenueUi (Startmenü, CHA-01 E); hier bleiben nur der Raumcode-Eingang und der Hintergrund hinter der Kleiderkammer.
       this.drawNotices(ctx, view, 4);
     },
 
@@ -1243,10 +1238,13 @@
       if (!id) return '—';
       const SL = window.Shared_Locations;
       const l = SL && Array.isArray(SL.LOCATIONS) ? SL.LOCATIONS.find(q => q.id === id) : null;
-      return l ? l.name : String(id);
+      if (l) return l.name;
+      const SS = window.Shared_Sektoren;   // Orte der Sektorkarte (Sund)
+      try { const hx = SS && SS.hexVonOrt && SS.hexVonOrt(id); if (hx) return SS.hexName(hx); } catch (e) { /* Name bleibt lesbar gemacht */ }
+      return String(id).split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');   // kantenstein → Kantenstein (nie die rohe Kennung)
     },
     missionLabel(mission, step) {
-      if (!mission) return 'freier Flug';
+      if (!mission) return 'Freie Fahrt Sund';
       const t = this.MISSION_TITLES[mission] || String(mission);
       return t + (step && !/^kd_/.test(String(mission)) ? ' · Schritt ' + step : '');
     },
@@ -1954,19 +1952,6 @@
       const w = R.measure(label, 1) + 16;
       R.backdrop(ctx, VW / 2 - w / 2, VH / 2 - 40, w, 13, 0.8);
       R.text(ctx, label, VW / 2, VH / 2 - 37, { color: PAL.ice, align: 'center' });
-    },
-
-    // M0: Raumcode-Eingabe nach badcode (Eingabefeld ist ein DOM-Input wie das Namensfeld)
-    LOBBY_CODE_RECT: { x: 260, y: 168, w: 120, h: 24 },
-    drawCodeEntry(ctx, view) {
-      R.panel(ctx, 150, 92, 340, 180, { style: 'brass', title: 'RAUMCODE' });
-      R.text(ctx, 'Dieses Schiff ist abgeschlossen.', VW / 2, 114, { color: PAL.amber, align: 'center' });
-      R.text(ctx, Net.badCodeText || 'Bitte den Raumcode eingeben.', VW / 2, 128, { color: Net.roomCode ? PAL.red : PAL.panelLight, align: 'center' });
-      R.text(ctx, 'Den Code (4 Zeichen) bekommst du vom Gastgeber.', VW / 2, 146, { color: PAL.panelLight, align: 'center' });
-      const q = this.LOBBY_CODE_RECT;
-      ctx.strokeStyle = PAL.brass; ctx.strokeRect(q.x - 0.5, q.y - 0.5, q.w + 1, q.h + 1);
-      R.button(ctx, VW / 2 - 60, 204, 120, 18, 'An Bord gehen', { hotkey: 'Enter', onClick: () => view.actions.submitCode() });
-      R.text(ctx, 'Tipp: Der Einladungslink enthält den Code schon (?code=…).', VW / 2, 240, { color: PAL.panelLight, align: 'center' });
     },
 
     // ---------------------------------------------------------------- Ende

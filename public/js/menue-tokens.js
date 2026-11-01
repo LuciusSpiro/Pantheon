@@ -93,13 +93,16 @@
     lobby: {
       modus: { x: 32, y: 50 },
       raumcode: { x: 444, y: 16, w: 180, h: 92 },
-      crew: { x: 32, y: 138, w: 112, h: 158, fuge: 10, bild: 94 },        // Karte wie Charakterliste, schmaler (112 statt 132)
-      start: { x: 524, y: 138, w: 100, h: 158 },
+      crew: { x: 32, y: 146, w: 112, h: 158, fuge: 10, bild: 94 },        // Karte wie Charakterliste, schmaler (112 statt 132); G: 8 px tiefer, damit zwei Chip-Reihen ≥ 10 px Abstand zu „CREW“ haben
+      start: { x: 524, y: 146, w: 100, h: 158 },
       hinweise: 324,
     },
     statuszeile: { y: 342, h: 18, innen: 8, feldAbstand: 14 },               // aus Richtung B: Modus · Crew · Bereit · Raum
     knopf: { h: 20, schraeg: 4, kappeH: 14, kappeInnen: 3 },                  // Hauptknopf Gold mit eingesetzter Kappe in Tinte
     kappe: { h: 13, minW: 13, innen: 7, schraeg: 3 },
+    cursor: { innen: 1, aussen: 3 },                                         // Cursor-Doppelrand wie in der Kleiderkammer: Messing nah, Creme außen
+    // Raumcode-Eingang (Stil A): eine Kachel links; feld = Eingabefeld (DOM-Input, client.js), knopfY/fehlerY relativ zur Kachel
+    eingang: { x: 32, y: 96, w: 300, h: 120, feld: { x: 42, y: 142, w: 150, h: 24 }, knopfY: 78, knopfW: 170, fehlerY: 104 },
     auswahl: { balken: 2, deckkraft: 0.12 },                                 // gewählte Zeile: Goldbalken links + Goldfläche
     karte: { kappe: 13, formPlatte: 13, form: 4, formDeckkraft: 0.85, nameY: 4, zeileY: 16 },
     // Textzonen über dem Bild (nicht auf Kachel): [schirm, x0, y0, x1, y1, farbe, mindestwert] – der Test prüft jede im schlimmsten Fall
@@ -107,7 +110,7 @@
       ['titel', 40, 196, 210, 205, 'gold', 4.5], ['titel', 40, 210, 200, 219, 'dim', 4.5], ['titel', 40, 284, 240, 297, 'dim', 4.5], ['titel', 40, 340, 200, 349, 'dim', 4.5],
       ['titel', 40, 160, 284, 188, 'text', 3],
       ['menue', 32, 54, 252, 250, 'text', 4.5], ['menue', 32, 54, 252, 250, 'dim', 4.5], ['menue', 32, 54, 252, 250, 'messing', 4.5], ['menue', 32, 340, 330, 349, 'dim', 4.5],
-      ['lobby', 32, 50, 280, 59, 'messing', 4.5], ['lobby', 32, 63, 330, 84, 'text', 3], ['lobby', 32, 90, 260, 115, 'dim', 4.5], ['lobby', 32, 126, 120, 135, 'messing', 4.5],
+      ['lobby', 32, 50, 280, 59, 'messing', 4.5], ['lobby', 32, 63, 330, 84, 'text', 3], ['lobby', 32, 90, 260, 115, 'dim', 4.5], ['lobby', 32, 134, 120, 143, 'messing', 4.5],
       ['lobby', 32, 324, 470, 337, 'dim', 4.5],
       ['beitritt', 32, 50, 300, 135, 'dim', 4.5], ['beitritt', 32, 63, 330, 84, 'text', 3], ['beitritt', 32, 160, 300, 169, 'messing', 4.5], ['beitritt', 32, 324, 470, 337, 'dim', 4.5],
     ],
@@ -115,7 +118,7 @@
   // Stempel (Richtung C): Rand + Wort, Versalien gesperrt (Sperrung 1). voll = Fläche statt Rand (Text dann in Tinte). GASTGEBER links bündig auf dem Porträt.
   const STEMPEL = {
     h: 15, rand: 2, innen: 6, textY: 4, strich: 3,   // strich = Teilung des gestrichelten Rands
-    anBord: { farbe: 'bereit', wort: 'AN BORD' },
+    anBord: { farbe: 'bereit', wort: 'BEREIT' },   // Schlüssel bleibt, das Wort heißt wie der Knopf
     nichtBereit: { farbe: 'nichtBereit', wort: 'NICHT BEREIT', gestrichelt: true },   // gestrichelt = noch nicht fertig (Form, nicht nur Gelb)
     gastgeber: { farbe: 'messing', wort: 'GASTGEBER', voll: true },
   };
