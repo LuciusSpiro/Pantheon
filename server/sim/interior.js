@@ -496,7 +496,7 @@ function prio(kind) {
   if (typeof kind === 'string' && kind.startsWith('anker:')) return kind === 'anker:tuer' ? 5 : 4;
   return 6;
 }
-const PRIORITY = { ivoAbgeben: 8, fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9 };
+const PRIORITY = { ivoAbgeben: 8, fesseln: 2, befreien: 2, aufrichten: 2, ausruestung: 3, zellentuer: 3, revive: 1, extinguish: 2, patch: 3, repair: 4, reboot: 4, switch: 4, salvage: 4, hollow: 4, jammer: 4, archkey: 4, tablet: 4, console: 5, lore: 5, shelf: 6, bed: 7, locker: 7, pickup: 8, npc: 8, npcHeal: 8, lift: 9, ladder: 9, selfbeam: 9 };
 
 function candidateTiles(p, game) {
   const t = Physics.toTile(p.x, p.y);
@@ -588,6 +588,11 @@ function interactionsAt(game, p, tx, ty, own) {
       const bed = W.Maps.BEDS.find((b) => b.x === tx && b.y === ty);
       if (bed && bed.color === p.color) list.push({ kind: 'bed' });
       else if (bed) list.push({ kind: 'bed', blocked: 'Nicht deine Koje.' });
+    }
+    // CHA-01 D: Spind im eigenen Quartier (Raum q<Spielerfarbe>) öffnet das Spind-Pult; nur mit Charakterkarte (Bots haben keine), fremde Spinde bieten nichts an (kein Hinweis)
+    if (info.kind === 'locker' && p.karte) {
+      const raum = W.Maps.roomAt(tx, ty);
+      if (raum && raum.id === 'q' + p.color) list.push({ kind: 'locker' });
     }
     // R0: Ivo an Bord abgeben (E an Ivo; nur angedockt, kein Gespräch)
     if (game.ivo && !game.ivo.abschied) {
@@ -753,6 +758,7 @@ function performInteraction(game, p, it) {
     }
     case 'console': return enterConsole(game, p, it.console);
     case 'bed': return enterConsole(game, p, 'quartier');
+    case 'locker': return enterConsole(game, p, 'spind');   // CHA-01 D
     case 'lore': return game.transfer.readLore(game, p);
     case 'shelf': {
       if (it.op === 'take') {

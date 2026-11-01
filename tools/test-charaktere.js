@@ -371,6 +371,81 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(m2.lies().liste.length === 1 && m2.lies().speicherOk === false, 'letzten löschen bei Speicherfehler: Ersatz da, speicherOk false');
 }
 
+// ---- CHA-01 D: Spind (speichereOutfit ist der einzige Schreibweg für outfit)
+{
+  const gesendet = [];
+  const sp = speicherErsatz(), m = Modul.erzeuge({ speicher: sp, Charakter: Ch, sende: (o) => gesendet.push(o) });
+  m.setzeKatalog(KAT);
+  ok(m.oeffneSpind().ok === false && m.speichereOutfit().grund === 'kein-entwurf' && !gesendet.length, 'Spind ohne Charakter: nichts öffnet, nichts wird gesendet');
+  const a = m.legeAn({ name: 'Aurelia', frisur: 'zoepfe' }).id, b = m.legeAn({ name: 'Brennus' }).id;
+  const vorherA = JSON.stringify(m.lies().liste.find((c) => c.id === a).karte);
+  ok(m.oeffneSpind().ok && m.lies().sitzung.seite === 'spind' && m.lies().sitzung.entwurf.modus === 'spind', 'Spind öffnet einen Entwurf (modus spind)');
+  gleich(m.lies().sitzung.entwurf.karte.outfit, Ch.standardKarte('x', KAT).outfit, 'Entwurf = getragenes Outfit des gewählten Charakters');
+  gleich(m.OUTFIT_PLAETZE, ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], 'sechs Outfit-Plätze, keine Charakterplätze');
+  ok(m.outfitTeileFuer('kopf').length === 2 && m.outfitTeileFuer('gesicht').length === 0 && m.outfitTeileFuer('haut').length === 0, 'Teile je Outfit-Platz aus dem Katalog; Charakterplätze liefern nichts');
+  // Anprobe ändert nur den Entwurf
+  ok(m.spindWaehlePlatz('kopf').ok && m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'bordhelm', 'Blättern wählt das nächste Teil des Platzes (Anprobe)');
+  ok(m.aktiveKarte().outfit.kopf === 'keine' && !gesendet.length, 'Anprobe speichert nichts und sendet nichts');
+  ok(m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'keine' && m.spindBlaettere(-1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'bordhelm', 'Blättern ist ringförmig');
+  m.spindWaehlePlatz('umhang'); m.spindSetzeWahl('umhang', 1);
+  ok(m.lies().sitzung.entwurf.karte.outfit.umhang === 'fellumhang' && m.spindWahlIndex('umhang') === 1, 'Umhang Fellumhang in der Anprobe');
+  ok(m.spindZeile(1, 5).ok === false && m.spindZeile(-1, 5).ok === false && m.lies().sitzung.entwurf.karte.outfit.umhang === 'fellumhang', 'Zeile weiter ohne Teil dort: nichts ändert sich');
+  ok(m.spindNaechsterPlatz(1).ok && m.lies().sitzung.entwurf.platz === 'kopf' && m.spindNaechsterPlatz(-1).ok && m.lies().sitzung.entwurf.platz === 'umhang', 'Platzwechsel ringförmig über die sechs Plätze');
+  ok(!m.spindWaehlePlatz('gesicht').ok && !m.spindWaehlePlatz('haar').ok && !m.spindSetzeWahl('frisur', 0).ok && !m.spindSetzeWahl('haut', 0).ok, 'Charakterplätze sind im Spind nicht wählbar');
+  // R: zurück auf getragen
+  m.spindZuruecksetzen();
+  gleich(m.lies().sitzung.entwurf.karte.outfit, m.aktiveKarte().outfit, 'R: zurück auf das getragene Outfit');
+  m.spindWaehlePlatz('kopf'); m.spindSetzeWahl('kopf', 1); m.spindWaehlePlatz('umhang'); m.spindSetzeWahl('umhang', 1);
+  // Anziehen
+  const schreib = sp.schreibzaehler;
+  const r = m.speichereOutfit();
+  ok(r.ok && r.gespeichert === true, 'Anziehen gelingt');
+  const kb = m.lies().liste.find((c) => c.id === b).karte, ka = m.lies().liste.find((c) => c.id === a);
+  ok(kb.outfit.kopf === 'bordhelm' && kb.outfit.umhang === 'fellumhang' && kb.outfit.oberteil === 'bordtunika', 'Outfit landet im GEWÄHLTEN Charakter (Brennus)');
+  ok(JSON.stringify(ka.karte) === vorherA, 'der andere Charakter bleibt byteweise gleich');
+  gleich(Object.assign({}, kb, { outfit: null }), Object.assign({}, Ch.pruefeKarte({ name: 'Brennus' }, KAT), { outfit: null }), 'Charakterteil (Name, Gesicht, Frisur, Bart, Farben, Körper) bleibt unverändert');
+  ok(sp.schreibzaehler === schreib + 1 && JSON.parse(sp.text).liste.find((c) => c.id === b).karte.outfit.kopf === 'bordhelm', 'Anziehen speichert genau einmal in den Speicher');
+  ok(gesendet.length === 1 && gesendet[0].kopf === 'bordhelm' && gesendet[0].umhang === 'fellumhang' && Object.keys(gesendet[0]).length === 6, 'Anziehen sendet das geprüfte Outfit (6 Plätze) an den Server');
+  ok(m.lies().sitzung.entwurf.hinweis === 'angezogen' && m.lies().sitzung.seite === 'spind', 'danach bleibt der Spind offen mit Hinweis „angezogen“');
+  // nach Neuladen
+  const m2 = Modul.erzeuge({ speicher: sp, Charakter: Ch, sende: () => {} }); m2.setzeKatalog(KAT);
+  ok(m2.aktiveKarte().outfit.kopf === 'bordhelm' && m2.aktiveKarte().outfit.umhang === 'fellumhang' && m2.aktiverName() === 'Brennus', 'nach Neuladen sind Outfit und Name erhalten');
+  // Charakterwechsel und Umbenennen erhalten das Outfit weiter
+  m2.waehle(a); m2.waehle(b); m2.benenneUm(b, 'Brennus2');
+  ok(m2.aktiveKarte().outfit.kopf === 'bordhelm', 'waehle/benenneUm erhalten das angezogene Outfit');
+  // ungültige Teile → Standard (aus Entwurf manipuliert)
+  m.oeffneSpind();
+  const e = m.lies().sitzung.entwurf;
+  e.karte.name = 'Hacker'; e.karte.gesicht = 'gibtsnicht'; e.karte.frisur = 'keine'; e.karte.haut = 2; e.karte.haar = 1; e.karte.koerper = 'riese';   // Charakterteil im Entwurf manipuliert: darf nie ankommen
+  const charakterVor = JSON.stringify(Object.assign({}, m.aktiveKarte(), { outfit: null }));
+  e.karte.outfit.kopf = 'gibtsnicht'; e.karte.outfit.oberteil = 'fellumhang'; e.karte.outfit.hose = 42; e.karte.outfit.schuhe = null; delete e.karte.outfit.haende;
+  gesendet.length = 0;
+  m.speichereOutfit();
+  const o = m.aktiveKarte().outfit;
+  ok(o.kopf === 'keine' && o.oberteil === 'bordtunika' && o.hose === 'bordhose' && o.schuhe === 'bordstiefel' && o.haende === 'keine' && o.umhang === 'fellumhang', 'ungültige/fremde/fehlende Teile werden zum Standard, gültige bleiben (' + JSON.stringify(o) + ')');
+  ok(gesendet.length === 1 && gesendet[0].kopf === 'keine', 'gesendet wird das geprüfte, nicht das rohe Outfit');
+  ok(JSON.stringify(Object.assign({}, m.aktiveKarte(), { outfit: null })) === charakterVor, 'Name, Gesicht, Frisur, Farben, Körper aus einem manipulierten Entwurf kommen nicht in den Charakter');
+  // Schließen
+  ok(m.schliesseSpind().ok && m.lies().sitzung.seite === null && m.lies().sitzung.entwurf === null && !m.speichereOutfit().ok, 'Schließen verwirft den Entwurf; ohne Entwurf schreibt nichts');
+  // ohne Speicher: gilt trotzdem
+  sp.modus = 'kein-schreiben'; m.oeffneSpind(); m.spindWaehlePlatz('kopf'); m.spindSetzeWahl('kopf', 1); gesendet.length = 0;
+  const rf = m.speichereOutfit();
+  ok(rf.ok && rf.gespeichert === false && m.lies().speicherOk === false && m.aktiveKarte().outfit.kopf === 'bordhelm' && gesendet.length === 1, 'Speicher kaputt: Outfit gilt für die Sitzung und geht an den Server, speicherOk false');
+  // nicht freie Teile (Händler, Fund): anprobieren ja, anziehen nein
+  {
+    const kat2 = JSON.parse(JSON.stringify(KAT)); kat2.teile.find((t) => t.id === 'kopf/bordhelm').herkunft = 'haendler';
+    const sp3 = speicherErsatz(), gs = [], m4 = Modul.erzeuge({ speicher: sp3, Charakter: Ch, sende: (o) => gs.push(o) }); m4.setzeKatalog(kat2); m4.legeAn({ name: 'Cato' }); m4.oeffneSpind();
+    m4.spindWaehlePlatz('kopf'); m4.spindSetzeWahl('kopf', 1);
+    const rg = m4.speichereOutfit();
+    ok(!rg.ok && rg.grund === 'gesperrt' && m4.aktiveKarte().outfit.kopf === 'keine' && !gs.length && m4.lies().sitzung.entwurf.hinweis === 'gesperrt', 'Händlerteil: Anprobe ja, Anziehen abgelehnt, nichts gespeichert, nichts gesendet');
+    m4.spindSetzeWahl('kopf', 0); m4.spindWaehlePlatz('umhang'); m4.spindSetzeWahl('umhang', 1);
+    ok(m4.speichereOutfit().ok && m4.aktiveKarte().outfit.umhang === 'fellumhang', 'freie Teile lassen sich weiter anziehen');
+  }
+  // andere Wege schreiben das Outfit nicht: Entwurf der Erstellung ändert nichts am Outfit des Charakters
+  const m3 = neu(speicherErsatz()); m3.legeAn({ name: 'Cato' }); m3.oeffneListe(); m3.beginneNeu(); m3.setzeWahl('frisur', 1);
+  ok(!m3.spindSetzeWahl('kopf', 1).ok && !m3.spindBlaettere(1).ok && m3.aktiveKarte().outfit.kopf === 'keine', 'Spind-Actions greifen nicht in einen Erstellungs-Entwurf');
+}
+
 // ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)
 {
   const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8').replace(/\r\n/g, '\n');

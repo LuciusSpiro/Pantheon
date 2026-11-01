@@ -4,11 +4,13 @@
 //   Speicher = EINE Stelle: localStorage 'pantheon.charaktere' = { v: 1, gewaehlt: <id>, liste: [{ id, karte }] }, höchstens 4; über `speicher` austauschbar (Test).
 // Jede gelesene Karte geht durch Shared_Charakter.pruefeKarte (manipulierter Speicher bricht nichts). Kaputter/fehlender/gesperrter Speicher → leere Liste, Spiel läuft weiter.
 // Actions werfen nie: Rückgabe { ok: true, … } oder { ok: false, grund }. Ohne Katalog (noch nicht geladen / fehlt) ist `bereit` false und nichts wird gespeichert.
+// CHA-01 D: Spind (Outfit im Spiel wechseln): Entwurf in `sitzung.entwurf` (modus 'spind'), EINZIGER Schreibweg für `outfit` ist `speichereOutfit` (prüft mit Ch.pruefeOutfit, speichert über speichereListe,
+//   meldet es dem Server über `sende`); Charakterteil, Name und Farben bleiben unberührt. Alle anderen Actions erhalten das Outfit (benenneUm, waehle).
 // UMD: im Browser `window.Charaktere` (eine Instanz auf localStorage), in Node `require('…/charaktere.js').erzeuge({ speicher, Charakter })`.
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
-  else { root.CharaktereModul = api; root.Charaktere = api.erzeuge({ speicher: api.browserSpeicher(root), Charakter: root.Shared_Charakter }); }
+  else { root.CharaktereModul = api; root.Charaktere = api.erzeuge({ speicher: api.browserSpeicher(root), Charakter: root.Shared_Charakter, sende: (outfit) => { const C = root.Client; if (C && typeof C.sendeOutfit === 'function') C.sendeOutfit(outfit); } }); }
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   const SCHLUESSEL = 'pantheon.charaktere';
@@ -18,6 +20,8 @@
   const TEIL_PLAETZE = ['frisur', 'gesicht', 'bart'];
   const FARB_PLAETZE = ['haar', 'haut'];
   const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE);
+  // CHA-01 D: sechs Outfit-Plätze des Spinds, Reihenfolge wie die Mittelspalte des Ziffernblocks (Kopf → Füße, dann Hände und Umhang)
+  const OUTFIT_PLAETZE = ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'];
   const istObjekt = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 
   function browserSpeicher(root) {
@@ -28,7 +32,7 @@
   }
 
   function erzeuge(opt) {
-    const speicher = opt.speicher, Ch = opt.Charakter, zufall = typeof opt.zufall === 'function' ? opt.zufall : Math.random;
+    const speicher = opt.speicher, Ch = opt.Charakter, sende = typeof opt.sende === 'function' ? opt.sende : () => {}, zufall = typeof opt.zufall === 'function' ? opt.zufall : Math.random;
     const klon = (o) => JSON.parse(JSON.stringify(o));
     const lauscher = [];
     let katalog = null;
@@ -55,6 +59,11 @@
     function teileFuer(platz) {
       if (!katalog || !TEIL_PLAETZE.includes(platz)) return [];
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'charakter');
+    }
+    // Teile eines Outfit-Platzes (Gruppe 'outfit') in Katalogreihenfolge
+    function outfitTeileFuer(platz) {
+      if (!katalog || !OUTFIT_PLAETZE.includes(platz)) return [];
+      return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
     function farbenFuer(platz) {
       const f = katalog && katalog.farben;
@@ -368,8 +377,88 @@
     // Karte des Entwurfs für die Figur im Fenster (Name unwichtig); ohne Entwurf null
     function entwurfKarte() { const e = entwurf(); return e ? Ch.pruefeKarte(Object.assign({}, e.karte, { name: Ch.pruefeName(e.name) || Ch.STANDARD_NAME }), katalog) : null; }
 
+    // ------------------------------------------------------------------ Actions: Spind (Outfit im Spiel wechseln)
+    // Entwurf = das getragene Outfit des gewählten Charakters; der Cursor ist die Anprobe, erst `speichereOutfit` (Enter) zieht an.
+    function oeffneSpind() {
+      const k = aktiveKarte();
+      if (!store.bereit || !k) return { ok: false, grund: 'katalog' };
+      const s = store.sitzung;
+      s.seite = 'spind'; s.loeschFrage = null;
+      s.entwurf = { modus: 'spind', id: store.gewaehlt, karte: k, platz: OUTFIT_PLAETZE[0], yaw: 0, hinweis: null };
+      aenderung();
+      return { ok: true };
+    }
+    function schliesseSpind() { if (store.sitzung.seite === 'spind') schliesse(); return { ok: true }; }
+    const spindEntwurf = () => { const e = entwurf(); return e && e.modus === 'spind' ? e : null; };
+    function spindWahlIndex(platz) {
+      const e = spindEntwurf();
+      return e && OUTFIT_PLAETZE.includes(platz) ? outfitTeileFuer(platz).findIndex((t) => t.id === platz + '/' + e.karte.outfit[platz]) : -1;
+    }
+    function spindWaehlePlatz(platz) {
+      const e = spindEntwurf();
+      if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };
+      e.platz = platz; e.hinweis = null; aenderung();
+      return { ok: true };
+    }
+    function spindNaechsterPlatz(d) {
+      const e = spindEntwurf();
+      if (!e) return { ok: false, grund: 'platz' };
+      return spindWaehlePlatz(OUTFIT_PLAETZE[(OUTFIT_PLAETZE.indexOf(e.platz) + (d < 0 ? -1 : 1) + OUTFIT_PLAETZE.length) % OUTFIT_PLAETZE.length]);
+    }
+    // Anprobe: Teil i im Platz auswählen (nur im Entwurf, noch nichts gespeichert)
+    function spindSetzeWahl(platz, i) {
+      const e = spindEntwurf(), teile = outfitTeileFuer(platz);
+      if (!e || !teile.length) return { ok: false, grund: 'platz' };
+      i = Math.max(0, Math.min(teile.length - 1, i | 0));
+      e.platz = platz;
+      e.karte.outfit[platz] = teile[i].id.slice(platz.length + 1);
+      e.hinweis = null; aenderung();
+      return { ok: true, index: i };
+    }
+    // ←→: ein Teil weiter (ringförmig); ↑↓: eine Kachelzeile weiter, nur wenn es dort ein Teil gibt (`spalten` = Kacheln je Zeile der Anzeige)
+    function spindBlaettere(d) {
+      const e = spindEntwurf();
+      if (!e) return { ok: false, grund: 'platz' };
+      const n = outfitTeileFuer(e.platz).length;
+      return n ? spindSetzeWahl(e.platz, (Math.max(0, spindWahlIndex(e.platz)) + (d < 0 ? -1 : 1) + n) % n) : { ok: false, grund: 'platz' };
+    }
+    function spindZeile(d, spalten) {
+      const e = spindEntwurf();
+      if (!e) return { ok: false, grund: 'platz' };
+      const n = outfitTeileFuer(e.platz).length, i = Math.max(0, spindWahlIndex(e.platz)) + (d < 0 ? -1 : 1) * Math.max(1, spalten | 0);
+      return i >= 0 && i < n ? spindSetzeWahl(e.platz, i) : { ok: false, grund: 'rand' };
+    }
+    // R: zurück auf das getragene Outfit (Platz und Drehung bleiben)
+    function spindZuruecksetzen() {
+      const e = spindEntwurf(), k = aktiveKarte();
+      if (!e || !k) return { ok: false, grund: 'kein-entwurf' };
+      e.karte = k; e.hinweis = null; aenderung();
+      return { ok: true };
+    }
+    // Karte des Entwurfs für die Anprobe-Figur
+    const spindKarte = () => { const e = spindEntwurf(); return e ? Ch.pruefeKarte(e.karte, katalog) : null; };
+    // Enter: das Outfit des Entwurfs anziehen = EINZIGER Weg, der `outfit` einer gespeicherten Karte schreibt. Geprüft (Ch.pruefeOutfit), nur in den gewählten Charakter,
+    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello). Name, Gesicht, Frisur, Bart, Farben bleiben, wie sie sind.
+    function speichereOutfit() {
+      const e = spindEntwurf();
+      if (!e) return { ok: false, grund: 'kein-entwurf' };
+      if (!store.bereit) return { ok: false, grund: 'katalog' };
+      const c = store.liste.find((x) => x.id === store.gewaehlt);
+      if (!c) return { ok: false, grund: 'unbekannt' };
+      const outfit = Ch.pruefeOutfit(e.karte.outfit, katalog);
+      // Teile, die nicht frei sind (Händler, Fund), lassen sich anprobieren, aber nicht anziehen (in CHA-01 ist alles frei)
+      if (OUTFIT_PLAETZE.some((pl) => outfit[pl] !== c.karte.outfit[pl] && outfitTeileFuer(pl).some((t) => t.id === pl + '/' + outfit[pl] && t.herkunft && t.herkunft !== 'frei'))) { e.hinweis = 'gesperrt'; aenderung(); return { ok: false, grund: 'gesperrt' }; }
+      c.karte.outfit = outfit;
+      speichereListe();   // schlägt der Browser-Speicher fehl, gilt das Outfit trotzdem für die Sitzung (store.speicherOk false)
+      e.karte = klon(c.karte); e.hinweis = 'angezogen'; aenderung();
+      meldeWechsel();
+      sende(klon(outfit));
+      return { ok: true, outfit: klon(outfit), gespeichert: store.speicherOk };
+    }
+
     return {
-      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE,
+      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
+      outfitTeileFuer, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
       ladeListe, speichereListe,

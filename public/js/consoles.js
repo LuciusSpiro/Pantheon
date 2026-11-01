@@ -38,7 +38,7 @@
   const TAB_NOTRUF = 5;
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
   const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // PAN-01 C: bis zu neun Waffenplätze (Ziffernblock), Waffe je Platz aus shared/schiffskatalog.js (ship.mounts[].typ, fehlt = Startbestückung).
   // Mount-Id -> System (Zustand/Trefferziel): bow = Platz 8, port = 4, stbd = 6, sonst lafette_<Platz>
@@ -136,6 +136,7 @@
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
       if (name === 'shop' && window.TerminalUI) TerminalUI.zuruecksetzen();   // PAN-01 D2: Terminal beginnt frisch
+      if (name === 'spind' && window.Charaktere) Charaktere.oeffneSpind();   // CHA-01 D: Anprobe beginnt mit dem getragenen Outfit
     },
     // R1 §4.4: aktives Interface des Spielers (p.station, solange es vom Ort abweicht; sonst die Konsole selbst)
     stationOf(me) { return me && me.console ? (me.station || me.console) : null; },
@@ -151,6 +152,7 @@
       if (this.current === 'helm' && view && this.helmSent.turn) view.send({ t: 'cmd', c: 'helm.input', turn: 0, thrust: 0 });
       if (this.scanOn && view) { view.send({ t: 'cmd', c: 'captain.scan', on: false }); this.scanOn = false; }
       if (this.tscanOn && view) { view.send({ t: 'cmd', c: 'weapons.scan', on: false }); this.tscanOn = false; }
+      if (this.current === 'spind' && window.Charaktere) Charaktere.schliesseSpind();   // CHA-01 D: Esc/Verlassen ohne Anziehen verwirft die Anprobe
     },
     denied(text) { R.uiDenied = { text, t: performance.now() }; if (this.view) this.view.actions.sfx('error'); },
 
@@ -194,6 +196,8 @@
       if (c !== this.current) { if (this.current) this.stationAbbau(view); this.onOpen(c); }
       // PAN-01 D2: Hafenterminal (Handel und Werft) im Pult-Stil; die alte Konsole bleibt nur, falls das Pult-System nicht greift
       if (c === 'shop' && window.TerminalUI && TerminalUI.bereit() && window.PultTerminal) return TerminalUI.draw(ctx, view);
+      // CHA-01 D: Spind im Quartier (Kleiderkammer-Pult, Skin des Schiffs)
+      if (c === 'spind' && window.KammerUi) { R.ui.tooltip = null; KammerUi.spindZeichne(ctx, view); return ''; }
       // Pult-Baukasten (pult.js, pult-stationen.js): Brückenstationen im neuen Aufbau mit Skin je Volk
       if (window.Pult && this.pultDraw && this.PULT_STATIONEN.includes(c)) return this.pultDraw(ctx, view, c);
       ctx.fillStyle = 'rgba(11,14,26,0.55)'; ctx.fillRect(0, 0, VW, VH);
@@ -2945,10 +2949,11 @@
       if (!c) return false;
       e = this.tastenKanon(e, c, view, false);
       if (!e) return true;
-      if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && (this.PULT_STATIONEN.includes(c) || (c === 'shop' && window.TerminalUI))) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
+      if ((e.code === 'Minus' || e.code === 'Slash') && e.shiftKey && window.Pult && this.PULT_STATIONEN && (this.PULT_STATIONEN.includes(c) || c === 'spind' || (c === 'shop' && window.TerminalUI))) { Pult.hilfeUmschalten(); return true; }   // ? = Hilfe-Overlay
       const code = e.code;
       this.keys[code] = true;
-      if (code === 'Escape') { view.actions.leave(); return true; }
+      if (code === 'Escape') { if (c === 'spind' && window.Pult && Pult.hilfe) Pult.hilfeUmschalten(); else view.actions.leave(); return true; }
+      if (c === 'spind') return window.KammerUi ? KammerUi.spindTaste(e, view) : true;   // CHA-01 D
       // TB1: Kartenansicht (Sternkarte, Detailkarten, Sektorplan): 0/Pos1 zurücksetzen, +/− zoomen – nur wenn gerade eine Karte sichtbar ist
       const KA = window.KartenAnsicht;
       if (KA && (c === 'plan' || c === 'captain')) {

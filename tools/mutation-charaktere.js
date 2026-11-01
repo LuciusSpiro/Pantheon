@@ -38,6 +38,18 @@ const MUTATIONEN = [
   [C, "if (!store.liste.length) { const r = legeStandardAn(zufallsName());", "if (false) { const r = legeStandardAn(zufallsName());", 'letzten löschen legt keinen Ersatz-Charakter an'],
   [C, "'Crew-' + (100 + Math.floor(zufall() * 900))", "'Crew-' + (10 + Math.floor(zufall() * 90))", 'Ersatzname hat ein anderes Format'],
   [C, "store.speicherOk = !!speicher.schreiben(JSON.stringify(daten));", "speicher.schreiben(JSON.stringify(daten));", 'Speicherfehler wird nicht gemerkt'],
+  // CHA-01 D: Spind
+  [C, "const outfit = Ch.pruefeOutfit(e.karte.outfit, katalog);\n      c.karte.outfit = outfit;", "const outfit = e.karte.outfit;\n      c.karte.outfit = outfit;", 'speichereOutfit ohne Prüfung des Outfits'],
+  [C, "const c = store.liste.find((x) => x.id === store.gewaehlt);\n      if (!c) return { ok: false, grund: 'unbekannt' };\n      const outfit", "const c = store.liste[0];\n      if (!c) return { ok: false, grund: 'unbekannt' };\n      const outfit", 'speichereOutfit schreibt in den ersten statt den gewählten Charakter'],
+  [C, "speichereListe();   // schlägt der Browser-Speicher fehl", "// schlägt der Browser-Speicher fehl", 'speichereOutfit speichert nicht'],
+  [C, "sende(klon(outfit));", "", 'speichereOutfit sendet nichts an den Server'],
+  [C, "c.karte.outfit = outfit;\n      speichereListe();   // schlägt", "c.karte = Object.assign({}, e.karte, { outfit });\n      speichereListe();   // schlägt", 'speichereOutfit übernimmt auch den Charakterteil des Entwurfs'],
+  [C, "if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };\n      e.platz = platz; e.hinweis = null; aenderung();", "if (!e) return { ok: false, grund: 'platz' };\n      e.platz = platz; e.hinweis = null; aenderung();", 'Spind lässt Charakterplätze zu'],
+  [C, "e.karte.outfit[platz] = teile[i].id.slice(platz.length + 1);", "e.karte.outfit[platz] = teile[i].id.slice(platz.length + 1); store.liste.find((x) => x.id === store.gewaehlt).karte.outfit[platz] = e.karte.outfit[platz];", 'Anprobe schreibt sofort in den Charakter'],
+  [C, "e.karte = k; e.hinweis = null; aenderung();", "e.hinweis = null; aenderung();", 'R setzt die Anprobe nicht zurück'],
+  [C, "(Math.max(0, spindWahlIndex(e.platz)) + (d < 0 ? -1 : 1) + n) % n)", "Math.min(n - 1, Math.max(0, spindWahlIndex(e.platz) + (d < 0 ? -1 : 1))))", 'Spind-Blättern ist nicht ringförmig'],
+  [C, "return i >= 0 && i < n ? spindSetzeWahl", "return true ? spindSetzeWahl", 'Zeile weiter springt über den Rand'],
+  [C, "t.herkunft && t.herkunft !== 'frei'))) { e.hinweis = 'gesperrt';", "false))) { e.hinweis = 'gesperrt';", 'speichereOutfit zieht gesperrte Teile an'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

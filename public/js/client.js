@@ -1774,6 +1774,10 @@
       if (n <= 0) return { label: what + ': 0 – Regal leer (Nachschub im Hafen)', ok: false };
       return { label: 'Nehmen · ' + what + ': ' + n, ok: true };
     }
+    if (shipKind === 'locker') {   // CHA-01 D: nur der eigene Spind (Raum q<Farbe>) und nur mit Karte; fremde Spinde: kein Hinweis (wie der Server)
+      const raum = Maps.roomAt ? Maps.roomAt(tx, ty) : null;
+      return raum && raum.id === 'q' + m.color && Client.karten[m.id] ? { label: 'Spind öffnen', ok: true } : null;
+    }
     if (shipKind === 'bed') {
       const bed = R.bedAt(tx, ty);
       if (bed && bed.color === m.color) return { label: 'Quartier gestalten', ok: true };

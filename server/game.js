@@ -828,6 +828,7 @@ class Game {
   }
   karteOutfit(p, msg) {
     if (!charakterKatalog || !p.karte) return;
+    if (p.console !== 'spind') return;   // CHA-01 D: nur am eigenen Spind-Pult (Konsole spind wird nur im eigenen Quartier geöffnet); Alarm blockiert nicht
     const outfit = Charakter.pruefeOutfit(msg.outfit, charakterKatalog);
     if (JSON.stringify(outfit) === JSON.stringify(p.karte.outfit)) return;   // unverändert: kein Ereignis
     p.karte.outfit = outfit;

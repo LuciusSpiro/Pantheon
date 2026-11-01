@@ -13,7 +13,7 @@
     //   Spielernamen (bei Kollision mit einem anderen Spieler ' 2', ' 3', …); ist der Kartenname ungültig, gilt die bisherige Namenslogik. Ohne karte: alles wie vorher.
     // welcome.karten { pid: karte } – geprüfte Karten aller Spieler mit Karte, auch getrennter (auch die eigene); fehlt, wenn keiner eine Karte hat.
     // Ereignis karte { pid, k } – an alle bei hello (Beitritt/Wiederverbinden) und nach karte.outfit; k = null: der Platz hat keine Karte mehr (Übernahme durch Spieler ohne Karte).
-    // cmd { c: 'karte.outfit', outfit } – ändert nur das Outfit (gleiche Prüfung); nur mit Karte, nur außerhalb der Lobby (cmd-Muster), noch ohne Ortsprüfung.
+    // cmd { c: 'karte.outfit', outfit } – ändert nur das Outfit (gleiche Prüfung); nur mit Karte, nur außerhalb der Lobby (cmd-Muster), CHA-01 D: nur an der Konsole 'spind' (eigenes Quartier), sonst ignoriert.
     // Die Karte steht nicht im Snapshot und nicht im Weltstand; sie geht beim Wiederverbinden mit gleicher clientId nicht verloren. Spielernamen gehen nie an ein LLM.
     CMD_KARTE_OUTFIT: 'karte.outfit',
     EVT_KARTE: 'karte',
@@ -253,8 +253,8 @@
     S: { WELCOME: 'welcome', SNAP: 'snap', EVENT: 'event', PONG: 'pong', FULL: 'full', ERROR: 'error' },
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
-    // 'quartier' öffnet sich an der eigenen Koje, 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    // 'quartier' öffnet sich an der eigenen Koje, 'spind' am eigenen Spind (CHA-01 D), 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
     // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
