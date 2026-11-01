@@ -1,10 +1,10 @@
 // CHA-01 E: Startmenü (Titelbild, Hauptmenü, Crew-Lobby, Einladung) – Zustand und Regeln an EINER Stelle (Kais 3-Layer-Regel für Datentool-Teile):
-//   Store    = dieses Objekt (`lies()`): Bildschirm, Auswahl, Moduswahl-Überlagerung, Eisenwald-Tutorial, Cursor der Einladung
-//   Actions  = benannte Funktionen je Absicht (weiter, oeffneRaum, bestaetige, oeffneModusWahl, einladungAnnehmen, zurueck, optionenFuer …); jede Regel steht hier
+//   Store    = dieses Objekt (`lies()`): Bildschirm, Auswahl, Moduswahl-Überlagerung, Eisenwald-Tutorial (Merker), zuletzt gesehener Lobby-Modus, Cursor der Einladung
+//   Actions  = benannte Funktionen je Absicht (weiter, oeffneRaum, bestaetige, oeffneModusWahl, einladungAnnehmen, einladungAblehnen, zurueck, optionenFuer …); jede Regel steht hier
 //   Oberfläche = public/js/menue-ui.js: zeichnet nur und bildet Tasten auf diese Actions ab; Tokens = public/js/menue-tokens.js (Globales `Menue`)
 // Die Menüs sind reiner Client-Zustand. Die Verbindung steht schon beim Laden; wer im Titel oder Hauptmenü steht, ist in der Lobby „nicht bereit“.
 // Die Modus-Gruppierung entsteht hier aus Shared_Protocol.LOBBY_MODI (bleibt unverändert): jeder Modus gehört genau einem Eintrag (Test: tools/test-menue.js).
-// UMD: im Browser `window.MenueFluss` (eine Instanz, Abhängigkeiten werden beim Aufruf aufgelöst), in Node `require('…/menue.js').erzeuge({ protokoll, senden, debug, szenenIds, charaktere })`.
+// UMD: im Browser `window.MenueFluss` (eine Instanz, Abhängigkeiten werden beim Aufruf aufgelöst), in Node `require('…/menue.js').erzeuge({ protokoll, senden, debug, szenenIds, charaktere, weltstandMax, verlasseRaum })`.
 (function (root, factory) {
   const api = factory();
   if (typeof module === 'object' && module.exports) module.exports = api;
@@ -15,6 +15,8 @@
       debug: () => { try { return new URLSearchParams(root.location.search).get('debug') === '1'; } catch (e) { return false; } },
       szenenIds: () => { const c = root.Shared_Config; return ((c && c.arena && c.arena.szenen) || []).map((z) => z.id); },
       charaktere: () => root.Charaktere,
+      weltstandMax: () => { const c = root.Shared_Config; return (c && c.weltstand && c.weltstand.max) || 5; },
+      verlasseRaum: () => { const c = root.Client; return !!(c && c.actions && c.actions.verlasseRaum && c.actions.verlasseRaum()); },
     });
   }
 })(typeof self !== 'undefined' ? self : this, function () {
@@ -23,16 +25,17 @@
   // Feste Texte der Menü-Oberfläche, die die Tokens nicht kennen (Test: jede Glyphe existiert in art.js)
   const TEXT = {
     titel: { knopf: 'Spielen' },
-    detail: { spieler: '1–4 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
+    detail: { spieler: '1–4 Spieler', neuerWeltstand: 'neuer Weltstand {n}/{max}', weltstandVoll: 'Alle {max} Plätze belegt · F löscht', weltstandVollKurz: 'Alle {max} Plätze belegt', weltstandVollLang: 'Alle {max} Plätze belegt – erst einen löschen (F)', keinWeltstand: 'kein Weltstand', raumOeffnen: 'Raum öffnen', fortsetzen: 'Fortsetzen', tutorial: 'Tutorial', an: 'an', aus: 'aus', optionen: 'OPTIONEN', inLobby: 'In der Lobby', crew: 'Crew' },
     fortsetzen: { keiner: 'Noch kein Weltstand gespeichert', weitere: '+ {n} weitere · F öffnet die Liste', liste: 'F öffnet die Liste', unlesbar: 'nicht ladbar' },
     hinweise: { waehlen: 'wählen', charakter: 'Charakter', optionen: 'Optionen', zurueck: 'Titel', bereit: 'bereit', farbe: 'Farbe', modus: 'Modus', link: 'Link', menue: 'Hauptmenü', hilfe: 'Hilfe' },
     lobby: { gruppeModus: 'MODUS', modusAendern: 'Modus ändern (alle)', fortsetzenVon: 'FORTSETZEN', bereit: 'BEREIT', bereitZurueck: 'Enter: zurück', bereitMelden: 'Enter: bereit', alleBereit: 'alle bereit', wartetAuf: 'wartet auf', verbindet: 'verbinde …', warteServer: 'warte auf Server …', verlassen: 'Esc: Hauptmenü', ohneCode: 'ohne Raumcode', getrennt: 'getrennt', gewaehlt: 'gewählt' },
     modus: { titel: 'MODUS WÄHLEN', enter: 'setzen', knopf: 'Modus setzen', esc: 'schließen', weltstaende: 'Weltstände' },
     einladung: { gruppe: 'EINLADUNG', holtDich: 'holt dich an Bord.', modus: 'Modus', raum: 'Raum', anBord: 'An Bord', von: 'von', wem: 'MIT WEM GEHST DU AN BORD?', deinPlatz: 'DEIN PLATZ', farbe: 'Farbe', nameCharakter: 'Name = Charaktername', crewWaehlt: 'Modus und Weltstand wählt die Crew in der Lobby.', anBordMit: 'Mit {name} an Bord', nichtBeitreten: 'Esc: nicht beitreten', frei: 'FREI', neuHinweis: 'N legt an', niemand: 'noch niemand an Bord', karteVoll: 'Alle Plätze sind belegt.' },
-    hinweisEinladung: { charakter: 'Charakter', neu: 'neu', liste: 'Liste', anBord: 'an Bord', abbrechen: 'abbrechen' },
+    hinweisEinladung: { charakter: 'Charakter', neu: 'neu', liste: 'Liste', anBord: 'an Bord', abbrechen: 'ablehnen' },
     status: { crewEinheit: '/4' },
     tasten: { auswahl: '↑↓', ziffern: '1–4', enter: 'Enter', esc: 'Esc', stellen: '←→' },
-    opt: { karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'god', hafenUebung: 'Hafen-Übung', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'AN', aus: 'aus', leer: '–' },
+    opt: { seedFest: 'Seed {n} fest', seedNeu: 'neuer Seed je Start', zuletzt: 'zuletzt W{n}', waffeStandard: 'Standard', karte: 'Karte', waffe: 'Waffe', szene: 'Szene', umsetzung: 'Umsetzung', staerke: 'Stärke', seed: 'Seed', god: 'god', hafenUebung: 'Hafen-Übung', abschnitt: 'Abschnitt', standard: 'Standard', zufaellig: 'zufällig', altweg: 'Altweg', keschKlassisch: 'Kesh (klassisch)', rekord: 'Rekord W{n}', an: 'AN', aus: 'aus', leer: '–', laborBoden: 'Boden', laborRaum: 'Raum', laborStart: 'Start: {z}' },
+    ton: { hinweis: 'Klick oder Taste aktiviert den Ton' },
     karte: { du: 'DU', escZeile: ['Esc geht zum', 'Hauptmenü'], linkKopiert: 'Link kopiert!', vonVier: '{n} von 4' },
     gruppen: { spielen: 'SPIELEN', fortsetzen: 'FORTSETZEN', uebung: 'ÜBUNGSPLATZ', debug: 'STERNENSCHICHT (DEBUG)' },
   };
@@ -65,6 +68,16 @@
   const eintragZuModus = (modus) => ALLE.find((e) => e.modi.includes(modus)) || null;
   const zugeordneteModi = () => ALLE.flatMap((e) => e.modi);
 
+  // Womit das Startmenü beginnt (rein): ?menue=1 erzwingt den Ablauf Titel → Hauptmenü → Lobby (bzw. Einladung bei ?code=), ?menue=0 die Lobby.
+  // Ohne Angabe beginnen Direktstarts (?arena=) und ferngesteuerte Browser (navigator.webdriver) in der Lobby, ein Einladungslink (?code=) mit der Einladung, sonst der Titel.
+  // p = { menue: Wert von ?menue, arena: Wert von ?arena (null = fehlt), link: es gibt einen gültigen ?code=, webdriver }
+  function startOptionen(p) {
+    p = p || {};
+    if (p.menue === '1') return { link: !!p.link };
+    if (p.menue === '0' || p.arena != null || p.webdriver) return { direkt: true };
+    return { link: !!p.link };
+  }
+
   function erzeuge(opt) {
     const proto = () => (typeof opt.protokoll === 'function' ? opt.protokoll() : opt.protokoll) || {};
     const senden = (m) => opt.senden(m);
@@ -72,17 +85,23 @@
     const szenenIds = () => (opt.szenenIds ? opt.szenenIds() : []) || [];
     const charaktere = () => (typeof opt.charaktere === 'function' ? opt.charaktere() : opt.charaktere) || null;
     const LOBBY_OPT = () => (proto().C && proto().C.LOBBY_OPT) || 'lobbyOpt';
+    const maxWelten = () => +(typeof opt.weltstandMax === 'function' ? opt.weltstandMax() : opt.weltstandMax) || 5;
     const READY = () => (proto().C && proto().C.READY) || 'ready';
 
     // ------------------------------------------------------------------ Store
     // schirm: 'titel' | 'menue' | 'lobby' | 'einladung'; auswahl = id des gewählten Eintrags (Hauptmenü und Moduswahl-Überlagerung teilen sie);
-    // modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial; einladungCursor = Platz in der Charakterliste der Einladung
-    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, einladungCursor: 0, rev: 0 };
+    // modusOffen = Moduswahl-Überlagerung in der Lobby; tutorial = Eisenwald mit Tutorial (Merker für den nächsten Start); lobbyModus = zuletzt gesehener Modus der Lobby (nur dessen Wechsel setzt den Merker); einladungCursor = Platz in der Charakterliste der Einladung
+    const store = { schirm: 'titel', auswahl: null, modusOffen: false, tutorial: true, lobbyModus: null, einladungCursor: 0, rev: 0 };
     const aenderung = () => { store.rev++; };
     const lies = () => store;
 
     // ------------------------------------------------------------------ Gruppierung (rein, aus Protokoll und Lobby-Snapshot)
     const welten = (lob) => (lob && Array.isArray(lob.worlds) ? lob.worlds.filter((w) => w && w.id != null) : []);
+    // Belegung der Weltstand-Plätze: EINE Ableitung für Hauptmenü, Detailkachel und Lobby (Zähler n/max, voll, Nummer des nächsten neuen Weltstands)
+    function weltstaende(lob) {
+      const n = welten(lob).length, max = maxWelten();
+      return { anzahl: n, max, zaehler: n + '/' + max, voll: !!(lob && lob.worldsFull) || n >= max, naechste: Math.min(max, n + 1) };
+    }
     const neuesteWelt = (lob) => welten(lob).find((w) => !w.state || w.state === 'ok') || null;
     // Modus-ID eines Eintrags (Eisenwald je nach Tutorial-Schalter)
     function modusVon(e) {
@@ -114,9 +133,9 @@
       const s = sichtbar(lob), e = s.find((x) => x.id === store.auswahl);
       return e || s[0] || null;
     }
-    function synchronisiere(lob) {   // Auswahl auf einen sichtbaren Eintrag, Tutorial-Schalter aus dem Lobby-Modus
+    function synchronisiere(lob) {   // Auswahl auf einen sichtbaren Eintrag; der Tutorial-Merker folgt dem Lobby-Modus nur, wenn dieser sich ändert (U im Hauptmenü darf nicht überschrieben werden)
       const mode = lob && lob.startMission;
-      if (mode === 'eisenwald') store.tutorial = true; else if (mode === 'eisenwald_ohne') store.tutorial = false;
+      if (mode !== store.lobbyModus) { store.lobbyModus = mode; if (mode === 'eisenwald') store.tutorial = true; else if (mode === 'eisenwald_ohne') store.tutorial = false; }
       const s = sichtbar(lob);
       if (!s.some((e) => e.id === store.auswahl)) { const a = aktuellerEintrag(lob); store.auswahl = (a && s.some((e) => e.id === a.id) ? a : s[0] || {}).id || null; }
       aenderung();
@@ -140,17 +159,16 @@
       store.auswahl = id; aenderung();
       return { ok: true, auswahl: id };
     }
-    // Eisenwald: Tutorial an/aus (U). Im Hauptmenü nur der Schalter, in der Lobby bei Eisenwald zugleich der Lobby-Modus (jeder darf umschalten).
-    function schalteTutorial(lob) {
+    // Eisenwald: Tutorial an/aus (U). Zwei Absichten, zwei Actions: im Hauptmenü und in der Moduswahl nur der Merker für den nächsten Start (sendet nichts),
+    // in der Lobby der Modus der Runde (jeder darf umschalten).
+    function schalteTutorialMerker() { store.tutorial = !store.tutorial; aenderung(); return { ok: true, tutorial: store.tutorial }; }
+    function schalteTutorialDerRunde(lob) {
       const mode = lob && lob.startMission;
-      const inLobby = mode === 'eisenwald' || mode === 'eisenwald_ohne';
-      store.tutorial = inLobby ? mode === 'eisenwald_ohne' : !store.tutorial; aenderung();   // in der Lobby gilt der Modus der Runde, nicht der Merker des Hauptmenüs
-      if (inLobby) {
-        const neu = modusVon(eintragMitId('eisenwald'));
-        senden({ t: LOBBY_OPT(), startMission: neu });
-        return { ok: true, tutorial: store.tutorial, gesendet: neu };
-      }
-      return { ok: true, tutorial: store.tutorial };
+      if (mode !== 'eisenwald' && mode !== 'eisenwald_ohne') return { ok: false, grund: 'kein-eisenwald' };
+      const neu = mode === 'eisenwald' ? 'eisenwald_ohne' : 'eisenwald';
+      store.tutorial = neu === 'eisenwald'; aenderung();
+      senden({ t: LOBBY_OPT(), startMission: neu });
+      return { ok: true, tutorial: store.tutorial, gesendet: neu };
     }
 
     // ------------------------------------------------------------------ Modus festlegen (lobbyOpt)
@@ -179,6 +197,22 @@
       return { ok: true };
     }
     function schliesseModusWahl() { if (store.modusOffen) { store.modusOffen = false; aenderung(); } return { ok: true }; }
+    // Ein Weltstand wurde gewählt (Liste mit F): aus dem Hauptmenü in die Lobby, aus der Moduswahl-Überlagerung zurück in die Lobby
+    function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : schliesseModusWahl(); }
+    // „Neue Kampagne“ aus der Weltstandliste: wie weltstandGewaehlt, und der Modus der Lobby wird ein im Menü sichtbarer (der Server-Standard m1 ist ohne Debug unsichtbar)
+    function neuerWeltstandGewaehlt(lob) { const r = weltstandGewaehlt(), m = sichtbarenModusSichern(lob); return Object.assign({}, r, { modus: m.gesendet }); }
+    // Steht die Lobby auf einem Modus, den das Menü nicht anbietet (m1 ohne ?debug=1), den ersten sichtbaren Eintrag als Modus setzen
+    function sichtbarenModusSichern(lob) {
+      const s = sichtbar(lob).filter((e) => e.modi.length), e = eintragZuModus((lob && lob.startMission) || 'm1');
+      if (!s.length || (e && s.some((x) => x.id === e.id))) return { ok: true, gesendet: null };
+      const msg = nachrichtFuer(s[0], lob); senden(msg); store.auswahl = s[0].id; aenderung();
+      return { ok: true, gesendet: msg.startMission };
+    }
+    // Das Labor: Liste, gewählte Umsetzung (Position i von n) und deren Eintrag
+    function laborAuswahl(lob) {
+      const liste = lob && Array.isArray(lob.laborListe) ? lob.laborListe : [], l = (lob && lob.labor) || {}, i = Math.max(0, liste.findIndex((e) => e.id === l.id));
+      return { liste, n: liste.length, position: liste.length ? i + 1 : 0, eintrag: liste[i] || null, labor: l };
+    }
 
     // ------------------------------------------------------------------ Bildschirmfluss
     // Start: per Einladungslink → Einladung; Direktstart (?arena=, Automation) → Lobby; sonst Titel
@@ -189,16 +223,22 @@
       return { ok: true, schirm: store.schirm };
     }
     function weiter() { if (store.schirm === 'titel') { store.schirm = 'menue'; aenderung(); return { ok: true }; } return { ok: false }; }
-    // Esc: Moduswahl zu → Lobby → Hauptmenü (bereit zurücknehmen) → Titel; Einladung → Hauptmenü
+    // Esc: Moduswahl zu → Lobby → Hauptmenü (bereit zurücknehmen) → Titel (die Einladung hat ihr eigenes Esc: einladungAblehnen)
     function zurueck(ich) {
       if (store.modusOffen) { store.modusOffen = false; aenderung(); return { ok: true, schirm: store.schirm }; }
       if (store.schirm === 'lobby') {
         if (ich && ich.ready) senden({ t: READY(), ready: false });   // im Hauptmenü zählt man als „nicht bereit“
         store.schirm = 'menue'; aenderung(); return { ok: true, schirm: 'menue' };
       }
-      if (store.schirm === 'einladung') { store.schirm = 'menue'; aenderung(); return { ok: true, schirm: 'menue' }; }
       if (store.schirm === 'menue') { store.schirm = 'titel'; aenderung(); return { ok: true, schirm: 'titel' }; }
       return { ok: false };
+    }
+    // Einladung ablehnen (Esc): den fremden Raum wirklich verlassen (Verbindung trennen, Raumcode vergessen – sonst käme man sofort wieder hinein) und ins Hauptmenü
+    function einladungAblehnen() {
+      if (store.schirm !== 'einladung') return { ok: false, grund: 'keine-einladung' };
+      const verlassen = !!(opt.verlasseRaum && opt.verlasseRaum());
+      store.schirm = 'menue'; store.modusOffen = false; aenderung();
+      return { ok: true, schirm: 'menue', verlassen };
     }
     // Die Runde endet und der Server holt alle zurück in die Lobby
     function imRaum() { store.schirm = 'lobby'; store.modusOffen = false; aenderung(); return { ok: true }; }
@@ -247,7 +287,7 @@
         { taste: TEXT.tasten.auswahl, code: 'ArrowUp', aktion: 'laborWahl', arg: -1, label: TEXT.opt.umsetzung }, { code: 'ArrowDown', aktion: 'laborWahl', arg: 1, versteckt: true },
         { taste: TEXT.tasten.stellen, code: 'ArrowLeft', aktion: 'laborStaerke', arg: -1, label: TEXT.opt.staerke }, { code: 'ArrowRight', aktion: 'laborStaerke', arg: 1, versteckt: true },
         { taste: 'R', code: 'KeyR', aktion: 'laborSeed', label: TEXT.opt.seed }, { taste: 'G', code: 'KeyG', aktion: 'laborGod', label: TEXT.opt.god }, waffe);
-      if (modus === 'eisenwald' || modus === 'eisenwald_ohne') o.push({ taste: 'U', code: 'KeyU', aktion: 'menue.tutorial', label: TEXT.detail.tutorial });
+      if (modus === 'eisenwald' || modus === 'eisenwald_ohne') o.push({ taste: 'U', code: 'KeyU', aktion: 'menue.tutorialRunde', label: TEXT.detail.tutorial });
       if (modus === 'm1') o.push({ taste: 'U', code: 'KeyU', aktion: 'toggleSkipDrill', label: TEXT.opt.hafenUebung });
       return o;
     }
@@ -256,11 +296,11 @@
     return {
       TEXT, GRUPPEN, ALLE, lies, eintragMitId, eintragZuModus, zugeordneteModi,
       sichtbar, gruppen, modusVon, aktuellerEintrag, auswahlEintrag, synchronisiere, welten, neuesteWelt,
-      bewege, waehleTaste, waehleEintragId, schalteTutorial, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
-      starte, weiter, zurueck, imRaum, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
+      bewege, waehleTaste, waehleEintragId, schalteTutorialMerker, schalteTutorialDerRunde, nachrichtFuer, bestaetige, oeffneModusWahl, schliesseModusWahl,
+      starte, weiter, zurueck, imRaum, weltstaende, weltstandGewaehlt, neuerWeltstandGewaehlt, sichtbarenModusSichern, einladungAblehnen, laborAuswahl, startOptionen, bewegeEinladung, setzeEinladungCursor, einladungAnnehmen, einladungAufGewaehlten,
       gastgeber, zaehlung, verbunden, optionenFuer, optionFuerTaste,
     };
   }
 
-  return { TEXT, GRUPPEN, erzeuge, eintragZuModus, zugeordneteModi };
+  return { TEXT, GRUPPEN, erzeuge, eintragZuModus, zugeordneteModi, startOptionen };
 });

@@ -262,7 +262,7 @@
     if (row.neu) {
       send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: null });
       uiCloseAll(true); audio.play('ui_click');
-      if (window.MenueFluss && MenueFluss.lies().schirm === 'menue') MenueFluss.imRaum();   // CHA-01 E: aus dem Hauptmenü gewählt → die Lobby zeigt das Ergebnis
+      if (window.MenueFluss) MenueFluss.neuerWeltstandGewaehlt(st.lobby);   // CHA-01 E: aus dem Hauptmenü gewählt → Lobby (mit sichtbarem Modus); aus der Moduswahl → Überlagerung schließt
       return;
     }
     const w = row.w || {};
@@ -274,7 +274,7 @@
     send({ t: (P.C && P.C.LOBBY_OPT) || 'lobbyOpt', world: row.id });
     if (st.lobby && st.lobby.worldsFull && Client.ui.worldsMode === 'full') H.pushNotice('Fortsetzen statt neu: ' + (w.name || row.id), R.PAL.mint);
     uiCloseAll(true); audio.play('ui_click');
-    if (window.MenueFluss && MenueFluss.lies().schirm === 'menue') MenueFluss.imRaum();   // CHA-01 E: Weltstand im Hauptmenü gewählt → in die Lobby
+    if (window.MenueFluss) MenueFluss.weltstandGewaehlt();   // CHA-01 E: Weltstand im Hauptmenü gewählt → in die Lobby; in der Moduswahl → Überlagerung schließt
   }
   function startDelete(id, viaMouse) {
     const row = worldsItems().find(r => r.id === id && !r.neu);
@@ -477,6 +477,13 @@
     // S1: Overlays und Menü (Maus über Hud-Knöpfe)
     openWorlds(mode) { openWorlds(mode); },
     openOptions() { if (uiTop() !== 'options') { uiPush('options'); audio.play('ui_click'); } },
+    // CHA-01 E: Einladung abgelehnt – den Raum wirklich verlassen: Raumcode vergessen, Verbindung trennen, eigenen Spielzustand verwerfen (der neue hello ohne Code wird mit badcode beantwortet → Raumcode-Eingang)
+    verlasseRaum() {
+      Net.verlasseRaum();
+      Client.state = null; G.state = null; Client.pid = null; G.pid = null; Client.snaps = [];
+      if (codeInput) { codeInput.value = ''; Client.focusCode = true; }
+      return true;
+    },
     openHilfe() { if (uiTop() !== 'controls') { uiPush('controls'); audio.play('ui_click'); } },   // CHA-01 E: Steuerung (Hilfe) auch aus Titel, Hauptmenü und Lobby
     uiActivate(page, id) { uiActivate(page, id); },
     uiSelect(page, i) { Client.ui.sel[page] = i; },
@@ -2504,12 +2511,8 @@
   // CHA-01 E: womit das Startmenü beginnt. ?menue=1 erzwingt den Ablauf Titel → Hauptmenü → Lobby (bzw. Einladung bei ?code=), ?menue=0 die Lobby.
   // Ohne Angabe: Direktstarts (?arena=) und ferngesteuerte Browser (navigator.webdriver: Playwright-Skripte tools/sicht-*.js, pw-*.js) beginnen in der Lobby,
   // so wie diese Skripte sie seit jeher vorfinden; ein Einladungslink (?code=) beginnt mit der Einladung, sonst der Titel.
-  function menueStart() {
-    const q = params, m = q.get('menue');
-    const link = !!Net.normCode(q.get('code'));
-    if (m === '1') return { link };
-    if (m === '0' || q.get('arena') != null || navigator.webdriver) return { direkt: true };
-    return { link };
+  function menueStart() {   // die Regel steht in MenueFluss.startOptionen (rein, getestet)
+    return MenueFluss.startOptionen({ menue: params.get('menue'), arena: params.get('arena'), link: !!Net.normCode(params.get('code')), webdriver: !!navigator.webdriver });
   }
   function boot() {
     layout();

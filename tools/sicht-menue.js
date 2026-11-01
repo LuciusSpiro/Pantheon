@@ -94,6 +94,7 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
     await taste(hp, '5'); await bild(hp, '06-menue-uebung');
     await taste(hp, '7'); await bild(hp, '07-menue-labor');
     await taste(hp, 'h'); await sleep(300); ok(await hp.evaluate(() => window.__game.client.ui.stack.slice(-1)[0] === 'controls'), 'H öffnet die Hilfe (Steuerung)'); await taste(hp, 'Escape'); await sleep(200);
+    await taste(hp, 'Shift+Minus'); await sleep(300); ok(await hp.evaluate(() => window.__game.client.ui.stack.slice(-1)[0] === 'controls'), '? öffnet die Hilfe (wie an den Pulten)'); await taste(hp, 'Escape'); await sleep(200);
     await taste(hp, 'o'); await sleep(300); ok(await hp.evaluate(() => window.__game.client.ui.stack.slice(-1)[0] === 'options'), 'O öffnet die Optionen'); await taste(hp, 'Escape'); await sleep(200);
     ok(await schirm(hp) === 'menue', 'Optionen/Hilfe schließen zurück ins Hauptmenü');
 
@@ -200,6 +201,89 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
       ok(await schirm(ar.page) === 'lobby', '?arena=graben: Direktstart wählt den Grabenangriff und beginnt in der Lobby (kein Titel)');
     }
     for (const c of offen.splice(0)) await c.close();
+
+    // ---------------------------------------------------------------- 6b Nacharbeit: Ton-Hinweis, Farbe per Maus, Weltstand voll, Einladung ablehnen, Eisenwald-Schalter
+    log('\n== 6b Ton-Hinweis, Farbe per Maus ==');
+    {
+      const frisch = await kontext(browser, BASIS + '?menue=0', 'aurelia'); offen.push(frisch.ctx);
+      ok(await frisch.page.evaluate(() => !__game.client.audioOn), 'Ton ist vor der ersten Eingabe aus');
+      await bild(frisch.page, '26-lobby-ton-hinweis');
+      await frisch.page.keyboard.press('Shift');   // erste Eingabe aktiviert den Ton
+      const farbeVor = await frisch.page.evaluate(() => (__game.state.players.find((p) => p.id === __game.pid) || {}).color);
+      const ziel = farbeVor === 2 ? 3 : 2;
+      await frisch.page.evaluate((z) => { const b = Render.ui.buttons.find((x) => x.label === 'Farbe ' + (z + 1)); if (b) b.onClick(); }, ziel);
+      await frisch.page.waitForFunction((z) => (__game.state.players.find((p) => p.id === __game.pid) || {}).color === z, ziel, { timeout: 5000 });
+      ok(true, 'Klick auf eine Farbe in der Hinweiszeile setzt die Spielerfarbe (S' + (ziel + 1) + ')');
+      await bild(frisch.page, '27-lobby-farbe-per-maus');
+      for (const c of offen.splice(0)) await c.close();
+    }
+    log('\n== 6c Weltstände voll ==');
+    {
+      const alt = g.worldList.slice();
+      g.worldList = [1, 2, 3, 4, 5].map((i) => ({ id: 'v' + i, name: 'Weltstand ' + i, state: 'ok', playTime: 1000 * i, loc: 'kantenstein', mission: null, step: null, savedAt: Date.now() - i * 3600 * 1000, spieler: ['Aurelia'] }));
+      g.lobbyOpts.world = null;   // der Test-Server führt keine Weltstände (worlds: false): die Liste ist nur die Anzeige, „voll“ folgt aus 5 von 5
+      const voll = await kontext(browser, BASIS + '?menue=1', 'aurelia'); offen.push(voll.ctx);
+      const vp = voll.page; await taste(vp, 'Enter'); await taste(vp, '1');
+      await vp.waitForFunction(() => __game.state.lobby && (__game.state.lobby.worlds || []).length === 5, null, { timeout: 5000 });
+      await bild(vp, '28-menue-weltstaende-voll');
+      ok(await vp.evaluate(() => MenueFluss.weltstaende(__game.state.lobby).voll), 'Hauptmenü: 5/5 Weltstände gelten als voll');
+      await taste(vp, 'Enter'); await vp.waitForFunction(() => MenueFluss.lies().schirm === 'lobby', null, { timeout: 5000 });
+      await bild(vp, '29-lobby-weltstaende-voll');
+      g.worldList = alt;
+      for (const c of offen.splice(0)) await c.close();
+    }
+    log('\n== 6d Einladung ablehnen ==');
+    {
+      const gast1 = await kontext(browser, BASIS + '?menue=0', 'aurelia'); offen.push(gast1.ctx);
+      const eingeladen = await kontext(browser, BASIS + '?menue=1&code=' + CODE, 'kaeso', { link: true }); offen.push(eingeladen.ctx);
+      const ep = eingeladen.page;
+      await gast1.page.waitForFunction(() => (__game.state.players || []).length === 2, null, { timeout: 10000 });
+      ok(await schirm(ep) === 'einladung', 'Einladung steht');
+      await taste(ep, 'Escape');
+      await gast1.page.waitForFunction(() => (__game.state.players || []).length === 1, null, { timeout: 10000 });
+      ok(true, 'Esc: der Eingeladene ist aus dem Raum (der Server führt nur noch einen Spieler)');
+      await ep.waitForFunction(() => !__game.state && Net.badCode === true && Net.roomCode === '', null, { timeout: 10000 });
+      ok(await ep.evaluate(() => { let ls = null; try { ls = localStorage.getItem('sternenschicht.roomCode'); } catch (e) { /* egal */ } return !ls && !/code=/.test(location.search); }), 'Raumcode ist vergessen (Speicher und Adresse), kein Wiedereintritt');
+      await ep.waitForTimeout(2500);
+      ok((await spielerListe(gast1.page)).length === 1, 'er kommt nicht von selbst zurück (nach 2,5 s weiter ein Spieler)');
+      await bild(ep, '30-einladung-abgelehnt');
+      await bild(gast1.page, '31-lobby-nach-ablehnung');
+      for (const c of offen.splice(0)) await c.close();
+    }
+    log('\n== 6e Hauptmenü Eisenwald nach einer Runde, Weltstand in der Moduswahl, sichtbarer Modus ==');
+    {
+      g.lobbyOpts.startMission = 'eisenwald_ohne'; g.lobbyOpts.world = null;   // der Modus der letzten Runde bleibt in der Lobby stehen
+      const eh = await kontext(browser, BASIS + '?menue=1', 'aurelia'); offen.push(eh.ctx);
+      const ep = eh.page; await taste(ep, 'Enter');
+      ok(await ep.evaluate(() => MenueFluss.lies().auswahl === 'eisenwald' && MenueFluss.lies().tutorial === false), 'Hauptmenü nach der Runde: Eisenwald gewählt, Tutorial steht auf aus (wie die Lobby)');
+      await bild(ep, '32-menue-eisenwald-nach-runde');
+      await taste(ep, 'u'); await ep.waitForTimeout(800);
+      ok(await ep.evaluate(() => MenueFluss.lies().tutorial === true), 'U im Hauptmenü bei Lobby-Modus eisenwald_ohne: Tutorial an (wird nicht jeden Frame zurückgesetzt)');
+      await bild(ep, '33-menue-eisenwald-u-gedrueckt');
+      await ep.evaluate(() => { const b = Render.ui.buttons.find((x) => x.label === 'Tutorial'); if (b) b.onClick(); }); await ep.waitForTimeout(500);
+      ok(await ep.evaluate(() => MenueFluss.lies().tutorial === false), 'Mausklick auf den Tutorial-Schalter im Hauptmenü schaltet denselben Merker');
+      await taste(ep, 'u'); await taste(ep, 'Enter');
+      await ep.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald', null, { timeout: 5000 });
+      ok(true, 'Enter nach U: der Server meldet Eisenwald mit Tutorial');
+      await taste(ep, 'u'); await ep.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald_ohne', null, { timeout: 5000 });
+      ok(true, 'U in der Lobby schaltet den Modus der Runde sofort (Server: eisenwald_ohne)');
+      await ep.evaluate(() => { const b = Render.ui.buttons.find((x) => /^Tutorial/.test(x.label)); if (b) b.onClick(); });
+      await ep.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald', null, { timeout: 5000 });
+      ok(true, 'Mausklick auf den Tutorial-Chip in der Lobby: dieselbe Action (Server: eisenwald)');
+      // K3: Weltstand in der Moduswahl wählen schließt die Überlagerung
+      await taste(ep, 'm'); ok(await ep.evaluate(() => MenueFluss.lies().modusOffen), 'M öffnet die Moduswahl');
+      await taste(ep, 'f'); await sleep(300); await taste(ep, 'ArrowDown'); await taste(ep, 'Enter'); await sleep(500);
+      ok(await ep.evaluate(() => !MenueFluss.lies().modusOffen && MenueFluss.lies().schirm === 'lobby' && __game.client.ui.stack.length === 0), 'Weltstand in der Moduswahl gewählt: Überlagerung zu, Lobby sichtbar');
+      await bild(ep, '34-lobby-nach-weltstandwahl-in-moduswahl');
+      // K2: Server-Standard m1 (ohne Debug unsichtbar): „+ Neue Kampagne“ aus dem Hauptmenü
+      await taste(ep, 'Escape'); await sleep(200);
+      await ep.evaluate(() => __game.send({ t: 'lobbyOpt', startMission: 'm1', world: null })); await ep.waitForFunction(() => __game.state.lobby.startMission === 'm1', null, { timeout: 5000 });
+      await taste(ep, 'f'); await sleep(300); await taste(ep, 'Enter'); await sleep(600);
+      await ep.waitForFunction(() => __game.state.lobby.startMission !== 'm1', null, { timeout: 5000 });
+      ok(await ep.evaluate(() => MenueFluss.lies().schirm === 'lobby' && MenueFluss.eintragZuModus(__game.state.lobby.startMission) && MenueFluss.sichtbar(__game.state.lobby).some((e) => e.modi.includes(__game.state.lobby.startMission))), 'F → + Neue Kampagne bei Server-Modus m1: die Lobby zeigt einen sichtbaren Modus');
+      await bild(ep, '35-lobby-sichtbarer-modus');
+      for (const c of offen.splice(0)) await c.close();
+    }
 
     // ---------------------------------------------------------------- 7 1920×1080
     log('\n== 7 1920×1080 ==');

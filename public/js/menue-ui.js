@@ -76,7 +76,6 @@
   const ichVon = (view) => spielerVon(view).find((p) => p.id === view.pid) || null;
   const label = (modus) => (proto().START_LABELS && proto().START_LABELS[modus]) || String(modus || '');
   const hinweisText = (modus) => (proto().START_HINTS && proto().START_HINTS[modus]) || '';
-  const maxWelten = () => H.worldsMax();
   const code = () => (window.Net && Net.serverRoomCode) || null;
   const kartenMap = () => (window.Client && Client.karten) || {};
   const aktiveKarte = () => (window.Charaktere ? Charaktere.aktiveKarte() : null);
@@ -88,9 +87,28 @@
   function modusAnzeige(lob) {
     const welt = F.welten(lob).find((w) => w.id === lob.world) || null;
     if (welt) return { art: T.lobby.fortsetzenVon + ' · ' + String(H.missionLabel(welt.mission, welt.step)).toUpperCase(), titel: String(welt.name || welt.id), satz: H.playLabel(welt.playTime) + ' · ' + H.locLabel(welt.loc), welt };
-    const modus = lob.startMission || 'm1', e = F.eintragZuModus(modus);
-    const mitWelt = e && e.weltstand;
-    return { art: (e ? e.art : T.lobby.gruppeModus) + ' · ' + (mitWelt ? ME.text(T.detail.neuerWeltstand, { n: F.welten(lob).length + 1 > maxWelten() ? maxWelten() : F.welten(lob).length + 1, max: maxWelten() }) : T.detail.keinWeltstand).toUpperCase(), titel: label(modus), satz: hinweisText(modus), welt: null };
+    const modus = lob.startMission || 'm1', e = F.eintragZuModus(modus), ws = F.weltstaende(lob);
+    const mitWelt = e && e.weltstand, voll = !!(mitWelt && ws.voll);
+    const wert = mitWelt ? (voll ? ME.text(T.detail.weltstandVollKurz, { max: ws.max }) : ME.text(T.detail.neuerWeltstand, { n: ws.naechste, max: ws.max })) : T.detail.keinWeltstand;
+    const m = { art: (e ? e.art : T.lobby.gruppeModus) + ' · ' + wert.toUpperCase(), titel: label(modus), satz: [hinweisText(modus)].concat(zusatzSatz(modus, lob)).filter(Boolean).join(' · '), welt: null, warnung: voll ? ME.text(T.detail.weltstandVollLang, { max: ws.max }) : null };
+    if (modus === 'labor') {   // Labor: die gewählte Umsetzung steht als Titel (voller Name), Position und Einzelheiten darunter
+      const la = F.laborAuswahl(lob), le = la.eintrag;
+      if (le) {
+        m.art = e.art + ' · ' + label(modus).toUpperCase() + ' · ' + la.position + '/' + la.n; m.titel = le.name || le.id;
+        m.satz = [le.schauplatz === 'aussen' ? T.opt.laborBoden : T.opt.laborRaum, le.kartenarten && le.kartenarten.length ? le.kartenarten.join('/') : '', le.landepunkt || (le.ort ? H.locLabel(le.ort) : ''), le.startzustand ? ME.text(T.opt.laborStart, { z: le.startzustand }) : ''].filter(Boolean).join(' · ');
+      }
+    }
+    return m;
+  }
+  // Was die Lobby zum Modus noch zeigte (Hinweiszeile unter dem Titel): Wellen Seed fest / neu je Start und letzter Stand (Abschnitte des Grabenangriffs mit nur einer Variante stehen als Text in der Chipzeile)
+  function zusatzSatz(modus, lob) {
+    const letzter = (schluessel) => { const l = H.wellenErgebnis; return l && schluessel && l.karte === schluessel ? ME.text(T.opt.zuletzt, { n: l.welle }) : ''; };
+    if (modus === 'arena_away') {
+      const url = lob.arena && lob.arena.art ? lob.arena : null, k = lob.wellen || null;
+      return [url && k ? ME.text(T.opt.seedFest, { n: url.seed }) : k ? T.opt.seedNeu : '', letzter(url ? url.art : k)];
+    }
+    if (modus === 'arena_space') return [letzter(lob.szene ? 'all:' + lob.szene : null)];
+    return [];
   }
   // Wert einer Zusatzoption (Lobby-Snapshot): nur Darstellung
   function optionWert(o, lob, ich) {
@@ -102,16 +120,21 @@
           return k ? H.wellenKarteName(k) + zusatz(k) : T.opt.keschKlassisch; }
       case 'toggleGraben': { const a = (lob.grabenListe || [])[o.arg], v = a && ((a.varianten || []).find((x) => x.id === (lob.graben || {})[a.abschnitt]) || (a.varianten || [])[0]); return v ? v.name : T.opt.leer; }
       case 'lobbyWaffe': { const w = ich && lob.waffen && lob.waffen[ich.id]; return w ? (H.WAFFE_NAME[w] || w) : T.opt.standard; }
-      case 'laborWahl': { const l = (lob.laborListe || []).find((e) => e.id === (lob.labor && lob.labor.id)); return l ? l.name : T.opt.leer; }
+      case 'laborWahl': { const la = F.laborAuswahl(lob); return la.n ? la.position + '/' + la.n : T.opt.leer; }   // der volle Name steht als Titel der Lobby
       case 'laborStaerke': return (lob.labor && lob.labor.staerke) || T.opt.standard;
       case 'laborSeed': return lob.labor && lob.labor.seed != null ? String(lob.labor.seed) : T.opt.zufaellig;
       case 'laborGod': return lob.labor && lob.labor.god ? T.opt.an : T.opt.aus;
-      case 'menue.tutorial': return F.lies().tutorial ? T.detail.an : T.detail.aus;
+      case 'menue.tutorialRunde': return lob.startMission === 'eisenwald' ? T.detail.an : T.detail.aus;   // in der Lobby gilt der Modus der Runde
       case 'toggleSkipDrill': return lob.skipDrill ? T.detail.an : T.detail.aus;
       default: return '';
     }
   }
   const sichtOptionen = (modus, lob, welt) => F.optionenFuer(modus, lob, welt).filter((o) => !o.versteckt);
+  // Klick und Taste einer Lobby-Option lösen dieselbe Action aus
+  function optionAusfuehren(o, view, lob) {
+    if (o.aktion === 'menue.tutorialRunde') return F.schalteTutorialDerRunde(lob);
+    const fn = view.actions[o.aktion]; return fn ? fn(o.arg) : null;
+  }
 
   // ---------------------------------------------------------------- Bildebene
   function schirmVon(view) {
@@ -165,7 +188,7 @@
     for (const g of gs) {
       if (g.id === 'spielen') { gruppe(T.gruppen.spielen); g.eintraege.forEach((e) => zeile(e, label(F.modusVon(e)))); }
       else if (g.id === 'fortsetzen') {
-        y += M.gruppenAbstand; const ws = F.welten(lob); gruppe(T.gruppen.fortsetzen, ws.length + '/' + maxWelten());
+        y += M.gruppenAbstand; const ws = F.welten(lob); gruppe(T.gruppen.fortsetzen, F.weltstaende(lob).zaehler);
         const neu = F.neuesteWelt(lob);
         if (neu) {
           zeile(g.eintraege[0], neu.name || neu.id, welteZeile(neu));
@@ -178,24 +201,24 @@
   function detail(c, view, lob, e, knopfText, knopfFn) {
     const D = MM.menue.detail; kachelM(c, D.x, D.y, D.w, D.h); rect(c, D.x, D.y, D.w, 2, MF.gold);
     if (!e) return;
-    const ich = ichVon(view), welt = e.fortsetzen ? F.neuesteWelt(lob) : null, modus = F.modusVon(e);
+    const welt = e.fortsetzen ? F.neuesteWelt(lob) : null, modus = F.modusVon(e), ws = F.weltstaende(lob);
     txtSp(c, e.art, D.x + 10, D.y + 10, MF.messing, MS.gruppe.sp);
     const dt = String(welt ? (welt.name || welt.id) : label(modus)).toUpperCase(), dsk = breite(dt, MS.detail.skala) <= D.w - 20 ? MS.detail.skala : 1;   // zu lang für Skala 2 (z. B. DIE SCHULD DER LERCHE): Skala 1
     txt(c, fit(dt, D.w - 20, dsk), D.x + 10, D.y + (dsk === 1 ? 27 : 24), MF.text, 'left', dsk);
     const beschr = welt ? welteZeile(welt) : hinweisText(modus);
     R.wrap(beschr, D.w - 20, 1).slice(0, 2).forEach((z, i) => txt(c, z, D.x + 10, D.y + 46 + i * 11, MF.dim));
     const crewListe = welt && Array.isArray(welt.spieler) && welt.spieler.length ? T.detail.crew + ': ' + welt.spieler.join(', ') : null;
-    const meta = e.fortsetzen ? (crewListe || T.detail.spieler) : T.detail.spieler + ' · ' + (e.weltstand ? ME.text(T.detail.neuerWeltstand, { n: Math.min(maxWelten(), F.welten(lob).length + 1), max: maxWelten() }) : T.detail.keinWeltstand);
-    txt(c, fit(meta, D.w - 20, 1), D.x + 10, D.y + 70, MF.text);
-    const opt = e.tutorial ? [{ taste: 'U', aktion: 'menue.tutorial', label: T.detail.tutorial }] : sichtOptionen(modus, lob, welt);
+    const voll = !e.fortsetzen && e.weltstand && ws.voll;
+    const meta = e.fortsetzen ? (crewListe || T.detail.spieler) : voll ? ME.text(T.detail.weltstandVoll, { max: ws.max }) : T.detail.spieler + ' · ' + (e.weltstand ? ME.text(T.detail.neuerWeltstand, { n: ws.naechste, max: ws.max }) : T.detail.keinWeltstand);
+    txt(c, fit(meta, D.w - 20, 1), D.x + 10, D.y + 70, voll ? MF.nichtBereit : MF.text);
+    const opt = e.tutorial ? [{ taste: 'U', label: T.detail.tutorial }] : sichtOptionen(modus, lob, welt);
     if (opt.length) {   // Tutorial-Schalter im Hauptmenü; die übrigen Optionen gelten in der Lobby (gleiche Tasten)
       const mitText = opt.map((o) => o.taste + ' ' + o.label).join(' · '), nurTasten = opt.map((o) => o.taste).join(' ');
       const werte = breite(T.detail.inLobby + ': ' + mitText) <= D.w - 20 ? mitText : nurTasten;
-      if (e.tutorial) { const k = kappeM(c, D.x + 10, D.y + 79, 'U'); txt(c, T.detail.tutorial + ': ' + (F.lies().tutorial ? T.detail.an : T.detail.aus), k + 5, D.y + 82, MF.text); klick({ x: D.x + 10, y: D.y + 79, w: 120, h: 13 }, 'Tutorial', () => F.schalteTutorial(lob)); }
+      if (e.tutorial) { const k = kappeM(c, D.x + 10, D.y + 79, 'U'); txt(c, T.detail.tutorial + ': ' + (F.lies().tutorial ? T.detail.an : T.detail.aus), k + 5, D.y + 82, MF.text); klick({ x: D.x + 10, y: D.y + 79, w: 120, h: 13 }, 'Tutorial', () => F.schalteTutorialMerker()); }
       else txt(c, fit(T.detail.inLobby + ': ' + werte, D.w - 20, 1), D.x + 10, D.y + 82, MF.dim);
     }
     knopfGold(c, D.x + 10, D.y + 98, 170, T.tasten.enter, knopfText, knopfFn);
-    void ich;
   }
   function hauptmenue(c, view) {
     const lob = lobbyVon(view); lockup(c);
@@ -228,34 +251,50 @@
     txtSp(c, fit(String(p.name || '?').toUpperCase(), w - 10 - (ich ? 20 : 0), 1), x + 5, ty, sp.farbe, MS.name.sp);
     if (ich) txt(c, T.karte.du, x + w - 6, ty, MF.dim, 'right');
     txt(c, fit(oberteil(karte), w - 10, 1), x + 5, y + CR.bild + 1 + KK.zeileY, MF.text);
+    if (p.waffe) txt(c, fit(T.opt.waffe + ': ' + p.waffe, w - 10, 1), x + 5, y + CR.bild + 1 + KK.zeileY + 11, MF.dim);   // Wellen Boden, Grabenangriff, Labor: Waffe je Spieler
     stempel(c, p.ready ? 'anBord' : 'nichtBereit', x + w / 2, y + h - MT.STEMPEL.h - 7);
     rand(c, x, y, w, h, MF.karteRand);
   }
-  function lobbyChips(c, view, lob, ich, anz) {   // Zeile(n) unter dem Modus: M Modus ändern + Zusatzoptionen des Modus mit Werten
+  function lobbyChips(c, view, lob, ich) {   // Zeile(n) unter dem Modus: M Modus ändern + Zusatzoptionen des Modus mit Werten
     const L = MM.lobby, maxX = 436, x0 = L.modus.x;
     let x = x0, y = L.modus.y + 51, zeile = 0;
     const chip = (k, t, w2, fn) => {
-      const w = Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4 + breite(t);
+      const w = (k ? Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4 : 0) + breite(t);   // k = null: nur Text (kein wählbarer Wert)
       if (x + w > maxX) { if (zeile >= 1 || x === x0) return; zeile++; x = x0; y += 13; if (x + w > maxX) return; }
       rect(c, x - 2, y - 1, w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft));   // deckende Unterlage: die Optionen laufen über die Textzone des Tokens hinaus
-      const x1 = x; x = kappeM(c, x, y, k) + 4; x = txt(c, t, x, y + 3, w2 || MF.dim) + 12;
+      const x1 = x; if (k) x = kappeM(c, x, y, k) + 4; x = txt(c, t, x, y + 3, w2 || MF.dim) + 12;
       if (fn) klick({ x: x1, y, w: x - x1 - 12, h: 13 }, t, fn);
     };
     chip('M', T.lobby.modusAendern, MF.dim, () => F.oeffneModusWahl(lob));
     if (!ich) return;
     const m = modusAnzeige(lob);
-    for (const o of sichtOptionen(lob.startMission, lob, m.welt)) chip(o.taste, o.label + ' ' + fit(optionWert(o, lob, ich), 120, 1), MF.dim, () => (o.aktion === 'menue.tutorial' ? F.schalteTutorial(lob) : view.actions[o.aktion] && view.actions[o.aktion](o.arg)));
-    void anz;
+    for (const o of sichtOptionen(lob.startMission, lob, m.welt)) chip(o.taste, o.label + ' ' + fit(optionWert(o, lob, ich), 120, 1), MF.dim, () => optionAusfuehren(o, view, lob));
+    if (lob.startMission === 'arena_graben' && !m.welt) for (const a of Array.isArray(lob.grabenListe) ? lob.grabenListe : []) {   // Abschnitte mit nur einer Variante: reine Textzeile ohne Taste
+      if ((a.varianten || []).length >= 2) continue;
+      const v = (a.varianten || [])[0]; chip(null, fit((a.name || T.opt.abschnitt) + ': ' + (v ? v.name : T.opt.leer), 150, 1), MF.dim);
+    }
+  }
+  // Farbe der Crew per Maus (die Tasten 1–4 gelten weiter): Kappe 1–4 und die vier Formen; vergebene Farben gedimmt, die eigene umrandet. Gibt das Ende zurück
+  function farbWahl(c, view, ich, x, y) {
+    const belegt = new Set(F.verbunden(spielerVon(view)).filter((p) => p.id !== view.pid).map((p) => p.color));
+    x = kappeM(c, x, y, T.tasten.ziffern) + 5;
+    for (let i = 0; i < 4; i++) {
+      const sp = ME.spieler(i), cx = x + i * 11 + 5, mein = !!(ich && ich.color === i), weg = belegt.has(i);
+      if (mein) rand(c, cx - 5, y + 1, 11, 11, MF.gold);
+      R.shape(c, sp.form, cx, y + 6, 7, weg ? MF.dim : sp.farbe);
+      klick({ x: cx - 5, y, w: 11, h: 13 }, 'Farbe ' + (i + 1), () => { if (!weg && view.actions.setColor) view.actions.setColor(i); });
+    }
+    return x + 4 * 11 + 8;
   }
   function lobby(c, view) {
-    const st = view.state || {}, lob = lobbyVon(view), L = MM.lobby, players = F.verbunden(spielerVon(view)).slice(0, 4), ich = ichVon(view);
+    const lob = lobbyVon(view), L = MM.lobby, players = F.verbunden(spielerVon(view)).slice(0, 4), ich = ichVon(view);
     const gast = F.gastgeber(spielerVon(view)), z = F.zaehlung(spielerVon(view)), link = code() ? (window.Net ? Net.inviteLink() : '') : '';
     lockup(c);
-    const m = modusAnzeige(lob);
+    const m = modusAnzeige(lob), mitWaffe = !m.welt && ['arena_away', 'arena_graben', 'labor'].includes(lob.startMission);
     txtSp(c, fit(m.art, 248, 1), L.modus.x, L.modus.y, MF.messing, MS.gruppe.sp);   // Textzone des Tokens: bis x 280
-    const tit = String(m.titel).toUpperCase(), tsk = breite(tit, MS.modus.skala) <= 400 ? MS.modus.skala : 2;
+    const tit = String(m.titel).toUpperCase(), tsk = [MS.modus.skala, 2].find((k) => breite(tit, k) <= 400) || 1;   // lange Namen (Labor): Skala 3, 2, sonst 1 – nichts wird abgeschnitten, solange es auf eine Zeile passt
     txt(c, fit(tit, 400, tsk), L.modus.x, L.modus.y + 13, MF.text, 'left', tsk);
-    { const satz = fit(m.satz, 400, 1); rect(c, L.modus.x - 3, L.modus.y + 36, breite(satz) + 6, 11, P.rgba(MF.kachel, MM.kachelDeckkraft)); txt(c, satz, L.modus.x, L.modus.y + 38, MF.dim); }   // lange Hinweise laufen über die Textzone hinaus: deckende Unterlage
+    { const satz = fit(m.warnung || m.satz, 400, 1); rect(c, L.modus.x - 3, L.modus.y + 36, breite(satz) + 6, 11, P.rgba(MF.kachel, MM.kachelDeckkraft)); txt(c, satz, L.modus.x, L.modus.y + 38, m.warnung ? MF.nichtBereit : MF.dim); }   // lange Hinweise laufen über die Textzone hinaus: deckende Unterlage
     lobbyChips(c, view, lob, ich);
     // Raumcode-Kachel
     const RC = L.raumcode; kachelM(c, RC.x, RC.y, RC.w, RC.h);
@@ -280,7 +319,7 @@
         txtSp(c, MX.frei, x + CR.w / 2, y + CR.h / 2 - 14, MF.dim, 1, MS.detail.skala, 'center'); if (code()) txt(c, MX.laedtEin, x + CR.w / 2, y + CR.h / 2 + 6, MF.dim, 'center');
         continue;
       }
-      kartenFlaeche(c, x, y, CR.w, CR.h, i, Object.assign({ gastgeber: gast && gast.id === p.id }, p), view);
+      kartenFlaeche(c, x, y, CR.w, CR.h, i, Object.assign({ gastgeber: gast && gast.id === p.id, waffe: mitWaffe ? ((lob.waffen && lob.waffen[p.id]) ? (H.WAFFE_NAME[lob.waffen[p.id]] || lob.waffen[p.id]) : T.opt.waffeStandard) : null }, p), view);
     }
     if (!spielerVon(view).length) txt(c, (window.Net && Net.status === 'open') ? T.lobby.warteServer : T.lobby.verbindet, CR.x, CR.y + 20, MF.dim);
     // START-Kachel
@@ -295,16 +334,19 @@
     klick({ x: ST.x + 6, y: ST.y + 98, w: ST.w - 12, h: 24 }, 'Bereit', () => view.actions.toggleReady && view.actions.toggleReady());
     T.karte.escZeile.forEach((z, i) => txt(c, z, ST.x + 8, ST.y + 134 + i * 10, MF.dim));
     // Hinweise und Statuszeile
-    const hx = hinweise(c, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit], [T.tasten.ziffern, T.hinweise.farbe], ['C', T.hinweise.charakter], ['M', T.hinweise.modus], ['L', T.hinweise.link], [T.tasten.esc, T.hinweise.menue]], 470);
-    void hx;
-    { let rx = VW - 8; for (const [k, t] of [['H', T.hinweise.hilfe], ['O', T.hinweise.optionen]]) { const w = Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4 + breite(t); rx -= w; rect(c, rx - 2, L.hinweise - 1, w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); kappeM(c, rx, L.hinweise, k); txt(c, t, rx + Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen) + 4, L.hinweise + 3, MF.dim); rx -= 12; } }
+    const kappeBreite = (k) => Math.max(MM.kappe.minW, breite(k) + MM.kappe.innen);
+    let rx = VW - 8; const rechts = [['H', T.hinweise.hilfe], ['O', T.hinweise.optionen]].map(([k, t]) => { const w = kappeBreite(k) + 4 + breite(t); rx -= w; const x0 = rx; rx -= 12; return { k, t, w, x: x0 }; });
+    let hx = hinweise(c, L.modus.x, L.hinweise, [[T.tasten.enter, T.hinweise.bereit]], rx);
+    hx = farbWahl(c, view, ich, hx, L.hinweise);
+    hinweise(c, hx, L.hinweise, [['C', T.hinweise.charakter], ['M', T.hinweise.modus], ['L', T.hinweise.link], [T.tasten.esc, T.hinweise.menue]], rx);
+    for (const r of rechts) { rect(c, r.x - 2, L.hinweise - 1, r.w + 4, 15, P.rgba(MF.kachel, MM.kachelDeckkraft)); kappeM(c, r.x, L.hinweise, r.k); txt(c, r.t, r.x + kappeBreite(r.k) + 4, L.hinweise + 3, MF.dim); }
     const SZ = MM.statuszeile; rect(c, 0, SZ.y, VW, SZ.h, MF.statuszeile); rect(c, 0, SZ.y, VW, 1, MF.kachelRand);
     let x = SZ.innen; const ty = SZ.y + Math.floor((SZ.h - 7) / 2);
     [[MX.status.modus, fit(m.welt ? String(m.titel) : label(lob.startMission || 'm1'), 200, 1), MF.text], [MX.status.crew, z.an + T.status.crewEinheit, MF.text], [MX.status.bereit, z.bereit + '/' + z.an, z.alleBereit ? MF.bereit : MF.nichtBereit], [MX.status.raum, code() || '–', MF.gold]].forEach(([l, v, col]) => {
       x = txtSp(c, l, x, ty, MF.dim, 1) + 6; x = txt(c, v, x, ty, col) + SZ.feldAbstand;
     });
     if (gast) { const gx = VW - SZ.innen - breite(gast.name || '?'); txt(c, gast.name || '?', gx, ty, spielerFarbe(gast).farbe); txtSp(c, MX.status.gastgeber, gx - 6, ty, MF.dim, 1, 1, 'right'); }
-    void st;
+    if (!view.audioOn) { const w = breite(T.ton.hinweis); rect(c, L.crew.x - 3, 307, w + 6, 11, P.rgba(MF.kachel, MM.kachelDeckkraft)); txt(c, T.ton.hinweis, L.crew.x, 309, MF.nichtBereit); }   // der Ton startet erst nach einer Eingabe (deckende Unterlage: liegt auf dem Bild)
   }
 
   // ---------------------------------------------------------------- Einladung (Beitritt per Link): Einladung → Charakter wählen → Lobby
@@ -355,7 +397,7 @@
     const k = cs.liste[cur];
     if (k) knopfGold(c, tx + 10, cy + 100, tw - 20, T.tasten.enter, fit(ME.text(T.einladung.anBordMit, { name: k.karte.name }), tw - 56, 1), () => F.einladungAnnehmen());
     else txt(c, T.einladung.neuHinweis, tx + 10, cy + 104, MF.dim);
-    txt(c, T.einladung.nichtBeitreten, tx + 10, cy + 126, MF.dim);
+    txt(c, T.einladung.nichtBeitreten, tx + 10, cy + 126, MF.dim); klick({ x: tx + 10, y: cy + 124, w: tw - 20, h: 11 }, 'Einladung ablehnen', () => F.einladungAblehnen());
     hinweise(c, 32, 340, [[T.tasten.ziffern, T.hinweisEinladung.charakter], ['N', T.hinweisEinladung.neu], ['C', T.hinweisEinladung.liste], [T.tasten.enter, T.hinweisEinladung.anBord], [T.tasten.esc, T.hinweisEinladung.abbrechen]], 560);
   }
 
@@ -375,10 +417,11 @@
   function taste(e, view) {
     const code = e.code, s = F.lies().schirm, lob = lobbyVon(view), ich = ichVon(view), a = view.actions, rep = e.repeat;
     const ton = (n) => { if (a.sfx) a.sfx(n); };
+    const hilfe = code === 'KeyH' || !!(window.Tasten && Tasten.passt(e, 'allgemein.hilfe'));   // H wie bisher, ? wie an den Pulten
     const gemeinsam = () => {   // Optionen, Hilfe, Charakter – auf jedem Bildschirm
-      if (rep) return code === 'KeyO' || code === 'KeyH' || code === 'KeyC';
+      if (rep) return code === 'KeyO' || hilfe || code === 'KeyC';
       if (code === 'KeyO') { a.openOptions && a.openOptions(); return true; }
-      if (code === 'KeyH') { a.openHilfe && a.openHilfe(); return true; }
+      if (hilfe) { a.openHilfe && a.openHilfe(); return true; }
       if (window.Tasten && Tasten.passt(e, 'charakter.oeffnen')) { a.openKammer && a.openKammer(); return true; }
       return false;
     };
@@ -394,7 +437,7 @@
       if (code === 'Enter' || code === 'NumpadEnter') { const r = F.bestaetige(lob); ton(r.ok ? 'ui_click' : 'error'); return true; }
       if (code === 'Escape') { F.zurueck(ich); ton('ui_back'); return true; }
       if (code === 'KeyF') { a.openWorlds && a.openWorlds('list'); return true; }
-      if (code === 'KeyU') { const en = F.auswahlEintrag(lob); if (en && en.tutorial) { F.schalteTutorial(null); ton('ui_click'); } return true; }
+      if (code === 'KeyU') { const en = F.auswahlEintrag(lob); if (en && en.tutorial) { F.schalteTutorialMerker(); ton('ui_click'); } return true; }
       const d = /^(?:Digit|Numpad)(\d)$/.exec(code);
       if (d) { const r = F.waehleTaste(d[1], lob); if (r.ok) ton('ui_click'); return true; }
       return true;
@@ -407,7 +450,7 @@
       if (d) { F.setzeEinladungCursor(+d[1] - 1); ton('ui_click'); return true; }
       if (code === 'KeyN') { if (a.openKammer) { a.openKammer(); if (window.Charaktere) Charaktere.neuAnlegen(); } return true; }
       if (code === 'Enter' || code === 'NumpadEnter') { const r = F.einladungAnnehmen(); ton(r.ok ? 'ui_click' : 'error'); return true; }
-      if (code === 'Escape') { F.zurueck(ich); ton('ui_back'); return true; }
+      if (code === 'Escape') { F.einladungAblehnen(); ton('ui_back'); return true; }
       return true;
     }
     // Lobby
@@ -420,10 +463,9 @@
     const farbe = /^Digit([1-4])$/.exec(code);
     if (farbe) { if (!rep) a.setColor(+farbe[1] - 1); return true; }
     if (ich) {
-      const mod = F.aktuellerEintrag(lob), welt = F.welten(lob).find((w) => w.id === lob.world) || null;
+      const welt = F.welten(lob).find((w) => w.id === lob.world) || null;
       const o = F.optionFuerTaste(code, lob.startMission, lob, welt);
-      if (o && !(rep && code !== 'ArrowUp' && code !== 'ArrowDown')) { if (o.aktion === 'menue.tutorial') F.schalteTutorial(lob); else if (a[o.aktion]) a[o.aktion](o.arg); return true; }
-      void mod;
+      if (o && !(rep && code !== 'ArrowUp' && code !== 'ArrowDown')) { optionAusfuehren(o, view, lob); return true; }
     }
     return code.indexOf('Arrow') === 0 || code === 'Space';
   }

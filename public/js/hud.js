@@ -1294,33 +1294,6 @@
       ctx.fillStyle = PAL.warn; ctx.fill();
       ctx.fillStyle = PAL.space; ctx.fillRect(x - 0.5, y - 2, 1.5, 4); ctx.fillRect(x - 0.5, y + 3, 1.5, 1);
     },
-    // Lobby-Block „WELTSTAND“: Neu: Kampagne / Fortsetzen … (F)
-    drawLobbyWorld(ctx, view, x, y, w) {
-      const st = view.state || {};
-      const me = (st.players || []).find(p => p.id === view.pid);
-      const worlds = this.lobbyWorlds(st);
-      const chosen = this.lobbyWorld(st);
-      const startId = (st.lobby && st.lobby.startMission) || 'm1';
-      const campaign = startId === 'm1' || startId === 'free' || startId === 'eisenwald' || startId === 'eisenwald_ohne' || startId === 'schuld_der_lerche' || startId === 'freie_fahrt';
-      const full = !!(st.lobby && st.lobby.worldsFull);
-      R.text(ctx, 'WELTSTAND', x, y, { color: PAL.brass });
-      R.text(ctx, worlds.length + '/' + this.worldsMax(), x + w, y, { color: full ? PAL.warn : PAL.panelLight, align: 'right' });
-      let label;
-      if (chosen) label = 'Fortsetzen: ' + chosen.name;
-      else if (!campaign) label = 'Kein Weltstand (Testlauf)';
-      else label = startId === 'free' ? 'Neu: Kampagne ohne Tutorial' : startId === 'eisenwald' ? 'Neu: Kampagne Eisenwald' : startId === 'eisenwald_ohne' ? 'Neu: Eisenwald ohne Tutorial' : startId === 'schuld_der_lerche' ? 'Neu: Die Schuld der Lerche' : startId === 'freie_fahrt' ? 'Neu: Freie Fahrt Sund' : 'Neu: Kampagne';
-      R.button(ctx, x, y + 10, w, 16, this.fit(label, w - 24, 1), {
-        hotkey: 'F', active: !!chosen, disabled: !me, reason: 'Noch nicht verbunden',
-        onClick: () => view.actions.openWorlds && view.actions.openWorlds('list'),
-      });
-      let info, col = PAL.panelLight;
-      if (chosen) { info = this.playLabel(chosen.playTime) + ' · ' + this.locLabel(chosen.loc) + ' · ' + this.missionLabel(chosen.mission); col = PAL.mint; }
-      else if (campaign && full) { info = 'Alle ' + this.worldsMax() + ' Plätze belegt – erst einen löschen (F)'; col = PAL.warn; }
-      else if (!campaign) info = 'Test-Start legt keinen Weltstand an.';
-      else if (worlds.length) info = worlds.length + (worlds.length === 1 ? ' Weltstand' : ' Weltstände') + ' – F: fortsetzen';
-      else info = 'Noch kein Weltstand gespeichert.';
-      R.text(ctx, this.fit(info, w, 1), x, y + 29, { color: col });
-    },
 
     // ---------------------------------------------------------------- Overlays (Menü, Optionen, Steuerung, Weltstände)
     MENU_ITEMS: [['resume', 'Weiterspielen'], ['options', 'Optionen'], ['controls', 'Steuerung'], ['end', 'Partie beenden']],

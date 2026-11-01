@@ -6,7 +6,10 @@
 //  4. Navigation, Tasten 1–7, Eisenwald-Schalter (Tutorial), Moduswahl-Überlagerung der Lobby.
 //  5. Nachrichten: jeder sichtbare Eintrag erzeugt ein lobbyOpt, das der echte Server (Game) annimmt; Wellen Boden/All tragen ihre Kartenwahl, Fortsetzen nur die Welt.
 //  6. Crew: Gastgeber = erster verbundener Spieler, Bereit-Zählung.
-//  7. Mutationsproben: zwei Regeln werden im Quelltext verändert, der Test muss rot werden (Debug-Sichtbarkeit, Link überspringt Titel).
+//  7. Nacharbeit: Tutorial-Schalter (Merker im Menü, Modus der Runde in der Lobby), Einladung ablehnen verlässt den Raum, Weltstand-Belegung, sichtbarer Modus beim Eintritt,
+//     Weltstand gewählt (Hauptmenü / Moduswahl), Labor-Auswahl, Startlogik (?menue, ?arena, webdriver), Tastenzuordnung von menue-ui.js taste() je Schirm.
+//  8. Mutationsproben: Regeln werden im Quelltext verändert, der Test muss rot werden (Debug-Sichtbarkeit, Link überspringt Titel, Tutorial-Synchronisierung,
+//     Rücknahme von „bereit“, Raum verlassen, sichtbarer Modus, Weltstand voll, Startlogik).
 //   node tools/test-menue.js
 const fs = require('fs');
 const os = require('os');
@@ -15,6 +18,8 @@ const Protocol = require('../shared/protocol.js');
 const CONFIG = require('../shared/config.js');
 const { Game } = require('../server/game.js');
 const QUELLE = path.join(__dirname, '..', 'public', 'js', 'menue.js');
+const QUELLE_UI = path.join(__dirname, '..', 'public', 'js', 'menue-ui.js');
+const TOKENS = require('../public/js/menue-tokens.js');
 
 let n = 0, fails = 0;
 function ok(c, msg) { n++; if (!c) { fails++; console.log('  FEHLER ' + msg); } else console.log('  ok ' + msg); }
@@ -34,12 +39,12 @@ function neu(api, o) {
   o = o || {};
   const gesendet = [];
   const wahl = { liste: [{ id: 'c1' }, { id: 'c2' }], gewaehlt: 'c1' };
-  const waehle = [];
+  const waehle = [], verlassen = { n: 0 };
   const F = api.erzeuge({
-    protokoll: Protocol, senden: (m) => { gesendet.push(m); return true; }, debug: !!o.debug, szenenIds: () => ['s_eins', 's_zwei'],
+    protokoll: Protocol, senden: (m) => { gesendet.push(m); return true; }, debug: !!o.debug, szenenIds: () => ['s_eins', 's_zwei'], weltstandMax: 5, verlasseRaum: () => { verlassen.n++; return true; },
     charaktere: { MAX: 4, lies: () => wahl, waehle: (id) => { waehle.push(id); wahl.gewaehlt = id; return { ok: true, id }; } },
   });
-  return { F, gesendet, waehle, wahl };
+  return { F, gesendet, waehle, wahl, verlassen };
 }
 
 // Alle Prüfungen gegen ein Modul; liefert die Anzahl der Fehlschläge (für die Mutationsproben mit stillem Lauf)
@@ -83,7 +88,7 @@ function pruefe(api, laut) {
     p(F.lies().schirm === 'menue' && gleich(t.gesendet[1], { t: 'ready', ready: false }), 'Esc aus der Lobby: Hauptmenü, „bereit“ wird zurückgenommen (im Menü gilt man als nicht bereit)');
     F.zurueck(null); p(F.lies().schirm === 'titel', 'Esc im Hauptmenü: Titel');
     F.starte({ direkt: true }); t.gesendet.length = 0; F.zurueck({ ready: false }); p(F.lies().schirm === 'menue' && !t.gesendet.length, 'Esc ohne „bereit“ sendet nichts');
-    F.starte({ link: true }); F.zurueck(null); p(F.lies().schirm === 'menue', 'Esc in der Einladung: Hauptmenü');
+    F.starte({ link: true }); p(!F.zurueck(null).ok && F.lies().schirm === 'einladung', 'zurueck() gilt nicht für die Einladung (die hat einladungAblehnen)');
     F.starte({}); F.imRaum(); p(F.lies().schirm === 'lobby', 'nach der Runde: Lobby, nicht Titel'); }
 
   // ---- 4 Navigation, Eisenwald-Schalter, Moduswahl
@@ -96,10 +101,11 @@ function pruefe(api, laut) {
     const t2 = neu(api, { debug: true }); t2.F.synchronisiere(LOB); p(t2.F.waehleTaste('8', LOB).ok && t2.F.lies().auswahl === 'm1', 'mit Debug wählt 8 die Kampagne Boje/Nebel/Kesh');
     F.waehleTaste('3', LOB); F.bestaetige(LOB);
     p(t.gesendet.slice(-1)[0].startMission === 'eisenwald', 'Eisenwald startet standardmäßig mit Tutorial');
-    F.starte({}); F.weiter(); F.waehleTaste('3', LOB); F.schalteTutorial(null); F.bestaetige(LOB);
+    F.starte({}); F.weiter(); F.waehleTaste('3', LOB); F.schalteTutorialMerker(); F.bestaetige(LOB);
     p(t.gesendet.slice(-1)[0].startMission === 'eisenwald_ohne', 'Tutorial-Schalter aus: Eisenwald ohne Tutorial');
-    const vor = t.gesendet.length; F.schalteTutorial(LOB); p(t.gesendet.length === vor, 'Schalter im Hauptmenü sendet noch nichts');
-    F.schalteTutorial({ startMission: 'eisenwald_ohne' }); p(t.gesendet.slice(-1)[0].startMission === 'eisenwald' && F.lies().tutorial === true, 'in der Lobby bei Eisenwald schaltet U den Lobby-Modus um (jeder darf)');
+    const vor = t.gesendet.length; F.schalteTutorialMerker(); p(t.gesendet.length === vor && F.lies().tutorial === true, 'Schalter im Hauptmenü sendet noch nichts');
+    F.schalteTutorialDerRunde({ startMission: 'eisenwald_ohne' }); p(t.gesendet.slice(-1)[0].startMission === 'eisenwald' && F.lies().tutorial === true, 'in der Lobby bei Eisenwald schaltet U den Lobby-Modus um (jeder darf)');
+    p(!F.schalteTutorialDerRunde({ startMission: 'freie_fahrt' }).ok, 'in der Lobby ohne Eisenwald gibt es den Schalter nicht');
     F.starte({ direkt: true }); p(F.oeffneModusWahl({ startMission: 'freie_fahrt', worlds: [] }).ok && F.lies().modusOffen && F.lies().auswahl === 'freie_fahrt', 'M öffnet die Moduswahl auf dem aktuellen Modus');
     F.zurueck(null); p(!F.lies().modusOffen && F.lies().schirm === 'lobby', 'Esc schließt zuerst nur die Moduswahl');
     { const lobE = { startMission: 'eisenwald_ohne', worlds: [] }; F.starte({ direkt: true }); F.synchronisiere(lobE); p(F.oeffneModusWahl(lobE).ok && F.lies().auswahl === 'eisenwald' && F.lies().tutorial === false, 'Moduswahl bei Eisenwald ohne Tutorial: Eintrag Eisenwald, Schalter steht auf aus'); }
@@ -151,6 +157,105 @@ function pruefe(api, laut) {
     p(tasten('eisenwald') === 'U' && tasten('eisenwald_ohne') === 'U' && tasten('m1') === 'U', 'U: Tutorial bei Eisenwald, Hafen-Übung bei Kampagne (Debug)');
     p(tasten('freie_fahrt') === '' && tasten('arena_away', {}, { id: 'w' }) === '', 'Freie Fahrt ohne Optionen; mit gewähltem Weltstand entfällt die Startauswahl');
     p(F.optionFuerTaste('ArrowDown', 'labor', {}).arg === 1 && F.optionFuerTaste('KeyZ', 'labor', {}) === null, 'Taste → Option (auch die versteckten Pfeile)'); }
+  // ---- 9 Nacharbeit: Tutorial-Schalter U (S1)
+  { const lobE = { startMission: 'eisenwald', worlds: [] };
+    // Hauptmenü: Lobby steht auf eisenwald, U schaltet den Merker, synchronisiere (jeder Frame) darf ihn nicht zurücksetzen
+    { const t = neu(api), F = t.F; F.starte({}); F.weiter(); F.synchronisiere(lobE); F.waehleTaste('3', lobE);
+      F.schalteTutorialMerker(); F.synchronisiere(lobE); F.synchronisiere(lobE); F.bestaetige(lobE);
+      p(F.lies().tutorial === false && t.gesendet.slice(-1)[0].startMission === 'eisenwald_ohne', 'S1 Hauptmenü: Lobby-Modus eisenwald, U, synchronisiere, Enter → eisenwald_ohne (U wirkt)'); }
+    // Moduswahl-Überlagerung in der Lobby: dasselbe
+    { const t = neu(api), F = t.F; F.starte({ direkt: true }); F.synchronisiere(lobE); F.oeffneModusWahl(lobE);
+      F.schalteTutorialMerker(); F.synchronisiere(lobE); F.bestaetige(lobE);
+      p(t.gesendet.slice(-1)[0].startMission === 'eisenwald_ohne', 'S1 Moduswahl: Lobby-Modus eisenwald, U, synchronisiere, Enter → eisenwald_ohne'); }
+    // Wechselt der Lobby-Modus (ein anderer Spieler schaltet), folgt der Merker
+    { const F = neu(api).F; F.starte({}); F.weiter(); F.synchronisiere(lobE); F.schalteTutorialMerker(); F.synchronisiere({ startMission: 'eisenwald_ohne', worlds: [] }); const a = F.lies().tutorial; F.synchronisiere(lobE);
+      p(a === false && F.lies().tutorial === true, 'S1: wechselt der Lobby-Modus (eisenwald_ohne, dann eisenwald), folgt der Merker dem neuen Modus'); }
+    // Lobby: die Action der Runde sendet sofort und zeigt den Modus der Runde
+    { const t = neu(api), F = t.F; F.starte({ direkt: true }); F.synchronisiere(lobE); const r = F.schalteTutorialDerRunde(lobE);
+      p(r.ok && r.gesendet === 'eisenwald_ohne' && t.gesendet.slice(-1)[0].startMission === 'eisenwald_ohne', 'S1 Lobby: U sendet sofort den Modus der Runde'); }
+    // Merker und Runde sind zwei Actions, keine Steuerparameter
+    { const F = neu(api).F; p(F.schalteTutorialMerker.length === 0 && F.schalteTutorialDerRunde.length === 1 && F.schalteTutorial === undefined, 'S1: schalteTutorialMerker() und schalteTutorialDerRunde(lob) sind getrennte Actions'); } }
+
+  // ---- 10 Einladung ablehnen (S2)
+  { const t = neu(api), F = t.F; F.starte({ link: true });
+    const r = F.einladungAblehnen(); p(r.ok && r.verlassen && t.verlassen.n === 1 && F.lies().schirm === 'menue', 'S2: Esc in der Einladung verlässt den Raum (verlasseRaum) und führt ins Hauptmenü');
+    p(!F.einladungAblehnen().ok && t.verlassen.n === 1, 'S2: außerhalb der Einladung verlässt nichts den Raum');
+    const t2 = neu(api); t2.F.starte({}); t2.F.weiter(); t2.F.zurueck({ ready: false }); p(t2.verlassen.n === 0, 'S2: Esc im Menü verlässt den Raum nicht');
+    const t3 = neu(api); t3.F.starte({ link: true }); t3.F.einladungAnnehmen(); p(t3.verlassen.n === 0 && t3.F.lies().schirm === 'lobby', 'S2: Annehmen bleibt im Raum'); }
+
+  // ---- 11 Weltstand-Belegung, sichtbarer Modus, Weltstand gewählt, Labor, Start
+  { const F = neu(api).F, ws = (n, voll) => Array.from({ length: n }, (_, i) => ({ id: 'w' + i, state: 'ok' }));
+    const a = F.weltstaende({ worlds: ws(2) }), b = F.weltstaende({ worlds: ws(5) }), c = F.weltstaende({ worlds: ws(1), worldsFull: true });
+    p(a.zaehler === '2/5' && a.naechste === 3 && !a.voll, 'Weltstand-Belegung: 2/5, nächster neuer Weltstand 3, nicht voll');
+    p(b.zaehler === '5/5' && b.naechste === 5 && b.voll, 'Weltstand-Belegung: 5/5 ist voll (nächste Nummer bleibt 5)');
+    p(c.voll, 'Weltstand-Belegung: lobby.worldsFull des Servers gilt auch bei weniger Einträgen'); }
+  { // K2 sichtbarer Modus
+    const t = neu(api), F = t.F; F.starte({}); F.weiter();
+    const r = F.sichtbarenModusSichern({ startMission: 'm1', worlds: [] });
+    p(r.gesendet === 'schuld_der_lerche' && gleich(t.gesendet.slice(-1)[0], { t: 'lobbyOpt', startMission: 'schuld_der_lerche', world: null }), 'K2: Lobby auf m1 ohne Debug → erster sichtbarer Eintrag wird als Modus gesetzt: ' + JSON.stringify(t.gesendet.slice(-1)[0]));
+    const n0 = t.gesendet.length; F.sichtbarenModusSichern({ startMission: 'eisenwald', worlds: [] }); F.sichtbarenModusSichern({ startMission: 'freie_fahrt', worlds: [] });
+    p(t.gesendet.length === n0, 'K2: ein sichtbarer Modus bleibt unangetastet');
+    const td = neu(api, { debug: true }); td.F.sichtbarenModusSichern({ startMission: 'm1', worlds: [] }); p(!td.gesendet.length, 'K2: mit ?debug=1 ist m1 sichtbar, nichts wird gesetzt');
+    const t2 = neu(api); t2.F.starte({}); t2.F.weiter(); const r2 = t2.F.neuerWeltstandGewaehlt({ startMission: 'm1', worlds: [] });
+    p(t2.F.lies().schirm === 'lobby' && r2.modus === 'schuld_der_lerche', 'K2: „+ Neue Kampagne“ aus dem Hauptmenü: Lobby mit sichtbarem Modus'); }
+  { // K3 Weltstand gewählt
+    const t = neu(api), F = t.F; F.starte({}); F.weiter(); F.weltstandGewaehlt(); p(F.lies().schirm === 'lobby', 'K3: Weltstand im Hauptmenü gewählt → Lobby');
+    F.oeffneModusWahl(LOB); p(F.lies().modusOffen, 'K3 Vorbedingung: Moduswahl offen'); F.weltstandGewaehlt(); p(!F.lies().modusOffen && F.lies().schirm === 'lobby', 'K3: Weltstand in der Moduswahl gewählt → Überlagerung schließt'); }
+  { const F = neu(api).F, l = [{ id: 'a', name: 'Eins' }, { id: 'b', name: 'Zwei' }], la = F.laborAuswahl({ laborListe: l, labor: { id: 'b' } });
+    p(la.position === 2 && la.n === 2 && la.eintrag.name === 'Zwei', 'Labor-Auswahl: Position 2 von 2, Eintrag Zwei');
+    p(F.laborAuswahl({}).n === 0 && F.laborAuswahl({}).eintrag === null && F.laborAuswahl({ laborListe: l, labor: {} }).position === 1, 'Labor-Auswahl: leer bzw. ohne Wahl der erste Eintrag'); }
+  { const S = api.startOptionen, A = (x) => JSON.stringify(x);
+    p(A(S({})) === '{"link":false}' && A(S({ link: true })) === '{"link":true}', 'Start: ohne Besonderheit Titel, mit Einladungslink Einladung');
+    p(A(S({ menue: '1', webdriver: true, arena: '', link: true })) === '{"link":true}' && A(S({ menue: '1', arena: 'graben', webdriver: true })) === '{"link":false}', 'Start: ?menue=1 erzwingt den Ablauf, auch bei ?arena= und Webdriver');
+    p(A(S({ menue: '0', link: true })) === '{"direkt":true}', 'Start: ?menue=0 → Lobby');
+    p(A(S({ arena: 'graben' })) === '{"direkt":true}' && A(S({ arena: '' })) === '{"direkt":true}' && A(S({ arena: null })) === '{"link":false}', 'Start: ?arena= → Lobby (auch leerer Wert), fehlend nicht');
+    p(A(S({ webdriver: true })) === '{"direkt":true}' && A(S({ webdriver: true, link: true })) === '{"direkt":true}', 'Start: ferngesteuerter Browser (navigator.webdriver) → Lobby'); }
+
+  // ---- 12 Tastenzuordnung von menue-ui.js taste() je Schirm
+  { const quelleUi = fs.readFileSync(QUELLE_UI, 'utf8');
+    const lade = (api2) => {
+      const t = neu(api2, { debug: false }), win = { Render: {}, Pult: {}, Menue: TOKENS, MenueFluss: t.F, Hud: {}, Net: { serverRoomCode: 'AB' }, Tasten: { passt: (e, id) => id === 'allgemein.hilfe' && e.key === '?' } };
+      new Function('window', 'Net', 'Tasten', quelleUi)(win, win.Net, win.Tasten);
+      const log = [], A = { sfx: () => {} }; for (const n of ['openOptions', 'openHilfe', 'openKammer', 'openWorlds', 'toggleReady', 'setColor', 'toggleWellenKarte', 'copyInvite', 'laborWahl', 'lobbyWaffe', 'toggleSkipDrill']) A[n] = (x) => { log.push(n + (x !== undefined ? ':' + x : '')); };
+      const lob = { startMission: 'm1', worlds: [], laborAn: true }, view = { actions: A, pid: 'p1', state: { lobby: lob, players: [{ id: 'p1', name: 'A', ready: true, connected: true, color: 0 }] } };
+      const druecke = (code, extra) => win.MenueUi.taste(Object.assign({ code, key: code, repeat: false }, extra || {}), view);
+      return Object.assign(t, { win, log, view, lob, druecke, F: t.F });
+    };
+    const ui = (api2) => { const u = lade(api2); const F = u.F, d = u.druecke;
+      // Titel
+      F.starte({}); d('KeyO'); d('KeyH'); d('Slash', { key: '?' }); d('Enter');
+      const titel = u.log.join() === 'openOptions,openHilfe,openHilfe' && F.lies().schirm === 'menue';
+      // Hauptmenü
+      u.log.length = 0; F.synchronisiere(u.lob);
+      d('Digit3'); const auswahl3 = F.lies().auswahl === 'eisenwald';
+      d('KeyU'); const merker = F.lies().tutorial === false && !u.gesendet.length;
+      d('KeyF'); d('ArrowDown'); const nachUnten = F.lies().auswahl === 'fortsetzen' || F.lies().auswahl === 'arena_graben';
+      d('Digit3'); d('Enter'); const bestaetigt = F.lies().schirm === 'lobby' && u.gesendet.slice(-1)[0].startMission === 'eisenwald_ohne';
+      const menue = auswahl3 && merker && u.log.includes('openWorlds:list') && nachUnten && bestaetigt;
+      // Lobby (Modus eisenwald_ohne) und Hilfe
+      u.lob.startMission = 'eisenwald_ohne'; u.log.length = 0; u.gesendet.length = 0;
+      d('KeyU'); const lobbyU = u.gesendet.length === 1 && u.gesendet[0].startMission === 'eisenwald' && !u.log.length;
+      d('Enter'); d('Digit2'); d('KeyL'); d('KeyF'); d('KeyH'); d('Slash', { key: '?' });
+      const lobby = lobbyU && gleich(u.log, ['toggleReady', 'setColor:1', 'copyInvite', 'openWorlds:list', 'openHilfe', 'openHilfe']);
+      u.log.length = 0; u.lob.startMission = 'arena_away'; d('KeyK'); d('KeyW'); const optionen = gleich(u.log, ['toggleWellenKarte', 'lobbyWaffe']);
+      d('KeyM'); const modus = F.lies().modusOffen; d('Escape'); const modusZu = !F.lies().modusOffen && F.lies().schirm === 'lobby';
+      u.gesendet.length = 0; d('Escape'); const esc = F.lies().schirm === 'menue' && gleich(u.gesendet, [{ t: 'ready', ready: false }]);   // Esc: Hauptmenü, „bereit“ zurückgenommen
+      d('Escape'); const escTitel = F.lies().schirm === 'titel';
+      // Einladung
+      F.starte({ link: true }); d('ArrowRight'); d('Digit1'); d('Digit2'); const cur = F.lies().einladungCursor === 1; d('Enter');
+      const angenommen = F.lies().schirm === 'lobby' && u.waehle.join() === 'c2';
+      F.starte({ link: true }); d('Escape'); const abgelehnt = F.lies().schirm === 'menue' && u.verlassen.n === 1;
+      return { titel, menue, lobby, optionen, modus: modus && modusZu, esc: esc && escTitel, einladung: cur && angenommen && abgelehnt };
+    };
+    const r = ui(api);
+    p(r.titel, 'Tasten Titel: O Optionen, H und ? Hilfe, Enter → Hauptmenü');
+    p(r.menue, 'Tasten Hauptmenü: Ziffer wählt, U Tutorial-Merker (sendet nichts), F Weltstandliste, Pfeile, Enter bestätigt');
+    p(r.lobby, 'Tasten Lobby: U Modus der Runde, Enter bereit, Ziffer Farbe, L Link, F Liste, H und ? Hilfe');
+    p(r.optionen, 'Tasten Lobby (Wellen Boden): K Karte, W Waffe');
+    p(r.modus, 'Tasten Lobby: M öffnet die Moduswahl, Esc schließt sie');
+    p(r.esc, 'Tasten Lobby: Esc → Hauptmenü und „bereit“ zurück, Esc → Titel');
+    p(r.einladung, 'Tasten Einladung: Ziffer/Pfeil wählt, Enter an Bord, Esc lehnt ab und verlässt den Raum'); }
+
   return schlecht;
 }
 
@@ -166,11 +271,19 @@ section('Labor-Schalter bleibt prüfbar', () => {
 });
 
 // ---------------------------------------------------------------- Mutationsproben: die Regel wird im Quelltext zerstört, der Test muss rot werden
-section('Mutationsproben (zwei Regeln)', () => {
+section('Mutationsproben (Regeln im Quelltext zerstören)', () => {
   const quelle = fs.readFileSync(QUELLE, 'utf8');
   const muta = [
     ['Sternenschicht-Modi ohne Debug sichtbar', "if (e.gruppe === 'debug' && !dbg) return false;", 'if (false) return false;'],
     ['Einladungslink beginnt mit dem Titel statt der Einladung', "o.link ? 'einladung'", "o.link ? 'titel'"],
+    ['synchronisiere überschreibt den Tutorial-Merker jeden Frame (S1)', 'if (mode !== store.lobbyModus) {', 'if (true) {'],
+    ['Tutorial-Merker schaltet nichts um (S1)', 'function schalteTutorialMerker() { store.tutorial = !store.tutorial;', 'function schalteTutorialMerker() { store.tutorial = store.tutorial;'],
+    ['Esc nimmt „bereit“ nicht zurück', 'if (ich && ich.ready) senden({ t: READY(), ready: false });', 'if (ich && ich.ready) { /* nichts */ }'],
+    ['Einladung ablehnen verlässt den Raum nicht (S2)', 'const verlassen = !!(opt.verlasseRaum && opt.verlasseRaum());', 'const verlassen = false;'],
+    ['kein sichtbarer Modus beim Eintritt (K2)', 'if (!s.length || (e && s.some((x) => x.id === e.id))) return', 'if (true) return'],
+    ['Weltstand voll wird nicht erkannt', 'voll: !!(lob && lob.worldsFull) || n >= max,', 'voll: false,'],
+    ["Moduswahl bleibt nach Weltstandwahl offen (K3)", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : schliesseModusWahl(); }", "function weltstandGewaehlt() { return store.schirm === 'menue' ? imRaum() : { ok: true }; }"],
+    ['Webdriver beginnt nicht in der Lobby', "|| p.webdriver) return", ") return"],
   ];
   for (const [name, von, nach] of muta) {
     ok(quelle.split(von).length === 2, 'Mutation anwendbar (Anker genau einmal): ' + name);
