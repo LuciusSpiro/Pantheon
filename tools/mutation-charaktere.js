@@ -64,6 +64,10 @@ const MUTATIONEN = [
   [C, "const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };", "const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf', 'oberteil'] };", 'Livekachel im Spind auch für das Oberteil'],
   [C, "if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null; }", "if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { [platz]: wert }) : null; }", 'Spind-Kachel setzt das Teil nicht ins Outfit'],
   [C, "const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;", "const k = aktiveKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;", 'Erstellungs-Kachel nimmt die getragene Karte statt des Entwurfs'],
+  // CHA-01 F: R (Zurücksetzen) im Umbenennen
+  [C, "return !!c && e.name !== c.karte.name;", "return !!c;", 'R im Umbenennen gilt immer als wirksam'],
+  [C, "if (e.modus === 'neu') return true;\n      const c = store.liste.find((x) => x.id === e.id);\n      return", "if (false) return true;\n      const c = store.liste.find((x) => x.id === e.id);\n      return", 'R in der Erstellung gilt als wirkungslos'],
+  [C, "if (!kannZuruecksetzen()) return { ok: false, grund: 'unveraendert' };", "", 'zuruecksetzen läuft auch, wenn es wirkungslos ist'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

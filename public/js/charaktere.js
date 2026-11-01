@@ -375,9 +375,18 @@
       if (e.modus === 'neu' && e.name) return nameBearbeiten(false);
       return verwirfEntwurf();
     }
+    // CHA-01 F: wirkt R (Zurücksetzen)? Erstellung: immer (setzt auch Platz und Schreibmodus zurück); Umbenennen: nur, wenn der Name vom gespeicherten abweicht (das Aussehen ändert sich dort nicht)
+    function kannZuruecksetzen() {
+      const e = entwurf();
+      if (!e) return false;
+      if (e.modus === 'neu') return true;
+      const c = store.liste.find((x) => x.id === e.id);
+      return !!c && e.name !== c.karte.name;
+    }
     function zuruecksetzen() {
       const e = entwurf();
       if (!e) return { ok: false };
+      if (!kannZuruecksetzen()) return { ok: false, grund: 'unveraendert' };
       if (e.modus === 'neu') { e.karte = standardEntwurfKarte(); e.name = ''; e.nameEdit = true; e.platz = 'frisur'; e.yaw = 0; }
       else { const c = store.liste.find((x) => x.id === e.id); if (c) { e.name = c.karte.name; e.karte = klon(c.karte); } }
       e.hinweis = null; aenderung();
@@ -489,7 +498,7 @@
       legeAn, waehle, loesche, benenneUm, uebernimmAltenNamen, legeStandardAn, erststart, aktiveKarte, aktiverName,
       oeffneListe, schliesse, setzeCursor, bewegeCursor, uebernimm, uebernimmOderNeu, neuAnlegen, loeschenAnfrage, loeschenAbbrechen,
       beginneNeu, beginneUmbenennen, waehlePlatz, naechsterPlatz, setzeWahl, blaettere, dreheFigur,
-      nameBearbeiten, nameZeichen, nameLoeschen, nameFertig, nameBestaetigen, nameAbbrechen, zuruecksetzen, speichereEntwurf, verwirfEntwurf, entwurfKarte,
+      nameBearbeiten, nameZeichen, nameLoeschen, nameFertig, nameBestaetigen, nameAbbrechen, kannZuruecksetzen, zuruecksetzen, speichereEntwurf, verwirfEntwurf, entwurfKarte,
     };
   }
 

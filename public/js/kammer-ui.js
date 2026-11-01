@@ -112,6 +112,17 @@
     const pr = PK.rahmen().pult, sp = KM.spalten.abschluss, K = KM.knopf; let y = P.titel(c, pr.x + sp.x, pr.y, sp.w, titel, 'drive');
     knoepfe.forEach((k) => { const h = k.haupt ? K.hauptH : K.h; if (k.haupt) y = pr.y + pr.h - h - 2; P.knopf(c, pr.x + sp.x, y, sp.w, h, k.text, { hotkey: k.taste, aktion: k.aktion, fn: k.fn || 'drive', active: !!k.haupt, disabled: !!k.gesperrt, onClick: k.klick }); y += h + K.fuge; });
   }
+  // Gesperrter Knopf im Stil der gesperrten Kachel (Schraffur, graue Kappe): hebt sich von der leeren Zelle (nur gepunkteter Rand) ab. Klick und Taste melden den Grund.
+  function knopfGesperrt(c, r, kz, text, grund) {
+    const G = KM.gesperrt, k = G.kappe, ty = r.y + Math.floor((r.h - 7) / 2);
+    rect(c, r.x, r.y, r.w, r.h, F.gesperrtGrund); hatch(c, r.x, r.y, r.w, r.h, F.gesperrtSchraffur, G.schraffur);
+    P.cham(c, r.x + 1, r.y + 1, k.w + 4, r.h - 2, F.gesperrtKappe, k.schraeg, 0, k.schraeg, 0); txt(c, kz, r.x + 1 + (k.w + 4) / 2, ty, F.gesperrtKappeText, 'center');
+    txt(c, text, r.x + k.w + 11, ty, F.dim);
+    const b = { x: r.x, y: r.y, w: r.w, h: r.h, label: text, disabled: true, reason: grund, hotkey: kz };
+    R.ui.buttons.push(b);
+    const m = R.ui.mouse || {};
+    if (m.x >= b.x && m.y >= b.y && m.x < b.x + b.w && m.y < b.y + b.h) R.ui.tooltip = { text: grund, x: m.x, y: m.y };
+  }
   function cursorRahmen(c, k) { const A = KM.cursor; rand(c, k.x - A.innen, k.y - A.innen, k.w + 2 * A.innen, k.h + 2 * A.innen, F.platz); rand(c, k.x - A.aussen, k.y - A.aussen, k.w + 2 * A.aussen, k.h + 2 * A.aussen, F.cursor); }
   const klickFlaeche = (r, label, onClick) => R.ui.buttons.push({ x: r.x, y: r.y, w: r.w, h: r.h, label, onClick });
 
@@ -134,7 +145,7 @@
         }
         const karte = ch.karte, getragen = ch.id === st.gewaehlt;
         rect(cc, k.x, k.y, k.w, k.h, F.kachel);
-        portraet(cc, k.bild, karte, 'portraet');
+        portraet(cc, k.bild, karte, 'portraet', 0, 'frisur');   // ohne 3D: Vorschau der Frisur dieses Charakters (die Gesichtsvorschau trägt immer den Dutt)
         if (getragen) rect(cc, k.x, k.y, k.w, KM.getragen, F.platz);
         kappeDunkel(cc, k.x + 4, k.y + 4 + (getragen ? 2 : 0), String(i + 1), an ? F.kappeWahl : F.kappe, an ? F.kappeWahlText : F.kappeText);
         const ty = k.bild.y + k.bild.h + 4, bw = k.w - 12;
@@ -149,7 +160,9 @@
     });
     const p = g.pult, S = KM.spalten, K = KM.knopf, voll = st.liste.length >= C.MAX, frei = !st.liste[s.cursor], fragt = !!s.loeschFrage;
     let y = P.titel(c, p.x + S.block.x, p.y, S.block.w, KX.spalte.charakter, 'nav');
-    P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.neu, { hotkey: 'N', aktion: 'charakter.neu', fn: 'nav', disabled: voll, reason: TEXT.liste.voll, onClick: () => C.neuAnlegen() }); y += K.h + K.fuge;
+    if (voll) knopfGesperrt(c, { x: p.x, y, w: S.block.w, h: K.h }, 'N', KX.knopf.neu, TEXT.liste.voll);   // gesperrt wie die gesperrte Kachel (Schraffur, Kappe), nicht wie eine leere Ziffernblock-Zelle
+    else P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.neu, { hotkey: 'N', aktion: 'charakter.neu', fn: 'nav', onClick: () => C.neuAnlegen() });
+    y += K.h + K.fuge;
     P.knopf(c, p.x, y, S.block.w, K.h, KX.knopf.umbenennen, { hotkey: 'F2', aktion: 'charakter.umbenennen', fn: 'nav', disabled: frei, onClick: () => C.beginneUmbenennen() }); y += K.h + K.fuge;
     P.knopf(c, p.x, y, S.block.w, K.h, fragt ? TEXT.liste.loeschKnopf : KX.knopf.loeschen, { hotkey: 'Entf', aktion: 'charakter.loeschen', fn: 'weapon', active: fragt, disabled: frei, onClick: () => C.loeschenAnfrage() });
     y = P.titel(c, p.x + S.mitte.x, p.y, S.mitte.w, KX.spalte.waehlen, 'cmd');
@@ -258,7 +271,7 @@
     if (neu) txt(c, KX.musterHinweis, p.x + S.x, y + 3 + 2 * KM.muster.zeile + 2, F.dim);
     spalteAbschluss(c, KX.spalte.charakter, [
       { taste: 'F2', aktion: 'charakter.umbenennen', text: KX.knopf.name, fn: 'nav', klick: () => C.nameBearbeiten(true) },
-      { taste: 'R', aktion: 'charakter.zuruecksetzen', text: KX.knopf.zuruecksetzen, fn: 'nav', klick: () => C.zuruecksetzen() },
+      { taste: 'R', aktion: 'charakter.zuruecksetzen', text: KX.knopf.zuruecksetzen, fn: 'nav', gesperrt: !C.kannZuruecksetzen(), klick: () => C.zuruecksetzen() },
       { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.speichern, haupt: true, klick: () => C.speichereEntwurf() },
     ]);
   }
@@ -288,6 +301,9 @@
     const ky = f.y + f.h - M.kappe - M.kappeAbstand;
     kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
     txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
+    // Q/E stehen in der Hilfe (R.ui.buttons) und sind anklickbar, wie die Tasten
+    R.ui.buttons.push({ x: f.x + M.kappeAbstand, y: ky, w: 13, h: M.kappe, label: KX.drehenLinks, hotkey: 'Q', onClick: () => C.dreheFigur(-1) });
+    R.ui.buttons.push({ x: f.x + f.w - M.kappeAbstand - 13, y: ky, w: 13, h: M.kappe, label: KX.drehenRechts, hotkey: 'E', onClick: () => C.dreheFigur(1) });
   }
   function spindZeichne(c, view) {
     aktuellView = view;

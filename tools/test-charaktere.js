@@ -247,6 +247,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.dreheFigur(1); m.dreheFigur(1); ok(e.yaw === 90, 'Figur drehen');
   const vorSpeichern = m.entwurfKarte();
   ok(vorSpeichern.name === 'Hrolf' && vorSpeichern.outfit.oberteil === 'bordtunika', 'Karte der Figur im Fenster: Entwurf mit Standard-Outfit');
+  ok(m.kannZuruecksetzen(), 'R wirkt in der Erstellung');
   m.zuruecksetzen();
   e = m.lies().sitzung.entwurf;
   ok(e.name === '' && e.karte.haar === 0 && e.karte.frisur === 'dutt' && e.platz === 'frisur' && e.nameEdit, 'R setzt den Entwurf auf Standard zurück');
@@ -259,6 +260,10 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.setzeCursor(0);
   ok(m.beginneUmbenennen().ok && m.lies().sitzung.entwurf.modus === 'umbenennen' && m.lies().sitzung.entwurf.name === 'Hrolf', 'F2 öffnet das Umbenennen mit dem Namen');
   ok(!m.waehlePlatz('bart').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
+  // CHA-01 F: R im Umbenennen wirkt nur, wenn der Name vom gespeicherten abweicht
+  ok(!m.kannZuruecksetzen() && m.zuruecksetzen().grund === 'unveraendert', 'Umbenennen ohne Änderung: R ist wirkungslos (gesperrt)');
+  m.nameLoeschen(); ok(m.kannZuruecksetzen(), 'Umbenennen mit geändertem Namen: R wirkt');
+  ok(m.zuruecksetzen().ok && m.lies().sitzung.entwurf.name === 'Hrolf' && !m.kannZuruecksetzen(), 'R stellt den gespeicherten Namen wieder her, danach wieder gesperrt');
   m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen();
   ok(!m.speichereEntwurf().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.lies().liste[0].karte.name === 'Hrolf', 'Umbenennen mit leerem Namen: Hinweis, Name bleibt');
   for (const z of 'Ragnar') m.nameZeichen(z);

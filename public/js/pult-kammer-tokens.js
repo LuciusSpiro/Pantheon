@@ -143,7 +143,7 @@
     spalte: { platz: 'PLATZ · ZIFFERNBLOCK = KÖRPER', kopf: 'KOPF · ZIFFERNBLOCK', farbe: 'FARBE', herkunft: 'HERKUNFT', charakter: 'CHARAKTER', waehlen: 'WÄHLEN', weiter: 'WEITER', umziehen: 'UMZIEHEN' },
     kachelTitel: { spind: '{platz} · {n} frei', erstellung: '{platz} · {n} zur Wahl' },
     hinweis: { spind: '←→↑↓ Teil · Enter anziehen', erstellung: '←→↑↓ wählen · die Figur zeigt es sofort' },
-    drehen: 'drehen', frei: 'FREI', freiHinweis: 'N legt hier an', anprobe: 'Anprobe', neu: 'neu',
+    drehen: 'drehen', drehenLinks: 'Figur nach links drehen', drehenRechts: 'Figur nach rechts drehen', frei: 'FREI', freiHinweis: 'N legt hier an', anprobe: 'Anprobe', neu: 'neu',
     knopf: { neu: 'Neu anlegen', umbenennen: 'Umbenennen', loeschen: 'Löschen …', platz: 'Platz', blaettern: 'blättern', lobby: 'In die Lobby',
       name: 'Name ändern', zuruecksetzen: 'Zurücksetzen', speichern: 'Speichern', anziehen: 'Anziehen', ablegen: 'Ablegen' },
     nameIstSpieler: 'Name = Spielername', muster: { haar: 'Haar', haut: 'Haut' }, musterHinweis: '9 / 6 öffnen die Muster groß',
