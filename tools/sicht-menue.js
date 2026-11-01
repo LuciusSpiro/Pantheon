@@ -155,6 +155,7 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
     await bild(kp, '11-lobby-beitretender');
     await taste(hp, 'm'); ok(await hp.evaluate(() => MenueFluss.lies().modusOffen), 'M öffnet die Moduswahl als Überlagerung (reihum schaltet es nicht mehr)');
     ok((await lobbyOpts(hp)).start === 'freie_fahrt', 'M allein ändert den Modus nicht');
+    await hp.waitForFunction(() => !Render.ui.buttons.some((b) => b.label === 'Bereit' || b.label === 'Bereit melden'), null, { timeout: 5000 }).catch(() => {});   // erst nach dem nächsten Frame ist die alte Lobby aus der Klickliste
     ok(await hp.evaluate(() => !Render.ui.buttons.some((b) => b.label === 'Bereit' || b.label === 'Bereit melden' || /^Farbe/.test(b.label) || b.label === 'Link kopieren')), 'Moduswahl offen: die Lobby darunter ist nicht gezeichnet (keine Bereit-, Farb- und Link-Flächen)');
     await taste(hp, 'ArrowDown'); await bild(hp, '12-lobby-modus-ueberlagerung');
     await taste(hp, 'Enter');
@@ -314,6 +315,7 @@ const spielerListe = (page) => page.evaluate(() => (__game.state.players || []).
       ok(true, 'Enter nach U: der Server meldet Eisenwald mit Tutorial');
       await taste(ep, 'u'); await ep.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald_ohne', null, { timeout: 5000 });
       ok(true, 'U in der Lobby schaltet den Modus der Runde sofort (Server: eisenwald_ohne)');
+      await ep.waitForTimeout(800);   // erst nach einem gezeichneten Frame kennt der Chip den neuen Modus (der Klick benutzt den Snapshot des letzten Frames)
       await ep.evaluate(() => { const b = Render.ui.buttons.find((x) => /^Tutorial/.test(x.label)); if (b) b.onClick(); });
       await ep.waitForFunction(() => __game.state.lobby.startMission === 'eisenwald', null, { timeout: 5000 });
       ok(true, 'Mausklick auf den Tutorial-Chip in der Lobby: dieselbe Action (Server: eisenwald)');
