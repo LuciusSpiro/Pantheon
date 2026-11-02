@@ -1675,15 +1675,25 @@
     // OPS-01 D: Beam-Hinweis eines Ziels (Zielkasten für Ops UND Captain, ohne Stationsparameter): null oder { lpId, mapId, name } – nur wenn das Ziel am Beam-Punkt eines Landepunkts
     // liegt UND dieser gescannt ist. Verknüpfung über Daten, nicht über IDs: (1) das Hauptobjekt des Orts ('station') ist der Beam-Punkt der Handkarte (shared/locations.js scene.beam.map;
     // Scanstand wie am Planungstisch über locAwayMap), (2) sonst gescannte Landepunkte des Orts (world.locations[].lp = [{ id, name, x, y }], x/y = beam des Landepunkts, Server explore.lpScanVon)
-    // innerhalb BEAM_ZIEL_TOL px vom Ziel. Ohne Scan, ohne beam oder an einem anderen Ort: null. Die Karte (mapId) ist dieselbe wie am Planungstisch (locAwayMap bzw. lp[i].id).
+    // innerhalb BEAM_ZIEL_TOL px vom Ziel, aber nur für Ziele, die zum Landepunkt gehören (Hauptobjekt, versteckte Objekte/Wracks; nie Gegnerschiffe). Ohne Scan, ohne beam oder an einem anderen Ort: null. Die Karte (mapId) ist dieselbe wie am Planungstisch (locAwayMap bzw. lp[i].id).
     beamInfo(view, target) {
       if (!target || !isFinite(target.x) || !isFinite(target.y)) return null;
       const st = view.state, loc = R.locById(st, R.worldOf(st).location);
       if (!loc) return null;
       const SLx = window.Shared_Locations, scn = SLx && SLx.get ? (SLx.get(loc.id) || {}).scene : null, am = this.locAwayMap(st, loc);
       if (target.station && am && scn && scn.beam && scn.beam.map === am) return { lpId: am, mapId: am, name: target.name || am };
-      for (const q of loc.lp || []) if (isFinite(q.x) && isFinite(q.y) && Math.hypot(target.x - q.x, target.y - q.y) <= BEAM_ZIEL_TOL) return { lpId: q.id, mapId: q.id, name: q.name || q.id };
-      return null;
+      // Zweig 2 nur für Ziele, die zum Landepunkt GEHÖREN: das Hauptobjekt und versteckte Objekte/Wracks (zielAusId markiert sie mit hidden). Gegnerschiffe und Minen gehören nie dazu –
+      // ein Gegner, der am Beam-Punkt im leeren Raum vorbeifliegt, löst keinen Hinweis aus.
+      if (!(target.station || target.hidden)) return null;
+      const nah = (loc.lp || []).filter((q) => isFinite(q.x) && isFinite(q.y) && Math.hypot(target.x - q.x, target.y - q.y) <= BEAM_ZIEL_TOL);
+      if (nah.length === 1) return { lpId: nah[0].id, mapId: nah[0].id, name: nah[0].name || nah[0].id };
+      if (!nah.length) return null;
+      // Mehrere Landepunkte mit demselben Beam-Punkt (z. B. splitter.treibgut/methalle/eisenwald): gilt der, dessen Name oder id den Namen des Ziels enthält, falls genau einer passt;
+      // sonst Mehrdeutigkeit: nur der Hinweis „BEAMEN MÖGLICH“ ohne Karte (mapId null) – keine Karte raten.
+      const nm = String(target.name || '').toLowerCase();
+      const pass = nm ? nah.filter((q) => String(q.name || '').toLowerCase().includes(nm) || String(q.id || '').toLowerCase().includes(nm)) : [];
+      if (pass.length === 1) return { lpId: pass[0].id, mapId: pass[0].id, name: pass[0].name || pass[0].id };
+      return { lpId: null, mapId: null, name: null, mehrdeutig: true };
     },
     targetList(view) {
       const st = view.state;

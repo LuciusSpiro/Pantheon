@@ -1,9 +1,11 @@
 'use strict';
 // OPS-01 C1: Anzeigeziel des Captains (server/sim/captainziel.js, Befehl captain.anzeigeziel, Snapshot ship.cz). Echter Server, zwei Spieler (Captain und Ops).
 //   Eigener Zustand: ship.target (Ops) bleibt unberührt und umgekehrt; Details nur bei gescanntem Ziel (gleiche Werte wie zielSys/zielZon/zielWahl der Ops);
-//   ungültig/außer Reichweite/gestorben -> weg; Station und aufgedecktes verstecktes Objekt wählbar; Nicht-Captain abgelehnt; keine Doppeldaten bei gleichem Ziel;
+//   ungültig/außer Reichweite: abgelehnt, das bisherige Ziel bleibt (nur null/'' löscht; weicht vom C1-Briefing ab, Entscheidung des Leiters); gestorben -> weg; Station und aufgedecktes verstecktes Objekt wählbar; Nicht-Captain abgelehnt; keine Doppeldaten bei gleichem Ziel;
 //   ohne Ziel kein cz und der Snapshot bleibt unverändert; Weltstand speichern/laden ohne das Feld.
 //   node tools/test-captain-ziel.js
+const fs = require('fs');
+const path = require('path');
 const CONFIG = require('../shared/config.js');
 const Weltstand = require('../server/weltstand.js');
 const { Game } = require('../server/game.js');
@@ -83,20 +85,32 @@ section('(c) Details nur gescannt, gleiche Werte wie Ops-Zielkasten; (h) keine D
   ok(g.ship.target === e2.id, 'Ops-Ziel bleibt');
 });
 
-section('(d) ungültig, außer Reichweite, nicht existent', () => {
+section('(d) ungültig, außer Reichweite, nicht existent: abgelehnt, das bisherige Ziel bleibt stehen (R5)', () => {
   const T = setup(); const g = T.g;
   platz(g, 1000, 1000);
   const nah = gegner(g, 'fregatte', 1300, 1000);
   const fern = gegner(g, 'fregatte', 1000 + space.sensorReichweite(g) + 800, 1000);
-  T.cap('captain.anzeigeziel', { id: nah.id });
-  ok(!!g.ship.capZiel, 'gesetzt auf nah');
+  ok(T.cap('captain.anzeigeziel', { id: nah.id }).length === 0 && !!g.ship.capZiel, 'gesetzt auf nah');
   let r = T.cap('captain.anzeigeziel', { id: 'gibtsnicht' });
-  ok(r.length === 1 && !g.ship.capZiel && !('cz' in ship(g)), 'unbekannte ID: abgelehnt und gelöscht ' + r);
-  T.cap('captain.anzeigeziel', { id: nah.id });
+  ok(r.length === 1 && g.ship.capZiel && g.ship.capZiel.id === nah.id && ship(g).cz && ship(g).cz.id === nah.id, 'unbekannte ID: Fehlermeldung, Anzeigeziel bleibt auf nah ' + r);
   r = T.cap('captain.anzeigeziel', { id: fern.id });
-  ok(r.length === 1 && !g.ship.capZiel, 'außerhalb der Sensoren: abgelehnt und gelöscht ' + r);
+  ok(r.length === 1 && g.ship.capZiel && g.ship.capZiel.id === nah.id, 'außerhalb der Sensoren: Fehlermeldung, Anzeigeziel bleibt auf nah ' + r);
   r = T.cap('captain.anzeigeziel', { id: 12345 });
-  ok(r.length === 1 && !g.ship.capZiel, 'numerische/fremde ID abgelehnt');
+  ok(r.length === 1 && g.ship.capZiel && g.ship.capZiel.id === nah.id, 'numerische/fremde ID abgelehnt, Ziel bleibt');
+  ok(T.cap('captain.anzeigeziel', { id: null }).length === 0 && !g.ship.capZiel && !('cz' in ship(g)), 'nur null löscht');
+  T.cap('captain.anzeigeziel', { id: nah.id });
+  ok(T.cap('captain.anzeigeziel', { id: '' }).length === 0 && !g.ship.capZiel, 'leere ID löscht');
+  // ohne vorheriges Ziel: Ablehnung setzt nichts
+  r = T.cap('captain.anzeigeziel', { id: 'gibtsnicht' });
+  ok(r.length === 1 && !g.ship.capZiel, 'ohne bisheriges Ziel: Ablehnung setzt kein Ziel');
+  // Mutation: die alte Regel (Ablehnung löscht das Ziel) lässt diesen Abschnitt rot werden
+  const Module = require('module'), pfad = path.join(__dirname, '..', 'server', 'sim', 'captainziel.js');
+  const q = fs.readFileSync(pfad, 'utf8'), alt = "if (!rt) return 'Ziel nicht gefunden.';";
+  ok(q.includes(alt), 'Mutationsstelle in captainziel.js vorhanden');
+  const m = new Module(pfad); m.filename = pfad; m.paths = Module._nodeModulePaths(path.dirname(pfad)); m._compile(q.replace(alt, "if (!rt) { loeschen(game); return 'Ziel nicht gefunden.'; }"), pfad);
+  T.cap('captain.anzeigeziel', { id: nah.id });
+  const meldung = m.exports.setzen(g, 'gibtsnicht');
+  ok(typeof meldung === 'string' && !g.ship.capZiel, 'Mutation (Ablehnung löscht das Ziel): das Ziel ist weg – die Prüfung oben würde rot');
 });
 
 section('(e) Gegner stirbt: cz verschwindet', () => {
@@ -125,7 +139,7 @@ section('(f) Station und verstecktes Objekt', () => {
   const h = g.explore.hiddenHere()[0];
   ok(!!h, 'verstecktes Objekt ' + (h && h.id));
   let r = T.cap('captain.anzeigeziel', { id: h.id });
-  ok(r.length === 1 && !g.ship.capZiel, 'unaufgedeckt: abgelehnt');
+  ok(r.length === 1 && g.ship.capZiel && g.ship.capZiel.id === 'station', 'unaufgedeckt: abgelehnt, das bisherige Ziel (Station) bleibt');
   g.explore.revealHidden(h, true);
   r = T.cap('captain.anzeigeziel', { id: h.id });
   ok(r.length === 0 && ship(g).cz && ship(g).cz.id === h.id && Object.keys(ship(g).cz).join() === 'id', 'aufgedeckt: wählbar, nur { id }');

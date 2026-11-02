@@ -4,7 +4,7 @@
 // (Consoles.pultZielkasten); die Verknüpfung Ziel ↔ Landepunkt macht EINE Funktion (Consoles.beamInfo), die Karte kommt aus derselben Quelle wie der Planungstisch.
 //   (a) Ziel mit Landepunkt, ungescannt: kein Hinweis, keine Mini-Karte (Server-Szenen b7 und methalle, echter Snapshot)
 //   (b) nach dem Scan über den echten Weg (cmd weapons.landescan, 4 s halten): Hinweis und Mini-Karte, Kartenid = die des Planungstischs (locAwayMap bzw. world.locations[].lp)
-//   (c) Ziel ohne beam (Gegner fern vom Beam-Punkt, Landepunkt ohne beam im Snapshot, Ort ohne Scan): nie Hinweis
+//   (c) Ziel ohne beam (Gegner fern vom Beam-Punkt, Landepunkt ohne beam im Snapshot, Ort ohne Scan): nie Hinweis; (b) enthält die Regeln von R3: nur Hauptobjekt/versteckte Objekte gehören zum Landepunkt (Gegner am Beam-Punkt: kein Hinweis), Mehrdeutigkeit mehrerer Landepunkte am selben Beam-Punkt
 //   (d) Ops-Ziel UND Captain-Anzeigeziel: dieselbe Funktion beamInfo, dieselbe Zeichenfunktion
 //   (e) Quelltext: keine zweite Kartenkopie (kein Kartenfeld im Snapshot, drawMiniKarte nutzt mapById und die Kachelfarbe des Planungstischs, kein KartenAnsicht-Zustand)
 //   (f) Ops-Zielkasten für ein Gegner-Ziel unverändert (Referenz tools/test-captain-zielkasten.js)
@@ -80,7 +80,7 @@ function ansichtAus(T, snap, o) {
   o = o || {};
   const sp = snap.space || {}, en = (sp.enemies || []).concat(o.gegner || []);
   const ship = Object.assign({}, snap.ship, o.ship || {});
-  const state = Object.assign({}, snap, { ship, space: Object.assign({}, sp, { enemies: en }) });
+  const state = Object.assign({}, snap, { ship, space: Object.assign({}, sp, { enemies: en, hidden: (sp.hidden || []).concat(o.versteckt || []) }) });
   return { gesendet: [], time: 1, me: { console: o.console || 'weapons', id: 'p1' }, pid: 'p1', ship, enemies: en, escorts: [], actions: { sfx() {} }, send() {}, state };
 }
 
@@ -160,13 +160,29 @@ section('(b) nach dem Scan (echter Weg L halten): Hinweis und Mini-Karte, Karte 
   ok(o.texte.includes('BEAMEN MÖGLICH') && o.texte.includes('S halten: genauer scannen'), 'der Scan-Hinweis der Ops (Taste S) bleibt neben dem Beam-Hinweis stehen');
   ok(c.texte.includes('nicht gescannt'), 'Captain: „nicht gescannt“ bleibt');
   ok(o.fehler.length === 0 && c.fehler.length === 0, 'ohne Anzeigefehler ' + JSON.stringify(o.fehler.concat(c.fehler)));
-  // Landepunkt mit eigenem Beam-Punkt: ein Ziel (Schiff) an dieser Stelle
+  // Landepunkt mit eigenem Beam-Punkt: ein verstecktes Objekt (Wrack/Hohlraum) an dieser Stelle gehört zum Landepunkt
+  const hx = { id: 'hx', kind: 'hollow', x: 2352, y: 1251, found: false };
+  const v2 = ansichtAus(T, snap, { versteckt: [hx] });
+  const i2 = C.beamInfo(v2, C.zielAusId(v2, 'hx'));
+  ok(i2 && i2.lpId === 'b7.aussenstelle' && i2.mapId === 'b7.aussenstelle' && i2.mapId === loc.lp[0].id, 'verstecktes Objekt am Beam-Punkt von b7.aussenstelle: Karte = lp[0].id des Planungstischs ' + JSON.stringify(i2));
+  const o2 = OPS(win, snap, T, 'hx', { versteckt: [hx] });
+  ok(o2.hinweis && o2.karten.length === 1 && o2.karten[0].mapId === 'b7.aussenstelle', 'Ops-Kasten für das versteckte Objekt am Landepunkt: Hinweis und Karte b7.aussenstelle (' + o2.karten.map((k) => k.mapId) + ')');
+  // R3: ein GEGNER am selben Beam-Punkt (im leeren Raum vorbeifliegend) löst nie einen Hinweis aus, weder bei den Ops noch beim Captain
   const schiff = { id: 'e9', kind: 'korvette', vk: 'ger', x: 2352, y: 1251, hp: 50, hpMax: 100, scanned: false, angle: 0, shields: [2, 2, 2, 2] };
-  const v2 = ansichtAus(T, snap, { gegner: [schiff] });
-  const i2 = C.beamInfo(v2, schiff);
-  ok(i2 && i2.lpId === 'b7.aussenstelle' && i2.mapId === 'b7.aussenstelle' && i2.mapId === loc.lp[0].id, 'Ziel am Beam-Punkt von b7.aussenstelle: Karte = lp[0].id des Planungstischs ' + JSON.stringify(i2));
-  const o2 = OPS(win, snap, T, 'e9', { gegner: [schiff] });
-  ok(o2.hinweis && o2.karten.length === 1 && o2.karten[0].mapId === 'b7.aussenstelle', 'Ops-Kasten für das Schiff am Landepunkt: Hinweis und Karte b7.aussenstelle (' + o2.karten.map((k) => k.mapId) + ')');
+  const v3 = ansichtAus(T, snap, { gegner: [schiff] });
+  ok(C.beamInfo(v3, schiff) === null && C.beamInfo(v3, C.zielAusId(v3, 'e9')) === null, 'Gegnerschiff am Beam-Punkt eines gescannten Landepunkts: beamInfo null');
+  const o3 = OPS(win, snap, T, 'e9', { gegner: [schiff] }), c3 = CAP(win, snap, T, 'e9', { gegner: [schiff] });
+  ok(!o3.hinweis && !c3.hinweis && !o3.karten.length && !c3.karten.length, 'Gegnerschiff am Beam-Punkt: kein „BEAMEN MÖGLICH“, keine Karte (Ops, Captain)');
+  // Mehrdeutigkeit: zwei Landepunkte mit demselben Beam-Punkt (wie splitter.treibgut/methalle/eisenwald): passt genau ein Name zum Ziel, gilt der; sonst nur der Hinweis ohne Karte
+  const zwei = JSON.parse(JSON.stringify(snap)); const lz = zwei.world.locations.find((l) => l.id === 'b7');
+  lz.lp = [{ id: 'z.alpha', name: 'Alpha-Siedlung', x: 2350, y: 1250 }, { id: 'z.beta', name: 'Beta-Siedlung', x: 2350, y: 1250 }];
+  const ohneName = Object.assign({ hidden: true }, hx), mitName = Object.assign({ hidden: true, name: 'beta' }, hx), keinTreffer = Object.assign({ hidden: true, name: 'gamma' }, hx);
+  const vz = ansichtAus(T, zwei, { versteckt: [hx] });
+  const amb = C.beamInfo(vz, ohneName), amb2 = C.beamInfo(vz, keinTreffer), gew = C.beamInfo(vz, mitName);
+  ok(amb && amb.mehrdeutig && amb.mapId === null && amb2 && amb2.mehrdeutig && amb2.mapId === null, 'Mehrdeutigkeit ohne passenden Namen: nur der Hinweis (mapId null) ' + JSON.stringify(amb));
+  ok(gew && gew.mapId === 'z.beta' && !gew.mehrdeutig, 'Mehrdeutigkeit mit genau einem passenden Namen: dieser Landepunkt ' + JSON.stringify(gew));
+  const oz = OPS(win, zwei, T, 'hx', { versteckt: [hx] });
+  ok(oz.hinweis && oz.karten.length === 0 && oz.fehler.length === 0, 'Ops-Kasten bei Mehrdeutigkeit: „BEAMEN MÖGLICH“ ohne Karte, ohne Anzeigefehler');
   bildOps.nach = o; bildCap.nach = c;
   // anderes Ziel am selben Ort (Gegner weit weg vom Beam-Punkt): nichts
   const fern = { id: 'e8', kind: 'korvette', vk: 'ger', x: 300, y: 300, hp: 50, hpMax: 100, scanned: false, angle: 0, shields: [2, 2, 2, 2] };
@@ -210,9 +226,10 @@ section('(c) Ziel ohne beam: nie Hinweis', () => {
   const snap = snapMitOrten(g);
   // Landepunkt ohne beam im Snapshot (kein x/y): keine Verknüpfung, auch nicht mit Ziel exakt am Punkt
   const ohne = JSON.parse(JSON.stringify(snap)); for (const l of ohne.world.locations) for (const q of l.lp || []) { delete q.x; delete q.y; }
-  const schiff = { id: 'e9', kind: 'korvette', vk: 'ger', x: 2350, y: 1250, hp: 50, hpMax: 100, scanned: false, angle: 0, shields: [2, 2, 2, 2] };
-  ok(C.beamInfo(ansichtAus(T, ohne, { gegner: [schiff] }), schiff) === null && !OPS(win, ohne, T, 'e9', { gegner: [schiff] }).hinweis, 'Landepunkt ohne beam: kein Hinweis (Ops)');
-  ok(!CAP(win, ohne, T, 'e9', { gegner: [schiff] }).hinweis, 'Landepunkt ohne beam: kein Hinweis (Captain)');
+  const hx0 = { id: 'hx', kind: 'hollow', x: 2350, y: 1250, found: false };
+  const vo = ansichtAus(T, ohne, { versteckt: [hx0] });
+  ok(C.beamInfo(vo, C.zielAusId(vo, 'hx')) === null && !OPS(win, ohne, T, 'hx', { versteckt: [hx0] }).hinweis, 'Landepunkt ohne beam: kein Hinweis (Ops)');
+  ok(!CAP(win, ohne, T, 'hx', { versteckt: [hx0] }).hinweis, 'Landepunkt ohne beam: kein Hinweis (Captain)');
   // Gegnerschiff ohne Landepunkt: der Kasten bleibt wie er war
   const fern = { id: 'e8', kind: 'korvette', vk: 'ger', x: 300, y: 300, hp: 50, hpMax: 100, scanned: false, angle: 0, shields: [2, 2, 2, 2] };
   const o = OPS(win, snap, T, 'e8', { gegner: [fern] }), c = CAP(win, snap, T, 'e8', { gegner: [fern] });

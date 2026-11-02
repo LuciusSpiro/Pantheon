@@ -4,13 +4,12 @@
 //   (b) bei „Schiff oben“ und „Norden oben“, mehreren Kursen: Punkte 700 vor / 700 hinter dem Bug / R.FRONT.side seitlich liegen in der Kartenfläche (über toS aus drawTactical)
 //   (c) kleinste Stufe zeigt den Sensorradius (1400) in alle Richtungen (Höhe >= 2800)
 //   (d) Stufenliste aufsteigend, ohne Duplikate, cycleZoom klemmt an den Enden, Standardstufe ist enthalten; Ops und Captain-Lage nutzen dieselbe Funktion
-//   (e) Frontsicht unverändert (drawFrontView-Aufrufprotokoll gleich dem Stand von Paket A, R.FRONT-Werte)
+//   (e) Frontsicht unverändert (R.FRONT-Werte; das Aufrufprotokoll prüft test-frontsicht.js gegen eine gespeicherte Referenz)
 //   (f) Klickfläche eines Gegners im Standardzoom >= 14 px je Seite
 //   node tools/test-karte-sichtweite.js
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -152,21 +151,8 @@ section('(d) Stufenliste und cycleZoom');
 section('(e) Frontsicht unverändert');
 {
   ok(F.fwd === 700 && F.back === 120 && F.side === 420, 'R.FRONT = { fwd 700, back 120, side 420 }');
-  const git = (a) => execFileSync('git', a, { cwd: ROOT, encoding: 'utf8' });
-  let alt = null;
-  try { alt = git(['show', 'ebfc378:public/js/render.js']); } catch (e) { alt = null; }
-  if (alt) {
-    const wa = umgebung(alt);
-    const prot = (w) => {
-      const log = [], c = neueFlaeche(log), v = ansicht(40, { enemies: [{ id: 'e', kind: 'raider', x: SHIP.x + 200, y: SHIP.y - 300, hp: 10, hpMax: 10, angle: 0, shields: [2, 2, 2, 2] }] });
-      w.Render.drawFrontView(c, v, { x: 10, y: 26, w: 404, h: 184 }); w.Render.drawFrontView(c, v, { x: 0, y: 0, w: 512, h: 288, side: 729 });
-      return log.join('|');
-    };
-    const p1 = prot(win), p2 = prot(wa);
-    ok(p1.length > 100 && p1 === p2, 'drawFrontView: Aufrufprotokoll gleich dem Stand von Paket A (' + p1.length + ' Zeichen)');
-  } else ok(false, 'Vergleichsstand ebfc378 nicht lesbar');
-  const C1 = ['server/game.js', 'server/sim/captainziel.js', 'shared/protocol.js', 'server/sim/explore.js'];   // OPS-01 C1 (Anzeigeziel des Captains) und D (lp-Eintrag mit Beam-Punkt: explore.js) kamen nach Paket A dazu und gehören nicht zu Paket B
-  ok(git(['diff', '--name-only', 'ebfc378', '--', 'public/js/sitz.js', 'server', 'shared']).split('\n').map((l) => l.trim()).filter((l) => l && !C1.includes(l)).length === 0, 'sitz.js, server/, shared/ gegenüber Paket A unverändert, bis auf den Serverteil von C1 (kein Snapshot-/Serverteil; render.js nur durch die Label-Entzerrung der Nacharbeit, drawFrontView bleibt durch das Aufrufprotokoll oben belegt)');
+  // Das Aufrufprotokoll von drawFrontView gegen die gespeicherte Referenz (Stand f2daff7) prüft tools/test-frontsicht.js, ohne Git-Verlauf.
+  ok(fs.existsSync(path.join(__dirname, 'fixtures', 'frontsicht-ref.json')) && /test-frontsicht.js/.test(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8')), 'Referenz tools/fixtures/frontsicht-ref.json vorhanden, test-frontsicht.js in der Testkette');
 }
 
 section('(f) Klickfläche eines Gegners im Standardzoom');

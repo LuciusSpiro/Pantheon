@@ -712,7 +712,7 @@
         ctx.beginPath(); ctx.arc(p.x, p.y, radius * zoom, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }
-      // Richtung zum Zielhex: Shared_Sektoren.winkel(richtung) wenn geladen, sonst vom Szenenmittelpunkt nach außen
+      // Richtung zum Zielhex: Shared_Sektoren.winkel(richtung) wenn geladen, sonst vom Szenenmittelpunkt nach außen. OPS-01 R4: w ist ein Weltwinkel; auf der Karte kommt die Kartendrehung (cam.rot, „Schiff oben“) dazu, damit der Pfeil in Bildschirmrichtung zeigt
       const sp = st.space || {};
       const SS = window.Shared_Sektoren;
       let w = sp.w ? Math.atan2(b.y - sp.h / 2, b.x - sp.w / 2) : 0;
@@ -721,7 +721,7 @@
       }
       let gr;
       const IB = window.IconsB;
-      if (IB && typeof IB.boje === 'function' && IB.boje(ctx, z, p.x, p.y, zoom, w, { t, ziel: !!gewaehlt }) !== false) gr = Math.max(26, 96 * zoom);
+      if (IB && typeof IB.boje === 'function' && IB.boje(ctx, z, p.x, p.y, zoom, w + (cam.front ? 0 : (cam.rot || 0)), { t, ziel: !!gewaehlt }) !== false) gr = Math.max(26, 96 * zoom);
       else { gr = Math.max(12, Math.min(28, Math.round(90 * zoom))); zeichneBojeErsatz(ctx, z, p.x, p.y, gr); }
       let name = b.n || '';
       if (P && b.n) {

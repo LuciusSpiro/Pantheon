@@ -4157,7 +4157,7 @@
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
         const sicht = cfg.sicht || B;   // SUND-01 H: sichtbarer Ausschnitt (Hauptschirm im Voxel-Modus: Textur, kleiner als das Fenster)
         if (m.fr && s.x >= sicht.x && s.x <= sicht.x + sicht.w && s.y >= sicht.y && s.y <= sicht.y + sicht.h) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t, sicht);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
-        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, m.posten ? 1 : 1.5);   // OPS-01 B: Orte stehen hinter den Schiffsbögen (2), Posten hinter den Orten
+        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, front ? 2 : (m.posten ? 1 : 1.5));   // OPS-01 B: auf den Karten stehen Orte hinter den Schiffsbögen (2), Posten hinter den Orten; die Frontsicht behält Rang 2
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
           const sc = (CFG.scenes && CFG.scenes.buoy) || {};
@@ -4171,7 +4171,7 @@
     // B3 (CLIENT, Welle 2): cam trägt zusätzlich bound (Bildausschnitt in Bildschirmkoordinaten, für Randpfeile zu Bojen
     // außerhalb), lab (Label-Kollision: lab(text, x, y, opts, prio, optional)), block (Hindernis für Labels), arrow (Randpfeil
     // wie Stationen: arrow(wx, wy, farbe, label)), toW, cx/cy (Bildmitte = Schiff). bound/lab auch als 4./5. Argument.
-    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);
+    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, rot: front ? 0 : rot, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);   // OPS-01 R4: rot = Kartendrehung (Schiff oben); in der Frontsicht 0, dort bleibt das Bild wie es war
 
     // Bergungsgut im Raum
     for (const sv of space.salvage || []) {

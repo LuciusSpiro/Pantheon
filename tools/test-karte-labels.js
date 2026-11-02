@@ -3,14 +3,13 @@
 //   (a) Szene mit 8 Gegnern, Hafen, Dock-Ring, Sprungpunkt, Posten, Schiffsbögen (BB/STB/BUG), Ziel: in drawTactical sammelt eine Zeichenfläche alle fillText-Rechtecke;
 //       bei Standardzoom und kleinster Stufe der Ops-Fläche, Captain-Lage, drei Kursen, beiden Ausrichtungen und beiden Lagen der Kartenmitte (Pult: Mitte nach rechts verschoben)
 //       dürfen sich Beschriftungen nicht überlappen (Toleranz 1 px). Die Nordmarke zählt als Beschriftung.
-//   (b) Mutation: dieselbe Szene mit render.js von vor der Nacharbeit (7f097f3) muss Überlappungen zeigen – sonst misst der Test nichts
+//   (b) Mutation: dieselbe Szene mit abgeschalteter Kollisionsprüfung muss Überlappungen zeigen – sonst misst der Test nichts (ohne Git)
 //   (c) Kurzform der Bogenbeschriftung unter Zoom 0,2; Beschriftungen bei lesbaren Stufen bleiben; Kennung/Schildring werden nie weggelassen
 //   (d) Sicht seitlich >= R.FRONT.side an beiden Extremen von opsMitteX (pult-stationen.js), Fläche 404 × 184
 //   node tools/test-karte-labels.js
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
-const { execFileSync } = require('child_process');
 const ROOT = path.join(__dirname, '..');
 let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -128,14 +127,13 @@ section('(a) keine überlappenden Beschriftungen: ' + FAELLE.length + ' Fälle (
   ok(probe.texte.length >= 8, 'die Szene trägt Beschriftungen (' + probe.texte.length + ' Texte bei Standardzoom): ' + probe.texte.map((t) => t.s).join(', ').slice(0, 200));
 }
 
-section('(b) Mutation: render.js ohne die Entzerrung (Stand 7f097f3) überlappt in derselben Szene');
+section('(b) Mutation: ohne die Entzerrung (Kollisionsprüfung der Labels aus) überlappt dieselbe Szene');
 {
-  let alt = null;
-  try { alt = execFileSync('git', ['show', '7f097f3:public/js/render.js'], { cwd: ROOT, encoding: 'utf8' }); } catch (e) { alt = null; }
-  if (!alt) ok(false, 'Vergleichsstand 7f097f3 nicht lesbar');
+  const q = rd('render.js'), marke = 'const frei = (r) => !placed.some(';
+  if (!q.includes(marke)) ok(false, 'Kollisionsprüfung (frei) in render.js nicht gefunden');
   else {
-    const r = lauf(umgebung(alt));
-    ok(r.schlecht >= 4, 'alter Stand: ' + r.schlecht + ' von ' + r.gesamt + ' Fällen mit Überlappung (der Test ist rot ohne die Entzerrung)' + (r.beispiele.length ? '\n         ' + r.beispiele.slice(0, 2).join('\n         ') : ''));
+    const r = lauf(umgebung(q.replace(marke, 'const frei = (r) => true || !placed.some(')));
+    ok(r.schlecht >= 4, 'ohne Kollisionsprüfung: ' + r.schlecht + ' von ' + r.gesamt + ' Fällen mit Überlappung (der Test ist rot ohne die Entzerrung)' + (r.beispiele.length ? ' | ' + r.beispiele.slice(0, 2).join(' | ') : ''));
   }
 }
 

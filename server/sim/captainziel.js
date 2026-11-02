@@ -12,13 +12,14 @@ const { dist } = require('../util.js');
 
 function loeschen(game) { delete game.ship.capZiel; }
 
-// Befehl: Ziel wählen. null/leer löscht. Ungültig (unbekannt, außer Sensorreichweite) lehnt ab UND löscht das bisherige Ziel. Gleiche Regeln wie space.weaponsTarget.
+// Befehl: Ziel wählen. null/leer löscht. Ungültig (unbekannt, außer Sensorreichweite) lehnt mit Meldung ab und LÄSST das bisherige Ziel stehen (wie space.weaponsTarget): ein Fehlklick
+// auf den Randpfeil der Lagekarte macht das Anzeigeziel nicht weg. Gleiche Regeln wie space.weaponsTarget.
 function setzen(game, id) {
   if (id === null || id === undefined || id === '') { loeschen(game); return null; }
   const rt = Space.resolveTarget(game, id);
-  if (!rt) { loeschen(game); return 'Ziel nicht gefunden.'; }
+  if (!rt) return 'Ziel nicht gefunden.';
   if ((rt.type === 'enemy' || rt.type === 'mine') && dist(game.ship.x, game.ship.y, rt.x, rt.y) > Space.sensorReichweite(game) && !Sonden.sieht(game, rt.x, rt.y)) {
-    loeschen(game); return 'Ziel außerhalb der Sensoren.';
+    return 'Ziel außerhalb der Sensoren.';
   }
   game.ship.capZiel = { id, scene: game.ship.scene };
   return null;

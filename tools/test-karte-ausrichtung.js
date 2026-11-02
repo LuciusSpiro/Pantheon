@@ -249,5 +249,41 @@ section('Verdrahtung: Taste Shift+Z, Knopf mit Kappe, Skript, keine fremden Eing
   ok(/rot: -\(ship\.angle \|\| 0\) - Math\.PI \/ 2, cx, cy, bound: win/.test(rend), 'Frontsicht (drawFrontView) unverändert');
 }
 
+// ---------------------------------------------------------------------------------------------------------------------------------
+section('Sprungboje (R4): der Richtungspfeil zeigt in Bildschirmrichtung des Zielsektors');
+{
+  for (const q of ['kartenzeichen.js', 'karte-tokens.js', 'kartenansicht.js', 'starmap.js']) lade(q);
+  const gesehen = [];
+  win.IconsB = { boje(ctx, z, x, y, zoom, w) { gesehen.push(w); return true; } };   // Attrappe: nimmt den Richtungswinkel entgegen
+  const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const SZ = { w: 6000, h: 6000 };
+  const boje = { z: 'aktiv', n: '1,2', x: SHIP.x + 120, y: SHIP.y - 60 };   // Zielsektor: vom Szenenmittelpunkt (3000, 3000) aus gesehen nach links oben
+  const wWelt = Math.atan2(boje.y - SZ.h / 2, boje.x - SZ.w / 2);
+  let alle = true; const detail = [];
+  for (const [k, ausr, kurs] of [[KARTEN[0], 'schiff', 0], [KARTEN[0], 'schiff', 90], [KARTEN[0], 'schiff', 200], [KARTEN[1], 'schiff', 315], [KARTEN[0], 'norden', 90]]) {
+    gesehen.length = 0;
+    const z = zeichne(k, ausr, kurs, {}, Object.assign({ jp: [boje] }, SZ));
+    // Bildschirmrichtung des Weltwinkels wWelt: Bild zweier Weltpunkte im Abstand 100 in dieser Richtung
+    const a = z.res.toS(boje.x, boje.y), b = z.res.toS(boje.x + Math.cos(wWelt) * 100, boje.y + Math.sin(wWelt) * 100);
+    const soll = Math.atan2(b.y - a.y, b.x - a.x);
+    const ist = gesehen.length === 1 ? gesehen[0] : NaN;
+    if (!(Math.abs(norm(ist - soll)) < 0.02)) alle = false;
+    detail.push(ausr + ' ' + kurs + '°: ' + (isNaN(ist) ? 'keine Boje' : Math.round(norm(ist) * 180 / Math.PI) + '° (Soll ' + Math.round(soll * 180 / Math.PI) + '°)'));
+  }
+  ok(alle, 'Pfeilwinkel an IconsB.boje = Bildschirmrichtung zum Zielsektor (Schiff oben bei 0°/90°/200°, Captain-Lage 315°, Norden oben): ' + detail.join('; '));
+  ok(fs.readFileSync(path.join(ROOT, 'public', 'js', 'starmap.js'), 'utf8').includes('w + (cam.front ? 0 : (cam.rot || 0))'), 'starmap.js addiert cam.rot (nur Karten, nicht Frontsicht) zum Weltwinkel');
+}
+
+section('Nordmarke (G2): „N“ nur bei „Schiff oben“, bei „Norden oben“ nicht');
+{
+  const hatN = (ausr, kurs, k) => zeichne(k || KARTEN[0], ausr, kurs, {}).rec.texte.some((t) => t.s === 'N');
+  ok(hatN('schiff', 0) && hatN('schiff', 135) && hatN('schiff', 135, KARTEN[1]), 'Schiff oben: „N“ steht am Rand (Ops und Captain-Lage)');
+  ok(!hatN('norden', 0) && !hatN('norden', 135) && !hatN('norden', 135, KARTEN[1]), 'Norden oben: kein „N“ (Ops und Captain-Lage)');
+  KL.setze('weapons', 'norden'); const on = KL.optionen('weapons', ansicht(0)); KL.setze('weapons', 'schiff'); const os = KL.optionen('weapons', ansicht(0));
+  ok(on.nordmarke === false && os.nordmarke === true, 'Kartenlogik.optionen: nordmarke false bei Norden oben, true bei Schiff oben');
+  const direkt = (opts) => { const { ctx, rec } = neueFlaeche(); R.drawTactical(ctx, ansicht(0), OPS, Object.assign({ zoom: 0.35, mode: 'tactical' }, opts)); return rec.texte.some((t) => t.s === 'N'); };
+  ok(!direkt({ nordmarke: false, rot: 0 }) && !direkt({ rot: 0 }) && direkt({ nordmarke: true, rot: 0.5 }), 'drawTactical: bei nordmarke false kein „N“, bei true „N“');
+}
+
 console.log('\n' + (fails ? fails + ' von ' + n + ' Prüfungen FEHLGESCHLAGEN' : 'alle ' + n + ' Prüfungen bestanden'));
 process.exit(fails ? 1 : 0);

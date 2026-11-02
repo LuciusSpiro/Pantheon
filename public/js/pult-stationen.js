@@ -328,7 +328,7 @@
       c.fillStyle = P.FN.shield; c.fillRect(b.x + 6, y + 1, 4, 5);
       T(c, 'BEAMEN MÖGLICH', b.x + 13, y, P.FN.shield); y += 10;
       const w = Math.min(b.w - 12, 110), avail = b.y + b.h - 16 - y - 12, h = Math.min(Math.round(w * 0.62), avail);
-      if (h >= 22) { R.drawMiniKarte(c, view, { x: b.x + 6, y, w, h }, info.mapId, { rahmen: K.dim }); y += h + 3; }
+      if (h >= 22 && info.mapId) { R.drawMiniKarte(c, view, { x: b.x + 6, y, w, h }, info.mapId, { rahmen: K.dim }); y += h + 3; }
       return y;
     },
     // Zielkasten (Ops: rechts neben der Taktikkarte, Captain: Reiter Lage): Name, Klasse, Entfernung, Hülle, bei gescannten Zielen Zonenkreuz, sonst vier Schildsektoren.
