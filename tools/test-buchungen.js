@@ -35,7 +35,8 @@ const NAMEN = '(?:marks|bolzen|sonde|medipack|loeschgel|loeschgelCharges|ersatzt
 const OP = '(?:=(?!=|>)|\\+=|-=|\\*=|\\*\\*=|/=|%=|<<=|>>=|>>>=|&=|\\|=|\\^=|&&=|\\|\\|=|\\?\\?=|\\+\\+|--)';
 
 function ohneKommentare(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').map((z) => z.replace(/(^|[^:\\'"`])\/\/.*$/, '$1')).join('\n');
+  // CRLF (Checkout mit core.autocrlf) zuerst auf LF: '.' trifft kein \r, sonst bliebe jeder //-Kommentar stehen
+  return text.replace(/\r\n?/g, '\n').replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).split('\n').map((z) => z.replace(/(^|[^:\\'"`])\/\/.*$/, '$1')).join('\n');
 }
 const paramNamen = (liste) => liste.split(',').map((p) => p.trim().replace(/^\.\.\./, '').replace(/\s*=[\s\S]*$/, '').trim()).filter((p) => /^[\w$]+$/.test(p));
 // Namen, unter denen ein Inventar-Objekt in dieser Datei (code) vorkommt. fremd: Parameternamen aus Funktionen, die irgendwo mit game.inventory aufgerufen werden
