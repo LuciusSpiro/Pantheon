@@ -16,6 +16,7 @@ const Flight = require('../../shared/flight.js');
 const Pilot = require('./pilot.js');
 const Fracht = require('./fracht.js');
 const Zielsysteme = require('./zielsysteme.js');
+const Gsys = require('./gegnersystem.js');   // GEG-01 A: Antrieb und Reaktor des Transporters für kannSpringen
 const Gegnersprung = require('./gegnersprung.js');   // SYS-01 C Nacharbeit: ein Transporter mit Notfallsprung (Baustein) ist entkommen, nicht zerstört
 
 let spaceMod = null;   // lazy (Zirkelbezug space -> konvoi)
@@ -155,13 +156,36 @@ function steuern(game, e, c, goal, dt) {
   if (e.y < m) { e.y = m; e.vy = Math.max(0, e.vy); }
   if (e.y > sp.h - m) { e.y = sp.h - m; e.vy = Math.min(0, e.vy); }
 }
+// GEG-01 A: Ein Transporter springt nur mit heilem Antrieb und Reaktor (zerstört oder offline = kein Sprung, auch nicht per Notbremse).
+function kannSpringen(game, e) {
+  if (!Gsys.hat(e)) return true;
+  for (const art of ['antrieb', 'reaktor']) {
+    const id = Gsys.idVon(e, art);
+    const z = id && e.sys[id] ? e.sys[id].z : null;
+    if (z === 'broken' || z === 'offline') return false;
+  }
+  return true;
+}
+// Sprung vereitelt (Bedingung erfüllt, aber nicht möglich) oder laufende Ladung abgebrochen: genau einmal je Sperre melden
+function sprungVereiteln(game, e) {
+  if (e.sprung != null) e.sprung = null;
+  if (e.sprungGesperrt) return;
+  e.sprungGesperrt = true;
+  game.oda('Transporter kann nicht mehr springen!', null);
+  game.missionEvent('konvoiSprungAbgebrochen', { enemy: e });
+}
 function fahreTransporter(game, k, e, dt) {
   const C = cfg(game); const c = klasse(game, e.kind);
   const last = k.route.length - 1;
   // Regeneration der Schilde wie bei jedem Gegner läuft in space.updateEnemies (vor diesem Aufruf)
   const wp = k.route[Math.min(e.wp, last)];
   const zuLang = game.time - k.t0 > (C.springSpaetestens || 180);   // Notbremse: ein Konvoi, der sich festfährt, springt trotzdem
-  if (e.sprung == null && ((e.wp >= last && dist(e.x, e.y, wp.x, wp.y) < (C.wpRadius || 90)) || zuLang)) {
+  const kann = kannSpringen(game, e);
+  if (kann) e.sprungGesperrt = false;
+  else if (e.sprung != null) sprungVereiteln(game, e);   // laufende Ladung bricht ab
+  const sprungWunsch = (e.wp >= last && dist(e.x, e.y, wp.x, wp.y) < (C.wpRadius || 90)) || zuLang;
+  if (e.sprung == null && sprungWunsch && !kann) sprungVereiteln(game, e);
+  else if (e.sprung == null && sprungWunsch) {
     e.sprung = 0; e.sprungDauer = C.springDauer || 4;
     game.emit('sfx', { name: 'jump_charge' });
     game.oda('Ein Transporter lädt den Sprung auf!', null);
@@ -219,7 +243,7 @@ function update(game, dt) {
   // Lage der Transporter merken, Zerstörte und Gesprungene erkennen
   for (const id of k.ids) {
     const e = lebt(game, id);
-    if (e) { k.pos[id] = { x: e.x, y: e.y }; if (e.sprung != null && e.sprung >= (C.springDauer || 4) && !k.fertig[id]) springen(game, k, e); continue; }
+    if (e) { k.pos[id] = { x: e.x, y: e.y }; if (e.sprung != null && e.sprung >= (C.springDauer || 4) && !k.fertig[id]) { if (kannSpringen(game, e)) springen(game, k, e); else sprungVereiteln(game, e); } continue; }
     if (k.fertig[id]) continue;
     if (Gegnersprung.istEntkommen(game, id)) { entkommen(game, k, id); continue; }   // weg per Notfallsprung: kein Wrack, keine Fracht, der Konvoi ist (teilweise) durch
     k.fertig[id] = 'zerstoert';
@@ -332,6 +356,6 @@ function debug(game, args) {
 
 module.exports = {
   an, neu, fahre, faehrt, update, snapExtra, erzwingen, debug,
-  aktiv, ausgang, erfolg, ausgangIst, uebrig, gesprungen, zerstoert, transporter, mitglieder,
+  kannSpringen, aktiv, ausgang, erfolg, ausgangIst, uebrig, gesprungen, zerstoert, transporter, mitglieder,
   SIEGE, ESKORTEN, AUSGAENGE, ARTNAME,
 };
