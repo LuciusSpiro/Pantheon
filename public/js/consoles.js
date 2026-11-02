@@ -39,7 +39,6 @@
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
   const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
-  const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // PAN-01 C: bis zu neun Waffenplätze (Ziffernblock), Waffe je Platz aus shared/schiffskatalog.js (ship.mounts[].typ, fehlt = Startbestückung).
   // Mount-Id -> System (Zustand/Trefferziel): bow = Platz 8, port = 4, stbd = 6, sonst lafette_<Platz>
   const SCH = window.Shared_Schiffskatalog || null;
@@ -102,7 +101,8 @@
     mouseHold: null,
     helmSent: { turn: 0, t: 0 },
     helmPending: null, // M3b: lokal vorgemerkte Stufe bis der Snapshot sie bestätigt { stage, from, t }
-    zoom: { weapons: 0.35, lage: 0.35 },
+    zoom: { weapons: 0.35, lage: 0.35 },   // weapons: OPS-01 B, solange nicht gewählt, gilt der Standardzoom der Kartenfläche (zoomAbgleichen); lage: 0,35
+    zoomGewaehlt: { weapons: false, lage: true },
     enemyRects: [],
     lageRects: [],
     scanOn: false,
@@ -653,10 +653,13 @@
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
     // OPS-01 A: Ausrichtung der Karte umschalten (Knopf und Shift+Z); der Zustand liegt in Kartenlogik, nicht hier
     kartenAusrichtung(view, karte) { Kartenlogik.umschalten(karte); view.actions.sfx('ui_click'); },
+    // OPS-01 B: Stufen und Standardzoom je Kartenfläche aus Kartenlogik (aus R.FRONT abgeleitet); Ops und Captain-Lage nutzen dieselbe Liste, nur die Fläche unterscheidet sich
+    zoomAbgleichen(which, rect) { if (!this.zoomGewaehlt[which]) this.zoom[which] = Kartenlogik.zoomStandard(rect); },
     cycleZoom(which, dir) {
-      const i = ZOOM_STEPS.indexOf(this.zoom[which]);
-      const j = dir === -1 ? Math.max(0, (i < 0 ? 1 : i) - 1) : dir === 1 ? Math.min(ZOOM_STEPS.length - 1, (i < 0 ? 1 : i) + 1) : ((i + 1) % ZOOM_STEPS.length);
-      this.zoom[which] = ZOOM_STEPS[j];
+      const rect = (this.mapRects && this.mapRects[which]) || { x: 0, y: 0, w: 404, h: 184 };
+      const st = Kartenlogik.zoomStufen(rect), i = Kartenlogik.zoomIndex(st, this.zoom[which]);
+      const j = dir === -1 ? Math.max(0, i - 1) : dir === 1 ? Math.min(st.length - 1, i + 1) : ((i + 1) % st.length);
+      this.zoom[which] = st[j]; this.zoomGewaehlt[which] = true;
     },
 
     // ================================================================= Captain
@@ -1950,6 +1953,8 @@
       const rs = Object.assign({}, rect, { y: rect.y + H.szeneRandOben(view, rect.y) });   // SUND-02b UI2: Leisten unter der Szenenzeile (ohne Sim-Szene 0)
       // SUND-04a-1 A (Review D-S4): die Zoom-Anzeige rechts oben ist ein Hindernis für die Kartenlabels (Randpfeil-Labels weichen aus)
       const zoomY = Math.max(rect.y + 3, H.szeneUnten(view) + 2);
+      if (this.mapRects) this.mapRects.weapons = rect;
+      this.zoomAbgleichen('weapons', rect);
       this.maps.weapons = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) }, Kartenlogik.optionen('weapons', view)));
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, zoomY, { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile

@@ -196,6 +196,7 @@
         // SUND-02b UI2: liegt oben eine Szenenzeile oder die Lagefunk-Zeile, entfällt die Zoom-Beschriftung der Karte: unter der Zeile wird die obere Bogenbeschriftung
         // („BB STANDARD BEREIT“) an den Rand geklemmt und lag in allen Ausweichplätzen darüber; der Wert steht ohnehin auf der Taste „Z Zoom 35 %“ unter SENSOREN
         const zoomOben = !(H.szeneUnten(view) || (H.funkZeileUnten && H.funkZeileUnten(view)));
+        this.zoomAbgleichen('weapons', mr);
         this.maps.weapons = R.drawTactical(c, view, mr, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, mr.y), sperren: [].concat(zoomOben ? [{ x: mr.x + mr.w - 64, y: mr.y + 1, w: 62, h: 11 }] : [], this.stapelH ? [{ x: mr.x + 4, y: ms.y + 3, w: 266, h: this.stapelH }] : [], zielX !== mitteX ? [{ x: Math.round(this.opsMitteX) - 28, y: mr.y + Math.round(mr.h / 2) - 28, w: 56, h: 56 }] : []), cx: Math.round(this.opsMitteX) }, Kartenlogik.optionen('weapons', view)));   // verschoben: auch Zoom-Zeile und Schiffsring frei von Bogenbeschriftungen
         if (zoomOben) R.text(c, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' %', mr.x + mr.w - 4, mr.y + 3, { color: PAL.panelLight, align: 'right' });
         this.drawFracht(c, view, ms); this.drawLpscan(c, view, ms); this.drawZonenscan(c, view, ms); if (this.drawHoehe) this.drawHoehe(c, view, ms); this.drawPersonenBord(c, view, ms); if (this.drawPosten) this.drawPosten(c, view, ms);
