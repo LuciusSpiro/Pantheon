@@ -632,13 +632,16 @@ class Game {
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
+      this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl; vor checkLobbyStart, sonst landet der Abgang als Phantom in der gerade begonnenen Session
       this.checkLobbyStart();
-    } else if (p.zone === 'away') {
-      if (p.carry) interior.dropCarry(this, p);
-      interior.placeOnShipPad(this, p);
-      p.beamLock = false;
+    } else {
+      if (p.zone === 'away') {
+        if (p.carry) interior.dropCarry(this, p);
+        interior.placeOnShipPad(this, p);
+        p.beamLock = false;
+      }
+      this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl
     }
-    this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl
     this.log(`Spieler ${p.name} getrennt.`);
     if (this.zerstoertOffen && this.phase !== 'lobby') this.zerstoertPruefen();   // SYS-01 A2 Nacharbeit: A hat OK gedrückt, B trennt -> Lobby
   }
@@ -1757,6 +1760,7 @@ class Game {
         const r = combat.tune(this, path || null, value);
         this.notice(p, r.text);
         if (r.ok && path) this.log(`tune ${r.text}`);
+        if (r.ok && r.pfad) this.telemetrie.tune(r.pfad, r.alt, r.neu);   // TEL-01 A: Laufzeitänderung des Tunings im Protokoll
         return null;
       }
       case 'kesh': {

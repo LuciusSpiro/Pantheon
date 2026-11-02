@@ -144,6 +144,7 @@ function startServer(opts) {
   // S1 §5.2: Weltstände in WORLD_DIR (Standard data/worlds); noStore schaltet sie ab (Tests), worlds: true erzwingt
   const worldDir = o.worldDir || Weltstand.dir(process.env);
   const game = new Game({ ruestphase: o.ruestphase != null ? !!o.ruestphase : process.env.RUESTPHASE !== '0', debug, noStore: o.noStore, worlds: o.worlds, worldDir, port, roomCode, log: o.quiet ? () => {} : undefined });
+  if (game.telemetrie.aktiv) { const t = setImmediate(() => game.telemetrie.vorwaermen()); if (t && t.unref) t.unref(); }   // TEL-01 A: Tuning-Dateien vorab einlesen (nie im Tick)
   // B1 (OFFEN-STUDIO): Landepunkte beim Serverstart laden; vorwaermen (Bühnendaten, ein Probebau je Kartenart ≈ 0,4 s)
   // läuft per setImmediate vor dem ersten Spiel und nie im Tick. Fehlt das Modul, läuft der Server ohne gebaute Karten.
   try {
@@ -221,8 +222,8 @@ function startServer(opts) {
 if (require.main === module) {
   startServer().then((s) => {
     // S1 §5.2: Sperrdatei des offenen Weltstands beim Beenden lösen (verwaiste Sperren erkennt auch der nächste Start)
-    process.on('exit', () => { s.game.releaseWorldLock(); s.game.telemetrie.prozessEnde(); });   // TEL-01 A: Protokoll synchron abschliessen
-    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); s.game.telemetrie.prozessEnde(); process.exit(0); });
+    process.on('exit', () => { s.game.releaseWorldLock(); });   // das Protokoll schliesst der Exit-Haken in server/telemetrie/protokoll.js ab
+    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); process.exit(0); });   // process.exit löst den Exit-Haken aus
   }).catch((e) => { console.error(e); process.exit(1); });
 }
 

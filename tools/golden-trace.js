@@ -79,7 +79,8 @@ async function runOne(kind, crew, seed, stopAfter) {
   const Maps = require(path.join(ROOT, 'shared/maps.js'));
   const Physics = require(path.join(ROOT, 'shared/physics.js'));
 
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  // TEL-01 A: TELEMETRIE aus der Prozess-Umgebung ans Spiel durchreichen, damit der Golden Trace den Telemetrie-Pfad prüfen kann (TELEMETRIE=an, Ablage über TELEMETRIE_DIR; noStore schreibt sonst nichts)
+  const game = new Game({ noStore: true, seed, env: Object.assign({ MISSION_SOURCE: 'fallback' }, process.env.TELEMETRIE ? { TELEMETRIE: process.env.TELEMETRIE, TELEMETRIE_QUELLE: 'bot' } : {}), log: () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   let agents;
   if (kind === 'campaign') {
@@ -175,6 +176,7 @@ async function runOne(kind, crew, seed, stopAfter) {
     };
   }
   if (kind === 'm3' && out.m3 && all.ending) out.m3.ending = all.ending;
+  game.telemetrie.sessionBeenden('bot-ende');   // TEL-01 A: Werkzeug beendet die Session selbst (nichts bleibt bis zum Prozessende offen)
   return { traces: out, info: { kind, crew, seed, ticks, gameTime: r1(game.time), softlock, errors: game.errors, phase: game.phase } };
 }
 

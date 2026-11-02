@@ -75,16 +75,20 @@ function dateiText(f) {
   return text;
 }
 
+// Dateiliste je Prozess gemerkt (die Ordnerstruktur ändert sich im Lauf nicht); Inhalt und Hash folgen über Größe + mtime
+let listeMerk = null;
 function tuningStand(game) {
-  const teile = {}; const werte = {};
+  const teile = {}; const texte = {};
   const config = JSON.stringify(sicher(game.C));
   teile.config = hash(config);
-  for (const f of werteDateien(CONTENT, []).sort()) {
+  if (!listeMerk) listeMerk = werteDateien(CONTENT, []).sort();
+  for (const f of listeMerk) {
     const rel = path.relative(CONTENT, f).split(path.sep).join('/');
-    try { const text = dateiText(f); teile[rel] = hash(text); werte[rel] = JSON.parse(text); } catch (e) { teile[rel] = 'fehler'; }
+    try { const text = dateiText(f); teile[rel] = hash(text); texte[rel] = text; } catch (e) { teile[rel] = 'fehler'; }
   }
   const gesamt = hash(Object.keys(teile).sort().map((k) => k + '=' + teile[k]).join(';'));
-  return { hash: gesamt, teile, json: () => JSON.stringify({ v: 1, hash: gesamt, teile, config: JSON.parse(config), werte }) };
+  // json() läuft erst beim Schreiben der Datei (außerhalb des Nachrichtenhandlers): Parsen der ~21 Werte-Dateien nur dann, wenn der Hash neu ist
+  return { hash: gesamt, teile, json: () => { const werte = {}; for (const k of Object.keys(texte)) { try { werte[k] = JSON.parse(texte[k]); } catch (e) { /* teile[k] sagt 'fehler' nicht; leer lassen */ } } return JSON.stringify({ v: 1, hash: gesamt, teile, config: JSON.parse(config), werte }); } };
 }
 
 function schalter(env) {
@@ -98,6 +102,11 @@ function schalter(env) {
   return out;
 }
 
+// BOD-01: wirksame Variantenwahl Grabenangriff { abschnitt: variante } (nur im Modus arena_graben; null = Standard der Karte gilt, sonst nicht relevant)
+function grabenAuswahl(game, lo) {
+  if (lo.startMission !== 'arena_graben') return null;
+  try { return sicher(require('../sim/graben.js').auswahl(game, lo.graben)) || null; } catch (e) { return lo.graben ? sicher(lo.graben) : null; }
+}
 const jaNein = (o) => (o && typeof o === 'object' ? sicher(o) : null);
 
 function baueKopf(game, ctx) {
@@ -115,12 +124,13 @@ function baueKopf(game, ctx) {
     run_id: game.runId,
     seed: game.seed,
     modus: lo.startMission || null,
-    szenario: lo.labor && lo.startMission === 'labor' ? lo.labor.id || null : (lo.szene || lo.wellen || null),
+    szenario: lo.labor && lo.startMission === 'labor' ? lo.labor.id || null : (lo.szene || lo.wellen || (typeof lo.arena === 'string' ? lo.arena : null) || null),
+    graben: grabenAuswahl(game, lo),
     weltstand: ws && ws.persistent ? ws.id : null,
     regielog: Regielog.safeId((ws && ws.id) || 'ohne-welt') + '.jsonl',
     quelle: ctx.quelle,
     spielerzahl: game.players.length,
-    slots: game.players.map((p) => ({ slot: p.id, konsole: p.console || null, verbunden: !!p.connected })),   // nie Name, Karte, clientId
+    slots: game.players.map((p) => ({ slot: p.id, belegung: 1, konsole: p.console || null, verbunden: !!p.connected })),   // nie Name, Karte, clientId; belegung 1 = erste Belegung des Slots in dieser Session
     schiff: { stufe: sh.stufe == null ? null : sh.stufe, module: jaNein(sh.module), waffen: jaNein(sh.waffen), ort: sh.scene || null },
     schalter: schalter(env),
     tuning_hash: tuning.hash,

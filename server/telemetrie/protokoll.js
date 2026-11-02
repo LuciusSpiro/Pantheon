@@ -8,10 +8,11 @@
 //   - bei Puffergrenze (Bot-Läufe haben keine Ereignisschleife zwischen den Ticks),
 //   - beim Sessionende und beim Prozessende (synchron).
 // Schreiben wirft nie: Fehler werden gezählt (game.countError('telemetrie-…') + eigener Zähler), der Puffer bleibt
-// stehen, ein neuer Versuch folgt frühestens nach RETRY_MS. Größengrenze je Datei: danach nur zählen (verworfen).
+// stehen, ein neuer Versuch folgt frühestens nach RETRY_MS (auch bei offener Datei). Harte Grenzen: PUFFER_MAX Zeilen im Puffer,
+// MAX_BYTES je Datei; darüber wird nur gezählt (verworfen). Jede Zeile wird einzeln serialisiert; Teilschreiben setzt beim Rest fort.
 //
 // Ablage: data/telemetrie/<sitzung>.jsonl (TELEMETRIE_DIR überschreibt), Tuning einmalig in tuning/<hash>.json.
-// Abschalten: TELEMETRIE=aus (game.env, sonst process.env). Quelle: TELEMETRIE_QUELLE=bot, sonst 'mensch'.
+// Aktivierung nur über TELEMETRIE=an|aus (Standard: an, bei noStore aus). Quelle (Etikett): TELEMETRIE_QUELLE=bot, sonst 'mensch'.
 //
 // Der Zustand einer Session liegt in einem eigenen Objekt `s` OHNE Verweis auf das Game. Nur so kann der Prozess beim
 // Beenden auch Sessions abschließen, deren Game längst weggeräumt ist (Bot-Läufe), ohne alle Games im Speicher zu halten.
@@ -31,10 +32,12 @@ const Tabelle = require('./ereignisse.js');
 const SCHEMA_VERSION = 1;
 const ROOT = path.join(__dirname, '..', '..');
 const MAX_BYTES = 50 * 1024 * 1024;     // je Datei; danach zählen statt schreiben
-const MAX_DATEIEN = 300;                // beim Sessionbeginn nur die neuesten N Dateien behalten
+const MAX_DATEIEN = 300;                // beim Sessionbeginn je Ordner nur die neuesten N Protokolle behalten
 const PUFFER_GRENZE = 1000;             // Zeilen; erreicht -> sofort schreiben (auch mitten im Tick)
-const PUFFER_MAX = 20000;               // bei dauerhaftem Schreibfehler: ältere Zeilen verwerfen
+const PUFFER_MAX = 20000;               // harte Grenze (Schreibfehler, Kopf noch nicht fertig): weitere Zeilen werden verworfen und gezählt (neueste, so bleibt die Datei ein sauberes Präfix wie bei MAX_BYTES, und es kostet O(1))
+const MAX_TUNING = 100;                 // tuning/: nur die neuesten N Dateien behalten
 const RETRY_MS = 1000;
+const SCHLUESSEL = /^[a-z0-9_]{1,40}$/;
 const RESERVIERT = new Set(['v', 'typ', 'sitzung', 'tick', 't']);
 
 function dirVon(env) {
@@ -49,7 +52,7 @@ const r2 = (x) => Math.round(x * 100) / 100;
 const offene = new Set();   // alle Sessionzustände, die noch kein session_ende haben
 let exitHaken = false;
 function neuerZustand(sitzung, dir, melde, start) {
-  return { sitzung, dir, melde, datei: null, puffer: [], kopf: null, kopfFertig: false, fd: null, bytes: 0, geplant: false, naechsterVersuch: 0,
+  return { sitzung, dir, melde, datei: null, puffer: [], kopf: null, kopfFertig: false, fd: null, bytes: 0, geplant: false, naechsterVersuch: 0, tuningNaechster: 0, rest: null, belegung: {},
     grund: null, start, tick: 0, t: 0, spiel: null, tuning: null, tuningGeschrieben: false, zeilen: 0, verworfen: 0, fehler: 0, verworfeneFelder: 0 };
 }
 function fehler(s, where, e) { s.fehler++; try { s.melde(where, e); } catch (x) { /* nie werfen */ } }
@@ -73,7 +76,8 @@ function oeffnen(s, erzwingen) {
     return false;
   }
 }
-function aufraeumen(s) {   // nur die neuesten MAX_DATEIEN behalten (Rotation über Sessions hinweg)
+// Rotation je Ordner: nur die neuesten MAX_DATEIEN Protokolle behalten (Bots schreiben in einen eigenen Unterordner, siehe sim-headless)
+function aufraeumen(s) {
   try {
     const fl = fs.readdirSync(s.dir).filter((n) => n.endsWith('.jsonl'));
     if (fl.length <= MAX_DATEIEN) return;
@@ -81,57 +85,73 @@ function aufraeumen(s) {   // nur die neuesten MAX_DATEIEN behalten (Rotation ü
     for (const x of mit.slice(MAX_DATEIEN)) { try { fs.unlinkSync(path.join(s.dir, x.n)); } catch (e) { /* offen/gesperrt: egal */ } }
   } catch (e) { fehler(s, 'rotation', e); }
 }
+// tuning/: nur die neuesten MAX_TUNING Dateien (nach mtime). Eine benutzte Datei wird beim Sessionbeginn berührt, ist also nie die älteste.
+function tuningAufraeumen(d) {
+  const fl = fs.readdirSync(d).filter((n) => n.endsWith('.json'));
+  if (fl.length <= MAX_TUNING) return;
+  const mit = fl.map((n) => { try { return { n, m: fs.statSync(path.join(d, n)).mtimeMs }; } catch (e) { return null; } }).filter(Boolean).sort((a, b) => b.m - a.m);
+  for (const x of mit.slice(MAX_TUNING)) { try { fs.unlinkSync(path.join(d, x.n)); } catch (e) { /* egal */ } }
+}
 function tuningSchreiben(s) {
-  if (s.tuningGeschrieben || !s.tuning) return;
-  s.tuningGeschrieben = true;
+  if (s.tuningGeschrieben || !s.tuning || Date.now() < s.tuningNaechster) return;
   try {
     const d = path.join(s.dir, 'tuning');
     const f = path.join(d, s.tuning.hash + '.json');
-    if (fs.existsSync(f)) return;
-    fs.mkdirSync(d, { recursive: true });
-    fs.writeFileSync(f, s.tuning.json(), { encoding: 'utf8', flag: 'wx' });
-  } catch (e) { if (!e || e.code !== 'EEXIST') fehler(s, 'tuning', e); }
-}
-function kappen(s) {   // Puffer wächst bei dauerhaftem Fehler nicht ohne Grenze
-  const zu = s.puffer.length - PUFFER_MAX;
-  if (zu <= 0) return;
-  const kopf = s.puffer[0].typ === 'kopf' ? s.puffer.shift() : null;
-  s.puffer.splice(0, zu); s.verworfen += zu;
-  if (kopf) s.puffer.unshift(kopf);
-}
-function schreibe(s, erzwingen) {
-  if (!s.kopfFertig || !s.puffer.length) return;
-  try {
-    if (!oeffnen(s, erzwingen)) { kappen(s); return; }
-    tuningSchreiben(s);
-    const zeilen = s.puffer; let text = '';
-    for (const z of zeilen) text += JSON.stringify(z) + '\n';
-    const buf = Buffer.from(text, 'utf8');
-    const mitEnde = zeilen[zeilen.length - 1].typ === 'session_ende';
-    if (s.bytes + buf.length > MAX_BYTES && !mitEnde) {   // Größengrenze: zählen statt schreiben (das Ende wird immer geschrieben)
-      s.verworfen += zeilen.length; s.puffer = []; return;
+    if (fs.existsSync(f)) { const jetzt = new Date(); fs.utimesSync(f, jetzt, jetzt); }
+    else {
+      fs.mkdirSync(d, { recursive: true });
+      try { fs.writeFileSync(f, s.tuning.json(), { encoding: 'utf8', flag: 'wx' }); } catch (e) { if (!e || e.code !== 'EEXIST') throw e; }
     }
-    let off = 0;
-    while (off < buf.length) off += fs.writeSync(s.fd, buf, off, buf.length - off);
-    s.bytes += buf.length;
-    s.puffer = [];
+    s.tuningGeschrieben = true; s.tuning = null;   // geschrieben: die ~300 KB Tuning-Daten loslassen
+    tuningAufraeumen(d);
+  } catch (e) { s.tuningNaechster = Date.now() + RETRY_MS; fehler(s, 'tuning', e); }   // in dieser Session später erneut, gedrosselt
+}
+// Puffer -> Bytes. Jede Zeile einzeln: eine nicht serialisierbare Zeile (Zyklus, BigInt …) wird verworfen und gezählt, der Rest geht durch.
+function serialisieren(s) {
+  const zeilen = s.puffer; s.puffer = [];
+  const mitEnde = zeilen.length > 0 && zeilen[zeilen.length - 1].typ === 'session_ende';
+  const teile = []; let kaputt = 0; let erster = null;
+  for (const z of zeilen) {
+    try { const l = JSON.stringify(z); if (typeof l !== 'string') throw new Error('Zeile nicht serialisierbar'); teile.push(l); } catch (e) { kaputt++; if (!erster) erster = e; }
+  }
+  if (kaputt) { s.verworfen += kaputt; s.fehler += kaputt - 1; fehler(s, 'zeile', erster); }
+  if (!teile.length) return;
+  const buf = Buffer.from(teile.join('\n') + '\n', 'utf8');
+  if (s.bytes + buf.length > MAX_BYTES && !mitEnde) { s.verworfen += teile.length; return; }   // Größengrenze: zählen statt schreiben (das Ende wird immer geschrieben)
+  s.rest = { buf, off: 0 };
+}
+// Schreibt den Puffer. Bei einem Fehler (auch mit offener Datei) frühestens nach RETRY_MS erneut (außer erzwingen: Ende, schreibeJetzt).
+// Teilschreiben: s.rest merkt Bytes und Stand; ein neuer Versuch schreibt nur den Rest (keine Doppel- und keine kaputten Zeilen).
+function schreibe(s, erzwingen) {
+  if (!s.kopfFertig || (!s.puffer.length && !s.rest)) return;
+  if (!erzwingen && Date.now() < s.naechsterVersuch) return;
+  try {
+    if (!oeffnen(s, erzwingen)) return;
+    tuningSchreiben(s);
+    for (;;) {   // erst den liegengebliebenen Rest, dann den Puffer (serialisieren leert ihn, die Schleife endet)
+      if (!s.rest) { if (!s.puffer.length) break; serialisieren(s); if (!s.rest) continue; }
+      const r = s.rest;
+      while (r.off < r.buf.length) { const n = fs.writeSync(s.fd, r.buf, r.off, r.buf.length - r.off); r.off += n; s.bytes += n; }
+      s.rest = null;
+    }
   } catch (e) {
     s.naechsterVersuch = Date.now() + RETRY_MS; fehler(s, 'schreiben', e);
-    kappen(s);
   }
 }
 // Ende: Zeile session_ende, synchron schreiben, Kanal schließen. tick/t = Stand des Spiels (oder letzter bekannter Stand).
+// bytes = Dateigröße vor dieser letzten Zeile (alles Vorherige ist zuerst geschrieben).
 function abschliessen(s, grund, tick, t) {
   offene.delete(s);
   try {
-    if (!s.kopfFertig) s.kopfFertig = true;   // Kopf wie er ist (Notfall)
+    s.kopfFertig = true;   // Kopf wie er ist (Notfall)
+    schreibe(s, true);
     s.zeilen++;
     s.puffer.push({ v: SCHEMA_VERSION, typ: 'session_ende', sitzung: s.sitzung, tick, t: r2(t), grund: String(s.grund || grund || 'ende').slice(0, 40), dauer: r2(t - s.start),
       zeilen: s.zeilen, fehler: s.fehler, verworfen: s.verworfen, bytes: s.bytes });
     schreibe(s, true);
   } catch (e) { fehler(s, 'ende', e); }
   try { if (s.fd != null) fs.closeSync(s.fd); } catch (e) { /* egal */ }
-  s.fd = null;
+  s.fd = null; s.tuning = null;
 }
 function exitAnmelden() {
   if (exitHaken) return;
@@ -148,10 +168,10 @@ function exitAnmelden() {
 class Telemetrie {
   constructor(game) {
     this.game = game;
-    // Standard an. Ausnahme: Spiele ohne Speicher (noStore: Tests, Smoke- und Messwerkzeuge) schreiben nur, wenn Ablage, Quelle oder
-    // TELEMETRIE=an ausdrücklich gesetzt sind (Bots setzen TELEMETRIE_QUELLE=bot); sonst füllen Dutzende Werkzeugläufe data/telemetrie.
-    const ausdruecklich = !!(envWert(game, 'TELEMETRIE_DIR') || envWert(game, 'TELEMETRIE_QUELLE') || envWert(game, 'TELEMETRIE').toLowerCase() === 'an');
-    this.aktiv = envWert(game, 'TELEMETRIE').toLowerCase() !== 'aus' && (!game.storeDisabled || ausdruecklich);
+    // Aktivierung NUR über TELEMETRIE=an|aus (game.env, sonst process.env). Standard: an für einen echten Server, aus für Spiele
+    // ohne Speicher (noStore: Tests, Smoke- und Messwerkzeuge). TELEMETRIE_QUELLE ist nur ein Etikett im Kopf und schaltet nichts.
+    const w = envWert(game, 'TELEMETRIE').toLowerCase();
+    this.aktiv = /^(an|on|1|true)$/.test(w) ? true : /^(aus|off|0|false)$/.test(w) ? false : !game.storeDisabled;
     this.SCHEMA_VERSION = SCHEMA_VERSION;
     this.s = null;   // Zustand der laufenden Session
     this.summe = { zeilen: 0, fehler: 0, verworfen: 0, verworfeneFelder: 0 };   // abgeschlossene Sessions dieser Instanz
@@ -197,6 +217,7 @@ class Telemetrie {
       const tuning = Kopf.tuningStand(this.game);
       s.tuning = tuning;
       Object.assign(s.kopf, Kopf.baueKopf(this.game, { tuning, quelle: envWert(this.game, 'TELEMETRIE_QUELLE').toLowerCase() === 'bot' ? 'bot' : 'mensch' }));
+      for (const x of (s.kopf.slots || [])) if (!(x.slot in s.belegung)) s.belegung[x.slot] = 1;   // wer beim Start da ist, ist die erste Belegung des Slots
     } catch (e) { fehler(s, 'kopf', e); }
     s.kopfFertig = true;
     this._plane();
@@ -226,14 +247,16 @@ class Telemetrie {
     const s = this.s;
     if (!s) return;
     try {
+      s.zeilen++;
+      if (s.puffer.length >= PUFFER_MAX) { s.verworfen++; return; }   // harte Grenze: bei Fehler oder fehlendem Kopf wächst der Puffer nicht weiter
       const f = {};
       if (felder) for (const k of Object.keys(felder)) {
+        if (!SCHLUESSEL.test(k)) { s.verworfeneFelder++; continue; }   // nur [a-z0-9_] als Feldname (Namen und Freitext kommen nie als Schlüssel durch)
         let v = felder[k];
         if (typeof v === 'string' && v.length > 200) v = v.slice(0, 200);
         if (Array.isArray(v) ? v.length <= 64 && v.every(flach) : flach(v)) f[k] = v; else s.verworfeneFelder++;
       }
       s.puffer.push(this._zeile(String(typ), f));
-      s.zeilen++;
       if (s.puffer.length >= PUFFER_GRENZE) schreibe(s, false); else this._plane();
     } catch (e) { fehler(s, 'ereignis', e); }
   }
@@ -251,9 +274,17 @@ class Telemetrie {
 
   // Lebenszyklus der Mannschaft: nur Slot und Zahlen, nie das Spielerobjekt
   spielerBei(slot, art, nachzuegler) {
-    this.ereignis('spieler_bei', { slot: Tabelle.slot(slot), art, nachzuegler: !!nachzuegler, spielerzahl: this.game.connectedCount() });
+    const s = this.s; const sl = Tabelle.slot(slot);
+    if (!s) return;
+    if (sl) s.belegung[sl] = art === 'wieder' ? (s.belegung[sl] || 1) : (s.belegung[sl] || 0) + 1;   // neu/uebernahme = neue Belegung des Slots, wieder = dieselbe
+    this.ereignis('spieler_bei', { slot: sl, art, belegung: sl ? s.belegung[sl] : null, nachzuegler: !!nachzuegler, spielerzahl: this.game.connectedCount() });
   }
-  spielerWeg(slot) { this.ereignis('spieler_weg', { slot: Tabelle.slot(slot), spielerzahl: this.game.connectedCount() }); }
+  spielerWeg(slot) {
+    const sl = Tabelle.slot(slot);
+    this.ereignis('spieler_weg', { slot: sl, belegung: sl && this.s ? this.s.belegung[sl] || 0 : null, spielerzahl: this.game.connectedCount() });
+  }
+  // Laufzeitänderung eines Werts (Debug-Befehl tune): Pfad, alter und neuer Wert (Zahl oder Wahrheitswert)
+  tune(pfad, alt, neu) { this.ereignis('tune', { pfad: String(pfad).slice(0, 80), alt, neu }); }
 
   // ---------- Schreiben ----------
   _plane() {
@@ -263,6 +294,10 @@ class Telemetrie {
     setImmediate(() => { s.geplant = false; if (offene.has(s)) schreibe(s, false); });
   }
   schreibeJetzt() { if (this.s) schreibe(this.s, true); }
+  // Serverstart: Dateiliste und Inhalte der Werte-Dateien einmal einlesen (kalt ~20 ms), damit der Kopf der ersten Session im Nachrichtenhandler nur ~1,5 ms kostet
+  vorwaermen() { if (this.aktiv) { try { Kopf.tuningStand(this.game); } catch (e) { /* egal */ } } }
 }
 
-module.exports = { Telemetrie, SCHEMA_VERSION, MAX_BYTES, MAX_DATEIEN, PUFFER_GRENZE, dirVon };
+const offeneSessions = () => offene.size;   // für Tests: Sessions ohne session_ende
+
+module.exports = { Telemetrie, SCHEMA_VERSION, MAX_BYTES, MAX_DATEIEN, MAX_TUNING, PUFFER_GRENZE, PUFFER_MAX, RETRY_MS, dirVon, offeneSessions };

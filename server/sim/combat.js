@@ -1767,8 +1767,9 @@ function tune(game, path, value) {
   if (path === 'barks') {
     const v = String(value).toLowerCase();
     if (!['on', 'off', '1', '0', 'true', 'false'].includes(v)) return { ok: false, text: 'tune barks on|off' };
+    const alt = !!C.barksOn;
     C.barksOn = v === 'on' || v === '1' || v === 'true';
-    return { ok: true, text: 'barks = ' + (C.barksOn ? 'on' : 'off') };
+    return { ok: true, text: 'barks = ' + (C.barksOn ? 'on' : 'off'), pfad: 'barks', alt, neu: C.barksOn };
   }
   const keys = String(path).split('.');
   // QA M3a: Pfade, die nicht unter awayCombat liegen (spaceM3.*, combat.*, crewScaling.* …), gelten für die ganze
@@ -1782,14 +1783,16 @@ function tune(game, path, value) {
   if (typeof o[last] === 'boolean') {   // §15: z. B. tune crouch.enemyCrouch off
     const v = String(value).toLowerCase();
     if (!['on', 'off', '1', '0', 'true', 'false'].includes(v)) return { ok: false, text: 'tune ' + path + ' on|off' };
+    const alt = o[last];
     o[last] = v === 'on' || v === '1' || v === 'true';
-    return { ok: true, text: path + ' = ' + (o[last] ? 'on' : 'off') };
+    return { ok: true, text: path + ' = ' + (o[last] ? 'on' : 'off'), pfad: path, alt, neu: o[last] };
   }
   if (typeof o[last] !== 'number') return { ok: false, text: 'Kein Zahlenwert: ' + path };
   const v = Number(value);
   if (!Number.isFinite(v)) return { ok: false, text: 'Wert muss eine Zahl sein.' };
+  const alt = o[last];
   o[last] = v;
-  return { ok: true, text: path + ' = ' + v };
+  return { ok: true, text: path + ' = ' + v, pfad: path, alt, neu: v };
 }
 
 // ---------- Snapshot-Teile (CONTRACT-M2 §7) ----------
