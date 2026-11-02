@@ -2779,6 +2779,9 @@
     const m = ((space && space.markers) || []).find(q => q.kind !== 'dock' && !q.posten && STATION_ART[q.kind]);   // SUND-01 D: ein Posten ist Kulisse, nicht das Hauptobjekt/Ziel 'station'
     return m ? { id: 'station', kind: m.kind, x: m.x, y: m.y, station: true, name: m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind] } : null;
   }
+  // OPS-01 G4: Farbe des Zielnamens nach Art – EINE Wahl für das Kartenlabel und den Zielkasten (Ops und Captain): Station/Boje Bernstein, verstecktes Objekt Mint (erfasst: Grau);
+  // null für Gegnerschiffe (Rot = Waffen/Gefahr, die Wahl des Aufrufers bleibt)
+  function zielNameFarbe(t, verborgen) { return !t ? null : t.station ? PAL.amber : verborgen || t.hidden ? (t.found ? PAL.panelLight : PAL.mint) : null; }   // verborgen: Eintrag aus space.hidden (ohne Marke hidden)
   function markersOf(st) { const m = (st && st.ship && st.ship.markers) || {}; return { captain: m.captain || null, tactical: m.tactical || null }; }
   function pinColor(st, pin) {
     if (typeof pin.color === 'number') return PAL.players[pin.color] || PAL.star;
@@ -3503,7 +3506,8 @@
       { color: dead ? PAL.red : aim ? BURST_COL : torp && ready ? '#F0B45A' : ready ? (inArc ? PAL.amber : PAL.mint) : PAL.panelLight, align: 'center', dedup: !!kurzForm }, ready || aim || dead ? 2 : 0, !(ready || aim || dead));
   }
   // ---- M3a: angekündigter Angriff (tele) – roter, gestrichelter Fächer vom Gegner aufs Schiff + Countdown (Ort vor Zahl)
-  function drawTele(ctx, e, s, cx, cy, t, withCountdown, lab) {
+  // boxLab (nur Karten, nicht Frontsicht): Label-Sammler von drawSpace; der Countdown-Kasten wird dann mit allen anderen Labels entzerrt (flushLabels, Rang 8, nie ausgelassen) statt direkt gezeichnet
+  function drawTele(ctx, e, s, cx, cy, t, withCountdown, lab, boxLab) {
     const te = e.tele || {};
     const left = Math.max(0, +te.left || 0), dur = Math.max(0.1, +te.dur || left || 1);
     const ang = Math.atan2(cy - s.y, cx - s.x);
@@ -3527,9 +3531,13 @@
       const str = (sec ? sec + ' ' : '') + fmt1(left);
       const w = measure(str, 2) + 8;
       const lx = Math.round(s.x - w / 2), ly = Math.round(s.y - rr - 22);
-      ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(lx, ly, w, 17);
-      ctx.strokeStyle = '#FF5A4A'; ctx.setLineDash([3, 2]); ctx.strokeRect(lx + 0.5, ly + 0.5, w - 1, 16); ctx.setLineDash([]);
-      text(ctx, str, s.x, ly + 2, { color: '#FF5A4A', scale: 2, align: 'center', shadow: false });
+      const kasten = (x, y) => {
+        ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(x, y, w, 17);
+        ctx.strokeStyle = '#FF5A4A'; ctx.setLineDash([3, 2]); ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 16); ctx.setLineDash([]);
+        text(ctx, str, x + w / 2, y + 2, { color: '#FF5A4A', scale: 2, align: 'center', shadow: false });
+      };
+      if (boxLab) boxLab(str, s.x, ly, { align: 'center', box: { w, h: 17, draw: kasten } }, 8);   // Karten: Kasten entzerrt (Mitte s.x, Oberkante ly)
+      else kasten(lx, ly);
       if (te.kind === 'emp') lab('EMP', s.x, ly + 19, { color: OFFLINE_COL, align: 'center' }, 6);
     }
   }
@@ -3920,6 +3928,10 @@
     const sight = cfg.sight || Infinity;
     const visible = (wx, wy, r) => Math.hypot(wx - ship.x, wy - ship.y) - (r || 0) <= sight;
     const fog = inFog(st);
+    // OPS-01 G1: eine Markierungssprache, zwei Besitzer. Ops-Taktikkarte: das Ziel der Ops wie bisher (Bernstein, „ZIEL“). Lagekarte (mode 'lage'): das Ziel der Ops steht gedämpft als „OPS-ZIEL“, das
+    // Anzeigeziel des Captains (cfg.anzeigeZielId, id aus Consoles.anzeigeZielVon) bekommt Eisblau mit „ZIEL“; fallen beide auf dasselbe Objekt, steht ein Zeichen (Eisblau, „ZIEL“). Kein Stationsflag: die Karte entscheidet nach mode/Option.
+    const azId = cfg.anzeigeZielId || null, opsDimm = cfg.mode === 'lage';
+    const OPS_DIMM = 'rgba(255,198,107,0.5)';
     const clicks = cfg.enemyRects;
     if (clicks) clicks.length = 0;
     const shipScale = Math.max(MIN_SHIP_SCALE, zoom);
@@ -3939,7 +3951,7 @@
       flushArrows();
       labels.sort((a, b) => b.prio - a.prio);
       for (const l of labels) {
-        const w = measure(l.str, 1) + 2, h = 9;
+        const bx = l.o.box, w = bx ? bx.w : measure(l.str, 1) + 2, h = bx ? bx.h : 9;   // OPS-01 G8: ein Label kann ein Kasten (Angriffs-Countdown) sein, dann gelten seine Maße
         const left = l.o.align === 'center' ? l.x - w / 2 : (l.o.align === 'right' ? l.x - w : l.x);
         let best = null;
         // QA M3a: Label nie über den Kartenrand hinaus (z. B. „LANZE BEREIT“ rechts abgeschnitten) – schon vor der
@@ -3967,13 +3979,15 @@
         // Ziel-, Marker- und Randpfeil-Labels stehen zuletzt am Ursprungsort.
         if (!best && !front) {   // Frontsicht (Steuer) bleibt unverändert: dort gilt weiter die Suche der Client-Runde
           const kand = [];
-          for (let dy = -56; dy <= 56; dy += 4) for (let dx = -(w + 24); dx <= w + 24; dx += 6) kand.push([dx, dy, dx * dx * 0.5 + dy * dy]);
+          const rx = bx ? w + 120 : w + 24, ry = bx ? 100 : 56;   // Countdown-Kästen werden nie ausgelassen und suchen weiter
+          for (let dy = -ry; dy <= ry; dy += 4) for (let dx = -rx; dx <= rx; dx += 6) kand.push([dx, dy, dx * dx * 0.5 + dy * dy]);
           kand.sort((a, b) => a[2] - b[2]);
           for (const [dx, dy] of kand) { const r = inside({ x: left + dx, y: l.y + dy, w, h }); if (frei(r)) { best = r; break; } }
         }
         if (!best) { if (l.optional || (!front && l.prio < 4 && !l.o.rand)) continue; best = inside({ x: left, y: l.y, w, h }); }
         best.str = l.str;
         placed.push(best);
+        if (bx) { bx.draw(Math.round(best.x), Math.round(best.y)); continue; }
         text(ctx, l.str, l.x + (best.x - left), best.y, l.o);
       }
       labels.length = 0;
@@ -4244,9 +4258,11 @@
 
     // Aufgedeckte versteckte Objekte (Weitscan)
     const target = (view.enemies || []).find(e => e.id === sship.target) || (space.hidden || []).find(h => h.id === sship.target) || (sship.target === 'station' ? stationOf(space) : null);
-    if (target && target.station && !front) {
-      const s = toS(target.x, target.y);
-      if (inB(s, 0)) { ctx.strokeStyle = PAL.amber; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(14, 80 * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); lab('ZIEL', s.x, s.y - Math.max(14, 80 * zoom) - 10, { color: PAL.amber, align: 'center' }, 4); }
+    const stAz = !front && azId === 'station' ? stationOf(space) : null;
+    if ((target && target.station && !front) || stAz) {
+      const tg = stAz || target, eis = !!stAz, dimm = opsDimm && !eis;   // OPS-01 G1
+      const s = toS(tg.x, tg.y);
+      if (inB(s, 0)) { ctx.strokeStyle = eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber; ctx.lineWidth = dimm ? 1 : 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(14, 80 * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); lab(dimm ? 'OPS-ZIEL' : 'ZIEL', s.x, s.y - Math.max(14, 80 * zoom) - 10, { color: eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber, align: 'center' }, dimm ? 3.5 : 4); }
     }
     { const so = stationOf(space); if (so && clicks && !front) { const s = toS(so.x, so.y); const r = Math.max(14, 60 * zoom); clicks.push({ id: 'station', x: s.x - r, y: s.y - r, w: r * 2, h: r * 2, station: true }); } }
     for (const h of space.hidden || []) {
@@ -4254,7 +4270,11 @@
       const s = toS(h.x, h.y);
       if (!inB(s, 8)) continue;
       if (!artItem(ctx, h.kind, s.x, s.y, { time: t, found: !!h.found })) fbHidden(ctx, h.kind, s.x, s.y, t);
-      lab((HIDDEN_NAMES[h.kind] || 'SIGNAL') + (h.found ? ' (erfasst)' : ''), s.x, s.y + 9, { color: h.found ? PAL.panelLight : PAL.mint, align: 'center' }, 2);
+      lab((HIDDEN_NAMES[h.kind] || 'SIGNAL') + (h.found ? ' (erfasst)' : ''), s.x, s.y + 9, { color: zielNameFarbe(h, true), align: 'center' }, 2);
+      if (!front && azId && h.id === azId) {   // OPS-01 G1: Anzeigeziel des Captains auf einem versteckten Objekt (Eisblau, „ZIEL“)
+        ctx.strokeStyle = PAL.ice; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, 14, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        lab('ZIEL', s.x, s.y - 24, { color: PAL.ice, align: 'center' }, 4);
+      }
       if (clicks && !front) clicks.push({ id: h.id, x: s.x - 10, y: s.y - 10, w: 20, h: 20, hidden: true });
     }
 
@@ -4373,7 +4393,8 @@
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
       if (clicks && !front) clicks.push({ id: e.id, x: s.x - size - 4, y: s.y - size - 4, w: size * 2 + 8, h: size * 2 + 8 });
-      const isTarget = target && target.id === e.id;
+      const opsT = !!(target && target.id === e.id), azT = !front && !!azId && azId === e.id;   // OPS-01 G1
+      const isTarget = opsT || azT;
       if (!front && !isTarget) {
         const r = size + 6;
         if (e.kind === 'raider') {
@@ -4386,13 +4407,14 @@
       }
       if (isTarget && !front) {
         const r = size + 5 + Math.round(Math.sin(t * 6));
-        ctx.strokeStyle = PAL.amber; ctx.lineWidth = 2;
+        const eis = azT, dimm = opsDimm && !eis, tg = opsT ? target : e;   // Lage: Anzeigeziel des Captains Eisblau, Ziel der Ops gedämpft; Ops-Karte unverändert
+        ctx.strokeStyle = eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber; ctx.lineWidth = dimm ? 1 : 2;
         for (const [qx, qy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
           ctx.beginPath(); ctx.moveTo(s.x + qx * r, s.y + qy * (r - 6)); ctx.lineTo(s.x + qx * r, s.y + qy * r); ctx.lineTo(s.x + qx * (r - 6), s.y + qy * r); ctx.stroke();
         }
-        const zz = target.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(target) : null;
-        const ziel = target.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
-        lab(ziel, s.x, s.y + size + 8, { color: target.ag ? PAL.brass : PAL.amber, align: 'center' }, 6);
+        const zz = tg.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(tg) : null;
+        const ziel = tg.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
+        lab(dimm ? 'OPS-ZIEL' : ziel, s.x, s.y + size + 8, { color: eis ? PAL.ice : dimm ? OPS_DIMM : tg.ag ? PAL.brass : PAL.amber, align: 'center' }, dimm ? 4 : 6);
       }
     }
     // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt die Korvette den Abschuss)
@@ -4404,7 +4426,7 @@
     teleList.sort((a, b) => (+a.e.tele.left || 0) - (+b.e.tele.left || 0));
     teleList.forEach((o, i) => {
       try {
-        if (o.on) drawTele(ctx, o.e, o.s, cx, cy, t, i < 3, lab);
+        if (o.on) drawTele(ctx, o.e, o.s, cx, cy, t, i < 3, lab, front ? null : lab);
         else if (i < 3) arrow(o.e.x, o.e.y, '#FF5A4A', (o.e.tele.sector != null ? SECTOR_SHORT[o.e.tele.sector] + ' ' : '') + fmt1(o.e.tele.left));
       } catch (e) { report('Render.tele', e); }
     });
@@ -5064,7 +5086,7 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    zielNameFarbe, drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,

@@ -206,7 +206,7 @@
         if (window.Entschluesseln) Entschluesseln.draw(c, view, mr);
         const zk = this.pultZielkasten(c, view, { x: r.x + 410, y: r.y + 4, w: r.w - 414, h: r.h - 8 }, target);
         // OPS-01 C2: der Zielkasten ist für beide Stationen derselbe; die Handlung „scannen“ gehört den Ops und steht hier, nicht im Kasten
-        if (zk && zk.ungescannt) T(c, zk.verborgen ? 'S halten: genauer scannen' : 'S: scannen für Schilde', zk.x, zk.y, P.skin.dim);
+        if (zk && zk.hinweis) T(c, zk.hinweis === 'genau' ? 'S halten: genauer scannen' : 'S: scannen für Schilde', zk.x, zk.y, P.skin.dim);
         if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 410, y: r.y + r.h - 16, w: r.w - 414 }));   // unten im Zielkasten
       } });
       const K = g.skin, y0 = g.pult.y;
@@ -315,10 +315,13 @@
       T(ctx, 'Situative Knöpfe', x, y, K.dim); y += 10;
       T(ctx, 'stehen auf der Karte', x, y, K.dim);
     },
+    // OPS-01 G3: EINE Regel für den Scan-Hinweis eines ungescannten Ziels, von Ops und Captain genutzt: 'schilde' (Gegnerschiff: S scannt Schilde und Systeme), 'genau' (Station/verstecktes Objekt: S halten für
+    // den genaueren Scan der Ops), null (gescannt, kein Ziel). Die Ops zeigen beide Arten, der Captain scannt nicht selbst und zeigt nur 'schilde'.
+    scanHinweisArt(target) { return !target || target.scanned ? null : target.hidden ? 'genau' : 'schilde'; },
     // OPS-01 C2: Zielkasten des Captains (Reiter Lage) für sein Anzeigeziel: derselbe Kasten wie bei den Ops; ungescannte Ziele zeigen nichts Genaues, der Captain scannt nicht selbst
     capZielkasten(c, view, b, target) {
       const zk = this.pultZielkasten(c, view, b, target);
-      if (zk && zk.ungescannt) T(c, 'nicht gescannt', zk.x, zk.y, P.skin.dim);
+      if (zk && zk.hinweis === 'schilde') T(c, 'nicht gescannt', zk.x, zk.y, P.skin.dim);   // OPS-01 G3: nur Gegnerschiffe zeigen dem Captain „nicht gescannt“; Station/versteckte Objekte nicht (ihr Beam-/Landescan ist ein anderer Scan, der Hinweis widerspräche „BEAMEN MÖGLICH“)
       return zk;
     },
     // OPS-01 D: „BEAMEN MÖGLICH“ und die Mini-Karte des Landepunkts im Zielkasten (info = Consoles.beamInfo); Karte höchstens 110 px breit, nur wenn Platz bleibt (unten Frachtleiste und Hinweiszeile frei).
@@ -349,7 +352,7 @@
       if (!target) { T(c, list.length ? 'keins – T wählen' : 'keine Gegner', b.x + 6, y, K.dim); return null; }
       const nm = target.station ? target.name : target.hidden ? (R.HIDDEN_NAMES[target.kind] || 'Signal') : (R.ENEMY_NAMES[target.kind] || target.kind);
       const d = Math.round(Math.hypot(target.x - n(ship.x), target.y - n(ship.y)));
-      T(c, wrap1(nm, b.w - 12), b.x + 6, y, P.FN.weapon); y += 9;
+      T(c, wrap1(nm, b.w - 12), b.x + 6, y, R.zielNameFarbe(target) || P.FN.weapon); y += 9;   // OPS-01 G4: Rot = Waffen/Gefahr nur für Gegnerschiffe; Stationen und Objekte in der Farbe ihres Kartenlabels
       const VOLK = { ger: 'Germanen', rom: 'Rom', pirat: 'Piraten' };
       const kopf = (target.vk ? (VOLK[target.vk] || target.vk) + ' · ' : '') + d + ' m';
       T(c, kopf, b.x + 6, y, K.dim);
@@ -372,7 +375,7 @@
         P.segs(c, bx, y, 10, Math.floor(10 * Math.max(0, n(target.hp)) / target.hpMax), 'weapon', P.skinId(view) === 'germanen' ? pitch : pitch - 2, 6); y += 10;
       }
       if (target.hidden && target.found && !target.scanned) { T(c, 'erfasst', b.x + 6, y, K.dim); return { ungescannt: false }; }
-      if (!target.scanned) return { ungescannt: true, verborgen: !!target.hidden, x: b.x + 6, y };
+      if (!target.scanned) return { ungescannt: true, verborgen: !!target.hidden, hinweis: this.scanHinweisArt(target), x: b.x + 6, y };
       // SYS-01 C1b-2 (Ziel-Scan): das Kreuz des gescannten Ziels ersetzt Schildschema und Kennung (Zonen als Schichten, Systeme mit Zustand, Mitte ZU/offen)
       const ZSk = window.Zielsysteme, PSk = window.PultSysteme, ZKk = window.Zonenkreuz, SCk = window.Shared_Schilde;
       const zmod = ZSk && PSk && ZKk && target.kind ? ZKk.modellZiel(zst, { systeme: ZSk.systemeVon(target.kind), lay: SCk ? SCk.layout(CFG, target.kind) : null, schild: target.shields }) : null;
@@ -560,9 +563,10 @@
         P.knopf(ctx, bx, by, bw, 14, name, { hotkey: String(i + 1), aktion: 'captain.reiter' + (i + 1), fn: ['cmd', 'nav', 'sensor', 'neutral', 'nav', 'drive'][i], active: this.tab === i, disabled: dis, reason: 'Nur während der Außenmission', onClick: () => { this.tab = i; } });
       });
       if (this.tab === 2) {   // OPS-01 C2: Anzeigeziel des Captains (Lage): nächstes Ziel (T, wie bei den Ops) oder abwählen
-        const cz = (st.ship || {}).cz, zy = y + 34;
+        const cz = (st.ship || {}).cz, zy = y + 37;   // OPS-01 G5: Trennlinie und 6 px Abstand zur Reiter-Gruppe (3 px + Linie + 3 px)
+        ctx.fillStyle = P.rgba(K.dim, 0.35); ctx.fillRect(62, y + 34, cw, 1);
         P.knopf(ctx, 62, zy, bw, 14, 'Nächstes Ziel', { hotkey: 'T', aktion: 'captain.lage.naechstesZiel', fn: 'sensor', disabled: !this.targetList(view).length, reason: 'Nichts in Sensorreichweite', onClick: () => this.anzeigeZielWechseln(view) });
-        P.knopf(ctx, 62 + bw + 4, zy, bw, 14, 'Ziel löschen', { fn: 'neutral', disabled: !(cz && cz.id), reason: 'Kein Ziel gewählt', onClick: () => this.anzeigeZielWaehlen(view, null) });
+        P.knopf(ctx, 62 + bw + 4, zy, bw, 14, 'Ziel löschen', { hotkey: 'Shift+T', aktion: 'captain.lage.zielLoeschen', fn: 'sensor', disabled: !(cz && cz.id), reason: 'Kein Ziel gewählt', onClick: () => this.anzeigeZielWaehlen(view, null) });
         P.knopf(ctx, 62 + 2 * (bw + 4), zy, bw, 14, 'Marker löschen', { hotkey: 'X', aktion: 'captain.lage.markerLoeschen', fn: 'neutral', disabled: !R.markersOf(st).captain, reason: 'Kein Marker gesetzt', onClick: () => this.cmd(view, 'captain.marker', { clear: true }) });
       }
       x = 400; cw = 234;

@@ -1001,7 +1001,7 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: a.x, y: a.y, w: 440, h: a.h - 2 };
       if (this.mapRects) this.mapRects.lage = rect;
-      this.maps.lage = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: H.szeneRandOben(view, rect.y) }, Kartenlogik.optionen('lage', view)));
+      this.maps.lage = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: Math.max(12, H.szeneRandOben(view, rect.y)), sperren: [{ x: rect.x, y: rect.y + rect.h - 12, w: rect.w, h: 12 }], anzeigeZielId: (this.anzeigeZielVon(view) || {}).id }, Kartenlogik.optionen('lage', view)));
       const rx = a.x + 450, rw = a.w - 450;
       let y = a.y + 2;
       this.lageListe.length = 0;
@@ -1023,7 +1023,7 @@
         if (stg.range && d > stg.range) scanReason = 'Zu weit – näher heranfliegen (' + d + '/' + stg.range + ')';
       }
       if (stg || scan.done || n(scan.progress) > 0 || this.scanOn) { R.bar(ctx, rx, y, rw, 6, n(scan.progress), scan.done ? PAL.moss : PAL.mint); y += 9; }
-      R.button(ctx, rx, y, rw, 16, this.scanOn ? 'Scanne … (halten)' : 'Scannen (halten)', { hotkey: 'Leer', active: this.scanOn, disabled: !!scanReason, reason: scanReason, onClick: () => { this.mouseHold = 'scan'; this.setScan(view, true); } }); y += 22;
+      R.button(ctx, rx, y, rw, 16, this.scanOn ? 'Scanne … halten' : 'Scannen halten', { hotkey: 'Leer', active: this.scanOn, disabled: !!scanReason, reason: scanReason, onClick: () => { this.mouseHold = 'scan'; this.setScan(view, true); } }); y += 22;
       // S2: Schützling – Befehle per Funk (Gehorsam nach Haltung, Rückmeldung aus escortOrder)
       const escHelp = this.escortList(view).length ? ' · H/F/V/D Schützling' : '';
       try { y = this.capEscort(ctx, view, rx, y, rw); } catch (err) { Net.reportError('Consoles.capEscort', err); }
@@ -1039,7 +1039,7 @@
       const scanned = (view.enemies || []).filter(e => e.scanned && e.st !== 'treibt');   // B1: Wrack ohne Waffen
       if (y < a.y + a.h - 22) {
         R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
-        if (!scanned.length) { for (const l of R.wrap('Keine gescannt – Karte anklicken oder T.', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
+        if (!scanned.length) { for (const l of R.wrap('Keine gescannt. Karte anklicken oder T', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
         for (const e of scanned.slice(0, 4)) {
           if (y > a.y + a.h - 20) break;
           const zeile0 = y;
@@ -3071,6 +3071,7 @@
           } else if (tab === 2) {
             if (code === 'Space') { const b = this.findButton(/^Scan/); if (b && !b.disabled) this.setScan(view, true); else if (b) this.denied(b.reason); return true; }
             if (code === 'KeyX') return press(() => this.tryButton('Marker löschen'));
+            if (code === 'KeyT' && e.shiftKey) return press(() => this.tryButton('Ziel löschen'));   // OPS-01 G5: Anzeigeziel abwählen (Shift+T)
             if (code === 'KeyT') return press(() => this.tryButton('Nächstes Ziel'));   // OPS-01 C2: nächstes Anzeigeziel
             if (code === 'KeyZ' && e.shiftKey) return press(() => this.tryButton('Ausrichtung'));   // OPS-01 A: Shift+Z
             if (code === 'KeyZ' || code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('lage', code === 'KeyZ' ? 0 : 1); return true; }

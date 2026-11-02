@@ -158,7 +158,7 @@ section('(b) nach dem Scan (echter Weg L halten): Hinweis und Mini-Karte, Karte 
   ok(R.mapById('platform') === R.mapById(info.mapId) && R.mapById('platform'), 'dieselbe Karte, die der Planungstisch zeichnet (R.mapById)');
   ok(o.karten[0].rect.w >= 60 && o.karten[0].rect.w <= 110 && c.karten[0].rect.w >= 60 && c.karten[0].rect.w <= 110, 'Karte lesbar groß: Ops ' + o.karten[0].rect.w + ' × ' + o.karten[0].rect.h + ' px, Captain ' + c.karten[0].rect.w + ' × ' + c.karten[0].rect.h + ' px');
   ok(o.texte.includes('BEAMEN MÖGLICH') && o.texte.includes('S halten: genauer scannen'), 'der Scan-Hinweis der Ops (Taste S) bleibt neben dem Beam-Hinweis stehen');
-  ok(c.texte.includes('nicht gescannt'), 'Captain: „nicht gescannt“ bleibt');
+  ok(!c.texte.includes('nicht gescannt') && c.texte.includes('BEAMEN MÖGLICH'), 'Captain: bei Station mit Beam-Hinweis keine Zeile „nicht gescannt“ (G3: kein Widerspruch zu „BEAMEN MÖGLICH“)');
   ok(o.fehler.length === 0 && c.fehler.length === 0, 'ohne Anzeigefehler ' + JSON.stringify(o.fehler.concat(c.fehler)));
   // Landepunkt mit eigenem Beam-Punkt: ein verstecktes Objekt (Wrack/Hohlraum) an dieser Stelle gehört zum Landepunkt
   const hx = { id: 'hx', kind: 'hollow', x: 2352, y: 1251, found: false };

@@ -5,6 +5,7 @@
 //       dürfen sich Beschriftungen nicht überlappen (Toleranz 1 px). Die Nordmarke zählt als Beschriftung.
 //   (b) Mutation: dieselbe Szene mit abgeschalteter Kollisionsprüfung muss Überlappungen zeigen – sonst misst der Test nichts (ohne Git)
 //   (c) Kurzform der Bogenbeschriftung unter Zoom 0,2; Beschriftungen bei lesbaren Stufen bleiben; Kennung/Schildring werden nie weggelassen
+//   (e) Angriffs-Countdowns (G8): die Kästen laufen durch dieselbe Entzerrung, kein Kasten überdeckt ein Label, einen Kasten oder eine Sperre
 //   (d) Sicht seitlich >= R.FRONT.side an den Extremen von opsMitteX (pult-stationen.js), Fläche 404 × 184; Sicht nach vorn (R.FRONT.fwd) an der verschobenen Mitte in allen Kursen und beiden Ausrichtungen (R6: Kartenlogik.mitteX)
 //   node tools/test-karte-labels.js
 const fs = require('fs');
@@ -188,6 +189,51 @@ section('(d) Sicht seitlich (R.FRONT.side) und nach vorn (R.FRONT.fwd) an den Ex
   const pOst = rel(fwd, 0), sOst = ohne.res.toS(pOst.x, pOst.y);
   ok(sOst.x > OPS.x + OPS.w, 'ohne Begrenzung (Mitte x + 328): Norden oben, Kurs Ost – der Punkt ' + fwd + ' vor dem Bug liegt rechts außerhalb (' + Math.round(sOst.x - OPS.x) + ' > ' + OPS.w + ')');
   ok(4 + 266 + 58 - pultMitte(z) <= 20 && pultMitte(z) > 4 + 266 + 20, 'die Begrenzung nimmt höchstens 20 px von der Verschiebung (jetzt ' + (4 + 266 + 58 - pultMitte(z)) + ' px), die Mitte bleibt ' + (pultMitte(z) - 270) + ' px rechts der Leistenkante');
+}
+
+section('(e) Angriffs-Countdowns (G8): Kasten „BB 2.1“ … laufen durch die Entzerrung und überdecken kein anderes Label');
+{
+  // Boxen: fillRect 17 px hoch in der Kastenfarbe (drawTele); eigene Zeichenfläche, die sie zusätzlich aufzeichnet
+  const boxenFlaeche = () => {
+    const f = neueFlaeche(), boxen = [], orig = f.ctx;
+    const st = { fs: '' };
+    const ctx = new Proxy(orig, { get: (t, k) => (k === 'fillRect' ? (x, y, w, h) => { if (h === 17 && /^rgba\(11,14,26,0\.85/.test(orig.fillStyle)) boxen.push({ s: 'KASTEN', x, y, w, h }); } : t[k]), set: (t, k, v) => { orig[k] = v; return true; } });
+    return { ctx, texte: f.texte, boxen };
+  };
+  const mitTele = (kurs) => { const v = szene(kurs); const sec = [1, 3, 0, 2, 1, 3, 0, 2]; v.enemies.forEach((e, i) => { if (i < 7) e.tele = { left: 0.9 + i * 0.3, dur: 3, sector: sec[i] }; }); return v; };
+  const lauf2 = (w) => {
+    let schlecht = 0, gesamt = 0, boxenGes = 0; const beispiele = [];
+    for (const f of FAELLE) {
+      w.Kartenlogik.setze(f.karte, f.ausr);
+      const view = mitTele(f.kurs), { ctx, texte, boxen } = boxenFlaeche();
+      w.Render.drawTactical(ctx, view, f.rect, Object.assign({ zoom: f.zoom, arcs: f.karte === 'weapons', intel: true, mode: f.karte === 'weapons' ? 'tactical' : 'lage', enemyRects: [] }, w.Kartenlogik.optionen(f.karte, view), f.extra || {}));
+      const alle = texte.concat(boxen), u = [];
+      for (let i = 0; i < alle.length; i++) for (let j = i + 1; j < alle.length; j++) {
+        const a = alle[i], b = alle[j];
+        if ((a.s !== 'KASTEN' && b.s !== 'KASTEN') ) continue;
+        if (a.x + 1 < b.x + b.w && b.x + 1 < a.x + a.w && a.y + 1 < b.y + b.h && b.y + 1 < a.y + a.h) {
+          // der Zahlentext im Kasten selbst (scale 2, gleiche Stelle) zählt nicht als fremdes Label
+          const zahl = /^(BUG|STB|HECK|BB)? ?\d+[.,]\d$/;
+          if (a.s !== 'KASTEN' && b.s === 'KASTEN' && zahl.test(a.s)) continue;
+          if (b.s !== 'KASTEN' && a.s === 'KASTEN' && zahl.test(b.s)) continue;
+          u.push(a.s + ' x ' + b.s);
+        }
+      }
+      for (const q of (f.extra && f.extra.sperren) || []) for (const b of boxen) if (b.x + 1 < q.x + q.w && q.x + 1 < b.x + b.w && b.y + 1 < q.y + q.h && q.y + 1 < b.y + b.h) u.push('KASTEN x Sperre');
+      gesamt++; boxenGes += boxen.length;
+      if (u.length) { schlecht++; if (beispiele.length < 5) beispiele.push(f.name + ' ' + f.ausr + ' Kurs ' + f.kurs + ' z ' + f.zoom.toFixed(3) + ': ' + u.slice(0, 3).join(' | ')); }
+    }
+    return { schlecht, gesamt, boxenGes, beispiele };
+  };
+  const r = lauf2(win);
+  ok(r.gesamt === FAELLE.length && r.boxenGes >= r.gesamt * 2, r.gesamt + ' Fälle mit 7 angekündigten Angriffen: ' + r.boxenGes + ' Countdown-Kästen gezeichnet (höchstens 3 je Bild)');
+  ok(r.schlecht === 0, 'kein Countdown-Kasten überdeckt ein anderes Label, einen anderen Kasten oder eine Sperre; Fälle mit Überdeckung: ' + r.schlecht + (r.beispiele.length ? ' | ' + r.beispiele.join(' | ') : ''));
+  // Mutation: Kästen wieder direkt gezeichnet (alter Stand) -> Überdeckungen
+  const q = rd('render.js'), marke = 'front ? null : lab);';
+  ok(q.includes(marke), 'Mutationsstelle (boxLab) vorhanden');
+  const m = lauf2(umgebung(q.replace(marke, 'null);')));
+  ok(m.schlecht >= 1, 'Mutation (Kästen direkt gezeichnet): ' + m.schlecht + ' von ' + m.gesamt + ' Fällen mit Überdeckung – der Test misst etwas');
+  // Frontsicht: unverändert (drawTele direkt) -> test-frontsicht.js
 }
 
 console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

@@ -166,6 +166,7 @@
     A('captain.lage.scan', 'captain', 'Scan (halten)', ['Space'], 'captain.lage'),
     A('captain.lage.markerLoeschen', 'captain', 'Marker löschen', ['KeyX'], 'captain.lage'),
     A('captain.lage.naechstesZiel', 'captain', 'Nächstes Ziel (Zielkasten des Captains)', ['KeyT'], 'captain.lage'),
+    A('captain.lage.zielLoeschen', 'captain', 'Ziel löschen (Zielkasten des Captains)', ['Shift+KeyT'], 'captain.lage'),
     A('captain.lage.zoom', 'captain', 'Zoom wechseln', ['KeyZ'], 'captain.lage'),
     A('captain.lage.ausrichtung', 'captain', 'Karte ausrichten: Schiff oben / Norden oben', ['Shift+KeyZ'], 'captain.lage'),
     A('captain.lage.zoomRein', 'captain', 'Hineinzoomen', ['Equal', 'NumpadAdd'], 'captain.lage'),
