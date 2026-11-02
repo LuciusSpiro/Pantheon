@@ -3,8 +3,9 @@
 // Welle 0: selectDest/updateJump/doJump wörtlich aus server/sim/space.js verschoben; space.js ruft sie weiter auf.
 // B3:
 //   - Anflug (E29, Nachtrag W1 AP2): Sprungpunkt anfliegen gilt überall, auch in m1–m3; Ankunft am Gegen-Sprungpunkt.
-//     Im Tutorial bleibt nur die Zielwahl über Ort-Links (zielwahlUeberOrtLinks), damit kein Ort an einer unbekannten
-//     Boje hängt.
+//     Im Tutorial bleibt die Zielwahl über Ort-Links (zielwahlUeberOrtLinks), damit der Captain auch ein „Unbekanntes Signal“ (Boje noch
+//     nicht gefunden) zum Erkunden wählen kann. GEG-01 D: Sprungpunkt-Automatik und Schnellsprung gelten auch im Tutorial; Grenze im
+//     Tutorial: kein Sprung aus dem Saumraum hinaus (tutorialZielErlaubt).
 //   - Ziele sind Nachbarhexe über bekannte, offene Kanten oder offene temporäre Kanten; Leerraum nur über temporäre Kanten.
 //   - Notfallsprung (helm.notsprung): zufällige Kante, bevorzugt in Flugrichtung, nur in spielbare Hexe; Reaktor offline.
 //   - Temporäre Sprungpunkte, Bojen, Debug-Hilfen und `space.jp` für den Snapshot.
@@ -27,7 +28,7 @@ const SK = (game) => (game.C && game.C.sektoren) || {};
 // ---------- Tutorial (CONTRACT-B3 §0.1, CONTRACT-W1 §4) ----------
 // Tutorial läuft: Kampagne mit Tutorial, solange m1–m3 nicht alle erledigt sind; jede Partie ohne Kampagnen-Weltstand
 // (Direktstart m3, Testgelände, Golden-Läufe, Tests). Kampagne ohne Tutorial bzw. nach dem Tutorial: läuft nicht.
-// Nutzer: zielwahlUeberOrtLinks (hier) und away.js (alter Bodenkampf).
+// Nutzer: zielwahlUeberOrtLinks, tutorialZielErlaubt (hier), explore.hexErkundet und away.js (alter Bodenkampf).
 function tutorialLaeuft(game) {
   const ws = game.weltstand;
   if (!ws || !ws.persistent) return true;
@@ -39,8 +40,16 @@ function tutorialLaeuft(game) {
 // Anflug (Sperrgrund, Ankunft am Gegen-Sprungpunkt): gilt immer (E29, Nachtrag W1). Bleibt als Funktion, weil Snapshot
 // (ship.jump.anflug), Clients und explore.js danach fragen.
 function anflugPflicht(game) { return true; }
-// Zielwahl: im Tutorial über Ort-Links wie heute (Boje muss nicht bekannt sein), sonst nach der Hex-Regel (hexGrund)
+// Zielwahl: im Tutorial über Ort-Links (Boje muss nicht bekannt sein: „Unbekanntes Signal“ zum Erkunden), sonst nach der Hex-Regel (hexGrund).
+// Seit GEG-01 D nur noch die Zielwahl des Captains; Sprungpunkt-Automatik und Schnellsprung gelten auch im Tutorial.
 function zielwahlUeberOrtLinks(game) { return tutorialLaeuft(game); }
+// GEG-01 D: Solange das Tutorial läuft, führt kein Sprung (Zielwahl, Automatik, Schnellsprung, Notfallsprung) aus dem Saumraum
+// hinaus (EK7: Statio Limitis grenzt an den Splittergürtel). Leerraum (ohne Hex-Daten) bleibt erlaubt. Nach dem Tutorial: immer erlaubt.
+function tutorialZielErlaubt(game, hex) {
+  if (!tutorialLaeuft(game)) return true;
+  const d = Sektoren.hexDaten(hex);
+  return !d || d.region === 'saumraum';
+}
 
 // ---------- Hilfen ----------
 function hexHier(game) { return Sektoren.hexVonOrt(game.ship.scene); }
@@ -84,6 +93,7 @@ function hexGrund(game, here, ziel) {
   const id = Sektoren.kanteId(here, ziel);
   const e = Sektoren.kante(here, ziel); const temp = ex.tempKante(id);
   if (!Sektoren.spielbar(ziel)) { const t = Sektoren.sperrtext(ziel); return 'Sektor gesperrt' + (t ? ' – ' + t : '.'); }
+  if (!tutorialZielErlaubt(game, ziel)) return 'Außerhalb des Saumraums gesperrt – erst das Tutorial abschließen.';
   if (temp) return null;
   if (!e || (e.art === 'hidden' && !ex.kanteEnthuellt(e)) || !Sektoren.sindNachbarn(here, ziel)) {
     if (e && e.art === 'far') return 'Fernsprungpunkt gesperrt.';
@@ -95,7 +105,7 @@ function hexGrund(game, here, ziel) {
   return null;
 }
 
-// Sprungpunkt-Automatik (außerhalb des Tutorials): Wer nah genug an einem nutzbaren Sprungpunkt ist, hat ihn als Ziel – ohne
+// Sprungpunkt-Automatik (seit GEG-01 D auch im Tutorial): Wer nah genug an einem nutzbaren Sprungpunkt ist, hat ihn als Ziel – ohne
 // Zielwahl des Captains (die Sternkarte bleibt Übersicht und Weg-Hilfe). Die Boje gilt dann als gefunden. Den Sprungpunkt der
 // Kante, über die man gerade angekommen ist, ignoriert sie, bis die Lerche ihn einmal verlassen hat (kein Rücksprung aus Versehen).
 function autoZiel(game) {
@@ -122,7 +132,6 @@ function autoZiel(game) {
 }
 function jumpAutomatik(game) {
   const j = game.ship.jump;
-  if (tutorialLaeuft(game)) return;   // Tutorial: Zielwahl wie bisher (m1–m3 fragen danach)
   const a = autoZiel(game);
   if (a) {
     if (j.dest !== a) { j.dest = a; j.charge = 0; j.ready = false; game.missionEvent('destSelected', { dest: a }); }
@@ -147,7 +156,7 @@ function updateJump(game, dt) {
     if (p && anflugPflicht(game) && j.d > (SK(game).sprungpunktRadius || 250)) anflug = `Sprungpunkt ${Sektoren.hexName(zielHex)} anfliegen (${j.d} m)`;
   } else { if (j.jp !== undefined) delete j.jp; if (j.d !== undefined) delete j.d; }
   let reason = null;
-  if (!j.dest) reason = tutorialLaeuft(game) ? 'Kein Sprungziel gewählt (Captain, Sternkarte).' : 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.';
+  if (!j.dest) reason = 'Kein Sprungpunkt in Reichweite – Boje am Sektorrand anfliegen.';
   else if (ship.docked) reason = 'Erst ablegen.';
   else if (isDown(ship.systems.engines)) reason = 'Antrieb ausgefallen – reparieren.';
   else if (ship.power.engines <= 0) reason = 'Antrieb ohne Energie.';
@@ -228,15 +237,22 @@ function selectDest(game, dest) {
   if (game.reise) return 'Schnellsprung läuft – Steuer: G bricht ab.';
   let routeDest = null; let routeN = 0;
   const here = hexHier(game); const ziel = Sektoren.hexVonOrt(id);
+  if (!tutorialZielErlaubt(game, ziel)) return 'Außerhalb des Saumraums gesperrt – erst das Tutorial abschließen.';
+  let schnell = false;   // Route über erkundete Sektoren geplant (Schnellsprung möglich)
   if (zielwahlUeberOrtLinks(game)) {
     // Tutorial (E29): Ort-Links wie heute (Boje muss nicht bekannt sein); Leerraum/temporäre Kanten nach der Hex-Regel
     const beideOrte = !Sektoren.istLeerId(id) && !Sektoren.istLeerId(game.ship.scene);
     if (!ex.isLinked(game.ship.scene, id)) {
       if (beideOrte && !ex.tempKante(Sektoren.kanteId(here, ziel))) {
-        // nicht nebenan: der erste Hop der Route wird das Sprungziel („erst über einen Nachbarort“), kein Fehlerton
-        const hops = Reise().weich(game, here, ziel, true);
-        if (!hops || hops.length < 2) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
-        routeDest = Sektoren.ortVonHex(hops[0]); routeN = hops.length;
+        // GEG-01 D: Route über erkundete Sektoren -> Schnellsprung wie im freien Spiel
+        const planHops = Reise().planen(game, here, ziel);
+        if (planHops && planHops.length >= 2) { game.reisePlan = { ziel: id, hops: planHops }; routeDest = Sektoren.ortVonHex(planHops[0]); schnell = true; }
+        else {
+          // nicht nebenan: der erste Hop der Route wird das Sprungziel („erst über einen Nachbarort“), kein Fehlerton
+          const hops = Reise().weich(game, here, ziel, true);
+          if (!hops || hops.length < 2) return 'Keine bekannte Route dorthin – erst über einen Nachbarort.';
+          routeDest = Sektoren.ortVonHex(hops[0]); routeN = hops.length;
+        }
       } else {
         const why = hexGrund(game, here, ziel);
         if (why) return why;
@@ -257,7 +273,7 @@ function selectDest(game, dest) {
   }
   const why = game.mission.destBlocked(routeDest || id);
   if (why) return why;
-  if (zielwahlUeberOrtLinks(game)) game.reisePlan = null;
+  if (zielwahlUeberOrtLinks(game) && !schnell) game.reisePlan = null;
   game.ship.jump.dest = routeDest || id; game._jumpAuto = false;
   game.emit('sfx', { name: 'jump_charge' });
   game.missionEvent('destSelected', { dest: routeDest || id });
@@ -276,7 +292,7 @@ function notsprungKandidaten(game) {
     && (!Sektoren.istVerborgen(h) || game.explore.kanteOffen(Sektoren.kanteId(here, h)))   // SL1: verborgene Hexe nur über enthüllte Kante
     && !(Sektoren.hexDaten(h) && Sektoren.hexDaten(h).notsprung === false));   // SL3: Hex mit "notsprung": false ist nie Ziel eines Notfallsprungs (z. B. Helix nur über temporären Sprungpunkt)
   // EK7: Solange das Tutorial läuft, führt der Notfallsprung nie aus dem Saumraum hinaus (Statio Limitis grenzt an den Splittergürtel)
-  if (tutorialLaeuft(game)) c = c.filter((h) => { const d = Sektoren.hexDaten(h); return !d || d.region === 'saumraum'; });
+  c = c.filter((h) => tutorialZielErlaubt(game, h));
   // Leerraum oder ein Hex ohne befahrbare Kante (z. B. Bojenfeld vor der Enthüllung): der Notfallsprung führt in ein System (E30), nie tiefer in den Leerraum
   const ohneKante = !Sektoren.kantenVon(here).some((e) => game.explore.kanteOffen(typeof e === 'string' ? e : Sektoren.kanteId(e.a, e.b)));
   if (Sektoren.istLeerraum(here) || ohneKante) { const sys = c.filter((h) => !Sektoren.istLeerraum(h)); if (sys.length) c = sys; }
@@ -499,7 +515,7 @@ function debugErkundeAlle(game) {
 
 module.exports = {
   jammersPresent, updateJump, doJump, selectDest, JAMMERS,
-  tutorialLaeuft, anflugPflicht, springeNach, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
+  tutorialLaeuft, tutorialZielErlaubt, anflugPflicht, springeNach, zielwahlUeberOrtLinks, zielId, nachbarOrte, sprungpunkt, abstandSprungpunkt, amSprungpunkt, hexGrund,
   notsprung, notsprungGrund, notsprungKandidaten, notsprungSchaden, oeffnen, schliessen, missionEnde, bojeAufdecken, kanteEnthuellen, jpSnapshot,
   toSave, restore, debugHex, debugErkundeAlle,
 };
