@@ -1,18 +1,24 @@
 'use strict';
 // Test-Runner (TST-01): fuehrt die Schritte aus tools/testliste.json aus und misst Zeit, Exit-Code, Ausgabegroesse.
 // Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur <id,...>] [--kette check|test] [--timeout <s>]
+//                                                      [--stufe fast|full|slow|alles] [--trocken]
 //                                                      [--ausgabe <datei.json>] [--liste <datei.json>]
 //   --seriell  ein Schritt nach dem anderen (Reihenfolge der Liste), Schritte teilen sich Temp und Umgebung
 //   --parallel Pool mit N Workern (Standard: Kerne minus 4, mind. 1); laengste Schritte zuerst (Dauer aus
 //              tools/fixtures/testzeiten/baseline.json, unbekannte Schritte gelten als lang)
 //   --worker   Poolgroesse fuer --parallel
 //   --nur      Schritt-IDs oder Dateinamen ohne Argumente (z. B. test-flight), kommagetrennt
+//   --stufe    Auswahl nach Feld "stufe" je Listeneintrag (Pflicht, fast|full|slow): fast = nur fast, full = fast + full
+//              (alles ausser slow), slow = nur slow, alles = alle (Standard). Fehlt das Feld oder ist der Wert ungueltig:
+//              Abbruch vor dem Start, Exit 2. Kombinierbar mit --kette, --nur, --parallel/--seriell.
+//   --trocken  nur die Auswahl listen (Zahl je Stufe), nichts starten, keine Ausgabedatei, Exit 0
 //   --timeout  je Schritt in Sekunden (Standard 1800)
 //   --ausgabe  Ergebnis-JSON (Standard tools/fixtures/testzeiten/lauf-<Zeitstempel>.json)
 //   --liste    andere Testliste (Standard tools/testliste.json)
 // Kein Abbruch beim ersten roten Schritt; Gesamt-Exit 1 bei irgendeinem Roten oder Timeout.
 // Optionales Feld je Listeneintrag: "seriell": true -> der Schritt laeuft im Parallelmodus erst nach dem Pool, allein
-//   (kein anderer Schritt gleichzeitig). Aktuell hat kein Schritt das Feld: alle mutation-* arbeiten auf Kopien in Temp.
+//   (kein anderer Schritt gleichzeitig). Gesetzt bei test-abenteuer und -kanon (spawnSync-Timeouts reissen bei ueberbuchter CPU).
+//   --stufe aendert daran nichts: die Markierung gilt unabhaengig von der Stufe.
 // Isolation im Parallelmodus: jeder Schritt bekommt ein eigenes Temp-Verzeichnis (TEMP/TMP/TMPDIR zeigen darauf,
 //   os.tmpdir() liefert es), das nach dem Schritt geloescht wird; REGIE_DIR zeigt auf <Temp>/regie (Standard waere data/regie im Repo). Ports: die Tests nutzen Port 0 (frei vergeben), PORT wird
 //   bewusst NICHT gesetzt. Ergebnis-JSON je Schritt zusaetzlich start_s/ende_s (relativ zum Laufbeginn).
@@ -97,11 +103,20 @@ function baselineDauern() {
 async function main() {
   const parallel = process.argv.includes('--parallel');
   if (!parallel && !process.argv.includes('--seriell')) {
-    console.error('Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur ids] [--kette check|test] [--timeout s] [--ausgabe datei] [--liste datei]');
+    console.error('Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur ids] [--kette check|test] [--stufe fast|full|slow|alles] [--trocken] [--timeout s] [--ausgabe datei] [--liste datei]');
     process.exit(2);
   }
   const listeDatei = path.resolve(argWert('--liste', path.join(__dirname, 'testliste.json')));
   let liste = JSON.parse(fs.readFileSync(listeDatei, 'utf8'));
+  const STUFEN = ['fast', 'full', 'slow'];
+  const ungueltig = liste.filter(e => !STUFEN.includes(e.stufe));
+  if (ungueltig.length) {
+    console.error('Testliste ungueltig: Feld "stufe" fehlt oder ist nicht fast|full|slow bei ' + ungueltig.length + ' Eintraegen: '
+      + ungueltig.slice(0, 10).map(e => e.id + ' (' + JSON.stringify(e.stufe) + ')').join('; ') + (ungueltig.length > 10 ? ' ...' : ''));
+    process.exit(2);
+  }
+  const stufe = argWert('--stufe', 'alles');
+  if (![...STUFEN, 'alles'].includes(stufe)) { console.error('Ungueltige Stufe: ' + stufe + ' (erlaubt: fast, full, slow, alles)'); process.exit(2); }
   const kette = argWert('--kette', null);
   if (kette) liste = liste.filter(e => e.kette === kette);
   const nur = argWert('--nur', null);
@@ -111,6 +126,14 @@ async function main() {
     if (unbekannt.length) { console.error('Unbekannte Schritte: ' + unbekannt.join(', ')); process.exit(2); }
     liste = liste.filter(e => wunsch.some(w => e.id === w || e.id.split(' ')[0] === w));
   }
+  liste = liste.filter(e => stufe === 'alles' || (stufe === 'full' ? e.stufe !== 'slow' : e.stufe === stufe));
+  if (process.argv.includes('--trocken')) {
+    const z = {}; for (const e of liste) z[e.stufe] = (z[e.stufe] || 0) + 1;
+    console.log('Trocken: Stufe ' + stufe + (kette ? ', Kette ' + kette : '') + ': ' + liste.length + ' Schritte (fast ' + (z.fast || 0) + ', full ' + (z.full || 0)
+      + ', slow ' + (z.slow || 0) + '), davon seriell-markiert ' + liste.filter(e => e.seriell).length);
+    for (const e of liste) console.log('  ' + e.stufe.padEnd(5) + (e.seriell ? ' S ' : '   ') + e.id);
+    process.exit(0);
+  }
   const timeoutS = Number(argWert('--timeout', 1800));
   const worker = parallel ? Math.max(1, Math.floor(Number(argWert('--worker', Math.max(1, os.cpus().length - 4)))) || 1) : 1;
   const jetzt = new Date();
@@ -119,7 +142,7 @@ async function main() {
   const git = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: WURZEL, encoding: 'utf8' });
 
   const doc = {
-    datum: jetzt.toISOString(), node: process.version, kerne: os.cpus().length, modus: parallel ? 'parallel' : 'seriell',
+    datum: jetzt.toISOString(), node: process.version, kerne: os.cpus().length, modus: parallel ? 'parallel' : 'seriell', stufe, kette: kette || null,
     git: git.status === 0 ? git.stdout.trim() : null, timeout_s: timeoutS, schritte_gesamt: liste.length,
     fertig: false, gesamtdauer_s: 0, schritte: [],
   };
@@ -197,7 +220,7 @@ async function main() {
   const tout = doc.schritte.filter(s => s.timeout).length;
   const rot = doc.schritte.length - gruen - tout;
   console.log('\nZusammenfassung: ' + doc.schritte.length + '/' + liste.length + ' Schritte, ' + gruen + ' gruen, ' + rot + ' rot, ' + tout + ' Timeout'
-    + (parallel ? ' (parallel, ' + worker + ' Worker)' : '') + (abbruch ? ' (abgebrochen)' : ''));
+    + ', Stufe ' + stufe + (parallel ? ' (parallel, ' + worker + ' Worker)' : '') + (abbruch ? ' (abgebrochen)' : ''));
   console.log('Top 15 nach Dauer:');
   doc.schritte.slice().sort((a, b) => b.dauer_s - a.dauer_s).slice(0, 15)
     .forEach(s => console.log('  ' + s.dauer_s.toFixed(1).padStart(8) + ' s  ' + s.id));
