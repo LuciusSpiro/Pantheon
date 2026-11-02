@@ -67,6 +67,19 @@ section('(a) Tutorial (Kampagne m1): Sprungpunkt-Automatik setzt das Ziel von se
   ok(Sprung.doJump(g) === j.blockedReason, 'doJump liefert den Sperrgrund');
 }
 
+section('(a2) Die ausdrückliche Wahl des Captains bleibt: Automatik überschreibt sie nicht (Lerche steht am anderen Sprungpunkt)');
+{
+  const t = setup('m1'); const g = t.g; const j = g.ship.jump;
+  amSprungpunkt(t, '0306');
+  ok(j.dest === 'splitter', 'am Sprungpunkt Splittergürtel: Automatik-Ziel splitter');
+  ok(Sprung.selectDest(g, 'vaelen') === null && j.dest === 'vaelen', 'Captain wählt Vaelen (Ort-Link, Unbekanntes Signal)');
+  t.run(2);
+  ok(j.dest === 'vaelen', 'zwei Sekunden später gilt noch die Wahl des Captains (kein Zurückspringen auf den Sprungpunkt unter der Lerche)');
+  place(g, 1200, 700); t.run(0.5);
+  amSprungpunkt(t, '0306');
+  ok(j.dest === 'splitter', 'nach dem Verlassen und Wiederanflug des Sprungpunkts greift die Automatik wieder');
+}
+
 // ---------------------------------------------------------------------------------------------------------------------
 section('(b) Tutorial (Direktstart m3): Schnellsprung über erkundete Sektoren');
 {

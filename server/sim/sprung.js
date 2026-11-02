@@ -126,13 +126,13 @@ function autoZiel(game) {
     if (hexGrund(game, here, other)) continue;
     const ort = Sektoren.ortVonHex(other);
     if (!ort || !Locations.get(ort) || game.mission.destBlocked(ort)) continue;
-    if (!best || d < best.d) best = { d, ort };
+    if (!best || d < best.d) best = { d, ort, id };
   }
-  return best ? best.ort : null;
+  return best;   // { d, ort, id } | null
 }
 function jumpAutomatik(game) {
   const j = game.ship.jump;
-  const a = autoZiel(game);
+  const nah = autoZiel(game); const a = nah && nah.ort;
   if (a) {
     if (j.dest !== a) { j.dest = a; j.charge = 0; j.ready = false; game.missionEvent('destSelected', { dest: a }); }
     game._jumpAuto = true;
@@ -274,6 +274,10 @@ function selectDest(game, dest) {
   const why = game.mission.destBlocked(routeDest || id);
   if (why) return why;
   if (zielwahlUeberOrtLinks(game) && !schnell) game.reisePlan = null;
+  // GEG-01 D: Steht die Lerche schon an einem anderen Sprungpunkt, gilt die ausdrückliche Wahl des Captains – die Automatik ignoriert jenen
+  // Sprungpunkt, bis die Lerche ihn verlässt (sonst überschriebe sie die Wahl in jedem Takt, z. B. Vaelen: Hafen-Sprungpunkt am Dock)
+  const nah = autoZiel(game);
+  if (nah && nah.ort !== (routeDest || id)) game._jumpSperre = nah.id;
   game.ship.jump.dest = routeDest || id; game._jumpAuto = false;
   game.emit('sfx', { name: 'jump_charge' });
   game.missionEvent('destSelected', { dest: routeDest || id });

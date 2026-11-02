@@ -25,7 +25,9 @@ const MUTATIONEN = [
   [RE, "sprung().hexGrund(game, here, next) || (ort && (game.mission.destBlocked(ort) || game.mission.jumpBlocked(ort)));", "(ort && game.mission.jumpBlocked(ort));", 'Hop: hexGrund und destBlocked entfernt'],
   [RE, "game.mission.destBlocked(ort) || game.mission.jumpBlocked(ort)", "game.mission.jumpBlocked(ort)", 'Hop: destBlocked entfernt'],
   [SP, "|| game.mission.destBlocked(ort)) continue;", ") continue;", 'Automatik: destBlocked entfernt'],
-  [SP, "  if (!tutorialZielErlaubt(game, ziel)) return 'Außerhalb des Saumraums gesperrt – erst das Tutorial abschließen.';\n", "", 'hexGrund: Tutorial-Regionsgrenze entfernt (Automatik, Zielwahl, Hop)'],
+  [SP, "  if (!tutorialZielErlaubt(game, ziel)) return 'Außerhalb des Saumraums gesperrt – erst das Tutorial abschließen.';\n  if (temp) return null;", "  if (temp) return null;", 'hexGrund: Tutorial-Regionsgrenze entfernt (Automatik, Zielwahl, Hop)'],
+  [SP, "  if (!tutorialZielErlaubt(game, ziel)) return 'Außerhalb des Saumraums gesperrt – erst das Tutorial abschließen.';\n  let schnell", "  let schnell", 'selectDest: Tutorial-Regionsgrenze entfernt'],
+  [SP, "  if (nah && nah.ort !== (routeDest || id)) game._jumpSperre = nah.id;", "", 'selectDest: Wahl des Captains gegen die Automatik nicht abgesichert'],
   [SP, "  c = c.filter((h) => tutorialZielErlaubt(game, h));", "", 'Notsprung: Saumraum-Filter entfernt'],
 ];
 
