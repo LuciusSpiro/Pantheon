@@ -149,8 +149,8 @@ section('Stützpunkte im Anzeigeblock world.lage (st) und auf der Karte', () => 
 async function statisch() {
   console.log('\n[Ausgelieferte Textdateien]');
   const { startServer } = require('../server/index.js');
-  const srv = await startServer({ port: 3479, roomCode: 'off', quiet: true });
-  const holen = (u) => new Promise((res) => http.get('http://127.0.0.1:3479' + u, (r) => { let d = ''; r.on('data', (x) => { d += x; }); r.on('end', () => res({ s: r.statusCode, d })); }).on('error', () => res({ s: 0, d: '' })));
+  const srv = await startServer({ port: 0, roomCode: 'off', quiet: true });
+  const holen = (u) => new Promise((res) => http.get('http://127.0.0.1:' + srv.port + u, (r) => { let d = ''; r.on('data', (x) => { d += x; }); r.on('end', () => res({ s: r.statusCode, d })); }).on('error', () => res({ s: 0, d: '' })));
   try {
     const a = await holen('/content/flotte/ruf.json'), b = await holen('/content/welt/ruf-werte.json');
     ok(a.s === 200 && JSON.parse(a.d).anzeige && b.s === 200 && JSON.parse(b.d).werte.raenge, 'ruf.json und ruf-werte.json kommen an (200)');
