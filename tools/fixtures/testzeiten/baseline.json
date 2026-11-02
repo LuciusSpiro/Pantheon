@@ -1,5 +1,10 @@
 {
  "kopf": {
+  "datum": "2026-11-02T19:27:23.391Z",
+  "node": "v22.20.0",
+  "kerne": 16,
+  "modus": "seriell",
+  "git": "2d23cb31007826fc4bad91519505aba51f0ddb35",
   "hinweis": "Baseline TST-01 Paket A: seriell auf main f2daff7, 2026-11-02. Suite ohne kette (978.3 s) und kette einzeln (996.0 s) in zwei Läufen, nacheinander zusammengeführt. Gesamt seriell ca. 1974 s.",
   "schritte_gesamt": 208,
   "kette_dauer_s": 996.03
