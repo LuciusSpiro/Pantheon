@@ -208,7 +208,7 @@ function fahreTransporter(game, k, e, dt) {
       im[a.id] = game.time + game.C.flight.asteroidImmunity;
       S.brockenStats(game).gegner++;
       const h0 = e.hitT;   // ein Brocken ist kein Angriff der Lerche: löst keinen Alarm der Eskorte aus
-      S.damageEnemy(game, e, game.C.asteroid.damage, a.x, a.y);
+      S.damageEnemy(game, e, game.C.asteroid.damage, a.x, a.y, { brocken: true });
       e.hitT = h0;
     });
   }
