@@ -4748,6 +4748,51 @@
     return { toS, toW, scale: sc };
   }
 
+  // Farbe einer Kachel der Außenkarte (Planungstisch drawLocalMap und Mini-Karte im Zielkasten drawMiniKarte teilen sie): Zeichen ch der Karte mapId, obj = Objekttabelle der Karte
+  function kachelFarbe(mapId, ch, obj) {
+    let col = '#2A3446';
+    if (mapId === 'kesh') col = ch === 'R' ? '#16131A' : ch === '#' ? '#5A5166' : ch === '.' ? '#4A4034' : ch === 'P' ? '#3D6A60' : ch === 'o' ? '#8A8294' : ch === 'I' ? '#B8AEC4' : ch === 'r' ? PAL.red : ch === 'k' ? KESH_VIOLET : ch === 'G' ? '#7A3FB0' : ch === 'T' ? '#D9A441' : '#2E2B36';
+    else if (ch === '#') col = '#55677E';
+    else if (ch === 'P') col = '#3D6A60';
+    else if (ch === 'h') col = PAL.rust;
+    else if (ch === 'g') col = PAL.mint;
+    else if (ch === 'V') col = '#3B3A44';
+    else if (ch === 'L') col = PAL.red;
+    else if (ch === 'Z') col = PAL.amber;
+    else if (ch === 'b') col = PAL.indigo;
+    else if (obj[ch]) col = '#3B4658';
+    return col;
+  }
+  // OPS-01 D: Mini-Karte eines gescannten Landepunkts im Zielkasten (nicht interaktiv, ohne KartenAnsicht-Zustand, kein Pan/Zoom). Dieselbe Kartenquelle wie der Planungstisch:
+  // mapById(mapId) und dieselbe Kachelfarbe (kachelFarbe); die Kacheln werden einmal in eine kleine Fläche gezeichnet und von dort kopiert (je Karte und Größe, neu bei neuer Karte).
+  // Pads (P) stehen hell, sie sind die Beam-Punkte. Rückgabe: true, wenn eine Karte gezeichnet wurde (mapById kennt die Karte), sonst false (nur der leere Rahmen).
+  const MINI_KARTEN = {};
+  function drawMiniKarte(ctx, view, rect, mapId, opts) {
+    opts = opts || {};
+    const tmap = mapId ? mapById(mapId) : null;
+    ctx.fillStyle = '#070B14'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.strokeStyle = opts.rahmen || PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+    if (!tmap || !(tmap.w > 0) || !(tmap.h > 0)) return false;
+    const iw = rect.w - 4, ih = rect.h - 4, c = Math.min(iw / tmap.w, ih / tmap.h);
+    const pw = Math.max(1, Math.round(tmap.w * c)), ph = Math.max(1, Math.round(tmap.h * c));
+    const key = mapId + '|' + pw + 'x' + ph;
+    let e = MINI_KARTEN[key];
+    if (!e || e.tmap !== tmap) {
+      const cv = document.createElement('canvas'); cv.width = pw; cv.height = ph;
+      const g = cv.getContext('2d'), obj = mapId === 'wreck' ? OBJ_WRECK : OBJ;
+      for (let ty = 0; ty < tmap.h; ty++) for (let tx = 0; tx < tmap.w; tx++) {
+        const ch = tmap.at(tx, ty);
+        if (ch === ' ' || ch === '~') continue;
+        g.fillStyle = ch === 'P' ? PAL.mint : kachelFarbe(mapId, ch, obj);
+        const x0 = Math.round(tx * pw / tmap.w), y0 = Math.round(ty * ph / tmap.h), x1 = Math.round((tx + 1) * pw / tmap.w), y1 = Math.round((ty + 1) * ph / tmap.h);
+        g.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+      }
+      e = MINI_KARTEN[key] = { tmap, cv };
+    }
+    ctx.drawImage(e.cv, rect.x + 2 + Math.floor((iw - pw) / 2), rect.y + 2 + Math.floor((ih - ph) / 2));
+    return true;
+  }
+
   // Detailkarte eines Orts (Planungstisch): Außenkarte als Kachelkarte oder Szenenübersicht.
   function drawLocalMap(ctx, view, rect, mapId, opts) {
     opts = opts || {};
@@ -4772,17 +4817,7 @@
       for (let ty = 0; ty < tmap.h; ty++) for (let tx = 0; tx < tmap.w; tx++) {
         const ch = tmap.at(tx, ty);
         if (ch === ' ' || ch === '~') continue;
-        let col = '#2A3446';
-        if (mapId === 'kesh') col = ch === 'R' ? '#16131A' : ch === '#' ? '#5A5166' : ch === '.' ? '#4A4034' : ch === 'P' ? '#3D6A60' : ch === 'o' ? '#8A8294' : ch === 'I' ? '#B8AEC4' : ch === 'r' ? PAL.red : ch === 'k' ? KESH_VIOLET : ch === 'G' ? '#7A3FB0' : ch === 'T' ? '#D9A441' : '#2E2B36';
-        else if (ch === '#') col = '#55677E';
-        else if (ch === 'P') col = '#3D6A60';
-        else if (ch === 'h') col = PAL.rust;
-        else if (ch === 'g') col = PAL.mint;
-        else if (ch === 'V') col = '#3B3A44';
-        else if (ch === 'L') col = PAL.red;
-        else if (ch === 'Z') col = PAL.amber;
-        else if (ch === 'b') col = PAL.indigo;
-        else if (obj[ch]) col = '#3B4658';
+        const col = kachelFarbe(mapId, ch, obj);
         const x0 = Math.round(ox + tx * c), y0 = Math.round(oy + ty * c), x1 = Math.round(ox + (tx + 1) * c), y1 = Math.round(oy + (ty + 1) * c);
         if (x1 < rect.x || y1 < rect.y || x0 > rect.x + rect.w || y0 > rect.y + rect.h) continue;
         ctx.fillStyle = col; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -5022,7 +5057,7 @@
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,
     addFx, drawWorld, drawTactical, drawMiniPlan, miniPlanSize, updateCamera,
     // M1
-    OBJ_WRECK, mapById, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
+    OBJ_WRECK, mapById, drawMiniKarte, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
     // M2
     OBJ_KESH, SHIELD_COL, AIM_COL, KESH_VIOLET, ORDER_KINDS, ORDER_NAMES, ORDER_COL, ROLE_NAMES,
     isV2, cfgNum, solidFn, keshObjState, teamVision, lanzeEnde, lanzeZiele, lanzeEreignis, lanzeBereit, lanzeFenster, lanzeWinkel, activeOrders, orderPos, drawShieldPips, drawShieldRing, drawMediCross, drawAwayCommandMap, awayMapById,

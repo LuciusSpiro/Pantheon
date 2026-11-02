@@ -321,6 +321,16 @@
       if (zk && zk.ungescannt) T(c, 'nicht gescannt', zk.x, zk.y, P.skin.dim);
       return zk;
     },
+    // OPS-01 D: „BEAMEN MÖGLICH“ und die Mini-Karte des Landepunkts im Zielkasten (info = Consoles.beamInfo); Karte höchstens 110 px breit, nur wenn Platz bleibt (unten Frachtleiste und Hinweiszeile frei).
+    // Rückgabe: y unter dem Block
+    zielBeamBlock(c, view, b, y, info) {
+      const K = P.skin;
+      c.fillStyle = P.FN.shield; c.fillRect(b.x + 6, y + 1, 4, 5);
+      T(c, 'BEAMEN MÖGLICH', b.x + 13, y, P.FN.shield); y += 10;
+      const w = Math.min(b.w - 12, 110), avail = b.y + b.h - 16 - y - 12, h = Math.min(Math.round(w * 0.62), avail);
+      if (h >= 22) { R.drawMiniKarte(c, view, { x: b.x + 6, y, w, h }, info.mapId, { rahmen: K.dim }); y += h + 3; }
+      return y;
+    },
     // Zielkasten (Ops: rechts neben der Taktikkarte, Captain: Reiter Lage): Name, Klasse, Entfernung, Hülle, bei gescannten Zielen Zonenkreuz, sonst vier Schildsektoren.
     // EINE Funktion für beide Stationen, ohne Stationsparameter: sie zeichnet das Ziel, das sie bekommt, mit den Detaildaten aus Consoles.zielDetail(view, target.id).
     // Rückgabe: null (kein Ziel) oder { ungescannt, verborgen, x, y } – ungescannte Ziele zeigen nichts Genaues, die Stelle für einen Hinweis meldet der Kasten dem Aufrufer
@@ -351,6 +361,9 @@
         T(c, v, b.x + b.w - 6, y, sf.zust === 'zer' ? FS.zerText : sf.zust === 'besch' ? FS.besch : FS.statusVoll, 'right');
       }
       y += 11;
+      // OPS-01 D: Beam-Hinweis und Mini-Karte des gescannten Landepunkts (nur wenn das Ziel einen hat; sonst bleibt der Kasten Zeile für Zeile wie bisher)
+      const bi = this.beamInfo(view, target);
+      if (bi) y = this.zielBeamBlock(c, view, b, y, bi);
       // SYS-01 C1b-2: Gesamtintegrität in % statt HÜLLE (die schwächste Zone steht rechts in der Kopfzeile und im Kreuz). Review: Balken ab Textende + 4 px, Segmente aus der Restbreite, abgerundet
       if (!target.hidden && target.hpMax) {
         const gt = PSt ? PSt.text(PSt.TOKENS.TEXT.gesamt, { p: Math.round(100 * n(target.hp) / target.hpMax) }) : 'GESAMT';

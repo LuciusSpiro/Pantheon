@@ -165,7 +165,7 @@ section('(e) Frontsicht unverändert');
     const p1 = prot(win), p2 = prot(wa);
     ok(p1.length > 100 && p1 === p2, 'drawFrontView: Aufrufprotokoll gleich dem Stand von Paket A (' + p1.length + ' Zeichen)');
   } else ok(false, 'Vergleichsstand ebfc378 nicht lesbar');
-  const C1 = ['server/game.js', 'server/sim/captainziel.js', 'shared/protocol.js'];   // OPS-01 C1 (Anzeigeziel des Captains) kam nach Paket A dazu und gehört nicht zu Paket B
+  const C1 = ['server/game.js', 'server/sim/captainziel.js', 'shared/protocol.js', 'server/sim/explore.js'];   // OPS-01 C1 (Anzeigeziel des Captains) und D (lp-Eintrag mit Beam-Punkt: explore.js) kamen nach Paket A dazu und gehören nicht zu Paket B
   ok(git(['diff', '--name-only', 'ebfc378', '--', 'public/js/sitz.js', 'server', 'shared']).split('\n').map((l) => l.trim()).filter((l) => l && !C1.includes(l)).length === 0, 'sitz.js, server/, shared/ gegenüber Paket A unverändert, bis auf den Serverteil von C1 (kein Snapshot-/Serverteil; render.js nur durch die Label-Entzerrung der Nacharbeit, drawFrontView bleibt durch das Aufrufprotokoll oben belegt)');
 }
 

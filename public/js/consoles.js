@@ -72,6 +72,7 @@
   const WIDESCAN_CD = (CFG.widescan && CFG.widescan.cooldown) || 20;
   const OVERLOAD_TIME = (CFG.reactorM1 && CFG.reactorM1.overloadTime) || 180;
   const MAX_PINS = (CFG.plan && CFG.plan.maxPins) || 5;
+  const BEAM_ZIEL_TOL = 24;   // OPS-01 D: so nah (px) muss ein Ziel am Beam-Punkt eines gescannten Landepunkts liegen (Consoles.beamInfo)
   const STATE_TXT = { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' };
 
   // M3b: Lerche-Klasse für Temporegler und Drehfaktor (Server-Snapshot ship.helm ist maßgeblich, das hier ist Fallback)
@@ -1670,6 +1671,19 @@
       if (id === ship.target) return { sys: ship.zielSys, zon: ship.zielZon, wahl: ship.zielWahl };
       const cz = ship.cz;
       return cz && cz.id === id && (cz.sys || cz.zon) ? { sys: cz.sys, zon: cz.zon, wahl: cz.wahl } : null;
+    },
+    // OPS-01 D: Beam-Hinweis eines Ziels (Zielkasten für Ops UND Captain, ohne Stationsparameter): null oder { lpId, mapId, name } – nur wenn das Ziel am Beam-Punkt eines Landepunkts
+    // liegt UND dieser gescannt ist. Verknüpfung über Daten, nicht über IDs: (1) das Hauptobjekt des Orts ('station') ist der Beam-Punkt der Handkarte (shared/locations.js scene.beam.map;
+    // Scanstand wie am Planungstisch über locAwayMap), (2) sonst gescannte Landepunkte des Orts (world.locations[].lp = [{ id, name, x, y }], x/y = beam des Landepunkts, Server explore.lpScanVon)
+    // innerhalb BEAM_ZIEL_TOL px vom Ziel. Ohne Scan, ohne beam oder an einem anderen Ort: null. Die Karte (mapId) ist dieselbe wie am Planungstisch (locAwayMap bzw. lp[i].id).
+    beamInfo(view, target) {
+      if (!target || !isFinite(target.x) || !isFinite(target.y)) return null;
+      const st = view.state, loc = R.locById(st, R.worldOf(st).location);
+      if (!loc) return null;
+      const SLx = window.Shared_Locations, scn = SLx && SLx.get ? (SLx.get(loc.id) || {}).scene : null, am = this.locAwayMap(st, loc);
+      if (target.station && am && scn && scn.beam && scn.beam.map === am) return { lpId: am, mapId: am, name: target.name || am };
+      for (const q of loc.lp || []) if (isFinite(q.x) && isFinite(q.y) && Math.hypot(target.x - q.x, target.y - q.y) <= BEAM_ZIEL_TOL) return { lpId: q.id, mapId: q.id, name: q.name || q.id };
+      return null;
     },
     targetList(view) {
       const st = view.state;
