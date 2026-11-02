@@ -713,8 +713,9 @@ function shoot(game, p, angle, opts) {
   if (game.time < (p.shootReadyAt || 0)) return;
   const pistol = !!p.downed;
   p.shootReadyAt = game.time + (pistol ? C.wounded.pistolCooldown : C.blaster.cooldown);
-  spawnProjectile(game, { kind: pistol ? 'pistol' : 'blaster', x: p.x, y: p.y, angle, speed: C.blaster.speed, ttl: C.blaster.ttl,
+  const pq = spawnProjectile(game, { kind: pistol ? 'pistol' : 'blaster', x: p.x, y: p.y, angle, speed: C.blaster.speed, ttl: C.blaster.ttl,
     dmg: 1, owner: p.id, team: 'player', crouch: !pistol && !!p.crouch });   // §15: geduckt -> eigene low-Deckung stoppt den Schuss
+  Tel.schussBoden(game, p, pistol ? 'pistol' : 'blaster', pq.id);   // TEL-01 B1: auch die Pistole der Verwundeten (sonst Treffer ohne Schuss)
   game.emit('sfx', { name: pistol ? 'pistol' : 'blaster', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
 }
 
@@ -745,8 +746,9 @@ function fireEnemy(game, e, target) {
   const box = C.engageBox;
   const inBox = Math.abs(target.x - e.x) <= box.w / 2 && Math.abs(target.y - e.y) <= box.h / 2;
   if (aw.stats) { aw.stats.enemyShots++; if (!inBox) aw.stats.offBoxShots++; }
-  spawnProjectile(game, { kind: warden ? 'warden' : 'enemy', x: e.x, y: e.y, angle: a, speed: ec.shotSpeed, ttl: C.shotTtl,
+  const eq = spawnProjectile(game, { kind: warden ? 'warden' : 'enemy', x: e.x, y: e.y, angle: a, speed: ec.shotSpeed, ttl: C.shotTtl,
     dmg: warden ? (ec.shotSegments || 2) : 1, owner: e.id, team: 'enemy', target: target.id });
+  Tel.schussBoden(game, e, warden ? 'warden' : 'enemy', eq.id);   // TEL-01 B1: Gegner ohne Waffen-Rolle
   game.emit('sfx', { name: warden ? 'warden_shot' : 'enemy_shot', zone: 'away', x: Math.round(e.x), y: Math.round(e.y) });
 }
 
@@ -887,7 +889,7 @@ function updateProjectiles(game, dt) {
           const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true; if (q.nah) q.nah[e.id] = null; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
+            dead = true; if (q.nah) q.nah[e.id] = null; Tel.quelleBoden(game, q.id); hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); Tel.quelleBoden(game, null); break; }   // TEL-01 B1: Schusskennung des Treffers
         }
       } else {
         for (const p of game.players) {
@@ -896,7 +898,9 @@ function updateProjectiles(game, dt) {
             if (p.crouch && dodged(game, q, p.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
             dead = true; if (q.nah) q.nah[p.id] = null;
             if (aw.stats) { aw.stats.playerHits++; offBoxZaehlen(game, p, q.sx, q.sy, !!q.hilfe); }
+            Tel.quelleBoden(game, q.id);   // TEL-01 B1
             hitPlayer(game, p, q.dmg || 1, q.kind, wirkungAus(q));
+            Tel.quelleBoden(game, null);
             break;
           }
         }

@@ -205,8 +205,13 @@ function aufraeumen(game, S) {
   try { Escort.retreat(game, { tag: S.modus === 'finale' ? FINALE_TAG : SZENEN_TAG }); delete game.space.retreatRule; } catch (e) { if (game.countError) game.countError('sim-szene-retreat', e); }
   game.simSzene = null;
 }
+// TEL-01 B1: Schluessel der Szene im Protokoll. Der Verrat schaltet die laufende Szene um (S.vor = Modus davor): sie endet unter dem Schluessel, unter dem sie begann.
+function protokollSchluessel(S) {
+  const m = S.modus === 'verrat' ? S.vor : S.modus;
+  return m === 'angriff' ? 'angriff' : m === 'finale' ? 'finale' : 'verteidigung';
+}
 function merken(game, S, ausgang, wirkungen, extra) {
-  Tel.szeneEnde(game, 'sund', S.modus === 'angriff' ? 'angriff' : S.modus === 'finale' ? 'finale' : 'verteidigung', ausgang, { hex: S.hex, verrat: S.modus === 'verrat' });   // TEL-01 B1: der Verrat schaltet dieselbe Verteidigungsszene um
+  Tel.szeneEnde(game, 'sund', protokollSchluessel(S), ausgang, { hex: S.hex, verrat: S.modus === 'verrat' });   // TEL-01 B1: der Verrat schaltet dieselbe Verteidigungsszene um
   const ws = game.weltsim;
   game.simSzeneLetzte = Object.assign({ id: S.id, hex: S.hex, ausgang, tick: ws ? ws.tickZahl : null, wirkungen: wirkungen.map((x) => Object.assign({}, x)), kills: Object.assign({}, S.kills), killPunkte: S.killPunkte }, extra || {});
   chronikEintrag(game, S, ausgang);
@@ -820,4 +825,4 @@ function finaleEnde(game, S, ausgang) {
   return null;
 }
 
-module.exports = { SZENEN_TAG, funk, finaleStarten, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile };
+module.exports = { SZENEN_TAG, funk, finaleStarten, verratStarten, betreten, angriffStarten, update, snapshot, ereignis, abbrechen, verlassen, lage, letzte, debug, schiffeFuer, verteile, protokollSchluessel };

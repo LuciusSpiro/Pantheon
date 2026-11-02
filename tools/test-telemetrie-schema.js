@@ -52,10 +52,10 @@ const section = (t) => console.log('\n' + t);
 // Typen ohne Haken in B1 (B2 schreibt sie) – sie müssen im Schema stehen, kommen hier aber nicht vor
 const OHNE_HAKEN = new Set(['zone_wieder']);
 // Typen anderer Pakete (A, B2), die in den kurzen Läufen vorkommen dürfen, aber nicht Pflicht sind
-const EIGENE = Object.keys(SCHEMA).filter((t) => !OHNE_HAKEN.has(t) && SCHEMA[t].frage !== '-' && !['spieler_bei', 'spieler_weg', 'partie_beendet'].includes(t) &&
-  !['zone_wieder'].includes(t) && !SCHEMA[t].b2);
+const EIGENE = Object.keys(SCHEMA).filter((t) => !OHNE_HAKEN.has(t) && SCHEMA[t].frage !== '-' && !['spieler_bei', 'spieler_weg', 'partie_beendet'].includes(t));
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-tel-schema-'));
+process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });   // auch bei Abbruch oder Ausnahme
 const protokollDir = (name) => path.join(TMP, name);
 
 function lauf(name, args, extraEnv) {
@@ -166,8 +166,21 @@ section('Provokation im Spielprozess (Ereignisse, die kurze Bot-Läufe nicht sic
   let k = 0; while (!g.ship.schiffZerstoert && k < 30 * 60) { g.step(); k++; }
   ok(g.ship.schiffZerstoert === true, 'Provokation: Schiff zerstört nach dem Reaktor-Countdown');
   run(0.2);
+  // S1 (Probe P1): Torpedo-Sofort-Tod als erster Treffer: kill traegt Waffe und Schuetzen, der treffer steht davor
+  const Waffen = require('../server/sim/schiffswaffen.js');
+  const sofort = Space.spawnEnemy(g, 'raider', {});
+  run(0.2);
+  if (sofort.shields) sofort.shields = sofort.shields.map(() => 0);
+  Waffen.schade(g, sofort, 1, sofort.x, sofort.y, { huelle: true, torpedo: true }, 'torpedowerfer');
+  run(0.2);
   g.telemetrie.sessionBeenden('test');
   const z = pruefeDateien('provokation', dir);
+  {
+    const ix = (typ) => z.findIndex((x) => x.typ === typ && x.gegner === sofort.id);
+    const iT = ix('treffer'), iK = ix('kill');
+    ok(g.space.enemies.indexOf(sofort) < 0 && iT >= 0 && iK > iT, 'Sofort-Tod (Torpedo): der treffer steht vor dem kill');
+    ok(iK >= 0 && z[iK].von === 'lerche' && z[iK].waffe === 'torpedowerfer' && z[iT].waffe === 'torpedowerfer', 'Sofort-Tod (Torpedo): kill trägt von lerche und waffe torpedowerfer');
+  }
   const t = (typ) => z.filter((x) => x.typ === typ);
   ok(t('zone_aus').some((x) => x.system === 'engines' && x.zustand === 'damaged' && x.vorher === 'ok' && typeof x.zone === 'string'), 'zone_aus: engines damaged, Zone als Text');
   ok(t('zone_aus').some((x) => x.system === 'reactor' && x.zustand === 'broken'), 'zone_aus: reactor broken');
@@ -178,6 +191,39 @@ section('Provokation im Spielprozess (Ereignisse, die kurze Bot-Läufe nicht sic
   ok(t('gegner_weg').some((x) => x.ort === 'raum' && x.rolle === 'raider' && x.grund === 'unbekannt'), 'gegner_weg: Raider verschwindet ohne Abschuss');
   ok(g.telemetrie.stand().verworfeneFelder === 0 && g.telemetrie.stand().fehler === 0, 'Provokation: verworfeneFelder 0, Fehler 0');
   alleZeilen.push(...z);
+
+  // K4 (Probe P2) und K9 (Probe P3): eine Quelle ohne Treffer wird von keinem fremden Treffer geerbt; Haken werfen nie
+  const dirQ = protokollDir('quelle');
+  const gq = new Game({ noStore: true, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', TELEMETRIE: 'an', TELEMETRIE_DIR: dirQ, TELEMETRIE_QUELLE: 'bot', REGIE_DIR: path.join(TMP, 'regieq') }, log: () => {} });
+  const cq = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw() {} };
+  gq.addConnection(cq);
+  gq.handleMessage(cq, { t: 'hello', clientId: 'Clientqzx-2', name: 'Zyxwename', color: 0 });
+  gq.handleMessage(cq, { t: 'lobbyOpt', startMission: 'freie_fahrt' });
+  gq.handleMessage(cq, { t: 'ready', ready: true });
+  for (let i = 0; i < 30; i++) gq.step();
+  gq.space.enemies = [];
+  const Tel = require('../server/telemetrie/gefecht.js');
+  Tel.quelle(gq, 'streu', { id: 'prY', owner: 'e-99' });
+  Tel.trefferLercheOhneSchaden(gq, 0, 'ausgewichen', { id: 'prY', owner: 'e-99' });   // verbraucht die Quelle
+  Space.shipHit(gq, 0, 1, {});   // ein fremder Treffer im selben Tick
+  const echt = gq.telemetrie.ereignis; const geworfen = [];
+  gq.telemetrie.ereignis = () => { throw new Error('kaputt'); };
+  for (const [n, f] of [['schussRaum', () => Tel.schussRaum(gq, 'lanze')], ['raumGegner', () => Tel.raumGegner(gq)], ['trefferLerche', () => Tel.trefferLerche(gq, 0, 1, {}, {})], ['quelle', () => Tel.quelle(gq, 'x', null)],
+    ['gegnerSystem', () => Tel.gegnerSystem(gq, null, { zone: 1 })], ['trefferBoden', () => Tel.trefferBoden(gq, null, {}, {}, 'schild', null)], ['killRaum', () => Tel.killRaum(gq, null)], ['schadeBeginn', () => Tel.schadeBeginn(gq, null, 'x')]]) {
+    try { f(); } catch (e) { geworfen.push(n); }
+  }
+  gq.telemetrie.ereignis = echt;
+  ok(geworfen.length === 0, 'Haken werfen nie, auch nicht mit kaputtem Dienst oder leeren Argumenten' + (geworfen.length ? ' (' + geworfen.join(', ') + ')' : ''));
+  require('../server/sim/damage.js').direktTreffer(gq, 1, { mine: true });   // K1: Minentreffer (alarm.js ruft genau das)
+  Space.technikOverload(gq); gq.ship.reactorCtl.overloadLeft = 0.05;   // K2: Reaktor-Überladung an, nach kurzer Zeit ende
+  for (let i = 0; i < 10; i++) gq.step();
+  gq.telemetrie.sessionBeenden('test');
+  const zm = zeilen(dirQ).filter((x) => x.typ === 'treffer');
+  const zq = zm.filter((x) => x.waffe !== 'mine');
+  ok(zm.some((x) => x.waffe === 'mine' && x.von === 'objekt' && x.ziel === 'lerche'), 'Minentreffer: treffer mit waffe mine, von objekt');
+  { const u = zeilen(dirQ).filter((x) => x.typ === 'ueberladung').map((x) => x.wie); ok(u.join() === 'an,ende', 'Überladung: ereignis an und ende (' + u.join() + ')'); }
+  ok(zq.length === 2 && zq[1].gegner === null && zq[1].waffe === 'sonstige', 'veraltete Quelle: ein fremder Treffer im selben Tick erbt die Quelle nicht (waffe sonstige)');
+  alleZeilen.push(...pruefeDateien('quelle', dirQ));
 
   // Kampagne: Mission m1 beginnt (szene_start kampagne), endet mit Ausgang (szene_ende mit Dauer), die nächste beginnt
   const dir2 = protokollDir('kampagne');
@@ -200,6 +246,12 @@ section('Provokation im Spielprozess (Ereignisse, die kurze Bot-Läufe nicht sic
   ok(!!s1 && s1.modus === 'kampagne' && s1.ausgang === ausgang && s1.dauer >= 2.9 && s1.dauer <= 3.1, 'szene_ende: Ausgang ' + ausgang + ', Dauer ' + (s1 && s1.dauer) + ' s (90 Ticks)');
   ok(!z2.some((x) => x.typ === 'mission_start' || x.typ === 'mission_ende'), 'mission_start/mission_ende sind durch szene_* ersetzt');
   ok(g2.telemetrie.stand().verworfeneFelder === 0, 'Kampagne: verworfeneFelder 0');
+  {   // S4: der Verrat schaltet eine Szene um und sie endet unter dem Schlüssel, unter dem sie begann (ohne sim-szene-sund, das nicht in der Kette ist)
+    const KS = require('../server/sim/kriegslage-szene.js');
+    ok(KS.protokollSchluessel({ modus: 'verrat', vor: 'angriff' }) === 'angriff' && KS.protokollSchluessel({ modus: 'verrat', vor: 'normal' }) === 'verteidigung' &&
+       KS.protokollSchluessel({ modus: 'verrat' }) === 'verteidigung' && KS.protokollSchluessel({ modus: 'angriff' }) === 'angriff' && KS.protokollSchluessel({ modus: 'finale' }) === 'finale' &&
+       KS.protokollSchluessel({}) === 'verteidigung', 'Sund-Szene: Schlüssel im Protokoll (Verrat aus Angriff = angriff, aus Verteidigung = verteidigung)');
+  }
   alleZeilen.push(...z2);
   pruefeAufrufe('provokation', { typen: pv.typen, verstoesse: [...pv.verstoesse] });
 }
@@ -208,6 +260,7 @@ section('Zusammenhänge zwischen den Ereignissen (je Session)');
 {
   const nachSitzung = {};
   for (const x of alleZeilen) (nachSitzung[x.sitzung] = nachSitzung[x.sitzung] || []).push(x);
+  let killFolge = 0, killSonstigeObwohlGetroffen = 0, bodenTreffer = 0, bodenOhneSchuss = 0, bodenSchussOhnePid = 0, bodenSchuesse = 0; const bodenMitSchuss = new Set();
   let sitzungen = 0, killUndWeg = 0, trefferOhneSchuss = 0, pidDoppelt = 0, killOhneNeu = 0, lebteFalsch = 0, dauerFalsch = 0, wundeUngleich = 0, zoneGleich = 0, szeneEndeOhneStart = 0, ohneKopf = 0;
   for (const z of Object.values(nachSitzung)) {
     sitzungen++;
@@ -230,7 +283,21 @@ section('Zusammenhänge zwischen den Ereignissen (je Session)');
       if (x.typ === 'szene_ende') { const t0 = starts.get(x.modus + '|' + x.szene); if (t0 == null) szeneEndeOhneStart++; else if (Math.abs(x.dauer - (x.t - t0)) > 0.1) dauerFalsch++; }
     }
     const gefallen = z.filter((x) => x.typ === 'treffer' && x.ort === 'boden' && /^p[1-4]$/.test(x.ziel) && x.ergebnis === 'gefallen').length;
-    if (gefallen !== z.filter((x) => x.typ === 'wunde').length) wundeUngleich++;
+    if (gefallen !== z.filter((x) => x.typ === 'gefallen' && x.waffe !== 'monster').length) wundeUngleich++;
+    // S1: kill im Raum -- von lerche nur nach einem Treffer der Lerche auf diesen Gegner, von sonstige nur ohne einen solchen
+    const getroffen = new Set();
+    for (const x of z) {
+      if (x.typ === 'treffer' && x.ort === 'raum' && x.von === 'lerche') getroffen.add(x.gegner);
+      if (x.typ === 'kill' && x.ort === 'raum') { if (x.von === 'lerche' && (!getroffen.has(x.gegner) || !x.waffe)) killFolge++; if (x.von === 'sonstige' && getroffen.has(x.gegner)) killSonstigeObwohlGetroffen++; }
+    }
+    // S2: am Boden hat jeder Treffer eines Projektils, einer Lanze oder eines Schlags einen Schuss mit gleicher Kennung und Waffe
+    const bs = new Map();
+    for (const x of z) {
+      if (x.typ === 'schuss' && x.ort === 'boden') bs.set(x.pid, x);
+      if (x.typ === 'treffer' && x.ort === 'boden' && (x.von === 'gegner' || /^p[1-4]$/.test(x.von))) { bodenTreffer++; const s = x.pid == null ? null : bs.get(x.pid); if (!s || s.waffe !== x.waffe) bodenOhneSchuss++; else bodenMitSchuss.add(x.sitzung + x.pid); }
+    }
+    for (const x of z) if (x.typ === 'schuss' && x.ort === 'boden' && x.pid == null) bodenSchussOhnePid++;
+    bodenSchuesse += bs.size;
     zoneGleich += z.filter((x) => x.typ === 'zone_aus' && x.zustand === x.vorher).length;
   }
   ok(sitzungen >= 8, sitzungen + ' Sessions geprüft');
@@ -244,6 +311,45 @@ section('Zusammenhänge zwischen den Ereignissen (je Session)');
   ok(dauerFalsch === 0, 'szene_ende.dauer entspricht t − Beginn der Szene (bzw. des letzten Neustarts)');
   ok(wundeUngleich === 0, 'je Treffer mit ergebnis gefallen auf einen Spieler genau ein wunde');
   ok(zoneGleich === 0, 'zone_aus meldet nur echte Zustandswechsel');
+  ok(killFolge === 0, 'kill im Raum von lerche: nach einem Treffer der Lerche auf diesen Gegner, mit Waffe');
+  ok(killSonstigeObwohlGetroffen === 0, 'kill im Raum mit von sonstige nur, wenn es keinen Treffer der Lerche auf diesen Gegner gab');
+  ok(bodenTreffer > 20 && bodenOhneSchuss === 0, 'Boden: jeder Treffer (' + bodenTreffer + ') hat einen Schuss mit gleicher Kennung und Waffe');
+  ok(bodenSchussOhnePid === 0 && bodenMitSchuss.size > 10, 'Boden: jeder Schuss trägt eine Kennung; Schüsse mit Treffer vorhanden (' + bodenMitSchuss.size + ' von ' + bodenSchuesse + ')');
+}
+
+section('Abdeckung je Ort und Richtung (jeder Haken einzeln: fehlt einer, wird es rot)');
+{
+  const n = (f) => alleZeilen.filter(f).length;
+  const regeln = [
+    ['kill raum (von lerche, mit waffe)', (x) => x.typ === 'kill' && x.ort === 'raum' && x.von === 'lerche' && !!x.waffe],
+    ['kill boden', (x) => x.typ === 'kill' && x.ort === 'boden'],
+    ['treffer raum Lerche -> Gegner', (x) => x.typ === 'treffer' && x.ort === 'raum' && x.von === 'lerche'],
+    ['treffer raum Gegner -> Lerche (shipHit)', (x) => x.typ === 'treffer' && x.ort === 'raum' && x.ziel === 'lerche' && x.ergebnis === 'treffer' && x.waffe !== 'mine'],
+    ['treffer boden Spieler -> Gegner', (x) => x.typ === 'treffer' && x.ort === 'boden' && /^p[1-4]$/.test(x.von) && x.ziel === 'gegner'],
+    ['treffer boden Gegner -> Spieler', (x) => x.typ === 'treffer' && x.ort === 'boden' && x.von === 'gegner' && /^p[1-4]$/.test(x.ziel)],
+    ['schuss raum (Lerche)', (x) => x.typ === 'schuss' && x.ort === 'raum'],
+    ['schuss boden Spieler', (x) => x.typ === 'schuss' && x.ort === 'boden' && /^p[1-4]$/.test(x.von)],
+    ['schuss boden Gegner', (x) => x.typ === 'schuss' && x.ort === 'boden' && x.von === 'gegner'],
+    ['schuss boden Pistole der Verwundeten', (x) => x.typ === 'schuss' && x.ort === 'boden' && x.waffe === 'pistol'],
+    ['gegner_neu raum', (x) => x.typ === 'gegner_neu' && x.ort === 'raum'],
+    ['gegner_neu boden', (x) => x.typ === 'gegner_neu' && x.ort === 'boden'],
+    ['gegner_weg raum', (x) => x.typ === 'gegner_weg' && x.ort === 'raum'],
+    ['gegner_weg boden', (x) => x.typ === 'gegner_weg' && x.ort === 'boden'],
+    ['gefallen (Spieler zu Boden)', (x) => x.typ === 'gefallen'],
+    ['szene_ende wellen_boden mit echtem Ausgang (nicht session_ende)', (x) => x.typ === 'szene_ende' && x.modus === 'wellen_boden' && x.ausgang !== 'session_ende'],
+    ['szene_ende kampagne mit echtem Ausgang', (x) => x.typ === 'szene_ende' && x.modus === 'kampagne' && x.ausgang !== 'session_ende'],
+    ['szene_ende bei Sessionende (offene Szene wird geschlossen)', (x) => x.typ === 'szene_ende' && x.ausgang === 'session_ende'],
+  ];
+  for (const m of ['arena_raum', 'wellen_all', 'wellen_boden', 'graben', 'kampagne']) {
+    regeln.push(['szene_start ' + m, (x) => x.typ === 'szene_start' && x.modus === m]);
+    regeln.push(['szene_ende ' + m, (x) => x.typ === 'szene_ende' && x.modus === m]);
+  }
+  for (const [name, f] of regeln) ok(n(f) > 0, name + ' (' + n(f) + '×)');
+  const offen = new Map();   // jede Szene hat am Ende ein szene_ende (je Session)
+  for (const x of alleZeilen) { if (x.typ === 'szene_start') offen.set(x.sitzung + x.modus + x.szene, 1); if (x.typ === 'szene_ende') offen.delete(x.sitzung + x.modus + x.szene); }
+  ok(offen.size === 0, 'jede Szene wird beendet (auch durch das Sessionende)' + (offen.size ? ' (offen: ' + offen.size + ')' : ''));
+  const ende = alleZeilen.filter((x) => x.typ === 'szene_ende' && x.ausgang === 'session_ende');
+  ok(ende.every((x) => x.dauer_gesamt != null && x.dauer_gesamt >= x.dauer), 'szene_ende trägt dauer_gesamt (>= dauer)');
 }
 
 section('Jeder Typ von B1 kommt vor');
@@ -251,7 +357,8 @@ for (const t of EIGENE) ok((vorgekommen[t] || 0) > 0, 'Typ ' + t + ' kommt vor (
 
 section('Namenstest über alle Protokolle');
 {
-  const namen = ['Zyxwename', 'Qorvathchar', 'Clientqzx', 'Ada', 'Cem'];   // Spieler-/Charakter-/Client-Kennungen der Tests (Bots heißen Ada, Bo, Cem)
+  // Spieler-/Charakter-/Client-Kennungen der Tests; Bots heißen Ada, Bo, Cem und haben die clientId sim-<n> (Bo nur in Anführungszeichen: sonst träfe es "Boden")
+  const namen = ['Zyxwename', 'Qorvathchar', 'Clientqzx', 'Ada', 'Cem', '"Bo"', 'sim-0', 'sim-1', 'sim-2'];
   let treffer = 0;
   const durchsuche = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) durchsuche(f); else if (f.endsWith('.jsonl')) { const s = fs.readFileSync(f, 'utf8'); for (const nm of namen) if (s.includes(nm)) { treffer++; console.log('    Fund: ' + nm + ' in ' + f); } } } };
   durchsuche(TMP);
@@ -265,6 +372,5 @@ section('Zeilen und Größe (Bot-Läufe, Richtwert)');
   ok(alleZeilen.length > 500 && gefecht > 100, 'Gefechtszeilen vorhanden: ' + gefecht + ' von ' + alleZeilen.length);
 }
 
-try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ }
 console.log('\n' + (fails ? 'FEHLGESCHLAGEN: ' + fails + ' von ' + n : 'ALLE ' + n + ' PRÜFUNGEN GRÜN') + ' (test-telemetrie-schema)');
 process.exit(fails ? 1 : 0);

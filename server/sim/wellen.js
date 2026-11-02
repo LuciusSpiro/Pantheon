@@ -530,7 +530,7 @@ const ALL = {
       S.nachschubAt = game.time + (Number(A.nachschubTakt) || 4);
     }
   },
-  wegraeumen(game) { game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG); },
+  wegraeumen(game) { Tel.raumWegGrund(game, allGegner(game), 'welle_vorbei'); game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG); },   // TEL-01 B1: Grund fuer gegner_weg
   // Pause: Gefallene an Bord stehen auf, Schilde voll (Hülle bleibt – reparieren ist Arbeit der Crew)
   auffuellen(game) {
     const it = M().interior;

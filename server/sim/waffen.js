@@ -294,7 +294,9 @@ function granateFlug(game, q, dt) {
   if (q.t < q.flug - EPS) return false;
   if (q.gelandet) return true;
   q.gelandet = true;
+  Tel.quelleBoden(game, q.id);   // TEL-01 B1: jede Wirkung dieser Granate nennt ihre Schusskennung
   explosion(game, q.tx, q.ty, q.wirkung, { id: q.owner, team: q.seite, x: q.tx, y: q.ty });
+  Tel.quelleBoden(game, null);
   return true;
 }
 // Flächenwirkung: trifft **jeden** Kämpfer im Radius (beide Teams), fliegt über Deckung; nur Wände sperren.

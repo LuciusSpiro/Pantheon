@@ -443,6 +443,7 @@ function updateReactor(game, dt) {
       game.oda(`Reaktor-Überladung endet in ${R.warnAt} s – danach schaltet er ab. Neustart: beide Schalter im Maschinenraum.`, null);
     }
     if (rc.overloadLeft <= 0) {
+      Tel.ueberladung(game, 'ende');   // TEL-01 B1
       rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0;
       game.emit('sfx', { name: 'reactor_down' });
       game.oda('Reaktor abgeschaltet – nur Notstrom. Neustart: Schalter A (oben) und B (unten) halten (E) – gleichzeitig oder nacheinander, der erste rastet ein.', null);
@@ -502,6 +503,7 @@ function technikOverload(game) {
   if (rc.state === 'offline') return 'Reaktor ist abgeschaltet – erst neu starten (Maschinenraum, beide Schalter).';
   if (isDown(ship.systems.reactor)) return 'Reaktor zerstört oder offline – erst reparieren.';
   rc.state = 'overload'; rc.overloadLeft = R.overloadTime; rc.warned = false;
+  Tel.ueberladung(game, 'an');   // TEL-01 B1
   Alarm.laerm(game, 'reaktor');   // EK2: Überladen ist laut
   game.emit('sfx', { name: 'overload_start' });
   game.oda(`Reaktor überladen: +${R.overloadBonus} Energie für ${Math.round(R.overloadTime / 60)} Minuten. Danach ist erst mal Pause.`, null);
@@ -1376,7 +1378,6 @@ function updateTorpedoG(game, e, d, retreating, dt) {
 // Explosion einer Gegner-Granate an der Lerche: eine = Schildschaden, zwei (andere Granaten) im Fenster = Durchschlag in die Hülle und sicherer Systemschaden
 function estreuExplosion(game, p) {
   const ship = game.ship; const w = Katalog.waffe('streubatterie'); const T = w.streu;
-  Tel.quelle(game, 'streu', p);   // TEL-01 B1
   game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
   game.emit('sfx', { name: 'streu_boom', x: Math.round(p.x), y: Math.round(p.y) });
   if (ship.docked || dist(p.x, p.y, ship.x, ship.y) > T.radius + game.C.flight.radius * 0.5) return;
@@ -1385,6 +1386,7 @@ function estreuExplosion(game, p) {
   const zwei = L.length >= 1;
   L.push(game.time);
   const sec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
+  Tel.quelle(game, 'streu', p);   // TEL-01 B1: erst hier (nach der Reichweitenpruefung), damit kein fremder Treffer sie erbt
   shipHit(game, sec, p.dmg, { streu: { schildFaktor: T.schildFaktor } });
   if (zwei) {
     Tel.quelle(game, 'streu', p);   // TEL-01 B1: der Durchschlag ist ein zweiter Treffer derselben Granate
@@ -1752,9 +1754,8 @@ function updateProjectiles(game, dt) {
         let dmg = p.dmg;
         if (sperr && p.tgt) { const SF = sperrCfg(game) || {}; if (SF.shieldedFactor != null) dmg *= Number(SF.shieldedFactor); }
         const hsec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
-        Tel.quelle(game, p.kind === 'enemy' ? 'schuss' : p.kind, p);   // TEL-01 B1: Quelle dieses Treffers (Gegnerschuss, emp, sperrfeuer, sturm)
         let rr = null;
-        if (dmg > 0) rr = shipHit(game, hsec, dmg, hopts);
+        if (dmg > 0) { Tel.quelle(game, p.kind === 'enemy' ? 'schuss' : p.kind, p); rr = shipHit(game, hsec, dmg, hopts); }   // TEL-01 B1: Quelle dieses Treffers (Gegnerschuss, emp, sperrfeuer, sturm)
         else { game.emit('hit', { sector: hsec, shield: true, dmg: 0, heavy: false, absorbed: 0, shielded: p.tgt }); game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); }
         if (sperr) { const st = sperrStats(game); st.hits++; st.schaden = r1(st.schaden + (rr ? Number(rr.rest) || 0 : 0)); if (p.tgt) st.shielded++; }
         if (pierce) game.missionEvent('nachzueglerHit', {});

@@ -15,6 +15,7 @@ const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regeneration
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
 const space = require('./space.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Grund fuer gegner_weg (nur lesen)
 const away = require('./away.js');
 
 const TAG = 'arena';
@@ -186,7 +187,7 @@ function skipWave(game) {
   const a = game.arena;
   if (!a || a.kind !== 'arena_space') return;
   if (a.wellen) { if (a.wellen.ph !== 'ende') require('./wellen.js').debugWelle(game, a.wellen.n + 1); return; }   // Wellen All
-  if (a.active) game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG);
+  if (a.active) { Tel.raumWegGrund(game, arenaEnemies(game), 'uebersprungen'); game.space.enemies = game.space.enemies.filter((e) => e.tag !== TAG); }   // TEL-01 B1: Debug-Skip (Bots nach Wellenzeitgrenze)
   else a.nextAt = game.time;
 }
 
