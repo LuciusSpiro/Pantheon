@@ -1137,7 +1137,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     // SYS-01 C1a-2 (Kai 2026-10-26): Torpedo gegen eine Klasse mit systemModell.torpedoSofortTod.<klasse> = true (Jäger; Config, live per tune) bei Schild 0 (die Schildprüfung oben ist durch): sofort tot, bei jeder Crewgröße, kein Countdown, kein Kapern
     if (opts && opts.torpedo && (game.C.systemModell.torpedoSofortTod || {})[e.kind] === true) { Gegnertod.sofort(e); return ally ? undefined : enemyDown(game, e); }   // Verbündeter: hp 0, escort.hit zerstört ihn (disable)
     if (opts && opts.torpedo) return torpedoSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-02a: System der Zone zerstört, Durchschlag auf den Reaktor
-    if (opts && opts.durchschlag === 'zone') zone = 'mitte';
+    if (opts && opts.durchschlag === 'zone') zone = Gsys.vollladungZone(game, e, opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null);   // GEG-01 C: Vollladung trifft das gültige Systemziel der Ops, sonst die Mitte
     if (opts && opts.druck && !druckStufe(game, e, rest)) return;   // Dauerdruck: erst ab zonen.druckPunkte eine Stufe
     return trefferSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-03 B2: eine Stufe (Sturm bei leerem Schild: Direkttreffer)
   }
