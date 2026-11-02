@@ -3497,9 +3497,10 @@
       : torp ? (+m.ammo <= 0 ? 'LEER' : ready ? 'BEREIT ' + (+m.ammo | 0) : Math.ceil(+m.cd || 0) + ' s')
       : ready ? 'BEREIT' : (m.alloc !== undefined && !(+m.alloc > 0) && charge < 1) ? 'RESERVE' : Math.round(charge * 100) + ' %';
     if (sysSt === 'damaged') status += ' · BESCH';
-    const name = (PLATZ_SEITE_KURZ[platz] || '') + ' ' + (w ? w.kurz : '');
-    lab(name + ' ' + status, cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr + 8,
-      { color: dead ? PAL.red : aim ? BURST_COL : torp && ready ? '#F0B45A' : ready ? (inArc ? PAL.amber : PAL.mint) : PAL.panelLight, align: 'center' }, ready || aim || dead ? 2 : 0, !(ready || aim || dead));
+    const seite = PLATZ_SEITE_KURZ[platz] || '', kurzForm = zoom < 0.2 && seite;   // OPS-01 B: unter Zoom 0,2 nur „BB“/„STB“ (AUS bleibt), der Zustand steht auf den Waffenknöpfen
+    const name = seite + ' ' + (w ? w.kurz : '');
+    lab(kurzForm ? seite + (dead ? ' AUS' : '') : name + ' ' + status, cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr + 8,
+      { color: dead ? PAL.red : aim ? BURST_COL : torp && ready ? '#F0B45A' : ready ? (inArc ? PAL.amber : PAL.mint) : PAL.panelLight, align: 'center', dedup: !!kurzForm }, ready || aim || dead ? 2 : 0, !(ready || aim || dead));
   }
   // ---- M3a: angekündigter Angriff (tele) – roter, gestrichelter Fächer vom Gegner aufs Schiff + Countdown (Ort vor Zahl)
   function drawTele(ctx, e, s, cx, cy, t, withCountdown, lab) {
@@ -3930,6 +3931,7 @@
     const placed = [];
     const block = (x, y, w, h) => placed.push({ x, y, w, h });   // Sprites als Hindernis für Labels
     for (const q of cfg.sperren || []) block(q.x, q.y, q.w, q.h);   // Abnahme 12: Leisten oben links (Fracht, Landepunkt-Scan …) überdecken keine Bogenbeschriftung
+    if (cfg.nordmarke && !front) { const nm = rayToRect(BT, cx, cy, -Math.PI / 2 + rot, 11); block(Math.round(nm.x) - 9, Math.round(nm.y) - 9, 18, 18); }   // OPS-01 B: die Nordmarke (nordMarke, nach drawSpace gezeichnet) ist Hindernis für Labels
     const edge = front ? 6 : 4;
     // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
     const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;
@@ -3953,11 +3955,24 @@
         // Fixrunde S3: nur für Randpfeil-Labels (prio 3, nicht optional); alle anderen Labels in allen Modi suchen wie vor der Client-Runde (optionale entfallen bei Platzmangel weiter)
         const plaetze = [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]];
         if (l.prio === 3 && !l.optional) plaetze.push([w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]);
+        // OPS-01 B (Nacharbeit): gleiche Kurzbeschriftung (Bogen „BB“ …) nahe beieinander steht nur einmal
+        if (!front && l.o.dedup && placed.some((p) => p.str === l.str && Math.hypot(p.x + p.w / 2 - (left + w / 2), p.y - l.y) < 90)) continue;
+        const frei = (r) => !placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h);
         for (const [dx, dy] of plaetze) {
           const r = inside({ x: left + dx, y: l.y + dy, w, h });
-          if (!placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h)) { best = r; break; }
+          if (frei(r)) { best = r; break; }
         }
-        if (!best) { if (l.optional) continue; best = inside({ x: left, y: l.y, w, h }); }
+        // OPS-01 B (Nacharbeit): war an den bisherigen Plätzen nichts frei, sucht das Label im Raster den nächsten freien Platz (höchstens ±(w + 24) seitlich, ±56 senkrecht).
+        // Keinen gefunden: optionale und niederrangige Textlabels (Prio < 4, keine Randpfeil-Labels) entfallen – Kennung, Schildring und Klickfläche des Objekts bleiben;
+        // Ziel-, Marker- und Randpfeil-Labels stehen zuletzt am Ursprungsort.
+        if (!best && !front) {   // Frontsicht (Steuer) bleibt unverändert: dort gilt weiter die Suche der Client-Runde
+          const kand = [];
+          for (let dy = -56; dy <= 56; dy += 4) for (let dx = -(w + 24); dx <= w + 24; dx += 6) kand.push([dx, dy, dx * dx * 0.5 + dy * dy]);
+          kand.sort((a, b) => a[2] - b[2]);
+          for (const [dx, dy] of kand) { const r = inside({ x: left + dx, y: l.y + dy, w, h }); if (frei(r)) { best = r; break; } }
+        }
+        if (!best) { if (l.optional || (!front && l.prio < 4 && !l.o.rand)) continue; best = inside({ x: left, y: l.y, w, h }); }
+        best.str = l.str;
         placed.push(best);
         text(ctx, l.str, l.x + (best.x - left), best.y, l.o);
       }
@@ -4048,7 +4063,7 @@
           for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(BT.y + 2, unten.ly - 10); unten = d; } }
         }
       }
-      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center' }, c.prio || 3);
+      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center', rand: true }, c.prio || 3);   // rand: Randpfeil-Label entfällt nie
     };
 
     ctx.save();
@@ -4090,13 +4105,14 @@
       }
       ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.arc(cx, cy, sr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-      text(ctx, 'SENSOR ' + Math.round(sensorRange(st)) + (fog ? ' (NEBEL)' : ''), cx, cy - sr - 10, { color: 'rgba(127,224,194,0.8)', align: 'center' });
+      { const sy = cy - sr - 10, sTxt = 'SENSOR ' + Math.round(sensorRange(st)) + (fog ? ' (NEBEL)' : ''), sOpt = { color: 'rgba(127,224,194,0.8)', align: 'center' };
+        if (sy >= BT.y + 2 && sy <= BT.y + BT.h - 9) lab(sTxt, cx, sy, sOpt, 0.5, true); else text(ctx, sTxt, cx, sy, sOpt); }   // OPS-01 B: liegt die Beschriftung im Bild, entzerrt sie wie alle Labels (niedrigster Rang, entfällt bei Platzmangel); sonst wie bisher außerhalb
     }
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
     const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
     drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
-    if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
+    if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t, lab);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
     if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)
 
@@ -4141,7 +4157,7 @@
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
         const sicht = cfg.sicht || B;   // SUND-01 H: sichtbarer Ausschnitt (Hauptschirm im Voxel-Modus: Textur, kleiner als das Fenster)
         if (m.fr && s.x >= sicht.x && s.x <= sicht.x + sicht.w && s.y >= sicht.y && s.y <= sicht.y + sicht.h) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t, sicht);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
-        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
+        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, m.posten ? 1 : 1.5);   // OPS-01 B: Orte stehen hinter den Schiffsbögen (2), Posten hinter den Orten
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
           const sc = (CFG.scenes && CFG.scenes.buoy) || {};

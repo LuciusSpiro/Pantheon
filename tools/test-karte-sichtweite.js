@@ -165,7 +165,7 @@ section('(e) Frontsicht unverändert');
     const p1 = prot(win), p2 = prot(wa);
     ok(p1.length > 100 && p1 === p2, 'drawFrontView: Aufrufprotokoll gleich dem Stand von Paket A (' + p1.length + ' Zeichen)');
   } else ok(false, 'Vergleichsstand ebfc378 nicht lesbar');
-  ok(git(['diff', '--name-only', 'ebfc378', '--', 'public/js/sitz.js', 'public/js/render.js', 'server', 'shared']).trim() === '', 'sitz.js, render.js, server/, shared/ gegenüber Paket A unverändert (kein Snapshot-/Serverteil)');
+  ok(git(['diff', '--name-only', 'ebfc378', '--', 'public/js/sitz.js', 'server', 'shared']).trim() === '', 'sitz.js, server/, shared/ gegenüber Paket A unverändert (kein Snapshot-/Serverteil; render.js nur durch die Label-Entzerrung der Nacharbeit, drawFrontView bleibt durch das Aufrufprotokoll oben belegt)');
 }
 
 section('(f) Klickfläche eines Gegners im Standardzoom');

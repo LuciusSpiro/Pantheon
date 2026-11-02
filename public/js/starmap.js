@@ -746,6 +746,8 @@
       const kollidiert = (y0) => hinder.some(r => lx - lw / 2 < r.x + r.w && lx + lw / 2 > r.x && y0 < r.y + r.h && y0 + lh > r.y);
       const ly = !kollidiert(unten) ? unten : !kollidiert(oben) ? oben : unten;
       hinder.push({ x: lx - lw / 2, y: ly, w: lw, h: lh });
+      // OPS-01 B (Nacharbeit): auf den Karten (nicht Frontsicht) entzerrt render.js die Boje-Labels mit allen anderen (Sperren, Gegner, Bögen); Frontsicht wie bisher
+      if (typeof cam.lab === 'function' && !cam.front) { zeilen.forEach((q, i) => cam.lab(q[0], lx, ly + i * 10, { color: q[1], align: 'center' }, gewaehlt ? 5 : 1)); continue; }
       if (typeof cam.block === 'function') cam.block(lx - lw / 2, ly, lw, lh);   // Labels von render.js weichen aus
       zeilen.forEach((q, i) => txt(ctx, q[0], lx, ly + i * 10, { color: q[1], align: 'center' }));
     }

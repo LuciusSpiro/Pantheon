@@ -1955,7 +1955,7 @@
       const zoomY = Math.max(rect.y + 3, H.szeneUnten(view) + 2);
       if (this.mapRects) this.mapRects.weapons = rect;
       this.zoomAbgleichen('weapons', rect);
-      this.maps.weapons = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) }, Kartenlogik.optionen('weapons', view)));
+      this.maps.weapons = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : [], window.SondenView ? [SondenView.flaeche(st, rect)] : [], window.SpurView && SpurView.flaeche(st, rect) ? [SpurView.flaeche(st, rect)] : []) }, Kartenlogik.optionen('weapons', view)));
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, zoomY, { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
       this.drawFracht(ctx, view, rs);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
