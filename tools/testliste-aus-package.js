@@ -41,7 +41,7 @@ if (process.argv.includes('--schreiben')) {
   fs.writeFileSync(LISTE, zeilen);
   console.log('testliste.json geschrieben: ' + eintraege.length + ' Schritte');
 } else {
-  const alt = fs.existsSync(LISTE) ? fs.readFileSync(LISTE, 'utf8') : null;
+  const alt = fs.existsSync(LISTE) ? fs.readFileSync(LISTE, 'utf8').replace(/\r\n/g, '\n') : null; // CRLF-tolerant
   if (alt === zeilen) console.log('testliste.json stimmt mit package.json ueberein (' + eintraege.length + ' Schritte)');
   else { console.log('ABWEICHUNG: testliste.json passt nicht zu package.json (--schreiben zum Erzeugen)'); process.exit(1); }
 }
