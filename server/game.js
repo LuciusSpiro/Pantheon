@@ -482,6 +482,9 @@ class Game {
     this.odaSeen = new Set();
     this.scans = new Set();
     this.inventory = Object.assign({ loeschgelCharges: 0, marks: C.economy.startMarks, deko: [], tafel: 0 }, JSON.parse(JSON.stringify(C.economy.startInventory)));
+    // TEL-01 G: die Anlage legt das Objekt an (Ausnahme der Grenzprüfung); den Startstand führen die Dienste durch ihre Kernfunktion (Art 'stand', Grund 'start'), Werte unverändert, kein Ereignis
+    Geld.standSetzen(this, this.inventory.marks, 'start');
+    for (const gut of Vorrat.GUETER) if (gut in this.inventory) Vorrat.standSetzen(this, gut, this.inventory[gut], 'start');
     this.upgrades = {};   // PAN-01 A: schildpool entfällt, bot2 = Modul Werkstatt (ship.module); PAN-01 C: seitenturm (Zusatzrohre) und bolzenwerfer gehen im Waffenkatalog auf (ship.waffen)
     this.deco = {};
     for (const b of W.Maps.BEDS) for (const s of b.slots) this.deco[s.id] = null;

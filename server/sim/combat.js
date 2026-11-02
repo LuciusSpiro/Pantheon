@@ -426,7 +426,7 @@ function onArrive(game, p) {
   fullShield(game, p);
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   p.medkit = 0;
-  if ((game.inventory.medipack || 0) > 0) { Vorrat.entnehmen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
+  if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
   if (waffen()) { kaempfer(game, p); p.zustand = 'ok'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.wunden.n = p.wunden.max; }
 }
 // Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt

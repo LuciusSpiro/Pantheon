@@ -16,6 +16,7 @@
 // Registrierung der Karte (F1): Aktionen mit map-Parameter laufen erst, wenn die Karte registriert ist – das erledigt
 // mission.js (aufKarten -> landepunkte.sobaldGeladen) für alle Bausteine; hier kein eigener Zugriff auf unregistrierte Karten.
 const Objects = require('../objects.js');
+const Vorrat = require('../../sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 
 const STAERKEN = ['klein', 'mittel', 'gross'];
 const HALTUNGEN = ['ruhig', 'wach'];
@@ -64,7 +65,7 @@ module.exports = (Registry) => {
     } });
   Registry.define({ id: 'ladung_geben', art: 'aktion', beschreibung: 'Sprengladungen ins Inventar legen (für sprengpunkt-Anker)',
     params: { anzahl: { typ: 'number', pflicht: true, min: 1, max: 9 } },
-    run(m, a) { const inv = m.game.inventory; inv.ladung = Math.max(0, Math.min(99, (inv.ladung || 0) + Math.round(a.anzahl))); } });
+    run(m, a) { Vorrat.einlagernBis(m.game, 'ladung', Math.round(a.anzahl), 99, 'mission'); } });
   Registry.define({ id: 'besetzen', art: 'aktion', effekt: 'gegner', ereignisse: ['squadSpawn'],
     beschreibung: 'Außenkarte mit Gegnern der Fraktion besetzen (Trupps an wache-Ankern des Bereichs, ohne Bereich in den Gefechtsplätzen). Rollen aus den Rezepten der Fraktion; höchstens eine neue_rolle',
     params: { map: { typ: 'map', pflicht: true }, bereich: { typ: 'area' }, fraktion: { typ: 'string', pflicht: true },

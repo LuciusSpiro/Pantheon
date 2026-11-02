@@ -333,7 +333,7 @@ function update(game, dt) {
     if (t.phase === 'fetch') {
       if (moveAlong(game, bot, dt)) {
         if (game.inventory[t.part] > 0) {
-          Vorrat.entnehmen(game, t.part, 1, 'bot'); bot.carry = t.part;
+          Vorrat.verbrauchen(game, t.part, 1, 'bot'); bot.carry = t.part;
           game.emit('sfx', { name: 'bot_beep', zone: 'ship', x: Math.round(bot.x), y: Math.round(bot.y) });
           t.phase = 'goto'; bot.path = pathTo(game, bot, goalTilesFor(t));
           if (!bot.path) { bot.task = null; }

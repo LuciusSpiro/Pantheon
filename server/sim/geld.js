@@ -6,23 +6,26 @@
 //
 // Jede Änderung hat einen Grund (Schlüssel aus GRUENDE) und läuft durch genau EINE Kernfunktion (schreiben). Intention statt Flag:
 //   mit Ereignis (sfx/missionEvent, das Regiebuch reagiert darauf):  gutschreiben, abbuchen, gutschreibenSkript
-//   still (so wie die Stelle vor dem Umbau war, kein Ereignis):      einnehmen (Beute/Fund), erstatten, bezahlen (Händler), abziehenHoechstens
+//   still (so wie die Stelle vor dem Umbau war, kein Ereignis):      einnehmen (Beute/Fund), erstatten, bezahlen (Händler), abziehenGeprueft, abziehenHoechstens
 //   Stand ohne Wirtschaft (Anfang, Laden, Test, Debug):              standSetzen (Art 'stand', keine Buchung)
 // Neue Ereignisse an einer bisher stillen Stelle ändern den Ereignisstrom (Missionsschritte!) und sind tabu.
 
-// Gründe (Programmierfehler bei Unbekanntem: wirft). Die Regiebuch-Gutschrift mit freiem Text nutzt 'skript' (der Text bleibt im Ereignis).
+// Gründe. Unbekanntes (Grund/Art) wird im Spiel gezählt ('buchung-grund'/'buchung-art', buchungspruefung.js) und läuft wie früher; im strengen Modus der Tests wirft es.
+// Die Regiebuch-Gutschrift mit freiem Text nutzt 'skript' (der Text bleibt im Ereignis).
 const GRUENDE = Object.freeze([
   'start', 'testmarken', 'debug', 'laden', 'kampagne', 'migration',   // Stand setzen
   'abschuss', 'bergung', 'entern', 'erkundung', 'belohnung', 'notruf', 'verkauf', 'ueberhang', 'skript',   // Einnahmen
   'kauf', 'info', 'werft', 'notfall', 'mission', 'forderung', 'geldziel', 'soeldner', 'loesegeld',   // Ausgaben
 ]);
 const ARTEN = Object.freeze(['buchung', 'stand']);
+const Pruefung = require('./buchungspruefung.js');
+const pruefeGrund = (game, grund) => { if (!GRUENDE.includes(grund)) Pruefung.unbekannt(game, 'buchung-grund', 'geld: unbekannter Grund ' + grund); };
 
 // Die Kernfunktion: jede Marken-Änderung läuft hier durch. art 'buchung' = Wirtschaft (Einnahme/Ausgabe), 'stand' = Stand gesetzt (Anfang, Laden, Test, Debug).
 // neu ist schon so gerechnet, wie die Aufrufstelle es früher tat (Rundung/Clamping bleiben bit-gleich).
 function schreiben(game, art, grund, neu) {
-  if (!ARTEN.includes(art)) throw new Error('geld: unbekannte Art ' + art);
-  if (!GRUENDE.includes(grund)) throw new Error('geld: unbekannter Grund ' + grund);
+  if (!ARTEN.includes(art)) Pruefung.unbekannt(game, 'buchung-art', 'geld: unbekannte Art ' + art);
+  pruefeGrund(game, grund);
   const vorher = game.inventory.marks;
   game.inventory.marks = neu;
   // TEL-01: hier protokollieren (art, grund, vorher, neu)
@@ -42,9 +45,8 @@ function gutschreiben(game, n, grund) { return gutschreibenMitEreignis(game, n, 
 function gutschreibenSkript(game, n, text) { return gutschreibenMitEreignis(game, n, 'skript', text); }
 
 function gutschreibenMitEreignis(game, n, grund, ereignisGrund) {
-  if (!GRUENDE.includes(grund)) throw new Error('geld: unbekannter Grund ' + grund);
   const k = Math.max(0, Math.floor(Number(n) || 0));
-  if (!k) return stand(game);
+  if (!k) { pruefeGrund(game, grund); return stand(game); }
   schreiben(game, 'buchung', grund, stand(game) + k);
   game.emit('sfx', { name: 'discovery', volume: 0.5 });
   game.missionEvent('marksCredited', { n: k, grund: ereignisGrund || null, marks: game.inventory.marks });
@@ -53,11 +55,10 @@ function gutschreibenMitEreignis(game, n, grund, ereignisGrund) {
 
 // Abbuchen, nur wenn genug da ist. Rückgabe true = gebucht, false = zu wenig (nichts gebucht). Sendet missionEvent 'marksPaid'.
 function abbuchen(game, n, grund) {
-  if (!GRUENDE.includes(grund)) throw new Error('geld: unbekannter Grund ' + grund);
   const k = Math.max(0, Math.floor(Number(n) || 0));
-  if (stand(game) < k) return false;
+  if (stand(game) < k) { pruefeGrund(game, grund); return false; }
   schreiben(game, 'buchung', grund, stand(game) - k);
-  if (k) game.missionEvent('marksPaid', { n: k, grund, marks: game.inventory.marks });
+  if (k) game.missionEvent('marksPaid', { n: k, grund: grund || null, marks: game.inventory.marks });
   return true;
 }
 
@@ -71,11 +72,13 @@ function erstatten(game, n, grund) { return schreiben(game, 'buchung', grund, ga
 
 // Händlerzahlung (Shop, Handelsinfo): zahlt nur, wenn der Stand reicht (Vergleich ungerundet wie bisher). true = bezahlt, false = nichts gebucht.
 function bezahlen(game, preis, grund) {
-  if (!GRUENDE.includes(grund)) throw new Error('geld: unbekannter Grund ' + grund);
-  if (game.inventory.marks < preis) return false;
+  if (game.inventory.marks < preis) { pruefeGrund(game, grund); return false; }
   schreiben(game, 'buchung', grund, game.inventory.marks - preis);
   return true;
 }
+
+// Abzug nach einer Prüfung des Aufrufers (Handelsinfo: der Wächter steht dort vor der Wirkung, die Marken werden danach bedingungslos abgezogen). -> neuer Stand
+function abziehenGeprueft(game, n, grund) { return schreiben(game, 'buchung', grund, game.inventory.marks - n); }
 
 // Abzug mit Untergrenze 0 (Notfallprotokoll, Regiebuch pay_marks). -> tatsächlich abgezogener Betrag
 function abziehenHoechstens(game, n, grund) {
@@ -87,4 +90,4 @@ function abziehenHoechstens(game, n, grund) {
 // Stand setzen (Spielstart, Weltstand laden, Testmarken, Debug, Kampagnen-Einstieg): KEINE Buchung der Wirtschaft (Art 'stand'). n kommt fertig gerechnet vom Aufrufer.
 function standSetzen(game, n, grund) { return schreiben(game, 'stand', grund, n); }
 
-module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, einnehmen, erstatten, bezahlen, abziehenHoechstens, standSetzen };
+module.exports = { GRUENDE, stand, mindestens, gutschreiben, gutschreibenSkript, abbuchen, einnehmen, erstatten, bezahlen, abziehenGeprueft, abziehenHoechstens, standSetzen, strengPruefen: Pruefung.strengPruefen };

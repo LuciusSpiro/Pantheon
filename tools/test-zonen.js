@@ -336,8 +336,8 @@ section('Verkaufen und Marken', () => {
   ok(al.test(m, { n: 100 }) && !al.test(m, { n: 101 }), 'marks_at_least: genau 100 genügt, 101 nicht');
   cr.run(m, { marks: 25, grund: 'test' });
   ok(g.inventory.marks === 125 && T.me('marksCredited').slice(-1)[0].grund === 'test', 'credit_marks schreibt gut (125) und meldet den Grund');
-  ok(Marken.abbuchen(g, 25, 'werft') && g.inventory.marks === 100 && !Marken.abbuchen(g, 500, 'werft') && g.inventory.marks === 100, 'Marken.abbuchen nur mit Deckung');
-  ok(Marken.gutschreiben(g, -5, 'verkauf') === 100 && Marken.gutschreiben(g, 2.7, 'verkauf') === 102, 'gutschreiben: negativ ignoriert, ganze Zahlen');
+  ok(Marken.abbuchen(g, 25, 'test') && g.inventory.marks === 100 && !Marken.abbuchen(g, 500, 'zuviel') && g.inventory.marks === 100, 'Marken.abbuchen nur mit Deckung');
+  ok(Marken.gutschreiben(g, -5) === 100 && Marken.gutschreiben(g, 2.7) === 102, 'gutschreiben: negativ ignoriert, ganze Zahlen');
 });
 
 section('Sund: Gasfeld, Concordia und Buch sl_gasriese (Bot-Pfad)', () => {

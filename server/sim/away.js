@@ -313,7 +313,7 @@ function supply(game) {
   if (!game.away.marker) return 'Keine Markierung gesetzt (Außenteam: Q).';
   if (game.support.supply > 0) return `Nachschub lädt noch (${Math.ceil(game.support.supply)} s).`;
   if (game.inventory.medipack <= 0) return 'Keine Medipacks mehr an Bord.';
-  Vorrat.entnehmen(game, 'medipack', 1, 'nachschub');
+  Vorrat.verbrauchen(game, 'medipack', 1, 'nachschub');   // Wächter: <= 0 oben
   game.support.supply = game.C.support.supply.cooldown;
   const m = game.away.marker;
   game.away.items.push({ id: game.nextId('i'), kind: 'medipack', x: m.x, y: m.y });

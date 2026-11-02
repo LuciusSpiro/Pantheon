@@ -656,7 +656,7 @@ function fireTorpedo(game, id) {
   if (!inMountArc(game, id, target.x, target.y)) return 'Ziel außerhalb des Feuerbogens.';
   if (game.inventory.bolzen <= 0) return 'Keine Torpedos mehr im Lager (Hafen).';
   if (m.cd > 0) return `Torpedowerfer lädt nach (${Math.ceil(m.cd)} s).`;
-  Vorrat.entnehmen(game, 'bolzen', 1, 'torpedo');
+  Vorrat.verbrauchen(game, 'bolzen', 1, 'torpedo');   // Wächter: <= 0 oben
   m.cdMax = T.cooldown * (mountState(game, id) === 'damaged' ? T.kaputtFaktor : 1);   // beschädigte Lafette: Cooldown ×1,5 (Katalogwert; Triebwerk und Energie wirken nie)
   m.cd = m.cdMax;
   Alarm.laerm(game, 'waffen');   // EK2

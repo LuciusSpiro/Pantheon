@@ -216,7 +216,7 @@ function kaufen(game, p, themaId, stufe, gezeigt) {
     if (game.countError) game.countError('handel-info', e);
     return fehl('fehler');
   }
-  if (!Geld.bezahlen(game, preis, 'info')) return fehl('zu_wenig_marken');
+  Geld.abziehenGeprueft(game, preis, 'info');   // bedingungslos wie früher: der Wächter steht oben (Z. ~201), dazwischen ändert sich der Stand nicht
   gekauft[gkey] = 1; ws.infoZahl = (ws.infoZahl || 0) + 1;
   const letzte = letzteVon(ws); letzte.unshift({ s: stufe === 'beleg' ? 'b' : 'g', x: erg.text, a: thema.art }); if (letzte.length > 2) letzte.length = 2;
   try {

@@ -765,8 +765,8 @@ function performInteraction(game, p, it) {
       if (it.op === 'take') {
         if (it.item === 'loeschgel') {
           if (game.inventory.loeschgelCharges > 0) p.carryCharges = Vorrat.leeren(game, 'loeschgelCharges', 'regal');
-          else { Vorrat.entnehmen(game, 'loeschgel', 1, 'regal'); p.carryCharges = game.C.fire.gelCharges; }
-        } else Vorrat.entnehmen(game, it.item, 1, 'regal');
+          else { Vorrat.verbrauchen(game, 'loeschgel', 1, 'regal'); p.carryCharges = game.C.fire.gelCharges; }
+        } else Vorrat.verbrauchen(game, it.item, 1, 'regal');   // Wächter beim Anbieten der Aktion (Z. ~584); beim Ausführen wie früher unbedingt
         p.carry = it.item;
         game.emit('sfx', { name: 'pickup', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
         if (!game.flags.toldCarry) { game.flags.toldCarry = true; game.oda('Getragenes legst du mit G ab. Zurück ins Regal: einfach E am Regal.', null); }

@@ -776,7 +776,7 @@ function waffenAltstand(game, s) {
   }
   if ((s.ausbauten || []).includes('seitenturm')) { Geld.erstatten(game, 300, 'migration'); game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); game.weltMigriert = true; }
   const max = Katalog.TORPEDO.lagerMax;
-  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; Vorrat.entnehmen(game, 'bolzen', zu, 'migration'); Geld.erstatten(game, zu * 10, 'migration'); game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
+  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; Vorrat.kappen(game, 'bolzen', max, 'migration'); Geld.erstatten(game, zu * 10, 'migration'); game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
 }
 
 // ---------- Anwenden (nach reset()) ----------
