@@ -1,5 +1,7 @@
 'use strict';
 // Spielzustand, Spielerverwaltung, Nachrichten, Tick (30 Hz) und Snapshot (§5.3 + CONTRACT-M1 §10). Maßgeblich (autoritativ).
+const Geld = require('./sim/geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('./sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const path = require('path');
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
@@ -314,7 +316,7 @@ class Game {
       this.stats.missions[id] = { start: 0, end: 0 };
     }
     const c = this.C.campaign || {};
-    this.inventory.marks = Number.isFinite(c.skipTutorialMarks) ? c.skipTutorialMarks : this.C.economy.startMarks;
+    Geld.standSetzen(this, Number.isFinite(c.skipTutorialMarks) ? c.skipTutorialMarks : this.C.economy.startMarks, 'start');
     const file = Weltstand.readNpcFile(this, false);
     const ot = file && file.kampagne && file.kampagne.ohne_tutorial;
     if (ot && ot.fakten) for (const [k, v] of Object.entries(ot.fakten)) {
@@ -1096,7 +1098,7 @@ class Game {
     else if (freieFahrt) Kriegslage.starten(this);   // SUND-01 B: keine Mission, Crew angedockt am Start der Karte (reset), die Welt tickt ab dem ersten Sprung
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
-    if (arena.isArena(sm) || sm === 'labor') this.inventory.marks = this.C.werft.testmarken;   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
+    if (arena.isArena(sm) || sm === 'labor') Geld.standSetzen(this, this.C.werft.testmarken, 'testmarken');   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
@@ -1497,12 +1499,12 @@ class Game {
         space.spawnEnemy(this, k, so);   // Sichtprüfung Kennung: volk ger|rom|pirat (sonst aus dem Sektor)
         break;
       }
-      case 'marks': case 'marken': this.inventory.marks = Math.max(0, Math.round(Number(msg.n != null ? msg.n : argList(msg)[0]) || 0)); break;   // PAN-01 D: marken <n>
+      case 'marks': case 'marken': Geld.standSetzen(this, Math.max(0, Math.round(Number(msg.n != null ? msg.n : argList(msg)[0]) || 0)), 'debug'); break;   // PAN-01 D: marken <n>
       case 'inv': {
         const item = String(msg.item);
         if (!['ersatzteil', 'loeschgel', 'flickblech', 'bolzen', 'medipack', 'tafel'].includes(item)) { err = 'Unbekannter Gegenstand.'; break; }
-        this.inventory[item] = Math.max(0, Math.min(item === 'bolzen' ? Katalog.TORPEDO.lagerMax : 99, Math.round(Number(msg.n) || 0)));   // PAN-01 C: Torpedo-Lager hart bei 12
-        if (item === 'loeschgel') this.inventory.loeschgelCharges = 0;
+        Vorrat.standSetzen(this, item, Math.max(0, Math.min(item === 'bolzen' ? Katalog.TORPEDO.lagerMax : 99, Math.round(Number(msg.n) || 0))), 'debug');   // PAN-01 C: Torpedo-Lager hart bei 12
+        if (item === 'loeschgel') Vorrat.standSetzen(this, 'loeschgelCharges', 0, 'debug');
         break;
       }
       case 'verlust': space.verlustAusloesen(this, 'debug'); break;   // SYS-01 A1a: die Naht des Notfallprotokolls (kein Hüllenwert mehr)

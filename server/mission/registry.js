@@ -7,6 +7,8 @@
 // Kennungen in snake_case (content/regiebuch/helfer-inventar.md, bausteine.json). Schwere Module (combat, space, arena,
 // interior, world) werden erst beim Aufruf geladen – describe() und der Prüfer laufen ohne Server.
 // run/test bekommen die laufende Mission (server/sim/mission.js) und die Parameter des Aufrufs.
+const Geld = require('../sim/geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('../sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Objects = require('./objects.js');
 
 let mods = {};
@@ -111,11 +113,11 @@ define({ id: 'damage_system', art: 'aktion', effekt: 'schaden', ereignisse: ['sy
   } });
 define({ id: 'pay_marks', art: 'aktion', beschreibung: 'Marken abziehen (Bestechung, Kauf)',
   params: { marks: { typ: 'number', pflicht: true, min: 0 } },
-  run(m, a) { const inv = g_(m).inventory; inv.marks = Math.max(0, inv.marks - a.marks); } });
+  run(m, a) { Geld.abziehenHoechstens(g_(m), a.marks, 'mission'); } });
 define({ id: 'credit_marks', art: 'aktion', ereignisse: ['marksCredited'],
   beschreibung: 'Marken gutschreiben (Verkauf, Lohn; sonst reward) – server/sim/geld.js',
   params: { marks: { typ: 'number', pflicht: true, min: 0 }, grund: { typ: 'string' } },
-  run(m, a) { lazyMarken().gutschreiben(g_(m), a.marks, a.grund || 'skript'); } });
+  run(m, a) { lazyMarken().gutschreibenSkript(g_(m), a.marks, a.grund || 'skript'); } });
 define({ id: 'end_away', art: 'aktion', beschreibung: 'Außenmission auf einer Karte beenden',
   params: { map: { typ: 'map', pflicht: true } },
   run(m, a) { const aw = g_(m).aways[a.map]; if (aw) aw.active = false; } });
@@ -128,8 +130,8 @@ define({ id: 'remove_item', art: 'aktion', beschreibung: 'Gegenstand aus Schiff/
       g.ship.groundItems = g.ship.groundItems.filter((i) => i.kind !== 'datenkern');
       return;
     }
-    const have = g.inventory[a.item] || 0;
-    if (typeof have === 'number') g.inventory[a.item] = Math.max(0, have - (a.n != null ? a.n : have));
+    const have = Vorrat.stand(g, a.item);
+    if (typeof have === 'number') Vorrat.abziehenHoechstens(g, a.item, a.n != null ? a.n : have, 'mission');
   } });
 define({ id: 'activate_away_group', art: 'aktion', effekt: 'gegner',
   beschreibung: 'Ruhende Gruppe auf einer Außenkarte aktivieren ({n} im Text = Anzahl)',
@@ -247,7 +249,7 @@ define({ id: 'debug_item_aboard', art: 'aktion', intern: true, beschreibung: 'Ge
   params: { item: { typ: 'item', pflicht: true } },
   run(m, a) {
     const g = g_(m);
-    if (a.item !== 'datenkern') { g.inventory[a.item] = Math.max(1, g.inventory[a.item] || 0); return; }
+    if (a.item !== 'datenkern') { Vorrat.standSetzen(g, a.item, Math.max(1, Vorrat.stand(g, a.item)), 'debug'); return; }
     if (m.datenkernAboard()) return;
     const W = world();
     g.aways.platform.items = g.aways.platform.items.filter((i) => i.kind !== 'datenkern');
@@ -302,7 +304,7 @@ define({ id: 'debug_recall_all', art: 'aktion', intern: true, beschreibung: 'All
     const g = g_(m);
     const list = g.players.filter((p) => p.zone === 'away');
     list.forEach((p, i) => { interior().placeOnShipPad(g, p, i); p.beamLock = false; });
-    if (a.ensureItem && !(g.inventory[a.ensureItem] >= 1)) g.inventory[a.ensureItem] = 1;
+    if (a.ensureItem && !(g.inventory[a.ensureItem] >= 1)) Vorrat.standSetzen(g, a.ensureItem, 1, 'debug');
     if (g.aways[a.map]) g.aways[a.map].active = true;
   } });
 define({ id: 'debug_arena_skip', art: 'aktion', intern: true, beschreibung: 'Testgelände: laufende Welle räumen bzw. nächste sofort', params: {},

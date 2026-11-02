@@ -11,6 +11,7 @@
 // Regeln (Config `sonden`): Eine Sonde fliegt gerade mit `tempo` zum Ziel und sendet dort, bis sie zerstört ist oder `leben` Sekunden vergangen sind.
 // Am Ziel macht sie einmal einen Weitscan-Puls (Verstecke, Bojen im Radius `reichweite`). Gegner (nicht Relais) im Umkreis `gegnerSicht` sehen
 // sie und beschädigen sie mit `gegnerDps` je Sekunde – ihr Verlust ist eine Antwort. Wechselt die Lerche die Szene, enden alle Sonden dieser Szene.
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Station = require('./station.js');
 
 const cfg = (game) => game.C.sonden;
@@ -38,7 +39,7 @@ function starteInSzene(game, p, ziel) {
   const sp = game.space;
   const tx = Math.max(0, Math.min(sp.w, z.x)), ty = Math.max(0, Math.min(sp.h, z.y));
   if (dist(sh.x, sh.y, tx, ty) < 60) return 'Das Ziel liegt zu nah an der Lerche.';
-  game.inventory.sonde = vorrat(game) - 1;
+  Vorrat.entnehmen(game, 'sonde', 1, 'sonde');
   const s = { id: 'so' + (++game.sondenSeq), x: sh.x, y: sh.y, tx, ty, z: Z.FLIEGT, hp: C.hp, bis: game.time + C.leben, gepulst: false };
   l.push(s);
   game.emit('sfx', { name: 'marker_set' });
@@ -63,7 +64,7 @@ function starteDurchSprungpunkt(game, p, nach) {
   if (l.length >= C.max) return `Es sind schon ${C.max} Sonden unterwegs.`;
   const pt = Sprung().sprungpunkt(game, hex);
   if (!pt) return 'Sprungpunkt nicht gefunden.';
-  game.inventory.sonde = vorrat(game) - 1;
+  Vorrat.entnehmen(game, 'sonde', 1, 'sonde');
   const sh = game.ship;
   const s = { id: 'so' + (++game.sondenSeq), x: sh.x, y: sh.y, tx: pt.x, ty: pt.y, z: Z.FLIEGT, hp: C.hp, bis: game.time + C.leben, gepulst: true, nach: hex, hier: here };
   l.push(s);

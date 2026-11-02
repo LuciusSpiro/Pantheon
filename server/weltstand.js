@@ -2,6 +2,8 @@
 // Weltstand (CONTRACT-S1 §5): Speicherstand einer Kampagne. Ablage als JSON in WORLD_DIR (Standard data/worlds),
 // atomar geschrieben (tmp + fsync + rename, vorher alte Datei -> <id>.bak.json). Laden wirft nie.
 // Laufzeit-Weltstand game.weltstand (§5.4): NSC, Chronik, Fakten, Tutorial-Status + Methoden für die Bausteine.
+const Geld = require('./sim/geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('./sim/vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const fs = require('fs');
 const path = require('path');
 const Locations = require('../shared/locations.js');
@@ -768,13 +770,13 @@ function waffenAltstand(game, s) {
   Waffen.restore(game, s.waffen);
   if (!s.waffen && (s.ausbauten || []).includes('bolzenwerfer')) {
     const e = Waffen.bestuecken(game, 2, 'torpedowerfer');
-    if (e) { game.inventory.marks += 220; game.log('Weltstand: Torpedowerfer (früher Bolzenwerfer) konnte nicht eingebaut werden (' + e + ') – 220 Marken erstattet.'); countError(game, 'weltstand-bolzenwerfer', new Error(e)); }
+    if (e) { Geld.erstatten(game, 220, 'migration'); game.log('Weltstand: Torpedowerfer (früher Bolzenwerfer) konnte nicht eingebaut werden (' + e + ') – 220 Marken erstattet.'); countError(game, 'weltstand-bolzenwerfer', new Error(e)); }
     else game.log('Weltstand: Bolzenwerfer wurde der Torpedowerfer auf Heck 2.');
     game.weltMigriert = true;
   }
-  if ((s.ausbauten || []).includes('seitenturm')) { game.inventory.marks += 300; game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); game.weltMigriert = true; }
+  if ((s.ausbauten || []).includes('seitenturm')) { Geld.erstatten(game, 300, 'migration'); game.log('Weltstand: Zusatzrohre gibt es nicht mehr – 300 Marken erstattet.'); game.weltMigriert = true; }
   const max = Katalog.TORPEDO.lagerMax;
-  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; game.inventory.bolzen = max; game.inventory.marks += zu * 10; game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
+  if ((game.inventory.bolzen || 0) > max) { const zu = game.inventory.bolzen - max; Vorrat.entnehmen(game, 'bolzen', zu, 'migration'); Geld.erstatten(game, zu * 10, 'migration'); game.log(`Weltstand: Torpedolager hat höchstens ${max} – ${zu} Torpedos gegen ${zu * 10} Marken erstattet.`); game.weltMigriert = true; }
 }
 
 // ---------- Anwenden (nach reset()) ----------
@@ -798,8 +800,8 @@ function apply(game, data) {
   game.stats.playTimeStart = game.time - (Number(d.spielzeit_s) || 0);
   // Schiff
   const s = d.schiff || {};
-  game.inventory.marks = Math.max(0, Math.round(Number(s.marken) || 0));
-  for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) game.inventory[k] = v;
+  Geld.standSetzen(game, Math.max(0, Math.round(Number(s.marken) || 0)), 'laden');
+  for (const [k, v] of Object.entries(s.lager || {})) if (Number.isFinite(v)) Vorrat.standSetzen(game, k, v, 'laden');
   game.inventory.deko = Array.isArray(s.deko) ? s.deko.slice() : [];
   Zonen.restore(game, s.zonen);   // SL6: erkundete Zonen, Zähler (fehlt = nichts erkundet)
   for (const k of Object.keys(game.upgrades)) game.upgrades[k] = false;
@@ -815,7 +817,7 @@ function apply(game, data) {
   if (!Array.isArray(s.module) && hatBot2(s)) {
     const e = Modul.bestuecken(game, 'werkstatt');   // Rückgabewert prüfen: bei Fehlschlag Log und Marken-Erstattung (Preis 100)
     if (e) {
-      game.inventory.marks += BOT2_PREIS;
+      Geld.erstatten(game, BOT2_PREIS, 'migration');
       game.log('Weltstand: Werkstatt (früher zweiter Schrauber) konnte nicht eingebaut werden (' + e + ') – ' + BOT2_PREIS + ' Marken erstattet.');
       countError(game, 'weltstand-bot2', new Error(e));
     }

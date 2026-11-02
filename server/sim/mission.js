@@ -7,6 +7,7 @@
 // und Aktionen (radio, oda, spawn, choice, reveal, reward, setFlag, set, after, goto, complete, wirkung/wendung, do …).
 // Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip,
 // drill, wiederaufnahme.
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const path = require('path');
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
@@ -291,7 +292,7 @@ class Mission {
     this.openTutorialMap();
     if (opts && opts.still) return;
     const camp = C.campaign || {};
-    g.inventory.marks = camp.skipTutorialMarks != null ? camp.skipTutorialMarks : C.economy.startMarks;
+    Geld.standSetzen(g, camp.skipTutorialMarks != null ? camp.skipTutorialMarks : C.economy.startMarks, 'start');
     const kamp = (Loader.npcData().kampagne || {}).ohne_tutorial || {};
     for (const [k, v] of Object.entries(kamp.fakten || {})) {
       const value = isObj(v) && 'value' in v ? v.value : v;

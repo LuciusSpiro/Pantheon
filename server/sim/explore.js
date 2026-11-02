@@ -1,6 +1,7 @@
 'use strict';
 // Offene Welt (CONTRACT-M1 §9.1/9.2): bekannte/besuchte Orte, Verbindungen, versteckte Objekte (Weitscan),
 // Erstbesuch-Belohnungen, Logbuch der Entdeckungen, Kartenscans für den Planungstisch.
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');   // B3 (Team SEKTOR): Hexe, Kanten, Bojen
 const { dist } = require('../util.js');
@@ -114,7 +115,7 @@ class Explore {
     if (!this.visited.has(id)) {
       this.visited.add(id); this.version++;
       const marks = g.C.discovery.firstVisitMarks;
-      g.inventory.marks += marks;
+      Geld.einnehmen(g, marks, 'erkundung');
       // §21.2: Erstbesuche gehören zu keinem Auftrag (außer dem Wrack -> Zaunkönig)
       this.addLog(`Erstbesuch: ${loc.name}. ${loc.desc} (+${marks} Marken)`, id, LOC_BOOK[id] || null);
       g.oda(loc.first + (wasKnown ? '' : ' Neuer Ort im Logbuch!'), null);
@@ -198,7 +199,7 @@ class Explore {
   reward(r) {
     if (!r) return '';
     const g = this.game; const parts = [];
-    if (r.marks) { g.inventory.marks += r.marks; parts.push(r.marks + ' Marken'); }
+    if (r.marks) { Geld.einnehmen(g, r.marks, 'belohnung'); parts.push(r.marks + ' Marken'); }
     for (const [k, n] of Object.entries(r.items || {})) { const add = require('./schiffswaffen.js').lagerGutschrift(g, k, n); parts.push(add + '× ' + (ITEM_NAMES[k] || k)); }   // PAN-01 C: Torpedo-Lager hart bei 12 (Überhang = Marken)
     for (const d of r.deko || []) { g.inventory.deko.push(d); parts.push('Deko: ' + (DEKO_NAMES[d] || d)); }
     return parts.join(', ');

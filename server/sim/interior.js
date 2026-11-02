@@ -1,6 +1,7 @@
 'use strict';
 // Schiffsinneres + Außenkarten (B-7-Plattform, Wrack): Laufen, Interaktion (§4.2), Tragen, Feuer, Lecks, O₂-Folgen,
 // Downed/Revive, Reaktorschalter (M1 §6), Planungstisch (M1 §8), Offline-Systeme (EMP, M1 §5).
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
@@ -763,17 +764,17 @@ function performInteraction(game, p, it) {
     case 'shelf': {
       if (it.op === 'take') {
         if (it.item === 'loeschgel') {
-          if (game.inventory.loeschgelCharges > 0) { p.carryCharges = game.inventory.loeschgelCharges; game.inventory.loeschgelCharges = 0; }
-          else { game.inventory.loeschgel--; p.carryCharges = game.C.fire.gelCharges; }
-        } else game.inventory[it.item]--;
+          if (game.inventory.loeschgelCharges > 0) p.carryCharges = Vorrat.leeren(game, 'loeschgelCharges', 'regal');
+          else { Vorrat.entnehmen(game, 'loeschgel', 1, 'regal'); p.carryCharges = game.C.fire.gelCharges; }
+        } else Vorrat.entnehmen(game, it.item, 1, 'regal');
         p.carry = it.item;
         game.emit('sfx', { name: 'pickup', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
         if (!game.flags.toldCarry) { game.flags.toldCarry = true; game.oda('Getragenes legst du mit G ab. Zurück ins Regal: einfach E am Regal.', null); }
       } else {
         if (it.item === 'loeschgel') {
-          if (p.carryCharges >= game.C.fire.gelCharges) game.inventory.loeschgel++;
-          else game.inventory.loeschgelCharges += p.carryCharges;
-        } else game.inventory[it.item]++;
+          if (p.carryCharges >= game.C.fire.gelCharges) Vorrat.einlagern(game, 'loeschgel', 1, 'regal');
+          else Vorrat.einlagern(game, 'loeschgelCharges', p.carryCharges, 'regal');
+        } else Vorrat.einlagern(game, it.item, 1, 'regal');
         p.carry = null; p.carryCharges = 0;
         game.emit('sfx', { name: 'drop', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
       }
