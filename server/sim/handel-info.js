@@ -20,6 +20,7 @@
 //                                           stimmt das Thema unter dieser Id inzwischen nicht mehr (Angebot hat sich geändert), wird nichts gekauft (Code unbekannt)
 //   kennung(key)                            kurze Kennung eines Themas für die Anzeige (nur Buchstaben, verrät nichts vom Thema)
 //   snapshot(game) / schluessel(game)       Anzeigeblock world.info (nur an einem Konkordat-Hafen, solange jemand am Terminal sitzt) und sein Änderungsschlüssel
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const Daten = require('../weltsim/daten.js');
 const Kern = require('../weltsim/kern.js');
 const Wirkungen = require('../weltsim/wirkungen.js');
@@ -215,7 +216,7 @@ function kaufen(game, p, themaId, stufe, gezeigt) {
     if (game.countError) game.countError('handel-info', e);
     return fehl('fehler');
   }
-  game.inventory.marks -= preis;
+  Geld.abziehenGeprueft(game, preis, 'info');   // bedingungslos wie früher: der Wächter steht oben (Z. ~201), dazwischen ändert sich der Stand nicht
   gekauft[gkey] = 1; ws.infoZahl = (ws.infoZahl || 0) + 1;
   const letzte = letzteVon(ws); letzte.unshift({ s: stufe === 'beleg' ? 'b' : 'g', x: erg.text, a: thema.art }); if (letzte.length > 2) letzte.length = 2;
   try {

@@ -2,6 +2,7 @@
 // Schrauber-Bots (§6): löschen, flicken Lecks, holen Teile. BFS auf Kacheln. Nie Konsolen, nie Plattform.
 // M3a (CONTRACT-M3 §8.2): Systeme reparieren sie NUR aus der Reparaturliste ship.repairQueue = [{ system, mode, bot }].
 // Feuer und Lecks erledigen sie weiter selbst. Automatik ship.botAuto füllt die Liste (Standard: an bei genau 1 Spieler).
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const interior = require('./interior.js');
@@ -222,7 +223,7 @@ function assign(game, bot, task) {
 
 function stowNow(game, bot) {
   // Teil zurück ins Regal (vereinfachte Ablage: der Bot legt es sofort zurück)
-  if (bot.carry) game.inventory[bot.carry]++;
+  if (bot.carry) Vorrat.einlagern(game, bot.carry, 1, 'bot');
   bot.carry = null;
 }
 
@@ -332,7 +333,7 @@ function update(game, dt) {
     if (t.phase === 'fetch') {
       if (moveAlong(game, bot, dt)) {
         if (game.inventory[t.part] > 0) {
-          game.inventory[t.part]--; bot.carry = t.part;
+          Vorrat.verbrauchen(game, t.part, 1, 'bot'); bot.carry = t.part;
           game.emit('sfx', { name: 'bot_beep', zone: 'ship', x: Math.round(bot.x), y: Math.round(bot.y) });
           t.phase = 'goto'; bot.path = pathTo(game, bot, goalTilesFor(t));
           if (!bot.path) { bot.task = null; }

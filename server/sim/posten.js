@@ -17,6 +17,7 @@
 // Posten halten (Aufsatz, nicht im Kern): ws.posten = { hex: { t: Tick der Gründung, g?: 1 } } (welt.sim.posten, optional); nachTick() gibt nach halten_ticks Ticks einmal Ruf (Quelle posten_gehalten).
 //   snapshot(game)              space.po: { k: 'g' | 'a', ok: 0 | 1, t?: Weigerungstext, n: Ersatzteile } nur dort, wo ein Posten Sinn hat (freies Hex ohne Hafen, römischer Posten ohne Stützpunkt)
 // Alle Zahlen stehen in content/welt/posten-werte.json, alle Texte in content/flotte/posten.json.
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const fs = require('fs');
 const path = require('path');
 const Sektoren = require('../../shared/sektoren.js');
@@ -182,7 +183,7 @@ function haltFertig(game, h) {
   const gilt = r.ok && !r.verworfen.some((v) => v.wirkung === wk || (v.wirkung && v.wirkung.typ === A.wirkung));
   if (!gilt) { game.emit('frachtBeamen', { phase: 'abbruch', was: 'posten', grund: 'tick' }); game.oda(fmt(T(art).fehler, { grund: r.ok ? 'Wirkung abgelehnt' : 'Weltsimulation gestört' }), null); return false; }
   const k = A.cfg.kosten || {};
-  if (k.ersatzteil) game.inventory.ersatzteil = Math.max(0, Number(game.inventory.ersatzteil || 0) - k.ersatzteil);
+  if (k.ersatzteil) Vorrat.abziehenHoechstens(game, 'ersatzteil', k.ersatzteil, 'posten');
   game.emit('frachtBeamen', { phase: 'fertig', was: 'posten', art });
   game.emit('sfx', { name: 'repair_done' });
   game.oda(fmt(T(art).fertig, { ort: name }), null);

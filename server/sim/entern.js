@@ -21,6 +21,7 @@
 //
 // Schnittstellen: onSchildgeneratorZero, abschuss (jeder Tod eines Gegners, space.enemyDown), update (Tick, nach space.update), markieren, merken,
 // treibende, transferFrei, beamPunkt, frei, verfallen, toSave, restore.
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const fs = require('fs');
 const path = require('path');
 
@@ -156,7 +157,7 @@ function treiben(game, e) {
   treibListe(game).push(e);
   // Buchhaltung wie ein Abschuss (space.enemyDown macht das nicht, der Gegner wird hier nur aus space.enemies genommen)
   const ec = (C.enemies || {})[e.kind] || {};
-  if (game.inventory) game.inventory.marks += ec.salvage || 0;
+  if (game.inventory) Geld.einnehmen(game, ec.salvage || 0, 'entern');
   if (game.stats) game.stats.kills = (game.stats.kills || 0) + 1;
   if (game.ship && game.ship.target === e.id) require('./zielsysteme.js').zielLoeschen(game);
   if (typeof game.emit === 'function') {

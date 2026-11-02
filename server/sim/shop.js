@@ -1,5 +1,7 @@
 'use strict';
 // Wirtschaft: Hafenterminal (Shop, Kontext Hafen/Vaelen), Deko und Stile im Quartier (§6, M1 §7, §9.2).
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const W = require('../world.js');
 const Locations = require('../../shared/locations.js');
 const Sektoren = require('../../shared/sektoren.js');
@@ -33,12 +35,11 @@ function buy(game, p, itemId) {
   if (entry.kind === 'gear' && p.gear[entry.id]) return 'Hast du schon.';
   if (entry.kind === 'item' && entry.limit != null && (game.inventory[entry.id] || 0) >= entry.limit) return `Lager voll (höchstens ${entry.limit} ${entry.name}).`;   // PAN-01 C: hartes Lagerlimit (Torpedos)
   const price = Preise.preisFuer(game, entry, ctx);   // ohne Weltsim und für alles außer Verbrauchsgütern = priceFor(entry, ctx)
-  if (game.inventory.marks < price) return 'Nicht genug Marken.';
-  game.inventory.marks -= price;
+  if (!Geld.bezahlen(game, price, 'kauf')) return 'Nicht genug Marken.';
   if (entry.kind === 'upgrade') {
     game.upgrades[entry.id] = true;
   } else if (entry.kind === 'gear') p.gear[entry.id] = true;
-  else if (entry.kind === 'item') game.inventory[entry.id] = (game.inventory[entry.id] || 0) + 1;
+  else if (entry.kind === 'item') Vorrat.einlagern(game, entry.id, 1, 'kauf');
   else if (entry.kind === 'deko') game.inventory.deko.push(entry.id);
   game.emit('sfx', { name: ctx === 'vaelen' ? 'trade' : 'buy' });
   // S2 (CONTRACT-S2 §6): Ereignis bought { item, n, marks } für `handeln`; Käufe je Mission für die Prüfung `purchased`

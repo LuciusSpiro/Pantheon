@@ -11,6 +11,8 @@
 //   Magazindeckel      Σ (Bereitschaft × Anfangsstoß) aller Energiewaffen ≤ MAGAZINDECKEL.stossMax: mehr Plätze heißen mehr Auswahl, nicht mehr Feuerstoß.
 //
 // space.js ruft update/weaponsFire/… von hier; der Gegner-Teil (Sperrfeuer, Tele, Bolzen, Streu, Torpedo) bleibt in space.js.
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
 const Katalog = require('../../shared/schiffskatalog.js');
 const W = require('../world.js');
@@ -654,7 +656,7 @@ function fireTorpedo(game, id) {
   if (!inMountArc(game, id, target.x, target.y)) return 'Ziel außerhalb des Feuerbogens.';
   if (game.inventory.bolzen <= 0) return 'Keine Torpedos mehr im Lager (Hafen).';
   if (m.cd > 0) return `Torpedowerfer lädt nach (${Math.ceil(m.cd)} s).`;
-  game.inventory.bolzen--;
+  Vorrat.verbrauchen(game, 'bolzen', 1, 'torpedo');   // Wächter: <= 0 oben
   m.cdMax = T.cooldown * (mountState(game, id) === 'damaged' ? T.kaputtFaktor : 1);   // beschädigte Lafette: Cooldown ×1,5 (Katalogwert; Triebwerk und Energie wirken nie)
   m.cd = m.cdMax;
   Alarm.laerm(game, 'waffen');   // EK2
@@ -669,11 +671,11 @@ function fireTorpedo(game, id) {
 // Eine Stelle für jede Gutschrift ins Lager (Fundbelohnung, Regiebuch, Shop-Folgen): Torpedos höchstens `lagerMax`; der Überhang wird zu 10 Marken je Stück verkauft (ODA sagt es)
 function lagerGutschrift(game, item, n) {
   n = Math.round(Number(n) || 0);
-  if (item !== 'bolzen') { game.inventory[item] = (game.inventory[item] || 0) + n; return n; }
+  if (item !== 'bolzen') { Vorrat.einlagern(game, item, n, 'belohnung'); return n; }
   const max = Katalog.TORPEDO.lagerMax; const have = game.inventory.bolzen || 0;
-  const add = Math.max(0, Math.min(n, max - have)); game.inventory.bolzen = have + add;
+  const add = Math.max(0, Math.min(n, max - have)); Vorrat.einlagern(game, 'bolzen', add, 'belohnung');
   const rest = n - add;
-  if (rest > 0) { game.inventory.marks += rest * 10; game.oda(`Torpedolager voll (höchstens ${max}) – ${rest} Torpedo${rest === 1 ? '' : 's'} für ${rest * 10} Marken verkauft.`, null); }
+  if (rest > 0) { Geld.einnehmen(game, rest * 10, 'ueberhang'); game.oda(`Torpedolager voll (höchstens ${max}) – ${rest} Torpedo${rest === 1 ? '' : 's'} für ${rest * 10} Marken verkauft.`, null); }
   return add;
 }
 

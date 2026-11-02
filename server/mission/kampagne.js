@@ -10,6 +10,7 @@
 // Zustand im Weltstand (kein neues Schema): Fakten kampagne, kapitel, kapitel_nr, kapitel_buch, kampagne_ende; die Bücher
 // selbst (aktiv/erledigt, Schritt, Flags) speichert die Engine (mission.toSave). Gespeichert wird bei jedem Missionsende
 // (game.markSaveDue('missionDone')), also an jedem Kapitelübergang, und beim Andocken.
+const Geld = require('../sim/geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const fs = require('fs');
 const path = require('path');
 
@@ -346,7 +347,7 @@ class Kette {
     for (const f of this.alleFlags()) delete m.flags[f];
     for (const [k, v] of Object.entries(ei.flags || {})) m.flags[k] = v;
     for (const [k, v] of Object.entries(ei.fakten || {})) this.fakt(k, v);
-    if (Number.isFinite(ei.marken) && o.marken !== false) g.inventory.marks = ei.marken;
+    if (Number.isFinite(ei.marken) && o.marken !== false) Geld.standSetzen(g, ei.marken, 'kampagne');
     for (const art of ei.fracht || []) Fracht.anBordLegen(g, art);
     for (const key of ei.oeffnet || []) {
       try { if (key === 'sperrriegel') g.explore.sperrriegelOeffnen(); else g.explore.openLink(key); } catch (e) { g.countError('kette-einstieg', e); }

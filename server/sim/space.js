@@ -1,6 +1,8 @@
 'use strict';
 // Raum: Orte/Szenen, Flug, Docken, Faltsprung, Energie/Reaktor, Schilde, Waffen (Phasenkanonen),
 // Gegner (mit Schildsektoren), Projektile, Asteroiden, Ziel-Scan, Weitscan, Marker. CONTRACT-M1 §4–§6, §9.2.
+const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
 const Protocol = require('../../shared/protocol.js');
 const Locations = require('../../shared/locations.js');
@@ -331,8 +333,8 @@ function updateSalvage(game) {
     sp.salvage.splice(sp.salvage.indexOf(s), 1);
     game.salvaged = (game.salvaged || 0) + 1;
     let what;
-    if (s.kind === 'marks') { game.inventory.marks += C.salvage.marks; what = C.salvage.marks + ' Marken Altmetall'; }
-    else { game.inventory[s.kind] = (game.inventory[s.kind] || 0) + 1; what = s.kind === 'ersatzteil' ? 'ein Ersatzteil' : 'ein Flickblech'; }
+    if (s.kind === 'marks') { Geld.einnehmen(game, C.salvage.marks, 'bergung'); what = C.salvage.marks + ' Marken Altmetall'; }
+    else { Vorrat.einlagern(game, s.kind, 1, 'bergung'); what = s.kind === 'ersatzteil' ? 'ein Ersatzteil' : 'ein Flickblech'; }
     game.emit('sfx', { name: 'pickup' });
     game.missionEvent('salvage', { what, n: game.salvaged });
   }
@@ -817,7 +819,7 @@ function verlustAusloesen(game, grund) {
   ship.breachList = [];   // M1: Notschaum dichtet auch alle Lecks ab (sonst Notfall-Schleife ohne Flickblech)
   for (const e of game.space.enemies) { e.retreatUntil = game.time + C.combat.retreatTime; if (e.tele) { e.tele = null; game.emit('teleMiss', { id: e.id }); } }
   game.space.projectiles = game.space.projectiles.filter((p) => !GEGNER_GESCHOSSE.includes(p.kind));
-  game.inventory.marks = Math.max(0, game.inventory.marks - C.emergency.marksCost);
+  Geld.abziehenHoechstens(game, C.emergency.marksCost, 'notfall');
   game.stats.emergencies++;
   game.emit('emergency', { grund: grund || null });
   game.missionEvent('emergency', { grund: grund || null });   // SL3: Regiebücher (Falle: Lerche am Ende = Szene von vorn)
@@ -1185,7 +1187,7 @@ function enemyDown(game, e) {
   const C = game.C;
   Entern.abschuss(game);   // feste Wracks des Ortes nach jedem Abschuss frei
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
-  if (!e.ohneBeute) game.inventory.marks += C.enemies[e.kind].salvage;   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
+  if (!e.ohneBeute) Geld.einnehmen(game, C.enemies[e.kind].salvage, 'abschuss');   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
   game.stats.kills++;
   game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'space' });
   game.emit('sfx', { name: e.kind === 'pylon' ? 'pylon_down' : (e.waffen || e.kind === 'sentinel') ? 'explosion_big' : 'explosion_small' });

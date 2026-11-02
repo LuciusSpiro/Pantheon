@@ -19,6 +19,7 @@
 const W = require('../world.js');
 const Physics = require('../../shared/physics.js');
 const Buehne = require('../../shared/buehne.js');
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 
 const TILE = Physics.TILE;
 const TUER_ZEIT = Buehne.TUER_ZEIT;   // E (kurz halten): Tür/Luke/Schott/Tor im Zustand 'zu' öffnen (Quelle: shared/buehne.js)
@@ -252,7 +253,7 @@ function completeHold(game, p, h) {
     case 'sprengpunkt': {
       const inv = inventar(game);
       if ((inv.ladung || 0) <= 0) return;
-      inv.ladung -= 1;
+      Vorrat.verbrauchen(game, 'ladung', 1, 'sprengung');
       if (a.modus === 'platzieren') ladungPlatzieren(game, map, a.id, p.id);   // EK5: legen statt zünden
       else ladungScharf(game, map, a.id, null, p.id);
       return;

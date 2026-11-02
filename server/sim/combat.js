@@ -9,6 +9,7 @@
 // Projektile mit Wänden + halber Deckung, Gegner-Schilde, Wächter-Frontbogen, Fog of War (vis/ghost), Scan-Qualität,
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
+const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
@@ -425,12 +426,12 @@ function onArrive(game, p) {
   fullShield(game, p);
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   p.medkit = 0;
-  if ((game.inventory.medipack || 0) > 0) { game.inventory.medipack--; p.medkit = 1; }
+  if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
   if (waffen()) { kaempfer(game, p); p.zustand = 'ok'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.wunden.n = p.wunden.max; }
 }
 // Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt
 function onLeave(game, p) {
-  if (p.medkit) { game.inventory.medipack = (game.inventory.medipack || 0) + p.medkit; p.medkit = 0; }
+  if (p.medkit) { Vorrat.einlagern(game, 'medipack', p.medkit, 'medkit'); p.medkit = 0; }
   if (p.wound || p.downed) { p.downed = false; p.downedFor = 0; p.hp = game.C.player.hp; }
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   if (p.shield) fullShield(game, p);
@@ -1199,7 +1200,7 @@ function takeTablet(game, p) {
   aw.tablet.taken = true; aw.tablet.by = p ? p.id : null;   // QA M2: Träger für den Wächter-Schritt (tabletInCourtyard)
   // S2: Nach map_reset kann ein anderer Fund auf dem Sockel liegen (aw.tablet.item); Standard bleibt die Tafel
   const item = aw.tablet.item || 'tafel';
-  game.inventory[item] = (game.inventory[item] || 0) + 1;
+  Vorrat.einlagern(game, item, 1, 'fund');
   const x = aw.tablet.x * TILE + TILE / 2, y = aw.tablet.y * TILE + TILE / 2;
   game.emit('tabletTaken', { pid: p ? p.id : null, x, y });
   game.emit('sfx', { name: 'tablet', zone: 'away', x, y });
