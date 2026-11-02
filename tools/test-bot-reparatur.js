@@ -43,7 +43,7 @@ let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 function lauf(spieler, teile) {
   const env = Object.assign({}, process.env, { BOTREP: JSON.stringify({ teile }) });
-  const r = spawnSync(process.execPath, ['-r', path.join(__dirname, 'test-bot-reparatur.js'), 'tools/sim-headless.js', 'arena', '--pilot', 'maneuver', '--wellen-def', 'raider', '--waves', '1',
+  const r = spawnSync(process.execPath, ['-r', path.join(__dirname, 'test-bot-reparatur.js'), 'tools/sim-headless.js', 'arena', '--ohne-telemetrie', '--pilot', 'maneuver', '--wellen-def', 'raider', '--waves', '1',
     '--players', String(spieler), '--seeds', '1', '--seed', '1', '--wave-limit', '120', '--max', '6000'], { cwd: ROOT, env, encoding: 'utf8', timeout: 240000 });
   const m = (r.stdout || '').split('\n').find((l) => l.startsWith('BOTREP '));
   if (!m) throw new Error('keine BOTREP-Zeile: ' + (r.stderr || '').slice(0, 300) + (r.stdout || '').slice(-300));
