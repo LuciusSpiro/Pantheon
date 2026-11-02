@@ -18,6 +18,7 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
+const CaptainZiel = require('./sim/captainziel.js');   // OPS-01 C1: Anzeigeziel des Captains (ship.cz)
 const Gegnertod = require('./sim/gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Countdown, Kapern; Debug prise, Ziel-Snapshot)
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
 const FadenSzene = require('./sim/faden-szene.js');   // SUND-04a-2 P1: Faden-Szenen (nur mit FAEDEN=1 und Lage-Spielleiter; ohne Schalter tut der Takt nichts)
@@ -1247,6 +1248,7 @@ class Game {
       case 'captain.listen': err = this.mission.listen(); break;
       case 'captain.sektorplan.marke': err = Sektorplan.markeSetzen(this, String(msg.hex), Number(msg.x), Number(msg.y), msg.art); break;   // SL4: Marke im Sektorplan
       case 'captain.sektorplan.entfernen': err = Sektorplan.markeEntfernen(this, String(msg.id)); break;
+      case 'captain.anzeigeziel': err = CaptainZiel.setzen(this, msg.id == null ? null : String(msg.id)); break;   // OPS-01 C1: eigenes Anzeigeziel des Captains, ship.target bleibt unberührt
       case 'captain.marker': err = space.setMarker(this, 'captain', Number(msg.x), Number(msg.y), !!msg.clear); break;
       case 'technik.overload': err = space.technikOverload(this); break;
       case 'captain.order': err = combat.order(this, msg); break;   // M2: Befehle ans Außenteam
@@ -1990,9 +1992,12 @@ class Game {
   // SYS-01 C1b-2: zielZon { z: Sektor der zugewandten Seite (-1 keiner), pct, leer } je Seite; zielWahl: Indizes der anwählbaren Systeme (Reihenfolge der Daten), beides nur mit gescanntem Ziel.
   zielSysSnap() {
     if (this.ship.target == null || !this.space) return {};
-    const e = this.space.enemies.find((q) => q.id === this.ship.target);
+    return this.zielDetail(this.space.enemies.find((q) => q.id === this.ship.target)) || {};
+  }
+  // OPS-01 C1: Detailformat für EIN Ziel e (Ops-Ziel und Anzeigeziel des Captains): { zielSys, zielZon, zielWahl } oder null (kein Gegner, ungescannt, ohne Modell).
+  zielDetail(e) {
     const z = e && e.scanned ? Gsys.snapshotZiel(e) : null;   // nur das gescannte Ziel: ungescannt verbirgt der Snapshot die Systeme (wie weapons und Schilde)
-    if (!z) return {};
+    if (!z) return null;
     const zug = Zielsysteme.zugewandteZone(this, e);
     const ids = Gsys.systemeVon(e.kind).map((d) => d.id);
     const wahl = Zielsysteme.waehlbar(this, e).map((id) => ids.indexOf(id));
@@ -2277,6 +2282,7 @@ class Game {
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         ...(ship.zielsystem ? { zs: ship.zielsystem } : {}),   // SUND-04a-1 A: gewähltes Systemziel der Ops (fehlt = keins)
+        ...((cz) => (cz ? { cz } : {}))(CaptainZiel.snapshot(this)),   // OPS-01 C1: Anzeigeziel des Captains (nur bei gesetztem Ziel und besetztem Captain-Pult)
         ...this.zielSysSnap(),   // SYS-01 C1a-1: Systeme des anvisierten Gegners (flach, nur bei gesetztem Ziel, ohne Modell fehlt es)
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
         ...(Alarm.schleichSnap(this) ? { sf: Alarm.schleichSnap(this) } : {}),   // EK2: Schleichfahrt: Signatur, Schilde unten, Ping
