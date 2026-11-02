@@ -6,7 +6,7 @@
 // wunschliste.json sammelt fehlende Bausteine ({ text: { n, zuerst, zuletzt, missionen[] } }).
 // Schreiben wirft nie (Fehler -> onError, z. B. game.countError). Lesen: Regielog.read(dir, weltId).
 //
-//   const log = Regielog.create({ dir, weltId, rotateBytes, onError })
+//   const log = Regielog.create({ dir, weltId, rotateBytes, onError, sitzung })   // sitzung: () => Sitzungskennung (TEL-01 A: game.runId), Eintrag bekommt Feld sitzung
 //   log.write(entry) / log.wish(text, { mission }) / log.file / log.entries (letzte 200 im Speicher)
 //   Regielog.dir(env)   // REGIE_DIR oder data/regie
 
@@ -32,6 +32,7 @@ function create(opts) {
   const file = path.join(d, id + '.jsonl');
   const rotateBytes = o.rotateBytes || DEFAULT_ROTATE;
   const onError = typeof o.onError === 'function' ? o.onError : () => {};
+  const sitzung = typeof o.sitzung === 'function' ? o.sitzung : null;
   const entries = [];
   let mkdirDone = false;
   const ensureDir = () => { if (!mkdirDone) { fs.mkdirSync(d, { recursive: true }); mkdirDone = true; } };
@@ -51,6 +52,7 @@ function create(opts) {
       begruendung: x.begruendung != null ? String(x.begruendung).slice(0, 500) : null,
     };
     if (x.wunsch != null) out.wunsch = x.wunsch;
+    if (sitzung) { try { const sid = sitzung(); if (sid) out.sitzung = String(sid); } catch (e) { /* ohne Sitzung */ } }   // TEL-01 A: Verknüpfung mit dem Spielprotokoll
     // QA S2b: automatische Reparaturen der Szenen-Antwort (spielleiter.js) mitschreiben
     if (Array.isArray(x.reparaturen) && x.reparaturen.length) out.reparaturen = x.reparaturen.map((r) => String(r).slice(0, 200)).slice(0, 10);
     // SUND-03 B: Anbieter/Modell des Laufs (Claude | Ollama) und ob die Anfrage eskaliert wurde (additiv)

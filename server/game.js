@@ -71,6 +71,7 @@ const Marken = require('./sim/marken.js');   // SL1B: Hex-Marken auf der Sternka
 const Gespraech = require('./sim/gespraech.js');   // SL2: Gespräche mit NSC am Boden (Snapshot gp, Befehle gespraech.*)
 const KULISSE = (() => { try { return require('../content/welt/kulisse.json'); } catch (e) { return { karten: {} }; } })();   // SL2: Passanten je Landepunkt (awayMap `ku`)
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
+const { Telemetrie } = require('./telemetrie/protokoll.js');   // TEL-01 A: Spielprotokoll (game.telemetrie)
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
@@ -182,6 +183,7 @@ class Game {
     this.errorLog = {};
     this.idCounter = 0;
     this.runCounter = 0;
+    this.telemetrie = new Telemetrie(this);   // TEL-01 A: vor reset() (reset beendet eine offene Session)
     this.roomCode = typeof o.roomCode === 'string' && o.roomCode ? o.roomCode.toUpperCase() : null;
     this.lobbyOpts = { skipDrill: false, startMission: 'm1', world: null, arena: null, wellen: null,   // wellen: Kartenwahl Bodenkampf: Wellen
       szene: null,   // W2 AP3b: Szenenwahl Wellen All (CONFIG.arena.szenen); null = Altweg Testgelände Raumkampf
@@ -347,6 +349,7 @@ class Game {
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
+    this.telemetrie.sessionBeginnen();   // TEL-01 A: Kopfzeile reserviert, Ereignisse des Starts landen schon im Protokoll
     try {
       Weltstand.apply(this, r.data);
     } catch (e) {
@@ -360,6 +363,7 @@ class Game {
     if (r.fromBak) this.log(`Weltstand ${id} aus der Sicherung (.bak) geladen.`);
     this.log(`Weltstand ${id} („${this.weltstand.name}“) fortgesetzt mit ${this.players.length} Spieler(n), angedockt: ${this.ship.dockedAt}.`);
     this.logRun(false);
+    this.telemetrie.kopfFuellen();   // TEL-01 A: Weltstand, Schiff und Tuning stehen jetzt
   }
 
   // §6 menu { op: 'end' }: Partie für alle beenden -> Lobby (Spieler bleiben verbunden, ready = false)
@@ -447,6 +451,7 @@ class Game {
 
   // ---------- Zustand ----------
   reset() {
+    this.telemetrie.sessionBeenden('reset');   // TEL-01 A: eine offene Session endet hier (Grund aus sessionEnded, sonst 'reset'); ohne offene Session nichts
     this.zerstoertOffen = null;   // SYS-01 A2b: eine neue Partie beginnt ohne Einblendung
     Reise.reset(this);
     Entschl.reset(this);
@@ -575,6 +580,7 @@ class Game {
   emit(kind, data) {
     if (this.muteEvents) return;   // QA-Abnahme S1: reset() vor dem Laden meldet sonst „Erstbesuch Hafen (+20 Marken)“
     if (kind === 'missionDone') this.markSaveDue('missionDone');   // S1 §5.3: speichern am Tick-Ende (auch ohne Dock)
+    this.telemetrie.vonEmit(kind, data);   // TEL-01 A: Übersetzer (Positivliste), wirft nie
     this.broadcast(Object.assign({ t: 'event', kind }, data));
   }
   notice(p, text) {
@@ -587,6 +593,7 @@ class Game {
     this.emit('sfx', { name: 'oda_blip' });
   }
   missionEvent(name, data) {
+    this.telemetrie.vonMissionEvent(name, data);   // TEL-01 A: vor allen Seiteneffekten, wirft nie
     // SUND-04a-2 P1: Andocken beendet Faden-Szenen und liefert Fracht ab (nur mit FAEDEN=1). Nacharbeit L2: das geschieht VOR dem Zählen der Tätigkeit (sonst läuft die Frist des Beats mit genau dieser
     // Tätigkeit ab und die Ware ist weg, bevor sie abgeliefert wird)
     if (name === 'docked') { this.markSaveDue('docked'); if (this.weltsim) { try { FadenSzene.andockenHook(this); } catch (e) { this.countError('faden-szene-andocken', e); } } this.lageGrenze('andocken'); }   // SUND-03 A2: Andocken ist eine Tätigkeitsgrenze des Lage-Spielleiters
@@ -631,6 +638,7 @@ class Game {
       interior.placeOnShipPad(this, p);
       p.beamLock = false;
     }
+    this.telemetrie.spielerWeg(p.id);   // TEL-01 A: nur Slot und Zahl
     this.log(`Spieler ${p.name} getrennt.`);
     if (this.zerstoertOffen && this.phase !== 'lobby') this.zerstoertPruefen();   // SYS-01 A2 Nacharbeit: A hat OK gedrückt, B trennt -> Lobby
   }
@@ -772,6 +780,7 @@ class Game {
       this.sendTo(conn, this.welcomeMsg(p.id));
       this.sendeKarte(p);
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+      this.telemetrie.spielerBei(p.id, 'wieder', false);   // TEL-01 A
       this.log(`Spieler ${p.name} wieder verbunden.`);
       return;
     }
@@ -786,6 +795,7 @@ class Game {
       this.helloKarte(free, msg);
       this.sendTo(conn, this.welcomeMsg(free.id));
       this.sendeKarte(free, hatteKarte);   // k = null nur, wenn die anderen eine alte Karte dieses Platzes räumen müssen
+      this.telemetrie.spielerBei(free.id, 'uebernahme', this.phase !== 'lobby');   // TEL-01 A
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       return;
     }
@@ -804,6 +814,7 @@ class Game {
     this.sendTo(conn, this.welcomeMsg(p.id));
     this.sendeKarte(p);
     this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
+    this.telemetrie.spielerBei(p.id, 'neu', this.phase !== 'lobby');   // TEL-01 A: Nachzügler = Beitritt während der Partie
     this.log(`Spieler ${p.name} (${p.id}) beigetreten.`);
   }
 
@@ -1073,6 +1084,7 @@ class Game {
     this.stats.playTimeStart = this.time;
     this.players.forEach((p, i) => { this.resetPlayer(p, i); p.ready = true; });
     this.runId = 'run-' + Date.now() + '-' + (++this.runCounter);
+    this.telemetrie.sessionBeginnen();   // TEL-01 A: Kopfzeile reserviert, Ereignisse des Starts landen schon im Protokoll
     if (campaign) {
       this.weltstand = Weltstand.create(this, { tutorial: sm === 'm1' || (!!CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].tutorial), persistent: true, dir: this.worldDir, countMissing: this.worldsEnabled });
       this.weltstand.lastDockedAt = Welt.startOrt();
@@ -1100,6 +1112,7 @@ class Game {
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
+    this.telemetrie.kopfFuellen();   // TEL-01 A
   }
 
   endGame(opts) {
@@ -1111,6 +1124,7 @@ class Game {
     this.abspann = o.abspann || null;   // EK8: Sieg und Abspann der Kampagnenkette – kein freies Spiel danach (Client: nur Hauptmenü)
     this.emit('ending', { title: o.title || 'Fortsetzung folgt', text: o.text || null, missions: this.stats.missions, ...(this.abspann ? { abspann: true } : {}) });
     this.logRun(true);
+    this.telemetrie.sessionBeenden('kampagnenende');   // TEL-01 A
   }
 
   logRun(ended) {
@@ -1803,6 +1817,7 @@ class Game {
         if (this.emptyFor >= this.C.net.emptyResetAfter) {
           this.log('Alle weg – Partie zurückgesetzt.');
           if (this.weltstand && this.weltstand.persistent && this.ship.docked) this.safe('weltstand', () => this.saveWorld('empty'));
+          this.telemetrie.sessionBeenden('leer');   // TEL-01 A
           this.players = [];
           Welt.waehle(this, Welt.STANDARD);
           this.reset();

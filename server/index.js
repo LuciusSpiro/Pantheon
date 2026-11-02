@@ -221,8 +221,8 @@ function startServer(opts) {
 if (require.main === module) {
   startServer().then((s) => {
     // S1 §5.2: Sperrdatei des offenen Weltstands beim Beenden lösen (verwaiste Sperren erkennt auch der nächste Start)
-    process.on('exit', () => s.game.releaseWorldLock());
-    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); process.exit(0); });
+    process.on('exit', () => { s.game.releaseWorldLock(); s.game.telemetrie.prozessEnde(); });   // TEL-01 A: Protokoll synchron abschliessen
+    for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.once(sig, () => { s.game.releaseWorldLock(); s.game.telemetrie.prozessEnde(); process.exit(0); });
   }).catch((e) => { console.error(e); process.exit(1); });
 }
 

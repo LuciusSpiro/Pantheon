@@ -1776,7 +1776,7 @@ class KeshAgent extends Agent {
 async function runKesh(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 33);
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = ['captain', 'helm', 'weapons'].map((r, i) => new KeshAgent(game, i, r, opts));
   game.simAgents = agents;
@@ -1858,7 +1858,7 @@ const ArenaMod = require('../server/sim/arena.js');
 async function runArena(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 101);
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
   const agents = roles.map((r, i) => new ArenaAgent(game, i, r, opts));
@@ -1950,7 +1950,7 @@ async function runArena(opts) {
 async function runWellenAll(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 211);
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const Z = (CONFIG.arena.szenen || []).find((z) => z.id === opts.szene);
   const loc = Locations.get(Z.ort);
@@ -2119,7 +2119,7 @@ async function runScenario(n, opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + n);
   const odaTexts = [];
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const roles = n === 1 ? ['solo'] : ['captain', 'helm', 'weapons'].slice(0, n);
   const agents = roles.map((r, i) => new Agent(game, i, r, opts));
@@ -3637,7 +3637,7 @@ async function runGeneric(opts) {
   const Escort = require('../server/sim/escort.js');
   const seed = opts.seed, crew = opts.crew;
   simRng = makeRng(seed * 7919 + 500 + crew);
-  const env = { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') };
+  const env = { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(os.tmpdir(), 'pantheon-regie-bots') };
   const game = new Game(Object.assign({ noStore: true, seed, env, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }, opts.gameOpts || {}));   // SL11: gameOpts (Weltstand-Ordner für Speichern/Laden)
   const errList = [];
   const origCount = game.countError.bind(game);
@@ -4221,7 +4221,7 @@ class WellenAgent extends GenericAgent {
 async function runWellen(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 4242);
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = [];
   for (let i = 0; i < opts.players; i++) agents.push(new WellenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain'][i], opts));
@@ -4310,7 +4310,7 @@ class GrabenAgent extends WellenAgent {
 async function runGraben(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 4242);
-  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
+  const game = new Game({ noStore: true, seed, env: { MISSION_SOURCE: 'fallback', TELEMETRIE_QUELLE: 'bot' }, log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = [];
   for (let i = 0; i < opts.players; i++) agents.push(new GrabenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain'][i], opts));
