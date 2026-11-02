@@ -221,7 +221,7 @@ function consoleBeam(game, p, dir) {
   if (!list.length) return dir === 'down' ? 'Niemand auf den Transferpads.' : 'Niemand vom Außenteam steht auf den Pads unten.';
   const dur = game.ship.systems.transfer === 'damaged' ? game.C.ship.beamTimeDamaged : game.C.ship.beamTime;
   game.ship.beaming = { dir, t: 0, dur, pids: list.map((o) => o.id) };
-  for (const o of list) { o.beamLock = true; o.console = null; o.hold = null; }
+  for (const o of list) { o.beamLock = true; interior.konsoleLoesen(game, o, 'beamen'); o.hold = null; }
   game.emit('sfx', { name: 'beam' });
   return null;
 }

@@ -4,6 +4,7 @@
 // Dieses Modul ist die einzige Stelle, die „welche Station bedient dieser Spieler“ beantwortet (Rechteprüfung in game.onCmd,
 // Besetzt-Prüfungen in space/fracht/away/wellen/mission). Es lädt weder interior noch space (kein Zirkelbezug).
 const Protocol = require('../../shared/protocol.js');
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2
 
 const KREIS = Protocol.STATION_KREIS;
 const NAME = { helm: 'Navigation', weapons: 'Ops', captain: 'Captain', technik: 'Technik' };
@@ -45,6 +46,7 @@ function tab(game, p, dir) {
     if (h) { belegt.push(`${stationName(kind)}: durch ${h.name} besetzt`); continue; }
     stationFreigeben(game, von, p);
     p.station = kind === p.console ? null : kind;
+    Haken.konsole(game, p, true, 'tab');   // TEL-01 B2: Rollenwechsel an der Konsole
     game.emit('sfx', { name: 'ui_click', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
     return null;
   }

@@ -22,6 +22,7 @@
 
 const path = require('path');
 const LLM = require('./llm.js');
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Szenenbau = require('./szenenbau.js');
 const Archiv = require('./archiv.js');
 const Regielog = require('./regielog.js');
@@ -493,6 +494,7 @@ class Spielleiter {
   finishJob(job, r, e) {
     if (this.job === job) this.job = null;
     const dauer = Math.max(0, this.time - (job.startedAt || this.time));
+    Haken.spielleiterWarten(this.game, String(job.type), dauer, e ? 'fehler' : 'ok');   // TEL-01 B2: Anfrage -> Antwort (liest nur)
     const plan = job.plan;
     if (r) plan.tokens += r.tokens || 0;
     if (e) {
@@ -968,6 +970,7 @@ class Spielleiter {
     if (!w) return;
     delete this.waits[k];
     const sec = Math.round((this.time - w.t0) * 10) / 10;
+    Haken.spielleiterWarten(this.game, 'anflug', sec, how);   // TEL-01 B2: Wartezeit der Spieler auf die Szene (liest nur)
     this.stats.waits.push(sec); this.stats.maxWait = Math.max(this.stats.maxWait, sec);
     this.log({ art: 'sceneWait', mission: plan.id, szene: sid, dauer_s: sec, quelle: how === 'ready' ? 'llm' : 'rohfassung', begruendung: `Anflug gehalten ${sec} s (${how})` });
   }

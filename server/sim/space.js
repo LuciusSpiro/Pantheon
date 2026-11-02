@@ -3,6 +3,7 @@
 // Gegner (mit Schildsektoren), Projektile, Asteroiden, Ziel-Scan, Weitscan, Marker. CONTRACT-M1 §4–§6, §9.2.
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Protocol = require('../../shared/protocol.js');
 const Locations = require('../../shared/locations.js');
@@ -390,6 +391,7 @@ function enforcePower(game) {
     for (const m of list) { if (powerUsed(game) <= out) break; m.lauf = false; }
   }
   while (powerUsed(game) > out && cut(0)) { /* Phase 3 */ }
+  Haken.energie(game, 'automatik');   // TEL-01 B2: nur bei Aenderung (Kuerzung durch den Reaktor) ein Ereignis, sonst Merken (liest nur)
 }
 function shieldPool(game) {
   const C = game.C; const ship = game.ship;
@@ -1826,6 +1828,7 @@ function technikPower(game, sys, delta) {
   if (!game.ship.powerIntent) game.ship.powerIntent = Object.assign({}, pw);
   game.ship.powerIntent[sys] = nv;
   enforceShields(game);
+  Haken.energie(game, 'technik', sys, d);   // TEL-01 B2: Verteilung aus der Technik-Konsole ins Protokoll (liest nur)
   return null;
 }
 // PAN-01 A: technik.module { id, on, raum? } – Bordmodul ab-/anschalten (frei werdende Energie kann die Technik auf Hauptsysteme legen)

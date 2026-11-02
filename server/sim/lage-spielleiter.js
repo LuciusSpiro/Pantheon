@@ -17,6 +17,7 @@
 // Jede Messung (Dauer, Tokens, Anbieter, Ausgang) steht als art 'lage_grobplan' im Regie-Logbuch (tools/regie-bericht.js).
 const path = require('path');
 const LLM = require('../mission/llm.js');
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Regie = require('./regie-befehle.js');
 const Prompt = require('./lage-prompt.js');
 const Wiederholung = require('./lage-wiederholung.js');   // SUND-03 D: Wiederholungsregeln der Pläne
@@ -224,6 +225,7 @@ class LageSpielleiter {
         continue;
       }
       this.job = null; this.zustand = 'idle';
+      Haken.spielleiterWarten(this.game, 'lage', this.game.time - job.start, it.e ? 'fehler' : 'ok');   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.stoerung(job, it.e, null);
       else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('lage-antwort', e); this.stoerung(job, LLM.llmError('EXIT', 'Plan nicht anwendbar: ' + e.message), it.r); } }
     }
@@ -235,6 +237,7 @@ class LageSpielleiter {
     if (!job || this.zustand !== 'laeuft') return;
     if (this.game.time - job.start > this.W.timeout_s + 1) {
       this.job = null; this.zustand = 'idle';
+      Haken.spielleiterWarten(this.game, 'lage', this.game.time - job.start, 'timeout');   // TEL-01 B2
       this.anfrageAbbrechen(job);
       this.stoerung(job, LLM.llmError('ETIMEDOUT', `Zeitüberschreitung nach ${this.W.timeout_s} s (Spielzeit)`), null);
     }

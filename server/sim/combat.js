@@ -10,6 +10,7 @@
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
@@ -1050,6 +1051,7 @@ function updateVisibility(game) {
     // Offene Flanke: ein bemerkender Gegner mit Sichtlinie trifft ohne Deckung, obwohl der Spieler an Deckung steht
     p.fl = covers.some((c) => c === 0) && nextToCover(E, p);
   }
+  Haken.deckungSpielerAlle(game);   // TEL-01 B2: Deckungswechsel der Spieler ins Protokoll (liest nur)
 }
 function nextToCover(E, p) {
   const t = Physics.toTile(p.x, p.y);

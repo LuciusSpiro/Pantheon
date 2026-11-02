@@ -73,6 +73,7 @@ const Marken = require('./sim/marken.js');   // SL1B: Hex-Marken auf der Sternka
 const Gespraech = require('./sim/gespraech.js');   // SL2: Gespräche mit NSC am Boden (Snapshot gp, Befehle gespraech.*)
 const KULISSE = (() => { try { return require('../content/welt/kulisse.json'); } catch (e) { return { karten: {} }; } })();   // SL2: Passanten je Landepunkt (awayMap `ku`)
 const { makeRng, clamp, r1, r2, r3, f2 } = require('./util.js');
+const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Haken (Deckung, Menschen, Wirtschaft, Technik, Zeitreihe)
 const { Telemetrie } = require('./telemetrie/protokoll.js');   // TEL-01 A: Spielprotokoll (game.telemetrie)
 
 const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die Tafel von Kesh' };   // nur Ersatzstart ohne startCampaign
@@ -617,6 +618,7 @@ class Game {
   rufErreicht(rang) { return Ruf.rufErreicht(this, rang); }
   countError(where, err) {
     this.errors++;
+    Haken.fehler(this, where);   // TEL-01 B2: Zaehler je Zeitreihen-Fenster (nur Zahl und Schluessel)
     const now = Date.now();
     const last = this.errorLog[where] || 0;
     if (now - last > 2000) { this.errorLog[where] = now; console.warn(`[Pantheon] Fehler in ${where} (gesamt ${this.errors}):`, err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err); }
@@ -633,7 +635,7 @@ class Game {
     p.conn = null; p.connected = false;
     this.paused = false;   // S1 §6: Trennen beendet die Solo-Pause
     p.input.mx = 0; p.input.my = 0; p.actDown = false; p.hold = null;
-    if (p.console) interior.leaveConsole(this, p);
+    if (p.console) interior.konsoleVerlassen(this, p, 'abgang');
     if (this.phase === 'lobby') {
       this.raeumeKarte(p);   // die ID wird neu vergeben, die Mitspieler räumen die alte Karte
       this.players = this.players.filter((o) => o !== p);
@@ -669,6 +671,7 @@ class Game {
       }
       const p = conn.player;
       if (!p || p.conn !== conn) return;
+      if (msg.t !== C.DEBUG && msg.t !== 'clientError') Haken.eingabe(this, p, msg.t === C.INPUT ? 'bew' : 'akt');   // TEL-01 B2: Eingaben je Slot und Fenster zaehlen (nur Anzahl und grobe Art, nie Inhalt)
       if (this.zerstoertOffen && msg.t !== C.MENU && msg.t !== C.PING && msg.t !== C.LEAVE && msg.t !== C.DEBUG) return;   // SYS-01 A2b: nach dem Tod der Lerche keine Befehle mehr, nur OK und Verlassen (Debug-Befehle bleiben für die Sichtprüfung)
       switch (msg.t) {
         case C.READY: if (this.phase === 'lobby') { p.ready = !!msg.ready; this.checkLobbyStart(); } break;
@@ -745,7 +748,7 @@ class Game {
         } break;
         case C.MARK: if (this.phase !== 'lobby') away.setMarker(this, p, Number(msg.x), Number(msg.y)); break;
         case C.DROP: if (this.phase !== 'lobby') interior.onDrop(this, p); break;
-        case C.LEAVE: interior.leaveConsole(this, p); break;
+        case C.LEAVE: interior.konsoleVerlassen(this, p, 'spieler'); break;
         case C.SCHUBS: if (this.phase !== 'lobby') { const why = interior.schubs(this, p); if (why) this.notice(p, why); } break;   // Spieltest: Schubs an Bord
         case C.CMD: if (this.phase !== 'lobby') this.onCmd(p, msg); break;
         case C.DEBUG: this.onDebug(p, msg); break;
@@ -1536,7 +1539,7 @@ class Game {
         if (p.zone === 'ship') {   // PAN-01 B: an Bord auf eine begehbare Kachel (Decks ansehen, Lifts und Modulräume testen); Pforten gelten nach der Ausbaustufe
           const tx = Math.round(x), ty = Math.round(y);
           if (!W.shipWalkableFor(this.ship.stufe)(tx, ty)) { err = 'tp: Kachel (' + tx + ',' + ty + ') ist nicht begehbar.'; break; }
-          p.x = tx * 32 + 16; p.y = ty * 32 + 16; p.lift = null; p.liftDest = null; p.liftSel = null; p.console = null;
+          p.x = tx * 32 + 16; p.y = ty * 32 + 16; p.lift = null; p.liftDest = null; p.liftSel = null; interior.konsoleLoesen(this, p, 'debug');
           break;
         }
         if (p.zone !== 'away') { err = 'tp <x> <y>: nur an Bord oder im Außeneinsatz.'; break; }
@@ -1773,7 +1776,7 @@ class Game {
         const err = this.mission.forceStep('m3', 'courtyard');
         if (err) return err;
         const down = this.players.filter((o) => o.connected && o.zone === 'ship' && o.console !== 'captain');
-        for (const o of down) { if (o.console) interior.leaveConsole(this, o); if (o.downed) interior.revivePlayer(this, o); }
+        for (const o of down) { if (o.console) interior.konsoleVerlassen(this, o, 'debug'); if (o.downed) interior.revivePlayer(this, o); }
         if (down.length) away.executeBeam(this, down.map((o) => o.id), 'down');
         return null;
       }
@@ -1805,7 +1808,14 @@ class Game {
   }
 
   // ---------- Tick ----------
+  // TEL-01 B2: misst die Dauer des Ticks (nur die Uhr lesen) und gibt dem Protokoll am Tickende die Zeitreihe
   step() {
+    if (!this.telemetrie.offen) { this.tickKern(); return; }
+    const t0 = performance.now(); const z0 = this.time;
+    this.tickKern();
+    Haken.tickEnde(this, t0, this.time !== z0);
+  }
+  tickKern() {
     const dt = 1 / this.C.tickHz;
     this.tick++;
     // S1 §6: Solo-Pause – Simulation steht, Snapshots laufen weiter (paused: true)

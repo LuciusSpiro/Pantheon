@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const DATEN = require('../../content/welt/ruf-werte.json');
+const Haken = require('../telemetrie/haken.js');
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'ruf.json');
 const W = DATEN.werte;
@@ -78,6 +79,7 @@ function aendern(game, fraktion, delta) {
   const alt = ws.ruf[fraktion];
   if (!Number.isFinite(delta)) return { alt, neu: alt };
   ws.ruf[fraktion] = klemmen(fraktion, alt + delta);
+  if (ws.ruf[fraktion] !== alt) Haken.ruf(game, fraktion, ws.ruf[fraktion] - alt, ws.ruf[fraktion]);   // TEL-01 B2: Protokoll
   return { alt, neu: ws.ruf[fraktion] };
 }
 
@@ -143,7 +145,9 @@ function debug(game, args) {
   const v = Number(a[1]);
   if (!Number.isFinite(v)) return 'ruf ' + a[0] + ' <Zahl>';
   const vorher = rang(game);
+  const alt = ruf(game, a[0]);
   ws.ruf[a[0]] = klemmen(a[0], v);
+  if (ws.ruf[a[0]] !== alt) Haken.ruf(game, a[0], ws.ruf[a[0]] - alt, ws.ruf[a[0]]);   // TEL-01 B2: Protokoll (Debug setzt den Wert)
   meldeRang(game, vorher, rang(game));
   return null;
 }

@@ -7,6 +7,7 @@ const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
 const { DIRS, NEIGHBOR_ORDER, dist } = require('../util.js');
 const onboard = require('./onboard.js');   // R0: Ivo abgeben (onboard lädt interior nicht)
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Station = require('./station.js');   // R1 §4.4: aktive Station (lädt nichts aus interior)
 const Integ = require('./integritaet.js');   // SYS-01 C1a-1: Schwellen und Grundwert (Lerche und Gegner)
 const Fracht = require('./fracht.js');   // EK3 Teil A: Systemtreffer bricht das Fracht-Beamen ab (fracht.js lädt interior nicht)
@@ -405,8 +406,8 @@ function healPlayer(game, p, amount) {
 
 function downPlayer(game, p, source) {
   p.downed = true; p.downedFor = 0; p.hp = 0;
-  if (p.console) leaveConsole(game, p);
-  p.console = null; p.hold = null; p.input.mx = 0; p.input.my = 0;
+  if (p.console) konsoleVerlassen(game, p, 'niedergestreckt');
+  konsoleLoesen(game, p, 'niedergestreckt'); p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.carry) dropCarry(game, p);
   game.oda(p.zone === 'away'
     ? `${p.name} ist am Boden! E halten zum Wiederbeleben – sonst hole ich dich in 15 s.`
@@ -441,7 +442,7 @@ function placeOnShipPad(game, p, idx) {
   const i = idx != null ? idx : game.players.filter((o) => o !== p && o.zone === 'ship').length;
   const c = W.tileCenter(pads[i % pads.length].x, pads[i % pads.length].y);
   if (p.zone === 'away' && combat().isV2(game)) combat().onLeave(game, p);   // M2: Medipack zurück, Wunde heilt
-  p.zone = 'ship'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null; p.lift = null; p.liftDest = null;
+  p.zone = 'ship'; p.x = c.x; p.y = c.y; konsoleLoesen(game, p, 'ortswechsel'); p.hold = null; p.lift = null; p.liftDest = null;
 }
 function placeOnAwayPad(game, p, idx) {
   const info = awayInfo(game);
@@ -449,7 +450,7 @@ function placeOnAwayPad(game, p, idx) {
   const i = idx != null ? idx : game.players.filter((o) => o !== p && o.zone === 'away').length;
   const c = W.tileCenter(pads[i % pads.length].x, pads[i % pads.length].y);
   const arriving = p.zone !== 'away';
-  p.zone = 'away'; p.x = c.x; p.y = c.y; p.console = null; p.hold = null; p.lift = null; p.liftDest = null;
+  p.zone = 'away'; p.x = c.x; p.y = c.y; konsoleLoesen(game, p, 'ortswechsel'); p.hold = null; p.lift = null; p.liftDest = null;
   if (arriving && combat().isV2(game)) combat().onArrive(game, p);   // M2: voller Schild + Medipack
 }
 const placeOnPlatformPad = placeOnAwayPad;
@@ -840,6 +841,7 @@ function pickupItem(game, p, item, where) {
 
 function enterConsole(game, p, kind) {
   p.console = kind; p.station = null; p.hold = null; p.input.mx = 0; p.input.my = 0; p.moving = false; p.crouch = false;
+  Haken.konsole(game, p, true, 'betreten');   // TEL-01 B2
   game.emit('sfx', { name: kind === 'plan' ? 'table_sit' : 'console_on', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
   game.missionEvent('consoleEnter', { p, kind });
 }
@@ -863,7 +865,7 @@ function schubs(game, p) {
   game.emit('sfx', { name: 'strike', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
   game.emit('schubs', { from: p.id, to: best ? best.id : null });
   if (!best) return null;
-  if (best.console) leaveConsole(game, best);
+  if (best.console) konsoleVerlassen(game, best, 'schubs');
   best.hold = null; best.stunBis = game.time + S.betaeubung;
   const dx = best.x - p.x, dy = best.y - p.y; const len = Math.hypot(dx, dy) || 1;
   const res = Physics.moveWithCollision(solidFor(game, 'ship'), best.x, best.y, dx / len * S.rueckstoss * TILE, dy / len * S.rueckstoss * TILE, game.C.player.hitbox);
@@ -871,9 +873,19 @@ function schubs(game, p) {
   return null;
 }
 
-function leaveConsole(game, p) {
+// TEL-01 B2: Wege, auf denen p.console frei wird (tools/test-konsole.js erzwingt: sonst nirgends `.console = null`):
+//   konsoleVerlassen(game, p, grund)  die Konsole ganz verlassen (aktive Station freigeben, Geraeusch); grund steht im Protokoll
+//   konsoleLoesen(game, p, grund)     still: nur p.console leeren (Zonenwechsel, Beamen, Debug-Teleport); setzt nichts sonst
+//   leaveConsole(game, p)             Altname fuer Aufrufer ohne eigenen Grund (Protokoll: 'sonst')
+function konsoleLoesen(game, p, grund) {
+  if (p.console) Haken.konsole(game, p, false, grund);
+  p.console = null;
+}
+function leaveConsole(game, p) { konsoleVerlassen(game, p, 'sonst'); }
+function konsoleVerlassen(game, p, grund) {
   if (!p.console) return;
   const aktiv = Station.stationOf(p);   // R1 §4.4: freigegeben wird das aktive Interface, nicht zwingend der Ort
+  Haken.konsole(game, p, false, grund);
   p.console = null; p.station = null;
   Station.stationFreigeben(game, aktiv, p);
   game.emit('sfx', { name: 'console_off', zone: p.zone, x: Math.round(p.x), y: Math.round(p.y) });
@@ -931,18 +943,20 @@ function completeHold(game, p, h) {
       break;
     case 'extinguish':
       removeFire(game, h.tx, h.ty, 'player');
+      Haken.loeschen(game, p, 'feuer', h.tx, h.ty);   // TEL-01 B2
       p.carryCharges--;
       game.emit('sfx', { name: 'extinguish', zone: 'ship', x: Math.round(p.x), y: Math.round(p.y) });
       if (p.carryCharges <= 0) { p.carry = null; p.carryCharges = 0; game.notice(p, 'Löschgel leer – Kanister entsorgt.'); }
       break;
     case 'patch':
       removeBreach(game, h.tx, h.ty, 'player');
+      Haken.loeschen(game, p, 'leck', h.tx, h.ty);   // TEL-01 B2
       p.carry = null;
       break;
-    case 'flick': repairSystem(game, h.system, 'player', 'flick', { von: h.von }); break;
+    case 'flick': if (repairSystem(game, h.system, 'player', 'flick', { von: h.von })) Haken.reparaturGelungen(game, p, h); break;   // TEL-01 B2: Erfolg fuer das Protokoll
     case 'swap':
       p.carry = null;
-      repairSystem(game, h.system, 'player', 'swap');
+      if (repairSystem(game, h.system, 'player', 'swap')) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
       break;
     case 'beam':
       game.transfer.selfBeam(game, p, h.dir);
@@ -1386,6 +1400,7 @@ function repairSystem(game, sys, by, how, opts) {
   if (sys === 'reactor' && before === 'broken') reactorNeedsRestart(game);
   pruneRepairQueue(game);
   game.missionEvent('repaired', { system: sys, by, how });
+  Haken.zoneWieder(game, sys, how, by);   // TEL-01 B2: Zone wieder heil (liest nur)
   return true;
 }
 // §4.2: Zerstörter Reaktor repariert -> abgeschaltet, Neustart zu zweit an den Schaltern
@@ -1443,7 +1458,7 @@ function repairCmd(game, p, c, msg) {
     if (h.t < minT) return 'Zu hastig – die Verbindung hält nicht. Nochmal (R).';   // Mindestzeit nicht erreicht: abgebrochen
     const errs = Number(msg.errors);
     if (Number.isFinite(errs) && errs > 0) game.stats.minigameErrors = (game.stats.minigameErrors || 0) + Math.min(99, Math.round(errs));
-    repairSystem(game, h.system, 'player', 'minigame');
+    if (repairSystem(game, h.system, 'player', 'minigame')) Haken.reparaturGelungen(game, p, h);   // TEL-01 B2
     return null;
   }
   return 'Unbekannter Befehl.';
@@ -1595,7 +1610,7 @@ module.exports = {
   platformSolid, awaySolid, awayInfo, solidFor,
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
-  placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, interactionsAt, candidateTiles,
+  placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
   integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, nachStufenHolen, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,
