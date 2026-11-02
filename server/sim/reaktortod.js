@@ -12,6 +12,7 @@
 //   SYS-01 A2b: der Tod bleibt gelatcht (game.zerstoertOffen, bis die Partie in der Lobby ist): Szene von vorn und Sprung setzen den Zerstört-Flag nicht zurück.
 // Sitzungszustand: Countdown und Zähler stehen nicht im Weltstand (der speichert nur die Systemzustände).
 const interior = require('./interior.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: schiff_zerstoert (nur lesen)
 
 function cfg(game) { return game.C.reaktorTod; }
 function gilt(game) {
@@ -42,6 +43,7 @@ function tod(game) {
   ship.reaktorCountdown = null;
   ship.schiffZerstoert = true;
   game.zerstoertOffen = { ok: new Set() };   // SYS-01 A2b: Einblendung bis OK (zerstoertOk) bzw. Lobby; Weltstand wird dabei nicht gespeichert
+  Tel.schiffZerstoert(game, n);   // TEL-01 B1
   game.emit('schiffZerstoert', { grund: 'reaktor', n });
   require('./space.js').verlustAusloesen(game, 'reaktor');
 }

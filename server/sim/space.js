@@ -29,6 +29,7 @@ const Alarm = require('./alarm.js');   // EK2: Alarmstufe, Patrouillen, Signatur
 const Zonen = require('./zonen.js');   // SL6: Zonen mit Wirkung (Drift, Hitze, Schaden, Sicht, Ertrag); ohne scene.zonen ohne Wirkung
 const Modul = require('./module.js');   // PAN-01 A: Bordmodule (je 1 Energie), Frachtraum gesichert, Krankenstation, Werkstatt
 const Fracht = require('./fracht.js');   // PAN-01 A: ungesicherte Ladung bei Hüllentreffern
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Haken fuer Szenen, Gefecht, Verluste (nur lesen)
 const Waffen = require('./schiffswaffen.js');   // PAN-01 C: Waffen der Lerche (neun Plätze, Katalog, Ladepool, Torpedowerfer)
 const Katalog = require('../../shared/schiffskatalog.js');   // PAN-01 C: Waffen, Gegner-Abbildung, Torpedo
 const Ladung = require('./ladung.js');   // SL6: Gewicht schwerer Ladung (Deuterium) senkt die Triebwerksleistung
@@ -519,7 +520,7 @@ function syncWeaponsAlias(game) {
   s.weapons = worst;
 }
 // Hitze (§4.2): Auswahl macht interior.heatDamage(game, powerSys) (SERVER-SHIP).
-function heatDamage(game, k) { interior.heatDamage(game, k); }
+function heatDamage(game, k) { Tel.ueberhitztRaum(game, k); interior.heatDamage(game, k); }   // TEL-01 B1: Ueberhitzung am Zustandswechsel
 
 function updateSystems(game, dt) {
   const C = game.C; const ship = game.ship;
@@ -665,6 +666,7 @@ function updateFlight(game, dt) {
     if ((ship.asteroidImmune[a.id] || 0) <= game.time) {
       ship.asteroidImmune[a.id] = game.time + C.flight.asteroidImmunity;
       brockenStats(game).lerche++;
+      Tel.quelle(game, 'brocken', null);   // TEL-01 B1
       shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, a.x, a.y), C.asteroid.damage, {});
       game.missionEvent('asteroid', {});
     }
@@ -789,6 +791,7 @@ function shipHit(game, sector, dmg, opts) {
   // S2 §5: Breitseite als Schild – das 'hit'-Ereignis nennt den geschützten Schützling (shielded: '<escortId>')
   const hitEv = (d) => (opts.shielded ? Object.assign(d, { shielded: opts.shielded }) : d);
   const r = D.resolveHit(game, sector, dmg, opts) || {};
+  Tel.trefferLerche(game, sector, dmg, opts, r);   // TEL-01 B1
   syncWeaponsAlias(game);
   if (r.evaded) {   // z. B. Ausweichfenster – kein Treffer
     game.emit('hit', hitEv({ sector, shield: true, dmg: 0, heavy, evaded: true }));
@@ -821,6 +824,7 @@ function verlustAusloesen(game, grund) {
   game.space.projectiles = game.space.projectiles.filter((p) => !GEGNER_GESCHOSSE.includes(p.kind));
   Geld.abziehenHoechstens(game, C.emergency.marksCost, 'notfall');
   game.stats.emergencies++;
+  Tel.notfall(game, grund);   // TEL-01 B1
   game.emit('emergency', { grund: grund || null });
   game.missionEvent('emergency', { grund: grund || null });   // SL3: Regiebücher (Falle: Lerche am Ende = Szene von vorn)
   game.emit('sfx', { name: 'emergency' });
@@ -1157,6 +1161,7 @@ function trefferSystem(game, e, zone, srcX, srcY, opts) {
   // C1b-1: Systemziel der Ops (nur Angriffe der Lerche); Zone und Erreichbarkeit prüft der Treffer selbst
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
   const t = Gsys.treffen(game, e, zone, gez, { vollladung: opts && opts.vollladung ? true : undefined, art: opts && opts.sturm ? Integ.ART_STURM : undefined });   // Treffer-Art: Sturm-Treffer haben ein längeres Fenster
+  if (t) Tel.gegnerSystem(game, e, t);   // TEL-01 B1
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
   if (t) Gegnerreparatur.rueckschlag(game, e, t.zone);   // SYS-01 C2a: Systemtreffer in der Zone halbiert den Fortschritt der Reparaturen dort
   if (t && opts && opts.sturm) Gegnerreparatur.sperren(game, e, t.zone, Sturm.reparaturSperre(game));   // SYS-02a: lief der Sturm in die Mitte über, ist auch sie gesperrt
@@ -1172,7 +1177,7 @@ function torpedoSystem(game, e, zone, srcX, srcY, opts) {
   const gez = opts && opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null;
   const ts = [];
   const t = Gsys.treffen(game, e, zone, gez, { zerstoeren: true, keinUeberlauf: true });
-  if (t) ts.push(t);
+  if (t) { ts.push(t); Tel.gegnerSystem(game, e, t); }   // TEL-01 B1
   const rid = Gsys.idVon(e, 'reaktor'); const stufen = Integ.torpedoStufen(game);
   if (rid && e.sys[rid].z !== 'broken' && stufen > 0) ts.push(Gsys.durchschlagAuf(game, e, rid, stufen));   // SYS-03 B: Durchschlag in ganzen Stufen (systemModell.torpedo.reaktorStufen), dieselbe Zahl wie die Lerche
   if (!e.ally) game.missionEvent('enemyDamaged', { enemy: e });
@@ -1186,6 +1191,7 @@ function torpedoSystem(game, e, zone, srcX, srcY, opts) {
 function enemyDown(game, e) {
   const C = game.C;
   Entern.abschuss(game);   // feste Wracks des Ortes nach jedem Abschuss frei
+  Tel.killRaum(game, e);   // TEL-01 B1: vor dem Entfernen (Merkzustand des Dienstes)
   game.space.enemies = game.space.enemies.filter((o) => o !== e);
   if (!e.ohneBeute) Geld.einnehmen(game, C.enemies[e.kind].salvage, 'abschuss');   // SUND-02b E: ehemalige Verbündete (Verrat) geben keinen Lohn
   game.stats.kills++;
@@ -1370,6 +1376,7 @@ function updateTorpedoG(game, e, d, retreating, dt) {
 // Explosion einer Gegner-Granate an der Lerche: eine = Schildschaden, zwei (andere Granaten) im Fenster = Durchschlag in die Hülle und sicherer Systemschaden
 function estreuExplosion(game, p) {
   const ship = game.ship; const w = Katalog.waffe('streubatterie'); const T = w.streu;
+  Tel.quelle(game, 'streu', p);   // TEL-01 B1
   game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
   game.emit('sfx', { name: 'streu_boom', x: Math.round(p.x), y: Math.round(p.y) });
   if (ship.docked || dist(p.x, p.y, ship.x, ship.y) > T.radius + game.C.flight.radius * 0.5) return;
@@ -1380,6 +1387,7 @@ function estreuExplosion(game, p) {
   const sec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
   shipHit(game, sec, p.dmg, { streu: { schildFaktor: T.schildFaktor } });
   if (zwei) {
+    Tel.quelle(game, 'streu', p);   // TEL-01 B1: der Durchschlag ist ein zweiter Treffer derselben Granate
     shipHit(game, sec, T.durchschlag, { pierce: true, streuZwei: true });   // SYS-01 A1a: ohne Schild trifft der Durchschlag immer ein System (Trefferweg)
     game.stats.streuZweiLerche = (game.stats.streuZweiLerche || 0) + 1;
   }
@@ -1641,6 +1649,7 @@ function updateTele(game, e, d, retreating, dt) {
       // EK1b: weitere Lanze-Plätze im Bogen verstärken die Ladung (waffenMehr.lanzeJeWeitere je Platz); Korvette: nie mehr als einer im Bogen
       const nL = e.waffen ? Math.max(1, plaetzeImBogen(game, e, ship, 'lanze').length) : 1;
       const mehr = 1 + ((C.waffenMehr && C.waffenMehr.lanzeJeWeitere) || 0) * (nL - 1);
+      Tel.quelle(game, 'ladung', { owner: e.id });   // TEL-01 B1
       shipHit(game, sector, (t.damage != null ? t.damage : cfg.damage) * mehr, Zielsysteme.szeneAktiv(game) ? { heavy: true, emp, angriff: true, zielt: Zielsysteme.lercheZiel(e.zielsystem) } : { heavy: true, emp });
     } else {
       game.stats.teleMisses = (game.stats.teleMisses || 0) + 1;
@@ -1674,10 +1683,12 @@ function torpedoNurOhneSchild() { return Katalog.TORPEDO.schildUmgehung === 'nur
 function etorpedoTreffer(game, p) {
   const ship = game.ship; const T = Katalog.TORPEDO;
   const sec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
+  Tel.quelle(game, 'torpedo', p);   // TEL-01 B1
   const DW = M3(game).dodgeWindow;
   game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
   if (DW > 0 && game.time - (ship.lastDodgeT != null ? ship.lastDodgeT : -99) <= DW + EPS) {
     game.stats.dodgeEvades = (game.stats.dodgeEvades || 0) + 1;
+    Tel.trefferLercheOhneSchaden(game, sec, 'ausgewichen', p);   // TEL-01 B1
     game.emit('hit', { sector: sec, shield: true, dmg: 0, heavy: true, evaded: true });
     game.emit('sfx', { name: 'dodge_evade', enemy: 'torpedo' });
     return;
@@ -1686,6 +1697,7 @@ function etorpedoTreffer(game, p) {
   if (Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild' && (ship.shields.current[sec] || 0) > 0 && Alarm.trefferOpts(game, {}).pierce !== true) {
     game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;
     Schilde.pause.treffer(ship.shields, sec, game.time, game.C);   // SYS-03 C1: auch der abgeprallte Torpedo ist ein Treffer auf den Sektor
+    Tel.trefferLercheOhneSchaden(game, sec, 'abgeprallt', p);   // TEL-01 B1
     game.emit('hit', { sector: sec, shield: true, dmg: 0, heavy: true, absorbed: 0 });
     game.emit('sfx', { name: 'shield_hit' });
     return;
@@ -1740,6 +1752,7 @@ function updateProjectiles(game, dt) {
         let dmg = p.dmg;
         if (sperr && p.tgt) { const SF = sperrCfg(game) || {}; if (SF.shieldedFactor != null) dmg *= Number(SF.shieldedFactor); }
         const hsec = Physics.sectorOf(ship.x, ship.y, ship.angle, p.x, p.y);
+        Tel.quelle(game, p.kind === 'enemy' ? 'schuss' : p.kind, p);   // TEL-01 B1: Quelle dieses Treffers (Gegnerschuss, emp, sperrfeuer, sturm)
         let rr = null;
         if (dmg > 0) rr = shipHit(game, hsec, dmg, hopts);
         else { game.emit('hit', { sector: hsec, shield: true, dmg: 0, heavy: false, absorbed: 0, shielded: p.tgt }); game.emit('sfx', { name: 'shield_hit', volume: 0.5 }); }
@@ -1754,10 +1767,12 @@ function updateProjectiles(game, dt) {
           hit = true;
           if (p.waffe) {   // PAN-01 C: Projektil der Lerche (Batterie, Kanone, Sturm, Abwehrturm): Schaden je Treffer = Katalogwert, Schild und Hülle wie bisher
             const wk = Katalog.waffe(p.waffe);
+            Tel.quelle(game, 'schuss', p);   // TEL-01 B1
             game.stats.schussTreffer = (game.stats.schussTreffer || 0) + 1;
             Waffen.schade(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.waffe === 'sturmbatterie' ? { sturm: wk.sturm } : undefined, p.waffe);
           } else if (p.kind === 'torpedo') {   // PAN-01 C: kein Schildschaden, trifft die Hülle; Schaden je Zielklasse (Katalog TORPEDO.schaden)
             game.emit('explosion', { x: Math.round(p.x), y: Math.round(p.y), zone: 'space', small: true });
+            Tel.quelle(game, 'torpedo', p);   // TEL-01 B1
             const dgel = Waffen.schade(game, e, Katalog.torpedoSchaden(e.kind), p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, { huelle: true, nurOhneSchild: torpedoNurOhneSchild(), torpedo: true }, 'torpedowerfer');
             if (dgel > 0) game.stats.torpedoTreffer = (game.stats.torpedoTreffer || 0) + 1; else game.stats.torpedoAbgeprallt = (game.stats.torpedoAbgeprallt || 0) + 1;   // Lesart B: am stehenden Schild abgeprallt
           } else damageEnemy(game, e, p.dmg, p.x - Math.cos(p.angle) * 20, p.y - Math.sin(p.angle) * 20, p.kind === 'ally' ? { ally: true, angriff: true } : undefined);   // SUND-04a-1 A: Treffer der Verbündeten zählen als Angriff (ungezielt)
@@ -1811,6 +1826,7 @@ function update(game, dt) {
   }
   updateProjectiles(game, dt);
   updateSalvage(game);
+  Tel.raumGegner(game);   // TEL-01 B1: gegner_neu / gegner_weg (Sweep, nur lesen)
 }
 
 // ---------- Konsolenbefehle ----------

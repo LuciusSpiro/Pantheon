@@ -8,6 +8,7 @@
 // Ein Schritt (step) hat: enter, timers, rules, objectives, next, jumpBlock, choices, scan, onAccept, on, allowBeam, skip,
 // drill, wiederaufnahme.
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: szene_start / szene_ende (nur lesen)
 const path = require('path');
 const Locations = require('../../shared/locations.js');
 const interior = require('./interior.js');
@@ -498,6 +499,7 @@ class Mission {
     const st = this.game.stats;
     st.missions[id] = { start: this.playTime(), end: null };
     this.game.emit('missionStart', { id, title: def.title });
+    Tel.missionStart(this.game, id);   // TEL-01 B1
     this.setStep(def.steps[0].id);
   }
   // erwartet: fehlende Flags (undefiniert/null) bekommen den Standard
@@ -514,6 +516,7 @@ class Mission {
     this.missions[id].ausgang = ausgang;
     this.game.stats.missions[id].end = this.playTime();
     this.game.emit('missionDone', { id, title: def.title, ausgang });
+    Tel.missionEnde(this.game, id, ausgang);   // TEL-01 B1
     // B3 §4: temporäre Sprungpunkte mit bis 'mission' schließen (sprung.js, SEKTOR); fehlt die Funktion: nichts
     try { const S = require('./sprung.js'); if (S && typeof S.missionEnde === 'function') S.missionEnde(this.game); } catch (e) { this.game.countError('mission-sprung', e); }
     this.game.log(`Mission ${id} abgeschlossen (${ausgang}) nach ${Math.round(this.game.stats.missions[id].end - this.game.stats.missions[id].start)} s.`);
@@ -534,6 +537,7 @@ class Mission {
     const id = this.activeId;
     if (!id) return;
     this.collectStepEnd();
+    Tel.missionEnde(this.game, id, 'abgebrochen');   // TEL-01 B1
     delete this.missions[id];
     this.activeId = null; this.def = null; this.step = null; this.state.stage = null; this.state.choice = null;
     this.timers = []; this.firedTimers = new Set(); this.firedRules = new Set(); this.v = {}; this.events = new Set(); this.dormant = false;

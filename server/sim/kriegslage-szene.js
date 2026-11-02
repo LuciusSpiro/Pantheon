@@ -29,6 +29,7 @@
 //  - Ende: SIEG = Flaggschiff gefallen (Rest bricht ab, auch mit Reststärke) -> Verluste + flaggschiff_gefallen (+ ort_gehalten bei Belagerung) + ein Tick.
 //    NIEDERLAGE = Notfallprotokoll der Lerche, wenn kein Verteidiger mehr neben ihr lebt (CONFIG.simSzene.notfallBisNiederlage), oder Verteidiger erschöpft (nach Gnadenfrist) -> Verluste + ort_gefallen
 //    (Hafen/Posten der Crew-Seite) + ein Tick. ABBRUCH (Flucht per Sprung/Notfallsprung) -> nur Verluste, kein ort_*, kein eigener Tick (Sprung-Tick). Ortswechsel ohne Sprung (Debug) -> nur Verluste + ein eigener Tick.
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: szene_start / szene_ende der Sund-Szenen (nur lesen)
 const fs = require('fs');
 const path = require('path');
 const Kern = require('../weltsim/kern.js');
@@ -205,6 +206,7 @@ function aufraeumen(game, S) {
   game.simSzene = null;
 }
 function merken(game, S, ausgang, wirkungen, extra) {
+  Tel.szeneEnde(game, 'sund', S.modus === 'angriff' ? 'angriff' : S.modus === 'finale' ? 'finale' : 'verteidigung', ausgang, { hex: S.hex, verrat: S.modus === 'verrat' });   // TEL-01 B1: der Verrat schaltet dieselbe Verteidigungsszene um
   const ws = game.weltsim;
   game.simSzeneLetzte = Object.assign({ id: S.id, hex: S.hex, ausgang, tick: ws ? ws.tickZahl : null, wirkungen: wirkungen.map((x) => Object.assign({}, x)), kills: Object.assign({}, S.kills), killPunkte: S.killPunkte }, extra || {});
   chronikEintrag(game, S, ausgang);
@@ -441,6 +443,7 @@ function betreten(game, hex) {
     t0: game.time, vorlauf: Number(C.vorwarnung) || 0, erinnern: (C.vorwarnungErinnerung || []).slice().sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false };
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
+  Tel.szeneStart(game, 'sund', 'verteidigung', { hex: S.hex, klasse: S.klasse });   // TEL-01 B1
   verteidigerAufstellen(game, S, L);
   Flotte.wellenStartAusPlan(game, { plan, volk, ziel: 'auto', richtung: 'alle', tag: SZENEN_TAG, vorlauf: S.vorlauf, restAnteil: C.restAnteil });
   try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }   // Andocken gesperrt, Dock-Marker weg
@@ -485,6 +488,7 @@ function angriffStarten(game, hex) {
     t0: game.time, vorlauf, erinnern: (C.vorwarnungErinnerung || []).filter((s) => s < vorlauf).sort((a, b) => b - a), emBasis: game.stats.emergencies || 0, finale: false };
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
+  Tel.szeneStart(game, 'sund', 'angriff', { hex: S.hex, klasse: S.klasse });   // TEL-01 B1
   verteidigerAufstellen(game, S, L);
   Flotte.wellenStartAusPlan(game, { plan, volk: fraktion, ziel: 'auto', richtung: 'alle', tag: SZENEN_TAG, vorlauf: S.vorlauf, restAnteil: C.restAnteil });
   try { Kriegslage.szeneNachziehen(game); } catch (e) { if (game.countError) game.countError('sim-szene-nachziehen', e); }
@@ -738,6 +742,7 @@ function finaleAufbauen(game, { hex } = {}, merk) {
     vert: { gruppen: [], schiffe: [], ges: 0, verloren: 0, lebend: 0, n0: 0, erschT: null } };
   S.start = S.t0 + S.vorlauf;
   game.simSzene = S;
+  Tel.szeneStart(game, 'sund', 'finale', { hex: S.hex, klasse: S.klasse });   // TEL-01 B1
   // römische Verbündete der Flotte: hinter der Lerche, Rolle angreifer (jagen den nächsten Gegner)
   const P = C.wellenplan.punkte; const L = game.ship; const namen = D.orbit_verbuendete_namen.wert || [];
   const hf = Number(D.orbit_verbuendete_huelle.wert) > 0 ? Number(D.orbit_verbuendete_huelle.wert) / 100 : 1;

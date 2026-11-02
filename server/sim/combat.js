@@ -15,6 +15,7 @@ const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
 const W = require('../world.js');
 const squad = require('./squad.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Haken fuer Kill, Notrueckholung (nur lesen)
 const SF = require('./snapform.js');
 const { dist, makeRng, r1, r2, clamp } = require('../util.js');
 
@@ -547,11 +548,13 @@ function updateWounded(game, p, dt) {
   if (p.bleed > 0) return;
   const it = interior();
   if (isDown(game.ship.systems.transfer)) {
+    Tel.notrueckholung(game, 'fern', [p.id]);   // TEL-01 B1: Ausbluten ohne Transfer (kein Beamen, Schild aus der Ferne)
     revive(game, p, cfg(game).wounded.reviveSegments);
     game.oda(`Transfer ausgefallen – ${p.name}, ich flicke deinen Schild aus der Ferne. Steh auf!`, null);
     return;
   }
   const map = game.away.map;
+  Tel.notrueckholung(game, 'einzel', [p.id]);   // TEL-01 B1
   it.placeOnShipPad(game, p);
   revive(game, p, null, { quiet: true });
   if (game.away.stats) game.away.stats.bleedRecalls++;
@@ -575,6 +578,7 @@ function krankenstationHolt(game, p, dt) {
   // M2: Die Krankenstation holt auch bei bereits zerstörtem Transfer (er bleibt zerstört, Modul.notrueckholungFolge sprengt nur Heile)
   p.holT = 0;
   const map = game.away.map;
+  Tel.notrueckholung(game, 'krankenstation', [p.id]);   // TEL-01 B1
   interior().placeOnShipPad(game, p);
   revive(game, p, null, { quiet: true });
   if (game.away.stats) game.away.stats.bleedRecalls++;
@@ -616,10 +620,11 @@ function squadRecall(game) {
   const map = aw.map;
   list.forEach((p, i) => { it.placeOnShipPad(game, p, i); p.beamLock = false; revive(game, p, null, { quiet: true }); });
   aw.recallT = 0;
-  if (aw.endkampf && aw.endkampf.phase === 'angriff') aw.endkampf.verloren = true;   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
+  if (aw.endkampf && aw.endkampf.phase === 'angriff') { aw.endkampf.verloren = true; Tel.szeneEnde(game, 'endkampf', aw.endkampf.tag, 'gefallen'); }   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
+  Tel.notrueckholung(game, 'team', pids);   // TEL-01 B1
   aw.letzteRueckholung = { pids, t: game.time };   // BOD-01: Szenarien (graben.js) prüfen, ob die Rückholung die ganze verbundene Crew betraf
   game.emit('squadRecall', { pids });
   game.emit('sfx', { name: 'squad_recall' });
@@ -964,6 +969,7 @@ function hitEnemyWaffen(game, e, Wf, segs, s) {
   return r === 'wunde' ? 'wunde' : 'shield';
 }
 function knockOut(game, e) {
+  Tel.killBoden(game, e);   // TEL-01 B1
   e.alive = false; e.aim = null; e.seg = 0; e.hp = 0; e.path = null; e.vis = false; e.ghost = null; e.crouch = false;
   // Abweichung §7: Feld heißt enemyKind, weil `kind` im Event-Objekt der Ereignisname ist ({ t:'event', kind:'enemyDown' })
   game.emit('enemyDown', { id: e.id, enemyKind: e.kind, x: Math.round(e.x), y: Math.round(e.y) });

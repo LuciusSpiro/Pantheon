@@ -19,6 +19,7 @@ const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regeneration
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
 const Station = require('./station.js');   // R1 §4.4
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Szenen, Wellen, Gegner (nur lesen)
 const { makeRng } = require('../util.js');
 
 const TILE = Physics.TILE;
@@ -128,6 +129,7 @@ function planAll(A, n, spieler, rng) {
 // ---------------------------------------------------------------- Laufzeit
 function st(game) { return game.arena && game.arena.wellen ? game.arena.wellen : null; }
 function welleGegner(aw) { return ((aw && aw.drones) || []).filter((e) => e.tag === TAG); }
+const modusVon = (S) => (S.buehne === 'all' ? 'wellen_all' : S.buehne === 'graben' ? 'graben' : 'wellen_boden');   // TEL-01 B1
 function stehend(aw) { return welleGegner(aw).filter((e) => e.alive); }
 function team(game) { return game.players.filter((p) => p.connected); }
 
@@ -145,6 +147,7 @@ function start(game, o) {
     untenSeit: null, squadNr: 0, kandidaten: null, rng: makeRng(((o.seed | 0) * 2654435761 + 7) >>> 0), ergebnis: null, maxLebend: 0,
   };
   game.arena.wellen = S;
+  Tel.szeneStart(game, modusVon(S), o.karte, { seed: o.seed });   // TEL-01 B1
   if (game.ruestphase) { S.ph = 'vorbereitung'; S.bis = null; }   // Rüstphase (Testumgebung): die Crew bleibt an Bord, bis am Terminal die Szene gestartet wird
   tuerenAuf(game, o.lp);
   S.kandidaten = kandidaten(game, o.lp);
@@ -312,19 +315,23 @@ function spawnTrupp(game, S, aw, k) {
 const KANN_AUFSTEHEN = { verwundet: 1, bewusstlos: 1 };
 function kannAufstehen(e) { return !e.alive && !!KANN_AUFSTEHEN[e.zustand]; }
 function imSpiel(aw) { return welleGegner(aw).filter((e) => e.alive || kannAufstehen(e)).length; }
+function wegnehmenGemeldet(game, aw, ids, grund) {   // TEL-01 B1: gegner_weg vor dem Entfernen
+  for (const e of aw.drones) if (ids.includes(e.id)) Tel.bodenGegnerWeg(game, e, grund);
+  wegnehmen(aw, ids);
+}
 function wegnehmen(aw, ids) { const weg = new Set(ids); aw.drones = aw.drones.filter((e) => !weg.has(e.id)); }
 function koerperBudget(game, S, aw) {
   const C = cfg(game);
   const max = Math.max(0, Number(C.maxKoerper) || 0);
   const tot = welleGegner(aw).filter((e) => !e.alive && !kannAufstehen(e)).sort((a, b) => (a.welleGefallenAt || 0) - (b.welleGefallenAt || 0));
-  if (tot.length > max) wegnehmen(aw, tot.slice(0, tot.length - max).map((e) => e.id));
+  if (tot.length > max) wegnehmenGemeldet(game, aw, tot.slice(0, tot.length - max).map((e) => e.id), 'koerperbudget');
   // Nachschub wartet nur wegen Liegender: wer länger als koerperZeit liegt und gerade nicht aufgerichtet wird, verschwindet
   if (!S.queue.length || imSpiel(aw) < C.maxLebend) return;
   const hilft = new Set(aw.drones.filter((h) => h.alive && h.role === 'aufrichten' && h.hilft).map((h) => h.hilft));
   const alt = welleGegner(aw).filter((e) => kannAufstehen(e) && !hilft.has(e.id) && game.time - (e.welleGefallenAt || 0) >= (Number(C.koerperZeit) || 10))
     .sort((a, b) => (a.welleGefallenAt || 0) - (b.welleGefallenAt || 0));
   const zuviel = imSpiel(aw) - C.maxLebend + 1;
-  if (alt.length && zuviel > 0) wegnehmen(aw, alt.slice(0, Math.min(zuviel, Number(C.truppGroesse) || 3)).map((e) => e.id));
+  if (alt.length && zuviel > 0) wegnehmenGemeldet(game, aw, alt.slice(0, Math.min(zuviel, Number(C.truppGroesse) || 3)).map((e) => e.id), 'koerperzeit');
 }
 
 // Abschüsse: Übergang stehend -> liegend. Schütze = Spieler, dessen Projektil im selben Tick neben dem Gegner verschwand,
@@ -333,6 +340,7 @@ function zaehleAbschuesse(game, S, aw) {
   const jetzt = new Set((aw.projectiles || []).map((q) => q.id));
   let E = null;
   for (const e of welleGegner(aw)) {
+    Tel.bodenGegnerSehen(game, e, 'spawn');   // TEL-01 B1: gegner_neu beim ersten Tick (nur lesen)
     if (e.alive) { S.lebt.add(e.id); continue; }
     if (!S.lebt.has(e.id)) continue;
     S.lebt.delete(e.id);
@@ -428,7 +436,7 @@ const BODEN = {
     }
     suchen(game, S, aw);
   },
-  wegraeumen(game, S) { const aw = game.aways[S.lp]; if (aw) aw.drones = aw.drones.filter((e) => e.tag !== TAG); },
+  wegraeumen(game, S) { const aw = game.aways[S.lp]; if (aw) { for (const e of aw.drones) if (e.tag === TAG) Tel.bodenGegnerWeg(game, e, 'welle_vorbei'); aw.drones = aw.drones.filter((e) => e.tag !== TAG); } },   // TEL-01 B1: gegner_weg
   // Aufrichten, Befreien, Auffüllen (wie Medipack: combat.revive bzw. voller Schild + Wunden)
   auffuellen(game, S) {
     const cb = M().combat; const aw = game.aways[S.lp];
@@ -553,6 +561,7 @@ function startAll(game, o) {
     em0: game.stats.emergencies || 0,
   };
   game.arena.wellen = S;
+  Tel.szeneStart(game, modusVon(S), o.szene, { seed: o.seed });   // TEL-01 B1
   if (game.ruestphase) { S.ph = 'vorbereitung'; S.bis = null; }
   if (S.ph === 'vorbereitung') game.oda(`Wellen All: ${o.name || o.szene}. Rüstphase: am Terminal ausbauen, dann „Szene starten“.`, null);
   else game.oda(`Wellen All: ${o.name || o.szene}. Welle 1 in ${Math.round(C.countdown)} s – Steuer, Ops, Captain auf Station.`, null);
@@ -567,6 +576,7 @@ function beginne(game, S, n) {
   S.n = n; S.queue = P.liste.slice(); S.gesamt = P.gesamt; S.ph = 'kampf'; S.bis = null; S.nachschubAt = 0;
   S.welleStart = game.time;
   game.emit('welle', { n, gesamt: P.gesamt, neu: P.neu });
+  Tel.welle(game, modusVon(S), n, P.gesamt);   // TEL-01 B1
   B.angekuendigt(game, S, P);
   game.oda(`Welle ${n}: ${P.gesamt} Gegner.${P.extra.length ? ' ' + P.extra.join(' ') : ''}`, null);
   game.emit('sfx', { name: 'alarm_red' });
@@ -580,6 +590,7 @@ function geschafft(game, S) {
   S.lebt.clear();
   B.auffuellen(game, S);
   game.emit('welleGeschafft', { n: S.n, pause: Number(C.pause || 0) });
+  Tel.welleGeschafft(game, modusVon(S), S.n);   // TEL-01 B1
   game.oda(B.geschafftText(S, Math.round(C.pause)), null);
 }
 
@@ -592,6 +603,7 @@ function ende(game, S) {
   S.ergebnis = { karte: S.karte, seed: S.seed, welle: S.n, geschafft: Math.max(0, S.n - 1), zeit, kills, ...(S.debug ? { debug: true } : {}) };
   if (S.buehne === 'all') S.ergebnis.brocken = Object.assign({ lerche: 0, gegner: 0, schuesse: 0, strahlen: 0 }, game.stats.brocken || {});
   game.emit('wellenEnde', S.ergebnis);
+  Tel.szeneEnde(game, modusVon(S), S.buehne === 'all' ? S.szene : S.karte, 'unten', { welle: S.n, geschafft: Math.max(0, S.n - 1), debug: !!S.debug });   // TEL-01 B1: die Crew ist unten, Welle erreicht
   game.oda(B.endeText(S), null);
   game.log(`Wellen Ende: ${S.karte} Seed ${S.seed}, Welle ${S.n}, ${zeit} s, Abschüsse ${kills.map((k) => k[1] + ' ' + k[2]).join(', ')}.`);
 }

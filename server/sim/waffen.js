@@ -21,6 +21,7 @@
 // Granaten treibt `granateFlug(game, q, dt)` (true = gelandet, Wirkung ausgeführt, Projektil entfernen).
 const crypto = require('crypto');
 const Physics = require('../../shared/physics.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Haken fuer Schuss, Treffer, Ueberhitzung (nur lesen)
 
 const TILE = Physics.TILE;
 const EPS = 1e-6;
@@ -162,6 +163,7 @@ function heizen(game, k, d, anteil) {
   k.schussAt = t;
   if (k.hitze >= 1 - EPS) {
     k.hitze = 1; k.gesperrtBis = t + (Number(d.sperre) || 0);
+    Tel.ueberhitztBoden(game, k, k.waffe);   // TEL-01 B1
     emit(game, 'ueberhitzt', { id: k.id });
     return true;
   }
@@ -258,6 +260,7 @@ function geschoss(game, k, d, ziel) {
     team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team, crouch: !!k.crouch, wirkung: wirkungAus(k.waffe, d, null, k) });
   k.bereitAt = t + (Number(d.kadenz) || 0) * (nh && k.team !== 'crew' ? Number(nh.intervallFaktor) || 1 : 1);
   heizen(game, k, d);
+  Tel.schussBoden(game, k, k.waffe, q ? q.id : null);   // TEL-01 B1
   laerm(game, k.x, k.y, d.laerm);
   return q ? null : 'projektil';
 }
@@ -275,11 +278,12 @@ function granateWerfen(game, k, d, ziel) {
   const R = rng(game); const st = (Number(d.streuung) || 0) * TILE;
   const tx = k.x + dx + st * (R() * 2 - 1), ty = k.y + dy + st * (R() * 2 - 1);
   const flug = Number(d.flug) || 0.8;
-  projektil(game, { kind: 'granate', waffe: k.waffe, x: k.x, y: k.y, tx, ty, flug, t: 0, angle: Math.atan2(dy, dx), speed: 0,
+  const q = projektil(game, { kind: 'granate', waffe: k.waffe, x: k.x, y: k.y, tx, ty, flug, t: 0, angle: Math.atan2(dy, dx), speed: 0,
     ttl: flug + 1, dmg: Number(d.schaden) || 1, owner: k.id, team: k.team === 'crew' ? 'player' : 'enemy', seite: k.team,
     wirkung: wirkungAus(k.waffe, d, { betaeubt: Number(d.betaeubt) || 0, radius: Number(d.radius) || 1 }, k) });
   k.bereitAt = t + (Number(d.kadenz) || 0);
   heizen(game, k, d);
+  Tel.schussBoden(game, k, k.waffe, q ? q.id : null);   // TEL-01 B1
   emit(game, 'granate', { id: k.id, x: r(k.x), y: r(k.y), tx: r(tx), ty: r(ty), flug });
   laerm(game, k.x, k.y, d.laerm);
   return null;
@@ -348,6 +352,7 @@ function loslassen(game, k, auto) {
     .sort((a, b) => ((a.x - k.x) * dx + (a.y - k.y) * dy) - ((b.x - k.x) * dx + (b.y - k.y) * dy));
   emit(game, 'lanzeSchuss', Object.assign({ id: k.id, x: r(k.x), y: r(k.y), tx: r(ex), ty: r(ey) }, auto ? { auto: 1 } : {}));
   heizen(game, k, d);
+  Tel.schussBoden(game, k, k.waffe, null);   // TEL-01 B1: Lanze schiesst sofort, jeder Getroffene meldet sich als treffer
   laerm(game, k.x, k.y, d.laerm);
   for (const z of kand) wirken(game, z, wirkungAus(k.waffe, d, null, k), { id: k.id, team: k.team, x: k.x, y: k.y });
   return null;
@@ -368,6 +373,7 @@ function schlag(game, k, d) {
   emit(game, 'schlag', { id: k.id, x: r(k.x), y: r(k.y), winkel: Math.round(A.winkel * 100) / 100 });
   laerm(game, k.x, k.y, d.laerm);
   heizen(game, k, d);
+  Tel.schussBoden(game, k, k.waffe, null);   // TEL-01 B1
   k.bereitAt = t + (Number(d.erholung) || 0);
   // „Atem“: Erholung gehört zum Schlag, die Kühlpause beginnt erst danach (sonst überhitzt Dauerschlagen nie)
   if (!ueberhitzt(game, k)) k.schussAt = k.bereitAt;
@@ -396,6 +402,12 @@ function unterbrechen(game, k, grund) {
 //            betaeubt? (s), strike? (Orbitalschlag) }   quelle: { id?, team, x, y }
 // Rückgabe: 'schild'|'wunde'|'gefallen'|'bewusstlos'|'abgelenkt'|'kuppel'|'ignoriert'
 function treffer(game, ziel, wirkung, quelle) {
+  const seg0 = ziel && ziel.schild ? ziel.schild.seg : null;   // TEL-01 B1: Schild vorher (nur lesen)
+  const ergebnis = trefferWirkung(game, ziel, wirkung, quelle);
+  Tel.trefferBoden(game, ziel, wirkung, quelle, ergebnis, seg0);
+  return ergebnis;
+}
+function trefferWirkung(game, ziel, wirkung, quelle) {
   const w = wirkung || {}; const q = quelle || {}; const C = ac(game); const t = now(game);
   const zs = ziel.zustand || 'ok';
   if (zs !== 'ok') return 'ignoriert';
