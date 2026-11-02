@@ -204,7 +204,9 @@
         if (window.SpurView) SpurView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.NotrufView) NotrufView.drawButton(c, view, mr, (cc, extra) => this.cmd(view, cc, extra));
         if (window.Entschluesseln) Entschluesseln.draw(c, view, mr);
-        this.pultZielkasten(c, view, { x: r.x + 410, y: r.y + 4, w: r.w - 414, h: r.h - 8 }, target);
+        const zk = this.pultZielkasten(c, view, { x: r.x + 410, y: r.y + 4, w: r.w - 414, h: r.h - 8 }, target);
+        // OPS-01 C2: der Zielkasten ist für beide Stationen derselbe; die Handlung „scannen“ gehört den Ops und steht hier, nicht im Kasten
+        if (zk && zk.ungescannt) T(c, zk.verborgen ? 'S halten: genauer scannen' : 'S: scannen für Schilde', zk.x, zk.y, P.skin.dim);
         if (this.frachtLeiste) Net.guard('Consoles.frachtLeiste', () => this.frachtLeiste(c, view, { x: r.x + 410, y: r.y + r.h - 16, w: r.w - 414 }));   // unten im Zielkasten
       } });
       const K = g.skin, y0 = g.pult.y;
@@ -313,16 +315,28 @@
       T(ctx, 'Situative Knöpfe', x, y, K.dim); y += 10;
       T(ctx, 'stehen auf der Karte', x, y, K.dim);
     },
-    // Zielkasten rechts neben der Taktikkarte: Name, Klasse, Entfernung, Hülle, vier Schildsektoren
+    // OPS-01 C2: Zielkasten des Captains (Reiter Lage) für sein Anzeigeziel: derselbe Kasten wie bei den Ops; ungescannte Ziele zeigen nichts Genaues, der Captain scannt nicht selbst
+    capZielkasten(c, view, b, target) {
+      const zk = this.pultZielkasten(c, view, b, target);
+      if (zk && zk.ungescannt) T(c, 'nicht gescannt', zk.x, zk.y, P.skin.dim);
+      return zk;
+    },
+    // Zielkasten (Ops: rechts neben der Taktikkarte, Captain: Reiter Lage): Name, Klasse, Entfernung, Hülle, bei gescannten Zielen Zonenkreuz, sonst vier Schildsektoren.
+    // EINE Funktion für beide Stationen, ohne Stationsparameter: sie zeichnet das Ziel, das sie bekommt, mit den Detaildaten aus Consoles.zielDetail(view, target.id).
+    // Rückgabe: null (kein Ziel) oder { ungescannt, verborgen, x, y } – ungescannte Ziele zeigen nichts Genaues, die Stelle für einen Hinweis meldet der Kasten dem Aufrufer
+    // (die Ops nennen dort ihre Taste S, der Captain scannt nicht selbst).
     pultZielkasten(c, view, b, target) {
       const K = P.skin, ship = view.state.ship || {};
+      const det = target ? this.zielDetail(view, target.id) : null;
+      // Zustand für Zonenkreuz, Systemzeilen und Reaktor-Countdown: sie lesen zielSys/zielZon/zielWahl/zs aus state.ship; hier mit den Daten DIESES Ziels (nie die Felder eines anderen Ziels)
+      const zst = target ? Object.assign({}, view.state, { ship: Object.assign({}, ship, { zielSys: det && det.sys, zielZon: det && det.zon, zielWahl: det && det.wahl, zs: target.id === ship.target ? ship.zs : undefined }) }) : view.state;
       c.fillStyle = P.rgba(K.bg, 0.9); c.fillRect(b.x, b.y, b.w, b.h);
       let y = b.y + 4;
       T(c, 'ZIEL', b.x + 6, y, K.dim);
       const list = this.targetList(view);
       if (target) { const i = list.findIndex((e) => e.id === target.id); T(c, (i + 1) + ' / ' + list.length, b.x + b.w - 6, y, K.dim, 'right'); }
       y += 10;   // Review C1b-2: Kopfzeilen enger (9–10 px), damit das Kreuz über der Frachtraum-Leiste endet
-      if (!target) { T(c, list.length ? 'keins – T wählen' : 'keine Gegner', b.x + 6, y, K.dim); return; }
+      if (!target) { T(c, list.length ? 'keins – T wählen' : 'keine Gegner', b.x + 6, y, K.dim); return null; }
       const nm = target.station ? target.name : target.hidden ? (R.HIDDEN_NAMES[target.kind] || 'Signal') : (R.ENEMY_NAMES[target.kind] || target.kind);
       const d = Math.round(Math.hypot(target.x - n(ship.x), target.y - n(ship.y)));
       T(c, wrap1(nm, b.w - 12), b.x + 6, y, P.FN.weapon); y += 9;
@@ -330,7 +344,7 @@
       const kopf = (target.vk ? (VOLK[target.vk] || target.vk) + ' · ' : '') + d + ' m';
       T(c, kopf, b.x + 6, y, K.dim);
       // SYS-01 C1b-2 Nacharbeit (d): die schwächste Zone des Ziels rechts in der Kopfzeile (PultSysteme.statusFeld mit den Zonenwerten aus ship.zielZon; Reaktor steht im Kreuz und im Countdown)
-      const PSt = window.PultSysteme, zzK = ship.zielZon;
+      const PSt = window.PultSysteme, zzK = det && det.zon;
       if (PSt && target.scanned && zzK && Array.isArray(zzK.pct)) {
         const sf = PSt.statusFeld({ zonen: zzK.pct }), FS = PSt.farben(P.skinId(view));
         let v = sf.v; if (P.tw(kopf) + 8 + P.tw(v) > b.w - 12) v = v.replace(' SEITEN', '');
@@ -344,14 +358,17 @@
         const bx = b.x + 6 + P.tw(gt) + 4, pitch = Math.max(4, Math.floor((b.x + b.w - 6 - bx) / 10));
         P.segs(c, bx, y, 10, Math.floor(10 * Math.max(0, n(target.hp)) / target.hpMax), 'weapon', P.skinId(view) === 'germanen' ? pitch : pitch - 2, 6); y += 10;
       }
-      if (!target.scanned) { T(c, target.hidden ? (target.found ? 'erfasst' : 'S halten: genauer scannen') : 'S: scannen für Schilde', b.x + 6, y, K.dim); return; }
+      if (target.hidden && target.found && !target.scanned) { T(c, 'erfasst', b.x + 6, y, K.dim); return { ungescannt: false }; }
+      if (!target.scanned) return { ungescannt: true, verborgen: !!target.hidden, x: b.x + 6, y };
       // SYS-01 C1b-2 (Ziel-Scan): das Kreuz des gescannten Ziels ersetzt Schildschema und Kennung (Zonen als Schichten, Systeme mit Zustand, Mitte ZU/offen)
       const ZSk = window.Zielsysteme, PSk = window.PultSysteme, ZKk = window.Zonenkreuz, SCk = window.Shared_Schilde;
-      const zmod = ZSk && PSk && ZKk && target.kind ? ZKk.modellZiel(view.state, { systeme: ZSk.systemeVon(target.kind), lay: SCk ? SCk.layout(CFG, target.kind) : null, schild: target.shields }) : null;
+      const zmod = ZSk && PSk && ZKk && target.kind ? ZKk.modellZiel(zst, { systeme: ZSk.systemeVon(target.kind), lay: SCk ? SCk.layout(CFG, target.kind) : null, schild: target.shields }) : null;
       if (zmod) {
-        const F = PSk.farben(P.skinId(view)), zug = zmod.zugewandt, rest = ZSk.reaktorRest(view.state, target);
-        const kh = PSk.TOKENS.MASS.kreuz.ziel.h - (rest != null ? 10 : 0);   // Countdown: eine Textzeile unter dem Kreuz, das Kreuz wird dafür kürzer (die Frachtraum-Leiste bleibt frei)
-        ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(view.state) });
+        const F = PSk.farben(P.skinId(view)), zug = zmod.zugewandt, rest = ZSk.reaktorRest(zst, target);
+        // Das Kreuz richtet sich nach dem Platz (Ops: immer die volle Höhe; ein niedriger Kasten, etwa in der Lage-Spalte des Captains, zeichnet ein niedrigeres Kreuz mit weniger Zeilen)
+        const kh = Math.min(PSk.TOKENS.MASS.kreuz.ziel.h - (rest != null ? 10 : 0), b.y + b.h - 4 - y - PSk.TOKENS.MASS.seiteRahmen - 3 - (rest != null ? 10 : 0));
+        if (kh < 30) return { ungescannt: false };   // Countdown: eine Textzeile unter dem Kreuz, das Kreuz wird dafür kürzer (die Frachtraum-Leiste bleibt frei)
+        ZKk.zeichne(c, zmod, { x: b.x + 6, y, w: b.w - 12, h: kh }, { skin: P.skinId(view), mass: PSk.TOKENS.MASS.kreuz.ziel, gegner: true, zugewandt: zug, seite: zug, selId: ZSk.gewaehlt(zst) });
         y += kh + PSk.TOKENS.MASS.seiteRahmen + 3;   // Review C1b-2: unter dem Bernstein-Rahmen der zugewandten Seite weiter
         if (rest != null) { T(c, PSk.text(PSk.TOKENS.TEXT.reaktorZiel, { s: rest.toFixed(1).replace('.', ',') }), b.x + 6, y, F.zerText); y += 10; }
         if (b.y + b.h - 4 - y >= 11) { try { this.zielAusstattung(c, target, b.x + 6, y, b.w - 12, b.y + b.h - 4 - y, { txt: (str, xx, yy, col, al) => T(c, str, xx, yy, col, al), dim: K.dim, text: K.text, fn: P.FN.drive, amber: P.FN.drive, dark: K.bg, state: view.state }); } catch (err) { Net.reportError('Pult.zielAusstattung', err); } }
@@ -529,6 +546,12 @@
         const dis = i === 3 && !awayOn;
         P.knopf(ctx, bx, by, bw, 14, name, { hotkey: String(i + 1), aktion: 'captain.reiter' + (i + 1), fn: ['cmd', 'nav', 'sensor', 'neutral', 'nav', 'drive'][i], active: this.tab === i, disabled: dis, reason: 'Nur während der Außenmission', onClick: () => { this.tab = i; } });
       });
+      if (this.tab === 2) {   // OPS-01 C2: Anzeigeziel des Captains (Lage): nächstes Ziel (T, wie bei den Ops) oder abwählen
+        const cz = (st.ship || {}).cz, zy = y + 34;
+        P.knopf(ctx, 62, zy, bw, 14, 'Nächstes Ziel', { hotkey: 'T', aktion: 'captain.lage.naechstesZiel', fn: 'sensor', disabled: !this.targetList(view).length, reason: 'Nichts in Sensorreichweite', onClick: () => this.anzeigeZielWechseln(view) });
+        P.knopf(ctx, 62 + bw + 4, zy, bw, 14, 'Ziel löschen', { fn: 'neutral', disabled: !(cz && cz.id), reason: 'Kein Ziel gewählt', onClick: () => this.anzeigeZielWaehlen(view, null) });
+        P.knopf(ctx, 62 + 2 * (bw + 4), zy, bw, 14, 'Marker löschen', { hotkey: 'X', aktion: 'captain.lage.markerLoeschen', fn: 'neutral', disabled: !R.markersOf(st).captain, reason: 'Kein Marker gesetzt', onClick: () => this.cmd(view, 'captain.marker', { clear: true }) });
+      }
       x = 400; cw = 234;
       y = P.titel(ctx, x, y0, cw, 'SCHILDE · HINWEISE', 'shield');
       P.mitSkin(() => { try { this.shieldStrip(ctx, view, x, y); } catch (e) { Net.reportError('Pult.shieldStrip', e); } });
