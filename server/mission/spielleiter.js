@@ -311,7 +311,7 @@ class Spielleiter {
     try {
       const id = this.weltId();
       if (!this.regie || this.regieWelt !== id) {
-        this.regie = Regielog.create({ dir: this.regieDir, weltId: id, rotateBytes: this.C.regieRotateBytes, memoryOnly: !!this.opts.memoryLog || (!!this.game && this.game.worldsEnabled === false && !(this.env && this.env.REGIE_DIR)), onError: (e) => this.countError('regielog', e) });   // noStore-Spiele (Tests) schreiben nichts
+        this.regie = Regielog.create({ dir: this.regieDir, weltId: id, rotateBytes: this.C.regieRotateBytes, memoryOnly: !!this.opts.memoryLog || (!!this.game && this.game.worldsEnabled === false && !(this.env && this.env.REGIE_DIR)), onError: (e) => this.countError('regielog', e), sitzung: () => this.game && this.game.runId });   // noStore-Spiele (Tests) schreiben nichts
         this.regieWelt = id;
       }
       return this.regie.write(Object.assign({ spielzeit: this.playTime() }, entry));
