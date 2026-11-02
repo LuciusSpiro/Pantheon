@@ -3,7 +3,7 @@
 // Eine Tabelle je Bus: Name des Ereignisses -> { typ, felder(daten, ctx) }.
 //   typ      Name der Protokollzeile (Schema-Name, snake_case)
 //   felder   baut NUR flache Felder (Zahl, Text, Wahrheitswert, null, Liste davon) aus den Daten des Busses.
-//            Positivliste: nichts wird "durchgereicht". Spieler als Slot (p.id), nie p, p.name, p.karte, clientId.
+//            Positivliste: nichts wird "durchgereicht". Spieler als Slot (p.id), nie das Spielerobjekt, sein Name, seine Charakterkarte oder die clientId.
 //            Rückgabe null = diese Instanz nicht protokollieren.
 //   ctx      { game, dienst } (Lesen von Spielzustand, z. B. Zahlen; kein Schreiben ins Spiel, kein Zufall)
 // Unbekannte Namen werden ignoriert. sfx, oda und notice gehören nicht hierher (kein Spielereignis).
