@@ -5,7 +5,7 @@
 //       dürfen sich Beschriftungen nicht überlappen (Toleranz 1 px). Die Nordmarke zählt als Beschriftung.
 //   (b) Mutation: dieselbe Szene mit abgeschalteter Kollisionsprüfung muss Überlappungen zeigen – sonst misst der Test nichts (ohne Git)
 //   (c) Kurzform der Bogenbeschriftung unter Zoom 0,2; Beschriftungen bei lesbaren Stufen bleiben; Kennung/Schildring werden nie weggelassen
-//   (d) Sicht seitlich >= R.FRONT.side an beiden Extremen von opsMitteX (pult-stationen.js), Fläche 404 × 184
+//   (d) Sicht seitlich >= R.FRONT.side an den Extremen von opsMitteX (pult-stationen.js), Fläche 404 × 184; Sicht nach vorn (R.FRONT.fwd) an der verschobenen Mitte in allen Kursen und beiden Ausrichtungen (R6: Kartenlogik.mitteX)
 //   node tools/test-karte-labels.js
 const fs = require('fs');
 const path = require('path');
@@ -98,12 +98,14 @@ function ueberlappungen(texte) {
   }
   return out;
 }
+// Kartenmitte im Pult: Wunsch x + 328 (neben den Leisten), begrenzt durch Kartenlogik.mitteX (Sicht nach vorn)
+const pultMitte = (zoom) => KL.mitteX(OPS, OPS.x + 4 + 266 + 58, zoom) - OPS.x;
 const FAELLE = [];
 for (const ausr of ['schiff', 'norden']) for (const kurs of [0, 135, 250]) {
   FAELLE.push({ name: 'Ops Standard Mitte', rect: OPS, karte: 'weapons', zoom: KL.zoomStandard(OPS), ausr, kurs, extra: { cx: OPS.x + 202 } });
-  FAELLE.push({ name: 'Ops Standard Mitte rechts (Pult)', rect: OPS, karte: 'weapons', zoom: KL.zoomStandard(OPS), ausr, kurs, extra: pultConfig(OPS, 334) });
+  FAELLE.push({ name: 'Ops Standard Mitte rechts (Pult)', rect: OPS, karte: 'weapons', zoom: KL.zoomStandard(OPS), ausr, kurs, extra: pultConfig(OPS, pultMitte(KL.zoomStandard(OPS))) });
   FAELLE.push({ name: 'Ops kleinste Stufe', rect: OPS, karte: 'weapons', zoom: KL.zoomMin(OPS), ausr, kurs, extra: { cx: OPS.x + 202 } });
-  FAELLE.push({ name: 'Ops kleinste Stufe Mitte rechts', rect: OPS, karte: 'weapons', zoom: KL.zoomMin(OPS), ausr, kurs, extra: pultConfig(OPS, 334) });
+  FAELLE.push({ name: 'Ops kleinste Stufe Mitte rechts', rect: OPS, karte: 'weapons', zoom: KL.zoomMin(OPS), ausr, kurs, extra: pultConfig(OPS, pultMitte(KL.zoomMin(OPS))) });
   FAELLE.push({ name: 'Ops Zoom 0,25', rect: OPS, karte: 'weapons', zoom: 0.25, ausr, kurs, extra: {} });
   FAELLE.push({ name: 'Captain-Lage Standard', rect: LAGE, karte: 'lage', zoom: KL.zoomStandard(LAGE), ausr, kurs, extra: {} });
   FAELLE.push({ name: 'Captain-Lage 0,35', rect: LAGE, karte: 'lage', zoom: 0.35, ausr, kurs, extra: {} });
@@ -151,13 +153,14 @@ section('(c) Kurzform der Bogenbeschriftung und erhaltene Beschriftungen');
   ok(/kennungMassstab\(zoom\) \{ return zoom >= 0\.3 \? 2 : 1\.5; \}/.test(rd('render.js')), 'Kennungsmaßstab unverändert: 2 ab Zoom 0,3, sonst 1,5');
 }
 
-section('(d) Sicht seitlich >= R.FRONT.side an beiden Extremen der Kartenmitte (opsMitteX)');
+section('(d) Sicht seitlich (R.FRONT.side) und nach vorn (R.FRONT.fwd) an den Extremen der Kartenmitte (opsMitteX)');
 {
   // pult-stationen.js: Mitte zwischen Flächenmitte (x + 202) und min(x + w − 70, x + 4 + 266 + 58) = x + 328; Obergrenze der Formel x + w − 70 = x + 334
   const q = rd('pult-stationen.js');
   ok(/Math\.min\(mr\.x \+ mr\.w - 70, mr\.x \+ 4 \+ 266 \+ 58\)/.test(q) && /const mitteX = mr\.x \+ Math\.round\(mr\.w \/ 2\)/.test(q), 'pult-stationen.js: Mitte zwischen Flächenmitte und min(x + w − 70, x + 328) (Formel unverändert)');
-  const z = KL.zoomStandard(OPS), side = R.FRONT.side;
-  const extreme = [['Mitte (unverschoben)', OPS.w / 2], ['Verschiebung durch Leisten (x + 328)', 4 + 266 + 58], ['äußerste Grenze der Formel (x + w − 70)', OPS.w - 70]];
+  const z = KL.zoomStandard(OPS), side = R.FRONT.side, fwd = R.FRONT.fwd;
+  ok(pultMitte(z) < OPS.w - 70 && pultMitte(z) >= OPS.w / 2, 'Kartenlogik.mitteX begrenzt die Verschiebung: ' + pultMitte(z) + ' px von links (Wunsch ' + (4 + 266 + 58) + ', Grenze ' + (OPS.w - Math.ceil(fwd * z) - 2) + ')');
+  const extreme = [['Mitte (unverschoben)', OPS.w / 2], ['Verschiebung durch Leisten (begrenzt, Pult)', pultMitte(z)], ['Wunsch ohne Begrenzung (x + 328)', 4 + 266 + 58], ['äußerste Grenze der Formel (x + w − 70)', OPS.w - 70]];
   for (const [nm, cxRel] of extreme) {
     const rechts = (OPS.w - cxRel) / z, links = cxRel / z;
     ok(rechts >= side && links >= side, nm + ': rechts ' + rechts.toFixed(0) + ' / links ' + links.toFixed(0) + ' Welt-px ≥ R.FRONT.side (' + side + ')');
@@ -170,6 +173,21 @@ section('(d) Sicht seitlich >= R.FRONT.side an beiden Extremen der Kartenmitte (
     }
     ok(alle, nm + ': R.FRONT.side seitlich liegt über toS in der Fläche (beide Ausrichtungen, 3 Kurse)');
   }
+  // R6: Sicht nach VORN (R.FRONT.fwd) im Pult an der verschobenen Mitte. „Schiff oben“: vorn ist senkrecht (Fläche 184 px = 2 × 700 Welt-px), immer vollständig. „Norden oben“: vorn zeigt
+  // bei Kurs Ost nach rechts: Kartenlogik.mitteX hält FRONT.fwd rechts vom Schiff frei. Kurs West: links ist dank der Grenze „nie links der Flächenmitte“ immer genug Platz.
+  const cxP = OPS.x + pultMitte(z);
+  let vornOk = true; const lose = [];
+  for (const ausr of ['schiff', 'norden']) for (const kurs of [0, 45, 90, 135, 180, 225, 270, 315]) {
+    const { res } = zeichne(win, OPS, 'weapons', z, ausr, kurs, { cx: cxP });
+    const k = rad(kurs), p = rel(Math.cos(k) * fwd, Math.sin(k) * fwd), s = res.toS(p.x, p.y);
+    if (s.x < OPS.x - 1 || s.x > OPS.x + OPS.w + 1 || s.y < OPS.y - 1 || s.y > OPS.y + OPS.h + 1) { vornOk = false; lose.push(ausr + ' ' + kurs + '°'); }
+  }
+  ok(vornOk, 'Pult, verschobene Mitte (' + pultMitte(z) + ' px): ' + fwd + ' Welt-px vor dem Bug liegen in der Fläche – alle 8 Kurse, beide Ausrichtungen' + (lose.length ? ' – außerhalb: ' + lose.join(', ') : ''));
+  // Gegenprobe: ohne die Begrenzung (Mitte x + 328) verfehlt „Norden oben“ bei Kurs Ost die 700 – der Test misst etwas
+  const ohne = zeichne(win, OPS, 'weapons', z, 'norden', 0, { cx: OPS.x + 4 + 266 + 58 });
+  const pOst = rel(fwd, 0), sOst = ohne.res.toS(pOst.x, pOst.y);
+  ok(sOst.x > OPS.x + OPS.w, 'ohne Begrenzung (Mitte x + 328): Norden oben, Kurs Ost – der Punkt ' + fwd + ' vor dem Bug liegt rechts außerhalb (' + Math.round(sOst.x - OPS.x) + ' > ' + OPS.w + ')');
+  ok(4 + 266 + 58 - pultMitte(z) <= 20 && pultMitte(z) > 4 + 266 + 20, 'die Begrenzung nimmt höchstens 20 px von der Verschiebung (jetzt ' + (4 + 266 + 58 - pultMitte(z)) + ' px), die Mitte bleibt ' + (pultMitte(z) - 270) + ' px rechts der Leistenkante');
 }
 
 console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

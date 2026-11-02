@@ -191,7 +191,7 @@
         // und die Warnzeile die Bogenbeschriftung. Ohne Sim-Szene ist der Versatz 0 (Kampagne, Limes, Eisenwald unverändert).
         const ms = Object.assign({}, mr, { y: mr.y + H.szeneRandOben(view, mr.y) });
         const mitteX = mr.x + Math.round(mr.w / 2), stapelUnten = ms.y + 3 + (this.stapelH || 0);
-        const zielX = this.stapelH && stapelUnten > mr.y + Math.round(mr.h / 2) - 26 ? Math.min(mr.x + mr.w - 70, mr.x + 4 + 266 + 58) : mitteX;   // 58: halbe Breite der Bogenbeschriftung oben/unten („BB STANDARD BEREIT“), sie steht dann neben den Leisten
+        const zielX = Kartenlogik.mitteX(mr, this.stapelH && stapelUnten > mr.y + Math.round(mr.h / 2) - 26 ? Math.min(mr.x + mr.w - 70, mr.x + 4 + 266 + 58) : mitteX, this.zoom.weapons);   // 58: halbe Breite der Bogenbeschriftung oben/unten („BB STANDARD BEREIT“), sie steht dann neben den Leisten
         this.opsMitteX = this.opsMitteX == null ? zielX : Math.abs(zielX - this.opsMitteX) < 0.5 ? zielX : this.opsMitteX + (zielX - this.opsMitteX) * 0.25;
         // SUND-02b UI2: liegt oben eine Szenenzeile oder die Lagefunk-Zeile, entfällt die Zoom-Beschriftung der Karte: unter der Zeile wird die obere Bogenbeschriftung
         // („BB STANDARD BEREIT“) an den Rand geklemmt und lag in allen Ausweichplätzen darüber; der Wert steht ohnehin auf der Taste „Z Zoom 35 %“ unter SENSOREN

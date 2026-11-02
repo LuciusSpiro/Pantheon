@@ -78,5 +78,13 @@
     return b;
   }
 
-  window.Kartenlogik = { zoomStufen, zoomStandard, zoomMin, zoomIndex, KARTEN, ausrichtung, setze, umschalten, name, rot, optionen };
+  // OPS-01 R6: Kartenmitte nach rechts verschieben (Pult: neben die Leisten oben links), aber nie so weit, dass die Sicht nach vorn (FRONT.fwd) bei „Norden oben“ und Kurs Ost am rechten Rand endet:
+  // rechts vom Schiff bleibt FRONT.fwd · zoom (+ 2 px). Nie links der Flächenmitte. Bei „Schiff oben“ liegt „vorn“ senkrecht, dort ändert die Grenze nichts. Ab größerem Zoom als dem Standard
+  // reicht die Karte ohnehin nicht mehr bis 700, dann gilt die Flächenmitte.
+  function mitteX(rect, wunsch, zoom) {
+    const vorn = Math.ceil(R_().FRONT.fwd * zoom) + 2, mitte = rect.x + Math.round(rect.w / 2);
+    return Math.max(mitte, Math.min(wunsch, rect.x + rect.w - vorn));
+  }
+
+  window.Kartenlogik = { mitteX, zoomStufen, zoomStandard, zoomMin, zoomIndex, KARTEN, ausrichtung, setze, umschalten, name, rot, optionen };
 })();
