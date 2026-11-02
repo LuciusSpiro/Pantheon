@@ -651,6 +651,8 @@
       }
     },
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
+    // OPS-01 A: Ausrichtung der Karte umschalten (Knopf und Shift+Z); der Zustand liegt in Kartenlogik, nicht hier
+    kartenAusrichtung(view, karte) { Kartenlogik.umschalten(karte); view.actions.sfx('ui_click'); },
     cycleZoom(which, dir) {
       const i = ZOOM_STEPS.indexOf(this.zoom[which]);
       const j = dir === -1 ? Math.max(0, (i < 0 ? 1 : i) - 1) : dir === 1 ? Math.min(ZOOM_STEPS.length - 1, (i < 0 ? 1 : i) + 1) : ((i + 1) % ZOOM_STEPS.length);
@@ -994,11 +996,12 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: a.x, y: a.y, w: 440, h: a.h - 2 };
       if (this.mapRects) this.mapRects.lage = rect;
-      this.maps.lage = R.drawTactical(ctx, view, rect, { zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: H.szeneRandOben(view, rect.y) });
+      this.maps.lage = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: H.szeneRandOben(view, rect.y) }, Kartenlogik.optionen('lage', view)));
       const rx = a.x + 450, rw = a.w - 450;
       let y = a.y + 2;
       R.text(ctx, 'LAGE · ' + R.locName(st, R.worldOf(st).location), rx, y, { color: PAL.brass }); y += 12;
-      R.button(ctx, rx, y, rw, 15, 'Zoom ' + Math.round(this.zoom.lage * 100) + ' %', { hotkey: 'Z', onClick: () => this.cycleZoom('lage') }); y += 20;
+      R.button(ctx, rx, y, rw, 15, 'Zoom ' + Math.round(this.zoom.lage * 100) + ' %', { hotkey: 'Z', onClick: () => this.cycleZoom('lage') }); y += 18;
+      R.button(ctx, rx, y, rw, 15, 'Ausrichtung', { hotkey: 'Shift+Z', aktion: 'captain.lage.ausrichtung', text: Kartenlogik.name('lage'), onClick: () => this.kartenAusrichtung(view, 'lage') }); y += 20;
       R.text(ctx, 'CAPTAIN-MARKER', rx, y, { color: PAL.brass }); y += 11;
       const mk = R.markersOf(st).captain;
       if (mk) { R.text(ctx, 'gesetzt · ' + Math.round(Math.hypot(mk.x - n(ship.x), mk.y - n(ship.y))) + ' px', rx, y, { color: PAL.mint }); y += 10; }
@@ -1947,7 +1950,7 @@
       const rs = Object.assign({}, rect, { y: rect.y + H.szeneRandOben(view, rect.y) });   // SUND-02b UI2: Leisten unter der Szenenzeile (ohne Sim-Szene 0)
       // SUND-04a-1 A (Review D-S4): die Zoom-Anzeige rechts oben ist ein Hindernis für die Kartenlabels (Randpfeil-Labels weichen aus)
       const zoomY = Math.max(rect.y + 3, H.szeneUnten(view) + 2);
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) });
+      this.maps.weapons = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) }, Kartenlogik.optionen('weapons', view)));
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, zoomY, { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
       this.drawFracht(ctx, view, rs);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
@@ -3001,6 +3004,7 @@
           } else if (tab === 2) {
             if (code === 'Space') { const b = this.findButton(/^Scan/); if (b && !b.disabled) this.setScan(view, true); else if (b) this.denied(b.reason); return true; }
             if (code === 'KeyX') return press(() => this.tryButton('Marker löschen'));
+            if (code === 'KeyZ' && e.shiftKey) return press(() => this.tryButton('Ausrichtung'));   // OPS-01 A: Shift+Z
             if (code === 'KeyZ' || code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('lage', code === 'KeyZ' ? 0 : 1); return true; }
             if (code === 'Minus' || code === 'NumpadSubtract') { this.cycleZoom('lage', -1); return true; }
             // S2: Schützling-Befehle H halten · F folgen · V volle Kraft · D andocken · N wechseln
@@ -3106,6 +3110,7 @@
           if (code === 'KeyX') return press(() => this.tryButton('Löschen'));
           if (code === 'KeyR') { this.denied('Der Torpedowerfer lädt selbst nach'); return true; }
           if (code === 'KeyO') return press(() => this.tryButton('Orbitalschlag auf Markierung'));
+          if (code === 'KeyZ' && e.shiftKey) return press(() => this.tryButton('Ausrichtung'));   // OPS-01 A: Shift+Z
           if (code === 'KeyZ') { this.cycleZoom('weapons'); return true; }
           if (code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('weapons', 1); return true; }
           if (code === 'Minus' || code === 'NumpadSubtract') { this.cycleZoom('weapons', -1); return true; }

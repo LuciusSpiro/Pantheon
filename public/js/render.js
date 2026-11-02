@@ -3818,7 +3818,8 @@
 
   // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
   // Erkunden, 'karte' erst nach dem Erkunden), Zustand st.zonen = { in, bk }. Farben: Hitze/Druck orange, Sicht violett, Ertrag grün, Drift Pfeile.
-  function drawZonen(ctx, st, toS, zoom, t, ops) {
+  function drawZonen(ctx, st, toS, zoom, t, ops, rot) {
+    rot = rot || 0;
     const Z = window.Shared_Zonen, SL = window.Shared_Locations;
     if (!Z || !SL || !st || !st.ship) return;
     const loc = SL.get && SL.get(st.ship.scene);
@@ -3851,14 +3852,16 @@
       ctx.fillStyle = 'rgba(' + col + ',' + a + ')'; ctx.strokeStyle = 'rgba(' + col + ',0.6)'; ctx.lineWidth = 1;
       ctx.beginPath();
       if (z.form === 'rechteck') {
-        const w = z.w * zoom, h = z.h * zoom; ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
+        const w = z.w * zoom, h = z.h * zoom;
+        if (rot) { const cs = Math.cos(rot), sn = Math.sin(rot); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([qx, qy], i) => { const px = c.x + qx * w / 2 * cs - qy * h / 2 * sn, py = c.y + qx * w / 2 * sn + qy * h / 2 * cs; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); }
+        else ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
       } else if (z.form === 'ring') {
         ctx.arc(c.x, c.y, z.r1 * zoom, 0, Math.PI * 2); ctx.moveTo(c.x + z.r0 * zoom, c.y); ctx.arc(c.x, c.y, z.r0 * zoom, 0, Math.PI * 2, true);
       } else ctx.arc(c.x, c.y, z.r * zoom, 0, Math.PI * 2);
       ctx.fill('evenodd'); ctx.stroke();
       // Driftpfeil (nur Zellen und Felder mit fester Richtung; Strömung um den Planeten als Pfeil am Ring)
       if (z.drift && z.drift.staerke) {
-        const ang = z.drift.winkel || 0, L = Math.min(40, 10 + z.drift.staerke * 0.6);
+        const ang = (z.drift.winkel || 0) + rot, L = Math.min(40, 10 + z.drift.staerke * 0.6);
         const ex = c.x + Math.cos(ang) * L, ey = c.y + Math.sin(ang) * L;
         ctx.strokeStyle = 'rgba(' + col + ',0.95)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(c.x - Math.cos(ang) * L, c.y - Math.sin(ang) * L); ctx.lineTo(ex, ey);
@@ -4068,9 +4071,18 @@
     if (!front) {
       ctx.strokeStyle = 'rgba(127,224,194,0.08)'; ctx.lineWidth = 1;
       const g = 200;
-      const gx0 = Math.floor((ship.x - B.w / 2 / zoom) / g) * g, gy0 = Math.floor((ship.y - B.h / 2 / zoom) / g) * g;
-      for (let gx = gx0; gx < ship.x + B.w / 2 / zoom + g; gx += g) { const s = toS(gx, 0); ctx.beginPath(); ctx.moveTo(s.x + 0.5, B.y); ctx.lineTo(s.x + 0.5, B.y + B.h); ctx.stroke(); }
-      for (let gy = gy0; gy < ship.y + B.h / 2 / zoom + g; gy += g) { const s = toS(0, gy); ctx.beginPath(); ctx.moveTo(B.x, s.y + 0.5); ctx.lineTo(B.x + B.w, s.y + 0.5); ctx.stroke(); }
+      if (rot) {   // OPS-01 A: bei „Schiff oben“ läuft das Weltraster schräg – im mitgedrehten Raum (Ursprung = Schiff) zeichnen, Beschriftung steht nicht darin
+        const ext = Math.hypot(B.w, B.h) / zoom, ex = Math.ceil(ext / g) * g;   // reicht über jede Ecke des Ausschnitts
+        const gx0 = Math.floor((ship.x - ext) / g) * g, gy0 = Math.floor((ship.y - ext) / g) * g;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+        for (let gx = gx0; gx < ship.x + ext + g; gx += g) { const lx = Math.round((gx - ship.x) * zoom) + 0.5; ctx.beginPath(); ctx.moveTo(lx, -ex * zoom); ctx.lineTo(lx, ex * zoom); ctx.stroke(); }
+        for (let gy = gy0; gy < ship.y + ext + g; gy += g) { const ly = Math.round((gy - ship.y) * zoom) + 0.5; ctx.beginPath(); ctx.moveTo(-ex * zoom, ly); ctx.lineTo(ex * zoom, ly); ctx.stroke(); }
+        ctx.restore();
+      } else {
+        const gx0 = Math.floor((ship.x - B.w / 2 / zoom) / g) * g, gy0 = Math.floor((ship.y - B.h / 2 / zoom) / g) * g;
+        for (let gx = gx0; gx < ship.x + B.w / 2 / zoom + g; gx += g) { const s = toS(gx, 0); ctx.beginPath(); ctx.moveTo(s.x + 0.5, B.y); ctx.lineTo(s.x + 0.5, B.y + B.h); ctx.stroke(); }
+        for (let gy = gy0; gy < ship.y + B.h / 2 / zoom + g; gy += g) { const s = toS(0, gy); ctx.beginPath(); ctx.moveTo(B.x, s.y + 0.5); ctx.lineTo(B.x + B.w, s.y + 0.5); ctx.stroke(); }
+      }
       const sr = sensorRange(st) * zoom;
       if (fog) {
         ctx.fillStyle = 'rgba(42,35,80,0.5)';
@@ -4083,7 +4095,7 @@
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
     const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
-    drawZonen(ctx, st, toS, zoom, t, ichOps);   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
+    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
     if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
     if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)
@@ -4574,10 +4586,20 @@
     return true;
   }
 
-  // Ops/Lage: Karte mit Schiff in der Mitte, Norden oben. opts = { zoom, arcs, intel, enemyRects, showRanges }
+  // OPS-01 A: kleine Nordmarke am Kartenrand (Kreis mit „N“, aufrecht) in Richtung Norden – nur bei „Schiff oben“, damit die Karte lesbar bleibt
+  function nordMarke(ctx, rect, cx, cy, rot, randOben) {
+    const b = { x: rect.x, y: rect.y + (randOben || 0), w: rect.w, h: rect.h - (randOben || 0) };
+    const e = rayToRect(b, cx, cy, -Math.PI / 2 + rot, 11);
+    ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.beginPath(); ctx.arc(Math.round(e.x), Math.round(e.y), 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = PAL.mint; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x), Math.round(e.y), 7, 0, Math.PI * 2); ctx.stroke();
+    text(ctx, 'N', e.x, e.y - 3, { color: PAL.mint, align: 'center', shadow: false });
+  }
+  // Ops/Lage: Karte mit Schiff in der Mitte. opts = { zoom, arcs, intel, enemyRects, showRanges, rot, nordmarke }
+  // rot (Bogenmaß, Standard 0 = Norden oben) liefert Kartenlogik.optionen; mit „Schiff oben“ zeigt der Bug nach oben (wie die Frontsicht: rot = −Kurs − 90°)
   function drawTactical(ctx, view, rect, opts) {
     opts = opts || {};
-    const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35, rot: 0 }, opts));
+    const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35 }, opts, { rot: opts.rot || 0 }));
+    if (opts.nordmarke) nordMarke(ctx, rect, res.cx, res.cy, opts.rot || 0, opts.randOben);
     hyperraum(ctx, view, rect);   // Schnellsprung: statt der Sektorkarte die Hyperraum-Animation
     ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     return res;
