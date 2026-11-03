@@ -2779,6 +2779,9 @@
     const m = ((space && space.markers) || []).find(q => q.kind !== 'dock' && !q.posten && STATION_ART[q.kind]);   // SUND-01 D: ein Posten ist Kulisse, nicht das Hauptobjekt/Ziel 'station'
     return m ? { id: 'station', kind: m.kind, x: m.x, y: m.y, station: true, name: m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind] } : null;
   }
+  // OPS-01 G4: Farbe des Zielnamens nach Art – EINE Wahl für das Kartenlabel und den Zielkasten (Ops und Captain): Station/Boje Bernstein, verstecktes Objekt Mint (erfasst: Grau);
+  // null für Gegnerschiffe (Rot = Waffen/Gefahr, die Wahl des Aufrufers bleibt)
+  function zielNameFarbe(t, verborgen) { return !t ? null : t.station ? PAL.amber : verborgen || t.hidden ? (t.found ? PAL.panelLight : PAL.mint) : null; }   // verborgen: Eintrag aus space.hidden (ohne Marke hidden)
   function markersOf(st) { const m = (st && st.ship && st.ship.markers) || {}; return { captain: m.captain || null, tactical: m.tactical || null }; }
   function pinColor(st, pin) {
     if (typeof pin.color === 'number') return PAL.players[pin.color] || PAL.star;
@@ -3497,12 +3500,14 @@
       : torp ? (+m.ammo <= 0 ? 'LEER' : ready ? 'BEREIT ' + (+m.ammo | 0) : Math.ceil(+m.cd || 0) + ' s')
       : ready ? 'BEREIT' : (m.alloc !== undefined && !(+m.alloc > 0) && charge < 1) ? 'RESERVE' : Math.round(charge * 100) + ' %';
     if (sysSt === 'damaged') status += ' · BESCH';
-    const name = (PLATZ_SEITE_KURZ[platz] || '') + ' ' + (w ? w.kurz : '');
-    lab(name + ' ' + status, cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr + 8,
-      { color: dead ? PAL.red : aim ? BURST_COL : torp && ready ? '#F0B45A' : ready ? (inArc ? PAL.amber : PAL.mint) : PAL.panelLight, align: 'center' }, ready || aim || dead ? 2 : 0, !(ready || aim || dead));
+    const seite = PLATZ_SEITE_KURZ[platz] || '', kurzForm = zoom < 0.2 && seite;   // OPS-01 B: unter Zoom 0,2 nur „BB“/„STB“ (AUS bleibt), der Zustand steht auf den Waffenknöpfen
+    const name = seite + ' ' + (w ? w.kurz : '');
+    lab(kurzForm ? seite + (dead ? ' AUS' : '') : name + ' ' + status, cx + Math.cos(mid) * rr, cy + Math.sin(mid) * rr + 8,
+      { color: dead ? PAL.red : aim ? BURST_COL : torp && ready ? '#F0B45A' : ready ? (inArc ? PAL.amber : PAL.mint) : PAL.panelLight, align: 'center', dedup: !!kurzForm }, ready || aim || dead ? 2 : 0, !(ready || aim || dead));
   }
   // ---- M3a: angekündigter Angriff (tele) – roter, gestrichelter Fächer vom Gegner aufs Schiff + Countdown (Ort vor Zahl)
-  function drawTele(ctx, e, s, cx, cy, t, withCountdown, lab) {
+  // boxLab (nur Karten, nicht Frontsicht): Label-Sammler von drawSpace; der Countdown-Kasten wird dann mit allen anderen Labels entzerrt (flushLabels, Rang 8, nie ausgelassen) statt direkt gezeichnet
+  function drawTele(ctx, e, s, cx, cy, t, withCountdown, lab, boxLab) {
     const te = e.tele || {};
     const left = Math.max(0, +te.left || 0), dur = Math.max(0.1, +te.dur || left || 1);
     const ang = Math.atan2(cy - s.y, cx - s.x);
@@ -3526,9 +3531,13 @@
       const str = (sec ? sec + ' ' : '') + fmt1(left);
       const w = measure(str, 2) + 8;
       const lx = Math.round(s.x - w / 2), ly = Math.round(s.y - rr - 22);
-      ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(lx, ly, w, 17);
-      ctx.strokeStyle = '#FF5A4A'; ctx.setLineDash([3, 2]); ctx.strokeRect(lx + 0.5, ly + 0.5, w - 1, 16); ctx.setLineDash([]);
-      text(ctx, str, s.x, ly + 2, { color: '#FF5A4A', scale: 2, align: 'center', shadow: false });
+      const kasten = (x, y) => {
+        ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fillRect(x, y, w, 17);
+        ctx.strokeStyle = '#FF5A4A'; ctx.setLineDash([3, 2]); ctx.strokeRect(x + 0.5, y + 0.5, w - 1, 16); ctx.setLineDash([]);
+        text(ctx, str, x + w / 2, y + 2, { color: '#FF5A4A', scale: 2, align: 'center', shadow: false });
+      };
+      if (boxLab) boxLab(str, s.x, ly, { align: 'center', box: { w, h: 17, draw: kasten } }, 8);   // Karten: Kasten entzerrt (Mitte s.x, Oberkante ly)
+      else kasten(lx, ly);
       if (te.kind === 'emp') lab('EMP', s.x, ly + 19, { color: OFFLINE_COL, align: 'center' }, 6);
     }
   }
@@ -3818,7 +3827,8 @@
 
   // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
   // Erkunden, 'karte' erst nach dem Erkunden), Zustand st.zonen = { in, bk }. Farben: Hitze/Druck orange, Sicht violett, Ertrag grün, Drift Pfeile.
-  function drawZonen(ctx, st, toS, zoom, t, ops) {
+  function drawZonen(ctx, st, toS, zoom, t, ops, rot) {
+    rot = rot || 0;
     const Z = window.Shared_Zonen, SL = window.Shared_Locations;
     if (!Z || !SL || !st || !st.ship) return;
     const loc = SL.get && SL.get(st.ship.scene);
@@ -3851,14 +3861,16 @@
       ctx.fillStyle = 'rgba(' + col + ',' + a + ')'; ctx.strokeStyle = 'rgba(' + col + ',0.6)'; ctx.lineWidth = 1;
       ctx.beginPath();
       if (z.form === 'rechteck') {
-        const w = z.w * zoom, h = z.h * zoom; ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
+        const w = z.w * zoom, h = z.h * zoom;
+        if (rot) { const cs = Math.cos(rot), sn = Math.sin(rot); [[-1, -1], [1, -1], [1, 1], [-1, 1]].forEach(([qx, qy], i) => { const px = c.x + qx * w / 2 * cs - qy * h / 2 * sn, py = c.y + qx * w / 2 * sn + qy * h / 2 * cs; if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py); }); ctx.closePath(); }
+        else ctx.rect(c.x - w / 2, c.y - h / 2, w, h);
       } else if (z.form === 'ring') {
         ctx.arc(c.x, c.y, z.r1 * zoom, 0, Math.PI * 2); ctx.moveTo(c.x + z.r0 * zoom, c.y); ctx.arc(c.x, c.y, z.r0 * zoom, 0, Math.PI * 2, true);
       } else ctx.arc(c.x, c.y, z.r * zoom, 0, Math.PI * 2);
       ctx.fill('evenodd'); ctx.stroke();
       // Driftpfeil (nur Zellen und Felder mit fester Richtung; Strömung um den Planeten als Pfeil am Ring)
       if (z.drift && z.drift.staerke) {
-        const ang = z.drift.winkel || 0, L = Math.min(40, 10 + z.drift.staerke * 0.6);
+        const ang = (z.drift.winkel || 0) + rot, L = Math.min(40, 10 + z.drift.staerke * 0.6);
         const ex = c.x + Math.cos(ang) * L, ey = c.y + Math.sin(ang) * L;
         ctx.strokeStyle = 'rgba(' + col + ',0.95)'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(c.x - Math.cos(ang) * L, c.y - Math.sin(ang) * L); ctx.lineTo(ex, ey);
@@ -3916,6 +3928,10 @@
     const sight = cfg.sight || Infinity;
     const visible = (wx, wy, r) => Math.hypot(wx - ship.x, wy - ship.y) - (r || 0) <= sight;
     const fog = inFog(st);
+    // OPS-01 G1: eine Markierungssprache, zwei Besitzer. Ops-Taktikkarte: das Ziel der Ops wie bisher (Bernstein, „ZIEL“). Lagekarte (mode 'lage'): das Ziel der Ops steht gedämpft als „OPS-ZIEL“, das
+    // Anzeigeziel des Captains (cfg.anzeigeZielId, id aus Consoles.anzeigeZielVon) bekommt Eisblau mit „ZIEL“; fallen beide auf dasselbe Objekt, steht ein Zeichen (Eisblau, „ZIEL“). Kein Stationsflag: die Karte entscheidet nach mode/Option.
+    const azId = cfg.anzeigeZielId || null, opsDimm = cfg.mode === 'lage';
+    const OPS_DIMM = 'rgba(255,198,107,0.5)';
     const clicks = cfg.enemyRects;
     if (clicks) clicks.length = 0;
     const shipScale = Math.max(MIN_SHIP_SCALE, zoom);
@@ -3927,6 +3943,7 @@
     const placed = [];
     const block = (x, y, w, h) => placed.push({ x, y, w, h });   // Sprites als Hindernis für Labels
     for (const q of cfg.sperren || []) block(q.x, q.y, q.w, q.h);   // Abnahme 12: Leisten oben links (Fracht, Landepunkt-Scan …) überdecken keine Bogenbeschriftung
+    if (cfg.nordmarke && !front) { const nm = rayToRect(BT, cx, cy, -Math.PI / 2 + rot, 11); block(Math.round(nm.x) - 9, Math.round(nm.y) - 9, 18, 18); }   // OPS-01 B: die Nordmarke (nordMarke, nach drawSpace gezeichnet) ist Hindernis für Labels
     const edge = front ? 6 : 4;
     // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
     const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;
@@ -3934,7 +3951,7 @@
       flushArrows();
       labels.sort((a, b) => b.prio - a.prio);
       for (const l of labels) {
-        const w = measure(l.str, 1) + 2, h = 9;
+        const bx = l.o.box, w = bx ? bx.w : measure(l.str, 1) + 2, h = bx ? bx.h : 9;   // OPS-01 G8: ein Label kann ein Kasten (Angriffs-Countdown) sein, dann gelten seine Maße
         const left = l.o.align === 'center' ? l.x - w / 2 : (l.o.align === 'right' ? l.x - w : l.x);
         let best = null;
         // QA M3a: Label nie über den Kartenrand hinaus (z. B. „LANZE BEREIT“ rechts abgeschnitten) – schon vor der
@@ -3950,12 +3967,27 @@
         // Fixrunde S3: nur für Randpfeil-Labels (prio 3, nicht optional); alle anderen Labels in allen Modi suchen wie vor der Client-Runde (optionale entfallen bei Platzmangel weiter)
         const plaetze = [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]];
         if (l.prio === 3 && !l.optional) plaetze.push([w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]);
+        // OPS-01 B (Nacharbeit): gleiche Kurzbeschriftung (Bogen „BB“ …) nahe beieinander steht nur einmal
+        if (!front && l.o.dedup && placed.some((p) => p.str === l.str && Math.hypot(p.x + p.w / 2 - (left + w / 2), p.y - l.y) < 90)) continue;
+        const frei = (r) => !placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h);
         for (const [dx, dy] of plaetze) {
           const r = inside({ x: left + dx, y: l.y + dy, w, h });
-          if (!placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h)) { best = r; break; }
+          if (frei(r)) { best = r; break; }
         }
-        if (!best) { if (l.optional) continue; best = inside({ x: left, y: l.y, w, h }); }
+        // OPS-01 B (Nacharbeit): war an den bisherigen Plätzen nichts frei, sucht das Label im Raster den nächsten freien Platz (höchstens ±(w + 24) seitlich, ±56 senkrecht).
+        // Keinen gefunden: optionale und niederrangige Textlabels (Prio < 4, keine Randpfeil-Labels) entfallen – Kennung, Schildring und Klickfläche des Objekts bleiben;
+        // Ziel-, Marker- und Randpfeil-Labels stehen zuletzt am Ursprungsort.
+        if (!best && !front) {   // Frontsicht (Steuer) bleibt unverändert: dort gilt weiter die Suche der Client-Runde
+          const kand = [];
+          const rx = bx ? w + 120 : w + 24, ry = bx ? 100 : 56;   // Countdown-Kästen werden nie ausgelassen und suchen weiter
+          for (let dy = -ry; dy <= ry; dy += 4) for (let dx = -rx; dx <= rx; dx += 6) kand.push([dx, dy, dx * dx * 0.5 + dy * dy]);
+          kand.sort((a, b) => a[2] - b[2]);
+          for (const [dx, dy] of kand) { const r = inside({ x: left + dx, y: l.y + dy, w, h }); if (frei(r)) { best = r; break; } }
+        }
+        if (!best) { if (l.optional || (!front && l.prio < 4 && !l.o.rand)) continue; best = inside({ x: left, y: l.y, w, h }); }
+        best.str = l.str;
         placed.push(best);
+        if (bx) { bx.draw(Math.round(best.x), Math.round(best.y)); continue; }
         text(ctx, l.str, l.x + (best.x - left), best.y, l.o);
       }
       labels.length = 0;
@@ -4045,7 +4077,7 @@
           for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(BT.y + 2, unten.ly - 10); unten = d; } }
         }
       }
-      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center' }, c.prio || 3);
+      for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center', rand: true }, c.prio || 3);   // rand: Randpfeil-Label entfällt nie
     };
 
     ctx.save();
@@ -4068,9 +4100,18 @@
     if (!front) {
       ctx.strokeStyle = 'rgba(127,224,194,0.08)'; ctx.lineWidth = 1;
       const g = 200;
-      const gx0 = Math.floor((ship.x - B.w / 2 / zoom) / g) * g, gy0 = Math.floor((ship.y - B.h / 2 / zoom) / g) * g;
-      for (let gx = gx0; gx < ship.x + B.w / 2 / zoom + g; gx += g) { const s = toS(gx, 0); ctx.beginPath(); ctx.moveTo(s.x + 0.5, B.y); ctx.lineTo(s.x + 0.5, B.y + B.h); ctx.stroke(); }
-      for (let gy = gy0; gy < ship.y + B.h / 2 / zoom + g; gy += g) { const s = toS(0, gy); ctx.beginPath(); ctx.moveTo(B.x, s.y + 0.5); ctx.lineTo(B.x + B.w, s.y + 0.5); ctx.stroke(); }
+      if (rot) {   // OPS-01 A: bei „Schiff oben“ läuft das Weltraster schräg – im mitgedrehten Raum (Ursprung = Schiff) zeichnen, Beschriftung steht nicht darin
+        const ext = Math.hypot(B.w, B.h) / zoom, ex = Math.ceil(ext / g) * g;   // reicht über jede Ecke des Ausschnitts
+        const gx0 = Math.floor((ship.x - ext) / g) * g, gy0 = Math.floor((ship.y - ext) / g) * g;
+        ctx.save(); ctx.translate(cx, cy); ctx.rotate(rot);
+        for (let gx = gx0; gx < ship.x + ext + g; gx += g) { const lx = Math.round((gx - ship.x) * zoom) + 0.5; ctx.beginPath(); ctx.moveTo(lx, -ex * zoom); ctx.lineTo(lx, ex * zoom); ctx.stroke(); }
+        for (let gy = gy0; gy < ship.y + ext + g; gy += g) { const ly = Math.round((gy - ship.y) * zoom) + 0.5; ctx.beginPath(); ctx.moveTo(-ex * zoom, ly); ctx.lineTo(ex * zoom, ly); ctx.stroke(); }
+        ctx.restore();
+      } else {
+        const gx0 = Math.floor((ship.x - B.w / 2 / zoom) / g) * g, gy0 = Math.floor((ship.y - B.h / 2 / zoom) / g) * g;
+        for (let gx = gx0; gx < ship.x + B.w / 2 / zoom + g; gx += g) { const s = toS(gx, 0); ctx.beginPath(); ctx.moveTo(s.x + 0.5, B.y); ctx.lineTo(s.x + 0.5, B.y + B.h); ctx.stroke(); }
+        for (let gy = gy0; gy < ship.y + B.h / 2 / zoom + g; gy += g) { const s = toS(0, gy); ctx.beginPath(); ctx.moveTo(B.x, s.y + 0.5); ctx.lineTo(B.x + B.w, s.y + 0.5); ctx.stroke(); }
+      }
       const sr = sensorRange(st) * zoom;
       if (fog) {
         ctx.fillStyle = 'rgba(42,35,80,0.5)';
@@ -4078,13 +4119,14 @@
       }
       ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.arc(cx, cy, sr, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-      text(ctx, 'SENSOR ' + Math.round(sensorRange(st)) + (fog ? ' (NEBEL)' : ''), cx, cy - sr - 10, { color: 'rgba(127,224,194,0.8)', align: 'center' });
+      { const sy = cy - sr - 10, sTxt = 'SENSOR ' + Math.round(sensorRange(st)) + (fog ? ' (NEBEL)' : ''), sOpt = { color: 'rgba(127,224,194,0.8)', align: 'center' };
+        if (sy >= BT.y + 2 && sy <= BT.y + BT.h - 9) lab(sTxt, cx, sy, sOpt, 0.5, true); else text(ctx, sTxt, cx, sy, sOpt); }   // OPS-01 B: liegt die Beschriftung im Bild, entzerrt sie wie alle Labels (niedrigster Rang, entfällt bei Platzmangel); sonst wie bisher außerhalb
     }
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
     const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
-    drawZonen(ctx, st, toS, zoom, t, ichOps);   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
-    if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t);   // SL4: Sonden mit Senderadius
+    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
+    if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t, lab);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
     if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)
 
@@ -4129,7 +4171,7 @@
         const lr = Math.round((m.kind === 'station' ? 80 : m.kind === 'buoy' ? 44 : m.kind === 'moon' ? (m.r || 170) : m.kind === 'planet' ? 170 : 70) * stScale) + 2;
         const sicht = cfg.sicht || B;   // SUND-01 H: sichtbarer Ausschnitt (Hauptschirm im Voxel-Modus: Textur, kleiner als das Fenster)
         if (m.fr && s.x >= sicht.x && s.x <= sicht.x + sicht.w && s.y >= sicht.y && s.y <= sicht.y + sicht.h) zeichneBanner(ctx, s.x, s.y, lr - 2, m.fr, t, sicht);   // SUND-01 D: Besitzer-Banner (nur im Modus Freie Fahrt gesetzt)
-        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, 2);
+        mLab(m.name ? String(m.name).toUpperCase() : STATION_LABEL[m.kind], s.x, s.y + lr, { color: PAL.amber, align: 'center' }, front ? 2 : (m.posten ? 1 : 1.5));   // OPS-01 B: auf den Karten stehen Orte hinter den Schiffsbögen (2), Posten hinter den Orten; die Frontsicht behält Rang 2
         if (m.kind === 'buoy' && cfg.showRanges) {
           ctx.strokeStyle = 'rgba(127,224,194,0.35)'; ctx.setLineDash([2, 4]);
           const sc = (CFG.scenes && CFG.scenes.buoy) || {};
@@ -4143,7 +4185,7 @@
     // B3 (CLIENT, Welle 2): cam trägt zusätzlich bound (Bildausschnitt in Bildschirmkoordinaten, für Randpfeile zu Bojen
     // außerhalb), lab (Label-Kollision: lab(text, x, y, opts, prio, optional)), block (Hindernis für Labels), arrow (Randpfeil
     // wie Stationen: arrow(wx, wy, farbe, label)), toW, cx/cy (Bildmitte = Schiff). bound/lab auch als 4./5. Argument.
-    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);
+    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, rot: front ? 0 : rot, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);   // OPS-01 R4: rot = Kartendrehung (Schiff oben); in der Frontsicht 0, dort bleibt das Bild wie es war
 
     // Bergungsgut im Raum
     for (const sv of space.salvage || []) {
@@ -4216,9 +4258,11 @@
 
     // Aufgedeckte versteckte Objekte (Weitscan)
     const target = (view.enemies || []).find(e => e.id === sship.target) || (space.hidden || []).find(h => h.id === sship.target) || (sship.target === 'station' ? stationOf(space) : null);
-    if (target && target.station && !front) {
-      const s = toS(target.x, target.y);
-      if (inB(s, 0)) { ctx.strokeStyle = PAL.amber; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(14, 80 * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); lab('ZIEL', s.x, s.y - Math.max(14, 80 * zoom) - 10, { color: PAL.amber, align: 'center' }, 4); }
+    const stAz = !front && azId === 'station' ? stationOf(space) : null;
+    if ((target && target.station && !front) || stAz) {
+      const tg = stAz || target, eis = !!stAz, dimm = opsDimm && !eis;   // OPS-01 G1
+      const s = toS(tg.x, tg.y);
+      if (inB(s, 0)) { ctx.strokeStyle = eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber; ctx.lineWidth = dimm ? 1 : 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, Math.max(14, 80 * zoom), 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]); lab(dimm ? 'OPS-ZIEL' : 'ZIEL', s.x, s.y - Math.max(14, 80 * zoom) - 10, { color: eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber, align: 'center' }, dimm ? 3.5 : 4); }
     }
     { const so = stationOf(space); if (so && clicks && !front) { const s = toS(so.x, so.y); const r = Math.max(14, 60 * zoom); clicks.push({ id: 'station', x: s.x - r, y: s.y - r, w: r * 2, h: r * 2, station: true }); } }
     for (const h of space.hidden || []) {
@@ -4226,7 +4270,11 @@
       const s = toS(h.x, h.y);
       if (!inB(s, 8)) continue;
       if (!artItem(ctx, h.kind, s.x, s.y, { time: t, found: !!h.found })) fbHidden(ctx, h.kind, s.x, s.y, t);
-      lab((HIDDEN_NAMES[h.kind] || 'SIGNAL') + (h.found ? ' (erfasst)' : ''), s.x, s.y + 9, { color: h.found ? PAL.panelLight : PAL.mint, align: 'center' }, 2);
+      lab((HIDDEN_NAMES[h.kind] || 'SIGNAL') + (h.found ? ' (erfasst)' : ''), s.x, s.y + 9, { color: zielNameFarbe(h, true), align: 'center' }, 2);
+      if (!front && azId && h.id === azId) {   // OPS-01 G1: Anzeigeziel des Captains auf einem versteckten Objekt (Eisblau, „ZIEL“)
+        ctx.strokeStyle = PAL.ice; ctx.lineWidth = 2; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.arc(s.x, s.y, 14, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        lab('ZIEL', s.x, s.y - 24, { color: PAL.ice, align: 'center' }, 4);
+      }
       if (clicks && !front) clicks.push({ id: h.id, x: s.x - 10, y: s.y - 10, w: 20, h: 20, hidden: true });
     }
 
@@ -4345,7 +4393,8 @@
       enemyHpBar(ctx, e, s.x, s.y - size - 8, now0);
       if (!front) block(s.x - size, s.y - size - 8, size * 2, size * 2 + 8);
       if (clicks && !front) clicks.push({ id: e.id, x: s.x - size - 4, y: s.y - size - 4, w: size * 2 + 8, h: size * 2 + 8 });
-      const isTarget = target && target.id === e.id;
+      const opsT = !!(target && target.id === e.id), azT = !front && !!azId && azId === e.id;   // OPS-01 G1
+      const isTarget = opsT || azT;
       if (!front && !isTarget) {
         const r = size + 6;
         if (e.kind === 'raider') {
@@ -4358,13 +4407,14 @@
       }
       if (isTarget && !front) {
         const r = size + 5 + Math.round(Math.sin(t * 6));
-        ctx.strokeStyle = PAL.amber; ctx.lineWidth = 2;
+        const eis = azT, dimm = opsDimm && !eis, tg = opsT ? target : e;   // Lage: Anzeigeziel des Captains Eisblau, Ziel der Ops gedämpft; Ops-Karte unverändert
+        ctx.strokeStyle = eis ? PAL.ice : dimm ? OPS_DIMM : PAL.amber; ctx.lineWidth = dimm ? 1 : 2;
         for (const [qx, qy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
           ctx.beginPath(); ctx.moveTo(s.x + qx * r, s.y + qy * (r - 6)); ctx.lineTo(s.x + qx * r, s.y + qy * r); ctx.lineTo(s.x + qx * (r - 6), s.y + qy * r); ctx.stroke();
         }
-        const zz = target.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(target) : null;
-        const ziel = target.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
-        lab(ziel, s.x, s.y + size + 8, { color: target.ag ? PAL.brass : PAL.amber, align: 'center' }, 6);
+        const zz = tg.az && window.Zielsysteme ? window.Zielsysteme.antriebZustand(tg) : null;
+        const ziel = tg.ag ? 'ZIEL · GESTELLT' : zz && zz.schaden ? 'ZIEL · ANTRIEB ' + (zz.stufe >= 2 ? 'AUS' : 'BESCH.') : 'ZIEL';
+        lab(dimm ? 'OPS-ZIEL' : ziel, s.x, s.y + size + 8, { color: eis ? PAL.ice : dimm ? OPS_DIMM : tg.ag ? PAL.brass : PAL.amber, align: 'center' }, dimm ? 4 : 6);
       }
     }
     // S2b: Sperrfeuer und Mündungsblitze über den Gegnern (sonst verdeckt die Korvette den Abschuss)
@@ -4376,7 +4426,7 @@
     teleList.sort((a, b) => (+a.e.tele.left || 0) - (+b.e.tele.left || 0));
     teleList.forEach((o, i) => {
       try {
-        if (o.on) drawTele(ctx, o.e, o.s, cx, cy, t, i < 3, lab);
+        if (o.on) drawTele(ctx, o.e, o.s, cx, cy, t, i < 3, lab, front ? null : lab);
         else if (i < 3) arrow(o.e.x, o.e.y, '#FF5A4A', (o.e.tele.sector != null ? SECTOR_SHORT[o.e.tele.sector] + ' ' : '') + fmt1(o.e.tele.left));
       } catch (e) { report('Render.tele', e); }
     });
@@ -4574,10 +4624,20 @@
     return true;
   }
 
-  // Ops/Lage: Karte mit Schiff in der Mitte, Norden oben. opts = { zoom, arcs, intel, enemyRects, showRanges }
+  // OPS-01 A: kleine Nordmarke am Kartenrand (Kreis mit „N“, aufrecht) in Richtung Norden – nur bei „Schiff oben“, damit die Karte lesbar bleibt
+  function nordMarke(ctx, rect, cx, cy, rot, randOben) {
+    const b = { x: rect.x, y: rect.y + (randOben || 0), w: rect.w, h: rect.h - (randOben || 0) };
+    const e = rayToRect(b, cx, cy, -Math.PI / 2 + rot, 11);
+    ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.beginPath(); ctx.arc(Math.round(e.x), Math.round(e.y), 7, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = PAL.mint; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(Math.round(e.x), Math.round(e.y), 7, 0, Math.PI * 2); ctx.stroke();
+    text(ctx, 'N', e.x, e.y - 3, { color: PAL.mint, align: 'center', shadow: false });
+  }
+  // Ops/Lage: Karte mit Schiff in der Mitte. opts = { zoom, arcs, intel, enemyRects, showRanges, rot, nordmarke }
+  // rot (Bogenmaß, Standard 0 = Norden oben) liefert Kartenlogik.optionen; mit „Schiff oben“ zeigt der Bug nach oben (wie die Frontsicht: rot = −Kurs − 90°)
   function drawTactical(ctx, view, rect, opts) {
     opts = opts || {};
-    const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35, rot: 0 }, opts));
+    const res = drawSpace(ctx, view, rect, Object.assign({ mode: opts.mode || 'tactical', cx: Math.round(rect.x + rect.w / 2), cy: Math.round(rect.y + rect.h / 2), zoom: opts.zoom || 0.35 }, opts, { rot: opts.rot || 0 }));
+    if (opts.nordmarke) nordMarke(ctx, rect, res.cx, res.cy, opts.rot || 0, opts.randOben);
     hyperraum(ctx, view, rect);   // Schnellsprung: statt der Sektorkarte die Hyperraum-Animation
     ctx.strokeStyle = PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
     return res;
@@ -4710,6 +4770,51 @@
     return { toS, toW, scale: sc };
   }
 
+  // Farbe einer Kachel der Außenkarte (Planungstisch drawLocalMap und Mini-Karte im Zielkasten drawMiniKarte teilen sie): Zeichen ch der Karte mapId, obj = Objekttabelle der Karte
+  function kachelFarbe(mapId, ch, obj) {
+    let col = '#2A3446';
+    if (mapId === 'kesh') col = ch === 'R' ? '#16131A' : ch === '#' ? '#5A5166' : ch === '.' ? '#4A4034' : ch === 'P' ? '#3D6A60' : ch === 'o' ? '#8A8294' : ch === 'I' ? '#B8AEC4' : ch === 'r' ? PAL.red : ch === 'k' ? KESH_VIOLET : ch === 'G' ? '#7A3FB0' : ch === 'T' ? '#D9A441' : '#2E2B36';
+    else if (ch === '#') col = '#55677E';
+    else if (ch === 'P') col = '#3D6A60';
+    else if (ch === 'h') col = PAL.rust;
+    else if (ch === 'g') col = PAL.mint;
+    else if (ch === 'V') col = '#3B3A44';
+    else if (ch === 'L') col = PAL.red;
+    else if (ch === 'Z') col = PAL.amber;
+    else if (ch === 'b') col = PAL.indigo;
+    else if (obj[ch]) col = '#3B4658';
+    return col;
+  }
+  // OPS-01 D: Mini-Karte eines gescannten Landepunkts im Zielkasten (nicht interaktiv, ohne KartenAnsicht-Zustand, kein Pan/Zoom). Dieselbe Kartenquelle wie der Planungstisch:
+  // mapById(mapId) und dieselbe Kachelfarbe (kachelFarbe); die Kacheln werden einmal in eine kleine Fläche gezeichnet und von dort kopiert (je Karte und Größe, neu bei neuer Karte).
+  // Pads (P) stehen hell, sie sind die Beam-Punkte. Rückgabe: true, wenn eine Karte gezeichnet wurde (mapById kennt die Karte), sonst false (nur der leere Rahmen).
+  const MINI_KARTEN = {};
+  function drawMiniKarte(ctx, view, rect, mapId, opts) {
+    opts = opts || {};
+    const tmap = mapId ? mapById(mapId) : null;
+    ctx.fillStyle = '#070B14'; ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+    ctx.strokeStyle = opts.rahmen || PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
+    if (!tmap || !(tmap.w > 0) || !(tmap.h > 0)) return false;
+    const iw = rect.w - 4, ih = rect.h - 4, c = Math.min(iw / tmap.w, ih / tmap.h);
+    const pw = Math.max(1, Math.round(tmap.w * c)), ph = Math.max(1, Math.round(tmap.h * c));
+    const key = mapId + '|' + pw + 'x' + ph;
+    let e = MINI_KARTEN[key];
+    if (!e || e.tmap !== tmap) {
+      const cv = document.createElement('canvas'); cv.width = pw; cv.height = ph;
+      const g = cv.getContext('2d'), obj = mapId === 'wreck' ? OBJ_WRECK : OBJ;
+      for (let ty = 0; ty < tmap.h; ty++) for (let tx = 0; tx < tmap.w; tx++) {
+        const ch = tmap.at(tx, ty);
+        if (ch === ' ' || ch === '~') continue;
+        g.fillStyle = ch === 'P' ? PAL.mint : kachelFarbe(mapId, ch, obj);
+        const x0 = Math.round(tx * pw / tmap.w), y0 = Math.round(ty * ph / tmap.h), x1 = Math.round((tx + 1) * pw / tmap.w), y1 = Math.round((ty + 1) * ph / tmap.h);
+        g.fillRect(x0, y0, Math.max(1, x1 - x0), Math.max(1, y1 - y0));
+      }
+      e = MINI_KARTEN[key] = { tmap, cv };
+    }
+    ctx.drawImage(e.cv, rect.x + 2 + Math.floor((iw - pw) / 2), rect.y + 2 + Math.floor((ih - ph) / 2));
+    return true;
+  }
+
   // Detailkarte eines Orts (Planungstisch): Außenkarte als Kachelkarte oder Szenenübersicht.
   function drawLocalMap(ctx, view, rect, mapId, opts) {
     opts = opts || {};
@@ -4734,17 +4839,7 @@
       for (let ty = 0; ty < tmap.h; ty++) for (let tx = 0; tx < tmap.w; tx++) {
         const ch = tmap.at(tx, ty);
         if (ch === ' ' || ch === '~') continue;
-        let col = '#2A3446';
-        if (mapId === 'kesh') col = ch === 'R' ? '#16131A' : ch === '#' ? '#5A5166' : ch === '.' ? '#4A4034' : ch === 'P' ? '#3D6A60' : ch === 'o' ? '#8A8294' : ch === 'I' ? '#B8AEC4' : ch === 'r' ? PAL.red : ch === 'k' ? KESH_VIOLET : ch === 'G' ? '#7A3FB0' : ch === 'T' ? '#D9A441' : '#2E2B36';
-        else if (ch === '#') col = '#55677E';
-        else if (ch === 'P') col = '#3D6A60';
-        else if (ch === 'h') col = PAL.rust;
-        else if (ch === 'g') col = PAL.mint;
-        else if (ch === 'V') col = '#3B3A44';
-        else if (ch === 'L') col = PAL.red;
-        else if (ch === 'Z') col = PAL.amber;
-        else if (ch === 'b') col = PAL.indigo;
-        else if (obj[ch]) col = '#3B4658';
+        const col = kachelFarbe(mapId, ch, obj);
         const x0 = Math.round(ox + tx * c), y0 = Math.round(oy + ty * c), x1 = Math.round(ox + (tx + 1) * c), y1 = Math.round(oy + (ty + 1) * c);
         if (x1 < rect.x || y1 < rect.y || x0 > rect.x + rect.w || y0 > rect.y + rect.h) continue;
         ctx.fillStyle = col; ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
@@ -4984,14 +5079,14 @@
     SHELF_CAP, SHELF_LABEL, shelfStock, shelfFill, emptyShelves,
     addFx, drawWorld, drawTactical, drawMiniPlan, miniPlanSize, updateCamera,
     // M1
-    OBJ_WRECK, mapById, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
+    OBJ_WRECK, mapById, drawMiniKarte, wreckMap, awayMapId, toTileXY, roomAt, roomStyleOf, artK, artObject, artIcon, artItem, probe,
     // M2
     OBJ_KESH, SHIELD_COL, AIM_COL, KESH_VIOLET, ORDER_KINDS, ORDER_NAMES, ORDER_COL, ROLE_NAMES,
     isV2, cfgNum, solidFn, keshObjState, teamVision, lanzeEnde, lanzeZiele, lanzeEreignis, lanzeBereit, lanzeFenster, lanzeWinkel, activeOrders, orderPos, drawShieldPips, drawShieldRing, drawMediCross, drawAwayCommandMap, awayMapById,
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    zielNameFarbe, drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,

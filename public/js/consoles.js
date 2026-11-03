@@ -39,7 +39,6 @@
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
   const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
-  const ZOOM_STEPS = [0.25, 0.35, 0.5, 0.75];
   // PAN-01 C: bis zu neun Waffenplätze (Ziffernblock), Waffe je Platz aus shared/schiffskatalog.js (ship.mounts[].typ, fehlt = Startbestückung).
   // Mount-Id -> System (Zustand/Trefferziel): bow = Platz 8, port = 4, stbd = 6, sonst lafette_<Platz>
   const SCH = window.Shared_Schiffskatalog || null;
@@ -73,6 +72,7 @@
   const WIDESCAN_CD = (CFG.widescan && CFG.widescan.cooldown) || 20;
   const OVERLOAD_TIME = (CFG.reactorM1 && CFG.reactorM1.overloadTime) || 180;
   const MAX_PINS = (CFG.plan && CFG.plan.maxPins) || 5;
+  const BEAM_ZIEL_TOL = 24;   // OPS-01 D: so nah (px) muss ein Ziel am Beam-Punkt eines gescannten Landepunkts liegen (Consoles.beamInfo)
   const STATE_TXT = { online: 'online', overload: 'ÜBERLADEN', offline: 'OFFLINE' };
 
   // M3b: Lerche-Klasse für Temporegler und Drehfaktor (Server-Snapshot ship.helm ist maßgeblich, das hier ist Fallback)
@@ -102,9 +102,11 @@
     mouseHold: null,
     helmSent: { turn: 0, t: 0 },
     helmPending: null, // M3b: lokal vorgemerkte Stufe bis der Snapshot sie bestätigt { stage, from, t }
-    zoom: { weapons: 0.35, lage: 0.35 },
+    zoom: { weapons: 0.35, lage: 0.35 },   // weapons: OPS-01 B, solange nicht gewählt, gilt der Standardzoom der Kartenfläche (zoomAbgleichen); lage: 0,35
+    zoomGewaehlt: { weapons: false, lage: true },
     enemyRects: [],
     lageRects: [],
+    lageListe: [],   // OPS-01 C2: Klickflächen der Zeilen „GESCANNTE ZIELE“ (Captain, Lage)
     scanOn: false,
     tscanOn: false,
     tscanRefreshT: 0,
@@ -651,10 +653,15 @@
       }
     },
     dodge(view, dir) { view.send({ t: 'cmd', c: 'helm.dodge', dir }); view.actions.sfx('dodge'); },
+    // OPS-01 A: Ausrichtung der Karte umschalten (Knopf und Shift+Z); der Zustand liegt in Kartenlogik, nicht hier
+    kartenAusrichtung(view, karte) { Kartenlogik.umschalten(karte); view.actions.sfx('ui_click'); },
+    // OPS-01 B: Stufen und Standardzoom je Kartenfläche aus Kartenlogik (aus R.FRONT abgeleitet); Ops und Captain-Lage nutzen dieselbe Liste, nur die Fläche unterscheidet sich
+    zoomAbgleichen(which, rect) { if (!this.zoomGewaehlt[which]) this.zoom[which] = Kartenlogik.zoomStandard(rect); },
     cycleZoom(which, dir) {
-      const i = ZOOM_STEPS.indexOf(this.zoom[which]);
-      const j = dir === -1 ? Math.max(0, (i < 0 ? 1 : i) - 1) : dir === 1 ? Math.min(ZOOM_STEPS.length - 1, (i < 0 ? 1 : i) + 1) : ((i + 1) % ZOOM_STEPS.length);
-      this.zoom[which] = ZOOM_STEPS[j];
+      const rect = (this.mapRects && this.mapRects[which]) || { x: 0, y: 0, w: 404, h: 184 };
+      const st = Kartenlogik.zoomStufen(rect), i = Kartenlogik.zoomIndex(st, this.zoom[which]);
+      const j = dir === -1 ? Math.max(0, i - 1) : dir === 1 ? Math.min(st.length - 1, i + 1) : ((i + 1) % st.length);
+      this.zoom[which] = st[j]; this.zoomGewaehlt[which] = true;
     },
 
     // ================================================================= Captain
@@ -994,43 +1001,48 @@
       const st = view.state, ship = st.ship || {};
       const rect = { x: a.x, y: a.y, w: 440, h: a.h - 2 };
       if (this.mapRects) this.mapRects.lage = rect;
-      this.maps.lage = R.drawTactical(ctx, view, rect, { zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: H.szeneRandOben(view, rect.y) });
+      this.maps.lage = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.lage, arcs: false, intel: true, mode: 'lage', enemyRects: this.lageRects, showRanges: true, randOben: Math.max(12, H.szeneRandOben(view, rect.y)), sperren: [{ x: rect.x, y: rect.y + rect.h - 12, w: rect.w, h: 12 }], anzeigeZielId: (this.anzeigeZielVon(view) || {}).id }, Kartenlogik.optionen('lage', view)));
       const rx = a.x + 450, rw = a.w - 450;
       let y = a.y + 2;
-      R.text(ctx, 'LAGE · ' + R.locName(st, R.worldOf(st).location), rx, y, { color: PAL.brass }); y += 12;
-      R.button(ctx, rx, y, rw, 15, 'Zoom ' + Math.round(this.zoom.lage * 100) + ' %', { hotkey: 'Z', onClick: () => this.cycleZoom('lage') }); y += 20;
-      R.text(ctx, 'CAPTAIN-MARKER', rx, y, { color: PAL.brass }); y += 11;
-      const mk = R.markersOf(st).captain;
-      if (mk) { R.text(ctx, 'gesetzt · ' + Math.round(Math.hypot(mk.x - n(ship.x), mk.y - n(ship.y))) + ' px', rx, y, { color: PAL.mint }); y += 10; }
-      R.text(ctx, 'Linksklick in die Karte', rx, y, { color: PAL.panelLight }); y += 10;
-      R.text(ctx, 'setzt den Marker (Mint).', rx, y, { color: PAL.panelLight }); y += 12;
-      R.button(ctx, rx, y, rw, 15, 'Marker löschen', { hotkey: 'X', disabled: !mk, reason: 'Kein Marker gesetzt', onClick: () => this.cmd(view, 'captain.marker', { clear: true }) }); y += 22;
+      this.lageListe.length = 0;
+      // OPS-01 C2: die Spalte gibt dem Zielkasten den Platz: Ort (steht in der Statusleiste) und Markererklärung (Karte anklicken, siehe Hinweiszeile) entfallen, „Marker löschen“ steht im Pult (pultCaptain), der Scan-Balken nur bei laufendem oder fertigem Scan
+      R.button(ctx, rx, y, rw, 15, 'Zoom ' + Math.round(this.zoom.lage * 100) + ' %', { hotkey: 'Z', onClick: () => this.cycleZoom('lage') }); y += 17;
+      R.button(ctx, rx, y, rw, 15, 'Ausrichtung', { hotkey: 'Shift+Z', aktion: 'captain.lage.ausrichtung', text: Kartenlogik.name('lage'), onClick: () => this.kartenAusrichtung(view, 'lage') }); y += 17;
       // Scan (Boje, Relaiskern …)
       const scan = ship.scan || {};
-      R.text(ctx, 'SCAN', rx, y, { color: PAL.brass }); y += 11;
       // Server schickt ship.scan.target = { id, label, x, y, range } (Boje, Relaiskern …) oder null
       const stg = scan.target;
       let scanReason = scan.done && !stg ? 'Scan abgeschlossen' : null;
       if (!scanReason && st.world && !stg) scanReason = 'Kein Scanziel hier';
       if (!scanReason && !st.world && ship.scene && ship.scene !== 'buoy') scanReason = 'Nur bei der Boje B-7';
       if (stg) {
+        R.text(ctx, 'SCAN', rx, y, { color: PAL.brass }); y += 11;
         const d = Math.round(Math.hypot(n(stg.x) - n(ship.x), n(stg.y) - n(ship.y)));
         R.text(ctx, String(stg.label || 'Scanziel'), rx, y, { color: PAL.star }); y += 10;
         R.text(ctx, 'Abstand ' + d + (stg.range ? ' / max. ' + stg.range : ''), rx, y, { color: !stg.range || d <= stg.range ? PAL.mint : PAL.warn }); y += 10;
         if (stg.range && d > stg.range) scanReason = 'Zu weit – näher heranfliegen (' + d + '/' + stg.range + ')';
       }
-      R.bar(ctx, rx, y, rw, 6, n(scan.progress), scan.done ? PAL.moss : PAL.mint); y += 9;
-      R.button(ctx, rx, y, rw, 16, this.scanOn ? 'Scanne … (halten)' : 'Scannen (halten)', { hotkey: 'Leer', active: this.scanOn, disabled: !!scanReason, reason: scanReason, onClick: () => { this.mouseHold = 'scan'; this.setScan(view, true); } }); y += 22;
+      if (stg || scan.done || n(scan.progress) > 0 || this.scanOn) { R.bar(ctx, rx, y, rw, 6, n(scan.progress), scan.done ? PAL.moss : PAL.mint); y += 9; }
+      R.button(ctx, rx, y, rw, 16, this.scanOn ? 'Scanne … halten' : 'Scannen halten', { hotkey: 'Leer', active: this.scanOn, disabled: !!scanReason, reason: scanReason, onClick: () => { this.mouseHold = 'scan'; this.setScan(view, true); } }); y += 22;
       // S2: Schützling – Befehle per Funk (Gehorsam nach Haltung, Rückmeldung aus escortOrder)
       const escHelp = this.escortList(view).length ? ' · H/F/V/D Schützling' : '';
       try { y = this.capEscort(ctx, view, rx, y, rw); } catch (err) { Net.reportError('Consoles.capEscort', err); }
+      // OPS-01 C2: Zielkasten des Anzeigeziels (dieselbe Zeichenfunktion wie bei den Ops); ohne Anzeigeziel steht an seiner Stelle die Liste der gescannten Ziele
+      const anzeige = this.anzeigeZielVon(view);
+      if (anzeige && this.pultZielkasten) {
+        const kb = { x: a.x + 446, y: y, w: a.w - 446, h: a.y + a.h - 14 - y };
+        if (kb.h >= 44) this.capZielkasten(ctx, view, kb, anzeige);
+        else R.text(ctx, 'Ziel: ' + (R.ENEMY_NAMES[anzeige.kind] || anzeige.kind), rx, y, { color: PAL.amber });
+        return this.lageHinweis(escHelp);
+      }
       // Scan-Info gescannter Gegner
       const scanned = (view.enemies || []).filter(e => e.scanned && e.st !== 'treibt');   // B1: Wrack ohne Waffen
       if (y < a.y + a.h - 22) {
         R.text(ctx, 'GESCANNTE ZIELE', rx, y, { color: PAL.brass }); y += 11;
-        if (!scanned.length) { for (const l of R.wrap('Keine – die Ops scannt Gegner (S halten).', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
+        if (!scanned.length) { for (const l of R.wrap('Keine gescannt. Karte anklicken oder T', rw, 1)) { if (y > a.y + a.h - 10) break; R.text(ctx, l, rx, y, { color: PAL.panelLight }); y += 10; } }
         for (const e of scanned.slice(0, 4)) {
           if (y > a.y + a.h - 20) break;
+          const zeile0 = y;
           const tg = e.tgt != null ? this.escortList(view).find(q => q.id === e.tgt) : null;
           R.text(ctx, (R.ENEMY_NAMES[e.kind] || e.kind) + (tg ? ' → ' + R.escortName(tg) : ''), rx, y, { color: tg ? '#FF5A4A' : PAL.amber }); y += 10;
           // SUND-04a-1 Fix4 (Prüfbefund 3b): die Schildzeile bricht am Spaltenrand um (gemessen), statt rechts abgeschnitten zu werden
@@ -1045,10 +1057,12 @@
             else R.text(ctx, txt, rx + 4, ty, { color: PAL.amber });
             y += 10;
           }
+          this.lageListe.push({ x: rx - 2, y: zeile0 - 1, w: rw + 2, h: y - zeile0 + 1, id: e.id });   // Zeile anklickbar: wählt das Anzeigeziel
         }
       }
-      return 'Klick Marker · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–6 Reiter';
+      return this.lageHinweis(escHelp);
     },
+    lageHinweis(escHelp) { return 'Klick Ziel/Marker · T nächstes Ziel · X löschen · Leer Scan · Z Zoom' + escHelp + ' · 1–6 Reiter'; },
     // ---- S2: Schützling-Befehle (Captain, Reiter Lage)
     ESCORT_KEYS: { halten: 'H', folgen: 'F', volle_kraft: 'V', andocken: 'D' },
     escortSel: 0,
@@ -1635,14 +1649,51 @@
     },
 
     // ================================================================= Ops (Konsole 'weapons')
-    targetOf(view) {
-      const st = view.state, ship = st.ship || {};
-      if (!ship.target) return null;
-      if (ship.target === 'station') { const so = R.stationOf(st.space); return so ? Object.assign({ hidden: true }, so) : null; }
-      const e = (view.enemies || []).find(x => x.id === ship.target);
+    // Ziel der Ops (ship.target)
+    targetOf(view) { return this.zielAusId(view, (view.state.ship || {}).target); },
+    // OPS-01 C2: id -> Zielobjekt (Gegner, 'station', verstecktes Objekt); die eine Auflösung für Ziel der Ops und Anzeigeziel des Captains
+    zielAusId(view, id) {
+      const st = view.state;
+      if (!id) return null;
+      if (id === 'station') { const so = R.stationOf(st.space); return so ? Object.assign({ hidden: true }, so) : null; }
+      const e = (view.enemies || []).find(x => x.id === id);
       if (e) return e;
-      const h = ((st.space && st.space.hidden) || []).find(x => x.id === ship.target);
+      const h = ((st.space && st.space.hidden) || []).find(x => x.id === id);
       return h ? Object.assign({ hidden: true }, h) : null;
+    },
+    // OPS-01 C2: Anzeigeziel des Captains (ship.cz.id, Server captainziel.js); ändert das Ziel der Ops nie
+    anzeigeZielVon(view) { const cz = (view.state.ship || {}).cz; return cz && cz.id ? this.zielAusId(view, cz.id) : null; },
+    // OPS-01 C2: Detaildaten eines Ziels für den Zielkasten { sys, zon, wahl } (Formate wie zielSys/zielZon/zielWahl): beim Ziel der Ops aus deren Feldern, beim Anzeigeziel
+    // des Captains aus ship.cz (nur gescannt, mit Systemmodell), sonst null. Der Zielkasten liest die Detailfelder nur hierüber.
+    zielDetail(view, id) {
+      const ship = view.state.ship || {};
+      if (!id) return null;
+      if (id === ship.target) return { sys: ship.zielSys, zon: ship.zielZon, wahl: ship.zielWahl };
+      const cz = ship.cz;
+      return cz && cz.id === id && (cz.sys || cz.zon) ? { sys: cz.sys, zon: cz.zon, wahl: cz.wahl } : null;
+    },
+    // OPS-01 D: Beam-Hinweis eines Ziels (Zielkasten für Ops UND Captain, ohne Stationsparameter): null oder { lpId, mapId, name } – nur wenn das Ziel am Beam-Punkt eines Landepunkts
+    // liegt UND dieser gescannt ist. Verknüpfung über Daten, nicht über IDs: (1) das Hauptobjekt des Orts ('station') ist der Beam-Punkt der Handkarte (shared/locations.js scene.beam.map;
+    // Scanstand wie am Planungstisch über locAwayMap), (2) sonst gescannte Landepunkte des Orts (world.locations[].lp = [{ id, name, x, y }], x/y = beam des Landepunkts, Server explore.lpScanVon)
+    // innerhalb BEAM_ZIEL_TOL px vom Ziel, aber nur für Ziele, die zum Landepunkt gehören (Hauptobjekt, versteckte Objekte/Wracks; nie Gegnerschiffe). Ohne Scan, ohne beam oder an einem anderen Ort: null. Die Karte (mapId) ist dieselbe wie am Planungstisch (locAwayMap bzw. lp[i].id).
+    beamInfo(view, target) {
+      if (!target || !isFinite(target.x) || !isFinite(target.y)) return null;
+      const st = view.state, loc = R.locById(st, R.worldOf(st).location);
+      if (!loc) return null;
+      const SLx = window.Shared_Locations, scn = SLx && SLx.get ? (SLx.get(loc.id) || {}).scene : null, am = this.locAwayMap(st, loc);
+      if (target.station && am && scn && scn.beam && scn.beam.map === am) return { lpId: am, mapId: am, name: target.name || am };
+      // Zweig 2 nur für Ziele, die zum Landepunkt GEHÖREN: das Hauptobjekt und versteckte Objekte/Wracks (zielAusId markiert sie mit hidden). Gegnerschiffe und Minen gehören nie dazu –
+      // ein Gegner, der am Beam-Punkt im leeren Raum vorbeifliegt, löst keinen Hinweis aus.
+      if (!(target.station || target.hidden)) return null;
+      const nah = (loc.lp || []).filter((q) => isFinite(q.x) && isFinite(q.y) && Math.hypot(target.x - q.x, target.y - q.y) <= BEAM_ZIEL_TOL);
+      if (nah.length === 1) return { lpId: nah[0].id, mapId: nah[0].id, name: nah[0].name || nah[0].id };
+      if (!nah.length) return null;
+      // Mehrere Landepunkte mit demselben Beam-Punkt (z. B. splitter.treibgut/methalle/eisenwald): gilt der, dessen Name oder id den Namen des Ziels enthält, falls genau einer passt;
+      // sonst Mehrdeutigkeit: nur der Hinweis „BEAMEN MÖGLICH“ ohne Karte (mapId null) – keine Karte raten.
+      const nm = String(target.name || '').toLowerCase();
+      const pass = nm ? nah.filter((q) => String(q.name || '').toLowerCase().includes(nm) || String(q.id || '').toLowerCase().includes(nm)) : [];
+      if (pass.length === 1) return { lpId: pass[0].id, mapId: pass[0].id, name: pass[0].name || pass[0].id };
+      return { lpId: null, mapId: null, name: null, mehrdeutig: true };
     },
     targetList(view) {
       const st = view.state;
@@ -1947,7 +1998,9 @@
       const rs = Object.assign({}, rect, { y: rect.y + H.szeneRandOben(view, rect.y) });   // SUND-02b UI2: Leisten unter der Szenenzeile (ohne Sim-Szene 0)
       // SUND-04a-1 A (Review D-S4): die Zoom-Anzeige rechts oben ist ein Hindernis für die Kartenlabels (Randpfeil-Labels weichen aus)
       const zoomY = Math.max(rect.y + 3, H.szeneUnten(view) + 2);
-      this.maps.weapons = R.drawTactical(ctx, view, rect, { zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : []) });
+      if (this.mapRects) this.mapRects.weapons = rect;
+      this.zoomAbgleichen('weapons', rect);
+      this.maps.weapons = R.drawTactical(ctx, view, rect, Object.assign({ zoom: this.zoom.weapons, arcs: true, intel: true, mode: 'tactical', enemyRects: this.enemyRects, randOben: H.szeneRandOben(view, rect.y), sperren: [{ x: rect.x + rect.w - 66, y: zoomY - 1, w: 64, h: 11 }].concat(this.stapelH ? [{ x: rect.x + 4, y: rs.y + 3, w: 266, h: this.stapelH }] : [], window.SondenView ? [SondenView.flaeche(st, rect)] : [], window.SpurView && SpurView.flaeche(st, rect) ? [SpurView.flaeche(st, rect)] : []) }, Kartenlogik.optionen('weapons', view)));
       const away = st.away || {};   // (die Bodenkarte gehört dem Captain, nicht der Ops)
       R.text(ctx, 'Zoom ' + Math.round(this.zoom.weapons * 100) + ' % (Z, +/−)', rect.x + rect.w - 4, zoomY, { color: PAL.panelLight, align: 'right' });   // N4: unter der Szenenzeile
       this.drawFracht(ctx, view, rs);   // EK3 Teil A: Fracht beamen / abliefern, Haltefortschritt
@@ -2197,13 +2250,30 @@
       }
       return y + 2;
     },
-    cycleTarget(view) {
+    // OPS-01 C2: das Ziel nach der id in der Reihenfolge von targetList (nach Entfernung, am Ende wieder vorn); die eine Reihenfolge für Ops (T) und Captain (T im Reiter Lage)
+    zielNach(view, id) {
       const list = this.targetList(view);
-      if (!list.length) return;
-      const cur = view.state.ship && view.state.ship.target;
-      const i = list.findIndex(e => e.id === cur);
-      const next = list[(i + 1) % list.length];
-      this.cmd(view, 'weapons.target', { id: next.id });
+      if (!list.length) return null;
+      return list[(list.findIndex(e => e.id === id) + 1) % list.length];
+    },
+    cycleTarget(view) {
+      const next = this.zielNach(view, view.state.ship && view.state.ship.target);
+      if (next) this.cmd(view, 'weapons.target', { id: next.id });
+    },
+    // OPS-01 C2: Anzeigeziel des Captains wählen (Server: captain.anzeigeziel). Gesendet wird nur bei geänderter id; dieselbe id noch einmal wählen löscht das Anzeigeziel.
+    // Das Ziel der Ops (weapons.target) bleibt unberührt.
+    anzeigeZielWaehlen(view, id) {
+      const cz = (view.state.ship || {}).cz, jetzt = cz && cz.id ? cz.id : null;
+      const neu = id && id !== jetzt ? id : null;
+      if (neu === jetzt) return;
+      this.cmd(view, 'captain.anzeigeziel', { id: neu });
+      view.actions.sfx('ui_click');
+    },
+    anzeigeZielWechseln(view) {
+      const cz = (view.state.ship || {}).cz, next = this.zielNach(view, cz && cz.id);
+      if (!next) { this.denied('Nichts in Sensorreichweite'); return; }
+      if (cz && cz.id === next.id) return;   // nur ein Ziel in Reichweite und schon gewählt: Weiterschalten löscht nicht
+      this.anzeigeZielWaehlen(view, next.id);
     },
     // SUND-04a-1 A: Systemziel (Antrieb) am gescannten Ziel an/aus; der Server prüft Scan, Klasse und Ziel und antwortet mit einem Hinweis
     systemzielWechseln(view) {
@@ -3001,6 +3071,9 @@
           } else if (tab === 2) {
             if (code === 'Space') { const b = this.findButton(/^Scan/); if (b && !b.disabled) this.setScan(view, true); else if (b) this.denied(b.reason); return true; }
             if (code === 'KeyX') return press(() => this.tryButton('Marker löschen'));
+            if (code === 'KeyT' && e.shiftKey) return press(() => this.tryButton('Ziel löschen'));   // OPS-01 G5: Anzeigeziel abwählen (Shift+T)
+            if (code === 'KeyT') return press(() => this.tryButton('Nächstes Ziel'));   // OPS-01 C2: nächstes Anzeigeziel
+            if (code === 'KeyZ' && e.shiftKey) return press(() => this.tryButton('Ausrichtung'));   // OPS-01 A: Shift+Z
             if (code === 'KeyZ' || code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('lage', code === 'KeyZ' ? 0 : 1); return true; }
             if (code === 'Minus' || code === 'NumpadSubtract') { this.cycleZoom('lage', -1); return true; }
             // S2: Schützling-Befehle H halten · F folgen · V volle Kraft · D andocken · N wechseln
@@ -3106,6 +3179,7 @@
           if (code === 'KeyX') return press(() => this.tryButton('Löschen'));
           if (code === 'KeyR') { this.denied('Der Torpedowerfer lädt selbst nach'); return true; }
           if (code === 'KeyO') return press(() => this.tryButton('Orbitalschlag auf Markierung'));
+          if (code === 'KeyZ' && e.shiftKey) return press(() => this.tryButton('Ausrichtung'));   // OPS-01 A: Shift+Z
           if (code === 'KeyZ') { this.cycleZoom('weapons'); return true; }
           if (code === 'Equal' || code === 'NumpadAdd') { this.cycleZoom('weapons', 1); return true; }
           if (code === 'Minus' || code === 'NumpadSubtract') { this.cycleZoom('weapons', -1); return true; }
@@ -3236,9 +3310,12 @@
         return false;
       }
       if (c === 'captain' && this.tab === 2) {
+        for (let i = 0; i < this.lageListe.length; i++) { const r = this.lageListe[i]; if (button === 0 && this.inRect(x, y, r)) { this.anzeigeZielWaehlen(view, r.id); return true; } }
         const mp = this.maps.lage;
         if (!mp || !this.inRect(x, y, (this.mapRects && this.mapRects.lage) || { x: 12, y: 48, w: 440, h: 272 })) return false;
         if (button === 2) { this.cmd(view, 'captain.marker', { clear: true }); return true; }
+        // OPS-01 C2: Klick auf ein Schiff, die Station oder ein Signal wählt das Anzeigeziel des Captains (die Ops-Anwahl bleibt unberührt); leere Karte setzt wie bisher den Marker
+        for (let i = this.lageRects.length - 1; i >= 0; i--) { const r = this.lageRects[i]; if (this.inRect(x, y, r) && this.zielAusId(view, r.id)) { this.anzeigeZielWaehlen(view, r.id); return true; } }   // Minen und Schützlinge sind kein Anzeigeziel: dort gilt der Marker
         const w = mp.toW(x, y);
         this.cmd(view, 'captain.marker', { x: Math.round(w.x), y: Math.round(w.y) });
         view.actions.sfx('marker_set');

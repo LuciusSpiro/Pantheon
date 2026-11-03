@@ -13,7 +13,7 @@ const src = Object.fromEntries(files.map((f) => [path.basename(f), fs.readFileSy
 // 1) Beschriftungen: R.button(ctx, x, y, w, h, 'Label' …), label: 'Label', Template-Anfänge `Label ${…}`
 const labels = new Set();
 const strLit = String.raw`'((?:[^'\\]|\\.)*)'|"((?:[^"\\]|\\.)*)"|` + '`([^`$]*)';
-const reBtn = new RegExp(String.raw`\b(?:R\.)?button\(\s*ctx\s*,[^,]+,[^,]+,[^,]+,[^,]+,\s*(?:` + strLit + ')', 'g');
+const reBtn = new RegExp(String.raw`\b(?:[RP]\.)?(?:button|knopf)\(\s*ctx\s*,[^,]+,[^,]+,[^,]+,[^,]+,\s*(?:` + strLit + ')', 'g');
 const reLabel = new RegExp(String.raw`\blabel\s*:\s*(?:` + strLit + ')', 'g');
 const reTern = new RegExp(String.raw`\?\s*(?:` + strLit + String.raw`)\s*:\s*(?:` + strLit + ')', 'g');
 const reLit = new RegExp(strLit, 'g');
