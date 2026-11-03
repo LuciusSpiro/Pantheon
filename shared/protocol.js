@@ -158,6 +158,7 @@
     SPACE_PROJECTILES: ['torpedo', 'etorpedo', 'streu', 'estreu', 'sturm', 'enemy', 'emp', 'sperrfeuer'],   // PAN-01 C: bolzen entfällt (Torpedo), neue Arten
     CMD_PLAN_DECLINE: 'plan.decline',
     CMD_CAPTAIN_ESCORT: 'captain.escort',
+    CMD_CAPTAIN_ANZEIGEZIEL: 'captain.anzeigeziel',   // OPS-01 C1: cmd { c, id | null } Anzeigeziel des Captains (eigene Wahl, ship.target der Ops bleibt); Snapshot ship.cz = { id[, sys, zon, wahl] }
     ESCORT_ORDERS: ['halten', 'folgen', 'volle_kraft', 'andocken'],
     ESCORT_STATES: ['ok', 'beschaedigt', 'kampfunfaehig', 'entkommen'],   // EK4: 'zerstoert' (Verbündeter) steht nur in escortsGone/Prüfungen, nie im Snapshot
     ESCORT_KINDS: ['frachter', 'karawane', 'bergungsboot'],

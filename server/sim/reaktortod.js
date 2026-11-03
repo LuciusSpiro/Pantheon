@@ -2,6 +2,7 @@
 // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff.
 //   zerstoert(game, opts)  – der Reaktor ist zerstört (interior.damageSystem): Ausfallzähler +1, Countdown startet.
 //                            Keine Wirkung in einer Übung (game.mission.isDrill()), bei game.god und bei opts.debug (Debug-Befehle).
+//   treffer(game)          – GEG-01 B: jeder Treffer halbiert die Restzeit des Countdowns (ohne Mindestzeit; unter reaktorTod.restGrenze sofort tod).
 //   update(game, dt)       – Countdown läuft mit dt (nur im Spielzweig von game.step: die Solo-Menüpause hält ihn an). Ist der Reaktor nicht mehr zerstört,
 //                            endet er (gerettet, der Zähler bleibt). Läuft er ab, ist das Schiff zerstört: Naht space.verlustAusloesen
 //                            (Verbraucher wie beim Notfallprotokoll) plus Ereignis schiffZerstoert und ship.schiffZerstoert.
@@ -48,6 +49,16 @@ function tod(game) {
   require('./space.js').verlustAusloesen(game, 'reaktor');
 }
 
+// GEG-01 B: ein Waffentreffer auf die Lerche (space.shipHit, Mine): läuft der Countdown, halbiert er die Restzeit, ohne Mindestzeit. Unter reaktorTod.restGrenze stirbt das Schiff sofort (tod).
+// Der Treffer, der den Reaktor erst zerstört, läuft VOR dem Countdown (resolveHit) und halbiert nichts; hier gilt dasselbe Gate wie für den Countdown (gilt).
+function treffer(game) {
+  const ship = game.ship;
+  const cd = ship.reaktorCountdown;
+  if (!cd || !gilt(game) || interior.effZustand(game, 'reactor') !== 'broken') return;
+  cd.t /= 2;
+  if (cd.t < cfg(game).restGrenze) tod(game);
+}
+
 function update(game, dt) {
   const ship = game.ship;
   const cd = ship.reaktorCountdown;
@@ -92,4 +103,4 @@ function snapshotKompakt(game) {
 
 const sprungZurueck = zuruecksetzen;
 
-module.exports = { zerstoert, update, zuruecksetzen, sprungZurueck, snapshot, snapshotKompakt, dauer, gilt };
+module.exports = { zerstoert, treffer, update, zuruecksetzen, sprungZurueck, snapshot, snapshotKompakt, dauer, gilt };

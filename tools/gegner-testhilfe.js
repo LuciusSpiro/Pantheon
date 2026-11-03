@@ -88,6 +88,7 @@ function toeten(game, e, opts) {
   mitteNurReaktor(e);
   const r = Gsys.idVon(e, 'reaktor');
   e.sys[r].i = Math.min(e.sys[r].i, 0.01); e.sys[r].z = 'damaged'; e.hp = Gsys.summe(e);
+  if (game.ship && game.ship.target === e.id) delete game.ship.zielsystem;   // GEG-01 C: ein Systemziel lenkt die Vollladung auf dieses System; der Abschuss soll den Reaktor treffen (Mitte)
   space.damageEnemy(game, e, 1e6, von[0], von[1], Object.assign(o, { durchschlag: 'zone' }));
   if (e.rt && e.rt.rest != null && game.space.enemies.includes(e) && Gegnertod.tick(game, e, e.rt.rest)) space.enemyDown(game, e);   // Countdown ablaufen lassen
 }

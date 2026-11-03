@@ -3,3 +3,4 @@ shots/
 data/
 .env
 *.log
+tools/fixtures/testzeiten/lauf-*.json

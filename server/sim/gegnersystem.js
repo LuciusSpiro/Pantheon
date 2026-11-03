@@ -181,6 +181,15 @@ function treffen(game, e, zone, gez, opts) {
   if (!gezielt) { kand = kand.filter(treffbar); if (!kand.length) return null; id = game.rng.pick(kand); }
   return treffenAuf(game, e, id, zielZone, gezielt, opts);
 }
+// GEG-01 C: Trefferzone der Lanze-Vollladung. Mit gültigem Systemziel der Ops (System vorhanden, nicht zerstört, auf der zugewandten Seite erreichbar, bei Vollladung treffbar: der Reaktor nicht im Reaktor-Fenster)
+// trifft sie DIESES System (seine Zone, treffen() nimmt es dann als gezielt, treffenAuf zerstört es sicher). Ohne gültiges Ziel bleibt es bei der Mitte (SYS-03 N1).
+function vollladungZone(game, e, gez) {
+  if (!gez || !e || !e.sys || !e.sys[gez.id] || !erreichbar(e, gez.id, gez.zugewandt)) return 'mitte';
+  const d = defOf(e.kind, gez.id);
+  if (!d) return 'mitte';
+  if (artVon(e, gez.id) === 'reaktor' && (Integ.lanzeReaktorStufen(game) <= 0 || imFenster(game, e, gez.id))) return 'mitte';
+  return d.zone;
+}
 // Stufe auf ein bestimmtes System (Trefferweg). Ein gezielter Treffer auf ein System mit "gezielt": "zerstoert" (Antrieb) nimmt zwei Stufen: i steht sofort auf zerstört, der Zustand zieht
 // über Sperre und Immunität nach (nachholen: erst beschädigt, nach der Sperre zerstört). Steht das System schon auf zerstört, passiert nichts weiter. Rückgabe { id, zone, state, vorher, gezielt }.
 function treffenAuf(game, e, id, zielZone, gezielt, opts) {
@@ -322,7 +331,7 @@ function zoneVonSegment(game, e, sec) {
 }
 
 module.exports = {
-  ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
+  ZONEN, SEITE_ZONE, DATEN, budgetFaktor, systemeVon, defOf, summeGewicht, hat, maxOf, anlegen, integPct, tot, treffen, vollladungZone, nachholen, reparaturFertig, reaktorZerstoert, erreichbar,
   treffenAuf, durchschlagAuf, summe, setzeAnteil, stufenUebernehmen, vorgemerkt, gezieltZerstoert, setzeBudget, zonenWerte, klasseIndex,
   waffeId, waffeZustand, zerstoertPlatz, taktFaktor, schildGrenzen, regenFaktor, schildPflege, schildAnlegen, schildTick, zoneVonSegment, snapshotZiel, idVon, artVon, ids,
 };

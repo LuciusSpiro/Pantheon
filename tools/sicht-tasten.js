@@ -26,7 +26,7 @@ const PLAN = {
   weapons: [['KeyT', null], ['Numpad8', 'weapons.charge', 600], ['Digit8', 'weapons.charge', 600], ['Numpad4', 'weapons.fire'], ['Numpad6', 'weapons.fire'], ['Digit4', 'weapons.fire'], ['Numpad1', null], ['Space', null], ['KeyE', null], ['KeyA', 'weapons.alloc'], ['KeyD', 'weapons.alloc'],
     ['KeyS', null], ['KeyW', 'weapons.widescan'], ['KeyZ', null], ['KeyX', null], ['KeyO', null]],
   technik: [['ArrowDown', null], ['ArrowRight', 'technik.'], ['ArrowLeft', 'technik.'], ['KeyA', 'technik.'], ['KeyU', null]],
-  captain: [['Digit2', null], ['Digit3', null], ['Digit5', null], ['Digit1', null]],
+  captain: [['Digit2', null], ['Digit3', null], ['KeyT', 'captain.anzeigeziel'], ['Shift+KeyT', 'captain.anzeigeziel'], ['Digit5', null], ['Digit1', null]],   // OPS-01 C2: T im Reiter Lage wählt das nächste Anzeigeziel (Station in Reichweite)
 };
 
 async function main() {

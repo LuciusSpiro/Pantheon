@@ -19,6 +19,7 @@ const Drift = require('../../shared/drift.js');   // W2 AP3b: Brocken-Lage als r
 const Schilde = require('../../shared/schilde.js');   // EK1b: Schildsegmente der Gegner (Seiten mit mehreren Seitenbereichen)
 const Gsys = require('./gegnersystem.js');   // SYS-01 C1a-1: Systemmodell der Gegner (Zonen, Integrität, Waffen- und Schildwirkung)
 const Gegnertod = require('./gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Reaktor-Countdown, Sofort-Tod, Kapern über den Schildgenerator)
+const Reaktortod = require('./reaktortod.js');   // GEG-01 B: Treffer halbiert den Countdown der Lerche
 const Sturm = require('./sturm.js');   // SYS-02a: Reparatursperre des Sturms
 const Integ = require('./integritaet.js');   // SYS-03 B2: Stufenregel (Durchschlag in Stufen)
 const Gegnerreparatur = require('./gegnerreparatur.js');   // SYS-01 C2a: Reparatur der Gegner (Vorgänge, Rückschlag)
@@ -298,7 +299,7 @@ function gegnerBrocken(game, e) {
     if ((im[a.id] || 0) > game.time) return;
     im[a.id] = game.time + C.flight.asteroidImmunity;
     brockenStats(game).gegner++;
-    damageEnemy(game, e, C.asteroid.damage, a.x, a.y);
+    damageEnemy(game, e, C.asteroid.damage, a.x, a.y, { brocken: true });   // GEG-01 B: ein Brocken ist kein Waffentreffer (halbiert den Countdown nicht)
   });
   if (home) { e.x = home.x; e.y = home.y; e.vx = 0; e.vy = 0; }   // Pylon ist verankert (Turm)
 }
@@ -672,7 +673,7 @@ function updateFlight(game, dt) {
       ship.asteroidImmune[a.id] = game.time + C.flight.asteroidImmunity;
       brockenStats(game).lerche++;
       Tel.quelle(game, 'brocken', null);   // TEL-01 B1
-      shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, a.x, a.y), C.asteroid.damage, {});
+      shipHit(game, Physics.sectorOf(ship.x, ship.y, ship.angle, a.x, a.y), C.asteroid.damage, { brocken: true });
       game.missionEvent('asteroid', {});
     }
   });
@@ -790,6 +791,7 @@ function shipHit(game, sector, dmg, opts) {
   opts = Alarm.trefferOpts(game, opts || {});   // EK2: Schilde unten (Schleichfahrt) = Treffer ohne Schildabzug
   ensureM3(game);
   game.stats.hits++;
+  if (dmg > 0 && !opts.brocken) Reaktortod.treffer(game);   // GEG-01 B: läuft der Reaktor-Countdown der Lerche, halbiert jeder Waffentreffer die Restzeit (VOR resolveHit: der Treffer, der den Reaktor zerstört, halbiert nichts; Schild und Fenster egal; Brocken nicht)
   const D = damageApi(game);
   const heavy = !!opts.heavy;
   const before = sh.current[sector] || 0;
@@ -1076,6 +1078,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
   // SYS-02b: derselbe Trefferweg gilt für Verbündete (e.ally, escort.hit): Schildsegmente, Zone, Sturm, Torpedo, Systemtreffer. Sie haben keine Patrouille, keine Ladung (tele), kein Systemziel,
   // lösen keine Missionsereignisse der Gegner aus (enemyDamaged, enemyShieldHit), und ihr Tod geht über escort.hit (disable). SYS-03 B2: gegen die SYSTEME gilt die Stufenregel (ein Treffer ohne Schildschutz = genau eine Stufe, keine Schadenszahl, keine Skalierung); die Schilde rechnen in Rohschaden.
   // opts: sturm, streu, torpedo/huelle/nurOhneSchild, pierce, durchschlag 'zone' (Lanze Vollladung: Schild ganz aus, Mitte), vollladung (das getroffene System der Mitte ist sicher zerstört; der Reaktor nur lanze.reaktorStufen Stufen und nicht im Reaktor-Fenster, SYS-03 N1), druck (Dauerdruck der Zone: Punkte sammeln sich je Stufe, zonen.druckPunkte).
+  if (dmg > 0 && !(opts && (opts.brocken || opts.druck))) Gegnertod.treffer(game, e);   // GEG-01 B: läuft der Reaktor-Countdown, halbiert jeder Waffentreffer die Restzeit (am Eingang: auch Treffer, die der Schild hält oder das Fenster verwirft). Nicht: Brocken, Dauerdruck, Schaden 0
   const ally = !!e.ally;
   if (!ally) {
     e.hitT = game.time;
@@ -1145,7 +1148,7 @@ function damageEnemy(game, e, dmg, srcX, srcY, opts) {
     // SYS-01 C1a-2 (Kai 2026-10-26): Torpedo gegen eine Klasse mit systemModell.torpedoSofortTod.<klasse> = true (Jäger; Config, live per tune) bei Schild 0 (die Schildprüfung oben ist durch): sofort tot, bei jeder Crewgröße, kein Countdown, kein Kapern
     if (opts && opts.torpedo && (game.C.systemModell.torpedoSofortTod || {})[e.kind] === true) { Gegnertod.sofort(e); return ally ? undefined : enemyDown(game, e); }   // Verbündeter: hp 0, escort.hit zerstört ihn (disable)
     if (opts && opts.torpedo) return torpedoSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-02a: System der Zone zerstört, Durchschlag auf den Reaktor
-    if (opts && opts.durchschlag === 'zone') zone = 'mitte';
+    if (opts && opts.durchschlag === 'zone') zone = Gsys.vollladungZone(game, e, opts.angriff && !opts.ally && game.ship.target === e.id ? Zielsysteme.gezielt(game, e) : null);   // GEG-01 C: Vollladung trifft das gültige Systemziel der Ops, sonst die Mitte
     if (opts && opts.druck && !druckStufe(game, e, rest)) return;   // Dauerdruck: erst ab zonen.druckPunkte eine Stufe
     return trefferSystem(game, e, zone || 'bug', srcX, srcY, opts);   // SYS-03 B2: eine Stufe (Sturm bei leerem Schild: Direkttreffer)
   }
@@ -1824,7 +1827,7 @@ function update(game, dt) {
         const im = es.brockenImmun || (es.brockenImmun = {});
         if ((im[a.id] || 0) > game.time) return;
         im[a.id] = game.time + game.C.flight.asteroidImmunity;
-        try { Escort.hit(game, es, game.C.asteroid.damage, { light: true, von: { x: a.x, y: a.y } }); } catch (err) { if (game.countError) game.countError('escort-brocken', err); }   // SYS-02b Review: Brocken als Quelle (Seite aus der Geometrie wie bei Gegnern), nicht zufällige Seite
+        try { Escort.hit(game, es, game.C.asteroid.damage, { light: true, brocken: true, von: { x: a.x, y: a.y } }); } catch (err) { if (game.countError) game.countError('escort-brocken', err); }   // SYS-02b Review: Brocken als Quelle (Seite aus der Geometrie wie bei Gegnern), nicht zufällige Seite
       });
     }
   }

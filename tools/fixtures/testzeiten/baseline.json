@@ -1,0 +1,2471 @@
+{
+ "kopf": {
+  "datum": "2026-11-02T19:27:23.391Z",
+  "node": "v22.20.0",
+  "kerne": 16,
+  "modus": "seriell",
+  "git": "2d23cb31007826fc4bad91519505aba51f0ddb35",
+  "hinweis": "Baseline TST-01 Paket A: seriell auf main f2daff7, 2026-11-02. Suite ohne kette (978.3 s) und kette einzeln (996.0 s) in zwei Läufen, nacheinander zusammengeführt. Gesamt seriell ca. 1974 s. Nachtrag 2026-11-03: 13 Schritte aus GEG-01/OPS-01 (main 312631f), seriell einzeln gemessen.",
+  "schritte_gesamt": 221,
+  "kette_dauer_s": 996.03
+ },
+ "schritte": [
+  {
+   "id": "check-maps",
+   "cmd": [
+    "tools/check-maps.js"
+   ],
+   "dauer_s": 7.01,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 49773
+  },
+  {
+   "id": "check-sektoren",
+   "cmd": [
+    "tools/check-sektoren.js"
+   ],
+   "dauer_s": 0.14,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 15870
+  },
+  {
+   "id": "check-kette",
+   "cmd": [
+    "tools/check-kette.js"
+   ],
+   "dauer_s": 0.29,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2855
+  },
+  {
+   "id": "check-erreichbar",
+   "cmd": [
+    "tools/check-erreichbar.js"
+   ],
+   "dauer_s": 2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 500
+  },
+  {
+   "id": "check-tasten",
+   "cmd": [
+    "tools/check-tasten.js"
+   ],
+   "dauer_s": 0.13,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 95
+  },
+  {
+   "id": "check-terminal-farben",
+   "cmd": [
+    "tools/check-terminal-farben.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 261
+  },
+  {
+   "id": "check-gegner-systeme --selftest",
+   "cmd": [
+    "tools/check-gegner-systeme.js",
+    "--selftest"
+   ],
+   "dauer_s": 0.24,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 492
+  },
+  {
+   "id": "test-features",
+   "cmd": [
+    "tools/test-features.js"
+   ],
+   "dauer_s": 5.55,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 13580
+  },
+  {
+   "id": "test-tasten",
+   "cmd": [
+    "tools/test-tasten.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3488
+  },
+  {
+   "id": "test-kennung",
+   "cmd": [
+    "tools/test-kennung.js"
+   ],
+   "dauer_s": 0.88,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1611
+  },
+  {
+   "id": "test-systeme-tokens",
+   "cmd": [
+    "tools/test-systeme-tokens.js"
+   ],
+   "dauer_s": 0.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4269
+  },
+  {
+   "id": "test-auftrag-tokens",
+   "cmd": [
+    "tools/test-auftrag-tokens.js"
+   ],
+   "dauer_s": 0.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 856
+  },
+  {
+   "id": "test-kammer-tokens",
+   "cmd": [
+    "tools/test-kammer-tokens.js"
+   ],
+   "dauer_s": 0.82,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6288
+  },
+  {
+   "id": "test-namensmarke-stapel",
+   "cmd": [
+    "tools/test-namensmarke-stapel.js"
+   ],
+   "dauer_s": 0.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 82
+  },
+  {
+   "id": "mutation-namensmarke-stapel",
+   "cmd": [
+    "tools/mutation-namensmarke-stapel.js"
+   ],
+   "dauer_s": 0.92,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 722
+  },
+  {
+   "id": "test-brett-ui",
+   "cmd": [
+    "tools/test-brett-ui.js"
+   ],
+   "dauer_s": 1.98,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 27005
+  },
+  {
+   "id": "test-combat",
+   "cmd": [
+    "tools/test-combat.js"
+   ],
+   "dauer_s": 22.49,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 23078
+  },
+  {
+   "id": "test-klassen",
+   "cmd": [
+    "tools/test-klassen.js"
+   ],
+   "dauer_s": 3.55,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3874
+  },
+  {
+   "id": "test-m3",
+   "cmd": [
+    "tools/test-m3.js"
+   ],
+   "dauer_s": 3.02,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 19436
+  },
+  {
+   "id": "test-flight",
+   "cmd": [
+    "tools/test-flight.js"
+   ],
+   "dauer_s": 17.87,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7731
+  },
+  {
+   "id": "test-escort",
+   "cmd": [
+    "tools/test-escort.js"
+   ],
+   "dauer_s": 32.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6897
+  },
+  {
+   "id": "test-bausteine",
+   "cmd": [
+    "tools/test-bausteine.js"
+   ],
+   "dauer_s": 1.53,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10137
+  },
+  {
+   "id": "test-regiebuch",
+   "cmd": [
+    "tools/test-regiebuch.js"
+   ],
+   "dauer_s": 2.7,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 12327
+  },
+  {
+   "id": "test-weltstand",
+   "cmd": [
+    "tools/test-weltstand.js"
+   ],
+   "dauer_s": 4.05,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9145
+  },
+  {
+   "id": "test-spielleiter --strict",
+   "cmd": [
+    "tools/test-spielleiter.js",
+    "--strict"
+   ],
+   "dauer_s": 11.5,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 14394
+  },
+  {
+   "id": "test-transport-ollama",
+   "cmd": [
+    "tools/test-transport-ollama.js"
+   ],
+   "dauer_s": 0.99,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1240
+  },
+  {
+   "id": "test-schema-ableiten",
+   "cmd": [
+    "tools/test-schema-ableiten.js"
+   ],
+   "dauer_s": 0.71,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1713
+  },
+  {
+   "id": "test-reparaturen-ref",
+   "cmd": [
+    "tools/test-reparaturen-ref.js"
+   ],
+   "dauer_s": 0.9,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1668
+  },
+  {
+   "id": "test-transport-router",
+   "cmd": [
+    "tools/test-transport-router.js"
+   ],
+   "dauer_s": 1.81,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7839
+  },
+  {
+   "id": "messe-szenen-ollama --selbsttest",
+   "cmd": [
+    "tools/messe-szenen-ollama.js",
+    "--selbsttest"
+   ],
+   "dauer_s": 1.67,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 89
+  },
+  {
+   "id": "test-ablage",
+   "cmd": [
+    "tools/test-ablage.js"
+   ],
+   "dauer_s": 2.16,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1722
+  },
+  {
+   "id": "test-buehne",
+   "cmd": [
+    "tools/test-buehne.js"
+   ],
+   "dauer_s": 6.98,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 623
+  },
+  {
+   "id": "test-generatoren",
+   "cmd": [
+    "tools/test-generatoren.js"
+   ],
+   "dauer_s": 4.47,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 210
+  },
+  {
+   "id": "test-waffen",
+   "cmd": [
+    "tools/test-waffen.js"
+   ],
+   "dauer_s": 0.16,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7448
+  },
+  {
+   "id": "test-sektoren",
+   "cmd": [
+    "tools/test-sektoren.js"
+   ],
+   "dauer_s": 10.58,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9390
+  },
+  {
+   "id": "test-entern",
+   "cmd": [
+    "tools/test-entern.js"
+   ],
+   "dauer_s": 0.71,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3372
+  },
+  {
+   "id": "test-wellen",
+   "cmd": [
+    "tools/test-wellen.js"
+   ],
+   "dauer_s": 3.9,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3471
+  },
+  {
+   "id": "test-labor",
+   "cmd": [
+    "tools/test-labor.js"
+   ],
+   "dauer_s": 9.53,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2916
+  },
+  {
+   "id": "test-wellen-all",
+   "cmd": [
+    "tools/test-wellen-all.js"
+   ],
+   "dauer_s": 2.05,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4290
+  },
+  {
+   "id": "test-alarm",
+   "cmd": [
+    "tools/test-alarm.js"
+   ],
+   "dauer_s": 3.82,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8287
+  },
+  {
+   "id": "test-lager",
+   "cmd": [
+    "tools/test-lager.js"
+   ],
+   "dauer_s": 2.09,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8475
+  },
+  {
+   "id": "test-lerche",
+   "cmd": [
+    "tools/test-lerche.js"
+   ],
+   "dauer_s": 1.66,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7326
+  },
+  {
+   "id": "test-energie",
+   "cmd": [
+    "tools/test-energie.js"
+   ],
+   "dauer_s": 2.26,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9774
+  },
+  {
+   "id": "test-waffen-schiff",
+   "cmd": [
+    "tools/test-waffen-schiff.js"
+   ],
+   "dauer_s": 7.8,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 19570
+  },
+  {
+   "id": "test-waffen-cooldown",
+   "cmd": [
+    "tools/test-waffen-cooldown.js"
+   ],
+   "dauer_s": 15.33,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7656
+  },
+  {
+   "id": "test-schild-b2",
+   "cmd": [
+    "tools/test-schild-b2.js"
+   ],
+   "dauer_s": 0.7,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1289
+  },
+  {
+   "id": "test-cooldown-zelle",
+   "cmd": [
+    "tools/test-cooldown-zelle.js"
+   ],
+   "dauer_s": 0.59,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1902
+  },
+  {
+   "id": "test-werft",
+   "cmd": [
+    "tools/test-werft.js"
+   ],
+   "dauer_s": 2.17,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 21701
+  },
+  {
+   "id": "test-werft-ui",
+   "cmd": [
+    "tools/test-werft-ui.js"
+   ],
+   "dauer_s": 1.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8203
+  },
+  {
+   "id": "test-werft-rang",
+   "cmd": [
+    "tools/test-werft-rang.js"
+   ],
+   "dauer_s": 1.35,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3849
+  },
+  {
+   "id": "test-ops-klick",
+   "cmd": [
+    "tools/test-ops-klick.js"
+   ],
+   "dauer_s": 0.78,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1362
+  },
+  {
+   "id": "test-methalle",
+   "cmd": [
+    "tools/test-methalle.js"
+   ],
+   "dauer_s": 3.78,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3526
+  },
+  {
+   "id": "test-eisenwald",
+   "cmd": [
+    "tools/test-eisenwald.js"
+   ],
+   "dauer_s": 4.33,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3478
+  },
+  {
+   "id": "test-konvoi",
+   "cmd": [
+    "tools/test-konvoi.js"
+   ],
+   "dauer_s": 3.73,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7651
+  },
+  {
+   "id": "test-zielsysteme",
+   "cmd": [
+    "tools/test-zielsysteme.js"
+   ],
+   "dauer_s": 2.6,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8124
+  },
+  {
+   "id": "test-zielsysteme-zonen",
+   "cmd": [
+    "tools/test-zielsysteme-zonen.js"
+   ],
+   "dauer_s": 0.85,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3632
+  },
+  {
+   "id": "test-zielsysteme-ui",
+   "cmd": [
+    "tools/test-zielsysteme-ui.js"
+   ],
+   "dauer_s": 0.09,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2013
+  },
+  {
+   "id": "test-ziel-scan",
+   "cmd": [
+    "tools/test-ziel-scan.js"
+   ],
+   "dauer_s": 0.58,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5177
+  },
+  {
+   "id": "test-verfolgung",
+   "cmd": [
+    "tools/test-verfolgung.js"
+   ],
+   "dauer_s": 4.47,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9557
+  },
+  {
+   "id": "test-verfolgung-bot",
+   "cmd": [
+    "tools/test-verfolgung-bot.js"
+   ],
+   "dauer_s": 4.7,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2645
+  },
+  {
+   "id": "test-flotte",
+   "cmd": [
+    "tools/test-flotte.js"
+   ],
+   "dauer_s": 6.53,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8470
+  },
+  {
+   "id": "test-kette",
+   "cmd": [
+    "tools/test-kette.js"
+   ],
+   "dauer_s": 3.54,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9404
+  },
+  {
+   "id": "test-orbit",
+   "cmd": [
+    "tools/test-orbit.js"
+   ],
+   "dauer_s": 6.51,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4646
+  },
+  {
+   "id": "test-rollen-r0",
+   "cmd": [
+    "tools/test-rollen-r0.js"
+   ],
+   "dauer_s": 0.97,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2500
+  },
+  {
+   "id": "test-rollen",
+   "cmd": [
+    "tools/test-rollen.js"
+   ],
+   "dauer_s": 0.73,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4973
+  },
+  {
+   "id": "test-rollen-paritaet",
+   "cmd": [
+    "tools/test-rollen-paritaet.js"
+   ],
+   "dauer_s": 9.47,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5140
+  },
+  {
+   "id": "test-rollen-modus",
+   "cmd": [
+    "tools/test-rollen-modus.js"
+   ],
+   "dauer_s": 5.25,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9219
+  },
+  {
+   "id": "test-bau-klasse",
+   "cmd": [
+    "tools/test-bau-klasse.js"
+   ],
+   "dauer_s": 0.31,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1171
+  },
+  {
+   "id": "test-orte-sperre",
+   "cmd": [
+    "tools/test-orte-sperre.js"
+   ],
+   "dauer_s": 0.21,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2001
+  },
+  {
+   "id": "test-glut",
+   "cmd": [
+    "tools/test-glut.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1234
+  },
+  {
+   "id": "test-bauweise-besitz",
+   "cmd": [
+    "tools/test-bauweise-besitz.js"
+   ],
+   "dauer_s": 2.76,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5842
+  },
+  {
+   "id": "test-rom-boden",
+   "cmd": [
+    "tools/test-rom-boden.js"
+   ],
+   "dauer_s": 1.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2774
+  },
+  {
+   "id": "hash-baseline --compare --karten",
+   "cmd": [
+    "tools/hash-baseline.js",
+    "--compare",
+    "--karten"
+   ],
+   "dauer_s": 2.21,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 25
+  },
+  {
+   "id": "test-schubs",
+   "cmd": [
+    "tools/test-schubs.js"
+   ],
+   "dauer_s": 0.56,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 486
+  },
+  {
+   "id": "test-rennen",
+   "cmd": [
+    "tools/test-rennen.js"
+   ],
+   "dauer_s": 0.55,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 180
+  },
+  {
+   "id": "test-schnellsprung",
+   "cmd": [
+    "tools/test-schnellsprung.js"
+   ],
+   "dauer_s": 2.35,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1654
+  },
+  {
+   "id": "test-entschluesseln",
+   "cmd": [
+    "tools/test-entschluesseln.js"
+   ],
+   "dauer_s": 1.61,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1976
+  },
+  {
+   "id": "test-anzeige-u3",
+   "cmd": [
+    "tools/test-anzeige-u3.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 824
+  },
+  {
+   "id": "test-sonden",
+   "cmd": [
+    "tools/test-sonden.js"
+   ],
+   "dauer_s": 3.89,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3951
+  },
+  {
+   "id": "test-spur",
+   "cmd": [
+    "tools/test-spur.js"
+   ],
+   "dauer_s": 2.32,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2389
+  },
+  {
+   "id": "test-notrufe",
+   "cmd": [
+    "tools/test-notrufe.js"
+   ],
+   "dauer_s": 7.72,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5276
+  },
+  {
+   "id": "test-zonen",
+   "cmd": [
+    "tools/test-zonen.js"
+   ],
+   "dauer_s": 2.72,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10359
+  },
+  {
+   "id": "test-systemmodell",
+   "cmd": [
+    "tools/test-systemmodell.js"
+   ],
+   "dauer_s": 1.17,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 11301
+  },
+  {
+   "id": "test-direkttreffer",
+   "cmd": [
+    "tools/test-direkttreffer.js"
+   ],
+   "dauer_s": 1.4,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10284
+  },
+  {
+   "id": "test-direkttreffer-gegner",
+   "cmd": [
+    "tools/test-direkttreffer-gegner.js"
+   ],
+   "dauer_s": 0.73,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 94142
+  },
+  {
+   "id": "test-reaktor-fenster",
+   "cmd": [
+    "tools/test-reaktor-fenster.js"
+   ],
+   "dauer_s": 0.56,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2891
+  },
+  {
+   "id": "test-schild-pause",
+   "cmd": [
+    "tools/test-schild-pause.js"
+   ],
+   "dauer_s": 1.19,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4807
+  },
+  {
+   "id": "test-schild-pause-gegner",
+   "cmd": [
+    "tools/test-schild-pause-gegner.js"
+   ],
+   "dauer_s": 0.73,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6734
+  },
+  {
+   "id": "test-gegnersystem",
+   "cmd": [
+    "tools/test-gegnersystem.js"
+   ],
+   "dauer_s": 0.56,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 14162
+  },
+  {
+   "id": "test-zonenkreuz",
+   "cmd": [
+    "tools/test-zonenkreuz.js"
+   ],
+   "dauer_s": 1.04,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5723
+  },
+  {
+   "id": "test-reaktortod",
+   "cmd": [
+    "tools/test-reaktortod.js"
+   ],
+   "dauer_s": 2.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6977
+  },
+  {
+   "id": "test-reaktortod-bot",
+   "cmd": [
+    "tools/test-reaktortod-bot.js"
+   ],
+   "dauer_s": 0.82,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1215
+  },
+  {
+   "id": "test-reaktortod-nach",
+   "cmd": [
+    "tools/test-reaktortod-nach.js"
+   ],
+   "dauer_s": 1.48,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3550
+  },
+  {
+   "id": "test-sys02a",
+   "cmd": [
+    "tools/test-sys02a.js"
+   ],
+   "dauer_s": 2.04,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7161
+  },
+  {
+   "id": "test-gegner-tod",
+   "cmd": [
+    "tools/test-gegner-tod.js"
+   ],
+   "dauer_s": 1.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6097
+  },
+  {
+   "id": "test-bot-gegnertod",
+   "cmd": [
+    "tools/test-bot-gegnertod.js"
+   ],
+   "dauer_s": 0.49,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1714
+  },
+  {
+   "id": "test-bot-reparatur",
+   "cmd": [
+    "tools/test-bot-reparatur.js"
+   ],
+   "dauer_s": 5.92,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1256
+  },
+  {
+   "id": "test-gegner-reparatur",
+   "cmd": [
+    "tools/test-gegner-reparatur.js"
+   ],
+   "dauer_s": 1.79,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5868
+  },
+  {
+   "id": "test-verbuendete-systeme",
+   "cmd": [
+    "tools/test-verbuendete-systeme.js"
+   ],
+   "dauer_s": 1.14,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4024
+  },
+  {
+   "id": "test-verbuendete-wie-gegner",
+   "cmd": [
+    "tools/test-verbuendete-wie-gegner.js"
+   ],
+   "dauer_s": 3.76,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5761
+  },
+  {
+   "id": "test-gegner-nacharbeit",
+   "cmd": [
+    "tools/test-gegner-nacharbeit.js"
+   ],
+   "dauer_s": 1.14,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2448
+  },
+  {
+   "id": "test-banderole",
+   "cmd": [
+    "tools/test-banderole.js"
+   ],
+   "dauer_s": 0.75,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2216
+  },
+  {
+   "id": "test-hud-oben-rechts",
+   "cmd": [
+    "tools/test-hud-oben-rechts.js"
+   ],
+   "dauer_s": 0.97,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1286
+  },
+  {
+   "id": "test-lpscan",
+   "cmd": [
+    "tools/test-lpscan.js"
+   ],
+   "dauer_s": 1.45,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1392
+  },
+  {
+   "id": "test-monster",
+   "cmd": [
+    "tools/test-monster.js"
+   ],
+   "dauer_s": 2.12,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3528
+  },
+  {
+   "id": "test-forschungsstation",
+   "cmd": [
+    "tools/test-forschungsstation.js"
+   ],
+   "dauer_s": 1.82,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3067
+  },
+  {
+   "id": "test-boje",
+   "cmd": [
+    "tools/test-boje.js"
+   ],
+   "dauer_s": 3.1,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6130
+  },
+  {
+   "id": "test-welt",
+   "cmd": [
+    "tools/test-welt.js"
+   ],
+   "dauer_s": 1.18,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4838
+  },
+  {
+   "id": "test-marken",
+   "cmd": [
+    "tools/test-marken.js"
+   ],
+   "dauer_s": 0.94,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2188
+  },
+  {
+   "id": "test-gespraech",
+   "cmd": [
+    "tools/test-gespraech.js"
+   ],
+   "dauer_s": 1.14,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3066
+  },
+  {
+   "id": "test-personen",
+   "cmd": [
+    "tools/test-personen.js"
+   ],
+   "dauer_s": 1.33,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3160
+  },
+  {
+   "id": "test-sl3",
+   "cmd": [
+    "tools/test-sl3.js"
+   ],
+   "dauer_s": 6.38,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3534
+  },
+  {
+   "id": "test-sl9",
+   "cmd": [
+    "tools/test-sl9.js"
+   ],
+   "dauer_s": 14.74,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3607
+  },
+  {
+   "id": "test-sl11",
+   "cmd": [
+    "tools/test-sl11.js"
+   ],
+   "dauer_s": 1.54,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2617
+  },
+  {
+   "id": "test-sund-sim-daten",
+   "cmd": [
+    "tools/test-sund-sim-daten.js"
+   ],
+   "dauer_s": 0.09,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3162
+  },
+  {
+   "id": "test-welt-sim",
+   "cmd": [
+    "tools/test-welt-sim.js"
+   ],
+   "dauer_s": 8.4,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5678
+  },
+  {
+   "id": "test-sund-frei-hexe",
+   "cmd": [
+    "tools/test-sund-frei-hexe.js"
+   ],
+   "dauer_s": 15.23,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6485
+  },
+  {
+   "id": "test-weltsim-kopplung",
+   "cmd": [
+    "tools/test-weltsim-kopplung.js"
+   ],
+   "dauer_s": 8.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9857
+  },
+  {
+   "id": "test-wellenplan",
+   "cmd": [
+    "tools/test-wellenplan.js"
+   ],
+   "dauer_s": 0.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3003
+  },
+  {
+   "id": "test-wirkungen",
+   "cmd": [
+    "tools/test-wirkungen.js"
+   ],
+   "dauer_s": 1.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6808
+  },
+  {
+   "id": "test-ruf",
+   "cmd": [
+    "tools/test-ruf.js"
+   ],
+   "dauer_s": 3.25,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8766
+  },
+  {
+   "id": "test-posten",
+   "cmd": [
+    "tools/test-posten.js"
+   ],
+   "dauer_s": 4.42,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 22163
+  },
+  {
+   "id": "test-posten-ws",
+   "cmd": [
+    "tools/test-posten-ws.js"
+   ],
+   "dauer_s": 18.35,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1155
+  },
+  {
+   "id": "test-sprengen",
+   "cmd": [
+    "tools/test-sprengen.js"
+   ],
+   "dauer_s": 5.46,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 12421
+  },
+  {
+   "id": "test-sprengen-ws",
+   "cmd": [
+    "tools/test-sprengen-ws.js"
+   ],
+   "dauer_s": 12,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1296
+  },
+  {
+   "id": "test-verrat",
+   "cmd": [
+    "tools/test-verrat.js"
+   ],
+   "dauer_s": 18.14,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 17370
+  },
+  {
+   "id": "test-verrat-ws",
+   "cmd": [
+    "tools/test-verrat-ws.js"
+   ],
+   "dauer_s": 11.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2011
+  },
+  {
+   "id": "test-szene-sund",
+   "cmd": [
+    "tools/test-szene-sund.js"
+   ],
+   "dauer_s": 12.45,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 21732
+  },
+  {
+   "id": "test-notsprung-frei",
+   "cmd": [
+    "tools/test-notsprung-frei.js"
+   ],
+   "dauer_s": 1.62,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1380
+  },
+  {
+   "id": "test-lagefunk",
+   "cmd": [
+    "tools/test-lagefunk.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6489
+  },
+  {
+   "id": "test-lage-wissen",
+   "cmd": [
+    "tools/test-lage-wissen.js"
+   ],
+   "dauer_s": 4.36,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10482
+  },
+  {
+   "id": "test-lage-karte",
+   "cmd": [
+    "tools/test-lage-karte.js"
+   ],
+   "dauer_s": 0.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10562
+  },
+  {
+   "id": "test-rang-anzeige",
+   "cmd": [
+    "tools/test-rang-anzeige.js"
+   ],
+   "dauer_s": 1.47,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2649
+  },
+  {
+   "id": "test-ui2-anzeige",
+   "cmd": [
+    "tools/test-ui2-anzeige.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3629
+  },
+  {
+   "id": "test-absichten",
+   "cmd": [
+    "tools/test-absichten.js"
+   ],
+   "dauer_s": 6.17,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 13669
+  },
+  {
+   "id": "test-absichten-ui",
+   "cmd": [
+    "tools/test-absichten-ui.js"
+   ],
+   "dauer_s": 2.16,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4495
+  },
+  {
+   "id": "test-absichten-ws",
+   "cmd": [
+    "tools/test-absichten-ws.js"
+   ],
+   "dauer_s": 7.55,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2194
+  },
+  {
+   "id": "test-finale",
+   "cmd": [
+    "tools/test-finale.js"
+   ],
+   "dauer_s": 1.76,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10337
+  },
+  {
+   "id": "test-finale-ws",
+   "cmd": [
+    "tools/test-finale-ws.js"
+   ],
+   "dauer_s": 6.84,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1841
+  },
+  {
+   "id": "test-finale-ende-zu-ende",
+   "cmd": [
+    "tools/test-finale-ende-zu-ende.js"
+   ],
+   "dauer_s": 9.84,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2427
+  },
+  {
+   "id": "test-finale-ui",
+   "cmd": [
+    "tools/test-finale-ui.js"
+   ],
+   "dauer_s": 7.83,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 16216
+  },
+  {
+   "id": "test-finale-boden",
+   "cmd": [
+    "tools/test-finale-boden.js"
+   ],
+   "dauer_s": 3.95,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7962
+  },
+  {
+   "id": "test-finale-orbit",
+   "cmd": [
+    "tools/test-finale-orbit.js"
+   ],
+   "dauer_s": 54.86,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10693
+  },
+  {
+   "id": "sim-absichten --pruefen",
+   "cmd": [
+    "tools/sim-absichten.js",
+    "--pruefen"
+   ],
+   "dauer_s": 43.73,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1897
+  },
+  {
+   "id": "test-banner-sicht",
+   "cmd": [
+    "tools/test-banner-sicht.js"
+   ],
+   "dauer_s": 0.11,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 951
+  },
+  {
+   "id": "test-sitz-projektion",
+   "cmd": [
+    "tools/test-sitz-projektion.js"
+   ],
+   "dauer_s": 0.12,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1365
+  },
+  {
+   "id": "test-render-szene",
+   "cmd": [
+    "tools/test-render-szene.js"
+   ],
+   "dauer_s": 0.12,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2401
+  },
+  {
+   "id": "test-erreichbar",
+   "cmd": [
+    "tools/test-erreichbar.js"
+   ],
+   "dauer_s": 2.53,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1463
+  },
+  {
+   "id": "sim-sund --weg beide --crew 3",
+   "cmd": [
+    "tools/sim-sund.js",
+    "--weg",
+    "beide",
+    "--crew",
+    "3"
+   ],
+   "dauer_s": 46.79,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4368
+  },
+  {
+   "id": "sim-sund --kapitel alle --crew 3",
+   "cmd": [
+    "tools/sim-sund.js",
+    "--kapitel",
+    "alle",
+    "--crew",
+    "3"
+   ],
+   "dauer_s": 24.42,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4255
+  },
+  {
+   "id": "sim-headless sl --paket boje-a",
+   "cmd": [
+    "tools/sim-headless.js",
+    "sl",
+    "--paket",
+    "boje-a"
+   ],
+   "dauer_s": 1.71,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 828
+  },
+  {
+   "id": "sim-headless kette --seed 1 --seeds 3 --mindest 2",
+   "cmd": [
+    "tools/sim-headless.js",
+    "kette",
+    "--seed",
+    "1",
+    "--seeds",
+    "3",
+    "--mindest",
+    "2"
+   ],
+   "dauer_s": 996.03,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 37382
+  },
+  {
+   "id": "test-befehle",
+   "cmd": [
+    "tools/test-befehle.js"
+   ],
+   "dauer_s": 3.43,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 21526
+  },
+  {
+   "id": "test-regie",
+   "cmd": [
+    "tools/test-regie.js"
+   ],
+   "dauer_s": 1.83,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 11818
+  },
+  {
+   "id": "test-lage-ausschnitt",
+   "cmd": [
+    "tools/test-lage-ausschnitt.js"
+   ],
+   "dauer_s": 3.04,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4113
+  },
+  {
+   "id": "sim-regie --pruefen",
+   "cmd": [
+    "tools/sim-regie.js",
+    "--pruefen"
+   ],
+   "dauer_s": 30.22,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1626
+  },
+  {
+   "id": "test-lage-spielleiter",
+   "cmd": [
+    "tools/test-lage-spielleiter.js"
+   ],
+   "dauer_s": 4.13,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 22808
+  },
+  {
+   "id": "test-reise-ereignis",
+   "cmd": [
+    "tools/test-reise-ereignis.js"
+   ],
+   "dauer_s": 4.39,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 11811
+  },
+  {
+   "id": "test-chronik",
+   "cmd": [
+    "tools/test-chronik.js"
+   ],
+   "dauer_s": 1.18,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3075
+  },
+  {
+   "id": "test-lage-wiederholung",
+   "cmd": [
+    "tools/test-lage-wiederholung.js"
+   ],
+   "dauer_s": 4.23,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3768
+  },
+  {
+   "id": "test-preise",
+   "cmd": [
+    "tools/test-preise.js"
+   ],
+   "dauer_s": 1.17,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10172
+  },
+  {
+   "id": "test-ui-03b",
+   "cmd": [
+    "tools/test-ui-03b.js"
+   ],
+   "dauer_s": 0.09,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 16015
+  },
+  {
+   "id": "test-texte-pool",
+   "cmd": [
+    "tools/test-texte-pool.js"
+   ],
+   "dauer_s": 3.02,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 18585
+  },
+  {
+   "id": "messe-texte-ollama --selbsttest",
+   "cmd": [
+    "tools/messe-texte-ollama.js",
+    "--selbsttest"
+   ],
+   "dauer_s": 0.46,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 105
+  },
+  {
+   "id": "test-funk-antwort",
+   "cmd": [
+    "tools/test-funk-antwort.js"
+   ],
+   "dauer_s": 15.34,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 14624
+  },
+  {
+   "id": "test-funk-antwort-ws",
+   "cmd": [
+    "tools/test-funk-antwort-ws.js"
+   ],
+   "dauer_s": 12.52,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1896
+  },
+  {
+   "id": "test-handel-info",
+   "cmd": [
+    "tools/test-handel-info.js"
+   ],
+   "dauer_s": 2.28,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 18384
+  },
+  {
+   "id": "test-handel-info-ws",
+   "cmd": [
+    "tools/test-handel-info-ws.js"
+   ],
+   "dauer_s": 8.62,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2103
+  },
+  {
+   "id": "test-faden-pruefer",
+   "cmd": [
+    "tools/test-faden-pruefer.js"
+   ],
+   "dauer_s": 0.52,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 14029
+  },
+  {
+   "id": "test-faden-zustand",
+   "cmd": [
+    "tools/test-faden-zustand.js"
+   ],
+   "dauer_s": 2.6,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 14487
+  },
+  {
+   "id": "test-faden-spielleiter",
+   "cmd": [
+    "tools/test-faden-spielleiter.js"
+   ],
+   "dauer_s": 1.93,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5635
+  },
+  {
+   "id": "test-faden-kompat",
+   "cmd": [
+    "tools/test-faden-kompat.js"
+   ],
+   "dauer_s": 3.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6440
+  },
+  {
+   "id": "test-faden-szene",
+   "cmd": [
+    "tools/test-faden-szene.js"
+   ],
+   "dauer_s": 3.81,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 12397
+  },
+  {
+   "id": "test-faden-bitte",
+   "cmd": [
+    "tools/test-faden-bitte.js"
+   ],
+   "dauer_s": 1.5,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 10684
+  },
+  {
+   "id": "test-ui-bitte",
+   "cmd": [
+    "tools/test-ui-bitte.js"
+   ],
+   "dauer_s": 0.11,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 22935
+  },
+  {
+   "id": "test-faden-bitte-ws",
+   "cmd": [
+    "tools/test-faden-bitte-ws.js"
+   ],
+   "dauer_s": 5.02,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1369
+  },
+  {
+   "id": "test-faden-vorlagen",
+   "cmd": [
+    "tools/test-faden-vorlagen.js"
+   ],
+   "dauer_s": 3.65,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 17618
+  },
+  {
+   "id": "test-faden-vorlagen-ws",
+   "cmd": [
+    "tools/test-faden-vorlagen-ws.js"
+   ],
+   "dauer_s": 4,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 761
+  },
+  {
+   "id": "test-faden-nach3",
+   "cmd": [
+    "tools/test-faden-nach3.js"
+   ],
+   "dauer_s": 2.65,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 12051
+  },
+  {
+   "id": "test-faden-nach4",
+   "cmd": [
+    "tools/test-faden-nach4.js"
+   ],
+   "dauer_s": 1.94,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5936
+  },
+  {
+   "id": "test-faden-bauplan",
+   "cmd": [
+    "tools/test-faden-bauplan.js"
+   ],
+   "dauer_s": 2.5,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 33534
+  },
+  {
+   "id": "test-faden-katalog-b1",
+   "cmd": [
+    "tools/test-faden-katalog-b1.js"
+   ],
+   "dauer_s": 3.4,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 27225
+  },
+  {
+   "id": "test-faden-katalog-b2",
+   "cmd": [
+    "tools/test-faden-katalog-b2.js"
+   ],
+   "dauer_s": 11.23,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 30707
+  },
+  {
+   "id": "test-abenteuer",
+   "cmd": [
+    "tools/test-abenteuer.js"
+   ],
+   "dauer_s": 6.69,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 24165
+  },
+  {
+   "id": "test-abenteuer-brett",
+   "cmd": [
+    "tools/test-abenteuer-brett.js"
+   ],
+   "dauer_s": 12.55,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 19309
+  },
+  {
+   "id": "test-abenteuer-kanon",
+   "cmd": [
+    "tools/test-abenteuer-kanon.js"
+   ],
+   "dauer_s": 25.37,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 15702
+  },
+  {
+   "id": "test-abspann",
+   "cmd": [
+    "tools/test-abspann.js"
+   ],
+   "dauer_s": 1.68,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 11914
+  },
+  {
+   "id": "test-grabenangriff-karte",
+   "cmd": [
+    "tools/test-grabenangriff-karte.js"
+   ],
+   "dauer_s": 11.74,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5957
+  },
+  {
+   "id": "test-grabenangriff-szenario",
+   "cmd": [
+    "tools/test-grabenangriff-szenario.js"
+   ],
+   "dauer_s": 6.44,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 9210
+  },
+  {
+   "id": "test-vox01-kacheln",
+   "cmd": [
+    "tools/test-vox01-kacheln.js"
+   ],
+   "dauer_s": 5.32,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3332
+  },
+  {
+   "id": "test-vox01-kit",
+   "cmd": [
+    "tools/test-vox01-kit.js"
+   ],
+   "dauer_s": 0.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 8881
+  },
+  {
+   "id": "test-vox01-kronen",
+   "cmd": [
+    "tools/test-vox01-kronen.js"
+   ],
+   "dauer_s": 0.2,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1038
+  },
+  {
+   "id": "test-lanze-zielfenster",
+   "cmd": [
+    "tools/test-lanze-zielfenster.js"
+   ],
+   "dauer_s": 2.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5101
+  },
+  {
+   "id": "test-niederhalten",
+   "cmd": [
+    "tools/test-niederhalten.js"
+   ],
+   "dauer_s": 1.77,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3081
+  },
+  {
+   "id": "test-stellungen",
+   "cmd": [
+    "tools/test-stellungen.js"
+   ],
+   "dauer_s": 1.12,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3025
+  },
+  {
+   "id": "test-trupp-abstand",
+   "cmd": [
+    "tools/test-trupp-abstand.js"
+   ],
+   "dauer_s": 4.9,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1672
+  },
+  {
+   "id": "test-endkampf-trupps",
+   "cmd": [
+    "tools/test-endkampf-trupps.js"
+   ],
+   "dauer_s": 1.59,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2727
+  },
+  {
+   "id": "test-trupp-gehirn",
+   "cmd": [
+    "tools/test-trupp-gehirn.js"
+   ],
+   "dauer_s": 8.59,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 5737
+  },
+  {
+   "id": "test-verteidigen",
+   "cmd": [
+    "tools/test-verteidigen.js"
+   ],
+   "dauer_s": 5.93,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 6460
+  },
+  {
+   "id": "test-aufrichten-sicherung",
+   "cmd": [
+    "tools/test-aufrichten-sicherung.js"
+   ],
+   "dauer_s": 11.77,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2834
+  },
+  {
+   "id": "test-charakter",
+   "cmd": [
+    "tools/test-charakter.js"
+   ],
+   "dauer_s": 5.76,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 7597
+  },
+  {
+   "id": "test-trefferbox",
+   "cmd": [
+    "tools/test-trefferbox.js"
+   ],
+   "dauer_s": 2.32,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1748
+  },
+  {
+   "id": "test-charaktere",
+   "cmd": [
+    "tools/test-charaktere.js"
+   ],
+   "dauer_s": 0.08,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 30
+  },
+  {
+   "id": "mutation-charaktere",
+   "cmd": [
+    "tools/mutation-charaktere.js"
+   ],
+   "dauer_s": 3.76,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2834
+  },
+  {
+   "id": "test-spind",
+   "cmd": [
+    "tools/test-spind.js"
+   ],
+   "dauer_s": 0.47,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 29
+  },
+  {
+   "id": "mutation-spind",
+   "cmd": [
+    "tools/mutation-spind.js"
+   ],
+   "dauer_s": 5.38,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 497
+  },
+  {
+   "id": "test-sync-assets",
+   "cmd": [
+    "tools/test-sync-assets.js"
+   ],
+   "dauer_s": 0.36,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 529
+  },
+  {
+   "id": "test-menue",
+   "cmd": [
+    "tools/test-menue.js"
+   ],
+   "dauer_s": 1.5,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 17267
+  },
+  {
+   "id": "test-karte-ausrichtung",
+   "cmd": [
+    "tools/test-karte-ausrichtung.js"
+   ],
+   "dauer_s": 0.37,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4710
+  },
+  {
+   "id": "test-karte-sichtweite",
+   "cmd": [
+    "tools/test-karte-sichtweite.js"
+   ],
+   "dauer_s": 0.16,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3583
+  },
+  {
+   "id": "test-karte-labels",
+   "cmd": [
+    "tools/test-karte-labels.js"
+   ],
+   "dauer_s": 1.25,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3525
+  },
+  {
+   "id": "test-captain-ziel",
+   "cmd": [
+    "tools/test-captain-ziel.js"
+   ],
+   "dauer_s": 0.42,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2456
+  },
+  {
+   "id": "test-captain-zielkasten",
+   "cmd": [
+    "tools/test-captain-zielkasten.js"
+   ],
+   "dauer_s": 0.24,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4038
+  },
+  {
+   "id": "test-beam-hinweis",
+   "cmd": [
+    "tools/test-beam-hinweis.js"
+   ],
+   "dauer_s": 1.56,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4740
+  },
+  {
+   "id": "test-frontsicht",
+   "cmd": [
+    "tools/test-frontsicht.js"
+   ],
+   "dauer_s": 0.35,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 837
+  },
+  {
+   "id": "test-ziel-marke",
+   "cmd": [
+    "tools/test-ziel-marke.js"
+   ],
+   "dauer_s": 0.26,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3660
+  },
+  {
+   "id": "test-konvoi-sprung",
+   "cmd": [
+    "tools/test-konvoi-sprung.js"
+   ],
+   "dauer_s": 1.91,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 978
+  },
+  {
+   "id": "test-vollladung-ziel",
+   "cmd": [
+    "tools/test-vollladung-ziel.js"
+   ],
+   "dauer_s": 0.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1683
+  },
+  {
+   "id": "test-countdown-treffer",
+   "cmd": [
+    "tools/test-countdown-treffer.js"
+   ],
+   "dauer_s": 0.61,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2616
+  },
+  {
+   "id": "test-tutorial-sprung",
+   "cmd": [
+    "tools/test-tutorial-sprung.js"
+   ],
+   "dauer_s": 1.57,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3741
+  },
+  {
+   "id": "mutation-tutorial-sprung",
+   "cmd": [
+    "tools/mutation-tutorial-sprung.js"
+   ],
+   "dauer_s": 23.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 643
+  }
+ ]
+}

@@ -50,7 +50,8 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
 const section = (t) => console.log('\n' + t);
 
 // Typen, die nur im Menschenspiel (bzw. nur mit Weltsim/LLM) erreichbar sind, nicht im Bot-Lauf: getestet in tools/test-telemetrie-b2.js mit gescriptetem Spiel
-const NUR_IM_MENSCHENSPIEL = ['ruf', 'spielleiter_warten'];
+// TEL-01 M: dazu konvoi_sprung_abgebrochen (kein Bot zerstoert einem Transporter den Antrieb vor dem Sprung; getestet in tools/test-telemetrie-geg.js)
+const NUR_IM_MENSCHENSPIEL = ['ruf', 'spielleiter_warten', 'konvoi_sprung_abgebrochen'];
 // Typen, die jeder Lauf dieses Tests sehen muss: alles aus B1 und B2 (Paket A: kopf, session_ende, spieler_*, partie_beendet, tune prüft test-telemetrie.js)
 const EIGENE = Object.keys(SCHEMA).filter((t) => SCHEMA[t].frage !== '-' && !['spieler_bei', 'spieler_weg', 'partie_beendet'].includes(t) && !NUR_IM_MENSCHENSPIEL.includes(t));
 // Paket-Zuordnung (jeder Typ muss im Schema stehen und vorkommen)

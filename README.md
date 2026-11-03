@@ -542,7 +542,7 @@ Ausgewählte Reise-Ereignisse **ohne Gefahr** bieten der Crew 2 bis 3 Antworten 
   | bereitschaft | 1,56 | 1,95 | 3 % | 0 | 0 | 2,43 | 2,14 | 1,34 | 0,36 | 0,79 | 3,42 |
 
   Bänder: Eroberungen 1,0–2,2 · Angriffe/100 1,5–3,0 · Stillstand ≤ 8 % · Kollaps 0 · Hauptwelt nie verloren: alle Zeilen innerhalb.
-- **Messung 2, 12-Tick-Fenster** (`--pruefen`, Teil von `npm test`; so wirkt eine Absicht im Spiel: 12 Ticks Absicht, 12 Ticks Standard-KI danach, an 60 Seeds, jeder 6. Tick, nur Zustände, in denen die Absicht angeboten würde, gegen dieselben Zustände ohne Absicht; je Absicht die Richtung ihres Textes, Datenfeld `wirkt_fenster`; im Fenster gilt die Richtung, nicht die Bänder). Mittel je Zustand, Standard-KI → Absicht:
+- **Messung 2, 12-Tick-Fenster** (`--pruefen`, Stufe `slow`: läuft in `npm run test:alles`, **nicht** in `npm test`; so wirkt eine Absicht im Spiel: 12 Ticks Absicht, 12 Ticks Standard-KI danach, an 60 Seeds, jeder 6. Tick, nur Zustände, in denen die Absicht angeboten würde, gegen dieselben Zustände ohne Absicht; je Absicht die Richtung ihres Textes, Datenfeld `wirkt_fenster`; im Fenster gilt die Richtung, nicht die Bänder). Mittel je Zustand, Standard-KI → Absicht:
 
   | Absicht | n | Angriffe von Rom | Ansprüche von Rom | Aktionen von Rom | neue Posten | Rom wird belagert |
   |---|---|---|---|---|---|---|
@@ -849,7 +849,7 @@ Weitere Debug-Befehle der Pakete: `abspann palatina|sieg` (SUND-04a-3, nur Freie
   `node tools/golden-trace.js --compare tools/fixtures/golden/base-w2 <neuer Ordner> --allow tools/fixtures/golden/allow-ek1.json`.
   `golden-trace.js` nimmt nur **eine** `--allow`-Datei; `allow-ek1.json` enthält deshalb die Einträge von `allow-w2.json` mit. Immer `--dir` angeben: ohne `--dir` schreibt `--all` in die eingecheckte Basis `tools/fixtures/golden/base`. Den Ordner danach löschen.
 
-**`npm test`** (verkettet mit `&&`, bricht am ersten roten Test ab) führt nacheinander aus: `test-features`, `test-combat`, `test-klassen`, `test-m3`, `test-flight`,
+**`npm test`** führt heute über den Runner (`tools/run-tests.js`, Stufen `fast` + `full`, parallel, ohne Abbruch beim ersten roten Schritt; siehe „Tests und Testläufe“) die Schritte aus `tools/testliste.json` aus. Stand 2026-10-11 (`ek1`, damals noch eine `&&`-Kette in `package.json`, die beim ersten roten Test abbrach) waren es: `test-features`, `test-combat`, `test-klassen`, `test-m3`, `test-flight`,
 `test-escort`, `test-bausteine`, `test-regiebuch`, `test-weltstand`, `test-spielleiter --strict`, `test-ablage`, `test-buehne`, `test-generatoren`, `test-waffen`,
 `test-sektoren`, `test-entern`, `test-wellen`, `test-labor`, `test-wellen-all`, `test-alarm`, `test-lager`, `test-methalle`, `test-eisenwald`, `test-konvoi`,
 `test-flotte`, `test-kette`, `test-orbit` (alle in `tools/`). Lauf vom 2026-10-11 auf `ek1`: Exit 0; Prüfungen u. a. Features 213, Kampf 387, Klassen 59, M3 380,
@@ -2135,6 +2135,76 @@ Kisten schlecht). Danach m2 bis „angedockt bei Vaelen“: 1:11 Wanduhr.
 **Nicht gemessen:** Menschen; m1 solo im Browser; m2 und m3 komplett im Browser in S1. Eine Schätzung für Menschen steht
 hier bewusst nicht – frühere Runden zeigten, dass Menschen deutlich länger brauchen als Skripte (Spieleabend abwarten).
 
+## Tests und Testläufe
+
+Alle Schritte (Prüfer, Tests, Sims) stehen in `tools/testliste.json` (Felder `id`, `kette`, `cmd`, `stufe`, `budget_s`, optional `seriell` und `timeout_s`) und
+laufen über `tools/run-tests.js`. Kein Schritt hängt an einer `&&`-Kette in `package.json`; die npm-Skripte rufen nur den Runner.
+
+| Befehl | Was | Dauer (12 Worker) | Wann |
+|---|---|---|---|
+| `npm run check` | Prüfer (Karten, Sektoren, Kette, Tasten, …) | wenige Sekunden | bei jedem Paket |
+| `npm run test:fast` | Stufe `fast` (schnelle Tests) | ca. 2 min, harte Grenze 300 s | bei jedem Paket |
+| `npm test` | Stufe `fast` + `full` (alles außer `slow`), Kette `test` | ca. 3,5 min, Zeitgrenze 600 s (nur Hinweis) | vor dem Abnahmelauf |
+| `npm run test:alles` | alle Stufen inkl. `slow` (`sim-headless kette`, Sims, Messungen) | 15 bis 25 min, Zeitgrenze 2400 s (nur Hinweis) | vor dem Merge |
+| `npm run test:seriell` | alles, ein Schritt nach dem anderen | ca. 33 min, keine Grenze (seriell) | Fehlersuche, Baseline |
+
+Weitere Optionen: `--nur <id,...>` (Schritt-ID oder Dateiname), `--kette check|test`, `--stufe fast|full|slow|alles`, `--trocken` (nur auflisten),
+`--worker N`, `--timeout <s>`, `--lastfaktor n`, `--grenze-aus`, `--ausgabe <datei.json>`, `--liste <datei.json>`. Ergebnis je Lauf als JSON (Standard `tools/fixtures/testzeiten/lauf-<Zeit>.json`).
+Exit-Codes: `0` grün, `1` rote Schritte, Timeout, Abbruch oder Ausnahme im Runner (Kindprozesse dann beendet, Temp gelöscht), `2` Aufruf/Liste ungültig oder Testdatei ohne Eintrag, `3` nur die harte Grenze der Stufe `fast` ist gerissen.
+
+**Aufruf strikt.** Jede Option darf nur einmal vorkommen, Zahlen (`--timeout`, `--worker`, `--lastfaktor`) müssen > 0 sein, `--kette` muss in der Liste vorkommen,
+eine leere Auswahl (0 Schritte nach `--kette`/`--stufe`/`--nur`, auch mit `--trocken`) ist Exit 2, nie „grün“. Die npm-Skripte setzen schon Optionen
+(`npm test` = `--parallel --kette test --stufe full`): `npm test -- --stufe fast` ist deshalb Exit 2 (Option doppelt); dafür `node tools/run-tests.js ...` direkt aufrufen.
+Zusätzliche Optionen, die das Skript nicht schon setzt, gehen: `npm test -- --nur test-flight` läuft nur diesen Schritt (parallel, Stufe `full`);
+ein Schritt einer anderen Stufe (z. B. `--nur sim-regie`, Stufe `slow`) ergibt eine leere Auswahl (Exit 2), dafür `npm run test:alles -- --nur sim-regie`.
+
+**Parallelverlangsamung und Budgets.** Parallel brauchen Schritte das 3- bis 7-Fache ihrer seriellen Zeit (CPU, Platte, Prozessstart), z. B.
+`test-rollen-paritaet` 65 s statt 9,5 s. Jeder Schritt hat `budget_s` = das Doppelte seiner seriellen Baseline (mindestens Baseline + 5 s). Der Runner
+vergleicht parallel gegen `budget_s × --lastfaktor` (Vorgabe 4, seriell 1) und meldet Überschreitungen nach dem Lauf im Abschnitt
+„Zeitbudget überschritten“ und im JSON (`budget_ueberschritten`). Das ist nur ein Hinweis: kein Abbruch, kein anderer Exit-Code. Ein einzelner
+Schritt, der wiederholt gemeldet wird, ist langsamer geworden: allein mit `--nur <id> --seriell` messen.
+
+**Zeitgrenzen.** `grenzen` in `testliste.json` hat je Stufe `{"s": Sekunden, "hart": true|false}` (Wandzeit des Gesamtlaufs, nur parallel). Hart ist nur `fast`
+(300 s): Überschreitung bei sonst grünem Lauf gibt Exit 3 (bei roten Schritten bleibt es Exit 1, die Meldung nennt die Grenze ohne „Exit 3“). Für `full`, `slow`
+und `alles` ist die Grenze nur ein Hinweis in der Zusammenfassung („Zeitgrenze der Stufe überschritten, nur Hinweis“), ohne Wirkung auf den Exit-Code: `npm test`
+liefert wie bisher 0 bei grün und ≠ 0 bei rot und wird nicht wegen Fremdlast rot. `--grenze-aus` schaltet die Prüfung zur Fehlersuche ab.
+
+**Timeout je Schritt.** Standard 1800 s (`--timeout`). Ein Schritt kann in `testliste.json` ein eigenes `timeout_s` tragen; wirksam ist `max(--timeout, timeout_s)`.
+`sim-headless kette ...` hat `timeout_s: 3600` (seriell ca. 1000 s, unter Last bis ca. 1450 s, Budget 1993 s). `testliste-budgets.js` und `testliste-ergaenzen.js`
+lassen das Feld unverändert.
+
+**Isolation (Parallelmodus).** Jeder Schritt bekommt ein eigenes Temp-Verzeichnis (`TEMP`/`TMP`/`TMPDIR`) und `REGIE_DIR` zeigt auf `<Temp>/regie`. Dadurch schreiben Spiele
+ohne eigenes Regie-Verzeichnis ihr Regielog im Temp statt nur im Speicher (`server/mission/spielleiter.js:314`, `server/sim/regie-befehle.js:430`). Das ist folgenlos für
+die Prüfungen, aber ein Unterschied zu einem direkten `node tools/test-xyz.js`-Aufruf.
+
+**Neuen Test eintragen.** (1) Datei `tools/test-<name>.js` (oder `mutation-…`, `check-…`) anlegen. (2) Schritt in `tools/testliste.json` eintragen
+(`id`, `kette`, `cmd`, `stufe`: `fast` unter ca. 10 s seriell, `full` bis ca. 60 s, `slow` darüber oder Sims/Messungen). Für einen Schritt aus einer alten
+`&&`-Kette geht das mit `node tools/testliste-ergaenzen.js --kette "node tools/test-x.js"` (Stufe `full`, danach anpassen). (3) Budget:
+den Schritt seriell messen (`node tools/run-tests.js --seriell --nur <id> --ausgabe <datei>`) und `node tools/testliste-budgets.js --aus <datei> --schreiben`.
+(4) Pflichtprüfung: der Runner bricht beim Start mit Exit 2 ab, wenn eine `tools/test-*.js`, `mutation-*.js` oder `check-*.js|mjs` weder in einem `cmd`
+steht noch unter `ausgenommen` (Datei plus Grund, z. B. Mutationsprobe auf Abruf, Live-Test). Die Prüfung entfällt bei `--liste`.
+**Nicht pflichtgeprüft** sind `sim-*`, `messe-*`, `mess-*` und `sicht-*`: ein neuer Sim, der in die Kette gehört (z. B. mit `--pruefen`), wird nicht automatisch
+gemeldet, man trägt ihn selbst in `testliste.json` ein.
+
+**`seriell: true`** nur für Schritte, die auf überbuchter CPU an eigenen Timeouts scheitern (`test-abenteuer`, `test-abenteuer-kanon`: `spawnSync`-Timeouts).
+Sie laufen nach dem Pool allein. Nicht als Pflaster für unzuverlässige Tests verwenden.
+
+**Baseline neu erzeugen** (nur auf ruhigem Rechner, sonst werden die Budgets zu großzügig; keine anderen Suites oder Spiele nebenher). Der Runner beschreibt die
+Ausgabedatei schon während des Laufs; eine halbe Baseline würde Reihenfolge und Budgets speisen. Deshalb in eine eigene Datei laufen lassen:
+`node tools/run-tests.js --seriell --stufe alles --ausgabe tools/fixtures/testzeiten/lauf-baseline-neu.json` (oder unter Temp) und **nur nach vollständig grünem Lauf**
+(Exit 0, `"fertig": true`, kein roter Schritt) nach `tools/fixtures/testzeiten/baseline.json` kopieren, danach `node tools/testliste-budgets.js --schreiben`.
+Als Sicherung schreibt der Runner bei `--ausgabe .../baseline.json` zunächst nach `baseline.json.neu` und ersetzt die Baseline erst nach vollständig grünem Lauf.
+Die Baseline bestimmt auch die Reihenfolge im Pool (längste zuerst).
+
+**Ergebnisdateien.** Jeder Lauf legt `tools/fixtures/testzeiten/lauf-<Zeit>.json` an; sie häufen sich an. Aufgeräumt wird nicht automatisch, sondern auf Zuruf.
+
+**Bekannte Altlasten.** `sim-szene-sund` ist nicht in der Kette und läuft rot. `mess:klumpen` ist nur als Selbsttest angebunden. Mutationsproben
+(`npm run test:*-mutation`) und Live-Tests (`test:llm`) laufen nur auf Abruf (Liste `ausgenommen`). Fällt `test-buehne` rot aus (Median-Kriterium, selten),
+einmal allein wiederholen: `node tools/run-tests.js --seriell --nur test-buehne`; bleibt er rot, ist es echt.
+
+**Merge von Branches.** Hat ein Branch Schritte noch in die alte `&&`-Kette eingetragen, nach dem Merge nachziehen:
+`node tools/testliste-ergaenzen.js --kette "<die Schritte aus package.json>"`, danach Stufe und Budget setzen (siehe oben).
+
 ## Für Entwickler
 
 `npm run check` (Karten), `npm run sim` (Headless-Durchlauf solo, zu dritt und solo mit übersprungener Übung), `npm run debug` (Debug-Befehle, `?debug=1`
@@ -2207,5 +2277,5 @@ gehen mit `tune` auch andere Konfig-Pfade wie `combat.raiderOrbit` oder `crewSca
 | `npm run regie -- <weltId>` | (S2) Regie-Logbuch als Markdown-Bericht |
 | `npm run test:escort` | (S2) Schützling: Bewegung, Befehle, Schaden, Breitseite, Ausgänge |
 
-`npm test` führt seit EK8 27 Testskripte nacheinander aus; die vollständige Liste steht oben im Abschnitt „Kampagne Eisenwald starten und testen“ (Quelle: `package.json`, Skript `test`).
+`npm test` führt die Schritte der Stufen `fast` und `full` aus `tools/testliste.json` über den Runner aus (parallel, ohne Abbruch beim ersten roten Schritt; Abschnitt „Tests und Testläufe“). Die Liste der 27 Testskripte seit EK8 im Abschnitt „Kampagne Eisenwald starten und testen“ ist ein historischer Stand.
 Golden-Vergleich wie in der Abnahme: `node tools/golden-trace.js --compare tools/fixtures/golden/base tools/fixtures/golden/s1 --allow tools/fixtures/golden/allow-s1.json`.

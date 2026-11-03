@@ -62,7 +62,7 @@ const erholen = (g) => {
 };
 const stufe = (g) => { g.ship.helm.stage = Math.max(g.ship.helm.stage, 1); };
 
-const PASSIV_VERLUST_NACH = 70;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus (gemessen: die passive Lerche stirbt über den Reaktor bei t≈84,7 s; das ist Partie-Ende, nicht der zu prüfende Neubeginn, also deutlich davor auslösen)
+const PASSIV_VERLUST_NACH = 45;   // s echter Kampf gegen eine passive Crew, dann löst der Test das Notfallprotokoll aus (gemessen: die passive Lerche stirbt über den Reaktor bei t≈84,7 s, seit GEG-01 B (Treffer halbieren den Countdown) bei t≈65,6 s; das ist Partie-Ende, nicht der zu prüfende Neubeginn, also deutlich davor auslösen)
 // Orbit: die Bots kämpfen, bis die Szene endet. -> Ausgang der Szene
 function orbit(t, maxSek) {
   const g = t.g; let snap = g.snapshot(); const t0 = g.time;
@@ -73,6 +73,9 @@ function orbit(t, maxSek) {
     for (const a of t.agents) a.update(snap);
     // SYS-01 A1a: Die Hülle entfällt, die Lerche stirbt nicht mehr von selbst (der Auslöser kommt mit A2). Die passive Crew
     // verliert nach einer Kampfzeit über die Naht des Notfallprotokolls, den Kampf davor spielt die echte Szene.
+    // GEG-01 B: Treffer halbieren den Reaktor-Countdown, die Sonderreparatur (12 s) schafft es unter Beschuss nicht mehr. Dieser Test prüft den Ablauf des Finales, nicht das Überleben:
+    // eine aktive Crew rettet den Reaktor hier, sobald er bricht (wie eine Crew, die rechtzeitig repariert); die passive Crew bleibt sich selbst überlassen.
+    if (!t.opts.passiv && g.ship.reaktorCountdown) require('../server/sim/interior.js').setzeZustand(g, 'reactor', 'damaged');
     if (g.zerstoertOffen || g.ship.schiffZerstoert) { ok(false, 'Reaktortod im Orbit-Kampf bei t+' + (g.time - t0).toFixed(1) + ' s (Partie-Ende nach SYS-01, kein Neubeginn)'); break; }
     if (t.opts.passiv && !verlust && g.time - t0 >= PASSIV_VERLUST_NACH) { verlust = true; Space.verlustAusloesen(g, 'test'); }
   }

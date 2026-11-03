@@ -118,7 +118,9 @@ console.log('\n(d) Label-Ausweichplätze nur für Randpfeil-Labels (prio 3)');
     const geb = szene([...sperre(pf), ...sperre(mk)]);
     const pf2 = geb.find((t) => /^\d+$/.test(t.s)), mk2 = geb.find((t) => /^CAPTAIN /.test(t.s));
     ok(pf2 && (Math.abs(pf2.x - pf.x) > 0.5 || Math.abs(pf2.y - pf.y) > 0.5), 'Randpfeil-Label (prio 3) weicht auf einen zusätzlichen Platz aus: (' + pf.x + ',' + pf.y + ') -> (' + (pf2 && pf2.x) + ',' + (pf2 && pf2.y) + ')');
-    ok(mk2 && Math.abs(mk2.x - mk.x) < 0.5 && Math.abs(mk2.y - mk.y) < 0.5, 'Marken-Label (prio 6) bleibt auf seinem Platz, die zusätzlichen Plätze gelten nur für Randpfeil-Labels: (' + mk.x + ',' + mk.y + ') -> (' + (mk2 && mk2.x) + ',' + (mk2 && mk2.y) + ')');
+    // OPS-01 B (Nacharbeit): das Marken-Label (prio 6) sucht nach den Grundplätzen im Raster einen freien Platz (Karten, nicht Frontsicht) und überdeckt keine Sperre; vorher blieb es auf seinem Platz über der Sperre stehen
+    const sp = [...sperre(pf), ...sperre(mk)], mw = mk2 ? R.measure(mk2.s, 1) + 2 : 0;
+    ok(mk2 && sp.every((q) => !(mk2.x - mw / 2 < q.x + q.w && q.x < mk2.x + mw / 2 && mk2.y < q.y + q.h && q.y < mk2.y + 9)), 'Marken-Label (prio 6) weicht über das Raster auf einen freien Platz aus, ohne eine Sperre zu überdecken: (' + mk.x + ',' + mk.y + ') -> (' + (mk2 && mk2.x) + ',' + (mk2 && mk2.y) + ')');
   }
 }
 

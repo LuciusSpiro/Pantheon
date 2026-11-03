@@ -368,6 +368,20 @@ function gefallenOhneTreffer(game, slot, waffe, von) {
   const t = dienst(game); if (!t) return;
   try { const s = slotVon(slot); if (s) t.ereignis('gefallen', { slot: s, waffe: txt(waffe), von: txt(von) }); } catch (err) { /* nie werfen */ }
 }
+// GEG-01 A: ein Konvoi-Transporter wollte springen, kann es aber nicht (Antrieb oder Reaktor zerstoert/offline): die Ladung bricht ab bzw. der Sprung wird vereitelt.
+// konvoi.sprungVereiteln meldet je Sperre genau einmal; grund = das erste ausgefallene System (antrieb vor reaktor, wie konvoi.kannSpringen). Liest nur.
+function konvoiSprungAbgebrochen(game, e) {
+  const t = dienst(game); if (!t || !e) return;
+  try {
+    const Gsys = require('../sim/gegnersystem.js');
+    let grund = null;
+    for (const art of ['antrieb', 'reaktor']) {
+      const id = Gsys.idVon(e, art); const z = id && e.sys[id] ? e.sys[id].z : null;
+      if (z === 'broken' || z === 'offline') { grund = art; break; }
+    }
+    t.ereignis('konvoi_sprung_abgebrochen', { ort: 'raum', gegner: e.id, rolle: e.kind, grund });
+  } catch (err) { /* nie werfen */ }
+}
 function schiffZerstoert(game, n) {
   const t = dienst(game); if (!t) return;
   try { t.ereignis('schiff_zerstoert', { grund: 'reaktor', n: num(n) }); } catch (err) { /* nie werfen */ }
@@ -386,6 +400,6 @@ module.exports = {
   quelle, schussRaum, gegnerSystem, schadeBeginn, trefferGegner, trefferLerche, trefferLercheOhneSchaden, trefferMine,
   raumGegner, raumWegGrund, killRaum,
   bodenGegnerSehen, schussBoden, quelleBoden, ueberhitztBoden, ueberhitztRaum, trefferBoden, killBoden, bodenGegnerWeg,
-  zoneAus, ueberladung, ueberladungAbgebrochen, notfall, gefallenOhneTreffer, schiffZerstoert, notrueckholung,
+  zoneAus, ueberladung, ueberladungAbgebrochen, notfall, gefallenOhneTreffer, schiffZerstoert, konvoiSprungAbgebrochen, notrueckholung,
   _dienst: dienst,
 };

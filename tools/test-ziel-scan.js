@@ -243,7 +243,7 @@ section('Test, Vorher → Nachher (Ziel-Scan, Einbindung)', () => {
   ok(kons.includes('wahlbar(view.state, target)') && kons.includes('wahlbar(view.state, tg)') && /reihum/.test(kons), 'Ops-Knopf und Taste 0 wählen reihum über die anwählbaren Systeme');
   const zk = pult.split('pultZielkasten(c, view, b, target)')[1] || '';
   ok(!/T\(c, 'HÜLLE'/.test(zk.slice(0, 1200)), 'Ops-Zielkasten: HÜLLE-Zeile entfällt (Gesamtintegrität in %)');
-  ok(pult.includes('ZKk.modellZiel(view.state'), 'Ops-Zielkasten: Kreuz des gescannten Ziels');
+  ok(pult.includes('ZKk.modellZiel(zst'), 'Zielkasten: Kreuz des gescannten Ziels (Zustand mit den Detaildaten dieses Ziels, OPS-01 C2)');
   ok(render.includes('breschenKeil(ctx, k.x, k.y, k.mitte'), 'Karte: Bresche des gescannten Gegners');
 });
 

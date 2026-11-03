@@ -24,8 +24,9 @@ const Basis = require('./auswertung/basis.js');
 const ROOT = path.join(__dirname, '..');
 const SIM = path.join(__dirname, 'sim-headless.js');
 const FIXTURES = path.join(__dirname, 'fixtures', 'telemetrie');
-// Der Spielcode auf tel01 ist bit-gleich zu main f2daff7 (Bot-Laeufe und Golden Trace seit Paket A, Nachweis im Bericht von TEL-01 C)
-const SPIELSTAND_WIE = 'f2daff7';
+// Der Spielcode auf tel01 ist bit-gleich zu main 75ab5a7 (TEL-01 M: main mit TST-01, GEG-01, OPS-01 integriert; Bot-Laeufe und Golden Trace mit Protokoll gegen 75ab5a7 bit-gleich).
+// Vor Paket M stand hier f2daff7 (Stand vor GEG-01/OPS-01); die Basis dieses Stands ist ueberholt.
+const SPIELSTAND_WIE = '75ab5a7';
 const LAUF_TIMEOUT_MS = 20 * 60 * 1000;
 const WELLEN_KARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'];
 
