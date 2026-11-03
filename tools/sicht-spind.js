@@ -28,15 +28,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const STD_OUTFIT = { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner' };
 const KARTEN = [
-  { v: 1, name: 'Hrolf', koerper: 'standard', gesicht: 'narbe', frisur: 'zoepfe', bart: 'vollbart', haut: 3, haar: 2, outfit: STD_OUTFIT },
-  { v: 1, name: 'Aurelia', koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 1, haar: 1,
+  { v: 1, name: 'Hrolf', koerper: 'standard', frisur: 'bartlang', haut: 3, haar: 2, outfit: STD_OUTFIT },
+  { v: 1, name: 'Aurelia', koerper: 'standard', frisur: 'welle', haut: 1, haar: 1,
     outfit: { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner' } },
-  { v: 1, name: 'Cato', koerper: 'standard', gesicht: 'lerche', frisur: 'zoepfe', bart: 'vollbart', haut: 2, haar: 3,
+  { v: 1, name: 'Cato', koerper: 'standard', frisur: 'zopfband', haut: 2, haar: 3,
     outfit: { kopf: 'keine', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'keiner' } },
 ];
 const speicherText = (k) => JSON.stringify({ v: 1, gewaehlt: 'c1', liste: [{ id: 'c1', karte: k }] });
 
 const fehler = [];
+let fehlerZahl = 0;   // eigene Prüfungen dieses Skripts (Exit 1)
 const ALLE = [];
 const log = (...a) => console.log(a.join(' '));
 
@@ -160,10 +161,16 @@ async function phaseSchiff(browser) {
     await taste(cs[0], 'KeyQ');
     // Serverseitig noch nichts geändert
     log('Vor Enter: Server-Outfit ' + JSON.stringify(p1.karte.outfit));
-    await taste(cs[0], 'Digit5');   // Oberteil-Platz (nur Ansicht)
-    await sleep(1200);
-    await bild(cs[0], 'spind-platz-oberteil');
-    await taste(cs[0], 'Digit8'); await sleep(800);
+    // CHA-02 E1b: jeder der sechs Plätze mit seinen Kacheln (nur Ansicht, Ziffernblock-Tasten), die Kacheln zeigen die Teile des neuen Katalogs
+    const PLAETZE = [['Digit5', 'oberteil', 6], ['Digit2', 'hose', 4], ['Digit0', 'schuhe', 5], ['Digit4', 'haende', 3], ['Digit6', 'umhang', 3], ['Digit8', 'kopf', 5]];
+    for (const [ziffer, platz, anzahl] of PLAETZE) {
+      await taste(cs[0], ziffer); await sleep(2500);
+      const info = await cs[0].page.evaluate(() => { const e = Charaktere.lies().sitzung.entwurf; return { platz: e.platz, teile: Charaktere.outfitTeileFuer(e.platz).map((t) => t.name) }; });
+      log(`Platz ${platz}: ${info.teile.length} Teile (${info.teile.join(', ')})`);
+      if (info.platz !== platz || info.teile.length !== anzahl) { log('FEHLER Platz ' + platz + ': erwartet ' + anzahl + ' Teile, Platz ' + info.platz); fehlerZahl++; }
+      await bild(cs[0], 'spind-platz-' + platz);
+    }
+    await sleep(800);
 
     // 4) Anziehen: WebSocket-Mitschnitt (kein hello, kein zweites welcome, genau ein cmd karte.outfit), Spielerfarbe unverändert
     const farbeVor = p1.color, wsVor = cs[0].ws.length, welcomeVor = cs[0].ws.filter((m) => m.r === 'ein' && m.t === 'welcome').length;
@@ -288,5 +295,5 @@ async function phaseBoden(browser, speicher1) {
   const echte = fehler.filter((f) => !/favicon|Failed to load resource.*404/i.test(f));
   log('\nClient-Meldungen: ' + echte.length);
   echte.slice(0, 20).forEach((f) => log('  ' + f));
-  process.exit(ausnahme ? 1 : 0);
+  process.exit(ausnahme || fehlerZahl ? 1 : 0);
 })();

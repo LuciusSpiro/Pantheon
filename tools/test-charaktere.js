@@ -458,13 +458,20 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
     // CHA-01 F: Kacheln mit eigenem Kopf (Spind: Platz kopf, Erstellung: Platz frisur), sonst feste Vorschau
     {
       const vorher = JSON.stringify(m4.aktiveKarte()), kk = m4.kachelKarte('spind', 'kopf', 'kopf/bordhelm');
-      ok(kk && kk.outfit.kopf === 'bordhelm' && kk.outfit.umhang === 'fellumhang' && kk.frisur === m4.aktiveKarte().frisur && kk.name === 'Cato', 'Spind-Kachel kopf: eigene Karte mit dem Teil auf dem Kopf');
+      ok(kk && kk.outfit.kopf === 'bordhelm' && kk.outfit.umhang === 'fellumhang' && kk.frisur === 'kurz' && kk.name === 'Cato' && kk.haut === m4.aktiveKarte().haut, 'Spind-Kachel kopf: eigene Karte (Haut, Outfit) mit dem Teil auf dem Kopf');
+      {   // CHA-02 E1b: die Kopfbedeckungs-Kacheln zeigen die Standardfrisur und helles Haar, nicht die Frisur des Charakters (sonst verdeckt jede Frisur eine andere Helmform)
+        const m7 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} }); m7.setzeKatalog(KAT); m7.legeAn({ name: 'Hrolf', frisur: 'wild', haar: 2 });
+        const k7 = m7.kachelKarte('spind', 'kopf', 'kopf/galea');
+        ok(m7.aktiveKarte().frisur === 'wild' && k7.frisur === 'kurz' && k7.haar === 7 && k7.outfit.kopf === 'galea', 'Spind-Kachel kopf: Standardfrisur und helles Haar statt der Frisur des Charakters (wild, Haar 2)');
+        ok(m7.aktiveKarte().frisur === 'wild' && m7.aktiveKarte().haar === 2, 'Spind-Kachel ändert die Karte des Charakters nicht');
+      }
       ok(JSON.stringify(m4.aktiveKarte()) === vorher, 'Spind-Kachel ändert die getragene Karte nicht');
       ok(m4.kachelKarte('spind', 'oberteil', 'oberteil/bordtunika') === null && m4.kachelKarte('spind', 'umhang', 'umhang/keiner') === null, 'Spind-Kacheln anderer Plätze bleiben feste Vorschau');
       ok(m4.kachelKarte('spind', 'kopf', 'oberteil/bordtunika') === null && m4.kachelKarte('neu', 'kopf', 'kopf/bordhelm') === null, 'Kachel: Teil gehört nicht zum Platz / Platz hat in der Erstellung keine Livekachel');
       const sp6 = speicherErsatz(), m6 = Modul.erzeuge({ speicher: sp6, Charakter: Ch, sende: () => {} }); m6.setzeKatalog(KAT); m6.legeAn({ name: 'Cato' }); m6.beginneNeu();
       const ev = JSON.stringify(m6.entwurfKarte()), fr = m6.teileFuer('frisur'), kf = m6.kachelKarte('neu', 'frisur', fr[fr.length - 1].id);
-      ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.haut === m6.entwurfKarte().haut && kf.haar === m6.entwurfKarte().haar && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
+      ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.haut === m6.entwurfKarte().haut && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
+      ok(kf.haar === 7 && m6.entwurfKarte().haar !== 7, 'Erstellungs-Kachel frisur: helles Haar (Index 7) statt der Haarfarbe des Entwurfs, damit die Frisuren auf dunklem Grund zu unterscheiden sind');
       ok(JSON.stringify(m6.entwurfKarte()) === ev, 'Erstellungs-Kachel ändert den Entwurf nicht');
       ok(m6.kachelKarte('neu', 'bart', 'bart/vollbart') === null && m6.kachelKarte('neu', 'gesicht', 'gesicht/narbe') === null && m6.kachelKarte('spind', 'frisur', fr[0].id) === null, 'Erstellung: nur Frisur hat Livekacheln, im Spind nur Kopf');
     }
@@ -524,6 +531,27 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(exp.indexOf('portraetIn') < 0 && exp.indexOf('teilName') < 0, 'KammerUi exportiert nur das Eigene (kein portraetIn, kein teilName)');
   const menue = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menue-ui.js'), 'utf8');
   ok(!/KammerUi/.test(menue.replace(/\/\/.*$/gm, '')), 'menue-ui.js greift nicht auf KammerUi zu');
+}
+
+// ---- CHA-02 E1b: Livebilder (voxel/kammer.js) und Oberfläche auf dem 8er-Kopf, ohne gesicht/bart
+{
+  const kam = fs.readFileSync(path.join(ROOT, 'public', 'js', 'voxel', 'kammer.js'), 'utf8').replace(/\r\n/g, '\n');
+  const von = kam.indexOf('const GROESSE = '), bis = kam.indexOf('\nconst CACHE_MAX', von);
+  const G = Function('return ' + kam.slice(von + 'const GROESSE = '.length, bis).replace(/;\s*\/\/[^\n]*$/, ''))();
+  // Kopf y 22–35 (Voxel), Crista und Hörner bis 34, Suebenknoten 33–34, Zöpfe/Bart bis 23, Kopf x −4..3: das Fenster muss alles enthalten (nichts abgeschnitten)
+  for (const art of ['portraet', 'nah', 'kachel']) {
+    const f = G[art] && G[art].fenster;
+    ok(f && f.y[0] <= 22 && f.y[1] >= 35 && f.x[0] <= -5 && f.x[1] >= 4, `Livebild ${art}: Fenster ${JSON.stringify(f && { x: f.x, y: f.y })} schneidet den neuen Kopf ab (y 22–35, x −5..4)`);
+    ok(f && f.yaw === 28 && f.pitch === 6, `Livebild ${art}: Blick ¾ von vorn (yaw 28, pitch 6) wie die Referenz des Voxelwerks`);
+  }
+  ok(G.ganz && G.ganz.fenster.y[0] <= 0 && G.ganz.fenster.y[1] >= 35, 'Livebild ganz: ganze Figur samt neuem Kopf im Fenster');
+  ok(G.kachel && G.kachel.px.w === 140 && G.kachel.px.h === 124, 'Livebild kachel: 140 × 124 (doppelte Bildfläche der Kachel 70 × 62)');
+  const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8').replace(/\r\n/g, '\n').replace(/\/\/[^\n]*$/gm, '');
+  ok(!/gesicht|bart|dutt|zoepfe/.test(ui), 'kammer-ui.js kennt gesicht / bart / dutt / zoepfe nicht mehr');
+  ok(/KB\.bild\(t\.live\.karte, 'kachel', t\.live\.yaw\)/.test(ui), "Livekacheln werden im Ausschnitt 'kachel' gerendert (Kopf ¾ von vorn), nicht als Porträt");
+  ok(/teilName\('kopf', karte\.outfit\.kopf\)/.test(ui) && /teilName\('oberteil', karte\.outfit\.oberteil\)/.test(ui) && /teilName\('frisur', karte\.frisur\)/.test(ui), 'Kartenzeilen der Liste: Frisur, Oberteil und Kopfbedeckung in Klartext aus den Katalognamen');
+  ok(/function kachelTexte\(/.test(ui) && /kachelTexte\(t\.name/.test(ui), 'Kachel bricht lange Namen mit Leerzeichen um (kachelTexte)');
+  ok(/namensfeld\(cc, a\.x \+ T\.x, 0, KM\.figur\.x - T\.x - 12, e, a,/.test(ui), 'Erstellung mit Kacheln: Namensfeld kompakt unter den Kachelreihen');
 }
 
 // ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)

@@ -1,7 +1,7 @@
 'use strict';
 // CHA-01 C Nacharbeit: Messung der Helligkeit der Figur in der Kleiderkammer (Porträt aus voxel/kammer.js) gegen Hautmuster und Vorschaukachel des Voxelwerks.
 // Echter Server im selben Prozess, Chromium (Playwright), ?render=voxel. Gleiche Figur (Standardkarte, Haut 0), gleicher Ausschnitt (Kopf, Porträt).
-// Gemessen werden drei Werte: das Hautmuster aus dem Katalog (Soll-Farbe der unbeschatteten Fläche), die Vorschaukachel gesicht/lerche.png (Voxelwerk-Referenz)
+// Gemessen werden drei Werte: das Hautmuster aus dem Katalog (Soll-Farbe der unbeschatteten Fläche), die Vorschaukachel kopf/keine.png (Voxelwerk-Referenz: Standardfigur, Kopf ohne Kopfbedeckung; CHA-02: gesicht/lerche.png gibt es nicht mehr)
 // und das Porträt der Kammer; Auswertung = Mittelwert der Hautpixel (Farbton nahe der Haut) in der Gesichtsmitte (Quadrat um den Schwerpunkt der Hautpixel, Kantenlänge 1/4 der Kopfbreite).
 // Aufruf: node tools/mess-kammer-helligkeit.js [--port 3547] [--shots <ordner>]   Exit 0 = gemessen (kein Urteil), 1 bei Fehlern.
 const path = require('path');
@@ -36,7 +36,7 @@ const { chromium } = playwright();
       let c = null;
       for (let i = 0; i < 200 && !c; i++) { c = KammerBild.bild(karte, 'portraet', 0); if (!c) await new Promise((res) => setTimeout(res, 100)); }
       if (!c) return { fehler: 'kein Bild: ' + JSON.stringify(KammerBild.info()) };
-      const kachel = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = '/voxel/sprites/cha/vorschau/gesicht/lerche.png'; });
+      const kachel = await new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = '/voxel/sprites/cha/vorschau/kopf/keine.png'; });
       const tc = document.createElement('canvas'); tc.width = kachel.naturalWidth; tc.height = kachel.naturalHeight; tc.getContext('2d').drawImage(kachel, 0, 0);
       const hex = (h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
       const f = kat.farben.haut[karte.haut];
@@ -62,7 +62,6 @@ const { chromium } = playwright();
       return { name, hautpixel: haut.length, schwerpunkt: [Math.round(cx), Math.round(cy)], quadrat: k, mitte: mw, helligkeitP10P50P90: sample };
     }
     const roi = (data, w, x0, x1, y0, y1) => { const m = [0, 0, 0]; let n = 0; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) { const i = (y * w + x) * 4; for (let c = 0; c < 3; c++) m[c] += data[i + c]; n++; } return m.map((v) => Math.round(v / n)); };
-    console.log('ROI Portrait Gesichtsfront x60-99 y146-155: ' + JSON.stringify(roi(r.portraet, r.pw, 60, 99, 146, 155)));
     const mp = messe(r.portraet, r.pw, r.ph, 'portraet Kammer'), mk = messe(r.kachel, r.kw, r.kh, 'Vorschaukachel Voxelwerk');
     const rel = (a, b) => (a / b).toFixed(2);
     console.log(JSON.stringify({ hautmuster: r.muster, hautschatten: r.schatten }));
