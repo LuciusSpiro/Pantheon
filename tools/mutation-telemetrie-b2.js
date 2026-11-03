@@ -17,7 +17,7 @@ for (const rel of ['server', 'shared', 'content', 'tools']) fs.cpSync(path.join(
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* nicht noetig */ } } }
 
-const HK = 'server/telemetrie/haken.js', CB = 'server/sim/combat.js', IX = 'server/index.js', GM = 'server/game.js', VO = 'server/sim/vorrat.js', RF = 'server/sim/ruf.js';
+const HK = 'server/telemetrie/haken.js', HI = 'server/telemetrie/hilfen.js', CB = 'server/sim/combat.js', IX = 'server/index.js', GM = 'server/game.js', VO = 'server/sim/vorrat.js', RF = 'server/sim/ruf.js';
 const LSL = 'server/sim/lage-spielleiter.js', ASL = 'server/sim/abenteuer-spielleiter.js', KSL = 'server/mission/spielleiter.js';
 const T_B2 = 'test-telemetrie-b2.js', T_DK = 'test-telemetrie-deckung.js', T_SL = 'test-telemetrie-spielleiter.js', T_SV = 'test-telemetrie-server.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Test, Optionen]
@@ -34,7 +34,7 @@ const MUTATIONEN = [
   [HK, "    else if (takt && (!aw ||", "    else if ((!aw ||", 'Gegner aus der Liste: Pruefung jeden Tick statt im Takt (nur die Kosten aendern sich)', T_DK, { aequivalent: true }],
   [HK, "const t = z.cv + '|' + (z.geduckt ? 1 : 0) + '|' + (z.verdeckt ? 1 : 0);", "const t = z.cv + '|' + (z.geduckt ? 1 : 0);", 'verdeckt ist nicht Teil des Spieler-Tupels', T_DK],
   [CB, '  return alarmiert;\n}', '  return true;\n}', 'verdecktVor ohne alarmierte Gegner trotzdem true', T_DK],
-  [HK, 'const kachel = (v) => Math.floor(v / TILE);', 'const kachel = (v) => Math.round(v / TILE);', 'Positionen mit Math.round statt Math.floor (Physics.toTile)', T_DK],
+  [HI, 'const kachel = (v) => Math.floor(v / TILE);', 'const kachel = (v) => Math.round(v / TILE);', 'Positionen mit Math.round statt Math.floor (Physics.toTile)', T_DK],
   // --- Technik: Tickzeit, Zeitreihe, Eingaben ---
   [HK, "    if (lief) {\n      const ms = performance.now() - t0;", "    if (true) {\n      const ms = performance.now() - t0;", 'Tickzeit der Solo-Pause wird mitgezaehlt (lief ignoriert)', T_B2],
   [HK, 'if (lief && game.time + EPS >= s.naechst) {', 'if (game.time + EPS >= s.naechst) {', 'Zeitreihe ohne lief (in der Pause steht game.time still und jede Zeile rueckt naechst ueber game.time: nicht beobachtbar)', T_B2, { aequivalent: true }],
@@ -55,10 +55,10 @@ const MUTATIONEN = [
   [KSL, "    Haken.spielleiterWarten(this.game, String(job.type), dauer, Haken.warteAusgang(e));", '', 'Kampagnen-Spielleiter: finishJob ohne Haken', T_SL],
   [KSL, "    Haken.spielleiterWarten(this.game, 'anflug', sec, how);", '', 'Kampagnen-Spielleiter: Anflug-Wartezeit ohne Haken', T_SL],
   // --- Wirtschaft, Reparatur, Energie ---
-  [HK, 'const num = (v) => (Number.isFinite(v) ? r2(v) : null);', 'const num = (v) => (Number.isFinite(v) ? r2(v) : 0);', 'kaputter Wert wird 0 statt null', T_B2],
+  [HI, 'const num = (v) => (Number.isFinite(v) ? r2(v) : null);', 'const num = (v) => (Number.isFinite(v) ? r2(v) : 0);', 'kaputter Wert wird 0 statt null', T_B2],
   [VO, 'Haken.buchung(game, gut, art, grund, neu - vorher, neu);', 'Haken.buchung(game, gut, art, grund, neu - (Number(vorher) || 0), neu);', 'vorrat: kaputter Vorwert wird 0', T_B2],
   [RF, 'Haken.ruf(game, fraktion, ws.ruf[fraktion] - alt, ws.ruf[fraktion], grund);', 'Haken.ruf(game, fraktion, ws.ruf[fraktion] - alt, ws.ruf[fraktion], null);', 'ruf ohne grund', T_B2],
-  [HK, "sektor = z === -1 ? 'mitte' : SEKTOR[z] || null;", 'sektor = null;', 'zone_wieder ohne Sektor', T_B2],
+  [HK, 'sektor = sektorName(z);', 'sektor = null;', 'zone_wieder ohne Sektor', T_B2],
   [HK, "if (grund === 'automatik' && (erst || gleich)) return;", "if (grund === 'automatik' && erst) return;", 'energie automatik schreibt auch ohne Aenderung', T_B2],
 ];
 
