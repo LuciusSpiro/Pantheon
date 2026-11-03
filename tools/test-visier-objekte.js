@@ -4,7 +4,7 @@
 //   (2) Gegner hinter dem Schiff (und hinter der Kamera) stehen nicht im Hauptbild
 //   (3) Groesse 1,6-fach, mindestens 16 px, hoechstens 3,2-fach; Dunst ab 280, hoechstens 38 %
 //   (4) Marke fester Groesse 20 x 10, unabhaengig von der Entfernung
-//   (5) Zielmarke ("ZIEL <Entfernung>") nur am Ziel der Ops
+//   (5) Zielklammern nur am Ziel der Ops (der Text steht seit B2 in visier-beschriftung.js)
 //   (6) Verbuendete in Mint, Eigenes Schiff nicht in der Liste
 //   (7) kein Wurf bei leeren/fehlenden Listen und kaputten Eintraegen; save/restore ausgeglichen
 let fails = 0, n = 0;
@@ -89,15 +89,11 @@ section('(5) Zielmarke nur am Ziel');
   const prot = [], ctx = new Proxy({}, { get: (t, k) => (k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 0 }) : (...a) => { prot.push(k); }), set: () => true });
   textCalls.length = 0;
   Obj.zeichne(ctx, v, plan(v), c);
-  ok(textCalls.length === 1 && /^ZIEL \d+$/.test(textCalls[0].s) && textCalls[0].o.scale === 2, 'genau ein Text "' + (textCalls[0] && textCalls[0].s) + '" in Skala 2, sonst kein Text an Gegnern');
-  const entf = Math.round(Math.hypot(400, 60));
-  ok(textCalls[0] && textCalls[0].s === 'ZIEL ' + entf, 'Entfernung = Abstand Schiff - Ziel (' + entf + ')');
+  ok(textCalls.length === 0, 'B1 zeichnet keinen Text mehr (ZIEL-Text und Marken setzt B2 in visier-beschriftung.js)');
+  ok(prot.includes('stroke') && lage(v).objekte.find((o) => o.e && o.e.id === 'b').ziel, 'Zielklammern werden weiter in B1 gezeichnet');
   zielId = null; textCalls.length = 0;
   Obj.zeichne(ctx, v, plan(v), c);
   ok(textCalls.length === 0 && lage(v).objekte.every((o) => !o.ziel), 'ohne Ziel: keine Zielmarke, kein Text');
-  zielId = 'unbekannt'; textCalls.length = 0;
-  Obj.zeichne(ctx, v, plan(v), c);
-  ok(textCalls.length === 0, 'Ziel nicht im Bild/unbekannt: kein Text');
   zielId = null;
 }
 
@@ -131,7 +127,7 @@ section('(7) Robustheit');
   const prot2 = [], ctx2 = new Proxy({}, { get: (t, k) => (k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 0 }) : (...a) => { prot2.push(k); }), set: () => true });
   zielId = 's'; textCalls.length = 0;
   Vis.zeichne(ctx2, v, { x: 0, y: 0, w: 512, h: 288 });
-  ok(textCalls.some((q) => /^ZIEL/.test(q.s)), 'Visier.zeichne ruft die Schicht "objekte" (Zielmarke erscheint)');
+  ok(prot2.includes('drawImage') || prot2.includes('stroke'), 'Visier.zeichne ruft die Schicht "objekte" (es wird gezeichnet)');
   zielId = null;
 }
 console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLER' : 'alle ' + n + ' Pruefungen gruen'));

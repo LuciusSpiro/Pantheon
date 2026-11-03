@@ -1,12 +1,14 @@
 // KUL-03 B1: Objekte und Marken des Visiers (Schicht 'objekte', Rang 10, über der Glasebene aus visier.js). Zeichnet nach Tiefe (hinten zuerst):
 // Gegner und Verbündete (Schildring flach auf der Ebene, Drehsprite auf die Ebene gelegt und gestaucht, Saum, Dunst, Marke fester Größe mit Hüllenbalken),
-// Ziel der Ops (Klammern + „ZIEL <Entfernung>“, die einzige Textmarke), Bojen und Sprungpunkte (Lichtsäule, Sprungfeld), Stationen, Dock-Ring,
+// Ziel der Ops (Klammern; der Text „ZIEL <Entfernung>“ und die Marken setzt B2), Bojen und Sprungpunkte (Lichtsäule, Sprungfeld), Stationen, Dock-Ring,
 // dazu grob (KUL-04: Redesign) Asteroiden, Projektile, Strahlen, Minen, Tele-Ladungen, Fracht, Bergung, Verborgenes.
-// Beschriftungen mit Namen/Entfernung und Randpfeile sind B2. Der klassische Zeichner (render.js, drawSpace) kennt diese Datei nicht.
+// Beschriftungen mit Namen/Entfernung, die Gegnermarken (markeAn) und Randpfeile setzt B2 (visier-beschriftung.js, Schicht 'beschriftung' Rang 15). Der klassische Zeichner (render.js, drawSpace) kennt diese Datei nicht.
 //   VisierObjekte.baue(view, plan, kamera)   reine Lage { objekte[] (hinten zuerst, mit tiefe/bb), schuesse[], striche[] } ohne Zeichnen; null ohne Schiff
 //   VisierObjekte.groesse(laenge, k)         { faktor, welt, px }: max(1,6; 16 px / Bildlänge), höchstens 3,2-fach
 //   VisierObjekte.dunst(tiefe)               Dunstanteil ab 280, höchstens 38 %
 //   VisierObjekte.marke(bb)                  Rechteck der Gegnermarke (20 × 10, fest) über dem Modell
+//   VisierObjekte.markeAn(ctx, o, cx, y0)    zeichnet die Marke eines Gegners (o aus der Lage) mit Oberkante y0, Mitte cx; die Lage der Marke bestimmt B2
+//   VisierObjekte.teleSichtbar(e)            Ladung (e.tele) des Gegners im Bild? nur in den letzten sichtLetzte s (1,2) wie die klassische Frontsicht
 //   VisierObjekte.letzte()                   die zuletzt gezeichnete Lage (für B2: Beschriftung, Randpfeile)
 // Koordinaten: Visier.projiziereWelt(ship, wx, wy, h); X = Steuerbord, Z = voraus (siehe visier.js). Alle Maße und Farben: HauptschirmTokens.TOKENS.VISIER.objekt.
 (function (root) {
@@ -151,7 +153,7 @@
     for (const m of sp.mines || []) { if (m && ok(m.x) && ok(m.y)) { const p = boden(ship, m.x, m.y); if (imBild(p, 20, c, c.H + 40)) O.push({ art: 'mine', tiefe: p.tiefe, p, m }); } }
     for (const f of (st.fracht && st.fracht.draussen) || []) { if (f && ok(f.x) && ok(f.y)) { const p = boden(ship, f.x, f.y); if (imBild(p, 20, c, c.H + 40)) O.push({ art: 'fracht', tiefe: p.tiefe, p, f }); } }
     for (const v of sp.salvage || []) { if (v && ok(v.x) && ok(v.y)) { const p = boden(ship, v.x, v.y); if (imBild(p, 20, c, c.H + 40)) O.push({ art: 'bergung', tiefe: p.tiefe, p, v }); } }
-    for (const h of sp.hidden || []) { if (h && ok(h.x) && ok(h.y)) { const p = boden(ship, h.x, h.y); if (imBild(p, 20, c, c.H + 40)) O.push({ art: 'verborgen', tiefe: p.tiefe, p, h, ziel: !!(ziel && ziel.hidden && !ziel.station && ziel.id === h.id) }); } }
+    for (const h of sp.hidden || []) { if (h && ok(h.x) && ok(h.y)) { const p = boden(ship, h.x, h.y); if (imBild(p, 20, c, c.H + 40)) { const z = !!(ziel && ziel.hidden && !ziel.station && ziel.id === h.id); O.push({ art: 'verborgen', tiefe: p.tiefe, p, h, ziel: z, bb: z ? { x0: p.x - 8, x1: p.x + 8, y0: p.y - 14, y1: p.y + 4 } : null }); } } }
     O.sort((a, b) => b.tiefe - a.tiefe);
 
     // Projektile und Strahlen (Höhe wie im Snapshot: Ebene + schuss.hoehe)
@@ -220,11 +222,18 @@
     ctx.setLineDash([]);
   }
 
+  function teleSichtbar(e) {   // wie render.js teleShown (Frontsicht, nicht taktisch): nur in den letzten sichtLetzte s der Ladung
+    if (!e || !e.tele) return false;
+    const C = root.Shared_Config, cfg = C && C.spaceM3 && C.spaceM3.tele && C.spaceM3.tele.captainSeesLast;
+    const spaet = ok(cfg) ? cfg : TK().VISIER.objekt.grob.tele.sichtLetzte;
+    return (+e.tele.left || 0) <= spaet;
+  }
+
   function gegner(ctx, o, ship, t) {
     const G = TK().VISIER.objekt.gegner, e = o.e, hl = o.gr.px;
     schildring(ctx, o, ship);
     // Tele-Ladung: Ring auf der Ebene um den ladenden Gegner (KUL-04: Redesign)
-    if (e.tele && !o.freund) {
+    if (!o.freund && teleSichtbar(e)) {
       const TL = TK().VISIER.objekt.grob.tele, left = Math.max(0, +e.tele.left || 0), dur = Math.max(0.1, +e.tele.dur || left || 1), puls = 0.55 + 0.45 * Math.sin(t * (6 + 6 * (1 - left / dur)));
       bogenPfad(ctx, o.p.r, o.p.f, o.gr.welt * TL.radiusFaktor + 10, 0, Math.PI * 2, 28, 8);
       ctx.setLineDash(TL.strich); ctx.strokeStyle = rgba(TL.farbe, TL.alpha * puls); ctx.lineWidth = TL.breite; ctx.stroke(); ctx.setLineDash([]);
@@ -266,19 +275,20 @@
     } catch (err) { melde(err); } finally { ctx.restore(); }
   }
 
-  function markeZeichnen(ctx, o) {
-    const M = TK().VISIER.objekt.marke, r = marke(o.bb), mx = Math.round(r.cx), my = Math.round(r.y0), W = M.w, h = M.huelle.h;
+  function markeAn(ctx, o, cx, y0) {   // Marke fester Größe mit Oberkante y0 und Mitte cx; wohin sie kommt, entscheidet die Beschriftung (B2)
+    const M = TK().VISIER.objekt.marke, mx = Math.round(cx), my = Math.round(y0), W = M.w, h = M.huelle.h;
     const farbe = o.freund ? TK().VISIER.objekt.gegner.freund.farbe : o.ziel ? M.winkel.farbeZiel : M.winkel.farbe;
     ctx.fillStyle = M.huelle.spur; ctx.fillRect(mx - W / 2, my, W, h);
     ctx.fillStyle = o.freund ? TK().VISIER.objekt.gegner.freund.huelle : M.huelle.farbe; ctx.fillRect(mx - W / 2, my, Math.round(W * o.hp), h);
     ctx.fillStyle = farbe; ctx.beginPath(); ctx.moveTo(mx - M.winkel.halbB, my + M.winkel.oben); ctx.lineTo(mx + M.winkel.halbB, my + M.winkel.oben); ctx.lineTo(mx, my + M.winkel.unten); ctx.closePath(); ctx.fill();
   }
-  function zielZeichnen(ctx, bb, entf) {   // Klammern um das Ziel und „ZIEL <Entfernung>“ in Skala 2 (die einzige Textmarke)
+  function zielZeichnen(ctx, bb) {   // vier Klammern um das Ziel, mit dunklem Saum darunter (auf dem Schildring sonst nicht lesbar); den Text setzt B2
     const Z = TK().VISIER.objekt.gegner.ziel, X0 = bb.x0 - Z.pad, X1 = bb.x1 + Z.pad, Y0 = bb.y0 - Z.pad, Y1 = bb.y1 + Z.pad;
-    ctx.strokeStyle = Z.farbe; ctx.lineWidth = Z.breite; ctx.setLineDash([]);
-    for (const [qx, qy, dx, dy] of [[X0, Y0, 1, 1], [X1, Y0, -1, 1], [X1, Y1, -1, -1], [X0, Y1, 1, -1]]) { ctx.beginPath(); ctx.moveTo(qx + dx * Z.arm, qy); ctx.lineTo(qx, qy); ctx.lineTo(qx, qy + dy * Z.arm); ctx.stroke(); }
-    const R = root.Render;
-    if (R && R.textKontur) R.textKontur(ctx, Z.label.format.replace('{entfernung}', String(Math.round(entf))), Math.round((bb.x0 + bb.x1) / 2), Math.round(Y1 + Z.label.abstand), { color: Z.farbe, align: 'center', scale: Z.label.skala });
+    ctx.setLineDash([]); ctx.lineCap = 'butt';
+    for (const halo of [true, false]) {
+      ctx.strokeStyle = halo ? rgba(Z.halo.farbe, Z.halo.alpha) : Z.farbe; ctx.lineWidth = halo ? Z.breite + 2 * Z.halo.extra : Z.breite;
+      for (const [qx, qy, dx, dy] of [[X0, Y0, 1, 1], [X1, Y0, -1, 1], [X1, Y1, -1, -1], [X0, Y1, 1, -1]]) { ctx.beginPath(); ctx.moveTo(qx + dx * (Z.arm + (halo ? Z.halo.extra : 0)), qy); ctx.lineTo(qx, qy); ctx.lineTo(qx, qy + dy * (Z.arm + (halo ? Z.halo.extra : 0))); ctx.stroke(); }
+    }
   }
 
   function saeule(ctx, p, welt, ship, o, farbe, alpha, breiteJeK) {   // Lichtsäule von der Spitze (0) zum Fuß (alpha)
@@ -387,18 +397,14 @@
     for (const b of aus.striche) { ctx.strokeStyle = b.feind ? S.gegner : S.eigen; ctx.lineWidth = Math.min(S.breiteMax, Math.max(S.breiteMin, b.a.k * S.breiteJeK)); ctx.beginPath(); ctx.moveTo(b.a.x, b.a.y); ctx.lineTo(b.b.x, b.b.y); ctx.stroke(); }
     for (const s of aus.schuesse) { ctx.strokeStyle = s.feind ? S.gegner : S.eigen; ctx.lineWidth = Math.min(S.breiteMax, Math.max(S.breiteMin, s.a.k * S.breiteJeK)); ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y); ctx.lineTo(s.b.x, s.b.y); ctx.stroke(); }
     ctx.restore();
-    // Marken über den Modellen (nach allen Objekten, damit kein Schiff sie überdeckt), dann das Ziel
+    // Klammern um das Ziel über allen Modellen (Marken und Texte folgen in der Schicht 'beschriftung')
     for (const o of aus.objekte) {
-      if (o.art === 'gegner') { try { markeZeichnen(ctx, o); } catch (e) { melde(e); } }
-    }
-    for (const o of aus.objekte) {
-      if (o.ziel && o.bb && (o.art === 'gegner' || o.art === 'station')) zielZeichnen(ctx, o.bb, o.entf);
-      else if (o.ziel && o.art === 'verborgen') zielZeichnen(ctx, { x0: o.p.x - 8, x1: o.p.x + 8, y0: o.p.y - 14, y1: o.p.y + 4 }, Math.hypot(o.h.x - ship.x, o.h.y - ship.y));
+      if (o.ziel && o.bb && (o.art === 'gegner' || o.art === 'station' || o.art === 'verborgen')) { try { zielZeichnen(ctx, o.bb); } catch (e) { melde(e); } }
     }
   }
   let letzteLage = null;
 
-  const API = { silCacheGroesse: () => silCache.size, baue, groesse, dunst, marke, stauch, seitenStufen, letzte: () => letzteLage, zeichne: zeichneObjekte };
+  const API = { silCacheGroesse: () => silCache.size, baue, groesse, dunst, marke, markeAn, teleSichtbar, stauch, seitenStufen, letzte: () => letzteLage, zeichne: zeichneObjekte };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.VisierObjekte = API;
   if (root.Visier && root.Visier.registriereSchicht) root.Visier.registriereSchicht('objekte', 10, zeichneObjekte);

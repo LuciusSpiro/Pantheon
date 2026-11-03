@@ -277,7 +277,8 @@
         schildring: { radiusFaktor: 0.62, halbBogen: 0.62, farbe: FARBE.schild, alphaGrund: 0.35, alphaJeStufe: 0.15, breiteGrund: 1, breiteJeStufe: 0.5,
           leer: { farbe: FARBE.gefahr, alpha: 0.9, strich: [2, 3], breite: 1.5 } },
         // Ziel der Ops: vier Ecken um das Modell, Text darunter (Mockup)
-        ziel: { farbe: FARBE.kurs, pad: 4, arm: 6, breite: 2, label: { format: 'ZIEL {entfernung}', skala: 2, abstand: 4 } },
+        ziel: { farbe: FARBE.kurs, pad: 4, arm: 6, breite: 2, halo: { farbe: EIGEN.tiefraum, alpha: 0.85, extra: 2 },   // halo: dunkler Saum unter den Klammern, damit sie auf dem Schildring lesbar bleiben (B2)
+          label: { format: 'ZIEL {entfernung}', skala: 2, abstand: 4 } },   // Text setzt die Beschriftung (visier-beschriftung.js), die Klammern zeichnet visier-objekte.js
       },
       marke: {                     // Gegnermarke fester Größe über jedem Schiff, unabhängig von der Entfernung (Mockup schilder.marke)
         w: 20, h: 10, abstand: 3,  // 20 × 10, 3 px über dem Modell
@@ -314,6 +315,7 @@
         pad: 4, hoehe: 15, hoeheMitEntfernung: 24, hoeheMitEntfernung2: 31,   // Kasten = Textbreite + 4; mit Entfernung darunter (+16) in Skala 1 bzw. Skala 2
         fuehrung: { abVersatz: 5, alpha: 0.6, breite: 1 },   // Führungslinie zum Objekt bei Versatz > 5 px, Farbe des Schilds (Marke: gegnerHell)
         nurZielText: true,         // Gegner: nur das Ziel trägt Text, alle anderen nur die Marke (Entfernung liest man an den Ringen)
+        freiObenLinks: { x: 0, y: 0, w: 198, h: 76 },   // oben links bleibt FREI (Auftrag KUL-03 Abnahme 5): Fläche der früheren Tafel links samt Rand (TAFEL.links + rand)
         sperren: ['tafelRechts', 'leiste', 'lagescheibe'],   // belegte Flächen (Mockup: Tafel + Leiste; Lagescheibe ergänzt, sie ragt 35 px über die Leiste)
       },
       randpfeil: {                 // Gegner voraus, aber außerhalb des Bildes (Mockup pfeile)
@@ -329,7 +331,7 @@
         fracht: { farbe: FARBE.kurs, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
         bergung: { farbe: FARBE.schild, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
         verborgen: { farbe: FARBE.dim, gefunden: FARBE.schild, welt: 12, minPx: 4 },
-        tele: { farbe: EIGEN.gegnerHell, radiusFaktor: 0.9, alpha: 0.9, strich: [3, 2], breite: 1.5 },   // Ring auf der Ebene um den ladenden Gegner
+        tele: { farbe: EIGEN.gegnerHell, radiusFaktor: 0.9, alpha: 0.9, strich: [3, 2], breite: 1.5, sichtLetzte: 1.2 },   // Ladung nur in den letzten 1,2 s (wie klassisch cfgM3 tele.captainSeesLast; Spielkonfiguration hat Vorrang)   // Ring auf der Ebene um den ladenden Gegner
       },
       alarm: { farbe: FARBE.gefahr, breite: 3, laenge: 46 },   // je zwei Streifen links und rechts: unter dem Horizont und über der Leiste. „ALARM ROT“ entfällt (Auftrag KUL-03)
     },
