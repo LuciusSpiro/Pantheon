@@ -41,7 +41,7 @@ function schreiben(game, gut, art, grund, neu) {
   if (!ARTEN.includes(art)) Pruefung.unbekannt(game, 'buchung-art', 'vorrat: unbekannte Art ' + art);
   const vorher = game.inventory[gut];
   game.inventory[gut] = neu;
-  Haken.buchung(game, gut, art, grund, neu - (Number(vorher) || 0), neu);   // TEL-01: hier protokollieren (B2: liest nur; ohne Session ein Zugriff)
+  Haken.buchung(game, gut, art, grund, neu - vorher, neu);   // TEL-01: hier protokollieren (B2: liest nur; ohne Session ein Zugriff)
   return neu;
 }
 

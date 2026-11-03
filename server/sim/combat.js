@@ -1053,6 +1053,22 @@ function updateVisibility(game) {
   }
   Haken.deckungSpielerAlle(game);   // TEL-01 B2: Deckungswechsel der Spieler ins Protokoll (liest nur)
 }
+// TEL-01 B2: "verdeckt" (nur LESEN, kein Zufall, schreibt nichts): es gibt alarmierte Gegner, keiner hat Sicht auf den Spieler (dasselbe Kriterium wie die
+// Gefahrenliste in updateVisibility: Reichweite und Sichtlinie), und der Spieler steht an Deckung. Das Protokoll ruft es im 5-Hz-Takt von updateVisibility.
+function verdecktVor(game, p) {
+  const aw = game.away;
+  if (!p || p.zone !== 'away' || !aw || !aw.drones) return false;
+  const E = env(game);
+  if (!nextToCover(E, p)) return false;
+  const R = cfg(game).sightTiles * TILE;
+  let alarmiert = false;
+  for (const e of aw.drones) {
+    if (!e.alive || e.asleep || !squad.isAlert(game, e)) continue;
+    alarmiert = true;
+    if (dist(p.x, p.y, e.x, e.y) <= R && Los.lineOfSight(E.blocked, e.x, e.y, p.x, p.y)) return false;
+  }
+  return alarmiert;
+}
 function nextToCover(E, p) {
   const t = Physics.toTile(p.x, p.y);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
@@ -1855,7 +1871,7 @@ function awaySnap(game, aw) {
 module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
-  jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, scanQuality, tune, tuneList,
+  jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
   playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle

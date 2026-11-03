@@ -225,7 +225,7 @@ class LageSpielleiter {
         continue;
       }
       this.job = null; this.zustand = 'idle';
-      Haken.spielleiterWarten(this.game, 'lage', this.game.time - job.start, it.e ? 'fehler' : 'ok');   // TEL-01 B2: Anfrage -> Antwort (liest nur)
+      Haken.spielleiterWarten(this.game, 'lage', this.game.time - job.start, Haken.warteAusgang(it.e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.stoerung(job, it.e, null);
       else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('lage-antwort', e); this.stoerung(job, LLM.llmError('EXIT', 'Plan nicht anwendbar: ' + e.message), it.r); } }
     }

@@ -1,6 +1,7 @@
 'use strict';
 // TEL-01 B2: Test der Haken fuer Deckung, Menschen, Wirtschaft, Technik und die Zeitreihe (server/telemetrie/haken.js) – ohne Netz, direkt gegen die Game-Klasse.
 //   node tools/test-telemetrie-b2.js  (npm run test:telemetrie-b2)
+// (Deckung als Rohzustand mit Peek-Probe: tools/test-telemetrie-deckung.js; Tickschleife in server/index.js: tools/test-telemetrie-server.js.)
 // Prueft je Ereignistyp: er entsteht an der richtigen Stelle mit den richtigen Feldern, Zeitreihe (alle 2 s, drei Slots, Tickzeit, Fehlerzaehler, Eingaben,
 // kein Kontostand), Pseudonym (keine Namen, keine Fehlermeldung im Protokoll), Schema (nur Felder aus schema.js), und der Spielverlauf ist mit und ohne
 // Protokoll bit-gleich.
@@ -49,6 +50,8 @@ function drehbuch(S) {
   g.handleMessage(conns[1], { t: Protocol.C.ACT, down: true });                  // Eingabe Aktion
   g.handleMessage(conns[1], { t: Protocol.C.ACT, down: false });
   run(1);
+  g.handleMessage(conns[2], { t: Protocol.C.DEBUG, cmd: 'help' });                // Debug und clientError sind keine Eingaben (p3 sendet nur diese)
+  g.handleMessage(conns[2], { t: 'clientError', msg: 'x' });
   g.handleMessage(conns[0], { t: Protocol.C.LEAVE });                            // Spieler verlaesst die Konsole
   run(1);
   Space.technikPower(g, 'engines', -1);                                          // Energie aus der Technik-Konsole
@@ -69,7 +72,7 @@ function drehbuch(S) {
   const Los = require('../shared/los.js'); const nextToLow = Los.nextToLow;
   p2.zone = 'away'; p2.crouch = true; Los.nextToLow = () => true;
   try { require('../server/sim/combat.js').updateVisibility(g); p2.crouch = false; require('../server/sim/combat.js').updateVisibility(g); } finally { Los.nextToLow = nextToLow; }
-  const e = { id: 'gra-1', kind: 'scavenger', rolle: 'grundtyp', crouch: true, x: 320, y: 480 };
+  const e = { id: 'gra-1', kind: 'scavenger', rolle: 'grundtyp', alive: true, crouch: true, x: 336, y: 496 };
   Haken.deckungGegner(g, e); Haken.deckungGegner(g, e); e.crouch = false; Haken.deckungGegner(g, e);
   Haken.spielleiterWarten(g, 'lage', 3.456, 'ok');
   g.countError('test-x', new Error('Geheimname-Fehlermeldung'));
@@ -103,10 +106,12 @@ function drehbuch(S) {
   const rp = von('reparatur');
   ok(rp.length === 1 && rp[0].slot === 'p1' && rp[0].system === 'engines' && rp[0].wie === 'minigame' && rp[0].erfolg === true && rp[0].dauer >= 3 && rp[0].notflicken === false, 'reparatur: p1, minigame, Erfolg, Dauer ' + (rp[0] && rp[0].dauer));
   const zw = von('zone_wieder');
-  ok(zw.length === 1 && zw[0].zone === 'engines' && zw[0].wie === 'minigame' && zw[0].durch === 'player', 'zone_wieder: engines, minigame, durch player');
+  const SEKT = ['bug', 'steuerbord', 'heck', 'backbord'];
+  ok(zw.length === 1 && zw[0].system === 'engines' && zw[0].zone === SEKT[interior.systemSector('engines')] && zw[0].wie === 'minigame' && zw[0].durch === 'player', 'zone_wieder: system engines, zone = Sektor (' + (zw[0] && zw[0].zone) + '), minigame, durch player');
   const dk = von('deckung');
-  ok(dk.filter((x) => x.slot === 'p2').map((x) => x.rein).join() === 'true,false' && dk.find((x) => x.slot === 'p2').cv === 2, 'deckung: Spieler rein dann raus, je Wechsel eine Zeile (cv 2)');
-  ok(dk.filter((x) => x.gegner === 'gra-1').map((x) => x.rein).join() === 'true,false' && dk.find((x) => x.gegner === 'gra-1').rolle === 'grundtyp', 'deckung: Gegner rein dann raus, keine Zeile ohne Wechsel');
+  const tp = (x) => x.cv + '|' + (x.geduckt ? 1 : 0) + '|' + (x.verdeckt ? 1 : 0);
+  ok(dk.filter((x) => x.slot === 'p2').map(tp).join() === '2|1|0,0|0|0' && Number.isInteger(dk.find((x) => x.slot === 'p2').x) && dk.every((x) => !('rein' in x)), 'deckung: Spieler als Rohzustand (cv|geduckt|verdeckt) 2|1|0 dann 0|0|0, je Aenderung eine Zeile, kein rein');
+  ok(dk.filter((x) => x.gegner === 'gra-1').map((x) => (x.geduckt ? 1 : 0) + '|' + (x.stellung ? 1 : 0)).join() === '1|0,0|0' && dk.find((x) => x.gegner === 'gra-1').rolle === 'grundtyp' && dk.find((x) => x.gegner === 'gra-1').x === 10, 'deckung: Gegner geduckt dann nicht, keine Zeile ohne Aenderung, Kachel = floor(v/32)');
   const sw = von('spielleiter_warten');
   ok(sw.length === 1 && sw[0].art === 'lage' && sw[0].dauer === 3.46 && sw[0].ausgang === 'ok', 'spielleiter_warten: lage, 3.46 s');
 
@@ -122,7 +127,9 @@ function drehbuch(S) {
   ok(!z.some((x) => JSON.stringify(x).includes('Geheimname')), 'keine Fehlermeldung im Protokoll');
   ok(zr.some((x) => x.r_energie.join() === '1,2,2') && zr.every((x) => x.r_zustand.length === interior.SYSTEM_ORDER.length && x.r_integ.length === interior.SYSTEM_ORDER.length), 'Raum: Energie-Verlauf, Zustand und Integritaet je System');
   ok(zr.every((x) => !Object.keys(x).some((k) => /mark|konto|stand_m/.test(k))), 'kein Kontostand in der Zeitreihe');
-  ok(zr.some((x) => x.zone.includes('away') && x.b_cv[1] === 0), 'Boden: Zone und Deckungswerte je Slot');
+  ok(zr.some((x) => x.ort.includes('boden') && x.b_cv[1] === 0) && zr.every((x) => x.ort.every((o) => o === 'raum' || o === 'boden')), 'Boden: ort (raum | boden) und Deckungswerte je Slot');
+  ok(zr.every((x) => x.ein_akt[2] === 0 && x.ein_bew[2] === 0), 'Debug und clientError zaehlen nicht als Eingabe (p3 sendet nur diese)');
+  ok(zr.every((x) => x.tick_ueber5 >= x.tick_ueber16 && x.tick_ueber16 >= x.tick_ueber33 && x.tick_ueber5 <= x.tick_n && x.snap_n === 0 && x.kappung_n === 0 && x.nachhol_ticks === 0), 'Tick-Zaehler ueber 5/16/33 ms verschachtelt; ohne Server (Bot) keine Snapshot- und Kappungswerte');
   ok(zr.every((x) => Object.keys(x).length === 5 + SCHEMA.zeitreihe.felder.length), 'Zeitreihe: alle Felder des Schemas, keine fremden');
 
   console.log('Schema und Pseudonym');
@@ -145,6 +152,104 @@ function drehbuch(S) {
   const zs = zustand(S);
   ok(zs === zustand(A), 'Zustand nach dem Drehbuch identisch (Inventar, Schiff, Spieler, Zeit, Fehler)');
   ok(!fs.existsSync(d2) || lesen(d2).length === 0, 'TELEMETRIE=aus schreibt nichts');
+
+  console.log('Abnahme 10: drei Slots, Nachzuegler, Abgang (gescriptet)');
+  {
+    const d3 = path.join(root, 'drei');
+    const T = setup(d3, 'an');   // drei hello, dann erst ready: alle drei sind beim Start da
+    const { g, conns, run } = T;
+    const [q1, q2, q3] = g.players;
+    run(1);
+    interior.enterConsole(g, q1, 'helm'); interior.enterConsole(g, q2, 'weapons'); interior.enterConsole(g, q3, 'technik');
+    run(4.5);
+    // echter Nachzuegler: ein vierter Spieler kommt nach dem Start dazu und setzt sich an die Captain-Konsole
+    const c4 = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c4); g.handleMessage(c4, { t: 'hello', clientId: 'Clientqzx-3', name: 'Nachzuegleria', color: 3 });
+    const q4 = g.players.find((p) => p.id === 'p4');
+    interior.enterConsole(g, q4, 'captain');
+    run(4.5);
+    // Abgang: p2 trennt die Verbindung
+    g.removeConnection(conns[1]);
+    run(4.5);
+    g.telemetrie.sessionBeenden('test');
+    const z3 = lesen(d3);
+    const bei = z3.filter((x) => x.typ === 'spieler_bei'), weg = z3.filter((x) => x.typ === 'spieler_weg');
+    ok(z3[0].typ === 'kopf' && z3[0].spielerzahl === 3 && z3[0].slots.map((s) => s.slot).join() === 'p1,p2,p3' && bei.length === 1 && bei[0].slot === 'p4' && bei[0].nachzuegler === true, 'Start mit drei bereiten Spielern (Kopf: p1, p2, p3), spaeter p4 als Nachzuegler (spieler_bei)');
+    ok(weg.length === 1 && weg[0].slot === 'p2', 'spieler_weg: p2 (Abgang)');
+    const zr3 = z3.filter((x) => x.typ === 'zeitreihe');
+    const zu = (x) => x.slots.join();
+    ok(zr3.some((x) => zu(x) === 'p1,p2,p3' && x.konsole.join() === 'helm,weapons,technik' && x.station.join() === 'helm,weapons,technik'), 'Zeitreihe: drei Slots mit eigenen Konsolen und Rollen (helm, weapons, technik)');
+    ok(zr3.some((x) => zu(x) === 'p1,p2,p3,p4' && x.konsole[3] === 'captain' && x.verbunden.join() === 'true,true,true,true'), 'Zeitreihe: Nachzuegler p4 mit eigener Konsole (captain), vier verbundene Slots');
+    ok(zr3.some((x) => zu(x) === 'p1,p2,p3,p4' && x.verbunden[1] === false && x.verbunden[0] === true && x.konsole[1] === null), 'Zeitreihe: Abgang p2 nicht mehr verbunden, Konsole frei');
+    const kon = z3.filter((x) => x.typ === 'konsole');
+    ok(kon.some((x) => x.slot === 'p2' && x.rein === false && x.grund === 'abgang') && kon.filter((x) => x.rein === true && x.grund === 'betreten').map((x) => x.slot).join() === 'p1,p2,p3,p4', 'konsole: vier Betreten, p2 verlaesst mit Grund abgang');
+    ok(!z3.some((x) => JSON.stringify(x).match(/Zyxwename|Qorvath|Mirelle|Nachzuegleria|Clientqzx/)), 'keine Namen, keine clientId');
+    ok(g.telemetrie.stand().verworfeneFelder === 0 && g.telemetrie.stand().fehler === 0, 'verworfene Felder 0, Fehlerzaehler 0');
+    console.log('  Info: ' + zr3.length + ' Zeitreihenzeilen, Slots je Zeile ' + [...new Set(zr3.map(zu))].join(' | '));
+  }
+
+  console.log('Solo-Pause zaehlt nicht (Tickzeit und Zeitreihe stehen mit der Spielzeit)');
+  {
+    const dp = path.join(root, 'pause');
+    const env = { MISSION_SOURCE: 'fallback', TELEMETRIE: 'an', TELEMETRIE_DIR: dp, TELEMETRIE_QUELLE: 'bot' };
+    const g = new Game({ noStore: true, seed: 7, env, log: () => {} });
+    const c = { inbox: [], send(m) { this.inbox.push(m); } };
+    g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'Clientqzx-9', name: 'Solowolf', color: 0 }); g.handleMessage(c, { t: 'ready', ready: true });
+    const run = (sek) => { for (let k = 0; k < Math.round(sek * 30); k++) g.step(); };
+    run(3.2);
+    g.paused = true;   // Solo-Pause: die Simulation steht, Game.step laeuft weiter
+    g.telemetrie.schreibeJetzt();
+    const tPause = g.time; const n0 = lesen(dp).filter((x) => x.typ === 'zeitreihe').length;
+    run(20);   // 600 Steps in der Pause
+    g.telemetrie.schreibeJetzt();
+    const nP = lesen(dp).filter((x) => x.typ === 'zeitreihe').length;
+    ok(g.time === tPause && nP === n0, 'in der Pause: Spielzeit steht, keine neue Zeitreihenzeile (' + n0 + ' -> ' + nP + ')');
+    g.paused = false;
+    run(2.2);
+    g.telemetrie.sessionBeenden('test');
+    const zp = lesen(dp).filter((x) => x.typ === 'zeitreihe');
+    ok(zp.length === n0 + 1 && zp[zp.length - 1].tick_n >= 25 && zp[zp.length - 1].tick_n <= 61, 'danach: das naechste Fenster zaehlt nur laufende Ticks (tick_n ' + zp[zp.length - 1].tick_n + ', nicht ~600 mehr)');
+    ok(zp.every((x) => x.tick_n <= 61), 'kein Fenster hat mehr als ~60 Ticks (die 600 Pausen-Steps sind nicht eingerechnet)');
+  }
+
+  console.log('Kaputte Werte stehen als null');
+  {
+    const dk2 = path.join(root, 'null');
+    const S2 = setup(dk2, 'an');
+    S2.run(1);
+    S2.g.inventory.ladung = undefined;   // kaputter Bestand
+    Vorrat.einlagern(S2.g, 'ladung', 2, 'fund');
+    Haken.buchung(S2.g, 'marks', 'buchung', 'test', NaN, undefined);
+    Haken.ruf(S2.g, 'rom', undefined, NaN, 'test');
+    S2.g.telemetrie.sessionBeenden('test');
+    const zn = lesen(dk2);
+    const b = zn.filter((x) => x.typ === 'buchung' && x.konto === 'ladung');
+    ok(b.length === 1 && b[0].betrag === null && b[0].stand === 2, 'vorrat mit kaputtem Vorwert: betrag null statt 0 (' + JSON.stringify(b[0] && [b[0].betrag, b[0].stand]) + ')');
+    ok(zn.some((x) => x.typ === 'buchung' && x.grund === 'test' && x.betrag === null && x.stand === null), 'buchung mit NaN/undefined: betrag und stand null');
+    ok(zn.some((x) => x.typ === 'ruf' && x.grund === 'test' && x.betrag === null && x.stand === null), 'ruf mit kaputtem Wert: null, grund steht im Feld');
+  }
+
+  console.log('Ruf-Grund und ein Fehler in der Zeitreihe');
+  {
+    const dr = path.join(root, 'ruf');
+    const S3 = setup(dr, 'an');
+    S3.run(1);
+    S3.g.weltsim = Object.assign(S3.g.weltsim || {}, { ruf: { rom: 0, ger: 0, kon: 0 } });
+    Ruf.aendern(S3.g, 'rom', 4);
+    Ruf.debug(S3.g, ['rom', '9']);
+    // ein Fehler beim Bauen der Zeitreihe (kaputte Hitze): das Fenster rueckt trotzdem weiter, der Fehler kommt je Fenster einmal, nicht je Tick
+    const echt = S3.g.telemetrie.ereignis;
+    S3.g.telemetrie.ereignis = function (typ, f) { if (typ === 'zeitreihe') throw new Error('zeitreihe kaputt'); return echt.apply(this, arguments); };
+    const e0 = S3.g.errors;
+    S3.run(4.1);
+    const fehlerJeFenster = S3.g.errors - e0;
+    S3.g.telemetrie.ereignis = echt;
+    S3.g.telemetrie.sessionBeenden('test');
+    const zr4 = lesen(dr);
+    const rf4 = zr4.filter((x) => x.typ === 'ruf');
+    ok(rf4.length === 2 && rf4[0].fraktion === 'rom' && rf4[0].grund === 'sonst' && rf4[1].fraktion === 'rom' && rf4[1].grund === 'debug' && rf4[1].betrag === 5 && rf4[1].stand === 9, 'ruf: grund sonst (Ruf.aendern) und debug (Ruf.debug)');
+    ok(fehlerJeFenster >= 1 && fehlerJeFenster <= 3, 'Fehler beim Bauen der Zeitreihe: ' + fehlerJeFenster + ' in 4,1 s (je Fenster einmal, nicht je Tick)');
+  }
 
   try { fs.rmSync(root, { recursive: true, force: true }); } catch (e) { /* egal */ }
   console.log(fails ? `\n${fails} FEHLER` : '\nTELEMETRIE B2 OK');

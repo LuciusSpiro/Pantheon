@@ -494,7 +494,7 @@ class Spielleiter {
   finishJob(job, r, e) {
     if (this.job === job) this.job = null;
     const dauer = Math.max(0, this.time - (job.startedAt || this.time));
-    Haken.spielleiterWarten(this.game, String(job.type), dauer, e ? 'fehler' : 'ok');   // TEL-01 B2: Anfrage -> Antwort (liest nur)
+    Haken.spielleiterWarten(this.game, String(job.type), dauer, Haken.warteAusgang(e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
     const plan = job.plan;
     if (r) plan.tokens += r.tokens || 0;
     if (e) {

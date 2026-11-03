@@ -9,6 +9,7 @@ const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
 const { Game } = require('./game.js');
 const Weltstand = require('./weltstand.js');
+const Haken = require('./telemetrie/haken.js');   // TEL-01 B2: Tickschleife meldet Snapshot-Zeit und Kappung ans Protokoll
 
 const ROOT = path.join(__dirname, '..');
 const STATIC_DIRS = [
@@ -187,12 +188,16 @@ function startServer(opts) {
   const loop = setInterval(() => {
     const now = performance.now();
     acc += now - last; last = now;
-    if (acc > 250) acc = 250; // nach Hängern nicht durchrasen
+    if (acc > 250) { if (game.telemetrie.offen) Haken.tickKappung(game, acc - 250); acc = 250; } // nach Hängern nicht durchrasen (TEL-01 B2: verworfene Zeit ins Protokoll)
+    let nachgeholt = 0;
     while (acc >= dtMs) {
       acc -= dtMs;
       game.step();
+      if (game.telemetrie.offen && ++nachgeholt > 1) Haken.nachgeholt(game, 1);   // TEL-01 B2: Ticks nach dem ersten im selben Intervallaufruf
       if (game.wantsSnapshot()) {
+        const s0 = game.telemetrie.offen ? performance.now() : 0;   // TEL-01 B2: Dauer von Snapshot-Bau + Broadcast (liest nur die Uhr)
         try { game.broadcast(game.snapshot()); } catch (e) { game.countError('snapshot', e); }
+        if (s0) Haken.snapshotZeit(game, performance.now() - s0);
       }
     }
   }, 5);

@@ -407,7 +407,7 @@ function healPlayer(game, p, amount) {
 function downPlayer(game, p, source) {
   p.downed = true; p.downedFor = 0; p.hp = 0;
   if (p.console) konsoleVerlassen(game, p, 'niedergestreckt');
-  konsoleLoesen(game, p, 'niedergestreckt'); p.hold = null; p.input.mx = 0; p.input.my = 0;
+  p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.carry) dropCarry(game, p);
   game.oda(p.zone === 'away'
     ? `${p.name} ist am Boden! E halten zum Wiederbeleben – sonst hole ich dich in 15 s.`

@@ -4,7 +4,8 @@
 // Prueft: jeder vorkommende Typ steht in server/telemetrie/schema.js, jede Zeile hat nur Felder aus dem Schema, jedes Feld ist flach (Zahl, Text, Wahrheitswert, null, Liste
 // davon <= 64; nur der Sessionkopf darf verschachtelt sein), die Zeitreihe traegt alle ihre Felder, Kopf/Ende je Datei, Fehler und verworfene Zeilen 0,
 // jeder Schema-Typ der Pakete kommt mindestens einmal vor (oder steht in NUR_IM_MENSCHENSPIEL, dann prueft ihn ein Test mit gescriptetem Spiel), und im ganzen Ordner
-// (inkl. tuning) kommt kein Name und keine clientId der Bots vor (Ada, Bo, Cem, sim-<n>).
+// (inkl. tuning) kommt kein Name und keine clientId der Bots vor (mit Wortgrenzen: BOT_NAME, BOT_ID). Haengt ein Bot-Lauf, schlaegt der Test nach LAUF_LIMIT_MS fehl,
+// statt npm test zu blockieren.
 // Wer ein Paket ergaenzt (B1: Schuss, Treffer, Kill, Szenen ...), traegt seine Typen in SCHEMA ein und in PAKET_TYPEN.
 const fs = require('fs');
 const os = require('os');
@@ -18,7 +19,9 @@ const PAKET_TYPEN = {
 // Nur im Menschenspiel (bzw. nur mit Weltsim/LLM) erreichbar, nicht im Bot-Lauf: getestet in tools/test-telemetrie-b2.js mit gescriptetem Spiel.
 const NUR_IM_MENSCHENSPIEL = ['ruf', 'spielleiter_warten'];
 const KOPF = ['v', 'typ', 'sitzung', 'tick', 't'];
-const BOT_NAMEN = ['Ada', 'Bo', 'Cem'];
+const BOT_NAME = /\b(Ada|Bo|Cem)\b/;   // Namen und Charakternamen der Bots (der Charaktername ist der Spielername nach Charakter.eindeutigerName)
+const BOT_ID = /sim-\d+/;
+const LAUF_LIMIT_MS = 300000;
 
 let fails = 0;
 const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
@@ -30,9 +33,10 @@ function lauf(name, args) {
   return new Promise((resolve) => {
     const dir = path.join(root, name);
     const p = spawn(process.execPath, [path.join(__dirname, 'sim-headless.js'), ...args], { env: Object.assign({}, process.env, { TELEMETRIE: 'an', TELEMETRIE_DIR: dir }), stdio: ['ignore', 'pipe', 'pipe'] });
-    let out = '';
+    let out = ''; let zeit = false;
+    const wache = setTimeout(() => { zeit = true; try { p.kill(); } catch (e) { /* schon beendet */ } }, LAUF_LIMIT_MS);
     p.stdout.on('data', (d) => { out += d; }); p.stderr.on('data', (d) => { out += d; });
-    p.on('close', (code) => resolve({ name, dir, code, out }));
+    p.on('close', (code) => { clearTimeout(wache); resolve({ name, dir, code, out, zeit }); });
   });
 }
 
@@ -40,7 +44,7 @@ function lauf(name, args) {
   console.log('Bot-Laeufe (Grabenangriff zu dritt, Kampagne zu dritt) mit Protokoll');
   const t0 = Date.now();
   const L = await Promise.all([lauf('graben', ['graben', '--players', '3', '--seed', '1']), lauf('raum', ['3', '--seed', '7'])]);
-  for (const l of L) ok(l.code === 0, `${l.name}: Bot-Lauf Exit ${l.code} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+  for (const l of L) ok(l.code === 0 && !l.zeit, `${l.name}: Bot-Lauf Exit ${l.code}${l.zeit ? ' (Zeitlimit ' + LAUF_LIMIT_MS / 1000 + ' s, Kindprozess beendet)' : ''} (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
 
   const gesehen = new Set(); const fremdeTypen = new Set(); const fremdeFelder = new Set(); const unflach = []; let zeilenGesamt = 0, bytesGesamt = 0, dauerGesamt = 0;
   for (const l of L) {
@@ -61,7 +65,7 @@ function lauf(name, args) {
         for (const k of Object.keys(x)) {
           if (KOPF.includes(k)) continue;
           if (!s.felder.includes(k)) fremdeFelder.add(x.typ + '.' + k);
-          if (s.flach !== false && !(Array.isArray(x[k]) ? x[k].length <= 64 && x[k].every(flach) : flach(x[k]))) unflach.push(x.typ + '.' + k);
+          if (!s.strukturiert && !(Array.isArray(x[k]) ? x[k].length <= 64 && x[k].every(flach) : flach(x[k]))) unflach.push(x.typ + '.' + k);
         }
         if (x.typ === 'zeitreihe') for (const k of s.felder) if (!(k in x)) fremdeFelder.add('zeitreihe fehlt ' + k);
       }
@@ -71,8 +75,9 @@ function lauf(name, args) {
     let treffer = 0;
     for (const f of dateien) {
       const t = fs.readFileSync(f, 'utf8');
-      for (const n of BOT_NAMEN) if (t.includes('"' + n + '"')) { treffer++; console.log('    Treffer Name', n, 'in', path.basename(f)); }
-      if (/sim-\d/.test(t)) { treffer++; console.log('    Treffer clientId in', path.basename(f)); }
+      const m = BOT_NAME.exec(t);
+      if (m) { treffer++; console.log('    Treffer Name', m[1], 'in', path.basename(f)); }
+      if (BOT_ID.test(t)) { treffer++; console.log('    Treffer clientId in', path.basename(f)); }
     }
     ok(dateien.length >= 2 && treffer === 0, `${l.name}: Namenstest 0 Treffer in ${dateien.length} Dateien (Ordner inkl. tuning)`);
   }
@@ -83,6 +88,10 @@ function lauf(name, args) {
     const fehlt = typen.filter((t) => !gesehen.has(t) && !NUR_IM_MENSCHENSPIEL.includes(t));
     ok(fehlt.length === 0 && typen.every((t) => SCHEMA[t]), `Paket ${paket}: jeder Typ kommt vor${fehlt.length ? ' – fehlt: ' + fehlt.join(',') : ''}`);
   }
+  { const typen = Object.keys(SCHEMA);
+    ok(typen.join() === typen.slice().sort().join(), 'Schema: Eintraege alphabetisch nach Typ');
+    ok(typen.every((t) => ['1', '2', '2b', '3', '4', '5', '6', '-'].includes(SCHEMA[t].frage) && Array.isArray(SCHEMA[t].felder) && SCHEMA[t].felder.length > 0 && typeof SCHEMA[t].text === 'string' && SCHEMA[t].text.length > 5 && !('flach' in SCHEMA[t])), 'Schema: frage als Text, Feldliste, Text; die Form entspricht Paket B1 (strukturiert statt flach)');
+    ok(typen.every((t) => !SCHEMA[t].strukturiert || t === 'kopf') && typen.every((t) => SCHEMA[t].felder.every((f) => /^[a-z0-9_]{1,40}$/.test(f) && !KOPF.includes(f)) && new Set(SCHEMA[t].felder).size === SCHEMA[t].felder.length), 'Schema: nur der Kopf ist strukturiert, Feldnamen gueltig, ohne Kopffelder, ohne Doppelte'); }
   ok(NUR_IM_MENSCHENSPIEL.every((t) => SCHEMA[t]), 'Nur-im-Menschenspiel-Typen stehen im Schema (' + NUR_IM_MENSCHENSPIEL.join(', ') + ')');
   console.log(`  Info: ${zeilenGesamt} Zeilen, ${(bytesGesamt / 1048576).toFixed(2)} MB, ${(zeilenGesamt / (dauerGesamt / 60)).toFixed(0)} Zeilen/min, ${(bytesGesamt / 1048576 / (dauerGesamt / 3600)).toFixed(1)} MB/h Spielzeit`);
 

@@ -147,7 +147,7 @@ class AbenteuerSpielleiter {
         this.schreibe(Object.assign({ ausgang: 'verspaetet', begruendung: 'Antwort nach Zeitueberschreitung verworfen', plan: { sitzung: this.lage.sitzung } }, it.r ? this.messung(null, it.r) : {}));
         continue;
       }
-      Haken.spielleiterWarten(this.game, 'abenteuer', this.game.time - job.start, it.e ? 'fehler' : 'ok');   // TEL-01 B2: Anfrage -> Antwort (liest nur)
+      Haken.spielleiterWarten(this.game, 'abenteuer', this.game.time - job.start, Haken.warteAusgang(it.e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.ausfall(job, it.e, null);
       else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('abenteuer-antwort', e); this.ausfall(job, LLM.llmError('EXIT', 'Antwort nicht verarbeitbar: ' + e.message), it.r); } }
     }
