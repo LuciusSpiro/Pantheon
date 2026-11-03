@@ -167,14 +167,17 @@
     return S.station === 'helm' ? Math.round(SCHIRM_VY0 + (o - 4) * SCHIRM_VS) : 0;
   }
 
-  // KUL-02 A: Zeichner der Ansicht 'klassisch' = die Frontsicht des Piloten wie bisher (Paket C ergänzt die Himmelskulisse hier)
+  // KUL-02 A: Zeichner der Ansicht 'klassisch' = die Frontsicht des Piloten wie bisher, dazu (KUL-02 C) die Himmelsschicht
   Hauptschirm.registriere('klassisch', (c, view, rect) => {
     // SUND-02a B: derselbe Ausschnitt wie im 2D-Helm: R.FRONT.fwd voraus und .back zurück füllen die Textur in der Höhe (Zoom = SH / (fwd + back)),
     // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; hier reicht das Fenster über rect.side bis zum
     // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
     const F = R.FRONT, zoom = SH / (F.fwd + F.back);
     // Fixrunde N3: bei aktiver Szene klemmen Randpfeile und Labels unter der Szenenzeile (Oberkante 6 + Höhe + 4), sonst verdeckt sie den HAFEN-Pfeil am Oberrand
-    R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+    const fenster = { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) };   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+    // KUL-02 C: Himmelsschicht (Sternfeld, Stern am Rand, Planeten unter der Ebene, Bojen) im SELBEN Fenster; drawSpace ruft sie nach dem Sternenhimmel, vor allen Spielobjekten. Nur hier, nie am Pult.
+    if (window.KulisseHimmel) fenster.himmel = (cx) => KulisseHimmel.zeichne(cx, view, fenster);
+    R.drawFrontView(c, view, fenster);
   });
   // Platzhalter bis KUL-03: KUL-03 registriert hier den echten Visier-Zeichner
   Hauptschirm.registriere('visier', (c) => {

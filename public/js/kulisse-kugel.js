@@ -4,40 +4,36 @@
 //   KulisseKugel.zeichnePlanet(ctx, art, x, y, radiusPx, seed, lichtWinkel, rot, abdunkeln)   rot in Bogenmaß (der Cache bleibt ungedreht), abdunkeln 0..1
 //   KulisseKugel.stern(ctx, x, y, radiusPx, klasse, t)     klasse: gelb | orange | weiss | rot
 //   KulisseKugel.randLicht(ctx, rect, winkel, klasse)      Randglühen am Bildrand in Peilung winkel (Bogenmaß, Bildschirmraum: 0 = rechts, +π/2 = unten)
-//   KulisseKugel.sternfeld(ctx, rect, rot, seed)           Fixsterne, drehen mit rot um die Rechteckmitte
+//   KulisseKugel.sternfeld(ctx, rect, rot, seed)           Fixsterne (Tokens STERNFELD, seed optional), drehen mit rot um die Rechteckmitte
 //   KulisseKugel.statistik() -> { gebaut, treffer, dunkelGebaut, eintraege }   Zähler für Tests/Messwert;  .leeren() / .setzeGrenze(n)
 // Lichtwinkel: Richtung, IN der der Stern steht (Weltorientierung, y nach unten, Bogenmaß, 0 = +x). Die Lichtseite der Kugel zeigt dorthin.
-// Tokens (optional, Paket T): window.HauptschirmTokens.kugel = {
-//   radiusStufe (px, Standard 4), cacheMax (24), lichtStufen (Winkelschritte je Vollkreis, 24), blockMin (2), blockMax (4), blockTeiler (30: Block = R/Teiler),
-//   kantenDunkel (0.82), arten: { fels|eis|wueste|ozean|gasriese: { ramp:[#hex..], land:[#hex..] (nur ozean), atm:'#hex', atmA:0..1 } },
-//   sterne: { gelb|orange|weiss|rot: { core:'#hex', glow:'#hex' } }, sternfeld: { anzahl (320), farben: [vier Farben hell..dunkel] }, randLicht: { tiefe (px, 70), alpha (0.5) } }
-// Fehlende Schlüssel fallen auf DEFAULT zurück. Wirkung auf bereits gebaute Kugeln: nach Tokenwechsel leeren() aufrufen.
+// Werte: window.HauptschirmTokens.TOKENS (Paket T, public/js/hauptschirm-tokens.js; in Node wird die Datei nachgeladen) – PLANET (Paletten), STERN (Klassen), STERNFELD, SONNE
+// (Glühen, Strahlen, Lichtvektor), KUGEL (Blockraster, Dithering, Licht, Nacht, Saum, Randlicht), HIMMEL.kippung. DEFAULT enthält nur, was T nicht kennt (Zwischenspeicher, Winkelstufen,
+// Tiefe des Randglühens). Wirkung auf bereits gebaute Kugeln: nach Tokenwechsel leeren() aufrufen.
 (function (root) {
   'use strict';
 
   const DEFAULT = {
-    radiusStufe: 4, cacheMax: 24, lichtStufen: 24, blockMin: 2, blockMax: 4, blockTeiler: 30, kantenDunkel: 0.82,
-    arten: {
-      fels: { ramp: ['#1E1A17', '#3A302A', '#5A4A3E', '#7E6A56', '#A68E72'], atm: '#C9B79A', atmA: 0.25 },
-      eis: { ramp: ['#141E2A', '#2C4258', '#557A96', '#8FB4CA', '#D8E8F2'], atm: '#A9D6E5', atmA: 0.5 },
-      wueste: { ramp: ['#2A1A0E', '#5A3418', '#8E5428', '#C07C40', '#E8B272'], atm: '#F2C08A', atmA: 0.35 },
-      ozean: { ramp: ['#08142A', '#0F3256', '#1C5784', '#3A86B2', '#86C2DA'], land: ['#1C2E1A', '#2E4A26', '#4E6A36', '#7A8A50'], atm: '#8FD0EC', atmA: 0.6 },
-      gasriese: { ramp: ['#2A1A12', '#58361F', '#8A5530', '#B87E48', '#DDB27A', '#F2DCB0'], atm: '#F0C88E', atmA: 0.55 },
-    },
-    sterne: { gelb: { core: '#FFF6DA', glow: '#FFD27A' }, orange: { core: '#FFE2B8', glow: '#FF9A4A' }, weiss: { core: '#F4F8FF', glow: '#BFD6FF' }, rot: { core: '#FFD0C0', glow: '#FF5A3C' } },
-    sternfeld: { anzahl: 320, farben: ['#FFE8C0', '#CFE0FF', 'rgba(220,226,240,0.55)', 'rgba(180,190,210,0.3)'] },
-    randLicht: { tiefe: 70, alpha: 0.5 },
+    radiusStufe: 4, cacheMax: 24, lichtStufen: 24,   // Zwischenspeicher: Radius in Stufen von 4 px, höchstens 24 Kugeln, 24 Lichtwinkel je Vollkreis
+    randLicht: { tiefe: 70, alpha: 0.5 },            // Randglühen am Bildrand (T beschreibt nur den Stern selbst)
   };
   const ARTEN = ['fels', 'eis', 'wueste', 'ozean', 'gasriese'];
   const KLASSEN = ['gelb', 'orange', 'weiss', 'rot'];
 
+  function tokens() {
+    let T = root.HauptschirmTokens && root.HauptschirmTokens.TOKENS;
+    if (!T && typeof require === 'function') { try { T = require('./hauptschirm-tokens.js').TOKENS; } catch (e) { /* ohne Tokens keine Kugeln */ } }
+    if (!T) throw new Error('KulisseKugel: HauptschirmTokens fehlt (hauptschirm-tokens.js vor kulisse-kugel.js laden)');
+    return T;
+  }
+  let tokCache = null;   // einmal aus den Tokens abgeleitet (leeren() verwirft ihn)
   function tok() {
-    const t = (root.HauptschirmTokens && root.HauptschirmTokens.kugel) || {};
-    return {
-      radiusStufe: t.radiusStufe || DEFAULT.radiusStufe, cacheMax: t.cacheMax || DEFAULT.cacheMax, lichtStufen: t.lichtStufen || DEFAULT.lichtStufen,
-      blockMin: t.blockMin || DEFAULT.blockMin, blockMax: t.blockMax || DEFAULT.blockMax, blockTeiler: t.blockTeiler || DEFAULT.blockTeiler, kantenDunkel: t.kantenDunkel || DEFAULT.kantenDunkel,
-      arten: Object.assign({}, DEFAULT.arten, t.arten || {}), sterne: Object.assign({}, DEFAULT.sterne, t.sterne || {}),
-      sternfeld: Object.assign({}, DEFAULT.sternfeld, t.sternfeld || {}), randLicht: Object.assign({}, DEFAULT.randLicht, t.randLicht || {}),
+    if (tokCache) return tokCache;
+    const T = tokens(), K = T.KUGEL;
+    return tokCache = {
+      radiusStufe: DEFAULT.radiusStufe, cacheMax: DEFAULT.cacheMax, lichtStufen: DEFAULT.lichtStufen, randLicht: DEFAULT.randLicht,
+      block: K.block, dither: K.dither.bayer4.map((v) => (v + 0.5) / 16), schwelle: K.dither.schwelle, licht: K.licht, nacht: K.nacht, saum: K.saum, randlicht: K.randlicht, rand: K.rand,
+      kippung: T.HIMMEL.kippung, lichtZ: T.SONNE.lichtZ, planet: T.PLANET, stern: T.STERN, sonne: T.SONNE, sternfeld: T.STERNFELD,
     };
   }
 
@@ -54,18 +50,17 @@
   }
   function fbm(x, y, z, s, o) { let a = 0, f = 1, amp = 0.5; for (let i = 0; i < o; i++) { a += amp * vnoise(x * f, y * f, z * f, s + i * 17); f *= 2.03; amp *= 0.5; } return a; }
   function rng(seed) { let a = seed | 0; return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map((v) => (v + 0.5) / 16);
 
   // ------------------------------------------------------------ Kugel: reiner Pixelpuffer (ohne Canvas, gut testbar)
   // Rückgabe { daten: Uint8ClampedArray (RGBA), S, R, pad }. L = Lichtvektor (x rechts, y unten, z zum Betrachter).
   function kugelPixel(art, R, seed, lichtWinkel, T) {
-    const P = T.arten[art] || T.arten.fels;
-    const blk = Math.max(T.blockMin, Math.min(T.blockMax, Math.round(R / T.blockTeiler)));
-    const pad = Math.ceil(R * 0.25) + 3, S = 2 * (R + pad);
+    const P = T.planet[art] || T.planet.fels;
+    const blk = Math.max(T.block.min, Math.min(T.block.max, Math.round(R / T.block.pxJeBlock)));
+    const pad = Math.ceil(R * T.rand.pad) + T.rand.padPx, S = 2 * (R + pad);
     const daten = new Uint8ClampedArray(S * S * 4);
-    const lx0 = Math.cos(lichtWinkel) * 0.9, ly0 = Math.sin(lichtWinkel) * 0.9, lz0 = 0.45, ll = Math.hypot(lx0, ly0, lz0), lx = lx0 / ll, ly = ly0 / ll, lz = lz0 / ll;
-    const tilt = -0.25, ct = Math.cos(tilt), st = Math.sin(tilt);
-    const ramp = P.ramp.map(hex2rgb), land = P.land ? P.land.map(hex2rgb) : null, atm = hex2rgb(P.atm);
+    const lx0 = Math.cos(lichtWinkel), ly0 = Math.sin(lichtWinkel), lz0 = T.lichtZ, ll = Math.hypot(lx0, ly0, lz0), lx = lx0 / ll, ly = ly0 / ll, lz = lz0 / ll;
+    const ct = Math.cos(T.kippung), st = Math.sin(T.kippung);
+    const ramp = P.rampe.map(hex2rgb), land = P.land ? P.land.map(hex2rgb) : null, atm = hex2rgb(P.atm);
     const nb = Math.ceil(S / blk) + 1, zelle = new Map();   // je Block einmal gerechnet: { v, dif, z, pal } oder null (außerhalb)
     function blockWerte(bi, bj) {
       const key = bj * nb + bi;
@@ -92,8 +87,8 @@
           else if (art === 'wueste') tone = 0.3 + h * 0.6 + Math.sin(yy * 14 + h * 5) * 0.06;
           else tone = 0.2 + h * 0.85 + (fbm(xx * 9, yy * 9, z2 * 9, seed + 3, 2) > 0.62 ? -0.25 : 0);
         }
-        const light = Math.max(0, Math.min(1, dif * 1.05 + 0.02));
-        res = { v: Math.max(0, Math.min(0.999, tone * (0.12 + light * 0.95))), dif, z, pal, light };
+        const light = Math.max(0, Math.min(1, dif * T.licht.diffus + T.licht.versatz));
+        res = { v: Math.max(0, Math.min(0.999, tone * (T.licht.grund + light * T.licht.faktor))), dif, z, pal, light };
       }
       zelle.set(key, res);
       return res;
@@ -106,20 +101,20 @@
         if (!b) {
           // Atmosphärensaum außen (nur Lichtseite stärker)
           const dx = (px + 0.5 - pad - R) / R, dy = (py + 0.5 - pad - R) / R, dist = Math.hypot(dx, dy);
-          if (dist < 1.18 && P.atmA > 0 && dist > 0) {
-            const lit = Math.max(0, (dx / dist) * lx + (dy / dist) * ly + 0.35);
-            const a = P.atmA * (1 - (dist - 1) / 0.18) ** 2 * Math.min(1, lit) * 0.8;
-            if (a > 0.02) { daten[i] = atm[0]; daten[i + 1] = atm[1]; daten[i + 2] = atm[2]; daten[i + 3] = Math.round(a * 255); }
+          if (dist < 1 + T.saum.breite && P.atmAlpha > 0 && dist > 0) {
+            const lit = Math.max(0, (dx / dist) * lx + (dy / dist) * ly + T.saum.lichtVersatz);
+            const a = P.atmAlpha * (1 - (dist - 1) / T.saum.breite) ** 2 * Math.min(1, lit) * T.saum.faktor;
+            if (a > T.saum.minAlpha) { daten[i] = atm[0]; daten[i + 1] = atm[1]; daten[i + 2] = atm[2]; daten[i + 3] = Math.round(a * 255); }
           }
           continue;
         }
-        const pal = b.pal, th = BAYER[(py % 4) * 4 + (px % 4)];
-        const col = pal[Math.min(pal.length - 1, Math.floor(b.v * (pal.length - 1) + th * 0.9))];
+        const pal = b.pal, th = T.dither[(py % 4) * 4 + (px % 4)];
+        const col = pal[Math.min(pal.length - 1, Math.floor(b.v * (pal.length - 1) + th * T.schwelle))];
         let r = col[0], g = col[1], bl = col[2];
-        if (b.light < 0.02) { r *= 0.3; g *= 0.3; bl *= 0.36; }
-        const rim = Math.pow(1 - b.z, 3) * P.atmA * Math.max(0, b.dif + 0.3);
+        if (b.light < T.nacht.unter) { r *= T.nacht.faktorRG; g *= T.nacht.faktorRG; bl *= T.nacht.faktorB; }
+        const rim = Math.pow(1 - b.z, T.randlicht.exponent) * P.atmAlpha * Math.max(0, b.dif + T.randlicht.lichtVersatz);
         r = Math.min(255, r + atm[0] * rim); g = Math.min(255, g + atm[1] * rim); bl = Math.min(255, bl + atm[2] * rim);
-        if ((px - pad) % blk === 0 || (py - pad) % blk === 0) { r *= T.kantenDunkel; g *= T.kantenDunkel; bl *= T.kantenDunkel; }
+        if ((px - pad) % blk === 0 || (py - pad) % blk === 0) { r *= T.block.kantenFaktor; g *= T.block.kantenFaktor; bl *= T.block.kantenFaktor; }
         daten[i] = r; daten[i + 1] = g; daten[i + 2] = bl; daten[i + 3] = 255;
       }
     }
@@ -160,13 +155,13 @@
 
   // Abgedunkelte Fassung (Stufen von 0,1) wird einmal je Eintrag erzeugt, nicht je Frame
   function dunkelFassung(e, a) {
-    const k = Math.round(a * 10);
+    const k = Math.round(a * 100);   // Stufen von 1 % (KUL-02 C: 22 % Abdunklung aus den Tokens genau, nicht auf 20 % gerundet)
     let d = e.dunkel.get(k);
     if (!d) {
       d = neuesCanvas(e.S, e.S);
       const g = d.getContext('2d');
       g.drawImage(e.cv, 0, 0);
-      g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(5,7,13,' + (k / 10) + ')'; g.fillRect(0, 0, e.S, e.S);
+      g.globalCompositeOperation = 'source-atop'; g.fillStyle = 'rgba(5,7,13,' + (k / 100) + ')'; g.fillRect(0, 0, e.S, e.S);
       e.dunkel.set(k, d); dunkelGebaut++;
     }
     return d;
@@ -186,26 +181,26 @@
 
   // ------------------------------------------------------------ Stern als Effekt
   function stern(ctx, x, y, radiusPx, klasse, t) {
-    const S = tok().sterne[klasse] || tok().sterne.gelb, r = Math.max(1, radiusPx);
+    const T = tok(), SO = T.sonne, S = T.stern[klasse] || T.stern.gelb, r = Math.max(1, radiusPx), SR = SO.strahlen;
     const puls = 1 + 0.04 * Math.sin((t || 0) * 1.7);
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const [rr, a] of [[r * 9, 0.08], [r * 5, 0.14], [r * 2.6, 0.28], [r * 1.5, 0.5]]) {
-      const g = ctx.createRadialGradient(x, y, 0, x, y, rr * puls); g.addColorStop(0, rgba(S.glow, a)); g.addColorStop(1, rgba(S.glow, 0));
+    for (const [f, a] of SO.gluehen) {
+      const rr = r * f, g = ctx.createRadialGradient(x, y, 0, x, y, rr * puls); g.addColorStop(0, rgba(S.glut, a)); g.addColorStop(1, rgba(S.glut, 0));
       ctx.fillStyle = g; ctx.fillRect(x - rr * puls, y - rr * puls, rr * puls * 2, rr * puls * 2);
     }
-    ctx.fillStyle = rgba(S.glow, 0.35);
-    for (let k = 0; k < 8; k++) {
-      const a = k * Math.PI / 4 + 0.2, L = r * (k % 2 ? 2.4 : 4.2);
-      for (let s = r; s < L; s += 1) { ctx.globalAlpha = 0.9 * (1 - (s - r) / (L - r)); ctx.fillRect(Math.round(x + Math.cos(a) * s), Math.round(y + Math.sin(a) * s), 1, 1); }
+    ctx.fillStyle = rgba(S.glut, SR.alpha);
+    for (let k = 0; k < SR.anzahl; k++) {
+      const a = k * 2 * Math.PI / SR.anzahl + SR.versatz, L = r * (k % 2 ? SR.kurz : SR.lang);
+      for (let s = r; s < L; s += 1) { ctx.globalAlpha = SR.auslauf * (1 - (s - r) / (L - r)); ctx.fillRect(Math.round(x + Math.cos(a) * s), Math.round(y + Math.sin(a) * s), 1, 1); }
     }
     ctx.globalAlpha = 1; ctx.restore();
-    ctx.fillStyle = S.core; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = '#FFFFFF'; ctx.beginPath(); ctx.arc(x - r * 0.15, y - r * 0.15, r * 0.6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = S.kern; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = SO.glanz.farbe; ctx.beginPath(); ctx.arc(x + r * SO.glanz.versatz, y + r * SO.glanz.versatz, r * SO.glanz.radius, 0, Math.PI * 2); ctx.fill();
   }
 
   // Sternlicht als Randglühen: der Strahl aus der Rechteckmitte in Peilung winkel trifft den Rand; dort sitzt ein weicher Verlauf, auf das Rechteck beschnitten
   function randLicht(ctx, rect, winkel, klasse) {
-    const T = tok(), S = T.sterne[klasse] || T.sterne.gelb, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, dx = Math.cos(winkel), dy = Math.sin(winkel);
+    const T = tok(), S = T.stern[klasse] || T.stern.gelb, cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, dx = Math.cos(winkel), dy = Math.sin(winkel);
     let t = Infinity;
     if (dx > 1e-6) t = Math.min(t, (rect.x + rect.w - cx) / dx); else if (dx < -1e-6) t = Math.min(t, (rect.x - cx) / dx);
     if (dy > 1e-6) t = Math.min(t, (rect.y + rect.h - cy) / dy); else if (dy < -1e-6) t = Math.min(t, (rect.y - cy) / dy);
@@ -214,22 +209,23 @@
     ctx.beginPath(); ctx.rect(rect.x, rect.y, rect.w, rect.h); ctx.clip();
     ctx.globalCompositeOperation = 'lighter';
     const g = ctx.createRadialGradient(ex, ey, 0, ex, ey, R);
-    g.addColorStop(0, rgba(S.glow, a)); g.addColorStop(0.35, rgba(S.glow, a * 0.4)); g.addColorStop(1, rgba(S.glow, 0));
+    g.addColorStop(0, rgba(S.glut, a)); g.addColorStop(0.35, rgba(S.glut, a * 0.4)); g.addColorStop(1, rgba(S.glut, 0));
     ctx.fillStyle = g; ctx.fillRect(ex - R, ey - R, R * 2, R * 2);
-    ctx.fillStyle = rgba(S.core, 0.8); ctx.fillRect(Math.round(ex - 2), Math.round(ey - 2), 4, 4);
+    ctx.fillStyle = rgba(S.kern, 0.8); ctx.fillRect(Math.round(ex - 2), Math.round(ey - 2), 4, 4);
     ctx.restore();
   }
 
   // ------------------------------------------------------------ Sternfeld (fester Satz, vorab berechnet)
   const felder = new Map();
-  function feld(seed, anzahl) {
-    const key = (seed | 0) + '|' + anzahl;
+  function feld(seed, SF) {
+    const key = (seed | 0) + '|' + SF.anzahl;
     let f = felder.get(key);
     if (!f) {
-      const R = rng(seed | 0 || 7), eimer = [[], [], [], []];
-      for (let i = 0; i < anzahl; i++) {
+      const R = rng(seed | 0 || 7), kl = SF.klassen, eimer = kl.map(() => []);
+      for (let i = 0; i < SF.anzahl; i++) {
         const x = (R() - 0.5) * 2, y = (R() - 0.5) * 2, b = R();
-        eimer[b > 0.97 ? 0 : b > 0.9 ? 1 : b > 0.6 ? 2 : 3].push(x, y, b > 0.985 ? 2 : 1);
+        let k = kl.findIndex((c) => b >= c.ab); if (k < 0) k = kl.length - 1;
+        eimer[k].push(x, y, b > SF.grossAb ? SF.grossPx : SF.kleinPx);
       }
       f = eimer; felder.set(key, f);
       if (felder.size > 8) felder.delete(felder.keys().next().value);
@@ -237,11 +233,11 @@
     return f;
   }
   function sternfeld(ctx, rect, rot, seed) {
-    const T = tok(), farben = T.sternfeld.farben, f = feld(seed, T.sternfeld.anzahl);
-    const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, D = Math.hypot(rect.w, rect.h) / 2, co = Math.cos(rot || 0), si = Math.sin(rot || 0);
-    for (let k = 0; k < 4; k++) {
+    const T = tok(), SF = T.sternfeld, f = feld(seed == null ? SF.seed : seed, SF);
+    const cx = rect.x + rect.w / 2, cy = rect.y + rect.h / 2, D = SF.halbeKante, co = Math.cos(rot || 0), si = Math.sin(rot || 0);   // Punkte in ±halbeKante um die Mitte, gedreht um rot
+    for (let k = 0; k < f.length; k++) {
       const p = f[k]; if (!p.length) continue;
-      ctx.fillStyle = farben[k] || farben[farben.length - 1];
+      ctx.fillStyle = rgba(SF.klassen[k].farbe, SF.klassen[k].alpha);
       for (let i = 0; i < p.length; i += 3) {
         const u = p[i] * D, v = p[i + 1] * D, x = Math.round(cx + u * co - v * si), y = Math.round(cy + u * si + v * co);
         if (x < rect.x || y < rect.y || x >= rect.x + rect.w || y >= rect.y + rect.h) continue;
@@ -253,7 +249,7 @@
   const API = {
     planet, zeichnePlanet, stern, randLicht, sternfeld, ARTEN, KLASSEN, DEFAULT,
     statistik() { return { gebaut, treffer, dunkelGebaut, eintraege: cache.size }; },
-    leeren() { cache.clear(); felder.clear(); gebaut = 0; treffer = 0; dunkelGebaut = 0; },
+    leeren() { cache.clear(); felder.clear(); tokCache = null; gebaut = 0; treffer = 0; dunkelGebaut = 0; },
     setzeGrenze(n) { grenze = n | 0; },
     setzeCanvasFabrik(f) { fabrik = f; },   // Tests ohne DOM
     kugelPixel(art, radiusPx, seed, lichtWinkel) { const T = tok(); return kugelPixel(art, quantR(radiusPx, T), seed | 0, quantL(lichtWinkel, T) / T.lichtStufen * 2 * Math.PI, T); },

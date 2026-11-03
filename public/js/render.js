@@ -4095,6 +4095,7 @@
       ctx.restore();
     }
     if (fog && !front) { ctx.fillStyle = 'rgba(42,35,80,0.25)'; ctx.fillRect(B.x, B.y, B.w, B.h); }
+    if (front && cfg.himmel) cfg.himmel(ctx, { fog });   // KUL-02 C: Himmelsschicht des klassischen Hauptschirms (KulisseHimmel) zwischen Sternenhimmel und Spielobjekten; ohne cfg.himmel (Pult) unverändert
 
     // Radargitter + Sensorreichweite (nur Karten, nicht die Frontsicht)
     if (!front) {
@@ -4646,14 +4647,23 @@
   // Steuer: Frontsicht (M1 §4.1). Bug oben, Schiff im unteren Teil, vorn ≈ 700, seitlich ± 420, hinten ≈ 120.
   const FRONT = { fwd: 700, back: 120, side: 420 };
   // rect.side (optional): halbe Breite des Cockpitfensters in Weltmetern statt FRONT.side (Voxel-Hauptschirm, sitz.js); ohne: FRONT.side wie bisher
-  function drawFrontView(ctx, view, rect) {
-    const st = view.state, ship = view.ship || st.ship || {};
-    const fog = inFog(st);
+  // KUL-02 C: die Projektion der Frontsicht als reine Funktion (gleiche Mathe wie drawFrontView/drawSpace: Schiff in der Mitte unten, Bug oben). KulisseHimmel zeichnet damit im selben Fenster.
+  function frontProjektion(view, rect) {
+    const st = view.state, ship = view.ship || (st && st.ship) || {};
     const zoom = rect.h / (FRONT.fwd + FRONT.back);
     const cx = rect.x + Math.round(rect.w / 2), cy = rect.y + Math.round(FRONT.fwd * zoom);
+    const rot = -(ship.angle || 0) - Math.PI / 2, cosR = Math.cos(rot), sinR = Math.sin(rot);
+    const toS = (wx, wy) => { const dx = (wx - ship.x) * zoom, dy = (wy - ship.y) * zoom; return { x: Math.round(cx + dx * cosR - dy * sinR), y: Math.round(cy + dx * sinR + dy * cosR) }; };
+    return { ship, zoom, cx, cy, rot, toS };
+  }
+  // rect.himmel (optional, nur der klassische Hauptschirm): Funktion (ctx, { fog }), die drawSpace nach dem Sternenhimmel und vor allen Spielobjekten aufruft
+  function drawFrontView(ctx, view, rect) {
+    const st = view.state;
+    const fog = inFog(st);
+    const { zoom, cx, cy, rot } = frontProjektion(view, rect);
     const half = Math.round((rect.side || FRONT.side) * zoom);
     const win = { x: cx - half, y: rect.y, w: half * 2, h: rect.h };
-    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, randOben: rect.randOben, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
+    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot, cx, cy, bound: win, sicht: rect.sicht, randOben: rect.randOben, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true, himmel: rect.himmel });
     const t = view.time;
     if (fog) {
       ctx.save(); ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();
@@ -5086,7 +5096,7 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    zielNameFarbe, drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    zielNameFarbe, drawSpace, drawFrontView, frontProjektion, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,

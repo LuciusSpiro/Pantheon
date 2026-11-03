@@ -11,6 +11,7 @@ const path = require('path');
 const vm = require('vm');
 const crypto = require('crypto');
 const QUELLE = path.join(__dirname, '..', 'public', 'js', 'kulisse-kugel.js');
+const TOKENS = path.join(__dirname, '..', 'public', 'js', 'hauptschirm-tokens.js');   // KUL-02 C: Werte kommen aus Paket T
 const sha = (b) => crypto.createHash('sha256').update(Buffer.from(b.buffer, b.byteOffset, b.byteLength)).digest('hex').slice(0, 16);
 
 function neuesCanvas(w, h) {
@@ -32,6 +33,7 @@ function protokoll() {
 function lade(text) {
   const win = { document: null };
   win.window = win; vm.createContext(win);
+  vm.runInContext(fs.readFileSync(TOKENS, 'utf8'), win, { filename: 'hauptschirm-tokens.js' });
   const mod = { exports: {} };
   vm.runInContext('(function(module){' + text + '\n})', win, { filename: 'kulisse-kugel.js' })(mod);
   const K = mod.exports; K.setzeCanvasFabrik(neuesCanvas);
@@ -101,7 +103,7 @@ function pruefe(K, ok, ganz) {
   ok(K.statistik().eintraege === 24, 'Standardgrenze 24 (Einträge ' + K.statistik().eintraege + ')');
   if (ganz) {
     section('(e) Stern, Randlicht, Sternfeld');
-    const a = protokoll(), rect = { x: 10, y: 20, w: 200, h: 100 };
+    const a = protokoll(), rect = { x: 10, y: 20, w: 200, h: 100 }, gross = { x: 10, y: 20, w: 700, h: 400 };   // Sternfeld: ±halbeKante (700) aus STERNFELD, darum ein größeres Rechteck für die Dichte
     K.stern(a.ctx, 50, 50, 6, 'rot', 1);
     ok(a.log.filter((x) => x === 'grad').length === 4 && a.log.some((x) => x.startsWith('arc')), 'Stern: vier Glühringe und Kern');
     const b = protokoll(); K.randLicht(b.ctx, rect, 0, 'gelb');
@@ -111,11 +113,11 @@ function pruefe(K, ok, ganz) {
     const c = protokoll(); K.randLicht(c.ctx, rect, Math.PI / 2, 'weiss');
     ok(c.log.filter((x) => x.startsWith('fillRect'))[1].includes(',118,'), 'Randlicht Peilung unten: Marke am unteren Rand');
     const f1 = protokoll(), f2 = protokoll(), f3 = protokoll();
-    K.sternfeld(f1.ctx, rect, 0, 5); K.sternfeld(f2.ctx, rect, 0, 5); K.sternfeld(f3.ctx, rect, 0.7, 5);
+    K.sternfeld(f1.ctx, gross, 0, 5); K.sternfeld(f2.ctx, gross, 0, 5); K.sternfeld(f3.ctx, gross, 0.7, 5);
     const sterne = (p) => p.log.filter((x) => x.startsWith('fillRect'));
-    ok(sterne(f1).length > 60 && f1.log.join() === f2.log.join(), 'Sternfeld: deterministisch, viele Sterne (' + sterne(f1).length + ')');
+    ok(sterne(f1).length > 30 && f1.log.join() === f2.log.join(), 'Sternfeld: deterministisch, viele Sterne (' + sterne(f1).length + ')');
     ok(f3.log.join() !== f1.log.join(), 'Sternfeld dreht mit rot');
-    const innen = sterne(f3).every((x) => { const [px, py] = JSON.parse(x.slice(9)); return px >= 10 && py >= 20 && px < 210 && py < 120; });
+    const innen = sterne(f3).every((x) => { const [px, py] = JSON.parse(x.slice(9)); return px >= 10 && py >= 20 && px < 710 && py < 420; });
     ok(innen, 'Sterne nur innerhalb des Rechtecks');
   }
 }
@@ -129,7 +131,7 @@ console.log('\n(f) Mutationen');
 const MUT = [
   ['Zwischenspeicher abgeschaltet', 'if (e) { cache.delete(key); cache.set(key, e); treffer++; return e; }', 'if (false) { return e; }'],
   ['Grenze ignoriert', 'while (cache.size > max)', 'while (false)'],
-  ['Lichtwinkel ignoriert', 'Math.cos(lichtWinkel) * 0.9, ly0 = Math.sin(lichtWinkel) * 0.9', '0.9, ly0 = 0'],
+  ['Lichtwinkel ignoriert', 'Math.cos(lichtWinkel), ly0 = Math.sin(lichtWinkel)', '1, ly0 = 0'],
 ];
 for (const [name, von, nach] of MUT) {
   if (!text.includes(von)) { ok(false, 'Mutation ' + name + ': Stelle nicht gefunden'); continue; }
