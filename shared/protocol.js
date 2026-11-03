@@ -334,6 +334,10 @@
     LANCE_STATES: ['charge', 'fire', 'fizzle'],
     // M3a §21.1: cmd { c: 'helm.stop' } (Steuer) -> Snapshot ship.helm.autoStop; endet bei helm.input ≠ 0 oder helm.dodge
     CMD_HELM_STOP: 'helm.stop',
+    // KUL-02 A: cmd { c: 'helm.hauptschirm', ansicht: 'klassisch'|'visier' } (nur Steuer). Ein Zustand für die ganze Brücke (game.hauptschirmAnsicht,
+    // überlebt Sprung/Sektorwechsel); Snapshot ship.hs = 'visier' NUR bei Visier, klassisch = Feld fehlt (Client-Standard klassisch).
+    CMD_HELM_HAUPTSCHIRM: 'helm.hauptschirm',
+    HAUPTSCHIRM_ANSICHTEN: ['klassisch', 'visier'],
     // M3a §21.2: Missionsbuch am Planungstisch. cmd { c: 'plan.focus', id|null }, cmd { c: 'plan.accept', id }.
     // Snapshot mission.book { version, focus, entries[] } nur bei Änderung; immer: mission.bookVersion und die HUD-Felder
     // mission.focusId, mission.focusTitle, mission.focusObjectives [{ id?, text, done, optional? }], mission.focusLoc

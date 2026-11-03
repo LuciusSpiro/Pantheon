@@ -27,6 +27,7 @@ const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; c
     location: { search: '' }, URLSearchParams, performance: { now: () => 0 }, console };
   win.window = win; win.self = win;
   vm.createContext(win);
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'js', 'hauptschirm.js'), 'utf8'), win, { filename: 'hauptschirm.js' });   // KUL-02 A: sitz.js registriert seine Zeichner dort
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'public', 'js', 'sitz.js'), 'utf8'), win, { filename: 'sitz.js' });
   const Sitz = win.Sitz;
   ok(typeof Sitz.szeneUnten === 'function' && typeof Sitz.projiziereSchirmY === 'function', 'Sitz.szeneUnten und Sitz.projiziereSchirmY vorhanden');
