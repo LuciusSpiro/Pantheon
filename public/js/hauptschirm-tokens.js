@@ -269,6 +269,8 @@
       gegner: {
         faktor: 1.6, minPx: 16, maxFaktor: 3.2,   // größer als maßstäblich: max(1,6; 16 px / Bildlänge), höchstens 3,2-fach (Mockup VERGR, MIN_PX, min(3.2, …))
         hebe: 6,                  // Modell steht 6 über der Ebene, der Schildring liegt auf ihr (Mockup hebe: 6)
+        stauch: { fest: 0.55, min: 0.3, max: 0.8 },   // Drehsprite (Draufsicht) auf die Ebene gelegt: Höhenstauchung = Bildneigung der Ebene am Fußpunkt, begrenzt; fest = Rückfall (Auftrag KUL-03 B1)
+        freund: { farbe: FARBE.schild, huelle: FARBE.schild },   // Verbündete: Marke und Hülle Mint (Ops-Kennung verbündet), Feind bleibt Rot
         saum: { farbe: EIGEN.tiefraum, alpha: 0.85, px: 1 },   // dunkler Umriss um jedes Modell: überdeckte Schiffe bleiben zwei Formen (Mockup)
         dunst: { farbe: EIGEN.dunst, ab: 280, spanne: 1100, max: 0.38 },   // Anteil = (Tiefe − 280) / 1100, höchstens 38 % (Mockup)
         // Schildring als Fußpunkt flach auf der Ebene, Radius 0,62 × Länge, vier Seiten wie die Ops-Kennung, je ±0,62 rad (Mockup ringEbene())
@@ -319,6 +321,15 @@
         unterHorizont: 20, ueberLeiste: 52,   // y = Bildlage, begrenzt auf Horizont + 20 … Leiste − 52 (über der Lagescheibe)
         label: { skala: 2, dx: 4, dy: 9 },    // Entfernung in Skala 2, 4 px nach innen, 9 px tiefer
         hintenWelt: 40, hinten: false,        // voraus < 40: KEIN Pfeil, der Gegner steht nur in der Lagescheibe (Auftrag KUL-03 Abnahme 2; „HECK“ entfällt)
+      },
+      // KUL-04: Redesign. Grobe Marken für das, was die klassische Frontsicht zeigt (Asteroiden, Minen, Fracht, Bergung, Verborgenes, Tele-Ladung); Maße in Welteinheiten
+      grob: {
+        asteroid: { farbe: PAL.grey, hell: FARBE.dim, saum: EIGEN.tiefraum, alpha: 0.8, minPx: 3, fuss: { farbe: PAL.grey, alpha: 0.35 } },
+        mine: { farbe: FARBE.gefahr, aus: FARBE.dim, welt: 14, minPx: 4, fuss: { alpha: 0.45, strich: [2, 3] } },
+        fracht: { farbe: FARBE.kurs, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
+        bergung: { farbe: FARBE.schild, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
+        verborgen: { farbe: FARBE.dim, gefunden: FARBE.schild, welt: 12, minPx: 4 },
+        tele: { farbe: EIGEN.gegnerHell, radiusFaktor: 0.9, alpha: 0.9, strich: [3, 2], breite: 1.5 },   // Ring auf der Ebene um den ladenden Gegner
       },
       alarm: { farbe: FARBE.gefahr, breite: 3, laenge: 46 },   // je zwei Streifen links und rechts: unter dem Horizont und über der Leiste. „ALARM ROT“ entfällt (Auftrag KUL-03)
     },
