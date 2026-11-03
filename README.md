@@ -832,6 +832,8 @@ Weitere Debug-Befehle der Pakete: `abspann palatina|sieg` (SUND-04a-3, nur Freie
 - `node tools/sim-headless.js labor <molekül/umsetzung> [--crew 1|3] [--seeds N]` (Alias `umsetzung`), `labor ketten` (nur die Ketten), `labor alle`.
 - Weiter: `wellen`, `arena`, `escort`, `archiv`, `dauer` (siehe Kopf von `sim-headless.js`).
 
+**Sessionbericht (TEL-01 D1):** `npm run auswerten -- <datei|sessionkennung|--letzte> [--basis <json>] [--ziele <json>] [--aus <ordner>] [--json <datei>]` liest ein Spielprotokoll (`data/telemetrie/`, Bot-Läufe `data/telemetrie/bot/`) und schreibt `data/telemetrie/berichte/<kennung>.md` (höchstens 60 Zeilen: Auffälligkeiten oben, je Balancing-Frage ein Block) und `<kennung>.svg` (Gefechtsprofil). Kennzahlen: `tools/auswertung/kennzahlen.js` (reine Funktion, der Vertrag für Vergleich und Basis-Datei; `--json` schreibt sie als Datei), Einlesen `lesen.js`, Text `bericht.js` (dort das Format der Zieldatei `tools/fixtures/telemetrie/ziele.json`, leer = keine Ampeln), Bild `profil.js`. Test `tools/test-auswertung.js`, Mutationsprobe `tools/mutation-auswertung.js`.
+
 **Prüfer und Messwerkzeuge:**
 - `npm run check:kette` (Kette und Kapitelbücher, `-- --selftest`), Teil von `npm run check` (= `check-maps`, `check-sektoren`, `check-kette`).
 - `npm run snap:mess` (`tools/snap-mess.js`): Snapshot-Größe je Aufbau (worst, wellen, raum-alarm, methalle, endkampf, konvoi, flotte, orbit), Ziel ≤ 18 944 B
