@@ -214,6 +214,9 @@ ok(OB.marke.w === 20 && OB.marke.h === 10 && OB.marke.huelle.h < OB.marke.winkel
 ok(OB.beschriftung.nurZielText === true && OB.randpfeil.hinten === false, 'Nur das Ziel trägt Text; kein Randpfeil für Gegner hinter dem Schiff (Lagescheibe)');
 ok(['lagescheibe', 'leiste', 'tafelRechts'].every((n) => OB.beschriftung.sperren.includes(n)), 'Beschriftung sperrt Tafel, Leiste, Lagescheibe');
 const bsch = OB.beschriftung;
+ok(bsch.freiObenLinks && bsch.freiObenLinks.w >= T.TAFEL.links.x + T.TAFEL.links.w && bsch.freiObenLinks.h >= T.TAFEL.links.y + T.TAFEL.links.h, 'B2: Fläche „oben links frei“ deckt die frühere linke Tafel');
+ok(OB.grob.tele.sichtLetzte === 1.2, 'B2: Tele-Ladung nur in den letzten 1,2 s (wie die klassische Frontsicht)');
+ok(OB.gegner.ziel.halo && istAlpha(OB.gegner.ziel.halo.alpha) && OB.gegner.ziel.halo.extra >= 1, 'B2: Zielklammern mit dunklem Saum');
 ok(bsch.hoeheMitEntfernung >= 16 + zH(1) && bsch.hoeheMitEntfernung2 >= 16 + zH(2) && bsch.hoehe >= zH(2), 'Schildhöhen zu klein für die Schrift');
 // Skalen nach Auftrag KUL-03 (Kurs, Tempo 3; Peilband, Stufe, Ziel, Station + Entfernung, Dock-Ring, Randpfeil, Bojen 2)
 const LS = V.leiste;
