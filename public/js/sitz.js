@@ -187,8 +187,8 @@
   });
   // Platzhalter bis KUL-03: KUL-03 registriert hier den echten Visier-Zeichner
   Hauptschirm.registriere('visier', (c) => {
-    c.fillStyle = '#05070d'; c.fillRect(0, 0, SW, SH);
-    R.text(c, 'VISIER (KOMMT IN KUL-03)', SW / 2, SH / 2 - 12, { color: PAL.amber, align: 'center', scale: 3 });
+    c.fillStyle = window.HauptschirmTokens ? HauptschirmTokens.TOKENS.FARBE.grund : PAL.space; c.fillRect(0, 0, SW, SH);
+    R.text(c, 'VISIER – NOCH NICHT VERFÜGBAR', SW / 2, SH / 2 - 12, { color: PAL.amber, align: 'center', scale: 3 });
   });
 
   // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)

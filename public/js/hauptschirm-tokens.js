@@ -97,6 +97,7 @@
     skalaKopf: 1,                 // Tafelköpfe (KURS, TEMPO, SPRUNGZIEL) auf Funktionsfläche
     skalaGross: 3,                // Kurs und Tempo
     skalaWert: 2,                 // Schubstufe, Sprungziel, Boje + Entfernung, Ladezustand
+    randNameMax: 9,               // Randpfeil-Label des Hauptschirms: Name höchstens so viele Zeichen („RABENPASS 1296“)
     konturPx: 1,                  // Kontur um Schrift über Bild (8 Richtungen)
     kopf: { kurs: 'KURS', tempo: 'TEMPO', ziel: 'SPRUNGZIEL', laedt: 'SPRUNG LÄDT', bereit: 'BEREIT' },   // bereit: Sprung geladen, keine Boje anzuzeigen (Wert Skala 2, Mint)
   };
@@ -188,17 +189,17 @@
   };
 
   // ------------------------------------------------------------------ Ecktafeln (Mitte oben bleibt frei für die Szenenzeile)
-  // Koordinaten relativ zur Tafel (x, y = linke obere Ecke). Rom-Skin: Grund 86 %, Farbstreifen oben 3 px und an der Außenkante 3 px,
+  // Koordinaten relativ zur Tafel (x, y = linke obere Ecke). Rom-Skin: Grund 94 %, Farbstreifen oben 3 px und an der Außenkante 3 px,
   // innere untere Ecke 8 px abgeschrägt. Randpfeile weichen den Tafeln um `sperrAbstand` aus.
   const TAFEL = {
-    grund: { farbe: PAL.space, alpha: 0.86 },
+    grund: { farbe: PAL.space, alpha: 0.94 },   // 94 %: Asteroiden und Planeten schimmern sonst hinter den Zahlen (Designer-Review KUL-02)
     streifen: 3, aussenStreifen: 3, schraege: 8, rand: 6, sperrAbstand: 8,
     mitteFreiMin: 120,            // so viel Breite bleibt oben zwischen den Tafeln mindestens frei
     kappe: { hoehe: 9, padX: 3, schraege: 3, textY: 1, farbeText: FARBE.ink },
     links: {                      // Kurs | Tempo + Schubstufe (Bernstein)
       ecke: 'tl', x: 6, y: 6, w: 186, h: 64, farbe: FARBE.kurs,
       kurs: { kopfX: 8, kopfY: 7, wertX: 8, wertY: 19, skala: 3, format: '{kurs}°' },
-      band: { x: 8, y: 50, w: 92, spanne: 40, teilung: 5, lang: 6, kurz: 3, alphaLang: 0.8, alphaKurz: 0.45, linieAlpha: 0.5, marke: 4 },
+      band: { x: 8, y: 50, w: 92, spanne: 40, teilung: 5, lang: 6, kurz: 3, alphaLang: 0.8, alphaKurz: 0.45, linieAlpha: 0.5, marke: 4, kappePad: 2, kappeH: 9 },   // kappe*: Himmelsrichtung als dunkler Buchstabe auf Bernstein-Kappe
       tempo: { kopfX: 108, kopfY: 7, wertX: 108, wertY: 19, skala: 3 },
       stufe: { x: 108, y: 46, skala: 2 },   // Wort aus den Schiffsdaten (stageNames, wie das Fahrt-Pult), keine Kopie hier; breitestes „STOPP“ 58 px
       leiter: { x: -16, w: 10, h: 6, schritt: 8, untenAbstand: 10,     // x relativ zur rechten Kante; 6 Lampen von unten (R) nach oben (VOLL)
@@ -209,7 +210,7 @@
       ziel: { kopfX: 8, kopfY: 7, wertX: 8, wertY: 19, skala: 2, maxBreite: 130 },   // Name, der breiter ist, wird gekürzt (… am Ende)
       boje: { x: 8, y: 37, skala: 2, farbe: FARBE.text, format: '{boje} · {entfernung}' },
       peil: { x: -20, y: 26, ringRadius: 10, ringAlpha: 0.5, spitze: 9, fluegel: 5, kerbe: 2 },   // x relativ zur rechten Kante
-      laden: { kopf: '{laedt} {prozent} %', balkenY: 57, balkenH: 3, spur: EIGEN.ladeSpur, farbe: FARBE.sprung },   // Kopf zeigt beim Laden den Fortschritt
+      laden: { kopf: '{laedt} {prozent} %', balkenY: 57, balkenH: 5, spur: EIGEN.ladeSpur, farbe: FARBE.sprung, prozentFormat: '{prozent} %', prozentX: 8 },   // Prozentzahl beim Laden: Skala 2, rechtsbündig in der Bojenzeile, prozentX = Abstand vom rechten Rand   // Kopf zeigt beim Laden den Fortschritt
     },
   };
 

@@ -697,10 +697,12 @@
       if (!drin(p, 0)) {
         // F1: Ziel-Boje außerhalb des Bildes -> Randpfeil wie Stationen (Name + Abstand)
         if (gewaehlt && pflicht && typeof cam.arrow === 'function') {
-          let kurz = b.n || '';
-          if (P && b.n) { const nm = hexName(P, L, b.n, false); kurz = nm === '?' || nm === 'Unbekanntes System' || nm === 'Leer' ? b.n : nm; }
+          let kurz = b.n || '', nm0 = null;
+          if (P && b.n) { const nm = hexName(P, L, b.n, false); nm0 = nm; kurz = nm === '?' || nm === 'Unbekanntes System' || nm === 'Leer' ? b.n : nm; }
           const d = st.ship && st.ship.x != null ? Math.round(Math.hypot(b.x - st.ship.x, b.y - st.ship.y)) : jump.d;
-          const text = 'SPRUNG ' + kurz + (d != null ? ' ' + d : '');
+          let text = 'SPRUNG ' + kurz + (d != null ? ' ' + d : '');
+          // KUL-02 N2: nur der klassische Hauptschirm (textSkala > 1): ohne das Wort SPRUNG, Name auf 9 Zeichen, leerer Hex „LEER 0502“ (dieselbe Kurzform wie die Sprungziel-Tafel); das Pult bleibt unverändert
+          if (cam.front && cam.textSkala > 1 && window.HauptschirmTafeln && nm0 != null) text = window.HauptschirmTafeln.randLabel(nm0, b.n, d);
           // Frontsicht „hinter uns“, Stapeln neben HAFEN/DOCK: macht render.js arrow() (B3-NACH)
           cam.arrow(b.x, b.y, f, text);
         }

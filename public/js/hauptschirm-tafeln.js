@@ -33,13 +33,26 @@
     if (/^\d{4}$/.test(s)) return s;
     try { const SS = root.Shared_Sektoren; return (SS && SS.hexVonOrt && SS.hexVonOrt(s)) || null; } catch (e) { return null; }
   }
+  // Gemeinsame Kurzform des Ziels für Tafel UND Randpfeil des Hauptschirms: leerer Hex „LEER 0502“, sonst der Name in Großbuchstaben; ohne Namen (unbekannt) die Hexnummer.
+  function kurzName(name, hex) {
+    const n = String(name == null ? '' : name);
+    if (n === 'Leer') return hex ? 'LEER ' + hex : 'LEER';
+    if (!n || n === '?' || n === 'Unbekanntes System') return hex ? String(hex) : '';
+    return n.toUpperCase();
+  }
+  // Randpfeil-Label des Hauptschirms: ohne das Wort SPRUNG, der Name auf 9 Zeichen („RABENPASS 1296“); „LEER 0502 1296“ bleibt ganz (die Nummer wird nie gekürzt)
+  function randLabel(name, hex, entfernung) {
+    const k = kurzName(name, hex), leer = String(name) === 'Leer';
+    return (leer ? k : k.slice(0, T().TEXT.randNameMax)) + (entfernung != null ? ' ' + entfernung : '');
+  }
   function sprungVon(view) {
     const st = view && view.state, ship = st && st.ship, j = ship && ship.jump;
     if (!j || !j.dest) return null;
     const R = Rd();
     let name = String(j.dest);
     try { if (R && R.locName) name = String(R.locName(st, j.dest)); } catch (e) { /* Kennung bleibt */ }
-    const out = { name: name.toUpperCase(), boje: null, entfernung: null, peil: null, charge: Math.max(0, Math.min(1, num(j.charge))), ready: !!j.ready };
+    const zh0 = /^leer-(\d{4})$/.exec(String(j.dest));
+    const out = { name: zh0 ? kurzName('Leer', zh0[1]) : name.toUpperCase(), boje: null, entfernung: null, peil: null, charge: Math.max(0, Math.min(1, num(j.charge))), ready: !!j.ready };
     out.laedt = out.charge > 0 && !out.ready;
     const jp = (st.space && Array.isArray(st.space.jp) ? st.space.jp : []).filter((b) => b && ok(b.x) && ok(b.y));
     if (j.anflug === true && jp.length && ok(ship.x) && ok(ship.y)) {   // Boje nur, wo sie angeflogen werden muss (Tutorial: Faltsprung von überall)
@@ -102,7 +115,7 @@
     for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]);
     ctx.closePath(); ctx.fill();
   }
-  // Rom-Skin: Grund 86 %, Farbstreifen oben und an der Außenkante, die innere untere Ecke abgeschrägt
+  // Rom-Skin: Grund 94 %, Farbstreifen oben und an der Außenkante, die innere untere Ecke abgeschrägt
   function tafelGrund(ctx, q, ecke, farbe) {
     const TF = T().TAFEL, s = TF.schraege, { x, y, w, h } = q;
     poly(ctx, ecke === 'tl' ? [[x, y], [x + w, y], [x + w, y + h - s], [x + w - s, y + h], [x, y + h]] : [[x, y], [x + w, y], [x + w, y + h], [x + s, y + h], [x, y + h - s]], rgba(TF.grund.farbe, TF.grund.alpha));
@@ -123,6 +136,8 @@
     const R = Rd();
     str = String(str);
     if (R.measure(str, skala) <= maxB) return str;
+    const m = /^(.*\S)\s+(\d{3,})$/.exec(str);   // Name + Nummer („LEERRAUM 0504“): den Namen vor der Nummer kürzen, die Nummer bleibt immer ganz
+    if (m) { let nm = m[1]; const suf = ' ' + m[2]; while (nm.length > 1 && R.measure(nm + '…' + suf, skala) > maxB) nm = nm.slice(0, -1); return nm + '…' + suf; }
     while (str.length > 1 && R.measure(str + '…', skala) > maxB) str = str.slice(0, -1);
     return str + '…';
   }
@@ -138,7 +153,11 @@
       ctx.save(); ctx.beginPath(); ctx.rect(bx, by - 2, B.w, 12); ctx.clip();
       for (let g = Math.floor((d.kurs - B.spanne - B.teilung) / B.teilung) * B.teilung; g <= d.kurs + B.spanne + B.teilung; g += B.teilung) {
         const x = Math.round(mid + (g - d.kurs) * px), gg = ((g % 360) + 360) % 360, card = { 0: 'N', 90: 'O', 180: 'S', 270: 'W' }[gg];
-        if (card) txt(ctx, card, x, by + 2, F.kurs, TX.skalaKopf, 'center');
+        if (card) {   // Himmelsrichtung: Buchstabe dunkel auf kleiner Bernstein-Kappe (sonst liest sich „O“ neben „90°“ wie eine Null)
+          const kw = R.measure(card, TX.skalaKopf) + 2 * B.kappePad;
+          ctx.fillStyle = F.kurs; ctx.fillRect(x - Math.floor(kw / 2), by + 1, kw, B.kappeH);
+          R.text(ctx, card, x, by + 2, { color: F.ink, scale: TX.skalaKopf, align: 'center', shadow: false });
+        }
         else { const lang = gg % 10 === 0; ctx.fillStyle = rgba(F.kurs, lang ? B.alphaLang : B.alphaKurz); ctx.fillRect(x, by + (lang ? 3 : 6), 1, lang ? B.lang : B.kurz); }
       }
       ctx.restore();
@@ -173,7 +192,8 @@
     kappe(ctx, kopf, q.x + Rr.ziel.kopfX, q.y + Rr.ziel.kopfY, Rr.farbe);
     txt(ctx, passend(s.name, Rr.ziel.skala, Rr.ziel.maxBreite), q.x + Rr.ziel.wertX, q.y + Rr.ziel.wertY, Rr.farbe, Rr.ziel.skala);
     if (s.boje != null) {
-      txt(ctx, Rr.boje.format.replace('{boje}', s.boje).replace('{entfernung}', s.entfernung), q.x + Rr.boje.x, q.y + Rr.boje.y, Rr.boje.farbe, Rr.boje.skala);
+      // Beim Laden steht die Prozentzahl rechts in derselben Zeile: die Boje zeigt dann nur die Entfernung
+      txt(ctx, s.laedt ? String(s.entfernung) : Rr.boje.format.replace('{boje}', s.boje).replace('{entfernung}', s.entfernung), q.x + Rr.boje.x, q.y + Rr.boje.y, Rr.boje.farbe, Rr.boje.skala);
       // Peilpfeil zur Boje: Ring und Pfeil, Bug oben
       const P = Rr.peil, px = q.x + q.w + P.x, py = q.y + P.y;
       ctx.strokeStyle = rgba(Rr.farbe, P.ringAlpha); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(px, py, P.ringRadius, 0, Math.PI * 2); ctx.stroke();
@@ -183,6 +203,7 @@
     } else if (s.ready) {
       txt(ctx, TX.kopf.bereit, q.x + Rr.boje.x, q.y + Rr.boje.y, F.schild, Rr.boje.skala);
     }
+    if (s.laedt) txt(ctx, Rr.laden.prozentFormat.replace('{prozent}', Math.round(s.charge * 100)), q.x + q.w - Rr.laden.prozentX, q.y + Rr.boje.y, Rr.farbe, TX.skalaWert, 'right');
     if (s.charge > 0) {   // Ladestand: Spur und Balken, Anteil der Breite
       const bw = q.w - 2 * Rr.ziel.kopfX, by = q.y + Rr.laden.balkenY;
       ctx.fillStyle = Rr.laden.spur; ctx.fillRect(q.x + Rr.ziel.kopfX, by, bw, Rr.laden.balkenH);
@@ -200,7 +221,7 @@
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { lage, sperren, zeichne, daten };
+  const API = { lage, sperren, zeichne, daten, kurzName, randLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.HauptschirmTafeln = API;
 })(typeof window !== 'undefined' ? window : globalThis);
