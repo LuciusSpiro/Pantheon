@@ -213,6 +213,7 @@ class Telemetrie {
       s.puffer.push(s.kopf); s.zeilen = 1;
       offene.add(s);
       exitAnmelden();
+      oeffnen(s, true);   // TEL-01 E: Ordner, Datei und Rotation schon beim Sessionbeginn (vor dem ersten Tick); das Anlegen der Datei kostet auf Windows 0,3 bis 8 ms und stand vorher im ersten Schreibvorgang. Fehler zaehlen, wie bisher
     } catch (e) { this._fehlerOhneSession('beginn', e); }
   }
   kopfFuellen() {
@@ -226,6 +227,7 @@ class Telemetrie {
       for (const x of (s.kopf.slots || [])) if (!(x.slot in s.belegung)) s.belegung[x.slot] = 1;   // wer beim Start da ist, ist die erste Belegung des Slots
     } catch (e) { fehler(s, 'kopf', e); }
     s.kopfFertig = true;
+    tuningSchreiben(s);   // TEL-01 E: die Tuning-Datei hier (Ende des Starts, vor dem ersten Tick) statt im ersten Schreibvorgang; bei Fehler gedrosselt erneut im Schreiben
     this._plane();
   }
   // Nur fuer Werkzeuge (sim-headless arena): benennt das Szenario, das der Lobby-Start nicht kennt (z. B. die Steuerstrategie nose|maneuver), damit es im Sessionkopf steht (kopf.szenario)
