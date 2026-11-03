@@ -36,6 +36,7 @@
 
   // ------------------------------------------------------------------ Neue Einzelfarben (je mit Zweck)
   const EIGEN = {
+    brocken: '#2E333D',       // Asteroid im Visier: Füllung, dunkler als jeder Gegner (N2)
     tiefraum: '#05070D',      // Himmelsgrund (Mockup SPACE), Abdunklung der Planeten, Kontur der Schrift über Bild
     lampeAus: '#18202F',      // Stufenleiter: Stufe nicht erreicht (= pult.js SKINS.rom.off)
     lampeStopp: '#3A4A66',    // Stufenleiter: Stufe STOPP (= pult.js SKINS.rom.offLine)
@@ -269,13 +270,13 @@
       gegner: {
         faktor: 1.6, minPx: 16, maxFaktor: 3.2,   // größer als maßstäblich: max(1,6; 16 px / Bildlänge), höchstens 3,2-fach (Mockup VERGR, MIN_PX, min(3.2, …))
         hebe: 6,                  // Modell steht 6 über der Ebene, der Schildring liegt auf ihr (Mockup hebe: 6)
-        stauch: { fest: 0.55, min: 0.3, max: 0.8 },   // Drehsprite (Draufsicht) auf die Ebene gelegt: Höhenstauchung = Bildneigung der Ebene am Fußpunkt, begrenzt; fest = Rückfall (Auftrag KUL-03 B1)
+        stauch: { fest: 0.55, min: 0.45, max: 0.8 },   // Drehsprite (Draufsicht) auf die Ebene gelegt: Höhenstauchung = Bildneigung der Ebene am Fußpunkt, begrenzt; fest = Rückfall (Auftrag KUL-03 B1)
         freund: { farbe: FARBE.schild, huelle: FARBE.schild },   // Verbündete: Marke und Hülle Mint (Ops-Kennung verbündet), Feind bleibt Rot
         saum: { farbe: EIGEN.tiefraum, alpha: 0.85, px: 1 },   // dunkler Umriss um jedes Modell: überdeckte Schiffe bleiben zwei Formen (Mockup)
         dunst: { farbe: EIGEN.dunst, ab: 280, spanne: 1100, max: 0.38 },   // Anteil = (Tiefe − 280) / 1100, höchstens 38 % (Mockup)
-        // Schildring als Fußpunkt flach auf der Ebene, Radius 0,62 × Länge, vier Seiten wie die Ops-Kennung, je ±0,62 rad (Mockup ringEbene())
-        schildring: { radiusFaktor: 0.62, halbBogen: 0.62, farbe: FARBE.schild, alphaGrund: 0.35, alphaJeStufe: 0.15, breiteGrund: 1, breiteJeStufe: 0.5,
-          leer: { farbe: FARBE.gefahr, alpha: 0.9, strich: [2, 3], breite: 1.5 } },
+        // Schildring als Fußpunkt flach auf der Ebene, Radius 0,45 × Länge (Designer-Review N2: knapp schiffsbreit, vorher 0,62), vier Seiten wie die Ops-Kennung, je ±0,62 rad (Mockup ringEbene())
+        schildring: { radiusFaktor: 0.45, halbBogen: 0.62, farbe: FARBE.schild, alphaGrund: 0.25, alphaJeStufe: 0.15, breiteGrund: 1, breiteJeStufe: 0.5,
+          leer: { farbe: FARBE.gefahr, alpha: 0.9, strich: [2, 3], breite: 1 } },
         // Ziel der Ops: vier Ecken um das Modell, Text darunter (Mockup)
         ziel: { farbe: FARBE.kurs, pad: 4, arm: 6, breite: 2, halo: { farbe: EIGEN.tiefraum, alpha: 0.85, extra: 2 },   // halo: dunkler Saum unter den Klammern, damit sie auf dem Schildring lesbar bleiben (B2)
           label: { format: 'ZIEL {entfernung}', skala: 2, abstand: 4 } },   // Text setzt die Beschriftung (visier-beschriftung.js), die Klammern zeichnet visier-objekte.js
@@ -311,6 +312,7 @@
       schuss: { hoehe: 8, welt: 26, breiteJeK: 4, breiteMin: 1.5, breiteMax: 3, eigen: FARBE.kurs, gegner: EIGEN.gegnerHell },   // additiv, 26 lang, 8 über der Ebene (Mockup)
       beschriftung: {              // Schilder und Marken nach Rang setzen, ausweichen statt überdecken (Mockup render())
         rang: { ziel: 3, dock: 3, station: 2, sprungboje: 2, marke: 1, nav: 0 },
+        rangAlarm: { dock: 0, station: 0 },   // bei Alarm Rot (Gefecht) stehen Gegnermarken vor DOCK-RING und STATION: deren Schilder weichen (N2, Designer-Review D3)
         schritt: 6, versuche: 14,  // weicht in 6-px-Schritten aus: Marken und Namen nach oben, ZIEL und DOCK-RING nach unten
         pad: 4, hoehe: 15, hoeheMitEntfernung: 24, hoeheMitEntfernung2: 31,   // Kasten = Textbreite + 4; mit Entfernung darunter (+16) in Skala 1 bzw. Skala 2
         fuehrung: { abVersatz: 5, alpha: 0.6, breite: 1 },   // Führungslinie zum Objekt bei Versatz > 5 px, Farbe des Schilds (Marke: gegnerHell)
@@ -326,7 +328,7 @@
       },
       // KUL-04: Redesign. Grobe Marken für das, was die klassische Frontsicht zeigt (Asteroiden, Minen, Fracht, Bergung, Verborgenes, Tele-Ladung); Maße in Welteinheiten
       grob: {
-        asteroid: { farbe: PAL.grey, hell: FARBE.dim, saum: EIGEN.tiefraum, alpha: 0.8, minPx: 3, fuss: { farbe: PAL.grey, alpha: 0.35 } },
+        asteroid: { farbe: EIGEN.brocken, hell: FARBE.dim, saum: EIGEN.tiefraum, alpha: 0.6, minPx: 3, maxPx: 40, fuss: { farbe: PAL.grey, alpha: 0.35 } },   // N2: dunkler Brocken, leiser als jeder Gegner; hell nur als 1-px-Oberkante; maxPx = größte Breite im Bild
         mine: { farbe: FARBE.gefahr, aus: FARBE.dim, welt: 14, minPx: 4, fuss: { alpha: 0.45, strich: [2, 3] } },
         fracht: { farbe: FARBE.kurs, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
         bergung: { farbe: FARBE.schild, welt: 12, minPx: 4, saeule: { welt: 40, alpha: 0.4 } },
@@ -383,7 +385,7 @@
     // Skins für Leiste und Tafel: gleiche Funktion und Funktionsfarben, andere Fläche (Brückenpulte). rom: Streifen und Schrägen wie TAFEL.
     skin: {
       rom: {
-        platte: { farbe: PAL.space, alpha: 0.94 },   // Leiste Mockup 0,93; = TAFEL.grund 94 %, eine Deckung für Leiste und Tafel
+        platte: { farbe: PAL.dark, alpha: 0.94 },   // N2: PAL.dark hebt die Leiste vom Sternfeld ab (vorher PAL.space = eine Linie); Leiste Mockup 0,93; = TAFEL.grund 94 %, eine Deckung für Leiste und Tafel
         kappe: { form: 'flaeche' },                   // Kopf dunkel auf Funktionsfläche (TAFEL.kappe)
         kante: { farbe: FARBE.sensor, alpha: 0.45, breite: 1 },   // KUL-03 E: Hairline am Fuß der Leiste und an der Innenkante des Tempo-Felds (Platte = Sternfeld-Grund, sonst fast unsichtbar)
       },
@@ -408,9 +410,9 @@
     // KUL-03 Visier: Paare Schrift/Form auf Fläche. alpha = Deckung der Schrift, grundAlpha = Deckung der Fläche (dann zusätzlich über Weiß geprüft,
     // dem hellsten Bild dahinter). Über Bild liegt die Schrift auf ihrer Kontur (FARBE.kontur, 90 %). min: Text 4,5, Rot Skala 2 und Formen 3.
     visier: [
-      { name: 'Tempo Creme, Leiste rom', farbe: PAL.star, grund: PAL.space, grundAlpha: 0.94, doku: 16.6, min: 4.5 },
-      { name: 'Stufe Bernstein, Leiste rom', farbe: PAL.amber, grund: PAL.space, grundAlpha: 0.94, doku: 12.4, min: 4.5 },
-      { name: 'Gradzahl Bernstein 90 %, rom', farbe: PAL.amber, alpha: 0.9, grund: PAL.space, grundAlpha: 0.94, doku: 10.2, min: 4.5 },
+      { name: 'Tempo Creme, Leiste rom', farbe: PAL.star, grund: PAL.dark, grundAlpha: 0.94, doku: 14.8, min: 4.5 },
+      { name: 'Stufe Bernstein, Leiste rom', farbe: PAL.amber, grund: PAL.dark, grundAlpha: 0.94, doku: 11.07, min: 4.5 },
+      { name: 'Gradzahl Bernstein 90 %, rom', farbe: PAL.amber, alpha: 0.9, grund: PAL.dark, grundAlpha: 0.94, doku: 9.18, min: 4.5 },
       { name: 'Kurs im Kasten', farbe: PAL.amber, grund: PAL.space, doku: 12.4, min: 4.5 },
       { name: 'Tempo Creme, Leiste germanen', farbe: PAL.star, grund: EIGEN.eisenPlatte, grundAlpha: 0.94, doku: 15.5, min: 4.5 },
       { name: 'Stufe Bernstein, germanen', farbe: PAL.amber, grund: EIGEN.eisenPlatte, grundAlpha: 0.94, doku: 11.6, min: 4.5 },

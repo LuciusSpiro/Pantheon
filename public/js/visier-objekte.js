@@ -144,7 +144,6 @@
       if (imBild(p, 40, c, c.H + 80)) O.push({ art: 'navboje', tiefe: p.tiefe, p, b });
     }
     // KUL-04: Redesign – grobe Marken
-    const GR = OB.grob;
     for (const a of asteroiden(st)) {
       if (!a || !ok(a.x) || !ok(a.y) || !si.imSicht(a, a.r || 0)) continue;
       const p = boden(ship, a.x, a.y), r = Math.max(4, a.r || 20);
@@ -211,7 +210,7 @@
   function schildring(ctx, o, ship) {
     const SR = TK().VISIER.objekt.gegner.schildring, tm = TK().VISIER.glas.ringe.tiefeMin, werte = seitenStufen(o.e);
     if (!werte) return;
-    const R = o.gr.welt * SR.radiusFaktor, rel = (+o.e.angle || 0) - ship.angle;
+    const R = o.laenge * TK().VISIER.objekt.gegner.faktor * SR.radiusFaktor, rel = (+o.e.angle || 0) - ship.angle;
     for (let i = 0; i < 4; i++) {
       const mid = rel + i * Math.PI / 2, v = werte[i];
       bogenPfad(ctx, o.p.r, o.p.f, R, mid - SR.halbBogen, mid + SR.halbBogen, 10, tm);
@@ -291,7 +290,7 @@
     }
   }
 
-  function saeule(ctx, p, welt, ship, o, farbe, alpha, breiteJeK) {   // Lichtsäule von der Spitze (0) zum Fuß (alpha)
+  function saeule(ctx, p, welt, farbe, alpha, breiteJeK) {   // Lichtsäule von der Spitze (0) zum Fuß (alpha)
     const top = VS().projiziere(p.r, p.f, welt);
     if (!top.ok || !(p.y > top.y)) return;
     const g = ctx.createLinearGradient(0, top.y, 0, p.y), bw = Math.max(1, Math.round(p.k * breiteJeK));
@@ -309,7 +308,7 @@
       bogenPfad(ctx, p.r, p.f, B.feld.welt, 0, Math.PI * 2, 36, 8);
       ctx.setLineDash(B.feld.strich); ctx.strokeStyle = rgba(B.feld.farbe, B.feld.alpha); ctx.lineWidth = B.feld.breite; ctx.stroke(); ctx.setLineDash([]);
     }
-    saeule(ctx, p, B.saeule.welt, null, o, B.saeule.farbe, B.saeule.alpha, B.saeule.breiteJeK);
+    saeule(ctx, p, B.saeule.welt, B.saeule.farbe, B.saeule.alpha, B.saeule.breiteJeK);
     glut(ctx, p, B.glut);
     if (top.ok) {
       const hw = Math.max(2, p.k * (sprung ? 10 : 6)), hh = hw * 1.4;
@@ -345,14 +344,17 @@
   }
 
   // KUL-04: Redesign – die groben Marken
-  function asteroid(ctx, o) {
-    const A = TK().VISIER.objekt.grob.asteroid, p = o.p, r = Math.min(260, Math.max(A.minPx / 2, o.r * p.k)), hh = r * 0.85;
+  function asteroid(ctx, o) {   // dunkler Brocken, leiser als jeder Gegner: Füllung EIGEN.brocken, hell nur als 1-px-Oberkante, Dunst wie bei Gegnern, Breite höchstens maxPx
+    const A = TK().VISIER.objekt.grob.asteroid, p = o.p, r = Math.min(A.maxPx / 2, Math.max(A.minPx / 2, o.r * p.k)), hh = r * 0.85;
     if (r > 6) { bogenPfad(ctx, p.r, p.f, o.r * 0.9, 0, Math.PI * 2, 20, 8); ctx.strokeStyle = rgba(A.fuss.farbe, A.fuss.alpha); ctx.lineWidth = 1; ctx.stroke(); }
-    ctx.beginPath(); ctx.moveTo(p.x, p.y - hh); ctx.lineTo(p.x + r, p.y - hh * 0.15); ctx.lineTo(p.x + r * 0.55, p.y + hh * 0.8); ctx.lineTo(p.x - r * 0.6, p.y + hh * 0.75); ctx.lineTo(p.x - r, p.y - hh * 0.2); ctx.closePath();
-    ctx.fillStyle = rgba(A.farbe, A.alpha); ctx.fill(); ctx.strokeStyle = rgba(A.saum, 0.8); ctx.lineWidth = 1; ctx.stroke();
-    if (r > 5) { ctx.beginPath(); ctx.moveTo(p.x, p.y - hh); ctx.lineTo(p.x + r, p.y - hh * 0.15); ctx.lineTo(p.x, p.y + hh * 0.1); ctx.lineTo(p.x - r, p.y - hh * 0.2); ctx.closePath(); ctx.fillStyle = rgba(A.hell, 0.55); ctx.fill(); }
+    const umriss = () => { ctx.beginPath(); ctx.moveTo(p.x, p.y - hh); ctx.lineTo(p.x + r, p.y - hh * 0.15); ctx.lineTo(p.x + r * 0.55, p.y + hh * 0.8); ctx.lineTo(p.x - r * 0.6, p.y + hh * 0.75); ctx.lineTo(p.x - r, p.y - hh * 0.2); ctx.closePath(); };
+    umriss(); ctx.fillStyle = rgba(A.farbe, A.alpha); ctx.fill();
+    const dn = dunst(o.tiefe);
+    if (dn > 0.01) { umriss(); ctx.fillStyle = rgba(TK().VISIER.objekt.gegner.dunst.farbe, dn); ctx.fill(); }
+    umriss(); ctx.strokeStyle = rgba(A.saum, 0.8); ctx.lineWidth = 1; ctx.stroke();
+    if (r > 5) { ctx.beginPath(); ctx.moveTo(p.x - r, p.y - hh * 0.2); ctx.lineTo(p.x, p.y - hh); ctx.lineTo(p.x + r, p.y - hh * 0.15); ctx.strokeStyle = rgba(A.hell, 1); ctx.lineWidth = 1; ctx.stroke(); }
   }
-  function kleinMarke(ctx, p, G, farbe, hoehe, t, strichRing) {   // Raute über der Ebene, optional Fußring und Säule
+  function kleinMarke(ctx, p, G, farbe, hoehe) {   // Raute über der Ebene
     const hw = Math.max(G.minPx / 2, G.welt * p.k / 2), top = VS().projiziere(p.r, p.f, hoehe);
     const q = top.ok ? top : p;
     raute(ctx, q.x, q.y, hw + 1, hw * 1.3 + 1); ctx.fillStyle = rgba(TK().EIGEN.tiefraum, 0.8); ctx.fill();
@@ -362,11 +364,20 @@
   function mine(ctx, o, t) {
     const M = TK().VISIER.objekt.grob.mine, tot = o.m.s === 0, farbe = tot ? M.aus : M.farbe;
     bogenPfad(ctx, o.p.r, o.p.f, M.welt, 0, Math.PI * 2, 16, 8); ctx.setLineDash(M.fuss.strich); ctx.strokeStyle = rgba(farbe, M.fuss.alpha); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
-    kleinMarke(ctx, o.p, M, farbe, M.welt * 0.6, t);
+    kleinMarke(ctx, o.p, M, farbe, M.welt * 0.6);
   }
   function fracht(ctx, o, t, G, farbe) {
-    saeule(ctx, o.p, G.saeule.welt, null, o, farbe, G.saeule.alpha, 4);
-    kleinMarke(ctx, o.p, G, farbe, 8, t);
+    saeule(ctx, o.p, G.saeule.welt, farbe, G.saeule.alpha, 4);
+    kleinMarke(ctx, o.p, G, farbe, 8);
+  }
+
+  // Alarm Rot (ship.alert === 'red', Quelle wie die Leiste): je Seite zwei rote Streifen, direkt unter dem Horizont und direkt über der Leiste
+  function alarmStreifen(ctx, view, c) {
+    const ship = view && view.state && view.state.ship;
+    if (!ship || ship.alert !== 'red') return;
+    const T = TK(), AL = T.VISIER.objekt.alarm, y0 = Math.round(VS().kamera().horizont) + 1, y1 = c.H - T.VISIER.leiste.hoehe - AL.laenge;
+    ctx.fillStyle = AL.farbe;
+    for (const y of [y0, y1]) { ctx.fillRect(0, y, AL.breite, AL.laenge); ctx.fillRect(c.W - AL.breite, y, AL.breite, AL.laenge); }
   }
 
   function zeichneObjekte(ctx, view, L, c) {
@@ -375,6 +386,7 @@
     if (!aus) return;
     const t = (view && +view.time) || 0, ship = aus.ship, OB = TK().VISIER.objekt, GR = OB.grob;
     for (const o of aus.objekte) {
+      ctx.save();   // jedes Objekt auf frischem Zustand: ein Strichmuster oder Alpha eines Objekts färbt kein anderes
       try {
         switch (o.art) {
           case 'gegner': gegner(ctx, o, ship, t); break;
@@ -387,9 +399,9 @@
           case 'mine': mine(ctx, o, t); break;
           case 'fracht': fracht(ctx, o, t, GR.fracht, GR.fracht.farbe); break;
           case 'bergung': fracht(ctx, o, t, GR.bergung, GR.bergung.farbe); break;
-          case 'verborgen': kleinMarke(ctx, o.p, GR.verborgen, o.h.found ? GR.verborgen.gefunden : GR.verborgen.farbe, 6, t); break;
+          case 'verborgen': kleinMarke(ctx, o.p, GR.verborgen, o.h.found ? GR.verborgen.gefunden : GR.verborgen.farbe, 6); break;
         }
-      } catch (e) { melde(e); }
+      } catch (e) { melde(e); } finally { ctx.restore(); }
     }
     // Strahlen und Projektile, additiv (KUL-04: Redesign)
     const S = OB.schuss;
@@ -397,6 +409,7 @@
     for (const b of aus.striche) { ctx.strokeStyle = b.feind ? S.gegner : S.eigen; ctx.lineWidth = Math.min(S.breiteMax, Math.max(S.breiteMin, b.a.k * S.breiteJeK)); ctx.beginPath(); ctx.moveTo(b.a.x, b.a.y); ctx.lineTo(b.b.x, b.b.y); ctx.stroke(); }
     for (const s of aus.schuesse) { ctx.strokeStyle = s.feind ? S.gegner : S.eigen; ctx.lineWidth = Math.min(S.breiteMax, Math.max(S.breiteMin, s.a.k * S.breiteJeK)); ctx.beginPath(); ctx.moveTo(s.a.x, s.a.y); ctx.lineTo(s.b.x, s.b.y); ctx.stroke(); }
     ctx.restore();
+    try { alarmStreifen(ctx, view, c); } catch (e) { melde(e); }
     // Klammern um das Ziel über allen Modellen (Marken und Texte folgen in der Schicht 'beschriftung')
     for (const o of aus.objekte) {
       if (o.ziel && o.bb && (o.art === 'gegner' || o.art === 'station' || o.art === 'verborgen')) { try { zielZeichnen(ctx, o.bb); } catch (e) { melde(e); } }
@@ -404,7 +417,7 @@
   }
   let letzteLage = null;
 
-  const API = { silCacheGroesse: () => silCache.size, baue, groesse, dunst, marke, markeAn, teleSichtbar, stauch, seitenStufen, letzte: () => letzteLage, zeichne: zeichneObjekte };
+  const API = { alarmStreifen, silCacheGroesse: () => silCache.size, baue, groesse, dunst, marke, markeAn, teleSichtbar, stauch, seitenStufen, letzte: () => letzteLage, zeichne: zeichneObjekte };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.VisierObjekte = API;
   if (root.Visier && root.Visier.registriereSchicht) root.Visier.registriereSchicht('objekte', 10, zeichneObjekte);

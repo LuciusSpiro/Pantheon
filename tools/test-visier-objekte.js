@@ -130,5 +130,87 @@ section('(7) Robustheit');
   ok(prot2.includes('drawImage') || prot2.includes('stroke'), 'Visier.zeichne ruft die Schicht "objekte" (es wird gezeichnet)');
   zielId = null;
 }
+// ---- N2 (Designer-Review KUL-03) ----
+// Aufzeichnender Kontext mit Zustand (Füllung, Strichmuster, save/restore-Stapel)
+function recCtx(opt) {
+  const log = [], stack = [];
+  const st = { fillStyle: null, strokeStyle: null, lineWidth: 1, globalAlpha: 1, dash: [] };
+  const ctx = new Proxy({}, {
+    get: (t, k) => {
+      if (k === 'createLinearGradient' || k === 'createRadialGradient') return () => ({ addColorStop() {} });
+      if (k === 'measureText') return () => ({ width: 0 });
+      if (k === 'save') return () => { stack.push(Object.assign({}, st)); log.push({ k }); };
+      if (k === 'restore') return () => { Object.assign(st, stack.pop() || {}); log.push({ k }); };
+      if (k === 'setLineDash') return (d) => { st.dash = d.slice(); };
+      if (k in st) return st[k];
+      return (...a) => {
+        if (k === 'stroke' && opt && opt.werfeBeiStrich && st.dash.join() === opt.werfeBeiStrich && !opt.geworfen) { opt.geworfen = true; throw new Error('Probe'); }
+        log.push({ k, a, fill: st.fillStyle, stroke: st.strokeStyle, lw: st.lineWidth, dash: st.dash.join() });
+      };
+    },
+    set: (t, k, v) => { st[k] = v; return true; },
+  });
+  return { ctx, log, stack };
+}
+const alarmV = (alert) => { const v = mkView([]); v.state.ship.alert = alert; return v; };
+
+section('(8) N2 D1: Alarmstreifen bei Alarm Rot');
+{
+  const AL = OB.alarm, hz = Math.round(Vis.kamera().horizont) + 1, LY = c.H - V.leiste.hoehe;
+  const streifen = (v) => { const r = recCtx(); Obj.zeichne(r.ctx, v, plan(v), c); return r.log.filter((e) => e.k === 'fillRect' && e.fill === AL.farbe && e.a[2] === AL.breite && e.a[3] === AL.laenge); };
+  const rot = streifen(alarmV('red')), pos = rot.map((e) => e.a[0] + ',' + e.a[1]).sort().join(' ');
+  ok(rot.length === 4, 'bei Alarm Rot vier Streifen ' + AL.breite + ' x ' + AL.laenge + ' in FARBE.gefahr (' + rot.length + ')');
+  ok(pos === [[0, hz], [0, LY - AL.laenge], [c.W - AL.breite, hz], [c.W - AL.breite, LY - AL.laenge]].map((q) => q.join(',')).sort().join(' '), 'je Seite einer direkt unter dem Horizont (y ' + hz + ') und einer direkt über der Leiste (y ' + (LY - AL.laenge) + '): ' + pos);
+  ok(AL.farbe === TK.FARBE.gefahr && AL.breite === 3 && AL.laenge === 46, 'Token alarm: 3 x 46 in FARBE.gefahr');
+  ok(streifen(alarmV('normal')).length === 0 && streifen(alarmV(undefined)).length === 0, 'ohne Alarm Rot keine Streifen');
+}
+
+section('(9) N2 D6: Schildring knapp schiffsbreit, an der Länge vor der Mindestgröße bemessen');
+{
+  const SR = OB.gegner.schildring;
+  ok(SR.radiusFaktor === 0.45 && SR.alphaGrund === 0.25 && SR.leer.breite === 1, 'Tokens: Radius 0,45, Grundalpha 0,25, leerer Ring 1 px');
+  for (const f of [300, 1500]) {
+    const v = mkView([enemy('e', f, 0, 'raider')]), o = lage(v).objekte[0], r = recCtx();
+    Obj.zeichne(r.ctx, v, plan(v), c);
+    const xs = r.log.filter((e) => e.k === 'moveTo' || e.k === 'lineTo').map((e) => e.a[0]);
+    const breitePx = Math.max.apply(null, xs) - Math.min.apply(null, xs), erwartet = 2 * o.laenge * OB.gegner.faktor * SR.radiusFaktor * o.p.k;
+    ok(Math.abs(breitePx / erwartet - 1) < 0.04, 'Entfernung ' + f + ': Ring ' + breitePx.toFixed(1) + ' px breit, erwartet ' + erwartet.toFixed(1) + ' (Länge x 1,6 x 0,45; Modellfaktor ' + o.gr.faktor.toFixed(2) + ')');
+  }
+}
+
+section('(10) N2 D5/D12: Brocken leise, Drehsprite nicht zum Strich');
+{
+  const A = OB.grob.asteroid, lum = (h) => { const n = parseInt(h.slice(1), 16); return 0.2126 * (n >> 16) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255); };
+  ok(TK.EIGEN.brocken === '#2E333D' && A.farbe === TK.EIGEN.brocken && A.alpha === 0.6 && A.maxPx === 40, 'Tokens: Füllung EIGEN.brocken #2E333D, alpha 0,6, maxPx 40');
+  ok(lum(A.farbe) < lum(TK.PAL.grey) && lum(A.farbe) < lum(TK.EIGEN.gegnerHell), 'Brocken dunkler als PAL.grey und jeder Gegner');
+  ok(OB.gegner.stauch.min === 0.45, 'Token stauch.min 0,45');
+  let tief = 1; for (let f = 60; f < 2000; f += 40) for (const r of [-400, 0, 400]) tief = Math.min(tief, Obj.stauch(r, f, 1.2));
+  ok(tief >= 0.45 - 1e-9, 'Stauchung nie unter 0,45 (kleinster Wert ' + tief.toFixed(3) + ')');
+  for (const [d, rad] of [[120, 150], [900, 60]]) {
+    const v = mkView([]); v.state.space.asteroids = [{ id: 'a', x: 1000 + d, y: 1000, r: rad }];
+    const r = recCtx(); Obj.zeichne(r.ctx, v, plan(v), c);
+    const fill = r.log.find((e) => e.k === 'fill' && e.fill === 'rgba(46,51,61,0.6)');
+    const pts = r.log.slice(0, r.log.indexOf(fill)).filter((e) => e.k === 'moveTo' || e.k === 'lineTo').slice(-5).map((e) => e.a[0]);
+    const br = pts.length ? Math.max.apply(null, pts) - Math.min.apply(null, pts) : Infinity;
+    ok(fill && br <= A.maxPx + 1e-9, 'Asteroid r ' + rad + ' in ' + d + ': Füllung rgba(46,51,61,0.6), Breite ' + (br === Infinity ? '-' : br.toFixed(1)) + ' px <= ' + A.maxPx);
+    ok(!r.log.some((e) => e.k === 'fill' && e.fill === 'rgba(107,115,128,0.8)'), '  keine alte hellgraue Fläche (PAL.grey 80 %)');
+  }
+  const vf = mkView([]); vf.state.space.asteroids = [{ id: 'a', x: 1000 + 1200, y: 1000, r: 80 }];
+  const rf = recCtx(); Obj.zeichne(rf.ctx, vf, plan(vf), c);
+  ok(rf.log.filter((e) => e.k === 'fill' && /^rgba\(/.test(e.fill)).length >= 2, 'fern: Dunst als zweite Füllung über dem Brocken');
+}
+
+section('(11) N2 R7: jedes Objekt auf frischem Zustand');
+{
+  const v = mkView([]); v.state.space.markers = [{ kind: 'dock', x: 1500, y: 1000, r: 70 }]; v.state.space.asteroids = [{ id: 'a', x: 1250, y: 1000, r: 60 }];
+  const o = { werfeBeiStrich: TK.VISIER.objekt.station.dock.strich.join() }, r = recCtx(o);
+  let w = null; try { Obj.zeichne(r.ctx, v, plan(v), c); } catch (e) { w = e; }
+  const L = lage(v).objekte.map((q) => q.art);
+  ok(!w && o.geworfen && L.includes('asteroid') && L.includes('dock'), 'wirft ein Objekt (dock) nach setLineDash, bricht das Zeichnen nicht ab (' + L.join(', ') + ')');
+  const aStrich = r.log.filter((e) => e.k === 'stroke' && e.lw === 1 && e.stroke === 'rgba(5,7,13,0.8)');
+  ok(aStrich.length >= 1 && aStrich.every((e) => e.dash === ''), 'der nähere Asteroid wird nicht gestrichelt (Strichmuster ' + aStrich.map((e) => '"' + e.dash + '"').join() + ')');
+  ok(r.stack.length === 0, 'save/restore ausgeglichen, Stapel leer');
+}
+
 console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLER' : 'alle ' + n + ' Pruefungen gruen'));
 process.exit(fails ? 1 : 0);

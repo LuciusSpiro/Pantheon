@@ -40,7 +40,7 @@ function keineUeberlappung(P) {
   for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) if (ueberlappt(rs[i].rect, rs[j].rect)) bad++;
   return bad;
 }
-const verletztSperre = (P) => alle(P).filter((it) => P.sperren.some((s) => ueberlappt(it.rect, s))).length;
+const verletztSperre = (P) => alle(P).filter((it) => P.sperren.some((s) => !(s.nurSchilder && (it.art === 'marke' || it.pfeil)) && ueberlappt(it.rect, s))).length;   // Modelle und Ringwerte sperren nur Schilder
 const imBildAlle = (P) => alle(P).every((it) => it.rect.x0 >= 0 && it.rect.y0 >= 0 && it.rect.x1 <= W && it.rect.y1 <= H);
 const sig = (P) => JSON.stringify(alle(P).map((i) => [i.id, i.rect.x0, i.rect.y0, i.rect.x1, i.rect.y1, !!i.fuehrung]));
 const protCtx = (prot) => new Proxy({}, { get: (t, k) => (k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 0 }) : (...a) => { prot.push([k, a]); }), set: () => true });
@@ -120,8 +120,8 @@ section('(4) Stabilität');
 
 section('(5) Station, Dock-Ring, Sprungboje im Bild');
 {
-  const sp = { markers: [{ kind: 'station', x: 1500, y: 1040, name: 'Hafen Castra' }, { kind: 'dock', x: 1420, y: 1040, r: 70 }], jp: [{ k: 'k1', x: 1400, y: 880, n: '0502' }] };
-  const v = mkView([enemy('a', 300, 0)], sp, { dest: 'leer-0502', jp: 'k1' }), P = bau(v);
+  const sp = { markers: [{ kind: 'station', x: 1500, y: 1040, name: 'Hafen Castra' }, { kind: 'dock', x: 1420, y: 1040, r: 70 }], jp: [{ k: 'k1', x: 1400, y: 830, n: '0502' }] };
+  const v = mkView([enemy('a', 300, 0)], sp, { dest: 'leer-0502', jp: 'k1', anflug: true }), P = bau(v);
   const st = P.items.find((i) => i.art === 'station'), dk = P.items.find((i) => i.art === 'dock'), bj = P.items.find((i) => i.art === 'sprungboje');
   ok(st && st.text === 'HAFEN CASTRA' && st.sub && st.sub.skala === 2 && st.sub.text === String(Math.round(Math.hypot(500, 40))), 'Station: Name und Entfernung, beide Skala 2');
   ok(dk && /^DOCK-RING \d+$/.test(dk.text) && dk.richtung === 'unten', 'Dock-Ring: "' + (dk && dk.text) + '" in Skala 2, unter dem Ring');
@@ -141,11 +141,11 @@ section('(6) Randpfeile für Objekte außerhalb des Bildes');
   const vR = mkView([], { markers: [{ kind: 'station', x: 1500, y: 1420, name: 'Hafen' }] }), PR = bau(vR), stR = lageVon(vR).objekte.find((o) => o.art === 'station');
   ok(stR && !(stR.p.x >= 0 && stR.p.x <= W) && !PR.items.some((i) => i.art === 'station') && PR.pfeile.some((p) => p.id === 'station'), 'Station mit Mittelpunkt links/rechts außerhalb (Rand ragt ins Bild): kein Schild, dafür Randpfeil');
   // Boje unter der Sprungziel-Tafel: das Schild sitzt nie auf dem eigenen Mast
-  const vB = mkView([], { jp: [{ k: 'b', x: 1700, y: 1150, n: '0502' }] }, { dest: 'leer-0502', jp: 'b' }), bj0 = bau(vB).items.find((i) => i.art === 'sprungboje');
+  const vB = mkView([], { jp: [{ k: 'b', x: 1700, y: 1150, n: '0502' }] }, { dest: 'leer-0502', jp: 'b', anflug: true }), bj0 = bau(vB).items.find((i) => i.art === 'sprungboje');
   ok(bj0 && !(bj0.x >= bj0.rect.x0 && bj0.x <= bj0.rect.x1 && bj0.y >= bj0.rect.y0 && bj0.y <= bj0.rect.y1), 'Boje unter der Tafel: das Schild weicht seitlich aus, bedeckt den Mast nicht');
   const sp = { markers: [{ kind: 'station', x: 1400, y: 1700, name: 'Hafen Castra' }], jp: [{ k: 'k1', x: 1450, y: 300, n: '0502' }] };
   zielId = 'z';
-  const v = mkView([enemy('z', 400, -650), enemy('n1', 300, 640), enemy('hinten', -300, 50)], sp, { dest: 'leer-0502', jp: 'k1' });
+  const v = mkView([enemy('z', 400, -650), enemy('n1', 300, 640), enemy('hinten', -300, 50)], sp, { dest: 'leer-0502', jp: 'k1', anflug: true });
   const P = bau(v), pf = (id) => P.pfeile.find((p) => p.id === id);
   ok(P.pfeile.length >= 4, P.pfeile.length + ' Randpfeile: ' + P.pfeile.map((p) => p.id).join(', '));
   ok(pf('station') && pf('station').seite === 1 && /^HAFEN CAS \d+$/.test(pf('station').text), 'Station rechts außerhalb: Pfeil mit kurzem Namen + Entfernung ("' + (pf('station') && pf('station').text) + '")');
@@ -194,7 +194,7 @@ section('(8) oben links frei, Sperrflächen');
   zielId = null;
   const mitTafel = Besch.sperrFlaechen(mkView([], {}, { dest: 'leer-0502' }), c, null), ohneTafel = Besch.sperrFlaechen(mkView([]), c, null);
   const nm = (a) => a.map((s) => s.name).sort().join();
-  ok(nm(mitTafel) === 'lagescheibe,leiste,obenLinks,tafelRechts' && nm(ohneTafel) === 'lagescheibe,leiste,obenLinks', 'Sperren: Leiste, Lagescheibe, oben links, Sprungziel-Tafel nur mit Sprungziel (' + nm(ohneTafel) + ')');
+  ok(nm(mitTafel.filter((s) => s.name !== 'ringwert')) === 'lagescheibe,leiste,obenLinks,tafelRechts' && nm(ohneTafel.filter((s) => s.name !== 'ringwert')) === 'lagescheibe,leiste,obenLinks', 'Sperren: Leiste, Lagescheibe, oben links, Sprungziel-Tafel nur mit Sprungziel (' + nm(ohneTafel) + ')');
   const lf = Lage.flaeche(c), ls = mitTafel.find((s) => s.name === 'lagescheibe');
   ok(ls.x0 <= lf.x && ls.y0 <= lf.y && ls.x1 >= lf.x + lf.w && ls.y1 >= lf.y + lf.h, 'Lagescheibe aus VisierLage.flaeche() (x ' + lf.x + '–' + (lf.x + lf.w) + ', y ' + lf.y + '–' + (lf.y + lf.h) + ')');
   const lei = mitTafel.find((s) => s.name === 'leiste');
@@ -238,5 +238,65 @@ section('(10) Robustheit');
   ok(textCalls.some((q) => /^ZIEL/.test(q.s)), 'Visier.zeichne ruft die Schicht "beschriftung" (ZIEL erscheint)');
   zielId = null;
 }
+// ---- N2 (Designer-Review KUL-03) ----
+function streckeDurch(a, b, r) {   // Strecke a-b schneidet Rechteck r (Abtastung, 0,5 px)
+  const n = Math.max(2, Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) * 2));
+  for (let i = 0; i <= n; i++) { const x = a.x + (b.x - a.x) * i / n, y = a.y + (b.y - a.y) * i / n; if (x > r.x0 && x < r.x1 && y > r.y0 && y < r.y1) return true; }
+  return false;
+}
+const fuehrungDurchKasten = (P) => P.items.filter((i) => i.fuehrung).filter((i) => P.items.some((g) => g !== i && g.art !== 'marke' && !(i.x >= g.rect.x0 && i.x <= g.rect.x1 && i.y >= g.rect.y0 && i.y <= g.rect.y1) && streckeDurch({ x: i.x, y: i.y }, i.fuehrung, g.rect))).length;
+const alarmView = (enemies, space, jump) => { const v = mkView(enemies, space, jump); v.state.ship.alert = 'red'; return v; };
+
+section('(11) N2 D3: im Gefecht weichen DOCK-RING und STATION den Marken, Schilder stehen nicht auf Schiffen');
+{
+  const sp = { markers: [{ kind: 'station', x: 1500, y: 1000, name: 'Hafen Castra' }, { kind: 'dock', x: 1420, y: 1000, r: 70 }] };
+  const gegner = () => [enemy('f', 400, 10, 'fregatte'), enemy('r1', 520, -5), enemy('r2', 450, 30, 'korvette')];
+  const va = alarmView(gegner(), sp), vn = mkView(gegner(), sp);
+  const Pa = bau(va), Pn = bau(vn), rang = (P, art) => (P.items.find((i) => i.art === art) || {}).rang;
+  ok(rang(Pn, 'dock') === BS.rang.dock && rang(Pn, 'station') === BS.rang.station, 'ohne Alarm: Rang dock/station unverändert (' + rang(Pn, 'dock') + '/' + rang(Pn, 'station') + ')');
+  ok(rang(Pa, 'dock') === BS.rangAlarm.dock && rang(Pa, 'station') === BS.rangAlarm.station && BS.rangAlarm.dock < BS.rang.marke && BS.rangAlarm.station < BS.rang.marke, 'bei Alarm Rot: dock/station unter der Marke (' + rang(Pa, 'dock') + '/' + rang(Pa, 'station') + ' < ' + BS.rang.marke + ')');
+  ok(Pa.items.filter((i) => i.art === 'marke').length === 3 && Pa.weggelassen.every((id) => !/^marke/.test(id)), 'bei Alarm Rot sind alle drei Gegnermarken gesetzt');
+  const modelle = lageVon(va).objekte.filter((o) => o.art === 'gegner').map((o) => o.bb);
+  const schilder = Pa.items.filter((i) => i.art !== 'marke');
+  ok(schilder.length >= 1 && schilder.every((s) => modelle.every((bb) => !ueberlappt(s.rect, bb))), 'kein Schild (' + schilder.map((s) => s.id).join(', ') + ') überdeckt ein Schiffsmodell');
+  ok(keineUeberlappung(Pa) === 0 && verletztSperre(Pa) === 0, 'keine Überlappung Schild/Schild/Marke, keine gesperrte Fläche');
+  ok(fuehrungDurchKasten(Pa) === 0, 'keine Führungslinie läuft durch einen fremden Textkasten');
+  // Führungslinie: ein Schild, das nach oben nur durch einen fremden Kasten käme, versetzt sich seitlich statt die Linie durch den Kasten zu ziehen
+  const X = { id: 'x', rang: 3, art: 'ziel', w: 100, h: 15, x: 200, y: 100, richtung: 'unten', wichtig: true };
+  const Y = { id: 'y', rang: 2, art: 'station', w: 40, h: 15, x: 200, y: 130, richtung: 'oben', wichtig: true };
+  const R = Besch.setze([X, Y], [], c), yy = R.items.find((i) => i.id === 'y');
+  ok(yy && yy.rect.y0 >= X.y + X.h - 1 && !streckeDurch({ x: yy.x, y: yy.y }, yy.fuehrung || { x: yy.x, y: yy.y }, R.items.find((i) => i.id === 'x').rect), 'Führungslinie schneidet den Kasten des höheren Rangs nicht: Schild seitlich versetzt (' + (yy && JSON.stringify(yy.rect)) + ')');
+}
+
+section('(12) N2 D4: der Dock-Ring behält sein Label an der Leiste');
+{
+  const sp = { markers: [{ kind: 'station', x: 1160, y: 1000, name: 'Hafen' }, { kind: 'dock', x: 1090, y: 1000, r: 70 }] };
+  for (const d of [100, 130, 160]) {
+    sp.markers[1].x = 1000 + d;
+    const v = mkView([], sp), P = bau(v), dk = P.items.find((i) => i.art === 'dock'), lo = Math.min.apply(null, P.sperren.filter((s) => s.name === 'leiste').map((s) => s.y0));
+    ok(dk && dk.rect.y1 <= lo, 'Dock-Entfernung ' + d + ': Label steht (' + (dk && dk.text) + ') über der Leiste (y1 ' + (dk && Math.round(dk.rect.y1)) + ' <= ' + Math.round(lo) + ')');
+  }
+}
+
+section('(13) N2 D13: Schilder liegen nicht über Ringwerten');
+{
+  const S = Besch.sperrFlaechen(mkView([]), c, null), rw = S.filter((s) => s.name === 'ringwert');
+  ok(rw.length >= 2 && rw.every((s) => s.nurSchilder), rw.length + ' Ringwert-Flächen, nur für Schilder gesperrt');
+  const r0 = rw[0], mx = (r0.x0 + r0.x1) / 2, my = (r0.y0 + r0.y1) / 2;
+  const sch = { id: 's', rang: 2, art: 'sprungboje', w: 60, h: 15, x: mx, y: my + 8, richtung: 'oben', wichtig: true }, mk = { id: 'm', rang: 1, art: 'marke', w: 20, h: 10, x: mx, y: my + 5, richtung: 'oben' };
+  const R = Besch.setze([sch], S, c), M = Besch.setze([mk], S, c);
+  ok(R.items.length === 1 && rw.every((s) => !ueberlappt(R.items[0].rect, s)), 'Schild am Ringwert weicht aus');
+  ok(M.items.length === 1 && M.items[0].dy === 0, 'Marken dürfen über Ringwerten stehen');
+}
+
+section('(14) N2 R5: gewählte Sprungboje wie Tafel und Band');
+{
+  const jp = [{ k: 'n', x: 1200, y: 1000, n: '0111' }, { k: 'f', x: 1700, y: 1100, n: '0502' }];
+  const mitName = (jump) => bau(mkView([], { jp }, jump)).items.filter((i) => i.art === 'sprungboje').map((i) => i.id + '=' + i.text).sort().join(' ');
+  ok(mitName({ dest: 'leer-0502', anflug: true }) === 'boje:f=LEER 0502 boje:n=BOJE 0111', 'Hex-Abgleich: nicht die nächste, sondern die Boje mit der Zielkennung heißt wie das Ziel (' + mitName({ dest: 'leer-0502', anflug: true }) + ')');
+  ok(mitName({ dest: 'leer-0502' }) === 'boje:f=BOJE 0502 boje:n=BOJE 0111', 'ohne Anflug: keine Boje trägt den Zielnamen (' + mitName({ dest: 'leer-0502' }) + ')');
+  ok(mitName({ dest: 'leer-0502', jp: 'n', anflug: true }) === 'boje:f=BOJE 0502 boje:n=LEER 0502', 'gewählter Schlüssel jump.jp hat Vorrang (wie die Tafel)');
+}
+
 console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLER' : 'alle ' + n + ' Pruefungen gruen'));
 process.exit(fails ? 1 : 0);

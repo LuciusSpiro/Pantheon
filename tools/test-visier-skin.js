@@ -57,7 +57,7 @@ function ansicht(ship) {
   return { time: 1, pid: 'a', me: { console: 'helm' }, ship: null, enemies: [], escorts: [], spaceProjectiles: [],
     state: { time: 1, ship: s, space: { w: 6000, h: 6000, so: [], jp, markers: [], hidden: [], salvage: [], mines: [] }, players: [], flotte: {}, inventory: {}, zonen: { in: [], bk: [] }, world: { location: 'kreuzweg' } } };
 }
-const ROM = 'rgba(11,14,26,0.94)', GER = 'rgba(26,22,20,0.94)';
+const ROM = 'rgba(11,14,26,0.94)', ROM_LEISTE = 'rgba(21,27,43,0.94)', GER = 'rgba(26,22,20,0.94)';   // N2 D9: Leiste rom auf PAL.dark, die Tafel bleibt auf TAFEL.grund
 
 // ------------------------------------------------------------------ (1) Skinwahl
 section('(1) Skinwahl: Schiffsvolk im Snapshot, Pult nur als Letztes');
@@ -93,8 +93,8 @@ const zr = zeichneMitLog(ansicht({ volk: 'rom' })), zg = zeichneMitLog(ansicht({
   const leiste = (z, f) => z.log.filter((e) => e.k === 'poly' && e.fill === f && e.y0 >= H - LS.hochfeld);
   const tafel = (z, f) => z.log.filter((e) => e.k === 'poly' && e.fill === f && e.y0 === TK.TAFEL.rechts.y);
   ok(SKIN.rom.platte.farbe !== SKIN.germanen.platte.farbe, 'Tokens: Plattenfarben verschieden (' + SKIN.rom.platte.farbe + ' / ' + SKIN.germanen.platte.farbe + ')');
-  ok(leiste(zr, ROM).length === 2 && leiste(zr, GER).length === 0, 'Rom: Leistenplatte ' + ROM + ', keine Eisenplatte');
-  ok(leiste(zg, GER).length === 2 && leiste(zg, ROM).length === 0, 'Germanen: Leistenplatte ' + GER + ', keine Rom-Platte');
+  ok(leiste(zr, ROM_LEISTE).length === 2 && leiste(zr, GER).length === 0 && leiste(zr, ROM).length === 0, 'Rom: Leistenplatte ' + ROM_LEISTE + ', keine Eisenplatte');
+  ok(leiste(zg, GER).length === 2 && leiste(zg, ROM_LEISTE).length === 0, 'Germanen: Leistenplatte ' + GER + ', keine Rom-Platte');
   ok(tafel(zr, ROM).length === 1 && tafel(zr, GER).length === 0, 'Rom: Tafelplatte ' + ROM);
   ok(tafel(zg, GER).length === 1 && tafel(zg, ROM).length === 0, 'Germanen: Tafelplatte ' + GER);
   const farbe = (z, c) => z.log.filter((e) => e.k === 'rect' && e.fill === c).length;

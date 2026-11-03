@@ -169,7 +169,7 @@ section('(4) keine Huelle, Leiste 22 px');
   ok(hoch.every((e) => e.y0 >= H - LS.hochfeld) && hoch.length >= 1, 'hoechstens ' + LS.hochfeld + ' px hoch: ueber der Leiste nur Tempo-Feld (bis x ' + LS.feldBreite + ') und Kasten');
   const darueber = z.log.filter((e) => (e.k === 'poly' || e.k === 'rect') && e.y0 < H - LS.hochfeld - 0.01 && e.y1 > 0 && e.x0 < W && !(e.y0 >= 0 && e.y1 < H - LS.hochfeld));
   void Q; void darueber;
-  const leiste = z.log.filter((e) => e.k === 'poly' && e.fill === 'rgba(11,14,26,0.94)' && e.y0 >= H - LS.hochfeld);
+  const leiste = z.log.filter((e) => e.k === 'poly' && e.fill === 'rgba(21,27,43,0.94)' && e.y0 >= H - LS.hochfeld);
   ok(leiste.length === 2 && leiste.some((e) => e.y0 === LY && e.x1 === W) && leiste.some((e) => e.y0 === H - LS.hochfeld && e.x1 === LS.feldBreite), 'Platte: Leiste ab y ' + LY + ' ueber die ganze Breite, Hochfeld ab y ' + (H - LS.hochfeld) + ' nur bis x ' + LS.feldBreite + ' (Skin rom 94 %)');
   const alarm = zeichneMitLog(ansicht({ ship: { alert: 'red' } })), norm = zeichneMitLog(ansicht({}));
   ok(alarm.log.some((e) => e.k === 'rect' && e.y0 === LY && e.fill === LS.farbeAlarm) && norm.log.some((e) => e.k === 'rect' && e.y0 === LY && e.fill === LS.farbe), 'Streifen Bernstein, bei Alarm rot (ship.alert red)');
