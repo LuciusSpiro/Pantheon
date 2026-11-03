@@ -21,6 +21,7 @@
 const fs = require('fs');
 const path = require('path');
 const DATEN = require('../../content/welt/ruf-werte.json');
+const Haken = require('../telemetrie/haken.js');
 
 const TEXTE_FILE = path.join(__dirname, '..', '..', 'content', 'flotte', 'ruf.json');
 const W = DATEN.werte;
@@ -72,12 +73,15 @@ function werftText(key, vars) {
   return t.replace(/\{(\w+)\}/g, (m, k) => (vars && has(vars, k) ? vars[k] : m));
 }
 
-function aendern(game, fraktion, delta) {
+function aendern(game, fraktion, delta) { return aendernWegen(game, fraktion, delta, 'sonst'); }
+// TEL-01 B2: der Weg, auf dem der Ruf sich aendert; grund (Quelle der Wirkung) steht im Protokoll
+function aendernWegen(game, fraktion, delta, grund) {
   const ws = game.weltsim;
   if (!ws || !ws.ruf || !has(ws.ruf, fraktion)) return { alt: 0, neu: 0 };
   const alt = ws.ruf[fraktion];
   if (!Number.isFinite(delta)) return { alt, neu: alt };
   ws.ruf[fraktion] = klemmen(fraktion, alt + delta);
+  if (ws.ruf[fraktion] !== alt) Haken.ruf(game, fraktion, ws.ruf[fraktion] - alt, ws.ruf[fraktion], grund);   // TEL-01 B2: Protokoll
   return { alt, neu: ws.ruf[fraktion] };
 }
 
@@ -85,9 +89,9 @@ function anwenden(game, wirkungen) {
   const vorher = rang(game);
   for (const wk of wirkungen || []) {
     if (!wk || wk.typ !== 'ruf_aenderung') continue;
-    aendern(game, wk.fraktion, wk.delta);
+    aendernWegen(game, wk.fraktion, wk.delta, wk.grund);
     const folge = W.quellen.wert[wk.grund] && W.quellen.wert[wk.grund].folge;   // Nebenwirkung der Quelle (z. B. Germanen sinken): aus den Daten, nicht vom Aufrufer
-    if (folge) for (const [f, d] of Object.entries(folge)) aendern(game, f, d);
+    if (folge) for (const [f, d] of Object.entries(folge)) aendernWegen(game, f, d, 'folge:' + wk.grund);
   }
   return { vorher, nachher: rang(game) };
 }
@@ -143,9 +147,11 @@ function debug(game, args) {
   const v = Number(a[1]);
   if (!Number.isFinite(v)) return 'ruf ' + a[0] + ' <Zahl>';
   const vorher = rang(game);
+  const alt = ruf(game, a[0]);
   ws.ruf[a[0]] = klemmen(a[0], v);
+  if (ws.ruf[a[0]] !== alt) Haken.ruf(game, a[0], ws.ruf[a[0]] - alt, ws.ruf[a[0]], 'debug');   // TEL-01 B2: Protokoll (Debug setzt den Wert)
   meldeRang(game, vorher, rang(game));
   return null;
 }
 
-module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, rangName, werftText, aendern, anwenden, meldeRang, szeneSieg, szeneFlucht, verratBeginn, verratVernichtet, snapshot, schluessel, toSave, lesen };
+module.exports = { debug, FRAKTIONEN, RAENGE, neu, ruf, rang, rangVon, rangInfo, rufErreicht, rangName, werftText, aendern, aendernWegen, anwenden, meldeRang, szeneSieg, szeneFlucht, verratBeginn, verratVernichtet, snapshot, schluessel, toSave, lesen };

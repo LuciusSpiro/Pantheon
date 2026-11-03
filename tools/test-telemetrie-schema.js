@@ -3,7 +3,7 @@
 // Geprüft wird gegen kurze Bot-Läufe (Raum, Raum mit Wellen, Boden-Wellen, Grabenangriff) und eine Provokation im Spielprozess:
 //   - jeder vorkommende Typ steht im Schema, jede Zeile trägt nur Felder aus dem Schema (Sessionkopf ausgenommen, der ist strukturiert),
 //   - jedes Feld ist flach (Zahl, Text, Wahrheitswert, null, Liste davon) – nichts wird vom Dienst als „verworfen“ gezählt,
-//   - jeder Typ, den das Paket B1 schreibt, kommt mindestens einmal vor (Bot-Läufe oder Provokation) – oder steht in OHNE_HAKEN,
+//   - jeder Typ, den das Paket B1 schreibt, kommt mindestens einmal vor (Bot-Läufe oder Provokation) – oder steht in NUR_IM_MENSCHENSPIEL (dann prüft ihn test-telemetrie-b2),
 //   - kein Spielername und kein Charaktername irgendwo in den Protokollen (Namenstest über alle Läufe).
 // Der Test lädt sich selbst als Preload in die Kindprozesse (-r, Umgebungsvariable B1SCHEMA_OUT): dort umhüllt er Telemetrie.ereignis und
 // prüft JEDEN Aufruf gegen das Schema (auch Felder, die der Dienst still verwerfen würde).
@@ -49,10 +49,17 @@ let fails = 0, n = 0;
 const ok = (c, t) => { n++; if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const section = (t) => console.log('\n' + t);
 
-// Typen ohne Haken in B1 (B2 schreibt sie) – sie müssen im Schema stehen, kommen hier aber nicht vor
-const OHNE_HAKEN = new Set(['zone_wieder']);
-// Typen anderer Pakete (A, B2), die in den kurzen Läufen vorkommen dürfen, aber nicht Pflicht sind
-const EIGENE = Object.keys(SCHEMA).filter((t) => !OHNE_HAKEN.has(t) && SCHEMA[t].frage !== '-' && !['spieler_bei', 'spieler_weg', 'partie_beendet'].includes(t));
+// Typen, die nur im Menschenspiel (bzw. nur mit Weltsim/LLM) erreichbar sind, nicht im Bot-Lauf: getestet in tools/test-telemetrie-b2.js mit gescriptetem Spiel
+const NUR_IM_MENSCHENSPIEL = ['ruf', 'spielleiter_warten'];
+// Typen, die jeder Lauf dieses Tests sehen muss: alles aus B1 und B2 (Paket A: kopf, session_ende, spieler_*, partie_beendet, tune prüft test-telemetrie.js)
+const EIGENE = Object.keys(SCHEMA).filter((t) => SCHEMA[t].frage !== '-' && !['spieler_bei', 'spieler_weg', 'partie_beendet'].includes(t) && !NUR_IM_MENSCHENSPIEL.includes(t));
+// Paket-Zuordnung (jeder Typ muss im Schema stehen und vorkommen)
+const PAKET_TYPEN = {
+  B2: ['buchung', 'deckung', 'energie', 'konsole', 'loeschen', 'reparatur', 'zeitreihe', 'zone_wieder'],
+};
+// Bot-Namen und Charakternamen der Bots (Wortgrenzen: sonst träfe "Bo" auch "Boden"); der Charaktername ist der Spielername nach Charakter.eindeutigerName
+const BOT_NAME = /\b(Ada|Bo|Cem)\b/;
+const BOT_ID = /sim-\d+/;
 
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-tel-schema-'));
 process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });   // auch bei Abbruch oder Ausnahme
@@ -114,6 +121,10 @@ section('Das Schema selbst');
   ok(typen.every((t) => SCHEMA[t].felder.every((f) => /^[a-z0-9_]{1,40}$/.test(f) && !KOPF.has(f))), 'Feldnamen gültig und ohne Kopffelder');
   ok(typen.every((t) => new Set(SCHEMA[t].felder).size === SCHEMA[t].felder.length), 'keine doppelten Felder');
   ok(typen.join() === typen.slice().sort().join(), 'Einträge alphabetisch nach Typ');
+  ok(typen.every((t) => !SCHEMA[t].strukturiert || t === 'kopf') && !typen.some((t) => 'flach' in SCHEMA[t]), 'nur der Kopf ist strukturiert (Form: frage als Text, strukturiert, auch)');
+  ok(typen.every((t) => !SCHEMA[t].auch || SCHEMA[t].auch.every((a) => arten.has(a))), 'auch nennt nur gültige Fragen');
+  ok(NUR_IM_MENSCHENSPIEL.every((t) => SCHEMA[t]), 'Nur-im-Menschenspiel-Typen stehen im Schema (' + NUR_IM_MENSCHENSPIEL.join(', ') + ')');
+  ok(!typen.includes('mission_start') && !typen.includes('mission_ende') && !typen.includes('wunde'), 'ersetzte Typen (mission_*, wunde) stehen nicht mehr im Schema');
   for (const t of ['kopf', 'session_ende', 'spieler_bei', 'spieler_weg', 'partie_beendet', 'tune']) ok(!!SCHEMA[t], 'Typ aus Paket A steht im Schema: ' + t);
 }
 
@@ -124,6 +135,9 @@ const laeufe = [
   ['wellen-boden-solo', ['wellen', '--karte', 'aussenposten', '--players', '1', '--seeds', '1', '--max', '200']],
   ['wellen-boden-drei', ['wellen', '--karte', 'kesh', '--players', '3', '--seeds', '1', '--max', '120']],
   ['graben', ['graben', '--players', '3', '--seeds', '1', '--max', '90']],
+  // B2: volle Läufe (Grabenangriff zu dritt, Kampagne zu dritt), dort kommen Konsole, Energie, Reparatur, Löschen vor
+  ['b2-graben', ['graben', '--players', '3', '--seed', '1']],
+  ['b2-raum', ['3', '--seed', '7']],
 ];
 const alleZeilen = [];
 for (const [name, args] of laeufe) {
@@ -354,13 +368,19 @@ section('Abdeckung je Ort und Richtung (jeder Haken einzeln: fehlt einer, wird e
 
 section('Jeder Typ von B1 kommt vor');
 for (const t of EIGENE) ok((vorgekommen[t] || 0) > 0, 'Typ ' + t + ' kommt vor (' + (vorgekommen[t] || 0) + '×)');
+for (const [paket, typen] of Object.entries(PAKET_TYPEN)) {
+  const fehlt = typen.filter((t) => !(vorgekommen[t] > 0) && !NUR_IM_MENSCHENSPIEL.includes(t));
+  ok(fehlt.length === 0 && typen.every((t) => SCHEMA[t]), 'Paket ' + paket + ': jeder Typ kommt vor' + (fehlt.length ? ' – fehlt: ' + fehlt.join(',') : ''));
+}
+{ const z = alleZeilen.filter((x) => x.typ === 'zeitreihe'); const f = SCHEMA.zeitreihe.felder; ok(z.length > 0 && z.every((x) => f.every((k) => k in x)), 'zeitreihe trägt in jeder Zeile alle Felder des Schemas (' + z.length + ' Zeilen)'); }
 
 section('Namenstest über alle Protokolle');
 {
   // Spieler-/Charakter-/Client-Kennungen der Tests; Bots heißen Ada, Bo, Cem und haben die clientId sim-<n> (Bo nur in Anführungszeichen: sonst träfe es "Boden")
-  const namen = ['Zyxwename', 'Qorvathchar', 'Clientqzx', 'Ada', 'Cem', '"Bo"', 'sim-0', 'sim-1', 'sim-2'];
+  const namen = ['Zyxwename', 'Qorvathchar', 'Clientqzx'];
   let treffer = 0;
-  const durchsuche = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) durchsuche(f); else if (f.endsWith('.jsonl')) { const s = fs.readFileSync(f, 'utf8'); for (const nm of namen) if (s.includes(nm)) { treffer++; console.log('    Fund: ' + nm + ' in ' + f); } } } };
+  // ganzer Ordner (jsonl, tuning, alles): Test-Kennungen als Teilstring, Bot-Namen und Bot-clientId mit Wortgrenzen
+  const durchsuche = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const f = path.join(d, e.name); if (e.isDirectory()) durchsuche(f); else { const s = fs.readFileSync(f, 'utf8'); for (const nm of namen) if (s.includes(nm)) { treffer++; console.log('    Fund: ' + nm + ' in ' + f); } const m = BOT_NAME.exec(s); if (m) { treffer++; console.log('    Fund: ' + m[1] + ' in ' + f); } if (BOT_ID.test(s)) { treffer++; console.log('    Fund: clientId in ' + f); } } } };
   durchsuche(TMP);
   ok(treffer === 0, 'keine Spielernamen, Charakternamen oder Client-Kennungen in den Protokollen');
   ok(!alleZeilen.some((x) => 'name' in x || 'clientid' in x || 'karte' in x), 'kein Feld name, clientId oder karte');

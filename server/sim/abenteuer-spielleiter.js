@@ -12,6 +12,7 @@
 // Transports) | verspaetet | uebersprungen; dazu anbieter, modell, tokens, dauer_s, geld (USD, 0 bei Mock und Ollama), eskaliert, plan { grenze, nr, sitzung, hex, typen, ... }. Titel und Anlass stehen nie im Eintrag.
 //   const sl = create(lage)    sl.beiGrenze(art) -> { gestartet, grund } | null    sl.update(dt)    sl.dispose()    sl.status()    sl.erzwingen()  (Debug: ohne Cooldown und Deckel)
 const LLM = require('../mission/llm.js');
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Wartezeit auf den Spielleiter ins Protokoll (liest nur)
 const Regie = require('./regie-befehle.js');
 const Prompt = require('./abenteuer-prompt.js');
 const { WERTE } = require('./abenteuer-daten.js');
@@ -146,6 +147,7 @@ class AbenteuerSpielleiter {
         this.schreibe(Object.assign({ ausgang: 'verspaetet', begruendung: 'Antwort nach Zeitueberschreitung verworfen', plan: { sitzung: this.lage.sitzung } }, it.r ? this.messung(null, it.r) : {}));
         continue;
       }
+      Haken.spielleiterWarten(this.game, 'abenteuer', this.game.time - job.start, Haken.warteAusgang(it.e));   // TEL-01 B2: Anfrage -> Antwort (liest nur)
       if (it.e) this.ausfall(job, it.e, null);
       else { try { this.antwort(job, it.r); } catch (e) { this.fehlerZaehlen('abenteuer-antwort', e); this.ausfall(job, LLM.llmError('EXIT', 'Antwort nicht verarbeitbar: ' + e.message), it.r); } }
     }
@@ -154,6 +156,7 @@ class AbenteuerSpielleiter {
     const job = this.job;
     if (!job || this.zustand !== 'laeuft') return;
     if (this.game.time - job.start > this.W.timeout_s + 1) {
+      Haken.spielleiterWarten(this.game, 'abenteuer', this.game.time - job.start, 'timeout');   // TEL-01 B2
       this.abbrechen(job);
       this.ausfall(job, LLM.llmError('ETIMEDOUT', `Zeitueberschreitung nach ${this.W.timeout_s} s (Spielzeit)`), null);
     }

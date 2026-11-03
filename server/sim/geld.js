@@ -19,6 +19,7 @@ const GRUENDE = Object.freeze([
 ]);
 const ARTEN = Object.freeze(['buchung', 'stand']);
 const Pruefung = require('./buchungspruefung.js');
+const Haken = require('../telemetrie/haken.js');
 const pruefeGrund = (game, grund) => { if (!GRUENDE.includes(grund)) Pruefung.unbekannt(game, 'buchung-grund', 'geld: unbekannter Grund ' + grund); };
 
 // Die Kernfunktion: jede Marken-Änderung läuft hier durch. art 'buchung' = Wirtschaft (Einnahme/Ausgabe), 'stand' = Stand gesetzt (Anfang, Laden, Test, Debug).
@@ -28,7 +29,7 @@ function schreiben(game, art, grund, neu) {
   pruefeGrund(game, grund);
   const vorher = game.inventory.marks;
   game.inventory.marks = neu;
-  // TEL-01: hier protokollieren (art, grund, vorher, neu)
+  Haken.buchung(game, 'marks', art, grund, neu - vorher, neu);   // TEL-01: hier protokollieren (B2: liest nur; ohne Session ein Zugriff)
   return neu;
 }
 

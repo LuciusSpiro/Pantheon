@@ -22,23 +22,42 @@
 // SCHADEN: schaden_roh = Schaden vor Schild; schild = dabei verlorene Schildpunkte (Raum, Gegner-Schild: Summe der Segmente) bzw. Schildsegmente (Boden, Bodenschild); schaden = was darueber
 //   hinaus wirkt. Raum Lerche -> Gegner: schaden = Schildverlust + (nur bei Systemtreffer oder Sofort-Tod) Restschaden; Raum Gegner -> Lerche: schaden = Rest nach Schild (damage.resolveHit);
 //   Boden: schaden = schaden_roh, wenn die Wirkung den Koerper erreicht (ergebnis wunde|gefallen|bewusstlos), sonst 0 (Schild nahm sie auf).
+//
+// B2: Positionen am Boden auf ganze Kacheln (Math.floor(v / 32) wie Physics.toTile; 1 Kachel = 1 m). zone: IMMER ein Sektor der Lerche (bug, steuerbord, heck, backbord, mitte), nie etwas anderes;
+//   die Raumkennung einer Kachel heisst raum. Listen in flachen Feldern: Zahlen/Texte/Wahrheitswerte/null, je <= 64 Eintraege.
 
 const SCHEMA = {
   bodenschild_leer: { frage: '3', text: 'Bodenschild eines Spielers auf 0 (Wirkung erreicht ihn: nächster Treffer wirft ihn um)', felder: ['slot', 'waffe'] },
+  buchung: { frage: '5', text: 'Aenderung eines Kontos: konto = marks oder das Verbrauchsgut (bolzen, sonde, medipack, loeschgel, loeschgelCharges, ersatzteil, flickblech, tafel, ladung); art buchung (Wirtschaft) | stand (Stand gesetzt: Anfang, Laden, Test, Debug); grund = Schluessel des Buchungsdienstes; betrag = Aenderung, stand = danach. Der Anfangsstand der Session ist stand - betrag der ersten Buchung des Kontos. Ein kaputter Wert steht als null, nie als 0.',
+    felder: ['konto', 'art', 'grund', 'betrag', 'stand'] },
+  deckung: { frage: '2b', text: 'Deckung als ROHZUSTAND (die Deutung "in Deckung" macht die Auswertung): eine Zeile bei jeder Aenderung des Tupels. Spieler (slot gesetzt; Tupel cv, geduckt, verdeckt; Takt 5 Hz = combat.updateVisibility/aiHz): cv 0/1/2 = Deckung gegen den gefaehrlichsten sichtbaren Gegner (2 = voll, auch geduckt hinter niedriger Deckung ohne Gegner in Sicht), geduckt = p.crouch, verdeckt = es gibt alarmierte Gegner, keiner hat Sicht auf den Spieler und der Spieler steht an Deckung (combat.verdecktVor), flanke = offene Flanke zum Zeitpunkt der Zeile. Gegner (gegner, rolle gesetzt; Tupel geduckt, stellung; geduckt = e.crouch wird je Tick geprueft (squad.updateEnemyCrouch), stellung = steht in einer Stellung im 5-Hz-Takt oder sofort bei einem Wechsel von geduckt); cv, verdeckt, flanke null. stellung beim Spieler = steht in einer Stellung zum Zeitpunkt der Zeile (nicht im Tupel). x, y = Kachel. Grundzustand (0|0|0 bzw. 0|0) wird nicht gemeldet; die erste Zeile einer Figur ist der erste Zustand ungleich Grundzustand. Nicht entprellt: der kuerzeste Zustand dauert einen Takt (Peek-and-Shoot), die Auswertung filtert bei Bedarf. ende (sonst null) schliesst einen offenen Zustand mit einer letzten Zeile im Grundzustand: session (Sessionende), ort (Spieler nicht mehr draussen oder Aussenkarte gewechselt), tod (Gegner gefallen), weg (Gegner aus der Liste entfernt, z. B. Wellenende; bis zu 0,2 s spaeter erkannt). Zeit in Deckung = Zeit zwischen einer Zeile ungleich Grundzustand und der naechsten Zeile derselben Figur. "Zeit bis zum ersten Treffer" und "Treffer aus der Deckung" ergeben sich mit den Treffern aus B1 (von_deckung, ziel_deckung).',
+    felder: ['slot', 'gegner', 'rolle', 'cv', 'geduckt', 'verdeckt', 'flanke', 'stellung', 'x', 'y', 'ende'] },
+  energie: { frage: '5', text: 'Energieverteilung geaendert: grund technik (Konsole, mit system und delta) | automatik (der Reaktor hat gekuerzt); danach engines/shields/weapons, Reaktorleistung und Verbrauch. Der Verlauf steht in der Zeitreihe (r_energie).',
+    felder: ['grund', 'system', 'delta', 'engines', 'shields', 'weapons', 'leistung', 'verbrauch'] },
   gefallen: { frage: '3', text: 'Spieler geht am Boden zu Boden (verwundet): durch einen Waffentreffer (treffer mit ergebnis gefallen, waffe/von dort) oder einen Monsterbiss (waffe monster)', felder: ['slot', 'waffe', 'von'] },
   gegner_neu: { frage: '2', text: 'Gegner erscheint. quelle spawn = im Tick des Erscheinens gesehen, kontakt = erst im Gefecht aufgefallen (Boden ohne Wellen/Graben)', felder: ['ort', 'gegner', 'rolle', 'tag', 'verbuendet', 'quelle'] },
   gegner_weg: { frage: '2', text: 'Gegner verschwindet ohne Abschuss. grund: Raum rueckzug, zerstoert, szenenwechsel, welle_vorbei (Wellenende raeumt), uebersprungen (Debug-Skip der Welle, Bots nach der Wellenzeitgrenze), konvoi_ende (Frachter und Eskorte des Konvois verlassen das Feld), unbekannt (alle uebrigen Wege); Boden welle_vorbei, koerperbudget, koerperzeit, neubeginn, abgezogen', felder: ['ort', 'gegner', 'rolle', 'grund', 'lebte'] },
   kill: { frage: '2', text: 'Abschuss (Raum: Gegner zerstört; Boden: Gegner geht zu Boden, kann wieder aufstehen, nr zählt). von/waffe aus dem treffer, der ihn fällt (steht davor; Raum auch aus dem letzten Treffer der Lerche, wenn der Tod später kommt, Reaktor-Countdown); von sonstige nur, wenn die Lerche ihn nie getroffen hat (Verbündete, Brocken)', felder: ['ort', 'gegner', 'rolle', 'von', 'waffe', 'lebte', 'nr'] },
+  konsole: { frage: '4', text: 'Konsole betreten (rein) oder verlassen bzw. aktive Station gewechselt (grund tab). konsole = Ort, station = aktives Interface (die Rolle). grund: betreten, tab, spieler, abgang, schubs, niedergestreckt, ortswechsel, beamen, debug, sonst (verlassen durch Szenen/Werft/Kampf ohne eigenen Grund).',
+    felder: ['slot', 'konsole', 'station', 'rein', 'grund'] },
   kopf: { frage: '-', text: 'Sessionkopf (erste Zeile)', strukturiert: true,
     felder: ['commit', 'server_version', 'plattform', 'node', 'run_id', 'seed', 'modus', 'szenario', 'graben', 'weltstand', 'regielog', 'quelle', 'spielerzahl', 'slots', 'schiff', 'schalter', 'tuning_hash', 'tuning_teile'] },
+  loeschen: { frage: '4', text: 'Feuer geloescht (art feuer) oder Leck geflickt (art leck); raum = Raumkennung der Kachel (nicht der Sektor).',
+    felder: ['slot', 'art', 'raum'] },
   notfall: { frage: '3', text: 'Notfallprotokoll der Lerche ausgelöst (Kosten in Marken bucht der Buchungsdienst)', felder: ['grund'] },
   notrueckholung: { frage: '3', text: 'Notrückholung am Boden. art: einzel (Ausbluten), krankenstation, fern (Ausbluten bei zerstörtem Transfer, kein Beamen), team (ganzes Außenteam, slots)', felder: ['art', 'slot', 'slots'] },
   partie_beendet: { frage: '1', text: 'Partie beendet (Menü, Zerstörung, Server)', felder: ['von', 'gesichert', 'grund'] },
+  reparatur: { frage: '4', text: 'Reparaturspiel (Halteprozess) eines Spielers: wie = flick | swap | minigame, dauer in s Spielzeit, erfolg false bei Abbruch/Weglaufen/zu hastig; notflicken = wie flick (Stufe + fragil).',
+    felder: ['slot', 'system', 'wie', 'dauer', 'erfolg', 'notflicken'] },
+  ruf: { frage: '5', text: 'Ruf bei einer Fraktion geaendert (nur Freie Fahrt Sund); betrag = tatsaechliche Aenderung nach Klemmen, stand = danach; grund = Quelle der Wirkung (Schluessel aus content/welt/ruf-werte.json, folge:<grund> bei der Nebenwirkung, debug, sonst).',
+    felder: ['fraktion', 'grund', 'betrag', 'stand'] },
   schiff_zerstoert: { frage: '3', text: 'Schiff zerstört (Reaktor-Countdown abgelaufen)', felder: ['grund', 'n'] },
   schuss: { frage: '2', auch: ['2b'], text: 'Schuss. Raum: nur die Lerche (Gegnerschüsse im Raum über treffer); Boden: Spieler und Gegner. treffer (nur Lanze Raum) = beim Schuss bekannt; sonst Quote über treffer mit gleicher pid (siehe Kopf der Datei: Quote = Schüsse mit >= 1 Treffer / Schüsse)', felder: ['ort', 'waffe', 'von', 'mount', 'pid', 'ziel', 'gegner', 'rolle', 'kraft', 'treffer', 'hitze', 'von_deckung', 'geduckt'] },
   session_ende: { frage: '-', text: 'Ende der Session (letzte Zeile)', felder: ['grund', 'dauer', 'zeilen', 'fehler', 'verworfen', 'bytes'] },
   spieler_bei: { frage: '1', auch: ['4'], text: 'Spieler tritt bei (neu, uebernahme, wieder)', felder: ['slot', 'art', 'belegung', 'nachzuegler', 'spielerzahl'] },
   spieler_weg: { frage: '1', auch: ['4'], text: 'Spieler geht', felder: ['slot', 'belegung', 'spielerzahl'] },
+  spielleiter_warten: { frage: '6', text: 'Wartezeit auf den Spielleiter in s Spielzeit. art: anflug (Spieler halten vor der Szene, ausgang ready | failed), lage, abenteuer, grobplan, szene, szene-eskalation (Anfrage bis Antwort, ausgang ok | fehler | timeout; timeout auch bei einem Transportfehler mit Code ETIMEDOUT).',
+    felder: ['art', 'dauer', 'ausgang'] },
   szene_ende: { frage: '1', text: 'Szene endet (Kampagnenmission, Labor, Testgelände, Wellen, Graben, Endkampf, Sund). dauer = seit szene_start bzw. dem letzten szene_neustart (Graben: der letzte Versuch), dauer_gesamt = seit szene_start. Eine Szene, die bis zum Ende der Session lief, schließt der Dienst mit ausgang session_ende. spielerzahl = beim Ende; ein späterer Beitritt steht in spieler_bei', felder: ['modus', 'szene', 'ausgang', 'dauer', 'dauer_gesamt', 'spielerzahl', 'welle', 'geschafft', 'debug', 'versuche', 'hex', 'verrat'] },
   szene_neustart: { frage: '1', auch: ['3'], text: 'Grabenangriff beginnt nach Niederlage von vorn', felder: ['modus', 'szene', 'versuch'] },
   szene_start: { frage: '1', text: 'Szene beginnt. spielerzahl = beim Start (spätere Beitritte: spieler_bei)', felder: ['modus', 'szene', 'spielerzahl', 'seed', 'gegner', 'hex', 'klasse'] },
@@ -49,8 +68,21 @@ const SCHEMA = {
   ueberladung: { frage: '2', auch: ['6'], text: 'Reaktor-Überladung der Lerche: wie an (ausgelöst) oder ende (Zeit abgelaufen, Reaktor schaltet ab); der Verlauf steht in der Zeitreihe', felder: ['wie'] },
   welle: { frage: '1', auch: ['2'], text: 'Welle beginnt (Wellen Boden, Wellen All)', felder: ['modus', 'nr', 'gesamt', 'spielerzahl'] },
   welle_geschafft: { frage: '1', auch: ['2'], text: 'Welle geschafft; dauer = Sekunden seit Wellenbeginn', felder: ['modus', 'nr', 'dauer'] },
+  zeitreihe: { frage: '2b', auch: ['4', '5', '6'],
+    text: 'Schnappschuss alle fenster = 2 s Spielzeit (tickgenau; zaehlt nicht in der Solo-Pause). Technik: tick_n Ticks im Fenster, tick_med/tick_max Dauer von game.step in ms, tick_ueber5/16/33 Ticks mit mehr als 5/16/33 ms; ' +
+      'snap_n/snap_med/snap_max Snapshot-Bau + Broadcast in ms (nur im Server, index.js; im Bot-Lauf n = 0); kappung_n Aufrufe der Tickschleife, in denen die 250-ms-Kappung Zeit verwarf, kappung_ticks die dabei verworfene Zeit in Ticks, nachhol_ticks Ticks, die ein Aufruf zusaetzlich zum ersten nachholte; fehler_n Fehler und fehler_wo ihre Schluessel (nie die Meldung). ' +
+      'Raum: szene (Name der Szene); r_zustand = ein Zeichen je System in der Reihenfolge interior.SYSTEM_ORDER (0 ok, 1 damaged, 2 broken, 3 offline); r_integ je System; r_reaktor; r_energie = engines, shields, weapons; r_leistung/r_verbrauch des Reaktors; r_hitze = engines, shields, weapons; r_schild = vier Sektoren; r_gegner Gegner im Raum (ohne relay). ' +
+      'Je Slot (Listen in der Reihenfolge slots): verbunden, ort (raum | boden), konsole (Ort der Konsole), station (aktives Interface = Rolle), ein_bew/ein_akt = Eingaben im Fenster (Bewegung / alles andere, nur Anzahl, Debug und clientError zaehlen nicht). ' +
+      'Boden (nur wenn jemand auf der Aussenkarte ist, sonst null; je Slot null wenn nicht draussen): b_schild Segmente, b_wunden, b_liegt, b_cv (Rohwert, Deutung siehe deckung), b_geduckt, b_sp = Position x,y je Slot in Kacheln (Paare); ' +
+      'Gegner: b_gg Zahl, b_gg_duck davon geduckt, b_gg_abst_min kleinster und b_gg_abst_nn mittlerer Abstand zum naechsten Nachbarn (Kacheln), b_gg_pos Positionen x,y als Paare (nur bis 16 Gegner, sonst null). Kein Kontostand.',
+    felder: [
+      'fenster', 'tick_n', 'tick_med', 'tick_max', 'tick_ueber5', 'tick_ueber16', 'tick_ueber33', 'snap_n', 'snap_med', 'snap_max', 'kappung_n', 'kappung_ticks', 'nachhol_ticks', 'fehler_n', 'fehler_wo',
+      'szene', 'r_zustand', 'r_integ', 'r_reaktor', 'r_energie', 'r_leistung', 'r_verbrauch', 'r_hitze', 'r_schild', 'r_gegner',
+      'slots', 'verbunden', 'ort', 'konsole', 'station', 'ein_bew', 'ein_akt',
+      'b_schild', 'b_wunden', 'b_liegt', 'b_cv', 'b_geduckt', 'b_sp', 'b_gg', 'b_gg_duck', 'b_gg_abst_min', 'b_gg_abst_nn', 'b_gg_pos'] },
   zone_aus: { frage: '3', text: 'Zonensystem der Lerche fällt aus oder wird beschädigt (Stufenverlust)', felder: ['system', 'zone', 'zustand', 'vorher'] },
-  zone_wieder: { frage: '3', text: 'Zonensystem repariert (schreibt Paket B2 in interior.repairSystem); wie = Art der Reparatur', felder: ['system', 'zone', 'wie'] },
+  zone_wieder: { frage: '3', auch: ['4'], text: 'Zonensystem repariert (schreibt B2 in interior.repairSystem): system = Systemschluessel, zone = Sektor der Lerche (wie bei zone_aus, B1), wie = flick | swap | minigame | bot | oda, durch = player | bot | oda.',
+    felder: ['system', 'zone', 'wie', 'durch'] },
 };
 
 module.exports = { SCHEMA };

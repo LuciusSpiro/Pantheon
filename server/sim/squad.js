@@ -5,6 +5,7 @@
 // advance (kein Ziel sichtbar, aber lastKnown) · idle (unbemerkt: Patrouille um den Spawn).
 // Trupp-Wissen (squad.alert, lastKnown je Spieler), Funksprüche (bark) vor der Aktion, Anti-Hängen (4 s -> neuer Plan).
 // Wächter (kind 'warden'): schläft bis wake, dreht mit turnRate zum Ziel, schießt nur geradeaus, funkt nicht.
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const W = require('../world.js');
@@ -809,6 +810,7 @@ function updateEnemyCrouch(game, E, e) {
   const want = !!(cc && cc.enemyCrouch) && e.kind !== 'warden' && e.role === 'retreat' && !e.aim &&
     (!e.path || !e.path.length) && e.seg < e.max && Los.nextToLow(E.map, E.solid, e.x, e.y);
   e.crouch = want;
+  Haken.deckungGegner(game, e);   // TEL-01 B2: Deckungswechsel der Gegner ins Protokoll (liest nur)
 }
 
 function act(game, E, e, dt) {

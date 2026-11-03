@@ -10,6 +10,7 @@
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
@@ -1060,6 +1061,23 @@ function updateVisibility(game) {
     // Offene Flanke: ein bemerkender Gegner mit Sichtlinie trifft ohne Deckung, obwohl der Spieler an Deckung steht
     p.fl = covers.some((c) => c === 0) && nextToCover(E, p);
   }
+  Haken.deckungSpielerAlle(game);   // TEL-01 B2: Deckungswechsel der Spieler ins Protokoll (liest nur)
+}
+// TEL-01 B2: "verdeckt" (nur LESEN, kein Zufall, schreibt nichts): es gibt alarmierte Gegner, keiner hat Sicht auf den Spieler (dasselbe Kriterium wie die
+// Gefahrenliste in updateVisibility: Reichweite und Sichtlinie), und der Spieler steht an Deckung. Das Protokoll ruft es im 5-Hz-Takt von updateVisibility.
+function verdecktVor(game, p) {
+  const aw = game.away;
+  if (!p || p.zone !== 'away' || !aw || !aw.drones) return false;
+  const E = env(game);
+  if (!nextToCover(E, p)) return false;
+  const R = cfg(game).sightTiles * TILE;
+  let alarmiert = false;
+  for (const e of aw.drones) {
+    if (!e.alive || e.asleep || !squad.isAlert(game, e)) continue;
+    alarmiert = true;
+    if (dist(p.x, p.y, e.x, e.y) <= R && Los.lineOfSight(E.blocked, e.x, e.y, p.x, p.y)) return false;
+  }
+  return alarmiert;
 }
 function nextToCover(E, p) {
   const t = Physics.toTile(p.x, p.y);
@@ -1863,7 +1881,7 @@ function awaySnap(game, aw) {
 module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
-  jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, scanQuality, tune, tuneList,
+  jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
   playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
