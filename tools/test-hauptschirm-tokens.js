@@ -96,13 +96,14 @@ ok(T.PLANET.ozean.land, 'Ozean braucht Landrampe');
 const H = T.HIMMEL;
 ok(H.parallaxePlanet === 0.45 && H.parallaxeGasriesePlan === 1, 'Parallaxe nicht 0,45 / 1 (Richtung A)');
 ok(H.radiusFaktor === 0.9 && H.radiusFaktorGasriesePlan === 1, 'Radiusfaktor nicht 0,9 / 1');
-ok(H.abdunklung.alpha === 0.22, 'Abdunklung nicht 22 %');
+ok(H.abdunklung.alpha === 0.45, 'Abdunklung nicht 45 % (Designer-Review KUL-02, 2026-11-03)');
 ok(H.parallaxePlanet > 0 && H.parallaxePlanet < 1, 'Planeten müssen langsamer ziehen als die Ebene');
 const SF = T.STERNFELD;
 ok(Number.isInteger(SF.anzahl) && SF.anzahl > 0 && SF.anzahl <= 1000, 'Sternfeld-Anzahl');
 ok(SF.klassen.every((k, i, a) => istAlpha(k.ab) && (i === 0 || a[i - 1].ab > k.ab)) && SF.klassen[SF.klassen.length - 1].ab === 0, 'Sternfeld-Klassen absteigend bis 0');
 const S = T.SONNE;
 ok(S.radius > 0 && S.randAbstand > S.radius && S.gluehen.every(([r, a]) => r > 1 && istAlpha(a)), 'Sonne: Maße/Glühen');
+ok(S.sperreUnten && S.sperreUnten.halbB === 72, 'Sonne: sperreUnten.halbB 72 (Randlicht nie neben der Lerche)');
 const K = T.KUGEL;
 ok(Number.isInteger(K.block.min) && K.block.min >= 1 && K.block.max >= K.block.min && K.block.pxJeBlock > 0, 'Blockraster min/max');
 ok(K.dither.bayer4.length === 16 && K.dither.bayer4.slice().sort((a, b) => a - b).every((v, i) => v === i), 'Bayer-Matrix 4 × 4 ist keine Permutation von 0..15');
@@ -116,7 +117,8 @@ ok(G.dunst.bisRadius === 1.9, 'Dunst bis 1,9 R (Hochatmosphäre)');
 // Textskalen
 const TX = T.TEXT;
 ok(TX.skalaBeschriftung >= 2 && TX.skalaWert >= 2 && TX.skalaGross === 3 && TX.skalaKopf === 1, 'Textskalen (Beschriftung ≥ 2, Wert ≥ 2, Groß 3, Kopf 1)');
-ok(B.sprung.label.skala >= 2 && G.label.skala >= 2, 'Bojen-/Schicht-Labels unter Skala 2');
+ok(B.sprung.label.skala >= 2 && G.label.skala >= 2 && G.label.schritt > 0 && G.label.schritt <= 0.2 && G.label.rand >= 0, 'Bojen-/Schicht-Labels unter Skala 2, Namenssuche in Schritten ≤ 0,2 rad');
+ok(B.nav.saum && istAlpha(B.nav.saum.alpha) && B.nav.saum.plus > 0, 'Navboje: dunkler Saum (Kontrast auf hellem Planeten)');
 // Tafeln
 const TF = T.TAFEL, W = T.SCHIRM.w;
 const lage = (t) => ({ x: t.x >= 0 ? t.x : W + t.x - t.w, y: t.y, w: t.w, h: t.h });

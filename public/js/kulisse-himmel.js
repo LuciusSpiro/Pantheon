@@ -1,5 +1,5 @@
 // KUL-02 C: Himmelsschicht des klassischen Hauptschirms (Richtung A „Tiefe“, KUL-01). Zeichnet Sternfeld, Stern als Randlicht in seiner Peilung, Planeten UNTER der Flugebene
-// (Parallaxe 0,45), Gasriesen-Dunst mit Höhenlinien und Navigationsbojen als Leuchtmarken. Nur Zeichnen: liest die Szene (Shared_Locations, scene.stern / planeten / bojen / zonen)
+// (Parallaxe 0,45), Gasriesen-Dunst mit Höhenlinien (ohne Namen: die Schichtnamen zeichnet drawZonen) und Navigationsbojen als Leuchtmarken. Nur Zeichnen: liest die Szene (Shared_Locations, scene.stern / planeten / bojen / zonen)
 // und das Schiff aus dem Snapshot, kennt kein Spielwissen und ändert nichts am Spiel (Planeten, Sterne und Bojen sind reine Kulisse, keine Kollision).
 // Aufruf: Render.drawFrontView ruft über rect.himmel (sitz.js, Zeichner 'klassisch') nach dem Sternenhimmel und vor allen Spielobjekten KulisseHimmel.zeichne(ctx, view, rect).
 // rect ist DASSELBE Fenster wie bei drawFrontView; die Projektion kommt aus Render.frontProjektion (gleiche Mathe wie drawSpace).
@@ -43,19 +43,31 @@
     const sicht = rect.sicht || rect, { loc, sc } = szeneVon(st);
     const fog = !!(loc && (loc.fog || loc.kind === 'nebula'));
     const aus = { fog, P, sicht, sterne: [], planeten: [], gas: [], bojen: [], sprung: [] };
-    const sterne = punkte(sc.stern);
+    // Nebel: Sicht halbiert (wie drawFrontView/inFog, R.FRONT.fwd × 0,5): was weiter weg liegt, gehört nicht ins Bild (kein Planet, Stern oder Boje unter dem Schleier)
+    const sicht2 = fog ? (R.FRONT ? R.FRONT.fwd : 700) * 0.5 : Infinity;
+    const imSicht = (p, r) => Math.hypot(p.x - ship.x, p.y - ship.y) - (r || 0) <= sicht2;
+    const sterne = punkte(sc.stern).filter((s) => imSicht(s, 0));
+    const SU = TK.SONNE.sperreUnten;
     for (const s of sterne) {
       const w = Math.atan2(s.y - ship.y, s.x - ship.x), a = w + rot;   // Peilung der Karte, ins Bild gedreht
       const e = randPunkt(sicht, P.cx, P.cy, a, TK.SONNE.randAbstand);
-      aus.sterne.push({ winkel: a, x: e.x, y: e.y, klasse: s.klasse, wx: s.x, wy: s.y });
+      let versetzt = false;
+      if (SU && e.y >= sicht.y + sicht.h - TK.SONNE.randAbstand - 0.5 && Math.abs(e.x - P.cx) < SU.halbB) {   // Randlicht unten neben der Lerche liest sich wie ein Treffer: seitlich herausschieben
+        e.x = P.cx + (e.x >= P.cx ? 1 : -1) * SU.halbB; versetzt = true;
+      }
+      aus.sterne.push({ winkel: a, x: e.x, y: e.y, klasse: s.klasse, wx: s.x, wy: s.y, versetzt });
     }
     const hatZonen = Array.isArray(sc.zonen) && sc.zonen.length > 0;   // drawZonen zeichnet diese Gasriesen mit Ringen selbst (Parallaxe 1)
     punkte(sc.planeten).forEach((p, i) => {
       const r = ok(p.r) && p.r > 0 ? p.r : 0; if (!r) return;
+      if (fog && !imSicht(p, r)) return;
       if (p.art === 'gasriese' && hatZonen) {
         const c = toS(p.x, p.y), R1 = r * H.radiusFaktorGasriesePlan * zoom;
+        // Sichtbarkeit wie drawZonen: sichtbarFuer 'karte' erst nach dem Erkunden (st.zonen.bk), abgeschaltete Schaltgruppen (au) nie; Linienstil k zählt über alle Grenzen, nicht nur die sichtbaren
+        const Z = root.Shared_Zonen, zst = st.zonen || {}, vis = { ops: false, bekannt: new Set(zst.bk || []), alle: new Set(zst.sv || []) }, abg = new Set(zst.au || []);
         const ringe = (sc.zonen || []).filter((z) => z && z.form === 'ring' && z.name && ok(z.r1) && z.x === p.x && z.y === p.y).sort((a, b) => b.r1 - a.r1).slice(0, TK.GASRIESE.linie.length);
-        aus.gas.push({ x: c.x, y: c.y, r: R1, linien: ringe.map((z, k) => ({ name: String(z.name).toUpperCase(), r: z.r1 * zoom, k })) });
+        const zeigen = (z) => !(z.gruppe && abg.has(z.gruppe)) && (!Z || !Z.sichtbar || Z.sichtbar(z, vis));
+        aus.gas.push({ x: c.x, y: c.y, r: R1, linien: ringe.map((z, k) => ({ name: String(z.name).toUpperCase(), r: z.r1 * zoom, k, z })).filter((l) => zeigen(l.z)).map((l) => ({ name: l.name, r: l.r, k: l.k })) });
         return;
       }
       const par = H.parallaxePlanet, c = toS(ship.x + (p.x - ship.x) * par, ship.y + (p.y - ship.y) * par), rpx = H.radiusFaktor * r * zoom;
@@ -63,18 +75,13 @@
       for (const s of sterne) { const d = Math.hypot(s.x - p.x, s.y - p.y); if (d < best) { best = d; licht = Math.atan2(s.y - p.y, s.x - p.x); } }
       aus.planeten.push({ art: p.art, x: c.x, y: c.y, r: rpx, seed: seedVon(p, i), licht, wx: p.x, wy: p.y });
     });
-    for (const b of punkte(sc.bojen)) { const c = toS(b.x, b.y); aus.bojen.push({ x: c.x, y: c.y, wx: b.x, wy: b.y }); }
+    for (const b of punkte(sc.bojen)) { if (!imSicht(b, 0)) continue; const c = toS(b.x, b.y); aus.bojen.push({ x: c.x, y: c.y, wx: b.x, wy: b.y }); }
     const jp = st.space && st.space.jp;
     for (const j of punkte(jp)) { const c = toS(j.x, j.y); aus.sprung.push({ x: c.x, y: c.y }); }
     return aus;
   }
 
   // ------------------------------------------------------------ Zeichnen
-  function kontur(R, ctx, str, x, y, farbe, skala) {
-    const TK = T(), k = TK.FARBE.kontur, n = TK.TEXT.konturPx;
-    for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) R.text(ctx, str, x + dx * n, y + dy * n, { color: rgba(k.farbe, k.alpha), scale: skala, align: 'center', shadow: false });
-    R.text(ctx, str, x, y, { color: farbe, scale: skala, align: 'center', shadow: false });
-  }
   const sichtbar = (sicht, x, y, rr) => x + rr >= sicht.x && x - rr <= sicht.x + sicht.w && y + rr >= sicht.y && y - rr <= sicht.y + sicht.h;
 
   function zeichne(ctx, view, rect) {
@@ -91,22 +98,17 @@
         ctx.fillStyle = TK.FARBE.grund; ctx.fillRect(sicht.x, sicht.y, sicht.w, sicht.h);
         K.sternfeld(ctx, sicht, P.rot, TK.STERNFELD.seed);
       }
-      // Gasriese mit Zonen: Dunst um die Scheibe und Höhenlinien (nur Anzeige); die Scheibe selbst zeichnet drawZonen
+      // Gasriese mit Zonen: Dunst um die Scheibe und Höhenlinien der erkundeten Schichten (nur Linien, keine Namen); die Scheibe selbst zeichnet drawZonen
       for (const g of L.gas) {
         const D = TK.GASRIESE.dunst, rr = g.r * D.bisRadius;
         if (!sichtbar(sicht, g.x, g.y, rr)) continue;
         const gr = ctx.createRadialGradient(g.x, g.y, g.r, g.x, g.y, rr);
         for (const [o, a] of D.stopps) gr.addColorStop(o, rgba(D.farbe, a));
         ctx.fillStyle = gr; ctx.fillRect(sicht.x, sicht.y, sicht.w, sicht.h);
-        const GL = TK.GASRIESE.label;
         for (const li of g.linien) {
           const S = TK.GASRIESE.linie[li.k] || TK.GASRIESE.linie[TK.GASRIESE.linie.length - 1];
           ctx.strokeStyle = rgba(S.farbe, S.alpha); ctx.lineWidth = S.breite; ctx.setLineDash(S.strich);
-          ctx.beginPath(); ctx.arc(g.x, g.y, li.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
-          if (li.k < GL.grenzen) {
-            const a = GL.winkel[li.k], lx = g.x + li.r * Math.sin(a), ly = g.y + li.r * Math.cos(a) + GL.abstandY;
-            if (ly > sicht.y + GL.freiOben && ly < sicht.y + sicht.h - GL.freiUnten && lx > sicht.x + GL.freiSeite && lx < sicht.x + sicht.w - GL.freiSeite) kontur(R, ctx, li.name, lx, ly, GL.farbe, GL.skala);
-          }
+          ctx.beginPath(); ctx.arc(g.x, g.y, li.r, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);   // der Name steht NICHT hier: ihn setzt render.js drawZonen (dynamisch, frei von Tafeln und Rand)
         }
       }
       // Planeten unter der Ebene (abgedunkelt, vom Stern beleuchtet, mit dem Kurs gedreht)
@@ -133,7 +135,8 @@
         const gr = ctx.createRadialGradient(b.x, b.y, 0, b.x, b.y, BN.glut.radius);
         gr.addColorStop(0, rgba(BN.glut.mitte, BN.glut.alphaMitte)); gr.addColorStop(1, rgba(BN.farbe, 0));
         ctx.fillStyle = gr; ctx.fillRect(b.x - BN.glut.radius, b.y - BN.glut.radius, BN.glut.radius * 2, BN.glut.radius * 2);
-        const rt = BN.raute;
+        const rt = BN.raute, sm = BN.saum;
+        if (sm) { ctx.fillStyle = rgba(sm.farbe, sm.alpha); ctx.beginPath(); ctx.moveTo(b.x, b.y - rt.halbH - sm.plus); ctx.lineTo(b.x + rt.halbB + sm.plus, b.y); ctx.lineTo(b.x, b.y + rt.halbH + sm.plus); ctx.lineTo(b.x - rt.halbB - sm.plus, b.y); ctx.closePath(); ctx.fill(); }
         ctx.fillStyle = rt.farbe; ctx.beginPath(); ctx.moveTo(b.x, b.y - rt.halbH); ctx.lineTo(b.x + rt.halbB, b.y); ctx.lineTo(b.x, b.y + rt.halbH); ctx.lineTo(b.x - rt.halbB, b.y); ctx.closePath(); ctx.fill();
       }
     } catch (e) { melde(e); } finally { ctx.restore(); }

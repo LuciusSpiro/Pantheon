@@ -3,11 +3,13 @@
 //   (a) Peilung: Kreuzweg 0503, Frostgrat 0402 (Limes) und Sund 0503 (Gasfeld, Karte sund): jeder Stern, Planet und jede Boje liegt in der Peilung der Karte (Kurse 0°, 90°, 217°)
 //   (b) Zeichenreihenfolge: Sternenhimmel von drawSpace < Kulisse < Zonen und alle Beschriftungen/Spielobjekte; Pult ohne rect.himmel zeichnet keine Kulisse
 //   (c) Zwischenspeicher: 60 Frames mit wechselndem Kurs bauen nicht mehr Kugeln als Planeten da sind
-//   (d) Gasriese mit Zonen (scene.zonen) wird von der Kulisse NICHT als Kugel gezeichnet (drawZonen zeichnet ihn), ohne Zonen schon; Höhenlinien mit Namen nur mit Zonen
+//   (d) Gasriese mit Zonen (scene.zonen) wird von der Kulisse NICHT als Kugel gezeichnet (drawZonen zeichnet ihn), ohne Zonen schon; Höhenlinien nur mit Zonen und nur für sichtbare Schichten
+//       (sichtbarFuer 'karte' erst nach dem Erkunden = st.zonen.bk, Freigabe sv, abgeschaltete Gruppe au); die Kulisse schreibt KEINE Namen, drawZonen setzt sie dynamisch (frei von Tafeln und Rand, je einmal)
 //   (e) leere und fehlerhafte Szenen, fehlende Felder, kein Schiff: wirft nicht, ctx.save/restore bleiben ausgeglichen
 //   (f) Pult-Frontsicht unverändert: tools/test-frontsicht.js bleibt grün (Kindprozess, Exit-Code)
 //   (g) Mutationen: Parallaxe 1 -> Peilung bleibt grün, Position (Abstand = 0,45 ×) rot; Kulisse nach drawFrontView -> Reihenfolge rot
 //   (h) Hyperraum zeichnet nichts, Nebel ohne Himmelsgrund und Sternfeld; Stern-Lichtwinkel der Planeten zeigt zum nächsten Stern
+//   (j) KUL-02 N1: Namen dynamisch und frei, Nebel zeigt nur, was in der halben Sicht liegt; Randlicht unten ±72 px von der Lerche weg; Navboje mit dunklem Saum; save/restore bei Fehlern in zeichnePlanet und stern
 //   (i) Keine Kollision: Sim fliegt durch Planet (Frostgrat), Stern und Boje (Kreuzweg) ohne Schaden und ohne Bremsung; im Server nutzt nur besitz.js (Standortwahl) Planeten
 const fs = require('fs');
 const path = require('path');
@@ -38,6 +40,7 @@ function neueFlaeche(log) {
   });
 }
 const stub = new Proxy({}, { get: (t, k) => (k === 'measureText' ? () => ({ width: 0 }) : () => {}), set: () => true });
+const stubM = new Proxy({}, { get: (t, k) => (k === 'measureText' ? (s) => ({ width: String(s).length * 8 }) : () => {}), set: () => true });   // Textbreite 8 px je Zeichen (Namenskästen)
 function pixelCanvas(w, h) {
   const cv = { width: w, height: h, daten: new Uint8ClampedArray(w * h * 4) };
   cv.getContext = () => ({ createImageData: (a, b) => ({ data: new Uint8ClampedArray(a * b * 4), width: a, height: b }), putImageData(img) { cv.daten.set(img.data); }, drawImage() {}, fillRect() {}, set globalCompositeOperation(v) {}, set fillStyle(v) {} });
@@ -51,7 +54,7 @@ function umgebung(q) {
   const meldungen = [];
   const win = { Shared_Maps: require('../shared/maps.js'), Shared_Physics: require('../shared/physics.js'), Shared_Config: require('../shared/config.js'), Shared_Protocol: require('../shared/protocol.js'),
     Shared_Zonen: Zonen, Shared_Locations: { get: (id) => (FAKE[id] !== undefined ? FAKE[id] : Locs.get(id)) }, Net: { reportError: (l, e) => meldungen.push(l + ': ' + (e && e.message)) },
-    document: { createElement: () => ({ getContext: () => stub, style: {}, width: 0, height: 0 }), querySelector: () => null, head: { appendChild() {} }, getElementById: () => null },
+    document: { createElement: () => ({ getContext: () => stubM, style: {}, width: 0, height: 0 }), querySelector: () => null, head: { appendChild() {} }, getElementById: () => null },
     console: Object.assign({}, console, { warn(l, ...r) { if (l !== 'Lerche.sprite') console.warn(l, ...r); } }), Image: function () {}, performance: { now: () => 0 }, location: { search: '' } };
   win.window = win; win.self = win; win.meldungen = meldungen;
   vm.createContext(win);
@@ -101,7 +104,7 @@ function pruefePeilung(win, rep) {
         geprueft++;
         rep(angDiff(Math.atan2(it.y - P.cy, it.x - P.cx), erwartet(wx, wy)) * d <= 2.5, tag + ': ' + was + ' in der Peilung der Karte');
       };
-      for (const s of L.sterne) { geprueft++; rep(angDiff(s.winkel, erwartet(s.wx, s.wy)) < 1e-9 && angDiff(Math.atan2(s.y - P.cy, s.x - P.cx), s.winkel) < 0.01 && s.x >= 0 && s.x <= 512 && s.y >= 0 && s.y <= 288, tag + ': Stern am Bildrand in der Peilung der Karte'); }
+      for (const s of L.sterne) { geprueft++; rep(angDiff(s.winkel, erwartet(s.wx, s.wy)) < 1e-9 && (s.versetzt ? Math.abs(Math.abs(s.x - P.cx) - 72) < 1e-9 : angDiff(Math.atan2(s.y - P.cy, s.x - P.cx), s.winkel) < 0.01) && s.x >= 0 && s.x <= 512 && s.y >= 0 && s.y <= 288, tag + ': Stern am Bildrand in der Peilung der Karte'); }
       for (const p of L.planeten) pruef(p, p.wx, p.wy, 'Planet ' + p.art);
       for (const b of L.bojen) pruef(b, b.wx, b.wy, 'Boje');
     }
@@ -211,13 +214,29 @@ section('(d) Gasriese mit und ohne Zonen');
   const vM = ansicht('gasfeld', 30);
   const lM = KH.plan(vM, RECT);
   ok(lM.planeten.length === 0 && lM.gas.length === 1, 'mit Zonen: keine Kugel in der Kulisse, ein Gasriese mit Linien (drawZonen zeichnet die Scheibe)');
-  ok(lM.gas[0].linien.length === 4 && lM.gas[0].linien.map((l) => l.name).join() === 'HOCHATMOSPHÄRE,WOLKENDECKE,FÖRDERSCHICHT,TIEFE', 'Höhenlinien mit Namen aus shared/zonen.js: ' + lM.gas[0].linien.map((l) => l.name).join(', '));
-  ok(lM.gas[0].linien.every((l, i) => Math.abs(l.r - Locs.get('gasfeld').scene.zonen.filter((z) => z.form === 'ring' && z.x === gas.x).sort((a, b) => b.r1 - a.r1)[i].r1 * R.frontProjektion(vM, RECT).zoom) < 1e-6), 'Radien der Linien = r1 der Zonen × Zoom (Parallaxe 1)');
+  const gz = Locs.get('gasfeld').scene.zonen, ringId = (nm) => gz.find((z) => z.form === 'ring' && z.name.toUpperCase() === nm.toUpperCase()).id;
+  const namen = (v) => KH.plan(v, RECT).gas[0].linien.map((l) => l.name).join();
+  // B1: sichtbarFuer 'karte' erst nach dem Erkunden; ohne Erkundung nur die Hochatmosphäre ('alle')
+  ok(namen(vM) === 'HOCHATMOSPHÄRE', 'unerkundet (bk = []): nur die Hochatmosphäre (sichtbarFuer alle), keine Wolkendecke/Förderschicht/Tiefe: ' + namen(vM));
+  const vB = ansicht('gasfeld', 30); vB.state.zonen = { in: [], bk: [ringId('Förderschicht')] };
+  ok(namen(vB) === 'HOCHATMOSPHÄRE,FÖRDERSCHICHT', 'bk = [Förderschicht]: Hochatmosphäre und Förderschicht: ' + namen(vB));
+  ok(KH.plan(vB, RECT).gas[0].linien.find((l) => l.name === 'FÖRDERSCHICHT').k === 2, 'der Linienstil zählt über alle vier Grenzen (Förderschicht = Index 2, nicht 1)');
+  const vS = ansicht('gasfeld', 30); vS.state.zonen = { in: [], bk: [], sv: [ringId('Tiefe')] };
+  ok(namen(vS) === 'HOCHATMOSPHÄRE,TIEFE', 'sv (vom Regiebuch freigegeben) = Tiefe sichtbar: ' + namen(vS));
+  const vA = ansicht('gasfeld', 30); vA.state.zonen = { in: [], bk: gz.map((z) => z.id) };
+  ok(namen(vA) === 'HOCHATMOSPHÄRE,WOLKENDECKE,FÖRDERSCHICHT,TIEFE', 'alles erkundet (bk = alle): vier Linien: ' + namen(vA));
+  FAKE.gas_gruppe = { id: 'gas_gruppe', scene: Object.assign({}, Locs.get('gasfeld').scene, { zonen: gz.map((z) => (z.name === 'Wolkendecke' ? Object.assign({}, z, { gruppe: 'halt' }) : z)) }) };
+  const vG = ansicht('gas_gruppe', 30); vG.state.zonen = { in: [], bk: gz.map((z) => z.id), au: ['halt'] };
+  ok(namen(vG) === 'HOCHATMOSPHÄRE,FÖRDERSCHICHT,TIEFE', 'abgeschaltete Schaltgruppe (au): Wolkendecke fehlt: ' + namen(vG));
+  delete FAKE.gas_gruppe;
+  ok(KH.plan(vA, RECT).gas[0].linien.every((l, i) => Math.abs(l.r - Locs.get('gasfeld').scene.zonen.filter((z) => z.form === 'ring' && z.x === gas.x).sort((a, b) => b.r1 - a.r1)[i].r1 * R.frontProjektion(vM, RECT).zoom) < 1e-6), 'Radien der Linien = r1 der Zonen × Zoom (Parallaxe 1)');
   const logM = [], cM = neueFlaeche(logM);
   K.leeren(); KH.zeichne(cM, vM, RECT);
   ok(K.statistik().gebaut === 0 && !logM.some((l) => /^drawImage/.test(l)), 'mit Zonen: keine Kugel gebaut und gezeichnet (nicht doppelt)');
   const kultur = (l) => l.filter((x) => /^arc/.test(x)).length;
-  ok(kultur(logM) >= 4, 'mit Zonen: Höhenlinien gezeichnet (Bögen ' + kultur(logM) + ')');
+  const bStern = 2;   // Bögen des Sterns (Kern, Glanz) in dieser Szene
+  ok(kultur(logM) - bStern === 1, 'mit Zonen, unerkundet: nur die Hochatmosphäre als Linie gezeichnet (Bögen ' + kultur(logM) + ' = 1 Linie + Stern)');
+  { const lA = [], cA = neueFlaeche(lA); KH.zeichne(cA, vA, RECT); ok(kultur(lA) - bStern === 4, 'mit Zonen, erkundet: vier Höhenlinien gezeichnet (Bögen ' + kultur(lA) + ' = 4 Linien + Stern)'); ok(!lA.some((l) => /^fillText/.test(l)), 'die Kulisse schreibt keine Schichtnamen (Namen kommen nur von drawZonen)'); }
   // ohne Zonen: derselbe Planet, Szene ohne scene.zonen
   FAKE.gas_ohne = { id: 'gas_ohne', kind: 'void', scene: { w: 5000, h: 3800, arrive: { x: 300, y: 1800, angle: 0 }, stern: [], bojen: [], planeten: [{ x: gas.x, y: gas.y, r: gas.r, art: 'gasriese' }] } };
   const vO = ansicht('gas_ohne', 30), lO = KH.plan(vO, RECT);
@@ -277,8 +296,9 @@ section('(h) Hyperraum, Nebel, Sternlicht');
   KH.zeichne(cH, ansicht('frostgrat', 0, { jump: { reise: { ziel: 'x' } } }), RECT);
   ok(logH.length === 0, 'Hyperraum (ship.jump.reise): die Kulisse zeichnet nichts');
   FAKE.nebel = { id: 'nebel', kind: 'nebula', fog: true, scene: Object.assign({}, Locs.get('frostgrat').scene) };
+  const plN = Locs.get('frostgrat').scene.planeten[0];   // KUL-02 N1: im Nebel nur Planeten in der halben Sicht (350 m): Schiff nahe am Planeten
   const logN = [], cN = neueFlaeche(logN);
-  KH.zeichne(cN, ansicht('nebel', 0), RECT);
+  KH.zeichne(cN, ansicht('nebel', 0, { x: plN.x - plN.r - 150, y: plN.y }), RECT);
   ok(!logN.includes('=fillStyle:"#05070D"') && logN.some((l) => /^drawImage/.test(l)), 'Nebel: kein Himmelsgrund, kein Sternfeld, Planeten bleiben (den Nebel legt drawFrontView darüber)');
   const logF = [], cF = neueFlaeche(logF);
   KH.zeichne(cF, ansicht('frostgrat', 0), RECT);
@@ -290,7 +310,7 @@ section('(h) Hyperraum, Nebel, Sternlicht');
   const Ld = KH.plan(ansicht('dunkel', 0), RECT);
   ok(Ld.planeten.length === 1 && Math.abs(Ld.planeten[0].licht - Math.atan2(TK.SONNE.lichtOhneStern[1], TK.SONNE.lichtOhneStern[0])) < 1e-9, 'ohne Stern: Licht aus lichtOhneStern der Tokens');
   delete FAKE.dunkel;
-  ok(TK.HIMMEL.abdunklung.alpha === 0.22 && TK.HIMMEL.parallaxePlanet === 0.45 && TK.HIMMEL.radiusFaktor === 0.9, 'Tokens: Abdunklung 22 %, Parallaxe 0,45, Radiusfaktor 0,9');
+  ok(TK.HIMMEL.abdunklung.alpha === 0.45 && TK.HIMMEL.parallaxePlanet === 0.45 && TK.HIMMEL.radiusFaktor === 0.9, 'Tokens: Abdunklung 45 % (Designer-Review 2026-11-03), Parallaxe 0,45, Radiusfaktor 0,9');
 }
 
 section('(g) Mutationen');
@@ -373,10 +393,71 @@ section('(i) Keine Kollision: Planeten, Sterne und Bojen sind Kulisse');
   ok(A.innen > 20 && A.hull1 === A.hull0 && A.vInnen >= A.vmax * 0.97, 'Schiff fliegt mitten durch den Planeten (r ' + pl.r + '): ' + A.innen + ' Schritte im Planeten, kein Schaden, keine Bremsung');
   ok(Math.abs(A.ende.x - (pl.x + 400)) < 120, 'und kommt auf der anderen Seite an (x ' + Math.round(A.ende.x) + ')');
   const kw = Locs.get('kreuzweg').scene, st = kw.stern[0], bj = kw.bojen[1];
-  const B = fliege('kreuzweg', { x: st.x + 800, y: st.y + 200 }, { x: st.x - 300, y: st.y + 200 }, 'Stern', { x: st.x, y: st.y + 200, r: st.r });
+  const B = fliege('kreuzweg', { x: st.x + 800, y: st.y }, { x: st.x - 300, y: st.y }, 'Stern', { x: st.x, y: st.y, r: st.r });   // KUL-02 N1 (Review S4): Kreis um den Stern selbst, Flug mitten hindurch (vorher y + 200: verfehlte den Stern)
   ok(B.innen > 10 && B.hull1 === B.hull0 && B.vInnen >= B.vmax * 0.97, 'Schiff fliegt durch den Stern (r ' + st.r + '): ' + B.innen + ' Schritte, kein Schaden, keine Bremsung');
   const C = fliege('kreuzweg', { x: bj.x - 700, y: bj.y }, { x: bj.x + 300, y: bj.y }, 'Boje', { x: bj.x, y: bj.y, r: 40 });
   ok(C.innen > 3 && C.hull1 === C.hull0 && C.vInnen >= C.vmax * 0.97, 'Schiff fliegt durch die Navigationsboje: ' + C.innen + ' Schritte, kein Schaden, keine Bremsung');
+}
+
+section('(j) KUL-02 N1: Namen, Nebel, Randlicht unten, Saum, Fehlerfestigkeit');
+{
+  // Namen: drawZonen setzt sie dynamisch, Hauptschirm (Skala 2): frei von Tafeln und Rand, je Name genau einmal (9 Zeichnungen = Kontur), Kulisse schreibt keine
+  setzeKarte('sund');
+  const gas = Locs.get('gasfeld').scene.planeten[0], gzn = Locs.get('gasfeld').scene.zonen, bkAlle = gzn.map((z) => z.id);
+  const TAFELN = [{ x: 6, y: 6, w: 186, h: 64 }, { x: 512 - 6 - 170, y: 6, w: 170, h: 64 }];
+  const NAMEN = ['HOCHATMOSPHÄRE', 'WOLKENDECKE', 'FÖRDERSCHICHT', 'TIEFE'];
+  const treffe = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+  const BLOCK = [{ x: 150, y: 90, w: 212, h: 130 }];   // zusätzliche Sperre mitten im Bild: die nächsten freien Punkte liegen dort, die Namen müssen ausweichen
+  let gepr = 0; const schlecht = [], sichtbarNamen = {};
+  for (const [abst, kurs, ver, blk] of [[300, 0, 0], [500, 90, 0], [760, 180, 0], [1100, 217, 60], [1500, 300, -40], [2200, 45, 0], [300, 0, 0, 1], [500, 90, 0, 1], [760, 180, 0, 1]]) {
+    const sp = blk ? TAFELN.concat(BLOCK) : TAFELN, mitLerche = sp.concat([{ x: 256 - 24, y: Math.round(288 * 700 / 820) - 28, w: 48, h: 56 }]);   // Sperren der Tafeln (+ Block); geprüft wird zusätzlich gegen die Lerche (drawZonen sperrt sie selbst)
+    const rect = Object.assign({}, RECT, { textSkala: 2, sperren: sp });
+    const v = ansicht('gasfeld', kurs, { x: gas.x - abst * Math.cos(rad(kurs)), y: gas.y - abst * Math.sin(rad(kurs)) + ver });
+    rect.himmel = (cx) => KH.zeichne(cx, v, rect);
+    v.state.zonen = { in: [], bk: bkAlle }; v.enemies = []; v.state.space.markers = [];
+    const log = [], c = neueFlaeche(log);
+    win.Render.drawFrontView(c, v, rect);
+    for (const nm of NAMEN) {
+      const eintr = log.filter((l) => l.startsWith('fillText:["' + nm + '"'));
+      if (!eintr.length) continue;
+      sichtbarNamen[nm] = (sichtbarNamen[nm] || 0) + 1;
+      gepr++;
+      const tx = eintr.map((e) => JSON.parse(e.slice(9))), mx = tx.reduce((a, q) => a + q[1], 0) / tx.length, my = tx.reduce((a, q) => a + q[2], 0) / tx.length;
+      const w = nm.length * 8 + 2, h = 16, box = { x: mx - w / 2, y: my - 1, w, h };
+      const meldung = abst + ' m Kurs ' + kurs + ' ' + nm;
+      if (eintr.length !== 9) schlecht.push(meldung + ': ' + eintr.length + ' Zeichnungen statt 9 (doppelt?)');
+      if (box.x < 5 || box.x + w > 512 - 5 || box.y < 5 || box.y + h > 288 - 5) schlecht.push(meldung + ': Name ragt über den Bildrand ' + JSON.stringify(box));
+      if (mitLerche.some((q) => treffe(box, q))) schlecht.push(meldung + ': Name unter einer Tafel ' + JSON.stringify(box));
+    }
+  }
+  ok(gepr >= 12 && schlecht.length === 0, 'Ringnamen am Hauptschirm: ' + gepr + ' gezeichnet, keiner unter Tafeln, am Rand oder doppelt' + (schlecht.length ? ' – ' + schlecht.join('; ') : ''));
+  ok(Object.keys(sichtbarNamen).length >= 3, 'aus der Nähe und aus der Ferne stehen Namen im Bild (' + JSON.stringify(sichtbarNamen) + ')');
+  // Pult (ohne textSkala): Namen wie bisher oben am Ring, einmal gezeichnet (Kontur nur am Hauptschirm)
+  { const v = ansicht('gasfeld', 0, { x: gas.x - 500, y: gas.y }); v.state.zonen = { in: [], bk: bkAlle }; const log = [], c = neueFlaeche(log); win.Render.drawFrontView(c, v, Object.assign({}, RECT)); ok(log.filter((l) => l.startsWith('fillText:["WOLKENDECKE"')).length === 2, 'Pult/Skala 1: Ringname unverändert (Schatten + Text, keine Kontur, feste Stelle oben am Ring)'); }
+  // Nebel: nur, was in der halben Sicht (350 m) liegt
+  FAKE.nebel2 = { id: 'nebel2', kind: 'nebula', fog: true, scene: { w: 3000, h: 2200, arrive: { x: 600, y: 1100 }, stern: [{ x: 600 + 800, y: 1100, klasse: 'gelb', r: 100 }, { x: 600 + 200, y: 1100 + 5, klasse: 'gelb', r: 100 }], planeten: [{ x: 600 + 500, y: 1100, r: 40, art: 'fels' }, { x: 600 + 380, y: 1100, r: 60, art: 'eis' }], bojen: [{ x: 600 + 200, y: 1100 }, { x: 600 + 600, y: 1100 }] } };
+  const Ln = KH.plan(ansicht('nebel2', 0, { x: 600, y: 1100 }), RECT);
+  ok(Ln.fog && Ln.bojen.length === 1 && Ln.sterne.length === 1 && Ln.planeten.length === 1 && Ln.planeten[0].art === 'eis', 'Nebel: Boje, Stern und Planet jenseits der halben Sicht (350 m) fehlen, der Planetenrand zählt (' + Ln.bojen.length + ' Boje, ' + Ln.sterne.length + ' Stern, ' + Ln.planeten.length + ' Planet)');
+  FAKE.nebel2.fog = false; FAKE.nebel2.kind = 'void';
+  const Lk = KH.plan(ansicht('nebel2', 0, { x: 600, y: 1100 }), RECT);
+  ok(!Lk.fog && Lk.bojen.length === 2 && Lk.sterne.length === 2 && Lk.planeten.length === 2, 'klare Sicht: alles da (' + Lk.bojen.length + ' Bojen, ' + Lk.sterne.length + ' Sterne, ' + Lk.planeten.length + ' Planeten)');
+  delete FAKE.nebel2;
+  // Randlicht unten: nie näher als 72 px an der Lerchenmitte
+  FAKE.hinten = { id: 'hinten', scene: { w: 3000, h: 2200, arrive: { x: 1500, y: 1100 }, stern: [{ x: 500, y: 1100 + 30, klasse: 'gelb', r: 100 }, { x: 500, y: 1100 - 30, klasse: 'weiss', r: 100 }, { x: 1500, y: 1100 + 2000, klasse: 'rot', r: 100 }], planeten: [], bojen: [] } };
+  const vH = ansicht('hinten', 0, { x: 1500, y: 1100 }), Lh = KH.plan(vH, RECT), Ph = R.frontProjektion(vH, RECT);
+  ok(Lh.sterne.length === 3 && Lh.sterne.every((q) => !(q.y >= 288 - TK.SONNE.randAbstand - 0.5) || Math.abs(q.x - Ph.cx) >= TK.SONNE.sperreUnten.halbB - 1e-9), 'Randlicht unten: nie näher als ±' + TK.SONNE.sperreUnten.halbB + ' px an der Lerchenmitte (x: ' + Lh.sterne.map((q) => Math.round(q.x - Ph.cx)).join(', ') + ')');
+  ok(Lh.sterne.filter((q) => q.versetzt).length >= 1 && Lh.sterne.filter((q) => q.versetzt).every((q) => Math.abs(Math.abs(q.x - Ph.cx) - 72) < 1e-9), 'versetztes Randlicht sitzt genau bei Mitte ± 72 px');
+  ok(Lh.sterne.filter((q) => !q.versetzt).every((q) => angDiff(Math.atan2(q.y - Ph.cy, q.x - Ph.cx), q.winkel) < 0.01), 'nicht versetztes Randlicht bleibt in seiner Peilung');
+  delete FAKE.hinten;
+  // Navboje: dunkler Saum unter der Raute
+  setzeKarte('limes');
+  { const lg = [], cg = neueFlaeche(lg); KH.zeichne(cg, ansicht('kreuzweg', 0, { x: 1017, y: 670 + 100 }), RECT); const sm = TK.BOJE.nav.saum; ok(sm && sm.plus > 0 && lg.some((l) => l === '=fillStyle:"rgba(5,7,13,' + sm.alpha + ')"'), 'Navboje: dunkler Saum (' + sm.farbe + ') unter der Raute gezeichnet'); }
+  // save/restore auch bei Fehlern
+  const wirft = (log, was) => { const c = neueFlaeche(log); return new Proxy(c, { get: (t, k) => (k === was ? () => { throw new Error('boom'); } : t[k]), set: (t, k, v) => { t[k] = v; return true; } }); };
+  for (const [was, f] of [['drawImage', (c) => K.zeichnePlanet(c, 'fels', 50, 50, 20, 3, 0, 0.3, 0.45)], ['createRadialGradient', (c) => K.stern(c, 50, 50, 6, 'gelb', 1)]]) {
+    const lg = [], c = wirft(lg, was); let w = null; try { f(c); } catch (e) { w = e; }
+    ok(w && lg.filter((l) => /^save:/.test(l)).length === lg.filter((l) => /^restore:/.test(l)).length && lg.filter((l) => /^save:/.test(l)).length > 0, (was === 'drawImage' ? 'zeichnePlanet' : 'stern') + ': restore trotz Fehler in ' + was + ' (save/restore ausgeglichen)');
+  }
 }
 
 console.log('\n' + (fails ? fails + ' FEHLER von ' + n : 'alle ' + n + ' Prüfungen grün'));

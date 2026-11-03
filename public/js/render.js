@@ -3836,7 +3836,7 @@
 
   // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
   // Erkunden, 'karte' erst nach dem Erkunden), Zustand st.zonen = { in, bk }. Farben: Hitze/Druck orange, Sicht violett, Ertrag grün, Drift Pfeile.
-  function drawZonen(ctx, st, toS, zoom, t, ops, rot, ts) {   // ts (optional, KUL-02 D): Textskala der Zonennamen, nur Hauptschirm
+  function drawZonen(ctx, st, toS, zoom, t, ops, rot, ts, fl) {   // ts (optional, KUL-02 D): Textskala der Zonennamen, nur Hauptschirm; fl (optional, KUL-02 N1, nur Hauptschirm): { sperren, grenze, gesetzt: [] } für die Ringnamen
     rot = rot || 0;
     const Z = window.Shared_Zonen, SL = window.Shared_Locations;
     if (!Z || !SL || !st || !st.ship) return;
@@ -3899,7 +3899,23 @@
         }
         ctx.stroke();
       }
-      if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center', scale: ts > 1 ? ts : 1 });
+      if (z.name && zoom > 0.12) {
+        if (fl && z.form === 'ring') {   // KUL-02 N1: Hauptschirm: Schichtname dynamisch auf dem Ring (frei von Tafeln, Bildrand und anderen Namen, der Lerche am nächsten); nur hier, das Pult bleibt unverändert
+          const str = z.name.toUpperCase(), sk = ts > 1 ? ts : 1, w = measure(str, sk) + 2, h = 7 * sk + 2, rr = z.r1 * zoom;
+          const GLb = (window.HauptschirmTokens && window.HauptschirmTokens.TOKENS.GASRIESE.label) || { schritt: 0.1, rand: 6 };
+          const lerche = toS(st.ship.x, st.ship.y), g0 = fl.grenze, m = GLb.rand;
+          const trifft = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+          let best = null, bd = Infinity;
+          for (let a = 0; a < Math.PI * 2; a += GLb.schritt) {
+            const px = c.x + Math.cos(a) * rr, py = c.y + Math.sin(a) * rr, q = { x: Math.round(px - w / 2), y: Math.round(py - h / 2), w, h };
+            if (q.x < g0.x + m || q.y < g0.y + m || q.x + w > g0.x + g0.w - m || q.y + h > g0.y + g0.h - m) continue;
+            if (fl.sperren.some((s) => trifft(q, s)) || fl.gesetzt.some((s) => trifft(q, s))) continue;
+            const d = Math.hypot(px - lerche.x, py - lerche.y);
+            if (d < bd) { bd = d; best = q; }
+          }
+          if (best) { fl.gesetzt.push(best); textKontur(ctx, str, best.x + w / 2, best.y + 1, { color: 'rgba(' + col + ',0.95)', align: 'center', scale: sk }); }
+        } else text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center', scale: ts > 1 ? ts : 1 });
+      }
       // Ops-Ansage: Stärke und Richtung der Verzerrung (nur wer sie sehen darf, also die Ops nach dem Scan oder alle nach der Feldkarte)
       if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center', scale: ts > 1 ? ts : 1 });
       else if (z.rueck && zoom > 0.12) text(ctx, 'RÜCKSETZER', c.x, c.y + 6, { color: 'rgba(240,110,60,0.95)', align: 'center', scale: ts > 1 ? ts : 1 });
@@ -4139,7 +4155,12 @@
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
     const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
-    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot, tsk);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
+    let zonenFl = null;   // KUL-02 N1: nur Hauptschirm (Skala 2): Ringnamen weichen Tafeln, Drehen-Anzeige, „200“, der Lerche und dem Bildrand aus
+    if (front && tsk > 1) {
+      const sx0 = Math.max(BT.x, cfg.sicht ? cfg.sicht.x : BT.x), sy0 = Math.max(BT.y, cfg.sicht ? cfg.sicht.y : BT.y), sx1 = Math.min(BT.x + BT.w, cfg.sicht ? cfg.sicht.x + cfg.sicht.w : BT.x + BT.w), sy1 = Math.min(BT.y + BT.h, cfg.sicht ? cfg.sicht.y + cfg.sicht.h : BT.y + BT.h);
+      zonenFl = { sperren: (cfg.sperren || []).concat([gauge, { x: cx - 26, y: cy - 34, w: 52, h: 68 }, { x: cx + 1, y: Math.round(cy - 200 * zoom) - 3 - (tsk - 1) * 3, w: measure('200', tsk) + 5, h: LH + 2 }]), grenze: { x: sx0, y: sy0, w: sx1 - sx0, h: sy1 - sy0 }, gesetzt: [] };
+    }
+    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot, tsk, zonenFl);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
     if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t, lab);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
     if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)

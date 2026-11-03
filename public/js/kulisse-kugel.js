@@ -155,7 +155,7 @@
 
   // Abgedunkelte Fassung (Stufen von 0,1) wird einmal je Eintrag erzeugt, nicht je Frame
   function dunkelFassung(e, a) {
-    const k = Math.round(a * 100);   // Stufen von 1 % (KUL-02 C: 22 % Abdunklung aus den Tokens genau, nicht auf 20 % gerundet)
+    const k = Math.round(a * 100);   // Stufen von 1 % (KUL-02 C: Abdunklung aus den Tokens auf 1 % genau)
     let d = e.dunkel.get(k);
     if (!d) {
       d = neuesCanvas(e.S, e.S);
@@ -170,12 +170,13 @@
     const e = eintrag(art, radiusPx, seed, lichtWinkel);
     const T = tok(), f = Math.max(0.01, radiusPx) / e.R, quelle = abdunkeln > 0.05 ? dunkelFassung(e, Math.min(1, abdunkeln)) : e.cv;
     ctx.save();
-    ctx.imageSmoothingEnabled = false;
-    ctx.translate(x, y);
-    if (rot) ctx.rotate(rot);
-    const s = e.S * f;
-    ctx.drawImage(quelle, -s / 2, -s / 2, s, s);
-    ctx.restore();
+    try {   // KUL-02 N1: restore auch, wenn drawImage wirft
+      ctx.imageSmoothingEnabled = false;
+      ctx.translate(x, y);
+      if (rot) ctx.rotate(rot);
+      const s = e.S * f;
+      ctx.drawImage(quelle, -s / 2, -s / 2, s, s);
+    } finally { ctx.restore(); }
     void T;
   }
 
@@ -183,17 +184,20 @@
   function stern(ctx, x, y, radiusPx, klasse, t) {
     const T = tok(), SO = T.sonne, S = T.stern[klasse] || T.stern.gelb, r = Math.max(1, radiusPx), SR = SO.strahlen;
     const puls = 1 + 0.04 * Math.sin((t || 0) * 1.7);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (const [f, a] of SO.gluehen) {
-      const rr = r * f, g = ctx.createRadialGradient(x, y, 0, x, y, rr * puls); g.addColorStop(0, rgba(S.glut, a)); g.addColorStop(1, rgba(S.glut, 0));
-      ctx.fillStyle = g; ctx.fillRect(x - rr * puls, y - rr * puls, rr * puls * 2, rr * puls * 2);
-    }
-    ctx.fillStyle = rgba(S.glut, SR.alpha);
-    for (let k = 0; k < SR.anzahl; k++) {
-      const a = k * 2 * Math.PI / SR.anzahl + SR.versatz, L = r * (k % 2 ? SR.kurz : SR.lang);
-      for (let s = r; s < L; s += 1) { ctx.globalAlpha = SR.auslauf * (1 - (s - r) / (L - r)); ctx.fillRect(Math.round(x + Math.cos(a) * s), Math.round(y + Math.sin(a) * s), 1, 1); }
-    }
-    ctx.globalAlpha = 1; ctx.restore();
+    ctx.save();
+    try {   // KUL-02 N1: restore auch bei einem Fehler im Glühen
+      ctx.globalCompositeOperation = 'lighter';
+      for (const [f, a] of SO.gluehen) {
+        const rr = r * f, g = ctx.createRadialGradient(x, y, 0, x, y, rr * puls); g.addColorStop(0, rgba(S.glut, a)); g.addColorStop(1, rgba(S.glut, 0));
+        ctx.fillStyle = g; ctx.fillRect(x - rr * puls, y - rr * puls, rr * puls * 2, rr * puls * 2);
+      }
+      ctx.fillStyle = rgba(S.glut, SR.alpha);
+      for (let k = 0; k < SR.anzahl; k++) {
+        const a = k * 2 * Math.PI / SR.anzahl + SR.versatz, L = r * (k % 2 ? SR.kurz : SR.lang);
+        for (let s = r; s < L; s += 1) { ctx.globalAlpha = SR.auslauf * (1 - (s - r) / (L - r)); ctx.fillRect(Math.round(x + Math.cos(a) * s), Math.round(y + Math.sin(a) * s), 1, 1); }
+      }
+      ctx.globalAlpha = 1;
+    } finally { ctx.restore(); }
     ctx.fillStyle = S.kern; ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = SO.glanz.farbe; ctx.beginPath(); ctx.arc(x + r * SO.glanz.versatz, y + r * SO.glanz.versatz, r * SO.glanz.radius, 0, Math.PI * 2); ctx.fill();
   }

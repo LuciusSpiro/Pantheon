@@ -107,7 +107,7 @@
     parallaxeGasriesePlan: 1,     // Gasriese MIT Zonen liegt in der Ebene: seine Schichten sind Spielfläche (Sammelmission)
     radiusFaktor: 0.9,            // Planetenradius aus den Daten × 0.9 (Gasriese mit Zonen × 1)
     radiusFaktorGasriesePlan: 1,
-    abdunklung: { farbe: EIGEN.tiefraum, alpha: 0.22, randPx: 1 },   // Scheibe über Planeten (nicht Gasriese mit Zonen): „liegt tiefer“
+    abdunklung: { farbe: EIGEN.tiefraum, alpha: 0.45, randPx: 1 },   // Scheibe über Planeten (nicht Gasriese mit Zonen): „liegt tiefer“. 2026-11-03 (Designer-Review KUL-02): 0,22 → 0,45; bei 0,22 war der Planet im Gefecht das hellste Objekt (Vergleichsbild gefecht-abdunklung-vergleich.png)
     kippung: -0.3,                // Achsneigung der Planetenoberfläche (Bänder, Polkappen)
   };
 
@@ -127,6 +127,7 @@
   // ------------------------------------------------------------------ Stern als Randlicht (nur Richtung, am Bildrand in seiner Peilung)
   const SONNE = {
     randAbstand: 14,              // Mittelpunkt so weit vom Bildrand
+    sperreUnten: { halbB: 72 },   // Designer-Review KUL-02 (6): am Unterrand liegt das Randlicht nie näher als ±72 px an der Lerchenmitte (sonst liest es sich wie ein Treffer)
     radius: 6,                    // Kern
     // Glühen: [Radius × Kern, alpha], additiv (lighter), außen nach innen
     gluehen: [[9, 0.08], [5, 0.14], [2.6, 0.28], [1.5, 0.5]],
@@ -163,6 +164,7 @@
       farbe: FARBE.sensor,
       glut: { radius: 12, mitte: EIGEN.bojeGlut, alphaMitte: 0.9 },
       raute: { farbe: FARBE.sensor, halbB: 4, halbH: 5 },
+      saum: { farbe: EIGEN.tiefraum, alpha: 0.9, plus: 2 },   // dunkler Saum unter der Raute (Prüfer KUL-02 2c: Eisblau auf Ozeanplanet zu schwach): Raute um `plus` px größer
       label: null,                // Zierde: kein Label (Skala 1 unlesbar, Skala 2 zu laut für Deko)
     },
   };
@@ -177,10 +179,11 @@
       { farbe: EIGEN.gasLinie, alpha: 0.4, strich: [2, 4], breite: 1 },
       { farbe: EIGEN.gasLinie, alpha: 0.4, strich: [2, 4], breite: 1 },
     ],
+    // Schichtnamen zeichnet NUR render.js drawZonen (Hauptschirm), die Kulisse zeichnet die Linien. Position je Ring dynamisch (KUL-02 Nacharbeit N1):
     label: {
-      skala: 2, farbe: EIGEN.gasLinie, abstandY: -10, grenzen: 3,          // Namen an den äußeren drei Grenzen, Großbuchstaben
-      winkel: [0.62, -0.42, 0.5],                                          // Position auf der Linie (rad, vom unteren Pol)
-      freiOben: 76, freiUnten: 14, freiSeite: 80,                          // nur zeichnen, wenn so weit von Tafeln und Rand entfernt
+      skala: 2,
+      schritt: 0.1,               // auf dem Ring in Schritten von 0,1 rad: der freie Punkt (nicht unter Tafeln, nicht am Rand, nicht auf anderen Namen), der der Lerche am nächsten liegt
+      rand: 6,                    // Abstand der Namenskästen vom Bildrand (px)
     },
   };
 
