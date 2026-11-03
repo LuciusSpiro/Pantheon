@@ -164,7 +164,7 @@
     }
     function aktiverName() { const c = store.liste.find((x) => x.id === store.gewaehlt); return c ? c.karte.name : null; }
 
-    // Neuer Charakter: Name, Gesicht, Frisur, Bart, Hautton, Haarfarbe aus `wunsch`; alles andere (Körper, Outfit) ist Standard. Wird gewählt.
+    // Neuer Charakter: Name, Frisur, Hautton, Haarfarbe aus `wunsch`; alles andere (Körper, Outfit) ist Standard. Wird gewählt.
     function legeAn(wunsch) {
       if (!store.bereit) return { ok: false, grund: 'katalog' };
       if (store.liste.length >= MAX) return { ok: false, grund: 'voll' };
@@ -473,7 +473,7 @@
     // Karte des Entwurfs für die Anprobe-Figur
     const spindKarte = () => { const e = spindEntwurf(); return e ? Ch.pruefeKarte(e.karte, katalog) : null; };
     // Enter: das Outfit des Entwurfs anziehen = EINZIGER Weg, der `outfit` einer gespeicherten Karte schreibt. Geprüft (Ch.pruefeOutfit), nur in den gewählten Charakter,
-    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello: der Client-Stand zieht über abonniereOutfit nach). Name, Gesicht, Frisur, Bart, Farben bleiben, wie sie sind.
+    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello: der Client-Stand zieht über abonniereOutfit nach). Name, Frisur, Farben bleiben, wie sie sind.
     function speichereOutfit() {
       const e = spindEntwurf();
       if (!e) return { ok: false, grund: 'kein-entwurf' };
