@@ -2,8 +2,8 @@
 
 Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen der README. Gilt nur für **win32-x64**: auf anderer Plattform ist der Raumkampf nicht bit-gleich, der Bericht meldet das als Datenzeile.
 
-- Spielstand wie `f2daff7` (Commit der Läufe `3d7bcde1`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `630d65d4c0b10398`, Stand 2026-11-03.
-- 12 Seeds je Gruppe, Laufzeit 5:24 min (4 Prozesse parallel), keine Fehlerläufe.
+- Spielstand wie `f2daff7` (Commit der Läufe `bb02131e`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `630d65d4c0b10398`, Stand 2026-11-03.
+- 12 Seeds je Gruppe, Laufzeit 5:22 min (4 Prozesse parallel), keine Fehlerläufe.
 - Schwelle für „auffällig“ (Bericht): Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR) UND Abstand zum Median mindestens die Mindestmenge der Kennzahl (innerhalb der Spanne ist nie etwas auffällig). Technik (Tickzeit, Snapshot) steht nicht in der Basis.
 - Schreibweise: `Schlüssel Median [Min–Max]`; fehlende Zähler und Summen (`summe: true` in KENNZAHL_INFO) gelten als 0, Quoten, Mittel und Mediane fehlen einfach (Kennzahlen mit weniger als 4 Läufen in der Basis werden nicht verglichen). Ausgang `rot` = das Bot-Skript meldete Misserfolg (kein Sieg, Softlock); das Protokoll ist gültig und zählt mit.
 
