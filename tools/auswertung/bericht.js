@@ -2,8 +2,10 @@
 // TEL-01 D1: Sessionbericht als Markdown. bericht(kz, opt) -> Text, HOECHSTENS ZEILEN_MAX = 60 Zeilen (ein harter Deckel, Test und Mutationsprobe halten ihn fest),
 // keine Zeile ueber ZEILE_MAX_ZEICHEN = 160 Zeichen (laengere werden an einem Trenner umgebrochen und eingerueckt).
 //   kz   Kennzahlen-Objekt aus kennzahlen.js (der Vertrag)
-//   opt  { basis, ziele, svg }
-//          basis  Kennzahlen-Objekt (oder flache Map { schluessel: zahl }) einer früheren Session: Abweichungen kommen oben in die Auffälligkeiten
+//   opt  { basis, basisGruppe, basisKeine, ziele, svg }
+//          basis        Kennzahlen-Objekt (oder flache Map { schluessel: zahl }) einer früheren Session: Abweichungen kommen oben in die Auffälligkeiten
+//          basisGruppe  Gruppe aus der Basis-Datei (tools/auswertung/basis.js gruppeWaehlen): Abweichungen gegen deren Statistik (bewertung.js abweichungGegenBasisGruppe)
+//          basisKeine   Text, wenn es zu Modus und Spielerzahl keine Basis-Gruppe gibt (dann steht er statt der Basis-Zeilen da)
 //          ziele  { schluessel: { min, max } } (Datei tools/fixtures/telemetrie/ziele.json, Format unten); leer -> keine Ampel
 //          svg    Dateiname des Gefechtsprofils, relativ eingebunden: ![Gefechtsprofil](<svg>)
 //
@@ -64,14 +66,17 @@ function auffaelligkeiten(kz, opt) {
   opt = opt || {};
   const b = opt.bewertung || bewerten(kz, opt);
   // Gruppen in der festen Reihenfolge; fest = wird nie gekuerzt
-  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (x.k === 'schema_version' || x.k === 'kennzahl_version' || x.k === 'warnung' || x.k === 'f6.daten.ohne_ende' ? x.name : x.n + ' ' + x.name)).join(', ') + ' (Kennzahlen unvollständig möglich)'] : [];
+  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (x.k === 'schema_version' || x.k === 'kennzahl_version' || x.k === 'warnung' || x.k === 'f6.daten.ohne_ende' || x.k === 'plattform' ? x.name : x.n + ' ' + x.name)).join(', ') + ' (Kennzahlen unvollständig möglich)'] : [];
   const basisKopf = [];
   let devs = [];
   if (!b.basis) basisKopf.push('Basis: keine Basis angegeben (kein Vergleich; --basis <json> vergleicht mit einer früheren Session)');
+  else if (b.basis.keine) basisKopf.push('Basis: ' + b.basis.keine);
   else {
-    basisKopf.push('Basis: ' + b.basis.verglichen + ' Kennzahlen verglichen, ' + b.basis.liste.length + ' wesentlich anders (>= 25 % und Mindestmenge je Kennzahl)' + (b.basis.fehlt ? ', ' + b.basis.fehlt + ' nur in der Basis' : ''));
+    const gr = b.basis.gruppe != null;   // gegen eine Basis-Gruppe (Statistik ueber Seeds) oder gegen einen Einzellauf
+    basisKopf.push('Basis: ' + (gr ? 'Gruppe ' + b.basis.gruppe + ' (' + b.basis.laeufe + ' Läufe), ' : '') + b.basis.verglichen + ' Kennzahlen verglichen, ' + b.basis.liste.length + ' wesentlich anders (' + (gr ? 'Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR)' : '>= 25 % und Mindestmenge je Kennzahl') + ')' + (b.basis.fehlt ? ', ' + b.basis.fehlt + ' ohne Wert im Lauf' : ''));
     devs = b.basis.liste.map((x) => {
       const e = x.info.einheit;
+      if (x.min != null) return '  ' + x.k + ': ' + wert(x.a, e) + ' statt Median ' + wert(x.b, e) + ' [' + wert(x.min, e) + ' bis ' + wert(x.max, e) + ']' + (x.info.richtung === 'neutral' ? '' : x.schlechter ? ', schlechter' : ', besser');
       return '  ' + x.k + ': ' + wert(x.a, e) + ' statt ' + wert(x.b, e) + (x.b !== 0 ? ' (' + (x.a >= x.b ? '+' : '-') + n(100 * Math.abs(x.a - x.b) / Math.abs(x.b), 0) + ' %)' : '') + (x.info.richtung === 'neutral' ? '' : x.schlechter ? ', schlechter' : ', besser');
     });
   }
@@ -261,7 +266,7 @@ function begrenzen(bloecke, max) {
 function bericht(kz, opt) {
   opt = opt || {};
   const ziele = opt.ziele && typeof opt.ziele === 'object' ? (opt.ziele.ziele || (opt.ziele.version ? {} : opt.ziele)) : {};
-  const o = { basis: opt.basis || null, ziele };
+  const o = { basis: opt.basis || null, basisGruppe: opt.basisGruppe || null, basisKeine: opt.basisKeine || null, ziele };
   const b = bewerten(kz, o);
   o.bewertung = b;
   const bl = [];

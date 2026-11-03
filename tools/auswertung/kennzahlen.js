@@ -62,6 +62,8 @@ const zaehle = (o, k) => { o[k] = (o[k] || 0) + 1; };
 
 // ---------- KENNZAHL_INFO: Muster ('*' = ein Schlüsselteil) -> Beschreibung ----------
 // richtung: 'besser' (höher ist besser) | 'schlechter' (höher ist schlechter) | 'neutral'. rel/min: Schwelle fuer "wesentlich anders als die Basis":
+// determ: false = nicht deterministisch (Wanduhr, Prozess, Plattenzustand: Tickzeit, Snapshot, Kappung, Spielleiter-Wartezeit, Protokollgroesse in MB/h; gemessen mit gleicher Seed 2 x 3 Laeufe, TEL-01 C).
+// Solche Kennzahlen gehen NIE in einen Basis-Vergleich (weder Einzellauf noch Gruppe), nur als Spitzen in die Technik-Auffaelligkeiten (bewertung.js). Alle anderen sind bei gleicher Seed bit-gleich.
 // relative Abweichung >= rel UND absolute Abweichung >= min (in der Einheit; 1 -> 2 Kills fällt so nicht auf). C kalibriert das spaeter mit der Streuung.
 const EINHEIT_MIN = { s: 10, '%': 10, n: 3, ms: 5, kacheln: 2, marken: 20, 'stück': 2, 'je schuss': 0.5, punkte: 5, 'mb/h': 5, 'zeilen/min': 20 };
 const KENNZAHL_INFO = {
@@ -145,23 +147,23 @@ const KENNZAHL_INFO = {
   'f5.energie.*_anteil': { einheit: '%', frage: '5', richtung: 'neutral', text: 'mittlerer Anteil des Systems an der Energieverteilung (r_energie, nur Fenster mit jemandem im Schiff)' },
   'f5.energie.*_n': { einheit: 'n', frage: '5', richtung: 'neutral', text: 'Änderungen der Energieverteilung je Grund (technik = Konsole, automatik = Reaktor)' },
   'f6.tick.n': { einheit: 'n', frage: '6', richtung: 'neutral', text: 'Ticks in der Zeitreihe' },
-  'f6.tick.med': { einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'Median der Fenster-Medianwerte der Tickzeit (game.step)', min: 0.05 },
-  'f6.tick.max': { einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'längster Tick' },
-  'f6.tick.ueber*': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Ticks ueber 5, 16 bzw. 33 ms', min: 1 },
-  'f6.snap.med': { einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'Median Snapshot-Bau + Broadcast (nur im Server)' },
-  'f6.snap.max': { einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'längster Snapshot' },
-  'f6.kappung.*': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Kappung der Tickschleife (n Aufrufe, ticks verworfen, nachholt)', min: 1 },
+  'f6.tick.med': { determ: false, einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'Median der Fenster-Medianwerte der Tickzeit (game.step)', min: 0.05 },
+  'f6.tick.max': { determ: false, einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'längster Tick' },
+  'f6.tick.ueber*': { determ: false, einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Ticks ueber 5, 16 bzw. 33 ms', min: 1 },
+  'f6.snap.med': { determ: false, einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'Median Snapshot-Bau + Broadcast (nur im Server)' },
+  'f6.snap.max': { determ: false, einheit: 'ms', frage: '6', richtung: 'schlechter', text: 'längster Snapshot' },
+  'f6.kappung.*': { determ: false, einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Kappung der Tickschleife (n Aufrufe, ticks verworfen, nachholt)', min: 1 },
   'f6.spielleiter.n': { einheit: 'n', frage: '6', richtung: 'neutral', text: 'Wartezeiten auf den Spielleiter' },
-  'f6.spielleiter.dauer_median': { einheit: 's', frage: '6', richtung: 'schlechter', text: 'Median der Wartezeit auf den Spielleiter' },
-  'f6.spielleiter.dauer_max': { einheit: 's', frage: '6', richtung: 'schlechter', text: 'längste Wartezeit auf den Spielleiter' },
-  'f6.spielleiter.timeout': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Spielleiter-Timeouts', min: 1 },
-  'f6.spielleiter.fehler': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Spielleiter-Fehler (ohne Timeout)', min: 1 },
+  'f6.spielleiter.dauer_median': { determ: false, einheit: 's', frage: '6', richtung: 'schlechter', text: 'Median der Wartezeit auf den Spielleiter' },
+  'f6.spielleiter.dauer_max': { determ: false, einheit: 's', frage: '6', richtung: 'schlechter', text: 'längste Wartezeit auf den Spielleiter' },
+  'f6.spielleiter.timeout': { determ: false, einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Spielleiter-Timeouts', min: 1 },
+  'f6.spielleiter.fehler': { determ: false, einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Spielleiter-Fehler (ohne Timeout)', min: 1 },
   'f6.fehler.*': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'Schreibfehler, verworfene Zeilen, Fehler der Zeitreihe', min: 1 },
   'f6.daten.ohne_ende': { einheit: 'n', frage: '6', richtung: 'schlechter', text: '1 = kein session_ende im Protokoll (Session nicht sauber beendet), sonst 0', min: 1 },
   'f6.daten.*': { einheit: 'n', frage: '6', richtung: 'schlechter', text: 'abgeschnittene/kaputte Zeilen, unbekannte Typen', min: 1 },
   'f6.protokoll.zeilen': { einheit: 'n', frage: '6', richtung: 'neutral', text: 'Zeilen gesamt (session_ende.zeilen)' },
   'f6.protokoll.zeilen_je_min': { einheit: 'zeilen/min', frage: '6', richtung: 'neutral', text: 'Zeilen je Minute Spielzeit' },
-  'f6.protokoll.mb_je_h': { einheit: 'mb/h', frage: '6', richtung: 'neutral', text: 'Protokollgröße in MB je Stunde Spielzeit (1 MB = 1048576 Byte)' },
+  'f6.protokoll.mb_je_h': { determ: false, einheit: 'mb/h', frage: '6', richtung: 'neutral', text: 'Protokollgröße in MB je Stunde Spielzeit (1 MB = 1048576 Byte)' },
 };
 for (const k of Object.keys(KENNZAHL_INFO)) {
   const i = KENNZAHL_INFO[k];

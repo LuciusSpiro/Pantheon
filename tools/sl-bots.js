@@ -32,8 +32,12 @@ const DT = 1 / CONFIG.tickHz;
 const DIR = path.join(__dirname, '..', 'content', 'regiebuecher-sund');
 const buchDatei = (id) => { for (const d of [DIR, path.join(__dirname, '..', 'content', 'regiebuecher')]) { const f = path.join(d, id + '.regiebuch.json'); if (fs.existsSync(f)) return f; } return null; };
 
+// TEL-01 C: sim-headless (Hauptskript) setzt hier die Bot-Umgebung (TELEMETRIE, Quelle bot, Ordner) und einen Haken, der jedes Spiel fuer das Sessionende vormerkt; als Bibliothek bleibt es beim Alten (kein Protokoll)
+let spielEnv = { MISSION_SOURCE: 'fallback' }, spielHaken = null;
+function botUmgebung(env, haken) { spielEnv = env; spielHaken = haken; }
 function spiel(np, seed) {
-  const g = new Game({ noStore: true, worlds: false, seed: seed || 21, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const g = new Game({ noStore: true, worlds: false, seed: seed || 21, debug: true, env: spielEnv, log: () => {} });
+  if (spielHaken) spielHaken(g);
   const cs = [];
   for (let i = 0; i < (np || 1); i++) {
     const c = { inbox: [], send(m) { if (this.inbox.length < 400) this.inbox.push(m); }, sendRaw(s) { this.send(JSON.parse(s)); } };
@@ -243,4 +247,4 @@ function alle(o) {
   return [laufGasriese(o), laufForschung(Object.assign({}, o, { ablenkung: true })), laufForschung(Object.assign({}, o, { ablenkung: false })), laufBoje(Object.assign({}, o, { weg: 'A' })), laufBoje(Object.assign({}, o, { weg: 'B' }))];
 }
 
-module.exports = { laufGasriese, laufForschung, laufBoje, alle, spiel };
+module.exports = { laufGasriese, laufForschung, laufBoje, alle, spiel, botUmgebung };

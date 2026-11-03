@@ -79,8 +79,8 @@ async function runOne(kind, crew, seed, stopAfter) {
   const Maps = require(path.join(ROOT, 'shared/maps.js'));
   const Physics = require(path.join(ROOT, 'shared/physics.js'));
 
-  // TEL-01 A: TELEMETRIE aus der Prozess-Umgebung ans Spiel durchreichen, damit der Golden Trace den Telemetrie-Pfad prüfen kann (TELEMETRIE=an, Ablage über TELEMETRIE_DIR; noStore schreibt sonst nichts)
-  const game = new Game({ noStore: true, seed, env: Object.assign({ MISSION_SOURCE: 'fallback' }, process.env.TELEMETRIE ? { TELEMETRIE: process.env.TELEMETRIE, TELEMETRIE_QUELLE: 'bot' } : {}), log: () => {} });
+  // TEL-01 A: TELEMETRIE aus der Prozess-Umgebung ans Spiel durchreichen, damit der Golden Trace den Telemetrie-Pfad prüfen kann (TELEMETRIE=an, Ablage über TELEMETRIE_DIR; noStore schreibt sonst nichts). TEL-01 C: ohne TELEMETRIE_DIR landen die Sessions im Bot-Ordner data/telemetrie/bot/ (wie sim-headless), nie im Ordner der Menschenspiele (dessen Rotation sie verdraengen wuerden)
+  const game = new Game({ noStore: true, seed, env: Object.assign({ MISSION_SOURCE: 'fallback' }, process.env.TELEMETRIE ? { TELEMETRIE: process.env.TELEMETRIE, TELEMETRIE_QUELLE: 'bot', TELEMETRIE_DIR: process.env.TELEMETRIE_DIR || path.join('data', 'telemetrie', 'bot') } : {}), log: () => {} });
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   let agents;
   if (kind === 'campaign') {

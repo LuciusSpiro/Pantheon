@@ -19,6 +19,7 @@ for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT
 
 const KZ = 'tools/auswertung/kennzahlen.js', BE = 'tools/auswertung/bericht.js', BW = 'tools/auswertung/bewertung.js', PR = 'tools/auswertung/profil.js', LE = 'tools/auswertung/lesen.js';
 const T = 'test-auswertung.js';
+const BA = 'tools/auswertung/basis.js', TB = 'test-basis.js';   // TEL-01 C: Basis und Schwelle gegen die Basis-Gruppe
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Test]
 const MUTATIONEN = [
   // --- Quote: Schuesse mit Treffer / Schuesse (nicht Treffer / Schuesse); Wirkungsquote ---
@@ -106,6 +107,20 @@ const MUTATIONEN = [
   // --- Lesen ---
   [LE, "if (letzte) erg.abgeschnitten++; else erg.kaputt++;", "erg.kaputt++;", 'abgeschnittene letzte Zeile wird als kaputt gezaehlt', T],
   [LE, "return out.sort((a, b) => a.n - b.n);", "return out.sort((a, b) => b.n - a.n);", 'Teile einer rotierten Session in falscher Reihenfolge', T],
+  // --- TEL-01 C: Basis, Schwelle gegen die Basis-Gruppe, Plattformzeile, Gruppenwahl (test-basis.js) ---
+  [BW, "Math.max(info.rel * Math.abs(med), STREUUNG_K * (q3 - q1))", "info.rel * Math.abs(med)", "Basis-Gruppe: Streuung ignoriert (Normalbereich nur rel x Median)", TB],
+  [BW, "const aussen = w > mx ? w - mx : (w < mn ? mn - w : 0);", "const aussen = Math.abs(w - med);", "Basis-Gruppe: Min/Max-Grenze der Basis-Seeds fehlt (Abstand vom Median statt von der Spanne)", TB],
+  [BW, "if (aussen <= breite) continue;", "", "Basis-Gruppe: Normalbereich (rel, Streuung) fehlt, jeder Wert ausserhalb der Spanne zaehlt", TB],
+  [BW, "if (diff < info.min) continue;", "", "Basis-Gruppe: Mindestmenge (min) greift nicht", TB],
+  [BW, "info.determ === false) continue;\n    let w = a[k];", "false) continue;\n    let w = a[k];", "Basis-Gruppe: determ false (Technik) wird mitverglichen", TB],
+  [BW, "if (!num(w)) { if (ZAEHL_EINHEITEN.has(info.einheit)) w = 0; else { fehlt++; continue; } }", "if (!num(w)) { fehlt++; continue; }", "Basis-Gruppe: fehlender Zaehler im Lauf zaehlt nicht als 0", TB],
+  [BW, "if (!p || !bp || p === bp) return [];", "return [];", "Plattformzeile (Basis von anderer Plattform) fehlt", TB],
+  [BA, "(num(f[k]) ? f[k] : (fuell ? 0 : null))", "(num(f[k]) ? f[k] : null)", "Basis bauen: fehlender Zaehler wird nicht mit 0 aufgefuellt", TB],
+  [BA, "if (i && i.determ !== false) schluessel.add(k);", "if (i) schluessel.add(k);", "Basis bauen: Technik (determ false) kommt in die Basis", TB],
+  [BA, "+ '/' + (num(k.spielerzahl) ? k.spielerzahl : '?');", "+ '';", "Gruppenwahl ignoriert die Spielerzahl", TB],
+  [BA, "if (basis.kopf.kennzahl_version !== KENNZAHL_VERSION) p.push(", "if (false) p.push(", "Gueltigkeitspruefung: Kennzahl-Version wird nicht verglichen", TB],
+  [BA, "if (!info) p.push(id + ': Kennzahl ' + k + ' hat keinen Info-Eintrag');", "if (!info) void 0;", "Gueltigkeitspruefung: Kennzahl ohne Info-Eintrag faellt nicht auf", TB],
+  [BE, "else if (b.basis.keine) basisKopf.push('Basis: ' + b.basis.keine);", "", "Bericht: \"keine passende Basis-Gruppe\" steht nicht da", TB],
 ];
 
 const trocken = process.argv.includes('--trocken');

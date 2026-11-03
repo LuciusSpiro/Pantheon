@@ -201,7 +201,7 @@ Die Szene ersetzt den Stub `kriegslage-szene.finaleStarten(game, { hex })` des F
 - **Sieg** = Flaggschiff zerstört **und** kein Wachschiff mehr im Kampf. Fällt das Flaggschiff, brechen die Wachschiffe ab (`Escort.retreat`, sichtbar höchstens ~14 s, zählen ab da als weg). Wachschiffe allein genügen nie. Die **Station ist kein Ziel**: ihre Abwehr gilt mit dem Sieg als gebrochen, der Boden folgt. Der Sieg ruft `Finale.orbitEnde(game, 'sieg')` genau einmal (Phase `boden`), **ohne Sim-Tick und ohne Sim-Wirkung**; die Eroberung bucht erst der Boden-Sieg. Chronik: Art `szene`, „Sieg bei Hrafnheim (Entscheidungsschlacht)“ (die Art `finale` kennt die Chronik nicht). **Abweichung vom Auftrag**: keine `flaggschiff_gefallen`-Wirkung (sie bräuchte einen Tick und eine Sim-Flotte; der Kern legt fest, dass der Orbit-Sieg keine Sim-Wirkung trägt).
 - **Niederlage** = Notfallprotokoll der Lerche (`orbit_notfall_bis_niederlage` = 1), auch bei lebenden Verbündeten; `orbitEnde('niederlage')`. **Flucht** = Sprung, Notsprung (der Tick gehört dem Sprung) oder Szenenwechsel ohne Sprung (kein Tick), auch in der Vorwarnung; `orbitEnde('flucht')`. Beide: Neubeginn, kein Game Over, keine Verluste, kein Ruf. Das Ende meldet sich nie doppelt.
 - **Eigener Zufallsstrom**: Seed aus Hex und Versuch (`Plan.seedAus`, `Zufall`), unabhängig vom Spielseed; die Szene würfelt nie über `game.rng` und nie über den Sim-Strom (Test zählt die Ziehungen mit Aufrufer). Das Spiel selbst zieht beim Spawnen weiter aus `game.rng` (Gegner-Bestückung, Umlaufrichtung); das ist unverändert. Ohne Finale ändert sich nichts (Sim-Zustand und Weltstand byte-gleich: `test-faden-kompat`, `test-weltstand`, Golden Trace). Nicht speicherbar (Laden: Phase null, keine Szene). Kein Verrat in der Szene (`verrat.js` lehnt ab).
-- **Messwerte** (Bot, `npm run sim:finale-orbit`, Einmessung mit 10 bis 12 Seeds, Kontrolle Seeds 40 bis 45): solo 10/10 und 6/6 Siege, 55 bis 110 s, zu zweit 12/12 (Einmessung) und 5/6, zu dritt 12/12 und 5/6, 35 bis 65 s; Snapshot der Orbit-Szene höchstens 8,1 kB (Worst Case Aufbau `finale_orbit`, Ziel ≤ 18 944 B).
+- **Messwerte** (*historisch, Stand 2026-10, nicht Teil der Basis: `sim-finale-orbit.js` schreibt kein Spielprotokoll*; Bot, `npm run sim:finale-orbit`, Einmessung mit 10 bis 12 Seeds, Kontrolle Seeds 40 bis 45): solo 10/10 und 6/6 Siege, 55 bis 110 s, zu zweit 12/12 (Einmessung) und 5/6, zu dritt 12/12 und 5/6, 35 bis 65 s; Snapshot der Orbit-Szene höchstens 8,1 kB (Worst Case Aufbau `finale_orbit`, Ziel ≤ 18 944 B).
 - **Tests**: `tools/test-finale-orbit.js` (92 Prüfungen, in `npm test`), Bot `tools/sim-finale-orbit.js`, Mutationsprobe `tools/mutation-finale-orbit.js` (`npm run test:finale-orbit-mutation`, `--trocken` prüft nur die Anker, Exit 2 bei Fehlanker; Abstürze zählen nicht als erkannt).
 
 ## SUND-04a-3 Boden – Schrein von Asgard: Bodenkarte und Treiber des Boden-Teils der Entscheidungsschlacht (Server, nur Freie Fahrt Sund)
@@ -834,6 +834,8 @@ Weitere Debug-Befehle der Pakete: `abspann palatina|sieg` (SUND-04a-3, nur Freie
 
 **Sessionbericht (TEL-01 D1):** `npm run auswerten -- <datei|sessionkennung|--letzte> [--basis <json>] [--ziele <json>] [--aus <ordner>] [--json <datei>] [--json-voll <datei>]` (relative Pfade ab dem aktuellen Verzeichnis; `--json` ohne die Zeitreihen `listen.reihen`) liest ein Spielprotokoll (`data/telemetrie/`, Bot-Läufe `data/telemetrie/bot/`) und schreibt `data/telemetrie/berichte/<kennung>.md` (höchstens 60 Zeilen: Auffälligkeiten oben, je Balancing-Frage ein Block) und `<kennung>.svg` (Gefechtsprofil). Kennzahlen: `tools/auswertung/kennzahlen.js` (reine Funktion, der Vertrag für Vergleich und Basis-Datei; `--json` schreibt sie als Datei), Einlesen `lesen.js`, Bewertung (Basis-Abweichung, Ziele, Ampel, Auffälligkeiten) `bewertung.js` (rein; D2 nutzt dieselbe), Text `bericht.js` (stellt nur dar; dort das Format der Zieldatei `tools/fixtures/telemetrie/ziele.json`, leer = keine Ampeln; keine Zeile über 160 Zeichen), Bild `profil.js` (zeichnet nur aus `listen.reihen`). Test `tools/test-auswertung.js`, Mutationsprobe `tools/mutation-auswertung.js`.
 
+**Basis der Bot-Läufe (TEL-01 C):** `npm run basis` (`tools/basis.js`, `[--seeds 12] [--jobs 4] [--aus <datei>] [--gruppen <id,..>]`) fährt 15 feste Gruppen (Grabenangriff zu dritt, Raumkampf-Arena zu dritt mit Steuer maneuver, Kampagne M1/M2 solo und zu dritt, M3 Kesh zu dritt, Wellen je Karte solo und zu dritt) mit den Seeds 1 bis 12, je Lauf ein eigener Prozess, und schreibt je Gruppe und Kennzahl Median, Min, Max und Streuung (IQR) in `tools/fixtures/telemetrie/basis-win32-x64.json` (eingecheckt, ohne Zeitreihen und Rohprotokolle) und den lesbaren Basis-Bericht `basis-win32-x64.md` (ersetzt die Handtabellen der Bot-Messungen). `npm run auswerten` vergleicht einen Lauf automatisch mit der Basis-Gruppe zu Modus, Szenario und Spielerzahl (`--basis keine` schaltet das ab, `--basis <datei>` nimmt eine Einzellauf-JSON oder eine andere Basis-Datei). **Auffällig** ist eine Kennzahl, wenn ihr Abstand zur Spanne Min–Max der Basis-Seeds größer ist als max(25 % des Medians, 2 × IQR) UND sie mindestens die Mindestmenge der Kennzahl vom Median entfernt ist (`bewertung.js abweichungGegenBasisGruppe`; innerhalb der Spanne ist nie etwas auffällig; mit anderen Seeds meldet die Schwelle im Mittel 0,7 Kennzahlen je Lauf, 18 von 90 frischen Läufen mindestens eine). Kennzahlen mit `determ: false` (Tickzeit, Snapshot, Kappung, Protokollgröße) sind nicht deterministisch und gehen nie in den Basis-Vergleich, nur als Spitzen in die Technik-Zeile. Die Basis gilt nur für win32-x64: auf anderer Plattform steht in den Auffälligkeiten „Basis von anderer Plattform, Raumkampf nicht bit-gleich, nur grob vergleichbar“. Ändert sich der Kennzahl-Vertrag (Version oder neue Kennzahl), wird `tools/test-basis.js` rot: `npm run basis` neu fahren. Test `tools/test-basis.js`, Mutationsprobe in `tools/mutation-auswertung.js`.
+
 **Prüfer und Messwerkzeuge:**
 - `npm run check:kette` (Kette und Kapitelbücher, `-- --selftest`), Teil von `npm run check` (= `check-maps`, `check-sektoren`, `check-kette`).
 - `npm run snap:mess` (`tools/snap-mess.js`): Snapshot-Größe je Aufbau (worst, wellen, raum-alarm, methalle, endkampf, konvoi, flotte, orbit), Ziel ≤ 18 944 B
@@ -1303,8 +1305,8 @@ benutzen.
   93 % getroffen, ≈ 43 Hülle/min; hält Kurs (½) – 89 % getroffen, ≈ 16 Hülle/min; weicht aus (Kurswechsel/Ausweichrolle bei
   anfliegendem Stoß) – 35 % getroffen, < 1 Hülle/min. Im Browser (solo, Welle Korvette + 2 Jäger, je 30 s): stehen −51 Hülle,
   ausweichen −19 Hülle (inkl. Jäger und Ladeschüssen).
-- **Arena (Bots, 10 Seeds):** „Nase drauf“ verliert 1,83× so viel Hülle wie „Manöver“ (Ziel ≥ 1,4).
-- **Schützling (Bot-Sim, 30 Seeds je Fall):** Geleit zu dritt 83 % heil, solo 50 % heil; Havarist zu dritt 23 % verloren,
+- **Arena (Bots, 10 Seeds; *historisch, Stand 2026-10-08, nicht Teil der Basis*, Hülle gibt es seit SYS-01 nicht mehr; aktuelle Arena-Zahlen: Basis-Bericht, Gruppe `arena_space/3`):** „Nase drauf“ verliert 1,83× so viel Hülle wie „Manöver“ (Ziel ≥ 1,4).
+- **Schützling (Bot-Sim, 30 Seeds je Fall; *historisch, Stand 2026-10-08, nicht Teil der Basis*: Geleit, Havarist und Pannenhilfe laufen im Sessionkopf als Modus `free` und wären von Archiv-Läufen nicht zu trennen):** Geleit zu dritt 83 % heil, solo 50 % heil; Havarist zu dritt 23 % verloren,
   solo 0 %; Pannenhilfe zu dritt 20 % verloren, solo 0 %. Archiv „Karawane im Nebel“ (10 Seeds) solo 9/10 heil, zu dritt 9/10.
 - **Live-Spielleiter:** siehe nächster Abschnitt.
 
@@ -1430,9 +1432,9 @@ Weltstand in `data/regie/<weltId>.jsonl` (anderer Ordner: `REGIE_DIR`). Lesbar: 
 steht im Dateinamen unter `data/worlds/`).
 
 ### Messwerte S2 (QA-Abnahme 2026-10-08) – ehrlich
-- **Bots sind keine Menschen.** Archiv-Missionen dauern mit Bots 2,5–3,3 min (Ziel 15 min zu dritt) – Menschenzeiten sind
+- **Bots sind keine Menschen.** (*Historisch, Stand 2026-10-08, nicht Teil der Basis.*) Archiv-Missionen dauern mit Bots 2,5–3,3 min (Ziel 15 min zu dritt) – Menschenzeiten sind
   **nicht gemessen**, Kai bewertet sie beim Spieleabend.
-- **Geleit (Bot-Sim, 10 Seeds):** zu dritt 80 % heil, solo 60 % heil (im Ziel). Pannenhilfe zu dritt 3/10 verloren (härter als solo).
+- **Geleit (Bot-Sim, 10 Seeds; *historisch, Stand 2026-10-08, nicht Teil der Basis*):** zu dritt 80 % heil, solo 60 % heil (im Ziel). Pannenhilfe zu dritt 3/10 verloren (härter als solo).
 - **Live-Spielleiter (ein Lauf zu dritt im Browser, Kampagne ohne Tutorial):** Planung sichtbar, 2 Spielleiter-Angebote nach
   73 s bzw. 126 s, Archiv-Angebot ab Sekunde 0. Beide Grobpläne gültig beim ersten Versuch (je ≈ 26 000 Tokens, 54–63 s).
   Die Szenen sind aber **nicht** live angekommen: Szene 2 zweimal vom Prüfer abgelehnt, Szene 3 war gültig, aber erst fertig,
@@ -1892,25 +1894,11 @@ sicherer als Menschen.** Zeiten = Spielzeit aus dem Server.
 - **Mission 1 an B-7 zu dritt** (Weg dorthin per Debug übersprungen, Kampf ohne Debug): Korvette kündigt jede Ladung an,
   Kampf bis zum Boje-Scan 1:37, 9 Ladungen, 6 Schildstöße (5 perfekt), 0 Notfallprotokolle.
 
-**Bot-Simulation** (`npm run sim:arena`, 10 Seeds je Strategie, zu dritt, 5 Wellen; Bots spielen fehlerfrei):
-
-| Wert | „Nase drauf“ (nose) | Breitseite (maneuver) |
-|---|---|---|
-| Hüllenverlust gesamt | 160 | 20 |
-| Hüllenverlust je Minute | 14,4 | 3,6 |
-| Hüllenverlust je geschaffte Welle | 59 | 3,9 |
-| Wellen je 10 min | 2,4 | 5,0 |
-| Notfallprotokolle | 1,8 | 0 |
-
-Breitseite lohnt sich klar (Faktor 8 gesamt, 4 je Minute). Solo ist der Bot-Vergleich nicht aussagekräftig (der Solo-Bot
-mit „nose“ bleibt am Korvette hängen). Die Bots sind deutlich besser als Menschen – beim Spieleabend zuerst auf die
-Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
+**Bot-Simulation:** ersetzt durch den Basis-Lauf (`npm run basis`, Bericht `tools/fixtures/telemetrie/basis-win32-x64.md`, Gruppe `arena_space/3`; Bericht eines eigenen Laufs mit Vergleich gegen die Basis: `npm run auswerten -- --letzte`). Die frühere Handtabelle (10 Seeds je Strategie, Hüllenverlust, Wellen je 10 min) ist entfernt: Hülle gibt es seit SYS-01 nicht mehr, die Zahlen stimmten nicht mehr. *Historisch, Stand 2026-10, nicht Teil der Basis:* der Strategievergleich „Nase drauf“ (nose) gegen Breitseite (maneuver) – Breitseite lohnte sich klar (Faktor 8 beim Hüllenverlust, 4 je Minute; Solo-Vergleich nicht aussagekräftig, der Solo-Bot mit „nose“ blieb an der Korvette hängen). Die Basis fährt nur die Steuer `maneuver`; der Sessionkopf unterscheidet die Steuer nicht, ein zweiter Strategie-Lauf wäre keine eigene Gruppe. Die Bots sind deutlich besser als Menschen – beim Spieleabend zuerst auf die Notfallprotokolle achten und notfalls mit den `tune`-Werten oben nachstellen.
 
 ### Messwerte M3b Schritt A (QA 2026-10-07, Details CONTRACT-M3B §9)
 
-- **Bot-Simulation** (`npm run sim:arena`, 10 Seeds, zu dritt, 6 Wellen): „Nase drauf“ 60,7 Hülle (12/min), Breitseite 43
-  (6,2/min) – Faktor 1,41 (je Minute 1,93). Korvette hält gegen „Nase drauf“ 73 % Breitseite, gegen Manövrieren 42 %.
-  0–0,1 Notfälle, ~2 Reparaturgänge je Lauf (Bots verteilen Schilde fehlerfrei).
+- **Bot-Simulation:** siehe Basis-Bericht (`npm run basis`, `tools/fixtures/telemetrie/basis-win32-x64.md`, Gruppe `arena_space/3`). *Historisch, Stand QA 2026-10-07, nicht Teil der Basis:* „Nase drauf“ 60,7 Hülle (12/min), Breitseite 43 (6,2/min), Faktor 1,41; die Korvette hielt gegen „Nase drauf“ 73 % Breitseite, gegen Manövrieren 42 %; ~2 Reparaturgänge je Lauf. Hülle und Notfälle dieser Zeile gelten seit SYS-01 nicht mehr.
 - **Browser** (QA-Skript mit Menschen-Tempo: Captain reagiert nach 1–3 s, Ausweichen ~65 %): Korvette + 2 Jäger
   **3:44–3:49, 100 Hülle, 2 Notfälle**; 2 Jäger 0:23–0:48 ohne Schaden; Jäger + Korvette 2:11–2:16, 50–55 Hülle; Wächter
   + 2 Jäger 1:33. Korvetten-Wellen sind für Menschen eher zu hart als zu ruhig. Wenn es beim Probeflug kippt:
@@ -1983,7 +1971,7 @@ Die Lerche hat **drei Decks** (Rumpf 40 × 13 Kacheln je Deck, Atlas `shared/map
 ### Außenmissionen in Voxel
 Mit `?render=voxel` erscheinen auch die Plattform B-7, das Wrack „Zaunkönig“ und der Mond Kesh in 3D. Die Plattform schwebt mit Rumpfschürze und Positionslichtern über dem Sternenhimmel. Das Wrack ist dunkel, rostig und nur von flackerndem Notlicht erhellt. Kesh zeigt warmen Sand, mauvefarbene Felsen und schieferblaue Kustoden-Ruinen mit violettem Neon. Deckung ist auf einen Blick lesbar: Halbe Deckung ist niedrig mit heller Oberkante, volle Deckung (Pfeiler) hoch mit dunkler Krone. Bereiche, die das Team gerade nicht sieht, sind abgedunkelt (Nebel des Krieges). Innenwände sind wie im Schiff auf Hüfthöhe geschnitten, damit niemand hinter einer Mauer verschwindet. Tür, Sonde, Bojenkern, Container, dünne Wand, Störrelais, Archivschlüssel, Tor und Tafel zeigen ihren Zustand direkt am Modell.
 
-Messwerte von QA-AWAY (Bot-Läufe zu dritt): Plattform 72 s, Wrack 64 s unten, m3 6:26.
+Messwerte von QA-AWAY (Bot-Läufe zu dritt): m3 siehe Basis-Bericht, Gruppe `m3/3` (`tools/fixtures/telemetrie/basis-win32-x64.md`; die frühere Angabe 6:26 ist ersetzt). *Historisch, Stand QA-AWAY, nicht Teil der Basis:* Plattform 72 s, Wrack 64 s unten.
 
 ### Gemessene Bildrate (QA „Schiff“, 2026-10-07, Entwicklungslaptop)
 Gemessen mit einem Fenster, Chromium headed mit echter GPU (`ANGLE (Intel UHD Graphics, Direct3D11)`, nicht SwiftShader), 1280×720. Szene auf Deck I: 3 Spieler (2 davon als Hintergrund-Clients), 3 Bots, 2 Feuer, 1 Leck.
@@ -2097,7 +2085,7 @@ der Entfernung), Feuerstellungen hinter Deckung, Rückzug bei leerem Schild (ver
 
 Etappen (vorsichtig, Endwerte): Briefing+Flug 0:51 · Hof 1:07 · Halle mit Relais und Schlüsseln 0:53 · Tafel 0:14 ·
 Wächter + Trupp 2 1:30 · Nachhut und Hochbeamen 1:08. Erste Verwundung: vorsichtig keine im Hof, unvorsichtig nach 38 s.
-Fehlerzähler Client/Server in allen Läufen 0. Bot-Simulation (`node tools/sim-headless.js m3`): 2,7–3,4 min.
+Fehlerzähler Client/Server in allen Läufen 0. Bot-Simulation (`node tools/sim-headless.js m3`): ersetzt durch den Basis-Lauf, Gruppe `m3/3` in `tools/fixtures/telemetrie/basis-win32-x64.md` (Dauer, Verluste, Gefecht je Kennzahl mit Median und Streuung über 12 Seeds; Stand `npm run basis`). Die frühere Angabe „2,7–3,4 min“ (Stand QA 2026-10-05/06) ist entfernt.
 
 **Geschätzt** (nicht gemessen): Das Skript kennt Karte, Schlüssel und Wege, liest schnell, spricht sich nicht ab und sieht
 jeden Gegner sofort. Erstspieler brauchen allein für Funk, Sternkarte, Sprung und Transferkammer 2–3 min statt 1, für das

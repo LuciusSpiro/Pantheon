@@ -4440,12 +4440,14 @@ else (async () => {
   if (args[0] === 'kette') { const bad = await ketteMain(); process.exit(bad ? 1 : 0); }   // EK8: feste Kampagnenkette
   if (args[0] === 'sl') {   // SL6/7/10 (T4): Bot-Pfade Gasriese, Forschungsstation (mit/ohne Ablenkung), Boje (Weg A/B) – tools/sl-bots.js
     //   node tools/sim-headless.js sl [--paket gas|forschung|forschung-ohne|boje-a|boje-b|alle] [--seed S] [--seeds N]
-    const SL = require('./sl-bots.js'); const pk = argVal('--paket', 'alle'); const n = Number(argVal('--seeds', 1)); const s0 = seedArg != null ? seedArg : 21;
+    const SL = require('./sl-bots.js'); SL.botUmgebung(botEnv({ MISSION_SOURCE: 'fallback' }), botSpiel);   // TEL-01 C: auch die SL-Bot-Pfade schreiben eine Session je Lauf
+    const pk = argVal('--paket', 'alle'); const n = Number(argVal('--seeds', 1)); const s0 = seedArg != null ? seedArg : 21;
     let bad = 0;
     for (let i = 0; i < n; i++) {
       const o = { seed: s0 + i };
       const L = pk === 'gas' ? [SL.laufGasriese(o)] : pk === 'forschung' ? [SL.laufForschung(Object.assign({ ablenkung: true }, o))] : pk === 'forschung-ohne' ? [SL.laufForschung(Object.assign({ ablenkung: false }, o))]
         : pk === 'boje-a' ? [SL.laufBoje(Object.assign({ weg: 'A' }, o))] : pk === 'boje-b' ? [SL.laufBoje(Object.assign({ weg: 'B' }, o))] : SL.alle(o);
+      botEnde();   // TEL-01 C: Sessionende je Lauf (die Spiele liegen im Register)
       for (const r of L) { console.log(`${r.ok ? 'ok     ' : 'FEHLER '} seed ${o.seed} ${r.name.padEnd(26)} ${String(r.sek).padStart(4)} s  ${r.info}${r.fehler ? '  [' + r.fehler + ']' : ''}`); if (!r.ok) bad++; }
     }
     console.log(bad ? `${bad} Lauf/Läufe gescheitert` : 'alle Läufe ok');
