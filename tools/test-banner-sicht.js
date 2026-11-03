@@ -59,7 +59,7 @@ console.log('\nSweep: Stationsmitte im Ausschnitt -> Banner ganz im Ausschnitt')
 console.log('\nVerdrahtung');
 {
   const sitz = fs.readFileSync(path.join(ROOT, 'public', 'js', 'sitz.js'), 'utf8');
-  ok(/drawFrontView\(c, view, \{[^}]*sicht: \{ x: 0, y: 0, w: SW, h: SH \}/.test(sitz), 'sitz.js reicht die Textur als sicht an drawFrontView');
+  ok(/const fenster = \{[^}]*sicht: \{ x: 0, y: 0, w: SW, h: SH \}[^}]*\};/.test(sitz) && /drawFrontView\(c, view, fenster\)/.test(sitz), 'sitz.js reicht die Textur als sicht an drawFrontView');
   const r = fs.readFileSync(path.join(ROOT, 'public', 'js', 'render.js'), 'utf8');
   ok(/sicht: rect\.sicht/.test(r) && /zeichneBanner\(ctx, s\.x, s\.y, lr - 2, m\.fr, t, sicht\)/.test(r), 'render.js: drawFrontView -> drawSpace -> zeichneBanner tragen sicht');
 }

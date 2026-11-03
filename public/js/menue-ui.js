@@ -467,6 +467,9 @@
       if (code === 'KeyU') { const en = F.auswahlEintrag(lob); if (en && en.tutorial) { F.schalteTutorialMerker(); ton('ui_click'); } return true; }
       const d = /^(?:Digit|Numpad)(\d)$/.exec(code);
       if (d) { const r = F.waehleTaste(d[1], lob); if (r.ok) ton('ui_click'); return true; }
+      const b = /^Key([A-Z])$/.exec(code);   // Einträge mit Buchstabentaste (UEB-01: S Forschungsstation); O/H/C/F/U sind oben schon vergeben
+      if (b && (e.ctrlKey || e.altKey || e.metaKey)) return false;   // Strg/Alt/Meta+Buchstabe: Browser-Kürzel (Strg+S …) bleiben unberührt; Shift zählt wie bei den Ziffern nicht
+      if (b) { const r = F.waehleTaste(b[1], lob); if (r.ok) ton('ui_click'); return true; }
       return true;
     }
     if (s === 'einladung') {

@@ -46,7 +46,8 @@ function istFlottenbasis(game, ortId) {
 function setzeFlottenbasis(game, ortId, an) { if (game.mission && game.mission.flags) game.mission.flags[FLAGGE + ortId] = an !== false; }
 // Testumgebung (Kai 2026-10-22): Testgelände, Wellen All, Wellen Boden und Szenario-Labor (game.arena bzw. game.labor; reset() leert beide, Kampagne und freies Spiel haben sie nie).
 // Dort ist die Werft immer aktiv, auch abgedockt, und die Crew bekommt CONFIG.werft.testmarken.
-function testumgebung(game) { return !!(game.arena || game.labor); }
+// Ausnahme: Übungsszenen (arena.istUebungsszene, UEB-01 Forschungsstation) – dort gilt die Werft wie in der Kampagne mitten in der Szene (abgedockt aus).
+function testumgebung(game) { return !!((game.arena && !require('./arena.js').istUebungsszene(game.arena.kind)) || game.labor); }
 // { aktiv, grund?, code? }: aktiv nur angedockt an einer Flottenbasis (Kampagne, freies Spiel) – oder in der Testumgebung überall (test: true, grund „Testumgebung“)
 function status(game) {
   if (testumgebung(game)) return { aktiv: true, test: true, grund: 'Testumgebung' };

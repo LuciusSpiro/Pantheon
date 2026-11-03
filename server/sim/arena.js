@@ -8,6 +8,7 @@
 //    (CONFIG.arena.szenen), Ablauf aus wellen.js (Bühne all). Ohne Szene der Altweg oben (Tests).
 //  - arena_away mit Kartenwahl (lobbyOpts.wellen): Bodenkampf: Wellen (wellen.js) auf Außenposten/Station/Ruine/Schiff/Kesh-Hof.
 //  - arena_graben (BOD-01, lobbyOpts.graben = Variantenwahl): Szenario Grabenangriff auf der festen Karte, Ablauf in graben.js (Bühne graben in wellen.js).
+//  - arena_forschung (UEB-01): Regiebuch sl_forschung direkt ab Gravimetrie am Helix, Ablauf in uebung-forschung.js.
 //  - arena_away ohne Kartenwahl (Altweg, Tests): Mission m3 direkt auf Schritt 'courtyard', alle Spieler auf den Kesh-Pads,
 //    Schiff in Transferreichweite; mit Kartenparametern statische Karte (Karten-QA).
 const W = require('../world.js');
@@ -19,16 +20,19 @@ const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Grund fuer gegn
 const away = require('./away.js');
 
 const TAG = 'arena';
-const KINDS = ['arena_space', 'arena_away', 'arena_graben'];
+const KINDS = ['arena_space', 'arena_away', 'arena_graben', 'arena_forschung'];
 const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 
 function isArena(kind) { return KINDS.includes(kind); }
+// Übungsszenen sind Testgelände-Modi, aber KEINE Testumgebung: kein Testgeld, Werft nur wie in der Kampagne (angedockt an Flottenbasen)
+function istUebungsszene(kind) { return kind === 'arena_forschung'; }
 function cfg(game) { return game.C.arena; }
 
 // opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
 // opts.szene = Szenenwahl Wellen All (CONFIG.arena.szenen) -> Wellen im Raum; ohne: Altweg (feste Wellen zyklisch)
 function start(game, kind, params, opts) {
   if (kind === 'arena_graben') return startGraben(game, opts && opts.graben);
+  if (kind === 'arena_forschung') return require('./uebung-forschung.js').start(game);   // UEB-01: Forschungsstation direkt (Buch sl_forschung)
   const wk = opts && opts.wellen;
   if (kind === 'arena_away' && wk) return startWellen(game, wk, params);
   if (kind === 'arena_away') return params && params.art ? startAwayBuehne(game, params) : startAway(game);
@@ -335,7 +339,8 @@ function startWellen(game, karte, params) {
 
 function update(game, dt) {
   if (!game.arena) return;
-  if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }   // Wellen Boden und Wellen All
+  if (game.arena.kind === 'arena_forschung') require('./uebung-forschung.js').update(game);   // UEB-01
+  else if (game.arena.wellen) { require('./wellen.js').update(game, dt); wellenZiel(game); }   // Wellen Boden und Wellen All
   else if (game.arena.kind === 'arena_space') updateSpace(game);
 }
 // AP3a (Abnahme Wellen Boden): Zielanzeige statt „Frei erkunden – Entdeckungen“ (ohne Mission zeigt mission.js sonst die Erkundung)
@@ -356,4 +361,4 @@ function wellenZiel(game) {
 }
 function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
 
-module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };
+module.exports = { KINDS, TAG, isArena, istUebungsszene, start, update, objectiveText, skipWave, spawnWave, besideConsole, placeOnBridge, repairShip, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };

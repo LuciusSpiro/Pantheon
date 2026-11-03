@@ -70,7 +70,7 @@ function pruefe(api, laut) {
     p(api.eintragZuModus('eisenwald').id === 'eisenwald' && api.eintragZuModus('eisenwald_ohne').id === 'eisenwald', 'Eisenwald mit und ohne Tutorial ist ein Eintrag');
     p(api.GRUPPEN.find((g) => g.id === 'debug').eintraege.map((e) => e.modi[0]).sort().join() === 'free,m1,m3', 'Debug-Gruppe: genau die Sternenschicht-Modi m1, free, m3');
     p(api.GRUPPEN.find((g) => g.id === 'spielen').eintraege.map((e) => e.id).join() === 'schuld_der_lerche,freie_fahrt,eisenwald', 'Spielen: Schuld der Lerche, Freie Fahrt Sund, Kampagne Eisenwald');
-    p(api.GRUPPEN.find((g) => g.id === 'uebung').eintraege.map((e) => e.id).join() === 'arena_graben,arena_away,arena_space,labor', 'Übungsplatz: Grabenangriff, Wellen Boden, Wellen All, Labor'); }
+    p(api.GRUPPEN.find((g) => g.id === 'uebung').eintraege.map((e) => e.id).join() === 'arena_graben,arena_away,arena_forschung,arena_space,labor', 'Übungsplatz: Grabenangriff, Wellen Boden, Forschungsstation, Wellen All, Labor'); }
 
   // ---- 2 Sichtbarkeit
   { const sicht = (o, lob) => { const { F } = neu(api, o); return F.sichtbar(lob).flatMap((e) => e.modi); };
@@ -124,6 +124,7 @@ function pruefe(api, laut) {
     for (const e of F.sichtbar(lob)) { const m = F.nachrichtFuer(e, lob); if (m) msgs[e.id] = m; }
     p(F.sichtbar(lob).every((e) => msgs[e.id]), 'jeder sichtbare Eintrag erzeugt eine Nachricht');
     p(msgs.arena_away.wellen === Protocol.WELLEN_KARTEN[0] && msgs.arena_space.szene === 's_eins', 'Wellen Boden/All tragen die Kartenwahl (sonst startet der Server den Altweg)');
+    p(gleich(msgs.arena_forschung, { t: 'lobbyOpt', startMission: 'arena_forschung', world: null }), 'Forschungsstation (UEB-01): nur Modus, keine Karten-/Szenenwahl, kein Weltstand');
     p(F.nachrichtFuer(F.eintragMitId('arena_away'), Object.assign({}, lob, { wellen: 'ruine' })).wellen === 'ruine', 'eine schon gewählte Karte bleibt');
     p(gleich(msgs.fortsetzen, { t: 'lobbyOpt', world: 'w2' }), 'Fortsetzen sendet nur den Weltstand');
     p(F.nachrichtFuer(F.eintragMitId('fortsetzen'), LOB) === null, 'Fortsetzen ohne Weltstand: keine Nachricht');
@@ -159,6 +160,7 @@ function pruefe(api, laut) {
   { const F = neu(api).F, tasten = (m, lob, w) => F.optionenFuer(m, lob || {}, w).map((o) => o.taste).filter(Boolean).join(' ');
     p(tasten('arena_away') === 'K W', 'Wellen Boden: K Karte, W Waffe');
     p(tasten('arena_space') === 'K', 'Wellen All: K Szene');
+    p(tasten('arena_forschung') === '', 'Forschungsstation: keine Zusatzoptionen (keine Optionsleiste)');
     p(tasten('arena_graben', { grabenListe: [{ name: 'Wiese', varianten: [{}, {}] }, { name: 'Wald', varianten: [{}, {}] }, { name: 'Hang', varianten: [{}] }] }) === 'K N W', 'Grabenangriff: K/N für Abschnitte mit zwei Varianten, W Waffe');
     p(tasten('labor') === '↑↓ ←→ R G W', 'Labor: ↑↓ Umsetzung, ←→ Stärke, R Seed, G god, W Waffe');
     p(tasten('eisenwald') === 'U' && tasten('eisenwald_ohne') === 'U' && tasten('m1') === 'U', 'U: Tutorial bei Eisenwald, Hafen-Übung bei Kampagne (Debug)');
@@ -266,16 +268,37 @@ function pruefe(api, laut) {
       d('KeyM'); const modus = F.lies().modusOffen; d('Escape'); const modusZu = !F.lies().modusOffen && F.lies().schirm === 'lobby';
       u.gesendet.length = 0; d('Escape'); const esc = F.lies().schirm === 'menue' && gleich(u.gesendet, [{ t: 'ready', ready: false }]);   // Esc: Hauptmenü, „bereit“ zurückgenommen
       d('Escape'); const escTitel = F.lies().schirm === 'titel';
+      // Forschungsstation (UEB-01): Buchstabentaste S wählt, Enter setzt den Modus ohne Zusatzfelder
+      F.starte({}); F.weiter(); u.gesendet.length = 0; d('KeyS'); const sAuswahl = F.lies().auswahl === 'arena_forschung'; d('Enter');
+      const forschung = sAuswahl && F.lies().schirm === 'lobby' && gleich(u.gesendet, [{ t: 'lobbyOpt', startMission: 'arena_forschung', world: null }]);
       // Einladung
       F.starte({ link: true }); d('ArrowRight'); d('Digit1'); d('Digit2'); const cur = F.lies().einladungCursor === 1; d('Enter');
       const angenommen = F.lies().schirm === 'lobby' && u.waehle.join() === 'c2';
       F.starte({ link: true }); u.kammer.auf = 0; u.kammer.neu = 0; d('KeyN'); const neuer = u.kammer.auf === 1 && u.kammer.neu === 1;
       F.starte({ link: true }); d('Escape'); const abgelehnt = F.lies().schirm === 'menue' && u.verlassen.n === 1;
-      return { titel, menue, lobby, optionen, modus: modus && modusZu, esc: esc && escTitel, einladung: cur && angenommen && abgelehnt && neuer };
+      return { titel, menue, forschung, lobby, optionen, modus: modus && modusZu, esc: esc && escTitel, einladung: cur && angenommen && abgelehnt && neuer };
     };
     const r = ui(api);
     p(r.titel, 'Tasten Titel: O Optionen, H und ? Hilfe, Enter → Hauptmenü');
     p(r.menue, 'Tasten Hauptmenü: Ziffer wählt, U Tutorial-Merker (sendet nichts), F Weltstandliste, Pfeile, Enter bestätigt');
+    p(r.forschung, 'Tasten Hauptmenü: S wählt die Forschungsstation, Enter sendet nur den Modus');
+    { // Modifikatoren: Strg/Alt/Meta+S wählt nichts und wird nicht verbraucht (Browser-Standard bleibt); S ohne Modifikator wählt
+      const u = lade(api), F = u.F; F.starte({}); F.weiter(); const vorher = F.lies().auswahl;
+      const res = {}; for (const m of ['ctrlKey', 'altKey', 'metaKey']) { res[m] = u.druecke('KeyS', { [m]: true }); }
+      p(F.lies().auswahl === vorher && vorher !== 'arena_forschung', 'Tasten Hauptmenü: Strg+S/Alt+S/Meta+S wählen keinen Eintrag');
+      p(res.ctrlKey === false && res.altKey === false && res.metaKey === false, 'Tasten Hauptmenü: Strg+S/Alt+S/Meta+S werden nicht verbraucht (kein preventDefault, „Seite speichern“ bleibt)');
+      p(u.druecke('KeyS') === true && F.lies().auswahl === 'arena_forschung', 'Tasten Hauptmenü: S ohne Modifikator wählt weiterhin die Forschungsstation'); }
+    { // Schutz vor stummer Kollision: Eintragstasten (Buchstaben) dürfen nicht in den vorher abgefangenen Tasten liegen
+      const quelleUi = fs.readFileSync(QUELLE_UI, 'utf8'), a0 = quelleUi.indexOf('const hilfe ='), a1 = quelleUi.indexOf('const d = /^(?:Digit|Numpad)(\\d)$/');
+      const abschnitt = a0 >= 0 && a1 > a0 ? quelleUi.slice(a0, a1) : '';   // gemeinsam() und die Zweige vor Ziffern/Buchstaben im Hauptmenü
+      const ausCode = new Set([...abschnitt.matchAll(/'Key([A-Z])'/g)].map((m) => m[1]));
+      const ABGEFANGEN_PER_TASTEN = ['C'];   // charakter.oeffnen läuft über Tasten.passt (Standardbelegung C), steht nicht als Key-Literal im Code
+      const abgefangen = new Set([...ausCode, ...ABGEFANGEN_PER_TASTEN]);
+      p(['O', 'H', 'F', 'U', 'C'].every((k) => abgefangen.has(k)), 'Kollisionsschutz: abgefangene Tasten aus menue-ui.js gelesen (O, H, F, U) plus C: ' + [...abgefangen].sort().join(''));
+      const eintraege = api.GRUPPEN.flatMap((g) => g.eintraege), buchst = eintraege.filter((e) => /^[A-Z]$/.test(e.taste));
+      p(buchst.some((e) => e.id === 'arena_forschung'), 'Kollisionsschutz: Buchstabentasten im Menü gefunden (S Forschungsstation)');
+      const kollision = buchst.filter((e) => abgefangen.has(e.taste) && !(e.id === 'fortsetzen' && e.taste === 'F'));
+      p(!kollision.length, 'Kollisionsschutz: keine Eintragstaste liegt in O/H/C/F/U (außer fortsetzen/F über openWorlds)' + (kollision.length ? ': ' + kollision.map((e) => e.id + '/' + e.taste).join() : '')); }
     p(r.lobby, 'Tasten Lobby: U Modus der Runde, Enter bereit, Ziffer Farbe, L Link, F Liste, H und ? Hilfe');
     p(r.optionen, 'Tasten Lobby (Wellen Boden): K Karte, W Waffe');
     p(r.modus, 'Tasten Lobby: M öffnet die Moduswahl, Esc schließt sie');
