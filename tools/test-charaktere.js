@@ -260,7 +260,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   // Umbenennen
   m.setzeCursor(0);
   ok(m.beginneUmbenennen().ok && m.lies().sitzung.entwurf.modus === 'umbenennen' && m.lies().sitzung.entwurf.name === 'Hrolf', 'F2 öffnet das Umbenennen mit dem Namen');
-  ok(!m.waehlePlatz('bart').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
+  ok(!m.waehlePlatz('frisur').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
   // CHA-01 F: R im Umbenennen wirkt nur, wenn der Name vom gespeicherten abweicht
   ok(!m.kannZuruecksetzen() && m.zuruecksetzen().grund === 'unveraendert', 'Umbenennen ohne Änderung: R ist wirkungslos (gesperrt)');
   m.nameLoeschen(); ok(m.kannZuruecksetzen(), 'Umbenennen mit geändertem Namen: R wirkt');
@@ -295,7 +295,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.oeffneListe(); m.setzeCursor(0);
   ok(m.beginneUmbenennen().ok, 'F2'); m.nameLoeschen(); m.nameZeichen('a');
   const vorEntwurf = JSON.stringify(m.lies().liste[0].karte);
-  ok(!m.setzeWahl('haut', 0).ok && !m.setzeWahl('frisur', 1).ok && !m.waehlePlatz('bart').ok && !m.naechsterPlatz(1).ok && !m.blaettere(1).ok, 'Umbenennen: setzeWahl/waehlePlatz/naechsterPlatz/blaettere lehnen ab');
+  ok(!m.setzeWahl('haut', 0).ok && !m.setzeWahl('frisur', 1).ok && !m.waehlePlatz('frisur').ok && !m.naechsterPlatz(1).ok && !m.blaettere(1).ok, 'Umbenennen: setzeWahl/waehlePlatz/naechsterPlatz/blaettere lehnen ab');
   ok(m.lies().sitzung.entwurf.karte.haut === 2 && m.lies().sitzung.entwurf.karte.frisur === karte.frisur, 'Umbenennen: Aussehen im Entwurf unverändert');
   gleich(m.lies().sitzung.entwurf.karte.outfit, karte.outfit, 'Umbenennen: Outfit im Entwurf unverändert');
   ok(m.speichereEntwurf().ok, 'Umbenennen speichert');
