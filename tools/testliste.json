@@ -14,6 +14,7 @@
   {"id":"test-systeme-tokens","kette":"test","cmd":["tools/test-systeme-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"test-auftrag-tokens","kette":"test","cmd":["tools/test-auftrag-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kammer-tokens","kette":"test","cmd":["tools/test-kammer-tokens.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-hauptschirm-tokens","kette":"test","cmd":["tools/test-hauptschirm-tokens.js"],"stufe":"fast","budget_s":6},
   {"id":"test-namensmarke-stapel","kette":"test","cmd":["tools/test-namensmarke-stapel.js"],"stufe":"fast","budget_s":6},
   {"id":"mutation-namensmarke-stapel","kette":"test","cmd":["tools/mutation-namensmarke-stapel.js"],"stufe":"fast","budget_s":6},
   {"id":"test-brett-ui","kette":"test","cmd":["tools/test-brett-ui.js"],"stufe":"fast","budget_s":7},
