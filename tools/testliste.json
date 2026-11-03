@@ -238,7 +238,9 @@
   {"id":"test-vergleich","kette":"test","cmd":["tools/test-vergleich.js"],"stufe":"full","budget_s":23},
   {"id":"test-abfrage","kette":"test","cmd":["tools/test-abfrage.js"],"stufe":"full","budget_s":22},
   {"id":"mutation-auswertung","kette":"test","cmd":["tools/mutation-auswertung.js"],"stufe":"slow","budget_s":808},
-  {"id":"test-telemetrie-geg","kette":"test","cmd":["tools/test-telemetrie-geg.js"],"stufe":"fast","budget_s":9}
+  {"id":"test-telemetrie-geg","kette":"test","cmd":["tools/test-telemetrie-geg.js"],"stufe":"fast","budget_s":9},
+  {"id":"test-rueckprobe","kette":"test","cmd":["tools/test-rueckprobe.js"],"stufe":"full","budget_s":40},
+  {"id":"test-mess-telemetrie","kette":"test","cmd":["tools/test-mess-telemetrie.js"],"stufe":"full","budget_s":90}
  ],
  "ausgenommen": [
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},
