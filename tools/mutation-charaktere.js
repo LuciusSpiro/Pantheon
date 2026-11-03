@@ -68,7 +68,7 @@ const MUTATIONEN = [
   [C, "frisur: (std && std.standard) || k.frisur, haar: kachelHaar(), outfit:", "frisur: (std && std.standard) || k.frisur, outfit:", 'Kopf-Kacheln im Spind tragen das Haar des Charakters statt des hellen'],
   [C, "const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert, haar: kachelHaar() }) : null;", "const k = aktiveKarte(); return k ? Object.assign(k, { [platz]: wert, haar: kachelHaar() }) : null;", 'Erstellungs-Kachel nimmt die getragene Karte statt des Entwurfs'],
   [C, "const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert, haar: kachelHaar() }) : null;", "const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;", 'Frisur-Kacheln nehmen die Haarfarbe des Entwurfs (dunkel auf dunklem Grund)'],
-  [C, "const KACHEL_HAAR = 7;", "const KACHEL_HAAR = 0;", 'Frisur-Kacheln tragen die dunkelste statt der hellen Haarfarbe'],
+  [C, "const KACHEL_HAAR_FARBE = '#8C7A58';", "const KACHEL_HAAR_FARBE = '#3B2416';", 'Frisur-Kacheln tragen die dunkelste statt der hellen Haarfarbe'],
   [C, "const TEIL_PLAETZE = ['frisur'];", "const TEIL_PLAETZE = ['frisur', 'gesicht'];", 'Erstellung kennt wieder den Platz gesicht'],
   [C, "const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE);", "const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE, ['kopf']);", 'Erstellung bietet einen Outfit-Platz an'],
   // CHA-02 E1b: Livebilder und Oberfläche
@@ -77,7 +77,7 @@ const MUTATIONEN = [
   ['public/js/voxel/kammer.js', "nah: { px: { w: 300, h: 352 }, fenster: { x: [-8, 7], y: [19, 36], yaw: 28,", "nah: { px: { w: 300, h: 352 }, fenster: { x: [-8, 7], y: [19, 36], yaw: 90,", 'Nahansicht blickt von der Seite statt ¾ von vorn'],
   ['public/js/voxel/kammer.js', "ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 37],", "ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 34],", 'Spind-Figur schneidet den Kopf ab'],
   ['public/js/kammer-ui.js', "KB.bild(t.live.karte, 'kachel', t.live.yaw)", "KB.bild(t.live.karte, 'portraet', t.live.yaw)", 'Livekacheln als Porträtausschnitt statt Kachelausschnitt'],
-  ['public/js/kammer-ui.js', "txt(cc, passend(karte.outfit.kopf && karte.outfit.kopf !== 'keine' ? teilName('kopf', karte.outfit.kopf) : TEXT.liste.ohneKopf, bw), k.x + 6, ty + 33, F.dim);", "", 'Kartenzeile der Kopfbedeckung fehlt in der Liste'],
+  ['public/js/kammer-ui.js', "txt(cc, passend(karte.outfit.kopf && karte.outfit.kopf !== standardKopf() ? teilName('kopf', karte.outfit.kopf) : TEXT.liste.ohneKopf, bw), k.x + 6, ty + 33, F.dim);", "", 'Kartenzeile der Kopfbedeckung fehlt in der Liste'],
   ['public/js/kammer-ui.js', "function kachelTexte(name, sub, w) {", "function kachelTexteX(name, sub, w) {", 'Kachel bricht lange Namen nicht um'],
   ['public/js/kammer-ui.js', "if (platz) namensfeld(cc, a.x + T.x, 0, KM.figur.x - T.x - 12, e, a,", "if (platz) namensfeld(cc, a.x + T.x, unten + 14, KM.figur.x - T.x - 12, e, null,", 'Namensfeld unter den Kacheln statt kompakt (überdeckt die Hinweiszeile)'],
   // CHA-01 F: R (Zurücksetzen) im Umbenennen

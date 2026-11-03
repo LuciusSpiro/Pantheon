@@ -50,6 +50,7 @@
   }
   function liveFuer(modus, platz, teilId) { const k = C.kachelKarte(modus, platz, teilId); return k ? { karte: k, yaw: (KM.kachelAnsicht[platz] || {}).yaw || 0 } : null; }
   const katalog = () => C.katalog();
+  const standardKopf = () => { const k = katalog(), p = k && (k.plaetze || []).find((q) => q.id === 'kopf'); return (p && p.standard) || 'keine'; };   // leere Kopfbedeckung laut Katalog
   const teil = (platz, name) => C.teil(platz, name), teilName = (platz, name) => C.teilName(platz, name);
   const live3d = () => { const KB = window.KammerBild; return !!(KB && KB.moeglich()); };
   // Porträt (live) oder, solange es nicht da ist / ohne WebGL, der Ersatz: mit `platz` die Vorschau des Teils bzw. die Farbe der aktuellen Wahl dieses Platzes, sonst die Vorschau des Gesichts
@@ -131,14 +132,14 @@
         }
         const karte = ch.karte, getragen = ch.id === st.gewaehlt;
         rect(cc, k.x, k.y, k.w, k.h, F.kachel);
-        portraet(cc, k.bild, karte, 'portraet', 0, 'frisur');   // ohne 3D: Vorschau der Frisur dieses Charakters (die Gesichtsvorschau trägt immer den Dutt)
+        portraet(cc, k.bild, karte, 'portraet', 0, 'frisur');   // ohne 3D: Vorschau der Frisur dieses Charakters
         if (getragen) rect(cc, k.x, k.y, k.w, KM.getragen, F.platz);
         kappeDunkel(cc, k.x + 4, k.y + 4 + (getragen ? 2 : 0), String(i + 1), an ? F.kappeWahl : F.kappe, an ? F.kappeWahlText : F.kappeText);
         const ty = k.bild.y + k.bild.h + 4, bw = k.w - 12;
         txtSp(cc, gross(karte.name), k.x + 6, ty, getragen ? F.platz : F.text, 1);
         txt(cc, passend(teilName('frisur', karte.frisur), bw), k.x + 6, ty + 13, F.text);
         txt(cc, passend(teilName('oberteil', karte.outfit.oberteil), bw), k.x + 6, ty + 23, F.dim);
-        txt(cc, passend(karte.outfit.kopf && karte.outfit.kopf !== 'keine' ? teilName('kopf', karte.outfit.kopf) : TEXT.liste.ohneKopf, bw), k.x + 6, ty + 33, F.dim);
+        txt(cc, passend(karte.outfit.kopf && karte.outfit.kopf !== standardKopf() ? teilName('kopf', karte.outfit.kopf) : TEXT.liste.ohneKopf, bw), k.x + 6, ty + 33, F.dim);
         if (an) cursorRahmen(cc, k); else rand(cc, k.x, k.y, k.w, k.h, F.kachelRand);
         if (s.loeschFrage === ch.id) { rect(cc, k.x + 1, k.y + k.h - 14, k.w - 2, 13, F.loeschen); txt(cc, TEXT.liste.loeschKnopf, k.x + k.w / 2, k.y + k.h - 11, F.ink, 'center'); }
       });

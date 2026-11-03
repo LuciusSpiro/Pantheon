@@ -76,11 +76,11 @@
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
     // CHA-01 F / CHA-02 E1b: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
-    // Liefert die Karte, an der das Teil sitzt, sonst null (feste Vorschau). Frisur-Kacheln tragen helles Haar (Voxelwerk KACHEL_HAAR: dunkles Haar ist auf dem dunklen Kachelgrund nicht zu unterscheiden);
+    // Liefert die Karte, an der das Teil sitzt, sonst null (feste Vorschau). Frisur-Kacheln tragen helles Haar (Voxelwerk KACHEL_HAAR, hier KACHEL_HAAR_FARBE: dunkles Haar ist auf dem dunklen Kachelgrund nicht zu unterscheiden);
     // Kopf-Kacheln im Spind zeigen die Kopfbedeckung auf der Standardfrisur (sonst verdeckt jede Frisur eine andere Helmform), Haut und Outfit bleiben die des Charakters.
     const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };
-    const KACHEL_HAAR = 7;   // aschblond im Katalog (Index der Haarfarbe)
-    const kachelHaar = () => Math.max(0, Math.min(KACHEL_HAAR, farbenFuer('haar').length - 1));
+    const KACHEL_HAAR_FARBE = '#8C7A58';   // aschblond; der Index kommt aus dem Katalog (Umsortieren verschiebt die Kachelfarbe nicht), fehlt die Farbe, gilt die Standardfarbe
+    const kachelHaar = () => Math.max(0, farbenFuer('haar').indexOf(KACHEL_HAAR_FARBE));
     function kachelKarte(modus, platz, teilId) {
       if (!(KACHEL_LIVE[modus] || []).includes(platz) || String(teilId).indexOf(platz + '/') !== 0) return null;
       const wert = teilId.slice(platz.length + 1);

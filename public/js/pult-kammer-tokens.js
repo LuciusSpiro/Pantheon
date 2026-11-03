@@ -96,7 +96,7 @@
     gesperrt: { kappe: { x: 3, y: 3, w: 13, h: 12, schraeg: 2 }, schraffur: 3, bild: { grau: 1, hell: 0.28, deckkraft: 0.9 } },
     textZeile: { name: 3, sub: 12 },           // y der zwei Textzeilen unter dem Bild
     figur: { x: 404, y: 6, rechts: 8, unten: 6, kappe: 13, kappeAbstand: 6, nameH: 12 },   // Figurfenster rechts in der Anzeige (Breite = Rest, 160 × 212); oben Namenszeile, unten Q/E
-    // CHA-02 E1b: Blickwinkel der Livekacheln (Versatz zur Kamera 28°): Frisur und Kopfbedeckung ¾ von vorn (28°, wie die Vorschaubilder des Voxelwerks), das Haar der Frisur-Kacheln hell (charaktere.js KACHEL_HAAR),
+    // CHA-02 E1b: Blickwinkel der Livekacheln (Versatz zur Kamera 28°): Frisur und Kopfbedeckung ¾ von vorn (28°, wie die Vorschaubilder des Voxelwerks), das Haar der Frisur-Kacheln hell (charaktere.js KACHEL_HAAR_FARBE),
     // damit sich die Frisuren auf dem dunklen Kachelgrund unterscheiden; Zöpfe und Bart sind der neuen Frisuren wegen von vorn lesbar (CHA-01 F: schräg von hinten für Zöpfe und Dutt, entfällt)
     kachelAnsicht: { frisur: { yaw: 0 }, kopf: { yaw: 0 } },
     figurBild: { nah: { w: 150, h: 176 }, ganz: { w: 120, h: 184 } },             // Erstellung: Nahansicht (Kopf, Schultern; CHA-01 F: hochformatig, bündig unter der Namenszeile), Spind: ganze Figur; zwischen Namenszeile und Q/E

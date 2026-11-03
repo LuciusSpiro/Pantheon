@@ -471,7 +471,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
       {   // CHA-02 E1b: die Kopfbedeckungs-Kacheln zeigen die Standardfrisur und helles Haar, nicht die Frisur des Charakters (sonst verdeckt jede Frisur eine andere Helmform)
         const m7 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} }); m7.setzeKatalog(KAT); m7.legeAn({ name: 'Hrolf', frisur: 'wild', haar: 2 });
         const k7 = m7.kachelKarte('spind', 'kopf', 'kopf/galea');
-        ok(m7.aktiveKarte().frisur === 'wild' && k7.frisur === 'kurz' && k7.haar === 7 && k7.outfit.kopf === 'galea', 'Spind-Kachel kopf: Standardfrisur und helles Haar statt der Frisur des Charakters (wild, Haar 2)');
+        ok(m7.aktiveKarte().frisur === 'wild' && k7.frisur === 'kurz' && KAT.farben.haar[k7.haar] === '#8C7A58' && k7.outfit.kopf === 'galea', 'Spind-Kachel kopf: Standardfrisur und helles Haar statt der Frisur des Charakters (wild, Haar 2)');
         ok(m7.aktiveKarte().frisur === 'wild' && m7.aktiveKarte().haar === 2, 'Spind-Kachel ändert die Karte des Charakters nicht');
       }
       ok(JSON.stringify(m4.aktiveKarte()) === vorher, 'Spind-Kachel ändert die getragene Karte nicht');
@@ -480,7 +480,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
       const sp6 = speicherErsatz(), m6 = Modul.erzeuge({ speicher: sp6, Charakter: Ch, sende: () => {} }); m6.setzeKatalog(KAT); m6.legeAn({ name: 'Cato' }); m6.beginneNeu();
       const ev = JSON.stringify(m6.entwurfKarte()), fr = m6.teileFuer('frisur'), kf = m6.kachelKarte('neu', 'frisur', fr[fr.length - 1].id);
       ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.haut === m6.entwurfKarte().haut && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
-      ok(kf.haar === 7 && m6.entwurfKarte().haar !== 7, 'Erstellungs-Kachel frisur: helles Haar (Index 7) statt der Haarfarbe des Entwurfs, damit die Frisuren auf dunklem Grund zu unterscheiden sind');
+      ok(KAT.farben.haar[kf.haar] === '#8C7A58' && kf.haar !== m6.entwurfKarte().haar, 'Erstellungs-Kachel frisur: helles Haar (aschblond #8C7A58, über die Farbe gefunden, nicht über einen festen Index) statt der Haarfarbe des Entwurfs, damit die Frisuren auf dunklem Grund zu unterscheiden sind');
       ok(JSON.stringify(m6.entwurfKarte()) === ev, 'Erstellungs-Kachel ändert den Entwurf nicht');
       ok(m6.kachelKarte('neu', 'bart', 'bart/vollbart') === null && m6.kachelKarte('neu', 'gesicht', 'gesicht/narbe') === null && m6.kachelKarte('spind', 'frisur', fr[0].id) === null, 'Erstellung: nur Frisur hat Livekacheln, im Spind nur Kopf');
     }
