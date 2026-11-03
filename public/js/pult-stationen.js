@@ -118,6 +118,10 @@
       else if (engDown) { status = 'Antrieb aus – kein Schub!'; scol = P.FN.weapon; }
       else status = 'Stufe ' + hi.names[hi.stage] + ' · Ruder ' + (ax.turn > 0 ? 'Stb' : ax.turn < 0 ? 'Bb' : '–');
       T(ctx, status, x, y, scol);
+      y += 14;
+      // KUL-02 A: Hauptschirm für die ganze Brücke umschalten (Zustand im Server, Snapshot ship.hs); die Beschriftung nennt die aktive Ansicht
+      const hsAktiv = window.Hauptschirm ? Hauptschirm.ansichtVon(view) : 'klassisch';
+      P.knopf(ctx, x, y, cw, 14, 'Hauptschirm: ' + (hsAktiv === 'visier' ? 'Visier' : 'klassisch'), { hotkey: 'V', aktion: 'steuer.hauptschirm', fn: 'sensor', active: hsAktiv === 'visier', onClick: () => this.cmd(view, 'helm.hauptschirm', { ansicht: Hauptschirm.andere(hsAktiv) }) });
       // ---- SPRUNG
       x = 346; cw = 150;
       y = P.titel(ctx, x, y0, cw, 'SPRUNG', 'nav');

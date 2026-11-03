@@ -18,6 +18,7 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
+const Hauptschirm = require('./sim/hauptschirm.js');   // KUL-02 A: Hauptschirm-Ansicht (ship.hs)
 const CaptainZiel = require('./sim/captainziel.js');   // OPS-01 C1: Anzeigeziel des Captains (ship.cz)
 const Gegnertod = require('./sim/gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Countdown, Kapern; Debug prise, Ziel-Snapshot)
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
@@ -1206,6 +1207,7 @@ class Game {
         err = hasFn('helmThrottle') ? space.helmThrottle(this, msg) : 'Temporegler noch nicht verfügbar.';
         break;
       case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
+      case 'helm.hauptschirm': err = Hauptschirm.ansichtSetzen(this, p, String(msg.ansicht)); break;   // KUL-02 A: Hauptschirm für alle umschalten
       case 'helm.jump': err = space.doJump(this); break;
       case 'helm.schnellsprung': err = Reise.befehl(this); break;   // Spieltest: alle Hops der gewählten Route; während der Reise = abbrechen
       case 'captain.accept': err = this.mission.accept(); break;
@@ -2282,6 +2284,7 @@ class Game {
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         ...(ship.zielsystem ? { zs: ship.zielsystem } : {}),   // SUND-04a-1 A: gewähltes Systemziel der Ops (fehlt = keins)
+        ...((hs) => (hs ? { hs } : {}))(Hauptschirm.snapshot(this)),   // KUL-02 A: Hauptschirm-Ansicht (nur bei 'visier')
         ...((cz) => (cz ? { cz } : {}))(CaptainZiel.snapshot(this)),   // OPS-01 C1: Anzeigeziel des Captains (nur bei gesetztem Ziel und besetztem Captain-Pult)
         ...this.zielSysSnap(),   // SYS-01 C1a-1: Systeme des anvisierten Gegners (flach, nur bei gesetztem Ziel, ohne Modell fehlt es)
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },
