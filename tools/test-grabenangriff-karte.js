@@ -2,7 +2,7 @@
 // BOD-01 P1: feste Karte "Grabenangriff" (content/buehnen/festkarten/grabenangriff.json, Erzeuger shared/gen-fest.js, Einhängestelle
 // server/sim/landepunkte.js gen.fest). Headless:
 //  - Format: Abschnitte mit Varianten (datengetrieben), Platzhalter markiert, zweites Deck nur in festkarte/2 (BOD-03)
-//  - Karte: baut, Prüfer ok, 100x36, Payload <= Protokollgrenze, Abschnitte links nach rechts, Abholpunkt links, v2
+//  - Karte: baut, Prüfer ok, 100x88 (Oberfläche 100x36 + Bunker, Stride 44), Payload <= Protokollgrenze, Abschnitte links nach rechts, Abholpunkt links, v2
 //  - Inhalt: Wiese ohne Deckung ausser dem Graben, Graben mit Brustwehr o und Enden/Luecken, zwei erhoehte Posten (aussicht),
 //    Wald mit Weg und Durchkommen abseits des Wegs (BFS), Bunkereingang-Ziel, Gruppen fuer Welle 1/2
 //  - Spiel: ueber landepunkte/karteBauen ins Spiel gehaengt, 3 Spieler beamen runter, besetzen mit Rom, Ticks, Snapshot-Fruehmessung
@@ -33,6 +33,7 @@ const DEF = L.festkarte('grabenangriff');
 const bauen = (def, opts) => Buehne.ausRaster(GenFest.karteRoh(def, Object.assign({ id: 'test.graben' }, opts || {})), { spiel: true });
 const R = bauen(DEF);
 const K = R.karte;
+const H0 = DEF.hoehe;   // Oberflächen-Deck (Deck 0) 100x36; die Karte hat seit BOD-03 B1 ein zweites Deck (Bunker), die Oberflächen-Prüfungen laufen auf Zeile 0..H0-1
 const ch = (x, y) => (K.rows[y] || '')[x];
 const solid = (x, y) => { const c = ch(x, y); return c == null || !!(K.legende[c] && K.legende[c].solid); };
 const walk = (x, y) => !solid(x, y);
@@ -49,10 +50,10 @@ const hat = (S, x, y) => S.has(y * K.w + x);
 
 section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
   const v = GenFest.varianten(DEF);
-  ok(v.map((a) => a.abschnitt).join(',') === 'landung,wiese,wald,eingang', 'Reihenfolge der Abschnitte aus den Daten: landung, wiese, wald, eingang');
+  ok(v.map((a) => a.abschnitt).join(',') === 'landung,wiese,wald,eingang,bunker', 'Reihenfolge der Abschnitte aus den Daten: landung, wiese, wald, eingang (Deck 0), bunker (Deck 1)');
   ok(v.find((a) => a.abschnitt === 'wiese').varianten.map((x) => x.id).join() === 'graben' && v.find((a) => a.abschnitt === 'wald').varianten.map((x) => x.id).join() === 'weg', 'heute je Abschnitt eine Variante: Wiese "mit Graben", Wald "Weg durch den Wald"');
-  ok(v.find((a) => a.abschnitt === 'landung').waehlbar === false && v.filter((a) => a.waehlbar).length === 3, 'Lobby-Liste: Landung nicht waehlbar, drei waehlbare Abschnitte');
-  ok(JSON.stringify(GenFest.standardAuswahl(DEF)) === JSON.stringify({ landung: 'standard', wiese: 'graben', wald: 'weg', eingang: 'bunker' }), 'Standardauswahl aus den Daten');
+  ok(v.find((a) => a.abschnitt === 'landung').waehlbar === false && v.filter((a) => a.waehlbar).length === 3 && v.find((a) => a.abschnitt === 'bunker').waehlbar === false, 'Lobby-Liste: Landung und Bunker nicht waehlbar, drei waehlbare Abschnitte');
+  ok(JSON.stringify(GenFest.standardAuswahl(DEF)) === JSON.stringify({ landung: 'standard', wiese: 'graben', wald: 'weg', eingang: 'bunker', bunker: 'station' }), 'Standardauswahl aus den Daten');
   // Variante nur als Daten ergaenzt: Kopie der Wiese mit anderem Namen, Auswahl wirkt ohne Code
   const d2 = clone(DEF);
   const wv = d2.decks[0].abschnitte.wiese.varianten;
@@ -64,12 +65,11 @@ section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
   ok(['constructor', '__proto__', 'toString', 'hasOwnProperty'].every((k) => /unbekannt/.test(GenFest.auswahlPruefen(DEF, { [k]: 'graben' }) || '') && /unbekannt/.test(GenFest.auswahlPruefen(DEF, { wiese: k }) || '')), 'Schluessel aus dem Object-Prototyp sind keine gueltige Abschnitts-/Variantenwahl');
   let fehler = null; try { GenFest.karteRoh(d2, { abschnitte: { wiese: 'leer' } }); } catch (e) { fehler = e.message; }
   ok(fehler && /Welle 1 nennt Gruppe/.test(fehler), 'Variante ohne die Gruppen der Wellen wird beim Bau abgewiesen (' + (fehler || '').slice(0, 50) + ')');
-  // zweites Deck (BOD-03): nur in festkarte/2 gueltig (Zwei-Deck-Karte: tools/test-festkarte-decks.js); in festkarte/1 weiter abgewiesen
-  const d3 = clone(DEF); d3.decks.push({ id: 'bunker', reihenfolge: [], abschnitte: {} });
+  // zweites Deck (BOD-03): die echte Karte hat zwei Decks (festkarte/2, Deck 1 = Bunker, tools/test-bunker.js); als festkarte/1 wird sie abgewiesen
+  const d3 = clone(DEF); d3.format = 'festkarte/1';
   fehler = null; try { GenFest.karteRoh(d3); } catch (e) { fehler = e.message; }
-  ok(Array.isArray(DEF.decks) && DEF.decks[0].id === 'oberflaeche' && fehler && /festkarte[/]2/.test(fehler), 'decks[] ist ein Array (Deck 0 Oberflaeche); festkarte/1 mit zweitem Deck wird abgewiesen (mehrere Decks brauchen festkarte/2)');
-  d3.format = 'festkarte/2';
-  ok(GenFest.karteRoh(d3).decks.stride === 36, 'dieselbe Definition als festkarte/2: zweites Deck ist gueltig (Stride 36)');
+  ok(Array.isArray(DEF.decks) && DEF.decks.length === 2 && DEF.decks[0].id === 'oberflaeche' && DEF.decks[1].id === 'bunker' && DEF.format === 'festkarte/2' && fehler && /festkarte[/]2/.test(fehler), 'decks[]: Deck 0 Oberflaeche, Deck 1 Bunker (festkarte/2); als festkarte/1 wird die Karte abgewiesen (mehrere Decks brauchen festkarte/2)');
+  ok(K.decks && K.decks.stride === 44 && K.decks.links.length === 2, 'festkarte/2: Stride 44 (Station 48x44), zwei Deck-Links (Lift, Rohr)');
   // Platzhalter: Tausch ueber die Daten
   ok(DEF.zeichen.T.platzhalter === 'baum' && DEF.zeichen.T.kachel === 'Y' && DEF.zeichen.b.kachel === 'H' && DEF.zeichen.P.kachel === '=' && DEF.bauweise === 'rom_feld' && K.meta.platzhalter.baum > 0 && K.meta.platzhalter.palisade > 0 && K.meta.platzhalter.brustwehr > 0, `Platzhalter in den Daten markiert (baum ${K.meta.platzhalter.baum}, palisade ${K.meta.platzhalter.palisade}, brustwehr ${K.meta.platzhalter.brustwehr} Kacheln)`);
   const d4 = clone(DEF); d4.zeichen.T.kachel = 'O';
@@ -79,21 +79,21 @@ section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
 
 section('Karte: Prueferlauf, Groesse, Payload, Reihenfolge', () => {
   ok(R.pruefung.ok && R.fehler.length === 0, 'Pruefer ok:true, keine Fehler' + (R.fehler.length ? ' ' + JSON.stringify(R.fehler.slice(0, 3)) : ''));
-  ok(K.w === 100 && K.h === 36, `Raster ${K.w}x${K.h} (Richtwert 100x36)`);
+  ok(K.w === 100 && K.h === 2 * K.decks.stride && K.decks.stride === 44 && K.rows.length === K.h, `Raster ${K.w}x${K.h}: zwei Decks (Stride ${K.decks.stride}), Oberflaeche 100x${H0}`);
   const B = payloadB(K);
-  ok(B <= Protocol.AWAY_MAP_MAX_BYTES, `Payload ${B} B <= Protokollgrenze ${Protocol.AWAY_MAP_MAX_BYTES} B (Ein-Deck-Karte, BOD-01-Richtwert war 5 KB)`);
-  ok(K.rows.every((r) => r.length === K.w) && K.rows[0] === 'F'.repeat(K.w) && K.rows[K.h - 1] === 'F'.repeat(K.w) && K.rows.every((r) => r[0] === 'F' && r[K.w - 1] === 'F'), 'Aussenrand rundum Fels');
+  ok(B <= Protocol.AWAY_MAP_MAX_BYTES, `Payload ${B} B <= Protokollgrenze ${Protocol.AWAY_MAP_MAX_BYTES} B (zwei Decks; BOD-01-Richtwert fuer die Oberflaeche war 5 KB)`);
+  ok(K.rows.every((r) => r.length === K.w) && K.rows[0] === 'F'.repeat(K.w) && K.rows[H0 - 1] === 'F'.repeat(K.w) && K.rows.slice(0, H0).every((r) => r[0] === 'F' && r[K.w - 1] === 'F'), 'Aussenrand der Oberflaeche rundum Fels');
   const ab = anker('landung.abholpunkt');
   ok(K.ankunft === 'landung.abholpunkt' && ab && ab.ankunft && ab.x < 10, `Abholpunkt (Ankunft) links bei x=${ab && ab.x}`);
   const mitte = (g) => { const a = gruppe(g); return a.reduce((s, q) => s + q.x, 0) / a.length; };
   const xs = [ab.x, mitte('w1.graben'), mitte('w1.posten'), mitte('w2.wald'), mitte('w2.eingang'), anker('bunker.ziel').x];
   ok(xs.every((x, i) => i === 0 || x > xs[i - 1]), 'Abschnitte links nach rechts: Abholpunkt ' + xs.map((x) => Math.round(x)).join(' < '));
   // Zeichenreihenfolge in der Mittellinie: Wiese (:) vor Graben (o), Palisade (=) vor Wald (F-Gruppen) vor Bunker (#)
-  const erst = (c) => K.rows.reduce((m, r) => { const i = r.indexOf(c, 1); return i > 0 ? Math.min(m, i) : m; }, 999);
+  const erst = (c) => K.rows.slice(0, H0).reduce((m, r) => { const i = r.indexOf(c, 1); return i > 0 ? Math.min(m, i) : m; }, 999);
   const oMin = erst('H'), eqMin = erst('='), bMin = erst('#');
-  const treeMin = K.rows.slice(1, K.h - 1).reduce((m, r) => { const i = r.slice(1, -1).indexOf('Y') + 1; return i > 0 ? Math.min(m, i) : m; }, 999);
+  const treeMin = K.rows.slice(1, H0 - 1).reduce((m, r) => { const i = r.slice(1, -1).indexOf('Y') + 1; return i > 0 ? Math.min(m, i) : m; }, 999);
   ok(oMin < eqMin && eqMin < treeMin && treeMin < bMin, `Reihenfolge der ersten Spalten: Brustwehr ${oMin} < Palisade ${eqMin} < Baum ${treeMin} < Bunkerwand ${bMin}`);
-  ok(K.meta.fest === 'grabenangriff' && K.art === 'aussenposten' && K.erzeuger === 'gen-fest/1', 'Kennung meta.fest = grabenangriff, Kartenart bleibt aussenposten');
+  ok(K.meta.fest === 'grabenangriff' && K.art === 'aussenposten' && K.erzeuger === 'gen-fest/2', 'Kennung meta.fest = grabenangriff, Kartenart bleibt aussenposten');
 });
 
 section('Wiese: keine Deckung ausser dem Graben', () => {
@@ -101,7 +101,7 @@ section('Wiese: keine Deckung ausser dem Graben', () => {
   // Wiese = Spalten vom Landefeld bis zur Brustwehr (erste o-Spalte)
   const oSpalte = K.rows.reduce((m, r) => { const i = r.indexOf('H', 1); return i > 0 ? Math.min(m, i) : m; }, 999);
   let deck = 0;
-  for (let y = 1; y < K.h - 1; y++) for (let x = 1; x < oSpalte; x++) { const c = K.legende[ch(x, y)]; if (c && (c.cover > 0 || c.solid)) deck++; }
+  for (let y = 1; y < H0 - 1; y++) for (let x = 1; x < oSpalte; x++) { const c = K.legende[ch(x, y)]; if (c && (c.cover > 0 || c.solid)) deck++; }
   ok(deck === 0, `zwischen Landung und Brustwehr (x 1..${oSpalte - 1}) keine Deckung und kein Hindernis`);
   const breite = oSpalte - w1x;
   ok(breite >= 12 && breite <= 22, `Wiesenbreite Abholpunkt bis Brustwehr ${breite} Kacheln (Sicht ${CONFIG.awayCombat.sightTiles || 10}, Schussbox +-9,4 x +-5,2: Verteidiger wirken ab ca. 10 Kacheln)`);
@@ -166,7 +166,7 @@ section('Wall, Palisade und erhoehte Posten', () => {
   ok(ramp >= 2 && pal >= 20, `Rampen ${ramp}, Palisadenkacheln ${pal}`);
   // Palisade hat Tore (Durchgaenge) in Spalte
   const palX = K.rows.reduce((m, r) => { const i = r.indexOf('='); return i > 0 ? Math.min(m, i) : m; }, 999);
-  let tore = 0; for (let y = 1; y < K.h - 1; y++) if (walk(palX, y)) tore++;
+  let tore = 0; for (let y = 1; y < H0 - 1; y++) if (walk(palX, y)) tore++;
   ok(tore >= 4, `in der Palisadenspalte x=${palX} ${tore} Kacheln Durchgang (Tore)`);
   // Spieler-sicht: Posten auf aussicht-Anker sehen 22 statt 10 (Konfig, nicht geaendert)
   ok(CONFIG.awayCombat.sicht && CONFIG.awayCombat.sicht.aussicht === 22 && (CONFIG.awayCombat.sightTiles === 10), 'Konfigwerte unveraendert: Sicht 10, aussicht 22');
@@ -180,7 +180,7 @@ section('Stellungen: Markierung der Grabensohle und der Posten', () => {
   ok(pl.length === 66 + 6, `${pl.length} Stellungsplaetze (Sohle 3x22 + 2 Posten a 3 Kacheln)`);
   // Sohle komplett: von der ersten bis zur letzten Zeile mit Brustwehr H links und rechts jede Kachel zwischen den Reihen H
   const ox = [...K.rows[7]].findIndex((c) => c === 'H');
-  const zeilen = []; for (let y = 1; y < K.h - 1; y++) if (ch(ox, y) === 'H' && ch(ox + 4, y) === 'H') zeilen.push(y);
+  const zeilen = []; for (let y = 1; y < H0 - 1; y++) if (ch(ox, y) === 'H' && ch(ox + 4, y) === 'H') zeilen.push(y);
   let sohle = 0; const fehlt = [];
   for (let y = Math.min(...zeilen); y <= Math.max(...zeilen); y++) for (let x = ox + 1; x <= ox + 3; x++) { if (walk(x, y)) { sohle++; if (!Stellung.istIn(K, x, y)) fehlt.push(x + ',' + y); } }
   ok(sohle === 66 && fehlt.length === 0 && zeilen.length >= 12, `Grabensohle komplett (${sohle} Kacheln x ${ox + 1}..${ox + 3}, y ${Math.min(...zeilen)}..${Math.max(...zeilen)}), ${fehlt.length} ohne Stellung ${fehlt.slice(0, 3)}`);
@@ -198,16 +198,16 @@ section('Stellungen: Markierung der Grabensohle und der Posten', () => {
 
 section('Wald: Weg und Durchkommen abseits des Wegs (BFS)', () => {
   const wb = K.bereiche.wald.rects[0], x0 = wb[0], x1 = wb[0] + wb[2] - 1;
-  const inW = (x, y) => x >= x0 && x <= x1 && y >= 1 && y <= K.h - 2;
+  const inW = (x, y) => x >= x0 && x <= x1 && y >= 1 && y <= H0 - 2;
   const links = [], rechts = [];
-  for (let y = 1; y < K.h - 1; y++) { links.push([x0, y]); rechts.push([x1, y]); }
+  for (let y = 1; y < H0 - 1; y++) { links.push([x0, y]); rechts.push([x1, y]); }
   const wegT = (x, y) => inW(x, y) && ch(x, y) === ',';
   const wegLinks = links.filter((p) => wegT(p[0], p[1])), wegRechts = rechts.filter((p) => wegT(p[0], p[1]));
   ok(wegLinks.length >= 2 && wegRechts.length >= 2, `Weg beginnt links (${wegLinks.length} Kacheln) und endet rechts (${wegRechts.length}) im Wald-Abschnitt`);
   const S = bfs(wegLinks, wegT);
   ok(wegRechts.every((p) => hat(S, p[0], p[1])), 'Weg (Kacheln ,) durchgehend von links nach rechts begehbar');
   // Weg mindestens 2 breit: jede Wegkachel hat in einer Richtung zwei Nachbarn
-  let schmal = 0; for (let y = 1; y < K.h - 1; y++) for (let x = x0; x <= x1; x++) if (ch(x, y) === ',') { const ok2 = (wegT(x, y + 1) || wegT(x, y - 1)) && (wegT(x + 1, y) || wegT(x - 1, y)) ; if (!ok2 && inW(x, y)) schmal++; }
+  let schmal = 0; for (let y = 1; y < H0 - 1; y++) for (let x = x0; x <= x1; x++) if (ch(x, y) === ',') { const ok2 = (wegT(x, y + 1) || wegT(x, y - 1)) && (wegT(x + 1, y) || wegT(x - 1, y)) ; if (!ok2 && inW(x, y)) schmal++; }
   ok(schmal === 0, 'Weg nirgends schmaler als 2 Kacheln (' + schmal + ' schmale Stellen)');
   // abseits: ohne die Wegkacheln
   const abseits = (x, y) => inW(x, y) && walk(x, y) && ch(x, y) !== ',';
@@ -229,7 +229,7 @@ section('Wald: Weg und Durchkommen abseits des Wegs (BFS)', () => {
   ok(nicht2 === 0, 'jede Baumkachel liegt in einem 2x2-Quadrat (Muster nie kleiner als 2x2)');
   // Boden ruhig: Wegkacheln und Wiesen-Boden2 (,) in Flecken >= 2x2
   // (VOX-01 5a: die Grabensohle ; ist ein eigener Belag und gilt für sich, ebenso ,)
-  let fl1 = 0; for (const c of [',', ';']) for (let y = 1; y < K.h - 1; y++) for (let x = 1; x < K.w - 1; x++) if (ch(x, y) === c) { const q = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => ch(x + dx, y + dy) === c && ch(x + dx + 1, y + dy) === c && ch(x + dx, y + dy + 1) === c && ch(x + dx + 1, y + dy + 1) === c); if (!q) fl1++; }
+  let fl1 = 0; for (const c of [',', ';']) for (let y = 1; y < H0 - 1; y++) for (let x = 1; x < K.w - 1; x++) if (ch(x, y) === c) { const q = [[0, 0], [-1, 0], [0, -1], [-1, -1]].some(([dx, dy]) => ch(x + dx, y + dy) === c && ch(x + dx + 1, y + dy) === c && ch(x + dx, y + dy + 1) === c && ch(x + dx + 1, y + dy + 1) === c); if (!q) fl1++; }
   ok(fl1 === 0, `Boden ruhig: jede Kachel , und ; liegt in einem 2x2-Fleck gleicher Art (${fl1} Ausnahmen)`);
 });
 
@@ -244,7 +244,8 @@ section('Eingangsbereich, Ziel und Gruppen fuer die Wellen', () => {
   ok(g['w1.graben'].length === 5 && g['w1.posten'].length === 2 && g['w2.wald'].length === 6 && g['w2.eingang'].length === 4, `Gruppen: graben ${g['w1.graben'].length}, posten ${g['w1.posten'].length}, wald ${g['w2.wald'].length}, eingang ${g['w2.eingang'].length}`);
   const alleW = [].concat(...Object.values(g));
   ok(alleW.every((id) => { const a = anker(id); return a && walk(a.x, a.y) && hat(alle, a.x, a.y); }), 'alle Gruppen-Anker stehen begehbar und sind erreichbar');
-  ok(K.anker.filter((a) => a.rolle === 'wache').length === 15 && K.anker.filter((a) => a.rolle === 'eingang').length === 2, '15 wache-Anker, 2 eingang-Anker');
+  const oben = K.anker.filter((a) => a.y < H0);   // Oberflaeche; der Bunker bringt eigene Wachen/Patrouillen (ohne Gruppe), aber keine eingang-Anker
+  ok(oben.filter((a) => a.rolle === 'wache').length === 15 && K.anker.filter((a) => a.rolle === 'eingang').length === 2 && K.meta.pflicht.wache === 15, '15 wache-Anker auf der Oberflaeche, 2 eingang-Anker (Bunker ohne eingang)');
   ok(g['w2.eingang'].every((id) => anker(id).x > anker('eingang.tor.1').x) && g['w2.wald'].every((id) => anker(id).x < anker('eingang.tor.1').x), 'Wald-Wachen vor dem Tor, Eingangs-Wachen dahinter');
 });
 
@@ -253,7 +254,7 @@ section('Einhaengestelle: Landepunkt mit gen.fest, v2, Cache', () => {
   const g = mk();
   const id = L.testgelaende(g, { ort: 'kesh', id: 'test.fest.1', art: 'aussenposten', seed: 5, besitz: 'rom', gen: { fest: 'grabenangriff' } });
   const k = L.karte(g, id);
-  ok(k && k.meta.fest === 'grabenangriff' && k.w === 100 && k.h === 36, 'karteBauen/landepunkte baut die feste Karte (' + id + ')');
+  ok(k && k.meta.fest === 'grabenangriff' && k.w === 100 && k.h === 88 && k.decks && k.decks.stride === 44, 'karteBauen/landepunkte baut die feste Karte (' + id + ')');
   const e = L.eintrag(g, id);
   ok(e.bauversion && /^fest\.grabenangriff\.1\[/.test(e.bauversion) && e.schablone === 'gen-fest', 'Eintrag uebernimmt bauversion ' + e.bauversion);
   const aw = L.get(g, id);
@@ -312,7 +313,7 @@ section('Spiel: Karte ueber landepunkte im Spiel, Spieler beamen, Besetzung Rom,
   ok(Buffer.byteLength(JSON.stringify(sn)) <= CONFIG.net.snapMax, 'Snapshot im Spiel unter der Grenze');
   // awayMap-Event mit Payload geht an die Spieler
   const ev = cs[0].inbox.find((m) => m.t === 'event' && m.kind === (Protocol.EVT_AWAY_MAP || 'awayMap'));
-  ok(!ev || (ev.w === 100 && ev.h === 36), 'awayMap-Event der Karte (100x36) bei den Spielern' + (ev ? '' : ' (nicht im Postfach)'));
+  ok(!ev || (ev.w === 100 && ev.h === 88 && ev.decks && ev.decks.stride === 44), 'awayMap-Event der Karte (100x88, zwei Decks) bei den Spielern' + (ev ? '' : ' (nicht im Postfach)'));
   // Welle 2 am Eingangsbereich
   const n2 = combat.besetzen(g, { map: lp, fraktion: 'rom', staerke: 'mittel', haltung: 'wach', bereich: 'eingang', tag: 'w2' });
   ok(n2 > 0, `Welle 2 ueber besetzen(bereich: eingang): ${n2} Gegner`);

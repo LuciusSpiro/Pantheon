@@ -1,6 +1,6 @@
 'use strict';
 // BOD-03 Paket A: Format festkarte/2 (mehrere Decks) und allgemeine Deck-Prüfregel K-DECK für Festkarten. Headless:
-//  - Zwei-Deck-Testkarte (nur hier im Test, nicht in content/): Erzeuger baut, Prüfer ok, Stride, y-Versatz, gleiche Breite, Links
+//  - Zwei-Deck-Testkarte (nur hier im Test, nicht in content/; Basis ist die eingefrorene Ein-Deck-Definition tools/fixtures/festkarte-ein-deck.json, die echte Karte hat seit B1 zwei Decks: tools/test-bunker.js): Erzeuger baut, Prüfer ok, Stride, y-Versatz, gleiche Breite, Links
 //  - Lift-Paar und Leiter-Paar (Rohr: anderes x) bestehen den Prüfer; Lift ohne Gegenstück wird abgewiesen (K-DECK)
 //  - Payload der Testkarte gemessen, unter AWAY_MAP_MAX_BYTES
 //  - Ein-Deck-Karte byteweise wie vor BOD-03 (Hash gegen die Ausgabe des alten Erzeugers, Definition als Fixture eingefroren)
@@ -23,8 +23,8 @@ const payloadB = (k) => Buffer.byteLength(JSON.stringify(Game.prototype.awayMapP
 const bauen = (def, opts) => Buehne.ausRaster(GenFest.karteRoh(def, Object.assign({ id: 'test.decks' }, opts || {})), { spiel: true });
 const hash = (o) => crypto.createHash('sha256').update(JSON.stringify(o)).digest('hex');
 
-// Ausgang: die echte Grabenkarte als Deck 0, dazu ein kleines Keller-Deck (schmaler und niedriger als die Oberfläche)
-const DEF = L.festkarte('grabenangriff');
+// Ausgang: die Grabenkarte (eingefroren als Ein-Deck-Definition) als Deck 0, dazu ein kleines Keller-Deck (schmaler und niedriger als die Oberfläche)
+const DEF = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', 'festkarte-ein-deck.json'), 'utf8'));
 const KELLER_H = 12, KELLER_B = 20;
 function zweiDeckDef(links) {
   const d = clone(DEF);
@@ -115,8 +115,8 @@ section('Ein-Deck-Karte: byteweise wie vor BOD-03', () => {
   const rz = GenFest.karteRoh(d2, { id: 'x', seed: 3, abschnitte: { wald: 'zwei' } });
   ok(rz.rows.join('') === RAW.rows.join('') && rz.decks === null, 'Kopie-Variante gewählt: gleiches Raster, decks: null');
   ok(FIX.format === 'festkarte/1', 'Definition bleibt festkarte/1 (Datei gültig)');
-  const live = GenFest.karteRoh(DEF, { id: 'x', seed: 3 });
-  ok(DEF.decks.length > 1 || hash(live) === hash(RAW), 'content/grabenangriff.json (solange ein Deck): gleiche Ausgabe wie die Fixture');
+  const live = L.festkarte('grabenangriff');
+  ok(live.format === 'festkarte/2' && live.decks.length === 2 && JSON.stringify(live.decks[0].abschnitte.wiese) === JSON.stringify(FIX.decks[0].abschnitte.wiese), 'content/grabenangriff.json hat seit BOD-03 B1 zwei Decks (festkarte/2), die Wiese ist unveraendert gegenueber der Fixture');
   // festkarte/1 mit mehreren Decks: abgewiesen
   const d3 = clone(FIX); d3.decks.push({ id: 'bunker', reihenfolge: [], abschnitte: {} });
   let fehler = null; try { GenFest.karteRoh(d3); } catch (e) { fehler = e.message; }
