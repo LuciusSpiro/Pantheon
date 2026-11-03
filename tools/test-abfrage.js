@@ -73,7 +73,7 @@ async function main() {
     for (const r of alle(o.db, 'SELECT schluessel, wert FROM kennzahlen WHERE kennung = ?', kennung)) kzDb[r.schluessel] = r.wert;
     const sortiert = (o) => Object.keys(o).sort().map((k) => [k, o[k]]);
     gleich(sortiert(kzDb), sortiert(flach(x.kz)), 'kennzahlen ' + kennung + ': genau das flache Objekt');
-    const zeilen = alle(o.db, 'SELECT zeile, typ, szene_nr, json FROM ereignisse WHERE kennung = ? ORDER BY zeile', kennung);
+    const zeilen = alle(o.db, 'SELECT zeile, typ, szene_nr, json(json) AS json FROM ereignisse WHERE kennung = ? ORDER BY zeile', kennung);
     ok(zeilen[0].zeile === 2 && zeilen.every((r, i) => r.zeile === i + 2) && zeilen.every((r, i) => r.typ === x.p.zeilen[i + 1].typ), 'ereignisse ' + kennung + ': Zeilennummern 2.. (Kopf = 1), Typen in Protokollreihenfolge');
     ok(zeilen.every((r, i) => JSON.stringify(JSON.parse(r.json)) === JSON.stringify(x.p.zeilen[i + 1])), 'ereignisse ' + kennung + ': json = die Protokollzeile');
     const starts = x.p.zeilen.filter((z) => z.typ === 'szene_start').length;
@@ -120,6 +120,28 @@ async function main() {
   const e7 = Abfrage.laden(o3.db, [PROT]);
   gleich([e7.geladen, e7.uebersprungen], [3, 0], 'danach laedt alles von vorn');
   ok(eins(o3.db, "SELECT wert w FROM meta WHERE schluessel = 'kennzahl_version'").w === String(KENNZAHL_VERSION), 'meta traegt die aktuelle Kennzahl-Version');
+  // D2-Nacharbeit S4: normale Tabellen (kein WITHOUT ROWID), json als jsonb-BLOB; eine Datei im alten Aufbau (DB_VERSION 1) wird von vorn geladen
+  gleich(Abfrage.DB_VERSION, 2, 'Aufbau der Datenbank: Version 2');
+  ok(alle(o3.db, "SELECT name FROM sqlite_master WHERE type = 'table' AND sql LIKE '%WITHOUT ROWID%'").length === 0, 'keine Tabelle ist WITHOUT ROWID');
+  gleich(eins(o3.db, "SELECT COUNT(*) c FROM ereignisse WHERE typeof(json) <> 'blob'").c, 0, 'ereignisse.json ist jsonb (BLOB), kein Text');
+  gleich(eins(o3.db, "SELECT COUNT(*) c FROM ereignisse WHERE NOT json_valid(json, 8)").c, 0, 'jede jsonb-Zelle ist gueltiges jsonb (json_extract in den Views geht darauf)');
+  {
+    const alt = path.join(TMP, 'alt-v1.sqlite');
+    const { DatabaseSync } = Abfrage.sqlite();
+    const d = new DatabaseSync(alt);
+    d.exec('CREATE TABLE meta (schluessel TEXT PRIMARY KEY, wert TEXT)');
+    d.exec("INSERT INTO meta VALUES ('db_version', '1'), ('kennzahl_version', '" + KENNZAHL_VERSION + "')");
+    d.exec('CREATE TABLE ereignisse (kennung TEXT NOT NULL, zeile INTEGER NOT NULL, t REAL, tick INTEGER, typ TEXT NOT NULL, szene_nr INTEGER, json TEXT NOT NULL, PRIMARY KEY (kennung, zeile)) WITHOUT ROWID');
+    d.exec("INSERT INTO ereignisse VALUES ('run-alt', 2, 0, 0, 'x', 0, '{}')");
+    d.close();
+    const oa = Abfrage.oeffnenZumLaden(alt);
+    ok(oa.neuAufgebaut === true && eins(oa.db, 'SELECT COUNT(*) c FROM ereignisse').c === 0, 'Datei im alten Aufbau (Version 1): wird neu aufgebaut, die alten Zeilen sind weg');
+    ok(!/WITHOUT ROWID/.test(eins(oa.db, "SELECT sql FROM sqlite_master WHERE name = 'ereignisse'").sql), 'nach dem Neuaufbau: ereignisse ohne WITHOUT ROWID');
+    const ea = Abfrage.laden(oa.db, [PROT]);
+    gleich([ea.geladen, ea.fehler.length], [3, 0], 'die alte Datei laedt danach alle Sessions von vorn');
+    gleich(eins(oa.db, "SELECT wert w FROM meta WHERE schluessel = 'db_version'").w, '2', 'meta traegt db_version 2');
+    oa.db.close();
+  }
   // dieselbe Kennung in zwei Ordnern: die zweite wird gemeldet, nicht still verschluckt; derselbe Ordner zweimal angegeben ist keine Doppelung
   const DOPPELT = path.join(TMP, 'doppelt');
   fs.mkdirSync(DOPPELT);

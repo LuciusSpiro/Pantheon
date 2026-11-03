@@ -7,7 +7,8 @@
 //                ersten Fenster), spielerzahl_kopf (Rohwert aus dem Sessionkopf), seed, weltstand, dauer_s, tuning_hash, schema_version, ende_grund (NULL = kein session_ende, Session nicht sauber beendet), datei (Dateiname, ohne Pfad)
 //                (commit_hash statt commit: COMMIT ist in SQL ein Schluesselwort)
 //   kennzahlen   das flache Kennzahlen-Objekt je Session (kennzahlen.js flach): kennung, schluessel (z. B. f2.quote.boden.lanze), wert
-//   ereignisse   alle Zeilen ausser dem Kopf: kennung, zeile (laufende Nummer in der Session, der Kopf ist 1), t, tick, typ, szene_nr (laufende Szenennummer: waechst bei jedem szene_start, 0 vor der ersten), json (die Zeile)
+//   ereignisse   alle Zeilen ausser dem Kopf: kennung, zeile (laufende Nummer in der Session, der Kopf ist 1), t, tick, typ, szene_nr (laufende Szenennummer: waechst bei jedem szene_start, 0 vor der ersten), json (die Zeile als jsonb-BLOB; lesbar mit json(json), json_extract(json, '$.feld') geht direkt)
+//                Beide grossen Tabellen sind normale rowid-Tabellen mit UNIQUE (kennung, ...): WITHOUT ROWID brachte mit den langen Kennungen im Schluessel und den langen Zeilen keinen Vorteil (gemessen an 192 Sessions: 272 MB mit WITHOUT ROWID und Text-JSON, 133 MB mit rowid und jsonb)
 // VIEWS (aus schema.js erzeugt, nicht von Hand: kommt ein Feld ins Schema, steht es in der View)
 //   v_<typ> je Schema-Typ ausser kopf (v_schuss, v_treffer, v_kill, v_szene_start, v_szene_ende, v_zeitreihe, ...): kennung, zeile, t, tick, szene_nr + je Feld des Typs eine Spalte (json_extract; Listen als JSON-Text,
 //   Wahrheitswerte 1/0). v_szene ist die View von szene_ende (Dauer und Ausgang je Szene). Ein Schema-Feld, das so heisst wie eine Basisspalte (kennung, zeile, t, tick, szene_nr), ist verboten (Fehler beim Aufbau).
@@ -24,7 +25,7 @@ const Basis = require('./basis.js');
 
 const ROOT = path.join(__dirname, '..', '..');
 const DB_STANDARD = path.join(ROOT, 'data', 'telemetrie', 'abfrage.sqlite');
-const DB_VERSION = 1;                                  // Aufbau der Tabellen; aendert er sich, wird neu geladen
+const DB_VERSION = 2;                                  // Aufbau der Tabellen; aendert er sich, wird neu geladen
 const BASIS_SPALTEN = ['kennung', 'zeile', 't', 'tick', 'szene_nr'];
 const KEIN_SCHEMA_TYP = new Set(['kopf']);             // der Kopf steht in sessions
 const VIEW_ALIAS = { szene: 'szene_ende' };            // v_szene = v_szene_ende
@@ -68,8 +69,8 @@ const TABELLEN = [
   'CREATE TABLE IF NOT EXISTS meta (schluessel TEXT PRIMARY KEY, wert TEXT)',
   `CREATE TABLE IF NOT EXISTS sessions (kennung TEXT PRIMARY KEY, quelle TEXT, commit_hash TEXT, plattform TEXT, modus TEXT, szenario TEXT, gruppe TEXT, spielerzahl INTEGER, spielerzahl_kopf INTEGER,
      seed INTEGER, weltstand TEXT, dauer_s REAL, tuning_hash TEXT, schema_version INTEGER, ende_grund TEXT, datei TEXT)`,
-  'CREATE TABLE IF NOT EXISTS kennzahlen (kennung TEXT NOT NULL, schluessel TEXT NOT NULL, wert REAL, PRIMARY KEY (kennung, schluessel)) WITHOUT ROWID',
-  'CREATE TABLE IF NOT EXISTS ereignisse (kennung TEXT NOT NULL, zeile INTEGER NOT NULL, t REAL, tick INTEGER, typ TEXT NOT NULL, szene_nr INTEGER, json TEXT NOT NULL, PRIMARY KEY (kennung, zeile)) WITHOUT ROWID',
+  'CREATE TABLE IF NOT EXISTS kennzahlen (kennung TEXT NOT NULL, schluessel TEXT NOT NULL, wert REAL, UNIQUE (kennung, schluessel))',
+  'CREATE TABLE IF NOT EXISTS ereignisse (kennung TEXT NOT NULL, zeile INTEGER NOT NULL, t REAL, tick INTEGER, typ TEXT NOT NULL, szene_nr INTEGER, json BLOB NOT NULL, UNIQUE (kennung, zeile))',
   'CREATE INDEX IF NOT EXISTS ereignisse_typ ON ereignisse (typ, kennung)',
   'CREATE INDEX IF NOT EXISTS kennzahlen_schluessel ON kennzahlen (schluessel)',
 ];
@@ -142,7 +143,7 @@ function vorbereiten(db) {
   return {
     delSession: db.prepare('DELETE FROM sessions WHERE kennung = ?'), delKz: db.prepare('DELETE FROM kennzahlen WHERE kennung = ?'), delEr: db.prepare('DELETE FROM ereignisse WHERE kennung = ?'),
     insSession: db.prepare('INSERT INTO sessions VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'), insKz: db.prepare('INSERT INTO kennzahlen VALUES (?, ?, ?)'),
-    insEr: db.prepare('INSERT INTO ereignisse VALUES (?, ?, ?, ?, ?, ?, ?)'),
+    insEr: db.prepare('INSERT INTO ereignisse VALUES (?, ?, ?, ?, ?, ?, jsonb(?))'),
   };
 }
 
