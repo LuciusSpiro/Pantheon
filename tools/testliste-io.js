@@ -1,12 +1,20 @@
 'use strict';
 // Lesen und Schreiben von tools/testliste.json (TST-01). Gemeinsam fuer run-tests.js, testliste-ergaenzen.js, testliste-budgets.js.
-// Form: { "grenzen": {fast, full, slow, alles in s}, "schritte": [...], "ausgenommen": [{datei, grund}] }.
+// Form: { "grenzen": {"fast": {"s": 300, "hart": true}, ...}, "schritte": [...], "ausgenommen": [{datei, grund}] }.
+// Schritte duerfen u. a. "timeout_s" tragen (eigener Timeout, gilt als Untergrenze neben --timeout); schreiben() erhaelt alle Felder.
 // Die alte Form (nackte Liste der Schritte) wird weiter gelesen: keine Grenzen, keine Ausnahmen.
 const fs = require('fs');
 const path = require('path');
 
 const STANDARD = path.join(__dirname, 'testliste.json');
-// Stufen mit harter Grenze (Wandzeit des Gesamtlaufs im Parallelmodus): die Zahlen stehen in testliste.json unter "grenzen".
+// Grenze einer Stufe (Wandzeit des Gesamtlaufs im Parallelmodus) aus "grenzen": { s, hart } oder null.
+// hart: true = Ueberschreitung gibt Exit 3 (nur wenn sonst alles gruen); sonst nur Hinweis. Eine nackte Zahl (alte Form) gilt als nicht hart.
+function grenze(doc, stufe) {
+  const g = (doc.grenzen || {})[stufe];
+  const s = Number(g && typeof g === 'object' ? g.s : g);
+  if (!(s > 0)) return null;
+  return { s, hart: !!(g && typeof g === 'object' && g.hart === true) };
+}
 
 function lesen(datei) {
   const roh = JSON.parse(fs.readFileSync(datei || STANDARD, 'utf8'));
@@ -22,4 +30,4 @@ function schreiben(datei, doc) {
   fs.writeFileSync(datei || STANDARD, text);
 }
 
-module.exports = { lesen, schreiben, STANDARD };
+module.exports = { lesen, schreiben, grenze, STANDARD };

@@ -12,26 +12,36 @@
 //              (alles ausser slow), slow = nur slow, alles = alle (Standard). Fehlt das Feld oder ist der Wert ungueltig:
 //              Abbruch vor dem Start, Exit 2. Kombinierbar mit --kette, --nur, --parallel/--seriell.
 //   --lastfaktor  Faktor auf budget_s im Parallelmodus (Standard 4; seriell immer 1)
-//   --grenze-aus  harte Grenze der Stufe (grenzen in testliste.json) nicht pruefen (Fehlersuche)
+//   --grenze-aus  Zeitgrenze der Stufe (grenzen in testliste.json) nicht pruefen (Fehlersuche)
 //   --trocken  nur die Auswahl listen (Zahl je Stufe), nichts starten, keine Ausgabedatei, Exit 0
-//   --timeout  je Schritt in Sekunden (Standard 1800)
+//   --timeout  je Schritt in Sekunden (Standard 1800); wirksam ist je Schritt max(--timeout, "timeout_s" des Schritts)
 //   --ausgabe  Ergebnis-JSON (Standard tools/fixtures/testzeiten/lauf-<Zeitstempel>.json)
 //   --liste    andere Testliste (Standard tools/testliste.json)
+// Aufruf strikt: jede Option hoechstens einmal (auch gegenueber den npm-Skripten: `npm test` hat schon --stufe full, dafuer node tools/run-tests.js ...
+//   direkt nutzen; `npm test -- --nur <id>` geht, weil --nur dort fehlt), Zahlen > 0, unbekannte --kette, leere Auswahl: alles Exit 2.
 // Kein Abbruch beim ersten roten Schritt; Gesamt-Exit 1 bei irgendeinem Roten oder Timeout.
-// Exit-Codes: 0 alles gruen; 1 rote Schritte, Timeout oder Abbruch; 2 Aufruf/Liste ungueltig oder Datei in tools/ ohne Eintrag (siehe unten);
-//   3 nur die harte Grenze der Stufe (Wandzeit, Parallelmodus) ueberschritten, alle Schritte gruen.
+// Exit-Codes: 0 alles gruen; 1 rote Schritte, Timeout, Abbruch oder Ausnahme im Runner nach dem Start (Kindprozesse beendet, Temp geloescht);
+//   2 Aufruf/Liste ungueltig, leere Auswahl oder Datei in tools/ ohne Eintrag (siehe unten);
+//   3 nur die harte Grenze der Stufe fast (Wandzeit, Parallelmodus) ueberschritten, alle Schritte gruen.
 // Zeitbudget: Feld "budget_s" je Schritt (abgeleitet mit tools/testliste-budgets.js). Ueberschreitungen stehen nach dem Lauf im Abschnitt
 //   "Zeitbudget ueberschritten" und im JSON (budget_ueberschritten); sie aendern den Exit-Code nicht. Parallel gilt budget_s x --lastfaktor.
-// Harte Grenze: testliste.json "grenzen" je Stufe (fast, full, slow, alles) in Sekunden Wandzeit, nur im Parallelmodus; Exit 3, wenn ueberschritten.
+// Zeitgrenze: testliste.json "grenzen" je Stufe (fast, full, slow, alles): {"s": Sekunden Wandzeit, "hart": true|false}, nur im Parallelmodus.
+//   hart (nur fast): Ueberschreitung gibt Exit 3, wenn sonst alles gruen ist (bei roten Schritten bleibt es Exit 1). Nicht hart (full, slow, alles):
+//   nur Hinweis in der Zusammenfassung, kein Einfluss auf den Exit-Code (npm test darf nicht an Fremdlast rot werden).
+// Optionales Feld je Listeneintrag: "timeout_s": eigener Timeout des Schritts (z. B. 3600 bei sim-headless kette); wirksam ist max(--timeout, timeout_s).
 // Pflichtpruefung beim Start (nicht mit --liste): jede tools/test-*.js, mutation-*.js, check-*.js|mjs steht in einem cmd der Liste oder unter
 //   "ausgenommen" (datei + grund); sonst Exit 2.
 // Optionales Feld je Listeneintrag: "seriell": true -> der Schritt laeuft im Parallelmodus erst nach dem Pool, allein
 //   (kein anderer Schritt gleichzeitig). Gesetzt bei test-abenteuer und -kanon (spawnSync-Timeouts reissen bei ueberbuchter CPU).
 //   --stufe aendert daran nichts: die Markierung gilt unabhaengig von der Stufe.
 // Isolation im Parallelmodus: jeder Schritt bekommt ein eigenes Temp-Verzeichnis (TEMP/TMP/TMPDIR zeigen darauf,
-//   os.tmpdir() liefert es), das nach dem Schritt geloescht wird; REGIE_DIR zeigt auf <Temp>/regie (Standard waere data/regie im Repo). Ports: die Tests nutzen Port 0 (frei vergeben), PORT wird
+//   os.tmpdir() liefert es), das nach dem Schritt geloescht wird; REGIE_DIR zeigt auf <Temp>/regie (Standard waere data/regie im Repo).
+//   Folge: Spiele ohne eigenes Regie-Verzeichnis schreiben ihr Regielog dort in den Temp statt nur im Speicher (server/mission/spielleiter.js:314,
+//   server/sim/regie-befehle.js:430); folgenlos fuer die Pruefungen, aber ein Unterschied zu einem direkten node tools/test-xyz.js. Ports: die Tests nutzen Port 0 (frei vergeben), PORT wird
 //   bewusst NICHT gesetzt. Ergebnis-JSON je Schritt zusaetzlich start_s/ende_s (relativ zum Laufbeginn).
 // Ctrl-C: alle laufenden Kindprozessbaeume werden beendet (taskkill /T /F), Temp aufgeraeumt, Exit 1.
+// --ausgabe auf tools/fixtures/testzeiten/baseline.json: der Lauf schreibt in baseline.json.neu und ersetzt baseline.json erst nach vollstaendig
+//   gruenem Lauf (sonst bleibt die alte Baseline, der Zwischenstand steht in .neu).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -40,7 +50,7 @@ const io = require('./testliste-io');
 
 const WURZEL = path.join(__dirname, '..');
 const ENDE_BYTES = 2048;
-const PFLICHT_MUSTER = /^(test|mutation|check)-.*.m?js$/;   // Dateien in tools/, die einen Eintrag oder eine Ausnahme brauchen
+const PFLICHT_MUSTER = /^(test|mutation|check)-.*\.m?js$/;   // Dateien in tools/, die einen Eintrag oder eine Ausnahme brauchen (sim-*, messe-*, mess-*, sicht-* nicht: von Hand eintragen)
 
 // Dateien in tools/ nach PFLICHT_MUSTER, die weder in einem cmd der Schritte noch unter "ausgenommen" stehen
 function ohneEintrag(doc) {
@@ -50,10 +60,42 @@ function ohneEintrag(doc) {
   return fs.readdirSync(__dirname).filter(f => PFLICHT_MUSTER.test(f) && !bekannt.has(f)).sort();
 }
 
+function aufrufFehler(text) { console.error(text); process.exit(2); }
+
+const WERT_OPTIONEN = ['--worker', '--nur', '--kette', '--timeout', '--stufe', '--lastfaktor', '--ausgabe', '--liste'];
+const FLAG_OPTIONEN = ['--seriell', '--parallel', '--trocken', '--grenze-aus'];
+// Doppelte Optionen ablehnen (sonst gewinnt still die erste, z. B. bei `npm test -- --stufe fast`) und fehlende Werte
+function aufrufPruefen() {
+  const args = process.argv.slice(2);
+  for (const o of [...WERT_OPTIONEN, ...FLAG_OPTIONEN]) {
+    if (args.filter(a => a === o).length > 1) {
+      aufrufFehler('Option doppelt: ' + o + '. Die npm-Skripte setzen schon Optionen (`npm test` hat --stufe full und --kette test); zum Ueberschreiben '
+        + 'node tools/run-tests.js ... direkt aufrufen.');
+    }
+  }
+  for (const o of WERT_OPTIONEN) {
+    const i = args.indexOf(o);
+    if (i >= 0 && (i + 1 >= args.length || args[i + 1].startsWith('--'))) aufrufFehler('Option ' + o + ' braucht einen Wert');
+  }
+  if (args.includes('--seriell') && args.includes('--parallel')) aufrufFehler('--seriell und --parallel schliessen sich aus (die npm-Skripte setzen den Modus schon)');
+}
+
 function argWert(name, std) {
   const i = process.argv.indexOf(name);
   return i >= 0 && i + 1 < process.argv.length ? process.argv[i + 1] : std;
 }
+
+// Zahl > 0 (ganzzahlig, wenn ganz) aus einer Option, sonst Exit 2
+function zahlOption(name, std, ganz) {
+  const roh = argWert(name, null);
+  if (roh === null) return std;
+  const ok = ganz ? /^\d+$/.test(roh) : /^\d+(\.\d+)?$/.test(roh);
+  if (!ok || !(Number(roh) > 0)) aufrufFehler('Ungueltiger Wert fuer ' + name + ': "' + roh + '" (erwartet: ' + (ganz ? 'ganze Zahl' : 'Zahl') + ' > 0)');
+  return Number(roh);
+}
+
+// Zustand fuer den Aufraeumpfad bei Ausnahmen (siehe main().catch)
+const lauf_ = { aktiv: new Set(), tempBasis: null, doc: null, schreiben: null, gestartet: false };
 
 // Prozessbaum beenden (Windows: taskkill /T /F)
 function beenden(kind) {
@@ -84,7 +126,8 @@ function schrittLaufen(eintrag, timeoutS, env, aktiv) {
     };
     kind.stdout.on('data', sammeln);
     kind.stderr.on('data', sammeln);
-    const uhr = setTimeout(() => { timeout = true; beenden(kind); }, timeoutS * 1000);
+    const wirksamS = Math.max(timeoutS, Number(eintrag.timeout_s) > 0 ? Number(eintrag.timeout_s) : 0);
+    const uhr = setTimeout(() => { timeout = true; beenden(kind); }, wirksamS * 1000);
     const fertig = (exit, signal) => {
       clearTimeout(uhr);
       if (aktiv) aktiv.delete(kind);
@@ -120,6 +163,7 @@ function baselineDauern() {
 }
 
 async function main() {
+  aufrufPruefen();
   const parallel = process.argv.includes('--parallel');
   if (!parallel && !process.argv.includes('--seriell')) {
     console.error('Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur ids] [--kette check|test] [--stufe fast|full|slow|alles] [--trocken] [--lastfaktor n] [--grenze-aus] [--timeout s] [--ausgabe datei] [--liste datei]');
@@ -148,8 +192,16 @@ async function main() {
   }
   const stufe = argWert('--stufe', 'alles');
   if (![...STUFEN, 'alles'].includes(stufe)) { console.error('Ungueltige Stufe: ' + stufe + ' (erlaubt: fast, full, slow, alles)'); process.exit(2); }
+  const timeoutS = zahlOption('--timeout', 1800, false);
+  const lastfaktorOpt = zahlOption('--lastfaktor', 4, false);
+  const lastfaktor = parallel ? lastfaktorOpt : 1;
+  const workerOpt = zahlOption('--worker', Math.max(1, os.cpus().length - 4), true);
   const kette = argWert('--kette', null);
-  if (kette) liste = liste.filter(e => e.kette === kette);
+  if (kette) {
+    const ketten = [...new Set(liste.map(e => e.kette))].sort();
+    if (!ketten.includes(kette)) aufrufFehler('Unbekannte Kette: ' + kette + ' (in der Liste: ' + ketten.join(', ') + ')');
+    liste = liste.filter(e => e.kette === kette);
+  }
   const nur = argWert('--nur', null);
   if (nur) {
     const wunsch = nur.split(',').map(s => s.trim()).filter(Boolean);
@@ -158,6 +210,10 @@ async function main() {
     liste = liste.filter(e => wunsch.some(w => e.id === w || e.id.split(' ')[0] === w));
   }
   liste = liste.filter(e => stufe === 'alles' || (stufe === 'full' ? e.stufe !== 'slow' : e.stufe === stufe));
+  if (!liste.length) {
+    aufrufFehler('Leere Auswahl: 0 Schritte nach Stufe ' + stufe + (kette ? ', Kette ' + kette : '') + (nur ? ', --nur ' + nur : '')
+      + '. Ein leerer Lauf gilt nicht als gruen. (Schritte einer anderen Stufe lassen sich mit --stufe alles oder der passenden Stufe waehlen.)');
+  }
   if (process.argv.includes('--trocken')) {
     const z = {}; for (const e of liste) z[e.stufe] = (z[e.stufe] || 0) + 1;
     console.log('Trocken: Stufe ' + stufe + (kette ? ', Kette ' + kette : '') + ': ' + liste.length + ' Schritte (fast ' + (z.fast || 0) + ', full ' + (z.full || 0)
@@ -165,28 +221,31 @@ async function main() {
     for (const e of liste) console.log('  ' + e.stufe.padEnd(5) + (e.seriell ? ' S ' : '   ') + e.id);
     process.exit(0);
   }
-  const timeoutS = Number(argWert('--timeout', 1800));
-  const lastfaktor = parallel ? Number(argWert('--lastfaktor', 4)) : 1;
-  if (!(lastfaktor > 0)) { console.error('Ungueltiger --lastfaktor'); process.exit(2); }
-  const grenzeS = parallel && !process.argv.includes('--grenze-aus') && Number(listeDoc.grenzen[stufe]) > 0 ? Number(listeDoc.grenzen[stufe]) : null;
-  const worker = parallel ? Math.max(1, Math.floor(Number(argWert('--worker', Math.max(1, os.cpus().length - 4)))) || 1) : 1;
+  const grenze = parallel && !process.argv.includes('--grenze-aus') ? io.grenze(listeDoc, stufe) : null;
+  const grenzeS = grenze ? grenze.s : null;
+  const grenzeHart = !!(grenze && grenze.hart);
+  const worker = parallel ? Math.max(1, workerOpt) : 1;
   const jetzt = new Date();
   const ausgabe = path.resolve(argWert('--ausgabe', path.join(__dirname, 'fixtures', 'testzeiten', 'lauf-' + stempel(jetzt) + '.json')));
   fs.mkdirSync(path.dirname(ausgabe), { recursive: true });
+  // Baseline nie halb beschreiben: erst .neu, nach vollstaendig gruenem Lauf darueberkopieren
+  const istBaseline = ausgabe === path.resolve(__dirname, 'fixtures', 'testzeiten', 'baseline.json');
+  const schreibPfad = istBaseline ? ausgabe + '.neu' : ausgabe;
   const git = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: WURZEL, encoding: 'utf8' });
 
   const doc = {
     datum: jetzt.toISOString(), node: process.version, kerne: os.cpus().length, modus: parallel ? 'parallel' : 'seriell', stufe, kette: kette || null,
     git: git.status === 0 ? git.stdout.trim() : null, timeout_s: timeoutS, schritte_gesamt: liste.length,
-    lastfaktor, grenze_s: grenzeS,
+    lastfaktor, grenze_s: grenzeS, grenze_hart: grenzeHart,
     fertig: false, gesamtdauer_s: 0, schritte: [],
   };
   if (parallel) doc.worker = worker;
-  const schreiben = () => fs.writeFileSync(ausgabe, JSON.stringify(doc, null, 1) + '\n');
+  const schreiben = () => fs.writeFileSync(schreibPfad, JSON.stringify(doc, null, 1) + '\n');
+  const t0 = Date.now();
+  const aktiv = lauf_.aktiv;
+  lauf_.doc = doc; lauf_.schreiben = schreiben; lauf_.gestartet = true;
   schreiben();
 
-  const t0 = Date.now();
-  const aktiv = new Set();
   let abbruch = false;
   const eintragen = (r, start, ende) => {
     const rot = r.exit !== 0 || r.timeout;
@@ -207,7 +266,7 @@ async function main() {
       eintragen(r);
     }
   } else {
-    const tempBasis = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-tests-'));
+    const tempBasis = lauf_.tempBasis = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-tests-'));
     const beendeAlles = () => {
       if (abbruch) return;
       abbruch = true;
@@ -216,7 +275,7 @@ async function main() {
       doc.fertig = false; doc.abgebrochen = true;
       doc.gesamtdauer_s = Math.round((Date.now() - t0) / 10) / 100;
       schreiben();
-      console.log('\nAbbruch: alle Schritte beendet, Zwischenstand: ' + ausgabe);
+      console.log('\nAbbruch: alle Schritte beendet, Zwischenstand: ' + schreibPfad);
       process.exit(1);
     };
     process.on('SIGINT', beendeAlles);
@@ -258,6 +317,7 @@ async function main() {
       faktor: Math.round(s.dauer_s / (budgets.get(s.id) * lastfaktor) * 100) / 100 }))
     .sort((a, b) => b.faktor - a.faktor);
   doc.grenze_ueberschritten = !!(grenzeS && !abbruch && doc.gesamtdauer_s > grenzeS);
+  const grenzeWirkt = doc.grenze_ueberschritten && grenzeHart;
   schreiben();
 
   const gruen = doc.schritte.filter(s => s.exit === 0 && !s.timeout).length;
@@ -277,9 +337,28 @@ async function main() {
   if (ohneBudget) console.log('Ohne budget_s: ' + ohneBudget + ' Schritt(e) (node tools/testliste-budgets.js --aus <serieller Lauf>)');
   const rote = doc.schritte.filter(s => s.exit !== 0 || s.timeout);
   if (rote.length) console.log('Rot/Timeout: ' + rote.map(s => s.id).join('; '));
-  if (doc.grenze_ueberschritten) console.log('\nHARTE GRENZE UEBERSCHRITTEN: Stufe ' + stufe + ' brauchte ' + doc.gesamtdauer_s.toFixed(1) + ' s, erlaubt sind ' + grenzeS + ' s (Wandzeit, parallel). Exit 3.');
-  console.log('Ergebnis: ' + ausgabe);
-  process.exit(rote.length || abbruch ? 1 : doc.grenze_ueberschritten ? 3 : 0);
+  const grenzText = 'Stufe ' + stufe + ' brauchte ' + doc.gesamtdauer_s.toFixed(1) + ' s, Grenze ' + grenzeS + ' s (Wandzeit, parallel)';
+  if (doc.grenze_ueberschritten) {
+    if (!grenzeHart) console.log('\nZeitgrenze der Stufe ueberschritten, nur Hinweis: ' + grenzText + '.');
+    else if (rote.length) console.log('\nHarte Grenze ueberschritten: ' + grenzText + '. Der Exit-Code bleibt 1 wegen roter Schritte.');
+    else console.log('\nHARTE GRENZE UEBERSCHRITTEN: ' + grenzText + '. Exit 3.');
+  }
+  if (istBaseline) {
+    if (!rote.length && !abbruch) { fs.renameSync(schreibPfad, ausgabe); console.log('Baseline aktualisiert (Lauf vollstaendig gruen): ' + ausgabe); }
+    else console.log('Baseline NICHT ersetzt (Lauf nicht vollstaendig gruen). Zwischenstand: ' + schreibPfad);
+  }
+  console.log('Ergebnis: ' + (istBaseline && (rote.length || abbruch) ? schreibPfad : ausgabe));
+  process.exit(rote.length || abbruch ? 1 : grenzeWirkt ? 3 : 0);
 }
 
-main().catch(e => { console.error(e); process.exit(2); });
+// Ausnahme nach dem Start (z. B. EBUSY beim Schreiben der Ergebnisdatei): Kindprozessbaeume beenden, Temp loeschen, Exit 1.
+// Davor (Liste/Aufruf kaputt): Exit 2.
+main().catch(e => {
+  console.error(e);
+  if (!lauf_.gestartet) process.exit(2);
+  for (const k of lauf_.aktiv) beenden(k);
+  if (lauf_.tempBasis) aufraeumen(lauf_.tempBasis);
+  try { lauf_.doc.fertig = false; lauf_.doc.abgebrochen = true; lauf_.schreiben(); } catch (e2) { /* Ergebnisdatei nicht beschreibbar */ }
+  console.error('Runner-Ausnahme: alle Schritte beendet, Temp aufgeraeumt, Exit 1.');
+  process.exit(1);
+});

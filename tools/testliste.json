@@ -1,5 +1,5 @@
 {
- "grenzen": {"fast":300,"full":600,"slow":2400,"alles":2400},
+ "grenzen": {"fast":{"s":300,"hart":true},"full":{"s":600,"hart":false},"slow":{"s":2400,"hart":false},"alles":{"s":2400,"hart":false}},
  "schritte": [
   {"id":"check-maps","kette":"check","cmd":["tools/check-maps.js"],"stufe":"fast","budget_s":15},
   {"id":"check-sektoren","kette":"check","cmd":["tools/check-sektoren.js"],"stufe":"fast","budget_s":6},
@@ -152,7 +152,7 @@
   {"id":"sim-sund --weg beide --crew 3","kette":"test","cmd":["tools/sim-sund.js","--weg","beide","--crew","3"],"stufe":"slow","budget_s":94},
   {"id":"sim-sund --kapitel alle --crew 3","kette":"test","cmd":["tools/sim-sund.js","--kapitel","alle","--crew","3"],"stufe":"slow","budget_s":49},
   {"id":"sim-headless sl --paket boje-a","kette":"test","cmd":["tools/sim-headless.js","sl","--paket","boje-a"],"stufe":"fast","budget_s":7},
-  {"id":"sim-headless kette --seed 1 --seeds 3 --mindest 2","kette":"test","cmd":["tools/sim-headless.js","kette","--seed","1","--seeds","3","--mindest","2"],"stufe":"slow","budget_s":1993},
+  {"id":"sim-headless kette --seed 1 --seeds 3 --mindest 2","kette":"test","cmd":["tools/sim-headless.js","kette","--seed","1","--seeds","3","--mindest","2"],"stufe":"slow","budget_s":1993,"timeout_s":3600},
   {"id":"test-befehle","kette":"test","cmd":["tools/test-befehle.js"],"stufe":"fast","budget_s":9},
   {"id":"test-regie","kette":"test","cmd":["tools/test-regie.js"],"stufe":"fast","budget_s":7},
   {"id":"test-lage-ausschnitt","kette":"test","cmd":["tools/test-lage-ausschnitt.js"],"stufe":"fast","budget_s":9},
