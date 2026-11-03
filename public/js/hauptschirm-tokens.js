@@ -358,7 +358,7 @@
       rand: { farbe: FARBE.sensor, alpha: 0.5, breite: 1 },
       mitte: { anteil: 0.5, farbe: FARBE.sensor, alpha: 0.18 },   // Ring bei 400
       keil: { halbGrad: 40, farbe: FARBE.kurs, alpha: 0.35 },     // Blickfeld des Schirms: atan(256 / 308,8) = 39,7° (Test rechnet nach)
-      punkt: { sprungboje: { farbe: FARBE.sprung, px: 3 }, station: { farbe: FARBE.schild, px: 4 }, ziel: { farbe: FARBE.kurs, px: 4 }, gegner: { farbe: EIGEN.gegnerHell, px: 3 } },
+      punkt: { sprungboje: { farbe: FARBE.sprung, px: 3 }, station: { farbe: FARBE.schild, px: 4 }, ziel: { farbe: FARBE.kurs, px: 4, rahmen: { pad: 2, alpha: 0.7 } }, gegner: { farbe: EIGEN.gegnerHell, px: 3 }, verbuendet: { farbe: FARBE.sensor, px: 3 } },
       // eigene Schilde als Ring der Ops-Kennung (kul.js schildring): vier Seiten, Lücke 0,16 rad, leer rot gestrichelt
       schildring: { radius: 7, farbe: FARBE.schild, luecke: 0.16, alphaGrund: 0.35, alphaJeStufe: 0.16, breiteGrund: 1, breiteJeStufe: 0.6,
         leer: { farbe: FARBE.gefahr, alpha: 0.85, strich: [1.5, 2.5], breite: 1.5 } },

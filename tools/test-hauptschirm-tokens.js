@@ -241,6 +241,9 @@ const LG = V.lagescheibe, lcx = W + LG.cx, lcy = SH + LG.cy, lr = LG.radius + LG
 ok(LG.reichweiteWelt === 800 && lcx + lr <= W && lcy + lr <= SH && lcx - lr >= W - LS.band.rand + 2, 'Lagescheibe ragt aus dem Schirm oder ins Band');
 ok(LY - OB.randpfeil.ueberLeiste + 6 < lcy - lr, 'Randpfeile reichen in die Lagescheibe');
 ok(LG.schildring.radius < LG.radius / 2, 'Schildring der Lagescheibe zu groß');
+ok(LG.punkt.verbuendet && HEX.test(LG.punkt.verbuendet.farbe) && LG.punkt.verbuendet.px >= 3 && LG.punkt.verbuendet.px <= 10, 'Lagescheibe: Punkt der Verbündeten fehlt (3–10 px)');
+ok(LG.punkt.ziel.rahmen && istZahl(LG.punkt.ziel.rahmen.pad) && istAlpha(LG.punkt.ziel.rahmen.alpha), 'Lagescheibe: Rahmen des Ziels fehlt');
+ok(Object.values(LG.punkt).every((p) => HEX.test(p.farbe) && p.px >= 3 && p.px <= 10), 'Lagescheibe: Punkte 3–10 px');
 // Tafeln: oben links frei, rechts die Tafel aus KUL-02; sie überschneidet weder Leiste noch Lagescheibe
 ok(V.tafel.links === false && V.tafel.rechts === true, 'Visier: oben links muss frei bleiben, rechts die Sprungziel-Tafel');
 ok(R.y + R.h < LY + hochTop && R.y + R.h < lcy - lr, 'Sprungziel-Tafel überschneidet Leiste oder Lagescheibe');
