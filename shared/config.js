@@ -774,10 +774,12 @@
         },
       },
     },
+    // GEG-01 B: solange der Countdown läuft, halbiert JEDER Treffer die Restzeit (Gegner: gegnertod.treffer, Lerche: reaktortod.treffer), ohne Mindestzeit (minimum gilt nur für den Startwert der Stufung).
+    // restGrenze (s): fällt die Restzeit darunter, ist das Schiff sofort zerstört (Rechengrenze gegen endloses Halbieren; die Streubatterie bringt sie mit einem Schuss auf null).
     // SYS-01 A2a „Tod der Lerche“ (Kai, 2026-10-26): Reaktor zerstört = Countdown, dann zerstört das Schiff. Der n-te Ausfall seit dem letzten Sprung
     // startet mit start × faktor^(n−1) s, mindestens minimum (20, 10, 5, 2,5 s …). Sonderreparatur des zerstörten Reaktors: zeiten[n−1] s bei n gleichzeitigen
     // Arbeitern (1, 2, 3); feste Zeiten: weder Werkzeuggürtel (×0,7) noch Bot-Faktor gelten dort (Nacharbeit A2). Live per `tune reaktorTod.<pfad>`.
-    reaktorTod: { start: 20, faktor: 0.5, minimum: 1.25, sonderreparatur: { zeiten: [12, 7, 5] } },
+    reaktorTod: { start: 20, faktor: 0.5, minimum: 1.25, restGrenze: 0.1, sonderreparatur: { zeiten: [12, 7, 5] } },
     // Raumszenen (px im Ops-Koordinatensystem) – M0-Stand; seit M1 kommen die Szenen aus shared/locations.js
     scenes: {
       port: { w: 2000, h: 1400, start: { x: 700, y: 700, angle: 0 }, station: { x: 520, y: 700 }, arrival: { x: 1650, y: 860, angle: 3.3 } },

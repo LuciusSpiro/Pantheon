@@ -346,6 +346,7 @@ function minenSnap(game) {
 // -> [{ system, state }] (Endzustand je betroffenem System)
 function minenTreffer(game, m) {
   const sector = Physics.sectorOf(game.ship.x, game.ship.y, game.ship.angle, m.x, m.y);
+  require('./reaktortod.js').treffer(game);   // GEG-01 B: eine Mine ist ein Waffentreffer (halbiert den Countdown der Lerche), vor dem Trefferweg
   const r = require('./damage.js').direktTreffer(game, sector, { mine: true });
   const list = (r.systems || []).map((t) => ({ system: t.system, state: t.state }));
   game.emit('hit', { sector, shield: false, dmg: 3, heavy: true, mine: true });

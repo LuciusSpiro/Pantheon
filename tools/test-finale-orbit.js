@@ -201,9 +201,10 @@ const toete = (g, e) => Testhilfe.toeten(g, e);
     const em0 = g.stats.emergencies;
     require('../server/sim/interior.js').damageSystem(g, 'reactor', 'broken');
     ok(g.ship.reaktorCountdown && Math.abs(g.ship.reaktorCountdown.t - 20) < 1e-9, 'Reaktor zerstört: Countdown 20 s läuft');
-    run(g, 19);
-    ok(enden.length === 0 && !!g.simSzene, 'vor Ablauf des Countdowns läuft die Szene weiter');
-    run(g, 2);
+    // GEG-01 B: Gegner schießen in dieser Szene mit, jeder Treffer halbiert die Restzeit; der Countdown endet also spätestens nach 20 s, der Reaktorbruch allein beendet die Szene nicht
+    run(g, 0.5);
+    ok(enden.length === 0 && !!g.simSzene, 'kurz nach dem Reaktorbruch läuft die Szene weiter (der Countdown läuft)');
+    run(g, 21);
     ok(g.ship.schiffZerstoert === true && g.stats.emergencies === em0 + 1, 'Countdown abgelaufen: Schiff zerstört, Notfallprotokoll (stats.emergencies +1)');
     ok(enden.length === 1 && enden[0] === 'niederlage', 'Reaktor-Countdown: orbitEnde("niederlage") genau einmal');
     ok(Finale.phase(g) === null && g.phase !== 'end' && !g.simSzene && g.weltsim.tickZahl === tick0, 'Neubeginn wie bei der Naht: kein Game Over, kein Sim-Tick');
