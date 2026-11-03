@@ -5,6 +5,7 @@
 //   zuruecksetzen(game, { x?, y?, winkel? })   -> { x, y }
 //   reaktorAus(game)                           Prüfung: Reaktor offline (Notfallsprung, Überlast) oder zerstört
 const Fracht = require('./fracht.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B-Integration: Ende der Reaktor-Ueberladung (nur lesen)
 const Schilde = require('../../shared/schilde.js');   // SYS-03 C1: Regenerationspause
 
 function zuruecksetzen(game, o) {
@@ -16,6 +17,7 @@ function zuruecksetzen(game, o) {
   ship.fireList = []; ship.breachList = [];
   require('./reaktortod.js').zuruecksetzen(game);   // SYS-01 A2a: neu aufgestellte Lerche = Ausfallzähler 0, kein Countdown, nicht zerstört
   const rc = ship.reactorCtl;
+  Tel.ueberladungAbgebrochen(game, 'reset');   // TEL-01 B-Integration: lief eine Ueberladung, endet sie hier (liest nur)
   if (rc) { rc.state = 'online'; rc.overloadLeft = 0; rc.warned = false; rc.switches = { A: false, B: false }; rc.restartProgress = 0; rc.aloneT = 0; rc.offlineT = 0; rc.needBot = null; }
   const sh = ship.shields;
   if (sh && Array.isArray(sh.alloc)) { sh.current = sh.alloc.slice(); Schilde.pause.loeschen(sh); }   // SYS-03 C1: voller Schild ohne Pause

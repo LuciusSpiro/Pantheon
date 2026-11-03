@@ -491,6 +491,7 @@ function updateReactor(game, dt) {
 }
 function reactorOnline(game, text) {
   const rc = game.ship.reactorCtl;
+  Tel.ueberladungAbgebrochen(game, 'online');   // TEL-01 B-Integration: lief eine Ueberladung, endet sie hier (liest nur)
   rc.state = 'online'; rc.restartProgress = 0; rc.needBot = null; rc.aloneT = 0; rc.offlineT = 0; rc.overloadLeft = 0; rc.warned = false;
   rc.latch = { A: 0, B: 0 }; rc.holdT = { A: 0, B: 0 };
   for (const p of game.players) if (p.hold && p.hold.kind === 'switch') p.hold = null;

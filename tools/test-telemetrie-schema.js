@@ -231,11 +231,13 @@ section('Provokation im Spielprozess (Ereignisse, die kurze Bot-Läufe nicht sic
   require('../server/sim/damage.js').direktTreffer(gq, 1, { mine: true });   // K1: Minentreffer (alarm.js ruft genau das)
   Space.technikOverload(gq); gq.ship.reactorCtl.overloadLeft = 0.05;   // K2: Reaktor-Überladung an, nach kurzer Zeit ende
   for (let i = 0; i < 10; i++) gq.step();
+  Space.reactorOnline(gq, 'test'); Space.technikOverload(gq); require('../server/sim/szenenreset.js').zuruecksetzen(gq);   // K2b: Überladung endet durch Szenen-Neuaufbau (wie reset)
+  Space.technikOverload(gq); Space.reactorOnline(gq, 'test');   // K2c: Überladung endet, weil der Reaktor online gesetzt wird (wie online)
   gq.telemetrie.sessionBeenden('test');
   const zm = zeilen(dirQ).filter((x) => x.typ === 'treffer');
   const zq = zm.filter((x) => x.waffe !== 'mine');
   ok(zm.some((x) => x.waffe === 'mine' && x.von === 'objekt' && x.ziel === 'lerche'), 'Minentreffer: treffer mit waffe mine, von objekt');
-  { const u = zeilen(dirQ).filter((x) => x.typ === 'ueberladung').map((x) => x.wie); ok(u.join() === 'an,ende', 'Überladung: ereignis an und ende (' + u.join() + ')'); }
+  { const u = zeilen(dirQ).filter((x) => x.typ === 'ueberladung').map((x) => x.wie); ok(u.join() === 'an,ende,an,reset,an,online', 'Überladung: an, ende, und die vorzeitigen Enden reset und online (' + u.join() + ')'); }
   ok(zq.length === 2 && zq[1].gegner === null && zq[1].waffe === 'sonstige', 'veraltete Quelle: ein fremder Treffer im selben Tick erbt die Quelle nicht (waffe sonstige)');
   alleZeilen.push(...pruefeDateien('quelle', dirQ));
 
@@ -268,6 +270,26 @@ section('Provokation im Spielprozess (Ereignisse, die kurze Bot-Läufe nicht sic
   }
   alleZeilen.push(...z2);
   pruefeAufrufe('provokation', { typen: pv.typen, verstoesse: [...pv.verstoesse] });
+}
+
+section('Deckung in Schuss und Treffer: EIN Rechenweg (haken.inDeckung)');
+{
+  const Tel = require('../server/telemetrie/gefecht.js');
+  const Haken = require('../server/telemetrie/haken.js');
+  const zeilenF = []; const beiAbschluss = [];
+  const spieler = (id, cv, geduckt) => ({ id, team: 'crew', input: {}, zone: 'away', cv, crouch: geduckt, x: 100, y: 100, schild: { seg: 3 } });
+  const pa = spieler('p1', 2, false), pb = spieler('p2', 0, true);
+  const gegner = { id: 'e1', team: 'enemy', rolle: 'sturm', crouch: true, x: 300, y: 300 };
+  const fake = { players: [pa, pb], tick: 1, time: 0, away: { drones: [gegner] }, telemetrie: { offen: true, s: {}, ereignis: (typ, f) => zeilenF.push({ typ, ...f }), beiAbschluss: (f) => beiAbschluss.push(f) } };
+  const dk = (typ) => zeilenF.filter((x) => x.typ === typ);
+  Tel.schussBoden(fake, pa, 'blaster', 'pa1'); Tel.schussBoden(fake, pb, 'blaster', 'pb1'); Tel.schussBoden(fake, gegner, 'enemy', 'pe1');
+  const sh = dk('schuss').map((x) => x.von_deckung);
+  ok(sh.join() === 'true,false,true', 'schuss: von_deckung Spieler cv 2 = ja, Spieler nur geduckt im Offenen = nein, Gegner geduckt = ja (' + sh.join() + ')');
+  const echt = Haken.inDeckung; let aufrufe = 0;
+  Haken.inDeckung = () => { aufrufe++; return 'stub'; };
+  try { Tel.schussBoden(fake, pb, 'blaster', 'pb2'); Tel.trefferBoden(fake, pb, { waffe: 'blaster', schaden: 1 }, gegner, 'wunde', 3); } finally { Haken.inDeckung = echt; }
+  const st = dk('schuss').pop(), tr = dk('treffer').pop();
+  ok(aufrufe === 2 && st.von_deckung === 'stub' && tr && tr.ziel_deckung === 'stub', 'schuss und treffer holen von_deckung / ziel_deckung aus haken.inDeckung (kein zweiter Rechenweg), Aufrufe ' + aufrufe);
 }
 
 section('Zusammenhänge zwischen den Ereignissen (je Session)');

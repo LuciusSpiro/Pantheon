@@ -13,6 +13,7 @@ const Sektoren = require('../../shared/sektoren.js');
 const Reaktortod = require('./reaktortod.js');   // SYS-01 A2a: Reaktor-Countdown (Zähler, Sprung setzt zurück)
 const { dist } = require('../util.js');
 const Kriegslage = require('./kriegslage.js');   // SUND-01 B: Tick der Weltsimulation je Sprung
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B-Integration: Ende der Reaktor-Ueberladung (nur lesen)
 const ReiseEreignis = require('./reise-ereignis.js');   // SUND-03 D: Reise-Ereignisse nach dem Sprung (nur Freie Fahrt Sund)
 
 const JAMMERS = ['raider', 'korvette', 'fregatte', 'kreuzer'];   // Rostmeute: Störsender blockieren den Faltsprung
@@ -341,6 +342,7 @@ function notsprung(game) {
   if (reaktorZerstoert) require('./interior.js').setzeZustand(game, 'reactor', 'damaged');
   // Wirkung: Reaktor offline (Neustart über die Schalter), Sprung, Kosten: ein zufälliges ok-System beschädigt (SYS-01 A1b, notsprung.systemSchaden)
   const rc = ship.reactorCtl;
+  Tel.ueberladungAbgebrochen(game, 'sprung');   // TEL-01 B-Integration: lief eine Ueberladung, endet sie hier (liest nur)
   if (rc) { rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.overloadLeft = 0; rc.warned = false; }
   if (N.systemSchaden) notsprungSchaden(game);
   // SUND-02a C: Freie Fahrt (weltsim gesetzt): der Reaktor startet nach autoNeustartFrei s von selbst (Mechanik des Gefechtsstarts, damage.updateReactorAuto);

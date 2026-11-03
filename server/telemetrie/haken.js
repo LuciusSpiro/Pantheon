@@ -13,14 +13,8 @@
 //   Zeitreihe      alle FENSTER Sekunden Spielzeit (tickgenau) eine Zeile 'zeitreihe' (Felder siehe schema.js)
 const FENSTER = 2;   // s Spielzeit
 const EPS = 1e-6;
-const r1 = (v) => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
-const r2 = (v) => Math.round(v * 100) / 100;
-const r3 = (v) => Math.round(v * 1000) / 1000;
-const TILE = 32;
-const kachel = (v) => Math.floor(v / TILE);   // 1 Kachel = 1 m: Positionen auf ganze Kacheln, wie Physics.toTile (die Kachel, in der die Figur steht)
-const num = (v) => (Number.isFinite(v) ? r2(v) : null);   // kaputter Wert -> null, nie 0 (ein Fehler soll sichtbar bleiben)
+const { TILE, r1, r2, r3, num, kachel, sektorName } = require('./hilfen.js');
 const MAX_PROBEN = 512;   // Obergrenze je Fenster (Solo-Pause: Snapshots laufen weiter, die Zeit nicht)
-const SEKTOR = ['bug', 'steuerbord', 'heck', 'backbord'];   // Reihenfolge von Physics.sectorOf; -1 = Mitte (wie telemetrie/gefecht.js, Paket B1)
 const CODE = { ok: '0', damaged: '1', broken: '2', offline: '3' };
 const REP = { flick: true, swap: true, minigame: true };   // Halteprozesse des Reparaturspiels (interior.REPAIR_KINDS)
 const MAX_FEHLER_WO = 8;
@@ -52,7 +46,7 @@ const nie = (game, f) => { try { f(); } catch (e) { try { game.countError('telem
 //   Gegner:  Tupel (geduckt, stellung) – e.crouch (squad.updateEnemyCrouch, je Tick) und inStellung (im 5-Hz-Takt oder sofort, wenn sich geduckt aendert).
 // Offen = Tupel ungleich dem Grundzustand (nichts). Der Dienst schliesst offene Zustaende mit einer letzten Zeile (Grundzustand, ende gesetzt): beim Sessionende
 // ('session'), wenn die Figur den Ort wechselt bzw. die Aussenkarte endet ('ort') und wenn ein Gegner faellt oder verschwindet ('tod' / 'weg').
-// deckungsZustand rechnet Spieler UND Gegner mit derselben Funktion (B1 nutzt sie nach dem Zusammenfuehren fuer von_deckung / ziel_deckung).
+// deckungsZustand rechnet Spieler UND Gegner mit derselben Funktion; inDeckung ist die Kurzform daraus fuer B1 (von_deckung / ziel_deckung, siehe unten).
 // Kosten: deckungGegner laeuft je Gegner und Tick, deshalb ohne Closure, ohne Objektbau und mit der teuren Stellungspruefung nur im 5-Hz-Takt (jeder 6. Tick).
 const GRUND_S = '0|0|0', GRUND_G = '0|0';
 const TAKT = 6;   // Ticks je Takt (30 Hz / 6 = 5 Hz, wie combat.updateVisibility mit aiHz)
@@ -65,6 +59,14 @@ function deckungsZustand(game, k) {
     return { cv: draussen ? k.cv | 0 : 0, geduckt: draussen && !!k.crouch, verdeckt: draussen && combat().verdecktVor(game, k), stellung: draussen && stellung(game, k) };
   }
   return { cv: null, geduckt: !!k.crouch, verdeckt: null, stellung: stellung(game, k) };
+}
+// "In Deckung" zum Zeitpunkt eines Schusses oder Treffers (B1: von_deckung / ziel_deckung) – der EINE Rechenweg fuer die Boolesche Kurzform, aus denselben Rohwerten wie
+// deckungsZustand: Spieler cv > 0 (Deckung gegen den gefaehrlichsten sichtbaren Gegner), Gegner geduckt oder in einer Stellung. verdeckt (Sichtlinienpruefung je Gegner)
+// gehoert nicht dazu: zu teuer fuer jeden Schuss. Ein Spieler im Offenen, der nur geduckt ist, zaehlt NICHT als in Deckung (anders als beim Gegner, dessen Ducken Teil seiner
+// Stellung ist); die Roh-Felder stehen in der Zeile deckung.
+function inDeckung(game, k) {
+  if (game.players.indexOf(k) >= 0) return k.zone === 'away' && (k.cv | 0) > 0;
+  return !!k.crouch || stellung(game, k);
 }
 function deckungSenden(game, k, spieler, z, ende) {
   game.telemetrie.ereignis('deckung', {
@@ -156,7 +158,7 @@ function zoneWieder(game, sys, wie, durch) {
   if (!t || !t.offen) return;
   nie(game, () => {
     let sektor = null;
-    try { const z = require('../sim/interior.js').systemSector(sys); sektor = z === -1 ? 'mitte' : SEKTOR[z] || null; } catch (e) { /* ohne Sektor */ }
+    try { const z = require('../sim/interior.js').systemSector(sys); sektor = sektorName(z); } catch (e) { /* ohne Sektor */ }
     t.ereignis('zone_wieder', { system: String(sys).slice(0, 40), zone: sektor, wie: String(wie || '').slice(0, 20), durch: durch == null ? null : String(durch).slice(0, 10) });
   });
 }
@@ -324,4 +326,4 @@ function zeile(game, s) {
   game.telemetrie.ereignis('zeitreihe', f);
 }
 
-module.exports = { FENSTER, deckungSpielerAlle, deckungGegner, deckungsZustand, konsole, reparaturGelungen, zoneWieder, loeschen, buchung, ruf, energie, eingabe, fehler, spielleiterWarten, tickEnde, warteAusgang, snapshotZeit, tickKappung, nachgeholt };
+module.exports = { FENSTER, deckungSpielerAlle, deckungGegner, deckungsZustand, inDeckung, konsole, reparaturGelungen, zoneWieder, loeschen, buchung, ruf, energie, eingabe, fehler, spielleiterWarten, tickEnde, warteAusgang, snapshotZeit, tickKappung, nachgeholt };

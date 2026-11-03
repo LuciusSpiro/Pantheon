@@ -57,7 +57,7 @@ function placeOnBridge(game) {
   const order = ['helm', 'weapons', 'captain'];
   game.players.forEach((p, i) => {
     if (p.zone !== 'ship') interior.placeOnShipPad(game, p);
-    if (p.console) interior.leaveConsole(game, p);
+    if (p.console) interior.konsoleVerlassen(game, p, 'arena');
     const t = besideConsole(order[i % order.length], Math.floor(i / order.length));
     if (!t) return;
     const c = W.tileCenter(t.x, t.y);
@@ -203,7 +203,7 @@ function startAway(game) {
   game.setAwayMap('kesh');
   worldFirst(game);
   const team = game.players.filter((p) => p.connected);
-  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+  for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   game.arena = { kind: 'arena_away' };
   game.oda('Testgelände Außenteam: direkt auf Kesh. Wer Captain spielen will, beamt hoch (Pads, E halten).', null);
@@ -256,7 +256,7 @@ function startAwayBuehne(game, params) {
     if (besetzen) { try { besetzen(game, opts); } catch (e) { game.countError('arena-besetzen', e); } } else game.countError('arena-besetzen', new Error('besetzen fehlt (BODENKAMPF)'));
   }
   const team = game.players.filter((p) => p.connected);
-  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+  for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   game.arena = { kind: 'arena_away', lp, params: Object.assign({}, params) };
   game.oda(`Testgelände: ${params.art} (Seed ${params.seed}, ${params.bauweise || 'Standard'}, ${params.besitz || '–'}, ${params.zustand || 'intakt'}).`, null);
@@ -325,7 +325,7 @@ function startWellen(game, karte, params) {
   const team = game.players.filter((p) => p.connected);
   // Rüstphase (Testumgebung, game.ruestphase): die Crew bleibt an Bord und beamt erst hinunter, wenn am Terminal „Szene starten“ gedrückt wird (wellen.vorbereitungEnde)
   if (!game.ruestphase) {
-    for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+    for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'arena'); if (p.downed) interior.revivePlayer(game, p); }
     if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   }
   const echteKarte = lp === 'kesh' ? 'kesh' : art;

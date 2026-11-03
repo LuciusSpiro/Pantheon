@@ -11,9 +11,7 @@
 // So hängt Paket B ein Ereignis ein (Beispiel: Welle kommt, Bus missionEvent):
 //   MISSION.welleKommt = { typ: 'welle_kommt', felder: (d) => ({ nr: num(d.n), gegner: num(d.count) }) };
 
-const num = (v) => (Number.isFinite(v) ? Math.round(v * 100) / 100 : null);
-const text = (v, n) => (v == null ? null : String(v).slice(0, n || 60));
-const slot = (v) => (typeof v === 'string' && /^p[1-4]$/.test(v) ? v : null);   // nur Slot-Kennungen, sonst nichts
+const { num, txt: text, slotVon: slot } = require('./hilfen.js');
 
 // Bus game.emit(kind, data)
 const EMIT = {

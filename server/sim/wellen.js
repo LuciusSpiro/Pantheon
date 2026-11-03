@@ -615,7 +615,7 @@ function vorbereitungEnde(game) {
   if (buehne(S).vorbereitungEnde) return buehne(S).vorbereitungEnde(game, S);   // eigener Ablauf (Grabenangriff)
   if (S.buehne === 'boden') {
     const t = team(game);
-    for (const p of t) { if (p.console) M().interior.leaveConsole(game, p); if (p.downed) M().interior.revivePlayer(game, p); }
+    for (const p of t) { if (p.console) M().interior.konsoleVerlassen(game, p, 'wellen'); if (p.downed) M().interior.revivePlayer(game, p); }
     if (t.length) M().away.executeBeam(game, t.map((p) => p.id), 'down');
   }
   const C = cfg(game);

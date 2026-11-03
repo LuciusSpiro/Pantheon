@@ -10,14 +10,9 @@
 //
 // Ereignistypen und Felder stehen in schema.js (eine Stelle, die Auswertung liest nur das).
 
-const Stellung = require('../sim/stellung.js');
+const Haken = require('./haken.js');   // inDeckung: der eine Rechenweg fuer die Deckung (Roh-Zustand siehe dort)
 
-const r2 = (x) => Math.round(x * 100) / 100;
-const num = (v) => (Number.isFinite(v) ? r2(v) : null);
-const txt = (v, n) => (v == null ? null : String(v).slice(0, n || 60));
-const slotVon = (id) => (typeof id === 'string' && /^p[1-4]$/.test(id) ? id : null);
-const SEKTOR = ['bug', 'steuerbord', 'heck', 'backbord'];   // Reihenfolge von Physics.sectorOf: Bug, Steuerbord, Heck, Backbord
-const sektorName = (s) => (Number.isInteger(s) && s >= 0 && s < 4 ? SEKTOR[s] : s === -1 ? 'mitte' : null);
+const { r2, num, txt, slotVon, sektorName } = require('./hilfen.js');
 
 // ---------- Dienst und Merkzustand ----------
 const ZUSTAND = new WeakMap();
@@ -253,12 +248,6 @@ function killRaum(game, e) {
 const aufGegner = (game, id) => { const aw = game.away; return aw && aw.drones ? aw.drones.find((d) => d.id === id) || null : null; };
 const slotOderGegner = (k) => (k.team === 'crew' || k.input ? slotVon(k.id) : null);
 function bodenRolle(k) { return txt(k.rolle || k.kind); }
-// Deckung zum Zeitpunkt (nur lesen): Spieler = Deckungswert cv > 0 (combat.updateVisibility), Gegner = geduckt oder in einer Stellung
-function deckung(game, k) {
-  if (k.team === 'crew') return (k.cv || 0) > 0;
-  if (k.crouch) return true;
-  try { return !!Stellung.inStellung(game, k); } catch (e) { return false; }
-}
 // Boden-Gegner erfassen (idempotent): gegner_neu beim ersten Mal. quelle 'spawn' = der Wellen-/Grabenablauf sieht ihn beim Erscheinen,
 // 'kontakt' = erstmals im Gefecht aufgefallen (Schuss, Treffer, Tod), dann ist t spaeter als der Spawn.
 function bodenGegnerSehen(game, e, wie) {
@@ -282,7 +271,7 @@ function schussBoden(game, k, waffe, pid) {
     const z = zustand(t);
     const slot = slotOderGegner(k);
     if (!slot) bodenGegnerSehen(game, k, 'kontakt');
-    const dk = deckung(game, k);
+    const dk = Haken.inDeckung(game, k);
     z.bodenSchuss.set(k.id, dk);
     const kennung = pid != null ? String(pid) : 's' + (++z.schussNr);
     z.letzterSchuss.set(k.id, { pid: kennung, eigene: pid == null, tick: game.tick });
@@ -326,7 +315,7 @@ function trefferBoden(game, ziel, wirkung, quelleObj, ergebnis, seg0) {
     const wirkt = ergebnis === 'wunde' || ergebnis === 'gefallen' || ergebnis === 'bewusstlos';   // Schild gibt es nicht mehr: der Treffer erreicht den Körper (bei 'schild' verfällt der Rest)
     t.ereignis('treffer', { ort: 'boden', waffe, von, ziel: zielSlot || 'gegner', gegner: gegnerObj ? gegnerObj.id : null, rolle: gegnerObj ? bodenRolle(gegnerObj) : null, pid,
       ergebnis: txt(ergebnis), schaden_roh: num(w.schaden), schild: num(schild), schaden: wirkt ? num(w.schaden) : 0, wunde: ergebnis === 'wunde' || ergebnis === 'gefallen',
-      von_deckung: z.bodenSchuss.has(q.id) ? z.bodenSchuss.get(q.id) : null, ziel_deckung: deckung(game, ziel), flaeche: !!w.flaeche });
+      von_deckung: z.bodenSchuss.has(q.id) ? z.bodenSchuss.get(q.id) : null, ziel_deckung: Haken.inDeckung(game, ziel), flaeche: !!w.flaeche });
     if (zielSlot) {
       if (seg0 > 0 && seg1 === 0) t.ereignis('bodenschild_leer', { slot: zielSlot, waffe });
       if (ergebnis === 'gefallen') t.ereignis('gefallen', { slot: zielSlot, waffe, von });
@@ -364,6 +353,12 @@ function ueberladung(game, wie) {
   const t = dienst(game); if (!t) return;
   try { t.ereignis('ueberladung', { wie }); } catch (err) { /* nie werfen */ }
 }
+// Die Ueberladung endet NICHT durch Ablauf (das ist wie "ende" oben), sondern weil der Reaktor anderweitig umgestellt wird: wie zerstoert (Reaktor zerstoert, Neustart zu zweit),
+// sprung (Notsprung setzt ihn zurueck), reset (Szene wird neu aufgestellt), online (Reaktor wieder online). Aufruf VOR der Umstellung; nur wenn er gerade ueberlaedt (nur lesen).
+function ueberladungAbgebrochen(game, wie) {
+  const t = dienst(game); if (!t) return;
+  try { const rc = game.ship && game.ship.reactorCtl; if (rc && rc.state === 'overload') t.ereignis('ueberladung', { wie }); } catch (err) { /* nie werfen */ }
+}
 function notfall(game, grund) {
   const t = dienst(game); if (!t) return;
   try { t.ereignis('notfall', { grund: txt(grund) }); } catch (err) { /* nie werfen */ }
@@ -391,6 +386,6 @@ module.exports = {
   quelle, schussRaum, gegnerSystem, schadeBeginn, trefferGegner, trefferLerche, trefferLercheOhneSchaden, trefferMine,
   raumGegner, raumWegGrund, killRaum,
   bodenGegnerSehen, schussBoden, quelleBoden, ueberhitztBoden, ueberhitztRaum, trefferBoden, killBoden, bodenGegnerWeg,
-  zoneAus, ueberladung, notfall, gefallenOhneTreffer, schiffZerstoert, notrueckholung,
+  zoneAus, ueberladung, ueberladungAbgebrochen, notfall, gefallenOhneTreffer, schiffZerstoert, notrueckholung,
   _dienst: dienst,
 };

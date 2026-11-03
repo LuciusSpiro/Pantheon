@@ -278,7 +278,7 @@ function vorschau(game, aenderung) {
 // Wer beim Ablegen am Terminal sitzen bleibt, steht auf: das Terminal gibt es nur angedockt (Block werft nie im Flug oder Kampf)
 function aufstehen(game) {
   if (game.ship.docked || testumgebung(game)) return;
-  for (const p of game.players) if (p.console === 'shop') require('./interior.js').leaveConsole(game, p);
+  for (const p of game.players) if (p.console === 'shop') require('./interior.js').konsoleVerlassen(game, p, 'werft');
 }
 function nutzer(game) { return game.players.find((o) => o.connected && o.console === 'shop') || null; }
 // Ansicht des Nutzers am Terminal (Bereich, Platz/Raum/Stufe, gewähltes Teil), damit Zuschauer dasselbe Bild sehen: { b: 'h'|'w'|'l'|'i'|'b', a: 'p'|'m'|'s', n, i (Teil-Id; bei b 'l' die gewählte Absicht, SUND-02b D), von }

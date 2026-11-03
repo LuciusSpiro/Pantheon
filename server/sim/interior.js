@@ -877,12 +877,10 @@ function schubs(game, p) {
 // TEL-01 B2: Wege, auf denen p.console frei wird (tools/test-konsole.js erzwingt: sonst nirgends `.console = null`):
 //   konsoleVerlassen(game, p, grund)  die Konsole ganz verlassen (aktive Station freigeben, Geraeusch); grund steht im Protokoll
 //   konsoleLoesen(game, p, grund)     still: nur p.console leeren (Zonenwechsel, Beamen, Debug-Teleport); setzt nichts sonst
-//   leaveConsole(game, p)             Altname fuer Aufrufer ohne eigenen Grund (Protokoll: 'sonst')
 function konsoleLoesen(game, p, grund) {
   if (p.console) Haken.konsole(game, p, false, grund);
   p.console = null;
 }
-function leaveConsole(game, p) { konsoleVerlassen(game, p, 'sonst'); }
 function konsoleVerlassen(game, p, grund) {
   if (!p.console) return;
   const aktiv = Station.stationOf(p);   // R1 §4.4: freigegeben wird das aktive Interface, nicht zwingend der Ort
@@ -1409,6 +1407,7 @@ function repairSystem(game, sys, by, how, opts) {
 function reactorNeedsRestart(game) {
   const rc = game.ship.reactorCtl;
   if (!rc || rc.state === 'offline') return;
+  Tel.ueberladungAbgebrochen(game, 'zerstoert');   // TEL-01 B-Integration: lief eine Ueberladung, endet sie hier (liest nur)
   rc.state = 'offline'; rc.offlineT = 0; rc.restartProgress = 0; rc.aloneT = 0; rc.needBot = null; rc.overloadLeft = 0; rc.warned = true;
   game.emit('sfx', { name: 'reactor_down' });
   // M3b §4: im Gefecht startet er nach spaceM3b.reactorAutoRestart s von selbst (damage.update); sonst Neustart zu zweit
@@ -1612,7 +1611,7 @@ module.exports = {
   platformSolid, awaySolid, awayInfo, solidFor,
   // B1 (BODENKAMPF): gebaute Karten, Sicht/Schuss-Sperre, Deck-Links, Lift/Leiter in der Außenzone
   awayInfoOf, awaySight, awayShotBlock, awayLinks, awayDeckOf, awayLink, startAwayLift, finishAwayDeck, coverSpotsOf, kartenMap, mapFor, updatePlayers, damagePlayer, healPlayer, downPlayer, revivePlayer, placeOnShipPad,
-  placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, leaveConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,
+  placeOnPlatformPad, placeOnAwayPad, dropCarry, onDrop, onAct, enterConsole, konsoleVerlassen, konsoleLoesen, interactionsAt, candidateTiles,
   damageSystem, repairSystem, setOffline, updateOffline, addFire, removeFire, addBreach, removeBreach, randomRegionFloor, updateHazards,
   // SYS-01 A1a: Systemmodell (Integrität, Trefferweg, Schwächste Zone)
   integMax, integOf, setInteg, grundwert, zoneFrei, reparaturSperren, reparaturGesperrt, integAusZustand, effZustand, setzeZustand, integKonsistent, integritaetAusZustand, syncInteg, stufeAb, nachStufenHolen, direktTreffer, zerstoerenTreffer, trefferweg, imFenster, schwaechsteZone, integritaetSnapshot, zonenSnapshot, integritaetVoll,

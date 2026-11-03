@@ -335,10 +335,10 @@ function folgenAbgleich(game) {
 function bewusstlosPlayer(game, p) {
   const it = interior();
   p.holT = 0;
-  if (p.console) it.leaveConsole(game, p);
+  if (p.console) it.konsoleVerlassen(game, p, 'bewusstlos');
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.bewusstlos = true; p.bleed = null; p.crouch = false;
-  p.console = null; p.hold = null; p.input.mx = 0; p.input.my = 0;
+  p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (p.zustand === 'bewusstlos') game.oda(`${p.name} ist bewusstlos! Kameraden: Gegner fernhalten – in ${Math.round(cfg(game).koerper.bewusstlos)} s kommt ${p.name} wieder zu sich.`, null);
   squad.onPlayerWounded(game, p);
   game.missionEvent('playerWounded', { pid: p.id, zustand: p.zustand });
@@ -505,11 +505,11 @@ function woundPlayer(game, p, source) {
   const C = cfg(game); const it = interior();
   if (p.downed) return;
   p.holT = 0;
-  if (p.console) it.leaveConsole(game, p);
+  if (p.console) it.konsoleVerlassen(game, p, 'niedergestreckt');
   if (p.carry) it.dropCarry(game, p);
   p.downed = true; p.downedFor = 0; p.wound = true; p.hp = 0; p.crouch = false;
   p.bleed = C.wounded.bleedout;
-  p.console = null; p.hold = null; p.input.mx = 0; p.input.my = 0;
+  p.hold = null; p.input.mx = 0; p.input.my = 0;
   if (!p.shield) initShield(game, p);
   p.shield.seg = 0; p.shield.regenT = 0;
   if (game.away.stats) game.away.stats.wounds++;
@@ -1497,7 +1497,7 @@ function teamGefangenNehmen(game, landepunkt) {
     ship.vx = 0; ship.vy = 0; ship.speed = 0;
   }
   for (const p of team) {
-    if (p.console) it.leaveConsole(game, p);
+    if (p.console) it.konsoleVerlassen(game, p, 'gefangennahme');
     if (p.carry) it.dropCarry(game, p);
     if (p.downed) revive(game, p, null, { quiet: true });
     p.hold = null;

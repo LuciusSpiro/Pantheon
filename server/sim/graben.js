@@ -171,7 +171,7 @@ function start(game, o) {
 // Crew am Abholpunkt hinunterbeamen (Rüstphase-Ende bzw. Neubeginn ohne Rüstphase)
 function hinunter(game) {
   const t = team(game);
-  for (const p of t) { if (p.console) M().interior.leaveConsole(game, p); if (p.downed) M().interior.revivePlayer(game, p); }
+  for (const p of t) { if (p.console) M().interior.konsoleVerlassen(game, p, 'graben'); if (p.downed) M().interior.revivePlayer(game, p); }
   if (t.length) M().away.executeBeam(game, t.map((p) => p.id), 'down');
 }
 // Ende der Rüstphase (werft.szeneStarten -> wellen.vorbereitungEnde)

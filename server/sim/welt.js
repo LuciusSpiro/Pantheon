@@ -116,7 +116,7 @@ function bodenStarten(game) {
   game.transferZiel = { lp, scene: ship.scene };
   game.setAwayMap(lp);
   const team = game.players.filter((p) => p.connected);
-  for (const p of team) { if (p.console) interior.leaveConsole(game, p); if (p.downed) interior.revivePlayer(game, p); }
+  for (const p of team) { if (p.console) interior.konsoleVerlassen(game, p, 'welt'); if (p.downed) interior.revivePlayer(game, p); }
   if (team.length) away.executeBeam(game, team.map((p) => p.id), 'down');
   return lp;
 }
