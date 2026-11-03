@@ -20,6 +20,7 @@
     },
     spind: { angezogen: 'Angezogen', gesperrt: 'Gesperrt: nur anprobieren', ohne3d: '←→↑↓ Teil · Enter anziehen · Vorschau ohne 3D', nichtBereit: 'Charaktere noch nicht geladen' },
     volk: { lerche: 'Lerche', germanen: 'Germanen', rom: 'Rom', crew: 'Crew' },
+    volkKurz: { lerche: 'LER', germanen: 'GERM', rom: 'ROM', crew: 'CREW' },   // Etikett oben links in der Frisur-Kachel (Erstellung): Herkunft, damit der Name zwei Zeilen haben darf
   };
   const AKTION_SPIND = { kopf: 'charakter.spind.kopf', haende: 'charakter.spind.haende', oberteil: 'charakter.spind.oberteil', umhang: 'charakter.spind.umhang', hose: 'charakter.spind.hose', schuhe: 'charakter.spind.schuhe' };
   const AKTION = { frisur: 'charakter.erstellung.frisur', haar: 'charakter.erstellung.haar', haut: 'charakter.erstellung.haut' };
@@ -81,6 +82,8 @@
   }
   const statusFelder = (art, werte) => KT.STATUS[art].map((s, i) => Object.assign({}, s, { v: werte[i] }));
   const gross = (s) => String(s || '').toUpperCase();
+  // Hilfe-Overlay nur über dem Kachelbereich (nicht über dem Figurfenster) und mit den Pfeiltasten der Seite (art = 'spind' | 'erstellung')
+  function hilfe(c, art) { const a = PK.rahmen().anzeige; P.zeichneHilfe(c, { x: a.x + KM.kachel.x, w: KM.figur.x - KM.kachel.x - 12, zeilen: KX.hilfe[art] }); }
 
   function ziffernblock(c, art, aktiv, titel, gesperrt) {
     const pr = PK.rahmen().pult, sp = KM.spalten.block;
@@ -173,7 +176,7 @@
     return best > 0 ? [name.slice(0, best), name.slice(best + 1)] : [name, sub];
   }
   function kachel(c, k, t, zust) {
-    const h = PK.herkunft(t), T = KM.textZeile, tw = k.w - 6, [z1, z2] = kachelTexte(t.name, t.sub != null ? t.sub : h.sub, tw);
+    const h = PK.herkunft(t), T = KM.textZeile, ti = KM.kachel.textInnen, tw = k.w - 2 * ti, [z1, z2] = kachelTexte(t.name, t.sub != null ? t.sub : h.sub, tw);
     rect(c, k.x, k.y, k.w, k.h, F.kachel);
     if (h.gesperrt) {   // Händler/Fund: Schraffur, Bild grau, Kappe H/F, Herkunft als Text (in CHA-01 ist alles frei, die Form steht)
       const G = KM.gesperrt;
@@ -181,7 +184,7 @@
       c.save(); c.filter = 'grayscale(' + G.bild.grau + ') brightness(' + G.bild.hell + ')'; c.globalAlpha = G.bild.deckkraft; kachelBild(c, k.bild, t); c.restore();
       P.cham(c, k.x + G.kappe.x, k.y + G.kappe.y, G.kappe.w, G.kappe.h, F.gesperrtKappe, G.kappe.schraeg, 0, G.kappe.schraeg, 0);
       txt(c, h.kappe, k.x + G.kappe.x + G.kappe.w / 2, k.y + G.kappe.y + 3, F.gesperrtKappeText, 'center');
-      txt(c, passend(z1, tw), k.x + 4, k.bild.y + k.bild.h + T.name, F.dim); txt(c, passend(t.name === z1 ? h.sub : z2, tw), k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
+      txt(c, passend(z1, tw), k.x + ti, k.bild.y + k.bild.h + T.name, F.dim); txt(c, passend(t.name === z1 ? h.sub : z2, tw), k.x + ti, k.bild.y + k.bild.h + T.sub, F.dim);
       if (zust.cursor) cursorRahmen(c, k); else rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
       return;
     }
@@ -191,9 +194,10 @@
       if (t.schatten) rect(c, k.bild.x + 8, k.bild.y + k.bild.h - 6 - 14, k.bild.w - 16, 14, t.schatten);
       rand(c, k.bild.x + 8, k.bild.y + 6, k.bild.w - 16, k.bild.h - 12, F.musterRand);
     } else kachelBild(c, k.bild, t);
+    if (t.etikett) kappeDunkel(c, k.x + 3, k.y + 3 + (zust.getragen ? KM.getragen : 0), t.etikett, F.kappe, F.kappeText);
     if (zust.getragen) rect(c, k.x, k.y, k.w, KM.getragen, F.platz);
-    txt(c, passend(z1, tw), k.x + 4, k.bild.y + k.bild.h + T.name, zust.getragen || zust.cursor ? F.platz : F.text);
-    txt(c, passend(z2, tw), k.x + 4, k.bild.y + k.bild.h + T.sub, F.dim);
+    txt(c, passend(z1, tw), k.x + ti, k.bild.y + k.bild.h + T.name, zust.getragen || zust.cursor ? F.platz : F.text);
+    txt(c, passend(z2, tw), k.x + ti, k.bild.y + k.bild.h + T.sub, F.dim);
     if (zust.cursor) cursorRahmen(c, k); else rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
   }
   function figurFenster(c, a, e, name) {
@@ -241,18 +245,18 @@
   function erstellungZeichnen(c, view) {
     const st = C.lies(), e = st.sitzung.entwurf;
     if (!e) return;
-    const neu = e.modus === 'neu', k = e.karte, kat = katalog();
+    const neu = e.modus === 'neu', k = e.karte;
     const werte = [gross(e.name) || '…', teilName('frisur', k.frisur), (k.haar + 1) + '/' + C.anzahlOptionen('haar'), (k.haut + 1) + '/' + C.anzahlOptionen('haut')];
     const g = pultRahmen(c, view, KX.saeule.erstellung, statusFelder('erstellung', werte), (cc, a) => {
       const T = KM.kachel, platz = neu ? e.platz : null;
       let unten = a.y + T.y + T.titelH + 2;
       if (platz) {
         const farbe = C.FARB_PLAETZE.includes(platz);
-        const n = C.anzahlOptionen(platz), wahl = C.wahlIndex(platz), std = (kat.plaetze.find((p) => p.id === platz) || {}).standard;
+        const n = C.anzahlOptionen(platz), wahl = C.wahlIndex(platz);
         P.titel(cc, a.x + T.x, a.y + T.y, KM.figur.x - T.x - 12, PK.text(KX.kachelTitel.erstellung, { platz: gross(KT.PLATZ[platz].name), n }), 'nav');
         const eintraege = farbe
           ? C.farbenFuer(platz).map((f, i) => ({ name: PK.text(TEXT.erstellung.farbName, { platz: KT.PLATZ[platz].name === 'Haarfarbe' ? 'Haar' : 'Haut', n: i + 1 }), sub: i === 0 ? TEXT.erstellung.standard : '', farbe: typeof f === 'string' ? f : f.skin, schatten: typeof f === 'string' ? null : f.skin_shadow }))
-          : C.teileFuer(platz).map((t) => ({ name: t.name, sub: t.id === platz + '/' + std ? TEXT.erstellung.standard : TEXT.volk[t.volk] || '–', vorschau: t.vorschau, herkunft: 'frei', live: liveFuer('neu', platz, t.id) }));
+          : C.teileFuer(platz).map((t) => ({ name: t.name, sub: '', etikett: TEXT.volkKurz[t.volk] || null, vorschau: t.vorschau, herkunft: 'frei', live: liveFuer('neu', platz, t.id) }));
         const ks = PK.kacheln(a, eintraege.length);
         ks.forEach((r, i) => { kachel(cc, r, eintraege[i], { cursor: i === wahl }); klickFlaeche(r, eintraege[i].name, () => C.setzeWahl(platz, i)); });
         unten = ks.length ? ks[ks.length - 1].y + ks[ks.length - 1].h : unten;
@@ -335,7 +339,7 @@
       { taste: 'R', aktion: 'charakter.spind.zuruecksetzen', text: KX.knopf.zuruecksetzen, klick: () => C.spindZuruecksetzen() },
       { taste: 'Enter', aktion: 'charakter.uebernehmen', text: KX.knopf.anziehen, haupt: true, gesperrt: !spind, klick: () => C.speichereOutfit() },
     ]);
-    P.zeichneHilfe(c);
+    hilfe(c, 'spind');
     R.drawTooltip(c);
   }
   // true = Taste verbraucht. Esc und ? behandelt consoles.js (Pult-Station); hier nur Platz, Teil, Drehen, Zurücksetzen, Anziehen.
@@ -364,7 +368,7 @@
     F = PK.farben(P.skinId(null));
     R.ui.buttons.length = 0; R.ui.tooltip = null;
     if (s.seite === 'erstellung') erstellungZeichnen(c, view); else listeZeichnen(c, view);
-    P.zeichneHilfe(c);
+    if (s.seite === 'erstellung') hilfe(c, 'erstellung'); else P.zeichneHilfe(c);
     R.drawTooltip(c);
   }
 

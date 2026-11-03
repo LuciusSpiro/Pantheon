@@ -88,6 +88,10 @@ const MUTATIONEN = [
   [C, "if (platz === 'umhang') { e.yawVorUmhang = e.yaw; e.yaw = UMHANG_YAW; }", "if (platz === 'umhang') { e.yawVorUmhang = e.yaw; }", 'Umhang dreht die Anprobe nicht auf den Rücken'],
   [C, "e.yaw = e.yawVorUmhang; e.yawVorUmhang = null; }", "e.yawVorUmhang = null; }", 'Platzwechsel vom Umhang dreht nicht zurück'],
   [C, "if (platz !== e.platz) {   // CHA-02", "if (true) {   // CHA-02", 'derselbe Umhang-Platz dreht erneut (überschreibt die Ausgangsdrehung)'],
+  // CHA-02 E1b: Frisur-Kachel mit Etikett statt Unterzeile, Hilfe auf den Kachelbereich
+  ['public/js/kammer-ui.js', "sub: '', etikett: TEXT.volkKurz[t.volk] || null,", "sub: TEXT.volk[t.volk] || '–',", 'Frisur-Kachel zeigt die Herkunft wieder als Unterzeile (verdrängt vom Namen)'],
+  ['public/js/kammer-ui.js', "if (t.etikett) kappeDunkel(c, k.x + 3,", "if (false) kappeDunkel(c, k.x + 3,", 'Herkunfts-Etikett der Frisur-Kachel wird nicht gezeichnet'],
+  ['public/js/kammer-ui.js', "w: KM.figur.x - KM.kachel.x - 12, zeilen: KX.hilfe[art] })", "zeilen: KX.hilfe[art] })", 'Hilfe-Overlay wieder 420 breit (ragt über den Anprobe-Rahmen)'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

@@ -560,6 +560,12 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(/KB\.bild\(t\.live\.karte, 'kachel', t\.live\.yaw\)/.test(ui), "Livekacheln werden im Ausschnitt 'kachel' gerendert (Kopf ¾ von vorn), nicht als Porträt");
   ok(/teilName\('kopf', karte\.outfit\.kopf\)/.test(ui) && /teilName\('oberteil', karte\.outfit\.oberteil\)/.test(ui) && /teilName\('frisur', karte\.frisur\)/.test(ui), 'Kartenzeilen der Liste: Frisur, Oberteil und Kopfbedeckung in Klartext aus den Katalognamen');
   ok(/function kachelTexte\(/.test(ui) && /kachelTexte\(t\.name/.test(ui), 'Kachel bricht lange Namen mit Leerzeichen um (kachelTexte)');
+  // CHA-02 E1b: Frisur-Kachel – Name bis zu zwei Zeilen, Herkunft als Etikett oben links (nie mehr verdrängt, Kurzschnitt zeigt sein Volk, nicht „Standard“)
+  ok(/sub: '', etikett: TEXT\.volkKurz\[t\.volk\] \|\| null/.test(ui) && /if \(t\.etikett\) kappeDunkel\(c, k\.x \+ 3,/.test(ui), 'Frisur-Kachel: Name ohne Unterzeile (bis zu zwei Zeilen), Volk als Etikett oben links');
+  { const KATJ = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'katalog', 'charakter.json'), 'utf8')), vk = /volkKurz: \{([^}]*)\}/.exec(ui);
+    const fris = KATJ.teile.filter((t) => t.platz === 'frisur' && t.volk);
+    ok(fris.length === 8 && vk && fris.every((t) => new RegExp('(^| )' + t.volk + ": '").test(vk[1])), 'Katalog: jede Frisur mit Volk (' + fris.length + ') hat ein Etikett in volkKurz'); }
+  ok(/hilfe\(c, 'spind'\)/.test(ui) && /hilfe\(c, 'erstellung'\)/.test(ui) && /P\.zeichneHilfe\(c, \{ x: a\.x \+ KM\.kachel\.x, w: KM\.figur\.x - KM\.kachel\.x - 12, zeilen: KX\.hilfe\[art\] \}\)/.test(ui), 'Hilfe in Spind und Erstellung: auf den Kachelbereich begrenzt, mit Pfeiltasten-Zeilen');
   ok(/namensfeld\(cc, a\.x \+ T\.x, 0, KM\.figur\.x - T\.x - 12, e, a,/.test(ui), 'Erstellung mit Kacheln: Namensfeld kompakt unter den Kachelreihen');
 }
 

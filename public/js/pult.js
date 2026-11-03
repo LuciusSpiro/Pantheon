@@ -305,11 +305,12 @@
     c.fillStyle = F.banderoleAblauf; c.fillRect(a.x, y + h, Math.round(a.w * bd.anteil), M.ablauf);
   }
   // Hilfe-Overlay: alle Knöpfe des Pults mit Taste und Sperrgrund (aus R.ui.buttons, daher immer aktuell)
-  function zeichneHilfe(c) {
+  // opt (Kleiderkammer, CHA-02 E1b): { x, w } = Overlay auf diesen Bereich begrenzen (statt 420 breit mittig); zeilen = [[Taste, Text], …] vorab (Tasten ohne Knopf, z. B. die Pfeile)
+  function zeichneHilfe(c, opt) {
     if (!hilfe) return;
-    const seen = new Set(), rows = [];
+    const o = opt || {}, seen = new Set(), rows = (o.zeilen || []).map(([hotkey, label]) => ({ hotkey, label }));
     for (const b of R.ui.buttons) { if (!b.hotkey || seen.has(b.label)) continue; seen.add(b.label); rows.push(b); }
-    const w = 420, lh = 10, h = Math.min(300, 30 + rows.length * lh), x = (VW - w) / 2, y = 30;
+    const w = o.w || 420, lh = 10, h = Math.min(300, 30 + rows.length * lh), x = o.x != null ? o.x : (VW - w) / 2, y = 30;
     c.fillStyle = rgba(K.bg, 0.94); c.fillRect(x, y, w, h); rand(c, x, y, w, h, K.frame);
     txt(c, 'HILFE · Taste hält / drückt · ? schließt', x + 8, y + 6, K.accent);
     rows.slice(0, Math.floor((h - 30) / lh)).forEach((b, i) => {

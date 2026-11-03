@@ -182,6 +182,14 @@ const sp = PK.TOKENS.MASS.spalten; ok(sp.block.x + sp.block.w <= sp.mitte.x && s
   for (const [platz, n] of Object.entries(anzahl)) ok(n <= MA.kachel.spalten * MA.kachel.zeilen, `Platz ${platz}: ${n} Teile passen nicht in ${MA.kachel.spalten * MA.kachel.zeilen} Kacheln (Liste müsste blättern)`);
   ok(anzahl.frisur === 9, 'Frisurenliste hat neun Einträge (Katalog ' + anzahl.frisur + ')');
   ok(MA.kachelAnsicht.frisur.yaw === 0 && MA.kachelAnsicht.kopf.yaw === 0, 'Livekacheln: Frisur und Kopfbedeckung ¾ von vorn (yaw 0 zur Kamera 28°), wie die Vorschaubilder des Voxelwerks');
+  // CHA-02 E1b: Hilfe-Liste in Raster-Reihenfolge (8; 4 5 6; 2; 0), Pfeiltasten-Zeilen der Hilfe, Textabstand in den Kacheln
+  const reihe = (art) => PK.ziffernblock(art, PK.rahmen().pult).filter((z) => !z.leer).map((z) => z.taste).join();
+  ok(reihe('spind') === '8,4,5,6,2,0', 'Spind: Ziffernblock-Knöpfe (= Hilfe-Liste) in Raster-Reihenfolge 8; 4 5 6; 2; 0, nicht aufsteigend (' + reihe('spind') + ')');
+  ok(reihe('erstellung') === '8,5,2', 'Erstellung: Ziffernblock in Raster-Reihenfolge 8, 5, 2 (' + reihe('erstellung') + ')');
+  ok(PK.TOKENS.TEXT.hilfe.spind.length === 1 && PK.TOKENS.TEXT.hilfe.erstellung.length === 2 && PK.TOKENS.TEXT.hilfe.spind[0][0] === '←→↑↓', 'Hilfe: Pfeiltasten-Zeilen für Spind (←→↑↓) und Erstellung (←→, ↑↓)');
+  const ti = MA.kachel.textInnen, twT = MA.kachel.w - 2 * ti;
+  ok(ti >= 3, 'Kachel: Textzeilen mit Innenabstand zum Rand (' + ti + ')');
+  ok(tw('Einsatzanzug') <= twT, `Kachel „Einsatzanzug“ ${tw('Einsatzanzug')} px stößt am Rand (Textbreite ${twT} px, Innenabstand ${ti}); längere Einzelwörter kürzt die Kachel mit Punkt`);
   // Farbmuster: Haar 8 (zwei Zeilen) und Haut 6 bleiben in der Spalte, nie in der Spalte Charakter
   const mx = R.pult.x + mi.x, mrechts = mx + mi.w;
   for (const [n, zeilen] of [[KAT.farben.haar.length, 2], [KAT.farben.haut.length, 1]]) {

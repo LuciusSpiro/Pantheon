@@ -90,7 +90,7 @@
   // Maße in Spielpixeln (640×360). Rechtecke relativ zur Anzeige bzw. zum Pult aus Pult.rahmen.
   const MASS = {
     S: 236,                                    // Statusleiste (wie Mockup B): Anzeige 224 hoch, Pult 88 hoch
-    kachel: { x: 8, y: 6, titelH: 13, w: 72, bild: 62, text: 22, fuge: 6, spalten: 5, zeilen: 2, hinweisUnten: 12 },
+    kachel: { x: 8, y: 6, titelH: 13, w: 72, bild: 62, text: 22, fuge: 6, spalten: 5, zeilen: 2, hinweisUnten: 12, textInnen: 3 },   // textInnen: Abstand der Textzeilen zum linken und rechten Kachelrand
     cursor: { innen: 1, aussen: 3 },           // Abstand der beiden Cursor-Ränder nach außen (1 px Messing, 1 px Creme)
     getragen: 2,                               // Leiste oben auf der Kachel
     gesperrt: { kappe: { x: 3, y: 3, w: 13, h: 12, schraeg: 2 }, schraffur: 3, bild: { grau: 1, hell: 0.28, deckkraft: 0.9 } },
@@ -144,6 +144,7 @@
     spalte: { platz: 'PLATZ · ZIFFERNBLOCK = KÖRPER', kopf: 'AUSSEHEN · ZIFFERNBLOCK', farbe: 'FARBE', herkunft: 'HERKUNFT', charakter: 'CHARAKTER', waehlen: 'WÄHLEN', weiter: 'WEITER', umziehen: 'UMZIEHEN' },
     kachelTitel: { spind: '{platz} · {n} frei', erstellung: '{platz} · {n} zur Wahl' },
     hinweis: { spind: '←→↑↓ Teil · Enter anziehen', erstellung: '←→↑↓ wählen · Figur zeigt es sofort' },
+    hilfe: { spind: [['←→↑↓', 'Teil wählen']], erstellung: [['←→', 'Auswahl blättern'], ['↑↓', 'Platz wechseln']] },   // Pfeiltasten in der Hilfe-Liste (haben keinen Knopf)
     drehen: 'drehen', drehenLinks: 'Figur nach links drehen', drehenRechts: 'Figur nach rechts drehen', frei: 'FREI', freiHinweis: 'N legt hier an', anprobe: 'Anprobe', neu: 'neu',
     knopf: { neu: 'Neu anlegen', umbenennen: 'Umbenennen', loeschen: 'Löschen …', platz: 'Platz', blaettern: 'blättern', lobby: 'In die Lobby',
       name: 'Name ändern', zuruecksetzen: 'Zurücksetzen', speichern: 'Speichern', anziehen: 'Anziehen', ablegen: 'Ablegen' },
@@ -167,7 +168,8 @@
   function ziffernblock(art, pult) {
     const m = MASS.ziffernblock, sp = MASS.spalten.block, b = pult || rahmen().pult, belegt = ZIFFERNBLOCK[art] || {};
     const x0 = b.x + sp.x, y0 = b.y + m.titelH;
-    return Object.keys(NUMPAD).filter((t) => t !== '0' || belegt[t]).map((t) => {
+    // Reihenfolge = Raster (7 8 9 / 4 5 6 / 1 2 3 / 0), nicht Zahlenordnung: so steht die Hilfe-Liste (R.ui.buttons) in der Anordnung des Blocks
+    return Object.keys(NUMPAD).filter((t) => t !== '0' || belegt[t]).sort((a, b) => NUMPAD[a][1] - NUMPAD[b][1] || NUMPAD[a][0] - NUMPAD[b][0]).map((t) => {
       const [s, z, br] = NUMPAD[t], w = (br || 1) * m.w + ((br || 1) - 1) * m.fuge;
       return { taste: t, platz: belegt[t] || null, leer: !belegt[t], rect: { x: x0 + s * (m.w + m.fuge), y: y0 + z * (m.h + m.fuge), w, h: m.h } };
     });
