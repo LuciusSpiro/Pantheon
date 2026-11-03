@@ -171,6 +171,15 @@
     }
   }
 
+  // Schichten über der Glasebene, aufsteigend nach Rang (Objekte 10, Leiste 20, Lagescheibe 30); fn(ctx, view, plan, kamera)
+  const schichten = [];
+  function registriereSchicht(name, rang, fn) {
+    const i = schichten.findIndex(s => s.name === name);
+    if (i >= 0) schichten.splice(i, 1);
+    schichten.push({ name, rang, fn });
+    schichten.sort((a, b) => a.rang - b.rang);
+  }
+
   function zeichne(ctx, view, rect) {
     const TK = root.HauptschirmTokens && root.HauptschirmTokens.TOKENS;
     if (!ctx || !TK || !TK.VISIER) return;
@@ -189,10 +198,14 @@
       }
       himmel(ctx, view, L, c);
       glas(ctx, c);
+      for (const sch of schichten) {   // Objekte, Leiste, Lagescheibe: je eine eigene Datei, meldet sich mit registriereSchicht an
+        ctx.save();
+        try { sch.fn(ctx, view, L, c); } catch (e) { melde(e); } finally { ctx.restore(); }
+      }
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { zeichne, plan, projiziere, projiziereWelt, planetLage, kamera, stufeFuer };
+  const API = { registriereSchicht, zeichne, plan, projiziere, projiziereWelt, planetLage, kamera, stufeFuer };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.Visier = API;
   if (root.Hauptschirm && root.Hauptschirm.registriere) root.Hauptschirm.registriere('visier', zeichne);
