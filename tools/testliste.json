@@ -218,6 +218,7 @@
   {"id":"test-beam-hinweis","kette":"test","cmd":["tools/test-beam-hinweis.js"],"stufe":"fast","budget_s":7},
   {"id":"test-frontsicht","kette":"test","cmd":["tools/test-frontsicht.js"],"stufe":"fast","budget_s":6},
   {"id":"test-hauptschirm-zustand","kette":"test","cmd":["tools/test-hauptschirm-zustand.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-kante-layout","kette":"test","cmd":["tools/test-kante-layout.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kulisse-kugel","kette":"test","cmd":["tools/test-kulisse-kugel.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kulisse-himmel","kette":"test","cmd":["tools/test-kulisse-himmel.js"],"stufe":"fast","budget_s":10},
   {"id":"test-ziel-marke","kette":"test","cmd":["tools/test-ziel-marke.js"],"stufe":"fast","budget_s":6},

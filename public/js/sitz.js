@@ -235,10 +235,15 @@
       R.text(ctx, v, x, y + 12, { color: col });
       x += Math.max(R.measure(k, 1), R.measure(String(v), 1)) + 18;
     }
-    const hint = S.blick === 'crew' ? 'Maus an den Rand: zurück · Rad ▼ Pult' : 'Rad ▼ / Maus nach unten: Pult · Maus an den Seitenrand: Crew';
     if (cd) return;   // SYS-01 A2 Nacharbeit: Countdown hat Vorrang vor den Bedienhinweisen (sonst überlagern sie die Werte)
-    R.text(ctx, hint, VW - 10, y + 12, { color: PAL.panelLight, align: 'right' });
-    R.text(ctx, 'Tasten der Station wirken weiter · Esc verlassen', VW - 10, y + 2, { color: PAL.panelLight, align: 'right' });
+    // Werte haben Vorrang: die Hinweise (rechtsbündig) bekommen nur den Platz rechts der Werte; passt die lange Fassung nicht, die kurze, sonst entfällt der Hinweis
+    const werteEnde = x - 18, rand = VW - 10, luft = 12;
+    const passt = (t) => rand - R.measure(t, 1) >= werteEnde + luft;
+    const waehle = (fassungen) => fassungen.find(passt) || null;
+    const hint = waehle(S.blick === 'crew' ? ['Maus an den Rand: zurück · Rad ▼ Pult', 'Rand: zurück · Rad ▼ Pult', 'Rad ▼ Pult'] : ['Rad ▼ / Maus nach unten: Pult · Maus an den Seitenrand: Crew', 'Rad ▼: Pult · Seitenrand: Crew', 'Rad ▼: Pult']);
+    const esc = waehle(['Tasten der Station wirken weiter · Esc verlassen', 'Esc verlassen']);
+    if (hint) R.text(ctx, hint, rand, y + 12, { color: PAL.panelLight, align: 'right' });
+    if (esc) R.text(ctx, esc, rand, y + 2, { color: PAL.panelLight, align: 'right' });
   }
 
   // Ersetzt Consoles.draw an den Sitzplätzen. Die Konsole wird immer in den Pult-Puffer gezeichnet (damit Zustand und
