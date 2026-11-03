@@ -142,7 +142,7 @@ const SCHIRM = { x: 0, y: 0, w: VW, h: VH };
 const R = PK.rahmen();
 ok(drin(R.anzeige, SCHIRM) && drin(R.pult, SCHIRM), 'Kammer: Anzeige/Pult außerhalb 640×360');
 // Ziffernblock vollständig
-const PLAETZE = { spind: ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], erstellung: ['gesicht', 'frisur', 'bart', 'haut', 'haar'] };
+const PLAETZE = { spind: ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], erstellung: ['frisur', 'haut', 'haar'] };
 for (const [art, soll] of Object.entries(PLAETZE)) {
   const zb = PK.ziffernblock(art, R.pult), belegt = zb.filter((z) => !z.leer);
   ok(belegt.map((z) => z.platz).sort().join() === soll.slice().sort().join(), `Ziffernblock ${art}: Plätze ${belegt.map((z) => z.platz).join()} ≠ ${soll.join()}`);

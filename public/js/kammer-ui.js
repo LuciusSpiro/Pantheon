@@ -22,7 +22,7 @@
     volk: { lerche: 'Lerche', germanen: 'Germanen', rom: 'Rom', crew: 'Crew' },
   };
   const AKTION_SPIND = { kopf: 'charakter.spind.kopf', haende: 'charakter.spind.haende', oberteil: 'charakter.spind.oberteil', umhang: 'charakter.spind.umhang', hose: 'charakter.spind.hose', schuhe: 'charakter.spind.schuhe' };
-  const AKTION = { frisur: 'charakter.erstellung.frisur', gesicht: 'charakter.erstellung.gesicht', bart: 'charakter.erstellung.bart', haar: 'charakter.erstellung.haar', haut: 'charakter.erstellung.haut' };
+  const AKTION = { frisur: 'charakter.erstellung.frisur', haar: 'charakter.erstellung.haar', haut: 'charakter.erstellung.haut' };
 
   // ---------------------------------------------------------------- Grundformen (Referenz kammer-preview.html)
   const rect = (c, x, y, w, h, col) => { c.fillStyle = col; c.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h)); };
@@ -61,7 +61,7 @@
       rect(c, r.x + m, r.y + m, r.w - 2 * m, r.h - 2 * m, f); rand(c, r.x + m, r.y + m, r.w - 2 * m, r.h - 2 * m, F.musterRand);
       return;
     }
-    const tp = platz && C.TEIL_PLAETZE.includes(platz) ? platz : 'gesicht', t = teil(tp, karte[tp]);
+    const tp = platz && C.TEIL_PLAETZE.includes(platz) ? platz : 'frisur', t = teil(tp, karte[tp]);
     bildIn(c, t && vorschau(t.vorschau), r, art === 'nah');
   }
 
@@ -133,10 +133,8 @@
         kappeDunkel(cc, k.x + 4, k.y + 4 + (getragen ? 2 : 0), String(i + 1), an ? F.kappeWahl : F.kappe, an ? F.kappeWahlText : F.kappeText);
         const ty = k.bild.y + k.bild.h + 4, bw = k.w - 12;
         txtSp(cc, gross(karte.name), k.x + 6, ty, getragen ? F.platz : F.text, 1);
-        const bart = teilName('bart', karte.bart);
-        txt(cc, passend(teilName('gesicht', karte.gesicht) + ' · ' + teilName('frisur', karte.frisur), bw), k.x + 6, ty + 13, F.text);
-        txt(cc, passend(bart, bw), k.x + 6, ty + 23, F.text);
-        txt(cc, passend(teilName('oberteil', karte.outfit.oberteil), bw), k.x + 6, ty + 33, F.dim);
+        txt(cc, passend(teilName('frisur', karte.frisur), bw), k.x + 6, ty + 13, F.text);
+        txt(cc, passend(teilName('oberteil', karte.outfit.oberteil), bw), k.x + 6, ty + 23, F.dim);
         if (an) cursorRahmen(cc, k); else rand(cc, k.x, k.y, k.w, k.h, F.kachelRand);
         if (s.loeschFrage === ch.id) { rect(cc, k.x + 1, k.y + k.h - 14, k.w - 2, 13, F.loeschen); txt(cc, TEXT.liste.loeschKnopf, k.x + k.w / 2, k.y + k.h - 11, F.ink, 'center'); }
       });
@@ -224,7 +222,7 @@
     const st = C.lies(), e = st.sitzung.entwurf;
     if (!e) return;
     const neu = e.modus === 'neu', k = e.karte, kat = katalog();
-    const werte = [gross(e.name) || '…', teilName('gesicht', k.gesicht), (k.haar + 1) + '/' + C.anzahlOptionen('haar'), (k.haut + 1) + '/' + C.anzahlOptionen('haut')];
+    const werte = [gross(e.name) || '…', teilName('frisur', k.frisur), (k.haar + 1) + '/' + C.anzahlOptionen('haar'), (k.haut + 1) + '/' + C.anzahlOptionen('haut')];
     const g = pultRahmen(c, view, KX.saeule.erstellung, statusFelder('erstellung', werte), (cc, a) => {
       const T = KM.kachel, platz = neu ? e.platz : null;
       let unten = a.y + T.y + T.titelH + 2;

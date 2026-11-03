@@ -16,8 +16,8 @@
   const SCHLUESSEL = 'pantheon.charaktere';
   const MAX = 4;
   const ID_FORM = /^[A-Za-z0-9_-]{1,32}$/;
-  // Plätze der Erstellung (genau diese sechs Felder: Name + drei Teile + zwei Farben), Reihenfolge = Ziffernblock von oben nach unten
-  const TEIL_PLAETZE = ['frisur', 'gesicht', 'bart'];
+  // Plätze der Erstellung (CHA-02 E1a: Name + Frisur + zwei Farben; gesicht und bart sind mit Katalog Version 2 entfallen), Reihenfolge = Ziffernblock von oben nach unten
+  const TEIL_PLAETZE = ['frisur'];
   const FARB_PLAETZE = ['haar', 'haut'];
   const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE);
   // CHA-01 D: sechs Outfit-Plätze des Spinds, Reihenfolge wie die Mittelspalte des Ziffernblocks (Kopf → Füße, dann Hände und Umhang)

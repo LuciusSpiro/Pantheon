@@ -15,7 +15,7 @@ const ok = (b, t) => { n++; if (!b) { fehler++; console.log('FEHLER: ' + t); } }
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-spind-'));
 const g = new Game({ noStore: true, seed: 5, debug: true, ruestphase: false, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0', REGIE_DIR: path.join(dir, 'r') }, log: () => {} });
-const KARTE = (name) => ({ v: 1, name, koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 1, haar: 2,
+const KARTE = (name) => ({ v: 1, name, koerper: 'standard', frisur: 'kurz', haut: 1, haar: 2,
   outfit: { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner' } });
 const cs = [];
 const verbinde = (id, name, color, karte) => {
@@ -102,8 +102,8 @@ leere(); sende(1, Object.assign({}, NEU, { kopf: 'keine' }));
 ok(p1.karte.outfit.oberteil === 'plankenweste' && p0.karte.outfit.kopf === 'bordhelm' && karteEvents(cs[0]).length === 1 && karteEvents(cs[0])[0].pid === p1.id, 'jeder ändert nur seine eigene Karte');
 // Charakterteil per karte.outfit nicht änderbar
 leere();
-sende(0, { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner', gesicht: 'narbe', frisur: 'zoepfe', bart: 'vollbart', name: 'Hacker', haut: 3, koerper: 'riese' },
-  { name: 'Hacker', gesicht: 'narbe', frisur: 'zoepfe', haut: 3, haar: 0, koerper: 'riese', karte: { gesicht: 'narbe', name: 'Hacker', outfit: NEU } });
+sende(0, { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner', gesicht: 'narbe', frisur: 'wild', bart: 'vollbart', name: 'Hacker', haut: 3, koerper: 'riese' },
+  { name: 'Hacker', gesicht: 'narbe', frisur: 'wild', haut: 3, haar: 0, koerper: 'riese', karte: { gesicht: 'narbe', name: 'Hacker', outfit: NEU } });
 ok(JSON.stringify(Object.assign({}, p0.karte, { outfit: null })) === vorher && p0.name === 'Aurelia', 'zusätzliche Felder (Name, Gesicht, Frisur, Farben, Körper, ganze Karte) ändern den Charakter nicht');
 ok(Object.keys(p0.karte.outfit).sort().join() === 'haende,hose,kopf,oberteil,schuhe,umhang' && p0.karte.outfit.kopf === 'keine' && p0.karte.outfit.umhang === 'keiner', 'im Outfit stehen genau die sechs Plätze (fremde Schlüssel fallen weg)');
 // ungültige Teile → Standard

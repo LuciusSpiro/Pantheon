@@ -208,8 +208,6 @@
     A('charakter.drehenLinks', 'charakter', 'Figur nach links drehen', ['KeyQ'], 'charakter.erstellung'),
     A('charakter.drehenRechts', 'charakter', 'Figur nach rechts drehen', ['KeyE'], 'charakter.erstellung'),
     A('charakter.erstellung.frisur', 'charakter', 'Platz Frisur (Ziffernblock 8)', NUM(8), 'charakter.erstellung'),
-    A('charakter.erstellung.gesicht', 'charakter', 'Platz Gesicht (Ziffernblock 5)', NUM(5), 'charakter.erstellung'),
-    A('charakter.erstellung.bart', 'charakter', 'Platz Bart (Ziffernblock 2)', NUM(2), 'charakter.erstellung'),
     A('charakter.erstellung.haar', 'charakter', 'Platz Haarfarbe (Ziffernblock 9)', NUM(9), 'charakter.erstellung'),
     A('charakter.erstellung.haut', 'charakter', 'Platz Hautton (Ziffernblock 6)', NUM(6), 'charakter.erstellung'),
     // CHA-01 D: Spind im eigenen Quartier (Konsole spind); ←→↑↓ wählen das Teil (fest wie in der Erstellung), Anziehen = charakter.uebernehmen, Esc = allgemein.verlassen, ? = allgemein.hilfe

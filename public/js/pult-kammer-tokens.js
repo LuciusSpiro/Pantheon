@@ -20,8 +20,8 @@
 //   - Die Kammer ist eine Pult-Station: Pult.rahmen, Pult.knopf, Pult.titel, Pult.zelle. Keine eigenen Knöpfe, keine eigene Schrift (Pixelschrift art.js).
 //   - Messing (FN.nav) = Plätze und „getragen“, Bernstein (FN.drive) = Abschluss (Speichern, Anziehen, in die Lobby), Creme (FN.cmd) = Farben und Charakter,
 //     Rot (FN.weapon) nur Löschen. Das gilt in beiden Skins.
-//   - Ziffernblock = Körper. Spind: 8 Kopfbedeckung, 4 Handschuhe, 5 Oberteil, 6 Umhang, 2 Hose, 0 Schuhe. Erstellung: 8 Frisur, 5 Gesicht, 2 Bart
-//     (die Kopfspalte von oben nach unten), daneben 9 Haarfarbe, 6 Hautton. Unbelegte Tasten zeichnen als Pult.zelle 'leer', damit der Block lesbar bleibt.
+//   - Ziffernblock = Körper. Spind: 8 Kopfbedeckung, 4 Handschuhe, 5 Oberteil, 6 Umhang, 2 Hose, 0 Schuhe. Erstellung (CHA-02 E1a): 8 Frisur
+//     (E1b baut die Kopfspalte neu), daneben 9 Haarfarbe, 6 Hautton. Unbelegte Tasten zeichnen als Pult.zelle 'leer', damit der Block lesbar bleibt.
 //   - Kachelzustände: normal (1-px-Rand), Cursor (doppelter Rand Messing innen, Creme außen, wie der aktive Knopf), getragen (2-px-Leiste oben + Name
 //     in Messing), gesperrt (Schraffur, Bild grau, Kappe H/F, Herkunft als Text). Jeder Zustand hat eine Form, nicht nur eine Farbe.
 //   - Haut- und Haarfarben kommen aus dem Katalog (content/katalog/charakter.json farben), nie aus diesen Tokens; ein Muster hat immer `musterRand`.
@@ -110,7 +110,7 @@
   const NUMPAD = { 7: [0, 0], 8: [1, 0], 9: [2, 0], 4: [0, 1], 5: [1, 1], 6: [2, 1], 1: [0, 2], 2: [1, 2], 3: [2, 2], 0: [0, 3, 2] };
   const ZIFFERNBLOCK = {
     spind: { 8: 'kopf', 4: 'haende', 5: 'oberteil', 6: 'umhang', 2: 'hose', 0: 'schuhe' },        // Mittelspalte Kopf → Füße, Hände und Umhang daneben
-    erstellung: { 8: 'frisur', 5: 'gesicht', 2: 'bart', 9: 'haar', 6: 'haut' },                    // Kopfspalte oben → unten, Farben rechts daneben
+    erstellung: { 8: 'frisur', 9: 'haar', 6: 'haut' },                   // Kopfspalte oben → unten, Farben rechts daneben
   };
   // Plätze: Schlüssel wie im Katalog (Bericht CHA-01, Schnittstelle). Langname im Katalog hat Vorrang; kurz = Beschriftung im Ziffernblock (≤ 70 px).
   const PLATZ = {
@@ -120,9 +120,7 @@
     schuhe: { name: 'Schuhe', kurz: 'Schuhe', gruppe: 'outfit' },
     haende: { name: 'Handschuhe', kurz: 'Handsch.', gruppe: 'outfit' },
     umhang: { name: 'Umhang', kurz: 'Umhang', gruppe: 'outfit' },
-    gesicht: { name: 'Gesicht', kurz: 'Gesicht', gruppe: 'charakter' },
     frisur: { name: 'Frisur', kurz: 'Frisur', gruppe: 'charakter' },
-    bart: { name: 'Bart', kurz: 'Bart', gruppe: 'charakter' },
     haar: { name: 'Haarfarbe', kurz: 'Haarfarbe', gruppe: 'farbe' },
     haut: { name: 'Hautton', kurz: 'Hautton', gruppe: 'farbe' },
   };
@@ -135,7 +133,7 @@
   // Statusleiste je Bildschirm (Pult.rahmen zeichnet heute nur die Schiffsleiste: Option `status` ergänzen). Spind: null = Schiffsleiste wie an jeder Station.
   const STATUS = {
     liste: [{ l: 'GEWÄHLT', fn: 'cmd', w: 1.3 }, { l: 'PLÄTZE', fn: 'nav', w: 0.8 }, { l: 'SAMMLUNG', fn: 'nav', w: 1 }, { l: 'RAUM', fn: 'neutral', w: 0.8 }],
-    erstellung: [{ l: 'NAME', fn: 'cmd', w: 1.3 }, { l: 'GESICHT', fn: 'nav', w: 1 }, { l: 'HAAR', fn: 'nav', w: 0.9 }, { l: 'HAUT', fn: 'nav', w: 0.8 }],
+    erstellung: [{ l: 'NAME', fn: 'cmd', w: 1.3 }, { l: 'FRISUR', fn: 'nav', w: 1 }, { l: 'HAAR', fn: 'nav', w: 0.9 }, { l: 'HAUT', fn: 'nav', w: 0.8 }],
     spind: null,
   };
   const TEXT = {
