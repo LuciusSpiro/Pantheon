@@ -5,6 +5,7 @@
 //   HauptschirmTafeln.lage(view, opt)       { links, rechts|null, versetzt } Rechtecke in Texturpixeln; opt = { szeneBreite, szeneUnten } (Szenenzeile: Breite der Zeile, Unterkante samt Luft; 0 ohne Szene)
 //   HauptschirmTafeln.sperren(view, opt)    Sperrflächen für Randpfeile und Labels (Tafeln + sperrAbstand), [] wenn nichts da ist
 //   HauptschirmTafeln.zeichne(ctx, view, opt)  zeichnet die Tafeln; wirft nie (fehlende Daten: Strich statt Wert)
+//   HauptschirmTafeln.zeichneSprungziel(ctx, view, opt)  nur die rechte Tafel (Visier, KUL-03 C); zeichne() bleibt unverändert
 //   HauptschirmTafeln.daten(view)           die angezeigten Werte als Zahlen/Texte (Tests): { kurs, tempo, stufe, stufen, sprung: null | { name, boje, entfernung, peil, charge, ready, laedt } }
 // Rechte Tafel ohne Sprungziel: sie ENTFÄLLT (kein „KEIN SPRUNGZIEL“): 170 × 64 Pixel Dauerfläche für „nichts“ wären in jedem Gefecht, im Tutorial und in jeder Mission ohne Sprung verlorener Platz;
 // sobald der Captain ein Ziel wählt, erscheint die Tafel (das ist die Rückmeldung).
@@ -116,7 +117,20 @@
     ctx.closePath(); ctx.fill();
   }
   // Rom-Skin: Grund 94 %, Farbstreifen oben und an der Außenkante, die innere untere Ecke abgeschrägt
-  function tafelGrund(ctx, q, ecke, farbe) {
+  function tafelGrundGermanen(ctx, q, farbe) {
+    const G = T().VISIER.skin.germanen, { x, y, w, h } = q, e = G.ecke, Rn = G.rand, Z = G.wolfszahn, N = G.niete;
+    poly(ctx, [[x + e, y], [x + w - e, y], [x + w, y + e], [x + w, y + h - e], [x + w - e, y + h], [x + e, y + h], [x, y + h - e], [x, y + e]], rgba(G.platte.farbe, G.platte.alpha));
+    ctx.fillStyle = Rn.farbe;   // Eisenrand mit Kerben im oberen Rand
+    ctx.fillRect(x + e, y, w - 2 * e, Rn.breite); ctx.fillRect(x + e, y + h - Rn.breite, w - 2 * e, Rn.breite); ctx.fillRect(x, y + e, Rn.breite, h - 2 * e); ctx.fillRect(x + w - Rn.breite, y + e, Rn.breite, h - 2 * e);
+    ctx.fillStyle = G.kerbe.farbe;
+    for (let k = x + G.kerbe.start; k < x + w - 8; k += G.kerbe.schritt) ctx.fillRect(k, y, G.kerbe.px, G.kerbe.px);
+    ctx.fillStyle = N.farbe;   // Nieten in den vier Ecken
+    for (const [nx, ny] of [[x + N.einzug, y + N.einzug], [x + w - N.einzug - N.px, y + N.einzug], [x + N.einzug, y + h - N.einzug - N.px], [x + w - N.einzug - N.px, y + h - N.einzug - N.px]]) ctx.fillRect(nx, ny, N.px, N.px);
+    ctx.fillStyle = farbe;   // Funktionsfarbe als Wolfszahn-Band oben
+    for (let k = x + Z.start; k < x + w - Z.start; k += Z.schritt) for (const [dx, dy, zw, zh] of Z.zahn) ctx.fillRect(k + dx, y + dy, zw, zh);
+  }
+  function tafelGrund(ctx, q, ecke, farbe, skin) {
+    if (skin === 'germanen') return tafelGrundGermanen(ctx, q, farbe);
     const TF = T().TAFEL, s = TF.schraege, { x, y, w, h } = q;
     poly(ctx, ecke === 'tl' ? [[x, y], [x + w, y], [x + w, y + h - s], [x + w - s, y + h], [x, y + h]] : [[x, y], [x + w, y], [x + w, y + h], [x + s, y + h], [x, y + h - s]], rgba(TF.grund.farbe, TF.grund.alpha));
     ctx.fillStyle = farbe;
@@ -124,7 +138,14 @@
     ctx.fillRect(ecke === 'tl' ? x : x + w - TF.aussenStreifen, y, TF.aussenStreifen, h);
   }
   // Kappe: Kopfzeile in Funktionsfarbe, Schrift in Grundfarbe (Skala 1)
-  function kappe(ctx, str, x, y, farbe) {
+  function kappe(ctx, str, x, y, farbe, skin) {
+    if (skin === 'germanen') {   // Schildbuckel in Funktionsfarbe, Kopftext daneben in Funktionsfarbe
+      const B = T().VISIER.skin.germanen.kappe, R = Rd(), w = R.measure(str, T().TEXT.skalaKopf) + B.textX + 2;
+      ctx.fillStyle = farbe; ctx.beginPath(); ctx.arc(x + B.radius, y + B.radius, B.radius, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = B.kernFarbe; ctx.fillRect(x + B.radius - 1, y + B.radius - 1, B.kern, B.kern);
+      R.text(ctx, str, x + B.textX, y + T().TAFEL.kappe.textY, { color: farbe, scale: T().TEXT.skalaKopf, shadow: false });
+      return w;
+    }
     const K = T().TAFEL.kappe, R = Rd(), w = R.measure(str, T().TEXT.skalaKopf) + 2 * K.padX;
     poly(ctx, [[x, y], [x + w - K.schraege, y], [x + w, y + K.schraege], [x + w, y + K.hoehe], [x, y + K.hoehe]], farbe);
     R.text(ctx, str, x + K.padX, y + K.textY, { color: K.farbeText, scale: T().TEXT.skalaKopf, shadow: false });
@@ -185,11 +206,11 @@
     }
   }
 
-  function zeichneRechts(ctx, q, s) {
+  function zeichneRechts(ctx, q, s, skin) {
     const TK = T(), TF = TK.TAFEL, Rr = TF.rechts, TX = TK.TEXT, F = TK.FARBE;
-    tafelGrund(ctx, q, Rr.ecke, Rr.farbe);
+    tafelGrund(ctx, q, Rr.ecke, Rr.farbe, skin);
     const kopf = s.laedt ? Rr.laden.kopf.replace('{laedt}', TX.kopf.laedt).replace('{prozent}', Math.round(s.charge * 100)) : TX.kopf.ziel;
-    kappe(ctx, kopf, q.x + Rr.ziel.kopfX, q.y + Rr.ziel.kopfY, Rr.farbe);
+    kappe(ctx, kopf, q.x + Rr.ziel.kopfX, q.y + Rr.ziel.kopfY, Rr.farbe, skin);
     txt(ctx, passend(s.name, Rr.ziel.skala, Rr.ziel.maxBreite), q.x + Rr.ziel.wertX, q.y + Rr.ziel.wertY, Rr.farbe, Rr.ziel.skala);
     if (s.boje != null) {
       // Beim Laden steht die Prozentzahl rechts in derselben Zeile: die Boje zeigt dann nur die Entfernung
@@ -221,7 +242,17 @@
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { lage, sperren, zeichne, daten, kurzName, randLabel };
+  // KUL-03 C: nur die rechte Tafel (Sprungziel), für das Visier (Instrumentenleiste unten, oben links bleibt frei). Gleiche Tafel, gleiche Lage wie in zeichne(); ohne Sprungziel: nichts.
+  function zeichneSprungziel(ctx, view, opt) {
+    if (!ctx || !Rd() || !root.HauptschirmTokens) return;
+    ctx.save();
+    try {
+      const L = lage(view, opt), d = daten(view);
+      if (L.rechts && d.sprung) zeichneRechts(ctx, L.rechts, d.sprung, opt && opt.skin);   // opt.skin: 'rom' (Standard) | 'germanen', gewaehlt vom Visier (VisierLeiste.skinVon)
+    } catch (e) { melde(e); } finally { ctx.restore(); }
+  }
+
+  const API = { lage, sperren, zeichne, zeichneSprungziel, daten, kurzName, randLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.HauptschirmTafeln = API;
 })(typeof window !== 'undefined' ? window : globalThis);

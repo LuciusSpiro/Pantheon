@@ -5,6 +5,7 @@
 // rect ist DASSELBE Fenster wie bei drawFrontView; die Projektion kommt aus Render.frontProjektion (gleiche Mathe wie drawSpace).
 //   KulisseHimmel.zeichne(ctx, view, rect)   zeichnet die Schicht (nichts im Hyperraum; im Nebel ohne Grund und Sternfeld, den Nebel legt drawFrontView drüber)
 //   KulisseHimmel.plan(view, rect)           reine Lage der Teile in Texturpixeln { fog, sterne[], planeten[], gas[], bojen[], sprung[] } (Tests, Messung); null ohne Schiff
+//   KulisseHimmel.sichtVon(st)               Szene und Sichtregel { sc, fog, weite, imSicht(p, r) } (KUL-03 Visier nutzt dieselbe Nebelregel); punkte(l), seedVon(p, i): Hilfen dazu
 //   KulisseHimmel.randPunkt(sicht, ox, oy, winkel, abstand)   Treffpunkt des Strahls aus (ox, oy) auf dem um abstand eingerückten Rechteck
 // Alle Werte (Parallaxe, Radiusfaktor, Abdunklung, Farben, Linienstile) stehen in HauptschirmTokens.TOKENS (HIMMEL, STERNFELD, SONNE, BOJE, GASRIESE, FARBE, TEXT).
 (function (root) {
@@ -35,17 +36,22 @@
   const punkte = (l) => (Array.isArray(l) ? l.filter((p) => p && ok(p.x) && ok(p.y)) : []);
   const seedVon = (p, i) => (p.seed != null ? p.seed | 0 : (Math.round(p.x) * 7 + Math.round(p.y) * 13 + i * 101) | 0);
 
+  // Szene und Sichtregel (KUL-03: das Visier nutzt dieselbe Regel). Nebel: Sicht halbiert (wie drawFrontView/inFog, R.FRONT.fwd × 0,5): was weiter weg liegt, gehört nicht
+  // ins Bild (kein Planet, Stern oder Boje unter dem Schleier); sonst unbegrenzt. imSicht(p, r): Abstand Schiff – p minus Radius innerhalb der Weite.
+  function sichtVon(st) {
+    const R = root.Render, ship = (st && st.ship) || {}, { loc, sc } = szeneVon(st);
+    const fog = !!(loc && (loc.fog || loc.kind === 'nebula'));
+    const weite = fog ? (R && R.FRONT ? R.FRONT.fwd : 700) * 0.5 : Infinity;
+    return { sc, fog, weite, imSicht: (p, r) => Math.hypot(p.x - ship.x, p.y - ship.y) - (r || 0) <= weite };
+  }
+
   // ------------------------------------------------------------ Lage (rein, ohne Zeichnen)
   function plan(view, rect) {
     const R = root.Render, st = view && view.state, ship = st && st.ship;
     if (!R || !R.frontProjektion || !rect || !ship || !ok(ship.x) || !ok(ship.y)) return null;
     const TK = T(), H = TK.HIMMEL, P = R.frontProjektion(view, rect), { zoom, rot, toS } = P;
-    const sicht = rect.sicht || rect, { loc, sc } = szeneVon(st);
-    const fog = !!(loc && (loc.fog || loc.kind === 'nebula'));
+    const sicht = rect.sicht || rect, { sc, fog, imSicht } = sichtVon(st);
     const aus = { fog, P, sicht, sterne: [], planeten: [], gas: [], bojen: [], sprung: [] };
-    // Nebel: Sicht halbiert (wie drawFrontView/inFog, R.FRONT.fwd × 0,5): was weiter weg liegt, gehört nicht ins Bild (kein Planet, Stern oder Boje unter dem Schleier)
-    const sicht2 = fog ? (R.FRONT ? R.FRONT.fwd : 700) * 0.5 : Infinity;
-    const imSicht = (p, r) => Math.hypot(p.x - ship.x, p.y - ship.y) - (r || 0) <= sicht2;
     const sterne = punkte(sc.stern).filter((s) => imSicht(s, 0));
     const SU = TK.SONNE.sperreUnten;
     for (const s of sterne) {
@@ -142,7 +148,7 @@
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { zeichne, plan, randPunkt };
+  const API = { zeichne, plan, randPunkt, sichtVon, punkte, seedVon };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.KulisseHimmel = API;
 })(typeof window !== 'undefined' ? window : globalThis);
