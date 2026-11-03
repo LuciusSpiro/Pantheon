@@ -5,6 +5,7 @@
 //   HauptschirmTafeln.lage(view, opt)       { links, rechts|null, versetzt } Rechtecke in Texturpixeln; opt = { szeneBreite, szeneUnten } (Szenenzeile: Breite der Zeile, Unterkante samt Luft; 0 ohne Szene)
 //   HauptschirmTafeln.sperren(view, opt)    Sperrflächen für Randpfeile und Labels (Tafeln + sperrAbstand), [] wenn nichts da ist
 //   HauptschirmTafeln.zeichne(ctx, view, opt)  zeichnet die Tafeln; wirft nie (fehlende Daten: Strich statt Wert)
+//   HauptschirmTafeln.zeichneSprungziel(ctx, view, opt)  nur die rechte Tafel (Visier, KUL-03 C); zeichne() bleibt unverändert
 //   HauptschirmTafeln.daten(view)           die angezeigten Werte als Zahlen/Texte (Tests): { kurs, tempo, stufe, stufen, sprung: null | { name, boje, entfernung, peil, charge, ready, laedt } }
 // Rechte Tafel ohne Sprungziel: sie ENTFÄLLT (kein „KEIN SPRUNGZIEL“): 170 × 64 Pixel Dauerfläche für „nichts“ wären in jedem Gefecht, im Tutorial und in jeder Mission ohne Sprung verlorener Platz;
 // sobald der Captain ein Ziel wählt, erscheint die Tafel (das ist die Rückmeldung).
@@ -221,7 +222,17 @@
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { lage, sperren, zeichne, daten, kurzName, randLabel };
+  // KUL-03 C: nur die rechte Tafel (Sprungziel), für das Visier (Instrumentenleiste unten, oben links bleibt frei). Gleiche Tafel, gleiche Lage wie in zeichne(); ohne Sprungziel: nichts.
+  function zeichneSprungziel(ctx, view, opt) {
+    if (!ctx || !Rd() || !root.HauptschirmTokens) return;
+    ctx.save();
+    try {
+      const L = lage(view, opt), d = daten(view);
+      if (L.rechts && d.sprung) zeichneRechts(ctx, L.rechts, d.sprung);
+    } catch (e) { melde(e); } finally { ctx.restore(); }
+  }
+
+  const API = { lage, sperren, zeichne, zeichneSprungziel, daten, kurzName, randLabel };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.HauptschirmTafeln = API;
 })(typeof window !== 'undefined' ? window : globalThis);
