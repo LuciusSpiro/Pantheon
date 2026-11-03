@@ -19,7 +19,7 @@
 //
 // Keine Namen: der Bericht nennt nur Slots (p1..p4) und Rollen. Nichts davon geht an ein LLM.
 
-const { bewerten } = require('./bewertung.js');
+const { bewerten, MIN_BASIS_N } = require('./bewertung.js');
 
 const ZEILEN_MAX = 60;
 const ZEILE_MAX_ZEICHEN = 160;
@@ -66,14 +66,16 @@ function auffaelligkeiten(kz, opt) {
   opt = opt || {};
   const b = opt.bewertung || bewerten(kz, opt);
   // Gruppen in der festen Reihenfolge; fest = wird nie gekuerzt
-  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (x.k === 'schema_version' || x.k === 'kennzahl_version' || x.k === 'warnung' || x.k === 'f6.daten.ohne_ende' || x.k === 'plattform' ? x.name : x.n + ' ' + x.name)).join(', ') + ' (Kennzahlen unvollständig möglich)'] : [];
+  const OHNE_ZAHL = new Set(['schema_version', 'kennzahl_version', 'warnung', 'f6.daten.ohne_ende', 'plattform', 'basis_art']);   // Datenzeilen, die ihren Text allein tragen
+  const NUR_HINWEIS = new Set(['plattform', 'basis_art', 'kennzahl_version']);   // K2: Hinweise zur Basis, kein Mangel der Kennzahlen: ohne den Zusatz "unvollständig"
+  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (OHNE_ZAHL.has(x.k) ? x.name : x.n + ' ' + x.name)).join(', ') + (b.daten.some((x) => !NUR_HINWEIS.has(x.k)) ? ' (Kennzahlen unvollständig möglich)' : '')] : [];
   const basisKopf = [];
   let devs = [];
   if (!b.basis) basisKopf.push('Basis: keine Basis angegeben (kein Vergleich; --basis <json> vergleicht mit einer früheren Session)');
   else if (b.basis.keine) basisKopf.push('Basis: ' + b.basis.keine);
   else {
     const gr = b.basis.gruppe != null;   // gegen eine Basis-Gruppe (Statistik ueber Seeds) oder gegen einen Einzellauf
-    basisKopf.push('Basis: ' + (gr ? 'Gruppe ' + b.basis.gruppe + ' (' + b.basis.laeufe + ' Läufe), ' : '') + b.basis.verglichen + ' Kennzahlen verglichen, ' + b.basis.liste.length + ' wesentlich anders (' + (gr ? 'Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR)' : '>= 25 % und Mindestmenge je Kennzahl') + ')' + (b.basis.fehlt ? ', ' + b.basis.fehlt + ' ohne Wert im Lauf' : ''));
+    basisKopf.push('Basis: ' + (gr ? 'Gruppe ' + b.basis.gruppe + ' (' + b.basis.laeufe + ' Läufe), ' : '') + b.basis.verglichen + ' Kennzahlen verglichen, ' + b.basis.liste.length + ' wesentlich anders (' + (gr ? 'Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR)' : '>= 25 % und Mindestmenge je Kennzahl') + ')' + (b.basis.fehlt ? ', ' + b.basis.fehlt + ' ohne Wert im Lauf' : '') + (b.basis.zuwenig ? ', ' + b.basis.zuwenig + ' mit zu wenig Basis (n < ' + MIN_BASIS_N + ')' : '') + (gr && b.basis.nurImLauf.length ? ', ' + b.basis.nurImLauf.length + ' nur im Lauf' + (b.basis.nurImLauf.length <= 3 ? ' (' + b.basis.nurImLauf.join(', ') + ')' : '') : '') + (gr && b.basis.amLimit ? ' – Achtung: ' + b.basis.amLimit : ''));
     devs = b.basis.liste.map((x) => {
       const e = x.info.einheit;
       if (x.min != null) return '  ' + x.k + ': ' + wert(x.a, e) + ' statt Median ' + wert(x.b, e) + ' [' + wert(x.min, e) + ' bis ' + wert(x.max, e) + ']' + (x.info.richtung === 'neutral' ? '' : x.schlechter ? ', schlechter' : ', besser');
@@ -82,7 +84,7 @@ function auffaelligkeiten(kz, opt) {
   }
   const ziele = b.ziele.filter((x) => x.status === 'rot').slice(0, 2).map((x) => 'Ziel verfehlt: ' + x.k + ' = ' + wert(x.w, x.info && x.info.einheit) + ' (Ziel ' + zielText(x.z) + ')');
   const technik = b.technik.length ? ['Technik: ' + b.technik.map((x) => (x.k === 'f6.tick.ueber33' ? x.n + ' ' + x.name + ' (max ' + n(x.max, 1) + ' ms)' : x.k === 'f6.kappung.n' ? x.name + ' ' + x.n + '× (' + x.ticks + ' Ticks verworfen)' : x.n + ' ' + x.name)).join(', ')] : [];
-  const verl = b.verluste.length ? ['Verluste: ' + b.verluste.map((x) => x.n + ' ' + x.name).join(', ') + (num(b.erster) ? ' (erster bei ' + zeit(b.erster) + ')' : '')] : [];
+  const verl = b.verluste.length ? ['Verluste: ' + b.verluste.map((x) => x.n + ' ' + x.name + (x.basis != null ? ' (Basis-Median ' + n(x.basis, 0) + ')' : '')).join(', ') + (num(b.erster) ? ' (erster bei ' + zeit(b.erster) + ')' : '')] : [];
   const leer = b.leerlauf.length ? ['Leerlauf (>= 30 s ohne Eingabe): ' + b.leerlauf.map((x) => x.slot + ' ' + zeit(x.dauer) + ' (' + n(x.anteil, 0) + ' %)').join(', ')] : [];
 
   // Zu viele Zeilen: zuerst die einzelnen Basis-Zeilen kuerzen, dann Leerlauf, Ziele, Verluste; Daten und Technik bleiben

@@ -2,10 +2,36 @@
 
 Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen der README. Gilt nur für **win32-x64**: auf anderer Plattform ist der Raumkampf nicht bit-gleich, der Bericht meldet das als Datenzeile.
 
-- Spielstand wie `f2daff7` (Commit der Läufe `8c6f412d`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `630d65d4c0b10398`, Stand 2026-11-03.
-- 12 Seeds je Gruppe, Laufzeit 4:52 min (4 Prozesse parallel).
+- Spielstand wie `f2daff7` (Commit der Läufe `3d7bcde1`), Node v22.20.0, Kennzahl-Version 1, Tuning-Hash `630d65d4c0b10398`, Stand 2026-11-03.
+- 12 Seeds je Gruppe, Laufzeit 5:24 min (4 Prozesse parallel), keine Fehlerläufe.
 - Schwelle für „auffällig“ (Bericht): Abstand zur Spanne Min–Max der Basis-Seeds größer als max(25 %, 2 × IQR) UND Abstand zum Median mindestens die Mindestmenge der Kennzahl (innerhalb der Spanne ist nie etwas auffällig). Technik (Tickzeit, Snapshot) steht nicht in der Basis.
-- Schreibweise: `Schlüssel Median [Min–Max]`; fehlende Zähler gelten als 0. Ausgang `rot` = das Bot-Skript meldete Misserfolg (kein Sieg, Softlock); das Protokoll ist gültig und zählt mit.
+- Schreibweise: `Schlüssel Median [Min–Max]`; fehlende Zähler und Summen (`summe: true` in KENNZAHL_INFO) gelten als 0, Quoten, Mittel und Mediane fehlen einfach (Kennzahlen mit weniger als 4 Läufen in der Basis werden nicht verglichen). Ausgang `rot` = das Bot-Skript meldete Misserfolg (kein Sieg, Softlock); das Protokoll ist gültig und zählt mit.
+
+## Was der Einzellauf gegen die Basis erkennt
+
+Rückwärtsprobe, Stand 2026-11-03 (nach S1/S2): je Gruppe 6 frische Läufe mit den Seeds 101–106 (96 Läufe, nicht Teil der Basis); in einer Kopie der Kennzahlen wird EINE Kennzahl künstlich verschoben und gezählt, ob die Bewertung genau diese meldet (Fälle = Kennzahl × Lauf). Die Probe liegt nicht im Repo und veraltet mit jeder neuen Basis.
+
+**Fehlalarme** (frischer Lauf, nichts verschoben): im Mittel 0,71 Kennzahlen je Lauf, 20 von 96 Läufen mit mindestens einer. Je Gruppe 0 bis 1,7, nur Wellen Ruine fällt auf (3,5 solo und 2,3 zu dritt: je ein Lauf mit 19 bzw. 14 Kennzahlen bei einem ungewöhnlich langen Gefecht).
+
+| Verschobene Kennzahl | Graben | Raumkampf-Arena | Kampagne | Kesh | Wellen |
+|---|---|---|---|---|---|
+| Quote eigene x1,5 (max 100) | 50 % (6/12) | 0 % (0/18) | 0 % (0/13) | 17 % (2/12) | 24 % (25/103) |
+| Quote eigene x0,5 | 50 % (6/12) | 79 % (19/24) | 100 % (24/24) | 58 % (7/12) | 24 % (28/117) |
+| Quote Gegner x1,5 (max 100) | 71 % (12/17) | - | - | 0 % (0/10) | 2 % (3/131) |
+| Quote Gegner x0,5 | 100 % (18/18) | - | - | 17 % (2/12) | 25 % (57/230) |
+| Schaden aus roh x2 | 100 % (6/6) | 50 % (6/12) | 75 % (9/12) | 33 % (2/6) | 18 % (11/60) |
+| Schaden ein roh x2 | 100 % (6/6) | 0 % (0/12) | 8 % (1/12) | 0 % (0/6) | 22 % (13/60) |
+| Zeit bis Kill x2 | 92 % (11/12) | 49 % (18/37) | 63 % (30/48) | 33 % (3/9) | 31 % (54/174) |
+| Zeit bis Kill x1,5 | 0 % (0/12) | 19 % (7/37) | 35 % (17/48) | 11 % (1/9) | 7 % (12/174) |
+| Sessiondauer +30 % | 100 % (6/6) | 33 % (4/12) | 8 % (1/12) | 0 % (0/6) | 2 % (1/60) |
+| Sessiondauer -30 % | 100 % (6/6) | 8 % (1/12) | 25 % (3/12) | 33 % (2/6) | 0 % (0/60) |
+| Kills gesamt x0,5 | 100 % (6/6) | 0 % (0/11) | 8 % (1/12) | 0 % (0/6) | 2 % (1/59) |
+| Gefallen n x2 | 100 % (6/6) | - | - | 0 % (0/5) | 7 % (4/60) |
+
+- **Meist erkannt:** halbierte eigene Quote (Kampagne 100 %, Raumkampf 79 %), verdoppelte Zeit bis Kill im Graben (92 %) und in der Kampagne (63 %), verdoppelter eigener Schaden im Graben (100 %) und in der Kampagne (75 %).
+- **Meist nicht erkannt:** Dauer ±30 % (nur im Graben 100 %, aber dort enden alle Läufe am Zeitlimit: kein Balance-Befund), eigener Schaden ×2 außer in Graben, Kampagne und Raumkampf (Wellen 18 %, Kesh 33 %), erlittener Schaden ×2 außer im Graben, halbierte Kills, um die Hälfte höhere Quoten, Gegnerquote außer im Graben. Zeit bis Kill ×1,5 fällt in den meisten Gruppen durch.
+- Grund: Mit 12 Seeds fasst die Spanne Min–Max schon fast jeden Wert ein, und die Streuung weitet den Normalbereich zusätzlich. Das ist Absicht (wenige Fehlalarme), kostet aber Trefferquote.
+- **Der Einzellauf ist ein Rauchmelder für grobe Brüche und Datenfehler, kein Balance-Messgerät.** Für Balance-Änderungen Gruppe gegen Gruppe vergleichen (`npm run vergleich`, Paket D2; Kerben nach McGill, die mit der Zahl der Läufe schärfer werden).
 
 | Gruppe | Läufe | Ausgang | Spielzeit (Median) |
 |---|---|---|---|
@@ -20,7 +46,8 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
 | `arena_away/station/1` Wellen station solo | 12 | ok 12 | 114,4 s |
 | `arena_away/station/3` Wellen station zu dritt | 12 | ok 12 | 4:50 min |
 | `arena_graben/3` Grabenangriff zu dritt | 12 | ok 12 | 25:00 min |
-| `arena_space/3` Raumkampf-Arena zu dritt, Steuer maneuver | 12 | ok 12 | 15:17 min |
+| `arena_space/maneuver/3` Raumkampf-Arena zu dritt, Steuer maneuver | 12 | ok 12 | 15:17 min |
+| `arena_space/nose/3` Raumkampf-Arena zu dritt, Steuer nose | 12 | ok 12 | 18:54 min |
 | `m1/1` Kampagne solo (M1, M2) | 12 | ok 10, rot 2 | 21:51 min |
 | `m1/3` Kampagne zu dritt (M1, M2) | 12 | ok 11, rot 1 | 18:48 min |
 | `m3/3` M3 Die Tafel von Kesh zu dritt | 12 | ok 11, rot 1 | 3:02 min |
@@ -327,8 +354,8 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
   schiff_zerstoert.n 0 · zone_aus.kaputt 0 [0–1] · zone_aus.n 0 [0–1]
 - **F4 Rollen:** dabei.p1 243 [182–620] · dabei.p2 243 [182–620] · dabei.p3 243 [182–620] · leerlauf.p1.anteil 0 · leerlauf.p1.dauer 0 · leerlauf.p1.episoden 0
   leerlauf.p2.anteil 0 · leerlauf.p2.dauer 0 · leerlauf.p2.episoden 0 · leerlauf.p3.anteil 0 [0–9,28] · leerlauf.p3.dauer 0 [0–44]
-  leerlauf.p3.episoden 0 [0–1] · rolle.p1.boden 243 [182–620] · rolle.p2.boden 243 [182–620] · rolle.p3.boden 243 [182–620] · rolle.p3.ohne 8 · wechsel.p1 0
-  wechsel.p2 0 · wechsel.p3 0
+  leerlauf.p3.episoden 0 [0–1] · rolle.p1.boden 243 [182–620] · rolle.p2.boden 243 [182–620] · rolle.p3.boden 243 [182–620] · rolle.p3.ohne 0 [0–8]
+  wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 0
 - **F5 Wirtschaft:** buchung.medipack.medkit -2 · energie.engines_anteil 33,33 · energie.shields_anteil 33,33 · energie.weapons_anteil 33,33
   konto.marks.anfang 5000 · konto.marks.ende 5000 · konto.marks.netto 0 · konto.medipack.anfang 2 · konto.medipack.ende 0 · konto.medipack.netto -2
   stand.marks.testmarken 5000
@@ -415,6 +442,8 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
 
 `node tools/sim-headless.js graben --players 3 --seeds 1 --seed <S>` · Seeds 1–12 · 12 Läufe
 
+> [!warning] Alle Läufe am Zeitlimit, Bot schafft den Graben nicht; Spannen sind kein Balance-Maß.
+
 - **F1 Dauer und Ausgang:** ausgang.session_ende 1 · dauer.graben.mittel 1500,03 · dauer.graben.n 1 · dauer.graben.summe 1500,03 · dauer.session 1500,03
   spieler.abgaenge 0 · spieler.beitritte 0 · spieler.max 3 · spieler.nachzuegler 0 · spieler.start 3
 - **F2 Gefecht:** gefecht.boden 1500 · gegner_neu.boden 1188 [1176–1200] · gegner_weg.boden 1176 [1164–1188] · kills.boden.gesamt 58 [52–65]
@@ -446,7 +475,7 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
 - **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0
   fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 12608 [12510–12688] · protokoll.zeilen_je_min 504,31 [500,39–507,51] · tick.n 45001
 
-## arena_space/3 – Raumkampf-Arena zu dritt, Steuer maneuver
+## arena_space/maneuver/3 – Raumkampf-Arena zu dritt, Steuer maneuver
 
 `node tools/sim-headless.js arena --pilot maneuver --players 3 --seeds 1 --seed <S>` · Seeds 1–12 · 12 Läufe
 
@@ -466,15 +495,44 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
 - **F4 Rollen:** dabei.p1 916 [794–1036] · dabei.p2 916 [794–1036] · dabei.p3 916 [794–1036] · leerlauf.p1.anteil 0 · leerlauf.p1.dauer 0
   leerlauf.p1.episoden 0 · leerlauf.p2.anteil 1,77 [0–16,84] · leerlauf.p2.dauer 15 [0–158] · leerlauf.p2.episoden 0,5 [0–2]
   leerlauf.p3.anteil 30,18 [16,33–54,28] · leerlauf.p3.dauer 263 [146–520] · leerlauf.p3.episoden 4,5 [3–6] · reparatur.dauer_mittel 3 [1,49–3]
-  reparatur.erfolg_anteil 100 [83,33–100] · reparatur.n 1 [0–45] · reparatur.notflicken 0 [0–39] · rolle.p1.helm 885 [128–1006] · rolle.p1.ohne 30 [30–810]
+  reparatur.erfolg_anteil 100 [83,33–100] · reparatur.n 1 [0–45] · reparatur.notflicken 0 [0–39] · rolle.p1.helm 885 [128–1006] · rolle.p1.ohne 30 [0–810]
   rolle.p2.ohne 2 [2–270] · rolle.p2.weapons 874 [668–940] · rolle.p3.captain 914 [792–1034] · rolle.p3.ohne 2 · wechsel.p1 0 · wechsel.p2 0
   wechsel.p3 531 [361–709]
-- **F5 Wirtschaft:** buchung.ersatzteil.bot -1 [-3–0] · buchung.ersatzteil.regal -1 [-4–0] · buchung.marks.abschuss 482,5 [300–505] · buchung.marks.notfall -100
-  energie.automatik_n 0 [0–4] · energie.engines_anteil 33,33 [31,16–35,55] · energie.shields_anteil 33,33 [33,33–37,69]
-  energie.weapons_anteil 33,33 [28,89–33,33] · konto.ersatzteil.anfang 4 [0–4] · konto.ersatzteil.ende 0,5 [0–3] · konto.ersatzteil.netto -2,5 [-4–0]
+- **F5 Wirtschaft:** buchung.ersatzteil.bot -1 [-3–0] · buchung.ersatzteil.regal -1 [-4–0] · buchung.marks.abschuss 482,5 [300–505]
+  buchung.marks.notfall 0 [-100–0] · energie.automatik_n 0 [0–4] · energie.engines_anteil 33,33 [31,16–35,55] · energie.shields_anteil 33,33 [33,33–37,69]
+  energie.weapons_anteil 33,33 [28,89–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 1 [0–3] · konto.ersatzteil.netto -3 [-4–-1]
   konto.marks.anfang 5000 · konto.marks.ende 5482,5 [5200–5505] · konto.marks.netto 482,5 [200–505] · stand.marks.testmarken 5000
 - **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0
   fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 1604,5 [1413–1866] · protokoll.zeilen_je_min 107,89 [85,35–124,22] · tick.n 27480 [23820–31080]
+
+## arena_space/nose/3 – Raumkampf-Arena zu dritt, Steuer nose
+
+`node tools/sim-headless.js arena --pilot nose --players 3 --seeds 1 --seed <S>` · Seeds 1–12 · 12 Läufe
+
+- **F1 Dauer und Ausgang:** ausgang.session_ende 1 · dauer.arena_raum.mittel 1133,95 [989,67–1146,5] · dauer.arena_raum.n 1
+  dauer.arena_raum.summe 1133,95 [989,67–1146,5] · dauer.session 1133,95 [989,67–1146,5] · spieler.abgaenge 0 · spieler.beitritte 2 · spieler.max 3
+  spieler.nachzuegler 0 · spieler.start 3
+- **F2 Gefecht:** gefecht.raum 1067 [922–1080] · gegner_neu.raum 14 · gegner_weg.raum 11 [5–14] · kills.raum.gesamt 3 [0–9] · kills.raum.korvette 1 [0–3]
+  kills.raum.pylon 0 [0–1] · kills.raum.raider 2,5 [0–6] · kills.raum.sentinel 0 [0–1] · kills_von.lerche 3 [0–9] · quote.raum.lanze 100 [89,8–100]
+  quote.raum.standardbatterie 90,58 [69,23–95,1] · quote_wirkt.raum.lanze 100 [89,8–100] · quote_wirkt.raum.standardbatterie 84,72 [69,23–93,75]
+  schaden.raum.aus.roh 347,24 [43,77–983,83] · schaden.raum.aus.schild 44 [6–93,98] · schaden.raum.aus.wirkt 260,11 [30,47–781,03]
+  schaden.raum.ein.roh 240,5 [84,5–458,5] · schaden.raum.ein.schild 32 [15,5–103] · schaden.raum.ein.wirkt 219 [10,5–428,5] · schuesse.raum.lanze 19,5 [2–65]
+  schuesse.raum.standardbatterie 89,5 [9–203] · treffer_je_schuss.raum.lanze 1 [0,9–1] · treffer_je_schuss.raum.standardbatterie 0,91 [0,69–0,95]
+  treffer_n.raum.aus 92 [11–217] · treffer_n.raum.ein 166 [70–321] · zeit_bis_kill.raum.korvette 96,94 [67,4–169,87] · zeit_bis_kill.raum.pylon 49,17
+  zeit_bis_kill.raum.raider 116,87 [72,75–139,43] · zeit_bis_kill.raum.sentinel 69,13 [64,3–87,6]
+- **F3 Verluste:** bodenschild_leer.n 0 · erster_verlust_s 49,44 [15,97–817,93] · gefallen.n 0 · integritaet.min 36,33 [34,19–88,89] · neustarts 0
+  notfall.n 2 [0–2] · notrueckholung.n 0 · schiff_zerstoert.n 2 [0–2] · zone_aus.kaputt 18 [7–42] · zone_aus.n 34,5 [14–50]
+- **F4 Rollen:** dabei.p1 1133 [988–1146] · dabei.p2 1133 [988–1146] · dabei.p3 1133 [988–1146] · leerlauf.p1.anteil 0 · leerlauf.p1.dauer 0
+  leerlauf.p1.episoden 0 · leerlauf.p2.anteil 0 [0–6,11] · leerlauf.p2.dauer 0 [0–70] · leerlauf.p2.episoden 0 [0–2] · leerlauf.p3.anteil 30,28 [3,14–75,57]
+  leerlauf.p3.dauer 316 [36–866] · leerlauf.p3.episoden 4 [1–7] · reparatur.dauer_mittel 3 [1,58–4,38] · reparatur.erfolg_anteil 100 [60–100]
+  reparatur.n 1 [0–45] · reparatur.notflicken 0 [0–41] · rolle.p1.helm 510 [74–988] · rolle.p1.ohne 571 [0–1072] · rolle.p2.ohne 595 [2–1000]
+  rolle.p2.weapons 531 [146–994] · rolle.p3.captain 1123 [986–1144] · rolle.p3.ohne 2 [2–18] · wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 223 [22–733]
+- **F5 Wirtschaft:** buchung.ersatzteil.bot -1 [-2–0] · buchung.ersatzteil.regal -1,5 [-4–0] · buchung.marks.abschuss 90 [0–360]
+  buchung.marks.notfall -100 [-100–0] · energie.automatik_n 3,5 [0–5] · energie.engines_anteil 38,42 [33,33–47,5] · energie.shields_anteil 39,84 [33,33–48,71]
+  energie.weapons_anteil 20,78 [3,79–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 1 [0–3] · konto.ersatzteil.netto -3 [-4–-1]
+  konto.marks.anfang 5000 · konto.marks.ende 5010 [4900–5360] · konto.marks.netto 10 [-100–360] · stand.marks.testmarken 5000
+- **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0
+  fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 1338 [838–2021] · protokoll.zeilen_je_min 73,22 [43,86–120,04] · tick.n 33990 [29640–34380]
 
 ## m1/1 – Kampagne solo (M1, M2)
 
@@ -501,12 +559,12 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
   rolle.p1.helm 617 [374–716] · rolle.p1.ohne 124 [114–1144] · rolle.p1.weapons 473 [144–528] · wechsel.p1 580 [387–847]
 - **F5 Wirtschaft:** buchung.ersatzteil.bergung 1 · buchung.ersatzteil.bot -3 [-4–-1] · buchung.ersatzteil.regal -1 [-2–-1] · buchung.flickblech.bergung 1
   buchung.flickblech.bot -1 [-1–0] · buchung.flickblech.regal -1 · buchung.loeschgel.regal -1 · buchung.marks.abschuss 360 [115–360]
-  buchung.marks.belohnung 575 [290–575] · buchung.marks.bergung 40 · buchung.marks.erkundung 120 [60–120] · buchung.marks.kauf -20 · buchung.marks.notfall -50
-  buchung.medipack.regal -1 · energie.automatik_n 0 [0–7] · energie.engines_anteil 33,33 [33–35,72] · energie.shields_anteil 33,33 [33,33–35,72]
-  energie.weapons_anteil 33,33 [28,56–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 1 [0–3] · konto.ersatzteil.netto -3 [-4–-1]
-  konto.flickblech.anfang 3 · konto.flickblech.ende 2 [2–3] · konto.flickblech.netto -1 [-1–0] · konto.loeschgel.anfang 2 · konto.loeschgel.ende 1
-  konto.loeschgel.netto -1 · konto.marks.anfang 150 · konto.marks.ende 1225 [605–1225] · konto.marks.netto 1075 [455–1075] · konto.medipack.anfang 2
-  konto.medipack.ende 1 · konto.medipack.netto -1
+  buchung.marks.belohnung 575 [290–575] · buchung.marks.bergung 40 · buchung.marks.erkundung 120 [60–120] · buchung.marks.kauf -20 [-20–0]
+  buchung.marks.notfall 0 [-50–0] · buchung.medipack.regal -1 · energie.automatik_n 0 [0–7] · energie.engines_anteil 33,33 [33–35,72]
+  energie.shields_anteil 33,33 [33,33–35,72] · energie.weapons_anteil 33,33 [28,56–33,33] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 1 [0–3]
+  konto.ersatzteil.netto -3 [-4–-1] · konto.flickblech.anfang 3 · konto.flickblech.ende 2 [2–3] · konto.flickblech.netto -1 [-1–0] · konto.loeschgel.anfang 2
+  konto.loeschgel.ende 1 · konto.loeschgel.netto -1 · konto.marks.anfang 150 · konto.marks.ende 1225 [605–1225] · konto.marks.netto 1075 [455–1075]
+  konto.medipack.anfang 2 · konto.medipack.ende 1 · konto.medipack.netto -1
 - **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0
   fehler.verworfen 0 · fehler.zeitreihe 0 · protokoll.zeilen 1960,5 [1110–2176] · protokoll.zeilen_je_min 89,46 [62,07–101,61] · tick.n 39331 [25741–54301]
 
@@ -533,11 +591,11 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
   leerlauf.p1.dauer 714 [392–790] · leerlauf.p1.episoden 13 [9–15] · leerlauf.p2.anteil 0 · leerlauf.p2.dauer 0 · leerlauf.p2.episoden 0
   leerlauf.p3.anteil 34,84 [28,89–56,67] · leerlauf.p3.dauer 388 [312–612] · leerlauf.p3.episoden 5 [4–7] · reparatur.dauer_mittel 3 [2,24–3]
   reparatur.erfolg_anteil 100 · reparatur.n 1 [1–8] · reparatur.notflicken 0 [0–4] · rolle.p1.captain 1116 [1034–1264] · rolle.p1.ohne 4 [4–18]
-  rolle.p2.boden 44 [42–46] · rolle.p2.helm 979 [682–1062] · rolle.p2.ohne 100 [84–354] · rolle.p2.plan 2 · rolle.p3.boden 22 [20–24] · rolle.p3.ohne 70 [68–72]
-  rolle.p3.shop 2 · rolle.p3.weapons 1035 [944–1176] · wechsel.p1 235 [120–371] · wechsel.p2 0 · wechsel.p3 0
+  rolle.p2.boden 44 [42–46] · rolle.p2.helm 979 [682–1062] · rolle.p2.ohne 100 [84–354] · rolle.p2.plan 0 [0–2] · rolle.p3.boden 22 [20–24]
+  rolle.p3.ohne 70 [68–72] · rolle.p3.shop 0 [0–2] · rolle.p3.weapons 1035 [944–1176] · wechsel.p1 235 [120–371] · wechsel.p2 0 · wechsel.p3 0
 - **F5 Wirtschaft:** buchung.ersatzteil.bergung 1 · buchung.ersatzteil.bot -1 [-2–-1] · buchung.ersatzteil.regal -1 [-4–-1] · buchung.flickblech.bergung 1
   buchung.flickblech.regal -1 · buchung.loeschgel.regal -1 · buchung.marks.abschuss 340 [115–340] · buchung.marks.belohnung 400 [210–400]
-  buchung.marks.bergung 40 · buchung.marks.erkundung 120 [100–120] · buchung.marks.kauf -20 · buchung.marks.mission -160 · buchung.marks.notfall -100
+  buchung.marks.bergung 40 · buchung.marks.erkundung 120 [100–120] · buchung.marks.kauf -20 · buchung.marks.mission -160 · buchung.marks.notfall 0 [-100–0]
   buchung.medipack.regal -1 · energie.automatik_n 2 [2–3] · energie.engines_anteil 33,4 [33,39–35,71] · energie.shields_anteil 33,4 [33,39–35,71]
   energie.weapons_anteil 33,21 [28,57–33,22] · konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 2 [0–3] · konto.ersatzteil.netto -2 [-4–-1]
   konto.flickblech.anfang 3 · konto.flickblech.ende 3 · konto.flickblech.netto 0 · konto.loeschgel.anfang 2 · konto.loeschgel.ende 1 · konto.loeschgel.netto -1
@@ -576,11 +634,11 @@ Erzeugt aus `basis-win32-x64.json` (`npm run basis`), ersetzt die Handtabellen d
 - **F4 Rollen:** dabei.p1 181 [156–238] · dabei.p2 181 [156–238] · dabei.p3 181 [156–238] · leerlauf.p1.anteil 24,44 [19,33–29,49]
   leerlauf.p1.dauer 44 [44–46] · leerlauf.p1.episoden 1 · leerlauf.p2.anteil 0 · leerlauf.p2.dauer 0 · leerlauf.p2.episoden 0 · leerlauf.p3.anteil 0
   leerlauf.p3.dauer 0 · leerlauf.p3.episoden 0 · reparatur.dauer_mittel 3 · reparatur.erfolg_anteil 100 · reparatur.n 0 [0–1] · reparatur.notflicken 0
-  rolle.p1.captain 177 [136–220] · rolle.p1.ohne 4 [4–30] · rolle.p2.boden 131 [88–186] · rolle.p2.helm 36 · rolle.p2.ohne 14 [14–44] · rolle.p2.transfer 2
-  rolle.p3.boden 131 [88–172] · rolle.p3.ohne 51 [50–78] · wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 0
+  rolle.p1.captain 177 [136–220] · rolle.p1.ohne 4 [4–30] · rolle.p2.boden 131 [88–186] · rolle.p2.helm 36 · rolle.p2.ohne 14 [14–44]
+  rolle.p2.transfer 0 [0–2] · rolle.p3.boden 131 [88–172] · rolle.p3.ohne 51 [50–78] · wechsel.p1 0 · wechsel.p2 0 · wechsel.p3 0
 - **F5 Wirtschaft:** buchung.ersatzteil.regal 0 [-2–0] · buchung.marks.belohnung 125 [120–180] · buchung.marks.erkundung 40 · buchung.medipack.medkit 0 [-1–0]
   buchung.tafel.fund 1 · buchung.tafel.mission -1 · energie.engines_anteil 33,33 · energie.shields_anteil 33,33 · energie.weapons_anteil 33,33
-  konto.ersatzteil.anfang 0 [0–4] · konto.ersatzteil.ende 0 [0–3] · konto.ersatzteil.netto 0 [-2–0] · konto.marks.anfang 150 · konto.marks.ende 315 [310–370]
+  konto.ersatzteil.anfang 4 · konto.ersatzteil.ende 2 [2–3] · konto.ersatzteil.netto -2 [-2–-1] · konto.marks.anfang 150 · konto.marks.ende 315 [310–370]
   konto.marks.netto 165 [160–220] · konto.medipack.anfang 2 · konto.medipack.ende 2 [1–2] · konto.medipack.netto 0 [-1–0] · konto.tafel.anfang 0
   konto.tafel.ende 0 · konto.tafel.netto 0
 - **F6 Technik (deterministischer Teil):** daten.abgeschnitten 0 · daten.kaputt 0 · daten.ohne_ende 0 · daten.unbekannte_typen 0 · fehler.schreiben 0

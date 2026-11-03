@@ -23,7 +23,6 @@ const Basis = require('./auswertung/basis.js');
 
 const ROOT = path.join(__dirname, '..');
 const ZIELE_STANDARD = path.join(__dirname, 'fixtures', 'telemetrie', 'ziele.json');
-const BASIS_STANDARD = path.join(__dirname, 'fixtures', 'telemetrie', 'basis-' + process.platform + '-' + process.arch + '.json');   // die eingecheckte Basis (win32-x64); auf anderer Plattform: gibt es die Datei nicht, nimmt die Auswertung die win32-x64-Basis (siehe basisWaehlen)
 const BASIS_WIN = path.join(__dirname, 'fixtures', 'telemetrie', 'basis-win32-x64.json');
 
 function args(argv) {
@@ -41,15 +40,24 @@ function args(argv) {
 }
 const jsonDatei = (f) => JSON.parse(fs.readFileSync(f, 'utf8'));
 
+// Standard-Basis-Datei der Plattform; gibt es sie nicht (arm64, linux), die von win32-x64 (der Bericht meldet dann "Basis von anderer Plattform"); null, wenn auch die fehlt
+function standardBasisDatei(plattform) {
+  const p = path.join(__dirname, 'fixtures', 'telemetrie', 'basis-' + plattform + '.json');
+  if (fs.existsSync(p)) return p;
+  return fs.existsSync(BASIS_WIN) ? BASIS_WIN : null;
+}
+
 // Basis zum Lauf: --basis keine -> nichts; --basis <datei> -> Einzellauf-Kennzahlen ODER Basis-Datei (dann deren passende Gruppe); ohne --basis die eingecheckte Basis-Datei der Plattform
 // (gibt es fuer die Plattform keine, die von win32-x64: der Bericht meldet dann "Basis von anderer Plattform"). Passt keine Gruppe: basisKeine mit der Begruendung.
 function basisWaehlen(kz, angabe) {
   if (angabe === 'keine') return { basis: null, basisGruppe: null, basisKeine: null };
   let datei = angabe;
-  if (!datei) datei = fs.existsSync(BASIS_STANDARD) ? BASIS_STANDARD : (fs.existsSync(BASIS_WIN) ? BASIS_WIN : null);
+  if (!datei) datei = standardBasisDatei(process.platform + '-' + process.arch);
   if (!datei) return { basis: null, basisGruppe: null, basisKeine: null };
   const j = jsonDatei(datei);
   if (!j.gruppen) return { basis: j, basisGruppe: null, basisKeine: null };   // Einzellauf
+  // S2: Sessions mit Weltstand (Spielstand einer Kampagne) haben keine Bot-Gruppe: keine automatische Zuordnung (mit ausdruecklichem --basis <datei> entscheidet der Aufrufer)
+  if (!angabe && kz.kopf && kz.kopf.weltstand) return { basis: null, basisGruppe: null, basisKeine: 'Session mit Weltstand, keine passende Bot-Gruppe' };
   const g = Basis.gruppeWaehlen(j, kz.kopf);
   return g ? { basis: null, basisGruppe: g, basisKeine: null } : { basis: null, basisGruppe: null, basisKeine: Basis.keineGruppe(j, kz.kopf) };
 }
@@ -90,4 +98,4 @@ function main() {
 }
 
 if (require.main === module) main();
-module.exports = { auswerten, args, basisWaehlen };
+module.exports = { auswerten, args, basisWaehlen, standardBasisDatei };

@@ -369,6 +369,25 @@ const flush = () => new Promise((r) => setImmediate(r));
     sr2.g.telemetrie.sessionBeenden('test');
   }
 
+  {
+    // TEL-01 C: telemetrie.szenario(name) (nur fuer Werkzeuge, sim-headless arena): die Steuerstrategie steht als Szenario im Kopf, ohne Aufruf bleibt der Lobby-Wert
+    const sz = setup(1, neuesVerz(), null, { start: false });
+    sz.g.telemetrie.szenario('nose');
+    for (const c of sz.conns) sz.g.handleMessage(c, { t: 'ready', ready: true });
+    sz.g.telemetrie.schreibeJetzt();
+    ok(sz.g.telemetrie.s.kopf.szenario === 'nose', 'szenario(nose) vor dem Start: kopf.szenario = nose');
+    sz.g.telemetrie.sessionBeenden('test');
+    const so = setup(1, neuesVerz());
+    so.g.telemetrie.schreibeJetzt();
+    ok(so.g.telemetrie.s.kopf.szenario === null, 'ohne szenario(): kopf.szenario bleibt null');
+    so.g.telemetrie.sessionBeenden('test');
+    const sx = setup(1, neuesVerz(), null, { start: false });
+    sx.g.telemetrie.szenario('a/b c');
+    for (const c of sx.conns) sx.g.handleMessage(c, { t: 'ready', ready: true });
+    ok(sx.g.telemetrie.s.kopf.szenario === 'a_b_c', 'szenario(): Name wird auf [A-Za-z0-9_-] bereinigt');
+    sx.g.telemetrie.sessionBeenden('test');
+  }
+
   ok(offeneSessions() === 0, 'am Ende ist keine Session offen (nichts bleibt für den Exit-Haken liegen)');
   fs.rmSync(root, { recursive: true, force: true });
   console.log(`\n${n - fails}/${n} ok`);

@@ -1871,6 +1871,7 @@ async function runArena(opts) {
   const seed = opts.seed;
   simRng = makeRng(seed * 7919 + 101);
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
+  game.telemetrie.szenario(opts.pilot);   // TEL-01 C: die Steuerstrategie gehoert in die Gruppen-ID der Basis (nur Protokoll, kein Spielverhalten)
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false };
   const roles = opts.players === 1 ? ['solo'] : ['helm', 'weapons', 'captain'].slice(0, opts.players);
   const agents = roles.map((r, i) => new ArenaAgent(game, i, r, opts));

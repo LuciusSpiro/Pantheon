@@ -19,7 +19,8 @@ for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT
 
 const KZ = 'tools/auswertung/kennzahlen.js', BE = 'tools/auswertung/bericht.js', BW = 'tools/auswertung/bewertung.js', PR = 'tools/auswertung/profil.js', LE = 'tools/auswertung/lesen.js';
 const T = 'test-auswertung.js';
-const BA = 'tools/auswertung/basis.js', TB = 'test-basis.js';   // TEL-01 C: Basis und Schwelle gegen die Basis-Gruppe
+const BA = 'tools/auswertung/basis.js', TB = 'test-basis.js';
+const AU = 'tools/auswerten.js', BT = 'tools/basis.js';   // TEL-01 C: Basis und Schwelle gegen die Basis-Gruppe
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Test]
 const MUTATIONEN = [
   // --- Quote: Schuesse mit Treffer / Schuesse (nicht Treffer / Schuesse); Wirkungsquote ---
@@ -80,7 +81,7 @@ const MUTATIONEN = [
   [BW, "if (diff < info.min || rel < info.rel) continue;", "if (diff < info.min) continue;", 'Basis-Schwelle ohne relativen Anteil (25 %)', T],
   [BW, "if (diff < info.min || rel < info.rel) continue;", "if (rel < info.rel) continue;", 'Basis-Schwelle ohne Mindestmenge', T],
   [BW, "b[k] === 0 ? Math.abs(a[k]) / (info.min > 0 ? info.min : 1)", "b[k] === 0 ? SCORE_MAX", 'Basis = 0: alle Neuzugaenge gleich gewichtet (nicht |a| / min)', T],
-  [BW, "if (basisF && k in basisF) continue;", "if (false) continue;", 'Verluste erscheinen mit Basis doppelt (auch als Verlust-Block)', T],
+  [BW, "if (!gruppe && basisF && k in basisF) continue;", "if (false) continue;", 'Verluste erscheinen mit Basis doppelt (auch als Verlust-Block)', T],
   [BW, "!/session_ende|^Schema-Version/.test(w)", "false", 'Warnungen des Lesers fliessen nicht in den Bericht', T],
   [BW, "if ((num(z.min) && w < z.min) || (num(z.max) && w > z.max)) return 'rot';", "if ((num(z.min) && w > z.min) || (num(z.max) && w > z.max)) return 'rot';", 'Ampel: min-Pruefung falsch herum', T],
   // --- Bericht: Zeilendeckel, Laenge, Kuerzen, Hinweis ---
@@ -112,8 +113,8 @@ const MUTATIONEN = [
   [BW, "const aussen = w > mx ? w - mx : (w < mn ? mn - w : 0);", "const aussen = Math.abs(w - med);", "Basis-Gruppe: Min/Max-Grenze der Basis-Seeds fehlt (Abstand vom Median statt von der Spanne)", TB],
   [BW, "if (aussen <= breite) continue;", "", "Basis-Gruppe: Normalbereich (rel, Streuung) fehlt, jeder Wert ausserhalb der Spanne zaehlt", TB],
   [BW, "if (diff < info.min) continue;", "", "Basis-Gruppe: Mindestmenge (min) greift nicht", TB],
-  [BW, "info.determ === false) continue;\n    let w = a[k];", "false) continue;\n    let w = a[k];", "Basis-Gruppe: determ false (Technik) wird mitverglichen", TB],
-  [BW, "if (!num(w)) { if (ZAEHL_EINHEITEN.has(info.einheit)) w = 0; else { fehlt++; continue; } }", "if (!num(w)) { fehlt++; continue; }", "Basis-Gruppe: fehlender Zaehler im Lauf zaehlt nicht als 0", TB],
+  [BW, "info.determ === false) continue;\n    if (s[0] < MIN_BASIS_N)", "false) continue;\n    if (s[0] < MIN_BASIS_N)", "Basis-Gruppe: determ false (Technik) wird mitverglichen", TB],
+  [BW, "if (!num(w)) { if (info.summe) w = 0; else { fehlt++; continue; } }", "if (!num(w)) { fehlt++; continue; }", "Basis-Gruppe: fehlender Zaehler/fehlende Summe im Lauf zaehlt nicht als 0", TB],
   [BW, "if (!p || !bp || p === bp) return [];", "return [];", "Plattformzeile (Basis von anderer Plattform) fehlt", TB],
   [BA, "(num(f[k]) ? f[k] : (fuell ? 0 : null))", "(num(f[k]) ? f[k] : null)", "Basis bauen: fehlender Zaehler wird nicht mit 0 aufgefuellt", TB],
   [BA, "if (i && i.determ !== false) schluessel.add(k);", "if (i) schluessel.add(k);", "Basis bauen: Technik (determ false) kommt in die Basis", TB],
@@ -121,6 +122,46 @@ const MUTATIONEN = [
   [BA, "if (basis.kopf.kennzahl_version !== KENNZAHL_VERSION) p.push(", "if (false) p.push(", "Gueltigkeitspruefung: Kennzahl-Version wird nicht verglichen", TB],
   [BA, "if (!info) p.push(id + ': Kennzahl ' + k + ' hat keinen Info-Eintrag');", "if (!info) void 0;", "Gueltigkeitspruefung: Kennzahl ohne Info-Eintrag faellt nicht auf", TB],
   [BE, "else if (b.basis.keine) basisKopf.push('Basis: ' + b.basis.keine);", "", "Bericht: \"keine passende Basis-Gruppe\" steht nicht da", TB],
+  // --- TEL-01 C Nacharbeit: die 6 ueberlebenden Mutationen des Reviewers (S5) ---
+  [AU, "return fs.existsSync(BASIS_WIN) ? BASIS_WIN : null;", "return null;", "S5: Plattform-Fallback auf die win32-Basis entfernt", TB],
+  [BT, "r.gruppe.id === g.id && r.kz);", "r.gruppe.id === g.id && r.kz && r.ausgang === 'ok');", "S5: Basis: Laeufe mit Bot-Misserfolg (rot) fallen aus der Statistik", TB],
+  [BT, "const ausgangZu = (code) => (code === 0 ? 'ok' : 'rot');", "const ausgangZu = (code) => 'ok';", "S5: Ausgang rot wird nie gesetzt", TB],
+  [BW, "info.rel * Math.abs(med)", "info.rel * med", "S5: negativer Median macht den Normalbereich negativ (Math.abs fehlt)", TB],
+  [BA, "if ('listen' in g || 'reihen' in g) p.push(", "if (false) p.push(", "S5: Gueltigkeit: Listen/Reihen in der Basis werden nicht gemeldet", TB],
+  [BE, "' statt Median ' + wert(x.b, e) + ' [' + wert(x.min, e) + ' bis ' + wert(x.max, e) + ']'", "' statt Median ' + wert(x.b, e) + ' [' + wert(x.max, e) + ' bis ' + wert(x.min, e) + ']'", "S5: Bericht: Spanne Min/Max vertauscht", TB],
+  [BA, "const [, mn, , med, , mx] = g.kz[s];", "const [, med, , mn, , mx] = g.kz[s];", "S5: Basis-Bericht (md): Median und Min vertauscht", TB],
+  // --- B1: Verluste mit Gruppen-Basis ---
+  [BW, "return out.some((x) => x.n > x.basis) ? out : out.filter((x) => VERLUST_IMMER.has(x.k));", "return out.filter((x) => x.n > x.basis);", "B1: Tod/Notfall/Schiff zerstoert stehen nicht immer da", TB],
+  [BW, "return out.some((x) => x.n > x.basis) ? out : out.filter((x) => VERLUST_IMMER.has(x.k));", "return out.filter((x) => VERLUST_IMMER.has(x.k));", "B1: Verluste ueber dem Basis-Median erscheinen nicht", TB],
+  [BW, "return out.some((x) => x.n > x.basis) ? out : out.filter((x) => VERLUST_IMMER.has(x.k));", "return out;", "B1: Verluste im Normalbereich werden nie unterdrueckt", TB],
+  [BW, "if (!gruppe) return out;", "if (true) return out;", "B1: Gruppen-Basis: Verluste ohne Basis-Median (Regel entfaellt)", TB],
+  [BE, "(x.basis != null ? ' (Basis-Median ' + n(x.basis, 0) + ')' : '')", "''", "B1: Bericht nennt den Basis-Median der Verluste nicht", TB],
+  // --- S1: Summen, zu wenig Basis ---
+  [KZ, "'f2.gefecht.*': { summe: true, einheit", "'f2.gefecht.*': { einheit", "S1: f2.gefecht (Zeit-Summe) ohne summe: true", TB],
+  [KZ, "'f5.ruf.*': { summe: true, einheit", "'f5.ruf.*': { einheit", "S1: f5.ruf (Punkte-Summe) ohne summe: true", TB],
+  [KZ, "'f3.gefallen.*': { summe: true, einheit", "'f3.gefallen.*': { einheit", "S1: Zaehler ohne summe: true", TB],
+  [BA, "const fuell = !!i.summe;", "const fuell = i.einheit === 'n';", "S1: Auffuellen mit 0 nach Einheit statt nach summe", TB],
+  [BW, "if (s[0] < MIN_BASIS_N) { zuwenig++; continue; }", "", "S1: n < 4 in der Basis wird trotzdem verglichen", TB],
+  // --- S2: Szenario, Weltstand, Mensch gegen Bot ---
+  [BT, "{ id: 'arena_space/nose/3',", "{ id: 'arena_space/maneuver/3',", "S2: Basis fuehrt nose nicht", TB],
+  [AU, "if (!angabe && kz.kopf && kz.kopf.weltstand) return", "if (false) return", "S2: Session mit Weltstand bekommt eine Bot-Gruppe zugeordnet", TB],
+  [BW, "return q && q !== 'bot' ? [{ k: 'basis_art'", "return q && q === 'bot' ? [{ k: 'basis_art'", "S2: Datenzeile 'Basis = Bot-Laeufe' fehlt bei Menschen", TB],
+  // --- S3: Fehlerlauf ---
+  [BA, "if (grund !== 'prozessende') return null;", "return null;", "S3: Fehlerlauf wird nie erkannt", TB],
+  [BA, "return exitCode === 0 || exitCode === 1 ? null :", "return exitCode === 0 ? null :", "S3: Exit 1 (Bot FEHLGESCHLAGEN) gilt als Fehlerlauf", TB],
+  [BA, "return exitCode === 0 || exitCode === 1 ? null :", "return null; void 0 ||", "S3: Prozessabbruch (Exit 3) gilt nicht als Fehlerlauf", TB],
+  [BT, "fehlerlaeufe: ergebnisse.filter((r) => r.fehler).length,", "fehlerlaeufe: 0,", "S3: Fehlerlaeufe werden im Basis-Kopf nicht gezaehlt", TB],
+  // --- S4: Zeitlimit ---
+  [BA, "d.length >= LIMIT_MIN_LAEUFE &&", "d.length >= 1 &&", "S4: am_limit schon bei 1-2 Laeufen", TB],
+  [BA, "Math.max(...d) - Math.min(...d) <= LIMIT_TOLERANZ_S", "true", "S4: am_limit ohne die Gleichheit der Dauern", TB],
+  [BW, "amLimit: gruppe && gruppe.am_limit ? amLimitText(gruppe.modus) : null,", "amLimit: null,", "S4: Bericht nennt das Zeitlimit nicht", TB],
+  // --- K1-K4 ---
+  [BA, "aehnlich.slice(0, KEINE_GRUPPE_MAX).join(', ')", "aehnlich.join(', ')", "K1: keine-Gruppe-Zeile nennt mehr als 5 Gruppen", TB],
+  [BA, "(k.modus != null && g.modus === k.modus) || (k.szenario && g.szenario === k.szenario)", "true", "K1: keine-Gruppe-Zeile nennt alle Gruppen, nicht nur die mit gleichem Modus", TB],
+  [BW, "filter((k) => !(k in st) && infoZu(k)", "filter((k) => (k in st) && infoZu(k)", "K3: Kennzahlen nur im Lauf werden falsch gezaehlt", TB],
+  [BE, "(b.basis.nurImLauf.length <= 3 ?", "(b.basis.nurImLauf.length <= 0 ?", "K3: Namen der nur-im-Lauf-Kennzahlen fehlen", TB],
+  [BW, "bg ? versionsZeile(kz, { version: basisKopf && basisKopf.kennzahl_version })", "bg ? []", "K4: Kennzahl-Version der Gruppen-Basis wird nicht verglichen", TB],
+  [BE, "const NUR_HINWEIS = new Set(['plattform', 'basis_art', 'kennzahl_version']);", "const NUR_HINWEIS = new Set([]);", "K2: Plattformzeile bekommt den Zusatz 'Kennzahlen unvollstaendig'", TB],
 ];
 
 const trocken = process.argv.includes('--trocken');

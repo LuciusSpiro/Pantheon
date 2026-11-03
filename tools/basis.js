@@ -10,6 +10,7 @@
 //     --nur-md      keine Laeufe: den Basis-Bericht aus der vorhandenen JSON-Datei neu erzeugen
 // Die Basis gilt nur fuer die Plattform, auf der sie gefahren wurde (win32-x64). Die Bots sind je Lauf deterministisch (gleiche Seed -> gleiche Kennzahlen ausser Technik, siehe KENNZAHL_INFO determ).
 // Exit 0 = alle Laeufe ergaben eine saubere Session (Kopf, session_ende); 1 = mindestens ein Lauf ohne gueltige Session (steht in der Ausgabe, die Datei wird trotzdem geschrieben).
+// Ein Fehlerlauf (S3: Prozess abgebrochen, kein session_ende, falsche Gruppe) geht nicht in die Statistik; die Zahl steht im Kopf und je Gruppe der Basis-Datei, die Ausgabe nennt jeden einzeln.
 // Ein Lauf, dessen Bot-Skript "FEHLGESCHLAGEN" meldet (Exit 1 von sim-headless: kein Sieg, Softlock), ist KEIN Fehler dieses Werkzeugs: das Protokoll ist gueltig und zaehlt (Ausgang 'rot' in der Gruppe).
 
 const fs = require('fs');
@@ -32,7 +33,9 @@ const WELLEN_KARTEN = ['aussenposten', 'station', 'ruine', 'schiff', 'kesh'];
 // Begruendung der Auswahl: die Modi, deren Zahlen die README als Bot-Messung fuehrte (Raumkampf, Graben, Wellen am Boden, Kampagne, Kesh) – je solo/zu dritt, wo es das gab.
 const GRUPPEN = [
   { id: 'arena_graben/3', name: 'Grabenangriff zu dritt', args: ['graben', '--players', '3', '--seeds', '1'] },
-  { id: 'arena_space/3', name: 'Raumkampf-Arena zu dritt, Steuer maneuver', args: ['arena', '--pilot', 'maneuver', '--players', '3', '--seeds', '1'] },
+  // Die Steuerstrategie steht als Szenario im Sessionkopf (game.telemetrie.szenario, sim-headless arena), damit nose und maneuver verschiedene Gruppen sind
+  { id: 'arena_space/maneuver/3', name: 'Raumkampf-Arena zu dritt, Steuer maneuver', args: ['arena', '--pilot', 'maneuver', '--players', '3', '--seeds', '1'] },
+  { id: 'arena_space/nose/3', name: 'Raumkampf-Arena zu dritt, Steuer nose', args: ['arena', '--pilot', 'nose', '--players', '3', '--seeds', '1'] },
   { id: 'm1/1', name: 'Kampagne solo (M1, M2)', args: ['1'] },
   { id: 'm1/3', name: 'Kampagne zu dritt (M1, M2)', args: ['3'] },
   { id: 'm3/3', name: 'M3 Die Tafel von Kesh zu dritt', args: ['m3'] },
@@ -57,6 +60,9 @@ function optionen(argv) {
   return o;
 }
 
+// Ausgang des Bot-Laufs aus dem Exit-Code von sim-headless: 0 = Ziel erreicht (ok), sonst rot (FEHLGESCHLAGEN: kein Sieg, Softlock); ein Abbruch des Prozesses ist ein Fehlerlauf (Basis.fehlerlauf), kein rot
+const ausgangZu = (code) => (code === 0 ? 'ok' : 'rot');
+
 // Ein Lauf: Prozess starten, Protokoll im eigenen Ordner lesen, Kennzahlen rechnen. Rueckgabe { gruppe, seed, kz, ausgang, fehler }
 function lauf(g, seed, tmp) {
   return new Promise((resolve) => {
@@ -69,7 +75,7 @@ function lauf(g, seed, tmp) {
     const t = setTimeout(() => { try { ch.kill(); } catch (e) { /* weg */ } }, LAUF_TIMEOUT_MS);
     ch.on('exit', (code) => {
       clearTimeout(t);
-      const r = { gruppe: g, seed, kz: null, ausgang: code === 0 ? 'ok' : 'rot', fehler: null, dir };
+      const r = { gruppe: g, seed, kz: null, ausgang: ausgangZu(code), fehler: null, dir };
       try {
         const dateien = fs.readdirSync(dir).filter((n) => n.endsWith('.jsonl'));
         if (dateien.length !== 1) r.fehler = dateien.length + ' Protokolldateien statt 1';
@@ -77,6 +83,7 @@ function lauf(g, seed, tmp) {
           const p = Lesen.lesen(path.join(dir, dateien[0]));
           const kz = kennzahlen(p);
           if (!p.zeilen.some((z) => z.typ === 'session_ende')) r.fehler = 'kein session_ende';
+          else if (Basis.fehlerlauf(kz.kopf.grund, code)) r.fehler = Basis.fehlerlauf(kz.kopf.grund, code);   // S3: Prozess abgebrochen, kein Bot-Ergebnis
           else if (Basis.gruppenId(kz.kopf) !== g.id) r.fehler = 'Gruppe ' + Basis.gruppenId(kz.kopf) + ' statt ' + g.id;
           else r.kz = kz;
         }
@@ -106,13 +113,14 @@ function dateiAus(ergebnisse, o, kopfExtra) {
     const ok = ergebnisse.filter((r) => r.gruppe.id === g.id && r.kz);
     if (!ok.length) continue;
     ok.sort((a, b) => a.seed - b.seed);
-    gruppen[g.id] = Basis.gruppeBauen(ok.map((r) => ({ seed: r.seed, kz: r.kz, ausgang: r.ausgang })), { name: g.name, befehl: 'node tools/sim-headless.js ' + g.args.join(' ') + ' --seed <S>' });
+    const fehl = ergebnisse.filter((r) => r.gruppe.id === g.id && r.fehler).length;   // S3: nicht in der Statistik, hier gezaehlt
+    gruppen[g.id] = Basis.gruppeBauen(ok.map((r) => ({ seed: r.seed, kz: r.kz, ausgang: r.ausgang })), { fehlerlaeufe: fehl, name: g.name, befehl: 'node tools/sim-headless.js ' + g.args.join(' ') + ' --seed <S>' });
   }
   const alle = ergebnisse.filter((r) => r.kz).map((r) => r.kz.kopf);
   const eins = (k) => { const w = einzigartig(alle.map((x) => x[k])); return w.length === 1 ? w[0] : w.join(','); };
   return Basis.basisBauen(gruppen, Object.assign({
     spielstand_wie: SPIELSTAND_WIE, commit: eins('commit'), plattform: eins('plattform'), node: eins('node'), kennzahl_version: KENNZAHL_VERSION, tuning_hash: eins('tuning_hash'),
-    seeds: o.seeds, seed_base: o.seedBase, jobs: o.jobs,
+    seeds: o.seeds, seed_base: o.seedBase, jobs: o.jobs, fehlerlaeufe: ergebnisse.filter((r) => r.fehler).length,
   }, kopfExtra || {}));
 }
 
@@ -152,4 +160,4 @@ async function main() {
 }
 
 if (require.main === module) main().then((c) => process.exit(c), (e) => { console.error('Basis-Lauf fehlgeschlagen: ' + e.message); process.exit(2); });
-module.exports = { GRUPPEN, SPIELSTAND_WIE, optionen, lauf, pool, dateiAus };
+module.exports = { GRUPPEN, SPIELSTAND_WIE, optionen, lauf, pool, dateiAus, ausgangZu };

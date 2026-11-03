@@ -179,6 +179,7 @@ class Telemetrie {
     this.s = null;   // Zustand der laufenden Session
     this.summe = { zeilen: 0, fehler: 0, verworfen: 0, verworfeneFelder: 0 };   // abgeschlossene Sessions dieser Instanz
     this.letzteDatei = null;
+    this.werkzeugSzenario = null;   // nur Werkzeuge (siehe szenario())
   }
   get offen() { return this.s !== null; }
   get sitzung() { return this.s ? this.s.sitzung : null; }
@@ -220,11 +221,15 @@ class Telemetrie {
       const tuning = Kopf.tuningStand(this.game);
       s.tuning = tuning;
       Object.assign(s.kopf, Kopf.baueKopf(this.game, { tuning, quelle: envWert(this.game, 'TELEMETRIE_QUELLE').toLowerCase() === 'bot' ? 'bot' : 'mensch' }));
+      if (this.werkzeugSzenario) s.kopf.szenario = this.werkzeugSzenario;
       for (const x of (s.kopf.slots || [])) if (!(x.slot in s.belegung)) s.belegung[x.slot] = 1;   // wer beim Start da ist, ist die erste Belegung des Slots
     } catch (e) { fehler(s, 'kopf', e); }
     s.kopfFertig = true;
     this._plane();
   }
+  // Nur fuer Werkzeuge (sim-headless arena): benennt das Szenario, das der Lobby-Start nicht kennt (z. B. die Steuerstrategie nose|maneuver), damit es im Sessionkopf steht (kopf.szenario)
+  // und in die Gruppen-ID der Auswertung eingeht. Muss vor kopfFuellen() gerufen werden (der Kopf wird am Ende des Starts gefuellt); danach wirkungslos. Aendert das Spiel nicht.
+  szenario(name) { this.werkzeugSzenario = name == null ? null : String(name).replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 40) || null; }
   // Haken, der vor session_ende laeuft (einmal, auch beim Prozessende). Er darf ereignis() rufen.
   beiAbschluss(fn) { if (this.s && typeof fn === 'function') this.s.abschluss.push(fn); }
   grundVormerken(grund) { if (this.s && grund) this.s.grund = String(grund).slice(0, 40); }

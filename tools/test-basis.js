@@ -150,7 +150,7 @@ ok(Basis.gruppeWaehlen(dg, { modus: 'wellen', spielerzahl: 3 }) === null, 'Grupp
 {
   const kzZwei = kzVon(1, { kopf: { spielerzahl: 2 } });
   const text = bericht(kzZwei, { basisKeine: Basis.keineGruppe(dg, kzZwei.kopf) });
-  ok(/Basis: keine passende Basis-Gruppe \(arena_graben\/2; vorhanden: arena_graben\/1, arena_graben\/3\)/.test(text), 'Bericht ohne passende Gruppe: "Basis: keine passende Basis-Gruppe (...)"');
+  ok(/Basis: keine passende Basis-Gruppe \(arena_graben\/2; gleicher Modus oder Szenario: arena_graben\/1, arena_graben\/3\)/.test(text), 'Bericht ohne passende Gruppe: "Basis: keine passende Basis-Gruppe (...)"');
   ok(!/Kennzahlen verglichen/.test(text), 'Bericht ohne passende Gruppe: kein Vergleich');
   const mit = bericht(kzVon(1), { basisGruppe: Object.assign({}, gdW(dg, kzVon(1))) });
   ok(/Basis: Gruppe arena_graben\/3 \(5 Läufe\), \d+ Kennzahlen verglichen/.test(mit), 'Bericht mit Gruppe: "Basis: Gruppe arena_graben/3 (5 Läufe), n Kennzahlen verglichen"');
@@ -197,10 +197,168 @@ else {
       const p2 = fs.existsSync(dir2) ? fs.readdirSync(dir2).filter((x) => x.endsWith('.jsonl')) : [];
       if (p2.length === 1) {
         const B = auswerten(path.join(dir2, p2[0]), { basis: aus, aus: path.join(TMP, 'b-wellen') });
-        ok(/Basis: keine passende Basis-Gruppe \(arena_away\/kesh\/1; vorhanden: m3\/3\)/.test(B.text), 'Bericht: Wellen kesh solo gegen eine Basis ohne diese Gruppe -> "keine passende Basis-Gruppe"');
+        ok(/Basis: keine passende Basis-Gruppe \(arena_away\/kesh\/1; keine mit gleichem Modus oder Szenario\)/.test(B.text), 'Bericht: Wellen kesh solo gegen eine Basis ohne diese Gruppe -> "keine passende Basis-Gruppe"');
       } else ok(false, 'Wellen-Lauf: genau eine Protokolldatei');
+      // S2 + B1: Arena mit Steuer nose (Beleg des Reviewers): die Steuerstrategie steht als Szenario im Kopf, die automatische Basis ist die Gruppe arena_space/nose/3,
+      // und die Verluste (Zonenausfaelle ueber dem Basis-Median) stehen in den Auffaelligkeiten, mit dem Median
+      const dir3 = path.join(TMP, 'frisch3');
+      spawnSync(process.execPath, [path.join('tools', 'sim-headless.js'), 'arena', '--pilot', 'nose', '--players', '3', '--seeds', '1', '--seed', '102'], { cwd: ROOT, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 240000, env: Object.assign({}, process.env, { TELEMETRIE: 'an', TELEMETRIE_DIR: dir3 }) });
+      const p3 = fs.existsSync(dir3) ? fs.readdirSync(dir3).filter((x) => x.endsWith('.jsonl')) : [];
+      if (p3.length === 1) {
+        const C = auswerten(path.join(dir3, p3[0]), { aus: path.join(TMP, 'b-nose') });
+        ok(C.kz.kopf.szenario === 'nose' && Basis.gruppenId(C.kz.kopf) === 'arena_space/nose/3', 'Arena nose: kopf.szenario = nose, Gruppen-ID arena_space/nose/3 (' + Basis.gruppenId(C.kz.kopf) + ')');
+        ok(/Basis: Gruppe arena_space\/nose\/3 \(12 Läufe\)/.test(C.text), 'Arena nose, automatische Basis: die Gruppe nose (nicht maneuver)');
+        ok(/^- Verluste: .*\(Basis-Median \d+\)/m.test(C.text), 'Arena nose, automatische Basis: die Verluste-Zeile steht da, mit Basis-Median (B1)');
+      } else ok(false, 'Arena-Lauf nose: genau eine Protokolldatei');
     }
   }
+}
+
+// ===================== 7. Nacharbeit zu Paket C (B1, S1-S5, K1-K4) =====================
+section('7. Nacharbeit: Verluste mit Gruppen-Basis, Summen, Szenario, Fehlerlauf, Zeitlimit, Testluecken');
+const BasisTool = require('./basis.js');
+const { standardBasisDatei, basisWaehlen } = require('./auswerten.js');
+const grpV = (stats, extra) => Object.assign({ id: 'g', laeufe: 12, kz: stats, kopf: { plattform: 'win32-x64', kennzahl_version: KENNZAHL_VERSION } }, extra || {});
+const kzV = (f3, extra) => Object.assign({ version: KENNZAHL_VERSION, kopf: { modus: 'x', spielerzahl: 3, plattform: 'win32-x64', quelle: 'bot' }, f1: {}, f2: {}, f3: f3 || {}, f6: {} }, extra || {});
+const verlZeile = (kz, gruppe) => (bericht(kz, { basisGruppe: gruppe }).split('\n').find((l) => /^- Verluste:/.test(l)) || null);
+// B1: Verluste verschwinden mit Gruppen-Basis nicht mehr
+{
+  const g0 = grpV({ 'f3.gefallen.n': [12, 0, 0, 0, 0, 1], 'f3.zone_aus.n': [12, 0, 1, 1, 2, 3], 'f3.notfall.n': [12, 0, 0, 0, 0, 0], 'f3.schiff_zerstoert.n': [12, 0, 0, 0, 0, 0] });
+  const v1 = Bewertung.bewerten(kzV({ gefallen: { n: 5 } }), { basisGruppe: g0 }).verluste;
+  gleich(v1.map((x) => x.k + ':' + x.basis), ['f3.gefallen.n:0'], 'B1: Verlust ueber dem Basis-Median steht da, mit dem Median der Basis');
+  ok(/^- Verluste: 5 gefallen \(Basis-Median 0\)/.test(verlZeile(kzV({ gefallen: { n: 5 } }), g0) || ''), 'B1: Bericht: "Verluste: 5 gefallen (Basis-Median 0)"');
+  gleich(Bewertung.bewerten(kzV({ zone_aus: { n: 1 } }), { basisGruppe: g0 }).verluste, [], 'B1: alle Verluste <= Basis-Median (Zonenausfall 1, Median 1): keine Verlustzeile');
+  ok(verlZeile(kzV({ zone_aus: { n: 1 } }), g0) === null, 'B1: Bericht ohne Verlustzeile, wenn alles im Normalbereich liegt');
+  const g1 = grpV({ 'f3.gefallen.n': [12, 1, 2, 2, 3, 5], 'f3.notfall.n': [12, 1, 3, 3, 3, 4], 'f3.schiff_zerstoert.n': [12, 0, 1, 1, 1, 1] });
+  gleich(Bewertung.bewerten(kzV({ gefallen: { n: 2 }, notfall: { n: 1 }, schiff_zerstoert: { n: 1 } }), { basisGruppe: g1 }).verluste.map((x) => x.k + ':' + x.n + '/' + x.basis),
+    ['f3.gefallen.n:2/2', 'f3.notfall.n:1/3', 'f3.schiff_zerstoert.n:1/1'], 'B1: Tod/gefallen, Notfallprotokoll und Schiff zerstoert stehen bei > 0 immer da, auch unter dem Basis-Median');
+  const g2 = grpV({ 'f3.zone_aus.n': [12, 0, 1, 1, 2, 3], 'f3.gefallen.n': [12, 0, 0, 0, 0, 1], 'f3.notrueckholung.n': [12, 0, 0, 0, 0, 0] });
+  gleich(Bewertung.bewerten(kzV({ zone_aus: { n: 1 }, notrueckholung: { n: 2 } }), { basisGruppe: g2 }).verluste.map((x) => x.k), ['f3.notrueckholung.n', 'f3.zone_aus.n'], 'B1: ist EIN Verlust ueber dem Median, stehen alle da (auch der unter dem Median)');
+  const e1 = Bewertung.bewerten(kzV({ gefallen: { n: 1 } }), { basis: { version: KENNZAHL_VERSION, kopf: {}, f3: { gefallen: { n: 1 } }, f1: {}, f2: {}, f6: {} } }).verluste;
+  gleich(e1, [], 'Einzellauf-Basis: ein Verlust mit Gegenstueck in der Basis steht nur als Abweichung (unveraendert)');
+}
+// S1: Summe = Feld summe in KENNZAHL_INFO (nicht die Einheit); Zaehler und Summen fehlen = 0, Quoten und Mittel fehlen
+{
+  for (const k of ['f5.buchung.marks.kauf', 'f5.buchung.munition.kauf', 'f4.rolle.p1.helm', 'f2.gefecht.raum', 'f5.ruf.kesh', 'f2.schaden.raum.aus.roh', 'f2.schaden.boden.ein.wirkt', 'f2.kills.raum.gesamt', 'f2.kills_von.p1', 'f3.gefallen.n', 'f4.dabei.p1', 'f2b.deckung.p1.cv_s']) ok(infoZu(k) && infoZu(k).summe === true, 'summe: true bei ' + k);
+  for (const k of ['f2.quote.boden.lanze', 'f2.zeit_bis_kill.raum.jaeger', 'f1.dauer.session', 'f1.dauer.arena_raum.mittel', 'f3.erster_verlust_s', 'f4.reparatur.dauer_mittel', 'f5.konto.marks.ende']) ok(infoZu(k) && !infoZu(k).summe, 'keine Summe bei ' + k + ' (fehlt = keine Daten)');
+  const lz = (i, f2, f5) => ({ seed: i, kz: Object.assign(kzVon(i), { f2: Object.assign({ quote: { boden: { lanze: 50 } } }, f2), f5: f5 || {} }), ausgang: 'ok' });
+  const gg = Basis.gruppeBauen([lz(1, { gefecht: { boden: 100 } }, { ruf: { kesh: -5 } }), lz(2, {}), lz(3, { gefecht: { boden: 60 } }), lz(4, {})], {});
+  gleich(gg.kz['f2.gefecht.boden'], [4, 0, 0, 30, 70, 100], 'Zeit-Summe (f2.gefecht, Einheit s) fehlt in 2 von 4 Laeufen: zaehlt als 0');
+  gleich(gg.kz['f5.ruf.kesh'], [4, -5, -1.25, 0, 0, 0], 'Summe in Punkten (f5.ruf) fehlt in 3 von 4 Laeufen: zaehlt als 0');
+  // n < 4 in der Basis: kein Vergleich, zaehlt als zu wenig Basis
+  const klein = Bewertung.abweichungGegenBasisGruppe(kzMit({ f2: { quote: { boden: { lanze: 99 } } } }), gr({ 'f2.quote.boden.lanze': [3, 40, 45, 50, 55, 60] }));
+  gleich([klein.liste.length, klein.verglichen, klein.zuwenig], [0, 0, 1], 'n = 3 in der Basis: kein Vergleich (zu wenig Basis)');
+  const gross = Bewertung.abweichungGegenBasisGruppe(kzMit({ f2: { quote: { boden: { lanze: 99 } } } }), gr({ 'f2.quote.boden.lanze': [4, 40, 45, 50, 55, 60] }));
+  gleich([gross.liste.length, gross.verglichen, gross.zuwenig], [1, 1, 0], 'n = 4 in der Basis: wird verglichen');
+  ok(/1 mit zu wenig Basis \(n < 4\)/.test(bericht(kzMit({}), { basisGruppe: Object.assign(gr({ 'f2.quote.boden.lanze': [3, 40, 45, 50, 55, 60] }), { kopf: {} }) })), 'Bericht nennt "mit zu wenig Basis (n < 4)"');
+}
+// S2: Szenario in der Gruppen-ID; Weltstand; Mensch gegen Bot-Basis
+{
+  const k1 = { modus: 'arena_space', szenario: 'nose', spielerzahl: 3 };
+  gleich(Basis.gruppenId(k1), 'arena_space/nose/3', 'Gruppen-ID Arena: die Steuerstrategie (Szenario) steht drin');
+  ok(Basis.gruppenId(k1) !== Basis.gruppenId(Object.assign({}, k1, { szenario: 'maneuver' })), 'nose und maneuver sind verschiedene Gruppen');
+  ok(BasisTool.GRUPPEN.some((x) => x.id === 'arena_space/nose/3') && BasisTool.GRUPPEN.some((x) => x.id === 'arena_space/maneuver/3'), 'Basis-Lauf fuehrt beide Strategien');
+  const mitWelt = basisWaehlen({ kopf: { modus: 'm3', spielerzahl: 3, weltstand: 'kampagne-1', quelle: 'mensch' } });   // automatisch: eingecheckte Basis, die eine Gruppe m3/3 hat
+  ok(mitWelt.basisGruppe === null && mitWelt.basisKeine === 'Session mit Weltstand, keine passende Bot-Gruppe', 'Session mit Weltstand: keine automatische Zuordnung ("Session mit Weltstand, keine passende Bot-Gruppe")');
+  ok(/^- Basis: Session mit Weltstand, keine passende Bot-Gruppe/m.test(bericht(kzV({}), { basisKeine: mitWelt.basisKeine })), 'Bericht: "Basis: Session mit Weltstand, keine passende Bot-Gruppe"');
+  const ohneWelt = basisWaehlen({ kopf: { modus: 'm3', spielerzahl: 3, weltstand: null, quelle: 'mensch' } });
+  ok(ohneWelt.basisGruppe && ohneWelt.basisGruppe.id === 'm3/3', 'Mensch ohne Weltstand: der Vergleich mit der Bot-Gruppe ist erlaubt');
+  const mensch = kzV({}, { kopf: { modus: 'x', spielerzahl: 3, plattform: 'win32-x64', quelle: 'mensch' } });
+  ok(Bewertung.bewerten(mensch, { basisGruppe: grpV({}) }).daten.some((d) => d.name === 'Basis = Bot-Läufe (Bots spielen anders als Menschen)'), 'Mensch gegen Bot-Gruppe: Datenzeile "Basis = Bot-Läufe (Bots spielen anders als Menschen)"');
+  ok(!Bewertung.bewerten(kzV({}), { basisGruppe: grpV({}) }).daten.some((d) => d.k === 'basis_art'), 'Bot gegen Bot-Gruppe: keine solche Zeile');
+  const t = bericht(mensch, { basisGruppe: grpV({}) });
+  ok(/Daten: Basis = Bot-Läufe \(Bots spielen anders als Menschen\)$/m.test(t), 'K2: Hinweiszeile ohne den Zusatz "Kennzahlen unvollständig möglich"');
+}
+// S3: Fehlerlauf
+{
+  ok(Basis.fehlerlauf('bot-ende', 0) === null && Basis.fehlerlauf('bot-ende', 1) === null && Basis.fehlerlauf('prozessende', 0) === null && Basis.fehlerlauf('prozessende', 1) === null, 'Fehlerlauf: bot-ende, und prozessende mit Exit 0/1 sind keine Fehlerlaeufe');
+  ok(/Exit 3/.test(Basis.fehlerlauf('prozessende', 3)) && /Exit 134/.test(Basis.fehlerlauf('prozessende', 134)), 'Fehlerlauf: prozessende mit Exit 3 bzw. 134 ist ein Fehlerlauf');
+  ok(/ohne Code/.test(Basis.fehlerlauf('prozessende', null)), 'Fehlerlauf: prozessende ohne Exit-Code (vom Werkzeug beendet, kein Bot-Ergebnis)');
+  ok(Basis.fehlerlauf('bot-ende', 3) === null, 'Fehlerlauf: ein sauber beendetes Protokoll (bot-ende) ist es nicht, auch bei anderem Exit-Code');
+  gleich([BasisTool.ausgangZu(0), BasisTool.ausgangZu(1)], ['ok', 'rot'], 'Ausgang: Exit 0 = ok, Exit 1 (FEHLGESCHLAGEN) = rot');
+  const gruppeT = BasisTool.GRUPPEN[0];
+  const mk = (seed, o) => Object.assign({ gruppe: gruppeT, seed, kz: Object.assign(kzVon(seed), { kopf: Object.assign({}, kzVon(seed).kopf, { modus: 'arena_graben', spielerzahl: 3, plattform: 'win32-x64', commit: 'abc', tuning_hash: 'h', node: 'v22' }) }), ausgang: 'ok', fehler: null }, o);
+  const erg = [mk(1), mk(2, { ausgang: 'rot' }), mk(3), mk(4, { kz: null, ausgang: 'rot', fehler: 'Prozess abgebrochen' }), mk(5, { kz: null, ausgang: 'rot', fehler: 'kein session_ende' })];
+  const df = BasisTool.dateiAus(erg, { seeds: 5, seedBase: 1, jobs: 1 }, { datum: '2026-01-01', laufzeit_s: 1 });
+  const gd = df.gruppen[gruppeT.id];
+  gleich([df.kopf.fehlerlaeufe, gd.fehlerlaeufe, gd.laeufe], [2, 2, 3], 'Basis-Datei: 2 Fehlerlaeufe im Kopf und in der Gruppe gezaehlt, nicht in der Statistik (3 Laeufe)');
+  gleich(gd.ausgang, { ok: 2, rot: 1 }, 'Ausgang rot (Bot-Misserfolg) zaehlt mit und steht im Ausgang der Gruppe');
+  gleich(gd.seeds, [1, 2, 3], 'Gruppe: nur die Seeds mit gueltiger Session');
+  ok(/2 Fehlerlauf/.test(Basis.basisMarkdown(df)), 'Basis-Bericht nennt die Fehlerlaeufe');
+  ok(/keine Fehlerläufe/.test(Basis.basisMarkdown(Object.assign({}, df, { kopf: Object.assign({}, df.kopf, { fehlerlaeufe: 0 }) }))), 'Basis-Bericht ohne Fehlerlaeufe: "keine Fehlerläufe"');
+}
+// S4: alle Laeufe am Zeitlimit
+{
+  ok(Basis.amLimit([1500.03, 1500.03, 1500.03, 1500.03]), 'am_limit: alle Laeufe 1500,03 s');
+  ok(Basis.amLimit([1500, 1500.5, 1500.03]), 'am_limit: innerhalb der Toleranz (1 s)');
+  ok(!Basis.amLimit([1500.03, 1500.03, 1200]), 'kein am_limit: ein Lauf endet frueher');
+  ok(!Basis.amLimit([900, 1100, 1300, 1500]), 'kein am_limit: verschieden lange Laeufe');
+  ok(!Basis.amLimit([1500, 1500]) && !Basis.amLimit([]), 'kein am_limit bei weniger als 3 Laeufen');
+  ok(!Basis.amLimit([1500, 1500, 1500, null]), 'kein am_limit, wenn ein Lauf keine Dauer hat');
+  const gL = Basis.gruppeBauen([1, 2, 3, 4].map((i) => ({ seed: i, kz: Object.assign(kzVon(i), { f1: { dauer: { session: 1500.03 } } }) })), {});
+  ok(gL.am_limit === true, 'Gruppe: Flag am_limit wird gesetzt');
+  ok(g.am_limit === undefined && !('am_limit' in JSON.parse(JSON.stringify(g))), 'Gruppe mit verschieden langen Laeufen: kein Flag');
+  const text = bericht(kzVon(1), { basisGruppe: Object.assign({}, gL, { kopf: datei.kopf }) });
+  ok(/Achtung: alle Läufe am Zeitlimit, Bot schafft den Graben nicht; Spannen sind kein Balance-Maß/.test(text.replace(/\n\s+/g, ' ')), 'Bericht nennt bei Wahl dieser Gruppe "alle Läufe am Zeitlimit ... Spannen sind kein Balance-Maß"');
+  ok(!/am Zeitlimit/.test(bericht(kzVon(1), { basisGruppe: Object.assign({}, g, { kopf: datei.kopf }) })), 'Bericht: andere Gruppen ohne diesen Hinweis');
+  ok(/am Zeitlimit/.test(Basis.basisMarkdown(Object.assign({}, datei, { gruppen: { [gL.id]: gL } }))), 'Basis-Bericht (md): Warnung bei der Gruppe am Limit');
+}
+// K1, K3, K4
+{
+  const grp = (id, modus, szenario) => ({ id, modus, szenario, spieler: 3, laeufe: 12, seeds: [1], kz: {} });
+  const viele = { gruppen: {} };
+  for (let i = 1; i <= 7; i++) viele.gruppen['arena_away/s' + i + '/3'] = grp('arena_away/s' + i + '/3', 'arena_away', 's' + i);
+  viele.gruppen['m3/3'] = grp('m3/3', 'm3', null);
+  const t1 = Basis.keineGruppe(viele, { modus: 'arena_away', szenario: 'kesh', spielerzahl: 2 });
+  ok(/gleicher Modus oder Szenario: arena_away\/s1\/3, arena_away\/s2\/3, arena_away\/s3\/3, arena_away\/s4\/3, arena_away\/s5\/3, \.\.\.\)/.test(t1) && !/m3\/3/.test(t1), 'K1: nur Gruppen mit gleichem Modus, hoechstens 5 (dann ", ...")');
+  ok(/keine mit gleichem Modus oder Szenario/.test(Basis.keineGruppe(viele, { modus: 'labor', szenario: null, spielerzahl: 3 })), 'K1: gibt es keine aehnliche Gruppe, steht das da');
+  ok(/m3\/3/.test(Basis.keineGruppe({ gruppen: { 'm3/3': grp('m3/3', 'm3', null) } }, { modus: 'm3', szenario: null, spielerzahl: 1 })), 'K1: gleicher Modus anderer Spielerzahl wird genannt');
+  // K3: Kennzahlen, die nur im Lauf vorkommen
+  const gK = grpV({ 'f2.kills.raum.gesamt': [12, 5, 5, 5, 5, 5] });
+  const kz3 = kzV({}, { f2: { kills: { raum: { gesamt: 5, neu1: 1 } }, schuesse: { raum: { w1: 5, w2: 5 } } } });
+  const r3 = Bewertung.abweichungGegenBasisGruppe(kz3, gK);
+  gleich(r3.nurImLauf, ['f2.kills.raum.neu1', 'f2.schuesse.raum.w1', 'f2.schuesse.raum.w2'], 'K3: Kennzahlen nur im Lauf gezaehlt (keine in der Basis)');
+  ok(/3 nur im Lauf \(f2\.kills\.raum\.neu1, f2\.schuesse\.raum\.w1, f2\.schuesse\.raum\.w2\)/.test(bericht(kz3, { basisGruppe: gK }).replace(/\n\s+/g, ' ')), 'K3: Basiszeile nennt "3 nur im Lauf (...)" mit Namen');
+  const kz4 = kzV({}, { f2: { kills: { raum: { gesamt: 5, n1: 1, n2: 1, n3: 1, n4: 1 } } } });
+  const t4 = bericht(kz4, { basisGruppe: gK }).replace(/\n\s+/g, ' ');
+  ok(/4 nur im Lauf,/.test(t4) || /4 nur im Lauf[^(]/.test(t4), 'K3: ab 4 Stueck nur die Zahl, ohne Namen');
+  // K4: Kennzahl-Version der Basis-Datei gegen die des Laufs
+  const vz = Bewertung.bewerten(kzV({}, { version: KENNZAHL_VERSION + 1 }), { basisGruppe: grpV({}) }).daten.find((d) => d.k === 'kennzahl_version');
+  ok(vz && /Basis hat Kennzahl-Version/.test(vz.name), 'K4: Gruppen-Basis: Zeile bei ungleicher Kennzahl-Version');
+  ok(!Bewertung.bewerten(kzV({}), { basisGruppe: grpV({}) }).daten.some((d) => d.k === 'kennzahl_version'), 'K4: gleiche Version: keine Zeile');
+  // K2: Plattformzeile ohne "(Kennzahlen unvollständig möglich)", echte Datenmaengel mit
+  const tp = bericht(kzV({}, { kopf: { modus: 'x', spielerzahl: 3, plattform: 'linux-arm64', quelle: 'bot' } }), { basisGruppe: grpV({}) });
+  ok(/Daten: Basis von anderer Plattform[^\n]*\)$/m.test(tp) && !/unvollständig/.test(tp), 'K2: Plattformzeile ohne Zusatz "Kennzahlen unvollständig möglich"');
+  const tq = bericht(kzV({}, { f6: { daten: { kaputt: 2 } } }), { basisGruppe: grpV({}) });
+  ok(/Daten: 2 kaputte Zeile\(n\) \(Kennzahlen unvollständig möglich\)/.test(tq), 'K2: echte Datenmaengel behalten den Zusatz');
+}
+// S5: Testluecken (die sechs ueberlebenden Mutationen des Reviewers)
+{
+  // 1. Plattform-Fallback: es gibt keine Basis fuer arm64/linux, die Auswertung nimmt die von win32-x64
+  const win = path.join(__dirname, 'fixtures', 'telemetrie', 'basis-win32-x64.json');
+  ok(standardBasisDatei('win32-x64') === win, 'S5.1 Standard-Basis win32-x64: die eigene Datei');
+  ok(standardBasisDatei('linux-arm64') === win && standardBasisDatei('darwin-arm64') === win, 'S5.1 Plattform-Fallback: andere Plattform nimmt die win32-x64-Basis (der Bericht meldet "andere Plattform")');
+  // 2. rot-Laeufe zaehlen mit (Statistik und Ausgang)
+  const grot = Basis.gruppeBauen([1, 2, 3, 4].map((i) => ({ seed: i, kz: kzVon(i), ausgang: i === 4 ? 'rot' : 'ok' })), {});
+  gleich([grot.laeufe, grot.ausgang.rot, grot.kz['f1.dauer.session'][0]], [4, 1, 4], 'S5.2 Bot-Misserfolg (rot) zaehlt in Laeufe und Statistik');
+  const erg = [1, 2, 3, 4].map((i) => ({ gruppe: BasisTool.GRUPPEN[0], seed: i, kz: Object.assign(kzVon(i), { kopf: Object.assign({}, kzVon(i).kopf, { commit: 'abc', tuning_hash: 'h', node: 'v22' }) }), ausgang: i === 4 ? 'rot' : 'ok', fehler: null }));
+  const dd = BasisTool.dateiAus(erg, { seeds: 4, seedBase: 1, jobs: 1 }, {}).gruppen[BasisTool.GRUPPEN[0].id];
+  gleich([dd.laeufe, dd.ausgang], [4, { ok: 3, rot: 1 }], 'S5.2 dateiAus: ein roter Lauf (Ausgang rot) bleibt in der Statistik der Gruppe');
+  // 4. negativer Median: Normalbereich nutzt den Betrag (Marken-Buchung, Median -500)
+  gleich(flag([12, -510, -505, -500, -495, -490], -400, 'f2.schaden.raum.aus.roh'), [], 'S5.4 negativer Median (-500, Schaden roh): Normalbereich 25 % von |Median| = 125, -400 (90 ueber der Spanne) ist nicht auffaellig');
+  gleich(flag([12, -510, -505, -500, -495, -490], -300, 'f2.schaden.raum.aus.roh'), ['f2.schaden.raum.aus.roh'], 'S5.4 negativer Median: -300 (190 ueber der Spanne) ist auffaellig');
+  // 5. Listen/Reihen in der Basis werden gemeldet
+  const mitListen = JSON.parse(JSON.stringify(datei)); mitListen.gruppen['arena_graben/3'].listen = { reihen: [] };
+  ok(Basis.pruefen(mitListen).some((p) => /Listen\/Reihen/.test(p)), 'S5.5 Gueltigkeit: Listen in der Basis werden gemeldet');
+  const mitReihen = JSON.parse(JSON.stringify(datei)); mitReihen.gruppen['arena_graben/3'].reihen = {};
+  ok(Basis.pruefen(mitReihen).some((p) => /Listen\/Reihen/.test(p)), 'S5.5 Gueltigkeit: Reihen in der Basis werden gemeldet');
+  // 6. Spanne im Bericht: Min vor Max
+  const sb = bericht(kzMit({ f2: { quote: { boden: { lanze: 99 } } } }), { basisGruppe: Object.assign(gr({ 'f2.quote.boden.lanze': [12, 40, 45, 50, 55, 60] }), { kopf: {} }) });
+  ok(/f2\.quote\.boden\.lanze: 99 % statt Median 50 % \[40 % bis 60 %\]/.test(sb), 'S5.6 Bericht: "statt Median 50 % [40 % bis 60 %]" (Min vor Max)');
+  const md = Basis.basisMarkdown(Basis.basisBauen({ [g.id]: g }, { plattform: 'win32-x64' }));
+  ok(/f2\.quote\.boden\.lanze 50 \[40–60\]|quote\.boden\.lanze 50 \[40–60\]/.test(md), 'S5.6 Basis-Bericht: "Median [Min–Max]" in der richtigen Reihenfolge');
+  // S6: Ehrlichkeit ueber die Trefferquote steht im Basis-Bericht
+  ok(/## Was der Einzellauf gegen die Basis erkennt/.test(md) && /npm run vergleich/.test(md), 'S6 Basis-Bericht: Abschnitt "Was der Einzellauf gegen die Basis erkennt" mit Hinweis auf npm run vergleich');
 }
 
 // ===================== 6. Gueltigkeit der eingecheckten Basis =====================
