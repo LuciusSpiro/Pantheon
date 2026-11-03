@@ -6,6 +6,7 @@
 //                         vereinbarte Form fuer eine spaetere Rotation und wird hier und im Test schon bedient.
 //   ausText(text, opt)    wie lesen, aber aus einem Text (Tests)
 //   letzteKennung(dirs)   Kennung der juengsten Session in den Ordnern (Standard: data/telemetrie und data/telemetrie/bot)
+//   ordnerSessions(dir)   TEL-01 D2: alle Sessions unter einem Ordner (rekursiv, ohne tuning/ und berichte/): [{ kennung, dir }], je Kennung einmal (Teile einer Session zaehlen als eine), nach Kennung sortiert
 // Ergebnis: { kennung, dateien, zeilen, abgeschnitten, kaputt, unbekannt: {typ: n}, versionen: {v: n}, schemaOk, warnungen: [text] }
 //   zeilen   alle gueltigen Zeilen in Dateireihenfolge (auch der Kopf und session_ende), unbekannte Typen eingeschlossen (kennzahlen.js ignoriert sie)
 //   abgeschnitten  Zeilen am Dateiende ohne Zeilenumbruch, die kein JSON sind (Prozess hart beendet); kaputt  Zeilen mitten in der Datei, die kein JSON sind
@@ -109,4 +110,22 @@ function letzteKennung(dirs) {
   return best ? best.kennung : null;
 }
 
-module.exports = { lesen, ausText, letzteKennung, kennungVon, STANDARD_DIRS };
+// Alle Sessions unter einem Ordner. Die Teile einer rotierten Session (<kennung>.2.jsonl ...) sind eine Session; lesen(kennung, { dirs: [dir] }) liest alle Teile.
+const OHNE_ORDNER = new Set(['tuning', 'berichte']);
+function ordnerSessions(dir) {
+  const out = [];
+  const geh = (d) => {
+    let ents = [];
+    try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    const hier = new Set();
+    for (const e of ents) {
+      if (e.isDirectory()) { if (!OHNE_ORDNER.has(e.name)) geh(path.join(d, e.name)); }
+      else if (e.name.endsWith('.jsonl')) hier.add(kennungVon(e.name));
+    }
+    for (const kennung of hier) out.push({ kennung, dir: d });
+  };
+  geh(path.resolve(dir));
+  return out.sort((a, b) => (a.kennung < b.kennung ? -1 : a.kennung > b.kennung ? 1 : 0));
+}
+
+module.exports = { lesen, ausText, letzteKennung, kennungVon, ordnerSessions, STANDARD_DIRS };

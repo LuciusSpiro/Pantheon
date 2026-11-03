@@ -12,6 +12,7 @@
 //                                           Bot-Grabens), entfallen sie, ausser Tod/gefallen, Notfallprotokoll und Schiff zerstoert: die stehen bei > 0 immer da
 //     leerlauf: [{ slot, dauer, anteil }]   Leerlauf je Slot ueber der Schwelle; bei quelle bot immer leer (Bots erzeugen keine Eingaben), die Kennzahl bleibt
 //   }
+// TEL-01 D2: Vergleich zweier Seiten (Lauf oder Gruppe) siehe vergleichSeiten; Gruppe gegen Gruppe = unterschiedGruppen (Kerben nach McGill, KERBE_K), Einzellauf wie bisher.
 // Schwellen: je Kennzahl in KENNZAHL_INFO (rel, min: relative Abweichung UND absolute Mindestmenge in der Einheit der Kennzahl), dazu die benannten Konstanten unten.
 // Kennzahlen mit determ: false in KENNZAHL_INFO (Technik: Tickzeit, Snapshot, Kappung, Protokollgroesse) werden nie gegen eine Basis verglichen, nur als Spitzen (technik) gemeldet.
 // TEL-01 C: Schwelle gegen eine Basis-Gruppe siehe abweichungGegenBasisGruppe (Abstand zur Spanne [Min, Max] der Basis-Seeds groesser als max(rel x Median, k x IQR), UND Mindestmenge).
@@ -32,6 +33,7 @@ const TICK_SPITZE_MS = 33;             // Tick ueber dieser Dauer ist eine Techn
 const SCORE_MAX = 10;                  // Deckel des relativen Gewichts einer Abweichung (Basis ungleich 0)
 const SCHLECHTER_FAKTOR = 1.5;         // Abweichungen in die schlechtere Richtung zaehlen so viel staerker
 const MIN_BASIS_N = 4;                 // Basis-Gruppe: Kennzahlen mit weniger Basis-Laeufen (n in der Statistik) werden nicht verglichen (zu wenig Basis)
+const KERBE_K = 1.58;                  // D2: Kerbenbreite nach McGill et al. (1978): Median +- 1,58 x IQR / sqrt(n); zwei Gruppen unterscheiden sich, wenn sich die Kerben nicht ueberlappen
 const VERLUST_IMMER = new Set(['f3.gefallen.n', 'f3.notfall.n', 'f3.schiff_zerstoert.n']);   // B1: Tod/gefallen, Notfallprotokoll, Schiff zerstoert stehen bei > 0 immer da
 const STREUUNG_K = 2;                  // Basis-Gruppe: Normalbereich-Breite = max(rel x |Median|, STREUUNG_K x IQR) UEBER die Basis-Spanne hinaus; Wahl und Fehlalarme: Bericht TEL-01 C
 // S4: Hinweis, wenn alle Basis-Laeufe einer Gruppe am Zeitlimit enden (basis.js amLimit): die Spannen sagen dann nichts ueber Balance
@@ -106,6 +108,71 @@ function abweichungGegenBasisGruppe(kz, gruppe) {
   liste.sort((x, y) => y.score - x.score || (x.k < y.k ? -1 : 1));
   const nurImLauf = Object.keys(a).filter((k) => !(k in st) && infoZu(k) && infoZu(k).determ !== false).sort();   // K3: gibt es in keinem Basis-Lauf
   return { liste, verglichen, fehlt, zuwenig, nurImLauf, amLimit: gruppe && gruppe.am_limit ? amLimitText(gruppe.modus) : null, gruppe: gruppe && gruppe.id, laeufe: gruppe && gruppe.laeufe };
+}
+
+// TEL-01 D2: Gruppe gegen Gruppe, EINE Kennzahl. sa, sb = Statistik [n, min, q1, median, q3, max] (basis.js statistik). Auffaellig (urteil 'wesentlich'), wenn BEIDES gilt:
+//   1. |Median A - Median B| > KERBE_K x IQR x (1/sqrt(n_A) + 1/sqrt(n_B)): die Kerben ueberlappen nicht (McGill). Die Kerbe wird mit der Zahl der Laeufe schmaler, anders als die Spanne Min-Max
+//      des Einzellaufs gegen die Basis. IQR = die der Gruppe mit mehr Laeufen (stabilere Streuung; bei gleichem n die groessere), wie in der Probe des Reviewers von C (IQR der Basis).
+//   2. |Median A - Median B| >= info.min (die Mindestmenge der Kennzahl in ihrer Einheit; 1 -> 2 Kills faellt nicht auf). Keine zweite Schwelle: dieselbe wie beim Einzellauf.
+// Hat eine Seite weniger als MIN_BASIS_N Laeufe mit Wert (n < 4), gibt es kein Urteil (urteil 'zuwenig'). determ: false (Technik) wird nie verglichen (urteil 'keins').
+// Rueckgabe { urteil: 'wesentlich' | 'gleich' | 'zuwenig' | 'keins', diff, kerbe }
+function unterschiedGruppen(sa, sb, info) {
+  const ok = (s) => Array.isArray(s) && s.length >= 6 && s.every(num);
+  if (!ok(sa) || !ok(sb) || !info || info.determ === false) return { urteil: 'keins', diff: null, kerbe: null };
+  if (sa[0] < MIN_BASIS_N || sb[0] < MIN_BASIS_N) return { urteil: 'zuwenig', diff: Math.abs(sa[3] - sb[3]), kerbe: null };
+  const iqrA = sa[4] - sa[2], iqrB = sb[4] - sb[2];
+  const iqr = sa[0] > sb[0] ? iqrA : (sb[0] > sa[0] ? iqrB : Math.max(iqrA, iqrB));
+  const kerbe = KERBE_K * iqr * (1 / Math.sqrt(sa[0]) + 1 / Math.sqrt(sb[0]));
+  const diff = Math.abs(sa[3] - sb[3]);
+  return { urteil: diff > kerbe && diff >= info.min ? 'wesentlich' : 'gleich', diff, kerbe };
+}
+
+// Kopie der Kennzahlen, in der jede Zaehler-/Summenkennzahl (info.summe), die ref hat und kz nicht, als 0 steht ("fehlender Wert = 0", wie in der Basis-Datei).
+function mitNullSummen(kz, ref) {
+  const out = {};
+  for (const g of ['f1', 'f2', 'f2b', 'f3', 'f4', 'f5', 'f6']) if (kz && kz[g]) out[g] = JSON.parse(JSON.stringify(kz[g]));
+  const eigene = flach(kz);
+  for (const k of Object.keys(ref)) {
+    const info = infoZu(k);
+    if (k in eigene || !info || !info.summe) continue;
+    const t = k.split('.');
+    let c = out;
+    for (let i = 0; i < t.length - 1 && c; i++) c = c[t[i]] == null ? (c[t[i]] = {}) : (typeof c[t[i]] === 'object' ? c[t[i]] : null);
+    if (c) c[t[t.length - 1]] = 0;
+  }
+  return out;
+}
+
+// TEL-01 D2: Vergleich zweier Seiten. Eine Seite ist { kz } (ein Lauf: Kennzahlen-Objekt) oder { gruppe } (Statistik je Kennzahl, Form wie eine Basis-Gruppe: { kz: { schluessel: [n,min,q1,med,q3,max] }, laeufe, am_limit, modus }).
+//   Lauf gegen Lauf     bestehende Einzelregel (abweichungen, A ist die Basis, B der Lauf); fehlende Zaehler/Summen zaehlen auf beiden Seiten als 0
+//   Lauf gegen Gruppe   bestehende Gruppenregel (abweichungGegenBasisGruppe), gleich in welcher Reihenfolge
+//   Gruppe gegen Gruppe unterschiedGruppen je Kennzahl; fehlt eine Zaehler-/Summenkennzahl in einer Gruppe, gilt sie dort als 0 (n = Zahl der Laeufe der Gruppe), sonst fehlt der Wert (zaehlt in fehlt)
+// Rueckgabe { regel, wesentlich: Set Schluessel, zuwenig: Set Schluessel (nur Gruppe/Gruppe), verglichen, fehlt, nurEine: Zahl Schluessel ohne Gegenstueck (Lauf/Lauf) }
+function vergleichSeiten(a, b) {
+  const lA = !!(a && a.kz), lB = !!(b && b.kz);
+  if (lA && lB) {
+    const fa = flach(a.kz), fb = flach(b.kz);
+    const r = abweichungen(mitNullSummen(b.kz, fa), mitNullSummen(a.kz, fb));
+    return { regel: 'lauf-lauf', wesentlich: new Set(r.liste.map((x) => x.k)), zuwenig: new Set(), verglichen: r.verglichen, fehlt: r.fehlt, nurEine: 0 };
+  }
+  if (lA !== lB) {
+    const r = abweichungGegenBasisGruppe(lA ? a.kz : b.kz, lA ? b.gruppe : a.gruppe);
+    return { regel: 'lauf-gruppe', wesentlich: new Set(r.liste.map((x) => x.k)), zuwenig: new Set(), verglichen: r.verglichen, fehlt: r.fehlt, nurEine: r.nurImLauf.length, zuwenigZahl: r.zuwenig };
+  }
+  const sa = (a.gruppe && a.gruppe.kz) || {}, sb = (b.gruppe && b.gruppe.kz) || {};
+  const wesentlich = new Set(), zuwenig = new Set();
+  let verglichen = 0, fehlt = 0;
+  for (const k of [...new Set(Object.keys(sa).concat(Object.keys(sb)))].sort()) {
+    const info = infoZu(k);
+    if (!info || info.determ === false) continue;
+    const x = sa[k] || (info.summe ? [a.gruppe.laeufe, 0, 0, 0, 0, 0] : null);
+    const y = sb[k] || (info.summe ? [b.gruppe.laeufe, 0, 0, 0, 0, 0] : null);
+    if (!x || !y) { fehlt++; continue; }
+    const u = unterschiedGruppen(x, y, info);
+    if (u.urteil === 'zuwenig') zuwenig.add(k);
+    else if (u.urteil !== 'keins') { verglichen++; if (u.urteil === 'wesentlich') wesentlich.add(k); }
+  }
+  return { regel: 'gruppe-gruppe', wesentlich, zuwenig, verglichen, fehlt, nurEine: 0 };
 }
 
 // Datenzeile "Basis von anderer Plattform": gilt fuer Einzellauf- und Gruppen-Basis (basisKopf.plattform). Raumkampf ist zwischen win32-x64 und arm64/linux nicht bit-gleich.
@@ -212,6 +279,6 @@ function bewerten(kz, opt) {
 }
 
 module.exports = {
-  bewerten, abweichungen, abweichungGegenBasisGruppe, plattformZeile, basisArtZeile, ampel, zielBewertung, basisFlach,
-  STREUUNG_K, MIN_BASIS_N, amLimitText, VERLUST_IMMER, BASIS_ART_TEXT, PLATTFORM_TEXT, LEERLAUF_AUFFAELLIG_S, LEERLAUF_AUFFAELLIG_ANTEIL, TICK_SPITZE_MS, SCORE_MAX, SCHLECHTER_FAKTOR,
+  bewerten, abweichungen, abweichungGegenBasisGruppe, unterschiedGruppen, vergleichSeiten, plattformZeile, basisArtZeile, ampel, zielBewertung, basisFlach,
+  STREUUNG_K, KERBE_K, MIN_BASIS_N, amLimitText, VERLUST_IMMER, BASIS_ART_TEXT, PLATTFORM_TEXT, LEERLAUF_AUFFAELLIG_S, LEERLAUF_AUFFAELLIG_ANTEIL, TICK_SPITZE_MS, SCORE_MAX, SCHLECHTER_FAKTOR,
 };

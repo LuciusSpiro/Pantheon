@@ -20,6 +20,7 @@ for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT
 const KZ = 'tools/auswertung/kennzahlen.js', BE = 'tools/auswertung/bericht.js', BW = 'tools/auswertung/bewertung.js', PR = 'tools/auswertung/profil.js', LE = 'tools/auswertung/lesen.js';
 const T = 'test-auswertung.js';
 const BA = 'tools/auswertung/basis.js', TB = 'test-basis.js';
+const VG = 'tools/auswertung/vergleich.js', AB = 'tools/auswertung/abfrage.js', TV = 'test-vergleich.js', TA = 'test-abfrage.js';   // TEL-01 D2
 const AU = 'tools/auswerten.js', BT = 'tools/basis.js';   // TEL-01 C: Basis und Schwelle gegen die Basis-Gruppe
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Test]
 const MUTATIONEN = [
@@ -162,6 +163,26 @@ const MUTATIONEN = [
   [BE, "(b.basis.nurImLauf.length <= 3 ?", "(b.basis.nurImLauf.length <= 0 ?", "K3: Namen der nur-im-Lauf-Kennzahlen fehlen", TB],
   [BW, "bg ? versionsZeile(kz, { version: basisKopf && basisKopf.kennzahl_version })", "bg ? []", "K4: Kennzahl-Version der Gruppen-Basis wird nicht verglichen", TB],
   [BE, "const NUR_HINWEIS = new Set(['plattform', 'basis_art', 'kennzahl_version']);", "const NUR_HINWEIS = new Set([]);", "K2: Plattformzeile bekommt den Zusatz 'Kennzahlen unvollstaendig'", TB],
+  // --- TEL-01 D2: Vergleich (Kerben nach McGill, Filter, Tuning) und Abfrage (SQLite) ---
+  [BW, "const kerbe = KERBE_K * iqr * (1 / Math.sqrt(sa[0]) + 1 / Math.sqrt(sb[0]));", "const kerbe = KERBE_K * iqr * (1 / sa[0] + 1 / sb[0]);", "D2: Kerbe ohne Wurzel aus n", TV],
+  [BW, "diff > kerbe && diff >= info.min ?", "diff > kerbe ?", "D2: Kerbenregel ohne Mindestmenge (min)", TV],
+  [BW, "if (sa[0] < MIN_BASIS_N || sb[0] < MIN_BASIS_N) return { urteil: 'zuwenig', diff: Math.abs(sa[3] - sb[3]), kerbe: null };", "", "D2: n-Grenze fehlt (weniger als 4 Laeufe werden trotzdem beurteilt)", TV],
+  [BW, "const iqr = sa[0] > sb[0] ? iqrA : (sb[0] > sa[0] ? iqrB : Math.max(iqrA, iqrB));", "const iqr = Math.max(iqrA, iqrB);", "D2: Kerbe nimmt die groessere IQR statt die der Gruppe mit mehr Laeufen", TV],
+  [BW, "const y = sb[k] || (info.summe ? [b.gruppe.laeufe, 0, 0, 0, 0, 0] : null);", "const y = sb[k] || null;", "D2: Gruppe/Gruppe: fehlende Summe in B zaehlt nicht als 0", TV],
+  [BW, "if (!ok(sa) || !ok(sb) || !info || info.determ === false) return", "if (!ok(sa) || !ok(sb) || !info) return", "D2: Kerbenregel vergleicht Technik (determ: false)", TV],
+  [BW, "const r = abweichungen(mitNullSummen(b.kz, fa), mitNullSummen(a.kz, fb));", "const r = abweichungen(b.kz, a.kz);", "D2: Lauf/Lauf: fehlender Zaehler zaehlt nicht als 0", TV],
+  [VG, "if (FILTER_PRAEFIX.has(k) ? !String(w).startsWith(filter[k]) : String(w) !== filter[k]) return false;", "", "D2: Filter wirkungslos", TV],
+  [VG, "if (kz.f6 && kz.f6.daten && kz.f6.daten.ohne_ende > 0) return 'kein session_ende';", "", "D2: Fehlerlauf ohne session_ende geht in die Gruppe", TV],
+  [VG, "if (ids.length > 1) w.push(", "if (false) w.push(", "D2: gemischte Gruppe ohne Warnung", TV],
+  [VG, "if (ha === hb) {", "if (true) {", "D2: unterschiedlicher Tuning-Hash wird nie gemeldet", TV],
+  [VG, "const delta = x && y ? y.w - x.w : null;", "const delta = x && y ? x.w - y.w : null;", "D2: Delta mit falschem Vorzeichen (A - B)", TV],
+  [AB, "const spalten = BASIS_SPALTEN.concat(felder.map(", "const spalten = BASIS_SPALTEN.concat(felder.slice(0, -1).map(", "D2: View-Spalte fehlt (letztes Schema-Feld)", TA],
+  [AB, "return new DatabaseSync(f, { readOnly: true });", "return new DatabaseSync(f);", "D2: Abfrage-Verbindung nicht schreibgeschuetzt (readOnly fehlt)", TA],
+  [AB, "if (!ANWEISUNG.test(s)) throw", "if (false) throw", "D2: Abfrage laesst VACUUM INTO und ATTACH durch (keine Anweisungsliste)", TA],
+  [AB, "if (mehrereAnweisungen(roh)) throw", "if (false) throw", "D2: Abfrage ignoriert eine zweite Anweisung still", TA],
+  [AB, "if (fertig.has(e.kennung)) { erg.uebersprungen++; continue; }", "", "D2: Laden nicht inkrementell (beendete Sessions werden neu geladen)", TA],
+  [AB, "SELECT kennung FROM sessions WHERE ende_grund IS NOT NULL", "SELECT kennung FROM sessions", "D2: Session ohne session_ende wird nie neu gelesen", TA],
+  [AB, "if (z.typ === 'szene_start') szene++;", "if (false) szene++;", "D2: szene_nr zaehlt keine Szenen", TA],
 ];
 
 const trocken = process.argv.includes('--trocken');
