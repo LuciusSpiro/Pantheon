@@ -152,13 +152,28 @@ section('(c) Skalen und Ladebalken');
   const bw = L.rechts.w - 2 * TF.rechts.ziel.kopfX, by = L.rechts.y + TF.rechts.laden.balkenY;
   const balken = rl.flaeche.filter((e) => e.k === 'fillRect' && e.a[1] === by && e.a[3] === TF.rechts.laden.balkenH);
   ok(balken.length === 2 && balken[0].a[2] === bw && balken[0].fill === TF.rechts.laden.spur && balken[1].a[2] === Math.round(bw * 0.45) && balken[1].fill === TF.rechts.laden.farbe, 'Ladebalken: Spur ' + bw + ' px, Füllung ' + Math.round(bw * 0.45) + ' px = 45 %');
+  const pz = rl.texte.find((x) => x.str === '45 %');
+  ok(pz && pz.scale === TK.TEXT.skalaWert && pz.align === 'right' && pz.y === L.rechts.y + TF.rechts.boje.y && TF.rechts.laden.balkenH >= 5, 'Laden: Prozentzahl „45 %“ in Skala 2, rechtsbündig in der Bojenzeile, Balken >= 5 px');
   ok(zeichneMitLog(ansicht()).flaeche.filter((e) => e.k === 'fillRect' && e.a[1] === by && e.a[3] === TF.rechts.laden.balkenH).length === 0, 'ohne Ladung kein Balken');
   const bereit = zeichneMitLog(ansicht({ jump: { dest: 'Methalle', charge: 1, ready: true, anflug: false } }));
   ok(finde(bereit.texte, 'BEREIT').length === 1 && finde(bereit.texte, 'SPRUNGZIEL').length === 1, 'Sprung bereit (ohne Boje): „BEREIT“, Kopf bleibt SPRUNGZIEL');
   const lang = ansicht({ jump: { dest: 'WWWWWWWWWWWWWWWWWWWWWWWWW', anflug: false } }), rn = zeichneMitLog(lang);
   const name = rn.texte.find((x) => x.scale === 2 && x.y === TA.lage(lang).rechts.y + TF.rechts.ziel.wertY);
-  ok(name && name.str.endsWith('…') && win.Render.measure ? true : true, 'langer Name wird mit „…“ gekürzt: ' + (name && name.str));
+  ok(name && name.str.endsWith('…') && win.Render.measure(name.str, 2) <= TF.rechts.ziel.maxBreite, 'langer Name ohne Nummer wird am Ende mit „…“ gekürzt und passt: ' + (name && name.str));
 }
+// S2/S3: Name mit Nummer am Ende: der Name vor der Nummer wird gekürzt, die Nummer bleibt; Leerraum-Ziel „LEER 0504“
+function pruefeKuerzung(w, rep) {
+  const T2 = w.HauptschirmTafeln, Tk = w.HauptschirmTokens.TOKENS, mt = textLog(w);
+  const v = ansicht({ jump: { dest: 'WWWWWWWWWWWWWWWWWWWWWWWW 0504', anflug: false } });
+  T2.zeichne(neueFlaeche([]), v); mt.undo();
+  const nm = mt.log.find((x) => x.scale === 2 && x.y === T2.lage(v).rechts.y + Tk.TAFEL.rechts.ziel.wertY);
+  rep(!!nm && / 0504$/.test(nm.str) && nm.str.includes('…') && w.Render.measure(nm.str, 2) <= Tk.TAFEL.rechts.ziel.maxBreite, 'Name mit Nummer: Nummer bleibt ganz, Name davor gekürzt, Breite <= maxBreite (' + (nm && nm.str) + ')');
+  const m2 = textLog(w), v2 = ansicht({ jump: { dest: 'leer-0504', anflug: false } });
+  T2.zeichne(neueFlaeche([]), v2); m2.undo();
+  rep(m2.log.some((x) => x.str === 'LEER 0504'), 'Leerraum-Ziel zeigt „LEER 0504“ ungekürzt (' + m2.log.filter((x) => x.scale === 2).map((x) => x.str).join('|') + ')');
+}
+section('(c2) Kürzung nie an der Nummer');
+pruefeKuerzung(win, ok);
 
 // ------------------------------------------------------------------ (d) keine Hülle, fehlende Daten
 section('(d) keine Hülle, fehlende Daten');
@@ -310,6 +325,27 @@ pruefeSitz(sitzOrig, ok, '');
   ok(fenster && /R\.drawFrontView\(c, view, fenster\);/.test(sitzOrig) && (sitzOrig.match(/R\.drawFrontView\(/g) || []).length === 1, 'drawFrontView-Aufruf in sitz.js unverändert (ein Aufruf, Fenster als Konstante)');
 }
 
+// ------------------------------------------------------------------ (i) Randpfeil-Label des Hauptschirms (Designer 5)
+// Mit echter Sektorkarte (Shared_Sektoren): Ziel Rabenpass (Hex 0502) und leerer Hex 0101, Boje weit voraus (außerhalb des Bildes -> Randpfeil)
+function pruefeRandLabel(w, rep, tag) {
+  w.Shared_Sektoren = require('../shared/sektoren.js');
+  const hole = (dest, hex, rect) => {
+    const v = ansicht({ kurs: 0, jump: { dest, anflug: true, charge: 0 }, jp: [] }), f = v.f;
+    v.state.space.jp = [Object.assign({ k: 'k-' + hex, z: 'aktiv', n: hex }, f(1296, 0))];
+    v.state.world.sektoren = { e: ['0502'], b: [], t: [], o: [] };
+    return labelRects(frontLauf(w, v, rect)).map((l) => l.s);
+  };
+  const hs = hole('rabenpass', '0502', Object.assign({}, RECT, { textSkala: 2 })), leer = hole('leer-0101', '0101', Object.assign({}, RECT, { textSkala: 2 }));
+  const pult = hole('rabenpass', '0502', Object.assign({}, RECT, { x: 10, y: 26, w: 404, h: 184, side: 729, sicht: undefined }));
+  rep(hs.some((t) => /^RABENPASS \d+$/.test(t)) && !hs.some((t) => /SPRUNG/.test(t)), tag + 'Hauptschirm: Randpfeil „RABENPASS <m>“ ohne das Wort SPRUNG [' + hs.join(' | ') + ']');
+  rep(leer.some((t) => /^LEER 0101 \d+$/.test(t)), tag + 'Hauptschirm: leerer Hex „LEER 0101 <m>“ [' + leer.join(' | ') + ']');
+  rep(pult.some((t) => /^SPRUNG Rabenpass \d+$/.test(t)), tag + 'Pult unverändert: „SPRUNG Rabenpass <m>“ [' + pult.join(' | ') + ']');
+  const rl = w.HauptschirmTafeln.randLabel('Castra Martis Hafenstadt', '0102', 800);
+  rep(rl === 'CASTRA MA 800', tag + 'randLabel kürzt den Namen auf 9 Zeichen (' + rl + ')');
+}
+section('(i) Randpfeil-Label des Hauptschirms');
+pruefeRandLabel(win, ok, '');
+
 // ------------------------------------------------------------------ (h) Mutationen
 section('(h) Mutationen');
 function mutiere(was, quelleDatei, ersatz, pruefung) {
@@ -327,6 +363,8 @@ mutiere('drawSpace reicht cam.sperren nicht an die Boje-Labels', 'render.js', ['
 mutiere('drawFrontView reicht rect.textSkala nicht weiter', 'render.js', [', textSkala: rect.textSkala,', ','], (q, rep) => pruefeLabels(umgebung({ 'render.js': q }), rep));
 mutiere('drawSpace ignoriert die Skala (Entzerrung bleibt Skala 1)', 'render.js', ['measure(l.str, tsk) + 2', 'measure(l.str, 1) + 2'], (q, rep) => pruefeLabels(umgebung({ 'render.js': q }), rep));
 
+mutiere('Kürzen am Ende statt vor der Nummer', 'hauptschirm-tafeln.js', ['    if (m) {', '    if (false) {'], (q, rep) => pruefeKuerzung(umgebung({ 'hauptschirm-tafeln.js': q }), rep));
+mutiere('Randpfeil-Label des Hauptschirms ohne Kurzform', 'starmap.js', ['if (cam.front && cam.textSkala > 1 && window.HauptschirmTafeln', 'if (false && window.HauptschirmTafeln'], (q, rep) => pruefeRandLabel(umgebung({ 'starmap.js': q }), rep, ''));
 console.log('\n' + (n - fails) + '/' + n + ' ok');
 if (fails) { console.log(fails + ' FEHLER'); process.exit(1); }
 console.log('Tafeln und Skala 2 ok.');

@@ -116,6 +116,18 @@ section('Zustand überlebt Sprung und Sektorwechsel');
   ok(T.hs() === undefined, 'im neuen Sektor weiter umschaltbar (klassisch, Feld fehlt)');
 }
 
+section('Neue Partie setzt klassisch zurück (S1)');
+{
+  const T = partie(); const g = T.g;
+  T.cmd(0, 'helm.hauptschirm', { ansicht: 'visier' });
+  ok(T.hs() === 'visier', 'Vorbedingung: visier gesetzt');
+  g.reset();
+  ok(Hauptschirm.ansichtVon(g) === 'klassisch' && g.hauptschirmAnsicht === 'klassisch', 'nach Game.reset(): Zustand klassisch');
+  ok(g.snapshot().ship.hs === undefined, 'nach Game.reset(): Snapshot ohne ship.hs');
+  T.cmd(0, 'helm.hauptschirm', { ansicht: 'visier' }); Hauptschirm.zuruecksetzen(g);
+  ok(Hauptschirm.ansichtVon(g) === 'klassisch', 'zuruecksetzen(game) einzeln: klassisch');
+}
+
 section('Client: Selektor und Registry (public/js/hauptschirm.js)');
 {
   const win = {}; const ctx = vm.createContext({ window: win });

@@ -21,7 +21,10 @@ function ansichtSetzen(game, p, ansicht) {
   return null;
 }
 
+// Neue Partie (Lobby, Neustart, Laden, Moduswechsel): zurück auf klassisch. Sprung/Sektorwechsel ruft das NICHT auf.
+function zuruecksetzen(game) { game.hauptschirmAnsicht = STANDARD; }
+
 // Snapshot-Zeile ship.hs: nur 'visier' wird übertragen; klassisch = Feld fehlt (spart Snapshot-Budget).
 function snapshot(game) { return ansichtVon(game) === 'klassisch' ? null : ansichtVon(game); }
 
-module.exports = { ANSICHTEN, ansichtSetzen, ansichtVon, snapshot };
+module.exports = { ANSICHTEN, ansichtSetzen, ansichtVon, snapshot, zuruecksetzen };

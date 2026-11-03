@@ -121,7 +121,7 @@
       y += 14;
       // KUL-02 A: Hauptschirm für die ganze Brücke umschalten (Zustand im Server, Snapshot ship.hs); die Beschriftung nennt die aktive Ansicht
       const hsAktiv = window.Hauptschirm ? Hauptschirm.ansichtVon(view) : 'klassisch';
-      P.knopf(ctx, x, y, cw, 14, 'Hauptschirm: ' + (hsAktiv === 'visier' ? 'Visier' : 'klassisch'), { hotkey: 'V', aktion: 'steuer.hauptschirm', fn: 'sensor', active: hsAktiv === 'visier', onClick: () => this.cmd(view, 'helm.hauptschirm', { ansicht: Hauptschirm.andere(hsAktiv) }) });
+      P.knopf(ctx, x, y, cw, 14, 'Hauptschirm: ' + (hsAktiv === 'visier' ? 'Visier' : 'klassisch'), { hotkey: 'V', aktion: 'steuer.hauptschirm', fn: 'sensor', active: hsAktiv === 'visier', onClick: () => this.cmd(view, PROTO.CMD_HELM_HAUPTSCHIRM || 'helm.hauptschirm', { ansicht: Hauptschirm.andere(hsAktiv) }) });
       // ---- SPRUNG
       x = 346; cw = 150;
       y = P.titel(ctx, x, y0, cw, 'SPRUNG', 'nav');

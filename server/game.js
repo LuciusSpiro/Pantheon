@@ -450,6 +450,7 @@ class Game {
   // ---------- Zustand ----------
   reset() {
     this.zerstoertOffen = null;   // SYS-01 A2b: eine neue Partie beginnt ohne Einblendung
+    Hauptschirm.zuruecksetzen(this);   // KUL-02 S1: eine neue Partie beginnt mit der klassischen Ansicht
     Reise.reset(this);
     Entschl.reset(this);
     Glyphen.reset(this); this.bojeSim = null;   // SL10
@@ -1207,7 +1208,7 @@ class Game {
         err = hasFn('helmThrottle') ? space.helmThrottle(this, msg) : 'Temporegler noch nicht verfügbar.';
         break;
       case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
-      case 'helm.hauptschirm': err = Hauptschirm.ansichtSetzen(this, p, String(msg.ansicht)); break;   // KUL-02 A: Hauptschirm für alle umschalten
+      case Protocol.CMD_HELM_HAUPTSCHIRM: err = Hauptschirm.ansichtSetzen(this, p, String(msg.ansicht)); break;   // KUL-02 A: Hauptschirm für alle umschalten
       case 'helm.jump': err = space.doJump(this); break;
       case 'helm.schnellsprung': err = Reise.befehl(this); break;   // Spieltest: alle Hops der gewählten Route; während der Reise = abbrechen
       case 'captain.accept': err = this.mission.accept(); break;

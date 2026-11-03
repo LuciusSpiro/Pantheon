@@ -6,7 +6,7 @@
 //  4. Wertebereiche: Parallaxe, Radiusfaktor, Abdunklung wie Richtung A; Beschriftung ≥ Skala 2; Tafeln im Schirm, ohne Überlappung,
 //     Mitte oben frei; Elemente in ihrer Tafel.
 //  5. Kontrast nach WCAG 2.1: dokumentierte Werte stimmen (±0,05); Text ≥ 4,5:1, Rot (nur Skala 2) ≥ 3:1, auch auf dem Tafelgrund
-//     über hellstem Bild (86 % über Weiß).
+//     über hellstem Bild (94 % über Weiß).
 // Aufruf: node tools/test-hauptschirm-tokens.js   (Exit 1 bei Fehlern)
 'use strict';
 const fs = require('fs');
@@ -71,7 +71,7 @@ for (const [k, v] of Object.entries(T.EIGEN)) ok(benutzt.has(v), `EIGEN.${k} wir
 // Funktionsfarben = Brückenpulte (Bernstein Kurs/Schub, Messing Sprungziel, Eisblau Sensoren, Mint Schild, Rot Gefahr)
 const F = T.FARBE;
 ok(F.kurs === palEcht.amber && F.sprung === palEcht.brass && F.sensor === palEcht.ice && F.schild === palEcht.mint && F.gefahr === palEcht.red, 'Funktionsfarben weichen von PAL ab');
-ok(T.TAFEL.grund.farbe === '#0B0E1A' && T.TAFEL.grund.alpha === 0.86, 'Tafelgrund nicht #0B0E1A bei 86 %');
+ok(T.TAFEL.grund.farbe === '#0B0E1A' && T.TAFEL.grund.alpha === 0.94, 'Tafelgrund nicht #0B0E1A bei 94 %');
 // Hex-Literale nur im Token-Block (wie tools/check-terminal-farben.js)
 {
   let drin = false, n = 0;
@@ -154,7 +154,7 @@ const misch = (a, b, t) => '#' + [1, 3, 5].map((i) => Math.round(parseInt(a.slic
 const fmt = (v) => v.toFixed(2).replace('.', ',');
 const KO = T.KONTRAST, tafelHell = misch(TF.grund.farbe, '#FFFFFF', TF.grund.alpha);
 ok(KO.grund === TF.grund.farbe, 'Kontrast-Grund ≠ Tafelgrund');
-console.log(`Kontrast auf Tafelgrund ${KO.grund} (und 86 % über Weiß = ${tafelHell}):`);
+console.log(`Kontrast auf Tafelgrund ${KO.grund} (und 94 % über Weiß = ${tafelHell}):`);
 for (const [k, doku] of Object.entries(KO.werte)) {
   const c = palEcht[k], v = kontrast(c, KO.grund), w = kontrast(c, tafelHell), min = KO.nurAbSkala2.includes(k) ? 3 : 4.5;
   console.log(`  ${k.padEnd(6)} ${c}  ${fmt(v).padStart(6)}:1  (Doku ${fmt(doku)})  über Weiß ${fmt(w)}:1  min ${fmt(min)}`);
