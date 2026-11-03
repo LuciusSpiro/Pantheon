@@ -126,7 +126,14 @@ section('(a) Aufrufprotokoll von drawFrontView gleich der Referenz (Stand f2daff
 section('(d) Konstanten und Aufrufer');
 {
   ok(R.FRONT.fwd === 700 && R.FRONT.back === 120 && R.FRONT.side === 420, 'R.FRONT = { fwd 700, back 120, side 420 }');
-  ok(/R\.drawFrontView\(c, view, \{ x: 0, y: 0, w: SW, h: SH, side: \(SW \/ 2\) \/ zoom, sicht: \{ x: 0, y: 0, w: SW, h: SH \}, randOben: szeneOben\(view\) \}\)/.test(rd('sitz.js')), 'sitz.js: Aufruf von drawFrontView im Hauptschirm unverändert');
+  // KUL-02 A: der Aufruf steht jetzt im registrierten Zeichner der Ansicht 'klassisch' (Hauptschirm.registriere); zeichneSchirm ruft nur noch Hauptschirm.zeichne.
+  // Der Aufruf selbst (Argumente, Zoom) ist unverändert, das Pult-Bild bleibt bit-gleich.
+  const sitzSrc = rd('sitz.js');
+  const klassisch = (sitzSrc.match(/Hauptschirm\.registriere\('klassisch'[\s\S]*?\n  \}\);/) || [''])[0];
+  ok(/const F = R\.FRONT, zoom = SH \/ \(F\.fwd \+ F\.back\);/.test(klassisch), 'sitz.js: Zoom im klassischen Hauptschirm-Zeichner wie bisher (SH / (fwd + back))');
+  ok(/Hauptschirm\.zeichne\(c, view, /.test(sitzSrc) && (sitzSrc.match(/R\.drawFrontView\(/g) || []).length === 1, 'sitz.js: zeichneSchirm ruft Hauptschirm.zeichne, drawFrontView steht nur im klassischen Zeichner');
+  // KUL-02 C: das Fenster ist jetzt eine benannte Konstante (die Himmelsschicht hängt als rect.himmel daran); Fenster-Werte und Aufruf bleiben dieselben
+  ok(/const fenster = \{ x: 0, y: 0, w: SW, h: SH, side: \(SW \/ 2\) \/ zoom, sicht: \{ x: 0, y: 0, w: SW, h: SH \}, randOben: szeneOben\(view\) \};/.test(klassisch) && /R\.drawFrontView\(c, view, fenster\);/.test(klassisch), 'sitz.js: Fenster und Aufruf von drawFrontView im klassischen Hauptschirm-Zeichner unverändert (Fenster als Konstante)');
 }
 
 console.log('\n' + (n - fails) + '/' + n + ' ok' + (fails ? ', ' + fails + ' FEHLER' : ''));

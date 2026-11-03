@@ -246,7 +246,7 @@ section('Verdrahtung: Taste Shift+Z, Knopf mit Kappe, Skript, keine fremden Eing
   ok(/Kartenlogik\.optionen\('weapons', view\)/.test(pult) && /Kartenlogik\.optionen\('lage', view\)/.test(kons), 'Ops und Captain rufen Kartenlogik direkt auf (kein Stationsparameter, kein lokaler Zustand in consoles.js)');
   ok(!/fuerCaptain|fuerOps/.test(rend + kons + pult), 'kein Stationsparameter wie fuerCaptain in render/consoles/pult');
   ok(/rot: opts\.rot \|\| 0/.test(rend) && !/rot: 0 }, opts\)/.test(rend), 'Render.drawTactical reicht rot aus den Optionen an drawSpace (nicht mehr fest 0)');
-  ok(/rot: -\(ship\.angle \|\| 0\) - Math\.PI \/ 2, cx, cy, bound: win/.test(rend), 'Frontsicht (drawFrontView) unverändert');
+  ok(/const rot = -\(ship\.angle \|\| 0\) - Math\.PI \/ 2/.test(rend) && /mode: 'front', zoom, rot, cx, cy, bound: win/.test(rend), 'Frontsicht (drawFrontView) unverändert');
 }
 
 // ---------------------------------------------------------------------------------------------------------------------------------

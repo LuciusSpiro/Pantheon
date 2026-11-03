@@ -96,6 +96,15 @@
     ctx.restore();
   }
 
+  // KUL-02 D: Text mit dunkler 8-fach-Kontur für Schrift über Bild (nur Hauptschirm, Skala 2). Farbe und Stärke aus HauptschirmTokens.FARBE.kontur / TEXT.konturPx, ohne Tokens 1 px tiefraum 90 %.
+  function textKontur(ctx, str, x, y, opts) {
+    opts = opts || {};
+    const TKS = window.HauptschirmTokens && window.HauptschirmTokens.TOKENS, kf = TKS ? TKS.FARBE.kontur : { farbe: '#05070D', alpha: 0.9 }, px = TKS ? TKS.TEXT.konturPx : 1;
+    const hv = parseInt(String(kf.farbe).slice(1, 7), 16), kc = 'rgba(' + (hv >> 16) + ',' + ((hv >> 8) & 255) + ',' + (hv & 255) + ',' + kf.alpha + ')';
+    for (const [dx, dy] of [[-1, -1], [0, -1], [1, -1], [-1, 0], [1, 0], [-1, 1], [0, 1], [1, 1]]) text(ctx, str, x + dx * px, y + dy * px, { color: kc, scale: opts.scale, align: opts.align, shadow: false });
+    text(ctx, str, x, y, Object.assign({}, opts, { shadow: false }));
+  }
+
   // Zeilenumbruch nach Pixelbreite.
   function wrap(str, maxW, scale) {
     const words = String(str || '').split(/\s+/);
@@ -3827,7 +3836,7 @@
 
   // SL6: Zonen mit Wirkung zeichnen. Daten aus scene.zonen (shared/zonen.js), Sichtbarkeit nach sichtbarFuer ('ops' in der Taktikkarte oder nach dem
   // Erkunden, 'karte' erst nach dem Erkunden), Zustand st.zonen = { in, bk }. Farben: Hitze/Druck orange, Sicht violett, Ertrag grün, Drift Pfeile.
-  function drawZonen(ctx, st, toS, zoom, t, ops, rot) {
+  function drawZonen(ctx, st, toS, zoom, t, ops, rot, ts, fl) {   // ts (optional, KUL-02 D): Textskala der Zonennamen, nur Hauptschirm; fl (optional, KUL-02 N1, nur Hauptschirm): { sperren, grenze, gesetzt: [] } für die Ringnamen
     rot = rot || 0;
     const Z = window.Shared_Zonen, SL = window.Shared_Locations;
     if (!Z || !SL || !st || !st.ship) return;
@@ -3890,10 +3899,26 @@
         }
         ctx.stroke();
       }
-      if (z.name && zoom > 0.12) text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center' });
+      if (z.name && zoom > 0.12) {
+        if (fl && z.form === 'ring') {   // KUL-02 N1: Hauptschirm: Schichtname dynamisch auf dem Ring (frei von Tafeln, Bildrand und anderen Namen, der Lerche am nächsten); nur hier, das Pult bleibt unverändert
+          const str = z.name.toUpperCase(), sk = ts > 1 ? ts : 1, w = measure(str, sk) + 2, h = 7 * sk + 2, rr = z.r1 * zoom;
+          const GLb = (window.HauptschirmTokens && window.HauptschirmTokens.TOKENS.GASRIESE.label) || { schritt: 0.1, rand: 6 };
+          const lerche = toS(st.ship.x, st.ship.y), g0 = fl.grenze, m = GLb.rand;
+          const trifft = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+          let best = null, bd = Infinity;
+          for (let a = 0; a < Math.PI * 2; a += GLb.schritt) {
+            const px = c.x + Math.cos(a) * rr, py = c.y + Math.sin(a) * rr, q = { x: Math.round(px - w / 2), y: Math.round(py - h / 2), w, h };
+            if (q.x < g0.x + m || q.y < g0.y + m || q.x + w > g0.x + g0.w - m || q.y + h > g0.y + g0.h - m) continue;
+            if (fl.sperren.some((s) => trifft(q, s)) || fl.gesetzt.some((s) => trifft(q, s))) continue;
+            const d = Math.hypot(px - lerche.x, py - lerche.y);
+            if (d < bd) { bd = d; best = q; }
+          }
+          if (best) { fl.gesetzt.push(best); textKontur(ctx, str, best.x + w / 2, best.y + 1, { color: 'rgba(' + col + ',0.95)', align: 'center', scale: sk }); }
+        } else text(ctx, z.name.toUpperCase(), c.x, c.y + (z.form === 'ring' ? -z.r1 * zoom + 8 : -16), { color: 'rgba(' + col + ',0.85)', align: 'center', scale: ts > 1 ? ts : 1 });
+      }
       // Ops-Ansage: Stärke und Richtung der Verzerrung (nur wer sie sehen darf, also die Ops nach dem Scan oder alle nach der Feldkarte)
-      if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center' });
-      else if (z.rueck && zoom > 0.12) text(ctx, 'RÜCKSETZER', c.x, c.y + 6, { color: 'rgba(240,110,60,0.95)', align: 'center' });
+      if (z.drift && z.sichtbarFuer === 'ops_scan' && zoom > 0.12) text(ctx, kompass(z.drift.winkel || 0) + ' ' + Math.round(z.drift.staerke), c.x, c.y + 6, { color: 'rgba(' + col + ',0.95)', align: 'center', scale: ts > 1 ? ts : 1 });
+      else if (z.rueck && zoom > 0.12) text(ctx, 'RÜCKSETZER', c.x, c.y + 6, { color: 'rgba(240,110,60,0.95)', align: 'center', scale: ts > 1 ? ts : 1 });
     }
   }
 
@@ -3918,6 +3943,8 @@
     const zoom = cfg.zoom || 0.35, rot = cfg.rot || 0;
     const cx = cfg.cx, cy = cfg.cy;
     const front = cfg.mode === 'front';
+    // KUL-02 D: Textskala der Beschriftungen (nur klassischer Hauptschirm, cfg.textSkala = 2; Pult und Karten: 1). LH = Labelhöhe, ZL = Zeilenabstand gestapelter Labels (bei Skala 1: 9 und 10 wie bisher).
+    const tsk = front && cfg.textSkala > 1 ? Math.floor(cfg.textSkala) : 1, LH = 7 * tsk + 2, ZL = 7 * tsk + 3;
     const breschen = [];   // SYS-01 C1b-2 Nacharbeit: Keile der Gegner-Bresche, nach den Strahlen gezeichnet
     const cosR = Math.cos(rot), sinR = Math.sin(rot);
     const toS = (wx, wy) => { const dx = (wx - ship.x) * zoom, dy = (wy - ship.y) * zoom; return { x: Math.round(cx + dx * cosR - dy * sinR), y: Math.round(cy + dx * sinR + dy * cosR) }; };
@@ -3947,11 +3974,12 @@
     const edge = front ? 6 : 4;
     // Frontsicht: Fläche der DREHEN-Anzeige (consoles.js helmTurnGauge: cx ± 82, unten 34 px) für Labels sperren
     const gauge = front ? { x: cx - 84, y: B.y + B.h - 36, w: 168, h: 36 } : null;
+    if (tsk > 1) block(cx + 1, Math.round(cy - 200 * zoom) - 3 - (tsk - 1) * 3, measure('200', tsk) + 5, LH + 2);   // KUL-02 D: das Peilstrich-Label „200“ (drawFrontView, Skala 2) ist Hindernis für Labels
     const flushLabels = () => {
       flushArrows();
       labels.sort((a, b) => b.prio - a.prio);
       for (const l of labels) {
-        const bx = l.o.box, w = bx ? bx.w : measure(l.str, 1) + 2, h = bx ? bx.h : 9;   // OPS-01 G8: ein Label kann ein Kasten (Angriffs-Countdown) sein, dann gelten seine Maße
+        const bx = l.o.box, w = bx ? bx.w : measure(l.str, tsk) + 2, h = bx ? bx.h : LH;   // OPS-01 G8: ein Label kann ein Kasten (Angriffs-Countdown) sein, dann gelten seine Maße
         const left = l.o.align === 'center' ? l.x - w / 2 : (l.o.align === 'right' ? l.x - w : l.x);
         let best = null;
         // QA M3a: Label nie über den Kartenrand hinaus (z. B. „LANZE BEREIT“ rechts abgeschnitten) – schon vor der
@@ -3967,6 +3995,7 @@
         // Fixrunde S3: nur für Randpfeil-Labels (prio 3, nicht optional); alle anderen Labels in allen Modi suchen wie vor der Client-Runde (optionale entfallen bei Platzmangel weiter)
         const plaetze = [[0, 0], [0, 10], [0, -10], [0, 20], [0, -20], [w * 0.6, 0], [-w * 0.6, 0], [0, 30], [0, -30]];
         if (l.prio === 3 && !l.optional) plaetze.push([w * 0.6, 10], [-w * 0.6, 10], [w * 0.6, -10], [-w * 0.6, -10], [0, 40], [0, -40], [w * 1.1, 0], [-w * 1.1, 0], [w * 1.1, -10], [-w * 1.1, -10], [0, 50], [0, -50]);
+        if (tsk > 1) for (const pl of plaetze) pl[1] = pl[1] * ZL / 10;   // KUL-02 D: Ausweichplätze senkrecht im Zeilenabstand der Skala
         // OPS-01 B (Nacharbeit): gleiche Kurzbeschriftung (Bogen „BB“ …) nahe beieinander steht nur einmal
         if (!front && l.o.dedup && placed.some((p) => p.str === l.str && Math.hypot(p.x + p.w / 2 - (left + w / 2), p.y - l.y) < 90)) continue;
         const frei = (r) => !placed.some((p) => r.x < p.x + p.w && p.x < r.x + r.w && r.y < p.y + p.h && p.y < r.y + r.h);
@@ -3988,7 +4017,7 @@
         best.str = l.str;
         placed.push(best);
         if (bx) { bx.draw(Math.round(best.x), Math.round(best.y)); continue; }
-        text(ctx, l.str, l.x + (best.x - left), best.y, l.o);
+        if (tsk > 1 && !l.o.scale) textKontur(ctx, l.str, l.x + (best.x - left), best.y - (LH - 9) / 2, Object.assign({}, l.o, { scale: tsk })); else text(ctx, l.str, l.x + (best.x - left), best.y, l.o);   // KUL-02 D: Skala-2-Label hält seine Mitte (Quellen setzen y für Höhe 9)
       }
       labels.length = 0;
     };
@@ -3999,7 +4028,7 @@
     const arrows = [];
     // Fixrunde N2 (nur Frontsicht einer Sim-Szene): Randringe der Verbündeten merken ihre Lage (Pfeile weichen aus) und ihre Labels (stapeln mit den Pfeil-Labels)
     const ringe = [], ringLabels = [];
-    const ringLabel = front && szeneAktiv(st) ? (str, lx, ly, col, px, py) => { ringe.push({ x: px, y: py }); ringLabels.push({ q: { label: str, col }, lx, ly, lw: measure(str, 1) / 2 + 3, prio: 6 }); } : null;
+    const ringLabel = front && szeneAktiv(st) ? (str, lx, ly, col, px, py) => { ringe.push({ x: px, y: py }); ringLabels.push({ q: { label: str, col }, lx, ly, lw: measure(str, tsk) / 2 + 3, prio: 6 }); } : null;
     const arrow = (wx, wy, col, label) => {
       const s = toS(wx, wy);
       const ang = Math.atan2(s.y - cy, s.x - cx);
@@ -4054,27 +4083,27 @@
         if (!list.length) continue;
         // Stapel vom Rand weg: unten nach oben, sonst nach unten
         const lowHalf = e.y > BT.y + BT.h / 2;
-        const baseY = e.y - Math.sin(a.ang) * 16 - 3 + (lowHalf ? -(list.length - 1) * 10 : 0);
+        const baseY = e.y - Math.sin(a.ang) * 16 - 3 + (lowHalf ? -(list.length - 1) * ZL : 0);
         list.forEach((q, i) => {
-          const lw = measure(q.label, 1) / 2 + 3;
-          const lx = Math.max(BT.x + lw, Math.min(BT.x + BT.w - lw, e.x - Math.cos(a.ang) * 30));
-          const ly = Math.max(BT.y + 2, Math.min(BT.y + BT.h - 10, baseY + i * 10));
+          const lw = measure(q.label, tsk) / 2 + 3;
+          const lx = Math.max(BT.x + lw, Math.min(BT.x + BT.w - lw, e.x - Math.cos(a.ang) * (tsk > 1 ? 14 + lw : 30)));   // KUL-02 D: breite Labels rücken hinter die Pfeilspitze
+          const ly = Math.max(BT.y + 2, Math.min(BT.y + BT.h - ZL, baseY + i * ZL));
           stapel.push({ q, lx, ly, lw });
         });
       }
       // Labels, die sich waagerecht überlappen, stehen mindestens 10 px untereinander (von oben nach unten; am unteren Rand weicht der Stapel nach oben)
       stapel.sort((p, q) => p.ly - q.ly);
-      const maxY = BT.y + BT.h - 10;
+      const maxY = BT.y + BT.h - ZL;
       for (let i = 0; i < stapel.length; i++) {
         const c = stapel[i];
         for (let j = 0; j < i; j++) {
           const d = stapel[j];
-          if (Math.abs(c.lx - d.lx) < c.lw + d.lw && Math.abs(c.ly - d.ly) < 10) c.ly = d.ly + 10;
+          if (Math.abs(c.lx - d.lx) < c.lw + d.lw && Math.abs(c.ly - d.ly) < ZL) c.ly = d.ly + ZL;
         }
         if (c.ly > maxY) {   // unten kein Platz: dieses Label an den unteren Rand, die darüber überlappenden rücken nach oben
           c.ly = maxY;
           let unten = c;
-          for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < 10) { d.ly = Math.max(BT.y + 2, unten.ly - 10); unten = d; } }
+          for (let k = i - 1; k >= 0; k--) { const d = stapel[k]; if (Math.abs(unten.lx - d.lx) < unten.lw + d.lw && unten.ly - d.ly < ZL) { d.ly = Math.max(BT.y + 2, unten.ly - ZL); unten = d; } }
         }
       }
       for (const c of stapel) lab(c.q.label, c.lx, c.ly, { color: c.q.col, align: 'center', rand: true }, c.prio || 3);   // rand: Randpfeil-Label entfällt nie
@@ -4095,6 +4124,7 @@
       ctx.restore();
     }
     if (fog && !front) { ctx.fillStyle = 'rgba(42,35,80,0.25)'; ctx.fillRect(B.x, B.y, B.w, B.h); }
+    if (front && cfg.himmel) cfg.himmel(ctx, { fog });   // KUL-02 C: Himmelsschicht des klassischen Hauptschirms (KulisseHimmel) zwischen Sternenhimmel und Spielobjekten; ohne cfg.himmel (Pult) unverändert
 
     // Radargitter + Sensorreichweite (nur Karten, nicht die Frontsicht)
     if (!front) {
@@ -4125,7 +4155,12 @@
 
     // SL6: Zonen mit Wirkung (Gasriese, Verzerrungen, Boje) – nur Szenen mit scene.zonen, unter den Markern
     const ichOps = (() => { const me = (st.players || []).find((p) => p.id === view.pid); return !!(me && me.console === 'weapons') && cfg.mode === 'tactical'; })();
-    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
+    let zonenFl = null;   // KUL-02 N1: nur Hauptschirm (Skala 2): Ringnamen weichen Tafeln, Drehen-Anzeige, „200“, der Lerche und dem Bildrand aus
+    if (front && tsk > 1) {
+      const sx0 = Math.max(BT.x, cfg.sicht ? cfg.sicht.x : BT.x), sy0 = Math.max(BT.y, cfg.sicht ? cfg.sicht.y : BT.y), sx1 = Math.min(BT.x + BT.w, cfg.sicht ? cfg.sicht.x + cfg.sicht.w : BT.x + BT.w), sy1 = Math.min(BT.y + BT.h, cfg.sicht ? cfg.sicht.y + cfg.sicht.h : BT.y + BT.h);
+      zonenFl = { sperren: (cfg.sperren || []).concat([gauge, { x: cx - 26, y: cy - 34, w: 52, h: 68 }, { x: cx + 1, y: Math.round(cy - 200 * zoom) - 3 - (tsk - 1) * 3, w: measure('200', tsk) + 5, h: LH + 2 }]), grenze: { x: sx0, y: sy0, w: sx1 - sx0, h: sy1 - sy0 }, gesetzt: [] };
+    }
+    drawZonen(ctx, st, toS, zoom, t, ichOps, front ? 0 : rot, tsk, zonenFl);   // OPS-01 A: Rechteckzonen und Driftpfeile drehen mit der Karte (Frontsicht unverändert)   // 'ops'/'ops_scan'-Zonen sieht nur, wer an der Ops-Karte sitzt
     if (window.SondenView && !front) SondenView.draw(ctx, st, toS, zoom, t, lab);   // SL4: Sonden mit Senderadius
     if (window.SpurView && !front) SpurView.draw(ctx, st, toS, zoom, t);   // SL5: Spurkern mit Leseradius
     if (window.NotrufView && !front) NotrufView.draw(ctx, st, toS, zoom, t);   // SL8: Ruf-Ort (neutral)
@@ -4185,7 +4220,7 @@
     // B3 (CLIENT, Welle 2): cam trägt zusätzlich bound (Bildausschnitt in Bildschirmkoordinaten, für Randpfeile zu Bojen
     // außerhalb), lab (Label-Kollision: lab(text, x, y, opts, prio, optional)), block (Hindernis für Labels), arrow (Randpfeil
     // wie Stationen: arrow(wx, wy, farbe, label)), toW, cx/cy (Bildmitte = Schiff). bound/lab auch als 4./5. Argument.
-    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, rot: front ? 0 : rot, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);   // OPS-01 R4: rot = Kartendrehung (Schiff oben); in der Frontsicht 0, dort bleibt das Bild wie es war
+    if (window.StarMap && typeof window.StarMap.drawSzene === 'function') window.StarMap.drawSzene(ctx, { toS, toW, zoom, front, textSkala: tsk, sperren: front ? cfg.sperren : undefined, rot: front ? 0 : rot, bound: B, lab, block, arrow, cx, cy, inB }, st, B, lab);   // OPS-01 R4: rot = Kartendrehung (Schiff oben); in der Frontsicht 0, dort bleibt das Bild wie es war
 
     // Bergungsgut im Raum
     for (const sv of space.salvage || []) {
@@ -4646,14 +4681,24 @@
   // Steuer: Frontsicht (M1 §4.1). Bug oben, Schiff im unteren Teil, vorn ≈ 700, seitlich ± 420, hinten ≈ 120.
   const FRONT = { fwd: 700, back: 120, side: 420 };
   // rect.side (optional): halbe Breite des Cockpitfensters in Weltmetern statt FRONT.side (Voxel-Hauptschirm, sitz.js); ohne: FRONT.side wie bisher
-  function drawFrontView(ctx, view, rect) {
-    const st = view.state, ship = view.ship || st.ship || {};
-    const fog = inFog(st);
+  // KUL-02 C: die Projektion der Frontsicht als reine Funktion (gleiche Mathe wie drawFrontView/drawSpace: Schiff in der Mitte unten, Bug oben). KulisseHimmel zeichnet damit im selben Fenster.
+  function frontProjektion(view, rect) {
+    const st = view.state, ship = view.ship || (st && st.ship) || {};
     const zoom = rect.h / (FRONT.fwd + FRONT.back);
     const cx = rect.x + Math.round(rect.w / 2), cy = rect.y + Math.round(FRONT.fwd * zoom);
+    const rot = -(ship.angle || 0) - Math.PI / 2, cosR = Math.cos(rot), sinR = Math.sin(rot);
+    const toS = (wx, wy) => { const dx = (wx - ship.x) * zoom, dy = (wy - ship.y) * zoom; return { x: Math.round(cx + dx * cosR - dy * sinR), y: Math.round(cy + dx * sinR + dy * cosR) }; };
+    return { ship, zoom, cx, cy, rot, toS };
+  }
+  // rect.himmel (optional, nur der klassische Hauptschirm): Funktion (ctx, { fog }), die drawSpace nach dem Sternenhimmel und vor allen Spielobjekten aufruft
+  function drawFrontView(ctx, view, rect) {
+    const st = view.state;
+    const fog = inFog(st);
+    const { zoom, cx, cy, rot } = frontProjektion(view, rect);
+    const tsk = rect.textSkala > 1 ? Math.floor(rect.textSkala) : 1;   // KUL-02 D: Textskala der Beschriftungen, nur der klassische Hauptschirm setzt rect.textSkala
     const half = Math.round((rect.side || FRONT.side) * zoom);
     const win = { x: cx - half, y: rect.y, w: half * 2, h: rect.h };
-    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot: -(ship.angle || 0) - Math.PI / 2, cx, cy, bound: win, sicht: rect.sicht, randOben: rect.randOben, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true });
+    const res = drawSpace(ctx, view, rect, { mode: 'front', zoom, rot, cx, cy, bound: win, sicht: rect.sicht, randOben: rect.randOben, sight: fog ? FRONT.fwd * 0.5 : Infinity, navArrows: true, markersLater: true, himmel: rect.himmel, textSkala: rect.textSkala, sperren: rect.sperren });
     const t = view.time;
     if (fog) {
       ctx.save(); ctx.beginPath(); ctx.rect(win.x, win.y, win.w, win.h); ctx.clip();
@@ -4663,7 +4708,7 @@
       ctx.fillStyle = 'rgba(142,163,181,0.06)';
       for (let i = 0; i < 6; i++) { const y = win.y + ((i * 53 + t * 18) % win.h); ctx.fillRect(win.x, Math.round(y), win.w, 6 + (i % 3) * 3); }
       ctx.restore();
-      text(ctx, 'NEBEL – SICHT HALBIERT', cx, win.y + 4, { color: PAL.ice, align: 'center' });
+      (tsk > 1 ? textKontur : text)(ctx, 'NEBEL – SICHT HALBIERT', cx, win.y + 4, { color: PAL.ice, align: 'center', scale: tsk });
     }
     res.markersLayer();
     hyperraum(ctx, view, win);   // Schnellsprung: Hyperraum im Cockpitfenster
@@ -4680,7 +4725,7 @@
     // Peilstriche (Bug-Achse)
     ctx.fillStyle = 'rgba(255,198,107,0.5)';
     for (let i = 1; i <= 3; i++) ctx.fillRect(cx, Math.round(cy - i * 200 * zoom), 1, 5);
-    text(ctx, '200', cx + 3, Math.round(cy - 200 * zoom) - 2, { color: 'rgba(255,198,107,0.6)' });
+    (tsk > 1 ? textKontur : text)(ctx, '200', cx + 3, Math.round(cy - 200 * zoom) - 2 - (tsk - 1) * 3, { color: 'rgba(255,198,107,0.6)', scale: tsk });
     return Object.assign(res, { win, zoom, cx, cy });
   }
 
@@ -5086,7 +5131,7 @@
     LOC_FALLBACK, LOC_KIND_NAMES, STAR_DOMAIN, worldOf, locById, locName, locVisible, currentLoc, inFog,
     ENEMY_NAMES, ENEMY_SIZE, MARKER_COL, MARKER_NAMES, HIDDEN_NAMES, MOUNT_LABEL, PIN_LABELS, PIN_NAMES,
     mountGeom, sensorRange, markersOf, playerColorOf, pinColor, stationOf, rayToRect, diamondMarker, drawPin, drawEnemyIntel,
-    zielNameFarbe, drawSpace, drawFrontView, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
+    zielNameFarbe, textKontur, drawSpace, drawFrontView, frontProjektion, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
     registerAwayMap, isBuehne, ankerZustand, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
