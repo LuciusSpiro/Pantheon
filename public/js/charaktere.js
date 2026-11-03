@@ -74,14 +74,20 @@
       if (!katalog || !OUTFIT_PLAETZE.includes(platz)) return [];
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
-    // CHA-01 F: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
-    // Liefert die Karte, an der das Teil sitzt (Erstellung: der Entwurf mit dem Teil; Spind: die getragene Karte mit dem Teil), sonst null (feste Vorschau).
+    // CHA-01 F / CHA-02 E1b: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
+    // Liefert die Karte, an der das Teil sitzt, sonst null (feste Vorschau). Frisur-Kacheln tragen helles Haar (Voxelwerk KACHEL_HAAR: dunkles Haar ist auf dem dunklen Kachelgrund nicht zu unterscheiden);
+    // Kopf-Kacheln im Spind zeigen die Kopfbedeckung auf der Standardfrisur (sonst verdeckt jede Frisur eine andere Helmform), Haut und Outfit bleiben die des Charakters.
     const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };
+    const KACHEL_HAAR = 7;   // aschblond im Katalog (Index der Haarfarbe)
+    const kachelHaar = () => Math.max(0, Math.min(KACHEL_HAAR, farbenFuer('haar').length - 1));
     function kachelKarte(modus, platz, teilId) {
       if (!(KACHEL_LIVE[modus] || []).includes(platz) || String(teilId).indexOf(platz + '/') !== 0) return null;
       const wert = teilId.slice(platz.length + 1);
-      if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null; }
-      const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;
+      if (modus === 'spind') {
+        const k = aktiveKarte(), std = katalog && (katalog.plaetze || []).find((p) => p.id === 'frisur');
+        return k ? Object.assign(k, { frisur: (std && std.standard) || k.frisur, haar: kachelHaar(), outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null;
+      }
+      const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert, haar: kachelHaar() }) : null;
     }
     // CHA-01 F: welche gesperrten Herkünfte ('haendler', 'fund') hat der Platz im Spind überhaupt? Die Legende zeigt nur diese Zeilen.
     function spindGesperrteHerkuenfte(platz) {

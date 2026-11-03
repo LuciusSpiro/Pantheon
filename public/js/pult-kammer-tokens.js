@@ -12,7 +12,7 @@
 //   PultKammer.kacheln(anzeigeRect, n) -> Rechtecke der Teile-Kacheln (5 × 2, Bild oben, zwei Zeilen Text unten)
 //   PultKammer.karten(anzeigeRect)  -> 4 Rechtecke der Charakterkarten mit { bild } (Porträtfenster)
 //   PultKammer.figur(anzeigeRect)   -> Figurfenster rechts in der Anzeige (Erstellung: Nahansicht, Spind: ganze Figur)
-//   PultKammer.muster(x, y, n)      -> Rechtecke der Farbmuster einer Zeile (Haut, Haar)
+//   PultKammer.muster(x, y, n)      -> Rechtecke der Farbmuster (Haut, Haar), bei mehr als MASS.muster.proZeile auf Zeilen verteilt; musterHoehe(n) = Höhe dieses Blocks
 //   PultKammer.herkunft(teil)       -> { gesperrt, kappe ('H' | 'F' | null), sub } aus teil.herkunft ('frei' | 'haendler' | 'fund'), teil.preis, teil.volk
 //   PultKammer.text(vorlage, werte), PultKammer.kontrast(a, b)
 //
@@ -20,8 +20,8 @@
 //   - Die Kammer ist eine Pult-Station: Pult.rahmen, Pult.knopf, Pult.titel, Pult.zelle. Keine eigenen Knöpfe, keine eigene Schrift (Pixelschrift art.js).
 //   - Messing (FN.nav) = Plätze und „getragen“, Bernstein (FN.drive) = Abschluss (Speichern, Anziehen, in die Lobby), Creme (FN.cmd) = Farben und Charakter,
 //     Rot (FN.weapon) nur Löschen. Das gilt in beiden Skins.
-//   - Ziffernblock = Körper. Spind: 8 Kopfbedeckung, 4 Handschuhe, 5 Oberteil, 6 Umhang, 2 Hose, 0 Schuhe. Erstellung (CHA-02 E1a): 8 Frisur
-//     (E1b baut die Kopfspalte neu), daneben 9 Haarfarbe, 6 Hautton. Unbelegte Tasten zeichnen als Pult.zelle 'leer', damit der Block lesbar bleibt.
+//   - Ziffernblock = Körper. Spind: 8 Kopfbedeckung, 4 Handschuhe, 5 Oberteil, 6 Umhang, 2 Hose, 0 Schuhe. Erstellung (CHA-02 E1b): Mittelspalte 8 Frisur,
+//     5 Haarfarbe, 2 Hautton (kein Gesicht, kein Bart, kein Outfit). Unbelegte Tasten zeichnen als Pult.zelle 'leer', damit der Block lesbar bleibt.
 //   - Kachelzustände: normal (1-px-Rand), Cursor (doppelter Rand Messing innen, Creme außen, wie der aktive Knopf), getragen (2-px-Leiste oben + Name
 //     in Messing), gesperrt (Schraffur, Bild grau, Kappe H/F, Herkunft als Text). Jeder Zustand hat eine Form, nicht nur eine Farbe.
 //   - Haut- und Haarfarben kommen aus dem Katalog (content/katalog/charakter.json farben), nie aus diesen Tokens; ein Muster hat immer `musterRand`.
@@ -96,21 +96,24 @@
     gesperrt: { kappe: { x: 3, y: 3, w: 13, h: 12, schraeg: 2 }, schraffur: 3, bild: { grau: 1, hell: 0.28, deckkraft: 0.9 } },
     textZeile: { name: 3, sub: 12 },           // y der zwei Textzeilen unter dem Bild
     figur: { x: 404, y: 6, rechts: 8, unten: 6, kappe: 13, kappeAbstand: 6, nameH: 12 },   // Figurfenster rechts in der Anzeige (Breite = Rest, 160 × 212); oben Namenszeile, unten Q/E
-    // CHA-01 F: Blickwinkel der Livekacheln (Versatz zur Kamera 28°); Frisur schräg von hinten (28 + 122 = 150°), damit Zöpfe und Dutt erkennbar sind
-    kachelAnsicht: { frisur: { yaw: 122 }, kopf: { yaw: 0 } },
+    // CHA-02 E1b: Blickwinkel der Livekacheln (Versatz zur Kamera 28°): Frisur und Kopfbedeckung ¾ von vorn (28°, wie die Vorschaubilder des Voxelwerks), das Haar der Frisur-Kacheln hell (charaktere.js KACHEL_HAAR),
+    // damit sich die Frisuren auf dem dunklen Kachelgrund unterscheiden; Zöpfe und Bart sind der neuen Frisuren wegen von vorn lesbar (CHA-01 F: schräg von hinten für Zöpfe und Dutt, entfällt)
+    kachelAnsicht: { frisur: { yaw: 0 }, kopf: { yaw: 0 } },
     figurBild: { nah: { w: 150, h: 176 }, ganz: { w: 120, h: 184 } },             // Erstellung: Nahansicht (Kopf, Schultern; CHA-01 F: hochformatig, bündig unter der Namenszeile), Spind: ganze Figur; zwischen Namenszeile und Q/E
     liste: { y: 8, w: 132, fuge: 8, unten: 8, kappe: 13 },                         // 4 Karten, zentriert; Porträt quadratisch w − 2
     ziffernblock: { w: 82, h: 15, fuge: 3, titelH: 13 },
     spalten: { block: { x: 0, w: 252 }, mitte: { x: 268, w: 150 }, abschluss: { x: 436, w: 136 } },   // im Pult
     knopf: { h: 15, hauptH: 22, fuge: 4 },
-    muster: { w: 15, h: 11, fuge: 4, label: 34, zeile: 20, wahl: 2 },           // wahl = Abstand des Creme-Rands um das gewählte Muster
+    muster: { w: 15, h: 11, fuge: 4, label: 34, zeile: 20, wahl: 2, proZeile: 6 },   // wahl = Abstand des Creme-Rands um das gewählte Muster; proZeile = höchstens so viele je Zeile (Haar 8 → 2 Zeilen à 4, Haut 6 → 1 Zeile), sonst ragen sie in die Spalte Charakter
+    // CHA-02 E1b: Namensfeld der Erstellung, unten in der Anzeige (die 9 Frisur-Kacheln brauchen zwei volle Reihen: das Feld liegt in der Zeile darunter, der Hinweis rechts daneben)
+    namensfeld: { h: 13, unten: 20, w: 110, label: 34, hinweisAbstand: 10, zeile: 9 },
   };
 
   // Ziffernblock = Körper. Lage der Tasten: [Spalte, Zeile, Breite in Spalten] wie der echte Ziffernblock (0 breit unter 1 und 2).
   const NUMPAD = { 7: [0, 0], 8: [1, 0], 9: [2, 0], 4: [0, 1], 5: [1, 1], 6: [2, 1], 1: [0, 2], 2: [1, 2], 3: [2, 2], 0: [0, 3, 2] };
   const ZIFFERNBLOCK = {
     spind: { 8: 'kopf', 4: 'haende', 5: 'oberteil', 6: 'umhang', 2: 'hose', 0: 'schuhe' },        // Mittelspalte Kopf → Füße, Hände und Umhang daneben
-    erstellung: { 8: 'frisur', 9: 'haar', 6: 'haut' },                   // Kopfspalte oben → unten, Farben rechts daneben
+    erstellung: { 8: 'frisur', 5: 'haar', 2: 'haut' },                   // CHA-02 E1b: Mittelspalte oben → unten: Frisur, Haarfarbe, Hautton (wie der Spind: Mittelspalte = Körper von oben nach unten)
   };
   // Plätze: Schlüssel wie im Katalog (Bericht CHA-01, Schnittstelle). Langname im Katalog hat Vorrang; kurz = Beschriftung im Ziffernblock (≤ 70 px).
   const PLATZ = {
@@ -133,18 +136,18 @@
   // Statusleiste je Bildschirm (Pult.rahmen zeichnet heute nur die Schiffsleiste: Option `status` ergänzen). Spind: null = Schiffsleiste wie an jeder Station.
   const STATUS = {
     liste: [{ l: 'GEWÄHLT', fn: 'cmd', w: 1.3 }, { l: 'PLÄTZE', fn: 'nav', w: 0.8 }, { l: 'SAMMLUNG', fn: 'nav', w: 1 }, { l: 'RAUM', fn: 'neutral', w: 0.8 }],
-    erstellung: [{ l: 'NAME', fn: 'cmd', w: 1.3 }, { l: 'FRISUR', fn: 'nav', w: 1 }, { l: 'HAAR', fn: 'nav', w: 0.9 }, { l: 'HAUT', fn: 'nav', w: 0.8 }],
+    erstellung: [{ l: 'NAME', fn: 'cmd', w: 1.05 }, { l: 'FRISUR', fn: 'nav', w: 1.7 }, { l: 'HAAR', fn: 'nav', w: 0.65 }, { l: 'HAUT', fn: 'nav', w: 0.6 }],   // Frisur trägt den längsten Wert („Langhaar mit Vollbart“)
     spind: null,
   };
   const TEXT = {
     saeule: { liste: 'CHARAKTER', erstellung: 'CHARAKTER', spind: 'SPIND' },
-    spalte: { platz: 'PLATZ · ZIFFERNBLOCK = KÖRPER', kopf: 'KOPF · ZIFFERNBLOCK', farbe: 'FARBE', herkunft: 'HERKUNFT', charakter: 'CHARAKTER', waehlen: 'WÄHLEN', weiter: 'WEITER', umziehen: 'UMZIEHEN' },
+    spalte: { platz: 'PLATZ · ZIFFERNBLOCK = KÖRPER', kopf: 'AUSSEHEN · ZIFFERNBLOCK', farbe: 'FARBE', herkunft: 'HERKUNFT', charakter: 'CHARAKTER', waehlen: 'WÄHLEN', weiter: 'WEITER', umziehen: 'UMZIEHEN' },
     kachelTitel: { spind: '{platz} · {n} frei', erstellung: '{platz} · {n} zur Wahl' },
-    hinweis: { spind: '←→↑↓ Teil · Enter anziehen', erstellung: '←→↑↓ wählen · die Figur zeigt es sofort' },
+    hinweis: { spind: '←→↑↓ Teil · Enter anziehen', erstellung: '←→↑↓ wählen · Figur zeigt es sofort' },
     drehen: 'drehen', drehenLinks: 'Figur nach links drehen', drehenRechts: 'Figur nach rechts drehen', frei: 'FREI', freiHinweis: 'N legt hier an', anprobe: 'Anprobe', neu: 'neu',
     knopf: { neu: 'Neu anlegen', umbenennen: 'Umbenennen', loeschen: 'Löschen …', platz: 'Platz', blaettern: 'blättern', lobby: 'In die Lobby',
       name: 'Name ändern', zuruecksetzen: 'Zurücksetzen', speichern: 'Speichern', anziehen: 'Anziehen', ablegen: 'Ablegen' },
-    nameIstSpieler: 'Name = Charaktername', muster: { haar: 'Haar', haut: 'Haut' }, musterHinweis: '9 / 6 öffnen die Muster groß',
+    nameIstSpieler: 'Name = Charaktername', muster: { haar: 'Haar', haut: 'Haut' }, musterHinweis: '5 / 2 öffnen die Muster groß',
     herkunftLegende: { frei: 'frei · im Spind', haendler: 'beim Händler', fund: 'als Fund' },
     keine: 'keine', keiner: 'keiner',
   };
@@ -184,7 +187,14 @@
     return [0, 1, 2, 3].map((i) => { const x = x0 + i * (l.w + l.fuge), y = a.y + l.y; return { x, y, w: l.w, h, bild: { x: x + 1, y: y + 1, w: l.w - 2, h: l.w - 2 } }; });
   }
   function figur(a) { const f = MASS.figur; return { x: a.x + f.x, y: a.y + f.y, w: a.w - f.x - f.rechts, h: a.h - f.y - f.unten }; }
-  function muster(x, y, n) { const m = MASS.muster, out = []; for (let i = 0; i < n; i++) out.push({ x: x + m.label + i * (m.w + m.fuge), y, w: m.w, h: m.h }); return out; }
+  // Farbmuster einer Wahl: bei mehr als proZeile gleichmäßig auf Zeilen verteilt (8 → 4 + 4); `musterHoehe(n)` ist die Höhe des Blocks
+  const musterZeilen = (n) => Math.max(1, Math.ceil(n / MASS.muster.proZeile));
+  function muster(x, y, n) {
+    const m = MASS.muster, out = [], z = musterZeilen(n), je = Math.ceil(n / z);
+    for (let i = 0; i < n; i++) out.push({ x: x + m.label + (i % je) * (m.w + m.fuge), y: y + Math.floor(i / je) * (m.h + m.fuge), w: m.w, h: m.h });
+    return out;
+  }
+  function musterHoehe(n) { const m = MASS.muster, z = musterZeilen(n); return z * m.h + (z - 1) * m.fuge; }
   function herkunft(teil) {
     const h = HERKUNFT[(teil && teil.herkunft) || 'frei'] || HERKUNFT.frei;
     return { gesperrt: h.gesperrt, kappe: h.kappe, sub: text(h.sub, { volk: (teil && teil.volk) || '–', preis: teil && teil.preis != null ? teil.preis : '' }).trim() };
@@ -193,5 +203,5 @@
   function lum(h) { const n = parseInt(String(h).slice(1, 7), 16); return [n >> 16, (n >> 8) & 255, n & 255].map((v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }).reduce((a, v, i) => a + v * [0.2126, 0.7152, 0.0722][i], 0); }
   function kontrast(a, b) { const A = lum(a), B = lum(b); return (Math.max(A, B) + 0.05) / (Math.min(A, B) + 0.05); }
 
-  return { TOKENS, farben, rahmen, ziffernblock, kacheln, karten, figur, muster, herkunft, text, kontrast };
+  return { TOKENS, farben, rahmen, ziffernblock, kacheln, karten, figur, muster, musterHoehe, herkunft, text, kontrast };
 });
