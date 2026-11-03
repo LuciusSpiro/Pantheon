@@ -282,6 +282,23 @@ function pruefe(api, laut) {
     p(r.titel, 'Tasten Titel: O Optionen, H und ? Hilfe, Enter → Hauptmenü');
     p(r.menue, 'Tasten Hauptmenü: Ziffer wählt, U Tutorial-Merker (sendet nichts), F Weltstandliste, Pfeile, Enter bestätigt');
     p(r.forschung, 'Tasten Hauptmenü: S wählt die Forschungsstation, Enter sendet nur den Modus');
+    { // Modifikatoren: Strg/Alt/Meta+S wählt nichts und wird nicht verbraucht (Browser-Standard bleibt); S ohne Modifikator wählt
+      const u = lade(api), F = u.F; F.starte({}); F.weiter(); const vorher = F.lies().auswahl;
+      const res = {}; for (const m of ['ctrlKey', 'altKey', 'metaKey']) { res[m] = u.druecke('KeyS', { [m]: true }); }
+      p(F.lies().auswahl === vorher && vorher !== 'arena_forschung', 'Tasten Hauptmenü: Strg+S/Alt+S/Meta+S wählen keinen Eintrag');
+      p(res.ctrlKey === false && res.altKey === false && res.metaKey === false, 'Tasten Hauptmenü: Strg+S/Alt+S/Meta+S werden nicht verbraucht (kein preventDefault, „Seite speichern“ bleibt)');
+      p(u.druecke('KeyS') === true && F.lies().auswahl === 'arena_forschung', 'Tasten Hauptmenü: S ohne Modifikator wählt weiterhin die Forschungsstation'); }
+    { // Schutz vor stummer Kollision: Eintragstasten (Buchstaben) dürfen nicht in den vorher abgefangenen Tasten liegen
+      const quelleUi = fs.readFileSync(QUELLE_UI, 'utf8'), a0 = quelleUi.indexOf('const hilfe ='), a1 = quelleUi.indexOf('const d = /^(?:Digit|Numpad)(\\d)$/');
+      const abschnitt = a0 >= 0 && a1 > a0 ? quelleUi.slice(a0, a1) : '';   // gemeinsam() und die Zweige vor Ziffern/Buchstaben im Hauptmenü
+      const ausCode = new Set([...abschnitt.matchAll(/'Key([A-Z])'/g)].map((m) => m[1]));
+      const ABGEFANGEN_PER_TASTEN = ['C'];   // charakter.oeffnen läuft über Tasten.passt (Standardbelegung C), steht nicht als Key-Literal im Code
+      const abgefangen = new Set([...ausCode, ...ABGEFANGEN_PER_TASTEN]);
+      p(['O', 'H', 'F', 'U', 'C'].every((k) => abgefangen.has(k)), 'Kollisionsschutz: abgefangene Tasten aus menue-ui.js gelesen (O, H, F, U) plus C: ' + [...abgefangen].sort().join(''));
+      const eintraege = api.GRUPPEN.flatMap((g) => g.eintraege), buchst = eintraege.filter((e) => /^[A-Z]$/.test(e.taste));
+      p(buchst.some((e) => e.id === 'arena_forschung'), 'Kollisionsschutz: Buchstabentasten im Menü gefunden (S Forschungsstation)');
+      const kollision = buchst.filter((e) => abgefangen.has(e.taste) && !(e.id === 'fortsetzen' && e.taste === 'F'));
+      p(!kollision.length, 'Kollisionsschutz: keine Eintragstaste liegt in O/H/C/F/U (außer fortsetzen/F über openWorlds)' + (kollision.length ? ': ' + kollision.map((e) => e.id + '/' + e.taste).join() : '')); }
     p(r.lobby, 'Tasten Lobby: U Modus der Runde, Enter bereit, Ziffer Farbe, L Link, F Liste, H und ? Hilfe');
     p(r.optionen, 'Tasten Lobby (Wellen Boden): K Karte, W Waffe');
     p(r.modus, 'Tasten Lobby: M öffnet die Moduswahl, Esc schließt sie');
