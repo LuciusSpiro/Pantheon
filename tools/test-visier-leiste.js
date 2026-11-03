@@ -257,5 +257,45 @@ section('(7) Robustheit, Anmeldung, Sprungziel-Tafel');
   ok(mit.texte.some((t) => t.str === TK.TEXT.kopf.ziel), 'Tafelkopf „' + TK.TEXT.kopf.ziel + '“ Skala 1');
 }
 
+// ------------------------------------------------------------------ (8) Bildschiff statt Snapshot-Schiff (N1 B1)
+section('(8) Band, Kasten und Boje lesen dasselbe Schiff wie das Bild (view.ship, interpoliert)');
+{
+  const v = ansicht({ ship: { target: 'e1' }, jp: [] }), st = v.state.ship, abw = rad(4);
+  v.ship = Object.assign({}, st, { angle: st.angle + abw });   // Wende: das Bild (interpoliert, 100 ms zurueck) steht 4 Grad neben dem neuesten Snapshot
+  const s = v.ship, a = s.angle + rad(10), ziel = { x: s.x + Math.cos(a) * 800, y: s.y + Math.sin(a) * 800 };
+  v.enemies = [Object.assign({ id: 'e1', hull: 40 }, ziel)];
+  const L = VL.lage(v, Vis.plan(v), cam), m = L.marken.find((q) => q.art === 'ziel');
+  const p = Vis.projiziereWelt(Vis.schiffVon(v), ziel.x, ziel.y, 0);
+  const wBand = grad(Math.atan2(m.x - W / 2, cam.F / cam.cp)), wBild = grad(Math.atan2(p.x - W / 2, cam.F / cam.cp));
+  ok(Vis.schiffVon(v) === v.ship && Vis.schiffVon({ state: { ship: st } }) === st && Vis.schiffVon(null) === null, 'Visier.schiffVon: view.ship vor Snapshot-Schiff, sonst Rueckfall, sonst null');
+  ok(Math.abs(wBand - wBild) <= 1.5, 'Zielmarke liegt bei 4 Grad Schiffsabweichung auf dem Bild-Gegner (Abweichung ' + (wBand - wBild).toFixed(2) + ' Grad, Grenze 1,5)');
+  ok(Math.abs(grad(m.a) - 10) < 0.01, 'Peilung der Marke relativ zum Bildschiff: ' + grad(m.a).toFixed(2) + ' Grad (nicht 14 wie vom Snapshot)');
+  const kursBild = (((v.ship.angle / rad(1) + 90) % 360) + 360) % 360;
+  ok(Math.abs(L.kursExakt - kursBild) < 1e-9 && L.kurs === win.Shared_Physics.kompassGrad(v.ship.angle), 'Kurs-Kasten und Band laufen mit dem Bildschiff (' + L.kurs + ', nicht ' + win.Shared_Physics.kompassGrad(st.angle) + ')');
+  const vb = ansicht({ jp: [] }), sb = Object.assign({}, vb.state.ship, { angle: vb.state.ship.angle + abw }), ab = sb.angle + rad(-12), bx = sb.x + Math.cos(ab) * 1200, by = sb.y + Math.sin(ab) * 1200;
+  vb.state.space.jp = [{ k: '0503-0504', z: 'aktiv', n: '0504', x: bx, y: by }]; vb.ship = sb;
+  const bm = VL.lage(vb, Vis.plan(vb), cam).marken.find((q) => q.art === 'sprungboje'), pb = Vis.projiziereWelt(sb, bx, by, 0);
+  ok(bm && Math.abs(grad(Math.atan2(bm.x - W / 2, cam.F / cam.cp)) - grad(Math.atan2(pb.x - W / 2, cam.F / cam.cp))) <= 1.5, 'Sprungboje auf dem Band stimmt ebenfalls mit dem Bild ueberein');
+}
+
+// ------------------------------------------------------------------ (9) Szenenzeile und Sprungziel-Tafel (N1 B2)
+section('(9) Sprungziel-Tafel rueckt unter die Szenenzeile; Optionen aus EINER Stelle');
+{
+  win.Hud = { szeneVon: () => true, drawSzenenStrip: () => 420, szenenHoehe: () => 27 };   // breite, hohe Zeile (Vorwarnung): kollidiert mit der rechten Tafel
+  try {
+    const v = ansicht({}), szene = VL.szenenLage(neueFlaeche([]), v, cam), opt = VL.tafelOptionen(szene), unten = 6 + 27 + 4;
+    ok(szene && szene.w === 420 && szene.y === 6 && szene.h === 27 && szene.x === Math.round((W - 420) / 2) && opt.szeneBreite === 420 && opt.szeneUnten === unten, 'Szenenlage und Optionen wie sitz.js tafelOpt (Breite 420, Unterkante ' + opt.szeneUnten + ')');
+    const soll = win.HauptschirmTafeln.lage(v, opt).rechts, z = zeichneMitLog(v);
+    ok(soll && soll.y >= unten && soll.y > TK.TAFEL.rechts.y, 'Tafel rueckt unter die Zeile (y ' + (soll && soll.y) + ' >= ' + unten + ')');
+    const grund = z.log.find((e) => e.k === 'poly' && e.fill === 'rgba(11,14,26,0.94)' && e.x1 - e.x0 === TK.TAFEL.rechts.w);
+    ok(grund && soll && grund.y0 === soll.y && grund.x0 === soll.x, 'gezeichnete Tafel steht an der Stelle der Optionen (y ' + (grund && grund.y0) + ')');
+    const tafelText = z.texte.find((t) => /METHALLE/.test(t.str));
+    ok(tafelText && tafelText.y0 >= unten, 'Tafeltext unterhalb der Szenenzeile (y ' + (tafelText && tafelText.y0) + ')');
+    ok(VL.tafelOptionen(null).szeneBreite === 0, 'ohne Szene: Optionen leer');
+  } finally { delete win.Hud; }
+  const ohne = zeichneMitLog(ansicht({})).log.find((e) => e.k === 'poly' && e.fill === 'rgba(11,14,26,0.94)' && e.x1 - e.x0 === TK.TAFEL.rechts.w);
+  ok(ohne && ohne.y0 === TK.TAFEL.rechts.y, 'ohne Szenenzeile bleibt die Tafel oben (y ' + (ohne && ohne.y0) + ')');
+}
+
 console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLER' : 'alle ' + n + ' Pruefungen gruen'));
 process.exit(fails ? 1 : 0);

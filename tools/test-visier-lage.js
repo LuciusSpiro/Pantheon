@@ -2,7 +2,7 @@
 // KUL-03 D: Lagescheibe des Visiers (public/js/visier-lage.js), reiner Node-Test ohne Browser.
 //   (1) Abbildung Welt -> Scheibe: voraus oben, hinter dem Schiff unten, Steuerbord rechts, bei Kurs 0 / 90 / 217 Grad (Kompass Nord = 0, Ost = 90, Uhrzeigersinn)
 //   (2) Radius 800 = Scheibenrand; weiter entfernte Kontakte klemmen am Rand; Kontakt hinter dem Schiff erscheint in der Scheibe
-//   (3) Keil = halber waagrechter Blickwinkel aus Visier.kamera() (±40 Grad)
+//   (3) Keil = halbes Blickfeld auf der Ebene aus Visier.kamera(): atan(W/2·cos(Neigung)/F) = ±38,55 Grad
 //   (4) Schildring nur wenn Schilde im Snapshot, Stufen 0..4, offene Seite = 0
 //   (5) Kontakte aus dem Snapshot: Gegner, Verbuendete, Sprungboje/-punkt, Station, Ziel der Ops hervorgehoben
 //   (6) kein Wurf bei fehlenden Daten, Zeichnen mit Attrappe ohne Fehler, keine Texte
@@ -58,10 +58,10 @@ const hinten = VL.abbilden(s0, s0.x + 50, s0.y + 600, geo);
 ok(hinten.y > geo.cy && Math.hypot(hinten.x - geo.cx, hinten.y - geo.cy) <= geo.R, 'Kontakt hinter dem Schiff (600) erscheint unten in der Scheibe');
 
 section('(3) Keil');
-ok(Math.abs(VL.keilGrad(kam) - LG.keil.halbGrad) <= 1 && Math.abs(VL.keilGrad(kam) - 39.7) < 0.2, 'Keil ±' + VL.keilGrad(kam).toFixed(2) + ' Grad (aus Visier.kamera, Token ' + LG.keil.halbGrad + ')');
-const randvoraus = abb(s0, 39.5, 300), ausserhalb = abb(s0, 41, 300);
+ok(Math.abs(VL.keilGrad(kam) - LG.keil.halbGrad) <= 1 && Math.abs(VL.keilGrad(kam) - 38.55) < 0.1 && VL.keilGrad(kam) < Math.atan((kam.W / 2) / kam.F) / rad(1) - 0.5, 'Keil ±' + VL.keilGrad(kam).toFixed(2) + ' Grad (aus Visier.kamera, Token ' + LG.keil.halbGrad + ')');
+const randvoraus = abb(s0, 38, 300), ausserhalb = abb(s0, 39.5, 300);
 const inKeil = (p) => Math.abs(Math.atan2(p.x - geo.cx, -(p.y - geo.cy))) <= rad(VL.keilGrad(kam));
-ok(inKeil(randvoraus) && !inKeil(ausserhalb), 'Kontakt bei 39,5 Grad liegt im Keil, bei 41 Grad nicht');
+ok(inKeil(randvoraus) && !inKeil(ausserhalb), 'Kontakt bei 38 Grad liegt im Keil, bei 39,5 Grad nicht (frueher 39,7 ohne cos)');
 
 section('(4) Schildring');
 ok(VL.schildStufen({}) === null && VL.schildStufen(null) === null && VL.schildStufen({ shields: {} }) === null && VL.schildStufen({ shields: { current: [1, 2] } }) === null, 'ohne Schilde im Snapshot: null (kein Ring)');

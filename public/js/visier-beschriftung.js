@@ -53,7 +53,7 @@
     else { const g = V.lagescheibe, r = g.radius + g.grund.plus; rect('lagescheibe', W + g.cx - r, H + g.cy - r, 2 * r, 2 * r, 2); }
     const TA = root.HauptschirmTafeln, TF = T.TAFEL;
     let rechts = null;
-    try { if (TA && TA.lage) rechts = TA.lage(view, szene ? { szeneBreite: szene.w, szeneUnten: szene.y + szene.h + 4 } : null).rechts; else rechts = { x: W + TF.rechts.x - TF.rechts.w, y: TF.rechts.y, w: TF.rechts.w, h: TF.rechts.h }; } catch (e) { rechts = null; }
+    try { if (TA && TA.lage) rechts = TA.lage(view, root.VisierLeiste && root.VisierLeiste.tafelOptionen ? root.VisierLeiste.tafelOptionen(szene) : null).rechts; else rechts = { x: W + TF.rechts.x - TF.rechts.w, y: TF.rechts.y, w: TF.rechts.w, h: TF.rechts.h }; } catch (e) { rechts = null; }
     if (rechts) rect('tafelRechts', rechts.x, rechts.y, rechts.w, rechts.h, TF.sperrAbstand);
     if (szene) rect('szene', szene.x, szene.y, szene.w, szene.h, 3);
     const F = BS.freiObenLinks;

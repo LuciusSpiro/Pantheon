@@ -252,8 +252,8 @@
       tiefeFaktor: 1.25, tiefePlus: 40,   // Mittelpunkt 1,25 × R + 40 UNTER der Ebene: die Kugel liegt ganz unter Augenhöhe (Mockup planeten())
       tiefeMin: 80,               // Planeten erst ab Tiefe 80 zeichnen (Mockup depth > 80)
       sicherungPx: 6,             // Oberkante nie höher als Horizont + 6 (Mockup; Sicherung gegen die Kreis-Näherung der Kugel)
-      block: { pxJeBlock: 28, min: 2, max: 4 },   // Blockraster R / 28, begrenzt 2..4 (Mockup round(Rs / 28); Draufsicht KUGEL.block 30). Übrige Kugelwerte: KUGEL
-      kippung: -0.9,              // Achsneigung der Oberfläche (Mockup tilt: -0.9; Draufsicht HIMMEL.kippung −0,3)
+      kugelMaxPx: 320,            // größter Radius, in dem der Kugel-Zwischenspeicher ein Bild baut (größer: skaliert, Blockraster wächst mit): Speicher höchstens 24 Einträge à ~2,6 MB (N1 B6)
+      // Blockraster und Achsneigung des Mockups (block 28, kippung -0,9) stehen hier NICHT mehr: KulisseKugel liest sie nicht aus VISIER.planet, sondern aus KUGEL.block und HIMMEL.kippung (N1 B7, toter Code)
     },
     glas: {                        // Flugebene als Glas über allem, was darunter liegt (Planeten, Sterne unter dem Horizont)
       schleier: { farbe: EIGEN.tiefraum, alpha: 0.34 },   // Mockup ebene(): Tiefraum zu 34 % vom Horizont bis zum Unterrand
@@ -372,7 +372,7 @@
       grund: { farbe: PAL.space, alpha: 0.95, plus: 2 },   // Scheibe R + 2 (Mockup)
       rand: { farbe: FARBE.sensor, alpha: 0.5, breite: 1 },
       mitte: { anteil: 0.5, farbe: FARBE.sensor, alpha: 0.18 },   // Ring bei 400
-      keil: { halbGrad: 40, farbe: FARBE.kurs, alpha: 0.35 },     // Blickfeld des Schirms: atan(256 / 308,8) = 39,7° (Test rechnet nach)
+      keil: { halbGrad: 38.5, farbe: FARBE.kurs, alpha: 0.35 },     // Blickfeld auf der Flugebene: atan(256 · cos(16°) / 308,8) = 38,55° (Test rechnet nach; N1 B5)
       punkt: { sprungboje: { farbe: FARBE.sprung, px: 3 }, station: { farbe: FARBE.schild, px: 4 }, ziel: { farbe: FARBE.kurs, px: 4, rahmen: { pad: 2, alpha: 0.7 } }, gegner: { farbe: EIGEN.gegnerHell, px: 3 }, verbuendet: { farbe: FARBE.sensor, px: 3 } },
       // eigene Schilde als Ring der Ops-Kennung (kul.js schildring): vier Seiten, Lücke 0,16 rad, leer rot gestrichelt
       schildring: { radius: 7, farbe: FARBE.schild, luecke: 0.16, alphaGrund: 0.35, alphaJeStufe: 0.16, breiteGrund: 1, breiteJeStufe: 0.6,

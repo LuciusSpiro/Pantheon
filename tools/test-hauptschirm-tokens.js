@@ -194,7 +194,7 @@ const yRing = (r) => proj(r, 0, 0).y;
 // Ringe 400/700: mit der Mockup-Kamera 33 px auseinander (B: 15). Die Gestaltungsnotiz nennt 41 statt 20; das Verhältnis (gut doppelt) stimmt, die Zahl nicht
 ok(yRing(700) - hz > 20 && yRing(400) - yRing(700) >= 30, `Ringe 400/700 nur ${(yRing(400) - yRing(700)).toFixed(1)} px auseinander (Mockup-Kamera 33)`);
 ok(proj(250, 0, 0).y - hz >= 100, `Gegner auf 250 nur ${(proj(250, 0, 0).y - hz).toFixed(0)} px unter dem Horizont (Mockup ~115)`);
-ok(Math.abs(Math.atan((W / 2) / FOK) / RAD - V.lagescheibe.keil.halbGrad) <= 1, 'Keil der Lagescheibe ≠ halber waagrechter Blickwinkel');
+ok(Math.abs(Math.atan((W / 2) * cp / FOK) / RAD - V.lagescheibe.keil.halbGrad) <= 0.5, 'Keil der Lagescheibe ≠ halbes Blickfeld auf der Ebene (atan(W/2·cos(Neigung)/F))');
 console.log(`Visier: Horizont ${hz.toFixed(2)}, Ringe 200/400/700 bei y ${[200, 400, 700].map((r) => yRing(r).toFixed(0)).join('/')}, F ${FOK.toFixed(1)}`);
 // Planeten unter der Ebene: Mittelpunkt immer unter dem Horizont (Anflug 2450 / 1250 / 650, Abnahme 3), Sicherung vorhanden
 const PL = V.planet;
@@ -203,7 +203,7 @@ for (const Rp of [120, 190, 210, 520]) for (const d of [5000, 2450, 1250, 650]) 
   const p = proj(d, 0, -(Rp * PL.tiefeFaktor + PL.tiefePlus));
   if (p.depth > PL.tiefeMin) ok(p.y > hz, `Planet R ${Rp} auf ${d}: Mittelpunkt über dem Horizont`);
 }
-ok(Number.isInteger(PL.block.min) && PL.block.max >= PL.block.min && PL.block.pxJeBlock > 0, 'Planet: Blockraster');
+ok(PL.block === undefined && PL.kippung === undefined && PL.kugelMaxPx > 0, 'Planet: keine toten Tokens block/kippung (KulisseKugel liest KUGEL.block, HIMMEL.kippung), Kugel-Obergrenze gesetzt');
 // Glas und Objekte
 const GL = V.glas, OB = V.objekt;
 ok(GL.schleier.alpha === 0.34 && GL.schleier.farbe === T.EIGEN.tiefraum, 'Glas: Schleier 34 % Schwarz (Tiefraum)');
