@@ -31,6 +31,14 @@ function landepunktZuruecksetzen(game) {
   if (geaendert) ex.version++;
 }
 
+// Startmarken wie im Einstieg von Kapitel 7 der Kette (eine Quelle: content/kampagne/schuld-der-lerche.json, kapitel[k7_geld].einstieg.marken)
+function startMarken() {
+  const doc = require('../mission/kampagne.js').laden('schuld-der-lerche');
+  const kap = doc && doc.kapitel.find((c) => c.id === 'k7_geld');
+  const marken = kap && kap.einstieg && kap.einstieg.marken;
+  return Number.isFinite(marken) ? marken : null;
+}
+
 // Der Ausgangszustand der Szene, eine Funktion für Start und Neustart. Wiederholbar: zweimal aufgerufen ergibt derselbe Zustand.
 function forschungAusgangszustand(game) {
   const A = arena();
@@ -50,14 +58,16 @@ function forschungAusgangszustand(game) {
   landepunktZuruecksetzen(game);
   Monster.zuruecksetzen(game);   // Monster und Pulte neu (einrichten() beim nächsten Landen)
   A.placeOnBridge(game);
+  // Marken zuletzt (debugGoto/Ankunft könnte Erstbesuchsmarken geben): wie am Kapitelanfang, kein Testgeld (die Werft ist hier keine Testumgebung, arena.istUebungsszene); Ausbauten sind ohne Werft nicht möglich
+  const marken = startMarken();
+  if (marken == null) game.countError('uebung-forschung', new Error('Startmarken (k7_geld.einstieg.marken) nicht lesbar'));
+  else game.inventory.marks = marken;
 }
 
 function buchStarten(game) {
   const m = game.mission;
-  m.startMission(BUCH);
+  m.startMissionAb(BUCH, START_SCHRITT);   // ohne den enter von „auftrag“ (Anflug-Ansage, Sprungpunkt Pulverhorn->Helix): die Crew steht schon am Helix
   if (m.activeId !== BUCH) { game.countError('uebung-forschung', new Error('Buch ' + BUCH + ' startet nicht')); return false; }
-  const err = m.forceStep(BUCH, START_SCHRITT);
-  if (err) { game.countError('uebung-forschung', new Error(err)); return false; }
   return true;
 }
 

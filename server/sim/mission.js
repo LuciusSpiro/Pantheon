@@ -473,12 +473,25 @@ class Mission {
     } catch (e) { this.game.countError('openStageRoutes', e); }
   }
   startMission(id) {
+    const def = this.missionAnlegen(id);
+    if (def) this.setStep(def.steps[0].id);
+  }
+  // UEB-01: Mission mitten im Buch beginnen (Übungsplatz Forschungsstation): dieselbe Buchführung wie startMission, aber ohne den
+  // enter des ersten Schritts – die Crew steht schon in der Szene und soll keine Anflug-Ansage hören. Unbekannter Schritt: Fehler, kein Start.
+  startMissionAb(id, schrittId) {
+    const d0 = this.loadDef(id);
+    if (d0 && !d0.steps.some((s) => s.id === schrittId)) { this.game.countError('mission-start', new Error(`Unbekannter Schritt ${id}/${schrittId}`)); return; }
+    const def = this.missionAnlegen(id);
+    if (def) this.setStep(schrittId);
+  }
+  // gemeinsame Buchführung des Missionsstarts (aktive Mission, Erledigt-Listen, Stats); liefert die Definition, den ersten Schritt setzt der Aufrufer
+  missionAnlegen(id) {
     const def = this.loadDef(id);
-    if (!def) { this.game.countError('mission-start', new Error('Unbekannte Mission ' + id)); return; }
+    if (!def) { this.game.countError('mission-start', new Error('Unbekannte Mission ' + id)); return null; }
     if (def.isBook) {
       // §3.3: Prüfer beim Missionsstart noch einmal (das Buch ist geladen und gültig – Sicherung gegen Laufzeitänderungen)
       const r = Checker.check(this.rawBook(id));
-      if (!r.ok) { this.game.countError('mission-book', new Error(`${id}: ${r.errors.map((e) => e.code + ' ' + e.p).slice(0, 3).join('; ')}`)); return; }
+      if (!r.ok) { this.game.countError('mission-book', new Error(`${id}: ${r.errors.map((e) => e.code + ' ' + e.p).slice(0, 3).join('; ')}`)); return null; }
     }
     if (def.art === 'intern') this.mode = this.mode || 'arena';
     this.applyExpected(def);
@@ -497,7 +510,7 @@ class Mission {
     const st = this.game.stats;
     st.missions[id] = { start: this.playTime(), end: null };
     this.game.emit('missionStart', { id, title: def.title });
-    this.setStep(def.steps[0].id);
+    return def;
   }
   // erwartet: fehlende Flags (undefiniert/null) bekommen den Standard
   applyExpected(def) {

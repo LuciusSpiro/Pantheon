@@ -1099,7 +1099,7 @@ class Game {
     else if (freieFahrt) Kriegslage.starten(this);   // SUND-01 B: keine Mission, Crew angedockt am Start der Karte (reset), die Welt tickt ab dem ersten Sprung
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
-    if (arena.isArena(sm) || sm === 'labor') this.inventory.marks = this.C.werft.testmarken;   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
+    if ((arena.isArena(sm) && !arena.istUebungsszene(sm)) || sm === 'labor') this.inventory.marks = this.C.werft.testmarken;   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
