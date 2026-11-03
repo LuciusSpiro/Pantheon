@@ -98,7 +98,7 @@
     skalaGross: 3,                // Kurs und Tempo
     skalaWert: 2,                 // Schubstufe, Sprungziel, Boje + Entfernung, Ladezustand
     konturPx: 1,                  // Kontur um Schrift über Bild (8 Richtungen)
-    kopf: { kurs: 'KURS', tempo: 'TEMPO', ziel: 'SPRUNGZIEL', laedt: 'SPRUNG LÄDT' },
+    kopf: { kurs: 'KURS', tempo: 'TEMPO', ziel: 'SPRUNGZIEL', laedt: 'SPRUNG LÄDT', bereit: 'BEREIT' },   // bereit: Sprung geladen, keine Boje anzuzeigen (Wert Skala 2, Mint)
   };
 
   // ------------------------------------------------------------------ Himmelsschicht: Tiefe und Parallaxe

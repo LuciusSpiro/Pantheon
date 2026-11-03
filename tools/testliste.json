@@ -220,6 +220,7 @@
   {"id":"test-hauptschirm-zustand","kette":"test","cmd":["tools/test-hauptschirm-zustand.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kulisse-kugel","kette":"test","cmd":["tools/test-kulisse-kugel.js"],"stufe":"fast","budget_s":6},
   {"id":"test-kulisse-himmel","kette":"test","cmd":["tools/test-kulisse-himmel.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-hauptschirm-tafeln","kette":"test","cmd":["tools/test-hauptschirm-tafeln.js"],"stufe":"fast","budget_s":12},
   {"id":"test-ziel-marke","kette":"test","cmd":["tools/test-ziel-marke.js"],"stufe":"fast","budget_s":6},
   {"id":"test-konvoi-sprung","kette":"test","cmd":["tools/test-konvoi-sprung.js"],"stufe":"fast","budget_s":8},
   {"id":"test-vollladung-ziel","kette":"test","cmd":["tools/test-vollladung-ziel.js"],"stufe":"fast","budget_s":6},

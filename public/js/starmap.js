@@ -678,9 +678,11 @@
     const pflicht = anflugPflicht(st);   // F4: Ring, Abstand und Randpfeil nur, wenn die Boje angeflogen werden muss
     // Hindernisse für die Beschriftung: Peilstrich-Label „200“ der Frontsicht (render.js: cx + 3, cy − 200·zoom − 2)
     const hinder = [];
+    const sk = cam.front && cam.textSkala > 1 ? cam.textSkala : 1, mess2 = (s) => R().measure(s, sk), ZH = 7 * sk + 3;   // KUL-02 D: Textskala der Boje-Labels (nur Hauptschirm, sonst 1: Zeilenhöhe 10)
     if (cam.front && st.ship && st.ship.x != null) {
       const c0 = cam.toS(st.ship.x, st.ship.y);
-      hinder.push({ x: c0.x - 4, y: Math.round(c0.y - 200 * zoom) - 6, w: 30, h: 14 });
+      hinder.push({ x: c0.x - 4, y: Math.round(c0.y - 200 * zoom) - 6 - (sk - 1) * 3, w: 30 + (sk - 1) * 15, h: 14 + (sk - 1) * 7 });
+      for (const q of cam.sperren || []) hinder.push(q);   // KUL-02 D: Ecktafeln des Hauptschirms (rect.sperren) sind ebenfalls Hindernisse
     }
     // QA-B3 F1/F5: Bildausschnitt (cam.bound) – Randpfeil zur Ziel-Boje außerhalb, Labels im Rahmen halten
     const B = cam.bound || null;
@@ -738,18 +740,19 @@
         ? [['SPRUNGPUNKT → ' + name, COL.text], [z !== 'aktiv' ? (ZUSTAND_NAME[z] || z).toUpperCase() : 'ZIEL' + (pflicht && jump.d != null ? ' · ' + jump.d + ' m' : ''), f]]
         : [['→ ' + name + (z !== 'aktiv' ? ' · ' + (ZUSTAND_NAME[z] || z) : ''), z !== 'aktiv' ? f : 'rgba(244,238,220,0.8)']];
       if (!drin(p, 0)) continue;   // Boje außerhalb: kein Label (Ziel hat den Randpfeil)
-      const lw = Math.max(...zeilen.map(q => mess(q[0]))) + 4, lh = zeilen.length * 10;
+      const lw = Math.max(...zeilen.map(q => mess2(q[0]))) + 4, lh = zeilen.length * ZH;
       // F5: Label-Mitte in den Rahmen schieben (nicht ins Nachbarpanel ragen, nicht am Rand gekappt)
       const lx = B ? Math.max(B.x + rand + lw / 2, Math.min(B.x + B.w - rand - lw / 2, p.x)) : p.x;
       const klemmY = (y0) => B ? Math.max(B.y + 2, Math.min(B.y + B.h - lh - 1, y0)) : y0;
       const unten = klemmY(p.y + gr / 2 + 5), oben = klemmY(p.y - gr / 2 - 5 - lh);
       const kollidiert = (y0) => hinder.some(r => lx - lw / 2 < r.x + r.w && lx + lw / 2 > r.x && y0 < r.y + r.h && y0 + lh > r.y);
       const ly = !kollidiert(unten) ? unten : !kollidiert(oben) ? oben : unten;
+      if (cam.front && (cam.sperren || []).some((r) => lx - lw / 2 < r.x + r.w && lx + lw / 2 > r.x && ly < r.y + r.h && ly + lh > r.y)) continue;   // KUL-02 D: auch unter/über der Boje kein Platz neben den Tafeln: Label entfällt (die Tafel deckte es sonst halb zu)
       hinder.push({ x: lx - lw / 2, y: ly, w: lw, h: lh });
       // OPS-01 B (Nacharbeit): auf den Karten (nicht Frontsicht) entzerrt render.js die Boje-Labels mit allen anderen (Sperren, Gegner, Bögen); Frontsicht wie bisher
       if (typeof cam.lab === 'function' && !cam.front) { zeilen.forEach((q, i) => cam.lab(q[0], lx, ly + i * 10, { color: q[1], align: 'center' }, gewaehlt ? 5 : 1)); continue; }
       if (typeof cam.block === 'function') cam.block(lx - lw / 2, ly, lw, lh);   // Labels von render.js weichen aus
-      zeilen.forEach((q, i) => txt(ctx, q[0], lx, ly + i * 10, { color: q[1], align: 'center' }));
+      zeilen.forEach((q, i) => { if (sk > 1 && R().textKontur) R().textKontur(ctx, q[0], lx, ly + i * ZH, { color: q[1], align: 'center', scale: sk }); else txt(ctx, q[0], lx, ly + i * ZH, { color: q[1], align: 'center' }); });
     }
   }
 

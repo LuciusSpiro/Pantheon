@@ -177,7 +177,13 @@
     const fenster = { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) };   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
     // KUL-02 C: Himmelsschicht (Sternfeld, Stern am Rand, Planeten unter der Ebene, Bojen) im SELBEN Fenster; drawSpace ruft sie nach dem Sternenhimmel, vor allen Spielobjekten. Nur hier, nie am Pult.
     if (window.KulisseHimmel) fenster.himmel = (cx) => KulisseHimmel.zeichne(cx, view, fenster);
+    // KUL-02 D: Beschriftungen der Frontsicht auf Skala 2 (nur hier, nie am Pult) und Ecktafeln (D2): ihre Sperrflächen gehen als rect.sperren an drawSpace, die Tafeln selbst liegen nach drawFrontView über allem
+    const HT = window.HauptschirmTokens, TA = window.HauptschirmTafeln, Hd = window.Hud;
+    if (HT) fenster.textSkala = HT.TOKENS.TEXT.skalaBeschriftung;
+    const tafelOpt = { szeneBreite: Hd && Hd.szeneVon && Hd.szeneVon(view) ? Hd.drawSzenenStrip(c, view, SZ_Y0, { measure: true }) : 0, szeneUnten: szeneOben(view) };
+    if (TA) fenster.sperren = TA.sperren(view, tafelOpt);
     R.drawFrontView(c, view, fenster);
+    if (TA) TA.zeichne(c, view, tafelOpt);
   });
   // Platzhalter bis KUL-03: KUL-03 registriert hier den echten Visier-Zeichner
   Hauptschirm.registriere('visier', (c) => {
