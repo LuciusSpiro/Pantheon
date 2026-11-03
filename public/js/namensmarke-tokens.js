@@ -45,7 +45,12 @@
     rechts: 3,                    // Rand rechts nach dem Namen
     eigenW: 12,                   // Breite der eigenen Marke (nur Form)
     stiel: { w: 1, h: 3 },        // Verbindung zum Kopf, unter der Marke
-    ueberKopf: 52, geduckt: 40,   // Abstand Füße → Oberkante Marke (wie heute in render.js)
+    // CHA-02 E1b: der neue 8er-Kopf ist höher (Figur bis Voxel 35 = 2,19 m = 48 Spielpixel; Galea-Crista und Hörner bis 34, Suebenknoten 33–34). Die Marke hängt mit ihrer Oberkante an einem Punkt in Weltmaßen
+    // (render.js: Höhe · 1/22 m, durch die Kamera projiziert), ihre 10 px und der Stiel (3 px) hängen aber in Bildschirmpixeln darunter: je weiter herausgezoomt, desto tiefer reicht die Marke in den Kopf.
+    // Gemessen (Spielkamera, 1920×1080): Kopfhöhe am Bord-Zoom 0 ≈ 31 px je Meter, am weitesten Zoom ≈ 21 px je Meter. Damit Crista/Hörner/Knoten die Marke nie berühren, muss der Anker um
+    // (Marke + Stiel + Abstand 2 px) / pxJeMeterMin Meter über dem Kopf liegen: 15 px / 21 ≈ 0,71 m ≈ 15,7 Spielpixel → 16 → 64 (vorher 52: die Marke reichte bis tief in den Kopf; mit 62 berührte die Galea-Crista am weitesten Zoom die Marke gerade).
+    kopf: 48, pxJeMeterMin: 21, abstand: 2,   // Kopfhöhe in Spielpixeln (Weltmaß), kleinster Maßstab der Spielkamera, Mindestabstand in Bildschirmpixeln: Grundlage der Prüfung in tools/test-kammer-tokens.js
+    ueberKopf: 64, geduckt: 52,   // Abstand Füße → Oberkante Marke (render.js markeHoehe); geduckt = ueberKopf − 12 wie bisher (vorher 52/40)
     nameMax: 12,                  // Zeichen
     // Stapeln (CHA-01 F, Designer-Review „dicht“): stehen Figuren enger als eine Marke breit ist, rückt die Marke in eine höhere Zeile (Stiel wird länger).
     stapel: { luecke: 2, zeile: 12, max: 3, haltenMs: 300 },   // luecke: Mindestabstand px; zeile: Zeilenabstand px; max: Zeilen 0…max−1, sonst nur Form; haltenMs: Flackerschutz
