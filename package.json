@@ -67,6 +67,7 @@
     "test:telemetrie-spielleiter": "node tools/test-telemetrie-spielleiter.js",
     "test:telemetrie-server": "node tools/test-telemetrie-server.js",
     "test:telemetrie-geg": "node tools/test-telemetrie-geg.js",
+    "test:telemetrie-uebung": "node tools/test-telemetrie-uebung.js",
     "test:telemetrie-b2-mutation": "node tools/mutation-telemetrie-b2.js",
     "test:konsole": "node tools/test-konsole.js",
     "test:telemetrie-schema": "node tools/test-telemetrie-schema.js",

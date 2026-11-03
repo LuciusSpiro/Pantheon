@@ -74,7 +74,7 @@ function szeneEnde(game, modus, szene, ausgang, extra) {
 function modusMission(game) {
   const a = game.arena;
   if (a && a.wellen) return null;
-  if (a) return a.kind === 'arena_away' ? 'arena_boden' : 'arena_raum';
+  if (a) return a.kind === 'arena_away' ? 'arena_boden' : a.kind === 'arena_forschung' ? 'arena_forschung' : 'arena_raum';   // TEL-01 M2: Übungsplatz Forschungsstation (UEB-01) ist weder Raum- noch Bodenkampf
   return game.lobbyOpts && game.lobbyOpts.startMission === 'labor' ? 'labor' : 'kampagne';
 }
 function missionStart(game, id) { const m = modusMission(game); if (m) szeneStart(game, m, id); }

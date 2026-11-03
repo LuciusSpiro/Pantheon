@@ -71,6 +71,7 @@
     A('steuer.allstopp', 'steuer', 'Allstopp', ['KeyX']),
     A('steuer.faltsprung', 'steuer', 'Faltsprung', ['KeyF']),
     A('steuer.schnellsprung', 'steuer', 'Schnellsprung', ['KeyG']),
+    A('steuer.hauptschirm', 'steuer', 'Hauptschirm: klassisch / Visier umschalten', ['KeyV']),
     A('steuer.notsprung', 'steuer', 'Notsprung (fragt nach)', ['KeyN']),
     A('steuer.notsprungJa', 'steuer', 'Notsprung bestätigen', ['KeyJ', 'Enter', 'NumpadEnter']),
 

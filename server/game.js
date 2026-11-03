@@ -20,6 +20,7 @@ const away = require('./sim/away.js');
 const combat = require('./sim/combat.js');
 const Zielsysteme = require('./sim/zielsysteme.js');
 const Gsys = require('./sim/gegnersystem.js');   // SYS-01 C1a-1: Systemzustand des anvisierten Ziels (ship.zielSys)
+const Hauptschirm = require('./sim/hauptschirm.js');   // KUL-02 A: Hauptschirm-Ansicht (ship.hs)
 const CaptainZiel = require('./sim/captainziel.js');   // OPS-01 C1: Anzeigeziel des Captains (ship.cz)
 const Gegnertod = require('./sim/gegnertod.js');   // SYS-01 C1a-2: Tod der Gegner (Countdown, Kapern; Debug prise, Ziel-Snapshot)
 const Verfolgung = require('./sim/verfolgung.js');   // SUND-04a-1 A: Szenentyp A6 (Snapshot space.vf, enemies[].sj/nm)
@@ -81,6 +82,8 @@ const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die T
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 // EK8: Lobby-Modi mit fester Kampagnenkette (content/kampagne): { kampagne, tutorial }. Ohne Spielleiter.
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
+// UEB-01: Übungsplatz-Modi, die eine eigene Karte brauchen, ohne Kampagne (kein Weltstand) zu sein
+const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
 const SERVER_VERSION = '0.2.0';
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole
@@ -457,6 +460,7 @@ class Game {
   reset() {
     this.telemetrie.sessionBeenden('reset');   // TEL-01 A: eine offene Session endet hier (Grund aus sessionEnded, sonst 'reset'); ohne offene Session nichts
     this.zerstoertOffen = null;   // SYS-01 A2b: eine neue Partie beginnt ohne Einblendung
+    Hauptschirm.zuruecksetzen(this);   // KUL-02 S1: eine neue Partie beginnt mit der klassischen Ansicht
     Reise.reset(this);
     Entschl.reset(this);
     Glyphen.reset(this); this.bojeSim = null;   // SL10
@@ -1090,7 +1094,7 @@ class Game {
     }
     // SL1: Karte der Partie wählen (Limes, Sund), bevor reset() Startort und Wissen daraus ableitet; nur die Ketten-Modi wählen eine eigene
     const freieFahrt = sm === Kriegslage.MODUS;   // SUND-01 B: Weltstand, aber ohne Kette und ohne Spielleiter
-    Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
+    Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : UEBUNG_WELTEN[sm] || (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
@@ -1120,7 +1124,7 @@ class Game {
     else if (freieFahrt) Kriegslage.starten(this);   // SUND-01 B: keine Mission, Crew angedockt am Start der Karte (reset), die Welt tickt ab dem ersten Sprung
     else if (CAMPAIGN_KETTEN[sm]) this.startCampaignMission(CAMPAIGN_KETTEN[sm].tutorial, CAMPAIGN_KETTEN[sm].kampagne);   // EK8
     else this.startCampaignMission(sm !== 'free');
-    if (arena.isArena(sm) || sm === 'labor') Geld.standSetzen(this, this.C.werft.testmarken, 'testmarken');   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen
+    if ((arena.isArena(sm) && !arena.istUebungsszene(sm)) || sm === 'labor') Geld.standSetzen(this, this.C.werft.testmarken, 'testmarken');   // Testumgebung (Kai 2026-10-22): genug Marken, um alles auszubauen (UEB-01: Übungsszenen ausgenommen)
     this.log(`Partie gestartet mit ${this.players.length} Spieler(n). Seed ${this.seed}.${campaign && this.worldsEnabled ? ' Weltstand ' + this.weltstand.id + '.' : ''}`);
     if (campaign) this.saveWorld('start');   // §5.3: einmal direkt nach dem Start (damit der Stand in der Liste steht)
     this.logRun(false);
@@ -1231,6 +1235,7 @@ class Game {
         err = hasFn('helmThrottle') ? space.helmThrottle(this, msg) : 'Temporegler noch nicht verfügbar.';
         break;
       case 'helm.dodge': err = space.dodge(this, Number(msg.dir) >= 0 ? 1 : -1); break;
+      case Protocol.CMD_HELM_HAUPTSCHIRM: err = Hauptschirm.ansichtSetzen(this, p, String(msg.ansicht)); break;   // KUL-02 A: Hauptschirm für alle umschalten
       case 'helm.jump': err = space.doJump(this); break;
       case 'helm.schnellsprung': err = Reise.befehl(this); break;   // Spieltest: alle Hops der gewählten Route; während der Reise = abbrechen
       case 'captain.accept': err = this.mission.accept(); break;
@@ -2316,6 +2321,7 @@ class Game {
         markers: ship.markers,
         tscan: { targetId: ship.tscan.targetId, progress: r2(ship.tscan.progress) },
         ...(ship.zielsystem ? { zs: ship.zielsystem } : {}),   // SUND-04a-1 A: gewähltes Systemziel der Ops (fehlt = keins)
+        ...((hs) => (hs ? { hs } : {}))(Hauptschirm.snapshot(this)),   // KUL-02 A: Hauptschirm-Ansicht (nur bei 'visier')
         ...((cz) => (cz ? { cz } : {}))(CaptainZiel.snapshot(this)),   // OPS-01 C1: Anzeigeziel des Captains (nur bei gesetztem Ziel und besetztem Captain-Pult)
         ...this.zielSysSnap(),   // SYS-01 C1a-1: Systeme des anvisierten Gegners (flach, nur bei gesetztem Ziel, ohne Modell fehlt es)
         widescan: { cd: r1(ship.widescan.cd), pulseAt: ship.widescan.pulseAt },

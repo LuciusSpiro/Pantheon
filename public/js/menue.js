@@ -57,6 +57,7 @@
     { id: 'uebung', eintraege: [
       { id: 'arena_graben', taste: '4', modi: ['arena_graben'], art: 'ÜBUNGSPLATZ' },
       { id: 'arena_away', taste: '5', modi: ['arena_away'], art: 'ÜBUNGSPLATZ' },
+      { id: 'arena_forschung', taste: 'S', modi: ['arena_forschung'], art: 'ÜBUNGSPLATZ' },   // UEB-01: Forschungsstation direkt; Buchstabe statt Ziffer (alle Ziffern belegt), kein Optionsfeld (Name/Hinweis aus START_LABELS/START_HINTS)
       { id: 'arena_space', taste: '6', modi: ['arena_space'], art: 'ÜBUNGSPLATZ' },
       { id: 'labor', taste: '7', modi: ['labor'], art: 'ÜBUNGSPLATZ', nurMit: 'laborAn' },
     ] },

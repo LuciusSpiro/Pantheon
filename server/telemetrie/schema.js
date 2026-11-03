@@ -11,7 +11,7 @@
 //   gegner = Kennung des Gegnerobjekts (game.space.enemies[].id bzw. Boden-Gegner id), rolle = Klasse/Rolle (Raum: kind, Boden: rolle bzw. kind).
 //   Zahlen auf 2 Nachkommastellen. Ein Feld, das es bei diesem Ereignis nicht gibt, steht als null in der Zeile.
 //
-// ort: 'raum' | 'boden'.   modus (Szenen): kampagne, labor, arena_raum, arena_boden, wellen_boden, wellen_all, graben, endkampf, sund.
+// ort: 'raum' | 'boden'.   modus (Szenen): kampagne, labor, arena_raum, arena_boden, arena_forschung (UEB-01 Übungsplatz, szene = Buch sl_forschung), wellen_boden, wellen_all, graben, endkampf, sund.
 // waffe (Raum Lerche): Katalog-Id (lanze, standardbatterie, ..., torpedowerfer); Treffer auf die Lerche: schuss, sperrfeuer, sturm, emp, torpedo, streu, ladung, brocken, mine, sonstige.
 // waffe (Boden): blaster, sturmgewehr, granatwerfer, lanze, nahkampf, betaeuber, schrottblaster, faust, waechter; ohne Waffen-Rolle pistol (Verwundete), blaster, warden, enemy.
 //

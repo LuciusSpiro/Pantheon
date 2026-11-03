@@ -3049,6 +3049,7 @@
           if (code === 'KeyF') return press(() => this.tryButton('Faltsprung'));
           if (code === 'KeyG') return press(() => this.tryButton(/^Schnellsprung/));
           if (code === 'KeyX') return press(() => this.tryButton(/^Allstopp/));   // §21.1
+          if (code === 'KeyV') return press(() => this.tryButton(/^Hauptschirm/));   // KUL-02 A
           // B3: Notfallsprung – N fragt nach (bzw. bricht die Nachfrage ab), J/Enter bestätigt
           if (code === 'KeyN') return press(() => { if (performance.now() - this.notsprungAsk < 6000) this.notsprungAsk = -1e9; else this.tryButton('Notsprung …'); });
           if (code === 'KeyJ' || ((code === 'Enter' || code === 'NumpadEnter') && performance.now() - this.notsprungAsk < 6000)) return press(() => this.tryButton('Ja, Notsprung'));

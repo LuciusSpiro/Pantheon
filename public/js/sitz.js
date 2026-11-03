@@ -167,6 +167,30 @@
     return S.station === 'helm' ? Math.round(SCHIRM_VY0 + (o - 4) * SCHIRM_VS) : 0;
   }
 
+  // KUL-02 A: Zeichner der Ansicht 'klassisch' = die Frontsicht des Piloten wie bisher, dazu (KUL-02 C) die Himmelsschicht
+  Hauptschirm.registriere('klassisch', (c, view, rect) => {
+    // SUND-02a B: derselbe Ausschnitt wie im 2D-Helm: R.FRONT.fwd voraus und .back zurück füllen die Textur in der Höhe (Zoom = SH / (fwd + back)),
+    // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; hier reicht das Fenster über rect.side bis zum
+    // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
+    const F = R.FRONT, zoom = SH / (F.fwd + F.back);
+    // Fixrunde N3: bei aktiver Szene klemmen Randpfeile und Labels unter der Szenenzeile (Oberkante 6 + Höhe + 4), sonst verdeckt sie den HAFEN-Pfeil am Oberrand
+    const fenster = { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) };   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+    // KUL-02 C: Himmelsschicht (Sternfeld, Stern am Rand, Planeten unter der Ebene, Bojen) im SELBEN Fenster; drawSpace ruft sie nach dem Sternenhimmel, vor allen Spielobjekten. Nur hier, nie am Pult.
+    if (window.KulisseHimmel) fenster.himmel = (cx) => KulisseHimmel.zeichne(cx, view, fenster);
+    // KUL-02 D: Beschriftungen der Frontsicht auf Skala 2 (nur hier, nie am Pult) und Ecktafeln (D2): ihre Sperrflächen gehen als rect.sperren an drawSpace, die Tafeln selbst liegen nach drawFrontView über allem
+    const HT = window.HauptschirmTokens, TA = window.HauptschirmTafeln, Hd = window.Hud;
+    if (HT) fenster.textSkala = HT.TOKENS.TEXT.skalaBeschriftung;
+    const tafelOpt = { szeneBreite: Hd && Hd.szeneVon && Hd.szeneVon(view) ? Hd.drawSzenenStrip(c, view, SZ_Y0, { measure: true }) : 0, szeneUnten: szeneOben(view) };
+    if (TA) fenster.sperren = TA.sperren(view, tafelOpt);
+    R.drawFrontView(c, view, fenster);
+    if (TA) TA.zeichne(c, view, tafelOpt);
+  });
+  // Platzhalter bis KUL-03: KUL-03 registriert hier den echten Visier-Zeichner
+  Hauptschirm.registriere('visier', (c) => {
+    c.fillStyle = window.HauptschirmTokens ? HauptschirmTokens.TOKENS.FARBE.grund : PAL.space; c.fillRect(0, 0, SW, SH);
+    R.text(c, 'VISIER – NOCH NICHT VERFÜGBAR', SW / 2, SH / 2 - 12, { color: PAL.amber, align: 'center', scale: 3 });
+  });
+
   // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)
   function zeichneSchirm(view) {
     const c = schirmCtx;
@@ -174,12 +198,7 @@
     c.fillStyle = PAL.space; c.fillRect(0, 0, SW, SH);
     const nb = R.ui.buttons.length;
     try {
-      // SUND-02a B: derselbe Ausschnitt wie im 2D-Helm: R.FRONT.fwd voraus und .back zurück füllen die Textur in der Höhe (Zoom = SH / (fwd + back)),
-      // die Breite folgt aus dem Seitenverhältnis. drawFrontView beschneidet seitlich auf FRONT.side; hier reicht das Fenster über rect.side bis zum
-      // Texturrand (R.FRONT bleibt unverändert: 2D-Helm und Pult sehen den Wert nie anders).
-      const F = R.FRONT, zoom = SH / (F.fwd + F.back);
-      // Fixrunde N3: bei aktiver Szene klemmen Randpfeile und Labels unter der Szenenzeile (Oberkante 6 + Höhe + 4), sonst verdeckt sie den HAFEN-Pfeil am Oberrand
-      R.drawFrontView(c, view, { x: 0, y: 0, w: SW, h: SH, side: (SW / 2) / zoom, sicht: { x: 0, y: 0, w: SW, h: SH }, randOben: szeneOben(view) });   // SUND-01 H: sicht = die Textur (das Fenster reicht darüber hinaus)
+      Hauptschirm.zeichne(c, view, { x: 0, y: 0, w: SW, h: SH });   // KUL-02 A: der Zeichner der aktiven Ansicht liest sie selbst aus dem Snapshot (Hauptschirm.ansichtVon)
       // SUND-02a Client-Runde M2: Szenenzeile der Sim-Szene oben mittig auf dem Hauptschirm (nur solange state.flotte.sz da ist; sonst nichts)
       const H = window.Hud;
       if (H && H.szeneVon && H.szeneVon(view)) { const w = H.drawSzenenStrip(c, view, 6, { measure: true }); H.drawSzenenStrip(c, view, 6, { x: Math.round((SW - w) / 2) }); }
@@ -205,6 +224,7 @@
       werte.push(['FAHRT', hi ? hi.names[hi.stage] : '–', PAL.amber]);
       werte.push(['TEMPO', String(Math.round(n(ship.speed))), PAL.mint]);
       werte.push(['KURS', (window.Shared_Physics && Shared_Physics.kompassGrad ? Shared_Physics.kompassGrad(n(ship.angle)) : Math.round(((n(ship.angle) * 180 / Math.PI) % 360 + 360) % 360)) + '°', PAL.mint]);
+      werte.push(['ANSICHT', Hauptschirm.NAMEN[Hauptschirm.ansichtVon(view)], PAL.mint]);   // KUL-02 A: aktive Hauptschirm-Ansicht
     } else if (S.station === 'weapons') {
       const t = Consoles.targetOf ? Consoles.targetOf(view) : null;
       werte.push(['ZIEL', t ? (t.station ? t.name : (R.ENEMY_NAMES[t.kind] || t.kind)) : 'keins', PAL.amber]);
@@ -221,10 +241,15 @@
       R.text(ctx, v, x, y + 12, { color: col });
       x += Math.max(R.measure(k, 1), R.measure(String(v), 1)) + 18;
     }
-    const hint = S.blick === 'crew' ? 'Maus an den Rand: zurück · Rad ▼ Pult' : 'Rad ▼ / Maus nach unten: Pult · Maus an den Seitenrand: Crew';
     if (cd) return;   // SYS-01 A2 Nacharbeit: Countdown hat Vorrang vor den Bedienhinweisen (sonst überlagern sie die Werte)
-    R.text(ctx, hint, VW - 10, y + 12, { color: PAL.panelLight, align: 'right' });
-    R.text(ctx, 'Tasten der Station wirken weiter · Esc verlassen', VW - 10, y + 2, { color: PAL.panelLight, align: 'right' });
+    // Werte haben Vorrang: die Hinweise (rechtsbündig) bekommen nur den Platz rechts der Werte; passt die lange Fassung nicht, die kurze, sonst entfällt der Hinweis
+    const werteEnde = x - 18, rand = VW - 10, luft = 12;
+    const passt = (t) => rand - R.measure(t, 1) >= werteEnde + luft;
+    const waehle = (fassungen) => fassungen.find(passt) || null;
+    const hint = waehle(S.blick === 'crew' ? ['Maus an den Rand: zurück · Rad ▼ Pult', 'Rand: zurück · Rad ▼ Pult', 'Rad ▼ Pult'] : ['Rad ▼ / Maus nach unten: Pult · Maus an den Seitenrand: Crew', 'Rad ▼: Pult · Seitenrand: Crew', 'Rad ▼: Pult']);
+    const esc = waehle(['Tasten der Station wirken weiter · Esc verlassen', 'Esc verlassen']);
+    if (hint) R.text(ctx, hint, rand, y + 12, { color: PAL.panelLight, align: 'right' });
+    if (esc) R.text(ctx, esc, rand, y + 2, { color: PAL.panelLight, align: 'right' });
   }
 
   // Ersetzt Consoles.draw an den Sitzplätzen. Die Konsole wird immer in den Pult-Puffer gezeichnet (damit Zustand und

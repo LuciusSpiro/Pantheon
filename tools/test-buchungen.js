@@ -465,6 +465,7 @@ section('Aufrufstellen von geld.js (Tabelle): jede Änderung an Stellen mit Erei
     'server/sim/schiffswaffen.js': { einnehmen: 1 },
     'server/sim/shop.js': { bezahlen: 1 },
     'server/sim/space.js': { einnehmen: 2, abziehenHoechstens: 1 },
+    'server/sim/uebung-forschung.js': { standSetzen: 1 },   // TEL-01 M2: Startmarken der Übung (UEB-01), Grund start
     'server/sim/werft.js': { mindestens: 1, abbuchen: 1 },
     'server/weltstand.js': { erstatten: 4, standSetzen: 1 },
   };
