@@ -77,7 +77,6 @@ const KENNZAHL_INFO = {
   'f1.spieler.beitritte': { einheit: 'n', frage: '1', richtung: 'neutral', text: 'spieler_bei (neu, uebernahme, wieder)' },
   'f1.spieler.nachzuegler': { einheit: 'n', frage: '1', richtung: 'neutral', text: 'Nachzügler: spieler_bei mit nachzuegler true, das NACH dem ersten Zeitreihenfenster liegt (Beitritte beim Start zählen nicht)' },
   'f1.spieler.abgaenge': { einheit: 'n', frage: '1', richtung: 'neutral', text: 'spieler_weg' },
-  'f1.neustarts': { einheit: 'n', frage: '1', richtung: 'schlechter', text: 'Neustarts des Grabenangriffs (Niederlagen)' },
   'f2.gefecht.*': { einheit: 's', frage: '2', richtung: 'neutral', text: 'Gefechtsdauer: Zeitreihenfenster mit Gegnern (Raum: r_gegner > 0, Boden: b_gg > 0)' },
   'f2.schaden.*.*.*': { einheit: 'punkte', frage: '2', richtung: 'neutral', text: 'Schaden je ort, aus (Spieler/Lerche -> Gegner) oder ein (Gegner/Objekt -> Spieler/Lerche); Eigenbeschuss und Treffer Gegner -> Gegner zählen nicht. roh = vor Schild; schild und wirkt sind getrennte Posten, nie addieren (Definition je Ort darunter)' },
   'f2.schaden.raum.aus.*': { einheit: 'punkte', frage: '2', richtung: 'neutral', text: 'Raum, Lerche -> Gegner: roh = Schaden vor Schild; schild = Schildverlust des Gegners (Summe der Segmente); wirkt = schaden - schild = nur der Rest über den Schild hinaus (Systemtreffer, Sofort-Tod); das Schema-Feld schaden enthält den Schildverlust schon, deshalb wird er hier abgezogen. Posten nicht addieren' },
@@ -248,7 +247,8 @@ function f1(d, ps) {
   const proModus = {};
   for (const z of L(d, 'szene_ende')) {
     const g = proModus[sk(z.modus)] || (proModus[sk(z.modus)] = []);
-    if (num(z.dauer_gesamt)) g.push(z.dauer_gesamt);
+    // K3: die leere Abschlussszene (Ausgang session_ende, Dauer unter 1 s) zaehlt weder in n noch im Mittel; in der Szenenliste und im Ausgang bleibt sie
+    if (num(z.dauer_gesamt) && !(z.ausgang === 'session_ende' && z.dauer_gesamt < 1)) g.push(z.dauer_gesamt);
     const a = o.ausgang || (o.ausgang = {});
     zaehle(a, sk(z.ausgang));
   }
@@ -258,7 +258,7 @@ function f1(d, ps) {
     if (proModus[m].length) put(o, 'dauer.' + m + '.mittel', summe(proModus[m]) / proModus[m].length);
   }
   const wg = L(d, 'welle_geschafft');
-  if (wg.length) { put(o, 'wellen.geschafft', wg.length); put(o, 'wellen.dauer_mittel', summe(wg.filter((z) => num(z.dauer)).map((z) => z.dauer)) / wg.length); }
+  if (wg.length) { put(o, 'wellen.geschafft', wg.length); const wd = wg.filter((z) => num(z.dauer)).map((z) => z.dauer); if (wd.length) put(o, 'wellen.dauer_mittel', summe(wd) / wd.length); }   // K4: Nenner = Wellen MIT Dauer
   // Spielerzahl: erstes Fenster der Zeitreihe (Beitritte beim Start stehen als spieler_bei mit nachzuegler, siehe Schema), sonst der Kopf
   const verb = verbunden;
   const start = d.zr.length ? verb(d.zr[0]) : null;
@@ -270,9 +270,7 @@ function f1(d, ps) {
   put(o, 'spieler.beitritte', L(d, 'spieler_bei').length);
   put(o, 'spieler.nachzuegler', L(d, 'spieler_bei').filter((z) => istNachzuegler(z, d.fenster1)).length);
   put(o, 'spieler.abgaenge', L(d, 'spieler_weg').length);
-  const nz = L(d, 'szene_neustart').length;
-  if (nz) put(o, 'neustarts', nz);
-  return o;
+  return o;   // Neustarts: nur f3.neustarts (K5, sonst erscheint eine Abweichung doppelt)
 }
 
 // ---------- F2: Gefecht ----------
@@ -294,12 +292,13 @@ function schussGruppen(d) {
       const rec = { g, treffer: 0, wirkt: false, bestimmt: true };
       if (z.pid == null) {
         if (z.treffer === true) rec.treffer = 1; else if (z.treffer !== false) rec.bestimmt = false;   // ohne pid und ohne Ergebnis: nicht beurteilbar
-      } else offen.set(sk(z.ort) + '|' + z.pid, rec);
+      } else offen.set(z.sitzung + '|' + s + '|' + sk(z.ort) + '|' + z.pid, rec);   // K6: je Sitzung und Seite (aneinandergehaengte Sessions, gleiche pid)
       if (!rec.bestimmt) continue;
       g.schuesse++;
       if (rec.treffer) { g.mit++; g.treffer++; if (z.pid == null) { rec.wirkt = true; g.wirkt++; } }   // ohne pid: abgeprallt nicht erkennbar, zaehlt als wirkend
     } else if (z.typ === 'treffer' && z.pid != null) {
-      const rec = offen.get(sk(z.ort) + '|' + z.pid);
+      const sv = seite(z.von);
+      const rec = sv ? offen.get(z.sitzung + '|' + sv + '|' + sk(z.ort) + '|' + z.pid) : null;
       if (!rec) continue;   // Treffer ohne bekannten Schuss (z. B. Schuss außerhalb der Aufzeichnung)
       if (!rec.treffer) rec.g.mit++;
       rec.treffer++; rec.g.treffer++;

@@ -64,7 +64,7 @@ function auffaelligkeiten(kz, opt) {
   opt = opt || {};
   const b = opt.bewertung || bewerten(kz, opt);
   // Gruppen in der festen Reihenfolge; fest = wird nie gekuerzt
-  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (x.k === 'schema_version' || x.k === 'warnung' || x.k === 'f6.daten.ohne_ende' ? x.name : x.n + ' ' + x.name)).join(', ') + ' (Kennzahlen unvollständig möglich)'] : [];
+  const daten = b.daten.length ? ['Daten: ' + b.daten.map((x) => (x.k === 'schema_version' || x.k === 'kennzahl_version' || x.k === 'warnung' || x.k === 'f6.daten.ohne_ende' ? x.name : x.n + ' ' + x.name)).join(', ') + ' (Kennzahlen unvollständig möglich)'] : [];
   const basisKopf = [];
   let devs = [];
   if (!b.basis) basisKopf.push('Basis: keine Basis angegeben (kein Vergleich; --basis <json> vergleicht mit einer früheren Session)');
@@ -118,7 +118,7 @@ function f1Block(kz) {
   const a = liste(f1.ausgang, (k, v) => k + ' ' + v);
   z.push('- Szenen je Modus: ' + (modi.length ? d : 'keine') + (a ? ' · Ausgang: ' + a : ''));
   const sp = f1.spieler || {};
-  z.push('- Spieler: Start ' + n(sp.start, 0) + ', max ' + n(sp.max, 0) + ', Nachzügler (nach dem ersten Zeitreihenfenster) ' + n(sp.nachzuegler, 0) + ', Abgänge ' + n(sp.abgaenge, 0) + (f1.wellen ? ' · Wellen geschafft ' + n(f1.wellen.geschafft, 0) + ' (Ø ' + zeit(f1.wellen.dauer_mittel) + ')' : '') + (f1.neustarts ? ' · Neustarts ' + f1.neustarts : ''));
+  z.push('- Spieler: Start ' + n(sp.start, 0) + ', max ' + n(sp.max, 0) + ', Nachzügler (nach dem ersten Zeitreihenfenster) ' + n(sp.nachzuegler, 0) + ', Abgänge ' + n(sp.abgaenge, 0) + (f1.wellen ? ' · Wellen geschafft ' + n(f1.wellen.geschafft, 0) + ' (Ø ' + zeit(f1.wellen.dauer_mittel) + ')' : '') + (get(kz, 'f3.neustarts') ? ' · Neustarts ' + kz.f3.neustarts : ''));
   return z;
 }
 // Schadenszeile je Ort: Raum und Boden haben verschiedene Bedeutung von Schild und wirkt (KENNZAHL_INFO f2.schaden.*): getrennte Posten, nie addieren
@@ -151,7 +151,7 @@ function f2Block(kz) {
   }
   for (const ort of keys(f2.kills)) {
     const ks = f2.kills[ort];
-    const text = liste(ks, (r, v) => (r === 'gesamt' ? null : r + ' ' + v + (get(f2, 'zeit_bis_kill.' + ort + '.' + r) != null ? ' (Ø ' + zeit(get(f2, 'zeit_bis_kill.' + ort + '.' + r)) + ')' : '')));
+    const text = liste(ks, (r, v) => (r === 'gesamt' ? null : r + ' ' + v + (get(f2, 'zeit_bis_kill.' + ort + '.' + r) != null ? ' (Median ' + zeit(get(f2, 'zeit_bis_kill.' + ort + '.' + r)) + ')' : '')));
     z.push('- Kills ' + ort + ' (' + ks.gesamt + '), Zeit bis Kill je Rolle (Median): ' + text);
   }
   const ue = liste(f2.ueberhitzt, (ort, v) => liste(v, (s, c) => ort + ' ' + s + ' ' + c, ', '));

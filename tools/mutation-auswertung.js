@@ -92,6 +92,17 @@ const MUTATIONEN = [
   [PR, "const k = v.art + '|' + Math.round(x(v.t));", "const k = Math.round(x(v.t));", 'Verlustmarken: verschiedene Arten einer Spalte werden vermischt', T],
   [PR, "const k = v.art + '|' + Math.round(x(v.t));", "const k = v.art + '|' + v.t;", 'Verlustmarken werden nicht je Pixelspalte zusammengefasst', T],
   [PR, "replace(/[&<>\"']/g,", "replace(/[<>\"']/g,", 'SVG: & wird nicht maskiert (kein wohlgeformtes XML)', T],
+  // --- zweite Nacharbeit K1-K8 ---
+  ['tools/auswerten.js', "const dir = opt.aus ? path.resolve(opt.aus) :", "const dir = opt.aus ? path.resolve(ROOT, opt.aus) :", 'K1: --aus relativ zum Repo statt zum cwd', T],
+  [BE, "' (Median ' + zeit(", "' (Ø ' + zeit(", 'K2: Zeit bis Kill als Ø statt Median', T],
+  [KZ, "!(z.ausgang === 'session_ende' && z.dauer_gesamt < 1)", "true", 'K3: leere Abschlussszene geht in n und Mittel ein', T],
+  [KZ, "summe(wd) / wd.length", "summe(wd) / wg.length", 'K4: Wellenmittel durch alle Wellen statt die mit Dauer', T],
+  [KZ, "  return o;   // Neustarts: nur f3.neustarts", "  put(o, 'neustarts', L(d, 'szene_neustart').length);\n  return o;   // Neustarts: nur f3.neustarts", 'K5: f1.neustarts doppelt zu f3.neustarts', T],
+  [KZ, "offen.set(z.sitzung + '|' + s + '|' + sk(z.ort)", "offen.set(s + '|' + sk(z.ort)", 'K6: Schuss-Treffer-Verknuepfung ohne Sitzung (und Seite)', T],
+  [KZ, "const sv = seite(z.von);\n      const rec = sv ? offen.get(z.sitzung + '|' + sv + '|' + sk(z.ort) + '|' + z.pid) : null;", "const sv = seite(z.von);\n      const rec = sv ? offen.get(z.sitzung + '|' + 'eigen' + '|' + sk(z.ort) + '|' + z.pid) : null;", 'K6: Treffer der Gegner verknuepfen mit eigenen Schuessen (Seite nicht geprueft)', T],
+  [BW, "basis.version === kz.version) return [];", "false) return [];", 'K8: Kennzahl-Version wird nicht verglichen (Zeile immer)', T],
+  [BW, "return [{ k: 'kennzahl_version'", "return []; return [{ k: 'kennzahl_version'", 'K8: keine Zeile bei ungleicher Kennzahl-Version', T],
+  ['tools/auswerten.js', "delete ohne.listen.reihen;", "", '--json schreibt listen.reihen mit', T],
   // --- Lesen ---
   [LE, "if (letzte) erg.abgeschnitten++; else erg.kaputt++;", "erg.kaputt++;", 'abgeschnittene letzte Zeile wird als kaputt gezaehlt', T],
   [LE, "return out.sort((a, b) => a.n - b.n);", "return out.sort((a, b) => b.n - a.n);", 'Teile einer rotierten Session in falscher Reihenfolge', T],

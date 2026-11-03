@@ -664,6 +664,50 @@ section('5. Nacharbeit D1');
     ok(c.anfang === 5000 && c.netto === 0 && c.ende === 5000 && c.anfang + c.netto === c.ende, 'Marken nur Stand gesetzt: anfang 5000, netto 0, ende 5000');
     ok(st.kz.f5.buchung === undefined && st.kz.f5.stand.marks.testmarken === 5000, 'Marken: keine Buchungssumme, f5.stand.marks.testmarken = 5000');
   }
+  // --- K1 bis K8 (zweite Nacharbeit) ---
+  {
+    const Zs = (t, typ, f, sitzung) => Object.assign({ v: 1, typ, sitzung: sitzung || 'a', tick: 0, t }, f);
+    // K1: --aus und --json gelten beide ab dem aktuellen Verzeichnis (nicht --aus ab dem Repo)
+    const cwd = path.join(TMP, 'cwd-k1');
+    fs.mkdirSync(cwd);
+    fs.writeFileSync(path.join(cwd, 'mini-1.jsonl'), TEXT);
+    const cli = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'auswerten.js'), 'mini-1.jsonl', '--aus', 'rel-aus', '--json', 'rel/basis.json', '--json-voll', 'rel/voll.json'], { cwd, encoding: 'utf8' });
+    ok(cli.status === 0 && fs.existsSync(path.join(cwd, 'rel-aus', 'mini-1.md')) && fs.existsSync(path.join(cwd, 'rel-aus', 'mini-1.svg')), 'K1: --aus relativ gilt ab dem aktuellen Verzeichnis (' + (cli.stderr || '').slice(0, 100) + ')');
+    ok(fs.existsSync(path.join(cwd, 'rel', 'basis.json')) && !fs.existsSync(path.join(ROOT, 'rel-aus')), 'K1: --json relativ ab dem aktuellen Verzeichnis, nichts im Repo');
+    // (b) --json ohne listen.reihen, --json-voll mit; die Basis ohne Reihen funktioniert
+    const bj = JSON.parse(fs.readFileSync(path.join(cwd, 'rel', 'basis.json'), 'utf8')), vj = JSON.parse(fs.readFileSync(path.join(cwd, 'rel', 'voll.json'), 'utf8'));
+    ok(bj.listen && bj.listen.reihen === undefined && bj.listen.szenen && vj.listen.reihen && vj.listen.reihen.raum.t.length === 20, '--json schreibt ohne listen.reihen, --json-voll mit');
+    ok(JSON.stringify(flach(bj)) === JSON.stringify(flach(vj)), 'die Kennzahlen sind in beiden Dateien gleich');
+    const cb = spawnSync(process.execPath, [path.join(ROOT, 'tools', 'auswerten.js'), 'mini-1.jsonl', '--basis', 'rel/basis.json', '--aus', 'rel-aus2'], { cwd, encoding: 'utf8' });
+    ok(cb.status === 0 && /0 wesentlich anders/.test(fs.readFileSync(path.join(cwd, 'rel-aus2', 'mini-1.md'), 'utf8')), 'Basis ohne Reihen: Bericht und Bild laufen, keine Abweichung gegen sich selbst');
+    // K2: Zeit bis Kill ist ein Median
+    ok(/grundtyp 3 \(Median 20 s\)/.test(bericht(K, { svg: 'x.svg' })) && !/Zeit bis Kill[^\n]*Ø/.test(bericht(K, { svg: 'x.svg' })), 'K2: Zeit bis Kill steht als Median, nicht als Ø');
+    // K3: leere Abschlussszene
+    const k3 = kennzahlen({ zeilen: [
+      Zs(0, 'kopf', {}), Zs(100, 'szene_ende', { modus: 'kampagne', szene: 'm1', ausgang: 'erfolg', dauer: 100, dauer_gesamt: 100 }),
+      Zs(100, 'szene_start', { modus: 'kampagne', szene: 'm2' }), Zs(100, 'szene_ende', { modus: 'kampagne', szene: 'm2', ausgang: 'session_ende', dauer: 0, dauer_gesamt: 0 }),
+      Zs(100, 'szene_start', { modus: 'kampagne', szene: 'm3' }), Zs(250, 'szene_ende', { modus: 'kampagne', szene: 'm3', ausgang: 'session_ende', dauer: 150, dauer_gesamt: 150 }),
+    ] });
+    ok(k3.f1.dauer.kampagne.n === 2 && k3.f1.dauer.kampagne.mittel === 125 && k3.f1.dauer.kampagne.summe === 250, 'K3: Szene mit session_ende und Dauer unter 1 s zaehlt nicht in n und Mittel (n 2, Mittel 125)');
+    ok(k3.f1.ausgang.session_ende === 2 && k3.listen.szenen.length === 3, 'K3: Ausgang und Szenenliste behalten sie');
+    // K4: Wellenmittel durch die Wellen MIT Dauer
+    const k4 = kennzahlen({ zeilen: [Zs(1, 'welle_geschafft', { modus: 'wellen_boden', nr: 1, dauer: 10 }), Zs(2, 'welle_geschafft', { modus: 'wellen_boden', nr: 2, dauer: 20 }), Zs(3, 'welle_geschafft', { modus: 'wellen_boden', nr: 3, dauer: null })] });
+    ok(k4.f1.wellen.geschafft === 3 && k4.f1.wellen.dauer_mittel === 15, 'K4: Wellenmittel = Summe / Wellen mit Dauer (15, nicht 10)');
+    // K5: Neustarts nur in f3
+    const k5 = kennzahlen({ zeilen: [Zs(1, 'szene_neustart', { modus: 'graben', szene: 'g', versuch: 2 }), Zs(2, 'szene_neustart', { modus: 'graben', szene: 'g', versuch: 3 })] });
+    ok(k5.f3.neustarts === 2 && k5.f1.neustarts === undefined && flach(k5)['f1.neustarts'] === undefined, 'K5: Neustarts nur als f3.neustarts');
+    ok(/Neustarts 2/.test(bericht(k5, { svg: 'x.svg' })), 'K5: der F1-Text liest den Wert aus f3');
+    // K6: Schuss und Treffer nur derselben Sitzung und Seite verknuepfen
+    const sch6 = (sitz, pid, von) => Zs(1, 'schuss', { ort: 'raum', waffe: 'standardbatterie', von, pid, treffer: null }, sitz);
+    const tr6 = (sitz, pid, von, ziel) => Zs(2, 'treffer', { ort: 'raum', waffe: 'standardbatterie', von, ziel, pid, ergebnis: 'treffer', schaden_roh: 1, schild: 0, schaden: 1 }, sitz);
+    const k6 = kennzahlen({ zeilen: [sch6('a', 'pr1', 'lerche'), sch6('b', 'pr2', 'lerche'), tr6('b', 'pr1', 'lerche', 'gegner'), tr6('a', 'pr1', 'gegner', 'lerche'), tr6('a', 'pr1', 'lerche', 'gegner'), tr6('a', 'pr1', 'lerche', 'gegner')] });
+    ok(k6.f2.schuesse.raum.standardbatterie === 2 && k6.f2.quote.raum.standardbatterie === 50 && k6.f2.treffer_je_schuss.raum.standardbatterie === 1, 'K6: nur Paare derselben Sitzung und Seite (Quote 50 %, 1 Treffer je Schuss; falsche Paare ergaeben mehr)');
+    // K8: Kennzahl-Version von Basis und Lauf
+    const bv = kopie(K); bv.version = 99;
+    const zv8 = auffaelligkeiten(K, { basis: bv });
+    ok(/Basis hat Kennzahl-Version 99, Lauf 1 – Vergleich nur über gemeinsame Schlüssel/.test(zv8[0]) && /^Daten:/.test(zv8[0]), 'K8: ungleiche Kennzahl-Version steht in der Datenzeile');
+    ok(!auffaelligkeiten(K, { basis: kopie(K) }).some((l) => /Kennzahl-Version/.test(l)) && !auffaelligkeiten(K, { basis: flach(K) }).some((l) => /Kennzahl-Version/.test(l)), 'K8: gleiche Version und flache Basis: keine Zeile');
+  }
   // --- K7: lange Session (ein Spread mit 200000 Eintraegen wirft RangeError) ---
   {
     const N = 200000;

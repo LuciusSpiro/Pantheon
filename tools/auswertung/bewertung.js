@@ -116,12 +116,18 @@ function leerlauf(kz) {
   return ll;
 }
 
+// K8: Kennzahl-Version von Lauf und Basis (nur wenn die Basis ein Kennzahlen-Objekt ist, nicht eine flache Map)
+function versionsZeile(kz, basis) {
+  if (!basis || typeof basis !== 'object' || !num(basis.version) || !num(kz.version) || basis.version === kz.version) return [];
+  return [{ k: 'kennzahl_version', n: basis.version, name: 'Basis hat Kennzahl-Version ' + basis.version + ', Lauf ' + kz.version + ' – Vergleich nur über gemeinsame Schlüssel' }];
+}
+
 function bewerten(kz, opt) {
   opt = opt || {};
   const basisF = opt.basis ? basisFlach(opt.basis) : null;
   const ziele = zielBewertung(kz, opt.ziele);
   return {
-    daten: datenQualitaet(kz),
+    daten: datenQualitaet(kz).concat(versionsZeile(kz, opt.basis)),
     basis: opt.basis ? abweichungen(kz, opt.basis) : null,
     ziele,
     technik: technik(kz),

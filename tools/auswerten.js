@@ -6,7 +6,9 @@
 //     --basis <json>           Kennzahlen einer frueheren Session (Ausgabe von --json): Abweichungen stehen oben im Bericht
 //     --ziele <json>           Zieldatei (Standard tools/fixtures/telemetrie/ziele.json, Format siehe tools/auswertung/bericht.js)
 //     --aus <ordner>           Ausgabeordner (Standard data/telemetrie/berichte/, gitignored): <kennung>.md und <kennung>.svg
-//     --json <datei>           zusaetzlich das Kennzahlen-Objekt als JSON schreiben (Basis-Datei fuer spaetere Vergleiche)
+//     --json <datei>           zusaetzlich das Kennzahlen-Objekt als JSON schreiben (Basis-Datei fuer spaetere Vergleiche), OHNE listen.reihen (Bericht und Bild brauchen sie nicht aus der Basis)
+//     --json-voll <datei>      wie --json, aber mit listen.reihen (die Zeitreihen fuer das Bild)
+//   Relative Pfade (--aus, --json, --json-voll, --basis, --ziele) gelten ab dem aktuellen Verzeichnis; ohne --aus gilt data/telemetrie/berichte/ im Repo.
 // Exit 0 bei Erfolg, 2 bei Aufrufproblemen (Session nicht gefunden, Datei unlesbar). Liest nur, schreibt nur in den Ausgabeordner.
 
 const fs = require('fs');
@@ -20,11 +22,11 @@ const ROOT = path.join(__dirname, '..');
 const ZIELE_STANDARD = path.join(__dirname, 'fixtures', 'telemetrie', 'ziele.json');
 
 function args(argv) {
-  const a = { eingabe: null, letzte: false, basis: null, ziele: null, aus: null, json: null };
+  const a = { eingabe: null, letzte: false, basis: null, ziele: null, aus: null, json: null, jsonVoll: null };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
     if (x === '--letzte') a.letzte = true;
-    else if (x === '--basis' || x === '--ziele' || x === '--aus' || x === '--json') { a[x.slice(2)] = argv[++i]; if (a[x.slice(2)] == null) throw new Error(x + ' braucht einen Wert'); }
+    else if (x === '--basis' || x === '--ziele' || x === '--aus' || x === '--json' || x === '--json-voll') { const key = x === '--json-voll' ? 'jsonVoll' : x.slice(2); a[key] = argv[++i]; if (a[key] == null) throw new Error(x + ' braucht einen Wert'); }
     else if (x.startsWith('--')) throw new Error('unbekannte Option ' + x);
     else if (a.eingabe == null) a.eingabe = x;
     else throw new Error('zu viele Eingaben: ' + x);
@@ -47,13 +49,15 @@ function auswerten(eingabe, opt) {
   const svg = profil(protokoll, kz);
   let md = null, svgPfad = null;
   if (opt.aus !== false) {
-    const dir = path.resolve(ROOT, opt.aus || path.join('data', 'telemetrie', 'berichte'));
+    const dir = opt.aus ? path.resolve(opt.aus) : path.join(ROOT, 'data', 'telemetrie', 'berichte');   // K1: --aus gilt ab dem aktuellen Verzeichnis, wie --json
     fs.mkdirSync(dir, { recursive: true });
     md = path.join(dir, kennung + '.md'); svgPfad = path.join(dir, kennung + '.svg');
     fs.writeFileSync(md, text, 'utf8');
     fs.writeFileSync(svgPfad, svg, 'utf8');
   }
-  if (opt.json) { fs.mkdirSync(path.dirname(path.resolve(opt.json)), { recursive: true }); fs.writeFileSync(opt.json, JSON.stringify(kz, null, 1) + '\n', 'utf8'); }
+  const schreibe = (datei, obj) => { fs.mkdirSync(path.dirname(path.resolve(datei)), { recursive: true }); fs.writeFileSync(path.resolve(datei), JSON.stringify(obj, null, 1) + '\n', 'utf8'); };
+  if (opt.json) { const ohne = Object.assign({}, kz, { listen: Object.assign({}, kz.listen) }); delete ohne.listen.reihen; schreibe(opt.json, ohne); }
+  if (opt.jsonVoll) schreibe(opt.jsonVoll, kz);
   return { kennung, md, svg: svgPfad, text, svgText: svg, kz, protokoll };
 }
 
@@ -63,8 +67,8 @@ function main() {
   let eingabe = a.eingabe;
   if (a.letzte) { eingabe = Lesen.letzteKennung(); if (!eingabe) { console.error('Keine Session in data/telemetrie/ oder data/telemetrie/bot/ gefunden'); process.exit(2); } }
   let r;
-  try { r = auswerten(eingabe, { basis: a.basis, ziele: a.ziele, aus: a.aus, json: a.json }); } catch (e) { console.error('Auswertung fehlgeschlagen: ' + e.message); process.exit(2); }
-  console.log('Bericht: ' + r.md + '\nBild:    ' + r.svg + (a.json ? '\nJSON:    ' + path.resolve(a.json) : '') + '\n(' + (r.text.split('\n').length - 1) + ' Zeilen)');
+  try { r = auswerten(eingabe, { basis: a.basis, ziele: a.ziele, aus: a.aus, json: a.json, jsonVoll: a.jsonVoll }); } catch (e) { console.error('Auswertung fehlgeschlagen: ' + e.message); process.exit(2); }
+  console.log('Bericht: ' + r.md + '\nBild:    ' + r.svg + (a.json ? '\nJSON:    ' + path.resolve(a.json) : '') + (a.jsonVoll ? '\nJSON voll: ' + path.resolve(a.jsonVoll) : '') + '\n(' + (r.text.split('\n').length - 1) + ' Zeilen)');
 }
 
 if (require.main === module) main();
