@@ -1,22 +1,24 @@
 'use strict';
 // TEL-01 D2: Fragen an die Abfrage-Datenbank (tools/auswertung/abfrage.js; geladen mit `npm run abfrage:laden`). NUR LESEND: die Datenbank wird schreibgeschuetzt geoeffnet, Schreib-SQL wird abgelehnt.
-//   npm run abfrage -- "<SQL>" [--csv] [--max <n>] [--db <datei>]
+//   npm run abfrage -- "<SQL>" [--csv] [--max <n>] [--zeit <s>] [--db <datei>]
 //   npm run abfrage -- --beispiel <name>      gespeicherte Beispielabfrage (tools/auswertung/abfragen.sql); ohne Namen: Liste
 //   npm run abfrage -- --schema               Tabellen, Views und Spalten
 //     --csv    CSV statt Markdown-Tabelle (ohne Zeilenbegrenzung)
 //     --max    hoechstens n Zeilen in der Tabelle (Standard 1000, 0 = alle)
+//     --zeit   Zeitlimit in Sekunden (Standard 60, 0 = ohne); danach Abbruch mit Meldung und Exit 2 (die Abfrage laeuft in einem eigenen Prozess, der abgeschossen wird)
 //     --db     Datenbank (Standard data/telemetrie/abfrage.sqlite)
 // Exit 0 bei Erfolg, 2 bei Aufrufproblemen, fehlerhaftem oder schreibendem SQL (verstaendliche Meldung auf der Fehlerausgabe).
 const Abfrage = require('./auswertung/abfrage.js');
 
 function args(argv) {
-  const a = { sql: null, csv: false, max: null, db: null, beispiel: undefined, schema: false };
+  const a = { sql: null, csv: false, max: null, zeit: null, db: null, beispiel: undefined, schema: false };
   for (let i = 0; i < argv.length; i++) {
     const x = argv[i];
     const wert = () => { const v = argv[++i]; if (v == null) throw new Error(x + ' braucht einen Wert'); return v; };
     if (x === '--csv') a.csv = true;
     else if (x === '--schema') a.schema = true;
     else if (x === '--max') { a.max = Number(wert()); if (!(a.max >= 0)) throw new Error('--max braucht eine Zahl >= 0'); }
+    else if (x === '--zeit') { a.zeit = Number(wert()); if (!(a.zeit >= 0)) throw new Error('--zeit braucht eine Zahl >= 0 (Sekunden, 0 = ohne Limit)'); }
     else if (x === '--db') a.db = wert();
     else if (x === '--beispiel') a.beispiel = (argv[i + 1] != null && !argv[i + 1].startsWith('--')) ? argv[++i] : null;
     else if (x.startsWith('--')) throw new Error('unbekannte Option ' + x);
@@ -51,8 +53,8 @@ function main() {
     const db = Abfrage.oeffnenLesend(a.db);
     if (a.schema) { process.stdout.write(Abfrage.schemaText(db)); db.close(); return; }
     if (sql == null) throw new Abfrage.AbfrageFehler('kein SQL angegeben: npm run abfrage -- "SELECT ..." | --beispiel <name> | --schema');
-    const res = Abfrage.ausfuehren(db, sql);
     db.close();
+    const res = Abfrage.ausfuehrenMitLimit(a.db, sql, a.zeit);
     process.stdout.write(a.csv ? Abfrage.csv(res) : Abfrage.tabelle(res, a.max));
   } catch (e) {
     console.error(e instanceof Abfrage.AbfrageFehler ? e.message : 'Abfrage fehlgeschlagen: ' + e.message);

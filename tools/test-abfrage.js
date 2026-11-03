@@ -279,6 +279,25 @@ async function main() {
   ok(wirft(() => Abfrage.ausfuehren(db, '')) instanceof Abfrage.AbfrageFehler && wirft(() => Abfrage.ausfuehren(db, '-- nur Kommentar')) instanceof Abfrage.AbfrageFehler, 'leere Abfrage: Meldung');
   gleich(Abfrage.ausfuehren(db, "SELECT ';' AS x;").zeilen, [[';']], 'Semikolon in einem Text und am Ende ist erlaubt');
   gleich(Abfrage.ausfuehren(db, '-- Kommentar\nSELECT 1 AS a, 2 AS b').spalten, ['a', 'b'], 'fuehrender Kommentar vor dem SELECT ist erlaubt');
+  // K6: Bezeichner in [...], "..." und `...` duerfen ein Semikolon enthalten; ein Semikolon dahinter trennt weiterhin
+  gleich(Abfrage.ausfuehren(db, 'SELECT 1 AS [a;b]').spalten, ['a;b'], 'Semikolon in einem [Bezeichner] ist erlaubt');
+  gleich(Abfrage.ausfuehren(db, 'SELECT 1 AS "a;b", 2 AS `c;d`;').spalten, ['a;b', 'c;d'], 'Semikolon in "Bezeichner" und `Bezeichner` ist erlaubt');
+  ok(Abfrage.mehrereAnweisungen('SELECT 1 AS [a;b]; SELECT 2') === true && Abfrage.mehrereAnweisungen('SELECT 1 AS [a;b]') === false && Abfrage.mehrereAnweisungen('SELECT 1 AS [a;b];') === false, 'mehrereAnweisungen: [..] schuetzt das ; darin, ein echtes ; dahinter trennt');
+  const fb = wirft(() => Abfrage.ausfuehren(db, 'SELECT 1 AS [a]; DROP TABLE sessions'));
+  ok(fb instanceof Abfrage.AbfrageFehler && /nur eine Anweisung/.test(fb.message), 'zwei Anweisungen mit [Bezeichner] davor: abgelehnt');
+  // K6: Zeitlimit (eigener Prozess, wird abgeschossen): rekursive Abfrage ohne Ende bricht nach dem Limit ab
+  {
+    const t0 = Date.now();
+    const fz = wirft(() => Abfrage.ausfuehrenMitLimit(DB, 'WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT COUNT(*) FROM r', 1));
+    const dt = Date.now() - t0;
+    ok(fz instanceof Abfrage.AbfrageFehler && /laenger als 1 s/.test(fz.message) && /--zeit/.test(fz.message), 'Zeitlimit: rekursiver CTE bricht mit Meldung ab (' + (fz && fz.message.slice(0, 40)) + ')');
+    ok(dt >= 900 && dt < 15000, 'Zeitlimit: Abbruch nach etwa einer Sekunde (' + dt + ' ms)');
+    gleich(Abfrage.ausfuehrenMitLimit(DB, 'SELECT COUNT(*) AS n FROM sessions', 30).zeilen, [[3]], 'mit Limit: eine schnelle Abfrage liefert das Ergebnis');
+    const fq = wirft(() => Abfrage.ausfuehrenMitLimit(DB, 'DELETE FROM sessions', 30));
+    ok(fq instanceof Abfrage.AbfrageFehler && /nur lesende/.test(fq.message), 'mit Limit: Schreib-SQL wird abgelehnt');
+    const fs2 = wirft(() => Abfrage.ausfuehrenMitLimit(DB, 'SELECT * FRM x', 30));
+    ok(fs2 instanceof Abfrage.AbfrageFehler && /SQL-Fehler/.test(fs2.message), 'mit Limit: SQL-Fehler bleibt eine verstaendliche Meldung');
+  }
   db.close();
   const fehlt = wirft(() => Abfrage.oeffnenLesend(path.join(TMP, 'gibt-es-nicht.sqlite')));
   ok(fehlt instanceof Abfrage.AbfrageFehler && /abfrage:laden/.test(fehlt.message) && !fs.existsSync(path.join(TMP, 'gibt-es-nicht.sqlite')), 'fehlende Datenbank: Meldung "zuerst abfrage:laden", es wird keine angelegt');
@@ -288,7 +307,11 @@ async function main() {
   const zellenMitName = (d) => {
     const tab = alle(d, "SELECT name FROM sqlite_master WHERE type = 'table'").map((r) => r.name);
     let gefunden = 0, zellen = 0;
-    for (const t of tab) for (const r of d.prepare('SELECT * FROM "' + t + '"').all()) for (const v of Object.values(r)) { zellen++; if (typeof v === 'string' && (BOT_NAME.test(v) || BOT_ID.test(v))) gefunden++; }
+    for (const t of tab) {
+      // jsonb-Spalten (BLOB) als Text lesen, sonst bliebe die Namensprobe an ereignisse.json blind
+      const sel = alle(d, 'PRAGMA table_info("' + t + '")').map((c) => (/BLOB/i.test(c.type) ? 'json("' + c.name + '") AS "' + c.name + '"' : '"' + c.name + '"')).join(', ');
+      for (const r of d.prepare('SELECT ' + sel + ' FROM "' + t + '"').all()) for (const v of Object.values(r)) { zellen++; if (typeof v === 'string' && (BOT_NAME.test(v) || BOT_ID.test(v))) gefunden++; }
+    }
     return { gefunden, zellen, tabellen: tab };
   };
   const dbn = Abfrage.oeffnenLesend(DB);
@@ -301,7 +324,8 @@ async function main() {
   const { DatabaseSync } = Abfrage.sqlite();
   const mem = new DatabaseSync(':memory:');
   mem.exec('CREATE TABLE t (a, b)'); mem.exec("INSERT INTO t VALUES ('x', 'der Spieler Ada trifft'), ('sim-123', 1)");
-  gleich(zellenMitName(mem).gefunden, 2, 'Gegenprobe: die Namensprobe findet "Ada" und "sim-123" in einer Testtabelle');
+  mem.exec('CREATE TABLE j (a TEXT, b BLOB)'); mem.exec(`INSERT INTO j VALUES ('x', jsonb('{"spieler":"Cem"}'))`);
+  gleich(zellenMitName(mem).gefunden, 3, 'Gegenprobe: die Namensprobe findet "Ada" und "sim-123" in einer Testtabelle und "Cem" in einer jsonb-Zelle');
   mem.close();
 
   // ===================== 7. Aufruf =====================
@@ -328,6 +352,11 @@ async function main() {
   const a6 = lauf('abfrage.js', '--schema', '--db', CLI_DB);
   ok(a6.status === 0 && /Tabelle sessions: kennung, quelle, commit_hash/.test(a6.stdout) && /View +v_schuss: kennung, zeile, t, tick, szene_nr, ort, waffe/.test(a6.stdout), '--schema: Tabellen, Views und Spalten');
   ok(lauf('abfrage.js', 'SELECT 1', 'SELECT 2', '--db', CLI_DB).status === 2, 'zwei SQL-Angaben: Exit 2');
+  const z1 = lauf('abfrage.js', 'WITH RECURSIVE r(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM r) SELECT COUNT(*) FROM r', '--zeit', '1', '--db', CLI_DB);
+  ok(z1.status === 2 && /laenger als 1 s/.test(z1.stderr), 'abfrage --zeit 1 mit rekursivem CTE: Exit 2 und Meldung (' + z1.status + ')');
+  ok(lauf('abfrage.js', 'SELECT 1', '--zeit', 'x', '--db', CLI_DB).status === 2, '--zeit ohne Zahl: Exit 2');
+  const z2 = lauf('abfrage.js', 'SELECT 1 AS [a;b]', '--db', CLI_DB);
+  ok(z2.status === 0 && /a;b/.test(z2.stdout), 'abfrage mit [a;b]: Exit 0');
 
   console.log('\n' + (n - fails) + ' von ' + n + ' Pruefungen ok');
   process.exit(fails ? 1 : 0);

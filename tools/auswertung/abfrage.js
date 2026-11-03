@@ -18,6 +18,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const { spawnSync } = require('child_process');
 const { SCHEMA } = require('../../server/telemetrie/schema.js');
 const Lesen = require('./lesen.js');
 const { kennzahlen, flach, KENNZAHL_VERSION } = require('./kennzahlen.js');
@@ -30,6 +31,7 @@ const BASIS_SPALTEN = ['kennung', 'zeile', 't', 'tick', 'szene_nr'];
 const KEIN_SCHEMA_TYP = new Set(['kopf']);             // der Kopf steht in sessions
 const VIEW_ALIAS = { szene: 'szene_ende' };            // v_szene = v_szene_ende
 const ANWEISUNG = /^(select|with|values|explain)\b/i;   // nur lesende Anweisungen (VACUUM INTO und ATTACH schreiben auch auf einer lesenden Verbindung)
+const ZEIT_STANDARD_S = 60;                            // Zeitlimit einer Abfrage in Sekunden (--zeit)
 const ZEILEN_MAX = 1000;                               // Standard: so viele Zeilen gibt die Tabellenausgabe hoechstens aus (0 = alle)
 
 // node:sqlite ohne die ExperimentalWarning (sie meldet nur "SQLite ist experimentell"); alle anderen Warnungen laufen unveraendert weiter
@@ -183,12 +185,13 @@ function ohneKommentar(sql) {
     s = a.slice(m[0].length);
   }
 }
-// Gibt es hinter der ersten Anweisung noch etwas? (Semikolon ausserhalb von Texten und Kommentaren)
+// Gibt es hinter der ersten Anweisung noch etwas? (Semikolon ausserhalb von Texten, Bezeichnern in '...', "...", `...`, [...] und Kommentaren)
 function mehrereAnweisungen(sql) {
   let i = 0; const s = String(sql);
   while (i < s.length) {
     const c = s[i];
     if (c === "'" || c === '"' || c === '`') { const e = s.indexOf(c, i + 1); if (e < 0) return false; i = e + 1; continue; }
+    if (c === '[') { const e = s.indexOf(']', i + 1); if (e < 0) return false; i = e + 1; continue; }   // [Bezeichner] (SQLite-Schreibweise): ein ; darin trennt nichts
     if (c === '-' && s[i + 1] === '-') { const e = s.indexOf('\n', i); if (e < 0) return false; i = e + 1; continue; }
     if (c === '/' && s[i + 1] === '*') { const e = s.indexOf('*/', i + 2); if (e < 0) return false; i = e + 2; continue; }
     if (c === ';') return ohneKommentar(s.slice(i + 1)).trim() !== '';
@@ -214,6 +217,21 @@ function ausfuehren(db, sql) {
     if (/readonly/i.test(m)) throw new AbfrageFehler('nur lesende Abfragen sind erlaubt: ' + m);
     throw new AbfrageFehler('SQL-Fehler: ' + m + ' (Tabellen und Spalten: npm run abfrage -- --schema)');
   }
+}
+
+// Wie ausfuehren, aber mit Zeitlimit: die Abfrage laeuft in einem Kindprozess (abfrage-kind.js), der nach `sekunden` abgeschossen wird (AbfrageFehler mit Hinweis auf --zeit).
+// datei = Datenbankdatei (die Verbindung oeffnet der Kindprozess selbst, lesend).
+function ausfuehrenMitLimit(datei, sql, sekunden) {
+  const s = sekunden == null ? ZEIT_STANDARD_S : sekunden;
+  const f = path.resolve(datei || DB_STANDARD);
+  if (!fs.existsSync(f)) throw new AbfrageFehler('Datenbank ' + f + ' gibt es nicht: zuerst `npm run abfrage:laden` ausfuehren');
+  const r = spawnSync(process.execPath, [path.join(__dirname, 'abfrage-kind.js'), f], { input: String(sql == null ? '' : sql), encoding: 'utf8', maxBuffer: 1 << 30, timeout: s > 0 ? Math.round(s * 1000) : undefined, killSignal: 'SIGKILL', windowsHide: true });
+  if (r.error && r.error.code === 'ETIMEDOUT') throw new AbfrageFehler('Abbruch: die Abfrage lief laenger als ' + s + ' s (Zeitlimit, mit --zeit <s> aenderbar; 0 = ohne Limit). Vermutlich fehlt eine Bedingung (Join ohne Schluessel, rekursive Abfrage ohne Ende).');
+  if (r.error) throw new AbfrageFehler('Abfrage nicht ausfuehrbar: ' + r.error.message);
+  let o;
+  try { o = JSON.parse(r.stdout); } catch (e) { throw new AbfrageFehler('Abfrage ohne Ergebnis beendet (Exit ' + r.status + '): ' + String(r.stderr || '').trim().slice(0, 300)); }
+  if (o.fehler) throw new AbfrageFehler(o.fehler);
+  return o;
 }
 
 // ---------- Ausgabe ----------
@@ -260,6 +278,6 @@ const BEISPIELE_DATEI = path.join(__dirname, 'abfragen.sql');
 function beispieleLaden(datei) { return beispiele(fs.readFileSync(datei || BEISPIELE_DATEI, 'utf8')); }
 
 module.exports = {
-  DB_STANDARD, DB_VERSION, BASIS_SPALTEN, BEISPIELE_DATEI, ZEILEN_MAX, AbfrageFehler,
-  sqlite, viewsAusSchema, oeffnenZumLaden, oeffnenLesend, sessionEinfuegen, laden, ausfuehren, mehrereAnweisungen, tabelle, csv, schemaText, beispiele, beispieleLaden,
+  DB_STANDARD, DB_VERSION, BASIS_SPALTEN, BEISPIELE_DATEI, ZEILEN_MAX, ZEIT_STANDARD_S, AbfrageFehler,
+  sqlite, viewsAusSchema, oeffnenZumLaden, oeffnenLesend, sessionEinfuegen, laden, ausfuehren, ausfuehrenMitLimit, mehrereAnweisungen, tabelle, csv, schemaText, beispiele, beispieleLaden,
 };

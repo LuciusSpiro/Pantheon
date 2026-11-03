@@ -18,7 +18,7 @@ GROUP BY s.spielerzahl, se.ort, se.waffe
 ORDER BY s.spielerzahl, se.ort, se.waffe
 
 -- @name lanze_quote_dritte_szenen_drei_spieler
--- Trefferquote der Lanze, nur dritte Szenen (szene_nr = 3: die dritte Szene einer Session), nur Sessions mit drei Spielern (das Beispiel aus dem Konzept). Gleiche Quotenregel wie quote_je_waffe_nach_spielerzahl (der Treffer-Nachschlag laeuft ueber IN statt ueber einen Join: der Join ohne Index brauchte bei 190 Sessions ueber eine Minute, so 1,6 s). Leer, wenn keine geladene Session eine dritte Szene mit Lanzenschuss hat (die Bot-Läufe der Basis: nur m1 hat drei Szenen, in der dritten fällt kein Lanzenschuss; ersetze 'lanze' und die Spielerzahl, um andere Schnitte zu fragen).
+-- Trefferquote der Lanze, nur dritte Szenen (szene_nr = 3: die dritte Szene einer Session), nur Sessions mit drei Spielern (das Beispiel aus dem Konzept). Gleiche Quotenregel wie quote_je_waffe_nach_spielerzahl (der Treffer-Nachschlag laeuft ueber IN statt ueber einen Join: der Join ohne Index brauchte bei 190 Sessions ueber eine Minute, so 1,6 s). ACHTUNG: Mit Bot-Daten liefert diese Abfrage 0 Zeilen (nur m1 hat drei Szenen, und in der dritten faellt kein Lanzenschuss); sie bleibt, weil sie aus dem Konzept stammt und auf Menschen-Sessions Zeilen liefert. Was auf Bot-Daten etwas zeigt: quote_je_waffe_ab_zweiter_szene_m1. Ersetze 'lanze' und die Spielerzahl, um andere Schnitte zu fragen.
 WITH treffer_pid AS (
   SELECT DISTINCT kennung, ort, pid FROM v_treffer
   WHERE pid IS NOT NULL AND (von GLOB 'p[1-4]' OR von IN ('lerche', 'crew'))
@@ -64,3 +64,19 @@ FROM v_treffer t
 WHERE t.ort = 'boden' AND t.von GLOB 'p[1-4]' AND t.ziel = 'gegner'
 GROUP BY t.waffe
 ORDER BY schaden_roh DESC
+
+-- @name quote_je_waffe_ab_zweiter_szene_m1
+-- Trefferquote je Waffe in m1, nur ab der zweiten Szene (szene_nr >= 2), je Spielerzahl und Ort; zeigt auf Bot-Daten Zeilen, wo das Konzept-Beispiel (nur dritte Szenen, lanze_quote_dritte_szenen_drei_spieler) leer bleibt. Gleiche Quotenregel wie quote_je_waffe_nach_spielerzahl, gepoolt ueber alle Laeufe der Zeile.
+WITH treffer_pid AS (
+  SELECT DISTINCT kennung, ort, pid FROM v_treffer
+  WHERE pid IS NOT NULL AND (von GLOB 'p[1-4]' OR von IN ('lerche', 'crew'))
+)
+SELECT s.spielerzahl, sh.ort, sh.waffe, COUNT(DISTINCT sh.kennung) AS laeufe, COUNT(*) AS schuesse,
+       SUM(CASE WHEN sh.treffer = 1 OR (sh.kennung, sh.ort, sh.pid) IN (SELECT kennung, ort, pid FROM treffer_pid) THEN 1 ELSE 0 END) AS mit_treffer,
+       ROUND(100.0 * SUM(CASE WHEN sh.treffer = 1 OR (sh.kennung, sh.ort, sh.pid) IN (SELECT kennung, ort, pid FROM treffer_pid) THEN 1 ELSE 0 END) / COUNT(*), 2) AS quote_prozent
+FROM v_schuss sh
+JOIN sessions s ON s.kennung = sh.kennung
+WHERE s.modus = 'm1' AND sh.szene_nr >= 2
+  AND (sh.von GLOB 'p[1-4]' OR sh.von IN ('lerche', 'crew')) AND (sh.pid IS NOT NULL OR sh.treffer IS NOT NULL)
+GROUP BY s.spielerzahl, sh.ort, sh.waffe
+ORDER BY s.spielerzahl, sh.ort, sh.waffe
