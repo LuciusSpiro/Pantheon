@@ -9,7 +9,9 @@
 //  - Besetzung: CONFIG.graben.besetzung (Rollen je Gruppe und Crewgröße), Gruppen und Wellen aus der Karte (meta.gruppen, meta.wellen). Die Gegner stehen
 //    wie bei combat.besetzen als ruhiger Trupp (schleich), einer je Gruppe; Rom (Fraktion, Palette, Namen, Funk). Die Rollen setzt das Szenario selbst:
 //    combat.besetzen würde ungesehene Rollen durch Grundtyp ersetzen.
-//  - Ziel (Anker meta.ziel, Rolle ziel): gesperrt (anker.js ankerSperre, Hinweistext), bis Welle 2 besiegt ist; dann offen; Halten (CONFIG.anker.halten.ziel)
+//  - Wellen: beliebig viele (meta.wellen, Nummern aufsteigend). Welle 1 und 2 stehen oben (Deck 0), Welle 3 im Bunker (Deck 1, BOD-03). Jeder Trupp bekommt eine
+//    Deck-Bindung (s.deckBindung, squad.js gegnerWeg): Gegner wechseln das Deck nie über Lift oder Rohr, ein Alarm oben zieht den Bunker nicht hoch.
+//  - Ziel (Anker meta.ziel, Rolle ziel): gesperrt (anker.js ankerSperre, Hinweistext), bis zielOeffnet erfüllt ist (heute: alle Wellen der Oberfläche besiegt); dann offen; Halten (CONFIG.anker.halten.ziel)
 //    setzt es auf aktiviert = erreicht. Danach gewinnt das Hochbeamen: niemand der verbundenen Spieler mehr unten.
 //  - Niederlage: Notrückholung, die die GANZE verbundene Crew betrifft (combat.squadRecall, bestehend; ist ein Spieler gesund an Bord, läuft es weiter) -> das GANZE Szenario beginnt neu (neuBeginnen): alle Gegner zurück auf die
 //    Anfangsplätze, Ziel wieder gesperrt, Zähler zurück, Transfer wieder heil. Die Karte wird nicht neu gebaut, nur Zustände und Gegner (Vorbild map_reset, Siedlung Eisenwald).
@@ -57,6 +59,12 @@ function besetzungFuer(game, n) {
 }
 const karteVon = (game, lp) => { const i = M().interior.awayInfoOf(lp); return i && i.karte ? i.karte : null; };
 const wellenNummern = (k) => Object.keys((k.meta && k.meta.wellen) || {}).sort((a, b) => Number(a) - Number(b));
+// Deck einer Kachelzeile (0 ohne Decks) und Deck einer Gruppe (Deck ihrer Anker, das der ersten reicht: alle Anker einer Gruppe stehen auf einem Deck)
+const deckVonY = (k, y) => (k.decks && k.decks.stride ? Math.floor(y / k.decks.stride) : 0);
+function deckVonGruppe(k, gruppe) {
+  const a = ((k.meta.gruppen || {})[gruppe] || []).map((id) => k.anker.find((q) => q.id === id)).filter(Boolean)[0];
+  return a ? deckVonY(k, a.y) : 0;
+}
 
 // n Plätze aus den Ankern einer Gruppe, gleichmäßig verteilt; reichen die Anker nicht, freie Nachbarkacheln der Anker
 function plaetzeFuer(game, info, gruppe, n) {
@@ -94,16 +102,24 @@ const TAG = () => M().wellen.TAG;
 const gegner = (aw) => ((aw && aw.drones) || []).filter((e) => e.tag === TAG());
 const lebende = (aw) => gegner(aw).filter((e) => e.alive);
 const welleLebt = (aw, S, n) => { const ids = new Set(S.ids[n] || []); return gegner(aw).filter((e) => e.alive && ids.has(e.id)).length; };
+// Aktive Welle (Zeile, Ergebnis): die erste mit Lebenden, sonst die letzte
+const aktiveWelle = (aw, S, nr) => Number(nr.find((n) => welleLebt(aw, S, n) > 0) || nr[nr.length - 1] || 1);
+// BOD-03 B4: die Zielregel in EINER benannten Funktion. Wie vor BOD-03: das Ziel öffnet, wenn die letzte Welle der OBERFLÄCHE (Deck 0; heute Welle 2) besiegt ist;
+// Welle 3 im Bunker zählt nicht. Die Sprengung als Ziel (BOD-03 C1) tauscht nur diese Funktion.
+function zielOeffnet(game, S, aw) {
+  const oben = Object.keys(S.deckVon || {}).filter((n) => S.deckVon[n] === 0);
+  return oben.length > 0 && welleLebt(aw, S, oben[oben.length - 1]) === 0;
+}
 
 // Gegner aufstellen: je Welle (meta.wellen) und Gruppe ein ruhiger Trupp an den Gruppen-Ankern -> Zahl
 function aufstellen(game, S) {
   const aw = game.aways[S.lp]; const info = M().interior.awayInfoOf(S.lp); const k = info.karte;
   const F = fraktionDaten(game, S.fraktion);
   const plan = besetzungFuer(game, crewGroesse(game));
-  S.ids = {}; let gesamt = 0;
+  S.ids = {}; S.deckVon = {}; let gesamt = 0;
   const linie1 = [];   // BOD-02 P8: Trupps der ersten Welle bekommen ein Verteidigungsprofil (halten, Rückzug auf Linie 2, Gegenstoß)
   for (const wn of wellenNummern(k)) {
-    S.ids[wn] = [];
+    S.ids[wn] = []; S.deckVon[wn] = deckVonGruppe(k, k.meta.wellen[wn][0]);
     for (const gruppe of k.meta.wellen[wn]) {
       const rollen = plan[gruppe] || [];
       if (!rollen.length) continue;
@@ -118,7 +134,7 @@ function aufstellen(game, S) {
       }
       const s = aw.squads[name];
       if (s && wn === wellenNummern(k)[0] && n) linie1.push(name);
-      if (s) { s.schleich = true; s.posten = true; s.tag = TAG(); s.fraktion = S.fraktion; s.gruppe = gruppe; }
+      if (s) { s.schleich = true; s.posten = true; s.tag = TAG(); s.fraktion = S.fraktion; s.gruppe = gruppe; s.deckBindung = S.deckVon[wn]; }   // BOD-03 C4: bleibt auf seinem Deck
       gesamt += n;
     }
   }
@@ -149,6 +165,7 @@ function start(game, o) {
   M().combat.ensureV2(game, aw, o.lp);
   aw.drones = []; aw.squads = {}; aw.projectiles = [];
   aw.ausbruchErlaubt = false;   // kein Ausbruch: gefangen = kampfunfähig (wie Wellen Boden)
+  aw.ohneZaehler = true;   // BOD-03: das HUD zeigt keine Zähler für Terminal, Kiste, Sprengpunkt, Zelle der Bunker-Anker (das Szenario hat ein eigenes Ziel)
   const k = karteVon(game, o.lp);
   const S = {
     buehne: 'graben', karte: o.karte, seed: o.seed, lp: o.lp, fraktion: cfg(game).fraktion, n: 1, ph: 'kampf', bis: null, queue: [], gesamt: 0, start: game.time,
@@ -236,8 +253,8 @@ function update(game, S) {
     if (!pids || team(game).every((p) => pids.includes(p.id))) { neuBeginnen(game, S); return; }
   }
   S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
-  S.n = welleLebt(aw, S, 1) > 0 ? 1 : 2;
-  if (S.ziel === 'gesperrt' && welleLebt(aw, S, 2) === 0) {
+  S.n = aktiveWelle(aw, S, wellenNummern(karteVon(game, S.lp)));
+  if (S.ziel === 'gesperrt' && zielOeffnet(game, S, aw)) {
     S.ziel = 'offen'; sperre(game, S, false);
     game.oda(text(game, 'ziel_offen'), null);
     game.emit('sfx', { name: 'repair_done', zone: 'away' });
@@ -259,6 +276,7 @@ function zeile(game, S) {
   const aw = game.aways[S.lp];
   if (S.ziel === 'erreicht') return text(game, 'zeile_hoch');
   if (S.ziel === 'offen') return text(game, 'zeile_ziel');
+  if (S.deckVon && S.deckVon[3] != null) return text(game, 'zeile_kampf3', welleLebt(aw, S, 1), welleLebt(aw, S, 2), welleLebt(aw, S, 3));   // mit Welle 3 (Bunker)
   return text(game, 'zeile_kampf', welleLebt(aw, S, 1), welleLebt(aw, S, 2));
 }
 

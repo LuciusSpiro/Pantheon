@@ -285,7 +285,7 @@ function applyMood(id) {
 }
 function setMoodObj(id, mood) {
   mood = mitAkzent(id, mood);   // Station warm, Schiff kalt (stimmung.js)
-  S.moodId = id; S.mood = mood;
+  S.moodId = id; S.mood = mood; S.felsAn = null;   // BOD-03: Hintergrund und Nebel neu nach dem Deck setzen (felsHintergrund)
   const col = (s, d) => new THREE.Color(s || d);
   S.scene.background = col(mood.background, '#0B0E1A');
   S.scene.fog = mood.fog ? new THREE.Fog(col(mood.fog.color), (mood.fog.near || 2) * 10, (mood.fog.far || 6) * 10) : null;
@@ -302,6 +302,19 @@ function setMoodObj(id, mood) {
     S.bloom.strength = Math.min(0.32, b.strength != null ? b.strength : 0.4); S.bloom.radius = Math.min(0.4, b.radius != null ? b.radius : 0.4); S.bloom.threshold = Math.max(0.9, b.threshold != null ? b.threshold : 0.9);
   }
   S.baseHemi = S.hemi.intensity; S.baseSun = S.sun.intensity;
+}
+
+// ------------------------------------------------------------------------------------------------ Fels unter der Erde (BOD-03)
+// Decks ab 1 einer Bühne (Bunker unter dem Wald, feste Karte Grabenangriff) liegen unter der Erde: dunkler Fels statt Himmel und hellem Nebel (sonst schwebt der Bunker
+// vor hellblauem Himmel, die Lücken-Kachel _ wird nicht gezeichnet). Nur Hintergrund und Nebel; das Licht bleibt die Stimmung der Karte. Auf Deck 0 und im Schiff unverändert.
+const FELS_HINTERGRUND = '#15120F';
+function felsHintergrund() {
+  if (!S.mood) return;
+  const unter = S.zone === 'buehne' && S.shownDeck >= 1;
+  if (S.felsAn === unter) return;
+  S.felsAn = unter;
+  S.scene.background = new THREE.Color(unter ? FELS_HINTERGRUND : (S.mood.background || '#0B0E1A'));
+  if (S.scene.fog && S.mood.fog) S.scene.fog.color = new THREE.Color(unter ? FELS_HINTERGRUND : S.mood.fog.color);
 }
 
 // ------------------------------------------------------------------------------------------------ Lichtband-Blende
@@ -480,6 +493,7 @@ export function frame(view, dt) {
   resize(false);
   watchFps(dt);
   updateLift(view, dt);
+  felsHintergrund();
   updateCamera(view, dt);
   for (const l of layers) {
     const ctx = S.ctxs.get(l.id);

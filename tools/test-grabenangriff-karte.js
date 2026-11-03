@@ -240,10 +240,14 @@ section('Eingangsbereich, Ziel und Gruppen fuer die Wellen', () => {
   const ab = anker('landung.abholpunkt'), alle = bfs([[ab.x, ab.y]], walk);
   ok(hat(alle, z.x, z.y), 'Ziel von der Ankunft aus erreichbar');
   const g = K.meta.gruppen, w = K.meta.wellen;
-  ok(JSON.stringify(w) === JSON.stringify({ '1': ['w1.graben', 'w1.posten'], '2': ['w2.wald', 'w2.eingang'] }), 'meta.wellen: Welle 1 = Graben + Posten, Welle 2 = Wald + Eingang');
+  ok(JSON.stringify(w) === JSON.stringify({ '1': ['w1.graben', 'w1.posten'], '2': ['w2.wald', 'w2.eingang'], '3': ['w3.reaktor', 'w3.halle', 'w3.nord'] }), 'meta.wellen: Welle 1 = Graben + Posten, Welle 2 = Wald + Eingang, Welle 3 = Bunker (Reaktor, Halle, Nordgang)');
   ok(g['w1.graben'].length === 5 && g['w1.posten'].length === 2 && g['w2.wald'].length === 6 && g['w2.eingang'].length === 4, `Gruppen: graben ${g['w1.graben'].length}, posten ${g['w1.posten'].length}, wald ${g['w2.wald'].length}, eingang ${g['w2.eingang'].length}`);
+  // Deck 1: vom Lift unten aus (ohne Deck-Links, nur zu Fuß im Bunker); Türen und Schotts der Station gelten als begehbar (die Gegner öffnen sie)
+  const tuer = (x, y) => { const l = K.legende[ch(x, y)]; return !!l && (l.kind === 'tuer' || l.kind === 'schott'); };
+  const lu = anker('bunker.lift.unten'), unten = bfs([[lu.x, lu.y]], (x, y) => walk(x, y) || tuer(x, y));
   const alleW = [].concat(...Object.values(g));
-  ok(alleW.every((id) => { const a = anker(id); return a && walk(a.x, a.y) && hat(alle, a.x, a.y); }), 'alle Gruppen-Anker stehen begehbar und sind erreichbar');
+  ok(alleW.every((id) => { const a = anker(id); return a && walk(a.x, a.y) && hat(a.y < H0 ? alle : unten, a.x, a.y); }), 'alle Gruppen-Anker stehen begehbar und sind erreichbar (Oberfläche von der Landung, Bunker vom Lift unten)');
+  ok(g['w3.reaktor'].length === 3 && g['w3.halle'].length === 3 && g['w3.nord'].length === 2 && g['w3.reaktor'].includes('bk.reaktor.sprengpunkt') && alleW.filter((id) => anker(id).y >= H0).length === 8, 'Welle-3-Gruppen: Reaktor 3 (mit Sprengpunkt), Halle 3, Nord 2, alle auf Deck 1');
   const oben = K.anker.filter((a) => a.y < H0);   // Oberflaeche; der Bunker bringt eigene Wachen/Patrouillen (ohne Gruppe), aber keine eingang-Anker
   ok(oben.filter((a) => a.rolle === 'wache').length === 15 && K.anker.filter((a) => a.rolle === 'eingang').length === 2 && K.meta.pflicht.wache === 15, '15 wache-Anker auf der Oberflaeche, 2 eingang-Anker (Bunker ohne eingang)');
   ok(g['w2.eingang'].every((id) => anker(id).x > anker('eingang.tor.1').x) && g['w2.wald'].every((id) => anker(id).x < anker('eingang.tor.1').x), 'Wald-Wachen vor dem Tor, Eingangs-Wachen dahinter');

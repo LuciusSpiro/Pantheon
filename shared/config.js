@@ -595,7 +595,7 @@
     // BOD-01 Grabenangriff (Lobby-Start 'arena_graben', server/sim/graben.js): die Crew greift eine römische Stellung an. Beide Wellen stehen von Beginn
     // an postiert (kein Nachrücken, kein Nachspawn). Besetzung je Crewgröße (der höchste Eintrag ≤ Crewgröße gilt): Gruppe (meta.gruppen der Festkarte) ->
     // Rollen, ein Gegner je Eintrag, gleichmäßig auf die Anker der Gruppe verteilt. Welle 1 = Graben und Posten, Welle 2 = Wald und Eingang (meta.wellen der Karte);
-    // gesamt 6 / 9 / 12 für 1 / 2 / 3 Spieler. Das Ziel (Anker meta.ziel) gilt erst, wenn Welle 2 besiegt ist; halten: CONFIG.anker.halten.ziel.
+    // gesamt 6 / 9 / 12 / 16 für 1 / 2 / 3 / 4 Spieler auf der Oberfläche, dazu Welle 3 im Bunker (BOD-03: 3 / 4 / 6 / 8, Gruppen w3.*). Das Ziel (Anker meta.ziel) gilt erst, wenn Welle 2 besiegt ist; halten: CONFIG.anker.halten.ziel.
     graben: {
       fest: 'grabenangriff',   // content/buehnen/festkarten/<fest>.json
       fraktion: 'rom',
@@ -613,16 +613,21 @@
         neustart: 'Die Crew ist gefallen – Notrückholung. Die Stellung beginnt von vorn: alle Verteidiger stehen wieder, das Ziel ist gesperrt.',
         zeile_ruest: 'Rüstphase – am Terminal ausbauen, dann Szene starten',
         zeile_kampf: 'Rom besiegen: Graben {0} · Wald und Eingang {1}',
+        zeile_kampf3: 'Rom besiegen: Graben {0} · Wald und Eingang {1} · Bunker {2}',   // BOD-03: Karte mit Welle 3 (Bunker)
         zeile_ziel: 'Bunkereingang einnehmen',
         zeile_hoch: 'Zum Abholpunkt – hochbeamen',
         zeile_sieg: 'Grabenangriff gewonnen',
       },
       besetzung: {
-        1: { 'w1.graben': ['grundtyp', 'grenadier'], 'w1.posten': ['schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['schuetze'] },
-        2: { 'w1.graben': ['grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['grenadier', 'schuetze'] },
-        3: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze'] },
+        1: { 'w1.graben': ['grundtyp', 'grenadier'], 'w1.posten': ['schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['schuetze'],
+          'w3.reaktor': ['grundtyp'], 'w3.halle': ['schuetze'], 'w3.nord': ['grundtyp'] },   // BOD-03 B5: Welle 3 im Bunker, Größe und Rollen wie Welle 2 (3 / 4 / 6 / 8), verteilt auf Reaktorraum, Halle, Nordgang
+        2: { 'w1.graben': ['grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['grenadier', 'schuetze'],
+          'w3.reaktor': ['grundtyp'], 'w3.halle': ['grenadier', 'schuetze'], 'w3.nord': ['grundtyp'] },
+        3: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grenadier'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze'],
+          'w3.reaktor': ['grundtyp', 'grundtyp'], 'w3.halle': ['grundtyp', 'grenadier'], 'w3.nord': ['grundtyp', 'schuetze'] },
         // 4 Spieler (maxPlayers 4; Kai 2026-10-31: bei 3/4 zu leicht): 16 statt 12, dazu je Linie ein Niederhalter (Ballistarius)
-        4: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grundtyp', 'grenadier', 'niederhalter'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp', 'niederhalter'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze', 'schuetze'] },
+        4: { 'w1.graben': ['grundtyp', 'grundtyp', 'grundtyp', 'grundtyp', 'grenadier', 'niederhalter'], 'w1.posten': ['schuetze', 'schuetze'], 'w2.wald': ['grundtyp', 'grundtyp', 'grundtyp', 'niederhalter'], 'w2.eingang': ['grundtyp', 'grenadier', 'schuetze', 'schuetze'],
+          'w3.reaktor': ['grundtyp', 'grundtyp', 'niederhalter'], 'w3.halle': ['grundtyp', 'grenadier', 'schuetze'], 'w3.nord': ['grundtyp', 'schuetze'] },
       },
     },
 

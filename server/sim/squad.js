@@ -57,6 +57,33 @@ function isAlert(game, e) {
   return !!(s && s.alert);
 }
 
+// ---------- BOD-03 C4: Deck-Bindung der Trupps (Link-Filter) ----------
+// Ein Trupp mit s.deckBindung (gesetzt vom Szenario, graben.js aufstellen: Wellen 1/2 = Deck 0, Welle 3 = Deck 1) bleibt auf seinem Deck: Er nimmt
+// keine Deck-Links, die auf ein anderes Deck führen (Lift), und nie das Lüftungsrohr (via 'leiter'). Trupps ohne Bindung (Schiffe, Entern,
+// Wellen Boden, Siedlung, ...) bekommen unverändert E.links. Ein Ziel auf einem fremden Deck ist dann nicht erreichbar: gegnerWeg liefert null OHNE Suche
+// (sonst flutet bfs bei jedem KI-Tick alle Knoten der Karte, Erkundung BOD-03 A0: p95 ~60 ms über dem Budget von 33,3 ms).
+const deckVonKachel = (E, ty) => (E.info && E.info.decks ? Math.floor(ty / (E.info.deckStride || 16)) : -1);
+const DECK_LINKS = new WeakMap();   // E.links (je Karte eine Funktion) -> { Deck -> gefilterte Links }
+function linksFuerDeck(E, deck) {
+  let m = DECK_LINKS.get(E.links);
+  if (!m) DECK_LINKS.set(E.links, m = {});
+  if (!m[deck]) m[deck] = (x, y) => (E.links(x, y) || []).filter((l) => l.via !== 'leiter' && deckVonKachel(E, l.y) === deck);
+  return m[deck];
+}
+// Pfad (bfs) für einen Gegner von here zum Ziel (isGoal, Kachel ziel); null = kein Weg
+function gegnerWeg(game, E, e, walk, here, isGoal, ziel) {
+  const s = game.away.squads && game.away.squads[e.squad];
+  const bind = s && s.deckBindung != null ? s.deckBindung : null;
+  if (bind == null || !E.links) return bfs(walk, here, isGoal, E.map.w, E.map.h, undefined, E.links || undefined);
+  const dz = deckVonKachel(E, ziel.y);
+  if (dz !== bind && dz !== deckVonKachel(E, here.y)) return null;   // anderes Deck, kein Link dorthin: unerreichbar, ohne Suche
+  return bfs(walk, here, isGoal, E.map.w, E.map.h, undefined, linksFuerDeck(E, bind));
+}
+// Deck eines Punktes (px) für Lärm und Funk: ein Trupp mit Bindung hört nur, was auf seinem Deck geschieht (ein Alarm oben zieht Welle 3 unten nicht hoch)
+function gleichesDeck(E, s, py) {
+  return !s || s.deckBindung == null || !E.info || !E.info.decks || deckVonKachel(E, tileOf(0, py).y) === s.deckBindung;
+}
+
 function crewSize(game) { return Math.max(1, Math.min(game.C.maxPlayers, game.players.filter((p) => p.connected).length)); }
 
 // Trupp erscheinen lassen (Missionsereignis/Debug). Anzahl = Anteil squadScale je Crewgröße (aufgerundet, min. 1).
@@ -648,7 +675,7 @@ function findFlankSpot(game, E, e, t) {
   }
   cands.sort((a, b) => b.score - a.score);
   for (const c of cands.slice(0, 4)) {
-    const path = bfs(E.walk, here, (x, y) => x === c.sp.x && y === c.sp.y, E.map.w, E.map.h, undefined, E.links || undefined);
+    const path = gegnerWeg(game, E, e, E.walk, here, (x, y) => x === c.sp.x && y === c.sp.y, c.sp);
     if (path && path.length <= 22) return c.sp;
   }
   return null;
@@ -768,7 +795,7 @@ function setGoal(game, E, e, tile, stopNear, stopTarget) {
   tile = freieKachel(game, E, e, tile);
   if (!Vert.erlaubt(game, e, tile)) return false;   // BOD-02 P8: Verteidiger planen nur Ziele auf ihrer Linie (Halten bzw. Linie 2)
   const here = tileOf(e.x, e.y);
-  const path = bfs(E.walk, here, (x, y) => x === tile.x && y === tile.y, E.map.w, E.map.h, undefined, E.links || undefined);   // B1 §6.2: Deck-Links
+  const path = gegnerWeg(game, E, e, E.walk, here, (x, y) => x === tile.x && y === tile.y, tile);   // B1 §6.2: Deck-Links, BOD-03 C4: Deck-Bindung
   if (!path) return false;
   e.path = path; e.goal = { x: tile.x, y: tile.y }; e.goalAt = game.time;
   e.stopNear = stopNear || 0; e.stopTarget = stopTarget ? stopTarget.id : null;
@@ -1005,6 +1032,7 @@ function perceiveB2(game, E) {
     aw.laermGelesen = Math.max(...neu.map((ev) => ev.t));
     for (const ev of neu) for (const s of squads) {
       if (schonGemeldet(s)) continue;
+      if (!gleichesDeck(E, s, ev.y)) continue;
       const m = mitglieder(s).find((e) => Wf.hoert(ev, e.x, e.y));
       if (m && alarmiere(game, aw, s, ev.x, ev.y, 'laerm')) bark(game, s, m, 'alarm_laerm');
     }
@@ -1023,6 +1051,7 @@ function perceiveB2(game, E) {
     aw.funk = aw.funk.filter((f) => game.time < f.at);
     for (const f of due) for (const s of squads) {
       if (schonGemeldet(s)) continue;
+      if (!gleichesDeck(E, s, f.y)) continue;
       if (mitglieder(s).some((e) => dist(e.x, e.y, f.x, f.y) <= (Number(A.funk) || 20) * TILE)) alarmiere(game, aw, s, f.x, f.y, 'funk');
     }
   }
@@ -1208,7 +1237,7 @@ function entererEngstelle(game, E, e, s, t, sichtbar) {
   const aw = game.away;
   const here = tileOf(e.x, e.y); const tt = tileOf(t.x, t.y);
   const ziel = (x, y) => x === tt.x && y === tt.y;
-  const direkt = bfs(E.walk, here, ziel, E.map.w, E.map.h, undefined, E.links || undefined);
+  const direkt = gegnerWeg(game, E, e, E.walk, here, ziel, tt);
   const war = e.sturm;
   const k = direkt ? kanteAufWeg(E, direkt) : null;
   if (!k || k.i < 1) { if (war && war.sammeln) e.goal = null; e.sturm = null; return false; }   // keine Engstelle (mehr) vor mir
@@ -1220,7 +1249,7 @@ function entererEngstelle(game, E, e, s, t, sichtbar) {
     const meide = war && war.flanke && war.kante ? war.kante : k.kid;
     const sperr = new Set(((E.info.karte.kanten[meide] || {}).tiles || []).map((q) => q[0] + ',' + q[1]));
     if (war && war.flanke && e.path && e.path.length && game.time - e.goalAt < 2) return true;
-    const alt = bfs((x, y) => E.walk(x, y) && !sperr.has(x + ',' + y), here, ziel, E.map.w, E.map.h, undefined, E.links || undefined);
+    const alt = gegnerWeg(game, E, e, (x, y) => E.walk(x, y) && !sperr.has(x + ',' + y), here, ziel, tt);
     if (alt && alt.length && alt.length <= direkt.length * FLANKE_FAKTOR + FLANKE_PLUS) {
       if (!(war && war.flanke)) engStat(game, 'flanke');
       e.sturm = { kante: meide, flanke: true };
@@ -1354,5 +1383,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
-  freshestKnown, setGoal, setRole, aufrichtenEnde, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
+  freshestKnown, setGoal, setRole, aufrichtenEnde, gegnerWeg, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };

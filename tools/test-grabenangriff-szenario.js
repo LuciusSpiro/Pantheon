@@ -2,7 +2,7 @@
 // BOD-01 P4: Szenario Grabenangriff (Lobby-Modus arena_graben, server/sim/graben.js). Headless, echtes Szenario (keine Attrappen):
 //  - Lobby: Modus neben Wellen Boden, Variantenliste aus den Kartendaten (gen-fest varianten), Wahl je Abschnitt, ungültige Wahl abgelehnt
 //  - Start: Rüstphase (Crew bleibt an Bord, „Szene starten“ am Terminal), dann beamt die Crew am Abholpunkt links hinunter; ohne Rüstphase gleich
-//  - Aufstellung: Welle 1 im Graben/auf den Posten, Welle 2 im Wald/am Eingang, ALLE von Beginn an, kein Nachspawn; 6/9/12 Gegner für 1/2/3 Spieler
+//  - Aufstellung: Welle 1 im Graben/auf den Posten, Welle 2 im Wald/am Eingang, ALLE von Beginn an, kein Nachspawn; 9/13/18 Gegner für 1/2/3 Spieler (Welle 3 im Bunker, BOD-03 B5: dazu 3/4/6)
 //  - Rom: Fraktion, Palette, Namen und Funk römisch (kein Karl, Bolzer, …); Rollenmix mit Grenadier und Schütze
 //  - Ziel: vor dem Sieg über Welle 2 gesperrt und wirkungslos, danach erreichbar (3 s halten); Hochbeamen nach dem Ziel = Sieg, davor kein Sieg
 //  - Niederlage: Notrückholung der ganzen Crew -> das ganze Szenario beginnt neu (Gegner, Ziel, Zähler)
@@ -102,7 +102,7 @@ section('Start mit Rüstphase: Crew bleibt an Bord, „Szene starten“, dann be
   ok(/Rüstphase/.test(objektiv(g)), 'Zielzeile: Rüstphase (' + objektiv(g) + ')');
   ok(g.snapshot().wellen.ph === 'vorbereitung' && g.snapshot().wellen.k === 'grabenangriff', 'Snapshot-Block wellen: ph vorbereitung, k grabenangriff');
   ticks(g, 5);
-  ok(g.players.every((p) => p.zone === 'ship') && lebend(aw).length === 12, 'ohne „Szene starten“ passiert nichts (12 Gegner stehen, Crew an Bord)');
+  ok(g.players.every((p) => p.zone === 'ship') && lebend(aw).length === 18, 'ohne „Szene starten“ passiert nichts (18 Gegner stehen, Crew an Bord)');
   ok(Werft.szeneStarten(g, g.players[0]) === null, 'werft.szeneStarten (Terminal) startet die Szene');
   ticks(g, 1);
   ok(S.ph === 'kampf' && g.players.every((p) => p.zone === 'away' && g.away.map === S.lp), 'Phase kampf, alle unten auf der festen Karte');
@@ -110,18 +110,21 @@ section('Start mit Rüstphase: Crew bleibt an Bord, „Szene starten“, dann be
   ok(g.players.every((p) => { const t = tile(p); return Math.abs(t.x - ab.x) <= 4 && Math.abs(t.y - ab.y) <= 4; }) && ab.x <= 6, 'alle am Abholpunkt links (x ' + ab.x + ')');
   ok(Werft.szeneStarten(g, g.players[0]) !== null, 'zweites „Szene starten“ wird abgelehnt');
   ticks(g, 2);
-  ok(objektiv(g) === 'Rom besiegen: Graben 6 · Wald und Eingang 6', 'Zielzeile im Kampf mit Zählern je Welle: ' + objektiv(g));
+  ok(objektiv(g) === 'Rom besiegen: Graben 6 · Wald und Eingang 6 · Bunker 6', 'Zielzeile im Kampf mit Zählern je Welle: ' + objektiv(g));
   ok(fehlerZahl(g) === 0, 'keine Fehler');
 });
 
 section('Aufstellung: Welle 1 Graben und Posten, Welle 2 Wald und Eingang, alle von Beginn an; Zahl nach Crewgröße', () => {
-  const erwartet = { 1: 6, 2: 9, 3: 12 };
+  const erwartet = { 1: 9, 2: 13, 3: 18 };
   for (const np of [1, 2, 3]) {
     const { g, S, aw, K } = start(np);
     ok(g.players.every((p) => p.zone === 'away'), `${np} Spieler: ohne Rüstphase gleich unten`);
     ok(lebend(aw).length === erwartet[np] && S.gesamt === erwartet[np], `${np} Spieler: ${erwartet[np]} Gegner (${lebend(aw).length})`);
-    const w1 = gegner(aw).filter((e) => S.ids[1].includes(e.id)), w2 = gegner(aw).filter((e) => S.ids[2].includes(e.id));
-    ok(w1.length + w2.length === erwartet[np] && w1.length > 0 && w2.length > 0, `${np} Spieler: Welle 1 ${w1.length} + Welle 2 ${w2.length}, alle von Beginn an da`);
+    const w1 = gegner(aw).filter((e) => S.ids[1].includes(e.id)), w2 = gegner(aw).filter((e) => S.ids[2].includes(e.id)), w3 = gegner(aw).filter((e) => S.ids[3].includes(e.id));
+    ok(w1.length + w2.length + w3.length === erwartet[np] && w1.length > 0 && w2.length > 0 && w3.length === { 1: 3, 2: 4, 3: 6 }[np], `${np} Spieler: Welle 1 ${w1.length} + Welle 2 ${w2.length} + Welle 3 ${w3.length}, alle von Beginn an da`);
+    ok(w3.every((e) => K.meta.wellen['3'].some((gr) => nah(K, e, gr, 3))) && w3.every((e) => tile(e).y >= K.decks.stride) && w1.concat(w2).every((e) => tile(e).y < K.decks.stride), `${np} Spieler: Welle 3 steht im Bunker (Deck 1) an den Ankern von ${K.meta.wellen['3'].join(' + ')}, Welle 1 und 2 oben`);
+    ok(gegner(aw).every((e) => squad.squadOf(g, e).deckBindung === (S.ids[3].includes(e.id) ? 1 : 0)), `${np} Spieler: Deck-Bindung der Trupps (Welle 1 und 2 Deck 0, Welle 3 Deck 1)`);
+
     const g1 = K.meta.wellen['1'], g2 = K.meta.wellen['2'];
     ok(w1.every((e) => g1.some((gr) => nah(K, e, gr, 2))), `${np} Spieler: Welle 1 steht an den Ankern von ${g1.join(' + ')}`);
     ok(w2.every((e) => g2.some((gr) => nah(K, e, gr, 2))), `${np} Spieler: Welle 2 steht an den Ankern von ${g2.join(' + ')}`);
@@ -143,7 +146,7 @@ section('Aufstellung: Welle 1 Graben und Posten, Welle 2 Wald und Eingang, alle 
 section('Rom: Fraktion, Palette, Namen und Funk römisch', () => {
   const { g, S, aw } = start(3);
   const gs = gegner(aw);
-  ok(gs.length === 12 && gs.every((e) => e.fraktion === 'rom'), 'alle 12 Verteidiger: Fraktion rom');
+  ok(gs.length === 18 && gs.every((e) => e.fraktion === 'rom'), 'alle 18 Verteidiger: Fraktion rom');
   ok(gs.every((e) => e.palette === 'rom'), 'alle mit Palette rom');
   const pa = (g.snapshot().away.drones || []).filter((d) => d.pa).length;
   ok(pa === 0 || pa === gs.length, 'Palette im Snapshot einheitlich (palette_senden)');
@@ -193,7 +196,7 @@ section('Ziel: vor dem Sieg über Welle 2 gesperrt und wirkungslos, danach errei
   away.executeBeam(g, g.players.slice(1).map((p) => p.id), 'up'); ticks(g, 1);
   ok(S.ph === 'ende' && g.snapshot().wellen.ph === 'ende', 'alle hochgebeamt nach dem Ziel: Sieg (Phase ende)');
   const ev = cs[0].inbox.filter((m) => m.t === 'event' && m.kind === 'wellenEnde');
-  ok(ev.length === 1 && ev[0].sieg === true && ev[0].kills.length === 3 && ev[0].geschafft === 2, 'Ereignis wellenEnde { sieg } wie bei den Wellen (Siegbild, Kills je Spieler)');
+  ok(ev.length === 1 && ev[0].sieg === true && ev[0].kills.length === 3 && ev[0].geschafft === 3, 'Ereignis wellenEnde { sieg } wie bei den Wellen (Siegbild, Kills je Spieler)');
   ok(/gewonnen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
   ticks(g, CONFIG.graben.ergebnisZeit + 2);
   ok(g.phase === 'lobby', 'nach der Ergebnisanzeige zurück in der Lobby');
@@ -220,7 +223,7 @@ section('Niederlage: ganze Crew gefallen (alle unten, niemand an Bord) -> Notrü
     ticks(g, 1);
     const z = K.meta.ziel;
     const pos0 = gegner(aw).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';');
-    faellen(g, S.ids[1]); faellen(g, S.ids[2]);
+    faellen(g, S.ids[1]); faellen(g, S.ids[2]); faellen(g, S.ids[3]);
     ticks(g, 1);
     ziel3s(g, cs, K);
     ok(S.ziel === 'erreicht' && lebend(aw).length === 0, `[${ruest ? 'mit' : 'ohne'} Rüstphase] Ausgangslage: alle besiegt, Ziel erreicht, die ganze Crew noch unten (Vollausfall = Niederlage, bleibt auch nach dem Ziel Neubeginn)`);
@@ -229,7 +232,7 @@ section('Niederlage: ganze Crew gefallen (alle unten, niemand an Bord) -> Notrü
     ticks(g, CONFIG.awayCombat.wounded.squadRecallDelay + 3);
     ok(((aw.stats && aw.stats.squadRecalls) || 0) === vorher + 1, 'Notrückholung (bestehender Weg combat.squadRecall) hat gegriffen');
     ok(S.versuch === 2 && S.ph !== 'ende' && g.phase === 'play', 'Neubeginn: Versuch 2, kein Ende, kein Sieg');
-    ok(lebend(aw).length === S.gesamt && S.gesamt === 12 && gegner(aw).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';') === pos0, 'alle 12 Gegner wieder auf den Anfangsplätzen');
+    ok(lebend(aw).length === S.gesamt && S.gesamt === 18 && gegner(aw).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';') === pos0, 'alle 18 Gegner (auch Welle 3 im Bunker) wieder auf den Anfangsplätzen');
     ok(S.ziel === 'gesperrt' && Anker.zustand(g, S.lp, z) === 'frei' && aw.ankerSperre && aw.ankerSperre[z], 'Ziel wieder gesperrt und offen (Zustand frei)');
     ok(S.abschuesse === 0 && Object.keys(S.kills).length === 0, 'Zähler zurück (Abschüsse 0)');
     ok(g.ship.systems.transfer === 'ok' && !(aw.recallLockUntil > g.time), 'Transfer nach der Notrückholung wieder heil und nicht gesperrt (sonst kein Hochbeamen nach dem Neubeginn)');
@@ -282,7 +285,7 @@ section('Debug: graben welle2 / reset / status', () => {
   ok(Graben.debug(g, 'welle2') === null, 'welle2 entfernt Welle 2');
   ticks(g, 1);
   ok(S.ziel === 'offen', 'Ziel nach Debug welle2 offen');
-  ok(Graben.debug(g, 'reset') === null && S.versuch === 2 && S.ziel === 'gesperrt' && lebend(aw).length === 9, 'reset: Neubeginn');
+  ok(Graben.debug(g, 'reset') === null && S.versuch === 2 && S.ziel === 'gesperrt' && lebend(aw).length === 13, 'reset: Neubeginn');
   ok(Wellen.debugWelle(g, 3) && /Grabenangriff/.test(Wellen.debugWelle(g, 3)), 'welle <n> im Grabenangriff abgelehnt');
 });
 

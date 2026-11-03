@@ -43,6 +43,11 @@
   "2": [
    "w2.wald",
    "w2.eingang"
+  ],
+  "3": [
+   "w3.reaktor",
+   "w3.halle",
+   "w3.nord"
   ]
  },
  "ziel": "bunker.ziel",
@@ -574,7 +579,8 @@
          "x": 76,
          "y": 22,
          "kette": "a",
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.halle"
         },
         {
          "id": "bk.gang_2.patrouille.2",
@@ -589,14 +595,16 @@
          "rolle": "wache",
          "x": 76,
          "y": 23,
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.reaktor"
         },
         {
          "id": "bk.gang_2.wache.2",
          "rolle": "wache",
          "x": 76,
          "y": 27,
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.reaktor"
         },
         {
          "id": "bk.gang_3.patrouille",
@@ -604,7 +612,8 @@
          "x": 76,
          "y": 10,
          "kette": "a",
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.nord"
         },
         {
          "id": "bk.gang_3.tor",
@@ -618,7 +627,8 @@
          "rolle": "wache",
          "x": 76,
          "y": 6,
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.nord"
         },
         {
          "id": "bk.gang_4.patrouille",
@@ -626,14 +636,16 @@
          "x": 65,
          "y": 16,
          "kette": "a",
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.halle"
         },
         {
          "id": "bk.gang_4.wache",
          "rolle": "wache",
          "x": 69,
          "y": 15,
-         "bereich": "bk_gang"
+         "bereich": "bk_gang",
+         "gruppe": "w3.halle"
         },
         {
          "id": "bk.kommando.nsc",
@@ -675,7 +687,8 @@
          "rolle": "sprengpunkt",
          "x": 72,
          "y": 27,
-         "bereich": "bk_kern"
+         "bereich": "bk_kern",
+         "gruppe": "w3.reaktor"
         },
         {
          "id": "bk.werkstatt_1.beute",

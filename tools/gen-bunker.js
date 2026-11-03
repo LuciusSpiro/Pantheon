@@ -14,6 +14,8 @@
 //               beamt oben am Bunkereingang), eingang (Transporter-Tür und Luke: die Crew kommt über Lift und Rohr), ziel (die Sprengung wird das
 //               Ziel, Paket C). Alle übrigen bleiben (Wachen, Patrouillen, Terminals, Beute, Zellen, Versteck, Tor, Sprengpunkt im Reaktorraum),
 //               ohne Gruppe: der Bunker ist zunächst leer von Gegnern. Neu: Lift (im Transporterraum) und das untere Rohr-Ende (im Kriechgang).
+//   Welle 3     BOD-03 B5: Gegnergruppen im Bunker (Anker-Feld gruppe, Gruppen w3.reaktor, w3.halle, w3.nord = GRUPPEN unten) und meta.wellen["3"] der Datei.
+//               Besetzung (Größe und Rollen wie Welle 2) steht in CONFIG.graben.besetzung. Anker mit Gruppe bleiben Wachen/Patrouillen/Sprengpunkt der Station.
 //   Plätze      gen-fest kennt keine Plätze (plaetze: {}): die Anker verlieren platz, behalten bereich. Türen, Schotts, Luken stehen im Raster
 //               (D, S, L, w), die Kanten leitet Buehne.ausRaster daraus ab.
 //
@@ -26,6 +28,14 @@ const GenStation = require('../shared/gen-station.js');
 const SEED = 3, RAEUME = 8, ERZ_W = 96, ERZ_H = 56;
 const BREITE = 100, VOR = 50;                 // Kartenbreite; Spalten '_' links der Station (Stationsbreite 48 -> 50 + 48 = 98 = BREITE - 2 Ränder)
 const ENTFALLEN = new Set(['abholpunkt', 'eingang', 'ziel']);
+// Welle 3 (B5): Station-Anker-ID -> Gruppe. Reaktor = Reaktorraum (Sprengpunkt) und die zwei Wachen der Halle davor, Halle = West-Ost-Halle (Gang 4) und eine Patrouille
+// der Haupthalle, Nord = Nordgang (Gang 3, ohne das Tor). Sie liegen alle auf Deck 1.
+const GRUPPEN = {
+  'reaktor.sprengpunkt': 'w3.reaktor', 'gang_2.wache.1': 'w3.reaktor', 'gang_2.wache.2': 'w3.reaktor',
+  'gang_4.wache': 'w3.halle', 'gang_4.patrouille': 'w3.halle', 'gang_2.patrouille.1': 'w3.halle',
+  'gang_3.wache': 'w3.nord', 'gang_3.patrouille': 'w3.nord',
+};
+const WELLE3 = ['w3.reaktor', 'w3.halle', 'w3.nord'];
 // Neue Anker in Stationskoordinaten (nach dem Spiegeln): Lift in der Mitte des Transporterraums, Rohr-Ende im Kriechgang (Zeile y 20, 1 breit,
 // nur über Luken von den Räumen aus zu erreichen), x so, dass es unter der Rohr-Mündung in der Waldmitte liegt (Oberfläche x 61, Deck x 59).
 const LIFT = { id: 'bunker.lift.unten', rolle: 'lift', x: 40, y: 16 };
@@ -50,6 +60,7 @@ function bunkerDeck() {
     const o = { id: 'bk.' + a.id, rolle: a.rolle, x: VOR + spiegeln(a.x), y: a.y };
     for (const f of Object.keys(a)) if (!['id', 'rolle', 'x', 'y', 'platz', 'bereich', 'ankunft', 'gruppe'].includes(f)) o[f] = a[f];
     if (a.bereich) o.bereich = 'bk_' + a.bereich;
+    if (GRUPPEN[a.id]) o.gruppe = GRUPPEN[a.id];
     anker.push(o);
   }
   for (const n of [LIFT, ROHR]) {
@@ -87,12 +98,13 @@ if (require.main === module) {
   if (process.argv.includes('--schreiben')) {
     def.format = 'festkarte/2';
     def.decks[1] = d;
+    def.wellen['3'] = WELLE3.slice();
     fs.writeFileSync(DECK_DATEI, JSON.stringify(def, null, 1) + '\n');
     console.log('geschrieben: decks[1] in ' + path.relative(process.cwd(), DECK_DATEI));
   } else {
-    const gleich = JSON.stringify(def.decks[1]) === JSON.stringify(d);
+    const gleich = JSON.stringify(def.decks[1]) === JSON.stringify(d) && JSON.stringify(def.wellen['3']) === JSON.stringify(WELLE3);
     console.log(gleich ? 'Datei enthält genau dieses Deck.' : 'Datei weicht ab (oder hat noch kein Deck 1): mit --schreiben neu backen.');
     process.exitCode = gleich ? 0 : 1;
   }
 }
-module.exports = { bunkerDeck, ascii, SEED, VOR, LIFT, ROHR };
+module.exports = { bunkerDeck, ascii, SEED, VOR, LIFT, ROHR, GRUPPEN, WELLE3 };

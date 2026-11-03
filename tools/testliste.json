@@ -200,6 +200,7 @@
   {"id":"test-niederhalten","kette":"test","cmd":["tools/test-niederhalten.js"],"stufe":"fast","budget_s":7},
   {"id":"test-festkarte-decks","kette":"test","cmd":["tools/test-festkarte-decks.js"],"stufe":"fast","budget_s":8},
   {"id":"test-bunker","kette":"test","cmd":["tools/test-bunker.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-bunker-wellen","kette":"test","cmd":["tools/test-bunker-wellen.js"],"stufe":"fast","budget_s":12},
   {"id":"test-stellungen","kette":"test","cmd":["tools/test-stellungen.js"],"stufe":"fast","budget_s":7},
   {"id":"test-trupp-abstand","kette":"test","cmd":["tools/test-trupp-abstand.js"],"stufe":"fast","budget_s":10},
   {"id":"test-endkampf-trupps","kette":"test","cmd":["tools/test-endkampf-trupps.js"],"stufe":"fast","budget_s":7},

@@ -7,7 +7,7 @@
 //    die Oberfläche ist sonst unverändert (nur das Pad und die Rohr-Kisten), Kollision der neuen Gegenstände
 //  - B3 Rohr: Standardkachel + Anker leiter (keine r-Kachel), Kriechgang auf Deck 1; eine r-Kachel am Eingang würde K-MAUER-DICHT auslösen
 //  - Spiel: Lift Oberfläche -> Deck 1 -> zurück (1,5 s, Snapshot players[].deck), Rohr beide Richtungen (2,0 s), Beamen: Ankunft bleibt oben,
-//    zweites Pad bietet das Hochbeamen; Szenario Grabenangriff: Start mit der Besetzung wie bisher, der Bunker ist leer von Gegnern
+//    zweites Pad bietet das Hochbeamen; Szenario Grabenangriff: Start mit der Besetzung wie bisher, im Bunker nur Welle 3 (B5, Wellen und Link-Filter: tools/test-bunker-wellen.js)
 //   node tools/test-bunker.js
 const CONFIG = require('../shared/config.js');
 const Protocol = require('../shared/protocol.js');
@@ -60,7 +60,7 @@ section('B1 Bunker: Deck 1 ist die gebackene Station (tools/gen-bunker.js)', () 
   const sp = unten.filter((a) => a.rolle === 'sprengpunkt');
   const reaktor = K.bereiche.bk_kern.rects;
   ok(sp.length === 1 && sp[0].id === 'bk.reaktor.sprengpunkt' && reaktor.some((q) => sp[0].x >= q[0] && sp[0].x < q[0] + q[2] && sp[0].y >= q[1] && sp[0].y < q[1] + q[3]), 'Sprengpunkt im Reaktorraum (' + (sp[0] && sp[0].x + ',' + sp[0].y) + ')');
-  ok(unten.every((a) => !a.gruppe) && Object.values(K.meta.gruppen).every((ids) => ids.every((id) => anker(id).y < H0)) && JSON.stringify(Object.keys(K.meta.wellen)) === '["1","2"]', 'Bunker ohne Gruppe: meta.wellen bleibt 1 und 2, alle Gruppen-Anker auf der Oberfläche (Bunker leer von Gegnern)');
+  ok(unten.filter((a) => a.gruppe).every((a) => /^w3./.test(a.gruppe)) && Object.keys(K.meta.gruppen).filter((g) => !/^w3./.test(g)).every((g) => K.meta.gruppen[g].every((id) => anker(id).y < H0)) && JSON.stringify(Object.keys(K.meta.wellen)) === '["1","2","3"]', 'Bunker-Anker mit Gruppe nur w3.* (Welle 3, B5); die Gruppen von Welle 1 und 2 liegen auf der Oberfläche');
   ok(unten.some((a) => a.rolle === 'wache') && unten.some((a) => a.rolle === 'patrouille') && unten.some((a) => a.rolle === 'terminal') && unten.some((a) => a.rolle === 'tor') && unten.some((a) => a.rolle === 'versteck'), 'Station-Anker bleiben: Wachen, Patrouillen, Terminals, Tor, Versteck');
   const ids = K.anker.map((a) => a.id);
   ok(new Set(ids).size === ids.length, 'Anker-IDs über beide Decks eindeutig');
@@ -229,7 +229,7 @@ section('Spiel: Pad am Bunkereingang (zweiter abholpunkt) und Ankunft', () => {
   ok(fehlerZahl(g) === 0, 'keine Server-Fehler');
 });
 
-section('Szenario Grabenangriff: Start unverändert, Bunker leer von Gegnern', () => {
+section('Szenario Grabenangriff: Start unverändert, im Bunker nur Welle 3, nichts steigt auf oder ab', () => {
   const g = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
   const cs = [];
   for (let i = 0; i < 2; i++) { const c = { inbox: [], send(m) { if (this.inbox.length < 2000) this.inbox.push(m); } }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); cs.push(c); }
@@ -239,12 +239,13 @@ section('Szenario Grabenangriff: Start unverändert, Bunker leer von Gegnern', (
   ok(S && S.buehne === 'graben' && k.decks && k.decks.stride === 44 && k.h === 88, 'Szenario startet mit der Zwei-Deck-Karte');
   for (let i = 0; i < 5 * CONFIG.tickHz; i++) g.step();
   const gegner = aw.drones.filter((e) => e.alive);
-  ok(gegner.length === 9 && S.gesamt === 9, 'Besetzung wie bisher: 9 Gegner für 2 Spieler (Welle 1 und 2 unverändert)');
-  ok(gegner.every((e) => Physics.toTile(e.x, e.y).y < k.decks.stride), 'kein Gegner im Bunker (Deck 1)');
+  const unten = (e) => Physics.toTile(e.x, e.y).y >= k.decks.stride;
+  ok(gegner.filter((e) => !unten(e)).length === 9 && gegner.filter(unten).length === 4 && S.gesamt === 13, 'Besetzung: 9 Gegner oben für 2 Spieler wie bisher (Welle 1 und 2), dazu 4 im Bunker (Welle 3)');
+  ok(gegner.filter(unten).every((e) => S.ids[3].includes(e.id)), 'im Bunker (Deck 1) steht nur Welle 3');
   const ab = k.anker.find((a) => a.id === 'landung.abholpunkt');
   ok(g.players.every((p) => p.zone === 'away' && Math.abs(Physics.toTile(p.x, p.y).x - ab.x) <= 4 && Physics.toTile(p.x, p.y).y < k.decks.stride), 'Crew beamt am Landefeld auf der Oberfläche an');
   for (let i = 0; i < 60 * CONFIG.tickHz; i++) g.step();
-  ok(aw.drones.filter((e) => e.alive).every((e) => Physics.toTile(e.x, e.y).y < k.decks.stride), 'nach 60 s weiter kein Gegner unten (kein Link-Gebrauch ohne Alarm)');
+  ok(aw.drones.filter((e) => e.alive && S.ids[3].includes(e.id)).every(unten) && aw.drones.filter((e) => e.alive && !S.ids[3].includes(e.id)).every((e) => !unten(e)), 'nach 60 s: Welle 3 weiter unten, Welle 1 und 2 weiter oben (kein Link-Gebrauch)');
   ok(fehlerZahl(g) === 0, 'keine Server-Fehler');
 });
 
