@@ -1,0 +1,30 @@
+{
+  "id": "cha/kopf/spangenhelm/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf spangenhelm (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "kopf"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/kopf/spangenhelm/head_ops",
+      "colors": {
+        "primary": "schale_spangenhelm",
+        "metal_light": "spange_spangenhelm",
+        "metal_dark": "reif_spangenhelm",
+        "metal": "kette_spangenhelm"
+      }
+    }
+  ]
+}

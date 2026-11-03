@@ -1,0 +1,284 @@
+{
+  "id": "cha/frisur/welle/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur welle (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Haarkranz",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        2,
+        8
+      ],
+      "color": {
+        "noise": [
+          "hair",
+          {
+            "shade": "hair",
+            "f": 1.12
+          }
+        ],
+        "weights": [
+          4,
+          1
+        ],
+        "cell": 2
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar oben",
+      "op": "box",
+      "at": [
+        -4,
+        33,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "color": {
+        "noise": [
+          {
+            "shade": "hair",
+            "f": 1.1
+          },
+          {
+            "shade": "hair",
+            "f": 0.88
+          }
+        ],
+        "weights": [
+          3,
+          1
+        ],
+        "cell": 2
+      },
+      "jitter": false
+    },
+    {
+      "name": "Ecken hinten",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken vorn",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Tolle",
+      "op": "box",
+      "at": [
+        -2,
+        34,
+        0
+      ],
+      "size": [
+        3,
+        1,
+        3
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.16
+      },
+      "jitter": false
+    },
+    {
+      "name": "Tolle Überhang",
+      "op": "box",
+      "at": [
+        -2,
+        33,
+        3
+      ],
+      "size": [
+        3,
+        1,
+        2
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Pony Strähne",
+      "op": "box",
+      "at": [
+        -4,
+        30,
+        3
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "Pony Strähne rechts",
+      "op": "box",
+      "at": [
+        2,
+        30,
+        3
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "Haar Seiten",
+      "op": "box",
+      "at": [
+        3,
+        27,
+        -4
+      ],
+      "size": [
+        1,
+        4,
+        6
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Welle Seite oben",
+      "op": "box",
+      "at": [
+        4,
+        29,
+        -3
+      ],
+      "size": [
+        1,
+        3,
+        4
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.92
+      },
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Welle Seite unten",
+      "op": "box",
+      "at": [
+        4,
+        25,
+        -1
+      ],
+      "size": [
+        1,
+        2,
+        4
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Haar hinten",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        5,
+        1
+      ],
+      "color": "hair"
+    },
+    {
+      "name": "Welle hinten oben",
+      "op": "box",
+      "at": [
+        -4,
+        28,
+        -5
+      ],
+      "size": [
+        8,
+        3,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.9
+      }
+    },
+    {
+      "name": "Welle hinten unten",
+      "op": "box",
+      "at": [
+        -3,
+        26,
+        -5
+      ],
+      "size": [
+        6,
+        2,
+        1
+      ],
+      "color": "hair"
+    }
+  ]
+}

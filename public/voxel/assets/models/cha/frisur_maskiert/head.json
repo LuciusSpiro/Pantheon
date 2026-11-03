@@ -15,10 +15,16 @@
   ],
   "params": {
     "frisur": {
-      "default": "dutt",
+      "default": "kurz",
       "options": [
-        "dutt",
-        "zoepfe",
+        "kurz",
+        "stirnband",
+        "welle",
+        "offen",
+        "bartkurz",
+        "bartlang",
+        "zopfband",
+        "wild",
         "keine"
       ]
     },
@@ -26,7 +32,10 @@
       "default": "keine",
       "options": [
         "keine",
-        "bordhelm"
+        "bordhelm",
+        "galea",
+        "spangenhelm",
+        "hoernerhelm"
       ]
     }
   },

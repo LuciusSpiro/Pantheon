@@ -28,6 +28,21 @@
         "primary": "top_plankenweste",
         "secondary": "top_unter_plankenweste"
       }
+    },
+    {
+      "name": "Öse Halter (hängt die Werkzeugöse an das Becken)",
+      "op": "box",
+      "at": [
+        -4,
+        13,
+        -3
+      ],
+      "size": [
+        1,
+        2,
+        1
+      ],
+      "color": "metall_plankenweste"
     }
   ]
 }

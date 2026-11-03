@@ -1,0 +1,29 @@
+{
+  "id": "cha/oberteil/robe/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil robe (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/robe_lowerarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/robe_lowerarm",
+      "colors": {
+        "sand": "top_robe",
+        "wood_dark": "top_saum_robe",
+        "trim": "top_zier_robe"
+      }
+    }
+  ]
+}

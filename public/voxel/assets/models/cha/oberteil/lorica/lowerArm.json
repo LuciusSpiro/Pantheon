@@ -1,0 +1,30 @@
+{
+  "id": "cha/oberteil/lorica/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/lowerArm_ops",
+      "colors": {
+        "trim": "gold_lorica",
+        "secondary": "lack_lorica",
+        "cloth": "stoff_lorica",
+        "metal": "eisen_lorica"
+      }
+    }
+  ]
+}

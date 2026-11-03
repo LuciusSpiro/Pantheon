@@ -16,9 +16,7 @@
   },
   "params": {
     "koerper": "standard",
-    "gesicht": "lerche",
-    "frisur": "dutt",
-    "bart": "keiner",
+    "frisur": "kurz",
     "kopf": "keine",
     "oberteil": "bordtunika",
     "hose": "bordhose",

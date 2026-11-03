@@ -1,0 +1,68 @@
+{
+  "id": "cha/oberteil/einsatzanzug/lowerArm_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (lowerArm): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/crew/anzug_unterarm, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Manschette",
+      "op": "box",
+      "at": [
+        4,
+        13,
+        -1
+      ],
+      "size": [
+        3,
+        2,
+        3
+      ],
+      "color": "secondary"
+    },
+    {
+      "name": "Armgerät",
+      "op": "box",
+      "at": [
+        7,
+        14,
+        -1
+      ],
+      "size": [
+        1,
+        2,
+        3
+      ],
+      "color": "metal_dark"
+    },
+    {
+      "name": "Armgerät Anzeige",
+      "op": "box",
+      "at": [
+        7,
+        15,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "role": "glow",
+        "emit": 0.9
+      },
+      "jitter": false
+    }
+  ]
+}

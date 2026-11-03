@@ -1,0 +1,83 @@
+{
+  "id": "cha/oberteil/einsatzanzug/upperArm_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (upperArm): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/crew/anzug_oberarm, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schulterkappe",
+      "op": "box",
+      "at": [
+        4,
+        21,
+        -2
+      ],
+      "size": [
+        3,
+        3,
+        5
+      ],
+      "color": "primary"
+    },
+    {
+      "name": "Schulterkappe außen",
+      "op": "box",
+      "at": [
+        7,
+        21,
+        -1
+      ],
+      "size": [
+        1,
+        2,
+        3
+      ],
+      "color": {
+        "shade": "primary",
+        "f": 0.85
+      }
+    },
+    {
+      "name": "Kappenrand",
+      "op": "box",
+      "at": [
+        4,
+        21,
+        -2
+      ],
+      "size": [
+        3,
+        1,
+        5
+      ],
+      "color": "secondary",
+      "mode": "paint"
+    },
+    {
+      "name": "Ärmelband",
+      "op": "box",
+      "at": [
+        4,
+        18,
+        -1
+      ],
+      "size": [
+        3,
+        1,
+        3
+      ],
+      "color": "secondary"
+    }
+  ]
+}

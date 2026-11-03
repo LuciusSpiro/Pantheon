@@ -1,0 +1,43 @@
+{
+  "id": "cha/haende/einsatzhandschuh/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "haende einsatzhandschuh (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "haende"
+  ],
+  "notes": "Schicht aus fig/basis/unterarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/basis/unterarm",
+      "colors": {
+        "cloth": "stoff_einsatzhandschuh",
+        "metal_dark": "handschuh_einsatzhandschuh"
+      }
+    },
+    {
+      "name": "Unterarm abschneiden (y 13..16, der Ärmel gehört zum Oberteil)",
+      "op": "box",
+      "at": [
+        4,
+        13,
+        -1
+      ],
+      "size": [
+        3,
+        4,
+        3
+      ],
+      "mode": "carve"
+    }
+  ]
+}

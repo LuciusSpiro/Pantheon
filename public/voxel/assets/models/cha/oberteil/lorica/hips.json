@@ -1,0 +1,31 @@
+{
+  "id": "cha/oberteil/lorica/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (hips)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/hips_ops",
+      "colors": {
+        "secondary": "lack_lorica",
+        "trim": "gold_lorica",
+        "metal_dark": "dunkel_lorica",
+        "cloth": "stoff_lorica",
+        "leather": "leder_lorica"
+      }
+    }
+  ]
+}

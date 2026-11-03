@@ -22,27 +22,17 @@
       ],
       "label": "Körper"
     },
-    "bart": {
-      "default": "keiner",
-      "options": [
-        "keiner",
-        "vollbart"
-      ],
-      "label": "Bart"
-    },
-    "gesicht": {
-      "default": "lerche",
-      "options": [
-        "lerche",
-        "narbe"
-      ],
-      "label": "Gesicht"
-    },
     "frisur": {
-      "default": "dutt",
+      "default": "kurz",
       "options": [
-        "dutt",
-        "zoepfe",
+        "kurz",
+        "stirnband",
+        "welle",
+        "offen",
+        "bartkurz",
+        "bartlang",
+        "zopfband",
+        "wild",
         "keine"
       ],
       "label": "Frisur"
@@ -51,7 +41,10 @@
       "default": "keine",
       "options": [
         "keine",
-        "bordhelm"
+        "bordhelm",
+        "galea",
+        "spangenhelm",
+        "hoernerhelm"
       ],
       "label": "Kopfbedeckung"
     }
@@ -66,22 +59,6 @@
       ]
     },
     {
-      "name": "Bart",
-      "op": "use",
-      "model": "cha/bart/{bart}/head",
-      "fallback": [
-        "cha/leer"
-      ]
-    },
-    {
-      "name": "Gesicht",
-      "op": "use",
-      "model": "cha/gesicht/{gesicht}/head",
-      "fallback": [
-        "cha/leer"
-      ]
-    },
-    {
       "name": "Frisur (unter Hutmaske)",
       "op": "use",
       "model": "cha/frisur_maskiert/head",
@@ -89,15 +66,6 @@
         "frisur": "{frisur}",
         "kopf": "{kopf}"
       }
-    },
-    {
-      "name": "Ohren unter der Kopfbedeckung (carve)",
-      "op": "use",
-      "model": "cha/kopf/{kopf}/head_ohren",
-      "fallback": [
-        "cha/leer"
-      ],
-      "mode": "carve"
     },
     {
       "name": "Kopfbedeckung",

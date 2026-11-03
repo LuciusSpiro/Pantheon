@@ -1,0 +1,193 @@
+{
+  "id": "cha/oberteil/lorica/torso_schulter",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (torso): herausgelöste Ops (schulter)",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schulterkappe",
+      "op": "box",
+      "at": [
+        5,
+        24,
+        -3
+      ],
+      "size": [
+        4,
+        1,
+        7
+      ],
+      "color": "secondary",
+      "jitter": false
+    },
+    {
+      "name": "Schulterplatte 2",
+      "op": "box",
+      "at": [
+        6,
+        22,
+        -3
+      ],
+      "size": [
+        4,
+        2,
+        7
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": 0.93
+      },
+      "jitter": false
+    },
+    {
+      "name": "Schulterplatte 3",
+      "op": "box",
+      "at": [
+        7,
+        20,
+        -3
+      ],
+      "size": [
+        3,
+        2,
+        7
+      ],
+      "color": {
+        "shade": "secondary",
+        "f": 0.86
+      },
+      "jitter": false
+    },
+    {
+      "name": "Platte 2 Goldkante",
+      "op": "box",
+      "at": [
+        6,
+        22,
+        -3
+      ],
+      "size": [
+        4,
+        1,
+        7
+      ],
+      "color": "trim",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Platte 3 Goldkante",
+      "op": "box",
+      "at": [
+        7,
+        20,
+        -3
+      ],
+      "size": [
+        3,
+        1,
+        7
+      ],
+      "color": "trim",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Kappe oben: feste Farbe mit Goldrand",
+      "op": "box",
+      "at": [
+        5,
+        24,
+        -3
+      ],
+      "size": [
+        4,
+        1,
+        7
+      ],
+      "color": {
+        "frame": "trim",
+        "fill": "cloth2",
+        "axes": "xz",
+        "width": 1
+      },
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Kappe rund",
+      "op": "box",
+      "at": [
+        8,
+        24,
+        -3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "z",
+      "mirrorAt": 0.5
+    },
+    {
+      "name": "Platte 2 rund",
+      "op": "box",
+      "at": [
+        9,
+        23,
+        -3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "z",
+      "mirrorAt": 0.5
+    },
+    {
+      "name": "Armloch (Oberarm bleibt frei)",
+      "op": "box",
+      "at": [
+        4,
+        17,
+        -1
+      ],
+      "size": [
+        3,
+        7,
+        3
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Niete",
+      "op": "box",
+      "at": [
+        10,
+        22,
+        0
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": "metal_light"
+    }
+  ]
+}

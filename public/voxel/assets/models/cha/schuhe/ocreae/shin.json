@@ -1,0 +1,48 @@
+{
+  "id": "cha/schuhe/ocreae/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "schuhe ocreae (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "schuhe"
+  ],
+  "notes": "Schicht aus fig/rom/ocrea, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/rom/ocrea",
+      "colors": {
+        "cloth": "stoff_ocreae",
+        "metal_dark": "schuh_ocreae",
+        "rubber": "gummi_ocreae",
+        "secondary": "platte_ocreae",
+        "trim": "zier_ocreae",
+        "metal": "metall_ocreae",
+        "metal_light": "metall_hell_ocreae"
+      }
+    },
+    {
+      "name": "Schienbeinstoff über dem Stiefel abschneiden (y 6, gehört zur Hose)",
+      "op": "box",
+      "at": [
+        1,
+        6,
+        -1
+      ],
+      "size": [
+        3,
+        1,
+        3
+      ],
+      "mode": "carve"
+    }
+  ]
+}

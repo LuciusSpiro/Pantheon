@@ -1,0 +1,71 @@
+{
+  "id": "cha/oberteil/lorica/lowerArm_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (lowerArm): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Unterarm",
+      "op": "box",
+      "at": [
+        4,
+        13,
+        -1
+      ],
+      "size": [
+        3,
+        4,
+        3
+      ],
+      "color": "cloth"
+    },
+    {
+      "name": "Armschiene",
+      "op": "box",
+      "at": [
+        4,
+        13,
+        -1
+      ],
+      "size": [
+        3,
+        4,
+        3
+      ],
+      "color": {
+        "frame": "trim",
+        "fill": "secondary",
+        "axes": "y",
+        "width": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Ellbogenkachel",
+      "op": "box",
+      "at": [
+        4,
+        16,
+        -1
+      ],
+      "size": [
+        3,
+        1,
+        1
+      ],
+      "color": "metal",
+      "mode": "paint"
+    }
+  ]
+}

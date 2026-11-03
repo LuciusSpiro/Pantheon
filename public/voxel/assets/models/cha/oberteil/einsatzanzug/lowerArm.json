@@ -1,0 +1,29 @@
+{
+  "id": "cha/oberteil/einsatzanzug/lowerArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (lowerArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/crew/anzug_unterarm, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/einsatzanzug/lowerArm_ops",
+      "colors": {
+        "secondary": "top_einsatzanzug",
+        "metal_dark": "metall_dunkel_einsatzanzug",
+        "glow": "licht_einsatzanzug"
+      }
+    }
+  ]
+}

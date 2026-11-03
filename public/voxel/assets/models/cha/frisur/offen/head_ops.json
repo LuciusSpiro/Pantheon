@@ -1,0 +1,448 @@
+{
+  "id": "cha/frisur/offen/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur offen (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Haarkranz",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        2,
+        8
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.04
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar oben",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        -4
+      ],
+      "size": [
+        5,
+        1,
+        7
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.12
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar oben links höher",
+      "op": "box",
+      "at": [
+        -4,
+        33,
+        -4
+      ],
+      "size": [
+        3,
+        2,
+        7
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.16
+      },
+      "jitter": false
+    },
+    {
+      "name": "Ecken hinten",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken vorn",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken links hinten oben",
+      "op": "box",
+      "at": [
+        -4,
+        34,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken links vorn oben",
+      "op": "box",
+      "at": [
+        -4,
+        34,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Scheitel",
+      "op": "box",
+      "at": [
+        -2,
+        34,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        7
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.78
+      },
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Pony Seite",
+      "op": "box",
+      "at": [
+        -4,
+        30,
+        3
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "color": "hair",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Haar rechts hinter dem Ohr",
+      "op": "box",
+      "at": [
+        3,
+        28,
+        -4
+      ],
+      "size": [
+        1,
+        3,
+        3
+      ],
+      "color": "hair",
+      "jitter": false
+    },
+    {
+      "name": "Haar rechts hinter dem Ohr außen",
+      "op": "box",
+      "at": [
+        4,
+        28,
+        -4
+      ],
+      "size": [
+        1,
+        4,
+        3
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.9
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar links",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        1,
+        5,
+        7
+      ],
+      "color": "hair",
+      "jitter": false
+    },
+    {
+      "name": "Haar links über der Schulter",
+      "op": "box",
+      "at": [
+        -5,
+        24,
+        -4
+      ],
+      "size": [
+        1,
+        7,
+        6
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.9
+      },
+      "jitter": false
+    },
+    {
+      "name": "Strähne links 1",
+      "op": "box",
+      "at": [
+        -5,
+        23,
+        -3
+      ],
+      "size": [
+        1,
+        1,
+        2
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.82
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar hinten",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        5,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.92
+      },
+      "jitter": false
+    },
+    {
+      "name": "Rücken oben",
+      "op": "box",
+      "at": [
+        -5,
+        28,
+        -5
+      ],
+      "size": [
+        10,
+        4,
+        1
+      ],
+      "color": {
+        "stripes": [
+          "hair",
+          {
+            "shade": "hair",
+            "f": 0.82
+          }
+        ],
+        "axis": "x",
+        "period": 2
+      }
+    },
+    {
+      "name": "Rücken Mitte",
+      "op": "box",
+      "at": [
+        -4,
+        25,
+        -5
+      ],
+      "size": [
+        8,
+        3,
+        1
+      ],
+      "color": {
+        "stripes": [
+          "hair",
+          {
+            "shade": "hair",
+            "f": 0.82
+          }
+        ],
+        "axis": "x",
+        "period": 2
+      }
+    },
+    {
+      "name": "Rücken unten",
+      "op": "box",
+      "at": [
+        -3,
+        24,
+        -5
+      ],
+      "size": [
+        6,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.82
+      }
+    },
+    {
+      "name": "Strähnenende 1",
+      "op": "box",
+      "at": [
+        -3,
+        24,
+        -5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Strähnenende 2",
+      "op": "box",
+      "at": [
+        0,
+        24,
+        -5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Strähnenende 3",
+      "op": "box",
+      "at": [
+        2,
+        24,
+        -5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Strähnenende 4",
+      "op": "box",
+      "at": [
+        -4,
+        25,
+        -5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Strähnenende 5",
+      "op": "box",
+      "at": [
+        3,
+        25,
+        -5
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Ohrring",
+      "op": "box",
+      "at": [
+        4,
+        25,
+        1
+      ],
+      "size": [
+        1,
+        2,
+        1
+      ],
+      "color": "primary",
+      "jitter": false
+    }
+  ]
+}

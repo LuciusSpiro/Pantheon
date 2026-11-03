@@ -13,7 +13,7 @@
     "cha",
     "ops"
   ],
-  "notes": "Ops aus fig/crew/helm_offen, Reihenfolge wie im Bestand.",
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
   "ops": [
     {
       "name": "Halsring",
@@ -34,43 +34,99 @@
       "name": "Helmschale",
       "op": "box",
       "at": [
-        -3,
+        -4,
         26,
         -4
       ],
       "size": [
+        8,
         6,
-        6,
-        6
+        7
       ],
       "color": "secondary",
       "mode": "under"
     },
     {
+      "name": "Wangenband",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        2,
+        7
+      ],
+      "color": "metal_light",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
       "name": "Helmdach",
       "op": "box",
       "at": [
-        -2,
+        -4,
         32,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        8
+      ],
+      "color": "secondary"
+    },
+    {
+      "name": "Kuppel",
+      "op": "box",
+      "at": [
+        -3,
+        33,
         -3
       ],
       "size": [
-        4,
+        6,
         1,
-        4
+        6
       ],
-      "color": "secondary"
+      "color": {
+        "shade": "secondary",
+        "f": 1.04
+      },
+      "jitter": false
+    },
+    {
+      "name": "Kuppel Ecken",
+      "op": "box",
+      "at": [
+        2,
+        33,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "xz",
+      "mirrorAt": {
+        "x": 0,
+        "z": 0
+      }
     },
     {
       "name": "Gesichtsrahmen oben",
       "op": "box",
       "at": [
-        -3,
+        -4,
         31,
-        2
+        3
       ],
       "size": [
-        6,
+        8,
         1,
         1
       ],
@@ -80,13 +136,13 @@
       "name": "Gesichtsrahmen Seiten",
       "op": "box",
       "at": [
-        2,
-        26,
-        2
+        3,
+        27,
+        3
       ],
       "size": [
         1,
-        5,
+        4,
         1
       ],
       "color": "metal_light",
@@ -99,27 +155,43 @@
       "at": [
         -1,
         32,
+        -4
+      ],
+      "size": [
+        2,
+        1,
+        8
+      ],
+      "color": "primary"
+    },
+    {
+      "name": "Akzent Kuppel",
+      "op": "box",
+      "at": [
+        -1,
+        33,
         -3
       ],
       "size": [
         2,
         1,
-        4
+        6
       ],
-      "color": "primary"
+      "color": "primary",
+      "jitter": false
     },
     {
       "name": "Akzent Seite",
       "op": "box",
       "at": [
-        2,
+        3,
         29,
-        -3
+        -4
       ],
       "size": [
         1,
         1,
-        5
+        7
       ],
       "color": "primary",
       "mode": "paint",
@@ -132,7 +204,7 @@
       "at": [
         3,
         27,
-        -2
+        -3
       ],
       "size": [
         1,
@@ -147,7 +219,7 @@
       "at": [
         3,
         30,
-        -2
+        -3
       ],
       "size": [
         1,
@@ -179,9 +251,9 @@
       "name": "Stirnlampe",
       "op": "box",
       "at": [
-        -3,
+        -4,
         30,
-        2
+        3
       ],
       "size": [
         1,

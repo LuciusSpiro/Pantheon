@@ -1,0 +1,25 @@
+{
+  "id": "cha/frisur/bartkurz/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur bartkurz (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/bartkurz/head_ops",
+      "colors": {}
+    }
+  ]
+}

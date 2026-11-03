@@ -1,0 +1,29 @@
+{
+  "id": "cha/hose/anzughose/thigh",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose anzughose (thigh)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/crew/anzug_oberschenkel, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/hose/anzughose/thigh_ops",
+      "colors": {
+        "secondary": "platte_anzughose",
+        "leather": "leder_anzughose",
+        "metal": "metall_anzughose"
+      }
+    }
+  ]
+}

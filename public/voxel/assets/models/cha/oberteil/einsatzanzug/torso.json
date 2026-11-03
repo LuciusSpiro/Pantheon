@@ -1,0 +1,32 @@
+{
+  "id": "cha/oberteil/einsatzanzug/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/crew/anzug_rumpf, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/einsatzanzug/torso_ops",
+      "colors": {
+        "secondary": "top_einsatzanzug",
+        "primary": "akzent_einsatzanzug",
+        "metal": "metall_einsatzanzug",
+        "metal_dark": "metall_dunkel_einsatzanzug",
+        "glow": "licht_einsatzanzug",
+        "glow2": "licht_2_einsatzanzug"
+      }
+    }
+  ]
+}

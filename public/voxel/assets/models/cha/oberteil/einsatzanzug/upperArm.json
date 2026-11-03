@@ -1,0 +1,28 @@
+{
+  "id": "cha/oberteil/einsatzanzug/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/crew/anzug_oberarm, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/einsatzanzug/upperArm_ops",
+      "colors": {
+        "primary": "akzent_einsatzanzug",
+        "secondary": "top_einsatzanzug"
+      }
+    }
+  ]
+}

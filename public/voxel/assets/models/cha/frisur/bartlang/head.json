@@ -1,0 +1,27 @@
+{
+  "id": "cha/frisur/bartlang/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur bartlang (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/bartlang/head_ops",
+      "colors": {
+        "trim": "band_bartlang"
+      }
+    }
+  ]
+}

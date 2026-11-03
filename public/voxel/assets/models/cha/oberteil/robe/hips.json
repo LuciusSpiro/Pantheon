@@ -1,0 +1,31 @@
+{
+  "id": "cha/oberteil/robe/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil robe (hips)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/robe_hips, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/robe_hips",
+      "colors": {
+        "sand": "top_robe",
+        "wood_dark": "top_saum_robe",
+        "cloth": "top_schal_robe",
+        "trim": "top_zier_robe",
+        "leather": "top_leder_robe"
+      }
+    }
+  ]
+}
