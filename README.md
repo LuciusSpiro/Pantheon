@@ -2141,6 +2141,51 @@ Kisten schlecht). Danach m2 bis „angedockt bei Vaelen“: 1:11 Wanduhr.
 **Nicht gemessen:** Menschen; m1 solo im Browser; m2 und m3 komplett im Browser in S1. Eine Schätzung für Menschen steht
 hier bewusst nicht – frühere Runden zeigten, dass Menschen deutlich länger brauchen als Skripte (Spieleabend abwarten).
 
+## Tests und Testläufe
+
+Alle Schritte (Prüfer, Tests, Sims) stehen in `tools/testliste.json` (Felder `id`, `kette`, `cmd`, `stufe`, `budget_s`, optional `seriell`) und
+laufen über `tools/run-tests.js`. Kein Schritt hängt an einer `&&`-Kette in `package.json`; die npm-Skripte rufen nur den Runner.
+
+| Befehl | Was | Dauer (12 Worker) | Wann |
+|---|---|---|---|
+| `npm run check` | Prüfer (Karten, Sektoren, Kette, Tasten, …) | wenige Sekunden | bei jedem Paket |
+| `npm run test:fast` | Stufe `fast` (schnelle Tests) | ca. 2 min, Grenze 300 s | bei jedem Paket |
+| `npm test` | Stufe `fast` + `full` (alles außer `slow`) | ca. 3,5 min, Grenze 600 s | vor dem Abnahmelauf |
+| `npm run test:alles` | alle Stufen inkl. `slow` (`sim-headless kette`, Sims, Messungen) | 15 bis 25 min, Grenze 2400 s | vor dem Merge |
+| `npm run test:seriell` | alles, ein Schritt nach dem anderen | ca. 33 min, keine Grenze | Fehlersuche, Baseline |
+
+Weitere Optionen: `--nur <id,...>` (Schritt-ID oder Dateiname), `--kette check|test`, `--stufe fast|full|slow|alles`, `--trocken` (nur auflisten),
+`--worker N`, `--ausgabe <datei.json>`, `--liste <datei.json>`. Ergebnis je Lauf als JSON (Standard `tools/fixtures/testzeiten/lauf-<Zeit>.json`).
+Exit-Codes: `0` grün, `1` rote Schritte oder Timeout, `2` Aufruf/Liste ungültig oder Testdatei ohne Eintrag, `3` nur die harte Grenze ist gerissen.
+
+**Parallelverlangsamung und Budgets.** Parallel brauchen Schritte das 3- bis 7-Fache ihrer seriellen Zeit (CPU, Platte, Prozessstart), z. B.
+`test-rollen-paritaet` 65 s statt 9,5 s. Jeder Schritt hat `budget_s` = das Doppelte seiner seriellen Baseline (mindestens Baseline + 5 s). Der Runner
+vergleicht parallel gegen `budget_s × --lastfaktor` (Vorgabe 4, seriell 1) und meldet Überschreitungen nach dem Lauf im Abschnitt
+„Zeitbudget überschritten“ und im JSON (`budget_ueberschritten`). Das ist nur ein Hinweis: kein Abbruch, kein anderer Exit-Code. Ein einzelner
+Schritt, der wiederholt gemeldet wird, ist langsamer geworden: allein mit `--nur <id> --seriell` messen. Die harte Grenze je Stufe
+(`grenzen` in `testliste.json`, Wandzeit des Gesamtlaufs, nur parallel) liefert Exit 3; `--grenze-aus` schaltet sie zur Fehlersuche ab.
+
+**Neuen Test eintragen.** (1) Datei `tools/test-<name>.js` (oder `mutation-…`, `check-…`) anlegen. (2) Schritt in `tools/testliste.json` eintragen
+(`id`, `kette`, `cmd`, `stufe`: `fast` unter ca. 10 s seriell, `full` bis ca. 60 s, `slow` darüber oder Sims/Messungen). Für einen Schritt aus einer alten
+`&&`-Kette geht das mit `node tools/testliste-ergaenzen.js --kette "node tools/test-x.js"` (Stufe `full`, danach anpassen). (3) Budget:
+den Schritt seriell messen (`node tools/run-tests.js --seriell --nur <id> --ausgabe <datei>`) und `node tools/testliste-budgets.js --aus <datei> --schreiben`.
+(4) Pflichtprüfung: der Runner bricht beim Start mit Exit 2 ab, wenn eine `tools/test-*.js`, `mutation-*.js` oder `check-*.js|mjs` weder in einem `cmd`
+steht noch unter `ausgenommen` (Datei plus Grund, z. B. Mutationsprobe auf Abruf, Live-Test). Die Prüfung entfällt bei `--liste`.
+
+**`seriell: true`** nur für Schritte, die auf überbuchter CPU an eigenen Timeouts scheitern (`test-abenteuer`, `test-abenteuer-kanon`: `spawnSync`-Timeouts).
+Sie laufen nach dem Pool allein. Nicht als Pflaster für unzuverlässige Tests verwenden.
+
+**Baseline neu erzeugen** (nur auf ruhigem Rechner, sonst werden die Budgets zu großzügig; keine anderen Suites oder Spiele nebenher):
+`node tools/run-tests.js --seriell --stufe alles --ausgabe tools/fixtures/testzeiten/baseline.json`, danach
+`node tools/testliste-budgets.js --schreiben`. Die Baseline bestimmt auch die Reihenfolge im Pool (längste zuerst).
+
+**Bekannte Altlasten.** `sim-szene-sund` ist nicht in der Kette und läuft rot. `mess:klumpen` ist nur als Selbsttest angebunden. Mutationsproben
+(`npm run test:*-mutation`) und Live-Tests (`test:llm`) laufen nur auf Abruf (Liste `ausgenommen`). Fällt `test-buehne` rot aus (Median-Kriterium, selten),
+einmal allein wiederholen: `node tools/run-tests.js --seriell --nur test-buehne`; bleibt er rot, ist es echt.
+
+**Merge von Branches.** Hat ein Branch Schritte noch in die alte `&&`-Kette eingetragen, nach dem Merge nachziehen:
+`node tools/testliste-ergaenzen.js --kette "<die Schritte aus package.json>"`, danach Stufe und Budget setzen (siehe oben).
+
 ## Für Entwickler
 
 `npm run check` (Karten), `npm run sim` (Headless-Durchlauf solo, zu dritt und solo mit übersprungener Übung), `npm run debug` (Debug-Befehle, `?debug=1`

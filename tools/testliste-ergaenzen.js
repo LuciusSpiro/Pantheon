@@ -3,11 +3,12 @@
 // Zweck: Branches, die noch Schritte in die alte Kette in package.json eingetragen haben, nach einem Merge nachziehen.
 // Aufruf: node tools/testliste-ergaenzen.js --kette "node tools/test-a.js && node tools/test-b.js" [--name check|test]
 //         node tools/testliste-ergaenzen.js --datei <textdatei mit der Kette>
+// Optional --liste <datei.json> (andere Liste, z. B. eine Kopie zum Ausprobieren).
 // Vorhanden = gleiches cmd (Argumentliste). IDs wie im Runner: Dateiname ohne .js, plus Argumente.
 const fs = require('fs');
 const path = require('path');
+const io = require('./testliste-io');
 
-const LISTE = path.join(__dirname, 'testliste.json');
 function argWert(name) { const i = process.argv.indexOf(name); return i >= 0 ? process.argv[i + 1] : null; }
 
 let kette = argWert('--kette');
@@ -16,7 +17,9 @@ if (!kette && datei) kette = fs.readFileSync(datei, 'utf8');
 if (!kette) { console.error('Aufruf: node tools/testliste-ergaenzen.js --kette "<kette>" | --datei <datei> [--name check|test]'); process.exit(2); }
 const name = argWert('--name') || 'test';
 
-const liste = JSON.parse(fs.readFileSync(LISTE, 'utf8'));
+const LISTE = path.resolve(argWert('--liste') || io.STANDARD);
+const doc = io.lesen(LISTE);
+const liste = doc.schritte;
 const ids = new Set(liste.map(e => e.id));
 const cmds = new Set(liste.map(e => JSON.stringify(e.cmd)));
 const neu = [];
@@ -32,8 +35,8 @@ for (const schritt of kette.split('&&').map(s => s.trim()).filter(Boolean)) {
   neu.push({ id, kette: name, cmd, stufe: 'full' });
 }
 if (!neu.length) { console.log('Nichts zu ergaenzen: alle Schritte stehen schon in testliste.json'); process.exit(0); }
-const alle = liste.concat(neu);
-fs.writeFileSync(LISTE, '[\n' + alle.map(e => ' ' + JSON.stringify(e)).join(',\n') + '\n]\n');
+doc.schritte = liste.concat(neu);
+io.schreiben(LISTE, doc);
 console.log(neu.length + ' Schritt(e) ergaenzt (Stufe full, Kette ' + name + '):');
 for (const e of neu) console.log('  ' + e.id);
-console.log('Stufe ggf. anpassen (fast/slow) und Baseline-Dauer nachtragen.');
+console.log('Stufe ggf. anpassen (fast/slow). Budget (budget_s) fehlt noch: seriell messen (node tools/run-tests.js --seriell --nur <id> --ausgabe <datei>) und node tools/testliste-budgets.js --aus <datei> --schreiben.');

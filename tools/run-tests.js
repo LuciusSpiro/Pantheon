@@ -11,11 +11,20 @@
 //   --stufe    Auswahl nach Feld "stufe" je Listeneintrag (Pflicht, fast|full|slow): fast = nur fast, full = fast + full
 //              (alles ausser slow), slow = nur slow, alles = alle (Standard). Fehlt das Feld oder ist der Wert ungueltig:
 //              Abbruch vor dem Start, Exit 2. Kombinierbar mit --kette, --nur, --parallel/--seriell.
+//   --lastfaktor  Faktor auf budget_s im Parallelmodus (Standard 4; seriell immer 1)
+//   --grenze-aus  harte Grenze der Stufe (grenzen in testliste.json) nicht pruefen (Fehlersuche)
 //   --trocken  nur die Auswahl listen (Zahl je Stufe), nichts starten, keine Ausgabedatei, Exit 0
 //   --timeout  je Schritt in Sekunden (Standard 1800)
 //   --ausgabe  Ergebnis-JSON (Standard tools/fixtures/testzeiten/lauf-<Zeitstempel>.json)
 //   --liste    andere Testliste (Standard tools/testliste.json)
 // Kein Abbruch beim ersten roten Schritt; Gesamt-Exit 1 bei irgendeinem Roten oder Timeout.
+// Exit-Codes: 0 alles gruen; 1 rote Schritte, Timeout oder Abbruch; 2 Aufruf/Liste ungueltig oder Datei in tools/ ohne Eintrag (siehe unten);
+//   3 nur die harte Grenze der Stufe (Wandzeit, Parallelmodus) ueberschritten, alle Schritte gruen.
+// Zeitbudget: Feld "budget_s" je Schritt (abgeleitet mit tools/testliste-budgets.js). Ueberschreitungen stehen nach dem Lauf im Abschnitt
+//   "Zeitbudget ueberschritten" und im JSON (budget_ueberschritten); sie aendern den Exit-Code nicht. Parallel gilt budget_s x --lastfaktor.
+// Harte Grenze: testliste.json "grenzen" je Stufe (fast, full, slow, alles) in Sekunden Wandzeit, nur im Parallelmodus; Exit 3, wenn ueberschritten.
+// Pflichtpruefung beim Start (nicht mit --liste): jede tools/test-*.js, mutation-*.js, check-*.js|mjs steht in einem cmd der Liste oder unter
+//   "ausgenommen" (datei + grund); sonst Exit 2.
 // Optionales Feld je Listeneintrag: "seriell": true -> der Schritt laeuft im Parallelmodus erst nach dem Pool, allein
 //   (kein anderer Schritt gleichzeitig). Gesetzt bei test-abenteuer und -kanon (spawnSync-Timeouts reissen bei ueberbuchter CPU).
 //   --stufe aendert daran nichts: die Markierung gilt unabhaengig von der Stufe.
@@ -27,9 +36,19 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const io = require('./testliste-io');
 
 const WURZEL = path.join(__dirname, '..');
 const ENDE_BYTES = 2048;
+const PFLICHT_MUSTER = /^(test|mutation|check)-.*.m?js$/;   // Dateien in tools/, die einen Eintrag oder eine Ausnahme brauchen
+
+// Dateien in tools/ nach PFLICHT_MUSTER, die weder in einem cmd der Schritte noch unter "ausgenommen" stehen
+function ohneEintrag(doc) {
+  const bekannt = new Set();
+  for (const e of doc.schritte) if (e.cmd && e.cmd[0]) bekannt.add(path.basename(e.cmd[0]));
+  for (const a of doc.ausgenommen) bekannt.add(path.basename(a.datei || ''));
+  return fs.readdirSync(__dirname).filter(f => PFLICHT_MUSTER.test(f) && !bekannt.has(f)).sort();
+}
 
 function argWert(name, std) {
   const i = process.argv.indexOf(name);
@@ -103,11 +122,23 @@ function baselineDauern() {
 async function main() {
   const parallel = process.argv.includes('--parallel');
   if (!parallel && !process.argv.includes('--seriell')) {
-    console.error('Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur ids] [--kette check|test] [--stufe fast|full|slow|alles] [--trocken] [--timeout s] [--ausgabe datei] [--liste datei]');
+    console.error('Aufruf: node tools/run-tests.js --seriell|--parallel [--worker N] [--nur ids] [--kette check|test] [--stufe fast|full|slow|alles] [--trocken] [--lastfaktor n] [--grenze-aus] [--timeout s] [--ausgabe datei] [--liste datei]');
     process.exit(2);
   }
   const listeDatei = path.resolve(argWert('--liste', path.join(__dirname, 'testliste.json')));
-  let liste = JSON.parse(fs.readFileSync(listeDatei, 'utf8'));
+  const listeDoc = io.lesen(listeDatei);
+  let liste = listeDoc.schritte;
+  if (!argWert('--liste', null)) {
+    const fehlend = ohneEintrag(listeDoc);
+    const schlecht = listeDoc.ausgenommen.filter(a => !a.datei || !a.grund);
+    if (fehlend.length || schlecht.length) {
+      if (fehlend.length) console.error('Testliste unvollstaendig: ' + fehlend.length + ' Datei(en) in tools/ ohne Eintrag:\n  ' + fehlend.map(f => 'tools/' + f).join('\n  ')
+        + '\nEntweder einen Schritt mit "stufe" (fast|full|slow) in tools/testliste.json anlegen (Budget danach mit node tools/testliste-budgets.js)'
+        + ' oder die Datei unter "ausgenommen" mit Grund eintragen (z. B. Mutationsprobe auf Abruf, Live-Test).');
+      if (schlecht.length) console.error('Eintraege unter "ausgenommen" brauchen "datei" und "grund": ' + JSON.stringify(schlecht.slice(0, 5)));
+      process.exit(2);
+    }
+  }
   const STUFEN = ['fast', 'full', 'slow'];
   const ungueltig = liste.filter(e => !STUFEN.includes(e.stufe));
   if (ungueltig.length) {
@@ -135,6 +166,9 @@ async function main() {
     process.exit(0);
   }
   const timeoutS = Number(argWert('--timeout', 1800));
+  const lastfaktor = parallel ? Number(argWert('--lastfaktor', 4)) : 1;
+  if (!(lastfaktor > 0)) { console.error('Ungueltiger --lastfaktor'); process.exit(2); }
+  const grenzeS = parallel && !process.argv.includes('--grenze-aus') && Number(listeDoc.grenzen[stufe]) > 0 ? Number(listeDoc.grenzen[stufe]) : null;
   const worker = parallel ? Math.max(1, Math.floor(Number(argWert('--worker', Math.max(1, os.cpus().length - 4)))) || 1) : 1;
   const jetzt = new Date();
   const ausgabe = path.resolve(argWert('--ausgabe', path.join(__dirname, 'fixtures', 'testzeiten', 'lauf-' + stempel(jetzt) + '.json')));
@@ -144,6 +178,7 @@ async function main() {
   const doc = {
     datum: jetzt.toISOString(), node: process.version, kerne: os.cpus().length, modus: parallel ? 'parallel' : 'seriell', stufe, kette: kette || null,
     git: git.status === 0 ? git.stdout.trim() : null, timeout_s: timeoutS, schritte_gesamt: liste.length,
+    lastfaktor, grenze_s: grenzeS,
     fertig: false, gesamtdauer_s: 0, schritte: [],
   };
   if (parallel) doc.worker = worker;
@@ -216,6 +251,15 @@ async function main() {
   doc.gesamtdauer_s = Math.round((Date.now() - t0) / 10) / 100;
   schreiben();
 
+  // Zeitbudget (nur Hinweis) und harte Grenze
+  const budgets = new Map(liste.map(e => [e.id, e.budget_s]));
+  doc.budget_ueberschritten = doc.schritte.filter(s => budgets.get(s.id) > 0 && s.dauer_s > budgets.get(s.id) * lastfaktor)
+    .map(s => ({ id: s.id, dauer_s: s.dauer_s, budget_s: budgets.get(s.id), grenze_s: Math.round(budgets.get(s.id) * lastfaktor * 10) / 10,
+      faktor: Math.round(s.dauer_s / (budgets.get(s.id) * lastfaktor) * 100) / 100 }))
+    .sort((a, b) => b.faktor - a.faktor);
+  doc.grenze_ueberschritten = !!(grenzeS && !abbruch && doc.gesamtdauer_s > grenzeS);
+  schreiben();
+
   const gruen = doc.schritte.filter(s => s.exit === 0 && !s.timeout).length;
   const tout = doc.schritte.filter(s => s.timeout).length;
   const rot = doc.schritte.length - gruen - tout;
@@ -225,10 +269,17 @@ async function main() {
   doc.schritte.slice().sort((a, b) => b.dauer_s - a.dauer_s).slice(0, 15)
     .forEach(s => console.log('  ' + s.dauer_s.toFixed(1).padStart(8) + ' s  ' + s.id));
   console.log('Gesamtdauer: ' + doc.gesamtdauer_s.toFixed(1) + ' s');
+  if (doc.budget_ueberschritten.length) {
+    console.log('\nZeitbudget ueberschritten (' + doc.budget_ueberschritten.length + ', nur Hinweis' + (parallel ? '; Budget x ' + lastfaktor + ' Last' : '') + '):');
+    for (const b of doc.budget_ueberschritten) console.log('  ' + b.id + '  ' + b.dauer_s.toFixed(1) + ' s  Budget ' + b.grenze_s + ' s' + (parallel ? ' (' + b.budget_s + ' x ' + lastfaktor + ')' : '') + '  Faktor ' + b.faktor.toFixed(2));
+  }
+  const ohneBudget = liste.filter(e => !(e.budget_s > 0)).length;
+  if (ohneBudget) console.log('Ohne budget_s: ' + ohneBudget + ' Schritt(e) (node tools/testliste-budgets.js --aus <serieller Lauf>)');
   const rote = doc.schritte.filter(s => s.exit !== 0 || s.timeout);
   if (rote.length) console.log('Rot/Timeout: ' + rote.map(s => s.id).join('; '));
+  if (doc.grenze_ueberschritten) console.log('\nHARTE GRENZE UEBERSCHRITTEN: Stufe ' + stufe + ' brauchte ' + doc.gesamtdauer_s.toFixed(1) + ' s, erlaubt sind ' + grenzeS + ' s (Wandzeit, parallel). Exit 3.');
   console.log('Ergebnis: ' + ausgabe);
-  process.exit(rote.length || abbruch ? 1 : 0);
+  process.exit(rote.length || abbruch ? 1 : doc.grenze_ueberschritten ? 3 : 0);
 }
 
 main().catch(e => { console.error(e); process.exit(2); });
