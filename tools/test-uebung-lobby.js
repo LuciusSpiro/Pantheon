@@ -9,14 +9,14 @@
 //   Beide: gehen beim Landepunkt hinunter (Außenteam) und wieder hoch. Beide schießen am Boden (Waffenprobe).
 //
 // Abschnitte und Abnahmekriterien:
-//   Start             Menümodus: phase play, Karte sund, Schritt gravimetrie am Helix, 2 Spieler an Bord, Marken = werft.testmarken, keine Kette
+//   Start             Menümodus: phase play, Karte sund, Schritt gravimetrie am Helix, 2 Spieler an Bord, Marken wie im Kapitel-7-Einstieg (nicht werft.testmarken), Werft nicht aktiv, keine Anflug-Ansage, keine Kette
 //   Durchlauf         bis zum Szenenende (done/erfolg, Meldung genau einmal); Waffe jedes Außenteam-Spielers nutzbar (Standardwaffe)
 //   Weltstand         g.weltstand nicht persistent, worldDir unverändert (Tempverzeichnis), kein Lock, keine neue Datei im Weltstand-Verzeichnis
 //   Verlust           alle Außenteam-Spieler verwundet -> done/verloren -> Engine holt hoch -> Szene von vorn im Schritt gravimetrie
 //   Fallback 30 s     Spieler bleiben künstlich zone away/downed: Neustart kommt erst nach NEUSTART_MAX_WARTEN (30 s) und holt sie an Bord
 //   Kapitel 7         Vergleich mit dem Referenzweg schuld_der_lerche -> kette.einstieg('k7_geld') -> kette.szeneStarten('sl_forschung')
 //                     (dort mit debugGoto('helix') + forceStep('gravimetrie')). Verglichene Größen: aktives Buch, Schritt, Kante Pulverhorn->Helix
-//                     (explore.tempKante), Zahl der Spieler an Bord, Schiffsszene und Abstand zum Gravimetrie-Start, Szene-Zonen (ZonenSim.szeneZonen,
+//                     (Kante nur bewusst abweichend, s. u.), Marken, Werft-Status, Zahl der Spieler an Bord, Schiffsszene und Abstand zum Gravimetrie-Start, Szene-Zonen (ZonenSim.szeneZonen,
 //                     Id-Liste), Zonen/Landepunkt unbekannt. EHRLICH: Das Buch liest keine Kette-Flags (Erkundung: keine Voraussetzungen). Der
 //                     Vergleich beweist den gleichen Szenenverlauf, NICHT gleiche Flags.
 //   g.errors          in allen Läufen 0.
@@ -40,6 +40,10 @@ const Monster = require('../server/sim/monster.js');
 const ZonenSim = require('../server/sim/zonen.js');
 const Lpscan = require('../server/sim/lpscan.js');
 const Wf = require('../server/sim/waffen.js');
+const Kampagne = require('../server/mission/kampagne.js');
+const Werft = require('../server/sim/werft.js');
+const ANFLUG_ANSAGE = (t) => /Forschungsstation Helix hinter Pulverhorn/.test(t);
+const k7Marken = () => Kampagne.laden('schuld-der-lerche').kapitel.find((c) => c.id === 'k7_geld').einstieg.marken;
 
 const DT = 1 / CONFIG.tickHz;
 const MODUS = 'arena_forschung';
@@ -67,8 +71,8 @@ function lobbySpiel(modus, np, name) {
     if (i === 0) g.handleMessage(c, { t: 'lobbyOpt', startMission: modus });
     cs.push(c);
   }
+  const odas = []; const o0 = g.oda.bind(g); g.oda = (t, x) => { odas.push(String(t)); return o0(t, x); };   // Mitschnitt VOR dem Start: auch die Meldungen von Start und Neustart gehören dazu
   for (const c of cs) g.handleMessage(c, { t: 'ready', ready: true });
-  const odas = []; const o0 = g.oda.bind(g); g.oda = (t, x) => { odas.push(String(t)); return o0(t, x); };
   const run = (sec, each) => { for (let k = 0; k < Math.round(sec / DT); k++) { if (each && each(k * DT) === true) return true; g.step(); } return false; };
   const T = { g, cs, run, odas, wd };
   T.cmd = (i, cmd, f) => { cs[i].inbox.length = 0; g.handleMessage(cs[i], Object.assign({ t: 'cmd', c: cmd }, f || {})); return cs[i].inbox.filter((m) => m.kind === 'notice').map((m) => m.text); };
@@ -103,7 +107,7 @@ const an = (g, p) => p.zone === 'ship';
 function vergleichsgroessen(g) {
   const gv = gvOrt();
   return {
-    buch: g.mission.activeId, schritt: lbl(g), kante: JSON.stringify(g.explore.tempKante(Sektoren.kanteId('0605', '0506')) || null),
+    buch: g.mission.activeId, schritt: lbl(g),
     szene: g.ship.scene, anBord: g.players.filter((p) => an(g, p)).length,
     abstandStart: Math.hypot(g.ship.x - gv.start.x, g.ship.y - gv.start.y),
     zonen: ZonenSim.szeneZonen(g).map((z) => z.id).sort().join(','),
@@ -122,9 +126,13 @@ section('Start (Menümodus, 2 Spieler)', () => {
   const gv = gvOrt();
   ok(Math.abs(g.ship.x - gv.start.x) < 40 && Math.abs(g.ship.y - gv.start.y) < 40, 'Schiff am Start der Gravimetrie');
   ok(g.players.length === 2 && g.players.every((p) => an(g, p)), 'beide Spieler an Bord');
-  ok(g.inventory.marks === g.C.werft.testmarken && g.C.werft.testmarken > 0, 'Marken = C.werft.testmarken (' + g.inventory.marks + ')');
+  const k7 = k7Marken();   // eine Quelle: Kapitel-7-Einstieg
+  ok(Number.isFinite(k7) && g.inventory.marks === k7 && k7 !== g.C.werft.testmarken, 'Marken = Einstieg k7_geld (' + g.inventory.marks + '), nicht Testmarken ' + g.C.werft.testmarken);
+  ok(Werft.status(g).aktiv === false && !Werft.status(g).test, 'Werft nicht aktiv (keine Testumgebung): ' + Werft.status(g).grund);
+  ok(!T.odas.some(ANFLUG_ANSAGE), 'Start: keine Anflug-Ansage "Ziel: Forschungsstation Helix hinter Pulverhorn" (' + T.odas.length + ' ODA-Meldungen seit dem Start mitgeschnitten)');
+  ok(T.odas.some((t) => /Übung Forschungsstation: Gravimetrie/.test(t)), 'Mitschnitt reicht bis zur Startmeldung zurück (sonst wäre die Prüfung wertlos)');
+  ok(!kanteOffen(g), 'Kante Pulverhorn -> Helix NICHT geöffnet (die Gravimetrie braucht sie nicht)');
   ok(!g.mission.kette, 'keine Kampagnenkette (mission.kette ' + g.mission.kette + ')');
-  ok(kanteOffen(g), 'Kante Pulverhorn -> Helix offen');
   ok(g.errors === 0, 'g.errors 0 (' + g.errors + ')');
   Welt.waehle(g, 'limes');
 });
@@ -278,6 +286,9 @@ section('Verlustpfad über den Lobby-Weg', () => {
     ok(verloren && ms.ausgang === 'verloren' && beide, 'alle am Boden (verwundet): Mission done/verloren (' + (ms && ms.ausgang) + ', beide liegen verwundet am Boden: ' + beide + ')');
     const neu = T.run(40, () => g.arena.forschung.versuch === 2);
     ok(neu, 'Neustart nach dem Hochholen durch die Engine (Versuch ' + g.arena.forschung.versuch + ')');
+    ok(!T.odas.some(ANFLUG_ANSAGE), 'Start und Neustart: keine Anflug-Ansage "Ziel: Forschungsstation Helix hinter Pulverhorn"');
+    ok(T.odas.some((t) => /Szene von vorn/.test(t)), 'Mitschnitt enthält die Neustart-Meldung');
+    ok(g.inventory.marks === k7Marken() && !Werft.status(g).aktiv, 'Neustart: Marken wieder auf dem Startwert, Werft nicht aktiv');
     T.run(0.2);
     ok(m.activeId === 'sl_forschung' && lbl(g) === 'gravimetrie' && g.ship.scene === 'helix', 'Szene von vorn: Schritt gravimetrie am Helix (' + lbl(g) + ')');
     ok(g.players.every((p) => p.zone === 'ship' && !p.downed && p.hp > 0), 'Team an Bord und aufrecht');
@@ -341,7 +352,13 @@ section('Gleicher Verlauf wie über Kapitel 7', () => {
     const kap = vergleichsgroessen(g);
     ok(kap.buch === direkt.buch && direkt.buch === 'sl_forschung', 'aktives Buch gleich: ' + kap.buch);
     ok(kap.schritt === direkt.schritt, 'Schritt gleich: ' + kap.schritt);
-    ok(kap.kante === direkt.kante && direkt.kante !== 'null', 'Kante Pulverhorn->Helix gleich offen (tempKante ' + kap.kante + ')');
+    // BEWUSST ANDERS: Auf der Kapitelseite läuft der enter von "auftrag" (Anflug-Ansage, Kante Pulverhorn->Helix offen); der Direktstart überspringt
+    // ihn, die Gravimetrie braucht weder Ansage noch Kante. Verglichen werden nur Größen, die beide Wege wirklich gleich herstellen.
+    ok(kanteOffen(g) && !kanteOffen(dg), 'bewusst abweichend: Kante Pulverhorn->Helix nur auf der Kapitelseite offen');
+    ok(!D.odas.some(ANFLUG_ANSAGE) && K.odas.some(ANFLUG_ANSAGE), 'bewusst abweichend: Anflug-Ansage nur auf der Kapitelseite');
+    // Marken: nur der Direktstart wird gegen den Einstiegswert geprüft; die Kapitelseite hat danach szeneStarten/debugGoto/Ankunft durchlaufen (Erstbesuchs- und Kettenmarken), das ist kein Szenenzustand
+    ok(dg.inventory.marks === k7Marken(), 'Marken des Direktstarts = Einstieg k7_geld (' + dg.inventory.marks + ')');
+    ok(!Werft.status(dg).aktiv && !Werft.status(g).aktiv, 'Werft auf beiden Seiten nicht aktiv (abgedockt)');
     ok(kap.anBord === direkt.anBord && direkt.anBord === 2, 'Spieler an Bord gleich: ' + kap.anBord);
     ok(kap.szene === direkt.szene, 'Schiffsszene gleich: ' + kap.szene);
     ok(kap.zonen === direkt.zonen, 'Szene-Zonen gleich (' + kap.zonen + ' | ' + direkt.zonen + ')');

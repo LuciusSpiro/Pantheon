@@ -23,6 +23,8 @@ const KINDS = ['arena_space', 'arena_away', 'arena_graben', 'arena_forschung'];
 const ENEMY_NAMES = { raider: 'Jäger', korvette: 'Korvette', fregatte: 'Fregatte', kreuzer: 'Kreuzer', sentinel: 'Kustoden-Wächter', pylon: 'Pylon', relay: 'Störrelais' };
 
 function isArena(kind) { return KINDS.includes(kind); }
+// Übungsszenen sind Testgelände-Modi, aber KEINE Testumgebung: kein Testgeld, Werft nur wie in der Kampagne (angedockt an Flottenbasen)
+function istUebungsszene(kind) { return kind === 'arena_forschung'; }
 function cfg(game) { return game.C.arena; }
 
 // opts.wellen = Kartenwahl (Protocol.WELLEN_KARTEN) -> Bodenkampf: Wellen; ohne: Altweg (Kesh/m3-Hof bzw. statische Karte)
@@ -358,4 +360,4 @@ function wellenZiel(game) {
 }
 function wellenSnap(game) { return game.arena && game.arena.wellen ? require('./wellen.js').snap(game) : null; }
 
-module.exports = { KINDS, TAG, isArena, start, update, objectiveText, skipWave, spawnWave, besideConsole, placeOnBridge, repairShip, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };
+module.exports = { KINDS, TAG, isArena, istUebungsszene, start, update, objectiveText, skipWave, spawnWave, besideConsole, placeOnBridge, repairShip, wellenSnap, KARTEN_WELLEN, szenen, szeneDef };
