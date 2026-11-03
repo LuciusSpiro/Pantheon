@@ -1,6 +1,6 @@
 'use strict';
 // TEL-01 D2: Test des Vergleichs (tools/vergleich.js, tools/auswertung/vergleich.js, bewertung.js: unterschiedGruppen, vergleichSeiten).
-//   1. Kerbenregel nach McGill mit von Hand gerechneten Grenzfaellen: drinnen/draussen, sqrt(n), Mindestmenge, n < 4, IQR der groesseren Gruppe, Symmetrie, determ: false.
+//   1. Kerbenregel nach McGill mit von Hand gerechneten Grenzfaellen: drinnen/draussen, sqrt(n), Mindestmenge, n < 4, IQR = max(IQR_A, IQR_B), Symmetrie, determ: false.
 //   2. Bewertung der drei Faelle (Lauf/Lauf, Lauf/Gruppe, Gruppe/Gruppe): Lauf-Faelle liefern genau das, was die vorhandene Bewertung (abweichungen, abweichungGegenBasisGruppe) liefert;
 //      summe: true = fehlender Wert 0 (auch bei Lauf/Lauf), Quoten fehlen einfach, Technik (determ: false) nie.
 //   3. Gruppen aus Ordnern und --filter (Build, Quelle, Modus, Spielerzahl): ein echter kleiner Bot-Lauf als Vorlage, Kopien mit geaendertem Kopf; gemischte Gruppe mit Warnung, Fehlerlauf ausgeschlossen, Tuning-Diff (Pfade).
@@ -59,9 +59,24 @@ async function main() {
   gleich(urteil(st(3, 50, 0), st(8, 90, 0)), 'zuwenig', 'A mit n 3: zu wenig Laeufe (kein Urteil, trotz grossem Abstand)');
   gleich(urteil(st(8, 50, 0), st(3, 90, 0)), 'zuwenig', 'B mit n 3: zu wenig Laeufe');
   gleich(urteil(st(4, 50, 0), st(4, 90, 0)), 'wesentlich', 'n 4 je Seite genuegt');
-  // IQR der Gruppe mit mehr Laeufen: A n = 12, IQR 4; B n = 5, IQR 40. Mit IQR A: Kerbe 4,65 -> Abstand 10 wesentlich; mit der groesseren IQR (40) waere es gleich
-  gleich(urteil(st(12, 50, 4), st(5, 60, 40)), 'wesentlich', 'IQR der Gruppe mit mehr Laeufen (A, 4): Abstand 10 > Kerbe 4,65');
-  gleich(urteil(st(5, 60, 40), st(12, 50, 4)), 'wesentlich', 'dasselbe mit vertauschten Seiten (symmetrisch)');
+  // D2-Nacharbeit K1: IQR = max(IQR_A, IQR_B), nicht die der Gruppe mit mehr Laeufen. A n = 12, IQR 4; B n = 5, IQR 40: Kerbe = 1,58 x 40 x (1/sqrt(12) + 1/sqrt(5)) = 46,51
+  ok(Math.abs(Bewertung.unterschiedGruppen(st(12, 50, 4), st(5, 60, 40), INFO_Q).kerbe - 46.51) < 0.01, 'IQR = max(IQR_A, IQR_B): Kerbe 1,58 x 40 x (1/sqrt(12) + 1/sqrt(5)) = 46,51');
+  gleich(urteil(st(12, 50, 4), st(5, 60, 40)), 'gleich', 'kleine, stark streuende Seite B (IQR 40, n 5): Abstand 10 < Kerbe 46,5: gleich (mit der IQR der groesseren Gruppe waere es wesentlich)');
+  gleich(urteil(st(5, 60, 40), st(12, 50, 4)), 'gleich', 'dasselbe mit vertauschten Seiten (symmetrisch)');
+  gleich(urteil(st(12, 50, 4), st(5, 96, 40)), 'gleich', 'Abstand 46 knapp unter der Kerbe 46,51: gleich');
+  gleich(urteil(st(12, 50, 4), st(5, 97, 40)), 'wesentlich', 'Abstand 47 knapp ueber der Kerbe 46,51: wesentlich');
+  gleich(urteil(st(5, 97, 40), st(12, 50, 4)), 'wesentlich', 'Abstand 47, Seiten vertauscht: wesentlich');
+  // R5: genau auf der Grenze (Abstand = Kerbe) ist NICHT wesentlich (> statt >=). A: IQR 20, Median 0; B: IQR 0, Median = Kerbe; n 4 und 4: Kerbe = 1,58 x 20 x (1/2 + 1/2)
+  {
+    const A = [4, -10, -10, 0, 10, 10];
+    const kerbe = Bewertung.unterschiedGruppen(A, [4, 0, 0, 0, 0, 0], INFO_Q).kerbe;
+    ok(kerbe >= INFO_Q.min, 'Vorbedingung Grenzfall: Kerbe ' + kerbe + ' >= Mindestmenge ' + INFO_Q.min);
+    const B = [4, kerbe, kerbe, kerbe, kerbe, kerbe];
+    const u = Bewertung.unterschiedGruppen(A, B, INFO_Q);
+    ok(u.diff === u.kerbe, 'Grenzfall: Abstand = Kerbe (' + u.diff + ')');
+    gleich(u.urteil, 'gleich', 'Abstand genau gleich der Kerbe: nicht wesentlich (> statt >=)');
+    gleich(Bewertung.unterschiedGruppen(A, [4, kerbe + 0.001, kerbe + 0.001, kerbe + 0.001, kerbe + 0.001, kerbe + 0.001], INFO_Q).urteil, 'wesentlich', 'knapp ueber der Kerbe: wesentlich');
+  }
   gleich(urteil(st(8, 50, 4), st(8, 60, 40)), 'gleich', 'gleiches n: die groessere IQR (40) gilt, Kerbe 44,7: gleich');
   const sym = [Bewertung.unterschiedGruppen(st(9, 50, 6), st(5, 70, 3), INFO_Q), Bewertung.unterschiedGruppen(st(5, 70, 3), st(9, 50, 6), INFO_Q)];
   ok(sym[0].urteil === sym[1].urteil && sym[0].kerbe === sym[1].kerbe && sym[0].diff === sym[1].diff, 'Symmetrie: A,B = B,A');
@@ -123,6 +138,11 @@ async function main() {
     zeilen[0] = JSON.stringify(kopf);
     text = zeilen.join('\n');
     if (opt && opt.ohneEnde) text = text.replace(/\n[^\n]*"typ":"session_ende"[^\n]*\n?$/, '\n');
+    if (opt && (opt.endeGrund || opt.dauerFaktor)) {   // session_ende: grund setzen / alle Zeiten der Session (kopf und session_ende .dauer) dehnen
+      const zz = text.split(String.fromCharCode(10));
+      for (let k = 0; k < zz.length; k++) { if (!zz[k].includes('"typ":"session_ende"')) continue; const e = JSON.parse(zz[k]); if (opt.endeGrund) e.grund = opt.endeGrund; if (opt.dauerFaktor) e.dauer = e.dauer * opt.dauerFaktor; zz[k] = JSON.stringify(e); }
+      text = zz.join(String.fromCharCode(10));
+    }
     fs.writeFileSync(path.join(dir, kennung + '.jsonl'), text);
   }
   const COMMIT_A = 'aaaa111111111111111111111111111111111111', COMMIT_B = 'bbbb222222222222222222222222222222222222';
@@ -191,6 +211,34 @@ async function main() {
   gleich(pf.map((e) => e.pfad + '|' + e.a + '|' + e.b), ['config: a.b|1|2', 'config: a.c[1]|2|3', 'x.json: z|(fehlt)|2'], 'tuningPfade: Zahl, Listenelement, neuer Schluessel');
   const tz = Vergleich.vergleichen(Object.assign({}, fa.a, { tuning: [['1111111111111111', 4]] }), Object.assign({}, fa.b, { tuning: [['2222222222222222', 3]] }), { tuningLaden: () => null });
   ok(/Tuning-Datei nicht gefunden/.test(tz.text), 'Tuning-Datei nicht auffindbar: Hinweis statt Absturz');
+
+  // D2-Nacharbeit: Fehlerlauf prozessende, Menschen-Session ohne Ende, gemischte Quellen/Tuning-Staende, am_limit bei Ordner-Gruppen
+  {
+    const H = path.join(TMP, 'h');
+    for (let i = 1; i <= 4; i++) kopie(H, 'run-t-h' + i, { commit: COMMIT_A, seed: i });
+    kopie(H, 'run-t-hp', { commit: COMMIT_A, seed: 9 }, { endeGrund: 'prozessende' });                           // Bot, vom Prozessende abgebrochen: Fehlerlauf
+    const rh = V.vergleichen(H, H, {});
+    gleich([rh.a.n, rh.a.fehlerlaeufe.length], [4, 1], 'Bot-Lauf mit grund prozessende: Fehlerlauf, geht nicht in die Gruppe (4 Laeufe, 1 ausgeschlossen)');
+    ok(/Fehlerlauf ausgeschlossen: run-t-hp \(Prozess abgebrochen/.test(rh.text), 'der Fehlerlauf prozessende steht mit Grund im Bericht');
+    const HM = path.join(TMP, 'hm');
+    for (let i = 1; i <= 3; i++) kopie(HM, 'run-t-hm' + i, { commit: COMMIT_A, seed: i });
+    kopie(HM, 'run-t-hmm', { commit: COMMIT_A, seed: 8, quelle: 'mensch' }, { ohneEnde: true });                   // Mensch, noch ohne session_ende: kein Fehlerlauf
+    const rm = V.vergleichen(HM, HM, {});
+    gleich([rm.a.n, rm.a.fehlerlaeufe.length], [4, 0], 'Menschen-Session ohne session_ende ist kein Fehlerlauf (nur Bot-Laeufe werden so ausgeschlossen)');
+    ok(rm.a.warnungen.some((w) => /gemischte Quellen/.test(w) && /bot/.test(w) && /mensch/.test(w)), 'Mensch und Bot in einer Gruppe: Warnung "gemischte Quellen"');
+    const HT = path.join(TMP, 'ht');
+    for (let i = 1; i <= 3; i++) kopie(HT, 'run-t-ht' + i, { commit: COMMIT_A, seed: i });
+    kopie(HT, 'run-t-htx', { commit: COMMIT_A, seed: 8, tuning_hash: 'abcdef0123456789' });
+    const rt = V.vergleichen(HT, HT, {});
+    ok(rt.a.warnungen.some((w) => /gemischte Tuning-Staende/.test(w) && /--filter tuning=/.test(w)), 'zwei Tuning-Staende in einer Gruppe: Warnung "gemischte Tuning-Staende" mit Hinweis auf --filter tuning=');
+    ok(!rh.a.warnungen.some((w) => /gemischte (Quellen|Tuning)/.test(w)), 'eine einheitliche Gruppe: keine Mischungswarnung');
+    // am_limit: alle Laeufe gleich lang (Kopien einer Vorlage, mindestens 3): Hinweis im Kopf auch bei Ordner-Gruppen
+    ok(!!rh.a.amLimit && rh.a.gruppe.am_limit === true && /alle Läufe am Zeitlimit/.test(rh.text), 'Ordner-Gruppe, alle Laeufe gleich lang: Hinweis "am Zeitlimit" im Kopf');
+    const HL = path.join(TMP, 'hl');
+    for (let i = 1; i <= 4; i++) kopie(HL, 'run-t-hl' + i, { commit: COMMIT_A, seed: i }, { dauerFaktor: 1 + 0.2 * i });
+    const rl = V.vergleichen(HL, HL, {});
+    ok(!rl.a.amLimit && !/alle Läufe am Zeitlimit/.test(rl.text), 'verschieden lange Laeufe: kein Hinweis "am Zeitlimit"');
+  }
 
   // einzelne Dateien und Kennzahlen-JSON
   const ll1 = V.vergleichen(path.join(F, 'run-t-a1.jsonl'), path.join(F, 'run-t-a2.jsonl'), {});
@@ -272,6 +320,102 @@ async function main() {
   const sWenig = Vergleich.seiteAusLaeufen('wenig', [0, 1, 2, 3].map((i) => ({ kz: Object.assign(JSON.parse(JSON.stringify(kzBasis)), { kopf: Object.assign({}, kzBasis.kopf, { seed: i }) }) })));
   const rViele = Vergleich.vergleichen(sWenig, sViele, {});
   ok(rViele.wesentlich > 40 && rViele.text.split('\n').length <= 65 && /weitere wesentliche Abweichungen/.test(rViele.text), 'sehr viele wesentliche Abweichungen (' + rViele.wesentlich + '): Standardausgabe bleibt bei etwa 60 Zeilen und nennt den Rest');
+
+  // ===================== 4b. D2-Nacharbeit: Tabelle, Quellen, Version, Wenig-Laeufe-Hinweise, Tuning ohne Befund, ein Lauf, Nullzeilen =====================
+  section('4b. Nacharbeit: Summen als 0, Richtung, Zeilenkappung, Quellen, Version, wenige Laeufe, Tuning ohne Befund, ein Lauf, konstant 0');
+  const ohne = (o, pfad) => { const t = pfad.split('.'); let c = o; for (let i = 0; i < t.length - 1; i++) c = c[t[i]]; delete c[t[t.length - 1]]; return o; };
+  const KILLS = 'f2.kills.boden.gesamt';
+  ok(typeof fk[KILLS] === 'number' && infoZu(KILLS).summe === true, 'Vorbedingung: ' + KILLS + ' ist eine Summenkennzahl mit Wert');
+  const ohneKills = () => kopien().map((l) => ({ kz: ohne(l.kz, KILLS), kennung: l.kennung }));
+  // R1: Gruppe gegen Gruppe, in B fehlt die Summe: die Tabelle zeigt 0 [0–0] (nicht "-")
+  const rS = Vergleich.vergleichen(sA, Vergleich.seiteAusLaeufen('B-ohne-kills', ohneKills()), { alle: true });
+  ok(rowOf(rS, KILLS)[2] === '0 [0–0]' && rowOf(rS, KILLS)[5] === '**wesentlich**', 'Gruppe/Gruppe: fehlende Summe steht als "0 [0–0]" in der Tabelle und ist wesentlich (' + rowOf(rS, KILLS).join(' | ') + ')');
+  // R9: Lauf gegen Lauf, in B fehlt die Summe: "0"
+  const rS1 = Vergleich.vergleichen(Vergleich.seiteAusLaeufen('a', [kopien()[2]], { art: 'lauf' }), Vergleich.seiteAusLaeufen('b', [ohneKills()[2]], { art: 'lauf' }), { alle: true });
+  ok(rowOf(rS1, KILLS)[2] === '0' && /^[\d,]+$/.test(rowOf(rS1, KILLS)[1]), 'Lauf/Lauf: fehlende Summe steht als "0" in der Tabelle (' + rowOf(rS1, KILLS).join(' | ') + ')');
+  // R7: Lauf gegen Lauf: A ist die Basis (relative Schwelle bezogen auf A). Quote 50 -> 63: +26 % von A = wesentlich; 63 -> 50: -20,6 % von 63 = nicht
+  const kzq = (q) => kz({ f2: { quote: { boden: { blaster: q } } } });
+  gleich([...Bewertung.vergleichSeiten({ kz: kzq(50) }, { kz: kzq(63) }).wesentlich], ['f2.quote.boden.blaster'], 'Lauf/Lauf: 50 -> 63 (+26 % von A): wesentlich');
+  gleich([...Bewertung.vergleichSeiten({ kz: kzq(63) }, { kz: kzq(50) }).wesentlich], [], 'Lauf/Lauf: 63 -> 50 (-20,6 % von A): nicht wesentlich (A ist die Basis, nicht B)');
+  // R10: Tabellenzeilen werden auf 160 Zeichen gekappt
+  {
+    const gross = (w) => ({ name: 'g' + w, art: 'gruppe', n: 8, fehlerlaeufe: [], tuningTeile: {}, warnungen: [], commits: [], plattformen: [], tuning: [], quellen: ['bot'], ids: ['t'], seeds: [], gruppe: { id: 't', modus: 'x', laeufe: 8, kz: { 'f1.dauer.session': [8, w, w, w, w, w] } } });
+    const rg = Vergleich.vergleichen(gross(123456789012345.67), gross(223456789012345.67), { alle: true });
+    const zl = rg.text.split('\n').filter((l) => l.startsWith('| f1.dauer.session |'));
+    ok(zl.length === 1 && zl[0].length === 160 && zl[0].endsWith('…'), 'Tabellenzeile mit sehr langen Zahlen wird auf 160 Zeichen gekappt und mit … markiert (' + (zl[0] && zl[0].length) + ')');
+    ok(rg.text.split('\n').every((l) => l.length <= 160), 'keine Zeile ueber 160 Zeichen');
+  }
+  // S1: verschiedene Quellen (Mensch gegen Bot) stehen im Kopf, auch ohne basis:, in beiden Richtungen
+  const mensch = () => kopien().map((l) => { l.kz.kopf.quelle = 'mensch'; return l; });
+  const sM = Vergleich.seiteAusLaeufen('M-kopien', mensch());
+  const rMB = Vergleich.vergleichen(sM, sA, {}), rBM = Vergleich.vergleichen(sA, sM, {});
+  ok(/A = Läufe von Menschen, B = Bot-Läufe \(Bots spielen anders als Menschen/.test(rMB.text), 'Mensch gegen Bot ohne basis: Zeile im Kopf (A Mensch, B Bot)');
+  ok(/A = Bot-Läufe, B = Läufe von Menschen \(Bots spielen anders als Menschen/.test(rBM.text), 'Bot gegen Mensch: Zeile im Kopf (Richtung umgekehrt)');
+  ok(!/Bots spielen anders als Menschen/.test(rGleich.text) && !/Bots spielen anders als Menschen/.test(Vergleich.vergleichen(sM, Vergleich.seiteAusLaeufen('M2', mensch()), {}).text), 'gleiche Quelle auf beiden Seiten: keine Zeile');
+  ok(rMB.text.split('\n').every((l) => l.length <= 160), 'die Zeile haelt die 160 Zeichen');
+  // S2: Kennzahl-Version beider Seiten
+  const alt99 = () => kopien().map((l) => { l.kz.version = 99; return l; });
+  const sV = Vergleich.seiteAusLaeufen('B-v99', alt99());
+  gleich(sV.version, 99, 'seiteAusLaeufen: Version aus kz.version');
+  const rV = Vergleich.vergleichen(sA, sV, {});
+  ok(/Hinweis: B hat Kennzahl-Version 99, A 1 – Vergleich nur über gemeinsame Schlüssel/.test(rV.text), 'ungleiche Kennzahl-Version steht im Kopf (' + (rV.text.match(/Hinweis: [AB] hat Kennzahl-Version[^\n]*/) || [''])[0].slice(0, 90) + ')');
+  ok(!/Kennzahl-Version/.test(rGleich.text), 'gleiche Version: kein Hinweis');
+  const basisJ = JSON.parse(fs.readFileSync(path.join(ROOT, 'tools', 'fixtures', 'telemetrie', 'basis-win32-x64.json'), 'utf8'));
+  basisJ.kopf.kennzahl_version = 77;
+  const sBv = Vergleich.seiteAusBasis(basisJ, 'm1/3');
+  gleich(sBv.version, 77, 'seiteAusBasis: Version aus dem Basis-Kopf (kennzahl_version)');
+  ok(/Kennzahl-Version 1, A 77/.test(Vergleich.vergleichen(sBv, Vergleich.seiteAusLaeufen('lauf', [kopien()[0]], { art: 'lauf' }), {}).text), 'Basis mit anderer Kennzahl-Version: Hinweis im Kopf');
+  // K2: wenig Laeufe: Empfehlung 12 je Seite, nur wenn eine Seite n < 12 hat; m3/3 als laute Gruppe
+  ok(/wenig Läufe \(A 6, B 6\): 6 gegen 6 ist schwach, für Balance-Fragen mindestens 12 Läufe je Seite/.test(rGleich.text), 'n 6 gegen 6: Satz "mindestens 12 Laeufe je Seite" im Kopf');
+  const zwoelf = (f) => [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map((i) => { const l = kopien()[i % 6]; l.kz.kopf.seed = 200 + i; if (f) f(l.kz); return l; });
+  ok(!/wenig Läufe|mindestens 12/.test(Vergleich.vergleichen(Vergleich.seiteAusLaeufen('z12a', zwoelf()), Vergleich.seiteAusLaeufen('z12b', zwoelf()), {}).text), 'n 12 gegen 12: kein Satz');
+  ok(/wenig Läufe \(A 12, B 6\)/.test(Vergleich.vergleichen(Vergleich.seiteAusLaeufen('z12a', zwoelf()), sA, {}).text), 'n 12 gegen 6: Satz (eine Seite unter 12)');
+  const m3 = (k) => { k.kopf.modus = 'm3'; k.kopf.szenario = null; k.kopf.spielerzahl = 3; };
+  const rM3 = Vergleich.vergleichen(Vergleich.seiteAusLaeufen('m3a', zwoelf(m3)), Vergleich.seiteAusLaeufen('m3b', zwoelf(m3)), {});
+  ok(/m3\/3 ist eine laute Gruppe/.test(rM3.text) && !/laute Gruppe/.test(rGleich.text), 'm3/3 wird als laute Gruppe gekennzeichnet, andere Gruppen nicht');
+  // K3: Tuning verschieden, nichts wesentlich: ein Satz im Ergebnis
+  const mitTuning = (h) => kopien().map((l) => { l.kz.kopf.tuning_hash = h; return l; });
+  const sT1 = Vergleich.seiteAusLaeufen('T1', mitTuning('1111111111111111')), sT2 = Vergleich.seiteAusLaeufen('T2', mitTuning('2222222222222222'));
+  const tjn = (w) => ({ config: { a: 1 }, werte: { 'x.json': { y: w, z: 5 } } });
+  const rT = Vergleich.vergleichen(sT1, sT2, { tuningLaden: (h) => (h.startsWith('1') ? tjn(1) : tjn(2)) });
+  ok(/Ergebnis:\*\* 0 wesentliche/.test(rT.text) && rT.text.split(String.fromCharCode(10)).map((l) => l.trim()).join(' ').includes('Tuning unterscheidet sich (1 Pfad), aber keine Kennzahl ist wesentlich anders. Bei kleiner Änderung oder zu wenig Läufen ist das kein Beleg für „keine Wirkung“.'), 'Tuning verschieden, nichts wesentlich: der Satz mit der Zahl der Pfade steht im Ergebnis');
+  ok(/Tuning unterscheidet sich \(Pfade nicht lesbar\)/.test(Vergleich.vergleichen(sT1, sT2, {}).text), 'Pfade nicht lesbar: der Satz sagt es');
+  ok(!/Tuning unterscheidet sich/.test(Vergleich.vergleichen(sT1, Vergleich.seiteAusLaeufen('T1b', mitTuning('1111111111111111')), {}).text), 'gleicher Tuning-Stand: kein Satz');
+  const sT3 = Vergleich.seiteAusLaeufen('T3', kopien({ 'f2.quote.boden.blaster': 0.5 }).map((l) => { l.kz.kopf.tuning_hash = '2222222222222222'; return l; }));
+  ok(!/Tuning unterscheidet sich/.test(Vergleich.vergleichen(sT1, sT3, { tuningLaden: (h) => (h.startsWith('1') ? tjn(1) : tjn(2)) }).text), 'wesentliche Abweichung vorhanden: der Satz entfaellt (der Tuning-Diff steht ohnehin im Kopf)');
+  // K4: genau ein Lauf in einem Ordner/Filter = Lauf; 2 oder 3 Laeufe = zu wenig
+  const eins = (n) => Vergleich.seiteAusLaeufen('e' + n, kopien().slice(0, n));
+  gleich([eins(1).art, eins(1).n, eins(2).art, eins(3).art], ['lauf', 1, 'gruppe', 'gruppe'], 'seiteAusLaeufen: 1 Session = Lauf, 2 und 3 = Gruppe');
+  gleich(Vergleich.vergleichen(eins(1), sA, {}).ergebnis.regel, 'lauf-gruppe', 'ein Lauf gegen eine Gruppe: Lauf gegen Gruppe (vorhandene Bewertung)');
+  gleich(Vergleich.vergleichen(sA, eins(1), {}).ergebnis.regel, 'lauf-gruppe', 'Gruppe gegen einen Lauf: ebenso');
+  gleich(Vergleich.vergleichen(eins(1), Vergleich.seiteAusLaeufen('e1b', kopien().slice(3, 4)), {}).ergebnis.regel, 'lauf-lauf', 'ein Lauf gegen einen Lauf: Lauf gegen Lauf');
+  for (const nn of [2, 3]) {
+    const r23 = Vergleich.vergleichen(eins(nn), sA, {});
+    ok(r23.ergebnis.regel === 'gruppe-gruppe' && r23.wesentlich === 0 && r23.zeilen.some((z) => z.zuwenig) && r23.text.includes('zu wenig Läufe (A ' + nn + ', B 6; nötig je Seite 4): kein Urteil, die Tabelle zeigt nur die Zahlen; mindestens 4 je Seite, für Balance 12'), 'n ' + nn + ' gegen 6: zu wenig Laeufe, nichts wesentlich, Hinweis "mindestens 4 je Seite, fuer Balance 12"');
+  }
+  const eOrdner = V.vergleichen(F, F, { filter: 'modus=arena_away', filterA: 'commit=aaaa,seed=1', filterB: 'commit=aaaa' });
+  gleich([eOrdner.a.art, eOrdner.ergebnis.regel], ['lauf', 'lauf-gruppe'], 'Ordner mit --filter auf genau eine Session: Lauf gegen Gruppe');
+  // K5: Kernkennzahlen, die auf beiden Seiten konstant 0 sind, fallen ohne --alle weg; die Fusszeile nennt die Zahl
+  const rNull = Vergleich.vergleichen(sA, sGleich, {}), rNullAlle = Vergleich.vergleichen(sA, sGleich, { alle: true });
+  const kernNull = Vergleich.kernZeilen(rNullAlle.zeilen).filter((z) => z.konstantNull).length;
+  const nullZeile = (t) => t.split('\n').filter((l) => /^\| f\d\S* \| 0 \[0–0\] \| 0 \[0–0\] \|/.test(l));
+  ok(kernNull >= 1, 'Vorbedingung: es gibt Kernkennzahlen, die auf beiden Seiten konstant 0 sind (' + kernNull + ')');
+  ok(Vergleich.kernZeilen(rNull.zeilen, true).every((z) => !z.konstantNull) && nullZeile(rNull.text).length === 0, 'ohne --alle: keine Tabellenzeile mit 0 [0–0] auf beiden Seiten');
+  ok(nullZeile(rNullAlle.text).length >= kernNull, 'mit --alle stehen sie da');
+  ok(rNull.text.includes(kernNull + ' Kernkennzahl' + (kernNull === 1 ? '' : 'en') + ', auf beiden Seiten konstant 0, nicht gezeigt'), 'die Fusszeile nennt die Zahl (' + kernNull + ')');
+  ok(rNull.text.split('\n').length <= 65, 'weiterhin etwa 60 Zeilen');
+  // K5: konstant 0 heisst Median, q1 UND q3 sind 0 (Median 0 mit q3 > 0 ist nicht konstant)
+  {
+    const syn = (name, st) => ({ name, art: 'gruppe', n: 8, fehlerlaeufe: [], tuningTeile: {}, warnungen: [], commits: [], plattformen: [], tuning: [], quellen: ['bot'], ids: ['t'], seeds: [], gruppe: { id: 't', modus: 'x', laeufe: 8, kz: { [KILLS]: st } } });
+    const zeileK = (r) => r.text.split(String.fromCharCode(10)).some((l) => l.startsWith('| ' + KILLS + ' |'));
+    ok(!zeileK(Vergleich.vergleichen(syn('n0a', [8, 0, 0, 0, 0, 0]), syn('n0b', [8, 0, 0, 0, 0, 0]), {})), 'Kernkennzahl mit Median, q1 und q3 = 0 auf beiden Seiten: ohne --alle nicht in der Tabelle');
+    ok(zeileK(Vergleich.vergleichen(syn('n0a', [8, 0, 0, 0, 5, 9]), syn('n0b', [8, 0, 0, 0, 0, 0]), {})), 'Median 0, aber q3 > 0 auf einer Seite: nicht konstant, die Zeile bleibt');
+    ok(zeileK(Vergleich.vergleichen(syn('n0a', [8, 0, 0, 0, 0, 0]), syn('n0b', [8, 0, 0, 0, 0, 0]), { alle: true })), 'mit --alle steht die Nullzeile da');
+  }
+  // Laeufe (Einzelwert 0 auf beiden Seiten) zaehlen ebenso als konstant 0
+  const l0 = (o) => { const k = kopien()[2]; setze(k.kz, 'f2.kills.boden.gesamt', 0); return Vergleich.seiteAusLaeufen(o, [k], { art: 'lauf' }); };
+  const rL0 = Vergleich.vergleichen(l0('l0a'), l0('l0b'), {});
+  ok(!rL0.text.split('\n').some((l) => l.startsWith('| f2.kills.boden.gesamt |')), 'Lauf gegen Lauf: Kernkennzahl 0 auf beiden Seiten faellt weg');
 
   // ===================== 5. Echte Probe =====================
   if (SCHNELL) console.log('\n5. Echte Probe: uebersprungen (AUSWERTUNG_SCHNELL)');

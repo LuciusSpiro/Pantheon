@@ -134,6 +134,8 @@ function seiteAusLaeufen(name, laeufe, opt) {
   if (!gut.length) { seite.leer = true; return seite; }
   const kopfe = gut.map((l) => l.kz.kopf || {});
   Object.assign(seite, beschreibung(kopfe));
+  seite.version = gut[0].kz.version == null ? null : gut[0].kz.version;
+  if (seite.art === 'gruppe' && gut.length === 1) seite.art = 'lauf';   // K4: genau eine Session (Ordner oder Filter) gilt als Lauf: Lauf gegen Lauf bzw. Lauf gegen Gruppe
   if (seite.art === 'lauf') { seite.kz = gut[0].kz; return seite; }
   seite.gruppe = Basis.gruppeBauen(gut.map((l) => ({ seed: l.kz.kopf && l.kz.kopf.seed, kz: l.kz, ausgang: 'ok' })), {});
   seite.warnungen = mischung(gut.map((l) => l.kz));
@@ -149,7 +151,7 @@ function seiteAusBasis(basis, id) {
   return {
     name: 'basis:' + id, art: 'gruppe', n: g.laeufe, fehlerlaeufe: [], tuningTeile: {}, warnungen: [], gruppe: Object.assign({}, g, { id, kopf: basis.kopf }),
     commits: kopf.commit ? [kopf.commit] : [], plattformen: kopf.plattform ? [kopf.plattform] : [], tuning: kopf.tuning_hash ? [[kopf.tuning_hash, 1]] : [], quellen: ['bot'], ids: [id], seeds: g.seeds || [],
-    amLimit: g.am_limit ? Bewertung.amLimitText(g.modus) : null, basis: true, kopfBasis: kopf,
+    amLimit: g.am_limit ? Bewertung.amLimitText(g.modus) : null, basis: true, kopfBasis: kopf, version: num(k.kennzahl_version) ? k.kennzahl_version : null,
   };
 }
 
@@ -173,28 +175,32 @@ function tuningPfade(ja, jb) {
 // Teile (Datei -> Hash) zweier Staende: welche Werte-Dateien (und die Config) sich unterscheiden
 const teileUnterschied = (ta, tb) => [...new Set(Object.keys(ta || {}).concat(Object.keys(tb || {})))].sort().filter((k) => (ta || {})[k] !== (tb || {})[k]);
 
+// Rueckgabe { zeilen, pfade }: pfade = Zahl der abweichenden Tuning-Pfade (null: Hash gleich/unbekannt oder die Werte nicht lesbar), verschieden = true bei verschiedenem Hash
 function tuningZeilen(a, b, opt) {
   const ha = a.tuning && a.tuning[0] ? a.tuning[0][0] : null, hb = b.tuning && b.tuning[0] ? b.tuning[0][0] : null;
   const z = [];
+  const r = { zeilen: z, pfade: null, verschieden: false };
   const mehrere = (s) => (s.tuning && s.tuning.length > 1 ? ' (gemischt: ' + s.tuning.map((e) => String(e[0]).slice(0, 8) + ' x' + e[1]).join(', ') + ')' : '');
-  if (!ha || !hb) { z.push('- Tuning: ' + (ha ? '`' + ha + '`' : 'unbekannt') + ' gegen ' + (hb ? '`' + hb + '`' : 'unbekannt') + ' (kein Tuning-Hash im Kopf, kein Vergleich)'); return z; }
-  if (ha === hb) { z.push('- Tuning: gleich (`' + ha + '`)' + mehrere(a) + mehrere(b)); return z; }
+  if (!ha || !hb) { z.push('- Tuning: ' + (ha ? '`' + ha + '`' : 'unbekannt') + ' gegen ' + (hb ? '`' + hb + '`' : 'unbekannt') + ' (kein Tuning-Hash im Kopf, kein Vergleich)'); return r; }
+  if (ha === hb) { z.push('- Tuning: gleich (`' + ha + '`)' + mehrere(a) + mehrere(b)); return r; }
+  r.verschieden = true;
   z.push('- **Tuning unterschiedlich:** A `' + ha + '`' + mehrere(a) + ', B `' + hb + '`' + mehrere(b) + '. Abweichende Pfade:');
   const laden = opt && opt.tuningLaden;
   const ja = laden ? laden(ha, a) : null, jb = laden ? laden(hb, b) : null;
   if (ja && jb) {
     const p = tuningPfade(ja, jb);
+    r.pfade = p.length;
     for (const e of p.slice(0, TUNING_ZEIGEN)) z.push(...umbruch('  - ' + e.pfad + ': ' + e.a + ' -> ' + e.b, MAX_ZEILE, '      '));
     if (p.length > TUNING_ZEIGEN) z.push('  - ... und ' + (p.length - TUNING_ZEIGEN) + ' weitere' + (p.length >= TUNING_SUCHE_MAX ? ' (mindestens)' : ''));
     if (!p.length) z.push('  - keine Werte-Unterschiede gefunden (Hash unterschiedlich, Dateien gleich)');
-    return z;
+    return r;
   }
   const ta = a.tuningTeile && a.tuningTeile[ha], tb = b.tuningTeile && b.tuningTeile[hb];
   if (ta && tb) {
     const d = teileUnterschied(ta, tb);
     z.push(...umbruch('  - Teile mit anderem Hash: ' + (d.length ? d.join(', ') : '(keine)') + ' (tuning/<hash>.json fehlt, die einzelnen Werte sind nicht lesbar)', MAX_ZEILE, '    '));
   } else z.push('  - Tuning-Datei nicht gefunden (tuning/' + (ja ? hb : ha) + '.json), die Pfade sind nicht lesbar');
-  return z;
+  return r;
 }
 
 // ---------- Differenztabelle ----------
@@ -206,8 +212,8 @@ function wertAn(seite, k, info) {
     return info.summe ? { w: 0, text: '0' } : null;
   }
   const st = (seite.gruppe.kz || {})[k];
-  if (st) return { w: st[3], text: zahl(st[3]) + ' [' + zahl(st[2]) + '–' + zahl(st[4]) + ']', n: st[0] };
-  return info.summe ? { w: 0, text: '0 [0–0]', n: seite.gruppe.laeufe } : null;
+  if (st) return { w: st[3], text: zahl(st[3]) + ' [' + zahl(st[2]) + '–' + zahl(st[4]) + ']', n: st[0], q1: st[2], q3: st[4] };
+  return info.summe ? { w: 0, text: '0 [0–0]', n: seite.gruppe.laeufe, q1: 0, q3: 0 } : null;
 }
 function schluesselVon(seite) { return seite.kz ? Object.keys(flach(seite.kz)) : Object.keys(seite.gruppe.kz || {}); }
 
@@ -224,18 +230,21 @@ function zeilenBauen(a, b, erg) {
     const wesentlich = erg.wesentlich.has(k);
     const schlechter = delta == null || info.richtung === 'neutral' ? false : (info.richtung === 'schlechter' ? delta > 0 : delta < 0);
     const gewicht = !x || !y ? 0 : (x.w === 0 ? Math.abs(delta) / (info.min > 0 ? info.min : 1) : Math.min(Math.abs(delta / x.w), Bewertung.SCORE_MAX));
-    zeilen.push({ k, info, a: x, b: y, delta, rel, wesentlich, zuwenig: erg.zuwenig.has(k), score: gewicht * (schlechter ? Bewertung.SCHLECHTER_FAKTOR : 1) });
+    zeilen.push({ k, info, a: x, b: y, delta, rel, wesentlich, konstantNull: nullSeite(x) && nullSeite(y), zuwenig: erg.zuwenig.has(k), score: gewicht * (schlechter ? Bewertung.SCHLECHTER_FAKTOR : 1) });
   }
   return zeilen;
 }
+// K5: auf einer Seite konstant 0 (Median, q1 und q3 alle 0; ein Lauf: der Wert 0)
+const nullSeite = (x) => !!x && x.w === 0 && (x.q1 == null || x.q1 === 0) && (x.q3 == null || x.q3 === 0);
 const fragenNr = (z) => FRAGEN.indexOf(z.info.frage);
 const nachKey = (p, q) => (p.k < q.k ? -1 : p.k > q.k ? 1 : 0);
 
-function kernZeilen(zeilen) {
+// ohneNull: Kennzahlen, die auf beiden Seiten konstant 0 sind (K5), kommen nicht in die Auswahl
+function kernZeilen(zeilen, ohneNull) {
   const out = [];
   for (const f of FRAGEN) {
     for (const { re, n } of KERN_MUSTER[f]) {
-      const treffer = zeilen.filter((z) => z.info.frage === f && re.test(z.k) && z.a && z.b).sort((p, q) => Math.abs(q.rel == null ? Infinity : q.rel) - Math.abs(p.rel == null ? Infinity : p.rel) || nachKey(p, q));
+      const treffer = zeilen.filter((z) => z.info.frage === f && re.test(z.k) && z.a && z.b && !(ohneNull && z.konstantNull)).sort((p, q) => Math.abs(q.rel == null ? Infinity : q.rel) - Math.abs(p.rel == null ? Infinity : p.rel) || nachKey(p, q));
       for (const z of treffer.slice(0, n)) if (!out.includes(z)) out.push(z);
     }
   }
@@ -281,33 +290,43 @@ function vergleichen(a, b, opt) {
   const erg = Bewertung.vergleichSeiten(a, b);
   const zeilen = zeilenBauen(a, b, erg);
   kopf.push(...umbruch('- **A** `' + a.name + '`: ' + seitenText(a), MAX_ZEILE), ...umbruch('- **B** `' + b.name + '`: ' + seitenText(b), MAX_ZEILE));
-  kopf.push(...umbruch('- Regel: ' + REGEL_TEXT[erg.regel], MAX_ZEILE), ...tuningZeilen(a, b, opt));
+  const tun = tuningZeilen(a, b, opt);
+  kopf.push(...umbruch('- Regel: ' + REGEL_TEXT[erg.regel], MAX_ZEILE), ...tun.zeilen);
   const zuwenigSeiten = erg.regel === 'gruppe-gruppe' ? [a, b].filter((s) => s.n < Bewertung.MIN_BASIS_N) : [];
-  if (zuwenigSeiten.length) hinweise.push('zu wenig Läufe (A ' + a.n + ', B ' + b.n + '; nötig je Seite ' + Bewertung.MIN_BASIS_N + '): kein Urteil, die Tabelle zeigt nur die Zahlen');
+  if (zuwenigSeiten.length) hinweise.push(Bewertung.zuWenigText(a.n, b.n));                                                  // K4: 2 oder 3 Läufe: kein Urteil (genau 1 Lauf ist ein Lauf, siehe seiteAusLaeufen)
+  else if (erg.regel === 'gruppe-gruppe' && (a.n < Bewertung.BALANCE_N || b.n < Bewertung.BALANCE_N)) hinweise.push(Bewertung.wenigLaeufeText(a.n, b.n));   // K2
+  if (erg.regel === 'gruppe-gruppe') for (const id of new Set([].concat(a.ids || [], b.ids || []))) if (Bewertung.LAUTE_GRUPPEN[id]) hinweise.push(Bewertung.LAUTE_GRUPPEN[id]);   // K2
   for (const [s, n] of [[a, 'A'], [b, 'B']]) {
     if (s.amLimit) hinweise.push(n + ': ' + s.amLimit);
     for (const w of s.warnungen || []) hinweise.push(n + ': ' + w);
     for (const f of s.fehlerlaeufe || []) hinweise.push(n + ': Fehlerlauf ausgeschlossen: ' + f.kennung + ' (' + f.grund + ')');
   }
-  if (a.basis || b.basis) { const andere = a.basis ? b : a; if (andere.quellen && andere.quellen.some((q) => q !== 'bot')) hinweise.push(Bewertung.BASIS_ART_TEXT); }
+  // S1: verschiedene Quellen (Mensch gegen Bot), auch ohne basis:; die Basis ist immer Bot-Laeufe
+  if (Bewertung.quellenText(a.quellen, b.quellen, 'A', 'B')) hinweise.push(a.basis || b.basis ? Bewertung.BASIS_ART_TEXT : Bewertung.quellenText(a.quellen, b.quellen, 'A', 'B'));
+  // S2: Kennzahl-Version beider Seiten (kz.version bzw. Basis-Kopf)
+  for (const d of Bewertung.versionsZeile({ version: a.version }, { version: b.version }, ['B', 'A'])) hinweise.push(d.name);
   const kopfA = { kopf: { plattform: a.plattformen && a.plattformen.length === 1 ? a.plattformen[0] : null } };
   for (const d of Bewertung.plattformZeile(kopfA, { plattform: b.plattformen && b.plattformen.length === 1 ? b.plattformen[0] : null })) hinweise.push(d.name);
   hinweise.push('Technik (Tickzeit, Snapshot, Kappung, Protokollgröße) wird nie verglichen, nur der deterministische Teil');
   for (const h of hinweise) kopf.push(...umbruch('- Hinweis: ' + h, MAX_ZEILE));
   const wes = zeilen.filter((z) => z.wesentlich).sort((p, q) => q.score - p.score || nachKey(p, q));
   const fazit = '- **Ergebnis:** ' + wes.length + ' wesentliche Abweichung' + (wes.length === 1 ? '' : 'en') + ' von ' + erg.verglichen + ' verglichenen Kennzahlen' + (erg.zuwenig.size || erg.zuwenigZahl ? ', ' + (erg.zuwenig.size || erg.zuwenigZahl) + ' mit zu wenig Läufen' : '') + (erg.fehlt ? ', ' + erg.fehlt + ' ohne Wert auf einer Seite' : '') + '.';
-  kopf.push(fazit, '');
+  kopf.push(fazit);
+  if (tun.verschieden && !wes.length) kopf.push(...umbruch('  ' + Bewertung.tuningOhneBefundText(tun.pfade), MAX_ZEILE, '  '));   // K3
+  kopf.push('');
   let sicht;
   const reste = [];
   if (opt.alle) sicht = zeilen.slice().sort((p, q) => fragenNr(p) - fragenNr(q) || nachKey(p, q));
   else {
-    const kern = kernZeilen(zeilen).filter((z) => !z.wesentlich);
+    const kern = kernZeilen(zeilen, true).filter((z) => !z.wesentlich);
+    const nullWeg = kernZeilen(zeilen).filter((z) => !z.wesentlich && z.konstantNull).length;   // K5: Kernkennzahlen, die auf beiden Seiten konstant 0 sind, entfallen
     const platz = Math.max(TABELLE_MIN, ZEILEN_STANDARD - kopf.length - 4);
     const wz = Math.min(wes.length, platz - Math.min(kern.length, KERN_MIN));
     const kz = Math.min(kern.length, platz - wz);
     sicht = wes.slice(0, wz).concat(kern.slice(0, kz));
     if (wes.length > wz) reste.push((wes.length - wz) + ' weitere wesentliche Abweichungen');
     if (kern.length > kz) reste.push((kern.length - kz) + ' weitere Kernkennzahlen');
+    if (nullWeg) reste.push(nullWeg + ' Kernkennzahl' + (nullWeg === 1 ? '' : 'en') + ', auf beiden Seiten konstant 0, nicht gezeigt');
     const nicht = zeilen.length - sicht.length;
     reste.push(nicht + ' weitere Kennzahlen ohne wesentliche Abweichung nur mit --alle');
   }

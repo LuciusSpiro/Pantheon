@@ -75,6 +75,24 @@ async function main() {
     const ersteStart = zeilen.findIndex((r) => r.typ === 'szene_start');
     ok(zeilen.slice(0, ersteStart).every((r) => r.szene_nr === 0) && zeilen[ersteStart].szene_nr === 1, 'szene_nr ' + kennung + ': 0 vor der ersten Szene, der szene_start selbst traegt 1');
   }
+  // D2-Nacharbeit (R6): spielerzahl (bereinigt, aus dem ersten Zeitreihenfenster) und spielerzahl_kopf (Rohwert aus dem Sessionkopf) sind verschiedene Spalten; hier sind die Werte verschieden
+  {
+    const q = prot.find((x) => x.kz.kopf.spielerzahl === 1);
+    const SP = path.join(TMP, 'sp');
+    fs.mkdirSync(SP);
+    const zeilen = fs.readFileSync(path.join(sessions.find((e) => e.kennung === q.p.kennung).dir, q.p.kennung + '.jsonl'), 'utf8').split(String.fromCharCode(10));
+    const kopfZ = JSON.parse(zeilen[0]);
+    kopfZ.spielerzahl = 4;                       // der Kopf behauptet 4, im ersten Fenster sind es 1
+    kopfZ.sitzung = 'run-t-sp';
+    zeilen[0] = JSON.stringify(kopfZ);
+    fs.writeFileSync(path.join(SP, 'run-t-sp.jsonl'), zeilen.map((z, i) => (i === 0 ? z : z.split(q.p.kennung).join('run-t-sp'))).join(String.fromCharCode(10)));
+    const osp = Abfrage.oeffnenZumLaden(path.join(TMP, 'sp.sqlite'));
+    gleich(Abfrage.laden(osp.db, [SP]).geladen, 1, 'Vorbereitung: Session mit abweichendem Kopf-Spielerzahl geladen');
+    const r = eins(osp.db, 'SELECT spielerzahl, spielerzahl_kopf, gruppe FROM sessions WHERE kennung = ?', 'run-t-sp');
+    gleich([r.spielerzahl, r.spielerzahl_kopf], [1, 4], 'sessions: spielerzahl 1 (bereinigt) und spielerzahl_kopf 4 (Rohwert) sind getrennte Spalten');
+    ok(/\/1$/.test(r.gruppe), 'die Gruppen-ID nimmt die bereinigte Spielerzahl (' + r.gruppe + ')');
+    osp.db.close();
+  }
   o.db.close();
 
   // ===================== 2. Inkrementell =====================

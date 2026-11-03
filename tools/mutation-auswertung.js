@@ -21,6 +21,7 @@ const KZ = 'tools/auswertung/kennzahlen.js', BE = 'tools/auswertung/bericht.js',
 const T = 'test-auswertung.js';
 const BA = 'tools/auswertung/basis.js', TB = 'test-basis.js';
 const VG = 'tools/auswertung/vergleich.js', AB = 'tools/auswertung/abfrage.js', TV = 'test-vergleich.js', TA = 'test-abfrage.js';   // TEL-01 D2
+const PK = 'server/telemetrie/protokoll.js', TT = 'test-telemetrie-kennung.js';   // TEL-01 D2 Nacharbeit: Laufkennung
 const AU = 'tools/auswerten.js', BT = 'tools/basis.js';   // TEL-01 C: Basis und Schwelle gegen die Basis-Gruppe
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, Test]
 const MUTATIONEN = [
@@ -167,7 +168,6 @@ const MUTATIONEN = [
   [BW, "const kerbe = KERBE_K * iqr * (1 / Math.sqrt(sa[0]) + 1 / Math.sqrt(sb[0]));", "const kerbe = KERBE_K * iqr * (1 / sa[0] + 1 / sb[0]);", "D2: Kerbe ohne Wurzel aus n", TV],
   [BW, "diff > kerbe && diff >= info.min ?", "diff > kerbe ?", "D2: Kerbenregel ohne Mindestmenge (min)", TV],
   [BW, "if (sa[0] < MIN_BASIS_N || sb[0] < MIN_BASIS_N) return { urteil: 'zuwenig', diff: Math.abs(sa[3] - sb[3]), kerbe: null };", "", "D2: n-Grenze fehlt (weniger als 4 Laeufe werden trotzdem beurteilt)", TV],
-  [BW, "const iqr = sa[0] > sb[0] ? iqrA : (sb[0] > sa[0] ? iqrB : Math.max(iqrA, iqrB));", "const iqr = Math.max(iqrA, iqrB);", "D2: Kerbe nimmt die groessere IQR statt die der Gruppe mit mehr Laeufen", TV],
   [BW, "const y = sb[k] || (info.summe ? [b.gruppe.laeufe, 0, 0, 0, 0, 0] : null);", "const y = sb[k] || null;", "D2: Gruppe/Gruppe: fehlende Summe in B zaehlt nicht als 0", TV],
   [BW, "if (!ok(sa) || !ok(sb) || !info || info.determ === false) return", "if (!ok(sa) || !ok(sb) || !info) return", "D2: Kerbenregel vergleicht Technik (determ: false)", TV],
   [BW, "const r = abweichungen(mitNullSummen(b.kz, fa), mitNullSummen(a.kz, fb));", "const r = abweichungen(b.kz, a.kz);", "D2: Lauf/Lauf: fehlender Zaehler zaehlt nicht als 0", TV],
@@ -183,6 +183,41 @@ const MUTATIONEN = [
   [AB, "if (fertig.has(e.kennung)) { erg.uebersprungen++; continue; }", "", "D2: Laden nicht inkrementell (beendete Sessions werden neu geladen)", TA],
   [AB, "SELECT kennung FROM sessions WHERE ende_grund IS NOT NULL", "SELECT kennung FROM sessions", "D2: Session ohne session_ende wird nie neu gelesen", TA],
   [AB, "if (z.typ === 'szene_start') szene++;", "if (false) szene++;", "D2: szene_nr zaehlt keine Szenen", TA],
+  // --- TEL-01 D2 Nacharbeit: ueberlebende Mutationen des Reviewers (R1-R4, R6-R11) und die Nacharbeitspunkte ---
+  [VG, "return info.summe ? { w: 0, text: '0 [0–0]', n: seite.gruppe.laeufe, q1: 0, q3: 0 } : null;", "return null;", "D2N R1: Gruppe: fehlende Summe steht nicht als 0 in der Tabelle", TV],
+  [VG, "return Basis.fehlerlauf(kopf.grund, undefined);", "return null;", "D2N R2: Fehlerlauf grund prozessende geht in die Gruppe", TV],
+  [VG, "for (const [k, name] of [['quelle', 'Quellen'], ", "for (const [k, name] of [", "D2N R3: Mischung Mensch/Bot ohne Warnung", TV],
+  [VG, "seite.amLimit = seite.gruppe.am_limit ? Bewertung.amLimitText(seite.gruppe.modus) : null;", "seite.amLimit = null;", "D2N R4: am_limit fuer Ordner-Gruppen fehlt im Kopf", TV],
+  [BW, "diff > kerbe && diff >= info.min ?", "diff >= kerbe && diff >= info.min ?", "D2N R5: Kerbe >= statt > (Grenzfall)", TV],
+  [AB, "ganz(k.spielerzahl), ganz(k.spielerzahl_kopf),", "ganz(k.spielerzahl_kopf), ganz(k.spielerzahl),", "D2N R6: sessions: spielerzahl und spielerzahl_kopf vertauscht", TA],
+  [BW, "const r = abweichungen(mitNullSummen(b.kz, fa), mitNullSummen(a.kz, fb));", "const r = abweichungen(mitNullSummen(a.kz, fb), mitNullSummen(b.kz, fa));", "D2N R7: Lauf/Lauf: B gilt als Basis statt A", TV],
+  [VG, "if (kopf.quelle !== 'bot') return null;", "", "D2N R8: Menschen-Sessions ohne session_ende gelten als Fehlerlauf", TV],
+  [VG, "return info.summe ? { w: 0, text: '0' } : null;", "return null;", "D2N R9: Lauf: fehlende Summe steht nicht als 0 in der Tabelle", TV],
+  [VG, "return t.length > MAX_ZEILE ? t.slice(0, MAX_ZEILE - 1) + '…' : t;", "return t;", "D2N R10: Tabellenzeile wird nicht auf 160 Zeichen gekappt", TV],
+  [VG, "['tuning_hash', 'Tuning-Staende'], ", "", "D2N R11: gemischte Tuning-Staende ohne Warnung", TV],
+  [VG, "for (const e of p.slice(0, TUNING_ZEIGEN))", "for (const e of p.slice(0, 0))", "D2N R12: Tuning-Pfade werden nie gelistet", TV],
+  [BW, "const iqr = Math.max(iqrA, iqrB);", "const iqr = sa[0] > sb[0] ? iqrA : (sb[0] > sa[0] ? iqrB : Math.max(iqrA, iqrB));", "D2N K1: IQR der Gruppe mit mehr Laeufen statt max(IQR_A, IQR_B)", TV],
+  [BW, "const iqr = Math.max(iqrA, iqrB);", "const iqr = Math.min(iqrA, iqrB);", "D2N K1: min statt max der beiden IQR", TV],
+  [VG, "else if (erg.regel === 'gruppe-gruppe' && (a.n < Bewertung.BALANCE_N || b.n < Bewertung.BALANCE_N)) hinweise.push(Bewertung.wenigLaeufeText(a.n, b.n));", "", "D2N K2: kein Satz 'mindestens 12 Laeufe je Seite' bei n < 12", TV],
+  [VG, "if (Bewertung.LAUTE_GRUPPEN[id]) hinweise.push(", "if (false) hinweise.push(", "D2N K2: m3/3 wird nicht als laute Gruppe gekennzeichnet", TV],
+  [VG, "if (tun.verschieden && !wes.length) kopf.push(", "if (false) kopf.push(", "D2N K3: kein Satz 'Tuning unterscheidet sich', wenn nichts wesentlich ist", TV],
+  [VG, "if (tun.verschieden && !wes.length) kopf.push(", "if (tun.verschieden) kopf.push(", "D2N K3: der Satz steht auch bei wesentlichen Abweichungen", TV],
+  [VG, "if (seite.art === 'gruppe' && gut.length === 1) seite.art = 'lauf';", "", "D2N K4: eine einzelne Session im Ordner gilt nicht als Lauf", TV],
+  [BW, "; mindestens ' + MIN_BASIS_N + ' je Seite, für Balance ' + BALANCE_N;", ";';", "D2N K4: Hinweis 'mindestens 4 je Seite, fuer Balance 12' fehlt", TV],
+  [VG, "z.a && z.b && !(ohneNull && z.konstantNull))", "z.a && z.b)", "D2N K5: Kernkennzahlen mit konstant 0 fallen nicht weg", TV],
+  [VG, "if (nullWeg) reste.push(", "if (false) reste.push(", "D2N K5: Fusszeile nennt die Zahl der entfallenen Nullzeilen nicht", TV],
+  [VG, "x.w === 0 && (x.q1 == null || x.q1 === 0) && (x.q3 == null || x.q3 === 0)", "x.w === 0", "D2N K5: konstant 0 prueft nur den Median (q1 und q3 fehlen)", TV],
+  [VG, "if (Bewertung.quellenText(a.quellen, b.quellen, 'A', 'B')) hinweise.push(", "if (false) hinweise.push(", "D2N S1: Mensch gegen Bot ohne Hinweis im Kopf", TV],
+  [BW, "[...qA].sort().join() === [...qB].sort().join()) return null;", "false) return null;", "D2N S1: Hinweis Mensch gegen Bot auch bei gleicher Quelle", TV],
+  [VG, "for (const d of Bewertung.versionsZeile({ version: a.version }, { version: b.version }, ['B', 'A'])) hinweise.push(d.name);", "", "D2N S2: Kennzahl-Version der Seiten wird im Vergleich nicht geprueft", TV],
+  [VG, "version: num(k.kennzahl_version) ? k.kennzahl_version : null,", "version: null,", "D2N S2: Version der Basis-Seite kommt nicht aus dem Basis-Kopf", TV],
+  [VG, "seite.version = gut[0].kz.version == null ? null : gut[0].kz.version;", "seite.version = null;", "D2N S2: Version der Lauf-Seite kommt nicht aus kz.version", TV],
+  [AB, "UNIQUE (kennung, zeile))'", "PRIMARY KEY (kennung, zeile)) WITHOUT ROWID'", "D2N S4: ereignisse wieder WITHOUT ROWID", TA],
+  [AB, "INSERT INTO ereignisse VALUES (?, ?, ?, ?, ?, ?, jsonb(?))", "INSERT INTO ereignisse VALUES (?, ?, ?, ?, ?, ?, ?)", "D2N S4: json als Text statt jsonb", TA],
+  [AB, "const DB_VERSION = 2;", "const DB_VERSION = 1;", "D2N S4: DB_VERSION bleibt 1 (alte Dateien werden nicht neu geladen)", TA],
+  [AB, "if (c === '[') {", "if (false) {", "D2N K6: Semikolon in [Bezeichner] trennt Anweisungen", TA],
+  [AB, "if (r.error && r.error.code === 'ETIMEDOUT') throw new AbfrageFehler('Abbruch:", "if (false) throw new AbfrageFehler('Abbruch:", "D2N K6: Zeitlimit meldet sich nicht (Abbruch ohne Meldung)", TA],
+  [PK, "+ '-' + process.pid.toString(36), dirVon(g.env)", ", dirVon(g.env)", "D2N Laufkennung: Sitzung ohne Prozesskennung (Kollision zweier Prozesse)", TT],
 ];
 
 const trocken = process.argv.includes('--trocken');

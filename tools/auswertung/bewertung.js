@@ -39,6 +39,19 @@ const STREUUNG_K = 2;                  // Basis-Gruppe: Normalbereich-Breite = m
 // S4: Hinweis, wenn alle Basis-Laeufe einer Gruppe am Zeitlimit enden (basis.js amLimit): die Spannen sagen dann nichts ueber Balance
 const amLimitText = (modus) => 'alle Läufe am Zeitlimit, Bot schafft ' + (modus === 'arena_graben' ? 'den Graben' : 'das Szenario') + ' nicht; Spannen sind kein Balance-Maß';
 const BASIS_ART_TEXT = 'Basis = Bot-Läufe (Bots spielen anders als Menschen)';
+const BALANCE_N = 12;                  // D2 K2: Laeufe je Seite, die fuer Balance-Fragen gelten (6 gegen 6 ist schwach, siehe unterschiedGruppen)
+const LAUTE_GRUPPEN = { 'm3/3': 'm3/3 ist eine laute Gruppe (bei gleicher Konfiguration die meisten Fehlalarme: 7 von 16 im Test 6 gegen 12), Befunde dort mit Vorsicht lesen' };   // D2 K2
+const wenigLaeufeText = (nA, nB) => 'wenig Läufe (A ' + nA + ', B ' + nB + '): 6 gegen 6 ist schwach, für Balance-Fragen mindestens ' + BALANCE_N + ' Läufe je Seite';
+const zuWenigText = (nA, nB) => 'zu wenig Läufe (A ' + nA + ', B ' + nB + '; nötig je Seite ' + MIN_BASIS_N + '): kein Urteil, die Tabelle zeigt nur die Zahlen; mindestens ' + MIN_BASIS_N + ' je Seite, für Balance ' + BALANCE_N;
+// D2 K3: steht im Ergebnis, wenn der Tuning-Stand verschieden ist, aber keine Kennzahl wesentlich abweicht (pfade: Zahl der abweichenden Pfade oder null, wenn nicht lesbar)
+const tuningOhneBefundText = (pfade) => 'Tuning unterscheidet sich (' + (pfade == null ? 'Pfade nicht lesbar' : pfade + (pfade === 1 ? ' Pfad' : ' Pfade')) + '), aber keine Kennzahl ist wesentlich anders. Bei kleiner Änderung oder zu wenig Läufen ist das kein Beleg für „keine Wirkung“.';
+// D2 S1: Quellen der beiden Seiten (Listen aus kopf.quelle) verschieden (Mensch gegen Bot): Text fuer den Kopf, sonst null. namen: ['A', 'B'] bzw. 'Basis' fuer eine Basis-Gruppe
+function quellenText(qA, qB, nameA, nameB) {
+  const ok = (q) => Array.isArray(q) && q.length > 0;
+  if (!ok(qA) || !ok(qB) || [...qA].sort().join() === [...qB].sort().join()) return null;
+  const art = (q) => (q.length > 1 ? 'gemischte Läufe (Bot und Mensch)' : (q[0] === 'bot' ? 'Bot-Läufe' : 'Läufe von Menschen'));
+  return nameA + ' = ' + art(qA) + ', ' + nameB + ' = ' + art(qB) + ' (Bots spielen anders als Menschen: ein Unterschied kann vom Spieler kommen, nicht vom Spiel)';
+}
 const PLATTFORM_TEXT = 'Basis von anderer Plattform, Raumkampf nicht bit-gleich, nur grob vergleichbar';
 
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -112,16 +125,21 @@ function abweichungGegenBasisGruppe(kz, gruppe) {
 
 // TEL-01 D2: Gruppe gegen Gruppe, EINE Kennzahl. sa, sb = Statistik [n, min, q1, median, q3, max] (basis.js statistik). Auffaellig (urteil 'wesentlich'), wenn BEIDES gilt:
 //   1. |Median A - Median B| > KERBE_K x IQR x (1/sqrt(n_A) + 1/sqrt(n_B)): die Kerben ueberlappen nicht (McGill). Die Kerbe wird mit der Zahl der Laeufe schmaler, anders als die Spanne Min-Max
-//      des Einzellaufs gegen die Basis. IQR = die der Gruppe mit mehr Laeufen (stabilere Streuung; bei gleichem n die groessere), wie in der Probe des Reviewers von C (IQR der Basis).
+//      des Einzellaufs gegen die Basis. IQR = max(IQR_A, IQR_B). Begruendung: symmetrisch (A,B = B,A), und eine kleine, stark streuende Seite macht die Kerbe nicht zu schmal (die Regel
+//      "IQR der Gruppe mit mehr Laeufen" tat das); gegenueber der Wahl der Gruppe mit mehr Laeufen kostet es bei den Manipulationen kaum Treffer.
 //   2. |Median A - Median B| >= info.min (die Mindestmenge der Kennzahl in ihrer Einheit; 1 -> 2 Kills faellt nicht auf). Keine zweite Schwelle: dieselbe wie beim Einzellauf.
 // Hat eine Seite weniger als MIN_BASIS_N Laeufe mit Wert (n < 4), gibt es kein Urteil (urteil 'zuwenig'). determ: false (Technik) wird nie verglichen (urteil 'keins').
+// TRENNSCHAERFE (Probe des Reviewers von D2, 16 Gruppen, 12 frische Bot-Laeufe Seeds 101-112 gegen die Basis, Kennzahlen-Kopien manipuliert; Zahlen = Fehlalarme ueber alle 16 Gruppen / erkannte Manipulationen):
+//   Fehlalarme bei gleicher Konfiguration: 6 gegen 6 = 35, 6 gegen 12 = 18, 12 gegen 12 = 15 (m3/3 ist mit Abstand die lauteste Gruppe: 7 von 16 bei 6 gegen 12).
+//   Erkannt bei 6 gegen 12: Quote x0,5 29 von 32, Schaden aus x2 9 von 15, Dauer +30 % 9 von 16, Kills x0,5 7 von 15; bei 6 gegen 6 etwa gleich viel (Quote 25 von 29, Schaden 6 von 16, Dauer 6 von 16, Kills 9 von 15).
+//   Hinweis: 6 gegen 6 ist schwach, fuer Balance-Fragen 12 Laeufe je Seite (README: Empfehlung). Kleine Aenderungen (Dauer +30 %, Kills x0,5) bleiben auch dann oft unter der Kerbe: kein Befund ist kein Beleg fuer "keine Wirkung".
 // Rueckgabe { urteil: 'wesentlich' | 'gleich' | 'zuwenig' | 'keins', diff, kerbe }
 function unterschiedGruppen(sa, sb, info) {
   const ok = (s) => Array.isArray(s) && s.length >= 6 && s.every(num);
   if (!ok(sa) || !ok(sb) || !info || info.determ === false) return { urteil: 'keins', diff: null, kerbe: null };
   if (sa[0] < MIN_BASIS_N || sb[0] < MIN_BASIS_N) return { urteil: 'zuwenig', diff: Math.abs(sa[3] - sb[3]), kerbe: null };
   const iqrA = sa[4] - sa[2], iqrB = sb[4] - sb[2];
-  const iqr = sa[0] > sb[0] ? iqrA : (sb[0] > sa[0] ? iqrB : Math.max(iqrA, iqrB));
+  const iqr = Math.max(iqrA, iqrB);
   const kerbe = KERBE_K * iqr * (1 / Math.sqrt(sa[0]) + 1 / Math.sqrt(sb[0]));
   const diff = Math.abs(sa[3] - sb[3]);
   return { urteil: diff > kerbe && diff >= info.min ? 'wesentlich' : 'gleich', diff, kerbe };
@@ -256,9 +274,11 @@ function basisArtZeile(kz) {
 }
 
 // K8: Kennzahl-Version von Lauf und Basis (nur wenn die Basis ein Kennzahlen-Objekt ist, nicht eine flache Map)
-function versionsZeile(kz, basis) {
-  if (!basis || typeof basis !== 'object' || !num(basis.version) || !num(kz.version) || basis.version === kz.version) return [];
-  return [{ k: 'kennzahl_version', n: basis.version, name: 'Basis hat Kennzahl-Version ' + basis.version + ', Lauf ' + kz.version + ' – Vergleich nur über gemeinsame Schlüssel' }];
+// D2 S2: auch im Vergleich zweier Seiten (vergleich.js): namen = [Name der Seite von basis, Name der Seite von kz], Standard ['Basis', 'Lauf']; die Version kommt aus kz.version bzw. dem Basis-Kopf (kennzahl_version)
+function versionsZeile(kz, basis, namen) {
+  if (!basis || typeof basis !== 'object' || !num(basis.version) || !kz || !num(kz.version) || basis.version === kz.version) return [];
+  const nm = namen || ['Basis', 'Lauf'];
+  return [{ k: 'kennzahl_version', n: basis.version, name: nm[0] + ' hat Kennzahl-Version ' + basis.version + ', ' + nm[1] + ' ' + kz.version + ' – Vergleich nur über gemeinsame Schlüssel' }];
 }
 
 function bewerten(kz, opt) {
@@ -279,6 +299,6 @@ function bewerten(kz, opt) {
 }
 
 module.exports = {
-  bewerten, abweichungen, abweichungGegenBasisGruppe, unterschiedGruppen, vergleichSeiten, plattformZeile, basisArtZeile, ampel, zielBewertung, basisFlach,
-  STREUUNG_K, KERBE_K, MIN_BASIS_N, amLimitText, VERLUST_IMMER, BASIS_ART_TEXT, PLATTFORM_TEXT, LEERLAUF_AUFFAELLIG_S, LEERLAUF_AUFFAELLIG_ANTEIL, TICK_SPITZE_MS, SCORE_MAX, SCHLECHTER_FAKTOR,
+  bewerten, abweichungen, abweichungGegenBasisGruppe, unterschiedGruppen, vergleichSeiten, plattformZeile, basisArtZeile, versionsZeile, quellenText, wenigLaeufeText, zuWenigText, tuningOhneBefundText, ampel, zielBewertung, basisFlach,
+  STREUUNG_K, KERBE_K, MIN_BASIS_N, BALANCE_N, LAUTE_GRUPPEN, amLimitText, VERLUST_IMMER, BASIS_ART_TEXT, PLATTFORM_TEXT, LEERLAUF_AUFFAELLIG_S, LEERLAUF_AUFFAELLIG_ANTEIL, TICK_SPITZE_MS, SCORE_MAX, SCHLECHTER_FAKTOR,
 };
