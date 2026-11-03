@@ -15,6 +15,7 @@ const Los = require('../../shared/los.js');
 const Protocol = require('../../shared/protocol.js');
 const W = require('../world.js');
 const squad = require('./squad.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Haken fuer Kill, Notrueckholung (nur lesen)
 const SF = require('./snapform.js');
 const { dist, makeRng, r1, r2, clamp } = require('../util.js');
 
@@ -547,11 +548,13 @@ function updateWounded(game, p, dt) {
   if (p.bleed > 0) return;
   const it = interior();
   if (isDown(game.ship.systems.transfer)) {
+    Tel.notrueckholung(game, 'fern', [p.id]);   // TEL-01 B1: Ausbluten ohne Transfer (kein Beamen, Schild aus der Ferne)
     revive(game, p, cfg(game).wounded.reviveSegments);
     game.oda(`Transfer ausgefallen – ${p.name}, ich flicke deinen Schild aus der Ferne. Steh auf!`, null);
     return;
   }
   const map = game.away.map;
+  Tel.notrueckholung(game, 'einzel', [p.id]);   // TEL-01 B1
   it.placeOnShipPad(game, p);
   revive(game, p, null, { quiet: true });
   if (game.away.stats) game.away.stats.bleedRecalls++;
@@ -575,6 +578,7 @@ function krankenstationHolt(game, p, dt) {
   // M2: Die Krankenstation holt auch bei bereits zerstörtem Transfer (er bleibt zerstört, Modul.notrueckholungFolge sprengt nur Heile)
   p.holT = 0;
   const map = game.away.map;
+  Tel.notrueckholung(game, 'krankenstation', [p.id]);   // TEL-01 B1
   interior().placeOnShipPad(game, p);
   revive(game, p, null, { quiet: true });
   if (game.away.stats) game.away.stats.bleedRecalls++;
@@ -616,10 +620,11 @@ function squadRecall(game) {
   const map = aw.map;
   list.forEach((p, i) => { it.placeOnShipPad(game, p, i); p.beamLock = false; revive(game, p, null, { quiet: true }); });
   aw.recallT = 0;
-  if (aw.endkampf && aw.endkampf.phase === 'angriff') aw.endkampf.verloren = true;   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
+  if (aw.endkampf && aw.endkampf.phase === 'angriff') { aw.endkampf.verloren = true; Tel.szeneEnde(game, 'endkampf', aw.endkampf.tag, 'gefallen'); }   // EK6: Crew gefallen -> Szene setzt die Siedlung zurück (crew_gefallen)
   aw.recallLockUntil = game.time + C.wounded.recallBeamLock;
   if (aw.stats) aw.stats.squadRecalls++;
   const pids = list.map((p) => p.id);
+  Tel.notrueckholung(game, 'team', pids);   // TEL-01 B1
   aw.letzteRueckholung = { pids, t: game.time };   // BOD-01: Szenarien (graben.js) prüfen, ob die Rückholung die ganze verbundene Crew betraf
   game.emit('squadRecall', { pids });
   game.emit('sfx', { name: 'squad_recall' });
@@ -708,8 +713,9 @@ function shoot(game, p, angle, opts) {
   if (game.time < (p.shootReadyAt || 0)) return;
   const pistol = !!p.downed;
   p.shootReadyAt = game.time + (pistol ? C.wounded.pistolCooldown : C.blaster.cooldown);
-  spawnProjectile(game, { kind: pistol ? 'pistol' : 'blaster', x: p.x, y: p.y, angle, speed: C.blaster.speed, ttl: C.blaster.ttl,
+  const pq = spawnProjectile(game, { kind: pistol ? 'pistol' : 'blaster', x: p.x, y: p.y, angle, speed: C.blaster.speed, ttl: C.blaster.ttl,
     dmg: 1, owner: p.id, team: 'player', crouch: !pistol && !!p.crouch });   // §15: geduckt -> eigene low-Deckung stoppt den Schuss
+  Tel.schussBoden(game, p, pistol ? 'pistol' : 'blaster', pq.id);   // TEL-01 B1: auch die Pistole der Verwundeten (sonst Treffer ohne Schuss)
   game.emit('sfx', { name: pistol ? 'pistol' : 'blaster', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
 }
 
@@ -740,8 +746,9 @@ function fireEnemy(game, e, target) {
   const box = C.engageBox;
   const inBox = Math.abs(target.x - e.x) <= box.w / 2 && Math.abs(target.y - e.y) <= box.h / 2;
   if (aw.stats) { aw.stats.enemyShots++; if (!inBox) aw.stats.offBoxShots++; }
-  spawnProjectile(game, { kind: warden ? 'warden' : 'enemy', x: e.x, y: e.y, angle: a, speed: ec.shotSpeed, ttl: C.shotTtl,
+  const eq = spawnProjectile(game, { kind: warden ? 'warden' : 'enemy', x: e.x, y: e.y, angle: a, speed: ec.shotSpeed, ttl: C.shotTtl,
     dmg: warden ? (ec.shotSegments || 2) : 1, owner: e.id, team: 'enemy', target: target.id });
+  Tel.schussBoden(game, e, warden ? 'warden' : 'enemy', eq.id);   // TEL-01 B1: Gegner ohne Waffen-Rolle
   game.emit('sfx', { name: warden ? 'warden_shot' : 'enemy_shot', zone: 'away', x: Math.round(e.x), y: Math.round(e.y) });
 }
 
@@ -882,7 +889,7 @@ function updateProjectiles(game, dt) {
           const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
-            dead = true; if (q.nah) q.nah[e.id] = null; hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); break; }
+            dead = true; if (q.nah) q.nah[e.id] = null; Tel.quelleBoden(game, q.id); hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); Tel.quelleBoden(game, null); break; }   // TEL-01 B1: Schusskennung des Treffers
         }
       } else {
         for (const p of game.players) {
@@ -891,7 +898,9 @@ function updateProjectiles(game, dt) {
             if (p.crouch && dodged(game, q, p.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
             dead = true; if (q.nah) q.nah[p.id] = null;
             if (aw.stats) { aw.stats.playerHits++; offBoxZaehlen(game, p, q.sx, q.sy, !!q.hilfe); }
+            Tel.quelleBoden(game, q.id);   // TEL-01 B1
             hitPlayer(game, p, q.dmg || 1, q.kind, wirkungAus(q));
+            Tel.quelleBoden(game, null);
             break;
           }
         }
@@ -964,6 +973,7 @@ function hitEnemyWaffen(game, e, Wf, segs, s) {
   return r === 'wunde' ? 'wunde' : 'shield';
 }
 function knockOut(game, e) {
+  Tel.killBoden(game, e);   // TEL-01 B1
   e.alive = false; e.aim = null; e.seg = 0; e.hp = 0; e.path = null; e.vis = false; e.ghost = null; e.crouch = false;
   // Abweichung §7: Feld heißt enemyKind, weil `kind` im Event-Objekt der Ereignisname ist ({ t:'event', kind:'enemyDown' })
   game.emit('enemyDown', { id: e.id, enemyKind: e.kind, x: Math.round(e.x), y: Math.round(e.y) });

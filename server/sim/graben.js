@@ -16,6 +16,7 @@
 //  - Hochbeamen vor dem Ziel: kein Sieg, wie in Wellen Boden bleibt der Stand stehen (Gegner bleiben, die Crew kann ausrüsten und wieder hinunter).
 //  - Alle Texte und Zahlen: CONFIG.graben. Die KI bleibt unberührt (BOD-02).
 const GenFest = require('../../shared/gen-fest.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Szene, Neubeginn, Gegner (nur lesen)
 
 let mods = null;
 function M() {
@@ -156,6 +157,7 @@ function start(game, o) {
   };
   if (!S.zielId) throw new Error('Grabenangriff: Karte ohne Ziel-Anker');
   game.arena.wellen = S;
+  Tel.szeneStart(game, 'graben', o.karte, { seed: o.seed });   // TEL-01 B1
   sperre(game, S, true);
   const n = aufstellen(game, S);
   S.maxLebend = n;
@@ -184,6 +186,7 @@ function vorbereitungEnde(game, S) {
 // Niederlage: das ganze Szenario beginnt neu (alle Gegner zurück, Ziel gesperrt, Zähler zurück)
 function neuBeginnen(game, S) {
   const aw = game.aways[S.lp];
+  for (const e of aw.drones) if (e.tag === TAG()) Tel.bodenGegnerWeg(game, e, 'neubeginn');   // TEL-01 B1
   aw.drones = aw.drones.filter((e) => e.tag !== TAG());
   for (const nm of Object.keys(aw.squads || {})) if (aw.squads[nm] && aw.squads[nm].tag === TAG()) delete aw.squads[nm];
   for (const nm of Object.keys(aw.spawned || {})) if (/^graben\./.test(nm)) delete aw.spawned[nm];
@@ -198,6 +201,7 @@ function neuBeginnen(game, S) {
   zielZurueck(game, S);
   S.maxLebend = aufstellen(game, S);
   game.emit('szeneZurueck', { map: S.lp, versuch: S.versuch });
+  Tel.szeneNeustart(game, 'graben', S.karte, S.versuch);   // TEL-01 B1: die Crew war unten, Niederlage
   game.oda(text(game, 'neustart'), null);
   game.log(`Grabenangriff: Neubeginn (Versuch ${S.versuch}).`);
   if (game.ruestphase) S.ph = 'vorbereitung';   // Rüstphase wie am Anfang: ausrüsten, „Szene starten“, am Abholpunkt hinunter
@@ -210,6 +214,7 @@ function sieg(game, S) {
   const kills = game.players.map((p) => [p.id, p.name, S.kills[p.id] || 0]);
   S.ergebnis = { karte: S.karte, seed: S.seed, welle: S.n, geschafft: wellenNummern(karteVon(game, S.lp)).length, zeit, kills, sieg: true, versuche: S.versuch };
   game.emit('wellenEnde', S.ergebnis);
+  Tel.szeneEnde(game, 'graben', S.karte, 'sieg', { versuche: S.versuch });   // TEL-01 B1
   game.oda(text(game, 'sieg'), null);
   game.log(`Grabenangriff gewonnen: ${zeit} s, Versuch ${S.versuch}, Abschüsse ${kills.map((q) => q[1] + ' ' + q[2]).join(', ')}.`);
 }

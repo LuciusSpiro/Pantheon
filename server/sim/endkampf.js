@@ -11,6 +11,7 @@
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const squad = require('./squad.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Szene, Gegner (nur lesen)
 
 let combatMod = null, interiorMod = null;
 const combat = () => combatMod || (combatMod = require('./combat.js'));
@@ -138,6 +139,8 @@ function angriffStarten(game, opts) {
     }
   });
   aw.endkampf = { tag, phase: 'angriff', boss: bossId, t0: game.time, n: gesamt, verloren: false };
+  Tel.szeneStart(game, 'endkampf', tag, { gegner: gesamt });   // TEL-01 B1
+  for (const e of aw.drones) if (e.tag === tag) Tel.bodenGegnerSehen(game, e, 'spawn');
   aw.besetzt = aw.besetzt || {};
   aw.besetzt[tag] = { fraktion: f.id, staerke: null, haltung: 'wach', ersetzt: [], rezepte: ['endkampf'] };
   game.missionEvent('squadSpawn', { map, tag, n: gesamt });
@@ -162,6 +165,8 @@ function gegnerAbziehen(game, map, tag) {
   const aw = awVon(game, map); if (!aw) return 0;
   const liste = (aw.drones || []).filter((e) => !tag || e.tag === tag);
   const ids = liste.map((e) => e.id);
+  for (const e of liste) Tel.bodenGegnerWeg(game, e, 'abgezogen');   // TEL-01 B1
+  if (aw.endkampf && aw.endkampf.phase === 'angriff') Tel.szeneEnde(game, 'endkampf', aw.endkampf.tag, 'sieg');   // TEL-01 B1
   for (const e of liste) game.emit('sfx', { name: 'beam', zone: 'away', x: Math.round(e.x), y: Math.round(e.y) });
   if (liste.length) game.emit('gegnerBeamt', { map, ids, n: ids.length });
   aw.drones = (aw.drones || []).filter((e) => !ids.includes(e.id));

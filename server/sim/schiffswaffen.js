@@ -11,6 +11,7 @@
 //   Magazindeckel      Σ (Bereitschaft × Anfangsstoß) aller Energiewaffen ≤ MAGAZINDECKEL.stossMax: mehr Plätze heißen mehr Auswahl, nicht mehr Feuerstoß.
 //
 // space.js ruft update/weaponsFire/… von hier; der Gegner-Teil (Sperrfeuer, Tele, Bolzen, Streu, Torpedo) bleibt in space.js.
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Haken fuer Schuesse und Treffer (nur lesen)
 const Geld = require('./geld.js');   // TEL-01 G: Marken nur über den Buchungsdienst
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 const Physics = require('../../shared/physics.js');
@@ -268,12 +269,14 @@ function schade(game, e, dmg, x, y, opts, typ) {
   // Ohne Modell (Störrelais) die Hülle: verlorene Punkte. SYS-03 B2: mit Modell zählt gegen die Systeme die Stufe, nicht die Schadenszahl: die Statistik zählt dann den Rohschaden, der Schild
   // oder System wirklich getroffen hat (Schildverlust + der Rest, wenn der Treffer ein System erreicht hat: e.sysTreffer gestiegen oder Sofort-Tod). Das Format der Statistik bleibt.
   const hVor = e.hp > 0 ? e.hp : 0; const sVor = schildSumme(); const tVor = e.sysTreffer || 0;
+  Tel.schadeBeginn(game, e, typ);   // TEL-01 B1: ein Abschuss mitten im Treffer wird bis nach dem treffer zurueckgehalten
   sp.damageEnemy(game, e, dmg, x, y, opts ? Object.assign({ angriff: true }, opts) : { angriff: true });   // SUND-04a-1 A: Waffen der Lerche sind Angriffe (gezielter Systemtreffer)
   const schildVerlust = Math.max(0, sVor - schildSumme());
   const system = (e.sysTreffer || 0) > tVor || (hVor > 0 && !(e.hp > 0));   // ein Systemtreffer oder der Sofort-Tod (Torpedo gegen einen Jäger: hp 0 ohne Systemtreffer)
   const d = modell ? schildVerlust + (system ? Math.max(0, (Number(dmg) || 0) - schildVerlust) : 0) : Math.max(0, hVor + sVor - (e.hp > 0 ? e.hp : 0) - schildSumme());
   const st = game.stats.waffenSchaden || (game.stats.waffenSchaden = { gesamt: 0 });
   st.gesamt += d; st[typ] = (st[typ] || 0) + d;
+  Tel.trefferGegner(game, e, typ, dmg, schildVerlust, d);   // TEL-01 B1
   return d;
 }
 
@@ -479,6 +482,7 @@ function fireLance(game, id, power, auto) {
   if (game.space.escorts && game.space.escorts.length) { try { Escort.lanceCrossed(game, tr); } catch (err) { if (game.countError) game.countError('escort-lance', err); } }
   game.stats.lanceShots = (game.stats.lanceShots || 0) + 1;
   // Achtung: emit() mischt data in { t, kind } – kein Feld 'kind' mitgeben
+  Tel.schussRaum(game, w.id, id, null, tr.hit || null, p, !!tr.hit);   // TEL-01 B1
   game.emit('lance', { state: 'fire', power: r2(p), hit: tr.hit ? tr.hit.id : null, auto: !!auto, mount: id });
   game.emit('sfx', { name: 'lance_fire', power: r2(p), mount: id });
   if (tr.hit) {
@@ -569,8 +573,10 @@ function schussAb(game, id, w, c, e, o, idx, b) {
   if (n > 1) ang += ((idx % 4) - 1.5) * w.streuung;
   const q = (idx - (n - 1) / 2) * 2.2;   // Rohre nebeneinander (px quer zur Flugrichtung)
   const reach = S().waffenReichweite(game, c.reichweite);
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: w.projektil.kind, x: o.x - Math.sin(ang) * q, y: o.y + Math.cos(ang) * q, angle: ang, speed: w.geschw,
-    ttl: reach / w.geschw + 0.1, dmg: c.schaden * (b.salvoFactor || 1), owner: 'lerche', waffe: w.id, mount: id });
+  const pr = { id: game.nextId('pr'), kind: w.projektil.kind, x: o.x - Math.sin(ang) * q, y: o.y + Math.cos(ang) * q, angle: ang, speed: w.geschw,
+    ttl: reach / w.geschw + 0.1, dmg: c.schaden * (b.salvoFactor || 1), owner: 'lerche', waffe: w.id, mount: id };
+  game.space.projectiles.push(pr);
+  Tel.schussRaum(game, w.id, id, pr.id, e);   // TEL-01 B1
   game.stats.schuesse = (game.stats.schuesse || 0) + 1;
 }
 
@@ -624,8 +630,10 @@ function streuWurf(game, id, w, c, e, o, idx) {
   const f = d > reach ? reach / d : 1;
   const ex = o.x + (tx - o.x) * f, ey = o.y + (ty - o.y) * f;
   const dd = Math.hypot(ex - o.x, ey - o.y);
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'streu', x: o.x, y: o.y, angle: Math.atan2(ey - o.y, ex - o.x), speed: dd / T.zuend, ttl: T.zuend, ttlMax: T.zuend,
-    dmg: c.schaden, mount: id, ex, ey, owner: 'lerche' });
+  const pr = { id: game.nextId('pr'), kind: 'streu', x: o.x, y: o.y, angle: Math.atan2(ey - o.y, ex - o.x), speed: dd / T.zuend, ttl: T.zuend, ttlMax: T.zuend,
+    dmg: c.schaden, mount: id, ex, ey, owner: 'lerche' };
+  game.space.projectiles.push(pr);
+  Tel.schussRaum(game, w.id, id, pr.id, e);   // TEL-01 B1
 }
 // Explosion einer Granate der Lerche: Gegner im Radius; eine Granate = Schildschaden, zwei (andere Granaten) im Fenster = sicherer Hüllen-/Systemschaden
 function streuExplosion(game, p) {
@@ -639,8 +647,10 @@ function streuExplosion(game, p) {
     while (L.length && game.time - L[0] > T.fenster) L.shift();
     const zwei = L.length >= 1;
     L.push(game.time);
+    Tel.quelle(game, 'streu', p);   // TEL-01 B1: jede Wirkung dieser Granate nennt ihre Kennung
     schade(game, e, p.dmg, p.x, p.y, { streu: { schildFaktor: T.schildFaktor } }, w.id);
     if (zwei && sp.hasEnemy(game, e)) {
+      Tel.quelle(game, 'streu', p);   // TEL-01 B1
       schade(game, e, T.durchschlag, p.x, p.y, { huelle: true }, w.id);
       if (sp.hasEnemy(game, e)) sp.stoereGegner(e, 1.5);
       game.stats.streuZwei = (game.stats.streuZwei || 0) + 1;
@@ -661,8 +671,10 @@ function fireTorpedo(game, id) {
   m.cd = m.cdMax;
   Alarm.laerm(game, 'waffen');   // EK2
   const a = Math.atan2(target.y - ship.y, target.x - ship.x);
-  game.space.projectiles.push({ id: game.nextId('pr'), kind: 'torpedo', x: ship.x - Math.cos(ship.angle) * 30, y: ship.y - Math.sin(ship.angle) * 30,
-    angle: a, speed: T.geschw, ttl: T.ttl, dmg: 0, target: target.id, owner: 'lerche' });
+  const pr = { id: game.nextId('pr'), kind: 'torpedo', x: ship.x - Math.cos(ship.angle) * 30, y: ship.y - Math.sin(ship.angle) * 30,
+    angle: a, speed: T.geschw, ttl: T.ttl, dmg: 0, target: target.id, owner: 'lerche' };
+  game.space.projectiles.push(pr);
+  Tel.schussRaum(game, 'torpedowerfer', id, pr.id, target);   // TEL-01 B1
   game.stats.torpedos = (game.stats.torpedos || 0) + 1;
   game.emit('sfx', { name: 'torpedo' });
   return null;

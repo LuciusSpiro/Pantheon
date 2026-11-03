@@ -17,8 +17,7 @@ const slot = (v) => (typeof v === 'string' && /^p[1-4]$/.test(v) ? v : null);   
 
 // Bus game.emit(kind, data)
 const EMIT = {
-  missionStart: { typ: 'mission_start', felder: (d) => ({ mission: text(d.id) }) },   // title weggelassen: Anzeigetext, kein Schlüssel
-  missionDone: { typ: 'mission_ende', felder: (d) => ({ mission: text(d.id), ausgang: text(d.ausgang) }) },
+  // missionStart/missionDone: seit TEL-01 B1 szene_start/szene_ende mit Modus (telemetrie/gefecht.js, direkt in mission.js), nicht mehr hier
   // Partie beendet (Menü, Zerstörung, Server): merkt den Grund für session_ende. byName gehört NICHT ins Protokoll.
   sessionEnded: { typ: 'partie_beendet', felder: (d, ctx) => {
     const grund = d.grund ? text(d.grund) : (d.by ? 'spieler' : 'server');

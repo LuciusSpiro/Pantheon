@@ -2,6 +2,7 @@
 // Schiffsinneres + Außenkarten (B-7-Plattform, Wrack): Laufen, Interaktion (§4.2), Tragen, Feuer, Lecks, O₂-Folgen,
 // Downed/Revive, Reaktorschalter (M1 §6), Planungstisch (M1 §8), Offline-Systeme (EMP, M1 §5).
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: zone_aus (nur lesen)
 const Physics = require('../../shared/physics.js');
 const W = require('../world.js');
 const Buehne = require('../../shared/buehne.js');
@@ -1078,6 +1079,7 @@ function damageSystemRoh(game, sys, toState, opts) {   // opts.quiet (keine ODA)
   if (s[sys] !== 'ok') {
     if (!(opts && opts.dauer)) Fracht.systemTreffer(game, sys);   // EK3 Teil A: ein Systemtreffer bricht das Fracht-Beamen ab (Schildtreffer erreichen diese Stelle nie)
     game.emit('systemHit', { system: sys, state: s[sys] });
+    Tel.zoneAus(game, sys, systemSector(sys), s[sys], before);   // TEL-01 B1
     if (!(opts && opts.quiet)) queueSystemAnnounce(game, sys, s[sys]);
   }
   game.missionEvent('systemDamaged', { system: sys, state: s[sys] });

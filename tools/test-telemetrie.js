@@ -85,7 +85,7 @@ const flush = () => new Promise((r) => setImmediate(r));
   ok(bei.length === 1 && bei[0].slot === 'p4' && bei[0].art === 'neu' && bei[0].nachzuegler === true && bei[0].spielerzahl === 4, 'Nachzügler: spieler_bei p4 neu, nachzuegler, spielerzahl 4');
   const weg = z.filter((x) => x.typ === 'spieler_weg');
   ok(weg.length === 1 && weg[0].slot === 'p2' && weg[0].spielerzahl === 3, 'Abgang: spieler_weg p2, spielerzahl 3');
-  ok(z.some((x) => x.typ === 'mission_start'), 'Übersetzer: mission_start');
+  ok(z.some((x) => x.typ === 'szene_start'), 'Szenenhaken: szene_start (vorher Übersetzer mission_start)');
   ok(ende.grund === 'spieler' && ende.zeilen === z.length && ende.fehler === 0 && ende.verworfen === 0 && ende.dauer > 4, 'session_ende: grund spieler, zeilen = ' + ende.zeilen + ', fehler 0, dauer ' + ende.dauer);
   const pb = z.find((x) => x.typ === 'partie_beendet');
   ok(pb && pb.von === 'p1' && !('byName' in pb), 'partie_beendet nennt nur den Slot');

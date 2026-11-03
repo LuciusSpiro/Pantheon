@@ -53,7 +53,7 @@ const offene = new Set();   // alle Sessionzustände, die noch kein session_ende
 let exitHaken = false;
 function neuerZustand(sitzung, dir, melde, start) {
   return { sitzung, dir, melde, datei: null, puffer: [], kopf: null, kopfFertig: false, fd: null, bytes: 0, geplant: false, naechsterVersuch: 0, tuningNaechster: 0, rest: null, belegung: {},
-    grund: null, start, tick: 0, t: 0, spiel: null, tuning: null, tuningGeschrieben: false, zeilen: 0, verworfen: 0, fehler: 0, verworfeneFelder: 0 };
+    grund: null, abschluss: [], start, tick: 0, t: 0, spiel: null, tuning: null, tuningGeschrieben: false, zeilen: 0, verworfen: 0, fehler: 0, verworfeneFelder: 0 };
 }
 function fehler(s, where, e) { s.fehler++; try { s.melde(where, e); } catch (x) { /* nie werfen */ } }
 
@@ -141,6 +141,9 @@ function schreibe(s, erzwingen) {
 // Ende: Zeile session_ende, synchron schreiben, Kanal schließen. tick/t = Stand des Spiels (oder letzter bekannter Stand).
 // bytes = Dateigröße vor dieser letzten Zeile (alles Vorherige ist zuerst geschrieben).
 function abschliessen(s, grund, tick, t) {
+  // Abschluss-Haken (beiAbschluss): Module schliessen offene Vorgaenge vor session_ende; ein Fehler dort zaehlt, bricht aber nichts ab
+  const haken = s.abschluss; s.abschluss = [];
+  for (const h of haken) { try { h(); } catch (e) { fehler(s, 'abschluss', e); } }
   offene.delete(s);
   try {
     s.kopfFertig = true;   // Kopf wie er ist (Notfall)
@@ -222,6 +225,8 @@ class Telemetrie {
     s.kopfFertig = true;
     this._plane();
   }
+  // Haken, der vor session_ende laeuft (einmal, auch beim Prozessende). Er darf ereignis() rufen.
+  beiAbschluss(fn) { if (this.s && typeof fn === 'function') this.s.abschluss.push(fn); }
   grundVormerken(grund) { if (this.s && grund) this.s.grund = String(grund).slice(0, 40); }
   sessionBeenden(grund) {
     const s = this.s;

@@ -12,6 +12,7 @@
 const Mon = require('../../shared/monster.js');
 const Physics = require('../../shared/physics.js');
 const Anker = require('./anker.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Verlustereignis beim Monsterbiss (nur lesen)
 
 let combatMod = null;
 const combat = () => combatMod || (combatMod = require('./combat.js'));
@@ -172,7 +173,9 @@ function update(game, dt) {
   if (M.pause <= 0) {
     for (const p of spieler(game)) {
       if (Math.hypot(p.x - M.x, p.y - M.y) <= c.treffer) {
+        const warUnten = !!p.downed;
         combat().woundPlayer(game, p, 'monster');
+        if (!warUnten && p.downed) Tel.gefallenOhneTreffer(game, p.id, 'monster', 'monster');   // TEL-01 B1
         game.emit('monsterTreffer', { pid: p.id, x: Math.round(p.x), y: Math.round(p.y) });
         game.missionEvent('monsterTreffer', { pid: p.id });
         game.emit('sfx', { name: 'hull_hit', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });

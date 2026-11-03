@@ -11,6 +11,7 @@
 // space.shipHit (SERVER-FLIGHT) ist eine dünne Hülle um resolveHit. Alle Werte live per `tune spaceM3b.<pfad>` bzw. `tune systemModell.<pfad>`.
 const W = require('../world.js');
 const interior = require('./interior.js');
+const Tel = require('../telemetrie/gefecht.js');   // TEL-01 B1: Minentreffer (nur lesen)
 const Fracht = require('./fracht.js');
 const Katalog = require('../../shared/schiffskatalog.js');
 const Integ = require('./integritaet.js');
@@ -100,6 +101,7 @@ function direktTreffer(game, sector, opts) {
   Schilde.pause.treffer(game.ship.shields, sector, game.time, game.C);   // SYS-03 C1: auch ein Treffer am Schild vorbei (Mine) stoppt die Regeneration des Sektors
   const out = { absorbed: 0, rest: 0, systems: [], shield: 0, empThrough: false };
   systemTrefferOhneSchild(game, out, sector, opts || {});
+  if (opts && opts.mine) Tel.trefferMine(game, sector, out);   // TEL-01 B1
   return out;
 }
 
