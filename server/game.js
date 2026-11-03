@@ -77,6 +77,8 @@ const TUTORIAL_TITLES = { m1: 'Die stumme Boje', m2: 'Echo im Nebel', m3: 'Die T
 const CAMPAIGN_STARTS = Protocol.CAMPAIGN_STARTS || ['m1', 'free'];
 // EK8: Lobby-Modi mit fester Kampagnenkette (content/kampagne): { kampagne, tutorial }. Ohne Spielleiter.
 const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'eisenwald', tutorial: true }, eisenwald_ohne: { kampagne: 'eisenwald', tutorial: false } };
+// UEB-01: Übungsplatz-Modi, die eine eigene Karte brauchen, ohne Kampagne (kein Weltstand) zu sein
+const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
 const SERVER_VERSION = '0.2.0';
 const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole
@@ -1068,7 +1070,7 @@ class Game {
     }
     // SL1: Karte der Partie wählen (Limes, Sund), bevor reset() Startort und Wissen daraus ableitet; nur die Ketten-Modi wählen eine eigene
     const freieFahrt = sm === Kriegslage.MODUS;   // SUND-01 B: Weltstand, aber ohne Kette und ohne Spielleiter
-    Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
+    Welt.waehle(this, freieFahrt ? Kriegslage.KARTE : UEBUNG_WELTEN[sm] || (campaign && CAMPAIGN_KETTEN[sm] && CAMPAIGN_KETTEN[sm].welt) || Welt.STANDARD);
     this.reset();
     this.phase = 'play';
     this.stats.playTimeStart = this.time;
