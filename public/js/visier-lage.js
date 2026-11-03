@@ -1,7 +1,7 @@
 // KUL-03 D: Lagescheibe des Visiers (Draufsicht unten rechts, Mockup bplus-visier.html lagescheibe()). Schicht 'lage' (Rang 30) im Visier-Zeichner; eigene Datei, liest den Zustand direkt.
 // Schiff oben (Bug = Kurs des eigenen Schiffs nach oben), Rand = reichweiteWelt (800), ALLE Kontakte rundum, auch hinter dem Schiff; was weiter weg liegt, klemmt am Rand.
 // Kontakte nur als Punkte ohne Klassendetail (3-4 px): Gegner (Hellrot), Verbündete (Eisblau), Ziel der Ops (Bernstein, Consoles.targetOf), Sprungboje und Sprungpunkt (Messing), Station (Mint).
-// Blickfeld des Schirms als Keil (±atan(W/2 / F), aus Visier.kamera()), eigene Schilde als Ring um das Schiffssymbol (vier Seiten wie die Ops-Kennung). Keine Texte.
+// Blickfeld des Schirms als Keil (±atan(W/2 · cos(Neigung) / F), aus Visier.kamera()), eigene Schilde als Ring um das Schiffssymbol (vier Seiten wie die Ops-Kennung). Keine Texte.
 //   VisierLage.geometrie(kamera)            { cx, cy, R, rand, massstab } in Texturpixeln
 //   VisierLage.abbilden(ship, wx, wy, geo)  Weltpunkt -> { x, y, d, geklemmt, f, r }; f voraus, r Steuerbord; Kurs dreht mit (Weltwinkel 0 = +x, Uhrzeigersinn, wie Visier.projiziereWelt)
 //   VisierLage.keilGrad(kamera)             halber waagrechter Blickwinkel in Grad
@@ -26,7 +26,8 @@
     return { cx: kam.W + LG.cx, cy: kam.H + LG.cy, R: LG.radius, rand: LG.radius + LG.grund.plus, massstab: LG.radius / LG.reichweiteWelt };
   }
   function flaeche(kam) { const g = geometrie(kam); return { x: g.cx - g.rand, y: g.cy - g.rand, w: 2 * g.rand, h: 2 * g.rand }; }
-  function keilGrad(kam) { return Math.atan((kam.W / 2) / kam.F) / RAD; }
+  // Blickfeld auf der Flugebene: die Neigung staucht die Tiefe um cos(Neigung), also atan(W/2 * cp / F) (wie das Peilband, visier-leiste.js); ohne cp laege der Keil ~1 Grad zu breit (N1 B5)
+  function keilGrad(kam) { return Math.atan((kam.W / 2) * kam.cp / kam.F) / RAD; }
 
   // Weltpunkt -> Scheibe: voraus oben, Steuerbord rechts. Außerhalb der Reichweite am Rand (R - randPad) geklemmt.
   function abbilden(ship, wx, wy, geo) {

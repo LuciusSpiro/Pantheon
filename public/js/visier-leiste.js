@@ -15,6 +15,7 @@
 //   VisierLeiste.bandX(a, kamera)           Bandposition einer relativen Peilung (Bogenmaß)
 //   VisierLeiste.zeichne(ctx, view, plan, kamera)  die Schicht (wirft nie)
 // Alle Maße, Farben, Skins: HauptschirmTokens.TOKENS.VISIER.leiste / .skin / .tafel; Skin: skinVon(view) (Paket E), gemeinsam fuer Leiste und Tafel.
+//   VisierLeiste.szenenLage(ctx, view, kamera) / tafelOptionen(szene)  Szenenzeile { x, y, w, h } | null und daraus die Optionen der Sprungziel-Tafel (zum Zeichnen und fuer die Sperrflaeche)
 //   VisierLeiste.skinVon(view)              'rom' | 'germanen': Volk des eigenen Schiffs aus dem Snapshot, sonst Pult.skinId, sonst 'rom'
 (function (root) {
   'use strict';
@@ -30,6 +31,7 @@
   // (ship.pult / ship.skin / ship.volk, sonst die Klasse ueber CONFIG.shipClasses[klasse].pult); NUR wenn der Snapshot dazu nichts traegt (heute: kein solches Feld, Budget), gilt Pult.skinId(view)
   // (die Pult-Wahl, mit URL/localStorage-Ueberschreibung fuer Sichtpruefung), und ohne Pult 'rom'.
   const VOLK = { rom: 'rom', germanen: 'germanen', ger: 'germanen' };
+  // Hinweis: Pult.skinId ist client-lokal (Pult-Wahl dieses Clients); der Rueckfall kann sich also von Client zu Client unterscheiden, solange der Snapshot kein Volk traegt.
   function skinVon(view) {
     const SK = root.HauptschirmTokens && root.HauptschirmTokens.TOKENS.VISIER.skin;
     const ist = (id) => (typeof id === 'string' && VOLK[id] && SK && SK[VOLK[id]] ? VOLK[id] : null);
@@ -62,12 +64,18 @@
     return { art, farbe, a, x, aus, dir };
   }
 
+  // Ansicht, in der das Snapshot-Schiff Ort und Kurs des Bildschiffs traegt: Kurs-Kasten und Peilung der Sprungboje (HauptschirmTafeln.daten) gehen so mit dem Band
+  function mitSchiff(view, ship) {
+    const st = view.state;
+    return Object.assign({}, view, { state: Object.assign({}, st, { ship: Object.assign({}, st.ship, { x: ship.x, y: ship.y, angle: ship.angle }) }) });
+  }
+
   function lage(view, plan, kam) {
-    const st = view && view.state, ship = st && st.ship;
-    if (!ship || !ok(ship.angle) || !ok(ship.x) || !ok(ship.y) || !kam) return null;
+    const st = view && view.state, ship = root.Visier.schiffVon(view);   // dasselbe (interpolierte) Schiff wie Bild, Objekte und Lagescheibe (N1 B1)
+    if (!st || !ship || !ok(ship.angle) || !ok(ship.x) || !ok(ship.y) || !kam) return null;
     const TK = T(), LS = TK.VISIER.leiste, W = kam.W, H = kam.H;
     const geo = { W, H, ly: H - LS.hoehe, xa: LS.band.rand, xb: W - LS.band.rand };
-    const TA = root.HauptschirmTafeln, d = TA && TA.daten ? TA.daten(view) : { kurs: null, tempo: null, stufe: null, stufen: { n: 0, stage: -1, werte: [] }, sprung: null };
+    const TA = root.HauptschirmTafeln, d = TA && TA.daten ? TA.daten(mitSchiff(view, ship)) : { kurs: null, tempo: null, stufe: null, stufen: { n: 0, stage: -1, werte: [] }, sprung: null };
     const exakt = (((ship.angle / RAD + 90) % 360) + 360) % 360;   // Kompass Nord = 0, Ost = 90 (Shared_Physics.kompassGrad ohne Rundung: das Band läuft stetig)
     const aus = { kurs: d.kurs, kursExakt: exakt, tempo: d.tempo, stufe: d.stufe, stufen: d.stufen, alarm: ship.alert === 'red', geo, ticks: [], marken: [] };
 
@@ -186,6 +194,17 @@
   // (Kompassgrad wie die klassische Tafel: Shared_Physics.kompassGrad über HauptschirmTafeln.daten)
   function TAFELKURS(kurs) { return String(kurs).padStart(3, '0'); }
 
+  // Szenenzeile (Hud) oben mittig: Lage { x, y, w, h } wie sitz.js sie zeichnet (y 6, mittig), null ohne Szene
+  const SZENE_Y0 = 6, SZENE_LUFT = 4;
+  function szenenLage(ctx, view, kam) {
+    const H = root.Hud;
+    if (!H || !H.szeneVon || !H.szeneVon(view)) return null;
+    const w = H.drawSzenenStrip(ctx, view, SZENE_Y0, { measure: true });
+    return w > 0 ? { x: Math.round((kam.W - w) / 2), y: SZENE_Y0, w, h: H.szenenHoehe(view) } : null;
+  }
+  // Optionen fuer HauptschirmTafeln.lage: EINE Stelle fuer Zeichnen UND Sperrflaeche (visier-beschriftung); wie sitz.js tafelOpt (Breite der Zeile, Unterkante samt Luft)
+  function tafelOptionen(szene) { return szene ? { szeneBreite: szene.w, szeneUnten: szene.y + szene.h + SZENE_LUFT } : { szeneBreite: 0, szeneUnten: 0 }; }
+
   function zeichne(ctx, view, plan, kam) {
     if (!ctx || !root.HauptschirmTokens || !Rd() || !root.Visier) return;
     ctx.save();
@@ -197,11 +216,11 @@
       leisteLinks(ctx, L);
       band(ctx, L);
       marken(ctx, L);
-      if (T().VISIER.tafel.rechts && root.HauptschirmTafeln && root.HauptschirmTafeln.zeichneSprungziel) root.HauptschirmTafeln.zeichneSprungziel(ctx, view, { skin });
+      if (T().VISIER.tafel.rechts && root.HauptschirmTafeln && root.HauptschirmTafeln.zeichneSprungziel) root.HauptschirmTafeln.zeichneSprungziel(ctx, view, Object.assign(tafelOptionen(szenenLage(ctx, view, L.geo)), { skin }));
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { lage, bandX, zeichne, skinVon };
+  const API = { lage, bandX, zeichne, skinVon, szenenLage, tafelOptionen };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.VisierLeiste = API;
   if (root.Visier && root.Visier.registriereSchicht) root.Visier.registriereSchicht('leiste', 20, zeichne);

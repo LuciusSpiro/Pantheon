@@ -26,6 +26,7 @@ globalThis.Consoles = { targetOf: (view) => (zielId ? (view.enemies || []).find(
 const Lage = require('../public/js/visier-lage.js');
 const Obj = require('../public/js/visier-objekte.js');
 const Besch = require('../public/js/visier-beschriftung.js');
+require('../public/js/visier-leiste.js');   // setzt globalThis.VisierLeiste: Optionen der Sprungziel-Tafel kommen von dort (N1 B2)
 const c = Vis.kamera(), W = c.W, H = c.H;
 
 const ship = { x: 1000, y: 1000, angle: 0 };   // Kurs Osten: voraus = +x, Steuerbord = +y
@@ -203,6 +204,10 @@ section('(8) oben links frei, Sperrflächen');
   ok(tf.x1 >= W - TF.rechts.x * -1 - 1 && tf.x1 - tf.x0 >= TF.rechts.w && tf.y1 - tf.y0 >= TF.rechts.h, 'Sprungziel-Tafel (' + TF.rechts.w + ' x ' + TF.rechts.h + ') gesperrt');
   const mitSzene = Besch.sperrFlaechen(mkView([]), c, { x: 150, y: 6, w: 200, h: 14 });
   ok(mitSzene.some((s) => s.name === 'szene' && s.x0 < 150 && s.x1 > 350 && s.y1 >= 20), 'Szenenzeile gesperrt');
+  // N1 B2: Sperrflaeche der Tafel = die tatsaechlich (unter der Zeile) gezeichnete Tafel, Optionen aus VisierLeiste.tafelOptionen
+  const hohe = { x: 46, y: 6, w: 420, h: 27 }, vj = mkView([], {}, { dest: 'leer-0502' });
+  const tHoch = Besch.sperrFlaechen(vj, c, hohe).find((s) => s.name === 'tafelRechts'), soll = HauptschirmTafeln.lage(vj, VisierLeiste.tafelOptionen(hohe)).rechts;
+  ok(tHoch && soll && soll.y >= 37 && tHoch.y0 === soll.y - TF.sperrAbstand && tHoch.y1 === soll.y + soll.h + TF.sperrAbstand && tHoch.x0 === soll.x - TF.sperrAbstand, 'Sperrflaeche der Tafel liegt unter der hohen Szenenzeile (y ' + (tHoch && tHoch.y0) + ' ... ' + (tHoch && tHoch.y1) + ') = gezeichnete Tafel');
   // ein Posten, der genau dorthin wollte, weicht aus
   const szP = bau(mkView([enemy('a', 300, 0)]), { szene: { x: 0, y: 70, w: 512, h: 130 } });
   ok(alle(szP).every((i) => !ueberlappt(i.rect, { x0: 0, y0: 70, x1: 512, y1: 200 })), 'Szenenzeile (hier groß erfunden) wird von Marken und Texten gemieden');

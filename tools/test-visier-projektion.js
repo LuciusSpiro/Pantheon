@@ -39,13 +39,15 @@ let minAbst = Infinity, zeilen = 0;
 for (const R of [110, 150, 230, 520]) {
   for (const gr of [0, 30, -30]) {
     let letzt = null;
-    for (const d of [3700, 2450, 1250, 650]) {
+    for (const d of [30000, 15000, 8000, 3700, 2450, 1250, 650]) {
       const a = rad(gr), L = Vis.planetLage(Math.sin(a) * d, Math.cos(a) * d, R);
       if (!L.ok) continue;
       zeilen++;
       const ober = L.y - L.r;
       minAbst = Math.min(minAbst, ober - cam.horizont);
       ok(ober >= cam.horizont + V.planet.sicherungPx - 1e-6, 'R ' + R + ' Peilung ' + gr + ' Abstand ' + d + ': Oberkante ' + ober.toFixed(1) + ' >= Horizont+6');
+      const saumOber = L.y - L.r * (1 + TK.KUGEL.saum.breite);   // KulisseKugel malt den Atmosphaerensaum bis 1,18 R: auch er bleibt unter dem Horizont (N1 B3)
+      ok(saumOber >= cam.horizont + V.planet.sicherungPx - 1e-6, '  Saum-Oberkante ' + saumOber.toFixed(1) + ' >= Horizont+6');
       if (letzt) {
         ok(L.r > letzt.r, '  waechst beim Anflug (' + letzt.r.toFixed(1) + ' -> ' + L.r.toFixed(1) + ')');
         ok(L.y >= letzt.y - 1e-6, '  Mittelpunkt rutscht nach unten (' + letzt.y.toFixed(1) + ' -> ' + L.y.toFixed(1) + ')');
@@ -60,6 +62,15 @@ ok(!Vis.planetLage(0, 6000, 2500).geklemmt, 'regulaer klemmt nichts (Kugel liegt
 const sp = V.planet.sicherungPx; V.planet.sicherungPx = 80;
 const gm = Vis.planetLage(0, 6000, 2500); V.planet.sicherungPx = sp;
 ok(gm.geklemmt && gm.y - gm.r >= cam.horizont + 80 - 1e-6, 'Mutation: Sicherung 80 klemmt und schiebt die Kugel nach unten');
+// Kugel-Zwischenspeicher: nie ein Bild groesser als kugelMaxPx (Speicherobergrenze), groessere Radien werden skaliert (N1 B6)
+{
+  const max = V.planet.kugelMaxPx;
+  ok(max > 0 && max <= 320, 'kugelMaxPx ' + max);
+  let hoechst = 0;
+  for (let r = 2; r < 1500; r += 3) hoechst = Math.max(hoechst, Vis.stufeFuer(r));
+  ok(hoechst <= max && hoechst > max * 0.8, 'Cache-Stufe nie ueber ' + max + ' (hoechste ' + hoechst + ')');
+  ok(Vis.stufeFuer(900) === Vis.stufeFuer(400), 'oberhalb der Grenze kein Neuaufbau (Stufe ' + Vis.stufeFuer(900) + ')');
+}
 ok(Vis.planetLage(0, -60, 150).ok === false, 'Planet unter/hinter dem Schiff (Tiefe < 80): nicht gezeichnet');
 
 section('(4) Peilung (Weltachsen)');

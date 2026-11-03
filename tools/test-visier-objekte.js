@@ -130,5 +130,31 @@ section('(7) Robustheit');
   ok(prot2.includes('drawImage') || prot2.includes('stroke'), 'Visier.zeichne ruft die Schicht "objekte" (es wird gezeichnet)');
   zielId = null;
 }
+section('(8) Schildring der Gegner (N1 B4)');
+{
+  // Stufen 0..4 aus shields/shieldsMax je Seite (Bug, Steuerbord, Heck, Backbord); leer = 0; null ohne Schilde
+  const st = (sh, mx) => Obj.seitenStufen({ kind: 'raider', shields: sh, shieldsMax: mx });
+  ok(JSON.stringify(st([0, 1, 2, 2], [2, 2, 2, 2])) === '[0,2,4,4]', 'Stufen aus Ist/Max: [0,1,2,2] von 2 -> ' + JSON.stringify(st([0, 1, 2, 2], [2, 2, 2, 2])) + ' (0 = leer, 4 = voll)');
+  ok(JSON.stringify(st([2, 2, 2, 2], [2, 2, 2, 2])) === '[4,4,4,4]' && JSON.stringify(st([6, 3, 1.5, 0.2], [6, 6, 6, 6])) === '[4,2,1,1]', 'volle Seiten 4, halbe 2, ein Rest mindestens 1');
+  ok(JSON.stringify(st([0, 0, 0, 0], [2, 2, 2, 2])) === '[0,0,0,0]', 'alle Seiten leer: 0');
+  ok(Obj.seitenStufen({ kind: 'raider' }) === null && Obj.seitenStufen({ kind: 'raider', shields: [] }) === null, 'ohne Schilde im Snapshot: null (kein Ring)');
+  // gezeichnet: je Gegner vier Bogen (einer je Seite), leere Seite rot gestrichelt, sonst Mint mit Breite und Deckung nach Stufe
+  const SR = OB.gegner.schildring, mint = parseInt(TK.FARBE.schild.slice(1), 16), rot = parseInt(TK.FARBE.gefahr.slice(1), 16);
+  const rgb = (n) => (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255);
+  const speicher = { lineWidth: 1, strokeStyle: '#000', dash: [] }, strokes = [];
+  const ctxS = new Proxy({}, { get: (t, k) => (k === 'createLinearGradient' || k === 'createRadialGradient' ? () => ({ addColorStop() {} }) : k === 'measureText' ? () => ({ width: 0 }) : k in speicher ? speicher[k] : k === 'setLineDash' ? (d) => { speicher.dash = d.slice(); } : k === 'stroke' ? () => { strokes.push({ w: speicher.lineWidth, s: String(speicher.strokeStyle), dash: speicher.dash.join(',') }); } : () => {}), set: (t, k, v) => { speicher[k] = v; return true; } });
+  const ringe = (e) => { strokes.length = 0; const v = mkView([e]); Obj.zeichne(ctxS, v, plan(v), c); return strokes.filter((q) => q.s.startsWith('rgba(' + rgb(mint) + ',') || q.s.startsWith('rgba(' + rgb(rot) + ',')); };
+  const R1 = ringe(enemy('s1', 300, 0, 'raider', { shields: [0, 2, 1, 2], shieldsMax: [2, 2, 2, 2] }));   // erwartete Stufen 0, 4, 2, 4
+  ok(R1.length === 4, 'vier Schildbogen je Gegner (' + R1.length + ')');
+  ok(R1[0] && R1[0].dash === SR.leer.strich.join(',') && R1[0].s.startsWith('rgba(' + rgb(rot) + ',') && R1[0].w === SR.leer.breite, 'leere Seite (Bug): rot gestrichelt, Breite ' + SR.leer.breite);
+  const wStufe = (v) => SR.breiteGrund + v * SR.breiteJeStufe;
+  ok(R1[1] && R1[1].dash === '' && R1[1].w === wStufe(4) && R1[2] && R1[2].w === wStufe(2) && R1[3] && R1[3].w === wStufe(4), 'Seiten Steuerbord/Heck/Backbord: Breite nach Stufe 4/2/4 (' + R1.slice(1).map((q) => q.w).join('/') + ')');
+  const alpha = (q) => +q.s.match(/,([\d.]+)\)$/)[1];
+  ok(R1[1] && Math.abs(alpha(R1[1]) - Math.min(1, SR.alphaGrund + 4 * SR.alphaJeStufe)) < 1e-9 && alpha(R1[2]) < alpha(R1[1]), 'Deckung waechst mit der Stufe (' + [R1[1], R1[2]].map((q) => alpha(q)).join(' > ') + ')');
+  ok(ringe(enemy('s2', 300, 0, 'raider', { shields: undefined, shieldsMax: undefined })).length === 0, 'Gegner ohne Schilde: kein Ring');
+  const zwei = (() => { strokes.length = 0; const v = mkView([enemy('a', 300, 0, 'raider', { shields: [2, 2, 2, 2] }), enemy('b', 500, 60, 'raider', { shields: [2, 2, 0, 0] })]); Obj.zeichne(ctxS, v, plan(v), c); return strokes.filter((q) => q.s.startsWith('rgba(' + rgb(mint) + ',') || q.s.startsWith('rgba(' + rgb(rot) + ',')); })();
+  ok(zwei.length === 8 && zwei.filter((q) => q.dash === '2,3').length === 2, 'zwei Gegner: 8 Bogen, davon 2 leere Seiten');
+}
+
 console.log('\n' + (fails ? fails + ' von ' + n + ' FEHLER' : 'alle ' + n + ' Pruefungen gruen'));
 process.exit(fails ? 1 : 0);

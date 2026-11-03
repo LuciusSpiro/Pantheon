@@ -4,7 +4,8 @@
 // drawSpace kennen das Visier nicht; der Zeichner liest den Zustand direkt aus view und meldet sich selbst an (Hauptschirm.registriere('visier', …), vor sitz.js geladen).
 //   Visier.projiziere(X, Z, hoehe)         Punkt relativ zum Schiff (X Steuerbord, Z voraus, hoehe über der Ebene, unten negativ) -> Texturpixel { x, y, tiefe, k, ok }; rein, ohne Zeichnen
 //   Visier.projiziereWelt(ship, wx, wy, h)  Weltpunkt (ship { x, y, angle } wie view.ship: Bogenmaß, 0 = +x, im Uhrzeigersinn) -> dasselbe plus { f, r }; dreht mit dem Kurs ein
-//   Visier.planetLage(X, Z, radius)         Lage und Radius eines Planeten im Bild inkl. Sicherung (Oberkante höchstens Horizont + 6): { x, y, r, tiefe, ok, geklemmt }
+//   Visier.planetLage(X, Z, radius)         Lage und Radius eines Planeten im Bild inkl. Sicherung (Oberkante des Saums, 1,18 R, höchstens Horizont + 6): { x, y, r, tiefe, ok, geklemmt }
+//   Visier.schiffVon(view)                  das Schiff des Bildes (view.ship interpoliert, sonst Snapshot): eine Quelle fuer Bild, Objekte, Lagescheibe und Peilband
 //   Visier.plan(view)                       reine Lage der Teile { fog, sterne[], planeten[] }; null ohne Schiff
 //   Visier.zeichne(ctx, view, rect)         der Zeichner; Visier.kamera() liefert { F, horizont, … } aus den Tokens
 // Kurs-Konvention: Weltwinkel 0 = +x (Osten), y nach unten, Uhrzeigersinn positiv (Kompass Nord = 0: Shared_Physics.kompassGrad); Steuerbord = Bug + 90° im Uhrzeigersinn.
@@ -54,8 +55,10 @@
     const PL = T().VISIER.planet, c = kamera();
     const R = radius * PL.radiusFaktor, tief = R * PL.tiefeFaktor + PL.tiefePlus, p = projiziere(X, Z, -tief);
     const r = R * p.k;
+    // Sichtbarer Aussenradius = Kugel plus Atmosphaerensaum (KulisseKugel malt bis (1 + KUGEL.saum.breite) * R, oben mit starkem Alpha): die Sicherung rechnet mit ihm, nicht mit dem Koerper (N1 B3)
+    const ra = r * (1 + T().KUGEL.saum.breite);
     let y = p.y, geklemmt = false;
-    if (y - r < c.horizont + PL.sicherungPx) { y = c.horizont + PL.sicherungPx + r; geklemmt = true; }
+    if (y - ra < c.horizont + PL.sicherungPx) { y = c.horizont + PL.sicherungPx + ra; geklemmt = true; }
     return { x: p.x, y, r, tiefe: p.tiefe, ok: p.tiefe > PL.tiefeMin && r > 0 && ok(r) && ok(y) && ok(p.x), geklemmt };
   }
 
@@ -76,8 +79,11 @@
   }
 
   // ------------------------------------------------------------ Lage (rein, ohne Zeichnen)
+  // DAS Schiff des Bildes: view.ship (zwischen zwei Snapshots interpoliert, client.js) vor dem neuesten Snapshot-Schiff. Bild, Objekte, Lagescheibe UND Peilband lesen es hier (KUL-03 N1 B1):
+  // sonst liegt das Band in der Wende 3-5 Grad neben dem Bild.
+  function schiffVon(view) { return (view && view.ship) || (view && view.state && view.state.ship) || null; }
   function plan(view) {
-    const KH = root.KulisseHimmel, st = view && view.state, ship = (view && view.ship) || (st && st.ship);
+    const KH = root.KulisseHimmel, st = view && view.state, ship = schiffVon(view);
     if (!st || !ship || !ok(ship.x) || !ok(ship.y) || !ok(ship.angle)) return null;
     const TK = T(), V = TK.VISIER, VH = V.himmel;
     const si = KH && KH.sichtVon ? KH.sichtVon(st) : { sc: {}, fog: false, imSicht: () => true };   // gleiche Nebelregel wie klassisch (kulisse-himmel.js)
@@ -107,8 +113,18 @@
   }
 
   // Kugeln wachsen stetig, der Zwischenspeicher baut sie aber je Radiusstufe: Stufen geometrisch (≈ 12 %), die Zeichnung skaliert auf den echten Radius (kein Neuaufbau je 4 px Wachstum)
-  const STUFEN = (() => { const l = []; for (let r = 12; r < 600; r = Math.max(r + 4, Math.round(r * 1.12 / 4) * 4)) l.push(r); return l; })();
-  function stufeFuer(r) { let b = STUFEN[0]; for (const s of STUFEN) { if (s <= r * 1.06) b = s; else break; } return b; }
+  // Obergrenze VISIER.planet.kugelMaxPx (320): groessere Kugeln skaliert die Zeichnung hoch (Pixel-Look, Blockraster wird groeber), der Zwischenspeicher baut nie mehr als ~800 x 800 px je Eintrag
+  // (~2,6 MB, bei cacheMax 24 hoechstens ~62 MB statt 140 MB) und baut beim Anflug oberhalb der Grenze nichts mehr neu (N1 B6)
+  let stufenCache = null, stufenFuer = null;
+  function stufen() {
+    const TK = T();
+    if (stufenCache && stufenFuer === TK) return stufenCache;
+    const l = [], max = TK.VISIER.planet.kugelMaxPx;
+    for (let r = 12; r <= max; r = Math.max(r + 4, Math.round(r * 1.12 / 4) * 4)) l.push(r);
+    stufenFuer = TK;
+    return stufenCache = l;
+  }
+  function stufeFuer(r) { const S = stufen(); let b = S[0]; for (const s of S) { if (s <= r * 1.06) b = s; else break; } return b; }
 
   // ------------------------------------------------------------ Zeichnen
   function himmel(ctx, view, L, c) {
@@ -205,7 +221,7 @@
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { registriereSchicht, zeichne, plan, projiziere, projiziereWelt, planetLage, kamera, stufeFuer };
+  const API = { registriereSchicht, zeichne, plan, projiziere, projiziereWelt, planetLage, schiffVon, kamera, stufeFuer };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.Visier = API;
   if (root.Hauptschirm && root.Hauptschirm.registriere) root.Hauptschirm.registriere('visier', zeichne);
