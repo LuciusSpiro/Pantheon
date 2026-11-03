@@ -1354,6 +1354,21 @@
         if (!anker.some((q) => q.rolle === a.rolle && q.x === a.x && q.y === oy)) F('K-DECK', `${a.id}: kein Gegenstück auf dem anderen Deck`, a.x, a.y);
       }
     }
+    // K-DECK allgemein (BOD-03, Festkarten mit karte.decks aus gen-fest): jeder Lift/Leiter-Anker steht an einem Deck-Link, dessen anderes Ende
+    // auf einem anderen Deck liegt und einen Anker derselben Rolle trägt (das Gegenstück muss nicht in derselben Spalte liegen, das Rohr)
+    if (karte.art !== 'schiff' && karte.decks && karte.decks.stride > 0) {
+      const stride = karte.decks.stride, dl = karte.decks.links || [];
+      const deckVon = (y) => Math.floor(y / stride);
+      const gleich = (p, q) => p[0] === q.x && p[1] === q.y;
+      for (const a of anker.filter((q) => q.rolle === 'lift' || q.rolle === 'leiter')) {
+        const l = dl.find((e) => e.via === a.rolle && (gleich(e.a, a) || gleich(e.b, a)));
+        if (!l) { F('K-DECK', `${a.id}: kein Deck-Link (kein Gegenstück auf dem anderen Deck)`, a.x, a.y); continue; }
+        const o = gleich(l.a, a) ? l.b : l.a;
+        if (deckVon(o[1]) === deckVon(a.y)) F('K-DECK', `${a.id}: Gegenstück liegt im selben Deck`, a.x, a.y);
+        else if (!anker.some((q) => q.rolle === a.rolle && q.x === o[0] && q.y === o[1])) F('K-DECK', `${a.id}: am Gegenstück (${o[0]},${o[1]}) steht kein ${a.rolle}-Anker`, a.x, a.y);
+      }
+      for (const l of dl) for (const e of [l.a, l.b]) if (e[0] < 0 || e[1] < 0 || e[0] >= W || e[1] >= H) F('K-DECK', `Deck-Link außerhalb der Karte: ${e[0]},${e[1]}`);
+    }
     // K-ERREICHBAR (BFS über Durchgänge, Objekte blockieren, inkl. Deck-Links) von jedem Eingang und der Ankunft
     const links = K.deckLinks(karte);
     const pass = (x, y) => r.durchgang(x, y) && !objekt.has(y * W + x);
@@ -1370,6 +1385,14 @@
       const dist = K.bfs(W, H, (x, y) => pass(x, y) || (x === s.x && y === s.y), [[s.x, s.y]], links);
       startDist.set(s.id, dist);
       for (const z of ziele) if (!erreicht(dist, z)) F('K-ERREICHBAR', `${z.id} von ${s.id} nicht erreichbar`, z.x, z.y);
+    }
+    // Deck-Links erreichbar (nicht Schiff): beide Enden jedes Links sind von der Ankunft aus zu erreichen (der Link selbst zählt als Weg)
+    if (karte.art !== 'schiff' && karte.decks && ank.length && startDist.has(ank[0].id)) {
+      const dist = startDist.get(ank[0].id);
+      for (const l of karte.decks.links || []) for (const e of [l.a, l.b]) {
+        if (e[0] < 0 || e[1] < 0 || e[0] >= W || e[1] >= H) continue;
+        if (!anker.some((q) => q.x === e[0] && q.y === e[1] && erreicht(dist, q))) F('K-DECK', `Deck-Link-Ende ${e[0]},${e[1]} von der Ankunft nicht erreichbar`, e[0], e[1]);
+      }
     }
     // K-MAUER-DICHT / K-ROHR (EK5, Methalle): Schleichweg = Kacheln der Art rohr. Ohne sie darf von der Ankunft aus kein Ziel erreichbar
     // sein (die Mauer ist dicht, das Rohr der einzige Weg); mit ihnen erreichbar prüft K-ERREICHBAR oben. Der Weg gilt nur für die,
