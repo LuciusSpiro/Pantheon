@@ -39,13 +39,7 @@ async function main() {
     bot(['wellen', '--karte', 'aussenposten', '--players', '1', '--seeds', '1', '--seed', '2'], path.join(PROT, 's2')),
     bot(['wellen', '--karte', 'aussenposten', '--players', '3', '--seeds', '1', '--seed', '1'], path.join(PROT, 'd1')),
   ]);
-  // Laufkennungen sind Zeit + Zaehler: parallel gestartete Prozesse koennen dieselbe vergeben. Jede Session bekommt hier eine eindeutige Kennung (Dateiname und Inhalt).
-  let nr = 0;
-  for (const e of Lesen.ordnerSessions(PROT)) {
-    const neu = 'run-t' + (++nr);
-    fs.writeFileSync(path.join(e.dir, neu + '.jsonl'), fs.readFileSync(path.join(e.dir, e.kennung + '.jsonl'), 'utf8').split(e.kennung).join(neu));
-    fs.rmSync(path.join(e.dir, e.kennung + '.jsonl'));
-  }
+  // Die drei Prozesse haben verschiedene Prozesskennungen, die Sitzungskennungen (runId + Prozess) sind deshalb ohne Nacharbeit eindeutig.
   const sessions = Lesen.ordnerSessions(PROT);
   gleich(sessions.length, 3, 'Vorbereitung: 3 Sessions in 3 Unterordnern (ordnerSessions laeuft rekursiv, ohne tuning/)');
   const prot = sessions.map((e) => { const p = Lesen.lesen(e.kennung, { dirs: [e.dir] }); return { p, kz: kennzahlen(p) }; });

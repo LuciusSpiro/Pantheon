@@ -386,6 +386,18 @@ section('2. Rotierte Session, abgeschnittene Zeile, unbekannter Typ');
   try { Lesen.lesen('gibt-es-nicht', { dirs: [dir] }); } catch (e) { wirft = /nicht gefunden/.test(e.message); }
   ok(wirft, 'unbekannte Session: klare Fehlermeldung');
   ok(Lesen.letzteKennung([dir]) === SID, 'letzteKennung findet die Session (Teile zählen als eine)');
+  // D2-Nacharbeit: Kennung = Spielkennung + Prozess (run-<zeit>-<n>-<pid36>): Suche nach Kennung, Datei, --letzte (letzteKennung) und Ordner finden sie
+  {
+    const neuKennung = 'run-1793000000000-1-k2f';
+    const dn = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-kennung-'));
+    fs.writeFileSync(path.join(dn, neuKennung + '.jsonl'), TEXT.split(SID).join(neuKennung));
+    const P = Lesen.lesen(neuKennung, { dirs: [dn] });
+    ok(P.kennung === neuKennung && P.dateien.length === 1 && P.zeilen.length > 3, 'Kennung mit Prozessanteil: Suche nach Kennung findet die Datei');
+    ok(Lesen.lesen(path.join(dn, neuKennung + '.jsonl')).kennung === neuKennung && Lesen.kennungVon(neuKennung + '.jsonl') === neuKennung && Lesen.kennungVon(neuKennung + '.2.jsonl') === neuKennung, 'kennungVon: Teilnummer .2 ist nicht Teil der Kennung, der Prozessanteil schon');
+    ok(Lesen.letzteKennung([dn]) === neuKennung, 'letzteKennung (--letzte) liefert die volle Kennung samt Prozessanteil');
+    ok(JSON.stringify(Lesen.ordnerSessions(dn).map((e) => e.kennung)) === JSON.stringify([neuKennung]), 'ordnerSessions: eine Session mit voller Kennung');
+    fs.rmSync(dn, { recursive: true, force: true });
+  }
 }
 
 section('Bericht und Bild des Mini-Protokolls');

@@ -64,8 +64,8 @@ function oeffnen(s, erzwingen) {
   try {
     fs.mkdirSync(s.dir, { recursive: true });
     let name = s.sitzung;
-    for (let i = 0; ; i++) {   // genau eine Datei je Session; Namensgleichheit (zwei Prozesse, gleiche Millisekunde) -> Zusatz
-      try { s.fd = fs.openSync(path.join(s.dir, name + '.jsonl'), 'wx'); break; } catch (e) { if (e.code !== 'EEXIST' || i >= 5) throw e; name = s.sitzung + '-' + process.pid + (i ? '-' + i : ''); }
+    for (let i = 0; ; i++) {   // genau eine Datei je Session; Namensgleichheit (derselbe Prozess startet dieselbe runId zweimal, z. B. ein Test) -> Zaehler
+      try { s.fd = fs.openSync(path.join(s.dir, name + '.jsonl'), 'wx'); break; } catch (e) { if (e.code !== 'EEXIST' || i >= 5) throw e; name = s.sitzung + '-' + (i + 1); }
     }
     s.datei = path.join(s.dir, name + '.jsonl');
     if (name !== s.sitzung) { s.sitzung = name; for (const z of s.puffer) z.sitzung = name; }   // Dateiname = Sitzung
@@ -205,7 +205,8 @@ class Telemetrie {
       if (!g.runId) return;
       const ref = new WeakRef(g);   // die Meldung an countError darf das Game nicht festhalten
       const melde = (where, e) => { const gg = ref.deref(); if (gg) gg.countError('telemetrie-' + where, e); };
-      const s = neuerZustand(String(g.runId).replace(/[^A-Za-z0-9_-]/g, '_'), dirVon(g.env), melde, g.time);
+      // Sitzung (Kennung und Dateiname) = Spielkennung + Prozess: runId ist Zeit + Zaehler und kann in zwei Prozessen (Bot-Laeufe mit --jobs, zwei Server) gleich sein; kopf.run_id bleibt die Spielkennung
+      const s = neuerZustand(String(g.runId).replace(/[^A-Za-z0-9_-]/g, '_') + '-' + process.pid.toString(36), dirVon(g.env), melde, g.time);
       s.spiel = ref;   // schwach: beim Prozessende (Bot-Läufe ohne eigenes Sessionende) den letzten Spielstand ablesen
       this.s = s;
       s.kopf = this._zeile('kopf', {});
