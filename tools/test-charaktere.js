@@ -398,6 +398,15 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(m.spindZeile(1, 5).ok === false && m.spindZeile(-1, 5).ok === false && m.lies().sitzung.entwurf.karte.outfit.umhang === 'fellumhang', 'Zeile weiter ohne Teil dort: nichts ändert sich');
   ok(m.spindNaechsterPlatz(1).ok && m.lies().sitzung.entwurf.platz === 'kopf' && m.spindNaechsterPlatz(-1).ok && m.lies().sitzung.entwurf.platz === 'umhang', 'Platzwechsel ringförmig über die sechs Plätze');
   ok(!m.spindWaehlePlatz('gesicht').ok && !m.spindWaehlePlatz('haar').ok && !m.spindSetzeWahl('frisur', 0).ok && !m.spindSetzeWahl('haut', 0).ok, 'Charakterplätze sind im Spind nicht wählbar');
+  // CHA-02 E1b: Umhang dreht die Anprobe auf Rücken-¾, Platzwechsel zurück auf die Ausgangsdrehung; Q/E bleibt frei
+  { const en = () => m.lies().sitzung.entwurf; m.spindWaehlePlatz('kopf'); m.dreheFigur(1);
+    ok(en().yaw === 45, 'Vorbedingung: Anprobe von Hand auf 45° gedreht');
+    m.spindWaehlePlatz('umhang'); ok(en().yaw === m.UMHANG_YAW && m.UMHANG_YAW === 150, 'Platz Umhang: Anprobe dreht auf Rücken-¾ (150°)');
+    m.spindWaehlePlatz('umhang'); ok(en().yaw === 150, 'derselbe Platz nochmal: keine neue Drehung');
+    m.dreheFigur(1); ok(en().yaw === 195, 'auf dem Umhang bleibt Q/E möglich');
+    m.spindWaehlePlatz('hose'); ok(en().yaw === 45, 'Platzwechsel: zurück auf die Ausgangsdrehung vor dem Umhang (45°)');
+    m.spindWaehlePlatz('hose'); m.spindWaehlePlatz('kopf'); ok(en().yaw === 45, 'kein Umhang gewählt: Drehung bleibt wie sie ist');
+    m.spindWaehlePlatz('umhang'); m.spindNaechsterPlatz(1); ok(en().platz === 'kopf' && en().yaw === 45, 'Weiterschalten vom Umhang: ebenfalls zurück'); m.dreheFigur(-1); }
   // R: zurück auf getragen
   m.spindZuruecksetzen();
   gleich(m.lies().sitzung.entwurf.karte.outfit, m.aktiveKarte().outfit, 'R: zurück auf das getragene Outfit');

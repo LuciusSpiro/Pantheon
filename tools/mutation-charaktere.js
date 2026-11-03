@@ -45,7 +45,7 @@ const MUTATIONEN = [
   [C, "speichereListe();   // schlägt der Browser-Speicher fehl", "// schlägt der Browser-Speicher fehl", 'speichereOutfit speichert nicht'],
   [C, "sende(klon(outfit));", "", 'speichereOutfit sendet nichts an den Server'],
   [C, "c.karte.outfit = outfit;\n      speichereListe();   // schlägt", "c.karte = Object.assign({}, e.karte, { outfit });\n      speichereListe();   // schlägt", 'speichereOutfit übernimmt auch den Charakterteil des Entwurfs'],
-  [C, "if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };\n      e.platz = platz; e.hinweis = null; aenderung();", "if (!e) return { ok: false, grund: 'platz' };\n      e.platz = platz; e.hinweis = null; aenderung();", 'Spind lässt Charakterplätze zu'],
+  [C, "if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };\n      if (platz !== e.platz) {", "if (!e) return { ok: false, grund: 'platz' };\n      if (platz !== e.platz) {", 'Spind lässt Charakterplätze zu'],
   [C, "e.karte.outfit[platz] = teile[i].id.slice(platz.length + 1);", "e.karte.outfit[platz] = teile[i].id.slice(platz.length + 1); store.liste.find((x) => x.id === store.gewaehlt).karte.outfit[platz] = e.karte.outfit[platz];", 'Anprobe schreibt sofort in den Charakter'],
   [C, "e.karte = k; e.hinweis = null; aenderung();", "e.hinweis = null; aenderung();", 'R setzt die Anprobe nicht zurück'],
   [C, "(Math.max(0, spindWahlIndex(e.platz)) + (d < 0 ? -1 : 1) + n) % n)", "Math.min(n - 1, Math.max(0, spindWahlIndex(e.platz) + (d < 0 ? -1 : 1))))", 'Spind-Blättern ist nicht ringförmig'],
@@ -84,6 +84,10 @@ const MUTATIONEN = [
   [C, "return !!c && e.name !== c.karte.name;", "return !!c;", 'R im Umbenennen gilt immer als wirksam'],
   [C, "if (e.modus === 'neu') return true;\n      const c = store.liste.find((x) => x.id === e.id);\n      return", "if (false) return true;\n      const c = store.liste.find((x) => x.id === e.id);\n      return", 'R in der Erstellung gilt als wirkungslos'],
   [C, "if (!kannZuruecksetzen()) return { ok: false, grund: 'unveraendert' };", "", 'zuruecksetzen läuft auch, wenn es wirkungslos ist'],
+  // CHA-02 E1b: Umhang-Anprobe dreht auf Rücken-¾ und zurück
+  [C, "if (platz === 'umhang') { e.yawVorUmhang = e.yaw; e.yaw = UMHANG_YAW; }", "if (platz === 'umhang') { e.yawVorUmhang = e.yaw; }", 'Umhang dreht die Anprobe nicht auf den Rücken'],
+  [C, "e.yaw = e.yawVorUmhang; e.yawVorUmhang = null; }", "e.yawVorUmhang = null; }", 'Platzwechsel vom Umhang dreht nicht zurück'],
+  [C, "if (platz !== e.platz) {   // CHA-02", "if (true) {   // CHA-02", 'derselbe Umhang-Platz dreht erneut (überschreibt die Ausgangsdrehung)'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

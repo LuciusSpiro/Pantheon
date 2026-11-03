@@ -22,6 +22,7 @@
   const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE);
   // CHA-01 D: sechs Outfit-Plätze des Spinds, Reihenfolge wie die Mittelspalte des Ziffernblocks (Kopf → Füße, dann Hände und Umhang)
   const OUTFIT_PLAETZE = ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'];
+  const UMHANG_YAW = 150;   // Drehung der Spind-Anprobe bei Platz Umhang: Rücken ¾
   const istObjekt = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 
   function browserSpeicher(root) {
@@ -438,6 +439,10 @@
     function spindWaehlePlatz(platz) {
       const e = spindEntwurf();
       if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };
+      if (platz !== e.platz) {   // CHA-02 E1b: der Umhang hängt am Rücken: die Anprobe dreht auf Rücken-¾, beim Platzwechsel zurück auf die Drehung davor (Q/E bleibt frei)
+        if (platz === 'umhang') { e.yawVorUmhang = e.yaw; e.yaw = UMHANG_YAW; }
+        else if (e.platz === 'umhang' && e.yawVorUmhang != null) { e.yaw = e.yawVorUmhang; e.yawVorUmhang = null; }
+      }
       e.platz = platz; e.hinweis = null; aenderung();
       return { ok: true };
     }
@@ -499,7 +504,7 @@
     }
 
     return {
-      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
+      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE, UMHANG_YAW,
       outfitTeileFuer, kachelKarte, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, teil, teilName, wahlIndex: (platz) => wahlIndex(entwurf(), platz),
