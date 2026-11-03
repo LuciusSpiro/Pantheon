@@ -921,7 +921,7 @@ class Game {
     if (k.art === 'hand') return null;
     const payload = this.awayMapPayload(k);
     const s = Buffer.byteLength(JSON.stringify(payload));
-    if (s > (Protocol.AWAY_MAP_MAX_BYTES || 10240)) this.countError('awayMap-groesse', new Error(`${lp}: ${s} B > ${Protocol.AWAY_MAP_MAX_BYTES} B`));
+    if (s > (Protocol.AWAY_MAP_MAX_BYTES || 16384)) this.countError('awayMap-groesse', new Error(`${lp}: ${s} B > ${Protocol.AWAY_MAP_MAX_BYTES} B`));
     if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: Protocol.EVT_AWAY_MAP || 'awayMap' }, payload));
     p.awayKv = lp + '@' + payload.kv;
     return null;

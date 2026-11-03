@@ -87,6 +87,7 @@
     "test:grabenangriff-karte": "node tools/test-grabenangriff-karte.js",
     "test:lanze-zielfenster": "node tools/test-lanze-zielfenster.js",
     "test:niederhalten": "node tools/test-niederhalten.js",
+    "test:festkarte-decks": "node tools/test-festkarte-decks.js",
     "test:stellungen": "node tools/test-stellungen.js",
     "test:trupp-gehirn": "node tools/test-trupp-gehirn.js",
     "test:aufrichten-sicherung": "node tools/test-aufrichten-sicherung.js",

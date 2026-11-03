@@ -5,7 +5,7 @@
 //   - Schussfenster (engageBox) wächst mit sicht/10 (16 -> x1,6; 22 -> x2,2), Seitenverhältnis bleibt; ohne Stellung dasselbe Objekt wie bisher
 //   - Fog: Gegner in 14 Kacheln sind für einen Spieler in der Stellung sichtbar, ausserhalb nicht
 //   - Gegner in der Stellung trifft einen Spieler in 14 Kacheln, ausserhalb der Stellung nicht (Sicht 10); kein Treffer aus dem Off (offBoxHits 0)
-//   - Karte ohne Eintrag unverändert; Payload der Grabenkarte <= 5120 B
+//   - Karte ohne Eintrag unverändert; Payload der Grabenkarte <= Protocol.AWAY_MAP_MAX_BYTES
 //   node tools/test-stellungen.js
 const Physics = require('../shared/physics.js');
 const CONFIG = require('../shared/config.js');
@@ -222,7 +222,7 @@ console.log('\n[Grabenangriff: Markierung und Payload]');
   const K = Buehne.ausRaster(GenFest.karteRoh(DEF, { id: 'test.graben' }), { spiel: true }).karte;
   const pay = Game.prototype.awayMapPayload.call({}, K);
   const B = Buffer.byteLength(JSON.stringify(pay));
-  ok(B <= 5120, `Payload ${B} B <= 5120 B`);
+  ok(B <= Protocol.AWAY_MAP_MAX_BYTES, `Payload ${B} B <= Protokollgrenze ${Protocol.AWAY_MAP_MAX_BYTES} B`);
   ok(pay.bereiche.stellung && pay.bereiche.stellung.rolle === 'stellung' && pay.bereiche.stellung.rects.length === 3, 'Payload trägt den Bereich stellung (rolle, 3 Rechtecke)');
   const sohle = K.bereiche.stellung.rects[0];
   const cfg = { normal: AC.sightTiles, stellung: AC.sicht.stellung, aussicht: AC.sicht.aussicht };

@@ -1,8 +1,8 @@
 'use strict';
 // BOD-01 P1: feste Karte "Grabenangriff" (content/buehnen/festkarten/grabenangriff.json, Erzeuger shared/gen-fest.js, Einhängestelle
 // server/sim/landepunkte.js gen.fest). Headless:
-//  - Format: Abschnitte mit Varianten (datengetrieben), Platzhalter markiert, zweites Deck abgewiesen (BOD-03)
-//  - Karte: baut, Prüfer ok, 100x36, Payload <= 5 KB, Abschnitte links nach rechts, Abholpunkt links, v2
+//  - Format: Abschnitte mit Varianten (datengetrieben), Platzhalter markiert, zweites Deck nur in festkarte/2 (BOD-03)
+//  - Karte: baut, Prüfer ok, 100x36, Payload <= Protokollgrenze, Abschnitte links nach rechts, Abholpunkt links, v2
 //  - Inhalt: Wiese ohne Deckung ausser dem Graben, Graben mit Brustwehr o und Enden/Luecken, zwei erhoehte Posten (aussicht),
 //    Wald mit Weg und Durchkommen abseits des Wegs (BFS), Bunkereingang-Ziel, Gruppen fuer Welle 1/2
 //  - Spiel: ueber landepunkte/karteBauen ins Spiel gehaengt, 3 Spieler beamen runter, besetzen mit Rom, Ticks, Snapshot-Fruehmessung
@@ -64,10 +64,12 @@ section('Format: Abschnitte, Varianten, Platzhalter, Decks', () => {
   ok(['constructor', '__proto__', 'toString', 'hasOwnProperty'].every((k) => /unbekannt/.test(GenFest.auswahlPruefen(DEF, { [k]: 'graben' }) || '') && /unbekannt/.test(GenFest.auswahlPruefen(DEF, { wiese: k }) || '')), 'Schluessel aus dem Object-Prototyp sind keine gueltige Abschnitts-/Variantenwahl');
   let fehler = null; try { GenFest.karteRoh(d2, { abschnitte: { wiese: 'leer' } }); } catch (e) { fehler = e.message; }
   ok(fehler && /Welle 1 nennt Gruppe/.test(fehler), 'Variante ohne die Gruppen der Wellen wird beim Bau abgewiesen (' + (fehler || '').slice(0, 50) + ')');
-  // zweites Deck (BOD-03): Struktur da, Bau weist heute ab
+  // zweites Deck (BOD-03): nur in festkarte/2 gueltig (Zwei-Deck-Karte: tools/test-festkarte-decks.js); in festkarte/1 weiter abgewiesen
   const d3 = clone(DEF); d3.decks.push({ id: 'bunker', reihenfolge: [], abschnitte: {} });
   fehler = null; try { GenFest.karteRoh(d3); } catch (e) { fehler = e.message; }
-  ok(Array.isArray(DEF.decks) && DEF.decks[0].id === 'oberflaeche' && fehler && /Decks/.test(fehler), 'decks[] ist ein Array (Deck 0 Oberflaeche); ein zweites Deck wird heute ausdruecklich abgewiesen');
+  ok(Array.isArray(DEF.decks) && DEF.decks[0].id === 'oberflaeche' && fehler && /festkarte[/]2/.test(fehler), 'decks[] ist ein Array (Deck 0 Oberflaeche); festkarte/1 mit zweitem Deck wird abgewiesen (mehrere Decks brauchen festkarte/2)');
+  d3.format = 'festkarte/2';
+  ok(GenFest.karteRoh(d3).decks.stride === 36, 'dieselbe Definition als festkarte/2: zweites Deck ist gueltig (Stride 36)');
   // Platzhalter: Tausch ueber die Daten
   ok(DEF.zeichen.T.platzhalter === 'baum' && DEF.zeichen.T.kachel === 'Y' && DEF.zeichen.b.kachel === 'H' && DEF.zeichen.P.kachel === '=' && DEF.bauweise === 'rom_feld' && K.meta.platzhalter.baum > 0 && K.meta.platzhalter.palisade > 0 && K.meta.platzhalter.brustwehr > 0, `Platzhalter in den Daten markiert (baum ${K.meta.platzhalter.baum}, palisade ${K.meta.platzhalter.palisade}, brustwehr ${K.meta.platzhalter.brustwehr} Kacheln)`);
   const d4 = clone(DEF); d4.zeichen.T.kachel = 'O';
@@ -79,7 +81,7 @@ section('Karte: Prueferlauf, Groesse, Payload, Reihenfolge', () => {
   ok(R.pruefung.ok && R.fehler.length === 0, 'Pruefer ok:true, keine Fehler' + (R.fehler.length ? ' ' + JSON.stringify(R.fehler.slice(0, 3)) : ''));
   ok(K.w === 100 && K.h === 36, `Raster ${K.w}x${K.h} (Richtwert 100x36)`);
   const B = payloadB(K);
-  ok(B <= 5120, `Payload ${B} B <= 5120 B (5 KB-Budget; Grenze ${Protocol.AWAY_MAP_MAX_BYTES} B)`);
+  ok(B <= Protocol.AWAY_MAP_MAX_BYTES, `Payload ${B} B <= Protokollgrenze ${Protocol.AWAY_MAP_MAX_BYTES} B (Ein-Deck-Karte, BOD-01-Richtwert war 5 KB)`);
   ok(K.rows.every((r) => r.length === K.w) && K.rows[0] === 'F'.repeat(K.w) && K.rows[K.h - 1] === 'F'.repeat(K.w) && K.rows.every((r) => r[0] === 'F' && r[K.w - 1] === 'F'), 'Aussenrand rundum Fels');
   const ab = anker('landung.abholpunkt');
   ok(K.ankunft === 'landung.abholpunkt' && ab && ab.ankunft && ab.x < 10, `Abholpunkt (Ankunft) links bei x=${ab && ab.x}`);

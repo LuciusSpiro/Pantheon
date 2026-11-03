@@ -19,7 +19,7 @@
     EVT_KARTE: 'karte',
     // ---- B1 (CONTRACT-B1 §9): Bühnen – gebaute Außenkarten, Landepunkte, Anker ----
     // Ereignis awayMap { id, erzeuger, art, bauweise, besitz, zustand, w, h, rows, anker: [[id, rolle, x, y, attr?]], bereiche,
-    //   decks, kv } – kompilierte Karte (≤ 10 KB laut Nachtrag), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen
+    //   decks, kv } – kompilierte Karte (≤ 16 KB (BOD-03, vorher 10 KB laut Nachtrag)), beim Betreten bzw. auf Anfrage (cmd awayMap.get). Nur an die betroffenen
     //   Spieler bzw. per Anfrage; nie im Snapshot. Der Client registriert sie in Shared_Maps (würfelt nie selbst).
     // cmd { c: 'awayMap.get', id } – ohne Konsole; Client fehlt die Karte oder kv passt nicht.
     // cmd { c: 'transfer.ziel', landepunkt } – Transfer-Konsole: Landepunkt (lpId) am Ort für den nächsten Transfer wählen.
@@ -52,7 +52,7 @@
     EVT_AWAY_MAP: 'awayMap',
     AWAY_MAP_FIELDS: ['id', 'erzeuger', 'art', 'bauweise', 'besitz', 'zustand', 'w', 'h', 'rows', 'anker', 'bereiche', 'decks', 'kanten', 'plaetze', 'kv'],
     CONTENT_BUEHNEN_PREFIX: '/content/buehnen/',
-    AWAY_MAP_MAX_BYTES: 10240,   // Entscheidung Studioleitung: bis 10 KB (Vertrag ursprünglich 8 KB)
+    AWAY_MAP_MAX_BYTES: 16384,   // bis 16 KB (BOD-03, Kai 2026-11-03: zweites Deck; zuvor 10 KB Entscheidung Studioleitung, Vertrag ursprünglich 8 KB)
     CMD_AWAY_MAP_GET: 'awayMap.get',
     CMD_TRANSFER_ZIEL: 'transfer.ziel',
     AWAY_SNAP_B1: ['map', 'kv', 'ao', 'ko', 'al', 'cd'],
