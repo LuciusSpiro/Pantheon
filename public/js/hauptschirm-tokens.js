@@ -383,6 +383,7 @@
       rom: {
         platte: { farbe: PAL.space, alpha: 0.94 },   // Leiste Mockup 0,93; = TAFEL.grund 94 %, eine Deckung für Leiste und Tafel
         kappe: { form: 'flaeche' },                   // Kopf dunkel auf Funktionsfläche (TAFEL.kappe)
+        kante: { farbe: FARBE.sensor, alpha: 0.45, breite: 1 },   // KUL-03 E: Hairline am Fuß der Leiste und an der Innenkante des Tempo-Felds (Platte = Sternfeld-Grund, sonst fast unsichtbar)
       },
       germanen: {                  // „Schmiede & Bernstein“: Eisenplatte mit Kerben und Nieten, Funktionsfarbe als Wolfszahn-Band (Mockup kul.js tafel())
         platte: { farbe: EIGEN.eisenPlatte, alpha: 0.94 },   // Mockup 0,9; auf 94 % wie TAFEL.grund (Designer-Review KUL-02: sonst schimmert das Bild durch)
@@ -390,7 +391,8 @@
         rand: { farbe: EIGEN.eisenRand, breite: 1, einzug: 4 },
         kerbe: { farbe: EIGEN.eisenKerbe, start: 12, schritt: 14, px: 2 },
         niete: { farbe: EIGEN.eisenNiete, px: 2, einzug: 3 },
-        wolfszahn: { start: 6, schritt: 6, zahn: [[0, 2, 4, 1], [1, 3, 2, 1]] },   // je Zahn zwei Rechtecke [dx, dy, w, h] in der Funktionsfarbe (statt Streifen)
+        wolfszahn: { start: 6, schritt: 6, zahn: [[0, 2, 4, 1], [1, 3, 2, 1]], leisteY: -2 },   // leisteY: in der Leiste liegt das Band auf der Kante (Striche des Peilbands ab ly + 2)
+          // je Zahn zwei Rechtecke [dx, dy, w, h] in der Funktionsfarbe (statt Streifen)
         kappe: { form: 'buckel', radius: 4, kern: 2, kernFarbe: FARBE.ink, textX: 11 },   // Schildbuckel in Funktionsfarbe, Kopftext daneben in Funktionsfarbe (Skala 1)
       },
     },

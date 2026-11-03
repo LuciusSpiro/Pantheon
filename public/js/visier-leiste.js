@@ -14,7 +14,8 @@
 //   VisierLeiste.lage(view, plan, kamera)   reine Lage { kurs, kursExakt, tempo, stufe, stufen, alarm, ticks[], marken[], geo }; null ohne Schiff
 //   VisierLeiste.bandX(a, kamera)           Bandposition einer relativen Peilung (Bogenmaß)
 //   VisierLeiste.zeichne(ctx, view, plan, kamera)  die Schicht (wirft nie)
-// Alle Maße, Farben, Skins: HauptschirmTokens.TOKENS.VISIER.leiste / .skin / .tafel; der Skin wird in Paket E gewählt, vorläufig 'rom'.
+// Alle Maße, Farben, Skins: HauptschirmTokens.TOKENS.VISIER.leiste / .skin / .tafel; Skin: skinVon(view) (Paket E), gemeinsam fuer Leiste und Tafel.
+//   VisierLeiste.skinVon(view)              'rom' | 'germanen': Volk des eigenen Schiffs aus dem Snapshot, sonst Pult.skinId, sonst 'rom'
 (function (root) {
   'use strict';
 
@@ -25,7 +26,27 @@
   function rgba(hex, a) { const n = parseInt(String(hex).slice(1, 7), 16); return 'rgba(' + (n >> 16) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + a + ')'; }
   let gemeldet = false;
   function melde(e) { if (gemeldet) return; gemeldet = true; try { if (root.Net && root.Net.reportError) root.Net.reportError('VisierLeiste', e); } catch (x) { /* egal */ } }
-  function skinName() { return 'rom'; }   // Paket E: Wahl Rom/Germanen (Tokens VISIER.skin)
+  // Skin der Leiste UND der Sprungziel-Tafel: EINE Funktion (Paket E). Der Hauptschirm soll fuer alle Clients dasselbe Bild sein, deshalb zuerst das Volk des eigenen Schiffs aus dem Snapshot
+  // (ship.pult / ship.skin / ship.volk, sonst die Klasse ueber CONFIG.shipClasses[klasse].pult); NUR wenn der Snapshot dazu nichts traegt (heute: kein solches Feld, Budget), gilt Pult.skinId(view)
+  // (die Pult-Wahl, mit URL/localStorage-Ueberschreibung fuer Sichtpruefung), und ohne Pult 'rom'.
+  const VOLK = { rom: 'rom', germanen: 'germanen', ger: 'germanen' };
+  function skinVon(view) {
+    const SK = root.HauptschirmTokens && root.HauptschirmTokens.TOKENS.VISIER.skin;
+    const ist = (id) => (typeof id === 'string' && VOLK[id] && SK && SK[VOLK[id]] ? VOLK[id] : null);
+    try {
+      const ship = view && view.state && view.state.ship;
+      if (ship) {
+        const direkt = ist(ship.pult) || ist(ship.skin) || ist(ship.volk);
+        if (direkt) return direkt;
+        const CFG = root.Shared_Config, sc = CFG && CFG.shipClasses && ship.klasse && CFG.shipClasses[ship.klasse];
+        const ueber = sc && ist(sc.pult);
+        if (ueber) return ueber;
+      }
+      const pk = root.Pult && root.Pult.skinId ? ist(root.Pult.skinId(view)) : null;
+      if (pk) return pk;
+    } catch (e) { /* Rueckfall */ }
+    return 'rom';
+  }
 
   // Breite eines Textes in px (Skala wie Render.text)
   const breite = (str, skala) => Rd().measure(String(str), skala);
@@ -88,13 +109,27 @@
   const txt = (ctx, str, x, y, farbe, skala, align) => Rd().text(ctx, str, x, y, { color: farbe, scale: skala, align: align || 'left', shadow: false });
 
   function platte(ctx, geo) {
-    const TK = T(), LS = TK.VISIER.leiste, P = TK.VISIER.skin[skinName()].platte, W = geo.W, H = geo.H, ly = geo.ly, top = H - LS.hochfeld, s = LS.schraege, fb = LS.feldBreite;
+    const TK = T(), LS = TK.VISIER.leiste, SK = TK.VISIER.skin, name = geo.skin, P = SK[name].platte, W = geo.W, H = geo.H, ly = geo.ly, top = H - LS.hochfeld, s = LS.schraege, fb = LS.feldBreite;
     const grund = rgba(P.farbe, P.alpha), streifen = geo.alarm ? LS.farbeAlarm : LS.farbe;
     poly(ctx, [[s, ly], [W - s, ly], [W, ly + s], [W, H], [0, H], [0, ly + s]], grund);
     poly(ctx, [[s, top], [fb, top], [fb, ly + 1], [fb, H], [0, H], [0, top + s]], grund);   // Hochfeld links (Tempo)
+    if (name === 'germanen') {
+      const G = SK.germanen, Rn = G.rand, Z = G.wolfszahn, N = G.niete;
+      ctx.fillStyle = Rn.farbe;   // Eisenrand: oben ueber die Leiste, oben am Hochfeld und an dessen Innenkante
+      ctx.fillRect(s, ly, W - 2 * s, Rn.breite); ctx.fillRect(s, top, fb - s, Rn.breite); ctx.fillRect(fb - Rn.breite, top, Rn.breite, ly - top + 1);
+      ctx.fillStyle = streifen;   // Wolfszahn-Band in der Funktionsfarbe statt des Streifens (in der Leiste auf der Kante: Striche des Peilbands beginnen bei ly + 2)
+      for (let x = s + Z.start; x < W - s - Z.start; x += Z.schritt) for (const [dx, dy, w, h] of Z.zahn) ctx.fillRect(x + dx, ly + dy + Z.leisteY, w, h);
+      for (let x = s + Z.start; x < fb - Z.start; x += Z.schritt) for (const [dx, dy, w, h] of Z.zahn) ctx.fillRect(x + dx, top + dy + Z.leisteY, w, h);
+      ctx.fillStyle = N.farbe;   // Nieten: unten in den Ecken und am Hochfeld
+      for (const [nx, ny] of [[N.einzug, H - N.einzug - N.px], [W - N.einzug - N.px, H - N.einzug - N.px], [fb - N.einzug - N.px, top + N.einzug + 2]]) ctx.fillRect(nx, ny, N.px, N.px);
+      return;
+    }
     ctx.fillStyle = streifen;
     ctx.fillRect(s, ly, W - 2 * s, LS.streifen);
     ctx.fillRect(s, top, fb - s, LS.streifen);
+    const K = SK.rom.kante;   // Kante (Paket E): der dunkle Grund steht sonst im Sternfeld fast unsichtbar; Hairline am Fuß und an der Innenkante des Hochfelds lässt die Platte als Platte lesen
+    ctx.fillStyle = rgba(K.farbe, K.alpha);
+    ctx.fillRect(0, H - K.breite, W, K.breite); ctx.fillRect(fb - K.breite, top + LS.streifen, K.breite, H - top - LS.streifen);
   }
 
   function leisteLinks(ctx, L) {
@@ -157,15 +192,16 @@
     try {
       const L = lage(view, plan, kam || root.Visier.kamera());
       if (!L) return;
-      platte(ctx, Object.assign(L.geo, { alarm: L.alarm }));
+      const skin = skinVon(view);
+      platte(ctx, Object.assign(L.geo, { alarm: L.alarm, skin }));
       leisteLinks(ctx, L);
       band(ctx, L);
       marken(ctx, L);
-      if (T().VISIER.tafel.rechts && root.HauptschirmTafeln && root.HauptschirmTafeln.zeichneSprungziel) root.HauptschirmTafeln.zeichneSprungziel(ctx, view, {});
+      if (T().VISIER.tafel.rechts && root.HauptschirmTafeln && root.HauptschirmTafeln.zeichneSprungziel) root.HauptschirmTafeln.zeichneSprungziel(ctx, view, { skin });
     } catch (e) { melde(e); } finally { ctx.restore(); }
   }
 
-  const API = { lage, bandX, zeichne };
+  const API = { lage, bandX, zeichne, skinVon };
   if (typeof module !== 'undefined' && module.exports) module.exports = API;
   root.VisierLeiste = API;
   if (root.Visier && root.Visier.registriereSchicht) root.Visier.registriereSchicht('leiste', 20, zeichne);

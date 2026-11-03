@@ -234,7 +234,8 @@
   {"id":"test-tutorial-sprung","kette":"test","cmd":["tools/test-tutorial-sprung.js"],"stufe":"fast","budget_s":7},
   {"id":"mutation-tutorial-sprung","kette":"test","cmd":["tools/mutation-tutorial-sprung.js"],"stufe":"full","budget_s":47},
   {"id":"test-uebung-lobby","kette":"test","cmd":["tools/test-uebung-lobby.js"],"stufe":"fast","budget_s":10},
-  {"id":"test-visier-lage","kette":"test","cmd":["tools/test-visier-lage.js"],"stufe":"fast","budget_s":6}
+  {"id":"test-visier-lage","kette":"test","cmd":["tools/test-visier-lage.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-visier-skin","kette":"test","cmd":["tools/test-visier-skin.js"],"stufe":"fast","budget_s":8}
  ],
  "ausgenommen": [
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},
