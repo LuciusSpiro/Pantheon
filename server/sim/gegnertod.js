@@ -6,6 +6,7 @@
 //                                   Rückgabe true = der Gegner ist jetzt treibend (der Aufrufer bricht ab).
 //   tick(game, e, dt)             – Countdown mit dt (updateEnemies, auch Verfolgung und gestellte Gegner). Ist der Reaktor nicht mehr zerstört
 //                                   (Reparatur, C2), endet der Countdown, der Zähler bleibt. Rückgabe true = abgelaufen: der Aufrufer stirbt (space.enemyDown).
+//   treffer(game, e)              – GEG-01 B: jeder Treffer halbiert die Restzeit des laufenden Countdowns (ohne Mindestzeit; unter reaktorTod.restGrenze Rest 0 = Tod im nächsten tick).
 //   sofort(e)                     – Tod ohne Countdown (Torpedo gegen einen Gegner aus systemModell.torpedoSofortTod.<klasse>, Config, bei Schild 0): alle Systeme zerstört, kein Kapern.
 //   brechen(game, e, id)          – Testhilfe und Debug: System auf zerstört setzen und den Übergang wie im Spiel auswerten (wie systemZerstoert).
 //   restZehntel(e)                – Restzeit des Countdowns in Zehntelsekunden für das anvisierte Ziel (-1 kein Countdown).
@@ -56,6 +57,15 @@ function tick(game, e, dt) {
   return true;
 }
 
+// GEG-01 B: ein Waffentreffer auf den Gegner (Aufruf am Eingang von space.damageEnemy): läuft der Countdown, halbiert er die Restzeit, ohne Mindestzeit. Unter reaktorTod.restGrenze
+// ist die Restzeit 0: tick() meldet im nächsten Takt den Tod (wie bei Ablauf, enemyDown). Der Treffer, der den Reaktor erst zerstört, läuft VOR dem Countdown und halbiert nichts.
+function treffer(game, e) {
+  const z = e.rt;
+  if (!z || z.rest == null || reaktorZustand(e) !== 'broken') return;
+  z.rest /= 2;
+  if (z.rest < game.C.reaktorTod.restGrenze) z.rest = 0;
+}
+
 function sofort(e) {
   if (Gsys.hat(e)) for (const id of Gsys.ids(e)) { e.sys[id].i = 0; e.sys[id].z = 'broken'; }
   e.hp = 0;
@@ -66,4 +76,4 @@ function abbrechen(e) { if (e.rt) e.rt.rest = null; }
 
 function restZehntel(e) { const z = e && e.rt; return z && z.rest != null ? Math.max(0, Math.round(z.rest * 10)) : -1; }
 
-module.exports = { systemZerstoert, tick, sofort, brechen, restZehntel, abbrechen };
+module.exports = { systemZerstoert, tick, treffer, sofort, brechen, restZehntel, abbrechen };

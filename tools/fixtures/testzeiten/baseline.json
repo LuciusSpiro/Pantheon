@@ -5,8 +5,8 @@
   "kerne": 16,
   "modus": "seriell",
   "git": "2d23cb31007826fc4bad91519505aba51f0ddb35",
-  "hinweis": "Baseline TST-01 Paket A: seriell auf main f2daff7, 2026-11-02. Suite ohne kette (978.3 s) und kette einzeln (996.0 s) in zwei Läufen, nacheinander zusammengeführt. Gesamt seriell ca. 1974 s.",
-  "schritte_gesamt": 208,
+  "hinweis": "Baseline TST-01 Paket A: seriell auf main f2daff7, 2026-11-02. Suite ohne kette (978.3 s) und kette einzeln (996.0 s) in zwei Läufen, nacheinander zusammengeführt. Gesamt seriell ca. 1974 s. Nachtrag 2026-11-03: 13 Schritte aus GEG-01/OPS-01 (main 312631f), seriell einzeln gemessen.",
+  "schritte_gesamt": 221,
   "kette_dauer_s": 996.03
  },
  "schritte": [
@@ -2323,6 +2323,149 @@
    "signal": null,
    "timeout": false,
    "ausgabe_bytes": 17267
+  },
+  {
+   "id": "test-karte-ausrichtung",
+   "cmd": [
+    "tools/test-karte-ausrichtung.js"
+   ],
+   "dauer_s": 0.37,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4710
+  },
+  {
+   "id": "test-karte-sichtweite",
+   "cmd": [
+    "tools/test-karte-sichtweite.js"
+   ],
+   "dauer_s": 0.16,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3583
+  },
+  {
+   "id": "test-karte-labels",
+   "cmd": [
+    "tools/test-karte-labels.js"
+   ],
+   "dauer_s": 1.25,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3525
+  },
+  {
+   "id": "test-captain-ziel",
+   "cmd": [
+    "tools/test-captain-ziel.js"
+   ],
+   "dauer_s": 0.42,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2456
+  },
+  {
+   "id": "test-captain-zielkasten",
+   "cmd": [
+    "tools/test-captain-zielkasten.js"
+   ],
+   "dauer_s": 0.24,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4038
+  },
+  {
+   "id": "test-beam-hinweis",
+   "cmd": [
+    "tools/test-beam-hinweis.js"
+   ],
+   "dauer_s": 1.56,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 4740
+  },
+  {
+   "id": "test-frontsicht",
+   "cmd": [
+    "tools/test-frontsicht.js"
+   ],
+   "dauer_s": 0.35,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 837
+  },
+  {
+   "id": "test-ziel-marke",
+   "cmd": [
+    "tools/test-ziel-marke.js"
+   ],
+   "dauer_s": 0.26,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3660
+  },
+  {
+   "id": "test-konvoi-sprung",
+   "cmd": [
+    "tools/test-konvoi-sprung.js"
+   ],
+   "dauer_s": 1.91,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 978
+  },
+  {
+   "id": "test-vollladung-ziel",
+   "cmd": [
+    "tools/test-vollladung-ziel.js"
+   ],
+   "dauer_s": 0.41,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 1683
+  },
+  {
+   "id": "test-countdown-treffer",
+   "cmd": [
+    "tools/test-countdown-treffer.js"
+   ],
+   "dauer_s": 0.61,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 2616
+  },
+  {
+   "id": "test-tutorial-sprung",
+   "cmd": [
+    "tools/test-tutorial-sprung.js"
+   ],
+   "dauer_s": 1.57,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 3741
+  },
+  {
+   "id": "mutation-tutorial-sprung",
+   "cmd": [
+    "tools/mutation-tutorial-sprung.js"
+   ],
+   "dauer_s": 23.07,
+   "exit": 0,
+   "signal": null,
+   "timeout": false,
+   "ausgabe_bytes": 643
   }
  ]
 }

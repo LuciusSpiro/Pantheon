@@ -208,7 +208,20 @@
   {"id":"test-spind","kette":"test","cmd":["tools/test-spind.js"],"stufe":"fast","budget_s":6},
   {"id":"mutation-spind","kette":"test","cmd":["tools/mutation-spind.js"],"stufe":"fast","budget_s":11},
   {"id":"test-sync-assets","kette":"test","cmd":["tools/test-sync-assets.js"],"stufe":"fast","budget_s":6},
-  {"id":"test-menue","kette":"test","cmd":["tools/test-menue.js"],"stufe":"fast","budget_s":7}
+  {"id":"test-menue","kette":"test","cmd":["tools/test-menue.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-karte-ausrichtung","kette":"test","cmd":["tools/test-karte-ausrichtung.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-karte-sichtweite","kette":"test","cmd":["tools/test-karte-sichtweite.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-karte-labels","kette":"test","cmd":["tools/test-karte-labels.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-captain-ziel","kette":"test","cmd":["tools/test-captain-ziel.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-captain-zielkasten","kette":"test","cmd":["tools/test-captain-zielkasten.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-beam-hinweis","kette":"test","cmd":["tools/test-beam-hinweis.js"],"stufe":"fast","budget_s":7},
+  {"id":"test-frontsicht","kette":"test","cmd":["tools/test-frontsicht.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-ziel-marke","kette":"test","cmd":["tools/test-ziel-marke.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-konvoi-sprung","kette":"test","cmd":["tools/test-konvoi-sprung.js"],"stufe":"fast","budget_s":8},
+  {"id":"test-vollladung-ziel","kette":"test","cmd":["tools/test-vollladung-ziel.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-countdown-treffer","kette":"test","cmd":["tools/test-countdown-treffer.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-tutorial-sprung","kette":"test","cmd":["tools/test-tutorial-sprung.js"],"stufe":"fast","budget_s":7},
+  {"id":"mutation-tutorial-sprung","kette":"test","cmd":["tools/mutation-tutorial-sprung.js"],"stufe":"full","budget_s":47}
  ],
  "ausgenommen": [
   {"datei":"tools/check-assets.mjs","grund":"Asset-Pruefung gegen public/voxel bzw. Voxelwerk (npm run check:assets), braucht gebaute Assets; nicht in der Kette"},

@@ -31,5 +31,8 @@
     R.button(ctx, rect.x + rect.w - 154, rect.y + rect.h - 17, 150, 13, reading ? 'Lese Spur … ' + Math.round(num(k.p) * 100) + ' %' : 'Spur lesen', { hotkey: 'K', disabled: !!reason && !reading, reason, onClick: () => cmd('weapons.spur.lesen', { on: !reading }) });
   }
 
-  window.SpurView = { draw, drawButton, kern };
+  // Fläche der Taste „Spur lesen“ (drawButton) unten rechts, nur wenn ein Spurkern da ist (cfg.sperren der Karte)
+  function flaeche(st, rect) { return kern(st) ? { x: rect.x + rect.w - 154, y: rect.y + rect.h - 17, w: 150, h: 13 } : null; }
+
+  window.SpurView = { draw, drawButton, kern, flaeche };
 })();

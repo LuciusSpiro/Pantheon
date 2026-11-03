@@ -163,7 +163,8 @@ section('Kapitel 3 Falle: Verlust durch den Reaktor-Countdown (on.emergency)', (
   ok(T.g.ship.reaktorCountdown && Math.abs(T.g.ship.reaktorCountdown.t - 20) < 1e-9, 'Reaktor zerstört: Countdown 20 s');
   const lost = T.run(40, () => T.ev('emergency').length > 0);
   const dt = Math.round((T.g.time - t0) * 10) / 10;
-  ok(lost && Math.abs(dt - 20) <= 0.5, 'Ereignis emergency durch den Countdown nach ' + dt + ' s (Soll 20 s)');
+  // GEG-01 B: Treffer der Piraten halbieren die Restzeit (Falle schießt mit), der Countdown läuft also höchstens 20 s
+  ok(lost && dt > 0 && dt <= 20.5, 'Ereignis emergency durch den Countdown nach ' + dt + ' s (höchstens 20 s, Treffer verkürzen)');
   ok(T.ev('emergency')[0] && T.ev('emergency')[0].grund === 'reaktor' && T.g.stats.emergencies === 1, 'emergency mit grund reaktor, Zähler 1');
   T.run(1);
   const d = T.done().find((e) => e.id === 'k3_falle');

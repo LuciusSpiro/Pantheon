@@ -476,6 +476,7 @@ function allyTreffer(game, es, dmg, o) {
   const von = o && o.von && Number.isFinite(o.von.x) && Number.isFinite(o.von.y) ? o.von : quellenlos(game, es);
   const d = {};
   if (o && o.druck) d.druck = true;
+  if (o && o.brocken) d.brocken = true;   // GEG-01 B: Brocken halbieren den Countdown nicht
   if (o && o.pierce != null) d.pierce = o.pierce;
   if (o && o.sturm) d.sturm = Katalog.waffe('sturmbatterie').sturm;
   if (o && o.torpedo) { d.torpedo = true; d.huelle = true; d.nurOhneSchild = Katalog.TORPEDO.schildUmgehung === 'nur-ohne-schild'; }

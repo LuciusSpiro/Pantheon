@@ -34,7 +34,7 @@ function planen(game, vonHex, zielHex) {
     const h = q.shift();
     if (h === zielHex) break;
     for (const n of Sektoren.nachbarn(h)) {
-      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n) || !ex.hexErkundet(n) || !Sektoren.ortVonHex(n)) continue;
+      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n) || !ex.hexErkundet(n) || !Sektoren.ortVonHex(n) || !sprung().tutorialZielErlaubt(game, n)) continue;
       const id = Sektoren.kanteId(h, n);
       if (!ex.bojeBekannt(id) || !ex.kanteOffen(id)) continue;
       prev[n] = h; q.push(n);
@@ -56,7 +56,7 @@ function weich(game, vonHex, zielHex, ortLinks) {
     const h = q.shift();
     if (h === zielHex) break;
     for (const n of Sektoren.nachbarn(h)) {
-      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n)) continue;
+      if (n in prev || !Sektoren.spielbar(n) || Sektoren.istLeerraum(n) || !sprung().tutorialZielErlaubt(game, n)) continue;
       const a = Sektoren.ortVonHex(h), b = Sektoren.ortVonHex(n); if (!a || !b) continue;
       const id = Sektoren.kanteId(h, n);
       const frei = ortLinks ? (ex.isLinked(a, b) && ex.known.has(b)) : (ex.bojeBekannt(id) && ex.kanteOffen(id));   // Tutorial: nur über bekannte Orte (nicht über „Unbekanntes Signal“)
@@ -120,7 +120,7 @@ function befreiungHalt(game, hex) {
 function hop(game, r) {
   const here = hexOf(game); const next = r.hops[r.i];
   const ort = Sektoren.ortVonHex(next);
-  const grund = !here || !next ? 'Kein Sprungpunkt dorthin.' : sprung().hexGrund(game, here, next) || (ort && game.mission.jumpBlocked(ort));
+  const grund = !here || !next ? 'Kein Sprungpunkt dorthin.' : sprung().hexGrund(game, here, next) || (ort && (game.mission.destBlocked(ort) || game.mission.jumpBlocked(ort)));   // GEG-01 D: jeder Hop prüft auch destBlock
   if (grund || !ort) { game.reisePlan = null; return stop(game, `Schnellsprung beendet: ${grund || 'Ziel nicht erreichbar.'}`); }
   const ereignis = sprung().springeNach(game, ort);   // SUND-03 D: Reise-Ereignis dieses Hops (reise-ereignis.js) oder null
   r.i++; r.t = 0;
