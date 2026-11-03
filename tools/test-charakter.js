@@ -27,13 +27,16 @@ const klon = (x) => JSON.parse(JSON.stringify(x));
 
 const STD = Ch.standardKarte('Aurelia', KAT);
 const OUTFIT_STD = { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner' };
-const ALT = { v: 1, name: 'Narbo', koerper: 'standard', gesicht: 'narbe', frisur: 'zoepfe', bart: 'vollbart', haut: 3, haar: 2,
+const ALT = { v: 1, name: 'Narbo', koerper: 'standard', frisur: 'bartlang', haut: 3, haar: 2,
   outfit: { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'fellumhang' } };
+// CHA-01-Karte (vor CHA-02): hat noch gesicht/bart und Altfrisuren. Keine Migration: Altfelder fallen weg, Altfrisuren werden Standard.
+const CHA01 = Object.assign(klon(ALT), { gesicht: 'narbe', bart: 'vollbart', frisur: 'zoepfe' });
 
 function einheiten() {
   section('Katalog (echt, aus dem Voxelwerk)');
-  ok(KAT.plaetze.length === 9 && eq(KAT.plaetze.map((p) => p.id), ['gesicht', 'frisur', 'bart', 'kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang']), '9 Plätze in fester Reihenfolge');
-  ok(KAT.farben.haut.length === 4 && KAT.farben.haar.length === 4, 'je 4 Haut- und Haarfarben');
+  ok(KAT.version === 2 && KAT.plaetze.length === 7 && eq(KAT.plaetze.map((p) => p.id), ['frisur', 'kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang']), 'Katalog Version 2: 7 Plätze in fester Reihenfolge, kein gesicht, kein bart');
+  ok(KAT.farben.haut.length === 6 && KAT.farben.haar.length === 8, 'Hautton 6, Haarfarbe 8');
+  ok(eq(KAT.teile.filter((t) => t.platz === 'frisur').map((t) => t.id.split('/')[1]).filter((n) => n !== 'keine'), ['kurz', 'stirnband', 'welle', 'offen', 'bartkurz', 'bartlang', 'zopfband', 'wild']) && KAT.plaetze[0].standard === 'kurz', 'acht Frisuren (plus keine), Standardfrisur kurz');
   ok(KAT.plaetze.every((p) => KAT.teile.some((t) => t.id === p.id + '/' + p.standard)), 'jeder Standard ist ein Teil des Katalogs');
   const ALTWERT = (p) => (p.gruppe === 'outfit' ? ALT.outfit[p.id] : ALT[p.id]);
   ok(KAT.plaetze.every((p) => [p.standard, ALTWERT(p)].every((n) => KAT.teile.some((t) => t.platz === p.id && t.id === p.id + '/' + n))), 'je Platz Standard und Prüfsatz-Alternative');
@@ -57,7 +60,7 @@ function einheiten() {
     const fa = Ch.figurAusKarte(ALT, KAT), fs = Ch.figurAusKarte(STD, KAT);
     const plaetze = KAT.plaetze.map((p) => p.id).concat('koerper').sort();
     ok(fa && eq(Object.keys(fa.params).sort(), plaetze), 'params = alle Plätze der Karte (Charakter + Outfit) und koerper');
-    ok(fa.params.kopf === 'bordhelm' && fa.params.umhang === 'fellumhang' && fa.params.gesicht === 'narbe' && fa.params.koerper === 'standard', 'Werte aus Karte und Outfit');
+    ok(fa.params.kopf === 'bordhelm' && fa.params.umhang === 'fellumhang' && fa.params.frisur === 'bartlang' && !('gesicht' in fa.params) && !('bart' in fa.params) && fa.params.koerper === 'standard', 'Werte aus Karte und Outfit');
     ok(eq(fa.colors, { skin: KAT.farben.haut[3].skin, skin_shadow: KAT.farben.haut[3].skin_shadow, hair: KAT.farben.haar[2] }), 'colors = skin, skin_shadow, hair aus dem Katalog (haut 3, haar 2)');
     ok(eq(Object.keys(fa.colors).sort(), ['hair', 'skin', 'skin_shadow']), 'keine weitere Farbrolle, keine Spielerfarbe');
     ok(fs.colors.skin === KAT.farben.haut[0].skin && fs.colors.hair === KAT.farben.haar[0], 'Standardkarte: erste Haut- und Haarfarbe');
@@ -68,48 +71,67 @@ function einheiten() {
   }
 
   section('Standardkarte');
-  ok(eq(STD, { v: 1, name: 'Aurelia', koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 0, haar: 0, outfit: OUTFIT_STD }), 'standardKarte(name, katalog) wie die Schnittstelle');
+  ok(eq(STD, { v: 1, name: 'Aurelia', koerper: 'standard', frisur: 'kurz', haut: 0, haar: 0, outfit: OUTFIT_STD }), 'standardKarte(name, katalog) wie die Schnittstelle');
   ok(Ch.standardKarte('x', KAT).name === 'Crew' && Ch.standardKarte(null, KAT).name === 'Crew', 'ungültiger Name → Crew');
   ok(eq(Ch.pruefeKarte(STD, KAT), STD), 'Standardkarte ist gültig und bleibt unverändert');
-  ok(eq(Ch.pruefeKarte(ALT, KAT), ALT), 'Karte mit allen Prüfsatz-Alternativen und Farbe 3/2 ist gültig');
+  ok(eq(Ch.pruefeKarte(ALT, KAT), ALT), 'Karte mit Prüfsatz-Alternativen und Farbe 3/2 ist gültig');
 
   section('pruefeKarte: je Feld Standard');
   const mit = (f) => { const k = klon(ALT); f(k); return Ch.pruefeKarte(k, KAT); };
-  let k = mit((x) => { x.gesicht = 'gibtsnicht'; });
-  ok(k.gesicht === 'lerche' && k.frisur === 'zoepfe', 'unbekannte Teil-ID → Standard nur dieses Feldes');
-  k = mit((x) => { x.frisur = 'vollbart'; });
-  ok(k.frisur === 'dutt' && k.bart === 'vollbart', 'Teil eines anderen Platzes → Standard');
-  k = mit((x) => { x.gesicht = 'bordhelm'; x.frisur = 'kopf/bordhelm'; x.bart = 'bordtunika'; });
-  ok(k.gesicht === 'lerche' && k.frisur === 'dutt' && k.bart === 'keiner', 'Outfit-Teil in einem Charakterfeld → Standard');
+  let k = mit((x) => { x.frisur = 'gibtsnicht'; });
+  ok(k.frisur === 'kurz' && k.outfit.kopf === 'bordhelm' && k.haut === 3, 'unbekannte Teil-ID → Standard nur dieses Feldes');
+  k = mit((x) => { x.frisur = 'bordhelm'; });
+  ok(k.frisur === 'kurz' && k.outfit.kopf === 'bordhelm', 'Teil eines anderen Platzes → Standard');
+  k = mit((x) => { x.frisur = 'kopf/bordhelm'; });
+  ok(k.frisur === 'kurz', 'Outfit-Teil in einem Charakterfeld → Standard');
   k = mit((x) => { x.outfit.kopf = 'narbe'; x.outfit.oberteil = 'zoepfe'; x.outfit.hose = 'oberteil/plankenweste'; });
   ok(k.outfit.kopf === 'keine' && k.outfit.oberteil === 'bordtunika' && k.outfit.hose === 'bordhose' && k.outfit.schuhe === 'germanenstiefel', 'Charakterteil im Outfit / Teil eines anderen Platzes → Standard, übrige bleiben');
   let farbenOk = true;
-  for (const bad of [-1, 4, 99, 1.5, NaN, Infinity, '1', null, true, [], {}]) {
+  for (const bad of [-1, 8, 9, 99, 1.5, NaN, Infinity, '1', null, true, [], {}]) {
     k = mit((x) => { x.haut = bad; x.haar = bad; });
     if (!(k.haut === 0 && k.haar === 0)) farbenOk = false;
   }
   ok(farbenOk, 'Farbindex außerhalb, Nicht-Integer, falscher Typ → 0');
-  k = mit((x) => { x.gesicht = 7; x.frisur = null; x.bart = ['vollbart']; x.outfit.kopf = { a: 1 }; x.koerper = 'riese'; });
-  ok(k.gesicht === 'lerche' && k.frisur === 'dutt' && k.bart === 'keiner' && k.outfit.kopf === 'keine' && k.koerper === 'standard', 'falscher Typ / unbekannter Körper → Standard');
+  k = mit((x) => { x.haut = 5; x.haar = 7; });
+  ok(k.haut === 5 && k.haar === 7, 'letzte Palettenindizes (haut 5, haar 7) sind gültig');
+  k = mit((x) => { x.haut = 6; x.haar = 8; });
+  ok(k.haut === 0 && k.haar === 0, 'Index genau hinter der Palette (haut 6, haar 8) → 0');
+  k = mit((x) => { x.frisur = null; x.outfit.kopf = { a: 1 }; x.outfit.umhang = ['sagum']; x.koerper = 'riese'; });
+  ok(k.frisur === 'kurz' && k.outfit.kopf === 'keine' && k.outfit.umhang === 'keiner' && k.koerper === 'standard', 'falscher Typ / unbekannter Körper → Standard');
   k = mit((x) => { delete x.frisur; delete x.haut; delete x.outfit.umhang; delete x.koerper; });
-  ok(k.frisur === 'dutt' && k.haut === 0 && k.outfit.umhang === 'keiner' && k.gesicht === 'narbe' && k.koerper === 'standard', 'fehlendes Feld → Standard dieses Feldes');
+  ok(k.frisur === 'kurz' && k.haut === 0 && k.outfit.umhang === 'keiner' && k.haar === 2 && k.koerper === 'standard', 'fehlendes Feld → Standard dieses Feldes');
   k = mit((x) => { x.outfit = 'nackt'; });
   ok(eq(k.outfit, OUTFIT_STD), 'Outfit kein Objekt → ganzes Outfit Standard');
   k = mit((x) => { x.extra = 1; x.admin = true; x.outfit.schwert = 'x'; });
   ok(!('extra' in k) && !('admin' in k) && !('schwert' in k.outfit) && eq(Object.keys(k), Object.keys(STD)), 'zusätzliche Felder fallen weg');
   k = mit((x) => { x.name = 'Dieser Name ist viel zu lang'; });
-  ok(k.name === 'Crew' && k.gesicht === 'narbe', 'zu langer Name → Standardname, Rest bleibt');
-  k = Ch.pruefeKarte(JSON.parse('{"__proto__":{"gesicht":"narbe"},"constructor":"x"}'), KAT);
-  ok(k.gesicht === 'lerche', 'Prototyp-Trick ohne eigenes gesicht: Standard');
-  k = Ch.pruefeKarte(Object.create({ gesicht: 'narbe', name: 'Proto', koerper: 'standard', haut: 3, haar: 3, outfit: { kopf: 'bordhelm' } }), KAT);
-  ok(k.gesicht === 'lerche' && k.name === 'Crew' && k.haut === 0 && k.haar === 0 && k.outfit.kopf === 'keine', 'geerbte Eigenschaften (gesicht, name, haut, haar, outfit) zählen nicht');
+  ok(k.name === 'Crew' && k.frisur === 'bartlang', 'zu langer Name → Standardname, Rest bleibt');
+  k = Ch.pruefeKarte(JSON.parse('{"__proto__":{"frisur":"wild"},"constructor":"x"}'), KAT);
+  ok(k.frisur === 'kurz', 'Prototyp-Trick ohne eigene frisur: Standard');
+  k = Ch.pruefeKarte(Object.create({ frisur: 'wild', name: 'Proto', koerper: 'standard', haut: 3, haar: 3, outfit: { kopf: 'bordhelm' } }), KAT);
+  ok(k.frisur === 'kurz' && k.name === 'Crew' && k.haut === 0 && k.haar === 0 && k.outfit.kopf === 'keine', 'geerbte Eigenschaften (frisur, name, haut, haar, outfit) zählen nicht');
   let wirft = false, gueltig = true;
   for (const roh of [null, undefined, 0, 7, 'text', [], [1, 2], true, 'x'.repeat(1e6), () => 1]) {
-    try { const r = Ch.pruefeKarte(roh, KAT); if (!eq(Object.keys(r), Object.keys(STD)) || r.gesicht !== 'lerche') gueltig = false; } catch (e) { wirft = true; }
+    try { const r = Ch.pruefeKarte(roh, KAT); if (!eq(Object.keys(r), Object.keys(STD)) || r.frisur !== 'kurz') gueltig = false; } catch (e) { wirft = true; }
   }
   ok(!wirft && gueltig, 'null, Zahl, String, Array, riesiger String, Funktion → Standardkarte, kein Wurf');
-  const gross = { name: 'A'.repeat(1e6), gesicht: 'g'.repeat(1e6), outfit: { kopf: 'k'.repeat(1e6) } };
-  ok(Ch.pruefeKarte(gross, KAT).gesicht === 'lerche', 'riesige Strings in Feldern → Standard');
+  const gross = { name: 'A'.repeat(1e6), frisur: 'g'.repeat(1e6), outfit: { kopf: 'k'.repeat(1e6) } };
+  ok(Ch.pruefeKarte(gross, KAT).frisur === 'kurz', 'riesige Strings in Feldern → Standard');
+
+  section('CHA-02 E1a: Karte aus CHA-01 und Altwerte (keine Migration, kein Abbruch)');
+  k = Ch.pruefeKarte(CHA01, KAT);
+  ok(!('gesicht' in k) && !('bart' in k) && eq(Object.keys(k), Object.keys(STD)), 'Altfelder gesicht/bart werden verworfen, nie durchgereicht');
+  ok(k.frisur === 'kurz' && k.name === 'Narbo' && k.haut === 3 && k.haar === 2 && eq(k.outfit, ALT.outfit), 'Altfrisur zoepfe → Standard kurz, übrige Felder bleiben');
+  let altOk = true;
+  for (const alt of ['dutt', 'zoepfe', 'glatze', 'Kurz', 'kurz ', 'frisur/kurz']) { if (mit((x) => { x.frisur = alt; }).frisur !== 'kurz') altOk = false; }
+  ok(altOk, 'Altfrisuren dutt/zoepfe und Fremdwerte → Standardfrisur');
+  const fo = Ch.figurAusKarte(CHA01, KAT);
+  ok(!('gesicht' in fo.params) && !('bart' in fo.params) && fo.params.frisur === 'kurz', 'figurAusKarte reicht keine Altfelder an die Figur');
+  k = Ch.pruefeKarte(JSON.parse('{"gesicht":"narbe","bart":"vollbart","frisur":"bartlang","__proto__":{"gesicht":"x","bart":"y"},"outfit":{"__proto__":{"kopf":"galea"},"gesicht":"narbe"}}'), KAT);
+  ok(k.frisur === 'bartlang' && !('gesicht' in k) && !('bart' in k) && k.outfit.kopf === 'keine' && !('gesicht' in k.outfit), 'gesicht/bart auch mit __proto__ im Outfit nirgends in der Karte');
+  let frisurOk = true;
+  for (const v of ['kurz', 'stirnband', 'welle', 'offen', 'bartkurz', 'bartlang', 'zopfband', 'wild', 'keine']) { if (mit((x) => { x.frisur = v; }).frisur !== v) frisurOk = false; }
+  ok(frisurOk, 'jede Frisur des Katalogs ist gültig');
   let katOk = true;
   try { for (const kk of [null, undefined, {}, [], 'x', { plaetze: 5, teile: 'x', farben: null }]) { Ch.pruefeKarte(ALT, kk); Ch.pruefeOutfit(ALT.outfit, kk); Ch.standardKarte('Ada', kk); } } catch (e) { katOk = false; }
   ok(katOk, 'kaputter Katalog wirft nicht');
@@ -120,7 +142,7 @@ function einheiten() {
   ok(eq(Ch.pruefeOutfit(ALT.outfit, KAT), ALT.outfit), 'gültiges Outfit unverändert');
   ok(eq(Ch.pruefeOutfit({ kopf: 'bordhelm', oberteil: 'narbe', hose: 'x', extra: 1 }, KAT), Object.assign({}, OUTFIT_STD, { kopf: 'bordhelm' })), 'Fehler → Standard je Platz, Zusatzfelder weg');
   ok(eq(Ch.pruefeOutfit(null, KAT), OUTFIT_STD) && eq(Ch.pruefeOutfit([1], KAT), OUTFIT_STD) && eq(Ch.pruefeOutfit('x', KAT), OUTFIT_STD), 'null/Array/String → Standardoutfit');
-  ok(eq(Ch.pruefeOutfit({ gesicht: 'narbe', haut: 3 }, KAT), OUTFIT_STD), 'Charakterfelder im Outfit zählen nicht');
+  ok(eq(Ch.pruefeOutfit({ gesicht: 'narbe', frisur: 'wild', haut: 3 }, KAT), OUTFIT_STD), 'Charakterfelder im Outfit zählen nicht');
 
   section('pruefeName');
   ok(Ch.pruefeName('Aurelia') === 'Aurelia' && Ch.pruefeName('Jörg-Ägidius') === 'Jörg-Ägidius', 'Buchstaben inkl. Umlaute und Bindestrich');
@@ -162,8 +184,8 @@ function einheiten() {
       const r = Ch.pruefeKarte(roh, KAT);
       const o = Ch.pruefeOutfit(roh && roh.outfit, KAT);
       const g = eq(Object.keys(r), Object.keys(STD)) && eq(Object.keys(r.outfit), Object.keys(OUTFIT_STD)) && eq(Object.keys(o), Object.keys(OUTFIT_STD))
-        && KAT.teile.some((t) => t.id === 'gesicht/' + r.gesicht) && KAT.teile.some((t) => t.id === 'kopf/' + r.outfit.kopf)
-        && Number.isInteger(r.haut) && r.haut >= 0 && r.haut < 4 && r.haar >= 0 && r.haar < 4 && r.name.length >= 2 && r.name.length <= 12
+        && KAT.teile.some((t) => t.id === 'frisur/' + r.frisur) && !('gesicht' in r) && !('bart' in r) && KAT.teile.some((t) => t.id === 'kopf/' + r.outfit.kopf)
+        && Number.isInteger(r.haut) && r.haut >= 0 && r.haut < 6 && r.haar >= 0 && r.haar < 8 && r.name.length >= 2 && r.name.length <= 12
         && eq(Ch.pruefeKarte(r, KAT), r);   // idempotent
       if (g) gut++;
       Ch.pruefeName(roh); Ch.eindeutigerName(roh, [roh]);
@@ -268,9 +290,9 @@ async function integration() {
     ok(ev && ev.pid === 'p2' && eq(ev.k.outfit, neuesOutfit) && ev.k.name === 'Bea' && ev.k.haut === 2, 'Ereignis karte erreicht alle, Rest der Karte unverändert');
     ok(a.karten.length === 1 && cc.karten.length === 1 && d.karten.length === 1, 'genau ein Ereignis je Client');
     ok(eq(pb.karte.outfit, neuesOutfit), 'Server hat das Outfit gesetzt');
-    b.send({ t: 'cmd', c: 'karte.outfit', outfit: { kopf: 'narbe', oberteil: 'gibtsnicht', hose: 5, gesicht: 'narbe', haut: 3 } });
+    b.send({ t: 'cmd', c: 'karte.outfit', outfit: { kopf: 'narbe', oberteil: 'gibtsnicht', hose: 5, gesicht: 'narbe', frisur: 'wild', haut: 3 } });
     await sleep(300);
-    ok(eq(pb.karte.outfit, OUTFIT_STD) && pb.karte.gesicht === 'lerche' && pb.karte.haut === 2, 'manipuliertes Outfit → Standard je Platz, Charakterfelder unberührt');
+    ok(eq(pb.karte.outfit, OUTFIT_STD) && pb.karte.frisur === 'kurz' && !('gesicht' in pb.karte) && pb.karte.haut === 2, 'manipuliertes Outfit → Standard je Platz, Charakterfelder unberührt');
     b.send({ t: 'cmd', c: 'karte.outfit' });
     b.send({ t: 'cmd', c: 'karte.outfit', outfit: null });
     b.send({ t: 'cmd', c: 'karte.outfit', outfit: { kopf: 'x'.repeat(5000), oberteil: ['y'.repeat(5000)] } });
@@ -312,13 +334,13 @@ async function integration() {
     const m = await neu({ clientId: 'M', name: 'Mallory', color: 1, karte: roh });
     const pm = g.players.find((p) => p.clientId === 'M');
     ok(pm && g.players.length === 4, 'Server läuft weiter, Platz übernommen');
-    ok(pm.karte.v === 1 && pm.karte.gesicht === 'lerche' && pm.karte.frisur === 'dutt' && pm.karte.bart === 'keiner' && pm.karte.haut === 0 && pm.karte.haar === 0 && eq(pm.karte.outfit, OUTFIT_STD), 'manipulierte Karte → Standardwerte je Feld');
+    ok(pm.karte.v === 1 && !('gesicht' in pm.karte) && !('bart' in pm.karte) && pm.karte.frisur === 'kurz' && pm.karte.haut === 0 && pm.karte.haar === 0 && eq(pm.karte.outfit, OUTFIT_STD), 'manipulierte Karte → Standardwerte je Feld');
     ok(!('admin' in pm.karte) && !('wf' in pm.karte) && !('hp' in pm.karte) && pm.hp !== 9999 && pm.wf !== 'lanze', 'zusätzliche Felder wirken nicht');
     ok(pm.name === 'Mallory' && pm.karte.name === 'Mallory', `ungültiger Kartenname → bisherige Namenslogik (${pm.name})`);
     ok(m.welcome.karten.p2 && m.welcome.karten.p2.name === 'Bea' && m.welcome.karten.p3 && m.welcome.karten.p3.name === 'Cleo', 'Nachzügler sieht die Karten getrennter Spieler (Bea, Cleo)');
-    ok(m.welcome.karten && m.welcome.karten[pm.id] && m.welcome.karten[pm.id].gesicht === 'lerche', 'Standardkarte steht im welcome');
+    ok(m.welcome.karten && m.welcome.karten[pm.id] && eq(m.welcome.karten[pm.id], pm.karte) && m.welcome.karten[pm.id].frisur === 'kurz' && !('gesicht' in m.welcome.karten[pm.id]), 'Standardkarte steht im welcome');
     const m2 = await neu({ clientId: 'M', karte: 'Zeichenkette' });   // Wiederverbinden mit Müll als Karte
-    ok(m2.welcome.karten[pm.id].gesicht === 'lerche' && pm.connected && g.errors === fehlerVor, 'Karte als Zeichenkette → Standardkarte, kein Serverfehler');
+    ok(m2.welcome.karten[pm.id].frisur === 'kurz' && !('bart' in m2.welcome.karten[pm.id]) && pm.connected && g.errors === fehlerVor, 'Karte als Zeichenkette → Standardkarte, kein Serverfehler');
     ok(pm.name === 'Mallory' && pm.karte.name === 'Mallory', `Karte als Zeichenkette: Name bleibt (${pm.name})`);
     ok(Protocol.VERSION === 8, 'Protokollversion 8');
 
