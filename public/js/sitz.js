@@ -185,11 +185,7 @@
     R.drawFrontView(c, view, fenster);
     if (TA) TA.zeichne(c, view, tafelOpt);
   });
-  // Platzhalter bis KUL-03: KUL-03 registriert hier den echten Visier-Zeichner
-  Hauptschirm.registriere('visier', (c) => {
-    c.fillStyle = window.HauptschirmTokens ? HauptschirmTokens.TOKENS.FARBE.grund : PAL.space; c.fillRect(0, 0, SW, SH);
-    R.text(c, 'VISIER – NOCH NICHT VERFÜGBAR', SW / 2, SH / 2 - 12, { color: PAL.amber, align: 'center', scale: 3 });
-  });
+  // KUL-03: der Zeichner der Ansicht 'visier' steht in visier.js und meldet sich selbst an
 
   // Hauptschirm: für alle dasselbe Bild, die Frontsicht des Piloten (Kai 2026-10-14)
   function zeichneSchirm(view) {
