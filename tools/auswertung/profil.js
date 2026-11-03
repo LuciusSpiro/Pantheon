@@ -1,13 +1,15 @@
 'use strict';
 // TEL-01 D1: Gefechtsprofil als SVG (String, keine Abhaengigkeit). profil(protokoll, kz) -> SVG-Text.
-//   Raum:  Hülle (Systemintegrität, Summe r_integ in % ihres Sessionmaximums), Schild (Summe r_schild in % ihres Maximums), Hitze (größte r_hitze in % der Hitzegrenze)
+// profil.js ZEICHNET NUR: die Reihen kommen EINMAL gerechnet (mit Raumfilter) aus kz.listen.reihen (kennzahlen.js), Hitzegrenze eingeschlossen.
+//   Raum:  Systemintegrität (Summe r_integ in % ihres Maximums; die Lerche hat keinen Hüllenwert), Schild (Summe r_schild in % ihres Maximums), Hitze (größte r_hitze in % der Hitzegrenze)
 //   Boden: Bodenschild (Segmente, Mittel und Minimum der Spieler draussen, in % des Sessionmaximums)
-//   senkrecht: Szenengrenzen (kz.listen.szenen), darunter je Panel ein Streifen mit Verlusten (kz.listen.verluste) als Marken.
+//   senkrecht: Szenengrenzen (kz.listen.szenen), darunter je Panel ein Streifen mit Verlusten (kz.listen.verluste) als Marken; Marken derselben Art in derselben Pixelspalte werden
+//   zu EINER Marke zusammengefasst (Titel nennt die Zahl), es wird keine Liste abgeschnitten.
 // Eine Zeitachse ueber die ganze Session. Feste helle Fläche, damit das Bild in hellen und dunklen Notizen gleich gut lesbar ist.
 // Ein Panel erscheint nur, wenn der Lauf Daten dafuer hat (Raumlauf ohne Boden: kein Boden-Panel).
 
-const HITZEGRENZE = 100;   // shared/config.js power.heatLimit
 const B = 920, LINKS = 62, RECHTS = 24, PH = 150, KOPF = 34, LUECKE = 64;
+const { HITZEGRENZE } = require('./kennzahlen.js');
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const num = (v) => typeof v === 'number' && Number.isFinite(v);
 const f1 = (v) => (Math.round(v * 10) / 10).toString();
@@ -19,48 +21,52 @@ const MARKE = {   // art -> Farbe, Name
 };
 
 function profil(protokoll, kz) {
-  const zr = (protokoll.zeilen || []).filter((z) => z.typ === 'zeitreihe' && num(z.t));
-  const tMax = Math.max(1, kz && kz.kopf && num(kz.kopf.dauer) ? kz.kopf.dauer : 0, zr.length ? zr[zr.length - 1].t : 0);
-  const kennung = (kz && kz.kopf && kz.kopf.sitzung) || protokoll.kennung || '';
+  const re = (kz && kz.listen && kz.listen.reihen) || { raum: { t: [], integ: [], schild: [], hitze: [] }, boden: { t: [], mittel: [], min: [] }, hitzegrenze: HITZEGRENZE };
+  const letzte = (a) => (a.length ? a[a.length - 1] : 0);
+  const tMax = Math.max(1, kz && kz.kopf && num(kz.kopf.dauer) ? kz.kopf.dauer : 0, letzte(re.raum.t), letzte(re.boden.t));
+  const kennung = (kz && kz.kopf && kz.kopf.sitzung) || (protokoll && protokoll.kennung) || '';
   const x = (t) => LINKS + ((B - LINKS - RECHTS) * Math.min(Math.max(t, 0), tMax)) / tMax;
 
-  // Reihen
-  const raum = zr.filter((r) => Array.isArray(r.r_integ) && r.r_integ.every(num) && Array.isArray(r.r_schild) && r.r_schild.every(num) && Array.isArray(r.r_hitze) && r.r_hitze.every(num) && Array.isArray(r.ort) && r.ort.includes('raum'));
-  const sum = (a) => a.reduce((p, q) => p + q, 0);
-  const rHülle = raum.map((r) => ({ t: r.t, v: sum(r.r_integ) }));
-  const rSchild = raum.map((r) => ({ t: r.t, v: sum(r.r_schild) }));
-  const rHitze = raum.map((r) => ({ t: r.t, v: Math.max(...r.r_hitze) }));
-  const boden = [];
-  for (const r of zr) {
-    if (!Array.isArray(r.b_schild)) continue;
-    const w = r.b_schild.filter(num);
-    if (w.length) boden.push({ t: r.t, mittel: sum(w) / w.length, min: Math.min(...w) });
-  }
+  // Reihen: nur normieren (die Zahlen selbst kommen aus kennzahlen.js)
+  const maxV = (arr) => { let m = 0; for (const v of arr) if (v > m) m = v; return m; };
+  const norm = (ts, vs, mx) => ts.map((t, i) => ({ t, v: mx > 0 ? Math.min(100, (100 * vs[i]) / mx) : 0 }));
   const panels = [];
-  if (rHülle.length >= 2) panels.push({ name: 'Schiff (Raum)', verlust: ['zone_aus', 'notfall', 'schiff_zerstoert'], reihen: [
-    { name: 'Hülle (Systemintegrität, % vom Maximum)', farbe: FARBE.huelle, pts: norm(rHülle, Math.max(...rHülle.map((p) => p.v))) },
-    { name: 'Schild (% vom Maximum)', farbe: FARBE.schild, pts: norm(rSchild, Math.max(...rSchild.map((p) => p.v))) },
-    { name: 'Hitze (% der Hitzegrenze)', farbe: FARBE.hitze, pts: norm(rHitze, HITZEGRENZE) },
+  if (re.raum.t.length >= 2) panels.push({ name: 'Schiff (Raum)', verlust: ['zone_aus', 'notfall', 'schiff_zerstoert'], reihen: [
+    { name: 'Systemintegrität (% vom Max.)', farbe: FARBE.huelle, pts: norm(re.raum.t, re.raum.integ, maxV(re.raum.integ)) },
+    { name: 'Schild (% vom Maximum)', farbe: FARBE.schild, pts: norm(re.raum.t, re.raum.schild, maxV(re.raum.schild)) },
+    { name: 'Hitze (% der Hitzegrenze)', farbe: FARBE.hitze, pts: norm(re.raum.t, re.raum.hitze, re.hitzegrenze) },
   ] });
-  if (boden.length >= 2) {
-    const mx = Math.max(...boden.map((p) => p.mittel), ...boden.map((p) => p.min));
+  if (re.boden.t.length >= 2) {
+    const mx = Math.max(maxV(re.boden.mittel), maxV(re.boden.min));
     panels.push({ name: 'Boden', verlust: ['gefallen', 'bodenschild_leer', 'notrueckholung', 'szene_neustart'], reihen: [
-      { name: 'Bodenschild Mittel (% vom Maximum)', farbe: FARBE.bodenMittel, pts: norm(boden.map((p) => ({ t: p.t, v: p.mittel })), mx) },
-      { name: 'Bodenschild Minimum eines Spielers', farbe: FARBE.bodenMin, pts: norm(boden.map((p) => ({ t: p.t, v: p.min })), mx) },
+      { name: 'Bodenschild Mittel (% vom Maximum)', farbe: FARBE.bodenMittel, pts: norm(re.boden.t, re.boden.mittel, mx) },
+      { name: 'Bodenschild Minimum eines Spielers', farbe: FARBE.bodenMin, pts: norm(re.boden.t, re.boden.min, mx) },
     ] });
   }
-  function norm(pts, mx) { return pts.map((p) => ({ t: p.t, v: mx > 0 ? Math.min(100, (100 * p.v) / mx) : 0 })); }
+
+  const szenen = (kz && kz.listen && kz.listen.szenen) || [];
+  const verluste = (kz && kz.listen && kz.listen.verluste) || [];
+  // Verlustmarken je Panel: gleiche Art in derselben Pixelspalte zu einer Marke zusammenfassen
+  const marken = (arten) => {
+    const grp = new Map();
+    for (const v of verluste) {
+      if (!arten.includes(v.art) || !num(v.t)) continue;
+      const k = v.art + '|' + Math.round(x(v.t));
+      const g = grp.get(k);
+      if (g) g.n++; else grp.set(k, { art: v.art, px: Math.round(x(v.t)), t: v.t, n: 1 });
+    }
+    return [...grp.values()];
+  };
 
   const h = KOPF + Math.max(1, panels.length) * (PH + LUECKE) + 34;
   const o = [];
   o.push('<svg xmlns="http://www.w3.org/2000/svg" width="' + B + '" height="' + h + '" viewBox="0 0 ' + B + ' ' + h + '" font-family="Segoe UI, Arial, sans-serif" font-size="11">');
   o.push('<rect x="0" y="0" width="' + B + '" height="' + h + '" fill="#ffffff"/>');
   o.push('<text x="' + LINKS + '" y="18" font-size="13" font-weight="bold" fill="#222222">Gefechtsprofil ' + esc(kennung) + '</text>');
+  o.push('<text x="' + (B - RECHTS) + '" y="18" text-anchor="end" font-size="10" fill="#555555">Systemintegrität ersetzt die Hülle (die Lerche hat keinen Hüllenwert)</text>');
   if (!panels.length) {
     o.push('<text x="' + LINKS + '" y="' + (KOPF + 40) + '" fill="#555555">keine Zeitreihe mit Raum- oder Bodendaten in dieser Session</text>');
   }
-  const szenen = (kz && kz.listen && kz.listen.szenen) || [];
-  const verluste = (kz && kz.listen && kz.listen.verluste) || [];
   panels.forEach((p, i) => {
     const y0 = KOPF + i * (PH + LUECKE) + 22;   // Oberkante der Zeichenflaeche (darueber Titel und Legende)
     const y1 = y0 + PH;
@@ -90,13 +96,10 @@ function profil(protokoll, kz) {
     }
     // Verlust-Streifen unter der Fläche
     o.push('<text x="' + (LINKS - 6) + '" y="' + (y1 + 19) + '" text-anchor="end" fill="#555555">Verluste</text>');
-    const alle = verluste.filter((v) => p.verlust.includes(v.art));
-    const mv = alle.slice(0, 600);
-    if (alle.length > mv.length) o.push('<text x="' + (B - RECHTS) + '" y="' + (y1 + 40) + '" text-anchor="end" fill="#c92a2a">nur die ersten ' + mv.length + ' von ' + alle.length + ' Verlusten eingezeichnet</text>');
-    for (const v of mv) {
+    for (const v of marken(p.verlust)) {
       const m = MARKE[v.art] || ['#111111', v.art];
-      const cx = x(v.t), cy = y1 + 14;
-      o.push('<polygon points="' + f1(cx - 3) + ',' + (cy - 5) + ' ' + f1(cx + 3) + ',' + (cy - 5) + ' ' + f1(cx) + ',' + (cy + 3) + '" fill="' + m[0] + '"><title>' + esc(m[1] + ' ' + f1(v.t) + ' s') + '</title></polygon>');
+      const cx = v.px, cy = y1 + 14, w = Math.min(3 + Math.floor(Math.log2(v.n)), 6);   // mehrere Verluste in einer Spalte: groessere Marke
+      o.push('<polygon points="' + f1(cx - w) + ',' + (cy - 5) + ' ' + f1(cx + w) + ',' + (cy - 5) + ' ' + f1(cx) + ',' + (cy + 3) + '" fill="' + m[0] + '"><title>' + esc((v.n > 1 ? v.n + '× ' : '') + m[1] + ' ' + f1(v.t) + ' s') + '</title></polygon>');
     }
     // Legende der Marken
     let mx = LINKS;
