@@ -92,6 +92,8 @@ const MUTATIONEN = [
   ['public/js/kammer-ui.js', "sub: '', etikett: TEXT.volkKurz[t.volk] || null,", "sub: TEXT.volk[t.volk] || '–',", 'Frisur-Kachel zeigt die Herkunft wieder als Unterzeile (verdrängt vom Namen)'],
   ['public/js/kammer-ui.js', "if (t.etikett) kappeDunkel(c, k.x + 3,", "if (false) kappeDunkel(c, k.x + 3,", 'Herkunfts-Etikett der Frisur-Kachel wird nicht gezeichnet'],
   ['public/js/kammer-ui.js', "w: KM.figur.x - KM.kachel.x - 12, zeilen: KX.hilfe[art] })", "zeilen: KX.hilfe[art] })", 'Hilfe-Overlay wieder 420 breit (ragt über den Anprobe-Rahmen)'],
+  ['public/js/kammer-ui.js', "label: KX.drehenLinks, hotkey: 'Q', onClick", "label: KX.drehenLinks, onClick", 'Q fehlt in der Hilfe-Liste (Erstellung und Spind)'],
+  ['public/js/kammer-ui.js', "'nah', e.yaw, e.modus === 'neu' ? e.platz : null);\n    drehKappen(c, f, ky);", "'nah', e.yaw, e.modus === 'neu' ? e.platz : null);", 'Erstellung ohne Q/E-Kappen'],
 ];
 const filter = process.argv.slice(2);
 let ueberlebt = 0, laeufe = 0;

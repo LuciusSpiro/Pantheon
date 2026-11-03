@@ -566,6 +566,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
     const fris = KATJ.teile.filter((t) => t.platz === 'frisur' && t.volk);
     ok(fris.length === 8 && vk && fris.every((t) => new RegExp('(^| )' + t.volk + ": '").test(vk[1])), 'Katalog: jede Frisur mit Volk (' + fris.length + ') hat ein Etikett in volkKurz'); }
   ok(/hilfe\(c, 'spind'\)/.test(ui) && /hilfe\(c, 'erstellung'\)/.test(ui) && /P\.zeichneHilfe\(c, \{ x: a\.x \+ KM\.kachel\.x, w: KM\.figur\.x - KM\.kachel\.x - 12, zeilen: KX\.hilfe\[art\] \}\)/.test(ui), 'Hilfe in Spind und Erstellung: auf den Kachelbereich begrenzt, mit Pfeiltasten-Zeilen');
+  ok((ui.match(/drehKappen\(c, f, ky\)/g) || []).length === 3 && /hotkey: 'Q', onClick/.test(ui) && /hotkey: 'E', onClick/.test(ui), 'Q/E (Kappen, Klickflächen mit Hotkey für die Hilfe) in Erstellung und Spind über dieselbe Funktion drehKappen');
   ok(/namensfeld\(cc, a\.x \+ T\.x, 0, KM\.figur\.x - T\.x - 12, e, a,/.test(ui), 'Erstellung mit Kacheln: Namensfeld kompakt unter den Kachelreihen');
 }
 

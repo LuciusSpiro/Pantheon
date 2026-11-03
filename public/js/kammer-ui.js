@@ -200,6 +200,14 @@
     txt(c, passend(z2, tw), k.x + ti, k.bild.y + k.bild.h + T.sub, F.dim);
     if (zust.cursor) cursorRahmen(c, k); else rand(c, k.x, k.y, k.w, k.h, F.kachelRand);
   }
+  // Q/E unter dem Figurfenster (Erstellung und Spind): Kappen und „drehen“; sie stehen in der Hilfe (R.ui.buttons) und sind anklickbar, wie die Tasten
+  function drehKappen(c, f, ky) {
+    const M = KM.figur, xe = f.x + f.w - M.kappeAbstand - 13;
+    kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, xe, ky, 'E', F.kappe, F.kappeText);
+    txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
+    R.ui.buttons.push({ x: f.x + M.kappeAbstand, y: ky, w: 13, h: M.kappe, label: KX.drehenLinks, hotkey: 'Q', onClick: () => C.dreheFigur(-1) });
+    R.ui.buttons.push({ x: xe, y: ky, w: 13, h: M.kappe, label: KX.drehenRechts, hotkey: 'E', onClick: () => C.dreheFigur(1) });
+  }
   function figurFenster(c, a, e, name) {
     const f = PK.figur(a), M = KM.figur, b = KM.figurBild.nah;
     rect(c, f.x, f.y, f.w, f.h, F.figurGrund); rand(c, f.x, f.y, f.w, f.h, F.kachelRand);
@@ -207,8 +215,7 @@
     txt(c, e.modus === 'neu' ? KX.neu : KX.knopf.umbenennen, f.x + f.w - 6, f.y + 4, F.dim, 'right');
     const ky = f.y + f.h - M.kappe - M.kappeAbstand;
     portraet(c, { x: f.x + (f.w - b.w) / 2, y: f.y + M.nameH, w: b.w, h: b.h }, C.entwurfKarte(), 'nah', e.yaw, e.modus === 'neu' ? e.platz : null);
-    kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
-    txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
+    drehKappen(c, f, ky);
   }
   // Namensfeld: Schreibmodus mit Schreibmarke (blinkt), Hinweis bei ungültigem Namen.
   // kompakt (Erstellung mit Kacheln, CHA-02 E1b): Feld in der Zeile unter den zwei Kachelreihen (a = Anzeige), der Hinweis steht rechts daneben (Name-Regel, Schreiben, sonst die Wahlhinweise);
@@ -304,11 +311,7 @@
     if (bi) bildIn(c, bi, r, true);
     else { const t = ((katalog() && katalog().teile) || []).find((x) => x.id === e.platz + '/' + e.karte.outfit[e.platz]); bildIn(c, t && vorschau(t.vorschau), r); }
     const ky = f.y + f.h - M.kappe - M.kappeAbstand;
-    kappeDunkel(c, f.x + M.kappeAbstand, ky, 'Q', F.kappe, F.kappeText); kappeDunkel(c, f.x + f.w - M.kappeAbstand - 13, ky, 'E', F.kappe, F.kappeText);
-    txt(c, KX.drehen, f.x + f.w / 2, ky + 3, F.dim, 'center');
-    // Q/E stehen in der Hilfe (R.ui.buttons) und sind anklickbar, wie die Tasten
-    R.ui.buttons.push({ x: f.x + M.kappeAbstand, y: ky, w: 13, h: M.kappe, label: KX.drehenLinks, hotkey: 'Q', onClick: () => C.dreheFigur(-1) });
-    R.ui.buttons.push({ x: f.x + f.w - M.kappeAbstand - 13, y: ky, w: 13, h: M.kappe, label: KX.drehenRechts, hotkey: 'E', onClick: () => C.dreheFigur(1) });
+    drehKappen(c, f, ky);
   }
   function spindZeichne(c, view) {
     aktuellView = view;
