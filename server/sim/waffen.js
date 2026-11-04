@@ -553,7 +553,7 @@ function waffeAnlegen(game, p, waffe) {
   emit(game, 'loadout', { pid: p.id, waffe });
   return null;
 }
-// Waffe setzen (Labor, Arena, Debug, alter Befehl loadout.waffe). Gespeichert wird nur eine wählbare Waffe (nie 'faust') als Slot 1 (AUS-01, loadout.js).
+// Waffe setzen (Labor, Arena, Debug; der Befehl loadout.waffe ist mit AUS-01 C entfallen). Gespeichert wird nur eine wählbare Waffe (nie 'faust') als Slot 1 (AUS-01, loadout.js).
 function waffeSetzen(game, p, waffe) {
   if (!def(game, waffe) || waffe === 'waechter') return 'unbekannt';
   if (WAHL.includes(waffe) && p.clientId != null) require('./loadout.js').ersterSlotSetzen(game, p, waffe);

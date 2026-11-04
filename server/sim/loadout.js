@@ -8,7 +8,8 @@ const Waffen = require('./waffen.js');
 const SLOTS_MAX = 3;
 const SLOTS_BIS_2_SPIELER = 3;
 const SLOTS_AB_3_SPIELER = 2;
-const FEHLT = 'blaster';   // Spieler ohne gespeichertes Loadout (wie bisher waffeFuer)
+// Standardloadout: Wirksamer Stand eines Spielers OHNE gespeichertes Loadout (Blaster in Slot 1). Gespeichert wird er erst, wenn jemand etwas ändert.
+const standardLoadout = () => ['blaster', ...Array(SLOTS_MAX - 1).fill(null)];
 const OHNE_WAFFE = 'faust';   // Loadout gespeichert, aber keine Waffe in den wirksamen Slots
 
 // Die EINE Stelle, die entscheidet, was in einen Slot darf. Spätere Aufträge (Medipack, Scanner) ergänzen hier ihre Ids.
@@ -37,14 +38,12 @@ function gespeichert(game, h) {
   if (istWaffe(alt)) return [alt, null, null];
   return null;
 }
-function loadoutFuer(game, p) { return gespeichert(game, hashVon(p)) || Array(SLOTS_MAX).fill(null); }
+function loadoutFuer(game, p) { return gespeichert(game, hashVon(p)) || standardLoadout(); }
 function wirksam(game, p) { return loadoutFuer(game, p).slice(0, slotzahl(game)); }
 
-// Aktive Waffe = erste Waffe unter den wirksamen Slots; keine Waffe belegt = Faust; kein Loadout gespeichert = Blaster.
+// Aktive Waffe = erste Waffe unter den wirksamen Slots (ohne gespeichertes Loadout: Standardloadout = Blaster); keine Waffe belegt = Faust.
 function aktiveWaffe(game, p) {
-  const e = gespeichert(game, hashVon(p));
-  if (!e) return FEHLT;
-  return e.slice(0, slotzahl(game)).find(istWaffe) || OHNE_WAFFE;
+  return wirksam(game, p).find(istWaffe) || OHNE_WAFFE;
 }
 
 function spiegeln(game, h) {
@@ -54,14 +53,14 @@ function spiegeln(game, h) {
   if (w) alt[h] = w; else delete alt[h];
 }
 
-// Neuer Befehl loadout.slot: Slot 0..slotzahl-1 auf Id oder leer (null). Rückgabe: Fehlertext oder null.
+// Befehl ausruestung.slot: Slot 0..slotzahl-1 auf Id oder leer (null). Rückgabe: Fehlertext oder null.
 function slotSetzen(game, p, slot, id) {
   const h = hashVon(p);
   if (!h) return 'Ohne Kennung kein Loadout.';
   if (!Number.isInteger(slot) || slot < 0 || slot >= slotzahl(game)) return 'Diesen Slot gibt es in dieser Partie nicht.';
   const neu = id == null || id === '' ? null : id;
   if (neu !== null && !istErlaubt(neu)) return 'Unbekannte Waffe.';
-  const e = gespeichert(game, h) || Array(SLOTS_MAX).fill(null);
+  const e = gespeichert(game, h) || standardLoadout();
   const zahl = slotzahl(game);
   if (neu !== null && e.some((x, i) => i < zahl && i !== slot && x === neu)) return 'Diese Waffe steckt schon in einem anderen Slot.';
   // Steckt die Waffe in einem in dieser Partie nicht wirksamen Slot, wandert sie hierher: der versteckte Eintrag wird geleert (nie doppelt gespeichert).
@@ -84,11 +83,18 @@ function standSenden(game, p, fehler) {
   game.sendTo(p.conn, o);
 }
 
-// Alter Pfad (loadout.waffe, Labor/Arena/Debug über waffeSetzen): die Waffe wird Slot 1; steckt sie schon in einem anderen Slot, tauschen beide.
+// Übernahme eines freien Platzes: der Vorbesitzer trug evtl. eine andere Waffe. Getragene Waffe auf das Loadout des Neuen bringen (Gefangene bleiben bei der Faust).
+function waffeAbgleichen(game, p) {
+  if (!p || p.gefangen || p.clientId == null || !p.waffe) return;
+  const soll = aktiveWaffe(game, p);
+  if (p.waffe !== soll) Waffen.waffeAnlegen(game, p, soll);
+}
+
+// Pfad der Aufrufer von waffeSetzen (Labor, Arena, Debug; der Befehl loadout.waffe ist mit AUS-01 C entfallen): die Waffe wird Slot 1; steckt sie schon in einem anderen Slot, tauschen beide.
 function ersterSlotSetzen(game, p, waffe) {
   const h = hashVon(p);
   if (!h || !istWaffe(waffe)) return;
-  const e = gespeichert(game, h) || Array(SLOTS_MAX).fill(null);
+  const e = gespeichert(game, h) || standardLoadout();
   const i = e.indexOf(waffe);
   if (i > 0) e[i] = e[0];
   e[0] = waffe;
@@ -109,8 +115,15 @@ function restore(obj, game) {
   const out = {};
   for (const [h, e] of Object.entries(obj && typeof obj === 'object' ? obj : {})) {
     if (!/^[0-9a-f]{12}$/.test(h) || !Array.isArray(e)) continue;
+    // Ungültige (entfernte/unbekannte) Ids fliegen raus. Bleibt dadurch keine gültige Waffe übrig, gilt der Eintrag als kaputt und wird verworfen
+    // (Spieler fällt auf das Standardloadout); ein bewusst leeres Loadout (nur null) bleibt leer.
     const slots = [];
-    for (let i = 0; i < SLOTS_MAX; i++) slots.push(istErlaubt(e[i]) && !slots.includes(e[i]) ? e[i] : null);
+    let ungueltig = false;
+    for (let i = 0; i < SLOTS_MAX; i++) {
+      if (e[i] != null && !istErlaubt(e[i])) ungueltig = true;
+      slots.push(istErlaubt(e[i]) && !slots.includes(e[i]) ? e[i] : null);
+    }
+    if (ungueltig && !slots.some(Boolean)) continue;
     out[h] = slots;
   }
   for (const [h, w] of Object.entries(spiegelAlt(game))) if (!(h in out) && istWaffe(w)) out[h] = [w, null, null];
@@ -118,4 +131,4 @@ function restore(obj, game) {
   for (const h of Object.keys(out)) spiegeln(game, h);
 }
 
-module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, standSenden, ersterSlotSetzen, toSave, restore };
+module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, standSenden, waffeAbgleichen, ersterSlotSetzen, toSave, restore };

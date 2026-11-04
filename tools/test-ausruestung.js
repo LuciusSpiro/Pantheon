@@ -152,30 +152,34 @@ section('Beamen nimmt das Loadout mit (AUS-01 C)');
   ok(a.waffe === 'granatwerfer', 'Beamen: aktive Waffe kommt aus dem Loadout, nicht aus der zuletzt getragenen');
 }
 
-section('ODA-Hinweis „Transfer: Leute auf die Pads“ (Regression AUS-01 C: Waffenwahl zwang früher an die Transfer-Konsole)');
+section('ODA-Hinweis: Station und Transfer-Konsole haben je einen eigenen Text und ein eigenes Einmal-Flag (AUS-01 Nacharbeit)');
 {
   const neuesSpiel = (id) => {
     const gx = new Game({ noStore: true, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
     const cx = { inbox: [], send(o) { this.inbox.push(o); } };
     gx.addConnection(cx); gx.handleMessage(cx, { t: 'hello', clientId: id, name: id, color: 0 }); gx.handleMessage(cx, { t: 'ready', ready: true });
     for (let k = 0; k < 6; k++) gx.step();
-    const hinweise = () => cx.inbox.filter((m) => m.kind === 'oda' && /Leute auf die Pads/.test(m.text));
+    const hinweise = (text) => cx.inbox.filter((m) => m.kind === 'oda' && m.text === text);
     const besuch = (kind) => { interior.enterConsole(gx, gx.players[0], kind); interior.konsoleVerlassen(gx, gx.players[0], 'test'); };
     return { besuch, hinweise };
   };
   const { CONSOLE_HELP } = require('../server/sim/mission.js');
+  const AUS = CONSOLE_HELP.ausruestung, TRA = CONSOLE_HELP.transfer;
+  ok(typeof AUS === 'string' && AUS.length > 10 && AUS !== TRA && !/Pads/.test(AUS), 'CONSOLE_HELP.ausruestung: eigener Text, nicht der Transporter-Text');
+  ok(/Pads/.test(TRA), 'CONSOLE_HELP.transfer: Text unverändert');
   const a = neuesSpiel('H0');
-  ok(a.hinweise().length === 0, 'vor dem ersten Betreten kein Hinweis');
+  ok(a.hinweise(AUS).length === 0 && a.hinweise(TRA).length === 0, 'vor dem ersten Betreten kein Hinweis');
   a.besuch('ausruestung');
-  ok(a.hinweise().length === 1, 'erstes Betreten der Station: Hinweis erscheint');
-  ok(a.hinweise()[0].text === CONSOLE_HELP.transfer, 'derselbe Text wie an der Transfer-Konsole');
+  ok(a.hinweise(AUS).length === 1 && a.hinweise(TRA).length === 0, 'erstes Betreten der Station: eigener Hinweis, kein Transporter-Text');
   a.besuch('ausruestung');
-  ok(a.hinweise().length === 1, 'erneutes Betreten der Station: kein zweiter Hinweis');
+  ok(a.hinweise(AUS).length === 1, 'erneutes Betreten der Station: kein zweiter Hinweis');
   a.besuch('transfer');
-  ok(a.hinweise().length === 1, 'danach Transfer-Konsole: kein zweiter Hinweis (gleiches Einmal-Flag)');
+  ok(a.hinweise(TRA).length === 1 && a.hinweise(AUS).length === 1, 'danach Transfer-Konsole: ihr eigener Hinweis erscheint einmal (Flag nicht verbraucht)');
+  a.besuch('transfer');
+  ok(a.hinweise(TRA).length === 1, 'Transfer-Konsole erneut: kein zweiter Hinweis');
   const b = neuesSpiel('H1');
   b.besuch('transfer'); b.besuch('ausruestung');
-  ok(b.hinweise().length === 1, 'zuerst Transfer, dann Station: genau ein Hinweis');
+  ok(b.hinweise(TRA).length === 1 && b.hinweise(AUS).length === 1, 'zuerst Transfer, dann Station: beide Hinweise je einmal');
 }
 
 console.log(fails ? `\n${fails} FEHLER` : '\nAUSRÜSTUNG OK');

@@ -525,7 +525,6 @@ function candidateTiles(p, game) {
 function consoleOccupant(game, p, kind) {
   if (kind === 'plan') return null;   // Planungstisch: nicht exklusiv (bis zu 3)
   if (kind === 'ausruestung') return null;   // AUS-01 B: Ausrüstungsstation: das Loadout gehört dem Spieler, beliebig viele zugleich
-  if (kind === 'ausruestung') return null;   // AUS-01 B: Ausrüstungsstation: das Loadout gehört dem Spieler, beliebig viele zugleich
   // R1 §4.4: belegt ist der Ort (Konsole selbst) und das Interface (ein anderer hält die Station per Tab)
   return game.players.find((o) => o !== p && o.connected && (o.console === kind || Station.stationOf(o) === kind)) || null;
 }

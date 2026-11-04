@@ -166,12 +166,9 @@ const CONSOLE_HELP = {
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
   kustodenpult: 'Kustodenpult: Farben 1–6 in der Reihenfolge der Symbole. Die Tabelle hat der Captain oben.',
+  ausruestung: 'Ausrüstung: Hier legst du fest, was du auf die Außenmission mitnimmst. Das Loadout bleibt gespeichert.',
   plan: 'Planungstisch: Sternkarte und gescannte Karten. Pins setzen und gemeinsam planen. Esc steht auf.',
 };
-// AUS-01 B/C: die Ausrüstungsstation steht neben der Transfer-Konsole (Transferkammer): derselbe Hinweis, dasselbe Einmal-Flag
-// (Stichwort 'transfer'), damit er beim ersten Betreten einer der beiden erscheint und nie doppelt. Seit AUS-01 C zwingt nichts mehr an die Transfer-Konsole.
-const CONSOLE_HELP_ALIAS = { ausruestung: 'transfer' };
-const consoleHelpKey = (kind) => CONSOLE_HELP_ALIAS[kind] || kind;
 // Fallback, solange content/npc.json keinen Funk für „Kampagne ohne Tutorial“ hat
 const FREE_RADIO_FALLBACK = { from: 'tesk', text: 'Lerche, hier Tesk. Willkommen im Lichtkordon. Man munkelt, die Tafel von Kesh liege jetzt im Konkordat-Archiv. Neue Aufträge folgen.' };
 
@@ -1157,7 +1154,7 @@ class Mission {
     } finally { this.ev = null; }
     // allgemeine ODA-Kommentare
     switch (name) {
-      case 'consoleEnter': { const hk = consoleHelpKey(data.kind); if (CONSOLE_HELP[hk]) g.oda(CONSOLE_HELP[hk], 'console_' + hk); break; }
+      case 'consoleEnter': { if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break; }
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
       case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Die Handelskonsole im Meetingraum (Oberdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;
