@@ -24,11 +24,12 @@ const MOOD_FALLBACK = {
   platform_space: { background: '#05070E', hemi: { sky: '#8FA6C8', ground: '#141A26', intensity: 0.6 }, sun: { color: '#FFF2DC', intensity: 1.6, dir: [-0.5, 1, 0.4] }, exposure: 1.0 },
   wreck_dark: { background: '#04050A', hemi: { sky: '#3A4A60', ground: '#0C0F16', intensity: 0.35 }, sun: { color: '#9FB4D6', intensity: 0.5, dir: [-0.2, 1, 0.3] }, exposure: 1.0 },
   buehne_neutral: { background: '#1A1E26', hemi: { sky: '#C8D2DE', ground: '#4A4236', intensity: 1.0 }, sun: { color: '#FFF0DC', intensity: 2.2, dir: [-0.5, 0.85, 0.55] }, exposure: 1.0 },
+  ...WILDNIS_STIMMUNG,   // GEL-01 D: wildnis_wueste | wildnis_wiesenwald | wildnis_vulkan (stimmung.js)
   kesh_dusk: { background: '#2A1E2E', hemi: { sky: '#C9A4B8', ground: '#3A2A22', intensity: 0.7 }, sun: { color: '#FFC79A', intensity: 1.8, dir: [-0.6, 0.8, 0.3] }, exposure: 1.0 },
 };
 
 import { VOXEL_MAT } from './loader.js';
-import { mitAkzent } from './stimmung.js';
+import { mitAkzent, WILDNIS_STIMMUNG } from './stimmung.js';
 export { VOXEL_MAT };
 
 // ------------------------------------------------------------------------------------------------ Zustand

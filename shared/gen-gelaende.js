@@ -11,12 +11,12 @@
   // freigeräumter Umgebung -> Wege (kürzester Weg mit Rauschen, schneidet durch Hindernisse und furtet Wasser/Lava) -> Deckungsgruppen
   // (Steine) -> unerreichbare Reste zu Fels -> Anker (abholpunkt, fund, deckung, wache, patrouille).
   // Wasser a und Lava v zerschneiden die Karte nie: jeder Ort ist über einen geschnittenen Weg (Furt/Durchgang) mit der Ankunft verbunden.
-  const VERSION = 1;
+  const VERSION = 2;   // 2: Boden wueste und vulkan (eigene Bodentöne statt sand/wald), Cache-Invalidierung
   const BIOME = ['wueste', 'wiesenwald', 'vulkan'];
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
   // Pflichtsatz: gilt auf JEDEM Seed jeder Größe und jedes Bioms, unabhängig von opts (gegner 'keine' setzt keine wache, darum steht wache nicht hier).
   const PFLICHT = { abholpunkt: 1, fund: 2, deckung: 4 };
-  const BODEN = { wueste: 'sand', wiesenwald: 'gras', vulkan: 'wald' };   // Platzhalter, bis der Client eigene Böden kennt
+  const BODEN = { wueste: 'wueste', wiesenwald: 'gras', vulkan: 'vulkan' };   // Bodenton des Clients (Bauweise.boden_varianten); wueste und vulkan seit VERSION 2 eigene Töne
   const PLATZ = 'gelaende';
   const KETTEN = 'abcdefgh';
 

@@ -65,7 +65,7 @@ let karte;
   karte = W.AWAY_MAPS[id].karte;
   const e = LP.eintrag(g, id);
   ok(aw && g.aways[id] === aw && karte.art === 'wildnis' && karte.schablone === 'gen-gelaende' && karte.id === id, 'get() baut und registriert die Wildnis-Karte');
-  ok(/^gelaende\.1\[/.test(karte.bauversion) && e.bauversion === karte.bauversion && e.schablone === 'gen-gelaende', 'bauversion aus dem Erzeuger im Eintrag (gelaende.<VERSION>[sig])');
+  ok(karte.bauversion.startsWith('gelaende.' + Gelaende.VERSION + '[') && e.bauversion === karte.bauversion && e.schablone === 'gen-gelaende', 'bauversion aus dem Erzeuger im Eintrag (gelaende.<VERSION>[sig])');
   ok(karte.meta.biom && karte.meta.boden && karte.meta.pflicht.fund === 2 && !(karte.eingaenge || []).length, 'Karte: meta.biom/boden/pflicht, keine Eingänge');
   const pr = Buehne.pruefen(karte);
   ok(pr.ok && !pr.fehler.some((f) => f.code === 'K-EINGAENGE'), 'Prüfer ok, kein K-EINGAENGE (' + pr.fehler.map((f) => f.code).join(',') + ')');

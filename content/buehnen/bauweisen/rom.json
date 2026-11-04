@@ -294,7 +294,11 @@
   "stimmung": {
     "aussenposten": "rom_aussen",
     "station": "hall_rom",
-    "ruine": "ruin_rom"
+    "ruine": "ruin_rom",
+    "wildnis": "wildnis_wiesenwald",
+    "wildnis:wueste": "wildnis_wueste",
+    "wildnis:gras": "wildnis_wiesenwald",
+    "wildnis:vulkan": "wildnis_vulkan"
   },
   "deckung_props": {
     "hinweis": "Außenposten: Deckungskacheln zeigen diese Props statt der Kit-Teile (Kai 2026-10-11). Nie Truhe/Kiste: das sind Beute-Objekte. Auswahl je Kachel nach Hash.",
