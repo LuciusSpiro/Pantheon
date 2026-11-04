@@ -63,8 +63,9 @@
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
-  const WAFFE_KURZ = { schrottblaster: 'Schrottbl.', sturmgewehr: 'Gewehr', granatwerfer: 'Granaten', betaeuber: 'Betäuber', nahkampf: 'Klinge' };
-  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Faust', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
+  // EIN Kurzname je Waffe (Waffenzeile, Slot-Leiste, Ausrüstungsstation); die Station zeigt dahinter zusätzlich WAFFE_NAME
+  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.' };
+  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
   // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
   function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
   const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
@@ -720,7 +721,6 @@
         R.text(ctx, 'Medipack', mx + 15, y0 + 5, { color: PAL.star });
       } else {
         ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(mx + 0.5, y0 + 3.5, 11, 11);
-        R.text(ctx, 'kein Medipack', mx + 15, y0 + 5, { color: '#6B7380' });
       }
       // Deckung / Flanke bzw. Verwundet
       let y = y0 + 20;
@@ -770,26 +770,26 @@
         if (p.medkit && !p.downed) { ctx.fillStyle = PAL.star; ctx.fillRect(ps ? 82 + ps[1] * 9 + 4 : 150, y + 1, 7, 7); ctx.fillStyle = PAL.red; ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 3, y + 2, 1, 5); ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 1, y + 4, 5, 1); }
         y += 11;
       }
-      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick ' + (WAFFE_NAME[me.wf] || 'Blaster') + ' · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
+      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick feuern · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
     },
-    // AUS-01 E: Slot-Leiste (2 oder 3 wirksame Slots): aktive Waffe (Snapshot wf) rot hinterlegt, andere belegte gedämpft, leer = „–“, keine Waffe = Fäuste
+    // AUS-01 E: Slot-Leiste: immer genau n Felder (2 oder 3 wirksame Slots). Aktive Waffe (Snapshot wf) rot, andere belegte dunkel, leer = „–“ gedämpft.
+    // Ohne Waffe in den Slots ist kein Feld aktiv; „Fäuste“ steht dann nur in der Waffenzeile darüber.
     drawSlotZeile(ctx, view, x, y) {
       const s = this.loadoutStand, wf = view.me.wf;
       const n = Math.max(1, Math.min(3, s.slotzahl | 0));
       const slots = Array.from({ length: n }, (_, i) => s.slots[i] || null);
-      const faeuste = !slots.some(Boolean);
-      const aktiv = faeuste ? -1 : Math.max(0, slots.indexOf(wf));
-      const breite = 164, fw = faeuste ? 48 : 0, cw = Math.floor((breite - fw) / n);
-      if (faeuste) { ctx.fillStyle = PAL.red; ctx.fillRect(x - 2, y - 2, fw - 2, 11); R.text(ctx, 'Fäuste', x + fw / 2 - 1, y, { color: PAL.star, align: 'center', shadow: false }); }
+      const aktiv = slots.some(Boolean) ? Math.max(0, slots.indexOf(wf)) : -1;
+      const breite = 164, cw = Math.floor(breite / n);
       slots.forEach((id, i) => {
-        const cx = x - 2 + fw + i * cw;
+        const cx = x - 2 + i * cw;
         const on = i === aktiv;
-        if (on) { ctx.fillStyle = PAL.red; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else if (id) { ctx.fillStyle = '#3A2326'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
         const txt = id ? (WAFFE_KURZ[id] || WAFFE_NAME[id] || id) : '–';
-        R.text(ctx, txt, cx + (cw - 2) / 2, y, { color: on ? PAL.star : id ? '#9AA3B2' : '#6B7380', align: 'center', shadow: !on ? true : false });
+        R.text(ctx, txt, cx + (cw - 2) / 2, y, { color: on ? '#FFFFFF' : id ? '#9A8F90' : '#6B7380', align: 'center', shadow: !on });
       });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen

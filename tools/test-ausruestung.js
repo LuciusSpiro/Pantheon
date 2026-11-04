@@ -152,5 +152,31 @@ section('Beamen nimmt das Loadout mit (AUS-01 C)');
   ok(a.waffe === 'granatwerfer', 'Beamen: aktive Waffe kommt aus dem Loadout, nicht aus der zuletzt getragenen');
 }
 
+section('ODA-Hinweis „Transfer: Leute auf die Pads“ (Regression AUS-01 C: Waffenwahl zwang früher an die Transfer-Konsole)');
+{
+  const neuesSpiel = (id) => {
+    const gx = new Game({ noStore: true, seed: 7, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+    const cx = { inbox: [], send(o) { this.inbox.push(o); } };
+    gx.addConnection(cx); gx.handleMessage(cx, { t: 'hello', clientId: id, name: id, color: 0 }); gx.handleMessage(cx, { t: 'ready', ready: true });
+    for (let k = 0; k < 6; k++) gx.step();
+    const hinweise = () => cx.inbox.filter((m) => m.kind === 'oda' && /Leute auf die Pads/.test(m.text));
+    const besuch = (kind) => { interior.enterConsole(gx, gx.players[0], kind); interior.konsoleVerlassen(gx, gx.players[0], 'test'); };
+    return { besuch, hinweise };
+  };
+  const { CONSOLE_HELP } = require('../server/sim/mission.js');
+  const a = neuesSpiel('H0');
+  ok(a.hinweise().length === 0, 'vor dem ersten Betreten kein Hinweis');
+  a.besuch('ausruestung');
+  ok(a.hinweise().length === 1, 'erstes Betreten der Station: Hinweis erscheint');
+  ok(a.hinweise()[0].text === CONSOLE_HELP.transfer, 'derselbe Text wie an der Transfer-Konsole');
+  a.besuch('ausruestung');
+  ok(a.hinweise().length === 1, 'erneutes Betreten der Station: kein zweiter Hinweis');
+  a.besuch('transfer');
+  ok(a.hinweise().length === 1, 'danach Transfer-Konsole: kein zweiter Hinweis (gleiches Einmal-Flag)');
+  const b = neuesSpiel('H1');
+  b.besuch('transfer'); b.besuch('ausruestung');
+  ok(b.hinweise().length === 1, 'zuerst Transfer, dann Station: genau ein Hinweis');
+}
+
 console.log(fails ? `\n${fails} FEHLER` : '\nAUSRÜSTUNG OK');
 process.exit(fails ? 1 : 0);
