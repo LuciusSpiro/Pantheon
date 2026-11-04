@@ -81,6 +81,7 @@
     "test:sync-assets": "node tools/test-sync-assets.js",
     "test:trefferbox": "node tools/test-trefferbox.js",
     "test:vox01-kacheln": "node tools/test-vox01-kacheln.js",
+    "test:kachelklassen": "node tools/test-kachelklassen.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",
     "test:vox01-kronen": "node tools/test-vox01-kronen.js",
     "mess:klumpen": "node tools/mess-klumpen.js --selbsttest",

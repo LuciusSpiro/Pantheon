@@ -304,6 +304,36 @@
       "sperrtSicht": false,
       "kante": "begehbar",
       "hinweis": "VOX-01: Grabensohle; Regeln wie , (boden2); Voxel-Modell kit/rom_feld/boden (Grabensohle)"
+    },
+    "s": {
+      "kind": "schleier",
+      "variante": "strauch",
+      "solid": false,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": true,
+      "kante": "begehbar",
+      "hinweis": "GEL-01: Sichtschleier (Variante strauch): man läuft hindurch (keine Kollision), sperrt Sicht und Schuss, keine Deckung. Weitere Varianten (Vorhang, Rauch, Dampf, Nebel) kommen als neues Zeichen mit kind schleier"
+    },
+    "a": {
+      "kind": "fluessig",
+      "variante": "wasser",
+      "solid": true,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "GEL-01: Flüssigkeit (Variante wasser): für Spieler und Gegner unpassierbar, kein Schaden, Sicht und Schüsse frei, keine Deckung"
+    },
+    "v": {
+      "kind": "fluessig",
+      "variante": "lava",
+      "solid": true,
+      "cover": 0,
+      "low": false,
+      "sperrtSicht": false,
+      "kante": "fest",
+      "hinweis": "GEL-01: Flüssigkeit (Variante lava): wie wasser (unpassierbar, kein Schaden, Sicht und Schüsse frei, keine Deckung); eigene Optik"
     }
   }
 }

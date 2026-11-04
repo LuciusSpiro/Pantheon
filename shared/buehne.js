@@ -19,6 +19,9 @@
 
   const SEITEN = ['N', 'O', 'S', 'W'];
   const GEGEN = { N: 'S', S: 'N', O: 'W', W: 'O' };
+  // GEL-01: BOEDEN = Zeichen, auf die Belegung und Trümmer gesetzt werden dürfen. Bewusst nur die drei Böden: der Sichtschleier s (schleier, begehbar)
+  // trägt nichts, Wasser a und Lava v (fluessig, unpassierbar) erst recht nicht. Sonst lesen die Prüfer nur Legendenwerte (solid, sperrtSicht, kante):
+  // s gilt als begehbar (K.fest false → durchgang, K-ERREICHBAR läuft hindurch, K.sicht sperrt), a/v als fest (bfs umgeht sie, K-ERREICHBAR meldet abgeschnittene Ziele).
   const BOEDEN = { '.': 1, ',': 1, ':': 1 };
   const BELEG_ZEICHEN = { o: 1, O: 1, I: 1 };
   const NICHT_BLOCKEND = { abholpunkt: 1, lift: 1, leiter: 1 };   // Objekt-Anker, die man betreten kann
@@ -988,7 +991,7 @@
         // Obergrenze (Sichtung): höchstens max_anteil der Fläche des Platzes als neue Deckung. Trümmer in Gruppen
         // (T.gruppe [min, max] Kacheln) an Wänden/Ecken zuerst; je_zelle zählt dann Gruppen statt Kacheln.
         let flaeche = 0;
-        for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) if (BOEDEN[rows[y][x]] || BELEG_ZEICHEN[rows[y][x]] || (zeichenInfo(D, rows[y][x]) || {}).kante === 'begehbar') flaeche++;   // Boden + Deckung, keine Wände
+        for (let y = py; y < py + ph; y++) for (let x = px; x < px + pw; x++) if (BOEDEN[rows[y][x]] || BELEG_ZEICHEN[rows[y][x]] || (zeichenInfo(D, rows[y][x]) || {}).kante === 'begehbar') flaeche++;   // Boden + Deckung, keine Wände (kante begehbar zählt auch den Sichtschleier s mit, Wasser/Lava a/v mit kante fest nicht)
         const maxKacheln = T.max_anteil != null ? Math.floor(flaeche * T.max_anteil) : Infinity;
         const WANDKIND = { wand: 1, zaun: 1, fels: 1, baum: 1, pfeiler: 1, deckung_voll: 1, leere: 1 };
         const wandnah = (q) => [[0, -1], [1, 0], [0, 1], [-1, 0]].some(([dx, dy]) => { const c = rows[q[1] + dy] && rows[q[1] + dy][q[0] + dx]; const i = c && zeichenInfo(D, c); return !!i && !!WANDKIND[i.kind]; });
