@@ -199,6 +199,7 @@
   {"id":"test-wildnis-verdrahtung","kette":"test","cmd":["tools/test-wildnis-verdrahtung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-gelaende","kette":"test","cmd":["tools/test-gelaende.js"],"stufe":"fast","budget_s":40},
   {"id":"test-wildnis-gruppenlauf","kette":"test","cmd":["tools/test-wildnis-gruppenlauf.js"],"stufe":"full","budget_s":25},
+  {"id":"test-wildnis-client","kette":"test","cmd":["tools/test-wildnis-client.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kit","kette":"test","cmd":["tools/test-vox01-kit.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kronen","kette":"test","cmd":["tools/test-vox01-kronen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-lanze-zielfenster","kette":"test","cmd":["tools/test-lanze-zielfenster.js"],"stufe":"fast","budget_s":8},
