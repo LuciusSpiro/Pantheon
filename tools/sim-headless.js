@@ -1842,6 +1842,7 @@ function printKesh(r) {
   const c = r.combat;
   log(`Kampf: Verwundungen ${c.wounds}, Wiederbelebungen ${c.revives}, Notrückholungen alle ${c.squadRecalls} / einzeln ${c.bleedRecalls}, Spieler-Treffer ${c.playerHits}, Gegner-Schüsse ${c.enemyShots}, Deckung geschluckt ${c.coverBlocks}, Wächter-Abpraller ${c.deflects}, Kuppel ${c.kuppelBlocks}`);
   log(`Gegner: ${r.killed}/${r.spawned} ausgeschaltet, Wächter ${r.warden}, Störrelais aus ${r.jammersOff}/2, Funksprüche ${c.barks}, Befehle ${r.sim.orders}, Schüsse aus Deckung ${r.sim.coverShots}`);
+  log(`Ausrüstung: ${r.sim.ausgeruestet || 0} Befehle ausruestung.slot (Bot-Wahl an der Station)`);   // AUS-01: belegt, dass loadoutStep läuft
   log(`Invarianten: Treffer aus mehr als engageBox ohne Sichthilfe ${c.offBoxHits} (mit Aussicht/Trupp-Funk, E16: ${c.offBoxHitsHilfe || 0}; Schüsse außerhalb ${c.offBoxShots}), längstes Einklemmen ${c.maxStuck.toFixed(1)} s (max. 8)`);
   log(`Server-Fehlerzähler: ${r.errors} · Snapshot max ${r.snapMax} B · Marken ${r.marks}, Tafel ${r.tafel}`);
 }
