@@ -19,6 +19,9 @@
   }
   const TILE = 32, VW = 640, VH = 360;
   // SYS-03 E: Anker des Schiffs-HUD oben rechts (Kopfzeile Marken + Schildmini, darunter Raumname, Sprungzeile, Reaktorhinweis); eine Lücke von 2 px zwischen den Blöcken
+  // AUS-01 E: welches Feld der Slot-Leiste leuchtet: Index der getragenen Waffe (Snapshot wf) in den wirksamen Slots, -1 = keins
+  // (Faust bei leerem Loadout, Gefangene, Debug-Waffe, Spieler ohne Kennung: wf steht dann nicht im Loadout, es wird nie ersatzweise Slot 1 markiert).
+  const aktiverSlot = (slots, wf) => (Array.isArray(slots) && wf ? slots.indexOf(wf) : -1);
   const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
@@ -490,7 +493,7 @@
       pips(cur[1] || 0, x + 3 - ex, y + 13, false, 1);  // Steuerbord unten
     },
 
-    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT,
+    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT, aktiverSlot,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
@@ -775,12 +778,12 @@
       return y0;
     },
     // AUS-01 E: Slot-Leiste: immer genau n Felder (2 oder 3 wirksame Slots). Aktive Waffe (Snapshot wf) rot, andere belegte dunkel, leer = „–“ gedämpft.
-    // Ohne Waffe in den Slots ist kein Feld aktiv; „Fäuste“ steht dann nur in der Waffenzeile darüber.
+    // Steckt die getragene Waffe in keinem Slot, ist kein Feld aktiv; „Fäuste“ steht dann nur in der Waffenzeile darüber.
     drawSlotZeile(ctx, view, x, y) {
       const s = this.loadoutStand, wf = view.me.wf;
       const n = Math.max(1, Math.min(3, s.slotzahl | 0));
       const slots = Array.from({ length: n }, (_, i) => s.slots[i] || null);
-      const aktiv = slots.some(Boolean) ? Math.max(0, slots.indexOf(wf)) : -1;
+      const aktiv = aktiverSlot(slots, wf);
       const breite = 164, cw = Math.floor(breite / n);
       slots.forEach((id, i) => {
         const cx = x - 2 + i * cw;

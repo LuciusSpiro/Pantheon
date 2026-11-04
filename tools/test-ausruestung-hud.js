@@ -87,5 +87,33 @@ section('Kein Snapshot-Wachstum, toter Zustand entfernt');
 ok(!/myWaffe/.test(read('public/js/client.js')), 'K.myWaffe ist aus client.js entfernt');
 ok(/loadoutStand/.test(read('public/js/hud.js')) && /H\.loadoutStand = /.test(read('public/js/client.js')), 'Client hält einen Stand (H.loadoutStand), HUD zeichnet daraus');
 
+section('Slot-Leiste: welches Feld leuchtet (hud.js in Node gegen Render-Stub)');
+{
+  const vm = require('vm');
+  const CONFIG = require('../shared/config.js');
+  const R = { PAL: new Proxy({}, { get: (t, k) => '#' + String(k) }), text() {}, measure: (t) => String(t).length * 6 };
+  const win = { Render: R, Shared_Maps: {}, Shared_Config: CONFIG, Shared_Protocol: require('../shared/protocol.js'), Net: { guard: (n, f) => f(), on() {} } };
+  win.window = win;
+  vm.createContext(win);
+  vm.runInContext(read('public/js/hud.js'), win, { filename: 'hud.js' });
+  const H = win.Hud;
+  const akt = H.aktiverSlot;
+  ok(akt(['sturmgewehr', 'lanze', null], 'lanze') === 1, 'wf in Slot 2 -> Index 1');
+  ok(akt(['sturmgewehr', 'lanze', null], 'sturmgewehr') === 0, 'wf in Slot 1 -> Index 0');
+  ok(akt(['sturmgewehr', 'lanze', null], 'blaster') === -1, 'wf nicht im Loadout (Debug-Waffe) -> -1');
+  ok(akt([null, null, null], 'faust') === -1, 'leeres Loadout, wf Faust -> -1');
+  ok(akt(['lanze', null], 'faust') === -1, 'Gefangener (Faust) mit belegtem Loadout -> -1 (nicht Slot 1)');
+  ok(akt(['lanze', null], undefined) === -1 && akt(['lanze', null], null) === -1, 'ohne wf -> -1');
+  // Zeichnen: Das hervorgehobene Feld ist das mit der Füllung #B83A2E
+  const zeichne = (slots, wf) => {
+    const felder = [];
+    const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect(x, y, w, h) { felder.push({ x, c: this.fillStyle }); }, strokeRect() {} };
+    H.drawSlotZeile.call({ loadoutStand: { slotzahl: slots.length, slots } }, ctx, { me: { wf } }, 8, 50);
+    return felder.filter((f) => f.c === '#B83A2E').length;
+  };
+  ok(zeichne(['sturmgewehr', 'lanze', null], 'lanze') === 1, 'drawSlotZeile: genau ein Feld hervorgehoben, wenn wf im Loadout steckt');
+  ok(zeichne(['sturmgewehr', 'lanze', null], 'faust') === 0 && zeichne([null, null], 'faust') === 0 && zeichne(['lanze', null], 'blaster') === 0, 'drawSlotZeile: nichts hervorgehoben, wenn wf nicht im Loadout steckt');
+}
+
 console.log(fails ? '\n' + fails + ' FEHLER' : '\nalle ok');
 process.exit(fails ? 1 : 0);
