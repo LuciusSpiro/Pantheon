@@ -56,6 +56,7 @@
   {"id":"test-ops-klick","kette":"test","cmd":["tools/test-ops-klick.js"],"stufe":"fast","budget_s":6},
   {"id":"test-methalle","kette":"test","cmd":["tools/test-methalle.js"],"stufe":"fast","budget_s":9},
   {"id":"test-eisenwald","kette":"test","cmd":["tools/test-eisenwald.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-cardo","kette":"test","cmd":["tools/test-cardo.js"],"stufe":"fast","budget_s":12},
   {"id":"test-konvoi","kette":"test","cmd":["tools/test-konvoi.js"],"stufe":"fast","budget_s":9},
   {"id":"test-zielsysteme","kette":"test","cmd":["tools/test-zielsysteme.js"],"stufe":"fast","budget_s":8},
   {"id":"test-zielsysteme-zonen","kette":"test","cmd":["tools/test-zielsysteme-zonen.js"],"stufe":"fast","budget_s":6},

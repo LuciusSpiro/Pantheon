@@ -16,6 +16,7 @@
     }
     const cheb = (a, b) => Math.max(b.x0 - a.x1, a.x0 - b.x1, b.y0 - a.y1, a.y0 - b.y1);
     const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+    const lang = (r) => (r.x1 - r.x0) > (r.y1 - r.y0);
 
     // variante 'methalle' (EK5): Militärsiedlung mit geschlossener Mauer (kein Tor), Landefeld mit dem einzigen Abholpunkt AUSSERHALB der
     // Mauer und ein Schleichweg (Rohr, Zeichen 'r') unter der Mauer; Baracken (mindestens zwei Quartiere) für den Nachschub.
@@ -29,11 +30,149 @@
       const S = { x0: Math.floor((FW - sw) / 2), y0: Math.floor((FH - sh) / 2) };
       S.x1 = S.x0 + sw - 1; S.y1 = S.y0 + sh - 1;
       const m = 1;
-      const I = { x0: S.x0 + m, y0: S.y0 + m, x1: S.x1 - m, y1: S.y1 - m };
-      const cy = Math.floor((I.y0 + I.y1) / 2);
+      const I0 = { x0: S.x0 + m, y0: S.y0 + m, x1: S.x1 - m, y1: S.y1 - m };
+      const cy0 = Math.floor((I0.y0 + I0.y1) / 2);
       const grid = Array.from({ length: FH }, () => Array(FW).fill(':'));
       const fill = (r, c) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (grid[y] && grid[y][x] !== undefined) grid[y][x] = c; };
       const hindernis = [];   // alles, was Gebäude meiden
+      // Layout (CAR-01): ein Verzweigungspunkt. Rom (ohne Variante) = Cardo-Layout, alles andere = germanisch (unverändert, byteweise)
+      const Lay = (bauweise === 'rom' && !variante ? layoutCardo : layoutGermanisch)({ R, N, I: I0, cy: cy0, S, grid, fill, hindernis, mauer, methalle, skala });
+      let LF = Lay.LF;
+      const { cx, cy, I, strassen, platz, leit, gebaeude, gassen, hs, tore } = Lay;
+      // Funktionsgebäude: Kommando am Platz, Lager nahe Landefeld, Werkstatt, Quartiere
+      const pm = { x: (platz.x0 + platz.x1) / 2, y: (platz.y0 + platz.y1) / 2 };
+      const mitte = (g) => ({ x: (g.rect.x0 + g.rect.x1) / 2, y: (g.rect.y0 + g.rect.y1) / 2 });
+      const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+      const F = Math.min(gebaeude.length, Math.max(methalle ? 5 : 3, Math.round(N * (methalle ? 0.5 : 0.35))));
+      const frei2 = gebaeude.slice();
+      const nimm = (cmp, typBuch) => { if (!frei2.length) return; frei2.sort(cmp); const g = frei2.shift(); g.typ = typBuch; };
+      const lfm = { x: (LF.x0 + LF.x1) / 2, y: (LF.y0 + LF.y1) / 2 };
+      nimm((a, b) => dist(mitte(a), pm) - dist(mitte(b), pm), 'K');
+      nimm((a, b) => dist(mitte(a), lfm) - dist(mitte(b), lfm), 'L');
+      // Methalle: Baracken (Q) garantiert mindestens zwei, dazu Werkstatt und Kantine (die Reihenfolge ist fest, nur die Gebäude wechseln)
+      const rest = methalle ? ['Q', 'Q', 'W', 'C', 'H', 'Q', 'L'] : R.shuffle(['W', 'Q', 'Q', 'C', 'H', 'L']);
+      for (let i = 2; i < F; i++) nimm(() => R.f() - 0.5, rest[(i - 2) % rest.length]);
+      // Zeichnen
+      for (const s of strassen) fill(s.rect, '=');
+      fill(platz, '+');
+      if (!eisenwald) fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
+      for (const l of leit) fill(l.rect, l.c);
+      if (!methalle) { fill(LF, ','); grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }
+      for (const g of gebaeude) {
+        const r = g.rect;
+        fill(r, '#');
+        if (g.typ !== 'k') fill({ x0: r.x0 + 1, y0: r.y0 + 1, x1: r.x1 - 1, y1: r.y1 - 1 }, g.typ);
+        // Tür an der Straßenseite, 2 breit, Mitte
+        const mx = Math.floor((r.x0 + r.x1) / 2), my = Math.floor((r.y0 + r.y1) / 2);
+        const tur = g.side === 'n' ? [[mx, r.y1], [mx + 1, r.y1]] : g.side === 's' ? [[mx, r.y0], [mx + 1, r.y0]] : g.side === 'w' ? [[r.x1, my], [r.x1, my + 1]] : [[r.x0, my], [r.x0, my + 1]];
+        g.tueren = tur;
+        for (const [x, y] of tur) grid[y][x] = g.typ === 'k' ? 'x' : 'D';
+      }
+      // Mauer (1 Kachel), Tor, Türme
+      if (mauer) {
+        for (let x = S.x0; x <= S.x1; x++) { grid[S.y0][x] = 'M'; grid[S.y1][x] = 'M'; }
+        for (let y = S.y0; y <= S.y1; y++) { grid[y][S.x0] = 'M'; grid[y][S.x1] = 'M'; }
+        if (!methalle && !tore) for (let y = cy - 2; y <= cy + 1; y++) grid[y][S.x0] = 'g';
+        for (const [ex, ey] of [[S.x0, S.y0], [S.x1 - 2, S.y0], [S.x0, S.y1 - 2], [S.x1 - 2, S.y1 - 2]]) fill({ x0: ex, y0: ey, x1: ex + 2, y1: ey + 2 }, 'T');
+      }
+      // Cardo: vier Torbauten (Pfeiler, dazwischen das Tor 'g'); bei Handel stehen sie frei an den Achsenenden, bei Militär in der Mauer
+      if (tore) for (const t of tore) { for (const p of t.pfeiler) fill(p, 'T'); for (const [x, y] of t.g) grid[y][x] = 'g'; }
+      // Methalle: Rohr unter der Mauer und Landefeld davor. Das Rohr (drei 'r': Mund außen, Mauerkachel, Mund innen) liegt an einer
+      // Mauerseite, auf der das Landefeld Platz hat (Seite und Lage aus dem Seed); der innere Mund steht auf freiem Boden am Mauerstreifen.
+      let rohr = null;
+      if (methalle) {
+        const bem = (x, y) => grid[y] && grid[y][x];
+        const seiten = R.shuffle([{ k: 'O', d: [1, 0] }, { k: 'W', d: [-1, 0] }, { k: 'S', d: [0, 1] }, { k: 'N', d: [0, -1] }]);
+        for (const sd of seiten) {
+          const hz = sd.d[0] !== 0;   // Mauer senkrecht (O/W): Rohr liegt waagerecht
+          const lo = (hz ? S.y0 : S.x0) + 6, hi = (hz ? S.y1 : S.x1) - 6;
+          const pos = []; for (let t = lo; t <= hi; t++) pos.push(t);
+          R.shuffle(pos);
+          for (const t of pos) {
+            const wx = hz ? (sd.d[0] > 0 ? S.x1 : S.x0) : t, wy = hz ? t : (sd.d[1] > 0 ? S.y1 : S.y0);
+            const ix = wx - sd.d[0], iy = wy - sd.d[1], ox = wx + sd.d[0], oy = wy + sd.d[1];
+            // innerer Mund und seine Nachbarn entlang der Mauer frei, Außenmund auf Außenboden
+            const nb = hz ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
+            if (bem(ix, iy) !== '.' || nb.some(([dx, dy]) => bem(ix + dx, iy + dy) !== '.') || bem(ox, oy) !== ':') continue;
+            // Landefeld 15×10 an der Außenseite, 3 Kacheln hinter dem Außenmund, mittig zur Rohrachse
+            const lw = hz ? 15 : 10, lh = hz ? 10 : 15;
+            const l = hz ? { x0: sd.d[0] > 0 ? S.x1 + 4 : S.x0 - 4 - 14, y0: wy - 4, x1: 0, y1: 0 } : { x0: wx - 4, y0: sd.d[1] > 0 ? S.y1 + 4 : S.y0 - 4 - 14, x1: 0, y1: 0 };
+            l.x1 = l.x0 + lw - 1; l.y1 = l.y0 + lh - 1;
+            if (l.x0 < 2 || l.y0 < 2 || l.x1 > FW - 3 || l.y1 > FH - 3) continue;
+            rohr = { side: sd.k, d: sd.d, kacheln: [[ox, oy], [wx, wy], [ix, iy]], aussen: [ox, oy], innen: [ix, iy] };
+            LF = l;
+            break;
+          }
+          if (rohr) break;
+        }
+        if (!rohr) throw new Error('methalle: kein Platz für Landefeld und Rohr');
+        for (const [x, y] of rohr.kacheln) grid[y][x] = 'r';
+        fill(LF, ',');
+        const lmx = Math.floor((LF.x0 + LF.x1) / 2), lmy = Math.floor((LF.y0 + LF.y1) / 2);
+        grid[lmy][lmx] = 'P';
+      }
+      // Deckung: weltliche Objekte, Platz-Ring, Straßenränder (selten), Landefeld
+      const setze = (x, y, w) => { for (let i = 0; i < w; i++) if (grid[y] && (grid[y][x + i] === '=' || grid[y][x + i] === '+' || grid[y][x + i] === ',')) grid[y][x + i] = 'o'; };
+      for (const [dx, dy] of [[-6, -4], [4, -4], [-6, 3], [4, 3], [-1, -5], [-1, 4]]) setze(cx + dx, cy + dy, 2);
+      let deck = 0;
+      for (const s of strassen) {
+        const r = s.rect, hz = lang(r);
+        for (let p = (hz ? r.x0 : r.y0) + 8; p < (hz ? r.x1 : r.y1) - 8; p += R.range(9, 15)) {
+          if (R.f() < 0.55) continue;
+          const nahPlatz = hz ? (p > platz.x0 - 4 && p < platz.x1 + 4) : (p > platz.y0 - 4 && p < platz.y1 + 4);
+          if (nahPlatz) continue;
+          if (hz) setze(p, R.f() < 0.5 ? r.y0 : r.y1, 2); else setze(R.f() < 0.5 ? r.x0 : r.x1, p, 1);
+          deck++;
+        }
+      }
+      setze(LF.x0 + 1, LF.y0, 2); setze(LF.x1 - 2, LF.y1, 2);
+      // Streuobjekte sind Deckung (Kai 2026-10-11): was groß genug für Deckung ist, ist Deckung und steht zugleich als Deko herum.
+      // Fässer, Werkzeug und Feuerschalen (Kit: Bauweise.deckung_props) stehen an Hauswänden, am Platzring und an Straßenrändern,
+      // nie nahe Türen, nie dicht beieinander (Abstand 2), selten als hohe Deckung 'O'.
+      {
+        const tuerNah = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'D' || c === 'x' || c === 'g') return true; } return false; };
+        const nahDeck = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'o' || c === 'O' || c === 'm') return true; } return false; };
+        const wand8 = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (grid[y + dy] && grid[y + dy][x + dx] === '#') return true; return false; };
+        const randStr = (x, y) => strassen.some((st) => { const q = st.rect; return x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1 && (x === q.x0 || x === q.x1 || y === q.y0 || y === q.y1); });
+        const ring = (x, y) => x >= platz.x0 && x <= platz.x1 && y >= platz.y0 && y <= platz.y1 && (x <= platz.x0 + 1 || x >= platz.x1 - 1 || y <= platz.y0 + 1 || y >= platz.y1 - 1);
+        // Eingänge sitzen an Straßenenden und -mitten (siehe karteRoh): dort 4 Kacheln frei halten
+        const schutz = [];
+        for (const st of strassen) { const q = st.rect, mx = Math.floor((q.x0 + q.x1) / 2), my = Math.floor((q.y0 + q.y1) / 2); schutz.push([mx, q.y0], [mx, q.y1], [q.x0, my], [q.x1, my]); }
+        schutz.push([S.x0, cy], [strassen[0].rect.x0, cy]);
+        const imSchutz = (x, y) => schutz.some(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) <= 4);
+        const fest = (x, y) => { const c = grid[y] && grid[y][x]; return c === undefined || '#oOmzMTk^x'.includes(c); };
+        const engpass = (x, y) => (fest(x - 1, y) && fest(x + 1, y)) || (fest(x, y - 1) && fest(x, y + 1));   // verschließt keine schmale Gasse
+        // Cardo: enge Gassen zwischen den Häuserreihen (L-Stücke) erkennt engpass nicht; dort prüft ein Flächenvergleich, dass das Begehbare im Grundriss zusammenhängt
+        const flaeche = (sx, sy) => { const seen = new Set([sy * FW + sx]), stk = [[sx, sy]]; while (stk.length) { const [x, y] = stk.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < S.x0 || nx > S.x1 || ny < S.y0 || ny > S.y1 || seen.has(ny * FW + nx) || fest(nx, ny)) continue; seen.add(ny * FW + nx); stk.push([nx, ny]); } } return seen.size; };
+        let basis = tore ? flaeche(Lay.start[0], Lay.start[1]) : 0;
+        const zerreisst = (x, y) => { if (!tore) return false; const alt = grid[y][x]; grid[y][x] = 'o'; const n1 = flaeche(Lay.start[0], Lay.start[1]); grid[y][x] = alt; if (n1 !== basis - 1) return true; basis = n1; return false; };
+        const kand = [];
+        for (let y = S.y0 + 2; y <= S.y1 - 2; y++) for (let x = S.x0 + 2; x <= S.x1 - 2; x++) {
+          if (imSchutz(x, y)) continue;
+          const c = grid[y][x];
+          if ((c === '.' && wand8(x, y)) || (c === '=' && randStr(x, y)) || (c === '+' && ring(x, y)) || (c === ',' && (x === LF.x0 || y === LF.y0 || y === LF.y1))) kand.push([x, y]);
+        }
+        R.shuffle(kand);
+        const ziel = Math.round(N * 3.2);
+        let n = 0;
+        for (const [x, y] of kand) {
+          if (n >= ziel) break;
+          if (tuerNah(x, y) || nahDeck(x, y) || engpass(x, y) || zerreisst(x, y)) continue;
+          const c = R.f() < 0.78 ? 'o' : 'O';
+          grid[y][x] = c; n++;
+          // knapp die Hälfte als Paar (Gruppe statt Einzelblock, K-DECKUNG-DICHT)
+          const nx = x + 1;
+          if (R.f() < 0.5 && '.=+,'.includes(grid[y][nx]) && !imSchutz(nx, y) && !tuerNah(nx, y) && !engpass(nx, y) && !zerreisst(nx, y)) { grid[y][nx] = c; n++; }
+        }
+        deck += n;
+      }
+      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: Lay.start, tore, methalle, rohr, eisenwald };
+    }
+
+    // Germanisches Layout: Hauptachse mit Abzweigen, Parzellen-Cursor an den Straßenseiten, Hinterhäuser, Straßen auf Haus-Reichweite gekürzt.
+    // Wörtlich aus dem früheren bauenEinmal übernommen: der Zufallsstrom R wird in derselben Reihenfolge verbraucht (Karten-Hashes byte-gleich).
+    function layoutGermanisch(c) {
+      const { R, N, I, cy, S, grid, fill, hindernis, methalle, mauer } = c;
       let LF = { x0: I.x1 - 14, x1: I.x1, y0: cy - 5, y1: cy + 4 };
       const Smax = LF.x0 - 2;
       hindernis.push({ rect: LF, art: 'landefeld' });
@@ -42,14 +181,10 @@
       const hs = { x0: I.x0, x1: LF.x0 - 1, y0: cy - 3, y1: cy + 2 };
       strasse(hs, 'haupt');
       // Platz
-      const cx = I.x0 + Math.floor((Smax - I.x0) * (bauweise === 'rom' ? 0.5 : 0.45));
-      const platz = bauweise === 'rom' ? { x0: cx - 8, x1: cx + 7, y0: cy - 6, y1: cy + 5 } : { x0: cx - 7, x1: cx + 6, y0: cy - 6, y1: cy + 5 };
+      const cx = I.x0 + Math.floor((Smax - I.x0) * 0.45);
+      const platz = { x0: cx - 7, x1: cx + 6, y0: cy - 6, y1: cy + 5 };
       hindernis.push({ rect: platz, art: 'platz' });
-      if (bauweise === 'rom') {
-        strasse({ x0: cx - 2, x1: cx + 2, y0: I.y0, y1: I.y1 }, 'cardo');
-        for (const sgn of [-1, 1]) { const yy = cy + sgn * 21; if (yy - 2 >= I.y0 + 3 && yy + 2 <= I.y1 - 3) strasse({ x0: I.x0, x1: Smax, y0: yy - 2, y1: yy + 1 }, 'quer'); }
-        for (const sgn of [-1, 1]) { const xx = cx + sgn * 22; if (xx - 2 >= I.x0 + 6 && xx + 2 <= Smax - 4) strasse({ x0: xx - 2, x1: xx + 1, y0: I.y0, y1: I.y1 }, 'quer'); }
-      } else {
+      {
         const k = clamp(Math.round(N / 3), 3, 8);
         const pos = [];
         for (let t = 0; t < 60 && pos.length < k; t++) {
@@ -72,7 +207,6 @@
       setzLeit('Y', 3, 3, 'leit'); setzLeit('A', 2, 2, 'leit');
       // Parzellen: Cursor an allen Straßen- und Platzseiten
       const seiten = [];
-      const lang = (r) => (r.x1 - r.x0) > (r.y1 - r.y0);
       for (const s of strassen) { if (lang(s.rect)) { seiten.push({ r: s.rect, side: 'n' }, { r: s.rect, side: 's' }); } else { seiten.push({ r: s.rect, side: 'w' }, { r: s.rect, side: 'e' }); } }
       for (const side of ['n', 's', 'w', 'e']) seiten.push({ r: platz, side, platz: true });
       for (const c of seiten) { const hz = c.side === 'n' || c.side === 's'; c.pos = (hz ? c.r.x0 : c.r.y0) + (c.platz ? 0 : R.range(1, 6)); c.end = hz ? c.r.x1 : c.r.y1; c.aktiv = true; }
@@ -170,129 +304,70 @@
         fill(S, '.');
         for (const g of gassen) fill(g, '-');
       }
-      // Funktionsgebäude: Kommando am Platz, Lager nahe Landefeld, Werkstatt, Quartiere
-      const pm = { x: (platz.x0 + platz.x1) / 2, y: (platz.y0 + platz.y1) / 2 };
-      const mitte = (g) => ({ x: (g.rect.x0 + g.rect.x1) / 2, y: (g.rect.y0 + g.rect.y1) / 2 });
-      const dist = (a, b) => Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-      const F = Math.min(gebaeude.length, Math.max(methalle ? 5 : 3, Math.round(N * (methalle ? 0.5 : 0.35))));
-      const frei2 = gebaeude.slice();
-      const nimm = (cmp, typBuch) => { if (!frei2.length) return; frei2.sort(cmp); const g = frei2.shift(); g.typ = typBuch; };
-      const lfm = { x: (LF.x0 + LF.x1) / 2, y: (LF.y0 + LF.y1) / 2 };
-      nimm((a, b) => dist(mitte(a), pm) - dist(mitte(b), pm), 'K');
-      nimm((a, b) => dist(mitte(a), lfm) - dist(mitte(b), lfm), 'L');
-      // Methalle: Baracken (Q) garantiert mindestens zwei, dazu Werkstatt und Kantine (die Reihenfolge ist fest, nur die Gebäude wechseln)
-      const rest = methalle ? ['Q', 'Q', 'W', 'C', 'H', 'Q', 'L'] : R.shuffle(['W', 'Q', 'Q', 'C', 'H', 'L']);
-      for (let i = 2; i < F; i++) nimm(() => R.f() - 0.5, rest[(i - 2) % rest.length]);
-      // Zeichnen
-      for (const s of strassen) fill(s.rect, '=');
-      fill(platz, '+');
-      if (!eisenwald) fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
-      for (const l of leit) fill(l.rect, l.c);
-      if (!methalle) { fill(LF, ','); grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }
-      for (const g of gebaeude) {
-        const r = g.rect;
-        fill(r, '#');
-        if (g.typ !== 'k') fill({ x0: r.x0 + 1, y0: r.y0 + 1, x1: r.x1 - 1, y1: r.y1 - 1 }, g.typ);
-        // Tür an der Straßenseite, 2 breit, Mitte
-        const mx = Math.floor((r.x0 + r.x1) / 2), my = Math.floor((r.y0 + r.y1) / 2);
-        const tur = g.side === 'n' ? [[mx, r.y1], [mx + 1, r.y1]] : g.side === 's' ? [[mx, r.y0], [mx + 1, r.y0]] : g.side === 'w' ? [[r.x1, my], [r.x1, my + 1]] : [[r.x0, my], [r.x0, my + 1]];
-        g.tueren = tur;
-        for (const [x, y] of tur) grid[y][x] = g.typ === 'k' ? 'x' : 'D';
-      }
-      // Mauer (1 Kachel), Tor, Türme
-      if (mauer) {
-        for (let x = S.x0; x <= S.x1; x++) { grid[S.y0][x] = 'M'; grid[S.y1][x] = 'M'; }
-        for (let y = S.y0; y <= S.y1; y++) { grid[y][S.x0] = 'M'; grid[y][S.x1] = 'M'; }
-        if (!methalle) for (let y = cy - 2; y <= cy + 1; y++) grid[y][S.x0] = 'g';
-        for (const [ex, ey] of [[S.x0, S.y0], [S.x1 - 2, S.y0], [S.x0, S.y1 - 2], [S.x1 - 2, S.y1 - 2]]) fill({ x0: ex, y0: ey, x1: ex + 2, y1: ey + 2 }, 'T');
-      }
-      // Methalle: Rohr unter der Mauer und Landefeld davor. Das Rohr (drei 'r': Mund außen, Mauerkachel, Mund innen) liegt an einer
-      // Mauerseite, auf der das Landefeld Platz hat (Seite und Lage aus dem Seed); der innere Mund steht auf freiem Boden am Mauerstreifen.
-      let rohr = null;
-      if (methalle) {
-        const bem = (x, y) => grid[y] && grid[y][x];
-        const seiten = R.shuffle([{ k: 'O', d: [1, 0] }, { k: 'W', d: [-1, 0] }, { k: 'S', d: [0, 1] }, { k: 'N', d: [0, -1] }]);
-        for (const sd of seiten) {
-          const hz = sd.d[0] !== 0;   // Mauer senkrecht (O/W): Rohr liegt waagerecht
-          const lo = (hz ? S.y0 : S.x0) + 6, hi = (hz ? S.y1 : S.x1) - 6;
-          const pos = []; for (let t = lo; t <= hi; t++) pos.push(t);
-          R.shuffle(pos);
-          for (const t of pos) {
-            const wx = hz ? (sd.d[0] > 0 ? S.x1 : S.x0) : t, wy = hz ? t : (sd.d[1] > 0 ? S.y1 : S.y0);
-            const ix = wx - sd.d[0], iy = wy - sd.d[1], ox = wx + sd.d[0], oy = wy + sd.d[1];
-            // innerer Mund und seine Nachbarn entlang der Mauer frei, Außenmund auf Außenboden
-            const nb = hz ? [[0, -1], [0, 1]] : [[-1, 0], [1, 0]];
-            if (bem(ix, iy) !== '.' || nb.some(([dx, dy]) => bem(ix + dx, iy + dy) !== '.') || bem(ox, oy) !== ':') continue;
-            // Landefeld 15×10 an der Außenseite, 3 Kacheln hinter dem Außenmund, mittig zur Rohrachse
-            const lw = hz ? 15 : 10, lh = hz ? 10 : 15;
-            const l = hz ? { x0: sd.d[0] > 0 ? S.x1 + 4 : S.x0 - 4 - 14, y0: wy - 4, x1: 0, y1: 0 } : { x0: wx - 4, y0: sd.d[1] > 0 ? S.y1 + 4 : S.y0 - 4 - 14, x1: 0, y1: 0 };
-            l.x1 = l.x0 + lw - 1; l.y1 = l.y0 + lh - 1;
-            if (l.x0 < 2 || l.y0 < 2 || l.x1 > FW - 3 || l.y1 > FH - 3) continue;
-            rohr = { side: sd.k, d: sd.d, kacheln: [[ox, oy], [wx, wy], [ix, iy]], aussen: [ox, oy], innen: [ix, iy] };
-            LF = l;
-            break;
-          }
-          if (rohr) break;
-        }
-        if (!rohr) throw new Error('methalle: kein Platz für Landefeld und Rohr');
-        for (const [x, y] of rohr.kacheln) grid[y][x] = 'r';
-        fill(LF, ',');
-        const lmx = Math.floor((LF.x0 + LF.x1) / 2), lmy = Math.floor((LF.y0 + LF.y1) / 2);
-        grid[lmy][lmx] = 'P';
-      }
-      // Deckung: weltliche Objekte, Platz-Ring, Straßenränder (selten), Landefeld
-      const setze = (x, y, w) => { for (let i = 0; i < w; i++) if (grid[y] && (grid[y][x + i] === '=' || grid[y][x + i] === '+' || grid[y][x + i] === ',')) grid[y][x + i] = 'o'; };
-      for (const [dx, dy] of [[-6, -4], [4, -4], [-6, 3], [4, 3], [-1, -5], [-1, 4]]) setze(cx + dx, cy + dy, 2);
-      let deck = 0;
-      for (const s of strassen) {
-        const r = s.rect, hz = lang(r);
-        for (let p = (hz ? r.x0 : r.y0) + 8; p < (hz ? r.x1 : r.y1) - 8; p += R.range(9, 15)) {
-          if (R.f() < 0.55) continue;
-          const nahPlatz = hz ? (p > platz.x0 - 4 && p < platz.x1 + 4) : (p > platz.y0 - 4 && p < platz.y1 + 4);
-          if (nahPlatz) continue;
-          if (hz) setze(p, R.f() < 0.5 ? r.y0 : r.y1, 2); else setze(R.f() < 0.5 ? r.x0 : r.x1, p, 1);
-          deck++;
-        }
-      }
-      setze(LF.x0 + 1, LF.y0, 2); setze(LF.x1 - 2, LF.y1, 2);
-      // Streuobjekte sind Deckung (Kai 2026-10-11): was groß genug für Deckung ist, ist Deckung und steht zugleich als Deko herum.
-      // Fässer, Werkzeug und Feuerschalen (Kit: Bauweise.deckung_props) stehen an Hauswänden, am Platzring und an Straßenrändern,
-      // nie nahe Türen, nie dicht beieinander (Abstand 2), selten als hohe Deckung 'O'.
-      {
-        const tuerNah = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'D' || c === 'x' || c === 'g') return true; } return false; };
-        const nahDeck = (x, y) => { for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const c = grid[y + dy] && grid[y + dy][x + dx]; if (c === 'o' || c === 'O' || c === 'm') return true; } return false; };
-        const wand8 = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (grid[y + dy] && grid[y + dy][x + dx] === '#') return true; return false; };
-        const randStr = (x, y) => strassen.some((st) => { const q = st.rect; return x >= q.x0 && x <= q.x1 && y >= q.y0 && y <= q.y1 && (x === q.x0 || x === q.x1 || y === q.y0 || y === q.y1); });
-        const ring = (x, y) => x >= platz.x0 && x <= platz.x1 && y >= platz.y0 && y <= platz.y1 && (x <= platz.x0 + 1 || x >= platz.x1 - 1 || y <= platz.y0 + 1 || y >= platz.y1 - 1);
-        // Eingänge sitzen an Straßenenden und -mitten (siehe karteRoh): dort 4 Kacheln frei halten
-        const schutz = [];
-        for (const st of strassen) { const q = st.rect, mx = Math.floor((q.x0 + q.x1) / 2), my = Math.floor((q.y0 + q.y1) / 2); schutz.push([mx, q.y0], [mx, q.y1], [q.x0, my], [q.x1, my]); }
-        schutz.push([S.x0, cy], [strassen[0].rect.x0, cy]);
-        const imSchutz = (x, y) => schutz.some(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) <= 4);
-        const fest = (x, y) => { const c = grid[y] && grid[y][x]; return c === undefined || '#oOmzMTk^x'.includes(c); };
-        const engpass = (x, y) => (fest(x - 1, y) && fest(x + 1, y)) || (fest(x, y - 1) && fest(x, y + 1));   // verschließt keine schmale Gasse
-        const kand = [];
-        for (let y = S.y0 + 2; y <= S.y1 - 2; y++) for (let x = S.x0 + 2; x <= S.x1 - 2; x++) {
-          if (imSchutz(x, y)) continue;
-          const c = grid[y][x];
-          if ((c === '.' && wand8(x, y)) || (c === '=' && randStr(x, y)) || (c === '+' && ring(x, y)) || (c === ',' && (x === LF.x0 || y === LF.y0 || y === LF.y1))) kand.push([x, y]);
-        }
-        R.shuffle(kand);
-        const ziel = Math.round(N * 3.2);
-        let n = 0;
-        for (const [x, y] of kand) {
-          if (n >= ziel) break;
-          if (tuerNah(x, y) || nahDeck(x, y) || engpass(x, y)) continue;
-          const c = R.f() < 0.78 ? 'o' : 'O';
-          grid[y][x] = c; n++;
-          // knapp die Hälfte als Paar (Gruppe statt Einzelblock, K-DECKUNG-DICHT)
-          const nx = x + 1;
-          if (R.f() < 0.5 && '.=+,'.includes(grid[y][nx]) && !imSchutz(nx, y) && !tuerNah(nx, y) && !engpass(nx, y)) { grid[y][nx] = c; n++; }
-        }
-        deck += n;
-      }
-      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: [hs.x0, cy], methalle, rohr, eisenwald };
+      return { LF, Smax, strassen, platz, cx, cy, I, leit, gebaeude, gassen, hs, start: [hs.x0, cy], tore: null };
     }
+
+    // Römisches Cardo-Layout (CAR-01): Cardo (Nord-Süd) und Decumanus (Ost-West, 6 breit) kreuzen sich im Forum (= Platz, Mitte des Grundrisses);
+    // vier Tore an den Achsenenden (Torbau: 4 breites Tor 'g' zwischen zwei 3×3-Pfeilern), rechteckiger, achsensymmetrischer Grundriss. Die vier
+    // Viertel (Insulae) sind je zwei Reihen Häuser Rücken an Rücken: die nahe Reihe schaut auf Decumanus und Forum, die ferne auf den Wallgang.
+    // Das Landefeld (Campus) ist eine Insula im Ostteil am Decumanus (Norden oder Süden aus dem Seed). Mauer (nur Militär) und Tore zeichnet
+    // bauenEinmal; hier entstehen Maße, Straßen, Forum, Landefeld, Torbauten und die Häuser. Gebaut wird von innen nach außen (Forum zuerst).
+    function layoutCardo(c) {
+      const { R, N, S, fill, hindernis, skala } = c;
+      const cx = Math.floor(FW / 2), cy = Math.floor(FH / 2);
+      const dNah = R.range(6, 7), dFern = R.range(6, 7);
+      const H = 11 + dNah + dFern;   // halbe Höhe: Wallgang 4, ferne Reihe, Gasse 1, nahe Reihe, Abstand 7 zur Achse
+      const W = clamp(Math.round(30 * skala), 24, Math.floor((FW - 8) / 2));
+      S.x0 = cx - W; S.x1 = cx + W - 1; S.y0 = cy - H; S.y1 = cy + H - 1;
+      fill(S, '.');
+      const I = { x0: S.x0 + 1, y0: S.y0 + 1, x1: S.x1 - 1, y1: S.y1 - 1 };
+      const mx = (v) => 2 * cx - 1 - v, my = (v) => 2 * cy - 1 - v;   // Spiegelung an den Achsen (Mitte zwischen cx-1 und cx bzw. cy-1 und cy)
+      const strassen = [];
+      const strasse = (r, name) => { strassen.push({ rect: r, name }); hindernis.push({ rect: r, art: 'strasse' }); };
+      strasse({ x0: S.x0 + 1, x1: S.x1 - 1, y0: cy - 3, y1: cy + 2 }, 'haupt');   // Decumanus (muss strassen[0] sein: Startpunkt und Eingang)
+      strasse({ x0: cx - 3, x1: cx + 2, y0: S.y0 + 1, y1: S.y1 - 1 }, 'cardo');
+      const platz = { x0: cx - 6, x1: cx + 5, y0: cy - 5, y1: cy + 4 };   // Forum 12×10: Mitte = (cx, cy), wie der Sockel der Statue
+      hindernis.push({ rect: platz, art: 'platz' });
+      // Tore: je 4 Kacheln 'g' auf der Grundrisskante, beidseits ein 3×3-Pfeiler (innerhalb der Straßenbreite beginnend)
+      const tor = (id, k, g, pf, ein) => { for (const p of pf) hindernis.push({ rect: p, art: 'tor' }); return { id, k, g, pfeiler: pf, ein }; };
+      const vier = (f) => [0, 1, 2, 3].map(f);
+      const tore = [
+        tor('tor', 'W', vier((i) => [S.x0, cy - 2 + i]), [{ x0: S.x0, x1: S.x0 + 2, y0: cy - 5, y1: cy - 3 }, { x0: S.x0, x1: S.x0 + 2, y0: cy + 2, y1: cy + 4 }], [S.x0, cy]),
+        tor('tor_n', 'N', vier((i) => [cx - 2 + i, S.y0]), [{ x0: cx - 5, x1: cx - 3, y0: S.y0, y1: S.y0 + 2 }, { x0: cx + 2, x1: cx + 4, y0: S.y0, y1: S.y0 + 2 }], [cx, S.y0]),
+        tor('tor_o', 'O', vier((i) => [S.x1, cy - 2 + i]), [{ x0: S.x1 - 2, x1: S.x1, y0: cy - 5, y1: cy - 3 }, { x0: S.x1 - 2, x1: S.x1, y0: cy + 2, y1: cy + 4 }], [S.x1, cy]),
+        tor('tor_s', 'S', vier((i) => [cx - 2 + i, S.y1]), [{ x0: cx - 5, x1: cx - 3, y0: S.y1 - 2, y1: S.y1 }, { x0: cx + 2, x1: cx + 4, y0: S.y1 - 2, y1: S.y1 }], [cx, S.y1]),
+      ];
+      // Landefeld (Campus) 15×10 im Ostteil, bündig mit der nahen Reihe, am Außenrand; Nord oder Süd aus dem Seed
+      const nord = R.f() < 0.5;
+      const lx1 = S.x1 - 4, ly0 = nord ? cy - 16 : cy + 6;
+      const LF = { x0: lx1 - 14, x1: lx1, y0: ly0, y1: ly0 + 9 };
+      hindernis.push({ rect: LF, art: 'landefeld' });
+      // Reihen im Nordostviertel (x ab Cardo + 4 bis Wallgang), die übrigen drei Viertel durch Spiegelung
+      const xmin = cx + 4, xmax = S.x1 - 4;
+      const reihe = () => { const out = []; let x = xmin; for (;;) { let w = R.range(7, 10); if (x + w - 1 > xmax) w = xmax - x + 1; if (w < 7) break; out.push([x, x + w - 1]); x += w + 1; } return out; };
+      const nahY1 = cy - 7, fernY1 = cy - 8 - dNah;
+      const kand = [];
+      for (const [fern, y1, d] of [[false, nahY1, dNah], [true, fernY1, dFern]]) {
+        for (const [xa, xb] of reihe()) {
+          for (const west of [false, true]) for (const sued of [false, true]) {
+            const ya = y1 - d + 1;
+            const rect = { x0: west ? mx(xb) : xa, x1: west ? mx(xa) : xb, y0: sued ? my(y1) : ya, y1: sued ? my(ya) : y1 };
+            const side = (sued !== fern) ? 's' : 'n';   // Nord, nah: Haus nördlich der Straße (Tür zur Straße hin im Süden); fern: umgekehrt
+            const prio = Math.abs((rect.x0 + rect.x1) / 2 - (cx - 0.5)) + Math.abs((rect.y0 + rect.y1) / 2 - (cy - 0.5)) + R.f() * 1.5;
+            kand.push({ rect, side, w: xb - xa + 1, d, prio });
+          }
+        }
+      }
+      kand.sort((a, b) => a.prio - b.prio);
+      const gebaeude = [];
+      for (const k of kand) {
+        if (gebaeude.length >= N) break;
+        if (!hindernis.every((h) => cheb(k.rect, h.rect) >= 2)) continue;
+        gebaeude.push({ rect: k.rect, side: k.side, w: k.w, d: k.d, typ: 'k' });
+      }
+      return { LF, Smax: S.x1, strassen, platz, cx, cy, I, leit: [], gebaeude, gassen: [], hs: strassen[0].rect, start: [S.x0, cy], tore };
+    }
+
 
     // wächst, bis die Zielzahl an Gebäuden steht (oder das Feld voll ist)
     function bauen(seed, N, bauweise, typ, variante) {
@@ -374,7 +449,8 @@
       }
       plaetze.platz = { typ: 'dorfplatz', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(B.platz), bereich: 'strassen', kern: true };
       B.strassen.forEach((s) => { plaetze['strasse_' + nummer('strasse')] = { typ: 'hof', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: null }, rect: rect(s.rect), bereich: 'strassen', gefecht: true }; });
-      if (B.mauer && !methalle) plaetze.tor = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: 'W' }, rect: [S.x0 + ox, B.cy - 2 + oy, 1, 4], bereich: 'strassen', richtung: 'W' };
+      if (B.tore) B.tore.forEach((t) => { const gx = t.g.map((p) => p[0]), gy = t.g.map((p) => p[1]); plaetze[t.id] = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: t.k }, rect: [Math.min(...gx) + ox, Math.min(...gy) + oy, Math.max(...gx) - Math.min(...gx) + 1, Math.max(...gy) - Math.min(...gy) + 1], bereich: 'strassen', richtung: t.k }; });   // Cardo: vier Tore
+      else if (B.mauer && !methalle) plaetze.tor = { typ: 'tor', modul: 'gen-siedlung', lage: { rot: 0, spiegel: false, aussen: 'W' }, rect: [S.x0 + ox, B.cy - 2 + oy, 1, 4], bereich: 'strassen', richtung: 'W' };
       const geb = [];
       for (const b of B.gebaeude) {
         let id, tp;
@@ -703,16 +779,18 @@
       }
       // Eingänge: Tor bzw. westliches Straßenende (laut), das fernste Straßenende und ein drittes, von beiden entferntes (leise)
       const hs = B.strassen[0].rect;
-      const ein1 = methalle ? [B.rohr.aussen[0] + ox, B.rohr.aussen[1] + oy] : B.mauer ? [S.x0 + ox, B.cy + oy] : [hs.x0 + ox, B.cy + oy];
+      const ein1 = B.tore ? [S.x0 + ox, B.cy + oy] : methalle ? [B.rohr.aussen[0] + ox, B.rohr.aussen[1] + oy] : B.mauer ? [S.x0 + ox, B.cy + oy] : [hs.x0 + ox, B.cy + oy];
       if (methalle) { ank('rohr', 'eingang', ein1, { art: 'leise' }); ank('rohr', 'eingang', [B.rohr.innen[0] + ox, B.rohr.innen[1] + oy], { art: 'leise' }); }   // Methalle: beide Rohrmünder, kein Tor
-      else ank(B.mauer ? 'tor' : 'strasse_1', 'eingang', ein1, { art: 'laut' });
+      else ank(B.mauer || B.tore ? 'tor' : 'strasse_1', 'eingang', ein1, { art: 'laut' });
       const enden = [];
       B.strassen.forEach((s, i) => {
         const q = s.rect, cm = [Math.floor((q.x0 + q.x1) / 2), Math.floor((q.y0 + q.y1) / 2)];
         for (const [cx, cy] of [[cm[0], q.y0], [cm[0], q.y1], [q.x0, cm[1]], [q.x1, cm[1]]]) { const px = cx + ox, py = cy + oy; if (at(px, py) === ',' && !belegt.has(px + ',' + py)) enden.push({ p: [px, py], id: 'strasse_' + (i + 1) }); }
       });
       const eingaenge = [ein1];
-      for (let n = 0; !methalle && n < 2; n++) {
+      // Cardo: die übrigen drei Tore (Nord, Ost, Süd) sind leise Eingänge, der Eingang am Westtor ist der laute
+      if (B.tore) for (const t of B.tore.filter((q) => q.id !== 'tor')) { const p = [t.ein[0] + ox, t.ein[1] + oy]; eingaenge.push(p); belegt.add(p.join(',')); ank(t.id, 'eingang', p, { art: 'leise' }); }
+      for (let n = 0; !methalle && !B.tore && n < 2; n++) {
         let best = null;
         for (const e of enden) { const d = Math.min(...eingaenge.map((q) => dm(q, e.p))); if (!best || d > best.d) best = { d, e }; }
         if (!best) break;
