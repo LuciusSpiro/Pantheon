@@ -287,6 +287,7 @@ Funksätze stehen in INHALT §7.4 und kommen über die Gegner-Registry.
 | Was | Felder |
 |---|---|
 | cmd `loadout.waffe` | `{ waffe }` (an der Transfer-Konsole, nicht unten). **Ersetzt durch AUS-01:** der Befehl ist entfallen, die Wahl läuft über `ausruestung.slot` `{ slot, id }` / `ausruestung.stand` an der Ausrüstungsstation (siehe README, Abschnitt Ausrüstungsstation) |
+| cmd `slot.nutzen` | `{ slot: 0..2 }` (AUS-02 A, ohne Konsole, nur am Boden): Waffe im Slot wird aktiv, Ereignis `loadout { pid, waffe, sperre }`; Wechselzeit `awayCombat.wechselzeit` (0,6 s) über `bereitAt`; Zustand je Waffe bleibt, kein neues Snapshot-Feld (siehe README, Waffenwechsel am Boden) |
 | Halte-Interaktionen | über den bestehenden Hold-Mechanismus (`interact`), Kinds `fesseln`, `befreien`, `aufrichten`, `ausruestung`, `zellentuer` |
 | Snapshot `players[]` | `wf` (Waffe), `ht` (Hitze 0–100), `ov` (1 = überhitzt), `ch` (Laden 0–100), `wu` (Ausholen 0–100), **`zs`**: `ok`\|`verwundet`\|`bewusstlos`\|`gefesselt`\|`gefangen` (getrennte Zustände, ART-PLAN §5.8), `bt` (1 = betäubt) |
 | Snapshot `away.drones[]` | `ro` (Rolle), `fr` (Fraktion), `pa` (Palette), `wf`, `ch`, `wu`, `zs` (wie oben + `aus`), `bt`, `wn` (Wunden), `wm` (max), `gr` (`{ x, y, t }` Zielkreis beim Zielen) |

@@ -109,6 +109,11 @@
     //   auch beim Betreten der Station und auf cmd { c: 'ausruestung.stand' }. Kein Snapshot-Feld.
     CMD_LOADOUT_SLOT: 'ausruestung.slot',
     CMD_AUSRUESTUNG_STAND: 'ausruestung.stand',
+    // AUS-02 A: cmd { c: 'slot.nutzen', slot: 0..2 } – am Boden (Außenkarte) den Loadout-Slot benutzen: Waffe im Slot -> wird die aktive Waffe (sofort, Wechselzeit awayCombat.wechselzeit,
+    //   Zustand je Waffe bleibt erhalten, keine Konsole nötig); Item im Slot -> dessen Nutzen (heute keine Items). Slot = 0-basiert wie ausruestung.slot, nur wirksame Slots.
+    //   Abgelehnt ohne Antwort (kein Effekt): ungültiger/leerer Slot, nicht am Boden, ausgeschaltet/gefangen/betäubt/bewusstlos, gleiche Waffe (No-op ohne Preis).
+    //   Antwort bei Waffenwechsel: Ereignis loadout { pid, waffe, sperre } (sperre = Wechselzeit in s, Client zeigt die Sperre lokal); Snapshot players[].wf ändert sich sofort. Kein neues Snapshot-Feld.
+    CMD_SLOT_NUTZEN: 'slot.nutzen',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],

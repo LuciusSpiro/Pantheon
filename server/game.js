@@ -1223,6 +1223,8 @@ class Game {
       if (p.conn) this.sendTo(p.conn, Object.assign({ t: 'event', kind: 'abenteuerAntwort', pid: p.id, op, ok: !r }, r ? { code: r.code, text: r.text } : {}));
       return;
     }
+    // AUS-02 A: Slot am Boden benutzen (Waffenwechsel) – ohne Konsole; loadout.slotNutzen lehnt alles ab, was nicht am Boden und handlungsfähig ist (still)
+    if (c === Protocol.CMD_SLOT_NUTZEN) { try { Loadout.slotNutzen(this, p, msg.slot); } catch (e) { this.countError('loadout', e); } return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');

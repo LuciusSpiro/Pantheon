@@ -13,7 +13,9 @@ const standardLoadout = () => ['blaster', ...Array(SLOTS_MAX - 1).fill(null)];
 const OHNE_WAFFE = 'faust';   // Loadout gespeichert, aber keine Waffe in den wirksamen Slots
 
 // Die EINE Stelle, die entscheidet, was in einen Slot darf. Spätere Aufträge (Medipack, Scanner) ergänzen hier ihre Ids.
-const erlaubteIds = () => Waffen.WAHL;
+// AUS-02 A: Items (Nicht-Waffen) kommen über die Registry ITEMS in einen Slot: Id -> Handler(game, p) -> null | Fehlertext. Heute leer (keine Items).
+const ITEMS = {};
+const erlaubteIds = () => [...Waffen.WAHL, ...Object.keys(ITEMS)];
 const istErlaubt = (id) => typeof id === 'string' && erlaubteIds().includes(id);
 const istWaffe = (id) => typeof id === 'string' && Waffen.WAHL.includes(id);
 
@@ -83,6 +85,21 @@ function standSenden(game, p, fehler) {
   game.sendTo(p.conn, o);
 }
 
+// AUS-02 A: Slot am Boden benutzen (Befehl slot.nutzen). Waffe im Slot -> wird aktiv (waffen.waffeWechseln); Item im Slot -> itemNutzen (ändert die aktive Waffe nicht).
+// Abgelehnt (Rückgabe Text, kein Effekt): Slot außerhalb der wirksamen Slots, leerer Slot, nicht am Boden, nicht handlungsfähig (ausgeschaltet, gefangen, bewusstlos, betäubt, an einer Konsole).
+function itemNutzen(game, p, id) {
+  const h = ITEMS[id];
+  return typeof h === 'function' ? (h(game, p) || null) : 'Dieses Item kann man nicht nutzen.';
+}
+function slotNutzen(game, p, slot) {
+  if (!p || !game || !game.away || p.zone !== 'away' || !require('./combat.js').isV2(game)) return 'Nur am Boden (Kampf v2).';
+  if (p.downed || p.gefangen || p.bewusstlos || p.console || p.beamLock || !Waffen.handlungsfaehig(game, p)) return 'Gerade nicht möglich.';
+  if (!Number.isInteger(slot) || slot < 0 || slot >= slotzahl(game)) return 'Diesen Slot gibt es nicht.';
+  const id = wirksam(game, p)[slot];
+  if (id == null) return 'Dieser Slot ist leer.';
+  return istWaffe(id) ? Waffen.waffeWechseln(game, p, id) : itemNutzen(game, p, id);
+}
+
 // Übernahme eines freien Platzes: der Vorbesitzer trug evtl. eine andere Waffe. Getragene Waffe auf das Loadout des Neuen bringen (Gefangene bleiben bei der Faust).
 function waffeAbgleichen(game, p) {
   if (!p || p.gefangen || p.clientId == null || !p.waffe) return;
@@ -131,4 +148,4 @@ function restore(obj, game) {
   for (const h of Object.keys(out)) spiegeln(game, h);
 }
 
-module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, standSenden, waffeAbgleichen, ersterSlotSetzen, toSave, restore };
+module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, slotNutzen, itemNutzen, ITEMS, standSenden, waffeAbgleichen, ersterSlotSetzen, toSave, restore };

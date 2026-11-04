@@ -1223,6 +1223,12 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   ohne gespeichertes Loadout tragen den Blaster in Slot 1 (Standardloadout, wird erst bei der ersten Änderung gespeichert).
   Das Loadout bleibt im Weltstand gespeichert (`crew.loadout`, Hash der Browser-Kennung, nie der Name; ein dritter Slot
   bleibt bei 2 Slots unsichtbar erhalten). Beamen nimmt es mit. Befehle `ausruestung.slot` / `ausruestung.stand`.
+- **Waffenwechsel am Boden (AUS-02 A):** Befehl `slot.nutzen` `{ slot: 0..2 }` (0-basiert wie `ausruestung.slot`, ohne Konsole, nur auf v2-Außenkarten und nur für Spieler, die handeln können:
+  nicht ausgeschaltet, gefangen, bewusstlos, betäubt). Steckt eine Waffe im Slot, wird sie sofort die aktive Waffe (Snapshot `wf`); Antwort ist das Ereignis `loadout { pid, waffe, sperre }`
+  (`sperre` = Wechselzeit in s, der Client zeigt sie lokal). Preis: die gezogene Waffe feuert erst nach `CONFIG.awayCombat.wechselzeit` (0,6 s, `tune awayCombat.wechselzeit`; läuft über `bereitAt`, Grund `kadenz`).
+  Der Zustand jeder abgelegten Waffe (Hitze, Überhitzungssperre, Kadenz) bleibt erhalten und kühlt im Halfter nach den Tick-Regeln ab, Wechseln setzt also nichts zurück; Laden (Lanze) und Ausholen (Nahkampf) brechen ab.
+  Gleiche Waffe = No-op ohne Preis. Ungültige oder abgelehnte Befehle bleiben ohne Antwort und Effekt. Steckt ein Item im Slot (heute gibt es keine; Registry `loadout.ITEMS`), wird es genutzt und die aktive Waffe bleibt.
+  Der abgelegte Zustand liegt nur im Speicher am Spieler (nicht im Snapshot, nicht im Weltstand) und wird beim Beamen, Rückholen und in der Zelle zurückgesetzt. Gegner und Bots wechseln nicht.
 - **Wellen-Modus mit Kartenwahl:** In der Lobby schaltet **M** auf „Bodenkampf: Wellen“, **K** wählt die Karte
   (Außenposten, Station, Ruine, Schiff, Kesh-Hof). Jeder Start bekommt einen neuen Seed.
   - Ablauf: 10 s Countdown, dann Wellen. Dazwischen 15 s Pause zum Aufrichten, Befreien und Auffüllen.
