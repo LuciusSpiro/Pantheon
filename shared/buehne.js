@@ -1368,6 +1368,17 @@
         else if (!anker.some((q) => q.rolle === a.rolle && q.x === o[0] && q.y === o[1])) F('K-DECK', `${a.id}: am Gegenstück (${o[0]},${o[1]}) steht kein ${a.rolle}-Anker`, a.x, a.y);
       }
       for (const l of dl) for (const e of [l.a, l.b]) if (e[0] < 0 || e[1] < 0 || e[0] >= W || e[1] >= H) F('K-DECK', `Deck-Link außerhalb der Karte: ${e[0]},${e[1]}`);
+      // Grenzzeilen zwischen den Decks: von der letzten gebauten Zeile des oberen Decks über die Lückenzeilen bis zur ersten Zeile des unteren dürfen nur Kacheln stehen,
+      // die fest sind UND die Sicht sperren (Fels F, Lücke _): sonst sieht oder läuft man aus einem Deck ins andere (Schiffe haben ihre eigene Lückenregel oben)
+      for (let d = 0; d + 1 < Math.ceil(H / stride); d++) {
+        let von = (d + 1) * stride - 1;
+        while (von > d * stride && !/[^_]/.test(karte.rows[von] || '')) von--;
+        const bis = Math.min(H - 1, (d + 1) * stride);
+        for (let y = von; y <= bis; y++) for (let x = 0; x < W; x++) {
+          const i = r.info(x, y);
+          if (!i || !K.fest(i) || !i.sperrtSicht) { F('K-DECK', `Grenzzeile ${y} (Deck ${d} zu ${d + 1}): Kachel ${karte.rows[y][x]} bei ${x} ist begehbar oder lässt Sicht durch`, x, y); break; }
+        }
+      }
     }
     // K-ERREICHBAR (BFS über Durchgänge, Objekte blockieren, inkl. Deck-Links) von jedem Eingang und der Ankunft
     const links = K.deckLinks(karte);

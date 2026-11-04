@@ -64,17 +64,79 @@ section('C1 Start: eine Ladung im Teaminventar, Sprengpunkt ist das Ziel, der al
   ok(g.inventory.ladung === 1, 'die Crew startet mit EINER Ladung (inventory.ladung ' + g.inventory.ladung + ')');
   ok(S.zielId === SP && K.anker.filter((a) => a.rolle === 'sprengpunkt').length === 1, 'Ziel-Anker = der einzige Sprengpunkt im Reaktorraum (' + S.zielId + ')');
   ok(Anker.zustand(g, S.lp, SP) === 'intakt' && S.ziel === 'gesperrt' && S.nachschub === null, 'Sprengpunkt intakt, Stufe gesperrt, kein Nachschub');
+  ok(aw.ankerSperre && /Erst die Verteidiger/.test(aw.ankerSperre[SP]), 'Sprengpunkt gesperrt (ankerSperre: ' + (aw.ankerSperre && aw.ankerSperre[SP]) + ')');
   ok(S.stillId === 'bunker.ziel' && aw.ankerSperre && /nicht das Ziel/.test(aw.ankerSperre['bunker.ziel']), 'alter Anker bunker.ziel still (ankerSperre: ' + (aw.ankerSperre && aw.ankerSperre['bunker.ziel']) + ')');
   const z = anker('bunker.ziel'); const l = []; Anker.interactionsAt(g, g.players[0], z.x, z.y, l);
   ok(l.length && l.every((i) => i.blocked), 'E am Bunkereingang-Anker: nur der Hinweis, kein Halten');
   oben(); laufe(1);
-  ok(S.ziel === 'offen' && !(aw.ankerSperre && aw.ankerSperre[SP]), 'Welle 1 und 2 besiegt: Stufe offen, der Sprengpunkt selbst war nie gesperrt');
+  ok(S.ziel === 'offen' && !(aw.ankerSperre && aw.ankerSperre[SP]), 'Welle 1 und 2 besiegt: Stufe offen, die Sperre des Sprengpunkts ist weg');
   const txt = ((g.snapshot().mission || {}).objectives || []).map((o) => o.text).join(' | ');
   ok(txt === 'Sprengladung im Reaktorraum zünden', 'Zielzeile: ' + txt);
   // der alte Anker: 4 s Halten wirkt nichts, auch nach Welle 2
   am(g.players[0], 'bunker.ziel'); send(0, { t: 'act', down: true }); laufe(4.5); send(0, { t: 'act', down: false });
   ok(Anker.zustand(g, S.lp, 'bunker.ziel') === 'frei' && S.ziel === 'offen', 'Halten am alten Bunkereingang-Anker (4,5 s) erfüllt kein Ziel');
   ok(g.players.every((p) => p.zone === 'away') && S.ph === 'kampf', 'kein Sieg, niemand beamt');
+  ok(fehlerZahl(g) === 0, 'keine Fehler');
+});
+
+section('Sperre: der Sprengpunkt ist gesperrt, bis die Oberflächenwellen besiegt sind', () => {
+  const r = start(2); const { g, S, aw, am, laufe, send, faellen } = r;
+  const sp = r.anker(SP);
+  // gesperrt: E zeigt nur den Hinweis, E halten zündet nicht, kein Sieg
+  const l = []; Anker.interactionsAt(g, g.players[0], sp.x, sp.y, l);
+  ok(l.length && l.every((i) => i.blocked) && /Erst die Verteidiger/.test(l[0].blocked), 'E am Sprengpunkt: nur der Hinweis „' + (l[0] && l[0].blocked) + '“');
+  am(g.players[0], SP); send(0, { t: 'act', down: true }); laufe(CONFIG.anker.halten.sprengpunkt + 1); send(0, { t: 'act', down: false });
+  ok(Anker.zustand(g, S.lp, SP) === 'intakt' && g.inventory.ladung === 1 && !(aw.ankerLauf.ladung && Object.keys(aw.ankerLauf.ladung).length), 'E 5 s halten bei lebenden Wellen: nichts scharf, Ladung unverbraucht');
+  ok(typeof Anker.ladungScharf(g, S.lp, SP, 1) === 'string' && Anker.zustand(g, S.lp, SP) === 'intakt', 'auch Debug/Baustein ladungScharf wird abgewiesen: ' + Anker.ladungScharf(g, S.lp, SP, 1));
+  laufe(5);
+  ok(S.ziel === 'gesperrt' && S.ph === 'kampf' && S.nachschub === null && g.players.every((p) => p.zone === 'away'), 'kein Ziel, kein Nachschub, kein Sieg, die Crew bleibt unten');
+  // Welle 1 tot, Welle 2 lebt: weiter gesperrt
+  faellen(S.ids[1]); laufe(1);
+  const l2 = []; Anker.interactionsAt(g, g.players[0], sp.x, sp.y, l2);
+  ok(S.ziel === 'gesperrt' && l2.every((i) => i.blocked), 'nur Welle 1 besiegt: weiter gesperrt');
+  // Welle 2 tot (Welle 3 im Bunker lebt): freigegeben, E halten zündet
+  faellen(S.ids[2]); laufe(1);
+  ok(S.ziel === 'offen' && !aw.ankerSperre[SP] && r.oda.some((t) => /Weg zum Bunker ist frei/.test(t)) && r.ev.some((e) => e[0] === 'sfx' && e[1].name === 'repair_done'), 'Welle 1 und 2 besiegt: offen, Sperre weg, ODA und Ton');
+  const l3 = []; Anker.interactionsAt(g, g.players[0], sp.x, sp.y, l3);
+  ok(l3.some((i) => !i.blocked && i.kind === 'anker:sprengpunkt'), 'E am Sprengpunkt bietet das Zünden an');
+  r.zuenden(0);
+  ok(Anker.zustand(g, S.lp, SP) === 'scharf' && g.inventory.ladung === 0, 'E 4 s halten: Ladung scharf');
+  ok(fehlerZahl(g) === 0, 'keine Fehler');
+});
+
+section('C3 Nachschub trotz belegter Plätze: vier lebende Gegner auf den alten Plätzen und ein Spieler am Lift -> trotzdem genau vier neue, nicht auf Spielern', () => {
+  const r = start(2); const { g, S, aw, K, am, laufe, nachschub, oben, anker, platz } = r;
+  oben(); laufe(1);
+  const info = interior.awayInfoOf(S.lp); const lo = anker('bunker.lift.oben');
+  const alt = Graben._nachschubPlaetze(g, aw, info, 4).slice(0, 4);   // die ersten vier Kandidaten = die alten Plätze (vorher: slice(0, 4))
+  ok(alt.length === 4, 'vier Plätze im Ring um den Lift (' + alt.map((q) => q.x + ',' + q.y).join(' ') + ')');
+  const b = squad.spawnSquad(g, 'test.blocker', { map: S.lp, besetzung: [{ typ: 'grundtyp', anzahl: 4 }], force: true, plaetze: alt, festeZahl: true });
+  for (const e of aw.drones) if (e.squad === 'test.blocker') { e.tag = Wellen.TAG; e.fraktion = 'rom'; }
+  ok(b === 4 && aw.drones.filter((e) => e.squad === 'test.blocker' && e.alive).length === 4, 'vier lebende Gegner stehen auf den alten Plätzen (Welle 2 am Eingang)');
+  const alle = Graben._nachschubPlaetze(g, aw, info, 4);
+  const belegt = (q) => alt.some((a) => a.x === q.x && a.y === q.y);
+  ok(alle.length > 4 && !alle.some(belegt), 'Kandidatenliste: mehr als vier, keiner auf einem Gegner (' + alle.length + ' Kandidaten)');
+  // Spieler 0 steht auf dem nächsten freien Kandidaten, Spieler 1 am Lift
+  const pz = alle[0]; platz(g.players[0], pz.x, pz.y); am(g.players[1], 'bunker.lift.oben');
+  const ohnePz = Graben._nachschubPlaetze(g, aw, info, 4);
+  ok(!ohnePz.some((q) => q.x === pz.x && q.y === pz.y), 'Kachel unter einem Spieler ist kein Kandidat');
+  Anker.ladungScharf(g, S.lp, SP, 0.3);
+  platz(g.players[0], pz.x, pz.y); laufe(0.6);
+  const ns = nachschub();
+  const ts = ns.map((e) => tile(e));
+  ok(S.ziel === 'erreicht' && ns.length === 4 && ns.every((e) => e.alive) && new Set(ts.map((t) => t.x + ',' + t.y)).size === 4, 'Knall: genau vier neue Gegner, vier verschiedene Kacheln (' + ns.length + ')');
+  ok(!ts.some((t) => belegt(t)) && !ts.some((t) => t.x === pz.x && t.y === pz.y), 'keiner auf den Plätzen der lebenden Gegner und keiner auf dem Spieler');
+  ok(fehlerZahl(g) === 0, 'keine Fehler (kein Fehlerzähler „Nachschub: n/4“)');
+});
+
+section('Sperre: Neubeginn sperrt den Sprengpunkt wieder', () => {
+  const r = start(2); const { g, S, aw, laufe, oben } = r;
+  oben(); laufe(1);
+  ok(S.ziel === 'offen' && !aw.ankerSperre[SP], 'Ausgangslage: offen');
+  Graben.debug(g, 'reset'); laufe(1);
+  ok(S.ziel === 'gesperrt' && /Erst die Verteidiger/.test(aw.ankerSperre[SP]) && S.versuch === 2, 'nach dem Neubeginn: gesperrt (Versuch ' + S.versuch + ')');
+  r.am(g.players[0], SP); r.send(0, { t: 'act', down: true }); laufe(CONFIG.anker.halten.sprengpunkt + 1); r.send(0, { t: 'act', down: false });
+  ok(Anker.zustand(g, S.lp, SP) === 'intakt', 'nach dem Neubeginn zündet E halten nicht');
   ok(fehlerZahl(g) === 0, 'keine Fehler');
 });
 
@@ -114,6 +176,8 @@ section('C1/C2/C3 Echter Ablauf zu zweit: Zünden (E 4 s), Countdown, Knall -> Z
   ok(s && s.deckBindung === 0 && s.tag === Wellen.TAG, 'Trupp mit Deck-Bindung 0 (Oberfläche)');
   ok(S.gesamt === gesamt0 + 4 && S.nachschubIds.length === 4 && S.nachschub === 'gesendet', 'Zähler: gesamt +4, Auslöser gesetzt');
   ok(!S.ids[1].concat(S.ids[2], S.ids[3]).some((id) => S.nachschubIds.includes(id)), 'Nachschub ist keine vierte Welle (gehört zu keiner Welle, Zielzeile/aktive Welle unberührt)');
+  const sw = g.snapshot().wellen;
+  ok(sw.n === 3 && sw.l === 0 && sw.r === 0, 'HUD-Block: aktive Welle ' + sw.n + ', „Gegner übrig“ ' + sw.r + ' (der Nachschub mischt sich nicht in die Wellenanzeige)');
   // kein Timer, keine Niederlage, nicht noch einmal
   let min = 99, max = 0;
   laufe(120, (i) => { if (i % 15 === 0) { const c = nachschub().length; min = Math.min(min, c); max = Math.max(max, c); } });
@@ -225,7 +289,7 @@ section('C1/C3 Neubeginn nach der Sprengung: alles zurück, danach wieder genau 
     const r = start(np); const { g, S, aw, K, am, laufe, faellen, nachschub, evN, ev } = r;
     const pos0 = aw.drones.filter((e) => e.tag === Wellen.TAG).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';');
     const gesamt0 = S.gesamt;
-    r.oben();
+    r.oben(); laufe(1);   // Welle 1 und 2 besiegt: der Sprengpunkt ist freigegeben
     Anker.ladungScharf(g, S.lp, SP, 1); laufe(2.5);
     ok(S.ziel === 'erreicht' && nachschub().length === 4, `${np} Spieler: Ausgangslage gesprengt, Nachschub 4`);
     g.inventory.ladung = 0;

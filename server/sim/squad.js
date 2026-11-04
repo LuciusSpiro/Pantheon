@@ -1383,5 +1383,5 @@ function feuerB2(game, E, e, t, g) {
 module.exports = {
   makeEnemy, spawnSquad, wakeWarden, update, onEnemyHit, onEnemyDown, onShieldFull, onPlayerWounded, isAlert, bark, squadOf,
   inBox, perceive, newSquad, alertSquad, spawnPlaetze, TYP_KIND, alarmiere, zielbar, amAussicht, sichtbareZiele,
-  freshestKnown, setGoal, setRole, aufrichtenEnde, gegnerWeg, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
+  freshestKnown, setGoal, setRole, aufrichtenEnde, _gegnerWeg: gegnerWeg, _platzStrafe: platzStrafe, _inselnVon: inselnVon,   // nur Tests (tools/test-trupp-abstand.js)
 };

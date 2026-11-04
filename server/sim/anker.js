@@ -132,7 +132,8 @@ function interactionsAt(game, p, tx, ty, list) {
         else block('Das Terminal ist gesperrt.');
         break;
       case 'sprengpunkt':
-        if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(a.modus === 'platzieren' ? { modus: 'platzieren' } : undefined); else block(a.modus === 'platzieren' ? 'Kein Sprengstoff dabei.' : 'Keine Sprengladung dabei.'); }
+        if (z === 'intakt' && aw.ankerSperre && aw.ankerSperre[a.id]) block(aw.ankerSperre[a.id]);   // Szenario sperrt den Sprengpunkt (Grabenangriff: bis die Oberfläche besiegt ist)
+        else if (z === 'intakt') { if ((inventar(game).ladung || 0) > 0) it(a.modus === 'platzieren' ? { modus: 'platzieren' } : undefined); else block(a.modus === 'platzieren' ? 'Kein Sprengstoff dabei.' : 'Keine Sprengladung dabei.'); }
         else if (z === 'scharf') block(`Scharf! Noch ${Math.ceil((L.ladung[a.id] && L.ladung[a.id].t) || 0)} s – weg da!`);
         else if (z === 'platziert') block('Der Sprengstoff liegt. Jetzt unauffällig zurück zum Teleportpunkt.');
         else block('Hier ist nichts mehr zu sprengen.');
@@ -216,7 +217,7 @@ function holdValid(game, p, h) {
   const z = zustandIn(aw, k, a.id);
   switch (a.rolle) {
     case 'terminal': return h.op === 'lesen' ? z === 'geladen' : (z === 'bereit' || z === 'laedt');
-    case 'sprengpunkt': return z === 'intakt' && (inventar(game).ladung || 0) > 0;
+    case 'sprengpunkt': return z === 'intakt' && !(aw.ankerSperre && aw.ankerSperre[a.id]) && (inventar(game).ladung || 0) > 0;
     case 'flagge': return z === 'unten' && flaggeCrew(game).length >= flaggeCfg(game).min;   // lebt nur noch einer: Hissen nicht möglich
     case 'zelle': return z === 'zu';
     case 'beute': return z === 'voll';
@@ -287,6 +288,7 @@ function ladungScharf(game, map, id, t, pid) {
   const a = ankerById(k, id);
   if (!a || a.rolle !== 'sprengpunkt') return `${id} ist kein Sprengpunkt auf ${map}.`;
   if (zustandIn(aw, k, id) !== 'intakt') return `${id} ist nicht intakt (${zustandIn(aw, k, id)}).`;
+  if (aw.ankerSperre && aw.ankerSperre[id]) return aw.ankerSperre[id];   // vom Szenario gesperrt (ankerSperre), auch für Debug und Bausteine
   const sek = Number.isFinite(t) && t > 0 ? t : (kfg(game).countdown || 60);
   lauf(aw).ladung[id] = { t: sek };
   setzen(game, map, id, 'scharf', pid || null);
@@ -306,6 +308,7 @@ function ladungPlatzieren(game, map, id, pid) {
   const a = ankerById(k, id);
   if (!a || a.rolle !== 'sprengpunkt') return `${id} ist kein Sprengpunkt auf ${map}.`;
   if (zustandIn(aw, k, id) !== 'intakt') return `${id} ist nicht intakt (${zustandIn(aw, k, id)}).`;
+  if (aw.ankerSperre && aw.ankerSperre[id]) return aw.ankerSperre[id];   // vom Szenario gesperrt (ankerSperre), auch für Debug und Bausteine
   setzen(game, map, id, 'platziert', pid || null);
   const c = mitte(a);
   game.emit('ladungPlatziert', { anker: id, map });

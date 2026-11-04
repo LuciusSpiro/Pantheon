@@ -607,10 +607,12 @@
         start_ruest: '{0} – Rüstphase: am Terminal ausbauen, dann „Szene starten“. Die Crew beamt am Abholpunkt hinunter.',
         los: 'Die Crew ist unten. Über die Wiese zum Graben, durch den Wald zum Bunkereingang, per Lift in den Bunker – im Reaktorraum wartet das Ziel.',
         ziel_still: 'Der Bunkereingang ist nicht das Ziel – die Sprengladung im Reaktorraum unten zünden.',   // BOD-03 C1: der Anker meta.ziel ist still
+        sperre: 'Erst die Verteidiger an der Oberfläche besiegen – vorher ist der Sprengpunkt gesperrt.',   // E am Sprengpunkt, solange die Wellen oben leben
         ziel_offen: 'Der Weg zum Bunker ist frei – per Lift hinunter, im Reaktorraum die Sprengladung zünden!',
         ziel_erreicht: 'Der Bunker ist gesprengt! Zurück zum Pad am Bunkereingang, dann hochbeamen.',
         nachschub: 'ALARM – Nachschub kommt: vier Mann mit Sturmgewehren am Bunkereingang!',   // BOD-03 C2: Warnsignal nach dem Knall
         sieg: 'Grabenangriff gewonnen – der Bunker ist gesprengt.',
+        ergebnis_sieg: 'Bunker gesprengt, Crew zurück',   // Siegbild (hud.js): Zeile „Ergebnis“
         neustart: 'Die Crew ist gefallen – Notrückholung. Die Stellung beginnt von vorn: alle Verteidiger stehen wieder, der Bunker ist wieder intakt, die Sprengladung liegt wieder bereit.',
         zeile_ruest: 'Rüstphase – am Terminal ausbauen, dann Szene starten',
         zeile_kampf: 'Rom besiegen: Graben {0} · Wald und Eingang {1}',

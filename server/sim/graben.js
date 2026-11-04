@@ -12,8 +12,8 @@
 //  - Wellen: beliebig viele (meta.wellen, Nummern aufsteigend). Welle 1 und 2 stehen oben (Deck 0), Welle 3 im Bunker (Deck 1, BOD-03). Jeder Trupp bekommt eine
 //    Deck-Bindung (s.deckBindung, squad.js gegnerWeg): Gegner wechseln das Deck nie über Lift oder Rohr, ein Alarm oben zieht den Bunker nicht hoch.
 //  - Ziel (BOD-03 C1): die SPRENGUNG im Reaktorraum. Der einzige Anker der Rolle sprengpunkt (S.zielId) im Zustand zerstoert (Zünden: E halten, Countdown, Knall = anker.js) setzt
-//    S.ziel auf erreicht. gesperrt/offen sind nur noch Stufen der Zielzeile (offen, sobald zielOeffnet erfüllt ist: alle Wellen der Oberfläche besiegt), der Sprengpunkt selbst ist nie
-//    gesperrt. Der alte Oberflächen-Anker meta.ziel (Bunkereingang, Optik) bleibt auf der Karte und ist STILL (S.stillId, ankerSperre ziel_still): kein Halten, keine Siegbedingung.
+//    S.ziel auf erreicht. gesperrt/offen steuern Sperre UND Zielzeile: gesperrt (aw.ankerSperre[S.zielId], Hinweis 'sperre', anker.js) bis zielOeffnet erfüllt ist (alle Wellen der
+//    Oberfläche besiegt), dann offen (Sound, ODA); Neubeginn sperrt wieder. Das Rohr ändert daran nichts. Der alte Oberflächen-Anker meta.ziel (Bunkereingang, Optik) bleibt auf der Karte und ist STILL (S.stillId, ankerSperre ziel_still): kein Halten, keine Siegbedingung.
 //    Die Crew startet mit EINER Ladung im Teaminventar (Neubeginn: wieder 1).
 //  - Nachschub (C2/C3): der Knall löst EINMAL das Warnsignal und vier Mann (CONFIG.graben.nachschub) oben am Bunkereingang aus (S.nachschub). Kein Timer, keine Lift-Sperre.
 //    Danach gewinnt das Hochbeamen: niemand der verbundenen Spieler mehr unten (Pad am Bunkereingang, immer aktiv).
@@ -34,6 +34,7 @@ const team = (game) => game.players.filter((p) => p.connected);
 const text = (game, key, ...a) => String((cfg(game).texte || {})[key] || '').replace(/\{(\d)\}/g, (m, i) => (a[i] == null ? '' : a[i]));
 const fehler = (game, wo, e) => { if (game.countError) game.countError(wo, e); };
 const Vorrat = require('./vorrat.js');
+const Physics = require('../../shared/physics.js');
 
 // ---------- Variantenwahl (Lobby): datengetrieben aus den Kartendaten (gen-fest varianten) ----------
 const festDef = (game) => require('./landepunkte.js').festkarte(cfg(game).fest);
@@ -155,10 +156,19 @@ function stillLegen(game, S) {
   if (!aw || !S.stillId) return;
   aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.stillId]: text(game, 'ziel_still') });
 }
+// Der Sprengpunkt (S.zielId): gesperrt (E zeigt den Hinweis 'sperre', kein Zünden) bzw. freigegeben. Die Stufe S.ziel führt der Aufrufer.
+function zielSperren(game, S) {
+  const aw = game.aways[S.lp];
+  if (aw) aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.zielId]: text(game, 'sperre') });
+}
+function zielFreigeben(game, S) {
+  const aw = game.aways[S.lp];
+  if (aw && aw.ankerSperre) delete aw.ankerSperre[S.zielId];
+}
 // Das Ziel (Sprengpunkt) zurück auf Anfang: Zustand intakt (aw.zustaende ist schon leer), Halter lösen, Stufe gesperrt, Nachschub-Auslöser zurück
 function zielZurueck(game, S) {
   for (const p of game.players) if (p.hold && p.hold.anker === S.zielId) p.hold = null;
-  S.ziel = 'gesperrt';
+  S.ziel = 'gesperrt'; zielSperren(game, S);
   S.nachschub = null; S.nachschubIds = [];
   stillLegen(game, S);
 }
@@ -168,20 +178,29 @@ function ladungBereitstellen(game) { Vorrat.standSetzen(game, 'ladung', 1, 'miss
 function sprengpunktVon(k) { const l = (k ? k.anker : []).filter((a) => a.rolle === 'sprengpunkt'); return l.length === 1 ? l[0].id : null; }
 
 // ---------- Nachschub (BOD-03 C3): einmal vier Mann oben am Bunkereingang, ausgelöst vom Knall ----------
-// n Plätze um den Lift oben (Deck 0): freie Kacheln im Abstand 2 bis 5 (Chebyshev), weder Pad noch Anker, nach Abstand, dann y, x
-function nachschubPlaetze(game, info, n) {
+// Kandidaten für n Mann um den Lift oben (Deck 0): freie Kacheln im Abstand 2 bis 5 (Chebyshev), weder Pad noch Anker noch von einem lebenden Gegner oder Spieler besetzt,
+// nach Abstand, dann y, x. Reichen die Kacheln des Rings nicht (Welle 2 am Eingang, Spieler am Lift), weitere Ringe bis 10. Geliefert werden ALLE Kandidaten (nicht nur n):
+// spawnSquad nimmt die ersten freien, so bleibt es bei genau n, auch wenn ihm etwas dazwischenkommt.
+function nachschubPlaetze(game, aw, info, n) {
   const k = info.karte;
   const lift = k.anker.filter((a) => a.rolle === 'lift' && deckVonY(k, a.y) === 0)[0];
   if (!lift) return [];
   const belegt = new Set((info.pads || []).map((q) => q.x + ',' + q.y).concat(k.anker.map((a) => a.x + ',' + a.y)));
-  const frei = [];
-  for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
-    const d = Math.max(Math.abs(dx), Math.abs(dy)); const x = lift.x + dx, y = lift.y + dy;
-    if (d < 2 || belegt.has(x + ',' + y) || info.map.solid(x, y) || deckVonY(k, y) !== 0) continue;
-    frei.push({ x, y, d });
-  }
-  frei.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
-  return frei.slice(0, n).map((q) => ({ x: q.x, y: q.y }));
+  const besetzt = (e) => { const t = Physics.toTile(e.x, e.y); belegt.add(t.x + ',' + t.y); };
+  for (const e of lebende(aw)) besetzt(e);
+  for (const p of game.players) if (p.connected && p.zone === 'away') besetzt(p);
+  const kandidaten = (rmax) => {
+    const frei = [];
+    for (let dy = -rmax; dy <= rmax; dy++) for (let dx = -rmax; dx <= rmax; dx++) {
+      const d = Math.max(Math.abs(dx), Math.abs(dy)); const x = lift.x + dx, y = lift.y + dy;
+      if (d < 2 || belegt.has(x + ',' + y) || info.map.solid(x, y) || deckVonY(k, y) !== 0) continue;
+      frei.push({ x, y, d });
+    }
+    return frei.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+  };
+  let frei = kandidaten(5);
+  for (let r = 6; frei.length < n && r <= 10; r++) frei = kandidaten(r);
+  return frei.map((q) => ({ x: q.x, y: q.y }));
 }
 // Warnsignal und Nachschub, genau einmal je Versuch (S.nachschub: null -> 'gesendet'; neuBeginnen setzt es zurück)
 function nachschubSenden(game, S) {
@@ -192,7 +211,7 @@ function nachschubSenden(game, S) {
   game.emit('sfx', { name: 'alarm_yellow', zone: 'away' });
   game.emit('nachschub', { map: S.lp, versuch: S.versuch });
   const rollen = cfg(game).nachschub || [];
-  const plaetze = nachschubPlaetze(game, info, rollen.length);
+  const plaetze = nachschubPlaetze(game, aw, info, rollen.length);
   const name = 'graben.nachschub';
   const n = M().squad.spawnSquad(game, name, { map: S.lp, besetzung: rollen.map((r) => ({ typ: r, anzahl: 1 })), force: true, plaetze, festeZahl: true, alert: true });
   if (n !== rollen.length) fehler(game, 'graben-nachschub', new Error(`Nachschub: ${n}/${rollen.length} Gegner`));
@@ -226,7 +245,7 @@ function start(game, o) {
   if (!S.zielId) throw new Error('Grabenangriff: Karte ohne (genau einen) Sprengpunkt');
   game.arena.wellen = S;
   Tel.szeneStart(game, 'graben', o.karte, { seed: o.seed });   // TEL-01 B1
-  stillLegen(game, S);
+  stillLegen(game, S); zielSperren(game, S);
   ladungBereitstellen(game);
   const n = aufstellen(game, S);
   S.maxLebend = n;
@@ -308,7 +327,7 @@ function update(game, S) {
   S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
   S.n = aktiveWelle(aw, S, wellenNummern(karteVon(game, S.lp)));
   if (S.ziel === 'gesperrt' && zielOeffnet(game, S, aw)) {
-    S.ziel = 'offen';
+    S.ziel = 'offen'; zielFreigeben(game, S);
     game.oda(text(game, 'ziel_offen'), null);
     game.emit('sfx', { name: 'repair_done', zone: 'away' });
   }
@@ -339,7 +358,8 @@ function zeile(game, S) {
 const BUEHNE = {
   bereit(game, S) { return !!game.aways[S.lp]; },
   zaehle(game, S) { /* update zählt selbst */ },
-  stehend(game, S) { const aw = game.aways[S.lp]; return aw ? lebende(aw).length : 0; },
+  // Anzeige „Gegner übrig“ (Snapshot l/r): nur die Gegner der Wellen, der Nachschub (S.nachschubIds) mischt sich nicht in die Wellenanzeige
+  stehend(game, S) { const aw = game.aways[S.lp]; const nach = new Set(S.nachschubIds || []); return aw ? lebende(aw).filter((e) => !nach.has(e.id)).length : 0; },
   update, vorbereitungEnde,
 };
 
@@ -355,4 +375,4 @@ function debug(game, arg) {
   return 'graben: welle2 | reset | status';
 }
 
-module.exports = { BUEHNE, liste, auswahl, auswahlSetzen, start, update, vorbereitungEnde, neuBeginnen, zeile, debug, besetzungFuer, plaetzeFuer };
+module.exports = { BUEHNE, liste, auswahl, auswahlSetzen, start, update, vorbereitungEnde, neuBeginnen, zeile, debug, besetzungFuer, plaetzeFuer, _nachschubPlaetze: nachschubPlaetze };   // _nachschubPlaetze: nur Tests

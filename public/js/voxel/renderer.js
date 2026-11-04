@@ -308,9 +308,15 @@ function setMoodObj(id, mood) {
 // Decks ab 1 einer Bühne (Bunker unter dem Wald, feste Karte Grabenangriff) liegen unter der Erde: dunkler Fels statt Himmel und hellem Nebel (sonst schwebt der Bunker
 // vor hellblauem Himmel, die Lücken-Kachel _ wird nicht gezeichnet). Nur Hintergrund und Nebel; das Licht bleibt die Stimmung der Karte. Auf Deck 0 und im Schiff unverändert.
 const FELS_HINTERGRUND = '#15120F';
+// Fels gibt es nur bei Festkarten/Außenkarten mit Decks (Art der Karte, nicht „Deck ≥ 1“): Schiffskarten (art 'schiff', Stride 16) haben ihre eigene Stimmung (marineblau)
+function karteMitFels() {
+  const m = buehneMap(S.mapId);
+  const art = m && ((m.karte && m.karte.art) || m.art);
+  return !!art && art !== 'schiff' && !!buehneDecks();
+}
 function felsHintergrund() {
   if (!S.mood) return;
-  const unter = S.zone === 'buehne' && S.shownDeck >= 1;
+  const unter = S.zone === 'buehne' && S.shownDeck >= 1 && karteMitFels();
   if (S.felsAn === unter) return;
   S.felsAn = unter;
   S.scene.background = new THREE.Color(unter ? FELS_HINTERGRUND : (S.mood.background || '#0B0E1A'));

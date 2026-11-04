@@ -363,7 +363,7 @@
       R.text(ctx, e && e.sieg ? 'SIEG' : 'RUNDE VORBEI', VW / 2, y + 12, { color: e && e.sieg ? PAL.mint : PAL.amber, scale: 2, align: 'center' });
       R.text(ctx, this.wellenKarteName(w.k) + (e && e.sieg ? '' : ' · Seed ' + w.s), VW / 2, y + 32, { color: PAL.mint, align: 'center' });
       const welle = e ? e.welle : w.n;
-      const rows = e && e.sieg ? [['Ergebnis', 'Stellung genommen'], ['Zeit', fmtTime(e.zeit)], ['Versuche', String(e.versuche || 1)]]   // BOD-01: Siegbild des Grabenangriffs
+      const rows = e && e.sieg ? [['Ergebnis', (((CFG.graben || {}).texte || {}).ergebnis_sieg) || 'Bunker gesprengt'], ['Zeit', fmtTime(e.zeit)], ['Versuche', String(e.versuche || 1)]]   // BOD-01: Siegbild des Grabenangriffs
         : [['Erreicht', 'Welle ' + welle + (welle > 1 ? ' (' + (welle - 1) + ' überstanden)' : '')], ['Zeit', e ? fmtTime(e.zeit) : '–']];
       let ly = y + 50;
       for (const [k, v] of rows) { R.text(ctx, k, x + 30, ly, { color: PAL.panelLight }); R.text(ctx, String(v), x + bw - 30, ly, { color: PAL.star, align: 'right' }); ly += 12; }

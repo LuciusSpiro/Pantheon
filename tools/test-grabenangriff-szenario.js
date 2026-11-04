@@ -168,13 +168,14 @@ section('Ziel: die Sprengung im Reaktorraum; der alte Bunkereingang-Anker ist st
   faellen(g, S.ids[1]);
   ticks(g, 1);
   ok(S.ziel === 'gesperrt' && lebend(aw).length === g.arena.wellen.gesamt - S.ids[1].length, 'Welle 1 besiegt, Welle 2 steht: Stufe gesperrt');
+  ok(/Erst die Verteidiger/.test(aw.ankerSperre[sp] || ''), 'der Sprengpunkt ist gesperrt (ankerSperre: ' + aw.ankerSperre[sp] + ')');
   aufZiel(g, g.players[0], K); g.handleMessage(cs[0], { t: 'act', down: true }); ticks(g, 4); g.handleMessage(cs[0], { t: 'act', down: false });
   ok(Anker.zustand(g, S.lp, z) === 'frei' && S.ziel === 'gesperrt', 'Halten am alten Anker (4 s) bewirkt nichts');
   ok(/Rom besiegen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
-  // Welle 2 besiegt: Zielzeile „Sprengladung zünden“ (der Sprengpunkt selbst war nie gesperrt, der alte Anker bleibt still)
+  // Welle 2 besiegt: Zielzeile „Sprengladung zünden“ (die Sperre des Sprengpunkts fällt, der alte Anker bleibt still)
   faellen(g, S.ids[2]);
   ticks(g, 1);
-  ok(S.ziel === 'offen' && aw.ankerSperre[z], 'Welle 2 besiegt: Stufe offen, der alte Anker bleibt still');
+  ok(S.ziel === 'offen' && aw.ankerSperre[z] && !aw.ankerSperre[sp], 'Welle 2 besiegt: Stufe offen, Sprengpunkt frei, der alte Anker bleibt still');
   ok(objektiv(g) === 'Sprengladung im Reaktorraum zünden', 'Zielzeile: ' + objektiv(g));
   const l2 = []; Anker.interactionsAt(g, g.players[0], zielTile(K).x, zielTile(K).y, l2);
   ok(l2.length && l2.every((i) => i.blocked), 'am alten Anker weiter nur der Hinweis');

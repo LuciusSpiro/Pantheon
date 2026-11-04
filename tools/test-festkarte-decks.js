@@ -80,6 +80,18 @@ section('Zwei-Deck-Karte: Prüfer (K-DECK allgemein)', () => {
   const k3 = clone(K2); k3.anker = k3.anker.filter((q) => q.id !== 't.lift.unten');
   const p3 = Buehne.pruefen(k3);
   ok(!p3.ok && p3.fehler.some((f) => f.code === 'K-DECK' && /steht kein lift-Anker/.test(f.msg)), 'Gegenstück-Anker fehlt: K-DECK (' + (p3.fehler.find((f) => f.code === 'K-DECK') || {}).msg + ')');
+  // Negativ: Grenzzeilen zwischen den Decks (letzte Zeile oben, erste Zeile unten) müssen fest UND sichtsperrend sein
+  const stride3 = K2.decks.stride;
+  for (const [y, was] of [[stride3, 'erste Zeile Deck 1'], [stride3 - 1, 'letzte Zeile Deck 0']]) {
+    const kg = clone(K2); kg.rows[y] = kg.rows[y].slice(0, 5) + ',' + kg.rows[y].slice(6);
+    const pg = Buehne.pruefen(kg);
+    ok(!pg.ok && pg.fehler.some((f) => f.code === 'K-DECK' && /Grenzzeile/.test(f.msg)), `begehbare Grenzzeile (${was}) wird abgewiesen: ` + ((pg.fehler.find((f) => /Grenzzeile/.test(f.msg)) || {}).msg || '-'));
+  }
+  // Lückenzeile (zwischen den Decks, gefüllt mit _): eine begehbare Kachel darin wird ebenfalls abgewiesen
+  { const kl = clone(K2); kl.h++; kl.rows.splice(stride3, 0, '_'.repeat(kl.w)); kl.decks.stride = stride3 + 1; kl.anker.forEach((q) => { if (q.y >= stride3) q.y++; }); kl.decks.links.forEach((l) => { for (const e of [l.a, l.b]) if (e[1] >= stride3) e[1]++; });
+    const gut = Buehne.pruefen(kl); ok(!gut.fehler.some((f) => /Grenzzeile/.test(f.msg)), 'Lückenzeile aus _: keine Grenzzeilen-Meldung');
+    kl.rows[stride3] = kl.rows[stride3].slice(0, 7) + ',' + kl.rows[stride3].slice(8);
+    const pl = Buehne.pruefen(kl); ok(pl.fehler.some((f) => /Grenzzeile/.test(f.msg)), 'begehbare Kachel in der Lückenzeile wird abgewiesen'); }
   // Negativ: beide Enden im selben Deck (Bau weist ab)
   let fehler = null; try { GenFest.karteRoh(zweiDeckDef([{ a: 't.lift.oben', b: 't.leiter.oben', via: 'lift' }])); } catch (e) { fehler = e.message; }
   ok(fehler && /Rolle lift|selben Deck/.test(fehler), 'Link mit zwei Oberflächen-Enden wird beim Bau abgewiesen (' + (fehler || '').slice(0, 60) + ')');

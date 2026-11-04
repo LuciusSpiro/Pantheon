@@ -51,6 +51,7 @@ section('B4 Wellen: aktive Welle, Zielregel in einer Funktion, Zielzeile, Neubeg
   const fall = (ids) => { for (const e of aw.drones) if (ids.includes(e.id)) for (let i = 0; i < 12 && e.alive; i++) combat.hitEnemy(g, e, 99, { x: e.x - 40, y: e.y }); };
   fall(S.ids[1]); ticks(g, 1);
   ok(S.n === 2 && S.ziel === 'gesperrt', 'Welle 1 besiegt: aktive Welle 2, Ziel gesperrt');
+  ok(g.snapshot().wellen.n === 2 && /Erst die Verteidiger/.test(g.aways[S.lp].ankerSperre[S.zielId] || ''), 'Snapshot-Block zeigt die aktive Welle 2, Sprengpunkt gesperrt');
   fall(S.ids[2]); ticks(g, 1);
   ok(S.n === 3 && S.ziel === 'offen', 'Welle 2 besiegt: aktive Welle 3 (Bunker lebt), das Ziel öffnet trotzdem (Zielregel wie bisher: Oberfläche)');
   ok(welle(3).every((e) => e.alive), 'Welle 3 lebt');
@@ -158,17 +159,17 @@ section('C4 Rohr: Gegner im Kriechgang erreichen die Oberfläche nicht über das
   const s0 = squadsVon(3)[0]; s0.deckBindung = 0;
   const f = welle(3)[1]; const cc = Physics.tileCenter(ru.x, ru.y); f.x = cc.x; f.y = cc.y; f.squad = s0.name;
   const ziel = { x: ro.x + 2, y: ro.y };
-  const pfad = squad.gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
+  const pfad = squad._gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
   ok(pfad === null, 'Bindung Deck 0, Gegner im Kriechgang: kein Pfad nach oben, das Rohr nimmt er nie (obwohl das Deck erlaubt wäre)');
   const lu = anker(K, 'bunker.lift.unten'), cl = Physics.tileCenter(lu.x - 1, lu.y); f.x = cl.x; f.y = cl.y;
-  const pfad2 = squad.gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
+  const pfad2 = squad._gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
   ok(pfad2 && pfad2.some((st) => st.via === 'lift') && !pfad2.some((st) => st.via === 'leiter'), 'Bindung Deck 0, Gegner im Liftraum: der Pfad nach oben führt über den Lift (' + (pfad2 ? pfad2.filter((st) => st.via).map((st) => st.via).join() : 'kein Pfad') + ')');
   f.x = cc.x; f.y = cc.y;
   s0.deckBindung = 1;
-  ok(squad.gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel) === null, 'Bindung Deck 1: kein Weg zu einem Ziel auf Deck 0');
+  ok(squad._gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel) === null, 'Bindung Deck 1: kein Weg zu einem Ziel auf Deck 0');
   // Trupp ohne Bindung: unverändert alle Links (Lift und Rohr)
   delete s0.deckBindung;
-  const frei = squad.gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
+  const frei = squad._gegnerWeg(g, E, f, E.walk, tile(f), (x, y) => x === ziel.x && y === ziel.y, ziel);
   ok(frei && frei.some((st) => st.via), 'Trupp ohne Bindung: Pfad über die Deck-Links wie bisher (' + (frei ? frei.filter((st) => st.via).map((st) => st.via).join() : 'kein Pfad') + ')');
 });
 
