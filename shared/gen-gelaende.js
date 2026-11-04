@@ -80,11 +80,12 @@
 
   function normiere(seed, opts) {
     opts = opts || {};
-    seed = seed | 0;
+    seed = seed | 0;   // bewusst: 32-Bit-Wrap (Seeds ab 2^31 oder negativ wirken als vorzeichenbehaftete Ganzzahl); gleiche Eingabe, gleiche Karte
     const gr = GROESSEN[opts.groesse] ? opts.groesse : 'mittel';
     const grIdx = ['klein', 'mittel', 'gross'].indexOf(gr);
-    const biom = BIOME.includes(opts.biom) ? opts.biom : BIOME[Math.floor(hash2(seed, 11, 0x51) * BIOME.length)];   // 'auto' oder unbekannt: aus dem Seed
-    const dichte = clamp(opts.dichte == null || isNaN(+opts.dichte) ? 0.5 : +opts.dichte, 0, 1);
+    const biomIn = typeof opts.biom === 'string' ? opts.biom.trim().toLowerCase() : null;   // 'Vulkan' wie 'vulkan'; leer/unbekannt/'auto': aus dem Seed
+    const biom = BIOME.includes(biomIn) ? biomIn : BIOME[Math.floor(hash2(seed, 11, 0x51) * BIOME.length)];   // 'auto' oder unbekannt: aus dem Seed
+    const dichte = clamp(opts.dichte == null || String(opts.dichte).trim() === '' || isNaN(+opts.dichte) ? 0.5 : +opts.dichte, 0, 1);   // '' = nicht angegeben (Standard), nicht 0
     const fundorte = opts.fundorte != null ? clamp(Math.round(+opts.fundorte) || 2, 2, 4) : 2 + Math.floor(hash2(seed, 12, 0x52) * 3);
     let gegner;
     if (opts.gegner === 'keine') gegner = 0;

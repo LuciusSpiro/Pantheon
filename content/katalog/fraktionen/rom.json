@@ -49,11 +49,13 @@
     "wache": [
       "station",
       "aussenposten",
+      "wildnis",
       "hand"
     ],
     "sturmtrupp": [
       "station",
-      "aussenposten"
+      "aussenposten",
+      "wildnis"
     ]
   },
   "funkstil": "knapp und befehlend, Rang und Pflicht; Latein nur als Losung, nie als Schnörkel"

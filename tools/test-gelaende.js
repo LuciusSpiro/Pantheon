@@ -82,6 +82,10 @@ abschnitt('a) Determinismus (Kriterium 1)');
   const d0 = bau(seedVon(5), 'wiesenwald', 'mittel', { dichte: 0 }), d1 = bau(seedVon(5), 'wiesenwald', 'mittel', { dichte: 1 });
   const hindernisse = (k) => k.rows.join('').replace(/:/g, '').length;
   ok(hindernisse(d1.karte) > hindernisse(d0.karte), `opts.dichte wirkt (Nicht-Boden-Kacheln: dichte 0 -> ${hindernisse(d0.karte)}, dichte 1 -> ${hindernisse(d1.karte)})`);
+  // normiere: leere Dichte = Standard (nicht 0), Biom ohne Rücksicht auf Groß-/Kleinschreibung und Leerraum
+  const std = bau(seedVon(6), 'wiesenwald', 'klein'), leer = bau(seedVon(6), 'wiesenwald', 'klein', { dichte: '' }), gross = bau(seedVon(6), 'WiesenWald ', 'klein');
+  ok(hashVon(std.karte) === hashVon(leer.karte), "opts.dichte '' = nicht angegeben (Standard 0.5), nicht 0");
+  ok(hashVon(std.karte) === hashVon(gross.karte) && gross.karte.meta.biom === 'wiesenwald', "opts.biom 'WiesenWald ' wie 'wiesenwald' (Schreibung/Leerraum normiert)");
 }
 
 // ---------------------------------------------------------------- b) Prüfer-Sweep und unabhängige Erreichbarkeit

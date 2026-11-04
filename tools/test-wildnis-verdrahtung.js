@@ -82,6 +82,25 @@ let karte;
   for (let s = 1; s <= 24; s++) { const i = LP.neu(g2, 'kesh', { art: 'wildnis', seed: s * 37, gen: { biom: Gelaende.BIOME[s % 3], groesse: ['klein', 'mittel', 'gross'][s % 3] } }); try { LP.karte(g2, i); } catch (x) { fehl++; } }
   ok(fehl === 0, '24 Wildnis-Landepunkte (alle Biome/Größen) bauen ohne Fehler');
 }
+// Befund 3: Würfe des Erzeugers zählen wie Prüferfehler (Seed + 1, bis zu 6 Versuche), danach Fehler
+abschnitt('Erzeuger wirft: Seed + 1');
+{
+  const echt = Gelaende.erzeuger();
+  try {
+    let aufrufe = [];
+    LP.wildnisErzeugerSetzen(() => ({ karteRoh(seed, o) { aufrufe.push(seed); if (aufrufe.length <= 2) throw new Error('Test-Wurf'); return echt.karteRoh(seed, o); } }));
+    LP.cacheLeeren('wildnis');
+    const gw = fakeGame(); const i1 = LP.neu(gw, 'kesh', { art: 'wildnis', seed: 600 }); W.unregister(i1);
+    const k1 = LP.karte(gw, i1);
+    ok(k1 && k1.meta.versuche === 3 && k1.meta.seedStart === 600 && aufrufe.join() === '600,601,602', 'Wurf bei Seed 600/601: dritter Versuch (Seed 602) baut die Karte (' + aufrufe.join() + ')');
+    aufrufe = [];
+    LP.wildnisErzeugerSetzen(() => ({ karteRoh(seed) { aufrufe.push(seed); throw new Error('Dauerwurf'); } }));
+    LP.cacheLeeren('wildnis');
+    const gz = fakeGame(); const i2 = LP.neu(gz, 'kesh', { art: 'wildnis', seed: 700 }); W.unregister(i2);
+    let msg = ''; try { LP.karte(gz, i2); } catch (x) { msg = x.message; }
+    ok(aufrufe.length === 6 && /6 Versuche gescheitert/.test(msg) && /Dauerwurf/.test(msg), 'Dauerwurf: 6 Versuche, dann Fehler mit Ursache (' + aufrufe.length + ' Versuche)');
+  } finally { LP.wildnisErzeugerSetzen(null); LP.cacheLeeren('wildnis'); }
+}
 
 // ---------------- Nachweis b): Weltstand ----------------
 abschnitt('Weltstand: Karte aus art+seed+besitz+zustand+Ort allein');
@@ -123,6 +142,19 @@ abschnitt('Weltstand: Karte aus art+seed+besitz+zustand+Ort allein');
     const gC = fakeGame(); let geloggt = ''; gC.log = (t) => { geloggt += t; };
     LP.restore(blk, gC); LP.get(gC, lpR);
     ok(/bauversion gelaende\.0\[alt\]/.test(geloggt) && LP.eintrag(gC, lpR).bauversion === kR.bauversion, 'bauversion-Wechsel (Generator): Karte neu gebaut, Logbuch');
+    // Befund 2: Wechsel der bauversion verwirft die gespeicherten Anker-Zustände der Wildnis (Ordnungs-IDs wären sonst an anderer Stelle)
+    const fundId = kR.anker.find((a) => a.rolle === 'fund').id;
+    ok(blk[lpR].zustaende && blk[lpR].zustaende[fundId] === 'genommen', 'Ausgangslage: gespeicherter Zustand genommen');
+    ok(!Object.keys(gC.aways[lpR].zustaende).some((z) => z === fundId) && !Object.keys(LP.eintrag(gC, lpR).zustaende || {}).length && /neue Karte = neue Funde/.test(geloggt) && /1 Zustände verworfen/.test(geloggt), 'bauversion-Wechsel: Wildnis-Zustände verworfen (Laufzeit und Eintrag), Logbuch nennt es');
+    const gD = fakeGame(); LP.restore(klon(blockR), gD); LP.get(gD, lpR);
+    ok(gD.aways[lpR].zustaende[fundId] === 'genommen' && LP.eintrag(gD, lpR).zustaende[fundId] === 'genommen', 'ohne Wechsel der bauversion bleiben die Zustände');
+    // Biom-Wechsel nach dem ersten Besuch (Welt-JSON nachträglich geändert) = andere Karte -> Zustände verworfen
+    const wechsel = Gelaende.BIOME.find((b) => b !== 'vulkan');
+    mitBiomen({ kesh: wechsel }, () => {
+      const gE = fakeGame(); let lg = ''; gE.log = (t) => { lg += t; };
+      LP.restore(klon(blockR), gE); LP.get(gE, lpR);
+      ok(W.AWAY_MAPS[lpR].karte.meta.biom === wechsel && !Object.keys(gE.aways[lpR].zustaende).length && /neue Karte = neue Funde/.test(lg), 'Biom-Wechsel (Welt-Eintrag) nach dem Speichern: neue Karte, Zustände verworfen, Logbuch');
+    });
   });
   // Testgelände landet nie im Weltstand
   const gT = fakeGame(); const t = LP.testgelaende(gT, { art: 'wildnis', seed: 3 }); LP.get(gT, t);
@@ -222,6 +254,24 @@ abschnitt('Szenenbau-Probe');
     ok(r.errors.length > 0, 'Gegenprobe: Umsetzung nur für station -> Wildnis wird abgelehnt (' + r.errors.join(' | ').slice(0, 100) + ')');
   }
   {
+    // Befund 1: Besetzung auf der Wildnis (Katalog: einsatz kennt wildnis bei den aussenposten-Rezepten)
+    const { env } = mitBraucht({ kartenarten: ['wildnis'], anker: ['fund'] });
+    const p = plan([{ id: 's2_wild', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'wildnis', neu: true }, besetzung: [{ fraktion: 'raubzug', staerke: 'klein' }] }]);
+    const r = SB.aufloesen(p, env, ctx);
+    ok(!r.errors.some((x) => /^FRAKTION/.test(x)) && !r.errors.length, 'Szene wildnis + besetzung raubzug klein: kein FRAKTION-Problem (' + r.errors.join(' | ').slice(0, 160) + ')');
+    const pb = Katalog.pruefeBesetzung([{ fraktion: 'raubzug', staerke: 'klein' }, { fraktion: 'rostmeute', staerke: 'mittel' }], { katalog, kartenart: 'wildnis' });
+    ok(!pb.fehler.length, 'pruefeBesetzung(wildnis): raubzug und rostmeute zulässig');
+    const kustoden = Katalog.pruefeBesetzung([{ fraktion: 'kustoden', staerke: 'klein' }], { katalog, kartenart: 'wildnis' });
+    ok(kustoden.fehler.some((x) => x.code === 'FRAKTION'), 'Gegenprobe: kustoden (Rezept nur hand/ruine) hat auf der Wildnis kein Rezept -> FRAKTION');
+    const ohneWildnis = klon(katalog); for (const rz of Object.keys(ohneWildnis.fraktionen.raubzug.einsatz)) ohneWildnis.fraktionen.raubzug.einsatz[rz] = ohneWildnis.fraktionen.raubzug.einsatz[rz].filter((a) => a !== 'wildnis');
+    ok(Katalog.pruefeBesetzung([{ fraktion: 'raubzug', staerke: 'klein' }], { katalog: ohneWildnis, kartenart: 'wildnis' }).fehler.some((x) => x.code === 'FRAKTION'), 'Gegenprobe: ohne wildnis im einsatz meldet pruefeBesetzung FRAKTION');
+    // Invariante: je Fraktion gilt auf wildnis genau, was auf aussenposten gilt
+    const abw = [];
+    for (const [fid, f] of Object.entries(katalog.fraktionen)) for (const rz of Object.keys(f.rezepte || {})) { const e = (f.einsatz || {})[rz]; if (!e) { abw.push(fid + '/' + rz + ' ohne einsatz'); continue; } if (e.includes('aussenposten') !== e.includes('wildnis')) abw.push(fid + '/' + rz); }
+    ok(!abw.length, 'Katalog: wildnis steht genau bei den aussenposten-Rezepten, jedes Rezept hat einen einsatz (' + abw.join(', ') + ')');
+    ok(require('../content/katalog/schema/fraktion.schema.json').properties.einsatz.additionalProperties.items.enum.includes('wildnis'), 'Fraktions-Schema: einsatz-Enum kennt wildnis');
+  }
+  {
     const { env } = mitBraucht({ kartenarten: ['wildnis'], anker: ['fund'] });
     const p = plan([{ id: 's2_x', ort: 'kesh', szenentyp: 'erkundung', buehne: { kartenart: 'hoehle', neu: true } }]);
     ok(codes(SB.aufloesen(p, env, ctx)).has('BUEHNE-ART'), 'unbekannte Kartenart meldet weiter BUEHNE-ART');
@@ -262,6 +312,17 @@ abschnitt('Besetzung und Start (Testgelände über Arena)');
   ok(lager.length >= 1 && gesamt > 0 && gm.away.drones.length === gesamt && imLager.every(Boolean), 'besetzen je Lager-Bereich: ' + gesamt + ' Gegner in ' + lager.length + ' Lagern, alle im Bereich (wache je Lager ' + JSON.stringify(wacheJe) + ')');
   const ohneBereich = Combat.besetzen(gm, { map, fraktion: 'raubzug', staerke: 'mittel', tag: 't_alle' });
   ok(ohneBereich > 0, 'besetzen ohne Bereich nimmt die Gefechtsbereiche (' + ohneBereich + ' Gegner)');
+  {
+    // Befund 1: nur Rezepte, die für aussenposten gelten, nie Schiffs-/Stationsrezepte (enterrotte, schiffswache, keil)
+    const kat = Katalog.load({}); const verboten = ['enterrotte', 'schiffswache', 'keil']; const bes = [];
+    for (const fr of ['raubzug', 'kontor', 'rostmeute', 'rom', 'ger', 'herrenlos', 'hrafnheim_wache']) {
+      for (let t = 0; t < 6; t++) Combat.besetzen(gm, { map, bereich: lager[0], fraktion: fr, staerke: 'gross', tag: 'r_' + fr + t });
+      for (const [tag, b] of Object.entries(gm.away.besetzt)) if (tag.startsWith('r_' + fr)) for (const rz of b.rezepte) bes.push([fr, rz]);
+    }
+    const falsch = bes.filter(([fr, rz]) => verboten.includes(rz) || !(kat.fraktionen[fr].einsatz[rz] || []).includes('aussenposten'));
+    ok(bes.length > 20 && !falsch.length, 'besetzen auf der Wildnis: ' + bes.length + ' Rezepte, alle aussenposten-Rezepte, keine Schiffsrezepte (' + falsch.map((x) => x.join('/')).join(', ') + ')');
+    ok(bes.some(([fr, rz]) => fr === 'raubzug' && (rz === 'jaeger' || rz === 'sturm')) && !bes.some(([fr, rz]) => fr === 'raubzug' && rz === 'keil'), 'raubzug: jaeger/sturm ja, keil nie');
+  }
   ok((k.patrouillen || []).length > 0, 'Patrouillenwege aus den patrouille-Ankern kompiliert (' + (k.patrouillen || []).length + ')');
   for (let i = 0; i < 300; i++) gm.step();
   ok(gm.errors === 0 && gm.away.drones.filter((d) => d.alive).length > 0, 'nach 10 s Spielzeit: keine Serverfehler, Gegner leben (' + gm.away.drones.filter((d) => d.alive).length + ')');

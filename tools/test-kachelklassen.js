@@ -1,6 +1,6 @@
 'use strict';
 // GEL-01 Paket C: zwei neue Kachelklassen mit Varianten, nur aus content/buehnen/kacheln.json gesteuert (kein Sonderfall im Servercode).
-//   schleier (Variante strauch, Zeichen b): keine Kollision, sperrt die Sicht, keine Deckung
+//   schleier (Variante strauch, Zeichen s): keine Kollision, sperrt die Sicht, Deckungswert 0
 //   fluessig (Varianten wasser a, lava v): für Spieler und Gegner unpassierbar, kein Schaden, Sicht und Schüsse frei, keine Deckung, Kante fest
 // Nachweise auf kleinen handgebauten Karten (Buehne.ausRaster mit { spiel: true }): Prüfer (K-ERREICHBAR, K-ANKER-WAND), Server-Sicht und
 // -Schussstopp (combat.env), Bewegung im Spiel, Gegner-Weg (bfs), echter Gegnerschuss. Dazu Konsistenz von kacheln.json und die Client-Tabellen
@@ -144,7 +144,7 @@ console.log('\n[Server-Regeln: solid, Sicht, Schussstopp, Deckung (combat.env, w
   ok(!E.solid(10, 6) && E.blocked(10, 6) === true && E.shotBlocked(10, 6) === true, 'Strauch: solid false, blocked true, shotBlocked true (IST: awayShotBlock = Sicht oder Fenster, der Strauch stoppt auch Schüsse)');
   ok(sicht([8, 6], [9, 6]) && !sicht([8, 6], [12, 6]) && !sicht([12, 6], [8, 6]) && sicht([8, 5], [12, 5]), 'Strauch: Sicht durch die Kachel gesperrt (beidseitig), daneben frei');
   ok(!schussFrei([8, 6], [12, 6]) && schussFrei([8, 5], [12, 5]), 'Strauch: ein Schuss durch die Kachel wird gestoppt (Ist-Verhalten, wird nicht geändert)');
-  ok(deck([8, 6], [12, 6], false) === 0 && deck([8, 6], [12, 6], true) === 0, 'Strauch: keine Deckung (auch nicht geduckt)');
+  ok(deck([8, 6], [12, 6], false) === 0 && deck([8, 6], [12, 6], true) === 0, 'Strauch: Deckungswert 0, Schuss wird aber gestoppt (Ist-Verhalten wie Rohr `r`; Entscheidung bei Kai offen)');
   for (const [ch, x] of [[WASSER, 15], [LAVA, 20]]) {
     ok(E.solid(x, 6) === true && E.blocked(x, 6) === false && E.shotBlocked(x, 6) === false, `${ch === WASSER ? 'Wasser' : 'Lava'}: solid true, blocked false, shotBlocked false`);
     ok(sicht([x - 2, 6], [x + 2, 6]) && schussFrei([x - 2, 6], [x + 2, 6]), `${ch === WASSER ? 'Wasser' : 'Lava'}: Sicht und Schuss gehen hindurch`);

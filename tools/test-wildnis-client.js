@@ -84,11 +84,17 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
 
   abschnitt('Bodenbewuchs: Determinismus und Grenzen');
   const kindAtVon = (k) => (x, y) => { const c = k.rows[y] && k.rows[y][x]; return c ? (kacheln[c] || {}).kind : null; };
-  const streu = (k, seed) => D.streuenWildnis({ w: k.w, h: k.h, seed: seed != null ? seed : k.seed, art: 'wildnis', boden: k.meta.boden, kindAt: kindAtVon(k), anker: k.anker });
+  // Echter Spielweg: der Server schickt für die Wildnis kein `seed` (nur kv = Game.kartenVersion), der Client leitet den Bewuchs-Seed in kit.js ab:
+  // seed = fnv(String(m.id || 'karte') + ':' + (m.kv || '')). Gleiche Ableitung hier (fnv wie in kit.js), nicht k.seed.
+  ok(/const seed = m\.seed != null \? \(m\.seed >>> 0\) : fnv\(String\(m\.id \|\| 'karte'\) \+ ':' \+ \(m\.kv \|\| ''\)\);/.test(kit) && /for \(const dd of streuenWildnis\(\{ w: k\.w, h: k\.h, seed: k\.seed,/.test(kit), 'kit.js: Bewuchs-Seed = fnv(id:kv) (m.seed nur mit Kulisse), streuenWildnis bekommt k.seed');
+  const fnv = (str) => { let h = 0x811c9dc5; for (let i = 0; i < str.length; i++) { h ^= str.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  ok(/function fnv\(str, h\) \{\n  h = h == null \? 0x811c9dc5 : h;\n  for \(let i = 0; i < str\.length; i\+\+\) \{ h \^= str\.charCodeAt\(i\); h = Math\.imul\(h, 16777619\); \}\n  return h >>> 0;/.test(kit.replace(/\r\n/g, '\n')), 'kit.js: fnv wie in diesem Test nachgebildet');
+  const spielSeed = (k) => fnv(String(k.id || 'karte') + ':' + (Game.kartenVersion(k) || ''));
+  const streu = (k, seed) => D.streuenWildnis({ w: k.w, h: k.h, seed: seed != null ? seed : spielSeed(k), art: 'wildnis', boden: k.meta.boden, kindAt: kindAtVon(k), anker: k.anker });
   const ZEICHEN_ERLAUBT = new Set('F:oOvsaY'.split(''));
   const IDS = { wueste: ['gras', 'kiesel', 'kaktus'], wiesenwald: ['gras', 'blume'], vulkan: ['asche', 'kiesel', 'glut'] };
   for (const { biom, seed, k } of karten) {
-    const a = streu(k), b = streu(k), c = streu(k, k.seed + 1);
+    const a = streu(k), b = streu(k), c = streu(k, spielSeed(k) + 1);
     ok(a.length > 0 && JSON.stringify(a) === JSON.stringify(b), `${biom}/${seed}: gleiche Eingabe, gleiche Streuung (${a.length} Einträge)`);
     ok(JSON.stringify(a) !== JSON.stringify(c), `${biom}/${seed}: anderer Seed, andere Streuung`);
     const kd = kindAtVon(k), ank = k.anker;
@@ -137,7 +143,9 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
     const k = W.AWAY_MAPS[gm.away && gm.away.map] && W.AWAY_MAPS[gm.away.map].karte;
     const G2 = Gelaende.GROESSEN[groesse];
     ok(k && k.art === 'wildnis' && k.meta.biom === biom && k.meta.boden === boden && k.w === G2.w && k.h === G2.h, `Testgelände ?biom=${biom}&groesse=${groesse}: Karte ${k && k.w}x${k && k.h}, meta.biom ${k && k.meta.biom}, boden ${k && k.meta.boden}`);
-    ok(k && /^gelaende\.2\[/.test(k.bauversion), 'bauversion der Karte: gelaende.2[…] (VERSION angehoben, Cache-Invalidierung)');
+    ok(k && k.bauversion.startsWith('gelaende.' + Gelaende.VERSION + '['), 'bauversion der Karte: gelaende.' + Gelaende.VERSION + '[…] (Erzeuger-VERSION, Cache-Invalidierung)');
+    const pl = gm.awayMapPayload(k);
+    ok(pl && pl.seed === undefined && pl.kv === Game.kartenVersion(k), 'awayMap-Nachricht der Wildnis: kein seed (nur kv): der Client-Bewuchs-Seed kommt aus id:kv');
     ok(gm.arena && gm.arena.params && gm.arena.params.biom === biom, 'game.arena.params merkt biom (Anzeige/Folgeläufe)');
     ok(gm.errors === 0, 'keine Serverfehler beim Start');
   }

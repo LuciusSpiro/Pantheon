@@ -108,6 +108,8 @@ function siedlungWelt() {
 function biomeWelt() {
   try { const Wt = require('./welt.js'); const k = Wt.karte(Wt.kartenId()); return (k && k.biome) || {}; } catch (x) { return {}; }
 }
+// ACHTUNG: Welt-Biome dürfen nur VOR dem ersten Besuch gesetzt/geändert werden. Ein späterer Wechsel (oder eine neue Erzeuger-VERSION)
+// ändert die Karte; mitZustaenden() verwirft dann die gespeicherten Anker-Zustände dieser Wildnis (neue Karte = neue Funde, Log).
 function biomVonOrt(ort) {
   const b = ort ? biomeWelt()[ort] : null;
   return GenGelaende.BIOME.includes(b) ? b : 'auto';
@@ -155,6 +157,10 @@ function genBauen(lpId, e) {
   const err = new Error(`Generator ${lpId} ab Seed ${e.seed | 0}: 6 Versuche gescheitert (${letzte.fehler.slice(0, 3).map((f) => f.code + ' ' + f.msg).join('; ')})`);
   err.fehler = letzte.fehler; throw err;
 }
+// Erzeuger der Wildnis; nur der Test tauscht ihn (wildnisErzeugerSetzen), um Würfe zu provozieren
+let wildnisErzeugerFn = null;
+function wildnisErzeuger() { return wildnisErzeugerFn ? wildnisErzeugerFn() : GenGelaende.erzeuger(); }
+function wildnisErzeugerSetzen(fn) { wildnisErzeugerFn = fn || null; }
 // GEL-01 B: Wildnis (shared/gen-gelaende.js). Wie genBauen: scheitert der Prüfer, Seed + 1, bis zu 6 Versuche.
 function wildnisBauen(lpId, e) {
   const v = wildnisVorgaben(lpId, e);
@@ -162,7 +168,10 @@ function wildnisBauen(lpId, e) {
   let letzte = null;
   for (let i = 0; i < 6; i++) {
     const seed = (e.seed | 0) + i;
-    const r = Buehne.ausRaster(GenGelaende.erzeuger().karteRoh(seed, o), { spiel: true });
+    let roh;
+    try { roh = wildnisErzeuger().karteRoh(seed, o); }
+    catch (x) { letzte = { fehler: [{ code: 'GEN', msg: String(x.message) }] }; continue; }   // Wurf des Erzeugers wie ein Prüferfehler: nächster Seed
+    const r = Buehne.ausRaster(roh, { spiel: true });
     if (r.pruefung.ok) { r.karte.meta.versuche = i + 1; r.karte.meta.seedStart = e.seed | 0; return r.karte; }
     letzte = r;
   }
@@ -181,9 +190,13 @@ function uebernehmen(e, roh) {
 // Gespeicherte Zustände auf eine eigene Kopie anwenden; Unbekanntes verwerfen. alt = bauversion vor dem Neubau (Logbuch).
 function mitZustaenden(game, lpId, e, roh, alt) {
   const karte = JSON.parse(JSON.stringify(roh));
-  const verworfen = Buehne.zustaendeAnwenden(karte, e.zustaende || {});
+  // GEL-01 Befund 2: Wildnis-Anker-IDs sind Ordnungsnummern nach y/x; bei anderer Karte (bauversion) säße fund.1 woanders und „genommen“
+  // spränge auf einen nie geborgenen Fundort. Neue Karte = neue Funde: gespeicherte Zustände dieser Karte werden nicht übertragen.
+  const wildnisNeu = e.art === 'wildnis' && !!alt && alt !== roh.bauversion;
+  const verworfen = wildnisNeu ? Object.keys(e.zustaende || {}) : Buehne.zustaendeAnwenden(karte, e.zustaende || {});
+  if (wildnisNeu && e.zustaende) e.zustaende = {};
   if (alt && alt !== roh.bauversion) {
-    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen`);
+    log(game, `${lpId}: bauversion ${alt} -> ${roh.bauversion}, Karte neu gebaut (Seed ${roh.seed}); ${verworfen.length} Zustände verworfen${wildnisNeu ? ' (Wildnis: neue Karte = neue Funde)' : ''}`);
     if (game.mission && typeof game.mission.regieLog === 'function') { try { game.mission.regieLog('landepunkt_neu_gebaut', { lp: lpId, alt, neu: roh.bauversion, verworfen }); } catch (x) { /* */ } }
   }
   if (verworfen.length && e.zustaende) for (const k of verworfen) delete e.zustaende[k];
@@ -693,5 +706,5 @@ module.exports = {
   MAX_GEBAUT, bauweiseFuerBesitz, vorwaermen, defs, neuLaden, get, karte, bauen, vorbauen, vorbauenOrt, verwerfen, liste, waehlen, sperrgrund, beamSpot, betreten, freigeben, neu, prise, priseVerlassen,
   biomVonOrt, nutztGenerator,   // GEL-01 B
   toSave, restore, ankerZahlen, debug, sichern, eintrag, festkarte,   // BOD-01: feste Karten
-  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren,   // F1, F6, F9b
+  bereit, sobaldGeladen, zuruecksetzen, testgelaende, cacheLeeren, wildnisErzeugerSetzen,   // F1, F6, F9b
 };
