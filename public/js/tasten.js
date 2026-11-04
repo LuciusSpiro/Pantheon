@@ -222,7 +222,7 @@
     A('charakter.spind.drehenLinks', 'charakter', 'Spind: Figur nach links drehen', ['KeyQ'], 'charakter.spind'),
     A('charakter.spind.drehenRechts', 'charakter', 'Spind: Figur nach rechts drehen', ['KeyE'], 'charakter.spind'),
 
-    // ------------------------------------------------------------ Boden (AUS-02 B: Waffenslots am Boden; Q/E/C/G/V/R/Tab/Leertaste sind dort fest verdrahtet, nicht umbelegbar)
+    // ------------------------------------------------------------ Boden (AUS-02 B: Waffenslots am Boden; Q/E/C/G/V/R/Tab/Leertaste/Esc sind dort fest verdrahtet und als RESERVIERT_BODEN geführt: setze() lehnt sie für boden.* ab, laden() verwirft Altbelegungen darauf, konflikte('boden') meldet sie)
     A('boden.slot1', 'boden', 'Waffenslot 1 nutzen (Boden)', NUM(1).reverse()),
     A('boden.slot2', 'boden', 'Waffenslot 2 nutzen (Boden)', NUM(2).reverse()),
     A('boden.slot3', 'boden', 'Waffenslot 3 nutzen (Boden)', NUM(3).reverse()),
@@ -268,6 +268,11 @@
   const NACH_ID = {};
   for (const a of AKTIONEN) NACH_ID[a.id] = a;
 
+  // AUS-02 Nacharbeit: feste Bodentasten (client.js, switch (code) am Boden). Der Slot-Zweig steht vor diesem switch und würde sie überdecken (Esc wäre zwar auch über 'allgemein.verlassen' als Konflikt gemeldet,
+  // wird hier aber mit geführt) – darum darf keine Aktion der Gruppe boden auf diese Codes gelegt werden (mit oder ohne Shift). EINE Stelle: neue feste Bodentaste -> hier eintragen.
+  const RESERVIERT_BODEN = ['KeyQ', 'KeyE', 'KeyC', 'KeyG', 'KeyV', 'KeyR', 'Space', 'Tab', 'Escape'];
+  const reserviert = (t) => typeof t === 'string' && RESERVIERT_BODEN.indexOf(t.replace(/^Shift\+/, '')) >= 0;
+
   // ---------------------------------------------------------------- Speicher (nur Abweichungen von std)
   function lsGet() { try { return window.localStorage ? window.localStorage.getItem(SPEICHER) : null; } catch (e) { return null; } }
   function lsSet(v) {
@@ -282,7 +287,12 @@
     eigene = {};
     try {
       const o = JSON.parse(lsGet() || '{}');
-      if (o && typeof o === 'object') for (const id of Object.keys(o)) if (NACH_ID[id] && Array.isArray(o[id])) eigene[id] = o[id].filter(gueltig);
+      if (o && typeof o === 'object') for (const id of Object.keys(o)) if (NACH_ID[id] && Array.isArray(o[id])) {
+        const l = o[id].filter(gueltig);
+        // eine gespeicherte Belegung auf eine feste Bodentaste darf deren Funktion nie überdecken: ganze Altbelegung verwerfen (Standard gilt wieder)
+        if (NACH_ID[id].gruppe === 'boden' && l.some(reserviert)) continue;
+        eigene[id] = l;
+      }
     } catch (e) { eigene = {}; }
   }
   let gespeichert = true;
@@ -392,6 +402,7 @@
     const a = NACH_ID[id];
     if (!a) return false;
     if (code != null && code !== '' && !gueltig(code)) return false;
+    if (a.gruppe === 'boden' && reserviert(code)) return false;   // feste Bodentaste (RESERVIERT_BODEN)
     const b = belegung(id);
     const i = Math.max(0, index | 0);
     if (code == null || code === '') { if (i < b.length) b.splice(i, 1); }
@@ -435,6 +446,8 @@
         aus.push({ taste: t, ids: ids.slice(), bereich: b });
       }
     }
+    // Belegungen der Gruppe boden auf feste Bodentasten (nur möglich, wenn sie am Register vorbei entstanden sind)
+    if (gruppe === 'boden') for (const a of inGruppe) for (const t of belegung(a.id)) if (reserviert(t)) aus.push({ taste: t, ids: [a.id], bereich: '', reserviert: true });
     return aus;
   }
 
@@ -443,7 +456,7 @@
   window.Tasten = {
     AKTIONEN, GRUPPEN, BEREICHE,
     aktion: (id) => NACH_ID[id] || null,
-    passt, slotVon, SLOT_AKTIONEN, welche, loslassen, gehalten, ausEvent,
+    passt, slotVon, SLOT_AKTIONEN, reserviert, RESERVIERT_BODEN, welche, loslassen, gehalten, ausEvent,
     kappe, kappeVon, name,
     belegung, setze, zuruecksetzen, geaendert, konflikte,
     laden, gespeichert: () => gespeichert,

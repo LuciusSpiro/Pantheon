@@ -22,15 +22,25 @@ const WF = 'server/sim/waffen.js', LO = 'server/sim/loadout.js', CB = 'server/si
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // ---- die drei Pflicht-Mutationen
-  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + sperre);\n", "  waffeAnlegen(game, p, id); p.bereitAt = Math.max(z.bereitAt, t + sperre);\n", 'waffeWechseln ruft waffeAnlegen (Hitze-Reset, Sperre weg)'],
-  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + sperre);\n", "  p.bereitAt = z.bereitAt;\n", 'bereitAt nicht gesetzt (Wechsel ohne Wechselzeit)'],
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  waffeAnlegen(game, p, id); p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", 'waffeWechseln ruft waffeAnlegen (Hitze-Reset, Sperre weg)'],
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  p.bereitAt = z.bereitAt;\n", 'bereitAt nicht gesetzt (Wechsel ohne Wechselzeit)'],
   [WF, "    S[p.waffe] = { hitze: p.hitze || 0,", "    const nichtAbgelegt = { hitze: p.hitze || 0,", 'Zustand je Waffe nicht abgelegt'],
   // ---- weitere Regeln des Wechsels
-  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + sperre);\n", "  p.bereitAt = t + sperre;\n", 'bereitAt der Zielwaffe ignoriert die abgelegte Kadenz (Kadenz-Exploit)'],
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  p.bereitAt = t + wechselzeit;\n", 'bereitAt der Zielwaffe ignoriert die abgelegte Kadenz (Kadenz-Exploit)'],
   [WF, "    unterbrechen(game, p, 'wechsel');\n", "", 'Wechsel bricht Laden/Ausholen nicht ab'],
   [WF, "  if (p.waffe === id) return null;\n  const t = now(game);", "  const t = now(game);", 'gleiche Waffe ist kein No-op (Preis ohne Wechsel)'],
-  [WF, "const sperre = Math.max(0, Number(ac(game).wechselzeit) || 0);", "const sperre = 0;", 'Wechselzeit ohne Wirkung (Config ignoriert)'],
-  [WF, "emit(game, 'loadout', { pid: p.id, waffe: id, sperre });", "emit(game, 'loadout', { pid: p.id, waffe: id });", 'Ereignis loadout ohne Feld sperre'],
+  [WF, "const wechselzeit = Math.max(0, Number(ac(game).wechselzeit) || 0);", "const wechselzeit = 0;", 'Wechselzeit ohne Wirkung (Config ignoriert)'],
+  [WF, "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });", "emit(game, 'loadout', { pid: p.id, waffe: id });", 'Ereignis loadout ohne Feld sperre'],
+  [WF, "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });", "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: wechselzeit });", 'Ereignis loadout meldet nur die Wechselzeit statt der wirksamen Restzeit'],
+  [WF, "p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);", "p.bereitAt = Math.max(z.bereitAt, t + wechselzeit); for (const q of game.players) if (q !== p) q.hitze = 0;", 'Wechsel verändert andere Spieler (Hitze)'],
+  [WF, "Object.defineProperty(p, 'waffenZustand', { value: {},", "Object.defineProperty(p, 'waffenZustand', { value: waffenZustandLeeren.geteilt || (waffenZustandLeeren.geteilt = {}),", 'Zustandsspeicher von allen Spielern geteilt'],
+  [WF, "function waffenstandFrisch(p) {", "function waffenstandFrisch(p) { p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; return;", 'waffenstandFrisch leert den Speicher nicht'],
+  [WF, "  p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;", "", 'waffenstandFrisch setzt Hitze/Sperre/Laden/Ausholen nicht zurück'],
+  [CB, "p.waffe = p.waffeVorher; p.waffeVorher = null; waffen().waffenstandFrisch(p);", "p.waffe = p.waffeVorher; p.waffeVorher = null;", 'Ausrüstung zurück räumt Waffenstand und Speicher nicht'],
+  [CB, "p.waffe = 'faust'; waffen().waffenstandFrisch(p);", "p.waffe = 'faust';", 'Ausbruch räumt Waffenstand und Speicher nicht'],
+  [LO, " || id in ITEMS) throw", ") throw", 'itemRegistrieren lässt doppelte Ids zu'],
+  [LO, "Waffen.WAHL.includes(id) || id === OHNE_WAFFE", "id === OHNE_WAFFE", 'itemRegistrieren lässt Waffen-Ids zu'],
+  [LO, "return () => { if (ITEMS[id] === handler) delete ITEMS[id]; };", "return () => {};", 'itemRegistrieren: Entfernen-Funktion räumt nicht auf'],
   [WF, "    if (kuehl > 0) { z.hitze = z.hitze - kuehl / Math.max(EPS, Number(d.kalt) || 1);", "    if (false) { z.hitze = z.hitze - kuehl / Math.max(EPS, Number(d.kalt) || 1);", 'Hitze kühlt im Halfter nicht'],
   [WF, "    const kuehl = t - Math.max(z.t, (z.schussAt", "    const kuehl = t - Math.max(-1e9, (z.schussAt", 'Hitze kühlt im Halfter auch für die Zeit vor dem Ablegen (doppelt)'],
   [WF, "    if (t >= z.gesperrtBis - EPS) { z.gesperrtBis = 0; z.hitze = 0; }\n  } else if (d && z.hitze > 0) {", "    if (false) { z.gesperrtBis = 0; z.hitze = 0; }\n  } else if (d && z.hitze > 0) {", 'abgelaufene Sperre im Halfter wird nicht ausgewertet'],
@@ -47,9 +57,9 @@ const MUTATIONEN = [
   [LO, "  return typeof h === 'function' ? (h(game, p) || null) : 'Dieses Item kann man nicht nutzen.';", "  if (typeof h === 'function') { h(game, p); waffeWechselnBeiItem(game, p); return null; }\n  return 'Dieses Item kann man nicht nutzen.';", 'Item-Nutzen ändert die aktive Waffe'],
   // ---- Befehl und Zurücksetzen
   [G, "Loadout.slotNutzen(this, p, msg.slot);", "void msg.slot;", 'Befehl slot.nutzen ohne Wirkung'],
-  [CB, "    waffen().waffenZustandLeeren(p);   // AUS-02 A: abgelegte Waffen vergessen (frischer Stand je Beamen)\n", "", 'onArrive vergisst abgelegte Waffen nicht'],
-  [CB, "  if (waffen()) waffen().waffenZustandLeeren(p);   // AUS-02 A\n", "", 'onLeave vergisst abgelegte Waffen nicht'],
-  [WF, "  waffenZustandLeeren(p);   // AUS-02 A: Anlegen = frischer Stand, die abgelegten Waffen werden vergessen\n", "", 'waffeAnlegen vergisst abgelegte Waffen nicht'],
+  [CB, "    waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen (frischer Stand je Beamen)\n", "", 'onArrive vergisst abgelegte Waffen nicht'],
+  [CB, "  if (waffen()) waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen\n", "", 'onLeave vergisst abgelegte Waffen nicht'],
+  [WF, "waffenstandFrisch(p); p.bereitAt = 0;", "p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.bereitAt = 0;", 'waffeAnlegen vergisst abgelegte Waffen nicht'],
 ];
 // die Item-Mutation braucht eine Hilfsfunktion in der Kopie
 MUTATIONEN[MUTATIONEN.findIndex((m) => m[3] === 'Item-Nutzen ändert die aktive Waffe')][2] =

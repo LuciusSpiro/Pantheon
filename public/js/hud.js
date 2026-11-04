@@ -285,6 +285,7 @@
 
     // ---------------------------------------------------------------- Haupt-Zeichnen
     draw(ctx, view) {
+      this.bodenOben = null;   // AUS-02 Nacharbeit: Oberkante des Boden-Panels dieses Frames (drawCombatHud setzt sie); ohne Panel bleibt das Siegel an der alten Stelle
       const st = view.state;
       if (!st || st.phase === 'lobby' || !view.me) return;
       const inConsole = !!view.me.console;
@@ -705,6 +706,7 @@
       const slotZeile = waffeZeile && !!(this.loadoutStand && this.loadoutStand.slotzahl > 0);   // AUS-01 E: Loadout-Leiste (Stand vom Server, kein Snapshot-Feld)
       const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (slotZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
       const y0 = VH - h - 4;
+      this.bodenOben = y0;
       R.backdrop(ctx, 4, y0, 170, h, 0.68);   // schmal genug, dass die ODA-Box (unten mittig) nichts verdeckt
       // Schild
       R.text(ctx, 'SCHILD', 8, y0 + 5, { color: R.SHIELD_COL });
@@ -774,11 +776,12 @@
         if (p.medkit && !p.downed) { ctx.fillStyle = PAL.star; ctx.fillRect(ps ? 82 + ps[1] * 9 + 4 : 150, y + 1, 7, 7); ctx.fillStyle = PAL.red; ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 3, y + 2, 1, 5); ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 1, y + 4, 5, 1); }
         y += 11;
       }
-      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : this.bodenHilfe(waffeZeile && slotZeile), 8, y, { color: PAL.panelLight });
+      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : this.bodenHilfe(waffeZeile && slotZeile && me.zs !== 'gefangen'), 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
     },
     // AUS-02 B: Hilfezeile am Boden. Mit Slot-Leiste und mindestens zwei belegten Slots steht die Waffentaste vorn (echte, ggf. umbelegte Tasten); sonst wie bisher.
+    // Nacharbeit: gefangen (Server lehnt den Wechsel ab) und downed (eigener Text im Aufrufer) zeigen den Waffenhinweis nicht – der Aufrufer übergibt dann false.
     bodenHilfe(slotZeile) {
       const s = this.loadoutStand;
       const belegt = slotZeile && s ? (s.slots || []).slice(0, Math.min(3, s.slotzahl | 0)).filter(Boolean).length : 0;
@@ -819,13 +822,13 @@
         const cx = x - 2 + i * cw;
         const on = i === aktiv;
         const sp = on ? this.wechselAnteil(view.time) : null;   // AUS-02 B: Wechselzeit der aktiven Waffe
-        if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#C98A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
+        if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
         else if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
-        else if (id) { ctx.fillStyle = '#3A2326'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else if (id) { ctx.fillStyle = '#46282B'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
-        const txt = id ? (WAFFE_KURZ[id] || WAFFE_NAME[id] || id) : '–';
+        const txt = id ? this.fit(WAFFE_KURZ[id] || WAFFE_NAME[id] || id, cw - 13, 1) : '–';   // Nacharbeit: nie über die Zelle hinaus (3 Slots: 41 px; „Betäuber“ ist 45 px breit und wird gekürzt)
         R.text(ctx, this.slotKappe(i), cx + 2, y, { color: on ? '#FFE9B0' : id ? '#C9B27A' : '#6B7380', shadow: !on });   // AUS-02 B: Tastenziffer links in der Zelle
-        R.text(ctx, txt, cx + 6 + (cw - 8) / 2, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : id ? '#9A8F90' : '#6B7380', align: 'center', shadow: !on });
+        R.text(ctx, txt, cx + 10, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : id ? '#9A8F90' : '#6B7380', shadow: !on });   // Nacharbeit: Name immer linksbündig hinter der Ziffer (2 und 3 Slots sehen gleich aus)
       });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
@@ -1448,7 +1451,7 @@
     // Tasten außerhalb der Konsolen (nicht umbelegbar) – Reiter „Sonstiges“ der Steuerungsseite
     CONTROLS: [
       ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
-      ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · 1–3 Waffe wechseln · C ducken (Kesh) · E halten: wiederbeleben'],
+      ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · Waffe wechseln: Reiter Boden (umbelegbar) · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],
@@ -1971,6 +1974,7 @@
       const kons = !!(inGame && me.console);   // an einer Konsole: kompaktes Siegel rechts neben der Statusleiste (Höhe 14, x 270), damit „AM GERÄT“ und die Hilfe frei bleiben
       const h = kons ? 14 : 22;
       let y = kons ? VH - 18 : VH - h - 4 - (carry ? (view.self && view.self.zone === 'away' ? 62 : 24) : 0);
+      if (inGame && !kons && this.bodenOben != null) y = Math.min(y, this.bodenOben - h - 4);   // AUS-02 Nacharbeit: das Boden-Panel (Hilfezeile ganz unten) bleibt frei, das Siegel sitzt darüber
       if (inGame && !kons && window.Funkwahl && Funkwahl.offen()) y = Math.min(y, Funkwahl.rechteck(null, null, undefined, view).y - h - 4);   // SUND-03b UI (S9): steht unten mittig eine Funk-Antwortleiste, kommt das Siegel darüber
       // Lobby (QA-Abnahme S1): Siegel eine Zeile höher, links neben „Ton aktiv“ – dort ist Platz für den Ort.
       // Passt der volle Text nicht, dann „Gesichert · <Ort>“, sonst nur „Weltstand gesichert“; die Hinweiszeile bleibt frei.

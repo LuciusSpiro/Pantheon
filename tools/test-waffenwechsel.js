@@ -22,22 +22,23 @@ const DT = 1 / CONFIG.tickHz;
 // Szene: ein Spieler (Kennung W0) am Boden auf kesh, Gegner weg, unverwundbar, Slots wie angegeben (null = leer)
 function szene(slots, opts) {
   const g = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
-  const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } };
-  g.addConnection(c);
-  g.handleMessage(c, { t: 'hello', clientId: 'W0', name: 'Wechsel', color: 0 });
-  g.handleMessage(c, { t: 'ready', ready: true });
+  // opts.mit: Loadouts weiterer Spieler (Mehrspieler); alle verbinden sich vor dem ersten ready (die Slotzahl steht beim Start fest: ab 3 Spielern 2)
+  const alle = [slots].concat(opts && opts.mit || []);
+  const cs = alle.map((_, i) => ({ inbox: [], send(o) { this.inbox.push(o); }, sendRaw(s) { this.inbox.push(JSON.parse(s)); } }));
+  for (const [i, cc] of cs.entries()) { g.addConnection(cc); g.handleMessage(cc, { t: 'hello', clientId: 'W' + i, name: i ? 'Mit' + i : 'Wechsel', color: i }); }
+  for (const cc of cs) g.handleMessage(cc, { t: 'ready', ready: true });
   for (let k = 0; k < 6; k++) g.step();
+  const c = cs[0];
   const p = g.players[0];
-  for (let i = 0; i < slots.length; i++) Loadout.slotSetzen(g, p, i, slots[i]);   // ersetzt Slot für Slot (Blaster in Slot 1 wird überschrieben)
+  for (const [j, sl] of alle.entries()) for (let i = 0; i < sl.length; i++) Loadout.slotSetzen(g, g.players[j], i, sl[i]);   // ersetzt Slot für Slot (Blaster in Slot 1 wird überschrieben)
   g.setAwayMap(opts && opts.karte || 'kesh');
-  interior.placeOnAwayPad(g, p, 0);
   g.aways[opts && opts.karte || 'kesh'].active = true;
-  combat.onArrive(g, p);
+  for (const [j] of alle.entries()) { interior.placeOnAwayPad(g, g.players[j], j); combat.onArrive(g, g.players[j]); }
   g.god = true;
   const ev = [];
   const emit0 = g.emit.bind(g);
   g.emit = (name, data) => { ev.push({ name, data }); return emit0(name, data); };
-  const S = { g, c, p, ev };
+  const S = { g, c, p, ev, mit: g.players.slice(1), cs };
   S.lauf = (sek) => { for (let k = 0; k < Math.round(sek / DT); k++) { g.away.drones.length = 0; g.step(); } };
   S.nutze = (slot) => g.handleMessage(c, { t: 'cmd', c: Protocol.CMD_SLOT_NUTZEN, slot });
   S.feuer = (dist) => away.shoot(g, p, 0, dist == null ? undefined : { dist });   // null = ausgeführt/begonnen, sonst Grund
@@ -51,7 +52,7 @@ const WZ = CONFIG.awayCombat.wechselzeit;
 section('Konfiguration und Protokoll');
 ok(WZ === 0.6, 'awayCombat.wechselzeit = 0,6 s (Startwert)');
 ok(Protocol.CMD_SLOT_NUTZEN === 'slot.nutzen', "Protokoll: CMD_SLOT_NUTZEN = 'slot.nutzen'");
-ok(Object.keys(Loadout.ITEMS).length === 0 && JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify(Waffen.WAHL), 'Item-Registry heute leer, erlaubte Ids = nur Waffen (keine Platzhalter-Items)');
+ok(Loadout.ITEMS === undefined && Loadout.itemNutzen === undefined && JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify(Waffen.WAHL), 'Item-Registry heute leer, erlaubte Ids = nur Waffen (keine Platzhalter-Items)');
 ok(Waffen.WAHL.length === 6, 'sechs wählbare Waffen');
 
 section('(a) Jede Waffe wirkt nach dem Wechsel');
@@ -263,8 +264,8 @@ section('(e) Ablehnungen');
 
 section('(f) Items: Dispatch über die Registry, aktive Waffe bleibt');
 {
-  Loadout.ITEMS.testitem = (game, p) => { calls.push([game, p]); return null; };
   const calls = [];
+  const weg = Loadout.itemRegistrieren('testitem', (game, p) => { calls.push([game, p]); return null; });
   const S = szene(['blaster', 'sturmgewehr', 'testitem']);
   S.lauf(0.5);
   ok(Loadout.wirksam(S.g, S.p)[2] === 'testitem', 'Test-Id steckt in Slot 3 (erlaubteIds liest die Registry)');
@@ -277,11 +278,21 @@ section('(f) Items: Dispatch über die Registry, aktive Waffe bleibt');
   ok(S.p.waffe === 'sturmgewehr', 'Waffenslot daneben wechselt weiter');
   S.nutze(2);
   ok(calls.length === 2 && S.p.waffe === 'sturmgewehr', 'Item nutzen mit anderer aktiver Waffe: Waffe bleibt');
-  Loadout.ITEMS.testitem = () => 'geht nicht';
+  weg();
+  ok(!Loadout.istErlaubt('testitem'), 'Entfernen-Funktion nimmt die Id wieder aus der Registry');
+  let weg2 = () => {};
+  try { weg2 = Loadout.itemRegistrieren('testitem', () => 'geht nicht'); } catch (e) { ok(false, 'Id nach dem Entfernen wieder registrierbar: ' + e.message); }
   ok(Loadout.slotNutzen(S.g, S.p, 2) === 'geht nicht', 'Fehlertext des Handlers wird zurückgegeben');
-  delete Loadout.ITEMS.testitem;
+  weg2();
+  weg();   // zweites Entfernen schadet nicht
   ok(typeof Loadout.slotNutzen(S.g, S.p, 2) === 'string' && S.p.waffe === 'sturmgewehr', 'ohne Registry-Eintrag: abgelehnt, Waffe bleibt');
-  ok(Object.keys(Loadout.ITEMS).length === 0, 'Registry nach dem Test wieder leer');
+  ok(JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify(Waffen.WAHL), 'Registry nach dem Test wieder leer (Entfernen-Funktion räumt auf)');
+  const wirft = (f) => { try { f(); return false; } catch (e) { return true; } };
+  ok(wirft(() => Loadout.itemRegistrieren('blaster', () => null)) && wirft(() => Loadout.itemRegistrieren('faust', () => null)) && wirft(() => Loadout.itemRegistrieren('', () => null)) && wirft(() => Loadout.itemRegistrieren('x', null)), 'itemRegistrieren lehnt Waffen-Ids, leere Ids und fehlenden Handler ab');
+  const w3 = Loadout.itemRegistrieren('doppelt', () => null);
+  ok(wirft(() => Loadout.itemRegistrieren('doppelt', () => null)), 'doppelte Id wird abgelehnt');
+  w3();
+  ok(!Loadout.istErlaubt('constructor') && !Loadout.istErlaubt('__proto__') && !Loadout.istErlaubt('toString') && !Loadout.istErlaubt('doppelt'), 'Prototyp-Namen und entfernte Ids sind keine erlaubten Slot-Ids');
 }
 
 section('(g) Kein neues Snapshot-Feld, nichts im Weltstand');
@@ -331,8 +342,115 @@ section('(h) Marker (mark) unverändert, Zustandsspeicher wird zurückgesetzt');
   ok(Object.keys(p.waffenZustand).length === 0, 'onLeave: Speicher leer');
   S.nutze(1);
   Waffen.waffeAnlegen(g, p, 'blaster');
-  ok(Object.keys(p.waffenZustand).length === 0, 'waffeAnlegen (Zelle, Labor): Speicher leer');
+  ok(Object.keys(p.waffenZustand).length === 0, 'waffeAnlegen (Labor, Arena, Debug; die Zelle läuft nicht darüber): Speicher leer');
 }
+
+section('(h2) Ausrüstung zurück und Ausbruch räumen Waffenstand und Speicher');
+{
+  const verschmutzen = (S) => {
+    const { p, g } = S;
+    p.hitze = 0.7; p.gesperrtBis = g.time + 5; p.ladung = { t: 0.5 }; p.ausholen = { t: 0.1, dauer: 0.4 };
+    p.waffenZustand.lanze = { hitze: 0.5, gesperrtBis: 0, bereitAt: g.time + 3, schussAt: g.time, t: g.time };
+  };
+  const sauber = (p) => p.hitze === 0 && p.gesperrtBis === 0 && p.ladung === null && p.ausholen === null && Object.keys(p.waffenZustand).length === 0;
+  // Ausrüstung zurück (Truhe in der Zelle): vorher getragene Waffe, frischer Stand
+  let S = szene(['blaster', 'sturmgewehr']);
+  S.lauf(0.5);
+  S.p.waffe = 'faust'; S.p.waffeVorher = 'blaster'; verschmutzen(S);
+  combat.completeHoldB2(S.g, S.p, { kind: 'ausruestung' });
+  ok(S.p.waffe === 'blaster' && !S.p.waffeVorher && sauber(S.p), 'Ausrüstung zurück: Waffe zurück, Hitze/Sperre/Laden/Ausholen weg, Speicher leer');
+  // Ausbruch (Landepunkt mit Zelle): Faust, frischer Stand
+  const L = require('../server/sim/landepunkte.js');
+  const LP = 'vaelen.handelsschiff';
+  const g = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });
+  const c = { inbox: [], send(o) { this.inbox.push(o); }, sendRaw() {} };
+  g.addConnection(c);
+  g.handleMessage(c, { t: 'hello', clientId: 'W0', name: 'Ausbruch', color: 0 });
+  g.handleMessage(c, { t: 'ready', ready: true });
+  for (let k = 0; k < 6; k++) g.step();
+  const p = g.players[0];
+  L.get(g, LP);
+  g.setAwayMap(LP); interior.placeOnAwayPad(g, p, 0); g.aways[LP].active = true; combat.onArrive(g, p);
+  Loadout.slotSetzen(g, p, 1, 'sturmgewehr');
+  Waffen.waffeWechseln(g, p, 'sturmgewehr');
+  Waffen.waffeWechseln(g, p, 'blaster');
+  ok(Object.keys(p.waffenZustand).length === 1, 'Ausbruch: Speicher vor dem Ausbruch gefüllt');
+  verschmutzen({ p, g });
+  combat.ausbruch(g, [p]);
+  ok(p.waffe === 'faust' && p.waffeVorher === 'blaster' && sauber(p), 'Ausbruch: Faust in der Zelle, Hitze/Sperre/Laden/Ausholen weg, Speicher leer');
+}
+
+section('(i) Ereignis loadout: sperre = wirksame Restzeit');
+{
+  const S = szene(['granatwerfer', 'sturmgewehr']);
+  const { p, g } = S;
+  S.lauf(0.7);
+  ok(S.feuer(6) === null, 'Granatwerfer feuert');
+  const tSchuss = g.time;
+  const kad = CONFIG.awayCombat.waffen.granatwerfer.kadenz;
+  S.nutze(1);
+  let e = S.loadoutEv().pop();
+  ok(e.data.waffe === 'sturmgewehr' && near(e.data.sperre, WZ, 1e-9) && near(e.data.sperre, p.bereitAt - g.time, 1e-9), 'Wechsel auf das Gewehr direkt nach dem Wurf: sperre = Wechselzeit der gezogenen Waffe (' + e.data.sperre.toFixed(2) + ')');
+  S.lauf(0.1);
+  S.nutze(0);
+  e = S.loadoutEv().pop();
+  const rest = tSchuss + kad - g.time;
+  ok(e.data.waffe === 'granatwerfer' && near(e.data.sperre, rest, 1e-6) && e.data.sperre > WZ, 'zurück auf den Werfer innerhalb der Kadenz: sperre = Rest der Kadenz ' + e.data.sperre.toFixed(2) + ' s > Wechselzeit ' + WZ);
+  ok(near(g.time + e.data.sperre, p.bereitAt, 1e-9), 'sperre endet genau, wenn die Waffe feuern darf (bereitAt)');
+  S.lauf(e.data.sperre - DT);
+  const frueh = S.feuer(6);
+  S.lauf(2 * DT);
+  ok(frueh === 'kadenz' && S.feuer(6) === null, 'der Werfer feuert erst nach der gemeldeten Sperre');
+  S.lauf(2);
+  S.nutze(1);
+  e = S.loadoutEv().pop();
+  ok(near(e.data.sperre, WZ, 1e-9), 'abgelaufene Kadenz: wieder nur die Wechselzeit');
+}
+
+section('(i2) tune wechselzeit');
+{
+  const S = szene(['blaster', 'sturmgewehr']);
+  const r1 = combat.tune(S.g, 'awayCombat.wechselzeit', '1.5');
+  const r2 = combat.tune(S.g, 'wechselzeit', '1.5');
+  ok(r1.ok === false && /Unbekannter Pfad/.test(r1.text), 'tune awayCombat.wechselzeit gibt „Unbekannter Pfad“');
+  ok(r2.ok === true && S.g.C.awayCombat.wechselzeit === 1.5, 'tune wechselzeit 1.5 setzt awayCombat.wechselzeit');
+  S.nutze(1);
+  const e = S.loadoutEv().pop();
+  ok(near(e.data.sperre, 1.5, 1e-9), 'neue Wechselzeit wirkt (sperre 1,5 s)');
+  combat.tune(S.g, 'wechselzeit', String(WZ));
+  ok(CONFIG.awayCombat.wechselzeit === WZ, 'globale Konfiguration blieb unberührt');
+}
+
+section('(k) Mehrspieler: ein Wechsel berührt die anderen Spieler nicht');
+for (const anz of [2, 3]) {
+  const mit = anz === 2 ? [['sturmgewehr', 'blaster']] : [['sturmgewehr', 'blaster'], ['nahkampf', 'betaeuber']];
+  const S = szene(['blaster', 'granatwerfer'], { mit });
+  const { g, p } = S;
+  const B = S.mit[0];
+  ok(Loadout.slotzahl(g) === (anz === 2 ? 3 : 2), anz + ' Spieler: Slotzahl ' + Loadout.slotzahl(g));
+  const nutzeB = (slot) => g.handleMessage(S.cs[1], { t: 'cmd', c: Protocol.CMD_SLOT_NUTZEN, slot });
+  S.lauf(0.7);
+  // A überhitzt den Blaster, B feuert und wechselt einmal (Speicher gefüllt, Hitze, Kadenz)
+  for (let i = 0; i < 400 && !(p.gesperrtBis > g.time); i++) { S.feuer(6); S.lauf(DT); }
+  ok(p.gesperrtBis > g.time, anz + ' Spieler: A ist überhitzt (Sperre läuft)');
+  away_shoot(g, B); S.lauf(0.2); away_shoot(g, B);
+  nutzeB(1); S.lauf(WZ + 0.1); away_shoot(g, B);
+  ok(B.waffe === 'blaster', anz + ' Spieler: B hat gewechselt und trägt eine andere Waffe als A-Start');
+  const stand = (q) => JSON.stringify({ w: q.waffe, b: q.bereitAt, h: q.hitze, gb: q.gesperrtBis, s: q.schussAt, l: q.ladung, a: q.ausholen, z: q.waffenZustand });
+  const evB = () => S.loadoutEv().filter((x) => x.data.pid === B.id).length;
+  const vorher = stand(B), nB = evB();
+  ok(B.hitze > 0 && B.bereitAt > g.time && Object.keys(B.waffenZustand).length > 0, anz + ' Spieler: B hat Hitze/Ladung/Speicher (die Probe ist nicht leer)');
+  S.nutze(1); S.nutze(0); S.nutze(1); S.nutze(1); S.nutze(0);
+  ok(stand(B) === vorher && evB() === nB, anz + ' Spieler: A wechselt mehrfach (auch überhitzt) – B unverändert (Waffe, bereitAt, Hitze, Sperre, Ladung, Speicher), kein Ereignis für B');
+  for (const q of S.mit.slice(1)) ok(q.waffe === Loadout.aktiveWaffe(g, q) && q.hitze === 0 && Object.keys(q.waffenZustand).length === 0, anz + ' Spieler: unbeteiligter Spieler ' + q.id + ' unberührt');
+  // umgekehrt: B wechselt, A (überhitzt) bleibt unberührt
+  const a0 = stand(p);
+  nutzeB(0); nutzeB(1); nutzeB(0);
+  ok(stand(p) === a0, anz + ' Spieler: B wechselt – der überhitzte A bleibt unverändert');
+  // Zustandsspeicher sind getrennte Objekte
+  ok(p.waffenZustand !== B.waffenZustand && (S.mit.length < 2 || S.mit[1].waffenZustand !== B.waffenZustand), anz + ' Spieler: Zustandsspeicher je Spieler');
+}
+function away_shoot(g, q) { return away.shoot(g, q, 0, { dist: 6 }); }
 
 console.log(`\n${n} Prüfungen, ${fails} Fehler`);
 process.exit(fails ? 1 : 0);

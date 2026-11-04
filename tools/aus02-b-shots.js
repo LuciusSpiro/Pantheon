@@ -48,7 +48,7 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
     const p = game.players[0];
     // Loadout vor dem Beamen setzen (der Stand kommt beim Beamen nach unten); 3 Slots: Sturmgewehr, Lanze, Granatwerfer
     Loadout.slotSetzen(game, p, 0, 'sturmgewehr'); Loadout.slotSetzen(game, p, 1, 'lanze'); Loadout.slotSetzen(game, p, 2, 'granatwerfer');
-    game.C.awayCombat.wechselzeit = 4;   // nur für die Bilder: die Sperre bleibt lang genug sichtbar (Standard 0,6 s)
+    game.C.awayCombat.wechselzeit = 7;   // nur für die Bilder: die Sperre bleibt lang genug sichtbar (Standard 0,6 s)
     await page.evaluate(() => __game.dbg('buehne aussenposten 1 - rostmeute intakt'));
     await page.waitForFunction(() => { const st = __game.state, me = st && st.players.find((q) => q.id === __game.pid); return !!(me && me.zone === 'away' && st.away && Shared_Maps[st.away.map] && Shared_Maps[st.away.map].buehne); }, null, { timeout: 60000, polling: 40 });
     if (RENDER === 'voxel') await page.waitForFunction(() => { const s = window.VoxelKit && VoxelKit.stats(); return !!(s && s.id === __game.state.away.map); }, null, { timeout: 60000, polling: 40 });
@@ -66,27 +66,40 @@ const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; consol
     await page.keyboard.press('Digit2');
     await page.waitForFunction(() => __game.state.players.find((q) => q.id === __game.pid).wf === 'lanze', null, { timeout: 3000, polling: 20 });
     ok(true, 'Taste 2: Waffe wechselt auf Lanze');
-    await sleep(1200);
+    await sleep(400);
     const anteil = await page.evaluate(() => JSON.stringify(Hud.wechselSperre));
     await shot('b-nach-wechsel');
     console.log('Sperre {bis,dauer}:', anteil);
     // Taste 1 -> zurück; Taste 3 -> Granatwerfer
-    await sleep(4200);
+    await sleep(7200);
     await shot('c-nach-sperre');
     await page.keyboard.press('Digit3');
     await page.waitForFunction(() => __game.state.players.find((q) => q.id === __game.pid).wf === 'granatwerfer', null, { timeout: 3000, polling: 20 });
     ok(true, 'Taste 3: Waffe wechselt auf Granatwerfer');
-    await sleep(4200);
+    await sleep(7200);
     // Zwei Slots: Stand mit slotzahl 2, Taste 3 sendet nichts
     game.slotzahl = 2; Loadout.standSenden(game, p);
     await page.waitForFunction(() => Hud.loadoutStand && Hud.loadoutStand.slotzahl === 2, null, { timeout: 5000, polling: 40 });
     await page.keyboard.press('Digit1');
     await page.waitForFunction(() => __game.state.players.find((q) => q.id === __game.pid).wf === 'sturmgewehr', null, { timeout: 3000, polling: 20 });
-    await sleep(4200);
+    await sleep(7200);
     await page.keyboard.press('Digit3');
     await sleep(500);
     ok(await wf() === 'sturmgewehr', 'Slotzahl 2: Taste 3 ändert nichts');
     await shot('d-zwei-slots');
+    // Nacharbeit: leerer Slot (Slotzahl 3, nur 2 belegt) und Siegel „Weltstand gesichert“ über dem Boden-Panel
+    game.slotzahl = 3; Loadout.slotSetzen(game, p, 2, null); Loadout.standSenden(game, p);
+    await page.waitForFunction(() => Hud.loadoutStand && Hud.loadoutStand.slotzahl === 3 && !Hud.loadoutStand.slots[2], null, { timeout: 5000, polling: 40 });
+    await shot('e-leerer-slot');
+    await page.evaluate(() => { Hud.saveSeal = { ok: true, t: performance.now() / 1000, text: 'Weltstand gesichert' }; });
+    await sleep(500);
+    const lage = await page.evaluate(() => ({ oben: Hud.bodenOben }));
+    ok(lage.oben != null && lage.oben > 0, 'Boden-Panel merkt seine Oberkante für das Siegel (' + lage.oben + ')');
+    await shot('f-siegel-ueber-panel');
+    // Namen passen in die Zelle (3 Slots: Zellbreite 54, Name ab +10, Rand 2)
+    const breiten = await page.evaluate(() => ['Blaster', 'Gewehr', 'Werfer', 'Lanze', 'Klinge', 'Betäuber'].map((n) => [n, Render.measure(n, 1), Hud.fit(n, 54 - 13, 1), Render.measure(Hud.fit(n, 54 - 13, 1), 1)]));
+    console.log('Namensbreiten:', JSON.stringify(breiten));
+    ok(breiten.every(([, , , w]) => w <= 54 - 2 - 10), 'alle Kurznamen passen (gekürzt, falls nötig) bei 3 Slots hinter die Ziffer (höchstens 42 px); ungekürzt zu breit: ' + breiten.filter(([, w]) => w > 42).map(([n]) => n).join(', '));
     console.log('Konsolenfehler:', err.length); err.slice(0, 8).forEach((e) => console.log('  ' + e));
     if (err.length) fails++;
   } finally { await b.close().catch(() => null); await srv.close().catch(() => null); }

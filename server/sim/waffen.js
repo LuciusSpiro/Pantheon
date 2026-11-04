@@ -549,8 +549,7 @@ function wahl(game) { if (!game.crewWaffen || typeof game.crewWaffen !== 'object
 // Waffe am Spieler anlegen (Hitze/Ladung zurück, Ereignis loadout), ohne zu speichern. Auch für Zelle ('faust') und Slotwechsel (loadout.js).
 function waffeAnlegen(game, p, waffe) {
   if (!def(game, waffe) || waffe === 'waechter') return 'unbekannt';
-  p.waffe = waffe; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.bereitAt = 0;
-  waffenZustandLeeren(p);   // AUS-02 A: Anlegen = frischer Stand, die abgelegten Waffen werden vergessen
+  p.waffe = waffe; waffenstandFrisch(p); p.bereitAt = 0;   // AUS-02 A: Anlegen = frischer Stand, die abgelegten Waffen werden vergessen
   emit(game, 'loadout', { pid: p.id, waffe });
   return null;
 }
@@ -559,6 +558,12 @@ function waffeAnlegen(game, p, waffe) {
 // damit Wegstecken weder die Überhitzungssperre löscht noch die Kadenz zurücksetzt. waffeAnlegen ist NICHT dieser Weg (setzt alles zurück).
 function waffenZustandLeeren(p) {
   Object.defineProperty(p, 'waffenZustand', { value: {}, enumerable: false, writable: true, configurable: true });
+}
+// Frischer Waffenstand (Beamen, Ausrüstung zurück, Ausbruch, Anlegen): Hitze, Überhitzungssperre, Laden, Ausholen und der Speicher der abgelegten Waffen werden gelöscht.
+// bereitAt (Kadenz) und die Zustandsfelder (zustand, betaeubtBis, …) bleiben unberührt – die setzt der Aufrufer, falls nötig.
+function waffenstandFrisch(p) {
+  p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;
+  waffenZustandLeeren(p);
 }
 function waffenZustand(p) {
   if (!p.waffenZustand || typeof p.waffenZustand !== 'object') waffenZustandLeeren(p);
@@ -590,10 +595,10 @@ function waffeWechseln(game, p, id) {
   }
   const z = S[id] ? abgelegtAbkuehlen(game, S[id], def(game, id)) : { hitze: 0, gesperrtBis: 0, bereitAt: 0, schussAt: -99 };
   delete S[id];
-  const sperre = Math.max(0, Number(ac(game).wechselzeit) || 0);
+  const wechselzeit = Math.max(0, Number(ac(game).wechselzeit) || 0);
   p.waffe = id; p.hitze = z.hitze; p.gesperrtBis = z.gesperrtBis; p.schussAt = z.schussAt;
-  p.bereitAt = Math.max(z.bereitAt, t + sperre);
-  emit(game, 'loadout', { pid: p.id, waffe: id, sperre });
+  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);
+  emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });   // wirksame Restzeit bis zum nächsten Schuss in s (nicht nur die Wechselzeit)
   return null;
 }
 // Waffe setzen (Labor, Arena, Debug; der Befehl loadout.waffe ist mit AUS-01 C entfallen). Gespeichert wird nur eine wählbare Waffe (nie 'faust') als Slot 1 (AUS-01, loadout.js).
@@ -617,5 +622,5 @@ module.exports = {
   WAHL, ZUSTAENDE,
   def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
   sichtPruefen, sichtKacheln, engageBox, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
-  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeAnlegen, waffeWechseln, waffenZustandLeeren, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
+  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeAnlegen, waffeWechseln, waffenstandFrisch, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };

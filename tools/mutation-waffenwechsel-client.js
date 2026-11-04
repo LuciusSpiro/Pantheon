@@ -41,6 +41,20 @@ const MUTATIONEN = [
   [HU, "R.text(ctx, this.slotKappe(i), cx + 2, y,", "R.text(ctx, '', cx + 2, y,", 'Tastenziffer in der Zelle fehlt'],
   [HU, "if (belegt < 2) return 'Klick feuern · Q Mark. · C ducken';", "if (belegt < 0) return 'Klick feuern · Q Mark. · C ducken';", 'Wechselhinweis auch bei höchstens einer Waffe'],
   [HU, "const k = T && T.kappe ? T.kappe('boden.slot' + (i + 1)) : null;", "const k = null;", 'Tastenkappe ignoriert das Register (umbelegte Taste)'],
+  // ---- Nacharbeit: reservierte Bodentasten
+  [TA, "if (a.gruppe === 'boden' && reserviert(code)) return false;", "", 'setze lehnt reservierte Bodentasten nicht ab'],
+  [TA, "if (NACH_ID[id].gruppe === 'boden' && l.some(reserviert)) continue;", "", 'gespeicherte Altbelegung auf reservierte Taste bleibt'],
+  [TA, "const RESERVIERT_BODEN = ['KeyQ', 'KeyE', 'KeyC', 'KeyG', 'KeyV', 'KeyR', 'Space', 'Tab', 'Escape'];", "const RESERVIERT_BODEN = ['KeyE', 'KeyC', 'KeyG', 'KeyV', 'KeyR', 'Space', 'Escape'];", 'Q und Tab nicht reserviert'],
+  [TA, "if (gruppe === 'boden') for (const a of inGruppe)", "if (false) for (const a of inGruppe)", 'konflikte meldet reservierte Belegung nicht'],
+  [CL, "if (sl >= 0 && !Tasten.reserviert(code)) {", "if (sl >= 0) {", 'client.js: Absicherung gegen reservierten Code fehlt'],
+  // ---- Nacharbeit: Farben, Siegel, Namen, Hilfe
+  [HU, "ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, Math.round", "ctx.fillStyle = '#C98A2E'; ctx.fillRect(cx, y - 2, Math.round", 'Sperrbalken wieder bernsteinfarben'],
+  [HU, "else if (id) { ctx.fillStyle = '#46282B';", "else if (id) { ctx.fillStyle = '#3A2326';", 'belegte nicht aktive Zelle wieder dunkel (#3A2326)'],
+  [HU, "R.text(ctx, txt, cx + 10, y,", "R.text(ctx, txt, cx + 6 + (cw - 8) / 2, y, { align: 'center' }, ", 'Kurzname wieder zentriert'],
+  [HU, "if (inGame && !kons && this.bodenOben != null) y = Math.min(y, this.bodenOben - h - 4);", "", 'Siegel ignoriert das Boden-Panel'],
+  [HU, "this.bodenOben = null;   // AUS-02 Nacharbeit: Oberkante", "// this.bodenOben = null;   // AUS-02 Nacharbeit: Oberkante", 'bodenOben wird nicht je Frame zurückgesetzt'],
+  [HU, "this.bodenHilfe(waffeZeile && slotZeile && me.zs !== 'gefangen')", "this.bodenHilfe(waffeZeile && slotZeile)", 'Waffenhinweis auch bei gefangen'],
+  [HU, "Waffe wechseln: Reiter Boden (umbelegbar) · C ducken", "1–3 Waffe wechseln · C ducken", 'Sonstiges führt 1–3 wieder als feste Taste'],
 ];
 
 {

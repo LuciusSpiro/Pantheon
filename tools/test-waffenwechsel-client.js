@@ -14,8 +14,10 @@ const ev = (code, shift) => ({ code, shiftKey: !!shift });
 
 const CONFIG = require('../shared/config.js');
 const calls = [];
-const R = { PAL: new Proxy({}, { get: (t, k) => '#' + String(k) }), text(ctx, txt, x, y, o) { calls.push({ txt: String(txt), x, y, o: o || {} }); }, measure: (t) => String(t).length * 6 };
-const win = { Render: R, Shared_Maps: {}, Shared_Config: CONFIG, Shared_Protocol: require('../shared/protocol.js'), Net: { guard: (nm, f) => f(), on() {} } };
+const rechtecke = [];
+const R = { PAL: new Proxy({}, { get: (t, k) => '#' + String(k) }), backdrop(ctx, x, y, w, h) { rechtecke.push({ x, y, w, h }); }, art() { return true; }, text(ctx, txt, x, y, o) { calls.push({ txt: String(txt), x, y, o: o || {} }); }, measure: (t) => String(t).length * 6 };
+const speicher = {};
+const win = { performance, localStorage: { getItem: (k) => (k in speicher ? speicher[k] : null), setItem: (k, v) => { speicher[k] = String(v); }, removeItem: (k) => { delete speicher[k]; } }, Render: R, Shared_Maps: {}, Shared_Config: CONFIG, Shared_Protocol: require('../shared/protocol.js'), Net: { guard: (nm, f) => f(), on() {} } };
 win.window = win;
 vm.createContext(win);
 vm.runInContext(read('public/js/tasten.js'), win, { filename: 'tasten.js' });
@@ -37,6 +39,34 @@ ok(T.slotVon(ev('KeyU')) === 1 && T.slotVon(ev('Digit2')) === -1 && T.slotVon(ev
 T.zuruecksetzen('boden');
 ok(T.slotVon(ev('KeyU')) === -1 && T.kappe('boden.slot2') === '2', 'zurückgesetzt: wieder Standard');
 ok(!T.AKTIONEN.some((a) => a.gruppe === 'boden' && a.std.includes('KeyQ')), 'keine Bodenaktion auf Q (Markierung bleibt fest verdrahtet)');
+
+section('Reservierte Bodentasten (RESERVIERT_BODEN)');
+for (const code of ['KeyQ', 'KeyE', 'Space', 'KeyC', 'Tab', 'KeyG', 'KeyV', 'KeyR', 'Escape', 'Shift+KeyQ']) {
+  ok(T.setze('boden.slot1', 0, code) === false && T.slotVon(ev(code.replace('Shift+', ''), code.startsWith('Shift+'))) === -1 && T.belegung('boden.slot1').join() === 'Digit1,Numpad1' && !T.geaendert('boden.slot1'), code + ' auf einem Slot: abgelehnt, Belegung unverändert, Taste löst keinen Slot aus');
+}
+ok(T.setze('boden.slot1', 1, 'KeyQ') === false && T.setze('boden.slot3', 5, 'Tab') === false && T.belegung('boden.slot3').join() === 'Digit3,Numpad3', 'auch als zweite/angehängte Belegung abgelehnt');
+ok(T.slotVon(ev('KeyQ')) === -1 && T.welche(ev('KeyQ'), 'boden') == null, 'Q gehört keiner Bodenaktion (bleibt Markierung)');
+ok(T.setze('boden.slot1', 0, 'KeyZ') === true && T.slotVon(ev('KeyZ')) === 0, 'Umbelegung auf Z geht');
+T.zuruecksetzen('boden');
+ok(T.setze('terminal.finale', 0, 'KeyE') === true || T.belegung('terminal.finale')[0] === 'KeyE', 'andere Gruppen sind von der Sperre nicht betroffen');
+T.zuruecksetzen('terminal');
+// gespeicherte Altbelegung (am Register vorbei, z. B. aus einer älteren Version) darf die feste Funktion nie überdecken
+speicher['pantheon.tasten'] = JSON.stringify({ 'boden.slot1': ['KeyQ'], 'boden.slot2': ['Digit8', 'Space'], 'boden.slot3': ['KeyZ'] });
+T.laden();
+ok(T.slotVon(ev('KeyQ')) === -1 && T.slotVon(ev('Space')) === -1 && T.slotVon(ev('Digit8')) === -1, 'Altbelegung auf Q/Space wird beim Laden verworfen, löst keinen Slot aus');
+ok(T.belegung('boden.slot1').join() === 'Digit1,Numpad1' && T.belegung('boden.slot2').join() === 'Digit2,Numpad2', 'betroffene Slots fallen auf den Standard zurück');
+ok(T.slotVon(ev('KeyZ')) === 2 && T.konflikte('boden').length === 0, 'gültige gespeicherte Belegung (Z) bleibt, keine Konflikte');
+delete speicher['pantheon.tasten'];
+T.zuruecksetzen('boden'); T.laden();
+{
+  // Belegung am Register vorbei (hier: Standard der Aktion verändert) – die Konfliktprüfung des Steuerungsmenüs muss sie melden
+  const std = T.aktion('boden.slot2').std;
+  std.push('KeyQ');
+  const k = T.konflikte('boden');
+  std.pop();
+  ok(k.length === 1 && k[0].taste === 'KeyQ' && k[0].ids.join() === 'boden.slot2' && k[0].reserviert === true, 'konflikte(boden) meldet eine Belegung auf eine reservierte Taste');
+}
+ok(T.konflikte('boden').length === 0 && T.RESERVIERT_BODEN.includes('Tab'), 'Konfliktprüfung sauber; Liste RESERVIERT_BODEN exportiert');
 
 section('Slotzahl-Prüfung (Hud.slotErlaubt)');
 H.loadoutStand = null;
@@ -78,7 +108,7 @@ ok(['1', '2'].every((k) => z.texte.includes(k)) && !z.texte.includes('3'), '2 Sl
 H.loadoutStand = { slotzahl: 3, slots: ['sturmgewehr', 'lanze', null] };
 H.wechselStart(20, 0.6);
 z = zeichne(['sturmgewehr', 'lanze', null], 'lanze', 20.3);
-ok(z.fills.some((f) => f.c === '#5A2A28') && z.fills.some((f) => f.c === '#C98A2E' && f.w > 0 && f.w < 52), 'während der Wechselzeit: gedämpfter Grund und teilweise gefüllter Balken in der aktiven Zelle');
+ok(z.fills.some((f) => f.c === '#5A2A28') && z.fills.some((f) => f.c === '#B83A2E' && f.w > 0 && f.w < 52) && !z.fills.some((f) => f.c === '#C98A2E'), 'während der Wechselzeit: gedämpfter Grund und teilweise gefüllter Balken in Rot (#B83A2E, nicht Bernstein: der steht am Boden für Hitze)');
 z = zeichne(['sturmgewehr', 'lanze', null], 'lanze', 20.7);
 ok(!z.fills.some((f) => f.c === '#5A2A28') && z.fills.filter((f) => f.c === '#B83A2E').length === 1, 'nach der Wechselzeit: wieder volle aktive Zelle');
 z = zeichne(['sturmgewehr', 'lanze', null], 'faust', 20.3);
@@ -86,6 +116,48 @@ ok(!z.fills.some((f) => f.c === '#5A2A28'), 'Sperre ohne aktive Zelle (Fäuste):
 let kaputt = null;
 try { for (const sl of [[null, null, null], ['lanze', null, null], ['lanze', 'granatwerfer', 'schrottblaster']]) zeichne(sl, 'lanze', 20.2); } catch (e) { kaputt = e; }
 ok(!kaputt, 'leeres, einzelnes und volles Loadout zeichnen ohne Fehler' + (kaputt ? ': ' + kaputt.message : ''));
+
+section('Slotzellen: Name linksbündig, Grundfarben');
+{
+  H.loadoutStand = { slotzahl: 3, slots: ['sturmgewehr', 'lanze', 'granatwerfer'] };
+  H.wechselSperre = null;
+  const zl = (slots, n) => { calls.length = 0; const fills = []; const ctx = { fillRect(x, y, w, h) { fills.push({ x, w, c: this.fillStyle }); }, strokeRect() {} }; H.drawSlotZeile.call(H, ctx, { me: { wf: slots[0] }, time: 1 }, 8, 50); return { fills, c: calls.slice() }; };
+  let q = zl(['sturmgewehr', 'lanze', 'granatwerfer']);
+  const nm = (z, t) => z.c.find((c) => c.txt === t);
+  ok(nm(q, 'Gewehr').x === 16 && nm(q, 'Lanze').x === 70 && nm(q, 'Werfer').x === 124 && ['Gewehr', 'Lanze', 'Werfer'].every((t) => !nm(q, t).o.align || nm(q, t).o.align === 'left'), '3 Slots: Namen linksbündig bei Zellenanfang + 10, Ziffern bei + 2');
+  ok(nm(q, '1').x === 8 && nm(q, '2').x === 62 && nm(q, '3').x === 116, '3 Slots: Ziffern bei Zellenanfang + 2');
+  ok(q.fills.filter((f) => f.c === '#46282B').length === 2 && !q.fills.some((f) => f.c === '#3A2326'), 'belegte, nicht aktive Zellen in #46282B (angehoben)');
+  H.loadoutStand = { slotzahl: 2, slots: ['sturmgewehr', 'lanze'] };
+  q = zl(['sturmgewehr', 'lanze']);
+  ok(nm(q, 'Gewehr').x === 16 && nm(q, 'Lanze').x === 98 && nm(q, '2').x === 90, '2 Slots: ebenfalls linksbündig (Name +10, Ziffer +2)');
+  H.loadoutStand = { slotzahl: 3, slots: ['sturmgewehr', 'lanze', null] };
+  q = zl(['sturmgewehr', 'lanze', null]);
+  ok(nm(q, '–') && nm(q, '–').x === 124 && nm(q, '3').x === 116, 'leerer Slot: Strich linksbündig, Ziffer bleibt');
+}
+
+section('Siegel „Weltstand gesichert“ über dem Boden-Panel');
+{
+  const ctxLeer = new Proxy({}, { get: () => () => {} });
+  const sicht = { state: { phase: 'play' }, me: {}, self: { zone: 'away' }, audioOn: true };
+  const siegel = (oben) => {
+    rechtecke.length = 0;
+    H.bodenOben = oben;
+    H.saveSeal = { ok: true, t: performance.now() / 1000, text: 'Weltstand gesichert' };
+    H.drawSaveSeal(ctxLeer, sicht);
+    return rechtecke.slice(-1)[0];
+  };
+  const alt = siegel(null);
+  ok(alt && alt.x === 4, 'ohne Boden-Panel: Siegel an der alten Stelle (x 4, y ' + (alt && alt.y) + ')');
+  const panelOben = alt.y + 10;   // ein Panel, dessen Oberkante in das alte Siegel ragen würde
+  const neu = siegel(panelOben);
+  ok(neu.x === 4 && neu.y + neu.h <= panelOben - 4 && neu.y < alt.y, 'mit Boden-Panel: das Siegel liegt komplett darüber (Unterkante ' + (neu.y + neu.h) + ' <= ' + (panelOben - 4) + ')');
+  const tiefes = siegel(alt.y + 200);
+  ok(tiefes.y === alt.y, 'Panel weit unterhalb: das Siegel wandert nicht (nur nach oben, nie ins Panel)');
+  const hudSrc = read('public/js/hud.js');
+  ok(/draw\(ctx, view\) \{\s+this\.bodenOben = null;/.test(hudSrc), 'bodenOben wird je Frame zurückgesetzt');
+  ok(hudSrc.includes('this.bodenOben = y0;'), 'das Boden-Panel setzt seine Oberkante');
+  H.bodenOben = null; H.saveSeal = null;
+}
 
 section('Hilfezeile am Boden');
 H.wechselSperre = null;
@@ -103,6 +175,14 @@ ok(H.bodenHilfe(true) === 'U-O Waffe · Q Mark. · C ducken', 'umbelegte Tasten 
 T.zuruecksetzen('boden');
 ok(H.bodenHilfe(true).length <= 'Klick feuern · Q Mark. · C ducken'.length, 'neuer Text ist nicht länger als der alte (Panelbreite)');
 
+section('Hilfezeile gefangen/verwundet, Steuerungsseite „Sonstiges“');
+{
+  const hudSrc = read('public/js/hud.js');
+  ok(hudSrc.includes("this.bodenHilfe(waffeZeile && slotZeile && me.zs !== 'gefangen')") && hudSrc.includes("me.downed ? 'Klick: Pistole · Q: Markieren'"), 'Waffenhinweis entfällt bei gefangen (Server lehnt ab) und bei verwundet (eigener Pistole-Text)');
+  const sonst = hudSrc.slice(hudSrc.indexOf('CONTROLS: ['), hudSrc.indexOf('// Reiter der Steuerungsseite'));
+  ok(!sonst.includes('1–3 Waffe') && sonst.includes('Reiter Boden (umbelegbar)'), 'Sonstiges (nicht umbelegbar) führt 1–3 nicht mehr als feste Taste, sondern verweist auf den Reiter Boden');
+}
+
 section('client.js: Verdrahtung (Quelltext)');
 {
   const cl = read('public/js/client.js');
@@ -119,6 +199,7 @@ section('client.js: Verdrahtung (Quelltext)');
   ok(/m\.zone === 'away'/.test(blk) && /!st\.gp/.test(blk) && /!H\.showCrew/.test(blk), 'nur am Boden, nicht im Gespräch, nicht bei offenem Crew-Overlay');
   ok(/H\.slotErlaubt\(sl\)/.test(blk) && /c: P\.CMD_SLOT_NUTZEN \|\| 'slot\.nutzen', slot: sl/.test(blk), 'sendet cmd slot.nutzen mit dem Slot, nur wenn slotErlaubt');
   ok(/!m\.downed/.test(blk), 'am Boden liegend wird nichts gesendet');
+  ok(/sl >= 0 && !Tasten\.reserviert\(code\)/.test(blk), 'Absicherung: ein reservierter Code löst nie den Slot aus');
   ok(/case 'KeyQ':\s*\n\s*if \(m\.zone === 'away'\) \{[\s\S]{0,300}send\(\{ t: P\.C\.MARK \|\| 'mark'/.test(body) && !/case 'KeyQ':[\s\S]{0,300}slot/.test(body.slice(body.indexOf("case 'KeyQ':"), body.indexOf("case 'Tab':"))), 'Q sendet weiterhin die Markierung (mark)');
   const iLo = cl.indexOf("case 'loadout':");
   ok(/case 'loadout':\s*\n\s*if \(ev\.pid === Client\.pid\)/.test(cl) && /if \(ev\.pid === Client\.pid\) \{[^}]*H\.wechselStart\(Client\.time, ev\.sperre\); \}/.test(cl.slice(iLo, iLo + 400)), 'Ereignis loadout setzt die Sperre nur für den eigenen Spieler');

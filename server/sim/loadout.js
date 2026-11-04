@@ -14,7 +14,8 @@ const OHNE_WAFFE = 'faust';   // Loadout gespeichert, aber keine Waffe in den wi
 
 // Die EINE Stelle, die entscheidet, was in einen Slot darf. Spätere Aufträge (Medipack, Scanner) ergänzen hier ihre Ids.
 // AUS-02 A: Items (Nicht-Waffen) kommen über die Registry ITEMS in einen Slot: Id -> Handler(game, p) -> null | Fehlertext. Heute leer (keine Items).
-const ITEMS = {};
+// Nicht exportiert und ohne Prototyp (Ids wie 'constructor' sind keine Items); eingetragen wird nur über itemRegistrieren.
+const ITEMS = Object.create(null);
 const erlaubteIds = () => [...Waffen.WAHL, ...Object.keys(ITEMS)];
 const istErlaubt = (id) => typeof id === 'string' && erlaubteIds().includes(id);
 const istWaffe = (id) => typeof id === 'string' && Waffen.WAHL.includes(id);
@@ -87,6 +88,14 @@ function standSenden(game, p, fehler) {
 
 // AUS-02 A: Slot am Boden benutzen (Befehl slot.nutzen). Waffe im Slot -> wird aktiv (waffen.waffeWechseln); Item im Slot -> itemNutzen (ändert die aktive Waffe nicht).
 // Abgelehnt (Rückgabe Text, kein Effekt): Slot außerhalb der wirksamen Slots, leerer Slot, nicht am Boden, nicht handlungsfähig (ausgeschaltet, gefangen, bewusstlos, betäubt, an einer Konsole).
+// Item-Id mit Handler(game, p) -> null | Fehlertext anmelden (SCA-01/ITM-01, Tests). Danach ist die Id in einen Slot erlaubt (erlaubteIds/istErlaubt). Liefert eine Funktion, die den Eintrag wieder entfernt.
+// Waffen-Ids und doppelte Ids werden abgelehnt (Ausnahme), damit kein Auftrag einen anderen überschreibt.
+function itemRegistrieren(id, handler) {
+  if (typeof id !== 'string' || !id || Waffen.WAHL.includes(id) || id === OHNE_WAFFE || id in ITEMS) throw new Error('itemRegistrieren: Id ungültig oder schon vergeben: ' + id);
+  if (typeof handler !== 'function') throw new Error('itemRegistrieren: Handler fehlt für ' + id);
+  ITEMS[id] = handler;
+  return () => { if (ITEMS[id] === handler) delete ITEMS[id]; };
+}
 function itemNutzen(game, p, id) {
   const h = ITEMS[id];
   return typeof h === 'function' ? (h(game, p) || null) : 'Dieses Item kann man nicht nutzen.';
@@ -148,4 +157,4 @@ function restore(obj, game) {
   for (const h of Object.keys(out)) spiegeln(game, h);
 }
 
-module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, slotNutzen, itemNutzen, ITEMS, standSenden, waffeAbgleichen, ersterSlotSetzen, toSave, restore };
+module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, slotNutzen, itemRegistrieren, standSenden, waffeAbgleichen, ersterSlotSetzen, toSave, restore };

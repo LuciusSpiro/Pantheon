@@ -373,10 +373,10 @@
       if (code === 'Escape') { if (!e.repeat) { st.fang = false; audio.play('ui_back'); } return; }
       const t = T && T.ausEvent(e);
       if (!t || e.repeat) return;   // reine Umschalttaste: auf die eigentliche Taste warten
-      if (z) T.setze(z.id, st.slot, t);
+      const angenommen = z ? T.setze(z.id, st.slot, t) : false;
       st.fang = false;
       if (z) st.slot = clamp(st.slot, 0, tastenSlotMax(z.id));
-      audio.play('ui_click');
+      audio.play(angenommen ? 'ui_click' : 'ui_back');   // abgelehnt (z. B. feste Bodentaste): Rückton statt Klick
       return;
     }
     if (code === 'Escape') { if (!e.repeat) uiBack(); return; }
@@ -2063,7 +2063,7 @@
     // AUS-02 B: Tasten 1–3 am Boden (umbelegbar: boden.slot1..3) wechseln die Waffe bzw. nutzen das Item im Slot; Gespräch (oben), Konsole, Minispiel und UI-Overlays haben Vorrang. Q bleibt Markierung.
     if (m.zone === 'away' && !st.gp && !H.showCrew && window.Tasten) {
       const sl = Tasten.slotVon(e);
-      if (sl >= 0) { e.preventDefault(); if (!m.downed && H.slotErlaubt(sl)) send({ t: 'cmd', c: P.CMD_SLOT_NUTZEN || 'slot.nutzen', slot: sl }); return; }
+      if (sl >= 0 && !Tasten.reserviert(code)) { e.preventDefault(); if (!m.downed && H.slotErlaubt(sl)) send({ t: 'cmd', c: P.CMD_SLOT_NUTZEN || 'slot.nutzen', slot: sl }); return; }
     }
     switch (code) {
       case 'KeyR': {
