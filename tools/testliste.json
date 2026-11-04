@@ -196,6 +196,7 @@
   {"id":"test-grabenangriff-szenario","kette":"test","cmd":["tools/test-grabenangriff-szenario.js"],"stufe":"fast","budget_s":13},
   {"id":"test-vox01-kacheln","kette":"test","cmd":["tools/test-vox01-kacheln.js"],"stufe":"fast","budget_s":11},
   {"id":"test-kachelklassen","kette":"test","cmd":["tools/test-kachelklassen.js"],"stufe":"fast","budget_s":6},
+  {"id":"test-wildnis-verdrahtung","kette":"test","cmd":["tools/test-wildnis-verdrahtung.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kit","kette":"test","cmd":["tools/test-vox01-kit.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kronen","kette":"test","cmd":["tools/test-vox01-kronen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-lanze-zielfenster","kette":"test","cmd":["tools/test-lanze-zielfenster.js"],"stufe":"fast","budget_s":8},
