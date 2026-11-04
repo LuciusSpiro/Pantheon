@@ -20,6 +20,7 @@
     { id: 'captain', name: 'Captain' },
     { id: 'terminal', name: 'Terminal' },
     { id: 'charakter', name: 'Charakter' },
+    { id: 'boden', name: 'Boden' },
     { id: 'allgemein', name: 'Allgemein' },
   ];
 
@@ -221,6 +222,11 @@
     A('charakter.spind.drehenLinks', 'charakter', 'Spind: Figur nach links drehen', ['KeyQ'], 'charakter.spind'),
     A('charakter.spind.drehenRechts', 'charakter', 'Spind: Figur nach rechts drehen', ['KeyE'], 'charakter.spind'),
 
+    // ------------------------------------------------------------ Boden (AUS-02 B: Waffenslots am Boden; Q/E/C/G/V/R/Tab/Leertaste sind dort fest verdrahtet, nicht umbelegbar)
+    A('boden.slot1', 'boden', 'Waffenslot 1 nutzen (Boden)', NUM(1).reverse()),
+    A('boden.slot2', 'boden', 'Waffenslot 2 nutzen (Boden)', NUM(2).reverse()),
+    A('boden.slot3', 'boden', 'Waffenslot 3 nutzen (Boden)', NUM(3).reverse()),
+
     // ------------------------------------------------------------ Terminal (Konsole shop: Handel und Werft, PAN-01 D)
     A('terminal.handel', 'terminal', 'Bereich Handel', ['KeyH']),
     A('terminal.werft', 'terminal', 'Bereich Werft', ['KeyW']),
@@ -300,6 +306,12 @@
   function passt(e, id) {
     const t = ausEvent(e);
     return !!t && belegung(id).indexOf(t) >= 0;
+  }
+  // AUS-02 B: welcher Waffenslot (0..2) gehört zu dieser Taste? -1 = keiner. Slot 1/2/3 sind eigene Aktionen, damit sie umbelegbar bleiben.
+  const SLOT_AKTIONEN = ['boden.slot1', 'boden.slot2', 'boden.slot3'];
+  function slotVon(e) {
+    for (let i = 0; i < SLOT_AKTIONEN.length; i++) if (passt(e, SLOT_AKTIONEN[i])) return i;
+    return -1;
   }
   // Loslassen: nur der code zählt (Shift kann inzwischen anders sein), z. B. Lanze loslassen
   function loslassen(e, id) {
@@ -431,7 +443,7 @@
   window.Tasten = {
     AKTIONEN, GRUPPEN, BEREICHE,
     aktion: (id) => NACH_ID[id] || null,
-    passt, welche, loslassen, gehalten, ausEvent,
+    passt, slotVon, SLOT_AKTIONEN, welche, loslassen, gehalten, ausEvent,
     kappe, kappeVon, name,
     belegung, setze, zuruecksetzen, geaendert, konflikte,
     laden, gespeichert: () => gespeichert,

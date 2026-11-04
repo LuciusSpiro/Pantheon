@@ -288,6 +288,8 @@
     "test:loadout": "node tools/test-loadout.js",
     "test:ausruestung": "node tools/test-ausruestung.js",
     "test:waffenwechsel": "node tools/test-waffenwechsel.js",
+    "test:waffenwechsel-client": "node tools/test-waffenwechsel-client.js",
+    "test:waffenwechsel-client-mutation": "node tools/mutation-waffenwechsel-client.js",
     "test:waffenwechsel-mutation": "node tools/mutation-waffenwechsel.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",
     "test:ausruestung-bot": "node tools/test-ausruestung-bot.js",

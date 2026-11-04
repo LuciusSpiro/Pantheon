@@ -319,6 +319,7 @@
     // Snapshot wellen { k, s, n, ph, t, r, l } (shared/protocol.js); Ereignisse welle/welleGeschafft/wellenEnde setzt client.js
     // in wellenBanner/wellenErgebnis. Rekorde je Karte: wellenRekorde (localStorage, client.js).
     wellenBanner: null, wellenErgebnis: null, wellenRekorde: {},
+    wechselSperre: null,   // AUS-02 B: { bis, dauer } in view.time; gesetzt vom Ereignis loadout (eigener Spieler), nur lokal, kein Snapshot-Feld
     loadoutStand: null,   // AUS-01 E: letzter ausruestungStand { slotzahl, slots } für die Boden-HUD-Leiste (client.js setzt ihn)
     wellenKarteName(k) {
       const P = window.Shared_Protocol || {};
@@ -773,9 +774,38 @@
         if (p.medkit && !p.downed) { ctx.fillStyle = PAL.star; ctx.fillRect(ps ? 82 + ps[1] * 9 + 4 : 150, y + 1, 7, 7); ctx.fillStyle = PAL.red; ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 3, y + 2, 1, 5); ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 1, y + 4, 5, 1); }
         y += 11;
       }
-      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick feuern · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
+      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : this.bodenHilfe(waffeZeile && slotZeile), 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
+    },
+    // AUS-02 B: Hilfezeile am Boden. Mit Slot-Leiste und mindestens zwei belegten Slots steht die Waffentaste vorn (echte, ggf. umbelegte Tasten); sonst wie bisher.
+    bodenHilfe(slotZeile) {
+      const s = this.loadoutStand;
+      const belegt = slotZeile && s ? (s.slots || []).slice(0, Math.min(3, s.slotzahl | 0)).filter(Boolean).length : 0;
+      if (belegt < 2) return 'Klick feuern · Q Mark. · C ducken';
+      return this.slotKappe(0) + '-' + this.slotKappe(Math.min(3, s.slotzahl | 0) - 1) + ' Waffe · Q Mark. · C ducken';
+    },
+    // AUS-02 B: Taste des Slots (0..2) aus dem Tastenregister (umbelegt zeigt die neue Taste), sonst die Ziffer
+    slotKappe(i) {
+      try { const T = window.Tasten; const k = T && T.kappe ? T.kappe('boden.slot' + (i + 1)) : null; if (k && k !== '–') return k; } catch (e) { /* Ziffer */ }
+      return String(i + 1);
+    },
+    // AUS-02 B: darf Slot i (0..2) gesendet werden? Ohne bekannten Stand entscheidet allein der Server; mit Stand zählt die Slotzahl.
+    slotErlaubt(i) {
+      if (!(i >= 0 && i <= 2)) return false;
+      const s = this.loadoutStand;
+      return !s || i < Math.min(3, s.slotzahl | 0);
+    },
+    // AUS-02 B: Ereignis loadout (eigener Spieler): Wechselzeit läuft bis t + sperre (view.time)
+    wechselStart(t, sperre) {
+      const d = +sperre;
+      this.wechselSperre = d > 0 && isFinite(d) ? { bis: t + d, dauer: d } : null;
+    },
+    // Anteil 0..1 der verstrichenen Wechselzeit, null = keine Sperre (mehr)
+    wechselAnteil(t) {
+      const w = this.wechselSperre;
+      if (!w || !(t < w.bis)) return null;
+      return Math.max(0, Math.min(1, 1 - (w.bis - t) / w.dauer));
     },
     // AUS-01 E: Slot-Leiste: immer genau n Felder (2 oder 3 wirksame Slots). Aktive Waffe (Snapshot wf) rot, andere belegte dunkel, leer = „–“ gedämpft.
     // Steckt die getragene Waffe in keinem Slot, ist kein Feld aktiv; „Fäuste“ steht dann nur in der Waffenzeile darüber.
@@ -788,11 +818,14 @@
       slots.forEach((id, i) => {
         const cx = x - 2 + i * cw;
         const on = i === aktiv;
-        if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        const sp = on ? this.wechselAnteil(view.time) : null;   // AUS-02 B: Wechselzeit der aktiven Waffe
+        if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#C98A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
+        else if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else if (id) { ctx.fillStyle = '#3A2326'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
         const txt = id ? (WAFFE_KURZ[id] || WAFFE_NAME[id] || id) : '–';
-        R.text(ctx, txt, cx + (cw - 2) / 2, y, { color: on ? '#FFFFFF' : id ? '#9A8F90' : '#6B7380', align: 'center', shadow: !on });
+        R.text(ctx, this.slotKappe(i), cx + 2, y, { color: on ? '#FFE9B0' : id ? '#C9B27A' : '#6B7380', shadow: !on });   // AUS-02 B: Tastenziffer links in der Zelle
+        R.text(ctx, txt, cx + 6 + (cw - 8) / 2, y, { color: on ? (sp != null ? '#D8C4C0' : '#FFFFFF') : id ? '#9A8F90' : '#6B7380', align: 'center', shadow: !on });
       });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
@@ -1415,7 +1448,7 @@
     // Tasten außerhalb der Konsolen (nicht umbelegbar) – Reiter „Sonstiges“ der Steuerungsseite
     CONTROLS: [
       ['Laufen', 'WASD/Pfeile · E interagieren (halten: löschen, flicken, beamen) · G ablegen · V Schubs (betäubt Mitspieler 1 s, holt sie von der Konsole) · R Minispiel an einer Station · Tab Crew · Esc Menü'],
-      ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · C ducken (Kesh) · E halten: wiederbeleben'],
+      ['Außenteam', 'Leertaste/Linksklick Blaster (zielt auf die Maus) · Q Markierung für Hilfe von oben · 1–3 Waffe wechseln · C ducken (Kesh) · E halten: wiederbeleben'],
       ['Station', 'Tab / Shift+Tab an Steuer, Ops, Captain oder Technik: Interface wechseln, du bleibst stehen. Ohne Ops schießt die Automatik nur bei 1–2 Spielern'],
       ['Planungstisch', '1–5 Pin-Art · Klick Pin · Enter Detailkarte · D Decksplan · Backspace zurück · M Missionsbuch (Enter annehmen · Entf ablehnen)'],
       ['Minispiel', 'Leertaste, wenn der Zeiger im grünen Feld steht · Esc bricht ab'],

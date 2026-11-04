@@ -108,7 +108,7 @@ section('Slot-Leiste: welches Feld leuchtet (hud.js in Node gegen Render-Stub)')
   const zeichne = (slots, wf) => {
     const felder = [];
     const ctx = { fillStyle: '', strokeStyle: '', lineWidth: 1, fillRect(x, y, w, h) { felder.push({ x, c: this.fillStyle }); }, strokeRect() {} };
-    H.drawSlotZeile.call({ loadoutStand: { slotzahl: slots.length, slots } }, ctx, { me: { wf } }, 8, 50);
+    H.drawSlotZeile.call(Object.assign(Object.create(H), { loadoutStand: { slotzahl: slots.length, slots } }), ctx, { me: { wf } }, 8, 50);
     return felder.filter((f) => f.c === '#B83A2E').length;
   };
   ok(zeichne(['sturmgewehr', 'lanze', null], 'lanze') === 1, 'drawSlotZeile: genau ein Feld hervorgehoben, wenn wf im Loadout steckt');
