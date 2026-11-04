@@ -180,6 +180,26 @@ section('Befehl loadout.slot (Game)');
   ok(t.notices(0).filter((x) => /Unbekannte Waffe/.test(x)).length === 2, 'loadout.waffe prüft weiter');
 }
 
+section('Doppelprüfung nur über wirksame Slots');
+{
+  const g = welt(); g.slotzahl = 2;
+  const p = spieler('P1', 'browser-d');
+  const h = Waffen.hashKennung('browser-d');
+  g.crewLoadout = { [h]: ['blaster', 'sturmgewehr', 'lanze'] };
+  ok(Loadout.slotSetzen(g, p, 0, 'lanze') === null, 'Slotzahl 2, Lanze nur in verstecktem Slot 3: Slot 1 darf Lanze nehmen');
+  ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["lanze","sturmgewehr",null]', 'versteckter Slot 3 stillschweigend geleert, Lanze nie doppelt');
+  g.crewLoadout[h] = ['blaster', 'sturmgewehr', 'lanze'];
+  ok(Loadout.slotSetzen(g, p, 1, 'lanze') === null && JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster","lanze",null]', 'Slot 2 auf Lanze: ebenfalls erlaubt, Slot 3 geleert');
+  ok(/anderen Slot/.test(Loadout.slotSetzen(g, p, 0, 'lanze')) && JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster","lanze",null]', 'Doppelung unter wirksamen Slots bleibt abgelehnt (nichts verändert)');
+  g.crewLoadout[h] = ['blaster', null, 'lanze'];
+  ok(/anderen Slot/.test(Loadout.slotSetzen(g, p, 1, 'blaster')) && Loadout.loadoutFuer(g, p)[2] === 'lanze', 'abgelehnte Doppelung lässt versteckten Slot unberührt');
+  ok(Loadout.slotSetzen(g, p, 1, null) === null && Loadout.loadoutFuer(g, p)[2] === 'lanze', 'Leeren eines wirksamen Slots rührt versteckten Slot nicht an');
+  const g3 = welt(); g3.slotzahl = 3;
+  g3.crewLoadout = { [h]: ['blaster', 'sturmgewehr', 'lanze'] };
+  ok(/anderen Slot/.test(Loadout.slotSetzen(g3, p, 0, 'lanze')) && /anderen Slot/.test(Loadout.slotSetzen(g3, p, 1, 'lanze')), 'Slotzahl 3: Doppelung über alle 3 Slots abgelehnt wie bisher');
+  ok(JSON.stringify(Loadout.loadoutFuer(g3, p)) === '["blaster","sturmgewehr","lanze"]', 'Slotzahl 3: Speicher unverändert');
+}
+
 section('Weltstand: capture/restore, Migration, Schema');
 {
   const dir = freshDir();

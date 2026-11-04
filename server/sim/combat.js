@@ -1446,7 +1446,7 @@ function ausbruch(game, team) {
     revive(game, p, null, { quiet: true });
     kaempfer(game, p);
     p.zustand = 'ok'; p.betaeubtBis = 0; p.bewusstBis = 0; if (p.wunden) p.wunden.n = p.wunden.max;
-    p.waffeVorher = p.waffe && p.waffe !== 'faust' ? p.waffe : (p.waffeVorher || 'blaster');
+    p.waffeVorher = p.waffe && p.waffe !== 'faust' ? p.waffe : (p.waffeVorher || p.waffe || 'blaster');   // faust bei leerem Loadout bleibt faust; ein zweiter Aufruf überschreibt nicht
     p.waffe = 'faust'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;
     p.gefangen = { zelle: zelle.id, beute: beute ? beute.id : null, x: c.x, y: c.y, offen: false };
   });

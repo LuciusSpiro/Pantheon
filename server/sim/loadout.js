@@ -62,7 +62,10 @@ function slotSetzen(game, p, slot, id) {
   const neu = id == null || id === '' ? null : id;
   if (neu !== null && !istErlaubt(neu)) return 'Unbekannte Waffe.';
   const e = gespeichert(game, h) || Array(SLOTS_MAX).fill(null);
-  if (neu !== null && e.some((x, i) => i !== slot && x === neu)) return 'Diese Waffe steckt schon in einem anderen Slot.';
+  const zahl = slotzahl(game);
+  if (neu !== null && e.some((x, i) => i < zahl && i !== slot && x === neu)) return 'Diese Waffe steckt schon in einem anderen Slot.';
+  // Steckt die Waffe in einem in dieser Partie nicht wirksamen Slot, wandert sie hierher: der versteckte Eintrag wird geleert (nie doppelt gespeichert).
+  if (neu !== null) for (let i = zahl; i < SLOTS_MAX; i++) if (e[i] === neu) e[i] = null;
   const vorher = aktiveWaffe(game, p);
   e[slot] = neu;
   speicher(game)[h] = e;

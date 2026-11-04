@@ -554,6 +554,17 @@ function w1Gefangenschaft() {
   ok(halb === 'voll' && Objects.ankerState(t.g, LP, b) === 'leer' && ps.every((p) => p.waffe === 'blaster' && !p.waffeVorher), 'Truhe leer erst, wenn alle ihre Ausrüstung haben (Vorlage: anker_state beute leer)');
   Combat.update(t.g, 1 / 30);   // Testspiel steht in der Lobby: Kampf-Tick direkt (updateGefangen)
   ok(ps.every((p) => !p.gefangen), 'nach Tür und Ausrüstung: nicht mehr gefangen');
+  // AUS-01: leeres Loadout (aktive Waffe faust) -> nach der Zelle wieder faust, kein erfundener Blaster; zweiter Aufruf überschreibt waffeVorher nicht
+  const tF = setup(1);
+  tF.g.debugGoto('vaelen', true); tF.run(0.2); L.get(tF.g, LP);
+  tF.g.players.forEach((p) => { p.waffe = 'faust'; });
+  act('team_gefangen', tF.g, { landepunkt: LP });
+  const pF = tF.g.players[0];
+  ok(pF.gefangen && pF.waffe === 'faust' && pF.waffeVorher === 'faust', 'AUS-01: gefangen mit Faust als aktiver Waffe -> waffeVorher faust');
+  Combat.ausbruch(tF.g, [pF]);
+  ok(pF.waffeVorher === 'faust', 'AUS-01: zweiter Aufruf lässt waffeVorher unverändert');
+  Combat.completeHoldB2(tF.g, pF, { kind: 'ausruestung' });
+  ok(pF.waffe === 'faust' && !pF.waffeVorher, 'AUS-01: Ausrüstung zurück = vorher aktive Waffe (faust), kein Blaster');
   const t2 = setup(1);
   t2.g.debugGoto('kesh', false);
   const err = Combat.teamGefangenNehmen(t2.g, 'kesh');
