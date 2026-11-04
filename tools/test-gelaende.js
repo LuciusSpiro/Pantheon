@@ -156,6 +156,8 @@ for (const gr of GR) for (const bi of BI) {
   ok(sw.ankerAufSAV === 0, `kein Anker liegt auf s, a oder v (${sw.ankerAufSAV})`);
 }
 
+if (!wildnisKarten.length) { console.log('  FEHLER keine einzige Karte ohne Prüferfehler gebaut: die Abschnitte c) bis e) entfallen'); console.log(`
+${n - bad}/${n} ok`); process.exit(1); }
 // ---------------------------------------------------------------- c) Prop-Regeln als Eigenschaften der gebauten Karten
 abschnitt('c) Prop-Regeln (Kriterium 7)');
 {
