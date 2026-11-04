@@ -161,6 +161,11 @@ section('Weltstand: römischer Außenposten eingefroren');
   const alter = JSON.parse(JSON.stringify(block)); delete alter[id].bauweise; delete alter[id].besitz;
   const g4 = frisch(); LP.restore(alter, g4);
   ok(LP.karte(g4, id).bauweise === 'germanen', 'Altstand ohne bauweise: Außenposten baut wie bisher germanisch');
+  // Altstand mit Besitz rom, aber ohne bauweise: wird nicht rückwirkend römisch (genBauen: e.bauweise || 'germanen')
+  const alter2 = JSON.parse(JSON.stringify(block)); delete alter2[id].bauweise;
+  const g6 = frisch(); LP.restore(alter2, g6);
+  const k6 = LP.karte(g6, id);
+  ok(LP.eintrag(g6, id).besitz === 'rom' && k6.bauweise === 'germanen' && !(k6.plaetze || {}).tor_n, 'Altstand Besitz rom ohne bauweise: baut germanisch (kein Cardo)');
   const G = new Game({ noStore: true, seed: 9, log: () => {} });
   const lid = LP.neu(G, 'kesh', { art: 'aussenposten', besitz: 'rom', seed: 5 }); LP.get(G, lid);
   const mit = Weltstand.capture(G);

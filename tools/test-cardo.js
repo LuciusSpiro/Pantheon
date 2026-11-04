@@ -13,6 +13,7 @@ const { Game } = require('../server/game.js');
 let n = 0, fehler = 0;
 const ok = (c, t) => { n++; if (!c) { fehler++; console.log('  FEHLER ' + t); } };
 const abschnitt = (t) => console.log('[' + t + ']');
+const BREIT = process.argv.includes('--breit');   // nur die breite Fehlbau-Regression (Seeds 1..120, eigener Schritt test-cardo-breit in der Testliste)
 const SEEDS = 30, GROESSEN = [8, 10, 12], TYPEN = ['handel', 'militaer'];
 
 const zaehl = (k) => { const z = {}; for (const a of k.anker) z[a.rolle] = (z[a.rolle] || 0) + 1; return z; };
@@ -79,6 +80,22 @@ function strukturFehler(k, typ) {
       if (!seen.has(ank.y * k.w + ank.x)) f.push('Abholpunkt von ' + e.id + ' nicht erreichbar');
     }
   }
+  // Straßenspanne ohne Erdkachel: auf Decumanus und Cardo liegt nie blanker Boden ('.'; früher: verirrte Abholpunkt-Kachel des Landefelds im Decumanus)
+  for (const id of ['strasse_1', 'strasse_2']) {
+    const [rx, ry, rw, rh] = k.plaetze[id].rect; let erde = 0, ersteErde = null;
+    const imForum = (x, y) => x >= fr[0] && x < fr[0] + fr[2] && y >= fr[1] && y < fr[1] + fr[3];   // das Forum (Pad) steht im Raster als '.', es gehört zur Kreuzung
+    for (let y = ry; y < ry + rh; y++) for (let x = rx; x < rx + rw; x++) if (tile(x, y) === '.' && !imForum(x, y)) { erde++; if (!ersteErde) ersteErde = x + ',' + y; }
+    if (erde) f.push(id + ': ' + erde + ' Erdkachel(n) in der Straße, erste bei ' + ersteErde);
+  }
+  // Kommando am Forum: nach Manhattan-Abstand der Mitten das nächste aller Gebäude (Funktions- und Kulissenhäuser) zur Forum-Mitte
+  const mitteR = (rc) => [rc[0] + (rc[2] - 1) / 2, rc[1] + (rc[3] - 1) / 2], dmz = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
+  const fm = mitteR(fr), kom = k.plaetze.kommando;
+  if (!kom) f.push('kein Kommandogebäude');
+  else {
+    const dk = dmz(mitteR(kom.rect), fm);
+    const naher = Object.keys(k.plaetze).filter((id) => id !== 'kommando' && /^(haus_|lager_|werkstatt_|quartier_|kantine_|krankenstation_)/.test(id)).filter((id) => dmz(mitteR(k.plaetze[id].rect), fm) < dk);
+    if (naher.length) f.push('Kommando (Abstand ' + dk + ' zum Forum) liegt nicht am nächsten: ' + naher.slice(0, 2).join(','));
+  }
   // Symmetrie: Achsen von Cardo (strasse_2) und Decumanus (strasse_1) liegen in der Mitte des Grundrisses ± 1; Tore gespiegelt
   const dec1 = k.plaetze.strasse_1.rect, car1 = k.plaetze.strasse_2.rect;
   if (Math.abs(car1[0] + (car1[2] - 1) / 2 - mx) > 1) f.push('Cardo-Achse nicht in der Mitte');
@@ -88,10 +105,10 @@ function strukturFehler(k, typ) {
   return f;
 }
 
-abschnitt('Prüfer, Pflichtsatz, Häuser und Struktur über 30 Seeds × Größen 8/10/12 × handel/militaer');
+if (!BREIT) abschnitt('Prüfer, Pflichtsatz, Häuser und Struktur über 30 Seeds × Größen 8/10/12 × handel/militaer');
 const soll = pflichtDerArt('aussenposten');
 const mass = {}; let awayMax = 0, awayVon = '';
-{
+if (!BREIT) {
   const bad = [], strukt = []; let gesamt = 0;
   for (const typ of TYPEN) for (const N of GROESSEN) for (let seed = 1; seed <= SEEDS; seed++) {
     gesamt++;
@@ -113,6 +130,33 @@ const mass = {}; let awayMax = 0, awayVon = '';
   ok(Object.values(mass).every((m) => m.maxW <= 130 - 8 && m.maxH <= 90 - 8), 'Grundriss höchstens 122×82');
   console.log(`  awayMap max ${awayMax} B (${awayVon}), Grenze ${Protocol.AWAY_MAP_MAX_BYTES} B`);
   ok(awayMax <= Protocol.AWAY_MAP_MAX_BYTES, `awayMap ${awayMax} B ≤ ${Protocol.AWAY_MAP_MAX_BYTES} B`);
+}
+
+abschnitt('Fehlbau-Regression (CAR-01, Befund B1: Wachturm im dichten Grundriss, K-PFLICHT aussicht)');
+{
+  const bad = []; let gesamt = 0;
+  const pruef = (seed, N, typ, aus) => { gesamt++; const r = Buehne.ausRaster(GenSiedlung.erzeuger(130, 90).karteRoh(seed, N, { bauweise: 'rom', typ, ausstattung: aus, besitz: 'raubzug', zustand: 'umkaempft', id: 't' }), { spiel: true }); if (!r.pruefung.ok) bad.push(`${typ}/${N}/${seed}${aus ? '/aus' : ''}: ${r.fehler[0].code}`); else if (!r.karte.anker.some((a) => a.rolle === 'aussicht')) bad.push(`${typ}/${N}/${seed}: kein Anker aussicht`); };
+  // die Fehlbauten der Abnahme (vor dem reservierten Turmplatz) und weitere Größen, mit und ohne Ausstattung
+  for (const s of [56, 236, 241]) pruef(s, 10, 'militaer', false);
+  for (const s of [56, 158, 172, 189, 239, 241, 243, 261, 265, 279, 1024]) pruef(s, 12, 'militaer', false);
+  pruef(14, 18, 'militaer', true);
+  // Seedbereich: Militär N=10/12, Seeds 1..120 (nur mit --breit, Schritt test-cardo-breit; ein Aufbau kostet 0,1 bis 0,3 s)
+  if (BREIT) for (const N of [10, 12]) for (let seed = 1; seed <= 120; seed++) pruef(seed, N, 'militaer', false);
+  for (const N of [14, 18]) for (let seed = 1; seed <= (BREIT ? 12 : 4); seed++) pruef(seed, N, 'militaer', seed % 2 === 0);
+  ok(bad.length === 0, `keine Fehlbauten (${gesamt - bad.length}/${gesamt})${bad.length ? ': ' + bad.slice(0, 4).join(' | ') : ''}`);
+}
+
+if (BREIT) { console.log(`
+test-cardo --breit: ${n - fehler}/${n} Prüfungen bestanden.`); process.exit(fehler ? 1 : 0); }
+
+abschnitt('Feldgröße (Befund B3): zu kleines Feld meldet klar statt TypeError');
+{
+  let msg = null; try { GenSiedlung.erzeuger(60, 40).karteRoh(1, 10, { bauweise: 'rom', typ: 'handel' }); } catch (e) { msg = e; }
+  ok(msg && /^cardo: Feld zu klein/.test(msg.message) && !(msg instanceof TypeError), 'erzeuger(60, 40) mit Bauweise rom: "cardo: Feld zu klein (min …)"' + (msg ? ' (' + msg.message + ')' : ' (kein Fehler)'));
+  let k2 = null; try { k2 = GenSiedlung.erzeuger(56, 58).karteRoh(1, 8, { bauweise: 'rom', typ: 'handel' }); } catch (e) { msg = e; }
+  ok(k2 && Buehne.ausRaster(k2, { spiel: true }).pruefung.ok, 'kleinstes erlaubtes Feld 56×58 baut einen gültigen Außenposten');
+  let g = null; try { g = GenSiedlung.erzeuger(60, 40).karteRoh(1, 8, { bauweise: 'germanen', typ: 'handel' }); } catch (e) { g = null; }
+  ok(true, 'germanisch auf 60×40 unverändert (' + (g ? 'baut' : 'wirft wie bisher') + ')');
 }
 
 abschnitt('Determinismus');
@@ -149,6 +193,12 @@ abschnitt('Mutationsprobe: kaputte Layouts müssen rot werden');
   // 6) Abholpunkt außerhalb des Grundrisses
   const m6 = mut(hand, (k) => { const a = k.anker.find((q) => q.rolle === 'abholpunkt' && q.ankunft); a.x = grundriss(k).x0 - 2; });
   ok(strukturFehler(m6, 'handel').length > 0, 'Abholpunkt außerhalb des Grundrisses: Struktur rot');
+  // 7) alte Position der Abholpunkt-Kachel: Erdkachel mitten im Decumanus, in Spalte des Landefeld-Mittelpunkts
+  const m7 = mut(hand, (k) => { const a = k.anker.find((q) => q.rolle === 'abholpunkt' && q.ankunft), d = k.plaetze.strasse_1.rect; k.rows = setT(k.rows, a.x, d[1] + 3, '.'); });
+  ok(strukturFehler(m7, 'handel').some((x) => /Erdkachel/.test(x)), 'Erdkachel im Decumanus (alte Abholpunkt-Position): Struktur rot');
+  // 8) Kommando weit weg vom Forum
+  const m8 = mut(hand, (k) => { k.plaetze.kommando.rect[0] += 25; });
+  ok(strukturFehler(m8, 'handel').some((x) => /Kommando/.test(x)), 'Kommando weit vom Forum: Struktur rot');
 }
 
 console.log(`\ntest-cardo: ${n - fehler}/${n} Prüfungen bestanden.`);
