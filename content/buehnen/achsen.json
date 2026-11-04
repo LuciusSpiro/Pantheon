@@ -41,7 +41,7 @@
     },
     "rom": {
       "status": "aktiv",
-      "hinweis": "Station (Bauweise rom), Außenposten noch nicht"
+      "hinweis": "Station und Außenposten (Bauweise rom, Cardo-Layout)"
     },
     "ger": {
       "status": "aktiv",
@@ -58,11 +58,11 @@
         }
       },
       "aussenposten": {
-        "erlaubt": false,
+        "erlaubt": true,
         "je_besitz": {
           "rom": "rom"
         },
-        "hinweis": "noch nicht: gen-siedlung hat für rom ein eigenes Layout (Cardo, 26 statt 28 Anker), das ist Verhalten, nicht Optik. Erst mit dem Paket Außenposten rom freischalten."
+        "hinweis": "CAR-01: freigeschaltet. gen-siedlung baut für rom das Cardo-Layout (layoutCardo: Forum, vier Tore, Mauer nur beim Militärlager; Cardo-Layout: 4 statt 3 Eingänge)."
       },
       "ruine": {
         "erlaubt": false,

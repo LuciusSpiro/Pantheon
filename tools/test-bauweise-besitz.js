@@ -30,7 +30,7 @@ section('Ableitung bauweiseFuerBesitz (Datentabelle, nicht Sonderfall im Code)')
 {
   const erwartet = {
     station: { rom: 'rom', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen', raubzug: 'germanen', kustoden: 'germanen' },
-    aussenposten: { rom: 'germanen', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
+    aussenposten: { rom: 'rom', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
     schiff: { rom: 'germanen', ger: 'germanen', konkordat: 'germanen', rostmeute: 'germanen', herrenlos: 'germanen', kontor: 'germanen' },
     ruine: { rom: 'rom', ger: 'rom', konkordat: 'rom', rostmeute: 'rom', herrenlos: 'rom' },
   };
@@ -42,19 +42,19 @@ section('Ableitung bauweiseFuerBesitz (Datentabelle, nicht Sonderfall im Code)')
   const A = json('content/buehnen/achsen.json');
   const T = A.bauweise_nach_besitz && A.bauweise_nach_besitz.kartenarten;
   ok(T && T.station && T.station.erlaubt === true && T.station.je_besitz.rom === 'rom', 'Tabelle: station { erlaubt: true, rom → rom }');
-  ok(T.aussenposten && T.aussenposten.erlaubt === false && /Cardo|Layout/.test(T.aussenposten.hinweis || ''), 'Tabelle: aussenposten noch nicht freigegeben, Hinweis nennt den Grund (eigenes Layout)');
+  ok(T.aussenposten && T.aussenposten.erlaubt === true && T.aussenposten.je_besitz.rom === 'rom' && /Cardo/.test(T.aussenposten.hinweis || ''), 'Tabelle: aussenposten { erlaubt: true, rom → rom } (CAR-01: Cardo-Layout steht)');
   ok(T.schiff.erlaubt === false && T.ruine.erlaubt === false, 'Tabelle: Schiff und Ruine nicht freigegeben');
   ok(Object.values(T).every((t) => Object.values(t.je_besitz || {}).every((bw) => A.bauweisen[bw] && A.bauweisen[bw].status === 'aktiv')), 'Tabelle: jede Ziel-Bauweise ist in achsen.bauweisen aktiv');
   ok(A.besitz.rom.status === 'aktiv' && A.besitz.ger.status === 'aktiv', 'achsen.besitz: rom und ger aktiv (rom stand auf spaeter)');
   for (const b of ['rom', 'ger']) ok(fs.existsSync(path.join(ROOT, 'content/buehnen/paletten/' + b + '.json')), `Besitz-Palette content/buehnen/paletten/${b}.json vorhanden`);
-  // Freischalten allein per Daten: Außenposten freigeben (nur im Speicher), Ableitung folgt, danach zurück
+  // Datenschalter: Außenposten sperren (nur im Speicher), Ableitung folgt ohne Codeänderung, danach zurück
   const ach = Buehne.daten().achsen;
   const alt = ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt;
   try {
-    ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt = true;
-    ok(LP.bauweiseFuerBesitz('aussenposten', 'rom') === 'rom' && LP.bauweiseFuerBesitz('aussenposten', 'kontor') === 'germanen', 'Außenposten per Datenschalter freischaltbar, ohne Codeänderung (Probe im Speicher)');
+    ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt = false;
+    ok(LP.bauweiseFuerBesitz('aussenposten', 'rom') === 'germanen' && LP.bauweiseFuerBesitz('station', 'rom') === 'rom', 'Außenposten per Datenschalter sperrbar, ohne Codeänderung (Probe im Speicher): rom -> germanen');
   } finally { ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt = alt; }
-  ok(LP.bauweiseFuerBesitz('aussenposten', 'rom') === 'germanen', 'Schalter zurück: Außenposten rom bleibt germanisch');
+  ok(LP.bauweiseFuerBesitz('aussenposten', 'rom') === 'rom', 'Schalter zurück: Außenposten rom ist römisch');
 }
 
 section('LP.neu: Bauweise folgt dem Besitz beim Anlegen');
@@ -68,13 +68,21 @@ section('LP.neu: Bauweise folgt dem Besitz beim Anlegen');
   const st4 = LP.neu(g, 'kesh', { art: 'station', besitz: 'rom', bauweise: 'germanen', seed: 11 });
   const d = (id) => g.landepunkte.dyn[id];
   ok(d(st).bauweise === 'rom' && d(st).besitz === 'rom', 'Station mit Besitz rom: Bauweise rom');
-  ok(d(ap).bauweise === 'germanen', 'Außenposten mit Besitz rom: bleibt germanisch');
+  ok(d(ap).bauweise === 'rom' && d(ap).besitz === 'rom', 'Außenposten mit Besitz rom: Bauweise rom (CAR-01)');
   ok(d(sk).bauweise === 'germanen', 'Schiff mit Besitz rom: bleibt germanisch');
   ok(d(st2).bauweise === 'germanen' && d(st3).bauweise === 'germanen' && d(st3).besitz === 'herrenlos', 'Station mit Besitz kontor bzw. ohne Besitz: germanisch');
   ok(d(st4).bauweise === 'germanen', 'ausdrückliche Bauweise gewinnt (Debug, Testgelände)');
   const k = LP.karte(g, st);
   ok(k.art === 'station' && k.bauweise === 'rom' && k.besitz === 'rom', 'gebaute Karte: station, bauweise rom, besitz rom');
   ok(LP.karte(g, st2).bauweise === 'germanen', 'gebaute Karte (kontor): germanen');
+  const apk = LP.karte(g, ap);
+  const pl = new Set(Object.keys(apk.plaetze || {}));
+  ok(apk.art === 'aussenposten' && apk.bauweise === 'rom' && apk.erzeuger === 'gen-siedlung/1', 'gebaute Karte Außenposten rom: art aussenposten, bauweise rom, erzeuger gen-siedlung/1');
+  ok(['tor', 'tor_n', 'tor_o', 'tor_s'].every((t) => pl.has(t)), 'Cardo-Struktur: vier Tore (Plätze tor, tor_n, tor_o, tor_s)');
+  const pr = Buehne.pruefen(apk, { spiel: true });
+  ok(pr.ok === true && !pr.fehler.length, 'Karten-Prüfer ok (Außenposten rom)' + (pr.fehler.length ? ': ' + pr.fehler.slice(0, 2).map((f) => f.msg).join(' | ') : ''));
+  const ak = LP.karte(g, LP.neu(g, 'kesh', { art: 'aussenposten', besitz: 'kontor', seed: 11 }));
+  ok(ak.bauweise === 'germanen' && !(ak.plaetze || {}).tor_n, 'Außenposten kontor: germanisch, kein Cardo');
 }
 
 section('Vorschau = Anlegen (Spielleiter), kein Drift');
@@ -87,7 +95,7 @@ section('Vorschau = Anlegen (Spielleiter), kein Drift');
   ok(v.def.bauweise === 'rom' && g.landepunkte.dyn[id].bauweise === v.def.bauweise, 'gleiche Bauweise in Vorschau und Anlegen');
   ok(sha(v.karte) === sha(LP.karte(g, id)), 'gleiche Karte (Hash) in Vorschau und Anlegen');
   const va = ad.vorschau('kesh', { art: 'aussenposten', besitz: 'rom' });
-  ok(va.def.bauweise === 'germanen', 'Vorschau Außenposten/rom: germanisch (wie Anlegen)');
+  ok(va.def.bauweise === 'rom', 'Vorschau Außenposten/rom: römisch (wie Anlegen)');
 }
 
 section('Weltstand: eingefroren, Version 3, kein neues Pflichtfeld');
@@ -132,6 +140,38 @@ section('Weltstand: eingefroren, Version 3, kein neues Pflichtfeld');
   ok(mit.welt.landepunkte[lid] && mit.welt.landepunkte[lid].bauweise === 'rom', 'welt.landepunkte trägt die römische Station');
   const v = Weltstand.validate(Object.assign({}, mit, { id: 'bauweise-besitz', name: 'Test' }));
   ok(Array.isArray(v) && v.length === 0, 'Weltstand besteht die Schema-Prüfung (id/name gesetzt)' + (v && v.length ? ': ' + v.slice(0, 2).join(' | ') : ''));
+}
+
+section('Weltstand: römischer Außenposten eingefroren');
+{
+  const g = frisch();
+  const id = LP.neu(g, 'kesh', { art: 'aussenposten', besitz: 'rom', seed: 23 });
+  const hashVor = sha(LP.karte(g, id));
+  const block = JSON.parse(JSON.stringify(LP.toSave(g)));
+  ok(block[id] && block[id].bauweise === 'rom' && block[id].besitz === 'rom' && block[id].art === 'aussenposten', 'toSave: Außenposten mit bauweise rom und besitz rom');
+  const ach = Buehne.daten().achsen;
+  const alt = ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt;
+  let g2, nachher;
+  try {
+    ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt = false;
+    g2 = frisch(); LP.restore(JSON.parse(JSON.stringify(block)), g2);
+    nachher = LP.karte(g2, id);
+  } finally { ach.bauweise_nach_besitz.kartenarten.aussenposten.erlaubt = alt; }
+  ok(nachher.bauweise === 'rom' && sha(nachher) === hashVor, 'nach restore: weiter rom, Karten-Hash gleich, auch wenn die Tabelle inzwischen sperrt');
+  const alter = JSON.parse(JSON.stringify(block)); delete alter[id].bauweise; delete alter[id].besitz;
+  const g4 = frisch(); LP.restore(alter, g4);
+  ok(LP.karte(g4, id).bauweise === 'germanen', 'Altstand ohne bauweise: Außenposten baut wie bisher germanisch');
+  // Altstand mit Besitz rom, aber ohne bauweise: wird nicht rückwirkend römisch (genBauen: e.bauweise || 'germanen')
+  const alter2 = JSON.parse(JSON.stringify(block)); delete alter2[id].bauweise;
+  const g6 = frisch(); LP.restore(alter2, g6);
+  const k6 = LP.karte(g6, id);
+  ok(LP.eintrag(g6, id).besitz === 'rom' && k6.bauweise === 'germanen' && !(k6.plaetze || {}).tor_n, 'Altstand Besitz rom ohne bauweise: baut germanisch (kein Cardo)');
+  const G = new Game({ noStore: true, seed: 9, log: () => {} });
+  const lid = LP.neu(G, 'kesh', { art: 'aussenposten', besitz: 'rom', seed: 5 }); LP.get(G, lid);
+  const mit = Weltstand.capture(G);
+  ok(mit.version === 3 && mit.welt.landepunkte[lid] && mit.welt.landepunkte[lid].bauweise === 'rom', 'Weltstand (Version 3) trägt den römischen Außenposten');
+  const v = Weltstand.validate(Object.assign({}, mit, { id: 'bauweise-besitz-ap', name: 'Test' }));
+  ok(Array.isArray(v) && v.length === 0, 'Weltstand besteht die Schema-Prüfung');
 }
 
 section('Feste Landepunkte bleiben, wie sie sind');
@@ -209,8 +249,11 @@ section('Spielleiter: Bauweise im Text, Fraktion = Besitz');
   const text = Szenenbau.grobplanVorgaben({ katalog: Katalog.load() }, kontext, { lp: ad });
   ok(new RegExp(id.replace('.', '\\.') + ' \\(station, rom, rom, intakt\\)').test(text), 'Vorgabentext nennt Kartenart und Bauweise: "station, rom, rom, intakt"');
   ok(/x\.lager \(aussenposten, germanen, kontor, intakt\)/.test(text), 'Vorgabentext: Außenposten germanen');
+  const kontext2 = { orte: [{ id: 'kesh', landepunkte: [{ id: 'o.nova', name: 'o', art: 'aussenposten', bauweise: 'rom', besitz: 'rom', zustand: 'intakt' }] }] };
+  ok(Szenenbau.grobplanVorgaben({ katalog: Katalog.load() }, kontext2, { lp: ad }).includes('o.nova (aussenposten, rom, rom, intakt)'), 'Vorgabentext nennt römischen Außenposten: "aussenposten, rom, rom, intakt"');
   const prompt = fs.readFileSync(path.join(ROOT, 'content/spielleiter/prompts/grobplan.system.md'), 'utf8');
   ok(/Station mit Besitz `rom`/.test(prompt) && /römische Station/.test(prompt), 'Prompt-Dokumentation: Station + Besitz rom = römische Station');
+  ok(/Außenposten mit Besitz `rom`/.test(prompt) && /Cardo/.test(prompt) && !/jeder Außenposten ist germanisch/.test(prompt), 'Prompt-Dokumentation: Außenposten + Besitz rom = römische Siedlung (Cardo)');
   ok(!/spielername|Spielername|player\.name/.test(prompt), 'kein Spielername im Prompt');
   const bw = Szenenbau.grobplanVorgaben({ katalog: Katalog.load() }, { orte: [{ id: 'kesh', landepunkte: [{ id: 'k.hand', name: 'h', art: 'hand', bauweise: null, besitz: null }] }] }, { lp: ad });
   ok(/k\.hand \(Handkarte\)/.test(bw), 'Handkarte ohne Bauweise: Text wie bisher');

@@ -1029,7 +1029,7 @@ Die Basis gilt nur für win32-x64. `node:sqlite` braucht Node ≥ 22.13 (unter 2
 Außenposten und Stationen entstehen jetzt aus **Grammatiken statt aus Modulen**. Das gilt überall: Bodenkampf-Auswahl
 (Wellen), Testgelände, Szenenbau und die festen Orte (`kesh.grabung`, `hafen.kontor` …).
 - **Außenposten = Siedlung** (`shared/gen-siedlung.js`: Straßen, Platz, Parzellen, Funktionsgebäude, Wachturm; Mauer nur beim
-  Militärlager; Rom: Raster, Germanen: Hauptachse). **Station** = `shared/gen-station.js`. Schiff, Ruine und Handkarten bleiben bei den Modulen.
+  Militärlager; Rom: Cardo und Decumanus mit Forum, vier Toren, Insulae und Campus, Germanen: Hauptachse). **Station** = `shared/gen-station.js`. Schiff, Ruine und Handkarten bleiben bei den Modulen.
 - **Pflichtsatz:** Beide Generatoren erfüllen den Ankersatz der Kartenart (Außenposten: eingang 3, abholpunkt 2, sprengpunkt 2,
   aussicht, terminal, zelle 2, beute 4, ziel, wache 6, patrouille 4; Station: u. a. zelle 2, versteck, tor, ziel 3, nsc 2).
   Die Missionsplanung nimmt ihn für jede Karte der Art an. Der Prüfer erzwingt ihn über `meta.pflicht`.

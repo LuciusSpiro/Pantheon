@@ -166,7 +166,7 @@
   "kartenarten": [
     {
       "id": "aussenposten",
-      "kurz": "Germanisches Lager im Freien (72×40): Palisade, Tore, Höfe, Aussichtsplateau – Sturm, Sabotage, Geiseln, Daten.",
+      "kurz": "Siedlung im Freien, Bauweise folgt dem Besitz (germanisch: Palisade, Tore, Höfe, Aussichtsplateau; römisch: Cardo-Layout mit Forum und vier Toren, Mauer nur beim Militärlager) – Sturm, Sabotage, Geiseln, Daten.",
       "pflichtsatz": {
         "abholpunkt": 2,
         "aussicht": 1,

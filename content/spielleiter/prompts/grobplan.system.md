@@ -60,8 +60,10 @@ lehnt alles andere ab.
   { kartenart, besitz, neu: true }` mit einer passenden Kartenart – dann baut das Spiel eine neue Karte dieser Art am
   Ort. **Nie Koordinaten** (`x`, `y`, `tile`, `pos`), keine erfundenen Karten oder Module.
 - Die **Bauweise** eines neuen Orts folgt dem Besitz, du wählst sie nicht: eine Station mit Besitz `rom` ist eine
-  römische Station (Marmor, Rot und Gold, Amphorenzellen), jede andere Station und jeder Außenposten ist germanisch
-  (auch bei Besitz `rom`; eine Eroberung baut bestehende Orte nicht um). Beschreibe den Ort passend zu der Bauweise, die
+  römische Station (Marmor, Rot und Gold, Amphorenzellen), ein neu angelegter Außenposten mit Besitz `rom` eine römische Siedlung im
+  Cardo-Layout (Forum in der Mitte, vier Tore als freistehende Torbögen, ohne Mauer – ein Handelsposten, kein Militärlager).
+  Orte, die schon bestehen (etwa eine Eroberung), behalten ihre Bauweise und werden nicht umgebaut. Alle anderen neuen Orte (Besitz nicht `rom`) sind
+  germanisch. Beschreibe den Ort passend zu der Bauweise, die
   `<vorgaben>` nennt. Besetzung am Ort: Fraktion `rom` für römische Wachen, `ger` für germanische Clanwachen.
 - **Handkarten** (`wreck`, `platform`, `kesh`) sind keine Schiffe, Stationen oder Ruinen: nur für Umsetzungen, bei
   denen `<vorgaben>` sie nennt. Ein Gefecht im Wrack „Zaunkönig“ braucht ein Schiff (`wrack.langschiff` oder

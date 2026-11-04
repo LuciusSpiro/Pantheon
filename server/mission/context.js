@@ -33,7 +33,7 @@ const CHRONIK = 8;
 const BILANZ = 3;   // Bodenbilanz: letzte gespielte Missionen (= wiederholtFenster)
 const ANKER_OHNE = new Set(['deckung']);   // Vorzugsplätze der KI: für den Spielleiter ohne Bedeutung
 const KARTENART_KURZ = {
-  aussenposten: 'Germanisches Lager im Freien (72×40): Palisade, Tore, Höfe, Aussichtsplateau – Sturm, Sabotage, Geiseln, Daten.',
+  aussenposten: 'Siedlung im Freien, Bauweise folgt dem Besitz (germanisch: Palisade, Tore, Höfe, Aussichtsplateau; römisch: Cardo-Layout mit Forum und vier Toren, Mauer nur beim Militärlager) – Sturm, Sabotage, Geiseln, Daten.',
   station: 'Germanische Raumstation (48×24): Gänge, Schotten, Hallen, Reaktor – Daten, Krise, Evakuieren, Sabotage.',
   ruine: 'Verfallenes römisches Grenzkastell (64×40): Tore, Gewölbe, Rätselpaar, Fund – Rätsel, Bergung, Probe.',
   schiff: 'Germanisches Langschiff, zwei Decks (37×13): Brücke, Laderaum, Zellen – Kapern, Sabotage, Bergung.',

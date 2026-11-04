@@ -3,7 +3,7 @@
 //   node tools/proto-siedlung.js --haeuser 14 --seed 1 --bauweise rom --typ handel
 //   node tools/proto-siedlung.js --haeuser 18 --seed 4 --bauweise germanen --typ militaer
 //   node tools/proto-siedlung.js --sweep 40
-// Reihenfolge: Rahmen (Tor, Landefeld, Mauer nur beim Militärlager) -> Straßennetz (Rom: Raster, Germanen: Hauptachse mit
+// Reihenfolge: Rahmen (Tor, Landefeld, Mauer nur beim Militärlager) -> Straßennetz (Rom: Cardo und Decumanus mit Forum, vier Toren, Insulae und Campus; Germanen: Hauptachse mit
 // Abzweigen) -> Parzellen entlang der Straßen -> Gebäude (Funktionsgebäude betretbar, Rest Kulisse) -> Leitstücke, Deckung.
 const args = process.argv.slice(2);
 const val = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
