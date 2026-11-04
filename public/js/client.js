@@ -729,7 +729,6 @@
     } catch (e) { return null; }
   })();
   function onSnapB(prev, s) {
-    { const m = me(); if (m && m.wf) K.myWaffe = m.wf; }   // B2: zuletzt bekannte eigene Waffe (an Bord fehlt wf im Snapshot)
     if (s.phase === 'lobby' && ARENA_URL && !Client.arenaSent) {
       Client.arenaSent = true;
       // F16: Testgelände startet nie einen gemerkten Weltstand (Server stellt nach „Partie beenden“ den vorigen wieder ein)
@@ -1065,10 +1064,13 @@
         return true;
       // ---- B2 Bodenkampf (FX hört selbst mit; hier nur Kurzmeldungen)
       case 'ausruestungStand':   // AUS-01 B: Slotzahl und eigenes Loadout für die Ausrüstungsstation (nur an den Absender)
-        if (ev.pid === Client.pid) K.ausruestungStand(ev);
+        if (ev.pid === Client.pid) {
+          H.loadoutStand = { slotzahl: ev.slotzahl | 0, slots: Array.isArray(ev.slots) ? ev.slots.map(x => (typeof x === 'string' ? x : null)) : [] };   // AUS-01 E: eine Quelle für die Boden-HUD-Leiste (kommt auch beim Beamen nach unten)
+          K.ausruestungStand(ev);
+        }
         return true;
       case 'loadout':
-        if (ev.pid === Client.pid) { K.myWaffe = ev.waffe; H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
+        if (ev.pid === Client.pid) { H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
         return true;
       // BOD-02 P3 Niederhalten: knapper Fehlschuss – Rückmeldung nur für den Beschossenen (Zischen, Staub am Einschlagpunkt, Vignette); Gegner-Reaktion ist rein serverseitig
       case 'knapp':

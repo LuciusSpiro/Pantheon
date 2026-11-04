@@ -315,6 +315,7 @@
     // Snapshot wellen { k, s, n, ph, t, r, l } (shared/protocol.js); Ereignisse welle/welleGeschafft/wellenEnde setzt client.js
     // in wellenBanner/wellenErgebnis. Rekorde je Karte: wellenRekorde (localStorage, client.js).
     wellenBanner: null, wellenErgebnis: null, wellenRekorde: {},
+    loadoutStand: null,   // AUS-01 E: letzter ausruestungStand { slotzahl, slots } für die Boden-HUD-Leiste (client.js setzt ihn)
     wellenKarteName(k) {
       const P = window.Shared_Protocol || {};
       if (/^all:/.test(k || '')) { const z = this.allSzene(k.slice(4)); return 'All: ' + (z ? z.name : k.slice(4)); }   // W2 AP3b: Wellen All
@@ -696,7 +697,8 @@
       // BOD-02 P4: in einer Stellung (Sicht 16) bzw. auf dem Posten (22) steht eine dezente Zeile; abgeleitet aus Karte + eigener Position (kein Snapshot-Feld)
       const sichtN = R.sichtVon && !me.downed ? R.sichtVon(R.mapFor('away', st), me) : 0;
       const stelleZeile = sichtN > (+(CFG.awayCombat && CFG.awayCombat.sightTiles) || 10);
-      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
+      const slotZeile = waffeZeile && !!(this.loadoutStand && this.loadoutStand.slotzahl > 0);   // AUS-01 E: Loadout-Leiste (Stand vom Server, kein Snapshot-Feld)
+      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (slotZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
       const y0 = VH - h - 4;
       R.backdrop(ctx, 4, y0, 170, h, 0.68);   // schmal genug, dass die ODA-Box (unten mittig) nichts verdeckt
       // Schild
@@ -723,6 +725,7 @@
       // Deckung / Flanke bzw. Verwundet
       let y = y0 + 20;
       if (waffeZeile) { this.drawWaffeZeile(ctx, view, 8, y); y += 12; }
+      if (slotZeile) { this.drawSlotZeile(ctx, view, 8, y); y += 12; }
       if (zsZeile) {
         const id = me.bt ? 'betaeubt' : me.zs;
         R.statusIcon(ctx, id, 14, y + 3);
@@ -770,6 +773,24 @@
       R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick ' + (WAFFE_NAME[me.wf] || 'Blaster') + ' · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
+    },
+    // AUS-01 E: Slot-Leiste (2 oder 3 wirksame Slots): aktive Waffe (Snapshot wf) rot hinterlegt, andere belegte gedämpft, leer = „–“, keine Waffe = Fäuste
+    drawSlotZeile(ctx, view, x, y) {
+      const s = this.loadoutStand, wf = view.me.wf;
+      const n = Math.max(1, Math.min(3, s.slotzahl | 0));
+      const slots = Array.from({ length: n }, (_, i) => s.slots[i] || null);
+      const faeuste = !slots.some(Boolean);
+      const aktiv = faeuste ? -1 : Math.max(0, slots.indexOf(wf));
+      const breite = 164, fw = faeuste ? 48 : 0, cw = Math.floor((breite - fw) / n);
+      if (faeuste) { ctx.fillStyle = PAL.red; ctx.fillRect(x - 2, y - 2, fw - 2, 11); R.text(ctx, 'Fäuste', x + fw / 2 - 1, y, { color: PAL.star, align: 'center', shadow: false }); }
+      slots.forEach((id, i) => {
+        const cx = x - 2 + fw + i * cw;
+        const on = i === aktiv;
+        if (on) { ctx.fillStyle = PAL.red; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
+        const txt = id ? (WAFFE_KURZ[id] || WAFFE_NAME[id] || id) : '–';
+        R.text(ctx, txt, cx + (cw - 2) / 2, y, { color: on ? PAL.star : id ? '#9AA3B2' : '#6B7380', align: 'center', shadow: !on ? true : false });
+      });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
     drawWaffeZeile(ctx, view, x, y) {

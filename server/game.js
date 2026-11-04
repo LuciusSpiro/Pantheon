@@ -799,6 +799,7 @@ class Game {
       this.sentFinaleKey = null; this.sentExploreVersion = -1; this.sentLogVersion = -1; this.sentBookVersion = -1; this.sentSektorenVersion = -1; this.sentTransferKey = null; this.sentLageKey = null; this.sentRufKey = null; this.sentAbsichtKey = null; this.sentFunkKey = null; this.sentBittenKey = null; this.sentAbenteuerKey = null; this.sentInfoKey = null;
       this.telemetrie.spielerBei(p.id, 'wieder', false);   // TEL-01 A
       this.log(`Spieler ${p.name} wieder verbunden.`);
+      if (p.zone === 'away') require('./sim/loadout.js').standSenden(this, p);   // AUS-01 E: Wiederverbinden am Boden: das HUD braucht den Stand erneut
       return;
     }
     if (this.players.length >= C.maxPlayers) {

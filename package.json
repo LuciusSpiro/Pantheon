@@ -287,6 +287,7 @@
     "test:waffen": "node tools/test-waffen.js",
     "test:loadout": "node tools/test-loadout.js",
     "test:ausruestung": "node tools/test-ausruestung.js",
+    "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",
     "test:sektoren": "node tools/test-sektoren.js",
     "test:alarm": "node tools/test-alarm.js",
     "test:methalle": "node tools/test-methalle.js",

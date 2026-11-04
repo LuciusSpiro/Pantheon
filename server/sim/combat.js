@@ -436,6 +436,7 @@ function onArrive(game, p) {
     const w = p.clientId != null && !p.gefangen && waffen().waffeFuer ? waffen().waffeFuer(game, p) : null;
     if (w && p.waffe !== w) waffen().waffeAnlegen(game, p, w);
   }
+  require('./loadout.js').standSenden(game, p);   // AUS-01 E: das Boden-HUD zeigt die Slots aus diesem Stand (nur an den Spieler, kein Snapshot-Feld)
 }
 // Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt
 function onLeave(game, p) {
