@@ -4,7 +4,8 @@
 //  - Start: Rüstphase (Crew bleibt an Bord, „Szene starten“ am Terminal), dann beamt die Crew am Abholpunkt links hinunter; ohne Rüstphase gleich
 //  - Aufstellung: Welle 1 im Graben/auf den Posten, Welle 2 im Wald/am Eingang, ALLE von Beginn an, kein Nachspawn; 9/13/18 Gegner für 1/2/3 Spieler (Welle 3 im Bunker, BOD-03 B5: dazu 3/4/6)
 //  - Rom: Fraktion, Palette, Namen und Funk römisch (kein Karl, Bolzer, …); Rollenmix mit Grenadier und Schütze
-//  - Ziel: vor dem Sieg über Welle 2 gesperrt und wirkungslos, danach erreichbar (3 s halten); Hochbeamen nach dem Ziel = Sieg, davor kein Sieg
+//  - Ziel (BOD-03 C1): die Sprengung im Reaktorraum (Zielzeile erst nach dem Sieg über Welle 2 „zünden“; der alte Bunkereingang-Anker ist still); Hochbeamen nach dem Knall = Sieg, davor kein Sieg
+//    (Zünden im echten Ablauf, Nachschub, Pad, Lift: tools/test-bunker-sprengung.js)
 //  - Niederlage: Notrückholung der ganzen Crew -> das ganze Szenario beginnt neu (Gegner, Ziel, Zähler)
 //  - Snapshot mit 3 Spielern und vollem Szenario im Gefecht <= 18944 B
 //   node tools/test-grabenangriff-szenario.js
@@ -56,14 +57,10 @@ function faellen(g, ids) {
 }
 const objektiv = (g) => ((g.snapshot().mission || {}).objectives || []).map((o) => o.text).join(' | ');
 const stick = (g, c, mx, my) => g.handleMessage(c, { t: 'input', seq: (stick.s = (stick.s || 0) + 1), mx, my });
-const zielTile = (K) => anker(K, K.meta.ziel);
+const zielTile = (K) => anker(K, K.meta.ziel);   // der alte Oberflächen-Anker (Bunkereingang), seit BOD-03 C1 still
 function aufZiel(g, p, K) { const a = zielTile(K); const c = Physics.tileCenter(a.x, a.y); p.x = c.x; p.y = c.y; }
-function ziel3s(g, cs, K) {   // Spieler 0 steht am Ziel und hält E (act) 4 s
-  aufZiel(g, g.players[0], K);
-  g.handleMessage(cs[0], { t: 'act', down: true });
-  for (let i = 0; i < 4 * CONFIG.tickHz; i++) { for (const p of g.players) { if (p.shield) p.shield.seg = 3; } g.step(); }
-  g.handleMessage(cs[0], { t: 'act', down: false });
-}
+// Sprengung: Ladung am Sprengpunkt scharf (1 s Countdown statt 60 s, die Crew steht weit weg), dann der Knall (S.ziel erreicht, Nachschub oben)
+function sprengen(g, S) { Anker.ladungScharf(g, S.lp, S.zielId, 1); ticks(g, 2.5); }
 
 section('Lobby: Modus neben Wellen Boden, Variantenliste aus den Kartendaten', () => {
   const ml = Protocol.LOBBY_MODI;
@@ -160,35 +157,34 @@ section('Rom: Fraktion, Palette, Namen und Funk römisch', () => {
   ok(fehlerZahl(g) === 0, 'keine Fehler');
 });
 
-section('Ziel: vor dem Sieg über Welle 2 gesperrt und wirkungslos, danach erreichbar', () => {
+section('Ziel: die Sprengung im Reaktorraum; der alte Bunkereingang-Anker ist still', () => {
   const { g, cs, S, aw, K } = start(3);
-  const z = K.meta.ziel;
-  ok(z === 'bunker.ziel' && S.ziel === 'gesperrt' && aw.ankerSperre && aw.ankerSperre[z], 'Ziel bunker.ziel gesperrt (ankerSperre mit Hinweistext: ' + (aw.ankerSperre && aw.ankerSperre[z]) + ')');
+  const z = K.meta.ziel, sp = S.zielId;
+  ok(z === 'bunker.ziel' && sp === 'bk.reaktor.sprengpunkt' && K.anker.find((a) => a.id === sp).rolle === 'sprengpunkt', 'Ziel = Sprengpunkt ' + sp + ' im Reaktorraum, der Anker meta.ziel (' + z + ') bleibt als Optik');
+  ok(S.ziel === 'gesperrt' && aw.ankerSperre && /nicht das Ziel/.test(aw.ankerSperre[z]), 'Stufe gesperrt, der Anker ' + z + ' ist still (ankerSperre: ' + (aw.ankerSperre && aw.ankerSperre[z]) + ')');
   const liste = []; Anker.interactionsAt(g, g.players[0], zielTile(K).x, zielTile(K).y, liste);
-  ok(liste.length && liste.every((i) => i.blocked) && /Gesperrt/.test(liste[0].blocked), 'Interaktion am Ziel: „gesperrt“ statt Halten');
-  // Welle 1 besiegt, Welle 2 steht: das Ziel bleibt gesperrt, Halten wirkt nicht
+  ok(liste.length && liste.every((i) => i.blocked) && /nicht das Ziel/.test(liste[0].blocked), 'Interaktion am alten Anker: Hinweis statt Halten');
+  // Welle 1 besiegt, Welle 2 steht: die Zielzeile bleibt beim Kampf, Halten am alten Anker wirkt nicht
   faellen(g, S.ids[1]);
   ticks(g, 1);
-  ok(S.ziel === 'gesperrt' && lebend(aw).length === g.arena.wellen.gesamt - S.ids[1].length, 'Welle 1 besiegt, Welle 2 steht: Ziel bleibt gesperrt');
-  ziel3s(g, cs, K);
-  ok(Anker.zustand(g, S.lp, z) === 'frei' && S.ziel === 'gesperrt', 'Halten am gesperrten Ziel (4 s) bewirkt nichts');
+  ok(S.ziel === 'gesperrt' && lebend(aw).length === g.arena.wellen.gesamt - S.ids[1].length, 'Welle 1 besiegt, Welle 2 steht: Stufe gesperrt');
+  aufZiel(g, g.players[0], K); g.handleMessage(cs[0], { t: 'act', down: true }); ticks(g, 4); g.handleMessage(cs[0], { t: 'act', down: false });
+  ok(Anker.zustand(g, S.lp, z) === 'frei' && S.ziel === 'gesperrt', 'Halten am alten Anker (4 s) bewirkt nichts');
   ok(/Rom besiegen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
-  // Welle 2 besiegt: Ziel offen, 3 s halten = erreicht
+  // Welle 2 besiegt: Zielzeile „Sprengladung zünden“ (der Sprengpunkt selbst war nie gesperrt, der alte Anker bleibt still)
   faellen(g, S.ids[2]);
   ticks(g, 1);
-  ok(S.ziel === 'offen' && !(aw.ankerSperre && aw.ankerSperre[z]), 'Welle 2 besiegt: Ziel offen, Sperre weg');
-  ok(/Bunkereingang einnehmen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
+  ok(S.ziel === 'offen' && aw.ankerSperre[z], 'Welle 2 besiegt: Stufe offen, der alte Anker bleibt still');
+  ok(objektiv(g) === 'Sprengladung im Reaktorraum zünden', 'Zielzeile: ' + objektiv(g));
   const l2 = []; Anker.interactionsAt(g, g.players[0], zielTile(K).x, zielTile(K).y, l2);
-  ok(l2.length && !l2[0].blocked, 'Interaktion am Ziel wieder möglich');
-  aufZiel(g, g.players[0], K);
-  g.handleMessage(cs[0], { t: 'act', down: true });
-  ticks(g, 1.5);
-  ok(Anker.zustand(g, S.lp, z) === 'frei' && S.ziel === 'offen', 'nach 1,5 s noch nicht erreicht (halten dauert ' + CONFIG.anker.halten.ziel + ' s)');
-  ticks(g, 2.5);
-  g.handleMessage(cs[0], { t: 'act', down: false });
-  ticks(g, 1);
-  ok(Anker.zustand(g, S.lp, z) === 'aktiviert' && S.ziel === 'erreicht', 'Ziel nach dem Halten erreicht');
-  ok(/Abholpunkt/.test(objektiv(g)) && /hochbeamen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
+  ok(l2.length && l2.every((i) => i.blocked), 'am alten Anker weiter nur der Hinweis');
+  // Zünden ist noch nicht das Ziel, der Knall schon
+  Anker.ladungScharf(g, S.lp, sp, 1);
+  ticks(g, 0.5);
+  ok(Anker.zustand(g, S.lp, sp) === 'scharf' && S.ziel === 'offen' && /scharf/.test(objektiv(g)), 'Ladung scharf: Ziel noch nicht erreicht, Zielzeile: ' + objektiv(g));
+  ticks(g, 2);
+  ok(Anker.zustand(g, S.lp, sp) === 'zerstoert' && S.ziel === 'erreicht', 'nach dem Knall: Ziel erreicht');
+  ok(/Pad/.test(objektiv(g)) && /hochbeamen/.test(objektiv(g)), 'Zielzeile: ' + objektiv(g));
   ok(g.snapshot().wellen.ph === 'kampf', 'noch kein Sieg, solange die Crew unten ist');
   // Sieg = Hochbeamen nach dem Ziel (ein Spieler oben reicht nicht)
   away.executeBeam(g, [g.players[0].id], 'up'); ticks(g, 1);
@@ -225,15 +221,16 @@ section('Niederlage: ganze Crew gefallen (alle unten, niemand an Bord) -> Notrü
     const pos0 = gegner(aw).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';');
     faellen(g, S.ids[1]); faellen(g, S.ids[2]); faellen(g, S.ids[3]);
     ticks(g, 1);
-    ziel3s(g, cs, K);
-    ok(S.ziel === 'erreicht' && lebend(aw).length === 0, `[${ruest ? 'mit' : 'ohne'} Rüstphase] Ausgangslage: alle besiegt, Ziel erreicht, die ganze Crew noch unten (Vollausfall = Niederlage, bleibt auch nach dem Ziel Neubeginn)`);
+    sprengen(g, S); faellen(g, S.nachschubIds); ticks(g, 1);
+    ok(S.ziel === 'erreicht' && lebend(aw).length === 0 && S.nachschubIds.length === 4, `[${ruest ? 'mit' : 'ohne'} Rüstphase] Ausgangslage: alle besiegt (auch der Nachschub), Ziel erreicht, die ganze Crew noch unten (Vollausfall = Niederlage, bleibt auch nach dem Ziel Neubeginn)`);
     const vorher = (aw.stats && aw.stats.squadRecalls) || 0;
     for (const p of g.players) { combat.woundPlayer ? combat.woundPlayer(g, p, { quiet: true }) : (p.downed = true); p.downed = true; }
     ticks(g, CONFIG.awayCombat.wounded.squadRecallDelay + 3);
     ok(((aw.stats && aw.stats.squadRecalls) || 0) === vorher + 1, 'Notrückholung (bestehender Weg combat.squadRecall) hat gegriffen');
     ok(S.versuch === 2 && S.ph !== 'ende' && g.phase === 'play', 'Neubeginn: Versuch 2, kein Ende, kein Sieg');
     ok(lebend(aw).length === S.gesamt && S.gesamt === 18 && gegner(aw).map((e) => e.rolle + '@' + tile(e).x + ',' + tile(e).y).sort().join(';') === pos0, 'alle 18 Gegner (auch Welle 3 im Bunker) wieder auf den Anfangsplätzen');
-    ok(S.ziel === 'gesperrt' && Anker.zustand(g, S.lp, z) === 'frei' && aw.ankerSperre && aw.ankerSperre[z], 'Ziel wieder gesperrt und offen (Zustand frei)');
+    ok(S.ziel === 'gesperrt' && Anker.zustand(g, S.lp, S.zielId) === 'intakt' && Anker.zustand(g, S.lp, z) === 'frei' && aw.ankerSperre && aw.ankerSperre[z] && S.nachschub === null, 'Stufe wieder gesperrt, Sprengpunkt intakt, Nachschub-Auslöser zurück, alter Anker weiter still');
+    ok(g.inventory.ladung === 1 && !aw.drones.some((e) => e.squad === 'graben.nachschub'), 'Ladung wieder 1, kein Nachschub mehr da');
     ok(S.abschuesse === 0 && Object.keys(S.kills).length === 0, 'Zähler zurück (Abschüsse 0)');
     ok(g.ship.systems.transfer === 'ok' && !(aw.recallLockUntil > g.time), 'Transfer nach der Notrückholung wieder heil und nicht gesperrt (sonst kein Hochbeamen nach dem Neubeginn)');
     if (ruest) {
@@ -259,7 +256,7 @@ section('Teil-Crew: einer gesund an Bord, der untere fällt -> keine Niederlage 
       ticks(g, 1);
       let lebt;
       if (vorZiel) { faellen(g, S.ids[2].slice(0, 1)); lebt = lebend(aw).length; }
-      else { faellen(g, S.ids[1]); faellen(g, S.ids[2]); ticks(g, 1); ziel3s(g, cs, K); lebt = 0; ok(S.ziel === 'erreicht', tag + ' Ausgangslage: Ziel erreicht'); }
+      else { faellen(g, S.ids[1]); faellen(g, S.ids[2]); ticks(g, 1); sprengen(g, S); lebt = 0; ok(S.ziel === 'erreicht', tag + ' Ausgangslage: Ziel erreicht (Sprengung)'); }
       const vorher = (aw.stats && aw.stats.squadRecalls) || 0;
       away.executeBeam(g, [g.players[0].id], 'up'); ticks(g, 1);
       ok(g.players[0].zone === 'ship' && g.players.slice(1).every((p) => p.zone === 'away'), tag + ' Spieler 0 gesund hochgebeamt, die anderen unten');

@@ -11,10 +11,14 @@
 //    combat.besetzen würde ungesehene Rollen durch Grundtyp ersetzen.
 //  - Wellen: beliebig viele (meta.wellen, Nummern aufsteigend). Welle 1 und 2 stehen oben (Deck 0), Welle 3 im Bunker (Deck 1, BOD-03). Jeder Trupp bekommt eine
 //    Deck-Bindung (s.deckBindung, squad.js gegnerWeg): Gegner wechseln das Deck nie über Lift oder Rohr, ein Alarm oben zieht den Bunker nicht hoch.
-//  - Ziel (Anker meta.ziel, Rolle ziel): gesperrt (anker.js ankerSperre, Hinweistext), bis zielOeffnet erfüllt ist (heute: alle Wellen der Oberfläche besiegt); dann offen; Halten (CONFIG.anker.halten.ziel)
-//    setzt es auf aktiviert = erreicht. Danach gewinnt das Hochbeamen: niemand der verbundenen Spieler mehr unten.
+//  - Ziel (BOD-03 C1): die SPRENGUNG im Reaktorraum. Der einzige Anker der Rolle sprengpunkt (S.zielId) im Zustand zerstoert (Zünden: E halten, Countdown, Knall = anker.js) setzt
+//    S.ziel auf erreicht. gesperrt/offen sind nur noch Stufen der Zielzeile (offen, sobald zielOeffnet erfüllt ist: alle Wellen der Oberfläche besiegt), der Sprengpunkt selbst ist nie
+//    gesperrt. Der alte Oberflächen-Anker meta.ziel (Bunkereingang, Optik) bleibt auf der Karte und ist STILL (S.stillId, ankerSperre ziel_still): kein Halten, keine Siegbedingung.
+//    Die Crew startet mit EINER Ladung im Teaminventar (Neubeginn: wieder 1).
+//  - Nachschub (C2/C3): der Knall löst EINMAL das Warnsignal und vier Mann (CONFIG.graben.nachschub) oben am Bunkereingang aus (S.nachschub). Kein Timer, keine Lift-Sperre.
+//    Danach gewinnt das Hochbeamen: niemand der verbundenen Spieler mehr unten (Pad am Bunkereingang, immer aktiv).
 //  - Niederlage: Notrückholung, die die GANZE verbundene Crew betrifft (combat.squadRecall, bestehend; ist ein Spieler gesund an Bord, läuft es weiter) -> das GANZE Szenario beginnt neu (neuBeginnen): alle Gegner zurück auf die
-//    Anfangsplätze, Ziel wieder gesperrt, Zähler zurück, Transfer wieder heil. Die Karte wird nicht neu gebaut, nur Zustände und Gegner (Vorbild map_reset, Siedlung Eisenwald).
+//    Anfangsplätze, Sprengpunkt wieder intakt, Ladung wieder 1, Nachschub-Auslöser zurück, Zähler zurück, Transfer wieder heil. Die Karte wird nicht neu gebaut, nur Zustände und Gegner (Vorbild map_reset, Siedlung Eisenwald).
 //  - Hochbeamen vor dem Ziel: kein Sieg, wie in Wellen Boden bleibt der Stand stehen (Gegner bleiben, die Crew kann ausrüsten und wieder hinunter).
 //  - Alle Texte und Zahlen: CONFIG.graben. Die KI bleibt unberührt (BOD-02).
 const GenFest = require('../../shared/gen-fest.js');
@@ -29,6 +33,7 @@ const cfg = (game) => game.C.graben;
 const team = (game) => game.players.filter((p) => p.connected);
 const text = (game, key, ...a) => String((cfg(game).texte || {})[key] || '').replace(/\{(\d)\}/g, (m, i) => (a[i] == null ? '' : a[i]));
 const fehler = (game, wo, e) => { if (game.countError) game.countError(wo, e); };
+const Vorrat = require('./vorrat.js');
 
 // ---------- Variantenwahl (Lobby): datengetrieben aus den Kartendaten (gen-fest varianten) ----------
 const festDef = (game) => require('./landepunkte.js').festkarte(cfg(game).fest);
@@ -144,19 +149,65 @@ function aufstellen(game, S) {
   return gesamt;
 }
 
-function sperre(game, S, an) {
+// BOD-03 C1: der Oberflächen-Anker meta.ziel (Bunkereingang) ist kein Ziel mehr. Er bleibt als Optik auf der Karte und wird still gelegt: E zeigt nur den Hinweis ziel_still.
+function stillLegen(game, S) {
   const aw = game.aways[S.lp];
-  if (!aw) return;
-  if (an) aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.zielId]: text(game, 'sperre') });
-  else if (aw.ankerSperre) delete aw.ankerSperre[S.zielId];
+  if (!aw || !S.stillId) return;
+  aw.ankerSperre = Object.assign(aw.ankerSperre || {}, { [S.stillId]: text(game, 'ziel_still') });
 }
-// Ziel zurück auf offen-für-Halten (Zustand frei), aber gesperrt
+// Das Ziel (Sprengpunkt) zurück auf Anfang: Zustand intakt (aw.zustaende ist schon leer), Halter lösen, Stufe gesperrt, Nachschub-Auslöser zurück
 function zielZurueck(game, S) {
-  const aw = game.aways[S.lp];
-  if (!aw) return;
-  M().anker.setzen(game, S.lp, S.zielId, 'frei', null, { still: true });
   for (const p of game.players) if (p.hold && p.hold.anker === S.zielId) p.hold = null;
-  S.ziel = 'gesperrt'; sperre(game, S, true);
+  S.ziel = 'gesperrt';
+  S.nachschub = null; S.nachschubIds = [];
+  stillLegen(game, S);
+}
+// Die Crew startet mit EINER Ladung im Teaminventar (Start und Neubeginn gleich: auf genau 1 gesetzt, nicht addiert)
+function ladungBereitstellen(game) { Vorrat.standSetzen(game, 'ladung', 1, 'mission'); }
+// Der Sprengpunkt der Karte: genau einer (BOD-03: Reaktorraum des Bunkers)
+function sprengpunktVon(k) { const l = (k ? k.anker : []).filter((a) => a.rolle === 'sprengpunkt'); return l.length === 1 ? l[0].id : null; }
+
+// ---------- Nachschub (BOD-03 C3): einmal vier Mann oben am Bunkereingang, ausgelöst vom Knall ----------
+// n Plätze um den Lift oben (Deck 0): freie Kacheln im Abstand 2 bis 5 (Chebyshev), weder Pad noch Anker, nach Abstand, dann y, x
+function nachschubPlaetze(game, info, n) {
+  const k = info.karte;
+  const lift = k.anker.filter((a) => a.rolle === 'lift' && deckVonY(k, a.y) === 0)[0];
+  if (!lift) return [];
+  const belegt = new Set((info.pads || []).map((q) => q.x + ',' + q.y).concat(k.anker.map((a) => a.x + ',' + a.y)));
+  const frei = [];
+  for (let dy = -5; dy <= 5; dy++) for (let dx = -5; dx <= 5; dx++) {
+    const d = Math.max(Math.abs(dx), Math.abs(dy)); const x = lift.x + dx, y = lift.y + dy;
+    if (d < 2 || belegt.has(x + ',' + y) || info.map.solid(x, y) || deckVonY(k, y) !== 0) continue;
+    frei.push({ x, y, d });
+  }
+  frei.sort((a, b) => a.d - b.d || a.y - b.y || a.x - b.x);
+  return frei.slice(0, n).map((q) => ({ x: q.x, y: q.y }));
+}
+// Warnsignal und Nachschub, genau einmal je Versuch (S.nachschub: null -> 'gesendet'; neuBeginnen setzt es zurück)
+function nachschubSenden(game, S) {
+  if (S.nachschub) return 0;
+  S.nachschub = 'gesendet';
+  const aw = game.aways[S.lp]; const info = M().interior.awayInfoOf(S.lp);
+  game.oda(text(game, 'nachschub'), null);
+  game.emit('sfx', { name: 'alarm_yellow', zone: 'away' });
+  game.emit('nachschub', { map: S.lp, versuch: S.versuch });
+  const rollen = cfg(game).nachschub || [];
+  const plaetze = nachschubPlaetze(game, info, rollen.length);
+  const name = 'graben.nachschub';
+  const n = M().squad.spawnSquad(game, name, { map: S.lp, besetzung: rollen.map((r) => ({ typ: r, anzahl: 1 })), force: true, plaetze, festeZahl: true, alert: true });
+  if (n !== rollen.length) fehler(game, 'graben-nachschub', new Error(`Nachschub: ${n}/${rollen.length} Gegner`));
+  const F = fraktionDaten(game, S.fraktion);
+  S.nachschubIds = [];
+  for (const e of aw.drones) if (e.squad === name) {
+    e.tag = TAG(); e.fraktion = S.fraktion; if (F && F.palette) e.palette = F.palette;
+    M().combat.kaempfer(game, e);
+    S.nachschubIds.push(e.id); S.lebt.add(e.id);
+  }
+  const s = aw.squads[name];
+  if (s) { s.tag = TAG(); s.fraktion = S.fraktion; s.gruppe = 'nachschub'; s.deckBindung = 0; }   // Oberflächen-Gegner: bleiben oben (squad.js gegnerWeg)
+  S.gesamt += n; S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
+  game.log(`Grabenangriff: Nachschub ${n} Mann am Bunkereingang (Versuch ${S.versuch}).`);
+  return n;
 }
 
 // start(game, { karte, seed, lp, auswahl, name }) – Karte steht (arena.js), das Team ist noch an Bord bzw. unten
@@ -169,13 +220,14 @@ function start(game, o) {
   const k = karteVon(game, o.lp);
   const S = {
     buehne: 'graben', karte: o.karte, seed: o.seed, lp: o.lp, fraktion: cfg(game).fraktion, n: 1, ph: 'kampf', bis: null, queue: [], gesamt: 0, start: game.time,
-    kills: {}, abschuesse: 0, lebt: new Set(), proj: [], ids: {}, ziel: 'gesperrt', zielId: k && k.meta.ziel, versuch: 1, recalls: (aw.stats && aw.stats.squadRecalls) || 0,
+    kills: {}, abschuesse: 0, lebt: new Set(), proj: [], ids: {}, ziel: 'gesperrt', zielId: sprengpunktVon(k), stillId: (k && k.meta.ziel) || null, nachschub: null, nachschubIds: [], versuch: 1, recalls: (aw.stats && aw.stats.squadRecalls) || 0,
     untenSeit: null, ergebnis: null, maxLebend: 0, auswahl: o.auswahl || null,
   };
-  if (!S.zielId) throw new Error('Grabenangriff: Karte ohne Ziel-Anker');
+  if (!S.zielId) throw new Error('Grabenangriff: Karte ohne (genau einen) Sprengpunkt');
   game.arena.wellen = S;
   Tel.szeneStart(game, 'graben', o.karte, { seed: o.seed });   // TEL-01 B1
-  sperre(game, S, true);
+  stillLegen(game, S);
+  ladungBereitstellen(game);
   const n = aufstellen(game, S);
   S.maxLebend = n;
   if (game.ruestphase) S.ph = 'vorbereitung';
@@ -216,6 +268,7 @@ function neuBeginnen(game, S) {
   aw.recallLockUntil = 0;
   if (game.ship.systems.transfer !== 'ok') M().interior.damageSystem(game, 'transfer', 'ok', { quiet: true });
   zielZurueck(game, S);
+  ladungBereitstellen(game);
   S.maxLebend = aufstellen(game, S);
   game.emit('szeneZurueck', { map: S.lp, versuch: S.versuch });
   Tel.szeneNeustart(game, 'graben', S.karte, S.versuch);   // TEL-01 B1: die Crew war unten, Niederlage
@@ -255,16 +308,17 @@ function update(game, S) {
   S.maxLebend = Math.max(S.maxLebend, lebende(aw).length);
   S.n = aktiveWelle(aw, S, wellenNummern(karteVon(game, S.lp)));
   if (S.ziel === 'gesperrt' && zielOeffnet(game, S, aw)) {
-    S.ziel = 'offen'; sperre(game, S, false);
+    S.ziel = 'offen';
     game.oda(text(game, 'ziel_offen'), null);
     game.emit('sfx', { name: 'repair_done', zone: 'away' });
   }
-  if (S.ziel === 'offen' && M().anker.zustand(game, S.lp, S.zielId) === 'aktiviert') {
+  // Ziel: die Sprengung ist erfolgt (der Knall, nicht das Zünden). Dann Warnsignal und Nachschub, genau einmal
+  if (S.ziel !== 'erreicht' && M().anker.zustand(game, S.lp, S.zielId) === 'zerstoert') {
     S.ziel = 'erreicht';
     game.oda(text(game, 'ziel_erreicht'), null);
-    game.emit('sfx', { name: 'repair_done', zone: 'away' });
+    nachschubSenden(game, S);
   }
-  // Sieg: Ziel erreicht und die ganze Crew wieder an Bord (Hochbeamen am Abholpunkt)
+  // Sieg: Sprengung erfolgt und die ganze Crew wieder an Bord (Hochbeamen am Pad des Bunkereingangs oder am Abholpunkt)
   const t = team(game);
   if (S.ziel === 'erreicht' && t.length && !t.some((p) => p.zone === 'away')) sieg(game, S);
 }
@@ -275,6 +329,7 @@ function zeile(game, S) {
   if (S.ph === 'ende') return text(game, 'zeile_sieg');
   const aw = game.aways[S.lp];
   if (S.ziel === 'erreicht') return text(game, 'zeile_hoch');
+  if (M().anker.zustand(game, S.lp, S.zielId) === 'scharf') return text(game, 'zeile_scharf');
   if (S.ziel === 'offen') return text(game, 'zeile_ziel');
   if (S.deckVon && S.deckVon[3] != null) return text(game, 'zeile_kampf3', welleLebt(aw, S, 1), welleLebt(aw, S, 2), welleLebt(aw, S, 3));   // mit Welle 3 (Bunker)
   return text(game, 'zeile_kampf', welleLebt(aw, S, 1), welleLebt(aw, S, 2));

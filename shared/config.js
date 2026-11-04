@@ -595,7 +595,7 @@
     // BOD-01 Grabenangriff (Lobby-Start 'arena_graben', server/sim/graben.js): die Crew greift eine römische Stellung an. Beide Wellen stehen von Beginn
     // an postiert (kein Nachrücken, kein Nachspawn). Besetzung je Crewgröße (der höchste Eintrag ≤ Crewgröße gilt): Gruppe (meta.gruppen der Festkarte) ->
     // Rollen, ein Gegner je Eintrag, gleichmäßig auf die Anker der Gruppe verteilt. Welle 1 = Graben und Posten, Welle 2 = Wald und Eingang (meta.wellen der Karte);
-    // gesamt 6 / 9 / 12 / 16 für 1 / 2 / 3 / 4 Spieler auf der Oberfläche, dazu Welle 3 im Bunker (BOD-03: 3 / 4 / 6 / 8, Gruppen w3.*). Das Ziel (Anker meta.ziel) gilt erst, wenn Welle 2 besiegt ist; halten: CONFIG.anker.halten.ziel.
+    // gesamt 6 / 9 / 12 / 16 für 1 / 2 / 3 / 4 Spieler auf der Oberfläche, dazu Welle 3 im Bunker (BOD-03: 3 / 4 / 6 / 8, Gruppen w3.*). Das Ziel (BOD-03 C1) ist die Sprengung im Reaktorraum (Zünden: CONFIG.anker.halten.sprengpunkt, countdown); danach Nachschub (nachschub) und Hochbeamen.
     graben: {
       fest: 'grabenangriff',   // content/buehnen/festkarten/<fest>.json
       fraktion: 'rom',
@@ -605,19 +605,23 @@
       texte: {
         start: '{0}: {1} Verteidiger halten Graben, Wald und Bunkereingang. Die Crew beamt am Abholpunkt hinunter.',
         start_ruest: '{0} – Rüstphase: am Terminal ausbauen, dann „Szene starten“. Die Crew beamt am Abholpunkt hinunter.',
-        los: 'Die Crew ist unten. Über die Wiese zum Graben, dann durch den Wald zum Bunkereingang.',
-        sperre: 'Gesperrt – erst die Verteidiger im Wald und am Eingang besiegen.',
-        ziel_offen: 'Der Weg zum Bunkereingang ist frei – einnehmen!',
-        ziel_erreicht: 'Bunkereingang genommen! Zum Abholpunkt, dann hochbeamen.',
-        sieg: 'Grabenangriff gewonnen – die Stellung ist genommen.',
-        neustart: 'Die Crew ist gefallen – Notrückholung. Die Stellung beginnt von vorn: alle Verteidiger stehen wieder, das Ziel ist gesperrt.',
+        los: 'Die Crew ist unten. Über die Wiese zum Graben, durch den Wald zum Bunkereingang, per Lift in den Bunker – im Reaktorraum wartet das Ziel.',
+        ziel_still: 'Der Bunkereingang ist nicht das Ziel – die Sprengladung im Reaktorraum unten zünden.',   // BOD-03 C1: der Anker meta.ziel ist still
+        ziel_offen: 'Der Weg zum Bunker ist frei – per Lift hinunter, im Reaktorraum die Sprengladung zünden!',
+        ziel_erreicht: 'Der Bunker ist gesprengt! Zurück zum Pad am Bunkereingang, dann hochbeamen.',
+        nachschub: 'ALARM – Nachschub kommt: vier Mann mit Sturmgewehren am Bunkereingang!',   // BOD-03 C2: Warnsignal nach dem Knall
+        sieg: 'Grabenangriff gewonnen – der Bunker ist gesprengt.',
+        neustart: 'Die Crew ist gefallen – Notrückholung. Die Stellung beginnt von vorn: alle Verteidiger stehen wieder, der Bunker ist wieder intakt, die Sprengladung liegt wieder bereit.',
         zeile_ruest: 'Rüstphase – am Terminal ausbauen, dann Szene starten',
         zeile_kampf: 'Rom besiegen: Graben {0} · Wald und Eingang {1}',
         zeile_kampf3: 'Rom besiegen: Graben {0} · Wald und Eingang {1} · Bunker {2}',   // BOD-03: Karte mit Welle 3 (Bunker)
-        zeile_ziel: 'Bunkereingang einnehmen',
-        zeile_hoch: 'Zum Abholpunkt – hochbeamen',
+        zeile_ziel: 'Sprengladung im Reaktorraum zünden',   // BOD-03 C1
+        zeile_scharf: 'Ladung scharf – raus aus dem Reaktorraum!',
+        zeile_hoch: 'Zurück zum Pad – hochbeamen',
         zeile_sieg: 'Grabenangriff gewonnen',
       },
+      // BOD-03 C3: Nachschub nach dem Knall, EINMAL, Rollen ohne Rücksicht auf die Crewgröße (grundtyp = Sturmgewehr), oben am Bunkereingang
+      nachschub: ['grundtyp', 'grundtyp', 'grundtyp', 'grundtyp'],
       besetzung: {
         1: { 'w1.graben': ['grundtyp', 'grenadier'], 'w1.posten': ['schuetze'], 'w2.wald': ['grundtyp', 'grundtyp'], 'w2.eingang': ['schuetze'],
           'w3.reaktor': ['grundtyp'], 'w3.halle': ['schuetze'], 'w3.nord': ['grundtyp'] },   // BOD-03 B5: Welle 3 im Bunker, Größe und Rollen wie Welle 2 (3 / 4 / 6 / 8), verteilt auf Reaktorraum, Halle, Nordgang

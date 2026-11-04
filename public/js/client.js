@@ -1058,6 +1058,7 @@
         H.pushNotice('Sprengladung gezündet', PAL.amber, 3);
         return true;
       }
+      case 'nachschub': H.pushNotice('ALARM – Nachschub kommt', PAL.red, 5); return true;   // BOD-03 C2: Warnsignal nach dem Knall (Ton: sfx alarm_yellow vom Server)
       case 'landepunktAlarm':
         if (ev.an) { H.pushNotice('ALARM – die Besatzung ist gewarnt', PAL.red, 4); audio.play('alarm_yellow'); }
         else H.pushNotice('Alarm dort unten aufgehoben', PAL.mint, 3);

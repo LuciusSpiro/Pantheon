@@ -90,6 +90,7 @@
     "test:festkarte-decks": "node tools/test-festkarte-decks.js",
     "test:bunker": "node tools/test-bunker.js",
     "test:bunker-wellen": "node tools/test-bunker-wellen.js",
+    "test:bunker-sprengung": "node tools/test-bunker-sprengung.js",
     "test:stellungen": "node tools/test-stellungen.js",
     "test:trupp-gehirn": "node tools/test-trupp-gehirn.js",
     "test:aufrichten-sicherung": "node tools/test-aufrichten-sicherung.js",

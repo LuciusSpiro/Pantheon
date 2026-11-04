@@ -60,7 +60,7 @@
     TRANSFER_SNAP_FIELDS: ['lpId', 'name', 'art', 'frei', 'grund', 'inReichweite'],
     KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'hand'],
     ARENA_AWAY_FIELDS: ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'],
-    B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei'],
+    B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
     // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----
@@ -421,7 +421,7 @@
     //   Rüstphase, Beamen am Abholpunkt (links), Sieg per Hochbeamen nach erreichtem Ziel; Neubeginn nach der Notrückholung der ganzen Crew.
     // Snapshot wellen (wie Wellen Boden, Bühne graben): { k: 'grabenangriff', s: seed, n: 1|2 (Welle, die gerade zu räumen ist), ph: 'vorbereitung'|'kampf'|'ende',
     //   t: 0, r: lebende Verteidiger, l: lebende Verteidiger }; kein Countdown, keine Pause, kein Nachschub. Ziel- und Hinweiszeile über mission.objectives (arena.wellenText).
-    // Ereignisse: wellenEnde { …, sieg: true, versuche } beim Sieg (Siegbild, kein Wellenrekord), szeneZurueck { map, versuch } beim Neubeginn nach der Niederlage.
+    // Ereignisse: wellenEnde { …, sieg: true, versuche } beim Sieg (Siegbild, kein Wellenrekord), szeneZurueck { map, versuch } beim Neubeginn nach der Niederlage, nachschub { map, versuch } nach der Sprengung (BOD-03 C2: Warnsignal, einmal je Versuch).
     // Debug (nur --debug): graben <welle2|reset|status>.
     WELLEN_PHASEN: ['vorbereitung', 'countdown', 'kampf', 'pause', 'ende'],   // vorbereitung = Rüstphase der Testumgebung (Crew rüstet am Terminal aus, werft.start beginnt)
     CAMPAIGN_STARTS: ['m1', 'free', 'eisenwald', 'eisenwald_ohne', 'schuld_der_lerche', 'freie_fahrt'],   // Weltstand gibt es für diese Modi
