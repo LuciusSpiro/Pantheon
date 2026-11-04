@@ -4,7 +4,7 @@
 })(typeof self !== 'undefined' ? self : this, function () {
   'use strict';
   // Prozedurale Siedlungsgrammatik (Kai, 2026-10-10): Rahmen (Tor, Landefeld, Mauer nur beim Militärlager) -> Straßennetz
-  // (Rom: Raster, Germanen: Hauptachse mit Abzweigen) -> Parzellen entlang der Straßen -> Gebäude (Funktionsgebäude betretbar,
+  // (Rom: Cardo und Decumanus mit Forum, vier Toren, Insulae und Campus; Germanen: Hauptachse mit Abzweigen) -> Parzellen entlang der Straßen -> Gebäude (Funktionsgebäude betretbar,
   // Rest Kulisse) -> Leitstücke und Deckungsobjekte. Die Gebäudezahl bestimmt die Größe. Ausgabe als echte Karte (karteRoh)
   // für Buehne.ausRaster; bauen/kennzahlen bleiben für das ASCII-Werkzeug tools/proto-siedlung.js.
   function erzeuger(FW, FH) {
@@ -35,7 +35,9 @@
       const grid = Array.from({ length: FH }, () => Array(FW).fill(':'));
       const fill = (r, c) => { for (let y = r.y0; y <= r.y1; y++) for (let x = r.x0; x <= r.x1; x++) if (grid[y] && grid[y][x] !== undefined) grid[y][x] = c; };
       const hindernis = [];   // alles, was Gebäude meiden
-      // Layout (CAR-01): ein Verzweigungspunkt. Rom (ohne Variante) = Cardo-Layout, alles andere = germanisch (unverändert, byteweise)
+      // Layout (CAR-01): ein Verzweigungspunkt. Rom (ohne Variante) = Cardo-Layout, alles andere = germanisch (unverändert, byteweise).
+      // Varianten (methalle, eisenwald) sind germanische Mechaniken (Rohr, Feldzeichen): rom + Variante baut BEWUSST das germanische Layout.
+      // Im Content nicht belegt; früher baute das das alte Rom-Raster, der Verhaltenswechsel ist gewollt.
       const Lay = (bauweise === 'rom' && !variante ? layoutCardo : layoutGermanisch)({ R, N, I: I0, cy: cy0, S, grid, fill, hindernis, mauer, methalle, skala });
       let LF = Lay.LF;
       const { cx, cy, I, strassen, platz, leit, gebaeude, gassen, hs, tore } = Lay;
@@ -57,7 +59,7 @@
       fill(platz, '+');
       if (!eisenwald) fill({ x0: cx - 2, x1: cx, y0: cy - 2, y1: cy }, 'm');   // Sockel der Statue: deckt sich mit Shared_Buehne.leitFuss (Platzmitte, 3×3), sonst bleibt Deckungsoptik daneben stehen
       for (const l of leit) fill(l.rect, l.c);
-      if (!methalle) { fill(LF, ','); grid[cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }
+      if (!methalle) { fill(LF, ','); grid[Lay.tore ? LF.y0 + Math.floor((LF.y1 - LF.y0 + 1) / 2) : cy][Math.floor((LF.x0 + LF.x1) / 2)] = 'P'; }   // Cardo: Landefeld-Mitte (= Anker abholpunkt), germanisch bleibt die Zeile cy
       for (const g of gebaeude) {
         const r = g.rect;
         fill(r, '#');
@@ -112,7 +114,8 @@
         grid[lmy][lmx] = 'P';
       }
       // Deckung: weltliche Objekte, Platz-Ring, Straßenränder (selten), Landefeld
-      const setze = (x, y, w) => { for (let i = 0; i < w; i++) if (grid[y] && (grid[y][x + i] === '=' || grid[y][x + i] === '+' || grid[y][x + i] === ',')) grid[y][x + i] = 'o'; };
+      const geschuetzt = new Set(Lay.turm ? [Lay.turm.vor.join(',')] : []);   // Cardo: Kachel vor der Rampe des Wachturms bleibt Straße
+      const setze = (x, y, w) => { for (let i = 0; i < w; i++) if (!geschuetzt.has((x + i) + ',' + y) && grid[y] && (grid[y][x + i] === '=' || grid[y][x + i] === '+' || grid[y][x + i] === ',')) grid[y][x + i] = 'o'; };
       for (const [dx, dy] of [[-6, -4], [4, -4], [-6, 3], [4, 3], [-1, -5], [-1, 4]]) setze(cx + dx, cy + dy, 2);
       let deck = 0;
       for (const s of strassen) {
@@ -139,6 +142,7 @@
         const schutz = [];
         for (const st of strassen) { const q = st.rect, mx = Math.floor((q.x0 + q.x1) / 2), my = Math.floor((q.y0 + q.y1) / 2); schutz.push([mx, q.y0], [mx, q.y1], [q.x0, my], [q.x1, my]); }
         schutz.push([S.x0, cy], [strassen[0].rect.x0, cy]);
+        if (Lay.turm) schutz.push(Lay.turm.vor);
         const imSchutz = (x, y) => schutz.some(([sx, sy]) => Math.max(Math.abs(sx - x), Math.abs(sy - y)) <= 4);
         const fest = (x, y) => { const c = grid[y] && grid[y][x]; return c === undefined || '#oOmzMTk^x'.includes(c); };
         const engpass = (x, y) => (fest(x - 1, y) && fest(x + 1, y)) || (fest(x, y - 1) && fest(x, y + 1));   // verschließt keine schmale Gasse
@@ -166,7 +170,7 @@
         }
         deck += n;
       }
-      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: Lay.start, tore, methalle, rohr, eisenwald };
+      return { skala, grid, S, I, cy, gebaeude, strassen, platz, LF, mauer, N, deck, R, bauweise, typ, sw: S.x1 - S.x0 + 1, sh: S.y1 - S.y0 + 1, start: Lay.start, tore, turm: Lay.turm || null, methalle, rohr, eisenwald };
     }
 
     // Germanisches Layout: Hauptachse mit Abzweigen, Parzellen-Cursor an den Straßenseiten, Hinterhäuser, Straßen auf Haus-Reichweite gekürzt.
@@ -312,8 +316,10 @@
     // Viertel (Insulae) sind je zwei Reihen Häuser Rücken an Rücken: die nahe Reihe schaut auf Decumanus und Forum, die ferne auf den Wallgang.
     // Das Landefeld (Campus) ist eine Insula im Ostteil am Decumanus (Norden oder Süden aus dem Seed). Mauer (nur Militär) und Tore zeichnet
     // bauenEinmal; hier entstehen Maße, Straßen, Forum, Landefeld, Torbauten und die Häuser. Gebaut wird von innen nach außen (Forum zuerst).
+    const CARDO_MIN_W = 56, CARDO_MIN_H = 58;   // Grundriss mindestens 2·24 breit, 2·(11+12)+… hoch plus Rand (Wallgang, Kartenrand)
     function layoutCardo(c) {
       const { R, N, S, fill, hindernis, skala } = c;
+      if (FW < CARDO_MIN_W || FH < CARDO_MIN_H) throw new Error('cardo: Feld zu klein (min ' + CARDO_MIN_W + '×' + CARDO_MIN_H + ', gegeben ' + FW + '×' + FH + ')');
       const cx = Math.floor(FW / 2), cy = Math.floor(FH / 2);
       const dNah = R.range(6, 7), dFern = R.range(6, 7);
       const H = 11 + dNah + dFern;   // halbe Höhe: Wallgang 4, ferne Reihe, Gasse 1, nahe Reihe, Abstand 7 zur Achse
@@ -342,6 +348,12 @@
       const lx1 = S.x1 - 4, ly0 = nord ? cy - 16 : cy + 6;
       const LF = { x0: lx1 - 14, x1: lx1, y0: ly0, y1: ly0 + 9 };
       hindernis.push({ rect: LF, art: 'landefeld' });
+      // Wachturm (Rolle aussicht, K-PFLICHT): Platz fest im Layout vorgesehen statt Suche im fertigen Grundriss. 5×5 am äußeren Ende der nahen Reihe
+      // im Westteil (Nord oder Süd aus dem Seed), Fuß an der Decumanus-Kante, die Rampe zeigt auf die Straße; die Häuser weichen (Hindernis).
+      const turmNord = R.f() < 0.5;
+      const turmR = { x0: S.x0 + 5, x1: S.x0 + 9, y0: turmNord ? cy - 8 : cy + 3, y1: turmNord ? cy - 4 : cy + 7 };
+      hindernis.push({ rect: turmR, art: 'turm' });
+      const turm = { rect: turmR, vor: [S.x0 + 7, turmNord ? cy - 3 : cy + 2] };   // vor = Straßenkachel vor der Rampe
       // Reihen im Nordostviertel (x ab Cardo + 4 bis Wallgang), die übrigen drei Viertel durch Spiegelung
       const xmin = cx + 4, xmax = S.x1 - 4;
       const reihe = () => { const out = []; let x = xmin; for (;;) { let w = R.range(7, 10); if (x + w - 1 > xmax) w = xmax - x + 1; if (w < 7) break; out.push([x, x + w - 1]); x += w + 1; } return out; };
@@ -365,19 +377,20 @@
         if (!hindernis.every((h) => cheb(k.rect, h.rect) >= 2)) continue;
         gebaeude.push({ rect: k.rect, side: k.side, w: k.w, d: k.d, typ: 'k' });
       }
-      return { LF, Smax: S.x1, strassen, platz, cx, cy, I, leit: [], gebaeude, gassen: [], hs: strassen[0].rect, start: [S.x0, cy], tore };
+      return { LF, Smax: S.x1, strassen, platz, cx, cy, I, leit: [], gebaeude, gassen: [], hs: strassen[0].rect, start: [S.x0, cy], tore, turm };
     }
 
 
     // wächst, bis die Zielzahl an Gebäuden steht (oder das Feld voll ist)
     function bauen(seed, N, bauweise, typ, variante) {
-      let best = null;
+      let best = null, fehler = null;
       for (let skala = 0.8; skala <= 3.6; skala *= 1.06) {
-        let B; try { B = bauenEinmal(seed, N, bauweise, typ, skala, variante); } catch (e) { if (variante === 'methalle' && /^methalle:/.test(String(e.message))) continue; break; }   // Methalle: kein Platz für Landefeld/Rohr -> größere Skala (mehr Feld) bzw. nächster Versuch
+        let B; try { B = bauenEinmal(seed, N, bauweise, typ, skala, variante); } catch (e) { if (variante === 'methalle' && /^methalle:/.test(String(e.message))) continue; fehler = e; break; }   // Methalle: kein Platz für Landefeld/Rohr -> größere Skala (mehr Feld) bzw. nächster Versuch
         if (!best || B.gebaeude.length > best.gebaeude.length) best = B;
         if (B.gebaeude.length >= N) return B;
         if (B.sw >= FW - 8 && B.sh >= FH - 8) break;
       }
+      if (!best && fehler) throw fehler;   // statt TypeError weiter unten (z. B. 'cardo: Feld zu klein')
       return best;
     }
 
@@ -575,6 +588,9 @@
         bereiche.kulisse.rects.push(plaetze[id].rect);
         return { id, p: [best.x0 + best.gp[0], best.y0 + best.gp[1]] };
       };
+      // Cardo: der im Layout reservierte Platz des Wachturms (5×5 plus Rand) gehört dem Turm, weder Käfig noch Depot dürfen ihn nehmen
+      const turmFix = B.turm ? [B.turm.rect.x0 + ox, B.turm.rect.y0 + oy] : null;
+      if (turmFix) for (let y = -1; y <= 5; y++) for (let x = -1; x <= 5; x++) belegt.add((turmFix[0] + x) + ',' + (turmFix[1] + y));
       const kerker = [];
       // TA: mit Ausstattung ist die Kantine eine Taverne und bekommt nie Zellen (Kai 2026-10-14: „sieht aus wie ein Gefängnis“)
       const aus = !!opts.ausstattung && !methalle && !eisenwald;
@@ -594,6 +610,7 @@
               if (x >= 0 && x < 5 && y >= 0 && y < 5) { if (c !== '.') ok = false; } else if (c === 'D' || c === undefined) ok = false;
             }
             if (!ok) continue;
+            if (turmFix && (x0 !== turmFix[0] || y0 !== turmFix[1])) continue;   // Cardo: nur der reservierte Platz
             if (!strBegehbar(x0 + ramp[0] + aus[0], y0 + ramp[1] + aus[1])) continue;
             const sc = Math.abs(x0 + 2 - pmid[0]) + Math.abs(y0 + 2 - pmid[1]) + R2.range(0, 10);
             if (!turm || sc < turm.sc) turm = { sc, x0, y0, t, aus, ramp };
