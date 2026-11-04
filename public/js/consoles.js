@@ -38,7 +38,7 @@
   const TAB_NOTRUF = 5;
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH', ausruestung: 'AUSRÜSTUNGSSTATION' };
   // PAN-01 C: bis zu neun Waffenplätze (Ziffernblock), Waffe je Platz aus shared/schiffskatalog.js (ship.mounts[].typ, fehlt = Startbestückung).
   // Mount-Id -> System (Zustand/Trefferziel): bow = Platz 8, port = 4, stbd = 6, sonst lafette_<Platz>
   const SCH = window.Shared_Schiffskatalog || null;
@@ -137,6 +137,7 @@
       this.notsprungAsk = -1e9;
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
+      if (name === 'ausruestung') { this.ausr.stand = null; this.ausr.fehler = null; this.ausr.sel = 0; this.ausr.cur = 0; this.ausr.frageT = -1e9; }   // AUS-01 B: Stand kommt beim Betreten vom Server
       if (name === 'shop' && window.TerminalUI) TerminalUI.zuruecksetzen();   // PAN-01 D2: Terminal beginnt frisch
       if (name === 'spind' && window.Charaktere) Charaktere.oeffneSpind();   // CHA-01 D: Anprobe beginnt mit dem getragenen Outfit
     },
@@ -218,6 +219,7 @@
           case 'quartier': controls = this.drawQuartier(ctx, view); break;
           case 'kustodenpult': controls = this.drawSonde(ctx, view); break;   // SL0: früher 'sonde'
           case 'plan': controls = this.drawPlan(ctx, view); break;
+          case 'ausruestung': controls = this.drawAusruestung(ctx, view); break;   // AUS-01 B
           default: R.text(ctx, 'Unbekannte Konsole: ' + c, 20, 40, { color: PAL.red });
         }
       } catch (e) { Net.reportError('Consoles.draw:' + c, e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 20, 60, { color: PAL.red }); }
@@ -2414,6 +2416,91 @@
       });
       return y + 30;
     },
+    // ---------------------------------------------------------------- AUS-01 B: Ausrüstungsstation (Loadout-Slots)
+    // Stand vom Server (Ereignis ausruestungStand { slotzahl, slots }): nur die wirksamen Slots, der versteckte dritte Slot kommt nie an. Funktionsfarbe Rot (Waffen).
+    ausr: { stand: null, sel: 0, cur: 0, fehler: null, fehlerT: 0, frageT: -1e9 },
+    ausruestungStand(ev) {
+      const a = this.ausr;
+      a.stand = { slotzahl: Math.max(1, Math.min(3, ev.slotzahl | 0)), slots: Array.isArray(ev.slots) ? ev.slots.map(s => (typeof s === 'string' ? s : null)) : [] };
+      a.sel = Math.min(a.sel, a.stand.slotzahl - 1);
+      if (ev.fehler) { a.fehler = String(ev.fehler); a.fehlerT = performance.now(); }
+      else a.fehler = null;
+    },
+    // Auswahlliste je Slot: null = leer, dahinter die Waffen (Protocol.WAFFEN_WAHL)
+    ausruestungWahl() { return [null].concat(this.waffenListe()); },
+    ausruestungGrund(id, slot) {   // Grund, warum id in Slot slot nicht geht (null = möglich); der Server prüft dasselbe
+      const s = this.ausr.stand;
+      if (!s) return 'Stand wird geladen';
+      if (id && s.slots.some((x, i) => i !== slot && x === id)) return 'Steckt schon in Slot ' + (s.slots.indexOf(id) + 1);
+      return null;
+    },
+    ausruestungSetzen(view, slot, id) {
+      const g = this.ausruestungGrund(id, slot);
+      if (g) { this.denied(g); return; }
+      this.cmd(view, PROTO.CMD_LOADOUT_SLOT || 'ausruestung.slot', { slot, id });
+    },
+    drawAusruestung(ctx, view) {
+      const a = this.ausr, s = a.stand, now = performance.now();
+      const WN = H.WAFFE_NAME || {}, IB = window.IconsB;
+      if (!s) {
+        R.text(ctx, 'Loadout wird vom Schiff geladen …', 16, 40, { color: PAL.panelLight });
+        if (now - a.frageT > 1500) { a.frageT = now; view.send({ t: 'cmd', c: PROTO.CMD_AUSRUESTUNG_STAND || 'ausruestung.stand' }); }
+        return '';
+      }
+      R.text(ctx, 'LOADOUT FÜR DIE AUSSENMISSION', 16, 30, { color: PAL.red });
+      R.text(ctx, s.slotzahl + ' Slots in dieser Partie' + (s.slotzahl === 3 ? ' (bis 2 Spieler)' : ' (ab 3 Spielern)'), 624, 30, { color: PAL.panelLight, align: 'right' });
+      a.cur = Math.max(0, Math.min(this.ausruestungWahl().length - 1, a.cur));
+      // links: die Slots
+      let y = 46;
+      for (let i = 0; i < s.slotzahl; i++) {
+        const id = s.slots[i] || null, selekt = i === a.sel;
+        R.button(ctx, 16, y, 300, 42, '', { active: selekt, onClick: () => { a.sel = i; a.cur = Math.max(0, this.ausruestungWahl().indexOf(s.slots[i] || null)); } });
+        if (selekt) { ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.strokeRect(17, y + 1, 298, 40); ctx.lineWidth = 1; }
+        R.text(ctx, 'SLOT ' + (i + 1), 24, y + 5, { color: selekt ? PAL.red : PAL.brass });
+        if (id) {
+          if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
+          R.text(ctx, WN[id] || id, 70, y + 22, { color: PAL.star, scale: 1 });
+        } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
+        y += 48;
+      }
+      // Aktive Waffe am Boden = erste Waffe der Slots (Paket A); ohne Waffe Fäuste
+      const aktiv = s.slots.find(x => !!x) || null;
+      y += 4;
+      if (aktiv) R.text(ctx, 'Am Boden aktiv: ' + (WN[aktiv] || aktiv), 16, y, { color: PAL.mint });
+      else R.text(ctx, 'Kein Waffen-Slot = Fäuste.', 16, y, { color: PAL.amber });
+      y += 12;
+      for (const l of R.wrap('Das Loadout bleibt gespeichert und gilt für die nächste Außenmission.', 300, 1)) { R.text(ctx, l, 16, y, { color: PAL.panelLight }); y += 10; }
+      // rechts: Auswahl für den gewählten Slot
+      const x0 = 336, w = 288;
+      R.text(ctx, 'FÜR SLOT ' + (a.sel + 1) + ' WÄHLEN', x0, 46, { color: PAL.brass });
+      const wahl = this.ausruestungWahl();
+      let ry = 60;
+      wahl.forEach((id, i) => {
+        const grund = this.ausruestungGrund(id, a.sel), jetzt = (s.slots[a.sel] || null) === id;
+        const lab = id ? (WN[id] || id) + (grund && !jetzt ? '  (' + grund.replace('Steckt schon in ', 'in ') + ')' : '') : 'Leer';
+        R.button(ctx, x0 + 12, ry, w - 12, 20, lab, { hotkey: id ? String(i) : '0', active: jetzt, disabled: !!grund && !jetzt, reason: grund, onClick: () => { a.cur = i; this.ausruestungSetzen(view, a.sel, id); } });
+        if (i === a.cur) R.text(ctx, '>', x0, ry + 6, { color: PAL.red });
+        ry += 24;
+      });
+      if (a.fehler && now - a.fehlerT < 8000) R.text(ctx, a.fehler, 16, 300, { color: PAL.red });
+      return '↑↓ Slot · ←→ Waffe · Enter belegen · 1–6 direkt · 0/Entf leeren';
+    },
+    ausruestungTaste(code, view) {
+      const a = this.ausr, s = a.stand;
+      if (!s) return true;
+      const wahl = this.ausruestungWahl(), n = wahl.length;
+      const press = (fn) => { try { fn(); } catch (err) { Net.reportError('Consoles.ausruestung', err); } return true; };
+      const nach = (i) => { a.sel = i; a.cur = Math.max(0, wahl.indexOf(s.slots[i] || null)); };
+      if (code === 'ArrowUp' || code === 'KeyW') { nach((a.sel + s.slotzahl - 1) % s.slotzahl); return true; }
+      if (code === 'ArrowDown' || code === 'KeyS') { nach((a.sel + 1) % s.slotzahl); return true; }
+      if (code === 'ArrowLeft' || code === 'KeyA') { a.cur = (a.cur + n - 1) % n; return true; }
+      if (code === 'ArrowRight' || code === 'KeyD') { a.cur = (a.cur + 1) % n; return true; }
+      if (code === 'Enter' || code === 'NumpadEnter') return press(() => this.ausruestungSetzen(view, a.sel, wahl[a.cur]));
+      if (code === 'Delete' || code === 'Backspace' || code === 'Digit0' || code === 'Numpad0') return press(() => { a.cur = 0; this.ausruestungSetzen(view, a.sel, null); });
+      const m = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+      if (m && +m[1] < n) return press(() => { a.cur = +m[1]; this.ausruestungSetzen(view, a.sel, wahl[+m[1]]); });
+      return true;
+    },
     // B1: Kartenname für die Transfer-Konsole
     awayMapTitle(st, amap) {
       if (R.isBuehne(amap)) {
@@ -3256,6 +3343,7 @@
           }
           return true;
         }
+        case 'ausruestung': return this.ausruestungTaste(code, view);   // AUS-01 B
         case 'kustodenpult':
           if (d >= 1 && d <= 6) { const b = this.findButton(COLOR_NAMES[CODE_COLORS[d - 1]]); if (b) this.activate(b); return true; }
           return true;

@@ -75,6 +75,15 @@ function slotSetzen(game, p, slot, id) {
   return null;
 }
 
+// AUS-01 B: Stand der Station an genau diesen Spieler: Slotzahl der Partie und die wirksamen Slots (der versteckte dritte Slot wird nicht gesendet).
+// fehler = Text eines abgelehnten Befehls (die Station zeigt ihn an). Kein Snapshot-Feld, nur an Spieler, die die Station benutzen.
+function standSenden(game, p, fehler) {
+  if (!game || typeof game.sendTo !== 'function' || !p || !p.conn) return;
+  const o = { t: 'event', kind: 'ausruestungStand', pid: p.id, slotzahl: slotzahl(game), slots: wirksam(game, p) };
+  if (fehler) o.fehler = String(fehler);
+  game.sendTo(p.conn, o);
+}
+
 // Alter Pfad (loadout.waffe, Labor/Arena/Debug über waffeSetzen): die Waffe wird Slot 1; steckt sie schon in einem anderen Slot, tauschen beide.
 function ersterSlotSetzen(game, p, waffe) {
   const h = hashVon(p);
@@ -109,4 +118,4 @@ function restore(obj, game) {
   for (const h of Object.keys(out)) spiegeln(game, h);
 }
 
-module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, ersterSlotSetzen, toSave, restore };
+module.exports = { SLOTS_MAX, erlaubteIds, istErlaubt, slotzahlFestsetzen, slotzahl, loadoutFuer, wirksam, aktiveWaffe, slotSetzen, standSenden, ersterSlotSetzen, toSave, restore };

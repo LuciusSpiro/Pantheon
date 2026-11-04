@@ -29,6 +29,7 @@ const CONSOLE_ID = {
   helm: 'lerche/console/helm', weapons: 'lerche/console/tactical', captain: 'lerche/console/captain', transfer: 'lerche/console/transfer',
   technik: 'lerche/console/tactical',   // R1: Platzhalter, bis Voxelwerk ein eigenes Technik-Modell liefert (Maschinenraum-Pult)
   plan: 'lerche/console/plan_table', shop: 'lerche/console/shop',
+  ausruestung: 'lerche/console/tactical',   // AUS-01 B: Platzhalter (Taktikpult, Funktionsfarbe Waffen), bis Voxelwerk ein eigenes Modell Ausrüstungsstation liefert
 };
 const FURN_ID = {
   reactor_switch: 'lerche/station/reactor_switch',

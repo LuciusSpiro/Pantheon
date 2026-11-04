@@ -1064,6 +1064,9 @@
         else H.pushNotice('Alarm dort unten aufgehoben', PAL.mint, 3);
         return true;
       // ---- B2 Bodenkampf (FX hört selbst mit; hier nur Kurzmeldungen)
+      case 'ausruestungStand':   // AUS-01 B: Slotzahl und eigenes Loadout für die Ausrüstungsstation (nur an den Absender)
+        if (ev.pid === Client.pid) K.ausruestungStand(ev);
+        return true;
       case 'loadout':
         if (ev.pid === Client.pid) { K.myWaffe = ev.waffe; H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
         return true;
@@ -1758,7 +1761,7 @@
     const con = R.consoleOf ? R.consoleOf(map, ch) : R.CONSOLE_BY_CHAR[ch];
     if (con && zone === 'ship') {
       if (con === 'shop' && !st.werftTest && !(st.ship && (st.ship.dockedAt || st.ship.docked))) return { label: 'Hafenterminal: nur angedockt (Hafen/Vaelen)', ok: false };
-      const taken = players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
+      const taken = con === 'ausruestung' ? null : players.find(p => (p.console === con || K.stationOf(p) === con) && p.id !== m.id);   // R1: Ort oder per Tab gehaltene Station
       if (taken) return Object.assign({ label: con === 'shop' && window.TerminalUI ? 'Terminal: ' + ((window.PultTerminal && PultTerminal.TOKENS.SPIELER_NAMEN[taken.color]) || 'Mitspieler') + ' am Gerät · E zusehen' : H.CONSOLE_NAMES[con] + ': besetzt (' + taken.name + ')', ok: false }, con === 'shop' && window.TerminalUI ? { zusehen: 'shop' } : {});   // PAN-01 D2: am besetzten Terminal zusehen
       return { label: H.CONSOLE_NAMES[con], ok: true };
     }

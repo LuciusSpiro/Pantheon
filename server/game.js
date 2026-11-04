@@ -86,7 +86,7 @@ const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'ei
 const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole; AUS-01 B: ausruestung.* an der Ausrüstungsstation
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -1358,12 +1358,14 @@ class Game {
         try { err = fn(this, p, wf) || null; } catch (e) { this.countError('loadout', e); err = null; }
         break;
       }
-      case 'loadout.slot': {   // AUS-01 A: Loadout-Slot setzen (loadout.js); vorerst dieselbe Konsolenbindung wie loadout.waffe
+      case Protocol.CMD_LOADOUT_SLOT: {   // AUS-01 A/B: Loadout-Slot setzen (loadout.js), nur an der Ausrüstungsstation; Antwort: Ereignis ausruestungStand an den Absender
         const slot = msg.slot;
         const id = msg.id == null ? null : String(msg.id);
         try { err = Loadout.slotSetzen(this, p, slot, id) || null; } catch (e) { this.countError('loadout', e); err = null; }
+        Loadout.standSenden(this, p, err);
         break;
       }
+      case Protocol.CMD_AUSRUESTUNG_STAND: Loadout.standSenden(this, p); break;   // AUS-01 B: Stand erneut anfordern (z. B. nach Wiederverbinden an der Station)
       case 'transfer.supply': err = away.supply(this); break;
       case 'shop.buy': err = shop.buy(this, p, String(msg.item)); break;
       case 'werft.ansicht': Werft.ansichtSetzen(this, p, msg); break;
@@ -1463,7 +1465,7 @@ class Game {
       case 'mission': if (this.phase === 'lobby') this.startGame(); err = this.mission.forceStep(String(msg.id || 'm1'), msg.step ? String(msg.step) : null); break;
       case 'karte': if (this.phase === 'lobby') this.startGame(); err = Welt.waehle(this, String(msg.id || 'sund')) === String(msg.id || 'sund') ? null : 'Karte unbekannt.'; break;   // Debug/Sichtprüfung: Sektorkarte wechseln (sund | limes), danach goto
       case 'sl': err = ['pos', 'glyphen', 'bekannt', 'karte', 'schalten', 'lp', 'beam', 'energie', 'zaehler', 'monster'].includes(String(argList(msg)[0] || '')) ? this.onDebugSL(p, argList(msg)) : this.onDebugSl(p, msg); break;   // Kollision: 'sl' gehört auch dem Spielleiter (S2 §4); Unterbefehle der Sichtprüfung nur mit bekanntem ersten Argument   // SL6/7/10 Labor und Sichtprüfung: pos | glyphen | bekannt | karte | schalten | lp | beam | energie | zaehler
-      case 'sitz': if (this.phase === 'lobby') this.startGame(); if (p.zone === 'ship') { const con = String(msg.console || 'weapons'); interior.enterConsole(this, p, con); if (msg.hin) { const sm = W.Maps.ship; for (let y = 0; y < sm.h; y++) for (let x = 0; x < sm.w; x++) if ((sm.info(x, y) || {}).console === con) { const f = [[-1, 0], [0, -1], [0, 1], [1, 0]].find(([dx, dy]) => !sm.solid(x + dx, y + dy)); if (f) { p.x = (x + f[0]) * 32 + 16; p.y = (y + f[1]) * 32 + 16; } } } } else err = 'Nur an Bord.'; break;   // Debug/Sichtprüfung: sofort an eine Konsole setzen (helm | captain | technik | weapons | plan | transfer)
+      case 'sitz': if (this.phase === 'lobby') this.startGame(); if (p.zone === 'ship') { const con = String(msg.console || 'weapons'); interior.enterConsole(this, p, con); if (msg.hin) { const sm = W.Maps.ship; for (let y = 0; y < sm.h; y++) for (let x = 0; x < sm.w; x++) if ((sm.info(x, y) || {}).console === con) { const f = [[-1, 0], [0, -1], [0, 1], [1, 0]].find(([dx, dy]) => !sm.solid(x + dx, y + dy)); if (f) { p.x = (x + f[0]) * 32 + 16; p.y = (y + f[1]) * 32 + 16; } } } } else err = 'Nur an Bord.'; break;   // Debug/Sichtprüfung: sofort an eine Konsole setzen (helm | captain | technik | weapons | plan | transfer | ausruestung)
       case 'goto': if (this.phase === 'lobby') this.startGame(); err = this.debugGoto(String(msg.loc), !!msg.docked); break;
       case 'reveal': {
         const loc = String(msg.loc);

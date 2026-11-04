@@ -1055,6 +1055,7 @@
     console_weapons: { body: '#4F6178', scr: '#FF8A5C' },
     console_technik: { body: '#4F6178', scr: '#6FB8F0' },   // R1: Technik (Maschinenraum), kühles Blau neben Mint/Bernstein/Orange
     console_transfer: { body: '#4F6178', scr: PAL.mint },
+    console_ausruestung: { body: '#5A4A4A', scr: '#E8584A' },   // AUS-01 B: Ausrüstungsstation, Funktionsfarbe Rot (Waffen), warmer Rahmen statt Stahlblau
     terminal_shop: { body: '#8A4A35', scr: PAL.bernstein },
   };
   function buildConsole(g, c, kind, f, active) {
@@ -1120,6 +1121,15 @@
       ell(g, 16, 15, 1.5, 1.5, PAL.sternweiss);
       P(g, 11, 11, sc); P(g, 21, 11, sc); P(g, 16, 20, sc);
       R(g, 6, 27, 20, 1, '#2E3946'); R(g, 8 + (f % 8) * 2, 26, 2, 3, PAL.mint);
+    } else if (kind === 'console_ausruestung') {
+      // Ausrüstungsstation: drei Slot-Zeilen (Symbol + Balken, ein Slot blinkt als „wird belegt“) und am Pult drei rote Taster
+      for (var as = 0; as < 3; as++) {
+        var ay = sy + 2 + as * 4;
+        R(g, sx + 1, ay, 3, 3, sc); P(g, sx + 2, ay + 1, scD);
+        R(g, sx + 5, ay + 1, 3 + ((as * 3 + (as === f % 3 ? f : 0)) % 5) * 1, 1, as === f % 3 ? PAL.sternweiss : sc);
+      }
+      R(g, 8, 27, 16, 1, '#2E3946');
+      R(g, 9, 26, 3, 3, PAL.alarmrot); R(g, 14, 26, 3, 3, f % 2 ? PAL.alarmrot : '#7A2A22'); R(g, 19, 26, 3, 3, PAL.alarmrot);
     } else {
       // Hafenterminal: Marken-Symbol + Laufschrift
       ell(g, 13, 13, 3, 3, sc); ell(g, 13, 13, 2, 2, scD); P(g, 13, 13, sc);
@@ -1824,7 +1834,7 @@
     px = Math.round(px); py = Math.round(py);
     var t = o.time || 0, spr, memo;
     switch (kind) {
-      case 'console_helm': case 'console_captain': case 'console_weapons': case 'console_technik': case 'console_transfer': case 'terminal_shop':
+      case 'console_helm': case 'console_captain': case 'console_weapons': case 'console_technik': case 'console_transfer': case 'console_ausruestung': case 'terminal_shop':
         drawConsole(ctx, kind, px, py, o); return;
       case 'shelf':
         drawShelf(ctx, px, py, o); return;

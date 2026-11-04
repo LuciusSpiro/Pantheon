@@ -38,6 +38,7 @@
   {"id":"test-generatoren","kette":"test","cmd":["tools/test-generatoren.js"],"stufe":"fast","budget_s":10},
   {"id":"test-waffen","kette":"test","cmd":["tools/test-waffen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-loadout","kette":"test","cmd":["tools/test-loadout.js"],"stufe":"fast","budget_s":10},
+  {"id":"test-ausruestung","kette":"test","cmd":["tools/test-ausruestung.js"],"stufe":"fast","budget_s":10},
   {"id":"test-sektoren","kette":"test","cmd":["tools/test-sektoren.js"],"stufe":"full","budget_s":22},
   {"id":"test-entern","kette":"test","cmd":["tools/test-entern.js"],"stufe":"fast","budget_s":6},
   {"id":"test-wellen","kette":"test","cmd":["tools/test-wellen.js"],"stufe":"fast","budget_s":9},

@@ -102,10 +102,14 @@
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.
     //   Snapshot players[].fa = Blickrichtung in ganzen Grad (nur Außenzone, nur solange aim gesetzt ist; fehlt = dir).
     CMD_LOADOUT_WAFFE: 'loadout.waffe',
-    // AUS-01 A: cmd { c: 'loadout.slot', slot: 0..2, id: WAFFEN_WAHL | null } – setzt einen Loadout-Slot (null = leer). Slotzahl 3 bei 1–2 Spielern,
+    // AUS-01 A: cmd { c: 'ausruestung.slot', slot: 0..2, id: WAFFEN_WAHL | null } – setzt einen Loadout-Slot (null = leer). Slotzahl 3 bei 1–2 Spielern,
     //   2 ab 3 Spielern (in startGame festgesetzt). Aktive Waffe = erste Waffe der wirksamen Slots, ohne Waffe 'faust'. loadout.waffe setzt vorerst Slot 1.
     //   Weltstand crew.loadout { Hash -> [Id|null, max. 3] } (optional, additiv); crew.waffen bleibt als Spiegel der ersten Waffe.
-    CMD_LOADOUT_SLOT: 'loadout.slot',
+    // AUS-01 B: umbenannt von 'loadout.slot' auf 'ausruestung.slot'; Präfix ausruestung gilt nur an der Konsole 'ausruestung' (Ausrüstungsstation, nicht exklusiv),
+    //   nicht mehr an 'transfer'. Antwort an den Absender: Ereignis { kind: 'ausruestungStand', pid, slotzahl, slots: [Id|null, ...wirksame Slots], fehler? } –
+    //   auch beim Betreten der Station und auf cmd { c: 'ausruestung.stand' }. Kein Snapshot-Feld.
+    CMD_LOADOUT_SLOT: 'ausruestung.slot',
+    CMD_AUSRUESTUNG_STAND: 'ausruestung.stand',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],
@@ -259,7 +263,7 @@
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
     // 'quartier' öffnet sich an der eigenen Koje, 'spind' am eigenen Spind (CHA-01 D), 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan', 'ausruestung'],   // AUS-01 B: 'ausruestung' (Ausrüstungsstation, nicht exklusiv); M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
     // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab
