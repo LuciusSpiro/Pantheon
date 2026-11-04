@@ -35,3 +35,30 @@ export function mitAkzent(id, mood) {
   }
   return out;
 }
+
+// GEL-01 D: Stimmungen der Kartenart wildnis (je Biom). Es gibt dafür noch keine Stimmungsdateien (ART-PALETTEN/Voxelwerk): bis sie kommen,
+// stehen die Werte hier; eine Datei moods/wildnis_<biom>.json gewinnt, sobald sie im Index steht (renderer.js applyMood, kit.js ladeMood).
+// Auswahl in der Bauweisen-Tabelle: stimmung["wildnis:<boden>"] (boden = Bodenton der Karte: wueste | gras | vulkan), Rückfall stimmung.wildnis.
+export const WILDNIS_STIMMUNG = {
+  wildnis_wueste: {   // warm und hell: gleißende Sonne, Dunst in Sandfarbe
+    id: 'wildnis_wueste', background: '#E4CFA0', fog: { color: '#E6D3A8', near: 2.4, far: 6.5 },
+    hemi: { sky: '#F4E6C6', ground: '#A07C4C', intensity: 1.2 }, sun: { color: '#FFDFA0', intensity: 3.4, dir: [-0.55, 1, 0.42], softness: 2.5 },
+    exposure: 1.05, bloom: { strength: 0.25, radius: 0.4, threshold: 0.92 },
+  },
+  wildnis_wiesenwald: {   // grün und frisch: klares, leicht kühles Licht, grüner Dunst
+    id: 'wildnis_wiesenwald', background: '#B2D2BC', fog: { color: '#C2DCCA', near: 2.2, far: 6 },
+    hemi: { sky: '#CCE6D6', ground: '#587A3C', intensity: 1.15 }, sun: { color: '#FFF6DC', intensity: 3.0, dir: [-0.5, 1, 0.4], softness: 2.5 },
+    exposure: 1.0, bloom: { strength: 0.25, radius: 0.4, threshold: 0.92 },
+  },
+  wildnis_vulkan: {   // dunkel und rötlich: Ascheluft, tiefes Glutlicht von unten, die Lava bloomt
+    id: 'wildnis_vulkan', background: '#1E1212', fog: { color: '#3C1C18', near: 1.9, far: 5.2 },
+    hemi: { sky: '#A28E8C', ground: '#7A3A24', intensity: 1.0 }, ambient: { color: '#5A3428', intensity: 0.35 },
+    sun: { color: '#FFC496', intensity: 2.3, dir: [-0.7, 0.8, 0.3], softness: 3 },
+    exposure: 1.1, bloom: { strength: 0.7, radius: 0.5, threshold: 0.75 },
+  },
+};
+/** Stimmungs-ID einer Karte aus der Bauweisen-Tabelle: stimmung["<art>:<boden>"] (nur wildnis nutzt das), sonst stimmung[<art>]; sonst null. */
+export function stimmungVon(tabelle, art, boden) {
+  const t = tabelle || {};
+  return (boden && t[art + ':' + boden]) || t[art] || null;
+}

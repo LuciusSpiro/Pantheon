@@ -981,11 +981,14 @@ class Game {
       if (v == null || v === '') continue;
       if (k === 'seed') { const n = Math.round(Number(v)); if (Number.isFinite(n) && n >= 0) out.seed = n; continue; }
       const s = String(v).toLowerCase().slice(0, 40);
+      if (k === 'biom') { if ((Protocol.GELAENDE_BIOME || []).includes(s)) out.biom = s; continue; }   // GEL-01 D: nur gültige Werte, sonst ignoriert
+      if (k === 'groesse') { if ((Protocol.GELAENDE_GROESSEN || []).includes(s)) out.groesse = s; continue; }
       if (/^[a-z0-9_.-]+$/.test(s)) out[k] = s;
     }
     if (!out.art) return null;
     if (!(Protocol.KARTEN_ARTEN || []).includes(out.art) || out.art === 'hand') return null;
     if (out.seed == null) out.seed = 1;
+    if (out.art !== 'wildnis') { delete out.biom; delete out.groesse; }   // GEL-01 D: Biom und Größe gibt es nur für die Wildnis
     return out;
   }
 

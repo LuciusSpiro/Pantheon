@@ -245,7 +245,11 @@
     "aussenposten": "outpost_frost",
     "station": "hall_warm",
     "schiff": "ship_nord",
-    "ruine": "outpost_frost"
+    "ruine": "outpost_frost",
+    "wildnis": "wildnis_wiesenwald",
+    "wildnis:wueste": "wildnis_wueste",
+    "wildnis:gras": "wildnis_wiesenwald",
+    "wildnis:vulkan": "wildnis_vulkan"
   },
   "leitmaterial": {
     "hinweis": "artdirector.md §8.6: geteilt werden Props und Details, nie Wand, Boden und Licht zugleich.",
