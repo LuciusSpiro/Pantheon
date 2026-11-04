@@ -86,7 +86,7 @@ const CAMPAIGN_KETTEN = Protocol.CAMPAIGN_KETTEN || { eisenwald: { kampagne: 'ei
 const UEBUNG_WELTEN = { arena_forschung: 'sund' };
 
 const SERVER_VERSION = '0.2.0';
-const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', loadout: 'transfer', finale: 'shop' };   // B2: loadout.waffe an der Transfer-Konsole; AUS-01 B: ausruestung.* an der Ausrüstungsstation
+const CMD_CONSOLE = { helm: 'helm', captain: 'captain', weapons: 'weapons', technik: 'technik', transfer: 'transfer', shop: 'shop', werft: 'shop', absicht: 'shop', info: 'shop', deco: 'quartier', quartier: 'quartier', kustodenpult: 'kustodenpult', plan: 'plan', ausruestung: 'ausruestung', finale: 'shop' };   // AUS-01 B: ausruestung.* an der Ausrüstungsstation (AUS-01 C: der alte Waffenbefehl an der Transfer-Konsole ist entfallen)
 
 // ---------- M3a: Naht zu SERVER-COMBAT (space.js, CONTRACT-M3 §9.4) ----------
 // Alle neuen space.js-Funktionen werden defensiv aufgerufen; fehlt eine, greift ein schlichter Ersatz, damit der
@@ -1350,14 +1350,6 @@ class Game {
       case 'transfer.up': err = away.consoleBeam(this, p, 'up'); break;
       case 'transfer.recall': err = away.recall(this, msg.pid); break;
       case 'transfer.ziel': err = this.chooseLandepunkt(p, msg.landepunkt == null ? '' : String(msg.landepunkt)); break;   // B1 §6.1
-      case 'loadout.waffe': {   // B2 §8: Waffenwahl an der Transfer-Konsole (waffen.js, WAFFEN)
-        const wf = String(msg.waffe);
-        if (!(Protocol.WAFFEN_WAHL || []).includes(wf)) { err = 'Unbekannte Waffe.'; break; }
-        const fn = fnOf(waffenMod(), 'waffeSetzen');
-        if (!fn) { err = 'Waffenwahl noch nicht verfügbar.'; break; }
-        try { err = fn(this, p, wf) || null; } catch (e) { this.countError('loadout', e); err = null; }
-        break;
-      }
       case Protocol.CMD_LOADOUT_SLOT: {   // AUS-01 A/B: Loadout-Slot setzen (loadout.js), nur an der Ausrüstungsstation; Antwort: Ereignis ausruestungStand an den Absender
         const slot = msg.slot;
         const id = msg.id == null ? null : String(msg.id);

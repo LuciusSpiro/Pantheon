@@ -2372,8 +2372,8 @@
         R.button(ctx, 220, y, 184, 16, 'Notrückholung', { hotkey: String(4 + i), disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'transfer.recall', { pid: p.id }) });
         y += 20;
       });
-      // B2 §8: Waffenwahl am Transporter (cmd loadout.waffe), je Spieler; unten links
-      if (y < 262) this.drawWaffenwahl(ctx, view, 16, Math.max(y + 6, 262), 388);
+      // AUS-01 C: keine Waffenwahl mehr am Transporter; das Loadout steht an der Ausrüstungsstation
+      if (y < 270) R.text(ctx, 'Ausrüstung: Station nebenan', 16, Math.max(y + 6, 270), { color: PAL.panelLight });
       const lps = this.landepunkte(st);
       let ry = 30;
       if (away.active || awayTeam.length) {
@@ -2389,33 +2389,10 @@
       }
       // B1 §6.1: Landepunkte am Ort (cmd transfer.ziel), nur solange niemand unten ist
       if (lps.length && !awayTeam.length) ry = this.drawLandepunkte(ctx, view, lps, 420, (away.active ? ry : 30), 200);
-      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung · Q/E Waffe' + (lps.length > 1 && !awayTeam.length ? ' · 7–0 Landepunkt' : '');
+      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung' + (lps.length > 1 && !awayTeam.length ? ' · 7–0 Landepunkt' : '');
     },
-    // B2: Waffenwahl (Protocol.WAFFEN_WAHL). Eigene Waffe = me.wf; die Crew daneben mit ihrer Waffe.
+    // Waffenliste (Protocol.WAFFEN_WAHL) für die Auswahl an der Ausrüstungsstation
     waffenListe() { return PROTO.WAFFEN_WAHL || ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber']; },
-    waffeWaehlen(view, dir) {
-      const list = this.waffenListe(), me = view.me || {};
-      const i = Math.max(0, list.indexOf(me.wf || this.myWaffe || 'blaster'));
-      this.cmd(view, 'loadout.waffe', { waffe: list[(i + dir + list.length) % list.length] });
-    },
-    drawWaffenwahl(ctx, view, x, y, w) {
-      const st = view.state, me = view.me || {}, IB = window.IconsB;
-      const list = this.waffenListe();
-      const cur = me.wf || this.myWaffe || 'blaster';   // an Bord fehlt wf im Snapshot: letzte Bestätigung (Ereignis loadout)
-      R.text(ctx, 'DEINE WAFFE (Q/E)', x, y, { color: PAL.brass });
-      const crew = (st.players || []).filter(p => p.id !== me.id && p.connected !== false && p.wf);
-      if (crew.length) R.text(ctx, crew.slice(0, 3).map(p => String(p.name).slice(0, 8) + ': ' + (H.WAFFE_NAME[p.wf] || p.wf)).join(' · '), x + w, y, { color: PAL.panelLight, align: 'right' });
-      y += 11;
-      const bw = Math.floor((w - (list.length - 1) * 2) / list.length);
-      const reason = me.zone === 'away' ? 'Nur an Bord' : null;
-      list.forEach((wf, i) => {
-        const bx = x + i * (bw + 2);
-        R.button(ctx, bx, y, bw, 26, '', { active: wf === cur, disabled: !!reason, reason, onClick: () => { if (wf !== cur) this.cmd(view, 'loadout.waffe', { waffe: wf }); } });
-        if (!(IB && IB.draw && IB.has && IB.has('waffe', wf) && IB.draw(ctx, 'waffe', wf, bx + bw / 2, y + 9, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(bx + bw / 2 - 5, y + 5, 10, 8); }
-        R.text(ctx, H.WAFFE_KURZ[wf] || H.WAFFE_NAME[wf] || wf, bx + bw / 2, y + 16, { color: wf === cur ? PAL.mint : PAL.panelLight, align: 'center' });
-      });
-      return y + 30;
-    },
     // ---------------------------------------------------------------- AUS-01 B: Ausrüstungsstation (Loadout-Slots)
     // Stand vom Server (Ereignis ausruestungStand { slotzahl, slots }): nur die wirksamen Slots, der versteckte dritte Slot kommt nie an. Funktionsfarbe Rot (Waffen).
     ausr: { stand: null, sel: 0, cur: 0, fehler: null, fehlerT: 0, frageT: -1e9 },
@@ -3277,7 +3254,6 @@
           if (d === 2) return press(() => this.tryButton(/^Hochbeamen/));
           if (d === 3) return press(() => this.tryButton(/^Nachschub/));
           if (d >= 4 && d <= 6) { const list = this.findButtons(/^Notrückholung/); const b = list[d - 4]; if (b) this.activate(b); return true; }
-          if (code === 'KeyQ' || code === 'KeyE') return press(() => this.waffeWaehlen(view, code === 'KeyQ' ? -1 : 1));   // B2: Waffenwahl
           if ((d >= 7 && d <= 9) || code === 'Digit0' || code === 'Numpad0') { const k = d ? String(d) : '0'; const b = R.ui.buttons.filter(q => q.hotkey === k)[0]; if (b) this.activate(b); return true; }   // B1: Landepunkt
           return true;
         case 'shop': {

@@ -111,7 +111,7 @@ section('Aktive Waffe');
   const p = spieler('P1', 'browser-c');
   Loadout.slotSetzen(g, p, 0, 'blaster'); Loadout.slotSetzen(g, p, 1, 'lanze');
   Waffen.waffeSetzen(g, p, 'lanze');
-  ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["lanze","blaster",null]' && p.waffe === 'lanze', 'waffeSetzen/loadout.waffe: Waffe wird Slot 1, steckte sie in Slot 2 -> Tausch');
+  ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["lanze","blaster",null]' && p.waffe === 'lanze', 'waffeSetzen (intern): Waffe wird Slot 1, steckte sie in Slot 2 -> Tausch');
   Waffen.waffeSetzen(g, p, 'faust');
   ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["lanze","blaster",null]' && p.waffe === 'faust', 'waffeSetzen(faust) (Zelle) verändert das Loadout nicht');
 }
@@ -178,12 +178,10 @@ section('Befehl loadout.slot (Game)');
   cmd({ c: 'ausruestung.slot', slot: 1, id: 'laserschwert' });
   ok(t.notices(0).filter((x) => /Unbekannte Waffe/.test(x)).length === 1, 'unbekannte Id: Hinweis');
   cmd({ c: 'ausruestung.slot', slot: 1, id: 'nahkampf' });
+  const vorher = JSON.stringify(Loadout.loadoutFuer(t.g, p));
   p.console = 'transfer';
   cmd({ c: 'loadout.waffe', waffe: 'nahkampf' });
-  ok(JSON.stringify(Loadout.loadoutFuer(t.g, p)) === '["nahkampf","lanze",null]', 'alter Befehl loadout.waffe bleibt: setzt Slot 1 (Tausch mit Slot 2)');
-  ok(p.waffe === 'nahkampf', 'alter Befehl: aktive Waffe nahkampf');
-  cmd({ c: 'loadout.waffe', waffe: 'laserschwert' });
-  ok(t.notices(0).filter((x) => /Unbekannte Waffe/.test(x)).length === 2, 'loadout.waffe prüft weiter');
+  ok(JSON.stringify(Loadout.loadoutFuer(t.g, p)) === vorher && t.notices(0).some((x) => /Unbekannter Befehl/.test(x)), 'alter Befehl loadout.waffe entfallen (AUS-01 C): Loadout unverändert, unbekannter Befehl');
 }
 
 section('Doppelprüfung nur über wirksame Slots');

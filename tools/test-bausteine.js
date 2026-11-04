@@ -477,8 +477,11 @@ function main() {
     p2.console = 'transfer';
     g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'transfer.ziel', landepunkt: 'gibts.nicht' });
     ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /unbekannt|nicht/i.test(m.text)), 'transfer.ziel unbekannt -> Hinweis');
-    g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'loadout.waffe', waffe: 'laserschwert' });
-    ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /Unbekannte Waffe/.test(m.text)), 'loadout.waffe prüft die Waffe');
+    g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'loadout.waffe', waffe: 'blaster' });
+    ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /Unbekannter Befehl/.test(m.text)), 'loadout.waffe ist entfallen (AUS-01 C): unbekannter Befehl');
+    p2.console = 'ausruestung';
+    g2.handleMessage(t2.conns[0], { t: 'cmd', c: 'ausruestung.slot', slot: 0, id: 'laserschwert' });
+    ok(t2.conns[0].inbox.some((m) => m.kind === 'notice' && /Unbekannte Waffe/.test(m.text)), 'ausruestung.slot prüft die Waffe');
   }
 
   section('[B1 F2: Lexikon-Schlüssel der Umsetzungen]');
@@ -557,7 +560,7 @@ function w1Gefangenschaft() {
   // AUS-01: leeres Loadout (aktive Waffe faust) -> nach der Zelle wieder faust, kein erfundener Blaster; zweiter Aufruf überschreibt waffeVorher nicht
   const tF = setup(1);
   tF.g.debugGoto('vaelen', true); tF.run(0.2); L.get(tF.g, LP);
-  tF.g.players.forEach((p) => { p.waffe = 'faust'; });
+  tF.g.players.forEach((p) => { require('../server/sim/loadout.js').slotSetzen(tF.g, p, 0, null); });   // AUS-01 C: wirklich leeres Loadout gespeichert (Beamen holt die Waffe aus dem Loadout) -> faust
   act('team_gefangen', tF.g, { landepunkt: LP });
   const pF = tF.g.players[0];
   ok(pF.gefangen && pF.waffe === 'faust' && pF.waffeVorher === 'faust', 'AUS-01: gefangen mit Faust als aktiver Waffe -> waffeVorher faust');

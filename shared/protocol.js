@@ -64,8 +64,8 @@
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
     // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----
-    // cmd { c: 'loadout.waffe', waffe: WAFFEN_WAHL } – an der Transfer-Konsole (nicht unten); gespeichert je Spieler über den
-    //   Hash der Browser-Kennung (Weltstand crew.waffen), nie über Namen.
+    // Waffenwahl: nur noch über die Ausrüstungsstation (cmd ausruestung.slot, AUS-01); der Befehl loadout.waffe ist mit AUS-01 C entfallen.
+    //   Gespeichert je Spieler über den Hash der Browser-Kennung (Weltstand crew.waffen/crew.loadout), nie über Namen.
     // Halte-Interaktionen über den bestehenden Hold-Mechanismus (act), Kinds HOLD_KINDS_B2.
     // Snapshot players[]: PLAYER_SNAP_B2 – wf (Waffe), ht (Hitze 0–100), ov (1 = überhitzt), ch (Laden 0–100), wu (Ausholen 0–100),
     //   zs (KOERPER_ZUSTAENDE ohne 'aus'), bt (1 = betäubt). Nur gesetzte Felder (Budget). Außenzone: alle Felder (v2-Karten).
@@ -101,9 +101,8 @@
     // FIX-ZIELEN: input { seq, mx, my, aim? } – aim = Zielwinkel zum Mauszeiger in ganzen Grad (atan2, x rechts, y unten),
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.
     //   Snapshot players[].fa = Blickrichtung in ganzen Grad (nur Außenzone, nur solange aim gesetzt ist; fehlt = dir).
-    CMD_LOADOUT_WAFFE: 'loadout.waffe',
     // AUS-01 A: cmd { c: 'ausruestung.slot', slot: 0..2, id: WAFFEN_WAHL | null } – setzt einen Loadout-Slot (null = leer). Slotzahl 3 bei 1–2 Spielern,
-    //   2 ab 3 Spielern (in startGame festgesetzt). Aktive Waffe = erste Waffe der wirksamen Slots, ohne Waffe 'faust'. loadout.waffe setzt vorerst Slot 1.
+    //   2 ab 3 Spielern (in startGame festgesetzt). Aktive Waffe = erste Waffe der wirksamen Slots, ohne Waffe 'faust'.
     //   Weltstand crew.loadout { Hash -> [Id|null, max. 3] } (optional, additiv); crew.waffen bleibt als Spiegel der ersten Waffe.
     // AUS-01 B: umbenannt von 'loadout.slot' auf 'ausruestung.slot'; Präfix ausruestung gilt nur an der Konsole 'ausruestung' (Ausrüstungsstation, nicht exklusiv),
     //   nicht mehr an 'transfer'. Antwort an den Absender: Ereignis { kind: 'ausruestungStand', pid, slotzahl, slots: [Id|null, ...wirksame Slots], fehler? } –

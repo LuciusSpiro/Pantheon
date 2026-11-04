@@ -429,7 +429,13 @@ function onArrive(game, p) {
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   p.medkit = 0;
   if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
-  if (waffen()) { kaempfer(game, p); p.zustand = 'ok'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.wunden.n = p.wunden.max; }
+  if (waffen()) {
+    kaempfer(game, p); p.zustand = 'ok'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.wunden.n = p.wunden.max;
+    // AUS-01 C: Beamen nimmt das Loadout mit. Die aktive Waffe unten ist immer die aus dem Loadout (kaempfer behält sonst die zuletzt getragene,
+    // z. B. nach Labor/Zelle/Rückholung); Spieler ohne Kennung (kein Loadout speicherbar) behalten ihre Waffe.
+    const w = p.clientId != null && !p.gefangen && waffen().waffeFuer ? waffen().waffeFuer(game, p) : null;
+    if (w && p.waffe !== w) waffen().waffeAnlegen(game, p, w);
+  }
 }
 // Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt
 function onLeave(game, p) {
