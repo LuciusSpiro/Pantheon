@@ -426,6 +426,8 @@
     'o': ['deckung_halb', true, 1, true], 'O': ['deckung_voll', true, 2, false, true], 'I': ['pfeiler', true, 2, false, true],
     'x': ['truemmer', true, 1, true], 'X': ['schutt', true, 2, false, true],
     'Y': ['baum', true, 2, false, true], 'H': ['brustwehr', true, 1, true], ';': ['grabensohle'],   // VOX-01: Regeln wie F / o / ,
+    // GEL-01: Sichtschleier (s, strauch: begehbar, sperrt Sicht) und Flüssigkeit (a wasser, v lava: unpassierbar, Sicht frei); Format [kind, solid, cover, low, sperrt, zustaende, begehbarIn, kante, variante]
+    's': ['schleier', false, 0, false, true, undefined, undefined, 'begehbar', 'strauch'], 'a': ['fluessig', true, 0, false, false, undefined, undefined, 'fest', 'wasser'], 'v': ['fluessig', true, 0, false, false, undefined, undefined, 'fest', 'lava'],
     'D': ['tuer', 'zustand', 0, false, false, ['offen', 'zu', 'verschlossen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
     'S': ['schott', 'zustand', 0, false, false, ['zu', 'offen', 'gehackt', 'verschlossen'], ['offen', 'gehackt'], 'tuer'],
     'G': ['tor', 'zustand', 2, false, false, ['zu', 'offen', 'gesprengt'], ['offen', 'gesprengt'], 'tuer'],
@@ -433,7 +435,7 @@
     'w': ['wand_schwach', 'zustand', 2, false, false, ['intakt', 'offen'], ['offen']],
   };
   let KACHELN = {};
-  for (const [ch, a] of Object.entries(KACHELN_FB)) KACHELN[ch] = { kind: a[0], solid: a[1] || false, cover: a[2] || 0, low: !!a[3], sperrtSicht: !!a[4], zustaende: a[5], begehbarIn: a[6], kante: a[7] };
+  for (const [ch, a] of Object.entries(KACHELN_FB)) KACHELN[ch] = { kind: a[0], solid: a[1] || false, cover: a[2] || 0, low: !!a[3], sperrtSicht: !!a[4], zustaende: a[5], begehbarIn: a[6], kante: a[7], variante: a[8] };
   // Ankerrollen: Zustände (erster = Start) aus content/buehnen/anker.json (gleiche Werte als Auszug)
   let ANKER_ZUSTAENDE = { eingang: ['offen', 'verschlossen'], abholpunkt: ['bereit', 'gestoert'], terminal: ['bereit', 'laedt', 'geladen', 'gesperrt'],
     sprengpunkt: ['intakt', 'scharf', 'zerstoert', 'platziert'], zelle: ['zu', 'offen'], beute: ['voll', 'leer'], ziel: ['frei', 'genommen', 'aktiviert'],
@@ -443,7 +445,7 @@
     fetch('/content/buehnen/kacheln.json').then(r => r.ok ? r.json() : null).then(j => {
       if (!j || !j.zeichen) return;
       const neu = {};
-      for (const [ch, z] of Object.entries(j.zeichen)) neu[ch] = { kind: z.kind, solid: z.solid, cover: z.cover || 0, low: !!z.low, sperrtSicht: !!z.sperrtSicht, zustaende: z.zustaende, begehbarIn: z.begehbarIn, kante: z.kante };   // kante: Türgruppen (shared/buehne.js)
+      for (const [ch, z] of Object.entries(j.zeichen)) neu[ch] = { kind: z.kind, solid: z.solid, cover: z.cover || 0, low: !!z.low, sperrtSicht: !!z.sperrtSicht, zustaende: z.zustaende, begehbarIn: z.begehbarIn, kante: z.kante, variante: z.variante };   // kante: Türgruppen (shared/buehne.js)
       KACHELN = neu;
       for (const id of Object.keys(buehnenKarten)) { const m = buehnenKarten[id]; for (const ch of Object.keys(neu)) m.legend[ch] = neu[ch]; }
     }).catch(() => { /* Auszug bleibt */ });
@@ -562,7 +564,9 @@
   const BUEHNE_FARBE = { boden: '#3A4250', boden2: '#465060', gelaende: '#4A4436', plateau: '#5E6448', rampe: '#565A40', pad: '#2F5E58',
     kante: '#8A8262', wand: '#1C222D', zaun: '#3E3224', gitter: '#5C6472', fenster: '#5E8AA6', fels: '#2A2622', leere: '#0B0E1A',
     deckung_halb: '#7A6340', brustwehr: '#7A6340', baum: '#2A2622', grabensohle: '#465060', deckung_voll: '#5C4A30', pfeiler: '#2E3440', truemmer: '#6A5C4A', schutt: '#4A4036',
-    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530', rohr: '#2B3340' };
+    tuer: '#B5843A', schott: '#8A9AB0', tor: '#9A6A30', luke: '#7A8A6A', wand_schwach: '#3A3530', rohr: '#2B3340',
+    // GEL-01: Sichtschleier grün, Flüssigkeit blau; Lava (Schlüssel kind:variante) orange-rot, beides klar anders als Fels und Abgrund
+    schleier: '#3F7A38', fluessig: '#2F6FA8', 'fluessig:lava': '#D9511C' };
   function buehneKachelFarbe(map, st, tx, ty) {
     const info = map.info(tx, ty);
     if (info.kind === 'abgrund') return null;
@@ -571,7 +575,7 @@
       if ((info.begehbarIn || []).indexOf(z) >= 0) return z === 'gesprengt' ? '#4A3A30' : BUEHNE_FARBE.boden2;
       return z === 'verschlossen' ? '#B5443A' : BUEHNE_FARBE[info.kind] || '#8A6A3A';
     }
-    return BUEHNE_FARBE[info.kind] || '#3B4658';
+    return (info.variante && BUEHNE_FARBE[info.kind + ':' + info.variante]) || BUEHNE_FARBE[info.kind] || '#3B4658';
   }
   const ANKER_FARBE = { terminal: '#7FE0C2', sprengpunkt: '#FF6A4C', zelle: '#C9974A', beute: '#D9A441', ziel: '#FFC66B', fund: '#E8D27A',
     raetsel: '#B57CFF', abholpunkt: '#7FE0C2', versteck: '#9AA6B8', tor: '#C9974A', lift: '#A9D6E5', leiter: '#A9D6E5', flagge: '#E8554A' };

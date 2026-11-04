@@ -46,6 +46,7 @@ const KACHELN_FB = {
   '.': ['boden'], ',': ['boden2'], ':': ['gelaende'], '^': ['plateau'], '/': ['rampe'], k: ['kante'], '#': ['wand'], '=': ['zaun'],
   z: ['gitter'], '|': ['fenster'], F: ['fels'], '~': ['abgrund'], _: ['leere'], o: ['deckung_halb'], O: ['deckung_voll'], I: ['pfeiler'],
   Y: ['baum'], H: ['brustwehr'], ';': ['grabensohle'],
+  s: ['schleier'], a: ['fluessig'], v: ['fluessig'],   // GEL-01: Sichtschleier (strauch), Flüssigkeit (wasser, lava); die Variante steht nur in kacheln.json
   x: ['truemmer'], X: ['schutt'], D: ['tuer', ['offen', 'zu', 'verschlossen', 'gesprengt']], S: ['schott', ['zu', 'offen', 'gehackt', 'verschlossen']],
   G: ['tor', ['zu', 'offen', 'gesprengt']], L: ['luke', ['zu', 'offen']], w: ['wand_schwach', ['intakt', 'offen']], P: ['pad'],
 };
@@ -154,7 +155,7 @@ export function normKarte(src, D) {
     let i = infoCache.get(ch);
     if (i) return i;
     const z = (legende && legende[ch]) || (zeichen && zeichen[ch]);
-    if (z && z.kind) i = { kind: z.kind, zustaende: z.zustaende || [] };
+    if (z && z.kind) i = { kind: z.kind, zustaende: z.zustaende || [], variante: z.variante || null };   // variante: GEL-01 (schleier, fluessig)
     else if (KACHELN_FB[ch]) i = { kind: KACHELN_FB[ch][0], zustaende: KACHELN_FB[ch][1] || [] };
     else i = { kind: 'boden', zustaende: [], unbekannt: true };
     infoCache.set(ch, i);
@@ -399,6 +400,37 @@ const FB = {
     pen.box(-0.12, 0, -0.12, 0.12, 1.3, 0.12, F.get('wood'), F.get('wood_dark'));
     pen.box(-0.6, 1.0, -0.6, 0.6, 2.4, 0.6, F.get('plant'), F.get('plant_dark'), { low: 0.8 });
     pen.box(-0.4, 2.4, -0.4, 0.4, 3.2, 0.4, F.get('plant_light'), F.get('plant'), { low: 0.9 });
+  },
+  schleier(pen, p, F) {
+    // GEL-01 Platzhalter Sichtschleier (Variante strauch): niedriger, lückiger Busch aus grünen Blöcken; der Boden darunter bleibt sichtbar,
+    // die Kachel wirkt nicht massiv (man läuft hindurch). Weitere Varianten (Vorhang, Rauch, Dampf, Nebel) bekommen hier je einen Zweig.
+    const x = p.x | 0, y = p.y | 0;
+    const dunkel = lin('#2E5A2A'), mitte = lin('#4C8A3A'), hell = lin('#78B050');
+    for (let i = 0; i < 5; i++) {
+      const cx = (hash2(x, y, 60 + i) - 0.5) * 0.7, cz = (hash2(x, y, 70 + i) - 0.5) * 0.7;
+      const w = 0.16 + hash2(x, y, 80 + i) * 0.12, h = 0.55 + hash2(x, y, 90 + i) * 0.55;
+      pen.box(cx - w, 0, cz - w, cx + w, h, cz + w, i % 2 ? mitte : hell, dunkel, { low: 0.75 });
+    }
+  },
+  fluessig(pen, p, F) {
+    // GEL-01 Platzhalter Flüssigkeit: flache Fläche etwas unter Bodenniveau (Boden der Nachbarn steht 4–6 cm höher, ergibt eine Uferkante).
+    // wasser: kühles Blau, matt; lava: orange-rote Glut (leuchtet) mit hellen Adern. Feste Farben, damit beide unabhängig von der Palette
+    // und klar anders als Abgrund (dunkel, tief) und Fels (grau, hoch) aussehen.
+    const x = p.x | 0, y = p.y | 0;
+    if (p.variante === 'lava') {
+      pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#E0501A'), lin('#7A2410'), { jit: false });
+      pen.box(-0.5, -0.1, -0.5, 0.5, -0.08, 0.5, lin('#FF7A28'), null, { only: 'top', emit: true, jit: false });
+      for (let i = 0; i < 2; i++) {
+        const cx = (hash2(x, y, 100 + i) - 0.5) * 0.6, cz = (hash2(x, y, 110 + i) - 0.5) * 0.6, w = 0.1 + hash2(x, y, 120 + i) * 0.14;
+        pen.box(cx - w, -0.08, cz - w, cx + w, -0.07, cz + w, lin('#FFD060'), null, { only: 'top', emit: true, jit: false });
+      }
+      return;
+    }
+    pen.box(-0.5, -0.5, -0.5, 0.5, -0.1, 0.5, lin('#2F78B8'), lin('#1B4A78'), { jit: false });
+    if (hash2(x, y, 130) < 0.5) {   // schwache Wellenstreifen
+      const cz = (hash2(x, y, 131) - 0.5) * 0.6;
+      pen.box(-0.3, -0.1, cz - 0.03, 0.3, -0.09, cz + 0.03, lin('#8CC4EC'), null, { only: 'top', jit: false });
+    }
   },
   rampe(pen, p, F) {
     for (let i = 0; i < 4; i++) pen.box(-0.5, 0, -0.5 + i * 0.25, 0.5, 0.12 + i * 0.12, -0.25 + i * 0.25, F.get('paving'), F.get('stone_dark'));
@@ -972,6 +1004,8 @@ async function bauKarte(parent, karteIn, opts) {
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
         if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        // GEL-01: Flüssigkeit steht ohne Boden darunter (Fläche unter Bodenniveau); Kit-Teil kits.fluessig, sonst Platzhalter FB.fluessig
+        if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (huelle && draussen && (kind === 'boden' || kind === 'boden2' || kind === 'pad') && !inBau.has(tx + ',' + ty)) {
           placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty, kind)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
@@ -1012,6 +1046,8 @@ async function bauKarte(parent, karteIn, opts) {
           continue;
         }
         if (kind === 'baum') { baumSetzen(tx, ty, d); continue; }
+        // GEL-01: Sichtschleier auf dem Boden (oben gesetzt); Kit-Teil kits.schleier, sonst Platzhalter FB.schleier
+        if (kind === 'schleier') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (kind === 'deckung_halb' || kind === 'deckung_voll' || kind === 'pfeiler') {
           const vertical = (conn & 5) && !(conn & 10);
           placeKit(kind, kitParams(kind, base, { conn, cut: 0 }), tileMatrix(tx, ty, vertical ? Math.PI / 2 : 0), d, tx, ty);

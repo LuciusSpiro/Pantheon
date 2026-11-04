@@ -64,6 +64,7 @@
     wand: '#1a1d25', zaun: '#5d4630', gitter: '#5b6b7c', fenster: '#3f8fbf', fels: '#2b2925', baum: '#2b2925', abgrund: '#0b1532', leere: '#050608',
     deckung_halb: '#8a7740', brustwehr: '#8a7740', deckung_voll: '#a5602e', pfeiler: '#8b8f99', truemmer: '#6e5d49', schutt: '#4c3d2d',
     tuer: '#d08a3c', schott: '#4fb0d0', tor: '#e0b030', luke: '#6fbf6f', wand_schwach: '#7a5368', pad: '#3f74ad',
+    schleier: '#3f7a38', fluessig: '#2f6fa8',   // GEL-01 (Lava: Werkstatt zeigt nur die Art)
   };
   const KANTE_FARBE = { offen: '#5fd38d', tuer: '#f2994a', wand: '#6b7383', frei: '#56ccf2' };
   const ROLLE_FARBE = {

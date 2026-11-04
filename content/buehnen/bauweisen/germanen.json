@@ -241,6 +241,14 @@
       "belag": 0,
       "hinweis": "VOX-01 5a: Feldteil mit eigener Palette",
       "palette": "sommer_wald"
+    },
+    "schleier": {
+      "terrain": true,
+      "hinweis": "GEL-01: Sichtschleier (Varianten, bisher strauch); kein Kit-Teil, Platzhalter FB.schleier in kit.js, Kit-Teil je Variante folgt"
+    },
+    "fluessig": {
+      "terrain": true,
+      "hinweis": "GEL-01: Fluessigkeit (Varianten wasser, lava); kein Kit-Teil, Platzhalter FB.fluessig in kit.js, Kit-Teil je Variante folgt"
     }
   },
   "anker": {

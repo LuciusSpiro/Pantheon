@@ -146,6 +146,14 @@
       "nadelAnteil": 0.6,
       "seeds": 12,
       "hinweis": "VOX-01 5a: Baum volksneutral (Nadel 60 %, Laub 40 %, 12 Gestalten); Stamm und Krone setzt kit.js getrennt (Kronen-Zellen 3x3)."
+    },
+    "schleier": {
+      "terrain": true,
+      "hinweis": "GEL-01: Sichtschleier (Varianten, bisher strauch); kein Kit-Teil, Platzhalter FB.schleier in kit.js, Kit-Teil je Variante folgt"
+    },
+    "fluessig": {
+      "terrain": true,
+      "hinweis": "GEL-01: Fluessigkeit (Varianten wasser, lava); kein Kit-Teil, Platzhalter FB.fluessig in kit.js, Kit-Teil je Variante folgt"
     }
   },
   "anker": {
