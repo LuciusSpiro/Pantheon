@@ -221,6 +221,11 @@ const ARENA_ORT = 'kesh';
 function lpMod() { try { const m = require('./landepunkte.js'); return m && !m.stub ? m : null; } catch (e) { return null; } }
 // Karte bauen und als Landepunkt registrieren (beim Start, nie im Tick) -> lpId | null
 function karteBauen(game, params) {
+  // GEL-01 D: biom/groesse (Testgelände-URL, nur Wildnis) gehen als gen { biom, groesse } an landepunkte.testgelaende (überschreibt Welt/Standard, nie im Weltstand)
+  if (params && (params.biom || params.groesse)) {
+    const { biom, groesse, ...rest } = params;
+    params = Object.assign(rest, { gen: Object.assign({}, rest.gen, biom ? { biom } : {}, groesse ? { groesse } : {}) });
+  }
   const L = lpMod();
   let lp = null;
   try {
