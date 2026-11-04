@@ -806,7 +806,8 @@
       // Prüfwerte je Kartenart (überschreiben die globalen; Sichtung GD 2026-10-08)
       jeArt: { aussenposten: { sichtgasseMax: 24 }, ruine: { sichtgasseMax: 16 },
         station: { sichtgasseMax: 12, deckungMaxGefecht: 0.18, deckungMaxAussen: 0.12 },
-        schiff: { sichtgasseMax: 12, deckungMaxGefecht: 0.22, deckungMaxAussen: 0.25 } } },   // innen enger: mehr Deckung erlaubt (Briefing: Schiff braucht mehr Deckung)
+        schiff: { sichtgasseMax: 12, deckungMaxGefecht: 0.22, deckungMaxAussen: 0.25 },
+        wildnis: { eingaengeMin: 0 } } },   // GEL-01 B: Wildnis (gen-gelaende) hat keine Eingänge (Gelände ohne Siedlung); die übrigen Prüfwerte gelten wie global   // innen enger: mehr Deckung erlaubt (Briefing: Schiff braucht mehr Deckung)
     landepunkte: { transferRange: 360, maxGebaut: 2 },
     // Anker-Interaktionen (s, E halten; Werte aus INHALT §1.4). countdown = Ladung bis zur Explosion.
     // Rätselpaar (Abnahme F4, Studioleitung): solo Fenster = max(paarSoloFenster, Laufweg A->B / Spielertempo × paarLaufFaktor

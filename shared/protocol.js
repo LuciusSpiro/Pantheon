@@ -58,7 +58,7 @@
     AWAY_SNAP_B1: ['map', 'kv', 'ao', 'ko', 'al', 'cd'],
     SPACE_ENEMY_ST: ['treibt'],
     TRANSFER_SNAP_FIELDS: ['lpId', 'name', 'art', 'frei', 'grund', 'inReichweite'],
-    KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'hand'],
+    KARTEN_ARTEN: ['aussenposten', 'station', 'ruine', 'schiff', 'wildnis', 'hand'],
     ARENA_AWAY_FIELDS: ['art', 'schablone', 'seed', 'bauweise', 'besitz', 'zustand', 'fraktion', 'staerke', 'haltung'],
     B1_EVENTS: ['awayMap', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
     B1_DEBUG: ['buehne', 'anker', 'lp'],
