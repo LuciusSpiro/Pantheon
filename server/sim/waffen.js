@@ -546,19 +546,21 @@ function snapFelder(game, k) {
 // ---------- Waffenwahl, Weltstand crew.waffen (E26) ----------
 function hashKennung(clientId) { return crypto.createHash('sha1').update(String(clientId)).digest('hex').slice(0, 12); }
 function wahl(game) { if (!game.crewWaffen || typeof game.crewWaffen !== 'object') game.crewWaffen = {}; return game.crewWaffen; }
-// Waffe setzen (Transfer-Konsole, Debug, Zelle). Gespeichert wird nur eine wählbare Waffe (nie 'faust') über den Hash.
-function waffeSetzen(game, p, waffe) {
+// Waffe am Spieler anlegen (Hitze/Ladung zurück, Ereignis loadout), ohne zu speichern. Auch für Zelle ('faust') und Slotwechsel (loadout.js).
+function waffeAnlegen(game, p, waffe) {
   if (!def(game, waffe) || waffe === 'waechter') return 'unbekannt';
   p.waffe = waffe; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.bereitAt = 0;
-  if (WAHL.includes(waffe) && p.clientId != null) wahl(game)[hashKennung(p.clientId)] = waffe;
   emit(game, 'loadout', { pid: p.id, waffe });
   return null;
 }
-// Gespeicherte Wahl eines Spielers, sonst Blaster (neue Spieler)
-function waffeFuer(game, p) {
-  const w = p && p.clientId != null ? wahl(game)[hashKennung(p.clientId)] : null;
-  return WAHL.includes(w) ? w : 'blaster';
+// Waffe setzen (Labor, Arena, Debug, alter Befehl loadout.waffe). Gespeichert wird nur eine wählbare Waffe (nie 'faust') als Slot 1 (AUS-01, loadout.js).
+function waffeSetzen(game, p, waffe) {
+  if (!def(game, waffe) || waffe === 'waechter') return 'unbekannt';
+  if (WAHL.includes(waffe) && p.clientId != null) require('./loadout.js').ersterSlotSetzen(game, p, waffe);
+  return waffeAnlegen(game, p, waffe);
 }
+// Aktive Waffe des Spielers: erste Waffe der wirksamen Slots, Faust ohne Waffe, Blaster ohne gespeichertes Loadout (AUS-01, loadout.js)
+function waffeFuer(game, p) { return require('./loadout.js').aktiveWaffe(game, p); }
 function toSave(game) { return game ? Object.assign({}, wahl(game)) : {}; }
 function restore(obj, game) {
   if (!game) return;
@@ -572,5 +574,5 @@ module.exports = {
   WAHL, ZUSTAENDE,
   def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
   sichtPruefen, sichtKacheln, engageBox, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
-  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
+  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeAnlegen, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };

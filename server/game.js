@@ -132,6 +132,7 @@ const sprungMod = () => optional('sprung', './sim/sprung.js');            // SEK
 const sektorenMod = () => optional('sektoren', '../shared/sektoren.js'); // SEKTOR (B3)
 const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   // BUEHNE (B1)
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
+const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
 const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
@@ -1083,6 +1084,7 @@ class Game {
 
   startGame() {
     const sm = this.lobbyOpts.startMission;
+    Loadout.slotzahlFestsetzen(this);   // AUS-01 A: einmal je Partie, nach verbundenen Spielern; Nachzügler/Abgang ändern nichts mehr
     // S1 §6: gewählter Weltstand -> fortsetzen (startMission entfällt)
     if (this.lobbyOpts.world && this.worldsEnabled) return this.continueWorld(this.lobbyOpts.world);
     // Weltstand nur für die Kampagne (m1 = mit Tutorial, free = ohne); m3 und Testgelände nie (Kai)
@@ -1113,7 +1115,7 @@ class Game {
     if (campaign && !CAMPAIGN_KETTEN[sm] && !freieFahrt) this.createSpielleiter();   // S2: vor startCampaign (onCampaignStart); die feste Kette (EK8) braucht keinen Spielleiter
     if (campaign) {   // B2 (Wunsch WAFFEN): neue Kampagne -> leerer Block crew.waffen
       const wr = fnOf(waffenMod(), 'restore');
-      if (wr) { try { wr({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
+      if (wr) { try { wr({}, this); Loadout.restore({}, this); } catch (e) { this.countError('weltstand-waffen', e); } }
     }
     if (sm === 'arena_away' || sm === 'arena_graben' || sm === 'labor') this.lobbyWaffenSetzen();   // AP3a: Waffe aus der Lobby vor dem Beamen
     if (!arena.isArena(sm) && sm !== 'labor') this.explore.arrive(Welt.startOrt());   // Testgelände/Labor: keine Hafen-Erstbesuchsansage
@@ -1354,6 +1356,12 @@ class Game {
         const fn = fnOf(waffenMod(), 'waffeSetzen');
         if (!fn) { err = 'Waffenwahl noch nicht verfügbar.'; break; }
         try { err = fn(this, p, wf) || null; } catch (e) { this.countError('loadout', e); err = null; }
+        break;
+      }
+      case 'loadout.slot': {   // AUS-01 A: Loadout-Slot setzen (loadout.js); vorerst dieselbe Konsolenbindung wie loadout.waffe
+        const slot = msg.slot;
+        const id = msg.id == null ? null : String(msg.id);
+        try { err = Loadout.slotSetzen(this, p, slot, id) || null; } catch (e) { this.countError('loadout', e); err = null; }
         break;
       }
       case 'transfer.supply': err = away.supply(this); break;

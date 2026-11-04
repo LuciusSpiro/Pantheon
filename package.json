@@ -285,6 +285,7 @@
     "test:buehne": "node tools/test-buehne.js",
     "test:generatoren": "node tools/test-generatoren.js",
     "test:waffen": "node tools/test-waffen.js",
+    "test:loadout": "node tools/test-loadout.js",
     "test:sektoren": "node tools/test-sektoren.js",
     "test:alarm": "node tools/test-alarm.js",
     "test:methalle": "node tools/test-methalle.js",

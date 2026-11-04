@@ -102,6 +102,10 @@
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.
     //   Snapshot players[].fa = Blickrichtung in ganzen Grad (nur Außenzone, nur solange aim gesetzt ist; fehlt = dir).
     CMD_LOADOUT_WAFFE: 'loadout.waffe',
+    // AUS-01 A: cmd { c: 'loadout.slot', slot: 0..2, id: WAFFEN_WAHL | null } – setzt einen Loadout-Slot (null = leer). Slotzahl 3 bei 1–2 Spielern,
+    //   2 ab 3 Spielern (in startGame festgesetzt). Aktive Waffe = erste Waffe der wirksamen Slots, ohne Waffe 'faust'. loadout.waffe setzt vorerst Slot 1.
+    //   Weltstand crew.loadout { Hash -> [Id|null, max. 3] } (optional, additiv); crew.waffen bleibt als Spiegel der ersten Waffe.
+    CMD_LOADOUT_SLOT: 'loadout.slot',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],
