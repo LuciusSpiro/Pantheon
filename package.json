@@ -83,6 +83,8 @@
     "test:vox01-kacheln": "node tools/test-vox01-kacheln.js",
     "test:kachelklassen": "node tools/test-kachelklassen.js",
     "test:wildnis-verdrahtung": "node tools/test-wildnis-verdrahtung.js",
+    "test:gelaende": "node tools/test-gelaende.js",
+    "test:wildnis-gruppenlauf": "node tools/test-wildnis-gruppenlauf.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",
     "test:vox01-kronen": "node tools/test-vox01-kronen.js",
     "mess:klumpen": "node tools/mess-klumpen.js --selbsttest",
