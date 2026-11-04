@@ -4302,21 +4302,52 @@ async function runWellen(opts) {
   };
 }
 // ---------- BOD-01 P4: Grabenangriff (Lobby-Start arena_graben, server/sim/graben.js) ----------
-//   node tools/sim-headless.js graben [--players 1|3|beide] [--seed n] [--seeds n] [--max 1500] [--god]   (--god: game.god, Treffer wirken nicht – prüft den Ablauf bis zum Sieg)
-// Crew-Bots (ohne Debug-Befehle) spielen das Szenario durch: kämpfen wie in den Wellen (WellenAgent), dann Bunkereingang einnehmen (Ziel halten) und am
-// Abholpunkt hochbeamen. Ausgabe je Lauf: Sieg, Zeit, Versuche (Neubeginn nach Notrückholung), Gegnerschüsse und Treffer auf Spieler, Fehler, Snapshot-Max.
+//   node tools/sim-headless.js graben [--players 1|3|beide|Liste wie 1,2,4] [--seed n] [--seeds n] [--max 1500] [--god]   (--god: game.god, Treffer wirken nicht – prüft den Ablauf bis zum Sieg)
+//   BOD-03 C7: die Bots spielen auch den Bunker (Lift, Welle 3, Zünden, Flucht, Pad); je Lauf eine Zeile Abschnitte. Kurzer Test mit festem Seed: tools/test-bunker-bots.js. Ohne god überleben die Bots Welle 1 nicht (Stand 2026-11-04).
+// Crew-Bots (ohne Debug-Befehle) spielen das Szenario durch: kämpfen wie in den Wellen (WellenAgent), dann (BOD-03 C7) per Lift in den Bunker, Sprengung zünden, fliehen und am
+// Pad oben hochbeamen. Ausgabe je Lauf: Sieg, Zeit, Versuche (Neubeginn nach Notrückholung), Gegnerschüsse und Treffer auf Spieler, Fehler, Snapshot-Max.
+// BOD-03 C7: nach Welle 1/2 (Zielzeile „Sprengladung im Reaktorraum zünden“) geht die Crew per Lift in den Bunker (Welle 3 wird im Gefecht
+// bekämpft: Gegner in Sicht -> WellenAgent), zündet am Sprengpunkt (E halten), flieht aus dem Reaktorraum (Zielzeile „Ladung scharf“, Friendly Fire
+// r 2 Kacheln) zum Lift unten, fährt nach dem Knall hinauf (Nachschub wird im Gefecht bekämpft) und beamt am Pad hoch („Zurück zum Pad“).
+// Davor (Welle 1/2) bleibt alles wie in den Wellen.
 class GrabenAgent extends WellenAgent {
+  // Stufe der Zielzeile: 'zuenden' | 'flucht' | 'pad' | null (Welle 1/2)
+  bunkerStufe(S) {
+    const txt = ((S.mission && S.mission.objectives) || []).map((o) => o.text).join(' ');
+    if (/Zurück zum Pad/.test(txt)) return 'pad';
+    if (/Ladung scharf/.test(txt)) return 'flucht';
+    if (/Sprengladung im Reaktorraum zünden/.test(txt)) return 'zuenden';
+    return null;
+  }
+  deckVon(S, y) { const bi = this.builtInfo(S); const st = bi && bi.karte.decks && bi.karte.decks.stride; return st ? Math.floor(y / TILE / st) : 0; }
+  // true = Tick verbraucht. Gegner in Sicht: false (der Gefechtsteil der Wellen kämpft), sonst die Etappe laufen.
+  bunkerLauf(S, p) {
+    const stufe = this.bunkerStufe(S); const bi = this.builtInfo(S);
+    if (!stufe || !bi) return false;
+    if (this.enemiesInSight(S, p).length) return false;
+    const k = bi.karte; const map = S.away.map; const anker = (id) => k.anker.find((a) => a.id === id);
+    const sp = k.anker.find((a) => a.rolle === 'sprengpunkt'); const lu = anker('bunker.lift.unten');
+    if (!sp || !lu) return false;
+    const deck = this.deckVon(S, p.y); const m = this.memo;
+    if (m.bunkerStufe !== stufe) { m.bunkerStufe = stufe; this.ix = null; if (this.actDown) this.act(false); }   // Etappenwechsel: keine halbe Interaktion mitnehmen
+    if (stufe === 'zuenden') {
+      if (deck === 0) { if (this.gotoBuilt(S, [lu]) === 'fail') this.input(0, 0); return true; }   // der Weg führt über den Lift (via lift in pathLinks)
+      this.ankerHalten(S, p, map, sp, 'scharf'); return true;
+    }
+    if (stufe === 'flucht') {
+      if (deck === 0) { this.input(0, 0); return true; }   // oben: nicht hinunter, auf den Knall warten
+      const pt = this.tile(p);
+      if (Math.max(Math.abs(pt.x - sp.x), Math.abs(pt.y - sp.y)) <= 4) { this.awayFrom(S, p, sp, 4); return true; }   // raus aus dem Radius (2 Kacheln + Reserve)
+      if (this.gotoBuilt(S, [lu]) === 'fail') this.input(0, 0);
+      return true;
+    }
+    this.buehneHoch(S, p); return true;   // pad: nach dem Knall zum Pad oben (Weg über den Lift), E halten
+  }
   update(S) {
     const p = this.me(S);
     if (!p || S.phase !== 'play') return;
     if (this.waitT > 0) { this.waitT -= DT; return; }
-    const txt = ((S.mission && S.mission.objectives) || []).map((o) => o.text).join(' ');
-    if (p.zone === 'away' && !p.downed && S.wellen && S.wellen.ph === 'kampf') {
-      const k = this.builtInfo(S) && this.builtInfo(S).karte;
-      const ziel = k && k.meta && k.meta.ziel && k.anker.find((a) => a.id === k.meta.ziel);
-      if (/Abholpunkt/.test(txt)) { this.buehneHoch(S, p); return; }   // Ziel erreicht: zum Abholpunkt, E halten
-      if (/Bunkereingang einnehmen/.test(txt) && ziel) { this.ankerHalten(S, p, S.away.map, ziel, 'aktiviert'); return; }   // Welle 2 besiegt: Ziel halten
-    }
+    if (p.zone === 'away' && !p.downed && S.wellen && S.wellen.ph === 'kampf' && this.bunkerLauf(S, p)) return;
     super.update(S);
   }
 }
@@ -4326,7 +4357,7 @@ async function runGraben(opts) {
   const game = botSpiel(new Game({ noStore: true, seed, env: botEnv({ MISSION_SOURCE: 'fallback' }), log: VERBOSE ? (...a) => log('  [game] ' + a.join(' ')) : () => {} }));
   game.simStats = { reactorRestarts: 0, widescans: 0, wreckDone: false, orders: 0, coverShots: 0, keyTries: 0 };
   const agents = [];
-  for (let i = 0; i < opts.players; i++) agents.push(new GrabenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain'][i], opts));
+  for (let i = 0; i < opts.players; i++) agents.push(new GrabenAgent(game, i, opts.players === 1 ? 'solo' : ['helm', 'weapons', 'captain', 'captain'][i], opts));
   game.simAgents = agents;
   let ende = null; const funde = [];
   const watcher = { send: (o) => {
@@ -4337,17 +4368,31 @@ async function runGraben(opts) {
   } };
   game.addConnection(watcher); watcher.observer = true;
   game.lobbyOpts.startMission = 'arena_graben';
-  for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem'][a.idx], color: a.idx }); }
+  for (const a of agents) { game.addConnection(a.conn); a.send({ t: 'hello', clientId: 'sim-' + a.idx, name: ['Ada', 'Bo', 'Cem', 'Dan'][a.idx], color: a.idx }); }
   for (const a of agents) a.send({ t: 'ready', ready: true });
   const S0 = game.arena && game.arena.wellen;
   const aw = S0 && game.aways[S0.lp];
   if (opts.god) game.god = true;   // --god: unverwundbare Crew, prüft nur den Ablauf (Ziel, Hochbeamen, Sieg), keine Quote
   let S = game.snapshot();
   let snapMax = 0, ticks = 0, lastProgress = 0, lastKey = '', softlock = false, zielZeit = null, besteAbschuesse = 0;
+  // BOD-03 C7: Marken je Abschnitt (erste Zeit, je Versuch neu: Neubeginn setzt zurück) – Welle 1, Welle 2, Lift (erster Spieler im Bunker), Zünden (Sprengpunkt scharf), Knall, Pad
+  let marken = {}; let versuch0 = 1; const SPK = S0 && S0.zielId;
+  const MARKEN_TICK = () => {
+    if (!S0) return;
+    if (S0.versuch !== versuch0) { versuch0 = S0.versuch; marken = {}; }
+    const t = Math.round(game.time); const mk = (k) => { if (marken[k] == null) marken[k] = t; };
+    if (S0.n >= 2) mk('w1'); if (S0.n >= 3 || S0.ziel === 'offen' || S0.ziel === 'erreicht') mk('w2');
+    if (game.players.some((q) => q.zone === 'away' && awLift(q))) mk('lift');
+    if (SPK && Anker().zustand(game, S0.lp, SPK) !== 'intakt' && Anker().zustand(game, S0.lp, SPK) !== 'zerstoert') { if (marken.scharf == null && S0.ids[3]) marken.w3 = aw.drones.filter((e) => S0.ids[3].includes(e.id) && e.alive).length + '/' + S0.ids[3].length; mk('scharf'); }
+    if (S0.ziel === 'erreicht') { if (marken.knall == null) { const sa = W.AWAY_MAPS[S0.lp].karte.anker.find((a) => a.id === SPK); const ds = game.players.filter((q) => q.zone === 'away' && sa).map((q) => Math.hypot(q.x / TILE - 0.5 - sa.x, q.y / TILE - 0.5 - sa.y)); marken.abstand = ds.length ? Math.round(Math.min(...ds) * 10) / 10 : null; } mk('knall'); }
+    if (S0.ziel === 'erreicht' && game.players.some((q) => q.zone === 'ship')) mk('pad1');
+  };
+  const stride = aw && W.AWAY_MAPS[S0.lp].karte.decks && W.AWAY_MAPS[S0.lp].karte.decks.stride;
+  const awLift = (q) => stride && Math.floor(q.y / TILE / stride) === 1;
   while (game.time < opts.maxSec && game.phase === 'play') {
     game.step(); ticks++;
     if (game.phase !== 'play') break;
-    if (S0) besteAbschuesse = Math.max(besteAbschuesse, S0.abschuesse);
+    if (S0) { besteAbschuesse = Math.max(besteAbschuesse, S0.abschuesse); if (ticks % 15 === 0) MARKEN_TICK(); }
     if (game.wantsSnapshot()) {
       S = game.snapshot();
       const b = Buffer.byteLength(JSON.stringify(S));
@@ -4365,13 +4410,13 @@ async function runGraben(opts) {
   return {
     players: opts.players, seed, sieg: !!(ende && ende.sieg), zeit: ende ? ende.zeit : Math.round(game.time), versuche: S0 ? S0.versuch : 0, neustarts: funde, zielZeit, besteAbschuesse,
     gegner: S0 ? S0.gesamt : 0, lebend: S0 && aw ? aw.drones.filter((e) => e.tag === 'welle' && e.alive).length : 0, ziel: S0 && S0.ziel,
-    gegnerSchuesse: st.enemyShots || 0, treffer: st.playerHits || 0, wunden: st.wounds || 0, rueckholungen: st.squadRecalls || 0,
+    marken, zielId: SPK, gegnerSchuesse: st.enemyShots || 0, treffer: st.playerHits || 0, wunden: st.wounds || 0, rueckholungen: st.squadRecalls || 0,
     errors: game.errors, errorLog: game.errorLog, snapMax, softlock, lobby: game.phase === 'lobby',
   };
 }
 async function grabenMain() {
   const pArg = argVal('--players', 'beide');
-  const crews = pArg === 'beide' ? [1, 3] : [Number(pArg)];
+  const crews = pArg === 'beide' ? [1, 3] : String(pArg).split(',').map(Number);   // BOD-03 C7: auch eine Liste (--players 1,2,4)
   const maxSec = Number(argVal('--max', 1500));
   const base = seedArg != null ? seedArg : 1;
   const nSeeds = Number(argVal('--seeds', 1));
@@ -4382,8 +4427,10 @@ async function grabenMain() {
     laeufe++; if (r.sieg) siege++;
     const bad = r.errors > 0 || r.snapMax >= CONFIG.net.snapMax || (r.sieg && !r.lobby);   // kein Sieg und Stillstand (SOFTLOCK = Bots sterben im Kreis) sind keine Fehler: die Quote ist kein Abnahmeziel
     if (bad) ok = false;
-    log(`${np === 1 ? 'solo ' : 'zu 3 '} ${r.sieg ? 'SIEG' : 'kein Sieg'} nach ${r.zeit} s · Versuche ${r.versuche}${r.neustarts.length ? ' (Neubeginn bei ' + r.neustarts.join(', ') + ' s)' : ''} · Ziel ${r.ziel}${r.zielZeit != null ? ' (erreicht bei ' + r.zielZeit + ' s)' : ''} · Gegner ${r.gegner}, übrig ${r.lebend}, bester Versuch ${r.besteAbschuesse} Abschüsse · ` +
+    log(`${np === 1 ? 'solo ' : 'zu ' + np + ' '} Seed ${r.seed}${args.includes('--god') ? ' god' : ''} ${r.sieg ? 'SIEG' : 'kein Sieg'} nach ${r.zeit} s · Versuche ${r.versuche}${r.neustarts.length ? ' (Neubeginn bei ' + r.neustarts.join(', ') + ' s)' : ''} · Ziel ${r.ziel}${r.zielZeit != null ? ' (erreicht bei ' + r.zielZeit + ' s)' : ''} · Gegner ${r.gegner}, übrig ${r.lebend}, bester Versuch ${r.besteAbschuesse} Abschüsse · ` +
       `Gegnerschüsse ${r.gegnerSchuesse}, Treffer auf Spieler ${r.treffer}, Verwundungen ${r.wunden}, Notrückholungen ${r.rueckholungen} · Snapshot max ${r.snapMax} B · Fehler ${r.errors}${r.softlock ? ' · SOFTLOCK' : ''}${r.sieg && !r.lobby ? ' · nicht zurück in der Lobby' : ''}`);
+    const m = r.marken || {}; const dz = (a, b) => (m[a] != null && m[b] != null ? (m[b] - m[a]) + ' s' : '–');
+    log(`  Abschnitte (letzter Versuch, Spielzeit): Welle 1 bis ${m.w1 != null ? m.w1 : '–'} s · Welle 2 ${dz('w1', 'w2')} · Lift ${dz('w2', 'lift')} · Bunker/Welle 3 bis Zünden ${dz('lift', 'scharf')} · Zünden bis Knall ${dz('scharf', 'knall')} · Flucht/Rückweg bis erster am Pad oben ${dz('knall', 'pad1')} · Welle 3 beim Zünden lebend ${m.w3 || '–'} · Abstand der Crew zum Sprengpunkt beim Knall ${m.abstand != null ? m.abstand + ' Kacheln' : '–'}`);
     if (r.errors) log('  Fehler: ' + JSON.stringify(r.errorLog));
   }
   log(`Quote: ${siege}/${laeufe} Siege (kein Abnahmeziel)`);
@@ -4430,7 +4477,7 @@ async function wellenMain() {
 
 runKesh = mitBotEnde(runKesh); runArena = mitBotEnde(runArena); runWellenAll = mitBotEnde(runWellenAll); runScenario = mitBotEnde(runScenario);
 runGeneric = mitBotEnde(runGeneric); runWellen = mitBotEnde(runWellen); runGraben = mitBotEnde(runGraben);   // TEL-01 A
-if (require.main !== module) module.exports = { runGeneric, printGenericRun, fmtMin, GenericAgent };   // SL11: tools/sim-sund.js nutzt den Bot als Bibliothek
+if (require.main !== module) module.exports = { runGeneric, printGenericRun, fmtMin, GenericAgent, runGraben };   // SL11: tools/sim-sund.js nutzt den Bot als Bibliothek
 else (async () => {
   if (args.includes('wellen')) { await wellenMain(); return; }
   if (args.includes('graben')) { await grabenMain(); return; }   // BOD-01 P4

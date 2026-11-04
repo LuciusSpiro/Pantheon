@@ -413,6 +413,7 @@ function trefferWirkung(game, ziel, wirkung, quelle) {
   const w = wirkung || {}; const q = quelle || {}; const C = ac(game); const t = now(game);
   const zs = ziel.zustand || 'ok';
   if (zs !== 'ok') return 'ignoriert';
+  if (game.god && ziel.team === 'crew') return 'ignoriert';   // BOD-03 C7: god (Debug, Bot-Läufe --god) gilt auch für Treffer, die waffen.js verteilt, nicht nur für combat.hitPlayer
   // Friendly Fire nur über Fläche (E17) und Waffen mit friendlyFire (Lanzenstrahl)
   if (!w.flaeche && !w.friendlyFire && q.team && q.team === ziel.team) return 'ignoriert';
   // Schildkuppel des Außenteams (heute in hitPlayer)
