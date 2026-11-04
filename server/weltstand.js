@@ -745,7 +745,7 @@ function capture(game) {
   if (!sek && ex && typeof ex.sektorenToSave === 'function') { try { sek = ex.sektorenToSave(); } catch (e) { countError(game, 'weltstand-sektoren', e); } }
   data.welt.sektoren = normSektoren(sek || blockSave(game, 'sektoren'));
   data.crew = { waffen: blockSave(game, 'waffen'), rollen_gesehen: (ws.data.rollen_gesehen || []).slice() };
-  const loadout = blockSave(game, 'loadout');   // AUS-01 A: optional und additiv; ohne Einträge fehlt der Block (Stand bleibt für ältere Spielversionen lesbar)
+  const loadout = blockSave(game, 'loadout');   // AUS-01 A: optional und additiv; ohne Einträge fehlt der Block (ältere Spielversionen lehnen Stände mit diesem Block per Schema ab)
   if (Object.keys(loadout).length) data.crew.loadout = loadout;
   return data;
 }
