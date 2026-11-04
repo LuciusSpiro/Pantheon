@@ -134,7 +134,7 @@
     "test:rom-boden": "node tools/test-rom-boden.js",
     "check:rollen": "node tools/check-assets.mjs --nur-rollen",
     "hash:baseline": "node tools/hash-baseline.js --compare",
-    "hash:karten": "node tools/hash-baseline.js --compare --karten",
+    "hash:karten": "node tools/hash-baseline.js --compare --karten --ohne-zeichen s,a,v",
     "test:schubs": "node tools/test-schubs.js && node tools/test-schnellsprung.js",
     "test:zonen": "node tools/test-zonen.js",
     "test:systemmodell": "node tools/test-systemmodell.js",

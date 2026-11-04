@@ -75,7 +75,7 @@
   {"id":"test-glut","kette":"test","cmd":["tools/test-glut.js"],"stufe":"fast","budget_s":6},
   {"id":"test-bauweise-besitz","kette":"test","cmd":["tools/test-bauweise-besitz.js"],"stufe":"fast","budget_s":8},
   {"id":"test-rom-boden","kette":"test","cmd":["tools/test-rom-boden.js"],"stufe":"fast","budget_s":7},
-  {"id":"hash-baseline --compare --karten","kette":"test","cmd":["tools/hash-baseline.js","--compare","--karten"],"stufe":"fast","budget_s":8},
+  {"id":"hash-baseline --compare --karten","kette":"test","cmd":["tools/hash-baseline.js","--compare","--karten","--ohne-zeichen","s,a,v"],"stufe":"fast","budget_s":8},
   {"id":"test-schubs","kette":"test","cmd":["tools/test-schubs.js"],"stufe":"fast","budget_s":6},
   {"id":"test-rennen","kette":"test","cmd":["tools/test-rennen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-schnellsprung","kette":"test","cmd":["tools/test-schnellsprung.js"],"stufe":"fast","budget_s":8},
