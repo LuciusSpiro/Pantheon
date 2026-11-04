@@ -1,0 +1,10 @@
+{
+  "id": "biom_wueste",
+  "name": "Biom Wüste, Mittag: hoher Sonnenstand, warmer heller Himmel, klare Luft (Wertleiter A)",
+  "background": "#E4D8BC",
+  "fog": { "color": "#E4D8BC", "near": 3, "far": 9 },
+  "hemi": { "sky": "#F2E8D2", "ground": "#A08458", "intensity": 1.1 },
+  "sun": { "color": "#FFF2DC", "intensity": 3.2, "dir": [-0.3, 1, 0.28], "softness": 2 },
+  "exposure": 0.95,
+  "bloom": { "strength": 0.2, "radius": 0.4, "threshold": 0.92 }
+}

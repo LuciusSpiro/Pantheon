@@ -1,0 +1,27 @@
+{
+  "id": "biom_wiesenwald",
+  "name": "Biom Wiesenwald (VOX-02): frisches Gras, graue Findlinge, dunkles Laub, Fluss. Setzt nur Geländerollen (Wertleiter A)",
+  "extends": "base",
+  "roles": {
+    "sand": "#BAA87C",
+    "grass": "#82A24C",
+    "grass_dark": "#78984A",
+    "grass_light": "#8EAC58",
+    "soil": "#A69066",
+    "soil_dark": "#6E5A3E",
+    "teppich": "#5A8638",
+    "stone": "#888D86",
+    "stone_dark": "#80847E",
+    "stone_light": "#959A92",
+    "rock": "#4E5352",
+    "rock_dark": "#3E4240",
+    "abgrund": "#2A241C",
+    "plant": "#4E8034",
+    "plant_dark": "#3A6528",
+    "plant_light": "#5F9038",
+    "flower": "#F2DA52",
+    "flower2": "#F4F0F6",
+    "fluid": "#3B7EA2",
+    "fluid_v": "#5A9CB8"
+  }
+}

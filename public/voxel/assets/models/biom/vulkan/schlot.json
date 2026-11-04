@@ -1,0 +1,192 @@
+{
+ "id": "biom/vulkan/schlot",
+ "name": "Lavaschlot (VOX-02): fester, hoher Kegel aus rock* (1,6 bis 1,9 m), Kollision, Deckung, sperrt die Sicht. Footprint unter 1 x 1 m. Drei achteckige Schichten bzw. vier quadratische Terrassen (abwechselnd rock und rock_dark); nur die kleine Mündung oben ist Lava (Rolle fluid, leuchtet), der Fels leuchtet nie. seed wählt die Gestalt: 0 steiler Kegel, 1 Terrassenschlot, 2 versetzter Kegel mit Nebenkegel",
+ "tier": "detail",
+ "palette": "biom_vulkan",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "vulkan",
+  "schlot",
+  "fels"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 800,
+ "let": {
+  "H": "26 + floor(hash(seed, 1) * 6)",
+  "typ": "floor(seed) % 3",
+  "nl": "floor(seed) % 3 == 1 ? 4 : 3",
+  "ox": "floor(seed) % 3 == 2 ? -1 : round((hash(seed, 2) - 0.5) * 2)",
+  "oz": "floor(seed) % 3 == 2 ? 1 : round((hash(seed, 3) - 0.5) * 2)"
+ },
+ "ops": [
+  {
+   "op": "group",
+   "name": "Schichten",
+   "repeat": {
+    "count": 4,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "i"
+   },
+   "if": "i < nl",
+   "let": {
+    "y0": "floor(i * H / nl)",
+    "y1": "floor((i + 1) * H / nl)",
+    "half": "typ == 1 ? 7 - i : 7 - 2 * i",
+    "fb": "i % 2",
+    "sq": "typ != 1 && i < 2 ? 1 : 0"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Schicht A rock",
+     "at": [
+      "-half + ox",
+      "y0",
+      "-(half - sq) + oz"
+     ],
+     "size": [
+      "2 * half",
+      "y1 - y0",
+      "2 * (half - sq)"
+     ],
+     "color": "rock",
+     "if": "fb == 0"
+    },
+    {
+     "op": "box",
+     "name": "Schicht B rock",
+     "at": [
+      "-(half - 1) + ox",
+      "y0",
+      "-half + oz"
+     ],
+     "size": [
+      "2 * (half - 1)",
+      "y1 - y0",
+      "2 * half"
+     ],
+     "color": "rock",
+     "if": "fb == 0 && sq == 1"
+    },
+    {
+     "op": "box",
+     "name": "Schicht A rock_dark",
+     "at": [
+      "-half + ox",
+      "y0",
+      "-(half - sq) + oz"
+     ],
+     "size": [
+      "2 * half",
+      "y1 - y0",
+      "2 * (half - sq)"
+     ],
+     "color": "rock_dark",
+     "if": "fb == 1"
+    },
+    {
+     "op": "box",
+     "name": "Schicht B rock_dark",
+     "at": [
+      "-(half - 1) + ox",
+      "y0",
+      "-half + oz"
+     ],
+     "size": [
+      "2 * (half - 1)",
+      "y1 - y0",
+      "2 * half"
+     ],
+     "color": "rock_dark",
+     "if": "fb == 1 && sq == 1"
+    }
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Nebenkegel unten",
+   "at": [
+    3,
+    0,
+    -7
+   ],
+   "size": [
+    5,
+    6,
+    5
+   ],
+   "color": "rock_dark",
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Nebenkegel oben",
+   "at": [
+    4,
+    6,
+    -6
+   ],
+   "size": [
+    3,
+    4,
+    3
+   ],
+   "color": "rock",
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Mündung frei",
+   "mode": "carve",
+   "at": [
+    "-2 + ox",
+    "H - 1",
+    "-2 + oz"
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Lava (Mündung)",
+   "at": [
+    "-2 + ox",
+    "H - 2",
+    "-2 + oz"
+   ],
+   "size": [
+    4,
+    1,
+    4
+   ],
+   "color": {
+    "noise": [
+     "fluid",
+     "fluid_v"
+    ],
+    "weights": [
+     4,
+     1
+    ],
+    "cell": 1
+   },
+   "jitter": false
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

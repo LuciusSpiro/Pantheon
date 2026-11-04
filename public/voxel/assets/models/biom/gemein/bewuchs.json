@@ -1,0 +1,294 @@
+{
+ "id": "biom/gemein/bewuchs",
+ "name": "Bodenbewuchs (VOX-02), palettenunabhängig: form 0 Gras, 1 Blumen, 2 Kiesel, 3 Flechte (neutral, ohne Glut). Höchstens 3 Voxel (0,19 m), über die ganze Kachel gestreut, keine Kollision, keine Deckung, Sicht frei. Rollen: plant*, flower*, stone*, grass*",
+ "tier": "detail",
+ "palette": "biom_wiesenwald",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "gemein",
+  "bewuchs",
+  "streu"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 300,
+ "params": {
+  "form": {
+   "default": 0,
+   "min": 0,
+   "max": 3,
+   "step": 1,
+   "label": "0 Gras · 1 Blumen · 2 Kiesel · 3 Flechte"
+  }
+ },
+ "variants": {
+  "gras": {
+   "form": 0
+  },
+  "blumen": {
+   "form": 1
+  },
+  "kiesel": {
+   "form": 2
+  },
+  "flechte": {
+   "form": 3
+  }
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Halm",
+   "if": "form == 0",
+   "repeat": {
+    "count": 9,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 1) * 4)",
+    0,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 2) * 4)"
+   ],
+   "size": [
+    1,
+    "2 + floor(hash(seed, k, 3) * 2)",
+    1
+   ],
+   "color": {
+    "noise": [
+     "plant",
+     "plant_light",
+     "plant_dark"
+    ],
+    "weights": [
+     2,
+     1,
+     1
+    ],
+    "cell": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halm Nachbar",
+   "if": "form == 0 && hash(seed, k, 4) < 0.6",
+   "repeat": {
+    "count": 9,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 1) * 4) + 1",
+    0,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 2) * 4)"
+   ],
+   "size": [
+    1,
+    2,
+    1
+   ],
+   "color": {
+    "noise": [
+     "plant",
+     "plant_dark"
+    ],
+    "weights": [
+     2,
+     1
+    ],
+    "cell": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Blatt",
+   "if": "form == 1 && hash(seed, k, 15) > 0.5",
+   "repeat": {
+    "count": 9,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 11) * 4)",
+    0,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 12) * 4)"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     "plant",
+     "plant_dark"
+    ],
+    "weights": [
+     2,
+     1
+    ],
+    "cell": 1
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stiel und Blüte",
+   "if": "form == 1",
+   "repeat": {
+    "count": 8,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 13) * 4)",
+    1,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 14) * 4)"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     "flower",
+     "flower2",
+     "flower"
+    ],
+    "weights": [
+     3,
+     1,
+     0
+    ],
+    "cell": 1000,
+    "seed": "k * 5 + 1"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stiel",
+   "if": "form == 1",
+   "repeat": {
+    "count": 8,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 13) * 4)",
+    0,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 14) * 4)"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ],
+   "color": "plant_dark"
+  },
+  {
+   "op": "box",
+   "name": "Kiesel",
+   "if": "form == 2",
+   "repeat": {
+    "count": 9,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 5 + floor(hash(seed, k, 21) * 4)",
+    0,
+    "-7 + floor(k / 3) * 5 + floor(hash(seed, k, 22) * 4)"
+   ],
+   "size": [
+    "1 + floor(hash(seed, k, 23) * 2)",
+    1,
+    "1 + floor(hash(seed, k, 24) * 2)"
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "rock"
+    ],
+    "weights": [
+     3,
+     2,
+     1
+    ],
+    "cell": 1000,
+    "seed": "k * 7 + 2"
+   }
+  },
+  {
+   "op": "box",
+   "name": "Flechte",
+   "if": "form == 3 && (k == 0 || k == 8 || hash(seed, k, 35) > 0.25)",
+   "repeat": {
+    "count": 9,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "at": [
+    "-7 + (k % 3) * 4 + floor(hash(seed, k, 31) * 3)",
+    0,
+    "-7 + floor(k / 3) * 4 + floor(hash(seed, k, 32) * 3)"
+   ],
+   "size": [
+    "2 + floor(hash(seed, k, 33) * 3)",
+    1,
+    "2 + floor(hash(seed, k, 34) * 3)"
+   ],
+   "color": {
+    "noise": [
+     "plant",
+     "plant_dark",
+     "grass_dark"
+    ],
+    "weights": [
+     2,
+     1,
+     1
+    ],
+    "cell": 1000,
+    "seed": "k * 3 + 4"
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

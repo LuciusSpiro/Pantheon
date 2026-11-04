@@ -1,0 +1,27 @@
+{
+  "id": "biom_wueste",
+  "name": "Biom Wüste (VOX-02): Sand und Sandstein, roter Fels, Oase. Setzt nur Geländerollen (Wertleiter A)",
+  "extends": "base",
+  "roles": {
+    "sand": "#C4AA78",
+    "grass": "#C4A878",
+    "grass_dark": "#BB9A6C",
+    "grass_light": "#C2A878",
+    "soil": "#B09264",
+    "soil_dark": "#9A7B52",
+    "teppich": "#9E8058",
+    "stone": "#AC9468",
+    "stone_dark": "#A58A60",
+    "stone_light": "#BDA67C",
+    "rock": "#7E5034",
+    "rock_dark": "#5E3A26",
+    "abgrund": "#2E2018",
+    "plant": "#7C8A48",
+    "plant_dark": "#5E6C36",
+    "plant_light": "#8A9654",
+    "flower": "#E9C04E",
+    "flower2": "#D9735A",
+    "fluid": "#3C8AA2",
+    "fluid_v": "#5AA6B6"
+  }
+}

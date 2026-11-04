@@ -135,6 +135,11 @@
       "team": "vox01",
       "file": "vox01.json",
       "count": 8
+    },
+    {
+      "team": "vox02",
+      "file": "vox02.json",
+      "count": 11
     }
   ],
   "assets": {
@@ -1402,6 +1407,458 @@
       "usage": "Flickwand liegt in der Wandreihe (Ost-West), Platten quer über x, rot 0. cut Standard 1 (Default im Rezept).",
       "source": "away/wreck/wall_weak",
       "team": "art-h"
+    },
+    "biom/gemein/bewuchs": {
+      "id": "biom/gemein/bewuchs",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wiesenwald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.2,
+      "facing": "+z",
+      "params": {
+        "form": [
+          0,
+          3
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "gras": {
+          "form": 0
+        },
+        "blumen": {
+          "form": 1
+        },
+        "kiesel": {
+          "form": 2
+        },
+        "flechte": {
+          "form": 3
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 300,
+      "tags": [
+        "biom",
+        "gemein",
+        "bewuchs",
+        "streu"
+      ],
+      "source": "biom/gemein/bewuchs",
+      "team": "vox02"
+    },
+    "biom/gemein/fluid": {
+      "id": "biom/gemein/fluid",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wiesenwald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0,
+      "facing": "+z",
+      "params": {
+        "art": [
+          0,
+          2
+        ],
+        "conn": [
+          0,
+          15
+        ],
+        "diag": [
+          0,
+          15
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "wasser": {
+          "art": 0
+        },
+        "wasser_ufer_ns": {
+          "art": 0,
+          "conn": 5
+        },
+        "wasser_mitte": {
+          "art": 0,
+          "conn": 15
+        },
+        "wasser_innenecke": {
+          "art": 0,
+          "conn": 15,
+          "diag": 1
+        },
+        "lava": {
+          "art": 1
+        },
+        "lava_ecke": {
+          "art": 1,
+          "conn": 6
+        },
+        "treibsand": {
+          "art": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 400,
+      "tags": [
+        "biom",
+        "gemein",
+        "fluid",
+        "wasser",
+        "lava",
+        "treibsand"
+      ],
+      "source": "biom/gemein/fluid",
+      "team": "vox02"
+    },
+    "biom/vulkan/aschefarn": {
+      "id": "biom/vulkan/aschefarn",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_vulkan",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "biom",
+        "vulkan",
+        "farn",
+        "sichtschleier"
+      ],
+      "source": "biom/vulkan/aschefarn",
+      "team": "vox02"
+    },
+    "biom/vulkan/basalt": {
+      "id": "biom/vulkan/basalt",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_vulkan",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {
+        "hoch": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "halb": {
+          "hoch": 0
+        },
+        "voll": {
+          "hoch": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 900,
+      "tags": [
+        "biom",
+        "vulkan",
+        "stein",
+        "basalt",
+        "deckung"
+      ],
+      "source": "biom/vulkan/basalt",
+      "team": "vox02"
+    },
+    "biom/vulkan/schlot": {
+      "id": "biom/vulkan/schlot",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_vulkan",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "biom",
+        "vulkan",
+        "schlot",
+        "fels"
+      ],
+      "source": "biom/vulkan/schlot",
+      "team": "vox02"
+    },
+    "biom/wiese/farn": {
+      "id": "biom/wiese/farn",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wiesenwald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 0.9,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 600,
+      "tags": [
+        "biom",
+        "wiese",
+        "farn",
+        "sichtschleier"
+      ],
+      "source": "biom/wiese/farn",
+      "team": "vox02"
+    },
+    "biom/wiese/findling": {
+      "id": "biom/wiese/findling",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wiesenwald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {
+        "hoch": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "halb": {
+          "hoch": 0
+        },
+        "voll": {
+          "hoch": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 900,
+      "tags": [
+        "biom",
+        "wiese",
+        "stein",
+        "findling",
+        "deckung"
+      ],
+      "source": "biom/wiese/findling",
+      "team": "vox02"
+    },
+    "biom/wiese/strauch": {
+      "id": "biom/wiese/strauch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wiesenwald",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.5,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "kuppel": {
+          "seed": 0
+        },
+        "schmal": {
+          "seed": 1
+        },
+        "huegel": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "biom",
+        "wiese",
+        "strauch",
+        "sichtschleier"
+      ],
+      "source": "biom/wiese/strauch",
+      "team": "vox02"
+    },
+    "biom/wueste/dornbusch": {
+      "id": "biom/wueste/dornbusch",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wueste",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 1.4,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "besen": {
+          "seed": 0
+        },
+        "gestruepp": {
+          "seed": 1
+        },
+        "zickzack": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 800,
+      "tags": [
+        "biom",
+        "wueste",
+        "dornbusch",
+        "sichtschleier"
+      ],
+      "source": "biom/wueste/dornbusch",
+      "team": "vox02"
+    },
+    "biom/wueste/kaktus": {
+      "id": "biom/wueste/kaktus",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wueste",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.2,
+      "facing": "+z",
+      "params": {
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "zweiarmig": {
+          "seed": 0
+        },
+        "einarm": {
+          "seed": 1
+        },
+        "kandelaber": {
+          "seed": 2
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 700,
+      "tags": [
+        "biom",
+        "wueste",
+        "kaktus",
+        "fest",
+        "deckung"
+      ],
+      "source": "biom/wueste/kaktus",
+      "team": "vox02"
+    },
+    "biom/wueste/schichtstein": {
+      "id": "biom/wueste/schichtstein",
+      "kind": "model",
+      "tier": "detail",
+      "palette": "biom_wueste",
+      "footprint": [
+        1,
+        1
+      ],
+      "height": 2.1,
+      "facing": "+z",
+      "params": {
+        "hoch": [
+          0,
+          1
+        ],
+        "seed": [
+          0,
+          63
+        ]
+      },
+      "states": {
+        "halb": {
+          "hoch": 0
+        },
+        "voll": {
+          "hoch": 1
+        }
+      },
+      "sockets": {},
+      "tint": [],
+      "budgetTris": 900,
+      "tags": [
+        "biom",
+        "wueste",
+        "stein",
+        "schichtstein",
+        "deckung"
+      ],
+      "source": "biom/wueste/schichtstein",
+      "team": "vox02"
     },
     "cha/spieler": {
       "id": "cha/spieler",

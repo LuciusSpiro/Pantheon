@@ -1,0 +1,555 @@
+{
+ "id": "biom/wueste/kaktus",
+ "name": "Saeulenkaktus (VOX-02, Wueste): Saguaro-artig mit Armen, fest und hoch (Regeln wie Baum: Kollision, Deckung, sperrt die Sicht). Quader mit Rippen (rund als abgestufte Form), Hoehe 2,0 bis 2,2 m, nichts heller als der Boden (Rollen plant*). seed waehlt die Gestalt: 0 zwei Arme (hoch links, tief rechts), 1 dicker Stamm mit einem hohen Arm, 2 schlanker Kandelaber (drei Arme); seed 3, 4, ... wiederholt die Gestalt mit anderen Hoehen und Versatz",
+ "tier": "detail",
+ "palette": "biom_wueste",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "wueste",
+  "kaktus",
+  "fest",
+  "deckung"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 700,
+ "variants": {
+  "zweiarmig": {
+   "seed": 0
+  },
+  "einarm": {
+   "seed": 1
+  },
+  "kandelaber": {
+   "seed": 2
+  }
+ },
+ "let": {
+  "typ": "floor(seed) % 3",
+  "hh": "floor(hash(seed, 1) * 3)",
+  "H": "30 + hh",
+  "tw": "typ == 1 ? 8 : (typ == 2 ? 5 : 6)",
+  "ox": "floor(hash(seed, 6) * 2) - 1",
+  "oz": "floor(hash(seed, 7) * 2) - 1",
+  "xl": "-floor(tw / 2) + ox",
+  "xr": "xl + tw",
+  "zl": "-floor(tw / 2) + oz",
+  "zr": "zl + tw",
+  "ya": "8 + floor(hash(seed, 2) * 3)",
+  "yb": "14 + floor(hash(seed, 3) * 3)"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Stamm",
+   "at": [
+    "xl",
+    0,
+    "zl"
+   ],
+   "size": [
+    "tw",
+    "H",
+    "tw"
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stamm Kopf",
+   "at": [
+    "xl + 1",
+    "H",
+    "zl + 1"
+   ],
+   "size": [
+    "tw - 2",
+    2,
+    "tw - 2"
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Stamm Spitze",
+   "at": [
+    "xl + floor(tw / 2) - 1",
+    "H + 2",
+    "zl + floor(tw / 2) - 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links waagrecht",
+   "if": "typ == 0",
+   "at": [
+    "xl - 4",
+    "yb",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "z",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links senkrecht",
+   "if": "typ == 0",
+   "at": [
+    "xl - 4",
+    "yb + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    "8 - hh",
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links Kappe",
+   "if": "typ == 0",
+   "at": [
+    "xl - 4 + 1",
+    "yb + 4 + 8 - hh",
+    "zl + floor((tw - 4) / 2) + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts waagrecht",
+   "if": "typ == 0",
+   "at": [
+    "xr",
+    "ya",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "z",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts senkrecht",
+   "if": "typ == 0",
+   "at": [
+    "xr + 4 - 4",
+    "ya + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    "5 + hh",
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts Kappe",
+   "if": "typ == 0",
+   "at": [
+    "xr + 4 - 4 + 1",
+    "ya + 4 + 5 + hh",
+    "zl + floor((tw - 4) / 2) + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm waagrecht",
+   "if": "typ == 1",
+   "at": [
+    "xr",
+    "ya + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "z",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm senkrecht",
+   "if": "typ == 1",
+   "at": [
+    "xr + 4 - 4",
+    "ya + 4 + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    "H - ya - 13",
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm Kappe",
+   "if": "typ == 1",
+   "at": [
+    "xr + 4 - 4 + 1",
+    "ya + 4 + 4 + H - ya - 13",
+    "zl + floor((tw - 4) / 2) + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm vorn waagrecht",
+   "if": "typ == 2",
+   "at": [
+    "xl + floor((tw - 4) / 2)",
+    "ya",
+    "zr"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm vorn senkrecht",
+   "if": "typ == 2",
+   "at": [
+    "xl + floor((tw - 4) / 2)",
+    "ya + 4",
+    "zr + 4 - 4"
+   ],
+   "size": [
+    4,
+    "H - ya - 14",
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm vorn Kappe",
+   "if": "typ == 2",
+   "at": [
+    "xl + floor((tw - 4) / 2) + 1",
+    "ya + 4 + H - ya - 14",
+    "zr + 4 - 4 + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links waagrecht",
+   "if": "typ == 2",
+   "at": [
+    "xl - 4",
+    "yb",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "z",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links senkrecht",
+   "if": "typ == 2",
+   "at": [
+    "xl - 4",
+    "yb + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    "H - yb - 13",
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm links Kappe",
+   "if": "typ == 2",
+   "at": [
+    "xl - 4 + 1",
+    "yb + 4 + H - yb - 13",
+    "zl + floor((tw - 4) / 2) + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts waagrecht",
+   "if": "typ == 2",
+   "at": [
+    "xr",
+    "ya + 2",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "z",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts senkrecht",
+   "if": "typ == 2",
+   "at": [
+    "xr + 4 - 4",
+    "ya + 2 + 4",
+    "zl + floor((tw - 4) / 2)"
+   ],
+   "size": [
+    4,
+    4,
+    4
+   ],
+   "color": {
+    "stripes": [
+     "plant",
+     "plant_dark"
+    ],
+    "axis": "x",
+    "period": 2
+   }
+  },
+  {
+   "op": "box",
+   "name": "Arm rechts Kappe",
+   "if": "typ == 2",
+   "at": [
+    "xr + 4 - 4 + 1",
+    "ya + 2 + 4 + 4",
+    "zl + floor((tw - 4) / 2) + 1"
+   ],
+   "size": [
+    2,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "plant_dark",
+     "plant"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 2
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

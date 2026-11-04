@@ -1,0 +1,79 @@
+{
+  "team": "vox02",
+  "assets": [
+    {
+      "id": "biom/wiese/strauch", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
+      "footprint": [1, 1], "height": 1.5, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "states": { "kuppel": { "seed": 0 }, "schmal": { "seed": 1 }, "huegel": { "seed": 2 } },
+      "sockets": {}, "tint": [], "budgetTris": 800, "tags": ["biom", "wiese", "strauch", "sichtschleier"]
+    },
+    {
+      "id": "biom/wiese/farn", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
+      "footprint": [1, 1], "height": 0.9, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "sockets": {}, "tint": [], "budgetTris": 600, "tags": ["biom", "wiese", "farn", "sichtschleier"]
+    },
+    {
+      "id": "biom/wiese/findling", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
+      "footprint": [1, 1], "height": 2.1, "facing": "+z",
+      "params": { "hoch": [0, 1], "seed": [0, 63] },
+      "states": { "halb": { "hoch": 0 }, "voll": { "hoch": 1 } },
+      "sockets": {}, "tint": [], "budgetTris": 900, "tags": ["biom", "wiese", "stein", "findling", "deckung"]
+    },
+    {
+      "id": "biom/gemein/bewuchs", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
+      "footprint": [1, 1], "height": 0.2, "facing": "+z",
+      "params": { "form": [0, 3], "seed": [0, 63] },
+      "states": { "gras": { "form": 0 }, "blumen": { "form": 1 }, "kiesel": { "form": 2 }, "flechte": { "form": 3 } },
+      "sockets": {}, "tint": [], "budgetTris": 300, "tags": ["biom", "gemein", "bewuchs", "streu"]
+    },
+    {
+      "id": "biom/gemein/fluid", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
+      "footprint": [1, 1], "height": 0, "facing": "+z",
+      "params": { "art": [0, 2], "conn": [0, 15], "diag": [0, 15], "seed": [0, 63] },
+      "states": { "wasser": { "art": 0 }, "wasser_ufer_ns": { "art": 0, "conn": 5 }, "wasser_mitte": { "art": 0, "conn": 15 }, "wasser_innenecke": { "art": 0, "conn": 15, "diag": 1 }, "lava": { "art": 1 }, "lava_ecke": { "art": 1, "conn": 6 }, "treibsand": { "art": 2 } },
+      "sockets": {}, "tint": [], "budgetTris": 400, "tags": ["biom", "gemein", "fluid", "wasser", "lava", "treibsand"]
+    },
+    {
+      "id": "biom/wueste/dornbusch", "kind": "model", "tier": "detail", "palette": "biom_wueste",
+      "footprint": [1, 1], "height": 1.4, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "states": { "besen": { "seed": 0 }, "gestruepp": { "seed": 1 }, "zickzack": { "seed": 2 } },
+      "sockets": {}, "tint": [], "budgetTris": 800, "tags": ["biom", "wueste", "dornbusch", "sichtschleier"]
+    },
+    {
+      "id": "biom/wueste/kaktus", "kind": "model", "tier": "detail", "palette": "biom_wueste",
+      "footprint": [1, 1], "height": 2.2, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "states": { "zweiarmig": { "seed": 0 }, "einarm": { "seed": 1 }, "kandelaber": { "seed": 2 } },
+      "sockets": {}, "tint": [], "budgetTris": 700, "tags": ["biom", "wueste", "kaktus", "fest", "deckung"]
+    },
+    {
+      "id": "biom/wueste/schichtstein", "kind": "model", "tier": "detail", "palette": "biom_wueste",
+      "footprint": [1, 1], "height": 2.1, "facing": "+z",
+      "params": { "hoch": [0, 1], "seed": [0, 63] },
+      "states": { "halb": { "hoch": 0 }, "voll": { "hoch": 1 } },
+      "sockets": {}, "tint": [], "budgetTris": 900, "tags": ["biom", "wueste", "stein", "schichtstein", "deckung"]
+    },
+    {
+      "id": "biom/vulkan/aschefarn", "kind": "model", "tier": "detail", "palette": "biom_vulkan",
+      "footprint": [1, 1], "height": 1.0, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "sockets": {}, "tint": [], "budgetTris": 600, "tags": ["biom", "vulkan", "farn", "sichtschleier"]
+    },
+    {
+      "id": "biom/vulkan/basalt", "kind": "model", "tier": "detail", "palette": "biom_vulkan",
+      "footprint": [1, 1], "height": 2.1, "facing": "+z",
+      "params": { "hoch": [0, 1], "seed": [0, 63] },
+      "states": { "halb": { "hoch": 0 }, "voll": { "hoch": 1 } },
+      "sockets": {}, "tint": [], "budgetTris": 900, "tags": ["biom", "vulkan", "stein", "basalt", "deckung"]
+    },
+    {
+      "id": "biom/vulkan/schlot", "kind": "model", "tier": "detail", "palette": "biom_vulkan",
+      "footprint": [1, 1], "height": 2.0, "facing": "+z",
+      "params": { "seed": [0, 63] },
+      "sockets": {}, "tint": [], "budgetTris": 800, "tags": ["biom", "vulkan", "schlot", "fels"]
+    }
+  ]
+}

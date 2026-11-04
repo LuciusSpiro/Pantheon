@@ -1,0 +1,569 @@
+{
+ "id": "biom/vulkan/basalt",
+ "name": "Basaltsäulen (VOX-02): Stein mit Kollision (ganze Kachel) und Deckung. hoch 0 = halb (0,75 m), hoch 1 = voll (2,06 m). Quader-Säulen; seed wählt das Bündel: 0 neun Säulen mit hoher Mitte, 1 Treppe aus Platten, 2 zwei Säulen mit Stümpfen; höhere Seeds verändern die Höhen. Rollen stone*, keine helle Kappe, kein heller Sockel",
+ "tier": "detail",
+ "palette": "biom_vulkan",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "vulkan",
+  "stein",
+  "basalt",
+  "deckung"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 900,
+ "params": {
+  "hoch": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 halbe Deckung (0,75 m) · 1 volle Deckung (2,06 m)"
+  }
+ },
+ "variants": {
+  "halb": {
+   "hoch": 0
+  },
+  "voll": {
+   "hoch": 1
+  }
+ },
+ "let": {
+  "H": "hoch ? 33 : 12",
+  "typ": "floor(seed) % 3"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Bündel Säule 0",
+   "at": [
+    -8,
+    0,
+    -8
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.45) - floor(hash(seed, 0, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "0 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 1",
+   "at": [
+    -8,
+    0,
+    -3
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.72) - floor(hash(seed, 1, 1) * (hoch ? 6 : 3)))",
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "1 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 2",
+   "at": [
+    -8,
+    0,
+    3
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.45) - floor(hash(seed, 2, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "2 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 3",
+   "at": [
+    -3,
+    0,
+    -8
+   ],
+   "size": [
+    6,
+    "max(3, round(H * 0.72) - floor(hash(seed, 3, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "3 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 4",
+   "at": [
+    -3,
+    0,
+    -3
+   ],
+   "size": [
+    6,
+    "H",
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "4 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 5",
+   "at": [
+    -3,
+    0,
+    3
+   ],
+   "size": [
+    6,
+    "max(3, round(H * 0.72) - floor(hash(seed, 5, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "5 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 6",
+   "at": [
+    3,
+    0,
+    -8
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.45) - floor(hash(seed, 6, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "6 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 7",
+   "at": [
+    3,
+    0,
+    -3
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.72) - floor(hash(seed, 7, 1) * (hoch ? 6 : 3)))",
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "7 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Bündel Säule 8",
+   "at": [
+    3,
+    0,
+    3
+   ],
+   "size": [
+    5,
+    "max(3, round(H * 0.45) - floor(hash(seed, 8, 1) * (hoch ? 6 : 3)))",
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "8 * 5 + 1"
+   },
+   "if": "typ == 0"
+  },
+  {
+   "op": "box",
+   "name": "Treppe Säule 10",
+   "at": [
+    -8,
+    0,
+    -7
+   ],
+   "size": [
+    4,
+    "H",
+    14
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "10 * 5 + 1"
+   },
+   "if": "typ == 1"
+  },
+  {
+   "op": "box",
+   "name": "Treppe Säule 11",
+   "at": [
+    -4,
+    0,
+    -6
+   ],
+   "size": [
+    4,
+    "max(3, round(H * 0.74) - floor(hash(seed, 11, 1) * (hoch ? 6 : 3)))",
+    14
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "11 * 5 + 1"
+   },
+   "if": "typ == 1"
+  },
+  {
+   "op": "box",
+   "name": "Treppe Säule 12",
+   "at": [
+    0,
+    0,
+    -7
+   ],
+   "size": [
+    4,
+    "max(3, round(H * 0.52) - floor(hash(seed, 12, 1) * (hoch ? 6 : 3)))",
+    14
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "12 * 5 + 1"
+   },
+   "if": "typ == 1"
+  },
+  {
+   "op": "box",
+   "name": "Treppe Säule 13",
+   "at": [
+    4,
+    0,
+    -6
+   ],
+   "size": [
+    4,
+    "max(3, round(H * 0.32) - floor(hash(seed, 13, 1) * (hoch ? 6 : 3)))",
+    14
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "13 * 5 + 1"
+   },
+   "if": "typ == 1"
+  },
+  {
+   "op": "box",
+   "name": "Gruppe Säule 20",
+   "at": [
+    -7,
+    0,
+    -6
+   ],
+   "size": [
+    7,
+    "H",
+    7
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "20 * 5 + 1"
+   },
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gruppe Säule 21",
+   "at": [
+    1,
+    0,
+    -2
+   ],
+   "size": [
+    6,
+    "max(3, round(H * 0.8) - floor(hash(seed, 21, 1) * (hoch ? 6 : 3)))",
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "21 * 5 + 1"
+   },
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gruppe Säule 22",
+   "at": [
+    -6,
+    0,
+    2
+   ],
+   "size": [
+    4,
+    "max(3, round(H * 0.38) - floor(hash(seed, 22, 1) * (hoch ? 6 : 3)))",
+    4
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "22 * 5 + 1"
+   },
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gruppe Säule 23",
+   "at": [
+    -1,
+    0,
+    4
+   ],
+   "size": [
+    3,
+    "max(3, round(H * 0.3) - floor(hash(seed, 23, 1) * (hoch ? 6 : 3)))",
+    3
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "23 * 5 + 1"
+   },
+   "if": "typ == 2"
+  },
+  {
+   "op": "box",
+   "name": "Gruppe Säule 24",
+   "at": [
+    3,
+    0,
+    -8
+   ],
+   "size": [
+    4,
+    "max(3, round(H * 0.45) - floor(hash(seed, 24, 1) * (hoch ? 6 : 3)))",
+    4
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     3,
+     3,
+     1
+    ],
+    "cell": 1000,
+    "seed": "24 * 5 + 1"
+   },
+   "if": "typ == 2"
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

@@ -1,0 +1,126 @@
+{
+ "id": "biom/wiese/farn",
+ "name": "Wiesenwald-Farn (VOX-02): niedriger Sichtschleier (0,8 bis 0,9 m), ohne Kollision, sperrt die Sicht. Acht Wedel strahlen von oben sichtbar aus einem dunklen Herz, die Spitzen sind heller; grobe Blöcke wegen des Dreieckbudgets. seed ändert Höhe und Länge der Wedel und lässt einzelne aus (der erste bleibt immer)",
+ "tier": "detail",
+ "palette": "biom_wiesenwald",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "wiese",
+  "farn",
+  "sichtschleier"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 600,
+ "ops": [
+  {
+   "op": "box",
+   "name": "Herz",
+   "at": [
+    -4,
+    0,
+    -4
+   ],
+   "size": [
+    8,
+    8,
+    8
+   ],
+   "color": "plant_dark"
+  },
+  {
+   "op": "group",
+   "name": "Wedel gerade",
+   "repeat": {
+    "count": 4,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "rot": "k * 90",
+   "if": "k == 0 || hash(seed, k, 9) > 0.12",
+   "let": {
+    "ya": "k == 0 ? 11 + floor(hash(seed, k, 1) * 2) : 7 + floor(hash(seed, k, 1) * 6)",
+    "lg": "floor(hash(seed, k, 2) * 2)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Wedel Mitte",
+     "at": [
+      3,
+      "ya",
+      -2
+     ],
+     "size": [
+      "2 + lg",
+      2,
+      4
+     ],
+     "color": "plant"
+    },
+    {
+     "op": "box",
+     "name": "Wedel Spitze",
+     "at": [
+      "5 + lg",
+      "ya",
+      -1
+     ],
+     "size": [
+      2,
+      2,
+      2
+     ],
+     "color": "plant_light"
+    }
+   ]
+  },
+  {
+   "op": "group",
+   "name": "Wedel schräg",
+   "repeat": {
+    "count": 4,
+    "step": [
+     0,
+     0,
+     0
+    ],
+    "var": "k"
+   },
+   "rot": "k * 90",
+   "if": "hash(seed, k, 19) > 0.12",
+   "let": {
+    "ya": "7 + floor(hash(seed, k, 11) * 5)"
+   },
+   "ops": [
+    {
+     "op": "box",
+     "name": "Wedel",
+     "at": [
+      2,
+      "ya",
+      2
+     ],
+     "size": [
+      4,
+      2,
+      4
+     ],
+     "color": "plant"
+    }
+   ]
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}

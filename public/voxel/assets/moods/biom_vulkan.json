@@ -1,0 +1,10 @@
+{
+  "id": "biom_vulkan",
+  "name": "Biom Vulkan, Mittag: graubrauner Aschehimmel, fast neutrale Sonne (färbt die Asche nicht braun), Lava als einzige Glut (Wertleiter A)",
+  "background": "#8A827C",
+  "fog": { "color": "#8A827C", "near": 3, "far": 9 },
+  "hemi": { "sky": "#C4C0BC", "ground": "#54504C", "intensity": 1.1 },
+  "sun": { "color": "#FFF8F0", "intensity": 3.0, "dir": [-0.6, 0.95, 0.35], "softness": 3 },
+  "exposure": 1.0,
+  "bloom": { "strength": 0.3, "radius": 0.4, "threshold": 0.92 }
+}

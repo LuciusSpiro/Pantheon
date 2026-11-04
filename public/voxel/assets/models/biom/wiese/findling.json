@@ -1,0 +1,570 @@
+{
+ "id": "biom/wiese/findling",
+ "name": "Findling (VOX-02): Stein mit Kollision (ganze Kachel) und Deckung. hoch 0 = halb (0,75 m), hoch 1 = voll (2,06 m). Gestapelte Quader (Dreieckbudget); seed wählt die Form: 0 Stufenkuppel/Spitze, 1 flach mit Buckel/schiefer Stein, 2 Zwilling. Keine helle Kappe, kein heller Sockel (Rollen stone*, am Boden angeglichen, Sockel eher dunkler)",
+ "tier": "detail",
+ "palette": "biom_wiesenwald",
+ "jitter": 0,
+ "tags": [
+  "biom",
+  "wiese",
+  "stein",
+  "findling",
+  "deckung"
+ ],
+ "footprint": [
+  1,
+  1
+ ],
+ "budgetTris": 900,
+ "params": {
+  "hoch": {
+   "default": 0,
+   "min": 0,
+   "max": 1,
+   "step": 1,
+   "label": "0 halbe Deckung (0,75 m) · 1 volle Deckung (2,06 m)"
+  }
+ },
+ "variants": {
+  "halb": {
+   "hoch": 0
+  },
+  "voll": {
+   "hoch": 1
+  }
+ },
+ "let": {
+  "typ": "floor(seed) % 3",
+  "ox": "round((hash(seed, 2) - 0.5) * 2)",
+  "oz": "round((hash(seed, 3) - 0.5) * 2)",
+  "wx": "round(hash(seed, 5) * 2) - 1",
+  "wz": "round(hash(seed, 6) * 2) - 1"
+ },
+ "ops": [
+  {
+   "op": "box",
+   "name": "Halb Kuppel Sockel",
+   "if": "typ == 0 && hoch == 0",
+   "at": [
+    "-6 + ox",
+    0,
+    "-5 + oz"
+   ],
+   "size": [
+    "12 + wx",
+    5,
+    "10 + wz"
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Kuppel Mitte",
+   "if": "typ == 0 && hoch == 0",
+   "at": [
+    "-5 + ox",
+    5,
+    "-4 + oz"
+   ],
+   "size": [
+    "10 + wx",
+    4,
+    "8 + wz"
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Kuppel Kopf",
+   "if": "typ == 0 && hoch == 0",
+   "at": [
+    "-3 + ox",
+    9,
+    "-3 + oz"
+   ],
+   "size": [
+    6,
+    3,
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Flach Sockel",
+   "if": "typ == 1 && hoch == 0",
+   "at": [
+    -7,
+    0,
+    "-5 + oz"
+   ],
+   "size": [
+    14,
+    6,
+    "10 + wz"
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Flach Buckel",
+   "if": "typ == 1 && hoch == 0",
+   "at": [
+    "-3 + ox",
+    6,
+    "-3 + oz"
+   ],
+   "size": [
+    "7 + wx",
+    6,
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Flach Nebenstein",
+   "if": "typ == 1 && hoch == 0",
+   "at": [
+    4,
+    0,
+    "2 + oz"
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Zwilling groß",
+   "if": "typ == 2 && hoch == 0",
+   "at": [
+    -7,
+    0,
+    "-5 + oz"
+   ],
+   "size": [
+    8,
+    12,
+    8
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Zwilling klein",
+   "if": "typ == 2 && hoch == 0",
+   "at": [
+    1,
+    0,
+    "-1 + oz"
+   ],
+   "size": [
+    "6 + wx",
+    7,
+    7
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Halb Zwilling Spitze",
+   "if": "typ == 2 && hoch == 0",
+   "at": [
+    2,
+    7,
+    "0 + oz"
+   ],
+   "size": [
+    4,
+    2,
+    4
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Spitze Sockel",
+   "if": "typ == 0 && hoch == 1",
+   "at": [
+    "-6 + ox",
+    0,
+    "-6 + oz"
+   ],
+   "size": [
+    "12 + wx",
+    12,
+    "12 + wz"
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Spitze Mitte",
+   "if": "typ == 0 && hoch == 1",
+   "at": [
+    "-5 + ox",
+    12,
+    "-5 + oz"
+   ],
+   "size": [
+    "10 + wx",
+    10,
+    10
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Spitze Kopf",
+   "if": "typ == 0 && hoch == 1",
+   "at": [
+    "-4 + ox",
+    22,
+    "-4 + oz"
+   ],
+   "size": [
+    8,
+    8,
+    8
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Spitze Nadel",
+   "if": "typ == 0 && hoch == 1",
+   "at": [
+    "-2 + ox",
+    30,
+    "-2 + oz"
+   ],
+   "size": [
+    4,
+    3,
+    4
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Schief Sockel",
+   "if": "typ == 1 && hoch == 1",
+   "at": [
+    -6,
+    0,
+    "-4 + oz"
+   ],
+   "size": [
+    12,
+    10,
+    "8 + wz"
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Schief Mitte",
+   "if": "typ == 1 && hoch == 1",
+   "at": [
+    "-5 + ox",
+    10,
+    "-3 + oz"
+   ],
+   "size": [
+    10,
+    12,
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Schief Kopf",
+   "if": "typ == 1 && hoch == 1",
+   "at": [
+    "-4 + ox * 2",
+    22,
+    "-3 + oz"
+   ],
+   "size": [
+    "7 + wx",
+    11,
+    6
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Zwilling Pfeiler",
+   "if": "typ == 2 && hoch == 1",
+   "at": [
+    -6,
+    0,
+    "-5 + oz"
+   ],
+   "size": [
+    7,
+    33,
+    7
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Zwilling Fuß",
+   "if": "typ == 2 && hoch == 1",
+   "at": [
+    -6,
+    0,
+    "-5 + oz"
+   ],
+   "size": [
+    12,
+    8,
+    9
+   ],
+   "color": {
+    "noise": [
+     "stone_dark",
+     "stone"
+    ],
+    "weights": [
+     3,
+     1
+    ],
+    "cell": 4
+   }
+  },
+  {
+   "op": "box",
+   "name": "Voll Zwilling klein",
+   "if": "typ == 2 && hoch == 1",
+   "at": [
+    1,
+    0,
+    "1 + oz"
+   ],
+   "size": [
+    "5 + wx",
+    20,
+    5
+   ],
+   "color": {
+    "noise": [
+     "stone",
+     "stone_dark",
+     "stone_light"
+    ],
+    "weights": [
+     4,
+     2,
+     1
+    ],
+    "cell": 4
+   }
+  }
+ ],
+ "anchor": [
+  0,
+  0,
+  0
+ ]
+}
