@@ -117,15 +117,15 @@ export function istKantenmitte(x, y, k) {
 // keine Deckung, keine Sichtsperre; reine Optik aus Seed, Bodenton (Biom) und Position, nie Math.random und nie game.rng (gleiche Karte = gleiche Streuung).
 // Biom aus dem Bodenton der Karte (k.boden, vom Erzeuger gesetzt): wueste = Wüste, gras = Wiesenwald, vulkan = Vulkan. Ohne bekannten Ton: keine Streuung.
 // Kandidaten: nur freies Gelände (kind gelaende), nie Boden/Weg/Pad/Rampe, nie in Reichweite ANKER_FREI (Chebyshev) um einen Anker. Je Kachel höchstens ein Eintrag.
-// Rückgabe: [{ id, x, y, rot, seed, dx, dz, var }] (id: gras | blume | kaktus | kiesel | asche | glut, var = Farbgruppe der Blume 0–4, sonst 0),
+// Rückgabe: [{ id, x, y, rot, seed, dx, dz, var }] (id: gras | blume | kiesel | asche, var = Farbgruppe der Blume 0–4, sonst 0),
 // zeilenweise sortiert. Gezeichnet wird in kit.js über FB.bewuchs (Platzhalter, bis VOX-02 echte Modelle liefert).
 export const WILDNIS_BIOM = { wueste: 'wueste', gras: 'wiesenwald', vulkan: 'vulkan' };
 export const WILDNIS_ANKER_FREI = 1;
 // dichte = Anteil der freien Kacheln mit Bewuchs; satz = [id, Gewicht]; blumen = Anteil der Kacheln in Blühflecken (Flecken zu 5×5 Kacheln, je Fleck eine Farbgruppe)
 export const WILDNIS_SAETZE = {
-  wueste: { dichte: 0.14, satz: [['gras', 3], ['kiesel', 5], ['kaktus', 0.6]], bluehen: 0 },
+  wueste: { dichte: 0.14, satz: [['gras', 3.5], ['kiesel', 5.5]], bluehen: 0 },   // kein Kaktus (Gegenstand ohne Kollision, Befund 13): nur flaches Bodendetail
   wiesenwald: { dichte: 0.5, satz: [['gras', 7]], bluehen: 0.2 },
-  vulkan: { dichte: 0.2, satz: [['asche', 6], ['kiesel', 2], ['glut', 0.7]], bluehen: 0 },
+  vulkan: { dichte: 0.2, satz: [['asche', 6], ['kiesel', 2.7]], bluehen: 0 },   // keine Glutsteinchen im Boden (Befund 10: Glut nur in der Lava)
 };
 export function streuenWildnis(k) {
   if (!k || k.art !== 'wildnis') return [];

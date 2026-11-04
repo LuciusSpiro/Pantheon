@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 // GEL-01 D: Sichtbeleg der Kartenart wildnis je Biom (Bilder nach shots/gel01/, gitignored).
-//   node tools/gel01-shots.js [--out shots/gel01] [--port 3395] [--seed 3] [--groesse klein] [--biome wueste,wiesenwald,vulkan] [--warte 1500]
+//   node tools/gel01-shots.js [--out shots/gel01] [--port 3395] [--seed 3] [--groesse klein] [--biome wueste,wiesenwald,vulkan] [--warte 1500] [--verzoegere <ms>]
+//   --verzoegere: antwortet auf content/buehnen/bauweisen/*.json erst nach <ms> (Befund 6: Ladereihenfolge/langsames Laden; der alte Lader gab nach 4 s auf und
+//   zwischenspeicherte null -> stimmung null, Platzhalter-Anker). Mit dem Wiederholungs-Lader (kit-regeln.js jsonLader) muss stimmung trotzdem gesetzt sein.
 // Startet einen frischen Server (eigene Datenordner, --debug) und je Biom eine Browser-Seite mit der Testgelände-URL
 //   ?arena=away&art=wildnis&seed=<seed>&biom=<biom>&groesse=<groesse>&wellen=0   (prüft damit zugleich den Pfad Client -> Server -> Erzeuger),
 // wartet auf den Voxel-Aufbau und macht je Biom: <biom>-spielnah (Ankunft), <biom>-uebersicht (ganze Karte von oben, Nebel aus), <biom>-nah (Nahansicht Boden/Bewuchs).
@@ -18,6 +20,7 @@ const SEED = arg('seed', '3');
 const GROESSE = arg('groesse', 'klein');
 const BIOME = arg('biome', 'wueste,wiesenwald,vulkan').split(',');
 const WARTE = +arg('warte', '1500');
+const VERZOEGERE = +arg('verzoegere', '0');
 function playwright() {
   for (const k of [process.env.PLAYWRIGHT_CORE, 'playwright-core', 'C:/tmp/pw-test/node_modules/playwright-core'].filter(Boolean)) { try { return require(k); } catch (e) { /* nächster */ } }
   console.error('playwright-core nicht gefunden (PLAYWRIGHT_CORE).'); process.exit(2);
@@ -43,6 +46,7 @@ async function kamera(page, cx, cz, hoch, fov, uebersicht) {
 async function biomLauf(b, biom, dirOut) {
   const err = [];
   const page = await b.newPage({ viewport: { width: 1280, height: 720 } });
+  if (VERZOEGERE > 0) await page.route('**/content/buehnen/bauweisen/*.json', async (route) => { await sleep(VERZOEGERE); await route.continue().catch(() => null); });
   page.on('pageerror', (e) => err.push('pageerror: ' + e.message));
   page.on('console', (m) => { if (m.type() === 'error') err.push('console: ' + m.text().slice(0, 200)); });
   const url = `http://127.0.0.1:${PORT}/?render=voxel&debug=1&arena=away&art=wildnis&seed=${SEED}&biom=${biom}&groesse=${GROESSE}&wellen=0`;

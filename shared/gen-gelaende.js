@@ -11,7 +11,12 @@
   // freigeräumter Umgebung -> Wege (kürzester Weg mit Rauschen, schneidet durch Hindernisse und furtet Wasser/Lava) -> Deckungsgruppen
   // (Steine) -> unerreichbare Reste zu Fels -> Anker (abholpunkt, fund, deckung, wache, patrouille).
   // Wasser a und Lava v zerschneiden die Karte nie: jeder Ort ist über einen geschnittenen Weg (Furt/Durchgang) mit der Ankunft verbunden.
-  const VERSION = 2;   // 2: Boden wueste und vulkan (eigene Bodentöne statt sand/wald), Cache-Invalidierung
+  const VERSION = 3;   // 2: Boden wueste und vulkan (eigene Bodentöne statt sand/wald); 3: Ankunft nie am Südrand (Randfels verdeckt die Figur), keine Bäume in der Wüste; Cache-Invalidierung
+  // Wüste ohne Bäume, bis VOX-02 Palmen/Akazien liefert (die VOX-01-Nadel-/Laubbäume passen nicht in die Wüste). true schaltet Y in der Wüste (einzeln und an der Oase) wieder ein.
+  const WUESTE_BAEUME = false;
+  // Seiten für die Ankunft: 0 West, 1 Ost, 2 Nord. Süd (3) fehlt mit Absicht: die Spielkamera steht südlich der Figur und blickt nach Norden, der Randfels
+  // am Südrand läge davor und füllte 30-50 % des Bildes (Befund 7, Bildbeleg Wiesenwald/Vulkan). West/Ost liegen seitlich, Nord dahinter.
+  const ANKUNFT_SEITEN = [0, 1, 2];
   const BIOME = ['wueste', 'wiesenwald', 'vulkan'];
   const GROESSEN = { klein: { w: 56, h: 40 }, mittel: { w: 80, h: 56 }, gross: { w: 104, h: 72 } };
   // Pflichtsatz: gilt auf JEDEM Seed jeder Größe und jedes Bioms, unabhängig von opts (gegner 'keine' setzt keine wache, darum steht wache nicht hier).
@@ -151,12 +156,12 @@
         for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (f[ix(x, y)] * 0.8 + f2[ix(x, y)] * 0.2 > t * 0.98) g[ix(x, y)] = 'F';
         haufen(Math.round(flaeche / 85 * (0.5 + D)), 3, 7, 0.35);
         buschGruppen(Math.round(flaeche / 520 * (0.5 + D)), 2, 5, 2);
-        einzeln(Math.round(flaeche / 520), 'Y');
+        if (WUESTE_BAEUME) einzeln(Math.round(flaeche / 520), 'Y');
         if (R.chance(0.45)) {
           const ox = R.range(8, W - 9), oy = R.range(7, H - 8), rx = R.range(2, 3);
           kreis(ox, oy, rx + 0.5, 'a'); for (let y = oy - 4; y <= oy + 4; y++) for (let x = ox - 5; x <= ox + 5; x++) {
             const d = Math.hypot(x - ox, y - oy);
-            if (innen(x, y) && at(x, y) !== 'a' && d <= rx + 2.5 && R.chance(0.35)) set(x, y, d > rx + 1.2 ? (R.chance(0.5) ? 'Y' : 's') : 's');
+            if (innen(x, y) && at(x, y) !== 'a' && d <= rx + 2.5 && R.chance(0.35)) set(x, y, d > rx + 1.2 && WUESTE_BAEUME && R.chance(0.5) ? 'Y' : 's');
           }
         }
       } else if (P.biom === 'wiesenwald') {
@@ -208,7 +213,7 @@
       const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
       const ohneFluessig = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) { const c = at(x, y); if (c === 'a' || c === 'v') return false; } return true; };
       // Abholpunkt am Rand (zwei Kacheln hinter der Randfelskante), Seite und Lage aus dem Seed
-      const seite = R.int(4), lage = 0.25 + R.f() * 0.5;
+      const seite = ANKUNFT_SEITEN[R.int(ANKUNFT_SEITEN.length)], lage = 0.25 + R.f() * 0.5;
       const A = seite === 0 ? [2, Math.round(2 + (H - 5) * lage)] : seite === 1 ? [W - 3, Math.round(2 + (H - 5) * lage)] : seite === 2 ? [Math.round(2 + (W - 5) * lage), 2] : [Math.round(2 + (W - 5) * lage), H - 3];
       const sperre = (cx, cy, r) => { for (let y = cy - r; y <= cy + r; y++) for (let x = cx - r; x <= cx + r; x++) if (innen(x, y)) gesperrt[ix(x, y)] = 1; };
       kreis(A[0], A[1], 3.5, ':'); sperre(A[0], A[1], 3);

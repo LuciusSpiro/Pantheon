@@ -51,14 +51,16 @@ export const WILDNIS_STIMMUNG = {
     exposure: 1.0, bloom: { strength: 0.25, radius: 0.4, threshold: 0.92 },
   },
   wildnis_vulkan: {   // dunkel und rötlich: Ascheluft, tiefes Glutlicht von unten, die Lava bloomt
-    id: 'wildnis_vulkan', background: '#1E1212', fog: { color: '#3C1C18', near: 1.9, far: 5.2 },
-    hemi: { sky: '#A28E8C', ground: '#7A3A24', intensity: 1.0 }, ambient: { color: '#5A3428', intensity: 0.35 },
-    sun: { color: '#FFC496', intensity: 2.3, dir: [-0.7, 0.8, 0.3], softness: 3 },
-    exposure: 1.1, bloom: { strength: 0.7, radius: 0.5, threshold: 0.75 },
+    id: 'wildnis_vulkan', background: '#2C1A18', fog: { color: '#4E2C26', near: 2.2, far: 6 },
+    hemi: { sky: '#B4A09C', ground: '#8A4A30', intensity: 1.25 }, ambient: { color: '#6A4A40', intensity: 0.5 },
+    sun: { color: '#FFD0A8', intensity: 2.7, dir: [-0.7, 0.8, 0.3], softness: 3 },
+    exposure: 1.25, bloom: { strength: 0.6, radius: 0.5, threshold: 0.85 },   // Befund 9: milder (heller Boden, weniger Rot); Lava bleibt das hellste Element
   },
 };
 /** Stimmungs-ID einer Karte aus der Bauweisen-Tabelle: stimmung["<art>:<boden>"] (nur wildnis nutzt das), sonst stimmung[<art>]; sonst null. */
+// Letzter Rückfall nur für wildnis (Befund 6): fehlt die Bauweisen-Tabelle ganz (Datei nicht geladen), bekommt die Wildnis trotzdem die Stimmung ihres Bodentons.
+const WILDNIS_STIMMUNG_JE_BODEN = { wueste: 'wildnis_wueste', gras: 'wildnis_wiesenwald', vulkan: 'wildnis_vulkan' };
 export function stimmungVon(tabelle, art, boden) {
   const t = tabelle || {};
-  return (boden && t[art + ':' + boden]) || t[art] || null;
+  return (boden && t[art + ':' + boden]) || t[art] || (art === 'wildnis' && boden && WILDNIS_STIMMUNG_JE_BODEN[boden]) || null;
 }

@@ -295,6 +295,27 @@ abschnitt('e) Anker-Verteilung');
   }
 }
 
+// ---------------------------------------------------------------- f) Ankunft nicht am Südrand, keine Bäume in der Wüste (Nacharbeit 7 und 15)
+abschnitt('f) Ankunftsseite und Wüsten-Bäume');
+{
+  // Die Spielkamera steht südlich der Figur und blickt nach Norden: der Randfels am Südrand läge davor und verdeckte die Figur.
+  let sued = 0, seiten = { W: 0, O: 0, N: 0 }, gesamt = 0, baumWueste = 0, baumVulkan = 0, wueste = 0, oase = 0, baumWiese = 0;
+  for (const bi of BI) for (const gr of GR) for (let i = 0; i < Math.min(SEEDS, 30); i++) {
+    const b = bau(seedVon(i), bi, gr); const k = b.karte; const a = k.anker.find((q) => q.id === k.ankunft);
+    gesamt++;
+    if (a.y >= k.h - 3) sued++;
+    else if (a.x <= 2) seiten.W++; else if (a.x >= k.w - 3) seiten.O++; else if (a.y <= 2) seiten.N++;
+    const y = k.rows.join('').split('Y').length - 1;
+    if (bi === 'wueste') { baumWueste += y; wueste++; if (k.rows.join('').includes('a')) oase++; } else if (bi === 'vulkan') baumVulkan += y; else baumWiese += y;
+  }
+  ok(sued === 0 && seiten.W + seiten.O + seiten.N === gesamt, `Ankunft nie am Südrand (${gesamt} Karten: West ${seiten.W}, Ost ${seiten.O}, Nord ${seiten.N}, Süd ${sued})`);
+  ok(seiten.W > 0 && seiten.O > 0 && seiten.N > 0, 'alle drei erlaubten Seiten kommen vor');
+  ok(baumWueste === 0 && wueste > 0, `Wüste: keine Bäume (Y) in ${wueste} Karten (WUESTE_BAEUME aus, bis VOX-02 Palmen/Akazien liefert)`);
+  ok(baumVulkan === 0, 'Vulkan: keine Bäume (Y) – bestätigt (Erzeuger setzt im Vulkan nie Y)');
+  ok(baumWiese > 0, `Gegenprobe: der Wiesenwald hat weiter Bäume (${baumWiese} Y)`);
+  ok(Gelaende.VERSION >= 3, 'VERSION >= 3 (Ankunftsseite und Wüsten-Bäume ändern die Karten)');
+}
+
 console.log(`\n${n - bad}/${n} ok`);
 if (bad) { console.log(`${bad} FEHLER`); process.exit(1); }
 console.log('TEST-GELAENDE OK');

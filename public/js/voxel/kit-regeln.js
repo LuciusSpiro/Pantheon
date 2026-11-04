@@ -171,3 +171,47 @@ export function kronenAus(zustand, kamera, zellen, ziele, jetztMs, opt) {
 const VOELKER = {};
 export function bauweiseMerken(bw) { if (bw && bw.id) VOELKER[bw.id] = bw.volk || null; }
 export function volkVon(bauweiseId) { return (bauweiseId && VOELKER[bauweiseId]) || null; }
+
+// ---- JSON-Lader mit Wiederholung (GEL-01 Befund 6) ----
+// Ursache des einmal beobachteten „Vulkan ohne Stimmung, mit Platzhalter-Ankern“: kit.js holte bauweisen/<id>.json mit festen 4 s Zeitgrenze, ein
+// Zeitüberlauf (langsamer Rechner, Software-GL, viele Seiten gleichzeitig) lieferte null, und dieses null blieb im Cache für die ganze Sitzung: Bauweise
+// leer -> keine Stimmung, kein boden_varianten, Platzhalter-Anker. Jetzt: Zeitüberlauf/Netzfehler/5xx werden mit wachsender Zeitgrenze wiederholt, ein
+// endgültig gescheitertes Laden wird NICHT zwischengespeichert (der nächste Bau versucht es erneut). 404 gilt als „gibt es nicht“ (optionale Dateien) und wird gemerkt.
+// opts: { fetch (Standard: globales fetch), ms: [Zeitgrenzen je Versuch], pause: ms zwischen Versuchen }. -> { lade(url), leeren() }
+export function jsonLader(opts) {
+  const o = opts || {};
+  const cache = new Map();
+  const grenzen = Array.isArray(o.ms) && o.ms.length ? o.ms : [4000, 8000, 16000];
+  const pause = o.pause != null ? o.pause : 250;
+  const warte = (ms) => new Promise((r) => setTimeout(r, ms));
+  async function einmal(url, ms) {
+    const f = o.fetch || (typeof fetch === 'function' ? fetch : null);
+    if (!f) return { fatal: true };
+    const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    let timer = null;
+    const zeit = new Promise((r) => { timer = setTimeout(() => { if (ctl) ctl.abort(); r({ wieder: true }); }, ms); });
+    try {
+      const r = await Promise.race([f(url, ctl ? { signal: ctl.signal, cache: 'no-cache' } : { cache: 'no-cache' }), zeit]);
+      if (r && r.wieder) return r;
+      if (r.status === 404) return { wert: null, fest: true };
+      if (!r.ok) return { wieder: true };
+      return { wert: await Promise.race([r.json(), zeit.then((z) => { throw new Error('Zeitüberlauf beim Lesen'); })]), fest: true };
+    } catch (e) { return { wieder: true }; }
+    finally { clearTimeout(timer); }
+  }
+  function lade(url) {
+    if (cache.has(url)) return cache.get(url);
+    const p = (async () => {
+      for (let i = 0; i < grenzen.length; i++) {
+        const r = await einmal(url, grenzen[i]);
+        if (r.fatal) return { wert: null, fest: false };
+        if (r.fest) return r;
+        if (i < grenzen.length - 1 && pause) await warte(pause);
+      }
+      return { wert: null, fest: false };
+    })().then((r) => { if (!r.fest) cache.delete(url); return r.wert; });
+    cache.set(url, p);
+    return p;
+  }
+  return { lade, leeren: () => cache.clear() };
+}

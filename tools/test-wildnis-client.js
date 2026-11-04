@@ -92,7 +92,7 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
   const spielSeed = (k) => fnv(String(k.id || 'karte') + ':' + (Game.kartenVersion(k) || ''));
   const streu = (k, seed) => D.streuenWildnis({ w: k.w, h: k.h, seed: seed != null ? seed : spielSeed(k), art: 'wildnis', boden: k.meta.boden, kindAt: kindAtVon(k), anker: k.anker });
   const ZEICHEN_ERLAUBT = new Set('F:oOvsaY'.split(''));
-  const IDS = { wueste: ['gras', 'kiesel', 'kaktus'], wiesenwald: ['gras', 'blume'], vulkan: ['asche', 'kiesel', 'glut'] };
+  const IDS = { wueste: ['gras', 'kiesel'], wiesenwald: ['gras', 'blume'], vulkan: ['asche', 'kiesel'] };   // kein Kaktus (Gegenstand ohne Kollision) und keine Glutsteinchen (Glut nur in der Lava)
   for (const { biom, seed, k } of karten) {
     const a = streu(k), b = streu(k), c = streu(k, spielSeed(k) + 1);
     ok(a.length > 0 && JSON.stringify(a) === JSON.stringify(b), `${biom}/${seed}: gleiche Eingabe, gleiche Streuung (${a.length} Einträge)`);
@@ -151,6 +151,33 @@ const imp = (f) => import(pathToFileURL(path.join(ROOT, f)).href);
   }
   ok(Gelaende.VERSION >= 2, 'gen-gelaende VERSION >= 2');
 
+  // Befund 6: Laden der Bauweisen-/Kacheldaten übersteht Verzögerung und Ausfall (kit-regeln.js jsonLader, von kit.js benutzt)
+  abschnitt('JSON-Lader: Verzögerung, Wiederholung, kein null im Cache');
+  {
+    const R = await imp('public/js/voxel/kit-regeln.js');
+    const antwort = (status, wert) => ({ ok: status >= 200 && status < 300, status, json: async () => wert });
+    // fetch, der bei den ersten `haengt` Aufrufen nie antwortet (nur der Abbruch beendet ihn), danach den Wert liefert
+    const mock = (haengt, wert) => { const m = { n: 0, f: (url, o) => { m.n++; if (m.n <= haengt) return new Promise((res, rej) => { if (o && o.signal) o.signal.addEventListener('abort', () => rej(new Error('abort'))); }); return Promise.resolve(antwort(200, wert)); } }; return m; };
+    const klein = (m) => R.jsonLader({ fetch: m.f, ms: [25, 50, 100], pause: 2 });
+    const bw = { id: 'germanen', stimmung: { 'wildnis:vulkan': 'wildnis_vulkan' } };
+    let m = mock(0, bw), l = klein(m);
+    ok((await l.lade('/b.json')) === bw && (await l.lade('/b.json')) === bw && m.n === 1, 'Normalfall: ein Abruf, danach aus dem Cache');
+    m = mock(2, bw); l = klein(m);
+    ok((await l.lade('/b.json')) === bw && m.n === 3, 'zwei hängende Abrufe (Zeitüberlauf) werden wiederholt, der dritte liefert die Bauweise (' + m.n + ' Abrufe)');
+    m = mock(9, bw); l = klein(m);
+    ok((await l.lade('/b.json')) === null && m.n === 3, 'dauerhaft hängend: nach drei Versuchen null');
+    m.n = 99;   // jetzt antwortet der Server wieder: das gescheiterte Laden darf NICHT zwischengespeichert sein
+    ok((await l.lade('/b.json')) === bw, 'gescheitertes Laden wird nicht gecacht: der nächste Bau holt die Bauweise nach (vorher: null blieb für die Sitzung)');
+    let fehl = 0; const f5 = () => { fehl++; return Promise.resolve(fehl < 3 ? antwort(503, null) : antwort(200, bw)); };
+    ok((await R.jsonLader({ fetch: f5, ms: [25, 50, 100], pause: 2 }).lade('/x.json')) === bw && fehl === 3, '5xx wird wiederholt');
+    let n404 = 0; const l4 = R.jsonLader({ fetch: () => { n404++; return Promise.resolve(antwort(404, null)); }, ms: [25, 50, 100], pause: 2 });
+    ok((await l4.lade('/o.json')) === null && (await l4.lade('/o.json')) === null && n404 === 1, '404 (optionale Datei): null, ohne Wiederholung, gemerkt');
+    let wirft = 0; const lw = R.jsonLader({ fetch: () => { wirft++; return Promise.reject(new Error('Netz')); }, ms: [25, 50, 100], pause: 2 });
+    ok((await lw.lade('/n.json')) === null && wirft === 3 && (await lw.lade('/n.json')) === null && wirft === 6, 'Netzfehler: drei Versuche, null, beim nächsten Laden wieder versucht');
+    // Letzter Rückfall der Stimmung: ohne Bauweisen-Tabelle bekommt die Wildnis trotzdem die Stimmung ihres Bodentons
+    ok(S.stimmungVon({}, 'wildnis', 'vulkan') === 'wildnis_vulkan' && S.stimmungVon(null, 'wildnis', 'gras') === 'wildnis_wiesenwald' && S.stimmungVon({}, 'wildnis', 'wueste') === 'wildnis_wueste' && S.stimmungVon({}, 'aussenposten', 'vulkan') === null, 'stimmungVon: leere Tabelle -> Biom-Stimmung nur für wildnis, andere Arten null');
+    ok(/const lader = jsonLader\(\);\s*function getJson\(url\) \{ return lader\.lade\(url\); \}/.test(kit), 'kit.js: getJson läuft über den Lader mit Wiederholung (kein festes 4-s-null im Cache mehr)');
+  }
   console.log(`\n${n - bad}/${n} ok${bad ? '  ' + bad + ' FEHLER' : ''}`);
   console.log(bad ? 'TEST-WILDNIS-CLIENT FEHLER' : 'TEST-WILDNIS-CLIENT OK');
   process.exit(bad ? 1 : 0);
