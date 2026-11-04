@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "figur": "cha/spieler",
   "koerper": [
     {
@@ -9,22 +9,10 @@
   ],
   "plaetze": [
     {
-      "id": "gesicht",
-      "name": "Gesicht",
-      "gruppe": "charakter",
-      "standard": "lerche"
-    },
-    {
       "id": "frisur",
       "name": "Frisur",
       "gruppe": "charakter",
-      "standard": "dutt"
-    },
-    {
-      "id": "bart",
-      "name": "Bart",
-      "gruppe": "charakter",
-      "standard": "keiner"
+      "standard": "kurz"
     },
     {
       "id": "kopf",
@@ -65,36 +53,68 @@
   ],
   "teile": [
     {
-      "id": "gesicht/lerche",
-      "platz": "gesicht",
-      "name": "Lerche",
-      "gruppe": "charakter",
-      "volk": "lerche",
-      "vorschau": "cha/vorschau/gesicht/lerche.png"
-    },
-    {
-      "id": "gesicht/narbe",
-      "platz": "gesicht",
-      "name": "Narbe",
-      "gruppe": "charakter",
-      "volk": "lerche",
-      "vorschau": "cha/vorschau/gesicht/narbe.png"
-    },
-    {
-      "id": "frisur/dutt",
+      "id": "frisur/kurz",
       "platz": "frisur",
-      "name": "Dutt",
+      "name": "Kurzschnitt",
       "gruppe": "charakter",
-      "volk": "lerche",
-      "vorschau": "cha/vorschau/frisur/dutt.png"
+      "volk": "rom",
+      "vorschau": "cha/vorschau/frisur/kurz.png"
     },
     {
-      "id": "frisur/zoepfe",
+      "id": "frisur/stirnband",
       "platz": "frisur",
-      "name": "Zöpfe",
+      "name": "Stirnband mit Zopf",
+      "gruppe": "charakter",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/frisur/stirnband.png"
+    },
+    {
+      "id": "frisur/welle",
+      "platz": "frisur",
+      "name": "Welle",
+      "gruppe": "charakter",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/frisur/welle.png"
+    },
+    {
+      "id": "frisur/offen",
+      "platz": "frisur",
+      "name": "Offenes Haar",
+      "gruppe": "charakter",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/frisur/offen.png"
+    },
+    {
+      "id": "frisur/bartkurz",
+      "platz": "frisur",
+      "name": "Kurzhaar mit Bart",
       "gruppe": "charakter",
       "volk": "germanen",
-      "vorschau": "cha/vorschau/frisur/zoepfe.png"
+      "vorschau": "cha/vorschau/frisur/bartkurz.png"
+    },
+    {
+      "id": "frisur/bartlang",
+      "platz": "frisur",
+      "name": "Langhaar mit Vollbart",
+      "gruppe": "charakter",
+      "volk": "germanen",
+      "vorschau": "cha/vorschau/frisur/bartlang.png"
+    },
+    {
+      "id": "frisur/zopfband",
+      "platz": "frisur",
+      "name": "Zöpfe mit Stirnband",
+      "gruppe": "charakter",
+      "volk": "germanen",
+      "vorschau": "cha/vorschau/frisur/zopfband.png"
+    },
+    {
+      "id": "frisur/wild",
+      "platz": "frisur",
+      "name": "Wildes Haar",
+      "gruppe": "charakter",
+      "volk": "germanen",
+      "vorschau": "cha/vorschau/frisur/wild.png"
     },
     {
       "id": "frisur/keine",
@@ -102,21 +122,6 @@
       "name": "Kahl",
       "gruppe": "charakter",
       "vorschau": "cha/vorschau/frisur/keine.png"
-    },
-    {
-      "id": "bart/keiner",
-      "platz": "bart",
-      "name": "Kein Bart",
-      "gruppe": "charakter",
-      "vorschau": "cha/vorschau/bart/keiner.png"
-    },
-    {
-      "id": "bart/vollbart",
-      "platz": "bart",
-      "name": "Vollbart",
-      "gruppe": "charakter",
-      "volk": "germanen",
-      "vorschau": "cha/vorschau/bart/vollbart.png"
     },
     {
       "id": "kopf/keine",
@@ -136,6 +141,33 @@
       "vorschau": "cha/vorschau/kopf/bordhelm.png"
     },
     {
+      "id": "kopf/galea",
+      "platz": "kopf",
+      "name": "Galea",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/kopf/galea.png"
+    },
+    {
+      "id": "kopf/spangenhelm",
+      "platz": "kopf",
+      "name": "Spangenhelm",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen",
+      "vorschau": "cha/vorschau/kopf/spangenhelm.png"
+    },
+    {
+      "id": "kopf/hoernerhelm",
+      "platz": "kopf",
+      "name": "Hörnerhelm",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "germanen",
+      "vorschau": "cha/vorschau/kopf/hoernerhelm.png"
+    },
+    {
       "id": "oberteil/bordtunika",
       "platz": "oberteil",
       "name": "Bordtunika",
@@ -152,6 +184,33 @@
       "herkunft": "frei",
       "volk": "germanen",
       "vorschau": "cha/vorschau/oberteil/plankenweste.png"
+    },
+    {
+      "id": "oberteil/lorica",
+      "platz": "oberteil",
+      "name": "Lorica",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/oberteil/lorica.png"
+    },
+    {
+      "id": "oberteil/robe",
+      "platz": "oberteil",
+      "name": "Robe",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "lerche",
+      "vorschau": "cha/vorschau/oberteil/robe.png"
+    },
+    {
+      "id": "oberteil/einsatzanzug",
+      "platz": "oberteil",
+      "name": "Einsatzanzug",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew",
+      "vorschau": "cha/vorschau/oberteil/einsatzanzug.png"
     },
     {
       "id": "oberteil/keine",
@@ -180,6 +239,15 @@
       "vorschau": "cha/vorschau/hose/germanenhose.png"
     },
     {
+      "id": "hose/anzughose",
+      "platz": "hose",
+      "name": "Anzughose",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew",
+      "vorschau": "cha/vorschau/hose/anzughose.png"
+    },
+    {
       "id": "hose/keine",
       "platz": "hose",
       "name": "Unterzeug",
@@ -204,6 +272,24 @@
       "herkunft": "frei",
       "volk": "germanen",
       "vorschau": "cha/vorschau/schuhe/germanenstiefel.png"
+    },
+    {
+      "id": "schuhe/einsatzstiefel",
+      "platz": "schuhe",
+      "name": "Einsatzstiefel",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew",
+      "vorschau": "cha/vorschau/schuhe/einsatzstiefel.png"
+    },
+    {
+      "id": "schuhe/ocreae",
+      "platz": "schuhe",
+      "name": "Ocreae",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/schuhe/ocreae.png"
     },
     {
       "id": "schuhe/keine",
@@ -231,6 +317,15 @@
       "vorschau": "cha/vorschau/haende/armschiene.png"
     },
     {
+      "id": "haende/einsatzhandschuh",
+      "platz": "haende",
+      "name": "Einsatzhandschuh",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "crew",
+      "vorschau": "cha/vorschau/haende/einsatzhandschuh.png"
+    },
+    {
       "id": "umhang/keiner",
       "platz": "umhang",
       "name": "Keiner",
@@ -246,6 +341,15 @@
       "herkunft": "frei",
       "volk": "germanen",
       "vorschau": "cha/vorschau/umhang/fellumhang.png"
+    },
+    {
+      "id": "umhang/sagum",
+      "platz": "umhang",
+      "name": "Sagum",
+      "gruppe": "outfit",
+      "herkunft": "frei",
+      "volk": "rom",
+      "vorschau": "cha/vorschau/umhang/sagum.png"
     }
   ],
   "farben": {
@@ -255,23 +359,35 @@
         "skin_shadow": "#A06E4E"
       },
       {
-        "skin": "#F0CDAE",
-        "skin_shadow": "#C9A589"
+        "skin": "#F7E0CC",
+        "skin_shadow": "#C6B3A3"
+      },
+      {
+        "skin": "#E8BE98",
+        "skin_shadow": "#BA987A"
       },
       {
         "skin": "#9A6A48",
-        "skin_shadow": "#7A5238"
+        "skin_shadow": "#7B553A"
       },
       {
-        "skin": "#5E3D2B",
-        "skin_shadow": "#472D20"
+        "skin": "#6B4430",
+        "skin_shadow": "#563626"
+      },
+      {
+        "skin": "#3E281D",
+        "skin_shadow": "#322017"
       }
     ],
     "haar": [
       "#3B2416",
       "#17130F",
-      "#D2AE5C",
-      "#A8431E"
+      "#E0BF6A",
+      "#A8431E",
+      "#5C3A22",
+      "#A9A8A3",
+      "#EEE6CF",
+      "#8C7A58"
     ]
   }
 }

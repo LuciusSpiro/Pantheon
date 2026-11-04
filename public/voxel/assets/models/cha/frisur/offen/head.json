@@ -1,0 +1,27 @@
+{
+  "id": "cha/frisur/offen/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur offen (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/offen/head_ops",
+      "colors": {
+        "primary": "ohrring_offen"
+      }
+    }
+  ]
+}

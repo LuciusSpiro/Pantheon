@@ -1,0 +1,221 @@
+{
+  "id": "cha/kopf/hoernerhelm/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf hoernerhelm (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schale",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        6,
+        7
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "leather",
+            "f": 0.8
+          },
+          "leather"
+        ],
+        "axis": "y",
+        "period": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Dach",
+      "op": "box",
+      "at": [
+        -4,
+        32,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        8
+      ],
+      "color": {
+        "shade": "leather",
+        "f": 1.1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Stirnreif",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "color": "metal_dark",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Stirnrahmen",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        3
+      ],
+      "size": [
+        8,
+        1,
+        1
+      ],
+      "color": "metal_dark",
+      "jitter": false
+    },
+    {
+      "name": "Wangenrahmen",
+      "op": "box",
+      "at": [
+        3,
+        27,
+        3
+      ],
+      "size": [
+        1,
+        4,
+        1
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "leather",
+            "f": 0.8
+          },
+          "leather"
+        ],
+        "axis": "y",
+        "period": 1
+      },
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Nackenplanken",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -5
+      ],
+      "size": [
+        8,
+        2,
+        1
+      ],
+      "color": {
+        "stripes": [
+          {
+            "shade": "leather",
+            "f": 0.8
+          },
+          "leather"
+        ],
+        "axis": "y",
+        "period": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Spange oben",
+      "op": "box",
+      "at": [
+        -1,
+        32,
+        -4
+      ],
+      "size": [
+        2,
+        1,
+        8
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Hornfuß",
+      "op": "box",
+      "at": [
+        4,
+        30,
+        -2
+      ],
+      "size": [
+        1,
+        2,
+        3
+      ],
+      "color": "metal_light",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Horn",
+      "op": "box",
+      "at": [
+        4,
+        32,
+        -2
+      ],
+      "size": [
+        1,
+        2,
+        3
+      ],
+      "color": "trim",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Hornspitze",
+      "op": "box",
+      "at": [
+        4,
+        34,
+        -2
+      ],
+      "size": [
+        1,
+        1,
+        2
+      ],
+      "color": "trim",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    }
+  ]
+}

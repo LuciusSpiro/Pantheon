@@ -73,14 +73,14 @@ section('Statisch: wer liest die Karte eines Spielers?');
 }
 
 // ------------------------------------------------------------------ 2. dynamisch
-const VOLL = { v: 1, name: 'G0', koerper: 'standard', gesicht: 'narbe', frisur: 'zoepfe', bart: 'vollbart', haut: 3, haar: 2,
+const VOLL = { v: 1, name: 'G0', koerper: 'standard', frisur: 'bartlang', haut: 3, haar: 2,
   outfit: { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'fellumhang' } };
-const LEER = { v: 1, name: 'G1', koerper: 'standard', gesicht: 'lerche', frisur: 'keine', bart: 'keiner', haut: 0, haar: 0,
+const LEER = { v: 1, name: 'G1', koerper: 'standard', frisur: 'keine', haut: 0, haar: 0,
   outfit: { kopf: 'keine', oberteil: 'keine', hose: 'keine', schuhe: 'keine', haende: 'keine', umhang: 'keiner' } };
 const mitName = (k, name) => Object.assign({}, k, { name });
 
 const SEKUNDEN = 22;
-function lauf(karten) {
+function lauf(karten, sekunden) {
   const g = new Game({ noStore: true, seed: 11, debug: true, ruestphase: false, env: { MISSION_SOURCE: 'fallback', SPIELLEITER_LLM: 'off', LLM_LIVE: '0' }, log: () => {} });
   const cs = [];
   for (let i = 0; i < 2; i++) {
@@ -102,7 +102,7 @@ function lauf(karten) {
   const spuren = [];
   let tick = 0;
   const hz = CONFIG.tickHz;
-  for (let s = 0; s < SEKUNDEN; s++) {
+  for (let s = 0; s < (sekunden || SEKUNDEN); s++) {
     for (let i = 0; i < hz; i++) {
       if (tick % Math.round(hz / 2) === 0) {
         const oben = tick % (4 * hz) < 2 * hz;
@@ -141,6 +141,39 @@ section('Dynamisch: Grabenangriff, drei Besetzungen, gleiche Eingaben');
   { const z = b.zaehler; const vor = z.lesen; z.an = true; void b.g.players[0].karte; void b.g.players[1].karte; z.an = false;
     ok(z.lesen === vor + 2, 'Positivkontrolle: ein absichtliches Lesen von p.karte wird vom Zugriffszähler gezählt (+2)'); }
   ok(b.lesen === 0 && c.lesen === 0, `Server liest p.karte in ${SEKUNDEN} s Spielzeit kein einziges Mal (Zugriffe: ${b.lesen}, ${c.lesen})`);
+}
+
+// CHA-02 E1a (Abnahme 12): jede Frisur, jede Kopfbedeckung und jedes Oberteil ändert Kollision, Treffer und Zustand nicht. Je Wert ein Lauf (Spieler 0 trägt ihn,
+// Spieler 1 den nächsten Wert desselben Platzes, alles andere Standard), Snapshot je Sekunde tickgenau gleich dem Lauf ohne Karten.
+section('Dynamisch: jede Frisur, jede Kopfbedeckung, jedes Oberteil (Katalog Version 2)');
+{
+  const SEK = SEKUNDEN;   // volle Länge: der Vergleich enthält Treffer und Gegnertode
+  const basis = lauf(null, SEK);
+  const STD = Ch.standardKarte('x', KAT);
+  const werte = (platz) => KAT.teile.filter((t) => t.platz === platz).map((t) => t.id.slice(platz.length + 1));
+  const karteMit = (platz, wert, name) => {
+    const k = JSON.parse(JSON.stringify(STD)); k.name = name;
+    if (platz === 'frisur') k.frisur = wert; else k.outfit[platz] = wert;
+    return k;
+  };
+  const achsen = { frisur: werte('frisur'), kopf: werte('kopf'), oberteil: werte('oberteil') };
+  ok(achsen.frisur.length === 9 && achsen.kopf.length === 5 && achsen.oberteil.length === 6, 'Katalog: 9 Frisuren (acht plus keine), 5 Kopfbedeckungen, 6 Oberteile');
+  let abweichung = [], laeufe = 0;
+  for (const [platz, liste] of Object.entries(achsen)) {
+    liste.forEach((w, i) => {
+      const r = lauf([karteMit(platz, w, 'G0'), karteMit(platz, liste[(i + 1) % liste.length], 'G1')], SEK);
+      laeufe++;
+      const getragen = platz === 'frisur' ? r.g.players[0].karte.frisur : r.g.players[0].karte.outfit[platz];
+      if (getragen !== w) abweichung.push(platz + '/' + w + ' (nicht übernommen)');
+      else if (erstesAbweichen(basis.spuren, r.spuren) !== -1) abweichung.push(platz + '/' + w + ' (Snapshot weicht ab)');
+      else if (r.lesen !== 0) abweichung.push(platz + '/' + w + ' (Server liest die Karte)');
+    });
+  }
+  ok(laeufe === 20 && abweichung.length === 0, laeufe + ' Läufe (jede der 8 Frisuren plus keine, jede Kopfbedeckung, jedes Oberteil): Snapshot je Sekunde tickgenau wie ohne Karten' + (abweichung.length ? ': ' + abweichung.join(', ') : ''));
+  // Mutationsprobe: ein Spielwert, der an der Kopfbedeckung hängt, wird rot gemeldet (Spieler 0 mit galea bekommt eine andere Position)
+  const mut = lauf([karteMit('kopf', 'galea', 'G0'), karteMit('kopf', 'keine', 'G1')], SEK);
+  const p0 = mut.g.players[0]; p0.x += 3;
+  ok(JSON.stringify(mut.g.snapshot()) !== basis.spuren[SEK - 1], 'Mutationsprobe: eine am Helm hängende Positionsänderung würde im Vergleich rot (Vergleich ist scharf)');
 }
 
 // ------------------------------------------------------------------ 3. Werte stehen in der Konfiguration

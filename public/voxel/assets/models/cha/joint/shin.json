@@ -27,6 +27,7 @@
       "options": [
         "bordhose",
         "germanenhose",
+        "anzughose",
         "keine"
       ],
       "label": "Hose"
@@ -36,6 +37,8 @@
       "options": [
         "bordstiefel",
         "germanenstiefel",
+        "einsatzstiefel",
+        "ocreae",
         "keine"
       ],
       "label": "Schuhe"

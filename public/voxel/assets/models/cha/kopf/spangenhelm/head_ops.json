@@ -1,0 +1,284 @@
+{
+  "id": "cha/kopf/spangenhelm/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf spangenhelm (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schale",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        6,
+        7
+      ],
+      "color": {
+        "noise": [
+          "primary",
+          {
+            "shade": "primary",
+            "f": 0.85
+          }
+        ],
+        "weights": [
+          3,
+          1
+        ],
+        "cell": 2
+      },
+      "jitter": false
+    },
+    {
+      "name": "Dach",
+      "op": "box",
+      "at": [
+        -4,
+        32,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        8
+      ],
+      "color": {
+        "shade": "primary",
+        "f": 1.1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Kuppel",
+      "op": "box",
+      "at": [
+        -3,
+        33,
+        -3
+      ],
+      "size": [
+        6,
+        1,
+        6
+      ],
+      "color": {
+        "shade": "primary",
+        "f": 1.16
+      },
+      "jitter": false
+    },
+    {
+      "name": "Kuppel Ecken",
+      "op": "box",
+      "at": [
+        2,
+        33,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "xz",
+      "mirrorAt": {
+        "x": 0,
+        "z": 0
+      }
+    },
+    {
+      "name": "Spitze",
+      "op": "box",
+      "at": [
+        -1,
+        34,
+        -1
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Spange längs",
+      "op": "box",
+      "at": [
+        -1,
+        32,
+        -4
+      ],
+      "size": [
+        2,
+        1,
+        8
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Spange quer",
+      "op": "box",
+      "at": [
+        -4,
+        32,
+        -1
+      ],
+      "size": [
+        8,
+        1,
+        2
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Spange hinten",
+      "op": "box",
+      "at": [
+        -1,
+        26,
+        -4
+      ],
+      "size": [
+        2,
+        6,
+        1
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Spange Kuppel",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        -3
+      ],
+      "size": [
+        2,
+        1,
+        6
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Stirnreif",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "color": "metal_dark",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Stirnrahmen",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        3
+      ],
+      "size": [
+        8,
+        1,
+        1
+      ],
+      "color": "metal_dark",
+      "jitter": false
+    },
+    {
+      "name": "Wangenrahmen",
+      "op": "box",
+      "at": [
+        3,
+        27,
+        3
+      ],
+      "size": [
+        1,
+        4,
+        1
+      ],
+      "color": "metal_dark",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Kettenbrünne Seiten",
+      "op": "box",
+      "at": [
+        3,
+        26,
+        -4
+      ],
+      "size": [
+        1,
+        3,
+        6
+      ],
+      "color": {
+        "checker": [
+          "metal",
+          "metal_dark"
+        ],
+        "period": 1
+      },
+      "mode": "paint",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Kettenbrünne hinten",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -5
+      ],
+      "size": [
+        8,
+        3,
+        1
+      ],
+      "color": {
+        "checker": [
+          "metal",
+          "metal_dark"
+        ],
+        "period": 1
+      },
+      "jitter": false
+    }
+  ]
+}

@@ -23,20 +23,22 @@
         "metal_dark": "schuh_germanenstiefel",
         "metal": "metall_germanenstiefel",
         "metal_light": "metall_hell_germanenstiefel",
-        "rubber": "gummi_germanenstiefel"
+        "rubber": "gummi_germanenstiefel",
+        "leather": "gamasche_germanenstiefel",
+        "primary": "planke_germanenstiefel"
       }
     },
     {
-      "name": "Gamasche und Schienbeinplanken abschneiden (y 3..7)",
+      "name": "Hosenanteil abschneiden (y 6..7: Gamasche und Kniekachel gehören zur Hose)",
       "op": "box",
       "at": [
         1,
-        3,
+        6,
         -2
       ],
       "size": [
         3,
-        5,
+        2,
         6
       ],
       "mode": "carve"

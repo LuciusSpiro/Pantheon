@@ -1,0 +1,30 @@
+{
+  "id": "cha/kopf/hoernerhelm/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf hoernerhelm (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "kopf"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/kopf/hoernerhelm/head_ops",
+      "colors": {
+        "leather": "schale_hoernerhelm",
+        "metal_dark": "reif_hoernerhelm",
+        "metal_light": "fuss_hoernerhelm",
+        "trim": "horn_hoernerhelm"
+      }
+    }
+  ]
+}

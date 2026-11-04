@@ -1,0 +1,21 @@
+{
+  "id": "fig/rom/umhang",
+  "name": "Umhang (Sagum/Paludamentum) – Anbau am Rücken-Gelenk",
+  "tier": "detail",
+  "palette": "rom",
+  "tags": ["figur", "rom", "anbau", "umhang"],
+  "params": {
+    "bottom": { "default": 15, "min": 4, "max": 20, "step": 1, "label": "Saum-Höhe (Figur-y)" },
+    "z": { "default": -4, "min": -7, "max": -3, "step": 1, "label": "Abstand Rücken (z)" },
+    "rank": { "default": 0, "min": 0, "max": 1, "step": 1, "label": "Goldsaum" }
+  },
+  "ops": [
+    { "name": "Bahn", "op": "box", "at": [-5, "bottom", "z"], "size": [10, "25-bottom", 1], "color": { "stripes": ["cloth", { "shade": "cloth", "f": 0.78 }], "axis": "x", "period": 2, "offset": 1 } },
+    { "name": "Falten-Tiefe", "op": "box", "at": [-4, "bottom", "z-1"], "size": [1, "22-bottom", 1], "color": { "shade": "cloth", "f": 0.9 }, "repeat": { "count": 3, "step": [3, 0, 0] } },
+    { "name": "Saum", "op": "box", "at": [-5, "bottom", "z"], "size": [10, 1, 1], "color": { "shade": "cloth", "f": 0.65 }, "mode": "paint" },
+    { "name": "Goldsaum", "if": "rank", "op": "box", "at": [-5, "bottom", "z-1"], "size": [10, 2, 2], "color": "trim", "mode": "paint" },
+    { "name": "Fibeln", "op": "box", "at": [3, 24, "z"], "size": [1, 1, 1], "color": "trim", "mode": "paint", "mirror": "x", "mirrorAt": 0 }
+  ],
+  "variants": { "centurio": { "bottom": 6, "z": -4, "rank": 1 } },
+  "anchor": [0, 20, -3]
+}

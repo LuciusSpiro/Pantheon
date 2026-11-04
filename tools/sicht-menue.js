@@ -31,9 +31,9 @@ const ok = (b, t) => { log((b ? '  ok   ' : '  FEHLER ') + t); if (!b) fehler.pu
 // Charakterlisten wie im Browser gespeichert (localStorage 'pantheon.charaktere'): Aussehen je Person verschieden
 function karte(name, o) { const k = Ch.standardKarte(name, KAT); return Object.assign(k, o, { outfit: Object.assign(k.outfit, (o && o.outfit) || {}) }); }
 const PERSONEN = {
-  aurelia: [karte('Aurelia', { frisur: 'dutt', haar: 3, haut: 1 })],
-  brennus: [karte('Brennus', { frisur: 'zoepfe', bart: 'vollbart', haar: 2, outfit: { oberteil: 'plankenweste' } })],
-  kaeso: [karte('Kaeso', { frisur: 'keine', haut: 2, outfit: { kopf: 'bordhelm' } }), karte('Cato', { gesicht: 'narbe', haar: 1, haut: 3 })],
+  aurelia: [karte('Aurelia', { frisur: 'welle', haar: 3, haut: 1 })],
+  brennus: [karte('Brennus', { frisur: 'bartlang', haar: 2, outfit: { oberteil: 'plankenweste' } })],
+  kaeso: [karte('Kaeso', { frisur: 'keine', haut: 2, outfit: { kopf: 'galea', oberteil: 'lorica' } }), karte('Cato', { frisur: 'zopfband', haar: 1, haut: 3 })],
 };
 const speicher = (liste) => ({ v: 1, gewaehlt: 'c0', liste: liste.map((k, i) => ({ id: 'c' + i, karte: k })) });
 

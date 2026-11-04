@@ -1,0 +1,30 @@
+{
+  "id": "cha/oberteil/einsatzanzug/hips",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil einsatzanzug (hips)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/crew/anzug_huefte, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/einsatzanzug/hips_ops",
+      "colors": {
+        "metal_dark": "metall_dunkel_einsatzanzug",
+        "primary": "akzent_einsatzanzug",
+        "leather": "leder_einsatzanzug",
+        "metal": "metall_einsatzanzug"
+      }
+    }
+  ]
+}

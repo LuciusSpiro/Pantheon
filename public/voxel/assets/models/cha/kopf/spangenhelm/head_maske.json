@@ -1,0 +1,139 @@
+{
+  "id": "cha/kopf/spangenhelm/head_maske",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "Haarmaske (schneidet das Haar-Gitter)",
+  "tags": [
+    "cha",
+    "maske"
+  ],
+  "notes": "Zusatzmodell zu cha/kopf/spangenhelm/head, schneidet per use mode carve.",
+  "ops": [
+    {
+      "name": "Haar in und neben der Schale (auch x -5 und 4)",
+      "op": "box",
+      "at": [
+        -6,
+        26,
+        -6
+      ],
+      "size": [
+        12,
+        5,
+        9
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar über der Schale (bis y 34, Fransen vor dem Rahmen)",
+      "op": "box",
+      "at": [
+        -6,
+        31,
+        -6
+      ],
+      "size": [
+        12,
+        4,
+        12
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar unter der Schale (langes Haar im Nacken, Ohrring)",
+      "op": "box",
+      "at": [
+        -6,
+        20,
+        -6
+      ],
+      "size": [
+        12,
+        6,
+        9
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Zöpfe vor der Brust und Schläfen links (B2)",
+      "op": "box",
+      "at": [
+        -4,
+        20,
+        3
+      ],
+      "size": [
+        1,
+        11,
+        2
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Zöpfe vor der Brust und Schläfen rechts (B2)",
+      "op": "box",
+      "at": [
+        3,
+        20,
+        3
+      ],
+      "size": [
+        1,
+        11,
+        2
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar über dem Helmdach (B2)",
+      "op": "box",
+      "at": [
+        -5,
+        33,
+        -6
+      ],
+      "size": [
+        10,
+        3,
+        10
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar neben der Schale links (B2)",
+      "op": "box",
+      "at": [
+        4,
+        22,
+        -6
+      ],
+      "size": [
+        2,
+        13,
+        10
+      ],
+      "color": "#808080"
+    },
+    {
+      "name": "Haar neben der Schale rechts (B2)",
+      "op": "box",
+      "at": [
+        -6,
+        22,
+        -6
+      ],
+      "size": [
+        2,
+        13,
+        10
+      ],
+      "color": "#808080"
+    }
+  ]
+}

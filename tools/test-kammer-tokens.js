@@ -9,9 +9,9 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const PK = require('../public/js/pult-kammer-tokens.js');
+const PK = require(process.env.KAMMER_TOKENS_DATEI || '../public/js/pult-kammer-tokens.js');   // KAMMER_TOKENS_DATEI: Mutationsprobe (tools/mutation-kammer-tokens.js)
 const ME = require('../public/js/menue-tokens.js');
-const NM = require('../public/js/namensmarke-tokens.js');
+const NM = require(process.env.NAMENSMARKE_TOKENS_DATEI || '../public/js/namensmarke-tokens.js');   // NAMENSMARKE_TOKENS_DATEI: Mutationsprobe (tools/mutation-kammer-tokens.js)
 const PROTO = require('../shared/protocol.js');
 
 const ROOT = path.join(__dirname, '..');
@@ -142,7 +142,7 @@ const SCHIRM = { x: 0, y: 0, w: VW, h: VH };
 const R = PK.rahmen();
 ok(drin(R.anzeige, SCHIRM) && drin(R.pult, SCHIRM), 'Kammer: Anzeige/Pult außerhalb 640×360');
 // Ziffernblock vollständig
-const PLAETZE = { spind: ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], erstellung: ['gesicht', 'frisur', 'bart', 'haut', 'haar'] };
+const PLAETZE = { spind: ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], erstellung: ['frisur', 'haut', 'haar'] };
 for (const [art, soll] of Object.entries(PLAETZE)) {
   const zb = PK.ziffernblock(art, R.pult), belegt = zb.filter((z) => !z.leer);
   ok(belegt.map((z) => z.platz).sort().join() === soll.slice().sort().join(), `Ziffernblock ${art}: Plätze ${belegt.map((z) => z.platz).join()} ≠ ${soll.join()}`);
@@ -173,6 +173,51 @@ for (let i = 0; i < 3; i++) ok(getrennt(kt[i], kt[i + 1]), 'Charakterkarten übe
 const mu = PK.muster(R.pult.x + PK.TOKENS.MASS.spalten.mitte.x, R.pult.y + 15, 4), mi = PK.TOKENS.MASS.spalten.mitte;
 for (const m of mu) ok(m.x + m.w + PK.TOKENS.MASS.muster.wahl <= R.pult.x + mi.x + mi.w, 'Farbmuster ragen aus der Spalte');
 const sp = PK.TOKENS.MASS.spalten; ok(sp.block.x + sp.block.w <= sp.mitte.x && sp.mitte.x + sp.mitte.w <= sp.abschluss.x && sp.abschluss.x + sp.abschluss.w <= R.pult.w, 'Pultspalten überlappen');
+// CHA-02 E1b: Erstellung auf dem Katalog Version 2 (Name, Frisur, Hautton, Haarfarbe; kein Gesicht, kein Bart, kein Outfit)
+{
+  const KAT = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'katalog', 'charakter.json'), 'utf8')), MA = PK.TOKENS.MASS, ZB = PK.TOKENS.ZIFFERNBLOCK;
+  ok(JSON.stringify(ZB.erstellung) === JSON.stringify({ 8: 'frisur', 5: 'haar', 2: 'haut' }), 'Erstellung: Ziffernblock ist Mittelspalte 8 Frisur, 5 Haarfarbe, 2 Hautton (kein Gesicht, kein Bart)');
+  ok(!('gesicht' in PK.TOKENS.PLATZ) && !('bart' in PK.TOKENS.PLATZ), 'Plätze der Tokens enthalten kein gesicht / bart');
+  const anzahl = {}; for (const t of KAT.teile) anzahl[t.platz] = (anzahl[t.platz] || 0) + 1;
+  for (const [platz, n] of Object.entries(anzahl)) ok(n <= MA.kachel.spalten * MA.kachel.zeilen, `Platz ${platz}: ${n} Teile passen nicht in ${MA.kachel.spalten * MA.kachel.zeilen} Kacheln (Liste müsste blättern)`);
+  ok(anzahl.frisur === 9, 'Frisurenliste hat neun Einträge (Katalog ' + anzahl.frisur + ')');
+  ok(MA.kachelAnsicht.frisur.yaw === 0 && MA.kachelAnsicht.kopf.yaw === 0, 'Livekacheln: Frisur und Kopfbedeckung ¾ von vorn (yaw 0 zur Kamera 28°), wie die Vorschaubilder des Voxelwerks');
+  // CHA-02 E1b: Hilfe-Liste in Raster-Reihenfolge (8; 4 5 6; 2; 0), Pfeiltasten-Zeilen der Hilfe, Textabstand in den Kacheln
+  const reihe = (art) => PK.ziffernblock(art, PK.rahmen().pult).filter((z) => !z.leer).map((z) => z.taste).join();
+  ok(reihe('spind') === '8,4,5,6,2,0', 'Spind: Ziffernblock-Knöpfe (= Hilfe-Liste) in Raster-Reihenfolge 8; 4 5 6; 2; 0, nicht aufsteigend (' + reihe('spind') + ')');
+  ok(reihe('erstellung') === '8,5,2', 'Erstellung: Ziffernblock in Raster-Reihenfolge 8, 5, 2 (' + reihe('erstellung') + ')');
+  ok(PK.TOKENS.TEXT.hilfe.spind.length === 1 && PK.TOKENS.TEXT.hilfe.erstellung.length === 2 && PK.TOKENS.TEXT.hilfe.spind[0][0] === '←→↑↓', 'Hilfe: Pfeiltasten-Zeilen für Spind (←→↑↓) und Erstellung (←→, ↑↓)');
+  const ti = MA.kachel.textInnen, twT = MA.kachel.w - 2 * ti;
+  ok(ti >= 3, 'Kachel: Textzeilen mit Innenabstand zum Rand (' + ti + ')');
+  ok(tw('Einsatzanzug') <= twT, `Kachel „Einsatzanzug“ ${tw('Einsatzanzug')} px stößt am Rand (Textbreite ${twT} px, Innenabstand ${ti}); längere Einzelwörter kürzt die Kachel mit Punkt`);
+  // Farbmuster: Haar 8 (zwei Zeilen) und Haut 6 bleiben in der Spalte, nie in der Spalte Charakter
+  const mx = R.pult.x + mi.x, mrechts = mx + mi.w;
+  for (const [n, zeilen] of [[KAT.farben.haar.length, 2], [KAT.farben.haut.length, 1]]) {
+    const ms = PK.muster(mx, R.pult.y + 15, n);
+    ok(ms.length === n && new Set(ms.map((m) => m.y)).size === zeilen, `Farbmuster ${n}: ${zeilen} Zeile(n) erwartet`);
+    for (const m of ms) ok(m.x + m.w + MA.muster.wahl <= mrechts, `Farbmuster ${n} ragen über die Spalte (${m.x + m.w + MA.muster.wahl} > ${mrechts})`);
+    for (let i = 0; i < ms.length; i++) for (let j = i + 1; j < ms.length; j++) ok(getrennt(ms[i], ms[j]), `Farbmuster ${n}: ${i}/${j} überlappen`);
+  }
+  ok(KAT.farben.haar.length === 8 && KAT.farben.haut.length === 6, 'Haarfarbe 8, Hautton 6');
+  const mh = PK.musterHoehe(8), hh = PK.musterHoehe(6);
+  ok(mh === 2 * MA.muster.h + MA.muster.fuge && hh === MA.muster.h, 'musterHoehe: Haar zwei Zeilen, Haut eine');
+  ok(15 + 3 + mh + MA.muster.zeile - MA.muster.h + hh + 8 + 8 <= R.pult.h, 'Haar-, Haut-Muster und Hinweis passen in die Pulthöhe');
+  // Namensfeld unten in der Anzeige: unter den Kachelreihen (samt Cursor-Rand), im Rahmen, Hinweis rechts daneben passt bis zum Figurfenster
+  const NF = MA.namensfeld, a = R.anzeige, ksn = PK.kacheln(a, 10), letzte = ksn[ksn.length - 1], by = a.y + a.h - NF.unten;
+  ok(by - 3 >= letzte.y + letzte.h + MA.cursor.aussen, `Namensfeld (Rand ${by - 3}) überlappt die letzte Kachelreihe samt Cursor (${letzte.y + letzte.h + MA.cursor.aussen})`);
+  ok(by + NF.h + 3 <= a.y + a.h, 'Namensfeld samt Rand ragt unten aus der Anzeige');
+  const hinweisBreite = a.x + MA.figur.x - 12 - (a.x + MA.kachel.x + NF.label + NF.w + NF.hinweisAbstand);
+  ok(hinweisBreite >= tw('F2 schreiben · Enter fertig') && hinweisBreite >= tw('Enter speichert · Esc zurück') && hinweisBreite >= tw(PK.TOKENS.TEXT.hinweis.erstellung) && hinweisBreite >= tw('←→↑↓ wählen · Vorschau ohne 3D'), `Hinweis neben dem Namensfeld ${hinweisBreite} px zu schmal`);
+  // Statusleiste der Erstellung: Label + längster Frisurenname passen in das Feld (Breite wie Pult.statusFelder: 563 · w / Summe)
+  const St = PK.TOKENS.STATUS.erstellung, sum = St.reduce((x, f) => x + f.w, 0), fw = (f) => Math.round(563 * f.w / sum);
+  const lang = KAT.teile.filter((t) => t.platz === 'frisur').map((t) => t.name).sort((x, y) => tw(y) - tw(x))[0];
+  const fr = St.find((f) => f.l === 'FRISUR');
+  ok(tw(fr.l) + tw(lang) + 4 + 5 + 6 <= fw(fr), `Statusfeld FRISUR (${fw(fr)} px) zu schmal für „${lang}“ (${tw(fr.l) + tw(lang)} px + Rand)`);
+  const hf = St.find((f) => f.l === 'HAAR'), uf = St.find((f) => f.l === 'HAUT');
+  ok(tw(hf.l) + tw('8/8') + 15 <= fw(hf) && tw(uf.l) + tw('6/6') + 15 <= fw(uf), 'Statusfelder HAAR / HAUT zu schmal für „8/8“ bzw. „6/6“');
+  const nf = St.find((f) => f.l === 'NAME');
+  ok(tw(nf.l) + tw('WWWWWWWWWWWW') + 15 <= fw(nf) || tw(nf.l) + tw('Brennus Maxim') + 15 <= fw(nf), 'Statusfeld NAME zu schmal für 12 Zeichen');
+}
 // Menü: alle Rechtecke im Bild
 const rects = [MM.charakter, MM.menue.detail, MM.lobby.raumcode, MM.lobby.start, { x: 0, y: MM.statuszeile.y, w: VW, h: MM.statuszeile.h }];
 for (let i = 0; i < 4; i++) rects.push({ x: MM.lobby.crew.x + i * (MM.lobby.crew.w + MM.lobby.crew.fuge), y: MM.lobby.crew.y, w: MM.lobby.crew.w, h: MM.lobby.crew.h });
@@ -185,6 +230,11 @@ ok(MM.titel.marke.y + 16 * MM.titel.marke.s < MM.titel.schriftzug.y, 'Menü: Mar
 const mk = NM.marke('Brennus', false, (s) => tw(s)), me = NM.marke('Aurelia', true, (s) => tw(s));
 ok(mk.text && mk.text.x + tw('Brennus') <= mk.x + mk.w && me.text === null && me.w === NMM.eigenW, 'Namensmarke: Breite / eigene Marke');
 ok(NMM.stiel.h + NMM.h < NMM.geduckt, 'Namensmarke: Stiel reicht in den Kopf');
+// CHA-02 E1b: die Marke hängt über dem neuen, höheren Kopf (Figur 35 Voxel = 48 Spielpixel): Anker mindestens Kopf + (Marke + Stiel) im kleinsten Maßstab der Spielkamera
+ok(NMM.kopf === Math.round(35 / 16 * 22), `Namensmarke: Kopfhöhe ${NMM.kopf} ≠ 35 Voxel (${Math.round(35 / 16 * 22)} Spielpixel)`);
+ok(NMM.ueberKopf >= NMM.kopf + Math.ceil((NMM.h + NMM.stiel.h + NMM.abstand) * 22 / NMM.pxJeMeterMin), `Namensmarke: ueberKopf ${NMM.ueberKopf} < Kopf ${NMM.kopf} + Marke/Stiel/Abstand im kleinsten Maßstab (${NMM.kopf + Math.ceil((NMM.h + NMM.stiel.h + NMM.abstand) * 22 / NMM.pxJeMeterMin)}): Crista/Hörner berühren die Marke`);
+ok(NMM.geduckt < NMM.ueberKopf && NMM.ueberKopf - NMM.geduckt === 12, 'Namensmarke: geduckt = ueberKopf − 12 (Duck-Pose senkt den Kopf wie bisher)');
+
 
 // ---------------------------------------------------------------- 4. Marke und Schriftzug
 const svg = fs.readFileSync(path.join(ROOT, 'public', 'img', 'logo', 'marke.svg'), 'utf8');

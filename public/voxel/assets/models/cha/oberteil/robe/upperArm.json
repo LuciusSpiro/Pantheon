@@ -1,0 +1,28 @@
+{
+  "id": "cha/oberteil/robe/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil robe (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus fig/lerche/robe_upperarm, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/lerche/robe_upperarm",
+      "colors": {
+        "sand": "top_robe",
+        "cloth": "top_schal_robe"
+      }
+    }
+  ]
+}

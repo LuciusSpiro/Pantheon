@@ -1,0 +1,28 @@
+{
+  "id": "cha/hose/anzughose/shin",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose anzughose (shin)",
+  "tags": [
+    "cha",
+    "schicht",
+    "hose"
+  ],
+  "notes": "Schicht aus fig/basis/unterschenkel, eigenen Boxen, fig/crew/anzug_unterschenkel, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/hose/anzughose/shin_ops",
+      "colors": {
+        "cloth": "hose_anzughose",
+        "primary": "akzent_anzughose"
+      }
+    }
+  ]
+}

@@ -29,7 +29,7 @@
     if (!karte) return;
     const KB = window.KammerBild;
     if (KB && KB.moeglich()) { const b = KB.bild(karte, art || 'portraet', yaw); if (b) bildIn(c, b, r, art === 'nah'); return; }   // noch in Arbeit: die Platte bleibt, jedes Frame fragt neu (der Cache-Schlüssel steckt im Karteninhalt)
-    const t = window.Charaktere ? Charaktere.teil('gesicht', karte.gesicht) : null;
+    const t = window.Charaktere ? Charaktere.teil('frisur', karte.frisur) : null;
     bildIn(c, t && vorschau(t.vorschau), r, art === 'nah');
   }
   window.KammerBausteine = { vorschau, bildIn, portraetIn };

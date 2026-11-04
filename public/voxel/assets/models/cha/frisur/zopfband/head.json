@@ -1,0 +1,27 @@
+{
+  "id": "cha/frisur/zopfband/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur zopfband (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/zopfband/head_ops",
+      "colors": {
+        "trim": "band_zopfband"
+      }
+    }
+  ]
+}

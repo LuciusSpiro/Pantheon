@@ -78,7 +78,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   const sp = speicherErsatz(), m = neu(sp);
   const ids = [];
   for (let i = 0; i < 4; i++) {
-    const r = m.legeAn({ name: NAMEN[i], frisur: i % 2 ? 'zoepfe' : 'dutt', gesicht: i > 1 ? 'narbe' : 'lerche', bart: i === 3 ? 'vollbart' : 'keiner', haut: i, haar: 3 - i });
+    const r = m.legeAn({ name: NAMEN[i], frisur: i % 2 ? 'zopfband' : 'kurz', gesicht: i > 1 ? 'narbe' : 'lerche', bart: i === 3 ? 'vollbart' : 'keiner', haut: i, haar: 3 - i });
     ok(r.ok && typeof r.id === 'string', 'anlegen ' + (i + 1));
     ids.push(r.id);
     ok(m.lies().gewaehlt === r.id, 'neuer Charakter ist gewählt (' + (i + 1) + ')');
@@ -87,7 +87,8 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(!f.ok && f.grund === 'voll' && m.lies().liste.length === 4, 'fünfter wird abgelehnt (Rückgabe, kein Wurf), Liste bleibt bei 4');
   ok(!m.beginneNeu().ok && m.beginneNeu().grund === 'voll', 'auch die Erstellung öffnet bei 4 nicht');
   const k = m.lies().liste[3].karte;
-  ok(k.bart === 'vollbart' && k.haut === 3 && k.haar === 0 && k.gesicht === 'narbe' && k.frisur === 'zoepfe', 'Aussehen aus den sechs Feldern übernommen');
+  ok(k.haut === 3 && k.haar === 0 && k.frisur === 'zopfband', 'Aussehen aus den Feldern Frisur, Haut, Haar übernommen');
+  ok(!('gesicht' in k) && !('bart' in k), 'alte Wunschfelder gesicht/bart (auch von einem alten Aufrufer) kommen nicht in die Karte');
   gleich(k.outfit, Ch.standardKarte('x', KAT).outfit, 'Standard-Outfit bei jedem neuen Charakter');
   ok(m.waehle(ids[1]).ok && m.lies().gewaehlt === ids[1] && m.aktiverName() === NAMEN[1], 'wählen');
   ok(!m.waehle('gibtsnicht').ok && m.lies().gewaehlt === ids[1], 'unbekannte id wählen: abgelehnt, Auswahl bleibt');
@@ -164,7 +165,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   const mb = neu(speicherErsatz(JSON.stringify(boese)));
   const kb = mb.lies().liste[0].karte;
   gleich(kb, Ch.pruefeKarte(boese.liste[0].karte, KAT), 'manipulierte Karte: durch pruefeKarte geprüft');
-  ok(kb.gesicht === 'lerche' && kb.frisur === 'dutt' && kb.bart === 'keiner' && kb.haut === 0 && kb.haar === 0 && kb.koerper === 'standard' && kb.extra === undefined, 'manipulierte Karte: Felder zum Standard, Fremdfelder weg');
+  ok(!('gesicht' in kb) && !('bart' in kb) && kb.frisur === 'kurz' && kb.haut === 0 && kb.haar === 0 && kb.koerper === 'standard' && kb.extra === undefined, 'manipulierte Karte: Felder zum Standard, Fremdfelder weg');
   ok(/^[\p{L}\p{N} -]{2,12}$/u.test(kb.name), 'manipulierter Name bereinigt: ' + kb.name);
   // Speicher nicht lesbar / nicht schreibbar
   const sl = speicherErsatz(JSON.stringify({ v: 1, gewaehlt: 'a', liste: [{ id: 'a', karte: Ch.standardKarte('Eins', KAT) }] })); sl.modus = 'kein-lesen';
@@ -235,31 +236,31 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   for (const z of 'Hrolf') m.nameZeichen(z);
   ok(m.nameFertig().ok && !e.nameEdit, 'Enter im Namensfeld beendet das Schreiben');
   m.nameBearbeiten(true); m.nameLoeschen(); ok(e.name === 'Hrol', 'F2 schaltet das Schreiben wieder an'); m.nameZeichen('f'); m.nameFertig();
-  ok(m.waehlePlatz('bart').ok && e.platz === 'bart' && !m.waehlePlatz('kopf').ok && e.platz === 'bart', 'Plätze: nur die fünf der Erstellung');
-  m.blaettere(1); ok(e.karte.bart === 'vollbart', 'Bart blättern');
-  m.blaettere(1); ok(e.karte.bart === 'keiner', 'blättern ist ringförmig');
-  m.blaettere(-1); ok(e.karte.bart === 'vollbart', 'zurückblättern');
-  m.naechsterPlatz(1); ok(e.platz === 'haar', 'nächster Platz nach Bart: Haarfarbe');
+  ok(!m.waehlePlatz('bart').ok && !m.waehlePlatz('gesicht').ok && !m.waehlePlatz('kopf').ok && m.waehlePlatz('frisur').ok && e.platz === 'frisur', 'Plätze: nur Frisur, Haarfarbe, Hautton (kein Gesicht, kein Bart)');
+  m.blaettere(1); ok(e.karte.frisur === 'stirnband', 'Frisur blättern');
+  m.blaettere(-1); m.blaettere(-1); ok(e.karte.frisur === 'keine', 'blättern ist ringförmig (zurück von kurz = letzte)');
+  m.blaettere(1); ok(e.karte.frisur === 'kurz', 'vorwärts zurück auf kurz');
+  m.naechsterPlatz(1); ok(e.platz === 'haar', 'nächster Platz nach Frisur: Haarfarbe');
   m.setzeWahl('haar', 2); m.waehlePlatz('haut'); m.blaettere(-1); m.blaettere(-1);
-  ok(e.karte.haar === 2 && e.karte.haut === 2, 'Farben: Haar 2, Haut 0 → zweimal zurück = 2');
-  m.waehlePlatz('frisur'); m.blaettere(1); m.waehlePlatz('gesicht'); m.blaettere(1);
-  ok(e.karte.frisur === 'zoepfe' && e.karte.gesicht === 'narbe', 'Frisur und Gesicht blättern');
+  ok(e.karte.haar === 2 && e.karte.haut === 4, 'Farben: Haar 2, Haut 0 → zweimal zurück = 4 (sechs Hauttöne, ringförmig)');
+  m.waehlePlatz('frisur'); m.blaettere(1);
+  ok(e.karte.frisur === 'stirnband' && !('gesicht' in e.karte) && !('bart' in e.karte), 'Frisur blättern, Karte ohne gesicht/bart');
   m.dreheFigur(1); m.dreheFigur(1); ok(e.yaw === 90, 'Figur drehen');
   const vorSpeichern = m.entwurfKarte();
   ok(vorSpeichern.name === 'Hrolf' && vorSpeichern.outfit.oberteil === 'bordtunika', 'Karte der Figur im Fenster: Entwurf mit Standard-Outfit');
   ok(m.kannZuruecksetzen(), 'R wirkt in der Erstellung');
   m.zuruecksetzen();
   e = m.lies().sitzung.entwurf;
-  ok(e.name === '' && e.karte.haar === 0 && e.karte.frisur === 'dutt' && e.platz === 'frisur' && e.nameEdit, 'R setzt den Entwurf auf Standard zurück');
+  ok(e.name === '' && e.karte.haar === 0 && e.karte.frisur === 'kurz' && e.platz === 'frisur' && e.nameEdit, 'R setzt den Entwurf auf Standard zurück');
   for (const z of 'Hrolf') m.nameZeichen(z);
-  m.nameFertig(); m.waehlePlatz('bart'); m.blaettere(1); m.waehlePlatz('haut'); m.setzeWahl('haut', 3);
+  m.nameFertig(); m.waehlePlatz('frisur'); m.blaettere(1); m.waehlePlatz('haut'); m.setzeWahl('haut', 3);
   ok(m.speichereEntwurf().ok && m.lies().liste.length === 1 && m.lies().sitzung.seite === 'liste', 'Enter speichert und geht zurück in die Liste');
   const k = m.lies().liste[0].karte;
-  ok(k.name === 'Hrolf' && k.bart === 'vollbart' && k.haut === 3 && m.lies().gewaehlt === m.lies().liste[0].id, 'neuer Charakter gespeichert und gewählt');
+  ok(k.name === 'Hrolf' && k.frisur === 'stirnband' && k.haut === 3 && m.lies().gewaehlt === m.lies().liste[0].id, 'neuer Charakter gespeichert und gewählt');
   // Umbenennen
   m.setzeCursor(0);
   ok(m.beginneUmbenennen().ok && m.lies().sitzung.entwurf.modus === 'umbenennen' && m.lies().sitzung.entwurf.name === 'Hrolf', 'F2 öffnet das Umbenennen mit dem Namen');
-  ok(!m.waehlePlatz('bart').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
+  ok(!m.waehlePlatz('frisur').ok && !m.blaettere(1).ok, 'Umbenennen: Aussehen nicht änderbar (kein Platz, kein Blättern)');
   // CHA-01 F: R im Umbenennen wirkt nur, wenn der Name vom gespeicherten abweicht
   ok(!m.kannZuruecksetzen() && m.zuruecksetzen().grund === 'unveraendert', 'Umbenennen ohne Änderung: R ist wirkungslos (gesperrt)');
   m.nameLoeschen(); ok(m.kannZuruecksetzen(), 'Umbenennen mit geändertem Namen: R wirkt');
@@ -267,7 +268,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen(); m.nameLoeschen();
   ok(!m.speichereEntwurf().ok && m.lies().sitzung.entwurf.hinweis === 'name' && m.lies().liste[0].karte.name === 'Hrolf', 'Umbenennen mit leerem Namen: Hinweis, Name bleibt');
   for (const z of 'Ragnar') m.nameZeichen(z);
-  ok(m.speichereEntwurf().ok && m.aktiverName() === 'Ragnar' && m.lies().liste[0].karte.bart === 'vollbart', 'Umbenennen speichert nur den Namen');
+  ok(m.speichereEntwurf().ok && m.aktiverName() === 'Ragnar' && m.lies().liste[0].karte.frisur === 'stirnband', 'Umbenennen speichert nur den Namen');
   m.beginneUmbenennen(); m.nameZeichen('x'); m.verwirfEntwurf();
   ok(m.aktiverName() === 'Ragnar' && m.lies().sitzung.seite === 'liste', 'Esc verwirft');
   m.setzeCursor(2); ok(!m.beginneUmbenennen().ok, 'Umbenennen auf freiem Platz: nichts');
@@ -294,7 +295,7 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   m.oeffneListe(); m.setzeCursor(0);
   ok(m.beginneUmbenennen().ok, 'F2'); m.nameLoeschen(); m.nameZeichen('a');
   const vorEntwurf = JSON.stringify(m.lies().liste[0].karte);
-  ok(!m.setzeWahl('haut', 0).ok && !m.setzeWahl('frisur', 1).ok && !m.waehlePlatz('bart').ok && !m.naechsterPlatz(1).ok && !m.blaettere(1).ok, 'Umbenennen: setzeWahl/waehlePlatz/naechsterPlatz/blaettere lehnen ab');
+  ok(!m.setzeWahl('haut', 0).ok && !m.setzeWahl('frisur', 1).ok && !m.waehlePlatz('frisur').ok && !m.naechsterPlatz(1).ok && !m.blaettere(1).ok, 'Umbenennen: setzeWahl/waehlePlatz/naechsterPlatz/blaettere lehnen ab');
   ok(m.lies().sitzung.entwurf.karte.haut === 2 && m.lies().sitzung.entwurf.karte.frisur === karte.frisur, 'Umbenennen: Aussehen im Entwurf unverändert');
   gleich(m.lies().sitzung.entwurf.karte.outfit, karte.outfit, 'Umbenennen: Outfit im Entwurf unverändert');
   ok(m.speichereEntwurf().ok, 'Umbenennen speichert');
@@ -382,21 +383,30 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   const sp = speicherErsatz(), m = Modul.erzeuge({ speicher: sp, Charakter: Ch, sende: (o) => gesendet.push(o) });
   m.setzeKatalog(KAT);
   ok(m.oeffneSpind().ok === false && m.speichereOutfit().grund === 'kein-entwurf' && !gesendet.length, 'Spind ohne Charakter: nichts öffnet, nichts wird gesendet');
-  const a = m.legeAn({ name: 'Aurelia', frisur: 'zoepfe' }).id, b = m.legeAn({ name: 'Brennus' }).id;
+  const a = m.legeAn({ name: 'Aurelia', frisur: 'zopfband' }).id, b = m.legeAn({ name: 'Brennus' }).id;
   const vorherA = JSON.stringify(m.lies().liste.find((c) => c.id === a).karte);
   ok(m.oeffneSpind().ok && m.lies().sitzung.seite === 'spind' && m.lies().sitzung.entwurf.modus === 'spind', 'Spind öffnet einen Entwurf (modus spind)');
   gleich(m.lies().sitzung.entwurf.karte.outfit, Ch.standardKarte('x', KAT).outfit, 'Entwurf = getragenes Outfit des gewählten Charakters');
   gleich(m.OUTFIT_PLAETZE, ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'], 'sechs Outfit-Plätze, keine Charakterplätze');
-  ok(m.outfitTeileFuer('kopf').length === 2 && m.outfitTeileFuer('gesicht').length === 0 && m.outfitTeileFuer('haut').length === 0, 'Teile je Outfit-Platz aus dem Katalog; Charakterplätze liefern nichts');
+  ok(m.outfitTeileFuer('kopf').length === 5 && m.outfitTeileFuer('gesicht').length === 0 && m.outfitTeileFuer('haut').length === 0, 'Teile je Outfit-Platz aus dem Katalog; Charakterplätze liefern nichts');
   // Anprobe ändert nur den Entwurf
   ok(m.spindWaehlePlatz('kopf').ok && m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'bordhelm', 'Blättern wählt das nächste Teil des Platzes (Anprobe)');
   ok(m.aktiveKarte().outfit.kopf === 'keine' && !gesendet.length, 'Anprobe speichert nichts und sendet nichts');
-  ok(m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'keine' && m.spindBlaettere(-1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'bordhelm', 'Blättern ist ringförmig');
+  ok(m.spindBlaettere(-1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'keine' && m.spindBlaettere(-1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'hoernerhelm' && m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'keine' && m.spindBlaettere(1).ok && m.lies().sitzung.entwurf.karte.outfit.kopf === 'bordhelm', 'Blättern ist ringförmig (fünf Kopfbedeckungen)');
   m.spindWaehlePlatz('umhang'); m.spindSetzeWahl('umhang', 1);
   ok(m.lies().sitzung.entwurf.karte.outfit.umhang === 'fellumhang' && m.spindWahlIndex('umhang') === 1, 'Umhang Fellumhang in der Anprobe');
   ok(m.spindZeile(1, 5).ok === false && m.spindZeile(-1, 5).ok === false && m.lies().sitzung.entwurf.karte.outfit.umhang === 'fellumhang', 'Zeile weiter ohne Teil dort: nichts ändert sich');
   ok(m.spindNaechsterPlatz(1).ok && m.lies().sitzung.entwurf.platz === 'kopf' && m.spindNaechsterPlatz(-1).ok && m.lies().sitzung.entwurf.platz === 'umhang', 'Platzwechsel ringförmig über die sechs Plätze');
   ok(!m.spindWaehlePlatz('gesicht').ok && !m.spindWaehlePlatz('haar').ok && !m.spindSetzeWahl('frisur', 0).ok && !m.spindSetzeWahl('haut', 0).ok, 'Charakterplätze sind im Spind nicht wählbar');
+  // CHA-02 E1b: Umhang dreht die Anprobe auf Rücken-¾, Platzwechsel zurück auf die Ausgangsdrehung; Q/E bleibt frei
+  { const en = () => m.lies().sitzung.entwurf; m.spindWaehlePlatz('kopf'); m.dreheFigur(1);
+    ok(en().yaw === 45, 'Vorbedingung: Anprobe von Hand auf 45° gedreht');
+    m.spindWaehlePlatz('umhang'); ok(en().yaw === m.UMHANG_YAW && m.UMHANG_YAW === 150, 'Platz Umhang: Anprobe dreht auf Rücken-¾ (150°)');
+    m.spindWaehlePlatz('umhang'); ok(en().yaw === 150, 'derselbe Platz nochmal: keine neue Drehung');
+    m.dreheFigur(1); ok(en().yaw === 195, 'auf dem Umhang bleibt Q/E möglich');
+    m.spindWaehlePlatz('hose'); ok(en().yaw === 45, 'Platzwechsel: zurück auf die Ausgangsdrehung vor dem Umhang (45°)');
+    m.spindWaehlePlatz('hose'); m.spindWaehlePlatz('kopf'); ok(en().yaw === 45, 'kein Umhang gewählt: Drehung bleibt wie sie ist');
+    m.spindWaehlePlatz('umhang'); m.spindNaechsterPlatz(1); ok(en().platz === 'kopf' && en().yaw === 45, 'Weiterschalten vom Umhang: ebenfalls zurück'); m.dreheFigur(-1); }
   // R: zurück auf getragen
   m.spindZuruecksetzen();
   gleich(m.lies().sitzung.entwurf.karte.outfit, m.aktiveKarte().outfit, 'R: zurück auf das getragene Outfit');
@@ -457,13 +467,20 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
     // CHA-01 F: Kacheln mit eigenem Kopf (Spind: Platz kopf, Erstellung: Platz frisur), sonst feste Vorschau
     {
       const vorher = JSON.stringify(m4.aktiveKarte()), kk = m4.kachelKarte('spind', 'kopf', 'kopf/bordhelm');
-      ok(kk && kk.outfit.kopf === 'bordhelm' && kk.outfit.umhang === 'fellumhang' && kk.frisur === m4.aktiveKarte().frisur && kk.name === 'Cato', 'Spind-Kachel kopf: eigene Karte mit dem Teil auf dem Kopf');
+      ok(kk && kk.outfit.kopf === 'bordhelm' && kk.outfit.umhang === 'fellumhang' && kk.frisur === 'kurz' && kk.name === 'Cato' && kk.haut === m4.aktiveKarte().haut, 'Spind-Kachel kopf: eigene Karte (Haut, Outfit) mit dem Teil auf dem Kopf');
+      {   // CHA-02 E1b: die Kopfbedeckungs-Kacheln zeigen die Standardfrisur und helles Haar, nicht die Frisur des Charakters (sonst verdeckt jede Frisur eine andere Helmform)
+        const m7 = Modul.erzeuge({ speicher: speicherErsatz(), Charakter: Ch, sende: () => {} }); m7.setzeKatalog(KAT); m7.legeAn({ name: 'Hrolf', frisur: 'wild', haar: 2 });
+        const k7 = m7.kachelKarte('spind', 'kopf', 'kopf/galea');
+        ok(m7.aktiveKarte().frisur === 'wild' && k7.frisur === 'kurz' && KAT.farben.haar[k7.haar] === '#8C7A58' && k7.outfit.kopf === 'galea', 'Spind-Kachel kopf: Standardfrisur und helles Haar statt der Frisur des Charakters (wild, Haar 2)');
+        ok(m7.aktiveKarte().frisur === 'wild' && m7.aktiveKarte().haar === 2, 'Spind-Kachel ändert die Karte des Charakters nicht');
+      }
       ok(JSON.stringify(m4.aktiveKarte()) === vorher, 'Spind-Kachel ändert die getragene Karte nicht');
       ok(m4.kachelKarte('spind', 'oberteil', 'oberteil/bordtunika') === null && m4.kachelKarte('spind', 'umhang', 'umhang/keiner') === null, 'Spind-Kacheln anderer Plätze bleiben feste Vorschau');
       ok(m4.kachelKarte('spind', 'kopf', 'oberteil/bordtunika') === null && m4.kachelKarte('neu', 'kopf', 'kopf/bordhelm') === null, 'Kachel: Teil gehört nicht zum Platz / Platz hat in der Erstellung keine Livekachel');
       const sp6 = speicherErsatz(), m6 = Modul.erzeuge({ speicher: sp6, Charakter: Ch, sende: () => {} }); m6.setzeKatalog(KAT); m6.legeAn({ name: 'Cato' }); m6.beginneNeu();
       const ev = JSON.stringify(m6.entwurfKarte()), fr = m6.teileFuer('frisur'), kf = m6.kachelKarte('neu', 'frisur', fr[fr.length - 1].id);
-      ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.gesicht === m6.entwurfKarte().gesicht && kf.haar === m6.entwurfKarte().haar && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
+      ok(kf && kf.frisur === fr[fr.length - 1].id.slice('frisur/'.length) && kf.haut === m6.entwurfKarte().haut && kf.name === m6.entwurfKarte().name, 'Erstellungs-Kachel frisur: Entwurf mit dem Frisur-Teil');
+      ok(KAT.farben.haar[kf.haar] === '#8C7A58' && kf.haar !== m6.entwurfKarte().haar, 'Erstellungs-Kachel frisur: helles Haar (aschblond #8C7A58, über die Farbe gefunden, nicht über einen festen Index) statt der Haarfarbe des Entwurfs, damit die Frisuren auf dunklem Grund zu unterscheiden sind');
       ok(JSON.stringify(m6.entwurfKarte()) === ev, 'Erstellungs-Kachel ändert den Entwurf nicht');
       ok(m6.kachelKarte('neu', 'bart', 'bart/vollbart') === null && m6.kachelKarte('neu', 'gesicht', 'gesicht/narbe') === null && m6.kachelKarte('spind', 'frisur', fr[0].id) === null, 'Erstellung: nur Frisur hat Livekacheln, im Spind nur Kopf');
     }
@@ -523,6 +540,34 @@ const NAMEN = ['Aurelia', 'Brennus', 'Kaeso', 'Hrolf', 'Cato'];
   ok(exp.indexOf('portraetIn') < 0 && exp.indexOf('teilName') < 0, 'KammerUi exportiert nur das Eigene (kein portraetIn, kein teilName)');
   const menue = fs.readFileSync(path.join(ROOT, 'public', 'js', 'menue-ui.js'), 'utf8');
   ok(!/KammerUi/.test(menue.replace(/\/\/.*$/gm, '')), 'menue-ui.js greift nicht auf KammerUi zu');
+}
+
+// ---- CHA-02 E1b: Livebilder (voxel/kammer.js) und Oberfläche auf dem 8er-Kopf, ohne gesicht/bart
+{
+  const kam = fs.readFileSync(path.join(ROOT, 'public', 'js', 'voxel', 'kammer.js'), 'utf8').replace(/\r\n/g, '\n');
+  const von = kam.indexOf('const GROESSE = '), bis = kam.indexOf('\nconst CACHE_MAX', von);
+  const G = Function('return ' + kam.slice(von + 'const GROESSE = '.length, bis).replace(/;\s*\/\/[^\n]*$/, ''))();
+  // Kopf y 22–35 (Voxel), Crista und Hörner bis 34, Suebenknoten 33–34, Zöpfe/Bart bis 23, Kopf x −4..3: das Fenster muss alles enthalten (nichts abgeschnitten)
+  for (const art of ['portraet', 'nah', 'kachel']) {
+    const f = G[art] && G[art].fenster;
+    ok(f && f.y[0] <= 22 && f.y[1] >= 35 && f.x[0] <= -5 && f.x[1] >= 4, `Livebild ${art}: Fenster ${JSON.stringify(f && { x: f.x, y: f.y })} schneidet den neuen Kopf ab (y 22–35, x −5..4)`);
+    ok(f && f.yaw === 28 && f.pitch === 6, `Livebild ${art}: Blick ¾ von vorn (yaw 28, pitch 6) wie die Referenz des Voxelwerks`);
+  }
+  ok(G.ganz && G.ganz.fenster.y[0] <= 0 && G.ganz.fenster.y[1] >= 35, 'Livebild ganz: ganze Figur samt neuem Kopf im Fenster');
+  ok(G.kachel && G.kachel.px.w === 140 && G.kachel.px.h === 124, 'Livebild kachel: 140 × 124 (doppelte Bildfläche der Kachel 70 × 62)');
+  const ui = fs.readFileSync(path.join(ROOT, 'public', 'js', 'kammer-ui.js'), 'utf8').replace(/\r\n/g, '\n').replace(/\/\/[^\n]*$/gm, '');
+  ok(!/gesicht|bart|dutt|zoepfe/.test(ui), 'kammer-ui.js kennt gesicht / bart / dutt / zoepfe nicht mehr');
+  ok(/KB\.bild\(t\.live\.karte, 'kachel', t\.live\.yaw\)/.test(ui), "Livekacheln werden im Ausschnitt 'kachel' gerendert (Kopf ¾ von vorn), nicht als Porträt");
+  ok(/teilName\('kopf', karte\.outfit\.kopf\)/.test(ui) && /teilName\('oberteil', karte\.outfit\.oberteil\)/.test(ui) && /teilName\('frisur', karte\.frisur\)/.test(ui), 'Kartenzeilen der Liste: Frisur, Oberteil und Kopfbedeckung in Klartext aus den Katalognamen');
+  ok(/function kachelTexte\(/.test(ui) && /kachelTexte\(t\.name/.test(ui), 'Kachel bricht lange Namen mit Leerzeichen um (kachelTexte)');
+  // CHA-02 E1b: Frisur-Kachel – Name bis zu zwei Zeilen, Herkunft als Etikett oben links (nie mehr verdrängt, Kurzschnitt zeigt sein Volk, nicht „Standard“)
+  ok(/sub: '', etikett: TEXT\.volkKurz\[t\.volk\] \|\| null/.test(ui) && /if \(t\.etikett\) kappeDunkel\(c, k\.x \+ 3,/.test(ui), 'Frisur-Kachel: Name ohne Unterzeile (bis zu zwei Zeilen), Volk als Etikett oben links');
+  { const KATJ = JSON.parse(fs.readFileSync(path.join(ROOT, 'content', 'katalog', 'charakter.json'), 'utf8')), vk = /volkKurz: \{([^}]*)\}/.exec(ui);
+    const fris = KATJ.teile.filter((t) => t.platz === 'frisur' && t.volk);
+    ok(fris.length === 8 && vk && fris.every((t) => new RegExp('(^| )' + t.volk + ": '").test(vk[1])), 'Katalog: jede Frisur mit Volk (' + fris.length + ') hat ein Etikett in volkKurz'); }
+  ok(/hilfe\(c, 'spind'\)/.test(ui) && /hilfe\(c, 'erstellung'\)/.test(ui) && /P\.zeichneHilfe\(c, \{ x: a\.x \+ KM\.kachel\.x, w: KM\.figur\.x - KM\.kachel\.x - 12, zeilen: KX\.hilfe\[art\] \}\)/.test(ui), 'Hilfe in Spind und Erstellung: auf den Kachelbereich begrenzt, mit Pfeiltasten-Zeilen');
+  ok((ui.match(/drehKappen\(c, f, ky\)/g) || []).length === 3 && /hotkey: 'Q', onClick/.test(ui) && /hotkey: 'E', onClick/.test(ui), 'Q/E (Kappen, Klickflächen mit Hotkey für die Hilfe) in Erstellung und Spind über dieselbe Funktion drehKappen');
+  ok(/namensfeld\(cc, a\.x \+ T\.x, 0, KM\.figur\.x - T\.x - 12, e, a,/.test(ui), 'Erstellung mit Kacheln: Namensfeld kompakt unter den Kachelreihen');
 }
 
 // ---- feste Texte der Oberfläche: jede Glyphe existiert in art.js (sonst zeichnet das Spiel ein Kästchen)

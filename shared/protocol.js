@@ -8,7 +8,7 @@
   return {
     VERSION: 8,   // CHA-01 B1 „Charakterkarte“ (7 = B1–B3 „Bühnen & Bodenkampf“, 6 = S2 „Spielleiter an der Missionsgrenze“, 5 = S1 „Regiebuch & Weltstand“, 4 = M4)
     // ---- CHA-01 B1: Charakterkarte (shared/charakter.js, Katalog content/katalog/charakter.json) ----
-    // hello { …, karte? } – optionale Charakterkarte { v, name, koerper, gesicht, frisur, bart, haut, haar, outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }.
+    // hello { …, karte? } – optionale Charakterkarte { v, name, koerper, frisur, haut, haar, outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }.
     //   Der Server prüft sie feldweise gegen den Katalog (Falsches → Standard dieses Feldes, nie Abbruch), übernimmt den Kartennamen (pruefeName, 2–12 Zeichen) als
     //   Spielernamen (bei Kollision mit einem anderen Spieler ' 2', ' 3', …); ist der Kartenname ungültig, gilt die bisherige Namenslogik. Ohne karte: alles wie vorher.
     // welcome.karten { pid: karte } – geprüfte Karten aller Spieler mit Karte, auch getrennter (auch die eigene); fehlt, wenn keiner eine Karte hat.

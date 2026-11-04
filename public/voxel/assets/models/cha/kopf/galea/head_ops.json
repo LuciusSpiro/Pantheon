@@ -1,0 +1,241 @@
+{
+  "id": "cha/kopf/galea/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf galea (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schale",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -4
+      ],
+      "size": [
+        8,
+        6,
+        7
+      ],
+      "color": "trim",
+      "jitter": false
+    },
+    {
+      "name": "Dach",
+      "op": "box",
+      "at": [
+        -4,
+        32,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        8
+      ],
+      "color": {
+        "shade": "trim",
+        "f": 1.06
+      },
+      "jitter": false
+    },
+    {
+      "name": "Wangenplatten",
+      "op": "box",
+      "at": [
+        3,
+        26,
+        -4
+      ],
+      "size": [
+        1,
+        4,
+        6
+      ],
+      "color": {
+        "shade": "trim",
+        "f": 0.8
+      },
+      "mode": "paint",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Stirnband",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "color": "metal_light",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Stirnrahmen",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        3
+      ],
+      "size": [
+        8,
+        1,
+        1
+      ],
+      "color": "metal_light",
+      "jitter": false
+    },
+    {
+      "name": "Stirnschirm",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        4
+      ],
+      "size": [
+        8,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": 0.9
+      },
+      "jitter": false
+    },
+    {
+      "name": "Wangenrahmen",
+      "op": "box",
+      "at": [
+        3,
+        27,
+        3
+      ],
+      "size": [
+        1,
+        4,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": 0.8
+      },
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Nackenschutz",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -5
+      ],
+      "size": [
+        8,
+        3,
+        1
+      ],
+      "color": {
+        "shade": "trim",
+        "f": 0.85
+      },
+      "jitter": false
+    },
+    {
+      "name": "Nackenschutz Rand",
+      "op": "box",
+      "at": [
+        -4,
+        26,
+        -5
+      ],
+      "size": [
+        8,
+        1,
+        1
+      ],
+      "color": "metal_light",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Crista",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        -4
+      ],
+      "size": [
+        2,
+        2,
+        8
+      ],
+      "color": {
+        "stripes": [
+          "primary",
+          {
+            "shade": "primary",
+            "f": 0.8
+          }
+        ],
+        "axis": "z",
+        "period": 1
+      },
+      "jitter": false
+    },
+    {
+      "name": "Crista Ende hinten",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        -4
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Crista Ende vorn",
+      "op": "box",
+      "at": [
+        -1,
+        33,
+        3
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "carve"
+    }
+  ]
+}

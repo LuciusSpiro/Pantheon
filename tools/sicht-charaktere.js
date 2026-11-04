@@ -2,7 +2,7 @@
 // CHA-01 C: Sichtbeleg der Charakterliste und Charaktererstellung (echter Server im selben Prozess, echte Browser-Clients, Playwright/Chromium, Debug-Server).
 // Ablauf: (1) Altstand – nur sternenschicht.name gesetzt → direkt in der Lobby mit diesem Namen, ohne Pflichtschritt (Abnahme 9);
 //         (2) Erststart – leerer Browser → Standard-Charakter, Lobby ohne Namensfeld; (3) vier Charaktere mit verschiedenem Aussehen anlegen, fünften versuchen,
-//         Neuladen → alle vier da (Abnahme 1); Erstellung zeigt genau die sechs Felder (Abnahme 2); Umbenennen; Löschen mit Rückfrage;
+//         Neuladen → alle vier da (Abnahme 1); Erstellung zeigt genau Name, Frisur, Haarfarbe, Hautton (Abnahme 2); Umbenennen; Löschen mit Rückfrage;
 //         (4) gewählter Charakter im Spiel, Standard-Outfit, Name aus dem Snapshot (Doppelname bekommt eine Ziffer), Crew-Übersicht (Abnahme 5); (5) ?render=2d: Ersatzbilder ohne Absturz.
 // Hinweis: ohne ?debug=1 (das Debug-Feld verdeckt sonst die Crew-Liste der Lobby); der Server läuft als Debug-Server.
 // Aufruf: node tools/sicht-charaktere.js [--port 3541] [--shots shots/charaktere] [--w 1280 --h 720]   (Bilder nicht im Repo, shots/ ist ignoriert)   Exit 1 bei Fehlern, 2 ohne Playwright.
@@ -112,17 +112,29 @@ async function erstelle(page, name, plaetze) {
     await page.keyboard.type('Aurelia', { delay: 15 });
     await bild(page, '06-erstellung-name');
     const felder = await page.evaluate(() => ({ plaetze: Charaktere.PLAETZE.slice(), block: PultKammer.ziffernblock('erstellung').filter((z) => !z.leer).map((z) => z.platz), entwurf: Object.keys(Charaktere.lies().sitzung.entwurf.karte) }));
-    ok(felder.plaetze.join() === 'frisur,gesicht,bart,haar,haut' && felder.block.slice().sort().join() === 'bart,frisur,gesicht,haar,haut', 'Erstellung: genau Frisur, Gesicht, Bart, Haarfarbe, Hautton (+ Name), kein Outfit-Platz und kein Körperschalter');
+    ok(felder.plaetze.join() === 'frisur,haar,haut' && felder.block.slice().sort().join() === 'frisur,haar,haut' && !felder.entwurf.includes('gesicht') && !felder.entwurf.includes('bart'), 'Erstellung: genau Frisur, Haarfarbe, Hautton (+ Name), kein Gesicht, kein Bart, kein Outfit-Platz und kein Körperschalter');
     await taste(page, 'Enter'); await taste(page, '8'); await taste(page, 'ArrowRight');
     await bild(page, '07-erstellung-frisur');
-    await taste(page, '9'); await taste(page, 'ArrowRight');
+    // CHA-02 E1b: die Frisurenliste hat alle neun Einträge als Livekacheln (¾ von vorn, helles Haar), und kein Bild gleicht einem anderen (dunkel auf dunklem Grund war ein Befund)
+    const kacheln = await page.evaluate(async () => {
+      const C = Charaktere, ids = C.teileFuer('frisur').map((t) => t.id), urls = [], haar = [];
+      for (const id of ids) { let cv = null; for (let i = 0; i < 150 && !cv; i++) { cv = KammerBild.bild(C.kachelKarte('neu', 'frisur', id), 'kachel', 0); if (!cv) await new Promise((r) => setTimeout(r, 100)); } urls.push(cv ? cv.toDataURL() : null); haar.push(C.kachelKarte('neu', 'frisur', id).haar); }
+      return { n: ids.length, fertig: urls.every(Boolean), verschieden: new Set(urls).size, haar: [...new Set(haar)], kacheln: PultKammer.kacheln(PultKammer.rahmen().anzeige, ids.length).length };
+    });
+    ok(kacheln.n === 9 && kacheln.kacheln === 9 && kacheln.fertig && kacheln.verschieden === 9 && kacheln.haar.join() === '7', 'Frisurenliste: neun Kacheln, neun verschiedene Livebilder mit hellem Haar (' + JSON.stringify(kacheln) + ')');
+    await page.waitForTimeout(800);
+    await bild(page, '07b-erstellung-frisuren-alle');
+    await taste(page, 'Shift+Slash'); await bild(page, '07c-erstellung-hilfe'); await taste(page, 'Shift+Slash');   // Hilfe der Erstellung: Ziffernblock 8/5/2, Q/E, R, Enter
+    ok(await page.evaluate(() => !Pult.hilfe), 'Hilfe der Erstellung schließt wieder');
+    await taste(page, '5'); await taste(page, 'ArrowRight');
     await bild(page, '08-erstellung-haarfarbe');
-    await taste(page, '6'); await taste(page, 'ArrowRight', 2);
-    await taste(page, 'q', 2);
+    await taste(page, '2'); await taste(page, 'ArrowRight', 2);
+    await bild(page, '08b-erstellung-hautton');
+    await taste(page, '8'); await taste(page, 'q', 2);
     await bild(page, '09-erstellung-gedreht');
     await taste(page, 'r');   // zurücksetzen
     s = await page.evaluate(() => { const e = Charaktere.lies().sitzung.entwurf; return { name: e.name, frisur: e.karte.frisur, haut: e.karte.haut, edit: e.nameEdit }; });
-    ok(s.name === '' && s.frisur === 'dutt' && s.haut === 0 && s.edit, 'R setzt die Erstellung zurück');
+    ok(s.name === '' && s.frisur === 'kurz' && s.haut === 0 && s.edit, 'R setzt die Erstellung zurück');
     // Name ungültig: Enter ohne Namen
     await taste(page, 'Enter');   // Namensfeld ist wieder offen, leer: Enter beendet nicht, Hinweis
     await bild(page, '10-erstellung-name-ungueltig');
@@ -131,17 +143,17 @@ async function erstelle(page, name, plaetze) {
     ok((await store(page)).seite === 'liste' && (await store(page)).n === 1, 'Esc verwirft die Erstellung');
 
     // vier Charaktere mit verschiedenem Aussehen
-    await erstelle(page, 'Aurelia', [['9', 1], ['6', 1]]);
-    await erstelle(page, 'Brennus', [['8', 1], ['2', 1], ['9', 2], ['6', 3]]);
-    await erstelle(page, 'Kaeso', [['5', 1], ['8', 2], ['9', 3], ['6', 2]]);
+    await erstelle(page, 'Aurelia', [['5', 1], ['2', 1]]);
+    await erstelle(page, 'Brennus', [['8', 5], ['5', 2], ['2', 3]]);
+    await erstelle(page, 'Kaeso', [['8', 2], ['5', 3], ['2', 2]]);
     // vier Plätze belegt (Zufalls-Charakter + drei): den Zufalls-Charakter auf Platz 1 löschen, dann Livia anlegen
     ok((await store(page)).n === 4, 'Zufalls-Charakter und drei neue: vier');
     await taste(page, '1'); await taste(page, 'Delete'); await taste(page, 'Delete');
     ok((await store(page)).namen.join() === 'Aurelia,Brennus,Kaeso', 'Zufalls-Charakter gelöscht (Auswahl bleibt bei Kaeso)');
-    await erstelle(page, 'Livia', [['5', 1], ['9', 1]]);
+    await erstelle(page, 'Livia', [['8', 8], ['5', 1]]);
     s = await store(page);
     ok(s.n === 4 && s.namen.join() === 'Aurelia,Brennus,Kaeso,Livia' && s.gewaehlt === (await page.evaluate(() => Charaktere.lies().liste[3].id)), 'vier Charaktere angelegt, der letzte ist gewählt');
-    ok(new Set(s.karten.map((k) => [k.gesicht, k.frisur, k.bart, k.haut, k.haar].join())).size === 4, 'alle vier sehen verschieden aus');
+    ok(new Set(s.karten.map((k) => [k.frisur, k.haut, k.haar].join())).size === 4, 'alle vier sehen verschieden aus');
     ok(s.karten.every((k) => JSON.stringify(k.outfit) === JSON.stringify(Ch.standardKarte('x', KAT).outfit)), 'jeder neue Charakter trägt das Standard-Outfit');
     await page.waitForTimeout(1500);
     await bild(page, '11-liste-vier');
@@ -164,7 +176,7 @@ async function erstelle(page, name, plaetze) {
     await taste(page, 'Enter');
     s = await store(page);
     ok(s.namen[1] === 'Cato' && s.n === 4 && s.seite === 'liste', 'Umbenennen: Brennus heißt jetzt Cato, Enter speichert und geht zurück in die Liste');
-    ok(await page.evaluate(() => { const k = Charaktere.lies().liste[1].karte; return k.frisur === 'zoepfe' && k.bart === 'vollbart' && k.haut === 3 && k.haar === 2; }), 'Aussehen bleibt beim Umbenennen');
+    ok(await page.evaluate(() => { const k = Charaktere.lies().liste[1].karte; return k.frisur === 'bartlang' && k.haut === 3 && k.haar === 2 && !('gesicht' in k) && !('bart' in k); }), 'Aussehen bleibt beim Umbenennen');
     await taste(page, 'F2'); for (let i = 0; i < 4; i++) await taste(page, 'Backspace'); await page.keyboard.type('Brennus', { delay: 15 }); await taste(page, 'Enter');
     // Löschen des gewählten wählt einen anderen
     await taste(page, '4');
@@ -221,10 +233,10 @@ async function erstelle(page, name, plaetze) {
     await taste(page, 'n'); await page.keyboard.type('Zwei', { delay: 15 }); await taste(page, 'Enter'); await taste(page, '8'); await taste(page, 'ArrowRight');
     await bild(page, '22-erstellung-2d');
     ok(await page.evaluate(() => window.KammerBild.info().kontext === 0), '2D: kein zusätzlicher WebGL-Kontext');
-    // Befund 2: der Ersatz zeigt die Wahl des aktuellen Platzes – das Figurfenster ändert sich beim Blättern (Frisur, Bart, Farben), der Hinweis sagt „Vorschau ohne 3D“
+    // Befund 2: der Ersatz zeigt die Wahl des aktuellen Platzes – das Figurfenster ändert sich beim Blättern (Frisur, Farben), der Hinweis sagt „Vorschau ohne 3D“
     const fenster = async () => { const f = await page.evaluate(() => { const r = PultKammer.figur(PultKammer.rahmen().anzeige); const cv = document.getElementById('game'); const k = cv.getBoundingClientRect().width / 640; return { x: r.x * k, y: r.y * k, w: r.w * k, h: r.h * k }; }); await page.waitForTimeout(250); return page.screenshot({ clip: { x: Math.round(f.x), y: Math.round(f.y), width: Math.round(f.w), height: Math.round(f.h) } }); };
     const gleichBild = (a, b) => Buffer.compare(a, b) === 0;
-    for (const [ziffer, name] of [['8', 'Frisur'], ['2', 'Bart'], ['5', 'Gesicht'], ['9', 'Haarfarbe'], ['6', 'Hautton']]) {
+    for (const [ziffer, name] of [['8', 'Frisur'], ['5', 'Haarfarbe'], ['2', 'Hautton']]) {
       await taste(page, ziffer); await page.waitForTimeout(300);
       const a = await fenster(); await taste(page, 'ArrowRight'); const b = await fenster();
       ok(!gleichBild(a, b), '2D: Figurfenster ändert sich beim Blättern (' + name + ')');

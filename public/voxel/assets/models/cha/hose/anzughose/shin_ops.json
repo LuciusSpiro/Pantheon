@@ -1,0 +1,82 @@
+{
+  "id": "cha/hose/anzughose/shin_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "hose anzughose (shin): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus fig/basis/unterschenkel, eigenen Boxen, fig/crew/anzug_unterschenkel, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Schienbein",
+      "op": "box",
+      "at": [
+        1,
+        2,
+        -1
+      ],
+      "size": [
+        3,
+        5,
+        3
+      ],
+      "color": "cloth"
+    },
+    {
+      "name": "Stiefelbereich abschneiden (y 0..4)",
+      "op": "box",
+      "at": [
+        1,
+        0,
+        -1
+      ],
+      "size": [
+        3,
+        5,
+        3
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Knieschoner",
+      "op": "box",
+      "at": [
+        1,
+        5,
+        2
+      ],
+      "size": [
+        3,
+        3,
+        1
+      ],
+      "color": "primary"
+    },
+    {
+      "name": "Knieschoner Kern",
+      "op": "box",
+      "at": [
+        2,
+        6,
+        3
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "primary",
+        "f": 0.8
+      }
+    }
+  ]
+}

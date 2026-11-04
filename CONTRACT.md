@@ -262,12 +262,12 @@ Ungültige Befehle: Server ignoriert und schickt `event notice {pid, text}` mit 
 Snapshotgröße im Blick behalten (Ziel < 12 KB). Asteroiden sind statisch: Server darf sie nur in
 jedem 15. Snapshot und beim Szenenwechsel mitsenden (sonst `asteroids` weglassen → Client behält die letzte Liste).
 
-### 5.4 Charakterkarte (CHA-01 B1, `shared/charakter.js`, Protokollversion 8)
+### 5.4 Charakterkarte (CHA-01 B1, CHA-02 E1a, `shared/charakter.js`, Protokollversion 8)
 ```js
-{ v: 1, name, koerper: 'standard', gesicht, frisur, bart, haut: Index, haar: Index,
-  outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }     // je Platz nur der Teilename aus content/katalog/charakter.json
+{ v: 1, name, koerper: 'standard', frisur, haut: Index (0–5), haar: Index (0–7),
+  outfit: { kopf, oberteil, hose, schuhe, haende, umhang } }     // je Platz nur der Teilename aus content/katalog/charakter.json (Version 2)
 ```
-- Im `hello` optional (`karte`). Der Server prüft jedes Feld gegen den Katalog (unbekanntes Teil, Teil eines anderen Platzes oder einer anderen Gruppe, Farbindex außerhalb, falscher Typ, fehlendes Feld → Standard dieses Feldes; Zusatzfelder fallen weg; nie Abbruch).
+- Im `hello` optional (`karte`). Der Server prüft jedes Feld gegen den Katalog (unbekanntes Teil, Teil eines anderen Platzes oder einer anderen Gruppe, Farbindex außerhalb, falscher Typ, fehlendes Feld → Standard dieses Feldes; Zusatzfelder fallen weg; nie Abbruch). CHA-02: `gesicht` und `bart` gibt es nicht mehr; eine Karte mit diesen Altfeldern oder einer Altfrisur (`dutt`, `zoepfe`) wird je Feld zum Standard (Frisur `kurz`), die Altfelder werden verworfen, keine Migration. Die Grenzen der Farbindizes (haut 6, haar 8) liest der Server aus `katalog.farben`.
 - Name: Kartenname (`pruefeName`: Buchstaben, Ziffern, Leerzeichen, Bindestrich, 2–12 Zeichen) wird `p.name`; bei Kollision (Groß/klein egal) hängt der Server ` 2`, ` 3`, … an. Ungültiger Kartenname → gültiger bisheriger Name, sonst `Crew`. Wer eine Karte hat, behält ihren Namen auch beim Wiederverbinden ohne `karte` (`hello.name` zählt dann nicht). Ohne Karte bleibt der Name, wie ihn `hello.name` liefert (keine Eindeutigkeit erzwungen).
 - Verteilung: `welcome.karten` (alle Spieler mit Karte, auch getrennte) und Ereignis `karte { pid, k }` (§5.3). Die Karte steht **nicht** im Snapshot und nicht im Weltstand; sie bleibt beim Wiederverbinden mit gleicher `clientId` erhalten. Spielernamen gehen nie an ein LLM.
 

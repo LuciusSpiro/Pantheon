@@ -16,12 +16,13 @@
   const SCHLUESSEL = 'pantheon.charaktere';
   const MAX = 4;
   const ID_FORM = /^[A-Za-z0-9_-]{1,32}$/;
-  // Plätze der Erstellung (genau diese sechs Felder: Name + drei Teile + zwei Farben), Reihenfolge = Ziffernblock von oben nach unten
-  const TEIL_PLAETZE = ['frisur', 'gesicht', 'bart'];
+  // Plätze der Erstellung (CHA-02 E1a: Name + Frisur + zwei Farben; gesicht und bart sind mit Katalog Version 2 entfallen), Reihenfolge = Ziffernblock von oben nach unten
+  const TEIL_PLAETZE = ['frisur'];
   const FARB_PLAETZE = ['haar', 'haut'];
   const PLAETZE = TEIL_PLAETZE.concat(FARB_PLAETZE);
   // CHA-01 D: sechs Outfit-Plätze des Spinds, Reihenfolge wie die Mittelspalte des Ziffernblocks (Kopf → Füße, dann Hände und Umhang)
   const OUTFIT_PLAETZE = ['kopf', 'oberteil', 'hose', 'schuhe', 'haende', 'umhang'];
+  const UMHANG_YAW = 150;   // Drehung der Spind-Anprobe bei Platz Umhang: Rücken ¾
   const istObjekt = (x) => x !== null && typeof x === 'object' && !Array.isArray(x);
 
   function browserSpeicher(root) {
@@ -74,14 +75,20 @@
       if (!katalog || !OUTFIT_PLAETZE.includes(platz)) return [];
       return (katalog.teile || []).filter((t) => t && t.platz === platz && t.gruppe === 'outfit');
     }
-    // CHA-01 F: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
-    // Liefert die Karte, an der das Teil sitzt (Erstellung: der Entwurf mit dem Teil; Spind: die getragene Karte mit dem Teil), sonst null (feste Vorschau).
+    // CHA-01 F / CHA-02 E1b: Kacheln, die das Teil am eigenen Kopf zeigen statt einer festen Vorschau: Erstellung (modus 'neu') nur für Frisur, Spind nur für Kopf.
+    // Liefert die Karte, an der das Teil sitzt, sonst null (feste Vorschau). Frisur-Kacheln tragen helles Haar (Voxelwerk KACHEL_HAAR, hier KACHEL_HAAR_FARBE: dunkles Haar ist auf dem dunklen Kachelgrund nicht zu unterscheiden);
+    // Kopf-Kacheln im Spind zeigen die Kopfbedeckung auf der Standardfrisur (sonst verdeckt jede Frisur eine andere Helmform), Haut und Outfit bleiben die des Charakters.
     const KACHEL_LIVE = { neu: ['frisur'], spind: ['kopf'] };
+    const KACHEL_HAAR_FARBE = '#8C7A58';   // aschblond; der Index kommt aus dem Katalog (Umsortieren verschiebt die Kachelfarbe nicht), fehlt die Farbe, gilt die Standardfarbe
+    const kachelHaar = () => Math.max(0, farbenFuer('haar').indexOf(KACHEL_HAAR_FARBE));
     function kachelKarte(modus, platz, teilId) {
       if (!(KACHEL_LIVE[modus] || []).includes(platz) || String(teilId).indexOf(platz + '/') !== 0) return null;
       const wert = teilId.slice(platz.length + 1);
-      if (modus === 'spind') { const k = aktiveKarte(); return k ? Object.assign(k, { outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null; }
-      const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert }) : null;
+      if (modus === 'spind') {
+        const k = aktiveKarte(), std = katalog && (katalog.plaetze || []).find((p) => p.id === 'frisur');
+        return k ? Object.assign(k, { frisur: (std && std.standard) || k.frisur, haar: kachelHaar(), outfit: Object.assign(k.outfit, { [platz]: wert }) }) : null;
+      }
+      const k = entwurfKarte(); return k ? Object.assign(k, { [platz]: wert, haar: kachelHaar() }) : null;
     }
     // CHA-01 F: welche gesperrten Herkünfte ('haendler', 'fund') hat der Platz im Spind überhaupt? Die Legende zeigt nur diese Zeilen.
     function spindGesperrteHerkuenfte(platz) {
@@ -164,7 +171,7 @@
     }
     function aktiverName() { const c = store.liste.find((x) => x.id === store.gewaehlt); return c ? c.karte.name : null; }
 
-    // Neuer Charakter: Name, Gesicht, Frisur, Bart, Hautton, Haarfarbe aus `wunsch`; alles andere (Körper, Outfit) ist Standard. Wird gewählt.
+    // Neuer Charakter: Name, Frisur, Hautton, Haarfarbe aus `wunsch`; alles andere (Körper, Outfit) ist Standard. Wird gewählt.
     function legeAn(wunsch) {
       if (!store.bereit) return { ok: false, grund: 'katalog' };
       if (store.liste.length >= MAX) return { ok: false, grund: 'voll' };
@@ -432,6 +439,10 @@
     function spindWaehlePlatz(platz) {
       const e = spindEntwurf();
       if (!e || !OUTFIT_PLAETZE.includes(platz)) return { ok: false, grund: 'platz' };
+      if (platz !== e.platz) {   // CHA-02 E1b: der Umhang hängt am Rücken: die Anprobe dreht auf Rücken-¾, beim Platzwechsel zurück auf die Drehung davor (Q/E bleibt frei)
+        if (platz === 'umhang') { e.yawVorUmhang = e.yaw; e.yaw = UMHANG_YAW; }
+        else if (e.platz === 'umhang' && e.yawVorUmhang != null) { e.yaw = e.yawVorUmhang; e.yawVorUmhang = null; }
+      }
       e.platz = platz; e.hinweis = null; aenderung();
       return { ok: true };
     }
@@ -473,7 +484,7 @@
     // Karte des Entwurfs für die Anprobe-Figur
     const spindKarte = () => { const e = spindEntwurf(); return e ? Ch.pruefeKarte(e.karte, katalog) : null; };
     // Enter: das Outfit des Entwurfs anziehen = EINZIGER Weg, der `outfit` einer gespeicherten Karte schreibt. Geprüft (Ch.pruefeOutfit), nur in den gewählten Charakter,
-    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello: der Client-Stand zieht über abonniereOutfit nach). Name, Gesicht, Frisur, Bart, Farben bleiben, wie sie sind.
+    // gespeichert (speichereListe) und an den Server gemeldet (`sende`, kein hello: der Client-Stand zieht über abonniereOutfit nach). Name, Frisur, Farben bleiben, wie sie sind.
     function speichereOutfit() {
       const e = spindEntwurf();
       if (!e) return { ok: false, grund: 'kein-entwurf' };
@@ -493,7 +504,7 @@
     }
 
     return {
-      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE,
+      SCHLUESSEL, MAX, PLAETZE, TEIL_PLAETZE, FARB_PLAETZE, OUTFIT_PLAETZE, UMHANG_YAW,
       outfitTeileFuer, kachelKarte, spindGesperrteHerkuenfte, oeffneSpind, schliesseSpind, spindWahlIndex, spindWaehlePlatz, spindNaechsterPlatz, spindSetzeWahl, spindBlaettere, spindZeile, spindZuruecksetzen, spindKarte, speichereOutfit,
       lies, abonniere, abonniereOutfit, katalog: () => katalog, setzeKatalog, vorabName,
       teileFuer, farbenFuer, anzahlOptionen, teil, teilName, wahlIndex: (platz) => wahlIndex(entwurf(), platz),

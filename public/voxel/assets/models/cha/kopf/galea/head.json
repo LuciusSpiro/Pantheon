@@ -1,0 +1,29 @@
+{
+  "id": "cha/kopf/galea/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "kopf galea (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "kopf"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/kopf/galea/head_ops",
+      "colors": {
+        "trim": "schale_galea",
+        "metal_light": "beschlag_galea",
+        "primary": "crista_galea"
+      }
+    }
+  ]
+}

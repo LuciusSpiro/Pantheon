@@ -202,6 +202,7 @@
     "test:systeme-tokens": "node tools/test-systeme-tokens.js",
     "test:auftrag-tokens": "node tools/test-auftrag-tokens.js",
     "test:kammer-tokens": "node tools/test-kammer-tokens.js",
+    "test:kammer-tokens-mutation": "node tools/mutation-kammer-tokens.js",
     "test:charaktere": "node tools/test-charaktere.js",
     "test:charaktere-mutation": "node tools/mutation-charaktere.js",
     "sicht:kammer": "node tools/sicht-kammer.js",

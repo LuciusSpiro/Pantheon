@@ -33,19 +33,116 @@
       }
     },
     {
-      "name": "Kettenhalter (Kette am Kragen)",
+      "name": "Kragen unter dem Kopf abschneiden, Spangen eingeschlossen (x -4..3, y 25..27, z -5..2)",
+      "op": "box",
+      "at": [
+        -4,
+        25,
+        -5
+      ],
+      "size": [
+        8,
+        3,
+        8
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Kragen unter dem Kopf abschneiden (x -4..3, y 24, z -5..1; z 2 trägt den Kettenhalter)",
+      "op": "box",
+      "at": [
+        -4,
+        24,
+        -5
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Kragen oben abschneiden (y 26..27, die Wülste enden bei y 25)",
+      "op": "box",
+      "at": [
+        -7,
+        26,
+        -5
+      ],
+      "size": [
+        14,
+        2,
+        9
+      ],
+      "mode": "carve"
+    },
+    {
+      "name": "Wulst vorn kürzen (y 25, z 2 bleibt für Seitensträhne und Perle der Frisuren frei)",
+      "op": "box",
+      "at": [
+        4,
+        25,
+        2
+      ],
+      "size": [
+        2,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Kettenhalter (Kette an den Wülsten)",
       "op": "box",
       "at": [
         3,
         24,
-        3
+        2
       ],
       "size": [
         1,
         1,
-        1
+        2
       ],
       "color": "metall_fellumhang",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Fellsteg hinten (Pelzbahn an den Wulst)",
+      "op": "box",
+      "at": [
+        4,
+        23,
+        -4
+      ],
+      "size": [
+        2,
+        1,
+        2
+      ],
+      "color": {
+        "noise": [
+          "umhang_fellumhang",
+          {
+            "shade": "umhang_fellumhang",
+            "f": 0.72
+          },
+          {
+            "shade": "umhang_2_fellumhang",
+            "f": 1.5
+          }
+        ],
+        "weights": [
+          3,
+          3,
+          2
+        ],
+        "cell": 1
+      },
       "mirror": "x",
       "mirrorAt": 0
     }

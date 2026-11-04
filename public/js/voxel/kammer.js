@@ -2,12 +2,14 @@
 // EIN kleiner Offscreen-Renderer (ein Canvas, ein WebGL-Kontext für alle Bilder, nie je Karte einer), das Ergebnis wird je Kartenaussehen als 2D-Bild gemerkt (nur bei Änderung neu).
 // Globales `KammerBild` (Modul, per <script type="module"> geladen; three und der Lader kommen erst beim ersten Bild – ohne WebGL oder mit ?render=2d bleibt alles aus).
 //   KammerBild.moeglich()                        -> true, wenn Bilder gerendert werden können (Voxel-Modus gewählt, WebGL da, nicht ausgefallen)
-//   KammerBild.bild(karte, art, yaw?)            -> Canvas (2D) oder null (noch in Arbeit/nicht möglich; der Aufrufer zeichnet inzwischen den Ersatz). art 'portraet' | 'nah' | 'ganz' (CHA-01 D: ganze Figur, hochformatig, für den Spind)
+//   KammerBild.bild(karte, art, yaw?)            -> Canvas (2D) oder null (noch in Arbeit/nicht möglich; der Aufrufer zeichnet inzwischen den Ersatz). art 'portraet' | 'nah' | 'kachel' | 'ganz' (CHA-01 D: ganze Figur, hochformatig, für den Spind)
 //   KammerBild.info()                            -> { gerendert, cache, fehler, kontext, versuche } (Tests); ein fehlgeschlagener Schlüssel wird nie neu versucht, fehlt die Figurdatei, ist moeglich() false
-// Kamera wie die Referenzbilder des Voxelwerks (tools/cha-ansicht.mjs): orthografisch, Kopf y 22–34 (Porträt), yaw 28°, pitch 6°; „nah“ zeigt Kopf und Schultern (CHA-01 F: y 20–35, Breite folgt dem Seitenverhältnis 150 × 176 der Erstellung, damit der Kopf das Fenster füllt).
+// Kamera wie die Referenzbilder des Voxelwerks (tools/cha-ansicht.mjs, CHA-02: 8er-Kopf y 22–35, Crista/Hörner bis 34, Suebenknoten 33–34, Zöpfe/Bart bis 23): orthografisch, Porträt x −6..5, y 22–36, yaw 28°, pitch 6°;
+// „nah“ zeigt Kopf und Schultern (y 19–36, Breite folgt dem Seitenverhältnis 150 × 176 der Erstellung, damit der Kopf das Fenster füllt); „kachel“ = Kopf für die Frisur-/Kopf-Kacheln (wie FENSTER.frisur des Voxelwerks, 70 × 62 doppelt).
 const params = new URLSearchParams(location.search);
-const GROESSE = { portraet: { px: 260, fenster: { x: [-5, 4], y: [22, 34], yaw: 28, pitch: 6 } }, nah: { px: { w: 300, h: 352 }, fenster: { x: [-8, 7], y: [20, 35], yaw: 28, pitch: 6 } },
-  ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 36], yaw: 28, pitch: 6 } } };   // ganz: Breite folgt dem Seitenverhältnis des Bildes (Figurfenster des Spinds 120 × 184)
+const GROESSE = { portraet: { px: 260, fenster: { x: [-6, 5], y: [22, 36], yaw: 28, pitch: 6 } }, nah: { px: { w: 300, h: 352 }, fenster: { x: [-8, 7], y: [19, 36], yaw: 28, pitch: 6 } },
+  kachel: { px: { w: 140, h: 124 }, fenster: { x: [-6, 5], y: [22, 35], yaw: 28, pitch: 6 } },
+  ganz: { px: { w: 240, h: 368 }, fenster: { x: [-8, 7], y: [-1, 37], yaw: 28, pitch: 6 } } };   // ganz: Breite folgt dem Seitenverhältnis des Bildes (Figurfenster des Spinds 120 × 184)
 const CACHE_MAX = 40;   // Bilder (Porträts der Liste + Drehungen des Figurfensters)
 
 let T = null, L = null, voxelSize = null, Ch = null, werkzeug = null, startet = null, ausgefallen = false;

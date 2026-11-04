@@ -1,0 +1,203 @@
+{
+  "id": "cha/frisur/kurz/head_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur kurz (head): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Haarkranz",
+      "op": "box",
+      "at": [
+        -4,
+        31,
+        -4
+      ],
+      "size": [
+        8,
+        2,
+        8
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.04
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar oben",
+      "op": "box",
+      "at": [
+        -4,
+        33,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        7
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.12
+      },
+      "jitter": false
+    },
+    {
+      "name": "Haar oben hinten (eine Lage höher)",
+      "op": "box",
+      "at": [
+        -4,
+        34,
+        -4
+      ],
+      "size": [
+        8,
+        1,
+        4
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 1.18
+      },
+      "jitter": false
+    },
+    {
+      "name": "Ecken hinten",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken hinten oben",
+      "op": "box",
+      "at": [
+        3,
+        34,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Ecken vorn",
+      "op": "box",
+      "at": [
+        3,
+        33,
+        2
+      ],
+      "size": [
+        1,
+        1,
+        1
+      ],
+      "mode": "carve",
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Pony Strähne",
+      "op": "box",
+      "at": [
+        -4,
+        30,
+        3
+      ],
+      "size": [
+        3,
+        1,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.94
+      }
+    },
+    {
+      "name": "Haar Seiten",
+      "op": "box",
+      "at": [
+        3,
+        29,
+        -4
+      ],
+      "size": [
+        1,
+        2,
+        6
+      ],
+      "color": "hair",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Haar Seiten unten",
+      "op": "box",
+      "at": [
+        3,
+        28,
+        -4
+      ],
+      "size": [
+        1,
+        1,
+        4
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.9
+      },
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0
+    },
+    {
+      "name": "Haar hinten",
+      "op": "box",
+      "at": [
+        -4,
+        28,
+        -4
+      ],
+      "size": [
+        8,
+        3,
+        1
+      ],
+      "color": {
+        "shade": "hair",
+        "f": 0.9
+      },
+      "jitter": false
+    }
+  ]
+}

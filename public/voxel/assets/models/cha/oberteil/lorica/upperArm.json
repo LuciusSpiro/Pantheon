@@ -1,0 +1,27 @@
+{
+  "id": "cha/oberteil/lorica/upperArm",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (upperArm)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/upperArm_ops",
+      "colors": {
+        "trim": "gold_lorica"
+      }
+    }
+  ]
+}

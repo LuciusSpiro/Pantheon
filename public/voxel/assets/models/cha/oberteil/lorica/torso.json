@@ -1,0 +1,59 @@
+{
+  "id": "cha/oberteil/lorica/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "oberteil"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/torso_rumpf",
+      "colors": {
+        "secondary": "lack_lorica",
+        "trim": "gold_lorica",
+        "metal_dark": "dunkel_lorica",
+        "metal_light": "niet_lorica",
+        "glow2": "adler_lorica",
+        "cloth2": "kappe_lorica"
+      }
+    },
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/torso_schulter",
+      "colors": {
+        "secondary": "lack_lorica",
+        "trim": "gold_lorica",
+        "metal_dark": "dunkel_lorica",
+        "metal_light": "niet_lorica",
+        "glow2": "adler_lorica",
+        "cloth2": "kappe_lorica"
+      }
+    },
+    {
+      "op": "use",
+      "model": "cha/oberteil/lorica/torso_schulter",
+      "colors": {
+        "secondary": "lack_lorica",
+        "trim": "gold_lorica",
+        "metal_dark": "dunkel_lorica",
+        "metal_light": "niet_lorica",
+        "glow2": "adler_lorica",
+        "cloth2": "kappe_lorica"
+      },
+      "name": "schulter (gespiegelt)",
+      "mirror": "x",
+      "mirrorAt": 0
+    }
+  ]
+}

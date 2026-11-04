@@ -1,0 +1,201 @@
+{
+  "id": "cha/oberteil/lorica/hips_ops",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "oberteil lorica (hips): herausgelöste Ops",
+  "tags": [
+    "cha",
+    "ops"
+  ],
+  "notes": "Ops aus eigenen Boxen, Reihenfolge wie im Bestand.",
+  "ops": [
+    {
+      "name": "Gürtel",
+      "op": "box",
+      "at": [
+        -4,
+        14,
+        -3
+      ],
+      "size": [
+        8,
+        2,
+        6
+      ],
+      "color": {
+        "stripes": [
+          "metal_dark",
+          "trim"
+        ],
+        "axis": "x",
+        "period": 2
+      },
+      "jitter": false
+    },
+    {
+      "name": "Schnalle",
+      "op": "box",
+      "at": [
+        -1,
+        14,
+        3
+      ],
+      "size": [
+        2,
+        2,
+        1
+      ],
+      "color": "trim",
+      "jitter": false
+    },
+    {
+      "name": "Tunika-Rock hinten",
+      "op": "box",
+      "at": [
+        -4,
+        9,
+        -2
+      ],
+      "size": [
+        8,
+        5,
+        1
+      ],
+      "color": "cloth"
+    },
+    {
+      "name": "Tunika-Rock vorn",
+      "op": "box",
+      "at": [
+        -4,
+        9,
+        3
+      ],
+      "size": [
+        8,
+        5,
+        1
+      ],
+      "color": "cloth"
+    },
+    {
+      "name": "Pteruges vorn",
+      "op": "box",
+      "at": [
+        -4,
+        9,
+        3
+      ],
+      "size": [
+        2,
+        5,
+        1
+      ],
+      "color": "secondary",
+      "jitter": false,
+      "repeat": {
+        "count": 3,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "Pteruges hinten",
+      "op": "box",
+      "at": [
+        -4,
+        9,
+        -3
+      ],
+      "size": [
+        2,
+        5,
+        1
+      ],
+      "color": "secondary",
+      "jitter": false,
+      "repeat": {
+        "count": 3,
+        "step": [
+          3,
+          0,
+          0
+        ]
+      }
+    },
+    {
+      "name": "Pteruges Seiten",
+      "op": "box",
+      "at": [
+        4,
+        9,
+        -3
+      ],
+      "size": [
+        1,
+        5,
+        2
+      ],
+      "color": "secondary",
+      "jitter": false,
+      "mirror": "x",
+      "mirrorAt": 0,
+      "repeat": {
+        "count": 2,
+        "step": [
+          0,
+          0,
+          4
+        ]
+      }
+    },
+    {
+      "name": "Lamellenspitzen",
+      "op": "box",
+      "at": [
+        -5,
+        9,
+        -3
+      ],
+      "size": [
+        10,
+        1,
+        6
+      ],
+      "color": "trim",
+      "mode": "paint",
+      "jitter": false
+    },
+    {
+      "name": "Schurz (Balteus)",
+      "op": "box",
+      "at": [
+        -1,
+        9,
+        3
+      ],
+      "size": [
+        2,
+        5,
+        1
+      ],
+      "color": {
+        "stripes": [
+          "leather",
+          "trim"
+        ],
+        "axis": "y",
+        "period": 2
+      }
+    }
+  ]
+}

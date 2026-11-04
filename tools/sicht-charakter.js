@@ -33,14 +33,14 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const STD_OUTFIT = { kopf: 'keine', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'keiner' };
 const KARTEN = [
-  { v: 1, name: 'Hrolf', koerper: 'standard', gesicht: 'narbe', frisur: 'zoepfe', bart: 'vollbart', haut: 3, haar: 2,
+  { v: 1, name: 'Hrolf', koerper: 'standard', frisur: 'bartlang', haut: 3, haar: 2,
     outfit: { kopf: 'keine', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'fellumhang' } },
-  { v: 1, name: 'Aurelia', koerper: 'standard', gesicht: 'lerche', frisur: 'dutt', bart: 'keiner', haut: 1, haar: 1,
-    outfit: { kopf: 'bordhelm', oberteil: 'bordtunika', hose: 'bordhose', schuhe: 'bordstiefel', haende: 'keine', umhang: 'fellumhang' } },
-  { v: 1, name: 'Cato', koerper: 'standard', gesicht: 'lerche', frisur: 'zoepfe', bart: 'vollbart', haut: 2, haar: 3, outfit: STD_OUTFIT },
+  { v: 1, name: 'Aurelia', koerper: 'standard', frisur: 'welle', haut: 1, haar: 1,
+    outfit: { kopf: 'galea', oberteil: 'lorica', hose: 'bordhose', schuhe: 'ocreae', haende: 'keine', umhang: 'sagum' } },
+  { v: 1, name: 'Cato', koerper: 'standard', frisur: 'kurz', haut: 2, haar: 3, outfit: STD_OUTFIT },
 ];
-const NACHZUEGLER = { v: 1, name: 'Brienne', koerper: 'standard', gesicht: 'narbe', frisur: 'dutt', bart: 'keiner', haut: 0, haar: 0,
-  outfit: { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'bordhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'keiner' } };
+const NACHZUEGLER = { v: 1, name: 'Brienne', koerper: 'standard', frisur: 'wild', haut: 5, haar: 7,
+  outfit: { kopf: 'hoernerhelm', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'germanenstiefel', haende: 'armschiene', umhang: 'keiner' } };
 const NEUES_OUTFIT = { kopf: 'bordhelm', oberteil: 'plankenweste', hose: 'germanenhose', schuhe: 'bordstiefel', haende: 'armschiene', umhang: 'fellumhang' };
 
 const fehler = [];

@@ -1,0 +1,33 @@
+{
+  "id": "cha/umhang/sagum/torso",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "umhang sagum (torso)",
+  "tags": [
+    "cha",
+    "schicht",
+    "umhang"
+  ],
+  "notes": "Schicht aus fig/rom/umhang, Bestandsteil unverändert per use.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "fig/rom/umhang",
+      "at": [
+        0,
+        20,
+        -3
+      ],
+      "colors": {
+        "cloth": "umhang_sagum",
+        "trim": "zier_sagum"
+      }
+    }
+  ]
+}

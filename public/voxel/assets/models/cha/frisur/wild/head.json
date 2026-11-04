@@ -1,0 +1,27 @@
+{
+  "id": "cha/frisur/wild/head",
+  "tier": "detail",
+  "palette": "cha",
+  "anchor": [
+    0,
+    0,
+    0
+  ],
+  "generated": true,
+  "name": "frisur wild (head)",
+  "tags": [
+    "cha",
+    "schicht",
+    "frisur"
+  ],
+  "notes": "Schicht aus eigenen Boxen, herausgelöst.",
+  "ops": [
+    {
+      "op": "use",
+      "model": "cha/frisur/wild/head_ops",
+      "colors": {
+        "cloth": "perle_wild"
+      }
+    }
+  ]
+}
