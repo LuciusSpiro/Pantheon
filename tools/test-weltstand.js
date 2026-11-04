@@ -56,7 +56,7 @@ function main() {
   ok(Protocol.CMD_TRANSFER_ZIEL === 'transfer.ziel' && Protocol.CMD_AWAY_MAP_GET === 'awayMap.get' && Protocol.EVT_AWAY_MAP === 'awayMap', 'B1: transfer.ziel, awayMap.get, awayMap');
   ok(['map', 'kv', 'ao', 'ko', 'al', 'cd'].every((k) => Protocol.AWAY_SNAP_B1.includes(k)) && Protocol.SPACE_ENEMY_ST.includes('treibt'), 'B1: Snapshot away + space.enemies[].st');
   ok(['ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei'].every((k) => Protocol.B1_EVENTS.includes(k)), 'B1: Ereignisse');
-  ok(Protocol.CMD_LOADOUT_WAFFE === 'loadout.waffe' && Protocol.WAFFEN_WAHL.length === 6 && Protocol.PLAYER_SNAP_B2.includes('zs') && Protocol.KOERPER_ZUSTAENDE.includes('aus'), 'B2: loadout.waffe, Waffen, zs');
+  ok(Protocol.CMD_LOADOUT_WAFFE === undefined && Protocol.WAFFEN_WAHL.length === 6 && Protocol.PLAYER_SNAP_B2.includes('zs') && Protocol.KOERPER_ZUSTAENDE.includes('aus'), 'B2: loadout.waffe entfallen (AUS-01 C), Waffen, zs');
   ok(Protocol.CMD_HELM_NOTSPRUNG === 'helm.notsprung' && Protocol.WELCOME_SEKTORKARTE === 'sektorkarte' && Protocol.JP_STATES.length === 4, 'B3: helm.notsprung, welcome.sektorkarte, Bojen');
   ok(['buehne', 'anker', 'lp', 'waffe', 'gegner', 'fang', 'hex', 'boje', 'notsprung', 'erkunde'].every((k) => Protocol.DEBUG_CMDS.includes(k)), 'B1–B3: Debug-Befehle');
   ok(Protocol.CMD_PLAN_BOOK.includes('plan.decline') && Protocol.CMD_PLAN_DECLINE === 'plan.decline', 'S2: plan.decline');

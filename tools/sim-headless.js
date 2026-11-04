@@ -1550,7 +1550,7 @@ class KeshAgent extends Agent {
       return;
     }
     if (!ok && !steerer) { if (p.console) this.leave(S); this.onMyPad(S, p); return; }
-    if (p.console && p.console !== 'transfer') { this.leave(S); return; }
+    if (p.console && p.console !== 'transfer' && p.console !== 'ausruestung') { this.leave(S); return; }
     if (this.loadoutStep(S, p)) return;
     if (!this.onMyPad(S, p)) return;
     if (this.role === 'helm') {
@@ -1660,14 +1660,17 @@ class KeshAgent extends Agent {
     return opts[opts.length - 1][0];
   }
   // true, solange der Bot mit der Wahl beschäftigt ist. Ohne Waffen-Modul (WAFFEN=aus: kein wf im Snapshot) entfällt sie.
+  // AUS-01 C: die Wahl läuft an der Ausrüstungsstation (ausruestung.slot, Slot 0); Bots wechseln am Boden nicht.
   loadoutStep(S, p) {
     const m = this.memo;
+    const weg = () => { if (p.console === 'transfer' || p.console === 'ausruestung') { this.leave(S); return true; } return false; };
     if (m.wantWf === undefined) m.wantWf = this.pickWeapon();
     const want = m.wantWf;
-    if (!want || p.wf == null || (m.wfTries || 0) > 6) { if (p.console === 'transfer') { this.leave(S); return true; } return false; }
-    if (p.wf === want) { if (p.console === 'transfer') { this.leave(S); return true; } return false; }
-    if (!this.enter(S, 'transfer')) return true;
-    this.cmd('loadout.waffe', { waffe: want }); m.wfTries = (m.wfTries || 0) + 1; this.waitT = 0.1;
+    if (!want || p.wf == null || (m.wfTries || 0) > 6) return weg();
+    if (p.wf === want) return weg();
+    if (!this.enter(S, 'ausruestung')) return true;
+    this.cmd('ausruestung.slot', { slot: 0, id: want }); m.wfTries = (m.wfTries || 0) + 1; this.waitT = 0.1;
+    if (this.game.simStats) this.game.simStats.ausgeruestet = (this.game.simStats.ausgeruestet || 0) + 1;
     return true;
   }
   coverSpot(S, p, foe, wantHidden) {
@@ -1839,6 +1842,7 @@ function printKesh(r) {
   const c = r.combat;
   log(`Kampf: Verwundungen ${c.wounds}, Wiederbelebungen ${c.revives}, Notrückholungen alle ${c.squadRecalls} / einzeln ${c.bleedRecalls}, Spieler-Treffer ${c.playerHits}, Gegner-Schüsse ${c.enemyShots}, Deckung geschluckt ${c.coverBlocks}, Wächter-Abpraller ${c.deflects}, Kuppel ${c.kuppelBlocks}`);
   log(`Gegner: ${r.killed}/${r.spawned} ausgeschaltet, Wächter ${r.warden}, Störrelais aus ${r.jammersOff}/2, Funksprüche ${c.barks}, Befehle ${r.sim.orders}, Schüsse aus Deckung ${r.sim.coverShots}`);
+  log(`Ausrüstung: ${r.sim.ausgeruestet || 0} Befehle ausruestung.slot (Bot-Wahl an der Station)`);   // AUS-01: belegt, dass loadoutStep läuft
   log(`Invarianten: Treffer aus mehr als engageBox ohne Sichthilfe ${c.offBoxHits} (mit Aussicht/Trupp-Funk, E16: ${c.offBoxHitsHilfe || 0}; Schüsse außerhalb ${c.offBoxShots}), längstes Einklemmen ${c.maxStuck.toFixed(1)} s (max. 8)`);
   log(`Server-Fehlerzähler: ${r.errors} · Snapshot max ${r.snapMax} B · Marken ${r.marks}, Tafel ${r.tafel}`);
 }

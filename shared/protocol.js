@@ -64,8 +64,8 @@
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
     // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----
-    // cmd { c: 'loadout.waffe', waffe: WAFFEN_WAHL } – an der Transfer-Konsole (nicht unten); gespeichert je Spieler über den
-    //   Hash der Browser-Kennung (Weltstand crew.waffen), nie über Namen.
+    // Waffenwahl: nur noch über die Ausrüstungsstation (cmd ausruestung.slot, AUS-01); der Befehl loadout.waffe ist mit AUS-01 C entfallen.
+    //   Gespeichert je Spieler über den Hash der Browser-Kennung (Weltstand crew.waffen/crew.loadout), nie über Namen.
     // Halte-Interaktionen über den bestehenden Hold-Mechanismus (act), Kinds HOLD_KINDS_B2.
     // Snapshot players[]: PLAYER_SNAP_B2 – wf (Waffe), ht (Hitze 0–100), ov (1 = überhitzt), ch (Laden 0–100), wu (Ausholen 0–100),
     //   zs (KOERPER_ZUSTAENDE ohne 'aus'), bt (1 = betäubt). Nur gesetzte Felder (Budget). Außenzone: alle Felder (v2-Karten).
@@ -101,7 +101,14 @@
     // FIX-ZIELEN: input { seq, mx, my, aim? } – aim = Zielwinkel zum Mauszeiger in ganzen Grad (atan2, x rechts, y unten),
     //   nur außen und mit Zeiger; fehlt aim, gilt wieder die Laufrichtung. Gesendet ab 4° Änderung, höchstens 20×/s.
     //   Snapshot players[].fa = Blickrichtung in ganzen Grad (nur Außenzone, nur solange aim gesetzt ist; fehlt = dir).
-    CMD_LOADOUT_WAFFE: 'loadout.waffe',
+    // AUS-01 A: cmd { c: 'ausruestung.slot', slot: 0..2, id: WAFFEN_WAHL | null } – setzt einen Loadout-Slot (null = leer). Slotzahl 3 bei 1–2 Spielern,
+    //   2 ab 3 Spielern (in startGame festgesetzt). Aktive Waffe = erste Waffe der wirksamen Slots, ohne Waffe 'faust'.
+    //   Weltstand crew.loadout { Hash -> [Id|null, max. 3] } (optional, additiv); crew.waffen bleibt als Spiegel der ersten Waffe.
+    // AUS-01 B: umbenannt von 'loadout.slot' auf 'ausruestung.slot'; Präfix ausruestung gilt nur an der Konsole 'ausruestung' (Ausrüstungsstation, nicht exklusiv),
+    //   nicht mehr an 'transfer'. Antwort an den Absender: Ereignis { kind: 'ausruestungStand', pid, slotzahl, slots: [Id|null, ...wirksame Slots], fehler? } –
+    //   auch beim Betreten der Station und auf cmd { c: 'ausruestung.stand' }. Kein Snapshot-Feld.
+    CMD_LOADOUT_SLOT: 'ausruestung.slot',
+    CMD_AUSRUESTUNG_STAND: 'ausruestung.stand',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],
@@ -255,7 +262,7 @@
     // Fehlercodes in { t: 'error', code, text }
     ERR: { BADCODE: 'badcode', WORLDBUSY: 'worldbusy' },
     // 'quartier' öffnet sich an der eigenen Koje, 'spind' am eigenen Spind (CHA-01 D), 'kustodenpult' am Kustodenpult (Außenmission; bis SL0 „sonde“).
-    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan'],   // M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
+    CONSOLES: ['helm', 'captain', 'weapons', 'technik', 'transfer', 'shop', 'quartier', 'spind', 'kustodenpult', 'plan', 'ausruestung'],   // AUS-01 B: 'ausruestung' (Ausrüstungsstation, nicht exklusiv); M1: 'plan' (Planungstisch, nicht exklusiv; 'weapons' = Anzeige „OPS“); R1: 'technik' = vierte Rolle (Maschinenraum)
     // R1 §4.4: Stationskreis für Tab/Shift+Tab (Interface-Wechsel, der Spieler bleibt an seiner Konsole stehen): Navigation, Ops, Captain, Technik
     STATION_KREIS: ['helm', 'weapons', 'captain', 'technik'],
     CMD_STATION_TAB: 'station.tab',   // { dir: 1 | -1 } – ohne Konsolenpräfix, geprüft in station.tab

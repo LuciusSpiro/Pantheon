@@ -1215,8 +1215,14 @@ Taktischer Bodenkampf nach **denselben Regeln für Spieler und Gegner** (`CONTRA
   von innen (E halten, 8 s, laut). Die Ausrüstung liegt am `beute`-Anker, danach geht es zum Abholpunkt. Beim zweiten
   Mal in derselben Szene oder bei `ausbruch_erlaubt: false` (Tutorial) folgt wie bisher die Notrückholung. Seit
   Welle 1 kann eine Szene auch in der Zelle beginnen (`team_gefangen`).
-- **Waffenwahl:** an der Transfer-Konsole mit **Q/E** oder per Klick, je Spieler. Der Weltstand speichert sie unter einem
-  Hash der Browser-Kennung (`crew.waffen`), nie unter dem Namen. Neue Spieler starten mit dem Blaster.
+- **Ausrüstungsstation (AUS-01):** Die Waffenwahl läuft nicht mehr an der Transfer-Konsole, sondern an der Station
+  `ausruestung` in der Transferkammer (Kachel (13,9), **E**). Jeder Spieler hat Loadout-Slots: **3** bei 1–2 Spielern,
+  **2** ab 3 Spielern (einmal beim Spielstart festgesetzt). Aktive Waffe unten = die erste Waffe der Slots, auf der
+  Außenmission zeigt eine Slot-Leiste im HUD das Loadout. Bedienung: **←→** wechselt zwischen Slot-Liste und Waffenliste, **↑↓**
+  wählt darin, **Enter** setzt, **1–6** Waffe direkt, **0** Slot leeren (oder per Klick). Ein leeres Loadout heißt **Fäuste**. Neue Spieler
+  ohne gespeichertes Loadout tragen den Blaster in Slot 1 (Standardloadout, wird erst bei der ersten Änderung gespeichert).
+  Das Loadout bleibt im Weltstand gespeichert (`crew.loadout`, Hash der Browser-Kennung, nie der Name; ein dritter Slot
+  bleibt bei 2 Slots unsichtbar erhalten). Beamen nimmt es mit. Befehle `ausruestung.slot` / `ausruestung.stand`.
 - **Wellen-Modus mit Kartenwahl:** In der Lobby schaltet **M** auf „Bodenkampf: Wellen“, **K** wählt die Karte
   (Außenposten, Station, Ruine, Schiff, Kesh-Hof). Jeder Start bekommt einen neuen Seed.
   - Ablauf: 10 s Countdown, dann Wellen. Dazwischen 15 s Pause zum Aufrichten, Befreien und Auffüllen.
@@ -1672,7 +1678,7 @@ Systeme reparieren sie ab M3a nur auf Befehl (Schadensplan) oder automatisch, we
 | Minispiel (R an einer Station) | **Leertaste**, wenn der Zeiger im grünen Feld steht – 3 Treffer, Fehlgriff = 1 s Sperre, scheitern unmöglich · Esc bricht ab |
 | Planungstisch (Brücke, `Y`) | E am Tisch setzen (bis zu 3 gleichzeitig) · **1–5** Pin-Art (Ziel, Gefahr, Landeplatz, Treffpunkt, Frage) · **Klick** Pin setzen – auf der Sternkarte (auf einem Ort: **Shift+Klick**), auf jeder Detailkarte und jedem Decksplan · Rechtsklick eigenen Pin entfernen · ←/→ Ort · **Enter** Detailkarte · **D** Decksplan (B-7/Wrack/Kesh) · **Backspace** zurück zur Sternkarte · **M Missionsbuch**: aktive / angebotene / erledigte Aufträge mit Auftraggeber, Briefing, Belohnung, Zielen und Logbuch – **W/S** wählen, **Enter** als aktiv markieren (das HUD zeigt dann deren Ziele), **A** annehmen · Esc aufstehen |
 | Quartier (E an der eigenen Koje) | ↑/↓ Reihe (Boden, Wand, Licht, Plätze) · ←/→ wählen · **Q/E** Deko blättern · Enter Deko setzen |
-| Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) · **Q/E** Waffe wählen (B2) · 7–0 Landepunkt (B1) |
+| Transfer | 1 runter · 2 hoch · 3 Medipack-Nachschub · 4–6 Notrückholung (oder einfach auf einem Pad **E halten**) · 7–0 Landepunkt (B1) · die Waffenwahl liegt seit AUS-01 an der Ausrüstungsstation daneben (E, Transferkammer) |
 | Außenmission | Leertaste/Linksklick feuert die gewählte Waffe (zielt auf die Maus; Lanze: halten lädt, loslassen feuert) · Q Markierung für Hilfe von oben · Sonde: 1–6 Farbe |
 | Außenmission Kesh (Kampf v2) | **C** ducken / aufstehen · siehe „Kampf auf Kesh“ unten · Captain-Reiter 4: **Q/W/E/R/F/G** Befehl wählen, Klick auf die Karte setzt ihn, X löschen, **S** Sensor, **K** Kuppel |
 | Reaktor offline | beide Schalter im Maschinenraum (A oben, B unten) **gleichzeitig E halten**, 3 s. Allein: einen halten, nach 3 s kommt ein Schrauber an den anderen. |

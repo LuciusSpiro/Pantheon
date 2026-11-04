@@ -43,9 +43,10 @@ const BLOCK_MODS = {
   landepunkte: './sim/landepunkte.js',   // welt.landepunkte (BUEHNE)
   wracks: './sim/entern.js',             // welt.wracks (ENTERN)
   waffen: './sim/waffen.js',             // crew.waffen (WAFFEN)
+  loadout: './sim/loadout.js',           // crew.loadout (AUS-01 A, optional; nach waffen geladen: Altstand crew.waffen = Slot 1)
   sektoren: './sim/sprung.js',           // welt.sektoren (SEKTOR; alternativ explore.toSave().sektoren / explore.restore(welt))
 };
-const BLOCK_DEFAULTS = { landepunkte: () => ({}), wracks: () => [], waffen: () => ({}), sektoren: () => ({ erkundet: [], bojen: [], temp: [], offen: [] }) };
+const BLOCK_DEFAULTS = { landepunkte: () => ({}), wracks: () => [], waffen: () => ({}), loadout: () => ({}), sektoren: () => ({ erkundet: [], bojen: [], temp: [], offen: [] }) };
 const modCache = {};
 function blockMod(key) {
   if (key in modCache) return modCache[key];
@@ -744,6 +745,8 @@ function capture(game) {
   if (!sek && ex && typeof ex.sektorenToSave === 'function') { try { sek = ex.sektorenToSave(); } catch (e) { countError(game, 'weltstand-sektoren', e); } }
   data.welt.sektoren = normSektoren(sek || blockSave(game, 'sektoren'));
   data.crew = { waffen: blockSave(game, 'waffen'), rollen_gesehen: (ws.data.rollen_gesehen || []).slice() };
+  const loadout = blockSave(game, 'loadout');   // AUS-01 A: optional und additiv; ohne Einträge fehlt der Block (ältere Spielversionen lehnen Stände mit diesem Block per Schema ab)
+  if (Object.keys(loadout).length) data.crew.loadout = loadout;
   return data;
 }
 
@@ -846,7 +849,7 @@ function apply(game, data) {
   if (!w.sektoren || (!(w.sektoren.erkundet || []).length && ((w.orte && w.orte.besucht) || []).length)) w.sektoren = sektorenAusOrten(w);
   w.sektoren = normSektoren(w.sektoren);
   ws.data.bloecke = { landepunkte: w.landepunkte || {}, wracks: Array.isArray(w.wracks) ? w.wracks : [], sektoren: w.sektoren,
-    waffen: (d.crew && d.crew.waffen) || {} };
+    waffen: (d.crew && d.crew.waffen) || {}, loadout: (d.crew && d.crew.loadout) || {} };
   // B1 §8 Reihenfolge: sektoren -> landepunkte -> spielleiter.restore -> mission.restore -> away.applyWorldFacts
   // sektoren: explore.restore(w) bekommt den ganzen Block welt und stellt welt.sektoren selbst her (SEKTOR, sektorenRestore)
   if (game.explore.restore) game.explore.restore(w);
@@ -857,6 +860,7 @@ function apply(game, data) {
   blockRestore(game, 'landepunkte', ws.data.bloecke.landepunkte);
   blockRestore(game, 'wracks', ws.data.bloecke.wracks);
   blockRestore(game, 'waffen', ws.data.bloecke.waffen);
+  blockRestore(game, 'loadout', ws.data.bloecke.loadout);   // AUS-01 A: nach waffen (crew.loadout hat Vorrang, Altstand crew.waffen = Slot 1)
   game.odaSeen = new Set(w.odaSeen || []);
   game.scans = new Set(w.scans || []);
   const wreck = game.aways && game.aways.wreck;

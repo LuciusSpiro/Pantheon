@@ -29,6 +29,7 @@ const CONSOLE_ID = {
   helm: 'lerche/console/helm', weapons: 'lerche/console/tactical', captain: 'lerche/console/captain', transfer: 'lerche/console/transfer',
   technik: 'lerche/console/tactical',   // R1: Platzhalter, bis Voxelwerk ein eigenes Technik-Modell liefert (Maschinenraum-Pult)
   plan: 'lerche/console/plan_table', shop: 'lerche/console/shop',
+  ausruestung: 'lerche/console/tactical',   // AUS-01 B: Platzhalter (Taktikpult, Funktionsfarbe Waffen), bis Voxelwerk ein eigenes Modell Ausrüstungsstation liefert
 };
 const FURN_ID = {
   reactor_switch: 'lerche/station/reactor_switch',
@@ -485,7 +486,8 @@ function buildDynamic(ctx, S) {
       else if (con === 'shop') fn = (st) => ({ docked: st.ship && st.ship.docked ? 1 : 0 });
       else if (con === 'captain') fn = (st) => ({ occupied: consoleBusy(st, con) });
       else fn = (st) => ({ occupied: consoleBusy(st, con), alert: st.ship && st.ship.alert === 'red' ? 1 : 0 });
-      add(o, id, PH_COL.console, fn, { con });
+      // AUS-01 B: Ausrüstungsstation = Taktikpult mit Schirm/Holo in Funktionsrot (#E8584A wie das 2D-Sprite), bis Voxelwerk ein eigenes Modell liefert
+      add(o, id, PH_COL.console, fn, con === 'ausruestung' ? { con, farben: { glow: { color: '#E8584A', emit: 1.4 }, glow2: { color: '#FF8A7A', emit: 1.4 } } } : { con });
       if (con === 'plan') add(Object.assign({}, o, { rot: Math.PI }), ID.missionBook, PH_COL.furn, () => ({ neu: 0 }), { y: 1.1 });   // Missionsbuch auf der Tischplatte (Höhe 1,1 m)
       continue;
     }
@@ -579,7 +581,7 @@ function placeObj(ctx, S, e, params) {
   if (params.modell && (e.laf || e.station)) {   // PAN-01 C: Lafettenmodell der Waffenart (Voxelwerk lerche/station/lafette_*): state 2 aktiv bestückt, side Bb/Stb, Abwehrturm winkel
     const wk = params.winkel; id = params.modell; params = { state: 2, side: params.side || 0 }; if (wk != null) params.winkel = wk;
   }
-  const obj = ctx.loader.object(id, params, { color: e.color });
+  const obj = ctx.loader.object(id, params, e.farben ? { color: e.color, colors: e.farben } : { color: e.color });   // farben: Tönung je Instanz (Palettenrollen)
   obj.position.set(e.o.cx, e.y || 0, e.o.cz);
   obj.rotation.y = e.o.rot || 0;
   obj.userData.tile = [e.o.tx, e.o.ty];

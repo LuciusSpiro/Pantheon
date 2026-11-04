@@ -19,6 +19,9 @@
   }
   const TILE = 32, VW = 640, VH = 360;
   // SYS-03 E: Anker des Schiffs-HUD oben rechts (Kopfzeile Marken + Schildmini, darunter Raumname, Sprungzeile, Reaktorhinweis); eine Lücke von 2 px zwischen den Blöcken
+  // AUS-01 E: welches Feld der Slot-Leiste leuchtet: Index der getragenen Waffe (Snapshot wf) in den wirksamen Slots, -1 = keins
+  // (Faust bei leerem Loadout, Gefangene, Debug-Waffe, Spieler ohne Kennung: wf steht dann nicht im Loadout, es wird nie ersatzweise Slot 1 markiert).
+  const aktiverSlot = (slots, wf) => (Array.isArray(slots) && wf ? slots.indexOf(wf) : -1);
   const HUD_LAYOUT = { top: 2, kopfH: 28, marksY: 15, shieldY: 12, roomY: 32, jumpY: 45, hintY: 48 };
   const FUNK_W = 228, FUNK_BILD_W = 28;   // Breite der Funktafel (x 204) und des Funkporträts samt Rand
   const LAGEFUNK_Y = 44;   // SUND-02a C: Oberkante des Lagefunk-Feldes an Konsolen und Terminals (unter deren Kopfzeile, die bis etwa y 40 reicht)
@@ -59,12 +62,13 @@
     ['thruster_port', 'battery_port', 'emitter_port', 'thruster_stbd', 'battery_stbd', 'emitter_stbd', 'transfer']];
   const ITEM_NAMES = { ersatzteil: 'Ersatzteil', loeschgel: 'Löschgel', flickblech: 'Flickblech', bolzen: 'Torpedo', medipack: 'Medipack', datenkern: 'Datenkern', tafel: 'Tafel von Kesh' };
   const STATE_NAMES = { ok: 'in Ordnung', damaged: 'beschädigt', broken: 'zerstört' };
-  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch' };
+  const CONSOLE_NAMES = { helm: 'Steuer', captain: 'Captain', weapons: 'Ops', technik: 'Technik', transfer: 'Transfer', shop: 'Terminal', quartier: 'Quartier', spind: 'Spind', kustodenpult: 'Kustodenpult', plan: 'Planungstisch', ausruestung: 'Ausrüstung' };
   const SECTOR_NAMES = ['Bug', 'Steuerbord', 'Heck', 'Backbord'];
   const SYSTEMS = PROTO.SYSTEMS || ['reactor', 'engines', 'shields', 'weapons', 'transfer'];
   // B2: Waffen- und Zustandsnamen (Snapshot wf / zs / bt)
-  const WAFFE_KURZ = { schrottblaster: 'Schrottbl.', sturmgewehr: 'Gewehr', granatwerfer: 'Granaten', betaeuber: 'Betäuber', nahkampf: 'Klinge' };
-  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Faust', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
+  // EIN Kurzname je Waffe (Waffenzeile, Slot-Leiste, Ausrüstungsstation); die Station zeigt dahinter zusätzlich WAFFE_NAME
+  const WAFFE_KURZ = { blaster: 'Blaster', sturmgewehr: 'Gewehr', granatwerfer: 'Werfer', lanze: 'Lanze', nahkampf: 'Klinge', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottbl.' };
+  const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster' };
   // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
   function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
   const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
@@ -315,6 +319,7 @@
     // Snapshot wellen { k, s, n, ph, t, r, l } (shared/protocol.js); Ereignisse welle/welleGeschafft/wellenEnde setzt client.js
     // in wellenBanner/wellenErgebnis. Rekorde je Karte: wellenRekorde (localStorage, client.js).
     wellenBanner: null, wellenErgebnis: null, wellenRekorde: {},
+    loadoutStand: null,   // AUS-01 E: letzter ausruestungStand { slotzahl, slots } für die Boden-HUD-Leiste (client.js setzt ihn)
     wellenKarteName(k) {
       const P = window.Shared_Protocol || {};
       if (/^all:/.test(k || '')) { const z = this.allSzene(k.slice(4)); return 'All: ' + (z ? z.name : k.slice(4)); }   // W2 AP3b: Wellen All
@@ -488,7 +493,7 @@
       pips(cur[1] || 0, x + 3 - ex, y + 13, false, 1);  // Steuerbord unten
     },
 
-    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT,
+    WAFFE_NAME, WAFFE_KURZ, ZS_TEXT, waffeIcon, HUD_LAYOUT, aktiverSlot,
     drawShipHud(ctx, view) {
       const st = view.state;
       const ship = st.ship || {};
@@ -696,7 +701,8 @@
       // BOD-02 P4: in einer Stellung (Sicht 16) bzw. auf dem Posten (22) steht eine dezente Zeile; abgeleitet aus Karte + eigener Position (kein Snapshot-Feld)
       const sichtN = R.sichtVon && !me.downed ? R.sichtVon(R.mapFor('away', st), me) : 0;
       const stelleZeile = sichtN > (+(CFG.awayCombat && CFG.awayCombat.sightTiles) || 10);
-      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
+      const slotZeile = waffeZeile && !!(this.loadoutStand && this.loadoutStand.slotzahl > 0);   // AUS-01 E: Loadout-Leiste (Stand vom Server, kein Snapshot-Feld)
+      const h = 44 + team.length * 11 + (crouched ? 11 : 0) + (waffeZeile ? 12 : 0) + (slotZeile ? 12 : 0) + (zsZeile ? 11 : 0) + (stelleZeile ? 11 : 0);
       const y0 = VH - h - 4;
       R.backdrop(ctx, 4, y0, 170, h, 0.68);   // schmal genug, dass die ODA-Box (unten mittig) nichts verdeckt
       // Schild
@@ -718,11 +724,11 @@
         R.text(ctx, 'Medipack', mx + 15, y0 + 5, { color: PAL.star });
       } else {
         ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(mx + 0.5, y0 + 3.5, 11, 11);
-        R.text(ctx, 'kein Medipack', mx + 15, y0 + 5, { color: '#6B7380' });
       }
       // Deckung / Flanke bzw. Verwundet
       let y = y0 + 20;
       if (waffeZeile) { this.drawWaffeZeile(ctx, view, 8, y); y += 12; }
+      if (slotZeile) { this.drawSlotZeile(ctx, view, 8, y); y += 12; }
       if (zsZeile) {
         const id = me.bt ? 'betaeubt' : me.zs;
         R.statusIcon(ctx, id, 14, y + 3);
@@ -767,9 +773,27 @@
         if (p.medkit && !p.downed) { ctx.fillStyle = PAL.star; ctx.fillRect(ps ? 82 + ps[1] * 9 + 4 : 150, y + 1, 7, 7); ctx.fillStyle = PAL.red; ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 3, y + 2, 1, 5); ctx.fillRect((ps ? 82 + ps[1] * 9 + 4 : 150) + 1, y + 4, 5, 1); }
         y += 11;
       }
-      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick ' + (WAFFE_NAME[me.wf] || 'Blaster') + ' · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
+      R.text(ctx, me.downed ? 'Klick: Pistole · Q: Markieren' : 'Klick feuern · Q Mark. · C ducken', 8, y, { color: PAL.panelLight });
       if (me.downed) this.drawDownedBanner(ctx, view);
       return y0;
+    },
+    // AUS-01 E: Slot-Leiste: immer genau n Felder (2 oder 3 wirksame Slots). Aktive Waffe (Snapshot wf) rot, andere belegte dunkel, leer = „–“ gedämpft.
+    // Steckt die getragene Waffe in keinem Slot, ist kein Feld aktiv; „Fäuste“ steht dann nur in der Waffenzeile darüber.
+    drawSlotZeile(ctx, view, x, y) {
+      const s = this.loadoutStand, wf = view.me.wf;
+      const n = Math.max(1, Math.min(3, s.slotzahl | 0));
+      const slots = Array.from({ length: n }, (_, i) => s.slots[i] || null);
+      const aktiv = aktiverSlot(slots, wf);
+      const breite = 164, cw = Math.floor(breite / n);
+      slots.forEach((id, i) => {
+        const cx = x - 2 + i * cw;
+        const on = i === aktiv;
+        if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else if (id) { ctx.fillStyle = '#3A2326'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
+        const txt = id ? (WAFFE_KURZ[id] || WAFFE_NAME[id] || id) : '–';
+        R.text(ctx, txt, cx + (cw - 2) / 2, y, { color: on ? '#FFFFFF' : id ? '#9A8F90' : '#6B7380', align: 'center', shadow: !on });
+      });
     },
     // B2: Waffe (Icon, Name), Hitzebalken; überhitzt, Lanze lädt, Ausholen
     drawWaffeZeile(ctx, view, x, y) {

@@ -28,7 +28,7 @@
     '#E====D^^.....D==!==D.......^^.....H...#', // 6
     '#=====#^^.....#i====#.......^^.........#', // 7
     '#=====####D####=====##D##D####...C.....#', // 8
-    '#=====#.......#==G==#=======#..........#', // 9
+    '#=====#......&#==G==#=======#..........#', // 9
     '#2====#P.P....#=====#=======#..........#', // 10
     '#==u=f#.P...TX#u===y#=Z=J=V=#.........p#', // 11
     '########################################', // 12
@@ -131,6 +131,7 @@
     'W': { kind: 'console_weapons', solid: true, interact: 'console', console: 'weapons' },
     'i': { kind: 'console_technik', solid: true, interact: 'console', console: 'technik' },   // R1: Technik (Maschinenraum)
     'T': { kind: 'console_transfer', solid: true, interact: 'console', console: 'transfer' },
+    '&': { kind: 'console_ausruestung', solid: true, interact: 'console', console: 'ausruestung' },   // AUS-01 B: Ausrüstungsstation (Transferkammer; je Spieler, nicht exklusiv wie 'plan')
     'S': { kind: 'terminal_shop', solid: true, interact: 'console', console: 'shop' },
     'L': { kind: 'shelf', solid: true, interact: 'shelf' },          // nur Schiff; auf der Plattform: siehe PLATFORM_LEGEND
     'B': { kind: 'bed', solid: true, interact: 'bed' },

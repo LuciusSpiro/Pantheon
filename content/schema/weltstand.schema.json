@@ -15,6 +15,8 @@
       "properties": {
         "waffen": { "type": "object", "description": "Hash der Browser-Kennung (12 Hex-Zeichen, SHA-1) -> gewählte Waffe (Waffenwahl am Transporter, E26). Nie Namen.",
           "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "string" } },
+        "loadout": { "type": "object", "description": "AUS-01 A (optional, additiv): Hash der Browser-Kennung (12 Hex-Zeichen) -> Loadout-Slots (Waffen-Id oder null, höchstens 3; wirksam sind die ersten N nach Slotzahl der Partie). Hat beim Laden Vorrang vor crew.waffen. Nie Namen.",
+          "propertyNames": { "pattern": "^[0-9a-f]{12}$" }, "additionalProperties": { "type": "array", "maxItems": 3, "items": { "type": ["string", "null"] } } },
         "rollen_gesehen": { "type": "array", "items": { "type": "string" }, "description": "Gegnerrollen, die die Crew schon gesehen hat (Einführungsregel E24)" }
       }
     },

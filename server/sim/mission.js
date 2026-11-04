@@ -166,6 +166,7 @@ const CONSOLE_HELP = {
   shop: 'Terminal: Marken gegen Kram. Angedockt bei der Karawane zeigt es das Vaelen-Sortiment.',
   quartier: 'Dein Quartier! Boden, Wand, Licht und vier Deko-Plätze. Gemütlichkeit ist ein Schiffssystem.',
   kustodenpult: 'Kustodenpult: Farben 1–6 in der Reihenfolge der Symbole. Die Tabelle hat der Captain oben.',
+  ausruestung: 'Ausrüstung: Hier legst du fest, was du auf die Außenmission mitnimmst. Das Loadout bleibt gespeichert.',
   plan: 'Planungstisch: Sternkarte und gescannte Karten. Pins setzen und gemeinsam planen. Esc steht auf.',
 };
 // Fallback, solange content/npc.json keinen Funk für „Kampagne ohne Tutorial“ hat
@@ -1153,7 +1154,7 @@ class Mission {
     } finally { this.ev = null; }
     // allgemeine ODA-Kommentare
     switch (name) {
-      case 'consoleEnter': if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break;
+      case 'consoleEnter': { if (CONSOLE_HELP[data.kind]) g.oda(CONSOLE_HELP[data.kind], 'console_' + data.kind); break; }
       case 'undocked': g.oda('Abgelegt! Sanft wie eine Feder. Eine ziemlich schwere Feder.', 'undocked'); break;
       case 'docked': if (data.loc === 'vaelen') g.oda('Angedockt bei der Karawane! Die Handelskonsole im Meetingraum (Oberdeck) zeigt jetzt das Vaelen-Sortiment.', 'dockVaelen'); break;
       case 'jumpReady': g.oda('Faltsprung bereit – Steuer: F drücken!', 'jumpReady_' + (this.state.stage || 'free') + '_' + g.ship.scene); break;

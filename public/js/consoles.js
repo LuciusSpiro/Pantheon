@@ -38,7 +38,7 @@
   const TAB_NOTRUF = 5;
   const TABS_TECHNIK = ['Energie & Schilde', 'Schadensplan'];
   const STATION_KREIS = PROTO.STATION_KREIS || ['helm', 'weapons', 'captain', 'technik'];
-  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH' };
+  const TITLES = { helm: 'STEUER · FRONTSICHT', captain: 'CAPTAIN', weapons: 'OPS', technik: 'TECHNIK · MASCHINENRAUM', transfer: 'TRANSFER', shop: 'HAFENTERMINAL', quartier: 'QUARTIER', spind: 'SPIND', kustodenpult: 'KUSTODENPULT', plan: 'PLANUNGSTISCH', ausruestung: 'AUSRÜSTUNGSSTATION' };
   // PAN-01 C: bis zu neun Waffenplätze (Ziffernblock), Waffe je Platz aus shared/schiffskatalog.js (ship.mounts[].typ, fehlt = Startbestückung).
   // Mount-Id -> System (Zustand/Trefferziel): bow = Platz 8, port = 4, stbd = 6, sonst lafette_<Platz>
   const SCH = window.Shared_Schiffskatalog || null;
@@ -137,6 +137,7 @@
       this.notsprungAsk = -1e9;
       this.lanceOn = null;
       if (name === 'plan') this.plan.mapId = 'star';
+      if (name === 'ausruestung') { this.ausr.stand = null; this.ausr.fehler = null; this.ausr.sel = 0; this.ausr.cur = 0; this.ausr.fokus = 'slot'; this.ausr.letzt = null; this.ausr.frageT = -1e9; }   // AUS-01 B: Stand kommt beim Betreten vom Server
       if (name === 'shop' && window.TerminalUI) TerminalUI.zuruecksetzen();   // PAN-01 D2: Terminal beginnt frisch
       if (name === 'spind' && window.Charaktere) Charaktere.oeffneSpind();   // CHA-01 D: Anprobe beginnt mit dem getragenen Outfit
     },
@@ -218,6 +219,7 @@
           case 'quartier': controls = this.drawQuartier(ctx, view); break;
           case 'kustodenpult': controls = this.drawSonde(ctx, view); break;   // SL0: früher 'sonde'
           case 'plan': controls = this.drawPlan(ctx, view); break;
+          case 'ausruestung': controls = this.drawAusruestung(ctx, view); break;   // AUS-01 B
           default: R.text(ctx, 'Unbekannte Konsole: ' + c, 20, 40, { color: PAL.red });
         }
       } catch (e) { Net.reportError('Consoles.draw:' + c, e); R.text(ctx, 'Anzeigefehler (siehe Konsole)', 20, 60, { color: PAL.red }); }
@@ -2370,8 +2372,8 @@
         R.button(ctx, 220, y, 184, 16, 'Notrückholung', { hotkey: String(4 + i), disabled: !!rr, reason: rr, onClick: () => this.cmd(view, 'transfer.recall', { pid: p.id }) });
         y += 20;
       });
-      // B2 §8: Waffenwahl am Transporter (cmd loadout.waffe), je Spieler; unten links
-      if (y < 262) this.drawWaffenwahl(ctx, view, 16, Math.max(y + 6, 262), 388);
+      // AUS-01 C: keine Waffenwahl mehr am Transporter; das Loadout steht an der Ausrüstungsstation
+      if (y < 270) R.text(ctx, 'Ausrüstung: Station nebenan', 16, Math.max(y + 6, 270), { color: PAL.panelLight });
       const lps = this.landepunkte(st);
       let ry = 30;
       if (away.active || awayTeam.length) {
@@ -2387,32 +2389,139 @@
       }
       // B1 §6.1: Landepunkte am Ort (cmd transfer.ziel), nur solange niemand unten ist
       if (lps.length && !awayTeam.length) ry = this.drawLandepunkte(ctx, view, lps, 420, (away.active ? ry : 30), 200);
-      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung · Q/E Waffe' + (lps.length > 1 && !awayTeam.length ? ' · 7–0 Landepunkt' : '');
+      return '1 runter · 2 hoch · 3 Nachschub · 4–6 Notrückholung' + (lps.length > 1 && !awayTeam.length ? ' · 7–0 Landepunkt' : '');
     },
-    // B2: Waffenwahl (Protocol.WAFFEN_WAHL). Eigene Waffe = me.wf; die Crew daneben mit ihrer Waffe.
+    // Waffenliste (Protocol.WAFFEN_WAHL) für die Auswahl an der Ausrüstungsstation
     waffenListe() { return PROTO.WAFFEN_WAHL || ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber']; },
-    waffeWaehlen(view, dir) {
-      const list = this.waffenListe(), me = view.me || {};
-      const i = Math.max(0, list.indexOf(me.wf || this.myWaffe || 'blaster'));
-      this.cmd(view, 'loadout.waffe', { waffe: list[(i + dir + list.length) % list.length] });
+    // ---------------------------------------------------------------- AUS-01 B: Ausrüstungsstation (Loadout-Slots)
+    // Stand vom Server (Ereignis ausruestungStand { slotzahl, slots }): nur die wirksamen Slots, der versteckte dritte Slot kommt nie an. Funktionsfarbe Rot (Waffen).
+    ausr: { stand: null, sel: 0, cur: 0, fokus: 'slot', fehler: null, fehlerT: 0, frageT: -1e9, letzt: null },
+    ausruestungStand(ev) {
+      const a = this.ausr, erster = !a.stand;
+      a.stand = { slotzahl: Math.max(1, Math.min(3, ev.slotzahl | 0)), slots: Array.isArray(ev.slots) ? ev.slots.map(s => (typeof s === 'string' ? s : null)) : [] };
+      a.sel = Math.min(a.sel, a.stand.slotzahl - 1);
+      if (erster) this.ausruestungSlotWaehlen(a.sel);   // Cursor beim Öffnen auf den Wert des aktiven Slots (wie beim Slotwechsel)
+      if (ev.fehler) { a.fehler = this.ausruestungFehlerText(String(ev.fehler)); a.fehlerT = performance.now(); }
+      else a.fehler = null;
     },
-    drawWaffenwahl(ctx, view, x, y, w) {
-      const st = view.state, me = view.me || {}, IB = window.IconsB;
-      const list = this.waffenListe();
-      const cur = me.wf || this.myWaffe || 'blaster';   // an Bord fehlt wf im Snapshot: letzte Bestätigung (Ereignis loadout)
-      R.text(ctx, 'DEINE WAFFE (Q/E)', x, y, { color: PAL.brass });
-      const crew = (st.players || []).filter(p => p.id !== me.id && p.connected !== false && p.wf);
-      if (crew.length) R.text(ctx, crew.slice(0, 3).map(p => String(p.name).slice(0, 8) + ': ' + (H.WAFFE_NAME[p.wf] || p.wf)).join(' · '), x + w, y, { color: PAL.panelLight, align: 'right' });
-      y += 11;
-      const bw = Math.floor((w - (list.length - 1) * 2) / list.length);
-      const reason = me.zone === 'away' ? 'Nur an Bord' : null;
-      list.forEach((wf, i) => {
-        const bx = x + i * (bw + 2);
-        R.button(ctx, bx, y, bw, 26, '', { active: wf === cur, disabled: !!reason, reason, onClick: () => { if (wf !== cur) this.cmd(view, 'loadout.waffe', { waffe: wf }); } });
-        if (!(IB && IB.draw && IB.has && IB.has('waffe', wf) && IB.draw(ctx, 'waffe', wf, bx + bw / 2, y + 9, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(bx + bw / 2 - 5, y + 5, 10, 8); }
-        R.text(ctx, H.WAFFE_KURZ[wf] || H.WAFFE_NAME[wf] || wf, bx + bw / 2, y + 16, { color: wf === cur ? PAL.mint : PAL.panelLight, align: 'center' });
+    // Slot wählen (Taste, Maus, Öffnen): der Cursor der Waffenliste steht auf dem Wert dieses Slots
+    ausruestungSlotWaehlen(i) {
+      const a = this.ausr, s = a.stand;
+      a.sel = i;
+      a.cur = Math.max(0, this.ausruestungWahl().indexOf((s && s.slots[i]) || null));
+    },
+    // Anzeigename einer Waffe: EIN Kurzname (H.WAFFE_KURZ, hud.js), dahinter der lange Name zum Wiedererkennen
+    ausruestungName(id) {
+      const kurz = (H.WAFFE_KURZ || {})[id], lang = (H.WAFFE_NAME || {})[id] || id;
+      return kurz && kurz !== lang ? kurz + ' (' + lang + ')' : (kurz || lang);
+    },
+    // Serverfehler mit Waffe und Slot nennen („Sturmgewehr steckt schon in Slot 1.“); der Servertext selbst bleibt unverändert
+    ausruestungFehlerText(text) {
+      const a = this.ausr, id = a.letzt && a.letzt.id, s = a.stand;
+      if (/anderen Slot/.test(text) && id && s) {
+        const i = s.slots.indexOf(id);
+        return ((H.WAFFE_NAME || {})[id] || id) + ' steckt schon in Slot ' + (i >= 0 ? i + 1 : '?') + '.';
+      }
+      return text;
+    },
+    // Auswahlliste je Slot: null = leer, dahinter die Waffen (Protocol.WAFFEN_WAHL)
+    ausruestungWahl() { return [null].concat(this.waffenListe()); },
+    ausruestungGrund(id, slot) {   // Grund, warum id in Slot slot nicht geht (null = möglich); der Server prüft dasselbe
+      const s = this.ausr.stand;
+      if (!s) return 'Stand wird geladen';
+      if (id && s.slots.some((x, i) => i !== slot && x === id)) return 'Steckt schon in Slot ' + (s.slots.indexOf(id) + 1);
+      return null;
+    },
+    ausruestungSetzen(view, slot, id) {
+      const g = this.ausruestungGrund(id, slot);
+      this.ausr.letzt = { slot, id };
+      if (g) {
+        this.denied(g);
+        const sl = this.ausr.stand ? this.ausr.stand.slots.indexOf(id) : -1;
+        if (id && sl >= 0) { this.ausr.fehler = ((H.WAFFE_NAME || {})[id] || id) + ' steckt schon in Slot ' + (sl + 1) + '.'; this.ausr.fehlerT = performance.now(); }
+        return;
+      }
+      this.cmd(view, PROTO.CMD_LOADOUT_SLOT || 'ausruestung.slot', { slot, id });
+    },
+    // gesperrt = steckt in einem anderen Slot (der Cursor überspringt solche Zeilen)
+    ausruestungGesperrt(id, slot) {
+      const s = this.ausr.stand;
+      return !!(s && id && s.slots.some((x, i) => i !== slot && x === id));
+    },
+    drawAusruestung(ctx, view) {
+      const a = this.ausr, s = a.stand, now = performance.now();
+      const IB = window.IconsB;
+      if (!s) {
+        R.text(ctx, 'Loadout wird vom Schiff geladen …', 16, 40, { color: PAL.panelLight });
+        if (now - a.frageT > 1500) { a.frageT = now; view.send({ t: 'cmd', c: PROTO.CMD_AUSRUESTUNG_STAND || 'ausruestung.stand' }); }
+        return '';
+      }
+      R.text(ctx, 'LOADOUT FÜR DIE AUSSENMISSION', 16, 30, { color: PAL.brass });
+      R.text(ctx, s.slotzahl + ' Slots in dieser Partie' + (s.slotzahl === 3 ? ' (bis 2 Spieler)' : ' (ab 3 Spielern)'), 624, 30, { color: PAL.panelLight, align: 'right' });
+      a.cur = Math.max(0, Math.min(this.ausruestungWahl().length - 1, a.cur));
+      const rahmen = (x, y, w, h, col) => { ctx.strokeStyle = col; ctx.lineWidth = 1; ctx.strokeRect(x + 0.5, y + 0.5, w - 1, h - 1); };
+      // links: die Slots
+      let y = 46;
+      for (let i = 0; i < s.slotzahl; i++) {
+        const id = s.slots[i] || null, selekt = i === a.sel;
+        R.button(ctx, 16, y, 300, 42, '', { active: selekt, onClick: () => { a.fokus = 'slot'; this.ausruestungSlotWaehlen(i); } });
+        if (selekt) { ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.strokeRect(17, y + 1, 298, 40); ctx.lineWidth = 1; }
+        R.text(ctx, 'SLOT ' + (i + 1), 24, y + 5, { color: selekt ? PAL.red : PAL.brass });
+        if (id) {
+          if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
+          R.text(ctx, this.ausruestungName(id), 70, y + 22, { color: PAL.star, scale: 1 });
+        } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
+        y += 48;
+      }
+      const linksEnde = y;
+      // Aktive Waffe am Boden = erste Waffe der Slots (Paket A); ohne Waffe Fäuste
+      const aktiv = s.slots.find(x => !!x) || null;
+      y += 4;
+      if (aktiv) R.text(ctx, 'Am Boden aktiv: ' + ((H.WAFFE_KURZ || {})[aktiv] || aktiv), 16, y, { color: PAL.mint });
+      else R.text(ctx, 'Kein Waffen-Slot = Fäuste.', 16, y, { color: PAL.amber });
+      y += 12;
+      for (const l of R.wrap('Das Loadout bleibt gespeichert und gilt für die nächste Außenmission.', 300, 1)) { R.text(ctx, l, 16, y, { color: PAL.panelLight }); y += 10; }
+      // rechts: Auswahl für den gewählten Slot
+      const x0 = 336, w = 288;
+      R.text(ctx, 'FÜR SLOT ' + (a.sel + 1) + ' WÄHLEN', x0, 46, { color: PAL.brass });
+      const wahl = this.ausruestungWahl();
+      let ry = 60;
+      wahl.forEach((id, i) => {
+        const grund = this.ausruestungGrund(id, a.sel), jetzt = (s.slots[a.sel] || null) === id;
+        const lab = id ? this.ausruestungName(id) + (grund && !jetzt ? '  (' + grund.replace('Steckt schon in ', 'in ') + ')' : '') : 'Leer';
+        R.button(ctx, x0 + 12, ry, w - 12, 20, lab, { hotkey: id ? String(i) : '0', active: jetzt, disabled: !!grund && !jetzt, reason: grund, onClick: () => { a.fokus = 'waffe'; a.cur = i; this.ausruestungSetzen(view, a.sel, id); } });
+        if (i === a.cur) rahmen(x0 + 12, ry, w - 12, 20, a.fokus === 'waffe' ? PAL.star : '#6B7380');   // Cursor = heller Zeilenrahmen, Mint bleibt die Belegung
+        ry += 24;
       });
-      return y + 30;
+      // Fokus: Rahmen um die Spalte, in der die Pfeiltasten wirken
+      if (a.fokus === 'slot') rahmen(12, 42, 308, linksEnde - 42 - 2, PAL.brass); else rahmen(x0 - 4, 42, w + 8, ry - 42 + 2, PAL.brass);
+      // Serverfehler direkt unter der Waffenliste
+      if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, ry + 6 + k * 10, { color: PAL.red });
+      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–6 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
+    },
+    ausruestungTaste(code, view) {
+      const a = this.ausr, s = a.stand;
+      if (!s) return true;
+      const wahl = this.ausruestungWahl(), n = wahl.length;
+      const press = (fn) => { try { fn(); } catch (err) { Net.reportError('Consoles.ausruestung', err); } return true; };
+      // Cursor der Waffenliste einen Schritt weiter, gesperrte Zeilen („in Slot n“) überspringen
+      const schritt = (d) => { for (let k = 1; k <= n; k++) { const i = (((a.cur + d * k) % n) + n) % n; if (!this.ausruestungGesperrt(wahl[i], a.sel)) { a.cur = i; return; } } };
+      const hoch = code === 'ArrowUp' || code === 'KeyW', runter = code === 'ArrowDown' || code === 'KeyS';
+      if (hoch || runter) {
+        if (a.fokus === 'slot') this.ausruestungSlotWaehlen((a.sel + (hoch ? s.slotzahl - 1 : 1)) % s.slotzahl);
+        else schritt(hoch ? -1 : 1);
+        return true;
+      }
+      if (code === 'ArrowLeft' || code === 'KeyA') { a.fokus = 'slot'; return true; }
+      if (code === 'ArrowRight' || code === 'KeyD') { a.fokus = 'waffe'; return true; }
+      if (code === 'Enter' || code === 'NumpadEnter') {
+        if (a.fokus === 'slot') { a.fokus = 'waffe'; return true; }   // Slot gewählt: weiter in die Waffenliste
+        return press(() => this.ausruestungSetzen(view, a.sel, wahl[a.cur]));
+      }
+      if (code === 'Delete' || code === 'Backspace' || code === 'Digit0' || code === 'Numpad0') return press(() => { a.cur = 0; this.ausruestungSetzen(view, a.sel, null); });
+      const m = /^(?:Digit|Numpad)([1-9])$/.exec(code);
+      if (m && +m[1] < n) return press(() => { if (!this.ausruestungGesperrt(wahl[+m[1]], a.sel)) a.cur = +m[1]; this.ausruestungSetzen(view, a.sel, wahl[+m[1]]); });
+      return true;
     },
     // B1: Kartenname für die Transfer-Konsole
     awayMapTitle(st, amap) {
@@ -3190,7 +3299,6 @@
           if (d === 2) return press(() => this.tryButton(/^Hochbeamen/));
           if (d === 3) return press(() => this.tryButton(/^Nachschub/));
           if (d >= 4 && d <= 6) { const list = this.findButtons(/^Notrückholung/); const b = list[d - 4]; if (b) this.activate(b); return true; }
-          if (code === 'KeyQ' || code === 'KeyE') return press(() => this.waffeWaehlen(view, code === 'KeyQ' ? -1 : 1));   // B2: Waffenwahl
           if ((d >= 7 && d <= 9) || code === 'Digit0' || code === 'Numpad0') { const k = d ? String(d) : '0'; const b = R.ui.buttons.filter(q => q.hotkey === k)[0]; if (b) this.activate(b); return true; }   // B1: Landepunkt
           return true;
         case 'shop': {
@@ -3256,6 +3364,7 @@
           }
           return true;
         }
+        case 'ausruestung': return this.ausruestungTaste(code, view);   // AUS-01 B
         case 'kustodenpult':
           if (d >= 1 && d <= 6) { const b = this.findButton(COLOR_NAMES[CODE_COLORS[d - 1]]); if (b) this.activate(b); return true; }
           return true;
