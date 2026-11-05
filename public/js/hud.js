@@ -71,7 +71,7 @@
   const WAFFE_NAME = { blaster: 'Blaster', sturmgewehr: 'Sturmgewehr', granatwerfer: 'Granatwerfer', lanze: 'Lanze', nahkampf: 'Nahkampf', betaeuber: 'Betäuber', faust: 'Fäuste', pistole: 'Pistole', schrottblaster: 'Schrottblaster', scanner: 'Scanner' };
   // SCA-01 P3: Items im Loadout-Slot (keine Waffen: nie „aktive Waffe“, kein Aktiv-Rahmen); Ausrüstungsstation und Slot-Leiste lesen diese Liste. Beschreibung nur für die Station.
   const SLOT_ITEMS = ['scanner'];
-  const ITEM_INFO = { scanner: 'Scanner: findet Erz, scannt Monster und Fallen. Forscher-Rolle.' };
+  const ITEM_INFO = { scanner: 'Scanner: findet Erz, scannt Monster und Fallen. Slot-Taste startet, A/D stimmt ab.' };
   // Icon je Waffe; schrottblaster (Rostmeute) = Blaster-Icon (Nachtrag Studioleitung)
   function waffeIcon(wf) { return wf === 'schrottblaster' ? 'blaster' : wf; }
   const ZS_TEXT = { betaeubt: 'BETÄUBT', bewusstlos: 'BEWUSSTLOS – niemand kann helfen', gefesselt: 'GEFESSELT – Kamerad: E halten', gefangen: 'GEFANGEN – Ausbruch!', verwundet: 'VERWUNDET' };
@@ -789,7 +789,7 @@
       const s = this.loadoutStand;
       const belegt = slotZeile && s ? (s.slots || []).slice(0, Math.min(3, s.slotzahl | 0)).filter(Boolean).length : 0;
       if (belegt < 2) return 'Klick feuern · Q Mark. · C ducken';
-      return this.slotKappe(0) + '-' + this.slotKappe(Math.min(3, s.slotzahl | 0) - 1) + ' Waffe · Q Mark. · C ducken';
+      return this.slotKappe(0) + '-' + this.slotKappe(Math.min(3, s.slotzahl | 0) - 1) + ' Slot · Q Mark. · C ducken';
     },
     // AUS-02 B: Taste des Slots (0..2) aus dem Tastenregister (umbelegt zeigt die neue Taste), sonst die Ziffer
     slotKappe(i) {
@@ -829,7 +829,7 @@
         const sp = on ? this.wechselAnteil(view.time) : null;   // AUS-02 B: Wechselzeit der aktiven Waffe
         if (on && sp != null) { ctx.fillStyle = '#5A2A28'; ctx.fillRect(cx, y - 2, cw - 2, 11); ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, Math.round((cw - 2) * sp), 11); }
         else if (on) { ctx.fillStyle = '#B83A2E'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
-        else if (item) { ctx.fillStyle = scanLaeuft ? '#3F7F99' : '#27394A'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
+        else if (item) { ctx.fillStyle = scanLaeuft ? '#3F7F99' : '#27394A'; ctx.fillRect(cx, y - 2, cw - 2, 11); if (scanLaeuft) { ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); } }   // SCA-01 Nacharbeit D10: laufender Scan = 1-px-Eisblau-Rahmen um die Zelle
         else if (id) { ctx.fillStyle = '#46282B'; ctx.fillRect(cx, y - 2, cw - 2, 11); }
         else { ctx.strokeStyle = '#4A5260'; ctx.lineWidth = 1; ctx.strokeRect(cx + 0.5, y - 1.5, cw - 3, 10); }
         const txt = id ? this.fit(WAFFE_KURZ[id] || WAFFE_NAME[id] || id, cw - 13, 1) : '–';   // Nacharbeit: nie über die Zelle hinaus (3 Slots: 41 px; „Betäuber“ ist 45 px breit und wird gekürzt)
@@ -1181,6 +1181,14 @@
     drawOda(ctx, view, top) {
       const cur = this.oda.cur;
       if (!cur) return;
+      // SCA-01 Nacharbeit D5: während des Scans steht das Scanner-Overlay an fester Stelle unten – die ODA-Zeile wird nicht gezeichnet (sie läuft weiter und erscheint danach wieder); nur eine kleine Marke „ODA +n“ über dem Overlay zeigt, dass etwas ansteht
+      if (!top && window.Scanner && Scanner.aktiv(view && view.me)) {
+        const r = Scanner.rechteck(), t = 'ODA' + (this.oda.queue.length ? ' +' + this.oda.queue.length : ''), w = R.measure(t, 1) + 8;
+        ctx.fillStyle = 'rgba(14,26,31,0.92)'; ctx.fillRect(r.x + r.w - w, r.y - 14, w, 10);
+        ctx.strokeStyle = PAL.mint; ctx.lineWidth = 1; ctx.strokeRect(r.x + r.w - w + 0.5, r.y - 13.5, w - 1, 9);
+        R.text(ctx, t, r.x + r.w - w + 4, r.y - 13, { color: PAL.mint, shadow: false });
+        return;
+      }
       const shown = cur.text.slice(0, Math.floor(cur.shown));
       const w = 284;
       const lines = R.wrap(cur.text, w - 44, 1);

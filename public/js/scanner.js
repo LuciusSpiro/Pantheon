@@ -84,11 +84,11 @@
     ctx.fillRect(x + 4, y + 3, 2, 2);
   }
 
-  // Panel mittig-unten (nicht über der Figur, nicht über der Bodenleiste links x 4..174 und dem Siegel „Weltstand gesichert“ darüber, über einer ODA-Zeile)
-  const VW = 640, VH = 360, W = 276, H = 112;
-  function rechteck(view) {
-    const H_ = window.Hud, oda = H_ && H_.odaHoehe ? H_.odaHoehe(view) : 0;
-    return { x: Math.round((VW - W) / 2), y: VH - 8 - H - (oda ? oda + 4 : 0), w: W, h: H };
+  // Panel mittig-unten an FESTER Stelle (Nacharbeit D5: y = VH - 8 - H, unabhängig von der ODA-Zeile – die ODA-Zeile wird während des Scans nicht gezeichnet, hud.js drawOda; kein Springen).
+  // 240 x 84: liegt unter dem Zielfenster oben rechts, nicht über der Bodenleiste links (x 4..174) und dem Siegel „Weltstand gesichert“ (links, darüber).
+  const VW = 640, VH = 360, W = 240, H = 84;
+  function rechteck() {
+    return { x: Math.round((VW - W) / 2), y: VH - 8 - H, w: W, h: H };
   }
 
   function draw(ctx, view) {
@@ -96,33 +96,34 @@
     if (!aktiv(me)) return;
     const sc = me.sc || {};
     const s = klemme(sc.s), h = klemme(sc.h != null ? sc.h : me.action.progress);
-    const r = rechteck(view), x = r.x, y = r.y;
+    const r = rechteck(), x = r.x, y = r.y;
     const Hh = window.Hud;
     R.panel(ctx, x, y, r.w, r.h, { style: 'screen', title: 'SCANNER – FREQUENZ ABSTIMMEN' });
     const ix = x + 10, iw = r.w - 20;
     let yy = y + 12;
     // Kurve: Rauschen (laut bei schwachem Signal) über einer sauberen Welle (steigt mit der Signalstärke)
-    const ch = 30, cy = yy + ch / 2, t = view.time || 0;
+    const ch = 22, cy = yy + ch / 2, t = view.time || 0;
     ctx.fillStyle = 'rgba(11,14,26,0.9)'; ctx.fillRect(ix, yy, iw, ch);
     ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1; ctx.beginPath();
     for (let i = 0; i <= iw; i += 2) {
-      const sig = Math.sin(i * 0.12 + t * 6) * 11 * s;
-      const nz = rausch(i, t) * (1 - s) * 28;
+      const sig = Math.sin(i * 0.12 + t * 6) * 8 * s;
+      const nz = rausch(i, t) * (1 - s) * 20;
       const v = Math.max(-ch / 2 + 1, Math.min(ch / 2 - 1, sig + nz));
       if (i === 0) ctx.moveTo(ix + i, cy + v); else ctx.lineTo(ix + i, cy + v);
     }
     ctx.stroke();
-    yy += ch + 5;
+    yy += ch + 4;
     const bx = ix + 62, bw = iw - 62;
     R.text(ctx, 'FREQUENZ', ix, yy, { color: PAL.brass });
     ctx.fillStyle = 'rgba(40,48,70,0.9)'; ctx.fillRect(bx, yy + 1, bw, 7);
     ctx.fillStyle = '#EAF6FA'; ctx.fillRect(bx + Math.round(klemme(sc.f != null ? sc.f : 0.5) * (bw - 3)), yy - 1, 3, 11);
-    yy += 12;
-    R.text(ctx, 'SIGNAL', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, s, PAL.ice); yy += 12;
-    R.text(ctx, 'SCAN', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, h, PAL.ice); yy += 12;
+    yy += 10;
+    R.text(ctx, 'SIGNAL', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, s, PAL.ice); yy += 10;
+    R.text(ctx, 'SCAN', ix, yy, { color: PAL.brass }); R.bar(ctx, bx, yy + 1, bw, 7, h, PAL.star); yy += 10;   // Fortschritt in Cremeweiß, SIGNAL bleibt Eisblau
     const fit = (txt, w) => (Hh && Hh.fit ? Hh.fit(txt, w, 1) : txt);
-    R.text(ctx, fit('Qualität bisher ' + sterne(sc.q), iw), ix, yy, { color: PAL.ice }); yy += 11;
-    R.text(ctx, fit('A/D stimmen · Esc Abbruch', iw), ix, yy, { color: PAL.panelLight });
+    const q = 'Qualität ' + sterne(sc.q);
+    R.text(ctx, q, ix, yy, { color: PAL.ice });
+    R.text(ctx, fit('· A/D stimmen · Esc', iw - R.measure(q, 1) - 6), ix + R.measure(q, 1) + 6, yy, { color: PAL.panelLight });
   }
 
   window.Scanner = { aktiv, taste, abgleichen, loslassen, schluckt, draw, symbol, rechteck, richtungVon, sterne, ITEM_ID, W, H };
