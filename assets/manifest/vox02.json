@@ -10,7 +10,7 @@
     },
     {
       "id": "biom/wiese/farn", "kind": "model", "tier": "detail", "palette": "biom_wiesenwald",
-      "footprint": [1, 1], "height": 0.9, "facing": "+z",
+      "footprint": [1, 1], "height": 1.0, "facing": "+z",
       "params": { "seed": [0, 63] },
       "sockets": {}, "tint": [], "budgetTris": 600, "tags": ["biom", "wiese", "farn", "sichtschleier"]
     },

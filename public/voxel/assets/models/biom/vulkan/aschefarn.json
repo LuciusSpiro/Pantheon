@@ -1,6 +1,6 @@
 {
  "id": "biom/vulkan/aschefarn",
- "name": "Aschefarn (VOX-02): Sichtschleier der Vulkanzone, 0,8 bis 1,0 m, ohne Kollision, sperrt die Sicht. Acht dünne, eckige Wedel (Stufen, steil aufsteigend, mit seitlichen Zackenfiedern) strahlen von oben sichtbar aus einem dunklen Herz, dazwischen Lücken; graustichiges Olivgrün (plant*), klar anders als Stein und Fels; keine Glut. seed ändert Höhen, Fiedern und Wedellängen, lässt Fiedern aus und verschiebt die Pflanze um bis zu 1 Voxel",
+ "name": "Aschefarn (VOX-02): Sichtschleier der Vulkanzone, 0,8 bis 1,0 m, ohne Kollision, sperrt die Sicht. Dünne, eckige Wedel aus 1-Voxel-Balken strahlen von oben sichtbar aus einem dunklen Herz (vier über die Achsen, bis zu vier kürzere über die Ecken), in der Mitte ein aufrechter Spross, dazwischen Lücken. Jeder Wedel ist einstufig oder zweistufig seitlich versetzt, hat eine eigene Höhe und Neigung (Versatz zur Seite), Fiedern werden nach oben kürzer; graustichiges Olivgrün (plant*), klar anders als Stein und Fels; keine Glut. seed ändert Höhen, Stufen, Versatz, Fiedern und Wedellängen, lässt Wedel aus und verschiebt die Pflanze um bis zu 1 Voxel",
  "tier": "detail",
  "palette": "biom_vulkan",
  "jitter": 0,
@@ -17,7 +17,10 @@
  "budgetTris": 600,
  "let": {
   "sx": "round((hash(seed, 5) - 0.5) * 2)",
-  "sz": "round((hash(seed, 6) - 0.5) * 2)"
+  "sz": "round((hash(seed, 6) - 0.5) * 2)",
+  "H0": "8 + floor(hash(seed, 1) * 3)",
+  "typ": "floor(seed) % 3",
+  "p": "floor(hash(seed, 77) * 2)"
  },
  "ops": [
   {
@@ -48,16 +51,31 @@
      "op": "box",
      "name": "Mittelspross",
      "at": [
-      -1,
+      0,
       4,
+      0
+     ],
+     "size": [
+      1,
+      "H0",
+      1
+     ],
+     "color": "plant"
+    },
+    {
+     "op": "box",
+     "name": "Mittelspross Krone",
+     "at": [
+      0,
+      "4 + H0",
       -1
      ],
      "size": [
-      2,
-      "9 + floor(hash(seed, 1) * 3)",
-      2
+      1,
+      1,
+      3
      ],
-     "color": "plant"
+     "color": "plant_light"
     },
     {
      "op": "group",
@@ -74,22 +92,26 @@
      "rot": "k * 90",
      "if": "1",
      "let": {
-      "a": "floor(hash(seed, k, 1) * 4)",
-      "b": "floor(hash(seed, k, 2) * 3)",
-      "c": "hash(seed, k, 5) > 0.4 ? 1 : 0",
-      "d": "floor(hash(seed, k, 7) * 2)"
+      "t": "typ == 1 ? 0 : typ == 2 ? floor(hash(seed, k, 1) * 3) : 2",
+      "L1": "1 + floor(hash(seed, k, 2) * 2)",
+      "h1": "(typ == 1 ? 6 : 3) + floor(hash(seed, k, 3) * 3)",
+      "dz": "floor(hash(seed, k, 4) * 3) - 1",
+      "h2": "2 + floor(hash(seed, k, 5) * 2)",
+      "d": "floor(hash(seed, k, 7) * 2)",
+      "yT": "4 + h1 - 1",
+      "wl": "2 + floor(hash(seed, k, 8) * 2)"
      },
      "ops": [
       {
        "op": "box",
-       "name": "Wedel unten",
+       "name": "Fuß",
        "at": [
         2,
         4,
         0
        ],
        "size": [
-        2,
+        "L1 + 1",
         1,
         1
        ],
@@ -97,57 +119,42 @@
       },
       {
        "op": "box",
-       "name": "Wedel Steg",
+       "name": "Riser",
        "at": [
-        3,
+        "2 + L1",
         4,
         0
        ],
        "size": [
         1,
-        "4 + a",
+        "h1",
         1
        ],
        "color": "plant"
       },
       {
        "op": "box",
-       "name": "Wedel Spitze",
+       "name": "Fieder unten",
        "at": [
-        4,
-        "7 + a",
-        0
-       ],
-       "size": [
-        "2 + d",
-        1,
-        1
-       ],
-       "color": "plant_light"
-      },
-      {
-       "op": "box",
-       "name": "Fieder links",
-       "at": [
-        3,
-        "6 + b",
+        "2 + L1",
+        "yT - 2",
         1
        ],
        "size": [
         1,
         1,
-        3
+        "wl"
        ],
        "color": "plant",
-       "if": "c == 1 || a > 2"
+       "if": "hash(seed, k, 6) > 0.35"
       },
       {
        "op": "box",
-       "name": "Fieder rechts",
+       "name": "Fieder oben",
        "at": [
-        3,
-        "5 + b",
-        -3
+        "2 + L1",
+        "yT",
+        -2
        ],
        "size": [
         1,
@@ -155,13 +162,77 @@
         2
        ],
        "color": "plant_dark",
-       "if": "b > 0 && d == 0 || a == 3"
+       "if": "t != 1 && hash(seed, k, 10) > 0.4"
+      },
+      {
+       "op": "box",
+       "name": "Spitze einstufig",
+       "at": [
+        "3 + L1",
+        "yT",
+        0
+       ],
+       "size": [
+        "1 + d",
+        1,
+        1
+       ],
+       "color": "plant_light",
+       "if": "t != 2"
+      },
+      {
+       "op": "box",
+       "name": "Stufe Quer",
+       "at": [
+        "2 + L1",
+        "yT",
+        "min(0, dz)"
+       ],
+       "size": [
+        2,
+        1,
+        "abs(dz) + 1"
+       ],
+       "color": "plant",
+       "if": "t == 2"
+      },
+      {
+       "op": "box",
+       "name": "Riser zwei",
+       "at": [
+        "3 + L1",
+        "yT",
+        "dz"
+       ],
+       "size": [
+        1,
+        "h2",
+        1
+       ],
+       "color": "plant",
+       "if": "t == 2"
+      },
+      {
+       "op": "box",
+       "name": "Spitze zweistufig",
+       "at": [
+        "3 + L1",
+        "yT + h2 - 1",
+        "dz"
+       ],
+       "size": [
+        2,
+        1,
+        1
+       ],
+       "color": "plant_light",
+       "if": "t == 2"
       }
      ]
     },
     {
      "op": "group",
-     "name": "Wedel schräg",
+     "name": "Wedel Ecke",
      "repeat": {
       "count": 4,
       "step": [
@@ -172,17 +243,14 @@
       "var": "k"
      },
      "rot": "k * 90",
-     "if": "1",
+     "if": "typ == 1 || k % 2 == p || typ == 2 && hash(seed, k, 19) > 0.3",
      "let": {
-      "a": "floor(hash(seed, k, 1) * 4)",
-      "b": "floor(hash(seed, k, 2) * 3)",
-      "c": "hash(seed, k, 5) > 0.4 ? 1 : 0",
-      "d": "floor(hash(seed, k, 7) * 2)"
+      "b": "floor(hash(seed, k, 12) * 3)"
      },
      "ops": [
       {
        "op": "box",
-       "name": "Schräg Steg",
+       "name": "Ecke Steg",
        "at": [
         3,
         4,
@@ -190,23 +258,23 @@
        ],
        "size": [
         1,
-        "4 + b",
+        "3 + b",
         1
        ],
        "color": "plant"
       },
       {
        "op": "box",
-       "name": "Schräg Spitze",
+       "name": "Ecke Spitze",
        "at": [
         4,
-        "7 + b",
+        "6 + b",
         4
        ],
        "size": [
-        2,
         1,
-        2
+        1,
+        1
        ],
        "color": "plant_light"
       }

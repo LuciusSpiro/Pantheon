@@ -1,6 +1,6 @@
 {
  "id": "biom/gemein/fluid",
- "name": "Fluid-Kachel (VOX-02), palettenunabhängig: art 0 Wasser, 1 Lava (mit biom_vulkan: fluid leuchtet), 2 Treibsand. Das Becken liegt im Modell: Anker = Lauffläche (y 0), Fluid-Oberfläche 25 cm darunter, Wände bis 1 m Tiefe. conn (Nachbarn gleicher Klasse N1 O2 S4 W8): an Seiten ohne Nachbarn eine Uferkante in zwei Stufen, mit Nachbar nahtlos. diag (optional, Standard 0; Bit je Ecke NO1 SO2 SW4 NW8: dort ist kein Fluid): schließt die Lücke an einer Innenecke, wo beide Nachbarn Fluid sind und nur die Diagonale nicht. Treibsand ist begehbar, ohne Ufer, conn und diag ohne Wirkung; sein Muster (schräge Streifen 2 Voxel breit, Periode 8 Voxel diagonal (16 in x und z)) setzt sich über Kachelränder nahtlos fort, ohne Kachelmitte. Das Terrain unter der Kachel muss mindestens 1 m tiefer liegen (sonst verdeckt es das Becken)",
+ "name": "Fluid-Kachel (VOX-02), palettenunabhängig: art 0 Wasser, 1 Lava (mit biom_vulkan: fluid leuchtet), 2 Treibsand. Das Becken liegt im Modell: Anker = Lauffläche (y 0), Fluid-Oberfläche 25 cm darunter, Wände bis 1 m Tiefe. conn (Nachbarn gleicher Klasse N1 O2 S4 W8): an Seiten ohne Nachbarn eine Uferkante in zwei Stufen, mit Nachbar nahtlos. diag (optional, Standard 0; Bit je Ecke NO1 SO2 SW4 NW8: dort ist kein Fluid): schließt die Lücke an einer Innenecke, wo beide Nachbarn Fluid sind und nur die Diagonale nicht. Treibsand ist begehbar, ohne Ufer, conn und diag ohne Wirkung; sein Muster (schräge Streifen 2 Voxel breit, Periode 8 Voxel in x und z) setzt sich über Kachelränder nahtlos fort, ohne Kachelmitte. Das Terrain unter der Kachel muss mindestens 1 m tiefer liegen (sonst verdeckt es das Becken)",
  "tier": "detail",
  "palette": "biom_wiesenwald",
  "jitter": 0,
@@ -64,8 +64,8 @@
   },
   "wasser_innenecke": {
    "art": 0,
-   "conn": 3,
-   "diag": 2
+   "conn": 15,
+   "diag": 1
   }
  },
  "let": {

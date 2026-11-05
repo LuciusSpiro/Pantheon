@@ -1,6 +1,6 @@
 {
  "id": "biom/vulkan/schlot",
- "name": "Lavaschlot (VOX-02): fester, hoher Kegel aus rock* (1,6 bis 1,9 m), Kollision, Deckung, sperrt die Sicht. Footprint unter 1 x 1 m. Drei achteckige Schichten bzw. vier quadratische Terrassen (abwechselnd rock und rock_dark); nur die kleine Mündung oben ist Lava (Rolle fluid, leuchtet), der Fels leuchtet nie. seed wählt die Gestalt: 0 steiler Kegel, 1 Terrassenschlot, 2 versetzter Kegel mit Nebenkegel",
+ "name": "Lavaschlot (VOX-02): fester, hoher Schlot aus rock*/rock_dark (1,6 bis 1,9 m), Kollision, Deckung, sperrt die Sicht. Footprint höchstens 1 x 1 m. Drei Schichten, unregelmäßig: die beiden unteren (bis etwa zur Mitte) sind ungleichmäßig abgeschrägte Achtecke (zwei gekreuzte Quader mit verschieden großen Ecken), die obere ein Rechteck; jede Schicht hat eigene Breite und Tiefe und sitzt seitlich versetzt, abwechselnd rock und rock_dark. Oben ein unregelmäßiger Krater (zwei gekreuzte Aussparungen, zwei Kerben im Rand); nur der Kraterboden ist Lava (Rolle fluid, höchstens 13 leuchtende Voxel), der Fels leuchtet nie. seed wählt die Gestalt (seed % 3: 0 steiler Kegel, 1 Terrassen, 2 versetzt mit Nebenkegel) sowie Höhe, Versatz, Eckenschnitt und Kerbe",
  "tier": "detail",
  "palette": "biom_vulkan",
  "jitter": 0,
@@ -16,18 +16,19 @@
  ],
  "budgetTris": 800,
  "let": {
-  "H": "26 + floor(hash(seed, 1) * 6)",
+  "H": "26 + floor(hash(seed, 1) * 5)",
   "typ": "floor(seed) % 3",
-  "nl": "floor(seed) % 3 == 1 ? 4 : 3",
   "ox": "floor(seed) % 3 == 2 ? -1 : round((hash(seed, 2) - 0.5) * 2)",
-  "oz": "floor(seed) % 3 == 2 ? 1 : round((hash(seed, 3) - 0.5) * 2)"
+  "oz": "floor(seed) % 3 == 2 ? 1 : round((hash(seed, 3) - 0.5) * 2)",
+  "cx": "ox + (typ == 0 ? 0 : floor(hash(seed, 3, 3) * 3) - 1)",
+  "cz": "oz + (typ == 0 ? 0 : floor(hash(seed, 3, 8) * 3) - 1)"
  },
  "ops": [
   {
    "op": "group",
    "name": "Schichten",
    "repeat": {
-    "count": 4,
+    "count": 3,
     "step": [
      0,
      0,
@@ -35,78 +36,81 @@
     ],
     "var": "i"
    },
-   "if": "i < nl",
    "let": {
-    "y0": "floor(i * H / nl)",
-    "y1": "floor((i + 1) * H / nl)",
-    "half": "typ == 1 ? 7 - i : 7 - 2 * i",
-    "fb": "i % 2",
-    "sq": "typ != 1 && i < 2 ? 1 : 0"
+    "y0": "floor(i * H / 3)",
+    "y1": "floor((i + 1) * H / 3)",
+    "hx": "(i == 0 ? 7 : i == 1 ? (typ == 1 ? 6 : 5) : (typ == 2 ? 3 : 4)) - (i < 2 ? floor(hash(seed, i, 1) * 2) : 0)",
+    "hz": "(i == 0 ? 7 : i == 1 ? (typ == 1 ? 6 : 5) : (typ == 2 ? 3 : 4)) - (i < 2 ? floor(hash(seed, i, 2) * 2) : 0)",
+    "dx": "i == 0 ? 0 : i == 2 ? cx - ox : (typ == 0 ? 0 : floor(hash(seed, i, 3) * 3) - 1)",
+    "dz": "i == 0 ? 0 : i == 2 ? cz - oz : (typ == 0 ? 0 : floor(hash(seed, i, 8) * 3) - 1)",
+    "ca": "i < 2 ? 1 + floor(hash(seed, i, 4) * 2) + (i == 0 ? 1 : 0) : 0",
+    "cb": "i < 2 ? 1 + floor(hash(seed, i, 5) * 2) + (i == 0 ? 1 : 0) : 0",
+    "fb": "i % 2"
    },
    "ops": [
     {
      "op": "box",
+     "color": "rock",
      "name": "Schicht A rock",
      "at": [
-      "-half + ox",
+      "-hx + ox + dx",
       "y0",
-      "-(half - sq) + oz"
+      "-(hz - ca) + oz + dz"
      ],
      "size": [
-      "2 * half",
+      "2 * hx",
       "y1 - y0",
-      "2 * (half - sq)"
+      "2 * (hz - ca)"
      ],
-     "color": "rock",
      "if": "fb == 0"
     },
     {
      "op": "box",
+     "color": "rock",
      "name": "Schicht B rock",
      "at": [
-      "-(half - 1) + ox",
+      "-(hx - cb) + ox + dx",
       "y0",
-      "-half + oz"
+      "-hz + oz + dz"
      ],
      "size": [
-      "2 * (half - 1)",
+      "2 * (hx - cb)",
       "y1 - y0",
-      "2 * half"
+      "2 * hz"
      ],
-     "color": "rock",
-     "if": "fb == 0 && sq == 1"
+     "if": "fb == 0 && i < 2"
     },
     {
      "op": "box",
+     "color": "rock_dark",
      "name": "Schicht A rock_dark",
      "at": [
-      "-half + ox",
+      "-hx + ox + dx",
       "y0",
-      "-(half - sq) + oz"
+      "-(hz - ca) + oz + dz"
      ],
      "size": [
-      "2 * half",
+      "2 * hx",
       "y1 - y0",
-      "2 * (half - sq)"
+      "2 * (hz - ca)"
      ],
-     "color": "rock_dark",
      "if": "fb == 1"
     },
     {
      "op": "box",
+     "color": "rock_dark",
      "name": "Schicht B rock_dark",
      "at": [
-      "-(half - 1) + ox",
+      "-(hx - cb) + ox + dx",
       "y0",
-      "-half + oz"
+      "-hz + oz + dz"
      ],
      "size": [
-      "2 * (half - 1)",
+      "2 * (hx - cb)",
       "y1 - y0",
-      "2 * half"
+      "2 * hz"
      ],
-     "color": "rock_dark",
-     "if": "fb == 1 && sq == 1"
+     "if": "fb == 1 && i < 2"
     }
    ]
   },
@@ -119,56 +123,85 @@
     -7
    ],
    "size": [
-    5,
-    6,
-    5
+    4,
+    7,
+    4
    ],
    "color": "rock_dark",
    "if": "typ == 2"
   },
   {
    "op": "box",
-   "name": "Nebenkegel oben",
+   "name": "Krater lang",
+   "mode": "carve",
    "at": [
-    4,
-    6,
-    -6
+    "cx - 2",
+    "H - 1",
+    "cz - 1"
    ],
    "size": [
-    3,
     4,
+    1,
     3
-   ],
-   "color": "rock",
-   "if": "typ == 2"
+   ]
   },
   {
    "op": "box",
-   "name": "Mündung frei",
+   "name": "Krater breit",
    "mode": "carve",
    "at": [
-    "-2 + ox",
+    "cx - 1",
     "H - 1",
-    "-2 + oz"
+    "cz - 2"
    ],
    "size": [
-    4,
+    3,
     1,
     4
    ]
   },
   {
    "op": "box",
-   "name": "Lava (Mündung)",
+   "name": "Krater Kerbe quer",
+   "mode": "carve",
    "at": [
-    "-2 + ox",
-    "H - 2",
-    "-2 + oz"
+    "cx - 1 + floor(hash(seed, 14) * 2)",
+    "H - 1",
+    "cz + (hash(seed, 15) > 0.5 ? 2 : -3)"
    ],
    "size": [
-    4,
     1,
-    4
+    1,
+    1
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Krater Kerbe",
+   "mode": "carve",
+   "at": [
+    "cx + (hash(seed, 10) > 0.5 ? 2 : -3)",
+    "H - 1",
+    "cz - 1 + floor(hash(seed, 11) * 2)"
+   ],
+   "size": [
+    1,
+    1,
+    1
+   ]
+  },
+  {
+   "op": "box",
+   "name": "Lava Kern",
+   "at": [
+    "cx - 1",
+    "H - 2",
+    "cz - 1"
+   ],
+   "size": [
+    3,
+    1,
+    3
    ],
    "color": {
     "noise": [
@@ -182,6 +215,60 @@
     "cell": 1
    },
    "jitter": false
+  },
+  {
+   "op": "box",
+   "name": "Lava Rand Nord",
+   "at": [
+    "cx - 2",
+    "H - 2",
+    "cz - 1"
+   ],
+   "size": [
+    1,
+    1,
+    2
+   ],
+   "color": {
+    "noise": [
+     "fluid",
+     "fluid_v"
+    ],
+    "weights": [
+     4,
+     1
+    ],
+    "cell": 1
+   },
+   "jitter": false,
+   "if": "hash(seed, 12) > 0.3"
+  },
+  {
+   "op": "box",
+   "name": "Lava Rand Süd",
+   "at": [
+    "cx - 1",
+    "H - 2",
+    "cz - 2"
+   ],
+   "size": [
+    2,
+    1,
+    1
+   ],
+   "color": {
+    "noise": [
+     "fluid",
+     "fluid_v"
+    ],
+    "weights": [
+     4,
+     1
+    ],
+    "cell": 1
+   },
+   "jitter": false,
+   "if": "hash(seed, 13) > 0.4"
   }
  ],
  "anchor": [
