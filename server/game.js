@@ -133,6 +133,8 @@ const sektorenMod = () => optional('sektoren', '../shared/sektoren.js'); // SEKT
 const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   // BUEHNE (B1)
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
+const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
+const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
 const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
@@ -1228,6 +1230,9 @@ class Game {
     }
     // AUS-02 A: Slot am Boden benutzen (Waffenwechsel) – ohne Konsole; loadout.slotNutzen lehnt alles ab, was nicht am Boden und handlungsfähig ist (still)
     if (c === Protocol.CMD_SLOT_NUTZEN) { try { Loadout.slotNutzen(this, p, msg.slot); } catch (e) { this.countError('loadout', e); } return; }
+    // SCA-01 P1: Scanner am Boden – Frequenz halten und Abbruch (der Start läuft über slot.nutzen); ohne laufenden Scan ohne Wirkung
+    if (c === Protocol.CMD_SCAN_STIMME) { try { Scanner.scanStimme(this, p, Number(msg.dir)); } catch (e) { this.countError('scanner', e); } return; }
+    if (c === Protocol.CMD_SCAN_ABBRUCH) { try { Scanner.scanAbbrechen(this, p); } catch (e) { this.countError('scanner', e); } return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1595,6 +1600,8 @@ class Game {
       case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
+      case 'scanfertig': err = Scanbar.debugScanfertig(this, p, msg.stufe != null ? msg.stufe : argList(msg)[0]); break;   // SCA-01 P4: scanfertig [stufe 0..3] – Scan-Wirkung ohne Minispiel
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
       case 'graben': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/graben.js').debug(this, argList(msg)[0]); break;   // BOD-01: graben [welle2|reset|status]
       default: err = 'Unbekannter Debug-Befehl.';
@@ -1880,6 +1887,8 @@ class Game {
       this.safe('reaktortod', () => Reaktortod.update(this, dt));   // SYS-01 A2a: Reaktor-Countdown, Rettung, Tod der Lerche
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
+      this.safe('scanbar', () => Scanbar.update(this));   // SCA-01 P2: verschwundene Ziele fallen aus aw.sc (nur wenn aw.sc nicht leer)
+      this.safe('scanner', () => Scanner.update(this, dt));   // SCA-01 P1: Scan am Boden (früher Rücksprung, solange niemand scannt)
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
@@ -1959,6 +1968,7 @@ class Game {
       const minT = (C.spaceM3 && C.spaceM3.repair && C.spaceM3.repair.minigameMinTime) || 2.5;
       return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)) };
     }
+    if (h.kind === 'scan') return { kind: 'scan', progress: r2(Math.min(1, h.scan.halt)) };   // SCA-01 P1: Fortschritt aus dem Scan-Zustand
     const o = { kind: h.kind, progress: r2(Math.min(1, h.t / h.dur)) };
     if (h.system) o.system = h.system;
     return o;
@@ -2284,6 +2294,7 @@ class Game {
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
         ...combat.playerSnap(this, p),
+        ...((sc) => (sc ? { sc } : {}))(Scanner.snapshotFuer(this, p)),   // SCA-01 P1: Frequenz/Signal/Fortschritt, nur solange p scannt
         ...this.wfAnBord(p),   // B2 (Wunsch CLIENT): gewählte Waffe auch an Bord
         ...interior.deckSnap(this, p),   // M4 §2.4: deck (Schiff), lift { to, t, T }, ladder { t, T } – nur wenn aktiv
       })),
@@ -2368,6 +2379,7 @@ class Game {
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
         ...(aw.monster ? { mo: Monster.snap(this), mp: Monster.pulteSnap(this) } : {}),   // SL7c: Monster (x, y, z, f) und Pult-Stand für den Captain (nur auf der Monster-Station)
+        ...Scanbar.snapshot(aw),   // SCA-01 P2: sc [[id, art, typ, sk, x?, y?]] (nur bei nicht leerem aw.sc)
         ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },

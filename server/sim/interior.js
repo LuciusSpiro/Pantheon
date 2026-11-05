@@ -686,7 +686,7 @@ function itemName(item) {
 function onAct(game, p, down) {
   p.actDown = !!down;
   // M3a: das Minispiel läuft ohne E (Client sendet E dann nicht); ein verirrtes E bricht es nicht ab
-  if (p.hold && p.hold.kind === 'minigame') return;
+  if (p.hold && (p.hold.kind === 'minigame' || p.hold.kind === 'scan')) return;   // SCA-01: auch der Scan läuft ohne E
   if (!down) { if (p.hold) { p.hold = null; } return; }
   if (p.downed || p.console || p.beamLock || p.lift || betaeubt(game, p)) return;
   if (p.liftSel) { p.liftSel = null; return; }   // PAN-01 B: E schließt die Wahl am Lift wieder
@@ -899,6 +899,10 @@ function updateHold(game, p, dt) {
     if (p.moving || p.console || p.downed || p.zone !== 'ship' || !holdValid(game, p, h)) { p.hold = null; return; }
     if (reparaturGesperrt(game, h.system)) { h.t = 0; return; }   // SYS-02a: Sturm-Sperre der Zone
     h.t += dt;
+    return;
+  }
+  if (h.kind === 'scan') {   // SCA-01 P1: Scan am Boden, ohne E; Fortschritt und Ende rechnet scanner.update, hier nur die Abbruchgründe
+    if (p.moving || p.console || p.downed || p.zone !== 'away') p.hold = null;
     return;
   }
   if (!p.actDown || p.moving || p.console) { p.hold = null; return; }

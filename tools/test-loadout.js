@@ -152,7 +152,7 @@ section('Speichern/Laden und Migration (Modul)');
   ok(JSON.stringify(g5.crewLoadout) === '{"0123456789ab":[null,"lanze",null]}', 'restore: ungültige Schlüssel/Ids/Doppel/Überlänge verworfen');
   const g6 = welt(); Waffen.restore({ [h]: 'betaeuber' }, g6);
   ok(Waffen.waffeFuer(g6, p) === 'betaeuber', 'nur crewWaffen gesetzt: Fallback auf Slot 1');
-  ok(Loadout.istErlaubt('lanze') && !Loadout.istErlaubt('faust') && !Loadout.istErlaubt(null) && Loadout.erlaubteIds().length === Protocol.WAFFEN_WAHL.length, 'erlaubte Ids an einer Stelle = WAFFEN_WAHL');
+  ok(Loadout.istErlaubt('lanze') && !Loadout.istErlaubt('faust') && !Loadout.istErlaubt(null) && Loadout.erlaubteIds().length === Protocol.WAFFEN_WAHL.length + 1 && Loadout.erlaubteIds().includes('scanner'), 'erlaubte Ids an einer Stelle = WAFFEN_WAHL + Item scanner (SCA-01)');
 }
 
 section('Befehl loadout.slot (Game)');

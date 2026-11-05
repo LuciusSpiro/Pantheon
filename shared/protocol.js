@@ -119,6 +119,14 @@
     //   Abgelehnt ohne Antwort (kein Effekt): ungültiger/leerer Slot, nicht am Boden, ausgeschaltet/gefangen/betäubt/bewusstlos, gleiche Waffe (No-op ohne Preis).
     //   Antwort bei Waffenwechsel: Ereignis loadout { pid, waffe, sperre } (sperre = wirksame Restzeit in s bis die Waffe feuern darf = max(Rest der abgelegten Kadenz, Wechselzeit); Client zeigt die Sperre lokal); Snapshot players[].wf ändert sich sofort. Kein neues Snapshot-Feld.
     CMD_SLOT_NUTZEN: 'slot.nutzen',
+    // SCA-01 P1: Scanner am Boden. Start NUR über slot.nutzen auf den Slot mit dem Item `scanner` (zweite Betätigung während des Scans = Abbruch). cmd { c: 'scan.stimme', dir: -1|0|1 } (gehalten, der Server
+    //   bewegt die Frequenz), cmd { c: 'scan.abbruch' } beendet ohne Ergebnis. Abbruch jeder Art (Treffer, Bewegung, Konsole, Wunde, Kartenwechsel, Trennung) = kein Ergebnis, Fortschritt verloren.
+    //   Snapshot: players[].action = { kind: 'scan', progress } für alle; players[].sc = { f, s, h, q } (Frequenz, Signal, Fortschritt, laufende Schätzung 0..3) nur beim Scannenden und nur solange der Scan läuft.
+    // SCA-01 P2: Ergebnis eines vollendeten Scans (alle Ziele im Umkreis config.scanner.reichweite, Luftlinie): Snapshot `away.sc` (NICHT players[].sc), nur wenn nicht leer, sichtbar für alle, bis zum Kartenende (nichts im Weltstand):
+    //   away.sc = [[id, art, typ, sk], …] bzw. [id, art, typ, sk, x, y] ab der Positionsstufe der Art (Standard 3; Erz später 1). id String, art/typ kurze Strings ('test'/'testerz'), sk 1..3 (nur steigend),
+    //   x, y ganze px (ab der Positionsstufe bei jedem Scan neu gesetzt). Höchstens config.scanner.maxEintraege (16) Einträge. Texte (Name, Gefahr, Regelhinweis) und die Hinweisstufe (`hinweisAb`) liegen im Client-Content, nicht im Snapshot und nicht am Server. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
+    CMD_SCAN_STIMME: 'scan.stimme',
+    CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],
@@ -369,6 +377,8 @@
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'scantest',   // SCA-01 P2: scantest (drei Testziele am Boden)
+      'scanfertig',   // SCA-01 P4: scanfertig { stufe 0..3, Standard 3 } (Scan-Wirkung am Ort des Aufrufers, nur Boden)
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

@@ -1563,7 +1563,19 @@
       y = this.drawPersonen(ctx, st, lx, y + 3, lw);   // W2 AP6
       // Karte rechts
       const rect = { x: a.x + 246, y: a.y + 2, w: a.w - 246, h: 196 };
-      this.maps.away = Object.assign(R.drawAwayCommandMap(ctx, view, rect, { highlight: this.order.hoverEnemy }), { rect });
+      // SCA-01 P4: mit Scan-Ergebnissen wird die Karte kleiner (größte Zelle, die noch passt), damit unter ihr das Datenblatt Platz hat; ohne Ergebnis bleibt alles wie zuvor
+      const scan = this.scanAnsicht(away);
+      const bottom = a.y + a.h - 12;   // darunter liegt die Frachtleiste des Pults
+      const blk = scan ? this.scanMass(scan, rect.w) : null;
+      if (blk) {
+        const am = R.mapFor('away', st);
+        const c = Math.max(2, Math.min(Math.floor((rect.w - 4) / am.w), Math.floor((rect.h - 4) / am.h), Math.floor((bottom - rect.y - 6 - 11 - blk.h - 4) / am.h)));
+        rect.h = Math.min(rect.h, am.h * c + 4);
+      }
+      // D6: Marker-Kürzel nur für Fokus und Hover; Hover aus der Mausposition gegen die Marker-Rechtecke des letzten Frames
+      const mo = view.mouse || { x: -1, y: -1 }, prev = this.maps.away && this.maps.away.scanRects;
+      const hov = prev && mo.x >= 0 ? (prev.find((m) => this.inRect(mo.x, mo.y, m)) || {}).key : null;
+      this.maps.away = Object.assign(R.drawAwayCommandMap(ctx, view, rect, { highlight: this.order.hoverEnemy, scanHover: hov || null }), { rect });
       // Legende/Gegnerlage unter der Karte
       let ly = rect.y + rect.h + 6;
       const alive = (view.drones || []).filter(d => d.alive !== false);
@@ -1572,22 +1584,98 @@
       R.text(ctx, 'GEGNERLAGE', rect.x, ly, { color: PAL.brass });
       R.text(ctx, (q < 1 ? 'ca. ' : '') + sc + ' Plünderer' + (wd ? ' · Wächter ' + (wd.asleep ? 'schläft' : 'WACH') : '') + (mon ? ' · MONSTER ' + ({ j: 'JAGT', l: 'hört Lärm', s: 'sucht', p: 'patrouilliert' }[mon.mo && mon.mo.z] || '') : ''), rect.x + 70, ly, { color: (wd && !wd.asleep) || (mon && mon.mo && mon.mo.z === 'j') ? PAL.red : PAL.star });
       ly += 11;
+      if (blk) { this.scanZeichne(ctx, scan, blk, rect.x, ly, rect.w, q < 1); return this.aussenHilfeScan(); }   // SCA-01 P4: Datenblatt statt der Hilfszeilen (der gewählte Befehl steht links markiert)
       const lines = [];
       if (q < 1) lines.push(['Störrelais verrauschen den Scan – Außenteam: E halten am Relais (Nord- und Südkorridor).', PAL.panelLight]);
       lines.push(['Gewählt: ' + R.ORDER_NAMES[this.order.kind] + (this.order.kind === 'fokus' ? ' – Gegner anklicken (8 s für alle sichtbar)' : ' – Klick auf die Karte setzt die Lichtsäule'), R.ORDER_COL[this.order.kind]]);
       for (const [txt, col] of lines) for (const l of R.wrap(txt, rect.w - 4, 1).slice(0, 2)) { R.text(ctx, l, rect.x, ly, { color: col }); ly += 10; }
       return 'Q/W/E/R/F/G Befehl wählen · Klick setzen · X löschen · S Sensor · K Kuppel · 1–6 Reiter';
     },
+    // Hilfezeile mit Scan-Ergebnissen: die Tasten für voriges/nächstes Ergebnis kommen aus dem Tastenregister (umbelegt = neue Taste)
+    aussenHilfeScan() {
+      const T = window.Tasten, a = T ? T.kappe('captain.aussen.scanZurueck') : 'BildA', b = T ? T.kappe('captain.aussen.scanVor') : 'BildB';
+      return 'Q/W/E/R/F/G Befehl · X löschen · S Sensor · K Kuppel · ' + a + '/' + b + ' Ergebnis · 1–6 Reiter';
+    },
     sendOrder(view, fields) {
       this.cmd(view, 'captain.order', fields);
     },
+    // ---- SCA-01 P4: Scan-Ergebnisse (Datenblatt) im Reiter Außenteam. Zustand und Texte liegen in ScanAnzeige (public/js/scan-anzeige.js); hier nur Anordnung und Farben.
+    // Ansicht { zeilen, rest, fokus } oder null (ohne Ergebnis, ohne Modul: nichts zeichnen, nichts reservieren)
+    scanAnsicht(away) {
+      const SA = window.ScanAnzeige;
+      if (!SA || !away || !Array.isArray(away.sc) || !away.sc.length) return null;
+      try { SA.beobachte(away.sc); const v = SA.ansicht(away.sc, SA.MAX_ZEILEN); return v.zeilen.length ? v : null; } catch (e) { Net.reportError('Consoles.scanAnsicht', e); return null; }
+    },
+    // Maße des Blocks: Liste links (150 px), Datenblatt des Fokus rechts. Nacharbeit D9: die Höhe hängt NICHT vom Text des Fokus ab (immer das Maximum: Überschrift + Name + MAXL_BLATT Zeilen), damit die Zellgröße der Karte nicht springt
+    scanMass(scan, w) {
+      const SA = window.ScanAnzeige, LW = 150, SW = Math.max(100, w - LW - 8);
+      const b = SA.blatt(scan.fokus, TILE);
+      const sheet = SA.blattZeilen(b, SW, (t) => R.measure(t, 1), SA.MAXL_BLATT);
+      return { LW, SW, b, sheet, h: 11 + Math.max(SA.MAX_ZEILEN * 10 + 10, 10 + SA.MAXL_BLATT * 10) };
+    },
+    // Gefahrenstufe 0..3: drei Kästchen, volle gefüllt Rot, leere als 1-px-Umriss (die Stufe liest sich auch ohne Farbe)
+    scanPips(ctx, x, y, n) {
+      for (let i = 0; i < 3; i++) {
+        if (i < n) { ctx.fillStyle = PAL.red; ctx.fillRect(x + i * 6, y + 1, 4, 6); }
+        else { ctx.strokeStyle = PAL.grey; ctx.lineWidth = 1; ctx.strokeRect(x + i * 6 + 0.5, y + 1.5, 3, 5); }
+      }
+    },
+    scanZeichne(ctx, scan, blk, x, y, w, stoer) {
+      const SA = window.ScanAnzeige, meas = (t) => R.measure(t, 1), ICE = PAL.ice;
+      const LW = blk.LW, sx = x + LW + 8, SW = blk.SW;
+      R.text(ctx, 'SCAN-ERGEBNISSE', x, y, { color: PAL.brass });
+      // Spalten der Liste: Name | Gefahr (3 Kästchen) | Sterne ganz rechts, mindestens 8 px Abstand zwischen Gefahr und Sternen
+      const stW = meas('[***]'), stX = x + LW - stW - 2, pipX = stX - 9 - 16, nameW = pipX - (x + 16) - 3;
+      R.text(ctx, 'GEF', pipX, y, { color: PAL.panelLight });
+      R.text(ctx, 'SCAN', stX, y, { color: PAL.panelLight });
+      if (stoer) R.text(ctx, SA.kuerze('Störrelais stören den Scan', SW, meas), sx, y, { color: PAL.panelLight });   // N2: der Hinweis geht mit Ergebnissen nicht verloren
+      y += 11;
+      scan.zeilen.forEach((z, i) => {
+        const ry = y + i * 10, fok = z === scan.fokus;
+        if (fok) { ctx.fillStyle = 'rgba(169,214,229,0.2)'; ctx.fillRect(x, ry - 1, LW, 10); }
+        R.text(ctx, z.symbol, x + 2, ry, { color: ICE });
+        R.text(ctx, SA.kuerze(z.name, nameW, meas), x + 16, ry, { color: fok ? PAL.star : PAL.panelLight });
+        this.scanPips(ctx, pipX, ry, z.gefahr);
+        R.text(ctx, SA.sterne(z.sk), stX, ry, { color: ICE });
+        R.ui.buttons.push({ x, y: ry - 1, w: LW, h: 10, label: z.name, onClick: () => SA.waehle(z.key) });
+      });
+      if (scan.rest) R.text(ctx, '+' + scan.rest + ' weitere', x + 16, y + scan.zeilen.length * 10, { color: PAL.panelLight });
+      // Datenblatt: Name in Versalien (Eisblau) mit GEFAHR + Kästchen rechts, darunter Zeile (hell), Regelhinweis (eingerückt, Eisblau-Strich links), Position (letzte Zeile)
+      const gl = meas('GEFAHR');
+      R.text(ctx, SA.kuerze(String(blk.b.titel).toUpperCase(), SW - gl - 4 - 16 - 6, meas), sx, y, { color: ICE });
+      R.text(ctx, 'GEFAHR', sx + SW - 16 - 4 - gl, y, { color: PAL.panelLight });
+      this.scanPips(ctx, sx + SW - 16, y, blk.b.gefahr);
+      let sy = y + 10;
+      const hn = blk.sheet.filter((l) => l.art === 'hinweis').length;
+      let hy0 = null;
+      for (const l of blk.sheet) {
+        if (l.art === 'hinweis') {
+          if (hy0 == null) { hy0 = sy; ctx.fillStyle = ICE; ctx.fillRect(sx, sy - 1, 1, hn * 10); }
+          R.text(ctx, l.text, sx + SA.HINWEIS_EINZUG, sy, { color: PAL.star });
+        } else R.text(ctx, l.text, sx, sy, { color: l.art === 'pos' ? (l.hat ? ICE : PAL.panelLight) : PAL.star });
+        sy += 10;
+      }
+    },
+    // Scan-Ergebnisse: Fokus per Taste weiterschalten (dir +1/-1) – alle Einträge sind erreichbar, auch die hinter „+n weitere“
+    scanFokusWeiter(view, dir) {
+      const SA = window.ScanAnzeige, away = (view.state && view.state.away) || {};
+      if (!SA || !Array.isArray(away.sc) || !away.sc.length) return false;
+      SA.beobachte(away.sc);
+      SA.fokusWeiter(away.sc, dir);
+      view.actions.sfx('ui_click');
+      return true;
+    },
     // Klick in die Kommandokarte (Captain, Reiter Außenteam auf v2-Karten)
-    awayMapClick(view, x, y, button) {
+    awayMapClick(view, x, y, button, shift) {
       const mp = this.maps.away;
       if (!mp || !mp.rect || !this.inRect(x, y, mp.rect)) return false;
       const kind = this.order.kind;
       if (button === 2) { this.sendOrder(view, { kind, clear: true }); return true; }
       const w = mp.toW(x, y);
+      // SCA-01 Nacharbeit D3: ein Klick auf einen Scan-Marker wählt NUR den Datenblatt-Eintrag (kein Befehl); der Befehl wird mit Shift+Klick auf den Marker oder mit einem Klick daneben gesetzt
+      const sh = shift !== undefined ? !!shift : !!(this.keys && (this.keys.ShiftLeft || this.keys.ShiftRight));
+      const hitS = (mp.scanRects || []).find((m) => this.inRect(x, y, m));
+      if (hitS && !sh) { if (window.ScanAnzeige) ScanAnzeige.waehle(hitS.key); return true; }
       let hitE = null;
       for (const r of mp.enemyRects || []) if (this.inRect(x, y, { x: r.x - 3, y: r.y - 3, w: r.w + 6, h: r.h + 6 })) { hitE = r; break; }
       if (kind === 'fokus') {
@@ -2425,7 +2513,7 @@
       return text;
     },
     // Auswahlliste je Slot: null = leer, dahinter die Waffen (Protocol.WAFFEN_WAHL)
-    ausruestungWahl() { return [null].concat(this.waffenListe()); },
+    ausruestungWahl() { return [null].concat(this.waffenListe(), H.SLOT_ITEMS || []); },   // SCA-01 P3: Items (Scanner) stehen immer zur Wahl, auch ohne Scan-Ziele
     ausruestungGrund(id, slot) {   // Grund, warum id in Slot slot nicht geht (null = möglich); der Server prüft dasselbe
       const s = this.ausr.stand;
       if (!s) return 'Stand wird geladen';
@@ -2468,14 +2556,15 @@
         if (selekt) { ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.strokeRect(17, y + 1, 298, 40); ctx.lineWidth = 1; }
         R.text(ctx, 'SLOT ' + (i + 1), 24, y + 5, { color: selekt ? PAL.red : PAL.brass });
         if (id) {
-          if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
+          if ((H.SLOT_ITEMS || []).includes(id) && window.Scanner) window.Scanner.symbol(ctx, 43, y + 22, PAL.ice);   // SCA-01 P3: Item-Symbol (die Waffen-Icons kennen keine Items)
+          else if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
           R.text(ctx, this.ausruestungName(id), 70, y + 22, { color: PAL.star, scale: 1 });
         } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
         y += 48;
       }
       const linksEnde = y;
       // Aktive Waffe am Boden = erste Waffe der Slots (Paket A); ohne Waffe Fäuste
-      const aktiv = s.slots.find(x => !!x) || null;
+      const aktiv = s.slots.find(x => !!x && !(H.SLOT_ITEMS || []).includes(x)) || null;   // SCA-01 P3: ein Item ist nie die aktive Waffe
       y += 4;
       if (aktiv) R.text(ctx, 'Am Boden aktiv: ' + ((H.WAFFE_KURZ || {})[aktiv] || aktiv), 16, y, { color: PAL.mint });
       else R.text(ctx, 'Kein Waffen-Slot = Fäuste.', 16, y, { color: PAL.amber });
@@ -2493,11 +2582,15 @@
         if (i === a.cur) rahmen(x0 + 12, ry, w - 12, 20, a.fokus === 'waffe' ? PAL.star : '#6B7380');   // Cursor = heller Zeilenrahmen, Mint bleibt die Belegung
         ry += 24;
       });
+      // SCA-01 P3: Beschreibung des Items unter dem Cursor (bzw. des Items im gewählten Slot), wenn die Zeile ein Item ist
+      const infoId = wahl[a.cur] && (H.ITEM_INFO || {})[wahl[a.cur]] ? wahl[a.cur] : null;
+      let fy = ry + 6;
+      if (infoId) for (const l of R.wrap(H.ITEM_INFO[infoId], w, 1)) { R.text(ctx, l, x0, fy, { color: PAL.ice }); fy += 10; }
       // Fokus: Rahmen um die Spalte, in der die Pfeiltasten wirken
       if (a.fokus === 'slot') rahmen(12, 42, 308, linksEnde - 42 - 2, PAL.brass); else rahmen(x0 - 4, 42, w + 8, ry - 42 + 2, PAL.brass);
       // Serverfehler direkt unter der Waffenliste
-      if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, ry + 6 + k * 10, { color: PAL.red });
-      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–6 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
+      if (a.fehler && now - a.fehlerT < 8000) for (const [k, l] of R.wrap(a.fehler, w, 1).entries()) R.text(ctx, l, x0, fy + (infoId ? 2 : 0) + k * 10, { color: PAL.red });
+      return '←→ Spalte · ↑↓ wählen · Enter belegen · 1–7 direkt · 0/Entf leeren';   // „Esc verlassen“ hängt der Rahmen selbst an
     },
     ausruestungTaste(code, view) {
       const a = this.ausr, s = a.stand;
@@ -3201,6 +3294,7 @@
             const ok = { KeyQ: 'sammeln', KeyW: 'halten', KeyE: 'flanke', KeyR: 'rueckzug', KeyF: 'fokus', KeyG: 'gefahr' }[code];
             if (ok && this.isAwayV2(st)) { this.order.kind = ok; view.actions.sfx('ui_click'); return true; }
             if (code === 'KeyX' && this.isAwayV2(st)) return press(() => this.tryButton('Befehl löschen'));
+            if (code === 'PageUp' || code === 'PageDown') { this.scanFokusWeiter(view, code === 'PageUp' ? -1 : 1); return true; }   // SCA-01 Nacharbeit D4: Scan-Ergebnis zurück / vor (tasten.js captain.aussen.scanZurueck / scanVor)
           }
           return true;
         }

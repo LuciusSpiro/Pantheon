@@ -187,6 +187,8 @@
     A('captain.aussen.fokus', 'captain', 'Befehl: Fokus', ['KeyF'], 'captain.aussen'),
     A('captain.aussen.gefahr', 'captain', 'Befehl: Gefahr', ['KeyG'], 'captain.aussen'),
     A('captain.aussen.loeschen', 'captain', 'Befehl löschen', ['KeyX'], 'captain.aussen'),
+    A('captain.aussen.scanZurueck', 'captain', 'Scan-Ergebnis: voriges (Datenblatt)', ['PageUp'], 'captain.aussen'),
+    A('captain.aussen.scanVor', 'captain', 'Scan-Ergebnis: nächstes (Datenblatt)', ['PageDown'], 'captain.aussen'),
     A('captain.plan.vorher', 'captain', 'Voriger Sektor', ['ArrowLeft', 'KeyA'], 'captain.plan'),
     A('captain.plan.naechster', 'captain', 'Nächster Sektor', ['ArrowRight', 'KeyD'], 'captain.plan'),
     A('captain.plan.hier', 'captain', 'Auswahl: eigener Sektor', ['KeyH'], 'captain.plan'),
@@ -222,7 +224,7 @@
     A('charakter.spind.drehenLinks', 'charakter', 'Spind: Figur nach links drehen', ['KeyQ'], 'charakter.spind'),
     A('charakter.spind.drehenRechts', 'charakter', 'Spind: Figur nach rechts drehen', ['KeyE'], 'charakter.spind'),
 
-    // ------------------------------------------------------------ Boden (AUS-02 B: Waffenslots am Boden; Q/E/C/G/V/R/Tab/Leertaste/Esc sind dort fest verdrahtet und als RESERVIERT_BODEN geführt: setze() lehnt sie für boden.* ab, laden() verwirft Altbelegungen darauf, konflikte('boden') meldet sie)
+    // ------------------------------------------------------------ Boden (AUS-02 B: Waffenslots am Boden; Q/E/C/G/V/R/A/D/←/→/Rück/Tab/Leertaste/Esc sind dort fest verdrahtet und als RESERVIERT_BODEN geführt: setze() lehnt sie für boden.* ab, laden() verwirft Altbelegungen darauf, konflikte('boden') meldet sie)
     A('boden.slot1', 'boden', 'Waffenslot 1 nutzen (Boden)', NUM(1).reverse()),
     A('boden.slot2', 'boden', 'Waffenslot 2 nutzen (Boden)', NUM(2).reverse()),
     A('boden.slot3', 'boden', 'Waffenslot 3 nutzen (Boden)', NUM(3).reverse()),
@@ -271,7 +273,9 @@
   // AUS-02 Nacharbeit: feste Bodentasten (client.js, switch (code) am Boden). Der Slot-Zweig steht vor diesem switch und würde sie überdecken (Esc wäre zwar auch über 'allgemein.verlassen' als Konflikt gemeldet,
   // wird hier aber mit geführt) – darum darf keine Aktion der Gruppe boden auf diese Codes gelegt werden (mit oder ohne Shift). EINE Stelle: neue feste Bodentaste -> hier eintragen.
   const RESERVIERT_BODEN = ['KeyQ', 'KeyE', 'KeyC', 'KeyG', 'KeyV', 'KeyR', 'Space', 'Tab', 'Escape'];
-  const reserviert = (t) => typeof t === 'string' && RESERVIERT_BODEN.indexOf(t.replace(/^Shift\+/, '')) >= 0;
+  // SCA-01 Nacharbeit N4: im Scan-Overlay (scanner.js) stimmen A/D und Pfeil links/rechts die Frequenz, die Rücktaste bricht ab – ein Slot darf nicht auf diesen Tasten liegen (sonst bricht D den Scan ab, statt zu stimmen)
+  const RESERVIERT_SCAN = ['KeyA', 'KeyD', 'ArrowLeft', 'ArrowRight', 'Backspace'];
+  const reserviert = (t) => typeof t === 'string' && (RESERVIERT_BODEN.indexOf(t.replace(/^Shift\+/, '')) >= 0 || RESERVIERT_SCAN.indexOf(t.replace(/^Shift\+/, '')) >= 0);
 
   // ---------------------------------------------------------------- Speicher (nur Abweichungen von std)
   function lsGet() { try { return window.localStorage ? window.localStorage.getItem(SPEICHER) : null; } catch (e) { return null; } }
@@ -456,7 +460,7 @@
   window.Tasten = {
     AKTIONEN, GRUPPEN, BEREICHE,
     aktion: (id) => NACH_ID[id] || null,
-    passt, slotVon, SLOT_AKTIONEN, reserviert, RESERVIERT_BODEN, welche, loslassen, gehalten, ausEvent,
+    passt, slotVon, SLOT_AKTIONEN, reserviert, RESERVIERT_BODEN, RESERVIERT_SCAN, welche, loslassen, gehalten, ausEvent,
     kappe, kappeVon, name,
     belegung, setze, zuruecksetzen, geaendert, konflikte,
     laden, gespeichert: () => gespeichert,

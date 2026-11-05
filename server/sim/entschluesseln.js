@@ -17,6 +17,7 @@
 // floor(Fortschritt · 3). Gleiche Regel für jede Quelle (Funk, Notruf, Boje). Zwischenstand wird nicht gespeichert; Ergebnis steht als Fakt entschl_<id>.
 const Station = require('./station.js');
 const Locations = require('../../shared/locations.js');
+const Abst = require('./abstimmung.js');   // SCA-01: geteilte Frequenzrechnung (Ops und Scanner am Boden)
 
 const cfg = (game) => game.C.entschl;
 const r2 = (v) => Math.round(v * 100) / 100;
@@ -25,10 +26,7 @@ const Z = { OFFEN: 0, LAEUFT: 1, FERTIG: 2 };
 
 function reset(game) { game.entschl = null; game.entschlErgebnis = {}; }
 function ops(game) { return game.players.some((p) => p.connected && Station.stationOf(p) === 'weapons' && !p.downed); }
-function qualitaetAus(game, r) {
-  const t = cfg(game).qSchwellen;
-  return r >= t[2] ? 3 : r >= t[1] ? 2 : r >= t[0] ? 1 : 0;
-}
+const qualitaetAus = (game, r) => Abst.qualitaetAus(cfg(game), r);
 
 function neueAufgabe(game, aufgabe) {
   const a = aufgabe || {};
@@ -70,10 +68,8 @@ function anlauf(game, p) {
   if (!e || e.z === Z.FERTIG) return 'Kein Signal zu entschlüsseln.';
   if (e.z === Z.LAEUFT) return null;
   if (Station.stationOf(p) !== 'weapons') return 'Das macht die Ops.';
-  e.z = Z.LAEUFT; e.t = 0; e.halt = 0; e.dir = 0;
-  e.ziel = C.zielMin + game.rng() * (C.zielMax - C.zielMin);
-  e.f = e.ziel < 0.5 ? C.startF + 0.2 : C.startF - 0.2;   // das Band liegt nie bei der Startstellung
-  e.zv = 0; e.zt = 0;
+  e.z = Z.LAEUFT;
+  Abst.anlaufStellung(e, C, () => game.rng());
   return null;
 }
 function stimme(game, p, dir) {
@@ -99,9 +95,7 @@ function fertig(game, e, q) {
 function abbrechen(game, p) {
   const e = game.entschl;
   if (!e || e.z !== Z.LAEUFT) return null;
-  const C = cfg(game);
-  const r = e.t > 0 ? (e.halt * C.dauer) / e.t : 0;
-  fertig(game, e, Math.min(e.t < C.minLauf ? 0 : qualitaetAus(game, r), Math.floor(e.halt * 3)));
+  fertig(game, e, Abst.abbruchQualitaet(e, cfg(game)));
   return null;
 }
 
@@ -111,18 +105,9 @@ function update(game, dt) {
   if (e.z === Z.FERTIG) { if (game.time >= e.bis) game.entschl = null; return; }
   if (e.z !== Z.LAEUFT) return;
   if (!ops(game)) e.dir = 0;
-  e.t += dt;
-  e.f = clamp(e.f + e.dir * C.rate * dt, 0, 1);
   // Zielband wandert (Nebel/Zonen verstärken die Drift: gleiche Regel für alle)
-  e.zt -= dt;
-  if (e.zt <= 0) { e.zt = 2 + game.rng() * 2; e.zv = (game.rng() * 2 - 1) * C.driftV; }
   const loc = Locations.get(game.ship.scene);
-  const fak = loc && loc.fog ? C.driftNebel : 1;
-  e.ziel += e.zv * fak * dt;
-  if (e.ziel < C.zielMin) { e.ziel = C.zielMin; e.zv = Math.abs(e.zv); }
-  if (e.ziel > C.zielMax) { e.ziel = C.zielMax; e.zv = -Math.abs(e.zv); }
-  e.s = clamp(1 - Math.abs(e.f - e.ziel) / C.weitBand, 0, 1);
-  e.halt = Math.min(1, e.halt + (dt / C.dauer) * e.s);
+  Abst.schritt(e, dt, C, loc && loc.fog ? C.driftNebel : 1, () => game.rng());
   if (e.halt >= 1) fertig(game, e, qualitaetAus(game, C.dauer / e.t));
 }
 
@@ -141,7 +126,7 @@ function snapshot(game) {
   const o = { i: e.id, z: e.z, n: e.schichten.length };
   if (e.z === Z.LAEUFT) {
     o.f = r2(e.f); o.s = r2(e.s); o.h = r2(e.halt);
-    o.q = e.t >= C.minLauf ? qualitaetAus(game, (e.halt * C.dauer) / e.t) : 0;
+    o.q = Abst.schaetzung(e, C);
   } else if (e.z === Z.FERTIG) o.q = e.q;
   return o;
 }

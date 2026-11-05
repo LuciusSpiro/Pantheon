@@ -46,6 +46,7 @@ function beginne(game, p, npc) {
   }
   if (p.zone !== 'away') return 'Nur am Boden.';
   game.gespraech = { id: npc.gespraech, nid: npc.person, map: game.away.map, pid: p.id, z: 0, phase: 'zeilen', antwort: null, wahl: null, t0: game.time, last: game.time };
+  require('./scanner.js').scanUnterbrochen(game, p);   // SCA-01: ein beginnendes Gespräch beendet den Scan des Sprechers (ohne Ergebnis)
   game.emit('sfx', { name: 'ui_click', zone: 'away', x: Math.round(npc.x), y: Math.round(npc.y) });
   game.missionEvent('gespraechBegonnen', { id: npc.gespraech, person: npc.person });
   return null;

@@ -12,6 +12,8 @@
 //   methalle  EK5 Methalle: Labor-Umsetzung sabotieren/sprengstoff_platzieren, 4 Spieler, 6 + 2 Wachen (Obergrenze 8) auf Patrouille.
 //   endkampf  EK6 Siedlung Eisenwald: Labor-Umsetzung stellung_nehmen/flagge_hissen, 4 Spieler, Feldzeichen gehisst -> 10 Gegner und der
 //           Anführer (Modifikator, Bit gs) greifen von allen Seiten an, alle Spieler bleiben stehen (Worst Case: 4 Spieler + 11 Gegner).
+//   worst_scan  SCA-01 NS: der Worst Case oben PLUS 4 Scannende (players[].sc und action) und 16 Einträge in away.sc (18 Ziele geliefert, Obergrenze scanner.maxEintraege greift), über den echten Weg
+//           (Scanner.scanStarten, Scanbar.debugScanfertig).
 // Ausgabe je Aufbau: Max, p95, Mittel; Bytes je Top-Level-Schlüssel (Mittel und im Max-Snapshot); Bytes je Gegner
 // (Mittel) und je Gegnerfeld bzw. Spielerfeld (Mittel, Anteil am Gegner bzw. Spieler).
 // Gemessen wird wie im Vertrag: Buffer.byteLength(JSON.stringify(g.snapshot())). Grenze: CONFIG.net.snapMax − snapLuft.
@@ -79,7 +81,28 @@ function auswerten(S) {
 }
 
 // ---------- Aufbau 1: Worst Case (wie test-combat.js, B2 Snapshot Außenposten) ----------
-function worstCase(S, seed) {
+function worstCase(S, seed) { return worstCaseLauf(S, seed, null); }
+// SCA-01 NS: derselbe Aufbau mit 4 Scannenden und gefülltem away.sc
+function worstCaseScan(S, seed) { return worstCaseLauf(S, seed, { aufbauen: scanAufbauen, halten: scanHalten }); }
+
+const MESS_ART = 'monster';
+const messZiele = new WeakMap();   // Außenkarte -> gelieferte Ziele der Messart
+function scanAufbauen(g) {
+  const Scanbar = require('../server/sim/scanbar.js');
+  if (!scanAufbauen.angemeldet) { Scanbar.scanbarAnmelden(MESS_ART, { ziele: (game, aw) => messZiele.get(aw) || [] }); scanAufbauen.angemeldet = true; }
+  const p0 = g.players[0];
+  messZiele.set(g.away, Array.from({ length: 18 }, (_, i) => ({ id: 'm' + String(i + 1).padStart(2, '0'), typ: 'raider', x: p0.x + 12 * (i + 1), y: p0.y + (i % 3) * 20 })));
+  Scanbar.debugScanfertig(g, p0, 3);   // 16 von 18 (Obergrenze), mit Position
+}
+// Treffer brechen Scans ab, vollendete starten die Abklingzeit: vor jedem Snapshot laufen wieder alle vier (Fortschritt festgehalten)
+function scanHalten(g) {
+  const Scanner = require('../server/sim/scanner.js');
+  for (const p of g.players) {
+    if (!p.scan) { p.scanBis = 0; p.hold = null; Scanner.scanStarten(g, p); }
+    if (p.scan) p.scan.halt = Math.min(p.scan.halt, 0.88);
+  }
+}
+function worstCaseLauf(S, seed, scan) {
   const L = require('../server/sim/landepunkte.js');
   const g = new Game({ noStore: true, seed, debug: true, env: { MISSION_SOURCE: 'fallback' }, log });
   for (let i = 0; i < 4; i++) { const c = { send() {} }; g.addConnection(c); g.handleMessage(c, { t: 'hello', clientId: 'S' + i, name: 'S' + i, color: i }); g.handleMessage(c, { t: 'ready', ready: true }); }
@@ -92,15 +115,17 @@ function worstCase(S, seed) {
   while (g.away.drones.filter((d) => d.alive).length > 12) g.away.drones.pop();
   let i = 0;
   while (g.away.drones.length < 12) { const t = Physics.toTile(g.players[0].x, g.players[0].y); const e = squad.makeEnemy(g, g.away, 'scavenger', 'f' + (i++), Physics.tileCenter(t.x + 6, t.y), 'm'); e.rolle = 'niederhalter'; g.away.drones.push(e); }
+  if (scan) scan.aufbauen(g);
   for (let k = 0; k < TICKS; k++) {
     g.step();
     for (const p of g.players) { if (p.shield) p.shield.seg = 3; if (p.downed) combat.revive(g, p, 3, { quiet: true }); }
     if (k % 15 === 0) {
       for (const e of [g.away.drones[0], g.away.drones[1]]) { if (!e) continue; W2.ausstatten(g, e, 'grenadier'); e.bereitAt = 0; e.gesperrtBis = 0; W2.feuern(g, e, { x: g.players[0].x, y: g.players[0].y }); }
     }
+    if (scan) scan.halten(g);
     messen(S, g.snapshot());
   }
-  return { lp, fehler: g.errors };
+  return { lp, fehler: g.errors, scannende: scan ? g.players.filter((p) => p.scan).length : 0, scEintraege: g.away && g.away.sc ? Object.keys(g.away.sc).length : 0 };
 }
 
 // ---------- Aufbau 2: Wellenlauf (wie test-wellen.js „kampf“) ----------
@@ -619,9 +644,10 @@ function brettLauf(S, seed) {
 
 // ---------- Lauf ----------
 const t0 = Date.now();
-const W = sammler('worst'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett');
-const laeufe = { worst: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [] };
+const W = sammler('worst'), WS = sammler('worst_scan'), WL = sammler('wellen'), RA = sammler('raum-alarm'), WM = sammler('methalle'), WE = sammler('endkampf'), WB = sammler('boden'), KV = sammler('konvoi'), FL = sammler('flotte'), OB = sammler('orbit'), FF = sammler('freie_fahrt'), VF = sammler('verfolgung'), FO = sammler('finale_orbit'), FD = sammler('faden'), BR = sammler('abenteuer_brett');
+const laeufe = { worst: [], worstScan: [], wellen: [], raum: [], methalle: [], endkampf: [], boden: [], konvoi: [], flotte: [], orbit: [], freieFahrt: [], verfolgung: [], finaleOrbit: [], faden: [], brett: [] };
 for (let s = 1; s <= SEEDS; s++) laeufe.worst.push(Object.assign({ seed: s }, worstCase(W, s)));
+for (let s = 1; s <= SEEDS; s++) laeufe.worstScan.push(Object.assign({ seed: s }, worstCaseScan(WS, s)));   // SCA-01 NS
 for (const karte of ['aussenposten', 'kesh']) for (let s = 1; s <= SEEDS; s++) laeufe.wellen.push(Object.assign({ seed: s }, wellenlauf(WL, 20 + s, karte)));
 for (let s = 1; s <= SEEDS; s++) laeufe.raum.push(Object.assign({ seed: s }, raumAlarm(RA, 40 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.methalle.push(Object.assign({ seed: s }, methalleLauf(WM, 30 + s)));
@@ -635,7 +661,7 @@ for (let s = 1; s <= SEEDS; s++) laeufe.verfolgung.push(Object.assign({ seed: s 
 for (let s = 1; s <= SEEDS; s++) laeufe.finaleOrbit.push(Object.assign({ seed: s }, finaleOrbit(FO, 100 + s)));
 for (let s = 1; s <= SEEDS; s++) laeufe.faden.push(Object.assign({ seed: s }, fadenLauf(FD, 110 + s)));   // SUND-04b B2
 for (let s = 1; s <= SEEDS; s++) laeufe.brett.push(Object.assign({ seed: s }, brettLauf(BR, 120 + s)));   // SUND-04b C
-const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), laeufe, ms: Date.now() - t0 };
+const res = { ziel: ZIEL, grenze: MAX, luft: LUFT, seeds: SEEDS, sek: SEK, worst: auswerten(W), worstScan: auswerten(WS), wellen: auswerten(WL), raum: auswerten(RA), methalle: auswerten(WM), endkampf: auswerten(WE), boden: auswerten(WB), konvoi: auswerten(KV), flotte: auswerten(FL), orbit: auswerten(OB), freieFahrt: auswerten(FF), verfolgung: auswerten(VF), finaleOrbit: auswerten(FO), faden: auswerten(FD), brett: auswerten(BR), laeufe, ms: Date.now() - t0 };
 
 if (JSON_OUT) { console.log(JSON.stringify(res, null, 1)); process.exit(0); }
 
@@ -649,6 +675,8 @@ function zeigen(r) {
 console.log(`Snapshot-Messung: Grenze ${MAX} B, Luft ${LUFT} B -> Ziel ≤ ${ZIEL} B; ${SEEDS} Seeds × ${SEK} s, jeder Tick`);
 zeigen(res.worst);
 console.log('  Läufe: ' + laeufe.worst.map((l) => `s${l.seed} ${l.lp}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
+zeigen(res.worstScan);
+console.log('  Läufe: ' + laeufe.worstScan.map((l) => `s${l.seed} ${l.scannende} Scannende, ${l.scEintraege} Einträge in away.sc${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.wellen);
 console.log('  Läufe: ' + laeufe.wellen.map((l) => `${l.karte}/s${l.seed} stehend max ${l.maxStehend}${l.maxLebendAbTick >= 0 ? ' (maxLebend ab Tick ' + l.maxLebendAbTick + ')' : ' (maxLebend NICHT erreicht)'}${l.fehler ? ' Fehler ' + l.fehler : ''}`).join(', '));
 zeigen(res.raum);
@@ -677,7 +705,7 @@ zeigen(res.brett);
 console.log('  Läufe: ' + laeufe.brett.map((l) => `s${l.seed} Block max ${l.blockMax} B in ${l.mitBlock} Snapshots${l.total ? ' Fehler ' + l.total : ''}`).join(', '));
 const phasenOk = laeufe.freieFahrt.every((l) => 'vkfsn'.split('').every((p) => l.szenePhasen.includes(p)));   // H7: alle fünf Phasen der Szenenzeile (inkl. n) wurden gemessen
 if (!phasenOk) console.log('  VERFEHLT: nicht alle Phasen v k f s n der Szenenzeile gemessen');
-const alleOk = phasenOk && res.brett.ok && laeufe.brett.every((l) => !l.total) && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
+const alleOk = phasenOk && res.brett.ok && laeufe.brett.every((l) => !l.total) && res.faden.ok && laeufe.faden.every((l) => !l.fehler && l.szenen === 5 && l.verbuendete === 1) && res.orbit.ok && res.freieFahrt.ok && res.verfolgung.ok && res.finaleOrbit.ok && laeufe.finaleOrbit.every((l) => !l.fehler) && res.worst.ok && res.worstScan.ok && laeufe.worstScan.every((l) => !l.fehler && l.scannende === 4 && l.scEintraege === 16) && res.wellen.ok && res.raum.ok && res.methalle.ok && res.endkampf.ok && res.boden.ok && res.konvoi.ok && res.flotte.ok && laeufe.endkampf.every((l) => l.boss && l.gegner >= 11) && laeufe.boden.every((l) => l.boss && l.gegner >= 11 && l.unten === 4);
 console.log(`
-${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 1 laufendes, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
+${alleOk ? 'ok' : 'VERFEHLT'}: Worst Case max ${res.worst.max} B, Worst Case mit 4 Scannenden und 16 Scan-Einträgen max ${res.worstScan.max} B, Wellenlauf max ${res.wellen.max} B, Raum-Alarm max ${res.raum.max} B, Methalle max ${res.methalle.max} B, Endkampf (10 Gegner + Anführer, 4 Spieler) max ${res.endkampf.max} B, Boden Schrein (10 Wachen + Wächter, 4 Spieler) max ${res.boden.max} B, Konvoi max ${res.konvoi.max} B, Flotte max ${res.flotte.max} B, Orbitschlacht max ${res.orbit.max} B, Freie Fahrt Sund max ${res.freieFahrt.max} B, Faden-Szenen (Konvoi, Geleit, Havarist, Panne, Geleit mit Verbündetem der Spontanhilfe, 3 Spieler) max ${res.faden.max} B, Auftragsbrett (3 Angebote und 1 laufendes, 3 Spieler) max ${res.brett.max} B (Block max ${Math.max(...laeufe.brett.map((l) => l.blockMax))} B), Orbit des Finales max ${res.finaleOrbit.max} B (Ziel ≤ ${ZIEL} B) – ${res.ms} ms`);
 process.exit(alleOk ? 0 : 1);
