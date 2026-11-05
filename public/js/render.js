@@ -183,6 +183,7 @@
     if (kind === 'circle' || kind === 'kreis') ctx.arc(x, y, s, 0, Math.PI * 2);
     else if (kind === 'triangle' || kind === 'dreieck') { ctx.moveTo(x, y - s); ctx.lineTo(x + s, y + s * 0.85); ctx.lineTo(x - s, y + s * 0.85); ctx.closePath(); }
     else if (kind === 'diamond' || kind === 'raute') { ctx.moveTo(x, y - s); ctx.lineTo(x + s, y); ctx.lineTo(x, y + s); ctx.lineTo(x - s, y); ctx.closePath(); }
+    else if (kind === 'sechseck') { for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3; ctx.lineTo(x + Math.cos(a) * s, y + Math.sin(a) * s); } ctx.closePath(); }   // GEL-03 G: Scan-Marker der Erzader (Sensorfarbe, andere Form als die Raute)
     else if (kind === 'stern') {
       for (let i = 0; i < 10; i++) { const r = i % 2 ? s * 0.45 : s; const a = -Math.PI / 2 + i * Math.PI / 5; ctx.lineTo(x + Math.cos(a) * r, y + Math.sin(a) * r); }
       ctx.closePath();
@@ -2181,7 +2182,7 @@
       ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s)); ctx.lineTo(dx + 0.5, Math.round(foot.y));
       ctx.stroke(); ctx.restore();
     }
-    shape(ctx, 'diamond', dx, dy, 7, PAL.ice, PAL.space);
+    shape(ctx, m.art === 'erz' ? 'sechseck' : 'diamond', dx, dy, m.art === 'erz' ? 10 : 7, PAL.ice, PAL.space);   // GEL-03 G: Erz = Sechseck
     if (falle) return;   // keine Beschriftung: das Dreieck mit Glyphe sagt, was es ist (Name im Datenblatt)
     const w = measure(m.symbol, 1) + 4, ty = dy - 15;
     ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(dx - Math.ceil(w / 2), ty - 1, w, 10);
@@ -2303,7 +2304,7 @@
       const s = toS(m.x, m.y);
       ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1;
       const istFalle = m.art === 'falle';   // ITM-01 F: eine Falle zeigt nur ihr rotes Dreieck (unten), keine Eisblau-Raute und kein Kürzel; Fokus und Klickfläche bleiben
-      if (!istFalle) shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);
+      if (!istFalle) shape(ctx, m.art === 'erz' ? 'sechseck' : 'diamond', s.x, s.y, m.art === 'erz' ? 10 : 7, PAL.ice, PAL.space);   // GEL-03 G: Erz = Sechseck
       if (m.fokus) scanEckwinkel(ctx, s.x, s.y, 6);   // D1: vier Eckwinkel statt Fokuskreis
       if (!istFalle && (m.fokus || m.key === opts.scanHover)) {   // D6: Kürzel nur für Fokus und Hover, sonst nur die Raute
         const w = measure(m.symbol, 1) + 4;
