@@ -246,7 +246,7 @@ section('Client: Gegnerlage und Kommandokarte, eine Farbquelle', () => {
   ok(!/#[0-9A-Fa-f]{6}|rgba\(/.test(kr.replace(/\/\/.*$/gm, '')), 'Kreaturen-Darstellung in render.js ohne freie Farbwerte (nur Palette)');
   const vx = ac.slice(ac.indexOf("kind.startsWith('kreatur|')"), ac.indexOf("else if (kind === 'warden') { box(1.4"));
   ok(/Render\.KREATUR/.test(vx) && !/'#[0-9A-Fa-f]{6}'/.test(vx.replace(/if \(!KR\) \{[^}]*\}/, '')), 'voxel/actors.js liest Render.KREATUR (keine eigenen Farbwerte, außer dem Notfall ohne Render)');
-  ok(/kreaturBeschriftung\(ctx, kn, s\.x, s\.y\)/.test(rd) && /dk === 'kreatur'\) \{ const kn = kreaturName\(e, st\); const kg/.test(rd), 'Voxel-Überlagerung beschriftet Kreaturen (Name aus dem Scan, sonst „?“)');
+  ok(/kreaturBeschriftung\(ctx, kn, s\.x, s\.y\)/.test(rd) && /dk === 'kreatur'\) \{ const hf = kreaturHaufen\(view, st\)\.get\(e\.id\); const kn = hf \? hf\.name : kreaturName\(e, st\); const kg/.test(rd), 'Voxel-Überlagerung beschriftet Kreaturen (Name aus dem Scan, sonst „?“)');
 });
 
 // MON-02 G: Größe 1 im Snapshot (Bits 4-5 = 0) und im Client-Platzhalter (Box und Voxelvolumen in Typgröße, Größe 1 = halb so groß wie Größe 2, bleibt in einer Kachel)
@@ -274,6 +274,33 @@ section('Größe 1: Snapshot und Platzhalter', () => {
   ok(rd.includes('g = ((b >> 4) & 3) + 1') && rd.includes('h = g * TILE * 0.38') && ac.includes('w = (((b >> 4) & 3) + 1) * 0.8'), 'Client: 2D-Box und Voxelbreite folgen Größe-1 aus den Bits (Quelltext)');
   const kante = (g1) => 2 * g1 * TILE * 0.38;
   ok(kante(1) < TILE && Math.abs(kante(2) - 2 * kante(1)) < 1e-9 && Math.abs(0.8 * 2 - 2 * (0.8 * 1)) < 1e-9, 'Platzhalter Größe 1: 2D-Kante ' + kante(1).toFixed(1) + ' px (unter einer Kachel, halb so groß wie Größe 2 mit ' + kante(2).toFixed(1) + ' px), Voxelbreite 0,8 statt 1,6');
+});
+
+section('Haufen: ein gemeinsamer Namenszug je Rudel (render.js kreaturHaufen), nicht pro Tier', () => {
+  const rd = read('public/js/render.js');
+  const a = rd.indexOf('const KREATUR_HAUFEN'), b = rd.indexOf('function drawKreatur(');
+  ok(a > 0 && b > a, 'kreaturHaufen im Quelltext gefunden');
+  const kreaturHaufen = new Function('TILE', 'kreaturName', rd.slice(a, b) + '\nreturn kreaturHaufen;')(32, (e) => e.name || '?');
+  const kr = (nr, x, y, name, t) => ({ id: 'K' + nr, kind: 'kreatur', alive: true, x, y, name, kr: { t: t == null ? 1 : t, b: 0 } });
+  // Rudel von 8 im Block (48 px = 1,5 Kacheln Abstand), 6 gescannt, 2 nicht
+  const rudel = []; for (let i = 0; i < 8; i++) rudel.push(kr(i + 1, 100 + (i % 4) * 48, 100 + Math.floor(i / 4) * 48, i < 6 ? 'Rudeltier' : null));
+  let h = kreaturHaufen({ drones: rudel }, null);
+  const fuehrer = [...h.values()].filter((v) => v.fuehrer);
+  ok(fuehrer.length === 1 && fuehrer[0].name === 'Rudeltier ×6 · ?' && h.get('K1').fuehrer && h.get('K1').name === 'Rudeltier ×6 · ?' && h.get('K2').name === null && h.get('K8').name === null && h.get('K1').n === 8, 'Rudel von 8 (6 gescannt): ein Namenszug "Rudeltier ×6 · ?" beim Führer K1, die übrigen 7 ohne Namen');
+  const ohne = kreaturHaufen({ drones: rudel.map((e) => Object.assign({}, e, { name: null })) }, null);
+  ok([...ohne.values()].filter((v) => v.name != null).length === 1 && ohne.get('K1').name === '?', 'kein Tier gescannt: ein einziges "?" je Haufen');
+  const alle = kreaturHaufen({ drones: rudel.map((e) => Object.assign({}, e, { name: 'Rudeltier' })) }, null);
+  ok(alle.get('K1').name === 'Rudeltier ×8', 'alle gescannt: "Rudeltier ×8"');
+  // zwei weit entfernte Gruppen (> 3 Kacheln), ein anderer Typ im selben Haufen, ein Einzeltier, ein totes Tier
+  const zwei = rudel.slice(0, 3).concat([kr(20, 1000, 100, 'Rudeltier'), kr(21, 1048, 100, 'Rudeltier'), kr(22, 1096, 100, 'Rudeltier', 2), kr(30, 3000, 3000, 'Rudeltier'), Object.assign(kr(31, 110, 110, 'Rudeltier'), { alive: false })]);
+  h = kreaturHaufen({ drones: zwei }, null);
+  ok(h.get('K1').name === 'Rudeltier ×3' && h.get('K20').name === 'Rudeltier ×2' && h.get('K22').name === 'Rudeltier' && h.get('K22').n === 1 && h.get('K30').name === 'Rudeltier' && !h.has('K31'), 'zwei Haufen getrennt, anderer Typ (t 2) eigener Haufen, Einzeltier behält seinen Namen, totes Tier zählt nicht');
+  const kette = [kr(1, 0, 0, 'Rudeltier'), kr(2, 80, 0, 'Rudeltier'), kr(3, 160, 0, 'Rudeltier')];   // 80 px = 2,5 Kacheln: verkettet
+  ok(kreaturHaufen({ drones: kette }, null).get('K1').name === 'Rudeltier ×3' && kreaturHaufen({ drones: [kr(1, 0, 0, 'Rudeltier'), kr(2, 97, 0, 'Rudeltier')] }, null).get('K1').name === 'Rudeltier', 'verkettet bis unter 3 Kacheln Abstand; ab 3 Kacheln (97 px) getrennt');
+  const v = { drones: rudel }; ok(kreaturHaufen(v, null) === kreaturHaufen(v, null), 'Zwischenspeicher: je view einmal');
+  const n = (rd.match(/kreaturHaufen\(view, st\)\.get\(e\.id\)/g) || []).length;
+  ok(n === 3, 'alle drei Zeichenstellen (Kommandokarte, Boden 2D, Boden 3D) lesen den Haufen (' + n + ')');
+  ok(/if \(name != null\) kreaturBeschriftung\(ctx, name, x, y - h - 32\)/.test(rd), 'drawKreatur zeichnet nichts bei name null');
 });
 
 section('Client-Einhängestellen (Quelltext)', () => {
