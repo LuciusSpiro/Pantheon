@@ -37,6 +37,8 @@
     //   (Scanner ab Stufe CONFIG.anker.falle.position, oder Auslösen) einzeln an jeden Spieler der Karte (auch Nachzügler und Wiederverbinder, in derselben Reihenfolge). i = ankerIdx im Snapshot ao;
     //   der Client hängt den Anker ans Ende seiner Liste an (i = bisherige Länge). Ein neu gesendetes awayMap setzt die Liste zurück. Zustandsindizes der Falle: verborgen 0, erkannt 1, entschaerft 2, ausgeloest 3;
     //   Start: sicht passiv -> erkannt, sonst verborgen. Siehe CONTRACT-B2.md (ITM-01 C).
+    // ITM-01 D (Fallentypen, nur Ereignisse, kein Snapshot-Feld): falleSchott { map, anker, kanten[], dauer, an 1|0 } (Schotts schließen sich / öffnen wieder), falleFeld { map, anker, typ, an 1|0, dauer, x, y, rect [x,y,w,h] Kacheln | r Kacheln }
+    //   (Gefahrenfeld läuft / endet), selbstschuss { map, anker, i, x, y, tx, ty, pid } (ein Schuss, Pixel), falleWirkungslos { map, anker, typ, grund }. Siehe CONTRACT-B2.md §12 (ITM-01 D).
     // awayMap.kanten: [[kantenId, [[x, y], …], startZustandIdx]] sortiert nach kantenId (Quelle karte.kanten); diese Reihenfolge
     //   ist der kantenIdx im Snapshot ko. awayMap.anker-Reihenfolge = ankerIdx im Snapshot ao.
     // awayMap.plaetze: [[platzId, typ, x, y, w, h]] in Kacheln (aus karte.plaetze, nach platzId sortiert).
@@ -72,7 +74,7 @@
     GELAENDE_BIOME: ['wueste', 'wiesenwald', 'vulkan'],   // GEL-01 D: Werte von ?biom= (Kartenart wildnis)
     GELAENDE_GROESSEN: ['klein', 'mittel', 'gross'],      // GEL-01 D: Werte von ?groesse= (Kartenart wildnis, GEL-02 B auch hoehle)
     EVT_ANKER_ENTHUELLT: 'ankerEnthuellt',
-    B1_EVENTS: ['awayMap', 'ankerEnthuellt', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
+    B1_EVENTS: ['awayMap', 'ankerEnthuellt', 'falleSchott', 'falleFeld', 'selbstschuss', 'falleWirkungslos', 'ankerZustand', 'downloadAbbruch', 'ladungScharf', 'ladungExplodiert', 'landepunktAlarm', 'enternFrei', 'nachschub'],
     B1_DEBUG: ['buehne', 'anker', 'lp'],
     QA_DEBUG: ['sprungpunkt', 'ladung', 'prise'],
     // ---- B2 (CONTRACT-B2 §8): Bodenkampf – Waffen mit Hitze, Wunden, Rollen ----

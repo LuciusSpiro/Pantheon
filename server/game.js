@@ -135,6 +135,7 @@ const ankerMod = () => optional('anker', './sim/anker.js');               // BUE
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
 const Fallen = require('./sim/fallen.js');   // ITM-01 C: Fallen (Auslösen, Wirkungs-Register, Enthüllen; meldet sich beim Scanner an)
+require('./sim/fallen-typen.js');   // ITM-01 D: Wirkungen schott, druck (Gefahrenfeld), schuss im Register von Fallen
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 require('./sim/medipack.js');   // ITM-01 A: Medipack als Slot-Item (meldet sich als Item `medipack` an, vor Loadout.restore)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)

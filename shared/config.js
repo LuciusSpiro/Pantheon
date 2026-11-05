@@ -827,7 +827,20 @@
       // ITM-01 C: Fallen (Rolle falle, server/sim/fallen.js). radius = Auslösezone in Kacheln je Typ (standard für Typen ohne Eintrag): betritt ein Spieler die Zone einer
       // verborgenen oder erkannten Falle, löst sie genau einmal aus. Muss kleiner als der E-Griff zum Entschärfen bleiben (Nachbarkachel, Mittelpunktabstand 1,0 Kachel): Werte ≤ 0,9.
       // position = Scanstufe, ab der der Scanner den Ort einer verborgenen Falle enthüllt (Stufe 1 liefert nur das Datenblatt). halten.falle = Zeit zum Entschärfen (s).
-      falle: { radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.7 }, position: 2 },
+      // ITM-01 D (server/sim/fallen-typen.js): Ablauf je Typ als Daten, die Wirkung selbst ist Code im Register.
+      //   blockiert = Typen, deren Anker eine Kollisionsbox hat (die Kachel ist für Spieler und Gegner fest; Kai: Gegenständliches kollidiert). Quelle für Server (interior.awaySolid), Prüfer
+      //     (shared/buehne.js ankerBlockiert) und Client-Vorhersage. Wer blockiert, braucht radius > Kachelhälfte + Figurhälfte (0,5 + 0,28 Kachel, Hitbox 18x12 px), sonst löst Berühren nie aus,
+      //     und radius <= 0,9, sonst bleibt zum Entschärfen (E von der Nachbarkachel, Abstand 0,9 bis 1,5 Kacheln zur Mitte) kein Platz: schuss 0,9.
+      //   schott: radius = Wirkbereich in Kacheln (Kanten der Art schott mit einer Kachel darin), dauer = Sekunden bis sie wieder öffnen (Hacken per E öffnet früher).
+      //   feld: Gefahrenfelder ohne Kollisionsbox, Schlüssel = Typ. dauer s, takt s (je Spieler, zählt nur im Bereich), segmente je Takt, bereich 'raum' (Platz-Rect der Karte, sonst radius) | 'radius',
+      //     radius in Kacheln (Rückfall und bereich radius), quelle = kind der Trefferquelle (Standard Typ). Neue Variante (Dornen, Kabel) = ein Eintrag hier + Typ in anker.json + Datenblatt.
+      //   schuss: Salve aus schuesse Schuss im Takt s nach verzug s; reichweite in Kacheln, segmente je Schuss; Ziel = nächster Spieler mit Sichtlinie (geduckt hinter niedriger Deckung sicher).
+      falle: { radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.9 }, position: 2,
+        blockiert: { schuss: true },
+        schott: { radius: 3, dauer: 20 },
+        feld: { druck: { dauer: 20, takt: 2, segmente: 1, bereich: 'raum', radius: 5, quelle: 'druck' } },
+        schuss: { schuesse: 3, takt: 0.4, verzug: 0.4, reichweite: 8, segmente: 1 },
+        texte: { schott: 'Alarm – die Schotts schließen sich! Hacken (E halten) öffnet sie früher.', druck: 'Druckverlust! Raus aus dem Raum.', schuss: 'Selbstschussanlage! In Deckung.', wirkungslos: 'Falle ausgelöst – aber ohne Wirkung (kein Schott in Reichweite).' } },
       flagge: { min: 2 },   // EK6: Feldzeichen hissen: mindestens 2 lebende Spieler halten gleichzeitig (Fortschritt bleibt, wenn einer loslässt)
       countdown: 60, paarFenster: 1.5, paarSoloFenster: 15, paarLaufFaktor: 1.3, paarPuffer: 2 },
     // SUND-02a A1: Wellenplan einer Flottenbegegnung (server/weltsim/wellenplan.js, rein). punkte = Stärkepunkte je Klasse (Flotten der

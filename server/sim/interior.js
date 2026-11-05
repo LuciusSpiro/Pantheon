@@ -140,12 +140,30 @@ function kachelZustand(aw, info, tx, ty, ki) {
   const typInfo = kk ? Object.values(info.karte.legende || {}).find((i) => i.kind === kk.typ) : null;
   return Buehne.kachelZustandRegel(ki.zustaende, (kid && zs[kid]) || null, (a && zs[a.id]) || null, kk ? kk.zustand : null, typInfo ? typInfo.begehbarIn : null);
 }
+// ITM-01 D: Anker mit Kollisionsbox (Fallen, deren Typ in CONFIG.anker.falle.blockiert steht: Selbstschussanlage). Die Kachel ist für Spieler und Gegner fest (Zustand egal, auch entschärft);
+// Sicht und Schuss gehen durch (awaySight/awayShotBlock lesen nur Kachelart und Zustandskacheln). Regel gemeinsam mit Prüfer und Client: Buehne.ankerBlockiert.
+// Je Karte gecacht (Ankerliste und blockiert-Config als Schlüssel), Karten ohne blockierende Anker kosten einen Vergleich.
+const BLOCK_CACHE = new WeakMap();
+function blockierendeKacheln(game, k) {
+  const alle = k.anker || [];
+  const cf = game.C && game.C.anker && game.C.anker.falle;
+  const sig = cf && cf.blockiert ? Object.keys(cf.blockiert).filter((t) => cf.blockiert[t]).join() : '';
+  let c = BLOCK_CACHE.get(k);
+  if (!c || c.alle !== alle || c.n !== alle.length || c.sig !== sig) {
+    let set = null;
+    if (sig) for (const a of alle) if (a.rolle === 'falle' && Buehne.ankerBlockiert(a, cf)) (set || (set = new Set())).add(a.y * k.w + a.x);
+    c = { alle, n: alle.length, sig, set };
+    BLOCK_CACHE.set(k, c);
+  }
+  return c.set;
+}
 function awaySolid(game) {
   const aw = game.away; const info = awayInfo(game); const map = info.map;
   if (info.karte) {
+    const blk = blockierendeKacheln(game, info.karte); const bw = info.karte.w;
     return (tx, ty) => {
       const ki = map.info(tx, ty);
-      if (ki.solid !== 'zustand') return !!ki.solid;
+      if (ki.solid !== 'zustand') return !!ki.solid || (blk !== null && blk.has(ty * bw + tx));
       return !(ki.begehbarIn || []).includes(kachelZustand(aw, info, tx, ty, ki));
     };
   }
