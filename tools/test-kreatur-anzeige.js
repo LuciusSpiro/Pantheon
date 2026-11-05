@@ -210,6 +210,21 @@ section('Datenblatt-Eintrag probe', () => {
   ok(mk.length === 1 && mk[0].symbol === 'MO' && mk[0].artTitel === 'Monster', 'Marker nur mit Position, Art Monster (Symbol MO)');
 });
 
+// MON-02 P3: Datenblatt-Eintrag rudeltier (Spielersprache, Regelhinweis ab Stufe 1, Position erst ab Stufe 3, Grenzen)
+section('Datenblatt-Eintrag rudeltier', () => {
+  const d = DATEN.typen.rudeltier, p = DATEN.typen.probe;
+  ok(d && d.name === 'Rudeltier' && d.symbol === 'MO' && d.hinweisAb === 1 && d.positionAb === undefined, 'Eintrag rudeltier: Symbol MO, hinweisAb 1, Position wie im Rahmen erst ab Stufe 3 (kein positionAb)');
+  ok(d.name.length <= SA.LIMIT.name && d.zeile.length <= SA.LIMIT.zeile && d.hinweis.length <= SA.LIMIT.hinweis,
+    'Grenzen: name ' + d.name.length + '/' + SA.LIMIT.name + ', zeile ' + d.zeile.length + '/' + SA.LIMIT.zeile + ', hinweis ' + d.hinweis.length + '/' + SA.LIMIT.hinweis);
+  ok(/Rudel/.test(d.hinweis) && /vorn/.test(d.hinweis) && /Rücken/.test(d.hinweis) && /Beschuss/.test(d.hinweis) && /Lärm/.test(d.hinweis), 'Regelhinweis nennt Rudel, Panzerung vorn, Rücken, Beschuss, Lärm');
+  ok(Number.isInteger(d.gefahr) && d.gefahr >= 1 && d.gefahr <= 3, 'Gefahr ' + d.gefahr + ' (1 bis 3; probe: ' + p.gefahr + ')');
+  const z1 = SA.zeile(SA.lesen([['K2', 'monster', 'rudeltier', 1]])[0], DATEN);
+  ok(z1.name === 'Rudeltier' && z1.hinweis === d.hinweis && z1.pos === null, 'Stufe 1: Name und Regelhinweis, keine Position');
+  const z3 = SA.zeile(SA.lesen([['K2', 'monster', 'rudeltier', 3, 96, 64]])[0], DATEN);
+  ok(z3.pos && z3.pos.x === 96 && z3.pos.y === 64 && z3.hinweis === d.hinweis, 'Stufe 3: Position und Regelhinweis');
+  ok(JSON.stringify(Object.keys(d).sort()) === JSON.stringify(['gefahr', 'hinweis', 'hinweisAb', 'name', 'symbol', 'zeile']), 'nur die vereinbarten Felder, kein Rudel-Zähler als neue Oberfläche');
+});
+
 section('typCode: Reihenfolge der Typen in kreaturen.json ist Protokoll', () => {
   // Neue Typen nur ans ENDE von kreaturen.json, nie umsortieren oder einfügen (der Client kennt den Index als Wiedererkennung). Beim Anhängen eines Typs diese Liste ergänzen.
   const PROTOKOLL = ['probe', 'rudeltier'];

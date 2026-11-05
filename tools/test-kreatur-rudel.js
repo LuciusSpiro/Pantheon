@@ -68,6 +68,7 @@ function erreichbarVomAbholpunkt(S) {
   return { abh, dist: Mon.bfs(S.m1, [Mon.naechster(S.m1, ref.x, ref.y, 4)]) };
 }
 const aktion = (S, o) => S.g.mission.act(Object.assign({ do: 'kreatur_besetzen', map: S.map }, o));
+const aktionRudel = (S, gruppe, anzahl) => { aktion(S, { bereich: 'gelaende', typ: 'rudeltier', anzahl, gruppe }); return S.aw.kreaturen.filter((K) => K.gruppe === gruppe); };
 const inRects = (rects, tx, ty) => rects.some((r) => tx >= r[0] && tx < r[0] + r[2] && ty >= r[1] && ty < r[1] + r[3]);
 function rudelProbleme(S, gruppe, anzahl, bereich) {
   const R = erreichbarVomAbholpunkt(S); const P = [];
@@ -402,6 +403,32 @@ section('Rammen in Baum und Fels: steckt (echter Typ)', () => {
     ok(!!steckt && steckt.t < R.dauer && steckt.x <= kante + 0.001 && steckt.x >= kante - schritt - 0.001 && ueber === 0 && K.aufgeben && K.aufgeben.n === 1,
       (z === 'Y' ? 'Baum' : 'Fels') + ': steckt nach ' + (steckt ? steckt.t.toFixed(2) : '-') + ' s bei x ' + (steckt ? steckt.x.toFixed(1) : '-') + ' (Kante der Box ' + kante + ', höchstens ' + schritt.toFixed(1) + ' px davor), Überlappung ' + ueber + ', Zähler aufgeben ' + (K.aufgeben ? K.aufgeben.n : '-'));
   }
+});
+
+// ---------- Scan (MON-02 P3) ----------
+section('Scan: ein Rudel von 8 und 12 wird vollständig erfasst, Obergrenze aw.sc', () => {
+  const Scanbar = require('../server/sim/scanbar.js');
+  const MAXE = CONFIG.scanner.maxEintraege;
+  const scan = (anzahlen, st) => {
+    const S = szene('wueste', 101);
+    const notes = []; S.g.notice = (pp, t) => { notes.push(t); };
+    const A = aktionRudel(S, 'a', anzahlen[0]);
+    for (let i = 1; i < anzahlen.length; i++) aktionRudel(S, 'r' + i, anzahlen[i]);
+    const mx = A.reduce((a, K) => a + K.x, 0) / A.length, my = A.reduce((a, K) => a + K.y, 0) / A.length;
+    S.p.x = mx; S.p.y = my;
+    const err = Scanbar.debugScanfertig(S.g, S.p, st);
+    const sc = Scanbar.snapshot(S.aw).sc || [];
+    return { S, A, err, sc, notes, bytes: JSON.stringify(sc).length };
+  };
+  for (const anz of [8, 12]) for (const st of [1, 3]) {
+    const r = scan([anz], st);
+    const ids = new Set(r.sc.map((e) => e[0]));
+    ok(!r.err && r.sc.length === anz && r.A.every((K) => ids.has(K.id)) && r.sc.every((e) => e[1] === 'monster' && e[2] === 'rudeltier' && e[3] === st && (e.length === 6) === (st >= 3)), 'Rudel ' + anz + ', Stufe ' + st + ': alle ' + anz + ' Tiere erfasst (aw.sc ' + r.sc.length + '/' + MAXE + '), Position nur ab Stufe 3');
+    ok(!r.notes.some((t) => /Speicher voll/.test(t)) && /^Scan: \d+ Ziele erfasst$/.test(r.notes[r.notes.length - 1] || ''), 'Rudel ' + anz + ', Stufe ' + st + ': keine Meldung "Speicher voll" (' + r.notes.join(' / ') + ')');
+    ok(r.bytes <= anz * 40 + 2, 'Rudel ' + anz + ', Stufe ' + st + ': away.sc ' + r.bytes + ' B (höchstens 40 B je Eintrag)');
+  }
+  const v = scan([12, 8], 3);   // 20 Tiere im Kreis, Obergrenze 16: die nächsten zuerst, Rest meldet "Speicher voll"
+  ok(v.sc.length === MAXE && v.S.aw.kreaturen.length === 20 && v.notes.some((t) => /Speicher voll \(\d+ Ziele nicht erfasst\)/.test(t)), 'Rudel 12 plus 8: aw.sc bleibt bei ' + MAXE + ', Meldung "' + (v.notes[v.notes.length - 1] || '') + '" (Kapazität ist die Grenze, nicht ein Fehler)');
 });
 
 // ---------- Räumen ----------
