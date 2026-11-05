@@ -25,6 +25,8 @@
 //   daten() / pruefen(daten)                 Laden und Validator (lazy beim ersten Gebrauch, damit sich Bausteine vorher anmelden können; Fehler = Exception mit allen Befunden)
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
 //
+// Größe (MON-02 G): groesse 1 oder 2 (Kanten des Fußabdrucks in Kacheln). Die Mitte des Tieres liegt bei Größe 1 in der Kachelmitte, bei Größe 2 auf der Kachelecke (shared/monster.js mitteVon/ankerVonPosition);
+// die Maske, der Pfad, die Tür-Prüfung und die Position beim Anlegen benutzen denselben Fußabdruck (typ.groesse; die Instanz bekommt kein Feld, hbVon trägt ihn). Kollisionsbox und Trefferradius stehen je Typ in den Daten (kollision.box, hitRadius).
 // Zufall NUR über aw.rng (nie game.rng, sonst verschiebt sich der Strom des Station-Monsters). Wahrnehmung wie Station: Sicht in Kacheln, Sichtlinie über combat.losBetween.
 const Mon = require('../../shared/monster.js');
 const Physics = require('../../shared/physics.js');
@@ -38,8 +40,10 @@ const combat = () => combatMod || (combatMod = require('./combat.js'));
 let waffenMod = null;
 const waffen = () => waffenMod || (waffenMod = require('./waffen.js'));
 const TILE = Physics.TILE;
-const KOERPER_PRO_FUSS = 14;   // px Kollisionsbox je Kachel Fußabdruck (Größe 2 = 28×28 = Station)
-const hbVon = (typ) => ({ w: typ.groesse * KOERPER_PRO_FUSS, h: typ.groesse * KOERPER_PRO_FUSS });
+const GROESSEN = [1, 2];   // erlaubte Kanten des Fußabdrucks in Kacheln (Mitte je Größe: shared/monster.js mitteVon); 3 und 4 sind nicht gebaut
+const KOERPER_PRO_FUSS = 14;   // Rückfall der Kollisionsbox: px je Kachel Fußabdruck (Größe 2 = 28×28 = Station), wenn der Typ kein Feld kollision.box hat
+// Körper eines Typs für die Bewegung: Kollisionsbox aus den Daten (kollision.box, px, quadratisch), sonst der Rückfall groesse × 14, dazu der Fußabdruck (fuss = groesse) für Mitte und Türprüfung
+const hbVon = (typ) => { const b = typ.kollision && typ.kollision.box != null ? typ.kollision.box : typ.groesse * KOERPER_PRO_FUSS; return { w: b, h: b, fuss: typ.groesse }; };
 
 // ---------- Registry der Bausteine ----------
 const bausteine = new Map();
@@ -68,7 +72,7 @@ const KERN_MODI = {
     tick(game, K, dt, ctx, par, z) {
       if (!K.pfad.length && K.replan <= 0) {
         const aw = game.away; const r = z.radius || 8;
-        const base = Mon.ankerVon(K.x, K.y);
+        const base = Mon.ankerVonPosition(K.x, K.y, ctx.m.fuss);
         for (let i = 0; i < 12; i++) {
           const cx = base.cx + Math.round((aw.rng() * 2 - 1) * r), cy = base.cy + Math.round((aw.rng() * 2 - 1) * r);
           if (ctx.m.geht(cx, cy)) { Monster.setzePfad(K, ctx.m, { cx, cy }); break; }
@@ -364,9 +368,10 @@ function aufloesen(game, K) {
 }
 
 // ---------- Daten laden und prüfen ----------
-const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
+const TYP_FELDER = ['name', 'groesse', 'kollision', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
 const UEBERGANG_FELDER = ['auf', 'nach', 'abstand'];
+const KOLLISION_FELDER = ['box'];
 const SCHILD_FELDER = ['seg', 'max'];
 const SCHILDREGEN_FELDER = ['verzoegerung', 'schritt'];
 const zahl = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && (max === undefined || v <= max);
@@ -382,8 +387,15 @@ function pruefen(d) {
     if (!t || typeof t !== 'object' || Array.isArray(t)) { f(P, 'Objekt erwartet'); continue; }
     for (const k of Object.keys(t)) if (!TYP_FELDER.includes(k)) f(P + '.' + k, 'unbekanntes Feld');
     if (typeof t.name !== 'string' || !t.name) f(P + '.name', 'Name-Schlüssel (String) fehlt');
-    // Größe ≠ 2: Kollisionsbox (groesse × 14 px um Mon.mitte) und Maske (Ankerpunkt = Kachelecke) passen erst mit einer Mitte je Größe zusammen (MON-03)
-    if (t.groesse !== 2) f(P + '.groesse', 'muss 2 sein (Kanten des Fußabdrucks in Kacheln); Größe ≠ 2 erst mit Mitte je Größe (MON-03)');
+    if (!GROESSEN.includes(t.groesse)) f(P + '.groesse', 'muss ' + GROESSEN.join(' oder ') + ' sein (Kanten des Fußabdrucks in Kacheln; 3 und 4 gibt es nicht)');
+    // kollision.box: Kante der quadratischen Kollisionsbox in px, um die Mitte des Tieres (Größe 1: Kachelmitte, Größe 2: Kachelecke). Obergrenze: 8 px Luft zum Fußabdruck, damit die Box nie in eine feste Kachel ragt, die die Maske nicht prüft.
+    if (t.kollision !== undefined) {
+      if (!t.kollision || typeof t.kollision !== 'object' || Array.isArray(t.kollision)) f(P + '.kollision', 'optional: { box } (Objekt)');
+      else {
+        for (const k of Object.keys(t.kollision)) if (!KOLLISION_FELDER.includes(k)) f(P + '.kollision.' + k, 'unbekanntes Feld');
+        if (!zahl(t.kollision.box, 4, GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : undefined)) f(P + '.kollision.box', 'Zahl 4 bis ' + (GROESSEN.includes(t.groesse) ? t.groesse * TILE - 8 : 'Größe × 32 − 8') + ' (px Kantenlänge der Kollisionsbox)');
+      }
+    }
     if (!zahl(t.sicht, 0.1)) f(P + '.sicht', 'Zahl > 0 (Kacheln)');
     if (!zahl(t.verlustZeit, 0)) f(P + '.verlustZeit', 'Zahl >= 0 (s)');
     if (!zahl(t.replan, 0.05)) f(P + '.replan', 'Zahl >= 0,05 (s)');
@@ -639,7 +651,7 @@ function debugKreatur(game, p, typId) {
     a = Mon.naechster(m, tx + dx, ty + dy, 2); if (a) break;
   }
   if (!a) return 'kreatur: kein freier Platz in der Nähe.';
-  const pos = Mon.mitte(a);
+  const pos = Mon.mitteVon(a, typ.groesse);
   const K = erzeugen(game, typId, pos.x, pos.y);
   if (game.notice) game.notice(p, 'kreatur: ' + typId + ' ' + K.id + ' bei (' + a.cx + ',' + a.cy + ').');
   return null;
