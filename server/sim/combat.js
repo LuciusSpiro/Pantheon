@@ -367,6 +367,7 @@ function faellt(game, e) {
   const zs = e.zustand;
   knockOut(game, e);
   e.zustand = zs; e.liegt = true;
+  if (e.kreatur) kreatur().ausgefallenMelden(game, e);   // MON-02 P2: Ereignis kreaturAusgefallen, nur bei endgültigem Ausfall (verwundet/aus), nie für Drohnen
 }
 function stehtAuf(game, e) {
   e.alive = true; e.liegt = false; e.hp = e.seg; e.path = null; e.goal = null; e.aim = null; e.role = 'pin';

@@ -27,6 +27,8 @@
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
 //   erzeugenAuf(game, aw, typ, { x, y, gruppe? })            Anlegen auf einer gegebenen Außenkarte (Missionsaktionen laufen vor der Landung; MON-02 P1)
 //   rudelSetzen(game, { map, bereich?, typ, anzahl, gruppe }) Rudel mit Kennung K.gruppe anlegen (Aktion kreatur_besetzen), Buchführung aw.kreaturGruppen[gruppe] = { erschienen, typ }
+//   ausgefallenMelden(game, K)               Ereignis kreaturAusgefallen {id, typ, gruppe, x, y} bei endgültigem Ausfall (aus combat.faellt; bewusstlos meldet nichts; einmal je Kreatur; MON-02 P2)
+//   rudelErledigt(game, map, { gruppe | typ })  Prüfung des Bausteins kreaturen_erledigt; nichtEndgueltigErledigt(K) ist die gemeinsame Regel (lebend oder erholbar liegend, nicht aufgelöst)
 //   Baustein `aufgeben` { anlaeufe }: Auslöser `aufgegeben` nach n erfolglosen Rammen in Folge (Hook beiWechsel)
 //
 // Größe (MON-02 G): groesse 1 oder 2 (Kanten des Fußabdrucks in Kacheln). Die Mitte des Tieres liegt bei Größe 1 in der Kachelmitte, bei Größe 2 auf der Kachelecke (shared/monster.js mitteVon/ankerVonPosition);
@@ -392,6 +394,32 @@ kreaturBausteinAnmelden('bindung', {
     return F;
   },
 });
+
+// MON-02 P2: Kreatur fällt endgültig aus (verwundet/aus, nicht bewusstlos): Ereignis `kreaturAusgefallen {id, typ, gruppe, x, y}` (Spiel- und Missionsereignis), höchstens einmal je Kreatur.
+// Aufrufer: combat.faellt nach knockOut. Bewusstlose Kreaturen melden nichts (sie stehen wieder auf); fällt eine aufgewachte später verwundet, meldet sie dann. Der Merker K.ausgefallenGemeldet entsteht erst bei der Meldung (nicht in anlegen).
+function ausgefallenMelden(game, K) {
+  if (!K || !K.kreatur || K.weg || K.ausgefallenGemeldet || nichtEndgueltigErledigt(K)) return false;
+  K.ausgefallenGemeldet = true;
+  const d = { id: K.id, typ: K.typ, gruppe: K.gruppe != null ? K.gruppe : null, x: Math.round(K.x), y: Math.round(K.y) };
+  game.emit('kreaturAusgefallen', d);
+  game.missionEvent('kreaturAusgefallen', d);
+  return true;
+}
+// MON-02 P2: Prüfung für den Baustein kreaturen_erledigt. Erledigt = mindestens ein Tier erschien (Buchführung aw.kreaturGruppen) und kein Tier der Gruppe (oder des Typs) ist mehr nicht endgültig erledigt.
+// Aufgelöste Tiere (Bindung) zählen als erledigt, bewusstlose und liegende (erholbare) nicht. Unbekannte Karte oder Gruppe (nie erschienen): nicht erfüllt. opts { gruppe } oder { typ } (genau eines).
+function rudelErledigt(game, map, opts) {
+  const o = opts || {};
+  if ((o.gruppe == null) === (o.typ == null)) return false;
+  const aw = game && game.aways && hat(game.aways, map) ? game.aways[map] : null;
+  const G = aw && aw.kreaturGruppen;
+  if (!G) return false;
+  let erschienen = 0;
+  if (o.gruppe != null) { if (hat(G, o.gruppe)) erschienen = G[o.gruppe].erschienen; }
+  else for (const k of Object.keys(G)) if (G[k].typ === o.typ) erschienen += G[k].erschienen;
+  if (!(erschienen > 0)) return false;
+  for (const K of aw.kreaturen || []) if ((o.gruppe != null ? K.gruppe === o.gruppe : K.typ === o.typ) && nichtEndgueltigErledigt(K)) return false;
+  return true;
+}
 
 // Kreatur sauber auflösen: hier nur markiert (update() entfernt nach der Schleife), Ereignisse sofort. Kein Fall, kein droneKilled, kein knockOut.
 function aufloesen(game, K) {
@@ -800,7 +828,7 @@ function debugKreatur(game, p, typId) {
   return null;
 }
 
-module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen };
+module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, erzeugenAuf, rudelSetzen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen, nichtEndgueltigErledigt, ausgefallenMelden, rudelErledigt };
 
 // ---------- Anzeige und Scanner (MON-01 P4) ----------
 // Scanner: Art `monster`, billig (nur die lebenden Kreaturen mit aktueller Position, keine Karte). Typ-ID aus kreaturen.json; der Name steht im Client-Content (datenblaetter.json).
