@@ -140,6 +140,7 @@ export function streuenWildnis(k) {
   const gesamt = def.satz.reduce((n, e) => n + e[1], 0);
   const out = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (k.stride && y >= k.stride) continue;   // GEL-02: Decks ab 1 (Höhle unter der Wildnis) bekommen nie Bodenbewuchs, auch nicht auf ':'-Kacheln
     if (gesperrt[y * W + x] || k.kindAt(x, y) !== 'gelaende') continue;
     const rnd = mulberry32(fnv('wildnis:' + biom + ':' + x + ':' + y, seed));
     if (rnd() >= def.dichte) continue;
