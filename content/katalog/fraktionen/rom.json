@@ -50,12 +50,14 @@
       "station",
       "aussenposten",
       "wildnis",
+      "hoehle",
       "hand"
     ],
     "sturmtrupp": [
       "station",
       "aussenposten",
-      "wildnis"
+      "wildnis",
+      "hoehle"
     ]
   },
   "funkstil": "knapp und befehlend, Rang und Pflicht; Latein nur als Losung, nie als Schnörkel"

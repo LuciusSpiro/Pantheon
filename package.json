@@ -85,6 +85,8 @@
     "test:wildnis-verdrahtung": "node tools/test-wildnis-verdrahtung.js",
     "test:gelaende": "node tools/test-gelaende.js",
     "test:hoehle": "node tools/test-hoehle.js",
+    "test:hoehle-verdrahtung": "node tools/test-hoehle-verdrahtung.js",
+    "test:hoehle-shot": "node tools/test-hoehle-shot.js",
     "test:wildnis-gruppenlauf": "node tools/test-wildnis-gruppenlauf.js",
     "test:wildnis-client": "node tools/test-wildnis-client.js",
     "test:hoehle-client": "node tools/test-hoehle-client.js",

@@ -992,7 +992,8 @@ class Game {
     if (!out.art) return null;
     if (!(Protocol.KARTEN_ARTEN || []).includes(out.art) || out.art === 'hand') return null;
     if (out.seed == null) out.seed = 1;
-    if (out.art !== 'wildnis') { delete out.biom; delete out.groesse; }   // GEL-01 D: Biom und Größe gibt es nur für die Wildnis
+    if (out.art !== 'wildnis') delete out.biom;   // GEL-01 D: Biom gibt es nur für die Wildnis
+    if (out.art !== 'wildnis' && out.art !== 'hoehle') delete out.groesse;   // GEL-02 B: Größe auch für die Höhle (Testgelände)
     return out;
   }
 

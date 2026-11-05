@@ -6,7 +6,7 @@
 //   node tools/proto-hoehle.js --ascii 7 [klein]      eine Karte als Text (Anker als Buchstaben); weitere: --dichte 0.7 --fundorte 3 --gegner keine
 //   node tools/proto-hoehle.js --deck 7 [breite] [hoehe] [eingangX]   ein Deck als Text (deck-lokal)
 // Je Lauf: Prüferfehler, Fehlbauten (Erzeuger wirft oder Prüfer scheitert; landepunkte.js würde Seed + 1 versuchen), Anker min/max, Payload, Bauzeit (Median, p95).
-// Der Prüfer verlangt standardmäßig 2 Eingänge; die Höhle hat keine: hier wird jeArt.hoehle.eingaengeMin = 0 eingesetzt (so muss es später in shared/config.js stehen, Paket B).
+// Der Prüfer läuft mit der echten Konfiguration (shared/config.js buehne.jeArt.hoehle.eingaengeMin = 0).
 const Buehne = require('../shared/buehne.js');
 const Hoehle = require('../shared/gen-hoehle.js');
 const CONFIG = require('../shared/config.js');
@@ -15,7 +15,7 @@ const { Game } = require('../server/game.js');
 
 const args = process.argv.slice(2);
 const val = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
-const cfg = Object.assign({}, CONFIG.buehne, { jeArt: Object.assign({}, CONFIG.buehne.jeArt, { hoehle: Object.assign({}, (CONFIG.buehne.jeArt || {}).hoehle, { eingaengeMin: 0 }) }) });
+const cfg = CONFIG.buehne;   // GEL-02 B: jeArt.hoehle.eingaengeMin = 0 steht in shared/config.js (echte Produktionskonfiguration)
 const G = Hoehle.erzeuger();
 const payloadB = (k) => Buffer.byteLength(JSON.stringify(Game.prototype.awayMapPayload.call({}, k)));
 const med = (a) => { const s = a.slice().sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };

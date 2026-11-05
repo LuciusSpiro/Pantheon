@@ -59,10 +59,10 @@ async function ohneBrowser() {
     ok(r.karte.meta.boden2 === 'erde' && r.karte.art === 'wildnis', `${biom}: meta.boden2 erde, art wildnis`);
     karten[biom] = { roh, karte: r.karte };
   }
-  // Karte art 'hoehle': der Pruefer kennt die Art noch nicht (config.js buehne.jeArt): einziger Fehler ist K-EINGAENGE (Standard min. 2), sonst nichts
+  // Karte art 'hoehle': der Pruefer kennt die Art seit GEL-02 B (config.js buehne.jeArt.hoehle.eingaengeMin = 0) und ist gruen
   const nur = hoehleOhneOberflaeche('wueste', SEED);
   const rn = Buehne.ausRaster(nur, { spiel: true });
-  ok(rn.pruefung.ok === false && rn.fehler.length === 1 && rn.fehler[0].code === 'K-EINGAENGE', `art hoehle: einziger Pruefer-Fehler ist K-EINGAENGE (jeArt.hoehle fehlt, Paket B): ${rn.fehler.map((f) => f.code).join(',')}`);
+  ok(rn.pruefung.ok === true, `art hoehle: Pruefer gruen (jeArt.hoehle.eingaengeMin = 0): ${JSON.stringify(rn.fehler.slice(0, 2))}`);
   const nurW = hoehleOhneOberflaeche('wueste', SEED); nurW.art = 'wildnis';
   const rw = Buehne.ausRaster(nurW, { spiel: true });
   ok(rw.pruefung.ok, 'dieselbe Karte mit art wildnis besteht den Pruefer (Raster, Anker, Erreichbarkeit der Hoehle sind in Ordnung): ' + JSON.stringify(rw.fehler.slice(0, 2)));

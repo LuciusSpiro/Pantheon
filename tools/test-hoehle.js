@@ -4,7 +4,6 @@
 //   a) Determinismus   b) Prüfer-Sweep, Fallback-Rate, Erreichbarkeit, Engstellen, Pflichtsatz   c) deckRoh (Grenzzeilen, Anker, IDs, deck-lokale y)
 //   d) Bauzeit und Payload   e) Kombination Wildnis + Deck durch den Prüfer (K-DECK, K-ERREICHBAR)
 //   node tools/test-hoehle.js      (Umgebung: SEEDS=<n> je Größe, Standard 50; KOMBI=<n> Seeds je Größe der Kombination, Standard 25; VERBOSE=1)
-// Der Prüfer verlangt standardmäßig 2 Eingänge; die Höhle hat keine: jeArt.hoehle.eingaengeMin = 0 wird hier eingesetzt (Paket B trägt es in shared/config.js ein).
 const Buehne = require('../shared/buehne.js');
 const Hoehle = require('../shared/gen-hoehle.js');
 const Gelaende = require('../shared/gen-gelaende.js');
@@ -20,7 +19,7 @@ const KOMBI = Math.max(1, +process.env.KOMBI || 25);
 const GR = Object.keys(Hoehle.GROESSEN);
 const seedVon = (i) => 101 + i * 7919;
 const median = (a) => { const s = a.slice().sort((x, y) => x - y); return s[s.length >> 1]; };
-const cfg = Object.assign({}, CONFIG.buehne, { jeArt: Object.assign({}, CONFIG.buehne.jeArt, { hoehle: Object.assign({}, (CONFIG.buehne.jeArt || {}).hoehle, { eingaengeMin: 0 }) }) });
+const cfg = CONFIG.buehne;   // GEL-02 B: jeArt.hoehle.eingaengeMin = 0 steht in shared/config.js (echte Produktionskonfiguration)
 const H = Hoehle.erzeuger();
 const ms = () => Number(process.hrtime.bigint()) / 1e6;
 const payloadB = (k) => Buffer.byteLength(JSON.stringify(Game.prototype.awayMapPayload.call({}, k)));
