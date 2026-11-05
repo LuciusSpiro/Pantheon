@@ -26,6 +26,14 @@ const r1 = (v) => Math.round(v * 10) / 10;
 
 const maskeCache = new WeakMap();
 function maskeVon(karte) { let m = maskeCache.get(karte); if (!m) { m = Mon.maske(karte); maskeCache.set(karte, m); } return m; }
+// MON-01 P1: Maske für eine andere Fußabdruck-Größe (Kreaturen); Größe 2 ist dieselbe Maske wie maskeVon (Station unverändert)
+const maskeGroesseCache = new WeakMap();
+function maskeVonGroesse(karte, fuss) {
+  if (!fuss || fuss === Mon.FUSS) return maskeVon(karte);
+  let t = maskeGroesseCache.get(karte); if (!t) { t = new Map(); maskeGroesseCache.set(karte, t); }
+  let m = t.get(fuss); if (!m) { m = Mon.maske(karte, fuss); t.set(fuss, m); }
+  return m;
+}
 function karteVon(game) { const aw = game.away; return aw && game.karteOf ? game.karteOf(aw.map) : null; }
 const ankerVonXY = (x, y) => Mon.ankerVon(x, y);
 
@@ -128,7 +136,12 @@ function tuerZu(E, kid) {
   return !E.solid || (kk.tiles || []).some((t) => E.solid(t[0], t[1]));
 }
 
-function gehen(game, E, M, dt, speed) {
+// gehen: die Station geht mit Standard-Kollisionsbox (HB), Rammzeit aus der Konfiguration und bricht Türen auf.
+function gehen(game, E, M, dt, speed) { return gehenMit(game, E, M, dt, speed, { hb: HB, rammZeit: cfg(game).rammZeit, tueren: 'aufbrechen' }); }
+// gehenMit (MON-01 P1): derselbe Schritt mit eigenen Werten je Figur. opt = { hb: {w,h}, rammZeit: s, tueren: 'aufbrechen' | 'sperren' }.
+// 'sperren': eine geschlossene Tür im Weg bleibt zu, die Figur steht davor (Pfad bleibt; der Aufrufer plant neu oder gibt auf).
+// Rückgabe: 'tuer' (Tür sperrt den Weg), 'blockiert' (Kollision hat den Schritt auf unter 30 % gekürzt), sonst null.
+function gehenMit(game, E, M, dt, speed, opt) {
   const aw = game.away;
   if (M.ramm) {
     M.ramm.t -= dt;
@@ -138,24 +151,28 @@ function gehen(game, E, M, dt, speed) {
       game.emit('sfx', { name: 'explosion_small', zone: 'away', x: Math.round(M.x), y: Math.round(M.y) });
       M.ramm = null; if (err) M.pfad = [];
     }
-    return;
+    return null;
   }
-  if (!M.pfad.length) return;
-  let budget = speed * dt; let guard = 0;
+  if (!M.pfad.length) return null;
+  let budget = speed * dt; let guard = 0; let res0 = null;
   while (budget > 0.01 && M.pfad.length && guard++ < 4) {
     const n = M.pfad[0]; const c = Mon.mitte(n);
     const tz = kanteAmSchritt(E, n);
-    if (tz && tuerZu(E, tz.kid)) { M.ramm = { kid: tz.kid, t: cfg(game).rammZeit }; return; }
+    if (tz && tuerZu(E, tz.kid)) {
+      if (opt.tueren === 'sperren') return 'tuer';
+      M.ramm = { kid: tz.kid, t: opt.rammZeit }; return null;
+    }
     const dx = c.x - M.x, dy = c.y - M.y; const d = Math.hypot(dx, dy);
     if (d < 1) { M.pfad.shift(); continue; }
     const s = Math.min(d, budget);
-    const res = Physics.moveWithCollision(E.solid, M.x, M.y, dx / d * s, dy / d * s, HB);
+    const res = Physics.moveWithCollision(E.solid, M.x, M.y, dx / d * s, dy / d * s, opt.hb);
     const moved = Math.hypot(res.x - M.x, res.y - M.y);
     M.facing = Math.atan2(dy, dx); M.x = res.x; M.y = res.y;
     budget -= Math.max(moved, 0.01);
-    if (moved < s * 0.3) break;
+    if (moved < s * 0.3) { res0 = 'blockiert'; break; }
     if (Math.hypot(c.x - M.x, c.y - M.y) < 1) M.pfad.shift();
   }
+  return res0;
 }
 
 // ---------- Tick ----------
@@ -288,4 +305,5 @@ function zuruecksetzen(game) {
 function pulteFertig(game) { const P = game.away && game.away.monsterPulte; return !!(P && P.fertig); }
 function pulteErledigt(game) { const P = game.away && game.away.monsterPulte; return P ? P.erledigt : 0; }
 
-module.exports = { einrichten, zuruecksetzen, update, laerm, snap, pulteSnap, alleVerwundet, pulteFertig, pulteErledigt, maskeVon, STANDARD };
+module.exports = { einrichten, zuruecksetzen, update, laerm, snap, pulteSnap, alleVerwundet, pulteFertig, pulteErledigt, maskeVon, STANDARD,
+  maskeVonGroesse, gehen, gehenMit, setzePfad, ziel, spieler, HB };   // MON-01 P1: Bewegungsbausteine für server/sim/kreatur.js
