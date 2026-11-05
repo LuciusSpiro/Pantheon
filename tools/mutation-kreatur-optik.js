@@ -65,7 +65,7 @@ const MUTATIONEN = [
   [AC, 'const amp = (b & 8) ? 0.05 : 0.012 + 0.016 * Math.min(1, speed / 2.8);', 'const amp = 0.012;', 'Wippen in Jagd und Rammen nicht stärker', [T1]],
   [AC, "  if (kreaturStaubAn(b) && a.speed > 0.25) {", "  if (kreaturStaubAn(b)) {", 'Staub auch im Stand (Rammen ohne Bewegung, z. B. steckt)', [T1]],
   [AC, "fx.spawnFx('staub', {", "fx.spawnFx('sparks', {", 'Staubspur löst einen anderen Effekt aus', [T1]],
-  [AC, 'while (a.staubT >= 0.04) {', 'while (a.staubT >= 0.0001) {', 'Staub ohne Takt-Deckel (zu viele Partikel)', [T1]],
+  [AC, 'while (a.staubT >= 0.04) {', 'while (a.staubT >= 0.0001) {', 'Staub: Schwelle der Schleife fast 0 statt 0,04', [T1], 'gleichwertig: jeder Aufruf zieht 0,04 s ab, der Zähler wird negativ und die Rate bleibt im Mittel 25 Hz (Test: 60 Bilder in 1 s, 20 bis 30 Aufrufe)'],
   [AC, 'if (stern) { s.rotation.y = t * 2.2 + ph;', 'if (stern) { s.rotation.y = 0;', 'Sterne drehen nicht', [T1], 'gleichwertig für den Test: die Drehung ist reine Optik und wird nur im Browser-Beleg beurteilt'],
   [AC, "if (kind === 'kreatur') { updateKreatur(a, e, dt, t); return; }", "if (kind === 'kreatur') { kreaturPlatzhalter(a, (e.kr && e.kr.b) | 0, t); return; }", 'updateEnemy nutzt nur noch den Platzhalter', [T1]],
   [FX, "      case 'staub': FX.staub(p, o.dir); break;", '', 'fx.js: Effekt staub fehlt', [T1]],
