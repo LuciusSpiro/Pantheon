@@ -296,6 +296,8 @@
     "test:waffenwechsel-client": "node tools/test-waffenwechsel-client.js",
     "test:waffenwechsel-client-mutation": "node tools/mutation-waffenwechsel-client.js",
     "test:waffenwechsel-mutation": "node tools/mutation-waffenwechsel.js",
+    "test:scanner": "node tools/test-scanner.js",
+    "test:scanner-mutation": "node tools/mutation-scanner.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",
     "test:ausruestung-bot": "node tools/test-ausruestung-bot.js",
     "test:sektoren": "node tools/test-sektoren.js",

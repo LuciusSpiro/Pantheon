@@ -316,6 +316,11 @@
     // gleiche absolute Toleranz von rund 2 s, die bei dauer 25 galt), ungenaues (Versatz 0,06 / 0,12 / 0,19) weiter Q2 / Q1 / Q0
     entschl: { dauer: 12.5, rate: 0.3, weitBand: 0.22, driftV: 0.05, driftNebel: 2, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
       qSchwellen: [0.3, 0.55, 0.85], minLauf: 2, anzeigeDauer: 12 },
+    // SCA-01 P1 Scanner am Boden (server/sim/scanner.js): Abwandlung des Entschlüsselns, je Spieler (p.scan). dauer = Sekunden bis Vollfortschritt bei voller Signalstärke,
+    // Frequenzfelder wie entschl. abklingzeit = Sekunden nach einem ERFOLGREICHEN Scan, reichweite = Pixel (12 Kacheln; wirkt erst mit P2, den Scan-Zielen).
+    // Justierbar mit `tune scanner.<wert> <zahl>`.
+    scanner: { dauer: 6, rate: 0.3, weitBand: 0.22, driftV: 0.05, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
+      qSchwellen: [0.3, 0.55, 0.85], minLauf: 1.5, abklingzeit: 8, reichweite: 384 },
     // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,
     // spawn_patrouille, minenfeld, schleichfahrt_an) – ohne das bleibt jede Szene wie bisher (Golden m1–m3 unverändert).
     alarm: {

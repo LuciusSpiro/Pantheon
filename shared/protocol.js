@@ -119,6 +119,11 @@
     //   Abgelehnt ohne Antwort (kein Effekt): ungültiger/leerer Slot, nicht am Boden, ausgeschaltet/gefangen/betäubt/bewusstlos, gleiche Waffe (No-op ohne Preis).
     //   Antwort bei Waffenwechsel: Ereignis loadout { pid, waffe, sperre } (sperre = wirksame Restzeit in s bis die Waffe feuern darf = max(Rest der abgelegten Kadenz, Wechselzeit); Client zeigt die Sperre lokal); Snapshot players[].wf ändert sich sofort. Kein neues Snapshot-Feld.
     CMD_SLOT_NUTZEN: 'slot.nutzen',
+    // SCA-01 P1: Scanner am Boden. Start NUR über slot.nutzen auf den Slot mit dem Item `scanner` (zweite Betätigung während des Scans = Abbruch). cmd { c: 'scan.stimme', dir: -1|0|1 } (gehalten, der Server
+    //   bewegt die Frequenz), cmd { c: 'scan.abbruch' } beendet ohne Ergebnis. Abbruch jeder Art (Treffer, Bewegung, Konsole, Wunde, Kartenwechsel, Trennung) = kein Ergebnis, Fortschritt verloren.
+    //   Snapshot: players[].action = { kind: 'scan', progress } für alle; players[].sc = { f, s, h, q } (Frequenz, Signal, Fortschritt, laufende Schätzung 0..3) nur beim Scannenden und nur solange der Scan läuft.
+    CMD_SCAN_STIMME: 'scan.stimme',
+    CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
     WAFFEN_WAHL: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber'],
     GEGNER_ROLLEN: ['grundtyp', 'niederhalter', 'grenadier', 'schuetze', 'enterer', 'haescher', 'waechter'],

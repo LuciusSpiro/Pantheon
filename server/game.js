@@ -133,6 +133,7 @@ const sektorenMod = () => optional('sektoren', '../shared/sektoren.js'); // SEKT
 const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   // BUEHNE (B1)
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
+const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
 const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
@@ -1228,6 +1229,9 @@ class Game {
     }
     // AUS-02 A: Slot am Boden benutzen (Waffenwechsel) – ohne Konsole; loadout.slotNutzen lehnt alles ab, was nicht am Boden und handlungsfähig ist (still)
     if (c === Protocol.CMD_SLOT_NUTZEN) { try { Loadout.slotNutzen(this, p, msg.slot); } catch (e) { this.countError('loadout', e); } return; }
+    // SCA-01 P1: Scanner am Boden – Frequenz halten und Abbruch (der Start läuft über slot.nutzen); ohne laufenden Scan ohne Wirkung
+    if (c === Protocol.CMD_SCAN_STIMME) { try { Scanner.scanStimme(this, p, Number(msg.dir)); } catch (e) { this.countError('scanner', e); } return; }
+    if (c === Protocol.CMD_SCAN_ABBRUCH) { try { Scanner.scanAbbrechen(this, p); } catch (e) { this.countError('scanner', e); } return; }
     const [prefix] = c.split('.');
     const need = CMD_CONSOLE[prefix];
     if (!need) return this.notice(p, 'Unbekannter Befehl.');
@@ -1880,6 +1884,7 @@ class Game {
       this.safe('reaktortod', () => Reaktortod.update(this, dt));   // SYS-01 A2a: Reaktor-Countdown, Rettung, Tod der Lerche
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
+      this.safe('scanner', () => Scanner.update(this, dt));   // SCA-01 P1: Scan am Boden (früher Rücksprung, solange niemand scannt)
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
       if (this.finaleBoden) this.safe('finale-boden', () => FinaleBoden.update(this));   // SUND-04a-3 Boden: Landung, Freigabe, Sieg, Abbruch (nur solange ein Boden-Teil läuft)
@@ -1959,6 +1964,7 @@ class Game {
       const minT = (C.spaceM3 && C.spaceM3.repair && C.spaceM3.repair.minigameMinTime) || 2.5;
       return { kind: 'minigame', system: h.system, progress: r2(Math.min(1, h.t / minT)) };
     }
+    if (h.kind === 'scan') return { kind: 'scan', progress: r2(Math.min(1, h.scan.halt)) };   // SCA-01 P1: Fortschritt aus dem Scan-Zustand
     const o = { kind: h.kind, progress: r2(Math.min(1, h.t / h.dur)) };
     if (h.system) o.system = h.system;
     return o;
@@ -2284,6 +2290,7 @@ class Game {
           : (beam && beam.pids.includes(p.id) ? { kind: 'beam', progress: r2(Math.min(1, beam.t / beam.dur)) } : null),
         gear: p.gear, lastSeq: p.lastSeq,
         ...combat.playerSnap(this, p),
+        ...((sc) => (sc ? { sc } : {}))(Scanner.snapshotFuer(this, p)),   // SCA-01 P1: Frequenz/Signal/Fortschritt, nur solange p scannt
         ...this.wfAnBord(p),   // B2 (Wunsch CLIENT): gewählte Waffe auch an Bord
         ...interior.deckSnap(this, p),   // M4 §2.4: deck (Schiff), lift { to, t, T }, ladder { t, T } – nur wenn aktiv
       })),

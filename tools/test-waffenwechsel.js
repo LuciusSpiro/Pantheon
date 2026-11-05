@@ -52,7 +52,7 @@ const WZ = CONFIG.awayCombat.wechselzeit;
 section('Konfiguration und Protokoll');
 ok(WZ === 0.6, 'awayCombat.wechselzeit = 0,6 s (Startwert)');
 ok(Protocol.CMD_SLOT_NUTZEN === 'slot.nutzen', "Protokoll: CMD_SLOT_NUTZEN = 'slot.nutzen'");
-ok(Loadout.ITEMS === undefined && Loadout.itemNutzen === undefined && JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify(Waffen.WAHL), 'Item-Registry heute leer, erlaubte Ids = nur Waffen (keine Platzhalter-Items)');
+ok(Loadout.ITEMS === undefined && Loadout.itemNutzen === undefined && JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify([...Waffen.WAHL, 'scanner']), 'Item-Registry: nur der Scanner (SCA-01), erlaubte Ids = Waffen + scanner (keine Platzhalter-Items)');
 ok(Waffen.WAHL.length === 6, 'sechs wählbare Waffen');
 
 section('(a) Jede Waffe wirkt nach dem Wechsel');
@@ -286,7 +286,7 @@ section('(f) Items: Dispatch über die Registry, aktive Waffe bleibt');
   weg2();
   weg();   // zweites Entfernen schadet nicht
   ok(typeof Loadout.slotNutzen(S.g, S.p, 2) === 'string' && S.p.waffe === 'sturmgewehr', 'ohne Registry-Eintrag: abgelehnt, Waffe bleibt');
-  ok(JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify(Waffen.WAHL), 'Registry nach dem Test wieder leer (Entfernen-Funktion räumt auf)');
+  ok(JSON.stringify(Loadout.erlaubteIds()) === JSON.stringify([...Waffen.WAHL, 'scanner']), 'Registry nach dem Test wieder nur mit dem Scanner (Entfernen-Funktion räumt auf)');
   const wirft = (f) => { try { f(); return false; } catch (e) { return true; } };
   ok(wirft(() => Loadout.itemRegistrieren('blaster', () => null)) && wirft(() => Loadout.itemRegistrieren('faust', () => null)) && wirft(() => Loadout.itemRegistrieren('', () => null)) && wirft(() => Loadout.itemRegistrieren('x', null)), 'itemRegistrieren lehnt Waffen-Ids, leere Ids und fehlenden Handler ab');
   const w3 = Loadout.itemRegistrieren('doppelt', () => null);

@@ -176,9 +176,14 @@ function waffen() { const m = mod('waffen'); return m && m.aktiv === true && typ
 function waffenAktiv() { return !!waffen(); }
 // B1 §6.2: jeder Treffer, der einen Spieler erreicht -> anker.onTreffer(game, pid) (Abbruch von Download und Ladung)
 function ankerTreffer(game, p) {
+  scannerTreffer(game, p);
   const m = mod('anker');
   if (!m || typeof m.onTreffer !== 'function') return;
   try { m.onTreffer(game, p.id); } catch (e) { if (game.countError) game.countError('anker-onTreffer', e); }
+}
+// SCA-01 P1: zweiter Hook, kein Anker-Hold – jeder Treffer bricht einen laufenden Scan ab (Fortschritt verloren, kein Ergebnis)
+function scannerTreffer(game, p) {
+  try { require('./scanner.js').onTreffer(game, p.id); } catch (e) { if (game.countError) game.countError('scanner-onTreffer', e); }
 }
 
 // Kämpfer-Vertrag (B2 §3.1): Felder für Spieler und Gegner anlegen (idempotent). Gegner: schild = Alias auf seg/max/
