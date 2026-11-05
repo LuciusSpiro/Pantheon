@@ -43,6 +43,10 @@ typ('tb_verz', anker([A1, A2], 'leer', 5, 2));
 typ('tb_eins', anker([A1], 'leer'));                    // ein einziger Anker
 typ('tb_gefolge', { quelle: { art: 'kreatur', typ: 'tb_koenigin' }, folge: { art: 'aufloesen' } });
 typ('tb_zwilling', { quelle: { art: 'kreatur', typ: 'tb_zwilling' }, folge: { art: 'aufloesen' } });   // an den eigenen Typ gebunden
+typ('tb_rammer', null); KREATUREN.typen.tb_rammer.zustaende = { ramme: { modus: 'ramme', tempo: 60, uebergang: [] } }; KREATUREN.typen.tb_rammer.start = 'ramme';
+KREATUREN.typen.tb_rammer.bausteine = { zyklus: { hindernisAb: 0.5 }, rammschaden: { radius: 30 } };
+KREATUREN.typen.tb_rammgefolge = JSON.parse(JSON.stringify(KREATUREN.typen.tb_rammer)); KREATUREN.typen.tb_rammgefolge.name = 'kreatur.tb_rammgefolge';
+KREATUREN.typen.tb_rammgefolge.bausteine.bindung = { quelle: { art: 'kreatur', typ: 'tb_koenigin' }, folge: { art: 'aufloesen' } };
 typ('tb_gefolge_verz', { quelle: { art: 'kreatur', typ: 'tb_koenigin' }, folge: { art: 'aufloesen', verzoegerung: 1 } });
 
 // ---------- Szene: echtes Spiel auf kesh.kastell ----------
@@ -190,6 +194,58 @@ section('(f) Kreatur-Quelle', () => {
   S6.p.zone = 'ship'; Q7.alive = false; S6.lauf(0.3); ok(!S6.da(F6), 'ohne Spieler am Boden: Auflösung trotzdem');
   const S7 = szene(); const Q8 = S7.kreatur('tb_koenigin'); const F7 = S7.kreatur('tb_gefolge', 1); F7.betaeubtBis = S7.g.time + 100; Q8.alive = false; S7.lauf(0.3);
   ok(!S7.da(F7), 'betäubt (nicht handlungsfähig): Auflösung trotzdem');
+});
+
+// Liegt eine Kreatur nach combat.faellt (alive=false, zustand bewusstlos), zählt sie als Quelle, bis sie endgültig erledigt ist
+const bewusstlos = (S, K, sek) => { const kk = combat.kaempfer(S.g, K); kk.zustand = 'bewusstlos'; kk.bewusstBis = S.g.time + sek; return kk; };
+section('(f2) bewusstlose Königin: Gefolge bleibt, bis sie endgültig erledigt ist', () => {
+  const S = szene(); const Q = S.kreatur('tb_koenigin'); const F = S.kreatur('tb_gefolge', 1); const Z = S.kreatur('tb_gefolge_verz', 2);
+  S.lauf(0.5); bewusstlos(S, Q, 10); S.lauf(1);
+  ok(!Q.alive && Q.zustand === 'bewusstlos', 'Kontrolle: Königin liegt bewusstlos (alive=false, zustand bewusstlos)');
+  ok(S.da(F) && S.da(Z) && S.zahl(S.ev, 'kreaturAufgeloest') === 0, 'bewusstlose Königin: Gefolge bleibt');
+  S.lauf(4); ok(S.da(F) && S.da(Z), 'auch nach 5 s Bewusstlosigkeit');
+  S.lauf(8); ok(Q.alive && Q.zustand === 'ok', 'Kontrolle: Königin ist wieder aufgestanden');
+  ok(S.da(F) && S.da(Z) && S.zahl(S.ev, 'kreaturAufgeloest') === 0, 'Königin wacht wieder auf: Gefolge bleibt, kein Ereignis');
+  S.lauf(2); ok(S.da(F), 'und bleibt auch danach');
+  Q.alive = false; Q.zustand = 'verwundet'; Q.liegt = true; S.lauf(0.3);
+  ok(!S.da(F) && S.zahl(S.ev, 'kreaturAufgeloest') >= 1, 'Königin danach tot (verwundet): Gefolge löst sich auf');
+  const S2 = szene(); const Q2 = S2.kreatur('tb_koenigin'); const F2 = S2.kreatur('tb_gefolge', 1);
+  S2.lauf(0.5); bewusstlos(S2, Q2, 10); S2.lauf(1); ok(S2.da(F2), 'zweiter Lauf: bewusstlos, Gefolge da');
+  Q2.zustand = 'verwundet'; S2.lauf(0.3); ok(!S2.da(F2), 'bewusstlose Königin verwundet (endgültig): Gefolge löst sich auf');
+  const S3 = szene(); const Q3 = S3.kreatur('tb_koenigin'); const F3 = S3.kreatur('tb_gefolge', 1);
+  S3.lauf(0.5); bewusstlos(S3, Q3, 10); S3.lauf(0.5); S3.aw.kreaturen.splice(S3.aw.kreaturen.indexOf(Q3), 1); S3.lauf(0.3);
+  ok(!S3.da(F3), 'bewusstlose Königin verschwindet aus der Liste: Gefolge löst sich auf');
+  const S4 = szene(); const Q4 = S4.kreatur('tb_koenigin'); const F4 = S4.kreatur('tb_gefolge', 1);
+  Q4.weg = true; S4.g.step(); ok(!S4.da(F4), 'eine als aufgelöst markierte Kreatur (weg) zählt nicht als Quelle, auch nicht im selben Tick');
+});
+section('(f3) gebundene Kreatur liegt bewusstlos: Anker-Eintritte werden trotzdem zeitgenau erfasst', () => {
+  const S = szene(); const K = S.kreatur('tb_fenster');
+  S.lauf(0.3); bewusstlos(S, K, 10); S.lauf(0.3); const t0 = S.g.time;
+  S.anker(A1, 'leer'); S.lauf(0.2);
+  ok(!K.alive && K.zustand === 'bewusstlos', 'Kontrolle: die gebundene Kreatur liegt bewusstlos');
+  ok(Math.abs(K.bindung.eintritt[0] - t0) < 0.1, 'Eintritt von A1 wird beim Liegen zeitgenau erfasst (' + K.bindung.eintritt[0] + ' statt ' + t0.toFixed(2) + ')');
+  let wach = null; for (let i = 0; i < 40 / DT && wach == null; i++) { S.g.step(); if (K.alive) wach = S.g.time; }
+  ok(wach != null && wach - t0 > 9, 'Kreatur wacht nach etwa 10 s auf');
+  S.lauf(0.5); S.anker(A2, 'leer'); S.lauf(0.5);
+  ok(S.da(K) && S.zahl(S.ev, 'kreaturAufgeloest') === 0, 'A2 über 10 s nach A1 (Fenster 5 s): löst sich NICHT auf');
+  const S2 = szene(); const K2 = S2.kreatur('tb_fenster');
+  S2.lauf(0.3); bewusstlos(S2, K2, 10); S2.lauf(0.3); S2.anker(A1, 'leer'); S2.lauf(1); S2.anker(A2, 'leer'); S2.lauf(0.3);
+  ok(!S2.da(K2) && S2.zahl(S2.ev, 'kreaturAufgeloest') === 1, 'beide Anker innerhalb des Fensters, während die Kreatur liegt: löst sich auch liegend auf');
+  const S3 = szene(); const K3 = S3.kreatur('tb_fenster'); S3.lauf(0.3); bewusstlos(S3, K3, 10); S3.lauf(0.3); K3.zustand = 'verwundet'; K3.liegt = true; S3.lauf(0.2);
+  S3.anker(A1, 'leer'); S3.anker(A2, 'leer'); S3.lauf(0.5);
+  ok(S3.da(K3) && S3.zahl(S3.ev, 'kreaturAufgeloest') === 0, 'endgültig erledigte (verwundet) gebundene Kreatur wird nicht mehr geprüft');
+});
+section('(f4) aufgelöste Kreatur handelt im selben Tick nicht mehr', () => {
+  const lauf1 = (typName) => {
+    const S = szene(); S.g.god = false;   // Rammen verwundet nur ohne Gott-Modus
+    const Q = S.kreatur('tb_koenigin'); const K = Kreatur.erzeugen(S.g, typName, S.p.x, S.p.y);
+    Q.alive = false; S.g.step();
+    return { S, K, treffer: S.zahl(S.ev, 'kreaturTreffer'), aufgeloest: S.zahl(S.ev, 'kreaturAufgeloest') };
+  };
+  const mit = lauf1('tb_rammgefolge'), ohne = lauf1('tb_rammer');
+  ok(ohne.treffer === 1 && ohne.aufgeloest === 0, 'Kontrolle: derselbe Rammer ohne Bindung trifft den Spieler im ersten Tick');
+  ok(mit.aufgeloest === 1 && !mit.S.da(mit.K), 'gebundener Rammer: Königin tot, aufgelöst');
+  ok(mit.treffer === 0 && mit.S.zahl(mit.S.me, 'kreaturTreffer') === 0, 'aufgelöst heißt aufgelöst: kein Rammen und kein kreaturTreffer im selben Tick');
 });
 
 section('(g) mehrere gebundene Kreaturen lösen sich unabhängig', () => {

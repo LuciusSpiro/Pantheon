@@ -1060,6 +1060,17 @@ function lanzeKegel(game, p, e) {
   return Math.abs(Physics.normAngle(Math.atan2(e.y - p.y, e.x - p.x) - a)) <= (Number(K.halbwinkel) || 0) * Math.PI / 180;
 }
 
+// Sichtregel für Gegner am Boden (Drohnen und Kreaturen): sieht irgendein Spieler des Teams e (Sichtradius, Lanzenkegel, jeweils mit Sichtlinie)? R = sightTiles in px.
+function gesehenVomTeam(game, E, team, R, e) {
+  for (const p of team) {
+    if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) return true;   // §15: Ducken sperrt beidseitig
+    if (lanzeKegel(game, p, e) && losBetween(E, p, e)) return true;   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
+  }
+  return false;
+}
+// Sichtbarkeit im Snapshot: gesehen, Sensor oder Captain-Fokus (focusUntil)
+const sichtbarFuerTeam = (game, E, team, R, e, sensor) => gesehenVomTeam(game, E, team, R, e) || sensor || game.time < (e.focusUntil || 0);
+
 // ---------- Fog of War, Deckung der Spieler (CONTRACT-M2 §6, §7 cv/fl) ----------
 function updateVisibility(game) {
   const C = cfg(game); const aw = game.away; const E = env(game);
@@ -1068,11 +1079,7 @@ function updateVisibility(game) {
   const sensor = game.time < aw.sensorUntil;
   for (const e of aw.drones) {
     if (!e.alive) { e.vis = false; e.ghost = null; continue; }
-    let seen = false;
-    for (const p of team) {
-      if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) { seen = true; break; }   // §15: Ducken sperrt beidseitig
-      if (lanzeKegel(game, p, e) && losBetween(E, p, e)) { seen = true; break; }   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
-    }
+    const seen = gesehenVomTeam(game, E, team, R, e);
     if (seen) { e.seenAt = game.time; e.seenX = e.x; e.seenY = e.y; rolleGesehen(game, e); }
     e.vis = seen || sensor || game.time < (e.focusUntil || 0);
     e.ghost = !e.vis && e.seenAt > -50 && game.time - e.seenAt < C.ghostTime ? { x: r1(e.seenX), y: r1(e.seenY), t: r2(e.seenAt) } : null;
@@ -1919,7 +1926,7 @@ module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
-  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius,
+  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius, sichtbarFuerTeam,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,

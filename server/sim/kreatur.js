@@ -242,10 +242,11 @@ kreaturBausteinAnmelden('rammschaden', {
 
 // ---------- Baustein bindung (P3): Kreatur hängt an einer Quelle ----------
 // Fällt die Bindung weg, löst sich die Kreatur auf (Folge `aufloesen`): sauber aus aw.kreaturen entfernt, kein Fall, kein droneKilled, kein knockOut; Ereignis `kreaturAufgeloest {id, typ, x, y}`
-// und Missionsereignis gleichen Namens. Gebunden bleibt sie auch betäubt oder ohne Außenteam (der Abgleich läuft vor der Handlungsfähigkeit); tote Kreaturen werden nicht mehr geprüft.
+// und Missionsereignis gleichen Namens. Gebunden bleibt sie auch betäubt, bewusstlos oder ohne Außenteam (der Abgleich läuft vor der Handlungsfähigkeit); endgültig erledigte Kreaturen (verwundet/aus) werden nicht mehr geprüft.
+// Als Kreatur-Quelle zählt, wer nicht endgültig erledigt ist: lebend oder bewusstlos/gefesselt (steht wieder auf), nicht verwundet/aus und nicht aufgelöst.
 //   quelle    { art: 'anker', ids: [...] } | { art: 'anker', rolle } (alle Anker der Karte dieser Rolle) | { art: 'kreatur', typ } | { art: 'kreatur', id: 'K…' }
 //   bedingung Anker-Quelle (Pflicht): { zustand, fenster? }  gelöst, wenn ALLE Anker der Quelle im Zustand sind und jeder Eintritt höchstens `fenster` s zurückliegt (fehlt/0: nur gleichzeitig).
-//             Kreatur-Quelle: keine Bedingung; gelöst, sobald keine lebende Kreatur der Quelle (ohne die gebundene selbst) mehr existiert.
+//             Kreatur-Quelle: keine Bedingung; gelöst, sobald keine nicht endgültig erledigte Kreatur der Quelle (ohne die gebundene selbst) mehr existiert.
 //   folge     { art: 'aufloesen', verzoegerung? }  nach `verzoegerung` s (Standard 0) entfernen. Ist die Folge ausgelöst, gilt sie endgültig (Wiederkehr ist MON-03).
 // Der Baustein liest Anker nur über Anker.zustand (Karte ohne Neuaufbau, je Anker ein Lookup) und beobachtet den Eintritt je Anker pro Tick; er schreibt nie in Anker. Ein Anker, der schon beim
 // Anlegen im Zustand ist, hat einen unbekannten Eintritt: mit Fenster zählt er erst nach Verlassen und erneutem Eintritt, ohne Fenster zählt er sofort.
@@ -253,8 +254,12 @@ kreaturBausteinAnmelden('rammschaden', {
 const BINDUNG_FELDER = ['quelle', 'bedingung', 'folge'];
 const ankerMod = () => require('./anker.js');
 const ankerRollen = () => { try { return require('../../shared/buehne.js').daten().anker.rollen || {}; } catch (e) { return {}; } };
+// Zustände, aus denen eine liegende Kreatur wieder aufsteht (bewusstlos nach bewusstBis, gefesselt nach Befreiung); verwundet/aus ist endgültig (Ausbluten)
+const LIEGT_ERHOLBAR = { bewusstlos: 1, gefesselt: 1 };
+// Kreatur ist nicht endgültig erledigt: lebend oder liegend in einem erholbaren Zustand (combat.faellt setzt dabei alive=false), und nicht aufgelöst
+const nichtEndgueltigErledigt = (o) => !o.weg && (o.alive || !!LIEGT_ERHOLBAR[o.zustand] || (o.liegt === true && o.zustand === 'ok'));
 const quelleLebt = (aw, K, q) => {
-  for (const o of aw.kreaturen) if (o !== K && o.alive && (q.id ? o.id === q.id : o.typ === q.typ)) return true;
+  for (const o of aw.kreaturen) if (o !== K && nichtEndgueltigErledigt(o) && (q.id ? o.id === q.id : o.typ === q.typ)) return true;
   return false;
 };
 function bindungAnkerLesen(game, K, par) {
@@ -545,7 +550,7 @@ function update(game, dt) {
   let entfernen = false;
   for (const K of aw.kreaturen) {
     const neu = laermLesen(aw, K);   // der Cursor läuft immer mit (auch bei Stillstand), damit nichts Altes nachgeholt wird
-    if (K.alive) bausteinAbgleich(game, K, dt);   // P3: Bindungen auch bei Betäubung und Stillstand
+    if (nichtEndgueltigErledigt(K)) bausteinAbgleich(game, K, dt);   // P3: Bindungen auch bei Betäubung, Bewusstlosigkeit und Stillstand
     if (K.weg) { entfernen = true; continue; }
     if (!k || !K.alive) continue;    // gefallen/liegend: tot oder bewusstlos, keine Bewegung (Aufstehen zieht combat.folgenAbgleich nach)
     schildRegeneration(game, K, dt);
@@ -658,7 +663,7 @@ require('./scanbar.js').scanbarAnmelden('monster', {
 //   typCode  Index des Typs in der Reihenfolge von kreaturen.json (deterministisch, nur für den Client-Wiedererkennen; Namen kommen aus dem Scan)
 //   x, y     px, 1 Nachkommastelle (wie mo);  f  Blickrichtung rad, 2 Nachkommastellen
 //   bits     0-1 Ladung 0..3 (Baustein aufladung), 2 Pause/steht (Modus `steht`), 3 rammt (Modus `ramme`), 4-5 Größe-1 (Kacheln, 0..3)
-// Nur lebende Kreaturen, die jemand im Team sieht (Sichtradius und Sichtlinie wie combat.updateVisibility, Sensor deckt alles auf). Tote werden nicht gesendet.
+// Nur lebende Kreaturen, die jemand im Team sieht (gemeinsame Regel combat.sichtbarFuerTeam wie updateVisibility: Sichtradius, Lanzenkegel, Sensor, Captain-Fokus; Kreaturen sind kein Fokusziel, focusUntil bleibt 0). Tote werden nicht gesendet.
 const BIT_PAUSE = 4, BIT_RAMMT = 8;
 function snap(game) {
   const aw = game.away; const L = aw && aw.kreaturen;
@@ -673,7 +678,7 @@ function snap(game) {
   const out = [];
   for (const K of L) {
     if (!K.alive) continue;
-    if (!sensor && !team.some((p) => Math.hypot(p.x - K.x, p.y - K.y) <= C.sichtRadius(game, E, p, R) && C.losBetween(E, p, K))) continue;
+    if (!C.sichtbarFuerTeam(game, E, team, R, K, sensor)) continue;   // dieselbe Regel wie combat.updateVisibility (Radius, Lanzenkegel, Sensor, Fokus)
     const typ = typVon(K.typ); const modus = typ.zustaende[K.z].modus;
     const ladung = K.aufladung ? Math.min(3, K.aufladung.stufe) : 0;
     const bits = ladung | (modus === 'steht' ? BIT_PAUSE : 0) | (modus === 'ramme' ? BIT_RAMMT : 0) | ((typ.groesse - 1) << 4);
