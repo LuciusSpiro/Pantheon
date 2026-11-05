@@ -145,6 +145,29 @@
   }
   // ITM-01 D: Fallen sind pauschal begehbar (NICHT_BLOCKEND), außer ihr Typ steht in CONFIG.anker.falle.blockiert (Selbstschussanlage: Kollisionsbox). Die Regel gilt für Prüfer,
   // Server-Kollision (interior.awaySolid) und Client-Vorhersage gleich: ankerBlockiert(anker, falleCfg?) -> bool. falleCfg: CONFIG.anker.falle (Server: game.C, Client: Shared_Config).
+  // ITM-01 G (S2): Ankerids der sortierten Rohliste (Platz, Rolle, y, x). `<platz>.<rolle>`, bei mehreren gleicher Rolle auf einem Platz `.n` (Zählung in Listenreihenfolge).
+  // Eine verborgene Falle (sicht nicht passiv) bekommt stattdessen eine neutrale Id `falle.<Hash aus Platz und Kachel>` und zählt bei den anderen nicht mit: die Id steht im Scan (Stufe 1)
+  // und im Ereignis ankerEnthuellt, `<platz>.falle` verriete den Raum und die Nummer eines Geschwisters die Existenz weiterer Fallen. Sichtbare (passive) Fallen zählen nur untereinander.
+  // Bestimmt (FNV-1a, bei Kollision mit Salz); Karten ohne verborgene Fallen bekommen dieselben Ids wie vorher.
+  function ankerIdsVergeben(roh) {
+    const verborgen = (a) => a.rolle === 'falle' && a.sicht !== 'passiv';
+    const zaehl = {}; for (const a of roh) { if (verborgen(a)) continue; const k = a.platz + '.' + a.rolle; zaehl[k] = (zaehl[k] || 0) + 1; }
+    const lauf = {}, vergeben = new Set();
+    const neutral = (a) => {
+      for (let salz = 0; ; salz++) {
+        let h = 0x811c9dc5; const t = a.platz + '|' + a.x + '|' + a.y + '|' + salz;
+        for (let i = 0; i < t.length; i++) { h ^= t.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
+        const id = 'falle.' + h.toString(36).padStart(7, '0');
+        if (!vergeben.has(id)) { vergeben.add(id); return id; }
+      }
+    };
+    return roh.map((a) => {
+      if (verborgen(a)) return neutral(a);
+      const k = a.platz + '.' + a.rolle;
+      lauf[k] = (lauf[k] || 0) + 1;
+      return zaehl[k] > 1 ? k + '.' + lauf[k] : k;
+    });
+  }
   function ankerBlockiert(a, falleCfg) {
     if (!a || a.rolle !== 'falle' || !a.typ) return false;
     const C = falleCfg || ((getConfig() || {}).anker || {}).falle;
@@ -747,13 +770,11 @@
     const ankunftPlatz = plaetze.filter((p) => p.ankunft).map((p) => p.id);
     if (ankunftPlatz.length !== 1) return { fehler: [{ code: 'K-ABHOLPUNKT', msg: `Schablone ${sch.id}: ${ankunftPlatz.length} Plätze mit ankunft (genau 1)` }] };
     roh.sort((a, b) => (a.platz < b.platz ? -1 : a.platz > b.platz ? 1 : 0) || (a.rolle < b.rolle ? -1 : a.rolle > b.rolle ? 1 : 0) || a.y - b.y || a.x - b.x);
-    const zaehl = {}; for (const a of roh) { const k = a.platz + '.' + a.rolle; zaehl[k] = (zaehl[k] || 0) + 1; }
-    const lauf = {};
+    const ids = ankerIdsVergeben(roh);
     const anker = [];
-    for (const a of roh) {
-      const k = a.platz + '.' + a.rolle;
-      lauf[k] = (lauf[k] || 0) + 1;
-      const o = { id: zaehl[k] > 1 ? k + '.' + lauf[k] : k, rolle: a.rolle, x: a.x, y: a.y, platz: a.platz, bereich: a.bereich };
+    for (let ri = 0; ri < roh.length; ri++) {
+      const a = roh[ri];
+      const o = { id: ids[ri], rolle: a.rolle, x: a.x, y: a.y, platz: a.platz, bereich: a.bereich };
       for (const f of Object.keys(a).sort()) {
         if (['rolle', 'x', 'y', 'platz', 'bereich', 'hinweis'].includes(f)) continue;
         o[f] = a[f];
@@ -1830,7 +1851,7 @@
     modulLagen, pruefeModul, kantenTyp, vertraeglich, segmentTyp: (seg, opts) => segmentTyp(opts && opts.daten ? normalisiere(opts.daten) : daten(), seg, cfgVon(opts).freiMin),
     bauen, bauRoh, ausRaster, pruefen, kennzahlen, vorwaermen, hand, leitFuss, zustaendeAnwenden, alsText, ANKER_GLYPHE,
     tuerKacheln: K.tuerKacheln, raster: K.raster, SCHIFF_STRIDE, STANDARD_CFG,
-    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerStart, fallenSchottKanten,
+    TUER_ZEIT, kantenListe, ankerKanten, eingangAktion, kachelZustandRegel, ankerBlockiert, ankerIdsVergeben, ankerStart, fallenSchottKanten,
     raetselWege, raetselFenster, raetselHinweis, raetselSolo, raetselSoloFenster, karteServerForm, padTiles, deckLinkInReichweite, interaktionsVorrang, fehlerhafteModule,
     silhouetteFehler, silhouetteDaten, FIGUR_HOEHE_M,
   };

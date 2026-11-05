@@ -140,7 +140,9 @@ function kachelZustand(aw, info, tx, ty, ki) {
   const typInfo = kk ? Object.values(info.karte.legende || {}).find((i) => i.kind === kk.typ) : null;
   return Buehne.kachelZustandRegel(ki.zustaende, (kid && zs[kid]) || null, (a && zs[a.id]) || null, kk ? kk.zustand : null, typInfo ? typInfo.begehbarIn : null);
 }
-// ITM-01 D: Anker mit Kollisionsbox (Fallen, deren Typ in CONFIG.anker.falle.blockiert steht: Selbstschussanlage). Die Kachel ist für Spieler und Gegner fest (Zustand egal, auch entschärft);
+// ITM-01 D: Anker mit Kollisionsbox (Fallen, deren Typ in CONFIG.anker.falle.blockiert steht: Selbstschussanlage). Die Kachel ist für Spieler und Gegner fest (auch entschärft);
+// ITM-01 G (S1): eine VERBORGENE Anlage (sicht verborgen, Zustand noch verborgen) blockiert nicht: Der Client kennt sie vor ankerEnthuellt nicht (Prediction-Ruck) und die Box würde sie verraten.
+// Die Box gilt ab erkannt/entschärft/ausgelöst, also ab dem Zeitpunkt, an dem der Client den Anker kennt (passive Anlagen stehen im Payload und blockieren von Anfang an).
 // Sicht und Schuss gehen durch (awaySight/awayShotBlock lesen nur Kachelart und Zustandskacheln). Regel gemeinsam mit Prüfer und Client: Buehne.ankerBlockiert.
 // Je Karte gecacht (Ankerliste und blockiert-Config als Schlüssel), Karten ohne blockierende Anker kosten einen Vergleich.
 const BLOCK_CACHE = new WeakMap();
@@ -150,12 +152,16 @@ function blockierendeKacheln(game, k) {
   const sig = cf && cf.blockiert ? Object.keys(cf.blockiert).filter((t) => cf.blockiert[t]).join() : '';
   let c = BLOCK_CACHE.get(k);
   if (!c || c.alle !== alle || c.n !== alle.length || c.sig !== sig) {
-    let set = null;
-    if (sig) for (const a of alle) if (a.rolle === 'falle' && Buehne.ankerBlockiert(a, cf)) (set || (set = new Set())).add(a.y * k.w + a.x);
-    c = { alle, n: alle.length, sig, set };
+    let kand = null;
+    if (sig) for (const a of alle) if (a.rolle === 'falle' && Buehne.ankerBlockiert(a, cf)) (kand || (kand = [])).push({ id: a.id, kachel: a.y * k.w + a.x, verborgen: a.sicht !== 'passiv' });
+    c = { alle, n: alle.length, sig, kand };
     BLOCK_CACHE.set(k, c);
   }
-  return c.set;
+  if (!c.kand) return null;
+  const zs = (game.away && game.away.zustaende) || {};
+  let set = null;
+  for (const e of c.kand) if (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen')) (set || (set = new Set())).add(e.kachel);
+  return set;
 }
 function awaySolid(game) {
   const aw = game.away; const info = awayInfo(game); const map = info.map;

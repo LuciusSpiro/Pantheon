@@ -328,6 +328,8 @@
     "test:fallen": "node tools/test-fallen.js",
     "test:fallen-mutation": "node tools/mutation-fallen.js",
     "mess:fallen-tick": "node tools/mess-fallen-tick.js",
+    "test:fallen-ids": "node tools/test-fallen-ids.js",
+    "test:fallen-ids-mutation": "node tools/mutation-fallen-ids.js",
     "test:fallen-typen": "node tools/test-fallen-typen.js",
     "test:fallen-typen-mutation": "node tools/mutation-fallen-typen.js",
     "mess:fallen-typen-tick": "node tools/mess-fallen-typen-tick.js",

@@ -109,6 +109,12 @@ function setzen(game, map, id, z, pid, opts) {
   if (!erlaubt.includes(z)) return `Zustand ${z} unbekannt für ${id} (${erlaubt.join(', ') || 'keine Zustände'}).`;
   const vorher = zustandIn(aw, k, id);
   if (rolle === 'falle' && vorher !== z && !fallenMod().uebergangErlaubt(vorher, z)) return `Falle ${id}: ${vorher} -> ${z} ist kein gültiger Übergang.`;   // ITM-01 C: entschaerft und ausgeloest sind endgültig
+  // ITM-01 G (H1): Ein Übergang einer Falle nach ausgeloest ist immer ein Auslösen (Wirkung, Missionsereignis falleAusgeloest, Entschärfer-Abbruch): auch über den Baustein anker_zustand
+  // und das Debug `anker` läuft er über Fallen.ausloesen. Dessen eigener setzen-Aufruf trägt opts.ausloesen und setzt nur den Zustand.
+  if (rolle === 'falle' && z === 'ausgeloest' && vorher !== z && !o.ausloesen) {
+    const e = fallenMod().ausloesenVonAnker(game, aw, id, pid, o);
+    if (e !== undefined) return e;
+  }
   aw.zustaende[id] = z;
   // Tore, Eingänge, Verstecke steuern ihre Kacheln: Kanten mitsetzen
   if (a && (a.rolle === 'tor' || a.rolle === 'eingang' || a.rolle === 'versteck')) {

@@ -66,6 +66,7 @@ function arenaBauen(k) {
   f('falle.eC', 'schott', 'passiv', 13, 2);     // Schottfalle, sichtbar
   f('falle.eV', 'schuss', 'verborgen', 12, 7);  // verborgene Anlage
   f('falle.eU', 'druck', 'verborgen', 3, 7);    // verborgenes Druckfeld
+  f('falle.eW', 'schuss', 'verborgen', 1, 1);   // ITM-01 G (S1): zweite verborgene Anlage, bleibt bis zum Paritätstest verborgen
   return best;
 }
 function szene() {
@@ -205,11 +206,54 @@ section('Kollisions-Vorhersage: gleiche Regel wie der Server, Sicht ohne Box');
   let diff = 0;
   for (let ty = 0; ty < M.h; ty++) for (let tx = 0; tx < M.w; tx++) if (!!kl(tx, ty) !== !!solidS(tx, ty)) diff++;
   ok(diff === 0, 'alle ' + (M.w * M.h) + ' Kacheln der Karte: Client-Vorhersage = Server (Abweichungen: ' + diff + ')');
-  // verborgene Anlage vor dem Enthüllen: der Client kennt sie nicht, der Server blockiert schon (Dokumentierte Grenze: die Auslösezone liegt vor der Box)
+  // ITM-01 G (S1): eine noch verborgene Anlage (eW) blockiert weder auf dem Server noch in der Vorhersage; sie blockiert erst ab dem Enthüllen (beide)
   const M2 = reg(mapEv);
   const kl2 = R.buehneBewegungSolid(M2, st);
-  ok(!kl2(eV.x, eV.y) && solidS(eV.x, eV.y), 'Grenze (bekannt): eine noch verborgene Anlage blockiert nur auf dem Server, bis ankerEnthuellt sie meldet');
+  const eW = S.an('falle.eW');
+  ok(Anker.zustand(g, id, 'falle.eW') === 'verborgen' && !kl2(eW.x, eW.y) && !solidS(eW.x, eW.y), 'verborgene Anlage (eW): Server und Client-Vorhersage lassen die Kachel frei (die Box verriete die Falle)');
+  let diff2 = 0;
+  for (let ty = 0; ty < M2.h; ty++) for (let tx = 0; tx < M2.w; tx++) if (!!kl2(tx, ty) !== !!solidS(tx, ty)) diff2++;
+  ok(diff2 === 1 && !!kl2(eV.x, eV.y) !== !!solidS(eV.x, eV.y), 'Kachelvergleich mit frischer Client-Liste (ohne die schon enthüllte eV): nur eV unterscheidet sich, die verborgene eW nicht (' + diff2 + ')');
+  {   // schräges Zulaufen auf die verborgene Anlage (wie die Reviewer-Probe corner.js): bis zur Auslösung 0 Abweichungen, die Figur wird nie von der Box gestreift
+    const hb = CONFIG.player.hitbox, R0 = CONFIG.anker.falle.radius.schuss * TILE, cx = eW.x * TILE + TILE / 2, cy = eW.y * TILE + TILE / 2;
+    let laeufe = 0, abw = 0, ticks = 0;
+    for (let off = -40; off <= 40; off++) {
+      laeufe++;
+      let s = { x: cx + 80 + off, y: cy + 80 - off };
+      for (let i = 0; i < 200; i++) {
+        if (Math.hypot(s.x - cx, s.y - cy) <= R0) break;
+        const a = Physics.moveWithCollision(solidS, s.x, s.y, -1.5, -1.5, hb), b = Physics.moveWithCollision(kl2, s.x, s.y, -1.5, -1.5, hb);
+        ticks++;
+        if (a.x !== b.x || a.y !== b.y) abw++;
+        s = a;
+      }
+    }
+    ok(laeufe === 81 && ticks > 2000 && abw === 0, 'schräges Zulaufen (81 Läufe, ' + ticks + ' Schritte) auf die verborgene Anlage: 0 Abweichungen Server gegen Client (' + abw + ')');
+  }
   ok(FALLE_RADIUS_VOR_BOX(), 'die Auslösezone der Anlage (' + CONFIG.anker.falle.radius.schuss + ' Kachel) liegt vor der Box: die Falle wird enthüllt, bevor die Figur sie berührt');
+  {   // Auslösen enthüllt: ab da blockieren beide (der Client nach dem Ereignis), und die Figur bleibt nicht in der Box stecken
+    const fW = { id: 'falle.eW', x: eW.x, y: eW.y, px: eW.x * TILE + TILE / 2, py: eW.y * TILE + TILE / 2, typ: 'schuss', sicht: 'verborgen', start: 'verborgen' };
+    // Figur steht beim Auslösen am Rand der Zone auf der Diagonalen (0,9 Kachel Abstand = schon ~5 px in der Box-Ecke): beim Enthüllen wird sie auf die freie Seite geschoben
+    const hb = CONFIG.player.hitbox, R0 = CONFIG.anker.falle.radius.schuss * TILE;
+    S.p.x = fW.px + R0 * 0.7071; S.p.y = fW.py + R0 * 0.7071; S.p.input.mx = 0; S.p.input.my = 0;
+    const vorX = S.p.x, vorY = S.p.y;
+    ok(Physics.boxHits((tx, ty) => tx === eW.x && ty === eW.y, S.p.x, S.p.y, hb.w, hb.h), 'Vorbereitung: die Figur überlappt die Box-Kachel (Randfall)');
+    Anker.setzen(g, id, 'falle.eW', 'erkannt', S.p.id);   // enthüllt (Scanner); kein Auslösen, damit keine Salve die späteren Läufe stört
+    const solidNach = interior.awaySolid(g);
+    const geschoben = Math.hypot(S.p.x - vorX, S.p.y - vorY), draussen = !Physics.boxHits(solidNach, S.p.x, S.p.y, hb.w, hb.h);
+    const px = S.p.x, py = S.p.y;
+    S.hin(5, 2);   // aus der Zone, dann das Ereignis zustellen
+    S.lauf(0.2);
+    const evW = S.neu().filter((e) => e.t === 'event' && e.kind === 'ankerEnthuellt' && e.anker[0] === 'falle.eW');
+    ok(evW.length === 1 && solidNach(eW.x, eW.y), 'ausgelöst: Ereignis ankerEnthuellt und Box auf dem Server');
+    const M3 = reg(mapEv); for (const e of evEnth) R.ankerEnthuellt(e);
+    ok(R.ankerEnthuellt(evW[0]) === 'neu' && R.buehneBewegungSolid(M3, S.snap())(eW.x, eW.y) === true, 'ausgelöst: nach dem Ereignis blockiert auch die Vorhersage (gleicher Zeitpunkt wie der Server)');
+    evEnth.push(evW[0]);
+    ok(draussen && geschoben > 0 && geschoben < 8, 'beim Enthüllen aus der Box geschoben (' + Math.round(geschoben * 10) / 10 + ' px), nicht eingeklemmt');
+    let s = { x: px, y: py };
+    for (let i = 0; i < 60; i++) s = Physics.moveWithCollision(solidNach, s.x, s.y, 1.5, 1.5, hb);
+    ok(Math.hypot(s.x - fW.px, s.y - fW.py) > R0, 'danach kommt die Figur frei weg (bewegt sich von der Anlage fort)');
+  }
   M = reg(mapEv); for (const e of evEnth) R.ankerEnthuellt(e);
 }
 function FALLE_RADIUS_VOR_BOX() { const hb = CONFIG.player.hitbox; return CONFIG.anker.falle.radius.schuss * TILE > (TILE / 2 + Math.min(hb.w, hb.h) / 2) && CONFIG.anker.falle.radius.schuss * TILE > (TILE / 2 + hb.w / 2); }
@@ -249,7 +293,7 @@ section('Bewegung: Client-Vorhersage Schritt für Schritt gegen die echte Server
 // effektive Gehgeschwindigkeit aus der Serverbewegung auf freier Fläche ableiten (Geschwindigkeit = Strecke je Tick auf freiem Boden)
 function speedAbgeleitet() {
   if (speedAbgeleitet.v) return speedAbgeleitet.v;
-  S.hin(1, 1); S.p.input.mx = 1; S.p.input.my = 0;
+  S.hin(2, 2); S.p.input.mx = 1; S.p.input.my = 0;   // (1,1) trägt die verborgene Anlage eW
   g.away.drones.length = 0; g.step();
   const x0 = S.p.x; g.away.drones.length = 0; g.step();
   S.p.input.mx = 0;

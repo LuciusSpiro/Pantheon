@@ -29,7 +29,7 @@ const MUTATIONEN = [
   [FA, "if (Math.hypot(p.x - f.px, p.y - f.py) > r) continue;", "if (Math.hypot(p.x - f.px, p.y - f.py) > r * 3) continue;", 'Auslösezone dreifach (Nachbarkachel löst aus)'],
   [FA, "if (p.zone !== 'away' || p.connected === false || p.downed || p.beamLock) continue;", "if (p.zone !== 'away' || p.connected === false || p.beamLock) continue;", 'verwundeter Spieler löst aus'],
   [FA, "if (p.zone !== 'away' || p.connected === false || p.downed || p.beamLock) continue;", "if (p.connected === false || p.downed || p.beamLock) continue;", 'Spieler an Bord löst aus'],
-  [FA, "  const err = Anker.setzen(game, aw.map, f.id, 'ausgeloest', p ? p.id : null);", "  const err = null;", 'Auslösen setzt den Zustand nicht'],
+  [FA, "  const err = Anker.setzen(game, aw.map, f.id, 'ausgeloest', p ? p.id : null, Object.assign({}, opts, { ausloesen: true }));", "  const err = null;", 'Auslösen setzt den Zustand nicht'],
   [FA, "q.hold = null; meldung(game, q, 'Zu spät – die Falle ist ausgelöst.');", "", 'Entschärfer wird beim Auslösen nicht abgebrochen/benachrichtigt'],
   [FA, "  game.missionEvent('falleAusgeloest',", "  game.emit('falleAusgeloest',", 'Missions-Ereignis falleAusgeloest fehlt'],
   [FA, "  const h = wirkungen.get(f.typ);\n  if (h) {", "  const h = null;\n  if (h) {", 'Wirkung wird nicht aufgerufen'],
@@ -49,7 +49,7 @@ const MUTATIONEN = [
   [GM, "const anker = (fnA ? fnA(k) : (k.anker || [])).map(", "const anker = (k.anker || []).map(", 'awayMapPayload ignoriert payloadAnker'],
   [GM, "  if (a.rolle === 'falle') { if (a.typ) attr.typ = a.typ;", "  if (false) { if (a.typ) attr.typ = a.typ;", 'Payload-Zeile der Falle ohne typ und sicht'],
   [AN, "ids.map((id) => ankerById(k, id)).filter(Boolean)) : p;", "ids.map((id) => ankerById(k, id)).filter(Boolean).reverse()) : p;", 'ankerListe hängt die Enthüllten umgekehrt an (ao-Index passt nicht zur Client-Liste)'],
-  [FA, "if (f && f.sicht === 'verborgen' && !s.enth.includes(f.id)) s.enth.push(f.id);", "", 'Enthüllen wird nicht gemerkt'],
+  [FA, "    s.enth.push(f.id);\n", "", 'Enthüllen wird nicht gemerkt'],
   [AN, "  if (rolle === 'falle' && vorher !== z) safe(game, 'falle-zustand', () => fallenMod().beiZustand(game, aw, a, z));", "", 'setzen ruft den Enthüllen-Hook nicht'],
   [FA, "i: basis + rec.n,", "i: basis,", 'ankerEnthuellt: Index i falsch'],
   [FA, "      rec.n++;\n    }", "      rec.n = s.enth.length;\n    }", 'Nachsendung: nur der erste Anker je Durchlauf'],
@@ -74,6 +74,10 @@ const MUTATIONEN = [
   // ---- Debug
   [FA, "  if (!game.debug) return 'falletest: nur mit Server --debug.';", "", 'falletest auch ohne --debug'],
   [FA, "  k.anker = k.anker.filter((a) => !/^falle\\.test\\d+$/.test(a.id));", "", 'falletest ersetzt alte Test-Fallen nicht'],
+  // ---- ITM-01 G: H1 (setzen -> ausgeloest löst echt aus), H2 (Nachzügler bekommt dieselbe Liste)
+  [AN, "if (rolle === 'falle' && z === 'ausgeloest' && vorher !== z && !o.ausloesen) {", "if (false) {", 'G H1: anker.setzen nach ausgeloest löst keine Wirkung aus (Baustein, Debug)'],
+  [FA, "  const p = pid ? game.playerById(pid) : null;\n", "  const p = null;\n", 'G H1: Auslöser (pid) geht beim Auslösen über setzen verloren'],
+  [FA, "      if (a) game.sendTo(p.conn, { t: 'event', kind: EVT_ENTHUELLT, map: aw.map, kv: key.slice(aw.map.length + 1), i: basis + rec.n, anker: game.ankerZeile(a) });", "      if (a && rec.ep !== -2) game.sendTo(p.conn, { t: 'event', kind: EVT_ENTHUELLT, map: aw.map, kv: key.slice(aw.map.length + 1), i: basis + rec.n + (p.clientId === 'F9' ? 1 : 0), anker: game.ankerZeile(a) });", 'G H2: Nachzügler bekommt die Enthüllten mit falschem Index'],
 ];
 
 {

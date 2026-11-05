@@ -2399,7 +2399,7 @@ class Game {
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },
       inventory: {
         ersatzteil: this.inventory.ersatzteil, loeschgel: this.inventory.loeschgel, loeschgelCharges: this.inventory.loeschgelCharges,
-        flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, ...(this.inventory.sonde ? { sonde: this.inventory.sonde } : {}), marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
+        flickblech: this.inventory.flickblech, bolzen: this.inventory.bolzen, medipack: this.inventory.medipack, ...(this.inventory.medipackCharges ? { medipackCharges: this.inventory.medipackCharges } : {}), ...(this.inventory.sonde ? { sonde: this.inventory.sonde } : {}), marks: this.inventory.marks, deko: this.inventory.deko, tafel: this.inventory.tafel || 0,
         ...(this.inventory.ladung ? { ladung: this.inventory.ladung } : {}),   // EK5: Sprengstoff (Gegenstand, nur wenn vorhanden; Budget)
       },
       upgrades: this.upgrades,

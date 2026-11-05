@@ -495,7 +495,14 @@ section('Selbstschussanlage: Kollisionsbox, Salve, Sichtlinie, Reichweite');
   const S = szene({ spieler: 2, arena: arenaSchuss, god: false }); const { g, ps } = S; const [p0, p1] = ps;
   const a = S.an('falle.tS'), c = S.mitte('falle.tS');
   const hb = CONFIG.player.hitbox;
-  ok(S.solid(a.x, a.y) && S.solid(S.an('falle.tT').x, S.an('falle.tT').y), 'Kollisionsbox: die Kachel der Anlage ist fest (awaySolid)');
+  const aT = S.an('falle.tT');
+  ok(S.solid(a.x, a.y), 'Kollisionsbox: die Kachel der (passiven, sichtbaren) Anlage ist fest (awaySolid)');
+  ok(S.z('falle.tT') === 'verborgen' && !S.solid(aT.x, aT.y), 'ITM-01 G (S1): eine verborgene Anlage blockiert nicht (die Box verriete sie, der Client kennt sie noch nicht)');
+  S.fest('falle.tT', 'erkannt');
+  ok(S.solid(aT.x, aT.y), 'S1: erkannt (enthüllt) -> die Box gilt');
+  const sRest = szene({ spieler: 1, arena: arenaSchuss, god: false });
+  const aR = sRest.an('falle.tT'); sRest.fest('falle.tT', 'ausgeloest');
+  ok(sRest.solid(aR.x, aR.y), 'S1: ausgelöst (enthüllt) -> die Box gilt');
   ok(!S.solid(a.x + 1, a.y) && !S.solid(a.x, a.y + 1), 'Nachbarkacheln bleiben frei');
   // Berühren löst aus und die Box hält die Figur draußen
   S.hinKachel(p0, 7, 4);
