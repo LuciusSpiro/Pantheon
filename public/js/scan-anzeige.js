@@ -11,7 +11,7 @@
   const store = { daten: null, bekannt: {}, fokus: null };
   const MAX_ZEILEN = 4;
   const FALLBACK = { name: 'Unbekanntes Objekt', gefahr: 0, zeile: 'Keine Angaben zu diesem Ziel.', hinweis: '', hinweisAb: 1, symbol: '??' };
-  const TXT_KEINE_POS = 'Ortung ab Stufe 3, sonst nur in Sicht';   // eine Zeile (MON-01: die Raute auf der Karte zeigt auch ohne Scan, was das Außenteam sieht; Stufe 3 liefert die Position unabhängig von der Sicht) (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const TXT_KEINE_POS = 'Position: Stufe 3 oder Sicht';   // eine Zeile (MON-01: die Raute auf der Karte zeigt auch ohne Scan, was das Außenteam sieht; Stufe 3 liefert die Position unabhängig von der Sicht) (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
   const LIMIT = { name: 20, zeile: 34, hinweis: 100 };   // Content-Längen (Zeichen), der Test prüft alle Typen dagegen
   const MAXL_BLATT = 7;   // Zeilen unter dem Namen im Datenblatt: Zeile (1-2), Regelhinweis (bis 4), Position (immer die letzte)
   const obj = (v) => (v && typeof v === 'object' ? v : {});
