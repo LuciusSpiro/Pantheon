@@ -84,6 +84,7 @@
     "test:kachelklassen": "node tools/test-kachelklassen.js",
     "test:wildnis-verdrahtung": "node tools/test-wildnis-verdrahtung.js",
     "test:gelaende": "node tools/test-gelaende.js",
+    "test:hoehle": "node tools/test-hoehle.js",
     "test:wildnis-gruppenlauf": "node tools/test-wildnis-gruppenlauf.js",
     "test:wildnis-client": "node tools/test-wildnis-client.js",
     "test:vox01-kit": "node tools/test-vox01-kit.js",

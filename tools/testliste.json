@@ -206,6 +206,7 @@
   {"id":"test-kachelklassen","kette":"test","cmd":["tools/test-kachelklassen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-wildnis-verdrahtung","kette":"test","cmd":["tools/test-wildnis-verdrahtung.js"],"stufe":"fast","budget_s":8},
   {"id":"test-gelaende","kette":"test","cmd":["tools/test-gelaende.js"],"stufe":"fast","budget_s":40},
+  {"id":"test-hoehle","kette":"test","cmd":["tools/test-hoehle.js"],"stufe":"fast","budget_s":40},
   {"id":"test-wildnis-gruppenlauf","kette":"test","cmd":["tools/test-wildnis-gruppenlauf.js"],"stufe":"full","budget_s":14},
   {"id":"test-wildnis-client","kette":"test","cmd":["tools/test-wildnis-client.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kit","kette":"test","cmd":["tools/test-vox01-kit.js"],"stufe":"fast","budget_s":6},
