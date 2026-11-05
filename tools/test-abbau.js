@@ -101,7 +101,7 @@ section('Konfiguration, Rolle, Kollision');
   ok(Anker.startFuer({ rolle: 'abbau' }) === 'da', 'startFuer: da');
   ok(['abbauStarten', 'abbauAbbrechen', 'abbauFertig', 'abbauMenge'].every((f) => typeof Anker[f] === 'function'), 'benannte Funktionen exportiert');
   const m = Anker.abbauMenge(null, 'x', { art: undefined });
-  ok(m.menge === 1 && m.art === 'erz', 'Platzhalter-Hook abbauMenge: 1 Erz (Paket B ersetzt nur diese Funktion)');
+  ok(m.menge >= 1 && m.menge <= 3 && m.art === 'erz', 'abbauMenge (GEL-03 B): 1 bis 3 Erz (Details: test-abbau-neu)');
   const S = szene();
   ok(IDS.every((i) => S.an(i) && S.z(i) === 'da'), 'vier Adern im Test, Start da');
   const solid = interior.awaySolid(S.g);
@@ -141,7 +141,7 @@ section('Start, Abschluss, einmal je Mission');
   S.lauf(1.0);
   ok(S.z('abbau.1') === 'abgebaut' && !p.hold, 'nach der Haltezeit: abgebaut, Hold weg');
   const f = S.men('abbauFertig');
-  ok(f.length === 1 && f[0][1].map === S.id && f[0][1].anker === 'abbau.1' && f[0][1].pid === p.id && f[0][1].menge === 1 && f[0][1].art === 'erz' && S.evn('abbauFertig') === 1, 'Ereignis abbauFertig {map, anker, pid, menge, art}');
+  ok(f.length === 1 && f[0][1].map === S.id && f[0][1].anker === 'abbau.1' && f[0][1].pid === p.id && f[0][1].menge === Anker.abbauMenge(S.g, S.id, S.an('abbau.1')).menge && f[0][1].menge >= 1 && f[0][1].menge <= 3 && f[0][1].art === 'erz' && S.evn('abbauFertig') === 1, 'Ereignis abbauFertig {map, anker, pid, menge, art}');
   // zweiter Abbau derselben Ader
   S.act(false); S.lauf(0.2);
   const l = S.angebot(p, 'abbau.1');

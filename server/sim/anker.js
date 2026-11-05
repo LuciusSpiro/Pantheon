@@ -17,10 +17,12 @@
 //   setzen(game, map, id, zustand, pid?, opts?)  Bausteine anker_zustand/kante_zustand, Debug `anker`
 //   zustand(game, map, id)  alarm(game, map, an)  markieren(game, map)  awaySnap(game, aw)
 //   abbauStarten(game, p, h)  abbauAbbrechen(game, map, id, pid?)  abbauFertig(game, p, h)  abbauMenge(game, map, anker)   GEL-03 A1: Rolle abbau (Erzader), s. u. „Abbau“
+//   abbauNeu(game, map)  abbauWahlZustaende(karte, runde)   GEL-03 C: frische Adern je Mission (Runde hoch, Auswahl aus adernWahl, Karte unverändert), Startauswahl beim Laden
 //   payloadAnker(k)  ankerListe(game, aw, k)  startFuer(a)   ITM-01 C: Ankerreihenfolge für awayMap und ao (verborgene Fallen fehlen im Payload, enthüllte hängen hinten an), Startzustand je Anker (Falle: sicht)
 const W = require('../world.js');
 const Physics = require('../../shared/physics.js');
 const Buehne = require('../../shared/buehne.js');
+const GenHoehle = require('../../shared/gen-hoehle.js');   // GEL-03 C: adernWahl, istAderKandidat
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
 
 const TILE = Physics.TILE;
@@ -336,8 +338,17 @@ function abbauHalterAnderer(game, p, id) {
   if (!b || b.pid === p.id) return false;
   return abbauHaelt(game.players.find((q) => q.id === b.pid), id);
 }
-// Platzhalter-Hook: Menge je Abbau. Paket B/C ersetzt NUR diese Funktion (Ableitung aus Runde/Weltstand, Buchung ins Lager); Rückgabe { menge, art }.
-function abbauMenge(game, map, a) { return { menge: 1, art: (a && a.art) || 'erz' }; }
+// GEL-03 B: Menge je Abbau, 1 bis 3, deterministisch aus (abbau_runde des Landepunkts, Anker-ID) per FNV (kein Zufall, kein Spielzustand): dieselbe Ader gibt in derselben Runde immer
+// dieselbe Menge, in einer späteren Runde (abbauNeu) darf sie anders ausfallen. Art: Attribut art der Ader, Standard und einzige Art heute erz. Rückgabe { menge, art }.
+const ABBAU_ARTEN = ['erz'];
+function abbauRunde(game, map) {
+  try { const e = require('./landepunkte.js').eintrag(game, map); return (e && e.abbau_runde | 0) || 0; } catch (x) { return 0; }
+}
+function abbauMenge(game, map, a) {
+  const art = a && ABBAU_ARTEN.includes(a.art) ? a.art : 'erz';
+  const h = Buehne.fnv(`abbau:${abbauRunde(game, map)}:${a ? a.id : ''}`) >>> 0;
+  return { menge: 1 + ((h >>> 8) % 3), art };
+}
 function abbauLaerm(game, map, a, pid) {
   const c = mitte(a);
   const d = { map, anker: a.id, pid, x: c.x, y: c.y };
@@ -377,11 +388,55 @@ function abbauFertig(game, p, h) {
   delete L.abbau[a.id];
   setzen(game, aw.map, a.id, 'abgebaut', p.id);
   const m = abbauMenge(game, aw.map, a);
+  Vorrat.einlagern(game, m.art, m.menge, 'abbau');   // GEL-03 B: Ablage im Schiffslager (Buchungsdienst, Grund abbau); nicht Fracht
   const d = { map: aw.map, anker: a.id, pid: p.id, menge: m.menge, art: m.art };
   game.emit('abbauFertig', d); game.missionEvent('abbauFertig', d);
   const c = mitte(a);
   game.emit('sfx', { name: 'repair_done', zone: 'away', x: c.x, y: c.y });
 }
+// GEL-03 C: Neusetzen je Mission. Die Ader-Kandidaten (Anker hoehle.abbau*, shared/gen-hoehle.js) stehen in jeder Runde in der Karte; welche davon ein Vorkommen tragen (da) und welche leer sind,
+// entscheidet adernWahl(Karte-Seed, Kandidaten, abbau_runde) – rein aus Seed und Runde, nie in die Karte geschrieben (JSON der Karte bleibt byteweise gleich), nur in die Zustände.
+// Runde 0 (abbau_runde fehlt/0) wirkt beim Laden der Karte (landepunkte.makeAway, abbauWahlZustaende) für alle Kandidaten OHNE gespeicherten Zustand: ohne Aufruf von abbauNeu gibt es also schon
+// in der ersten Mission nur 2 bis 3 aktive Adern, und gespeicherte Zustände (abgebaut, leer, da) gehen beim Laden nie verloren. Handgesetzte abbau-Anker (Tests, Regiebuch) sind keine Kandidaten.
+const aderKandidaten = (k) => (k && k.anker ? k.anker.filter((a) => GenHoehle.istAderKandidat(a)) : []);
+// { id: 'da' | 'leer' } für die Kandidaten einer Karte in dieser Runde
+function abbauWahlZustaende(k, runde) {
+  const kand = aderKandidaten(k); const out = {};
+  if (!kand.length) return out;
+  const w = GenHoehle.adernWahl(k.seed | 0, kand.map((a) => a.id), runde | 0);
+  for (const id of w.da) out[id] = 'da';
+  for (const id of w.leer) out[id] = 'leer';
+  return out;
+}
+// abbauNeu(game, map) -> Fehlertext | null: abbau_runde + 1, alle Kandidaten bekommen den Zustand der neuen Runde (vorher abgebaut/leer/laeuft wird überschrieben), laufende Halter
+// werden abgebrochen (Hold weg, Halter-Eintrag weg), der Weltstand-Eintrag merkt alles (Zustände + Runde). Ereignis abbauNeu {map, runde, adern:[ids da]} (Spiel und Mission).
+// Geladene Karte: Zustände in aw.zustaende (setzen, mit merken); nicht geladene: nur der Eintrag, beim Laden gilt er.
+function abbauNeu(game, map) {
+  const LP = require('./landepunkte.js');
+  const e = LP.eintrag(game, map);
+  if (!e) return `Karte ${map} ist kein Landepunkt.`;
+  let k = null; try { k = LP.karte(game, map); } catch (x) { k = null; }
+  if (!k || !k.anker) return `Karte ${map} ist keine gebaute Karte.`;
+  const kand = aderKandidaten(k);
+  if (!kand.length) return `Karte ${map} hat keine Erzadern.`;
+  const runde = ((e.abbau_runde | 0) || 0) + 1;
+  e.abbau_runde = runde;
+  const neu = abbauWahlZustaende(k, runde);
+  const aw = awVon(game, map);
+  e.zustaende = e.zustaende || {};
+  if (aw) {
+    for (const p of game.players || []) if (p.hold && p.hold.kind === 'anker:abbau' && neu[p.hold.anker] !== undefined) p.hold = null;
+    for (const a of kand) { if (lauf(aw).abbau[a.id]) abbauAbbrechen(game, map, a.id, null); }
+  }
+  for (const a of kand) {
+    e.zustaende[a.id] = neu[a.id];
+    if (aw) setzen(game, map, a.id, neu[a.id], null, { merken: true });
+  }
+  const adern = kand.map((a) => a.id).filter((id) => neu[id] === 'da');
+  game.emit('abbauNeu', { map, runde, adern }); game.missionEvent('abbauNeu', { map, runde, adern });
+  return null;
+}
+
 // Tick: ohne lebenden Halter fällt laeuft auf da zurück (Loslassen, Bewegung, Kartenwechsel, Trennung); mit Halter läuft der Lärmtakt über dt (deterministisch, Spielzeit).
 function abbauTick(game, aw, k, L, dt) {
   const takt = Number(kfg(game).abbauLaermTakt) || 2;
@@ -613,5 +668,5 @@ function awaySnap(game, aw) {
 module.exports = {
   istAnkerHold, interactionsAt, holdDuration, holdValid, holdStart, completeHold, update, onTreffer,
   setzen, zustand, alarm, markieren, awaySnap, kantenVonAnker, ladungScharf, ladungPlatzieren, paarFenster,
-  payloadAnker, ankerListe, startFuer, abbauStarten, abbauAbbrechen, abbauFertig, abbauMenge,
+  payloadAnker, ankerListe, startFuer, abbauStarten, abbauAbbrechen, abbauFertig, abbauMenge, abbauNeu, abbauWahlZustaende,
 };
