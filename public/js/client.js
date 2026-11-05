@@ -373,10 +373,10 @@
       if (code === 'Escape') { if (!e.repeat) { st.fang = false; audio.play('ui_back'); } return; }
       const t = T && T.ausEvent(e);
       if (!t || e.repeat) return;   // reine Umschalttaste: auf die eigentliche Taste warten
-      if (z) T.setze(z.id, st.slot, t);
+      const angenommen = z ? T.setze(z.id, st.slot, t) : false;
       st.fang = false;
       if (z) st.slot = clamp(st.slot, 0, tastenSlotMax(z.id));
-      audio.play('ui_click');
+      audio.play(angenommen ? 'ui_click' : 'ui_back');   // abgelehnt (z. B. feste Bodentaste): Rückton statt Klick
       return;
     }
     if (code === 'Escape') { if (!e.repeat) uiBack(); return; }
@@ -1070,7 +1070,7 @@
         }
         return true;
       case 'loadout':
-        if (ev.pid === Client.pid) { H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); }
+        if (ev.pid === Client.pid) { H.pushNotice('Waffe: ' + (H.WAFFE_NAME[ev.waffe] || ev.waffe), PAL.mint, 2); H.wechselStart(Client.time, ev.sperre); }   // AUS-02 B: Sperranzeige in der Slot-Leiste (lokal, kein Snapshot-Feld)
         return true;
       // BOD-02 P3 Niederhalten: knapper Fehlschuss – Rückmeldung nur für den Beschossenen (Zischen, Staub am Einschlagpunkt, Vignette); Gegner-Reaktion ist rein serverseitig
       case 'knapp':
@@ -2060,6 +2060,11 @@
     // SL2: Gespräch am Boden – E/Enter/Leertaste weiter, 1–4 Wahl, Esc verlassen; diese Tasten gehen dann nicht ins Spiel (Laufen bleibt möglich)
     if (st.gp && window.Gespraech && !e.repeat && Gespraech.taste(code, send, st)) { e.preventDefault(); return; }
     if (e.repeat) return;
+    // AUS-02 B: Tasten 1–3 am Boden (umbelegbar: boden.slot1..3) wechseln die Waffe bzw. nutzen das Item im Slot; Gespräch (oben), Konsole, Minispiel und UI-Overlays haben Vorrang. Q bleibt Markierung.
+    if (m.zone === 'away' && !st.gp && !H.showCrew && window.Tasten) {
+      const sl = Tasten.slotVon(e);
+      if (sl >= 0 && !Tasten.reserviert(code)) { e.preventDefault(); if (!m.downed && H.slotErlaubt(sl)) send({ t: 'cmd', c: P.CMD_SLOT_NUTZEN || 'slot.nutzen', slot: sl }); return; }
+    }
     switch (code) {
       case 'KeyR': {
         // M3a: R an einer beschädigten/zerstörten (oder geflickten) Station startet das Minispiel

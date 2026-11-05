@@ -435,6 +435,8 @@
       // zurück (ohne Schaden) und hält es dauer s „nieder“ (erneuert sich mit jedem knappen Schuss). Schützen streuen dann ×streuFaktor,
       // KI-Schützen feuern mit ×intervallFaktor Abstand und bleiben in Deckung. eventPause: höchstens ein Ereignis knapp je Ziel in s.
       niederhalten: { knapp: 24, dauer: 1.5, streuFaktor: 2.0, intervallFaktor: 1.5, eventPause: 0.25 },
+      // AUS-02 A: Waffenwechsel am Boden (Befehl slot.nutzen). Die gezogene Waffe darf wechselzeit s nicht feuern (läuft über bereitAt, Grund 'kadenz'); `tune wechselzeit <s>` (combat.tune löst relativ zu awayCombat auf; mit dem Präfix kommt „Unbekannter Pfad“).
+      wechselzeit: 0.6,
       waffen: {
         blaster: { schuss: 5, kadenz: 0.3, pause: 0.25, kalt: 1.6, sperre: 2.5, reichweite: 13, tempo: 380, streuung: 2, schaden: 1, laerm: 'mittel' },
         sturmgewehr: { schuss: 12, kadenz: 0.15, pause: 0.6, kalt: 2.5, sperre: 3.5, reichweite: 9, tempo: 420, streuung: [6, 14], schaden: 0.5, schildReset: true, laerm: 'laut' },

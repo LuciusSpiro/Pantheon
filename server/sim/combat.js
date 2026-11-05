@@ -430,7 +430,8 @@ function onArrive(game, p) {
   p.medkit = 0;
   if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
   if (waffen()) {
-    kaempfer(game, p); p.zustand = 'ok'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.wunden.n = p.wunden.max;
+    kaempfer(game, p); p.zustand = 'ok'; p.wunden.n = p.wunden.max;
+    waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen (frischer Stand je Beamen)
     // AUS-01 C: Beamen nimmt das Loadout mit. Die aktive Waffe unten ist immer die aus dem Loadout (kaempfer behält sonst die zuletzt getragene,
     // z. B. nach Labor/Zelle/Rückholung); Spieler ohne Kennung (kein Loadout speicherbar) behalten ihre Waffe.
     const w = p.clientId != null && !p.gefangen && waffen().waffeFuer ? waffen().waffeFuer(game, p) : null;
@@ -446,7 +447,8 @@ function onLeave(game, p) {
   if (p.shield) fullShield(game, p);
   p.bewusstlos = false;
   if (p.gefangen) { p.gefangen = null; if (p.waffeVorher) p.waffe = p.waffeVorher; p.waffeVorher = null; }
-  if (p.zustand) { p.zustand = 'ok'; p.betaeubtBis = 0; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; if (p.wunden) p.wunden.n = p.wunden.max; }
+  if (p.zustand) { p.zustand = 'ok'; p.betaeubtBis = 0; if (p.wunden) p.wunden.n = p.wunden.max; }
+  if (waffen()) waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen
 }
 
 // Treffer auf einen Spieler (CONTRACT-M2 §4.1). segs = Segmente je Treffer (Wächter: shotSegments).
@@ -1404,7 +1406,7 @@ function completeHoldB2(game, p, h) {
     const o = game.playerById(h.ziel);
     if (o) { Wf.befreien(game, kaempfer(game, o), p); folgenAbgleich(game); }
   } else if (h.kind === 'ausruestung') {
-    p.waffe = p.waffeVorher; p.waffeVorher = null; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;
+    p.waffe = p.waffeVorher; p.waffeVorher = null; waffen().waffenstandFrisch(p);
     game.emit('loadout', { pid: p.id, waffe: p.waffe });
     game.notice(p, 'Ausrüstung zurück.');
     game.missionEvent('ausruestungZurueck', { pid: p.id });
@@ -1454,7 +1456,7 @@ function ausbruch(game, team) {
     kaempfer(game, p);
     p.zustand = 'ok'; p.betaeubtBis = 0; p.bewusstBis = 0; if (p.wunden) p.wunden.n = p.wunden.max;
     p.waffeVorher = p.waffe && p.waffe !== 'faust' ? p.waffe : (p.waffeVorher || p.waffe || 'blaster');   // faust bei leerem Loadout bleibt faust; ein zweiter Aufruf überschreibt nicht
-    p.waffe = 'faust'; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;
+    p.waffe = 'faust'; waffen().waffenstandFrisch(p);
     p.gefangen = { zelle: zelle.id, beute: beute ? beute.id : null, x: c.x, y: c.y, offen: false };
   });
   // Die Wachen beruhigen sich: das Team ist eingesperrt

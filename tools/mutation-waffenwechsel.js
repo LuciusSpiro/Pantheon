@@ -1,0 +1,112 @@
+'use strict';
+// AUS-02 A: Mutationsprobe zu tools/test-waffenwechsel.js. Kopiert Server, Shared, Content und den Test in ein Temp-Verzeichnis (das Repo bleibt unberührt), ändert dort je Lauf EINE Regel
+// und verlangt, dass der Test mit einer echten Prüfung rot wird (FEHLER-Zeile, Exit != 0). Ein Absturz (Ausnahme, keine Prüfzeile) zählt NICHT als erkannt.
+//   node tools/mutation-waffenwechsel.js [begriff …] [--trocken]      (npm run test:waffenwechsel-mutation)
+// Selbstcheck der Anker: VOR jedem Lauf muss jede Mutation anwendbar sein (Anker genau einmal im Quelltext der Kopie), sonst Exit 2. --trocken prüft nur die Anker und endet.
+const fs = require('fs');
+const os = require('os');
+const path = require('path');
+const { spawnSync } = require('child_process');
+
+const ROOT = path.join(__dirname, '..');
+const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'pantheon-muta-waffenwechsel-'));
+process.on('exit', () => { try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) { /* egal */ } });
+for (const rel of ['server', 'shared', 'content']) fs.cpSync(path.join(ROOT, rel), path.join(TMP, rel), { recursive: true });
+fs.mkdirSync(path.join(TMP, 'tools'), { recursive: true });
+const TEST = 'tools/test-waffenwechsel.js';
+fs.copyFileSync(path.join(ROOT, TEST), path.join(TMP, TEST));
+fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
+for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
+
+const WF = 'server/sim/waffen.js', LO = 'server/sim/loadout.js', CB = 'server/sim/combat.js', G = 'server/game.js';
+// [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
+const MUTATIONEN = [
+  // ---- die drei Pflicht-Mutationen
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  waffeAnlegen(game, p, id); p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", 'waffeWechseln ruft waffeAnlegen (Hitze-Reset, Sperre weg)'],
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  p.bereitAt = z.bereitAt;\n", 'bereitAt nicht gesetzt (Wechsel ohne Wechselzeit)'],
+  [WF, "    S[p.waffe] = { hitze: p.hitze || 0,", "    const nichtAbgelegt = { hitze: p.hitze || 0,", 'Zustand je Waffe nicht abgelegt'],
+  // ---- weitere Regeln des Wechsels
+  [WF, "  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);\n", "  p.bereitAt = t + wechselzeit;\n", 'bereitAt der Zielwaffe ignoriert die abgelegte Kadenz (Kadenz-Exploit)'],
+  [WF, "    unterbrechen(game, p, 'wechsel');\n", "", 'Wechsel bricht Laden/Ausholen nicht ab'],
+  [WF, "  if (p.waffe === id) return null;\n  const t = now(game);", "  const t = now(game);", 'gleiche Waffe ist kein No-op (Preis ohne Wechsel)'],
+  [WF, "const wechselzeit = Math.max(0, Number(ac(game).wechselzeit) || 0);", "const wechselzeit = 0;", 'Wechselzeit ohne Wirkung (Config ignoriert)'],
+  [WF, "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });", "emit(game, 'loadout', { pid: p.id, waffe: id });", 'Ereignis loadout ohne Feld sperre'],
+  [WF, "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });", "emit(game, 'loadout', { pid: p.id, waffe: id, sperre: wechselzeit });", 'Ereignis loadout meldet nur die Wechselzeit statt der wirksamen Restzeit'],
+  [WF, "p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);", "p.bereitAt = Math.max(z.bereitAt, t + wechselzeit); for (const q of game.players) if (q !== p) q.hitze = 0;", 'Wechsel verändert andere Spieler (Hitze)'],
+  [WF, "Object.defineProperty(p, 'waffenZustand', { value: {},", "Object.defineProperty(p, 'waffenZustand', { value: waffenZustandLeeren.geteilt || (waffenZustandLeeren.geteilt = {}),", 'Zustandsspeicher von allen Spielern geteilt'],
+  [WF, "function waffenstandFrisch(p) {", "function waffenstandFrisch(p) { p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; return;", 'waffenstandFrisch leert den Speicher nicht'],
+  [WF, "  p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;", "", 'waffenstandFrisch setzt Hitze/Sperre/Laden/Ausholen nicht zurück'],
+  [CB, "p.waffe = p.waffeVorher; p.waffeVorher = null; waffen().waffenstandFrisch(p);", "p.waffe = p.waffeVorher; p.waffeVorher = null;", 'Ausrüstung zurück räumt Waffenstand und Speicher nicht'],
+  [CB, "p.waffe = 'faust'; waffen().waffenstandFrisch(p);", "p.waffe = 'faust';", 'Ausbruch räumt Waffenstand und Speicher nicht'],
+  [LO, " || id in ITEMS) throw", ") throw", 'itemRegistrieren lässt doppelte Ids zu'],
+  [LO, "Waffen.WAHL.includes(id) || id === OHNE_WAFFE", "id === OHNE_WAFFE", 'itemRegistrieren lässt Waffen-Ids zu'],
+  [LO, "return () => { if (ITEMS[id] === handler) delete ITEMS[id]; };", "return () => {};", 'itemRegistrieren: Entfernen-Funktion räumt nicht auf'],
+  [WF, "    if (kuehl > 0) { z.hitze = z.hitze - kuehl / Math.max(EPS, Number(d.kalt) || 1);", "    if (false) { z.hitze = z.hitze - kuehl / Math.max(EPS, Number(d.kalt) || 1);", 'Hitze kühlt im Halfter nicht'],
+  [WF, "    const kuehl = t - Math.max(z.t, (z.schussAt", "    const kuehl = t - Math.max(-1e9, (z.schussAt", 'Hitze kühlt im Halfter auch für die Zeit vor dem Ablegen (doppelt)'],
+  [WF, "    if (t >= z.gesperrtBis - EPS) { z.gesperrtBis = 0; z.hitze = 0; }\n  } else if (d && z.hitze > 0) {", "    if (false) { z.gesperrtBis = 0; z.hitze = 0; }\n  } else if (d && z.hitze > 0) {", 'abgelaufene Sperre im Halfter wird nicht ausgewertet'],
+  [WF, "  Object.defineProperty(p, 'waffenZustand', { value: {}, enumerable: false,", "  Object.defineProperty(p, 'waffenZustand', { value: {}, enumerable: true,", 'Zustandsspeicher aufzählbar (Snapshot/Weltstand-Gefahr)'],
+  [WF, "bt: betaeubt(game, k) ? 1 : 0 };", "bt: betaeubt(game, k) ? 1 : 0, wz: 1 };", 'neues Snapshot-Feld wz'],
+  // ---- Eintrittspunkt slotNutzen und Registry
+  [LO, "  if (!p || !game || !game.away || p.zone !== 'away' || !require('./combat.js').isV2(game)) return 'Nur am Boden (Kampf v2).';", "  if (!p || !game) return 'x';", 'slotNutzen wirkt auch nicht am Boden'],
+  [LO, " || !Waffen.handlungsfaehig(game, p)) return 'Gerade nicht möglich.';", ") return 'Gerade nicht möglich.';", 'slotNutzen wirkt auch betäubt/verwundet'],
+  [LO, "if (p.downed || p.gefangen || p.bewusstlos || p.console", "if (p.console", 'slotNutzen wirkt auch ausgeschaltet/gefangen/bewusstlos'],
+  [LO, "slot >= slotzahl(game)) return 'Diesen Slot gibt es nicht.';", "slot >= 99) return 'Diesen Slot gibt es nicht.';", 'Slotgrenze ignoriert (versteckter dritter Slot)', true],   // gleichwertig: wirksam() liefert dahinter undefined, der Leer-Check lehnt gleich ab
+  [LO, "  if (id == null) return 'Dieser Slot ist leer.';\n", "", 'leerer Slot nicht abgelehnt', true],   // gleichwertig: itemNutzen(null) lehnt ohne Effekt ab (nur anderer Text)
+  [LO, "  return istWaffe(id) ? Waffen.waffeWechseln(game, p, id) : itemNutzen(game, p, id);", "  return Waffen.waffeWechseln(game, p, id);", 'Items werden nicht an die Registry gegeben'],
+  [LO, "const erlaubteIds = () => [...Waffen.WAHL, ...Object.keys(ITEMS)];", "const erlaubteIds = () => [...Waffen.WAHL];", 'Registry-Ids dürfen nicht in einen Slot'],
+  [LO, "  return typeof h === 'function' ? (h(game, p) || null) : 'Dieses Item kann man nicht nutzen.';", "  if (typeof h === 'function') { h(game, p); waffeWechselnBeiItem(game, p); return null; }\n  return 'Dieses Item kann man nicht nutzen.';", 'Item-Nutzen ändert die aktive Waffe'],
+  // ---- Befehl und Zurücksetzen
+  [G, "Loadout.slotNutzen(this, p, msg.slot);", "void msg.slot;", 'Befehl slot.nutzen ohne Wirkung'],
+  [CB, "    waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen (frischer Stand je Beamen)\n", "", 'onArrive vergisst abgelegte Waffen nicht'],
+  [CB, "  if (waffen()) waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen\n", "", 'onLeave vergisst abgelegte Waffen nicht'],
+  [WF, "waffenstandFrisch(p); p.bereitAt = 0;", "p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.bereitAt = 0;", 'waffeAnlegen vergisst abgelegte Waffen nicht'],
+];
+// die Item-Mutation braucht eine Hilfsfunktion in der Kopie
+MUTATIONEN[MUTATIONEN.findIndex((m) => m[3] === 'Item-Nutzen ändert die aktive Waffe')][2] =
+  "  if (typeof h === 'function') { h(game, p); Waffen.waffeAnlegen(game, p, 'sturmgewehr'); return null; }\n  return 'Dieses Item kann man nicht nutzen.';";
+
+{
+  const normal = (t) => t.replace(/\r\n/g, '\n');
+  const schlecht = [];
+  for (const [datei, alt, , was] of MUTATIONEN) {
+    let text;
+    try { text = normal(fs.readFileSync(path.join(TMP, datei), 'utf8')); } catch (e) { schlecht.push(`${was}: Datei ${datei} nicht lesbar`); continue; }
+    const k = text.split(alt).length - 1;
+    if (k !== 1) schlecht.push(`${was}: Anker ${k === 0 ? 'nicht gefunden' : k + 'x gefunden'} (${datei})`);
+  }
+  if (schlecht.length) { console.log(`Anker-Check: ${schlecht.length} von ${MUTATIONEN.length} Mutationen nicht anwendbar:\n  ` + schlecht.join('\n  ')); process.exit(2); }
+  console.log(`Anker-Check: alle ${MUTATIONEN.length} Anker genau einmal gefunden.`);
+  if (process.argv.includes('--trocken')) process.exit(0);
+}
+
+const FILTER = process.argv.slice(2).filter((a) => !a.startsWith('--')).map((s) => s.toLowerCase());
+const lauf = () => spawnSync(process.execPath, [TEST], { cwd: TMP, encoding: 'utf8', timeout: 120000 });
+// erkannt = rot MIT einer echten FEHLER-Prüfzeile; ein Absturz ist kein Beleg
+const pruefFehler = (r) => ((r && r.stdout) || '').split('\n').filter((l) => /^\s*FEHLER\b/.test(l) && !/^\s*FEHLER Ausnahme/.test(l));
+let ueberlebt = 0, gelaufen = 0, abstuerze = 0;
+console.log(`Mutationsprobe test-waffenwechsel.js (${MUTATIONEN.length} Mutationen, Kopie in ${TMP})`);
+const basis = lauf();
+console.log(`  Ausgangslage: ${basis.status === 0 ? 'grün' : 'ROT (Abbruch)'}`);
+if (basis.status !== 0) { console.log(pruefFehler(basis).slice(0, 5).join('\n') + (basis.stderr || '').slice(0, 400)); process.exit(1); }
+for (const [datei, alt, neu, was, gleichwertig] of MUTATIONEN) {
+  if (FILTER.length && !FILTER.some((f) => was.toLowerCase().includes(f))) continue;
+  gelaufen++;
+  const f = path.join(TMP, datei);
+  const orig = fs.readFileSync(f, 'utf8');
+  const nl = orig.includes('\r\n');
+  const text = nl ? orig.replace(/\r\n/g, '\n') : orig;
+  fs.writeFileSync(f, nl ? text.replace(alt, () => neu).replace(/\n/g, '\r\n') : text.replace(alt, () => neu));
+  const r = lauf();
+  fs.writeFileSync(f, orig);
+  const fe = r.status === 0 ? [] : pruefFehler(r);
+  const absturz = r.status !== 0 && !fe.length;
+  if (gleichwertig) {   // als gleichwertig eingestuft (keine Beobachtung möglich): muss überleben
+    if (fe.length) ueberlebt++;
+    console.log(`  ${fe.length ? 'ROT  ' : 'gleich'} ${was} (gleichwertig: ${fe.length ? 'wurde doch erkannt, Einstufung prüfen' : 'überlebt erwartungsgemäß'})`);
+    continue;
+  }
+  if (!fe.length) { ueberlebt++; if (absturz) abstuerze++; }
+  console.log(`  ${fe.length ? 'rot  ' : 'GRÜN '} ${was}${fe.length ? ` (${fe.length} Fehler, z. B. ${fe[0].replace(/^\s*FEHLER\s*/, '').slice(0, 70)})` : (absturz ? '  <-- NUR ABSTURZ, nicht erkannt' : '  <-- ÜBERLEBT')}`);
+}
+console.log(ueberlebt ? `${ueberlebt} von ${gelaufen} Mutation(en) nicht erkannt (davon ${abstuerze} nur Absturz)` : `alle ${gelaufen} Mutationen erkannt`);
+process.exit(ueberlebt ? 1 : 0);

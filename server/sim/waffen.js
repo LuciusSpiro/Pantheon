@@ -549,8 +549,56 @@ function wahl(game) { if (!game.crewWaffen || typeof game.crewWaffen !== 'object
 // Waffe am Spieler anlegen (Hitze/Ladung zurück, Ereignis loadout), ohne zu speichern. Auch für Zelle ('faust') und Slotwechsel (loadout.js).
 function waffeAnlegen(game, p, waffe) {
   if (!def(game, waffe) || waffe === 'waechter') return 'unbekannt';
-  p.waffe = waffe; p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null; p.bereitAt = 0;
+  p.waffe = waffe; waffenstandFrisch(p); p.bereitAt = 0;   // AUS-02 A: Anlegen = frischer Stand, die abgelegten Waffen werden vergessen
   emit(game, 'loadout', { pid: p.id, waffe });
+  return null;
+}
+
+// AUS-02 A: Waffenwechsel am Boden. Zustand je Waffe (Hitze, Sperre, Kadenz) liegt nur im Speicher am Spieler (nicht aufzählbar: weder Snapshot noch Weltstand),
+// damit Wegstecken weder die Überhitzungssperre löscht noch die Kadenz zurücksetzt. waffeAnlegen ist NICHT dieser Weg (setzt alles zurück).
+function waffenZustandLeeren(p) {
+  Object.defineProperty(p, 'waffenZustand', { value: {}, enumerable: false, writable: true, configurable: true });
+}
+// Frischer Waffenstand (Beamen, Ausrüstung zurück, Ausbruch, Anlegen): Hitze, Überhitzungssperre, Laden, Ausholen und der Speicher der abgelegten Waffen werden gelöscht.
+// bereitAt (Kadenz) und die Zustandsfelder (zustand, betaeubtBis, …) bleiben unberührt – die setzt der Aufrufer, falls nötig.
+function waffenstandFrisch(p) {
+  p.hitze = 0; p.gesperrtBis = 0; p.ladung = null; p.ausholen = null;
+  waffenZustandLeeren(p);
+}
+function waffenZustand(p) {
+  if (!p.waffenZustand || typeof p.waffenZustand !== 'object') waffenZustandLeeren(p);
+  return p.waffenZustand;
+}
+// Abkühlung einer abgelegten Waffe bis jetzt, nach den Regeln aus update(): Sperre läuft absolut (nach Ablauf Hitze 0), sonst kühlt sie ab
+// schussAt + pause (frühestens ab Ablegen) mit 1/kalt je s.
+function abgelegtAbkuehlen(game, z, d) {
+  const t = now(game);
+  if (z.gesperrtBis) {
+    if (t >= z.gesperrtBis - EPS) { z.gesperrtBis = 0; z.hitze = 0; }
+  } else if (d && z.hitze > 0) {
+    const kuehl = t - Math.max(z.t, (z.schussAt == null ? -99 : z.schussAt) + (Number(d.pause) || 0));
+    if (kuehl > 0) { z.hitze = z.hitze - kuehl / Math.max(EPS, Number(d.kalt) || 1); if (z.hitze < EPS) z.hitze = 0; }
+  }
+  return z;
+}
+// Die Waffe id ziehen: Laden/Ausholen der alten brechen ab (ohne Abklingzeit), ihr Zustand wird abgelegt, der der neuen (falls abgelegt) nachgerechnet
+// wiederhergestellt. Die gezogene Waffe feuert frühestens awayCombat.wechselzeit s später (bereitAt, Grund 'kadenz'). Gleiche Waffe: No-op ohne Preis.
+// Rückgabe null | 'unbekannt'.
+function waffeWechseln(game, p, id) {
+  if (!def(game, id) || id === 'waechter') return 'unbekannt';
+  if (p.waffe === id) return null;
+  const t = now(game);
+  const S = waffenZustand(p);
+  if (p.waffe && def(game, p.waffe)) {
+    unterbrechen(game, p, 'wechsel');
+    S[p.waffe] = { hitze: p.hitze || 0, gesperrtBis: p.gesperrtBis || 0, bereitAt: p.bereitAt || 0, schussAt: p.schussAt == null ? -99 : p.schussAt, t };
+  }
+  const z = S[id] ? abgelegtAbkuehlen(game, S[id], def(game, id)) : { hitze: 0, gesperrtBis: 0, bereitAt: 0, schussAt: -99 };
+  delete S[id];
+  const wechselzeit = Math.max(0, Number(ac(game).wechselzeit) || 0);
+  p.waffe = id; p.hitze = z.hitze; p.gesperrtBis = z.gesperrtBis; p.schussAt = z.schussAt;
+  p.bereitAt = Math.max(z.bereitAt, t + wechselzeit);
+  emit(game, 'loadout', { pid: p.id, waffe: id, sperre: Math.max(0, p.bereitAt - t) });   // wirksame Restzeit bis zum nächsten Schuss in s (nicht nur die Wechselzeit)
   return null;
 }
 // Waffe setzen (Labor, Arena, Debug; der Befehl loadout.waffe ist mit AUS-01 C entfallen). Gespeichert wird nur eine wählbare Waffe (nie 'faust') als Slot 1 (AUS-01, loadout.js).
@@ -574,5 +622,5 @@ module.exports = {
   WAHL, ZUSTAENDE,
   def, art, ausstatten, kannFeuern, feuern, loslassen, bereit, update, treffer, explosion, granateFlug, laerm, hoert,
   sichtPruefen, sichtKacheln, engageBox, geteiltBis, unterbrechen, fesseln, befreien, aufrichten, haltedauer, handlungsfaehig, betaeubt, ueberhitzt,
-  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeAnlegen, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
+  niederCfg, niedergehalten, knapp, schildUpdate, snapFelder, waffeAnlegen, waffeWechseln, waffenstandFrisch, waffeSetzen, waffeFuer, toSave, restore, hashKennung,
 };
