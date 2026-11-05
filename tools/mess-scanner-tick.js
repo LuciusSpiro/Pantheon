@@ -43,7 +43,7 @@ const leer = messe(szene());
 const g = szene();
 const p0 = g.players[0];
 const liste = Array.from({ length: 18 }, (_, i) => ({ id: 'm' + String(i + 1).padStart(2, '0'), typ: 'raider', x: p0.x + 12 * (i + 1), y: p0.y + (i % 3) * 20 }));
-Scanbar.scanbarAnmelden('monster', { ziele: () => liste });
+Scanbar.scanbarAnmelden('messart', { ziele: () => liste });
 Scanbar.debugScanfertig(g, p0, 3);
 const eintraege = g.away.sc ? Object.keys(g.away.sc).length : 0;
 for (const p of g.players) { p.scanBis = 0; p.hold = null; Scanner.scanStarten(g, p); }

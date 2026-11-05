@@ -12,7 +12,8 @@
   const MAX_ZEILEN = 4;
   const FALLBACK = { name: 'Unbekanntes Objekt', gefahr: 0, zeile: 'Keine Angaben zu diesem Ziel.', hinweis: '', hinweisAb: 1, symbol: '??' };
   const POS_AB_STANDARD = 3;   // Stufe, ab der der Server die Position liefert (scanbar.js tiefen.position, Standard 3); je Art/Typ im Content überschreibbar (positionAb), z. B. Falle 2, Erz 1
-  const txtKeinePos = (n) => 'Position: erst ab Stufe ' + n;   // eine Zeile (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const TXT_STANDARD = 'Position: Stufe 3 oder Sicht';   // eine Zeile (MON-01: die Raute auf der Karte zeigt auch ohne Scan, was das Außenteam sieht; Stufe 3 liefert die Position unabhängig von der Sicht) (Nacharbeit D2); die Positionszeile ist die feste letzte Zeile des Datenblatts und wird nie gekürzt
+  const txtKeinePos = (n) => (n === POS_AB_STANDARD ? TXT_STANDARD : 'Position: erst ab Stufe ' + n);   // ITM-01: Arten mit eigener Stufe (Falle: verborgen, keine Sicht) sagen die Stufe
   const TXT_KEINE_POS = txtKeinePos(POS_AB_STANDARD);   // Text der Standardstufe (Tests, Rückfall)
   const LIMIT = { name: 20, zeile: 34, hinweis: 100 };   // Content-Längen (Zeichen), der Test prüft alle Typen dagegen
   const MAXL_BLATT = 7;   // Zeilen unter dem Namen im Datenblatt: Zeile (1-2), Regelhinweis (bis 4), Position (immer die letzte)
@@ -112,6 +113,13 @@
     };
   }
 
+  // Name eines gescannten Ziels (Art + id) aus dem Datenblatt-Content, sonst null (noch nicht gescannt): für Beschriftungen am Boden (MON-01 P4)
+  function nameVon(sc, art, id, daten) {
+    const d = daten === undefined ? store.daten : daten;
+    for (const e of lesen(sc)) if (e.art === art && e.id === id) return zeile(e, d).name;
+    return null;
+  }
+
   // Marker (nur Einträge mit Position): [{ key, x, y, symbol, fokus }]
   function marker(sc, daten) {
     const d = daten === undefined ? store.daten : daten;
@@ -171,5 +179,5 @@
   }
   if (typeof window !== 'undefined' && root === window) laden();
 
-  return { store, MAX_ZEILEN, MAXL_BLATT, HINWEIS_EINZUG, LIMIT, TXT_KEINE_POS, FALLBACK, lesen, zeile, sortiere, beobachte, waehle, fokusKey, fokusWeiter, ansicht, blatt, blattZeilen, marker, kuerze, umbruch, sterne, laden };
+  return { store, MAX_ZEILEN, MAXL_BLATT, HINWEIS_EINZUG, LIMIT, TXT_KEINE_POS, FALLBACK, lesen, zeile, sortiere, nameVon, beobachte, waehle, fokusKey, fokusWeiter, ansicht, blatt, blattZeilen, marker, kuerze, umbruch, sterne, laden };
 });

@@ -234,6 +234,7 @@ function start(game, o) {
   const aw = game.aways[o.lp];
   M().combat.ensureV2(game, aw, o.lp);
   aw.drones = []; aw.squads = {}; aw.projectiles = [];
+  require('./kreatur.js').raeumen(aw);   // MON-01 P2a: Kreaturen der Karte mit weg
   aw.ausbruchErlaubt = false;   // kein Ausbruch: gefangen = kampfunfähig (wie Wellen Boden)
   aw.ohneZaehler = true;   // BOD-03: das HUD zeigt keine Zähler für Terminal, Kiste, Sprengpunkt, Zelle der Bunker-Anker (das Szenario hat ein eigenes Ziel)
   const k = karteVon(game, o.lp);

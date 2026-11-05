@@ -474,8 +474,8 @@ section('Scan-Anzeige: Positionstext der Falle (Stufe 2), andere Arten unveränd
   ok(b1.position === 'Position: erst ab Stufe 2' && !b1.hatPosition, 'Falle, Stufe 1: „Position: erst ab Stufe 2“ (nicht mehr „Stufe 3“)');
   const b2 = blatt({ id: 'f1', art: 'falle', typ: 'druck', sk: 2, x: 5 * 32 + 16, y: 7 * 32 + 16 });
   ok(b2.position === 'Position: Feld 5 / 7' && b2.hatPosition, 'Falle, Stufe 2: die Position steht im Datenblatt (Feld 5 / 7)');
-  for (const art of ['test', 'erz', 'monster']) ok(blatt({ id: 'x', art, typ: 'testerz', sk: 1 }).position === 'Position: erst ab Stufe 3', 'Art ' + art + ' ohne Position: weiter „erst ab Stufe 3“');
-  ok(blatt({ id: 'x', art: 'unbekannt', typ: 'gibtsnicht', sk: 1 }).position === SA.TXT_KEINE_POS && SA.TXT_KEINE_POS === 'Position: erst ab Stufe 3', 'unbekannte Art: Standard Stufe 3');
+  for (const art of ['test', 'erz', 'monster']) ok(blatt({ id: 'x', art, typ: 'testerz', sk: 1 }).position === 'Position: Stufe 3 oder Sicht', 'Art ' + art + ' ohne Position: weiter der Standardtext „Stufe 3 oder Sicht“ (MON-01)');
+  ok(blatt({ id: 'x', art: 'unbekannt', typ: 'gibtsnicht', sk: 1 }).position === SA.TXT_KEINE_POS && SA.TXT_KEINE_POS === 'Position: Stufe 3 oder Sicht', 'unbekannte Art: Standardtext Stufe 3 oder Sicht');
   ok(DATEN.typen.test && !DATEN.typen.test.positionAb, 'positionAb steht je Art im Content, nicht je Typ und nicht im Code');
   // Echter Server: Scan Stufe 1 und 2 an der Arena
   S.hin(8, 6);

@@ -1,0 +1,79 @@
+{
+ "hinweis": "Sollwerte aus main da8d19c (Station-Monster, vor dem Umbau gehen -> gehenMit), erzeugt mit tools/fixture-station-bahn.js",
+ "seed": 21,
+ "patrouille": {
+  "ticks": 900,
+  "zustaende": [
+   "patrouille"
+  ],
+  "sha256": "256303c6b8b7660aae7b134c584b3eaaf619a631e8efc2db2b67a74c52a0b43a",
+  "probe": [
+   "1297.00,256.00,patrouille",
+   "1247.00,256.00,patrouille",
+   "1197.00,256.00,patrouille",
+   "1147.00,256.00,patrouille",
+   "1097.00,256.00,patrouille",
+   "1047.00,256.00,patrouille",
+   "997.00,256.00,patrouille",
+   "947.00,256.00,patrouille",
+   "897.00,256.00,patrouille",
+   "847.00,256.00,patrouille",
+   "797.00,256.00,patrouille",
+   "747.00,256.00,patrouille",
+   "704.00,256.00,patrouille",
+   "704.00,256.00,patrouille",
+   "704.00,304.33,patrouille",
+   "704.00,354.33,patrouille",
+   "704.00,404.33,patrouille",
+   "704.00,454.33,patrouille",
+   "704.00,504.33,patrouille",
+   "704.00,554.33,patrouille",
+   "704.00,604.33,patrouille",
+   "704.00,654.33,patrouille",
+   "704.00,704.33,patrouille",
+   "704.00,736.00,patrouille",
+   "704.00,726.00,patrouille",
+   "704.00,676.00,patrouille",
+   "704.00,626.00,patrouille",
+   "704.00,576.00,patrouille",
+   "704.00,526.00,patrouille",
+   "704.00,476.00,patrouille"
+  ]
+ },
+ "schott": {
+  "schott": "gang_1~kreuzung_1",
+  "wegLaenge": 7,
+  "rammAbTick": 23,
+  "offenAbTick": 59,
+  "rammSekunden": 1.2,
+  "zielAbTick": 102,
+  "ticks": 103,
+  "sha256": "c6d89e858ef647680aa1d80df8b10432673786d5619a7ff2ccdf46594cf689ed",
+  "probe": [
+   "512.00,736.00,0",
+   "568.00,736.00,0",
+   "576.00,736.00,1",
+   "578.80,736.00,0",
+   "634.80,736.00,0",
+   "690.80,736.00,0"
+  ]
+ },
+ "wand": {
+  "gang": {
+   "cy": 23,
+   "cx0": 5,
+   "cx1": 47
+  },
+  "endeX": 1521.67,
+  "endeY": 736,
+  "sperreX": 1536,
+  "ticks": 90,
+  "sha256": "226199349050e4b1f5910140a25679bacd7fae4da59b1216cba50525fedd2965"
+ },
+ "maskeHash": {
+  "w": 52,
+  "h": 53,
+  "ankerpunkte": 496,
+  "sha256": "57133372dc8974be84c84ce96c03ebdaf15c4aa8114b6a2ac410d5ebfa3840b3"
+ }
+}
