@@ -303,6 +303,7 @@
     "test:scanbar-mutation": "node tools/mutation-scanbar.js",
     "test:scanbar-debug": "node tools/test-scanbar-debug.js",
     "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
+    "mess:scanner-tick": "node tools/mess-scanner-tick.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",
     "test:ausruestung-bot": "node tools/test-ausruestung-bot.js",
     "test:sektoren": "node tools/test-sektoren.js",

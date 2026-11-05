@@ -2,7 +2,9 @@
 // SCA-01 P1: Scanner am Boden (Item `scanner` im Loadout-Slot). Action-Layer; Zustand je Spieler in p.scan, das Ops-Entschlüsseln (game.entschl) bleibt unberührt.
 // Abwandlung des Entschlüsselns: Frequenz abstimmen (geteilte Rechnung in abstimmung.js), unterbrechbar, Qualität 0..3 nur beim Vollenden.
 //
-//   scanStarten(game, p)        Item-Handler (loadout.itemRegistrieren): startet den Scan; zweite Betätigung während des Scans = Abbruch. -> null | Fehlertext
+//   scanStarten(game, p)        Item-Handler (loadout.itemRegistrieren): startet den Scan; zweite Betätigung während des Scans = Abbruch. -> null | Fehlertext.
+//                               Ablehnungen meldet der Handler selbst per game.notice (loadout.slotNutzen wirft den Rückgabewert im Befehlsweg weg).
+//                               Abgelehnt wird auch bei laufender Ladung/Ausholen (Lanze, Nahkampf: der Auto-Schuss in waffen.update läuft nicht über combat.shoot) und im eigenen Gespräch.
 //   scanStimme(game, p, dir)    Befehl scan.stimme: Richtung −1 | 0 | 1 (gehalten); der Server bewegt die Frequenz
 //   scanAbbrechen(game, p)      Befehl scan.abbruch: Scan beenden, KEIN Ergebnis, Fortschritt verloren
 //   onTreffer(game, pid)        Hook aus combat.ankerTreffer: jeder Treffer auf den Spieler bricht ab (Fortschritt verloren, kein Ergebnis)
@@ -31,6 +33,18 @@ function beiErgebnis(fn) {
 
 function laeuft(p) { return !!(p && p.scan); }
 
+// Ablehnung: Text an den Spieler (game.notice) und als Rückgabewert
+function ablehnen(game, p, text) { if (game.notice) game.notice(p, text); return text; }
+
+// Angriff in Vorbereitung: Lanzenladung oder Ausholen (beides endet serverseitig von selbst in einem Schuss, ohne combat.shoot)
+function imAngriff(p) { return !!(p.ladung || p.ausholen); }
+
+// Der Spieler führt gerade das (globale) Gespräch
+function imGespraech(game, p) { return !!(game.gespraech && game.gespraech.pid === p.id); }
+
+// Ton am Ort des Scannenden (zone/x/y: Lautstärke und Panorama wie andere Bodenereignisse)
+function ton(game, p, name) { game.emit('sfx', { name, zone: 'away', x: Math.round(p.x), y: Math.round(p.y) }); }
+
 // Zustand und Hold wegräumen (kein Ergebnis). Der Hold wird nur entfernt, wenn es der des Scans ist.
 function scanUnterbrochen(game, p) {
   if (!p) return;
@@ -41,16 +55,18 @@ function scanUnterbrochen(game, p) {
 // -> null | Fehlertext. Wird von loadout.slotNutzen aufgerufen, das Ort (Boden, Kampf v2) und Handlungsfähigkeit schon geprüft hat.
 function scanStarten(game, p) {
   if (laeuft(p)) { scanUnterbrochen(game, p); if (game.notice) game.notice(p, 'Scan abgebrochen.'); return null; }
-  if (p.zone !== 'away') return 'Nur am Boden.';
-  if (p.hold) return 'Du bist gerade beschäftigt.';
+  if (p.zone !== 'away') return ablehnen(game, p, 'Nur am Boden.');
+  if (imAngriff(p)) return ablehnen(game, p, 'Nicht während eines Angriffs.');
+  if (imGespraech(game, p)) return ablehnen(game, p, 'Nicht während eines Gesprächs.');
+  if (p.hold) return ablehnen(game, p, 'Du bist gerade beschäftigt.');
   const C = cfg(game);
   const rest = Math.min((p.scanBis || 0) - game.time, C.abklingzeit);
-  if (rest > 0) return 'Der Scanner lädt noch (' + Math.ceil(rest) + ' s).';
+  if (rest > 0) return ablehnen(game, p, 'Der Scanner lädt noch (' + Math.ceil(rest) + ' s).');
   const s = { f: 0, ziel: 0, zv: 0, zt: 0, dir: 0, halt: 0, t: 0, s: 0 };
   Abst.anlaufStellung(s, C, () => game.rng());
   p.scan = s;
   p.hold = { kind: HOLD, t: 0, dur: Infinity, scan: s };
-  game.emit('sfx', { name: 'ui_click' });
+  ton(game, p, 'ui_click');
   return null;
 }
 
@@ -78,7 +94,7 @@ function vollendet(game, p) {
   const stufe = Abst.qualitaetAus(C, C.dauer / p.scan.t);
   scanUnterbrochen(game, p);
   p.scanBis = game.time + C.abklingzeit;
-  game.emit('sfx', { name: 'scan_done' });
+  ton(game, p, 'scan_done');
   for (const fn of handler.slice()) fn(game, p, stufe, { x: p.x, y: p.y });
 }
 

@@ -22,11 +22,11 @@ const SB = 'server/sim/scanbar.js', WF = 'server/sim/waffen.js', CB = 'server/si
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
   // ---- Pflicht
-  [SB, "  if (alt && alt.sk >= stufe) return false;\n", "", 'sk sinkt (ein schlechter Scan überschreibt)'],
-  [SB, "  if (stufe >= z.tiefen.position) {", "  if (stufe >= 1) {", 'Position schon bei Stufe 1 gesetzt'],
-  [SB, "    if (Math.hypot(z.x - ort.x, z.y - ort.y) > R) continue;\n", "", 'Reichweite ignoriert'],
-  [SB, "    if (erfassen(aw, z, stufe)) neu++;\n", "    if (erfassen(aw, z, stufe)) neu++;\n    break;\n", 'nur das erste Ziel gescannt'],
-  [SB, "  if (stufe >= z.tiefen.position) { e.x = Math.round(z.x); e.y = Math.round(z.y); }", "  e.x = Math.round(z.x); e.y = Math.round(z.y);", 'Position gespeichert und im Snapshot ohne Positionsstufe'],
+  [SB, "  if (alt && alt.sk >= stufe) {\n    if (!mitPosition", "  if (false) {\n    if (!mitPosition", 'sk sinkt (ein schlechter Scan überschreibt)'],
+  [SB, "  const mitPosition = stufe >= z.tiefen.position;", "  const mitPosition = stufe >= 1;", 'Position schon bei Stufe 1 gesetzt'],
+  [SB, "if (d <= R) imKreis.push({ z, d }); }", "imKreis.push({ z, d }); }", 'Reichweite ignoriert'],
+  [SB, "else if (r === 'bewegt') bewegt++;\n", "else if (r === 'bewegt') bewegt++;\n    break;\n", 'nur das erste Ziel gescannt'],
+  [SB, "  if (mitPosition) { e.x = x; e.y = y; }", "  e.x = x; e.y = y;", 'Position gespeichert und im Snapshot ohne Positionsstufe'],
   [AW, "  game.aways[map] = fresh;\n", "  fresh.sc = old.sc;\n  game.aways[map] = fresh;\n", 'Reset fehlt (aw.sc überlebt den Kartenreset)'],
   // ---- weitere Regeln
   [SB, "if (da.has(k)) rest++; else delete aw.sc[k];", "rest++;", 'verschwundene Ziele bleiben in aw.sc'],
@@ -34,7 +34,7 @@ const MUTATIONEN = [
   [SB, "  if (stufe <= 0) {", "  if (stufe < 0) {", 'Stufe 0 (Rauschen) setzt Einträge'],
   [SB, "Scanner.beiErgebnis(scanWirkung);", "", 'Wirkung nicht an den Scanner gehängt'],
   [SB, "const schluessel = (art, id) => art + ':' + id;", "const schluessel = (art, id) => String(id);", 'Schlüssel ohne Art (gleiche Id in zwei Arten kollidiert)'],
-  [SB, "  if (!inReichweite) meldung(game, p, 'Nichts in Reichweite.');", "  if (false) meldung(game, p, 'Nichts in Reichweite.');", 'keine Meldung bei leerer Reichweite'],
+  [SB, "  if (!inReichweite) return 'Nichts in Reichweite.';", "  if (false) return 'Nichts in Reichweite.';", 'keine Meldung bei leerer Reichweite'],
   [SB, "(game.debug ? testZiele.get(aw) || [] : [])", "(testZiele.get(aw) || [])", 'Testziele auch ohne Debug'],
   [SB, "  const sc = [];\n  for (const e of Object.values(aw.sc)) sc.push(e.x != null ?", "  const sc = [];\n  for (const e of Object.values(aw.sc)) sc.push(e.sk >= 0 ?", 'Snapshot: Positionsfelder immer (auch ohne Wert)'],
   [SB, "  return sc.length ? { sc } : {};", "  return { sc };", 'Snapshot: Feld auch bei leerem aw.sc', true],   // gleichwertig: aw.sc ist nie leer (update löscht es), Rückgabe {} schon vorher
@@ -42,7 +42,16 @@ const MUTATIONEN = [
   [SB, "  e.sk = stufe;\n", "  e.sk = stufe;\n  e.art = z.art + z.art;\n", 'Art im Eintrag falsch'],
   [WF, "  if (p.scan) require('./scanner.js').scanUnterbrochen(game, p);   // SCA-01 P2: Waffenwechsel", "  // SCA-01 P2: Waffenwechsel", 'Waffenwechsel bricht den Scan nicht ab'],
   [CB, "  if (p.scan) scannerAbbruch(game, p);   // SCA-01 P2: Schießen", "  // SCA-01 P2: Schießen", 'Schießen bricht den Scan nicht ab'],
-  [SB, "  const R = game.C.scanner.reichweite;\n  let inReichweite", "  const R = game.C.scanner.reichweite * 2;\n  let inReichweite", 'Reichweite doppelt'],
+  [SB, "  const R = game.C.scanner.reichweite, max = game.C.scanner.maxEintraege;", "  const R = game.C.scanner.reichweite * 2, max = game.C.scanner.maxEintraege;", 'Reichweite doppelt'],
+  // ---- Nacharbeit (M3, M4, N3, M2)
+  [SB, "    alt.x = x; alt.y = y;\n    return 'bewegt';", "    return 'gleich';", 'Position wird nie aktualisiert (bewegtes Ziel zeigt die alte Position)'],
+  [SB, "    if (!bekannt && belegt >= max) { voll++; continue; }\n", "", 'Obergrenze maxEintraege fehlt'],
+  [SB, "  imKreis.sort((a, b) => a.d - b.d);", "", 'Obergrenze ohne Sortierung nach Entfernung (nicht die nächsten zuerst)'],
+  [SB, "if (neu) t = 'Scan: ' + neu", "if (false) t = 'Scan: ' + neu", 'Meldung: neue Ziele nicht gemeldet'],
+  [SB, "  if (voll && (neu || bewegt)) t +=", "  if (false) t +=", 'Meldung: Überlauf nicht gemeldet (bei neuen Zielen)'],
+  [SB, "  else t = voll ? 'Scan: Speicher voll' : 'Scan: nichts Neues.';", "  else t = 'Scan: nichts Neues.';", 'Meldung: Speicher voll fehlt bei reinem Überlauf'],
+  [SB, "  if (game.time < (pruefBis.get(aw) || 0)) return;", "", 'Aufräumprüfung in jedem Tick (nicht gedrosselt)'],
+  [SB, "  for (const k of Object.keys(t)) if (k !== 'position') throw", "  for (const k of Object.keys(t)) if (false) throw", 'tiefen.hinweis wird still akzeptiert'],
 ];
 
 {

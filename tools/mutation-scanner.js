@@ -18,6 +18,7 @@ fs.copyFileSync(path.join(ROOT, TEST), path.join(TMP, TEST));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
 
+const GS = 'server/sim/gespraech.js';
 const SCN = 'server/sim/scanner.js', AB = 'server/sim/abstimmung.js', CB = 'server/sim/combat.js', IN = 'server/sim/interior.js', G = 'server/game.js', LO = 'server/sim/loadout.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung]
 const MUTATIONEN = [
@@ -26,7 +27,16 @@ const MUTATIONEN = [
   [SCN, "  scanUnterbrochen(game, p);\n  if (game.notice) game.notice(p, 'Getroffen", "  if (game.notice) game.notice(p, 'Getroffen", 'Treffer: Zustand und Hold nicht aufgeräumt (Fortschritt bleibt)'],
   [SCN, "function scanUnterbrochen(game, p) {\n  if (!p) return;\n", "function scanUnterbrochen(game, p) {\n  if (!p) return;\n  if (p.scan && p.scan.halt > 0.5) { const C = cfg(game); const st = Abst.abbruchQualitaet(p.scan, C); for (const fn of handler.slice()) fn(game, p, st, { x: p.x, y: p.y }); }\n", 'Abbruch vergibt Qualität (Ergebnis trotz Abbruch)'],
   [LO, "  if (!Number.isInteger(slot) || slot < 0 || slot >= slotzahl(game)) return 'Diesen Slot gibt es nicht.';\n  const id = wirksam(game, p)[slot];\n", "  const id = loadoutFuer(game, p)[slot];\n", 'Slot-Prüfung entfernt: Scanner im nicht wirksamen Slot startet'],
-  [SCN, "  if (p.zone !== 'away') return 'Nur am Boden.';\n", "", 'Scanner startet auch am Schiff (zone nicht geprüft)', true],   // gleichwertig: slotNutzen lehnt das schon vor dem Handler ab
+  [SCN, "  if (p.zone !== 'away') return ablehnen(game, p, 'Nur am Boden.');\n", "", 'Scanner startet auch am Schiff (zone nicht geprüft)', true],   // gleichwertig: slotNutzen lehnt das schon vor dem Handler ab
+  // ---- Nacharbeit (M1 Meldung, N1 Zone, Lanze/Ausholen, Gespräch, Treffer über trefferGemeldet)
+  [SCN, "function ablehnen(game, p, text) { if (game.notice) game.notice(p, text); return text; }", "function ablehnen(game, p, text) { return text; }", 'M1: Ablehnung ohne Meldung beim Spieler'],
+  [SCN, "function ton(game, p, name) { game.emit('sfx', { name, zone: 'away', x: Math.round(p.x), y: Math.round(p.y) }); }", "function ton(game, p, name) { game.emit('sfx', { name }); }", 'N1: Töne ohne Zone und Ort'],
+  [SCN, "  if (imAngriff(p)) return ablehnen(game, p, 'Nicht während eines Angriffs.');\n", "", 'Lanze/Ausholen: Scan startet trotz Ladung'],
+  [SCN, "function imAngriff(p) { return !!(p.ladung || p.ausholen); }", "function imAngriff(p) { return !!p.ladung; }", 'Ausholen wird nicht als Angriff gezählt'],
+  [SCN, "  if (imGespraech(game, p)) return ablehnen(game, p, 'Nicht während eines Gesprächs.');\n", "", 'Gespräch: Scan startet im eigenen Gespräch'],
+  [SCN, "function imGespraech(game, p) { return !!(game.gespraech && game.gespraech.pid === p.id); }", "function imGespraech(game, p) { return !!game.gespraech; }", 'Gespräch eines anderen Spielers sperrt den Scan'],
+  [GS, "  require('./scanner.js').scanUnterbrochen(game, p);   // SCA-01", "  void 0;   // SCA-01", 'Gespräch: beginnendes Gespräch bricht den Scan nicht ab'],
+  [CB, "    ankerTreffer(game, k);\n    if (r === 'schild' && k.shield) {", "    if (r === 'schild' && k.shield) {", 'Treffer über trefferGemeldet (Explosion/Strahl) bricht den Scan nicht ab'],
   // ---- weitere Regeln
   [LO, "  return istWaffe(id) ? Waffen.waffeWechseln(game, p, id) : itemNutzen(game, p, id);", "  return Waffen.waffeWechseln(game, p, id);", 'Items werden nicht an die Registry gegeben (Scanner startet nie)'],
   [SCN, "Loadout.itemRegistrieren(ITEM_ID, scanStarten);", "", 'Scanner nicht als Item angemeldet'],

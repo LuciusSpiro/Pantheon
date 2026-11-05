@@ -124,7 +124,7 @@
     //   Snapshot: players[].action = { kind: 'scan', progress } für alle; players[].sc = { f, s, h, q } (Frequenz, Signal, Fortschritt, laufende Schätzung 0..3) nur beim Scannenden und nur solange der Scan läuft.
     // SCA-01 P2: Ergebnis eines vollendeten Scans (alle Ziele im Umkreis config.scanner.reichweite, Luftlinie): Snapshot `away.sc` (NICHT players[].sc), nur wenn nicht leer, sichtbar für alle, bis zum Kartenende (nichts im Weltstand):
     //   away.sc = [[id, art, typ, sk], …] bzw. [id, art, typ, sk, x, y] ab der Positionsstufe der Art (Standard 3; Erz später 1). id String, art/typ kurze Strings ('test'/'testerz'), sk 1..3 (nur steigend),
-    //   x, y ganze px. Texte (Name, Gefahr, Regelhinweis ab tiefen.hinweis, Standard 1) liegen im Client-Content, nicht im Snapshot. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
+    //   x, y ganze px (ab der Positionsstufe bei jedem Scan neu gesetzt). Höchstens config.scanner.maxEintraege (16) Einträge. Texte (Name, Gefahr, Regelhinweis) und die Hinweisstufe (`hinweisAb`) liegen im Client-Content, nicht im Snapshot und nicht am Server. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
     CMD_SCAN_STIMME: 'scan.stimme',
     CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],

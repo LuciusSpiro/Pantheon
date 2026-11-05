@@ -2,6 +2,7 @@
 // SCA-01 P2: scanbare Objekte und Scan-Wirkung (server/sim/scanbar.js). Echtes Spiel (Game, Außenkarte kesh), Scan über slot.nutzen wie im Spiel, Testziele über Debug `scantest` (Art `test`).
 // Geprüft: alle Ziele in Reichweite, keines außerhalb; Staffelung je Stufe (Standard-Tiefen und Art mit position 1); sk steigt nur; Snapshot away.sc (Format, nur nicht leer, Position nie vor der Positionsstufe);
 // Reset mit der Karte, verschwundene Ziele, nichts im Weltstand; zwei Spieler vereinigen; Notice-Texte; Schießen und Waffenwechsel brechen den Scan ab; ohne Debug keine Testziele.
+// NS: bewegtes Ziel (Position wird nachgeführt), Obergrenze maxEintraege (nächste zuerst, Meldung), gedrosselte Aufräumprüfung (0,5 s), keine tiefen.hinweis, strukturelle Snapshot-Prüfung.
 //   node tools/test-scanbar.js   (npm run test:scanbar)
 const { Game } = require('../server/game.js');
 const interior = require('../server/sim/interior.js');
@@ -19,6 +20,7 @@ const section = (t) => console.log('\n' + t);
 const DT = 1 / CONFIG.tickHz;
 const SC = CONFIG.scanner;
 const R = SC.reichweite;
+const AUFR = 0.5;   // s: Drossel der Aufräumprüfung in scanbar.update
 
 function szene(opts) {
   const o = opts || {};
@@ -69,6 +71,11 @@ section('Schnittstelle');
   ok(frei, 'Abmelder gibt die Art wieder frei');
   let w2 = false; try { Scanbar.scanbarAnmelden('x', { ziele: () => [], tiefen: { position: 4 } }); } catch (e) { w2 = true; }
   ok(w2, 'Tiefen außerhalb 1..3 sind eine Ausnahme');
+  let w3 = '', w4 = false;
+  try { Scanbar.scanbarAnmelden('h', { ziele: () => [], tiefen: { hinweis: 1, position: 3 } }); } catch (e) { w3 = e.message; }
+  ok(/hinweisAb/.test(w3), 'tiefen.hinweis gibt es am Server nicht (Hinweisstufe steht im Client-Content): Ausnahme mit Verweis auf hinweisAb');
+  try { Scanbar.scanbarAnmelden('h2', { ziele: () => [], tiefen: { position: 2 } })(); } catch (e) { w4 = true; }
+  ok(!w4, 'tiefen mit nur position ist gültig');
   ok(Protocol.DEBUG_CMDS.includes('scantest'), 'scantest ist ein Debug-Kommando');
 }
 
@@ -144,8 +151,10 @@ section('(4) Snapshot away.sc');
   ok(Array.isArray(sc) && sc.length === 3 && sc.every((e) => Array.isArray(e) && e.length === 4), 'Stufe 1: drei Einträge [id, art, typ, sk] ohne Position');
   const e1 = sc.find((e) => e[0] === 'tz1');
   ok(e1 && e1[1] === 'test' && e1[2] === 'testerz' && e1[3] === 1, 'Reihenfolge id, art, typ, sk');
-  const roh = JSON.stringify(g.snapshot().away.sc);
-  ok(!/\d{3,}/.test(roh), 'vor der Positionsstufe stehen keine Koordinaten im Feld');
+  // strukturell statt Zahlenmuster: genau vier Elemente [id, art, typ, sk], nur sk ist eine Zahl (kein x, y), Menge der ids stimmt in beide Richtungen
+  ok(sc.every((e) => e.length === 4 && e.slice(0, 3).every((v) => typeof v === 'string') && Number.isInteger(e[3]) && e[3] === 1), 'vor der Positionsstufe: je Eintrag genau [id, art, typ, sk], sonst keine Zahl');
+  const ids = new Set(sc.map((e) => e[0]));
+  ok(['tz1', 'tz2', 'tz3'].every((id) => ids.has(id)) && ids.size === 3 && !ids.has('tz4'), 'ids: erfasste enthalten (tz1..tz3), nicht erfasste fehlen (tz4), nichts sonst');
   ok(!JSON.stringify(g.snapshot()).includes('tz4'), 'das Ziel außerhalb taucht nirgends im Snapshot auf');
   S.scanne(3);
   const f1 = S.snapSc().find((e) => e[0] === 'tz1');
@@ -166,7 +175,7 @@ section('(5) Reset, verschwundene Ziele, Weltstand');
   const weg = Scanbar.scanbarAnmelden('kurz', { ziele: () => (da ? [{ id: 'k1', typ: 'kurz', x: p.x + 20, y: p.y }] : []) });
   S.scanne(2);
   ok(alt.sc['kurz:k1'] && alt.sc['kurz:k1'].sk === 2, 'Fremd-Art erfasst');
-  da = false; S.lauf(DT * 2);
+  da = false; S.lauf(AUFR + DT * 3);
   ok(!alt.sc['kurz:k1'] && alt.sc['test:tz1'], 'verschwundenes Ziel fällt aus aw.sc, die übrigen bleiben');
   weg();
   const r = away.resetMap(g, 'kesh', {});
@@ -183,7 +192,7 @@ section('(5) Reset, verschwundene Ziele, Weltstand');
   const S = szene(); const { g } = S;
   S.debug('scantest'); S.scanne(1);
   ok(S.sc() !== undefined, 'Vorbedingung: Ergebnisse da');
-  g.debug = false; S.lauf(DT * 2);
+  g.debug = false; S.lauf(AUFR + DT * 3);
   ok(S.sc() === undefined && !('sc' in g.snapshot().away), 'ohne gelieferte Ziele entfällt aw.sc ganz');
 }
 
@@ -256,6 +265,91 @@ section('(9) Ohne Debug keine Testziele');
   ok(S2.sc() === undefined, 'mit Debug, aber ohne scantest: keine Testziele');
   const S3 = szene(); S3.debug('scantest'); S3.g.debug = false; S3.scanne(3);
   ok(S3.sc() === undefined, 'Debug nachträglich aus: Testziele werden nicht mehr geliefert');
+}
+
+section('(10) Bewegtes Ziel: Position wird bei jedem Scan nachgeführt');
+{
+  const S = szene(); const { p } = S;
+  const ziel = { id: 'm1', typ: 'testmonster', x: p.x + 100, y: p.y };
+  const weg = Scanbar.scanbarAnmelden('beweg', { ziele: () => [ziel] });
+  S.scanne(3);
+  const e = S.sc()['beweg:m1'];
+  ok(e && e.sk === 3 && e.x === Math.round(p.x + 100) && e.y === Math.round(p.y), 'erster Scan: Position vorher');
+  ziel.x = p.x + 150; ziel.y = p.y + 40;
+  S.scanne(3);
+  const e2 = S.sc()['beweg:m1'];
+  ok(e2.sk === 3 && e2.x === Math.round(p.x + 150) && e2.y === Math.round(p.y + 40), 'zweiter Scan (gleiche Stufe): Position nachher');
+  ok(S.text === 'Scan: 1 Ziel aktualisiert', 'Meldung "aktualisiert" (war: ' + S.text + ')');
+  const f = S.snapSc().find((x) => x[0] === 'm1');
+  ok(f && f[4] === Math.round(p.x + 150) && f[5] === Math.round(p.y + 40), 'Snapshot zeigt die neue Position');
+  S.scanne(3);
+  ok(S.text === 'Scan: nichts Neues.', 'Ziel steht still, Stufe gleich: nichts Neues (war: ' + S.text + ')');
+  ziel.x = p.x + 200;
+  S.scanne(2);
+  ok(S.sc()['beweg:m1'].x === Math.round(p.x + 150) && S.sc()['beweg:m1'].sk === 3 && S.text === 'Scan: nichts Neues.', 'schlechter Scan (unter der Positionsstufe) führt die Position nicht nach, sk bleibt');
+  ziel.x = p.x + 10;
+  S.scanne(3);
+  ok(S.sc()['beweg:m1'].x === Math.round(p.x + 10), 'wieder Stufe 3: Position nachgeführt');
+  weg();
+}
+{
+  // Art mit position 1: schon Stufe 1 führt nach
+  const S = szene(); const { p } = S;
+  const ziel = { id: 'n1', typ: 'nahtyp', x: p.x + 50, y: p.y };
+  const weg = Scanbar.scanbarAnmelden('nahb', { tiefen: { position: 1 }, ziele: () => [ziel] });
+  S.scanne(1); ziel.x = p.x + 80; S.scanne(1);
+  ok(S.sc()['nahb:n1'].x === Math.round(p.x + 80) && S.text === 'Scan: 1 Ziel aktualisiert', 'position 1: Stufe 1 führt die Position nach');
+  weg();
+}
+
+section('(11) Obergrenze maxEintraege (Snapshot-Budget)');
+{
+  ok(SC.maxEintraege === 16, 'Config scanner.maxEintraege = 16');
+  const S = szene(); const { p } = S;
+  const liste = []; for (let i = 0; i < 20; i++) liste.push({ id: 'v' + String(i).padStart(2, '0'), typ: 'erz', x: p.x + 10 * (i + 1), y: p.y });
+  const weg = Scanbar.scanbarAnmelden('viele', { ziele: () => liste });
+  S.scanne(3);
+  ok(Object.keys(S.sc()).length === 16 && S.snapSc().length === 16, 'höchstens 16 Einträge in aw.sc und im Snapshot');
+  ok(liste.slice(0, 16).every((z) => S.sc()['viele:' + z.id]) && liste.slice(16).every((z) => !S.sc()['viele:' + z.id]), 'die 16 nächsten zum Scanpunkt sind drin, die vier entferntesten fehlen');
+  ok(S.text === 'Scan: 16 Ziele erfasst – Speicher voll (4 Ziele nicht erfasst)', 'Meldung nennt Überlauf (war: ' + S.text + ')');
+  S.scanne(3);
+  ok(S.text === 'Scan: Speicher voll' && Object.keys(S.sc()).length === 16, 'erneuter Scan ohne Änderung: "Speicher voll", weiter 16');
+  liste.push({ id: 'nah', typ: 'erz', x: p.x + 2, y: p.y });
+  S.scanne(3);
+  ok(!S.sc()['viele:nah'] && Object.keys(S.sc()).length === 16 && S.sc()['viele:v15'], 'bereits erfasste bleiben: ein näheres neues Ziel verdrängt nichts');
+  liste[0].x += 20;
+  S.scanne(3);
+  ok(S.sc()['viele:v00'].x === Math.round(p.x + 30) && /aktualisiert/.test(S.text) && /Speicher voll/.test(S.text), 'erfasste Einträge werden bei voller aw.sc weiter nachgeführt');
+  weg();
+}
+{
+  // Nächste zuerst bei kleiner Grenze (tune scanner.maxEintraege); g.C ist die gemeinsame CONFIG: zurücksetzen
+  const S = szene(); const { p, g } = S;
+  const alt = g.C.scanner.maxEintraege;
+  const weg = Scanbar.scanbarAnmelden('fern', { ziele: () => [
+    { id: 'f3', typ: 'erz', x: p.x + 300, y: p.y }, { id: 'f1', typ: 'erz', x: p.x + 50, y: p.y }, { id: 'f2', typ: 'erz', x: p.x, y: p.y - 120 }, { id: 'f4', typ: 'erz', x: p.x - 360, y: p.y } ] });
+  try {
+    g.C.scanner.maxEintraege = 2;
+    S.scanne(1);
+    ok(Object.keys(S.sc()).sort().join() === 'fern:f1,fern:f2', 'maxEintraege 2: die zwei nächsten (f1, f2), unabhängig von der Lieferreihenfolge');
+    g.C.scanner.maxEintraege = 3;
+    S.scanne(1);
+    ok(Object.keys(S.sc()).sort().join() === 'fern:f1,fern:f2,fern:f3', 'Grenze auf 3: das nächste freie Ziel (f3) rückt nach');
+  } finally { g.C.scanner.maxEintraege = alt; }
+  weg();
+}
+
+section('(12) Aufräumprüfung höchstens alle 0,5 s');
+{
+  const S = szene(); S.debug('scantest'); S.scanne(1);
+  ok(S.sc() !== undefined, 'Vorbedingung: aw.sc nicht leer');
+  let aufrufe = 0;
+  const w = Scanbar.scanbarAnmelden('zaehler2', { ziele: () => { aufrufe++; return []; } });
+  S.lauf(3);
+  ok(aufrufe >= 4 && aufrufe <= 7, 'in 3 s bei nicht leerem aw.sc höchstens alle 0,5 s gerufen (' + aufrufe + ' Aufrufe statt ~90)');
+  const a0 = aufrufe; S.lauf(DT * 3);
+  ok(aufrufe - a0 <= 1, 'nicht in jedem Tick');
+  w();
 }
 
 console.log('\n' + (fails ? 'FEHLER: ' + fails + ' von ' + n : 'Alle ' + n + ' Prüfungen grün.'));

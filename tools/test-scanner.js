@@ -2,6 +2,8 @@
 // SCA-01 P1: Scanner am Boden (server/sim/scanner.js). Echtes Spiel (Game, Außenkarte kesh), Item `scanner` im Loadout-Slot, Start über slot.nutzen.
 // Geprüft: Start nur am Boden mit Scanner im wirksamen Slot, Ablehnungen, Treffer-Abbruch (Schild, Wunde, bewusstlos) ohne Ergebnis, übrige Abbrüche ohne Ergebnis, Qualität 0..3 beim Vollenden,
 // Abklingzeit nur nach Erfolg, zwei Spieler unabhängig, Snapshot (action, sc nur beim Scannenden, Zuwachs), Ops-Entschlüsseln unverändert (Rechnung geteilt), Tick ohne Scan.
+// NS: Ablehnungen kommen als Meldung beim Spieler an (Notice im Befehlsweg), kein Start bei Lanzenladung/Ausholen und im Gespräch (beginnendes Gespräch bricht ab), Töne mit Zone und Ort,
+// Treffer über trefferGemeldet (Explosion/Strahl) brechen ab.
 //   node tools/test-scanner.js   (npm run test:scanner)
 const { Game } = require('../server/game.js');
 const interior = require('../server/sim/interior.js');
@@ -9,6 +11,7 @@ const Loadout = require('../server/sim/loadout.js');
 const combat = require('../server/sim/combat.js');
 const Scanner = require('../server/sim/scanner.js');
 const Abst = require('../server/sim/abstimmung.js');
+const Gespraech = require('../server/sim/gespraech.js');
 const Protocol = require('../shared/protocol.js');
 const CONFIG = require('../shared/config.js');
 
@@ -31,15 +34,21 @@ function szene(slots, opts) {
   g.aways.kesh.active = true;
   for (const [j, p] of g.players.entries()) { interior.placeOnAwayPad(g, p, j); combat.onArrive(g, p); }
   g.god = true;
+  const notes = [];
+  const note0 = g.notice.bind(g);
+  g.notice = (p, text) => { notes.push({ pid: p.id, text }); return note0(p, text); };
   const ergebnisse = [];
   const weg = Scanner.beiErgebnis((game, p, stufe, ort) => ergebnisse.push({ pid: p.id, stufe, ort }));
-  const S = { g, cs, ps: g.players, p: g.players[0], c: cs[0], ergebnisse, weg };
+  const S = { g, cs, ps: g.players, p: g.players[0], c: cs[0], ergebnisse, weg, notes };
   S.lauf = (sek, vor) => { for (let k = 0; k < Math.round(sek / DT); k++) { g.away.drones.length = 0; if (vor) vor(); g.step(); } };
   S.nutze = (slot, i) => g.handleMessage(cs[i || 0], { t: 'cmd', c: Protocol.CMD_SLOT_NUTZEN, slot });
   S.cmd = (c, extra, i) => g.handleMessage(cs[i || 0], Object.assign({ t: 'cmd', c }, extra || {}));
   // Frequenz auf Signalstärke s legen (das Zielband driftet mit; Abstand zum Band so, dass s gilt)
   S.halteSignal = (p, s) => () => { if (!p.scan) return; const off = (1 - s) * SC.weitBand; p.scan.f = p.scan.ziel > 0.5 ? p.scan.ziel - off : p.scan.ziel + off; };
   S.scanLaeuft = (p) => { p = p || S.p; return !!p.scan && !!p.hold && p.hold.kind === 'scan'; };
+  S.letzte = () => (notes.length ? notes[notes.length - 1] : null);
+  S.sfx = (i) => cs[i || 0].inbox.filter((m) => m.t === 'event' && m.kind === 'sfx');
+  S.noticesBeim = (i) => cs[i || 0].inbox.filter((m) => m.t === 'event' && m.kind === 'notice').map((m) => m.text);
   S.sauber = (p) => { p = p || S.p; return !p.scan && !(p.hold && p.hold.kind === 'scan'); };
   return S;
 }
@@ -255,6 +264,111 @@ section('(6) Snapshot und Tick');
   Scanner.update(S.g, DT);
   ok(rngAufrufe === 0, 'update ohne Scan: kein rng-Aufruf');
   S.g.rng = rng0;
+}
+
+section('(6b) Ablehnungen melden sich beim Spieler (Befehlsweg slot.nutzen, Rückgabewert wird dort verworfen)');
+{
+  const S = szene(MIT); const { g, p } = S;
+  S.nutze(1); S.lauf(SC.dauer + 1, S.halteSignal(p, 1));
+  ok(S.ergebnisse.length === 1, 'Vorbedingung: ein Scan ist vollendet, Abklingzeit läuft');
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  const n1 = S.noticesBeim();
+  ok(n1.length === 1 && /^Der Scanner lädt noch \(\d+ s\)\.$/.test(n1[0]), 'Abklingzeit: Meldung "Der Scanner lädt noch (n s)." erreicht den Spieler (war: ' + n1.join('|') + ')');
+  ok(S.letzte() && S.letzte().pid === p.id, 'Meldung geht an den Absender');
+  S.lauf(SC.abklingzeit + 0.5); S.cs[0].inbox.length = 0;
+  p.hold = { kind: 'revive', t: 0, dur: 1 };
+  S.nutze(1);
+  ok(S.noticesBeim().join('|') === 'Du bist gerade beschäftigt.' && !p.scan, 'anderer Hold: Meldung "Du bist gerade beschäftigt." beim Spieler');
+  p.hold = null;
+  S.nutze(1);
+  ok(S.scanLaeuft() && S.noticesBeim().length === 1, 'kein Fehlertext beim erfolgreichen Start (nur die Meldung von vorhin)');
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  ok(S.noticesBeim().join('|') === 'Scan abgebrochen.', 'zweite Betätigung: Meldung "Scan abgebrochen."');
+}
+
+section('(6c) Kein Start bei Lanzenladung oder Ausholen; Gespräch');
+{
+  // echter Weg: Lanze in Slot 1 laden, dann den Scanner in Slot 2 betätigen
+  const S = szene(['lanze', 'scanner']); const { g, p } = S;
+  S.lauf(0.7);
+  ok(combat.shoot(g, p, 0) === null && !!p.ladung, 'Lanze lädt (echter Schusspfad)');
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  ok(S.sauber() && !!p.ladung, 'Scanner startet nicht, solange die Lanze lädt (Auto-Schuss liefe sonst an combat.shoot vorbei)');
+  ok(/Angriff/.test(S.noticesBeim().join('|')), 'Ablehnung mit Meldung: ' + S.noticesBeim().join('|'));
+  S.lauf(3);
+  ok(!p.ladung && S.sauber() && S.ergebnisse.length === 0, 'Lanze hat geendet, kein Scan nebenher');
+  S.nutze(1);
+  ok(S.scanLaeuft(), 'nach dem Ende der Ladung startet der Scan');
+  ok(Loadout.slotNutzen(g, p, 1) === null && S.sauber(), 'Handler: zweite Betätigung bricht ab');
+}
+{
+  const S = szene(MIT); const { p } = S;
+  p.ausholen = { t: 0, dauer: 0.5, winkel: 0 };
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  ok(S.sauber() && /Angriff/.test(S.noticesBeim().join('|')), 'Ausholen: kein Scan, Meldung');
+  p.ausholen = null;
+  p.ladung = { t: 0, bereit: false, x: p.x, y: p.y, tx: p.x, ty: p.y };
+  S.nutze(1);
+  ok(S.sauber(), 'Ladung (direkt gesetzt): kein Scan');
+}
+{
+  const S = szene(MIT); const { g, p } = S;
+  g.gespraech = { id: 'wirt_plausch', nid: 'x', map: g.away.map, pid: p.id, z: 0, phase: 'zeilen', antwort: null, wahl: null, t0: g.time, last: g.time };
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  ok(S.sauber() && /Gespräch/.test(S.noticesBeim().join('|')), 'im eigenen Gespräch: kein Scan, Meldung ' + S.noticesBeim().join('|'));
+  g.gespraech = { id: 'wirt_plausch', nid: 'x', map: g.away.map, pid: 9999, z: 0, phase: 'zeilen', antwort: null, wahl: null, t0: g.time, last: g.time };
+  S.nutze(1);
+  ok(S.scanLaeuft(), 'Gespräch eines anderen Spielers hindert den Scan nicht');
+  g.gespraech = null;
+}
+{
+  // beginnendes Gespräch bricht den Scan ab (echter Weg: gespraech.beginne wie bei E am NSC)
+  const S = szene(MIT); const { g, p } = S;
+  S.nutze(1); S.lauf(1.5, S.halteSignal(p, 1));
+  ok(p.scan && p.scan.halt > 0.1, 'Scan mit Fortschritt');
+  const r = Gespraech.beginne(g, p, { gespraech: 'wirt_plausch', person: 'wirt', x: p.x, y: p.y });
+  ok(r === null && !!g.gespraech, 'Gespräch beginnt');
+  ok(S.sauber(), 'Gespräch beginnt: Scan und Hold weg');
+  S.lauf(SC.dauer + 1);
+  ok(S.ergebnisse.length === 0 && !(p.scanBis > 0), 'kein Ergebnis, keine Abklingzeit');
+  g.gespraech = null;
+}
+
+section('(6d) Töne mit Zone und Ort');
+{
+  const S = szene(MIT); const { p } = S;
+  S.cs[0].inbox.length = 0;
+  S.nutze(1);
+  const a = S.sfx().find((e) => e.name === 'ui_click');
+  ok(a && a.zone === 'away' && a.x === Math.round(p.x) && a.y === Math.round(p.y), 'Start: ui_click mit zone away und Ort des Scannenden');
+  S.lauf(SC.dauer + 1, S.halteSignal(p, 1));
+  const b = S.sfx().find((e) => e.name === 'scan_done');
+  ok(S.ergebnisse.length === 1 && b && b.zone === 'away' && b.x === Math.round(p.x) && b.y === Math.round(p.y), 'Vollendung: scan_done mit zone away und Ort');
+}
+
+section('(2b) Treffer über trefferGemeldet (Explosion, Strahl, Schlag) brechen ab');
+{
+  // waffen.js verteilt diese Treffer selbst und meldet sie über game.waffenWelt.getroffen -> combat.trefferGemeldet -> ankerTreffer
+  const S = szene(MIT); const { g, p } = S;
+  S.nutze(1); S.lauf(2, S.halteSignal(p, 1));
+  ok(p.scan && p.scan.halt > 0.2, 'Scan mit Fortschritt');
+  const welt = g.waffenWelt;
+  ok(welt && typeof welt.getroffen === 'function', 'Vorbedingung: Welt-Adapter vorhanden');
+  welt.getroffen(p, 'treffer', { waffe: 'granatwerfer', flaeche: true }, { team: 'feind', x: p.x + 40, y: p.y });
+  ok(S.sauber(), 'Explosion/Strahl-Treffer auf den Scannenden: Scan und Hold weg');
+  S.lauf(0.5);
+  ok(S.ergebnisse.length === 0 && !(p.scanBis > 0), 'kein Ergebnis, keine Abklingzeit');
+}
+{
+  const S = szene(MIT); const { g, p } = S;
+  S.nutze(1); S.lauf(1.5, S.halteSignal(p, 1));
+  g.waffenWelt.getroffen(p, 'abgelenkt', {}, {});
+  ok(S.scanLaeuft(), 'abgelenkter Treffer (kein Treffer): Scan läuft weiter');
 }
 
 section('(7) Ops-Entschlüsseln unverändert (geteilte Rechnung)');
