@@ -587,6 +587,7 @@ function abgelegtAbkuehlen(game, z, d) {
 function waffeWechseln(game, p, id) {
   if (!def(game, id) || id === 'waechter') return 'unbekannt';
   if (p.waffe === id) return null;
+  if (p.scan) require('./scanner.js').scanUnterbrochen(game, p);   // SCA-01 P2: Waffenwechsel bricht einen Scan ab (lazy: scanner -> loadout -> waffen)
   const t = now(game);
   const S = waffenZustand(p);
   if (p.waffe && def(game, p.waffe)) {

@@ -186,6 +186,10 @@ function scannerTreffer(game, p) {
   try { require('./scanner.js').onTreffer(game, p.id); } catch (e) { if (game.countError) game.countError('scanner-onTreffer', e); }
 }
 
+function scannerAbbruch(game, p) {
+  try { require('./scanner.js').scanUnterbrochen(game, p); } catch (e) { if (game.countError) game.countError('scanner-abbruch', e); }
+}
+
 // Kämpfer-Vertrag (B2 §3.1): Felder für Spieler und Gegner anlegen (idempotent). Gegner: schild = Alias auf seg/max/
 // lastHitAt/regenT, Spieler: schild = p.shield (beide nicht aufzählbar, also nicht im Snapshot/Speicher).
 // Rolle eines Gegners für die B2-Regeln: e.rolle, sonst Altname (Plünderer = grundtyp, Wächter = waechter, E-Entscheidung)
@@ -717,6 +721,7 @@ function shoot(game, p, angle, opts) {
     return null;
   }
   if (!Number.isFinite(angle)) return;
+  if (p.scan) scannerAbbruch(game, p);   // SCA-01 P2: Schießen bricht einen Scan ab
   if (Wf && !p.downed) {   // B2 §3.3 (Pistole der Verwundeten bleibt)
     kaempfer(game, p);
     p.schussInputAt = game.time;

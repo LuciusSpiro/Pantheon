@@ -133,6 +133,7 @@ const sektorenMod = () => optional('sektoren', '../shared/sektoren.js'); // SEKT
 const landepunkteMod = () => optional('landepunkte', './sim/landepunkte.js');   // BUEHNE (B1)
 const ankerMod = () => optional('anker', './sim/anker.js');               // BUEHNE (B1)
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
+const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
@@ -1599,6 +1600,7 @@ class Game {
       case 'verfolgung': err = Verfolgung.debug(this, argList(msg)); break;   // SUND-04a-1 A: verfolgung [frachter|raider|korvette|fregatte|kreuzer] [ohne] – Zielschiff flieht zum Fluchtpunkt
       case 'konvoi': err = require('./sim/konvoi.js').debug(this, argList(msg)); break;   // EK3 Teil B: konvoi [n] [aufhalten|pluendern] [voll|jaeger|korvette|keine]
       case 'sprungpunkt': case 'ladung': case 'prise': err = this.onDebugQa(p, cmd, msg); break;           // QA-Nachzug (OFFEN-STUDIO)
+      case 'scantest': err = Scanbar.debugScantest(this, p); break;   // SCA-01 P2: drei Testziele in Reichweite, eines außerhalb
       case 'welle': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/wellen.js').debugWelle(this, argList(msg)[0] != null ? argList(msg)[0] : msg.n); break;   // Bodenkampf: Wellen
       case 'graben': err = this.phase === 'lobby' ? 'Erst das Spiel starten.' : require('./sim/graben.js').debug(this, argList(msg)[0]); break;   // BOD-01: graben [welle2|reset|status]
       default: err = 'Unbekannter Debug-Befehl.';
@@ -1884,6 +1886,7 @@ class Game {
       this.safe('reaktortod', () => Reaktortod.update(this, dt));   // SYS-01 A2a: Reaktor-Countdown, Rettung, Tod der Lerche
       this.safe('bots', () => bots.update(this, dt));
       this.safe('away', () => away.update(this, dt));
+      this.safe('scanbar', () => Scanbar.update(this));   // SCA-01 P2: verschwundene Ziele fallen aus aw.sc (nur wenn aw.sc nicht leer)
       this.safe('scanner', () => Scanner.update(this, dt));   // SCA-01 P1: Scan am Boden (früher Rücksprung, solange niemand scannt)
       { const au = fnOf(ankerMod(), 'update'); if (au) this.safe('anker', () => au(this, dt)); }   // B1 §6.2: Anker (Download, Ladung, Rätsel)
       if (this.weltsim && this.weltsim.finale && this.weltsim.finale.anfrage) this.safe('finale-verfall', () => Finale.verfall(this));   // K5: der Verfall der Anfrage kommt rechtzeitig, nicht erst im naechsten Sim-Tick
@@ -2375,6 +2378,7 @@ class Game {
         hollow: aw.hollow ? { x: aw.hollow.x, y: aw.hollow.y, marked: aw.hollow.marked, open: aw.hollow.open } : null,
         ...combat.awaySnap(this, aw),
         ...(aw.monster ? { mo: Monster.snap(this), mp: Monster.pulteSnap(this) } : {}),   // SL7c: Monster (x, y, z, f) und Pult-Stand für den Captain (nur auf der Monster-Station)
+        ...Scanbar.snapshot(aw),   // SCA-01 P2: sc [[id, art, typ, sk, x?, y?]] (nur bei nicht leerem aw.sc)
         ...this.awayB1Snap(aw),   // B1 §9: kv, ao, ko, al, cd (gebaute Karten)
       },
       support: { sensor: r1(this.support.sensor), strike: r1(this.support.strike), supply: r1(this.support.supply), recall: r1(this.support.recall), kuppel: r1(this.support.kuppel) },

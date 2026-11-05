@@ -122,6 +122,9 @@
     // SCA-01 P1: Scanner am Boden. Start NUR über slot.nutzen auf den Slot mit dem Item `scanner` (zweite Betätigung während des Scans = Abbruch). cmd { c: 'scan.stimme', dir: -1|0|1 } (gehalten, der Server
     //   bewegt die Frequenz), cmd { c: 'scan.abbruch' } beendet ohne Ergebnis. Abbruch jeder Art (Treffer, Bewegung, Konsole, Wunde, Kartenwechsel, Trennung) = kein Ergebnis, Fortschritt verloren.
     //   Snapshot: players[].action = { kind: 'scan', progress } für alle; players[].sc = { f, s, h, q } (Frequenz, Signal, Fortschritt, laufende Schätzung 0..3) nur beim Scannenden und nur solange der Scan läuft.
+    // SCA-01 P2: Ergebnis eines vollendeten Scans (alle Ziele im Umkreis config.scanner.reichweite, Luftlinie): Snapshot `away.sc` (NICHT players[].sc), nur wenn nicht leer, sichtbar für alle, bis zum Kartenende (nichts im Weltstand):
+    //   away.sc = [[id, art, typ, sk], …] bzw. [id, art, typ, sk, x, y] ab der Positionsstufe der Art (Standard 3; Erz später 1). id String, art/typ kurze Strings ('test'/'testerz'), sk 1..3 (nur steigend),
+    //   x, y ganze px. Texte (Name, Gefahr, Regelhinweis ab tiefen.hinweis, Standard 1) liegen im Client-Content, nicht im Snapshot. Die Position steht vor der Positionsstufe nirgends im Snapshot. Debug: cmd 'scantest' (nur Server --debug).
     CMD_SCAN_STIMME: 'scan.stimme',
     CMD_SCAN_ABBRUCH: 'scan.abbruch',
     WAFFEN: ['blaster', 'sturmgewehr', 'granatwerfer', 'lanze', 'nahkampf', 'betaeuber', 'faust'],
@@ -374,6 +377,7 @@
     // M2: tune { path, value } | { args: 'pfad wert' }, kesh, squad { which: '1'|'2'|'rear' }, wake, shield { n }, wound
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
+      'scantest',   // SCA-01 P2: scantest (drei Testziele am Boden)
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

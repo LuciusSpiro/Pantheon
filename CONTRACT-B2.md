@@ -293,6 +293,7 @@ Funksätze stehen in INHALT §7.4 und kommen über die Gegner-Registry.
 | Snapshot `away.drones[]` | `ro` (Rolle), `fr` (Fraktion), `pa` (Palette), `wf`, `ch`, `wu`, `zs` (wie oben + `aus`), `bt`, `wn` (Wunden), `wm` (max), `gr` (`{ x, y, t }` Zielkreis beim Zielen) |
 | Snapshot `away.projectiles[]` | `kind: 'granate'` mit `tx, ty, t, flug` |
 | Snapshot `away` | `tr: [[trupp, 0/1]]` (Haltung je Trupp, nur bei `?debug=1` oder Captain-Scan) |
+| Snapshot `away.sc` (SCA-01 P2) | Ergebnis vollendeter Scans, nur wenn nicht leer, für alle sichtbar, bis Kartenende (nichts im Weltstand): `[[id, art, typ, sk], …]`, ab der Positionsstufe der Art `[id, art, typ, sk, x, y]` (Standard 3, Erz später 1). `id`/`art`/`typ` kurze Strings, `sk` 1..3 (nur steigend), `x`,`y` ganze px. Texte nur im Client-Content. Nicht zu verwechseln mit `players[].sc` (P1, laufender Scan). Debug `scantest` (nur `--debug`) |
 | Ereignisse (auch FX-Auslöser) | `ueberhitzt { id }`, `ladungLanze { id, x, y, tx, ty }`, `lanzeSchuss { id, x, y, tx, ty, stufe }`, `ausholen { id }`, `schlag { id, x, y, winkel }`, `granate { id, x, y, tx, ty, flug }`, `granateEinschlag { x, y }`, `betaeubt { id }`, `bewusstlos { id }`, `gefesselt { id, durch }`, `befreit { id }`, `aufgerichtet { id }`, `abgelenkt { id }`, `alarm { map, trupp, x, y }`, `gefangen { pids, zelle }`, `rolleNeu { rolle }`, `loadout { pid, waffe }` |
 | Debug | `tune waffen.<waffe>.<wert>`, `waffe <id>` (eigene Waffe), `gegner <rolle> [fraktion]` (an der Mausposition), `alarm on/off`, `fang` (Gefangennahme auslösen) |
 
