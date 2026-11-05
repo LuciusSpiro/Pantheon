@@ -322,6 +322,8 @@
     // Justierbar mit `tune scanner.<wert> <zahl>`.
     scanner: { dauer: 6, rate: 0.3, weitBand: 0.22, driftV: 0.05, zielMin: 0.12, zielMax: 0.88, startF: 0.5,
       qSchwellen: [0.3, 0.55, 0.85], minLauf: 1.5, abklingzeit: 8, reichweite: 384, maxEintraege: 16 },
+    // ITM-01 A Medipack als Slot-Item (server/sim/medipack.js): ladungen = Wiederbelebungen/Verarztungen je Pack (p.medkit zählt die Ladungen). Justierbar mit `tune medipack.ladungen <zahl>`.
+    medipack: { ladungen: 3 },
     // EK2 Raum-Alarm (server/sim/alarm.js). Alles nur wirksam, wenn eine Raumszene den Alarm einschaltet (Baustein raum_alarm_an,
     // spawn_patrouille, minenfeld, schleichfahrt_an) – ohne das bleibt jede Szene wie bisher (Golden m1–m3 unverändert).
     alarm: {

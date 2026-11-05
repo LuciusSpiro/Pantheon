@@ -10,6 +10,7 @@
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Medipack = require('./medipack.js');   // ITM-01 A: Medipack als Slot-Item mit Ladungen (meldet sich als Item `medipack` an)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
@@ -432,12 +433,11 @@ function initShield(game, p) {
 }
 function fullShield(game, p) { initShield(game, p); }
 
-// Spieler betritt eine v2-Karte (Herunterbeamen): voller Schild, ein Medipack aus dem Lager (falls vorhanden)
+// Spieler betritt eine v2-Karte (Herunterbeamen): voller Schild; Medipack-Träger (Slot im Loadout) bekommen Ladungen aus dem Lager (medipack.ausgeben)
 function onArrive(game, p) {
   fullShield(game, p);
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
-  p.medkit = 0;
-  if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
+  Medipack.ausgeben(game, p);
   if (waffen()) {
     kaempfer(game, p); p.zustand = 'ok'; p.wunden.n = p.wunden.max;
     waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen (frischer Stand je Beamen)
@@ -448,9 +448,9 @@ function onArrive(game, p) {
   }
   require('./loadout.js').standSenden(game, p);   // AUS-01 E: das Boden-HUD zeigt die Slots aus diesem Stand (nur an den Spieler, kein Snapshot-Feld)
 }
-// Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt
+// Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack-Ladungen zurück ins Lager (voller Pack bzw. Rest), Wunde heilt
 function onLeave(game, p) {
-  if (p.medkit) { Vorrat.einlagern(game, 'medipack', p.medkit, 'medkit'); p.medkit = 0; }
+  Medipack.zurueckgeben(game, p);
   if (p.wound || p.downed) { p.downed = false; p.downedFor = 0; p.hp = game.C.player.hp; }
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   if (p.shield) fullShield(game, p);
@@ -682,24 +682,29 @@ function shieldProgress(game, p) {
   return Math.min(1, sh.regenT / Math.max(0.01, C.shield.regenStep));
 }
 
-// Medipacks (Nachschub vom Transfer) durch Darüberlaufen aufheben, höchstens 1 tragen (CONTRACT-M2 §4.2)
+// Medipacks (Nachschub vom Transfer) durch Darüberlaufen aufheben (CONTRACT-M2 §4.2; ITM-01 A: füllt die Ladungen eines Medipack-Trägers auf, sonst bleibt der Pack liegen)
 function updateMedkitPickup(game) {
   const aw = game.away;
   for (const p of game.players) {
-    if (p.zone !== 'away' || p.downed || p.medkit) continue;
+    if (p.zone !== 'away' || p.downed) continue;
     const it = aw.items.find((i) => i.kind === 'medipack' && dist(i.x, i.y, p.x, p.y) <= 20);
     if (!it) continue;
+    const nein = Medipack.aufheben(game, p);
+    if (nein) {   // kein Slot / schon voll: der Pack bleibt liegen, der Hinweis nicht jeden Tick
+      if (!(game.time < (p.medipackHinweisBis || 0))) { p.medipackHinweisBis = game.time + 3; game.notice(p, nein); }
+      continue;
+    }
     aw.items.splice(aw.items.indexOf(it), 1);
-    p.medkit = 1;
     game.emit('sfx', { name: 'pickup', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
-    game.notice(p, 'Medipack eingesteckt – damit belebst du schneller wieder (E halten).');
+    game.notice(p, 'Medipack aufgefüllt – damit belebst du schneller wieder (E halten).');
   }
 }
 function pickupMedkit(game, p, item) {
-  if (p.medkit) { game.notice(p, 'Du trägst schon ein Medipack.'); return false; }
   const list = game.away.items; const i = list.indexOf(item);
   if (i < 0) return false;
-  list.splice(i, 1); p.medkit = 1;
+  const nein = Medipack.aufheben(game, p);
+  if (nein) { game.notice(p, nein); return false; }
+  list.splice(i, 1);
   game.emit('sfx', { name: 'pickup', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
@@ -1197,7 +1202,7 @@ function completeRevive(game, p, h) {
   const C = cfg(game); const t = h.target;
   if (!t || !t.downed) return;
   const kit = h.medkit && p.medkit > 0;
-  if (kit) p.medkit = 0;
+  if (kit) Medipack.verbrauchen(p);   // ITM-01 A: eine Ladung
   revive(game, t, kit ? C.wounded.medkitSegments : C.wounded.reviveSegments);
   game.oda(`${t.name} ist wieder auf den Beinen${kit ? ' – dank Medipack mit zwei Segmenten' : ''}. Deckung suchen!`, null);
 }
@@ -1853,7 +1858,7 @@ function playerSnap(game, p) {
     shR: v2 ? r2(shieldProgress(game, p)) : 0,
     cv: v2 ? (p.cv || 0) : 0,
     fl: v2 ? !!p.fl : false,
-    medkit: p.medkit ? 1 : 0,
+    medkit: p.medkit > 0 ? p.medkit : 0,   // ITM-01 A: Ladungen (0 = Standard, fehlt im Snapshot; Client: truthy)
     bleed: v2 && p.downed && p.bleed != null ? r1(p.bleed) : null,
     cr: v2 && !!p.crouch && !p.downed,   // §15
     // FIX-ZIELEN: Blickrichtung zur Maus (ganze Grad); fehlt = Laufrichtung dir (Budget: nur außen und nur beim Zielen)

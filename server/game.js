@@ -135,6 +135,7 @@ const ankerMod = () => optional('anker', './sim/anker.js');               // BUE
 const Loadout = require('./sim/loadout.js');   // AUS-01 A: Loadout-Slots
 const Scanbar = require('./sim/scanbar.js');   // SCA-01 P2: scanbare Objekte und Scan-Wirkung (aw.sc)
 const Scanner = require('./sim/scanner.js');   // SCA-01 P1: Scanner am Boden (meldet sich als Item `scanner` an)
+require('./sim/medipack.js');   // ITM-01 A: Medipack als Slot-Item (meldet sich als Item `medipack` an, vor Loadout.restore)
 const waffenMod = () => optional('waffen', './sim/waffen.js');            // WAFFEN (B2)
 const enternMod = () => optional('entern', './sim/entern.js');            // ENTERN (B1)
 const weltBausteine = () => optional('weltBausteine', './mission/bausteine/welt.js') || { personenNachruecken() {} };
