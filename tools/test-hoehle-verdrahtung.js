@@ -301,7 +301,7 @@ function bauen(seed, gen, extra) {
     ok(D.regelFuer('hoehle', 'hoehle', { hoehle: { props: ['x'] }, '*': { props: ['y'] } }) === null && D.besitzStreuFuerOrt('hoehle', ['a', 'b']).length === 0, 'deko.js: Höhle nimmt weder Altstück-Regeln noch Besitz-Streugut (wie wildnis)');
     ok(D.streuenWildnis({ w: 4, h: 4, seed: 1, art: 'hoehle', boden: 'gras', kindAt: () => 'gelaende', anker: [] }).length === 0, 'deko.js: kein Bodenbewuchs in der Höhle');
     ok(/hoehle: 'HÖHLE'/.test(lies('public/js/consoles.js')) && /hoehle: 'Höhle'/.test(lies('public/js/consoles.js')), 'consoles.js: Anzeigenamen der Kartenart (Transfer-Konsole, Landepunkt-Liste)');
-    ok(/'biom', 'groesse'\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt groesse (?arena=away&art=hoehle&seed=…&groesse=klein)');
+    ok(/'biom', 'groesse'(, 'hoehle')?\]\)\) \{/.test(lies('public/js/client.js')), 'client.js: Rückfall-Feldliste der URL kennt groesse (?arena=away&art=hoehle&seed=…&groesse=klein)');
     // Wellen: der Client baut sein Menü aus WELLEN_KARTEN
     ok(!(Protocol.WELLEN_KARTEN || []).includes('hoehle'), 'Wellen-Menü ohne hoehle');
     // Karten für den Client: Zeichen der Höhle gibt es alle in kacheln.json
