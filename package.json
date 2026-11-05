@@ -350,6 +350,8 @@
     "test:abbau-mutation": "node tools/mutation-abbau.js",
     "test:abbau-neu": "node tools/test-abbau-neu.js",
     "test:abbau-neu-mutation": "node tools/mutation-abbau-neu.js",
+    "test:abbau-regiebuch": "node tools/test-abbau-regiebuch.js",
+    "test:abbau-regiebuch-mutation": "node tools/mutation-abbau-regiebuch.js",
     "mess:fallen-tick": "node tools/mess-fallen-tick.js",
     "test:fallen-ids": "node tools/test-fallen-ids.js",
     "test:fallen-ids-mutation": "node tools/mutation-fallen-ids.js",
