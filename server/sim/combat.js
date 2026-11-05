@@ -10,6 +10,7 @@
 // Captain-Befehle, Kesh-Interaktionen (Störrelais, Archivschlüssel, Tafel), Debug `tune`.
 // Gegner-KI: server/sim/squad.js. Alle Balancing-Werte: CONFIG.awayCombat.
 const Vorrat = require('./vorrat.js');   // TEL-01 G: Verbrauchsgüter nur über den Buchungsdienst
+const Medipack = require('./medipack.js');   // ITM-01 A: Medipack als Slot-Item mit Ladungen (meldet sich als Item `medipack` an)
 const Haken = require('../telemetrie/haken.js');   // TEL-01 B2: Protokoll-Haken (lesen nur)
 const Physics = require('../../shared/physics.js');
 const Los = require('../../shared/los.js');
@@ -193,6 +194,8 @@ function scannerAbbruch(game, p) {
 // Kämpfer-Vertrag (B2 §3.1): Felder für Spieler und Gegner anlegen (idempotent). Gegner: schild = Alias auf seg/max/
 // lastHitAt/regenT, Spieler: schild = p.shield (beide nicht aufzählbar, also nicht im Snapshot/Speicher).
 // Rolle eines Gegners für die B2-Regeln: e.rolle, sonst Altname (Plünderer = grundtyp, Wächter = waechter, E-Entscheidung)
+let kreaturMod = null;
+const kreatur = () => kreaturMod || (kreaturMod = require('./kreatur.js'));   // MON-01 P2a (lazy: kreatur.js lädt combat.js erst bei Gebrauch)
 function rolleVon(e) {
   if (!e) return null;
   if (e.rolle) return e.rolle;
@@ -208,6 +211,7 @@ function kaempfer(game, k) {
   if (!isP && Wf && !k.rolle) { const r = rolleVon(k); if (r && C.gegner && C.gegner[r]) k.rolle = r; }
   const g = !isP && k.rolle && C.gegner && C.gegner[k.rolle] ? C.gegner[k.rolle] : null;
   Object.defineProperty(k, 'kfOk', { value: true, enumerable: false, writable: true, configurable: true });
+  if (k.kreatur) kreatur().ausruesten(game, k);   // MON-01 P2a: Schild/Wunden/Frontbogen/Trefferradius aus dem Typ der Kreatur
   schildAlias(k, isP);
   // Echtes waffen.js: Felder nach Rolle (Schild, Wunden, Waffe, Frontbogen) bzw. Spieler mit gespeicherter Waffenwahl
   if (Wf && typeof Wf.ausstatten === 'function' && (isP || g)) {
@@ -264,7 +268,7 @@ function waffenWelt(game) {
       kaempfer() {
         const out = [];
         for (const p of game.players) if (p.zone === 'away' && !p.lift && !p.downed) out.push(kaempfer(game, p));
-        for (const e of game.away.drones) if (e.alive && !e.asleep) out.push(kaempfer(game, e));
+        for (const e of kreatur().ziele(game.away)) if (e.alive && !e.asleep) out.push(kaempfer(game, e));   // MON-01 P2a: Drohnen, dann Kreaturen
         return out;
       },
       wand(x0, y0, x1, y1) { const E = env(game); return !Los.lineOfSight(E.shotBlocked, x0, y0, x1, y1); },
@@ -313,6 +317,7 @@ function trefferGemeldet(game, k, r, w, q) {
     return;
   }
   squad.onEnemyHit(game, k, { x: q.x, y: q.y, pid: q.team === 'crew' ? q.id || null : null });
+  if (k.kreatur) kreatur().bausteinTreffer(game, k, { x: q.x, y: q.y, pid: q.team === 'crew' ? q.id || null : null, flaeche: !!w.flaeche, ergebnis: r });   // MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer
   if (r === 'abgelenkt') {
     if (aw.stats) aw.stats.deflects++;
     game.emit('wardenDeflect', { id: k.id, x, y });
@@ -334,7 +339,7 @@ function folgenAbgleich(game) {
     else if (!p.downed && (p.zustand === 'bewusstlos' || p.zustand === 'gefesselt')) { ankerTreffer(game, p); bewusstlosPlayer(game, p); }
     else if (p.downed && p.zustand === 'ok' && p.bewusstlos) aufwachenPlayer(game, p);
   }
-  for (const e of game.away.drones) {
+  for (const e of kreatur().ziele(game.away)) {   // MON-01 P2a
     if (!e.zustand) continue;
     if (e.alive && LIEGT[e.zustand]) faellt(game, e);
     else if (!e.alive && e.liegt && e.zustand === 'ok') stehtAuf(game, e);
@@ -366,7 +371,7 @@ function faellt(game, e) {
 function stehtAuf(game, e) {
   e.alive = true; e.liegt = false; e.hp = e.seg; e.path = null; e.goal = null; e.aim = null; e.role = 'pin';
   e.stuckRef = { x: e.x, y: e.y }; e.stuckT = 0;
-  game.missionEvent('enemyUp', { id: e.id, kind: e.kind, rolle: e.rolle || null });
+  if (!e.kreatur) game.missionEvent('enemyUp', { id: e.id, kind: e.kind, rolle: e.rolle || null });   // MON-01 P2a
 }
 // wirkung = { schaden (Segmente, auch 0.5), art: 'direkt'|'flaeche'|'strahl'|'schlag'|'orbital', waffe?, kind? (Projektil),
 //             x?, y? (Ursprung), quelle? }; ohne Angabe: alter Treffer mit segs Segmenten.
@@ -432,12 +437,11 @@ function initShield(game, p) {
 }
 function fullShield(game, p) { initShield(game, p); }
 
-// Spieler betritt eine v2-Karte (Herunterbeamen): voller Schild, ein Medipack aus dem Lager (falls vorhanden)
+// Spieler betritt eine v2-Karte (Herunterbeamen): voller Schild; Medipack-Träger (Slot im Loadout) bekommen Ladungen aus dem Lager (medipack.ausgeben)
 function onArrive(game, p) {
   fullShield(game, p);
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
-  p.medkit = 0;
-  if ((game.inventory.medipack || 0) > 0) { Vorrat.verbrauchen(game, 'medipack', 1, 'medkit'); p.medkit = 1; }
+  Medipack.ausgeben(game, p);
   if (waffen()) {
     kaempfer(game, p); p.zustand = 'ok'; p.wunden.n = p.wunden.max;
     waffen().waffenstandFrisch(p);   // AUS-02 A: Hitze/Sperre/Laden weg, abgelegte Waffen vergessen (frischer Stand je Beamen)
@@ -448,9 +452,9 @@ function onArrive(game, p) {
   }
   require('./loadout.js').standSenden(game, p);   // AUS-01 E: das Boden-HUD zeigt die Slots aus diesem Stand (nur an den Spieler, kein Snapshot-Feld)
 }
-// Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack zurück ins Lager, Wunde heilt
+// Spieler verlässt die v2-Karte (Beamen, Rückholung, Verbindungsabbruch): Medipack-Ladungen zurück ins Lager (voller Pack bzw. Rest), Wunde heilt
 function onLeave(game, p) {
-  if (p.medkit) { Vorrat.einlagern(game, 'medipack', p.medkit, 'medkit'); p.medkit = 0; }
+  Medipack.zurueckgeben(game, p);
   if (p.wound || p.downed) { p.downed = false; p.downedFor = 0; p.hp = game.C.player.hp; }
   p.wound = false; p.bleed = null; p.cv = 0; p.fl = false; p.crouch = false;
   if (p.shield) fullShield(game, p);
@@ -682,24 +686,29 @@ function shieldProgress(game, p) {
   return Math.min(1, sh.regenT / Math.max(0.01, C.shield.regenStep));
 }
 
-// Medipacks (Nachschub vom Transfer) durch Darüberlaufen aufheben, höchstens 1 tragen (CONTRACT-M2 §4.2)
+// Medipacks (Nachschub vom Transfer) durch Darüberlaufen aufheben (CONTRACT-M2 §4.2; ITM-01 A: füllt die Ladungen eines Medipack-Trägers auf, sonst bleibt der Pack liegen)
 function updateMedkitPickup(game) {
   const aw = game.away;
   for (const p of game.players) {
-    if (p.zone !== 'away' || p.downed || p.medkit) continue;
+    if (p.zone !== 'away' || p.downed) continue;
     const it = aw.items.find((i) => i.kind === 'medipack' && dist(i.x, i.y, p.x, p.y) <= 20);
     if (!it) continue;
+    const nein = Medipack.aufheben(game, p);
+    if (nein) {   // kein Slot / schon voll: der Pack bleibt liegen, der Hinweis nicht jeden Tick
+      if (!(game.time < (p.medipackHinweisBis || 0))) { p.medipackHinweisBis = game.time + 3; game.notice(p, nein); }
+      continue;
+    }
     aw.items.splice(aw.items.indexOf(it), 1);
-    p.medkit = 1;
     game.emit('sfx', { name: 'pickup', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
-    game.notice(p, 'Medipack eingesteckt – damit belebst du schneller wieder (E halten).');
+    game.notice(p, 'Medipack aufgefüllt – damit belebst du schneller wieder (E halten).');
   }
 }
 function pickupMedkit(game, p, item) {
-  if (p.medkit) { game.notice(p, 'Du trägst schon ein Medipack.'); return false; }
   const list = game.away.items; const i = list.indexOf(item);
   if (i < 0) return false;
-  list.splice(i, 1); p.medkit = 1;
+  const nein = Medipack.aufheben(game, p);
+  if (nein) { game.notice(p, nein); return false; }
+  list.splice(i, 1);
   game.emit('sfx', { name: 'pickup', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
   return true;
 }
@@ -904,9 +913,9 @@ function updateProjectiles(game, dt) {
       }
       // Treffer
       if (q.team === 'player' || q.team === 'crew') {
-        for (const e of aw.drones) {
+        for (const e of kreatur().ziele(aw)) {   // MON-01 P2a: Kreaturen mit eigenem Trefferradius
           if (!e.alive) continue;
-          const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
+          const r = e.kreatur ? e.hitRadius : (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
             dead = true; if (q.nah) q.nah[e.id] = null; Tel.quelleBoden(game, q.id); hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); Tel.quelleBoden(game, null); break; }   // TEL-01 B1: Schusskennung des Treffers
@@ -938,10 +947,18 @@ function updateProjectiles(game, dt) {
 // B2 §3.3: Hülle um waffen.treffer (wenn aktiv). src: { x, y, pid, strike?, flaeche?, wirkung? }.
 // Rückgabe wie bisher: 'dead'|'asleep'|'deflect'|'shield'|'down' (+ mit Waffen: 'wunde'|'bewusstlos').
 function hitEnemy(game, e, segs, src) {
-  const C = cfg(game); const aw = game.away;
   if (!e.alive) return 'dead';
   const s = src || {};
   squad.onEnemyHit(game, e, s);
+  kreaturTrefferMelden(game, e, s);
+  return hitEnemyWirkung(game, e, segs, s);
+}
+// MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer; ein Orbitalschlag meldet über strikeEnemy einmal für alle Segmente
+function kreaturTrefferMelden(game, e, s) {
+  if (e.kreatur) kreatur().bausteinTreffer(game, e, { x: s.x, y: s.y, pid: s.pid || null, strike: !!s.strike, flaeche: !!s.flaeche });
+}
+function hitEnemyWirkung(game, e, segs, s) {
+  const C = cfg(game); const aw = game.away;
   const Wf = waffen();
   if (Wf) return hitEnemyWaffen(game, e, Wf, segs, s);
   if (e.asleep) {
@@ -999,7 +1016,7 @@ function knockOut(game, e) {
   game.emit('enemyDown', { id: e.id, enemyKind: e.kind, x: Math.round(e.x), y: Math.round(e.y) });
   game.emit('sfx', { name: 'drone_die', zone: 'away', x: Math.round(e.x), y: Math.round(e.y) });
   if (!e.zustand || e.kind === 'drone') game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'away' });   // B2: Körper bleibt liegen
-  game.missionEvent('droneKilled', { kind: e.kind, rolle: e.rolle || null, tag: e.tag || null });
+  if (!e.kreatur) game.missionEvent('droneKilled', { kind: e.kind, rolle: e.rolle || null, tag: e.tag || null });   // MON-01 P2a: Kreaturen sind keine Drohnen
   if (e.kind === 'warden') {
     game.emit('wardenDown', { id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
     game.missionEvent('wardenKilled', {});
@@ -1010,7 +1027,12 @@ function knockOut(game, e) {
 // Orbitalschlag: strikeSegments Treffer, unabhängig von der Wächter-Front (schlafender Wächter bleibt unverwundbar)
 function strikeEnemy(game, e) {
   const n = cfg(game).strikeSegments;
-  for (let i = 0; i < n && e.alive; i++) hitEnemy(game, e, 1, { strike: true });
+  for (let i = 0; i < n && e.alive; i++) {   // Schildschaden je Segment wie bisher, die Treffer-Meldung an die Kreatur nur einmal je Schlag
+    const s = { strike: true };
+    squad.onEnemyHit(game, e, s);
+    if (i === 0) kreaturTrefferMelden(game, e, s);
+    hitEnemyWirkung(game, e, 1, s);
+  }
 }
 
 function updateEnemyShields(game, dt) {
@@ -1043,6 +1065,17 @@ function lanzeKegel(game, p, e) {
   return Math.abs(Physics.normAngle(Math.atan2(e.y - p.y, e.x - p.x) - a)) <= (Number(K.halbwinkel) || 0) * Math.PI / 180;
 }
 
+// Sichtregel für Gegner am Boden (Drohnen und Kreaturen): sieht irgendein Spieler des Teams e (Sichtradius, Lanzenkegel, jeweils mit Sichtlinie)? R = sightTiles in px.
+function gesehenVomTeam(game, E, team, R, e) {
+  for (const p of team) {
+    if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) return true;   // §15: Ducken sperrt beidseitig
+    if (lanzeKegel(game, p, e) && losBetween(E, p, e)) return true;   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
+  }
+  return false;
+}
+// Sichtbarkeit im Snapshot: gesehen, Sensor oder Captain-Fokus (focusUntil)
+const sichtbarFuerTeam = (game, E, team, R, e, sensor) => gesehenVomTeam(game, E, team, R, e) || sensor || game.time < (e.focusUntil || 0);
+
 // ---------- Fog of War, Deckung der Spieler (CONTRACT-M2 §6, §7 cv/fl) ----------
 function updateVisibility(game) {
   const C = cfg(game); const aw = game.away; const E = env(game);
@@ -1051,11 +1084,7 @@ function updateVisibility(game) {
   const sensor = game.time < aw.sensorUntil;
   for (const e of aw.drones) {
     if (!e.alive) { e.vis = false; e.ghost = null; continue; }
-    let seen = false;
-    for (const p of team) {
-      if (dist(p.x, p.y, e.x, e.y) <= sichtRadius(game, E, p, R) && losBetween(E, p, e)) { seen = true; break; }   // §15: Ducken sperrt beidseitig
-      if (lanzeKegel(game, p, e) && losBetween(E, p, e)) { seen = true; break; }   // BOD-02 P2: Weitsicht beim Zielen mit der Lanze
-    }
+    const seen = gesehenVomTeam(game, E, team, R, e);
     if (seen) { e.seenAt = game.time; e.seenX = e.x; e.seenY = e.y; rolleGesehen(game, e); }
     e.vis = seen || sensor || game.time < (e.focusUntil || 0);
     e.ghost = !e.vis && e.seenAt > -50 && game.time - e.seenAt < C.ghostTime ? { x: r1(e.seenX), y: r1(e.seenY), t: r2(e.seenAt) } : null;
@@ -1197,7 +1226,7 @@ function completeRevive(game, p, h) {
   const C = cfg(game); const t = h.target;
   if (!t || !t.downed) return;
   const kit = h.medkit && p.medkit > 0;
-  if (kit) p.medkit = 0;
+  if (kit) Medipack.verbrauchen(p);   // ITM-01 A: eine Ladung
   revive(game, t, kit ? C.wounded.medkitSegments : C.wounded.reviveSegments);
   game.oda(`${t.name} ist wieder auf den Beinen${kit ? ' – dank Medipack mit zwei Segmenten' : ''}. Deckung suchen!`, null);
 }
@@ -1776,7 +1805,7 @@ function update(game, dt) {
     game.safe('combat-waffen', () => {
       waffenWelt(game);
       for (const p of game.players) if (p.zone === 'away') Wf.update(game, kaempfer(game, p), dt);
-      for (const e of aw.drones) if (e.alive || (e.liegt && e.zustand !== 'aus' && e.zustand !== 'gefesselt')) Wf.update(game, kaempfer(game, e), dt);
+      for (const e of kreatur().ziele(aw)) if (e.alive || (e.liegt && e.zustand !== 'aus' && e.zustand !== 'gefesselt')) Wf.update(game, kaempfer(game, e), dt);
       folgenAbgleich(game);
       lanzeLoslassen(game);
     });
@@ -1787,6 +1816,7 @@ function update(game, dt) {
   game.safe('combat-medkit', () => updateMedkitPickup(game));
   game.safe('combat-ai', () => squad.update(game, dt));
   game.safe('combat-monster', () => require('./monster.js').update(game, dt));   // SL7c: das Monster der Station Helix (ohne meta.monster sofort zurück)
+  game.safe('combat-kreaturen', () => require('./kreatur.js').update(game, dt));   // MON-01 P1: Kreaturen (aw.kreaturen; ohne Kreaturen sofort zurück)
   game.safe('combat-enemyShields', () => updateEnemyShields(game, dt));
   game.safe('combat-projectiles', () => updateProjectiles(game, dt));
   game.safe('combat-keys', () => updateKeys(game));
@@ -1853,7 +1883,7 @@ function playerSnap(game, p) {
     shR: v2 ? r2(shieldProgress(game, p)) : 0,
     cv: v2 ? (p.cv || 0) : 0,
     fl: v2 ? !!p.fl : false,
-    medkit: p.medkit ? 1 : 0,
+    medkit: p.medkit > 0 ? p.medkit : 0,   // ITM-01 A: Ladungen (0 = Standard, fehlt im Snapshot; Client: truthy)
     bleed: v2 && p.downed && p.bleed != null ? r1(p.bleed) : null,
     cr: v2 && !!p.crouch && !p.downed,   // §15
     // FIX-ZIELEN: Blickrichtung zur Maus (ganze Grad); fehlt = Laufrichtung dir (Budget: nur außen und nur beim Zielen)
@@ -1901,7 +1931,7 @@ module.exports = {
   makeKesh, rolleGesehen, isV2, isV2Away, playerOnV2, onArrive, onLeave, hitPlayer, woundPlayer, revive, updateWounded, krankenstationHolt, squadRecall,
   shoot, fireEnemy, hitEnemy, strikeEnemy, knockOut, order, interactionsAt, holdDuration, holdValid, completeHold, completeRevive,
   jammerOff, keyTurned, openVault, takeTablet, spawnSquad, wakeWarden, update, updateVisibility, verdecktVor, scanQuality, tune, tuneList,
-  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf,
+  playerSnap, droneSnap, awaySnap, pickupMedkit, fullShield, env, teamOf, sichtRadius, sichtbarFuerTeam,
   losBetween, setCrouch, checkCrouch, canCrouch, speedFactor, crouchCfg,
   // B1/B2 (BODENKAMPF Welle 1): kartenneutral, Waffen-Schnittstelle
   ensureV2, ruesteV2, coverSpots, spawnProjectile, flaeche, strahl, kaempfer, wirkungVon, waffenAktiv, _setzeModul,

@@ -338,9 +338,10 @@
     a.vault = { open: scene === 'halle' && params.get('vault') === '1' };
     a.orders = [];
     a.scanQuality = a.jammers.every(j => j.off) ? 1 : acNum('scanQualityJammed', 0.35);
+    const PACK = Math.max(1, Math.floor((CFG.medipack && CFG.medipack.ladungen) || 3));   // ITM-01 B: medkit = Ladungen (Doppel der Server-Regel, medipack.js)
     const team = meDown ? [W.players[0], W.players[1]] : [W.players[1], W.players[2]];
     for (const q of W.players) { q.sh = null; q.downed = false; q.bleed = null; q.medkit = 0; q.cv = 0; q.fl = false; q.shR = 0; }
-    for (const q of team) { if (!q) continue; q.zone = 'away'; q.console = null; q.sh = [3, 3]; q.medkit = 1; q.dir = 'up'; }
+    for (const q of team) { if (!q) continue; q.zone = 'away'; q.console = null; q.sh = [3, 3]; q.medkit = PACK; q.dir = 'up'; }
     const L = map.find('L')[0];
     if (scene === 'halle') {
       Object.assign(team[0], tc(45, 10)); team[0].sh = [2, 3]; team[0].shR = 0.5; team[0].dir = 'left';
@@ -358,7 +359,7 @@
       if (team[1]) { Object.assign(team[1], tc(16, 12)); team[1].downed = true; team[1].bleed = 31; team[1].sh = [0, 3]; team[1].medkit = 0; }
       if (scene === 'down') {
         team[0].downed = true; team[0].bleed = 27; team[0].sh = [0, 3];
-        if (team[1]) { team[1].downed = false; team[1].bleed = null; team[1].sh = [1, 3]; team[1].medkit = 1; Object.assign(team[1], tc(16, 12)); }
+        if (team[1]) { team[1].downed = false; team[1].bleed = null; team[1].sh = [1, 3]; team[1].medkit = PACK; Object.assign(team[1], tc(16, 12)); }
       }
       a.drones = [
         mkEnemy('s1', 'scavenger', 23, 6, { role: 'pin', _forceAim: team[0].id }),
@@ -538,7 +539,7 @@
     for (const [dx, dy] of [[d[0], d[1]], [0, 0], [0, -1], [1, 0], [0, 1], [-1, 0]]) {
       const tx = t.x + dx, ty = t.y + dy, ch = map.at(tx, ty);
       const down = W.players.find(q => q !== p && q.downed && q.zone === 'away' && Math.floor(q.x / TILE) === tx && Math.floor(q.y / TILE) === ty);
-      if (down) { p.action = { kind: 'revive', progress: 0, dur: p.medkit ? acNum('wounded.medkitReviveTime', 1.5) : acNum('wounded.reviveTime', 4), who: down }; return true; }
+      if (down) { p.action = { kind: 'revive', progress: 0, kit: p.medkit > 0, dur: p.medkit > 0 ? acNum('wounded.medkitReviveTime', 1.5) : acNum('wounded.reviveTime', 4), who: down }; return true; }
       if (ch === 'r') { const j = a.jammers.find(q => q.x === tx && q.y === ty); if (j && !j.off) { p.action = { kind: 'jammer', progress: 0, dur: acNum('jammerTime', 2.5), j }; return true; } }
       if (ch === 'k' && !a.vault.open) { const k = a.keys.find(q => q.x === tx && q.y === ty); if (k) { p.action = { kind: 'archkey', progress: 0, dur: acNum('archkeyTime', 3), key: k }; return true; } }
       if (ch === 'T' && !a.tablet.taken) { p.action = { kind: 'tablet', progress: 0, dur: acNum('tabletTime', 3) }; return true; }
@@ -550,8 +551,9 @@
     const a = W.away;
     if (act.kind === 'revive') {
       const q = act.who; q.downed = false; q.bleed = null;
-      q.sh = [p.medkit ? acNum('wounded.medkitSegments', 2) : acNum('wounded.reviveSegments', 1), q.sh ? q.sh[1] : 3];
-      if (p.medkit) p.medkit = 0;
+      const kit = act.kit && p.medkit > 0;   // ITM-01 B: wie der Server: Kit zählt, wenn beim Start eine Ladung da war und noch da ist
+      q.sh = [kit ? acNum('wounded.medkitSegments', 2) : acNum('wounded.reviveSegments', 1), q.sh ? q.sh[1] : 3];
+      if (kit) p.medkit -= 1;   // eine Ladung (medipack.verbrauchen)
       ev('revived', { pid: q.id }); ev('sfx', { name: 'revive_done', zone: 'away', x: q.x, y: q.y });
       return true;
     }

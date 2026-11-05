@@ -71,7 +71,7 @@ section('Slot setzen: Prüfungen');
   ok(Loadout.slotSetzen(g, p, 0, 'lanze') === null && Loadout.loadoutFuer(g, p)[0] === 'lanze', 'Slot 1 auf Lanze');
   ok(Loadout.slotSetzen(g, p, 1, 'blaster') === null && Loadout.loadoutFuer(g, p)[1] === 'blaster', 'Slot 2 auf Blaster');
   ok(/Unbekannte Waffe/.test(Loadout.slotSetzen(g, p, 2, 'laserschwert')) && Loadout.loadoutFuer(g, p)[2] === null, 'ungültige Id abgelehnt');
-  ok(/Unbekannte Waffe/.test(Loadout.slotSetzen(g, p, 2, 'faust')) && /Unbekannte Waffe/.test(Loadout.slotSetzen(g, p, 2, 'medipack')), 'Faust und Items nicht wählbar (noch keine Item-Ids)');
+  ok(/Unbekannte Waffe/.test(Loadout.slotSetzen(g, p, 2, 'faust')) && /Unbekannte Waffe/.test(Loadout.slotSetzen(g, p, 2, 'datenkern')), 'Faust und unbekannte Items nicht wählbar');
   ok([3, -1, 1.5, '1', null].every((s) => /Slot/.test(Loadout.slotSetzen(g, p, s, 'lanze'))), 'Slot außerhalb/kein Integer abgelehnt');
   ok(/anderen Slot/.test(Loadout.slotSetzen(g, p, 2, 'lanze')) && Loadout.loadoutFuer(g, p)[2] === null, 'doppelte Waffe abgelehnt');
   ok(Loadout.slotSetzen(g, p, 0, 'lanze') === null, 'dieselbe Waffe in demselben Slot ist kein Doppel');
@@ -124,12 +124,12 @@ section('Wirksam nur die ersten N, gespeichert wird alles');
   Loadout.slotSetzen(g, p, 0, null);   // Standardloadout (Blaster in Slot 1) bewusst leeren
   Loadout.slotSetzen(g, p, 2, 'nahkampf');
   g.slotzahl = 2;
-  ok(Loadout.wirksam(g, p).length === 2 && JSON.stringify(Loadout.loadoutFuer(g, p)) === '[null,null,"nahkampf"]', 'bei 2 Slots wirksam 2, Slot 3 bleibt gespeichert');
+  ok(Loadout.wirksam(g, p).length === 2 && JSON.stringify(Loadout.loadoutFuer(g, p)) === '[null,"medipack","nahkampf"]', 'bei 2 Slots wirksam 2, Slot 3 bleibt gespeichert');
   ok(Waffen.waffeFuer(g, p) === 'faust', 'Waffe in Slot 3 zählt bei 2 Slots nicht');
   g.slotzahl = 3;
   ok(Waffen.waffeFuer(g, p) === 'nahkampf', 'bei 3 Slots wieder wirksam');
   g.slotzahl = 2;
-  ok(JSON.stringify(Loadout.toSave(g)[Waffen.hashKennung('browser-d')]) === '[null,null,"nahkampf"]', 'toSave schneidet nicht ab');
+  ok(JSON.stringify(Loadout.toSave(g)[Waffen.hashKennung('browser-d')]) === '[null,"medipack","nahkampf"]', 'toSave schneidet nicht ab');
 }
 
 section('Speichern/Laden und Migration (Modul)');
@@ -140,7 +140,7 @@ section('Speichern/Laden und Migration (Modul)');
   const wsave = Waffen.toSave(g), lsave = Loadout.toSave(g);
   const g2 = welt(); g2.slotzahl = 3;
   Waffen.restore(wsave, g2); Loadout.restore(lsave, g2);
-  ok(JSON.stringify(Loadout.loadoutFuer(g2, p)) === '["sturmgewehr",null,"betaeuber"]' && Waffen.waffeFuer(g2, p) === 'sturmgewehr', 'toSave -> restore: gleiche Slots, gleiche aktive Waffe');
+  ok(JSON.stringify(Loadout.loadoutFuer(g2, p)) === '["sturmgewehr","medipack","betaeuber"]' && Waffen.waffeFuer(g2, p) === 'sturmgewehr', 'toSave -> restore: gleiche Slots, gleiche aktive Waffe');
   const g3 = welt(); g3.slotzahl = 3;
   Waffen.restore({ [h]: 'lanze' }, g3); Loadout.restore({}, g3);
   ok(JSON.stringify(Loadout.loadoutFuer(g3, p)) === '["lanze",null,null]' && Waffen.waffeFuer(g3, p) === 'lanze', 'Altstand: crew.waffen = Slot 1');
@@ -152,7 +152,7 @@ section('Speichern/Laden und Migration (Modul)');
   ok(JSON.stringify(g5.crewLoadout) === '{"0123456789ab":[null,"lanze",null]}', 'restore: ungültige Schlüssel/Ids/Doppel/Überlänge verworfen');
   const g6 = welt(); Waffen.restore({ [h]: 'betaeuber' }, g6);
   ok(Waffen.waffeFuer(g6, p) === 'betaeuber', 'nur crewWaffen gesetzt: Fallback auf Slot 1');
-  ok(Loadout.istErlaubt('lanze') && !Loadout.istErlaubt('faust') && !Loadout.istErlaubt(null) && Loadout.erlaubteIds().length === Protocol.WAFFEN_WAHL.length + 1 && Loadout.erlaubteIds().includes('scanner'), 'erlaubte Ids an einer Stelle = WAFFEN_WAHL + Item scanner (SCA-01)');
+  ok(Loadout.istErlaubt('lanze') && !Loadout.istErlaubt('faust') && !Loadout.istErlaubt(null) && Loadout.erlaubteIds().length === Protocol.WAFFEN_WAHL.length + 2 && Loadout.erlaubteIds().includes('scanner') && Loadout.erlaubteIds().includes('medipack'), 'erlaubte Ids an einer Stelle = WAFFEN_WAHL + Items scanner (SCA-01) und medipack (ITM-01)');
 }
 
 section('Befehl loadout.slot (Game)');
@@ -216,7 +216,7 @@ section('Weltstand: capture/restore, Migration, Schema');
   t.send(0, { t: 'cmd', c: 'ausruestung.slot', slot: 0, id: 'sturmgewehr' });
   t.send(0, { t: 'cmd', c: 'ausruestung.slot', slot: 2, id: 'betaeuber' });
   const cap = Weltstand.capture(t.g);
-  ok(cap.version === 3 && JSON.stringify(cap.crew.loadout[h]) === '["sturmgewehr",null,"betaeuber"]' && cap.crew.waffen[h] === 'sturmgewehr', 'capture: Version bleibt 3, crew.loadout und Spiegel crew.waffen');
+  ok(cap.version === 3 && JSON.stringify(cap.crew.loadout[h]) === '["sturmgewehr","medipack","betaeuber"]' && cap.crew.waffen[h] === 'sturmgewehr', 'capture: Version bleibt 3, crew.loadout und Spiegel crew.waffen');
   const fehler = Weltstand.validate(cap);
   ok(fehler.length === 0, 'capture schemagültig' + fehler.slice(0, 2).map((x) => ' – ' + x).join(''));
   ok(!JSON.stringify(cap).includes('slotzahl'), 'Slotzahl nicht im Weltstand');
@@ -226,7 +226,7 @@ section('Weltstand: capture/restore, Migration, Schema');
   const t2 = setup(2, { world: id }, dir);
   t2.ready(); t2.run(0.2);
   const q = t2.g.players[0];
-  ok(JSON.stringify(Loadout.loadoutFuer(t2.g, q)) === '["sturmgewehr",null,"betaeuber"]' && Waffen.waffeFuer(t2.g, q) === 'sturmgewehr', 'Fortsetzen: Loadout wiederhergestellt');
+  ok(JSON.stringify(Loadout.loadoutFuer(t2.g, q)) === '["sturmgewehr","medipack","betaeuber"]' && Waffen.waffeFuer(t2.g, q) === 'sturmgewehr', 'Fortsetzen: Loadout wiederhergestellt');
   ok(t2.g.slotzahl === 3, 'Fortsetzen: Slotzahl in startGame festgesetzt');
   t2.send(0, { t: 'menu', op: 'end' });
 
@@ -258,20 +258,20 @@ section('Weltstand: capture/restore, Migration, Schema');
   t.send(0, { t: 'menu', op: 'end' });
 }
 
-section('Standardloadout: Spieler ohne gespeichertes Loadout trägt den Blaster in Slot 1 (AUS-01 Nacharbeit)');
+section('Standardloadout: Spieler ohne gespeichertes Loadout trägt Blaster in Slot 1 und Medipack in Slot 2 (AUS-01 Nacharbeit, ITM-01)');
 {
   const g = welt(); g.slotzahl = 3;
   const p = spieler('P1', 'browser-neu');
-  ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster",null,null]' && JSON.stringify(Loadout.wirksam(g, p)) === '["blaster",null,null]', 'loadoutFuer/wirksam ohne Eintrag: [blaster, null, null]');
+  ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster","medipack",null]' && JSON.stringify(Loadout.wirksam(g, p)) === '["blaster","medipack",null]', 'loadoutFuer/wirksam ohne Eintrag: [blaster, medipack, leer]');
   ok(Loadout.aktiveWaffe(g, p) === 'blaster', 'aktive Waffe passt zum angezeigten Stand: Blaster');
   g.slotzahl = 2;
-  ok(JSON.stringify(Loadout.wirksam(g, p)) === '["blaster",null]', 'bei 2 Slots: [blaster, null]');
+  ok(JSON.stringify(Loadout.wirksam(g, p)) === '["blaster","medipack"]', 'bei 2 Slots: [blaster, medipack]');
   ok(Object.keys(g.crewLoadout || {}).length === 0, 'Lesen legt keinen Eintrag an');
   Loadout.slotSetzen(g, p, 1, 'lanze');
   ok(JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster","lanze",null]' && Loadout.aktiveWaffe(g, p) === 'blaster', 'Slot 2 füllen behält den Blaster in Slot 1 (Standard wird zur Basis)');
   const q = spieler('P2', 'browser-leer');
   Loadout.slotSetzen(g, q, 0, null);
-  ok(JSON.stringify(Loadout.loadoutFuer(g, q)) === '[null,null,null]' && Loadout.aktiveWaffe(g, q) === 'faust' && q.waffe === 'faust', 'Slot 1 leeren (Standard -> leer): Fäuste');
+  ok(JSON.stringify(Loadout.loadoutFuer(g, q)) === '[null,"medipack",null]' && Loadout.aktiveWaffe(g, q) === 'faust' && q.waffe === 'faust', 'Slot 1 leeren (Standard -> leer): Fäuste');
 }
 {
   const dir = freshDir();
@@ -282,13 +282,13 @@ section('Standardloadout: Spieler ohne gespeichertes Loadout trägt den Blaster 
   p.console = 'ausruestung';
   t.send(0, { t: 'cmd', c: 'ausruestung.stand' });
   const e = staende().pop();
-  ok(e && JSON.stringify(e.slots) === '["blaster",null,null]', 'neuer Spieler öffnet die Station: Stand [blaster, null, null]');
+  ok(e && JSON.stringify(e.slots) === '["blaster","medipack",null]', 'neuer Spieler öffnet die Station: Stand [blaster, medipack, leer]');
   const cap = Weltstand.capture(t.g);
   ok(!(cap.crew.loadout && h in cap.crew.loadout) && !(h in (cap.crew.waffen || {})), 'ausruestung.stand allein erzeugt keinen Weltstand-Eintrag');
   t.send(0, { t: 'cmd', c: 'ausruestung.slot', slot: 0, id: null });
-  ok(JSON.stringify(staende().pop().slots) === '[null,null,null]' && p.waffe === 'faust', 'Leeren von Slot 1: Stand leer, Waffe Fäuste');
+  ok(JSON.stringify(staende().pop().slots) === '[null,"medipack",null]' && p.waffe === 'faust', 'Leeren von Slot 1: nur die Waffe weg, Waffe Fäuste');
   const cap2 = Weltstand.capture(t.g);
-  ok(JSON.stringify(cap2.crew.loadout[h]) === '[null,null,null]' && Weltstand.validate(cap2).length === 0, 'erst die Änderung erzeugt den Eintrag (bewusst leer), schemagültig');
+  ok(JSON.stringify(cap2.crew.loadout[h]) === '[null,"medipack",null]' && Weltstand.validate(cap2).length === 0, 'erst die Änderung erzeugt den Eintrag (bewusst leer), schemagültig');
   t.send(0, { t: 'menu', op: 'end' });
 }
 
@@ -297,7 +297,7 @@ section('restore: ungültige Ids (entfernte Waffe) (AUS-01 Nacharbeit)');
   const p = spieler('P1', 'browser-r'); const h = Waffen.hashKennung('browser-r');
   const mit = (e) => { const g = welt(); g.slotzahl = 3; Loadout.restore({ [h]: e }, g); return g; };
   let g = mit(['plasmakanone', null, null]);
-  ok(!(h in g.crewLoadout) && JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster",null,null]' && Loadout.aktiveWaffe(g, p) === 'blaster', 'nur ungültige Id: Eintrag verworfen, Standard (Blaster)');
+  ok(!(h in g.crewLoadout) && JSON.stringify(Loadout.loadoutFuer(g, p)) === '["blaster","medipack",null]' && Loadout.aktiveWaffe(g, p) === 'blaster', 'nur ungültige Id: Eintrag verworfen, Standard (Blaster)');
   g = mit([null, null, null]);
   ok(JSON.stringify(g.crewLoadout[h]) === '[null,null,null]' && Loadout.aktiveWaffe(g, p) === 'faust', 'bewusst leeres Loadout bleibt leer: Fäuste');
   g = mit(['plasmakanone', 'lanze', null]);
@@ -388,7 +388,7 @@ section('Übernahme eines freien Platzes am Boden (AUS-01 Nacharbeit)');
   t.g.handleMessage(c, { t: 'hello', clientId: 'Neuling', name: 'Neu', color: 2 });
   ok(t.g.players.length === 4 && vor.clientId === 'Neuling' && vor.zone === 'away', 'Neuer übernimmt den freien Platz am Boden');
   const st = c.inbox.filter((m) => m.kind === 'ausruestungStand');
-  ok(st.length === 1 && st[0].pid === vor.id && JSON.stringify(st[0].slots) === '["blaster",null]', 'Stand des Neuen gesendet (4 Spieler = 2 Slots, Standardloadout)');
+  ok(st.length === 1 && st[0].pid === vor.id && JSON.stringify(st[0].slots) === '["blaster","medipack"]', 'Stand des Neuen gesendet (4 Spieler = 2 Slots, Standardloadout)');
   ok(vor.waffe === 'blaster' && Waffen.waffeFuer(t.g, vor) === 'blaster', 'Waffe = Loadout des Neuen (nicht die Lanze des Vorbesitzers)');
 }
 

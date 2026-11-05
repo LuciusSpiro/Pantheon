@@ -105,7 +105,8 @@
   function isSolidFor(zone, st) {
     if (zone === 'ship' && Maps.shipSolidFn) return Maps.shipSolidFn((st && st.ship && st.ship.st) || 0);   // PAN-01 B: verschalte Pforten öffnen mit der Ausbaustufe
     const map = R.mapFor(zone, st);
-    if (zone === 'away' && (map.id === 'kesh' || R.isBuehne(map))) return R.solidFn(map, st);   // B1: Türen nach Zustand   // M2: Tor offen = begehbar, low-Kacheln solid
+    if (zone === 'away' && R.isBuehne(map)) return R.buehneBewegungSolid(map, st);   // B1: Türen nach Zustand; ITM-01 E: dazu die Kollisionsbox der Selbstschussanlage (wie der Server, interior.awaySolid)
+    if (zone === 'away' && map.id === 'kesh') return R.solidFn(map, st);   // M2: Tor offen = begehbar, low-Kacheln solid
     const away = (st && st.away) || {};
     const open = !!(away.doorOpen || (away.kustodenpult && away.kustodenpult.disabled));
     const wreck = map.id === 'wreck';
@@ -1044,10 +1045,26 @@
       // ---- B1 Bühnen
       case 'awayMap': R.registerAwayMap(ev); return true;
       case 'ankerZustand': {
-        const msg = ANKER_MELDUNG[(ev.rolle || ankerRolle(ev.map, ev.anker)) + ':' + ev.zustand];
-        if (msg) H.pushNotice(msg, PAL.mint, 3);
+        const rolle = ev.rolle || ankerRolle(ev.map, ev.anker);
+        const msg = ANKER_MELDUNG[rolle + ':' + ev.zustand];
+        if (msg) H.pushNotice(msg, rolle === 'falle' && ev.zustand === 'erkannt' ? PAL.warn : PAL.mint, 3);
+        if (rolle === 'falle') {   // ITM-01 E: Auslösen = Ring an der Falle (R.fallenEreignis), Entschärfen = Bestätigungston; die Wirkungstexte schickt der Server als notice
+          const p = ankerPos(ev.map, ev.anker);
+          if (ev.zustand === 'ausgeloest' && p) R.fallenEreignis({ kind: 'falleAusgeloest', map: ev.map, x: p.x, y: p.y });
+          if (ev.zustand === 'entschaerft') audio.play('code_ok', { volume: 0.7 });
+        }
         return true;
       }
+      // ---- ITM-01 E Fallen: verborgene Falle wird sichtbar (Ankerliste), Wirkungen (Feld, Schott, Schuss)
+      case 'ankerEnthuellt': R.ankerEnthuellt(ev); return true;
+      case 'falleFeld': case 'falleSchott': R.fallenEreignis(ev); return true;   // Zeitanzeige und Feld im Renderer; der Hinweistext kommt als notice des Servers
+      case 'selbstschuss':
+        R.fallenEreignis(ev);
+        audio.play('drone_shot', { volume: 0.8, pan: audio.panFor(ev.x, 'away') });
+        return true;
+      case 'falleWirkungslos':   // nur Debug/Prüfer: den Spielern sagt der Server nichts (Hinweis dort mit --debug)
+        if (DEBUG) H.pushNotice('Falle ' + ev.anker + ' (' + ev.typ + '): ohne Wirkung (' + ev.grund + ')', PAL.warn, 4);
+        return true;
       case 'downloadAbbruch': H.pushNotice('Download unterbrochen – Treffer! Fortschritt bleibt.', PAL.red, 3); audio.play('error'); return true;
       case 'ladungScharf': H.pushNotice('LADUNG SCHARF – ' + Math.ceil(+ev.t || 0) + ' s, weg da!', PAL.red, 4); return true;
       case 'ladungExplodiert': {
@@ -1176,6 +1193,7 @@
     'fund:genommen': 'Fund geborgen', 'zelle:offen': 'Zelle geöffnet', 'raetsel:geloest': 'Schloss gelöst', 'tor:offen': 'Durchgang offen',
     'tor:gesprengt': 'Durchgang gesprengt', 'versteck:offen': 'Versteck geöffnet', 'ziel:genommen': 'Ziel genommen', 'ziel:aktiviert': 'Ziel aktiviert',
     'eingang:offen': 'Eingang offen', 'sprengpunkt:zerstoert': 'Sprengpunkt zerstört', 'sprengpunkt:platziert': 'Sprengstoff platziert', 'flagge:gehisst': 'Feldzeichen gehisst – Gegner von allen Seiten!',
+    'falle:erkannt': 'Falle erkannt', 'falle:entschaerft': 'Falle entschärft',   // ITM-01 E: ausgelöst sagt der Server selbst (Wirkungstext je Typ)
   };
   function playerName(id) { const p = ((Client.state && Client.state.players) || []).find(q => q.id === id); return p ? p.name : null; }
   function ankerRolle(mapId, id) { const m = Maps[mapId]; const a = m && m.anker && m.anker.find(q => q[0] === id); return a ? a[1] : ''; }
@@ -1611,6 +1629,9 @@
           if (z === 'frei' && st.away && Array.isArray(st.away.sp) && st.away.sp.includes(i)) return { label: 'Versiegelt', ok: false, versiegelt: true };   // SUND-04a-3: Schrein gesperrt (anker.js ankerSperre, Snapshot away.sp)
           return z === 'frei' ? { label: 'E halten (' + sec('ziel') + ')', ok: true } : { label: 'Erledigt', ok: false };
         case 'fund': return z === 'da' ? { label: 'E halten: Fund bergen (' + sec('fund') + ')', ok: true } : { label: 'Sockel leer', ok: false };
+        case 'falle':   // ITM-01 E: nur aus erkannt (wie server anker.js interactionsAt); verborgen, entschärft, ausgelöst bieten nichts an
+          if (z === 'erkannt') return { label: 'E halten: Entschärfen (' + sec('falle') + ')', ok: true };
+          break;
         case 'raetsel':
           if (z === 'geloest') return { label: 'Gelöst', ok: false };
           {   // F4: solo nacheinander mit Laufweg-Fenster, in der Gruppe beide gleichzeitig (Regel und Zählung: shared/buehne.js)
@@ -2302,6 +2323,8 @@
     v.drones = lerpList(aa.drones, ba.drones, f);
     // SL7c: das Monster der Station Helix (away.mo) läuft als Pseudo-Gegner mit (nicht verwundbar, immer sichtbar: es ist laut); Zeichnung in render.js
     if (aa.mo) { const bm = (ba && ba.mo) || aa.mo; v.drones = (v.drones || []).concat([{ id: 'M1', kind: 'monster', alive: true, vis: true, x: lerp(aa.mo.x, bm.x, f), y: lerp(aa.mo.y, bm.y, f), mo: aa.mo }]); }
+    // MON-01 P4: Kreaturen (away.kr [[nr, typCode, x, y, f, bits]], nur sichtbare, lebende) laufen wie das Station-Monster als Pseudo-Gegner mit; Zeichnung in render.js (Platzhalter)
+    if (aa.kr) { const bk = {}; for (const r of (ba && ba.kr) || []) bk[r[0]] = r; v.drones = (v.drones || []).concat(aa.kr.map(r => { const b = bk[r[0]] || r; return { id: 'K' + r[0], kind: 'kreatur', alive: true, vis: true, x: lerp(r[2], b[2], f), y: lerp(r[3], b[3], f), facing: lerpAngle(r[4], b[4], f), kr: { t: r[1], b: r[5] } }; })); }
     v.awayProjectiles = lerpList(aa.projectiles, ba.projectiles, f);
     // W2 AP6: Personen (bis 3 gleichzeitig) interpoliert über die id; nur die auf der Karte (gerettete: HUD-Liste aus st)
     v.npcs = lerpList(aa.npcs, ba.npcs, f).filter(n => !n.rescued);

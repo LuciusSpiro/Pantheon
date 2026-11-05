@@ -14,6 +14,6 @@ function ohneStandard(obj, standards) {
 // Standardwerte der Gegner (away.drones[], nur Kampf v2 / droneSnap). alive: nur false wird gesendet (liegt/aus).
 const GEGNER = Object.freeze({ asleep: false, cr: false, ghost: null, aim: null, alive: true });
 // Standardwerte der Spieler (players[], combat.playerSnap). zs fehlt = 'ok' gilt nur, wenn die B2-Felder (ht) da sind.
-const SPIELER = Object.freeze({ bleed: null, cr: false, zs: 'ok', ov: 0, bt: 0, fl: false });
+const SPIELER = Object.freeze({ bleed: null, cr: false, zs: 'ok', ov: 0, bt: 0, fl: false, medkit: 0 });
 
 module.exports = { ohneStandard, GEGNER, SPIELER };

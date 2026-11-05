@@ -28,19 +28,24 @@
     return s;
   }
 
-  // maske(karte) -> { w, h, ok(cx, cy), anker[] }; Rasterkachelwerte einmal berechnet
-  function maske(karte) {
+  // maske(karte, fuss) -> { w, h, ok(cx, cy), anker[] }; Rasterkachelwerte einmal berechnet.
+  // fuss (MON-01 P1): Kanten des Fußabdrucks in Kacheln, Standard FUSS (2, Monster-Station unverändert). Fußabdruck = Kacheln (cx−1 … cx+fuss−2) in x und y;
+  // bei fuss 1 ist das die Kachel links oben vom Ankerpunkt (die Mitte der Kachel liegt 16 px daneben, das Mitte-/Ankerpunkt-Paar bleibt für Fuß 2 gebaut).
+  function maske(karte, fuss) {
+    const f = Number.isInteger(fuss) && fuss >= 1 ? fuss : FUSS;
     const r = K.raster(karte, { wSchwachOffen: false });
     const w = karte.w, h = karte.h;
     const objekt = objektKacheln(karte);
     const frei = new Uint8Array(w * h);
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (kachelFrei(r, objekt, w, x, y)) frei[y * w + x] = 1;
     const ok = new Uint8Array(w * h);
-    for (let cy = 1; cy < h; cy++) for (let cx = 1; cx < w; cx++) {
-      if (frei[(cy - 1) * w + cx - 1] && frei[(cy - 1) * w + cx] && frei[cy * w + cx - 1] && frei[cy * w + cx]) ok[cy * w + cx] = 1;
+    for (let cy = 1; cy + f - 2 < h; cy++) for (let cx = 1; cx + f - 2 < w; cx++) {
+      let alle = true;
+      for (let dy = 0; dy < f && alle; dy++) for (let dx = 0; dx < f; dx++) if (!frei[(cy - 1 + dy) * w + cx - 1 + dx]) { alle = false; break; }
+      if (alle) ok[cy * w + cx] = 1;
     }
-    return { w, h, frei, ok, raster: r,
-      geht(cx, cy) { return cx >= 1 && cy >= 1 && cx < w && cy < h && ok[cy * w + cx] === 1; } };
+    return { w, h, frei, ok, raster: r, fuss: f,
+      geht(cx, cy) { return cx >= 1 && cy >= 1 && cx + f - 2 < w && cy + f - 2 < h && ok[cy * w + cx] === 1; } };
   }
 
   // BFS über Ankerpunkte (4er-Nachbarschaft) -> Int32Array Distanzen (−1 = unerreichbar)

@@ -76,7 +76,7 @@ const a0 = ereignisse(0), a1 = ereignisse(1);
 ok(a0[a0.length - 1].slots[0] === 'lanze' && a1[a1.length - 1].slots[0] === 'sturmgewehr' && !a0[a0.length - 1].fehler, 'Antwort-Ereignis trägt das neue Loadout, jeweils nur an den Absender');
 cmd(0, { c: 'ausruestung.slot', slot: 1, id: 'lanze' });
 const f0 = ereignisse(0); const letzte = f0[f0.length - 1];
-ok(/anderen Slot/.test(letzte.fehler || '') && letzte.slots[1] === null && notices(0).some((x) => /anderen Slot/.test(x)), 'Doppelte Waffe: Fehlertext im Ereignis und als Hinweis, Stand unverändert');
+ok(/anderen Slot/.test(letzte.fehler || '') && letzte.slots[1] === 'medipack' && notices(0).some((x) => /anderen Slot/.test(x)), 'Doppelte Waffe: Fehlertext im Ereignis und als Hinweis, Stand unverändert');
 cmd(0, { c: 'ausruestung.slot', slot: 2, id: 'blaster' });
 ok(/Slot gibt es/.test(ereignisse(0).slice(-1)[0].fehler || '') && Loadout.loadoutFuer(g, p0)[2] === null, 'dritter Slot bei 2 Slots abgelehnt');
 cmd(0, { c: 'ausruestung.stand' });

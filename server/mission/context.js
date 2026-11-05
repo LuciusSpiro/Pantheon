@@ -117,7 +117,9 @@ function lpMod() {
   return LP;
 }
 const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
-const zahlen = (anker) => { const z = {}; for (const a of arr(anker)) if (a && a.rolle && !ANKER_OHNE.has(a.rolle)) z[a.rolle] = (z[a.rolle] || 0) + 1; return z; };
+// ITM-01 H: eine verborgene Falle (sicht nicht passiv, Zustand noch `verborgen`) kennt die Crew nicht: sie wird nirgends gezählt oder genannt. Erkannte, entschärfte und ausgelöste zählen.
+const verborgeneFalle = (a, zust) => a.rolle === 'falle' && a.sicht !== 'passiv' && ((zust && zust[a.id]) || 'verborgen') === 'verborgen';
+const zahlen = (anker, zust) => { const z = {}; for (const a of arr(anker)) if (a && a.rolle && !ANKER_OHNE.has(a.rolle) && !verborgeneFalle(a, zust)) z[a.rolle] = (z[a.rolle] || 0) + 1; return z; };
 // Adapter auf server/sim/landepunkte.js (BUEHNE) für ein Spiel (echt oder aus dem Weltstand nachgebaut).
 //   liste(ort) -> [{ id, name, art, bauweise, besitz, zustand, frei, gesperrt, grund, besuche, alarm }]
 //   info(id) -> Definition (+ ort) | null · eintrag(id) -> Weltstand-Eintrag | null · karte(id) -> Karte (§2) | null
@@ -170,7 +172,7 @@ function landepunkteOf(lp, ort) {
   return lp.liste(ort).map((x) => {
     const e = lp.eintrag(x.id) || {};
     const r = { id: x.id, name: x.name, art: x.art, bauweise: x.bauweise || null, besitz: x.besitz || null, zustand: x.zustand || null, besucht: x.besuche | 0 };
-    if (lp.bekannt(x.id)) { const k = lp.karte(x.id); if (k) r.anker = zahlen(k.anker); }
+    if (lp.bekannt(x.id)) { const k = lp.karte(x.id); if (k) r.anker = zahlen(k.anker, obj(e.zustaende)); }
     const z = obj(e.zustaende);
     if (Object.keys(z).length) r.zustaende = Object.assign({}, z);
     if (x.alarm) r.alarm = true;

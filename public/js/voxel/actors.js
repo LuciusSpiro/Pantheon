@@ -198,6 +198,23 @@ function fallbackModel(kind) {
   else if (kind === 'monster') {   // SL7c: Monster der Forschungsstation (2×2 Kacheln groß, nicht verwundbar): massiger Körper, Stacheln, Augen
     box(2.0, 1.5, 2.3, 0, 0.95, 0, '#3A1E26'); box(1.4, 1.0, 1.1, 0, 1.25, 1.35, '#4A2530'); box(0.3, 0.2, 0.1, -0.35, 1.45, 1.92, '#FF5A3C'); box(0.3, 0.2, 0.1, 0.35, 1.45, 1.92, '#FF5A3C');
     for (let i = -2; i <= 2; i++) box(0.22, 0.7, 0.22, i * 0.38, 1.9, -0.2, '#6B2E3A'); box(0.5, 0.5, 1.4, -1.15, 0.5, 0.6, '#2A1319'); box(0.5, 0.5, 1.4, 1.15, 0.5, 0.6, '#2A1319'); }
+  else if (typeof kind === 'string' && kind.startsWith('kreatur|')) {   // MON-01 P4: Kreatur (Platzhalter), kind = 'kreatur|bits'
+    const KR = window.Render && window.Render.KREATUR;   // die Farben stehen einmal in render.js (Palette), 2D und Voxel lesen dieselben
+    const b = +kind.slice(8) | 0, w = (((b >> 4) & 3) + 1) * 0.8, ladung = b & 3, pause = (b & 4) !== 0, rammt = (b & 8) !== 0;
+    if (!KR) { box(w, 1.0, w, 0, 0.5, 0, '#6B7380'); return g; }
+    const hoch = pause ? 0.5 : 1.0;   // Pause: abgesenkter Körper
+    box(w, hoch, w, 0, hoch / 2 + 0.06, 0, KR.koerper[ladung]);   // grau bis Ladung 2, ab 3 rot
+    box(w * 1.08, 0.12, w * 1.08, 0, 0.06, 0, KR.kante);   // dunkle Sockelkante: hebt die Kreatur vom Fels ab
+    box(w * 0.5, 0.32, w * 0.4, 0, hoch + 0.22, w * 0.22, KR.kopf);   // heller Kopfblock vorn
+    box(w * 0.35, 0.3, 0.35, 0, hoch / 2 + 0.06, w * 0.5 + 0.1, rammt ? KR.rammKante : KR.kante);   // Nase: Blickrichtung (+z, wie das Station-Monster)
+    for (let i = 0; i < ladung; i++) box(0.22, 0.22, 0.22, (i - 1) * 0.32, 1.1 + 0.55, 0, KR.punkt);   // Ladungswürfel über dem Körper, hell
+    if (rammt) for (let i = -1; i <= 1; i++) box(0.1, 0.06, 0.9, i * w * 0.3, 0.12, -w * 0.5 - 0.7, KR.spur);   // Rammspur: drei schmale, getrennte helle Streifen
+    if (pause) {   // schwebendes Kennzeichen: drei helle Würfel in einer Reihe, langsam rotierend (updateEnemy dreht userData.pauseZeichen)
+      const z = new T.Group(); z.position.set(0, hoch + 0.9, 0);
+      for (let i = -1; i <= 1; i++) { const c = box(0.24, 0.24, 0.24, i * 0.42, 0, 0, KR.pause); z.add(c); }
+      g.add(z); g.userData.pauseZeichen = z;
+    }
+  }
   else if (kind === 'warden') { box(1.4, 1.1, 1.8, 0, 0.75, 0, '#4B3F6B'); box(0.9, 0.6, 0.5, 0, 1.4, 0.8, '#B57CFF'); box(1.2, 0.2, 0.3, 0, 0.3, 1.0, '#7FF3FF'); }
   else box(0.22, 0.22, 0.22, 0, 0.11, 0, '#F2C94C');
   return g;
@@ -1142,6 +1159,23 @@ function updateEnemy(e, view, st, dt, t) {
     locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), true);
     a.body.position.y = Math.abs(Math.sin(t * (z === 'j' ? 9 : 3))) * 0.08;
     a.body.rotation.z = z === 'j' ? Math.sin(t * 30) * 0.04 : 0;
+    return;
+  }
+  if (kind === 'kreatur') {   // MON-01 P4: Platzhalter-Volumen (Box in Typgröße, Zustandsfarben wie 2D); e.kr = { t, b } (bits: 0-1 Ladung, 2 Pause, 3 rammt, 4-5 Größe-1)
+    const b = (e.kr && e.kr.b) | 0;
+    const mk = 'kreatur:' + (b & 3) + ((b >> 2) & 3) + ((b >> 4) & 3);   // je Ladung/Pause/Rammen/Größe ein eigenes Modell (höchstens 64 Stück, gecacht)
+    if (a.modelKey !== mk) {
+      let o = a.models[mk];
+      if (!o) { o = fallbackModel('kreatur|' + b); a.models[mk] = o; }
+      if (a.model && a.model !== o) a.body.remove(a.model);
+      if (a.model !== o) a.body.add(o);
+      a.model = o; a.modelKey = mk;
+    }
+    a.labelH = ((b >> 4) & 3) * 0.8 + 1.8;
+    if (a.model && a.model.userData.pauseZeichen) a.model.userData.pauseZeichen.rotation.y = t * 1.2;
+    const pos = place(a, e.x, e.y, 0);
+    const f = +e.facing || 0;
+    locomote(a, pos.x, pos.z, dt, yawOf(Math.cos(f), Math.sin(f)), (b & 12) === 8);
     return;
   }
   if (kind === 'warden' || e.ro === 'waechter') {
