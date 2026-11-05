@@ -669,7 +669,7 @@
       if (+ev.an) FALLEN.felder.set(key, { map: ev.map, anker: ev.anker, typ: String(ev.typ || ''), x: +ev.x, y: +ev.y, rect: Array.isArray(ev.rect) ? ev.rect.map(Number) : null, r: ev.r != null ? +ev.r : null, t0: fxNow(), dauer: +ev.dauer || 0 });
       else FALLEN.felder.delete(key);
     } else if (ev.kind === 'falleSchott') {
-      if (+ev.an) FALLEN.schotts.set(key, { map: ev.map, anker: ev.anker, t0: fxNow(), dauer: +ev.dauer || 0, n: (ev.kanten || []).length });
+      if (+ev.an) FALLEN.schotts.set(key, { map: ev.map, anker: ev.anker, t0: fxNow(), dauer: +ev.dauer || 0, n: (ev.kanten || []).length, kanten: Array.isArray(ev.kanten) ? ev.kanten.slice() : [] });
       else FALLEN.schotts.delete(key);
     } else if (ev.kind === 'selbstschuss') {
       FALLEN.blitze.push({ kind: 'schuss', map: ev.map, x: +ev.x, y: +ev.y, tx: +ev.tx, ty: +ev.ty, t0: fxNow(), dur: 0.22 });
@@ -745,13 +745,13 @@
       if (b.kind === 'schuss') {
         const a = P(b.x, b.y, 18), c = P(b.tx, b.ty, 14);
         ctx.save();
-        ctx.strokeStyle = 'rgba(224,71,60,' + (0.9 * (1 - p)).toFixed(3) + ')'; ctx.lineWidth = 3 * (1 - p) + 1;
+        ctx.strokeStyle = 'rgba(224,71,60,' + (0.9 * (1 - p)).toFixed(3) + ')'; ctx.lineWidth = 3 * (1 - p) + 3;   // ITM-01 F: 2 px dicker (Review: im Voxel-Bild zu dünn)
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-        ctx.strokeStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 1;
+        ctx.strokeStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-        ctx.fillStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y, 2 + 3 * (1 - p), 0, Math.PI * 2); ctx.fill();
-        ctx.strokeStyle = 'rgba(224,71,60,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.arc(c.x, c.y, 3 + 9 * p, 0, Math.PI * 2); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,241,184,' + (1 - p).toFixed(3) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y, 3 + 6 * (1 - p), 0, Math.PI * 2); ctx.fill();   // Mündungsblitz größer
+        ctx.strokeStyle = 'rgba(224,71,60,' + (1 - p).toFixed(3) + ')'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(c.x, c.y, 4 + 13 * p, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       } else if (b.kind === 'ausloesen') {
         const o = P(b.x, b.y, 0), r = (8 + 34 * p) * ppm / 32;
@@ -762,12 +762,16 @@
       }
     }
   }
-  // Glyphe im Warndreieck je Typ (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Pfeil nach unten (Druck fällt), schuss = Visier; sonst Ausrufezeichen
+  // Glyphe im Warndreieck je Typ (kleine Pixelzeichnung um (cx, cy), s = Maßstab): schott = zwei Balken (Schott), druck = Kasten mit Pfeil nach außen (Druck entweicht), schuss = Visier; sonst Ausrufezeichen
   function falleGlyphe(ctx, typ, cx, cy, s, col) {
     const u = Math.max(1, Math.round(s));
     ctx.fillStyle = col;
     if (typ === 'schott') { ctx.fillRect(cx - 3 * u, cy - 3 * u, u * 2, u * 6); ctx.fillRect(cx + u, cy - 3 * u, u * 2, u * 6); }
-    else if (typ === 'druck') { for (let i = 0; i < 3; i++) ctx.fillRect(cx - (3 - i) * u, cy - 3 * u + i * 2 * u, (3 - i) * 2 * u, u * 2); ctx.fillRect(cx - u, cy + 3 * u, u * 2, u); }
+    else if (typ === 'druck') {   // Kasten mit Pfeil nach außen (Druck entweicht), liest sich nicht als T: Kasten links (rechte Kante mit Lücke), Schaft und Spitze nach rechts
+      ctx.fillRect(cx - 4 * u, cy - 3 * u, 5 * u, u); ctx.fillRect(cx - 4 * u, cy + 2 * u, 5 * u, u); ctx.fillRect(cx - 4 * u, cy - 3 * u, u, 6 * u);
+      ctx.fillRect(cx, cy - 3 * u, u, 2 * u); ctx.fillRect(cx, cy + u, u, 2 * u);
+      ctx.fillRect(cx - 2 * u, cy - u, 4 * u, 2 * u); ctx.fillRect(cx + 2 * u, cy - 2 * u, u, 4 * u); ctx.fillRect(cx + 3 * u, cy - u, u, 2 * u);
+    }
     else if (typ === 'schuss') { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 3); ctx.fillRect(cx - u, cy + u, u * 2, u * 3); ctx.fillRect(cx - 4 * u, cy - u, u * 3, u * 2); ctx.fillRect(cx + u, cy - u, u * 3, u * 2); }
     else { ctx.fillRect(cx - u, cy - 4 * u, u * 2, u * 5); ctx.fillRect(cx - u, cy + 2 * u, u * 2, u * 2); }
   }
@@ -798,7 +802,7 @@
       ctx.restore();
     }
   }
-  // Falle auf Minikarte und Kommandokarte: erkannt = rotes Dreieck (gefüllt, hebt sich vom Punktraster ab), entschärft = kleiner grauer Umriss, ausgelöst = kleines Kreuz; verborgen = nichts
+  // Falle auf Minikarte und Kommandokarte: immer PAL.red, nie Eisblau (das gehört dem Scanner): erkannt = rotes Dreieck (gefüllt, hebt sich vom Punktraster ab), entschärft = kleiner grauer Umriss, ausgelöst = rotes Kreuz; verborgen = nichts
   function miniFalle(ctx, mx, my, c, z) {
     const h = Math.max(3, Math.min(5, Math.round(c * 0.9)));
     mx = Math.round(mx); my = Math.round(my);
@@ -809,7 +813,7 @@
     } else if (z === 'entschaerft') {
       ctx.strokeStyle = PAL.panelLight; ctx.globalAlpha = 0.6; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx, my - h + 1); ctx.lineTo(mx + h - 1, my + h - 2); ctx.lineTo(mx - h + 1, my + h - 2); ctx.closePath(); ctx.stroke();
     } else if (z === 'ausgeloest') {
-      ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2); ctx.lineTo(mx + 3, my + 3); ctx.moveTo(mx + 2, my - 2); ctx.lineTo(mx - 3, my + 3); ctx.stroke();
+      ctx.strokeStyle = PAL.red; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2); ctx.lineTo(mx + 3, my + 3); ctx.moveTo(mx + 2, my - 2); ctx.lineTo(mx - 3, my + 3); ctx.stroke();
     }
     ctx.restore();
   }
@@ -830,6 +834,116 @@
       ctx.restore();
       drawFalleMarke(ctx, cx, cy - 10, 8, 1, z, typ, t);
     } else drawFalleMarke(ctx, cx, cy + 6, 4, 1, z, typ, t);
+  }
+
+  // ------------------------------------------------------------------ ITM-01 F: gesperrte Schotts (Designer-Review: das geschlossene Schott war unsichtbar)
+  // Eine Kante gilt als gesperrt, solange das Ereignis falleSchott (an 1) sie nennt UND ihr Zustand `zu` ist (Hacken öffnet früher: dann endet die Anzeige mit dem Zustand).
+  // Anzeige beider Modi: rote Bodenschraffur mit 2-px-Kontur über die ganze Kante und ein Warndreieck mit II (Schott) in der Mitte; im Voxel-Modus zusätzlich die Blattfläche mit
+  // roten Schrägstreifen auf dunklem Grund und ein rotes Leuchtband an der Oberkante (Overlay, unabhängig vom Modell: trägt auch den Rückfall-Kit). Beim Öffnen 0,3 s Ausblenden.
+  const SCHOTT_ANZ = new Map();   // map|kante -> { map, kid, kacheln, ori 'h'|'v', hoch (Blatthöhe hpx), a (Sichtbarkeit 0..1) }
+  const SCHOTT_EIN = 0.1, SCHOTT_AUS = 0.3;   // s bis voll sichtbar bzw. ausgeblendet
+  const SCHOTT_HOCH = { voll: 53, niedrig: 25 };   // Blatthöhe in hpx (22 = 1 m): 2,4 m, in geschnittener Wand 1,15 m (wie kit.js doorFb)
+  const SCHOTT_ROT = FELD_RGB.standard;   // PAL.red als r,g,b
+  let schottZeit = 0;
+  function schottEintrag(map, mid, kid, idx) {
+    const kacheln = (map.kanten[idx][1] || []).map((q) => [q[0], q[1]]);
+    const [x0, y0] = kacheln[0] || [0, 0];
+    let ori;
+    if (kacheln.length > 1) ori = kacheln.every((q) => q[1] === y0) ? 'h' : 'v';
+    else { const l = map.info(x0 - 1, y0), r = map.info(x0 + 1, y0); ori = l && r && l.solid && r.solid ? 'h' : 'v'; }
+    const n = map.info(x0, y0 - 1);
+    return { map: mid, kid, kacheln, ori, hoch: n && n.solid ? SCHOTT_HOCH.voll : SCHOTT_HOCH.niedrig, a: 0 };
+  }
+  // Gesperrte Kanten der aktuellen Karte mit Sichtbarkeit a (> 0); rückt die Ein-/Ausblendung um die seit dem letzten Aufruf vergangene Zeit weiter (mehrere Aufrufe je Bild schaden nicht)
+  function fallenSchottStand(st) {
+    const mid = aktuelleKarte(st), map = mid ? Maps[mid] : null, now = fxNow();
+    const dt = Math.max(0, Math.min(0.25, now - schottZeit)); schottZeit = now;
+    const aktiv = new Set();
+    if (map && map.buehne && Array.isArray(map.kanten)) {
+      for (const f of FALLEN.schotts.values()) {
+        if (f.map !== mid || now - f.t0 > f.dauer + FALLE_GNADE) continue;
+        for (const kid of f.kanten || []) {
+          const idx = map.kanten.findIndex((k) => k[0] === kid);
+          if (idx < 0 || kantenZustand(map, st, idx) !== 'zu') continue;
+          const key = mid + '|' + kid;
+          aktiv.add(key);
+          if (!SCHOTT_ANZ.has(key)) SCHOTT_ANZ.set(key, schottEintrag(map, mid, kid, idx));
+        }
+      }
+    }
+    const out = [];
+    for (const [key, e] of SCHOTT_ANZ) {
+      const ein = aktiv.has(key);
+      e.a = ein ? Math.min(1, e.a + dt / SCHOTT_EIN) : Math.max(0, e.a - dt / SCHOTT_AUS);
+      if (!ein && e.a <= 0) { SCHOTT_ANZ.delete(key); continue; }
+      if (e.map === mid && e.a > 0) out.push(e);
+    }
+    return out;
+  }
+  // Rechteck der Kante in Weltpixeln und die Mittellinie (für die Minikarte in Kacheln)
+  function schottRahmen(e) {
+    const xs = e.kacheln.map((q) => q[0]), ys = e.kacheln.map((q) => q[1]);
+    return { x0: Math.min(...xs) * TILE, x1: (Math.max(...xs) + 1) * TILE, y0: Math.min(...ys) * TILE, y1: (Math.max(...ys) + 1) * TILE };
+  }
+  // Schrägstreifen im Vieleck pts (Bildschirmpunkte), ctx ist schon auf das Vieleck beschnitten
+  function schottStreifen(ctx, pts, farbe, breite, gap, versatz) {
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const q of pts) { x0 = Math.min(x0, q.x); y0 = Math.min(y0, q.y); x1 = Math.max(x1, q.x); y1 = Math.max(y1, q.y); }
+    ctx.strokeStyle = farbe; ctx.lineWidth = breite; ctx.beginPath();
+    for (let d = x0 - (y1 - y0) - gap + versatz; d < x1 + gap; d += gap) { ctx.moveTo(d, y1); ctx.lineTo(d + (y1 - y0), y0); }
+    ctx.stroke();
+  }
+  const schottPfad = (ctx, pts) => { ctx.beginPath(); pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y))); ctx.closePath(); };
+  // P(x, y, hpx) wie bei drawFallenFelder, s = Maßstab (ppm / 32), hoch = Voxel-Modus (Blattfläche, Leuchtband, schwebendes Dreieck)
+  function drawFallenSchotts(ctx, st, P, t, s, hoch) {
+    for (const e of fallenSchottStand(st)) {
+      const r = schottRahmen(e), rot = (al) => 'rgba(' + SCHOTT_ROT + ',' + al.toFixed(3) + ')';
+      const bo = [P(r.x0, r.y0, 0), P(r.x1, r.y0, 0), P(r.x1, r.y1, 0), P(r.x0, r.y1, 0)];
+      if (bo.some((q) => !q || q.behind)) continue;
+      ctx.save();
+      // Boden: dunkle Fläche, rote Schraffur (Alpha 0,3), 2-px-Kontur in PAL.red
+      schottPfad(ctx, bo);
+      ctx.fillStyle = 'rgba(11,14,26,' + (0.28 * e.a).toFixed(3) + ')'; ctx.fill();
+      ctx.save(); ctx.clip(); schottStreifen(ctx, bo, rot(0.3 * e.a), 3, 9, (t * 6) % 9); ctx.restore();
+      schottPfad(ctx, bo); ctx.lineJoin = 'miter'; ctx.strokeStyle = rot(e.a); ctx.lineWidth = 2; ctx.stroke();
+      if (hoch) {   // Blattfläche (Südseite) und Oberkante des Blatts als Block
+        const d = 4, h = e.hoch, hv = e.ori === 'h' ? { xa: r.x0, xb: r.x1, ya: (r.y0 + r.y1) / 2 - d, yb: (r.y0 + r.y1) / 2 + d } : { xa: (r.x0 + r.x1) / 2 - d, xb: (r.x0 + r.x1) / 2 + d, ya: r.y0, yb: r.y1 };
+        const face = [P(hv.xa, hv.yb, 0), P(hv.xb, hv.yb, 0), P(hv.xb, hv.yb, h), P(hv.xa, hv.yb, h)];
+        const top = [P(hv.xa, hv.ya, h), P(hv.xb, hv.ya, h), P(hv.xb, hv.yb, h), P(hv.xa, hv.yb, h)];
+        const band = [P(hv.xa, hv.yb, h - 5), P(hv.xb, hv.yb, h - 5), P(hv.xb, hv.yb, h), P(hv.xa, hv.yb, h)];
+        if (![face, top, band].some((q) => q.some((p) => !p || p.behind))) {
+          schottPfad(ctx, face); ctx.fillStyle = 'rgba(16,10,12,' + (0.82 * e.a).toFixed(3) + ')'; ctx.fill();
+          ctx.save(); ctx.clip(); schottStreifen(ctx, face, rot(0.92 * e.a), Math.max(2, 3 * s), Math.max(7, 11 * s), 0); ctx.restore();
+          ctx.shadowColor = rot(e.a); ctx.shadowBlur = 8 * s;
+          schottPfad(ctx, top); ctx.fillStyle = rot(e.a); ctx.fill();
+          schottPfad(ctx, band); ctx.fill();
+          ctx.shadowBlur = 0;
+        }
+      }
+      // Warndreieck mit II (Schott) in der Mitte der Kante: Voxel schwebt über dem Blatt, 2D liegt auf der Kante
+      const mx = (r.x0 + r.x1) / 2, my = (r.y0 + r.y1) / 2, pu = 0.5 + 0.5 * Math.sin(t * 5);
+      const g = P(mx, my, hoch ? e.hoch + 16 : 8);
+      if (g && !g.behind) {
+        const k = s * (1 + 0.06 * pu), cx = Math.round(g.x), cy = Math.round(g.y);
+        ctx.globalAlpha = e.a;
+        ctx.beginPath(); ctx.moveTo(cx, cy - 10 * k); ctx.lineTo(cx + 10 * k, cy + 7 * k); ctx.lineTo(cx - 10 * k, cy + 7 * k); ctx.closePath();
+        ctx.fillStyle = 'rgba(11,14,26,0.85)'; ctx.fill();
+        ctx.lineJoin = 'round'; ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.stroke();
+        falleGlyphe(ctx, 'schott', cx, Math.round(cy + 1 * k), k, '#F6E7E4');
+      }
+      ctx.restore();
+    }
+  }
+  // Minikarte und Kommandokarte: gesperrte Schotts als rote Striche über die Kante (PAL.red, 2 px); tp(tx, ty) = Bildschirmpunkt der Kachelecke (Kachelkoordinaten, auch gebrochen)
+  function miniSchotts(ctx, st, tp) {
+    const list = fallenSchottStand(st);
+    if (!list.length) return;
+    ctx.save(); ctx.strokeStyle = PAL.red; ctx.lineWidth = 2; ctx.lineCap = 'butt';
+    for (const e of list) {
+      const r = schottRahmen(e), a = tp(r.x0 / TILE + (e.ori === 'h' ? 0 : 0.5), r.y0 / TILE + (e.ori === 'h' ? 0.5 : 0)), b = tp(r.x1 / TILE - (e.ori === 'h' ? 0 : 0.5), r.y1 / TILE - (e.ori === 'h' ? 0.5 : 0));
+      ctx.globalAlpha = e.a; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // Koordinaten aus dem Snapshot, die Kachel ODER Pixel sein können (salvage/hollow) -> Kachel
@@ -2036,7 +2150,10 @@
   // gestrichelter Bodenring, keine Säule, die Raute schwebt knapp (14 px) über dem Ring. Das Kürzel steht auf dunklem Grund (lesbar auf hellem Sand und Objekten).
   // foot = Bildschirmpunkt des Ringmittelpunkts, rad = Ringradius in px.
   const SCAN_SCHWEBE = 14;
-  function drawScanMarkerBoden(ctx, foot, rad, m, t) {
+  // ITM-01 F: eine Falle trägt kein Textkürzel; die Raute sitzt auf dem schwebenden Warndreieck (Spitze + 9 px) und eine dünne Lotlinie läuft zum Bodenpunkt (wo das Dreieck sie nicht verdeckt).
+  //   voxel = Voxel-Modus (Dreieck schwebt falleSchwebe(typ) hoch, Maß s = rad / 10), sonst 2D (Dreieck nahe der Kachel, Schussanlage höher: drawFalle2d)
+  function drawScanMarkerBoden(ctx, foot, rad, m, t, voxel) {
+    const falle = m.art === 'falle', s = rad / 10, mitteHoch = falle ? (voxel ? falleSchwebe(m.typ || '') * s : (m.typ === 'schuss' ? 18 : -2)) : 0;   // Dreieckmitte über dem Bodenpunkt (px)
     const pu = 0.5 + 0.5 * Math.sin(t * 3);
     ctx.save();
     ctx.setLineDash([3, 3]);
@@ -2045,8 +2162,15 @@
     ctx.strokeStyle = 'rgba(169,214,229,' + (0.75 + 0.25 * pu) + ')'; ctx.lineWidth = m.fokus ? 2 : 1.5;
     ctx.beginPath(); ctx.ellipse(foot.x, foot.y, rad, rad * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
-    const dx = Math.round(foot.x), dy = Math.round(foot.y) - SCAN_SCHWEBE;
+    const dx = Math.round(foot.x), dy = Math.round(foot.y) - (falle ? Math.round(mitteHoch + 10 * s + 9) : SCAN_SCHWEBE);
+    if (falle) {   // Lotlinie: Raute -> Dreieckspitze und Dreieckbasis -> Bodenpunkt
+      ctx.save(); ctx.strokeStyle = 'rgba(169,214,229,0.75)'; ctx.lineWidth = 1; ctx.beginPath();
+      ctx.moveTo(dx + 0.5, dy + 4); ctx.lineTo(dx + 0.5, Math.round(foot.y - mitteHoch - 10 * s));
+      ctx.moveTo(dx + 0.5, Math.round(foot.y - mitteHoch + 7 * s)); ctx.lineTo(dx + 0.5, Math.round(foot.y));
+      ctx.stroke(); ctx.restore();
+    }
     shape(ctx, 'diamond', dx, dy, 7, PAL.ice, PAL.space);
+    if (falle) return;   // keine Beschriftung: das Dreieck mit Glyphe sagt, was es ist (Name im Datenblatt)
     const w = measure(m.symbol, 1) + 4, ty = dy - 15;
     ctx.fillStyle = 'rgba(11,14,26,0.7)'; ctx.fillRect(dx - Math.ceil(w / 2), ty - 1, w, 10);
     text(ctx, m.symbol, dx, ty, { color: PAL.ice, align: 'center' });
@@ -2156,9 +2280,10 @@
     for (const m of scanMarker(st)) {
       const s = toS(m.x, m.y);
       ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1;
-      shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);
+      const istFalle = m.art === 'falle';   // ITM-01 F: eine Falle zeigt nur ihr rotes Dreieck (unten), keine Eisblau-Raute und kein Kürzel; Fokus und Klickfläche bleiben
+      if (!istFalle) shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);
       if (m.fokus) scanEckwinkel(ctx, s.x, s.y, 6);   // D1: vier Eckwinkel statt Fokuskreis
-      if (m.fokus || m.key === opts.scanHover) {   // D6: Kürzel nur für Fokus und Hover, sonst nur die Raute
+      if (!istFalle && (m.fokus || m.key === opts.scanHover)) {   // D6: Kürzel nur für Fokus und Hover, sonst nur die Raute
         const w = measure(m.symbol, 1) + 4;
         ctx.fillStyle = 'rgba(7,11,20,0.75)'; ctx.fillRect(s.x - Math.ceil(w / 2), s.y - 18, w, 10);
         text(ctx, m.symbol, s.x, s.y - 17, { color: PAL.ice, align: 'center' });
@@ -2167,6 +2292,7 @@
     }
     // ITM-01 E: bekannte Fallen (erkannt/entschärft/ausgelöst; verborgene stehen nicht in der Liste)
     if (isBuehne(map)) (map.anker || []).forEach((an, ai) => { if (an[1] === 'falle') { const fs = toS(an[2] * TILE + TILE / 2, an[3] * TILE + TILE / 2); miniFalle(ctx, fs.x, fs.y, c, ankerZustand(map, st, ai)); } });
+    if (isBuehne(map)) miniSchotts(ctx, st, (tx, ty) => ({ x: Math.round(ox + tx * c), y: Math.round(oy + ty * c) }));   // ITM-01 F: gesperrte Schotts als rote Striche
     // Außenteam
     for (const p of view.players || []) {
       if (p.zone !== 'away' || p.connected === false) continue;
@@ -2294,6 +2420,7 @@
     env.roomStyle = null;
     if (buehne2d) {
       drawFallenFelder(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t);   // ITM-01 E: Gefahrenfeld am Boden (unter Marken und Figuren)
+      drawFallenSchotts(ctx, st, (x, y, h) => ({ x: Math.round(x - camX), y: Math.round(y - camY - (h || 0)) }), t, 1, false);   // ITM-01 F: gesperrte Schotts (Schraffur, Kontur, II)
       drawBuehneAnker(ctx, map, st, camX, camY, t);   // B1: Anker als einfache Marken
     }
 
@@ -2922,10 +3049,11 @@
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
         ctx.strokeRect(Math.round(lo.x) - 9.5, Math.round(hi.y) + 0.5, 19, Math.max(8, Math.round(lo.y - hi.y)));
       }
-      try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, P(m.x, m.y, 0), 10 * ppm / 32, m, t); } catch (e) { report('Render.scanMarker3d', e); }   // SCA-01 P4
+      try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, P(m.x, m.y, 0), 10 * ppm / 32, m, t, true); } catch (e) { report('Render.scanMarker3d', e); }   // SCA-01 P4
       try {   // ITM-01 E: Fallen im Voxel-Modus – Feld am Boden, Marke über der Anlage (auch mit Modell: Sicherheitsnetz für die Lesbarkeit), Schuss- und Auslöse-Effekte
         if (isBuehne(map)) {
           drawFallenFelder(ctx, st, P, t);
+          drawFallenSchotts(ctx, st, P, t, ppm / 32, true);   // ITM-01 F: gesperrte Schotts (Boden, Blatt, Leuchtband, schwebendes II)
           (map.anker || []).forEach((a, i) => {
             if (a[1] !== 'falle') return;
             const z = ankerZustand(map, st, i);
@@ -5360,6 +5488,7 @@
       ctx.fillStyle = a[1] === 'sprengpunkt' && z === 'scharf' ? (blink ? PAL.red : '#5A1E1A') : col;
       ctx.fillRect(x + a[2] * c, y + a[3] * c, c, c);
     });
+    if (buehneMap) miniSchotts(ctx, st, (tx, ty) => ({ x: x + tx * c, y: y + yo(ty) * c }));   // ITM-01 F: gesperrte Schotts als rote Striche
     if (zone === 'ship' && st.ship) {
       ctx.fillStyle = blink ? PAL.red : PAL.amber;
       for (const f of st.ship.fires || []) ctx.fillRect(x + f[0] * c, y + yo(f[1]) * c, c, c);
@@ -5388,7 +5517,7 @@
         const op = orderPos(o, view.drones);
         ctx.strokeStyle = ORDER_COL[o.kind]; ctx.strokeRect(Math.round(x + op.x / TILE * c) - 2.5, Math.round(y + op.y / TILE * c) - 2.5, 5, 5);
       }
-      for (const m of scanMarker(st)) { const mx = Math.round(x + m.x / TILE * c), my = Math.round(y + m.y / TILE * c); ctx.fillStyle = PAL.ice; ctx.beginPath(); ctx.moveTo(mx, my - 3); ctx.lineTo(mx + 3, my); ctx.lineTo(mx, my + 3); ctx.lineTo(mx - 3, my); ctx.closePath(); ctx.fill(); }   // SCA-01 P4
+      for (const m of scanMarker(st)) { if (m.art === 'falle') continue; const mx = Math.round(x + m.x / TILE * c), my = Math.round(y + m.y / TILE * c); ctx.fillStyle = PAL.ice; ctx.beginPath(); ctx.moveTo(mx, my - 3); ctx.lineTo(mx + 3, my); ctx.lineTo(mx, my + 3); ctx.lineTo(mx - 3, my); ctx.closePath(); ctx.fill(); }   // SCA-01 P4
       if (away.marker) { ctx.strokeStyle = PAL.amber; ctx.strokeRect(x + away.marker.x / TILE * c - 2.5, y + away.marker.y / TILE * c - 2.5, 5, 5); }
       for (const pin of (st.plan && st.plan.pins) || []) {
         if (pin.map !== map.id) continue;
@@ -5435,7 +5564,7 @@
     zielNameFarbe, textKontur, drawSpace, drawFrontView, frontProjektion, bannerMasse, hyperraum, drawStarMap, drawStarMapAlt, drawLocalMap, FRONT,
     // B1: gebaute Außenkarten
     drawKoerperStatus, statusIcon,
-    registerAwayMap, isBuehne, ankerZustand, ankerEnthuellt, fallenEreignis, fallenLaufend, buehneBewegungSolid, drawFallenFelder, drawFallenBlitze, drawFalleMarke, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
+    registerAwayMap, isBuehne, ankerZustand, ankerEnthuellt, fallenEreignis, fallenLaufend, fallenSchottStand, drawFallenSchotts, miniSchotts, falleGlyphe, drawScanMarkerBoden, miniFalle, buehneBewegungSolid, drawFallenFelder, drawFallenBlitze, drawFalleMarke, kachelZustand, kantenZustand, buehneSolid, buehnenKarten, ANKER_NAME, ANKER_ZUSTAND_NAME, ANKER_FARBE,
     // S2: Schützling
     ESCORT_COL, ESCORT_R, ESCORT_KIND_NAMES, ESCORT_STATE_NAMES, ESCORT_ORDER_NAMES, escortHpFrac, escortName, escortRingCol, escortSegBar, escortBarCol, FLOTTE_ART_NAMEN, fbEscort, drawEscortSprite,
     // M3a

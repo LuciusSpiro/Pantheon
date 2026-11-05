@@ -1633,7 +1633,8 @@
       scan.zeilen.forEach((z, i) => {
         const ry = y + i * 10, fok = z === scan.fokus;
         if (fok) { ctx.fillStyle = 'rgba(169,214,229,0.2)'; ctx.fillRect(x, ry - 1, LW, 10); }
-        R.text(ctx, z.symbol, x + 2, ry, { color: ICE });
+        if (z.glyphe != null) R.falleGlyphe(ctx, z.glyphe, x + 7, ry + 4, 1, PAL.red);   // ITM-01 F: Fallen tragen die Glyphe ihres Typs statt eines Kürzels (der Name steht ganz daneben)
+        else R.text(ctx, z.symbol, x + 2, ry, { color: ICE });
         R.text(ctx, SA.kuerze(z.name, nameW, meas), x + 16, ry, { color: fok ? PAL.star : PAL.panelLight });
         this.scanPips(ctx, pipX, ry, z.gefahr);
         R.text(ctx, SA.sterne(z.sk), stX, ry, { color: ICE });
@@ -2503,6 +2504,13 @@
       const kurz = (H.WAFFE_KURZ || {})[id], lang = (H.WAFFE_NAME || {})[id] || id;
       return kurz && kurz !== lang ? kurz + ' (' + lang + ')' : (kurz || lang);
     },
+    // ITM-01 F: Text der Slot-Zeile in der Station. Das Medipack nennt seine Ladungen je Pack (Config) und, wenn der Client den Lagerstand kennt (Snapshot inventory), die Packs im Lager
+    ausruestungSlotText(id, view) {
+      if (id !== 'medipack') return this.ausruestungName(id);
+      const lad = CFG.medipack && CFG.medipack.ladungen, inv = view && view.state && view.state.inventory;
+      const lager = inv && typeof inv.medipack === 'number' ? Math.max(0, Math.floor(inv.medipack)) : null;
+      return this.ausruestungName(id) + (lad >= 1 ? ' · ' + lad + (lad === 1 ? ' Ladung' : ' Ladungen') : '') + (lager != null ? ' · Lager ' + lager : '');
+    },
     // Serverfehler mit Waffe und Slot nennen („Sturmgewehr steckt schon in Slot 1.“); der Servertext selbst bleibt unverändert
     ausruestungFehlerText(text) {
       const a = this.ausr, id = a.letzt && a.letzt.id, s = a.stand;
@@ -2569,7 +2577,7 @@
         if (id) {
           if ((H.SLOT_ITEMS || []).includes(id)) this.itemSymbol(ctx, id, 43, y + 22);   // SCA-01 P3 / ITM-01 B: Item-Symbol je Item (die Waffen-Icons kennen keine Items)
           else if (!(IB && IB.draw && IB.has && IB.has('waffe', id) && IB.draw(ctx, 'waffe', id, 48, y + 26, {}) !== false)) { ctx.fillStyle = PAL.star; ctx.fillRect(43, y + 22, 10, 8); }
-          R.text(ctx, this.ausruestungName(id), 70, y + 22, { color: PAL.star, scale: 1 });
+          R.text(ctx, this.ausruestungSlotText(id, view), 70, y + 22, { color: PAL.star, scale: 1 });
         } else R.text(ctx, 'leer', 70, y + 22, { color: PAL.panelLight });
         y += 48;
       }

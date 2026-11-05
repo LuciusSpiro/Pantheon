@@ -65,14 +65,14 @@ for (const n of [3, 2, 1]) {
 {
   const z = zelle(['blaster', 'medipack', null], { medkit: 0 });
   const nm = z.calls.find((c) => /^Med/.test(c.txt));
-  ok(nm && nm.txt === 'Med 0' && breite(nm.txt) <= Math.floor(164 / 3) - 13, '0 Ladungen (3 Slots): „Med 0“, passt');
+  ok(nm && nm.txt === 'Medi ×0' && breite(nm.txt) <= Math.floor(164 / 3) - 13, '0 Ladungen (3 Slots): „Medi ×0“, passt');
   ok(z.fills.some((f) => f.c === LEER) && !z.fills.some((f) => f.c === STAHL) && nm.o.color === '#5E6A78', '0 Ladungen: dunkle Zelle und graue Schrift (deutlich anders als gefüllt)');
   const z2 = zelle(['blaster', 'medipack', null], {});
   ok(z2.fills.some((f) => f.c === LEER), 'medkit fehlt im Snapshot (Standard 0): wie leer');
   const z3 = zelle(['blaster', 'medipack'], { medkit: 0 });
-  ok(z3.calls.some((c) => c.txt === 'Medipack leer'), '0 Ladungen (2 Slots, breite Zelle): „Medipack leer“');
+  ok(z3.calls.some((c) => c.txt === 'Medi ×0'), '0 Ladungen (2 Slots, breite Zelle): feste Kurzform „Medi ×0“');
   const z4 = zelle(['blaster', 'medipack'], { medkit: 3 });
-  ok(z4.calls.some((c) => c.txt === 'Medipack 3'), '3 Ladungen (2 Slots, breite Zelle): „Medipack 3“');
+  ok(z4.calls.some((c) => c.txt === 'Medi ×3') && !z4.calls.some((c) => /^Medipack/.test(c.txt)), '3 Ladungen (2 und 3 Slots gleich): feste Kurzform „Medi ×3“, nie „Medipack 3“');
 }
 {
   const alle = ['blaster', 'medipack', 'scanner'];
@@ -91,6 +91,14 @@ for (const n of [3, 2, 1]) {
   ok(zelle(['medipack', null, null], { medkit: 12 }).calls.some((c) => /^Me/.test(c.txt)), 'zweistellige Ladungszahl (Config-Tuning): gekürzt statt zu überlaufen, kein festes N im Client');
 }
 
+section('ITM-01 F: Schildzeile ohne doppeltes Medipack, feste Kurzform');
+{
+  const hudT = read('public/js/hud.js');
+  ok(hudT.includes('if (slotZeile) { /* Leiste zeigt das Medipack */ } else if (me.medkit) {'), 'Schildzeile zeichnet das Medipack nur ohne Slot-Leiste (die Zelle „Medi ×n“ zeigt dieselbe Zahl; medkit gibt es nur mit Medipack im wirksamen Slot)');
+  ok(!hudT.includes("R.text(ctx, 'Medipack', mx + 15"), 'kein fester Text „Medipack“ mehr in der Schildzeile');
+  ok(!/Medipack [0-9]|Medi [0-9]|Med [0-9]/.test(hudT.slice(hudT.indexOf('medipack(me) {'), hudT.indexOf('medipack(me) {') + 700)), 'Zellnamen ohne „Medipack n“/„Medi n“');
+}
+
 section('Ausrüstungsstation: Medipack wählbar, eigenes Symbol, eigener Text');
 {
   const proxy = () => new Proxy(function () {}, { get: (t, k) => (k === Symbol.toPrimitive ? () => '' : proxy()), apply: () => proxy(), construct: () => proxy() });
@@ -105,6 +113,9 @@ section('Ausrüstungsstation: Medipack wählbar, eigenes Symbol, eigener Text');
     const wahl = K.ausruestungWahl();
     ok(wahl[wahl.length - 1] === 'medipack' && wahl.includes('scanner') && wahl.length === PROTO.WAFFEN_WAHL.length + 3, 'Auswahlliste endet mit Medipack (leer, sechs Waffen, Scanner, Medipack)');
     ok(K.ausruestungName('medipack') === 'Medipack', 'Anzeigename „Medipack“');
+    ok(K.ausruestungSlotText('medipack', { state: { inventory: { medipack: 2 } } }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen · Lager 2', 'Station: „Medipack · 3 Ladungen · Lager 2“ (Ladungen aus der Config, Lagerstand aus inventory)');
+    ok(K.ausruestungSlotText('medipack', { state: {} }) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen' && K.ausruestungSlotText('medipack', null) === 'Medipack · ' + CONFIG.medipack.ladungen + ' Ladungen', 'Station ohne Lagerstand im Client: nur die Ladungen, kein erfundenes „Lager 0“');
+    ok(K.ausruestungSlotText('sturmgewehr', { state: {} }) === K.ausruestungName('sturmgewehr'), 'Station: andere Slot-Zeilen unverändert');
     K.ausr.stand = { slotzahl: 3, slots: ['sturmgewehr', null, null] };
     ok(K.ausruestungGrund('medipack', 1) === null && !K.ausruestungGesperrt('medipack', 1), 'Medipack in einen freien Slot: möglich');
     K.ausr.stand = { slotzahl: 3, slots: ['medipack', null, null] };

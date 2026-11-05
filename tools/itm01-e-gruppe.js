@@ -33,6 +33,9 @@ const combat = require('../server/sim/combat.js');
 let fails = 0;
 const ok = (c, t) => { if (c) console.log('  ok   ' + t); else { fails++; console.log('  FEHLER ' + t); } };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Debug-Echos („anker.falle… = …“, „debug.…“, „tune …“) aus den Toasts nehmen, bevor ein Bild entsteht (echte Spieltexte bleiben); ein Bild je Client: <out>/<render>-gruppe-<name>.png
+const sauber = (C) => C.page.evaluate(() => { if (window.Hud && Array.isArray(Hud.notices)) for (let i = Hud.notices.length - 1; i >= 0; i--) if (/^(anker.|debug.|tune |god |scanfertig|falletest)|ohne Wirkung|Debug/i.test(String(Hud.notices[i].text || ''))) Hud.notices.splice(i, 1); });
+const bild = async (C, name) => { await sauber(C); await sleep(150); const f = path.join(OUT, RENDER + '-gruppe-' + name + '.png'); await C.page.screenshot({ path: f }); console.log('  Bild ' + path.relative(ROOT, f).split(path.sep).join('/')); };
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
@@ -93,7 +96,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ok(await ids(A) === await ids(B) && (await ids(A)).split(',').length === 6, 'Scan durch A: B sieht dieselben sechs Fallen in derselben Reihenfolge (' + await ids(A) + ')');
     ok(await zust(A) === await zust(B) && !/verborgen/.test(await zust(A)), 'Zustände bei A und B gleich (' + await zust(A) + ')');
     ok((await A.page.evaluate(() => window.__ev.ankerEnthuellt)) === 3 && (await B.page.evaluate(() => window.__ev.ankerEnthuellt)) === 3, 'beide haben drei ankerEnthuellt verarbeitet');
-    await B.page.screenshot({ path: path.join(OUT, RENDER + '-gruppe-b-nach-scan.png') });
+    await bild(B, 'b-nach-scan');
 
     // A entschärft die Druckfalle e1 (E halten), B sieht den Fortschritt und das Ergebnis
     const e1 = K.anker.find((a) => a.id === 'falle.e1');
@@ -104,7 +107,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await B.page.waitForFunction((pid) => { const q = __game.state.players.find((x) => x.id === pid); return q && q.action && q.action.kind === 'anker:falle' && q.action.progress > 0.2; }, game.players.indexOf(pA) >= 0 ? pA.id : null, { timeout: 8000, polling: 30 }).catch(() => null);
     const sehe = await B.page.evaluate((pid) => { const q = __game.state.players.find((x) => x.id === pid); return q && q.action ? { kind: q.action.kind, p: q.action.progress } : null; }, pA.id);
     ok(sehe && sehe.kind === 'anker:falle' && sehe.p > 0, 'B sieht, dass A entschärft (action anker:falle, Fortschritt ' + (sehe && sehe.p) + ')');
-    await B.page.screenshot({ path: path.join(OUT, RENDER + '-gruppe-b-sieht-entschaerfen.png') });
+    await bild(B, 'b-sieht-entschaerfen');
     await A.page.waitForFunction(() => /falle\.e1=entschaerft/.test((() => { const st = __game.state, m = Shared_Maps[st.away.map]; return m.anker.map((a, i) => a[0] + '=' + Render.ankerZustand(m, st, i)).join(','); })()), null, { timeout: 8000, polling: 40 });
     await A.page.evaluate(() => __game.send({ t: 'act', down: false }));
     await sleep(700);
@@ -131,7 +134,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ok((await A.page.evaluate(() => window.__ev.falleFeld)) >= 1 && (await B.page.evaluate(() => window.__ev.falleFeld)) >= 1, 'Druckfeld: Ereignis falleFeld bei beiden');
     ok(/falle\.e4=ausgeloest/.test(await zust(A)) && /falle\.e4=ausgeloest/.test(await zust(B)), 'e4 bei beiden ausgelöst');
     ok((await B.page.evaluate(() => Hud.notices.some((n) => /Druckverlust/.test(n.text)))), 'B bekommt den Wirkungstext des Servers („Druckverlust! …“)');
-    await B.page.screenshot({ path: path.join(OUT, RENDER + '-gruppe-b-druckfeld.png') });
+    await bild(B, 'b-druckfeld');
     for (const C of [A, B]) await C.page.waitForFunction(() => !Render.fallenLaufend(__game.state).some((x) => x.art === 'feld'), null, { timeout: 12000, polling: 100 });
     ok(true, 'Druckfeld endet bei beiden (Ereignis an 0)');
 
@@ -152,7 +155,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     ok(neuPid === alt, 'Wiederverbinden: derselbe Spieler (' + neuPid + ')');
     ok(await ids(B2) === await ids(A) && (await ids(B2)).split(',').length === 6, 'Wiederverbinden nach dem Enthüllen: der Client kennt alle sechs Fallen in derselben Reihenfolge (' + await ids(B2) + ')');
     ok(await zust(B2) === await zust(A), 'Wiederverbinden: Zustände wie bei A (' + await zust(B2) + ')');
-    await B2.page.screenshot({ path: path.join(OUT, RENDER + '-gruppe-nachzuegler-wiederverbunden.png') });
+    await bild(B2, 'nachzuegler-wiederverbunden');
 
     // Nachzügler 2: dritter Spieler tritt der laufenden Partie bei und kommt nach dem Enthüllen an den Boden
     const C3 = await neuerClient('C');
@@ -166,8 +169,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await sleep(800);
       ok(await ids(C3) === await ids(A), 'Nachzügler (dritter Spieler): kennt alle sechs Fallen in derselben Reihenfolge (' + await ids(C3) + ')');
       ok(await zust(C3) === await zust(A), 'Nachzügler: Zustände wie bei A (' + await zust(C3) + ')');
-      await C3.page.screenshot({ path: path.join(OUT, RENDER + '-gruppe-nachzuegler-dritter-spieler.png') });
+      await bild(C3, 'nachzuegler-dritter-spieler');
     }
+    for (const C of [A, B2, C3]) { const n = await C.page.evaluate(() => __game.errors).catch(() => -1); ok(n === 0, 'Client ' + C.name + ': Fehlerzähler des Clients (Net.reportError) ' + n); }
     console.log('Konsolenfehler: ' + err.length); err.slice(0, 8).forEach((e) => console.log('  ' + e));
     if (err.length) fails++;
   } finally { await b.close().catch(() => null); await srv.close().catch(() => null); }

@@ -52,7 +52,8 @@
       key: key(e), id: e.id, art: e.art, typ: e.typ, sk: e.sk,
       name: String(q.name || fb.name), gefahr: int(q.gefahr, 0, 3, 0), zeile: String(q.zeile || ''),
       hinweis: e.sk >= hinweisAb && q.hinweis ? String(q.hinweis) : '',
-      symbol: kurz((t && t.symbol) || (a && a.symbol) || fb.symbol, 3),
+      symbol: e.art === 'falle' ? '' : kurz((t && t.symbol) || (a && a.symbol) || fb.symbol, 3),   // ITM-01 F: Fallen tragen kein Textkürzel, sondern die Glyphe ihres Typs (glyphe, gezeichnet vom Renderer)
+      glyphe: e.art === 'falle' ? String(e.typ || '') : null,
       posAb: posAbVon(t, a),   // Positionsstufe nur für den Text „erst ab Stufe n“ (die Position selbst liefert der Server, der Client rechnet keine Stufenregel)
       artTitel: a && a.titel ? String(a.titel) : '',
       pos: e.x != null ? { x: e.x, y: e.y } : null,
@@ -115,7 +116,7 @@
   function marker(sc, daten) {
     const d = daten === undefined ? store.daten : daten;
     const out = [];
-    for (const e of lesen(sc)) if (e.x != null) { const z = zeile(e, d); out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, artTitel: z.artTitel, fokus: z.key === store.fokus }); }
+    for (const e of lesen(sc)) if (e.x != null) { const z = zeile(e, d); out.push({ key: z.key, x: e.x, y: e.y, symbol: z.symbol, art: z.art, typ: z.typ, artTitel: z.artTitel, fokus: z.key === store.fokus }); }
     return out;
   }
 

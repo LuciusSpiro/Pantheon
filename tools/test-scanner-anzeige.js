@@ -164,7 +164,7 @@ section('Einhängestellen im Quelltext');
   ok(c.indexOf('ScanAnzeige.waehle(hitS.key)') < c.indexOf("if (kind === 'fokus') {", c.indexOf('awayMapClick(view')), 'awayMapClick: Marker-Wahl steht vor der Befehlsverzweigung');
   ok(/scanRects, cell: c/.test(r) && /scanMarker\(st\)/.test(r), 'drawAwayCommandMap liefert scanRects und zeichnet scanMarker');
   ok((r.match(/drawScanMarkerBoden\(/g) || []).length === 3 && /report\('Render\.scanMarker2d'/.test(r) && /report\('Render\.scanMarker3d'/.test(r), 'Bodenmarker im 2D- und im Voxel-Pfad (beide hinter try/report)');
-  ok(/for \(const m of scanMarker\(st\)\) \{ const mx = /.test(r), 'Bodenmarker auch in der Minikarte');
+  ok(/for \(const m of scanMarker\(st\)\) \{ if \(m\.art === 'falle'\) continue; const mx = /.test(r), 'Bodenmarker auch in der Minikarte (ITM-01 F: nicht für Fallen, die zeigen ihr rotes Dreieck)');
   const bodenQ = r.slice(r.indexOf('function drawScanMarkerBoden'), r.indexOf('function scanEckwinkel'));
   ok(/PAL\.ice/.test(bodenQ) && /setLineDash\(\[3, 3\]\)/.test(bodenQ) && !/lineTo\(top/.test(bodenQ) && /SCAN_SCHWEBE = 14/.test(r), 'Bodenmarker: Eisblau, gestrichelter Ring ([3,3]), keine Säule, Raute 14 px über dem Ring (unterscheidet sich von der Flanke)');
   const kartenQ = r.slice(r.indexOf('const scanRects = [];'), r.indexOf('// Außenteam', r.indexOf('const scanRects = [];')));
