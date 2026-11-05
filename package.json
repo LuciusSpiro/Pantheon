@@ -89,6 +89,7 @@
     "test:hoehle-shot": "node tools/test-hoehle-shot.js",
     "test:wildnis-gruppenlauf": "node tools/test-wildnis-gruppenlauf.js",
     "test:hoehle-gruppenlauf": "node tools/test-hoehle-gruppenlauf.js",
+    "test:schiff-gruppenlauf": "node tools/test-schiff-gruppenlauf.js",
     "gel02:tickmess": "node tools/gel02-tickmess.js",
     "gel02:abnahme": "node tools/gel02-abnahme.js",
     "test:wildnis-client": "node tools/test-wildnis-client.js",

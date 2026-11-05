@@ -1,9 +1,9 @@
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.GenSchiff = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  else root.GenSchiff = factory(root);
+})(typeof self !== 'undefined' ? self : this, function (root) {
   'use strict';
-  const Buehne = require('./buehne.js');   // nur Node: ankerIdsVergeben (neutrale Ids verborgener Fallen); der Erzeuger läuft nur auf dem Server und in den Werkzeugen
+  const Buehne = typeof require === 'function' ? require('./buehne.js') : (root && root.Shared_Buehne);   // ankerIdsVergeben (neutrale Ids verborgener Fallen); im Browser aus dem Global, der Erzeuger läuft dort nicht
   // SCH-01 P1: prozeduraler Schiffsgenerator im Modulraster des Prüfers (13 Zeilen je Deck, Deck-Abstand 16, Längsgang auf Zeile 6).
   // Längsachse Heck -> Mittschiffs (3..5 Sektionen, je Seite des Längsgangs 1..2 Räume) -> Bug.
   //   Deck 1 (Wohn/Lager): Heck Antrieb, Räume Schleuse/Lager/Quartier/Zellen/Messe, Bug Brücke.
@@ -533,8 +533,9 @@
         for (const f of fallen) if (schottNah(f.x, f.y)) kand.schott.push({ x: f.x, y: f.y });
         if (zustand === 'intakt') {
           for (let d = 0; d < 2; d++) { const h = heck(d); for (let y = h.y0; y <= h.y1; y++) for (let x = h.x0; x <= h.x1; x++) kand.druck.push({ x, y: y + d * STRIDE }); }
-        } else {
+        } else {   // nahe einem Hüllenloch, aber nur, wo die Sektion ein einziger Raum ist (Heck, Bug): das Druckfeld deckt das Platz-Rect, in Mittschiffs-Sektionen läge Gang und Gegenraum darin
           for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (at(x, y) === '~') for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && !kand.druck.some((q) => q.x === x + dx && q.y === y + dy)) kand.druck.push({ x: x + dx, y: y + dy });
+          kand.druck = kand.druck.filter((q) => { const p = plaetze[pid(deckVon(q.y), sekVon(q.x))]; return p && p.typ !== 'sektion'; });
         }
         for (let d = 0; d < 2; d++) for (const r of raeumeD(d)) {
           const oy = d * STRIDE;
@@ -548,6 +549,21 @@
         const typenFrei = ['schott', 'druck', 'schuss'].filter((t) => kand[t].some((c) => zulaessig(c.x, c.y, [])));
         if (typenFrei.length < 1) throw new Error('gen-schiff: keine Fallenplätze');
         const nSoll = zustand === 'umkaempft' ? 2 : R4.range(3, 4);
+        // Generatorgesetz: keine Druckfalle in einer Schott-Insel. Schließen alle Schott-Fallen ihre Schotts (S-Kacheln im Radius CONFIG anker.falle.schott.radius = 3), muss jede Druckfalle
+        // noch von der Ankunft aus erreichbar sein (Wege, Boxen der Selbstschussanlagen als Hindernis, Lift/Leiter als Verbindung).
+        const druckFrei = (gw) => {
+          const druck = gw.filter((f) => f.typ === 'druck'), schott = gw.filter((f) => f.typ === 'schott');
+          if (!druck.length || !schott.length || !padA) return true;
+          const zu = new Set();
+          for (const s of schott) for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && at(s.x + dx, s.y + dy) === 'S') zu.add(key(s.x + dx, s.y + dy));
+          const lk = new Map(); for (const l of links) { lk.set(key(l.a[0], l.a[1]), l.b); lk.set(key(l.b[0], l.b[1]), l.a); }
+          const seen = new Set([key(padA.x, padA.y)]), q = [[padA.x, padA.y]];
+          for (let i = 0; i < q.length; i++) {
+            const [x, y] = q[i]; const nb = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]; const l = lk.get(key(x, y)); if (l) nb.push(l);
+            for (const [nx, ny] of nb) { const k = key(nx, ny); if (!seen.has(k) && GEH(at(nx, ny)) && !blockiert.has(k) && !zu.has(k)) { seen.add(k); q.push([nx, ny]); } }
+          }
+          return druck.every((f) => seen.has(key(f.x, f.y)));
+        };
         const wuerfeln = (n) => {
           const basis = R4.shuffle(typenFrei.slice());
           const typen = []; for (let i = 0; i < n; i++) typen.push(basis[i % basis.length]);
@@ -574,6 +590,7 @@
             if (!wahl) { zurueck(); return null; }
             gewaehlt.push({ x: wahl.x, y: wahl.y, typ, passiv: sichten[i] });
           }
+          if (!druckFrei(gewaehlt)) { zurueck(); return null; }
           zurueck();
           return gewaehlt;
         };

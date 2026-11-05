@@ -606,6 +606,12 @@ function prise(game, ort, gegner) {
   e.ort = ort; e.prise = true;
   return id;
 }
+// Zustände ohne die der Fallen-Anker (Rolle falle): das Wrack wird mit demselben Seed als verfallen neu gebaut, seine Fallen sind andere, tragen aber teils gleiche Ids
+function zustaendeOhneFallen(z, k) {
+  const out = Object.assign({}, z || {});
+  for (const a of (k && k.anker) || []) if (a.rolle === 'falle') delete out[a.id];
+  return out;
+}
 // Prise verfällt beim Verlassen der Szene, außer merken: dann treibendes Wrack (verfallen) am Ort unter neuer ID
 // <ort>.wrack-<n> (Wunsch ENTERN: die ID <ort>.prise bleibt frei für die nächste Prise). -> neue ID | null
 function priseVerlassen(game, ort, merken) {
@@ -613,6 +619,7 @@ function priseVerlassen(game, ort, merken) {
   const S = st(game);
   if (!S.dyn[id]) return null;
   const alt = S.dyn[id]; const altE = S.eintraege[id];
+  let priseKarte = null; try { priseKarte = karte(game, id); } catch (e) { priseKarte = null; }   // vor dem Löschen: welche Ids sind Fallen? (ihre Zustände gehören zur Prise)
   if (game.aways && game.aways[id] && !belegt(game, id)) sichern(game, id);
   if (game.aways && game.aways[id] && !belegt(game, id)) { delete game.aways[id]; W.unregister(id); }
   S.lru = S.lru.filter((x) => x !== id);
@@ -623,7 +630,7 @@ function priseVerlassen(game, ort, merken) {
   const neuId = `${ort}.wrack-${n}`;
   S.dyn[neuId] = Object.assign({}, alt, { id: neuId, zustand: 'verfallen', prise: false, name: 'Treibendes Wrack', neu: false });
   const e = eintrag(game, neuId);
-  if (altE) { e.seed = altE.seed; e.schablone = altE.schablone; e.bauversion = altE.bauversion; e.zustaende = altE.zustaende || {}; e.besuche = altE.besuche; }
+  if (altE) { e.seed = altE.seed; e.schablone = altE.schablone; e.bauversion = altE.bauversion; e.zustaende = zustaendeOhneFallen(altE.zustaende, priseKarte); e.besuche = altE.besuche; }
   e.zustand = 'verfallen'; e.ort = ort;
   return neuId;
 }

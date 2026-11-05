@@ -225,11 +225,11 @@ abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarke
 {
   const NAH2 = ['lift', 'leiter', 'abholpunkt', 'eingang', 'terminal', 'ziel', 'sprengpunkt'];
   const BLOCK = ['terminal', 'sprengpunkt', 'zelle', 'beute', 'ziel'];
-  const z = { zahl: 0, bereich: 0, sicht: 0, mix: 0, deck: 0, abstand: 0, nah: 0, pad: 0, pflicht: 0, schussGang: 0, schussWand: 0, druckOrt: 0, schottKante: 0, erreich: 0, payload: 0, ids: 0, ausserPflicht: 0 };
+  const z = { zahl: 0, bereich: 0, sicht: 0, mix: 0, deck: 0, abstand: 0, nah: 0, pad: 0, pflicht: 0, schussGang: 0, schussWand: 0, druckOrt: 0, druckMitte: 0, schottKante: 0, insel: 0, erreich: 0, payload: 0, ids: 0, ausserPflicht: 0 };
   const proTyp = {}, proSicht = { passiv: 0, verborgen: 0 }, ans = {};
   let maxPayload = 0, kontrolleOk = 0, kontrolleTot = 0;
   // unabhängige Erreichbarkeit (nicht der Prüfer, nicht der Generator): BFS über R.durchgang der gebauten Karte, Lift/Leiter-Links, Box der Selbstschussanlagen (auch verborgene) und blockende Objekte als Wand
-  const erreichbar = (k, extraWand) => {
+  const bfsMenge = (k, extraWand) => {
     const R = Buehne.raster(k), wand = new Set(extraWand || []);
     for (const a of k.anker) if (BLOCK.includes(a.rolle) || (a.rolle === 'falle' && a.typ === 'schuss')) wand.add(a.x + ',' + a.y);
     const lk = new Map(); for (const l of k.decks.links) { lk.set(l.a[0] + ',' + l.a[1], l.b); lk.set(l.b[0] + ',' + l.b[1], l.a); }
@@ -239,6 +239,10 @@ abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarke
       const [x, y] = q[i]; const nb = [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]; const l = lk.get(x + ',' + y); if (l) nb.push(l);
       for (const [nx, ny] of nb) if (!seen.has(nx + ',' + ny) && !wand.has(nx + ',' + ny) && R.durchgang(nx, ny)) { seen.add(nx + ',' + ny); q.push([nx, ny]); }
     }
+    return seen;
+  };
+  const erreichbar = (k, extraWand) => {
+    const seen = bfsMenge(k, extraWand);
     return k.anker.filter((a) => !['wache', 'patrouille', 'falle'].includes(a.rolle) && !seen.has(a.x + ',' + a.y) && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has((a.x + dx) + ',' + (a.y + dy))));
   };
   for (const e of alle) {
@@ -255,7 +259,7 @@ abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarke
     const padA = k.anker.find((a) => a.rolle === 'abholpunkt' && a.ankunft);
     for (let i = 0; i < fa.length; i++) {
       const a = fa[i];
-      for (let j = i + 1; j < fa.length; j++) if (Math.max(Math.abs(fa[j].x - a.x), Math.abs(fa[j].y - a.y)) < 2) z.abstand++;
+      for (let j = i + 1; j < fa.length; j++) if (Math.hypot(fa[j].x - a.x, fa[j].y - a.y) < 5) z.abstand++;   // Regel des Generators: Euklid-Abstand mindestens 5
       for (const b of k.anker) {
         if (b === a || b.rolle === 'falle') continue;
         const c = Math.max(Math.abs(b.x - a.x), Math.abs(b.y - a.y));
@@ -272,8 +276,14 @@ abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarke
         let nahLoch = false; for (let dy = -3; dy <= 3; dy++) for (let dx = -3; dx <= 3; dx++) if (Math.hypot(dx, dy) <= 3 && (k.rows[a.y + dy] || '')[a.x + dx] === '~') nahLoch = true;
         const heck = ['antrieb', 'reaktor'].includes(rk.plaetze[a.platz].typ);
         if (zust === 'intakt' ? !heck : !nahLoch) z.druckOrt++;
+        if (rk.plaetze[a.platz].typ === 'sektion') z.druckMitte++;   // S1: das Druckfeld deckt das Platz-Rect; nur wo Sektion = Raum (Heck, Bug)
       }
       if (a.typ === 'schott' && !Buehne.fallenSchottKanten(k, a, CONFIG.anker.falle.schott.radius).length) z.schottKante++;
+    }
+    {   // H4: keine Druckfalle in einer Schott-Insel (alle Schott-Fallen geschlossen: Druckfallen von der Ankunft aus erreichbar)
+      const zu = []; for (const s of fa.filter((q) => q.typ === 'schott')) for (const kk of Buehne.fallenSchottKanten(k, s, CONFIG.anker.falle.schott.radius)) for (const t of kk.tiles) zu.push(t[0] + ',' + t[1]);
+      const seen = bfsMenge(k, zu);
+      if (fa.some((q) => q.typ === 'druck' && !seen.has(q.x + ',' + q.y))) z.insel++;
     }
     if ((rk.meta.pflicht || {}).falle != null) z.ausserPflicht++;
     const fehlt = erreichbar(k);
@@ -298,11 +308,13 @@ abschnitt('h) Fallen (SCH-01 P5): Anzahl, Typmix, Sicht, Abstände, Erreichbarke
   ok(z.mix === 0, `mindestens zwei verschiedene Typen je Karte (${z.mix} Verstöße)`);
   ok(z.deck === 0, `Fallen auf beiden Decks, Deck 2 mindestens eine bei 3 oder mehr (${z.deck} Verstöße)`);
   ok(z.bereich === 0, `Typ und Sicht gültig, bereich gefecht_dN und deck passen zur Kachel (${z.bereich} Verstöße)`);
-  ok(z.abstand === 0, `nie zwei Fallen auf derselben oder benachbarten Kachel (${z.abstand} Verstöße)`);
+  ok(z.abstand === 0, `nie zwei Fallen näher als 5 Kacheln (Euklid) (${z.abstand} Verstöße)`);
   ok(z.nah === 0, `nie auf oder neben einem Anker, nie näher als 2 an Lift/Leiter/Abholpunkt/Eingang/Terminal/Ziel/Sprengpunkt (${z.nah} Verstöße)`);
   ok(z.pad === 0, `Mindestabstand 4 zur Ankunft (${z.pad} Verstöße)`);
   ok(z.schussGang === 0 && z.schussWand === 0, `Selbstschussanlage nie im Gang, immer an einer Raumwand auf einer Bodenkachel (${z.schussGang + z.schussWand} Verstöße)`);
   ok(z.druckOrt === 0, `Druckverlust: intakt im Antrieb/Reaktor, sonst höchstens 3 Kacheln von einem Hüllenloch (${z.druckOrt} Verstöße)`);
+  ok(z.druckMitte === 0, `Druckverlust nie in einer Mittschiffs-Sektion (Sektion = Raum nur an Heck und Bug, ${z.druckMitte} Verstöße)`);
+  ok(z.insel === 0, `Generatorgesetz: keine Druckfalle in einer Schott-Insel (${z.insel} Verstöße)`);
   ok(z.schottKante === 0, `jede Schott-Falle hat ein Schott im Wirkbereich (Buehne.fallenSchottKanten, ${z.schottKante} Verstöße)`);
   ok(z.ausserPflicht === 0, 'Fallen stehen nicht in meta.pflicht');
   ok(z.erreich === 0, `alle Anker (außer Wachen/Patrouillen/Fallen) von der Ankunft aus erreichbar, wenn jede Selbstschussanlage (auch verborgene) ein Hindernis ist (${z.erreich} Karten von ${T})`);

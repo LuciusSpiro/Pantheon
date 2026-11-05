@@ -188,10 +188,19 @@ abschnitt('Wrack einer generierten Prise');
   const lp = LP.prise(g, 'kesh', { id: 'w1', fraktion: 'rostmeute', x: 1, y: 1 });
   frisch(g, lp);
   const k = LP.karte(g, lp);   // erster Bau: Eintrag übernimmt gen-schiff / gschiff1
+  // SCH-01 P5 S2: Zustände von Fallen-Ankern (ausgelöst/entschärft) gehören zur Prise, andere Zustände gehen ans Wrack
+  const fa = k.anker.filter((a) => a.rolle === 'falle'), anderer = k.anker.find((a) => a.rolle === 'beute');
+  ok(fa.length >= 2 && !!anderer, 'Prise hat Fallen und Beute (' + fa.length + ' Fallen)');
+  const ez = LP.eintrag(g, lp).zustaende;
+  fa.forEach((a, i) => { ez[a.id] = i % 2 ? 'entschaerft' : 'ausgeloest'; });
+  ez[anderer.id] = 'geleert';
   const neu = LP.priseVerlassen(g, 'kesh', true);
   ok(neu === 'kesh.wrack-1', 'priseVerlassen(merken) -> kesh.wrack-1');
   const e = LP.eintrag(g, neu);
   ok(e.schablone === 'gen-schiff' && e.bauversion === 'gschiff1' && e.seed === k.seed && e.zustand === 'verfallen', 'Wrack: Seed/Schablone/bauversion kopiert, verfallen');
+  const zw = LP.eintrag(g, neu).zustaende;
+  ok(fa.every((a) => zw[a.id] === undefined), 'Wrack erbt keine Fallenzustände der Prise (auch bei gleicher Id)');
+  ok(zw[anderer.id] === 'geleert', 'Wrack erbt andere Zustände weiter (Beute)');
   frisch(g, neu);
   const kw = LP.karte(g, neu);
   ok(kw.schablone === 'gen-schiff' && kw.zustand === 'verfallen' && kw.seed === k.seed, 'Wrack baut mit dem Generator (gleicher Seed) (Prüfer in genBauen bestanden)');
