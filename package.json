@@ -297,6 +297,8 @@
     "test:waffenwechsel-client-mutation": "node tools/mutation-waffenwechsel-client.js",
     "test:waffenwechsel-mutation": "node tools/mutation-waffenwechsel.js",
     "test:scanner": "node tools/test-scanner.js",
+    "test:medipack": "node tools/test-medipack.js",
+    "test:medipack-mutation": "node tools/mutation-medipack.js",
     "test:scanner-mutation": "node tools/mutation-scanner.js",
     "test:scanner-client": "node tools/test-scanner-client.js",
     "test:scanbar": "node tools/test-scanbar.js",

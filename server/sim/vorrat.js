@@ -1,6 +1,6 @@
 'use strict';
 // Vorrat: Verbrauchsgüter im Schiffslager (game.inventory.*). Der EINZIGE Schreibweg dafür (tools/test-buchungen.js erzwingt das); Marken laufen über geld.js.
-//   Verbrauchsgüter: bolzen (= Torpedos), sonde, medipack, loeschgel, loeschgelCharges, ersatzteil, flickblech.
+//   Verbrauchsgüter: bolzen (= Torpedos), sonde, medipack, medipackCharges (angebrochener Rest, entsteht erst bei Bedarf), loeschgel, loeschgelCharges, ersatzteil, flickblech.
 //   Zähler-Gegenstände im Inventar: tafel, ladung (Sprengstoff; NICHT das Frachtmodul server/sim/ladung.js).
 //   Nicht hier: deko (Liste), Fracht (server/sim/ladung.js), p.medkit / p.carryCharges (Gegenstand am Spieler, kein Lager).
 //
@@ -16,7 +16,10 @@ const Geld = require('./geld.js');
 const Pruefung = require('./buchungspruefung.js');
 const Haken = require('../telemetrie/haken.js');
 
-const GUETER = Object.freeze(['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung']);
+const GUETER = Object.freeze(['bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung']);
+
+// Konten, die erst beim ersten Zugang entstehen (kein Eintrag im Anfangsbestand: Golden-Spuren und Weltstände bleiben ohne neuen Schlüssel)
+const SPAET = Object.freeze(['medipackCharges']);
 
 const GRUENDE = Object.freeze([
   'start', 'laden', 'debug', 'migration',   // Stand setzen / Korrektur
@@ -39,7 +42,7 @@ function pruefe(game, gut, grund) {
 // neu ist schon so gerechnet, wie die Aufrufstelle es früher tat. (Gut 'marks' kommt nie hierher, es geht über geld.js.)
 function schreiben(game, gut, art, grund, neu) {
   if (!ARTEN.includes(art)) Pruefung.unbekannt(game, 'buchung-art', 'vorrat: unbekannte Art ' + art);
-  const vorher = game.inventory[gut];
+  const vorher = game.inventory[gut] === undefined && SPAET.includes(gut) ? 0 : game.inventory[gut];   // ITM-01 A: ein spätes Konto startet bei 0 (sonst Betrag NaN)
   game.inventory[gut] = neu;
   Haken.buchung(game, gut, art, grund, neu - vorher, neu);   // TEL-01: hier protokollieren (B2: liest nur; ohne Session ein Zugriff)
   return neu;

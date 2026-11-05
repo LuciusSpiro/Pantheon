@@ -9,7 +9,7 @@
 const path = require('path');
 
 const ROOT = (process.env.BUCHUNGEN_ROOT || path.join(__dirname, '..')).split(path.sep).join('/').replace(/\/$/, '');
-const NAMEN = new Set(['marks', 'bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung']);
+const NAMEN = new Set(['marks', 'bolzen', 'sonde', 'medipack', 'loeschgel', 'loeschgelCharges', 'medipackCharges', 'ersatzteil', 'flickblech', 'tafel', 'ladung']);
 const DIENSTE = [ROOT + '/server/sim/geld.js', ROOT + '/server/sim/vorrat.js'];
 const SELF = path.join(__dirname, 'buchungen-probe.js').split(path.sep).join('/');
 Error.stackTraceLimit = 40;

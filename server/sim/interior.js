@@ -793,7 +793,7 @@ function performInteraction(game, p, it) {
     case 'npcHeal': {
       const npc = it.npc;   // W2 AP6: Person aus npcInteraction (away.personAn)
       if (npc.person) {   // S2: Person aus spawn_person (Medipack getragen oder eingesteckt)
-        if (p.carry === 'medipack') p.carry = null; else if (p.medkit > 0) p.medkit = 0;
+        if (p.carry === 'medipack') p.carry = null; else if (p.medkit > 0) p.medkit -= 1;   // ITM-01 A: eine Ladung
         npc.injured = false; npc.following = p.id; npc.met = true;
         game.emit('sfx', { name: 'heal', zone: 'away', x: Math.round(npc.x), y: Math.round(npc.y) });
         game.emit('radio', { from: npc.name, text: `Danke! Ich bin ${npc.name} – ich folge dir zu den Pads!` });
