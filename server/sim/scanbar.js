@@ -6,6 +6,7 @@
 //   update(game)                 Ziele, die nicht mehr geliefert werden, fallen aus aw.sc (nur wenn aw.sc nicht leer)
 //   snapshot(aw)                 { sc: [[id, art, typ, sk, x?, y?], …] } | {} (nur bei nicht leerem aw.sc)
 //   debugScantest(game, p)       Debug `scantest`: Testziele um den Spieler (3 in Reichweite, 1 außerhalb)
+//   debugScanfertig(game, p, st) Debug `scanfertig` [stufe 0..3, Standard 3]: Scan-Wirkung wie ein vollendeter Scan an der Position des Spielers
 //
 // Wirkung (Hook scanner.beiErgebnis, beim Laden angemeldet): alle Ziele aller Arten im Umkreis `reichweite` (Luftlinie) um den Scanort. aw.sc[art:id] = { id, art, typ, sk, x?, y? };
 // sk steigt nur (ein schlechterer Scan ändert nichts); x,y stehen erst ab sk >= tiefen.position. Stufe 0 (Rauschen) ändert nichts. Der Regelhinweis (tiefen.hinweis) wird vom Client
@@ -105,6 +106,16 @@ function debugScantest(game, p) {
   return null;
 }
 
+// Debug `scanfertig [stufe 0..3]`: dieselbe Wirkung (scanWirkung, derselbe Hook wie der echte Scan) am Ort des Aufrufers, ohne Minispiel und Abklingzeit
+function debugScanfertig(game, p, stufe) {
+  if (!game.debug) return 'scanfertig: nur mit Server --debug.';
+  if (p.zone !== 'away' || !game.away) return 'scanfertig: nur am Boden.';
+  const st = stufe == null || stufe === '' ? 3 : Number(stufe);
+  if (!Number.isInteger(st) || st < 0 || st > 3) return 'scanfertig: Stufe 0..3.';
+  scanWirkung(game, p, st, { x: p.x, y: p.y });
+  return null;
+}
+
 Scanner.beiErgebnis(scanWirkung);
 
-module.exports = { scanbarAnmelden, update, snapshot, debugScantest };
+module.exports = { scanbarAnmelden, update, snapshot, debugScantest, debugScanfertig };

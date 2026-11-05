@@ -1,0 +1,47 @@
+{
+  "_hinweis": "SCA-01 P4: Texte der Scan-Ergebnisse (Datenblatt auf dem Captain-Schirm, Marker). Vom Server nur gelesen ausgeliefert (/content/scanner/datenblaetter.json), Client public/js/scan-anzeige.js. Der Snapshot trägt nur art, typ, Stufe sk und (ab Positionsstufe) x,y. gefahr 0..3, hinweisAb = ab welcher Scan-Stufe der Regelhinweis erscheint. Einträge testerz/testmonster sind Platzhalter der Debug-Testziele; echte Typen bringen GEL-03 (Erz), MON-01 (Monster), ITM-01 (Fallen).",
+  "typen": {
+    "testerz": {
+      "name": "Testerz",
+      "gefahr": 0,
+      "zeile": "Testziel, ersetzt GEL-03.",
+      "hinweis": "Platzhalter-Regelhinweis zum Abbau.",
+      "hinweisAb": 1,
+      "symbol": "ER"
+    },
+    "testmonster": {
+      "name": "Testmonster",
+      "gefahr": 2,
+      "zeile": "Testziel, ersetzt MON-01.",
+      "hinweis": "Platzhalter-Regelhinweis, z. B. lädt bei Beschuss auf.",
+      "hinweisAb": 1,
+      "symbol": "MO"
+    }
+  },
+  "arten": {
+    "test": {
+      "titel": "Testziel",
+      "symbol": "TZ"
+    },
+    "erz": {
+      "titel": "Erz",
+      "symbol": "ER"
+    },
+    "monster": {
+      "titel": "Monster",
+      "symbol": "MO"
+    },
+    "falle": {
+      "titel": "Falle",
+      "symbol": "FA"
+    }
+  },
+  "unbekannt": {
+    "name": "Unbekanntes Objekt",
+    "gefahr": 0,
+    "zeile": "Keine Angaben zu diesem Ziel.",
+    "hinweis": "",
+    "hinweisAb": 1,
+    "symbol": "??"
+  }
+}

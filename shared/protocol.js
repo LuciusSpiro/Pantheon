@@ -378,6 +378,7 @@
     DEBUG_CMDS: ['ausbau', 'werft', 'marken', 'stage', 'damage', 'fire', 'breach', 'spawn', 'marks', 'inv', 'verlust', 'skip', 'god', 'goto', 'reveal', 'mission', 'reactor', 'scanall',
       'tune', 'kesh', 'squad', 'wake', 'shield', 'wound', 'tele', 'fragile', 'sl', 'escort', 'flotte', 'szene', 'ruf', 'absicht', 'finale', 'lage', 'abspann',   // SUND-04a-3: abspann palatina|sieg (nur Freie Fahrt Sund, zeigt den Abspann ohne Marker); SUND-03 A2: lage [status | plan | fail] (Lage-Spielleiter, LAGE_SPIELLEITER=1); SUND-02b D: absicht [status | angebot | wahl <id> | ende | reset] (nur Freie Fahrt Sund); SUND-02b B: ruf [rom|ger|kon] [wert] (nur Freie Fahrt Sund); SUND-02a: szene [staerke] [ger|pirat] [belagerung]; M3a: tele [id], fragile {system}; M3b: 'burst' entfallen; S2: sl, escort
       'scantest',   // SCA-01 P2: scantest (drei Testziele am Boden)
+      'scanfertig',   // SCA-01 P4: scanfertig { stufe 0..3, Standard 3 } (Scan-Wirkung am Ort des Aufrufers, nur Boden)
       'buehne', 'anker', 'lp',   // B1 (B1_DEBUG)
       'waffe', 'gegner', 'alarm', 'fang',   // B2 (B2_DEBUG; tune waffen.<waffe>.<wert> läuft über 'tune')
       'hex', 'boje', 'notsprung', 'erkunde',   // B3 (B3_DEBUG)

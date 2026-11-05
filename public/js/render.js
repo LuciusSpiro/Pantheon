@@ -1803,6 +1803,24 @@
     }
   }
 
+  // SCA-01 P4: gescannte Ziele mit Position als Marker (Eisblau = Sensoren). Quelle ScanAnzeige.marker(away.sc) – nur Einträge mit x,y; Texte/Kürzel aus dem Content, Fallback „??“.
+  function scanMarker(st) {
+    const SA = window.ScanAnzeige;
+    if (!SA || !st || !st.away || !Array.isArray(st.away.sc) || !st.away.sc.length) return [];
+    try { return SA.marker(st.away.sc); } catch (e) { report('Render.scanMarker', e); return []; }
+  }
+  // Marker am Boden (2D und Voxel): Bodenring + Säule + Raute + Kürzel; foot/top sind Bildschirmpunkte, rad der Ringradius in px
+  function drawScanMarkerBoden(ctx, foot, top, rad, m, t) {
+    const pu = 0.5 + 0.5 * Math.sin(t * 3);
+    ctx.save();
+    ctx.strokeStyle = 'rgba(169,214,229,' + (0.55 + 0.35 * pu) + ')'; ctx.lineWidth = m.fokus ? 2 : 1.5;
+    ctx.beginPath(); ctx.ellipse(foot.x, foot.y, rad, rad * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(foot.x, foot.y); ctx.lineTo(top.x, top.y); ctx.stroke();
+    ctx.restore();
+    shape(ctx, 'diamond', Math.round(top.x), Math.round(top.y), 7, PAL.ice, PAL.space);
+    text(ctx, m.symbol, Math.round(top.x), Math.round(top.y) - 14, { color: PAL.ice, align: 'center' });
+  }
+
   // Kommandokarte einer Außenkarte (Captain, Reiter Außenteam): alle Gegner, verrauscht bei scanQuality < 1
   function drawAwayCommandMap(ctx, view, rect, opts) {
     opts = opts || {};
@@ -1893,6 +1911,16 @@
       ctx.strokeStyle = 'rgba(127,224,194,' + pu + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ps.x, ps.y, 10, 0, Math.PI * 2); ctx.stroke();
       text(ctx, 'PULT ' + (a.mp.n + 1) + '/' + a.mp.t, ps.x, ps.y - 20, { color: PAL.mint, align: 'center' });
     }
+    // SCA-01 P4: gescannte Ziele (nur mit Position), Eisblau; Klickflächen für den Fokus des Datenblatts
+    const scanRects = [];
+    for (const m of scanMarker(st)) {
+      const s = toS(m.x, m.y);
+      ctx.strokeStyle = PAL.ice; ctx.lineWidth = 1;
+      if (m.fokus) { ctx.beginPath(); ctx.arc(s.x, s.y, 8, 0, Math.PI * 2); ctx.stroke(); }
+      shape(ctx, 'diamond', s.x, s.y, 7, PAL.ice, PAL.space);
+      text(ctx, m.symbol, s.x, s.y - 17, { color: PAL.ice, align: 'center' });
+      scanRects.push({ key: m.key, x: s.x - 8, y: s.y - 8, w: 16, h: 16 });
+    }
     // Außenteam
     for (const p of view.players || []) {
       if (p.zone !== 'away' || p.connected === false) continue;
@@ -1907,7 +1935,7 @@
     }
     ctx.restore();
     ctx.strokeStyle = noisy ? PAL.warn : PAL.brass; ctx.lineWidth = 1; ctx.strokeRect(rect.x + 0.5, rect.y + 0.5, rect.w - 1, rect.h - 1);
-    return { toS, toW, enemyRects, cell: c, ox, oy, map };
+    return { toS, toW, enemyRects, scanRects, cell: c, ox, oy, map };
   }
 
   // ------------------------------------------------------------------ Innenraum / Plattform
@@ -2333,6 +2361,7 @@
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
         ctx.strokeRect(Math.round(d.x - camX) - 9.5, Math.round(d.y - camY) - 24.5, 19, 21);
       }
+      try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, { x: Math.round(m.x - camX), y: Math.round(m.y - camY) }, { x: Math.round(m.x - camX), y: Math.round(m.y - camY) - 30 }, 10, m, t); } catch (e) { report('Render.scanMarker2d', e); }   // SCA-01 P4
       if (away.marker) {
         const mx = away.marker.x - camX, my = away.marker.y - camY;
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
@@ -2643,6 +2672,7 @@
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
         ctx.strokeRect(Math.round(lo.x) - 9.5, Math.round(hi.y) + 0.5, 19, Math.max(8, Math.round(lo.y - hi.y)));
       }
+      try { for (const m of scanMarker(st)) drawScanMarkerBoden(ctx, P(m.x, m.y, 0), P(m.x, m.y, 30), 10 * ppm / 32, m, t); } catch (e) { report('Render.scanMarker3d', e); }   // SCA-01 P4
       if (away.marker) {
         const s = P(away.marker.x, away.marker.y, 0);
         ctx.strokeStyle = PAL.amber; ctx.lineWidth = 1;
@@ -5092,6 +5122,7 @@
         const op = orderPos(o, view.drones);
         ctx.strokeStyle = ORDER_COL[o.kind]; ctx.strokeRect(Math.round(x + op.x / TILE * c) - 2.5, Math.round(y + op.y / TILE * c) - 2.5, 5, 5);
       }
+      for (const m of scanMarker(st)) { const mx = Math.round(x + m.x / TILE * c), my = Math.round(y + m.y / TILE * c); ctx.fillStyle = PAL.ice; ctx.beginPath(); ctx.moveTo(mx, my - 3); ctx.lineTo(mx + 3, my); ctx.lineTo(mx, my + 3); ctx.lineTo(mx - 3, my); ctx.closePath(); ctx.fill(); }   // SCA-01 P4
       if (away.marker) { ctx.strokeStyle = PAL.amber; ctx.strokeRect(x + away.marker.x / TILE * c - 2.5, y + away.marker.y / TILE * c - 2.5, 5, 5); }
       for (const pin of (st.plan && st.plan.pins) || []) {
         if (pin.map !== map.id) continue;
