@@ -31,14 +31,14 @@ const MUTATIONEN = [
   [MO, '(tz) => { M.ramm = { kid: tz.kid, t: rammZeit }; return null; }', '(tz) => { M.ramm = { kid: tz.kid, t: rammZeit * 0.5 }; return null; }', 'gehenMitAufbrechen: halbe Rammzeit'],
   [MO, "() => 'tuer');", '(tz) => { M.ramm = { kid: tz.kid, t: 1 }; return null; });', 'gehenOhneAufbrechen: bricht doch auf'],
   // ---- Maske (E)
-  [SH, 'for (let cy = 1; cy + f - 2 < h; cy++) for (let cx = 1; cx + f - 2 < w; cx++) {', 'for (let cy = 1; cy + f - 2 < h - 1; cy++) for (let cx = 1; cx + f - 2 < w; cx++) {', 'E: Maske Größe 2 ohne letzte Zeile'],
-  [SH, 'for (let cy = 1; cy + f - 2 < h; cy++) for (let cx = 1; cx + f - 2 < w; cx++) {', 'for (let cy = 1; cy + f - 2 < h; cy++) for (let cx = 1; cx + f - 2 < w - 1; cx++) {', 'Maske Größe 2 ohne letzte Spalte'],
-  [SH, 'geht(cx, cy) { return cx >= 1 && cy >= 1 && cx + f - 2 < w && cy + f - 2 < h &&', 'geht(cx, cy) { return cx >= 1 && cy >= 1 && cx + f - 2 < w && cy + f - 2 < h - 1 &&', 'geht: letzte Zeile wird abgelehnt'],
-  [SH, 'if (!frei[(cy - 1 + dy) * w + cx - 1 + dx]) { alle = false; break; }', 'if (!frei[(cy + dy) * w + cx + dx]) { alle = false; break; }', 'Maske: Fußabdruck um eine Kachel versetzt'],
+  [SH, 'for (let cy = v; cy - v + f - 1 < h; cy++) for (let cx = v; cx - v + f - 1 < w; cx++) {', 'for (let cy = v; cy - v + f - 1 < h - 1; cy++) for (let cx = v; cx - v + f - 1 < w; cx++) {', 'E: Maske Größe 2 ohne letzte Zeile'],
+  [SH, 'for (let cy = v; cy - v + f - 1 < h; cy++) for (let cx = v; cx - v + f - 1 < w; cx++) {', 'for (let cy = v; cy - v + f - 1 < h; cy++) for (let cx = v; cx - v + f - 1 < w - 1; cx++) {', 'Maske Größe 2 ohne letzte Spalte'],
+  [SH, 'geht(cx, cy) { return cx >= v && cy >= v && cx - v + f - 1 < w && cy - v + f - 1 < h &&', 'geht(cx, cy) { return cx >= v && cy >= v && cx - v + f - 1 < w && cy - v + f - 1 < h - 1 &&', 'geht: letzte Zeile wird abgelehnt'],
+  [SH, 'if (!frei[(cy - v + dy) * w + cx - v + dx]) { alle = false; break; }', 'if (!frei[(cy + dy) * w + cx + dx]) { alle = false; break; }', 'Maske: Fußabdruck um eine Kachel versetzt'],
   // ---- kein Update ohne Außenteam (F)
   [KR, "  const team = game.players.some((p) => p.zone === 'away');", '  const team = true;', 'F: kreatur.update läuft ohne Außenteam'],
   // ---- Validator (M2, Lücken)
-  [KR, 'if (t.groesse !== 2) f(', 'if (false) f(', 'Validator: Größe ≠ 2 wird zugelassen'],
+  [KR, 'if (!GROESSEN.includes(t.groesse)) f(', 'if (false) f(', 'Validator: Größe wird nicht geprüft'],
   [KR, 'if (!SCHILD_FELDER.includes(k)) f(', 'if (false) f(', 'Validator: unbekanntes Feld in schild'],
   [KR, 'if (!SCHILDREGEN_FELDER.includes(k)) f(', 'if (false) f(', 'Validator: unbekanntes Feld in schildRegen'],
   [KR, 'if (!UEBERGANG_FELDER.includes(k)) f(', 'if (false) f(', 'Validator: unbekanntes Feld im Übergang'],

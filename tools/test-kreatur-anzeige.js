@@ -234,6 +234,33 @@ section('Client: Gegnerlage und Kommandokarte, eine Farbquelle', () => {
   ok(/kreaturBeschriftung\(ctx, kn, s\.x, s\.y\)/.test(rd) && /dk === 'kreatur'\) \{ const kn = kreaturName\(e, st\); const kg/.test(rd), 'Voxel-Überlagerung beschriftet Kreaturen (Name aus dem Scan, sonst „?“)');
 });
 
+// MON-02 G: Größe 1 im Snapshot (Bits 4-5 = 0) und im Client-Platzhalter (Box und Voxelvolumen in Typgröße, Größe 1 = halb so groß wie Größe 2, bleibt in einer Kachel)
+section('Größe 1: Snapshot und Platzhalter', () => {
+  const rd = read('public/js/render.js'), ac = read('public/js/voxel/actors.js');
+  const kleinTyp = JSON.parse(JSON.stringify(KREATUREN.typen.probe)); Object.assign(kleinTyp, { name: 'kreatur.kleinanz', groesse: 1, hitRadius: 13, kollision: { box: 20 } });
+  KREATUREN.typen.kleinanz = kleinTyp; Kreatur.kreaturBausteinAnmelden('__cache__', {})();   // Testtyp (Datenzeile) laden
+  try {
+    const K3 = Kreatur.erzeugen(g, 'kleinanz', p.x + 4 * TILE, p.y);
+    Kreatur.zustandSetzen(g, K3, 'patrouille'); K3.x = p.x + 4 * TILE; K3.y = p.y;
+    const r = (g.snapshot().away.kr || []).find((q) => q[0] === Number(K3.id.slice(1)));
+    ok(!!r && r.length === 6 && r[1] === Object.keys(KREATUREN.typen).indexOf('kleinanz'), 'Größe 1: Eintrag im Snapshot kr (typCode ' + (r ? r[1] : '-') + ')');
+    ok(((r[5] >> 4) & 3) === 0 && (r[5] & 15) === 0, 'Größe 1: Bits 4-5 = 0 (Größe − 1), Ladung/Pause/Rammen unverändert');
+    ok(K3.hitRadius === 13 && !('fuss' in K3), 'Kreatur trägt hitRadius 13 aus den Daten (Größe steht im Typ, kein neues Instanzfeld)');
+    Kreatur.zustandSetzen(g, K3, 'rammen'); K3.aufladung = { stufe: 2, ruhe: 0, zerfallT: 0 };
+    const r2 = g.snapshot().away.kr.find((q) => q[0] === Number(K3.id.slice(1)));
+    ok(((r2[5] >> 4) & 3) === 0 && (r2[5] & 15) === (2 | 8), 'Größe 1 mit Ladung 2 und Rammen: Größenbits bleiben 0, Ladungs- und Rammbits wie bei Größe 2');
+    // Sichtregel: dieselbe Regel (Sichtradius, Sensor) wie bei Größe 2; weit weg unsichtbar, Sensor deckt auf
+    K3.x = p.x + 80 * TILE;
+    ok(!(g.snapshot().away.kr || []).some((q) => q[0] === Number(K3.id.slice(1))), 'Größe 1 weit außerhalb der Teamsicht fehlt im Snapshot');
+    aw.sensorUntil = g.time + 30; ok((g.snapshot().away.kr || []).some((q) => q[0] === Number(K3.id.slice(1))), 'Sensor deckt die Größe-1-Kreatur auf'); aw.sensorUntil = 0;
+    aw.kreaturen = aw.kreaturen.filter((q) => q !== K3);
+  } finally { delete KREATUREN.typen.kleinanz; Kreatur.kreaturBausteinAnmelden('__cache__', {})(); }
+  // Client: Platzhalter-Kante 2h mit h = g·32·0,38 (2D) und Voxelbreite g·0,8; g = Bits 4-5 + 1
+  ok(rd.includes('g = ((b >> 4) & 3) + 1') && rd.includes('h = g * TILE * 0.38') && ac.includes('w = (((b >> 4) & 3) + 1) * 0.8'), 'Client: 2D-Box und Voxelbreite folgen Größe-1 aus den Bits (Quelltext)');
+  const kante = (g1) => 2 * g1 * TILE * 0.38;
+  ok(kante(1) < TILE && Math.abs(kante(2) - 2 * kante(1)) < 1e-9 && Math.abs(0.8 * 2 - 2 * (0.8 * 1)) < 1e-9, 'Platzhalter Größe 1: 2D-Kante ' + kante(1).toFixed(1) + ' px (unter einer Kachel, halb so groß wie Größe 2 mit ' + kante(2).toFixed(1) + ' px), Voxelbreite 0,8 statt 1,6');
+});
+
 section('Client-Einhängestellen (Quelltext)', () => {
   const cl = read('public/js/client.js'), rd = read('public/js/render.js'), ac = read('public/js/voxel/actors.js');
   ok(/aa\.kr\b/.test(cl) && /kind: 'kreatur', alive: true, vis: true/.test(cl), 'client.js: away.kr wird zu Pseudo-Gegnern (kind kreatur)');
