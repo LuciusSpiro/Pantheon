@@ -1562,6 +1562,16 @@
     }
     return false;
   }
+  // GEL-02 E1: Karte unter der Erde (Höhle, Wildnis-Deck >= 1; wie unterErde in voxel/kit.js) und der Hinweistext der Leiter dort. Schiff und Bunker behalten den alten Text.
+  function unterErde(map, ty) {
+    const d = map && map.decks;
+    return !!map && (map.art === 'hoehle' || (map.art === 'wildnis' && !!(d && d.stride) && Math.floor(ty / d.stride) >= 1));
+  }
+  function leiterText(map, ty) {
+    if (map && map.art === 'wildnis' && map.decks && map.decks.stride) return unterErde(map, ty) ? 'E halten: Hinauf zur Oberfläche' : 'E halten: In die Höhle hinabsteigen';
+    return 'E halten: Leiter zum anderen Deck';
+  }
+  G.leiterText = (ty, mp) => leiterText(mp || Maps[G.state && G.state.away && G.state.away.map], ty);   // nur für Tests (tools/test-hoehle-lesbar.js)
   function buehneInteraction(st, m, map, tx, ty) {
     const HZ = (CFG.anker && CFG.anker.halten) || {};
     const sec = (k) => String(HZ[k] != null ? HZ[k] : 3).replace('.', ',') + ' s';
@@ -1619,7 +1629,7 @@
           break;
         }
         case 'lift': return { label: 'E: Lift zum anderen Deck', ok: true };
-        case 'leiter': return { label: 'E halten: Leiter zum anderen Deck', ok: true };
+        case 'leiter': return { label: leiterText(map, ty), ok: true };
         default: break;
       }
     }

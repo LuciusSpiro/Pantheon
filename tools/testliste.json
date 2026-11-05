@@ -214,6 +214,7 @@
   {"id":"test-wildnis-hoehle","kette":"test","cmd":["tools/test-wildnis-hoehle.js"],"stufe":"full","budget_s":30},
   {"id":"test-wildnis-hoehle-client","kette":"test","cmd":["tools/test-wildnis-hoehle-client.js"],"stufe":"full","budget_s":200,"timeout_s":600},
   {"id":"test-hoehle-client","kette":"test","cmd":["tools/test-hoehle-client.js"],"stufe":"full","budget_s":240,"timeout_s":600},
+  {"id":"test-hoehle-lesbar","kette":"test","cmd":["tools/test-hoehle-lesbar.js"],"stufe":"full","budget_s":120,"timeout_s":600},
   {"id":"test-vox01-kit","kette":"test","cmd":["tools/test-vox01-kit.js"],"stufe":"fast","budget_s":6},
   {"id":"test-vox01-kronen","kette":"test","cmd":["tools/test-vox01-kronen.js"],"stufe":"fast","budget_s":6},
   {"id":"test-lanze-zielfenster","kette":"test","cmd":["tools/test-lanze-zielfenster.js"],"stufe":"fast","budget_s":8},
