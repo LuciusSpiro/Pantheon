@@ -11,7 +11,8 @@
 //     Ops, Geschosskollision). So bleibt der Raumkampf unverändert; der Snapshot hängt treibende Schiffe mit
 //     st: 'treibt' an space.enemies an (ENGINE: sp.enemies.concat(Entern.treibende(game)), dazu o.st = e.st).
 //   - Buchhaltung wie ein Abschuss (Marken, stats.kills, enemyKilled), damit Bücher und Belohnung gleich bleiben.
-//   - Prise: Landepunkt <ort>.prise (Schiff, germanen, Besitz = Fraktion des Gegners, Seed aus der Gegner-ID, umkaempft),
+//   - Prise: Landepunkt <ort>.prise (Schiff, Bauweise aus dem Besitz (bauweiseFuerBesitz; Rom = Layout rechteck), Besitz = Fraktion des Gegners,
+//     Seed = priseSeed (FNV-1a der Gegner-ID), Zustand umkaempft; gebaut von shared/gen-schiff.js, SCH-01),
 //     angelegt über landepunkte.prise(game, ort, gegner) (BUEHNE). Transfer frei bis CONFIG.entern.transferRange.
 //   - Verlässt die Lerche den Ort (und ist niemand mehr unten auf der Prise), verfällt die Prise. Mit merken bleibt sie
 //     als treibendes Wrack (Zustand verfallen) in welt.wracks.

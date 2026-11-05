@@ -73,9 +73,9 @@ function bauOpts(lpId, e) {
   return { spiel: true, id: lpId, art: e.art, schablone: e.schablone || undefined, seed: e.seed | 0, bauweise: e.bauweise || undefined,
     besitz: e.besitz || null, zustand: e.zustand || 'intakt' };
 }
-// Generatoren (shared/gen-siedlung.js, gen-station.js, Kai 2026-10-11): Außenposten = Siedlung, Station = Stationsgrammatik. Standard für alle
-// Landepunkte dieser beiden Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Schiff, Ruine und Handkarten bleiben bei
-// den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
+// Generatoren (shared/gen-siedlung.js, gen-station.js, Kai 2026-10-11; gen-schiff.js SCH-01 P2): Außenposten = Siedlung, Station = Stationsgrammatik,
+// Schiff = Schiffsgrammatik. Standard für alle Landepunkte dieser Kartenarten (Bodenkampf-Auswahl, Testgelände, Szenenbau, feste Orte). Ruine und
+// Handkarten bleiben bei den Modulen. Aus: landepunkte.json "erzeuger": "modul" (ein Ort), Schablone explizit gesetzt (Test/Werkzeug) oder PANTHEON_GEN=0 (alles).
 // Gleicher Seed = gleiche Karte; die Karten erfüllen den Pflichtsatz der Kartenart (Missionsplanung nimmt ihn an).
 const GEN_GROESSE = { aussenposten: { n: 10 }, station: { n: 8 }, wildnis: { groesse: 'mittel' }, hoehle: { groesse: 'mittel' }, schiff: {} };   // SCH-01 P2: Schiff (shared/gen-schiff.js; Layout aus der Bauweise, s. genBauen)
 // GEL-01 B: Kartenarten, die NUR der Erzeuger baut (keine Modulordner/Schablonen, kein Modulbau als Rückfall). Der Aus-Schalter PANTHEON_GEN=0

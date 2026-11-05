@@ -302,6 +302,7 @@
     "buehne": "node tools/buehne.js",
     "test:buehne": "node tools/test-buehne.js",
     "test:generatoren": "node tools/test-generatoren.js",
+    "test:schiff": "node tools/test-gen-schiff.js && node tools/test-schiff-anbindung.js && node tools/hash-baseline-schiff.js --compare",
     "test:waffen": "node tools/test-waffen.js",
     "test:loadout": "node tools/test-loadout.js",
     "test:ausruestung": "node tools/test-ausruestung.js",

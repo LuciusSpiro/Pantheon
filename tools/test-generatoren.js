@@ -52,7 +52,7 @@ abschnitt('Pflichtsatz der Kartenart (Siedlung, Station) über viele Seeds');
 abschnitt('Landepunkte: Generator ist Standard');
 {
   const g = fakeGame();
-  for (const [id, art, erz] of [['kesh.grabung', 'aussenposten', 'gen-siedlung/1'], ['splitter.schuerflager', 'aussenposten', 'gen-siedlung/1'], ['hafen.kontor', 'station', 'gen-station/1'], ['b7.aussenstelle', 'station', 'gen-station/1'], ['wrack.langschiff', 'schiff', 'modul/1']]) {
+  for (const [id, art, erz] of [['kesh.grabung', 'aussenposten', 'gen-siedlung/1'], ['splitter.schuerflager', 'aussenposten', 'gen-siedlung/1'], ['hafen.kontor', 'station', 'gen-station/1'], ['b7.aussenstelle', 'station', 'gen-station/1'], ['wrack.langschiff', 'schiff', 'gen-schiff/1']]) {
     const k = LP.karte(g, id);
     ok(k && k.art === art && k.erzeuger === erz, `${id}: ${art} von ${erz} (ist ${k && k.erzeuger})`);
   }
