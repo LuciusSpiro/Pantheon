@@ -20,6 +20,9 @@
     "leather": "#6B4A2A",
     "glow": { "color": "#A8F0FF", "emit": 1.7 },
     "glow2": { "color": "#FFC46B", "emit": 1.5 },
-    "glass": "#18202C"
+    "glass": "#18202C",
+    "falle": "#E84030",
+    "falle_kern": "#FFC4A8",
+    "falle_dunkel": "#2A0F0C"
   }
 }

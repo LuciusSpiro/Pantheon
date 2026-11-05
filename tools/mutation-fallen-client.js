@@ -69,8 +69,8 @@ const MUTATIONEN = [
   [KT, "rolle === 'falle' ? typ : null);", "null);", 'Voxel: Typ-Zeile der Falle wird nicht gelesen'],
   [KR, "let v = typeof e === 'string' ? e : (typ && e[typ]) || e[art] || e['*'] || null;", "let v = typeof e === 'string' ? e : e[art] || (typ && e[typ]) || e['*'] || null;", 'Kartenart gewinnt vor dem Typ'],
   [SB, "if (rolle === 'falle' && ankerBlockiert({ rolle: 'falle', typ: art })) continue;", "", 'K-SILHOUETTE ohne Ausnahme für die blockende Anlage'],
-  [GE, '"schuss": "prop/germanen/aussenposten/schuerfgeraet",', '"schuss": "prop/gibtsnicht/schuerfgeraet",', 'Rückfall-Kit zeigt auf ein Prop ohne Manifest-Eintrag'],
-  [RO, '"druck": "ort/rom/gemein/verteiler",', '"druck": "prop/rom/ruine/saeule_gestuerzt",', 'Rückfall-Kit: begehbares Prop größer als 1x1 (Säule 3,5 x 1,5)'],
+  [GE, '"schuss": "ort/germanen/gemein/falle_schuss",', '"schuss": "prop/gibtsnicht/schuerfgeraet",', 'Rückfall-Kit zeigt auf ein Prop ohne Manifest-Eintrag'],
+  [RO, '"druck": "ort/rom/gemein/falle_druck",', '"druck": "prop/rom/ruine/saeule_gestuerzt",', 'Rückfall-Kit: begehbares Prop größer als 1x1 (Säule 3,5 x 1,5)'],
   // ---- Scan-Anzeige
   [SA, "position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : txtKeinePos(z.posAb || POS_AB_STANDARD),", "position: z.pos ? 'Position: Feld ' + Math.floor(z.pos.x / T) + ' / ' + Math.floor(z.pos.y / T) : TXT_KEINE_POS,", 'Positionstext der Falle bleibt „erst ab Stufe 3“'],
   [SA, "return v == null ? POS_AB_STANDARD : int(v, 1, 3, POS_AB_STANDARD);", "return v == null ? 1 : int(v, 1, 3, POS_AB_STANDARD);", 'Arten ohne positionAb zeigen „Stufe 1“ statt der Standardstufe'],

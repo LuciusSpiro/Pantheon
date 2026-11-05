@@ -10,7 +10,10 @@
     "except": [
       "glow",
       "glow2",
-      "leit"
+      "leit",
+      "falle",
+      "falle_kern",
+      "falle_dunkel"
     ]
   },
   "roles": {

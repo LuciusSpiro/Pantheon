@@ -14,7 +14,10 @@
       "rune_dim",
       "ember",
       "alarm",
-      "leit"
+      "leit",
+      "falle",
+      "falle_kern",
+      "falle_dunkel"
     ]
   },
   "roles": {

@@ -1,13 +1,13 @@
 {
-  "voxelwerkCommit": "3685177ae194b5870e8784c0c24b4a61fb763826",
+  "voxelwerkCommit": "9a46c052dcec050072d73cccc1c1160dfe7a778c",
   "dirty": false,
   "dirtySource": "git",
-  "date": "2026-11-05T00:20:40.695Z",
+  "date": "2026-11-05T22:00:37.659Z",
   "three": "186",
-  "manifests": 28,
-  "assets": 361,
+  "manifests": 29,
+  "assets": 367,
   "counts": {
-    "models": 782,
+    "models": 788,
     "palettes": 50,
     "rigs": 1,
     "figures": 15,

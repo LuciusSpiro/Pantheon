@@ -570,6 +570,23 @@ section('Rückfall-Kits: Bauweisen-Zeile je Typ auf vorhandene Props, Austauschb
     }
     ok(true, b.id + ': jeder Typ löst auf ein Prop mit Fuß ≤ 1×1 auf, begehbare Typen nicht höher als die Figur (' + Buehne.FIGUR_HOEHE_M.toFixed(2) + ' m)');
   }
+  // ITM-02 C: die sechs Fallenmodelle sind verdrahtet (kein Rückfall-Prop mehr), je Bauweise und Typ
+  const FALLEN = { germanen: 'germanen', germanen_halle_holz: 'germanen', germanen_halle_stein: 'germanen', rom: 'rom', rom_feld: 'rom' };
+  const SOLL_HOEHE = { schott: 0.15, druck: 0.4, schuss: 1.0 };
+  for (const b of bauweisen) {
+    const fam = FALLEN[b.id];
+    ok(!!fam, b.id + ': bekannte Bauweise für die Fallenmodelle');
+    for (const t of ['schott', 'druck', 'schuss', '*']) {
+      const soll = 'ort/' + fam + '/gemein/falle_' + (t === '*' ? 'schott' : t);
+      const e = KR.ankerEintragVon(b, 'falle', 'aussenposten', null, t === '*' ? 'unbekannt' : t);
+      const m = manifest.get(soll);
+      ok(!!e && e.id === soll, b.id + '/' + t + ': löst auf ' + soll + ' auf (ist ' + (e && e.id) + ')');
+      ok(!!m && m.kind === 'model' && m.footprint.join() === '1,1' && m.params && m.params.state && m.params.state.join() === '0,3', soll + ': im Manifest, 1×1, Parameter state 0..3');
+      ok(!!m && m.states && m.states.erkannt.state === 1 && m.states.entschaerft.state === 2 && m.states.ausgeloest.state === 3, soll + ': Zustände erkannt/entschärft/ausgelöst = state 1/2/3');
+      ok(!!m && m.height === SOLL_HOEHE[t === '*' ? 'schott' : t], soll + ': height im Manifest ' + (m && m.height) + ' m (Soll ' + SOLL_HOEHE[t === '*' ? 'schott' : t] + ')');
+    }
+  }
+
   const sd = Buehne.silhouetteDaten();
   ok(Buehne.silhouetteFehler(sd).filter((x) => /anker\.falle/.test(x.msg)).length === 0, 'K-SILHOUETTE: die echten Bauweisen sind sauber');
   const hoch = JSON.parse(JSON.stringify(sd));

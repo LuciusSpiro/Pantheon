@@ -1,0 +1,48 @@
+{
+  "id": "ort/rom/gemein/falle_schott",
+  "name": "Falle Sensorplatte (Rom): runde Marmorscheibe mit Goldring; erkannt = rotes Auge im dunklen Rahmen, entschärft = schwarzes Loch + Deckel daneben, ausgelöst = verkohlt, Linse geborsten",
+  "tier": "detail",
+  "palette": "rom",
+  "jitter": 0,
+  "tags": ["prop", "anker", "falle", "schott", "rom"],
+  "footprint": [1, 1],
+  "params": {
+    "state": { "default": 1, "min": 0, "max": 3, "step": 1, "label": "Zustand (0 verborgen, 1 erkannt, 2 entschärft, 3 ausgelöst)" }
+  },
+  "variants": {
+    "verborgen": { "state": 0 },
+    "erkannt": { "state": 1 },
+    "entschaerft": { "state": 2 },
+    "ausgeloest": { "state": 3 }
+  },
+  "ops": [
+    { "op": "cyl", "name": "Goldring", "at": [0, 0, 0], "r": 7.5, "h": 1, "color": "trim", "if": "state < 3" },
+    { "op": "cyl", "name": "Goldring verrußt", "at": [0, 0, 0], "r": 7.5, "h": 1, "color": { "noise": ["trim", "metal_dark"], "weights": [1, 3], "cell": 1 }, "if": "state == 3" },
+    { "op": "cyl", "name": "Marmor", "at": [0, 0, 0], "r": 6.5, "h": 1, "color": "stone_light", "if": "state < 2" },
+    { "op": "cyl", "name": "Marmor matt", "at": [0, 0, 0], "r": 6.5, "h": 1, "color": "stone_dark", "if": "state == 2" },
+    { "op": "cyl", "name": "Marmor verkohlt", "at": [0, 0, 0], "r": 6.5, "h": 1, "color": { "noise": ["metal_dark", "dark", "black"], "weights": [4, 3, 1], "cell": 1 }, "if": "state == 3" },
+
+    { "op": "cyl", "name": "Fuge außen", "at": [0, 0, 0], "r": 3.2, "h": 1, "color": "stone_dark", "mode": "paint", "if": "state == 0" },
+    { "op": "cyl", "name": "Fuge innen", "at": [0, 0, 0], "r": 2.4, "h": 1, "color": "stone_light", "mode": "paint", "if": "state == 0" },
+
+    { "op": "cyl", "name": "Rahmen Scheibe", "at": [0, 1, 0], "r": 4.6, "h": 1, "color": "falle_dunkel", "if": "state == 1" },
+    { "op": "cyl", "name": "Rahmen frei", "at": [0, 1, 0], "r": 3.4, "h": 1, "mode": "carve", "if": "state == 1" },
+    { "op": "cyl", "name": "Auge Grund", "at": [0, 0, 0], "r": 3.4, "h": 1, "color": { "role": "falle", "emit": 1.1 }, "mode": "paint", "if": "state == 1" },
+    { "op": "cyl", "name": "Auge erhaben", "at": [0, 1, 0], "r": 2.6, "h": 1, "color": { "role": "falle", "emit": 1.1 }, "if": "state == 1" },
+    { "op": "cyl", "name": "Auge Kern", "at": [0, 1, 0], "r": 1.3, "h": 1, "color": { "role": "falle_kern", "emit": 1.2 }, "if": "state == 1" },
+
+    { "op": "cyl", "name": "Loch", "at": [0, 0, 0], "r": 3.4, "h": 1, "color": "black", "mode": "paint", "if": "state >= 2" },
+    { "op": "cyl", "name": "Deckel", "at": [3.3, 1, 3.3], "r": 2.3, "h": 1, "color": "stone_light", "if": "state == 2" },
+    { "op": "cyl", "name": "Deckel Siegel", "at": [3.3, 1, 3.3], "r": 1.1, "h": 1, "color": "trim", "mode": "paint", "if": "state == 2" },
+
+    { "op": "cyl", "name": "Linsenring Bruch A", "at": [0, 1, 0], "r": 4.6, "h": 1, "hollow": 1.2, "arc": [10, 110], "color": "black", "if": "state == 3" },
+    { "op": "cyl", "name": "Linsenring Bruch B", "at": [0, 1, 0], "r": 4.6, "h": 1, "hollow": 1.2, "arc": [150, 205], "color": "black", "if": "state == 3" },
+    { "op": "cyl", "name": "Linsenring Bruch C", "at": [0, 1, 0], "r": 4.6, "h": 1, "hollow": 1.2, "arc": [250, 320], "color": "black", "if": "state == 3" },
+    { "op": "line", "name": "Riss 1", "from": [3.5, 0, 3], "to": [6, 0, 5], "r": 0.6, "color": "black", "mode": "paint", "if": "state == 3" },
+    { "op": "line", "name": "Riss 2", "from": [-3.5, 0, 2], "to": [-6, 0, 3.5], "r": 0.6, "color": "black", "mode": "paint", "if": "state == 3" },
+    { "op": "line", "name": "Riss 3", "from": [-1, 0, -3.5], "to": [-2, 0, -6], "r": 0.6, "color": "black", "mode": "paint", "if": "state == 3" },
+    { "op": "line", "name": "Riss 4", "from": [3, 0, -3], "to": [5, 0, -5], "r": 0.6, "color": "black", "mode": "paint", "if": "state == 3" },
+    { "op": "erode", "name": "Umriss gebrochen", "density": 0.3, "depth": 2, "salt": 3, "if": "state == 3" }
+  ],
+  "anchor": [0, 0, 0]
+}
