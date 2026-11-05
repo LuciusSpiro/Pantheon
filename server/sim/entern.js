@@ -46,6 +46,7 @@ function landepunkte() {
   }
   return lpMod;
 }
+function lpWert(name, ersatz, ...args) { const f = lpFn(name); return f ? f(...args) : ersatz; }   // ohne landepunkte.js (Ersatzmodul im Test) ein fester Ersatzwert
 function lpFn(name) { const L = landepunkte(); return L && !L.stub && typeof L[name] === 'function' ? L[name] : null; }
 
 // Feste Landepunkte mit frei: nach_raumgefecht (content/welt/landepunkte.json, BUEHNE); einmal je Prozess gelesen
@@ -176,8 +177,8 @@ function prise(game, e, mk) {
   const besitz = e.fraktion || mk.fraktion || FRAKTION_STANDARD[e.kind] || 'rostmeute';
   const p = {
     lpId, ort, gegnerId: e.id, kind: e.kind, tag: e.tag || null,
-    // Seed wie landepunkte.prise: FNV-1a der Gegner-ID % 100000 + 1
-    art: 'schiff', bauweise: 'germanen', besitz, zustand: 'umkaempft', seed: (hashStr(e.id) % 100000) + 1,
+    // Seed und Bauweise wie landepunkte.prise: landepunkte.priseSeed (FNV-1a der Gegner-ID) und bauweiseFuerBesitz (Besitz -> Bauweise)
+    art: 'schiff', bauweise: lpWert('bauweiseFuerBesitz', 'germanen', 'schiff', besitz), besitz, zustand: 'umkaempft', seed: lpWert('priseSeed', 1, e.id),
     merken: !!(mk.merken || e.merken), seit: game.time || 0,
     beam: { x: Math.round(e.x), y: Math.round(e.y), range: K.transferRange },
   };
