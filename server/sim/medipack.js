@@ -6,7 +6,7 @@
 //
 //   traegt(game, p)           steht `medipack` in den wirksamen Slots des Spielers?
 //   ladungen(game)            Ladungen je vollem Pack (config medipack.ladungen)
-//   ausgeben(game, p)         Beamen nach unten (combat.onArrive): Träger bekommt erst den Rest, sonst ein Pack aus dem Lager; Nichtträger 0
+//   ausgeben(game, p)         Beamen nach unten (combat.onArrive): Träger bekommt erst ein voller Pack aus dem Lager, erst ohne volle Packs den Rest; Nichtträger 0
 //   zurueckgeben(game, p)     Beamen nach oben/Abbruch (combat.onLeave): voller Pack zurück als `medipack`, Teilmenge als `medipackCharges`
 //   verbrauchen(p)            eine Ladung weg (nach erfolgreichem Wiederbeleben/Verarzten)
 //   aufheben(game, p)         Bodenpack (v2): füllt den Träger auf die Packgröße auf, sein alter Rest geht ins Lager (REST) -> null | Hinweistext (Pack bleibt dann liegen)
@@ -24,13 +24,14 @@ function ausgeben(game, p) {
   const n = ladungen(game);
   p.medkit = 0;
   if (!traegt(game, p)) return;
-  if (Vorrat.stand(game, REST) > 0) {
+  // Reihenfolge (ITM-01 H): erst volle Packs aus dem Lager, den Rest-Topf erst, wenn kein voller Pack mehr da ist
+  if ((game.inventory.medipack || 0) > 0) {
+    Vorrat.verbrauchen(game, 'medipack', 1, 'medkit');   // Wächter oben; bewusst verbrauchen, nicht entnehmen (Bruchteil-Bestand wie früher)
+    p.medkit = n;
+  } else if (Vorrat.stand(game, REST) > 0) {
     const rest = Vorrat.leeren(game, REST, 'medkit');
     p.medkit = Math.min(n, rest);
     if (rest > n) Vorrat.einlagern(game, REST, rest - n, 'medkit');   // mehr Rest als ein Pack: der Überschuss bleibt im Lager
-  } else if ((game.inventory.medipack || 0) > 0) {
-    Vorrat.verbrauchen(game, 'medipack', 1, 'medkit');   // Wächter oben; bewusst verbrauchen, nicht entnehmen (Bruchteil-Bestand wie früher)
-    p.medkit = n;
   } else if (game.notice) game.notice(p, 'Kein Medipack im Lager.');
 }
 

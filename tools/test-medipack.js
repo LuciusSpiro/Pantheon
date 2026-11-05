@@ -1,7 +1,7 @@
 'use strict';
 // ITM-01 A: Medipack als Slot-Item mit Ladungen (server/sim/medipack.js). Echtes Spiel (Game, Außenkarte kesh, Kampf v2), nur Server.
 // Geprüft: Standardloadout mit Medipack, Vergabe nur an Träger (wirksames Loadout) mit N Ladungen aus dem Lager, Revive-Zeit/Segmente Träger vs. Nichtträger,
-// eine Ladung je Revive, Rückgabe (voller Pack bzw. Rest als medipackCharges, lazy), angebrochener Rest zuerst, Lager leer, Bruchteil-Bestand, 1–4 Spieler (Slotzahl),
+// eine Ladung je Revive, Rückgabe (voller Pack bzw. Rest als medipackCharges, lazy), volle Packs vor dem Rest-Topf, Lager leer, Bruchteil-Bestand, 1–4 Spieler (Slotzahl),
 // Taste im Slot (nur Anzeige), Aufheben/Nachschub, NSC-Heilen, Snapshot, Weltstand-Roundtrip.
 //   node tools/test-medipack.js   (npm run test:medipack)
 const fs = require('fs');
@@ -137,12 +137,18 @@ section('Rückgabe beim Hochbeamen: voller Pack bzw. Rest');
   ok(S.P(0).medkit === 0 && S.g.inventory.medipack === vor && S.g.inventory.medipackCharges === N - 1, 'Teilmenge: kein Pack, Rest ' + (N - 1) + ' als medipackCharges');
   const bu = gebucht.filter((x) => x.gut === 'medipackCharges');
   ok(bu.length === 1 && bu[0].betrag === N - 1 && bu[0].stand === N - 1 && bu[0].grund === 'medkit', 'Protokoll: erste Rest-Buchung mit Betrag ' + (N - 1) + ' (nicht NaN), Grund medkit (' + JSON.stringify(bu[0]) + ')');
-  // angebrochener Rest wird zuerst genommen
+  // volle Packs zuerst (ITM-01 H): mit vollem Pack im Lager bleibt der Rest-Topf unangetastet
   Vorrat.standSetzen(S.g, 'medipack', 1, 'debug');
   S.runter(0);
-  ok(S.P(0).medkit === N - 1 && S.g.inventory.medipackCharges === 0 && S.g.inventory.medipack === 1, 'Rest zuerst: ' + (N - 1) + ' Ladungen, Rest-Konto leer, Pack bleibt im Lager');
+  ok(S.P(0).medkit === N && S.g.inventory.medipackCharges === N - 1 && S.g.inventory.medipack === 0, 'Pack zuerst: ' + N + ' Ladungen, Lager 0, Rest-Topf (' + (N - 1) + ') unangetastet');
   S.hoch(0);
-  ok(S.g.inventory.medipackCharges === N - 1 && S.g.inventory.medipack === 1, 'wieder hoch: derselbe Rest, kein Pack dazu oder weg (keine Verdopplung)');
+  ok(S.g.inventory.medipackCharges === N - 1 && S.g.inventory.medipack === 1, 'wieder hoch: Pack zurück, Rest unverändert (keine Verdopplung)');
+  // ohne volle Packs: der Rest-Topf
+  Vorrat.standSetzen(S.g, 'medipack', 0, 'debug');
+  S.runter(0);
+  ok(S.P(0).medkit === N - 1 && S.g.inventory.medipackCharges === 0 && S.g.inventory.medipack === 0, 'kein voller Pack mehr: Rest-Topf (' + (N - 1) + ' Ladungen), Rest-Konto leer');
+  S.hoch(0);
+  ok(S.g.inventory.medipackCharges === N - 1 && S.g.inventory.medipack === 0, 'wieder hoch: Rest zurück');
   // Rest größer als ein Pack: Überschuss bleibt im Lager
   Vorrat.standSetzen(S.g, 'medipackCharges', N + 2, 'debug');
   S.runter(0);
@@ -189,6 +195,67 @@ section('Rückgabe beim Hochbeamen: voller Pack bzw. Rest');
   S.P(0).medkit = 2;
   Medipack.ausgeben(S.g, S.P(0));
   ok(S.P(0).medkit === 0, 'Nichtträger: ein veralteter Zähler wird auf 0 gesetzt');
+}
+
+section('Ausgabe-Reihenfolge: volle Packs zuerst, Rest-Topf zuletzt (ITM-01 H)');
+{
+  const gesamt = (S) => (S.g.inventory.medipack || 0) * N + (S.g.inventory.medipackCharges || 0) + S.g.players.reduce((a, p) => a + (p.medkit || 0), 0);
+  const nurP0 = (i) => (i === 1 ? ['blaster', null, null, null, null, null] : undefined);
+  // 2 volle + Rest, Träger und Nichtträger (belebt wird)
+  const S = szene(2, { lager: 2, slots: nurP0 });
+  Vorrat.standSetzen(S.g, 'medipackCharges', 1, 'debug');
+  const summe = gesamt(S);
+  S.runter(0); S.runter(1);
+  ok(S.P(0).medkit === N && S.g.inventory.medipack === 1 && S.g.inventory.medipackCharges === 1, '2 volle + Rest: erste Ausgabe ein voller Pack (Lager 1), Rest-Topf unangetastet (1)');
+  ok(S.P(1).medkit === 0, 'Nichtträger bekommt nichts');
+  S.hoch(0); S.runter(0);
+  ok(S.P(0).medkit === N && S.g.inventory.medipack === 1 && S.g.inventory.medipackCharges === 1 && gesamt(S) === summe, 'Zyklus hoch/runter ohne Verbrauch: Zustand und Ladungssumme unverändert');
+  S.revive(0, 1);
+  S.hoch(0);
+  ok(S.g.inventory.medipack === 1 && S.g.inventory.medipackCharges === N && gesamt(S) === summe - 1, 'eine Ladung verbraucht, hoch: Rest-Topf 1 + ' + (N - 1) + ' = ' + N + ', Lager 1, Summe um 1 kleiner');
+  S.runter(0);
+  ok(S.P(0).medkit === N && S.g.inventory.medipack === 0 && S.g.inventory.medipackCharges === N, 'noch ein voller Pack im Lager: der geht vor, Rest-Topf (' + N + ') bleibt');
+  S.hoch(0);
+  Vorrat.standSetzen(S.g, 'medipack', 0, 'debug');
+  const s2 = gesamt(S);
+  S.runter(0);
+  ok(S.P(0).medkit === N && S.g.inventory.medipackCharges === 0 && gesamt(S) === s2, 'Lager ohne volle Packs: jetzt der Rest-Topf');
+  S.hoch(0);
+  ok(S.g.inventory.medipack === 1 && S.g.inventory.medipackCharges === 0 && gesamt(S) === s2, 'zurück: als voller Pack, Summe unverändert');
+}
+{
+  // nur Rest
+  const S = szene(1, { lager: 0 });
+  Vorrat.standSetzen(S.g, 'medipackCharges', N + 1, 'debug');
+  S.runter(0);
+  ok(S.P(0).medkit === N && S.g.inventory.medipack === 0 && S.g.inventory.medipackCharges === 1, 'nur Rest (' + (N + 1) + '): ein Pack voll aus dem Rest, Überschuss 1 bleibt');
+  S.hoch(0);
+  ok(S.g.inventory.medipack === 1 && S.g.inventory.medipackCharges === 1, 'zurück: Pack + Rest, Summe ' + (N + 1));
+}
+{
+  // nur volle
+  const S = szene(1, { lager: 1 });
+  S.runter(0);
+  ok(S.P(0).medkit === N && S.g.inventory.medipack === 0 && !('medipackCharges' in S.g.inventory), 'nur volle: Pack ausgegeben, kein Rest-Konto');
+  S.hoch(0);
+  ok(S.g.inventory.medipack === 1 && !('medipackCharges' in S.g.inventory), 'zurück: Pack, weiterhin kein Rest-Konto');
+}
+{
+  // 4 Spieler: Lager 2 + Rest N+1 -> p0, p1 volle Packs, p2 N aus dem Rest, p3 den Überschuss 1
+  const S = szene(4, { lager: 2 });
+  Vorrat.standSetzen(S.g, 'medipackCharges', N + 1, 'debug');
+  const gesamt = () => (S.g.inventory.medipack || 0) * N + (S.g.inventory.medipackCharges || 0) + S.g.players.reduce((a, p) => a + (p.medkit || 0), 0);
+  const summe = gesamt();
+  for (let i = 0; i < 4; i++) S.runter(i);
+  ok(S.P(0).medkit === N && S.P(1).medkit === N && S.P(2).medkit === N && S.P(3).medkit === 1, '4 Spieler: zwei volle Packs, dann Rest ' + N + ', dann Überschuss 1 (' + [0, 1, 2, 3].map((i) => S.P(i).medkit).join(',') + ')');
+  ok(S.g.inventory.medipack === 0 && !S.g.inventory.medipackCharges && gesamt() === summe, '4 Spieler: Lager und Rest-Topf leer, Summe ' + summe);
+  for (let i = 0; i < 4; i++) S.hoch(i);
+  ok(S.g.inventory.medipack === 3 && S.g.inventory.medipackCharges === 1 && gesamt() === summe, '4 Spieler zurück: 3 Packs + Rest 1, Summe unverändert');
+  for (let z = 0; z < 3; z++) {
+    for (let i = 0; i < 4; i++) S.runter(i);
+    for (let i = 0; i < 4; i++) S.hoch(i);
+  }
+  ok(gesamt() === summe && S.g.errors === 0, 'drei weitere Zyklen: Ladungssumme bleibt ' + summe);
 }
 
 section('Lager leer, Bruchteil-Bestand');
