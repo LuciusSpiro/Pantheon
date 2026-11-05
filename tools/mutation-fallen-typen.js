@@ -66,6 +66,8 @@ const MUTATIONEN = [
   [CF, "radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.9 }", "radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.7 }", 'Auslösezone der Anlage innerhalb der Kollisionsbox (Berühren löst nie aus)'],
   [CF, "radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 0.9 }", "radius: { standard: 0.6, schott: 0.6, druck: 0.5, schuss: 1.4 }", 'Auslösezone der Anlage größer als der Entschärfen-Abstand'],
   [BU, "    if (rolle === 'falle') return a ? objektRolle(D, rolle) && ankerBlockiert(a) : false;", "    if (rolle === 'falle') return false;", 'Prüfer kennt die blockierende Anlage nicht (Weg gesperrt, K-ERREICHBAR schweigt)'],
+  [IN, "if (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen'))", "if (true)", 'G S1: verborgene Anlage blockiert schon auf dem Server (verrät die Falle, Prediction-Ruck)'],
+  [IN, "zs[e.id] !== 'verborgen'))", "zs[e.id] === 'xx'))", 'G S1: enthüllte (erkannte/ausgelöste) Anlage blockiert nicht mehr'],
 ];
 
 {

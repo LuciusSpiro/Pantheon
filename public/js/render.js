@@ -563,8 +563,8 @@
   }
   // ITM-01 E: Kollisionskacheln gebauter Karten nur für die Bewegung (Client-Vorhersage, client.js isSolidFor): Anker mit Kollisionsbox (Falle: Typ in CONFIG.anker.falle.blockiert, Selbstschussanlage),
   // gleiche Regel wie der Server (interior.awaySolid) über Shared_Buehne.ankerBlockiert. Sicht und Schuss gehen durch die Box, deshalb gilt sie NICHT in buehneSolid (Sichtfeld, Nebel, Deckung).
-  // Je Karte gecacht (Ankerliste), Karten ohne blockierende Anker kosten einen Vergleich. Eine verborgene Anlage steht erst nach ankerEnthuellt in der Liste (der Server blockiert sie schon vorher;
-  // die Auslösezone liegt vor der Box, die Falle wird also enthüllt, bevor die Figur sie berührt).
+  // Je Karte gecacht (Ankerliste), Karten ohne blockierende Anker kosten einen Vergleich. Eine verborgene Anlage steht erst nach ankerEnthuellt in der Liste und blockiert vorher nirgends: der Server
+  // blockiert sie ebenfalls erst ab erkannt/entschärft/ausgelöst (ITM-01 G, interior.blockierendeKacheln), gleicher Zeitpunkt wie die Client-Liste. Server und Client haben so nie unterschiedliche Kollision.
   const BLOCK_ANKER = new WeakMap();
   function blockierendeAnker(map) {
     const alle = map.anker || [], SB = window.Shared_Buehne;

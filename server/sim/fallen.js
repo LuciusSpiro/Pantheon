@@ -22,6 +22,7 @@
 const W = require('../world.js');
 const Physics = require('../../shared/physics.js');
 const CONFIG = require('../../shared/config.js');
+const Buehne = require('../../shared/buehne.js');
 const Anker = require('./anker.js');
 const Scanbar = require('./scanbar.js');
 
@@ -60,12 +61,33 @@ function bauen(aw) {
 function stand(game, aw) { let s = staende.get(aw); if (!s) { s = bauen(aw); staende.set(aw, s); } return s; }
 function enthuellteIds(game, aw) { return stand(game, aw).enth; }
 
+// ITM-01 G (S1): Eine verborgene Anlage mit Kollisionsbox blockiert erst ab dem Enthüllen (interior.blockierendeKacheln). Die Auslösezone (Kreis) deckt die Ecken der Box nicht ganz ab:
+// eine Figur kann beim Enthüllen schon bis zu ~5 px in der Box stehen und käme nicht mehr heraus. Sie wird deshalb auf die nächste freie Seite der Box geschoben (kleinste Eindringtiefe).
+function boxRaeumen(game, aw, f) {
+  const hb = CONFIG.player.hitbox, hw = hb.w / 2, hh = hb.h / 2, h = TILE / 2;
+  const solid = require('./interior.js').awaySolid(game);
+  const frei = (x, y) => !Physics.boxHits(solid, x, y, hb.w, hb.h);
+  for (const p of game.players) {
+    if (p.zone !== 'away' || game.away !== aw) continue;
+    const dx = p.x - f.px, dy = p.y - f.py;
+    const ex = h + hw - Math.abs(dx), ey = h + hh - Math.abs(dy);
+    if (ex <= 0 || ey <= 0) continue;
+    const sx = dx < 0 ? -1 : 1, sy = dy < 0 ? -1 : 1;
+    const zx = { x: f.px + sx * (h + hw + 0.01), y: p.y }, zy = { x: p.x, y: f.py + sy * (h + hh + 0.01) };
+    const wahl = (ex <= ey ? [zx, zy] : [zy, zx]).find((z) => frei(z.x, z.y));
+    if (wahl) { p.x = wahl.x; p.y = wahl.y; }
+  }
+}
+
 // Hook aus anker.setzen: eine verborgen gestellte Falle ist nicht mehr verborgen -> Enthüllen merken (Versand in nachreichen)
 function beiZustand(game, aw, a, z) {
   if (z === 'verborgen') return;
   const s = stand(game, aw);
   const f = s.byId.get(a.id);
-  if (f && f.sicht === 'verborgen' && !s.enth.includes(f.id)) s.enth.push(f.id);
+  if (f && f.sicht === 'verborgen' && !s.enth.includes(f.id)) {
+    s.enth.push(f.id);
+    if (Buehne.ankerBlockiert(a, game.C && game.C.anker && game.C.anker.falle)) boxRaeumen(game, aw, f);   // die Box gilt ab jetzt
+  }
 }
 
 function nachreichen(game, aw, key, k) {
@@ -97,9 +119,9 @@ function radius(game, typ) {
   return (R[typ] != null ? R[typ] : R.standard) * TILE;
 }
 
-function ausloesen(game, aw, f, p) {
+function ausloesen(game, aw, f, p, opts) {
   if (!f || !AKTIV(zustandVon(aw, f))) return false;   // zweite Prüfung im selben Tick/Zweiter Spieler: schon ausgelöst oder entschärft
-  const err = Anker.setzen(game, aw.map, f.id, 'ausgeloest', p ? p.id : null);   // atomar: erst der Zustand, dann alles andere
+  const err = Anker.setzen(game, aw.map, f.id, 'ausgeloest', p ? p.id : null, Object.assign({}, opts, { ausloesen: true }));   // atomar: erst der Zustand, dann alles andere
   if (err) { if (game.countError) game.countError('falle-ausloesen', new Error(err)); return false; }
   for (const q of game.players) {   // wer gerade entschärfte, kommt zu spät (holdValid bräche auch ab, die Meldung erklärt es)
     if (q.hold && q.hold.kind === 'anker:falle' && q.hold.anker === f.id) { q.hold = null; meldung(game, q, 'Zu spät – die Falle ist ausgelöst.'); }
@@ -108,6 +130,14 @@ function ausloesen(game, aw, f, p) {
   const h = wirkungen.get(f.typ);
   if (h) { try { h(game, aw, f, p || null); } catch (e) { if (game.countError) game.countError('falle-wirkung-' + f.typ, e); } }
   return true;
+}
+
+// ITM-01 G (H1): Einstieg aus anker.setzen (Baustein anker_zustand, Debug anker): Zustand ausgeloest über das echte Auslösen. -> undefined (keine Falle der Liste: setzen macht normal weiter) | null | Fehlertext
+function ausloesenVonAnker(game, aw, id, pid, opts) {
+  const f = stand(game, aw).byId.get(id);
+  if (!f) return undefined;
+  const p = pid ? game.playerById(pid) : null;
+  return ausloesen(game, aw, f, p || null, opts) ? null : `Falle ${id}: konnte nicht ausgelöst werden.`;
 }
 
 function zeitwirkung(game, aw, f, fn) {
@@ -195,4 +225,4 @@ function debugFalletest(game, p, args) {
   return null;
 }
 
-module.exports = { fallenWirkung, zeitwirkung, update, ausloesen, standVerwerfen, uebergangErlaubt, beiZustand, enthuellteIds, nachreichen, debugFalletest, UEBERGAENGE, EVT_ENTHUELLT };
+module.exports = { fallenWirkung, zeitwirkung, update, ausloesen, ausloesenVonAnker, standVerwerfen, uebergangErlaubt, beiZustand, enthuellteIds, nachreichen, debugFalletest, UEBERGAENGE, EVT_ENTHUELLT };

@@ -95,6 +95,9 @@ const MUTATIONEN = [
   [RN, "ctx.strokeStyle = PAL.red; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2);", "ctx.strokeStyle = '#8A2A24'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(mx - 2, my - 2);", 'Minikarte: ausgelöste Falle nicht mehr PAL.red'],
   [RN, "ctx.fillStyle = PAL.red; ctx.beginPath(); ctx.moveTo(mx, my - h); ctx.lineTo(mx + h, my + h - 1);", "ctx.fillStyle = PAL.ice; ctx.beginPath(); ctx.moveTo(mx, my - h); ctx.lineTo(mx + h, my + h - 1);", 'Minikarte: erkannte Falle eisblau statt rot'],
   [CO, "if (z.glyphe != null) R.falleGlyphe(ctx, z.glyphe, x + 7, ry + 4, 1, PAL.red);", "if (false) R.falleGlyphe(ctx, z.glyphe, x + 7, ry + 4, 1, PAL.red);", 'Scan-Liste ohne Glyphe vor dem Namen'],
+  ['server/sim/interior.js', "if (!e.verborgen || (zs[e.id] && zs[e.id] !== 'verborgen'))", "if (true)", 'G S1: verborgene Anlage blockiert schon auf dem Server (verrät die Falle, Prediction-Ruck)'],
+  ['server/sim/interior.js', "zs[e.id] !== 'verborgen'))", "zs[e.id] === 'xx'))", 'G S1: enthüllte (erkannte/ausgelöste) Anlage blockiert nicht mehr'],
+  ['server/sim/fallen.js', "if (wahl) { p.x = wahl.x; p.y = wahl.y; }", "void wahl;", 'G S1: beim Enthüllen wird eine Figur in der Box nicht herausgeschoben (eingeklemmt)'],
 ];
 
 {

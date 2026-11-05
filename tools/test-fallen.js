@@ -242,14 +242,15 @@ section('Nachzügler und Wiederverbinden: derselbe Stand, dieselbe Reihenfolge')
   S.g.addConnection(c3); S.g.handleMessage(c3, { t: 'hello', clientId: 'F9', name: 'Spaet', color: 2 });
   S.g.handleMessage(c3, { t: 'ready', ready: true }); S.lauf(DT * 3);
   const p3 = S.g.players.find((q) => q.clientId === 'F9');
-  ok(!p3 || p3.zone !== 'away' || (clientListe(c3.inbox, S.id).liste || []).length >= 0, 'Nachzügler: Beitritt ohne Fehler');
+  const cl3 = clientListe(c3.inbox, S.id);   // ITM-01 G (H2): echte Prüfung, die frühere Bedingung (length >= 0) war immer wahr
+  ok(!!p3 && Array.isArray(cl3.liste) && cl3.fehl.length === 0 && JSON.stringify(cl3.liste) === JSON.stringify(vorher.liste) && cl3.liste.slice(-2).join() === 'falle.5,falle.2', 'Nachzügler: bekommt Karte und Enthüllte, dieselbe Liste wie der alte Client (' + (cl3.liste || []).slice(-3).join() + ') ohne Lücke (' + cl3.fehl.length + ')');
   ok((S.g.errors && (S.g.errors.length || S.g.errors)) ? false : true, 'keine Laufzeitfehler');
 }
 
 section('Entschärfen (E halten): Dauer, nur aus erkannt, Erfolg');
 {
   const S = szene(); const { p } = S;
-  S.lauf(0.2);
+  S.lauf(0.2); wirk.length = 0;   // ITM-01 G: der Zustandsmaschinen-Test davor löst über setzen echt aus (H1), seine Aufrufe zählen hier nicht
   const dauer = CONFIG.anker.halten.falle;
   S.hin(p, S.nachbar('falle.4').x, S.nachbar('falle.4').y);
   const l = []; const a = S.an('falle.4'); Anker.interactionsAt(S.g, p, a.x, a.y, l);
@@ -591,6 +592,48 @@ section('Debug falletest (nur mit --debug, nur gebaute Karte am Boden)');
   ok(/nur am Boden/.test(Fallen.debugFalletest(W0, W0.players[0], [])), 'nicht am Boden: Hinweistext');
   W0.setAwayMap('kesh'); W0.aways.kesh.active = true; interior.placeOnAwayPad(W0, W0.players[0], 0);
   ok(/nur auf gebauten Karten/.test(Fallen.debugFalletest(W0, W0.players[0], [])), 'Handkarte: Hinweistext (nur gebaute Karten)');
+}
+
+section('ITM-01 G (H1): Übergang nach ausgeloest über anker_zustand und Debug anker löst wirklich aus');
+{
+  const Registry = require('../server/mission/registry.js');
+  const bausteinAnker = (S, anker, zustand) => Registry.get('anker_zustand').run(S.g.mission, { map: S.id, anker, zustand });
+  // Baustein: verborgen -> ausgeloest
+  {
+    const S = szene(); const { p } = S; S.lauf(0.2); wirk.length = 0;
+    bausteinAnker(S, 'falle.1', 'ausgeloest'); S.lauf(DT * 2);
+    ok(S.z('falle.1') === 'ausgeloest' && wirk.filter((w) => w.id === 'falle.1').length === 1, 'Baustein anker_zustand verborgen -> ausgeloest: Zustand und Wirkung genau einmal');
+    ok(S.me.some((m) => m[0] === 'falleAusgeloest' && m[1].anker === 'falle.1' && m[1].typ === 'tst' && m[1].map === S.id), 'Missionsereignis falleAusgeloest kommt');
+    ok(S.enthuellt(0).some((e) => e.anker[0] === 'falle.1'), 'die verborgene Falle wird dabei enthüllt (ankerEnthuellt)');
+    bausteinAnker(S, 'falle.1', 'ausgeloest'); S.lauf(DT * 3);
+    ok(wirk.filter((w) => w.id === 'falle.1').length === 1, 'zweiter Aufruf: keine zweite Wirkung (genau einmal)');
+    // Baustein auf die Rolle: alle Fallen der Rolle auslösen, jede genau einmal
+    wirk.length = 0;
+    bausteinAnker(S, 'falle', 'ausgeloest'); S.lauf(DT * 2);
+    ok(['falle.2', 'falle.4'].every((id) => wirk.filter((w) => w.id === id).length === 1) && wirk.filter((w) => w.id === 'falle.1').length === 0, 'Rolle falle auf ausgeloest: jede noch aktive Falle genau einmal (die schon ausgelöste nicht)');
+    // Entschaerft ist endgültig: der Baustein kann sie nicht auslösen
+    const S2 = szene(); S2.lauf(0.2); S2.nutzeZustand('falle.4', 'entschaerft'); wirk.length = 0;
+    bausteinAnker(S2, 'falle.4', 'ausgeloest'); S2.lauf(DT * 2);
+    ok(S2.z('falle.4') === 'entschaerft' && wirk.length === 0, 'entschaerft -> ausgeloest bleibt abgelehnt, keine Wirkung');
+  }
+  // Entschärfer wird abgebrochen
+  {
+    const S = szene(); const { p } = S; S.lauf(0.2);
+    S.hin(p, S.nachbar('falle.4').x, S.nachbar('falle.4').y);
+    S.act(true); S.lauf(0.5);
+    ok(S.holdFalle(p), 'Vorbedingung: der Spieler entschärft falle.4');
+    wirk.length = 0;
+    bausteinAnker(S, 'falle.4', 'ausgeloest');
+    ok(!S.holdFalle(p) && S.z('falle.4') === 'ausgeloest' && S.notes.some((t) => t.pid === p.id && /Zu spät/.test(t.text)) && wirk.filter((w) => w.id === 'falle.4').length === 1, 'Entschärfer wird abgebrochen ("Zu spät"), Wirkung kommt');
+  }
+  // Debug anker
+  {
+    const S = szene(); S.lauf(0.2); wirk.length = 0;
+    const r = S.g.onDebugB1(S.p, 'anker', { args: ['falle.2', 'ausgeloest'] });
+    ok(r === null && S.z('falle.2') === 'ausgeloest' && wirk.filter((w) => w.id === 'falle.2').length === 1 && S.me.some((m) => m[0] === 'falleAusgeloest' && m[1].anker === 'falle.2' && m[1].pid === S.p.id), 'Debug anker <id> ausgeloest: Wirkung, Missionsereignis mit pid');
+    const r2 = S.g.onDebugB1(S.p, 'anker', { args: ['falle.2', 'ausgeloest'] });
+    ok(wirk.filter((w) => w.id === 'falle.2').length === 1, 'Debug anker nochmal: keine zweite Wirkung');
+  }
 }
 
 section('Handkarten und Karten ohne Fallen unverändert');
