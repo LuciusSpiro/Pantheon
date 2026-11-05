@@ -677,10 +677,11 @@
         for (const w of R.fallenLaufend(st)) lines.push([w.name + ' · ' + w.rest + ' s', w.art === 'feld' ? (Math.floor(view.time * 2) % 2 ? PAL.red : '#FF8A7A') : PAL.warn]);   // ITM-01 E: Druckverlust, gesperrte Schotts (Restzeit)
         const cnt = {};
         (map.anker || []).forEach((a, i) => {
-          if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle'].indexOf(a[1]) < 0) return;
+          if (['terminal', 'sprengpunkt', 'beute', 'fund', 'zelle', 'abbau'].indexOf(a[1]) < 0) return;
           const z = R.ankerZustand(map, st, i);
+          if (a[1] === 'abbau' && z === 'leer') return;   // GEL-03 A2: kein Vorkommen in dieser Runde zählt nicht mit
           const c = cnt[a[1]] || (cnt[a[1]] = [0, 0]); c[1]++;
-          if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen'].indexOf(z) >= 0) c[0]++;
+          if (['geladen', 'zerstoert', 'leer', 'genommen', 'offen', 'abgebaut'].indexOf(z) >= 0) c[0]++;
           if (a[1] === 'terminal' && z === 'laedt') c.laedt = true;
         });
         if (!away.oz) for (const r of Object.keys(cnt)) lines.push([(R.ANKER_NAME[r] || r) + ': ' + cnt[r][0] + '/' + cnt[r][1] + (cnt[r].laedt ? ' · lädt' : ''), cnt[r][0] === cnt[r][1] ? PAL.mint : PAL.star]);

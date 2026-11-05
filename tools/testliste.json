@@ -62,6 +62,7 @@
   {"id":"test-fallen","kette":"test","cmd":["tools/test-fallen.js"],"stufe":"full","budget_s":25},
   {"id":"test-abbau","kette":"test","cmd":["tools/test-abbau.js"],"stufe":"fast","budget_s":8},
   {"id":"test-abbau-neu","kette":"test","cmd":["tools/test-abbau-neu.js"],"stufe":"full","budget_s":90,"timeout_s":300},
+  {"id":"test-abbau-client","kette":"test","cmd":["tools/test-abbau-client.js"],"stufe":"fast","budget_s":40,"timeout_s":180},
   {"id":"test-fallen-ids","kette":"test","cmd":["tools/test-fallen-ids.js"],"stufe":"full","budget_s":15},
   {"id":"test-fallen-typen","kette":"test","cmd":["tools/test-fallen-typen.js"],"stufe":"full","budget_s":25},
   {"id":"test-sektoren","kette":"test","cmd":["tools/test-sektoren.js"],"stufe":"full","budget_s":22},

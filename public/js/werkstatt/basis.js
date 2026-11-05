@@ -70,7 +70,7 @@
   const ROLLE_FARBE = {
     eingang: '#5fd38d', abholpunkt: '#56ccf2', wache: '#eb5757', patrouille: '#f2c94c', deckung: '#a0a8b8', terminal: '#9b51e0',
     sprengpunkt: '#ff6b3d', zelle: '#c2a4ff', beute: '#e0b030', ziel: '#ffffff', fund: '#ffd86b', tor: '#d08a3c', raetsel: '#ff7bd5',
-    aussicht: '#7fe0c2', nsc: '#9fd8ff', versteck: '#b08968', lift: '#4fb0d0', leiter: '#4fb0d0',
+    aussicht: '#7fe0c2', nsc: '#9fd8ff', versteck: '#b08968', lift: '#4fb0d0', leiter: '#4fb0d0', abbau: '#c98a5a',
   };
   const BEREICH_FARBE = ['#56ccf2', '#f2c94c', '#eb5757', '#5fd38d', '#bb6bd9', '#f2994a', '#9fd8ff', '#c2a4ff'];
   const ROLLE_BEREICH_FARBE = { hinein: '#5fd38d', ziel: '#eb5757', rueckzug: '#56ccf2' };
