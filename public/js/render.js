@@ -3925,8 +3925,8 @@
     }
     if (pause) {   // eigenes Zeichen für das Strafen-Fenster, neben der Körpermitte: „zz“ und zwei Sternchen
       const zx = Math.round(x + h * 0.75), zy = Math.round(y - h - 8);
-      text(ctx, 'zz', zx, zy, { color: KREATUR.pause, align: 'center' });
-      shape(ctx, 'diamond', zx + 11, zy - 4, 5, KREATUR.pause, KREATUR.kante); shape(ctx, 'diamond', zx - 10, zy - 6, 4, KREATUR.pause, KREATUR.kante);
+      text(ctx, 'zz', zx, zy - 4, { color: KREATUR.pause, align: 'center', scale: 2 });
+      shape(ctx, 'diamond', zx + 18, zy + 2, 8, KREATUR.pause, KREATUR.kante); shape(ctx, 'diamond', zx - 14, zy - 10, 7, KREATUR.pause, KREATUR.kante);
     }
     kreaturBeschriftung(ctx, name, x, y - h - 32);
   }
