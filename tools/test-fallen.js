@@ -636,6 +636,30 @@ section('ITM-01 G (H1): Übergang nach ausgeloest über anker_zustand und Debug 
   }
 }
 
+section('ITM-01 H: Spielleiter-Kontext nennt verborgene Fallen nirgends');
+{
+  const S = szene(); const { g, id } = S;
+  const Context = require('../server/mission/context.js');
+  const Weltstand = require('../server/weltstand.js');
+  const ctx = () => { L.sichern(g, id); return Context.build(Weltstand.capture(g), { art: 'test' }, null); };
+  const lpEintrag = (c) => { for (const o of c.orte || []) for (const l of o.landepunkte || []) if (l.id === id) return l; return null; };
+  S.lauf(0.3);
+  let c = ctx(); let e = lpEintrag(c);
+  ok(!!e && !!e.anker, 'Vorbedingung: Landepunkt der Ruine im Kontext mit Ankerzahlen');
+  ok(e && e.anker.falle === 2, 'Start: nur die zwei passiven Fallen zählen (falle.3, falle.4), die drei verborgenen nicht (' + (e && e.anker.falle) + ')');
+  ok(!/falle\.[1256]/.test(JSON.stringify(c).replace(/falle\.[34]/g, '')), 'verborgene Fallen-Ids stehen nirgends im Kontext');
+  Anker.setzen(g, id, 'falle.1', 'erkannt', null, { merken: true });
+  e = lpEintrag(ctx());
+  ok(e.anker.falle === 3, 'erkannt zählt jetzt: 3');
+  Anker.setzen(g, id, 'falle.2', 'ausgeloest', null, { merken: true });
+  e = lpEintrag(ctx());
+  ok(e.anker.falle === 4, 'ausgelöst (vorher verborgen) zählt: 4');
+  Anker.setzen(g, id, 'falle.3', 'entschaerft', null, { merken: true });
+  e = lpEintrag(ctx());
+  ok(e.anker.falle === 4, 'entschärft (passiv) zählt weiter: 4');
+  ok(JSON.stringify(c).includes('"anker"') && !JSON.stringify(ctx()).includes('falle.5'), 'falle.5 bleibt verborgen und ungenannt');
+}
+
 section('Handkarten und Karten ohne Fallen unverändert');
 {
   const g = new Game({ noStore: true, seed: 11, debug: true, env: { MISSION_SOURCE: 'fallback' }, log: () => {} });

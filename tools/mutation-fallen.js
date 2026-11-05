@@ -19,7 +19,7 @@ fs.copyFileSync(path.join(ROOT, TEST), path.join(TMP, TEST));
 fs.copyFileSync(path.join(ROOT, 'package.json'), path.join(TMP, 'package.json'));
 for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT, rel))) { try { fs.symlinkSync(path.join(ROOT, rel), path.join(TMP, rel), 'junction'); } catch (e) { /* kein Modul nötig */ } } }
 
-const SB = 'server/sim/scanbar.js', FA = 'server/sim/fallen.js', AN = 'server/sim/anker.js', GM = 'server/game.js';
+const CX = 'server/mission/context.js', SB = 'server/sim/scanbar.js', FA = 'server/sim/fallen.js', AN = 'server/sim/anker.js', GM = 'server/game.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, gleichwertig?]
 const MUTATIONEN = [
   // ---- Auslösen
@@ -78,6 +78,11 @@ const MUTATIONEN = [
   [AN, "if (rolle === 'falle' && z === 'ausgeloest' && vorher !== z && !o.ausloesen) {", "if (false) {", 'G H1: anker.setzen nach ausgeloest löst keine Wirkung aus (Baustein, Debug)'],
   [FA, "  const p = pid ? game.playerById(pid) : null;\n", "  const p = null;\n", 'G H1: Auslöser (pid) geht beim Auslösen über setzen verloren'],
   [FA, "      if (a) game.sendTo(p.conn, { t: 'event', kind: EVT_ENTHUELLT, map: aw.map, kv: key.slice(aw.map.length + 1), i: basis + rec.n, anker: game.ankerZeile(a) });", "      if (a && rec.ep !== -2) game.sendTo(p.conn, { t: 'event', kind: EVT_ENTHUELLT, map: aw.map, kv: key.slice(aw.map.length + 1), i: basis + rec.n + (p.clientId === 'F9' ? 1 : 0), anker: game.ankerZeile(a) });", 'G H2: Nachzügler bekommt die Enthüllten mit falschem Index'],
+  // ---- ITM-01 H: Spielleiter-Kontext
+  [CX, "&& !verborgeneFalle(a, zust)) z[a.rolle]", ") z[a.rolle]", 'H: Kontext zählt verborgene Fallen mit'],
+  [CX, "((zust && zust[a.id]) || 'verborgen') === 'verborgen'", "true", 'H: Kontext zählt auch enthüllte (erkannte/ausgelöste) Fallen nicht mehr'],
+  [CX, "a.sicht !== 'passiv' && ((zust", "((zust", 'H: Kontext zählt passive (von Anfang an erkannte) Fallen nicht'],
+  [CX, "r.anker = zahlen(k.anker, obj(e.zustaende));", "r.anker = zahlen(k.anker);", 'H: Kontext ignoriert den Weltstand-Zustand der Fallen'],
 ];
 
 {

@@ -21,7 +21,7 @@ for (const rel of ['public', 'node_modules']) { if (fs.existsSync(path.join(ROOT
 const MP = 'server/sim/medipack.js', CB = 'server/sim/combat.js', IN = 'server/sim/interior.js', AW = 'server/sim/away.js', LO = 'server/sim/loadout.js', VO = 'server/sim/vorrat.js', G = 'server/game.js';
 // [Datei, alter Text (genau einmal), neuer Text, Beschreibung, gleichwertig?]
 const MUTATIONEN = [
-  // ---- Pflicht: Ladung, Rückgabe, Träger, Standardloadout, Rest zuerst
+  // ---- Pflicht: Ladung, Rückgabe, Träger, Standardloadout, volle Packs zuerst, Rest zuletzt
   [CB, "  if (kit) Medipack.verbrauchen(p);", "  if (kit) void 0;", 'Revive verbraucht keine Ladung'],
   [MP, "function verbrauchen(p) { if (p.medkit > 0) p.medkit -= 1; }", "function verbrauchen(p) { p.medkit = 0; }", 'Revive verbraucht alle Ladungen auf einmal'],
   [MP, "  if (packs > 0) Vorrat.einlagern(game, 'medipack', packs, 'medkit');\n", "", 'Rückgabe vergessen: voller Pack kommt nicht ins Lager zurück'],
@@ -29,9 +29,11 @@ const MUTATIONEN = [
   [MP, "Vorrat.einlagern(game, 'medipack', packs, 'medkit');", "Vorrat.einlagern(game, 'medipack', packs * 2, 'medkit');", 'Rückgabe verdoppelt: zwei Packs zurück'],
   [MP, "  if (rest - packs * n > 0) Vorrat.einlagern(game, REST, rest - packs * n, 'medkit');", "  if (rest - packs * n > 0) Vorrat.einlagern(game, REST, rest, 'medkit');", 'Rückgabe verdoppelt: Rest in voller Höhe statt nur der Teilmenge'],
   [MP, "  const packs = Math.floor(rest / n);", "  const packs = Math.ceil(rest / n);", 'Teilmenge wird als ganzer Pack zurückgegeben (aufgerundet)'],
-  [MP, "  if (!traegt(game, p)) return;\n  if (Vorrat.stand", "  if (Vorrat.stand", 'Nichtträger bekommt ein Kit'],
+  [MP, "  if (!traegt(game, p)) return;\n  // Reihenfolge", "  // Reihenfolge", 'Nichtträger bekommt ein Kit'],
   [LO, "const standardLoadout = () => ['blaster', 'medipack', ...Array(SLOTS_MAX - 2).fill(null)];", "const standardLoadout = () => ['blaster', ...Array(SLOTS_MAX - 1).fill(null)];", 'Standardloadout ohne Medipack'],
-  [MP, "  if (Vorrat.stand(game, REST) > 0) {", "  if (false) {", 'angebrochener Rest wird nicht zuerst genommen'],
+  [MP, "  } else if (Vorrat.stand(game, REST) > 0) {", "  } else if (false) {", 'ITM-01 H: ohne volle Packs wird der Rest-Topf nicht genommen'],
+  [MP, "  if ((game.inventory.medipack || 0) > 0) {\n    Vorrat.verbrauchen", "  if ((game.inventory.medipack || 0) > 0 && Vorrat.stand(game, REST) <= 0) {\n    Vorrat.verbrauchen", 'ITM-01 H: alte Reihenfolge, Rest-Topf vor den vollen Packs'],
+  [MP, "  if ((game.inventory.medipack || 0) > 0) {\n    Vorrat.verbrauchen", "  if ((game.inventory.medipack || 0) > 0 && !(Vorrat.stand(game, REST) >= n)) {\n    Vorrat.verbrauchen", 'ITM-01 H: Rest-Topf ab einer Packgröße vor den vollen Packs'],
   // ---- weitere Regeln
   [MP, "    p.medkit = Math.min(n, rest);\n", "    p.medkit = rest;\n", 'Rest über N: mehr Ladungen als ein Pack fasst'],
   [MP, "    if (rest > n) Vorrat.einlagern(game, REST, rest - n, 'medkit');", "    void 0;", 'Rest über N: Überschuss geht verloren'],
