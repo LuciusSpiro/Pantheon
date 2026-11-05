@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "hinweis": "MON-01 P1: Kreaturen-Typen für server/sim/kreatur.js. Alles Zahlen und Verhalten, KEINE Anzeigetexte (die kommen mit dem Name-Schlüssel aus dem Client-Content). Einheiten: Tempo in px/s, Dauern in s, Sicht und Abstände in Kacheln, hitRadius in px, frontArc in Grad. Der Server enthält keine Typnamen; ein neuer Typ ist ein neuer Eintrag hier.",
+  "hinweis": "MON-01 P1/P2b: Kreaturen-Typen für server/sim/kreatur.js. Alles Zahlen und Verhalten, KEINE Anzeigetexte (die kommen mit dem Name-Schlüssel aus dem Client-Content). Einheiten: Tempo in px/s, Dauern in s, Sicht und Abstände in Kacheln, hitRadius in px, frontArc in Grad. Der Server enthält keine Typnamen; ein neuer Typ ist ein neuer Eintrag hier.",
   "typen": {
     "probe": {
       "name": "kreatur.probe",
@@ -16,15 +16,20 @@
       "rammZeit": 1.2,
       "start": "patrouille",
       "zustaende": {
-        "patrouille": { "modus": "streife", "tempo": 45, "radius": 8, "uebergang": [ { "auf": "sieht", "nach": "jagd" } ] },
+        "patrouille": { "modus": "streife", "tempo": 45, "radius": 8, "uebergang": [ { "auf": "sieht", "nach": "jagd" }, { "auf": "laerm", "nach": "laerm" } ] },
+        "laerm": { "modus": "zumKoeder", "tempo": 62, "uebergang": [ { "auf": "sieht", "nach": "jagd" }, { "auf": "koederEnde", "nach": "patrouille" } ] },
         "jagd": { "modus": "verfolge", "tempo": 84, "uebergang": [ { "auf": "nah", "abstand": 6, "nach": "aufladen" }, { "auf": "verloren", "nach": "patrouille" } ] },
         "aufladen": { "modus": "zielen", "tempo": 0, "dauer": 1.2, "uebergang": [ { "auf": "ablauf", "nach": "rammen" } ] },
-        "rammen": { "modus": "ramme", "tempo": 260, "dauer": 0.9, "uebergang": [ { "auf": "blockiert", "nach": "steckt" }, { "auf": "ablauf", "nach": "pause" } ] },
+        "rammen": { "modus": "ramme", "tempo": 260, "dauer": 0.9, "uebergang": [ { "auf": "getroffen", "nach": "pause" }, { "auf": "blockiert", "nach": "steckt" }, { "auf": "ablauf", "nach": "pause" } ] },
         "steckt": { "modus": "steht", "tempo": 0, "dauer": 1.0, "uebergang": [ { "auf": "ablauf", "nach": "pause" } ] },
         "pause": { "modus": "steht", "tempo": 0, "dauer": 2.0, "uebergang": [ { "auf": "ablauf", "nach": "jagd" } ] }
       },
       "bausteine": {
-        "zyklus": { "hindernisAb": 0.3 }
+        "zyklus": { "hindernisAb": 0.3 },
+        "ruecken": { "bogen": 90, "faktor": 2 },
+        "aufladung": { "max": 3, "zerfallNach": 4, "zerfallSchritt": 1.5, "tempoFaktor": 0.5, "rammFaktor": 0.5 },
+        "koeder": { "faktor": 1.5, "dauer": 4 },
+        "rammschaden": { "radius": 30 }
       }
     }
   }

@@ -318,6 +318,8 @@
     "test:kreatur": "node tools/test-kreatur.js",
     "test:kreatur-treffer": "node tools/test-kreatur-treffer.js",
     "test:kreatur-treffer-mutation": "node tools/mutation-kreatur-treffer.js",
+    "test:kreatur-bausteine": "node tools/test-kreatur-bausteine.js",
+    "test:kreatur-bausteine-mutation": "node tools/mutation-kreatur-bausteine.js",
     "test:scanner-anzeige": "node tools/test-scanner-anzeige.js",
     "mess:scanner-tick": "node tools/mess-scanner-tick.js",
     "test:ausruestung-hud": "node tools/test-ausruestung-hud.js",

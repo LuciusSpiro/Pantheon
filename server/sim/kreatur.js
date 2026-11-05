@@ -6,14 +6,17 @@
 // Schild/Wunden/Frontbogen und eingeschaltete Bausteine mit Parametern. Der Server kennt keinen Typnamen: kein `if (typ === …)`.
 //
 //   update(game, dt)                         je Tick (aus combat.update, nach dem Station-Monster); ohne Kreaturen sofort zurück, ohne Zufallsverbrauch
-//   kreaturBausteinAnmelden(name, def)       Registry der Bausteine. def = { beiTick?, beiTreffer?, beiLaerm?, modi?, ausloeser?, pruefen? } -> Abmelder
+//   kreaturBausteinAnmelden(name, def)       Registry der Bausteine. def = { beiTick?, beiTreffer?, beiLaerm?, beiErzeugen?, beiAusruesten?, modi?, ausloeser?, pruefen? } -> Abmelder
 //       beiTick(game, K, dt, par, ctx)        je Tick vor dem Zustandswechsel (ctx = { E, m, typ, ziel, k })
 //       beiTreffer(game, K, treffer, par)     Aufruf über bausteinTreffer (Treffer-Hooks kommen in P2)
-//       beiLaerm(game, K, laerm, par)         Aufruf über bausteinLaerm (Lärm-Leser kommt in P2b)
+//       beiLaerm(game, K, laerm, par)         Aufruf über bausteinLaerm (jedes neue Lärmereignis, aus dem Lärm-Leser in update, P2b)
+//       beiErzeugen(game, K, par) / beiAusruesten(game, K, par)   einmalig beim Anlegen bzw. im Kämpfer-Vertrag (Felder aus den Parametern in die Kreatur übernehmen, P2b)
 //       modi: { name: { betreten?(game, K, ctx, par, zustand), tick(game, K, dt, ctx, par, zustand) } }   Bewegungsmodi, die Zustände der Tabelle verwenden dürfen
 //       ausloeser: { name(game, K, ctx, par, uebergang) -> bool }                                         zusätzliche Auslöser für `uebergang[].auf`
 //       pruefen(par) -> [Fehlertext]          Parameter-Prüfung des Validators
 //   Eingebaut: Modi steht, zielen, streife, verfolge; Auslöser sieht, verloren, ablauf, nah (abstand), blockiert; Baustein `zyklus` (Modus `ramme`).
+//   Teamregeln (P2b, je Baustein, nur über Daten eingeschaltet): `ruecken` {bogen, faktor}, `aufladung` {max, zerfallNach, zerfallSchritt, tempoFaktor, rammFaktor},
+//   `koeder` {faktor, dauer} (Modus `zumKoeder`, Auslöser `laerm`, `koederEnde`), `rammschaden` {radius} (Auslöser `getroffen`).
 //   ziele(aw)                                Drohnen + Kreaturen für Treffer-Schleifen; ohne Kreaturen DIESELBE Referenz aw.drones (P2a)
 //   ausruesten(game, K)                      Kämpfer-Vertrag (aus combat.kaempfer): Schild, Wunden, Frontbogen, Blickrichtung, Trefferradius aus dem Typ (P2a)
 //   raeumen(aw)                              Kreaturen einer Karte entfernen (Szenario-Start, P2a)
@@ -24,6 +27,7 @@
 const Mon = require('../../shared/monster.js');
 const Physics = require('../../shared/physics.js');
 const Monster = require('./monster.js');
+const Tel = require('../telemetrie/gefecht.js');
 const KREATUREN = require('../../content/kampf/kreaturen.json');
 
 let combatMod = null;
@@ -41,7 +45,7 @@ function kreaturBausteinAnmelden(name, def) {
   if (typeof name !== 'string' || !name) throw new Error('kreaturBausteinAnmelden: Name fehlt');
   if (!def || typeof def !== 'object') throw new Error('kreaturBausteinAnmelden: Definition fehlt (' + name + ')');
   if (bausteine.has(name)) throw new Error('kreaturBausteinAnmelden: Baustein bereits angemeldet (' + name + ')');
-  for (const k of ['beiTick', 'beiTreffer', 'beiLaerm', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
+  for (const k of ['beiTick', 'beiTreffer', 'beiLaerm', 'beiErzeugen', 'beiAusruesten', 'pruefen']) if (def[k] !== undefined && typeof def[k] !== 'function') throw new Error('kreaturBausteinAnmelden: ' + k + ' muss eine Funktion sein (' + name + ')');
   for (const [gruppe, fn] of [['modi', 'tick'], ['ausloeser', null]]) {
     for (const [n, f] of Object.entries(def[gruppe] || {})) if (fn ? !f || typeof f[fn] !== 'function' : typeof f !== 'function') throw new Error('kreaturBausteinAnmelden: ' + gruppe + '.' + n + ' ungültig (' + name + ')');
   }
@@ -68,7 +72,7 @@ const KERN_MODI = {
         }
         K.replan = 1.2;
       }
-      gehe(game, K, dt, ctx, z.tempo);
+      gehe(game, K, dt, ctx, tempoVon(K, z));
     },
   },
   // Dem letzten bekannten Ziel folgen (Pfad über dieselbe Maske wie die Kollision)
@@ -79,10 +83,12 @@ const KERN_MODI = {
         if (a) Monster.setzePfad(K, ctx.m, a);
         K.replan = ctx.typ.replan;
       }
-      gehe(game, K, dt, ctx, z.tempo);
+      gehe(game, K, dt, ctx, tempoVon(K, z));
     },
   },
 };
+// Tempo eines Zustands mit dem Faktor aus Bausteinen (aufladung); ohne Faktor der Wert aus der Tabelle
+const tempoVon = (K, z) => z.tempo * (K.tempoF || 1);
 function gehe(game, K, dt, ctx, tempo) {
   const r = Monster.gehenMit(game, ctx.E, K, dt, tempo, { hb: hbVon(ctx.typ), rammZeit: ctx.typ.rammZeit, tueren: ctx.typ.tuerenAufbrechen ? 'aufbrechen' : 'sperren' });
   if (r === 'tuer') { K.pfad = []; K.replan = Math.max(K.replan, 1); K.tuerGesperrt = true; }   // Tür bleibt zu: Pfad verwerfen, später neu planen
@@ -105,7 +111,7 @@ kreaturBausteinAnmelden('zyklus', {
     ramme: {
       betreten(game, K) { K.pfad = []; },
       tick(game, K, dt, ctx, par, z) {
-        const s = z.tempo * dt; if (s <= 0) return;
+        const s = tempoVon(K, z) * dt; if (s <= 0) return;
         const dx = Math.cos(K.facing), dy = Math.sin(K.facing);
         const res = Physics.moveWithCollision(ctx.E.solid, K.x, K.y, dx * s, dy * s, hbVon(ctx.typ));
         const voran = (res.x - K.x) * dx + (res.y - K.y) * dy;
@@ -119,6 +125,114 @@ kreaturBausteinAnmelden('zyklus', {
     if (!par || typeof par.hindernisAb !== 'number' || !(par.hindernisAb > 0 && par.hindernisAb <= 1)) F.push('hindernisAb muss eine Zahl in (0, 1] sein');
     return F;
   },
+});
+
+// ---------- Teamregeln (P2b) ----------
+const jagend = (K, typ) => !!K.letzte && K.verlust < typ.verlustZeit;   // hat einen Spieler gesehen und ihn noch nicht verloren
+
+// Baustein ruecken: Treffer von hinten (Bogen in Grad um die Rückseite) machen Schildschaden × faktor. Die Auswertung steht in waffen.js trefferWirkung und
+// liest nur das Feld ziel.ruecken; der Kämpfer-Vertrag setzt es aus den Parametern (Drohnen haben das Feld nie). Gilt nur für Schildschaden.
+kreaturBausteinAnmelden('ruecken', {
+  beiAusruesten(game, K, par) { if (K.ruecken == null) K.ruecken = { bogen: par.bogen, faktor: par.faktor }; },
+  pruefen(par) {
+    const F = [];
+    if (!par || !zahl(par.bogen, 1, 360)) F.push('bogen muss eine Zahl in [1, 360] sein (Grad um die Rückseite)');
+    if (!par || !zahl(par.faktor, 0.1)) F.push('faktor muss eine Zahl >= 0,1 sein');
+    return F;
+  },
+});
+
+// Baustein aufladung: jeder Treffer (auch abgelenkte) erhöht die Stufe K.aufladung.stufe (0..max); ohne Treffer sinkt sie nach zerfallNach s alle zerfallSchritt s.
+// Die Stufe erhöht das Tempo aller Zustände (K.tempoF) und die Rammreichweite (K.rammF), nicht den Schaden: Wunde ist Wunde. Betäubt/liegend zählt der Zerfall nicht mit.
+function aufladungWirkung(K, par) { const s = K.aufladung.stufe; K.tempoF = 1 + s * par.tempoFaktor; K.rammF = 1 + s * par.rammFaktor; }
+const aufladungVon = (K) => K.aufladung || (K.aufladung = { stufe: 0, ruhe: 0, zerfallT: 0 });
+kreaturBausteinAnmelden('aufladung', {
+  beiTreffer(game, K, treffer, par) {
+    const a = aufladungVon(K);
+    a.stufe = Math.min(par.max, a.stufe + 1); a.ruhe = 0; a.zerfallT = 0;
+    aufladungWirkung(K, par);
+  },
+  beiTick(game, K, dt, par) {
+    const a = K.aufladung; if (!a || a.stufe <= 0) return;
+    a.ruhe += dt;
+    if (a.ruhe >= par.zerfallNach) {
+      a.zerfallT += dt;
+      while (a.zerfallT >= par.zerfallSchritt && a.stufe > 0) { a.zerfallT -= par.zerfallSchritt; a.stufe--; }
+      if (a.stufe <= 0) a.zerfallT = 0;
+      aufladungWirkung(K, par);
+    }
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || !Number.isInteger(par.max) || par.max < 1) F.push('max muss eine ganze Zahl >= 1 sein (Stufen)');
+    if (!par || !zahl(par.zerfallNach, 0)) F.push('zerfallNach muss eine Zahl >= 0 sein (s ohne Treffer)');
+    if (!par || !zahl(par.zerfallSchritt, 0.05)) F.push('zerfallSchritt muss eine Zahl >= 0,05 sein (s je Stufe)');
+    if (!par || !zahl(par.tempoFaktor, 0)) F.push('tempoFaktor muss eine Zahl >= 0 sein (Zuwachs je Stufe)');
+    if (!par || !zahl(par.rammFaktor, 0)) F.push('rammFaktor muss eine Zahl >= 0 sein (Zuwachs je Stufe)');
+    return F;
+  },
+});
+
+// Baustein koeder: Lärm lesen (der zentrale Leser in update ruft beiLaerm je neuem Ereignis). Liegt der Lärm innerhalb ev.radius × faktor, merkt sich die Kreatur den Ort
+// (K.koeder) und wechselt über den Auslöser `laerm` in einen Zustand mit dem Modus `zumKoeder`: Pfad zum Ort, dort `dauer` s suchen, dann Auslöser `koederEnde`.
+// Sie reagiert nur in Zuständen, deren Tabelle einen Übergang `laerm` (oder den Modus selbst) hat, und nie, solange sie einen Spieler jagt.
+const KOEDER_MODUS = 'zumKoeder';
+kreaturBausteinAnmelden('koeder', {
+  beiLaerm(game, K, ev, par) {
+    const typ = typVon(K.typ); const z = typ.zustaende[K.z];
+    if (z.modus !== KOEDER_MODUS && !z.uebergang.some((u) => u.auf === 'laerm')) return;
+    if (jagend(K, typ)) return;
+    if (Math.hypot(ev.x - K.x, ev.y - K.y) > ev.radius * par.faktor) return;
+    K.koeder = { x: ev.x, y: ev.y, neu: true, da: false, rest: par.dauer, fertig: false };
+  },
+  beiTick(game, K, dt, par, ctx) { if (K.koeder && jagend(K, ctx.typ)) K.koeder = null; },   // Jagd geht vor
+  modi: {
+    [KOEDER_MODUS]: {
+      tick(game, K, dt, ctx, par, z) {
+        const o = K.koeder; if (!o || o.fertig) return;
+        if (o.neu) {
+          o.neu = false; o.da = false; o.rest = par.dauer;
+          const a = Mon.naechster(ctx.m, Math.floor(o.x / TILE), Math.floor(o.y / TILE), 4);
+          if (!a || !Monster.setzePfad(K, ctx.m, a)) o.da = true;   // unerreichbar: am Ort der Kreatur suchen
+        }
+        if (!o.da) { gehe(game, K, dt, ctx, tempoVon(K, z)); if (!K.pfad.length && !K.ramm) o.da = true; }
+        else if ((o.rest -= dt) <= 0) o.fertig = true;
+      },
+    },
+  },
+  ausloeser: {
+    laerm: (game, K) => !!K.koeder && !K.koeder.fertig,
+    koederEnde: (game, K) => !K.koeder || K.koeder.fertig,
+  },
+  pruefen(par) {
+    const F = [];
+    if (!par || !zahl(par.faktor, 0.1)) F.push('faktor muss eine Zahl >= 0,1 sein (Hörweite = Lärmradius × faktor)');
+    if (!par || !zahl(par.dauer, 0.05)) F.push('dauer muss eine Zahl >= 0,05 sein (s Suche am Ort)');
+    return F;
+  },
+});
+
+// Baustein rammschaden: im Zustand mit dem Modus `ramme` verwundet die Kreatur den ersten Spieler, den sie berührt (Abstand <= radius × K.rammF px): derselbe Weg wie der Biss des
+// Station-Monsters (woundPlayer), aber game.god schützt wie in combat.hitPlayer. Der Treffer setzt K.rammTreffer (Auslöser `getroffen`), die Tabelle entscheidet, wohin es weitergeht.
+// Die Stärke der Ladung wirkt über die Reichweite (rammF) und das Tempo, nicht über mehr Schaden.
+kreaturBausteinAnmelden('rammschaden', {
+  beiTick(game, K, dt, par, ctx) {
+    if (ctx.typ.zustaende[K.z].modus !== 'ramme' || game.god) return;
+    const r = par.radius * (K.rammF || 1);
+    for (const p of game.players) {
+      if (p.zone !== 'away' || p.connected === false || p.downed || p.lift) continue;
+      if (Math.hypot(p.x - K.x, p.y - K.y) > r) continue;
+      combat().woundPlayer(game, p, 'kreatur');
+      if (p.downed) Tel.gefallenOhneTreffer(game, p.id, 'kreatur', K.typ);
+      game.emit('kreaturTreffer', { pid: p.id, id: K.id, x: Math.round(p.x), y: Math.round(p.y) });
+      game.missionEvent('kreaturTreffer', { pid: p.id, id: K.id });
+      game.emit('sfx', { name: 'hull_hit', zone: 'away', x: Math.round(p.x), y: Math.round(p.y) });
+      K.rammTreffer = true;
+      break;
+    }
+  },
+  ausloeser: { getroffen: (game, K) => !!K.rammTreffer },
+  pruefen(par) { return !par || !zahl(par.radius, 1) ? ['radius muss eine Zahl >= 1 sein (px, Mittelpunktabstand)'] : []; },
 });
 
 // ---------- Daten laden und prüfen ----------
@@ -197,7 +311,7 @@ const typIds = () => Object.keys(daten().typen);
 const kreaturen = (game) => { const aw = game.away; return aw && aw.kreaturen ? aw.kreaturen : null; };
 function betreten(game, K, zn, ctx) {
   const typ = typVon(K.typ); const z = typ.zustaende[zn];
-  K.z = zn; K.zt = 0; K.t = z.dauer !== undefined ? z.dauer : null; K.blockiert = false; K.ramm = null; K.pfad = []; K.replan = 0; K.tuerGesperrt = false;
+  K.z = zn; K.zt = 0; K.t = z.dauer !== undefined ? z.dauer : null; K.blockiert = false; K.rammTreffer = false; K.ramm = null; K.pfad = []; K.replan = 0; K.tuerGesperrt = false;
   const modus = modusVon(typ, z.modus);
   if (modus && modus.betreten) modus.betreten(game, K, ctx || null, parVon(typ, z.modus), z);
 }
@@ -232,6 +346,7 @@ function erzeugen(game, typId, x, y) {
   const K = { id: 'K' + aw.kreaturSeq, kind: 'kreatur', kreatur: true, typ: typId, x, y, facing: 0, alive: true, team: 'feind',
     seg: typ.schild.seg, max: typ.schild.max, hp: typ.schild.seg, lastHitAt: -99, regenT: 0, wunden: { n: typ.wunden, max: typ.wunden }, frontArc: typ.frontArc, hitRadius: typ.hitRadius,
     z: null, zt: 0, t: null, pfad: [], ziel: null, ramm: null, replan: 0, blockiert: false, tuerGesperrt: false, verlust: 0, letzte: null, stuckT: 0, ref: { x, y } };
+  K.laermCursor = laermCursorAnlegen(aw);   // Altlast im Lärmpuffer nicht lesen
   betreten(game, K, typ.start, null);
   aw.kreaturen.push(K);
   return K;
@@ -267,16 +382,41 @@ function tickEine(game, E, k, K, dt) {
 
 function update(game, dt) {
   const aw = game.away; if (!aw || !aw.kreaturen || !aw.kreaturen.length) return;
-  if (!game.players.some((p) => p.zone === 'away')) return;   // ohne Außenteam steht alles still (wie die Station)
-  const k = game.karteOf ? game.karteOf(aw.map) : null; if (!k) return;
-  const E = combat().env(game);
+  const team = game.players.some((p) => p.zone === 'away');   // ohne Außenteam steht alles still (wie die Station)
+  const k = team && game.karteOf ? game.karteOf(aw.map) : null;
+  const E = k ? combat().env(game) : null;
   const Wf = waffen();
   for (const K of aw.kreaturen) {
-    if (!K.alive) continue;   // gefallen/liegend: tot oder bewusstlos, keine Bewegung (Aufstehen zieht combat.folgenAbgleich nach)
+    const neu = laermLesen(aw, K);   // der Cursor läuft immer mit (auch bei Stillstand), damit nichts Altes nachgeholt wird
+    if (!k || !K.alive) continue;    // gefallen/liegend: tot oder bewusstlos, keine Bewegung (Aufstehen zieht combat.folgenAbgleich nach)
     schildRegeneration(game, K, dt);
     if (Wf && !Wf.handlungsfaehig(game, K)) continue;   // betäubt/bewusstlos: steht still
+    for (const ev of neu) bausteinLaerm(game, K, ev);
     tickEine(game, E, k, K, dt);
   }
+}
+
+// ---------- Lärm-Leser (P2b) ----------
+// Zweiter Leser von aw.laerm (Puffer von waffen.laerm, höchstens 32 Ereignisse, nach Zeit geordnet) mit eigenem Cursor { t, n }: n = schon gelesene Ereignisse der Zeit t.
+// So gehen Ereignisse gleicher Tickzeit nicht verloren (anders als `ev.t > cursor` in squad.js, das hier bewusst nicht angefasst ist). Schreibt nur K.laermCursor, nie aw.laerm.
+const KEINE_EREIGNISSE = [];
+function laermCursorAnlegen(aw) {
+  const L = aw.laerm; if (!Array.isArray(L) || !L.length) return { t: -1e9, n: 0 };
+  const t = L[L.length - 1].t; let n = 0;
+  for (const ev of L) if (ev.t === t) n++;
+  return { t, n };
+}
+function laermLesen(aw, K) {
+  const L = aw.laerm; const c = K.laermCursor;
+  if (!c || !Array.isArray(L) || !L.length) return KEINE_EREIGNISSE;
+  let out = null, gleich = 0;
+  for (const ev of L) {
+    if (ev.t < c.t) continue;
+    if (ev.t === c.t) { if (++gleich <= c.n) continue; c.n++; }
+    else { c.t = ev.t; c.n = 1; gleich = 1; }
+    (out || (out = [])).push(ev);
+  }
+  return out || KEINE_EREIGNISSE;
 }
 
 // ---------- Kampf-Anbindung (P2a) ----------
@@ -294,6 +434,7 @@ function ausruesten(game, K) {
   if (K.hitRadius == null) K.hitRadius = typ.hitRadius;
   if (K.lastHitAt == null) K.lastHitAt = -99;
   if (K.regenT == null) K.regenT = 0;
+  for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiAusruesten) def.beiAusruesten(game, K, typ.bausteine[b]); }
   return K;
 }
 // Eigene Schildregeneration je Typ (Datenfeld schildRegen { verzoegerung, schritt }); ohne Feld keine Regeneration (nie die Plünderer-Werte von updateEnemyShields)

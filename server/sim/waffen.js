@@ -441,8 +441,14 @@ function trefferWirkung(game, ziel, wirkung, quelle) {
     ziel.betaeubtBis = Math.max(ziel.betaeubtBis || 0, t + w.betaeubt);
     emit(game, 'betaeubt', { id: ziel.id, waffe: w.waffe || null });
   }
+  // MON-01 P2b: Rückentreffer (nur Ziele mit ziel.ruecken { bogen°, faktor }, z. B. Kreaturen): Schildschaden × faktor. Ohne das Feld derselbe Ausdruck wie vorher.
+  let schaden = Number(w.schaden) || 1;
+  if (ziel.ruecken && Number.isFinite(ziel.facing) && Number.isFinite(q.x) && Math.hypot(q.x - ziel.x, q.y - ziel.y) > EPS) {
+    const rel = normAngle(Math.atan2(q.y - ziel.y, q.x - ziel.x) - ziel.facing);
+    if (Math.abs(rel) >= Math.PI - (Number(ziel.ruecken.bogen) * Math.PI / 180) / 2 - EPS) schaden *= Number(ziel.ruecken.faktor) || 1;
+  }
   if (!w.wunde && sh.seg > EPS) {
-    sh.seg = rund(Math.max(0, sh.seg - (Number(w.schaden) || 1)));
+    sh.seg = rund(Math.max(0, sh.seg - schaden));
     return 'schild';
   }
   if (w.nichttoedlich && !w.wunde) {

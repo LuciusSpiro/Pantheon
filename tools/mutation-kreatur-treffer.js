@@ -35,7 +35,7 @@ const MUTATIONEN = [
   [CB, "  if (!e.kreatur) game.missionEvent('droneKilled',", "  game.missionEvent('droneKilled',", 'Guard knockOut: droneKilled auch für Kreaturen'],
   [CB, "  if (!e.kreatur) game.missionEvent('enemyUp',", "  game.missionEvent('enemyUp',", 'Guard stehtAuf: enemyUp auch für Kreaturen'],
   // ---- Kreatur selbst
-  [KR, "    if (!K.alive) continue;   // gefallen/liegend", "    // gefallen/liegend", 'kreatur.update: gefallene Kreatur läuft weiter'],
+  [KR, "    if (!k || !K.alive) continue;    // gefallen/liegend", "    if (!k) continue;    // gefallen/liegend", 'kreatur.update: gefallene Kreatur läuft weiter'],
   [KR, "    if (Wf && !Wf.handlungsfaehig(game, K)) continue;", "", 'kreatur.update: betäubte Kreatur läuft weiter'],
   [KR, "    schildRegeneration(game, K, dt);\n", "", 'kreatur.update: Schildregeneration aus dem Datenfeld entfällt'],
   [KR, "  if (game.time - K.lastHitAt < r.verzoegerung) { K.regenT = 0; return; }", "", 'Schildregeneration ohne Verzögerung nach Treffer'],

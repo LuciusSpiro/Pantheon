@@ -316,6 +316,7 @@ function trefferGemeldet(game, k, r, w, q) {
     return;
   }
   squad.onEnemyHit(game, k, { x: q.x, y: q.y, pid: q.team === 'crew' ? q.id || null : null });
+  if (k.kreatur) kreatur().bausteinTreffer(game, k, { x: q.x, y: q.y, pid: q.team === 'crew' ? q.id || null : null, flaeche: !!w.flaeche, ergebnis: r });   // MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer
   if (r === 'abgelenkt') {
     if (aw.stats) aw.stats.deflects++;
     game.emit('wardenDeflect', { id: k.id, x, y });
@@ -945,6 +946,7 @@ function hitEnemy(game, e, segs, src) {
   if (!e.alive) return 'dead';
   const s = src || {};
   squad.onEnemyHit(game, e, s);
+  if (e.kreatur) kreatur().bausteinTreffer(game, e, { x: s.x, y: s.y, pid: s.pid || null, strike: !!s.strike, flaeche: !!s.flaeche });   // MON-01 P2b: Beschuss (auch abgelenkt) genau einmal je Treffer
   const Wf = waffen();
   if (Wf) return hitEnemyWaffen(game, e, Wf, segs, s);
   if (e.asleep) {
