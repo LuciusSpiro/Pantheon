@@ -183,7 +183,7 @@ export function normKarte(src, D) {
     moebel: Array.isArray(m.moebel) ? m.moebel : (m.meta && Array.isArray(m.meta.moebel) ? m.meta.moebel : []),
     boden: m.boden || (m.meta && m.meta.boden) || null,
     boden2: m.boden2 || (m.meta && m.meta.boden2) || null,   // BOD-01 N2: optionaler Belag der Kachel ',' (boden2) in Hüllen-Karten (BODEN2_TON); fehlt er, bleibt alles wie bisher
-    huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks,   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
+    huelle: !!(m.huelle || (m.meta && m.meta.huelle)) && !decks && m.art !== 'hoehle',   // Wände als schaltbare Gruppen (hoch/niedrig), siehe huelleUpdate
     deckOf: (ty) => (decks ? Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) : 0),
     localY: (ty) => (decks ? ty - Math.min(deckN - 1, Math.max(0, Math.floor(ty / stride))) * stride : ty),
   };
@@ -920,7 +920,8 @@ async function bauKarte(parent, karteIn, opts) {
   // TA: Bodenton der Siedlung (Karte.boden, vom Generator je Welt/Planet gewählt): Bauweise.boden_varianten[ton] = { gelaende: { top, fill }, weg: { top, f } }
   const bodenTon = (k.boden && BW.boden_varianten && BW.boden_varianten[k.boden]) || null;
   const gel = Object.assign({}, kitId('gelaende') || {}, (bodenTon && bodenTon.gelaende) || {});
-  const draussen = k.art !== 'station' && k.art !== 'schiff';   // Außenposten, Ruine: Gelände; Station, Schiff: All
+  const hoehle = k.art === 'hoehle';   // GEL-02 Paket 0: eigene Höhlenkarte (ein Deck, rundum Fels), kein Gelände-Außenring, kein Biomton
+  const draussen = k.art !== 'station' && k.art !== 'schiff' && !hoehle;   // Außenposten, Ruine: Gelände; Station, Schiff, Höhle: kein Gelände ringsum
   const felsHell = k.art === 'aussenposten' ? 'frost' : 'stone_light';   // Außenposten liegen im Frost (Stimmung outpost_frost)
   // GEL-01 D: Wildnis: Fels je Bodenton getönt (Sandstein | Moosgrau | Basalt), sonst unverändert; Steine o/O als Findling/Felsblock (FB.findling), Bewuchs siehe Deko
   const wildnis = k.art === 'wildnis';
@@ -928,6 +929,11 @@ async function bauKarte(parent, karteIn, opts) {
   // Wildnis: ebener Boden (keine 3-cm-Stufen, Befund 8) und flache Kiesel im Ton des Bodens statt brauner Würfel (Befund 12); andere Kartenarten unverändert
   const KIESEL = { gras: ['#7E8A62', '#6A7552'], wueste: ['#BCAC86', '#9A8C68'], vulkan: ['#544C4E', '#3A3436'] };
   const wildGel = wildnis ? { stufe: [0, 0], kiesel: KIESEL[k.boden] || null } : {};
+  // GEL-02 Paket 0: Erdboden unter der Erde. Wildnis mit Decks (Deck 1 = Höhle) und die Karte 'hoehle' zeichnen boden (.) und boden2 (,) als Gelände-Boden
+  // (gleicher Weg wie die Hüllen-Karten, aber ohne huelle: Wände sind dort nicht schaltbar). Deck >= 1 bzw. Höhle: Belag aus Karte.boden2 (BODEN2_TON, Standard erde),
+  // ohne Biomton, ohne Kiesel, ohne Felstönung. Deck 0 der Wildnis behält Biomton (boden unter Steinen und Büschen); Wildnis ohne Deck bleibt unverändert.
+  const erdBoden = hoehle || (wildnis && !!k.decks);
+  const unterErde = (ty) => hoehle || (wildnis && !!k.decks && k.deckOf(ty) >= 1);
   const RAND = 6;
   // Geländehöhe je Kachel (auch im Rand außerhalb der Karte): Fels 1–5 m, Boden 0, Abgrund tief – für verdeckte Seiten
   const ringHoehe = (tx, ty) => {
@@ -1033,6 +1039,9 @@ async function bauKarte(parent, karteIn, opts) {
   // BOD-01 N2: Karte.boden2 (nur feste Karten, z. B. Grabenangriff): ',' trägt einen eigenen Belag statt des Geländetons (Graben, Wall, Waldweg); ohne das Feld unverändert
   const BODEN2_TON = { erde: { top: 'soil', f: 1.3 }, kies: { top: 'stone', f: 0.85 }, bohlen: { top: 'wood', f: 1.1 } };
   const b2Ton = (k.boden2 && BODEN2_TON[k.boden2]) || null;
+  const erdTon = b2Ton || BODEN2_TON.erde;
+  const erdParams = (tx, ty, kd, mitSeed) => Object.assign({ seed: mitSeed, x: tx, y: ty, nb: nachbarn(tx, ty), stufe: [0, 0] },
+    unterErde(ty) ? { top: erdTon.top, f: erdTon.f, fill: 'soil_dark', stein: false } : Object.assign({ fill: gel.fill, steinDichte: gel.steinDichte }, wildGel, bodenFarbe(tx, ty, kd)));
   const bodenFarbe = (tx, ty, kd) => (kd === 'pad' && b2Ton ? { top: 'paving', f: 1.1 } : kd === 'boden2' && b2Ton ? { top: b2Ton.top, f: b2Ton.f } : wegSet.has(tx + ',' + ty) ? { top: wegBoden.top, f: wegBoden.f } : { top: gel.top, f: 1 });
   if (huelle) for (const pl of k.plaetze || []) if (HUELL_TYPEN[pl.typ]) for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) inBau.add(x + ',' + y);
   // VOX-01 5a: Bäume. Stumpf (Stamm bis 1,25 m, teil 3) backt in den normalen Chunk und bleibt immer stehen (Kollisionsanzeige, wie die geschnittene Wand);
@@ -1063,7 +1072,7 @@ async function bauKarte(parent, karteIn, opts) {
       const seed = seedOf(tx, ty);
       const base = { zustand: zKit, art: k.art, seed, bauweise: bw };
       try {
-        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: felsTint }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
+        if (kind === 'fels') { placeKit('fels', { h: felsHoehe(tx, ty), seed, x: tx, y: ty, nb: nachbarn(tx, ty), hell: felsHell, tint: unterErde(ty) ? null : felsTint }, m, d, tx, ty, { ids: [], fb: 'fels' }); continue; }
         // GEL-01: Flüssigkeit steht ohne Boden darunter (Fläche unter Bodenniveau); Kit-Teil kits.fluessig, sonst Platzhalter FB.fluessig
         if (kind === 'fluessig') { placeKit(kind, kitParams(kind, base, { variante: inf.variante, x: tx, y: ty }), m, d, tx, ty, { ids: kandidaten(kind) }); continue; }
         if (stationBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', Object.assign({ seed }, stationFliese(kind, tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
@@ -1071,6 +1080,7 @@ async function bauKarte(parent, karteIn, opts) {
           placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty, kind)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
           continue;
         }
+        if (erdBoden && (kind === 'boden' || kind === 'boden2')) { placeKit('gelaende', erdParams(tx, ty, kind, seed), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'gelaende') { placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, top: gel.top, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, wildGel), m, d, tx, ty, { ids: [], fb: 'gelaende' }); continue; }
         if (kind === 'plateau' || kind === 'rampe' || kind === 'pad' || kind === 'grabensohle') {
           // eigene_hoehe (Rampe rom_feld): das Teil bringt die Steigung selbst mit, steht auf Bodenhöhe (kein Absenken/Anheben, kein Boden darunter);
@@ -1083,6 +1093,7 @@ async function bauKarte(parent, karteIn, opts) {
         }
         // Boden unter allem anderen (auch unter Wänden/Türen/Deckung – keine Lücken an Kanten)
         if (stationBoden) placeKit('gelaende', Object.assign({ seed }, stationFliese('boden', tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });
+        else if (erdBoden) placeKit('gelaende', erdParams(tx, ty, null, seed), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // GEL-02: auch unter Steinen/Büschen Erde bzw. Biomton statt Platzhalter
         else if (huelle && draussen && !inBau.has(tx + ',' + ty)) placeKit('gelaende', Object.assign({ seed, x: tx, y: ty, fill: gel.fill, steinDichte: gel.steinDichte, nb: nachbarn(tx, ty) }, bodenFarbe(tx, ty)), m, d, tx, ty, { ids: [], fb: 'gelaende' });   // Siedlung: auch unter Deckung/Mauer Geländeboden
         else placeKit(kind === 'boden2' ? 'boden2' : 'boden', kitParams(kind === 'boden2' ? 'boden2' : 'boden', base, bodenPar(tx, ty)), m, d, tx, ty, { floor: true, fb: 'boden' });
         if (BODEN_KINDS[kind]) continue;
@@ -1186,7 +1197,7 @@ async function bauKarte(parent, karteIn, opts) {
   try {
     stats.bewuchs = 0;
     if (wildnis && opts.deko !== false) {
-      for (const dd of streuenWildnis({ w: k.w, h: k.h, seed: k.seed, art: k.art, boden: k.boden, kindAt: k.kindAt, anker: k.anker })) {
+      for (const dd of streuenWildnis({ w: k.w, h: k.h, seed: k.seed, art: k.art, boden: k.boden, kindAt: k.kindAt, anker: k.anker, stride: k.decks ? k.stride : 0 })) {
         pen.to(bucketAt(k.deckOf(dd.y), dd.x, k.localY(dd.y)), tileMatrix(dd.x, dd.y, dd.rot, dd.dx, dd.dz));
         FB.bewuchs(pen, { id: dd.id, var: dd.var, seed: dd.seed, x: dd.x, y: dd.y, ton: k.boden }, F);
         stats.bewuchs++;

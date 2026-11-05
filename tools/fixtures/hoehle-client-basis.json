@@ -1,0 +1,22 @@
+{
+ "hinweis": "Geometrie-Hash der Kit-Meshes (tools/test-hoehle-client.js --schreiben), aufgenommen auf main 45c100c vor GEL-02 Paket 0: bunker und wildnis-ohne-deck.",
+ "stand": {
+  "bunker": {
+   "gesamt": 1179799769,
+   "deck": {
+    "0": 4111622831,
+    "1": 706341829
+   },
+   "meshes": 42,
+   "tris": 470804
+  },
+  "wildnis-ohne-deck": {
+   "gesamt": 4248360997,
+   "deck": {
+    "0": 3550614268
+   },
+   "meshes": 20,
+   "tris": 25676
+  }
+ }
+}

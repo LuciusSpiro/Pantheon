@@ -24,12 +24,13 @@ const MOOD_FALLBACK = {
   platform_space: { background: '#05070E', hemi: { sky: '#8FA6C8', ground: '#141A26', intensity: 0.6 }, sun: { color: '#FFF2DC', intensity: 1.6, dir: [-0.5, 1, 0.4] }, exposure: 1.0 },
   wreck_dark: { background: '#04050A', hemi: { sky: '#3A4A60', ground: '#0C0F16', intensity: 0.35 }, sun: { color: '#9FB4D6', intensity: 0.5, dir: [-0.2, 1, 0.3] }, exposure: 1.0 },
   buehne_neutral: { background: '#1A1E26', hemi: { sky: '#C8D2DE', ground: '#4A4236', intensity: 1.0 }, sun: { color: '#FFF0DC', intensity: 2.2, dir: [-0.5, 0.85, 0.55] }, exposure: 1.0 },
+  ...HOEHLE_STIMMUNG,   // GEL-02: Höhle (Karte hoehle, Deck >= 1 der Wildnis)
   ...WILDNIS_STIMMUNG,   // GEL-01 D: wildnis_wueste | wildnis_wiesenwald | wildnis_vulkan (stimmung.js)
   kesh_dusk: { background: '#2A1E2E', hemi: { sky: '#C9A4B8', ground: '#3A2A22', intensity: 0.7 }, sun: { color: '#FFC79A', intensity: 1.8, dir: [-0.6, 0.8, 0.3] }, exposure: 1.0 },
 };
 
 import { VOXEL_MAT } from './loader.js';
-import { mitAkzent, WILDNIS_STIMMUNG } from './stimmung.js';
+import { mitAkzent, WILDNIS_STIMMUNG, HOEHLE_STIMMUNG, HOEHLE_ARTEN } from './stimmung.js';
 export { VOXEL_MAT };
 
 // ------------------------------------------------------------------------------------------------ Zustand
@@ -286,7 +287,10 @@ function applyMood(id) {
 }
 function setMoodObj(id, mood) {
   mood = mitAkzent(id, mood);   // Station warm, Schiff kalt (stimmung.js)
-  S.moodId = id; S.mood = mood; S.felsAn = null;   // BOD-03: Hintergrund und Nebel neu nach dem Deck setzen (felsHintergrund)
+  S.moodId = id; S.mood = mood; S.felsAn = null; S.hoehleAn = false;   // BOD-03: Hintergrund und Nebel neu nach dem Deck setzen (felsHintergrund)
+  moodAnwenden(mood);
+}
+function moodAnwenden(mood) {
   const col = (s, d) => new THREE.Color(s || d);
   S.scene.background = col(mood.background, '#0B0E1A');
   S.scene.fog = mood.fog ? new THREE.Fog(col(mood.fog.color), (mood.fog.near || 2) * 10, (mood.fog.far || 6) * 10) : null;
@@ -309,6 +313,12 @@ function setMoodObj(id, mood) {
 // Decks ab 1 einer Bühne (Bunker unter dem Wald, feste Karte Grabenangriff) liegen unter der Erde: dunkler Fels statt Himmel und hellem Nebel (sonst schwebt der Bunker
 // vor hellblauem Himmel, die Lücken-Kachel _ wird nicht gezeichnet). Nur Hintergrund und Nebel; das Licht bleibt die Stimmung der Karte. Auf Deck 0 und im Schiff unverändert.
 const FELS_HINTERGRUND = '#15120F';
+// GEL-02: Wildnis mit Decks: Deck >= 1 ist eine Höhle und bekommt die Höhlenstimmung (stimmung.js HOEHLE_STIMMUNG) statt nur dunklem Hintergrund; Bunker (aussenposten) bleibt beim Fels-Hintergrund
+function karteHoehlenDeck() {
+  const m = buehneMap(S.mapId);
+  const art = m && ((m.karte && m.karte.art) || m.art);
+  return HOEHLE_ARTEN.includes(art) && !!buehneDecks();
+}
 // Fels gibt es nur bei Festkarten/Außenkarten mit Decks (Art der Karte, nicht „Deck ≥ 1“): Schiffskarten (art 'schiff', Stride 16) haben ihre eigene Stimmung (marineblau)
 function karteMitFels() {
   const m = buehneMap(S.mapId);
@@ -320,6 +330,8 @@ function felsHintergrund() {
   const unter = S.zone === 'buehne' && S.shownDeck >= 1 && karteMitFels();
   if (S.felsAn === unter) return;
   S.felsAn = unter;
+  if (unter && karteHoehlenDeck()) { S.hoehleAn = true; moodAnwenden(mitAkzent('hoehle', MOOD_FALLBACK.hoehle)); return; }   // GEL-02: Licht, Nebel und Hintergrund der Höhle, basis-Werte bleiben für den Rückweg
+  if (S.hoehleAn) { S.hoehleAn = false; moodAnwenden(S.mood); return; }   // zurück an die Oberfläche: Stimmung der Karte
   S.scene.background = new THREE.Color(unter ? FELS_HINTERGRUND : (S.mood.background || '#0B0E1A'));
   if (S.scene.fog && S.mood.fog) S.scene.fog.color = new THREE.Color(unter ? FELS_HINTERGRUND : S.mood.fog.color);
 }
