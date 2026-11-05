@@ -17,6 +17,14 @@
       "hinweisAb": 1,
       "symbol": "MO"
     },
+    "rudeltier": {
+      "name": "Rudeltier",
+      "gefahr": 1,
+      "zeile": "Rammt im Rudel nach Aufladen.",
+      "hinweis": "Panzerung vorn, Rücken schwach. Beschuss macht es schneller, Lärm lockt es an.",
+      "hinweisAb": 1,
+      "symbol": "MO"
+    },
     "testmonster": {
       "name": "Testmonster",
       "gefahr": 2,
