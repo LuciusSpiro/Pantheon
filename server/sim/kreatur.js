@@ -14,6 +14,9 @@
 //       ausloeser: { name(game, K, ctx, par, uebergang) -> bool }                                         zusätzliche Auslöser für `uebergang[].auf`
 //       pruefen(par) -> [Fehlertext]          Parameter-Prüfung des Validators
 //   Eingebaut: Modi steht, zielen, streife, verfolge; Auslöser sieht, verloren, ablauf, nah (abstand), blockiert; Baustein `zyklus` (Modus `ramme`).
+//   ziele(aw)                                Drohnen + Kreaturen für Treffer-Schleifen; ohne Kreaturen DIESELBE Referenz aw.drones (P2a)
+//   ausruesten(game, K)                      Kämpfer-Vertrag (aus combat.kaempfer): Schild, Wunden, Frontbogen, Blickrichtung, Trefferradius aus dem Typ (P2a)
+//   raeumen(aw)                              Kreaturen einer Karte entfernen (Szenario-Start, P2a)
 //   daten() / pruefen(daten)                 Laden und Validator (lazy beim ersten Gebrauch, damit sich Bausteine vorher anmelden können; Fehler = Exception mit allen Befunden)
 //   erzeugen(game, typ, x, y) / debugKreatur(game, p, typ)   Anlegen; Debug `kreatur <typ>` (nur Server --debug)
 //
@@ -25,6 +28,8 @@ const KREATUREN = require('../../content/kampf/kreaturen.json');
 
 let combatMod = null;
 const combat = () => combatMod || (combatMod = require('./combat.js'));
+let waffenMod = null;
+const waffen = () => waffenMod || (waffenMod = require('./waffen.js'));
 const TILE = Physics.TILE;
 const KOERPER_PRO_FUSS = 14;   // px Kollisionsbox je Kachel Fußabdruck (Größe 2 = 28×28 = Station)
 const hbVon = (typ) => ({ w: typ.groesse * KOERPER_PRO_FUSS, h: typ.groesse * KOERPER_PRO_FUSS });
@@ -117,7 +122,7 @@ kreaturBausteinAnmelden('zyklus', {
 });
 
 // ---------- Daten laden und prüfen ----------
-const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
+const TYP_FELDER = ['name', 'groesse', 'sicht', 'verlustZeit', 'replan', 'hitRadius', 'schild', 'schildRegen', 'wunden', 'frontArc', 'tuerenAufbrechen', 'rammZeit', 'start', 'zustaende', 'bausteine'];
 const ZUSTAND_FELDER = ['modus', 'tempo', 'dauer', 'radius', 'uebergang'];
 const zahl = (v, min, max) => typeof v === 'number' && Number.isFinite(v) && v >= min && (max === undefined || v <= max);
 
@@ -138,6 +143,7 @@ function pruefen(d) {
     if (!zahl(t.replan, 0.05)) f(P + '.replan', 'Zahl >= 0,05 (s)');
     if (!zahl(t.hitRadius, 1)) f(P + '.hitRadius', 'Zahl >= 1 (px)');
     if (!t.schild || !zahl(t.schild.seg, 0) || !zahl(t.schild.max, 1) || t.schild.seg > t.schild.max || !Number.isInteger(t.schild.seg) || !Number.isInteger(t.schild.max)) f(P + '.schild', '{ seg, max } ganze Zahlen, 0 <= seg <= max, max >= 1');
+    if (t.schildRegen !== undefined && (!t.schildRegen || !zahl(t.schildRegen.verzoegerung, 0) || !zahl(t.schildRegen.schritt, 0.05))) f(P + '.schildRegen', 'optional: { verzoegerung (s ohne Treffer) >= 0, schritt (s je Segment) >= 0,05 }; fehlt = keine Regeneration');
     if (!Number.isInteger(t.wunden) || t.wunden < 1) f(P + '.wunden', 'ganze Zahl >= 1');
     if (!zahl(t.frontArc, 0, 360)) f(P + '.frontArc', 'Zahl 0..360 (Grad, 0 = keine Frontpanzerung)');
     if (typeof t.tuerenAufbrechen !== 'boolean') f(P + '.tuerenAufbrechen', 'true oder false');
@@ -224,7 +230,7 @@ function erzeugen(game, typId, x, y) {
   if (!aw.kreaturen) aw.kreaturen = [];
   aw.kreaturSeq = (aw.kreaturSeq || 0) + 1;
   const K = { id: 'K' + aw.kreaturSeq, kind: 'kreatur', kreatur: true, typ: typId, x, y, facing: 0, alive: true, team: 'feind',
-    seg: typ.schild.seg, max: typ.schild.max, hp: typ.schild.seg, wunden: { n: typ.wunden, max: typ.wunden }, frontArc: typ.frontArc, hitRadius: typ.hitRadius,
+    seg: typ.schild.seg, max: typ.schild.max, hp: typ.schild.seg, lastHitAt: -99, regenT: 0, wunden: { n: typ.wunden, max: typ.wunden }, frontArc: typ.frontArc, hitRadius: typ.hitRadius,
     z: null, zt: 0, t: null, pfad: [], ziel: null, ramm: null, replan: 0, blockiert: false, tuerGesperrt: false, verlust: 0, letzte: null, stuckT: 0, ref: { x, y } };
   betreten(game, K, typ.start, null);
   aw.kreaturen.push(K);
@@ -264,8 +270,43 @@ function update(game, dt) {
   if (!game.players.some((p) => p.zone === 'away')) return;   // ohne Außenteam steht alles still (wie die Station)
   const k = game.karteOf ? game.karteOf(aw.map) : null; if (!k) return;
   const E = combat().env(game);
-  for (const K of aw.kreaturen) tickEine(game, E, k, K, dt);
+  const Wf = waffen();
+  for (const K of aw.kreaturen) {
+    if (!K.alive) continue;   // gefallen/liegend: tot oder bewusstlos, keine Bewegung (Aufstehen zieht combat.folgenAbgleich nach)
+    schildRegeneration(game, K, dt);
+    if (Wf && !Wf.handlungsfaehig(game, K)) continue;   // betäubt/bewusstlos: steht still
+    tickEine(game, E, k, K, dt);
+  }
 }
+
+// ---------- Kampf-Anbindung (P2a) ----------
+// Treffer-Schleifen (Projektil, Orbitalschlag, Folgen, Waffen-Update): Drohnen und Kreaturen. Ohne Kreaturen dieselbe Referenz wie aw.drones (kein neues Array, gleiche Reihenfolge).
+function ziele(aw) { return aw.kreaturen && aw.kreaturen.length ? aw.drones.concat(aw.kreaturen) : aw.drones; }
+// Kämpfer-Vertrag für waffen.js: Felder kommen vom Typ der Kreatur selbst (nie aus den Rollen-Tabellen der Drohnen)
+function ausruesten(game, K) {
+  const typ = typVon(K.typ); if (!typ) return K;
+  if (K.max == null) K.max = typ.schild.max;
+  if (K.seg == null) K.seg = typ.schild.seg;
+  if (K.hp == null) K.hp = K.seg;
+  if (!K.wunden) K.wunden = { n: typ.wunden, max: typ.wunden };
+  if (K.frontArc == null) K.frontArc = typ.frontArc;
+  if (!Number.isFinite(K.facing)) K.facing = 0;
+  if (K.hitRadius == null) K.hitRadius = typ.hitRadius;
+  if (K.lastHitAt == null) K.lastHitAt = -99;
+  if (K.regenT == null) K.regenT = 0;
+  return K;
+}
+// Eigene Schildregeneration je Typ (Datenfeld schildRegen { verzoegerung, schritt }); ohne Feld keine Regeneration (nie die Plünderer-Werte von updateEnemyShields)
+function schildRegeneration(game, K, dt) {
+  const typ = typVon(K.typ); const r = typ && typ.schildRegen;
+  if (!r || K.seg >= K.max) { K.regenT = 0; return; }
+  if (game.time - K.lastHitAt < r.verzoegerung) { K.regenT = 0; return; }
+  K.regenT += dt;
+  if (K.regenT < r.schritt) return;
+  K.regenT = 0; K.seg++; K.hp = K.seg;
+}
+// Alle Kreaturen einer Außenkarte entfernen (Szenario-Start räumt die Karte wie aw.drones)
+function raeumen(aw) { if (aw && aw.kreaturen && aw.kreaturen.length) aw.kreaturen = []; }
 
 // Dispatcher für die Hooks der Bausteine (Aufrufer: Treffer-Auswertung P2, Lärm-Leser P2b)
 function bausteinTreffer(game, K, treffer) { const typ = typVon(K.typ); for (const b of Object.keys(typ.bausteine)) { const def = bausteine.get(b); if (def && def.beiTreffer) def.beiTreffer(game, K, treffer, typ.bausteine[b]); } }
@@ -297,4 +338,4 @@ function debugKreatur(game, p, typId) {
   return null;
 }
 
-module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, zustandSetzen, debugKreatur, kreaturen };
+module.exports = { update, kreaturBausteinAnmelden, bausteinTreffer, bausteinLaerm, daten, pruefen, typVon, erzeugen, zustandSetzen, debugKreatur, kreaturen, ziele, ausruesten, raeumen };

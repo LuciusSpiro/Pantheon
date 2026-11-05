@@ -139,6 +139,7 @@ function start(game, o) {
   const aw = game.aways[o.lp];
   M().combat.ensureV2(game, aw, o.lp);
   aw.drones = [];   // Kesh: schlafender Wächter u. a. raus – im Wellenmodus zählen nur Wellen-Gegner
+  require('./kreatur.js').raeumen(aw);   // MON-01 P2a
   aw.squads = {}; aw.projectiles = [];
   aw.ausbruchErlaubt = false;   // kein Ausbruch: gefangen = kampfunfähig
   const S = {

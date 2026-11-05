@@ -193,6 +193,8 @@ function scannerAbbruch(game, p) {
 // Kämpfer-Vertrag (B2 §3.1): Felder für Spieler und Gegner anlegen (idempotent). Gegner: schild = Alias auf seg/max/
 // lastHitAt/regenT, Spieler: schild = p.shield (beide nicht aufzählbar, also nicht im Snapshot/Speicher).
 // Rolle eines Gegners für die B2-Regeln: e.rolle, sonst Altname (Plünderer = grundtyp, Wächter = waechter, E-Entscheidung)
+let kreaturMod = null;
+const kreatur = () => kreaturMod || (kreaturMod = require('./kreatur.js'));   // MON-01 P2a (lazy: kreatur.js lädt combat.js erst bei Gebrauch)
 function rolleVon(e) {
   if (!e) return null;
   if (e.rolle) return e.rolle;
@@ -208,6 +210,7 @@ function kaempfer(game, k) {
   if (!isP && Wf && !k.rolle) { const r = rolleVon(k); if (r && C.gegner && C.gegner[r]) k.rolle = r; }
   const g = !isP && k.rolle && C.gegner && C.gegner[k.rolle] ? C.gegner[k.rolle] : null;
   Object.defineProperty(k, 'kfOk', { value: true, enumerable: false, writable: true, configurable: true });
+  if (k.kreatur) kreatur().ausruesten(game, k);   // MON-01 P2a: Schild/Wunden/Frontbogen/Trefferradius aus dem Typ der Kreatur
   schildAlias(k, isP);
   // Echtes waffen.js: Felder nach Rolle (Schild, Wunden, Waffe, Frontbogen) bzw. Spieler mit gespeicherter Waffenwahl
   if (Wf && typeof Wf.ausstatten === 'function' && (isP || g)) {
@@ -264,7 +267,7 @@ function waffenWelt(game) {
       kaempfer() {
         const out = [];
         for (const p of game.players) if (p.zone === 'away' && !p.lift && !p.downed) out.push(kaempfer(game, p));
-        for (const e of game.away.drones) if (e.alive && !e.asleep) out.push(kaempfer(game, e));
+        for (const e of kreatur().ziele(game.away)) if (e.alive && !e.asleep) out.push(kaempfer(game, e));   // MON-01 P2a: Drohnen, dann Kreaturen
         return out;
       },
       wand(x0, y0, x1, y1) { const E = env(game); return !Los.lineOfSight(E.shotBlocked, x0, y0, x1, y1); },
@@ -334,7 +337,7 @@ function folgenAbgleich(game) {
     else if (!p.downed && (p.zustand === 'bewusstlos' || p.zustand === 'gefesselt')) { ankerTreffer(game, p); bewusstlosPlayer(game, p); }
     else if (p.downed && p.zustand === 'ok' && p.bewusstlos) aufwachenPlayer(game, p);
   }
-  for (const e of game.away.drones) {
+  for (const e of kreatur().ziele(game.away)) {   // MON-01 P2a
     if (!e.zustand) continue;
     if (e.alive && LIEGT[e.zustand]) faellt(game, e);
     else if (!e.alive && e.liegt && e.zustand === 'ok') stehtAuf(game, e);
@@ -366,7 +369,7 @@ function faellt(game, e) {
 function stehtAuf(game, e) {
   e.alive = true; e.liegt = false; e.hp = e.seg; e.path = null; e.goal = null; e.aim = null; e.role = 'pin';
   e.stuckRef = { x: e.x, y: e.y }; e.stuckT = 0;
-  game.missionEvent('enemyUp', { id: e.id, kind: e.kind, rolle: e.rolle || null });
+  if (!e.kreatur) game.missionEvent('enemyUp', { id: e.id, kind: e.kind, rolle: e.rolle || null });   // MON-01 P2a
 }
 // wirkung = { schaden (Segmente, auch 0.5), art: 'direkt'|'flaeche'|'strahl'|'schlag'|'orbital', waffe?, kind? (Projektil),
 //             x?, y? (Ursprung), quelle? }; ohne Angabe: alter Treffer mit segs Segmenten.
@@ -904,9 +907,9 @@ function updateProjectiles(game, dt) {
       }
       // Treffer
       if (q.team === 'player' || q.team === 'crew') {
-        for (const e of aw.drones) {
+        for (const e of kreatur().ziele(aw)) {   // MON-01 P2a: Kreaturen mit eigenem Trefferradius
           if (!e.alive) continue;
-          const r = (C.hitRadius && C.hitRadius[e.kind]) || 13;
+          const r = e.kreatur ? e.hitRadius : (C.hitRadius && C.hitRadius[e.kind]) || 13;
           if (segDist(e.x, e.y, x0, y0, x1, y1) < r) {
             if (e.crouch && dodged(game, q, e.id)) continue;   // §15: kleineres Ziel – Schuss fliegt vorbei
             dead = true; if (q.nah) q.nah[e.id] = null; Tel.quelleBoden(game, q.id); hitEnemy(game, e, q.dmg || 1, { x: q.sx, y: q.sy, pid: q.owner, wirkung: wirkungAus(q) }); Tel.quelleBoden(game, null); break; }   // TEL-01 B1: Schusskennung des Treffers
@@ -999,7 +1002,7 @@ function knockOut(game, e) {
   game.emit('enemyDown', { id: e.id, enemyKind: e.kind, x: Math.round(e.x), y: Math.round(e.y) });
   game.emit('sfx', { name: 'drone_die', zone: 'away', x: Math.round(e.x), y: Math.round(e.y) });
   if (!e.zustand || e.kind === 'drone') game.emit('explosion', { x: Math.round(e.x), y: Math.round(e.y), zone: 'away' });   // B2: Körper bleibt liegen
-  game.missionEvent('droneKilled', { kind: e.kind, rolle: e.rolle || null, tag: e.tag || null });
+  if (!e.kreatur) game.missionEvent('droneKilled', { kind: e.kind, rolle: e.rolle || null, tag: e.tag || null });   // MON-01 P2a: Kreaturen sind keine Drohnen
   if (e.kind === 'warden') {
     game.emit('wardenDown', { id: e.id, x: Math.round(e.x), y: Math.round(e.y) });
     game.missionEvent('wardenKilled', {});
@@ -1776,7 +1779,7 @@ function update(game, dt) {
     game.safe('combat-waffen', () => {
       waffenWelt(game);
       for (const p of game.players) if (p.zone === 'away') Wf.update(game, kaempfer(game, p), dt);
-      for (const e of aw.drones) if (e.alive || (e.liegt && e.zustand !== 'aus' && e.zustand !== 'gefesselt')) Wf.update(game, kaempfer(game, e), dt);
+      for (const e of kreatur().ziele(aw)) if (e.alive || (e.liegt && e.zustand !== 'aus' && e.zustand !== 'gefesselt')) Wf.update(game, kaempfer(game, e), dt);
       folgenAbgleich(game);
       lanzeLoslassen(game);
     });
